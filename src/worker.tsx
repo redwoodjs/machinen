@@ -2,19 +2,8 @@ import { defineApp, ErrorResponse } from "rwsdk/worker";
 import { route, render, prefix } from "rwsdk/router";
 import { Document } from "@/app/Document";
 
-import { sessions, setupSessionStore } from "./session/store";
-import { Session } from "./session/durableObject";
-import { type User, db, setupDb } from "@/db";
-import { env } from "cloudflare:workers";
-export { SessionDurableObject } from "./session/durableObject";
-
 import { setCommonHeaders } from "@/app/headers";
 import { EditorPage } from "@/app/pages/editor/EditorPage";
-
-export type AppContext = {
-  session: Session | null;
-  user: User | null;
-};
 
 export default defineApp([
   // setCommonHeaders(),
