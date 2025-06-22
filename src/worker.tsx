@@ -41,7 +41,7 @@ export default defineApp([
   route("*", async ({ request }) => {
     // we'll change host in the request.
     const url = new URL(request.url);
-    url.port = "5174";
+    url.port = "8173";
     url.hostname = "localhost";
 
     // proxy request to dev-server in container

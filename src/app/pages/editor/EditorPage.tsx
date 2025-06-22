@@ -23,13 +23,13 @@ export const EditorPage = async () => {
     <div className="h-full">
       <div className="flex h-full">
         <div className="h-full resize-x min-w-[180px] overflow-auto border-r p-2">
-          <FileBrowser type={type} />
+          <FileBrowser type={type} key={pathname} />
         </div>
         <div className="h-full min-w-[600px] resize-x border-r overflow-auto">
-          <Editor path={pathname} initialContent={content} />
+          <Editor path={pathname} initialContent={content} key={pathname} />
         </div>
         <div className="h-full">
-          <iframe src="http://localhost:5174/" className="h-full" />
+          <iframe src="http://localhost:8173/" className="h-full" />
         </div>
       </div>
     </div>
