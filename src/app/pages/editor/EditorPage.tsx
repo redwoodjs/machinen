@@ -29,7 +29,7 @@ export const EditorPage = async () => {
       <div className="h-screen min-w-[600px] resize-x border-r-4 overflow-auto p-2">
         <Editor pathname={pathname} initialContent={content} key={pathname} />
       </div>
-      <div className="h-screen p-2">
+      <div className="h-screen p-2 flex flex-1">
         <Preview />
       </div>
     </div>
