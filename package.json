@@ -32,15 +32,16 @@
     "tailwindcss": "^4.1.8"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "1.7.4",
+    "@cloudflare/workers-types": "^4.20250407.0",
     "@types/node": "^22.14.0",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "typescript": "^5.8.3",
     "vibe-rules": "^0.2.31",
     "vite": "^6.3.5",
-    "@cloudflare/vite-plugin": "1.7.4",
-    "@cloudflare/workers-types": "^4.20250407.0",
-    "wrangler": "https://pkg.pr.new/wrangler@9657"
+    "wrangler": "https://pkg.pr.new/wrangler@9657",
+    "ws": "^8.18.2"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

@@ -14,12 +14,12 @@ export default defineApp([
   render(Document, [
     route("/", () => (
       <>
-        <h1>hello world</h1>
+        <h1>hello</h1>
       </>
     )),
     route("/a", () => (
       <>
-        <h1>A</h1>
+        <h1>AAA</h1>
       </>
     )),
     route("/b", () => (

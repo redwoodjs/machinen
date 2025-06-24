@@ -5,7 +5,9 @@ import { Document } from "@/app/Document";
 import { EditorPage } from "@/app/pages/editor/EditorPage";
 import { fetchContainer } from "./container";
 
-export default defineApp([
+console.log("Worker started");
+
+const app = defineApp([
   render(Document, [
     route("/editor", EditorPage),
     route("/editor*", EditorPage),
@@ -13,7 +15,12 @@ export default defineApp([
   ]),
 
   route("/preview*", async ({ request }) => {
-    console.log("Fetching preview for:", request.url);
     return fetchContainer(request);
   }),
 ]);
+
+export default {
+  fetch(request: Request, env: any, ctx: ExecutionContext) {
+    return app.fetch(request, env, ctx);
+  },
+};

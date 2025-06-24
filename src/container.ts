@@ -7,18 +7,45 @@ export class RuntimeContainer extends PkgContainer {
 }
 
 export function fetchContainer(request: Request) {
+  let url = new URL(request.url);
+
+  const headers = new Headers(request.headers);
+  const internalQuery = url.searchParams.get("__x_internal_query");
+  if (internalQuery) {
+    const originalQuery = decodeURIComponent(internalQuery);
+    url.search = originalQuery ? "?" + originalQuery : "";
+    url.searchParams.delete("__x_internal_query");
+  }
+
+  console.log("######## fetchContainer", url, request.headers);
+
+  if (headers.has("x-websocket-protocol")) {
+    console.log(
+      `Renaming 'x-websocket-protocol' to 'sec-websocket-protocol' for ${request.url}`
+    );
+    // Rename 'x-websocket-protocol' to 'sec-websocket-protocol
+    headers.set("sec-websocket-protocol", headers.get("x-websocket-protocol")!);
+    headers.delete("x-websocket-protocol");
+  }
+
   if (process.env.NODE_ENV === "development") {
-    const url = new URL(request.url);
     if (url.pathname.startsWith("/preview")) {
       url.port = DEFAULT_PORT.toString();
-      url.pathname = url.pathname.slice("/preview".length);
-      return fetch(url, request);
+
+      // Forward the request with rewritten headers
+      return fetch(url, {
+        ...request,
+        headers,
+      });
     } else {
       return fetch(request);
     }
   } else {
     let id = env.CONTAINER.idFromName("rwsdk");
     let container = env.CONTAINER.get(id);
-    return container.fetch(request);
+    return container.fetch(request, {
+      ...request,
+      headers,
+    });
   }
 }
