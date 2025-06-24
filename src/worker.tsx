@@ -5,8 +5,6 @@ import { Document } from "@/app/Document";
 import { EditorPage } from "@/app/pages/editor/EditorPage";
 import { fetchContainer } from "./container";
 
-export { RuntimeContainer as Container } from "./container";
-
 export default defineApp([
   render(Document, [
     route("/editor", EditorPage),
@@ -14,7 +12,8 @@ export default defineApp([
     route("/ping", () => new Response("pong")),
   ]),
 
-  route("/preview", async ({ request }) => {
+  route("/preview*", async ({ request }) => {
+    console.log("Fetching preview for:", request.url);
     return fetchContainer(request);
   }),
 ]);
