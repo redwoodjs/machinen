@@ -13,7 +13,7 @@ export interface FileItem {
 async function containerFilesFetch(
   pathname: string,
   action: "LIST" | "READ" | "TYPE" | "DELETE" | "WRITE",
-  fetchOptions: RequestInit = {}
+  fetchOptions: RequestInit = {},
 ) {
   const url = new URL("http://localhost:8910/files");
   url.searchParams.set("pathname", pathname);
@@ -25,7 +25,7 @@ async function containerFilesFetch(
         "Content-Type": "application/json",
       },
       ...fetchOptions,
-    })
+    }),
   );
   return response.json();
 }
@@ -50,8 +50,7 @@ export async function fileType(filePath: string) {
 }
 
 export async function saveFile(pathname: string, content: string) {
-  console.log("Saving file", pathname, content);
-  await containerFilesFetch(pathname, "WRITE", {
+  return await containerFilesFetch(pathname, "WRITE", {
     method: "POST",
     body: JSON.stringify({ content }),
   });

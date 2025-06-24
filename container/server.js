@@ -13,7 +13,7 @@ const server = http.createServer(async (req, res) => {
   if (!pathname || !action) {
     res.writeHead(400);
     return res.end(
-      JSON.stringify({ message: "Bad Request: Missing pathname or action" })
+      JSON.stringify({ message: "Bad Request: Missing pathname or action" }),
     );
   }
 
@@ -63,7 +63,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method !== "POST") {
       res.writeHead(400);
       return res.end(
-        JSON.stringify({ message: "Bad Request: Must be a POST" })
+        JSON.stringify({ message: "Bad Request: Must be a POST" }),
       );
     }
 
@@ -72,12 +72,28 @@ const server = http.createServer(async (req, res) => {
       chunks.push(chunk);
     });
     req.on("end", () => {
-      const data = Buffer.concat(chunks).toString("utf8");
-      const file = JSON.parse(data);
-      fs.writeFileSync(path.join(PROJECT_PATH, pathname), file.content, "utf8");
-    });
+      try {
+        const data = Buffer.concat(chunks).toString("utf8");
+        const file = JSON.parse(data);
+        fs.writeFileSync(
+          path.join(PROJECT_PATH, pathname),
+          file.content,
+          "utf8",
+        );
 
-    res.writeHead(200);
+        res.writeHead(200);
+        res.end(JSON.stringify({ message: "File saved successfully" }));
+      } catch (error) {
+        res.writeHead(500);
+        res.end(
+          JSON.stringify({
+            message: "Error saving file",
+            error: error.message,
+          }),
+        );
+      }
+    });
+    return; // Don't continue to the end of the function
   }
 });
 
