@@ -1,7 +1,7 @@
 {
-  "name": "Machinen",
+  "name": "machinen",
   "version": "1.0.0",
-  "description": "Machinen is a web-based IDE for RedwoodSDK",
+  "description": "Machinen is a web-based text editor for RedwoodSDK",
   "main": "index.js",
   "type": "module",
   "keywords": [],
