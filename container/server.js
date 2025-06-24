@@ -59,8 +59,37 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (action === "WRITE") {
-    const file = fs.writeFileSync(path.join(PROJECT_PATH, pathname), "utf8");
-    res.writeHead(200);
+    let requestBodyChunks = [];
+    req.on("data", (chunk) => {
+      requestBodyChunks.push(chunk);
+    });
+
+    req.on("end", () => {
+      const rawBody = Buffer.concat(requestBodyChunks).toString();
+      
+      let parsedBody;
+      try {
+        parsedBody = JSON.parse(rawBody);
+      } catch (e) {
+        res.writeHead(400);
+        return res.end(JSON.stringify({ message: "Bad Request: Invalid JSON" }));
+      }
+
+      if (!parsedBody || typeof parsedBody.content === "undefined") {
+        res.writeHead(400);
+        return res.end(JSON.stringify({ message: "Bad Request: Missing content in body" }));
+      }
+
+      try {
+        fs.writeFileSync(path.join(PROJECT_PATH, pathname), parsedBody.content);
+        res.writeHead(200);
+        return res.end(JSON.stringify({ message: "File saved successfully" }));
+      } catch (error) {
+        res.writeHead(500);
+        return res.end(JSON.stringify({ message: "Internal Server Error: Could not save file" }));
+      }
+    });
+    return;
   }
   // return res.end(JSON.stringify({ message: "Bad Request: Invalid action" }));
 
