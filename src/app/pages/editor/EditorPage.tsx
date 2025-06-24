@@ -28,7 +28,7 @@ export const EditorPage = async () => {
           <FileBrowser pathname={pathname} />
         </div>
         <div className="h-full min-w-[600px] resize-x border-r overflow-auto">
-          <Editor pathname={pathname} initialContent={content} key={pathname} />
+          <Editor key={pathname} pathname={pathname} initialContent={content} />
         </div>
         <div className="h-full">
           <Preview />

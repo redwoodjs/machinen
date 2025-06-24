@@ -24,7 +24,7 @@ export function Editor({
         </div>
         <button
           onClick={async () => {
-            console.log("Saving file", pathname, content);
+            console.log("Saving file", pathname);
             await saveFile(pathname, content);
           }}
           className="border-1 border-gray-300 ml-auto bg-gray-100 px-2 py-1"
