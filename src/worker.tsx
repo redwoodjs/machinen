@@ -4,7 +4,7 @@ import { Document } from "@/app/Document";
 
 import { setCommonHeaders } from "@/app/headers";
 import { EditorPage } from "@/app/pages/editor/EditorPage";
-import { env } from "cloudflare:workers";
+import { fetchContainer } from "./container";
 
 export { RuntimeContainer as Container } from "./container";
 
@@ -16,14 +16,7 @@ export default defineApp([
     route("/ping", () => new Response("pong")),
   ]),
 
-  route("*", async ({ request }) => {
-    try {
-      let id = env.CONTAINER.idFromName("rwsdk");
-      let container = env.CONTAINER.get(id);
-      const response = await container.fetch(new Request(request.url));
-      return response;
-    } catch (e) {
-      return new Response("Error" + e, { status: 500 });
-    }
+  route("/preview/*", async ({ request }) => {
+    return fetchContainer(request);
   }),
 ]);
