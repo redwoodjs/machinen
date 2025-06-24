@@ -2,6 +2,7 @@ import { requestInfo } from "rwsdk/worker";
 import { Editor } from "./Editor";
 import { FileBrowser } from "./FileBrowser";
 import { fileType, getFile } from "./functions";
+import { Preview } from "./Preview";
 
 export const EditorPage = async () => {
   const url = new URL(requestInfo.request.url);
@@ -30,7 +31,7 @@ export const EditorPage = async () => {
           <Editor key={pathname} pathname={pathname} initialContent={content} />
         </div>
         <div className="h-full">
-          <iframe src="/" className="h-full" />
+          <Preview />
         </div>
       </div>
     </div>

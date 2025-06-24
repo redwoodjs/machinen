@@ -14,7 +14,7 @@ export default defineApp([
     route("/ping", () => new Response("pong")),
   ]),
 
-  route("/preview/*", async ({ request }) => {
+  route("/preview", async ({ request }) => {
     return fetchContainer(request);
   }),
 ]);
