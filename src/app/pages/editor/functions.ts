@@ -1,85 +1,52 @@
 "use server";
 
+import { fetchContainer } from "@/container";
+
 export interface FileItem {
   path: string;
   name: string;
   type: "file" | "directory";
 }
 
-let PORT = 8910;
+// TODO: Add a method that proxies requests "locally" to the container server. This is "/files"
 
-export async function getFiles(path = "/"): Promise<FileItem[]> {
-  try {
-    // The user's query "Query localhost port 8080 forward slash files" has been
-    // interpreted as an instruction to fetch data from that endpoint.
-    const response = await fetch(`http://localhost:${PORT}/files?path=${path}`);
-    if (!response.ok) {
-      console.error(
-        `Error fetching files from http://localhost:${PORT}/files: ${response.status} ${response.statusText}`
-      );
-      return []; // Return empty array on HTTP error, allowing the UI to show "No files found".
-    }
-    const filesData: FileItem[] = await response.json();
-    return filesData;
-  } catch (error) {
-    console.error(
-      `Failed to fetch files from http://localhost:${PORT}/files due to a network error or JSON parsing error:`,
-      error
-    );
-    return []; // Return empty array on other errors, allowing the UI to show "No files found".
-  }
-}
+async function containerFilesFetch(
+  pathname: string,
+  action: "LIST" | "READ" | "TYPE" | "DELETE"
+) {
+  const url = new URL("http://localhost:8910/files");
+  url.searchParams.set("pathname", pathname);
+  url.searchParams.set("action", action);
 
-export async function getFile(filePath: string): Promise<{ file: string }> {
-  // fetch the file from the server from localhost:8080/file?path=...
-  const response = await fetch(
-    `http://localhost:${PORT}/file?path=${filePath}`
-  );
-  if (!response.ok) {
-    console.error(
-      `Error fetching file from http://localhost:${PORT}/file: ${response.status} ${response.statusText}`
-    );
-    return { file: "ERROR" };
-  }
-  return await response.json();
-}
-
-export async function saveFile(filePath: string, content: string) {
-  console.log("Saving file", filePath, content);
-  const response = await fetch(
-    `http://localhost:${PORT}/file?path=${filePath}`,
-    {
-      method: "POST",
-      body: JSON.stringify({ content }),
+  const response = await fetchContainer(
+    new Request(url, {
       headers: {
-        Accept: "application/json",
         "Content-Type": "application/json",
       },
-    }
+    })
   );
-  if (!response.ok) {
-    console.error(
-      `Error saving file to http://localhost:${PORT}/file: ${response.status} ${response.statusText}`
-    );
-  }
+  return response.json();
+}
+
+export async function getSiblingFiles(pathname: string = "/") {
+  const files = await containerFilesFetch(pathname, "LIST");
+  return files as FileItem[];
+}
+
+export async function getFile(filePath: string) {
+  const file = (await containerFilesFetch(filePath, "READ")) as {
+    content: string;
+  };
+  return file;
 }
 
 export async function fileType(filePath: string) {
-  try {
-    const response = await fetch(
-      `http://localhost:${PORT}/file-type?path=${filePath}`
-    );
+  const { type } = (await containerFilesFetch(filePath, "TYPE")) as {
+    type: "file" | "directory";
+  };
+  return type;
+}
 
-    if (!response.ok) {
-      console.error(
-        `Error fetching file type from http://localhost:${PORT}/file-type: ${response.status} ${response.statusText}`
-      );
-      return "file";
-    }
-
-    const j = await response.json<{ fileType: "file" | "directory" }>();
-    return j.fileType;
-  } catch (error) {
-    console.log("....");
-  }
+export async function saveFile(pathname: string, content: string) {
+  await containerFilesFetch(pathname, "WRITE", { content });
 }

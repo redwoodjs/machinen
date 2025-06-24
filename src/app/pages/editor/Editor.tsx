@@ -7,10 +7,10 @@ import { saveFile } from "./functions";
 // import { useHotkeys } from "react-hotkeys-hook";
 
 export function Editor({
-  path,
+  pathname,
   initialContent,
 }: {
-  path: string;
+  pathname: string;
   initialContent: string;
 }) {
   const [modified, setModified] = useState(false);
@@ -20,12 +20,12 @@ export function Editor({
     <>
       <div className="py-2 border-b p-2 flex items-center">
         <div className={"text-sm" + (modified ? " text-blue-500" : "")}>
-          {path}
+          {pathname}
         </div>
         <button
           onClick={async () => {
-            console.log("Saving file", path, content);
-            await saveFile(path, content);
+            console.log("Saving file", pathname, content);
+            await saveFile(pathname, content);
           }}
           className="border-1 border-gray-300 ml-auto bg-gray-100 px-2 py-1"
         >
