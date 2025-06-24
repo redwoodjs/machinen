@@ -12,7 +12,6 @@ export default defineApp([
   render(Document, [
     route("/editor", EditorPage),
     route("/editor*", EditorPage),
-
     route("/ping", () => new Response("pong")),
   ]),
 

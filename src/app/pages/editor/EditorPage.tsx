@@ -22,17 +22,15 @@ export const EditorPage = async () => {
   }
 
   return (
-    <div className="h-full">
-      <div className="flex h-full">
-        <div className="h-full resize-x min-w-[180px] overflow-auto border-r p-2">
-          <FileBrowser pathname={pathname} />
-        </div>
-        <div className="h-full min-w-[600px] resize-x border-r overflow-auto">
-          <Editor pathname={pathname} initialContent={content} key={pathname} />
-        </div>
-        <div className="h-full">
-          <Preview />
-        </div>
+    <div className="h-screen flex overflow-hidden">
+      <div className="h-screen resize-x min-w-[180px] overflow-auto border-r-4 p-2">
+        <FileBrowser pathname={pathname} />
+      </div>
+      <div className="h-screen min-w-[600px] resize-x border-r-4 overflow-auto p-2">
+        <Editor pathname={pathname} initialContent={content} key={pathname} />
+      </div>
+      <div className="h-screen p-2">
+        <Preview />
       </div>
     </div>
   );
