@@ -30,7 +30,6 @@ export function fetchContainer(request: Request) {
     headers,
     body: request.body ? request.body : undefined,
     redirect: request.redirect,
-    // Add other properties as needed (mode, credentials, etc.)
   };
 
   if (process.env.NODE_ENV === "development") {
