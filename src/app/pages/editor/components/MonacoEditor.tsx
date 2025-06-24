@@ -3,6 +3,27 @@
 import Monaco from "@monaco-editor/react";
 import { useImperativeHandle, useRef } from "react";
 
+// Language detection for RedwoodSDK file types
+function getLanguageFromPath(pathname: string): string {
+  const extension = pathname.substring(pathname.lastIndexOf("."));
+
+  const languageMap: Record<string, string> = {
+    ".ts": "typescript",
+    ".tsx": "typescript",
+    ".js": "javascript",
+    ".jsx": "javascript",
+    ".css": "css",
+    ".scss": "scss",
+    ".html": "html",
+    ".json": "json",
+    ".md": "markdown",
+    ".yml": "yaml",
+    ".yaml": "yaml",
+  };
+
+  return languageMap[extension] || "plaintext";
+}
+
 interface MonacoEditorProps {
   content: string;
   pathname: string;
@@ -43,15 +64,50 @@ export function MonacoEditor({
         editorRef.current = editor;
         originalContentRef.current = content;
 
-        // Track content changes and dirty state
-        const model = editor.getModel();
-        if (model) {
-          model.onDidChangeContent(() => {
-            const currentContent = editor.getValue();
-            const isModified = currentContent !== originalContentRef.current;
-            onModifiedChange(isModified);
-          });
+        // Configure TypeScript compiler options for better IntelliSense
+        monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
+          target: monaco.languages.typescript.ScriptTarget.ES2020,
+          lib: ["es2020", "dom", "dom.iterable"],
+          allowNonTsExtensions: true,
+          moduleResolution:
+            monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+          module: monaco.languages.typescript.ModuleKind.ESNext,
+          noEmit: true,
+          esModuleInterop: true,
+          jsx: monaco.languages.typescript.JsxEmit.ReactJSX,
+          allowJs: true,
+          strict: false, // Reduce strictness to avoid false positives
+          skipLibCheck: true,
+          forceConsistentCasingInFileNames: true,
+        });
+
+        // Configure TypeScript diagnostics
+        monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+          noSemanticValidation: false,
+          noSyntaxValidation: false,
+          noSuggestionDiagnostics: false,
+        });
+
+        // Create proper TypeScript model with correct URI
+        const language = getLanguageFromPath(pathname);
+        const uri = monaco.Uri.file(pathname);
+
+        // Dispose existing model if it exists
+        const existingModel = monaco.editor.getModel(uri);
+        if (existingModel) {
+          existingModel.dispose();
         }
+
+        // Create new model with proper language and URI
+        const model = monaco.editor.createModel(content, language, uri);
+        editor.setModel(model);
+
+        // Track content changes and dirty state
+        model.onDidChangeContent(() => {
+          const currentContent = editor.getValue();
+          const isModified = currentContent !== originalContentRef.current;
+          onModifiedChange(isModified);
+        });
 
         // Add save action with Cmd+S shortcut
         const filename = pathname.split("/").pop() || pathname;
@@ -71,7 +127,6 @@ export function MonacoEditor({
       className="flex"
       height="90vh"
       theme="vs-dark"
-      language="typescript"
       options={{
         minimap: {
           enabled: false,
