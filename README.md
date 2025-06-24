@@ -1,11 +1,11 @@
 # Machinen by RedwoodSDK
 
-OK, so this is an editor in the browser that allows you to modify a Redwood SDK app. The Redwood SDK app runs inside of a container, and the durable object that is running the editor interacts with the container.
+This is a proof of concept.
 
-This is open source, but FSL licensed. Host it in your own cloud.
+Machinen is a browser-based text-editor that communicates with a Docker instance. The Docker instance is running a Vite dev server and RedwoodSDK. The point of this is to give developers a development environment in the cloud that can facilitate agentic workflows. A new instance can be created for each "Agentic workflow" so that they can work independently.
 
-[x] Get this working locally.
-[ ] Get this working with Cloudflare's library?
-[ ] Get this working on Cloudflare.
+## Shortcomings
 
-3. We need a way to save all the files? Maybe in the DO? or maybe in r2? might be easiest.
+- Our editor is complete trash. We will improve it.
+- We want you to be able to directly communicate with the container via VSCode Dev Containers.
+- We need to include a way to save the changes permanently.

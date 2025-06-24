@@ -1,12 +1,9 @@
-import { defineApp, ErrorResponse } from "rwsdk/worker";
-import { route, render, prefix } from "rwsdk/router";
+import { defineApp } from "rwsdk/worker";
+import { route, render } from "rwsdk/router";
 import { Document } from "@/app/Document";
 
-import { setCommonHeaders } from "@/app/headers";
 import { EditorPage } from "@/app/pages/editor/EditorPage";
 import { fetchContainer } from "./container";
-
-export { RuntimeContainer as Container } from "./container";
 
 export default defineApp([
   render(Document, [
@@ -15,7 +12,8 @@ export default defineApp([
     route("/ping", () => new Response("pong")),
   ]),
 
-  route("/preview", async ({ request }) => {
+  route("/preview*", async ({ request }) => {
+    console.log("Fetching preview for:", request.url);
     return fetchContainer(request);
   }),
 ]);

@@ -17,5 +17,15 @@ export default defineApp([
         <h1>hello world</h1>
       </>
     )),
+    route("/a", () => (
+      <>
+        <h1>A</h1>
+      </>
+    )),
+    route("/b", () => (
+      <>
+        <h1>B</h1>
+      </>
+    )),
   ]),
 ]);

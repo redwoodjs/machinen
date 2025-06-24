@@ -26,7 +26,7 @@
     "prepare": "vibe-rules install cursor"
   },
   "dependencies": {
-    "rwsdk": "0.0.85"
+    "rwsdk": "0.1.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
