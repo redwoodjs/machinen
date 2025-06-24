@@ -30,7 +30,7 @@ export const EditorPage = async () => {
           <Editor pathname={pathname} initialContent={content} key={pathname} />
         </div>
         <div className="h-full">
-          <iframe src="/" className="h-full" />
+          <iframe src="/preview/" className="h-full" />
         </div>
       </div>
     </div>
