@@ -1,4 +1,4 @@
-# Machinen by RedwoodSDK
+# Machinen, by RedwoodSDK
 
 _Note: This is a preview, it does not ship to production yet. (But should by 01-July-2025.)_
 

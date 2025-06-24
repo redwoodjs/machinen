@@ -1,4 +1,5 @@
 "use client";
+
 import { useState } from "react";
 
 export const Preview = () => {
@@ -11,7 +12,7 @@ export const Preview = () => {
   };
 
   return (
-    <>
+    <div className="h-full w-full p-2">
       <form onSubmit={handleGo} className="flex gap-2 mb-2">
         <input
           className="text-sm flex-1 border rounded px-2 py-1"
@@ -23,9 +24,19 @@ export const Preview = () => {
         <button type="submit" className="text-sm px-3 py-1 border rounded">
           Go
         </button>
+
+        <button
+          className="text-sm px-3 py-1 border rounded"
+          onClick={() => {
+            console.log("Refreshing");
+            setSrc(input);
+          }}
+        >
+          Refresh
+        </button>
       </form>
 
       <iframe src={`/preview${src}`} className="h-full w-full border rounded" />
-    </>
+    </div>
   );
 };
