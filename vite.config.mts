@@ -56,9 +56,6 @@ function proxyWebSocketPlugin(): Plugin {
               req.headers["x-websocket-protocol"] =
                 req.headers[protocolHeaderKey];
               delete req.headers[protocolHeaderKey];
-              console.log(
-                `[proxyWebSocketPlugin] Renamed sec-websocket-protocol to x-websocket-protocol for ${req.url}`
-              );
             }
             // Let the next handler run (e.g., Cloudflare plugin)
             return;

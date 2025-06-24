@@ -17,35 +17,32 @@ export function fetchContainer(request: Request) {
     url.searchParams.delete("__x_internal_query");
   }
 
-  console.log("######## fetchContainer", url, request.headers);
-
   if (headers.has("x-websocket-protocol")) {
     console.log(
       `Renaming 'x-websocket-protocol' to 'sec-websocket-protocol' for ${request.url}`
     );
-    // Rename 'x-websocket-protocol' to 'sec-websocket-protocol
     headers.set("sec-websocket-protocol", headers.get("x-websocket-protocol")!);
     headers.delete("x-websocket-protocol");
   }
 
+  const requestInit: RequestInit = {
+    method: request.method,
+    headers,
+    body: request.body ? request.body : undefined,
+    redirect: request.redirect,
+    // Add other properties as needed (mode, credentials, etc.)
+  };
+
   if (process.env.NODE_ENV === "development") {
     if (url.pathname.startsWith("/preview")) {
       url.port = DEFAULT_PORT.toString();
-
-      // Forward the request with rewritten headers
-      return fetch(url, {
-        ...request,
-        headers,
-      });
+      return fetch(url, requestInit);
     } else {
       return fetch(request);
     }
   } else {
     let id = env.CONTAINER.idFromName("rwsdk");
     let container = env.CONTAINER.get(id);
-    return container.fetch(request, {
-      ...request,
-      headers,
-    });
+    return container.fetch(request, requestInit);
   }
 }

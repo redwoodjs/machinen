@@ -7,7 +7,7 @@ import { fetchContainer } from "./container";
 
 console.log("Worker started");
 
-const app = defineApp([
+export default defineApp([
   render(Document, [
     route("/editor", EditorPage),
     route("/editor*", EditorPage),
@@ -18,9 +18,3 @@ const app = defineApp([
     return fetchContainer(request);
   }),
 ]);
-
-export default {
-  fetch(request: Request, env: any, ctx: ExecutionContext) {
-    return app.fetch(request, env, ctx);
-  },
-};
