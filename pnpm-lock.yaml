@@ -57,6 +57,9 @@ importers:
       wrangler:
         specifier: https://pkg.pr.new/wrangler@9657
         version: https://pkg.pr.new/wrangler@9657(@cloudflare/workers-types@4.20250601.0)
+      ws:
+        specifier: ^8.18.2
+        version: 8.18.2
 
 packages:
 
