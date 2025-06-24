@@ -3,7 +3,9 @@ import { route, render } from "rwsdk/router";
 import { Document } from "@/app/Document";
 
 import { EditorPage } from "@/app/pages/editor/EditorPage";
+
 import { fetchContainer } from "./container";
+export { RuntimeContainer as Container } from "./container";
 
 export default defineApp([
   render(Document, [
