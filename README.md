@@ -1,7 +1,5 @@
 # Machinen, by RedwoodSDK
 
-_Note: This is a preview, it does not ship to production yet. (But should by 01-July-2025.)_
-
 Machinen is a browser-based text editor that connects to a Cloudflare-hosted Docker instance running Vite and RedwoodSDK.
 It gives developers a development environment in the cloud, designed for agentic workflows: Each workflow runs in its own isolated container, making it easy to edit, review, and merge changes independently of each other. Developers should self-host Machinen in their own Cloudflare environment.
 
