@@ -23,12 +23,12 @@
     "prepare": "vibe-rules install cursor"
   },
   "dependencies": {
-    "@cloudflare/containers": "^0.0.10",
-    "@monaco-editor/react": "^4.6.0",
+    "@cloudflare/containers": "^0.0.17",
+    "@monaco-editor/react": "^4.7.0",
     "@tailwindcss/vite": "^4.1.8",
     "monaco-editor": "^0.52.2",
     "react-hotkeys-hook": "^5.1.0",
-    "rwsdk": "0.1.1",
+    "rwsdk": "0.1.6",
     "tailwindcss": "^4.1.8"
   },
   "devDependencies": {
@@ -38,9 +38,9 @@
     "typescript": "^5.8.3",
     "vibe-rules": "^0.2.31",
     "vite": "^6.3.5",
-    "@cloudflare/vite-plugin": "1.7.4",
+    "@cloudflare/vite-plugin": "1.8.0",
     "@cloudflare/workers-types": "^4.20250407.0",
-    "wrangler": "https://pkg.pr.new/wrangler@9657"
+    "wrangler": "4.22.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
