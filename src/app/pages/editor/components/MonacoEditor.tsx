@@ -63,6 +63,18 @@ export function MonacoEditor({
         editorRef.current = editor;
         originalContentRef.current = content;
 
+        monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+          noSemanticValidation: true,
+          noSyntaxValidation: false,
+        });
+
+        if (pathname.endsWith(".tsx") || pathname.endsWith(".jsx")) {
+          monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
+            // @ts-ignore
+            jsx: "react",
+          });
+        }
+
         // Track content changes and dirty state
         const model = editor.getModel();
         if (model) {
