@@ -15,6 +15,26 @@ interface MonacoEditorProps {
   }>;
 }
 
+const getLanguageFromPath = (pathname: string) => {
+  const extension = pathname.split(".").pop()?.toLowerCase();
+  if (!extension) {
+    return "plaintext";
+  }
+
+  const languageMap: Record<string, string> = {
+    js: "javascript",
+    ts: "typescript",
+    jsx: "javascript",
+    tsx: "typescript",
+    html: "html",
+    css: "css",
+    json: "json",
+    md: "markdown",
+    // Add more mappings as needed
+  };
+  return languageMap[extension] || "plaintext";
+};
+
 export function MonacoEditor({
   content,
   pathname,
@@ -71,7 +91,6 @@ export function MonacoEditor({
       className="flex"
       height="90vh"
       theme="vs-dark"
-      language="typescript"
       options={{
         minimap: {
           enabled: false,
@@ -86,6 +105,7 @@ export function MonacoEditor({
         }
       }}
       value={content}
+      language={getLanguageFromPath(pathname)}
     />
   );
 }

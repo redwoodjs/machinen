@@ -23,7 +23,7 @@ export function Editor({
 
   const performSave = async (
     contentToSave: string,
-    isFromButton: boolean = false,
+    isFromButton: boolean = false
   ) => {
     if (saving) return;
 
@@ -59,13 +59,17 @@ export function Editor({
   return (
     <div className="h-full flex flex-col">
       {/* Header with file path and save button */}
-      <div className="flex items-center justify-between p-3 border-b bg-gray-50 dark:bg-gray-800">
-        <div
-          className={`text-sm font-mono ${modified ? "text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
+      <div className="flex items-center justify-between border-b-4 bg-gray-50 dark:bg-gray-800">
+        <h2
+          className={`font-bold ${
+            modified
+              ? "text-blue-600 dark:text-blue-400"
+              : "text-gray-700 dark:text-gray-300"
+          }`}
         >
           {pathname}
           {modified && <span className="ml-1">•</span>}
-        </div>
+        </h2>
 
         <button
           onClick={handleButtonSave}

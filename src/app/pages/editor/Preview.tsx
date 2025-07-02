@@ -12,7 +12,8 @@ export const Preview = () => {
   };
 
   return (
-    <div className="h-full w-full p-2">
+    <div className="h-full w-full">
+      <h2 className="font-bold border-b-4">Preview</h2>
       <form onSubmit={handleGo} className="flex gap-2 mb-2">
         <input
           className="text-sm flex-1 border rounded px-2 py-1"

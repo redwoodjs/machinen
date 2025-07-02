@@ -14,6 +14,9 @@ export const EditorPage = async () => {
     }
   }
 
+  // TODO: Keep a list of open files, and content storage.
+  // Use that to populate the editor. (Multiple tabs.)
+
   const type = await fileType(pathname);
   let content = "";
   if (type == "file") {
@@ -23,13 +26,13 @@ export const EditorPage = async () => {
 
   return (
     <div className="h-screen flex overflow-hidden">
-      <div className="h-screen resize-x min-w-[180px] overflow-auto border-r-4 p-2">
+      <div className="h-screen resize-x min-w-[180px] overflow-auto border-r-4">
         <FileBrowser pathname={pathname} />
       </div>
-      <div className="h-screen min-w-[600px] resize-x border-r-4 overflow-auto p-2">
+      <div className="h-screen min-w-[800px] resize-x border-r-4 overflow-auto">
         <Editor pathname={pathname} initialContent={content} key={pathname} />
       </div>
-      <div className="h-screen p-2 flex flex-1">
+      <div className="h-screen flex flex-1">
         <Preview />
       </div>
     </div>

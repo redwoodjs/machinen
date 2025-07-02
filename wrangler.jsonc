@@ -2,7 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "machinen",
   "main": "src/worker.tsx",
-  "compatibility_date": "2025-06-18",
+  "compatibility_date": "2025-06-17",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "binding": "ASSETS"
@@ -14,8 +14,8 @@
     {
       "name": "rwsdk",
       "image": "./Dockerfile",
-      "class_name": "Container",
-      "max_instances": 2,
+      "class_name": "RuntimeContainer",
+      "max_instances": 1,
       "configuration": {
         "memory": "4GB",
         "vcpu": 2
@@ -25,14 +25,14 @@
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": ["Container"]
+      "new_sqlite_classes": ["RuntimeContainer"]
     }
   ],
   "durable_objects": {
     "bindings": [
       {
-        "class_name": "Container",
-        "name": "CONTAINER"
+        "class_name": "RuntimeContainer",
+        "name": "RUNTIME_CONTAINER"
       }
     ]
   }
