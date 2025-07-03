@@ -54,3 +54,18 @@ export async function saveFile(pathname: string, content: string) {
     body: JSON.stringify({ content }),
   });
 }
+
+// I want to create a function that will execute a command in the container
+export async function executeCommand(command: string) {
+  const url = new URL("http://localhost:8910/sandbox/exec");
+
+  const request = new Request(url, {
+    method: "POST",
+    body: JSON.stringify({ command }),
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+  const response = await fetch(request);
+  return response.body;
+}

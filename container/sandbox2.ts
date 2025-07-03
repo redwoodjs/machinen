@@ -5,6 +5,7 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { execa } from "execa";
 
 const PROJECT_PATH: string = process.cwd();
 
@@ -103,10 +104,80 @@ execRoutes.post("/", async (c) => {
 
   console.log(json);
 
-  // TODO.
+  const { command, args = [], cwd = PROJECT_PATH } = json;
 
-  // return a streamed response
+  if (!command) {
+    return c.json(
+      {
+        error: "Bad Request",
+        message: "command is required",
+      },
+      400
+    );
+  }
+
+  try {
+    const subprocess = execa(command, args, {
+      cwd,
+      stdio: "pipe",
+    });
+
+    // Create a readable stream that combines stdout and stderr
+    const stream = new ReadableStream({
+      start(controller) {
+        // Handle stdout
+        subprocess.stdout?.on("data", (chunk: Buffer) => {
+          console.log("stdout: ", chunk);
+          controller.enqueue(new TextEncoder().encode(`stdout: ${chunk}`));
+        });
+
+        // Handle stderr
+        subprocess.stderr?.on("data", (chunk: Buffer) => {
+          console.log("stderr: ", chunk);
+          controller.enqueue(new TextEncoder().encode(`stderr: ${chunk}`));
+        });
+
+        // Handle process completion
+        subprocess.on("close", (code: number | null) => {
+          console.log("close: ", code);
+          controller.enqueue(
+            new TextEncoder().encode(`\nProcess exited with code: ${code}`)
+          );
+          controller.close();
+        });
+
+        // Handle process errors
+        subprocess.on("error", (error: Error) => {
+          console.log("error: ", error);
+          controller.enqueue(
+            new TextEncoder().encode(`Error: ${error.message}`)
+          );
+          controller.close();
+        });
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/plain",
+        "Transfer-Encoding": "chunked",
+      },
+    });
+  } catch (error) {
+    console.log("error: ", error);
+    return c.json(
+      {
+        error: "Internal Server Error",
+        message: `Failed to execute command: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      },
+      500
+    );
+  }
 });
+
+app.route("/exec", execRoutes);
 
 // Error handling
 app.notFound((c) => {
