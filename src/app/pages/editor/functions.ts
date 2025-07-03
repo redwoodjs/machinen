@@ -12,12 +12,11 @@ export interface FileItem {
 
 async function containerFilesFetch(
   pathname: string,
-  action: "LIST" | "READ" | "TYPE" | "DELETE" | "WRITE",
-  fetchOptions: RequestInit = {},
+  action: "/fs/list" | "/fs/read" | "/fs/stat" | "/fs/delete" | "/fs/write",
+  fetchOptions: RequestInit = {}
 ) {
-  const url = new URL("http://localhost:8910/files");
+  const url = new URL("http://localhost:8910/sandbox" + action);
   url.searchParams.set("pathname", pathname);
-  url.searchParams.set("action", action);
 
   const response = await fetchContainer(
     new Request(url, {
@@ -25,32 +24,32 @@ async function containerFilesFetch(
         "Content-Type": "application/json",
       },
       ...fetchOptions,
-    }),
+    })
   );
   return response.json();
 }
 
 export async function getSiblingFiles(pathname: string = "/") {
-  const files = await containerFilesFetch(pathname, "LIST");
+  const files = await containerFilesFetch(pathname, "/fs/list");
   return files as FileItem[];
 }
 
 export async function getFile(filePath: string) {
-  const file = (await containerFilesFetch(filePath, "READ")) as {
+  const file = (await containerFilesFetch(filePath, "/fs/read")) as {
     content: string;
   };
   return file;
 }
 
 export async function fileType(filePath: string) {
-  const { type } = (await containerFilesFetch(filePath, "TYPE")) as {
+  const { type } = (await containerFilesFetch(filePath, "/fs/stat")) as {
     type: "file" | "directory";
   };
   return type;
 }
 
 export async function saveFile(pathname: string, content: string) {
-  return await containerFilesFetch(pathname, "WRITE", {
+  return await containerFilesFetch(pathname, "/fs/stat", {
     method: "POST",
     body: JSON.stringify({ content }),
   });

@@ -8,6 +8,12 @@ importers:
 
   .:
     dependencies:
+      '@hono/node-server':
+        specifier: ^1.8.2
+        version: 1.15.0(hono@4.8.3)
+      hono:
+        specifier: ^4.1.0
+        version: 4.8.3
       rwsdk:
         specifier: 0.1.1
         version: 0.1.1(rollup@4.41.1)(typescript@5.8.3)(vite@6.3.5(@types/node@22.15.24)(jiti@2.4.2)(terser@5.40.0))(webpack@5.99.9)(workerd@1.20250617.0)
@@ -581,6 +587,12 @@ packages:
   '@fastify/busboy@2.1.1':
     resolution: {integrity: sha512-vBZP4NlzfOlerQTnba4aqZoMhE/a9HY7HRqoOPaETQcSQuWEIyZMHGfVu6w9wGtGK5fED5qRs2DteVCjOH60sA==}
     engines: {node: '>=14'}
+
+  '@hono/node-server@1.15.0':
+    resolution: {integrity: sha512-MjmK4l5N4dQpZ9OSWN0tCj7ejuc7WvuWMzSKtc89bnknJykAeHxzRigXBTYZk85H6Awrii6RM59iUiUluApu2A==}
+    engines: {node: '>=18.14.1'}
+    peerDependencies:
+      hono: ^4
 
   '@img/sharp-darwin-arm64@0.33.5':
     resolution: {integrity: sha512-UT4p+iz/2H4twwAoLCqfA9UH5pI6DggwKEGuaPy7nCVQ8ZsiY5PIcrRvD1DzuY3qYL07NtIQcWnBSY/heikIFQ==}
@@ -1392,6 +1404,10 @@ packages:
   has-flag@4.0.0:
     resolution: {integrity: sha512-EykJT/Q1KjTWctppgIAgfSO0tKVuZUjhgMr17kqTumMl6Afv3EISleU7qZUzoXDFTAHTDC4NOoG/ZxU3EvlMPQ==}
     engines: {node: '>=8'}
+
+  hono@4.8.3:
+    resolution: {integrity: sha512-jYZ6ZtfWjzBdh8H/0CIFfCBHaFL75k+KMzaM177hrWWm2TWL39YMYaJgB74uK/niRc866NMlH9B8uCvIo284WQ==}
+    engines: {node: '>=16.9.0'}
 
   http-proxy-agent@7.0.2:
     resolution: {integrity: sha512-T1gkAiYYDWYx3V5Bmyu7HcfcvL7mUrTWiM6yOfa3PIphViJ/gFPbvidQ+veqSOHci/PxBcDabeUNCzpOODJZig==}
@@ -2523,6 +2539,10 @@ snapshots:
 
   '@fastify/busboy@2.1.1': {}
 
+  '@hono/node-server@1.15.0(hono@4.8.3)':
+    dependencies:
+      hono: 4.8.3
+
   '@img/sharp-darwin-arm64@0.33.5':
     optionalDependencies:
       '@img/sharp-libvips-darwin-arm64': 1.0.4
@@ -3347,6 +3367,8 @@ snapshots:
   graceful-fs@4.2.11: {}
 
   has-flag@4.0.0: {}
+
+  hono@4.8.3: {}
 
   http-proxy-agent@7.0.2:
     dependencies:

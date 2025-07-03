@@ -1,8 +1,8 @@
-import { Container as PkgContainer } from "@cloudflare/containers";
+import { Container } from "@cloudflare/containers";
 import { env } from "cloudflare:workers";
 
 const DEFAULT_PORT = 8910;
-export class RuntimeContainer extends PkgContainer {
+export class RuntimeContainer extends Container {
   defaultPort = DEFAULT_PORT;
 }
 

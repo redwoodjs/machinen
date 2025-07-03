@@ -11,7 +11,7 @@
   "scripts": {
     "build": "vite build",
     "dev": "NODE_ENV=${NODE_ENV:-development} vite dev",
-    "dev:server": "node server.js --host 0.0.0.0",
+    "dev:server": "node --experimental-strip-types sandbox.ts",
     "dev:all": "concurrently \"pnpm run dev:server\" \"npm run dev -- --host 0.0.0.0 --port 8910\"",
     "dev:init": "rw-scripts dev-init",
     "preview": "vite preview",
@@ -26,6 +26,8 @@
     "prepare": "vibe-rules install cursor"
   },
   "dependencies": {
+    "@hono/node-server": "^1.8.2",
+    "hono": "^4.1.0",
     "rwsdk": "0.1.1"
   },
   "devDependencies": {
