@@ -102,9 +102,12 @@ const execRoutes = new Hono();
 execRoutes.post("/", async (c) => {
   const json = await c.req.json();
 
-  console.log(json);
+  let { command, args = [], cwd = PROJECT_PATH } = json;
 
-  const { command, args = [], cwd = PROJECT_PATH } = json;
+  // If command contains spaces and no args are provided, parse the command
+  if (command.includes(" ")) {
+    [command, ...args] = command.split(" ");
+  }
 
   if (!command) {
     return c.json(
