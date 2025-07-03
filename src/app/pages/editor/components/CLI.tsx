@@ -4,13 +4,17 @@ import { useState } from "react";
 import { executeCommand } from "../functions";
 import { consumeEventStream } from "rwsdk/client";
 
+// I need a way to cancel the current command.
+
 export function CLI() {
   const [output, setOutput] = useState("");
   const [command, setCommand] = useState("ls");
+  const [processId, setProcessId] = useState<string>("");
 
   return (
     <div>
       <h1 className="text-2xl font-bold">CLI</h1>
+      <p>Process ID: {processId}</p>
       <pre className="flex-1 overflow-auto bg-amber-200 vh-90">{output}</pre>
       <input
         className="w-full bg-white"
@@ -36,8 +40,10 @@ export function CLI() {
           const readStream = async () => {
             while (true) {
               const { done, value } = await reader.read();
+              // update the output
               if (done) break;
               fullText += decoder.decode(value, { stream: true });
+              setOutput(fullText);
             }
             setOutput(fullText);
             console.log("Full response:", fullText);

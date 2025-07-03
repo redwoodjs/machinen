@@ -8,7 +8,25 @@ export interface FileItem {
   type: "file" | "directory";
 }
 
-// TODO: Add a method that proxies requests "locally" to the container server. This is "/files"
+// Enhanced process store with metadata
+interface ProcessMetadata {
+  processId: string;
+  startTime: number;
+  command: string;
+  args: string[];
+}
+
+const processStore = new Map<string, ProcessMetadata>();
+
+// // Cleanup old processes periodically (older than 1 hour)
+// setInterval(() => {
+//   const oneHourAgo = Date.now() - 60 * 60 * 1000;
+//   for (const [pid, metadata] of processStore.entries()) {
+//     if (metadata.startTime < oneHourAgo && metadata.status !== "running") {
+//       processStore.delete(pid);
+//     }
+//   }
+// }, 5 * 60 * 1000); // Check every 5 minutes
 
 async function containerFilesFetch(
   pathname: string,
@@ -67,5 +85,55 @@ export async function executeCommand(command: string) {
     },
   });
   const response = await fetch(request);
+
+  // grab the process id from the response headers
+  const processId = response.headers.get("X-Process-ID");
+
+  if (!processId) {
+    throw new Error("No process ID received from container");
+  }
+
+  // Parse command and args for storage
+  let args: string[] = [];
+  if (command.includes(" ")) {
+    const parts = command.split(" ");
+    command = parts[0];
+    args = parts.slice(1);
+  }
+
+  // Store process metadata
+  processStore.set(processId, {
+    processId,
+    startTime: Date.now(),
+    command,
+    args,
+  });
+
   return response.body;
+}
+
+// Function to cancel a process
+export async function cancelProcess(processId: string) {
+  // const metadata = processStore.get(processId);
+  // if (!metadata) {
+  //   throw new Error("Process not found");
+  // }
+  // if (metadata.status !== "running") {
+  //   throw new Error("Process is not running");
+  // }
+  // // Call the container to cancel the process
+  // const url = new URL("http://localhost:8910/sandbox/exec/delete");
+  // const response = await fetch(url, {
+  //   method: "DELETE",
+  //   body: JSON.stringify({ processId }),
+  //   headers: {
+  //     "Content-Type": "application/json",
+  //   },
+  // });
+  // if (!response.ok) {
+  //   throw new Error("Failed to cancel process");
+  // }
+  // // Update local metadata
+  // metadata.status = "cancelled";
+  // return { message: "Process cancelled successfully", processId };
 }

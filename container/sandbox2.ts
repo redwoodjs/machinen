@@ -97,8 +97,12 @@ fsRoutes.post("/write", async (c) => {
 
 app.route("/fs", fsRoutes);
 
+// Store active subprocesses for cancellation
+const activeProcesses = new Map<string, any>();
+
 // then we'll create a route for running commands.
 const execRoutes = new Hono();
+
 execRoutes.post("/", async (c) => {
   const json = await c.req.json();
 
@@ -125,38 +129,91 @@ execRoutes.post("/", async (c) => {
       stdio: "pipe",
     });
 
+    // Use the actual process PID
+    const processId =
+      subprocess.pid?.toString() ||
+      `process_unknown_${Date.now()}_${Math.random().toString(36)}`;
+
+    // Store the subprocess for cancellation
+    activeProcesses.set(processId, subprocess);
+
     // Create a readable stream that combines stdout and stderr
     const stream = new ReadableStream({
       start(controller) {
+        let isClosed = false;
+        let hasError = false;
+
+        const safeEnqueue = (data: string) => {
+          if (!isClosed && !hasError) {
+            try {
+              controller.enqueue(new TextEncoder().encode(data));
+            } catch (error) {
+              console.log("Failed to enqueue data:", error);
+              isClosed = true;
+            }
+          }
+        };
+
+        const safeClose = () => {
+          if (!isClosed) {
+            isClosed = true;
+            try {
+              controller.close();
+            } catch (error) {
+              console.log("Failed to close controller:", error);
+            }
+          }
+        };
+
+        const safeError = (error: Error) => {
+          if (!isClosed && !hasError) {
+            hasError = true;
+            try {
+              controller.error(error);
+            } catch (err) {
+              console.log("Failed to error controller:", err);
+              safeClose();
+            }
+          }
+        };
+
         // Handle stdout
         subprocess.stdout?.on("data", (chunk: Buffer) => {
           console.log("stdout: ", chunk);
-          controller.enqueue(new TextEncoder().encode(`stdout: ${chunk}`));
+          safeEnqueue(`stdout: ${chunk}`);
         });
 
         // Handle stderr
         subprocess.stderr?.on("data", (chunk: Buffer) => {
           console.log("stderr: ", chunk);
-          controller.enqueue(new TextEncoder().encode(`stderr: ${chunk}`));
+          safeEnqueue(`stderr: ${chunk}`);
         });
 
         // Handle process completion
         subprocess.on("close", (code: number | null) => {
           console.log("close: ", code);
-          controller.enqueue(
-            new TextEncoder().encode(`\nProcess exited with code: ${code}`)
-          );
-          controller.close();
+          if (!hasError) {
+            safeEnqueue(`\nProcess exited with code: ${code}`);
+          }
+          safeClose();
+          // Clean up the process from active processes
+          activeProcesses.delete(processId);
         });
 
         // Handle process errors
         subprocess.on("error", (error: Error) => {
           console.log("error: ", error);
-          controller.enqueue(
-            new TextEncoder().encode(`Error: ${error.message}`)
-          );
-          controller.close();
+          safeError(error);
+          // Clean up the process from active processes
+          activeProcesses.delete(processId);
         });
+
+        // Handle stream cancellation
+        return () => {
+          console.log("Stream cancelled, killing subprocess");
+          subprocess.kill();
+          activeProcesses.delete(processId);
+        };
       },
     });
 
@@ -164,6 +221,7 @@ execRoutes.post("/", async (c) => {
       headers: {
         "Content-Type": "text/plain",
         "Transfer-Encoding": "chunked",
+        "X-Process-ID": processId, // Include process ID in response headers
       },
     });
   } catch (error) {
@@ -178,6 +236,71 @@ execRoutes.post("/", async (c) => {
       500
     );
   }
+});
+
+// Add a route to cancel a running process
+execRoutes.delete("/delete", async (c) => {
+  const json = await c.req.json();
+  const { processId } = json;
+
+  if (!processId) {
+    return c.json(
+      {
+        error: "Bad Request",
+        message: "processId is required in request body",
+      },
+      400
+    );
+  }
+
+  const subprocess = activeProcesses.get(processId);
+
+  if (!subprocess) {
+    return c.json(
+      {
+        error: "Not Found",
+        message: "Process not found or already completed",
+      },
+      404
+    );
+  }
+
+  try {
+    // Kill the subprocess
+    subprocess.kill();
+    activeProcesses.delete(processId);
+
+    return c.json({
+      message: "Process cancelled successfully",
+      processId,
+    });
+  } catch (error) {
+    console.log("Error cancelling process:", error);
+    return c.json(
+      {
+        error: "Internal Server Error",
+        message: `Failed to cancel process: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      },
+      500
+    );
+  }
+});
+
+// Add a route to list active processes
+execRoutes.get("/active", (c) => {
+  const activeProcessList = Array.from(activeProcesses.keys()).map(
+    (processId) => ({
+      processId,
+      status: "running",
+    })
+  );
+
+  return c.json({
+    activeProcesses: activeProcessList,
+    count: activeProcessList.length,
+  });
 });
 
 app.route("/exec", execRoutes);
