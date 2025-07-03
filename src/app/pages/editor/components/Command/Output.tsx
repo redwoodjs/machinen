@@ -23,7 +23,7 @@ export function Output({ processId }: { processId: string }) {
   }, [processId]);
 
   return (
-    <div className="flex gap-2">
+    <div className="flex gap-2 h-80 ">
       {processId}
       <pre>{output}</pre>
     </div>

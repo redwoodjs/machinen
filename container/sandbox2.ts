@@ -342,11 +342,19 @@ execRoutes.get("/output", (c) => {
       logStream.on("data", (chunk) => {
         controller.enqueue(chunk);
       });
+
+      logStream.on("end", () => {
+        controller.close();
+      });
+
+      logStream.on("error", (error) => {
+        controller.error(error);
+      });
     },
   });
 
   return new Response(readableStream, {
-    headers: { "Content-Type": "text/plain" },
+    headers: { "Content-Type": "text/plain", "Transfer-Encoding": "chunked" },
   });
 });
 
