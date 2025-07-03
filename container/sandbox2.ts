@@ -103,10 +103,10 @@ const activeProcesses = new Map<string, any>();
 // then we'll create a route for running commands.
 const execRoutes = new Hono();
 
-execRoutes.post("/", async (c) => {
+execRoutes.post("/exec", async (c) => {
   const json = await c.req.json();
 
-  let { command, args = [], cwd = PROJECT_PATH } = json;
+  let { command, args = [], cwd = PROJECT_PATH, outputFile } = json;
 
   // If command contains spaces and no args are provided, parse the command
   if (command.includes(" ")) {
@@ -136,6 +136,16 @@ execRoutes.post("/", async (c) => {
 
     // Store the subprocess for cancellation
     activeProcesses.set(processId, subprocess);
+
+    // Create a generic log file for this process
+    const logDir = path.join(PROJECT_PATH, ".wrangler", "tmp");
+    if (!fs.existsSync(logDir)) {
+      fs.mkdirSync(logDir, { recursive: true });
+    }
+
+    const logFileName = `exec_${processId}.log`;
+    const logFilePath = path.join(logDir, logFileName);
+    const logStream = fs.createWriteStream(logFilePath);
 
     // Create a readable stream that combines stdout and stderr
     const stream = new ReadableStream({
@@ -180,21 +190,30 @@ execRoutes.post("/", async (c) => {
         // Handle stdout
         subprocess.stdout?.on("data", (chunk: Buffer) => {
           console.log("stdout: ", chunk);
-          safeEnqueue(`stdout: ${chunk}`);
+          const output = `stdout: ${chunk}`;
+          safeEnqueue(output);
+          logStream.write(output);
         });
 
         // Handle stderr
         subprocess.stderr?.on("data", (chunk: Buffer) => {
           console.log("stderr: ", chunk);
-          safeEnqueue(`stderr: ${chunk}`);
+          const output = `stderr: ${chunk}`;
+          safeEnqueue(output);
+          logStream.write(output);
         });
 
         // Handle process completion
         subprocess.on("close", (code: number | null) => {
           console.log("close: ", code);
+          const exitMessage = `\nProcess exited with code: ${code}`;
+
           if (!hasError) {
-            safeEnqueue(`\nProcess exited with code: ${code}`);
+            safeEnqueue(exitMessage);
+            logStream.write(exitMessage);
           }
+
+          logStream.end();
           safeClose();
           // Clean up the process from active processes
           activeProcesses.delete(processId);
@@ -203,6 +222,9 @@ execRoutes.post("/", async (c) => {
         // Handle process errors
         subprocess.on("error", (error: Error) => {
           console.log("error: ", error);
+          const errorMessage = `\nProcess error: ${error.message}\n`;
+          logStream.write(errorMessage);
+          logStream.end();
           safeError(error);
           // Clean up the process from active processes
           activeProcesses.delete(processId);
@@ -211,17 +233,20 @@ execRoutes.post("/", async (c) => {
         // Handle stream cancellation
         return () => {
           console.log("Stream cancelled, killing subprocess");
+          const cancelMessage = `\nProcess cancelled by user\n`;
+          logStream.write(cancelMessage);
+          logStream.end();
           subprocess.kill();
           activeProcesses.delete(processId);
         };
       },
     });
 
-    return new Response(stream, {
+    return new Response(processId, {
       headers: {
         "Content-Type": "text/plain",
         "Transfer-Encoding": "chunked",
-        "X-Process-ID": processId, // Include process ID in response headers
+        "X-Process-ID": processId,
       },
     });
   } catch (error) {
@@ -288,22 +313,44 @@ execRoutes.delete("/delete", async (c) => {
   }
 });
 
-// Add a route to list active processes
-execRoutes.get("/active", (c) => {
-  const activeProcessList = Array.from(activeProcesses.keys()).map(
-    (processId) => ({
-      processId,
-      status: "running",
-    })
-  );
+// Add a route to list log files
+execRoutes.get("/output", (c) => {
+  const processId = c.req.query("processId");
 
-  return c.json({
-    activeProcesses: activeProcessList,
-    count: activeProcessList.length,
+  if (!processId) {
+    return c.json(
+      { error: "Bad Request", message: "processId is required" },
+      400
+    );
+  }
+
+  const logDir = path.join(PROJECT_PATH, ".wrangler", "tmp");
+  const logFileName = `exec_${processId}.log`;
+  const logFilePath = path.join(logDir, logFileName);
+
+  if (!fs.existsSync(logFilePath)) {
+    return c.json(
+      { error: "Not Found", message: `Log file not found: ${logFilePath}` },
+      404
+    );
+  }
+
+  const logStream = fs.createReadStream(logFilePath);
+  // convert fs stream to a readable stream
+  const readableStream = new ReadableStream({
+    start(controller) {
+      logStream.on("data", (chunk) => {
+        controller.enqueue(chunk);
+      });
+    },
+  });
+
+  return new Response(readableStream, {
+    headers: { "Content-Type": "text/plain" },
   });
 });
 
-app.route("/exec", execRoutes);
+app.route("/tty", execRoutes);
 
 // Error handling
 app.notFound((c) => {

@@ -8,25 +8,8 @@ export interface FileItem {
   type: "file" | "directory";
 }
 
-// Enhanced process store with metadata
-interface ProcessMetadata {
-  processId: string;
-  startTime: number;
-  command: string;
-  args: string[];
-}
-
-const processStore = new Map<string, ProcessMetadata>();
-
-// // Cleanup old processes periodically (older than 1 hour)
-// setInterval(() => {
-//   const oneHourAgo = Date.now() - 60 * 60 * 1000;
-//   for (const [pid, metadata] of processStore.entries()) {
-//     if (metadata.startTime < oneHourAgo && metadata.status !== "running") {
-//       processStore.delete(pid);
-//     }
-//   }
-// }, 5 * 60 * 1000); // Check every 5 minutes
+export let CURRENT_PROCESS_ID: string;
+export let CURRENT_PROCESS_OUTPUT: ReadableStream;
 
 async function containerFilesFetch(
   pathname: string,
@@ -75,7 +58,7 @@ export async function saveFile(pathname: string, content: string) {
 
 // I want to create a function that will execute a command in the container
 export async function executeCommand(command: string) {
-  const url = new URL("http://localhost:8910/sandbox/exec");
+  const url = new URL("http://localhost:8910/sandbox/tty/exec");
 
   const request = new Request(url, {
     method: "POST",
@@ -88,28 +71,18 @@ export async function executeCommand(command: string) {
 
   // grab the process id from the response headers
   const processId = response.headers.get("X-Process-ID");
+  CURRENT_PROCESS_ID = processId || "";
+  return CURRENT_PROCESS_ID;
+}
 
-  if (!processId) {
-    throw new Error("No process ID received from container");
+export async function getProcessOutput() {
+  if (!CURRENT_PROCESS_ID) {
+    return null;
   }
-
-  // Parse command and args for storage
-  let args: string[] = [];
-  if (command.includes(" ")) {
-    const parts = command.split(" ");
-    command = parts[0];
-    args = parts.slice(1);
-  }
-
-  // Store process metadata
-  processStore.set(processId, {
-    processId,
-    startTime: Date.now(),
-    command,
-    args,
-  });
-
-  return response.body;
+  const url = new URL("http://localhost:8910/sandbox/tty/output");
+  url.searchParams.set("processId", CURRENT_PROCESS_ID);
+  const request = await fetch(url);
+  return request.body;
 }
 
 // Function to cancel a process

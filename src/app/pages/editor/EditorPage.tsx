@@ -3,7 +3,7 @@ import { Editor } from "./Editor";
 import { FileBrowser } from "./FileBrowser";
 import { fileType, getFile } from "./functions";
 import { Preview } from "./Preview";
-import { CLI } from "./components/CLI";
+import { Command } from "./components/Command";
 
 export const EditorPage = async () => {
   const url = new URL(requestInfo.request.url);
@@ -36,7 +36,7 @@ export const EditorPage = async () => {
         </div>
 
         <div className="flex-1 bg-amber-400">
-          <CLI />
+          <Command />
         </div>
       </div>
     </div>
