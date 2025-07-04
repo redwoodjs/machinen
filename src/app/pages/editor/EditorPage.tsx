@@ -31,11 +31,11 @@ export const EditorPage = async () => {
         <Editor pathname={pathname} initialContent={content} key={pathname} />
       </div>
       <div className="h-screen p-2 flex flex-col flex-1">
-        <div className="flex-1">
+        <div className="flex-1 resize-y border-8 bg-green-500">
           <Preview />
         </div>
 
-        <div className="flex-1 bg-amber-400">
+        <div className="h-96 bg-amber-400">
           <Command />
         </div>
       </div>

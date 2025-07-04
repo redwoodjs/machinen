@@ -15,7 +15,7 @@ export function RunCommand({ isRunning }: { isRunning: boolean }) {
   return (
     <form onSubmit={handleSubmit} className="flex gap-2">
       <input
-        className="flex-1 bg-white border-2 border-gray-300 rounded-md p-2"
+        className="flex flex-1 bg-white border-2 border-gray-300 rounded-md p-2"
         type="text"
         onChange={(e) => setCommand(e.target.value)}
         value={command}

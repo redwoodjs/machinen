@@ -85,8 +85,8 @@ fsRoutes.get("/read", (c) => {
 // write
 fsRoutes.post("/write", async (c) => {
   const pathname = c.req.query("pathname") as string;
-  const body = await c.req.parseBody();
-  fs.writeFileSync(path.join(PROJECT_PATH, pathname), body.content as string);
+  const body = await c.req.json();
+  fs.writeFileSync(path.join(PROJECT_PATH, pathname), body.content);
   return c.json({ message: "File written successfully" });
 });
 
@@ -101,9 +101,9 @@ app.route("/fs", fsRoutes);
 const activeProcesses = new Map<string, any>();
 
 // then we'll create a route for running commands.
-const execRoutes = new Hono();
+const ttyRoutes = new Hono();
 
-execRoutes.post("/exec", async (c) => {
+ttyRoutes.post("/exec", async (c) => {
   const json = await c.req.json();
 
   let { command, args = [], cwd = PROJECT_PATH, outputFile } = json;
@@ -242,11 +242,14 @@ execRoutes.post("/exec", async (c) => {
       },
     });
 
-    return new Response(processId, {
+    return new Response(stream, {
       headers: {
         "Content-Type": "text/plain",
         "Transfer-Encoding": "chunked",
         "X-Process-ID": processId,
+        Connection: "keep-alive",
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",
       },
     });
   } catch (error) {
@@ -264,7 +267,7 @@ execRoutes.post("/exec", async (c) => {
 });
 
 // Add a route to cancel a running process
-execRoutes.delete("/delete", async (c) => {
+ttyRoutes.delete("/delete", async (c) => {
   const json = await c.req.json();
   const { processId } = json;
 
@@ -314,7 +317,7 @@ execRoutes.delete("/delete", async (c) => {
 });
 
 // Add a route to list log files
-execRoutes.get("/output", (c) => {
+ttyRoutes.get("/output", (c) => {
   const processId = c.req.query("processId");
 
   if (!processId) {
@@ -334,31 +337,148 @@ execRoutes.get("/output", (c) => {
       404
     );
   }
-
-  const logStream = fs.createReadStream(logFilePath);
-  // convert fs stream to a readable stream
   const readableStream = new ReadableStream({
     start(controller) {
-      logStream.on("data", (chunk) => {
-        controller.enqueue(chunk);
-      });
+      let filePosition = 0;
+      let isClosed = false;
+      let watcher: fs.FSWatcher | null = null;
+      let heartbeatInterval: NodeJS.Timeout | null = null;
+      let lastActivity = Date.now();
 
-      logStream.on("end", () => {
-        controller.close();
-      });
+      const safeEnqueue = (data: Buffer | string) => {
+        if (!isClosed) {
+          try {
+            const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
+            controller.enqueue(buffer);
+            lastActivity = Date.now();
+          } catch (error) {
+            console.log("Failed to enqueue data:", error);
+            isClosed = true;
+          }
+        }
+      };
 
-      logStream.on("error", (error) => {
-        controller.error(error);
-      });
+      const safeClose = () => {
+        if (!isClosed) {
+          isClosed = true;
+          try {
+            controller.close();
+          } catch (error) {
+            console.log("Failed to close controller:", error);
+          }
+          cleanup();
+        }
+      };
+
+      const cleanup = () => {
+        if (heartbeatInterval) {
+          clearInterval(heartbeatInterval);
+          heartbeatInterval = null;
+        }
+        if (watcher) {
+          watcher.close();
+          watcher = null;
+        }
+      };
+
+      const readNewContent = () => {
+        try {
+          if (!fs.existsSync(logFilePath)) {
+            // File was deleted, check if process is still running
+            const subprocess = activeProcesses.get(processId);
+            if (!subprocess) {
+              safeClose();
+              return;
+            }
+            return;
+          }
+
+          const stats = fs.statSync(logFilePath);
+          if (stats.size > filePosition) {
+            const stream = fs.createReadStream(logFilePath, {
+              start: filePosition,
+              end: stats.size - 1,
+            });
+
+            stream.on("data", (chunk) => {
+              safeEnqueue(chunk);
+              filePosition += chunk.length;
+            });
+
+            stream.on("error", (error) => {
+              console.log("Error reading file:", error);
+            });
+
+            stream.on("end", () => {
+              // Check if process is still running
+              const subprocess = activeProcesses.get(processId);
+              if (!subprocess) {
+                safeClose();
+              }
+            });
+          }
+        } catch (error) {
+          console.log("Error reading file:", error);
+          // Don't close on file read errors, just log them
+        }
+      };
+
+      // Read existing content first
+      readNewContent();
+
+      // Set up file watcher to monitor for changes
+      try {
+        watcher = fs.watch(logFilePath, (eventType, filename) => {
+          if (eventType === "change" && filename) {
+            // Add a small delay to ensure file is fully written
+            setTimeout(() => {
+              if (!isClosed) {
+                readNewContent();
+              }
+            }, 10);
+          }
+        });
+
+        watcher.on("error", (error) => {
+          console.log("File watcher error:", error);
+          // Don't close on watcher errors, just log them
+        });
+      } catch (error) {
+        console.log("Failed to set up file watcher:", error);
+      }
+
+      // Set up heartbeat to keep connection alive
+      heartbeatInterval = setInterval(() => {
+        if (!isClosed) {
+          const timeSinceLastActivity = Date.now() - lastActivity;
+          // Send heartbeat every 30 seconds if no activity
+          if (timeSinceLastActivity > 30000) {
+            safeEnqueue("\n");
+          }
+        }
+      }, 30000);
+
+      // Handle client disconnect
+      return () => {
+        console.log("Client disconnected, cleaning up stream");
+        isClosed = true;
+        cleanup();
+      };
     },
   });
 
   return new Response(readableStream, {
-    headers: { "Content-Type": "text/plain", "Transfer-Encoding": "chunked" },
+    headers: {
+      "Content-Type": "text/plain",
+      "Transfer-Encoding": "chunked",
+      Connection: "keep-alive",
+      "Cache-Control": "no-cache",
+      "X-Accel-Buffering": "no",
+    },
   });
 });
 
-app.route("/tty", execRoutes);
+app.route("/tty", ttyRoutes);
 
 // Error handling
 app.notFound((c) => {

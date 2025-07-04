@@ -7,6 +7,7 @@ export function Output({ processId }: { processId: string }) {
   const [output, setOutput] = useState("");
 
   useEffect(() => {
+    setOutput("");
     async function fetchOutput() {
       const output = await getProcessOutput();
       if (!output) return;
@@ -23,9 +24,8 @@ export function Output({ processId }: { processId: string }) {
   }, [processId]);
 
   return (
-    <div className="flex gap-2 h-80 ">
-      {processId}
-      <pre>{output}</pre>
+    <div className="flex-1 overflow-y-auto bg-amber-200 p-2">
+      <pre className="font-mono text-sm whitespace-pre-wrap">{output}</pre>
     </div>
   );
 }

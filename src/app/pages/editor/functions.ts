@@ -50,7 +50,7 @@ export async function fileType(filePath: string) {
 }
 
 export async function saveFile(pathname: string, content: string) {
-  return await containerFilesFetch(pathname, "/fs/stat", {
+  return await containerFilesFetch(pathname, "/fs/write", {
     method: "POST",
     body: JSON.stringify({ content }),
   });
@@ -81,32 +81,8 @@ export async function getProcessOutput() {
   }
   const url = new URL("http://localhost:8910/sandbox/tty/output");
   url.searchParams.set("processId", CURRENT_PROCESS_ID);
-  const request = await fetch(url);
+  const request = await fetch(url, {
+    keepalive: true,
+  });
   return request.body;
-}
-
-// Function to cancel a process
-export async function cancelProcess(processId: string) {
-  // const metadata = processStore.get(processId);
-  // if (!metadata) {
-  //   throw new Error("Process not found");
-  // }
-  // if (metadata.status !== "running") {
-  //   throw new Error("Process is not running");
-  // }
-  // // Call the container to cancel the process
-  // const url = new URL("http://localhost:8910/sandbox/exec/delete");
-  // const response = await fetch(url, {
-  //   method: "DELETE",
-  //   body: JSON.stringify({ processId }),
-  //   headers: {
-  //     "Content-Type": "application/json",
-  //   },
-  // });
-  // if (!response.ok) {
-  //   throw new Error("Failed to cancel process");
-  // }
-  // // Update local metadata
-  // metadata.status = "cancelled";
-  // return { message: "Process cancelled successfully", processId };
 }
