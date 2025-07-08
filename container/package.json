@@ -11,8 +11,8 @@
   "scripts": {
     "build": "vite build",
     "dev": "NODE_ENV=${NODE_ENV:-development} vite dev",
-    "dev:server": "node server.js --host 0.0.0.0",
-    "dev:all": "concurrently \"pnpm run dev:server\" \"npm run dev -- --host 0.0.0.0 --port 8910\"",
+    "dev:sandbox": "node --experimental-strip-types --watch sandbox.ts",
+    "dev:all": "concurrently \"pnpm run dev:sandbox\" \"npm run dev -- --host 0.0.0.0 --port 8910\"",
     "dev:init": "rw-scripts dev-init",
     "preview": "vite preview",
     "worker:run": "rw-scripts worker-run",
@@ -26,6 +26,11 @@
     "prepare": "vibe-rules install cursor"
   },
   "dependencies": {
+    "@homebridge/node-pty-prebuilt-multiarch": "^0.13.1",
+    "@hono/node-server": "^1.8.2",
+    "@hono/node-ws": "^1.2.0",
+    "execa": "^8.0.1",
+    "hono": "^4.1.0",
     "rwsdk": "0.1.1"
   },
   "devDependencies": {
@@ -40,6 +45,7 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
+      "@homebridge/node-pty-prebuilt-multiarch",
       "esbuild",
       "sharp",
       "workerd"

@@ -8,16 +8,16 @@ export interface FileItem {
   type: "file" | "directory";
 }
 
-// TODO: Add a method that proxies requests "locally" to the container server. This is "/files"
+export let CURRENT_PROCESS_ID: string;
+export let CURRENT_PROCESS_OUTPUT: ReadableStream;
 
 async function containerFilesFetch(
   pathname: string,
-  action: "LIST" | "READ" | "TYPE" | "DELETE" | "WRITE",
-  fetchOptions: RequestInit = {},
+  action: "/fs/list" | "/fs/read" | "/fs/stat" | "/fs/delete" | "/fs/write",
+  fetchOptions: RequestInit = {}
 ) {
-  const url = new URL("http://localhost:8910/files");
+  const url = new URL("http://localhost:8910/sandbox" + action);
   url.searchParams.set("pathname", pathname);
-  url.searchParams.set("action", action);
 
   const response = await fetchContainer(
     new Request(url, {
@@ -25,33 +25,64 @@ async function containerFilesFetch(
         "Content-Type": "application/json",
       },
       ...fetchOptions,
-    }),
+    })
   );
   return response.json();
 }
 
 export async function getSiblingFiles(pathname: string = "/") {
-  const files = await containerFilesFetch(pathname, "LIST");
+  const files = await containerFilesFetch(pathname, "/fs/list");
   return files as FileItem[];
 }
 
 export async function getFile(filePath: string) {
-  const file = (await containerFilesFetch(filePath, "READ")) as {
+  const file = (await containerFilesFetch(filePath, "/fs/read")) as {
     content: string;
   };
   return file;
 }
 
 export async function fileType(filePath: string) {
-  const { type } = (await containerFilesFetch(filePath, "TYPE")) as {
+  const { type } = (await containerFilesFetch(filePath, "/fs/stat")) as {
     type: "file" | "directory";
   };
   return type;
 }
 
 export async function saveFile(pathname: string, content: string) {
-  return await containerFilesFetch(pathname, "WRITE", {
+  return await containerFilesFetch(pathname, "/fs/write", {
     method: "POST",
     body: JSON.stringify({ content }),
   });
+}
+
+// I want to create a function that will execute a command in the container
+export async function executeCommand(command: string) {
+  const url = new URL("http://localhost:8910/sandbox/tty/exec");
+
+  const request = new Request(url, {
+    method: "POST",
+    body: JSON.stringify({ command }),
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+  const response = await fetch(request);
+
+  // grab the process id from the response headers
+  const processId = response.headers.get("X-Process-ID");
+  CURRENT_PROCESS_ID = processId || "";
+  return CURRENT_PROCESS_ID;
+}
+
+export async function getProcessOutput() {
+  if (!CURRENT_PROCESS_ID) {
+    return null;
+  }
+  const url = new URL("http://localhost:8910/sandbox/tty/output");
+  url.searchParams.set("processId", CURRENT_PROCESS_ID);
+  const request = await fetch(url, {
+    keepalive: true,
+  });
+  return request.body;
 }

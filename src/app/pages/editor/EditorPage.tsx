@@ -1,8 +1,11 @@
 import { requestInfo } from "rwsdk/worker";
+
 import { Editor } from "./Editor";
 import { FileBrowser } from "./FileBrowser";
 import { fileType, getFile } from "./functions";
 import { Preview } from "./Preview";
+
+import { LazyTerm } from "@/app/components/Term/";
 
 export const EditorPage = async () => {
   const url = new URL(requestInfo.request.url);
@@ -29,8 +32,14 @@ export const EditorPage = async () => {
       <div className="h-screen min-w-[600px] resize-x border-r-4 overflow-auto p-2">
         <Editor pathname={pathname} initialContent={content} key={pathname} />
       </div>
-      <div className="h-screen p-2 flex flex-1">
-        <Preview />
+      <div className="h-screen p-2 flex flex-col flex-1">
+        <div className="flex-1 resize-y border-8 bg-green-500">
+          <Preview />
+        </div>
+
+        <div className="h-96 bg-amber-400">
+          <LazyTerm />
+        </div>
       </div>
     </div>
   );

@@ -8,8 +8,9 @@ export default defineConfig({
     port: 8910,
     allowedHosts: true,
     proxy: {
-      "/files": {
-        target: "http://localhost:8911/files",
+      "/sandbox": {
+        target: "http://localhost:8911/",
+        rewrite: (path) => path.replace(/^\/sandbox/, ""),
         changeOrigin: true,
       },
     },
