@@ -8,30 +8,26 @@ import { fetchContainer } from "./container";
 export { RuntimeContainer as Container } from "./container";
 
 export default defineApp([
-  render(
-    Document,
-    [
-      route("/", () => {
-        return (
-          <div>
-            <h1>Machinen</h1>
-            <p>
-              This is a preview of Machinen, a web-based text editor for
-              RedwoodSDK. Check out the{" "}
-              <a href="/editor" className="text-blue-500 underline">
-                editor!
-              </a>
-            </p>
-          </div>
-        );
-      }),
-      route("/editor", EditorPage),
-      route("/editor*", EditorPage),
-      route("/ping", () => new Response("pong")),
-      route("/term", TermPage),
-    ],
-    { ssr: false }
-  ),
+  render(Document, [
+    route("/", () => {
+      return (
+        <div>
+          <h1>Machinen</h1>
+          <p>
+            This is a preview of Machinen, a web-based text editor for
+            RedwoodSDK. Check out the{" "}
+            <a href="/editor" className="text-blue-500 underline">
+              editor!
+            </a>
+          </p>
+        </div>
+      );
+    }),
+    route("/editor", EditorPage),
+    route("/editor*", EditorPage),
+    route("/ping", () => new Response("pong")),
+    route("/term", TermPage),
+  ]),
 
   route("/preview*", async ({ request }) => {
     return fetchContainer(request);

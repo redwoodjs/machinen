@@ -23,7 +23,7 @@ export function Editor({
 
   const performSave = async (
     contentToSave: string,
-    isFromButton: boolean = false,
+    isFromButton: boolean = false
   ) => {
     if (saving) return;
 
@@ -61,7 +61,11 @@ export function Editor({
       {/* Header with file path and save button */}
       <div className="flex items-center justify-between p-3 border-b bg-gray-50 dark:bg-gray-800">
         <div
-          className={`text-sm font-mono ${modified ? "text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}
+          className={`text-sm font-mono ${
+            modified
+              ? "text-blue-600 dark:text-blue-400"
+              : "text-gray-700 dark:text-gray-300"
+          }`}
         >
           {pathname}
           {modified && <span className="ml-1">•</span>}

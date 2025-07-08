@@ -58,6 +58,10 @@ export function MonacoEditor({
     },
   }));
 
+  if (!pathname) {
+    return null;
+  }
+
   return (
     <Monaco
       onMount={(editor, monaco) => {
