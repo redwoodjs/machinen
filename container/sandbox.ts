@@ -100,10 +100,7 @@ fsRoutes.post("/write", async (c) => {
 
 app.route("/fs", fsRoutes);
 
-// then we'll create a route for running commands.
 const ttyRoutes = new Hono();
-
-// We're gonna store the active socket as well as the shell that's associated to this socket.
 
 const shell = pty.spawn("bash", [], {
   name: "xterm-color",
@@ -111,7 +108,6 @@ const shell = pty.spawn("bash", [], {
   rows: 24,
   encoding: "utf-8",
 });
-shell.write("echo $HOME \n");
 
 console.log("shell launched:", shell.pid);
 
@@ -120,25 +116,18 @@ ttyRoutes.get(
   upgradeWebSocket((c) => {
     return {
       onOpen: (e, ws) => {
-        // @ts-ignore
-
-        ws.send("Hello from server");
-
         shell.onData((data) => {
-          console.log("Message from shell:", shell.pid, data);
           ws.send(data);
         });
       },
       onMessage: (e, ws) => {
-        console.log("Message from client:", e.data.toString());
         shell.write(e.data.toString());
       },
       onError: (error) => {
         console.error("WebSocket error:", error);
       },
-      onClose: (e, ws) => {
+      onClose: (_e, ws) => {
         console.log("Connection closed");
-        // @ts-ignore
         ws.close();
       },
     };

@@ -5,7 +5,7 @@ import { FileBrowser } from "./FileBrowser";
 import { fileType, getFile } from "./functions";
 import { Preview } from "./Preview";
 
-import { LazyTerm } from "@/app/components/Term";
+import { LazyTerm } from "@/app/components/Term/";
 
 export const EditorPage = async () => {
   const url = new URL(requestInfo.request.url);

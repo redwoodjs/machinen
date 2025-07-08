@@ -1,9 +1,13 @@
 "use client";
 
-import { Suspense, lazy } from "react";
-import TerminalComponent from "./Term";
-// const Command = lazy(() => import("./Term"));
+import { lazy, Suspense } from "react";
+
+const Term = lazy(() => import("./Term"));
 
 export function LazyTerm() {
-  return <TerminalComponent />;
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <Term />
+    </Suspense>
+  );
 }
