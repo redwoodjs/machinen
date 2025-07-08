@@ -1,9 +1,11 @@
 import { requestInfo } from "rwsdk/worker";
+
 import { Editor } from "./Editor";
 import { FileBrowser } from "./FileBrowser";
 import { fileType, getFile } from "./functions";
 import { Preview } from "./Preview";
-import { Command } from "./components/Command";
+
+import { LazyTerm } from "@/app/components/Term";
 
 export const EditorPage = async () => {
   const url = new URL(requestInfo.request.url);
@@ -36,7 +38,7 @@ export const EditorPage = async () => {
         </div>
 
         <div className="h-96 bg-amber-400">
-          <Command />
+          <LazyTerm />
         </div>
       </div>
     </div>
