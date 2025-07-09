@@ -25,20 +25,26 @@ export const EditorPage = async () => {
   }
 
   return (
-    <div className="h-screen flex overflow-hidden">
-      <div className="h-screen resize-x min-w-[180px] overflow-auto border-r-4 p-2">
+    <div className="h-screen flex bg-gray-800">
+      <title>{pathname}</title>
+      <div>
         <FileBrowser pathname={pathname} />
       </div>
-      <div className="h-screen min-w-[600px] resize-x border-r-4 overflow-auto p-2">
+
+      <div className="h-screen min-w-[800px]">
         <Editor pathname={pathname} initialContent={content} key={pathname} />
       </div>
-      <div className="h-screen p-2 flex flex-col flex-1">
-        <div className="flex-1 resize-y border-8 bg-green-500">
-          <Preview />
+      <div className="w-full flex flex-col bg-gray-400">
+        <div className="flex flex-1">
+          <div className="m-2 p-2 w-full rounded bg-white">
+            <Preview />
+          </div>
         </div>
 
-        <div className="h-96 bg-amber-400">
-          <LazyTerm />
+        <div className="flex h-[400px] overflow-hidden">
+          <div className="rounded w-full  m-2 p-2 bg-black">
+            <LazyTerm />
+          </div>
         </div>
       </div>
     </div>

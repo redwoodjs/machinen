@@ -5,6 +5,8 @@ import { saveFile } from "./functions";
 import { useIsClient } from "@/hooks/useIsClient";
 import { MonacoEditor } from "./components/MonacoEditor";
 
+import { Button } from "@/app/components/ui/button";
+
 export function Editor({
   pathname,
   initialContent,
@@ -61,7 +63,7 @@ export function Editor({
       {/* Header with file path and save button */}
       <div className="flex items-center justify-between p-3 border-b bg-gray-50 dark:bg-gray-800">
         <div
-          className={`text-sm font-mono ${
+          className={`text-sm ${
             modified
               ? "text-blue-600 dark:text-blue-400"
               : "text-gray-700 dark:text-gray-300"
@@ -71,17 +73,13 @@ export function Editor({
           {modified && <span className="ml-1">•</span>}
         </div>
 
-        <button
+        <Button
           onClick={handleButtonSave}
           disabled={saving || !modified}
-          className={`px-3 py-1 text-sm rounded transition-colors ${
-            saving || !modified
-              ? "bg-gray-200 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500"
-              : "bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-          }`}
+          variant="default"
         >
           {saving ? "Saving..." : "Save"}
-        </button>
+        </Button>
       </div>
 
       {/* Editor area */}
