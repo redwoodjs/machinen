@@ -87,8 +87,8 @@ export function MonacoEditor({
 
         // Configure TypeScript diagnostics
         monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
-          noSemanticValidation: false,
-          noSyntaxValidation: false,
+          noSemanticValidation: true, // Disable semantic validation (import errors, type checking)
+          noSyntaxValidation: false, // Keep syntax validation enabled
           noSuggestionDiagnostics: false,
         });
 
@@ -128,9 +128,8 @@ export function MonacoEditor({
           },
         });
       }}
-      className="flex"
-      height="90vh"
-      theme="vs-dark"
+      className="flex h-full"
+      theme="vs-light"
       options={{
         minimap: {
           enabled: false,

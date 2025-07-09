@@ -8,9 +8,6 @@ export interface FileItem {
   type: "file" | "directory";
 }
 
-export let CURRENT_PROCESS_ID: string;
-export let CURRENT_PROCESS_OUTPUT: ReadableStream;
-
 async function containerFilesFetch(
   pathname: string,
   action: "/fs/list" | "/fs/read" | "/fs/stat" | "/fs/delete" | "/fs/write",
@@ -54,35 +51,4 @@ export async function saveFile(pathname: string, content: string) {
     method: "POST",
     body: JSON.stringify({ content }),
   });
-}
-
-// I want to create a function that will execute a command in the container
-export async function executeCommand(command: string) {
-  const url = new URL("http://localhost:8910/sandbox/tty/exec");
-
-  const request = new Request(url, {
-    method: "POST",
-    body: JSON.stringify({ command }),
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
-  const response = await fetch(request);
-
-  // grab the process id from the response headers
-  const processId = response.headers.get("X-Process-ID");
-  CURRENT_PROCESS_ID = processId || "";
-  return CURRENT_PROCESS_ID;
-}
-
-export async function getProcessOutput() {
-  if (!CURRENT_PROCESS_ID) {
-    return null;
-  }
-  const url = new URL("http://localhost:8910/sandbox/tty/output");
-  url.searchParams.set("processId", CURRENT_PROCESS_ID);
-  const request = await fetch(url, {
-    keepalive: true,
-  });
-  return request.body;
 }

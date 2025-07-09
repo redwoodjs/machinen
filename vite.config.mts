@@ -4,6 +4,9 @@ import { redwood } from "rwsdk/vite";
 import { cloudflare } from "@cloudflare/vite-plugin";
 
 export default defineConfig({
+  environments: {
+    ssr: {},
+  },
   plugins: [
     proxyWebSocketPlugin(),
     cloudflare({

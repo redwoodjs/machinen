@@ -7,6 +7,8 @@ import { TermPage } from "@/app/pages/TermPage";
 import { fetchContainer } from "./container";
 export { RuntimeContainer as Container } from "./container";
 
+import { TestPage } from "@/app/pages/TestPage";
+
 export default defineApp([
   render(Document, [
     route("/", () => {
@@ -27,6 +29,7 @@ export default defineApp([
     route("/editor*", EditorPage),
     route("/ping", () => new Response("pong")),
     route("/term", TermPage),
+    route("/resize", TestPage),
   ]),
 
   route("/preview*", async ({ request }) => {
