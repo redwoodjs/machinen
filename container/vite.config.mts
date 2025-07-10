@@ -12,6 +12,7 @@ export default defineConfig({
         target: "http://localhost:8911/",
         rewrite: (path) => path.replace(/^\/sandbox/, ""),
         changeOrigin: true,
+        ws: true,
       },
     },
   },

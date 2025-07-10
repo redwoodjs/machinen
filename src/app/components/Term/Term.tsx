@@ -20,10 +20,21 @@ export default function Term() {
       fitAddon.fit();
       term.focus();
 
-      // NOTE: (peterp): This is a direct connection to the sandbox, not via the vite proxy.
-      // This is fine because we'll likely be using a different port once containers are supported
-      // in cloudflare-vite plugin.
-      const socket = new WebSocket("ws://localhost:8911/tty/attach");
+      // Try direct connection to sandbox server first
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      let socketUrl;
+      
+      // If accessing from localhost:5173, connect directly to sandbox server
+      if (window.location.port === '5173') {
+        socketUrl = 'ws://localhost:8911/tty/attach';
+      } else {
+        // Otherwise use the proxy
+        socketUrl = `${protocol}//${window.location.host}/sandbox/tty/attach`;
+      }
+      
+      console.log("Terminal connecting to:", socketUrl);
+      console.log("Current location:", window.location.href);
+      const socket = new WebSocket(socketUrl);
       socket.onerror = (event) => {
         console.log("socket error", event);
       };
