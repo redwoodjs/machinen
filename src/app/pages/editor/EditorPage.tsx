@@ -4,6 +4,7 @@ import { Editor } from "./Editor";
 import { FileBrowser } from "./FileBrowser";
 import { fileType, getFile } from "./functions";
 import { Preview } from "./Preview";
+import { ClaudePanel } from "./ClaudePanel";
 
 import { LazyTerm } from "@/app/components/Term/";
 
@@ -27,23 +28,40 @@ export const EditorPage = async () => {
   return (
     <div className="h-screen flex bg-gray-800">
       <title>{pathname}</title>
-      <div>
+      
+      {/* File Browser - Left Panel */}
+      <div className="w-64 border-r border-gray-700">
         <FileBrowser pathname={pathname} />
       </div>
 
-      <div className="h-screen min-w-[800px]">
+      {/* Code Editor - Center Panel */}
+      <div className="flex-1 min-w-[400px]">
         <Editor pathname={pathname} initialContent={content} key={pathname} />
       </div>
-      <div className="w-full flex flex-col bg-gray-400">
-        <div className="flex flex-1">
-          <div className="m-2 p-2 w-full rounded bg-white">
+      
+      {/* Right Side - Split between Preview/Terminal and Claude */}
+      <div className="w-96 flex flex-col border-l border-gray-700">
+        {/* Top Right - Preview */}
+        <div className="flex-1 border-b border-gray-700">
+          <div className="h-full m-2 p-2 bg-white rounded">
             <Preview />
           </div>
         </div>
 
-        <div className="flex h-[400px] overflow-hidden">
-          <div className="rounded w-full  m-2 p-2 bg-black">
-            <LazyTerm />
+        {/* Bottom Right - Split between Terminal and Claude */}
+        <div className="h-96 flex">
+          {/* Terminal Panel */}
+          <div className="flex-1 border-r border-gray-700">
+            <div className="h-full m-2 p-2 bg-black rounded">
+              <LazyTerm />
+            </div>
+          </div>
+          
+          {/* Claude Panel */}
+          <div className="flex-1">
+            <div className="h-full m-2 rounded overflow-hidden">
+              <ClaudePanel />
+            </div>
           </div>
         </div>
       </div>
