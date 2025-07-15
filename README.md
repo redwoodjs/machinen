@@ -2,7 +2,9 @@
 
 ![Machinen Logo](./logo.svg)
 
-_Note: This is a preview, it does not ship to production yet. (But should by 01-July-2025.)_
+_Note: This is a preview, it does not ship to production yet. (But should by 01-August-2025.)_
+
+We're waiting for this issue to land: https://github.com/cloudflare/workers-sdk/issues/9793
 
 ## What is Machinen?
 
@@ -13,16 +15,16 @@ It gives developers a development environment in the cloud, designed for agentic
 
 ## Quickstart
 
-You must have Docker running.
+First start up Machinen:
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-Note: The docker instance will not start automatically, we're waiting on Cloudflare. (Peter to provide instructions.)
+Then in another terminal, you can "emulate the Docker instance:"
 
-For local development, you can "emulate the Docker instance:"
+(Whilst we wait for Container support in Cloudflare's Vite Plugin.)
 
 ```bash
 cd container
@@ -30,12 +32,10 @@ pnpm install
 pnpm dev:all
 ```
 
-By running the "container dev-server" as well as the "editor dev-server" you can emulate the live experience.
-
 ## TODO
 
-- [ ] Persist changes outside of Container: Sync to GitHub or Cloudflare R2.
 - [ ] Integrate Claude Code, later Cloudflare agents.
+- [ ] Persist changes outside of Container: Sync to GitHub or Cloudflare R2.
 - [ ] RAG the code.
 - [ ] Reduce container size: Currently 1GB.
 - [ ] When building the container use the latest RWSDK.
