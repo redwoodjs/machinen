@@ -1,5 +1,3 @@
 packages:
   - "packages/cli"
   - "packages/dtu-github-actions"
-  - "derive"
-  - "experiments/retry-proof"

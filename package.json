@@ -2,7 +2,7 @@
   "name": "agent-ci-monorepo",
   "private": true,
   "scripts": {
-    "test": "pnpm --include-workspace-root=false --filter '!derive' -r test",
+    "test": "pnpm --include-workspace-root=false -r test",
     "check": "npm-run-all --parallel typecheck lint format:check",
     "check:fix": "npm-run-all --parallel typecheck lint:fix format:fix",
     "typecheck": "pnpm -r run typecheck",
