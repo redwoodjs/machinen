@@ -1,101 +1,99 @@
 # Agent CI
 
-## Development
+Agent CI is local CI for agents. It pauses when a workflow fails, allowing your agent to fix the issue and resume the workflow. Think of it as "live-reload for CI."
 
-### 1. Prerequisites
+Agent CI runs your GitHub Actions workflows locally using the same [official GitHub Action runners](https://github.com/actions/runner) — the exact same binaries that power GitHub-hosted CI. What Agent CI emulates is the GitHub.com API itself, so actions like `actions/checkout`, `actions/setup-node`, and `actions/cache` work out of the box without hitting GitHub's servers.
 
-- `pnpm` (v10+)
-- A Docker provider running on your machine:
-  - **macOS:** We highly recommend [OrbStack](https://orbstack.dev/) for its speed, low battery usage, and network integration.
+## Why Agent CI?
 
-### 2. Install Dependencies
+Traditional CI is a fire-and-forget loop: push, wait, fail, read logs, push again. Every retry pays the full cost of a new run.
 
-Run from the root directory:
+Agent CI runs on any machine that can run a container. When a step fails the run **pauses** — the container stays alive with all state intact. Your edits are synced into the container on retry, so you can fix the issue and **retry just the failed step** — no checkout, no reinstall, no waiting. This makes it ideal for AI agents: point an agent at the failure, let it fix and retry in a tight loop — without the cost of a full remote CI cycle each time.
 
-```bash
-pnpm install
-```
+<!-- TODO: Add demo video/screen recording -->
 
-### 3. Ready
+## Prerequisites
 
-No environment configuration is needed — the CLI derives everything at boot:
+- **Docker** — A running Docker provider:
+  - **macOS:** [OrbStack](https://orbstack.dev/) (recommended) or Docker Desktop
+  - **Linux:** Native Docker Engine
 
-- **Repository**: detected from `git remote get-url origin`
-- **DTU (mock GitHub API)**: started ephemerally on a random port per run
-- **Webhook secret**: hardcoded for local-only mock usage
-
----
-
-## Running Parallel AI Agents (Devcontainers)
-
-Each agent runs in an isolated VS Code devcontainer with its own git worktree, so multiple agents can work on separate branches simultaneously.
-
-### Prerequisites
-
-- [VS Code](https://code.visualstudio.com/) with the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
-- Docker running locally
-- The `code` CLI installed: VS Code → Command Palette → **"Shell Command: Install code command in PATH"**
-
-### Start an Agent
+## Installation
 
 ```bash
-# Start an agent on a new or existing branch (slot assigned automatically)
-./scripts/agents-up.sh <branch>
-
-# Start an agent on a specific slot number
-./scripts/agents-up.sh <branch> <N>
+npm install -D @redwoodjs/agent-ci
 ```
 
-This will:
-
-1. Create a git worktree at `../agent-ci-agent-N/` checked out to `<branch>` (creating the branch from HEAD if it doesn't exist)
-2. Generate a `devcontainer.json` inside the worktree
-3. Open a new VS Code window connected to the devcontainer
-
-### First-Time Authentication
-
-Claude Code OAuth tokens are stored in the macOS Keychain and are not accessible from a Linux container. The first time you start an agent, you'll need to log in manually inside the container:
-
-```
-claude /login
-```
-
-Credentials are stored in `~/.claude/` and `~/.claude.json`, which are bind-mounted from your host, so they persist across container rebuilds and are shared between agents.
-
-### Mounts
-
-Each container shares the following from your host machine:
-
-| Host path                      | Container path                  | Purpose                                 |
-| ------------------------------ | ------------------------------- | --------------------------------------- |
-| `~/.claude.json`               | `/root/.claude.json`            | Claude Code credentials                 |
-| `~/.claude/`                   | `/root/.claude/`                | Claude Code settings & session data     |
-| `~/.config/gh/`                | `/root/.config/gh/`             | GitHub CLI credentials                  |
-| `<repo>/.git`                  | `<repo>/.git`                   | Main git repo (for worktree resolution) |
-| `/var/run/docker.sock`         | `/var/run/docker.sock`          | Docker-outside-of-Docker                |
-| `agent-ci-pnpm-store` (volume) | `/root/.local/share/pnpm/store` | Shared pnpm cache                       |
-
----
-
-## Run Locally
+## Usage
 
 ```bash
-pnpm agent-ci-dev run --workflow .github/workflows/tests.yml
+# Run a specific workflow
+npx agent-ci run --workflow .github/workflows/ci.yml
+
+# Run all relevant workflows for the current branch
+npx agent-ci run --all
 ```
 
-To run all relevant PR/Push workflows for your current branch:
+### Remote Docker
+
+Agent CI connects to Docker via the `DOCKER_HOST` environment variable. By default it uses the local socket (`unix:///var/run/docker.sock`), but you can point it at any remote Docker daemon:
 
 ```bash
-pnpm agent-ci-dev run --all
+DOCKER_HOST=ssh://user@remote-server npx agent-ci run --workflow .github/workflows/ci.yml
 ```
 
-A workflow is **relevant** if its `on:` trigger includes:
+### `agent-ci run`
 
-- **`pull_request`** — targeting `main` (respecting `branches` / `branches-ignore` filters)
-- **`push`** — matching the current branch (respecting `branches` / `branches-ignore` filters)
+Run GitHub Actions workflow jobs locally.
 
-Both events also respect `paths` / `paths-ignore` filters: agent-ci compares the files
-changed in the current commit (`git diff --name-only HEAD~1`) against the workflow's
-path patterns and skips workflows that don't match.
+| Flag                 | Short | Description                                                    |
+| -------------------- | ----- | -------------------------------------------------------------- |
+| `--workflow <path>`  | `-w`  | Path to the workflow file                                      |
+| `--all`              | `-a`  | Discover and run all relevant workflows for the current branch |
+| `--pause-on-failure` | `-p`  | Pause on step failure for interactive debugging                |
+| `--quiet`            | `-q`  | Suppress animated rendering (also enabled by `AI_AGENT=1`)     |
 
-Workflows triggered only by `schedule`, `workflow_dispatch`, `release`, etc. are skipped.
+### `agent-ci retry`
+
+Retry a paused runner after fixing the failure.
+
+| Flag              | Short | Description                                   |
+| ----------------- | ----- | --------------------------------------------- |
+| `--name <name>`   | `-n`  | Name of the paused runner to retry (required) |
+| `--from-step <N>` |       | Re-run from step N, skipping earlier steps    |
+| `--from-start`    |       | Re-run all steps from the beginning           |
+
+Without `--from-step` or `--from-start`, retry re-runs only the failed step (the default).
+
+### `agent-ci abort`
+
+Abort a paused runner and tear down its container.
+
+| Flag            | Short | Description                                   |
+| --------------- | ----- | --------------------------------------------- |
+| `--name <name>` | `-n`  | Name of the paused runner to abort (required) |
+
+## YAML Compatibility
+
+See [compatibility.md](./packages/cli/compatibility.md) for detailed GitHub Actions workflow syntax support.
+
+## Debugging
+
+Set the `DEBUG` environment variable to enable verbose debug logging. It accepts a comma-separated list of glob patterns matching the namespaces you want to see:
+
+| Value                             | What it shows                 |
+| --------------------------------- | ----------------------------- |
+| `DEBUG=agent-ci:*`                | All debug output              |
+| `DEBUG=agent-ci:cli`              | CLI-level logs only           |
+| `DEBUG=agent-ci:runner`           | Runner/container logs only    |
+| `DEBUG=agent-ci:dtu`              | DTU mock-server logs only     |
+| `DEBUG=agent-ci:boot`             | Boot/startup timing logs only |
+| `DEBUG=agent-ci:cli,agent-ci:dtu` | Multiple namespaces           |
+
+- Output goes to **stderr** so stdout stays clean for piping.
+- If `DEBUG` is unset or empty, all debug loggers become **no-ops** (zero overhead).
+- Pattern matching uses [minimatch](https://github.com/isaacs/minimatch) globs, so `agent-ci:*` matches all four namespaces.
+
+```bash
+DEBUG=agent-ci:* npx agent-ci run
+```
