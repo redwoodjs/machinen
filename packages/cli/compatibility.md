@@ -32,7 +32,7 @@ Agent CI aims to run real GitHub Actions workflows locally. The table below show
 | `jobs.<id>.environment`               | 🟡     | Accepted, not enforced                                                        |
 | `jobs.<id>.env`                       | ✅     |                                                                               |
 | `jobs.<id>.defaults.run`              | ✅     | shell, working-directory                                                      |
-| `jobs.<id>.outputs`                   | ⚠️     | Parser-level support; CLI orchestration wiring pending                        |
+| `jobs.<id>.outputs`                   | ✅     | Resolved via `resolveJobOutputs`, accumulated across waves                    |
 | `jobs.<id>.timeout-minutes`           | ❌     |                                                                               |
 | `jobs.<id>.continue-on-error`         | ❌     |                                                                               |
 | `jobs.<id>.concurrency`               | ❌     |                                                                               |
