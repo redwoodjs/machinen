@@ -1,5 +1,13 @@
 # @redwoodjs/agent-ci
 
+## 0.3.3
+
+### Patch Changes
+
+- fix(dtu): replace execa with node:child_process to fix production runtime error
+- Updated dependencies
+  - dtu-github-actions@0.3.3
+
 ## 0.3.2
 
 ### Patch Changes
