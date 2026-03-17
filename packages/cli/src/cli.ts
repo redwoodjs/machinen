@@ -39,8 +39,7 @@ import { RunStateStore } from "./output/run-state.js";
 import { renderRunState } from "./output/state-renderer.js";
 import { isAgentMode, setQuietMode } from "./output/agent-mode.js";
 import logUpdate from "log-update";
-
-// ─── Signal helpers for retry / abort commands ────────────────────────────────
+import { createFailedJobResult, wrapJobError, isJobError } from "./runner/job-result.js";
 
 function findSignalsDir(runnerName: string): string | null {
   const workDir = getWorkingDirectory();
@@ -735,53 +734,45 @@ async function handleWorkflow(options: {
         allResults.push(firstResult);
 
         const results = await Promise.allSettled(
-          waveJobs.slice(1).map((ej) => limiter.run(() => runOrSkipJob(ej))),
+          waveJobs.slice(1).map((ej) =>
+            limiter.run(() =>
+              runOrSkipJob(ej).catch((error) => {
+                throw wrapJobError(ej.taskName, error);
+              }),
+            ),
+          ),
         );
-        for (let i = 0; i < results.length; i++) {
-          const r = results[i];
+        for (const r of results) {
           if (r.status === "fulfilled") {
             allResults.push(r.value);
           } else {
-            const ej = waveJobs[i + 1];
-            const errorMessage = String(r.reason?.message || r.reason);
-            console.error(`\n[Agent CI] Job failed with error: ${ej.taskName}`);
+            const taskName = isJobError(r.reason) ? r.reason.taskName : "unknown";
+            const errorMessage = isJobError(r.reason) ? r.reason.message : String(r.reason);
+            console.error(`\n[Agent CI] Job failed with error: ${taskName}`);
             console.error(`  Error: ${errorMessage}`);
-            allResults.push({
-              name: `agent-ci-error-${ej.taskName}`,
-              workflow: path.basename(workflowPath),
-              taskId: ej.taskName,
-              succeeded: false,
-              durationMs: 0,
-              debugLogPath: "",
-              failedStep: "[Job startup failed]",
-              lastOutputLines: [errorMessage],
-            });
+            allResults.push(createFailedJobResult(taskName, workflowPath, r.reason));
           }
         }
         warm = true;
       } else {
         const results = await Promise.allSettled(
-          waveJobs.map((ej) => limiter.run(() => runOrSkipJob(ej))),
+          waveJobs.map((ej) =>
+            limiter.run(() =>
+              runOrSkipJob(ej).catch((error) => {
+                throw wrapJobError(ej.taskName, error);
+              }),
+            ),
+          ),
         );
-        for (let i = 0; i < results.length; i++) {
-          const r = results[i];
+        for (const r of results) {
           if (r.status === "fulfilled") {
             allResults.push(r.value);
           } else {
-            const ej = waveJobs[i];
-            const errorMessage = String(r.reason?.message || r.reason);
-            console.error(`\n[Agent CI] Job failed with error: ${ej.taskName}`);
+            const taskName = isJobError(r.reason) ? r.reason.taskName : "unknown";
+            const errorMessage = isJobError(r.reason) ? r.reason.message : String(r.reason);
+            console.error(`\n[Agent CI] Job failed with error: ${taskName}`);
             console.error(`  Error: ${errorMessage}`);
-            allResults.push({
-              name: `agent-ci-error-${ej.taskName}`,
-              workflow: path.basename(workflowPath),
-              taskId: ej.taskName,
-              succeeded: false,
-              durationMs: 0,
-              debugLogPath: "",
-              failedStep: "[Job startup failed]",
-              lastOutputLines: [errorMessage],
-            });
+            allResults.push(createFailedJobResult(taskName, workflowPath, r.reason));
           }
         }
       }
