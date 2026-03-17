@@ -1,5 +1,13 @@
 # @redwoodjs/agent-ci
 
+## 0.3.2
+
+### Patch Changes
+
+- 0d5a027: Fix rejected promise handling in job execution and refactor error handling to use type guards with `taskName` attached to errors.
+- Fix `npx @redwoodjs/agent-ci` failing with "import: command not found" by adding the missing `#!/usr/bin/env node` shebang to the CLI entry point.
+  - dtu-github-actions@0.3.2
+
 ## 0.3.1
 
 ### Patch Changes
