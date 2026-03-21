@@ -1,6 +1,6 @@
 # machinen
 
-Seamless local-to-cloud devcontainer handoff. Work locally, close your laptop lid, and your container keeps running on Hetzner. Open it again and it comes back.
+Seamless local-to-cloud devcontainer handoff. Work locally, close your laptop lid, and your container keeps running in the cloud. Open it again and it comes back.
 
 ## Quick Start
 
@@ -8,13 +8,23 @@ Seamless local-to-cloud devcontainer handoff. Work locally, close your laptop li
 pnpm install
 ```
 
+### Set up a cloud provider
+
+Machinen uses a pluggable cloud provider to provision remote servers. The default provider is **Hetzner** via the `hcloud` CLI.
+
+```bash
+# Install the Hetzner CLI
+brew install hcloud          # macOS (or see https://github.com/hetznercloud/cli)
+
+# Authenticate
+hcloud context create machinen  # paste your API token when prompted
+```
+
 ### Start a devcontainer with cloud handoff
 
 From inside any repo with a `.devcontainer/` directory:
 
 ```bash
-export HETZNER_API_TOKEN=your-token
-
 node src/machinen.mjs up
 ```
 
@@ -26,17 +36,17 @@ This:
 
 When you **close your laptop lid**:
 - Container state is frozen and pushed to the registry
-- A Hetzner server is provisioned and the container is restored on it
-- You get a Telegram message: "Your machine is running on Hetzner at \<ip\>"
+- A cloud server is provisioned and the container is restored on it
+- You get a Telegram notification with the server IP
 
 When you **open your laptop**:
 - Remote state is frozen and pulled back
 - Restored locally, you pick up where you left off
-- Hetzner server is destroyed to save cost
+- Cloud server is destroyed to save cost
 
 ### Multiple devcontainers
 
-You can run multiple devcontainers simultaneously. Each gets its own Hetzner server and independent sleep/wake handoff:
+You can run multiple devcontainers simultaneously. Each gets its own cloud server and independent sleep/wake handoff:
 
 ```bash
 # Terminal 1
@@ -64,7 +74,7 @@ docker run -d --name myapp --security-opt seccomp=unconfined ubuntu:24.04 \
 # Freeze — checkpoint, package as Docker image layer, push to registry
 node src/machinen.mjs freeze myapp
 
-# Restore on Hetzner — pulls image, restores from checkpoint
+# Restore on cloud — pulls image, restores from checkpoint
 node src/machinen.mjs restore myapp
 
 # View logs on the remote
@@ -95,9 +105,21 @@ Layer 2: checkpoint (memory state, ~300KB-1MB)      <- only this transfers
 
 Container config (image, cmd, env, network mode) is preserved in image labels so the container is recreated identically on the remote.
 
+### Cloud providers
+
+Machinen uses a pluggable provider interface for cloud server management. The default provider is Hetzner (`src/providers/hetzner.mjs`). A provider implements:
+
+- `checkAuth()` — verify CLI is installed and authenticated
+- `ensureSSHKey()` — upload local SSH public key, return key ID
+- `getServer(name)` — return `{ id, ip }` or `null`
+- `createServer({ name, type, image, location, sshKeyId, userData })` — return `{ id, ip }`
+- `deleteServer(idOrName)` — destroy a server
+
+To add a new provider, create `src/providers/<name>.mjs` exporting an object with these methods.
+
 ### Telegram notifications
 
-Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` to receive notifications when your container migrates to/from Hetzner.
+Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` to receive notifications when your container migrates to/from the cloud.
 
 ## Commands
 
@@ -120,7 +142,7 @@ Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` to receive notifications when yo
 
 | Variable | Required for | Description |
 |----------|-------------|-------------|
-| `HETZNER_API_TOKEN` | `up`, `restore`, `destroy` | Hetzner Cloud API token |
+| `HCLOUD_TOKEN` | optional | Hetzner API token (alternative to `hcloud context create`) |
 | `MACHINEN_REGISTRY` | optional | Container registry URL (defaults to `ghcr.io/<your-github-username>` via `gh` CLI) |
 | `MACHINEN_REGISTRY_USER` | optional | Registry username (defaults to GitHub username via `gh` CLI) |
 | `MACHINEN_REGISTRY_PASSWORD` | optional | Registry password (defaults to `gh auth token`) |
@@ -132,6 +154,7 @@ Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` to receive notifications when yo
 - **macOS** with OrbStack (or Linux with Docker)
 - Docker experimental mode (auto-enabled on OrbStack)
 - CRIU (auto-installed on OrbStack, manual on Linux)
+- Cloud provider CLI installed and authenticated (default: `brew install hcloud && hcloud context create machinen`)
 - `gh` CLI authenticated (`gh auth login`)
 - Same CPU architecture on source and destination (ARM64 to ARM64)
 

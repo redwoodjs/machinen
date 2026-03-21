@@ -4,7 +4,7 @@ import {
   buildCheckpointImage,
   pushImage,
 } from "./docker.mjs";
-import { ssh, saveState } from "./hetzner.mjs";
+import { ssh, saveState } from "./cloud.mjs";
 import fs from "node:fs";
 
 const SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes

@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 
 // We test the state functions by overriding the STATE_FILE path.
-// Since hetzner.mjs hardcodes it, we'll test the logic directly.
+// Since cloud.mjs hardcodes it, we'll test the logic directly.
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "machinen-test-"));
 const stateFile = path.join(tmpDir, "state.json");
