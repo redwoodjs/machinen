@@ -14,7 +14,6 @@ From inside any repo with a `.devcontainer/` directory:
 
 ```bash
 export HETZNER_API_TOKEN=your-token
-export MACHINEN_REGISTRY=registry.nbg1.hetzner.cloud/your-namespace
 
 node src/machinen.mjs up
 ```
@@ -22,13 +21,12 @@ node src/machinen.mjs up
 This:
 1. Starts a local devcontainer from your cwd
 2. Drops you into a shell inside the container
-3. Provisions a Hetzner server in the background
-4. Syncs container state to the registry every 5 minutes
-5. Watches for sleep/wake events
+3. Syncs container state to the registry every 5 minutes
+4. Watches for sleep/wake events
 
 When you **close your laptop lid**:
 - Container state is frozen and pushed to the registry
-- Restored on the Hetzner server
+- A Hetzner server is provisioned and the container is restored on it
 - You get a Telegram message: "Your machine is running on Hetzner at \<ip\>"
 
 When you **open your laptop**:
@@ -123,9 +121,9 @@ Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` to receive notifications when yo
 | Variable | Required for | Description |
 |----------|-------------|-------------|
 | `HETZNER_API_TOKEN` | `up`, `restore`, `destroy` | Hetzner Cloud API token |
-| `MACHINEN_REGISTRY` | `up`, `freeze`, `restore` | Container registry URL |
-| `MACHINEN_REGISTRY_USER` | `restore` | Registry username for remote pull |
-| `MACHINEN_REGISTRY_PASSWORD` | `restore` | Registry password for remote pull |
+| `MACHINEN_REGISTRY` | optional | Container registry URL (defaults to `ghcr.io/<your-github-username>` via `gh` CLI) |
+| `MACHINEN_REGISTRY_USER` | optional | Registry username (defaults to GitHub username via `gh` CLI) |
+| `MACHINEN_REGISTRY_PASSWORD` | optional | Registry password (defaults to `gh auth token`) |
 | `TELEGRAM_BOT_TOKEN` | notifications | Telegram bot token (from BotFather) |
 | `TELEGRAM_CHAT_ID` | notifications | Your Telegram chat ID |
 
