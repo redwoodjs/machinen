@@ -1,0 +1,165 @@
+# machinen
+
+Seamless local-to-cloud devcontainer handoff. Work locally, close your laptop lid, and your container keeps running on Hetzner. Open it again and it comes back.
+
+## Quick Start
+
+```bash
+pnpm install
+```
+
+### Start a devcontainer with cloud handoff
+
+From inside any repo with a `.devcontainer/` directory:
+
+```bash
+export HETZNER_API_TOKEN=your-token
+export MACHINEN_REGISTRY=registry.nbg1.hetzner.cloud/your-namespace
+
+node src/machinen.mjs up
+```
+
+This:
+1. Starts a local devcontainer from your cwd
+2. Drops you into a shell inside the container
+3. Provisions a Hetzner server in the background
+4. Syncs container state to the registry every 5 minutes
+5. Watches for sleep/wake events
+
+When you **close your laptop lid**:
+- Container state is frozen and pushed to the registry
+- Restored on the Hetzner server
+- You get a Telegram message: "Your machine is running on Hetzner at \<ip\>"
+
+When you **open your laptop**:
+- Remote state is frozen and pulled back
+- Restored locally, you pick up where you left off
+- Hetzner server is destroyed to save cost
+
+### Multiple devcontainers
+
+You can run multiple devcontainers simultaneously. Each gets its own Hetzner server and independent sleep/wake handoff:
+
+```bash
+# Terminal 1
+cd ~/projects/api && node ~/machinen/src/machinen.mjs up
+
+# Terminal 2
+cd ~/projects/frontend && node ~/machinen/src/machinen.mjs up --file .devcontainer/agent-1/devcontainer.json
+```
+
+List all active machines:
+
+```bash
+node src/machinen.mjs logs
+```
+
+### Freeze and restore any container
+
+Works with any Docker container, not just devcontainers:
+
+```bash
+# Start a container locally
+docker run -d --name myapp --security-opt seccomp=unconfined ubuntu:24.04 \
+  bash -c 'i=0; while true; do echo "Counter: $i"; i=$((i+1)); sleep 2; done'
+
+# Freeze — checkpoint, package as Docker image layer, push to registry
+node src/machinen.mjs freeze myapp
+
+# Restore on Hetzner — pulls image, restores from checkpoint
+node src/machinen.mjs restore myapp
+
+# View logs on the remote
+node src/machinen.mjs logs myapp
+
+# Tear down
+node src/machinen.mjs destroy myapp
+```
+
+The counter picks up exactly where it left off.
+
+## How It Works
+
+### Sleep/wake handoff
+
+A compiled Swift helper (`src/power-helper.swift`) listens for macOS `NSWorkspace.willSleepNotification` and `didWakeNotification` events. On sleep, it takes a power assertion to delay sleep until the container migration completes.
+
+Background sync checkpoints the container non-destructively every 5 minutes (`Exit: false` — CRIU dumps memory without stopping the process) and pushes to the registry. This means on sleep, only a small delta needs to transfer.
+
+### Docker image layers
+
+Checkpoint data is packaged as a Docker image layer on top of the container's original image:
+
+```
+Layer 1: base image (ubuntu:24.04, node:22, etc.)  <- cached everywhere
+Layer 2: checkpoint (memory state, ~300KB-1MB)      <- only this transfers
+```
+
+Container config (image, cmd, env, network mode) is preserved in image labels so the container is recreated identically on the remote.
+
+### Telegram notifications
+
+Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` to receive notifications when your container migrates to/from Hetzner.
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `up [options]` | Start local devcontainer with sleep/wake cloud handoff |
+| `freeze <container>` | Checkpoint, package as image layer, push to registry |
+| `restore <container>` | Provision server, pull image, restore container |
+| `logs [container]` | Tail remote container logs, or list all active machines |
+| `destroy [name]` | Tear down a remote server (no args = destroy all) |
+
+### `up` options
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--file <path>` | auto-detected | Path to devcontainer.json |
+| `--name <name>` | from directory name | Container name |
+
+## Environment Variables
+
+| Variable | Required for | Description |
+|----------|-------------|-------------|
+| `HETZNER_API_TOKEN` | `up`, `restore`, `destroy` | Hetzner Cloud API token |
+| `MACHINEN_REGISTRY` | `up`, `freeze`, `restore` | Container registry URL |
+| `MACHINEN_REGISTRY_USER` | `restore` | Registry username for remote pull |
+| `MACHINEN_REGISTRY_PASSWORD` | `restore` | Registry password for remote pull |
+| `TELEGRAM_BOT_TOKEN` | notifications | Telegram bot token (from BotFather) |
+| `TELEGRAM_CHAT_ID` | notifications | Your Telegram chat ID |
+
+## Prerequisites
+
+- **macOS** with OrbStack (or Linux with Docker)
+- Docker experimental mode (auto-enabled on OrbStack)
+- CRIU (auto-installed on OrbStack, manual on Linux)
+- `gh` CLI authenticated (`gh auth login`)
+- Same CPU architecture on source and destination (ARM64 to ARM64)
+
+`@devcontainers/cli` is included as a dependency — no global install needed.
+
+On Linux, enable experimental mode and install CRIU manually:
+
+```bash
+sudo sh -c 'echo "{\"experimental\":true}" > /etc/docker/daemon.json'
+sudo systemctl restart docker
+sudo apt-get install -y criu
+```
+
+Containers must be started with `--security-opt seccomp=unconfined` for checkpointing to work.
+
+## Testing
+
+```bash
+pnpm test
+```
+
+## Known Limitations
+
+- **CPU architecture must match** between source and destination (ARM64 to ARM64)
+- **Open TCP sockets break** unless using a mesh network like Tailscale
+- **Bind mounts can't be checkpointed** — they need to be re-attached on restore
+- **Kernel version parity** — large kernel version gaps may cause restore failures
+- **CRIU on OrbStack** is not persisted across restarts — re-run preflight if OrbStack restarts
+- **Sleep timing** — power assertion delays sleep but macOS may force sleep after ~2 minutes
