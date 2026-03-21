@@ -5,10 +5,23 @@ import { execSync } from "child_process";
 import { minimatch } from "minimatch";
 import { parse as parseYaml } from "yaml";
 
-// @actions/workflow-parser imports JSON without `type: json` assertion,
-// which fails on Node.js v22+. Lazy-import it only in the two functions
-// that actually need it (getWorkflowTemplate, parseWorkflowSteps).
+// @actions/workflow-parser imports .json files without `with { type: "json" }`,
+// which Node 22+ rejects. Register a custom ESM loader hook that transparently
+// adds the missing attribute before we dynamically import the module.
+import { register } from "node:module";
+
+let hookRegistered = false;
+
 async function loadWorkflowParser() {
+  if (!hookRegistered) {
+    hookRegistered = true;
+    try {
+      register("../hooks/json-loader.js", import.meta.url);
+    } catch {
+      // In test environments (Vitest), the hook file may not resolve and
+      // Vite already handles JSON imports via its inline config.
+    }
+  }
   return await import("@actions/workflow-parser");
 }
 
