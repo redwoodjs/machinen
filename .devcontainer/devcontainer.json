@@ -1,0 +1,25 @@
+{
+  "name": "Machinen",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22",
+
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+
+  "postCreateCommand": "corepack enable && pnpm install",
+
+  "remoteUser": "node",
+
+  "mounts": [
+    "source=${localEnv:HOME}/.config/gh,target=/home/node/.config/gh,type=bind"
+  ],
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.vscode-typescript-next"
+      ]
+    }
+  }
+}

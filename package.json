@@ -1,0 +1,23 @@
+{
+  "name": "machinen",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "bin": {
+    "machinen": "./src/machinen.mjs"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.30.3",
+  "dependencies": {
+    "dockerode": "^4.0.4"
+  },
+  "devDependencies": {
+    "@devcontainers/cli": "^0.84.1",
+    "vitest": "^4.1.0"
+  }
+}
