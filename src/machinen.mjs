@@ -23,7 +23,8 @@ import {
   remoteRestore,
   remoteFreeze,
   ssh,
-} from "./hetzner.mjs";
+  getProvider,
+} from "./cloud.mjs";
 import { getRegistry, ensureDockerLogin, remoteDockerLogin } from "./registry.mjs";
 import { createPowerWatcher } from "./power.mjs";
 import { sendTelegram } from "./notify.mjs";
@@ -357,8 +358,12 @@ Commands:
   logs [container]      Tail remote container logs (or list containers)
   destroy [name]        Tear down the remote server
 
+Cloud provider (default: hetzner):
+  hcloud CLI            Install: brew install hcloud
+                        Auth: hcloud context create machinen
+
 Environment:
-  HETZNER_API_TOKEN     Hetzner Cloud API token
+  HCLOUD_TOKEN          Hetzner API token (alternative to hcloud context auth)
   TELEGRAM_BOT_TOKEN    Telegram bot token (optional, for notifications)
   TELEGRAM_CHAT_ID      Telegram chat ID (optional, for notifications)
 
