@@ -53,6 +53,67 @@ export async function createCheckpoint(containerName, { exit = true } = {}) {
   return { containerId, checkpointId, config: captureContainerConfig(info) };
 }
 
+/**
+ * Binary-safe replace of oldId → newId in all .img files under checkpointDir.
+ * Copies files out of the Docker VM, patches with Buffer, copies back.
+ */
+function patchCheckpointIds(checkpointDir, oldId, newId) {
+  const patchDir = fs.mkdtempSync(path.join(os.tmpdir(), "machinen-patch-"));
+  const tarPath = path.join(patchDir, "checkpoint-patch.tar");
+
+  try {
+    // Extract .img files from the checkpoint dir
+    try {
+      execSync(
+        `docker run --rm --privileged --pid=host alpine nsenter -t 1 -m sh -c "tar cf - -C ${checkpointDir} ." > ${tarPath}`,
+        { stdio: ["pipe", "pipe", "pipe"], shell: true }
+      );
+    } catch {
+      execSync(`tar cf ${tarPath} -C ${checkpointDir} .`, { stdio: "pipe" });
+    }
+
+    // Untar locally, patch, retar
+    const workDir = path.join(patchDir, "work");
+    fs.mkdirSync(workDir);
+    execSync(`tar xf ${tarPath} -C ${workDir}`, { stdio: "pipe" });
+
+    const oldBuf = Buffer.from(oldId, "utf-8");
+    const newBuf = Buffer.from(newId, "utf-8");
+
+    for (const file of fs.readdirSync(workDir)) {
+      if (!file.endsWith(".img")) continue;
+      const filePath = path.join(workDir, file);
+      const data = fs.readFileSync(filePath);
+      let offset = 0;
+      let patched = false;
+      while ((offset = data.indexOf(oldBuf, offset)) !== -1) {
+        newBuf.copy(data, offset);
+        offset += newBuf.length;
+        patched = true;
+      }
+      if (patched) {
+        fs.writeFileSync(filePath, data);
+        console.log(`  patched: ${file}`);
+      }
+    }
+
+    // Copy patched files back
+    const patchedTar = path.join(patchDir, "patched.tar");
+    execSync(`tar cf ${patchedTar} -C ${workDir} .`, { stdio: "pipe" });
+
+    try {
+      execSync(
+        `cat ${patchedTar} | docker run --rm -i --privileged --pid=host alpine nsenter -t 1 -m sh -c "tar xf - -C ${checkpointDir}"`,
+        { stdio: ["pipe", "pipe", "pipe"], shell: true }
+      );
+    } catch {
+      execSync(`tar xf ${patchedTar} -C ${checkpointDir}`, { stdio: "pipe" });
+    }
+  } finally {
+    fs.rmSync(patchDir, { recursive: true, force: true });
+  }
+}
+
 export function extractCheckpointFiles(containerId, checkpointId) {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "machinen-"));
   const tarPath = path.join(tmpDir, "checkpoint.tar");
@@ -211,23 +272,14 @@ export function restoreLocally(imageTag, containerName) {
 
   execSync("docker rm machinen-tmp", { stdio: "pipe" });
 
-  // Patch checkpoint: CRIU's mountpoints image contains hardcoded paths to the
-  // original container's /etc/hosts, /etc/hostname, /etc/resolv.conf mounts
-  // (e.g. /docker/containers/<old-id>/hosts).  Replace with the new container ID
-  // so CRIU can find them.
+  // Patch checkpoint: CRIU image files (protobuf binary) contain hardcoded
+  // paths with the original container ID (mountpoints, cgroups, etc.).
+  // Replace with the new container ID so CRIU can find them.
+  // Must be binary-safe (sed mangles protobuf data), so we use Node.js
+  // Buffer.replace on the host side.
   if (oldContainerId && oldContainerId !== newContainerId) {
-    console.log("Patching checkpoint mount references...");
-    const sedExpr = `s|${oldContainerId}|${newContainerId}|g`;
-    try {
-      // OrbStack: patch inside the Docker VM
-      execSync(
-        `docker run --rm --privileged --pid=host alpine nsenter -t 1 -m sh -c "find ${checkpointDir} -name 'mountpoints-*.img' -exec sed -i '${sedExpr}' {} +"`,
-        { stdio: "pipe" }
-      );
-    } catch {
-      // Native Linux
-      execSync(`find ${checkpointDir} -name 'mountpoints-*.img' -exec sed -i '${sedExpr}' {} +`, { stdio: "pipe" });
-    }
+    console.log("Patching checkpoint container ID references...");
+    patchCheckpointIds(checkpointDir, oldContainerId, newContainerId);
   }
 
   // Restore
