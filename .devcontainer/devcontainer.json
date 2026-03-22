@@ -1,0 +1,33 @@
+{
+  "name": "Agent CI",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22",
+
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+
+  "remoteUser": "node",
+
+  "mounts": [
+    "source=agent-ci-pnpm-store,target=/home/node/.local/share/pnpm/store,type=volume",
+    "source=${localEnv:HOME}/.claude.json,target=/home/node/.claude.json,type=bind",
+    "source=${localEnv:HOME}/.claude,target=/home/node/.claude,type=bind"
+  ],
+
+  "containerEnv": {
+    "PNPM_HOME": "/home/node/.local/share/pnpm",
+    "CLAUDE_CONFIG_DIR": "/home/node/.claude"
+  },
+
+  "postCreateCommand": "corepack enable && pnpm install && npm install -g @anthropic-ai/claude-code",
+
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-vscode.vscode-typescript-next", "oxc.oxc-vscode"],
+      "settings": {
+        "typescript.tsdk": "node_modules/typescript/lib"
+      }
+    }
+  }
+}
