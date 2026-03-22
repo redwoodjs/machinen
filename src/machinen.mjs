@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   docker,
+  captureContainerConfig,
   createCheckpoint,
   extractCheckpointFiles,
   buildCheckpointImage,
@@ -13,17 +14,15 @@ import {
   restoreLocally,
 } from "./docker.mjs";
 import { checkPrerequisites } from "./preflight.mjs";
+
+
 import {
-  loadState,
-  saveState,
-  deleteState,
-  listState,
+  listMachines,
   provisionServer,
   destroyServer,
   remoteRestore,
   remoteFreeze,
   ssh,
-  getProvider,
 } from "./cloud.mjs";
 import { getRegistry, ensureDockerLogin, remoteDockerLogin } from "./registry.mjs";
 import { createPowerWatcher } from "./power.mjs";
@@ -38,41 +37,87 @@ async function cmdFreeze(containerName) {
   const { url: registry } = getRegistry();
 
   console.log(`Freezing ${containerName}...`);
-  const { containerId, checkpointId, config } = await createCheckpoint(containerName);
+
+  // Step 1: Commit the running container to capture filesystem state
+  // (including bind-mounted files which won't survive checkpoint/restore)
+  const container = docker.getContainer(containerName);
+  const info = await container.inspect();
+  const commitImage = `${containerName}-committed`;
+  console.log("Committing container filesystem...");
+  execSync(`docker commit ${containerName} ${commitImage}`, { stdio: "pipe" });
+
+  // Step 2: Stop the original, create a clean copy without bind mounts, start it
+  const cleanName = `${containerName}-clean`;
+  try { execSync(`docker rm -f ${cleanName}`, { stdio: "pipe" }); } catch {}
+  execSync(`docker stop ${containerName}`, { stdio: "pipe" });
+
+  const config = captureContainerConfig(info);
+
+  // Run the committed image with its original entrypoint/cmd (no overrides)
+  execSync([
+    "docker run -d",
+    `--name ${cleanName}`,
+    "--security-opt seccomp=unconfined",
+    "--network host",
+    commitImage,
+  ].join(" "), { stdio: "pipe" });
+
+  // Give the process a moment to start
+  await new Promise(r => setTimeout(r, 1000));
+
+  // Step 3: Checkpoint the clean container (no OrbStack mounts)
+  const { containerId, checkpointId } = await createCheckpoint(cleanName);
   console.log(`Checkpoint: ${checkpointId}`);
 
   console.log("Extracting checkpoint files...");
   const { tmpDir, tarPath } = extractCheckpointFiles(containerId, checkpointId);
 
   try {
-    // Use existing imagePrefix from state, or fall back to container name
-    const state = loadState(containerName);
-    const prefix = state.imagePrefix || `${registry}/machinen/${containerName}`;
+    const prefix = `${registry}/machinen/${containerName}`;
     const tag = `${prefix}:${checkpointId}`;
     const latestTag = `${prefix}:latest`;
+    const baseTag = `${prefix}:base-${checkpointId}`;
+    const baseLatestTag = `${prefix}:base`;
 
-    buildCheckpointImage(tarPath, config.Image, config, checkpointId, tag);
+    // Push the committed image as the base — restore needs identical layers
+    execSync(`docker tag ${commitImage} ${baseTag}`, { stdio: "pipe" });
+    execSync(`docker tag ${commitImage} ${baseLatestTag}`, { stdio: "pipe" });
+    pushImage(baseTag);
+    pushImage(baseLatestTag);
+
+    buildCheckpointImage(tarPath, commitImage, config, checkpointId, tag, [], baseLatestTag, containerId);
     execSync(`docker tag ${tag} ${latestTag}`, { stdio: "pipe" });
 
     pushImage(tag);
     pushImage(latestTag);
 
-    saveState(containerName, { tag, latestTag, checkpointId, registry });
     console.log(`Frozen: ${tag}`);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
+    try { execSync(`docker rm -f ${cleanName}`, { stdio: "pipe" }); } catch {}
+    try { execSync(`docker rmi ${commitImage}`, { stdio: "pipe" }); } catch {}
   }
 }
 
 // --- restore ---
 
-async function cmdRestore(containerName) {
-  const state = loadState(containerName);
+async function cmdRestore(args) {
+  const containerName = args.container;
   const { url: registry } = getRegistry();
-  const prefix = state.imagePrefix || `${registry}/machinen/${containerName}`;
-  const imageTag = state.latestTag || `${prefix}:latest`;
+  const prefix = `${registry}/machinen/${containerName}`;
+  const imageTag = `${prefix}:latest`;
 
-  const ip = await provisionServer({ name: `machinen-${containerName}`, stateKey: containerName });
+  if (args.local) {
+    console.log(`Restoring ${containerName} locally from ${imageTag}...`);
+    pullImage(imageTag);
+    const restoredName = `${containerName}-restored`;
+    restoreLocally(imageTag, restoredName);
+    console.log(`\nRestored as: ${restoredName}`);
+    console.log(`Shell: docker exec -it ${restoredName} /bin/bash`);
+    return;
+  }
+
+  const ip = await provisionServer({ name: containerName });
   remoteDockerLogin(ssh, ip);
   remoteRestore(ip, containerName, imageTag, registry);
 
@@ -133,20 +178,22 @@ async function cmdUp(args) {
   const configPath = path.join(repoRoot, file);
 
   const repoName = path.basename(repoRoot);
-  let branch;
-  try {
-    branch = execSync("git rev-parse --abbrev-ref HEAD", { cwd: repoRoot, stdio: "pipe", encoding: "utf-8" }).trim();
-  } catch {
-    branch = "main";
+  let branch = args.container; // positional arg: machinen up <branch>
+  if (!branch) {
+    try {
+      branch = execSync("git rev-parse --abbrev-ref HEAD", { cwd: repoRoot, stdio: "pipe", encoding: "utf-8" }).trim();
+    } catch {
+      branch = "main";
+    }
   }
   // Image tag: ghcr.io/<user>/machinen/<repo>/<branch>
   const imagePrefix = `${registry}/machinen/${repoName}/${branch}`;
-  const containerName = args.name || `machinen-${repoName}-${branch}`;
+  const containerName = `machinen-${branch}`;
 
   await checkPrerequisites(docker);
 
   // Step 1: Start local devcontainer
-  console.log(`Starting local devcontainer from ${file}...`);
+  console.log(`Starting ${containerName} from ${file}...`);
   const upResult = spawnSync("npx", ["devcontainer",
     "up",
     "--workspace-folder", repoRoot,
@@ -159,22 +206,27 @@ async function cmdUp(args) {
     throw new Error("devcontainer up failed");
   }
 
-  // Get the container ID/name that devcontainer created
-  const dcContainer = execSync(
+  // Get the container ID/name that devcontainer created and rename it
+  const dcContainerOriginal = execSync(
     `docker ps --filter "label=devcontainer.local_folder=${repoRoot}" --format "{{.Names}}"`,
     { stdio: "pipe", encoding: "utf-8" }
   ).trim();
 
-  if (!dcContainer) {
+  if (!dcContainerOriginal) {
     throw new Error("Could not find devcontainer. Is it running?");
   }
 
-  console.log(`Devcontainer: ${dcContainer}`);
+  // Rename to machinen-<branch>
+  const dcContainer = containerName;
+  if (dcContainerOriginal !== dcContainer) {
+    try { execSync(`docker rm -f ${dcContainer}`, { stdio: "pipe" }); } catch {}
+    execSync(`docker rename ${dcContainerOriginal} ${dcContainer}`, { stdio: "pipe" });
+  }
+
+  console.log(`Container: ${dcContainer}`);
   console.log(`Image prefix: ${imagePrefix}`);
-  saveState(dcContainer, { registry, repoRoot, file, imagePrefix, repoName, branch });
 
   // Step 2: Start power watcher for sleep/wake handoff
-  const serverName = `machinen-${dcContainer}`;
   let remoteIp = null;
 
   console.log("Watching for sleep/wake events...");
@@ -183,29 +235,49 @@ async function cmdUp(args) {
       console.log("\nSleep detected — migrating to remote...");
 
       try {
-        // Freeze local container (stops it)
-        const { containerId, checkpointId, config } = await createCheckpoint(dcContainer);
+        // Commit the container to capture filesystem (including bind-mounted files)
+        const commitImage = `${dcContainer}-committed`;
+        console.log("Committing container filesystem...");
+        execSync(`docker commit ${dcContainer} ${commitImage}`, { stdio: "pipe" });
+
+        // Create a clean copy without bind mounts, checkpoint it
+        const cleanName = `${dcContainer}-clean`;
+        try { execSync(`docker rm -f ${cleanName}`, { stdio: "pipe" }); } catch {}
+        execSync(`docker stop ${dcContainer}`, { stdio: "pipe" });
+        execSync(`docker run -d --name ${cleanName} --security-opt seccomp=unconfined --network host ${commitImage} sleep infinity`, { stdio: "pipe" });
+        await new Promise(r => setTimeout(r, 1000));
+
+        const { containerId, checkpointId } = await createCheckpoint(cleanName);
         const { tmpDir, tarPath } = extractCheckpointFiles(containerId, checkpointId);
 
         try {
           const tag = `${imagePrefix}:${checkpointId}`;
           const latestTag = `${imagePrefix}:latest`;
-          buildCheckpointImage(tarPath, config.Image, config, checkpointId, tag);
+          const baseTag = `${imagePrefix}:base-${checkpointId}`;
+          const baseLatestTag = `${imagePrefix}:base`;
+
+          execSync(`docker tag ${commitImage} ${baseTag}`, { stdio: "pipe" });
+          execSync(`docker tag ${commitImage} ${baseLatestTag}`, { stdio: "pipe" });
+          pushImage(baseTag);
+          pushImage(baseLatestTag);
+
+          buildCheckpointImage(tarPath, commitImage, {}, checkpointId, tag, [], baseLatestTag, containerId);
           execSync(`docker tag ${tag} ${latestTag}`, { stdio: "pipe" });
           pushImage(tag);
           pushImage(latestTag);
 
           // Provision server now (only when we actually need it)
           console.log("Provisioning remote server...");
-          remoteIp = await provisionServer({ name: serverName, stateKey: dcContainer });
+          remoteIp = await provisionServer({ name: dcContainer });
           remoteDockerLogin(ssh, remoteIp);
 
           remoteRestore(remoteIp, dcContainer, latestTag, registry);
-          saveState(dcContainer, { tag, latestTag, checkpointId, registry, ip: remoteIp, serverName, mode: "remote" });
           await sendTelegram(`Your machine is running on Hetzner at ${remoteIp}`);
           console.log(`Remote restore complete: ${remoteIp}`);
         } finally {
           fs.rmSync(tmpDir, { recursive: true, force: true });
+          try { execSync(`docker rm -f ${cleanName}`, { stdio: "pipe" }); } catch {}
+          try { execSync(`docker rmi ${commitImage}`, { stdio: "pipe" }); } catch {}
         }
       } catch (err) {
         console.error("Sleep migration failed:", err.message);
@@ -214,24 +286,21 @@ async function cmdUp(args) {
 
     onWake: async () => {
       console.log("\nWake detected — migrating back to local...");
-      const state = loadState(dcContainer);
 
-      if (state.mode !== "remote" || !state.ip) {
+      if (!remoteIp) {
         console.log("No remote container to restore from.");
         return;
       }
 
       try {
-        const { latestTag } = remoteFreeze(state.ip, dcContainer, registry);
+        const { latestTag } = remoteFreeze(remoteIp, dcContainer, registry);
 
         pullImage(latestTag);
         restoreLocally(latestTag, dcContainer);
 
         console.log("Destroying remote server...");
-        await destroyServer(serverName, dcContainer);
+        destroyServer(dcContainer);
         remoteIp = null;
-
-        saveState(dcContainer, { registry, repoRoot, file, mode: "local" });
 
         console.log("Local restore complete.");
         await sendTelegram("Your machine is back on your laptop.");
@@ -256,9 +325,8 @@ async function cmdUp(args) {
       watcher.stop();
 
       // Destroy remote server if one was provisioned during sleep
-      const state = loadState(dcContainer);
-      if (state.ip) {
-        await destroyServer(serverName, dcContainer);
+      if (remoteIp) {
+        destroyServer(dcContainer);
       }
       resolve();
     });
@@ -270,20 +338,22 @@ async function cmdUp(args) {
 function cmdLogs(args) {
   const containerName = args.container;
   if (!containerName) {
-    const all = listState();
-    if (Object.keys(all).length === 0) {
+    const machines = listMachines();
+    if (machines.length === 0) {
       console.log("No active machines.");
       return;
     }
-    for (const [name, state] of Object.entries(all)) {
-      console.log(`${name}  mode=${state.mode || "local"}  ip=${state.ip || "-"}`);
+    for (const m of machines) {
+      console.log(`${m.name}  ${m.location}  ${m.ip || ""}  ${m.status || ""}`);
     }
     return;
   }
 
-  const state = loadState(containerName);
-  if (!state.ip) throw new Error(`No server for ${containerName}. Is it running remotely?`);
-  ssh(state.ip, `docker logs -f ${containerName}`);
+  // Check if there's a remote server for this container
+  const machines = listMachines();
+  const machine = machines.find(m => m.name === containerName && m.ip);
+  if (!machine) throw new Error(`No remote server for ${containerName}.`);
+  ssh(machine.ip, `docker logs -f ${containerName}`);
 }
 
 // --- destroy ---
@@ -291,16 +361,19 @@ function cmdLogs(args) {
 async function cmdDestroy(args) {
   const name = args.name || args.container;
   if (!name) {
-    const all = listState();
-    for (const [key, state] of Object.entries(all)) {
-      if (state.serverName) {
-        await destroyServer(state.serverName, key);
-      }
+    // Destroy all machinen servers
+    const machines = listMachines();
+    const remotes = machines.filter(m => m.ip);
+    if (remotes.length === 0) {
+      console.log("No remote servers to destroy.");
+      return;
+    }
+    for (const m of remotes) {
+      destroyServer(m.name);
     }
     return;
   }
-  const state = loadState(name);
-  await destroyServer(state.serverName || `machinen-${name}`, name);
+  destroyServer(name);
 }
 
 // --- arg parsing ---
@@ -340,7 +413,7 @@ async function main() {
   const commands = {
     up: cmdUp,
     freeze: (a) => cmdFreeze(a.container),
-    restore: (a) => cmdRestore(a.container),
+    restore: cmdRestore,
     logs: cmdLogs,
     destroy: cmdDestroy,
   };
@@ -349,14 +422,14 @@ async function main() {
     console.log(`Usage: machinen <command> [options]
 
 Commands:
-  up [options]          Start local devcontainer with sleep/wake cloud handoff
+  up [branch]           Start devcontainer for branch (default: current branch)
     --file <path>       Path to devcontainer.json (auto-detected from cwd)
-    --name <name>       Container name (default: derived from directory)
 
-  freeze <container>    Checkpoint, package as image, push to registry
-  restore <container>   Provision server, pull image, restore container
-  logs [container]      Tail remote container logs (or list containers)
-  destroy [name]        Tear down the remote server
+  freeze <name>         Checkpoint, package as image, push to registry
+  restore <name>        Provision server, pull image, restore container
+    --local             Restore locally into <name>-restored (for testing)
+  logs [name]           Tail remote container logs (or list machines)
+  destroy [name]        Tear down remote server (all if no name given)
 
 Cloud provider (default: hetzner):
   hcloud CLI            Install: brew install hcloud
