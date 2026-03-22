@@ -186,9 +186,11 @@ async function cmdUp(args) {
       branch = "main";
     }
   }
+  // Sanitize branch for Docker container names (only [a-zA-Z0-9_.-] allowed)
+  const safeBranch = branch.replace(/[^a-zA-Z0-9_.-]/g, "-");
   // Image tag: ghcr.io/<user>/machinen/<repo>/<branch>
-  const imagePrefix = `${registry}/machinen/${repoName}/${branch}`;
-  const containerName = `machinen-${branch}`;
+  const imagePrefix = `${registry}/machinen/${repoName}/${safeBranch}`;
+  const containerName = `machinen-${safeBranch}`;
 
   await checkPrerequisites(docker);
 
