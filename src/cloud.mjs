@@ -250,11 +250,20 @@ export function remoteRestore(ip, containerName, imageTag, registry) {
     `docker rm machinen-tmp`,
   ].join(" && "));
 
-  // Patch checkpoint: replace old container ID in mountpoints so CRIU can
-  // find /etc/hosts, /etc/hostname, /etc/resolv.conf in the new container
+  // Patch checkpoint: CRIU image files contain the original container ID.
+  // Replace with new ID so CRIU can find mounts and cgroups.
+  // Uses python3 for binary-safe replacement (sed mangles protobuf data).
   if (oldContainerId && oldContainerId !== newContainerId) {
-    console.log("Patching checkpoint mount references...");
-    ssh(ip, `find ${checkpointDir} -name 'mountpoints-*.img' -exec sed -i 's|${oldContainerId}|${newContainerId}|g' {} +`);
+    console.log("Patching checkpoint container ID references...");
+    ssh(ip, `python3 -c "
+import os, glob
+old, new = b'${oldContainerId}', b'${newContainerId}'
+for f in glob.glob('${checkpointDir}/*.img'):
+    d = open(f,'rb').read()
+    if old in d:
+        open(f,'wb').write(d.replace(old, new))
+        print('  patched:', os.path.basename(f))
+"`);
   }
 
   console.log("Restoring on remote...");
