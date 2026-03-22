@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 const execSyncMock = vi.fn((cmd) => {
   if (cmd.includes("gh api user")) return "testuser\n";
   if (cmd.includes("gh auth token")) return "gho_testtoken123\n";
+  if (cmd.includes("gh auth status")) return "  - Token scopes: 'repo', 'write:packages'\n";
   if (cmd.includes("docker login")) return "";
   return "";
 });

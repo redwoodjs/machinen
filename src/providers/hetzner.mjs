@@ -115,4 +115,11 @@ export default {
   deleteServer(idOrName) {
     hcloud(["server", "delete", String(idOrName)], { json: false });
   },
+
+  listServers(prefix) {
+    const servers = hcloud(["server", "list"]);
+    return servers
+      .filter((s) => s.name.startsWith(prefix))
+      .map((s) => ({ id: s.id, name: s.name, ip: s.public_net.ipv4.ip, status: s.status }));
+  },
 };
