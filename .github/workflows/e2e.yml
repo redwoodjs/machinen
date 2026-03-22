@@ -1,10 +1,9 @@
 name: E2E
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  # CRIU checkpoint/restore requires kernel-level access not available on
+  # GitHub-hosted runners.  Run locally via: npx agent-ci run -w .github/workflows/e2e.yml
+  workflow_dispatch:
 
 jobs:
   e2e:
