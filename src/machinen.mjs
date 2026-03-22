@@ -53,13 +53,17 @@ async function cmdFreeze(containerName) {
 
   const config = captureContainerConfig(info);
 
-  // Run the committed image with its original entrypoint/cmd (no overrides)
+  // Run the committed image with a simple sleep — the filesystem is already
+  // captured via commit, and a trivial process avoids CRIU failures from
+  // complex entrypoints (e.g. docker-init.sh in devcontainers).
   execSync([
     "docker run -d",
     `--name ${cleanName}`,
+    "--entrypoint sleep",
     "--security-opt seccomp=unconfined",
     "--network host",
     commitImage,
+    "infinity",
   ].join(" "), { stdio: "pipe" });
 
   // Give the process a moment to start
@@ -255,7 +259,7 @@ async function cmdUp(args) {
         const cleanName = `${dcContainer}-clean`;
         try { execSync(`docker rm -f ${cleanName}`, { stdio: "pipe" }); } catch {}
         execSync(`docker stop ${dcContainer}`, { stdio: "pipe" });
-        execSync(`docker run -d --name ${cleanName} --security-opt seccomp=unconfined --network host ${commitImage} sleep infinity`, { stdio: "pipe" });
+        execSync(`docker run -d --name ${cleanName} --entrypoint sleep --security-opt seccomp=unconfined --network host ${commitImage} infinity`, { stdio: "pipe" });
         await new Promise(r => setTimeout(r, 1000));
 
         const { containerId, checkpointId } = await createCheckpoint(cleanName);
