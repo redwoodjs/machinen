@@ -153,6 +153,15 @@ function detectDevcontainerFile(cwd) {
   return null;
 }
 
+function currentContainerName() {
+  try {
+    const branch = execSync("git rev-parse --abbrev-ref HEAD", { stdio: "pipe", encoding: "utf-8" }).trim();
+    return `machinen-${branch.replace(/[^a-zA-Z0-9_.-]/g, "-")}`;
+  } catch {
+    return null;
+  }
+}
+
 function detectRepoRoot(cwd) {
   try {
     return execSync("git rev-parse --show-toplevel", { cwd, stdio: "pipe", encoding: "utf-8" }).trim();
@@ -409,8 +418,8 @@ async function main() {
   const action = args._positional[0];
   const containerOrName = args._positional[1];
 
-  args.container = containerOrName;
-  args.name = args.name || containerOrName;
+  args.container = containerOrName || currentContainerName();
+  args.name = args.name || args.container;
 
   const commands = {
     up: cmdUp,
@@ -427,11 +436,13 @@ Commands:
   up [branch]           Start devcontainer for branch (default: current branch)
     --file <path>       Path to devcontainer.json (auto-detected from cwd)
 
-  freeze <name>         Checkpoint, package as image, push to registry
-  restore <name>        Provision server, pull image, restore container
+  freeze [name]         Checkpoint, package as image, push to registry
+  restore [name]        Provision server, pull image, restore container
     --local             Restore locally into <name>-restored (for testing)
   logs [name]           Tail remote container logs (or list machines)
   destroy [name]        Tear down remote server (all if no name given)
+
+All commands default to the current git branch if no name is given.
 
 Cloud provider (default: hetzner):
   hcloud CLI            Install: brew install hcloud
@@ -447,7 +458,7 @@ Registry: Uses ghcr.io via authenticated gh CLI (run 'gh auth login' first)`);
   }
 
   if ((action === "freeze" || action === "restore") && !args.container) {
-    console.error(`Container name required. Usage: machinen ${action} <container>`);
+    console.error(`Container name required (not in a git repo?). Usage: machinen ${action} <container>`);
     process.exit(1);
   }
 
