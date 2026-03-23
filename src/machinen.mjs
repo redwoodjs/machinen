@@ -53,6 +53,24 @@ async function cmdFreeze(containerName) {
 
   const config = captureContainerConfig(info);
 
+  // Extract bind-mounted files before stopping — docker commit won't capture them
+  const binds = (config.Binds || []).map(b => b.split(":")[1]).filter(Boolean);
+  const workspaceTmpDir = binds.length ? fs.mkdtempSync(path.join(os.tmpdir(), "machinen-ws-")) : null;
+  const savedBinds = [];
+  for (const containerPath of binds) {
+    const tarName = `bind-${containerPath.replace(/\//g, "_")}.tar`;
+    const tarPath = path.join(workspaceTmpDir, tarName);
+    try {
+      execSync(`docker cp ${containerName}:${containerPath} - > ${tarPath}`, {
+        stdio: ["pipe", "pipe", "pipe"], shell: true,
+      });
+      savedBinds.push({ containerPath, tarPath });
+      console.log(`Saved bind mount: ${containerPath}`);
+    } catch {
+      // Skip mounts that can't be copied (sockets, etc.)
+    }
+  }
+
   // Run the committed image with a simple sleep — the filesystem is already
   // captured via commit, and a trivial process avoids CRIU failures from
   // complex entrypoints (e.g. docker-init.sh in devcontainers).
@@ -65,6 +83,17 @@ async function cmdFreeze(containerName) {
     commitImage,
     "infinity",
   ].join(" "), { stdio: "pipe" });
+
+  // Copy bind-mounted files into the clean container so they're in the filesystem
+  for (const { containerPath, tarPath } of savedBinds) {
+    // docker cp expects the tar to extract into the parent directory
+    const parent = path.posix.dirname(containerPath);
+    execSync(`cat ${tarPath} | docker cp - ${cleanName}:${parent}`, {
+      stdio: ["pipe", "pipe", "pipe"], shell: true,
+    });
+    console.log(`Restored bind mount into clean container: ${containerPath}`);
+  }
+  if (workspaceTmpDir) fs.rmSync(workspaceTmpDir, { recursive: true, force: true });
 
   // Give the process a moment to start
   await new Promise(r => setTimeout(r, 1000));
@@ -255,16 +284,37 @@ async function cmdUp(args) {
       console.log("\nSleep detected — migrating to remote...");
 
       try {
-        // Commit the container to capture filesystem (including bind-mounted files)
+        // Commit the container to capture filesystem
         const commitImage = `${dcContainer}-committed`;
         console.log("Committing container filesystem...");
         execSync(`docker commit ${dcContainer} ${commitImage}`, { stdio: "pipe" });
+
+        // Extract bind-mounted files before stopping
+        const dcInfo = await docker.getContainer(dcContainer).inspect();
+        const dcBinds = (dcInfo.HostConfig.Binds || []).map(b => b.split(":")[1]).filter(Boolean);
+        const wsTmp = dcBinds.length ? fs.mkdtempSync(path.join(os.tmpdir(), "machinen-ws-")) : null;
+        const savedWs = [];
+        for (const cp of dcBinds) {
+          const tp = path.join(wsTmp, `bind-${cp.replace(/\//g, "_")}.tar`);
+          try {
+            execSync(`docker cp ${dcContainer}:${cp} - > ${tp}`, { stdio: ["pipe", "pipe", "pipe"], shell: true });
+            savedWs.push({ containerPath: cp, tarPath: tp });
+          } catch {}
+        }
 
         // Create a clean copy without bind mounts, checkpoint it
         const cleanName = `${dcContainer}-clean`;
         try { execSync(`docker rm -f ${cleanName}`, { stdio: "pipe" }); } catch {}
         execSync(`docker stop ${dcContainer}`, { stdio: "pipe" });
         execSync(`docker run -d --name ${cleanName} --entrypoint sleep --security-opt seccomp=unconfined --network host ${commitImage} infinity`, { stdio: "pipe" });
+
+        // Copy bind-mounted files into clean container
+        for (const { containerPath, tarPath: tp } of savedWs) {
+          const parent = path.posix.dirname(containerPath);
+          execSync(`cat ${tp} | docker cp - ${cleanName}:${parent}`, { stdio: ["pipe", "pipe", "pipe"], shell: true });
+        }
+        if (wsTmp) fs.rmSync(wsTmp, { recursive: true, force: true });
+
         await new Promise(r => setTimeout(r, 1000));
 
         const { containerId, checkpointId } = await createCheckpoint(cleanName);
