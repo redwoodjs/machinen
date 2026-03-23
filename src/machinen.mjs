@@ -633,7 +633,7 @@ Environment:
   }
 
   // Resolve container name
-  const containerName = args.container;
+  const containerName = args.container || currentContainerName();
   if (!containerName) {
     console.error(`[ERROR] No container name given and none could be auto-detected (not in a git repo?). Usage: machinen sync <container>`);
     process.exit(1);
