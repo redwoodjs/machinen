@@ -3,9 +3,6 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-const HETZNER_API = "https://api.hetzner.cloud/v1";
-const API_TOKEN = process.env.HETZNER_API_TOKEN;
-
 const CONTAINER_NAME = "session-poc";
 const IMAGE = "ubuntu:24.04";
 const CMD = `bash -c 'i=0; while true; do echo "Counter: $i"; i=$((i+1)); sleep 2; done'`;
@@ -14,11 +11,6 @@ const SERVER_NAME = "machinen-test";
 const SERVER_TYPE = "cax11";
 const LOCATION = "nbg1";
 const STATE_FILE = path.join(os.homedir(), ".machinen-remote-state.json");
-
-if (!API_TOKEN) {
-  console.error("Set HETZNER_API_TOKEN environment variable first.");
-  process.exit(1);
-}
 
 // --- State ---
 
@@ -36,23 +28,16 @@ function saveState(updates) {
   return state;
 }
 
-// --- Hetzner API ---
+// --- Hetzner CLI ---
 
-async function api(method, endpoint, body) {
-  const res = await fetch(`${HETZNER_API}${endpoint}`, {
-    method,
-    headers: {
-      Authorization: `Bearer ${API_TOKEN}`,
-      "Content-Type": "application/json",
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Hetzner API ${method} ${endpoint}: ${res.status} ${text}`);
+function hcloud(args, { json = true } = {}) {
+  const fullArgs = json ? [...args, "-o", "json"] : args;
+  const result = spawnSync("hcloud", fullArgs, { stdio: "pipe", encoding: "utf-8" });
+  if (result.status !== 0) {
+    throw new Error(`hcloud ${args.slice(0, 2).join(" ")} failed: ${result.stderr}`);
   }
-  if (res.status === 204) return null;
-  return res.json();
+  if (json && result.stdout.trim()) return JSON.parse(result.stdout);
+  return result.stdout;
 }
 
 // --- SSH ---
@@ -61,27 +46,36 @@ function findLocalSSHPubKey() {
   const sshDir = path.join(os.homedir(), ".ssh");
   for (const name of ["id_ed25519.pub", "id_rsa.pub", "id_ecdsa.pub"]) {
     const p = path.join(sshDir, name);
-    if (fs.existsSync(p)) return fs.readFileSync(p, "utf-8").trim();
+    if (fs.existsSync(p)) return { path: p, content: fs.readFileSync(p, "utf-8").trim() };
   }
   return null;
 }
 
-async function ensureSSHKey() {
-  const pubKey = findLocalSSHPubKey();
-  if (!pubKey) {
+function ensureSSHKey() {
+  const keyInfo = findLocalSSHPubKey();
+  if (!keyInfo) {
     console.error("No SSH public key found in ~/.ssh/");
     process.exit(1);
   }
 
-  const { ssh_keys } = await api("GET", "/ssh_keys");
-  const existing = ssh_keys.find((k) => k.public_key.trim() === pubKey);
+  const sshKeys = hcloud(["ssh-key", "list"]);
+  const existing = sshKeys.find((k) => k.public_key.trim() === keyInfo.content);
   if (existing) return existing.id;
 
-  const { ssh_key } = await api("POST", "/ssh_keys", {
-    name: `machinen-${os.hostname()}`,
-    public_key: pubKey,
-  });
-  return ssh_key.id;
+  const result = spawnSync("hcloud", [
+    "ssh-key", "create",
+    "--name", `machinen-${os.hostname()}`,
+    "--public-key-from-file", keyInfo.path,
+  ], { stdio: "pipe", encoding: "utf-8" });
+
+  if (result.status !== 0) {
+    throw new Error(`Failed to create SSH key: ${result.stderr}`);
+  }
+
+  const updatedKeys = hcloud(["ssh-key", "list"]);
+  const created = updatedKeys.find((k) => k.public_key.trim() === keyInfo.content);
+  if (!created) throw new Error("SSH key created but not found in list");
+  return created.id;
 }
 
 function ssh(ip, cmd, { stdio = "inherit" } = {}) {
@@ -120,55 +114,76 @@ touch /root/.machinen-ready
 `;
 
 async function cmdProvision() {
-  const sshKeyId = await ensureSSHKey();
+  const sshKeyId = ensureSSHKey();
 
-  const { servers } = await api("GET", `/servers?name=${SERVER_NAME}`);
-  if (servers.length > 0) {
-    const ip = servers[0].public_net.ipv4.ip;
+  // Check for existing server
+  const descResult = spawnSync("hcloud", ["server", "describe", SERVER_NAME, "-o", "json"], {
+    stdio: "pipe", encoding: "utf-8",
+  });
+  if (descResult.status === 0) {
+    const server = JSON.parse(descResult.stdout);
+    const ip = server.public_net.ipv4.ip;
     console.log(`Already exists: ${ip}`);
-    saveState({ serverId: servers[0].id, ip });
+    saveState({ serverId: server.id, ip });
     return;
   }
 
   console.log(`Creating ${SERVER_TYPE} in ${LOCATION}...`);
-  const { server } = await api("POST", "/servers", {
-    name: SERVER_NAME,
-    server_type: SERVER_TYPE,
-    image: "ubuntu-24.04",
-    location: LOCATION,
-    ssh_keys: [sshKeyId],
-    user_data: CLOUD_INIT,
-  });
 
-  const ip = server.public_net.ipv4.ip;
-  saveState({ serverId: server.id, ip });
-  console.log(`Server: ${ip}`);
-  console.log("Installing Docker + CRIU (streaming cloud-init log)...");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "machinen-"));
+  const cloudInitPath = path.join(tmpDir, "cloud-init.sh");
+  fs.writeFileSync(cloudInitPath, CLOUD_INIT);
 
-  const start = Date.now();
-  let lastLineCount = 0;
+  try {
+    const createResult = spawnSync("hcloud", [
+      "server", "create",
+      "--name", SERVER_NAME,
+      "--type", SERVER_TYPE,
+      "--image", "ubuntu-24.04",
+      "--location", LOCATION,
+      "--ssh-key", String(sshKeyId),
+      "--user-data-from-file", cloudInitPath,
+      "-o", "json",
+    ], { stdio: "pipe", encoding: "utf-8" });
 
-  while (Date.now() - start < 10 * 60 * 1000) {
-    const ready = ssh(ip, "cat /root/.machinen-ready 2>/dev/null", { stdio: "pipe" });
-    if (ready.status === 0) {
-      console.log(`Ready in ${((Date.now() - start) / 1000).toFixed(0)}s.`);
-      return;
+    if (createResult.status !== 0) {
+      throw new Error(`Failed to create server: ${createResult.stderr}`);
     }
 
-    const log = ssh(
-      ip,
-      `tail -n +${lastLineCount + 1} /var/log/cloud-init-output.log 2>/dev/null`,
-      { stdio: "pipe" }
-    );
-    if (log.status === 0 && log.stdout.trim()) {
-      const lines = log.stdout.trimEnd().split("\n");
-      for (const line of lines) console.log(`  ${line}`);
-      lastLineCount += lines.length;
-    }
+    const result = JSON.parse(createResult.stdout);
+    const server = result.server;
+    const ip = server.public_net.ipv4.ip;
+    saveState({ serverId: server.id, ip });
+    console.log(`Server: ${ip}`);
+    console.log("Installing Docker + CRIU (streaming cloud-init log)...");
 
-    await new Promise((r) => setTimeout(r, 5000));
+    const start = Date.now();
+    let lastLineCount = 0;
+
+    while (Date.now() - start < 10 * 60 * 1000) {
+      const ready = ssh(ip, "cat /root/.machinen-ready 2>/dev/null", { stdio: "pipe" });
+      if (ready.status === 0) {
+        console.log(`Ready in ${((Date.now() - start) / 1000).toFixed(0)}s.`);
+        return;
+      }
+
+      const log = ssh(
+        ip,
+        `tail -n +${lastLineCount + 1} /var/log/cloud-init-output.log 2>/dev/null`,
+        { stdio: "pipe" }
+      );
+      if (log.status === 0 && log.stdout.trim()) {
+        const lines = log.stdout.trimEnd().split("\n");
+        for (const line of lines) console.log(`  ${line}`);
+        lastLineCount += lines.length;
+      }
+
+      await new Promise((r) => setTimeout(r, 5000));
+    }
+    throw new Error("Timed out");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
   }
-  throw new Error("Timed out");
 }
 
 function cmdFreeze() {
@@ -218,14 +233,16 @@ function cmdLogs() {
   ssh(ip, `docker logs -f ${CONTAINER_NAME}`);
 }
 
-async function cmdDestroy() {
+function cmdDestroy() {
   const { serverId } = loadState();
-  if (!serverId) {
-    const { servers } = await api("GET", `/servers?name=${SERVER_NAME}`);
-    if (servers.length === 0) { console.log("Nothing to destroy."); return; }
-    await api("DELETE", `/servers/${servers[0].id}`);
+  if (serverId) {
+    hcloud(["server", "delete", String(serverId)], { json: false });
   } else {
-    await api("DELETE", `/servers/${serverId}`);
+    const descResult = spawnSync("hcloud", ["server", "describe", SERVER_NAME, "-o", "json"], {
+      stdio: "pipe", encoding: "utf-8",
+    });
+    if (descResult.status !== 0) { console.log("Nothing to destroy."); return; }
+    hcloud(["server", "delete", SERVER_NAME], { json: false });
   }
   try { fs.unlinkSync(STATE_FILE); } catch {}
   console.log("Destroyed.");

@@ -4,7 +4,7 @@ import {
   buildCheckpointImage,
   pushImage,
 } from "./docker.mjs";
-import { ssh, saveState } from "./hetzner.mjs";
+import { ssh } from "./cloud.mjs";
 import fs from "node:fs";
 
 const SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes
@@ -25,10 +25,18 @@ export function startBackgroundSync(containerName, registry, ip) {
       try {
         const tag = `${registry}/${containerName}:${checkpointId}`;
         const latestTag = `${registry}/${containerName}:latest`;
-
-        buildCheckpointImage(tarPath, config.Image, config, checkpointId, tag);
+        const baseTag = `${registry}/${containerName}:base-${checkpointId}`;
+        const baseLatestTag = `${registry}/${containerName}:base`;
 
         const { execSync } = await import("node:child_process");
+
+        // Push the running container's image as the base
+        execSync(`docker tag ${config.Image} ${baseTag}`, { stdio: "pipe" });
+        execSync(`docker tag ${config.Image} ${baseLatestTag}`, { stdio: "pipe" });
+        pushImage(baseTag);
+        pushImage(baseLatestTag);
+
+        buildCheckpointImage(tarPath, config.Image, config, checkpointId, tag, [], baseLatestTag, containerId);
         execSync(`docker tag ${tag} ${latestTag}`, { stdio: "pipe" });
 
         pushImage(tag);
@@ -40,7 +48,6 @@ export function startBackgroundSync(containerName, registry, ip) {
           ssh(ip, `docker pull ${latestTag}`, { stdio: "pipe" });
         }
 
-        saveState(containerName, { tag, latestTag, checkpointId, registry });
         console.log(`[sync] Synced: ${checkpointId}`);
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
