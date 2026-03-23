@@ -622,17 +622,7 @@ Environment:
   }
   const intervalMs = intervalS * 1000;
 
-  // Validate registry auth at startup
-  let registry;
-  try {
-    const { url } = getRegistry();
-    registry = url;
-  } catch (err) {
-    console.error(`[ERROR] Registry auth failed: ${err.message}`);
-    process.exit(1);
-  }
-
-  // Resolve container name
+  // Resolve container name first (before any auth)
   const containerName = args.container || currentContainerName();
   if (!containerName) {
     console.error(`[ERROR] No container name given and none could be auto-detected (not in a git repo?). Usage: machinen sync <container>`);
@@ -640,6 +630,16 @@ Environment:
   }
   if (!containerExists(containerName)) {
     console.error(`[ERROR] Container "${containerName}" not found in Docker.`);
+    process.exit(1);
+  }
+
+  // Validate registry auth at startup
+  let registry;
+  try {
+    const { url } = getRegistry();
+    registry = url;
+  } catch (err) {
+    console.error(`[ERROR] Registry auth failed: ${err.message}`);
     process.exit(1);
   }
 
