@@ -8,8 +8,8 @@ describe("startBackgroundSync", () => {
   it("can be stopped before first sync fires", async () => {
     // Mock the imports so we don't actually hit Docker
     vi.mock("../docker.mjs", () => ({
-      createCheckpoint: vi.fn(),
-      extractCheckpointFiles: vi.fn(),
+      dockerExec: vi.fn(),
+      prepareCheckpoint: vi.fn(),
       buildCheckpointImage: vi.fn(),
       pushImage: vi.fn(),
     }));

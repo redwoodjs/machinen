@@ -1,10 +1,20 @@
-import { execSync } from "node:child_process";
+import { execSync, execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import Docker from "dockerode";
 
 export const docker = new Docker({ socketPath: "/var/run/docker.sock" });
+
+/** Run a docker CLI command without shell interpolation. */
+export function dockerExec(args, opts = {}) {
+  return execFileSync("docker", args, { stdio: "pipe", encoding: "utf-8", ...opts });
+}
+
+/** Escape a value for safe inclusion in a shell string. */
+export function shellQuote(s) {
+  return "'" + s.replace(/'/g, "'\\''") + "'";
+}
 
 export function captureContainerConfig(info) {
   return {
@@ -65,17 +75,17 @@ function patchCheckpointIds(checkpointDir, oldId, newId) {
     // Extract .img files from the checkpoint dir
     try {
       execSync(
-        `docker run --rm --privileged --pid=host alpine nsenter -t 1 -m sh -c "tar cf - -C ${checkpointDir} ." > ${tarPath}`,
+        `docker run --rm --privileged --pid=host alpine nsenter -t 1 -m sh -c ${shellQuote("tar cf - -C " + checkpointDir + " .")} > ${shellQuote(tarPath)}`,
         { stdio: ["pipe", "pipe", "pipe"], shell: true }
       );
     } catch {
-      execSync(`tar cf ${tarPath} -C ${checkpointDir} .`, { stdio: "pipe" });
+      execFileSync("tar", ["cf", tarPath, "-C", checkpointDir, "."], { stdio: "pipe" });
     }
 
     // Untar locally, patch, retar
     const workDir = path.join(patchDir, "work");
     fs.mkdirSync(workDir);
-    execSync(`tar xf ${tarPath} -C ${workDir}`, { stdio: "pipe" });
+    execFileSync("tar", ["xf", tarPath, "-C", workDir], { stdio: "pipe" });
 
     const oldBuf = Buffer.from(oldId, "utf-8");
     const newBuf = Buffer.from(newId, "utf-8");
@@ -99,15 +109,15 @@ function patchCheckpointIds(checkpointDir, oldId, newId) {
 
     // Copy patched files back
     const patchedTar = path.join(patchDir, "patched.tar");
-    execSync(`tar cf ${patchedTar} -C ${workDir} .`, { stdio: "pipe" });
+    execFileSync("tar", ["cf", patchedTar, "-C", workDir, "."], { stdio: "pipe" });
 
     try {
       execSync(
-        `cat ${patchedTar} | docker run --rm -i --privileged --pid=host alpine nsenter -t 1 -m sh -c "tar xf - -C ${checkpointDir}"`,
+        `cat ${shellQuote(patchedTar)} | docker run --rm -i --privileged --pid=host alpine nsenter -t 1 -m sh -c ${shellQuote("tar xf - -C " + checkpointDir)}`,
         { stdio: ["pipe", "pipe", "pipe"], shell: true }
       );
     } catch {
-      execSync(`tar xf ${patchedTar} -C ${checkpointDir}`, { stdio: "pipe" });
+      execFileSync("tar", ["xf", patchedTar, "-C", checkpointDir], { stdio: "pipe" });
     }
   } finally {
     fs.rmSync(patchDir, { recursive: true, force: true });
@@ -127,12 +137,12 @@ export function extractCheckpointFiles(containerId, checkpointId) {
     // Try nsenter approach first (works on OrbStack and any Docker-in-VM setup).
     // Pipe the tar to stdout and write it on the host to avoid volume mount issues.
     execSync(
-      `docker run --rm --privileged --pid=host alpine nsenter -t 1 -m sh -c "tar cf - -C ${checkpointPath} ." > ${tarPath}`,
+      `docker run --rm --privileged --pid=host alpine nsenter -t 1 -m sh -c ${shellQuote("tar cf - -C " + checkpointPath + " .")} > ${shellQuote(tarPath)}`,
       { stdio: ["pipe", "pipe", "pipe"], shell: true }
     );
   } catch {
     // Fall back to direct filesystem access (native Linux)
-    execSync(`tar cf ${tarPath} -C ${checkpointPath} .`, { stdio: "pipe" });
+    execFileSync("tar", ["cf", tarPath, "-C", checkpointPath, "."], { stdio: "pipe" });
   }
 
   return { tmpDir, tarPath };
@@ -153,7 +163,7 @@ export function extractWorkspaceFiles(containerName, containerConfig) {
 
     try {
       // Copy files out of the container via docker cp
-      execSync(`docker cp ${containerName}:${containerPath} - > ${tarPath}`, {
+      execSync(`docker cp ${shellQuote(containerName + ":" + containerPath)} - > ${shellQuote(tarPath)}`, {
         stdio: ["pipe", "pipe", "pipe"],
         shell: true,
       });
@@ -195,28 +205,115 @@ ${workspaceAdds.join("\n")}
 
     // Build
     console.log(`Building image ${imageTag}...`);
-    execSync(`docker build -t ${imageTag} ${buildDir}`, { stdio: "inherit" });
+    dockerExec(["build", "-t", imageTag, buildDir], { stdio: "inherit" });
   } finally {
     fs.rmSync(buildDir, { recursive: true, force: true });
   }
 }
 
+/**
+ * Commit a running container, capture bind mounts, and produce a clean
+ * checkpoint image ready for push.  Optionally stops the original container
+ * (freeze) or leaves it running (background sync).
+ *
+ * Returns { config, commitImage, cleanName, containerId, checkpointId, tmpDir, tarPath }
+ * Caller is responsible for cleanup (tmpDir, cleanName, commitImage).
+ */
+export async function prepareCheckpoint(containerName, { stop = false } = {}) {
+  const container = docker.getContainer(containerName);
+  const info = await container.inspect();
+  const config = captureContainerConfig(info);
+  const commitImage = `${containerName}-committed`;
+
+  // Extract bind-mounted files while the container is still running.
+  // Devcontainers use info.Mounts (not HostConfig.Binds), so check both and dedupe.
+  const binds = [...new Set([
+    ...(config.Binds || []).map(b => b.split(":")[1]),
+    ...(info.Mounts || []).filter(m => m.Type === "bind").map(m => m.Destination),
+  ].filter(Boolean))];
+  const workspaceTmpDir = binds.length ? fs.mkdtempSync(path.join(os.tmpdir(), "machinen-ws-")) : null;
+  const savedBinds = [];
+  for (const containerPath of binds) {
+    const tarName = `bind-${containerPath.replace(/\//g, "_")}.tar`;
+    const tarPath = path.join(workspaceTmpDir, tarName);
+    try {
+      execSync(`docker cp ${shellQuote(containerName + ":" + containerPath)} - > ${shellQuote(tarPath)}`, {
+        stdio: ["pipe", "pipe", "pipe"], shell: true,
+      });
+      savedBinds.push({ containerPath, tarPath });
+      console.log(`Saved bind mount: ${containerPath}`);
+    } catch {
+      // Skip mounts that can't be copied (sockets, etc.)
+    }
+  }
+
+  // Commit the running container to capture filesystem state
+  console.log("Committing container filesystem...");
+  dockerExec(["commit", containerName, commitImage]);
+
+  const cleanName = `${containerName}-clean`;
+  try { dockerExec(["rm", "-f", cleanName]); } catch {}
+
+  if (stop) {
+    dockerExec(["stop", containerName]);
+  }
+
+  // Run the committed image with a simple sleep — the filesystem is already
+  // captured via commit, and a trivial process avoids CRIU failures from
+  // complex entrypoints (e.g. docker-init.sh in devcontainers).
+  dockerExec([
+    "run", "-d",
+    "--name", cleanName,
+    "--entrypoint", "sleep",
+    "--security-opt", "seccomp=unconfined",
+    "--network", "host",
+    commitImage,
+    "infinity",
+  ]);
+
+  // Copy bind-mounted files into the clean container so they're in the filesystem
+  for (const { containerPath, tarPath } of savedBinds) {
+    const parent = path.posix.dirname(containerPath);
+    execSync(`cat ${shellQuote(tarPath)} | docker cp - ${shellQuote(cleanName + ":" + parent)}`, {
+      stdio: ["pipe", "pipe", "pipe"], shell: true,
+    });
+    console.log(`Restored bind mount into clean container: ${containerPath}`);
+  }
+  if (workspaceTmpDir) fs.rmSync(workspaceTmpDir, { recursive: true, force: true });
+
+  // Re-commit so workspace files are baked into the image
+  // (CRIU only captures process state, not filesystem changes to the writable layer)
+  if (savedBinds.length > 0) {
+    console.log("Re-committing with workspace files...");
+    dockerExec(["commit", cleanName, commitImage]);
+  }
+
+  // Give the process a moment to start
+  await new Promise(r => setTimeout(r, 1000));
+
+  // Checkpoint the clean container
+  const { containerId, checkpointId } = await createCheckpoint(cleanName);
+  console.log(`Checkpoint: ${checkpointId}`);
+
+  console.log("Extracting checkpoint files...");
+  const { tmpDir, tarPath } = extractCheckpointFiles(containerId, checkpointId);
+
+  return { config, commitImage, cleanName, containerId, checkpointId, tmpDir, tarPath };
+}
+
 export function pushImage(imageTag) {
   console.log(`Pushing ${imageTag}...`);
-  execSync(`docker push ${imageTag}`, { stdio: "inherit" });
+  dockerExec(["push", imageTag], { stdio: "inherit" });
 }
 
 export function pullImage(imageTag) {
   console.log(`Pulling ${imageTag}...`);
-  execSync(`docker pull ${imageTag}`, { stdio: "inherit" });
+  dockerExec(["pull", imageTag], { stdio: "inherit" });
 }
 
 export function restoreLocally(imageTag, containerName) {
   // Read labels from the checkpoint image
-  const labelsRaw = execSync(
-    `docker inspect --format '{{json .Config.Labels}}' ${imageTag}`,
-    { stdio: "pipe", encoding: "utf-8" }
-  ).trim();
+  const labelsRaw = dockerExec(["inspect", "--format", "{{json .Config.Labels}}", imageTag]).trim();
   const labels = JSON.parse(labelsRaw);
 
   const config = JSON.parse(labels["machinen.config"]);
@@ -234,43 +331,39 @@ export function restoreLocally(imageTag, containerName) {
   }
 
   // Remove existing container
-  try {
-    execSync(`docker rm -f ${containerName}`, { stdio: "pipe" });
-  } catch {}
+  try { dockerExec(["rm", "-f", containerName]); } catch {}
 
-  const createCmd = [
-    "docker create",
-    `--name ${containerName}`,
-    "--security-opt seccomp=unconfined",
-    "--network host",
+  const newContainerId = dockerExec([
+    "create",
+    "--name", containerName,
+    "--security-opt", "seccomp=unconfined",
+    "--network", "host",
     createImage,
-  ].join(" ");
-
-  const newContainerId = execSync(createCmd, { stdio: "pipe", encoding: "utf-8" }).trim();
+  ]).trim();
 
   // Extract checkpoint from image into Docker's internal checkpoint directory
-  try { execSync("docker rm -f machinen-tmp", { stdio: "pipe" }); } catch {}
-  execSync(`docker create --name machinen-tmp ${imageTag}`, { stdio: "pipe" });
+  try { dockerExec(["rm", "-f", "machinen-tmp"]); } catch {}
+  dockerExec(["create", "--name", "machinen-tmp", imageTag]);
 
   const checkpointDir = `/var/lib/docker/containers/${newContainerId}/checkpoints/${checkpointId}`;
 
   try {
     // OrbStack: use nsenter to access Docker's internal storage
-    execSync(
-      `docker run --rm --privileged --pid=host alpine nsenter -t 1 -m sh -c "mkdir -p ${checkpointDir}"`,
-      { stdio: "pipe" }
-    );
-    execSync(`docker cp machinen-tmp:/checkpoint/. - | docker run --rm -i --privileged --pid=host alpine nsenter -t 1 -m sh -c "tar xf - -C ${checkpointDir}"`, {
+    dockerExec([
+      "run", "--rm", "--privileged", "--pid=host", "alpine",
+      "nsenter", "-t", "1", "-m", "sh", "-c", `mkdir -p ${checkpointDir}`,
+    ]);
+    execSync(`docker cp machinen-tmp:/checkpoint/. - | docker run --rm -i --privileged --pid=host alpine nsenter -t 1 -m sh -c ${shellQuote("tar xf - -C " + checkpointDir)}`, {
       stdio: "pipe",
       shell: true,
     });
   } catch {
     // Native Linux: direct access
-    execSync(`mkdir -p ${checkpointDir}`, { stdio: "pipe" });
-    execSync(`docker cp machinen-tmp:/checkpoint/. ${checkpointDir}/`, { stdio: "pipe" });
+    execFileSync("mkdir", ["-p", checkpointDir], { stdio: "pipe" });
+    dockerExec(["cp", "machinen-tmp:/checkpoint/.", `${checkpointDir}/`]);
   }
 
-  execSync("docker rm machinen-tmp", { stdio: "pipe" });
+  dockerExec(["rm", "machinen-tmp"]);
 
   // Patch checkpoint: CRIU image files (protobuf binary) contain hardcoded
   // paths with the original container ID (mountpoints, cgroups, etc.).
@@ -283,7 +376,7 @@ export function restoreLocally(imageTag, containerName) {
   }
 
   // Restore
-  execSync(`docker start --checkpoint ${checkpointId} ${containerName}`, { stdio: "inherit" });
+  dockerExec(["start", "--checkpoint", checkpointId, containerName], { stdio: "inherit" });
 
   return { newContainerId, checkpointId };
 }

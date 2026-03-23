@@ -1,6 +1,6 @@
 import {
-  createCheckpoint,
-  extractCheckpointFiles,
+  dockerExec,
+  prepareCheckpoint,
   buildCheckpointImage,
   pushImage,
 } from "./docker.mjs";
@@ -9,6 +9,10 @@ import fs from "node:fs";
 
 const SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
+function isAuthError(msg) {
+  return /write:packages|unauthorized|authentication required|no basic auth credentials|requested access to the resource is denied|denied:|not authorized|not authorised|access denied|401\b|403\b/i.test(msg);
+}
+
 export function startBackgroundSync(containerName, registry, ip) {
   let running = true;
   let timer;
@@ -16,11 +20,9 @@ export function startBackgroundSync(containerName, registry, ip) {
   async function sync() {
     if (!running) return;
     try {
-      console.log("[sync] Creating non-destructive checkpoint...");
-      const { containerId, checkpointId, config } = await createCheckpoint(containerName, { exit: false });
-
-      console.log("[sync] Extracting checkpoint files...");
-      const { tmpDir, tarPath } = extractCheckpointFiles(containerId, checkpointId);
+      console.log("[sync] Preparing checkpoint...");
+      const { config, commitImage, cleanName, containerId, checkpointId, tmpDir, tarPath } =
+        await prepareCheckpoint(containerName, { stop: false });
 
       try {
         const tag = `${registry}/${containerName}:${checkpointId}`;
@@ -28,16 +30,14 @@ export function startBackgroundSync(containerName, registry, ip) {
         const baseTag = `${registry}/${containerName}:base-${checkpointId}`;
         const baseLatestTag = `${registry}/${containerName}:base`;
 
-        const { execSync } = await import("node:child_process");
-
-        // Push the running container's image as the base
-        execSync(`docker tag ${config.Image} ${baseTag}`, { stdio: "pipe" });
-        execSync(`docker tag ${config.Image} ${baseLatestTag}`, { stdio: "pipe" });
+        // Push the committed image as the base — restore needs identical layers
+        dockerExec(["tag", commitImage, baseTag]);
+        dockerExec(["tag", commitImage, baseLatestTag]);
         pushImage(baseTag);
         pushImage(baseLatestTag);
 
-        buildCheckpointImage(tarPath, config.Image, config, checkpointId, tag, [], baseLatestTag, containerId);
-        execSync(`docker tag ${tag} ${latestTag}`, { stdio: "pipe" });
+        buildCheckpointImage(tarPath, commitImage, config, checkpointId, tag, [], baseLatestTag, containerId);
+        dockerExec(["tag", tag, latestTag]);
 
         pushImage(tag);
         pushImage(latestTag);
@@ -51,9 +51,14 @@ export function startBackgroundSync(containerName, registry, ip) {
         console.log(`[sync] Synced: ${checkpointId}`);
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
+        try { dockerExec(["rm", "-f", cleanName]); } catch {}
+        try { dockerExec(["rmi", commitImage]); } catch {}
       }
     } catch (err) {
       console.error("[sync] Failed:", err.message);
+      if (isAuthError(err.message)) {
+        console.error("[sync] This looks like an auth error. Try: gh auth refresh -s write:packages");
+      }
     }
 
     if (running) {
