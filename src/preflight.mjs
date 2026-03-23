@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
+import { getProvider } from "./cloud.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const scriptsDir = path.join(__dirname, "..", "scripts");
@@ -81,6 +82,8 @@ function installCRIUInDockerVM() {
 }
 
 export async function checkPrerequisites(docker) {
+  getProvider().checkAuth();
+
   const info = await docker.info();
   const isOrbStack =
     info.Name?.includes("orbstack") ||

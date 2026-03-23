@@ -13,10 +13,8 @@ describe("startBackgroundSync", () => {
       buildCheckpointImage: vi.fn(),
       pushImage: vi.fn(),
     }));
-    vi.mock("../hetzner.mjs", () => ({
+    vi.mock("../cloud.mjs", () => ({
       ssh: vi.fn(),
-      loadState: vi.fn(() => ({})),
-      saveState: vi.fn(),
     }));
 
     const { startBackgroundSync } = await import("../sync.mjs");

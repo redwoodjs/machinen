@@ -53,6 +53,67 @@ export async function createCheckpoint(containerName, { exit = true } = {}) {
   return { containerId, checkpointId, config: captureContainerConfig(info) };
 }
 
+/**
+ * Binary-safe replace of oldId → newId in all .img files under checkpointDir.
+ * Copies files out of the Docker VM, patches with Buffer, copies back.
+ */
+function patchCheckpointIds(checkpointDir, oldId, newId) {
+  const patchDir = fs.mkdtempSync(path.join(os.tmpdir(), "machinen-patch-"));
+  const tarPath = path.join(patchDir, "checkpoint-patch.tar");
+
+  try {
+    // Extract .img files from the checkpoint dir
+    try {
+      execSync(
+        `docker run --rm --privileged --pid=host alpine nsenter -t 1 -m sh -c "tar cf - -C ${checkpointDir} ." > ${tarPath}`,
+        { stdio: ["pipe", "pipe", "pipe"], shell: true }
+      );
+    } catch {
+      execSync(`tar cf ${tarPath} -C ${checkpointDir} .`, { stdio: "pipe" });
+    }
+
+    // Untar locally, patch, retar
+    const workDir = path.join(patchDir, "work");
+    fs.mkdirSync(workDir);
+    execSync(`tar xf ${tarPath} -C ${workDir}`, { stdio: "pipe" });
+
+    const oldBuf = Buffer.from(oldId, "utf-8");
+    const newBuf = Buffer.from(newId, "utf-8");
+
+    for (const file of fs.readdirSync(workDir)) {
+      if (!file.endsWith(".img")) continue;
+      const filePath = path.join(workDir, file);
+      const data = fs.readFileSync(filePath);
+      let offset = 0;
+      let patched = false;
+      while ((offset = data.indexOf(oldBuf, offset)) !== -1) {
+        newBuf.copy(data, offset);
+        offset += newBuf.length;
+        patched = true;
+      }
+      if (patched) {
+        fs.writeFileSync(filePath, data);
+        console.log(`  patched: ${file}`);
+      }
+    }
+
+    // Copy patched files back
+    const patchedTar = path.join(patchDir, "patched.tar");
+    execSync(`tar cf ${patchedTar} -C ${workDir} .`, { stdio: "pipe" });
+
+    try {
+      execSync(
+        `cat ${patchedTar} | docker run --rm -i --privileged --pid=host alpine nsenter -t 1 -m sh -c "tar xf - -C ${checkpointDir}"`,
+        { stdio: ["pipe", "pipe", "pipe"], shell: true }
+      );
+    } catch {
+      execSync(`tar xf ${patchedTar} -C ${checkpointDir}`, { stdio: "pipe" });
+    }
+  } finally {
+    fs.rmSync(patchDir, { recursive: true, force: true });
+  }
+}
+
 export function extractCheckpointFiles(containerId, checkpointId) {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "machinen-"));
   const tarPath = path.join(tmpDir, "checkpoint.tar");
@@ -63,10 +124,11 @@ export function extractCheckpointFiles(containerId, checkpointId) {
   const checkpointPath = `/var/lib/docker/containers/${containerId}/checkpoints/${checkpointId}`;
 
   try {
-    // Try nsenter approach first (works on OrbStack and any Docker-in-VM setup)
+    // Try nsenter approach first (works on OrbStack and any Docker-in-VM setup).
+    // Pipe the tar to stdout and write it on the host to avoid volume mount issues.
     execSync(
-      `docker run --rm --privileged --pid=host -v ${tmpDir}:/out alpine nsenter -t 1 -m sh -c "tar cf /out/checkpoint.tar -C ${checkpointPath} ."`,
-      { stdio: "pipe" }
+      `docker run --rm --privileged --pid=host alpine nsenter -t 1 -m sh -c "tar cf - -C ${checkpointPath} ." > ${tarPath}`,
+      { stdio: ["pipe", "pipe", "pipe"], shell: true }
     );
   } catch {
     // Fall back to direct filesystem access (native Linux)
@@ -76,12 +138,47 @@ export function extractCheckpointFiles(containerId, checkpointId) {
   return { tmpDir, tarPath };
 }
 
-export function buildCheckpointImage(tarPath, originalImage, containerConfig, checkpointId, imageTag) {
+export function extractWorkspaceFiles(containerName, containerConfig) {
+  const binds = containerConfig.Binds || [];
+  const workspaceTars = [];
+
+  for (const bind of binds) {
+    // Bind format: "/host/path:/container/path:options"
+    const parts = bind.split(":");
+    const containerPath = parts[1];
+    if (!containerPath) continue;
+
+    const tarName = `workspace-${containerPath.replace(/\//g, "_")}.tar`;
+    const tarPath = path.join(os.tmpdir(), tarName);
+
+    try {
+      // Copy files out of the container via docker cp
+      execSync(`docker cp ${containerName}:${containerPath} - > ${tarPath}`, {
+        stdio: ["pipe", "pipe", "pipe"],
+        shell: true,
+      });
+      workspaceTars.push({ containerPath, tarPath, tarName });
+    } catch {
+      // Skip mounts that can't be copied (e.g., sockets)
+    }
+  }
+
+  return workspaceTars;
+}
+
+export function buildCheckpointImage(tarPath, originalImage, containerConfig, checkpointId, imageTag, workspaceTars = [], baseImageTag = "", checkpointedContainerId = "") {
   const buildDir = fs.mkdtempSync(path.join(os.tmpdir(), "machinen-build-"));
 
   try {
     // Copy the checkpoint tar into the build context
     fs.copyFileSync(tarPath, path.join(buildDir, "checkpoint.tar"));
+
+    // Copy workspace tars into build context
+    const workspaceAdds = [];
+    for (const { tarPath: wTar, tarName } of workspaceTars) {
+      fs.copyFileSync(wTar, path.join(buildDir, tarName));
+      workspaceAdds.push(`ADD ${tarName} /workspace-data/`);
+    }
 
     // Write Dockerfile
     const configJson = JSON.stringify(containerConfig).replace(/'/g, "'\\''");
@@ -89,7 +186,10 @@ export function buildCheckpointImage(tarPath, originalImage, containerConfig, ch
 LABEL machinen.config='${configJson}'
 LABEL machinen.checkpoint-id='${checkpointId}'
 LABEL machinen.original-image='${originalImage}'
+LABEL machinen.base-image='${baseImageTag}'
+LABEL machinen.container-id='${checkpointedContainerId}'
 ADD checkpoint.tar /checkpoint/
+${workspaceAdds.join("\n")}
 `;
     fs.writeFileSync(path.join(buildDir, "Dockerfile"), dockerfile);
 
@@ -121,32 +221,30 @@ export function restoreLocally(imageTag, containerName) {
 
   const config = JSON.parse(labels["machinen.config"]);
   const checkpointId = labels["machinen.checkpoint-id"];
-  const originalImage = labels["machinen.original-image"];
+  const baseImageTag = labels["machinen.base-image"];
+  const oldContainerId = labels["machinen.container-id"];
+
+  // The restore container must use the same image layers as the checkpointed
+  // container.  The checkpoint was taken against the committed (base) image,
+  // so we pull and create from that.  Fall back to imageTag for old images
+  // that don't carry the base-image label.
+  const createImage = baseImageTag || imageTag;
+  if (baseImageTag) {
+    pullImage(baseImageTag);
+  }
 
   // Remove existing container
   try {
     execSync(`docker rm -f ${containerName}`, { stdio: "pipe" });
   } catch {}
 
-  // Recreate container with original config
-  const envFlags = (config.Env || [])
-    .filter((e) => !e.startsWith("PATH=") && !e.startsWith("HOME="))
-    .map((e) => `-e ${JSON.stringify(e)}`)
-    .join(" ");
-  const networkFlag = config.NetworkMode ? `--network ${config.NetworkMode}` : "";
-  const workdirFlag = config.WorkingDir ? `-w ${config.WorkingDir}` : "";
-  const cmd = (config.Cmd || []).map((c) => JSON.stringify(c)).join(" ");
-
   const createCmd = [
     "docker create",
     `--name ${containerName}`,
     "--security-opt seccomp=unconfined",
-    networkFlag,
-    workdirFlag,
-    envFlags,
-    originalImage,
-    cmd,
-  ].filter(Boolean).join(" ");
+    "--network host",
+    createImage,
+  ].join(" ");
 
   const newContainerId = execSync(createCmd, { stdio: "pipe", encoding: "utf-8" }).trim();
 
@@ -157,7 +255,7 @@ export function restoreLocally(imageTag, containerName) {
   const checkpointDir = `/var/lib/docker/containers/${newContainerId}/checkpoints/${checkpointId}`;
 
   try {
-    // OrbStack: use nsenter to create dir and copy
+    // OrbStack: use nsenter to access Docker's internal storage
     execSync(
       `docker run --rm --privileged --pid=host alpine nsenter -t 1 -m sh -c "mkdir -p ${checkpointDir}"`,
       { stdio: "pipe" }
@@ -173,6 +271,16 @@ export function restoreLocally(imageTag, containerName) {
   }
 
   execSync("docker rm machinen-tmp", { stdio: "pipe" });
+
+  // Patch checkpoint: CRIU image files (protobuf binary) contain hardcoded
+  // paths with the original container ID (mountpoints, cgroups, etc.).
+  // Replace with the new container ID so CRIU can find them.
+  // Must be binary-safe (sed mangles protobuf data), so we use Node.js
+  // Buffer.replace on the host side.
+  if (oldContainerId && oldContainerId !== newContainerId) {
+    console.log("Patching checkpoint container ID references...");
+    patchCheckpointIds(checkpointDir, oldContainerId, newContainerId);
+  }
 
   // Restore
   execSync(`docker start --checkpoint ${checkpointId} ${containerName}`, { stdio: "inherit" });

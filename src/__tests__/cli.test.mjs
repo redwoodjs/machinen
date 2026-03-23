@@ -24,18 +24,19 @@ describe("CLI", () => {
     }
   });
 
-  it("freeze requires container name", () => {
+  it("freeze requires container name outside git repo", () => {
     try {
-      execSync(`node ${cli} freeze`, { encoding: "utf-8", stdio: "pipe" });
+      // Run from /tmp so git branch auto-detect fails
+      execSync(`node ${cli} freeze`, { encoding: "utf-8", stdio: "pipe", cwd: "/tmp" });
     } catch (err) {
       expect(err.stderr || err.stdout).toContain("Container name required");
       expect(err.status).toBe(1);
     }
   });
 
-  it("restore requires container name", () => {
+  it("restore requires container name outside git repo", () => {
     try {
-      execSync(`node ${cli} restore`, { encoding: "utf-8", stdio: "pipe" });
+      execSync(`node ${cli} restore`, { encoding: "utf-8", stdio: "pipe", cwd: "/tmp" });
     } catch (err) {
       expect(err.stderr || err.stdout).toContain("Container name required");
       expect(err.status).toBe(1);
