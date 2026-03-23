@@ -137,6 +137,21 @@ describe("sync command — interval flag", () => {
       expect(err.status).toBe(1);
     }
   });
+
+  it("accepts a valid positive integer --interval without an interval-validation error", () => {
+    // In /tmp there is no container, so we expect exit 1 with a container
+    // error — NOT an interval-validation error. This confirms that a valid
+    // numeric interval passes the validation gate.
+    try {
+      runInTmp("sync --interval 60");
+      // If sync somehow succeeds (no container required), that's also fine.
+    } catch (err) {
+      expect(err.status).toBe(1);
+      const output = (err.stderr || "") + (err.stdout || "");
+      // Error must be about the container, not about the interval value.
+      expect(output.toLowerCase()).not.toMatch(/invalid.*interval|interval.*invalid/);
+    }
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -190,7 +205,34 @@ describe("sync command — startup output", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 6. Error recovery (E2E)
+// 6. --once flag
+// ─────────────────────────────────────────────────────────────────────────────
+describe("sync command — --once flag", () => {
+  it("exits with code 1 (not a hang) when --once is used and no container is detectable", async () => {
+    const result = await spawnAndSignal("sync --once", "SIGTERM", 3000);
+    // Process must not time out — it should exit on its own once it detects
+    // no container, rather than looping indefinitely.
+    expect(result.timedOut).toBeFalsy();
+  });
+
+  it("does not accept --once together with an invalid --interval", () => {
+    try {
+      runInTmp("sync --once --interval xyz");
+      expect.fail("expected non-zero exit");
+    } catch (err) {
+      expect(err.status).toBe(1);
+    }
+  });
+
+  // Full --once verification (sync runs exactly once then exits 0) requires a
+  // live container and registry.
+  it.todo(
+    "syncs exactly once and exits 0 when --once is passed and a container is available (E2E only)"
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 7. Error recovery (E2E)
 // ─────────────────────────────────────────────────────────────────────────────
 describe("sync command — error recovery", () => {
   it.todo(
@@ -202,7 +244,27 @@ describe("sync command — error recovery", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 7. Restore integration (E2E)
+// 8. Status file (E2E)
+// ─────────────────────────────────────────────────────────────────────────────
+describe("sync command — status file", () => {
+  // The status file is written by the daemon after each sync so that other
+  // commands (e.g. restore) can check freshness without IPC.
+  it.todo(
+    "writes a status JSON file at the expected path after the first successful sync (E2E only)"
+  );
+  it.todo(
+    "status file contains: lastSync (ISO timestamp), lastSyncSuccess (boolean), container (string), registry (string) (E2E only)"
+  );
+  it.todo(
+    "status file is updated (not replaced) after each subsequent sync (E2E only)"
+  );
+  it.todo(
+    "status file remains on disk after the daemon exits, so restore can inspect the last known state (E2E only)"
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 9. Restore integration (E2E)
 // ─────────────────────────────────────────────────────────────────────────────
 describe("sync command — restore integration", () => {
   it.todo(
