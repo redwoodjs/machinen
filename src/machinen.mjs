@@ -348,6 +348,44 @@ async function cmdUp(args) {
   });
 }
 
+// --- open ---
+
+function cmdOpen(args) {
+  const containerName = args.container;
+
+  // Check for a running local container (try both <name> and <name>-restored)
+  for (const name of [containerName, `${containerName}-restored`]) {
+    try {
+      const status = execSync(
+        `docker inspect --format '{{.State.Status}}' ${name}`,
+        { stdio: "pipe", encoding: "utf-8" }
+      ).trim();
+      if (status === "running") {
+        console.log(`Opening shell in local container ${name}...`);
+        const shell = spawnSync("docker", ["exec", "-it", name, "/bin/bash"], { stdio: "inherit" });
+        process.exit(shell.status || 0);
+      }
+    } catch {}
+  }
+
+  // Check for a remote server
+  const machines = listMachines();
+  const machine = machines.find(m => m.name === containerName && m.ip);
+  if (machine) {
+    console.log(`Opening shell on remote server ${machine.ip}...`);
+    const shell = spawnSync(
+      "ssh",
+      ["-t", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "LogLevel=ERROR",
+       `root@${machine.ip}`, `docker exec -it ${containerName} /bin/bash`],
+      { stdio: "inherit" }
+    );
+    process.exit(shell.status || 0);
+  }
+
+  console.error(`No running container or remote server found for ${containerName}.`);
+  process.exit(1);
+}
+
 // --- logs ---
 
 function cmdLogs(args) {
@@ -429,6 +467,7 @@ async function main() {
     up: cmdUp,
     freeze: (a) => cmdFreeze(a.container),
     restore: cmdRestore,
+    open: cmdOpen,
     logs: cmdLogs,
     destroy: cmdDestroy,
   };
@@ -443,6 +482,7 @@ Commands:
   freeze [name]         Checkpoint, package as image, push to registry
   restore [name]        Provision server, pull image, restore container
     --local             Restore locally into <name>-restored (for testing)
+  open [name]           Open shell in container (local or remote)
   logs [name]           Tail remote container logs (or list machines)
   destroy [name]        Tear down remote server (all if no name given)
 
