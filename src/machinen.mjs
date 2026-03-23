@@ -44,17 +44,9 @@ async function cmdFreeze(containerName) {
   const container = docker.getContainer(containerName);
   const info = await container.inspect();
   const commitImage = `${containerName}-committed`;
-  console.log("Committing container filesystem...");
-  execSync(`docker commit ${containerName} ${commitImage}`, { stdio: "pipe" });
-
-  // Step 2: Stop the original, create a clean copy without bind mounts, start it
-  const cleanName = `${containerName}-clean`;
-  try { execSync(`docker rm -f ${cleanName}`, { stdio: "pipe" }); } catch {}
-  execSync(`docker stop ${containerName}`, { stdio: "pipe" });
-
   const config = captureContainerConfig(info);
 
-  // Extract bind-mounted files before stopping — docker commit won't capture them.
+  // Extract bind-mounted files BEFORE stopping — bind mounts disappear when stopped.
   // Devcontainers use info.Mounts (not HostConfig.Binds), so check both and dedupe.
   const binds = [...new Set([
     ...(config.Binds || []).map(b => b.split(":")[1]),
@@ -75,6 +67,14 @@ async function cmdFreeze(containerName) {
       // Skip mounts that can't be copied (sockets, etc.)
     }
   }
+
+  // Commit and stop
+  console.log("Committing container filesystem...");
+  execSync(`docker commit ${containerName} ${commitImage}`, { stdio: "pipe" });
+
+  const cleanName = `${containerName}-clean`;
+  try { execSync(`docker rm -f ${cleanName}`, { stdio: "pipe" }); } catch {}
+  execSync(`docker stop ${containerName}`, { stdio: "pipe" });
 
   // Run the committed image with a simple sleep — the filesystem is already
   // captured via commit, and a trivial process avoids CRIU failures from
