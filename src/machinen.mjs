@@ -191,13 +191,21 @@ function detectDevcontainerFile(cwd) {
   return null;
 }
 
-function currentContainerName() {
+function currentBranch() {
   try {
-    const branch = execSync("git rev-parse --abbrev-ref HEAD", { stdio: "pipe", encoding: "utf-8" }).trim();
-    return `machinen-${branch.replace(/[^a-zA-Z0-9_.-]/g, "-")}`;
+    return execSync("git rev-parse --abbrev-ref HEAD", { stdio: "pipe", encoding: "utf-8" }).trim();
   } catch {
     return null;
   }
+}
+
+function sanitizeBranch(branch) {
+  return branch.replace(/[^a-zA-Z0-9_.-]/g, "-");
+}
+
+function currentContainerName() {
+  const branch = currentBranch();
+  return branch ? `machinen-${sanitizeBranch(branch)}` : null;
 }
 
 function detectRepoRoot(cwd) {
@@ -225,17 +233,8 @@ async function cmdUp(args) {
   const configPath = path.join(repoRoot, file);
 
   const repoName = path.basename(repoRoot);
-  let branch = args._positional?.[1]; // explicit: machinen up <branch>
-  if (!branch) {
-    try {
-      branch = execSync("git rev-parse --abbrev-ref HEAD", { cwd: repoRoot, stdio: "pipe", encoding: "utf-8" }).trim();
-    } catch {
-      branch = "main";
-    }
-  }
-  // Sanitize branch for Docker container names (only [a-zA-Z0-9_.-] allowed)
-  const safeBranch = branch.replace(/[^a-zA-Z0-9_.-]/g, "-");
-  // Image tag: ghcr.io/<user>/machinen/<repo>/<branch>
+  const branch = args._positional?.[1] || currentBranch() || "main";
+  const safeBranch = sanitizeBranch(branch);
   const imagePrefix = `${registry}/machinen/${repoName}/${safeBranch}`;
   const containerName = `machinen-${safeBranch}`;
 
