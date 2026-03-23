@@ -225,7 +225,7 @@ async function cmdUp(args) {
   const configPath = path.join(repoRoot, file);
 
   const repoName = path.basename(repoRoot);
-  let branch = args.container; // positional arg: machinen up <branch>
+  let branch = args._positional?.[1]; // explicit: machinen up <branch>
   if (!branch) {
     try {
       branch = execSync("git rev-parse --abbrev-ref HEAD", { cwd: repoRoot, stdio: "pipe", encoding: "utf-8" }).trim();
