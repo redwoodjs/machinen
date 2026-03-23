@@ -151,6 +151,8 @@ async function cmdRestore(args) {
   const prefix = `${registry}/machinen/${containerName}`;
   const imageTag = `${prefix}:latest`;
 
+  checkSyncStatus(containerName);
+
   if (!args.local && !args.remote) {
     console.error("Specify --local or --remote.\n  machinen restore --local\n  machinen restore --remote");
     process.exit(1);
@@ -224,6 +226,48 @@ function detectRepoRoot(cwd) {
     return execSync("git rev-parse --show-toplevel", { cwd, stdio: "pipe", encoding: "utf-8" }).trim();
   } catch {
     return cwd;
+  }
+}
+
+function gitRoot() {
+  try {
+    return execSync("git rev-parse --show-toplevel", { stdio: "pipe", encoding: "utf-8" }).trim();
+  } catch {
+    return null;
+  }
+}
+
+// --- sync daemon helpers ---
+
+function syncStatusPath(containerName) {
+  const root = gitRoot();
+  if (root) {
+    const dir = path.join(root, ".machinen");
+    fs.mkdirSync(dir, { recursive: true });
+    return path.join(dir, "sync-status.json");
+  }
+  const dir = path.join(os.homedir(), ".machinen", containerName);
+  fs.mkdirSync(dir, { recursive: true });
+  return path.join(dir, "sync-status.json");
+}
+
+function writeSyncStatus(statusPath, data) {
+  const tmp = statusPath + ".tmp";
+  fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
+  fs.renameSync(tmp, statusPath);
+}
+
+function isAuthError(err) {
+  const msg = err?.message || String(err);
+  return /write:packages|unauthorized|authentication required|403/i.test(msg);
+}
+
+function containerExists(name) {
+  try {
+    execSync(`docker inspect --format '{{.State.Status}}' ${name}`, { stdio: "pipe" });
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -541,6 +585,287 @@ async function cmdDestroy(args) {
   if (!found) console.log(`Nothing found for ${name}.`);
 }
 
+// --- sync ---
+
+async function cmdSync(args) {
+  if (args.help) {
+    console.log(`Usage: machinen sync [container-name] [options]
+
+  Run a long-lived process that periodically pushes container checkpoints to
+  the registry so that 'machinen restore' can always pull the latest image.
+
+Options:
+  --interval <seconds>    Sync interval in seconds (default: 300, minimum: 30)
+  --once                  Run a single sync and exit (exit 0 on success, 1 on failure)
+
+Environment:
+  MACHINEN_SYNC_INTERVAL  Override the sync interval in seconds`);
+    process.exit(0);
+  }
+
+  const once = !!args.once;
+
+  // Parse and validate interval
+  const DEFAULT_INTERVAL_S = 300;
+  const MIN_INTERVAL_S = 30;
+  const rawInterval = args.interval === undefined
+    ? (process.env.MACHINEN_SYNC_INTERVAL || String(DEFAULT_INTERVAL_S))
+    : String(args.interval);
+  const intervalS = Number(rawInterval);
+  if (!Number.isFinite(intervalS) || intervalS <= 0) {
+    console.error(`[ERROR] Invalid --interval value: "${rawInterval}". Must be a positive number.`);
+    process.exit(1);
+  }
+  if (intervalS < MIN_INTERVAL_S) {
+    console.error(`[ERROR] --interval minimum is ${MIN_INTERVAL_S} seconds. Got: ${intervalS}.`);
+    process.exit(1);
+  }
+  const intervalMs = intervalS * 1000;
+
+  // Validate registry auth at startup
+  let registry;
+  try {
+    const { url } = getRegistry();
+    registry = url;
+  } catch (err) {
+    console.error(`[ERROR] Registry auth failed: ${err.message}`);
+    process.exit(1);
+  }
+
+  // Resolve container name
+  const containerName = args.container;
+  if (!containerName) {
+    console.error(`[ERROR] No container name given and none could be auto-detected (not in a git repo?). Usage: machinen sync <container>`);
+    process.exit(1);
+  }
+  if (!containerExists(containerName)) {
+    console.error(`[ERROR] Container "${containerName}" not found in Docker.`);
+    process.exit(1);
+  }
+
+  const statusPath = syncStatusPath(containerName);
+  const BASE_BACKOFF_MS = 60 * 1000;
+  const MAX_BACKOFF_MS = 15 * 60 * 1000;
+
+  function nextIntervalMs(consecutiveFailures) {
+    if (consecutiveFailures === 0) return intervalMs;
+    return Math.min(BASE_BACKOFF_MS * Math.pow(2, consecutiveFailures - 1), MAX_BACKOFF_MS);
+  }
+
+  let syncCount = 0;
+  let consecutiveFailures = 0;
+  let lastSync = null;
+  let lastSyncSuccess = null;
+  const pid = process.pid;
+
+  function syncLog(level, msg) {
+    const ts = new Date().toISOString();
+    if (level === "ERROR" || level === "WARN") {
+      process.stderr.write(`[${ts}] [${level}] ${msg}\n`);
+    } else {
+      process.stdout.write(`[${ts}] [${level}] ${msg}\n`);
+    }
+  }
+
+  function updateStatus() {
+    try {
+      writeSyncStatus(statusPath, {
+        pid,
+        container: containerName,
+        registry,
+        lastSync,
+        lastSyncSuccess,
+        syncCount,
+        consecutiveFailures,
+        currentIntervalMs: nextIntervalMs(consecutiveFailures),
+      });
+    } catch {
+      // Status write failure is non-fatal
+    }
+  }
+
+  async function runSync() {
+    syncLog("INFO", `Syncing ${containerName}...`);
+    const { containerId, checkpointId, config } = await createCheckpoint(containerName, { exit: false });
+    const { tmpDir, tarPath } = extractCheckpointFiles(containerId, checkpointId);
+    try {
+      const prefix = `${registry}/machinen/${containerName}`;
+      const tag = `${prefix}:${checkpointId}`;
+      const latestTag = `${prefix}:latest`;
+      const baseTag = `${prefix}:base-${checkpointId}`;
+      const baseLatestTag = `${prefix}:base`;
+
+      execSync(`docker tag ${config.Image} ${baseTag}`, { stdio: "pipe" });
+      execSync(`docker tag ${config.Image} ${baseLatestTag}`, { stdio: "pipe" });
+      pushImage(baseTag);
+      pushImage(baseLatestTag);
+
+      buildCheckpointImage(tarPath, config.Image, config, checkpointId, tag, [], baseLatestTag, containerId);
+      execSync(`docker tag ${tag} ${latestTag}`, { stdio: "pipe" });
+      pushImage(tag);
+      pushImage(latestTag);
+
+      syncLog("INFO", `Sync complete. Tag: ${checkpointId}`);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  }
+
+  // --once: single sync and exit
+  if (once) {
+    try {
+      await runSync();
+      lastSync = new Date().toISOString();
+      lastSyncSuccess = true;
+      syncCount++;
+      consecutiveFailures = 0;
+      updateStatus();
+      process.exit(0);
+    } catch (err) {
+      lastSync = new Date().toISOString();
+      lastSyncSuccess = false;
+      consecutiveFailures++;
+      updateStatus();
+      syncLog("ERROR", `Sync failed: ${err.message}`);
+      process.exit(1);
+    }
+  }
+
+  // Daemon mode
+  syncLog("INFO", `Starting sync daemon`);
+  syncLog("INFO", `  Container: ${containerName}`);
+  syncLog("INFO", `  Registry:  ${registry}`);
+  syncLog("INFO", `  Interval:  ${intervalS}s`);
+  syncLog("INFO", `  PID:       ${pid}`);
+
+  let shuttingDown = false;
+  let syncInProgress = false;
+  let shutdownResolve;
+  const shutdownPromise = new Promise(resolve => { shutdownResolve = resolve; });
+
+  function handleShutdown(signal) {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    syncLog("INFO", `Received ${signal}. ${syncInProgress ? "Waiting for in-progress sync to finish..." : "Shutting down."}`);
+    if (!syncInProgress) shutdownResolve();
+  }
+
+  process.on("SIGINT", () => handleShutdown("SIGINT"));
+  process.on("SIGTERM", () => handleShutdown("SIGTERM"));
+
+  let timer;
+
+  async function tick() {
+    if (shuttingDown) {
+      shutdownResolve();
+      return;
+    }
+    if (syncInProgress) {
+      syncLog("WARN", "Previous sync still in progress, skipping.");
+      scheduleNext();
+      return;
+    }
+
+    syncInProgress = true;
+    const syncStart = new Date().toISOString();
+    try {
+      await runSync();
+      lastSync = syncStart;
+      lastSyncSuccess = true;
+      syncCount++;
+      consecutiveFailures = 0;
+      updateStatus();
+    } catch (err) {
+      lastSync = syncStart;
+      lastSyncSuccess = false;
+      consecutiveFailures++;
+      updateStatus();
+
+      if (isAuthError(err)) {
+        syncLog("ERROR", `Sync failed (auth error): ${err.message}`);
+        syncLog("WARN", "Run 'gh auth refresh -s write:packages' to fix authentication.");
+      } else {
+        syncLog("ERROR", `Sync failed: ${err.message}`);
+      }
+
+      if (!containerExists(containerName)) {
+        syncLog("ERROR", `Container "${containerName}" no longer exists. Exiting.`);
+        syncInProgress = false;
+        shutdownResolve();
+        return;
+      }
+    } finally {
+      syncInProgress = false;
+    }
+
+    if (shuttingDown) {
+      shutdownResolve();
+    } else {
+      scheduleNext();
+    }
+  }
+
+  function scheduleNext() {
+    if (shuttingDown) return;
+    const delay = nextIntervalMs(consecutiveFailures);
+    syncLog("INFO", `Next sync in ${Math.round(delay / 1000)}s`);
+    timer = setTimeout(tick, delay);
+  }
+
+  updateStatus();
+  tick();
+
+  await shutdownPromise;
+  if (timer) clearTimeout(timer);
+  updateStatus();
+  syncLog("INFO", "Sync daemon stopped.");
+  process.exit(0);
+}
+
+// --- sync status check (used by restore) ---
+
+function checkSyncStatus(containerName) {
+  let statusPath = null;
+  const root = gitRoot();
+  if (root) {
+    const candidate = path.join(root, ".machinen", "sync-status.json");
+    if (fs.existsSync(candidate)) statusPath = candidate;
+  }
+  if (!statusPath) {
+    const candidate = path.join(os.homedir(), ".machinen", containerName, "sync-status.json");
+    if (fs.existsSync(candidate)) statusPath = candidate;
+  }
+  if (!statusPath) return;
+
+  let status;
+  try {
+    status = JSON.parse(fs.readFileSync(statusPath, "utf-8"));
+  } catch {
+    return;
+  }
+
+  if (status.lastSync) {
+    const ageMs = Date.now() - new Date(status.lastSync).getTime();
+    const ageMin = Math.round(ageMs / 60000);
+    if (ageMs > 10 * 60 * 1000) {
+      console.warn(`[WARN] Last sync was ${ageMin} minute(s) ago. Image may be stale.`);
+    } else {
+      console.log(`Last sync: ${status.lastSync} (${ageMin} minute(s) ago)`);
+    }
+  }
+
+  if (status.pid != null) {
+    let daemonRunning = false;
+    try {
+      process.kill(status.pid, 0);
+      daemonRunning = true;
+    } catch {}
+    if (!daemonRunning) {
+      console.log(`Sync daemon (PID ${status.pid}) is not currently running.`);
+    }
+  }
+}
+
 // --- arg parsing ---
 
 function parseArgs(argv) {
@@ -582,6 +907,7 @@ async function main() {
     open: cmdOpen,
     logs: cmdLogs,
     destroy: cmdDestroy,
+    sync: cmdSync,
   };
 
   if (!action || !commands[action]) {
@@ -595,6 +921,9 @@ Commands:
   restore [name]        Restore container from checkpoint
     --local             Restore locally into <name>-restored
     --remote            Provision server and restore remotely (default)
+  sync [name]           Run sync daemon: push checkpoints to registry on interval
+    --interval <s>      Sync interval in seconds (default: 300, minimum: 30)
+    --once              Run a single sync and exit
   open [name]           Open shell in container
     --local             Open shell in local container
     --remote            Open shell on remote server
@@ -611,6 +940,7 @@ Cloud provider (default: hetzner):
 
 Environment:
   HCLOUD_TOKEN          Hetzner API token (alternative to hcloud context auth)
+  MACHINEN_SYNC_INTERVAL  Sync interval in seconds (overrides --interval default)
   TELEGRAM_BOT_TOKEN    Telegram bot token (optional, for notifications)
   TELEGRAM_CHAT_ID      Telegram chat ID (optional, for notifications)
 
