@@ -111,13 +111,18 @@ async function cmdRestore(args) {
   const prefix = `${registry}/machinen/${containerName}`;
   const imageTag = `${prefix}:latest`;
 
+  if (!args.local && !args.remote) {
+    console.error("Specify --local or --remote.\n  machinen restore --local\n  machinen restore --remote");
+    process.exit(1);
+  }
+
   if (args.local) {
     console.log(`Restoring ${containerName} locally from ${imageTag}...`);
     pullImage(imageTag);
     const restoredName = `${containerName}-restored`;
     restoreLocally(imageTag, restoredName);
     console.log(`\nRestored as: ${restoredName}`);
-    console.log(`Shell: docker exec -it ${restoredName} /bin/bash`);
+    console.log(`Shell: machinen open`);
     return;
   }
 
@@ -126,7 +131,7 @@ async function cmdRestore(args) {
   remoteRestore(ip, containerName, imageTag, registry);
 
   console.log(`\nServer: ${ip}`);
-  console.log(`Live logs: machinen logs ${containerName}`);
+  console.log(`Shell: machinen open --remote`);
 }
 
 // --- up ---
@@ -416,20 +421,53 @@ function cmdLogs(args) {
 
 async function cmdDestroy(args) {
   const name = args.name || args.container;
-  if (!name) {
-    // Destroy all machinen servers
-    const machines = listMachines();
-    const remotes = machines.filter(m => m.ip);
-    if (remotes.length === 0) {
-      console.log("No remote servers to destroy.");
-      return;
+
+  if (args.local) {
+    // Remove local containers (<name> and <name>-restored)
+    let found = false;
+    for (const n of [name, `${name}-restored`]) {
+      try {
+        execSync(`docker rm -f ${n}`, { stdio: "pipe" });
+        console.log(`Removed local container ${n}.`);
+        found = true;
+      } catch {}
     }
-    for (const m of remotes) {
-      destroyServer(m.name);
-    }
+    if (!found) console.log(`No local containers found for ${name}.`);
     return;
   }
-  destroyServer(name);
+
+  if (args.remote || !name) {
+    // Destroy remote server(s)
+    if (!name) {
+      const machines = listMachines();
+      const remotes = machines.filter(m => m.ip);
+      if (remotes.length === 0) {
+        console.log("No remote servers to destroy.");
+        return;
+      }
+      for (const m of remotes) {
+        destroyServer(m.name);
+      }
+      return;
+    }
+    destroyServer(name);
+    return;
+  }
+
+  // No flag: destroy both local and remote
+  let found = false;
+  for (const n of [name, `${name}-restored`]) {
+    try {
+      execSync(`docker rm -f ${n}`, { stdio: "pipe" });
+      console.log(`Removed local container ${n}.`);
+      found = true;
+    } catch {}
+  }
+  try {
+    destroyServer(name);
+    found = true;
+  } catch {}
+  if (!found) console.log(`Nothing found for ${name}.`);
 }
 
 // --- arg parsing ---
@@ -483,12 +521,15 @@ Commands:
     --file <path>       Path to devcontainer.json (auto-detected from cwd)
 
   freeze [name]         Checkpoint, package as image, push to registry
-  restore [name]        Provision server, pull image, restore container
-    --local             Restore locally into <name>-restored (for testing)
+  restore [name]        Restore container from checkpoint
+    --local             Restore locally into <name>-restored
+    --remote            Provision server and restore remotely (default)
   open [name]           Open shell in local container
     --remote            Open shell on remote server instead
   logs [name]           Tail remote container logs (or list machines)
-  destroy [name]        Tear down remote server (all if no name given)
+  destroy [name]        Tear down container (both local and remote)
+    --local             Only remove local containers
+    --remote            Only destroy remote server
 
 All commands default to the current git branch if no name is given.
 
