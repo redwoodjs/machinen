@@ -55,11 +55,11 @@ async function cmdFreeze(containerName) {
   const config = captureContainerConfig(info);
 
   // Extract bind-mounted files before stopping — docker commit won't capture them.
-  // Devcontainers use info.Mounts (not HostConfig.Binds), so check both.
-  const binds = [
+  // Devcontainers use info.Mounts (not HostConfig.Binds), so check both and dedupe.
+  const binds = [...new Set([
     ...(config.Binds || []).map(b => b.split(":")[1]),
     ...(info.Mounts || []).filter(m => m.Type === "bind").map(m => m.Destination),
-  ].filter(Boolean);
+  ].filter(Boolean))];
   const workspaceTmpDir = binds.length ? fs.mkdtempSync(path.join(os.tmpdir(), "machinen-ws-")) : null;
   const savedBinds = [];
   for (const containerPath of binds) {
@@ -295,10 +295,10 @@ async function cmdUp(args) {
 
         // Extract bind-mounted files before stopping
         const dcInfo = await docker.getContainer(dcContainer).inspect();
-        const dcBinds = [
+        const dcBinds = [...new Set([
           ...(dcInfo.HostConfig.Binds || []).map(b => b.split(":")[1]),
           ...(dcInfo.Mounts || []).filter(m => m.Type === "bind").map(m => m.Destination),
-        ].filter(Boolean);
+        ].filter(Boolean))];
         const wsTmp = dcBinds.length ? fs.mkdtempSync(path.join(os.tmpdir(), "machinen-ws-")) : null;
         const savedWs = [];
         for (const cp of dcBinds) {
