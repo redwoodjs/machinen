@@ -358,6 +358,11 @@ async function cmdUp(args) {
 function cmdOpen(args) {
   const containerName = args.container;
 
+  if (!args.local && !args.remote) {
+    console.error("Specify --local or --remote.\n  machinen open --local\n  machinen open --remote");
+    process.exit(1);
+  }
+
   if (args.remote) {
     const machines = listMachines();
     const machine = machines.find(m => m.name === containerName && m.ip);
@@ -524,8 +529,9 @@ Commands:
   restore [name]        Restore container from checkpoint
     --local             Restore locally into <name>-restored
     --remote            Provision server and restore remotely (default)
-  open [name]           Open shell in local container
-    --remote            Open shell on remote server instead
+  open [name]           Open shell in container
+    --local             Open shell in local container
+    --remote            Open shell on remote server
   logs [name]           Tail remote container logs (or list machines)
   destroy [name]        Tear down container (both local and remote)
     --local             Only remove local containers
