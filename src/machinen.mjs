@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { execSync, spawnSync, spawn } from "node:child_process";
+import { execSync, execFileSync, spawnSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -259,12 +259,12 @@ function writeSyncStatus(statusPath, data) {
 
 function isAuthError(err) {
   const msg = err?.message || String(err);
-  return /write:packages|unauthorized|authentication required|403/i.test(msg);
+  return /write:packages|unauthorized|authentication required|no basic auth credentials|requested access to the resource is denied|denied:|access denied|401\b|403\b/i.test(msg);
 }
 
 function containerExists(name) {
   try {
-    execSync(`docker inspect --format '{{.State.Status}}' ${name}`, { stdio: "pipe" });
+    execFileSync("docker", ["inspect", "--format", "{{.State.Status}}", name], { stdio: "pipe" });
     return true;
   } catch {
     return false;
@@ -686,7 +686,69 @@ Environment:
 
   async function runSync() {
     syncLog("INFO", `Syncing ${containerName}...`);
-    const { containerId, checkpointId, config } = await createCheckpoint(containerName, { exit: false });
+
+    // Capture bind mounts and commit the running container (mirrors cmdFreeze
+    // but does NOT stop the original container).
+    const container = docker.getContainer(containerName);
+    const info = await container.inspect();
+    const config = captureContainerConfig(info);
+    const commitImage = `${containerName}-sync-committed`;
+
+    // Extract bind-mounted files while the container is still running
+    const binds = [...new Set([
+      ...(config.Binds || []).map(b => b.split(":")[1]),
+      ...(info.Mounts || []).filter(m => m.Type === "bind").map(m => m.Destination),
+    ].filter(Boolean))];
+    const workspaceTmpDir = binds.length ? fs.mkdtempSync(path.join(os.tmpdir(), "machinen-sync-ws-")) : null;
+    const savedBinds = [];
+    for (const containerPath of binds) {
+      const tarName = `bind-${containerPath.replace(/\//g, "_")}.tar`;
+      const bindTarPath = path.join(workspaceTmpDir, tarName);
+      try {
+        execSync(`docker cp ${containerName}:${containerPath} - > ${bindTarPath}`, {
+          stdio: ["pipe", "pipe", "pipe"], shell: true,
+        });
+        savedBinds.push({ containerPath, tarPath: bindTarPath });
+      } catch {
+        // Skip mounts that can't be copied (sockets, etc.)
+      }
+    }
+
+    // Commit the running container to capture writable-layer filesystem state
+    execSync(`docker commit ${containerName} ${commitImage}`, { stdio: "pipe" });
+
+    // Create a clean container from the committed image with a trivial process
+    const cleanName = `${containerName}-sync-clean`;
+    try { execSync(`docker rm -f ${cleanName}`, { stdio: "pipe" }); } catch {}
+    execSync([
+      "docker run -d",
+      `--name ${cleanName}`,
+      "--entrypoint sleep",
+      "--security-opt seccomp=unconfined",
+      "--network host",
+      commitImage,
+      "infinity",
+    ].join(" "), { stdio: "pipe" });
+
+    // Restore bind-mounted files into the clean container
+    for (const { containerPath, tarPath: bindTarPath } of savedBinds) {
+      const parent = path.posix.dirname(containerPath);
+      execSync(`cat ${bindTarPath} | docker cp - ${cleanName}:${parent}`, {
+        stdio: ["pipe", "pipe", "pipe"], shell: true,
+      });
+    }
+    if (workspaceTmpDir) fs.rmSync(workspaceTmpDir, { recursive: true, force: true });
+
+    // Re-commit so workspace files are baked into the image
+    if (savedBinds.length > 0) {
+      execSync(`docker commit ${cleanName} ${commitImage}`, { stdio: "pipe" });
+    }
+
+    // Give the process a moment to start
+    await new Promise(r => setTimeout(r, 1000));
+
+    // Checkpoint the clean container (not the original, which keeps running)
+    const { containerId, checkpointId } = await createCheckpoint(cleanName);
     const { tmpDir, tarPath } = extractCheckpointFiles(containerId, checkpointId);
     try {
       const prefix = `${registry}/machinen/${containerName}`;
@@ -695,12 +757,12 @@ Environment:
       const baseTag = `${prefix}:base-${checkpointId}`;
       const baseLatestTag = `${prefix}:base`;
 
-      execSync(`docker tag ${config.Image} ${baseTag}`, { stdio: "pipe" });
-      execSync(`docker tag ${config.Image} ${baseLatestTag}`, { stdio: "pipe" });
+      execSync(`docker tag ${commitImage} ${baseTag}`, { stdio: "pipe" });
+      execSync(`docker tag ${commitImage} ${baseLatestTag}`, { stdio: "pipe" });
       pushImage(baseTag);
       pushImage(baseLatestTag);
 
-      buildCheckpointImage(tarPath, config.Image, config, checkpointId, tag, [], baseLatestTag, containerId);
+      buildCheckpointImage(tarPath, commitImage, config, checkpointId, tag, [], baseLatestTag, containerId);
       execSync(`docker tag ${tag} ${latestTag}`, { stdio: "pipe" });
       pushImage(tag);
       pushImage(latestTag);
@@ -708,6 +770,8 @@ Environment:
       syncLog("INFO", `Sync complete. Tag: ${checkpointId}`);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
+      try { execSync(`docker rm -f ${cleanName}`, { stdio: "pipe" }); } catch {}
+      try { execSync(`docker rmi ${commitImage}`, { stdio: "pipe" }); } catch {}
     }
   }
 
