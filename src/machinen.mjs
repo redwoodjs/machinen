@@ -353,7 +353,24 @@ async function cmdUp(args) {
 function cmdOpen(args) {
   const containerName = args.container;
 
-  // Check for a running local container (try both <name> and <name>-restored)
+  if (args.remote) {
+    const machines = listMachines();
+    const machine = machines.find(m => m.name === containerName && m.ip);
+    if (!machine) {
+      console.error(`No remote server found for ${containerName}.`);
+      process.exit(1);
+    }
+    console.log(`Opening shell on remote server ${machine.ip}...`);
+    const shell = spawnSync(
+      "ssh",
+      ["-t", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "LogLevel=ERROR",
+       `root@${machine.ip}`, `docker exec -it ${containerName} /bin/bash`],
+      { stdio: "inherit" }
+    );
+    process.exit(shell.status || 0);
+  }
+
+  // Local: try both <name> and <name>-restored
   for (const name of [containerName, `${containerName}-restored`]) {
     try {
       const status = execSync(
@@ -368,21 +385,7 @@ function cmdOpen(args) {
     } catch {}
   }
 
-  // Check for a remote server
-  const machines = listMachines();
-  const machine = machines.find(m => m.name === containerName && m.ip);
-  if (machine) {
-    console.log(`Opening shell on remote server ${machine.ip}...`);
-    const shell = spawnSync(
-      "ssh",
-      ["-t", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "LogLevel=ERROR",
-       `root@${machine.ip}`, `docker exec -it ${containerName} /bin/bash`],
-      { stdio: "inherit" }
-    );
-    process.exit(shell.status || 0);
-  }
-
-  console.error(`No running container or remote server found for ${containerName}.`);
+  console.error(`No running local container found for ${containerName}.`);
   process.exit(1);
 }
 
@@ -482,7 +485,8 @@ Commands:
   freeze [name]         Checkpoint, package as image, push to registry
   restore [name]        Provision server, pull image, restore container
     --local             Restore locally into <name>-restored (for testing)
-  open [name]           Open shell in container (local or remote)
+  open [name]           Open shell in local container
+    --remote            Open shell on remote server instead
   logs [name]           Tail remote container logs (or list machines)
   destroy [name]        Tear down remote server (all if no name given)
 
