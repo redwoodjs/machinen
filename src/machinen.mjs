@@ -91,7 +91,6 @@ async function cmdFreeze(containerName) {
 
   // Copy bind-mounted files into the clean container so they're in the filesystem
   for (const { containerPath, tarPath } of savedBinds) {
-    // docker cp expects the tar to extract into the parent directory
     const parent = path.posix.dirname(containerPath);
     execSync(`cat ${tarPath} | docker cp - ${cleanName}:${parent}`, {
       stdio: ["pipe", "pipe", "pipe"], shell: true,
@@ -99,6 +98,13 @@ async function cmdFreeze(containerName) {
     console.log(`Restored bind mount into clean container: ${containerPath}`);
   }
   if (workspaceTmpDir) fs.rmSync(workspaceTmpDir, { recursive: true, force: true });
+
+  // Re-commit the clean container so workspace files are baked into the image
+  // (CRIU only captures process state, not filesystem changes to the writable layer)
+  if (savedBinds.length > 0) {
+    console.log("Re-committing with workspace files...");
+    execSync(`docker commit ${cleanName} ${commitImage}`, { stdio: "pipe" });
+  }
 
   // Give the process a moment to start
   await new Promise(r => setTimeout(r, 1000));
@@ -315,12 +321,15 @@ async function cmdUp(args) {
         execSync(`docker stop ${dcContainer}`, { stdio: "pipe" });
         execSync(`docker run -d --name ${cleanName} --entrypoint sleep --security-opt seccomp=unconfined --network host ${commitImage} infinity`, { stdio: "pipe" });
 
-        // Copy bind-mounted files into clean container
+        // Copy bind-mounted files into clean container + re-commit
         for (const { containerPath, tarPath: tp } of savedWs) {
           const parent = path.posix.dirname(containerPath);
           execSync(`cat ${tp} | docker cp - ${cleanName}:${parent}`, { stdio: ["pipe", "pipe", "pipe"], shell: true });
         }
         if (wsTmp) fs.rmSync(wsTmp, { recursive: true, force: true });
+        if (savedWs.length > 0) {
+          execSync(`docker commit ${cleanName} ${commitImage}`, { stdio: "pipe" });
+        }
 
         await new Promise(r => setTimeout(r, 1000));
 
