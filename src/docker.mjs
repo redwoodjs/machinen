@@ -357,6 +357,42 @@ export function pullImage(imageTag) {
   dockerExec(["pull", imageTag], { stdio: "inherit" });
 }
 
+// --- session socket helpers ---
+//
+// Uses socat to run user shells as children of PID 1 via a Unix socket.
+// tmux/screen can't be used because CRIU fails on internal PTY pairs
+// ("ctty inheritance detected").  socat with pipes (no PTY on server side)
+// works: checkpoint ✓, restore ✓, background processes survive.
+
+const SESSION_SOCK = "/tmp/machinen.sock";
+
+/** Check whether the machinen session socket exists inside the container. */
+export function hasSessionSocket(containerName) {
+  try {
+    dockerExec(["exec", containerName, "test", "-S", SESSION_SOCK]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Start a socat session listener inside the container if not already running. */
+export function ensureSessionSocket(containerName, { user } = {}) {
+  const execArgs = ["exec"];
+  if (user) execArgs.push("--user", user);
+  execArgs.push(containerName, "sh", "-c",
+    `test -S ${SESSION_SOCK} || (command -v socat >/dev/null || (apk add -q socat 2>/dev/null || apt-get -qq install -y socat 2>/dev/null); socat UNIX-LISTEN:${SESSION_SOCK},fork,reuseaddr EXEC:/bin/sh,sigint,sighup,sigquit &)`);
+  dockerExec(execArgs);
+}
+
+/** Return docker CLI args to connect to the session socket. */
+export function sessionAttachArgs(containerName, { user } = {}) {
+  const args = ["exec", "-it"];
+  if (user) args.push("--user", user);
+  args.push(containerName, "socat", "-,raw,echo=0", `UNIX-CONNECT:${SESSION_SOCK}`);
+  return args;
+}
+
 export function restoreLocally(imageTag, containerName) {
   // Read labels from the checkpoint image
   const labelsRaw = dockerExec(["inspect", "--format", "{{json .Config.Labels}}", imageTag]).trim();
@@ -475,7 +511,7 @@ export function restoreLocally(imageTag, containerName) {
   );
   if (upperDir) {
     // Stale socket paths that need to be hidden for CRIU to bind them.
-    const socketPaths = ["/run/docker.sock"];
+    const socketPaths = ["/run/docker.sock", SESSION_SOCK];
     const whiteoutCmds = socketPaths.map(sp =>
       `mkdir -p ${upperDir}$(dirname ${sp}) && rm -f ${upperDir}${sp} && mknod ${upperDir}${sp} c 0 0`
     ).join(" && ");

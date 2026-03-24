@@ -17,6 +17,9 @@ import {
   pushImage,
   pullImage,
   restoreLocally,
+  hasSessionSocket,
+  ensureSessionSocket,
+  sessionAttachArgs,
 } from "./docker.mjs";
 import { checkPrerequisites } from "./preflight.mjs";
 
@@ -227,8 +230,13 @@ async function cmdUp(args) {
       "--network", "host",
     ];
 
-    // Default command is sleep infinity (keeps container alive for exec)
-    const cmd = args.cmd ? args.cmd.split(" ") : ["sleep", "infinity"];
+    // Default command: install socat, start a session listener on a Unix socket
+    // (child of PID 1), then exec sleep infinity.  Shells connected via the socket
+    // are in PID 1's tree, so they survive CRIU freeze/restore.
+    // Custom --cmd skips session socket setup.
+    const cmd = args.cmd
+      ? args.cmd.split(" ")
+      : ["sh", "-c", "command -v socat >/dev/null || (apk add -q socat 2>/dev/null || apt-get -qq install -y socat 2>/dev/null); socat UNIX-LISTEN:/tmp/machinen.sock,fork,reuseaddr EXEC:/bin/sh,sigint,sighup,sigquit & exec sleep infinity"];
     runArgs.push(args.image, ...cmd);
 
     dockerExec(runArgs, { stdio: "inherit" });
@@ -272,6 +280,15 @@ async function cmdUp(args) {
     if (dcContainerOriginal !== containerName) {
       try { dockerExec(["rm", "-f", containerName]); } catch {}
       dockerExec(["rename", dcContainerOriginal, containerName]);
+    }
+
+    // Start a socat session listener inside the devcontainer so interactive
+    // shells survive CRIU freeze/restore (socat forks are children of PID 1).
+    const dcUser = dockerExec(["inspect", "--format", "{{.Config.User}}", containerName]).trim();
+    try {
+      ensureSessionSocket(containerName, { user: dcUser || undefined });
+    } catch (err) {
+      console.warn(`Warning: could not start session socket: ${err.message}`);
     }
   }
 
@@ -352,28 +369,14 @@ async function cmdUp(args) {
     },
   });
 
-  // Open interactive shell
-  if (args.image) {
-    console.log(`\nConnecting to container...\n`);
-    const shell = spawn("docker", ["exec", "-it", containerName, "/bin/bash"], { stdio: "inherit" });
+  // Open interactive shell — connect via session socket if available, fall back to bash
+  const shellArgs = hasSessionSocket(containerName)
+    ? sessionAttachArgs(containerName)
+    : ["exec", "-it", containerName, "/bin/bash"];
 
-    await new Promise((resolve) => {
-      shell.on("exit", async () => {
-        console.log("\nShell exited. Cleaning up...");
-        watcher.stop();
-        if (remoteIp) destroyServer(containerName);
-        resolve();
-      });
-    });
-  } else {
-    const configPath = path.join(repoRoot, args.file || detectDevcontainerFile(repoRoot));
-    console.log(`\nConnecting to devcontainer...\n`);
-    const shell = spawn("npx", ["devcontainer",
-      "exec",
-      "--workspace-folder", repoRoot,
-      "--config", configPath,
-      "/bin/bash",
-    ], { stdio: "inherit" });
+  {
+    console.log(`\nConnecting to container...\n`);
+    const shell = spawn("docker", shellArgs, { stdio: "inherit" });
 
     await new Promise((resolve) => {
       shell.on("exit", async () => {
@@ -404,9 +407,11 @@ function cmdOpen(args) {
       process.exit(1);
     }
     console.log(`Opening shell on remote server ${machine.ip}...`);
+    // Prefer session socket for persistence across freeze/restore
+    const remoteCmd = `docker exec -it ${containerName} socat -,raw,echo=0 UNIX-CONNECT:/tmp/machinen.sock 2>/dev/null || docker exec -it ${containerName} /bin/bash`;
     const shell = spawnSync(
       "ssh",
-      ["-t", ...SSH_OPTS, `root@${machine.ip}`, `docker exec -it ${containerName} /bin/bash`],
+      ["-t", ...SSH_OPTS, `root@${machine.ip}`, remoteCmd],
       { stdio: "inherit" }
     );
     process.exit(shell.status || 0);
@@ -419,9 +424,15 @@ function cmdOpen(args) {
       if (status === "running") {
         console.log(`Opening shell in local container ${name}...`);
         const user = dockerExec(["inspect", "--format", "{{.Config.User}}", name]).trim();
-        const execArgs = ["exec", "-it"];
-        if (user) execArgs.push("--user", user);
-        execArgs.push(name, "/bin/bash");
+        // Prefer session socket for persistence across freeze/restore
+        const execArgs = hasSessionSocket(name)
+          ? sessionAttachArgs(name, { user: user || undefined })
+          : (() => {
+              const a = ["exec", "-it"];
+              if (user) a.push("--user", user);
+              a.push(name, "/bin/bash");
+              return a;
+            })();
         const shell = spawnSync("docker", execArgs, { stdio: "inherit" });
         process.exit(shell.status || 0);
       }
