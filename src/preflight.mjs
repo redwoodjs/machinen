@@ -8,13 +8,6 @@ import { getProvider } from "./cloud.mjs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const scriptsDir = path.join(__dirname, "..", "scripts");
 
-function execInDockerVM(cmd) {
-  return execSync(
-    `docker run --rm --privileged --pid=host alpine nsenter -t 1 -m -u -i sh -c ${JSON.stringify(cmd)}`,
-    { stdio: "pipe", encoding: "utf-8" }
-  );
-}
-
 async function testCheckpointWorks(docker) {
   const testName = "criu-preflight-test";
   let container;
@@ -142,9 +135,3 @@ export async function checkPrerequisites(docker) {
   }
 }
 
-export function isOrbStack(info) {
-  return (
-    info.Name?.includes("orbstack") ||
-    info.OperatingSystem?.toLowerCase().includes("orbstack")
-  );
-}
