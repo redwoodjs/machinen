@@ -1,5 +1,5 @@
 /**
- * Behavioral specs for `machinen sync` daemon command.
+ * Behavioral specs for `machinen watch` daemon command.
  *
  * Tests are derived from task intent (not source code).
  * All assertions use the CLI's external interface only.
@@ -32,7 +32,7 @@ function spawnAndSignal(args, signal, delayMs = 500) {
 
     let settled = false;
 
-    // Process might exit on its own (e.g. container not found) before signal
+    // Process might exit on its own before signal
     proc.on("close", (code, sig) => {
       if (!settled) {
         settled = true;
@@ -66,16 +66,16 @@ function spawnAndSignal(args, signal, delayMs = 500) {
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. Help and discovery
 // ─────────────────────────────────────────────────────────────────────────────
-describe("sync command — help and discovery", () => {
-  it("lists sync as an available command in top-level help", () => {
+describe("watch command — help and discovery", () => {
+  it("lists watch as an available command in top-level help", () => {
     const output = execSync(`node ${cli}`, { encoding: "utf-8" });
-    expect(output).toContain("sync");
+    expect(output).toContain("watch");
   });
 
-  it("shows sync-specific usage when --help flag is passed", () => {
+  it("shows watch-specific usage when --help flag is passed", () => {
     let output;
     try {
-      output = execSync(`node ${cli} sync --help`, {
+      output = execSync(`node ${cli} watch --help`, {
         encoding: "utf-8",
         stdio: "pipe",
       });
@@ -83,46 +83,18 @@ describe("sync command — help and discovery", () => {
       // Some CLI frameworks print help to stderr and exit 0 or 1
       output = (err.stdout || "") + (err.stderr || "");
     }
-    expect(output).toMatch(/sync/i);
+    expect(output).toMatch(/watch/i);
     expect(output).toMatch(/interval/i);
   });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 2. Container name resolution
+// 2. Interval flag
 // ─────────────────────────────────────────────────────────────────────────────
-describe("sync command — container name resolution", () => {
-  it("exits with code 1 when no container name given and none is auto-detectable", () => {
-    try {
-      runInTmp("sync");
-      expect.fail("expected non-zero exit");
-    } catch (err) {
-      expect(err.status).toBe(1);
-      const output = (err.stderr || "") + (err.stdout || "");
-      expect(output.toLowerCase()).toMatch(/container/);
-    }
-  });
-
-  it("exits with code 1 when the given container name does not exist", () => {
-    try {
-      execSync(`node ${cli} sync __nonexistent_container_xyz__`, {
-        encoding: "utf-8",
-        stdio: "pipe",
-      });
-      expect.fail("expected non-zero exit");
-    } catch (err) {
-      expect(err.status).toBe(1);
-    }
-  });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 3. Interval flag
-// ─────────────────────────────────────────────────────────────────────────────
-describe("sync command — interval flag", () => {
+describe("watch command — interval flag", () => {
   it("rejects non-numeric --interval values with exit code 1", () => {
     try {
-      runInTmp("sync --interval abc");
+      runInTmp("watch --interval abc");
       expect.fail("expected non-zero exit");
     } catch (err) {
       expect(err.status).toBe(1);
@@ -131,146 +103,59 @@ describe("sync command — interval flag", () => {
 
   it("rejects zero or negative --interval values with exit code 1", () => {
     try {
-      runInTmp("sync --interval 0");
+      runInTmp("watch --interval 0");
       expect.fail("expected non-zero exit");
     } catch (err) {
       expect(err.status).toBe(1);
     }
   });
-
-  it("accepts a valid positive integer --interval without an interval-validation error", () => {
-    // In /tmp there is no container, so we expect exit 1 with a container
-    // error — NOT an interval-validation error. This confirms that a valid
-    // numeric interval passes the validation gate.
-    try {
-      runInTmp("sync --interval 60");
-      // If sync somehow succeeds (no container required), that's also fine.
-    } catch (err) {
-      expect(err.status).toBe(1);
-      const output = (err.stderr || "") + (err.stdout || "");
-      // Error must be about the container, not about the interval value.
-      expect(output.toLowerCase()).not.toMatch(/invalid.*interval|interval.*invalid/);
-    }
-  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 4. Signal handling
+// 3. Signal handling
 // ─────────────────────────────────────────────────────────────────────────────
-describe("sync command — signal handling", () => {
+describe("watch command — signal handling", () => {
   it("terminates (does not hang) when sent SIGINT", async () => {
-    const result = await spawnAndSignal("sync", "SIGINT");
+    const result = await spawnAndSignal("watch", "SIGINT");
     expect(result.timedOut).toBeFalsy();
   });
 
   it("terminates (does not hang) when sent SIGTERM", async () => {
-    const result = await spawnAndSignal("sync", "SIGTERM");
+    const result = await spawnAndSignal("watch", "SIGTERM");
     expect(result.timedOut).toBeFalsy();
   });
-
-  // Full signal-handling verification (clean shutdown, in-progress sync
-  // completes before exit) requires a live container and registry.
-  it.todo(
-    "completes an in-progress sync before exiting on SIGINT (E2E only)"
-  );
-  it.todo(
-    "does not start a new sync interval after receiving SIGTERM (E2E only)"
-  );
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 5. Startup output
+// 4. Freeze command — --keep-alive flag
 // ─────────────────────────────────────────────────────────────────────────────
-describe("sync command — startup output", () => {
-  // When a container IS resolved, the daemon should log configuration before
-  // entering the sync loop. Verified here indirectly: when container resolution
-  // fails, stderr still identifies the problem clearly.
-  it("emits a descriptive error (not a raw exception) when startup fails", () => {
-    try {
-      runInTmp("sync");
-      expect.fail("expected non-zero exit");
-    } catch (err) {
-      const output = (err.stderr || "") + (err.stdout || "");
-      // Should not be an unhandled Node.js stack trace
-      expect(output).not.toMatch(/at Object\.<anonymous>/);
-      expect(output.trim().length).toBeGreaterThan(0);
-    }
+describe("freeze command — --keep-alive flag", () => {
+  it("shows --keep-alive in help text", () => {
+    const output = execSync(`node ${cli}`, { encoding: "utf-8" });
+    expect(output).toContain("--keep-alive");
   });
 
-  // Full startup-log verification (container name, registry, interval printed
-  // on start) requires a live container.
-  it.todo(
-    "logs container name, registry URL, and sync interval on startup (E2E only)"
-  );
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 6. --once flag
-// ─────────────────────────────────────────────────────────────────────────────
-describe("sync command — --once flag", () => {
-  it("exits with code 1 (not a hang) when --once is used and no container is detectable", async () => {
-    const result = await spawnAndSignal("sync --once", "SIGTERM", 3000);
-    // Process must not time out — it should exit on its own once it detects
-    // no container, rather than looping indefinitely.
-    expect(result.timedOut).toBeFalsy();
-  });
-
-  it("does not accept --once together with an invalid --interval", () => {
+  it("freeze requires container name outside git repo", () => {
     try {
-      runInTmp("sync --once --interval xyz");
-      expect.fail("expected non-zero exit");
+      execSync(`node ${cli} freeze`, { encoding: "utf-8", stdio: "pipe", cwd: "/tmp" });
     } catch (err) {
+      expect(err.stderr || err.stdout).toContain("Container name required");
       expect(err.status).toBe(1);
     }
   });
-
-  // Full --once verification (sync runs exactly once then exits 0) requires a
-  // live container and registry.
-  it.todo(
-    "syncs exactly once and exits 0 when --once is passed and a container is available (E2E only)"
-  );
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 7. Error recovery (E2E)
+// 5. E2E (requires live containers and registry)
 // ─────────────────────────────────────────────────────────────────────────────
-describe("sync command — error recovery", () => {
+describe("watch command — E2E", () => {
   it.todo(
-    "continues running after a failed sync attempt instead of crashing (E2E only)"
+    "discovers and syncs all running machinen-* containers (E2E only)"
   );
   it.todo(
-    "schedules the next sync at the normal interval after a failure, without backing off indefinitely (E2E only)"
-  );
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 8. Status file (E2E)
-// ─────────────────────────────────────────────────────────────────────────────
-describe("sync command — status file", () => {
-  // The status file is written by the daemon after each sync so that other
-  // commands (e.g. restore) can check freshness without IPC.
-  it.todo(
-    "writes a status JSON file at the expected path after the first successful sync (E2E only)"
+    "migrates containers to cloud on sleep and restores on wake (E2E only)"
   );
   it.todo(
-    "status file contains: lastSync (ISO timestamp), lastSyncSuccess (boolean), container (string), registry (string) (E2E only)"
-  );
-  it.todo(
-    "status file is updated (not replaced) after each subsequent sync (E2E only)"
-  );
-  it.todo(
-    "status file remains on disk after the daemon exits, so restore can inspect the last known state (E2E only)"
-  );
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 9. Restore integration (E2E)
-// ─────────────────────────────────────────────────────────────────────────────
-describe("sync command — restore integration", () => {
-  it.todo(
-    "restore succeeds immediately after sync has pushed at least one image, without requiring a fresh freeze (E2E only)"
-  );
-  it.todo(
-    "restore still succeeds when sync daemon is not running, using the last image pushed (E2E only)"
+    "writes status files for each discovered container (E2E only)"
   );
 });

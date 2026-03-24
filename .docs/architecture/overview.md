@@ -51,4 +51,3 @@ cloud servers using CRIU (Checkpoint/Restore In Userspace).
 | `preflight.mjs` | Prerequisite checks, CRIU availability |
 | `power.mjs` | macOS sleep/wake detection |
 | `sync.mjs` | Background checkpoint sync |
-| `notify.mjs` | Telegram notifications |

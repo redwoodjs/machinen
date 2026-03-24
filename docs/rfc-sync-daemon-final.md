@@ -1,4 +1,4 @@
-# RFC: `machinen sync` — Standalone Checkpoint Sync Daemon
+# RFC: `machinen watch` — Standalone Checkpoint Sync Daemon
 
 **Status:** Final (revised from Draft B per arbitration)
 **Date:** 2026-03-23
@@ -9,7 +9,7 @@
 
 `machinen restore` is only useful right after a freeze. If you want to restore hours later, you have to freeze again — which stops your container and takes significant time. The solution is a long-lived process that keeps the registry current while the container is running.
 
-`machinen sync [container-name]` is that process. It runs in the foreground, periodically pushing the container's checkpoint to ghcr.io so that `restore` can always pull the latest image immediately.
+`machinen watch [container-name]` is that process. It runs in the foreground, periodically pushing the container's checkpoint to ghcr.io so that `restore` can always pull the latest image immediately.
 
 **Where this RFC diverges from Draft A:**
 
@@ -150,8 +150,8 @@ Responsibilities:
 9. `--once`: run one sync, exit 0 or 1
 
 **Wire into CLI:**
-- Add `sync: cmdSync` to the `commands` object
-- Add `sync` section to the help text
+- Add `watch: cmdSync` to the `commands` object
+- Add `watch` section to the help text
 
 **Stale-status warning in `cmdRestore`:**
 - Before pulling, check if `.machinen/sync-status.json` exists
@@ -169,17 +169,17 @@ The existing `startBackgroundSync` function is left untouched. It continues to s
 ## Behavior Spec
 
 ```gherkin
-Feature: machinen sync daemon
+Feature: machinen watch daemon
 
   # ── CLI Surface ──────────────────────────────────────────────────────────────
 
-  Scenario: sync appears in top-level help
+  Scenario: watch appears in top-level help
     When the user runs `machinen` with no arguments
-    Then stdout contains "sync"
+    Then stdout contains "watch"
 
-  Scenario: sync --help shows usage
-    When the user runs `machinen sync --help`
-    Then output contains "sync", "interval", and "--once"
+  Scenario: watch --help shows usage
+    When the user runs `machinen watch --help`
+    Then output contains "watch", "interval", and "--once"
     And the process exits 0
 
   # ── Container resolution ─────────────────────────────────────────────────────
@@ -187,76 +187,76 @@ Feature: machinen sync daemon
   Scenario: no container, not in git repo
     Given the user is not in a git repository
     And no container name is passed
-    When the user runs `machinen sync`
+    When the user runs `machinen watch`
     Then stderr contains "container"
     And the process exits 1
 
   Scenario: explicit container does not exist
     Given the container "nonexistent_xyz" is not running in Docker
-    When the user runs `machinen sync nonexistent_xyz`
+    When the user runs `machinen watch nonexistent_xyz`
     Then the process exits 1
 
   Scenario: explicit container exists
     Given the container "my-dev" is running in Docker
-    When the user runs `machinen sync my-dev`
+    When the user runs `machinen watch my-dev`
     Then the daemon starts and logs "my-dev" in the startup message
 
   Scenario: no container name, devcontainer auto-detected
     Given the user is in a git repo on branch "main"
     And a container named "machinen-main" is running
-    When the user runs `machinen sync`
+    When the user runs `machinen watch`
     Then the daemon uses container "machinen-main"
 
   # ── Interval validation ───────────────────────────────────────────────────────
 
   Scenario: non-numeric interval
-    When the user runs `machinen sync --interval abc`
+    When the user runs `machinen watch --interval abc`
     Then the process exits 1
 
   Scenario: zero interval
-    When the user runs `machinen sync --interval 0`
+    When the user runs `machinen watch --interval 0`
     Then the process exits 1
 
   Scenario: interval below minimum (< 30)
-    When the user runs `machinen sync --interval 10`
+    When the user runs `machinen watch --interval 10`
     Then the process exits 1
     And output matches /interval.*minimum|minimum.*interval/i
 
   Scenario: valid interval passes validation
-    When the user runs `machinen sync --interval 60` with no resolvable container
+    When the user runs `machinen watch --interval 60` with no resolvable container
     Then the process exits 1 for a container reason, NOT an interval reason
 
   Scenario: interval from environment variable
     Given MACHINEN_SYNC_INTERVAL=120 is set
-    When the user runs `machinen sync`
+    When the user runs `machinen watch`
     Then the daemon uses a 120-second interval
 
   # ── Startup behavior ──────────────────────────────────────────────────────────
 
   Scenario: daemon logs configuration on startup
     Given a container "my-dev" is running
-    When the user runs `machinen sync my-dev --interval 60`
+    When the user runs `machinen watch my-dev --interval 60`
     Then stdout contains the container name, registry URL, and interval before the first sync
 
   Scenario: first sync is immediate
     Given a container "my-dev" is running
-    When the user runs `machinen sync my-dev`
+    When the user runs `machinen watch my-dev`
     Then a sync attempt begins within 1 second of startup (not after a 30s delay)
 
   # ── --once flag ───────────────────────────────────────────────────────────────
 
   Scenario: --once with no container exits without hanging
     Given no container is resolvable
-    When the user runs `machinen sync --once`
+    When the user runs `machinen watch --once`
     Then the process exits without being signaled (not a hang)
 
   Scenario: --once with invalid interval rejected
-    When the user runs `machinen sync --once --interval xyz`
+    When the user runs `machinen watch --once --interval xyz`
     Then the process exits 1
 
   Scenario: --once runs exactly one sync and exits (E2E)
     Given a container "my-dev" is running and registry auth is valid
-    When the user runs `machinen sync my-dev --once`
+    When the user runs `machinen watch my-dev --once`
     Then exactly one sync is performed
     And the process exits 0 after completion
 
@@ -449,7 +449,7 @@ If the container is gone, log the reason and exit 1 rather than continuing to ba
 - [ ] **T3:** Add `isAuthError(err)` helper — regex against error message
 - [ ] **T4:** Add `containerExists(name)` helper — wraps `docker inspect`, returns bool
 - [ ] **T5:** Implement `cmdSync(args)` in `machinen.mjs` — arg parsing, validation, auth check, container resolution, sync loop with backoff, signal handling, status file writes
-- [ ] **T6:** Wire `sync: cmdSync` into `commands` object and help text in `machinen.mjs`
+- [ ] **T6:** Wire `watch: cmdSync` into `commands` object and help text in `machinen.mjs`
 - [ ] **T7:** Implement stale-status + PID-liveness check in `cmdRestore` in `machinen.mjs`
 - [ ] **T8:** Run existing test suite; fix any regressions
 - [ ] **T9:** Verify tests in `src/__tests__/sync-daemon.test.mjs` pass
