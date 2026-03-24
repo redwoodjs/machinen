@@ -68,6 +68,9 @@ jobs:
       - name: Run e2e test
         run: node src/__tests__/e2e-local.mjs
 
+      - name: Run session e2e test
+        run: node src/__tests__/e2e-session.mjs
+
       - name: Cleanup
         if: always()
         run: docker rm -f registry 2>/dev/null || true
