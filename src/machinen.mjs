@@ -898,7 +898,6 @@ async function main() {
     open: cmdOpen,
     logs: cmdLogs,
     destroy: cmdDestroy,
-    sync: cmdSync,
   };
 
   if (!action || !commands[action]) {
@@ -920,7 +919,6 @@ Commands:
   watch [name]          Daemon: sync container + migrate on sleep/wake
     --interval <s>      Sync interval in seconds (default: 300, minimum: 30)
     --once              Run a single sync and exit
-  sync [name]           Alias for watch
   open [name]           Open shell in container
     --local             Open shell in local container
     --remote            Open shell on remote server
