@@ -7,9 +7,9 @@
     "ghcr.io/devcontainers/features/github-cli:1": {}
   },
 
-  "initializeCommand": "security find-generic-password -a $USER -w -s 'Claude Code-credentials' > ~/.claude/.credentials.json 2>/dev/null || true",
+  "initializeCommand": "security find-generic-password -a $USER -w -s 'Claude Code-credentials' > ~/.claude/.credentials.json 2>/dev/null || true; gh auth token > ~/.claude/.gh-token 2>/dev/null && chmod 600 ~/.claude/.gh-token || true",
 
-  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y iputils-ping dnsutils net-tools && sudo npm install -g @anthropic-ai/claude-code && echo '{\"hasCompletedOnboarding\":true}' > /home/node/.claude.json && sudo corepack enable && pnpm install --config.confirmModulesPurge=false",
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y iputils-ping dnsutils net-tools && sudo npm install -g @anthropic-ai/claude-code && echo '{\"hasCompletedOnboarding\":true}' > /home/node/.claude.json && sudo corepack enable && pnpm install --config.confirmModulesPurge=false && if [ -f /home/node/.claude/.gh-token ] && [ -s /home/node/.claude/.gh-token ]; then gh auth login --with-token < /home/node/.claude/.gh-token && rm -f /home/node/.claude/.gh-token; fi",
 
   "remoteUser": "node",
 
@@ -18,7 +18,6 @@
   },
 
   "mounts": [
-    "source=${localEnv:HOME}/.config/gh,target=/home/node/.config/gh,type=bind",
     "source=${localEnv:HOME}/.claude,target=/home/node/.claude,type=bind"
   ],
 
