@@ -17,9 +17,7 @@ import {
   pushImage,
   pullImage,
   restoreLocally,
-  hasSessionSocket,
   ensureSessionSocket,
-  sessionAttachArgs,
 } from "./docker.mjs";
 import { checkPrerequisites } from "./preflight.mjs";
 
@@ -369,10 +367,10 @@ async function cmdUp(args) {
     },
   });
 
-  // Open interactive shell — connect via session socket if available, fall back to bash
-  const shellArgs = hasSessionSocket(containerName)
-    ? sessionAttachArgs(containerName)
-    : ["exec", "-it", containerName, "/bin/bash"];
+  // Open interactive shell.  The socat session socket preserves background
+  // processes across freeze/restore, but it has no PTY (no prompt, no line
+  // editing).  Use docker exec for a proper interactive shell instead.
+  const shellArgs = ["exec", "-it", containerName, "/bin/bash"];
 
   {
     console.log(`\nConnecting to container...\n`);
@@ -407,8 +405,7 @@ function cmdOpen(args) {
       process.exit(1);
     }
     console.log(`Opening shell on remote server ${machine.ip}...`);
-    // Prefer session socket for persistence across freeze/restore
-    const remoteCmd = `docker exec -it ${containerName} socat -,raw,echo=0 UNIX-CONNECT:/tmp/machinen.sock 2>/dev/null || docker exec -it ${containerName} /bin/bash`;
+    const remoteCmd = `docker exec -it ${containerName} /bin/bash`;
     const shell = spawnSync(
       "ssh",
       ["-t", ...SSH_OPTS, `root@${machine.ip}`, remoteCmd],
@@ -424,15 +421,9 @@ function cmdOpen(args) {
       if (status === "running") {
         console.log(`Opening shell in local container ${name}...`);
         const user = dockerExec(["inspect", "--format", "{{.Config.User}}", name]).trim();
-        // Prefer session socket for persistence across freeze/restore
-        const execArgs = hasSessionSocket(name)
-          ? sessionAttachArgs(name, { user: user || undefined })
-          : (() => {
-              const a = ["exec", "-it"];
-              if (user) a.push("--user", user);
-              a.push(name, "/bin/bash");
-              return a;
-            })();
+        const execArgs = ["exec", "-it"];
+        if (user) execArgs.push("--user", user);
+        execArgs.push(name, "/bin/bash");
         const shell = spawnSync("docker", execArgs, { stdio: "inherit" });
         process.exit(shell.status || 0);
       }
