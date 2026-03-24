@@ -148,34 +148,6 @@ export function extractCheckpointFiles(containerId, checkpointId) {
   return { tmpDir, tarPath };
 }
 
-export function extractWorkspaceFiles(containerName, containerConfig) {
-  const binds = containerConfig.Binds || [];
-  const workspaceTars = [];
-
-  for (const bind of binds) {
-    // Bind format: "/host/path:/container/path:options"
-    const parts = bind.split(":");
-    const containerPath = parts[1];
-    if (!containerPath) continue;
-
-    const tarName = `workspace-${containerPath.replace(/\//g, "_")}.tar`;
-    const tarPath = path.join(os.tmpdir(), tarName);
-
-    try {
-      // Copy files out of the container via docker cp
-      execSync(`docker cp ${shellQuote(containerName + ":" + containerPath)} - > ${shellQuote(tarPath)}`, {
-        stdio: ["pipe", "pipe", "pipe"],
-        shell: true,
-      });
-      workspaceTars.push({ containerPath, tarPath, tarName });
-    } catch {
-      // Skip mounts that can't be copied (e.g., sockets)
-    }
-  }
-
-  return workspaceTars;
-}
-
 export function buildCheckpointImage(tarPath, originalImage, containerConfig, checkpointId, imageTag, workspaceTars = [], baseImageTag = "", checkpointedContainerId = "") {
   const buildDir = fs.mkdtempSync(path.join(os.tmpdir(), "machinen-build-"));
 
