@@ -4,10 +4,6 @@ import hetzner from "./providers/hetzner.mjs";
 
 let provider = hetzner;
 
-export function setProvider(p) {
-  provider = p;
-}
-
 export function getProvider() {
   return provider;
 }
@@ -57,7 +53,7 @@ export function listMachines() {
 
 // --- SSH ---
 
-const SSH_OPTS = ["-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "LogLevel=ERROR"];
+export const SSH_OPTS = ["-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "LogLevel=ERROR"];
 
 export function ssh(ip, cmd, { stdio = "inherit", nothrow = false } = {}) {
   const result = spawnSync(
@@ -178,9 +174,8 @@ export function remoteFreeze(ip, containerName, registry) {
   console.log(`Freezing remote container ${containerName}...`);
   ssh(ip, `docker checkpoint create ${containerName} ${checkpointId}`);
 
-  const containerId = ssh(ip, `docker inspect --format '{{.Id}}' ${containerName}`, { stdio: "pipe" }).stdout.trim();
-  const originalImage = ssh(ip, `docker inspect --format '{{.Config.Image}}' ${containerName}`, { stdio: "pipe" }).stdout.trim();
-  const configRaw = ssh(ip, `docker inspect --format '{{json .Config}}' ${containerName}`, { stdio: "pipe" }).stdout.trim();
+  const inspectRaw = ssh(ip, `docker inspect --format '{{.Id}}\\t{{.Config.Image}}\\t{{json .Config}}' ${containerName}`, { stdio: "pipe" }).stdout.trim();
+  const [containerId, originalImage, configRaw] = inspectRaw.split("\t");
 
   const imageTag = `${registry}/${containerName}:${checkpointId}`;
   const latestTag = `${registry}/${containerName}:latest`;

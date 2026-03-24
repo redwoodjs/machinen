@@ -28,6 +28,7 @@ import {
   remoteFreeze,
   ssh,
   sshScript,
+  SSH_OPTS,
 } from "./cloud.mjs";
 import { getRegistry, ensureDockerLogin, remoteDockerLogin } from "./registry.mjs";
 import { createPowerWatcher } from "./power.mjs";
@@ -150,17 +151,9 @@ function currentContainerName() {
   return branch ? `machinen-${sanitizeBranch(branch)}` : null;
 }
 
-function detectRepoRoot(cwd) {
+function gitRoot(cwd) {
   try {
     return execSync("git rev-parse --show-toplevel", { cwd, stdio: "pipe", encoding: "utf-8" }).trim();
-  } catch {
-    return cwd;
-  }
-}
-
-function gitRoot() {
-  try {
-    return execSync("git rev-parse --show-toplevel", { stdio: "pipe", encoding: "utf-8" }).trim();
   } catch {
     return null;
   }
@@ -202,7 +195,7 @@ function containerExists(name) {
 
 async function cmdUp(args) {
   const cwd = args.cwd || process.cwd();
-  const repoRoot = detectRepoRoot(cwd);
+  const repoRoot = gitRoot(cwd) || cwd;
 
   ensureDockerLogin();
   const { url: registry } = getRegistry();
@@ -412,8 +405,7 @@ function cmdOpen(args) {
     console.log(`Opening shell on remote server ${machine.ip}...`);
     const shell = spawnSync(
       "ssh",
-      ["-t", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "LogLevel=ERROR",
-       `root@${machine.ip}`, `docker exec -it ${containerName} /bin/bash`],
+      ["-t", ...SSH_OPTS, `root@${machine.ip}`, `docker exec -it ${containerName} /bin/bash`],
       { stdio: "inherit" }
     );
     process.exit(shell.status || 0);
