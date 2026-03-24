@@ -37,7 +37,6 @@ This:
 When you **close your laptop lid**:
 - Container state is frozen and pushed to the registry
 - A cloud server is provisioned and the container is restored on it
-- You get a Telegram notification with the server IP
 
 When you **open your laptop**:
 - Remote state is frozen and pulled back
@@ -117,10 +116,6 @@ Machinen uses a pluggable provider interface for cloud server management. The de
 
 To add a new provider, create `src/providers/<name>.mjs` exporting an object with these methods.
 
-### Telegram notifications
-
-Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` to receive notifications when your container migrates to/from the cloud.
-
 ## Commands
 
 | Command | Description |
@@ -146,8 +141,6 @@ Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` to receive notifications when yo
 | `MACHINEN_REGISTRY` | optional | Container registry URL (defaults to `ghcr.io/<your-github-username>` via `gh` CLI) |
 | `MACHINEN_REGISTRY_USER` | optional | Registry username (defaults to GitHub username via `gh` CLI) |
 | `MACHINEN_REGISTRY_PASSWORD` | optional | Registry password (defaults to `gh auth token`) |
-| `TELEGRAM_BOT_TOKEN` | notifications | Telegram bot token (from BotFather) |
-| `TELEGRAM_CHAT_ID` | notifications | Your Telegram chat ID |
 
 ## Prerequisites
 
