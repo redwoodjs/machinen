@@ -6,6 +6,18 @@ import Docker from "dockerode";
 
 export const docker = new Docker({ socketPath: "/var/run/docker.sock" });
 
+/** Env for tar that suppresses macOS AppleDouble resource fork files (._*). */
+const TAR_ENV = { ...process.env, COPYFILE_DISABLE: "1" };
+
+/** Run a command inside the Docker VM via nsenter (OrbStack / Docker Desktop). */
+function nsenterExec(cmd, opts = {}) {
+  return dockerExec(
+    ["run", "--rm", "--privileged", "--pid=host", "alpine",
+     "nsenter", "-t", "1", "-m", "sh", "-c", cmd],
+    opts,
+  );
+}
+
 /** Run a docker CLI command without shell interpolation. */
 export function dockerExec(args, opts = {}) {
   return execFileSync("docker", args, { stdio: "pipe", encoding: "utf-8", ...opts });
@@ -64,10 +76,6 @@ export async function createCheckpoint(containerName, { exit = true } = {}) {
 }
 
 /**
- * Binary-safe replace of oldId → newId in all .img files under checkpointDir.
- * Copies files out of the Docker VM, patches with Buffer, copies back.
- */
-/**
  * Patch a checkpoint directory: replace container IDs and optionally strip
  * leftover bind mount entries.  Both operations happen in a single pass to
  * avoid extra tar round-trips through the Docker VM.
@@ -87,13 +95,9 @@ function patchCheckpoint(checkpointDir, oldId, newId, bindPathsToStrip = []) {
       execFileSync("tar", ["cf", tarPath, "-C", checkpointDir, "."], { stdio: "pipe" });
     }
 
-    // Untar locally, patch, retar
-    // COPYFILE_DISABLE=1 prevents macOS tar from creating ._* AppleDouble
-    // resource fork files that would corrupt the CRIU checkpoint directory.
-    const tarEnv = { ...process.env, COPYFILE_DISABLE: "1" };
     const workDir = path.join(patchDir, "work");
     fs.mkdirSync(workDir);
-    execFileSync("tar", ["xf", tarPath, "-C", workDir], { stdio: "pipe", env: tarEnv });
+    execFileSync("tar", ["xf", tarPath, "-C", workDir], { stdio: "pipe", env: TAR_ENV });
 
     // 1. Replace container IDs in all .img files (binary-safe)
     const oldBuf = Buffer.from(oldId, "utf-8");
@@ -123,7 +127,7 @@ function patchCheckpoint(checkpointDir, oldId, newId, bindPathsToStrip = []) {
 
     // Copy patched files back
     const patchedTar = path.join(patchDir, "patched.tar");
-    execFileSync("tar", ["cf", patchedTar, "-C", workDir, "."], { stdio: "pipe", env: tarEnv });
+    execFileSync("tar", ["cf", patchedTar, "-C", workDir, "."], { stdio: "pipe", env: TAR_ENV });
 
     try {
       execSync(
@@ -138,15 +142,6 @@ function patchCheckpoint(checkpointDir, oldId, newId, bindPathsToStrip = []) {
   }
 }
 
-/**
- * Strip mount entries from CRIU mountpoints image files that reference
- * the given container paths.  Bind mounts captured during checkpoint
- * can't be restored (the host paths don't exist); the file contents are
- * already baked into the committed image layer, so we just drop them.
- *
- * Uses the same CRIU image format as patch-checkpoint.mjs:
- *   8-byte header + repeated (4-byte LE size + protobuf payload).
- */
 /**
  * Expand bind paths to include common symlink variants.
  * CRIU resolves symlinks (e.g. /var/run → /run) before recording mount paths,
@@ -220,7 +215,7 @@ export function extractCheckpointFiles(containerId, checkpointId) {
     );
   } catch {
     // Fall back to direct filesystem access (native Linux)
-    execFileSync("tar", ["cf", tarPath, "-C", checkpointPath, "."], { stdio: "pipe", env: { ...process.env, COPYFILE_DISABLE: "1" } });
+    execFileSync("tar", ["cf", tarPath, "-C", checkpointPath, "."], { stdio: "pipe", env: TAR_ENV });
   }
 
   return { tmpDir, tarPath };
@@ -340,12 +335,11 @@ export async function prepareCheckpoint(containerName, { stop = false } = {}) {
   // already baked into the committed image, and the host paths won't exist
   // on restore.
   if (binds.length > 0) {
-    const tarEnv = { ...process.env, COPYFILE_DISABLE: "1" };
     const workDir = path.join(tmpDir, "patch");
     fs.mkdirSync(workDir);
-    execFileSync("tar", ["xf", tarPath, "-C", workDir], { stdio: "pipe", env: tarEnv });
+    execFileSync("tar", ["xf", tarPath, "-C", workDir], { stdio: "pipe", env: TAR_ENV });
     stripBindMountEntries(workDir, binds);
-    execFileSync("tar", ["cf", tarPath, "-C", workDir, "."], { stdio: "pipe", env: tarEnv });
+    execFileSync("tar", ["cf", tarPath, "-C", workDir, "."], { stdio: "pipe", env: TAR_ENV });
     fs.rmSync(workDir, { recursive: true, force: true });
   }
 
@@ -399,12 +393,10 @@ export function restoreLocally(imageTag, containerName) {
   const checkpointDir = `/var/lib/docker/containers/${newContainerId}/checkpoints/${checkpointId}`;
 
   try {
-    // OrbStack: use nsenter to access Docker's internal storage
-    dockerExec([
-      "run", "--rm", "--privileged", "--pid=host", "alpine",
-      "nsenter", "-t", "1", "-m", "sh", "-c", `mkdir -p ${checkpointDir}`,
-    ]);
-    execSync(`docker cp machinen-tmp:/checkpoint/. - | docker run --rm -i --privileged --pid=host alpine nsenter -t 1 -m sh -c ${shellQuote("tar xf - -C " + checkpointDir)}`, {
+    // OrbStack: use nsenter to access Docker's internal storage.
+    // Batch mkdir + tar extract + AppleDouble cleanup into one piped nsenter.
+    nsenterExec(`mkdir -p ${checkpointDir}`);
+    execSync(`docker cp machinen-tmp:/checkpoint/. - | docker run --rm -i --privileged --pid=host alpine nsenter -t 1 -m sh -c ${shellQuote(`tar xf - -C ${checkpointDir} && find ${checkpointDir} -name '._*' -delete`)}`, {
       stdio: "pipe",
       shell: true,
     });
@@ -415,17 +407,6 @@ export function restoreLocally(imageTag, containerName) {
   }
 
   dockerExec(["rm", "machinen-tmp"]);
-
-  // Remove macOS AppleDouble resource fork files (._*) that may have been
-  // introduced by tar on macOS.  CRIU doesn't expect them and fails to restore.
-  try {
-    execSync(
-      `docker run --rm --privileged --pid=host alpine nsenter -t 1 -m sh -c ${shellQuote("find " + checkpointDir + " -name '._*' -delete")}`,
-      { stdio: "pipe", shell: true }
-    );
-  } catch {
-    // Native Linux or no ._* files — ignore
-  }
 
   // Patch checkpoint: replace hardcoded container IDs and strip any leftover
   // bind mount entries.  The restore container has no bind mounts, so any
@@ -444,12 +425,15 @@ export function restoreLocally(imageTag, containerName) {
   if (dcMeta) {
     try {
       for (const entry of JSON.parse(dcMeta)) {
-        for (const m of entry.mounts || []) {
-          if (m.type === "bind" && m.target) origBinds.push(m.target);
-          // String-format mounts: "source=...,target=...,type=bind"
-          if (typeof m === "string" && m.includes("type=bind")) {
-            const match = m.match(/target=([^,]+)/);
-            if (match) origBinds.push(match[1]);
+        if (!Array.isArray(entry.mounts)) continue;
+        for (const m of entry.mounts) {
+          if (typeof m === "string") {
+            if (m.includes("type=bind")) {
+              const match = m.match(/target=([^,]+)/);
+              if (match) origBinds.push(match[1]);
+            }
+          } else if (m.type === "bind" && m.target) {
+            origBinds.push(m.target);
           }
         }
       }
@@ -480,15 +464,11 @@ export function restoreLocally(imageTag, containerName) {
   if (upperDir) {
     // Stale socket paths that need to be hidden for CRIU to bind them.
     const socketPaths = ["/run/docker.sock"];
+    const whiteoutCmds = socketPaths.map(sp =>
+      `mkdir -p ${upperDir}$(dirname ${sp}) && rm -f ${upperDir}${sp} && mknod ${upperDir}${sp} c 0 0`
+    ).join(" && ");
     try {
-      execSync(
-        `docker run --rm --privileged --pid=host alpine nsenter -t 1 -m sh -c ${shellQuote(
-          socketPaths.map(sp =>
-            `mkdir -p ${upperDir}$(dirname ${sp}) && rm -f ${upperDir}${sp} && mknod ${upperDir}${sp} c 0 0`
-          ).join(" && ")
-        )}`,
-        { stdio: "pipe", shell: true }
-      );
+      nsenterExec(whiteoutCmds);
     } catch {
       // Native Linux: direct access
       for (const sp of socketPaths) {
@@ -508,37 +488,28 @@ export function restoreLocally(imageTag, containerName) {
   const diagFile = path.join(diagDir, `restore-${Date.now()}.log`);
 
   function collectDiagnostics() {
-    const lines = [`restore timestamp: ${new Date().toISOString()}`];
-    lines.push(`checkpoint: ${checkpointId}`);
-    lines.push(`container: ${containerName} (${newContainerId})`);
-    lines.push(`old container: ${oldContainerId || "n/a"}`);
-    lines.push("");
+    const lines = [
+      `restore timestamp: ${new Date().toISOString()}`,
+      `checkpoint: ${checkpointId}`,
+      `container: ${containerName} (${newContainerId})`,
+      `old container: ${oldContainerId || "n/a"}`,
+      "",
+    ];
 
-    // List checkpoint files
+    // Batch file listing + restore log into a single nsenter call
     try {
-      const ls = execSync(
-        `docker run --rm --privileged --pid=host alpine nsenter -t 1 -m sh -c ${shellQuote("ls -la " + checkpointDir + "/")}`,
-        { stdio: "pipe", encoding: "utf-8", shell: true }
+      const out = nsenterExec(
+        `ls -la ${checkpointDir}/ 2>&1; echo '---CRIU_LOG---'; cat ${checkpointDir}/restore.log 2>/dev/null || echo '(no restore.log)'`,
+        { encoding: "utf-8" },
       );
-      lines.push("checkpoint files:", ls);
+      const [fileList, criuLog] = out.split("---CRIU_LOG---");
+      lines.push("checkpoint files:", fileList.trim(), "", "CRIU restore.log:", criuLog.trim());
     } catch {
       try {
         lines.push("checkpoint files:", execFileSync("ls", ["-la", checkpointDir + "/"], { stdio: "pipe", encoding: "utf-8" }));
-      } catch (e) { lines.push(`checkpoint files: error: ${e.message}`); }
-    }
-
-    // CRIU restore log (written by CRIU on failure, sometimes on success)
-    try {
-      const log = execSync(
-        `docker run --rm --privileged --pid=host alpine nsenter -t 1 -m sh -c ${shellQuote("cat " + checkpointDir + "/restore.log 2>/dev/null || echo '(no restore.log)'")}`,
-        { stdio: "pipe", encoding: "utf-8", shell: true }
-      );
-      lines.push("CRIU restore.log:", log);
-    } catch {
-      try {
         const log = fs.readFileSync(path.join(checkpointDir, "restore.log"), "utf-8");
         lines.push("CRIU restore.log:", log);
-      } catch { lines.push("CRIU restore.log: not found"); }
+      } catch (e) { lines.push(`diagnostics error: ${e.message}`); }
     }
 
     return lines.join("\n");
