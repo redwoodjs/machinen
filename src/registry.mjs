@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { execSync, execFileSync } from "node:child_process";
 
 let _cached = null;
 
@@ -41,14 +41,15 @@ export function getRegistry() {
 
 export function ensureDockerLogin() {
   const { url, username, token } = getRegistry();
-  execSync(`echo ${token} | docker login ghcr.io -u ${username} --password-stdin`, {
-    stdio: "pipe",
+  execFileSync("docker", ["login", "ghcr.io", "-u", username, "--password-stdin"], {
+    input: token,
+    stdio: ["pipe", "pipe", "pipe"],
   });
 }
 
-export function remoteDockerLogin(sshFn, ip) {
+export function remoteDockerLogin(sshScriptFn, ip) {
   const { username, token } = getRegistry();
-  sshFn(ip, `echo '${token}' | docker login ghcr.io -u ${username} --password-stdin`, {
+  sshScriptFn(ip, `echo "${token}" | docker login ghcr.io -u "${username}" --password-stdin`, {
     stdio: "pipe",
   });
 }

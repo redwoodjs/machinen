@@ -1,7 +1,5 @@
-import { execSync, spawnSync } from "node:child_process";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
+import { spawnSync } from "node:child_process";
+import { dockerExec } from "./docker.mjs";
 import hetzner from "./providers/hetzner.mjs";
 
 let provider = hetzner;
@@ -26,10 +24,9 @@ export function listMachines() {
 
   // Local containers named machinen-*
   try {
-    const out = execSync(
-      `docker ps -a --filter "name=^machinen-" --format "{{.Names}}\t{{.Status}}"`,
-      { stdio: "pipe", encoding: "utf-8" }
-    ).trim();
+    const out = dockerExec([
+      "ps", "-a", "--filter", "name=^machinen-", "--format", "{{.Names}}\t{{.Status}}",
+    ]).trim();
     if (out) {
       for (const line of out.split("\n")) {
         const [name, status] = line.split("\t");

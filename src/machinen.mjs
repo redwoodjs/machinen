@@ -6,9 +6,12 @@ import os from "node:os";
 import path from "node:path";
 import {
   docker,
+  dockerExec,
+  shellQuote,
   captureContainerConfig,
   createCheckpoint,
   extractCheckpointFiles,
+  prepareCheckpoint,
   buildCheckpointImage,
   pushImage,
   pullImage,
@@ -24,75 +27,23 @@ import {
   remoteRestore,
   remoteFreeze,
   ssh,
+  sshScript,
 } from "./cloud.mjs";
 import { getRegistry, ensureDockerLogin, remoteDockerLogin } from "./registry.mjs";
 import { createPowerWatcher } from "./power.mjs";
 
+// --- freeze ---
 
-// --- freezeAndPush (shared pipeline) ---
+async function cmdFreeze(containerName) {
+  await checkPrerequisites(docker);
+  ensureDockerLogin();
 
-async function freezeAndPush(containerName, registry, { keepAlive = false } = {}) {
-  const suffix = keepAlive ? "-snapshot" : "";
-  const commitImage = `${containerName}${suffix}-committed`;
-  const cleanName = `${containerName}${suffix}-clean`;
+  const { url: registry } = getRegistry();
 
-  const container = docker.getContainer(containerName);
-  const info = await container.inspect();
-  const config = captureContainerConfig(info);
+  console.log(`Freezing ${containerName}...`);
 
-  // Extract bind-mounted files — bind mounts disappear when stopped.
-  const binds = [...new Set([
-    ...(config.Binds || []).map(b => b.split(":")[1]),
-    ...(info.Mounts || []).filter(m => m.Type === "bind").map(m => m.Destination),
-  ].filter(Boolean))];
-  const workspaceTmpDir = binds.length ? fs.mkdtempSync(path.join(os.tmpdir(), "machinen-ws-")) : null;
-  const savedBinds = [];
-  for (const containerPath of binds) {
-    const tarName = `bind-${containerPath.replace(/\//g, "_")}.tar`;
-    const tarPath = path.join(workspaceTmpDir, tarName);
-    try {
-      execSync(`docker cp ${containerName}:${containerPath} - > ${tarPath}`, {
-        stdio: ["pipe", "pipe", "pipe"], shell: true,
-      });
-      savedBinds.push({ containerPath, tarPath });
-    } catch {
-      // Skip mounts that can't be copied (sockets, etc.)
-    }
-  }
-
-  execSync(`docker commit ${containerName} ${commitImage}`, { stdio: "pipe" });
-
-  try { execSync(`docker rm -f ${cleanName}`, { stdio: "pipe" }); } catch {}
-  if (!keepAlive) {
-    execSync(`docker stop ${containerName}`, { stdio: "pipe" });
-  }
-
-  execSync([
-    "docker run -d",
-    `--name ${cleanName}`,
-    "--entrypoint sleep",
-    "--security-opt seccomp=unconfined",
-    "--network host",
-    commitImage,
-    "infinity",
-  ].join(" "), { stdio: "pipe" });
-
-  for (const { containerPath, tarPath } of savedBinds) {
-    const parent = path.posix.dirname(containerPath);
-    execSync(`cat ${tarPath} | docker cp - ${cleanName}:${parent}`, {
-      stdio: ["pipe", "pipe", "pipe"], shell: true,
-    });
-  }
-  if (workspaceTmpDir) fs.rmSync(workspaceTmpDir, { recursive: true, force: true });
-
-  if (savedBinds.length > 0) {
-    execSync(`docker commit ${cleanName} ${commitImage}`, { stdio: "pipe" });
-  }
-
-  await new Promise(r => setTimeout(r, 1000));
-
-  const { containerId, checkpointId } = await createCheckpoint(cleanName);
-  const { tmpDir, tarPath } = extractCheckpointFiles(containerId, checkpointId);
+  const { config, commitImage, cleanName, containerId, checkpointId, tmpDir, tarPath } =
+    await prepareCheckpoint(containerName, { stop: true });
 
   try {
     const prefix = `${registry}/machinen/${containerName}`;
@@ -101,37 +52,24 @@ async function freezeAndPush(containerName, registry, { keepAlive = false } = {}
     const baseTag = `${prefix}:base-${checkpointId}`;
     const baseLatestTag = `${prefix}:base`;
 
-    execSync(`docker tag ${commitImage} ${baseTag}`, { stdio: "pipe" });
-    execSync(`docker tag ${commitImage} ${baseLatestTag}`, { stdio: "pipe" });
+    // Push the committed image as the base — restore needs identical layers
+    dockerExec(["tag", commitImage, baseTag]);
+    dockerExec(["tag", commitImage, baseLatestTag]);
     pushImage(baseTag);
     pushImage(baseLatestTag);
 
     buildCheckpointImage(tarPath, commitImage, config, checkpointId, tag, [], baseLatestTag, containerId);
-    execSync(`docker tag ${tag} ${latestTag}`, { stdio: "pipe" });
+    dockerExec(["tag", tag, latestTag]);
+
     pushImage(tag);
     pushImage(latestTag);
 
-    return { checkpointId, latestTag };
+    console.log(`Frozen: ${tag}`);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
-    try { execSync(`docker rm -f ${cleanName}`, { stdio: "pipe" }); } catch {}
-    try { execSync(`docker rmi ${commitImage}`, { stdio: "pipe" }); } catch {}
+    try { dockerExec(["rm", "-f", cleanName]); } catch {}
+    try { dockerExec(["rmi", commitImage]); } catch {}
   }
-}
-
-// --- freeze ---
-
-async function cmdFreeze(args) {
-  const containerName = args.container || currentContainerName();
-  const keepAlive = !!args["keep-alive"];
-
-  await checkPrerequisites(docker);
-  ensureDockerLogin();
-  const { url: registry } = getRegistry();
-
-  console.log(`Freezing ${containerName}${keepAlive ? " (keep-alive)" : ""}...`);
-  const { latestTag } = await freezeAndPush(containerName, registry, { keepAlive });
-  console.log(`Frozen: ${latestTag}`);
 }
 
 // --- restore ---
@@ -160,7 +98,7 @@ async function cmdRestore(args) {
   }
 
   const ip = await provisionServer({ name: containerName });
-  remoteDockerLogin(ssh, ip);
+  remoteDockerLogin(sshScript, ip);
   remoteRestore(ip, containerName, imageTag, registry);
 
   console.log(`\nServer: ${ip}`);
@@ -265,71 +203,193 @@ function containerExists(name) {
 async function cmdUp(args) {
   const cwd = args.cwd || process.cwd();
   const repoRoot = detectRepoRoot(cwd);
-  const file = args.file || detectDevcontainerFile(repoRoot);
 
-  if (!file) {
-    throw new Error(
-      "No devcontainer.json found. Specify with --file <path>\n" +
-      "  e.g., machinen up --file .devcontainer/devcontainer.json"
-    );
-  }
-
-  const configPath = path.join(repoRoot, file);
+  ensureDockerLogin();
+  const { url: registry } = getRegistry();
 
   const branch = args._positional?.[1] || currentBranch() || "main";
   const safeBranch = sanitizeBranch(branch);
-  const containerName = `machinen-${safeBranch}`;
+  const repoName = path.basename(repoRoot);
+  const imagePrefix = `${registry}/machinen/${repoName}/${safeBranch}`;
+
+  // Container name: --name flag, or derived from branch
+  const containerName = args.name
+    ? (args.name.startsWith("machinen-") ? args.name : `machinen-${args.name}`)
+    : `machinen-${safeBranch}`;
 
   await checkPrerequisites(docker);
 
-  // Step 1: Start local devcontainer
-  console.log(`Starting ${containerName} from ${file}...`);
-  const upResult = spawnSync("npx", ["devcontainer",
-    "up",
-    "--workspace-folder", repoRoot,
-    "--config", configPath,
-    "--additional-features", '{"ghcr.io/devcontainers/features/docker-outside-of-docker:1":{}}',
-    "--remove-existing-container",
-  ], { stdio: "inherit" });
+  if (args.image) {
+    // --- Image mode: docker run directly ---
+    console.log(`Starting ${containerName} from image ${args.image}...`);
 
-  if (upResult.status !== 0) {
-    throw new Error("devcontainer up failed");
+    // Remove existing container with the same name
+    try { dockerExec(["rm", "-f", containerName]); } catch {}
+
+    const runArgs = [
+      "run", "-d",
+      "--name", containerName,
+      "--security-opt", "seccomp=unconfined",
+      "--network", "host",
+    ];
+
+    // Default command is sleep infinity (keeps container alive for exec)
+    const cmd = args.cmd ? args.cmd.split(" ") : ["sleep", "infinity"];
+    runArgs.push(args.image, ...cmd);
+
+    dockerExec(runArgs, { stdio: "inherit" });
+    console.log(`Container: ${containerName}`);
+  } else {
+    // --- Devcontainer mode (existing behavior) ---
+    const file = args.file || detectDevcontainerFile(repoRoot);
+
+    if (!file) {
+      throw new Error(
+        "No devcontainer.json found. Specify with --file <path> or use --image <image>\n" +
+        "  e.g., machinen up --file .devcontainer/devcontainer.json\n" +
+        "  e.g., machinen up --image ubuntu:latest"
+      );
+    }
+
+    const configPath = path.join(repoRoot, file);
+
+    console.log(`Starting ${containerName} from ${file}...`);
+    const upResult = spawnSync("npx", ["devcontainer",
+      "up",
+      "--workspace-folder", repoRoot,
+      "--config", configPath,
+      "--additional-features", '{"ghcr.io/devcontainers/features/docker-outside-of-docker:1":{}}',
+      "--remove-existing-container",
+    ], { stdio: "inherit" });
+
+    if (upResult.status !== 0) {
+      throw new Error("devcontainer up failed");
+    }
+
+    // Get the container ID/name that devcontainer created and rename it
+    const dcContainerOriginal = dockerExec([
+      "ps", "--filter", `label=devcontainer.local_folder=${repoRoot}`, "--format", "{{.Names}}",
+    ]).trim();
+
+    if (!dcContainerOriginal) {
+      throw new Error("Could not find devcontainer. Is it running?");
+    }
+
+    if (dcContainerOriginal !== containerName) {
+      try { dockerExec(["rm", "-f", containerName]); } catch {}
+      dockerExec(["rename", dcContainerOriginal, containerName]);
+    }
   }
 
-  // Get the container ID/name that devcontainer created and rename it
-  const dcContainerOriginal = execSync(
-    `docker ps --filter "label=devcontainer.local_folder=${repoRoot}" --format "{{.Names}}"`,
-    { stdio: "pipe", encoding: "utf-8" }
-  ).trim();
+  console.log(`Image prefix: ${imagePrefix}`);
 
-  if (!dcContainerOriginal) {
-    throw new Error("Could not find devcontainer. Is it running?");
+  // In detach mode, just print the container name and exit
+  if (args.detach) {
+    console.log(`Container ${containerName} is running (detached).`);
+    return;
   }
 
-  // Rename to machinen-<branch>
-  const dcContainer = containerName;
-  if (dcContainerOriginal !== dcContainer) {
-    try { execSync(`docker rm -f ${dcContainer}`, { stdio: "pipe" }); } catch {}
-    execSync(`docker rename ${dcContainerOriginal} ${dcContainer}`, { stdio: "pipe" });
-  }
+  // Start power watcher for sleep/wake handoff
+  let remoteIp = null;
 
-  console.log(`Container: ${dcContainer}`);
+  console.log("Watching for sleep/wake events...");
+  const watcher = createPowerWatcher({
+    onSleep: async ({ canDelaySleep }) => {
+      console.log("\nSleep detected — migrating to remote...");
 
-  // Open shell into the devcontainer
-  console.log(`\nConnecting to devcontainer...\n`);
-  const shell = spawn("npx", ["devcontainer",
-    "exec",
-    "--workspace-folder", repoRoot,
-    "--config", configPath,
-    "/bin/bash",
-  ], { stdio: "inherit" });
+      try {
+        const { config, commitImage, cleanName, containerId, checkpointId, tmpDir, tarPath } =
+          await prepareCheckpoint(containerName, { stop: true });
 
-  await new Promise((resolve) => {
-    shell.on("exit", () => {
-      console.log("\nShell exited.");
-      resolve();
-    });
+        try {
+          const tag = `${imagePrefix}:${checkpointId}`;
+          const latestTag = `${imagePrefix}:latest`;
+          const baseTag = `${imagePrefix}:base-${checkpointId}`;
+          const baseLatestTag = `${imagePrefix}:base`;
+
+          dockerExec(["tag", commitImage, baseTag]);
+          dockerExec(["tag", commitImage, baseLatestTag]);
+          pushImage(baseTag);
+          pushImage(baseLatestTag);
+
+          buildCheckpointImage(tarPath, commitImage, config, checkpointId, tag, [], baseLatestTag, containerId);
+          dockerExec(["tag", tag, latestTag]);
+          pushImage(tag);
+          pushImage(latestTag);
+
+          console.log("Provisioning remote server...");
+          remoteIp = await provisionServer({ name: containerName });
+          remoteDockerLogin(sshScript, remoteIp);
+
+          remoteRestore(remoteIp, containerName, latestTag, registry);
+          console.log(`Remote restore complete: ${remoteIp}`);
+        } finally {
+          fs.rmSync(tmpDir, { recursive: true, force: true });
+          try { dockerExec(["rm", "-f", cleanName]); } catch {}
+          try { dockerExec(["rmi", commitImage]); } catch {}
+        }
+      } catch (err) {
+        console.error("Sleep migration failed:", err.message);
+      }
+    },
+
+    onWake: async () => {
+      console.log("\nWake detected — migrating back to local...");
+
+      if (!remoteIp) {
+        console.log("No remote container to restore from.");
+        return;
+      }
+
+      try {
+        const { latestTag } = remoteFreeze(remoteIp, containerName, registry);
+
+        pullImage(latestTag);
+        restoreLocally(latestTag, containerName);
+
+        console.log("Destroying remote server...");
+        destroyServer(containerName);
+        remoteIp = null;
+
+        console.log("Local restore complete.");
+      } catch (err) {
+        console.error("Wake migration failed:", err.message);
+      }
+    },
   });
+
+  // Open interactive shell
+  if (args.image) {
+    console.log(`\nConnecting to container...\n`);
+    const shell = spawn("docker", ["exec", "-it", containerName, "/bin/bash"], { stdio: "inherit" });
+
+    await new Promise((resolve) => {
+      shell.on("exit", async () => {
+        console.log("\nShell exited. Cleaning up...");
+        watcher.stop();
+        if (remoteIp) destroyServer(containerName);
+        resolve();
+      });
+    });
+  } else {
+    const configPath = path.join(repoRoot, args.file || detectDevcontainerFile(repoRoot));
+    console.log(`\nConnecting to devcontainer...\n`);
+    const shell = spawn("npx", ["devcontainer",
+      "exec",
+      "--workspace-folder", repoRoot,
+      "--config", configPath,
+      "/bin/bash",
+    ], { stdio: "inherit" });
+
+    await new Promise((resolve) => {
+      shell.on("exit", async () => {
+        console.log("\nShell exited. Cleaning up...");
+        watcher.stop();
+        if (remoteIp) destroyServer(containerName);
+        resolve();
+      });
+    });
+  }
 }
 
 // --- open ---
@@ -362,10 +422,7 @@ function cmdOpen(args) {
   // Local: try both <name> and <name>-restored
   for (const name of [containerName, `${containerName}-restored`]) {
     try {
-      const status = execSync(
-        `docker inspect --format '{{.State.Status}}' ${name}`,
-        { stdio: "pipe", encoding: "utf-8" }
-      ).trim();
+      const status = dockerExec(["inspect", "--format", "{{.State.Status}}", name]).trim();
       if (status === "running") {
         console.log(`Opening shell in local container ${name}...`);
         const shell = spawnSync("docker", ["exec", "-it", name, "/bin/bash"], { stdio: "inherit" });
@@ -411,7 +468,7 @@ async function cmdDestroy(args) {
     let found = false;
     for (const n of [name, `${name}-restored`]) {
       try {
-        execSync(`docker rm -f ${n}`, { stdio: "pipe" });
+        dockerExec(["rm", "-f", n]);
         console.log(`Removed local container ${n}.`);
         found = true;
       } catch {}
@@ -442,7 +499,7 @@ async function cmdDestroy(args) {
   let found = false;
   for (const n of [name, `${name}-restored`]) {
     try {
-      execSync(`docker rm -f ${n}`, { stdio: "pipe" });
+      dockerExec(["rm", "-f", n]);
       console.log(`Removed local container ${n}.`);
       found = true;
     } catch {}
@@ -454,39 +511,25 @@ async function cmdDestroy(args) {
   if (!found) console.log(`Nothing found for ${name}.`);
 }
 
-// --- watch ---
+// --- sync ---
 
-function discoverContainers() {
-  try {
-    const output = execSync(
-      'docker ps --filter "name=machinen-" --format "{{.Names}}"',
-      { stdio: "pipe", encoding: "utf-8" }
-    ).trim();
-    return output ? output.split("\n").filter(Boolean) : [];
-  } catch {
-    return [];
-  }
-}
-
-async function cmdWatch(args) {
+async function cmdSync(args) {
   if (args.help) {
-    console.log(`Usage: machinen watch [options]
+    console.log(`Usage: machinen watch [container-name] [options]
 
-  Daemon that auto-discovers all running machinen containers, periodically
-  snapshots them to the registry, and migrates them to/from cloud on
-  lid close/open (sleep/wake).
+  Run a long-lived process that periodically pushes container checkpoints to
+  the registry so that 'machinen restore' can always pull the latest image.
 
 Options:
   --interval <seconds>    Sync interval in seconds (default: 300, minimum: 30)
-
-Manual trigger (for testing):
-  kill -USR1 <pid>        Simulate sleep (freeze + migrate to cloud)
-  kill -USR2 <pid>        Simulate wake (pull from cloud + restore locally)
+  --once                  Run a single sync and exit (exit 0 on success, 1 on failure)
 
 Environment:
   MACHINEN_SYNC_INTERVAL  Override the sync interval in seconds`);
     process.exit(0);
   }
+
+  const once = !!args.once;
 
   // Parse and validate interval
   const DEFAULT_INTERVAL_S = 300;
@@ -505,8 +548,18 @@ Environment:
   }
   const intervalMs = intervalS * 1000;
 
+  // Resolve container name first (before any auth)
+  const containerName = args.container || currentContainerName();
+  if (!containerName) {
+    console.error(`[ERROR] No container name given and none could be auto-detected (not in a git repo?). Usage: machinen sync <container>`);
+    process.exit(1);
+  }
+  if (!containerExists(containerName)) {
+    console.error(`[ERROR] Container "${containerName}" not found in Docker.`);
+    process.exit(1);
+  }
+
   // Validate registry auth at startup
-  ensureDockerLogin();
   let registry;
   try {
     const { url } = getRegistry();
@@ -516,23 +569,22 @@ Environment:
     process.exit(1);
   }
 
-  await checkPrerequisites(docker);
-
+  const statusPath = syncStatusPath(containerName);
   const BASE_BACKOFF_MS = 60 * 1000;
   const MAX_BACKOFF_MS = 15 * 60 * 1000;
-  const pid = process.pid;
+
+  function nextIntervalMs(consecutiveFailures) {
+    if (consecutiveFailures === 0) return intervalMs;
+    return Math.min(BASE_BACKOFF_MS * Math.pow(2, consecutiveFailures - 1), MAX_BACKOFF_MS);
+  }
 
   let syncCount = 0;
   let consecutiveFailures = 0;
   let lastSync = null;
   let lastSyncSuccess = null;
+  const pid = process.pid;
 
-  function nextIntervalMs(failures) {
-    if (failures === 0) return intervalMs;
-    return Math.min(BASE_BACKOFF_MS * Math.pow(2, failures - 1), MAX_BACKOFF_MS);
-  }
-
-  function watchLog(level, msg) {
+  function syncLog(level, msg) {
     const ts = new Date().toISOString();
     if (level === "ERROR" || level === "WARN") {
       process.stderr.write(`[${ts}] [${level}] ${msg}\n`);
@@ -541,32 +593,140 @@ Environment:
     }
   }
 
-  function updateStatus(containers) {
-    for (const name of containers) {
-      try {
-        const statusPath = syncStatusPath(name);
-        writeSyncStatus(statusPath, {
-          pid,
-          container: name,
-          registry,
-          lastSync,
-          lastSyncSuccess,
-          syncCount,
-          consecutiveFailures,
-          currentIntervalMs: nextIntervalMs(consecutiveFailures),
-        });
-      } catch {
-        // Status write failure is non-fatal
-      }
+  function updateStatus() {
+    try {
+      writeSyncStatus(statusPath, {
+        pid,
+        container: containerName,
+        registry,
+        lastSync,
+        lastSyncSuccess,
+        syncCount,
+        consecutiveFailures,
+        currentIntervalMs: nextIntervalMs(consecutiveFailures),
+      });
+    } catch {
+      // Status write failure is non-fatal
     }
   }
 
-  // --- Periodic sync ---
+  async function runSync() {
+    syncLog("INFO", `Syncing ${containerName}...`);
 
-  watchLog("INFO", "Starting watch daemon");
-  watchLog("INFO", `  Registry:  ${registry}`);
-  watchLog("INFO", `  Interval:  ${intervalS}s`);
-  watchLog("INFO", `  PID:       ${pid}`);
+    // Capture bind mounts and commit the running container (mirrors cmdFreeze
+    // but does NOT stop the original container).
+    const container = docker.getContainer(containerName);
+    const info = await container.inspect();
+    const config = captureContainerConfig(info);
+    const commitImage = `${containerName}-sync-committed`;
+
+    // Extract bind-mounted files while the container is still running
+    const binds = [...new Set([
+      ...(config.Binds || []).map(b => b.split(":")[1]),
+      ...(info.Mounts || []).filter(m => m.Type === "bind").map(m => m.Destination),
+    ].filter(Boolean))];
+    const workspaceTmpDir = binds.length ? fs.mkdtempSync(path.join(os.tmpdir(), "machinen-sync-ws-")) : null;
+    const savedBinds = [];
+    for (const containerPath of binds) {
+      const tarName = `bind-${containerPath.replace(/\//g, "_")}.tar`;
+      const bindTarPath = path.join(workspaceTmpDir, tarName);
+      try {
+        execSync(`docker cp ${containerName}:${containerPath} - > ${bindTarPath}`, {
+          stdio: ["pipe", "pipe", "pipe"], shell: true,
+        });
+        savedBinds.push({ containerPath, tarPath: bindTarPath });
+      } catch {
+        // Skip mounts that can't be copied (sockets, etc.)
+      }
+    }
+
+    // Commit the running container to capture writable-layer filesystem state
+    execSync(`docker commit ${containerName} ${commitImage}`, { stdio: "pipe" });
+
+    // Create a clean container from the committed image with a trivial process
+    const cleanName = `${containerName}-sync-clean`;
+    try { execSync(`docker rm -f ${cleanName}`, { stdio: "pipe" }); } catch {}
+    execSync([
+      "docker run -d",
+      `--name ${cleanName}`,
+      "--entrypoint sleep",
+      "--security-opt seccomp=unconfined",
+      "--network host",
+      commitImage,
+      "infinity",
+    ].join(" "), { stdio: "pipe" });
+
+    // Restore bind-mounted files into the clean container
+    for (const { containerPath, tarPath: bindTarPath } of savedBinds) {
+      const parent = path.posix.dirname(containerPath);
+      execSync(`cat ${bindTarPath} | docker cp - ${cleanName}:${parent}`, {
+        stdio: ["pipe", "pipe", "pipe"], shell: true,
+      });
+    }
+    if (workspaceTmpDir) fs.rmSync(workspaceTmpDir, { recursive: true, force: true });
+
+    // Re-commit so workspace files are baked into the image
+    if (savedBinds.length > 0) {
+      execSync(`docker commit ${cleanName} ${commitImage}`, { stdio: "pipe" });
+    }
+
+    // Give the process a moment to start
+    await new Promise(r => setTimeout(r, 1000));
+
+    // Checkpoint the clean container (not the original, which keeps running)
+    const { containerId, checkpointId } = await createCheckpoint(cleanName);
+    const { tmpDir, tarPath } = extractCheckpointFiles(containerId, checkpointId);
+    try {
+      const prefix = `${registry}/machinen/${containerName}`;
+      const tag = `${prefix}:${checkpointId}`;
+      const latestTag = `${prefix}:latest`;
+      const baseTag = `${prefix}:base-${checkpointId}`;
+      const baseLatestTag = `${prefix}:base`;
+
+      execSync(`docker tag ${commitImage} ${baseTag}`, { stdio: "pipe" });
+      execSync(`docker tag ${commitImage} ${baseLatestTag}`, { stdio: "pipe" });
+      pushImage(baseTag);
+      pushImage(baseLatestTag);
+
+      buildCheckpointImage(tarPath, commitImage, config, checkpointId, tag, [], baseLatestTag, containerId);
+      execSync(`docker tag ${tag} ${latestTag}`, { stdio: "pipe" });
+      pushImage(tag);
+      pushImage(latestTag);
+
+      syncLog("INFO", `Sync complete. Tag: ${checkpointId}`);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+      try { execSync(`docker rm -f ${cleanName}`, { stdio: "pipe" }); } catch {}
+      try { execSync(`docker rmi ${commitImage}`, { stdio: "pipe" }); } catch {}
+    }
+  }
+
+  // --once: single sync and exit
+  if (once) {
+    try {
+      await runSync();
+      lastSync = new Date().toISOString();
+      lastSyncSuccess = true;
+      syncCount++;
+      consecutiveFailures = 0;
+      updateStatus();
+      process.exit(0);
+    } catch (err) {
+      lastSync = new Date().toISOString();
+      lastSyncSuccess = false;
+      consecutiveFailures++;
+      updateStatus();
+      syncLog("ERROR", `Sync failed: ${err.message}`);
+      process.exit(1);
+    }
+  }
+
+  // Daemon mode
+  syncLog("INFO", `Starting sync daemon`);
+  syncLog("INFO", `  Container: ${containerName}`);
+  syncLog("INFO", `  Registry:  ${registry}`);
+  syncLog("INFO", `  Interval:  ${intervalS}s`);
+  syncLog("INFO", `  PID:       ${pid}`);
 
   let shuttingDown = false;
   let syncInProgress = false;
@@ -576,8 +736,7 @@ Environment:
   function handleShutdown(signal) {
     if (shuttingDown) return;
     shuttingDown = true;
-    watchLog("INFO", `Received ${signal}. ${syncInProgress ? "Waiting for in-progress sync to finish..." : "Shutting down."}`);
-    watcher.stop();
+    syncLog("INFO", `Received ${signal}. ${syncInProgress ? "Waiting for in-progress sync to finish..." : "Shutting down."}`);
     if (!syncInProgress) shutdownResolve();
   }
 
@@ -592,14 +751,7 @@ Environment:
       return;
     }
     if (syncInProgress) {
-      watchLog("WARN", "Previous sync still in progress, skipping.");
-      scheduleNext();
-      return;
-    }
-
-    const containers = discoverContainers();
-    if (containers.length === 0) {
-      watchLog("INFO", "No machinen containers running. Waiting...");
+      syncLog("WARN", "Previous sync still in progress, skipping.");
       scheduleNext();
       return;
     }
@@ -607,28 +759,30 @@ Environment:
     syncInProgress = true;
     const syncStart = new Date().toISOString();
     try {
-      for (const name of containers) {
-        if (shuttingDown) break;
-        watchLog("INFO", `Syncing ${name}...`);
-        await freezeAndPush(name, registry, { keepAlive: true });
-        watchLog("INFO", `Synced ${name}.`);
-      }
+      await runSync();
       lastSync = syncStart;
       lastSyncSuccess = true;
       syncCount++;
       consecutiveFailures = 0;
-      updateStatus(containers);
+      updateStatus();
     } catch (err) {
       lastSync = syncStart;
       lastSyncSuccess = false;
       consecutiveFailures++;
-      updateStatus(containers);
+      updateStatus();
 
       if (isAuthError(err)) {
-        watchLog("ERROR", `Sync failed (auth error): ${err.message}`);
-        watchLog("WARN", "Run 'gh auth refresh -s write:packages' to fix authentication.");
+        syncLog("ERROR", `Sync failed (auth error): ${err.message}`);
+        syncLog("WARN", "Run 'gh auth refresh -s write:packages' to fix authentication.");
       } else {
-        watchLog("ERROR", `Sync failed: ${err.message}`);
+        syncLog("ERROR", `Sync failed: ${err.message}`);
+      }
+
+      if (!containerExists(containerName)) {
+        syncLog("ERROR", `Container "${containerName}" no longer exists. Exiting.`);
+        syncInProgress = false;
+        shutdownResolve();
+        return;
       }
     } finally {
       syncInProgress = false;
@@ -644,100 +798,17 @@ Environment:
   function scheduleNext() {
     if (shuttingDown) return;
     const delay = nextIntervalMs(consecutiveFailures);
-    watchLog("INFO", `Next sync in ${Math.round(delay / 1000)}s`);
+    syncLog("INFO", `Next sync in ${Math.round(delay / 1000)}s`);
     timer = setTimeout(tick, delay);
   }
 
-  // --- Sleep/wake migration ---
-
-  const remoteIps = new Map(); // containerName → ip
-
-  async function handleSleep() {
-    watchLog("INFO", "Sleep detected — migrating to remote...");
-
-    const containers = discoverContainers();
-    if (containers.length === 0) {
-      watchLog("INFO", "No containers to migrate.");
-      return;
-    }
-
-    for (const name of containers) {
-      try {
-        watchLog("INFO", `Freezing ${name}...`);
-        const { latestTag } = await freezeAndPush(name, registry, { keepAlive: false });
-
-        watchLog("INFO", `Provisioning remote server for ${name}...`);
-        const ip = await provisionServer({ name });
-        remoteDockerLogin(ssh, ip);
-        remoteRestore(ip, name, latestTag, registry);
-        remoteIps.set(name, ip);
-
-        watchLog("INFO", `${name} running on remote at ${ip}`);
-      } catch (err) {
-        watchLog("ERROR", `Sleep migration failed for ${name}: ${err.message}`);
-      }
-    }
-
-    if (remoteIps.size > 0) {
-      watchLog("INFO", `${remoteIps.size} container(s) migrated to cloud.`);
-    }
-  }
-
-  async function handleWake() {
-    watchLog("INFO", "Wake detected — migrating back to local...");
-
-    if (remoteIps.size === 0) {
-      watchLog("INFO", "No remote containers to restore.");
-      return;
-    }
-
-    for (const [name, ip] of remoteIps) {
-      try {
-        const { latestTag } = remoteFreeze(ip, name, registry);
-        pullImage(latestTag);
-        restoreLocally(latestTag, name);
-
-        watchLog("INFO", `Destroying remote server for ${name}...`);
-        destroyServer(name);
-        remoteIps.delete(name);
-
-        watchLog("INFO", `${name} restored locally.`);
-      } catch (err) {
-        watchLog("ERROR", `Wake migration failed for ${name}: ${err.message}`);
-      }
-    }
-
-    if (remoteIps.size === 0) {
-      watchLog("INFO", "All containers back on your laptop.");
-    } else {
-      watchLog("WARN", `${remoteIps.size} container(s) still on remote. Run 'machinen destroy --remote' to clean up.`);
-    }
-  }
-
-  const watcher = createPowerWatcher({
-    onSleep: async ({ canDelaySleep }) => handleSleep(),
-    onWake: async () => handleWake(),
-  });
-
-  // Manual trigger: SIGUSR1 = simulate sleep, SIGUSR2 = simulate wake
-  process.on("SIGUSR1", () => {
-    watchLog("INFO", "SIGUSR1 received — simulating sleep...");
-    handleSleep().catch(err => watchLog("ERROR", `Simulated sleep failed: ${err.message}`));
-  });
-  process.on("SIGUSR2", () => {
-    watchLog("INFO", "SIGUSR2 received — simulating wake...");
-    handleWake().catch(err => watchLog("ERROR", `Simulated wake failed: ${err.message}`));
-  });
-
-  // Start the sync loop
+  updateStatus();
   tick();
 
   await shutdownPromise;
   if (timer) clearTimeout(timer);
-  watchLog("INFO", "Watch daemon stopped.");
-  if (remoteIps.size > 0) {
-    watchLog("WARN", `${remoteIps.size} remote server(s) still running. Run 'machinen destroy --remote' to clean up.`);
-  }
+  updateStatus();
+  syncLog("INFO", "Sync daemon stopped.");
   process.exit(0);
 }
 
@@ -821,29 +892,35 @@ async function main() {
 
   const commands = {
     up: cmdUp,
-    freeze: cmdFreeze,
+    freeze: (a) => cmdFreeze(a.container),
     restore: cmdRestore,
-    watch: cmdWatch,
+    watch: cmdSync,
     open: cmdOpen,
     logs: cmdLogs,
     destroy: cmdDestroy,
+    sync: cmdSync,
   };
 
   if (!action || !commands[action]) {
     console.log(`Usage: machinen <command> [options]
 
 Commands:
-  up [branch]           Start devcontainer for branch (default: current branch)
+  up [branch]           Start container for branch (default: current branch)
     --file <path>       Path to devcontainer.json (auto-detected from cwd)
+    --image <image>     Use a Docker image instead of devcontainer
+    --name <name>       Override container name (default: machinen-<branch>)
+    --cmd <command>     Override container command (default: sleep infinity)
+    --detach            Start container without opening a shell
 
   freeze [name]         Checkpoint, push to registry, stop container
     --keep-alive        Don't stop the container (live snapshot)
   restore [name]        Restore container from checkpoint
     --local             Restore locally into <name>-restored
     --remote            Provision server and restore remotely (default)
-  watch                 Daemon: sync all containers + migrate on sleep/wake
+  watch [name]          Daemon: sync container + migrate on sleep/wake
     --interval <s>      Sync interval in seconds (default: 300, minimum: 30)
-                        Manual: kill -USR1 <pid> (sleep) / kill -USR2 <pid> (wake)
+    --once              Run a single sync and exit
+  sync [name]           Alias for watch
   open [name]           Open shell in container
     --local             Open shell in local container
     --remote            Open shell on remote server
@@ -861,6 +938,7 @@ Cloud provider (default: hetzner):
 Environment:
   HCLOUD_TOKEN          Hetzner API token (alternative to hcloud context auth)
   MACHINEN_SYNC_INTERVAL  Sync interval in seconds (overrides --interval default)
+
 Registry: Uses ghcr.io via authenticated gh CLI (run 'gh auth login' first)`);
     process.exit(action ? 1 : 0);
   }
