@@ -67,7 +67,12 @@ export async function createCheckpoint(containerName, { exit = true } = {}) {
  * Binary-safe replace of oldId → newId in all .img files under checkpointDir.
  * Copies files out of the Docker VM, patches with Buffer, copies back.
  */
-function patchCheckpointIds(checkpointDir, oldId, newId) {
+/**
+ * Patch a checkpoint directory: replace container IDs and optionally strip
+ * leftover bind mount entries.  Both operations happen in a single pass to
+ * avoid extra tar round-trips through the Docker VM.
+ */
+function patchCheckpoint(checkpointDir, oldId, newId, bindPathsToStrip = []) {
   const patchDir = fs.mkdtempSync(path.join(os.tmpdir(), "machinen-patch-"));
   const tarPath = path.join(patchDir, "checkpoint-patch.tar");
 
@@ -83,10 +88,14 @@ function patchCheckpointIds(checkpointDir, oldId, newId) {
     }
 
     // Untar locally, patch, retar
+    // COPYFILE_DISABLE=1 prevents macOS tar from creating ._* AppleDouble
+    // resource fork files that would corrupt the CRIU checkpoint directory.
+    const tarEnv = { ...process.env, COPYFILE_DISABLE: "1" };
     const workDir = path.join(patchDir, "work");
     fs.mkdirSync(workDir);
-    execFileSync("tar", ["xf", tarPath, "-C", workDir], { stdio: "pipe" });
+    execFileSync("tar", ["xf", tarPath, "-C", workDir], { stdio: "pipe", env: tarEnv });
 
+    // 1. Replace container IDs in all .img files (binary-safe)
     const oldBuf = Buffer.from(oldId, "utf-8");
     const newBuf = Buffer.from(newId, "utf-8");
 
@@ -107,9 +116,14 @@ function patchCheckpointIds(checkpointDir, oldId, newId) {
       }
     }
 
+    // 2. Strip leftover bind mount entries from mountpoints
+    if (bindPathsToStrip.length > 0) {
+      stripBindMountEntries(workDir, bindPathsToStrip);
+    }
+
     // Copy patched files back
     const patchedTar = path.join(patchDir, "patched.tar");
-    execFileSync("tar", ["cf", patchedTar, "-C", workDir, "."], { stdio: "pipe" });
+    execFileSync("tar", ["cf", patchedTar, "-C", workDir, "."], { stdio: "pipe", env: tarEnv });
 
     try {
       execSync(
@@ -133,8 +147,25 @@ function patchCheckpointIds(checkpointDir, oldId, newId) {
  * Uses the same CRIU image format as patch-checkpoint.mjs:
  *   8-byte header + repeated (4-byte LE size + protobuf payload).
  */
+/**
+ * Expand bind paths to include common symlink variants.
+ * CRIU resolves symlinks (e.g. /var/run → /run) before recording mount paths,
+ * but Docker may report the unresolved path.  Generate both forms so we match
+ * regardless of which one appears in the checkpoint.
+ */
+function expandBindPaths(bindPaths) {
+  const expanded = new Set(bindPaths);
+  for (const p of bindPaths) {
+    if (p.startsWith("/var/run/")) expanded.add("/run/" + p.slice("/var/run/".length));
+    else if (p.startsWith("/run/")) expanded.add("/var/run/" + p.slice("/run/".length));
+  }
+  return [...expanded];
+}
+
 export function stripBindMountEntries(dir, bindPaths) {
   if (!bindPaths || bindPaths.length === 0) return;
+
+  const paths = expandBindPaths(bindPaths);
 
   for (const file of fs.readdirSync(dir)) {
     if (!file.startsWith("mountpoints-") || !file.endsWith(".img")) continue;
@@ -157,7 +188,7 @@ export function stripBindMountEntries(dir, bindPaths) {
     const kept = [];
     for (const entry of entries) {
       const payload = entry.subarray(4).toString("latin1");
-      if (bindPaths.some(p => payload.includes(p))) {
+      if (paths.some(p => payload.includes(p))) {
         removedCount++;
       } else {
         kept.push(entry);
@@ -189,7 +220,7 @@ export function extractCheckpointFiles(containerId, checkpointId) {
     );
   } catch {
     // Fall back to direct filesystem access (native Linux)
-    execFileSync("tar", ["cf", tarPath, "-C", checkpointPath, "."], { stdio: "pipe" });
+    execFileSync("tar", ["cf", tarPath, "-C", checkpointPath, "."], { stdio: "pipe", env: { ...process.env, COPYFILE_DISABLE: "1" } });
   }
 
   return { tmpDir, tarPath };
@@ -309,11 +340,12 @@ export async function prepareCheckpoint(containerName, { stop = false } = {}) {
   // already baked into the committed image, and the host paths won't exist
   // on restore.
   if (binds.length > 0) {
+    const tarEnv = { ...process.env, COPYFILE_DISABLE: "1" };
     const workDir = path.join(tmpDir, "patch");
     fs.mkdirSync(workDir);
-    execFileSync("tar", ["xf", tarPath, "-C", workDir], { stdio: "pipe" });
+    execFileSync("tar", ["xf", tarPath, "-C", workDir], { stdio: "pipe", env: tarEnv });
     stripBindMountEntries(workDir, binds);
-    execFileSync("tar", ["cf", tarPath, "-C", workDir, "."], { stdio: "pipe" });
+    execFileSync("tar", ["cf", tarPath, "-C", workDir, "."], { stdio: "pipe", env: tarEnv });
     fs.rmSync(workDir, { recursive: true, force: true });
   }
 
@@ -384,18 +416,146 @@ export function restoreLocally(imageTag, containerName) {
 
   dockerExec(["rm", "machinen-tmp"]);
 
-  // Patch checkpoint: CRIU image files (protobuf binary) contain hardcoded
-  // paths with the original container ID (mountpoints, cgroups, etc.).
-  // Replace with the new container ID so CRIU can find them.
-  // Must be binary-safe (sed mangles protobuf data), so we use Node.js
-  // Buffer.replace on the host side.
-  if (oldContainerId && oldContainerId !== newContainerId) {
-    console.log("Patching checkpoint container ID references...");
-    patchCheckpointIds(checkpointDir, oldContainerId, newContainerId);
+  // Remove macOS AppleDouble resource fork files (._*) that may have been
+  // introduced by tar on macOS.  CRIU doesn't expect them and fails to restore.
+  try {
+    execSync(
+      `docker run --rm --privileged --pid=host alpine nsenter -t 1 -m sh -c ${shellQuote("find " + checkpointDir + " -name '._*' -delete")}`,
+      { stdio: "pipe", shell: true }
+    );
+  } catch {
+    // Native Linux or no ._* files — ignore
   }
 
-  // Restore
-  dockerExec(["start", "--checkpoint", checkpointId, containerName], { stdio: "inherit" });
+  // Patch checkpoint: replace hardcoded container IDs and strip any leftover
+  // bind mount entries.  The restore container has no bind mounts, so any
+  // bind mount still in the checkpoint would cause CRIU to fail with
+  // "No mapping for <mnt_id> mountpoint".
+  //
+  // Bind paths come from the original container's config.  They may have been
+  // stripped during freeze, but we re-strip here as a safety net (path
+  // normalization fixes, older checkpoints, etc.).
+  const origBinds = [...new Set([
+    ...(config.Binds || []).map(b => b.split(":")[1]),
+  ].filter(Boolean))];
+
+  // Also read bind mounts from devcontainer metadata if present
+  const dcMeta = labels["devcontainer.metadata"];
+  if (dcMeta) {
+    try {
+      for (const entry of JSON.parse(dcMeta)) {
+        for (const m of entry.mounts || []) {
+          if (m.type === "bind" && m.target) origBinds.push(m.target);
+          // String-format mounts: "source=...,target=...,type=bind"
+          if (typeof m === "string" && m.includes("type=bind")) {
+            const match = m.match(/target=([^,]+)/);
+            if (match) origBinds.push(match[1]);
+          }
+        }
+      }
+    } catch {}
+  }
+
+  const needsPatch = oldContainerId && oldContainerId !== newContainerId;
+  if (needsPatch || origBinds.length > 0) {
+    console.log("Patching checkpoint...");
+    patchCheckpoint(
+      checkpointDir,
+      oldContainerId || "",
+      newContainerId,
+      origBinds,
+    );
+  }
+
+  // Remove stale socket files from the container's overlay.  The committed
+  // image may contain socket files (e.g. /run/docker.sock from socat) that
+  // CRIU needs to re-bind during restore.  If the file already exists CRIU
+  // fails with "Address already in use".
+  //
+  // Since the socket may live in a lower (read-only) layer, we create an
+  // overlayfs whiteout (char device 0:0) in the upper layer to hide it.
+  const upperDir = JSON.parse(
+    dockerExec(["inspect", "--format", "{{json .GraphDriver.Data.UpperDir}}", containerName])
+  );
+  if (upperDir) {
+    // Stale socket paths that need to be hidden for CRIU to bind them.
+    const socketPaths = ["/run/docker.sock"];
+    try {
+      execSync(
+        `docker run --rm --privileged --pid=host alpine nsenter -t 1 -m sh -c ${shellQuote(
+          socketPaths.map(sp =>
+            `mkdir -p ${upperDir}$(dirname ${sp}) && rm -f ${upperDir}${sp} && mknod ${upperDir}${sp} c 0 0`
+          ).join(" && ")
+        )}`,
+        { stdio: "pipe", shell: true }
+      );
+    } catch {
+      // Native Linux: direct access
+      for (const sp of socketPaths) {
+        try {
+          const dir = path.dirname(upperDir + sp);
+          execFileSync("mkdir", ["-p", dir], { stdio: "pipe" });
+          try { fs.unlinkSync(upperDir + sp); } catch {}
+          execFileSync("mknod", [upperDir + sp, "c", "0", "0"], { stdio: "pipe" });
+        } catch {}
+      }
+    }
+  }
+
+  // Restore — always capture CRIU diagnostics to a log file
+  const diagDir = path.join(os.homedir(), ".machinen", "logs");
+  fs.mkdirSync(diagDir, { recursive: true });
+  const diagFile = path.join(diagDir, `restore-${Date.now()}.log`);
+
+  function collectDiagnostics() {
+    const lines = [`restore timestamp: ${new Date().toISOString()}`];
+    lines.push(`checkpoint: ${checkpointId}`);
+    lines.push(`container: ${containerName} (${newContainerId})`);
+    lines.push(`old container: ${oldContainerId || "n/a"}`);
+    lines.push("");
+
+    // List checkpoint files
+    try {
+      const ls = execSync(
+        `docker run --rm --privileged --pid=host alpine nsenter -t 1 -m sh -c ${shellQuote("ls -la " + checkpointDir + "/")}`,
+        { stdio: "pipe", encoding: "utf-8", shell: true }
+      );
+      lines.push("checkpoint files:", ls);
+    } catch {
+      try {
+        lines.push("checkpoint files:", execFileSync("ls", ["-la", checkpointDir + "/"], { stdio: "pipe", encoding: "utf-8" }));
+      } catch (e) { lines.push(`checkpoint files: error: ${e.message}`); }
+    }
+
+    // CRIU restore log (written by CRIU on failure, sometimes on success)
+    try {
+      const log = execSync(
+        `docker run --rm --privileged --pid=host alpine nsenter -t 1 -m sh -c ${shellQuote("cat " + checkpointDir + "/restore.log 2>/dev/null || echo '(no restore.log)'")}`,
+        { stdio: "pipe", encoding: "utf-8", shell: true }
+      );
+      lines.push("CRIU restore.log:", log);
+    } catch {
+      try {
+        const log = fs.readFileSync(path.join(checkpointDir, "restore.log"), "utf-8");
+        lines.push("CRIU restore.log:", log);
+      } catch { lines.push("CRIU restore.log: not found"); }
+    }
+
+    return lines.join("\n");
+  }
+
+  try {
+    dockerExec(["start", "--checkpoint", checkpointId, containerName], { stdio: "inherit" });
+    const diag = collectDiagnostics();
+    fs.writeFileSync(diagFile, diag);
+    console.log(`Diagnostics saved to ${diagFile}`);
+  } catch (err) {
+    const diag = collectDiagnostics();
+    fs.writeFileSync(diagFile, diag + `\n\nERROR: ${err.message}\n`);
+    console.error(`\nCRIU restore failed. Diagnostics saved to ${diagFile}`);
+    console.error(diag);
+    throw err;
+  }
 
   return { newContainerId, checkpointId };
 }
