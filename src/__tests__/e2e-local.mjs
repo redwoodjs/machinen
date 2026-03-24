@@ -5,9 +5,9 @@
  *
  * Verifies the full checkpoint/restore cycle:
  *   1. Create a container with known file and in-memory state
- *   2. Commit → clean copy → checkpoint → build image → push to local registry
+ *   2. Commit → checkpoint original → build image → push to local registry
  *   3. Pull from registry → restore locally
- *   4. Assert: container running, files intact, process resumed, memory preserved
+ *   4. Assert: container running, files intact, original process alive and incrementing
  *
  * Requires: Docker with experimental mode, CRIU, local registry on :5000
  */
@@ -21,6 +21,7 @@ import {
   captureContainerConfig,
   createCheckpoint,
   extractCheckpointFiles,
+  stripBindMountEntries,
   buildCheckpointImage,
   pushImage,
   pullImage,
@@ -143,29 +144,37 @@ async function main() {
       } catch {}
     }
 
-    // Create clean copy (no bind mounts)
-    rmContainer(CLEAN);
-    exec(`docker stop ${CONTAINER}`);
-    execFileSync("docker", [
-      "run", "-d", "--name", CLEAN, "--entrypoint", "sleep",
-      "--security-opt", "seccomp=unconfined", "--network", "host",
-      COMMITTED, "infinity",
-    ], { stdio: "pipe" });
-
-    // Copy bind-mounted files into clean container
-    for (const { containerPath, tarPath } of savedBinds) {
-      const parent = path.posix.dirname(containerPath);
-      exec(`cat ${tarPath} | docker cp - ${CLEAN}:${parent}`);
+    // Bake bind-mounted files into the committed image using a temp container
+    if (savedBinds.length > 0) {
+      rmContainer(CLEAN);
+      execFileSync("docker", [
+        "run", "-d", "--name", CLEAN, "--entrypoint", "sleep",
+        COMMITTED, "infinity",
+      ], { stdio: "pipe" });
+      for (const { containerPath, tarPath } of savedBinds) {
+        const parent = path.posix.dirname(containerPath);
+        exec(`cat ${tarPath} | docker cp - ${CLEAN}:${parent}`);
+      }
+      exec(`docker commit ${CLEAN} ${COMMITTED}`);
+      rmContainer(CLEAN);
     }
     fs.rmSync(wsTmpDir, { recursive: true, force: true });
 
-    await new Promise(r => setTimeout(r, 2000));
-
-    // Checkpoint
-    const { containerId, checkpointId } = await createCheckpoint(CLEAN);
+    // Checkpoint the original container directly to preserve process tree
+    const { containerId, checkpointId } = await createCheckpoint(CONTAINER, { exit: true });
     console.log(`   checkpoint: ${checkpointId}`);
 
     const { tmpDir, tarPath } = extractCheckpointFiles(containerId, checkpointId);
+
+    // Strip bind-mount entries from checkpoint (contents are in the committed image)
+    if (binds.length > 0) {
+      const patchDir = path.join(tmpDir, "patch");
+      fs.mkdirSync(patchDir);
+      execFileSync("tar", ["xf", tarPath, "-C", patchDir], { stdio: "pipe" });
+      stripBindMountEntries(patchDir, binds);
+      execFileSync("tar", ["cf", tarPath, "-C", patchDir, "."], { stdio: "pipe" });
+      fs.rmSync(patchDir, { recursive: true, force: true });
+    }
 
     try {
       const prefix = `${REGISTRY}/machinen/${CONTAINER}`;
@@ -222,22 +231,30 @@ async function main() {
       assert(postHello === "hello from machinen", `hello lost: ${postHello}`);
       console.log("   [pass] /tmp/hello.txt preserved");
 
-      // state.txt should have counter:secret format (written by the original process,
-      // preserved in the committed filesystem)
-      const postState = dockerExec(RESTORED, "cat /tmp/state.txt");
-      const [counterStr, secret] = postState.split(":");
-      const postCounter = parseInt(counterStr, 10);
+      // The original shell loop should still be running and incrementing the counter.
+      // Read counter twice with a gap to prove the process is alive and ticking.
+      const postState1 = dockerExec(RESTORED, "cat /tmp/state.txt");
+      const [counterStr1, secret1] = postState1.split(":");
+      const postCounter1 = parseInt(counterStr1, 10);
 
-      assert(secret === "machinen-e2e-42", `in-memory SECRET lost after restore: ${secret}`);
-      console.log("   [pass] state.txt SECRET preserved");
+      assert(secret1 === "machinen-e2e-42", `in-memory SECRET lost after restore: ${secret1}`);
+      console.log("   [pass] in-memory SECRET preserved across checkpoint/restore");
 
-      assert(postCounter >= preCounter, `counter regressed (pre=${preCounter} post=${postCounter})`);
-      console.log(`   [pass] counter preserved: ${postCounter} (filesystem state restored)`);
+      assert(postCounter1 >= preCounter, `counter regressed (pre=${preCounter} post=${postCounter1})`);
+      console.log(`   [pass] counter preserved: ${postCounter1} (was ${preCounter} before freeze)`);
 
-      // Process is running (sleep infinity from the clean container)
+      // Wait and read again — counter must still be incrementing
+      await new Promise(r => setTimeout(r, 2000));
+      const postState2 = dockerExec(RESTORED, "cat /tmp/state.txt");
+      const postCounter2 = parseInt(postState2.split(":")[0], 10);
+
+      assert(postCounter2 > postCounter1, `counter not incrementing after restore (read1=${postCounter1} read2=${postCounter2}) — original process is not running`);
+      console.log(`   [pass] counter still incrementing: ${postCounter1} → ${postCounter2} (process survived restore)`);
+
+      // The original shell process should be running, not "sleep infinity"
       const ps = dockerExec(RESTORED, "ps aux");
-      assert(ps.includes("sleep"), `sleep process not found in:\n${ps}`);
-      console.log("   [pass] process tree restored");
+      assert(!ps.includes("sleep infinity"), `"sleep infinity" found — original process was replaced:\n${ps}`);
+      console.log("   [pass] original process tree restored (no sleep substitution)");
 
       // Bind-mounted workspace files (may not work in Docker-outside-of-Docker)
       try {
