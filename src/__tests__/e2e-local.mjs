@@ -9,6 +9,10 @@
  *   3. Pull from registry → restore locally
  *   4. Assert: container running, files intact, original process alive and incrementing
  *
+ * The test container is designed to exercise the same patterns as a real
+ * devcontainer: multiple bind mounts, a background daemon with a Unix socket
+ * (mimicking docker-outside-of-docker's socat), and /var/run symlink paths.
+ *
  * Requires: Docker with experimental mode, CRIU, local registry on :5000
  */
 
@@ -52,7 +56,7 @@ function assert(ok, msg) {
   if (!ok) throw new Error(`ASSERTION FAILED: ${msg}`);
 }
 
-function cleanup(workspaceDir) {
+function cleanup(dirs = []) {
   for (const c of [CONTAINER, RESTORED, CLEAN, COMMITTED, "machinen-tmp"]) {
     rmContainer(c);
   }
@@ -60,8 +64,8 @@ function cleanup(workspaceDir) {
   for (const pattern of [`${REGISTRY}/*`, `${COMMITTED}`]) {
     try { exec(`docker images --format '{{.Repository}}:{{.Tag}}' ${pattern} | xargs -r docker rmi -f`); } catch {}
   }
-  if (workspaceDir) {
-    try { fs.rmSync(workspaceDir, { recursive: true, force: true }); } catch {}
+  for (const d of dirs) {
+    if (d) try { fs.rmSync(d, { recursive: true, force: true }); } catch {}
   }
 }
 
@@ -69,13 +73,14 @@ function cleanup(workspaceDir) {
 
 async function main() {
   let workspaceDir;
+  let extraDir;
   cleanup();
 
   try {
-    // ── 1. Create container with known state + bind mount ──────────────
+    // ── 1. Create container with known state + bind mounts ────────────
     console.log("1. Creating test container with state...");
 
-    // Create a workspace dir to bind-mount. Use cwd (the repo checkout) since
+    // Create a workspace dir to bind-mount.  Use cwd (the repo checkout) since
     // it's host-mapped in both agent-ci and native Docker environments.
     // (os.tmpdir() is inside the runner container and invisible to Docker.)
     workspaceDir = path.join(process.cwd(), ".e2e-workspace");
@@ -83,10 +88,38 @@ async function main() {
     fs.writeFileSync(path.join(workspaceDir, "README.md"), "# E2E Test Workspace\n");
     fs.writeFileSync(path.join(workspaceDir, "data.json"), '{"test": true}\n');
 
-    // The entrypoint: write files, then loop incrementing a counter.
+    // Second bind mount through /var/run to exercise symlink normalisation.
+    // On Debian/Ubuntu containers /var/run → /run, so Docker reports the
+    // mount destination as /var/run/... while CRIU records /run/...
+    extraDir = path.join(process.cwd(), ".e2e-extra");
+    fs.mkdirSync(extraDir, { recursive: true });
+    fs.writeFileSync(path.join(extraDir, "extra.txt"), "extra-data\n");
+
+    // The entrypoint:
+    //   1. Create a Unix socket with socat (mimics docker-outside-of-docker)
+    //   2. Write files + keep a file descriptor open to the bind mount
+    //   3. Loop incrementing a counter
+    //
     // After CRIU restore the shell process resumes mid-loop with $COUNTER
-    // and $SECRET still in memory.
+    // and $SECRET still in memory, the socat daemon is alive, and the open
+    // FD to the bind mount is preserved.
     const script = [
+      // Try to install socat for the socket test.  If unavailable (no network
+      // in agent-ci), skip — the test adapts below.
+      'apk add --no-cache socat >/dev/null 2>&1 && HAS_SOCAT=1 || HAS_SOCAT=0',
+
+      // Background daemon listening on a Unix socket — mirrors the socat
+      // process from the docker-outside-of-docker devcontainer feature.
+      // The socket file will be captured by `docker commit`, creating the
+      // stale-socket scenario that broke restore (issue #16).
+      'if [ "$HAS_SOCAT" = "1" ]; then socat UNIX-LISTEN:/var/run/test.sock,fork,reuseaddr SYSTEM:"echo pong" & fi',
+
+      // Keep a file descriptor open to the bind mount.  This exercises CRIU's
+      // ability to restore FDs that reference stripped mount entries — the
+      // scenario that caused the "No mapping for <mnt_id>" error.
+      'exec 3>/workspace/lockfile',
+      'echo "locked" >&3',
+
       'SECRET="machinen-e2e-42"',
       'echo "$SECRET" > /tmp/secret.txt',
       'echo "hello from machinen" > /tmp/hello.txt',
@@ -100,11 +133,24 @@ async function main() {
       "--security-opt", "seccomp=unconfined",
       "--network", "host",
       "-v", `${workspaceDir}:/workspace`,
+      "-v", `${extraDir}:/var/run/e2e-extra`,
       "alpine", "sh", "-c", script,
     ], { stdio: "pipe" });
 
-    // Let the counter tick a few times
-    await new Promise(r => setTimeout(r, 3000));
+    // Let the counter tick and socat start
+    await new Promise(r => setTimeout(r, 5000));
+
+    // Check if socat is available
+    let hasSocat = false;
+    try {
+      const socatCheck = dockerExec(CONTAINER, "sh -c 'echo ping | socat - UNIX-CONNECT:/var/run/test.sock'");
+      hasSocat = socatCheck === "pong";
+    } catch {}
+    if (hasSocat) {
+      console.log("   socat daemon running on /var/run/test.sock");
+    } else {
+      console.log("   socat not available — socket tests will be skipped");
+    }
 
     // Snapshot pre-checkpoint state
     const preSecret = dockerExec(CONTAINER, "cat /tmp/secret.txt");
@@ -121,7 +167,8 @@ async function main() {
     // ── 2. Freeze (commit → clean → checkpoint → image → push) ──────
     console.log("2. Freezing...");
 
-    // Commit filesystem
+    // Commit filesystem (captures socat socket file in overlay — the stale
+    // socket that must be whiteout'd before CRIU can re-bind it).
     exec(`docker commit ${CONTAINER} ${COMMITTED}`);
 
     const container = docker.getContainer(CONTAINER);
@@ -133,6 +180,7 @@ async function main() {
       ...(config.Binds || []).map(b => b.split(":")[1]),
       ...(info.Mounts || []).filter(m => m.Type === "bind").map(m => m.Destination),
     ].filter(Boolean))];
+    console.log(`   bind paths to strip: ${binds.join(", ")}`);
     const wsTmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "machinen-e2e-ws-save-"));
     const savedBinds = [];
     for (const cp of binds) {
@@ -168,11 +216,12 @@ async function main() {
 
     // Strip bind-mount entries from checkpoint (contents are in the committed image)
     if (binds.length > 0) {
+      const env = { ...process.env, COPYFILE_DISABLE: "1" };
       const patchDir = path.join(tmpDir, "patch");
       fs.mkdirSync(patchDir);
-      execFileSync("tar", ["xf", tarPath, "-C", patchDir], { stdio: "pipe" });
+      execFileSync("tar", ["xf", tarPath, "-C", patchDir], { stdio: "pipe", env });
       stripBindMountEntries(patchDir, binds);
-      execFileSync("tar", ["cf", tarPath, "-C", patchDir, "."], { stdio: "pipe" });
+      execFileSync("tar", ["cf", tarPath, "-C", patchDir, "."], { stdio: "pipe", env });
       fs.rmSync(patchDir, { recursive: true, force: true });
     }
 
@@ -256,6 +305,14 @@ async function main() {
       assert(!ps.includes("sleep infinity"), `"sleep infinity" found — original process was replaced:\n${ps}`);
       console.log("   [pass] original process tree restored (no sleep substitution)");
 
+      // socat daemon should be alive (its socket was re-bound by CRIU)
+      if (hasSocat) {
+        assert(ps.includes("socat"), `socat daemon not found after restore:\n${ps}`);
+        console.log("   [pass] socat daemon survived restore");
+      } else {
+        console.log("   [skip] socat daemon test skipped (socat not installed)");
+      }
+
       // Bind-mounted workspace files (may not work in Docker-outside-of-Docker)
       try {
         const readme = dockerExec(RESTORED, "cat /workspace/README.md");
@@ -269,12 +326,21 @@ async function main() {
         console.log("   [skip] bind mount test skipped (Docker-outside-of-Docker environment)");
       }
 
+      // /var/run bind mount (tests symlink normalisation: /var/run → /run)
+      try {
+        const extra = dockerExec(RESTORED, "cat /var/run/e2e-extra/extra.txt");
+        assert(extra === "extra-data", `extra bind data lost: ${extra}`);
+        console.log("   [pass] /var/run/e2e-extra preserved (symlink path bind mount)");
+      } catch {
+        console.log("   [skip] /var/run bind mount test skipped");
+      }
+
       console.log("\nAll e2e checks passed.");
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   } finally {
-    cleanup(workspaceDir);
+    cleanup([workspaceDir, extraDir]);
   }
 }
 
