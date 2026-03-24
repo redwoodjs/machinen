@@ -33,7 +33,6 @@ export function captureContainerConfig(info) {
     Image: info.Config.Image,
     Cmd: info.Config.Cmd,
     Env: info.Config.Env,
-    User: info.Config.User,
     WorkingDir: info.Config.WorkingDir,
     ExposedPorts: info.Config.ExposedPorts,
     SecurityOpt: info.HostConfig.SecurityOpt,
@@ -379,29 +378,13 @@ export function restoreLocally(imageTag, containerName) {
   // Remove existing container
   try { dockerExec(["rm", "-f", containerName]); } catch {}
 
-  // Parse devcontainer metadata once — used for user resolution and bind mount discovery.
-  let dcMetaEntries = [];
-  const dcMetaRaw = labels["devcontainer.metadata"];
-  if (dcMetaRaw) {
-    try { dcMetaEntries = JSON.parse(dcMetaRaw); } catch {}
-  }
-
-  // Resolve the container user.  The checkpoint image config stores the
-  // Docker-level User; devcontainer metadata may override via remoteUser.
-  let user = config.User || "";
-  for (const entry of dcMetaEntries) {
-    if (entry.remoteUser) user = entry.remoteUser;
-  }
-
-  const createArgs = [
+  const newContainerId = dockerExec([
     "create",
     "--name", containerName,
     "--security-opt", "seccomp=unconfined",
     "--network", "host",
-  ];
-  if (user) createArgs.push("--user", user);
-  createArgs.push(createImage);
-  const newContainerId = dockerExec(createArgs).trim();
+    createImage,
+  ]).trim();
 
   // Extract checkpoint from image into Docker's internal checkpoint directory
   try { dockerExec(["rm", "-f", "machinen-tmp"]); } catch {}
@@ -437,19 +420,24 @@ export function restoreLocally(imageTag, containerName) {
     ...(config.Binds || []).map(b => b.split(":")[1]),
   ].filter(Boolean))];
 
-  // Also read bind mounts from devcontainer metadata
-  for (const entry of dcMetaEntries) {
-    if (!Array.isArray(entry.mounts)) continue;
-    for (const m of entry.mounts) {
-      if (typeof m === "string") {
-        if (m.includes("type=bind")) {
-          const match = m.match(/target=([^,]+)/);
-          if (match) origBinds.push(match[1]);
+  // Also read bind mounts from devcontainer metadata if present
+  const dcMeta = labels["devcontainer.metadata"];
+  if (dcMeta) {
+    try {
+      for (const entry of JSON.parse(dcMeta)) {
+        if (!Array.isArray(entry.mounts)) continue;
+        for (const m of entry.mounts) {
+          if (typeof m === "string") {
+            if (m.includes("type=bind")) {
+              const match = m.match(/target=([^,]+)/);
+              if (match) origBinds.push(match[1]);
+            }
+          } else if (m.type === "bind" && m.target) {
+            origBinds.push(m.target);
+          }
         }
-      } else if (m.type === "bind" && m.target) {
-        origBinds.push(m.target);
       }
-    }
+    } catch {}
   }
 
   const needsPatch = oldContainerId && oldContainerId !== newContainerId;

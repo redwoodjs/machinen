@@ -418,11 +418,7 @@ function cmdOpen(args) {
       const status = dockerExec(["inspect", "--format", "{{.State.Status}}", name]).trim();
       if (status === "running") {
         console.log(`Opening shell in local container ${name}...`);
-        const user = dockerExec(["inspect", "--format", "{{.Config.User}}", name]).trim();
-        const execArgs = ["exec", "-it"];
-        if (user) execArgs.push("--user", user);
-        execArgs.push(name, "/bin/bash");
-        const shell = spawnSync("docker", execArgs, { stdio: "inherit" });
+        const shell = spawnSync("docker", ["exec", "-it", name, "/bin/bash"], { stdio: "inherit" });
         process.exit(shell.status || 0);
       }
     } catch {}
