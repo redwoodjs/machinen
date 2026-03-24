@@ -2,11 +2,15 @@
 
 import { execSync, execFileSync, spawnSync, spawn } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import {
   docker,
   dockerExec,
   shellQuote,
+  captureContainerConfig,
+  createCheckpoint,
+  extractCheckpointFiles,
   prepareCheckpoint,
   buildCheckpointImage,
   pushImage,
@@ -27,7 +31,6 @@ import {
 } from "./cloud.mjs";
 import { getRegistry, ensureDockerLogin, remoteDockerLogin } from "./registry.mjs";
 import { createPowerWatcher } from "./power.mjs";
-import { sendTelegram } from "./notify.mjs";
 
 // --- freeze ---
 
@@ -319,7 +322,6 @@ async function cmdUp(args) {
           remoteDockerLogin(sshScript, remoteIp);
 
           remoteRestore(remoteIp, containerName, latestTag, registry);
-          await sendTelegram(`Your machine is running on Hetzner at ${remoteIp}`);
           console.log(`Remote restore complete: ${remoteIp}`);
         } finally {
           fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -350,7 +352,6 @@ async function cmdUp(args) {
         remoteIp = null;
 
         console.log("Local restore complete.");
-        await sendTelegram("Your machine is back on your laptop.");
       } catch (err) {
         console.error("Wake migration failed:", err.message);
       }
@@ -514,7 +515,7 @@ async function cmdDestroy(args) {
 
 async function cmdSync(args) {
   if (args.help) {
-    console.log(`Usage: machinen sync [container-name] [options]
+    console.log(`Usage: machinen watch [container-name] [options]
 
   Run a long-lived process that periodically pushes container checkpoints to
   the registry so that 'machinen restore' can always pull the latest image.
@@ -893,10 +894,10 @@ async function main() {
     up: cmdUp,
     freeze: (a) => cmdFreeze(a.container),
     restore: cmdRestore,
+    watch: cmdSync,
     open: cmdOpen,
     logs: cmdLogs,
     destroy: cmdDestroy,
-    sync: cmdSync,
   };
 
   if (!action || !commands[action]) {
@@ -910,11 +911,12 @@ Commands:
     --cmd <command>     Override container command (default: sleep infinity)
     --detach            Start container without opening a shell
 
-  freeze [name]         Checkpoint, package as image, push to registry
+  freeze [name]         Checkpoint, push to registry, stop container
+    --keep-alive        Don't stop the container (live snapshot)
   restore [name]        Restore container from checkpoint
     --local             Restore locally into <name>-restored
     --remote            Provision server and restore remotely (default)
-  sync [name]           Run sync daemon: push checkpoints to registry on interval
+  watch [name]          Daemon: sync container + migrate on sleep/wake
     --interval <s>      Sync interval in seconds (default: 300, minimum: 30)
     --once              Run a single sync and exit
   open [name]           Open shell in container
@@ -934,8 +936,6 @@ Cloud provider (default: hetzner):
 Environment:
   HCLOUD_TOKEN          Hetzner API token (alternative to hcloud context auth)
   MACHINEN_SYNC_INTERVAL  Sync interval in seconds (overrides --interval default)
-  TELEGRAM_BOT_TOKEN    Telegram bot token (optional, for notifications)
-  TELEGRAM_CHAT_ID      Telegram chat ID (optional, for notifications)
 
 Registry: Uses ghcr.io via authenticated gh CLI (run 'gh auth login' first)`);
     process.exit(action ? 1 : 0);
