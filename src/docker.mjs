@@ -124,6 +124,53 @@ function patchCheckpointIds(checkpointDir, oldId, newId) {
   }
 }
 
+/**
+ * Strip mount entries from CRIU mountpoints image files that reference
+ * the given container paths.  Bind mounts captured during checkpoint
+ * can't be restored (the host paths don't exist); the file contents are
+ * already baked into the committed image layer, so we just drop them.
+ *
+ * Uses the same CRIU image format as patch-checkpoint.mjs:
+ *   8-byte header + repeated (4-byte LE size + protobuf payload).
+ */
+export function stripBindMountEntries(dir, bindPaths) {
+  if (!bindPaths || bindPaths.length === 0) return;
+
+  for (const file of fs.readdirSync(dir)) {
+    if (!file.startsWith("mountpoints-") || !file.endsWith(".img")) continue;
+
+    const filePath = path.join(dir, file);
+    const data = fs.readFileSync(filePath);
+    if (data.length < 8) continue;
+
+    const header = data.subarray(0, 8);
+    let offset = 8;
+    const entries = [];
+    while (offset + 4 <= data.length) {
+      const size = data.readUInt32LE(offset);
+      if (size === 0 || offset + 4 + size > data.length) break;
+      entries.push(data.subarray(offset, offset + 4 + size));
+      offset += 4 + size;
+    }
+
+    let removedCount = 0;
+    const kept = [];
+    for (const entry of entries) {
+      const payload = entry.subarray(4).toString("latin1");
+      if (bindPaths.some(p => payload.includes(p))) {
+        removedCount++;
+      } else {
+        kept.push(entry);
+      }
+    }
+
+    if (removedCount > 0) {
+      fs.writeFileSync(filePath, Buffer.concat([header, ...kept]));
+      console.log(`  stripped ${removedCount} bind mount entries from ${file}`);
+    }
+  }
+}
+
 export function extractCheckpointFiles(containerId, checkpointId) {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "machinen-"));
   const tarPath = path.join(tmpDir, "checkpoint.tar");
@@ -184,12 +231,13 @@ ${workspaceAdds.join("\n")}
 }
 
 /**
- * Commit a running container, capture bind mounts, and produce a clean
- * checkpoint image ready for push.  Optionally stops the original container
- * (freeze) or leaves it running (background sync).
+ * Commit a running container's filesystem, bake bind mounts into the image,
+ * and checkpoint the original container to preserve its process tree.
+ * Optionally stops the container after checkpoint (freeze) or leaves it
+ * running (background sync).
  *
  * Returns { config, commitImage, cleanName, containerId, checkpointId, tmpDir, tarPath }
- * Caller is responsible for cleanup (tmpDir, cleanName, commitImage).
+ * Caller is responsible for cleanup (tmpDir, commitImage).
  */
 export async function prepareCheckpoint(containerName, { stop = false } = {}) {
   const container = docker.getContainer(containerName);
@@ -223,52 +271,51 @@ export async function prepareCheckpoint(containerName, { stop = false } = {}) {
   console.log("Committing container filesystem...");
   dockerExec(["commit", containerName, commitImage]);
 
+  // Bake bind-mounted files into the committed image so they survive restore.
+  // Use a temporary container for this — it is NOT checkpointed.
   const cleanName = `${containerName}-clean`;
-  try { dockerExec(["rm", "-f", cleanName]); } catch {}
-
-  if (stop) {
-    dockerExec(["stop", containerName]);
-  }
-
-  // Run the committed image with a simple sleep — the filesystem is already
-  // captured via commit, and a trivial process avoids CRIU failures from
-  // complex entrypoints (e.g. docker-init.sh in devcontainers).
-  dockerExec([
-    "run", "-d",
-    "--name", cleanName,
-    "--entrypoint", "sleep",
-    "--security-opt", "seccomp=unconfined",
-    "--network", "host",
-    commitImage,
-    "infinity",
-  ]);
-
-  // Copy bind-mounted files into the clean container so they're in the filesystem
-  for (const { containerPath, tarPath } of savedBinds) {
-    const parent = path.posix.dirname(containerPath);
-    execSync(`cat ${shellQuote(tarPath)} | docker cp - ${shellQuote(cleanName + ":" + parent)}`, {
-      stdio: ["pipe", "pipe", "pipe"], shell: true,
-    });
-    console.log(`Restored bind mount into clean container: ${containerPath}`);
+  if (savedBinds.length > 0) {
+    try { dockerExec(["rm", "-f", cleanName]); } catch {}
+    dockerExec([
+      "run", "-d",
+      "--name", cleanName,
+      "--entrypoint", "sleep",
+      commitImage,
+      "infinity",
+    ]);
+    for (const { containerPath, tarPath } of savedBinds) {
+      const parent = path.posix.dirname(containerPath);
+      execSync(`cat ${shellQuote(tarPath)} | docker cp - ${shellQuote(cleanName + ":" + parent)}`, {
+        stdio: ["pipe", "pipe", "pipe"], shell: true,
+      });
+      console.log(`Restored bind mount into image: ${containerPath}`);
+    }
+    console.log("Re-committing with workspace files...");
+    dockerExec(["commit", cleanName, commitImage]);
+    dockerExec(["rm", "-f", cleanName]);
   }
   if (workspaceTmpDir) fs.rmSync(workspaceTmpDir, { recursive: true, force: true });
 
-  // Re-commit so workspace files are baked into the image
-  // (CRIU only captures process state, not filesystem changes to the writable layer)
-  if (savedBinds.length > 0) {
-    console.log("Re-committing with workspace files...");
-    dockerExec(["commit", cleanName, commitImage]);
-  }
-
-  // Give the process a moment to start
-  await new Promise(r => setTimeout(r, 1000));
-
-  // Checkpoint the clean container
-  const { containerId, checkpointId } = await createCheckpoint(cleanName);
+  // Checkpoint the original container directly to preserve the real process tree.
+  // exit=true stops the container after checkpoint (freeze); exit=false keeps it
+  // running (background sync).
+  const { containerId, checkpointId } = await createCheckpoint(containerName, { exit: stop });
   console.log(`Checkpoint: ${checkpointId}`);
 
   console.log("Extracting checkpoint files...");
   const { tmpDir, tarPath } = extractCheckpointFiles(containerId, checkpointId);
+
+  // Strip bind-mount entries from CRIU checkpoint — the file contents are
+  // already baked into the committed image, and the host paths won't exist
+  // on restore.
+  if (binds.length > 0) {
+    const workDir = path.join(tmpDir, "patch");
+    fs.mkdirSync(workDir);
+    execFileSync("tar", ["xf", tarPath, "-C", workDir], { stdio: "pipe" });
+    stripBindMountEntries(workDir, binds);
+    execFileSync("tar", ["cf", tarPath, "-C", workDir, "."], { stdio: "pipe" });
+    fs.rmSync(workDir, { recursive: true, force: true });
+  }
 
   return { config, commitImage, cleanName, containerId, checkpointId, tmpDir, tarPath };
 }

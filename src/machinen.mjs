@@ -11,6 +11,7 @@ import {
   captureContainerConfig,
   createCheckpoint,
   extractCheckpointFiles,
+  stripBindMountEntries,
   prepareCheckpoint,
   buildCheckpointImage,
   pushImage,
@@ -635,39 +636,43 @@ Environment:
     // Commit the running container to capture writable-layer filesystem state
     execSync(`docker commit ${containerName} ${commitImage}`, { stdio: "pipe" });
 
-    // Create a clean container from the committed image with a trivial process
+    // Bake bind-mounted files into the committed image using a temp container
     const cleanName = `${containerName}-sync-clean`;
-    try { execSync(`docker rm -f ${cleanName}`, { stdio: "pipe" }); } catch {}
-    execSync([
-      "docker run -d",
-      `--name ${cleanName}`,
-      "--entrypoint sleep",
-      "--security-opt seccomp=unconfined",
-      "--network host",
-      commitImage,
-      "infinity",
-    ].join(" "), { stdio: "pipe" });
-
-    // Restore bind-mounted files into the clean container
-    for (const { containerPath, tarPath: bindTarPath } of savedBinds) {
-      const parent = path.posix.dirname(containerPath);
-      execSync(`cat ${bindTarPath} | docker cp - ${cleanName}:${parent}`, {
-        stdio: ["pipe", "pipe", "pipe"], shell: true,
-      });
+    if (savedBinds.length > 0) {
+      try { execSync(`docker rm -f ${cleanName}`, { stdio: "pipe" }); } catch {}
+      execSync([
+        "docker run -d",
+        `--name ${cleanName}`,
+        "--entrypoint sleep",
+        commitImage,
+        "infinity",
+      ].join(" "), { stdio: "pipe" });
+      for (const { containerPath, tarPath: bindTarPath } of savedBinds) {
+        const parent = path.posix.dirname(containerPath);
+        execSync(`cat ${bindTarPath} | docker cp - ${cleanName}:${parent}`, {
+          stdio: ["pipe", "pipe", "pipe"], shell: true,
+        });
+      }
+      execSync(`docker commit ${cleanName} ${commitImage}`, { stdio: "pipe" });
+      execSync(`docker rm -f ${cleanName}`, { stdio: "pipe" });
     }
     if (workspaceTmpDir) fs.rmSync(workspaceTmpDir, { recursive: true, force: true });
 
-    // Re-commit so workspace files are baked into the image
-    if (savedBinds.length > 0) {
-      execSync(`docker commit ${cleanName} ${commitImage}`, { stdio: "pipe" });
+    // Checkpoint the original container directly to preserve the real process tree.
+    // exit=false keeps the container running for continued use.
+    const { containerId, checkpointId } = await createCheckpoint(containerName, { exit: false });
+    const { tmpDir, tarPath } = extractCheckpointFiles(containerId, checkpointId);
+
+    // Strip bind-mount entries from checkpoint (contents are in the committed image)
+    if (binds.length > 0) {
+      const patchDir = path.join(tmpDir, "patch");
+      fs.mkdirSync(patchDir);
+      execFileSync("tar", ["xf", tarPath, "-C", patchDir], { stdio: "pipe" });
+      stripBindMountEntries(patchDir, binds);
+      execFileSync("tar", ["cf", tarPath, "-C", patchDir, "."], { stdio: "pipe" });
+      fs.rmSync(patchDir, { recursive: true, force: true });
     }
 
-    // Give the process a moment to start
-    await new Promise(r => setTimeout(r, 1000));
-
-    // Checkpoint the clean container (not the original, which keeps running)
-    const { containerId, checkpointId } = await createCheckpoint(cleanName);
-    const { tmpDir, tarPath } = extractCheckpointFiles(containerId, checkpointId);
     try {
       const prefix = `${registry}/machinen/${containerName}`;
       const tag = `${prefix}:${checkpointId}`;
