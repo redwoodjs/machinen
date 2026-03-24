@@ -56,7 +56,7 @@ function assert(ok, msg) {
   if (!ok) throw new Error(`ASSERTION FAILED: ${msg}`);
 }
 
-function cleanup(workspaceDir, extraDir) {
+function cleanup(dirs = []) {
   for (const c of [CONTAINER, RESTORED, CLEAN, COMMITTED, "machinen-tmp"]) {
     rmContainer(c);
   }
@@ -64,11 +64,8 @@ function cleanup(workspaceDir, extraDir) {
   for (const pattern of [`${REGISTRY}/*`, `${COMMITTED}`]) {
     try { exec(`docker images --format '{{.Repository}}:{{.Tag}}' ${pattern} | xargs -r docker rmi -f`); } catch {}
   }
-  if (workspaceDir) {
-    try { fs.rmSync(workspaceDir, { recursive: true, force: true }); } catch {}
-  }
-  if (extraDir) {
-    try { fs.rmSync(extraDir, { recursive: true, force: true }); } catch {}
+  for (const d of dirs) {
+    if (d) try { fs.rmSync(d, { recursive: true, force: true }); } catch {}
   }
 }
 
@@ -219,12 +216,12 @@ async function main() {
 
     // Strip bind-mount entries from checkpoint (contents are in the committed image)
     if (binds.length > 0) {
-      const tarEnv = { ...process.env, COPYFILE_DISABLE: "1" };
+      const env = { ...process.env, COPYFILE_DISABLE: "1" };
       const patchDir = path.join(tmpDir, "patch");
       fs.mkdirSync(patchDir);
-      execFileSync("tar", ["xf", tarPath, "-C", patchDir], { stdio: "pipe", env: tarEnv });
+      execFileSync("tar", ["xf", tarPath, "-C", patchDir], { stdio: "pipe", env });
       stripBindMountEntries(patchDir, binds);
-      execFileSync("tar", ["cf", tarPath, "-C", patchDir, "."], { stdio: "pipe", env: tarEnv });
+      execFileSync("tar", ["cf", tarPath, "-C", patchDir, "."], { stdio: "pipe", env });
       fs.rmSync(patchDir, { recursive: true, force: true });
     }
 
@@ -343,7 +340,7 @@ async function main() {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   } finally {
-    cleanup(workspaceDir, extraDir);
+    cleanup([workspaceDir, extraDir]);
   }
 }
 
