@@ -13,6 +13,6 @@ Machinen does not create, switch, or manage git branches or worktrees. Users man
 ## Why
 
 - **Separation of concerns** — Machinen handles container lifecycle (boot, checkpoint, restore, sync). Git workflow is a separate domain.
-- **Sync is orthogonal** — The `sync` command captures container state (writable layers and bind mounts) and pushes images to a registry. This works regardless of how the user organizes their git branches.
+- **Sync is orthogonal** — The `watch` command captures container state (writable layers and bind mounts) and pushes images to a registry. This works regardless of how the user organizes their git branches.
 - **Avoids confusing ownership** — If machinen managed both container images in a registry and git worktrees, it would be unclear what "owns" the state of a given branch. Keeping these separate keeps things simple.
 - **Branch-based naming is enough** — Deriving the container name from the branch is the right level of git coupling. It gives you per-branch containers without machinen needing to touch git.

@@ -1,4 +1,4 @@
-# RFC Arbitration: `machinen sync` Daemon Command
+# RFC Arbitration: `machinen watch` Daemon Command
 
 **Date:** 2026-03-23
 **Arbitrator:** Synthesizer
@@ -9,7 +9,7 @@
 
 ## Summary
 
-Both RFCs articulate a coherent vision for the `machinen sync` daemon. The core differences are architectural (module organization, error recovery strategy, status file location) rather than UX. **RFC Draft B is selected** because it makes more pragmatic tradeoffs: lower implementation risk, more resilient error recovery, and better alignment with existing codebase patterns.
+Both RFCs articulate a coherent vision for the `machinen watch` daemon. The core differences are architectural (module organization, error recovery strategy, status file location) rather than UX. **RFC Draft B is selected** because it makes more pragmatic tradeoffs: lower implementation risk, more resilient error recovery, and better alignment with existing codebase patterns.
 
 ---
 
