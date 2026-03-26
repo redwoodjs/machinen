@@ -330,6 +330,11 @@ async function main() {
       assert(status === "running", `container not running (status: ${status})`);
       console.log("   [pass] container is running");
 
+      // /etc/resolv.conf must have a nameserver (non-root exec bug would leave it empty)
+      const resolvConf = dockerExec(RESTORED, "cat /etc/resolv.conf");
+      assert(/nameserver\s+[\d.]+/.test(resolvConf), `/etc/resolv.conf missing nameserver after restore:\n${resolvConf}`);
+      console.log("   [pass] /etc/resolv.conf has nameserver after restore");
+
       // Files preserved
       const postSecret = dockerExec(RESTORED, "cat /tmp/secret.txt");
       assert(postSecret === "machinen-e2e-42", `secret lost: ${postSecret}`);
