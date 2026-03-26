@@ -1,5 +1,44 @@
-import { describe, it, expect } from "vitest";
-import { captureContainerConfig } from "../docker.mjs";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { captureContainerConfig, tmuxAttachArgs, stripBindMountEntries } from "../docker.mjs";
+
+// Build a minimal CRIU MntEntry protobuf with just the mountpoint field.
+// Field 7 (mountpoint), wire type 2 (length-delimited string):
+//   tag byte = (7 << 3) | 2 = 0x3a
+function makeMntEntry(mountpoint) {
+  const str = Buffer.from(mountpoint, "utf-8");
+  // assume len < 128 so single-byte varint suffices
+  const payload = Buffer.concat([Buffer.from([0x3a, str.length]), str]);
+  const sizeBuf = Buffer.allocUnsafe(4);
+  sizeBuf.writeUInt32LE(payload.length);
+  return Buffer.concat([sizeBuf, payload]);
+}
+
+function writeMountpointsImg(dir, mountpoints) {
+  const header = Buffer.alloc(8);
+  const entries = mountpoints.map(makeMntEntry);
+  fs.writeFileSync(path.join(dir, "mountpoints-000.img"), Buffer.concat([header, ...entries]));
+}
+
+function readMountpoints(dir) {
+  const data = fs.readFileSync(path.join(dir, "mountpoints-000.img"));
+  const results = [];
+  let offset = 8; // skip header
+  while (offset + 4 <= data.length) {
+    const size = data.readUInt32LE(offset);
+    if (size === 0 || offset + 4 + size > data.length) break;
+    const payload = data.subarray(offset + 4, offset + 4 + size);
+    // extract mountpoint: tag 0x3a, then 1-byte len, then string
+    if (payload[0] === 0x3a) {
+      const len = payload[1];
+      results.push(payload.subarray(2, 2 + len).toString("utf-8"));
+    }
+    offset += 4 + size;
+  }
+  return results;
+}
 
 describe("captureContainerConfig", () => {
   it("extracts the right fields from docker inspect output", () => {
@@ -61,5 +100,71 @@ describe("captureContainerConfig", () => {
     expect(config.Env).toBeNull();
     expect(config.NetworkMode).toBe("bridge");
     expect(config.Binds).toBeNull();
+  });
+});
+
+describe("stripBindMountEntries", () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "machinen-test-"));
+  });
+
+  it("strips /proc/* and /sys/* masking mounts", () => {
+    writeMountpointsImg(tmpDir, ["/proc/cpuinfo", "/sys/kernel/debug", "/var/data"]);
+    stripBindMountEntries(tmpDir);
+    expect(readMountpoints(tmpDir)).toEqual(["/var/data"]);
+  });
+
+  it("strips /etc/hosts, /etc/hostname, /etc/resolv.conf", () => {
+    writeMountpointsImg(tmpDir, [
+      "/etc/hosts",
+      "/etc/hostname",
+      "/etc/resolv.conf",
+      "/etc/passwd",
+    ]);
+    stripBindMountEntries(tmpDir);
+    expect(readMountpoints(tmpDir)).toEqual(["/etc/passwd"]);
+  });
+
+  it("keeps /dev and /dev/* (needed for PTY restoration)", () => {
+    writeMountpointsImg(tmpDir, ["/dev", "/dev/shm", "/dev/pts", "/dev/mqueue"]);
+    stripBindMountEntries(tmpDir);
+    expect(readMountpoints(tmpDir)).toEqual(["/dev", "/dev/shm", "/dev/pts", "/dev/mqueue"]);
+  });
+
+  it("strips user-specified bind paths", () => {
+    writeMountpointsImg(tmpDir, ["/workspace", "/cache", "/var/data"]);
+    stripBindMountEntries(tmpDir, ["/workspace", "/cache"]);
+    expect(readMountpoints(tmpDir)).toEqual(["/var/data"]);
+  });
+
+  it("keeps /, /proc, /sys, /dev (only their children are stripped)", () => {
+    writeMountpointsImg(tmpDir, ["/", "/proc", "/sys", "/dev"]);
+    stripBindMountEntries(tmpDir);
+    expect(readMountpoints(tmpDir)).toEqual(["/", "/proc", "/sys", "/dev"]);
+  });
+
+  it("is a no-op when nothing matches", () => {
+    writeMountpointsImg(tmpDir, ["/app", "/data"]);
+    stripBindMountEntries(tmpDir);
+    expect(readMountpoints(tmpDir)).toEqual(["/app", "/data"]);
+  });
+});
+
+describe("tmuxAttachArgs", () => {
+  it("returns docker exec args targeting the machinen session", () => {
+    const args = tmuxAttachArgs("my-container");
+    expect(args).toEqual(["exec", "-it", "my-container", "tmux", "attach-session", "-t", "machinen"]);
+  });
+
+  it("inserts --user when provided", () => {
+    const args = tmuxAttachArgs("my-container", { user: "vscode" });
+    expect(args).toEqual(["exec", "-it", "--user", "vscode", "my-container", "tmux", "attach-session", "-t", "machinen"]);
+  });
+
+  it("respects a custom session name", () => {
+    const args = tmuxAttachArgs("my-container", { sessionName: "work" });
+    expect(args).toEqual(["exec", "-it", "my-container", "tmux", "attach-session", "-t", "work"]);
   });
 });

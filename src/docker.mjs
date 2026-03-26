@@ -3,20 +3,24 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import Docker from "dockerode";
+import { dindExec, DIND_CONTAINER, getDiNDHost, DIND_PORT } from "./dind.mjs";
 
-export const docker = new Docker({ socketPath: "/var/run/docker.sock" });
+/** Always points to the host Docker socket (OrbStack or native).
+ *  Used only to manage the machinen-dind container itself. */
+export const hostDocker = new Docker({ socketPath: "/var/run/docker.sock" });
+
+/** Live binding — points to the host docker initially, then reassigned to the
+ *  DiND inner daemon by reconnectDocker() after preflight starts machinen-dind.
+ *  All importers see the updated value because ESM exports are live bindings. */
+export let docker = hostDocker;
+
+/** Reassign the docker live binding to the DiND inner daemon. */
+export function reconnectDocker(host, port) {
+  docker = new Docker({ host, port, timeout: 30_000 });
+}
 
 /** Env for tar that suppresses macOS AppleDouble resource fork files (._*). */
 const TAR_ENV = { ...process.env, COPYFILE_DISABLE: "1" };
-
-/** Run a command inside the Docker VM via nsenter (OrbStack / Docker Desktop). */
-function nsenterExec(cmd, opts = {}) {
-  return dockerExec(
-    ["run", "--rm", "--privileged", "--pid=host", "alpine",
-     "nsenter", "-t", "1", "-m", "sh", "-c", cmd],
-    opts,
-  );
-}
 
 /** Run a docker CLI command without shell interpolation. */
 export function dockerExec(args, opts = {}) {
@@ -52,6 +56,38 @@ export async function createCheckpoint(containerName, { exit = true } = {}) {
     throw new Error(`Container ${containerName} is not running (status: ${info.State.Status})`);
   }
 
+  // Detach all tmux clients before checkpointing.  A tmux client started via
+  // `docker exec` lives in the same network namespace as the tmux server but
+  // is NOT a descendant of PID 1.  The resulting half-connected Unix socket
+  // stream makes CRIU abort with "Can't dump half of stream unix connection".
+  //
+  // Must run as the tmux session owner: devcontainers use remoteUser (e.g.
+  // "node") whose socket is /tmp/tmux-1000/default, not root's
+  // /tmp/tmux-0/default.  Without --user the commands silently hit the wrong
+  // socket and the connections are never cleaned up.
+  //
+  // `tmux detach-client -a` sends the detach signal but returns before the
+  // client process has exited and closed its socket (race condition).  We also
+  // kill client PIDs directly and poll until no established tmux socket
+  // connections remain.
+  const tmuxUser = resolveContainerUser(containerName);
+  const userArgs = tmuxUser ? ["--user", tmuxUser] : [];
+  try { dockerExec(["exec", ...userArgs, containerName, "tmux", "detach-client", "-a"]); } catch {}
+  try {
+    dockerExec(["exec", ...userArgs, containerName, "sh", "-c",
+      "tmux list-clients -F '#{client_pid}' 2>/dev/null | xargs -r kill -TERM 2>/dev/null || true"]);
+  } catch {}
+  // Poll until all tmux clients have disconnected (max 5 seconds).
+  // Use `tmux list-clients` rather than `ss` — more portable across distros.
+  for (let i = 0; i < 10; i++) {
+    await new Promise(r => setTimeout(r, 500));
+    try {
+      const out = dockerExec(["exec", ...userArgs, containerName, "sh", "-c",
+        "tmux list-clients 2>/dev/null | wc -l"]).trim();
+      if (out === "0") break;
+    } catch { break; }
+  }
+
   const containerId = info.Id;
   const checkpointId = `checkpoint-${Date.now()}`;
 
@@ -67,7 +103,17 @@ export async function createCheckpoint(containerName, { exit = true } = {}) {
         statusCodes: { 200: true, 201: true },
       },
       (err, result) => {
-        if (err) return reject(err);
+        if (err) {
+          // Collect the CRIU dump log for diagnostics.
+          const dumpLogPath = `/var/run/docker/containerd/daemon/io.containerd.runtime.v2.task/moby/${containerId}/criu-dump.log`;
+          try {
+            const log = dindExec(`cat ${dumpLogPath} 2>/dev/null || echo '(no dump log)'`, { encoding: "utf-8" });
+            const errors = log.split("\n").filter(l => /error|Error|errno|failed/i.test(l)).join("\n");
+            if (errors) console.error("CRIU dump errors:\n" + errors);
+            else console.error("CRIU dump log (tail):\n" + log.split("\n").slice(-20).join("\n"));
+          } catch {}
+          return reject(err);
+        }
         resolve(result);
       }
     );
@@ -121,10 +167,12 @@ function patchCheckpoint(checkpointDir, oldId, newId, bindPathsToStrip = []) {
       }
     }
 
-    // 2. Strip leftover bind mount entries from mountpoints
-    if (bindPathsToStrip.length > 0) {
-      stripBindMountEntries(workDir, bindPathsToStrip);
-    }
+    // 2. Strip bind mount entries and Docker masking mounts from mountpoints.
+    // Any mount whose path is under /proc/ or /sys/ is a Docker-managed masking
+    // mount (tmpfs/readonly bind) that references a parent mount ID (/proc, /sys)
+    // which differs in the restore container.  CRIU can't remap these and aborts
+    // with "No mapping for X:(null) mountpoint".  Docker recreates them on start.
+    stripBindMountEntries(workDir, bindPathsToStrip);
 
     // Copy patched files back
     const patchedTar = path.join(patchDir, "patched.tar");
@@ -158,10 +206,110 @@ function expandBindPaths(bindPaths) {
   return [...expanded];
 }
 
-export function stripBindMountEntries(dir, bindPaths) {
-  if (!bindPaths || bindPaths.length === 0) return;
+/**
+ * Extract the mountpoint string from a raw CRIU MntEntry protobuf buffer.
+ * MntEntry.mountpoint is field 4 (wire type 2 = length-delimited string).
+ * Returns null if not found or parse error.
+ */
+function getMountpointFromEntry(buf) {
+  let offset = 0;
+  while (offset < buf.length) {
+    // Read tag varint
+    let tag = 0, shift = 0, byte;
+    do {
+      if (offset >= buf.length) return null;
+      byte = buf[offset++];
+      tag |= (byte & 0x7f) << shift;
+      shift += 7;
+    } while (byte & 0x80);
 
-  const paths = expandBindPaths(bindPaths);
+    const fieldNumber = tag >> 3;
+    const wireType = tag & 0x7;
+
+    if (wireType === 0) { // varint — skip
+      do {
+        if (offset >= buf.length) return null;
+      } while (buf[offset++] & 0x80);
+    } else if (wireType === 2) { // length-delimited
+      let len = 0, shift2 = 0;
+      do {
+        if (offset >= buf.length) return null;
+        byte = buf[offset++];
+        len |= (byte & 0x7f) << shift2;
+        shift2 += 7;
+      } while (byte & 0x80);
+      if (fieldNumber === 7) { // mountpoint (field 7 in CRIU MntEntry proto)
+        return buf.subarray(offset, offset + len).toString("utf-8");
+      }
+      offset += len;
+    } else if (wireType === 5) { // 32-bit fixed
+      offset += 4;
+    } else if (wireType === 1) { // 64-bit fixed
+      offset += 8;
+    } else {
+      return null; // unknown wire type
+    }
+  }
+  return null;
+}
+
+/**
+ * Decode all MntEntry records from a mountpoints-*.img binary buffer.
+ *
+ * The CRIU MntEntry proto field layout differs between versions.  Modern CRIU
+ * (v3+) has mountpoint at field 5; older versions had it at field 7.  We
+ * extract multiple fields so the caller can pick the right interpretation.
+ *
+ * Returns objects with:
+ *   f1..f4: first four uint32 varint fields (mnt_id, parent_id, root_dev, root_ino in v3+)
+ *   s5, s6, s7, s8: first four length-delimited string fields
+ */
+function decodeMntFile(data) {
+  if (data.length < 8) return [];
+  let offset = 8; // skip 8-byte header
+  const entries = [];
+  while (offset + 4 <= data.length) {
+    const size = data.readUInt32LE(offset);
+    if (size === 0 || offset + 4 + size > data.length) break;
+    const buf = data.subarray(offset + 4, offset + 4 + size);
+    offset += 4 + size;
+    let pos = 0;
+    const uint32s = {};  // fieldNum → value
+    const strings = {};  // fieldNum → value
+    while (pos < buf.length) {
+      let tag = 0, shift = 0, byte;
+      do {
+        if (pos >= buf.length) break;
+        byte = buf[pos++];
+        tag |= (byte & 0x7f) << shift;
+        shift += 7;
+      } while (byte & 0x80);
+      const fieldNum = tag >> 3, wireType = tag & 7;
+      if (wireType === 0) {
+        let val = 0, s = 0;
+        do { if (pos >= buf.length) break; byte = buf[pos++]; val |= (byte & 0x7f) << s; s += 7; } while (byte & 0x80);
+        uint32s[fieldNum] = val;
+      } else if (wireType === 2) {
+        let len = 0, s = 0;
+        do { if (pos >= buf.length) break; byte = buf[pos++]; len |= (byte & 0x7f) << s; s += 7; } while (byte & 0x80);
+        strings[fieldNum] = buf.subarray(pos, pos + len).toString("utf-8");
+        pos += len;
+      } else if (wireType === 5) pos += 4;
+      else if (wireType === 1) pos += 8;
+      else break;
+    }
+    entries.push({
+      f1: uint32s[1] ?? 0, f2: uint32s[2] ?? 0,
+      f3: uint32s[3] ?? 0, f4: uint32s[4] ?? 0,
+      s5: strings[5] ?? "", s6: strings[6] ?? "",
+      s7: strings[7] ?? "", s8: strings[8] ?? "",
+    });
+  }
+  return entries;
+}
+
+export function stripBindMountEntries(dir, bindPaths) {
+  const paths = bindPaths ? expandBindPaths(bindPaths) : [];
 
   for (const file of fs.readdirSync(dir)) {
     if (!file.startsWith("mountpoints-") || !file.endsWith(".img")) continue;
@@ -183,17 +331,47 @@ export function stripBindMountEntries(dir, bindPaths) {
     let removedCount = 0;
     const kept = [];
     for (const entry of entries) {
-      const payload = entry.subarray(4).toString("latin1");
-      if (paths.some(p => payload.includes(p))) {
-        removedCount++;
-      } else {
-        kept.push(entry);
+      const payload = entry.subarray(4);
+
+      // Strip bind mount paths specified by caller (string search in binary payload)
+      if (paths.length > 0) {
+        const payloadStr = payload.toString("latin1");
+        if (paths.some(p => payloadStr.includes(p))) {
+          removedCount++;
+          continue;
+        }
       }
+
+      // Strip Docker-managed mounts whose parent mount IDs are kernel-assigned
+      // and differ between containers.  CRIU aborts with "No mapping for X:(null)
+      // mountpoint".  Docker recreates all of these on every container start.
+      //
+      // - /proc/* and /sys/* — masking tmpfs/bind mounts under proc/sysfs
+      // - /etc/hosts, /etc/hostname, /etc/resolv.conf — Docker bind mounts
+      //   that reference parent IDs not present in the restore container
+      //
+      // NOTE: do NOT strip /dev/* — CRIU needs /dev/pts to restore PTY file
+      // descriptors (e.g. tmux sessions).  The /dev submounts are external
+      // mounts handled by runc's --ext-mount-map on both Linux and OrbStack.
+      const mp = getMountpointFromEntry(payload);
+      if (
+        mp &&
+        (mp.startsWith("/proc/") ||
+          mp.startsWith("/sys/") ||
+          mp === "/etc/hosts" ||
+          mp === "/etc/hostname" ||
+          mp === "/etc/resolv.conf")
+      ) {
+        removedCount++;
+        continue;
+      }
+
+      kept.push(entry);
     }
 
     if (removedCount > 0) {
       fs.writeFileSync(filePath, Buffer.concat([header, ...kept]));
-      console.log(`  stripped ${removedCount} bind mount entries from ${file}`);
+      console.log(`  stripped ${removedCount} mount entries from ${file}`);
     }
   }
 }
@@ -208,14 +386,16 @@ export function extractCheckpointFiles(containerId, checkpointId) {
   const checkpointPath = `/var/lib/docker/containers/${containerId}/checkpoints/${checkpointId}`;
 
   try {
-    // Try nsenter approach first (works on OrbStack and any Docker-in-VM setup).
-    // Pipe the tar to stdout and write it on the host to avoid volume mount issues.
+    // Execute tar inside the DiND container which has direct access to the
+    // inner daemon's /var/lib/docker.  Use the HOST Docker socket so this
+    // works even when DOCKER_HOST is pointing at the DiND inner daemon.
     execSync(
-      `docker run --rm --privileged --pid=host alpine nsenter -t 1 -m sh -c ${shellQuote("tar cf - -C " + checkpointPath + " .")} > ${shellQuote(tarPath)}`,
-      { stdio: ["pipe", "pipe", "pipe"], shell: true }
+      `docker exec ${DIND_CONTAINER} sh -c ${shellQuote("tar cf - -C " + checkpointPath + " .")} > ${shellQuote(tarPath)}`,
+      { stdio: ["pipe", "pipe", "pipe"], shell: true,
+        env: { ...process.env, DOCKER_HOST: "unix:///var/run/docker.sock" } }
     );
   } catch {
-    // Fall back to direct filesystem access (native Linux)
+    // Fall back to direct filesystem access (native Linux without DiND)
     execFileSync("tar", ["cf", tarPath, "-C", checkpointPath, "."], { stdio: "pipe", env: TAR_ENV });
   }
 
@@ -357,39 +537,81 @@ export function pullImage(imageTag) {
   dockerExec(["pull", imageTag], { stdio: "inherit" });
 }
 
-// --- session socket helpers ---
+// --- tmux session helpers ---
 //
-// Uses socat to run user shells as children of PID 1 via a Unix socket.
-// tmux/screen can't be used because CRIU fails on internal PTY pairs
-// ("ctty inheritance detected").  socat with pipes (no PTY on server side)
-// works: checkpoint ✓, restore ✓, background processes survive.
+// Uses tmux to run user shells as children of PID 1.  The tmux server is
+// started inside the container's PID namespace, making it and all shells it
+// hosts descendants of PID 1.  CRIU captures the full tree on checkpoint and
+// restores it on the remote machine — including in-memory state.
+//
+// Requires a patched CRIU that removes the tty_verify_ctty pid_real check
+// (scripts/patch-criu.py).  Unpatched CRIU rejects tmux with
+// "ctty inheritance detected".
 
-const SESSION_SOCK = "/tmp/machinen.sock";
+const TMUX_SESSION = "machinen";
 
-/** Check whether the machinen session socket exists inside the container. */
-export function hasSessionSocket(containerName) {
+/**
+ * Resolve the effective user for docker exec inside a container.
+ * Devcontainers set remoteUser in the devcontainer.metadata label rather than
+ * Docker's Config.User, so we check labels first.
+ */
+export function resolveContainerUser(containerName) {
+  const labelsRaw = dockerExec(["inspect", "--format", "{{json .Config.Labels}}", containerName]).trim();
+  const labels = JSON.parse(labelsRaw || "{}");
+  let user = "";
+  const dcMetaRaw = labels["devcontainer.metadata"];
+  if (dcMetaRaw) {
+    try {
+      const entries = JSON.parse(dcMetaRaw);
+      for (const entry of entries) {
+        if (entry.remoteUser) user = entry.remoteUser;
+      }
+    } catch {}
+  }
+  if (!user) {
+    user = dockerExec(["inspect", "--format", "{{.Config.User}}", containerName]).trim();
+  }
+  return user || undefined;
+}
+
+/** Check whether the machinen tmux session is running inside the container. */
+export function hasTmuxSession(containerName, sessionName = TMUX_SESSION, { user } = {}) {
   try {
-    dockerExec(["exec", containerName, "test", "-S", SESSION_SOCK]);
+    const args = ["exec"];
+    if (user) args.push("--user", user);
+    args.push(containerName, "tmux", "has-session", "-t", sessionName);
+    dockerExec(args);
     return true;
   } catch {
     return false;
   }
 }
 
-/** Start a socat session listener inside the container if not already running. */
-export function ensureSessionSocket(containerName, { user } = {}) {
-  const execArgs = ["exec"];
-  if (user) execArgs.push("--user", user);
-  execArgs.push(containerName, "sh", "-c",
-    `test -S ${SESSION_SOCK} || (command -v socat >/dev/null || (apk add -q socat 2>/dev/null || apt-get -qq install -y socat 2>/dev/null); socat UNIX-LISTEN:${SESSION_SOCK},fork,reuseaddr EXEC:/bin/sh,sigint,sighup,sigquit &)`);
-  dockerExec(execArgs);
+/** Start a tmux session inside the container if not already running. */
+export function ensureTmuxSession(containerName, { user, sessionName = TMUX_SESSION } = {}) {
+  const workdir = dockerExec(
+    ["inspect", "--format", "{{.Config.WorkingDir}}", containerName]
+  ).trim() || "/";
+
+  // Install tmux as root — apt-get/apk require root even if the session user is non-root.
+  // Run apt-get update first (Debian/Ubuntu images need a fresh package index).
+  // Suppress all output; the session-start command below will surface any real failure.
+  dockerExec(["exec", "--user", "root", containerName, "sh", "-c",
+    "command -v tmux >/dev/null 2>&1 || { apt-get update -qq >/dev/null 2>&1 && apt-get install -y -qq tmux >/dev/null 2>&1; } || apk add -q tmux >/dev/null 2>&1 || true"]);
+
+  // Start the session as the specified user so the tmux socket is owned by that user.
+  const sessionArgs = ["exec"];
+  if (user) sessionArgs.push("--user", user);
+  sessionArgs.push(containerName, "sh", "-c",
+    `tmux has-session -t ${sessionName} 2>/dev/null || tmux new-session -d -c ${shellQuote(workdir)} -s ${sessionName}`);
+  dockerExec(sessionArgs);
 }
 
-/** Return docker CLI args to connect to the session socket. */
-export function sessionAttachArgs(containerName, { user } = {}) {
+/** Return docker CLI args to attach to the tmux session. */
+export function tmuxAttachArgs(containerName, { user, sessionName = TMUX_SESSION } = {}) {
   const args = ["exec", "-it"];
   if (user) args.push("--user", user);
-  args.push(containerName, "socat", "-,raw,echo=0", `UNIX-CONNECT:${SESSION_SOCK}`);
+  args.push(containerName, "tmux", "attach-session", "-t", sessionName);
   return args;
 }
 
@@ -446,15 +668,19 @@ export function restoreLocally(imageTag, containerName) {
   const checkpointDir = `/var/lib/docker/containers/${newContainerId}/checkpoints/${checkpointId}`;
 
   try {
-    // OrbStack: use nsenter to access Docker's internal storage.
-    // Batch mkdir + tar extract + AppleDouble cleanup into one piped nsenter.
-    nsenterExec(`mkdir -p ${checkpointDir}`);
-    execSync(`docker cp machinen-tmp:/checkpoint/. - | docker run --rm -i --privileged --pid=host alpine nsenter -t 1 -m sh -c ${shellQuote(`tar xf - -C ${checkpointDir} && find ${checkpointDir} -name '._*' -delete`)}`, {
-      stdio: "pipe",
-      shell: true,
-    });
+    // Write checkpoint files into the inner daemon's /var/lib/docker via the
+    // DiND container.  docker cp (left side) uses the DiND inner daemon
+    // (DOCKER_HOST is already set); docker exec (right side) uses the HOST
+    // socket to write into the DiND container's filesystem.
+    dindExec(`mkdir -p ${checkpointDir}`);
+    execSync(
+      `docker cp machinen-tmp:/checkpoint/. - | ` +
+      `DOCKER_HOST=unix:///var/run/docker.sock docker exec -i ${DIND_CONTAINER} sh -c ` +
+      shellQuote(`tar xf - -C ${checkpointDir} && find ${checkpointDir} -name '._*' -delete`),
+      { stdio: "pipe", shell: true },
+    );
   } catch {
-    // Native Linux: direct access
+    // Native Linux without DiND: direct filesystem access
     execFileSync("mkdir", ["-p", checkpointDir], { stdio: "pipe" });
     dockerExec(["cp", "machinen-tmp:/checkpoint/.", `${checkpointDir}/`]);
   }
@@ -506,19 +732,41 @@ export function restoreLocally(imageTag, containerName) {
   //
   // Since the socket may live in a lower (read-only) layer, we create an
   // overlayfs whiteout (char device 0:0) in the upper layer to hide it.
-  const upperDir = JSON.parse(
-    dockerExec(["inspect", "--format", "{{json .GraphDriver.Data.UpperDir}}", containerName])
-  );
+  //
+  // In DiND with containerd snapshotting, GraphDriver.Data.UpperDir is not
+  // available from docker inspect.  Attempt a fallback via /proc/mounts
+  // (only populated for running containers), otherwise skip the whiteout.
+  let upperDir = null;
+  try {
+    upperDir = JSON.parse(
+      dockerExec(["inspect", "--format", "{{json .GraphDriver.Data.UpperDir}}", containerName])
+    );
+  } catch {}
+  if (!upperDir) {
+    // Containerd snapshotting mode: find UpperDir from DiND /proc/mounts.
+    // The container is in 'created' state here, so the overlay is not yet
+    // mounted — the whiteout step is skipped.  Restore will fail with
+    // "Address already in use" only if the committed image contains socket
+    // files; that is rare when no docker-outside-of-docker features are used.
+    try {
+      const mounts = dindExec(`cat /proc/mounts`);
+      const line = mounts.split("\n").find(l => l.includes(`overlayfs/${newContainerId}`));
+      if (line) {
+        const m = line.match(/upperdir=([^,\s]+)/);
+        if (m) upperDir = m[1];
+      }
+    } catch {}
+  }
   if (upperDir) {
     // Stale socket paths that need to be hidden for CRIU to bind them.
-    const socketPaths = ["/run/docker.sock", SESSION_SOCK];
+    const socketPaths = ["/run/docker.sock", "/run/test.sock"];
     const whiteoutCmds = socketPaths.map(sp =>
       `mkdir -p ${upperDir}$(dirname ${sp}) && rm -f ${upperDir}${sp} && mknod ${upperDir}${sp} c 0 0`
     ).join(" && ");
     try {
-      nsenterExec(whiteoutCmds);
+      dindExec(whiteoutCmds);
     } catch {
-      // Native Linux: direct access
+      // Native Linux without DiND: direct filesystem access
       for (const sp of socketPaths) {
         try {
           const dir = path.dirname(upperDir + sp);
@@ -544,21 +792,94 @@ export function restoreLocally(imageTag, containerName) {
       "",
     ];
 
-    // Batch file listing + restore log into a single nsenter call
+    // 1. Checkpoint file listing + restore.log from checkpoint dir
+    // Note: CRIU writes restore.log to its --work-dir (containerd task bundle), NOT the
+    // checkpoint dir.  Docker cleans up the task bundle on failure, so we often won't
+    // find it there.  We still check as a fallback.
     try {
-      const out = nsenterExec(
-        `ls -la ${checkpointDir}/ 2>&1; echo '---CRIU_LOG---'; cat ${checkpointDir}/restore.log 2>/dev/null || echo '(no restore.log)'`,
+      const out = dindExec(
+        `ls -la ${checkpointDir}/ 2>&1; echo '---CRIU_LOG---'; cat ${checkpointDir}/restore.log 2>/dev/null || echo '(no restore.log in checkpoint dir)'`,
         { encoding: "utf-8" },
       );
       const [fileList, criuLog] = out.split("---CRIU_LOG---");
-      lines.push("checkpoint files:", fileList.trim(), "", "CRIU restore.log:", criuLog.trim());
+      lines.push("checkpoint files:", fileList.trim(), "", "CRIU restore.log (checkpoint dir):", criuLog.trim());
     } catch {
       try {
         lines.push("checkpoint files:", execFileSync("ls", ["-la", checkpointDir + "/"], { stdio: "pipe", encoding: "utf-8" }));
-        const log = fs.readFileSync(path.join(checkpointDir, "restore.log"), "utf-8");
-        lines.push("CRIU restore.log:", log);
+        try {
+          const log = fs.readFileSync(path.join(checkpointDir, "restore.log"), "utf-8");
+          lines.push("CRIU restore.log:", log);
+        } catch { lines.push("CRIU restore.log: (not found)"); }
       } catch (e) { lines.push(`diagnostics error: ${e.message}`); }
     }
+
+    // 2. CRIU restore.log from containerd task bundle (cleaned up on failure, but try)
+    try {
+      const taskDirs = [
+        `/run/containerd/io.containerd.runtime.v2.task/moby/${newContainerId}`,
+        `/var/run/docker/containerd/daemon/io.containerd.runtime.v2.task/moby/${newContainerId}`,
+      ];
+      const searchCmd = taskDirs.map(d => `cat ${d}/restore.log 2>/dev/null`).join("; ");
+      const taskLog = dindExec(searchCmd, { encoding: "utf-8" }).trim();
+      if (taskLog) lines.push("", "CRIU restore.log (containerd task dir):", taskLog);
+    } catch {}
+
+    // 3. Docker daemon journal — persists even after container is removed.
+    // Try multiple log sources since OrbStack may not use journald.
+    try {
+      const logCmd = [
+        `journalctl -u docker --no-pager --since "3 minutes ago" 2>/dev/null | grep -i 'criu\\|mnt:\\|restore\\|errno' | tail -40`,
+        `cat /var/log/docker.log 2>/dev/null | tail -100 | grep -i 'criu\\|mnt:\\|restore\\|errno'`,
+        `cat /var/log/daemon.log 2>/dev/null | tail -100 | grep -i criu`,
+      ].join("; ");
+      const daemonLog = dindExec(logCmd, { encoding: "utf-8" }).trim();
+      if (daemonLog) lines.push("", "Docker daemon log (CRIU-related):", daemonLog);
+      else lines.push("", "Docker daemon log: (no CRIU output found in journald/daemon logs)");
+    } catch {}
+
+    // 4. Decode remaining mount entries from checkpoint.
+    // Show ALL fields to identify the correct proto field mapping:
+    //   Modern CRIU (v3+):  f1=mnt_id  f2=parent_id  f3=root_dev  f4=root_ino  s5=mountpoint  s7=source
+    //   Older CRIU:         f1=mnt_id  f2=parent_id  ...           s7=mountpoint
+    // Also run `criu decode` if available for authoritative output.
+    try {
+      const b64Out = dindExec(
+        `for f in ${checkpointDir}/mountpoints-*.img; do [ -f "$f" ] && echo "====$(basename $f)"; base64 "$f"; done 2>/dev/null`,
+        { encoding: "utf-8" },
+      );
+      const blocks = b64Out.split(/^====(.+)$/m).slice(1);
+      for (let i = 0; i < blocks.length; i += 2) {
+        const fname = blocks[i].trim();
+        const data = Buffer.from(blocks[i + 1].replace(/\s/g, ""), "base64");
+        const entries = decodeMntFile(data);
+        if (entries.length === 0) continue;
+        // Build set of all uint32 values that appear as f1 (mnt_id candidate)
+        const f1Set = new Set(entries.map(e => e.f1));
+        const f3Set = new Set(entries.map(e => e.f3));
+        lines.push("", `mount entries in ${fname} (raw fields):`);
+        for (const e of entries) {
+          const extF2 = f1Set.has(e.f2) ? "" : " [f2-ext]";
+          const extF4 = f3Set.has(e.f4) ? "" : " [f4-ext]";
+          lines.push(
+            `  f1=${e.f1} f2=${e.f2}${extF2} f3=${e.f3} f4=${e.f4}${extF4}` +
+            `  s5=${JSON.stringify(e.s5)} s7=${JSON.stringify(e.s7)}`,
+          );
+        }
+      }
+    } catch {}
+
+    // 5. criu decode — authoritative human-readable dump if criu binary is available
+    try {
+      const criuDecodeOut = dindExec(
+        `criu --version 2>/dev/null | head -1; ` +
+        `for f in ${checkpointDir}/mountpoints-*.img; do ` +
+        `echo "=== criu decode $f ==="; ` +
+        `criu decode --images-dir ${checkpointDir} -F "$(basename $f)" 2>/dev/null || echo "(decode failed)"; ` +
+        `done`,
+        { encoding: "utf-8" },
+      ).trim();
+      if (criuDecodeOut) lines.push("", "criu decode output:", criuDecodeOut);
+    } catch {}
 
     return lines.join("\n");
   }
@@ -574,6 +895,28 @@ export function restoreLocally(imageTag, containerName) {
     console.error(`\nCRIU restore failed. Diagnostics saved to ${diagFile}`);
     console.error(diag);
     throw err;
+  }
+
+  // Fix /etc/resolv.conf: stripped from mountpoints.img to allow CRIU restore.
+  // Restore DNS by copying the DiND container's resolv.conf into the devcontainer.
+  try {
+    const resolvConf = dindExec("cat /etc/resolv.conf", { encoding: "utf-8" });
+    dockerExec(["exec", containerName, "sh", "-c",
+      `printf '%s' ${shellQuote(resolvConf)} > /etc/resolv.conf`]);
+    console.log("Restored /etc/resolv.conf");
+  } catch {
+    console.warn("Warning: could not restore /etc/resolv.conf (DNS may not work)");
+  }
+
+  // Ensure a tmux session is running in the restored container.
+  // CRIU will have restored it if it was running at checkpoint time; this
+  // also handles the case where the container was frozen without one.
+  try {
+    const containerUser = resolveContainerUser(containerName);
+    ensureTmuxSession(containerName, { user: containerUser });
+    console.log("tmux session ready");
+  } catch (err) {
+    console.warn(`Warning: could not ensure tmux session: ${err.message}`);
   }
 
   return { newContainerId, checkpointId };

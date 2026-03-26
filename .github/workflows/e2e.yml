@@ -21,49 +21,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Set up Docker with CRIU
-        run: |
-          # Ensure Docker socket is accessible
-          if [ -S /var/run/docker.sock ]; then
-            sudo chmod 666 /var/run/docker.sock 2>/dev/null || true
-          fi
-
-          # Enable experimental mode if daemon.json is writable (real GH Actions)
-          if [ -d /etc/docker ] || sudo mkdir -p /etc/docker 2>/dev/null; then
-            echo '{"experimental": true}' | sudo tee /etc/docker/daemon.json
-            sudo systemctl restart docker 2>/dev/null || true
-          fi
-
-          # Check if checkpoint already works (e.g. OrbStack/agent-ci)
-          docker pull alpine >/dev/null 2>&1 || true
-          TEST_ID=$(docker run -d --security-opt seccomp=unconfined alpine sleep 300)
-          sleep 1
-          if docker checkpoint create "$TEST_ID" test-cp 2>/dev/null; then
-            echo "CRIU checkpoint works."
-            docker rm -f "$TEST_ID" 2>/dev/null || true
-          else
-            echo "CRIU not available, installing..."
-            docker rm -f "$TEST_ID" 2>/dev/null || true
-
-            if apt-cache show criu >/dev/null 2>&1; then
-              sudo apt-get update -qq && sudo apt-get install -y criu
-            else
-              echo "Building CRIU from source..."
-              docker build -f scripts/Dockerfile.criu-builder -t criu-builder scripts/
-              CRIU_TMP=$(docker create criu-builder)
-              sudo docker cp "$CRIU_TMP:/criu-dist/bin/criu" /usr/local/sbin/criu
-              docker rm "$CRIU_TMP"
-            fi
-          fi
-
-      - name: Start local Docker registry
-        run: |
-          docker rm -f registry 2>/dev/null || true
-          docker run -d -p 5000:5000 --name registry registry:2
-          for i in $(seq 1 10); do
-            curl -sf http://localhost:5000/v2/ && break
-            sleep 1
-          done
+      - name: Clean DinD state
+        run: docker rm -f machinen-dind 2>/dev/null || true
 
       - name: Run e2e test
         run: node src/__tests__/e2e-local.mjs
@@ -73,4 +32,7 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: docker rm -f registry 2>/dev/null || true
+        run: |
+          docker exec machinen-dind docker rm -f registry 2>/dev/null || true
+          docker rm -f machinen-dind 2>/dev/null || true
+          docker rmi machinen-dind 2>/dev/null || true

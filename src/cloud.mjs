@@ -102,11 +102,34 @@ curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
 apt-get install -y nodejs
 # Install devcontainer CLI
 npm install -g @devcontainers/cli
-# Build CRIU from source
+# Build patched CRIU from source (patch removes tty_verify_ctty pid_real check
+# so tmux sessions can be checkpointed/restored across machines)
 git clone --depth 1 https://github.com/checkpoint-restore/criu.git /tmp/criu
+python3 - /tmp/criu/criu/tty.c <<'PYEOF'
+import sys
+path = sys.argv[1]
+src = open(path).read()
+old = (
+    "\t\t} else if (n->pid_real != d->pid_real) {\n"
+    "\t\t\tpr_err(\"ctty inheritance detected sid/pgrp %d \"\n"
+    "\t\t\t       \"(ctty pid_real %d pty pid_real %d)\\n\",\n"
+    "\t\t\t       d->sid, d->pid_real, n->pid_real);\n"
+    "\t\t\treturn -ENOENT;\n"
+    "\t\t}"
+)
+new = "\t\t}"
+if old not in src:
+    print("ERROR: patch target not found in", path, file=sys.stderr)
+    sys.exit(1)
+open(path, "w").write(src.replace(old, new, 1))
+print("CRIU tty.c patched: removed pid_real ctty inheritance check")
+PYEOF
 make -C /tmp/criu -j$(nproc) criu
 cp /tmp/criu/criu/criu /usr/local/sbin/criu
 rm -rf /tmp/criu
+# Configure CRIU to handle external Unix sockets (e.g. Docker socket in devcontainers)
+mkdir -p /etc/criu
+echo 'ext-unix-sk' > /etc/criu/runc.conf
 # Enable Docker experimental mode
 mkdir -p /etc/docker
 echo '{"experimental": true}' > /etc/docker/daemon.json

@@ -7,7 +7,7 @@
     "machinen": "./src/machinen.mjs"
   },
   "scripts": {
-    "dev": "node src/machinen.mjs",
+    "dev": "MACHINEN_REGISTRY=host.docker.internal:5001 node src/machinen.mjs",
     "test": "vitest run"
   },
   "keywords": [],

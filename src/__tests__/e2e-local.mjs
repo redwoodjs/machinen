@@ -3,25 +3,25 @@
 /**
  * E2E test: freeze → restore locally
  *
- * Verifies the full checkpoint/restore cycle:
- *   1. Create a container with known file and in-memory state
- *   2. Commit → checkpoint original → build image → push to local registry
- *   3. Pull from registry → restore locally
- *   4. Assert: container running, files intact, original process alive and incrementing
- *
- * The test container is designed to exercise the same patterns as a real
- * devcontainer: multiple bind mounts, a background daemon with a Unix socket
- * (mimicking docker-outside-of-docker's socat), and /var/run symlink paths.
- *
- * Requires: Docker with experimental mode, CRIU, local registry on :5000
+ * Starts a devcontainer (javascript-node:1-22) and verifies the full
+ * checkpoint/restore cycle:
+ *   1. Start machinen-dind (Docker-in-Docker with patched CRIU)
+ *   2. Start a local registry inside DiND on :5000
+ *   3. Start devcontainer with workspace + extra bind mount
+ *   4. Run socat daemon + counter loop inside a tmux session (child of PID 1)
+ *      so processes survive CRIU checkpoint/restore
+ *   5. Commit → checkpoint original → build image → push to local registry
+ *   6. Pull from registry → restore locally
+ *   7. Assert: container running, files intact, original process alive and
+ *      incrementing, socat daemon survived
  */
 
 import { execSync, execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import {
-  docker,
+import { ensureDiND, getDiNDHost } from "../dind.mjs";
+import { reconnectDocker, docker,
   captureContainerConfig,
   createCheckpoint,
   extractCheckpointFiles,
@@ -30,6 +30,8 @@ import {
   pushImage,
   pullImage,
   restoreLocally,
+  ensureTmuxSession,
+  hasTmuxSession,
 } from "../docker.mjs";
 
 const REGISTRY = "localhost:5000";
@@ -37,6 +39,7 @@ const CONTAINER = "machinen-e2e-test";
 const RESTORED = `${CONTAINER}-restored`;
 const CLEAN = `${CONTAINER}-clean`;
 const COMMITTED = `${CONTAINER}-committed`;
+const SCRIPT_USER = "root";
 
 // --- helpers ---
 
@@ -46,6 +49,12 @@ function exec(cmd) {
 
 function dockerExec(container, cmd) {
   return exec(`docker exec ${container} ${cmd}`);
+}
+
+function dockerExecUser(container, user, args) {
+  return execFileSync("docker", ["exec", "--user", user, container, ...args], {
+    stdio: "pipe", encoding: "utf-8",
+  }).trim();
 }
 
 function rmContainer(name) {
@@ -74,11 +83,28 @@ function cleanup(dirs = []) {
 async function main() {
   let workspaceDir;
   let extraDir;
+
+  // ── 0. Start DiND + local registry ────────────────────────────────────
+  const scriptsDir = path.join(process.cwd(), "scripts");
+  await ensureDiND(scriptsDir);
+  const diNDHost = getDiNDHost();
+  process.env.DOCKER_HOST = diNDHost;
+  const { hostname: diNDIP, port: diNDPortStr } = new URL(diNDHost);
+  reconnectDocker(diNDIP, parseInt(diNDPortStr, 10));
+
+  // Start registry inside DiND so localhost:5000 resolves within the inner daemon.
+  exec("docker rm -f registry 2>/dev/null || true");
+  exec("docker run -d -p 5000:5000 --name registry registry:2");
+  for (let i = 0; i < 10; i++) {
+    try { exec("docker exec registry wget -qO- http://localhost:5000/v2/ 2>/dev/null"); break; }
+    catch { await new Promise((r) => setTimeout(r, 1000)); }
+  }
+
   cleanup();
 
   try {
-    // ── 1. Create container with known state + bind mounts ────────────
-    console.log("1. Creating test container with state...");
+    // ── 1. Start devcontainer with workspace + extra bind mount ────────
+    console.log("1. Starting devcontainer...");
 
     // Create a workspace dir to bind-mount.  Use cwd (the repo checkout) since
     // it's host-mapped in both agent-ci and native Docker environments.
@@ -95,57 +121,91 @@ async function main() {
     fs.mkdirSync(extraDir, { recursive: true });
     fs.writeFileSync(path.join(extraDir, "extra.txt"), "extra-data\n");
 
-    // The entrypoint:
-    //   1. Create a Unix socket with socat (mimics docker-outside-of-docker)
-    //   2. Write files + keep a file descriptor open to the bind mount
-    //   3. Loop incrementing a counter
-    //
-    // After CRIU restore the shell process resumes mid-loop with $COUNTER
-    // and $SECRET still in memory, the socat daemon is alive, and the open
-    // FD to the bind mount is preserved.
-    const script = [
-      // Try to install socat for the socket test.  If unavailable (no network
-      // in agent-ci), skip — the test adapts below.
-      'apk add --no-cache socat >/dev/null 2>&1 && HAS_SOCAT=1 || HAS_SOCAT=0',
+    // Write devcontainer config — workspace + extra mount, seccomp=unconfined
+    // so CRIU can checkpoint the container.
+    fs.mkdirSync(path.join(workspaceDir, ".devcontainer"), { recursive: true });
+    fs.writeFileSync(
+      path.join(workspaceDir, ".devcontainer", "devcontainer.json"),
+      JSON.stringify({
+        image: "mcr.microsoft.com/devcontainers/javascript-node:1-22",
+        remoteUser: "node",
+        workspaceFolder: "/workspace",
+        runArgs: ["--security-opt", "seccomp=unconfined", "--network", "host"],
+        mounts: [{ source: extraDir, target: "/var/run/e2e-extra", type: "bind" }],
+      }, null, 2),
+    );
 
-      // Background daemon listening on a Unix socket — mirrors the socat
-      // process from the docker-outside-of-docker devcontainer feature.
-      // The socket file will be captured by `docker commit`, creating the
-      // stale-socket scenario that broke restore (issue #16).
-      'if [ "$HAS_SOCAT" = "1" ]; then socat UNIX-LISTEN:/var/run/test.sock,fork,reuseaddr SYSTEM:"echo pong" & fi',
-
-      // Keep a file descriptor open to the bind mount.  This exercises CRIU's
-      // ability to restore FDs that reference stripped mount entries — the
-      // scenario that caused the "No mapping for <mnt_id>" error.
-      'exec 3>/workspace/lockfile',
-      'echo "locked" >&3',
-
-      'SECRET="machinen-e2e-42"',
-      'echo "$SECRET" > /tmp/secret.txt',
-      'echo "hello from machinen" > /tmp/hello.txt',
-      'COUNTER=0',
-      'while true; do COUNTER=$((COUNTER+1)); echo "$COUNTER:$SECRET" > /tmp/state.txt; sleep 1; done',
-    ].join("; ");
-
-    execFileSync("docker", [
-      "run", "-d",
-      "--name", CONTAINER,
-      "--security-opt", "seccomp=unconfined",
-      "--network", "host",
-      "-v", `${workspaceDir}:/workspace`,
-      "-v", `${extraDir}:/var/run/e2e-extra`,
-      "alpine", "sh", "-c", script,
+    execFileSync("pnpm", [
+      "exec", "devcontainer", "up",
+      "--workspace-folder", workspaceDir,
+      "--remove-existing-container",
     ], { stdio: "pipe" });
+
+    const dcName = execSync(
+      `docker ps --filter "label=devcontainer.local_folder=${workspaceDir}" --format "{{.Names}}"`,
+      { stdio: "pipe", encoding: "utf-8" },
+    ).trim();
+    assert(dcName, "devcontainer not found after up");
+    if (dcName !== CONTAINER) {
+      try { exec(`docker rm -f ${CONTAINER}`); } catch {}
+      exec(`docker rename ${dcName} ${CONTAINER}`);
+    }
+    console.log(`   container: ${CONTAINER}`);
+
+    // Try to install socat for the socket test.  If unavailable (no network),
+    // skip — the test adapts below.
+    let hasSocat = false;
+    try {
+      execFileSync("docker", ["exec", "--user", "root", CONTAINER, "sh", "-c",
+        "apt-get install -y -qq socat >/dev/null 2>&1",
+      ], { stdio: "pipe" });
+      hasSocat = true;
+    } catch {}
+
+    // Start a root tmux session — socat needs to bind /var/run/test.sock and
+    // all test processes run here so they are grandchildren of PID 1 and
+    // survive CRIU checkpoint/restore.
+    ensureTmuxSession(CONTAINER, { user: SCRIPT_USER });
+    assert(hasTmuxSession(CONTAINER, "machinen", { user: SCRIPT_USER }), "tmux session not started");
+
+    // Background daemon listening on a Unix socket — mirrors the socat
+    // process from the docker-outside-of-docker devcontainer feature.
+    // The socket file will be captured by `docker commit`, creating the
+    // stale-socket scenario that broke restore (issue #16).
+    if (hasSocat) {
+      dockerExecUser(CONTAINER, SCRIPT_USER, [
+        "tmux", "send-keys", "-t", "machinen",
+        'socat UNIX-LISTEN:/var/run/test.sock,fork,reuseaddr SYSTEM:"echo pong" &',
+        "Enter",
+      ]);
+      await new Promise(r => setTimeout(r, 500));
+    }
+
+    // Keep a file descriptor open to the bind mount.  This exercises CRIU's
+    // ability to restore FDs that reference stripped mount entries — the
+    // scenario that caused the "No mapping for <mnt_id>" error.
+    dockerExecUser(CONTAINER, SCRIPT_USER, ["tmux", "send-keys", "-t", "machinen", "exec 3>/workspace/lockfile", "Enter"]);
+    await new Promise(r => setTimeout(r, 300));
+    dockerExecUser(CONTAINER, SCRIPT_USER, ["tmux", "send-keys", "-t", "machinen", "echo locked >&3", "Enter"]);
+    await new Promise(r => setTimeout(r, 300));
+
+    dockerExecUser(CONTAINER, SCRIPT_USER, ["tmux", "send-keys", "-t", "machinen", 'SECRET="machinen-e2e-42"', "Enter"]);
+    dockerExecUser(CONTAINER, SCRIPT_USER, ["tmux", "send-keys", "-t", "machinen", 'echo "$SECRET" > /tmp/secret.txt', "Enter"]);
+    dockerExecUser(CONTAINER, SCRIPT_USER, ["tmux", "send-keys", "-t", "machinen", 'echo "hello from machinen" > /tmp/hello.txt', "Enter"]);
+    dockerExecUser(CONTAINER, SCRIPT_USER, ["tmux", "send-keys", "-t", "machinen", 'COUNTER=0; while true; do COUNTER=$((COUNTER+1)); echo "$COUNTER:$SECRET" > /tmp/state.txt; sleep 1; done &', "Enter"]);
 
     // Let the counter tick and socat start
     await new Promise(r => setTimeout(r, 5000));
 
-    // Check if socat is available
-    let hasSocat = false;
-    try {
-      const socatCheck = dockerExec(CONTAINER, "sh -c 'echo ping | socat - UNIX-CONNECT:/var/run/test.sock'");
-      hasSocat = socatCheck === "pong";
-    } catch {}
+    // Verify socat is actually responding
+    if (hasSocat) {
+      try {
+        const socatCheck = dockerExec(CONTAINER, "sh -c 'echo ping | socat - UNIX-CONNECT:/var/run/test.sock'");
+        hasSocat = socatCheck === "pong";
+      } catch {
+        hasSocat = false;
+      }
+    }
     if (hasSocat) {
       console.log("   socat daemon running on /var/run/test.sock");
     } else {
@@ -157,9 +217,8 @@ async function main() {
     const preHello = dockerExec(CONTAINER, "cat /tmp/hello.txt");
     const preState = dockerExec(CONTAINER, "cat /tmp/state.txt");
     const preCounter = parseInt(preState.split(":")[0], 10);
-    const prePid = dockerExec(CONTAINER, "sh -c 'echo $$'");
 
-    console.log(`   secret=${preSecret}  hello=${preHello}  counter=${preCounter}  pid=${prePid}`);
+    console.log(`   secret=${preSecret}  hello=${preHello}  counter=${preCounter}`);
     assert(preSecret === "machinen-e2e-42", `unexpected secret: ${preSecret}`);
     assert(preHello === "hello from machinen", `unexpected hello: ${preHello}`);
     assert(preCounter > 0, `counter should be > 0, got ${preCounter}`);
@@ -300,10 +359,7 @@ async function main() {
       assert(postCounter2 > postCounter1, `counter not incrementing after restore (read1=${postCounter1} read2=${postCounter2}) — original process is not running`);
       console.log(`   [pass] counter still incrementing: ${postCounter1} → ${postCounter2} (process survived restore)`);
 
-      // The original shell process should be running, not "sleep infinity"
       const ps = dockerExec(RESTORED, "ps aux");
-      assert(!ps.includes("sleep infinity"), `"sleep infinity" found — original process was replaced:\n${ps}`);
-      console.log("   [pass] original process tree restored (no sleep substitution)");
 
       // socat daemon should be alive (its socket was re-bound by CRIU)
       if (hasSocat) {

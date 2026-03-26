@@ -11,6 +11,8 @@
 
   "postCreateCommand": "sudo apt-get update && sudo apt-get install -y iputils-ping dnsutils net-tools && sudo npm install -g @anthropic-ai/claude-code && echo '{\"hasCompletedOnboarding\":true}' > /home/node/.claude.json && sudo corepack enable && pnpm install --config.confirmModulesPurge=false && if [ -f /home/node/.claude/.gh-token ] && [ -s /home/node/.claude/.gh-token ]; then gh auth login --with-token < /home/node/.claude/.gh-token && rm -f /home/node/.claude/.gh-token; fi",
 
+  "runArgs": ["--security-opt", "seccomp=unconfined", "--network", "host"],
+
   "remoteUser": "node",
 
   "containerEnv": {

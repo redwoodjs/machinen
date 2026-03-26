@@ -1,8 +1,35 @@
 import { execSync, execFileSync } from "node:child_process";
 
+const LOCAL_REGISTRY_CONTAINER = "machinen-registry";
+const LOCAL_REGISTRY_PORT = 5001;
+
+/** Start the local registry:2 container if it isn't already running. */
+function ensureLocalRegistry() {
+  const hostEnv = { ...process.env, DOCKER_HOST: "unix:///var/run/docker.sock" };
+  try {
+    const state = execFileSync(
+      "docker", ["inspect", "--format", "{{.State.Status}}", LOCAL_REGISTRY_CONTAINER],
+      { encoding: "utf-8", stdio: "pipe", env: hostEnv },
+    ).trim();
+    if (state === "running") return;
+    execFileSync("docker", ["rm", "-f", LOCAL_REGISTRY_CONTAINER], { stdio: "pipe", env: hostEnv });
+  } catch {}
+  console.log("Starting local registry...");
+  execFileSync("docker", [
+    "run", "-d", "--restart=always",
+    "--name", LOCAL_REGISTRY_CONTAINER,
+    "-p", `${LOCAL_REGISTRY_PORT}:5000`,
+    "registry:2",
+  ], { stdio: "pipe", env: hostEnv });
+}
+
 let _cached = null;
 
 export function getRegistry() {
+  if (process.env.MACHINEN_REGISTRY) {
+    return { url: process.env.MACHINEN_REGISTRY, isLocal: true };
+  }
+
   if (_cached) return _cached;
 
   const username = execSync("gh api user --jq .login", {
@@ -40,7 +67,12 @@ export function getRegistry() {
 }
 
 export function ensureDockerLogin() {
-  const { url, username, token } = getRegistry();
+  const reg = getRegistry();
+  if (reg.isLocal) {
+    ensureLocalRegistry();
+    return;
+  }
+  const { url, username, token } = reg;
   execFileSync("docker", ["login", "ghcr.io", "-u", username, "--password-stdin"], {
     input: token,
     stdio: ["pipe", "pipe", "pipe"],
@@ -48,7 +80,9 @@ export function ensureDockerLogin() {
 }
 
 export function remoteDockerLogin(sshScriptFn, ip) {
-  const { username, token } = getRegistry();
+  const reg = getRegistry();
+  if (reg.isLocal) return;
+  const { username, token } = reg;
   sshScriptFn(ip, `echo "${token}" | docker login ghcr.io -u "${username}" --password-stdin`, {
     stdio: "pipe",
   });
