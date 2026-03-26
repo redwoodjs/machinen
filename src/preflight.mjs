@@ -1,137 +1,137 @@
 import { execSync } from "node:child_process";
-import fs from "node:fs";
 import path from "node:path";
-import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { getProvider } from "./cloud.mjs";
+import { ensureDiND, getDiNDHost, dindExec } from "./dind.mjs";
+import { reconnectDocker, docker, createCheckpoint } from "./docker.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const scriptsDir = path.join(__dirname, "..", "scripts");
 
+const CTR = "ctr --address /run/docker/containerd/containerd.sock --namespace moby";
+
+/**
+ * Remove all checkpoint/* images AND their orphaned content blobs from
+ * containerd.  docker system prune doesn't know about checkpoint images
+ * that docker start --checkpoint commits to containerd, so they accumulate
+ * on the persistent machinen-docker-data volume across runs.  We delete
+ * the blobs directly rather than waiting for async GC.
+ * Safe to call only after docker system prune -af (no running containers).
+ */
+function pruneContainerdCheckpoints() {
+  try {
+    // Delete checkpoint image references.
+    dindExec(
+      `${CTR} images ls -q 2>/dev/null | grep '^checkpoint/' | ` +
+      `xargs -r sh -c 'for img; do ${CTR} images delete "$img" 2>/dev/null; done' _ || true`,
+    );
+    // Directly remove all content blobs.  After docker system prune -af no
+    // running containers reference these, so it is safe to wipe them.
+    // docker pull below will repopulate whatever the test actually needs.
+    dindExec(
+      `${CTR} content ls -q 2>/dev/null | ` +
+      `xargs -r sh -c 'for blob; do ${CTR} content rm "$blob" 2>/dev/null; done' _ || true`,
+    );
+  } catch {}
+}
+
+// Test that docker checkpoint create + restore works against the DiND inner
+// daemon.  We:
+//   1. Checkpoint a container with a tmux session — the CRIU patch is
+//      required for PTY sessions (removes the tty_verify_ctty check).
+//   2. Restore the SAME container.
+//
+// We restore the same container (not a new one) to avoid the PTY file
+// descriptor re-attachment issue that occurs when restoring tmux into a
+// container with a different mount namespace layout.  Reliable same-container
+// restore is achieved by cleaning the containerd content store before
+// docker start --checkpoint — otherwise the checkpoint blobs written by the
+// API checkpoint call conflict with the ones docker start tries to commit.
 async function testCheckpointWorks(docker) {
   const testName = "criu-preflight-test";
-  let container;
-  try {
-    try {
-      const old = docker.getContainer(testName);
-      try { await old.stop(); } catch {}
-      await old.remove({ force: true });
-    } catch {}
 
+  // Clean up any leftover containers and stale containerd blobs from previous
+  // runs.  docker system prune doesn't touch checkpoint/* images committed by
+  // docker start --checkpoint, so we explicitly remove them + their blobs.
+  try { await docker.getContainer(testName).remove({ force: true }); } catch {}
+  try { execSync("docker system prune -af", { stdio: "pipe" }); } catch {}
+  pruneContainerdCheckpoints();
+
+  let container;
+  let checkpointId;
+
+  try {
+    // alpine may have been removed by the prune above.
+    execSync("docker pull alpine", { stdio: "pipe" });
+
+    // Test with tmux — the patched CRIU is required to checkpoint containers
+    // with PTY sessions (removes the tty_verify_ctty pid_real check).
     container = await docker.createContainer({
       Image: "alpine",
       name: testName,
-      Cmd: ["sleep", "300"],
-      HostConfig: { SecurityOpt: ["seccomp=unconfined"] },
+      Cmd: ["sh", "-c", "apk add -q tmux 2>/dev/null; tmux new-session -d -s test; exec sleep 300"],
+      // NetworkMode "host" avoids the per-container netns bind-mount that
+      // CRIU cannot restore before the process starts.
+      HostConfig: { SecurityOpt: ["seccomp=unconfined"], NetworkMode: "host" },
     });
     await container.start();
-    await new Promise((r) => setTimeout(r, 1000));
+    await new Promise((r) => setTimeout(r, 3000));
 
-    execSync(`docker checkpoint create ${testName} test-cp`, {
-      stdio: "pipe",
-      encoding: "utf-8",
-    });
+    // Use the Docker API (not CLI) to create the checkpoint.  The API stores
+    // files at /var/lib/docker/containers/<id>/checkpoints/<cpId>/ inside DiND
+    // and also commits checkpoint blobs to containerd.  We purge those blobs
+    // immediately so that docker start --checkpoint can commit them fresh
+    // without hitting "content sha256:...: already exists".
+    const { checkpointId: cpId } = await createCheckpoint(testName, { exit: true });
+    checkpointId = cpId;
+
+    pruneContainerdCheckpoints();
+
+    // Restore the same container from its checkpoint.
+    execSync(`docker start --checkpoint ${checkpointId} ${testName}`, { stdio: "pipe" });
+
     return true;
   } catch (err) {
-    console.error("Checkpoint test failed:", err.stderr?.toString() || err.message);
+    console.error("Checkpoint test failed:", err.message || err);
     return false;
   } finally {
-    if (container) {
-      try { await container.stop(); } catch {}
-      try { await container.remove({ force: true }); } catch {}
+    try { await container?.stop(); } catch {}
+    try { await container?.remove({ force: true }); } catch {}
+    // Clean up the checkpoint image committed to containerd by docker start
+    // --checkpoint so subsequent runs don't hit "content sha256:...: already exists".
+    if (checkpointId) {
+      try { dindExec(`${CTR} images delete "checkpoint/${testName}/${checkpointId}" 2>/dev/null || true`); } catch {}
     }
   }
 }
 
-function installCRIUInDockerVM() {
-  const dockerfilePath = path.join(scriptsDir, "Dockerfile.criu-builder");
-
-  console.log("Building CRIU from source (this may take a few minutes)...");
-  execSync(`docker build -f ${dockerfilePath} -t criu-builder ${scriptsDir}`, {
-    stdio: "inherit",
-  });
-
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "criu-"));
-  const distTar = path.join(tmpDir, "criu-dist.tar");
-
-  try {
-    execSync("docker rm -f criu-builder-tmp 2>/dev/null || true", { stdio: "pipe" });
-    execSync("docker create --name criu-builder-tmp criu-builder", { stdio: "pipe" });
-    execSync(`docker cp criu-builder-tmp:/criu-dist - > ${distTar}`, {
-      stdio: ["pipe", "pipe", "inherit"],
-      shell: true,
-    });
-    execSync("docker rm criu-builder-tmp", { stdio: "pipe" });
-
-    console.log("Installing CRIU into the Docker VM...");
-    execSync(
-      `cat ${distTar} | docker run --rm -i --privileged --pid=host alpine nsenter -t 1 -m -u -i sh -c "mkdir -p /opt/criu && tar xf - -C /opt/criu --strip-components=1 && ln -sf /opt/criu/bin/criu /usr/local/sbin/criu"`,
-      { stdio: ["pipe", "inherit", "inherit"] }
-    );
-    console.log("CRIU installed at /opt/criu/ in Docker VM.");
-  } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  }
-}
-
-export async function checkPrerequisites(docker) {
+export async function checkPrerequisites(_docker, opts = {}) {
   getProvider().checkAuth();
 
-  const info = await docker.info();
-  const isOrbStack =
-    info.Name?.includes("orbstack") ||
-    info.OperatingSystem?.toLowerCase().includes("orbstack");
-
-  if (!info.ExperimentalBuild) {
-    if (isOrbStack) {
-      console.log("Enabling Docker experimental mode in OrbStack...");
-      const configPath = path.join(os.homedir(), ".orbstack", "config", "docker.json");
-      let config = {};
-      try { config = JSON.parse(fs.readFileSync(configPath, "utf-8")); } catch {}
-      config.experimental = true;
-      fs.mkdirSync(path.dirname(configPath), { recursive: true });
-      fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n");
-      console.log("Restarting OrbStack Docker engine...");
-      execSync("orb restart docker", { stdio: "inherit" });
-      const updatedInfo = await docker.info();
-      if (!updatedInfo.ExperimentalBuild) {
-        throw new Error("Failed to enable Docker experimental mode after restart.");
-      }
-      console.log("Docker experimental mode enabled.");
-    } else {
-      throw new Error(
-        "Docker experimental mode is not enabled.\n" +
-        '  Add {"experimental": true} to /etc/docker/daemon.json and restart Docker.'
-      );
-    }
+  if (opts.clean) {
+    // Force a full rebuild of the DiND image on --clean.
+    console.log("Rebuilding machinen-dind (--clean)...");
+    const hostEnv = { ...process.env, DOCKER_HOST: "unix:///var/run/docker.sock" };
+    try { execSync(`docker rm -f machinen-dind`, { stdio: "pipe", env: hostEnv }); } catch {}
+    try { execSync(`docker rmi -f machinen-dind`, { stdio: "pipe", env: hostEnv }); } catch {}
   }
 
-  if (isOrbStack) {
-    try {
-      execSync("docker image inspect alpine >/dev/null 2>&1", { stdio: "pipe" });
-    } catch {
-      console.log("Pulling alpine image...");
-      execSync("docker pull alpine", { stdio: "inherit" });
-    }
+  await ensureDiND(scriptsDir);
+  const diNDHost = getDiNDHost(); // tcp://<bridge-ip>:2375
+  process.env.DOCKER_HOST = diNDHost;
+  const { hostname, port } = new URL(diNDHost);
+  reconnectDocker(hostname, parseInt(port, 10));
+  // `docker` is a live ESM binding — it now points to the DiND inner daemon.
 
-    console.log("Testing if docker checkpoint works...");
-    if (await testCheckpointWorks(docker)) {
-      console.log("CRIU is available.");
-    } else {
-      console.log("CRIU missing — installing...");
-      installCRIUInDockerVM();
-      if (await testCheckpointWorks(docker)) {
-        console.log("CRIU installed and verified.");
-      } else {
-        throw new Error("CRIU was installed but docker checkpoint still fails.");
-      }
-    }
-  } else {
-    try {
-      execSync("criu --version", { stdio: "pipe" });
-    } catch {
-      throw new Error("CRIU is not installed. Install with: sudo apt-get install -y criu");
-    }
+  if (opts.clean) {
+    // On --clean the dind container is restarted but the machinen-docker-data
+    // volume is preserved.  Prune all images so the next run pulls fresh ones.
+    try { execSync("docker system prune -af", { stdio: "pipe" }); } catch {}
   }
+
+  console.log("Testing if docker checkpoint works...");
+  if (!(await testCheckpointWorks(docker))) {
+    throw new Error("CRIU is not working inside machinen-dind. Try running with --clean to rebuild the image.");
+  }
+  console.log("CRIU is available.");
 }
-

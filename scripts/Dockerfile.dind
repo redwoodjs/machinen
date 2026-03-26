@@ -1,4 +1,5 @@
-FROM ubuntu:24.04
+# Stage 1: Build patched CRIU on Ubuntu (where build deps are easy to install)
+FROM ubuntu:24.04 AS criu-builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -31,14 +32,24 @@ RUN make -j$(nproc) criu
 # Bundle criu with all its shared library dependencies into /criu-dist
 RUN mkdir -p /criu-dist/bin /criu-dist/lib && \
     cp /criu/criu/criu /criu-dist/bin/criu && \
-    # Copy all shared library dependencies
     ldd /criu/criu/criu | awk '/=>/ {print $3}' | while read lib; do \
         cp "$lib" /criu-dist/lib/; \
     done && \
-    # Copy the dynamic linker itself
     INTERP=$(patchelf --print-interpreter /criu-dist/bin/criu) && \
     cp "$INTERP" /criu-dist/lib/ && \
-    # Patch the binary to use our bundled interpreter and libs
     patchelf --set-interpreter /opt/criu/lib/$(basename "$INTERP") \
              --set-rpath /opt/criu/lib \
              /criu-dist/bin/criu
+
+# Stage 2: Docker-in-Docker with patched CRIU pre-installed
+# Pin to Docker 28 (runc 1.2.x) — Docker 29 / runc 1.3.x introduced a
+# regression that causes CRIU restore to fail with "type RESTORE errno 0".
+FROM docker:28-dind
+
+COPY --from=criu-builder /criu-dist /opt/criu
+
+RUN ln -sf /opt/criu/bin/criu /usr/local/sbin/criu && \
+    mkdir -p /etc/criu && \
+    printf 'ext-unix-sk\nfile-locks\next-mount-map /dev:/dev\next-mount-map /dev/pts:/dev/pts\next-mount-map /dev/mqueue:/dev/mqueue\next-mount-map /dev/shm:/dev/shm\nskip-mnt /proc/interrupts\nskip-mnt /proc/keys\nskip-mnt /proc/timer_list\nskip-mnt /sys/firmware\n' > /etc/criu/runc.conf && \
+    mkdir -p /etc/docker && \
+    echo '{"experimental":true}' > /etc/docker/daemon.json

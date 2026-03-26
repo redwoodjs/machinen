@@ -7,6 +7,7 @@ import path from "node:path";
 import {
   docker,
   dockerExec,
+  reconnectDocker,
   shellQuote,
   captureContainerConfig,
   createCheckpoint,
@@ -17,9 +18,13 @@ import {
   pushImage,
   pullImage,
   restoreLocally,
-  ensureSessionSocket,
+  ensureTmuxSession,
+  hasTmuxSession,
+  tmuxAttachArgs,
+  resolveContainerUser,
 } from "./docker.mjs";
 import { checkPrerequisites } from "./preflight.mjs";
+import { ensureDiND, getDiNDHost } from "./dind.mjs";
 
 
 import {
@@ -37,8 +42,8 @@ import { createPowerWatcher } from "./power.mjs";
 
 // --- freeze ---
 
-async function cmdFreeze(containerName) {
-  await checkPrerequisites(docker);
+async function cmdFreeze(containerName, opts = {}) {
+  await checkPrerequisites(docker, { clean: opts.clean });
   ensureDockerLogin();
 
   const { url: registry } = getRegistry();
@@ -79,6 +84,8 @@ async function cmdFreeze(containerName) {
 
 async function cmdRestore(args) {
   const containerName = args.container;
+  await checkPrerequisites(docker, { clean: !!args.clean });
+
   const { url: registry } = getRegistry();
   const prefix = `${registry}/machinen/${containerName}`;
   const imageTag = `${prefix}:latest`;
@@ -138,7 +145,9 @@ function detectDevcontainerFile(cwd) {
 
 function currentBranch() {
   try {
-    return execSync("git rev-parse --abbrev-ref HEAD", { stdio: "pipe", encoding: "utf-8" }).trim();
+    // symbolic-ref --short fails outside a git repo and in detached HEAD,
+    // unlike rev-parse --abbrev-ref which can return a SHA or "HEAD".
+    return execSync("git symbolic-ref --short HEAD", { stdio: "pipe", encoding: "utf-8" }).trim();
   } catch {
     return null;
   }
@@ -212,7 +221,7 @@ async function cmdUp(args) {
     ? (args.name.startsWith("machinen-") ? args.name : `machinen-${args.name}`)
     : `machinen-${safeBranch}`;
 
-  await checkPrerequisites(docker);
+  await checkPrerequisites(docker, { clean: !!args.clean });
 
   if (args.image) {
     // --- Image mode: docker run directly ---
@@ -228,13 +237,13 @@ async function cmdUp(args) {
       "--network", "host",
     ];
 
-    // Default command: install socat, start a session listener on a Unix socket
-    // (child of PID 1), then exec sleep infinity.  Shells connected via the socket
-    // are in PID 1's tree, so they survive CRIU freeze/restore.
-    // Custom --cmd skips session socket setup.
+    // Default command: install tmux, start a session (child of PID 1), then
+    // exec sleep infinity.  Shells inside tmux are in PID 1's tree and survive
+    // CRIU freeze/restore (requires patched CRIU — see scripts/patch-criu.py).
+    // Custom --cmd skips tmux setup.
     const cmd = args.cmd
       ? args.cmd.split(" ")
-      : ["sh", "-c", "command -v socat >/dev/null || (apk add -q socat 2>/dev/null || apt-get -qq install -y socat 2>/dev/null); socat UNIX-LISTEN:/tmp/machinen.sock,fork,reuseaddr EXEC:/bin/sh,sigint,sighup,sigquit & exec sleep infinity"];
+      : ["sh", "-c", "command -v tmux >/dev/null || (apk add -q tmux 2>/dev/null || apt-get -qq install -y tmux 2>/dev/null); tmux new-session -d -s machinen 2>/dev/null || true; exec sleep infinity"];
     runArgs.push(args.image, ...cmd);
 
     dockerExec(runArgs, { stdio: "inherit" });
@@ -253,14 +262,39 @@ async function cmdUp(args) {
 
     const configPath = path.join(repoRoot, file);
 
+    // Merge required CRIU flags into the devcontainer config without
+    // overwriting the user's existing runArgs.  CRIU restore inside DiND
+    // requires: (a) seccomp=unconfined so CRIU can restore process state
+    // without a seccomp filter blocking restore syscalls, and (b) --network
+    // host so there is no bridge network namespace for CRIU to recreate.
+    const REQUIRED_RUN_ARGS = ["--security-opt", "seccomp=unconfined", "--network", "host"];
+    let effectiveConfigPath = configPath;
+    try {
+      const raw = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+      const existing = raw.runArgs || [];
+      const missing = REQUIRED_RUN_ARGS.filter(a => !existing.includes(a));
+      if (missing.length > 0) {
+        const merged = { ...raw, runArgs: [...existing, ...missing] };
+        const tmpConfig = path.join(os.tmpdir(), `machinen-devcontainer-${Date.now()}.json`);
+        fs.writeFileSync(tmpConfig, JSON.stringify(merged, null, 2));
+        effectiveConfigPath = tmpConfig;
+      }
+    } catch {
+      // If we can't read/parse the config, proceed with the original path
+    }
+
     console.log(`Starting ${containerName} from ${file}...`);
     const upResult = spawnSync("npx", ["devcontainer",
       "up",
       "--workspace-folder", repoRoot,
-      "--config", configPath,
+      "--config", effectiveConfigPath,
       "--additional-features", '{"ghcr.io/devcontainers/features/docker-outside-of-docker:1":{}}',
       "--remove-existing-container",
     ], { stdio: "inherit" });
+
+    if (effectiveConfigPath !== configPath) {
+      try { fs.unlinkSync(effectiveConfigPath); } catch {}
+    }
 
     if (upResult.status !== 0) {
       throw new Error("devcontainer up failed");
@@ -280,13 +314,12 @@ async function cmdUp(args) {
       dockerExec(["rename", dcContainerOriginal, containerName]);
     }
 
-    // Start a socat session listener inside the devcontainer so interactive
-    // shells survive CRIU freeze/restore (socat forks are children of PID 1).
-    const dcUser = dockerExec(["inspect", "--format", "{{.Config.User}}", containerName]).trim();
+    // Start a tmux session inside the devcontainer so interactive shells
+    // survive CRIU freeze/restore (tmux server is a child of PID 1).
     try {
-      ensureSessionSocket(containerName, { user: dcUser || undefined });
+      ensureTmuxSession(containerName, { user: resolveContainerUser(containerName) });
     } catch (err) {
-      console.warn(`Warning: could not start session socket: ${err.message}`);
+      console.warn(`Warning: could not start tmux session: ${err.message}`);
     }
   }
 
@@ -367,10 +400,12 @@ async function cmdUp(args) {
     },
   });
 
-  // Open interactive shell.  The socat session socket preserves background
-  // processes across freeze/restore, but it has no PTY (no prompt, no line
-  // editing).  Use docker exec for a proper interactive shell instead.
-  const shellArgs = ["exec", "-it", containerName, "/bin/bash"];
+  // Open interactive shell — prefer tmux session (survives freeze/restore),
+  // fall back to bash if tmux isn't running yet.
+  const containerUser = resolveContainerUser(containerName);
+  const shellArgs = hasTmuxSession(containerName, undefined, { user: containerUser })
+    ? tmuxAttachArgs(containerName, { user: containerUser })
+    : ["exec", "-it", ...(containerUser ? ["--user", containerUser] : []), containerName, "/bin/bash"];
 
   {
     console.log(`\nConnecting to container...\n`);
@@ -389,12 +424,22 @@ async function cmdUp(args) {
 
 // --- open ---
 
-function cmdOpen(args) {
+async function cmdOpen(args) {
   const containerName = args.container;
 
   if (!args.local && !args.remote) {
     console.error("Specify --local or --remote.\n  machinen open --local\n  machinen open --remote");
     process.exit(1);
+  }
+
+  if (args.local) {
+    // Containers live in the inner dind daemon — connect to it without running
+    // the full CRIU preflight test.
+    await ensureDiND();
+    const diNDHost = getDiNDHost();
+    process.env.DOCKER_HOST = diNDHost;
+    const { hostname, port } = new URL(diNDHost);
+    reconnectDocker(hostname, parseInt(port, 10));
   }
 
   if (args.remote) {
@@ -405,7 +450,8 @@ function cmdOpen(args) {
       process.exit(1);
     }
     console.log(`Opening shell on remote server ${machine.ip}...`);
-    const remoteCmd = `docker exec -it ${containerName} /bin/bash`;
+    // Prefer tmux session; fall back to bash if tmux isn't running
+    const remoteCmd = `docker exec -it ${containerName} sh -c 'tmux has-session -t machinen 2>/dev/null && exec tmux attach-session -t machinen || exec /bin/bash'`;
     const shell = spawnSync(
       "ssh",
       ["-t", ...SSH_OPTS, `root@${machine.ip}`, remoteCmd],
@@ -419,11 +465,11 @@ function cmdOpen(args) {
     try {
       const status = dockerExec(["inspect", "--format", "{{.State.Status}}", name]).trim();
       if (status === "running") {
+        const user = resolveContainerUser(name);
+        const execArgs = hasTmuxSession(name, undefined, { user: user || undefined })
+          ? tmuxAttachArgs(name, { user: user || undefined })
+          : (() => { const a = ["exec", "-it"]; if (user) a.push("--user", user); a.push(name, "/bin/bash"); return a; })();
         console.log(`Opening shell in local container ${name}...`);
-        const user = dockerExec(["inspect", "--format", "{{.Config.User}}", name]).trim();
-        const execArgs = ["exec", "-it"];
-        if (user) execArgs.push("--user", user);
-        execArgs.push(name, "/bin/bash");
         const shell = spawnSync("docker", execArgs, { stdio: "inherit" });
         process.exit(shell.status || 0);
       }
@@ -895,7 +941,7 @@ async function main() {
 
   const commands = {
     up: cmdUp,
-    freeze: (a) => cmdFreeze(a.container),
+    freeze: (a) => cmdFreeze(a.container, a),
     restore: cmdRestore,
     watch: cmdSync,
     open: cmdOpen,
@@ -913,12 +959,15 @@ Commands:
     --name <name>       Override container name (default: machinen-<branch>)
     --cmd <command>     Override container command (default: sleep infinity)
     --detach            Start container without opening a shell
+    --clean             Force reinstall of CRIU from source
 
   freeze [name]         Checkpoint, push to registry, stop container
     --keep-alive        Don't stop the container (live snapshot)
+    --clean             Force reinstall of CRIU from source
   restore [name]        Restore container from checkpoint
     --local             Restore locally into <name>-restored
     --remote            Provision server and restore remotely (default)
+    --clean             Force reinstall of CRIU from source
   watch [name]          Daemon: sync container + migrate on sleep/wake
     --interval <s>      Sync interval in seconds (default: 300, minimum: 30)
     --once              Run a single sync and exit
@@ -940,7 +989,7 @@ Environment:
   HCLOUD_TOKEN          Hetzner API token (alternative to hcloud context auth)
   MACHINEN_SYNC_INTERVAL  Sync interval in seconds (overrides --interval default)
 
-Registry: Uses ghcr.io via authenticated gh CLI (run 'gh auth login' first)`);
+Registry: ghcr.io via gh CLI (default), or set MACHINEN_REGISTRY=<domain> to use a custom registry (e.g. registry.local)`);
     process.exit(action ? 1 : 0);
   }
 
