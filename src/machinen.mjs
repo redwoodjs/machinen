@@ -83,16 +83,19 @@ async function cmdFreeze(containerName, opts = {}) {
 // --- restore ---
 
 function imageNotFoundError(containerName, args) {
-  let msg = `No frozen image found for "${containerName}" in the registry.`;
   if (!args.containerExplicit) {
     const branch = currentBranch();
-    msg += `\nContainer name was auto-detected from git branch "${branch}".`;
-    msg += `\nTo restore a specific container, pass its name explicitly:`;
-    msg += `\n  machinen restore --local machinen-main`;
-  } else {
-    msg += `\nCheck that this container has been frozen and pushed.`;
+    return [
+      `Container name was auto-detected from git branch "${branch}".`,
+      `No frozen image found for "${containerName}" in the registry.`,
+      `To restore a specific container, pass its name explicitly:`,
+      `  machinen restore --local machinen-main`,
+    ].join('\n');
   }
-  return msg;
+  return [
+    `No frozen image found for "${containerName}" in the registry.`,
+    `Check that this container has been frozen and pushed.`,
+  ].join('\n');
 }
 
 async function cmdRestore(args) {
@@ -137,6 +140,7 @@ async function cmdRestore(args) {
 
   if (args.local) {
     console.log(`Restoring ${containerName} locally from ${imageTag}...`);
+    pullImage(imageTag);
     const restoredName = `${containerName}-restored`;
     restoreLocally(imageTag, restoredName);
     console.log(`\nRestored as: ${restoredName}`);
