@@ -901,7 +901,7 @@ export function restoreLocally(imageTag, containerName) {
   // Restore DNS by copying the DiND container's resolv.conf into the devcontainer.
   try {
     const resolvConf = dindExec("cat /etc/resolv.conf", { encoding: "utf-8" });
-    dockerExec(["exec", containerName, "sh", "-c",
+    dockerExec(["exec", "--user", "root", containerName, "sh", "-c",
       `printf '%s' ${shellQuote(resolvConf)} > /etc/resolv.conf`]);
     console.log("Restored /etc/resolv.conf");
   } catch {
