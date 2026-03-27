@@ -102,23 +102,27 @@ async function cmdRestore(args) {
   const prefix = `${registry}/machinen/${containerName}`;
   const imageTag = `${prefix}:latest`;
 
-  // Start DiND now (fast when cached) so we can check the registry before
-  // the slow CRIU preflight test.  checkPrerequisites will skip DiND startup
-  // since it finds it already running.
-  await ensureDiND();
-  const diNDHost = getDiNDHost();
-  process.env.DOCKER_HOST = diNDHost;
-  const { hostname: diNDHostname, port: diNDPort } = new URL(diNDHost);
-  reconnectDocker(diNDHostname, parseInt(diNDPort, 10));
-
-  // Pull the image now — fail immediately if it doesn't exist, before spending
-  // time on the CRIU preflight test.
-  if (args.local) {
+  // For local registries, check the image exists before the slow CRIU
+  // preflight — no DiND needed, just an HTTP call to the registry.
+  if (isLocal && args.local) {
+    ensureDockerLogin(); // starts the registry container if not already running
+    const slashIdx = imageTag.indexOf('/');
+    const host = imageTag.slice(0, slashIdx);
+    const rest = imageTag.slice(slashIdx + 1);
+    const colonIdx = rest.lastIndexOf(':');
+    const repo = colonIdx >= 0 ? rest.slice(0, colonIdx) : rest;
+    const tag = colonIdx >= 0 ? rest.slice(colonIdx + 1) : 'latest';
+    // host.docker.internal only resolves inside containers; on the Mac host
+    // the registry is reachable via localhost on the same port.
+    const localPort = host.includes(':') ? host.split(':')[1] : '80';
     try {
-      pullImage(imageTag);
+      const res = await fetch(`http://localhost:${localPort}/v2/${repo}/manifests/${tag}`, { method: 'HEAD' });
+      if (res.status === 404) {
+        console.error(imageNotFoundError(containerName, args));
+        process.exit(1);
+      }
     } catch {
-      console.error(imageNotFoundError(containerName, args));
-      process.exit(1);
+      // Registry unreachable — let checkPrerequisites and the pull surface the error.
     }
   }
 
