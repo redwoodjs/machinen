@@ -82,13 +82,46 @@ async function cmdFreeze(containerName, opts = {}) {
 
 // --- restore ---
 
+function imageNotFoundError(containerName, args) {
+  let msg = `No frozen image found for "${containerName}" in the registry.`;
+  if (!args.containerExplicit) {
+    const branch = currentBranch();
+    msg += `\nContainer name was auto-detected from git branch "${branch}".`;
+    msg += `\nTo restore a specific container, pass its name explicitly:`;
+    msg += `\n  machinen restore --local machinen-main`;
+  } else {
+    msg += `\nCheck that this container has been frozen and pushed.`;
+  }
+  return msg;
+}
+
 async function cmdRestore(args) {
   const containerName = args.container;
-  await checkPrerequisites(docker, { clean: !!args.clean });
 
-  const { url: registry } = getRegistry();
+  const { url: registry, isLocal } = getRegistry();
   const prefix = `${registry}/machinen/${containerName}`;
   const imageTag = `${prefix}:latest`;
+
+  // For local registries, do a fast pre-flight check before the slow CRIU
+  // preflight so the user gets a clear error immediately.
+  if (isLocal) {
+    const [host, ...pathParts] = imageTag.split('/');
+    const repoAndTag = pathParts.join('/');
+    const colonIdx = repoAndTag.lastIndexOf(':');
+    const repo = colonIdx >= 0 ? repoAndTag.slice(0, colonIdx) : repoAndTag;
+    const tag = colonIdx >= 0 ? repoAndTag.slice(colonIdx + 1) : 'latest';
+    try {
+      const res = await fetch(`http://${host}/v2/${repo}/manifests/${tag}`, { method: 'HEAD' });
+      if (res.status === 404) {
+        console.error(imageNotFoundError(containerName, args));
+        process.exit(1);
+      }
+    } catch {
+      // Registry unreachable — let the pull fail with the natural error below.
+    }
+  }
+
+  await checkPrerequisites(docker, { clean: !!args.clean });
 
   checkSyncStatus(containerName);
 
@@ -102,16 +135,7 @@ async function cmdRestore(args) {
     try {
       pullImage(imageTag);
     } catch {
-      let msg = `\nNo frozen image found for "${containerName}" in the registry.`;
-      if (!args.containerExplicit) {
-        const branch = currentBranch();
-        msg += `\nContainer name was auto-detected from git branch "${branch}".`;
-        msg += `\nTo restore a specific container, pass its name explicitly:`;
-        msg += `\n  machinen restore --local machinen-main`;
-      } else {
-        msg += `\nCheck that this container has been frozen and pushed.`;
-      }
-      console.error(msg);
+      console.error(imageNotFoundError(containerName, args));
       process.exit(1);
     }
     const restoredName = `${containerName}-restored`;
