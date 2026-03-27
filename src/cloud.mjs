@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { dockerExec } from "./docker.mjs";
 import hetzner from "./providers/hetzner.mjs";
 
@@ -89,6 +90,7 @@ export function sshScript(ip, script, { stdio = "inherit", nothrow = false } = {
 // --- Server Provisioning ---
 
 function cloudInit() {
+  const patchCriuTty = readFileSync(new URL("./patch-criu-tty.py", import.meta.url), "utf-8");
   return `#!/bin/bash
 set -e
 apt-get update
@@ -106,24 +108,7 @@ npm install -g @devcontainers/cli
 # so tmux sessions can be checkpointed/restored across machines)
 git clone --depth 1 https://github.com/checkpoint-restore/criu.git /tmp/criu
 python3 - /tmp/criu/criu/tty.c <<'PYEOF'
-import sys
-path = sys.argv[1]
-src = open(path).read()
-old = (
-    "\t\t} else if (n->pid_real != d->pid_real) {\n"
-    "\t\t\tpr_err(\"ctty inheritance detected sid/pgrp %d \"\n"
-    "\t\t\t       \"(ctty pid_real %d pty pid_real %d)\\n\",\n"
-    "\t\t\t       d->sid, d->pid_real, n->pid_real);\n"
-    "\t\t\treturn -ENOENT;\n"
-    "\t\t}"
-)
-new = "\t\t}"
-if old not in src:
-    print("ERROR: patch target not found in", path, file=sys.stderr)
-    sys.exit(1)
-open(path, "w").write(src.replace(old, new, 1))
-print("CRIU tty.c patched: removed pid_real ctty inheritance check")
-PYEOF
+${patchCriuTty}PYEOF
 make -C /tmp/criu -j$(nproc) criu
 cp /tmp/criu/criu/criu /usr/local/sbin/criu
 rm -rf /tmp/criu
