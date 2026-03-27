@@ -82,13 +82,54 @@ async function cmdFreeze(containerName, opts = {}) {
 
 // --- restore ---
 
+function imageNotFoundError(containerName, args) {
+  if (!args.containerExplicit) {
+    const branch = currentBranch();
+    return [
+      `Container name was auto-detected from git branch "${branch}".`,
+      `No frozen image found for "${containerName}" in the registry.`,
+      `To restore a specific container, pass its name explicitly:`,
+      `  machinen restore --local machinen-main`,
+    ].join('\n');
+  }
+  return [
+    `No frozen image found for "${containerName}" in the registry.`,
+    `Check that this container has been frozen and pushed.`,
+  ].join('\n');
+}
+
 async function cmdRestore(args) {
   const containerName = args.container;
-  await checkPrerequisites(docker, { clean: !!args.clean });
 
-  const { url: registry } = getRegistry();
+  const { url: registry, isLocal } = getRegistry();
   const prefix = `${registry}/machinen/${containerName}`;
   const imageTag = `${prefix}:latest`;
+
+  // For local registries, check the image exists before the slow CRIU
+  // preflight — no DiND needed, just an HTTP call to the registry.
+  if (isLocal && args.local) {
+    ensureDockerLogin(); // starts the registry container if not already running
+    const slashIdx = imageTag.indexOf('/');
+    const host = imageTag.slice(0, slashIdx);
+    const rest = imageTag.slice(slashIdx + 1);
+    const colonIdx = rest.lastIndexOf(':');
+    const repo = colonIdx >= 0 ? rest.slice(0, colonIdx) : rest;
+    const tag = colonIdx >= 0 ? rest.slice(colonIdx + 1) : 'latest';
+    // host.docker.internal only resolves inside containers; on the Mac host
+    // the registry is reachable via localhost on the same port.
+    const localPort = host.includes(':') ? host.split(':')[1] : '80';
+    try {
+      const res = await fetch(`http://localhost:${localPort}/v2/${repo}/manifests/${tag}`, { method: 'HEAD' });
+      if (res.status === 404) {
+        console.error(imageNotFoundError(containerName, args));
+        process.exit(1);
+      }
+    } catch {
+      // Registry unreachable — let checkPrerequisites and the pull surface the error.
+    }
+  }
+
+  await checkPrerequisites(docker, { clean: !!args.clean });
 
   checkSyncStatus(containerName);
 
@@ -937,6 +978,7 @@ async function main() {
   const containerOrName = args._positional[1];
 
   args.container = containerOrName || currentContainerName();
+  args.containerExplicit = !!containerOrName;
   args.name = args.name || args.container;
 
   const commands = {
