@@ -102,22 +102,23 @@ async function cmdRestore(args) {
   const prefix = `${registry}/machinen/${containerName}`;
   const imageTag = `${prefix}:latest`;
 
-  // For local registries, do a fast pre-flight check before the slow CRIU
-  // preflight so the user gets a clear error immediately.
-  if (isLocal) {
-    const [host, ...pathParts] = imageTag.split('/');
-    const repoAndTag = pathParts.join('/');
-    const colonIdx = repoAndTag.lastIndexOf(':');
-    const repo = colonIdx >= 0 ? repoAndTag.slice(0, colonIdx) : repoAndTag;
-    const tag = colonIdx >= 0 ? repoAndTag.slice(colonIdx + 1) : 'latest';
+  // Start DiND now (fast when cached) so we can check the registry before
+  // the slow CRIU preflight test.  checkPrerequisites will skip DiND startup
+  // since it finds it already running.
+  await ensureDiND();
+  const diNDHost = getDiNDHost();
+  process.env.DOCKER_HOST = diNDHost;
+  const { hostname: diNDHostname, port: diNDPort } = new URL(diNDHost);
+  reconnectDocker(diNDHostname, parseInt(diNDPort, 10));
+
+  // Pull the image now — fail immediately if it doesn't exist, before spending
+  // time on the CRIU preflight test.
+  if (args.local) {
     try {
-      const res = await fetch(`http://${host}/v2/${repo}/manifests/${tag}`, { method: 'HEAD' });
-      if (res.status === 404) {
-        console.error(imageNotFoundError(containerName, args));
-        process.exit(1);
-      }
+      pullImage(imageTag);
     } catch {
-      // Registry unreachable — let the pull fail with the natural error below.
+      console.error(imageNotFoundError(containerName, args));
+      process.exit(1);
     }
   }
 
@@ -132,12 +133,6 @@ async function cmdRestore(args) {
 
   if (args.local) {
     console.log(`Restoring ${containerName} locally from ${imageTag}...`);
-    try {
-      pullImage(imageTag);
-    } catch {
-      console.error(imageNotFoundError(containerName, args));
-      process.exit(1);
-    }
     const restoredName = `${containerName}-restored`;
     restoreLocally(imageTag, restoredName);
     console.log(`\nRestored as: ${restoredName}`);
