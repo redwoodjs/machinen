@@ -87,6 +87,19 @@ The counter picks up exactly where it left off.
 
 ## How It Works
 
+### Local: Docker-in-Docker (DiND)
+
+Locally, machinen runs devcontainers inside a privileged **Docker-in-Docker container** (`machinen-dind`) rather than directly on the host Docker daemon. This inner daemon has CRIU pre-installed and configured, so checkpoint/restore works out of the box without OrbStack or any host-level setup.
+
+```
+Mac host
+└── Docker (host daemon)
+    └── machinen-dind (privileged, inner dockerd + CRIU)
+        └── your devcontainer  ← runs here
+```
+
+The `machinen-dind` image is built automatically on first run from `scripts/Dockerfile.dind`. It takes ~3–5 minutes to build (compiles CRIU from source). Subsequent runs reuse the cached image.
+
 ### Sleep/wake handoff
 
 A compiled Swift helper (`src/power-helper.swift`) listens for macOS `NSWorkspace.willSleepNotification` and `didWakeNotification` events. On sleep, it takes a power assertion to delay sleep until the container migration completes.
@@ -144,24 +157,14 @@ To add a new provider, create `src/providers/<name>.mjs` exporting an object wit
 
 ## Prerequisites
 
-- **macOS** with OrbStack (or Linux with Docker)
-- Docker experimental mode (auto-enabled on OrbStack)
-- CRIU (auto-installed on OrbStack, manual on Linux)
-- Cloud provider CLI installed and authenticated (default: `brew install hcloud && hcloud context create machinen`)
+- **macOS or Linux** with Docker installed
 - `gh` CLI authenticated (`gh auth login`)
+- Cloud provider CLI installed and authenticated (default: `brew install hcloud && hcloud context create machinen`)
 - Same CPU architecture on source and destination (ARM64 to ARM64)
 
 `@devcontainers/cli` is included as a dependency — no global install needed.
 
-On Linux, enable experimental mode and install CRIU manually:
-
-```bash
-sudo sh -c 'echo "{\"experimental\":true}" > /etc/docker/daemon.json'
-sudo systemctl restart docker
-sudo apt-get install -y criu
-```
-
-Containers must be started with `--security-opt seccomp=unconfined` for checkpointing to work.
+CRIU and Docker experimental mode are handled automatically inside `machinen-dind`. No host-level CRIU or OrbStack needed.
 
 ## Testing
 
