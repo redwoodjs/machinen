@@ -491,8 +491,16 @@ async function cmdOpen(args) {
       process.exit(1);
     }
     console.log(`Opening shell on remote server ${machine.ip}...`);
-    // Prefer tmux session; fall back to bash if tmux isn't running
-    const remoteCmd = `docker exec -it ${containerName} sh -c 'tmux has-session -t machinen 2>/dev/null && exec tmux attach-session -t machinen || exec /bin/bash'`;
+    // Resolve the container user (devcontainer remoteUser label or Config.User),
+    // mirroring resolveContainerUser() for the local path.
+    // Prefer tmux session; fall back to bash if tmux isn't running.
+    const remoteCmd = [
+      `META=$(docker inspect --format '{{index .Config.Labels "devcontainer.metadata"}}' ${containerName} 2>/dev/null)`,
+      `USER=$(echo "$META" | python3 -c "import sys,json; entries=json.load(sys.stdin); print(next((e['remoteUser'] for e in entries if 'remoteUser' in e), ''))" 2>/dev/null || true)`,
+      `[ -z "$USER" ] && USER=$(docker inspect --format '{{.Config.User}}' ${containerName} 2>/dev/null || true)`,
+      `USER_FLAG=$([ -n "$USER" ] && echo "--user $USER" || true)`,
+      `docker exec -it $USER_FLAG ${containerName} sh -c 'tmux has-session -t machinen 2>/dev/null && exec tmux attach-session -t machinen || exec /bin/bash'`,
+    ].join("; ");
     const shell = spawnSync(
       "ssh",
       ["-t", ...SSH_OPTS, `root@${machine.ip}`, remoteCmd],
