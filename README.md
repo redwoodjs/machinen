@@ -100,6 +100,8 @@ Mac host
 
 The `machinen-dind` image is built automatically on first run from `scripts/Dockerfile.dind`. It takes ~3–5 minutes to build (compiles CRIU from source). Subsequent runs reuse the cached image.
 
+The DiND container runs with no memory or CPU limits — all workload containers inside it share the full host resources.
+
 ### Sleep/wake handoff
 
 A compiled Swift helper (`src/power-helper.swift`) listens for macOS `NSWorkspace.willSleepNotification` and `didWakeNotification` events. On sleep, it takes a power assertion to delay sleep until the container migration completes.
