@@ -25,12 +25,27 @@ export function dindExec(cmd, opts = {}) {
 
 /**
  * Returns the DOCKER_HOST value for the inner DiND daemon.
- * Uses the container's bridge IP so this works from both the Mac host
- * (via OrbStack's bridge routing) and from sibling containers in CI
- * (same Docker bridge).  Unlike tcp://127.0.0.1:2375, the bridge IP
- * is reachable when the caller is itself a container.
+ *
+ * When running directly on the host (macOS), we use the published port on
+ * localhost — bridge IPs are not reliably routable from the Mac host across
+ * all Docker runtimes (Docker Desktop doesn't route them at all; OrbStack
+ * may or may not).
+ *
+ * When running inside a container (e.g. agent-ci), localhost:2375 refers to
+ * the container's own loopback, so we fall back to the bridge IP which is
+ * reachable between sibling containers on the same Docker bridge.
  */
 export function getDiNDHost() {
+  const inContainer = (() => {
+    try {
+      return /\/docker\/[a-f0-9]/.test(fs.readFileSync("/proc/self/cgroup", "utf-8"));
+    } catch { return false; }
+  })();
+
+  if (!inContainer) {
+    return `tcp://127.0.0.1:${DIND_PORT}`;
+  }
+
   const ip = execFileSync(
     "docker",
     ["inspect", "--format", "{{.NetworkSettings.IPAddress}}", DIND_CONTAINER],
@@ -146,6 +161,8 @@ export async function ensureDiND(scriptsDir = DEFAULT_SCRIPTS_DIR) {
     "run", "-d",
     "--privileged",
     "--name", DIND_CONTAINER,
+    "-p", `${DIND_PORT}:${DIND_PORT}`,
+    "--add-host", "host.docker.internal:host-gateway",
     "-v", "machinen-docker-data:/var/lib/docker",
     ...mountArgs,
     "-e", "DOCKER_TLS_CERTDIR=",
@@ -155,6 +172,39 @@ export async function ensureDiND(scriptsDir = DEFAULT_SCRIPTS_DIR) {
     "--host", "unix:///var/run/docker.sock",
     ...(process.env.MACHINEN_REGISTRY ? ["--insecure-registry", process.env.MACHINEN_REGISTRY] : []),
   ], { stdio: "pipe", ...HOST_DOCKER_OPTS });
+
+  // When MACHINEN_REGISTRY is a localhost address, the host-side registry is not
+  // reachable from inside DinD (localhost is DinD's own loopback).  Set up an
+  // iptables DNAT rule to forward that port to the host via host.docker.internal.
+  //
+  // Two extra steps are required for the DNAT to work:
+  //  1. Remove the IPv6 localhost entry from /etc/hosts so that "localhost"
+  //     resolves to 127.0.0.1 only — Docker (Go) tries IPv6 first and hangs.
+  //  2. Enable route_localnet on all interfaces so the kernel allows routing
+  //     packets from the loopback address to a real (non-loopback) destination.
+  const reg = process.env.MACHINEN_REGISTRY;
+  if (reg) {
+    const m = reg.match(/^localhost:(\d+)$/);
+    if (m) {
+      const port = m[1];
+      try {
+        dindExec(
+          // Force localhost → IPv4 only (prevents Docker from trying ::1 first)
+          `cp /etc/hosts /tmp/hosts.noipv6 && sed -i '/^::1/d' /tmp/hosts.noipv6 && mount --bind /tmp/hosts.noipv6 /etc/hosts`,
+        );
+        dindExec(
+          // Allow kernel to route DNAT'd packets from loopback to real IPs
+          `for f in /proc/sys/net/ipv4/conf/*/route_localnet; do echo 1 > "$f"; done`,
+        );
+        dindExec(
+          `iptables -t nat -A OUTPUT -p tcp -d 127.0.0.1 --dport ${port} ` +
+          `-j DNAT --to-destination $(getent hosts host.docker.internal | awk '{print $1}'):${port}`,
+        );
+      } catch (err) {
+        console.warn(`Warning: could not forward registry port ${port} inside DinD: ${err.message}`);
+      }
+    }
+  }
 
   // Wait for the inner dockerd to be ready using docker exec (avoids TCP
   // connectivity issues when the caller is itself a container).

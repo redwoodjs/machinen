@@ -557,6 +557,12 @@ function cmdLogs(args) {
 async function cmdDestroy(args) {
   const name = args.name || args.container;
 
+  // Connect to the DinD inner daemon so docker commands find containers.
+  try {
+    const diNDHost = getDiNDHost();
+    process.env.DOCKER_HOST = diNDHost;
+  } catch {}
+
   if (args.local) {
     // Remove local containers (<name> and <name>-restored)
     let found = false;
@@ -641,6 +647,15 @@ Environment:
     process.exit(1);
   }
   const intervalMs = intervalS * 1000;
+
+  // Connect to the DinD inner daemon so docker commands find containers
+  // running inside machinen-dind.
+  try {
+    const diNDHost = getDiNDHost();
+    process.env.DOCKER_HOST = diNDHost;
+    const { hostname, port } = new URL(diNDHost);
+    reconnectDocker(hostname, parseInt(port, 10));
+  } catch {}
 
   // Resolve container name first (before any auth)
   const containerName = args.container || currentContainerName();
@@ -916,6 +931,13 @@ function cmdStatus(args) {
   const containerName = args.container;
   const { url: registry } = getRegistry();
   const prefix = `machinen/${containerName}`;
+
+  // Point DOCKER_HOST at the DinD inner daemon so docker inspect finds
+  // containers running inside machinen-dind.
+  try {
+    const diNDHost = getDiNDHost();
+    process.env.DOCKER_HOST = diNDHost;
+  } catch {}
 
   // 1. Sync daemon status from sync-status.json
   let status = null;
