@@ -136,6 +136,9 @@ To add a new provider, create `src/providers/<name>.mjs` exporting an object wit
 | `up [options]` | Start local devcontainer with sleep/wake cloud handoff |
 | `freeze <container>` | Checkpoint, package as image layer, push to registry |
 | `restore <container>` | Provision server, pull image, restore container |
+| `watch [name]` | Background sync daemon (checkpoint + push every 5 min) |
+| `open [name]` | Open shell in local or remote container |
+| `status [name]` | Show sync state and recent registry images |
 | `logs [container]` | Tail remote container logs, or list all active machines |
 | `destroy [name]` | Tear down a remote server (no args = destroy all) |
 
