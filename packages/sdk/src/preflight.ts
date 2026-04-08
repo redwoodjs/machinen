@@ -1,9 +1,9 @@
 import { execSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { getProvider } from "./cloud.mjs";
-import { ensureDiND, getDiNDHost, dindExec } from "./dind.mjs";
-import { reconnectDocker, docker, createCheckpoint } from "./docker.mjs";
+import { getProvider } from "./cloud";
+import { ensureDiND, getDiNDHost, dindExec } from "./dind";
+import { reconnectDocker, docker, createCheckpoint } from "./docker";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const scriptsDir = path.join(__dirname, "..", "..", "..", "scripts");

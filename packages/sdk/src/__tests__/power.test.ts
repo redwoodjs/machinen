@@ -24,7 +24,7 @@ describe("power-helper", () => {
 
 describe("power.mjs", () => {
   it("exports createPowerWatcher", async () => {
-    const mod = await import("../power.mjs");
+    const mod = await import("../power");
     expect(typeof mod.createPowerWatcher).toBe("function");
   });
 });

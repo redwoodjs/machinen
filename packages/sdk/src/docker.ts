@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import Docker from "dockerode";
-import { dindExec, DIND_CONTAINER, getDiNDHost, DIND_PORT } from "./dind.mjs";
+import { dindExec, DIND_CONTAINER, getDiNDHost, DIND_PORT } from "./dind";
 
 /** Always points to the host Docker socket (OrbStack or native).
  *  Used only to manage the machinen-dind container itself. */

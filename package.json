@@ -4,12 +4,20 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "pretest": "pnpm build",
     "test": "vitest run"
   },
   "packageManager": "pnpm@10.30.3",
   "devDependencies": {
     "@devcontainers/cli": "^0.84.1",
     "@redwoodjs/agent-ci": "^0.7.1",
+    "@types/dockerode": "^3",
+    "@types/node": "^22",
+    "tsup": "^8",
+    "tsx": "^4",
+    "typescript": "^5.7",
     "vitest": "^4.1.0"
   }
 }
