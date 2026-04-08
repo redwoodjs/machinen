@@ -127,7 +127,7 @@ async function testCheckpointWorks(docker) {
   }
 }
 
-export async function checkPrerequisites(_docker, opts = {}) {
+export async function checkPrerequisites(_docker, opts: Record<string, any> = {}) {
   getProvider().checkAuth();
 
   if (opts.clean) {

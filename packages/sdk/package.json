@@ -7,7 +7,7 @@
   },
   "scripts": {
     "build": "tsup && cp src/patch-criu-tty.py src/power-helper.swift src/power-helper dist/",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
     "dockerode": "^4.0.4"
