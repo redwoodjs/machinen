@@ -24,8 +24,8 @@ import {
 
 // --- arg parsing ---
 
-function parseArgs(argv) {
-  const args = { _positional: [] };
+function parseArgs(argv): Record<string, any> & { _positional: string[] } {
+  const args: Record<string, any> & { _positional: string[] } = { _positional: [] };
   let i = 0;
   while (i < argv.length) {
     if (argv[i].startsWith("--")) {
@@ -204,7 +204,7 @@ async function cmdUp(args) {
   console.log(`\nConnecting to container...\n`);
   const shell = spawn(shellInfo.command, shellInfo.args, { stdio: "inherit" });
 
-  await new Promise((resolve) => {
+  await new Promise<void>((resolve) => {
     shell.on("exit", async () => {
       console.log("\nShell exited. Cleaning up...");
       watcher.stop();
@@ -255,7 +255,7 @@ function cmdLogs(args) {
   const containerName = args.container;
   if (!containerName) {
     const { hosts, containers } = discover();
-    const machines = [...containers, ...hosts];
+    const machines: any[] = [...containers, ...hosts];
     if (machines.length === 0) {
       console.log("No active machines.");
       return;

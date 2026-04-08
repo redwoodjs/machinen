@@ -59,7 +59,6 @@ export function getRegistry() {
   const scopes = execSync("gh auth status 2>&1", {
     stdio: "pipe",
     encoding: "utf-8",
-    shell: true,
   });
   const scopeLine = scopes.split("\n").find((l) => l.includes("Token scopes:")) || "";
   const tokenScopes = scopeLine.match(/Token scopes:\s*(.*)/)?.[1] || "";

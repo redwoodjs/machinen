@@ -16,8 +16,8 @@ const execSyncMock = vi.fn((cmd) => {
 const execFileSyncMock = vi.fn(() => "");
 
 vi.mock("node:child_process", () => ({
-  execSync: (...args) => execSyncMock(...args),
-  execFileSync: (...args) => execFileSyncMock(...args),
+  execSync: (...args: any[]) => (execSyncMock as any)(...args),
+  execFileSync: (...args: any[]) => (execFileSyncMock as any)(...args),
 }));
 
 describe("registry", () => {
@@ -32,7 +32,7 @@ describe("registry", () => {
   });
 
   it("getRegistry returns ghcr.io URL with username", async () => {
-    const { getRegistry } = await import("../registry.mjs");
+    const { getRegistry } = await import("../registry");
     const reg = getRegistry();
     expect(reg.url).toBe("ghcr.io/testuser");
     expect(reg.username).toBe("testuser");
@@ -40,10 +40,10 @@ describe("registry", () => {
   });
 
   it("ensureDockerLogin calls docker login with gh token", async () => {
-    const { ensureDockerLogin } = await import("../registry.mjs");
+    const { ensureDockerLogin } = await import("../registry");
     ensureDockerLogin();
-    const loginCall = execFileSyncMock.mock.calls.find(
-      (c) => c[0] === "docker" && c[1].includes("login"),
+    const loginCall: any = execFileSyncMock.mock.calls.find(
+      (c: any) => c[0] === "docker" && c[1].includes("login"),
     );
     expect(loginCall).toBeTruthy();
     expect(loginCall[1]).toContain("ghcr.io");
@@ -52,7 +52,7 @@ describe("registry", () => {
   });
 
   it("remoteDockerLogin calls ssh with docker login", async () => {
-    const { remoteDockerLogin } = await import("../registry.mjs");
+    const { remoteDockerLogin } = await import("../registry");
     const mockSsh = vi.fn();
     remoteDockerLogin(mockSsh, "1.2.3.4");
     expect(mockSsh).toHaveBeenCalledWith(
