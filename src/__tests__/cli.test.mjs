@@ -13,6 +13,7 @@ describe("CLI", () => {
     expect(output).toContain("up");
     expect(output).toContain("freeze");
     expect(output).toContain("restore");
+    expect(output).toContain("status");
     expect(output).toContain("destroy");
   });
 
@@ -37,6 +38,15 @@ describe("CLI", () => {
   it("restore requires container name outside git repo", () => {
     try {
       execSync(`node ${cli} restore`, { encoding: "utf-8", stdio: "pipe", cwd: "/tmp" });
+    } catch (err) {
+      expect(err.stderr || err.stdout).toContain("Container name required");
+      expect(err.status).toBe(1);
+    }
+  });
+
+  it("status requires container name outside git repo", () => {
+    try {
+      execSync(`node ${cli} status`, { encoding: "utf-8", stdio: "pipe", cwd: "/tmp" });
     } catch (err) {
       expect(err.stderr || err.stdout).toContain("Container name required");
       expect(err.status).toBe(1);

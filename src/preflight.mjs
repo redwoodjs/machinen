@@ -47,35 +47,57 @@ function pruneContainerdCheckpoints() {
 // restore is achieved by cleaning the containerd content store before
 // docker start --checkpoint — otherwise the checkpoint blobs written by the
 // API checkpoint call conflict with the ones docker start tries to commit.
+const PREFLIGHT_IMAGE = "machinen-preflight";
+
+async function ensurePreflightImage() {
+  try {
+    execSync(`docker image inspect ${PREFLIGHT_IMAGE}`, { stdio: "pipe" });
+    return;
+  } catch {}
+  execSync("docker pull alpine", { stdio: "pipe" });
+  execSync(
+    `docker build -t ${PREFLIGHT_IMAGE} -`,
+    { stdio: "pipe", input: `FROM alpine\nRUN apk add -q --no-cache tmux\n` },
+  );
+}
+
 async function testCheckpointWorks(docker) {
   const testName = "criu-preflight-test";
 
-  // Clean up any leftover containers and stale containerd blobs from previous
-  // runs.  docker system prune doesn't touch checkpoint/* images committed by
-  // docker start --checkpoint, so we explicitly remove them + their blobs.
+  // Clean up leftover containers and stale containerd checkpoint blobs.
+  // No full image prune here — checkPrerequisites handles that on --clean,
+  // and keeping cached images makes subsequent runs fast.
   try { await docker.getContainer(testName).remove({ force: true }); } catch {}
-  try { execSync("docker system prune -af", { stdio: "pipe" }); } catch {}
   pruneContainerdCheckpoints();
 
   let container;
   let checkpointId;
 
   try {
-    // alpine may have been removed by the prune above.
-    execSync("docker pull alpine", { stdio: "pipe" });
+    await ensurePreflightImage();
 
     // Test with tmux — the patched CRIU is required to checkpoint containers
     // with PTY sessions (removes the tty_verify_ctty pid_real check).
     container = await docker.createContainer({
-      Image: "alpine",
+      Image: PREFLIGHT_IMAGE,
       name: testName,
-      Cmd: ["sh", "-c", "apk add -q tmux 2>/dev/null; tmux new-session -d -s test; exec sleep 300"],
+      Cmd: ["sh", "-c", "tmux new-session -d -s test; exec sleep 300"],
       // NetworkMode "host" avoids the per-container netns bind-mount that
       // CRIU cannot restore before the process starts.
       HostConfig: { SecurityOpt: ["seccomp=unconfined"], NetworkMode: "host" },
     });
     await container.start();
-    await new Promise((r) => setTimeout(r, 3000));
+
+    // Wait for setup to complete: once `exec sleep 300` runs, the shell has
+    // been replaced and there are no lingering TCP sockets.
+    const setupDeadline = Date.now() + 30_000;
+    while (Date.now() < setupDeadline) {
+      try {
+        const top = execSync(`docker exec ${testName} ps -o comm= -p 1`, { stdio: "pipe", encoding: "utf-8" }).trim();
+        if (top === "sleep") break;
+      } catch {}
+      await new Promise((r) => setTimeout(r, 500));
+    }
 
     // Use the Docker API (not CLI) to create the checkpoint.  The API stores
     // files at /var/lib/docker/containers/<id>/checkpoints/<cpId>/ inside DiND
@@ -122,12 +144,6 @@ export async function checkPrerequisites(_docker, opts = {}) {
   const { hostname, port } = new URL(diNDHost);
   reconnectDocker(hostname, parseInt(port, 10));
   // `docker` is a live ESM binding — it now points to the DiND inner daemon.
-
-  if (opts.clean) {
-    // On --clean the dind container is restarted but the machinen-docker-data
-    // volume is preserved.  Prune all images so the next run pulls fresh ones.
-    try { execSync("docker system prune -af", { stdio: "pipe" }); } catch {}
-  }
 
   console.log("Testing if docker checkpoint works...");
   if (!(await testCheckpointWorks(docker))) {
