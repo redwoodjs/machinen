@@ -1,6 +1,5 @@
 packages:
   - "packages/*"
-  - "app/*"
 
 onlyBuiltDependencies:
   - cpu-features
