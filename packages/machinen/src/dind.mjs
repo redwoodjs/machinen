@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DEFAULT_SCRIPTS_DIR = path.join(__dirname, "..", "scripts");
+const DEFAULT_SCRIPTS_DIR = path.join(__dirname, "..", "..", "..", "scripts");
 
 export const DIND_CONTAINER = "machinen-dind";
 export const DIND_IMAGE = "machinen-dind";

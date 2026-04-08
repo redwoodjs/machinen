@@ -1,0 +1,11 @@
+{
+  "name": "machinen",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.mjs"
+  },
+  "dependencies": {
+    "dockerode": "^4.0.4"
+  }
+}
