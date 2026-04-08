@@ -3,8 +3,8 @@ import {
   prepareCheckpoint,
   buildCheckpointImage,
   pushImage,
-} from "./docker.mjs";
-import { ssh } from "./cloud.mjs";
+} from "./docker";
+import { ssh } from "./cloud";
 import fs from "node:fs";
 
 const SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes

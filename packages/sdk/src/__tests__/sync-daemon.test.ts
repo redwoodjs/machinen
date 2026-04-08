@@ -10,7 +10,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const cli = path.join(__dirname, "..", "..", "..", "..", "src", "machinen.mjs");
+const cli = path.join(__dirname, "..", "..", "..", "..", "packages", "cli", "dist", "machinen.js");
 
 // Helper: run CLI in /tmp so git-based container auto-detect fails
 function runInTmp(args, opts = {}) {
@@ -23,7 +23,7 @@ function runInTmp(args, opts = {}) {
 }
 
 // Helper: spawn CLI, send signal after a short delay, resolve with exit code
-function spawnAndSignal(args, signal, delayMs = 500) {
+function spawnAndSignal(args, signal, delayMs = 500): Promise<any> {
   return new Promise((resolve) => {
     const proc = spawn("node", [cli, ...args.split(" ")], {
       stdio: "pipe",
@@ -79,7 +79,7 @@ describe("watch command — help and discovery", () => {
         encoding: "utf-8",
         stdio: "pipe",
       });
-    } catch (err) {
+    } catch (err: any) {
       // Some CLI frameworks print help to stderr and exit 0 or 1
       output = (err.stdout || "") + (err.stderr || "");
     }
@@ -96,7 +96,7 @@ describe("watch command — interval flag", () => {
     try {
       runInTmp("watch --interval abc");
       expect.fail("expected non-zero exit");
-    } catch (err) {
+    } catch (err: any) {
       expect(err.status).toBe(1);
     }
   });
@@ -105,7 +105,7 @@ describe("watch command — interval flag", () => {
     try {
       runInTmp("watch --interval 0");
       expect.fail("expected non-zero exit");
-    } catch (err) {
+    } catch (err: any) {
       expect(err.status).toBe(1);
     }
   });
@@ -138,7 +138,7 @@ describe("freeze command — --keep-alive flag", () => {
   it("freeze requires container name outside git repo", () => {
     try {
       execSync(`node ${cli} freeze`, { encoding: "utf-8", stdio: "pipe", cwd: "/tmp" });
-    } catch (err) {
+    } catch (err: any) {
       expect(err.stderr || err.stdout).toContain("Container name required");
       expect(err.status).toBe(1);
     }

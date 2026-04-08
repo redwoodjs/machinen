@@ -24,11 +24,14 @@ jobs:
       - name: Clean DinD state
         run: docker rm -f machinen-dind 2>/dev/null || true
 
+      - name: Build
+        run: pnpm build
+
       - name: Run e2e test
-        run: node packages/sdk/src/__tests__/e2e-local.mjs
+        run: npx tsx packages/sdk/src/__tests__/e2e-local.ts
 
       - name: Run session e2e test
-        run: node packages/sdk/src/__tests__/e2e-session.mjs
+        run: npx tsx packages/sdk/src/__tests__/e2e-session.ts
 
       - name: Cleanup
         if: always()
