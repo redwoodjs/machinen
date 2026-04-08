@@ -19,9 +19,9 @@ import {
   hasTmuxSession,
   tmuxAttachArgs,
   resolveContainerUser,
-} from "./docker.mjs";
-import { checkPrerequisites } from "./preflight.mjs";
-import { ensureDiND, getDiNDHost } from "./dind.mjs";
+} from "./docker";
+import { checkPrerequisites } from "./preflight";
+import { ensureDiND, getDiNDHost } from "./dind";
 import {
   listMachines,
   provisionServer,
@@ -31,9 +31,9 @@ import {
   ssh,
   sshScript,
   SSH_OPTS,
-} from "./cloud.mjs";
-import { getRegistry, ensureDockerLogin, remoteDockerLogin } from "./registry.mjs";
-import { createPowerWatcher } from "./power.mjs";
+} from "./cloud";
+import { getRegistry, ensureDockerLogin, remoteDockerLogin } from "./registry";
+import { createPowerWatcher } from "./power";
 
 // --- utility helpers ---
 

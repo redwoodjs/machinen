@@ -19,7 +19,7 @@ import { execSync, execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { ensureDiND, getDiNDHost } from "../dind.mjs";
+import { ensureDiND, getDiNDHost } from "../dind";
 import { reconnectDocker, docker,
   captureContainerConfig,
   createCheckpoint,
@@ -31,7 +31,7 @@ import { reconnectDocker, docker,
   restoreLocally,
   hasTmuxSession,
   ensureTmuxSession,
-} from "../docker.mjs";
+} from "../docker";
 
 const REGISTRY = "localhost:5000";
 const CONTAINER = "machinen-e2e-session";

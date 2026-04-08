@@ -3,11 +3,13 @@
   "version": "1.0.0",
   "type": "module",
   "bin": {
-    "machinen": "./src/machinen.mjs"
+    "machinen": "./dist/machinen.js"
   },
   "scripts": {
-    "dev:local": "MACHINEN_REGISTRY=localhost:5001 node src/machinen.mjs",
-    "dev:remote": "node src/machinen.mjs"
+    "build": "tsup && chmod +x dist/machinen.js",
+    "typecheck": "tsc --noEmit",
+    "dev:local": "MACHINEN_REGISTRY=localhost:5001 node dist/machinen.js",
+    "dev:remote": "node dist/machinen.js"
   },
   "dependencies": {
     "@machine/sdk": "workspace:*"
