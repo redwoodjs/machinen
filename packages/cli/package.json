@@ -1,10 +1,10 @@
 {
   "name": "@machinen/cli",
   "version": "1.0.0",
-  "type": "module",
   "bin": {
     "machinen": "./dist/machinen.js"
   },
+  "type": "module",
   "scripts": {
     "build": "tsup && chmod +x dist/machinen.js",
     "typecheck": "tsgo --noEmit",

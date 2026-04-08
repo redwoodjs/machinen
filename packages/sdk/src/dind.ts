@@ -18,10 +18,12 @@ const HOST_DOCKER_OPTS = { env: { ...process.env, DOCKER_HOST: "unix:///var/run/
 
 /** Execute a shell command inside the running DiND container via the HOST Docker daemon. */
 export function dindExec(cmd, opts: Record<string, any> = {}) {
-  return execFileSync(
-    "docker", ["exec", DIND_CONTAINER, "sh", "-c", cmd],
-    { encoding: "utf-8", stdio: "pipe", ...HOST_DOCKER_OPTS, ...opts },
-  );
+  return execFileSync("docker", ["exec", DIND_CONTAINER, "sh", "-c", cmd], {
+    encoding: "utf-8",
+    stdio: "pipe",
+    ...HOST_DOCKER_OPTS,
+    ...opts,
+  });
 }
 
 /**
@@ -40,7 +42,9 @@ export function dindExec(cmd, opts: Record<string, any> = {}) {
 function isInContainer() {
   try {
     // cgroup v1: path contains /docker/<id>
-    if (/\/docker\/[a-f0-9]/.test(fs.readFileSync("/proc/self/cgroup", "utf-8"))) return true;
+    if (/\/docker\/[a-f0-9]/.test(fs.readFileSync("/proc/self/cgroup", "utf-8"))) {
+      return true;
+    }
   } catch {}
   try {
     // Docker creates /.dockerenv in every container
@@ -62,7 +66,9 @@ export function getDiNDHost() {
     ["inspect", "--format", "{{.NetworkSettings.IPAddress}}", DIND_CONTAINER],
     { encoding: "utf-8", stdio: "pipe", ...HOST_DOCKER_OPTS },
   ).trim();
-  if (!ip) throw new Error("machinen-dind has no bridge IP — is it running?");
+  if (!ip) {
+    throw new Error("machinen-dind has no bridge IP — is it running?");
+  }
   return `tcp://${ip}:${DIND_PORT}`;
 }
 
@@ -75,24 +81,29 @@ export function getDiNDHost() {
  */
 function resolveHostPath(containerPath) {
   try {
-    if (!isInContainer()) return null;
+    if (!isInContainer()) {
+      return null;
+    }
 
     // Try to extract container ID from cgroup (v1)
     let containerId;
     try {
       const cgroup = fs.readFileSync("/proc/self/cgroup", "utf-8");
       const match = cgroup.match(/\/docker\/([a-f0-9]{12,64})/);
-      if (match) containerId = match[1];
+      if (match) {
+        containerId = match[1];
+      }
     } catch {}
 
     // Fallback: Docker sets the hostname to the short container ID
     if (!containerId) {
       containerId = os.hostname();
     }
-    const raw = execFileSync(
-      "docker", ["inspect", containerId],
-      { encoding: "utf-8", stdio: "pipe", ...HOST_DOCKER_OPTS },
-    );
+    const raw = execFileSync("docker", ["inspect", containerId], {
+      encoding: "utf-8",
+      stdio: "pipe",
+      ...HOST_DOCKER_OPTS,
+    });
     const mounts = JSON.parse(raw)[0]?.Mounts ?? [];
 
     // Sort longest destination first for most-specific match
@@ -116,7 +127,8 @@ export async function ensureDiND(scriptsDir = DEFAULT_SCRIPTS_DIR) {
   // Check if already running (via host Docker)
   try {
     const info = execFileSync(
-      "docker", ["inspect", "--format", "{{.State.Status}}\t{{json .Args}}", DIND_CONTAINER],
+      "docker",
+      ["inspect", "--format", "{{.State.Status}}\t{{json .Args}}", DIND_CONTAINER],
       { encoding: "utf-8", stdio: "pipe", ...HOST_DOCKER_OPTS },
     ).trim();
     const [state, argsJson] = info.split("\t");
@@ -142,8 +154,10 @@ export async function ensureDiND(scriptsDir = DEFAULT_SCRIPTS_DIR) {
 
   // Build image if not present
   try {
-    execFileSync("docker", ["image", "inspect", DIND_IMAGE],
-      { stdio: "pipe", ...HOST_DOCKER_OPTS });
+    execFileSync("docker", ["image", "inspect", DIND_IMAGE], {
+      stdio: "pipe",
+      ...HOST_DOCKER_OPTS,
+    });
     console.log("machinen-dind image found, skipping build.");
   } catch {
     console.log("Building machinen-dind image (includes CRIU build, ~3-5 min first time)...");
@@ -176,22 +190,36 @@ export async function ensureDiND(scriptsDir = DEFAULT_SCRIPTS_DIR) {
   }
 
   console.log("Starting machinen-dind...");
-  const mountArgs = workspaceMounts.flatMap(m => ["-v", m]);
-  execFileSync("docker", [
-    "run", "-d",
-    "--privileged",
-    "--name", DIND_CONTAINER,
-    "-p", `${DIND_PORT}:${DIND_PORT}`,
-    "--add-host", "host.docker.internal:host-gateway",
-    "-v", "machinen-docker-data:/var/lib/docker",
-    ...mountArgs,
-    "-e", "DOCKER_TLS_CERTDIR=",
-    DIND_IMAGE,
-    // Pass daemon flags to dockerd-entrypoint.sh (the docker:dind entrypoint)
-    "--host", `tcp://0.0.0.0:${DIND_PORT}`,
-    "--host", "unix:///var/run/docker.sock",
-    ...(process.env.MACHINEN_REGISTRY ? ["--insecure-registry", process.env.MACHINEN_REGISTRY] : []),
-  ], { stdio: "pipe", ...HOST_DOCKER_OPTS });
+  const mountArgs = workspaceMounts.flatMap((m) => ["-v", m]);
+  execFileSync(
+    "docker",
+    [
+      "run",
+      "-d",
+      "--privileged",
+      "--name",
+      DIND_CONTAINER,
+      "-p",
+      `${DIND_PORT}:${DIND_PORT}`,
+      "--add-host",
+      "host.docker.internal:host-gateway",
+      "-v",
+      "machinen-docker-data:/var/lib/docker",
+      ...mountArgs,
+      "-e",
+      "DOCKER_TLS_CERTDIR=",
+      DIND_IMAGE,
+      // Pass daemon flags to dockerd-entrypoint.sh (the docker:dind entrypoint)
+      "--host",
+      `tcp://0.0.0.0:${DIND_PORT}`,
+      "--host",
+      "unix:///var/run/docker.sock",
+      ...(process.env.MACHINEN_REGISTRY
+        ? ["--insecure-registry", process.env.MACHINEN_REGISTRY]
+        : []),
+    ],
+    { stdio: "pipe", ...HOST_DOCKER_OPTS },
+  );
 
   // When MACHINEN_REGISTRY is a localhost address, the host-side registry is not
   // reachable from inside DinD (localhost is DinD's own loopback).  Set up an
@@ -218,10 +246,12 @@ export async function ensureDiND(scriptsDir = DEFAULT_SCRIPTS_DIR) {
         );
         dindExec(
           `iptables -t nat -A OUTPUT -p tcp -d 127.0.0.1 --dport ${port} ` +
-          `-j DNAT --to-destination $(getent hosts host.docker.internal | awk '{print $1}'):${port}`,
+            `-j DNAT --to-destination $(getent hosts host.docker.internal | awk '{print $1}'):${port}`,
         );
       } catch (err) {
-        console.warn(`Warning: could not forward registry port ${port} inside DinD: ${err.message}`);
+        console.warn(
+          `Warning: could not forward registry port ${port} inside DinD: ${err.message}`,
+        );
       }
     }
   }
@@ -232,8 +262,10 @@ export async function ensureDiND(scriptsDir = DEFAULT_SCRIPTS_DIR) {
   const deadline = Date.now() + 60_000;
   while (Date.now() < deadline) {
     try {
-      execFileSync("docker", ["exec", DIND_CONTAINER, "docker", "info"],
-        { stdio: "pipe", ...HOST_DOCKER_OPTS });
+      execFileSync("docker", ["exec", DIND_CONTAINER, "docker", "info"], {
+        stdio: "pipe",
+        ...HOST_DOCKER_OPTS,
+      });
       break;
     } catch {
       await new Promise((r) => setTimeout(r, 1000));
@@ -243,8 +275,11 @@ export async function ensureDiND(scriptsDir = DEFAULT_SCRIPTS_DIR) {
   const dumpLogsAndThrow = (msg) => {
     let logs = "";
     try {
-      logs = execFileSync("docker", ["logs", "--tail", "50", DIND_CONTAINER],
-        { encoding: "utf-8", stdio: "pipe", ...HOST_DOCKER_OPTS });
+      logs = execFileSync("docker", ["logs", "--tail", "50", DIND_CONTAINER], {
+        encoding: "utf-8",
+        stdio: "pipe",
+        ...HOST_DOCKER_OPTS,
+      });
     } catch {}
     throw new Error(`${msg}\n${logs}`);
   };
@@ -258,10 +293,11 @@ export async function ensureDiND(scriptsDir = DEFAULT_SCRIPTS_DIR) {
   // network topology (host vs sibling container).
   while (Date.now() < deadline) {
     try {
-      execFileSync("docker", [
-        "exec", DIND_CONTAINER,
-        "docker", "-H", `tcp://127.0.0.1:${DIND_PORT}`, "info",
-      ], { stdio: "pipe", ...HOST_DOCKER_OPTS });
+      execFileSync(
+        "docker",
+        ["exec", DIND_CONTAINER, "docker", "-H", `tcp://127.0.0.1:${DIND_PORT}`, "info"],
+        { stdio: "pipe", ...HOST_DOCKER_OPTS },
+      );
       console.log("machinen-dind ready.");
       return;
     } catch {

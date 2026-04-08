@@ -35,8 +35,8 @@ Marcos is blending two distinct layers into one argument:
    it up, run in it, tear it down. The sandbox doesn't know about other sandboxes,
    pipelines, or build graphs. It's the unit of compute.
 
-2. **The orchestrator** — the layer above that decides *how many* sandboxes to run,
-   *what order* to run them in, what to cache, and how to deduplicate work across
+2. **The orchestrator** — the layer above that decides _how many_ sandboxes to run,
+   _what order_ to run them in, what to cache, and how to deduplicate work across
    them. Workflow awareness, concurrency, DAG execution, content-addressed caching —
    these are orchestration concerns.
 
@@ -57,7 +57,7 @@ freezable, resumable, migrateable execution state.**
 
 This is a fundamentally different primitive than what Dagger offers:
 
-- Dagger can cache *build layers*. Machinen can freeze a *running process* — open
+- Dagger can cache _build layers_. Machinen can freeze a _running process_ — open
   file descriptors, memory state, terminal sessions — and resume it elsewhere.
 - Dagger executes stateless pipeline steps. Machinen preserves stateful sessions
   across machine boundaries.
@@ -65,7 +65,7 @@ This is a fundamentally different primitive than what Dagger offers:
   environment.
 
 The things Marcos wants (concurrency, dedup, caching, workflow graphs) are real
-needs, but they belong in the orchestrator that *calls* machinen, not in machinen
+needs, but they belong in the orchestrator that _calls_ machinen, not in machinen
 itself. An orchestrator could spin up N machinen sandboxes in parallel, snapshot
 them at decision points, fork execution paths, and roll back — capabilities that
 a pure pipeline engine like Dagger can't offer because it has no concept of live
@@ -74,6 +74,7 @@ process state.
 ## The opportunity
 
 The agent era needs sandboxes that are:
+
 - **Fast to create** — machinen's DiND architecture handles this
 - **Checkpointable** — CRIU gives this; Dagger doesn't have it at all
 - **Forkable** — checkpoint + restore-as-new-container = fork. An agent can
@@ -81,8 +82,8 @@ The agent era needs sandboxes that are:
 - **Migratable** — move running work between machines (local to cloud, cloud to
   cloud) without losing state
 
-These are sandbox-level primitives. The orchestrator above decides *when* to fork,
-*how many* to run, and *what* to cache. That's not machinen's job — but machinen
+These are sandbox-level primitives. The orchestrator above decides _when_ to fork,
+_how many_ to run, and _what_ to cache. That's not machinen's job — but machinen
 gives the orchestrator primitives that no other sandbox provides.
 
 What's missing isn't workflow awareness or caching. It's **a clean programmatic

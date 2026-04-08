@@ -1,16 +1,13 @@
-import {
-  dockerExec,
-  prepareCheckpoint,
-  buildCheckpointImage,
-  pushImage,
-} from "./docker";
+import { dockerExec, prepareCheckpoint, buildCheckpointImage, pushImage } from "./docker";
 import { ssh } from "./cloud";
 import fs from "node:fs";
 
 const SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
 function isAuthError(msg) {
-  return /write:packages|unauthorized|authentication required|no basic auth credentials|requested access to the resource is denied|denied:|not authorized|not authorised|access denied|401\b|403\b/i.test(msg);
+  return /write:packages|unauthorized|authentication required|no basic auth credentials|requested access to the resource is denied|denied:|not authorized|not authorised|access denied|401\b|403\b/i.test(
+    msg,
+  );
 }
 
 export function startBackgroundSync(containerName, registry, ip) {
@@ -18,7 +15,9 @@ export function startBackgroundSync(containerName, registry, ip) {
   let timer;
 
   async function sync() {
-    if (!running) return;
+    if (!running) {
+      return;
+    }
     try {
       console.log("[sync] Preparing checkpoint...");
       const { config, commitImage, cleanName, containerId, checkpointId, tmpDir, tarPath } =
@@ -36,7 +35,16 @@ export function startBackgroundSync(containerName, registry, ip) {
         pushImage(baseTag);
         pushImage(baseLatestTag);
 
-        buildCheckpointImage(tarPath, commitImage, config, checkpointId, tag, [], baseLatestTag, containerId);
+        buildCheckpointImage(
+          tarPath,
+          commitImage,
+          config,
+          checkpointId,
+          tag,
+          [],
+          baseLatestTag,
+          containerId,
+        );
         dockerExec(["tag", tag, latestTag]);
 
         pushImage(tag);
@@ -51,13 +59,19 @@ export function startBackgroundSync(containerName, registry, ip) {
         console.log(`[sync] Synced: ${checkpointId}`);
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
-        try { dockerExec(["rm", "-f", cleanName]); } catch {}
-        try { dockerExec(["rmi", commitImage]); } catch {}
+        try {
+          dockerExec(["rm", "-f", cleanName]);
+        } catch {}
+        try {
+          dockerExec(["rmi", commitImage]);
+        } catch {}
       }
     } catch (err) {
       console.error("[sync] Failed:", err.message);
       if (isAuthError(err.message)) {
-        console.error("[sync] This looks like an auth error. Try: gh auth refresh -s write:packages");
+        console.error(
+          "[sync] This looks like an auth error. Try: gh auth refresh -s write:packages",
+        );
       }
     }
 
@@ -72,7 +86,9 @@ export function startBackgroundSync(containerName, registry, ip) {
   return {
     stop() {
       running = false;
-      if (timer) clearTimeout(timer);
+      if (timer) {
+        clearTimeout(timer);
+      }
     },
     // Force an immediate sync (used before sleep)
     syncNow: sync,

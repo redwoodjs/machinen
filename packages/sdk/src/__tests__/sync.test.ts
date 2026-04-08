@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, vi, afterEach } from "vitest";
 
 describe("startBackgroundSync", () => {
   afterEach(() => {

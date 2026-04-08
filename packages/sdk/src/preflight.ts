@@ -23,14 +23,14 @@ function pruneContainerdCheckpoints() {
     // Delete checkpoint image references.
     dindExec(
       `${CTR} images ls -q 2>/dev/null | grep '^checkpoint/' | ` +
-      `xargs -r sh -c 'for img; do ${CTR} images delete "$img" 2>/dev/null; done' _ || true`,
+        `xargs -r sh -c 'for img; do ${CTR} images delete "$img" 2>/dev/null; done' _ || true`,
     );
     // Directly remove all content blobs.  After docker system prune -af no
     // running containers reference these, so it is safe to wipe them.
     // docker pull below will repopulate whatever the test actually needs.
     dindExec(
       `${CTR} content ls -q 2>/dev/null | ` +
-      `xargs -r sh -c 'for blob; do ${CTR} content rm "$blob" 2>/dev/null; done' _ || true`,
+        `xargs -r sh -c 'for blob; do ${CTR} content rm "$blob" 2>/dev/null; done' _ || true`,
     );
   } catch {}
 }
@@ -55,10 +55,10 @@ async function ensurePreflightImage() {
     return;
   } catch {}
   execSync("docker pull alpine", { stdio: "pipe" });
-  execSync(
-    `docker build -t ${PREFLIGHT_IMAGE} -`,
-    { stdio: "pipe", input: `FROM alpine\nRUN apk add -q --no-cache tmux\n` },
-  );
+  execSync(`docker build -t ${PREFLIGHT_IMAGE} -`, {
+    stdio: "pipe",
+    input: `FROM alpine\nRUN apk add -q --no-cache tmux\n`,
+  });
 }
 
 async function testCheckpointWorks(docker) {
@@ -67,7 +67,9 @@ async function testCheckpointWorks(docker) {
   // Clean up leftover containers and stale containerd checkpoint blobs.
   // No full image prune here — checkPrerequisites handles that on --clean,
   // and keeping cached images makes subsequent runs fast.
-  try { await docker.getContainer(testName).remove({ force: true }); } catch {}
+  try {
+    await docker.getContainer(testName).remove({ force: true });
+  } catch {}
   pruneContainerdCheckpoints();
 
   let container;
@@ -93,8 +95,13 @@ async function testCheckpointWorks(docker) {
     const setupDeadline = Date.now() + 30_000;
     while (Date.now() < setupDeadline) {
       try {
-        const top = execSync(`docker exec ${testName} ps -o comm= -p 1`, { stdio: "pipe", encoding: "utf-8" }).trim();
-        if (top === "sleep") break;
+        const top = execSync(`docker exec ${testName} ps -o comm= -p 1`, {
+          stdio: "pipe",
+          encoding: "utf-8",
+        }).trim();
+        if (top === "sleep") {
+          break;
+        }
       } catch {}
       await new Promise((r) => setTimeout(r, 500));
     }
@@ -117,12 +124,20 @@ async function testCheckpointWorks(docker) {
     console.error("Checkpoint test failed:", err.message || err);
     return false;
   } finally {
-    try { await container?.stop(); } catch {}
-    try { await container?.remove({ force: true }); } catch {}
+    try {
+      await container?.stop();
+    } catch {}
+    try {
+      await container?.remove({ force: true });
+    } catch {}
     // Clean up the checkpoint image committed to containerd by docker start
     // --checkpoint so subsequent runs don't hit "content sha256:...: already exists".
     if (checkpointId) {
-      try { dindExec(`${CTR} images delete "checkpoint/${testName}/${checkpointId}" 2>/dev/null || true`); } catch {}
+      try {
+        dindExec(
+          `${CTR} images delete "checkpoint/${testName}/${checkpointId}" 2>/dev/null || true`,
+        );
+      } catch {}
     }
   }
 }
@@ -134,8 +149,12 @@ export async function checkPrerequisites(_docker, opts: Record<string, any> = {}
     // Force a full rebuild of the DiND image on --clean.
     console.log("Rebuilding machinen-dind (--clean)...");
     const hostEnv = { ...process.env, DOCKER_HOST: "unix:///var/run/docker.sock" };
-    try { execSync(`docker rm -f machinen-dind`, { stdio: "pipe", env: hostEnv }); } catch {}
-    try { execSync(`docker rmi -f machinen-dind`, { stdio: "pipe", env: hostEnv }); } catch {}
+    try {
+      execSync(`docker rm -f machinen-dind`, { stdio: "pipe", env: hostEnv });
+    } catch {}
+    try {
+      execSync(`docker rmi -f machinen-dind`, { stdio: "pipe", env: hostEnv });
+    } catch {}
   }
 
   await ensureDiND(scriptsDir);
@@ -147,7 +166,9 @@ export async function checkPrerequisites(_docker, opts: Record<string, any> = {}
 
   console.log("Testing if docker checkpoint works...");
   if (!(await testCheckpointWorks(docker))) {
-    throw new Error("CRIU is not working inside machinen-dind. Try running with --clean to rebuild the image.");
+    throw new Error(
+      "CRIU is not working inside machinen-dind. Try running with --clean to rebuild the image.",
+    );
   }
   console.log("CRIU is available.");
 }

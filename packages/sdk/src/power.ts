@@ -11,10 +11,9 @@ const HELPER_BIN = path.join(__dirname, "power-helper");
 function ensureCompiled() {
   if (!fs.existsSync(HELPER_BIN)) {
     console.log("Compiling power helper...");
-    execSync(
-      `swiftc -o ${HELPER_BIN} ${HELPER_SWIFT} -framework Cocoa -framework IOKit`,
-      { stdio: "inherit" }
-    );
+    execSync(`swiftc -o ${HELPER_BIN} ${HELPER_SWIFT} -framework Cocoa -framework IOKit`, {
+      stdio: "inherit",
+    });
   }
 }
 

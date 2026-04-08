@@ -1,25 +1,11 @@
 // Container lifecycle
-export {
-  freeze,
-  restore,
-  up,
-  destroy,
-  migrate,
-} from "./operations";
+export { freeze, restore, up, destroy, migrate } from "./operations";
 
 // Discovery & shell
-export {
-  discover,
-  getShellArgs,
-  status,
-  logs,
-} from "./operations";
+export { discover, getShellArgs, status, logs } from "./operations";
 
 // Sync
-export {
-  syncOnce,
-  createSyncDaemon,
-} from "./operations";
+export { syncOnce, createSyncDaemon } from "./operations";
 
 // Utilities
 export {

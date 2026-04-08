@@ -36,17 +36,17 @@ Freestyle Runs is a serverless code execution platform targeting AI agents. You 
 
 ## How Machinen Compares
 
-| Dimension | Freestyle | Machinen |
-|-----------|-----------|----------|
-| **Core model** | Stateless code execution / ephemeral sandboxes | Stateful container migration (local <-> cloud) |
-| **Target user** | Platform builders embedding sandboxes | Individual developers / small teams |
-| **Isolation** | V8 isolates (Runs) / VMs (Sandboxes) | Full Docker containers via CRIU |
-| **State** | Ephemeral by default; fork for branching | Persistent by design — freeze/restore preserves everything |
-| **Cold start** | ~10ms (V8), ~320ms (VM fork) | N/A — container is already running, it migrates |
-| **Where it runs** | Freestyle's bare metal | Your laptop + your cloud (Hetzner, etc.) |
-| **Pricing** | Pay-per-ms to Freestyle | Pay your own cloud provider (pennies/hour on Hetzner) |
-| **Network** | Domain allow/deny, proxy routing | Full network stack, Tailscale-compatible |
-| **Use case** | Run untrusted code snippets from AI agents | Keep your full dev environment alive across sleep/wake |
+| Dimension         | Freestyle                                      | Machinen                                                   |
+| ----------------- | ---------------------------------------------- | ---------------------------------------------------------- |
+| **Core model**    | Stateless code execution / ephemeral sandboxes | Stateful container migration (local <-> cloud)             |
+| **Target user**   | Platform builders embedding sandboxes          | Individual developers / small teams                        |
+| **Isolation**     | V8 isolates (Runs) / VMs (Sandboxes)           | Full Docker containers via CRIU                            |
+| **State**         | Ephemeral by default; fork for branching       | Persistent by design — freeze/restore preserves everything |
+| **Cold start**    | ~10ms (V8), ~320ms (VM fork)                   | N/A — container is already running, it migrates            |
+| **Where it runs** | Freestyle's bare metal                         | Your laptop + your cloud (Hetzner, etc.)                   |
+| **Pricing**       | Pay-per-ms to Freestyle                        | Pay your own cloud provider (pennies/hour on Hetzner)      |
+| **Network**       | Domain allow/deny, proxy routing               | Full network stack, Tailscale-compatible                   |
+| **Use case**      | Run untrusted code snippets from AI agents     | Keep your full dev environment alive across sleep/wake     |
 
 ## Strong Signals for Machinen
 
