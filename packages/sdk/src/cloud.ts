@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { dockerExec } from "./docker.mjs";
-import hetzner from "./providers/hetzner.mjs";
+import { dockerExec } from "./docker";
+import hetzner from "./providers/hetzner";
 
 let provider = hetzner;
 
@@ -17,7 +17,7 @@ const MACHINEN_PREFIX = "machinen-";
  * Find all machinen containers (local Docker) and servers (Hetzner).
  */
 export function listMachines() {
-  const machines = [];
+  const machines: { name: string; status: string; location: string; ip?: string }[] = [];
 
   // Local containers named machinen-*
   try {
@@ -56,7 +56,7 @@ export function listMachines() {
 
 export const SSH_OPTS = ["-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "LogLevel=ERROR", "-o", "ConnectTimeout=10"];
 
-export function ssh(ip, cmd, { stdio = "inherit", nothrow = false } = {}) {
+export function ssh(ip: string, cmd: string, { stdio = "inherit" as any, nothrow = false } = {}) {
   const result = spawnSync(
     "ssh",
     [...SSH_OPTS, `root@${ip}`, cmd],
@@ -74,11 +74,11 @@ export function ssh(ip, cmd, { stdio = "inherit", nothrow = false } = {}) {
  * Avoids all escaping issues — the script is piped directly to bash,
  * never passed through shell argument parsing.
  */
-export function sshScript(ip, script, { stdio = "inherit", nothrow = false } = {}) {
+export function sshScript(ip: string, script: string, { stdio = "inherit" as any, nothrow = false } = {}) {
   const result = spawnSync(
     "ssh",
     [...SSH_OPTS, `root@${ip}`, "bash -s"],
-    { input: script, stdio: [undefined, ...(Array.isArray(stdio) ? stdio.slice(1) : [stdio, stdio])], encoding: "utf-8" }
+    { input: script, stdio: [undefined, ...(Array.isArray(stdio) ? stdio.slice(1) : [stdio, stdio])] as any, encoding: "utf-8" }
   );
   if (!nothrow && result.status !== 0) {
     const stderr = result.stderr?.trim();

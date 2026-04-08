@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import Docker from "dockerode";
-import { dindExec, DIND_CONTAINER, getDiNDHost, DIND_PORT } from "./dind.mjs";
+import { dindExec, DIND_CONTAINER, getDiNDHost, DIND_PORT } from "./dind";
 
 /** Always points to the host Docker socket (OrbStack or native).
  *  Used only to manage the machinen-dind container itself. */
@@ -23,7 +23,7 @@ export function reconnectDocker(host, port) {
 const TAR_ENV = { ...process.env, COPYFILE_DISABLE: "1" };
 
 /** Run a docker CLI command without shell interpolation. */
-export function dockerExec(args, opts = {}) {
+export function dockerExec(args, opts: Record<string, any> = {}) {
   return execFileSync("docker", args, { stdio: "pipe", encoding: "utf-8", ...opts });
 }
 
@@ -134,7 +134,7 @@ function patchCheckpoint(checkpointDir, oldId, newId, bindPathsToStrip = []) {
   try {
     // Extract .img files from the checkpoint dir
     try {
-      execSync(
+      (execSync as any)(
         `docker run --rm --privileged --pid=host alpine nsenter -t 1 -m sh -c ${shellQuote("tar cf - -C " + checkpointDir + " .")} > ${shellQuote(tarPath)}`,
         { stdio: ["pipe", "pipe", "pipe"], shell: true }
       );
@@ -179,7 +179,7 @@ function patchCheckpoint(checkpointDir, oldId, newId, bindPathsToStrip = []) {
     execFileSync("tar", ["cf", patchedTar, "-C", workDir, "."], { stdio: "pipe", env: TAR_ENV });
 
     try {
-      execSync(
+      (execSync as any)(
         `cat ${shellQuote(patchedTar)} | docker run --rm -i --privileged --pid=host alpine nsenter -t 1 -m sh -c ${shellQuote("tar xf - -C " + checkpointDir)}`,
         { stdio: ["pipe", "pipe", "pipe"], shell: true }
       );
@@ -308,7 +308,7 @@ function decodeMntFile(data) {
   return entries;
 }
 
-export function stripBindMountEntries(dir, bindPaths) {
+export function stripBindMountEntries(dir, bindPaths?) {
   const paths = bindPaths ? expandBindPaths(bindPaths) : [];
 
   for (const file of fs.readdirSync(dir)) {
@@ -389,7 +389,7 @@ export function extractCheckpointFiles(containerId, checkpointId) {
     // Execute tar inside the DiND container which has direct access to the
     // inner daemon's /var/lib/docker.  Use the HOST Docker socket so this
     // works even when DOCKER_HOST is pointing at the DiND inner daemon.
-    execSync(
+    (execSync as any)(
       `docker exec ${DIND_CONTAINER} sh -c ${shellQuote("tar cf - -C " + checkpointPath + " .")} > ${shellQuote(tarPath)}`,
       { stdio: ["pipe", "pipe", "pipe"], shell: true,
         env: { ...process.env, DOCKER_HOST: "unix:///var/run/docker.sock" } }
@@ -464,7 +464,7 @@ export async function prepareCheckpoint(containerName, { stop = false } = {}) {
     const tarName = `bind-${containerPath.replace(/\//g, "_")}.tar`;
     const tarPath = path.join(workspaceTmpDir, tarName);
     try {
-      execSync(`docker cp ${shellQuote(containerName + ":" + containerPath)} - > ${shellQuote(tarPath)}`, {
+      (execSync as any)(`docker cp ${shellQuote(containerName + ":" + containerPath)} - > ${shellQuote(tarPath)}`, {
         stdio: ["pipe", "pipe", "pipe"], shell: true,
       });
       savedBinds.push({ containerPath, tarPath });
@@ -492,7 +492,7 @@ export async function prepareCheckpoint(containerName, { stop = false } = {}) {
     ]);
     for (const { containerPath, tarPath } of savedBinds) {
       const parent = path.posix.dirname(containerPath);
-      execSync(`cat ${shellQuote(tarPath)} | docker cp - ${shellQuote(cleanName + ":" + parent)}`, {
+      (execSync as any)(`cat ${shellQuote(tarPath)} | docker cp - ${shellQuote(cleanName + ":" + parent)}`, {
         stdio: ["pipe", "pipe", "pipe"], shell: true,
       });
       console.log(`Restored bind mount into image: ${containerPath}`);
@@ -575,7 +575,7 @@ export function resolveContainerUser(containerName) {
 }
 
 /** Check whether the machinen tmux session is running inside the container. */
-export function hasTmuxSession(containerName, sessionName = TMUX_SESSION, { user } = {}) {
+export function hasTmuxSession(containerName, sessionName = TMUX_SESSION, { user }: any = {}) {
   try {
     const args = ["exec"];
     if (user) args.push("--user", user);
@@ -588,7 +588,7 @@ export function hasTmuxSession(containerName, sessionName = TMUX_SESSION, { user
 }
 
 /** Start a tmux session inside the container if not already running. */
-export function ensureTmuxSession(containerName, { user, sessionName = TMUX_SESSION } = {}) {
+export function ensureTmuxSession(containerName, { user, sessionName = TMUX_SESSION }: any = {}) {
   const workdir = dockerExec(
     ["inspect", "--format", "{{.Config.WorkingDir}}", containerName]
   ).trim() || "/";
@@ -608,7 +608,7 @@ export function ensureTmuxSession(containerName, { user, sessionName = TMUX_SESS
 }
 
 /** Return docker CLI args to attach to the tmux session. */
-export function tmuxAttachArgs(containerName, { user, sessionName = TMUX_SESSION } = {}) {
+export function tmuxAttachArgs(containerName, { user, sessionName = TMUX_SESSION }: any = {}) {
   const args = ["exec", "-it"];
   if (user) args.push("--user", user);
   args.push(containerName, "tmux", "attach-session", "-t", sessionName);
@@ -673,7 +673,7 @@ export function restoreLocally(imageTag, containerName) {
     // (DOCKER_HOST is already set); docker exec (right side) uses the HOST
     // socket to write into the DiND container's filesystem.
     dindExec(`mkdir -p ${checkpointDir}`);
-    execSync(
+    (execSync as any)(
       `docker cp machinen-tmp:/checkpoint/. - | ` +
       `DOCKER_HOST=unix:///var/run/docker.sock docker exec -i ${DIND_CONTAINER} sh -c ` +
       shellQuote(`tar xf - -C ${checkpointDir} && find ${checkpointDir} -name '._*' -delete`),
@@ -889,7 +889,7 @@ export function restoreLocally(imageTag, containerName) {
     const diag = collectDiagnostics();
     fs.writeFileSync(diagFile, diag);
     console.log(`Diagnostics saved to ${diagFile}`);
-  } catch (err) {
+  } catch (err: any) {
     const diag = collectDiagnostics();
     fs.writeFileSync(diagFile, diag + `\n\nERROR: ${err.message}\n`);
     console.error(`\nCRIU restore failed. Diagnostics saved to ${diagFile}`);
@@ -915,7 +915,7 @@ export function restoreLocally(imageTag, containerName) {
     const containerUser = resolveContainerUser(containerName);
     ensureTmuxSession(containerName, { user: containerUser });
     console.log("tmux session ready");
-  } catch (err) {
+  } catch (err: any) {
     console.warn(`Warning: could not ensure tmux session: ${err.message}`);
   }
 

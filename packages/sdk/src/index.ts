@@ -5,7 +5,7 @@ export {
   up,
   destroy,
   migrate,
-} from "./operations.mjs";
+} from "./operations";
 
 // Discovery & shell
 export {
@@ -13,13 +13,13 @@ export {
   getShellArgs,
   status,
   logs,
-} from "./operations.mjs";
+} from "./operations";
 
 // Sync
 export {
   syncOnce,
   createSyncDaemon,
-} from "./operations.mjs";
+} from "./operations";
 
 // Utilities
 export {
@@ -32,15 +32,15 @@ export {
   isAuthError,
   containerExists,
   checkSyncStatus,
-} from "./operations.mjs";
+} from "./operations";
 
 // Lower-level modules (re-exported for advanced use)
-export { docker, dockerExec, reconnectDocker } from "./docker.mjs";
-export { checkPrerequisites } from "./preflight.mjs";
-export { ensureDiND, getDiNDHost } from "./dind.mjs";
-export { getRegistry, ensureDockerLogin, remoteDockerLogin } from "./registry.mjs";
-export { createPowerWatcher } from "./power.mjs";
-export { startBackgroundSync } from "./sync.mjs";
+export { docker, dockerExec, reconnectDocker } from "./docker";
+export { checkPrerequisites } from "./preflight";
+export { ensureDiND, getDiNDHost } from "./dind";
+export { getRegistry, ensureDockerLogin, remoteDockerLogin } from "./registry";
+export { createPowerWatcher } from "./power";
+export { startBackgroundSync } from "./sync";
 export {
   listMachines,
   provisionServer,
@@ -50,4 +50,4 @@ export {
   ssh,
   sshScript,
   SSH_OPTS,
-} from "./cloud.mjs";
+} from "./cloud";
