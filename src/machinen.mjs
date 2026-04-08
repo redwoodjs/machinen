@@ -23,7 +23,7 @@ import {
   reconnectDocker,
   getRegistry,
   createPowerWatcher,
-} from "@machinen/headless";
+} from "@machine/headless";
 
 // --- arg parsing ---
 

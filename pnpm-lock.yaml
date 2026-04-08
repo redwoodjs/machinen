@@ -8,7 +8,7 @@ importers:
 
   .:
     dependencies:
-      '@machinen/headless':
+      '@machine/headless':
         specifier: workspace:*
         version: link:packages/machinen
     devDependencies:

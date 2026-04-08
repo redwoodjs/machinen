@@ -1,5 +1,5 @@
 {
-  "name": "@machinen/headless",
+  "name": "@machine/headless",
   "version": "0.1.0",
   "type": "module",
   "exports": {
