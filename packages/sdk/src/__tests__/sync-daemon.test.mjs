@@ -10,7 +10,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const cli = path.join(__dirname, "..", "..", "..", "..", "src", "machinen.mjs");
+const cli = path.join(__dirname, "..", "..", "..", "..", "app", "cli", "src", "machinen.mjs");
 
 // Helper: run CLI in /tmp so git-based container auto-detect fails
 function runInTmp(args, opts = {}) {

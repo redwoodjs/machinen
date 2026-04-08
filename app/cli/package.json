@@ -1,0 +1,15 @@
+{
+  "name": "@machinen/cli",
+  "version": "1.0.0",
+  "type": "module",
+  "bin": {
+    "machinen": "./src/machinen.mjs"
+  },
+  "scripts": {
+    "dev:local": "MACHINEN_REGISTRY=localhost:5001 node src/machinen.mjs",
+    "dev:remote": "node src/machinen.mjs"
+  },
+  "dependencies": {
+    "@machine/sdk": "workspace:*"
+  }
+}
