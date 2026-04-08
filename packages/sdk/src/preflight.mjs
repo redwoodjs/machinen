@@ -6,7 +6,7 @@ import { ensureDiND, getDiNDHost, dindExec } from "./dind.mjs";
 import { reconnectDocker, docker, createCheckpoint } from "./docker.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const scriptsDir = path.join(__dirname, "..", "scripts");
+const scriptsDir = path.join(__dirname, "..", "..", "..", "scripts");
 
 const CTR = "ctr --address /run/docker/containerd/containerd.sock --namespace moby";
 
