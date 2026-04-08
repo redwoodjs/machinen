@@ -19,15 +19,11 @@
     "CLAUDE_CONFIG_DIR": "/home/node/.claude"
   },
 
-  "mounts": [
-    "source=${localEnv:HOME}/.claude,target=/home/node/.claude,type=bind"
-  ],
+  "mounts": ["source=${localEnv:HOME}/.claude,target=/home/node/.claude,type=bind"],
 
   "customizations": {
     "vscode": {
-      "extensions": [
-        "ms-vscode.vscode-typescript-next"
-      ]
+      "extensions": ["ms-vscode.vscode-typescript-next"]
     }
   }
 }

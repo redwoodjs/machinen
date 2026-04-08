@@ -41,13 +41,13 @@ cloud servers using CRIU (Checkpoint/Restore In Userspace).
 
 ## Modules
 
-| Module | Purpose |
-|---|---|
-| `machinen.mjs` | CLI entrypoint, command routing, arg parsing |
-| `cloud.mjs` | State management, SSH, provisioning, remote freeze/restore |
-| `docker.mjs` | Local Docker operations, checkpoint/restore, image building |
-| `providers/hetzner.mjs` | hcloud CLI wrapper (pluggable provider interface) |
-| `registry.mjs` | ghcr.io authentication via `gh` CLI |
-| `preflight.mjs` | Prerequisite checks, CRIU availability |
-| `power.mjs` | macOS sleep/wake detection |
-| `sync.mjs` | Background checkpoint sync |
+| Module                  | Purpose                                                     |
+| ----------------------- | ----------------------------------------------------------- |
+| `machinen.mjs`          | CLI entrypoint, command routing, arg parsing                |
+| `cloud.mjs`             | State management, SSH, provisioning, remote freeze/restore  |
+| `docker.mjs`            | Local Docker operations, checkpoint/restore, image building |
+| `providers/hetzner.mjs` | hcloud CLI wrapper (pluggable provider interface)           |
+| `registry.mjs`          | ghcr.io authentication via `gh` CLI                         |
+| `preflight.mjs`         | Prerequisite checks, CRIU availability                      |
+| `power.mjs`             | macOS sleep/wake detection                                  |
+| `sync.mjs`              | Background checkpoint sync                                  |

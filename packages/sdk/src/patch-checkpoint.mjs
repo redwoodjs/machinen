@@ -11,13 +11,7 @@
 
 import fs from "node:fs";
 
-const ORBSTACK_MARKERS = [
-  "orbstack",
-  "macfuse",
-  "grpcfuse",
-  "virtiofs",
-  "/Users/",
-];
+const ORBSTACK_MARKERS = ["orbstack", "macfuse", "grpcfuse", "virtiofs", "/Users/"];
 
 function shouldRemoveEntry(buf) {
   const str = buf.toString("latin1");
@@ -40,7 +34,9 @@ let offset = 8;
 const entries = [];
 while (offset + 4 <= data.length) {
   const size = data.readUInt32LE(offset);
-  if (size === 0 || offset + 4 + size > data.length) break;
+  if (size === 0 || offset + 4 + size > data.length) {
+    break;
+  }
   entries.push(data.subarray(offset, offset + 4 + size)); // include the size prefix
   offset += 4 + size;
 }

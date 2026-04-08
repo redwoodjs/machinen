@@ -19,6 +19,7 @@ CRIU's restore flow restores file descriptors **before** restoring credentials/c
 On Ubuntu 24.04 servers, `net.ipv4.ping_group_range = 1 0` (empty range), meaning only processes with effective `CAP_NET_RAW` can create ICMP ping sockets. CRIU's restore child doesn't have `CAP_NET_RAW` in its effective set at FD-restoration time — CRIU's root task calls `set_opts_cap_eff()` before forking child processes, and `CAP_NET_RAW` is not preserved.
 
 Things that do NOT fix this:
+
 - `--cap-add NET_RAW` on `docker create` — caps are set on the container spec, not on CRIU's internal child process during FD restoration
 - `--security-opt apparmor=unconfined` — AppArmor is not involved; checkpoint has no `apparmor.img`
 
@@ -37,6 +38,7 @@ This works because the container uses `--network host`, so CRIU's restore child 
 ## Debugging Tips
 
 Capture the CRIU restore.log before containerd cleans it up — it lives at:
+
 - `/run/containerd/io.containerd.runtime.v2.task/moby/<container-id>/work/restore.log`
 - `/tmp/ctrd-checkpoint*/restore.log`
 - `<checkpoint-dir>/restore.log`

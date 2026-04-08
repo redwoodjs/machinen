@@ -22,7 +22,12 @@ export function listMachines() {
   // Local containers named machinen-*
   try {
     const out = dockerExec([
-      "ps", "-a", "--filter", "name=^machinen-", "--format", "{{.Names}}\t{{.Status}}",
+      "ps",
+      "-a",
+      "--filter",
+      "name=^machinen-",
+      "--format",
+      "{{.Names}}\t{{.Status}}",
     ]).trim();
     if (out) {
       for (const line of out.split("\n")) {
@@ -38,7 +43,7 @@ export function listMachines() {
   try {
     const servers = provider.listServers(MACHINEN_PREFIX);
     for (const s of servers) {
-      const existing = machines.find(m => m.name === s.name);
+      const existing = machines.find((m) => m.name === s.name);
       if (existing) {
         existing.ip = s.ip;
         existing.location = "local+remote";
@@ -51,20 +56,26 @@ export function listMachines() {
   return machines;
 }
 
-
 // --- SSH ---
 
-export const SSH_OPTS = ["-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "LogLevel=ERROR", "-o", "ConnectTimeout=10"];
+export const SSH_OPTS = [
+  "-o",
+  "StrictHostKeyChecking=no",
+  "-o",
+  "UserKnownHostsFile=/dev/null",
+  "-o",
+  "LogLevel=ERROR",
+  "-o",
+  "ConnectTimeout=10",
+];
 
 export function ssh(ip, cmd, { stdio = "inherit", nothrow = false } = {}) {
-  const result = spawnSync(
-    "ssh",
-    [...SSH_OPTS, `root@${ip}`, cmd],
-    { stdio, encoding: "utf-8" }
-  );
+  const result = spawnSync("ssh", [...SSH_OPTS, `root@${ip}`, cmd], { stdio, encoding: "utf-8" });
   if (!nothrow && result.status !== 0) {
     const stderr = result.stderr?.trim();
-    throw new Error(`Remote command failed (exit ${result.status}): ${cmd}${stderr ? `\n${stderr}` : ""}`);
+    throw new Error(
+      `Remote command failed (exit ${result.status}): ${cmd}${stderr ? `\n${stderr}` : ""}`,
+    );
   }
   return result;
 }
@@ -75,11 +86,11 @@ export function ssh(ip, cmd, { stdio = "inherit", nothrow = false } = {}) {
  * never passed through shell argument parsing.
  */
 export function sshScript(ip, script, { stdio = "inherit", nothrow = false } = {}) {
-  const result = spawnSync(
-    "ssh",
-    [...SSH_OPTS, `root@${ip}`, "bash -s"],
-    { input: script, stdio: [undefined, ...(Array.isArray(stdio) ? stdio.slice(1) : [stdio, stdio])], encoding: "utf-8" }
-  );
+  const result = spawnSync("ssh", [...SSH_OPTS, `root@${ip}`, "bash -s"], {
+    input: script,
+    stdio: [undefined, ...(Array.isArray(stdio) ? stdio.slice(1) : [stdio, stdio])],
+    encoding: "utf-8",
+  });
   if (!nothrow && result.status !== 0) {
     const stderr = result.stderr?.trim();
     throw new Error(`Remote script failed (exit ${result.status})${stderr ? `\n${stderr}` : ""}`);
@@ -154,8 +165,8 @@ export async function provisionServer({
     if (reachable.status !== 0) {
       throw new Error(
         `Server ${name} (${existing.ip}) is not responding.\n` +
-        `If it's unrecoverable, destroy it first:\n` +
-        `  machinen destroy ${name} --remote`
+          `If it's unrecoverable, destroy it first:\n` +
+          `  machinen destroy ${name} --remote`,
       );
     }
     return existing.ip;
@@ -178,7 +189,10 @@ export async function provisionServer({
   let lastLineCount = 0;
 
   while (Date.now() - start < 10 * 60 * 1000) {
-    const ready = ssh(server.ip, "cat /root/.machinen-ready 2>/dev/null", { stdio: "pipe", nothrow: true });
+    const ready = ssh(server.ip, "cat /root/.machinen-ready 2>/dev/null", {
+      stdio: "pipe",
+      nothrow: true,
+    });
     if (ready.status === 0) {
       console.log(`Ready in ${((Date.now() - start) / 1000).toFixed(0)}s.`);
       return server.ip;
@@ -187,11 +201,13 @@ export async function provisionServer({
     const log = ssh(
       server.ip,
       `tail -n +${lastLineCount + 1} /var/log/cloud-init-output.log 2>/dev/null`,
-      { stdio: "pipe", nothrow: true }
+      { stdio: "pipe", nothrow: true },
     );
     if (log.status === 0 && log.stdout.trim()) {
       const lines = log.stdout.trimEnd().split("\n");
-      for (const line of lines) console.log(`  ${line}`);
+      for (const line of lines) {
+        console.log(`  ${line}`);
+      }
       lastLineCount += lines.length;
     }
 
@@ -206,7 +222,11 @@ export function remoteFreeze(ip, containerName, registry) {
   console.log(`Freezing remote container ${containerName}...`);
   ssh(ip, `docker checkpoint create ${containerName} ${checkpointId}`);
 
-  const inspectRaw = ssh(ip, `docker inspect --format '{{.Id}}\\t{{.Config.Image}}\\t{{json .Config}}' ${containerName}`, { stdio: "pipe" }).stdout.trim();
+  const inspectRaw = ssh(
+    ip,
+    `docker inspect --format '{{.Id}}\\t{{.Config.Image}}\\t{{json .Config}}' ${containerName}`,
+    { stdio: "pipe" },
+  ).stdout.trim();
   const [containerId, originalImage, configRaw] = inspectRaw.split("\t");
 
   const imageTag = `${registry}/${containerName}:${checkpointId}`;
@@ -217,37 +237,45 @@ export function remoteFreeze(ip, containerName, registry) {
   // Tag the original image as the base — restore needs identical layers
   ssh(ip, `docker tag ${originalImage} ${baseTag} && docker tag ${originalImage} ${baseLatestTag}`);
 
-  ssh(ip, [
-    `TMPDIR=$(mktemp -d)`,
-    `cd $TMPDIR`,
-    `tar cf checkpoint.tar -C /var/lib/docker/containers/${containerId}/checkpoints/${checkpointId} .`,
-    `cat > Dockerfile << 'DEOF'`,
-    `FROM ${originalImage}`,
-    `LABEL machinen.config='${configRaw.replace(/'/g, "'\\''")}'`,
-    `LABEL machinen.checkpoint-id='${checkpointId}'`,
-    `LABEL machinen.original-image='${originalImage}'`,
-    `LABEL machinen.base-image='${baseLatestTag}'`,
-    `LABEL machinen.container-id='${containerId}'`,
-    `ADD checkpoint.tar /checkpoint/`,
-    `DEOF`,
-    `docker build -t ${imageTag} .`,
-    `docker tag ${imageTag} ${latestTag}`,
-    `rm -rf $TMPDIR`,
-  ].join(" && "));
+  ssh(
+    ip,
+    [
+      `TMPDIR=$(mktemp -d)`,
+      `cd $TMPDIR`,
+      `tar cf checkpoint.tar -C /var/lib/docker/containers/${containerId}/checkpoints/${checkpointId} .`,
+      `cat > Dockerfile << 'DEOF'`,
+      `FROM ${originalImage}`,
+      `LABEL machinen.config='${configRaw.replace(/'/g, "'\\''")}'`,
+      `LABEL machinen.checkpoint-id='${checkpointId}'`,
+      `LABEL machinen.original-image='${originalImage}'`,
+      `LABEL machinen.base-image='${baseLatestTag}'`,
+      `LABEL machinen.container-id='${containerId}'`,
+      `ADD checkpoint.tar /checkpoint/`,
+      `DEOF`,
+      `docker build -t ${imageTag} .`,
+      `docker tag ${imageTag} ${latestTag}`,
+      `rm -rf $TMPDIR`,
+    ].join(" && "),
+  );
 
   console.log("Pushing from remote...");
-  ssh(ip, `docker push ${imageTag} && docker push ${latestTag} && docker push ${baseTag} && docker push ${baseLatestTag}`);
+  ssh(
+    ip,
+    `docker push ${imageTag} && docker push ${latestTag} && docker push ${baseTag} && docker push ${baseLatestTag}`,
+  );
 
   return { checkpointId, imageTag, latestTag, baseTag };
 }
 
-export function remoteRestore(ip, containerName, imageTag, registry) {
+export function remoteRestore(ip, containerName, imageTag, _registry) {
   console.log(`Pulling ${imageTag} on remote...`);
   ssh(ip, `docker pull ${imageTag}`);
 
-  const labelsRaw = ssh(ip, `docker inspect --format '{{json .Config.Labels}}' ${imageTag}`, { stdio: "pipe" }).stdout.trim();
+  const labelsRaw = ssh(ip, `docker inspect --format '{{json .Config.Labels}}' ${imageTag}`, {
+    stdio: "pipe",
+  }).stdout.trim();
   const labels = JSON.parse(labelsRaw);
-  const config = JSON.parse(labels["machinen.config"]);
+  const _config = JSON.parse(labels["machinen.config"]);
   const checkpointId = labels["machinen.checkpoint-id"];
   const baseImageTag = labels["machinen.base-image"];
   const oldContainerId = labels["machinen.container-id"];
@@ -260,14 +288,23 @@ export function remoteRestore(ip, containerName, imageTag, registry) {
   // Ensure runc.conf matches DiND — existing servers provisioned before this
   // fix may only have ext-unix-sk; the ext-mount-map entries are required for
   // CRIU to treat /dev submounts as externally provided by runc.
-  sshScript(ip, `
+  sshScript(
+    ip,
+    `
 printf 'ext-unix-sk\\nfile-locks\\next-mount-map /dev:/dev\\next-mount-map /dev/pts:/dev/pts\\next-mount-map /dev/mqueue:/dev/mqueue\\next-mount-map /dev/shm:/dev/shm\\nskip-mnt /proc/interrupts\\nskip-mnt /proc/keys\\nskip-mnt /proc/timer_list\\nskip-mnt /sys/firmware\\n' > /etc/criu/runc.conf
-`);
+`,
+  );
 
-  const cgroupDriver = ssh(ip, "docker info --format '{{.CgroupDriver}}'", { stdio: "pipe" }).stdout.trim();
+  const cgroupDriver = ssh(ip, "docker info --format '{{.CgroupDriver}}'", {
+    stdio: "pipe",
+  }).stdout.trim();
   if (cgroupDriver !== "cgroupfs") {
-    console.log(`Switching Docker cgroup driver from ${cgroupDriver} to cgroupfs (required for CRIU restore)...`);
-    sshScript(ip, `
+    console.log(
+      `Switching Docker cgroup driver from ${cgroupDriver} to cgroupfs (required for CRIU restore)...`,
+    );
+    sshScript(
+      ip,
+      `
 python3 -c "
 import json
 with open('/etc/docker/daemon.json') as f:
@@ -281,11 +318,12 @@ with open('/etc/docker/daemon.json', 'w') as f:
 "
 systemctl restart docker
 # Wait for Docker to be ready
-for i in \$(seq 1 30); do
+for i in $(seq 1 30); do
   docker info >/dev/null 2>&1 && break
   sleep 1
 done
-`);
+`,
+    );
   }
 
   // The restore container must use the same image layers as the checkpointed
@@ -297,18 +335,25 @@ done
 
   ssh(ip, `docker rm -f ${containerName} 2>/dev/null || true`, { stdio: "pipe" });
 
-  const createResult = ssh(ip, `docker create --name ${containerName} --security-opt seccomp=unconfined --network host ${createImage} sleep infinity`, { stdio: "pipe" });
+  const createResult = ssh(
+    ip,
+    `docker create --name ${containerName} --security-opt seccomp=unconfined --network host ${createImage} sleep infinity`,
+    { stdio: "pipe" },
+  );
   const newContainerId = createResult.stdout.trim();
 
   // Extract checkpoint data into Docker's checkpoint directory
   ssh(ip, `docker rm -f machinen-tmp 2>/dev/null || true`, { stdio: "pipe" });
   ssh(ip, `docker create --name machinen-tmp ${imageTag}`, { stdio: "pipe" });
   const checkpointDir = `/var/lib/docker/containers/${newContainerId}/checkpoints/${checkpointId}`;
-  ssh(ip, [
-    `mkdir -p ${checkpointDir}`,
-    `docker cp machinen-tmp:/checkpoint/. ${checkpointDir}/`,
-    `docker rm machinen-tmp`,
-  ].join(" && "));
+  ssh(
+    ip,
+    [
+      `mkdir -p ${checkpointDir}`,
+      `docker cp machinen-tmp:/checkpoint/. ${checkpointDir}/`,
+      `docker rm machinen-tmp`,
+    ].join(" && "),
+  );
 
   // Patch checkpoint:
   // 1. Replace original container ID with new ID in all .img files (binary-safe).
@@ -391,7 +436,9 @@ for f in glob.glob(os.path.join(checkpoint_dir, "mountpoints-*.img")):
   // containerd cleans up its temp dirs on failure.
   const captureLog = `/tmp/criu-restore-${Date.now()}.log`;
   console.log("Restoring on remote...");
-  const restoreResult = sshScript(ip, `
+  const restoreResult = sshScript(
+    ip,
+    `
 # Watcher: poll known CRIU log locations and copy on first appearance.
 # containerd cleans up /tmp/ctrd-checkpoint* on failure before a post-hoc
 # search would find anything.
@@ -411,36 +458,45 @@ WATCHER=$!
 # regardless of --cap-add NET_RAW (caps are set after FD creation).
 # ping_group_range is per-netns; with --network host the restore child shares the
 # host netns, so this sysctl covers it.
-ORIG_PING_RANGE=\$(cat /proc/sys/net/ipv4/ping_group_range | tr '\\t' ' ')
+ORIG_PING_RANGE=$(cat /proc/sys/net/ipv4/ping_group_range | tr '\\t' ' ')
 sysctl -w net.ipv4.ping_group_range="0 2147483647" >/dev/null
 
 docker start --checkpoint ${checkpointId} ${containerName}
 STATUS=$?
 
-sysctl -w net.ipv4.ping_group_range="\$ORIG_PING_RANGE" >/dev/null
+sysctl -w net.ipv4.ping_group_range="$ORIG_PING_RANGE" >/dev/null
 sleep 0.5
 kill $WATCHER 2>/dev/null || true
 exit $STATUS
-`, { stdio: "inherit", nothrow: true });
+`,
+    { stdio: "inherit", nothrow: true },
+  );
 
   if (restoreResult.status !== 0) {
-    const criuLog = ssh(ip, `cat ${captureLog} 2>/dev/null || echo '(no restore.log captured)'`,
-      { stdio: "pipe", nothrow: true }).stdout.trim();
+    const criuLog = ssh(ip, `cat ${captureLog} 2>/dev/null || echo '(no restore.log captured)'`, {
+      stdio: "pipe",
+      nothrow: true,
+    }).stdout.trim();
 
     // Full Docker daemon log — unfiltered, last 60 lines
-    const daemonLog = ssh(ip,
+    const daemonLog = ssh(
+      ip,
       `journalctl -u docker --no-pager --since "2 minutes ago" 2>/dev/null | tail -60 || true`,
-      { stdio: "pipe", nothrow: true }
+      { stdio: "pipe", nothrow: true },
     ).stdout.trim();
 
     // dmesg for CRIU crash signals (segfault, OOM, killed)
-    const dmesgLog = ssh(ip,
+    const dmesgLog = ssh(
+      ip,
       `dmesg --time-format=reltime 2>/dev/null | grep -i 'criu\\|segfault\\|killed process\\|oom' | tail -20 || true`,
-      { stdio: "pipe", nothrow: true }
+      { stdio: "pipe", nothrow: true },
     ).stdout.trim();
 
     // CRIU self-check — confirms binary works at all
-    const criuCheck = ssh(ip, `criu check 2>&1 || true`, { stdio: "pipe", nothrow: true }).stdout.trim();
+    const criuCheck = ssh(ip, `criu check 2>&1 || true`, {
+      stdio: "pipe",
+      nothrow: true,
+    }).stdout.trim();
 
     if (criuLog && !criuLog.startsWith("(no restore.log")) {
       console.error("CRIU restore log:\n" + criuLog.split("\n").slice(-50).join("\n"));
@@ -448,10 +504,14 @@ exit $STATUS
       console.error("(no restore.log captured)");
     }
     console.error("\nDocker daemon log:\n" + daemonLog);
-    if (dmesgLog) console.error("\ndmesg (crashes):\n" + dmesgLog);
+    if (dmesgLog) {
+      console.error("\ndmesg (crashes):\n" + dmesgLog);
+    }
     console.error("\ncriu check: " + criuCheck);
     ssh(ip, `uname -r`, { nothrow: true });
-    throw new Error(`Remote restore failed (exit ${restoreResult.status}): docker start --checkpoint ${checkpointId} ${containerName}`);
+    throw new Error(
+      `Remote restore failed (exit ${restoreResult.status}): docker start --checkpoint ${checkpointId} ${containerName}`,
+    );
   }
 
   return { newContainerId, checkpointId };

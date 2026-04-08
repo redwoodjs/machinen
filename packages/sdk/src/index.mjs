@@ -1,25 +1,11 @@
 // Container lifecycle
-export {
-  freeze,
-  restore,
-  up,
-  destroy,
-  migrate,
-} from "./operations.mjs";
+export { freeze, restore, up, destroy, migrate } from "./operations.mjs";
 
 // Discovery & shell
-export {
-  discover,
-  getShellArgs,
-  status,
-  logs,
-} from "./operations.mjs";
+export { discover, getShellArgs, status, logs } from "./operations.mjs";
 
 // Sync
-export {
-  syncOnce,
-  createSyncDaemon,
-} from "./operations.mjs";
+export { syncOnce, createSyncDaemon } from "./operations.mjs";
 
 // Utilities
 export {

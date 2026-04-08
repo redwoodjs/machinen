@@ -8,9 +8,11 @@
 ## The tweets
 
 **Theo:**
+
 > Agents are good at bash. Bash is not good for agents. We should cut our losses and restart now before it is too late.
 
 **Sunil:**
+
 > yes yes a 1000 times yes. after the, er, recent drama, I went into a rabbit hole exploring the space, and it's like my brain's been reprogrammed. lemme put it this way: there's nothing _fundamental_ about filesystems. or terminal commands. or _even your favourite programming language_. but there _is_ something fundamental about storage. or lambda calculus. the future of computing looks more like math+symbolic execution than unix+whatever's in the training set. (and it would be very bad for humanity if this wasn't true!)
 
 ---
@@ -34,8 +36,9 @@ His tweet distills it: agents are fluent in bash because that's in the training 
 Sunil agrees with Theo but goes much further — from a UX argument to a philosophical one about computing itself.
 
 **The accidental vs. the essential:**
-- Filesystems, terminal commands, Python/JS/Rust — these are *accidental* artifacts of computing history. Conventions, not laws.
-- Storage (the abstract concept), lambda calculus (the formal foundation of computation) — these are *essential*. Mathematical truths that exist independent of Unix.
+
+- Filesystems, terminal commands, Python/JS/Rust — these are _accidental_ artifacts of computing history. Conventions, not laws.
+- Storage (the abstract concept), lambda calculus (the formal foundation of computation) — these are _essential_. Mathematical truths that exist independent of Unix.
 
 **The implication for agents:**
 Current coding agents are sophisticated bash scripters. They read files, run commands, edit text — all Unix primitives. But this is because that's what's in the training data. The future should look more like **math + symbolic execution** (formal reasoning about programs, proving properties, manipulating abstract representations) rather than **Unix + whatever's popular on GitHub**.
@@ -49,13 +52,13 @@ Sunil got publicly dragged over a bash fork and responded not with defensiveness
 ## Related research
 
 - [The LLMbda Calculus](https://arxiv.org/abs/2602.20064) (Feb 2026) — a formal lambda calculus for AI agent conversations with information-flow control and safety proofs. Exactly the kind of foundation Sunil is gesturing at.
-- [Filesystems Are Having a Moment](https://madalitso.me/notes/why-everyone-is-talking-about-filesystems/) — the counter-argument: filesystems are the *right* primitive because they align with how both humans and models work.
+- [Filesystems Are Having a Moment](https://madalitso.me/notes/why-everyone-is-talking-about-filesystems/) — the counter-argument: filesystems are the _right_ primitive because they align with how both humans and models work.
 - [Why Do Agents Love Filesystems](https://prateekjoshi.substack.com/p/why-do-agents-love-filesystems) — argues the filesystem is "the most durable abstraction in computing" and agents naturally gravitate to it.
 
 ## How this relates to machinen
 
 This debate maps directly onto machinen's design space. Machinen checkpoint/restores full development containers — processes, memory, filesystem state — using CRIU. It operates at the Unix level by design: containers, filesystems, process trees.
 
-Sunil's argument would say machinen is building on the *accidental* layer. But the counter is that developers live in the accidental layer right now, and machinen's value is making that layer seamlessly portable. The abstract mathematical future may be coming, but today's agents still need real bash, real filesystems, and real containers. Machinen makes those movable.
+Sunil's argument would say machinen is building on the _accidental_ layer. But the counter is that developers live in the accidental layer right now, and machinen's value is making that layer seamlessly portable. The abstract mathematical future may be coming, but today's agents still need real bash, real filesystems, and real containers. Machinen makes those movable.
 
 If Sunil is right about the long-term direction, machinen's bet is that the transition takes long enough that containerized dev environments remain the dominant substrate for years to come.
