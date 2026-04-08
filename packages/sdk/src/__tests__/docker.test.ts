@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { captureContainerConfig, tmuxAttachArgs, stripBindMountEntries } from "../docker.mjs";
+import { captureContainerConfig, tmuxAttachArgs, stripBindMountEntries } from "../docker";
 
 // Build a minimal CRIU MntEntry protobuf with just the mountpoint field.
 // Field 7 (mountpoint), wire type 2 (length-delimited string):

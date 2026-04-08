@@ -17,7 +17,7 @@ export const DIND_PORT = 2375;
 const HOST_DOCKER_OPTS = { env: { ...process.env, DOCKER_HOST: "unix:///var/run/docker.sock" } };
 
 /** Execute a shell command inside the running DiND container via the HOST Docker daemon. */
-export function dindExec(cmd, opts = {}) {
+export function dindExec(cmd, opts: Record<string, any> = {}) {
   return execFileSync("docker", ["exec", DIND_CONTAINER, "sh", "-c", cmd], {
     encoding: "utf-8",
     stdio: "pipe",

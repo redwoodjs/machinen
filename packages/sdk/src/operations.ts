@@ -18,9 +18,9 @@ import {
   hasTmuxSession,
   tmuxAttachArgs,
   resolveContainerUser,
-} from "./docker.mjs";
-import { checkPrerequisites } from "./preflight.mjs";
-import { getDiNDHost } from "./dind.mjs";
+} from "./docker";
+import { checkPrerequisites } from "./preflight";
+import { getDiNDHost } from "./dind";
 import {
   listMachines,
   provisionServer,
@@ -30,8 +30,8 @@ import {
   ssh,
   sshScript,
   SSH_OPTS,
-} from "./cloud.mjs";
-import { getRegistry, ensureDockerLogin, remoteDockerLogin } from "./registry.mjs";
+} from "./cloud";
+import { getRegistry, ensureDockerLogin, remoteDockerLogin } from "./registry";
 
 // --- utility helpers ---
 
@@ -52,7 +52,7 @@ export function currentContainerName() {
   return branch ? `machinen-${sanitizeBranch(branch)}` : null;
 }
 
-export function gitRoot(cwd) {
+export function gitRoot(cwd?) {
   try {
     return execSync("git rev-parse --show-toplevel", {
       cwd,
@@ -173,7 +173,10 @@ export function checkSyncStatus(containerName) {
 
 // --- freeze ---
 
-export async function freeze(containerName, { clean, keepAlive, onProgress } = {}) {
+export async function freeze(
+  containerName,
+  { clean, keepAlive, onProgress }: Record<string, any> = {},
+) {
   await checkPrerequisites(docker, { clean });
   ensureDockerLogin();
 
@@ -228,7 +231,7 @@ export async function freeze(containerName, { clean, keepAlive, onProgress } = {
 
 export async function restore(
   containerName,
-  { local, remote, clean, containerExplicit, onProgress } = {},
+  { local, remote, clean, containerExplicit, onProgress }: Record<string, any> = {},
 ) {
   const { url: registry, isLocal } = getRegistry();
   const prefix = `${registry}/machinen/${containerName}`;
@@ -304,7 +307,17 @@ export async function restore(
 
 // --- up ---
 
-export async function up({ cwd, branch, name, file, image, cmd, detach, clean, onProgress } = {}) {
+export async function up({
+  cwd,
+  branch,
+  name,
+  file,
+  image,
+  cmd,
+  detach,
+  clean,
+  onProgress,
+}: Record<string, any> = {}) {
   const effectiveCwd = cwd || process.cwd();
   const repoRoot = gitRoot(effectiveCwd) || effectiveCwd;
 
@@ -428,7 +441,7 @@ export async function up({ cwd, branch, name, file, image, cmd, detach, clean, o
 
     try {
       ensureTmuxSession(containerName, { user: resolveContainerUser(containerName) });
-    } catch (err) {
+    } catch (err: any) {
       onProgress?.("warning", { message: `Could not start tmux session: ${err.message}` });
     }
 
@@ -442,7 +455,7 @@ export async function up({ cwd, branch, name, file, image, cmd, detach, clean, o
 
 export async function migrate(
   containerName,
-  { direction, registry: registryUrl, imagePrefix, onProgress } = {},
+  { direction, registry: registryUrl, imagePrefix, onProgress }: Record<string, any> = {},
 ) {
   const registry = registryUrl || getRegistry().url;
   const prefix = imagePrefix || `${registry}/machinen/${containerName}`;
@@ -519,7 +532,7 @@ export async function migrate(
 
 // --- destroy ---
 
-export async function destroy(name, { local, remote } = {}) {
+export async function destroy(name, { local, remote }: Record<string, any> = {}) {
   try {
     const diNDHost = getDiNDHost();
     process.env.DOCKER_HOST = diNDHost;
@@ -591,7 +604,7 @@ export function discover() {
 
 // --- getShellArgs ---
 
-export function getShellArgs(containerName, { host } = {}) {
+export function getShellArgs(containerName, { host }: Record<string, any> = {}) {
   if (host === "remote") {
     const machines = listMachines();
     const machine = machines.find((m) => m.name === containerName && m.ip);
@@ -645,7 +658,10 @@ export function getShellArgs(containerName, { host } = {}) {
 
 // --- syncOnce ---
 
-export async function syncOnce(containerName, { registry: registryUrl, onProgress } = {}) {
+export async function syncOnce(
+  containerName,
+  { registry: registryUrl, onProgress }: Record<string, any> = {},
+) {
   const registry = registryUrl || getRegistry().url;
 
   onProgress?.("sync-start", { containerName });
@@ -673,7 +689,6 @@ export async function syncOnce(containerName, { registry: registryUrl, onProgres
     try {
       execSync(`docker cp ${containerName}:${containerPath} - > ${bindTarPath}`, {
         stdio: ["pipe", "pipe", "pipe"],
-        shell: true,
       });
       savedBinds.push({ containerPath, tarPath: bindTarPath });
     } catch {}
@@ -696,7 +711,6 @@ export async function syncOnce(containerName, { registry: registryUrl, onProgres
       const parent = path.posix.dirname(containerPath);
       execSync(`cat ${bindTarPath} | docker cp - ${cleanName}:${parent}`, {
         stdio: ["pipe", "pipe", "pipe"],
-        shell: true,
       });
     }
     execSync(`docker commit ${cleanName} ${commitImage}`, { stdio: "pipe" });
@@ -761,7 +775,7 @@ export async function syncOnce(containerName, { registry: registryUrl, onProgres
 
 export function createSyncDaemon(
   containerName,
-  { registry: registryUrl, interval = 300, onProgress, onError } = {},
+  { registry: registryUrl, interval = 300, onProgress, onError }: Record<string, any> = {},
 ) {
   const MIN_INTERVAL_S = 30;
   if (interval < MIN_INTERVAL_S) {

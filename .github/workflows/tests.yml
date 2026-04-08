@@ -25,4 +25,6 @@ jobs:
 
       - run: pnpm run lint
 
+      - run: pnpm typecheck
+
       - run: pnpm test
