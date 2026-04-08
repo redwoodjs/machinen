@@ -16,7 +16,7 @@
   "license": "ISC",
   "packageManager": "pnpm@10.30.3",
   "dependencies": {
-    "@machine/headless": "workspace:*"
+    "@machine/sdk": "workspace:*"
   },
   "devDependencies": {
     "@devcontainers/cli": "^0.84.1",

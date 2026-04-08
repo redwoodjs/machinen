@@ -25,10 +25,10 @@ jobs:
         run: docker rm -f machinen-dind 2>/dev/null || true
 
       - name: Run e2e test
-        run: node packages/headless/src/__tests__/e2e-local.mjs
+        run: node packages/sdk/src/__tests__/e2e-local.mjs
 
       - name: Run session e2e test
-        run: node packages/headless/src/__tests__/e2e-session.mjs
+        run: node packages/sdk/src/__tests__/e2e-session.mjs
 
       - name: Cleanup
         if: always()
