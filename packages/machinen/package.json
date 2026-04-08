@@ -1,6 +1,6 @@
 {
-  "name": "machinen",
-  "version": "1.0.0",
+  "name": "@machinen/headless",
+  "version": "0.1.0",
   "type": "module",
   "exports": {
     ".": "./src/index.mjs"
