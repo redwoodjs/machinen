@@ -7,7 +7,7 @@
   },
   "scripts": {
     "build": "tsup && chmod +x dist/machinen.js",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsgo --noEmit",
     "dev:local": "MACHINEN_REGISTRY=localhost:5001 node dist/machinen.js",
     "dev:remote": "node dist/machinen.js"
   },

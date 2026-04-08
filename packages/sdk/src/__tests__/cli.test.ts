@@ -20,7 +20,7 @@ describe("CLI", () => {
   it("shows help with unknown command", () => {
     try {
       execSync(`node ${cli} bogus`, { encoding: "utf-8", stdio: "pipe" });
-    } catch (err) {
+    } catch (err: any) {
       expect(err.status).toBe(1);
     }
   });
@@ -29,7 +29,7 @@ describe("CLI", () => {
     try {
       // Run from /tmp so git branch auto-detect fails
       execSync(`node ${cli} freeze`, { encoding: "utf-8", stdio: "pipe", cwd: "/tmp" });
-    } catch (err) {
+    } catch (err: any) {
       expect(err.stderr || err.stdout).toContain("Container name required");
       expect(err.status).toBe(1);
     }
@@ -38,7 +38,7 @@ describe("CLI", () => {
   it("restore requires container name outside git repo", () => {
     try {
       execSync(`node ${cli} restore`, { encoding: "utf-8", stdio: "pipe", cwd: "/tmp" });
-    } catch (err) {
+    } catch (err: any) {
       expect(err.stderr || err.stdout).toContain("Container name required");
       expect(err.status).toBe(1);
     }
@@ -47,7 +47,7 @@ describe("CLI", () => {
   it("status requires container name outside git repo", () => {
     try {
       execSync(`node ${cli} status`, { encoding: "utf-8", stdio: "pipe", cwd: "/tmp" });
-    } catch (err) {
+    } catch (err: any) {
       expect(err.stderr || err.stdout).toContain("Container name required");
       expect(err.status).toBe(1);
     }

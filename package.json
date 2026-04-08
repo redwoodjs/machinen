@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "pnpm -r build",
-    "typecheck": "pnpm -r typecheck",
+    "typecheck": "tsgo --noEmit",
     "pretest": "pnpm build",
     "test": "vitest run"
   },
@@ -17,6 +17,7 @@
     "@types/node": "^22",
     "tsup": "^8",
     "tsx": "^4",
+    "@typescript/native-preview": "^7.0.0-dev",
     "typescript": "^5.7",
     "vitest": "^4.1.0"
   }

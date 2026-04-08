@@ -10,8 +10,8 @@ const execSyncMock = vi.fn((cmd) => {
 const execFileSyncMock = vi.fn(() => "");
 
 vi.mock("node:child_process", () => ({
-  execSync: (...args) => execSyncMock(...args),
-  execFileSync: (...args) => execFileSyncMock(...args),
+  execSync: (...args: any[]) => (execSyncMock as any)(...args),
+  execFileSync: (...args: any[]) => (execFileSyncMock as any)(...args),
 }));
 
 describe("registry", () => {
@@ -36,7 +36,7 @@ describe("registry", () => {
   it("ensureDockerLogin calls docker login with gh token", async () => {
     const { ensureDockerLogin } = await import("../registry");
     ensureDockerLogin();
-    const loginCall = execFileSyncMock.mock.calls.find((c) =>
+    const loginCall: any = execFileSyncMock.mock.calls.find((c: any) =>
       c[0] === "docker" && c[1].includes("login")
     );
     expect(loginCall).toBeTruthy();
