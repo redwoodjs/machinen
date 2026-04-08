@@ -252,7 +252,7 @@ function cmdLogs(args) {
   const containerName = args.container;
   if (!containerName) {
     const { hosts, containers } = discover();
-    const machines = [...containers, ...hosts];
+    const machines: any[] = [...containers, ...hosts];
     if (machines.length === 0) {
       console.log("No active machines.");
       return;
