@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -35,12 +36,22 @@ export function dindExec(cmd, opts = {}) {
  * the container's own loopback, so we fall back to the bridge IP which is
  * reachable between sibling containers on the same Docker bridge.
  */
+/** Detect whether we are running inside a Docker container. */
+function isInContainer() {
+  try {
+    // cgroup v1: path contains /docker/<id>
+    if (/\/docker\/[a-f0-9]/.test(fs.readFileSync("/proc/self/cgroup", "utf-8"))) return true;
+  } catch {}
+  try {
+    // Docker creates /.dockerenv in every container
+    fs.accessSync("/.dockerenv");
+    return true;
+  } catch {}
+  return false;
+}
+
 export function getDiNDHost() {
-  const inContainer = (() => {
-    try {
-      return /\/docker\/[a-f0-9]/.test(fs.readFileSync("/proc/self/cgroup", "utf-8"));
-    } catch { return false; }
-  })();
+  const inContainer = isInContainer();
 
   if (!inContainer) {
     return `tcp://127.0.0.1:${DIND_PORT}`;
@@ -64,11 +75,20 @@ export function getDiNDHost() {
  */
 function resolveHostPath(containerPath) {
   try {
-    const cgroup = fs.readFileSync("/proc/self/cgroup", "utf-8");
-    const match = cgroup.match(/\/docker\/([a-f0-9]{12,64})/);
-    if (!match) return null;
+    if (!isInContainer()) return null;
 
-    const containerId = match[1];
+    // Try to extract container ID from cgroup (v1)
+    let containerId;
+    try {
+      const cgroup = fs.readFileSync("/proc/self/cgroup", "utf-8");
+      const match = cgroup.match(/\/docker\/([a-f0-9]{12,64})/);
+      if (match) containerId = match[1];
+    } catch {}
+
+    // Fallback: Docker sets the hostname to the short container ID
+    if (!containerId) {
+      containerId = os.hostname();
+    }
     const raw = execFileSync(
       "docker", ["inspect", containerId],
       { encoding: "utf-8", stdio: "pipe", ...HOST_DOCKER_OPTS },
@@ -214,18 +234,40 @@ export async function ensureDiND(scriptsDir = DEFAULT_SCRIPTS_DIR) {
     try {
       execFileSync("docker", ["exec", DIND_CONTAINER, "docker", "info"],
         { stdio: "pipe", ...HOST_DOCKER_OPTS });
-      console.log("machinen-dind ready.");
-      return;
+      break;
     } catch {
       await new Promise((r) => setTimeout(r, 1000));
     }
   }
 
-  // Dump logs to help diagnose startup failures
-  let logs = "";
-  try {
-    logs = execFileSync("docker", ["logs", "--tail", "50", DIND_CONTAINER],
-      { encoding: "utf-8", stdio: "pipe", ...HOST_DOCKER_OPTS });
-  } catch {}
-  throw new Error(`machinen-dind did not become ready within 60 seconds.\n${logs}`);
+  const dumpLogsAndThrow = (msg) => {
+    let logs = "";
+    try {
+      logs = execFileSync("docker", ["logs", "--tail", "50", DIND_CONTAINER],
+        { encoding: "utf-8", stdio: "pipe", ...HOST_DOCKER_OPTS });
+    } catch {}
+    throw new Error(`${msg}\n${logs}`);
+  };
+
+  if (Date.now() >= deadline) {
+    dumpLogsAndThrow("machinen-dind did not become ready within 60 seconds.");
+  }
+
+  // The unix socket is up, but the TCP listener (port 2375) may still be
+  // starting.  Check from *inside* DinD so we don't depend on the caller's
+  // network topology (host vs sibling container).
+  while (Date.now() < deadline) {
+    try {
+      execFileSync("docker", [
+        "exec", DIND_CONTAINER,
+        "docker", "-H", `tcp://127.0.0.1:${DIND_PORT}`, "info",
+      ], { stdio: "pipe", ...HOST_DOCKER_OPTS });
+      console.log("machinen-dind ready.");
+      return;
+    } catch {
+      await new Promise((r) => setTimeout(r, 500));
+    }
+  }
+
+  dumpLogsAndThrow("machinen-dind TCP listener did not become ready in time.");
 }
