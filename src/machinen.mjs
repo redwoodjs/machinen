@@ -51,7 +51,7 @@ async function cmdFreeze(containerName, opts = {}) {
   console.log(`Freezing ${containerName}...`);
 
   const { config, commitImage, cleanName, containerId, checkpointId, tmpDir, tarPath } =
-    await prepareCheckpoint(containerName, { stop: true });
+    await prepareCheckpoint(containerName, { stop: !opts["keep-alive"] });
 
   try {
     const prefix = `${registry}/machinen/${containerName}`;
@@ -557,6 +557,12 @@ function cmdLogs(args) {
 async function cmdDestroy(args) {
   const name = args.name || args.container;
 
+  // Connect to the DinD inner daemon so docker commands find containers.
+  try {
+    const diNDHost = getDiNDHost();
+    process.env.DOCKER_HOST = diNDHost;
+  } catch {}
+
   if (args.local) {
     // Remove local containers (<name> and <name>-restored)
     let found = false;
@@ -641,6 +647,15 @@ Environment:
     process.exit(1);
   }
   const intervalMs = intervalS * 1000;
+
+  // Connect to the DinD inner daemon so docker commands find containers
+  // running inside machinen-dind.
+  try {
+    const diNDHost = getDiNDHost();
+    process.env.DOCKER_HOST = diNDHost;
+    const { hostname, port } = new URL(diNDHost);
+    reconnectDocker(hostname, parseInt(port, 10));
+  } catch {}
 
   // Resolve container name first (before any auth)
   const containerName = args.container || currentContainerName();
@@ -910,6 +925,112 @@ Environment:
   process.exit(0);
 }
 
+// --- status command ---
+
+function cmdStatus(args) {
+  const containerName = args.container;
+  const { url: registry } = getRegistry();
+  const prefix = `machinen/${containerName}`;
+
+  // Point DOCKER_HOST at the DinD inner daemon so docker inspect finds
+  // containers running inside machinen-dind.
+  try {
+    const diNDHost = getDiNDHost();
+    process.env.DOCKER_HOST = diNDHost;
+  } catch {}
+
+  // 1. Sync daemon status from sync-status.json
+  let status = null;
+  const root = gitRoot();
+  const candidates = [
+    root && path.join(root, ".machinen", "sync-status.json"),
+    path.join(os.homedir(), ".machinen", containerName, "sync-status.json"),
+  ].filter(Boolean);
+
+  for (const p of candidates) {
+    try {
+      status = JSON.parse(fs.readFileSync(p, "utf-8"));
+      break;
+    } catch {}
+  }
+
+  console.log(`Container:  ${containerName}`);
+
+  // Check if local container is running
+  try {
+    const state = execFileSync("docker", ["inspect", "--format", "{{.State.Status}}", containerName], {
+      stdio: "pipe", encoding: "utf-8",
+    }).trim();
+    console.log(`Local:      ${state}`);
+  } catch {
+    console.log(`Local:      not found`);
+  }
+
+  // Check if remote server exists
+  const machines = listMachines();
+  const remote = machines.find(m => m.name === containerName && m.location !== "local");
+  if (remote) {
+    console.log(`Remote:     ${remote.ip} (${remote.status || "unknown"})`);
+  } else {
+    console.log(`Remote:     none`);
+  }
+
+  // Sync daemon info
+  if (status) {
+    let daemonAlive = false;
+    if (status.pid != null) {
+      try { process.kill(status.pid, 0); daemonAlive = true; } catch {}
+    }
+    console.log(`Sync:       ${daemonAlive ? `running (PID ${status.pid})` : "not running"}`);
+
+    if (status.lastSync) {
+      const ageMs = Date.now() - new Date(status.lastSync).getTime();
+      const ageMin = Math.round(ageMs / 60000);
+      const ago = ageMin < 1 ? "just now" : `${ageMin}m ago`;
+      const ok = status.lastSyncSuccess ? "success" : "failed";
+      console.log(`Last sync:  ${ago} (${ok})`);
+    }
+
+    if (status.syncCount != null) {
+      const failures = status.consecutiveFailures || 0;
+      console.log(`Syncs:      ${status.syncCount} total${failures > 0 ? `, ${failures} consecutive failures` : ""}`);
+    }
+  } else {
+    console.log(`Sync:       no status file found`);
+  }
+
+  console.log(`Registry:   ${registry}/${prefix}`);
+
+  // 2. Query ghcr.io for recent tags via gh API
+  try {
+    const username = execSync("gh api user --jq .login", { stdio: "pipe", encoding: "utf-8" }).trim();
+    const pkgName = encodeURIComponent(prefix);
+    const json = execSync(
+      `gh api user/packages/container/${pkgName}/versions --jq '[.[:10] | .[] | {tags: .metadata.container.tags, size: .name, updated: .updated_at}]'`,
+      { stdio: "pipe", encoding: "utf-8" },
+    ).trim();
+    const versions = JSON.parse(json || "[]");
+
+    if (versions.length > 0) {
+      console.log(`\nRecent images:`);
+      for (const v of versions) {
+        const tags = (v.tags || []).join(", ") || "(untagged)";
+        const updated = new Date(v.updated).toLocaleString();
+        console.log(`  ${tags}  ${updated}`);
+      }
+    } else {
+      console.log(`\nNo images found in registry.`);
+    }
+  } catch (err) {
+    // Registry query is best-effort — might not have packages yet or might be local registry
+    if (!registry.startsWith("ghcr.io")) {
+      console.log(`\n(Registry tag listing not available for custom registries)`);
+    } else {
+      console.log(`\n(Could not list registry images: ${err.message.split("\n")[0]})`);
+    }
+  }
+}
+
 // --- sync status check (used by restore) ---
 
 function checkSyncStatus(containerName) {
@@ -995,6 +1116,7 @@ async function main() {
     restore: cmdRestore,
     watch: cmdSync,
     open: cmdOpen,
+    status: cmdStatus,
     logs: cmdLogs,
     destroy: cmdDestroy,
   };
@@ -1024,6 +1146,7 @@ Commands:
   open [name]           Open shell in container
     --local             Open shell in local container
     --remote            Open shell on remote server
+  status [name]         Show sync state and recent registry images
   logs [name]           Tail remote container logs (or list machines)
   destroy [name]        Tear down container (both local and remote)
     --local             Only remove local containers
@@ -1043,7 +1166,7 @@ Registry: ghcr.io via gh CLI (default), or set MACHINEN_REGISTRY=<domain> to use
     process.exit(action ? 1 : 0);
   }
 
-  if ((action === "freeze" || action === "restore") && !args.container) {
+  if ((action === "freeze" || action === "restore" || action === "status") && !args.container) {
     console.error(`Container name required (not in a git repo?). Usage: machinen ${action} <container>`);
     process.exit(1);
   }

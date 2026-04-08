@@ -100,6 +100,8 @@ Mac host
 
 The `machinen-dind` image is built automatically on first run from `scripts/Dockerfile.dind`. It takes ~3–5 minutes to build (compiles CRIU from source). Subsequent runs reuse the cached image.
 
+The DiND container runs with no memory or CPU limits — all workload containers inside it share the full host resources.
+
 ### Sleep/wake handoff
 
 A compiled Swift helper (`src/power-helper.swift`) listens for macOS `NSWorkspace.willSleepNotification` and `didWakeNotification` events. On sleep, it takes a power assertion to delay sleep until the container migration completes.
@@ -136,6 +138,9 @@ To add a new provider, create `src/providers/<name>.mjs` exporting an object wit
 | `up [options]` | Start local devcontainer with sleep/wake cloud handoff |
 | `freeze <container>` | Checkpoint, package as image layer, push to registry |
 | `restore <container>` | Provision server, pull image, restore container |
+| `watch [name]` | Background sync daemon (checkpoint + push every 5 min) |
+| `open [name]` | Open shell in local or remote container |
+| `status [name]` | Show sync state and recent registry images |
 | `logs [container]` | Tail remote container logs, or list all active machines |
 | `destroy [name]` | Tear down a remote server (no args = destroy all) |
 
