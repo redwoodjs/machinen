@@ -29,16 +29,19 @@ node src/machinen.mjs up
 ```
 
 This:
+
 1. Starts a local devcontainer from your cwd
 2. Drops you into a shell inside the container
 3. Syncs container state to the registry every 5 minutes
 4. Watches for sleep/wake events
 
 When you **close your laptop lid**:
+
 - Container state is frozen and pushed to the registry
 - A cloud server is provisioned and the container is restored on it
 
 When you **open your laptop**:
+
 - Remote state is frozen and pulled back
 - Restored locally, you pick up where you left off
 - Cloud server is destroyed to save cost
@@ -133,32 +136,32 @@ To add a new provider, create `src/providers/<name>.mjs` exporting an object wit
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `up [options]` | Start local devcontainer with sleep/wake cloud handoff |
-| `freeze <container>` | Checkpoint, package as image layer, push to registry |
-| `restore <container>` | Provision server, pull image, restore container |
-| `watch [name]` | Background sync daemon (checkpoint + push every 5 min) |
-| `open [name]` | Open shell in local or remote container |
-| `status [name]` | Show sync state and recent registry images |
-| `logs [container]` | Tail remote container logs, or list all active machines |
-| `destroy [name]` | Tear down a remote server (no args = destroy all) |
+| Command               | Description                                             |
+| --------------------- | ------------------------------------------------------- |
+| `up [options]`        | Start local devcontainer with sleep/wake cloud handoff  |
+| `freeze <container>`  | Checkpoint, package as image layer, push to registry    |
+| `restore <container>` | Provision server, pull image, restore container         |
+| `watch [name]`        | Background sync daemon (checkpoint + push every 5 min)  |
+| `open [name]`         | Open shell in local or remote container                 |
+| `status [name]`       | Show sync state and recent registry images              |
+| `logs [container]`    | Tail remote container logs, or list all active machines |
+| `destroy [name]`      | Tear down a remote server (no args = destroy all)       |
 
 ### `up` options
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--file <path>` | auto-detected | Path to devcontainer.json |
-| `--name <name>` | from directory name | Container name |
+| Flag            | Default             | Description               |
+| --------------- | ------------------- | ------------------------- |
+| `--file <path>` | auto-detected       | Path to devcontainer.json |
+| `--name <name>` | from directory name | Container name            |
 
 ## Environment Variables
 
-| Variable | Required for | Description |
-|----------|-------------|-------------|
-| `HCLOUD_TOKEN` | optional | Hetzner API token (alternative to `hcloud context create`) |
-| `MACHINEN_REGISTRY` | optional | Container registry URL (defaults to `ghcr.io/<your-github-username>` via `gh` CLI) |
-| `MACHINEN_REGISTRY_USER` | optional | Registry username (defaults to GitHub username via `gh` CLI) |
-| `MACHINEN_REGISTRY_PASSWORD` | optional | Registry password (defaults to `gh auth token`) |
+| Variable                     | Required for | Description                                                                        |
+| ---------------------------- | ------------ | ---------------------------------------------------------------------------------- |
+| `HCLOUD_TOKEN`               | optional     | Hetzner API token (alternative to `hcloud context create`)                         |
+| `MACHINEN_REGISTRY`          | optional     | Container registry URL (defaults to `ghcr.io/<your-github-username>` via `gh` CLI) |
+| `MACHINEN_REGISTRY_USER`     | optional     | Registry username (defaults to GitHub username via `gh` CLI)                       |
+| `MACHINEN_REGISTRY_PASSWORD` | optional     | Registry password (defaults to `gh auth token`)                                    |
 
 ## Prerequisites
 

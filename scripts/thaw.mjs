@@ -27,9 +27,11 @@ async function main() {
         statusCodes: { 200: true },
       },
       (err, result) => {
-        if (err) return reject(err);
+        if (err) {
+          return reject(err);
+        }
         resolve(result);
-      }
+      },
     );
   });
 
@@ -40,7 +42,10 @@ async function main() {
   }
 
   // Use the latest checkpoint (sorted by name, which includes timestamp)
-  const sorted = checkpoints.map((c) => c.Name).sort().reverse();
+  const sorted = checkpoints
+    .map((c) => c.Name)
+    .sort()
+    .reverse();
   const checkpointId = sorted[0];
   console.log(`Using checkpoint: ${checkpointId}`);
 
