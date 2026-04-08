@@ -13,11 +13,8 @@ import {
   logs,
   syncOnce,
   createSyncDaemon,
-  currentBranch,
   currentContainerName,
   containerExists,
-  isAuthError,
-  checkSyncStatus,
   ensureDiND,
   getDiNDHost,
   reconnectDocker,
@@ -60,7 +57,9 @@ function cliProgress(event, data) {
       console.log(`Frozen: ${data.tag}`);
       break;
     case "restore-start":
-      console.log(`Restoring ${data.containerName} ${data.target === "local" ? "locally" : "remotely"} from ${data.imageTag}...`);
+      console.log(
+        `Restoring ${data.containerName} ${data.target === "local" ? "locally" : "remotely"} from ${data.imageTag}...`,
+      );
       break;
     case "restore-complete":
       if (data.target === "local") {
@@ -89,7 +88,9 @@ function cliProgress(event, data) {
       console.warn(`Warning: ${data.message}`);
       break;
     case "migrate-start":
-      console.log(`\n${data.direction === "to-remote" ? "Sleep" : "Wake"} detected — migrating ${data.direction === "to-remote" ? "to remote" : "back to local"}...`);
+      console.log(
+        `\n${data.direction === "to-remote" ? "Sleep" : "Wake"} detected — migrating ${data.direction === "to-remote" ? "to remote" : "back to local"}...`,
+      );
       break;
     case "migrate-provisioning":
       console.log("Provisioning remote server...");
@@ -219,7 +220,9 @@ async function cmdOpen(args) {
   const containerName = args.container;
 
   if (!args.local && !args.remote) {
-    console.error("Specify --local or --remote.\n  machinen open --local\n  machinen open --remote");
+    console.error(
+      "Specify --local or --remote.\n  machinen open --local\n  machinen open --remote",
+    );
     process.exit(1);
   }
 
@@ -297,7 +300,9 @@ function cmdStatus(args) {
   }
 
   if (result.sync) {
-    console.log(`Sync:       ${result.sync.running ? `running (PID ${result.sync.pid})` : "not running"}`);
+    console.log(
+      `Sync:       ${result.sync.running ? `running (PID ${result.sync.pid})` : "not running"}`,
+    );
 
     if (result.sync.lastSync) {
       const ageMs = Date.now() - new Date(result.sync.lastSync).getTime();
@@ -309,7 +314,9 @@ function cmdStatus(args) {
 
     if (result.sync.syncCount != null) {
       const failures = result.sync.consecutiveFailures || 0;
-      console.log(`Syncs:      ${result.sync.syncCount} total${failures > 0 ? `, ${failures} consecutive failures` : ""}`);
+      console.log(
+        `Syncs:      ${result.sync.syncCount} total${failures > 0 ? `, ${failures} consecutive failures` : ""}`,
+      );
     }
   } else {
     console.log(`Sync:       no status file found`);
@@ -350,9 +357,10 @@ Environment:
   // Parse and validate interval
   const DEFAULT_INTERVAL_S = 300;
   const MIN_INTERVAL_S = 30;
-  const rawInterval = args.interval === undefined
-    ? (process.env.MACHINEN_SYNC_INTERVAL || String(DEFAULT_INTERVAL_S))
-    : String(args.interval);
+  const rawInterval =
+    args.interval === undefined
+      ? process.env.MACHINEN_SYNC_INTERVAL || String(DEFAULT_INTERVAL_S)
+      : String(args.interval);
   const intervalS = Number(rawInterval);
   if (!Number.isFinite(intervalS) || intervalS <= 0) {
     console.error(`[ERROR] Invalid --interval value: "${rawInterval}". Must be a positive number.`);
@@ -373,7 +381,9 @@ Environment:
 
   const containerName = args.container || currentContainerName();
   if (!containerName) {
-    console.error(`[ERROR] No container name given and none could be auto-detected (not in a git repo?). Usage: machinen sync <container>`);
+    console.error(
+      `[ERROR] No container name given and none could be auto-detected (not in a git repo?). Usage: machinen sync <container>`,
+    );
     process.exit(1);
   }
   if (!containerExists(containerName)) {
@@ -405,8 +415,12 @@ Environment:
       await syncOnce(containerName, {
         registry,
         onProgress: (event, data) => {
-          if (event === "sync-start") syncLog("INFO", `Syncing ${data.containerName}...`);
-          if (event === "sync-complete") syncLog("INFO", `Sync complete. Tag: ${data.tag}`);
+          if (event === "sync-start") {
+            syncLog("INFO", `Syncing ${data.containerName}...`);
+          }
+          if (event === "sync-complete") {
+            syncLog("INFO", `Sync complete. Tag: ${data.tag}`);
+          }
         },
       });
       process.exit(0);
@@ -427,10 +441,18 @@ Environment:
     registry,
     interval: intervalS,
     onProgress: (event, data) => {
-      if (event === "sync-start") syncLog("INFO", `Syncing ${data.containerName}...`);
-      if (event === "sync-complete") syncLog("INFO", `Sync complete. Tag: ${data.tag}`);
-      if (event === "sync-scheduled") syncLog("INFO", `Next sync in ${data.nextInSeconds}s`);
-      if (event === "sync-skipped") syncLog("WARN", data.reason);
+      if (event === "sync-start") {
+        syncLog("INFO", `Syncing ${data.containerName}...`);
+      }
+      if (event === "sync-complete") {
+        syncLog("INFO", `Sync complete. Tag: ${data.tag}`);
+      }
+      if (event === "sync-scheduled") {
+        syncLog("INFO", `Next sync in ${data.nextInSeconds}s`);
+      }
+      if (event === "sync-skipped") {
+        syncLog("WARN", data.reason);
+      }
     },
     onError: (err, info) => {
       if (info?.fatal) {
@@ -529,7 +551,9 @@ Registry: ghcr.io via gh CLI (default), or set MACHINEN_REGISTRY=<domain> to use
   }
 
   if ((action === "freeze" || action === "restore" || action === "status") && !args.container) {
-    console.error(`Container name required (not in a git repo?). Usage: machinen ${action} <container>`);
+    console.error(
+      `Container name required (not in a git repo?). Usage: machinen ${action} <container>`,
+    );
     process.exit(1);
   }
 

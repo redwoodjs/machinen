@@ -37,9 +37,11 @@ async function main() {
         statusCodes: { 200: true, 201: true },
       },
       (err, result) => {
-        if (err) return reject(err);
+        if (err) {
+          return reject(err);
+        }
         resolve(result);
-      }
+      },
     );
   });
 

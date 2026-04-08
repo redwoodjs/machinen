@@ -5,7 +5,6 @@ import path from "node:path";
 import {
   docker,
   dockerExec,
-  reconnectDocker,
   captureContainerConfig,
   createCheckpoint,
   extractCheckpointFiles,
@@ -21,7 +20,7 @@ import {
   resolveContainerUser,
 } from "./docker.mjs";
 import { checkPrerequisites } from "./preflight.mjs";
-import { ensureDiND, getDiNDHost } from "./dind.mjs";
+import { getDiNDHost } from "./dind.mjs";
 import {
   listMachines,
   provisionServer,
@@ -33,7 +32,6 @@ import {
   SSH_OPTS,
 } from "./cloud.mjs";
 import { getRegistry, ensureDockerLogin, remoteDockerLogin } from "./registry.mjs";
-import { createPowerWatcher } from "./power.mjs";
 
 // --- utility helpers ---
 
@@ -56,17 +54,18 @@ export function currentContainerName() {
 
 export function gitRoot(cwd) {
   try {
-    return execSync("git rev-parse --show-toplevel", { cwd, stdio: "pipe", encoding: "utf-8" }).trim();
+    return execSync("git rev-parse --show-toplevel", {
+      cwd,
+      stdio: "pipe",
+      encoding: "utf-8",
+    }).trim();
   } catch {
     return null;
   }
 }
 
 function detectDevcontainerFile(cwd) {
-  const candidates = [
-    ".devcontainer/devcontainer.json",
-    ".devcontainer.json",
-  ];
+  const candidates = [".devcontainer/devcontainer.json", ".devcontainer.json"];
 
   const dcDir = path.join(cwd, ".devcontainer");
   if (fs.existsSync(dcDir) && fs.statSync(dcDir).isDirectory()) {
@@ -108,7 +107,9 @@ export function writeSyncStatus(statusPath, data) {
 
 export function isAuthError(err) {
   const msg = err?.message || String(err);
-  return /write:packages|unauthorized|authentication required|no basic auth credentials|requested access to the resource is denied|denied:|access denied|401\b|403\b/i.test(msg);
+  return /write:packages|unauthorized|authentication required|no basic auth credentials|requested access to the resource is denied|denied:|access denied|401\b|403\b/i.test(
+    msg,
+  );
 }
 
 export function containerExists(name) {
@@ -125,13 +126,19 @@ export function checkSyncStatus(containerName) {
   const root = gitRoot();
   if (root) {
     const candidate = path.join(root, ".machinen", "sync-status.json");
-    if (fs.existsSync(candidate)) statusPath = candidate;
+    if (fs.existsSync(candidate)) {
+      statusPath = candidate;
+    }
   }
   if (!statusPath) {
     const candidate = path.join(os.homedir(), ".machinen", containerName, "sync-status.json");
-    if (fs.existsSync(candidate)) statusPath = candidate;
+    if (fs.existsSync(candidate)) {
+      statusPath = candidate;
+    }
   }
-  if (!statusPath) return null;
+  if (!statusPath) {
+    return null;
+  }
 
   let status;
   try {
@@ -189,7 +196,16 @@ export async function freeze(containerName, { clean, keepAlive, onProgress } = {
     pushImage(baseTag);
     pushImage(baseLatestTag);
 
-    buildCheckpointImage(tarPath, commitImage, config, checkpointId, tag, [], baseLatestTag, containerId);
+    buildCheckpointImage(
+      tarPath,
+      commitImage,
+      config,
+      checkpointId,
+      tag,
+      [],
+      baseLatestTag,
+      containerId,
+    );
     dockerExec(["tag", tag, latestTag]);
 
     pushImage(tag);
@@ -199,46 +215,57 @@ export async function freeze(containerName, { clean, keepAlive, onProgress } = {
     return { tag, checkpointId };
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
-    try { dockerExec(["rm", "-f", cleanName]); } catch {}
-    try { dockerExec(["rmi", commitImage]); } catch {}
+    try {
+      dockerExec(["rm", "-f", cleanName]);
+    } catch {}
+    try {
+      dockerExec(["rmi", commitImage]);
+    } catch {}
   }
 }
 
 // --- restore ---
 
-export async function restore(containerName, { local, remote, clean, containerExplicit, onProgress } = {}) {
+export async function restore(
+  containerName,
+  { local, remote, clean, containerExplicit, onProgress } = {},
+) {
   const { url: registry, isLocal } = getRegistry();
   const prefix = `${registry}/machinen/${containerName}`;
   const imageTag = `${prefix}:latest`;
 
   if (isLocal && local) {
     ensureDockerLogin();
-    const slashIdx = imageTag.indexOf('/');
+    const slashIdx = imageTag.indexOf("/");
     const host = imageTag.slice(0, slashIdx);
     const rest = imageTag.slice(slashIdx + 1);
-    const colonIdx = rest.lastIndexOf(':');
+    const colonIdx = rest.lastIndexOf(":");
     const repo = colonIdx >= 0 ? rest.slice(0, colonIdx) : rest;
-    const tag = colonIdx >= 0 ? rest.slice(colonIdx + 1) : 'latest';
-    const localPort = host.includes(':') ? host.split(':')[1] : '80';
+    const tag = colonIdx >= 0 ? rest.slice(colonIdx + 1) : "latest";
+    const localPort = host.includes(":") ? host.split(":")[1] : "80";
     try {
-      const res = await fetch(`http://localhost:${localPort}/v2/${repo}/manifests/${tag}`, { method: 'HEAD' });
+      const res = await fetch(`http://localhost:${localPort}/v2/${repo}/manifests/${tag}`, {
+        method: "HEAD",
+      });
       if (res.status === 404) {
         if (!containerExplicit) {
           const branch = currentBranch();
           throw new Error(
             `Container name was auto-detected from git branch "${branch}".\n` +
-            `No frozen image found for "${containerName}" in the registry.\n` +
-            `To restore a specific container, pass its name explicitly:\n` +
-            `  machinen restore --local machinen-main`
+              `No frozen image found for "${containerName}" in the registry.\n` +
+              `To restore a specific container, pass its name explicitly:\n` +
+              `  machinen restore --local machinen-main`,
           );
         }
         throw new Error(
           `No frozen image found for "${containerName}" in the registry.\n` +
-          `Check that this container has been frozen and pushed.`
+            `Check that this container has been frozen and pushed.`,
         );
       }
     } catch (err) {
-      if (err.message.includes("No frozen image found")) throw err;
+      if (err.message.includes("No frozen image found")) {
+        throw err;
+      }
       // Registry unreachable — let checkPrerequisites and the pull surface the error.
     }
   }
@@ -253,7 +280,9 @@ export async function restore(containerName, { local, remote, clean, containerEx
   }
 
   if (!local && !remote) {
-    throw new Error("Specify --local or --remote.\n  machinen restore --local\n  machinen restore --remote");
+    throw new Error(
+      "Specify --local or --remote.\n  machinen restore --local\n  machinen restore --remote",
+    );
   }
 
   if (local) {
@@ -288,7 +317,9 @@ export async function up({ cwd, branch, name, file, image, cmd, detach, clean, o
   const imagePrefix = `${registry}/machinen/${repoName}/${safeBranch}`;
 
   const containerName = name
-    ? (name.startsWith("machinen-") ? name : `machinen-${name}`)
+    ? name.startsWith("machinen-")
+      ? name
+      : `machinen-${name}`
     : `machinen-${safeBranch}`;
 
   await checkPrerequisites(docker, { clean: !!clean });
@@ -296,18 +327,28 @@ export async function up({ cwd, branch, name, file, image, cmd, detach, clean, o
   if (image) {
     onProgress?.("up-start", { containerName, image });
 
-    try { dockerExec(["rm", "-f", containerName]); } catch {}
+    try {
+      dockerExec(["rm", "-f", containerName]);
+    } catch {}
 
     const runArgs = [
-      "run", "-d",
-      "--name", containerName,
-      "--security-opt", "seccomp=unconfined",
-      "--network", "host",
+      "run",
+      "-d",
+      "--name",
+      containerName,
+      "--security-opt",
+      "seccomp=unconfined",
+      "--network",
+      "host",
     ];
 
     const effectiveCmd = cmd
       ? cmd.split(" ")
-      : ["sh", "-c", "command -v tmux >/dev/null || (apk add -q tmux 2>/dev/null || apt-get -qq install -y tmux 2>/dev/null); tmux new-session -d -s machinen 2>/dev/null || true; exec sleep infinity"];
+      : [
+          "sh",
+          "-c",
+          "command -v tmux >/dev/null || (apk add -q tmux 2>/dev/null || apt-get -qq install -y tmux 2>/dev/null); tmux new-session -d -s machinen 2>/dev/null || true; exec sleep infinity",
+        ];
     runArgs.push(image, ...effectiveCmd);
 
     dockerExec(runArgs, { stdio: "inherit" });
@@ -318,8 +359,8 @@ export async function up({ cwd, branch, name, file, image, cmd, detach, clean, o
     if (!effectiveFile) {
       throw new Error(
         "No devcontainer.json found. Specify with --file <path> or use --image <image>\n" +
-        "  e.g., machinen up --file .devcontainer/devcontainer.json\n" +
-        "  e.g., machinen up --image ubuntu:latest"
+          "  e.g., machinen up --file .devcontainer/devcontainer.json\n" +
+          "  e.g., machinen up --image ubuntu:latest",
       );
     }
 
@@ -330,7 +371,7 @@ export async function up({ cwd, branch, name, file, image, cmd, detach, clean, o
     try {
       const raw = JSON.parse(fs.readFileSync(configPath, "utf-8"));
       const existing = raw.runArgs || [];
-      const missing = REQUIRED_RUN_ARGS.filter(a => !existing.includes(a));
+      const missing = REQUIRED_RUN_ARGS.filter((a) => !existing.includes(a));
       if (missing.length > 0) {
         const merged = { ...raw, runArgs: [...existing, ...missing] };
         const tmpConfig = path.join(os.tmpdir(), `machinen-devcontainer-${Date.now()}.json`);
@@ -340,16 +381,26 @@ export async function up({ cwd, branch, name, file, image, cmd, detach, clean, o
     } catch {}
 
     onProgress?.("up-start", { containerName, file: effectiveFile });
-    const upResult = spawnSync("npx", ["devcontainer",
-      "up",
-      "--workspace-folder", repoRoot,
-      "--config", effectiveConfigPath,
-      "--additional-features", '{"ghcr.io/devcontainers/features/docker-outside-of-docker:1":{}}',
-      "--remove-existing-container",
-    ], { stdio: "inherit" });
+    const upResult = spawnSync(
+      "npx",
+      [
+        "devcontainer",
+        "up",
+        "--workspace-folder",
+        repoRoot,
+        "--config",
+        effectiveConfigPath,
+        "--additional-features",
+        '{"ghcr.io/devcontainers/features/docker-outside-of-docker:1":{}}',
+        "--remove-existing-container",
+      ],
+      { stdio: "inherit" },
+    );
 
     if (effectiveConfigPath !== configPath) {
-      try { fs.unlinkSync(effectiveConfigPath); } catch {}
+      try {
+        fs.unlinkSync(effectiveConfigPath);
+      } catch {}
     }
 
     if (upResult.status !== 0) {
@@ -357,7 +408,11 @@ export async function up({ cwd, branch, name, file, image, cmd, detach, clean, o
     }
 
     const dcContainerOriginal = dockerExec([
-      "ps", "--filter", `label=devcontainer.local_folder=${repoRoot}`, "--format", "{{.Names}}",
+      "ps",
+      "--filter",
+      `label=devcontainer.local_folder=${repoRoot}`,
+      "--format",
+      "{{.Names}}",
     ]).trim();
 
     if (!dcContainerOriginal) {
@@ -365,7 +420,9 @@ export async function up({ cwd, branch, name, file, image, cmd, detach, clean, o
     }
 
     if (dcContainerOriginal !== containerName) {
-      try { dockerExec(["rm", "-f", containerName]); } catch {}
+      try {
+        dockerExec(["rm", "-f", containerName]);
+      } catch {}
       dockerExec(["rename", dcContainerOriginal, containerName]);
     }
 
@@ -383,7 +440,10 @@ export async function up({ cwd, branch, name, file, image, cmd, detach, clean, o
 
 // --- migrate ---
 
-export async function migrate(containerName, { direction, registry: registryUrl, imagePrefix, onProgress } = {}) {
+export async function migrate(
+  containerName,
+  { direction, registry: registryUrl, imagePrefix, onProgress } = {},
+) {
   const registry = registryUrl || getRegistry().url;
   const prefix = imagePrefix || `${registry}/machinen/${containerName}`;
 
@@ -404,7 +464,16 @@ export async function migrate(containerName, { direction, registry: registryUrl,
       pushImage(baseTag);
       pushImage(baseLatestTag);
 
-      buildCheckpointImage(tarPath, commitImage, config, checkpointId, tag, [], baseLatestTag, containerId);
+      buildCheckpointImage(
+        tarPath,
+        commitImage,
+        config,
+        checkpointId,
+        tag,
+        [],
+        baseLatestTag,
+        containerId,
+      );
       dockerExec(["tag", tag, latestTag]);
       pushImage(tag);
       pushImage(latestTag);
@@ -418,8 +487,12 @@ export async function migrate(containerName, { direction, registry: registryUrl,
       return { ip };
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
-      try { dockerExec(["rm", "-f", cleanName]); } catch {}
-      try { dockerExec(["rmi", commitImage]); } catch {}
+      try {
+        dockerExec(["rm", "-f", cleanName]);
+      } catch {}
+      try {
+        dockerExec(["rmi", commitImage]);
+      } catch {}
     }
   }
 
@@ -427,7 +500,9 @@ export async function migrate(containerName, { direction, registry: registryUrl,
     onProgress?.("migrate-start", { direction: "to-local" });
 
     const { remoteIp } = arguments[1];
-    if (!remoteIp) throw new Error("No remote container to restore from.");
+    if (!remoteIp) {
+      throw new Error("No remote container to restore from.");
+    }
 
     const { latestTag } = remoteFreeze(remoteIp, containerName, registry);
     pullImage(latestTag);
@@ -465,7 +540,7 @@ export async function destroy(name, { local, remote } = {}) {
   if (remote || !name) {
     if (!name) {
       const machines = listMachines();
-      const remotes = machines.filter(m => m.ip);
+      const remotes = machines.filter((m) => m.ip);
       for (const m of remotes) {
         destroyServer(m.name);
         results.destroyedRemote.push(m.name);
@@ -496,17 +571,21 @@ export async function destroy(name, { local, remote } = {}) {
 export function discover() {
   const machines = listMachines();
   return {
-    hosts: machines.filter(m => m.ip).map(m => ({
-      name: m.name,
-      ip: m.ip,
-      location: m.location,
-      status: m.status,
-    })),
-    containers: machines.filter(m => m.location === "local").map(m => ({
-      name: m.name,
-      location: m.location,
-      status: m.status,
-    })),
+    hosts: machines
+      .filter((m) => m.ip)
+      .map((m) => ({
+        name: m.name,
+        ip: m.ip,
+        location: m.location,
+        status: m.status,
+      })),
+    containers: machines
+      .filter((m) => m.location === "local")
+      .map((m) => ({
+        name: m.name,
+        location: m.location,
+        status: m.status,
+      })),
   };
 }
 
@@ -515,7 +594,7 @@ export function discover() {
 export function getShellArgs(containerName, { host } = {}) {
   if (host === "remote") {
     const machines = listMachines();
-    const machine = machines.find(m => m.name === containerName && m.ip);
+    const machine = machines.find((m) => m.name === containerName && m.ip);
     if (!machine) {
       throw new Error(`No remote server found for ${containerName}.`);
     }
@@ -543,7 +622,14 @@ export function getShellArgs(containerName, { host } = {}) {
         const user = resolveContainerUser(name);
         const execArgs = hasTmuxSession(name, undefined, { user: user || undefined })
           ? tmuxAttachArgs(name, { user: user || undefined })
-          : (() => { const a = ["exec", "-it"]; if (user) a.push("--user", user); a.push(name, "/bin/bash"); return a; })();
+          : (() => {
+              const a = ["exec", "-it"];
+              if (user) {
+                a.push("--user", user);
+              }
+              a.push(name, "/bin/bash");
+              return a;
+            })();
 
         return {
           command: "docker",
@@ -569,18 +655,25 @@ export async function syncOnce(containerName, { registry: registryUrl, onProgres
   const config = captureContainerConfig(info);
   const commitImage = `${containerName}-sync-committed`;
 
-  const binds = [...new Set([
-    ...(config.Binds || []).map(b => b.split(":")[1]),
-    ...(info.Mounts || []).filter(m => m.Type === "bind").map(m => m.Destination),
-  ].filter(Boolean))];
-  const workspaceTmpDir = binds.length ? fs.mkdtempSync(path.join(os.tmpdir(), "machinen-sync-ws-")) : null;
+  const binds = [
+    ...new Set(
+      [
+        ...(config.Binds || []).map((b) => b.split(":")[1]),
+        ...(info.Mounts || []).filter((m) => m.Type === "bind").map((m) => m.Destination),
+      ].filter(Boolean),
+    ),
+  ];
+  const workspaceTmpDir = binds.length
+    ? fs.mkdtempSync(path.join(os.tmpdir(), "machinen-sync-ws-"))
+    : null;
   const savedBinds = [];
   for (const containerPath of binds) {
     const tarName = `bind-${containerPath.replace(/\//g, "_")}.tar`;
     const bindTarPath = path.join(workspaceTmpDir, tarName);
     try {
       execSync(`docker cp ${containerName}:${containerPath} - > ${bindTarPath}`, {
-        stdio: ["pipe", "pipe", "pipe"], shell: true,
+        stdio: ["pipe", "pipe", "pipe"],
+        shell: true,
       });
       savedBinds.push({ containerPath, tarPath: bindTarPath });
     } catch {}
@@ -590,24 +683,28 @@ export async function syncOnce(containerName, { registry: registryUrl, onProgres
 
   const cleanName = `${containerName}-sync-clean`;
   if (savedBinds.length > 0) {
-    try { execSync(`docker rm -f ${cleanName}`, { stdio: "pipe" }); } catch {}
-    execSync([
-      "docker run -d",
-      `--name ${cleanName}`,
-      "--entrypoint sleep",
-      commitImage,
-      "infinity",
-    ].join(" "), { stdio: "pipe" });
+    try {
+      execSync(`docker rm -f ${cleanName}`, { stdio: "pipe" });
+    } catch {}
+    execSync(
+      ["docker run -d", `--name ${cleanName}`, "--entrypoint sleep", commitImage, "infinity"].join(
+        " ",
+      ),
+      { stdio: "pipe" },
+    );
     for (const { containerPath, tarPath: bindTarPath } of savedBinds) {
       const parent = path.posix.dirname(containerPath);
       execSync(`cat ${bindTarPath} | docker cp - ${cleanName}:${parent}`, {
-        stdio: ["pipe", "pipe", "pipe"], shell: true,
+        stdio: ["pipe", "pipe", "pipe"],
+        shell: true,
       });
     }
     execSync(`docker commit ${cleanName} ${commitImage}`, { stdio: "pipe" });
     execSync(`docker rm -f ${cleanName}`, { stdio: "pipe" });
   }
-  if (workspaceTmpDir) fs.rmSync(workspaceTmpDir, { recursive: true, force: true });
+  if (workspaceTmpDir) {
+    fs.rmSync(workspaceTmpDir, { recursive: true, force: true });
+  }
 
   const { containerId, checkpointId } = await createCheckpoint(containerName, { exit: false });
   const { tmpDir, tarPath } = extractCheckpointFiles(containerId, checkpointId);
@@ -633,7 +730,16 @@ export async function syncOnce(containerName, { registry: registryUrl, onProgres
     pushImage(baseTag);
     pushImage(baseLatestTag);
 
-    buildCheckpointImage(tarPath, commitImage, config, checkpointId, tag, [], baseLatestTag, containerId);
+    buildCheckpointImage(
+      tarPath,
+      commitImage,
+      config,
+      checkpointId,
+      tag,
+      [],
+      baseLatestTag,
+      containerId,
+    );
     execSync(`docker tag ${tag} ${latestTag}`, { stdio: "pipe" });
     pushImage(tag);
     pushImage(latestTag);
@@ -642,14 +748,21 @@ export async function syncOnce(containerName, { registry: registryUrl, onProgres
     return { tag, checkpointId };
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
-    try { execSync(`docker rm -f ${cleanName}`, { stdio: "pipe" }); } catch {}
-    try { execSync(`docker rmi ${commitImage}`, { stdio: "pipe" }); } catch {}
+    try {
+      execSync(`docker rm -f ${cleanName}`, { stdio: "pipe" });
+    } catch {}
+    try {
+      execSync(`docker rmi ${commitImage}`, { stdio: "pipe" });
+    } catch {}
   }
 }
 
 // --- createSyncDaemon ---
 
-export function createSyncDaemon(containerName, { registry: registryUrl, interval = 300, onProgress, onError } = {}) {
+export function createSyncDaemon(
+  containerName,
+  { registry: registryUrl, interval = 300, onProgress, onError } = {},
+) {
   const MIN_INTERVAL_S = 30;
   if (interval < MIN_INTERVAL_S) {
     throw new Error(`Interval minimum is ${MIN_INTERVAL_S} seconds. Got: ${interval}.`);
@@ -662,7 +775,9 @@ export function createSyncDaemon(containerName, { registry: registryUrl, interva
   const MAX_BACKOFF_MS = 15 * 60 * 1000;
 
   function nextIntervalMs(consecutiveFailures) {
-    if (consecutiveFailures === 0) return intervalMs;
+    if (consecutiveFailures === 0) {
+      return intervalMs;
+    }
     return Math.min(BASE_BACKOFF_MS * Math.pow(2, consecutiveFailures - 1), MAX_BACKOFF_MS);
   }
 
@@ -692,14 +807,18 @@ export function createSyncDaemon(containerName, { registry: registryUrl, interva
   }
 
   function scheduleNext() {
-    if (shuttingDown) return;
+    if (shuttingDown) {
+      return;
+    }
     const delay = nextIntervalMs(consecutiveFailures);
     onProgress?.("sync-scheduled", { nextInSeconds: Math.round(delay / 1000) });
     timer = setTimeout(tick, delay);
   }
 
   async function tick() {
-    if (shuttingDown) return;
+    if (shuttingDown) {
+      return;
+    }
     if (syncInProgress) {
       onProgress?.("sync-skipped", { reason: "Previous sync still in progress" });
       scheduleNext();
@@ -743,7 +862,9 @@ export function createSyncDaemon(containerName, { registry: registryUrl, interva
   return {
     stop() {
       shuttingDown = true;
-      if (timer) clearTimeout(timer);
+      if (timer) {
+        clearTimeout(timer);
+      }
       updateStatus();
     },
   };
@@ -771,9 +892,14 @@ export function status(containerName) {
 
   // Local container status
   try {
-    const state = execFileSync("docker", ["inspect", "--format", "{{.State.Status}}", containerName], {
-      stdio: "pipe", encoding: "utf-8",
-    }).trim();
+    const state = execFileSync(
+      "docker",
+      ["inspect", "--format", "{{.State.Status}}", containerName],
+      {
+        stdio: "pipe",
+        encoding: "utf-8",
+      },
+    ).trim();
     result.local = state;
   } catch {
     result.local = "not found";
@@ -781,7 +907,7 @@ export function status(containerName) {
 
   // Remote server
   const machines = listMachines();
-  const remote = machines.find(m => m.name === containerName && m.location !== "local");
+  const remote = machines.find((m) => m.name === containerName && m.location !== "local");
   if (remote) {
     result.remote = { ip: remote.ip, status: remote.status || "unknown" };
   }
@@ -804,7 +930,10 @@ export function status(containerName) {
   if (syncStatus) {
     let daemonAlive = false;
     if (syncStatus.pid != null) {
-      try { process.kill(syncStatus.pid, 0); daemonAlive = true; } catch {}
+      try {
+        process.kill(syncStatus.pid, 0);
+        daemonAlive = true;
+      } catch {}
     }
     result.sync = {
       running: daemonAlive,
@@ -818,7 +947,10 @@ export function status(containerName) {
 
   // Registry images (best-effort)
   try {
-    const username = execSync("gh api user --jq .login", { stdio: "pipe", encoding: "utf-8" }).trim();
+    const _username = execSync("gh api user --jq .login", {
+      stdio: "pipe",
+      encoding: "utf-8",
+    }).trim();
     const pkgName = encodeURIComponent(prefix);
     const json = execSync(
       `gh api user/packages/container/${pkgName}/versions --jq '[.[:10] | .[] | {tags: .metadata.container.tags, size: .name, updated: .updated_at}]'`,
@@ -838,7 +970,9 @@ export function logs(containerName) {
   }
 
   const machines = listMachines();
-  const machine = machines.find(m => m.name === containerName && m.ip);
-  if (!machine) throw new Error(`No remote server for ${containerName}.`);
+  const machine = machines.find((m) => m.name === containerName && m.ip);
+  if (!machine) {
+    throw new Error(`No remote server for ${containerName}.`);
+  }
   ssh(machine.ip, `docker logs -f ${containerName}`);
 }

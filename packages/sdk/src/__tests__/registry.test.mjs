@@ -1,9 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const execSyncMock = vi.fn((cmd) => {
-  if (cmd.includes("gh api user")) return "testuser\n";
-  if (cmd.includes("gh auth token")) return "gho_testtoken123\n";
-  if (cmd.includes("gh auth status")) return "  - Token scopes: 'repo', 'write:packages'\n";
+  if (cmd.includes("gh api user")) {
+    return "testuser\n";
+  }
+  if (cmd.includes("gh auth token")) {
+    return "gho_testtoken123\n";
+  }
+  if (cmd.includes("gh auth status")) {
+    return "  - Token scopes: 'repo', 'write:packages'\n";
+  }
   return "";
 });
 
@@ -36,8 +42,8 @@ describe("registry", () => {
   it("ensureDockerLogin calls docker login with gh token", async () => {
     const { ensureDockerLogin } = await import("../registry.mjs");
     ensureDockerLogin();
-    const loginCall = execFileSyncMock.mock.calls.find((c) =>
-      c[0] === "docker" && c[1].includes("login")
+    const loginCall = execFileSyncMock.mock.calls.find(
+      (c) => c[0] === "docker" && c[1].includes("login"),
     );
     expect(loginCall).toBeTruthy();
     expect(loginCall[1]).toContain("ghcr.io");
@@ -52,7 +58,7 @@ describe("registry", () => {
     expect(mockSsh).toHaveBeenCalledWith(
       "1.2.3.4",
       expect.stringContaining("docker login ghcr.io"),
-      expect.any(Object)
+      expect.any(Object),
     );
   });
 });

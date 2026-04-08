@@ -17,10 +17,12 @@
 
 import { execSync, execFileSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
+
 import path from "node:path";
 import { ensureDiND, getDiNDHost } from "../dind.mjs";
-import { reconnectDocker, docker,
+import {
+  reconnectDocker,
+  docker,
   captureContainerConfig,
   createCheckpoint,
   extractCheckpointFiles,
@@ -52,16 +54,21 @@ function dockerExec(container, cmd) {
 
 function dockerExecUser(container, user, args) {
   return execFileSync("docker", ["exec", "--user", user, container, ...args], {
-    stdio: "pipe", encoding: "utf-8",
+    stdio: "pipe",
+    encoding: "utf-8",
   }).trim();
 }
 
 function rmContainer(name) {
-  try { exec(`docker rm -f ${name}`); } catch {}
+  try {
+    exec(`docker rm -f ${name}`);
+  } catch {}
 }
 
 function assert(ok, msg) {
-  if (!ok) throw new Error(`ASSERTION FAILED: ${msg}`);
+  if (!ok) {
+    throw new Error(`ASSERTION FAILED: ${msg}`);
+  }
 }
 
 function cleanup(dirs = []) {
@@ -69,10 +76,16 @@ function cleanup(dirs = []) {
     rmContainer(c);
   }
   for (const pattern of [`${REGISTRY}/*`, `${COMMITTED}`]) {
-    try { exec(`docker images --format '{{.Repository}}:{{.Tag}}' ${pattern} | xargs -r docker rmi -f`); } catch {}
+    try {
+      exec(`docker images --format '{{.Repository}}:{{.Tag}}' ${pattern} | xargs -r docker rmi -f`);
+    } catch {}
   }
   for (const d of dirs) {
-    if (d) try { fs.rmSync(d, { recursive: true, force: true }); } catch {}
+    if (d) {
+      try {
+        fs.rmSync(d, { recursive: true, force: true });
+      } catch {}
+    }
   }
 }
 
@@ -90,12 +103,17 @@ async function main() {
   reconnectDocker(diNDIP, parseInt(diNDPortStr, 10));
 
   // Reuse registry if already running (e2e-local may have started it).
-  try { exec("docker inspect registry >/dev/null 2>&1"); }
-  catch {
+  try {
+    exec("docker inspect registry >/dev/null 2>&1");
+  } catch {
     exec("docker run -d -p 5000:5000 --name registry registry:2");
     for (let i = 0; i < 10; i++) {
-      try { exec("docker exec registry wget -qO- http://localhost:5000/v2/ 2>/dev/null"); break; }
-      catch { await new Promise((r) => setTimeout(r, 1000)); }
+      try {
+        exec("docker exec registry wget -qO- http://localhost:5000/v2/ 2>/dev/null");
+        break;
+      } catch {
+        await new Promise((r) => setTimeout(r, 1000));
+      }
     }
   }
 
@@ -109,19 +127,30 @@ async function main() {
     fs.mkdirSync(path.join(workspaceDir, ".devcontainer"), { recursive: true });
     fs.writeFileSync(
       path.join(workspaceDir, ".devcontainer", "devcontainer.json"),
-      JSON.stringify({
-        image: "mcr.microsoft.com/devcontainers/javascript-node:1-22",
-        remoteUser: REMOTE_USER,
-        workspaceFolder: "/workspace",
-        runArgs: ["--security-opt", "seccomp=unconfined", "--network", "host"],
-      }, null, 2),
+      JSON.stringify(
+        {
+          image: "mcr.microsoft.com/devcontainers/javascript-node:1-22",
+          remoteUser: REMOTE_USER,
+          workspaceFolder: "/workspace",
+          runArgs: ["--security-opt", "seccomp=unconfined", "--network", "host"],
+        },
+        null,
+        2,
+      ),
     );
 
-    execFileSync("pnpm", [
-      "exec", "devcontainer", "up",
-      "--workspace-folder", workspaceDir,
-      "--remove-existing-container",
-    ], { stdio: "pipe" });
+    execFileSync(
+      "pnpm",
+      [
+        "exec",
+        "devcontainer",
+        "up",
+        "--workspace-folder",
+        workspaceDir,
+        "--remove-existing-container",
+      ],
+      { stdio: "pipe" },
+    );
 
     const dcName = execSync(
       `docker ps --filter "label=devcontainer.local_folder=${workspaceDir}" --format "{{.Names}}"`,
@@ -129,7 +158,9 @@ async function main() {
     ).trim();
     assert(dcName, "devcontainer not found after up");
     if (dcName !== CONTAINER) {
-      try { exec(`docker rm -f ${CONTAINER}`); } catch {}
+      try {
+        exec(`docker rm -f ${CONTAINER}`);
+      } catch {}
       exec(`docker rename ${dcName} ${CONTAINER}`);
     }
     console.log(`   container: ${CONTAINER}`);
@@ -149,12 +180,33 @@ async function main() {
     console.log("3. Writing state inside tmux session...");
 
     // Send commands into tmux session — shell is a child of PID 1 via tmux server
-    dockerExecUser(CONTAINER, REMOTE_USER, ["tmux", "send-keys", "-t", "machinen", "SECRET=tmux-survived", "Enter"]);
-    await new Promise(r => setTimeout(r, 500));
-    dockerExecUser(CONTAINER, REMOTE_USER, ["tmux", "send-keys", "-t", "machinen", "echo $SECRET > /tmp/tmux-proof.txt", "Enter"]);
-    await new Promise(r => setTimeout(r, 500));
-    dockerExecUser(CONTAINER, REMOTE_USER, ["tmux", "send-keys", "-t", "machinen", "COUNTER=0; while true; do COUNTER=$((COUNTER+1)); echo $COUNTER:$SECRET > /tmp/state.txt; sleep 1; done &", "Enter"]);
-    await new Promise(r => setTimeout(r, 3000));
+    dockerExecUser(CONTAINER, REMOTE_USER, [
+      "tmux",
+      "send-keys",
+      "-t",
+      "machinen",
+      "SECRET=tmux-survived",
+      "Enter",
+    ]);
+    await new Promise((r) => setTimeout(r, 500));
+    dockerExecUser(CONTAINER, REMOTE_USER, [
+      "tmux",
+      "send-keys",
+      "-t",
+      "machinen",
+      "echo $SECRET > /tmp/tmux-proof.txt",
+      "Enter",
+    ]);
+    await new Promise((r) => setTimeout(r, 500));
+    dockerExecUser(CONTAINER, REMOTE_USER, [
+      "tmux",
+      "send-keys",
+      "-t",
+      "machinen",
+      "COUNTER=0; while true; do COUNTER=$((COUNTER+1)); echo $COUNTER:$SECRET > /tmp/state.txt; sleep 1; done &",
+      "Enter",
+    ]);
+    await new Promise((r) => setTimeout(r, 3000));
 
     // Verify state was written
     const preProof = dockerExec(CONTAINER, "cat /tmp/tmux-proof.txt");
@@ -192,10 +244,14 @@ async function main() {
     // Devcontainers use --mount syntax so workspace may be in info.Mounts
     // but not config.Binds — collect from both to be safe.
     {
-      const binds = [...new Set([
-        ...(config.Binds || []).map(b => b.split(":")[1]),
-        ...(info.Mounts || []).filter(m => m.Type === "bind").map(m => m.Destination),
-      ].filter(Boolean))];
+      const binds = [
+        ...new Set(
+          [
+            ...(config.Binds || []).map((b) => b.split(":")[1]),
+            ...(info.Mounts || []).filter((m) => m.Type === "bind").map((m) => m.Destination),
+          ].filter(Boolean),
+        ),
+      ];
       if (binds.length > 0) {
         const env = { ...process.env, COPYFILE_DISABLE: "1" };
         const patchDir = path.join(tmpDir, "patch");
@@ -217,7 +273,11 @@ async function main() {
       pushImage(baseTag);
 
       buildCheckpointImage(
-        tarPath, COMMITTED, config, checkpointId, tag,
+        tarPath,
+        COMMITTED,
+        config,
+        checkpointId,
+        tag,
         /* workspaceTars */ [],
         /* baseImageTag */ baseTag,
         /* checkpointedContainerId */ containerId,
@@ -232,14 +292,16 @@ async function main() {
       console.log("5. Cleaning local state...");
       rmContainer(CLEAN);
       rmContainer(CONTAINER);
-      try { exec(`docker rmi ${COMMITTED}`); } catch {}
+      try {
+        exec(`docker rmi ${COMMITTED}`);
+      } catch {}
 
       console.log("6. Restoring locally...");
       pullImage(latestTag);
       restoreLocally(latestTag, RESTORED);
 
       // Let processes resume after restore
-      await new Promise(r => setTimeout(r, 3000));
+      await new Promise((r) => setTimeout(r, 3000));
 
       // ── 6. Verify ────────────────────────────────────────────────────
       console.log("7. Verifying...");
@@ -262,15 +324,21 @@ async function main() {
       assert(secret1 === "tmux-survived", `in-memory SECRET lost: ${secret1}`);
       console.log("   [pass] in-memory SECRET preserved across checkpoint/restore");
 
-      assert(postCounter1 >= preCounter, `counter regressed (pre=${preCounter} post=${postCounter1})`);
+      assert(
+        postCounter1 >= preCounter,
+        `counter regressed (pre=${preCounter} post=${postCounter1})`,
+      );
       console.log(`   [pass] counter preserved: ${postCounter1} (was ${preCounter})`);
 
       // Counter is still incrementing (process is alive)
-      await new Promise(r => setTimeout(r, 2000));
+      await new Promise((r) => setTimeout(r, 2000));
       const postState2 = dockerExec(RESTORED, "cat /tmp/state.txt");
       const postCounter2 = parseInt(postState2.split(":")[0], 10);
 
-      assert(postCounter2 > postCounter1, `counter not incrementing (${postCounter1} → ${postCounter2})`);
+      assert(
+        postCounter2 > postCounter1,
+        `counter not incrementing (${postCounter1} → ${postCounter2})`,
+      );
       console.log(`   [pass] counter still incrementing: ${postCounter1} → ${postCounter2}`);
 
       // tmux session survived restore
@@ -279,8 +347,15 @@ async function main() {
       console.log("   [pass] tmux session survived restore");
 
       // Can send new commands into the restored tmux session
-      dockerExecUser(RESTORED, REMOTE_USER, ["tmux", "send-keys", "-t", "machinen", "echo post-restore > /tmp/post.txt", "Enter"]);
-      await new Promise(r => setTimeout(r, 1000));
+      dockerExecUser(RESTORED, REMOTE_USER, [
+        "tmux",
+        "send-keys",
+        "-t",
+        "machinen",
+        "echo post-restore > /tmp/post.txt",
+        "Enter",
+      ]);
+      await new Promise((r) => setTimeout(r, 1000));
       const postCmd = dockerExec(RESTORED, "cat /tmp/post.txt");
       assert(postCmd === "post-restore", `post-restore command failed: ${postCmd}`);
       console.log("   [pass] new commands work in restored tmux session");
@@ -299,7 +374,7 @@ async function main() {
   }
 }
 
-main().catch(err => {
+main().catch((err) => {
   console.error(`\nE2E FAILED: ${err.message}`);
   cleanup();
   process.exit(1);

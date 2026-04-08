@@ -5,11 +5,7 @@ const docker = new Docker({ socketPath: "/var/run/docker.sock" });
 
 const IMAGE = "ubuntu:24.04";
 const CONTAINER_NAME = "session-poc";
-const CMD = [
-  "bash",
-  "-c",
-  "i=0; while true; do echo \"Counter: $i\"; i=$((i+1)); sleep 2; done",
-];
+const CMD = ["bash", "-c", 'i=0; while true; do echo "Counter: $i"; i=$((i+1)); sleep 2; done'];
 
 async function main() {
   await checkPrerequisites(docker);
@@ -18,9 +14,13 @@ async function main() {
   console.log(`Pulling ${IMAGE}...`);
   await new Promise((resolve, reject) => {
     docker.pull(IMAGE, (err, stream) => {
-      if (err) return reject(err);
+      if (err) {
+        return reject(err);
+      }
       docker.modem.followProgress(stream, (err) => {
-        if (err) return reject(err);
+        if (err) {
+          return reject(err);
+        }
         resolve();
       });
     });

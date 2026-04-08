@@ -31,6 +31,7 @@
 
 **`src/sync.mjs`**
 Exports `startBackgroundSync(containerName, registry, ip)`. Key observations:
+
 - 30-second initial delay (`setTimeout(sync, 30 * 1000)`) — designed for the `cmdUp` "let user get settled" flow, not user-facing daemon UX.
 - `stop()` sets `running = false` and clears the timer but does **not** await an in-progress sync. This is a silent correctness issue for a user-facing command.
 - No callback surface for observing sync outcomes.
@@ -50,15 +51,15 @@ Flat `parseArgs` function; all commands are functions in the same file. `current
 
 ### Decision log
 
-| Open question | Decision | Rationale |
-|---|---|---|
-| Refactor `src/sync.mjs` | No — use `docker.mjs` primitives directly | Avoids retrofitting a purpose-built function; primitives are already stable and exported |
-| Separate module vs inline | Inline into `machinen.mjs` | Consistent with existing architecture; command is small enough |
-| Status file location | `.machinen/sync-status.json` in git repo root | Travels with project; visible to developer; no XDG path construction |
-| Error recovery | Exponential backoff, exit only on container-gone | 3-strikes-exit is too aggressive for a daemon that should survive brief token issues |
-| `--remote` flag | Omit | Pre-pull is restore's concern; daemon should do one thing |
-| `--registry` override | Omit | `getRegistry()` is authoritative |
-| Interval minimum | 30 seconds | Sub-30s checkpoint creation would thrash Docker and is rarely useful |
+| Open question             | Decision                                         | Rationale                                                                                |
+| ------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| Refactor `src/sync.mjs`   | No — use `docker.mjs` primitives directly        | Avoids retrofitting a purpose-built function; primitives are already stable and exported |
+| Separate module vs inline | Inline into `machinen.mjs`                       | Consistent with existing architecture; command is small enough                           |
+| Status file location      | `.machinen/sync-status.json` in git repo root    | Travels with project; visible to developer; no XDG path construction                     |
+| Error recovery            | Exponential backoff, exit only on container-gone | 3-strikes-exit is too aggressive for a daemon that should survive brief token issues     |
+| `--remote` flag           | Omit                                             | Pre-pull is restore's concern; daemon should do one thing                                |
+| `--registry` override     | Omit                                             | `getRegistry()` is authoritative                                                         |
+| Interval minimum          | 30 seconds                                       | Sub-30s checkpoint creation would thrash Docker and is rarely useful                     |
 
 ---
 
@@ -83,6 +84,7 @@ async function cmdSync(args)
 ```
 
 Responsibilities:
+
 1. Parse and validate `--interval`, `--once` flags
 2. Validate auth via `getRegistry()` at startup
 3. Resolve container name (explicit arg → verify via Docker; no arg → auto-detect from git branch)
@@ -94,10 +96,12 @@ Responsibilities:
 9. `--once`: run one sync, exit 0 or 1
 
 **Wire into CLI:**
+
 - Add `watch: cmdSync` to the `commands` object
 - Add `watch` section to the help text
 
 **Stale-status warning in `cmdRestore`:**
+
 - Before pulling, check if `.machinen/sync-status.json` exists
 - If it exists and `lastSync` is older than 10 minutes, print a warning with the elapsed time
 - Check if the PID in the file is still alive (`kill(pid, 0)`) — if not, note that the daemon is not running
@@ -314,14 +318,14 @@ Feature: machinen watch daemon
 
 ```ts
 interface SyncStatus {
-  pid: number;                    // PID of the running daemon (stale after exit)
-  container: string;              // Container name
-  registry: string;               // Registry prefix (e.g. ghcr.io/user)
-  lastSync: string | null;        // ISO 8601 UTC timestamp of last sync attempt
+  pid: number; // PID of the running daemon (stale after exit)
+  container: string; // Container name
+  registry: string; // Registry prefix (e.g. ghcr.io/user)
+  lastSync: string | null; // ISO 8601 UTC timestamp of last sync attempt
   lastSyncSuccess: boolean | null; // null until first attempt completes
-  syncCount: number;              // Total successful syncs in this session
-  consecutiveFailures: number;    // Current run of consecutive failures (reset on success)
-  currentIntervalMs: number;      // Effective interval (after backoff adjustments)
+  syncCount: number; // Total successful syncs in this session
+  consecutiveFailures: number; // Current run of consecutive failures (reset on success)
+  currentIntervalMs: number; // Effective interval (after backoff adjustments)
 }
 ```
 
@@ -332,9 +336,9 @@ The file is written atomically (write to `.tmp`, then `fs.renameSync`) to avoid 
 ### Exponential backoff (in-memory)
 
 ```js
-const BASE_BACKOFF_MS = 60 * 1000;    // 60 s
+const BASE_BACKOFF_MS = 60 * 1000; // 60 s
 const MAX_BACKOFF_MS = 15 * 60 * 1000; // 15 min
-let currentBackoffMs = 0;              // 0 = use configured interval
+let currentBackoffMs = 0; // 0 = use configured interval
 
 function nextIntervalMs(configuredMs, consecutiveFailures) {
   if (consecutiveFailures === 0) return configuredMs;
@@ -393,8 +397,8 @@ If the container is gone, log the reason and exit 1 rather than continuing to ba
 
 ## Open Questions (Resolved)
 
-| Question | Decision |
-|---|---|
-| Where does `.machinen/` go in `.gitignore`? | The sync-status file is machine-local state. Add `.machinen/` to `.gitignore` in T1 (or document it). Optionally, treat it like `.git/` and leave it untracked by default. |
-| What if two daemon instances run for the same container? | Last writer wins on the status file. The PID field lets `restore` detect if the earlier daemon is still running. No lock file — the daemon is user-invoked, and the UX is simple enough that two instances is a user error, not a race condition to defend against. |
+| Question                                                          | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Where does `.machinen/` go in `.gitignore`?                       | The sync-status file is machine-local state. Add `.machinen/` to `.gitignore` in T1 (or document it). Optionally, treat it like `.git/` and leave it untracked by default.                                                                                                                                                                                                                                                                                                                                                          |
+| What if two daemon instances run for the same container?          | Last writer wins on the status file. The PID field lets `restore` detect if the earlier daemon is still running. No lock file — the daemon is user-invoked, and the UX is simple enough that two instances is a user error, not a race condition to defend against.                                                                                                                                                                                                                                                                 |
 | `registry.mjs` caches `_cached` — what happens when auth expires? | The cache is module-scoped and lives as long as the process. If the token expires mid-session, the sync will fail with an auth error. The daemon will log the auth warning, back off, and the user can `gh auth refresh` and let the next sync attempt succeed. Clearing the cache on auth error would require either patching `registry.mjs` (avoided by this RFC) or catching the error and re-calling `getRegistry()` — which would just fail again with the same cached result. Backoff + user warning is the correct response. |

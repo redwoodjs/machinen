@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -28,7 +28,9 @@ function readMountpoints(dir) {
   let offset = 8; // skip header
   while (offset + 4 <= data.length) {
     const size = data.readUInt32LE(offset);
-    if (size === 0 || offset + 4 + size > data.length) break;
+    if (size === 0 || offset + 4 + size > data.length) {
+      break;
+    }
     const payload = data.subarray(offset + 4, offset + 4 + size);
     // extract mountpoint: tag 0x3a, then 1-byte len, then string
     if (payload[0] === 0x3a) {
@@ -117,12 +119,7 @@ describe("stripBindMountEntries", () => {
   });
 
   it("strips /etc/hosts, /etc/hostname, /etc/resolv.conf", () => {
-    writeMountpointsImg(tmpDir, [
-      "/etc/hosts",
-      "/etc/hostname",
-      "/etc/resolv.conf",
-      "/etc/passwd",
-    ]);
+    writeMountpointsImg(tmpDir, ["/etc/hosts", "/etc/hostname", "/etc/resolv.conf", "/etc/passwd"]);
     stripBindMountEntries(tmpDir);
     expect(readMountpoints(tmpDir)).toEqual(["/etc/passwd"]);
   });
@@ -155,12 +152,30 @@ describe("stripBindMountEntries", () => {
 describe("tmuxAttachArgs", () => {
   it("returns docker exec args targeting the machinen session", () => {
     const args = tmuxAttachArgs("my-container");
-    expect(args).toEqual(["exec", "-it", "my-container", "tmux", "attach-session", "-t", "machinen"]);
+    expect(args).toEqual([
+      "exec",
+      "-it",
+      "my-container",
+      "tmux",
+      "attach-session",
+      "-t",
+      "machinen",
+    ]);
   });
 
   it("inserts --user when provided", () => {
     const args = tmuxAttachArgs("my-container", { user: "vscode" });
-    expect(args).toEqual(["exec", "-it", "--user", "vscode", "my-container", "tmux", "attach-session", "-t", "machinen"]);
+    expect(args).toEqual([
+      "exec",
+      "-it",
+      "--user",
+      "vscode",
+      "my-container",
+      "tmux",
+      "attach-session",
+      "-t",
+      "machinen",
+    ]);
   });
 
   it("respects a custom session name", () => {

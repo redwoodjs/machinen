@@ -8,6 +8,7 @@
 ## Context
 
 Sunil said:
+
 > "there's nothing _fundamental_ about filesystems. or terminal commands. or _even your favourite programming language_. but there _is_ something fundamental about storage. or lambda calculus. the future of computing looks more like math+symbolic execution than unix+whatever's in the training set"
 
 What we worked out:

@@ -36,7 +36,9 @@ function hcloud(args, { json = true } = {}) {
   if (result.status !== 0) {
     throw new Error(`hcloud ${args.slice(0, 2).join(" ")} failed: ${result.stderr}`);
   }
-  if (json && result.stdout.trim()) return JSON.parse(result.stdout);
+  if (json && result.stdout.trim()) {
+    return JSON.parse(result.stdout);
+  }
   return result.stdout;
 }
 
@@ -46,7 +48,9 @@ function findLocalSSHPubKey() {
   const sshDir = path.join(os.homedir(), ".ssh");
   for (const name of ["id_ed25519.pub", "id_rsa.pub", "id_ecdsa.pub"]) {
     const p = path.join(sshDir, name);
-    if (fs.existsSync(p)) return { path: p, content: fs.readFileSync(p, "utf-8").trim() };
+    if (fs.existsSync(p)) {
+      return { path: p, content: fs.readFileSync(p, "utf-8").trim() };
+    }
   }
   return null;
 }
@@ -60,13 +64,22 @@ function ensureSSHKey() {
 
   const sshKeys = hcloud(["ssh-key", "list"]);
   const existing = sshKeys.find((k) => k.public_key.trim() === keyInfo.content);
-  if (existing) return existing.id;
+  if (existing) {
+    return existing.id;
+  }
 
-  const result = spawnSync("hcloud", [
-    "ssh-key", "create",
-    "--name", `machinen-${os.hostname()}`,
-    "--public-key-from-file", keyInfo.path,
-  ], { stdio: "pipe", encoding: "utf-8" });
+  const result = spawnSync(
+    "hcloud",
+    [
+      "ssh-key",
+      "create",
+      "--name",
+      `machinen-${os.hostname()}`,
+      "--public-key-from-file",
+      keyInfo.path,
+    ],
+    { stdio: "pipe", encoding: "utf-8" },
+  );
 
   if (result.status !== 0) {
     throw new Error(`Failed to create SSH key: ${result.stderr}`);
@@ -74,7 +87,9 @@ function ensureSSHKey() {
 
   const updatedKeys = hcloud(["ssh-key", "list"]);
   const created = updatedKeys.find((k) => k.public_key.trim() === keyInfo.content);
-  if (!created) throw new Error("SSH key created but not found in list");
+  if (!created) {
+    throw new Error("SSH key created but not found in list");
+  }
   return created.id;
 }
 
@@ -82,13 +97,16 @@ function ssh(ip, cmd, { stdio = "inherit" } = {}) {
   return spawnSync(
     "ssh",
     [
-      "-o", "StrictHostKeyChecking=no",
-      "-o", "UserKnownHostsFile=/dev/null",
-      "-o", "LogLevel=ERROR",
+      "-o",
+      "StrictHostKeyChecking=no",
+      "-o",
+      "UserKnownHostsFile=/dev/null",
+      "-o",
+      "LogLevel=ERROR",
       `root@${ip}`,
       cmd,
     ],
-    { stdio, encoding: "utf-8" }
+    { stdio, encoding: "utf-8" },
   );
 }
 
@@ -118,7 +136,8 @@ async function cmdProvision() {
 
   // Check for existing server
   const descResult = spawnSync("hcloud", ["server", "describe", SERVER_NAME, "-o", "json"], {
-    stdio: "pipe", encoding: "utf-8",
+    stdio: "pipe",
+    encoding: "utf-8",
   });
   if (descResult.status === 0) {
     const server = JSON.parse(descResult.stdout);
@@ -135,16 +154,28 @@ async function cmdProvision() {
   fs.writeFileSync(cloudInitPath, CLOUD_INIT);
 
   try {
-    const createResult = spawnSync("hcloud", [
-      "server", "create",
-      "--name", SERVER_NAME,
-      "--type", SERVER_TYPE,
-      "--image", "ubuntu-24.04",
-      "--location", LOCATION,
-      "--ssh-key", String(sshKeyId),
-      "--user-data-from-file", cloudInitPath,
-      "-o", "json",
-    ], { stdio: "pipe", encoding: "utf-8" });
+    const createResult = spawnSync(
+      "hcloud",
+      [
+        "server",
+        "create",
+        "--name",
+        SERVER_NAME,
+        "--type",
+        SERVER_TYPE,
+        "--image",
+        "ubuntu-24.04",
+        "--location",
+        LOCATION,
+        "--ssh-key",
+        String(sshKeyId),
+        "--user-data-from-file",
+        cloudInitPath,
+        "-o",
+        "json",
+      ],
+      { stdio: "pipe", encoding: "utf-8" },
+    );
 
     if (createResult.status !== 0) {
       throw new Error(`Failed to create server: ${createResult.stderr}`);
@@ -170,11 +201,13 @@ async function cmdProvision() {
       const log = ssh(
         ip,
         `tail -n +${lastLineCount + 1} /var/log/cloud-init-output.log 2>/dev/null`,
-        { stdio: "pipe" }
+        { stdio: "pipe" },
       );
       if (log.status === 0 && log.stdout.trim()) {
         const lines = log.stdout.trimEnd().split("\n");
-        for (const line of lines) console.log(`  ${line}`);
+        for (const line of lines) {
+          console.log(`  ${line}`);
+        }
         lastLineCount += lines.length;
       }
 
@@ -192,7 +225,7 @@ function cmdFreeze() {
   console.log(`Freezing ${CONTAINER_NAME}...`);
   execSync(
     `docker checkpoint create --checkpoint-dir ${SYNC_DIR} ${CONTAINER_NAME} ${checkpointId}`,
-    { stdio: "inherit" }
+    { stdio: "inherit" },
   );
   saveState({ checkpointId });
   console.log(`Checkpoint: ${checkpointId}`);
@@ -200,25 +233,38 @@ function cmdFreeze() {
 
 function cmdRestore() {
   const { ip, checkpointId } = loadState();
-  if (!ip) { console.error("Run 'provision' first."); process.exit(1); }
-  if (!checkpointId) { console.error("Run 'freeze' first."); process.exit(1); }
+  if (!ip) {
+    console.error("Run 'provision' first.");
+    process.exit(1);
+  }
+  if (!checkpointId) {
+    console.error("Run 'freeze' first.");
+    process.exit(1);
+  }
 
   console.log(`Syncing to ${ip}...`);
   execSync(
     `rsync -azP --delete -e "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR" ${SYNC_DIR}/ root@${ip}:~/sync-dir/`,
-    { stdio: "inherit" }
+    { stdio: "inherit" },
   );
 
   ssh(ip, `docker rm -f ${CONTAINER_NAME} 2>/dev/null || true`, { stdio: "pipe" });
 
   console.log("Creating container...");
-  const createResult = ssh(ip, `docker create --name ${CONTAINER_NAME} --security-opt seccomp=unconfined --network host ${IMAGE} ${CMD}`, { stdio: "pipe" });
+  const createResult = ssh(
+    ip,
+    `docker create --name ${CONTAINER_NAME} --security-opt seccomp=unconfined --network host ${IMAGE} ${CMD}`,
+    { stdio: "pipe" },
+  );
   const containerId = createResult.stdout.trim();
   console.log(`Container: ${containerId}`);
 
   // Copy checkpoint into Docker's internal checkpoint directory
   console.log("Copying checkpoint into Docker's checkpoint store...");
-  ssh(ip, `mkdir -p /var/lib/docker/containers/${containerId}/checkpoints && cp -r ~/sync-dir/${checkpointId} /var/lib/docker/containers/${containerId}/checkpoints/${checkpointId}`);
+  ssh(
+    ip,
+    `mkdir -p /var/lib/docker/containers/${containerId}/checkpoints && cp -r ~/sync-dir/${checkpointId} /var/lib/docker/containers/${containerId}/checkpoints/${checkpointId}`,
+  );
 
   console.log("Restoring...");
   ssh(ip, `docker start --checkpoint ${checkpointId} ${CONTAINER_NAME}`);
@@ -229,7 +275,10 @@ function cmdRestore() {
 
 function cmdLogs() {
   const { ip } = loadState();
-  if (!ip) { console.error("Run 'provision' first."); process.exit(1); }
+  if (!ip) {
+    console.error("Run 'provision' first.");
+    process.exit(1);
+  }
   ssh(ip, `docker logs -f ${CONTAINER_NAME}`);
 }
 
@@ -239,18 +288,30 @@ function cmdDestroy() {
     hcloud(["server", "delete", String(serverId)], { json: false });
   } else {
     const descResult = spawnSync("hcloud", ["server", "describe", SERVER_NAME, "-o", "json"], {
-      stdio: "pipe", encoding: "utf-8",
+      stdio: "pipe",
+      encoding: "utf-8",
     });
-    if (descResult.status !== 0) { console.log("Nothing to destroy."); return; }
+    if (descResult.status !== 0) {
+      console.log("Nothing to destroy.");
+      return;
+    }
     hcloud(["server", "delete", SERVER_NAME], { json: false });
   }
-  try { fs.unlinkSync(STATE_FILE); } catch {}
+  try {
+    fs.unlinkSync(STATE_FILE);
+  } catch {}
   console.log("Destroyed.");
 }
 
 // --- Main ---
 
-const commands = { provision: cmdProvision, freeze: cmdFreeze, restore: cmdRestore, logs: cmdLogs, destroy: cmdDestroy };
+const commands = {
+  provision: cmdProvision,
+  freeze: cmdFreeze,
+  restore: cmdRestore,
+  logs: cmdLogs,
+  destroy: cmdDestroy,
+};
 
 async function main() {
   const action = process.argv[2];
@@ -267,4 +328,7 @@ async function main() {
   await commands[action]();
 }
 
-main().catch((err) => { console.error(err); process.exit(1); });
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

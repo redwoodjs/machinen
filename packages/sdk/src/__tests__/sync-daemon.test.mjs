@@ -149,13 +149,7 @@ describe("freeze command — --keep-alive flag", () => {
 // 5. E2E (requires live containers and registry)
 // ─────────────────────────────────────────────────────────────────────────────
 describe("watch command — E2E", () => {
-  it.todo(
-    "discovers and syncs all running machinen-* containers (E2E only)"
-  );
-  it.todo(
-    "migrates containers to cloud on sleep and restores on wake (E2E only)"
-  );
-  it.todo(
-    "writes status files for each discovered container (E2E only)"
-  );
+  it.todo("discovers and syncs all running machinen-* containers (E2E only)");
+  it.todo("migrates containers to cloud on sleep and restores on wake (E2E only)");
+  it.todo("writes status files for each discovered container (E2E only)");
 });

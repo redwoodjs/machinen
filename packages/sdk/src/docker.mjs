@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import Docker from "dockerode";
-import { dindExec, DIND_CONTAINER, getDiNDHost, DIND_PORT } from "./dind.mjs";
+import { dindExec, DIND_CONTAINER } from "./dind.mjs";
 
 /** Always points to the host Docker socket (OrbStack or native).
  *  Used only to manage the machinen-dind container itself. */
@@ -72,20 +72,38 @@ export async function createCheckpoint(containerName, { exit = true } = {}) {
   // connections remain.
   const tmuxUser = resolveContainerUser(containerName);
   const userArgs = tmuxUser ? ["--user", tmuxUser] : [];
-  try { dockerExec(["exec", ...userArgs, containerName, "tmux", "detach-client", "-a"]); } catch {}
   try {
-    dockerExec(["exec", ...userArgs, containerName, "sh", "-c",
-      "tmux list-clients -F '#{client_pid}' 2>/dev/null | xargs -r kill -TERM 2>/dev/null || true"]);
+    dockerExec(["exec", ...userArgs, containerName, "tmux", "detach-client", "-a"]);
+  } catch {}
+  try {
+    dockerExec([
+      "exec",
+      ...userArgs,
+      containerName,
+      "sh",
+      "-c",
+      "tmux list-clients -F '#{client_pid}' 2>/dev/null | xargs -r kill -TERM 2>/dev/null || true",
+    ]);
   } catch {}
   // Poll until all tmux clients have disconnected (max 5 seconds).
   // Use `tmux list-clients` rather than `ss` — more portable across distros.
   for (let i = 0; i < 10; i++) {
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 500));
     try {
-      const out = dockerExec(["exec", ...userArgs, containerName, "sh", "-c",
-        "tmux list-clients 2>/dev/null | wc -l"]).trim();
-      if (out === "0") break;
-    } catch { break; }
+      const out = dockerExec([
+        "exec",
+        ...userArgs,
+        containerName,
+        "sh",
+        "-c",
+        "tmux list-clients 2>/dev/null | wc -l",
+      ]).trim();
+      if (out === "0") {
+        break;
+      }
+    } catch {
+      break;
+    }
   }
 
   const containerId = info.Id;
@@ -107,15 +125,23 @@ export async function createCheckpoint(containerName, { exit = true } = {}) {
           // Collect the CRIU dump log for diagnostics.
           const dumpLogPath = `/var/run/docker/containerd/daemon/io.containerd.runtime.v2.task/moby/${containerId}/criu-dump.log`;
           try {
-            const log = dindExec(`cat ${dumpLogPath} 2>/dev/null || echo '(no dump log)'`, { encoding: "utf-8" });
-            const errors = log.split("\n").filter(l => /error|Error|errno|failed/i.test(l)).join("\n");
-            if (errors) console.error("CRIU dump errors:\n" + errors);
-            else console.error("CRIU dump log (tail):\n" + log.split("\n").slice(-20).join("\n"));
+            const log = dindExec(`cat ${dumpLogPath} 2>/dev/null || echo '(no dump log)'`, {
+              encoding: "utf-8",
+            });
+            const errors = log
+              .split("\n")
+              .filter((l) => /error|Error|errno|failed/i.test(l))
+              .join("\n");
+            if (errors) {
+              console.error("CRIU dump errors:\n" + errors);
+            } else {
+              console.error("CRIU dump log (tail):\n" + log.split("\n").slice(-20).join("\n"));
+            }
           } catch {}
           return reject(err);
         }
         resolve(result);
-      }
+      },
     );
   });
 
@@ -136,7 +162,7 @@ function patchCheckpoint(checkpointDir, oldId, newId, bindPathsToStrip = []) {
     try {
       execSync(
         `docker run --rm --privileged --pid=host alpine nsenter -t 1 -m sh -c ${shellQuote("tar cf - -C " + checkpointDir + " .")} > ${shellQuote(tarPath)}`,
-        { stdio: ["pipe", "pipe", "pipe"], shell: true }
+        { stdio: ["pipe", "pipe", "pipe"], shell: true },
       );
     } catch {
       execFileSync("tar", ["cf", tarPath, "-C", checkpointDir, "."], { stdio: "pipe" });
@@ -151,7 +177,9 @@ function patchCheckpoint(checkpointDir, oldId, newId, bindPathsToStrip = []) {
     const newBuf = Buffer.from(newId, "utf-8");
 
     for (const file of fs.readdirSync(workDir)) {
-      if (!file.endsWith(".img")) continue;
+      if (!file.endsWith(".img")) {
+        continue;
+      }
       const filePath = path.join(workDir, file);
       const data = fs.readFileSync(filePath);
       let offset = 0;
@@ -181,7 +209,7 @@ function patchCheckpoint(checkpointDir, oldId, newId, bindPathsToStrip = []) {
     try {
       execSync(
         `cat ${shellQuote(patchedTar)} | docker run --rm -i --privileged --pid=host alpine nsenter -t 1 -m sh -c ${shellQuote("tar xf - -C " + checkpointDir)}`,
-        { stdio: ["pipe", "pipe", "pipe"], shell: true }
+        { stdio: ["pipe", "pipe", "pipe"], shell: true },
       );
     } catch {
       execFileSync("tar", ["xf", patchedTar, "-C", checkpointDir], { stdio: "pipe" });
@@ -200,8 +228,11 @@ function patchCheckpoint(checkpointDir, oldId, newId, bindPathsToStrip = []) {
 function expandBindPaths(bindPaths) {
   const expanded = new Set(bindPaths);
   for (const p of bindPaths) {
-    if (p.startsWith("/var/run/")) expanded.add("/run/" + p.slice("/var/run/".length));
-    else if (p.startsWith("/run/")) expanded.add("/var/run/" + p.slice("/run/".length));
+    if (p.startsWith("/var/run/")) {
+      expanded.add("/run/" + p.slice("/var/run/".length));
+    } else if (p.startsWith("/run/")) {
+      expanded.add("/var/run/" + p.slice("/run/".length));
+    }
   }
   return [...expanded];
 }
@@ -215,9 +246,13 @@ function getMountpointFromEntry(buf) {
   let offset = 0;
   while (offset < buf.length) {
     // Read tag varint
-    let tag = 0, shift = 0, byte;
+    let tag = 0,
+      shift = 0,
+      byte;
     do {
-      if (offset >= buf.length) return null;
+      if (offset >= buf.length) {
+        return null;
+      }
       byte = buf[offset++];
       tag |= (byte & 0x7f) << shift;
       shift += 7;
@@ -226,25 +261,35 @@ function getMountpointFromEntry(buf) {
     const fieldNumber = tag >> 3;
     const wireType = tag & 0x7;
 
-    if (wireType === 0) { // varint — skip
+    if (wireType === 0) {
+      // varint — skip
       do {
-        if (offset >= buf.length) return null;
+        if (offset >= buf.length) {
+          return null;
+        }
       } while (buf[offset++] & 0x80);
-    } else if (wireType === 2) { // length-delimited
-      let len = 0, shift2 = 0;
+    } else if (wireType === 2) {
+      // length-delimited
+      let len = 0,
+        shift2 = 0;
       do {
-        if (offset >= buf.length) return null;
+        if (offset >= buf.length) {
+          return null;
+        }
         byte = buf[offset++];
         len |= (byte & 0x7f) << shift2;
         shift2 += 7;
       } while (byte & 0x80);
-      if (fieldNumber === 7) { // mountpoint (field 7 in CRIU MntEntry proto)
+      if (fieldNumber === 7) {
+        // mountpoint (field 7 in CRIU MntEntry proto)
         return buf.subarray(offset, offset + len).toString("utf-8");
       }
       offset += len;
-    } else if (wireType === 5) { // 32-bit fixed
+    } else if (wireType === 5) {
+      // 32-bit fixed
       offset += 4;
-    } else if (wireType === 1) { // 64-bit fixed
+    } else if (wireType === 1) {
+      // 64-bit fixed
       offset += 8;
     } else {
       return null; // unknown wire type
@@ -265,44 +310,77 @@ function getMountpointFromEntry(buf) {
  *   s5, s6, s7, s8: first four length-delimited string fields
  */
 function decodeMntFile(data) {
-  if (data.length < 8) return [];
+  if (data.length < 8) {
+    return [];
+  }
   let offset = 8; // skip 8-byte header
   const entries = [];
   while (offset + 4 <= data.length) {
     const size = data.readUInt32LE(offset);
-    if (size === 0 || offset + 4 + size > data.length) break;
+    if (size === 0 || offset + 4 + size > data.length) {
+      break;
+    }
     const buf = data.subarray(offset + 4, offset + 4 + size);
     offset += 4 + size;
     let pos = 0;
-    const uint32s = {};  // fieldNum → value
-    const strings = {};  // fieldNum → value
+    const uint32s = {}; // fieldNum → value
+    const strings = {}; // fieldNum → value
     while (pos < buf.length) {
-      let tag = 0, shift = 0, byte;
+      let tag = 0,
+        shift = 0,
+        byte;
       do {
-        if (pos >= buf.length) break;
+        if (pos >= buf.length) {
+          break;
+        }
         byte = buf[pos++];
         tag |= (byte & 0x7f) << shift;
         shift += 7;
       } while (byte & 0x80);
-      const fieldNum = tag >> 3, wireType = tag & 7;
+      const fieldNum = tag >> 3,
+        wireType = tag & 7;
       if (wireType === 0) {
-        let val = 0, s = 0;
-        do { if (pos >= buf.length) break; byte = buf[pos++]; val |= (byte & 0x7f) << s; s += 7; } while (byte & 0x80);
+        let val = 0,
+          s = 0;
+        do {
+          if (pos >= buf.length) {
+            break;
+          }
+          byte = buf[pos++];
+          val |= (byte & 0x7f) << s;
+          s += 7;
+        } while (byte & 0x80);
         uint32s[fieldNum] = val;
       } else if (wireType === 2) {
-        let len = 0, s = 0;
-        do { if (pos >= buf.length) break; byte = buf[pos++]; len |= (byte & 0x7f) << s; s += 7; } while (byte & 0x80);
+        let len = 0,
+          s = 0;
+        do {
+          if (pos >= buf.length) {
+            break;
+          }
+          byte = buf[pos++];
+          len |= (byte & 0x7f) << s;
+          s += 7;
+        } while (byte & 0x80);
         strings[fieldNum] = buf.subarray(pos, pos + len).toString("utf-8");
         pos += len;
-      } else if (wireType === 5) pos += 4;
-      else if (wireType === 1) pos += 8;
-      else break;
+      } else if (wireType === 5) {
+        pos += 4;
+      } else if (wireType === 1) {
+        pos += 8;
+      } else {
+        break;
+      }
     }
     entries.push({
-      f1: uint32s[1] ?? 0, f2: uint32s[2] ?? 0,
-      f3: uint32s[3] ?? 0, f4: uint32s[4] ?? 0,
-      s5: strings[5] ?? "", s6: strings[6] ?? "",
-      s7: strings[7] ?? "", s8: strings[8] ?? "",
+      f1: uint32s[1] ?? 0,
+      f2: uint32s[2] ?? 0,
+      f3: uint32s[3] ?? 0,
+      f4: uint32s[4] ?? 0,
+      s5: strings[5] ?? "",
+      s6: strings[6] ?? "",
+      s7: strings[7] ?? "",
+      s8: strings[8] ?? "",
     });
   }
   return entries;
@@ -312,18 +390,24 @@ export function stripBindMountEntries(dir, bindPaths) {
   const paths = bindPaths ? expandBindPaths(bindPaths) : [];
 
   for (const file of fs.readdirSync(dir)) {
-    if (!file.startsWith("mountpoints-") || !file.endsWith(".img")) continue;
+    if (!file.startsWith("mountpoints-") || !file.endsWith(".img")) {
+      continue;
+    }
 
     const filePath = path.join(dir, file);
     const data = fs.readFileSync(filePath);
-    if (data.length < 8) continue;
+    if (data.length < 8) {
+      continue;
+    }
 
     const header = data.subarray(0, 8);
     let offset = 8;
     const entries = [];
     while (offset + 4 <= data.length) {
       const size = data.readUInt32LE(offset);
-      if (size === 0 || offset + 4 + size > data.length) break;
+      if (size === 0 || offset + 4 + size > data.length) {
+        break;
+      }
       entries.push(data.subarray(offset, offset + 4 + size));
       offset += 4 + size;
     }
@@ -336,7 +420,7 @@ export function stripBindMountEntries(dir, bindPaths) {
       // Strip bind mount paths specified by caller (string search in binary payload)
       if (paths.length > 0) {
         const payloadStr = payload.toString("latin1");
-        if (paths.some(p => payloadStr.includes(p))) {
+        if (paths.some((p) => payloadStr.includes(p))) {
           removedCount++;
           continue;
         }
@@ -391,18 +475,33 @@ export function extractCheckpointFiles(containerId, checkpointId) {
     // works even when DOCKER_HOST is pointing at the DiND inner daemon.
     execSync(
       `docker exec ${DIND_CONTAINER} sh -c ${shellQuote("tar cf - -C " + checkpointPath + " .")} > ${shellQuote(tarPath)}`,
-      { stdio: ["pipe", "pipe", "pipe"], shell: true,
-        env: { ...process.env, DOCKER_HOST: "unix:///var/run/docker.sock" } }
+      {
+        stdio: ["pipe", "pipe", "pipe"],
+        shell: true,
+        env: { ...process.env, DOCKER_HOST: "unix:///var/run/docker.sock" },
+      },
     );
   } catch {
     // Fall back to direct filesystem access (native Linux without DiND)
-    execFileSync("tar", ["cf", tarPath, "-C", checkpointPath, "."], { stdio: "pipe", env: TAR_ENV });
+    execFileSync("tar", ["cf", tarPath, "-C", checkpointPath, "."], {
+      stdio: "pipe",
+      env: TAR_ENV,
+    });
   }
 
   return { tmpDir, tarPath };
 }
 
-export function buildCheckpointImage(tarPath, originalImage, containerConfig, checkpointId, imageTag, workspaceTars = [], baseImageTag = "", checkpointedContainerId = "") {
+export function buildCheckpointImage(
+  tarPath,
+  originalImage,
+  containerConfig,
+  checkpointId,
+  imageTag,
+  workspaceTars = [],
+  baseImageTag = "",
+  checkpointedContainerId = "",
+) {
   const buildDir = fs.mkdtempSync(path.join(os.tmpdir(), "machinen-build-"));
 
   try {
@@ -454,19 +553,29 @@ export async function prepareCheckpoint(containerName, { stop = false } = {}) {
 
   // Extract bind-mounted files while the container is still running.
   // Devcontainers use info.Mounts (not HostConfig.Binds), so check both and dedupe.
-  const binds = [...new Set([
-    ...(config.Binds || []).map(b => b.split(":")[1]),
-    ...(info.Mounts || []).filter(m => m.Type === "bind").map(m => m.Destination),
-  ].filter(Boolean))];
-  const workspaceTmpDir = binds.length ? fs.mkdtempSync(path.join(os.tmpdir(), "machinen-ws-")) : null;
+  const binds = [
+    ...new Set(
+      [
+        ...(config.Binds || []).map((b) => b.split(":")[1]),
+        ...(info.Mounts || []).filter((m) => m.Type === "bind").map((m) => m.Destination),
+      ].filter(Boolean),
+    ),
+  ];
+  const workspaceTmpDir = binds.length
+    ? fs.mkdtempSync(path.join(os.tmpdir(), "machinen-ws-"))
+    : null;
   const savedBinds = [];
   for (const containerPath of binds) {
     const tarName = `bind-${containerPath.replace(/\//g, "_")}.tar`;
     const tarPath = path.join(workspaceTmpDir, tarName);
     try {
-      execSync(`docker cp ${shellQuote(containerName + ":" + containerPath)} - > ${shellQuote(tarPath)}`, {
-        stdio: ["pipe", "pipe", "pipe"], shell: true,
-      });
+      execSync(
+        `docker cp ${shellQuote(containerName + ":" + containerPath)} - > ${shellQuote(tarPath)}`,
+        {
+          stdio: ["pipe", "pipe", "pipe"],
+          shell: true,
+        },
+      );
       savedBinds.push({ containerPath, tarPath });
       console.log(`Saved bind mount: ${containerPath}`);
     } catch {
@@ -482,18 +591,24 @@ export async function prepareCheckpoint(containerName, { stop = false } = {}) {
   // Use a temporary container for this — it is NOT checkpointed.
   const cleanName = `${containerName}-clean`;
   if (savedBinds.length > 0) {
-    try { dockerExec(["rm", "-f", cleanName]); } catch {}
+    try {
+      dockerExec(["rm", "-f", cleanName]);
+    } catch {}
     dockerExec([
-      "run", "-d",
-      "--name", cleanName,
-      "--entrypoint", "sleep",
+      "run",
+      "-d",
+      "--name",
+      cleanName,
+      "--entrypoint",
+      "sleep",
       commitImage,
       "infinity",
     ]);
     for (const { containerPath, tarPath } of savedBinds) {
       const parent = path.posix.dirname(containerPath);
       execSync(`cat ${shellQuote(tarPath)} | docker cp - ${shellQuote(cleanName + ":" + parent)}`, {
-        stdio: ["pipe", "pipe", "pipe"], shell: true,
+        stdio: ["pipe", "pipe", "pipe"],
+        shell: true,
       });
       console.log(`Restored bind mount into image: ${containerPath}`);
     }
@@ -501,7 +616,9 @@ export async function prepareCheckpoint(containerName, { stop = false } = {}) {
     dockerExec(["commit", cleanName, commitImage]);
     dockerExec(["rm", "-f", cleanName]);
   }
-  if (workspaceTmpDir) fs.rmSync(workspaceTmpDir, { recursive: true, force: true });
+  if (workspaceTmpDir) {
+    fs.rmSync(workspaceTmpDir, { recursive: true, force: true });
+  }
 
   // Checkpoint the original container directly to preserve the real process tree.
   // exit=true stops the container after checkpoint (freeze); exit=false keeps it
@@ -556,7 +673,12 @@ const TMUX_SESSION = "machinen";
  * Docker's Config.User, so we check labels first.
  */
 export function resolveContainerUser(containerName) {
-  const labelsRaw = dockerExec(["inspect", "--format", "{{json .Config.Labels}}", containerName]).trim();
+  const labelsRaw = dockerExec([
+    "inspect",
+    "--format",
+    "{{json .Config.Labels}}",
+    containerName,
+  ]).trim();
   const labels = JSON.parse(labelsRaw || "{}");
   let user = "";
   const dcMetaRaw = labels["devcontainer.metadata"];
@@ -564,7 +686,9 @@ export function resolveContainerUser(containerName) {
     try {
       const entries = JSON.parse(dcMetaRaw);
       for (const entry of entries) {
-        if (entry.remoteUser) user = entry.remoteUser;
+        if (entry.remoteUser) {
+          user = entry.remoteUser;
+        }
       }
     } catch {}
   }
@@ -578,7 +702,9 @@ export function resolveContainerUser(containerName) {
 export function hasTmuxSession(containerName, sessionName = TMUX_SESSION, { user } = {}) {
   try {
     const args = ["exec"];
-    if (user) args.push("--user", user);
+    if (user) {
+      args.push("--user", user);
+    }
     args.push(containerName, "tmux", "has-session", "-t", sessionName);
     dockerExec(args);
     return true;
@@ -589,28 +715,42 @@ export function hasTmuxSession(containerName, sessionName = TMUX_SESSION, { user
 
 /** Start a tmux session inside the container if not already running. */
 export function ensureTmuxSession(containerName, { user, sessionName = TMUX_SESSION } = {}) {
-  const workdir = dockerExec(
-    ["inspect", "--format", "{{.Config.WorkingDir}}", containerName]
-  ).trim() || "/";
+  const workdir =
+    dockerExec(["inspect", "--format", "{{.Config.WorkingDir}}", containerName]).trim() || "/";
 
   // Install tmux as root — apt-get/apk require root even if the session user is non-root.
   // Run apt-get update first (Debian/Ubuntu images need a fresh package index).
   // Suppress all output; the session-start command below will surface any real failure.
-  dockerExec(["exec", "--user", "root", containerName, "sh", "-c",
-    "command -v tmux >/dev/null 2>&1 || { apt-get update -qq >/dev/null 2>&1 && apt-get install -y -qq tmux >/dev/null 2>&1; } || apk add -q tmux >/dev/null 2>&1 || true"]);
+  dockerExec([
+    "exec",
+    "--user",
+    "root",
+    containerName,
+    "sh",
+    "-c",
+    "command -v tmux >/dev/null 2>&1 || { apt-get update -qq >/dev/null 2>&1 && apt-get install -y -qq tmux >/dev/null 2>&1; } || apk add -q tmux >/dev/null 2>&1 || true",
+  ]);
 
   // Start the session as the specified user so the tmux socket is owned by that user.
   const sessionArgs = ["exec"];
-  if (user) sessionArgs.push("--user", user);
-  sessionArgs.push(containerName, "sh", "-c",
-    `tmux has-session -t ${sessionName} 2>/dev/null || tmux new-session -d -c ${shellQuote(workdir)} -s ${sessionName}`);
+  if (user) {
+    sessionArgs.push("--user", user);
+  }
+  sessionArgs.push(
+    containerName,
+    "sh",
+    "-c",
+    `tmux has-session -t ${sessionName} 2>/dev/null || tmux new-session -d -c ${shellQuote(workdir)} -s ${sessionName}`,
+  );
   dockerExec(sessionArgs);
 }
 
 /** Return docker CLI args to attach to the tmux session. */
 export function tmuxAttachArgs(containerName, { user, sessionName = TMUX_SESSION } = {}) {
   const args = ["exec", "-it"];
-  if (user) args.push("--user", user);
+  if (user) {
+    args.push("--user", user);
+  }
   args.push(containerName, "tmux", "attach-session", "-t", sessionName);
   return args;
 }
@@ -635,34 +775,47 @@ export function restoreLocally(imageTag, containerName) {
   }
 
   // Remove existing container
-  try { dockerExec(["rm", "-f", containerName]); } catch {}
+  try {
+    dockerExec(["rm", "-f", containerName]);
+  } catch {}
 
   // Parse devcontainer metadata once — used for user resolution and bind mount discovery.
   let dcMetaEntries = [];
   const dcMetaRaw = labels["devcontainer.metadata"];
   if (dcMetaRaw) {
-    try { dcMetaEntries = JSON.parse(dcMetaRaw); } catch {}
+    try {
+      dcMetaEntries = JSON.parse(dcMetaRaw);
+    } catch {}
   }
 
   // Resolve the container user.  The checkpoint image config stores the
   // Docker-level User; devcontainer metadata may override via remoteUser.
   let user = config.User || "";
   for (const entry of dcMetaEntries) {
-    if (entry.remoteUser) user = entry.remoteUser;
+    if (entry.remoteUser) {
+      user = entry.remoteUser;
+    }
   }
 
   const createArgs = [
     "create",
-    "--name", containerName,
-    "--security-opt", "seccomp=unconfined",
-    "--network", "host",
+    "--name",
+    containerName,
+    "--security-opt",
+    "seccomp=unconfined",
+    "--network",
+    "host",
   ];
-  if (user) createArgs.push("--user", user);
+  if (user) {
+    createArgs.push("--user", user);
+  }
   createArgs.push(createImage);
   const newContainerId = dockerExec(createArgs).trim();
 
   // Extract checkpoint from image into Docker's internal checkpoint directory
-  try { dockerExec(["rm", "-f", "machinen-tmp"]); } catch {}
+  try {
+    dockerExec(["rm", "-f", "machinen-tmp"]);
+  } catch {}
   dockerExec(["create", "--name", "machinen-tmp", imageTag]);
 
   const checkpointDir = `/var/lib/docker/containers/${newContainerId}/checkpoints/${checkpointId}`;
@@ -675,8 +828,8 @@ export function restoreLocally(imageTag, containerName) {
     dindExec(`mkdir -p ${checkpointDir}`);
     execSync(
       `docker cp machinen-tmp:/checkpoint/. - | ` +
-      `DOCKER_HOST=unix:///var/run/docker.sock docker exec -i ${DIND_CONTAINER} sh -c ` +
-      shellQuote(`tar xf - -C ${checkpointDir} && find ${checkpointDir} -name '._*' -delete`),
+        `DOCKER_HOST=unix:///var/run/docker.sock docker exec -i ${DIND_CONTAINER} sh -c ` +
+        shellQuote(`tar xf - -C ${checkpointDir} && find ${checkpointDir} -name '._*' -delete`),
       { stdio: "pipe", shell: true },
     );
   } catch {
@@ -695,18 +848,20 @@ export function restoreLocally(imageTag, containerName) {
   // Bind paths come from the original container's config.  They may have been
   // stripped during freeze, but we re-strip here as a safety net (path
   // normalization fixes, older checkpoints, etc.).
-  const origBinds = [...new Set([
-    ...(config.Binds || []).map(b => b.split(":")[1]),
-  ].filter(Boolean))];
+  const origBinds = [...new Set((config.Binds || []).map((b) => b.split(":")[1]).filter(Boolean))];
 
   // Also read bind mounts from devcontainer metadata
   for (const entry of dcMetaEntries) {
-    if (!Array.isArray(entry.mounts)) continue;
+    if (!Array.isArray(entry.mounts)) {
+      continue;
+    }
     for (const m of entry.mounts) {
       if (typeof m === "string") {
         if (m.includes("type=bind")) {
           const match = m.match(/target=([^,]+)/);
-          if (match) origBinds.push(match[1]);
+          if (match) {
+            origBinds.push(match[1]);
+          }
         }
       } else if (m.type === "bind" && m.target) {
         origBinds.push(m.target);
@@ -717,12 +872,7 @@ export function restoreLocally(imageTag, containerName) {
   const needsPatch = oldContainerId && oldContainerId !== newContainerId;
   if (needsPatch || origBinds.length > 0) {
     console.log("Patching checkpoint...");
-    patchCheckpoint(
-      checkpointDir,
-      oldContainerId || "",
-      newContainerId,
-      origBinds,
-    );
+    patchCheckpoint(checkpointDir, oldContainerId || "", newContainerId, origBinds);
   }
 
   // Remove stale socket files from the container's overlay.  The committed
@@ -739,7 +889,7 @@ export function restoreLocally(imageTag, containerName) {
   let upperDir = null;
   try {
     upperDir = JSON.parse(
-      dockerExec(["inspect", "--format", "{{json .GraphDriver.Data.UpperDir}}", containerName])
+      dockerExec(["inspect", "--format", "{{json .GraphDriver.Data.UpperDir}}", containerName]),
     );
   } catch {}
   if (!upperDir) {
@@ -750,19 +900,24 @@ export function restoreLocally(imageTag, containerName) {
     // files; that is rare when no docker-outside-of-docker features are used.
     try {
       const mounts = dindExec(`cat /proc/mounts`);
-      const line = mounts.split("\n").find(l => l.includes(`overlayfs/${newContainerId}`));
+      const line = mounts.split("\n").find((l) => l.includes(`overlayfs/${newContainerId}`));
       if (line) {
         const m = line.match(/upperdir=([^,\s]+)/);
-        if (m) upperDir = m[1];
+        if (m) {
+          upperDir = m[1];
+        }
       }
     } catch {}
   }
   if (upperDir) {
     // Stale socket paths that need to be hidden for CRIU to bind them.
     const socketPaths = ["/run/docker.sock", "/run/test.sock"];
-    const whiteoutCmds = socketPaths.map(sp =>
-      `mkdir -p ${upperDir}$(dirname ${sp}) && rm -f ${upperDir}${sp} && mknod ${upperDir}${sp} c 0 0`
-    ).join(" && ");
+    const whiteoutCmds = socketPaths
+      .map(
+        (sp) =>
+          `mkdir -p ${upperDir}$(dirname ${sp}) && rm -f ${upperDir}${sp} && mknod ${upperDir}${sp} c 0 0`,
+      )
+      .join(" && ");
     try {
       dindExec(whiteoutCmds);
     } catch {
@@ -771,7 +926,9 @@ export function restoreLocally(imageTag, containerName) {
         try {
           const dir = path.dirname(upperDir + sp);
           execFileSync("mkdir", ["-p", dir], { stdio: "pipe" });
-          try { fs.unlinkSync(upperDir + sp); } catch {}
+          try {
+            fs.unlinkSync(upperDir + sp);
+          } catch {}
           execFileSync("mknod", [upperDir + sp, "c", "0", "0"], { stdio: "pipe" });
         } catch {}
       }
@@ -802,15 +959,28 @@ export function restoreLocally(imageTag, containerName) {
         { encoding: "utf-8" },
       );
       const [fileList, criuLog] = out.split("---CRIU_LOG---");
-      lines.push("checkpoint files:", fileList.trim(), "", "CRIU restore.log (checkpoint dir):", criuLog.trim());
+      lines.push(
+        "checkpoint files:",
+        fileList.trim(),
+        "",
+        "CRIU restore.log (checkpoint dir):",
+        criuLog.trim(),
+      );
     } catch {
       try {
-        lines.push("checkpoint files:", execFileSync("ls", ["-la", checkpointDir + "/"], { stdio: "pipe", encoding: "utf-8" }));
+        lines.push(
+          "checkpoint files:",
+          execFileSync("ls", ["-la", checkpointDir + "/"], { stdio: "pipe", encoding: "utf-8" }),
+        );
         try {
           const log = fs.readFileSync(path.join(checkpointDir, "restore.log"), "utf-8");
           lines.push("CRIU restore.log:", log);
-        } catch { lines.push("CRIU restore.log: (not found)"); }
-      } catch (e) { lines.push(`diagnostics error: ${e.message}`); }
+        } catch {
+          lines.push("CRIU restore.log: (not found)");
+        }
+      } catch (e) {
+        lines.push(`diagnostics error: ${e.message}`);
+      }
     }
 
     // 2. CRIU restore.log from containerd task bundle (cleaned up on failure, but try)
@@ -819,9 +989,11 @@ export function restoreLocally(imageTag, containerName) {
         `/run/containerd/io.containerd.runtime.v2.task/moby/${newContainerId}`,
         `/var/run/docker/containerd/daemon/io.containerd.runtime.v2.task/moby/${newContainerId}`,
       ];
-      const searchCmd = taskDirs.map(d => `cat ${d}/restore.log 2>/dev/null`).join("; ");
+      const searchCmd = taskDirs.map((d) => `cat ${d}/restore.log 2>/dev/null`).join("; ");
       const taskLog = dindExec(searchCmd, { encoding: "utf-8" }).trim();
-      if (taskLog) lines.push("", "CRIU restore.log (containerd task dir):", taskLog);
+      if (taskLog) {
+        lines.push("", "CRIU restore.log (containerd task dir):", taskLog);
+      }
     } catch {}
 
     // 3. Docker daemon journal — persists even after container is removed.
@@ -833,8 +1005,11 @@ export function restoreLocally(imageTag, containerName) {
         `cat /var/log/daemon.log 2>/dev/null | tail -100 | grep -i criu`,
       ].join("; ");
       const daemonLog = dindExec(logCmd, { encoding: "utf-8" }).trim();
-      if (daemonLog) lines.push("", "Docker daemon log (CRIU-related):", daemonLog);
-      else lines.push("", "Docker daemon log: (no CRIU output found in journald/daemon logs)");
+      if (daemonLog) {
+        lines.push("", "Docker daemon log (CRIU-related):", daemonLog);
+      } else {
+        lines.push("", "Docker daemon log: (no CRIU output found in journald/daemon logs)");
+      }
     } catch {}
 
     // 4. Decode remaining mount entries from checkpoint.
@@ -852,17 +1027,19 @@ export function restoreLocally(imageTag, containerName) {
         const fname = blocks[i].trim();
         const data = Buffer.from(blocks[i + 1].replace(/\s/g, ""), "base64");
         const entries = decodeMntFile(data);
-        if (entries.length === 0) continue;
+        if (entries.length === 0) {
+          continue;
+        }
         // Build set of all uint32 values that appear as f1 (mnt_id candidate)
-        const f1Set = new Set(entries.map(e => e.f1));
-        const f3Set = new Set(entries.map(e => e.f3));
+        const f1Set = new Set(entries.map((e) => e.f1));
+        const f3Set = new Set(entries.map((e) => e.f3));
         lines.push("", `mount entries in ${fname} (raw fields):`);
         for (const e of entries) {
           const extF2 = f1Set.has(e.f2) ? "" : " [f2-ext]";
           const extF4 = f3Set.has(e.f4) ? "" : " [f4-ext]";
           lines.push(
             `  f1=${e.f1} f2=${e.f2}${extF2} f3=${e.f3} f4=${e.f4}${extF4}` +
-            `  s5=${JSON.stringify(e.s5)} s7=${JSON.stringify(e.s7)}`,
+              `  s5=${JSON.stringify(e.s5)} s7=${JSON.stringify(e.s7)}`,
           );
         }
       }
@@ -872,13 +1049,15 @@ export function restoreLocally(imageTag, containerName) {
     try {
       const criuDecodeOut = dindExec(
         `criu --version 2>/dev/null | head -1; ` +
-        `for f in ${checkpointDir}/mountpoints-*.img; do ` +
-        `echo "=== criu decode $f ==="; ` +
-        `criu decode --images-dir ${checkpointDir} -F "$(basename $f)" 2>/dev/null || echo "(decode failed)"; ` +
-        `done`,
+          `for f in ${checkpointDir}/mountpoints-*.img; do ` +
+          `echo "=== criu decode $f ==="; ` +
+          `criu decode --images-dir ${checkpointDir} -F "$(basename $f)" 2>/dev/null || echo "(decode failed)"; ` +
+          `done`,
         { encoding: "utf-8" },
       ).trim();
-      if (criuDecodeOut) lines.push("", "criu decode output:", criuDecodeOut);
+      if (criuDecodeOut) {
+        lines.push("", "criu decode output:", criuDecodeOut);
+      }
     } catch {}
 
     return lines.join("\n");
@@ -901,8 +1080,15 @@ export function restoreLocally(imageTag, containerName) {
   // Restore DNS by copying the DiND container's resolv.conf into the devcontainer.
   try {
     const resolvConf = dindExec("cat /etc/resolv.conf", { encoding: "utf-8" });
-    dockerExec(["exec", "--user", "root", containerName, "sh", "-c",
-      `printf '%s' ${shellQuote(resolvConf)} > /etc/resolv.conf`]);
+    dockerExec([
+      "exec",
+      "--user",
+      "root",
+      containerName,
+      "sh",
+      "-c",
+      `printf '%s' ${shellQuote(resolvConf)} > /etc/resolv.conf`,
+    ]);
     console.log("Restored /etc/resolv.conf");
   } catch {
     console.warn("Warning: could not restore /etc/resolv.conf (DNS may not work)");

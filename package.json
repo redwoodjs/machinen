@@ -2,25 +2,33 @@
   "name": "machinen-cli",
   "version": "1.0.0",
   "description": "",
-  "type": "module",
+  "keywords": [],
+  "license": "ISC",
+  "author": "",
   "bin": {
     "machinen": "./src/machinen.mjs"
   },
+  "type": "module",
   "scripts": {
     "dev:local": "MACHINEN_REGISTRY=localhost:5001 node src/machinen.mjs",
     "dev:remote": "node src/machinen.mjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lint": "oxlint --deny-warnings",
+    "lint:fix": "oxlint --fix",
+    "format": "oxfmt",
+    "format:fix": "oxfmt",
+    "format:check": "oxfmt --check"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "packageManager": "pnpm@10.30.3",
   "dependencies": {
     "@machine/sdk": "workspace:*"
   },
   "devDependencies": {
     "@devcontainers/cli": "^0.84.1",
+    "@nkzw/oxlint-config": "1.0.1",
     "@redwoodjs/agent-ci": "^0.7.1",
+    "oxfmt": "0.33.0",
+    "oxlint": "1.48.0",
     "vitest": "^4.1.0"
-  }
+  },
+  "packageManager": "pnpm@10.30.3"
 }

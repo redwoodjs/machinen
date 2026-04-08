@@ -21,6 +21,7 @@ The core sync logic already exists in `src/sync.mjs`. This RFC surfaces it as a 
 
 **`src/sync.mjs`**
 Contains `startBackgroundSync(containerName, registry, ip)`. Key observations:
+
 - `SYNC_INTERVAL` is a module-level constant (`5 * 60 * 1000`); not injectable.
 - The first sync fires after a 30-second delay (`setTimeout(sync, 30 * 1000)`) — described as "let user get settled." This is an artifact, not a deliberate UX choice.
 - `stop()` sets `running = false` and clears the timer, but does not wait for an in-progress sync to finish.
@@ -31,6 +32,7 @@ Contains `startBackgroundSync(containerName, registry, ip)`. Key observations:
 `getRegistry()` calls `gh api user`, `gh auth token`, and `gh auth status`. Auth failures throw a `new Error(...)` with a descriptive message including "write:packages". This is the auth-failure detection point — no lower-level registry client to interrogate.
 
 **`src/machinen.mjs`**
+
 - Uses a flat manual arg parser (`parseArgs`). Flags that have a value use `--flag value`; boolean flags use `--flag`.
 - Container detection: `currentContainerName()` derives from `git rev-parse --abbrev-ref HEAD` → `machinen-<branch>`. This only works in a git repo.
 - Container existence check pattern in `cmdOpen`: `docker inspect --format '{{.State.Status}}' <name>` — if it throws, the container doesn't exist; if it returns `"running"`, it's live.
@@ -38,14 +40,14 @@ Contains `startBackgroundSync(containerName, registry, ip)`. Key observations:
 
 ### Decision log
 
-| Open question | Decision | Rationale |
-|---|---|---|
-| Docker API for container existence | `execSync(docker inspect ...)` | Matches existing CLI patterns; no new dependencies |
-| `--registry` override flag | Omitted in v1 | Not in synthesis; adds complexity; `getRegistry()` is the right source of truth |
-| Auth-failure detection | Parse error message from `getRegistry()` / `pushImage` for known auth strings | No richer API surface available; pattern is already used implicitly |
-| `--remote` vs `--remote-ip` | `--remote` | Shorter; synthesis uses this form |
-| `version` field in status file | Include as `"1"` | Cheap to add now; allows future schema migrations |
-| `src/sync.mjs` interval interaction | Refactor `startBackgroundSync` to accept `intervalMs` option | Cleaner than reimplementing the loop; existing callers can pass `undefined` to get the default |
+| Open question                       | Decision                                                                      | Rationale                                                                                      |
+| ----------------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Docker API for container existence  | `execSync(docker inspect ...)`                                                | Matches existing CLI patterns; no new dependencies                                             |
+| `--registry` override flag          | Omitted in v1                                                                 | Not in synthesis; adds complexity; `getRegistry()` is the right source of truth                |
+| Auth-failure detection              | Parse error message from `getRegistry()` / `pushImage` for known auth strings | No richer API surface available; pattern is already used implicitly                            |
+| `--remote` vs `--remote-ip`         | `--remote`                                                                    | Shorter; synthesis uses this form                                                              |
+| `version` field in status file      | Include as `"1"`                                                              | Cheap to add now; allows future schema migrations                                              |
+| `src/sync.mjs` interval interaction | Refactor `startBackgroundSync` to accept `intervalMs` option                  | Cleaner than reimplementing the loop; existing callers can pass `undefined` to get the default |
 
 ---
 
@@ -60,6 +62,7 @@ export function startBackgroundSync(containerName, registry, ip, opts = {})
 ```
 
 Where `opts`:
+
 - `intervalMs` — sync interval in ms (default: `5 * 60 * 1000`)
 - `immediate` — if `true`, fire first sync immediately instead of after 30s (default: `false`)
 - `onSyncStart` — callback `() => void` called before each sync attempt
@@ -79,6 +82,7 @@ export async function cmdSync(args)
 ```
 
 Responsibilities:
+
 1. Parse and validate `--interval`, `--once`, `--remote` flags
 2. Validate auth via `getRegistry()` at startup
 3. Resolve container name (explicit arg → verify via Docker; no arg → auto-detect)
@@ -276,13 +280,13 @@ Feature: machinen watch daemon
 
 ```ts
 interface SyncStatus {
-  version: "1";                 // Schema version for future migrations
-  pid: number;                  // PID of the running daemon (stale after exit)
-  container: string;            // Container name
-  registry: string;             // Registry prefix (e.g. ghcr.io/user)
-  lastSync: string | null;      // ISO 8601 UTC timestamp of last sync attempt
+  version: "1"; // Schema version for future migrations
+  pid: number; // PID of the running daemon (stale after exit)
+  container: string; // Container name
+  registry: string; // Registry prefix (e.g. ghcr.io/user)
+  lastSync: string | null; // ISO 8601 UTC timestamp of last sync attempt
   lastSyncSuccess: boolean | null; // null until first attempt completes
-  syncCount: number;            // Total successful syncs in this session
+  syncCount: number; // Total successful syncs in this session
 }
 ```
 
