@@ -36,4 +36,5 @@ export {
   ssh,
   sshScript,
   SSH_OPTS,
+  cloudInit,
 } from "./cloud";

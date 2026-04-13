@@ -12,7 +12,8 @@
     "lint:fix": "oxlint --fix",
     "format": "oxfmt",
     "format:fix": "oxfmt",
-    "format:check": "oxfmt --check"
+    "format:check": "oxfmt --check",
+    "machinen-dev": "pnpm build && node packages/cli/dist/machinen.js"
   },
   "devDependencies": {
     "@devcontainers/cli": "^0.84.1",

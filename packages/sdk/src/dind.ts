@@ -58,7 +58,7 @@ export function getDiNDHost() {
   const inContainer = isInContainer();
 
   if (!inContainer) {
-    return `tcp://127.0.0.1:${DIND_PORT}`;
+    return `tcp://localhost:${DIND_PORT}`;
   }
 
   const ip = execFileSync(

@@ -298,7 +298,8 @@ export async function restore(
   }
 
   onProgress?.("restore-start", { containerName, imageTag, target: "remote" });
-  const ip = await provisionServer({ name: containerName });
+  // If remote is an IP address, use it directly; otherwise provision via cloud provider
+  const ip = typeof remote === "string" ? remote : await provisionServer({ name: containerName });
   remoteDockerLogin(sshScript, ip);
   remoteRestore(ip, containerName, imageTag, registry);
   onProgress?.("restore-complete", { ip, target: "remote" });
@@ -551,6 +552,13 @@ export async function destroy(name, { local, remote }: Record<string, any> = {})
   }
 
   if (remote || !name) {
+    // If remote is an IP, just remove the container on that machine (don't destroy the server)
+    if (typeof remote === "string") {
+      ssh(remote, `docker rm -f ${name} 2>/dev/null || true`);
+      results.destroyedRemote.push(name);
+      return results;
+    }
+
     if (!name) {
       const machines = listMachines();
       const remotes = machines.filter((m) => m.ip);
@@ -604,12 +612,16 @@ export function discover() {
 
 // --- getShellArgs ---
 
-export function getShellArgs(containerName, { host }: Record<string, any> = {}) {
+export function getShellArgs(containerName, { host, ip: remoteIp }: Record<string, any> = {}) {
   if (host === "remote") {
-    const machines = listMachines();
-    const machine = machines.find((m) => m.name === containerName && m.ip);
-    if (!machine) {
-      throw new Error(`No remote server found for ${containerName}.`);
+    let ip = remoteIp;
+    if (!ip) {
+      const machines = listMachines();
+      const machine = machines.find((m) => m.name === containerName && m.ip);
+      if (!machine) {
+        throw new Error(`No remote server found for ${containerName}.`);
+      }
+      ip = machine.ip;
     }
 
     const remoteCmd = [
@@ -622,7 +634,7 @@ export function getShellArgs(containerName, { host }: Record<string, any> = {}) 
 
     return {
       command: "ssh",
-      args: ["-t", ...SSH_OPTS, `root@${machine.ip}`, remoteCmd],
+      args: ["-t", ...SSH_OPTS, `root@${ip}`, remoteCmd],
       env: {},
     };
   }

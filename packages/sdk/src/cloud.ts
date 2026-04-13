@@ -104,7 +104,7 @@ export function sshScript(
 
 // --- Server Provisioning ---
 
-function cloudInit() {
+export function cloudInit() {
   const patchCriuTty = readFileSync(new URL("./patch-criu-tty.py", import.meta.url), "utf-8");
   return `#!/bin/bash
 set -e

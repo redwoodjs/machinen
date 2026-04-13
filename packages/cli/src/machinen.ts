@@ -20,6 +20,7 @@ import {
   reconnectDocker,
   getRegistry,
   createPowerWatcher,
+  cloudInit,
 } from "@machine/sdk";
 
 // --- arg parsing ---
@@ -235,7 +236,8 @@ async function cmdOpen(args) {
   }
 
   if (args.remote) {
-    const shellInfo = getShellArgs(containerName, { host: "remote" });
+    const ip = typeof args.remote === "string" ? args.remote : undefined;
+    const shellInfo = getShellArgs(containerName, { host: "remote", ip });
     const shell = spawnSync(shellInfo.command, shellInfo.args, { stdio: "inherit" });
     process.exit(shell.status || 0);
   }
@@ -503,6 +505,9 @@ async function main() {
     status: cmdStatus,
     logs: cmdLogs,
     destroy: cmdDestroy,
+    "setup-script": () => {
+      process.stdout.write(cloudInit());
+    },
   };
 
   if (!action || !commands[action]) {
@@ -522,19 +527,20 @@ Commands:
     --clean             Force reinstall of CRIU from source
   restore [name]        Restore container from checkpoint
     --local             Restore locally into <name>-restored
-    --remote            Provision server and restore remotely (default)
+    --remote [ip]       Restore remotely (provision Hetzner VM, or target IP)
     --clean             Force reinstall of CRIU from source
   watch [name]          Daemon: sync container + migrate on sleep/wake
     --interval <s>      Sync interval in seconds (default: 300, minimum: 30)
     --once              Run a single sync and exit
   open [name]           Open shell in container
     --local             Open shell in local container
-    --remote            Open shell on remote server
+    --remote [ip]       Open shell on remote server (or target IP)
   status [name]         Show sync state and recent registry images
   logs [name]           Tail remote container logs (or list machines)
   destroy [name]        Tear down container (both local and remote)
     --local             Only remove local containers
-    --remote            Only destroy remote server
+    --remote [ip]       Only destroy remote container (or on target IP)
+  setup-script          Print setup script for self-hosted machines
 
 All commands default to the current git branch if no name is given.
 
