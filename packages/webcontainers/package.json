@@ -1,0 +1,17 @@
+{
+  "name": "@machine/webcontainers",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@webcontainer/api": "^1.5.1",
+    "ghostty-web": "^0.4.0"
+  },
+  "devDependencies": {
+    "vite": "^6"
+  }
+}
