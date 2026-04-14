@@ -2,7 +2,13 @@ import { describe, it, expect, beforeEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { captureContainerConfig, tmuxAttachArgs, stripBindMountEntries } from "../docker";
+import {
+  captureContainerConfig,
+  tmuxAttachArgs,
+  stripBindMountEntries,
+  resolvePrunePaths,
+  DEFAULT_PRUNE_PATHS,
+} from "../docker";
 
 // Build a minimal CRIU MntEntry protobuf with just the mountpoint field.
 // Field 7 (mountpoint), wire type 2 (length-delimited string):
@@ -181,5 +187,31 @@ describe("tmuxAttachArgs", () => {
   it("respects a custom session name", () => {
     const args = tmuxAttachArgs("my-container", { sessionName: "work" });
     expect(args).toEqual(["exec", "-it", "my-container", "tmux", "attach-session", "-t", "work"]);
+  });
+});
+
+describe("resolvePrunePaths", () => {
+  it("returns defaults when no env is provided", () => {
+    expect(resolvePrunePaths([])).toEqual(DEFAULT_PRUNE_PATHS);
+  });
+
+  it("appends comma-separated paths from MACHINEN_PRUNE_PATHS", () => {
+    const env = ["FOO=bar", "MACHINEN_PRUNE_PATHS=/a,/b/c,/d/*"];
+    expect(resolvePrunePaths(env)).toEqual([...DEFAULT_PRUNE_PATHS, "/a", "/b/c", "/d/*"]);
+  });
+
+  it("appends newline-separated paths and trims whitespace", () => {
+    const env = ["MACHINEN_PRUNE_PATHS=  /a  \n  /b  \n"];
+    expect(resolvePrunePaths(env)).toEqual([...DEFAULT_PRUNE_PATHS, "/a", "/b"]);
+  });
+
+  it("ignores empty entries", () => {
+    const env = ["MACHINEN_PRUNE_PATHS=,,/a,,"];
+    expect(resolvePrunePaths(env)).toEqual([...DEFAULT_PRUNE_PATHS, "/a"]);
+  });
+
+  it("only matches the full env-var name, not prefixes", () => {
+    const env = ["MACHINEN_PRUNE_PATHS_OTHER=/nope"];
+    expect(resolvePrunePaths(env)).toEqual(DEFAULT_PRUNE_PATHS);
   });
 });
