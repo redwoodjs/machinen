@@ -54,11 +54,15 @@ async function ensurePreflightImage() {
     execSync(`docker image inspect ${PREFLIGHT_IMAGE}`, { stdio: "pipe" });
     return;
   } catch {}
+  const t0Pull = performance.now();
   execSync("docker pull alpine", { stdio: "pipe" });
+  console.log(`  pull alpine: ${((performance.now() - t0Pull) / 1000).toFixed(1)}s`);
+  const t0Build = performance.now();
   execSync(`docker build -t ${PREFLIGHT_IMAGE} -`, {
     stdio: "pipe",
     input: `FROM alpine\nRUN apk add -q --no-cache tmux\n`,
   });
+  console.log(`  build preflight image: ${((performance.now() - t0Build) / 1000).toFixed(1)}s`);
 }
 
 async function testCheckpointWorks(docker) {
@@ -80,6 +84,7 @@ async function testCheckpointWorks(docker) {
 
     // Test with tmux — the patched CRIU is required to checkpoint containers
     // with PTY sessions (removes the tty_verify_ctty pid_real check).
+    const t0Create = performance.now();
     container = await docker.createContainer({
       Image: PREFLIGHT_IMAGE,
       name: testName,
@@ -89,35 +94,56 @@ async function testCheckpointWorks(docker) {
       HostConfig: { SecurityOpt: ["seccomp=unconfined"], NetworkMode: "host" },
     });
     await container.start();
+    console.log(`  create + start test container: ${((performance.now() - t0Create) / 1000).toFixed(1)}s`);
 
     // Wait for setup to complete: once `exec sleep 300` runs, the shell has
     // been replaced and there are no lingering TCP sockets.
+    const t0Setup = performance.now();
     const setupDeadline = Date.now() + 30_000;
+    let lastErr = "";
+    let ready = false;
     while (Date.now() < setupDeadline) {
       try {
-        const top = execSync(`docker exec ${testName} ps -o comm= -p 1`, {
+        // Read /proc/1/comm — BusyBox ps in alpine doesn't support `-p`, so
+        // `ps -o comm= -p 1` always errors and the loop used to burn the full
+        // 30s deadline even though pid 1 reaches 'sleep' in ~50ms.
+        const top = execSync(`docker exec ${testName} cat /proc/1/comm`, {
           stdio: "pipe",
           encoding: "utf-8",
         }).trim();
         if (top === "sleep") {
+          ready = true;
           break;
         }
-      } catch {}
-      await new Promise((r) => setTimeout(r, 500));
+      } catch (err) {
+        lastErr = err.message || String(err);
+      }
+      await new Promise((r) => setTimeout(r, 100));
     }
+    const setupMs = performance.now() - t0Setup;
+    if (!ready) {
+      throw new Error(
+        `Test container did not reach 'sleep' state in 30s.${lastErr ? ` Last error: ${lastErr.split("\n")[0]}` : ""}`,
+      );
+    }
+    console.log(`  wait for container setup: ${(setupMs / 1000).toFixed(1)}s`);
 
     // Use the Docker API (not CLI) to create the checkpoint.  The API stores
     // files at /var/lib/docker/containers/<id>/checkpoints/<cpId>/ inside DiND
     // and also commits checkpoint blobs to containerd.  We purge those blobs
     // immediately so that docker start --checkpoint can commit them fresh
     // without hitting "content sha256:...: already exists".
+    const t0Checkpoint = performance.now();
     const { checkpointId: cpId } = await createCheckpoint(testName, { exit: true });
     checkpointId = cpId;
+    console.log(`  create checkpoint (CRIU): ${((performance.now() - t0Checkpoint) / 1000).toFixed(1)}s`);
 
     pruneContainerdCheckpoints();
 
     // Restore the same container from its checkpoint.
+    const t0Restore = performance.now();
     execSync(`docker start --checkpoint ${checkpointId} ${testName}`, { stdio: "pipe" });
+    console.log(`  restore checkpoint (CRIU): ${((performance.now() - t0Restore) / 1000).toFixed(1)}s`);
 
     return true;
   } catch (err) {
@@ -163,6 +189,19 @@ export async function checkPrerequisites(_docker, opts: Record<string, any> = {}
   const { hostname, port } = new URL(diNDHost);
   reconnectDocker(hostname, parseInt(port, 10));
   // `docker` is a live ESM binding — it now points to the DiND inner daemon.
+
+  // The internal TCP check in ensureDiND verifies the listener from *inside*
+  // DiND, but host-side port forwarding (Docker Desktop / OrbStack) may still
+  // be settling.  Retry from the host before proceeding.
+  const tcpDeadline = Date.now() + 30_000;
+  while (Date.now() < tcpDeadline) {
+    try {
+      execSync(`docker info`, { stdio: "pipe", timeout: 5000 });
+      break;
+    } catch {
+      await new Promise((r) => setTimeout(r, 500));
+    }
+  }
 
   console.log("Testing if docker checkpoint works...");
   if (!(await testCheckpointWorks(docker))) {
