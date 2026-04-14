@@ -1,102 +1,83 @@
-# Pid 1 Stdio Restore — CRIU Checkpoint Portability
+# Why Restore Was Broken — Explained Simply
 
-## Problem
+## The problem
 
-Both `machinen restore --local` and `machinen restore --remote` fail with:
+We froze a container and tried to restore it on another computer. It didn't work. The error message said "criu failed" but that wasn't the real reason.
 
-```
-OCI runtime restore failed: criu failed: type RESTORE errno 0: unknown
-```
+## What was really happening
 
-preceded in `dockerd` logs by:
+Imagine the container is a little house, and the house has a phone. When the house was built, Docker installed a phone line and gave it a number — let's say `pipe:[62531]`. The person inside the house (pid 1) picked up the phone and held it.
 
-```
-copy stream failed: reading from a closed fifo stream=stdout
-copy stream failed: reading from a closed fifo stream=stderr
-failed to read init pid file: ... /moby/<cid>/init.pid: no such file or directory
-```
+When we froze the house, we wrote down the phone number the person was holding: `pipe:[62531]`. We packed this note into our moving box along with everything else.
 
-CRIU's own log ends with `Restore finished successfully. Tasks resumed.` — so CRIU is not the actual failure. The error is downstream in the containerd-shim's stdio plumbing.
+Then we moved the house to a new computer.
 
-Fails identically on:
-- local DinD (Alpine, OrbStack kernel 6.17, patched CRIU 4.2)
-- remote Hetzner Ubuntu (Linux 6.8, stock CRIU)
+At the new computer, Docker built a new phone line with a different number, like `pipe:[99999]`. But the person we restored was still holding a note that said "my phone is 62531." They tried to use their phone — but 62531 doesn't exist on this new computer. So they couldn't hear anything, couldn't say anything, and everything fell apart.
 
-Different kernels, different CRIU versions — same symptom. The broken thing travels with the checkpoint.
+Docker then shrugged and said "criu failed" — which was wrong. CRIU did its job fine. The problem was the phone number we wrote down wasn't portable.
 
-## Root Cause
+## The fix
 
-The devcontainer CLI's injected wrapper script lets pid 1 inherit dockerd's stdout/stderr pipes. CRIU's `descriptors.json` captures them as anonymous pipe inodes:
+Before freezing, tell the person inside the house to hang up the phone and throw it away. Now instead of holding a phone, they're just sitting in silence, looking at a hole in the wall called `/dev/null`. That "hole in the wall" exists on every computer. So when we restore on a new computer, the person picks up their note, sees `/dev/null`, looks around the new house, finds the same hole in the wall, and everything works.
 
-```json
-["/dev/null", "pipe:[62531]", "pipe:[62532]"]
-```
-
-On restore, the new containerd-shim creates **fresh** fifos with different inodes. Runc is supposed to pass `--inherit-fd fd[1]:pipe:[NEW]` so CRIU remaps the restored pid 1's fd 1/2 onto the new fifos. Either runc stopped doing this or the mapping regressed upstream — untracked. The result: restored pid 1 holds dangling references to the dead pipe inodes, the new shim's fifo never gets written to, the shim times out, closes its end, disconnects, `init.pid` never gets written, and dockerd surfaces a useless generic "criu failed".
-
-## Fix
-
-Redirect pid 1's stdio to `/dev/null` before the infinite-sleep loop. `/dev/null` is a durable path (same inode-equivalent on every machine), so `descriptors.json` captures a path any shim can reopen regardless of whether the original shim's fifos still exist.
-
-In `.devcontainer/Dockerfile`:
-
-```dockerfile
-FROM mcr.microsoft.com/devcontainers/javascript-node:1-22
-
-CMD ["/bin/sh", "-c", "exec </dev/null >/dev/null 2>&1; while sleep 1 & wait $!; do :; done"]
-```
-
-In `.devcontainer/devcontainer.json`:
-
-```json
-{
-  "build": { "dockerfile": "Dockerfile" },
-  "overrideCommand": false,
-  ...
-}
-```
-
-`overrideCommand: false` is load-bearing — without it, devcontainer CLI reinjects its own wrapper that brings the pipe stdio back. `build.dockerfile` is required because devcontainer.json has no way to override CMD directly.
-
-### Verification
-
-After `machinen up`, pid 1's fds should all be `/dev/null`:
+In code, "throw the phone away" looks like:
 
 ```
-$ docker exec <container> ls -la /proc/1/fd/
-lr-x------  0 -> /dev/null
-l-wx------  1 -> /dev/null
-l-wx------  2 -> /dev/null
+exec </dev/null >/dev/null 2>&1
 ```
 
-Restored container after `machinen restore --local` should show the original checkpointed tmux/bash at their captured pids (not fresh ones):
+We put this at the very beginning of what pid 1 does, before anything else.
+
+## Where the fix lives
+
+Two files:
+
+**`.devcontainer/Dockerfile`** — tells Docker to build the container with pid 1 running a command that throws the phone away first, then sleeps forever.
+
+**`.devcontainer/devcontainer.json`** — has `"overrideCommand": false` so the devcontainer tool doesn't secretly re-install the phone.
+
+## How to check it's working
+
+After `machinen up`, look inside the container at what pid 1 is holding:
 
 ```
-$ docker exec <restored> ps -ef
-root    1  ... /bin/sh -c exec </dev/null >/dev/null 2>&1; while sleep 1 ...
-node  1567  1 ... tmux new-session -d -c / -s machinen   <- preserved pid
-node  1568  1567 ... -bash                                  <- preserved pid
+docker exec <container> ls -la /proc/1/fd/
 ```
 
-Preserved pids prove CRIU genuinely restored the process tree rather than just booting a fresh container.
+You should see three arrows, all pointing to `/dev/null`:
 
-## Things that do NOT fix it
-
-- **Pinning CRIU** — the regression isn't in CRIU; it's in how runc/shim remaps fds post-restore.
-- **Stripping `/dev/*` from mountpoints-*.img** — works around a different mount-namespace error but doesn't address the fd/pipe issue.
-- **Pinning docker-in-docker image version** — tested, same failure.
-- **Using `--tty`** — replaces pipes with a PTY; also captured in descriptors.json and similarly unrestorable across hosts unless you also widen up PTY allocation.
-
-## Debugging tips
-
-CRIU descriptors for pid 1 are extractable from the checkpoint image (`FROM scratch` + `ADD checkpoint.tar`) without decompressing anything:
-
-```bash
-docker create --name x <checkpoint-image> /nonexistent
-docker cp x:/checkpoint/descriptors.json -
-docker rm x
+```
+0 -> /dev/null
+1 -> /dev/null
+2 -> /dev/null
 ```
 
-If any of the three strings in that JSON array is not a path (i.e. `pipe:[...]`, `socket:[...]`, `anon_inode:[...]`), restore will break on a fresh host.
+If any of them say `pipe:[somenumber]` instead — the fix isn't active, and restore will break on another computer.
 
-The containerd-shim's CRIU log is at `/var/lib/docker/containerd/daemon/io.containerd.runtime.v2.task/moby/<cid>/restore.log` inside the docker host (or DinD container). Only written if CRIU gets far enough — a successful-looking log ending in `Restore finished successfully. Tasks resumed.` while dockerd still reports "criu failed" means the failure is in the post-CRIU shim handoff, not CRIU itself.
+After `machinen restore --local`, check that the restored container still has the original processes from the frozen one. Look at `ps -ef`:
+
+```
+node  1567  ... tmux ...
+node  1568  1567 ... bash ...
+```
+
+If `tmux` and `bash` have the same pid numbers they had before the freeze, CRIU really did restore the old state. If they have different pids, you got a fresh container instead of a restored one.
+
+## Things that looked like they might help but didn't
+
+- **Pinning the CRIU version.** The problem wasn't CRIU — CRIU was doing its job.
+- **Pinning the Docker-in-Docker version.** Same — not the broken piece.
+- **Deleting mount entries from the checkpoint.** Fixes a different problem (mount namespaces), not this one.
+- **Using `--tty`.** Trades the phone for a walkie-talkie. Still not portable.
+
+## How to peek at the phone number the checkpoint is holding
+
+The checkpoint image has a file called `descriptors.json` that lists what pid 1 is holding onto. You can look at it:
+
+```
+docker create --name peek <checkpoint-image> /nonexistent
+docker cp peek:/checkpoint/descriptors.json -
+docker rm peek
+```
+
+It'll say something like `["/dev/null", "/dev/null", "/dev/null"]` (good — portable) or `["/dev/null", "pipe:[62531]", "pipe:[62532]"]` (bad — will break on another computer).
