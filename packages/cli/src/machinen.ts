@@ -70,6 +70,11 @@ function cliProgress(event, data) {
         console.log(`Shell: machinen open --remote`);
       }
       break;
+    case "step-complete": {
+      const s = (data.durationMs / 1000).toFixed(1);
+      console.log(`  ${data.step}: ${s}s`);
+      break;
+    }
     case "sync-warning":
       console.warn(`[WARN] ${data.message}`);
       break;
