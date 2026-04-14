@@ -94,7 +94,9 @@ async function testCheckpointWorks(docker) {
       HostConfig: { SecurityOpt: ["seccomp=unconfined"], NetworkMode: "host" },
     });
     await container.start();
-    console.log(`  create + start test container: ${((performance.now() - t0Create) / 1000).toFixed(1)}s`);
+    console.log(
+      `  create + start test container: ${((performance.now() - t0Create) / 1000).toFixed(1)}s`,
+    );
 
     // Wait for setup to complete: once `exec sleep 300` runs, the shell has
     // been replaced and there are no lingering TCP sockets.
@@ -136,14 +138,18 @@ async function testCheckpointWorks(docker) {
     const t0Checkpoint = performance.now();
     const { checkpointId: cpId } = await createCheckpoint(testName, { exit: true });
     checkpointId = cpId;
-    console.log(`  create checkpoint (CRIU): ${((performance.now() - t0Checkpoint) / 1000).toFixed(1)}s`);
+    console.log(
+      `  create checkpoint (CRIU): ${((performance.now() - t0Checkpoint) / 1000).toFixed(1)}s`,
+    );
 
     pruneContainerdCheckpoints();
 
     // Restore the same container from its checkpoint.
     const t0Restore = performance.now();
     execSync(`docker start --checkpoint ${checkpointId} ${testName}`, { stdio: "pipe" });
-    console.log(`  restore checkpoint (CRIU): ${((performance.now() - t0Restore) / 1000).toFixed(1)}s`);
+    console.log(
+      `  restore checkpoint (CRIU): ${((performance.now() - t0Restore) / 1000).toFixed(1)}s`,
+    );
 
     return true;
   } catch (err) {
