@@ -549,7 +549,7 @@ export function buildCheckpointImage(
 
     // Write Dockerfile
     const configJson = JSON.stringify(containerConfig).replace(/'/g, "'\\''");
-    const dockerfile = `FROM ${originalImage}
+    const dockerfile = `FROM scratch
 LABEL machinen.config='${configJson}'
 LABEL machinen.checkpoint-id='${checkpointId}'
 LABEL machinen.original-image='${originalImage}'
@@ -864,7 +864,7 @@ export function restoreLocally(imageTag, containerName) {
   try {
     dockerExec(["rm", "-f", "machinen-tmp"]);
   } catch {}
-  dockerExec(["create", "--name", "machinen-tmp", imageTag]);
+  dockerExec(["create", "--name", "machinen-tmp", imageTag, "/nonexistent"]);
 
   const checkpointDir = `/var/lib/docker/containers/${newContainerId}/checkpoints/${checkpointId}`;
 
