@@ -20,7 +20,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     patchelf \
     && rm -rf /var/lib/apt/lists/*
 
-RUN git clone --depth 1 https://github.com/checkpoint-restore/criu.git /criu
+# Pin CRIU to the exact SHA that produced a successful local restore on
+# Mar 27 2026 — recovered from an old runc restore.log inside a DinD volume
+# ("Version: 4.2 (gitid 7539f39)").  Previously unpinned `--depth 1 main`, so
+# rebuilds silently picked up newer CRIU commits over time.  Bump this
+# deliberately after regression-testing the new commit against a full
+# freeze → push → pull → restore cycle.
+ARG CRIU_SHA=7539f399
+RUN git clone https://github.com/checkpoint-restore/criu.git /criu && \
+    cd /criu && git checkout ${CRIU_SHA}
 
 COPY patch-criu.py /tmp/patch-criu.py
 RUN python3 /tmp/patch-criu.py /criu/criu/tty.c
