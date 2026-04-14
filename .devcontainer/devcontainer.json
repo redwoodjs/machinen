@@ -1,6 +1,7 @@
 {
   "name": "Machinen",
-  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22",
+  "build": { "dockerfile": "Dockerfile" },
+  "overrideCommand": false,
 
   "features": {
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
