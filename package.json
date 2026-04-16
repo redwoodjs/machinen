@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "machinen-dev": "bash scripts/machinen-dev.sh",
     "build": "pnpm -r build",
     "typecheck": "tsgo --noEmit",
     "pretest": "pnpm build",

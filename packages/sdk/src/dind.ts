@@ -54,18 +54,48 @@ function isInContainer() {
   return false;
 }
 
+/** Detect whether the host Docker runtime is OrbStack. */
+function isOrbStack() {
+  try {
+    const os = execFileSync("docker", ["info", "--format", "{{.OperatingSystem}}"], {
+      encoding: "utf-8",
+      stdio: "pipe",
+      timeout: 3000,
+      ...HOST_DOCKER_OPTS,
+    }).trim();
+    return os === "OrbStack";
+  } catch {
+    return false;
+  }
+}
+
+function getDiNDBridgeIP() {
+  // With custom bridge networks, inspect returns IPs under Networks.<name>.IPAddress
+  // rather than the legacy top-level IPAddress field.
+  const raw = execFileSync(
+    "docker",
+    [
+      "inspect",
+      "--format",
+      "{{range $k, $v := .NetworkSettings.Networks}}{{$v.IPAddress}} {{end}}",
+      DIND_CONTAINER,
+    ],
+    { encoding: "utf-8", stdio: "pipe", ...HOST_DOCKER_OPTS },
+  ).trim();
+  return raw.split(/\s+/).find((ip) => ip) || "";
+}
+
 export function getDiNDHost() {
   const inContainer = isInContainer();
 
-  if (!inContainer) {
+  // OrbStack routes container bridge IPs directly from the Mac host, and its
+  // published-port forwarding can get into a broken state that hangs TCP
+  // connections mid-response.  Use the bridge IP to bypass that entirely.
+  if (!inContainer && !isOrbStack()) {
     return `tcp://127.0.0.1:${DIND_PORT}`;
   }
 
-  const ip = execFileSync(
-    "docker",
-    ["inspect", "--format", "{{.NetworkSettings.IPAddress}}", DIND_CONTAINER],
-    { encoding: "utf-8", stdio: "pipe", ...HOST_DOCKER_OPTS },
-  ).trim();
+  const ip = getDiNDBridgeIP();
   if (!ip) {
     throw new Error("machinen-dind has no bridge IP — is it running?");
   }
@@ -119,6 +149,29 @@ function resolveHostPath(containerPath) {
 }
 
 /**
+ * Check whether the host-side TCP connection to DiND is healthy.  Uses a
+ * short timeout so we fail fast when the port forwarding is broken.  Runs
+ * two consecutive `docker info` calls — the first may succeed due to a
+ * stale connection buffer, but the second will expose a broken listener.
+ */
+function isHostTcpHealthy() {
+  try {
+    const dockerHost = getDiNDHost();
+    const env = { ...process.env, DOCKER_HOST: dockerHost };
+    for (let i = 0; i < 2; i++) {
+      execFileSync("docker", ["info"], {
+        stdio: "pipe",
+        timeout: 3000,
+        env,
+      });
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Build the machinen-dind image (if not already present) and start the
  * container (if not already running).  Mounts the user home tree so the
  * inner Docker daemon can resolve workspace bind-mount paths from devcontainer CLI.
@@ -139,10 +192,17 @@ export async function ensureDiND(scriptsDir = DEFAULT_SCRIPTS_DIR) {
       const runningRegistry = idx !== -1 ? args[idx + 1] : null;
       const wantedRegistry = process.env.MACHINEN_REGISTRY ?? null;
       if (runningRegistry === wantedRegistry) {
-        console.log("machinen-dind already running.");
-        return;
+        // Verify the host-side TCP port forwarding is healthy — Docker Desktop
+        // / OrbStack can leave the forwarded port in a broken state across
+        // host-process restarts.  If the TCP check fails, restart DiND.
+        if (isHostTcpHealthy()) {
+          console.log("machinen-dind already running.");
+          return;
+        }
+        console.log("machinen-dind TCP port is unresponsive, restarting...");
+      } else {
+        console.log("machinen-dind registry config changed, restarting...");
       }
-      console.log("machinen-dind registry config changed, restarting...");
       execFileSync("docker", ["rm", "-f", DIND_CONTAINER], { stdio: "pipe", ...HOST_DOCKER_OPTS });
     } else {
       // Container exists but is not running — remove it
@@ -190,6 +250,7 @@ export async function ensureDiND(scriptsDir = DEFAULT_SCRIPTS_DIR) {
   }
 
   console.log("Starting machinen-dind...");
+  const t0Start = performance.now();
   const mountArgs = workspaceMounts.flatMap((m) => ["-v", m]);
   execFileSync(
     "docker",
@@ -220,6 +281,7 @@ export async function ensureDiND(scriptsDir = DEFAULT_SCRIPTS_DIR) {
     ],
     { stdio: "pipe", ...HOST_DOCKER_OPTS },
   );
+  console.log(`  started in ${((performance.now() - t0Start) / 1000).toFixed(1)}s`);
 
   // When MACHINEN_REGISTRY is a localhost address, the host-side registry is not
   // reachable from inside DinD (localhost is DinD's own loopback).  Set up an
@@ -259,6 +321,7 @@ export async function ensureDiND(scriptsDir = DEFAULT_SCRIPTS_DIR) {
   // Wait for the inner dockerd to be ready using docker exec (avoids TCP
   // connectivity issues when the caller is itself a container).
   console.log("Waiting for inner Docker daemon...");
+  const t0Daemon = performance.now();
   const deadline = Date.now() + 60_000;
   while (Date.now() < deadline) {
     try {
@@ -271,6 +334,7 @@ export async function ensureDiND(scriptsDir = DEFAULT_SCRIPTS_DIR) {
       await new Promise((r) => setTimeout(r, 1000));
     }
   }
+  console.log(`  daemon ready in ${((performance.now() - t0Daemon) / 1000).toFixed(1)}s`);
 
   const dumpLogsAndThrow = (msg) => {
     let logs = "";
@@ -291,6 +355,7 @@ export async function ensureDiND(scriptsDir = DEFAULT_SCRIPTS_DIR) {
   // The unix socket is up, but the TCP listener (port 2375) may still be
   // starting.  Check from *inside* DinD so we don't depend on the caller's
   // network topology (host vs sibling container).
+  const t0Tcp = performance.now();
   while (Date.now() < deadline) {
     try {
       execFileSync(
@@ -298,6 +363,7 @@ export async function ensureDiND(scriptsDir = DEFAULT_SCRIPTS_DIR) {
         ["exec", DIND_CONTAINER, "docker", "-H", `tcp://127.0.0.1:${DIND_PORT}`, "info"],
         { stdio: "pipe", ...HOST_DOCKER_OPTS },
       );
+      console.log(`  TCP listener ready in ${((performance.now() - t0Tcp) / 1000).toFixed(1)}s`);
       console.log("machinen-dind ready.");
       return;
     } catch {
