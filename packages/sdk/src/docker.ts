@@ -22,6 +22,38 @@ export function reconnectDocker(host, port) {
 /** Env for tar that suppresses macOS AppleDouble resource fork files (._*). */
 const TAR_ENV = { ...process.env, COPYFILE_DISABLE: "1" };
 
+// Paths purged from the baked-in bind-mount layer before the final commit.
+//
+// DANGER: CRIU restores a live process tree with open file descriptors, mmaps,
+// and filesystem references (pnpm's node_modules is symlinks into the global
+// store, for example).  Anything pruned here will be MISSING on restore.
+// Entries must satisfy ALL of:
+//   1. No running process keeps an open fd or mmap to them.
+//   2. No other file references them (no symlink targets).
+//   3. Their absence only costs a re-fetch at next invocation of the owning tool.
+//
+// Defaults cover only paths that are universally dead weight: rotated log
+// files and apt's .deb cache.  Everything else (language caches, build
+// artifacts) is stack-specific, so devcontainers opt in by setting
+// MACHINEN_PRUNE_PATHS in containerEnv — and they should only list paths
+// they can prove are safe for their own setup.
+export const DEFAULT_PRUNE_PATHS = [
+  "/var/log/*.gz",
+  "/var/log/*.1",
+  "/var/cache/apt/archives/*.deb",
+];
+
+/** Read MACHINEN_PRUNE_PATHS from container env and merge with defaults. */
+export function resolvePrunePaths(containerEnv: string[] = []): string[] {
+  const prefix = "MACHINEN_PRUNE_PATHS=";
+  const raw = containerEnv.find((e) => e.startsWith(prefix))?.slice(prefix.length) ?? "";
+  const extra = raw
+    .split(/[\n,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return [...DEFAULT_PRUNE_PATHS, ...extra];
+}
+
 /** Run a docker CLI command without shell interpolation. */
 export function dockerExec(args, opts: Record<string, any> = {}) {
   return execFileSync("docker", args, { stdio: "pipe", encoding: "utf-8", ...opts });
@@ -517,7 +549,7 @@ export function buildCheckpointImage(
 
     // Write Dockerfile
     const configJson = JSON.stringify(containerConfig).replace(/'/g, "'\\''");
-    const dockerfile = `FROM ${originalImage}
+    const dockerfile = `FROM scratch
 LABEL machinen.config='${configJson}'
 LABEL machinen.checkpoint-id='${checkpointId}'
 LABEL machinen.original-image='${originalImage}'
@@ -615,6 +647,19 @@ export async function prepareCheckpoint(containerName, { stop = false } = {}) {
       );
       console.log(`Restored bind mount into image: ${containerPath}`);
     }
+    // Purge rebuildable caches and host-keyed session state from the baked
+    // layer so they don't bloat every push.  Defaults cover OS ephemera;
+    // devcontainers extend via MACHINEN_PRUNE_PATHS in containerEnv.
+    const prunePaths = resolvePrunePaths(info.Config?.Env ?? []);
+    try {
+      dockerExec([
+        "exec",
+        cleanName,
+        "sh",
+        "-c",
+        `rm -rf ${prunePaths.join(" ")} 2>/dev/null || true`,
+      ]);
+    } catch {}
     console.log("Re-committing with workspace files...");
     dockerExec(["commit", cleanName, commitImage]);
     dockerExec(["rm", "-f", cleanName]);
@@ -819,7 +864,7 @@ export function restoreLocally(imageTag, containerName) {
   try {
     dockerExec(["rm", "-f", "machinen-tmp"]);
   } catch {}
-  dockerExec(["create", "--name", "machinen-tmp", imageTag]);
+  dockerExec(["create", "--name", "machinen-tmp", imageTag, "/nonexistent"]);
 
   const checkpointDir = `/var/lib/docker/containers/${newContainerId}/checkpoints/${checkpointId}`;
 

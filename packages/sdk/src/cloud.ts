@@ -248,7 +248,7 @@ export function remoteFreeze(ip, containerName, registry) {
       `cd $TMPDIR`,
       `tar cf checkpoint.tar -C /var/lib/docker/containers/${containerId}/checkpoints/${checkpointId} .`,
       `cat > Dockerfile << 'DEOF'`,
-      `FROM ${originalImage}`,
+      `FROM scratch`,
       `LABEL machinen.config='${configRaw.replace(/'/g, "'\\''")}'`,
       `LABEL machinen.checkpoint-id='${checkpointId}'`,
       `LABEL machinen.original-image='${originalImage}'`,
@@ -348,7 +348,7 @@ done
 
   // Extract checkpoint data into Docker's checkpoint directory
   ssh(ip, `docker rm -f machinen-tmp 2>/dev/null || true`, { stdio: "pipe" });
-  ssh(ip, `docker create --name machinen-tmp ${imageTag}`, { stdio: "pipe" });
+  ssh(ip, `docker create --name machinen-tmp ${imageTag} /nonexistent`, { stdio: "pipe" });
   const checkpointDir = `/var/lib/docker/containers/${newContainerId}/checkpoints/${checkpointId}`;
   ssh(
     ip,

@@ -184,8 +184,10 @@ export async function freeze(
 
   onProgress?.("freeze-start", { containerName });
 
+  let t0 = performance.now();
   const { config, commitImage, cleanName, containerId, checkpointId, tmpDir, tarPath } =
     await prepareCheckpoint(containerName, { stop: !keepAlive });
+  onProgress?.("step-complete", { step: "checkpoint", durationMs: performance.now() - t0 });
 
   try {
     const prefix = `${registry}/machinen/${containerName}`;
@@ -196,9 +198,12 @@ export async function freeze(
 
     dockerExec(["tag", commitImage, baseTag]);
     dockerExec(["tag", commitImage, baseLatestTag]);
+    t0 = performance.now();
     pushImage(baseTag);
     pushImage(baseLatestTag);
+    onProgress?.("step-complete", { step: "push base image", durationMs: performance.now() - t0 });
 
+    t0 = performance.now();
     buildCheckpointImage(
       tarPath,
       commitImage,
@@ -209,10 +214,19 @@ export async function freeze(
       baseLatestTag,
       containerId,
     );
+    onProgress?.("step-complete", {
+      step: "build checkpoint image",
+      durationMs: performance.now() - t0,
+    });
     dockerExec(["tag", tag, latestTag]);
 
+    t0 = performance.now();
     pushImage(tag);
     pushImage(latestTag);
+    onProgress?.("step-complete", {
+      step: "push checkpoint image",
+      durationMs: performance.now() - t0,
+    });
 
     onProgress?.("freeze-complete", { tag, checkpointId });
     return { tag, checkpointId };
@@ -290,17 +304,28 @@ export async function restore(
 
   if (local) {
     onProgress?.("restore-start", { containerName, imageTag, target: "local" });
+    let t0 = performance.now();
     pullImage(imageTag);
+    onProgress?.("step-complete", {
+      step: "pull checkpoint image",
+      durationMs: performance.now() - t0,
+    });
     const restoredName = `${containerName}-restored`;
+    t0 = performance.now();
     restoreLocally(imageTag, restoredName);
+    onProgress?.("step-complete", { step: "restore", durationMs: performance.now() - t0 });
     onProgress?.("restore-complete", { restoredName, target: "local" });
     return { restoredName };
   }
 
   onProgress?.("restore-start", { containerName, imageTag, target: "remote" });
+  let t0 = performance.now();
   const ip = await provisionServer({ name: containerName });
+  onProgress?.("step-complete", { step: "provision server", durationMs: performance.now() - t0 });
   remoteDockerLogin(sshScript, ip);
+  t0 = performance.now();
   remoteRestore(ip, containerName, imageTag, registry);
+  onProgress?.("step-complete", { step: "remote restore", durationMs: performance.now() - t0 });
   onProgress?.("restore-complete", { ip, target: "remote" });
   return { ip };
 }
