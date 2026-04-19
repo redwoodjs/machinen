@@ -39,7 +39,14 @@ pub fn build(b: *std.Build) void {
         // Later on we'll use this module as the root module of a test executable
         // which requires us to specify a target.
         .target = target,
+        // libc is needed for the HVF cImport on macOS; benign elsewhere.
+        .link_libc = true,
     });
+
+    // HVF backend: link Hypervisor.framework when building for macOS.
+    if (target.result.os.tag == .macos) {
+        mod.linkFramework("Hypervisor", .{});
+    }
 
     // Here we define an executable. An executable needs to have a root module
     // which needs to expose a `main` function. While we could add a main function
