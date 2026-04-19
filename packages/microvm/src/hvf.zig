@@ -313,3 +313,67 @@ test "map a page, run hvc #0, observe exception exit" {
         .{ @intFromEnum(ec), try vcpu.getReg(.pc) },
     );
 }
+
+test "run a small program and read register state" {
+    const vm = Vm.create() catch |err| switch (err) {
+        error.Denied => {
+            std.debug.print("skip: HV_DENIED\n", .{});
+            return;
+        },
+        else => return err,
+    };
+    defer vm.destroy();
+
+    const host_mem = try std.posix.mmap(
+        null,
+        page_size,
+        .{ .READ = true, .WRITE = true },
+        .{ .TYPE = .PRIVATE, .ANONYMOUS = true },
+        -1,
+        0,
+    );
+    defer std.posix.munmap(host_mem);
+
+    // Three-instruction program:
+    //   movz x0, #42    ; x0 = 42
+    //   movz x1, #99    ; x1 = 99
+    //   hvc  #0         ; exit to host
+    const program = [_]u32{
+        0xD2800540, // movz x0, #42
+        0xD2800C61, // movz x1, #99
+        0xD4000002, // hvc  #0
+    };
+    const program_bytes = std.mem.sliceAsBytes(program[0..]);
+    @memcpy(host_mem[0..program_bytes.len], program_bytes);
+
+    const guest_base: u64 = 0x40000000;
+    try vm.map(host_mem, guest_base, MapFlags.rx);
+    defer vm.unmap(guest_base, page_size) catch {};
+
+    const vcpu = try Vcpu.create();
+    defer vcpu.destroy();
+
+    try vcpu.setReg(.cpsr, 0x3C5);
+    try vcpu.setSysReg(.sctlr_el1, 1 << 12);
+    try vcpu.setReg(.pc, guest_base);
+
+    try vcpu.run();
+
+    // Check the vCPU ran all three instructions:
+    // - exit reason is exception via HVC
+    // - pc advanced past the HVC (guest_base + 12)
+    // - x0 == 42, x1 == 99
+    try std.testing.expectEqual(ExitReason.exception, vcpu.exit.reason);
+    try std.testing.expectEqual(
+        ExceptionClass.hvc_aarch64,
+        ExceptionClass.fromSyndrome(vcpu.exit.exception.syndrome),
+    );
+    try std.testing.expectEqual(@as(u64, guest_base + 12), try vcpu.getReg(.pc));
+    try std.testing.expectEqual(@as(u64, 42), try vcpu.getReg(.x0));
+    try std.testing.expectEqual(@as(u64, 99), try vcpu.getReg(.x1));
+
+    std.debug.print(
+        "3-instr program: x0=42 x1=99 pc=0x{x}\n",
+        .{try vcpu.getReg(.pc)},
+    );
+}
