@@ -12,6 +12,8 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
+pub const hvf = if (builtin.os.tag == .macos) @import("hvf.zig") else struct {};
+
 pub const Backend = enum { hvf, kvm, none };
 
 /// Pick the host's available backend. HVF on macOS, KVM on Linux,
@@ -30,5 +32,12 @@ test "detectBackend matches build target" {
         .macos => try std.testing.expectEqual(Backend.hvf, b),
         .linux => try std.testing.expectEqual(Backend.kvm, b),
         else => try std.testing.expectEqual(Backend.none, b),
+    }
+}
+
+// Pull in backend-specific test blocks so `zig build test` discovers them.
+test {
+    if (builtin.os.tag == .macos) {
+        _ = @import("hvf.zig");
     }
 }
