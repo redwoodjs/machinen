@@ -160,6 +160,30 @@ extern "c" fn hv_vcpu_get_reg(vcpu: u64, reg: u32, value: *u64) c.hv_return_t;
 extern "c" fn hv_vcpu_set_reg(vcpu: u64, reg: u32, value: u64) c.hv_return_t;
 extern "c" fn hv_vcpu_get_sys_reg(vcpu: u64, reg: u32, value: *u64) c.hv_return_t;
 extern "c" fn hv_vcpu_set_sys_reg(vcpu: u64, reg: u32, value: u64) c.hv_return_t;
+extern "c" fn hv_vcpu_set_vtimer_mask(vcpu: u64, vtimer_is_masked: bool) c.hv_return_t;
+
+// GIC v3 (available on macOS 13+). Opaque config objects are treated
+// as ?*anyopaque. See Hypervisor/hv_gic.h.
+extern "c" fn hv_gic_config_create() ?*anyopaque;
+extern "c" fn hv_gic_config_set_distributor_base(config: ?*anyopaque, addr: u64) c.hv_return_t;
+extern "c" fn hv_gic_config_set_redistributor_base(config: ?*anyopaque, addr: u64) c.hv_return_t;
+extern "c" fn hv_gic_create(config: ?*anyopaque) c.hv_return_t;
+
+/// In-kernel GIC v3 emulation exposed by HVF. Must be created after
+/// the VM exists but before the first vCPU runs.
+pub const Gic = struct {
+    pub const Config = struct {
+        distributor_base: u64 = 0x0800_0000,
+        redistributor_base: u64 = 0x080A_0000,
+    };
+
+    pub fn enable(cfg: Config) Error!void {
+        const config = hv_gic_config_create() orelse return error.NoResources;
+        try check(hv_gic_config_set_distributor_base(config, cfg.distributor_base));
+        try check(hv_gic_config_set_redistributor_base(config, cfg.redistributor_base));
+        try check(hv_gic_create(config));
+    }
+};
 
 /// System register selectors. Matches hv_sys_reg_t in hv_vcpu_types.h.
 /// Only the handful we need for the smoke test.
@@ -207,6 +231,14 @@ pub const Vcpu = struct {
 
     pub fn run(self: Vcpu) Error!void {
         try check(hv_vcpu_run(self.handle));
+    }
+
+    /// Control whether the virtual timer's expiry wakes the vCPU. Mask
+    /// it (true) to let the guest run with the timer disabled; unmask
+    /// (false) before running so an expired timer triggers a
+    /// vtimer_activated exit.
+    pub fn setVtimerMask(self: Vcpu, masked: bool) Error!void {
+        try check(hv_vcpu_set_vtimer_mask(self.handle, masked));
     }
 };
 
