@@ -3,6 +3,112 @@
 Large binaries (kernel images, device tree blobs) live here but
 aren't checked in. Regenerate locally with the commands below.
 
+## Quick: try your own microVM (with your own files inside)
+
+You want to put some files in a Linux guest, boot it, see them
+there. Here's the fastest path.
+
+### Once (setup)
+
+```bash
+# 1. From macOS, install tooling:
+brew install zig dtc          # and Docker/OrbStack if you want the easy rootfs path
+
+# 2. Get the kernel (one time — it's 27 MB, not in git):
+cd packages/microvm/test-fixtures
+docker run --rm --platform linux/arm64 -v "$(pwd)":/out \
+  debian:bookworm-slim bash -c '
+    apt-get update -qq > /dev/null &&
+    apt-get install -y --no-install-recommends linux-image-cloud-arm64 > /dev/null &&
+    cp /boot/vmlinuz-* /out/Image
+  '
+
+# 3. Compile the device tree:
+dtc -I dts -O dtb virt.dts -o virt.dtb
+```
+
+### Every time you change what's inside the guest
+
+The guest's filesystem is whatever you put in a directory
+called `rootfs/` here. There's a Python script that packs that
+directory into the cpio archive format the kernel expects.
+
+**Minimum working rootfs**: a directory with a program at `/init`
+(plus whatever else you want). The kernel runs `/init` as PID 1
+when it boots.
+
+```bash
+cd packages/microvm/test-fixtures
+
+# Option A: start from a real Debian userspace (has bash, coreutils,
+# node, everything; ~300 MB):
+docker run --rm --platform linux/arm64 node:lts-slim \
+  sh -c 'true' > /dev/null  # make sure the image is pulled
+CID=$(docker create --platform linux/arm64 node:lts-slim)
+docker export "$CID" -o rootfs.tar
+docker rm "$CID"
+rm -rf rootfs && mkdir rootfs
+tar -xf rootfs.tar -C rootfs
+rm rootfs.tar
+
+# Option B: start from our tiny hand-written init (1 KB, single
+# binary from init.c) — already produced:
+#   rootfs/init        ← the binary
+#   rootfs/dev/console ← added automatically by mkinitramfs.py
+
+# Either way, put your own files in. For example:
+echo 'print("hello from python inside the microVM")' > rootfs/demo.py
+mkdir -p rootfs/srv
+echo "my custom data" > rootfs/srv/data.txt
+
+# Tell /init what to do. The shell-script path expects /demo.sh
+# as the entry point; edit it to do whatever you want:
+cat > rootfs/demo.sh <<'SH'
+#!/bin/sh
+echo "hello from my custom demo"
+ls -la /srv
+cat /srv/data.txt
+# keep init alive — the kernel panics if init ever exits
+sleep 999999
+SH
+chmod +x rootfs/demo.sh
+
+# Pack it into the cpio archive the kernel boots from:
+python3 mkinitramfs.py --rootfs rootfs
+```
+
+### Run it
+
+```bash
+cd packages/microvm
+MACHINEN_BOOT_TEST=1 zig build test
+```
+
+You'll see kernel boot messages stream past on your terminal,
+then your `/demo.sh` output. Kill with Ctrl-C.
+
+### What your init can do
+
+- **Mount filesystems**: `mount -t proc proc /proc`,
+  `mount -t sysfs sysfs /sys`, `mount -t devtmpfs devtmpfs /dev`
+  (the hand-written init.c does this already; a Debian rootfs
+  usually has these in fstab).
+- **Run programs**: `exec node myscript.js`, `/bin/bash`, etc.
+- **Write files**: anywhere on the in-RAM filesystem. Changes
+  are lost when the VM stops (no persistent disk yet).
+- **Print things**: `echo` and friends. Output comes out on
+  your host terminal via the emulated serial port.
+
+### What your init can't do (yet, in this VMM)
+
+- No network (the VMM doesn't emulate virtio-net yet).
+- No persistent disk — the initramfs *is* the filesystem.
+- No reading from host stdin back into the guest (read from
+  serial is unimplemented on the host side).
+- Checkpoint/restore inside the guest works up to a point —
+  see `.docs/learnings/microvm/criu-inside-vmm-next-steps.md`.
+
+
 ## What we need
 
 - `Image` — an arm64 Linux kernel, uncompressed, header starts
