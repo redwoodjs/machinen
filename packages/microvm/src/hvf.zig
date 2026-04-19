@@ -216,11 +216,43 @@ pub const Vcpu = struct {
 /// at EL1 and needs a vector table set up).
 pub const ExceptionClass = enum(u6) {
     hvc_aarch64 = 0x16,
+    data_abort_lower_el = 0x24,
     brk_aarch64 = 0x3C,
     _,
 
     pub fn fromSyndrome(syndrome: u64) ExceptionClass {
         return @enumFromInt(@as(u6, @truncate(syndrome >> 26)));
+    }
+};
+
+/// Decoded load/store info when the guest faults reaching unmapped memory.
+/// Valid when ExceptionClass == .data_abort_lower_el and isv is true.
+pub const DataAbort = struct {
+    is_write: bool,
+    sas: u2, // access size: 0=byte, 1=half, 2=word, 3=dword
+    srt: u5, // source/target register number (0..30 = Xn, 31 = XZR)
+    sf: bool, // true if 64-bit register operand
+    isv: bool, // true when sas/srt/sf are meaningful
+    ipa: u64, // guest-physical address that was touched
+
+    pub fn decode(ex: ExitException) DataAbort {
+        const iss: u32 = @truncate(ex.syndrome);
+        return .{
+            .isv = (iss & (1 << 24)) != 0,
+            .sas = @truncate((iss >> 22) & 0b11),
+            .srt = @truncate((iss >> 16) & 0b11111),
+            .sf = (iss & (1 << 15)) != 0,
+            .is_write = (iss & (1 << 6)) != 0,
+            .ipa = ex.physical_address,
+        };
+    }
+
+    /// Read the guest register holding the value the guest was storing.
+    /// XZR reads as 0. Out-of-range is a bug.
+    pub fn readSource(self: DataAbort, vcpu: Vcpu) Error!u64 {
+        if (self.srt == 31) return 0; // XZR
+        const reg: Reg = @enumFromInt(@as(u32, self.srt));
+        return vcpu.getReg(reg);
     }
 };
 
@@ -375,5 +407,97 @@ test "run a small program and read register state" {
     std.debug.print(
         "3-instr program: x0=42 x1=99 pc=0x{x}\n",
         .{try vcpu.getReg(.pc)},
+    );
+}
+
+test "catch guest store to unmapped MMIO address" {
+    const vm = Vm.create() catch |err| switch (err) {
+        error.Denied => {
+            std.debug.print("skip: HV_DENIED\n", .{});
+            return;
+        },
+        else => return err,
+    };
+    defer vm.destroy();
+
+    const host_mem = try std.posix.mmap(
+        null,
+        page_size,
+        .{ .READ = true, .WRITE = true },
+        .{ .TYPE = .PRIVATE, .ANONYMOUS = true },
+        -1,
+        0,
+    );
+    defer std.posix.munmap(host_mem);
+
+    // Guest program: write 0xABCD to MMIO 0x09000000 (unmapped), then exit.
+    //   movz x2, #0x0900, lsl #16   ; x2 = 0x09000000
+    //   movz x3, #0xABCD            ; x3 = 0xABCD
+    //   str  x3, [x2]               ; *(u64*)0x09000000 = 0xABCD  <-- traps
+    //   hvc  #0                     ; exit
+    const program = [_]u32{
+        0xD2A12002,
+        0xD29579A3,
+        0xF9000043,
+        0xD4000002,
+    };
+    const program_bytes = std.mem.sliceAsBytes(program[0..]);
+    @memcpy(host_mem[0..program_bytes.len], program_bytes);
+
+    // Map the code at guest_base. Note we do NOT map anything at the
+    // MMIO base (0x09000000) — that's what makes the store trap.
+    const guest_base: u64 = 0x40000000;
+    const mmio_base: u64 = 0x09000000;
+    try vm.map(host_mem, guest_base, MapFlags.rx);
+    defer vm.unmap(guest_base, page_size) catch {};
+
+    const vcpu = try Vcpu.create();
+    defer vcpu.destroy();
+
+    try vcpu.setReg(.cpsr, 0x3C5);
+    try vcpu.setSysReg(.sctlr_el1, 1 << 12);
+    try vcpu.setReg(.pc, guest_base);
+
+    // Host run loop: keep running the vCPU; on data aborts, record the
+    // write and step past the instruction; on HVC, we're done.
+    var mmio_addr: u64 = 0;
+    var mmio_value: u64 = 0;
+    var mmio_writes: usize = 0;
+    const max_iters: usize = 8;
+    var iters: usize = 0;
+    while (iters < max_iters) : (iters += 1) {
+        try vcpu.run();
+
+        if (vcpu.exit.reason != .exception) return error.UnexpectedExitReason;
+        const ec = ExceptionClass.fromSyndrome(vcpu.exit.exception.syndrome);
+
+        switch (ec) {
+            .hvc_aarch64 => break, // clean exit
+            .data_abort_lower_el => {
+                const info = DataAbort.decode(vcpu.exit.exception);
+                try std.testing.expect(info.isv); // syndrome was actually helpful
+                if (info.is_write) {
+                    mmio_addr = info.ipa;
+                    mmio_value = try info.readSource(vcpu);
+                    mmio_writes += 1;
+                }
+                // Advance PC past the faulting instruction (all arm64
+                // instructions are 4 bytes) and resume.
+                const faulting_pc = try vcpu.getReg(.pc);
+                try vcpu.setReg(.pc, faulting_pc + 4);
+            },
+            else => return error.UnexpectedExceptionClass,
+        }
+    }
+    try std.testing.expect(iters < max_iters); // didn't get stuck
+
+    // The guest wrote 0xABCD to 0x09000000, exactly once.
+    try std.testing.expectEqual(@as(usize, 1), mmio_writes);
+    try std.testing.expectEqual(mmio_base, mmio_addr);
+    try std.testing.expectEqual(@as(u64, 0xABCD), mmio_value);
+
+    std.debug.print(
+        "caught MMIO store: addr=0x{x} value=0x{x}\n",
+        .{ mmio_addr, mmio_value },
     );
 }
