@@ -89,6 +89,13 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     const vm = try hvf.Vm.create();
     defer vm.destroy();
 
+    // Turn on HVF's in-kernel GIC v3 at the addresses the device tree
+    // advertises (distributor at 0x0800_0000, redistributor at
+    // 0x080A_0000 per a QEMU `virt,gic-version=3` DTB dump). Without
+    // this the kernel has nowhere to register interrupts and the
+    // virtual timer has nothing to deliver to.
+    try hvf.Gic.enable(.{});
+
     // Give the guest full read/write/execute on this region. Stage-2
     // permissions; the guest's own MMU still decides what it does at
     // EL1 via its (eventually-enabled) page tables.
@@ -98,6 +105,9 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // --- vCPU setup ----------------------------------------------
     const vcpu = try hvf.Vcpu.create();
     defer vcpu.destroy();
+
+    // Let the virtual timer wake the vCPU so we can deliver ticks.
+    try vcpu.setVtimerMask(false);
 
     // EL1h, all interrupts masked.
     try vcpu.setReg(.cpsr, 0x3C5);
@@ -121,6 +131,16 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
 
     while (exits < cfg.max_exits) : (exits += 1) {
         try vcpu.run();
+
+        // Virtual timer expired while the vCPU was running. Re-mask so
+        // we don't immediately re-fire on the next run; the kernel
+        // handles the timer interrupt the GIC delivers.
+        if (vcpu.exit.reason == .vtimer_activated) {
+            try vcpu.setVtimerMask(true);
+            try vcpu.setVtimerMask(false);
+            continue;
+        }
+
         if (vcpu.exit.reason != .exception) return error.GuestCrashed;
         const ec = hvf.ExceptionClass.fromSyndrome(vcpu.exit.exception.syndrome);
 
