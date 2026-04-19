@@ -41,7 +41,7 @@ pub const Config = struct {
     dtb_offset: u64 = 0x0300_0000, // 48 MB into RAM
     // How many bytes to capture from serial before we declare the
     // boot "far enough along to stop."
-    capture_bytes: usize = 4096,
+    capture_bytes: usize = 16384,
     // Stop the loop after this many data-abort/HVC exits no matter what.
     max_exits: usize = 200_000,
 };
@@ -96,6 +96,18 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // virtual timer has nothing to deliver to.
     try hvf.Gic.enable(.{});
 
+    // Diagnostic: print GIC alignment + size requirements.
+    std.debug.print(
+        "GIC dist align=0x{x} size=0x{x}; rdist align=0x{x} size=0x{x} region=0x{x}\n",
+        .{
+            try hvf.Gic.distributorAlignment(),
+            try hvf.Gic.distributorSize(),
+            try hvf.Gic.redistributorAlignment(),
+            try hvf.Gic.redistributorSize(),
+            try hvf.Gic.redistributorRegionSize(),
+        },
+    );
+
     // Give the guest full read/write/execute on this region. Stage-2
     // permissions; the guest's own MMU still decides what it does at
     // EL1 via its (eventually-enabled) page tables.
@@ -108,6 +120,15 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
 
     // Let the virtual timer wake the vCPU so we can deliver ticks.
     try vcpu.setVtimerMask(false);
+
+    // Diagnostic: query where HVF actually placed this vCPU's
+    // redistributor. If this differs from what we told the kernel via
+    // the DTB, the kernel will report "No redistributor present."
+    if (hvf.Gic.redistributorBase(vcpu)) |rdist| {
+        std.debug.print("GIC redistributor for vcpu 0: 0x{x}\n", .{rdist});
+    } else |err| {
+        std.debug.print("GIC redistributor query failed: {s}\n", .{@errorName(err)});
+    }
 
     // EL1h, all interrupts masked.
     try vcpu.setReg(.cpsr, 0x3C5);
@@ -144,19 +165,6 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         if (vcpu.exit.reason != .exception) return error.GuestCrashed;
         const ec = hvf.ExceptionClass.fromSyndrome(vcpu.exit.exception.syndrome);
 
-        // Trace first few exits so we can diagnose a failure-to-print.
-        if (exits < 16) {
-            std.debug.print(
-                "exit #{d}: EC=0x{x:0>2} x0=0x{x} ipa=0x{x} pc=0x{x}\n",
-                .{
-                    exits,
-                    @intFromEnum(ec),
-                    try vcpu.getReg(.x0),
-                    vcpu.exit.exception.physical_address,
-                    try vcpu.getReg(.pc),
-                },
-            );
-        }
 
         switch (ec) {
             .hvc_aarch64 => {
@@ -166,15 +174,24 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
                         break;
                     },
                     .version => {
-                        // Answer: PSCI 1.0 = major 1 in high 16 bits, minor 0 in low.
+                        // PSCI 1.0 = major 1, minor 0.
                         try vcpu.setReg(.x0, 0x0001_0000);
                     },
-                    .cpu_on_64 => {
-                        // We only support one CPU. Return NOT_SUPPORTED.
+                    .migrate_info_type => {
+                        // "Not present" — no migratable trusted OS.
+                        try vcpu.setReg(.x0, 2);
+                    },
+                    .affinity_info_64 => {
+                        // CPU 0 is "ON." The kernel queries this as part
+                        // of setup; anything else gets NOT_SUPPORTED.
+                        const x1 = try vcpu.getReg(.x1);
+                        try vcpu.setReg(.x0, if (x1 == 0) 0 else @bitCast(@as(i64, -1)));
+                    },
+                    .cpu_off, .cpu_on_64, .features => {
+                        // We only support one CPU and no optional features.
                         try vcpu.setReg(.x0, @bitCast(@as(i64, -1)));
                     },
                     _ => {
-                        // Any other PSCI function — return NOT_SUPPORTED.
                         try vcpu.setReg(.x0, @bitCast(@as(i64, -1)));
                     },
                 } else {
@@ -187,9 +204,10 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
                     if (info.is_write) {
                         const value = try info.readSource(vcpu);
                         try uart.write(gpa, info.ipa, value);
-                        // Also echo to host stdout as characters arrive.
+                        // Also echo to host stderr as characters arrive
+                        // (stderr so the test runner doesn't swallow it).
                         const byte: [1]u8 = .{@truncate(value)};
-                        _ = write(1, &byte, 1);
+                        _ = write(2, &byte, 1);
                     } else {
                         // Reads: return the UART's answer into the target
                         // register so the guest sees valid flags.
@@ -331,9 +349,7 @@ test "boot a real arm64 Linux kernel" {
         "\n--- boot finished, {d} exits, serial {d} bytes ---\n",
         .{ result.exits, result.serial.len },
     );
-    std.debug.print("--- first 512 bytes of serial ---\n{s}\n--- end ---\n", .{
-        result.serial[0..@min(result.serial.len, 512)],
-    });
+    std.debug.print("--- all captured serial ---\n{s}\n--- end ---\n", .{result.serial});
 
     // The real "did we succeed" signal: did the guest kernel say
     // anything at all on serial?

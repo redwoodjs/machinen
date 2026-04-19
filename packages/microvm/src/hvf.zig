@@ -168,6 +168,12 @@ extern "c" fn hv_gic_config_create() ?*anyopaque;
 extern "c" fn hv_gic_config_set_distributor_base(config: ?*anyopaque, addr: u64) c.hv_return_t;
 extern "c" fn hv_gic_config_set_redistributor_base(config: ?*anyopaque, addr: u64) c.hv_return_t;
 extern "c" fn hv_gic_create(config: ?*anyopaque) c.hv_return_t;
+extern "c" fn hv_gic_get_distributor_base_alignment(alignment: *usize) c.hv_return_t;
+extern "c" fn hv_gic_get_redistributor_base_alignment(alignment: *usize) c.hv_return_t;
+extern "c" fn hv_gic_get_redistributor_base(vcpu: u64, base: *u64) c.hv_return_t;
+extern "c" fn hv_gic_get_distributor_size(size: *usize) c.hv_return_t;
+extern "c" fn hv_gic_get_redistributor_size(size: *usize) c.hv_return_t;
+extern "c" fn hv_gic_get_redistributor_region_size(size: *usize) c.hv_return_t;
 
 /// In-kernel GIC v3 emulation exposed by HVF. Must be created after
 /// the VM exists but before the first vCPU runs.
@@ -182,6 +188,42 @@ pub const Gic = struct {
         try check(hv_gic_config_set_distributor_base(config, cfg.distributor_base));
         try check(hv_gic_config_set_redistributor_base(config, cfg.redistributor_base));
         try check(hv_gic_create(config));
+    }
+
+    pub fn distributorAlignment() Error!usize {
+        var a: usize = 0;
+        try check(hv_gic_get_distributor_base_alignment(&a));
+        return a;
+    }
+
+    pub fn redistributorAlignment() Error!usize {
+        var a: usize = 0;
+        try check(hv_gic_get_redistributor_base_alignment(&a));
+        return a;
+    }
+
+    pub fn redistributorBase(vcpu: Vcpu) Error!u64 {
+        var b: u64 = 0;
+        try check(hv_gic_get_redistributor_base(vcpu.handle, &b));
+        return b;
+    }
+
+    pub fn distributorSize() Error!usize {
+        var s: usize = 0;
+        try check(hv_gic_get_distributor_size(&s));
+        return s;
+    }
+
+    pub fn redistributorSize() Error!usize {
+        var s: usize = 0;
+        try check(hv_gic_get_redistributor_size(&s));
+        return s;
+    }
+
+    pub fn redistributorRegionSize() Error!usize {
+        var s: usize = 0;
+        try check(hv_gic_get_redistributor_region_size(&s));
+        return s;
     }
 };
 
@@ -324,15 +366,19 @@ pub const KernelImage = struct {
 // PSCI — the one kernel-to-hypervisor call we have to understand
 // =============================================================
 
-/// PSCI function IDs the kernel uses via HVC #0. Top bit distinguishes
-/// 64-bit from 32-bit calling convention. We only handle the few we
-/// need for single-vCPU boot.
+/// PSCI function IDs the kernel uses via HVC #0. IDs per PSCI v1.1 spec
+/// (ARM DEN 0022). Top bit of the ID distinguishes SMC32 (0x8-) from
+/// SMC64 (0xC-). We handle the ones a Linux boot actually touches.
 pub const Psci = struct {
     pub const Function = enum(u32) {
         version = 0x84000000,
+        cpu_off = 0x84000002,
         cpu_on_64 = 0xC4000003,
-        system_off = 0x84000009,
-        system_reset = 0x84000009 + 1, // 0x8400000A
+        affinity_info_64 = 0xC4000004,
+        migrate_info_type = 0x84000006,
+        system_off = 0x84000008,
+        system_reset = 0x84000009,
+        features = 0x8400000A,
         _,
     };
 
@@ -342,7 +388,15 @@ pub const Psci = struct {
         const x0 = try vcpu.getReg(.x0);
         const f: Function = @enumFromInt(@as(u32, @truncate(x0)));
         return switch (f) {
-            .version, .cpu_on_64, .system_off, .system_reset => f,
+            .version,
+            .cpu_off,
+            .cpu_on_64,
+            .affinity_info_64,
+            .migrate_info_type,
+            .system_off,
+            .system_reset,
+            .features,
+            => f,
             _ => null,
         };
     }
