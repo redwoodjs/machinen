@@ -37,7 +37,7 @@ pub const Config = struct {
     dtb_path: []const u8,
     initrd_path: ?[]const u8 = null,
     ram_base: u64 = 0x4000_0000,
-    ram_size: usize = 1024 * 1024 * 1024, // 1 GB — enough for a full Alpine+Node rootfs in RAM
+    ram_size: usize = 2 * 1024 * 1024 * 1024, // 2 GB — enough for a full Debian+Node+CRIU rootfs in RAM + headroom
     // DTB sits well past the kernel so the kernel doesn't clobber it.
     dtb_offset: u64 = 0x0300_0000, // 48 MB into RAM
     // Where the initramfs goes in guest RAM. Must match the
@@ -45,9 +45,9 @@ pub const Config = struct {
     initrd_offset: u64 = 0x0400_0000, // 64 MB into RAM
     // How many bytes to capture from serial before we declare the
     // boot "far enough along to stop."
-    capture_bytes: usize = 16384,
+    capture_bytes: usize = 262144,
     // Stop the loop after this many data-abort/HVC exits no matter what.
-    max_exits: usize = 200_000,
+    max_exits: usize = 5_000_000,
 };
 
 pub const Result = struct {
