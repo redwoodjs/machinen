@@ -1,6 +1,7 @@
-/* Minimal arm64-linux /init.
-   Mounts /dev and /proc, opens /dev/kmsg for writing, prints our
-   hello + the guest's /proc/cpuinfo, then sleeps forever. */
+/* arm64-linux /init.
+   Mount /dev, /proc, /sys. Open /dev/console (retrying until the
+   PL011 tty is up), dup to fds 0/1/2, exec node with an inline
+   script. */
 
 static long sys(long nr, long a0, long a1, long a2) {
     register long x8 asm("x8") = nr;
@@ -22,42 +23,33 @@ static long sys5(long nr, long a0, long a1, long a2, long a3, long a4) {
     return x0;
 }
 
-#define SYS_openat    56
-#define SYS_close     57
-#define SYS_read      63
-#define SYS_write     64
-#define SYS_mount     40
+#define SYS_dup3      24
 #define SYS_mkdirat   34
+#define SYS_mount     40
+#define SYS_openat    56
+#define SYS_write     64
 #define SYS_nanosleep 101
+#define SYS_execve    221
 #define AT_FDCWD      -100
-#define O_RDONLY      0
 #define O_WRONLY      1
 
 struct timespec { long tv_sec; long tv_nsec; };
 
-static long open_write(const char *path) {
+static void msleep(long ms) {
+    struct timespec t = { .tv_sec = ms / 1000, .tv_nsec = (ms % 1000) * 1000000 };
+    sys(SYS_nanosleep, (long)&t, 0, 0);
+}
+
+static long open_w(const char *path) {
     return sys5(SYS_openat, AT_FDCWD, (long)path, O_WRONLY, 0, 0);
 }
 
-static long open_read(const char *path) {
-    return sys5(SYS_openat, AT_FDCWD, (long)path, O_RDONLY, 0, 0);
-}
-
-static void mkdir(const char *path) {
+static void mkdir_p(const char *path) {
     (void)sys(SYS_mkdirat, AT_FDCWD, (long)path, 0755);
 }
 
-static void mount(const char *src, const char *dst, const char *fs) {
+static void mount_fs(const char *src, const char *dst, const char *fs) {
     (void)sys5(SYS_mount, (long)src, (long)dst, (long)fs, 0, 0);
-}
-
-static void write_all(long fd, const char *buf, long len) {
-    long off = 0;
-    while (off < len) {
-        long n = sys(SYS_write, fd, (long)(buf + off), len - off);
-        if (n <= 0) return;
-        off += n;
-    }
 }
 
 static long strlen_(const char *s) {
@@ -66,53 +58,62 @@ static long strlen_(const char *s) {
     return n;
 }
 
+static void write_str(long fd, const char *s) {
+    sys(SYS_write, fd, (long)s, strlen_(s));
+}
+
 void _start(void) {
-    mkdir("/proc");
-    mount("devtmpfs", "/dev", "devtmpfs");
-    mount("proc", "/proc", "proc");
+    mkdir_p("/proc");
+    mkdir_p("/sys");
+    mount_fs("devtmpfs", "/dev", "devtmpfs");
+    mount_fs("proc", "/proc", "proc");
+    mount_fs("sysfs", "/sys", "sysfs");
 
-    // Retry-open the kernel message buffer until it's there.
-    long fd = -1;
-    struct timespec wait = { .tv_sec = 0, .tv_nsec = 50 * 1000 * 1000 };
-    for (int i = 0; i < 50 && fd < 0; i++) {
-        fd = open_write("/dev/kmsg");
-        if (fd < 0) fd = open_write("/dev/console");
-        if (fd < 0) fd = open_write("/dev/ttyAMA0");
-        if (fd >= 0) break;
-        sys(SYS_nanosleep, (long)&wait, 0, 0);
+    // Wait for a real console to become available.
+    long console = -1;
+    for (int i = 0; i < 100 && console < 0; i++) {
+        console = open_w("/dev/console");
+        if (console < 0) console = open_w("/dev/ttyAMA0");
+        if (console < 0) console = open_w("/dev/kmsg");
+        if (console >= 0) break;
+        msleep(50);
     }
-    if (fd < 0) goto sleep_forever;
+    if (console < 0) {
+        for (;;) msleep(60000);
+    }
 
-    static const char hello[] =
-        "\n"
-        "=============================================\n"
+    // Rewire fds 0/1/2 to the console so node inherits them.
+    sys(SYS_dup3, console, 0, 0);
+    sys(SYS_dup3, console, 1, 0);
+    sys(SYS_dup3, console, 2, 0);
+
+    write_str(1,
+        "\n=============================================\n"
         "  hello from userspace!\n"
-        "  running inside machinen-microvm,\n"
-        "  a Zig-native VMM on macOS HVF.\n"
-        "=============================================\n";
-    write_all(fd, hello, sizeof(hello) - 1);
+        "  about to exec node ...\n"
+        "=============================================\n");
 
-    // Dump /proc/cpuinfo to prove we have a working kernel
-    // and userspace can talk to it.
-    static const char banner[] = "\n/proc/cpuinfo:\n\n";
-    write_all(fd, banner, sizeof(banner) - 1);
-    long info = open_read("/proc/cpuinfo");
-    if (info >= 0) {
-        char buf[512];
-        for (;;) {
-            long n = sys(SYS_read, info, (long)buf, sizeof(buf));
-            if (n <= 0) break;
-            write_all(fd, buf, n);
-        }
-        sys(SYS_close, info, 0, 0);
-    }
+    // Tell the kernel to drop printk rate-limiting of our writes
+    // (harmless if the knob doesn't exist in this kernel).
+    long rl = open_w("/proc/sys/kernel/printk_ratelimit");
+    if (rl >= 0) { write_str(rl, "0\n"); }
 
-    static const char done[] = "\n=== init done — sleeping forever ===\n";
-    write_all(fd, done, sizeof(done) - 1);
+    static char *argv[] = {
+        "/usr/local/bin/node",
+        "-e",
+        "console.log('hello from node', process.version, 'inside machinen-microvm on macOS HVF'); for(let i=0;i<3;i++) console.log('  tick', i);",
+        (char *)0,
+    };
+    static char *envp[] = {
+        "PATH=/usr/local/bin:/usr/bin:/bin:/sbin",
+        "NODE_NO_WARNINGS=1",
+        "HOME=/root",
+        "TERM=linux",
+        (char *)0,
+    };
+    sys(SYS_execve, (long)argv[0], (long)argv, (long)envp);
 
-sleep_forever:
-    for (;;) {
-        struct timespec sleep_long = { .tv_sec = 60, .tv_nsec = 0 };
-        sys(SYS_nanosleep, (long)&sleep_long, 0, 0);
-    }
+    // If exec returned, it failed. Report and sleep.
+    write_str(1, "execve failed — node binary missing or wrong arch?\n");
+    for (;;) msleep(60000);
 }

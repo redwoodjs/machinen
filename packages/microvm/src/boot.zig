@@ -37,7 +37,7 @@ pub const Config = struct {
     dtb_path: []const u8,
     initrd_path: ?[]const u8 = null,
     ram_base: u64 = 0x4000_0000,
-    ram_size: usize = 128 * 1024 * 1024, // 128 MB
+    ram_size: usize = 1024 * 1024 * 1024, // 1 GB — enough for a full Alpine+Node rootfs in RAM
     // DTB sits well past the kernel so the kernel doesn't clobber it.
     dtb_offset: u64 = 0x0300_0000, // 48 MB into RAM
     // Where the initramfs goes in guest RAM. Must match the
