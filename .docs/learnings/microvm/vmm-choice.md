@@ -9,7 +9,7 @@ second-generation substrate.
 | Option                  | Role                    | Timeline             |
 | ----------------------- | ----------------------- | -------------------- |
 | **cloud-hypervisor**    | v1 substrate            | ship now             |
-| **Zig VMM** (`packages/vmm`) | parallel track, own it | months, becomes v2 |
+| **Zig VMM** (`packages/microvm`) | parallel track, own it | months, becomes v2 |
 | **libkrun**             | not used                | —                    |
 
 ## Why cloud-hypervisor for v1
@@ -50,7 +50,7 @@ second-generation substrate.
   care about `m.fork()` working in their TS code. Shipping the
   TS API fast is more valuable than owning the substrate on
   day one.
-- **Zig track still happens in parallel** — see `packages/vmm`
+- **Zig track still happens in parallel** — see `packages/microvm`
   and issues #42–45. It catches up and swaps in as v2.
 
 ## When to revisit

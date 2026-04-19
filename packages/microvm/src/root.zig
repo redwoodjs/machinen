@@ -1,4 +1,4 @@
-//! machinen-vmm — Linux-guest microVM library
+//! machinen-microvm — Linux-guest microVM library
 //!
 //! Scaffold. Future modules (tracked on redwoodjs/machinen#42–45):
 //!   hvf.zig    — Hypervisor.framework backend (macOS arm64/x86_64)

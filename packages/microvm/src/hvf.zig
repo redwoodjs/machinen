@@ -1,4 +1,4 @@
-//! Hypervisor.framework bindings. See .docs/learnings/mvm/hvf.md.
+//! Hypervisor.framework bindings. See .docs/learnings/microvm/hvf.md.
 //!
 //! macOS-only. Importing on other OSes produces a compile error.
 

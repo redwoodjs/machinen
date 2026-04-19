@@ -106,7 +106,7 @@ first real run.
 
 ## Linux counterpart: KVM
 
-For the machinen-vmm KVM backend, the equivalent flow is:
+For the machinen-microvm KVM backend, the equivalent flow is:
 
 - `open("/dev/kvm")` → `ioctl(KVM_CREATE_VM)` instead of
   `hv_vm_create`.
@@ -118,7 +118,7 @@ For the machinen-vmm KVM backend, the equivalent flow is:
 - Same "run until exit, handle reason, loop" pattern.
 
 Both backends will sit behind one Zig interface in
-`packages/vmm/src/root.zig`.
+`packages/microvm/src/root.zig`.
 
 ## Further reading worth a pass
 
