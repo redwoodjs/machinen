@@ -142,6 +142,21 @@ pub fn build(b: *std.Build) void {
     // A run step that will run the second test executable.
     const run_exe_tests = b.addRunArtifact(exe_tests);
 
+    // On macOS, ad-hoc codesign test and exe binaries with the
+    // com.apple.security.hypervisor entitlement so hv_vm_create and friends
+    // can actually succeed (otherwise HV_DENIED). See
+    // .docs/learnings/microvm/hvf.md.
+    if (target.result.os.tag == .macos) {
+        const sign_mod_tests = signWithHvfEntitlement(b, mod_tests);
+        run_mod_tests.step.dependOn(&sign_mod_tests.step);
+
+        const sign_exe_tests = signWithHvfEntitlement(b, exe_tests);
+        run_exe_tests.step.dependOn(&sign_exe_tests.step);
+
+        const sign_exe = signWithHvfEntitlement(b, exe);
+        run_cmd.step.dependOn(&sign_exe.step);
+    }
+
     // A top level step for running all tests. dependOn can be called multiple
     // times and since the two run steps do not depend on one another, this will
     // make the two of them run in parallel.
@@ -160,4 +175,19 @@ pub fn build(b: *std.Build) void {
     //
     // Lastly, the Zig build system is relatively simple and self-contained,
     // and reading its source code will allow you to master it.
+}
+
+/// Ad-hoc codesigns the compiled artifact with com.apple.security.hypervisor.
+/// macOS-only. Returns a Run step that consumers should depend on before
+/// executing the artifact.
+fn signWithHvfEntitlement(
+    b: *std.Build,
+    artifact: *std.Build.Step.Compile,
+) *std.Build.Step.Run {
+    const sign = b.addSystemCommand(&.{"codesign"});
+    sign.addArgs(&.{ "-s", "-", "--force", "--entitlements" });
+    sign.addFileArg(b.path("entitlements.plist"));
+    sign.addFileArg(artifact.getEmittedBin());
+    sign.step.dependOn(&artifact.step);
+    return sign;
 }
