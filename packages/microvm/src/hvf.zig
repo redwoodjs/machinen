@@ -257,6 +257,50 @@ pub const DataAbort = struct {
 };
 
 // =============================================================
+// Minimal PL011 UART
+// =============================================================
+
+/// Bare-bones PL011 UART (the serial port on the ARM virt machine).
+/// Only enough registers to accept writes from a guest printk and
+/// keep the guest from stalling on flag-register reads:
+///   - DR (offset 0x000): byte writes append to `captured`; reads return 0.
+///   - FR (offset 0x018): reads return "TX empty, not busy" (0x90).
+///   - other registers: writes ignored, reads return 0.
+pub const Pl011 = struct {
+    base: u64,
+    size: u64 = 0x1000,
+    captured: std.ArrayList(u8),
+
+    pub const init: Pl011 = .{ .base = 0x0900_0000, .captured = .empty };
+
+    pub fn withBase(base: u64) Pl011 {
+        return .{ .base = base, .captured = .empty };
+    }
+
+    pub fn deinit(self: *Pl011, gpa: std.mem.Allocator) void {
+        self.captured.deinit(gpa);
+    }
+
+    pub fn handles(self: Pl011, addr: u64) bool {
+        return addr >= self.base and addr < self.base + self.size;
+    }
+
+    pub fn write(self: *Pl011, gpa: std.mem.Allocator, addr: u64, value: u64) !void {
+        switch (addr - self.base) {
+            0x000 => try self.captured.append(gpa, @truncate(value)),
+            else => {}, // accept-and-discard
+        }
+    }
+
+    pub fn read(self: Pl011, addr: u64) u64 {
+        return switch (addr - self.base) {
+            0x018 => 0x90, // FR: TX FIFO empty + not busy
+            else => 0,
+        };
+    }
+};
+
+// =============================================================
 // Tests
 // =============================================================
 
@@ -499,5 +543,94 @@ test "catch guest store to unmapped MMIO address" {
     std.debug.print(
         "caught MMIO store: addr=0x{x} value=0x{x}\n",
         .{ mmio_addr, mmio_value },
+    );
+}
+
+test "guest writes bytes to PL011 UART, host captures them" {
+    const vm = Vm.create() catch |err| switch (err) {
+        error.Denied => {
+            std.debug.print("skip: HV_DENIED\n", .{});
+            return;
+        },
+        else => return err,
+    };
+    defer vm.destroy();
+
+    const host_mem = try std.posix.mmap(
+        null,
+        page_size,
+        .{ .READ = true, .WRITE = true },
+        .{ .TYPE = .PRIVATE, .ANONYMOUS = true },
+        -1,
+        0,
+    );
+    defer std.posix.munmap(host_mem);
+
+    // Guest program: write the bytes 'H', 'i', '\n' to the UART data
+    // register one at a time, then exit.
+    //   movz x2, #0x0900, lsl #16   ; x2 = UART base
+    //   movz x3, #'H'   ; strb w3, [x2]
+    //   movz x3, #'i'   ; strb w3, [x2]
+    //   movz x3, #'\n'  ; strb w3, [x2]
+    //   hvc #0
+    const program = [_]u32{
+        0xD2A12002, // movz x2, #0x0900, lsl #16
+        0xD2800903, // movz x3, #0x48 ('H')
+        0x39000043, // strb w3, [x2]
+        0xD2800D23, // movz x3, #0x69 ('i')
+        0x39000043, // strb w3, [x2]
+        0xD2800143, // movz x3, #0x0A ('\n')
+        0x39000043, // strb w3, [x2]
+        0xD4000002, // hvc #0
+    };
+    const program_bytes = std.mem.sliceAsBytes(program[0..]);
+    @memcpy(host_mem[0..program_bytes.len], program_bytes);
+
+    const guest_base: u64 = 0x40000000;
+    try vm.map(host_mem, guest_base, MapFlags.rx);
+    defer vm.unmap(guest_base, page_size) catch {};
+
+    const vcpu = try Vcpu.create();
+    defer vcpu.destroy();
+
+    try vcpu.setReg(.cpsr, 0x3C5);
+    try vcpu.setSysReg(.sctlr_el1, 1 << 12);
+    try vcpu.setReg(.pc, guest_base);
+
+    const gpa = std.testing.allocator;
+    var uart: Pl011 = .init;
+    defer uart.deinit(gpa);
+
+    const max_iters: usize = 32;
+    var iters: usize = 0;
+    while (iters < max_iters) : (iters += 1) {
+        try vcpu.run();
+        if (vcpu.exit.reason != .exception) return error.UnexpectedExitReason;
+        const ec = ExceptionClass.fromSyndrome(vcpu.exit.exception.syndrome);
+
+        switch (ec) {
+            .hvc_aarch64 => break,
+            .data_abort_lower_el => {
+                const info = DataAbort.decode(vcpu.exit.exception);
+                if (uart.handles(info.ipa)) {
+                    if (info.is_write) {
+                        const value = try info.readSource(vcpu);
+                        try uart.write(gpa, info.ipa, value);
+                    }
+                    // (reads not exercised in this test)
+                }
+                // advance past faulting instruction
+                const pc = try vcpu.getReg(.pc);
+                try vcpu.setReg(.pc, pc + 4);
+            },
+            else => return error.UnexpectedExceptionClass,
+        }
+    }
+    try std.testing.expect(iters < max_iters);
+
+    try std.testing.expectEqualStrings("Hi\n", uart.captured.items);
+    std.debug.print(
+        "PL011 captured {d} bytes: \"{s}\"",
+        .{ uart.captured.items.len, uart.captured.items },
     );
 }
