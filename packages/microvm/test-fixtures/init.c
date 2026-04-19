@@ -32,6 +32,7 @@ static long sys5(long nr, long a0, long a1, long a2, long a3, long a4) {
 #define SYS_execve    221
 #define AT_FDCWD      -100
 #define O_WRONLY      1
+#define O_RDWR        2
 
 struct timespec { long tv_sec; long tv_nsec; };
 
@@ -42,6 +43,10 @@ static void msleep(long ms) {
 
 static long open_w(const char *path) {
     return sys5(SYS_openat, AT_FDCWD, (long)path, O_WRONLY, 0, 0);
+}
+
+static long open_rw(const char *path) {
+    return sys5(SYS_openat, AT_FDCWD, (long)path, O_RDWR, 0, 0);
 }
 
 static void mkdir_p(const char *path) {
@@ -69,11 +74,12 @@ void _start(void) {
     mount_fs("proc", "/proc", "proc");
     mount_fs("sysfs", "/sys", "sysfs");
 
-    // Wait for a real console to become available.
+    // Wait for a real tty. Prefer /dev/ttyAMA0 (the real PL011 tty)
+    // over /dev/console (which can be a kernel-only write-only path).
     long console = -1;
     for (int i = 0; i < 100 && console < 0; i++) {
-        console = open_w("/dev/console");
-        if (console < 0) console = open_w("/dev/ttyAMA0");
+        console = open_rw("/dev/ttyAMA0");
+        if (console < 0) console = open_rw("/dev/console");
         if (console < 0) console = open_w("/dev/kmsg");
         if (console >= 0) break;
         msleep(50);

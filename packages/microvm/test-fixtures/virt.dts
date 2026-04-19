@@ -306,11 +306,12 @@
 	};
 
 	pl011@9000000 {
+		current-speed = <0x1c200>;  // 115200
 		clock-names = "uartclk", "apb_pclk";
 		clocks = <0x8000 0x8000>;
 		interrupts = <0x00 0x01 0x04>;
 		reg = <0x00 0x9000000 0x00 0x1000>;
-		compatible = "arm,pl011", "arm,primecell";
+		compatible = "arm,sbsa-uart";
 	};
 
 	pmu {
@@ -388,7 +389,7 @@
 	};
 
 	chosen {
-		bootargs = "earlycon=pl011,0x9000000 console=ttyAMA0 panic=1";
+		bootargs = "earlycon=pl011,mmio32,0x9000000 console=ttyAMA0 panic=1";
 		linux,initrd-start = <0x44000000>;
 		linux,initrd-end = <0x60000000>;
 		stdout-path = "/pl011@9000000";

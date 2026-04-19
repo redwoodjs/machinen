@@ -172,32 +172,39 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     var exits: usize = 0;
     var saw_off = false;
 
-    // Put host stdin (fd 0) in non-blocking mode so draining input for
-    // the guest serial port doesn't hang if no keys have been pressed.
-    const stdin_flags = fcntl(0, F_GETFL, @as(c_int, 0));
-    _ = fcntl(0, F_SETFL, stdin_flags | O_NONBLOCK);
-
     // PL011 IRQ. The device tree says `interrupts = <0 1 4>` — SPI #1
     // in dts-relative numbering, which is `spi_base + 1` as an absolute
     // GIC id.
     const spi = try hvf.Gic.spiRange();
     const pl011_irq: u32 = spi.base + 1;
-    var pl011_irq_raised = false;
+
+    // Stdin-reader thread: blocks on read(0) and, when bytes arrive,
+    // pushes them into the UART's RX FIFO and raises the PL011 IRQ.
+    // We run this off the main (vCPU) thread because hv_vcpu_run()
+    // blocks inside the guest's WFI and wouldn't return in time to
+    // poll stdin. The stdin fd stays in its default blocking mode.
+    var stdin_ctx = StdinThread{
+        .uart = &uart,
+        .irq = pl011_irq,
+        .gpa = gpa,
+    };
+    const stdin_thread = try std.Thread.spawn(.{}, stdinThreadMain, .{&stdin_ctx});
+    defer {
+        stdin_ctx.stop.store(true, .release);
+        stdin_thread.detach();
+    }
+
+    // Helper: sync the PL011 IRQ line to match the UART's current state.
+    // Called by the main thread after any MMIO access that can change
+    // imsc/ris (e.g. the kernel masking interrupts in its ISR). The
+    // stdin thread does its own update after pushing bytes.
+    const syncIrq = struct {
+        fn call(u: *hvf.Pl011, id: u32) void {
+            hvf.Gic.setSpi(id, u.irqAsserted()) catch {};
+        }
+    }.call;
 
     while (exits < cfg.max_exits) : (exits += 1) {
-        // Drain any host stdin bytes into the guest's UART RX FIFO
-        // and raise the PL011 interrupt if we have fresh data.
-        var stdin_buf: [256]u8 = undefined;
-        const n = read(0, &stdin_buf, stdin_buf.len);
-        if (n > 0) try uart.pushRx(gpa, stdin_buf[0..@intCast(n)]);
-        if (uart.hasRx() and !pl011_irq_raised) {
-            try hvf.Gic.setSpi(pl011_irq, true);
-            pl011_irq_raised = true;
-        } else if (!uart.hasRx() and pl011_irq_raised) {
-            try hvf.Gic.setSpi(pl011_irq, false);
-            pl011_irq_raised = false;
-        }
-
         try vcpu.run();
 
         // Virtual timer expired while the vCPU was running. Re-mask so
@@ -251,10 +258,15 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
                     if (info.is_write) {
                         const value = try info.readSource(vcpu);
                         try uart.write(gpa, info.ipa, value);
-                        // Also echo to host stderr as characters arrive
-                        // (stderr so the test runner doesn't swallow it).
-                        const byte: [1]u8 = .{@truncate(value)};
-                        _ = write(2, &byte, 1);
+                        // Echo DR writes (offset 0) to host stderr so the
+                        // user sees guest console output live.
+                        if ((info.ipa - uart.base) == 0) {
+                            const byte: [1]u8 = .{@truncate(value)};
+                            _ = write(2, &byte, 1);
+                        }
+                        // The guest may have masked/unmasked or cleared
+                        // interrupts — resync the PL011 IRQ line.
+                        syncIrq(&uart, pl011_irq);
                     } else {
                         // Reads: return the UART's answer into the target
                         // register so the guest sees valid flags.
@@ -263,6 +275,8 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
                             const reg: hvf.Reg = @enumFromInt(@as(u32, info.srt));
                             try vcpu.setReg(reg, v);
                         }
+                        // A DR read drains rx_buf; resync the IRQ line.
+                        syncIrq(&uart, pl011_irq);
                     }
                 } else if (info.ipa >= 0x0800_0000 and info.ipa < 0x0801_0000) {
                     // Distributor MMIO. Route to HVF.
@@ -318,6 +332,29 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     };
 }
 
+// Context shared between the vCPU thread and the stdin-reader thread.
+const StdinThread = struct {
+    uart: *hvf.Pl011,
+    irq: u32,
+    gpa: std.mem.Allocator,
+    stop: std.atomic.Value(bool) = .init(false),
+};
+
+fn stdinThreadMain(ctx: *StdinThread) void {
+    var buf: [256]u8 = undefined;
+    while (!ctx.stop.load(.acquire)) {
+        const n = read(0, &buf, buf.len);
+        if (n <= 0) {
+            // EOF or error — stop polling. The guest can keep running;
+            // it just won't receive any more serial input.
+            return;
+        }
+        ctx.uart.pushRx(ctx.gpa, buf[0..@intCast(n)]) catch return;
+        // Assert the IRQ so the vCPU wakes from WFI and services it.
+        hvf.Gic.setSpi(ctx.irq, ctx.uart.irqAsserted()) catch {};
+    }
+}
+
 // libc bindings — std.posix is heavily reshaped in Zig 0.16 and most
 // file-I/O surface moved behind an Io context. Going straight to libc
 // keeps this file independent of that churn.
@@ -332,10 +369,6 @@ extern "c" fn write(fd: c_int, buf: [*]const u8, count: usize) isize;
 extern "c" fn lseek(fd: c_int, offset: i64, whence: c_int) i64;
 extern "c" fn access(path: [*:0]const u8, mode: c_int) c_int;
 extern "c" fn getenv(name: [*:0]const u8) ?[*:0]const u8;
-extern "c" fn fcntl(fd: c_int, cmd: c_int, ...) c_int;
-const F_GETFL: c_int = 3;
-const F_SETFL: c_int = 4;
-const O_NONBLOCK: c_int = 0x0004; // macOS value
 
 fn readAll(gpa: std.mem.Allocator, path: []const u8) ![]u8 {
     var path_buf: [4096]u8 = undefined;
@@ -420,11 +453,10 @@ test "boot a real arm64 Linux kernel" {
     };
     defer gpa.free(result.serial);
 
-    std.debug.print(
-        "\n--- boot finished, {d} exits, serial {d} bytes ---\n",
-        .{ result.exits, result.serial.len },
-    );
-    std.debug.print("--- all captured serial ---\n{s}\n--- end ---\n", .{result.serial});
+    // The test captures serial too, but for an interactive run what
+    // matters is the live stderr echo from inside the loop. Skip the
+    // at-exit dump.
+    _ = result.exits;
 
     // The real "did we succeed" signal: did the guest kernel say
     // anything at all on serial?
