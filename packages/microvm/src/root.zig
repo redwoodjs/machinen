@@ -13,6 +13,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 pub const hvf = if (builtin.os.tag == .macos) @import("hvf.zig") else struct {};
+pub const boot = if (builtin.os.tag == .macos) @import("boot.zig") else struct {};
 
 pub const Backend = enum { hvf, kvm, none };
 
@@ -39,5 +40,6 @@ test "detectBackend matches build target" {
 test {
     if (builtin.os.tag == .macos) {
         _ = @import("hvf.zig");
+        _ = @import("boot.zig");
     }
 }
