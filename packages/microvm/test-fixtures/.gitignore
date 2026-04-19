@@ -2,5 +2,7 @@ Image
 Image.gz
 initrd*
 *.dtb
+virt.dts.bak
 !.gitignore
 !README.md
+!virt.dts
