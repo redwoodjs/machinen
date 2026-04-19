@@ -257,6 +257,66 @@ pub const DataAbort = struct {
 };
 
 // =============================================================
+// arm64 Linux kernel Image header
+// =============================================================
+
+/// The first 64 bytes of an arm64 `Image` file, per
+/// arch/arm64/include/asm/image.h. See
+/// .docs/learnings/microvm/arm64-linux-boot.md.
+pub const KernelImage = struct {
+    /// Offset from the base of RAM where the kernel wants to be loaded.
+    text_offset: u64,
+    /// How many bytes of RAM the kernel reserves (can exceed file size).
+    image_size: u64,
+    /// The raw bytes (whole Image file; caller owns the memory).
+    bytes: []const u8,
+
+    pub const magic: u32 = 0x644D5241; // "ARM\x64"
+
+    pub const Error = error{ TooSmall, BadMagic };
+
+    /// Parse the header. `bytes` is the entire kernel Image file.
+    pub fn parse(bytes: []const u8) KernelImage.Error!KernelImage {
+        if (bytes.len < 64) return error.TooSmall;
+        const got_magic = std.mem.readInt(u32, bytes[0x38..0x3C], .little);
+        if (got_magic != magic) return error.BadMagic;
+        return .{
+            .text_offset = std.mem.readInt(u64, bytes[0x08..0x10], .little),
+            .image_size = std.mem.readInt(u64, bytes[0x10..0x18], .little),
+            .bytes = bytes,
+        };
+    }
+};
+
+// =============================================================
+// PSCI — the one kernel-to-hypervisor call we have to understand
+// =============================================================
+
+/// PSCI function IDs the kernel uses via HVC #0. Top bit distinguishes
+/// 64-bit from 32-bit calling convention. We only handle the few we
+/// need for single-vCPU boot.
+pub const Psci = struct {
+    pub const Function = enum(u32) {
+        version = 0x84000000,
+        cpu_on_64 = 0xC4000003,
+        system_off = 0x84000009,
+        system_reset = 0x84000009 + 1, // 0x8400000A
+        _,
+    };
+
+    /// When the vCPU exits with EC=HVC, the requested function ID
+    /// is in X0. Returns null if it isn't a PSCI-shaped HVC.
+    pub fn decode(vcpu: Vcpu) Error!?Function {
+        const x0 = try vcpu.getReg(.x0);
+        const f: Function = @enumFromInt(@as(u32, @truncate(x0)));
+        return switch (f) {
+            .version, .cpu_on_64, .system_off, .system_reset => f,
+            _ => null,
+        };
+    }
+};
+
+// =============================================================
 // Minimal PL011 UART
 // =============================================================
 
@@ -633,4 +693,26 @@ test "guest writes bytes to PL011 UART, host captures them" {
         "PL011 captured {d} bytes: \"{s}\"",
         .{ uart.captured.items.len, uart.captured.items },
     );
+}
+
+test "KernelImage.parse accepts a valid header" {
+    var header: [64]u8 = @splat(0);
+    // text_offset at 0x08 (8 bytes, LE)
+    std.mem.writeInt(u64, header[0x08..0x10], 0x80000, .little);
+    // image_size at 0x10
+    std.mem.writeInt(u64, header[0x10..0x18], 0x200000, .little);
+    // magic "ARM\x64" at 0x38
+    std.mem.writeInt(u32, header[0x38..0x3C], KernelImage.magic, .little);
+
+    const img = try KernelImage.parse(&header);
+    try std.testing.expectEqual(@as(u64, 0x80000), img.text_offset);
+    try std.testing.expectEqual(@as(u64, 0x200000), img.image_size);
+}
+
+test "KernelImage.parse rejects bad magic and too-small buffers" {
+    try std.testing.expectError(error.TooSmall, KernelImage.parse(&[_]u8{0} ** 32));
+
+    var header: [64]u8 = @splat(0);
+    // Leave magic zero.
+    try std.testing.expectError(error.BadMagic, KernelImage.parse(&header));
 }
