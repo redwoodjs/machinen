@@ -178,6 +178,8 @@ extern "c" fn hv_gic_get_distributor_reg(reg: u32, value: *u64) c.hv_return_t;
 extern "c" fn hv_gic_set_distributor_reg(reg: u32, value: u64) c.hv_return_t;
 extern "c" fn hv_gic_get_redistributor_reg(vcpu: u64, reg: u32, value: *u64) c.hv_return_t;
 extern "c" fn hv_gic_set_redistributor_reg(vcpu: u64, reg: u32, value: u64) c.hv_return_t;
+extern "c" fn hv_gic_set_spi(intid: u32, level: bool) c.hv_return_t;
+extern "c" fn hv_gic_get_spi_interrupt_range(base: *u32, count: *u32) c.hv_return_t;
 
 /// In-kernel GIC v3 emulation exposed by HVF. Must be created after
 /// the VM exists but before the first vCPU runs.
@@ -257,6 +259,22 @@ pub const Gic = struct {
 
     pub fn writeRedistributor(vcpu: Vcpu, offset: u32, value: u64) void {
         _ = hv_gic_set_redistributor_reg(vcpu.handle, offset, value);
+    }
+
+    /// Set the level (asserted/deasserted) of a shared peripheral
+    /// interrupt. `intid` is the GIC-absolute id (SPIs start at 32
+    /// on ARM GIC; the DTS number is 0-based within SPIs, so for a
+    /// device that says `interrupts = <0 1 4>` call with intid = 33).
+    pub fn setSpi(intid: u32, level: bool) Error!void {
+        try check(hv_gic_set_spi(intid, level));
+    }
+
+    /// Returns (base_intid, count) — the absolute GIC ID range of SPIs.
+    pub fn spiRange() Error!struct { base: u32, count: u32 } {
+        var base: u32 = 0;
+        var count: u32 = 0;
+        try check(hv_gic_get_spi_interrupt_range(&base, &count));
+        return .{ .base = base, .count = count };
     }
 };
 
@@ -443,28 +461,42 @@ pub const Psci = struct {
 // =============================================================
 
 /// Bare-bones PL011 UART (the serial port on the ARM virt machine).
-/// Only enough registers to accept writes from a guest printk and
-/// keep the guest from stalling on flag-register reads:
-///   - DR (offset 0x000): byte writes append to `captured`; reads return 0.
-///   - FR (offset 0x018): reads return "TX empty, not busy" (0x90).
+///   - DR (offset 0x000): byte writes append to `captured`; reads pop
+///     from `rx_buf` (the bytes we received from host stdin).
+///   - FR (offset 0x018): bit 4 (RXFE) = 1 when rx_buf is empty, 0 otherwise.
+///     Other bits keep their "TX empty, not busy" state.
 ///   - other registers: writes ignored, reads return 0.
 pub const Pl011 = struct {
     base: u64,
     size: u64 = 0x1000,
     captured: std.ArrayList(u8),
+    rx_buf: std.ArrayList(u8),
 
-    pub const init: Pl011 = .{ .base = 0x0900_0000, .captured = .empty };
+    pub const init: Pl011 = .{
+        .base = 0x0900_0000,
+        .captured = .empty,
+        .rx_buf = .empty,
+    };
 
     pub fn withBase(base: u64) Pl011 {
-        return .{ .base = base, .captured = .empty };
+        return .{ .base = base, .captured = .empty, .rx_buf = .empty };
     }
 
     pub fn deinit(self: *Pl011, gpa: std.mem.Allocator) void {
         self.captured.deinit(gpa);
+        self.rx_buf.deinit(gpa);
     }
 
     pub fn handles(self: Pl011, addr: u64) bool {
         return addr >= self.base and addr < self.base + self.size;
+    }
+
+    pub fn hasRx(self: Pl011) bool {
+        return self.rx_buf.items.len > 0;
+    }
+
+    pub fn pushRx(self: *Pl011, gpa: std.mem.Allocator, bytes: []const u8) !void {
+        try self.rx_buf.appendSlice(gpa, bytes);
     }
 
     pub fn write(self: *Pl011, gpa: std.mem.Allocator, addr: u64, value: u64) !void {
@@ -474,11 +506,24 @@ pub const Pl011 = struct {
         }
     }
 
-    pub fn read(self: Pl011, addr: u64) u64 {
-        return switch (addr - self.base) {
-            0x018 => 0x90, // FR: TX FIFO empty + not busy
-            else => 0,
-        };
+    pub fn read(self: *Pl011, addr: u64) u64 {
+        switch (addr - self.base) {
+            0x000 => { // DR — pop a byte from rx_buf
+                if (self.rx_buf.items.len == 0) return 0;
+                const b = self.rx_buf.items[0];
+                // Shift remaining bytes down.
+                std.mem.copyForwards(u8, self.rx_buf.items[0 .. self.rx_buf.items.len - 1], self.rx_buf.items[1..]);
+                self.rx_buf.items.len -= 1;
+                return b;
+            },
+            0x018 => {
+                // FR base: TX empty (bit 7), TX not full (bit 5 cleared),
+                // plus RXFE (bit 4) flipped based on rx_buf state.
+                const rxfe: u64 = if (self.rx_buf.items.len == 0) (1 << 4) else 0;
+                return 0x80 | rxfe;
+            },
+            else => return 0,
+        }
     }
 };
 

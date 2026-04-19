@@ -172,7 +172,32 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     var exits: usize = 0;
     var saw_off = false;
 
+    // Put host stdin (fd 0) in non-blocking mode so draining input for
+    // the guest serial port doesn't hang if no keys have been pressed.
+    const stdin_flags = fcntl(0, F_GETFL, @as(c_int, 0));
+    _ = fcntl(0, F_SETFL, stdin_flags | O_NONBLOCK);
+
+    // PL011 IRQ. The device tree says `interrupts = <0 1 4>` — SPI #1
+    // in dts-relative numbering, which is `spi_base + 1` as an absolute
+    // GIC id.
+    const spi = try hvf.Gic.spiRange();
+    const pl011_irq: u32 = spi.base + 1;
+    var pl011_irq_raised = false;
+
     while (exits < cfg.max_exits) : (exits += 1) {
+        // Drain any host stdin bytes into the guest's UART RX FIFO
+        // and raise the PL011 interrupt if we have fresh data.
+        var stdin_buf: [256]u8 = undefined;
+        const n = read(0, &stdin_buf, stdin_buf.len);
+        if (n > 0) try uart.pushRx(gpa, stdin_buf[0..@intCast(n)]);
+        if (uart.hasRx() and !pl011_irq_raised) {
+            try hvf.Gic.setSpi(pl011_irq, true);
+            pl011_irq_raised = true;
+        } else if (!uart.hasRx() and pl011_irq_raised) {
+            try hvf.Gic.setSpi(pl011_irq, false);
+            pl011_irq_raised = false;
+        }
+
         try vcpu.run();
 
         // Virtual timer expired while the vCPU was running. Re-mask so
@@ -307,6 +332,10 @@ extern "c" fn write(fd: c_int, buf: [*]const u8, count: usize) isize;
 extern "c" fn lseek(fd: c_int, offset: i64, whence: c_int) i64;
 extern "c" fn access(path: [*:0]const u8, mode: c_int) c_int;
 extern "c" fn getenv(name: [*:0]const u8) ?[*:0]const u8;
+extern "c" fn fcntl(fd: c_int, cmd: c_int, ...) c_int;
+const F_GETFL: c_int = 3;
+const F_SETFL: c_int = 4;
+const O_NONBLOCK: c_int = 0x0004; // macOS value
 
 fn readAll(gpa: std.mem.Allocator, path: []const u8) ![]u8 {
     var path_buf: [4096]u8 = undefined;
