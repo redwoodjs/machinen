@@ -98,10 +98,11 @@ void _start(void) {
     long rl = open_w("/proc/sys/kernel/printk_ratelimit");
     if (rl >= 0) { write_str(rl, "0\n"); }
 
+    // Hand off to /demo.sh via /bin/sh. The demo launches node,
+    // checkpoints it with CRIU, restores it, and sleeps forever.
     static char *argv[] = {
-        "/usr/local/bin/node",
-        "-e",
-        "console.log('hello from node', process.version, 'inside machinen-microvm on macOS HVF'); for(let i=0;i<3;i++) console.log('  tick', i);",
+        "/bin/sh",
+        "/demo.sh",
         (char *)0,
     };
     static char *envp[] = {
@@ -114,6 +115,6 @@ void _start(void) {
     sys(SYS_execve, (long)argv[0], (long)argv, (long)envp);
 
     // If exec returned, it failed. Report and sleep.
-    write_str(1, "execve failed — node binary missing or wrong arch?\n");
+    write_str(1, "execve /bin/sh /demo.sh failed\n");
     for (;;) msleep(60000);
 }

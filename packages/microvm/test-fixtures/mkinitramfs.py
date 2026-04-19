@@ -33,35 +33,44 @@ def newc(name, mode, uid=0, gid=0, nlink=1, mtime=0,
     return out
 
 def entries_from_rootfs(root: Path):
-    """Yield cpio bytes for every file/dir/symlink under `root`."""
-    # root itself as "."
-    yield newc(".", 0o40755)
-    for dirpath, dirnames, filenames, dirfd in os.fwalk(root):
-        rel_dir = os.path.relpath(dirpath, root)
-        # dirs
-        for d in sorted(dirnames):
-            full = os.path.join(dirpath, d)
-            rel = os.path.join(rel_dir, d) if rel_dir != "." else d
-            st = os.lstat(full)
-            yield newc(rel, 0o40000 | (st.st_mode & 0o7777))
-        # files + symlinks
-        for f in sorted(filenames):
-            full = os.path.join(dirpath, f)
-            rel = os.path.join(rel_dir, f) if rel_dir != "." else f
+    """Yield cpio bytes for every file/dir/symlink under `root`.
+
+    Walks manually (no os.walk/fwalk) because those follow symlinks
+    to directories, which clobbers the /bin → /usr/bin style layout
+    on modern Debian. Here a symlink — whether it points at a file
+    or a directory — is always emitted as a symlink.
+    """
+    root = str(root)
+
+    def walk(rel):
+        full = os.path.join(root, rel) if rel else root
+        try:
+            entries = sorted(os.listdir(full))
+        except (OSError, FileNotFoundError):
+            return
+        for name in entries:
+            child_rel = os.path.join(rel, name) if rel else name
+            child_full = os.path.join(full, name)
             try:
-                st = os.lstat(full)
+                st = os.lstat(child_full)
             except FileNotFoundError:
                 continue
             m = st.st_mode
             if stat.S_ISLNK(m):
-                target = os.readlink(full).encode()
-                yield newc(rel, 0o120000 | (m & 0o7777), data=target)
+                target = os.readlink(child_full).encode()
+                yield newc(child_rel, 0o120000 | (m & 0o7777), data=target)
+            elif stat.S_ISDIR(m):
+                yield newc(child_rel, 0o40000 | (m & 0o7777))
+                yield from walk(child_rel)
             elif stat.S_ISREG(m):
-                with open(full, "rb") as fh:
+                with open(child_full, "rb") as fh:
                     data = fh.read()
-                yield newc(rel, 0o100000 | (m & 0o7777), data=data)
-            # skip other kinds (device/fifo/socket) — we'll add the
-            # device nodes we need by hand below.
+                yield newc(child_rel, 0o100000 | (m & 0o7777), data=data)
+            # skip other kinds (device/fifo/socket) — we add device
+            # nodes we need by hand below.
+
+    yield newc(".", 0o40755)
+    yield from walk("")
 
 def main():
     args = sys.argv[1:]
