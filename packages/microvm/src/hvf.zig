@@ -716,3 +716,73 @@ test "KernelImage.parse rejects bad magic and too-small buffers" {
     // Leave magic zero.
     try std.testing.expectError(error.BadMagic, KernelImage.parse(&header));
 }
+
+test "guest makes a PSCI SYSTEM_OFF call, host stops the run loop" {
+    const vm = Vm.create() catch |err| switch (err) {
+        error.Denied => {
+            std.debug.print("skip: HV_DENIED\n", .{});
+            return;
+        },
+        else => return err,
+    };
+    defer vm.destroy();
+
+    const host_mem = try std.posix.mmap(
+        null,
+        page_size,
+        .{ .READ = true, .WRITE = true },
+        .{ .TYPE = .PRIVATE, .ANONYMOUS = true },
+        -1,
+        0,
+    );
+    defer std.posix.munmap(host_mem);
+
+    // Guest program: place 0x84000009 (PSCI SYSTEM_OFF) into x0 then
+    // HVC. The kernel makes this exact call when it shuts down.
+    //   movz x0, #0x0009            ; low 16 bits
+    //   movk x0, #0x8400, lsl #16   ; upper 16 bits
+    //   hvc  #0
+    const program = [_]u32{
+        0xD2800120, // movz x0, #0x0009
+        0xF2B08000, // movk x0, #0x8400, lsl #16
+        0xD4000002, // hvc  #0
+    };
+    const program_bytes = std.mem.sliceAsBytes(program[0..]);
+    @memcpy(host_mem[0..program_bytes.len], program_bytes);
+
+    const guest_base: u64 = 0x40000000;
+    try vm.map(host_mem, guest_base, MapFlags.rx);
+    defer vm.unmap(guest_base, page_size) catch {};
+
+    const vcpu = try Vcpu.create();
+    defer vcpu.destroy();
+
+    try vcpu.setReg(.cpsr, 0x3C5);
+    try vcpu.setSysReg(.sctlr_el1, 1 << 12);
+    try vcpu.setReg(.pc, guest_base);
+
+    // Run loop: exit on PSCI SYSTEM_OFF.
+    var saw_system_off = false;
+    while (true) {
+        try vcpu.run();
+        if (vcpu.exit.reason != .exception) return error.UnexpectedExitReason;
+        const ec = ExceptionClass.fromSyndrome(vcpu.exit.exception.syndrome);
+        if (ec != .hvc_aarch64) return error.UnexpectedExceptionClass;
+
+        if (try Psci.decode(vcpu)) |f| switch (f) {
+            .system_off, .system_reset => {
+                saw_system_off = true;
+                break;
+            },
+            else => {
+                // other PSCI calls would be answered here; none expected in this test
+                return error.UnexpectedPsciFunction;
+            },
+        } else {
+            return error.NonPsciHvc;
+        }
+    }
+
+    try std.testing.expect(saw_system_off);
+    std.debug.print("guest requested PSCI SYSTEM_OFF, host stopped\n", .{});
+}
