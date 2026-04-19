@@ -35,10 +35,14 @@ pub const Error = error{
 pub const Config = struct {
     kernel_path: []const u8,
     dtb_path: []const u8,
+    initrd_path: ?[]const u8 = null,
     ram_base: u64 = 0x4000_0000,
     ram_size: usize = 128 * 1024 * 1024, // 128 MB
     // DTB sits well past the kernel so the kernel doesn't clobber it.
     dtb_offset: u64 = 0x0300_0000, // 48 MB into RAM
+    // Where the initramfs goes in guest RAM. Must match the
+    // `linux,initrd-start` property in the DTB's /chosen node.
+    initrd_offset: u64 = 0x0400_0000, // 64 MB into RAM
     // How many bytes to capture from serial before we declare the
     // boot "far enough along to stop."
     capture_bytes: usize = 16384,
@@ -85,6 +89,17 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // copy kernel and DTB into RAM
     @memcpy(ram[img.text_offset..][0..kernel.len], kernel);
     @memcpy(ram[cfg.dtb_offset..][0..dtb.len], dtb);
+
+    // optional initramfs
+    if (cfg.initrd_path) |initrd_path| {
+        const initrd = readAll(gpa, initrd_path) catch |err| {
+            if (err == error.OpenFailed) return error.FixtureMissing;
+            return err;
+        };
+        defer gpa.free(initrd);
+        if (cfg.initrd_offset + initrd.len > cfg.ram_size) return error.DtbTooLarge;
+        @memcpy(ram[cfg.initrd_offset..][0..initrd.len], initrd);
+    }
 
     const vm = try hvf.Vm.create();
     defer vm.destroy();
@@ -330,9 +345,10 @@ fn readAll(gpa: std.mem.Allocator, path: []const u8) ![]u8 {
 /// for how to produce it.
 const kernel_fixture = "test-fixtures/Image";
 const dtb_fixture = "test-fixtures/virt.dtb";
+const initrd_fixture = "test-fixtures/initramfs.cpio";
 
 fn fixturesPresent() bool {
-    inline for (.{ kernel_fixture, dtb_fixture }) |p| {
+    inline for (.{ kernel_fixture, dtb_fixture, initrd_fixture }) |p| {
         var buf: [4096]u8 = undefined;
         if (p.len >= buf.len) return false;
         @memcpy(buf[0..p.len], p);
@@ -367,6 +383,7 @@ test "boot a real arm64 Linux kernel" {
     const result = boot(gpa, .{
         .kernel_path = kernel_fixture,
         .dtb_path = dtb_fixture,
+        .initrd_path = initrd_fixture,
     }) catch |err| {
         std.debug.print("boot returned {s}\n", .{@errorName(err)});
         if (err == error.Denied) return; // entitlement not set in this build
