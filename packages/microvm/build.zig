@@ -131,6 +131,10 @@ pub fn build(b: *std.Build) void {
 
     // A run step that will run the test executable.
     const run_mod_tests = b.addRunArtifact(mod_tests);
+    // Tests reference fixtures via paths relative to packages/microvm.
+    // Without this, running `zig build test` from a different cwd makes
+    // the boot test skip because it can't find test-fixtures/Image etc.
+    run_mod_tests.setCwd(b.path("."));
 
     // Creates an executable that will run `test` blocks from the executable's
     // root module. Note that test executables only test one module at a time,
@@ -141,6 +145,7 @@ pub fn build(b: *std.Build) void {
 
     // A run step that will run the second test executable.
     const run_exe_tests = b.addRunArtifact(exe_tests);
+    run_exe_tests.setCwd(b.path("."));
 
     // On macOS, ad-hoc codesign test and exe binaries with the
     // com.apple.security.hypervisor entitlement so hv_vm_create and friends
