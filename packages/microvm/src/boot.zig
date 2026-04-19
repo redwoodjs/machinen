@@ -217,6 +217,28 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
                             try vcpu.setReg(reg, v);
                         }
                     }
+                } else if (info.ipa >= 0x0800_0000 and info.ipa < 0x0801_0000) {
+                    // Distributor MMIO. Route to HVF.
+                    const offset: u32 = @truncate(info.ipa - 0x0800_0000);
+                    if (info.is_write) {
+                        const value = try info.readSource(vcpu);
+                        hvf.Gic.writeDistributor(offset, value);
+                    } else if (info.srt != 31) {
+                        const reg: hvf.Reg = @enumFromInt(@as(u32, info.srt));
+                        try vcpu.setReg(reg, hvf.Gic.readDistributor(offset));
+                    }
+                } else if (info.ipa >= 0x1000_0000 and info.ipa < 0x1200_0000) {
+                    // Redistributor MMIO. Each vCPU's frame is 128 KB.
+                    // For our single-vCPU setup, frame 0 = [0x10000000,
+                    // 0x10020000); offset into frame is the HVF register.
+                    const offset: u32 = @truncate((info.ipa - 0x1000_0000) % 0x0002_0000);
+                    if (info.is_write) {
+                        const value = try info.readSource(vcpu);
+                        hvf.Gic.writeRedistributor(vcpu, offset, value);
+                    } else if (info.srt != 31) {
+                        const reg: hvf.Reg = @enumFromInt(@as(u32, info.srt));
+                        try vcpu.setReg(reg, hvf.Gic.readRedistributor(vcpu, offset));
+                    }
                 } else {
                     // Unknown MMIO region — reads return 0, writes ignored.
                     if (!info.is_write and info.srt != 31) {

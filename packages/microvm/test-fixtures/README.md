@@ -29,15 +29,33 @@ docker run --rm --platform linux/arm64 -v "$(pwd)":/out \
 Resulting `Image` is ~27 MB, magic `ARMd`, `text_offset=0x0`,
 `image_size=0x1aa0000`.
 
-## Regenerate `virt.dtb` (ARM virt machine device tree)
+## Regenerate `virt.dtb` (custom device tree)
 
-Requires `qemu-system-aarch64` (`brew install qemu`).
+We ship the source (`virt.dts`) in git. Compile it with `dtc`
+(`brew install dtc`):
 
 ```bash
 cd packages/microvm/test-fixtures
-qemu-system-aarch64 -machine virt,dumpdtb=virt.dtb \
-  -cpu cortex-a72 -m 128M -nographic
+dtc -I dts -O dtb virt.dts -o virt.dtb
 ```
 
-QEMU dumps the DTB and exits. File is ~1 MB (padded with zeros
-after the real data — valid per the header's size field).
+Two things about our DTS differ from what QEMU produces by default:
+
+1. **Interrupt controller (GIC) redistributor region is 32 MB**,
+   relocated to `0x10000000`. Apple's in-kernel GIC wants 32 MB;
+   QEMU's default DTB only reserves 15.4 MB at `0x080A_0000` and
+   the serial port lives inside that overlapping range.
+2. **Kernel command line** in `/chosen/bootargs` includes
+   `earlycon=pl011,0x9000000` so the kernel can print before it
+   sets up its full console.
+
+To start from scratch (regenerate the DTS from QEMU, then patch):
+
+```bash
+qemu-system-aarch64 -machine virt,gic-version=3,dumpdtb=virt-raw.dtb \
+  -cpu cortex-a72 -m 128M -kernel Image \
+  -append "earlycon=pl011,0x9000000 console=ttyAMA0" -nographic
+dtc -I dtb -O dts virt-raw.dtb -o virt.dts
+# then edit intc@8000000's `reg` to place redistributor at 0x10000000
+# with size 0x2000000, save, compile as above.
+```

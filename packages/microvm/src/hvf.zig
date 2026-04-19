@@ -174,13 +174,22 @@ extern "c" fn hv_gic_get_redistributor_base(vcpu: u64, base: *u64) c.hv_return_t
 extern "c" fn hv_gic_get_distributor_size(size: *usize) c.hv_return_t;
 extern "c" fn hv_gic_get_redistributor_size(size: *usize) c.hv_return_t;
 extern "c" fn hv_gic_get_redistributor_region_size(size: *usize) c.hv_return_t;
+extern "c" fn hv_gic_get_distributor_reg(reg: u32, value: *u64) c.hv_return_t;
+extern "c" fn hv_gic_set_distributor_reg(reg: u32, value: u64) c.hv_return_t;
+extern "c" fn hv_gic_get_redistributor_reg(vcpu: u64, reg: u32, value: *u64) c.hv_return_t;
+extern "c" fn hv_gic_set_redistributor_reg(vcpu: u64, reg: u32, value: u64) c.hv_return_t;
 
 /// In-kernel GIC v3 emulation exposed by HVF. Must be created after
 /// the VM exists but before the first vCPU runs.
 pub const Gic = struct {
     pub const Config = struct {
         distributor_base: u64 = 0x0800_0000,
-        redistributor_base: u64 = 0x080A_0000,
+        // HVF's redistributor region wants 32 MB even for one vCPU.
+        // QEMU's default virt layout only reserves 15.4 MB at
+        // 0x080A_0000, so we place ours at 0x1000_0000 (below the
+        // 0x4000_0000 RAM base, nothing else in the way) and use a
+        // matching custom device tree (test-fixtures/virt.dtb).
+        redistributor_base: u64 = 0x1000_0000,
     };
 
     pub fn enable(cfg: Config) Error!void {
@@ -224,6 +233,30 @@ pub const Gic = struct {
         var s: usize = 0;
         try check(hv_gic_get_redistributor_region_size(&s));
         return s;
+    }
+
+    /// Read a distributor register (offset within the distributor MMIO).
+    /// Returns 0 if HVF doesn't recognize the offset — common for
+    /// reserved or vendor-specific areas; matches GIC "read as zero"
+    /// semantics.
+    pub fn readDistributor(offset: u32) u64 {
+        var v: u64 = 0;
+        _ = hv_gic_get_distributor_reg(offset, &v);
+        return v;
+    }
+
+    pub fn writeDistributor(offset: u32, value: u64) void {
+        _ = hv_gic_set_distributor_reg(offset, value);
+    }
+
+    pub fn readRedistributor(vcpu: Vcpu, offset: u32) u64 {
+        var v: u64 = 0;
+        _ = hv_gic_get_redistributor_reg(vcpu.handle, offset, &v);
+        return v;
+    }
+
+    pub fn writeRedistributor(vcpu: Vcpu, offset: u32, value: u64) void {
+        _ = hv_gic_set_redistributor_reg(vcpu.handle, offset, value);
     }
 };
 
