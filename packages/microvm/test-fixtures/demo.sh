@@ -9,6 +9,14 @@ echo ""
 
 mkdir -p /logs /dump
 
+# CRIU needs a handful of netlink-diag kernel modules to probe
+# socket state. They're in /lib/modules on the rootfs (we added
+# the kernel package to the Docker image for this).
+echo ">>> loading kernel modules CRIU needs"
+for m in sock_diag unix_diag netlink_diag packet_diag tcp_diag udp_diag inet_diag; do
+    /usr/sbin/modprobe "$m" 2>/dev/null && echo "    ok: $m" || echo "    skip: $m"
+done
+
 # Tiny ticker — prints every 500 ms so we can see state survive a
 # dump/restore cycle.
 cat > /ticker.js <<'JS'
