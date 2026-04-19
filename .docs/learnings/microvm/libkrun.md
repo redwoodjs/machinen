@@ -51,13 +51,13 @@ a Linux microVM and run a command inside it.
 Think of it as "a complete microVM you can call from your own
 code, without writing any virtualization plumbing."
 
-## Compared to our Zig VMM (packages/vmm)
+## Compared to our Zig VMM (packages/microvm)
 
 We're building, in Zig, **a smaller thing that occupies the
 same layer as libkrun.** Not competing with libkrun in features
 (it's years ahead); competing in scope and control.
 
-| Axis                  | libkrun                        | packages/vmm (our Zig VMM)                    |
+| Axis                  | libkrun                        | packages/microvm (our Zig VMM)                    |
 | --------------------- | ------------------------------ | --------------------------------------------- |
 | Language              | Rust + some C                  | Zig                                           |
 | CPU backends          | HVF + KVM                      | HVF + KVM (same)                              |
@@ -109,5 +109,5 @@ didn't need and patch what he did. That's smol-machines' tech.
 
 Machinen is *not* reusing that — different product, clean
 separation, and the Zig VMM is specifically the "build my own"
-track (see `.docs/learnings/mvm/` as it grows, and issues #42
-through #45).
+track (see `.docs/learnings/microvm/` as it grows, and issues
+#42 through #45).

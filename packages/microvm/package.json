@@ -1,5 +1,5 @@
 {
-  "name": "@machine/vmm",
+  "name": "@machine/microvm",
   "version": "0.0.0",
   "private": true,
   "description": "Zig-native microVM for machinen. Scaffold — see redwoodjs/machinen#42 and sibling issues.",
