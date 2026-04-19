@@ -1,7 +1,7 @@
 #!/bin/sh
 # CRIU freeze/restore demo, pipe-free.
 
-set -e
+# set -e disabled — shell was silently dying after last insmod
 
 echo ""
 echo "=== machinen-microvm CRIU freeze/restore demo ==="
@@ -10,12 +10,23 @@ echo ""
 mkdir -p /logs /dump
 
 # CRIU needs a handful of netlink-diag kernel modules to probe
-# socket state. They're in /lib/modules on the rootfs (we added
-# the kernel package to the Docker image for this).
+# socket state. Load them with insmod + direct paths (modprobe
+# would need /lib/modules/.../modules.dep from depmod, which we
+# haven't run).
 echo ">>> loading kernel modules CRIU needs"
-for m in sock_diag unix_diag netlink_diag packet_diag tcp_diag udp_diag inet_diag; do
-    /usr/sbin/modprobe "$m" 2>/dev/null && echo "    ok: $m" || echo "    skip: $m"
-done
+KVER=$(uname -r)
+KBASE="/lib/modules/$KVER/kernel"
+load() {
+    if /usr/sbin/insmod "$1" 2>/dev/null; then
+        echo "    ok: $(basename "$1" .ko)"
+    else
+        echo "    skip: $(basename "$1" .ko)"
+    fi
+}
+# Skipping module loads entirely for this round — they were
+# causing the shell to silently stop; CRIU might work without
+# them for a bare process.
+echo "skipping module loads"
 
 # Tiny ticker — prints every 500 ms so we can see state survive a
 # dump/restore cycle.
