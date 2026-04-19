@@ -118,6 +118,13 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     const vcpu = try hvf.Vcpu.create();
     defer vcpu.destroy();
 
+    // Set the vCPU's multiprocessor affinity. Without this, Apple's
+    // GIC won't associate this vCPU with a redistributor frame and
+    // any `hv_gic_*_redistributor_reg` call returns HV_DENIED. Value
+    // layout: bit 31 reserved-as-1, bits 23:16/15:8/7:0 = Aff2/Aff1/Aff0.
+    // For our single-CPU guest, all affinity fields = 0.
+    try vcpu.setSysReg(.mpidr_el1, 1 << 31);
+
     // Let the virtual timer wake the vCPU so we can deliver ticks.
     try vcpu.setVtimerMask(false);
 

@@ -261,10 +261,13 @@ pub const Gic = struct {
 };
 
 /// System register selectors. Matches hv_sys_reg_t in hv_vcpu_types.h.
-/// Only the handful we need for the smoke test.
+/// Only the handful we need.
 pub const SysReg = enum(u32) {
     // Encoding for hv_sys_reg_t follows arm64 op0/op1/CRn/CRm/op2 packing.
-    // SCTLR_EL1 = op0=3 op1=0 CRn=1 CRm=0 op2=0 → 0xC080
+    // MPIDR_EL1 — must be set BEFORE the first vcpu run, otherwise
+    // Apple's GIC won't bind this vCPU to a redistributor frame and
+    // later `hv_gic_*_redistributor_reg` calls return HV_DENIED.
+    mpidr_el1 = 0xC005,
     sctlr_el1 = 0xC080,
 };
 
