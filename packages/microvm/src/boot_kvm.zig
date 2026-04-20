@@ -179,7 +179,13 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         if (uart.captured.items.len >= cfg.capture_bytes) break;
     }
 
-    if (exits >= cfg.max_exits) return error.RanTooLong;
+    if (exits >= cfg.max_exits) {
+        std.debug.print(
+            "kvm boot: RanTooLong after {d} exits. Captured serial ({d} bytes):\n{s}\n",
+            .{ exits, uart.captured.items.len, uart.captured.items },
+        );
+        return error.RanTooLong;
+    }
 
     const serial = try gpa.dupe(u8, uart.captured.items);
     return .{ .serial = serial, .saw_psci_shutdown = saw_off, .exits = exits };
@@ -345,10 +351,18 @@ test "KVM: boot a real arm64 Linux kernel" {
         .kernel_path = kernel_fixture,
         .dtb_path = dtb_fixture,
         .initrd_path = initrd_fixture,
+        // The fixture init drops into an interactive shell that waits
+        // on stdin (which we don't feed), so KVM_RUN will block forever
+        // once it's idle. Break as soon as we've seen enough serial to
+        // prove the kernel banner printed; the sanity check below
+        // verifies it's actually a Linux banner.
+        .capture_bytes = 512,
     }) catch |err| {
         std.debug.print("kvm boot returned {s}\n", .{@errorName(err)});
         return err;
     };
     defer gpa.free(result.serial);
     try std.testing.expect(result.serial.len > 0);
+    // Sanity: the Linux banner should land within the first few KB.
+    try std.testing.expect(std.mem.indexOf(u8, result.serial, "Linux") != null);
 }
