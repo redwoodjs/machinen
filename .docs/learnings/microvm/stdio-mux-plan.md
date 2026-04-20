@@ -11,7 +11,7 @@ model.
 PL011 emulation is per-VM and there's exactly one host terminal. If
 two VMs try to own stdin simultaneously, they fight. The `runtime`
 package's `vm.stdin` / `vm.stdout` streams are fine for programmatic
-use (pipe in, collect out), but for *interactive* use you need a
+use (pipe in, collect out), but for _interactive_ use you need a
 supervisor that multiplexes one terminal across N sandboxes.
 
 ## Proposed architecture

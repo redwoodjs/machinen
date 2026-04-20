@@ -98,11 +98,11 @@ It's implemented as **HVC #0** — the same instruction we've
 already been trapping — with a specific function ID in X0 that
 tells us what the kernel wants:
 
-| Function ID  | What the kernel wants                          |
-| ------------ | ---------------------------------------------- |
-| `0x84000009` | system off (the kernel is shutting down)       |
-| `0x84000008` | system reset                                   |
-| `0xc4000003` | CPU on (start another vCPU at an address)      |
+| Function ID  | What the kernel wants                     |
+| ------------ | ----------------------------------------- |
+| `0x84000009` | system off (the kernel is shutting down)  |
+| `0x84000008` | system reset                              |
+| `0xc4000003` | CPU on (start another vCPU at an address) |
 
 For a single-CPU boot we mostly just need to handle "system off"
 so we can exit the run loop cleanly when the kernel is done.

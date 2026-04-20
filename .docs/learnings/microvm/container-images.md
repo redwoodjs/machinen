@@ -3,7 +3,7 @@
 **The VMM does not load container images.** cloud-hypervisor,
 libkrun, Firecracker, even our own Zig VMM — none of them know
 what an OCI image is. They boot kernels against a rootfs that
-something *else* prepared.
+something _else_ prepared.
 
 ## The mental model
 
@@ -55,19 +55,19 @@ as `/`.
 
 ## Who does the OCI pipeline in each ecosystem
 
-| Tool                 | Has OCI pipeline? | How                                     |
-| -------------------- | ----------------- | --------------------------------------- |
-| **cloud-hypervisor** | No                | You hand it a prepared rootfs           |
-| **libkrun** (raw)    | No                | You hand it a prepared rootfs           |
-| **krunvm**           | Yes               | Wraps libkrun, uses `buildah` to pull   |
-| **Firecracker**      | No                | AWS handles it above in Fargate         |
-| **Docker Desktop**   | Yes               | Whole product, not just a VMM           |
-| **podman**           | Yes               | Same space as Docker                    |
-| **containerd**       | Yes               | The pull/unpack is its primary job      |
-| **machinen**         | (up to us)        | See below                               |
+| Tool                 | Has OCI pipeline? | How                                   |
+| -------------------- | ----------------- | ------------------------------------- |
+| **cloud-hypervisor** | No                | You hand it a prepared rootfs         |
+| **libkrun** (raw)    | No                | You hand it a prepared rootfs         |
+| **krunvm**           | Yes               | Wraps libkrun, uses `buildah` to pull |
+| **Firecracker**      | No                | AWS handles it above in Fargate       |
+| **Docker Desktop**   | Yes               | Whole product, not just a VMM         |
+| **podman**           | Yes               | Same space as Docker                  |
+| **containerd**       | Yes               | The pull/unpack is its primary job    |
+| **machinen**         | (up to us)        | See below                             |
 
 Notice the pattern: if a tool lets you `docker run alpine` or
-similar, it has an OCI pipeline bolted on. The VMMs that *don't*
+similar, it has an OCI pipeline bolted on. The VMMs that _don't_
 expose that verb don't have one.
 
 ## What this means for machinen

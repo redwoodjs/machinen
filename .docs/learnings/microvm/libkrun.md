@@ -57,16 +57,16 @@ We're building, in Zig, **a smaller thing that occupies the
 same layer as libkrun.** Not competing with libkrun in features
 (it's years ahead); competing in scope and control.
 
-| Axis                  | libkrun                        | packages/microvm (our Zig VMM)                    |
-| --------------------- | ------------------------------ | --------------------------------------------- |
-| Language              | Rust + some C                  | Zig                                           |
-| CPU backends          | HVF + KVM                      | HVF + KVM (same)                              |
-| Guest kernel          | Bundled (libkrunfw fork)       | Stock Debian cloud kernel (for now)           |
-| Virtio devices        | console, block, net, vsock, fs | Will implement as needed (net #43, vsock #44) |
-| OCI rootfs            | First-class via krun-init      | Not a concern — machinen handles rootfs       |
-| Lines of code         | Tens of thousands              | Aiming for low thousands                      |
-| CRIU integration      | Not currently                  | First-class design goal (Tier 1 hot-move)     |
-| Our understanding of it | None of us wrote it          | We wrote every line                           |
+| Axis                    | libkrun                        | packages/microvm (our Zig VMM)                |
+| ----------------------- | ------------------------------ | --------------------------------------------- |
+| Language                | Rust + some C                  | Zig                                           |
+| CPU backends            | HVF + KVM                      | HVF + KVM (same)                              |
+| Guest kernel            | Bundled (libkrunfw fork)       | Stock Debian cloud kernel (for now)           |
+| Virtio devices          | console, block, net, vsock, fs | Will implement as needed (net #43, vsock #44) |
+| OCI rootfs              | First-class via krun-init      | Not a concern — machinen handles rootfs       |
+| Lines of code           | Tens of thousands              | Aiming for low thousands                      |
+| CRIU integration        | Not currently                  | First-class design goal (Tier 1 hot-move)     |
+| Our understanding of it | None of us wrote it            | We wrote every line                           |
 
 The reason to write our own isn't "libkrun is bad." It's that
 machinen needs a specific substrate (CRIU-first, TS-library-
@@ -107,7 +107,7 @@ Because it's the fastest way to ship a sub-1s-boot microVM
 tool on macOS + Linux. He forked libkrun to strip what he
 didn't need and patch what he did. That's smol-machines' tech.
 
-Machinen is *not* reusing that — different product, clean
+Machinen is _not_ reusing that — different product, clean
 separation, and the Zig VMM is specifically the "build my own"
 track (see `.docs/learnings/microvm/` as it grows, and issues
 #42 through #45).

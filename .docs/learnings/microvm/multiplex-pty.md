@@ -7,20 +7,20 @@ feel like a real shell instead of a pipe.
 
 ## What's different from M1
 
-* **`spawnPty(opts)`** alongside `spawn(opts)`. Same handle shape with
+- **`spawnPty(opts)`** alongside `spawn(opts)`. Same handle shape with
   one addition: `resize(cols, rows)`. Under the hood this is `node-pty`
   because writing our own `openpty`/`forkpty` C shim isn't where the
   ROI lives — production-tested prebuilts for darwin-arm64 + linux
   exist.
-* **Raw-mode stdin on attach** — default-on when `process.stdin` is a
+- **Raw-mode stdin on attach** — default-on when `process.stdin` is a
   real TTY. Restored to the prior mode on detach. Tests pass
   `rawTtyOnAttach: false` so `PassThrough` streams don't pretend to
   be terminals.
-* **SIGWINCH forwarding** — default-on when `process.stdout` is a
+- **SIGWINCH forwarding** — default-on when `process.stdout` is a
   TTY. On attach, the Supervisor immediately calls the sandbox's
   `resize(cols, rows)` with the current host terminal size; on every
   subsequent SIGWINCH the handler re-pushes. Unhooked on detach.
-* **`Sandboxes` stays unchanged.** It accepts anything that looks
+- **`Sandboxes` stays unchanged.** It accepts anything that looks
   like a `VmHandle`; the `resize` method is an optional extra the
   Supervisor uses when present.
 
@@ -48,14 +48,14 @@ The host pty is only half the story — the guest sees `ttyAMA0`, not
 a pty, so host SIGWINCH doesn't automatically change the guest's
 columns/rows. We now cross that gap via vsock:
 
-* **`packages/microvm/test-fixtures/winsize-agent.py`** — runs as
+- **`packages/microvm/test-fixtures/winsize-agent.py`** — runs as
   PID 1's child inside the guest. Binds AF_VSOCK on port 1974,
   reads `cols rows\n` lines, and calls `ioctl(fd, TIOCSWINSZ, …)`
   on `/dev/console`, `/dev/ttyAMA0`, `/dev/tty0`, and every running
   process's fd 0/1/2 that's a tty. That last bit catches
   long-running shells whose TIOCGWINSZ was captured at boot — they
   stop reporting 80x24 after the agent reaches their stdio.
-* **`VsockWinsize`** in `@machinen/runtime` — a two-method
+- **`VsockWinsize`** in `@machinen/runtime` — a two-method
   (`send`, `close`) UDS client that wraps the host end of the
   vsock bridge. `connect(udsPath, { timeoutMs })` retries until the
   bridge publishes the socket. Idempotent on repeated same-size
@@ -86,11 +86,11 @@ the agent's "applied:" log lines).
 
 ## What this still doesn't do
 
-* **Colors inside the VMM binary.** The VMM just pushes PL011 bytes
+- **Colors inside the VMM binary.** The VMM just pushes PL011 bytes
   through; it doesn't care about its own stdio. What it does is
   already byte-transparent, so colors emitted by CC in the guest
   reach the host terminal intact.
-* **Scrollback-across-detach.** M1 kept an 8 KiB per-sandbox ring;
+- **Scrollback-across-detach.** M1 kept an 8 KiB per-sandbox ring;
   M1.5 didn't touch that. Longer scrollback is a Sandboxes option
   change, not a Supervisor change.
 

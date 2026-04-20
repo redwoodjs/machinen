@@ -24,12 +24,12 @@ spins up the full VMM with an initramfs, asserts specific behavior.
 Needs the kernel Image + virt.dtb + rootfs/ set up (see below). Takes
 ~20 s per mode on an M-series Mac.
 
-  - `repl` — boots with `exec node` as init, pipes `1 + 1` then
-    `.exit` at the REPL, checks for the banner, the value `2`, and
-    a clean panic-on-init-exit.
-  - `criu` — boots the fork demo, checks that `dump OK` and
-    `restore OK` both happened, and that the `count file:` value
-    after restore is strictly greater than before the dump.
+- `repl` — boots with `exec node` as init, pipes `1 + 1` then
+  `.exit` at the REPL, checks for the banner, the value `2`, and
+  a clean panic-on-init-exit.
+- `criu` — boots the fork demo, checks that `dump OK` and
+  `restore OK` both happened, and that the `count file:` value
+  after restore is strictly greater than before the dump.
 
 ## Quick: try your own microVM (with your own files inside)
 
@@ -130,7 +130,7 @@ then your `/demo.sh` output. Kill with Ctrl-C.
 ### What your init can't do (yet, in this VMM)
 
 - No network (the VMM doesn't emulate virtio-net yet).
-- No persistent disk — the initramfs *is* the filesystem.
+- No persistent disk — the initramfs _is_ the filesystem.
 
 ### Fork a Node process with CRIU (the hot-move primitive)
 
@@ -182,7 +182,6 @@ restore OK                    ← brand new process, same state
 === count file after restore ===
 count file: 7                 ← kept counting from 3, not from 1
 ```
-
 
 ## What we need
 
