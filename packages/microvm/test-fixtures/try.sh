@@ -2,9 +2,9 @@
 # Boot the microVM in one of a handful of ready-made modes.
 #
 # Usage:
-#   ./test-fixtures/try.sh repl       # interactive Node.js REPL (type JS live)
-#   ./test-fixtures/try.sh criu       # CRIU freeze/restore demo (counter 5 → 9)
-#   ./test-fixtures/try.sh criu demo  # alias
+#   ./test-fixtures/try.sh shell   # interactive bash prompt inside the guest
+#   ./test-fixtures/try.sh repl    # interactive Node.js REPL (type JS live)
+#   ./test-fixtures/try.sh criu    # CRIU freeze/restore demo (counter 5 → 9)
 #   ./test-fixtures/try.sh --help
 #
 # What this actually does:
@@ -12,8 +12,8 @@
 #   2. Writes the right /demo.sh into rootfs/, plus any helper scripts
 #      the mode needs.
 #   3. Repacks initramfs.cpio.
-#   4. Runs the VMM. For `repl`, puts your terminal in raw mode so
-#      every keystroke goes straight through to Node.
+#   4. Runs the VMM. For interactive modes, puts your terminal in raw
+#      mode so every keystroke goes straight through to the guest.
 #
 # Run from anywhere in the repo — the script resolves paths itself.
 
@@ -27,8 +27,8 @@ case "$MODE" in
         awk '/^$/{exit} NR>1{sub(/^# ?/, ""); print}' "$0"
         exit 0
         ;;
-    repl|criu|criu\ demo|criu-demo) ;;
-    *) die "unknown mode: $MODE (try: repl | criu)" ;;
+    repl|criu|criu\ demo|criu-demo|shell|sh|bash) ;;
+    *) die "unknown mode: $MODE (try: repl | criu | shell)" ;;
 esac
 
 # Resolve the microvm package root.
@@ -74,6 +74,27 @@ SH
         cp "$FIXTURES/demo.sh"       "$ROOTFS/demo.sh"
         chmod +x "$ROOTFS/fork-demo.sh" "$ROOTFS/demo.sh"
         ;;
+    shell|sh|bash)
+        # Drop straight into an interactive bash inside the guest. With
+        # virtio-net + virtio-blk both available, if you bring eth0 up
+        # (`/bin/if-up eth0 && /bin/gw-set 10.0.2.2`) you can curl, npm
+        # install, whatever.
+        cat > "$ROOTFS/demo.sh" <<'SH'
+#!/bin/sh
+PATH=/usr/local/bin:/usr/bin:/bin:/sbin
+export PATH HOME=/root TERM=linux PS1='microvm:\w# '
+echo ""
+echo "=== machinen-microvm — interactive shell ==="
+echo "hints:"
+echo "  /bin/if-up eth0                                # bring eth0 up"
+echo "  /bin/gw-set 10.0.2.2                           # default route via slirp"
+echo "  echo 'nameserver 10.0.2.3' > /etc/resolv.conf  # use slirp DNS"
+echo "  claude --version                               # (CC is already installed)"
+echo "  exit or Ctrl-D                                 # to quit (kernel will panic — expected)"
+echo ""
+exec /bin/bash --login
+SH
+        ;;
 esac
 
 chmod +x "$ROOTFS/demo.sh"
@@ -97,13 +118,17 @@ done
 
 # --- run -----------------------------------------------------------
 case "$MODE" in
-    repl)
-        echo "==> booting; wait ~10s for the '>' prompt"
-        echo "==> quit with .exit (or Ctrl-]Ctrl-C to kill the wrapper)"
+    repl|shell|sh|bash)
+        if [[ "$MODE" == "repl" ]]; then
+            echo "==> booting; wait ~10s for the '>' prompt"
+            echo "==> quit with .exit (or Ctrl-]Ctrl-C to kill the wrapper)"
+        else
+            echo "==> booting; wait ~10s for the 'microvm:/#' prompt"
+            echo "==> exit with Ctrl-D or 'exit' (kernel will panic — expected)"
+        fi
         echo
-        # Put the host terminal in raw mode so each keystroke reaches
-        # Node's readline instead of being line-buffered by the shell
-        # (and double-echoed).
+        # Host terminal in raw mode so each keystroke reaches the guest
+        # directly (otherwise your shell line-buffers + double-echoes).
         if [[ -t 0 ]]; then
             HOST_STTY=$(stty -g </dev/tty)
             trap 'stty "$HOST_STTY" </dev/tty 2>/dev/null || true; echo' EXIT INT TERM
