@@ -29,6 +29,22 @@ echo "=== net interfaces ==="
 ls /sys/class/net 2>/dev/null || echo "(no /sys/class/net)"
 
 echo
+echo "=== eth0 before ==="
+echo "mac: $(cat /sys/class/net/eth0/address 2>/dev/null)"
+echo "tx_packets: $(cat /sys/class/net/eth0/statistics/tx_packets 2>/dev/null)"
+echo "operstate: $(cat /sys/class/net/eth0/operstate 2>/dev/null)"
+
+echo
+echo "=== bringing eth0 up ==="
+/bin/if-up eth0 && echo "if-up ok" || echo "if-up failed $?"
+sleep 1
+
+echo
+echo "=== eth0 after ==="
+echo "tx_packets: $(cat /sys/class/net/eth0/statistics/tx_packets 2>/dev/null)"
+echo "operstate: $(cat /sys/class/net/eth0/operstate 2>/dev/null)"
+
+echo
 echo "=== virtio bus devices ==="
 if [ -d /sys/bus/virtio/devices ]; then
     for d in /sys/bus/virtio/devices/*; do
