@@ -73,6 +73,14 @@ pub const Result = struct {
     exits: usize,
 };
 
+/// Noisy diagnostics — GIC layout, per-TX-frame classifier, etc. —
+/// are gated behind this so interactive boots (`try.sh shell` /
+/// `try.sh repl`) don't bury the user's shell output under VMM logs.
+/// Smokes that assert on `[tx]` lines set it before they run.
+fn debugEnabled() bool {
+    return getenv("MACHINEN_DEBUG") != null;
+}
+
 pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // --- load fixture files off disk ------------------------------
     const kernel = readAll(gpa, cfg.kernel_path) catch |err| {
@@ -129,16 +137,18 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     try hvf.Gic.enable(.{});
 
     // Diagnostic: print GIC alignment + size requirements.
-    std.debug.print(
-        "GIC dist align=0x{x} size=0x{x}; rdist align=0x{x} size=0x{x} region=0x{x}\n",
-        .{
-            try hvf.Gic.distributorAlignment(),
-            try hvf.Gic.distributorSize(),
-            try hvf.Gic.redistributorAlignment(),
-            try hvf.Gic.redistributorSize(),
-            try hvf.Gic.redistributorRegionSize(),
-        },
-    );
+    if (debugEnabled()) {
+        std.debug.print(
+            "GIC dist align=0x{x} size=0x{x}; rdist align=0x{x} size=0x{x} region=0x{x}\n",
+            .{
+                try hvf.Gic.distributorAlignment(),
+                try hvf.Gic.distributorSize(),
+                try hvf.Gic.redistributorAlignment(),
+                try hvf.Gic.redistributorSize(),
+                try hvf.Gic.redistributorRegionSize(),
+            },
+        );
+    }
 
     // Give the guest full read/write/execute on this region. Stage-2
     // permissions; the guest's own MMU still decides what it does at
@@ -163,10 +173,12 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // Diagnostic: query where HVF actually placed this vCPU's
     // redistributor. If this differs from what we told the kernel via
     // the DTB, the kernel will report "No redistributor present."
-    if (hvf.Gic.redistributorBase(vcpu)) |rdist| {
-        std.debug.print("GIC redistributor for vcpu 0: 0x{x}\n", .{rdist});
-    } else |err| {
-        std.debug.print("GIC redistributor query failed: {s}\n", .{@errorName(err)});
+    if (debugEnabled()) {
+        if (hvf.Gic.redistributorBase(vcpu)) |rdist| {
+            std.debug.print("GIC redistributor for vcpu 0: 0x{x}\n", .{rdist});
+        } else |err| {
+            std.debug.print("GIC redistributor query failed: {s}\n", .{@errorName(err)});
+        }
     }
 
     // EL1h, all interrupts masked.
@@ -645,8 +657,10 @@ fn onTxFrame(ctx: ?*anyopaque, frame: []const u8) void {
         stats.other += 1;
     }
 
-    // One line per frame so smoke tests can grep. Kept short and
-    // parseable — host-side diagnostic, not guest serial.
+    // One line per frame so smoke tests can grep. Off by default
+    // because interactive boots drown under it the moment the guest
+    // does any network.
+    if (!debugEnabled()) return;
     var buf: [96]u8 = undefined;
     const msg = std.fmt.bufPrint(
         &buf,
