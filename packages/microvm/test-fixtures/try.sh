@@ -5,6 +5,7 @@
 #   ./test-fixtures/try.sh shell   # interactive bash prompt inside the guest
 #   ./test-fixtures/try.sh repl    # interactive Node.js REPL (type JS live)
 #   ./test-fixtures/try.sh criu    # CRIU freeze/restore demo (counter 5 → 9)
+#   ./test-fixtures/try.sh vsock   # virtio-vsock echo server + host round-trip
 #   ./test-fixtures/try.sh --help
 #
 # What this actually does:
@@ -27,8 +28,8 @@ case "$MODE" in
         awk '/^$/{exit} NR>1{sub(/^# ?/, ""); print}' "$0"
         exit 0
         ;;
-    repl|criu|criu\ demo|criu-demo|shell|sh|bash) ;;
-    *) die "unknown mode: $MODE (try: repl | criu | shell)" ;;
+    repl|criu|criu\ demo|criu-demo|shell|sh|bash|vsock) ;;
+    *) die "unknown mode: $MODE (try: repl | criu | shell | vsock)" ;;
 esac
 
 # Resolve the microvm package root.
@@ -46,6 +47,12 @@ done
 
 # --- stage the mode ------------------------------------------------
 case "$MODE" in
+    vsock)
+        # Guest-side echo server + kernel modules. Host side talks to
+        # it through a UDS the VMM listens on; the path is set below
+        # via MACHINEN_VSOCK.
+        cp "$FIXTURES/vsock-demo.sh" "$ROOTFS/demo.sh"
+        ;;
     repl)
         cat > "$ROOTFS/demo.sh" <<'SH'
 #!/bin/sh
@@ -210,6 +217,66 @@ case "$MODE" in
         echo "==> CRIU transcript:"
         grep -E '=== |count file|dump OK|restore OK|dump FAILED|restore FAILED' "$LOG" \
             || { echo "(no CRIU markers found — full log in $LOG)"; exit 1; }
+        echo
+        echo "==> full guest console in $LOG"
+        ;;
+    vsock)
+        # Run the VM in the background with a vsock bridge listening on
+        # /tmp/machinen-vsock.sock → guest port 1234. Wait for the
+        # guest "listening" marker, then do a round-trip via nc -U.
+        SOCK=/tmp/machinen-vsock.sock
+        LOG=/tmp/microvm-vsock.log
+        rm -f "$SOCK"
+        echo "==> booting VMM with MACHINEN_VSOCK=1234:$SOCK"
+        MACHINEN_VSOCK="1234:$SOCK" MACHINEN_BOOT_TEST=1 "$TEST_BIN" </dev/null 2>"$LOG" &
+        VM_PID=$!
+        # Give the kernel time to load vsock modules and start the echo
+        # server (~15s cold boot on an M-series Mac).
+        for i in $(seq 1 30); do
+            if grep -q "vsock-demo: listening" "$LOG" 2>/dev/null; then break; fi
+            sleep 1
+        done
+        if ! grep -q "vsock-demo: listening" "$LOG" 2>/dev/null; then
+            echo "(timeout: guest never reported vsock-demo: listening)"
+            kill -9 $VM_PID 2>/dev/null || true
+            wait $VM_PID 2>/dev/null || true
+            echo "==> tail of $LOG:"; tail -40 "$LOG"
+            exit 1
+        fi
+        echo "==> round-trip: sending 'hello-vsock' via $SOCK"
+        # macOS nc doesn't accept -q, and the echo semantics we want
+        # (send → wait for reply → close) are awkward in shell. Python
+        # is deterministic and everywhere.
+        python3 - "$SOCK" <<'PY'
+import socket, sys, time
+s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+s.connect(sys.argv[1])
+msg = b"hello-vsock\n"
+s.sendall(msg)
+s.settimeout(5)
+data = b""
+t0 = time.time()
+while time.time() - t0 < 5 and len(data) < len(msg):
+    try:
+        chunk = s.recv(4096)
+        if not chunk: break
+        data += chunk
+    except socket.timeout:
+        break
+print(f"sent: {msg!r}")
+print(f"got:  {data!r}")
+if data == msg:
+    print("ROUND-TRIP OK")
+else:
+    print("ROUND-TRIP FAILED")
+    sys.exit(1)
+s.close()
+PY
+        echo
+        echo "==> guest-side transcript:"
+        grep -E "vsock-demo:|virtio" "$LOG" | tail -20 || true
+        kill -9 $VM_PID 2>/dev/null || true
+        wait $VM_PID 2>/dev/null || true
         echo
         echo "==> full guest console in $LOG"
         ;;

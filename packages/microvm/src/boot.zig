@@ -26,14 +26,17 @@ const hvf = @import("hvf.zig");
 const virtio = @import("virtio.zig");
 const slirp_mod = @import("slirp.zig");
 const blk_mod = @import("blk.zig");
+const vsock_mod = @import("vsock.zig");
 
 // Guest-physical bases. Each virtio-MMIO device lives in a 0x200
 // window. The DTS has 32 slots at 0x0A000000 + i*0x200; we wire up
-// the first two.
+// the first three.
 const virtio_net_base: u64 = 0x0A00_0000;
 const virtio_net_size: u64 = 0x200;
 const virtio_blk_base: u64 = 0x0A00_0200;
 const virtio_blk_size: u64 = 0x200;
+const virtio_vsock_base: u64 = 0x0A00_0400;
+const virtio_vsock_size: u64 = 0x200;
 
 pub const Error = error{
     FixtureMissing,
@@ -227,6 +230,53 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     }
     const blkdev_ptr: ?*virtio.Device = if (blkdev_opt) |_| &blkdev_opt.? else null;
 
+    // virtio-vsock (#44). Off by default; set MACHINEN_VSOCK to enable.
+    // Value syntax: `<guest_port>:<host_uds_path>` for M1. Example:
+    //   MACHINEN_VSOCK=1234:/tmp/machinen-vsock.sock
+    //
+    // We leak the parsed PortMap into gpa since the VMM lives for the
+    // process lifetime.
+    var vsock_cid_storage: u64 = vsock_mod.default_guest_cid;
+    var vsock_ports_buf: [4]vsock_mod.PortMap = undefined;
+    var vsock_ports_count: usize = 0;
+    var vsock_uds_path_buf: [256:0]u8 = @splat(0);
+    if (getenv("MACHINEN_VSOCK")) |raw| {
+        const s = std.mem.span(raw);
+        if (std.mem.indexOfScalar(u8, s, ':')) |colon| {
+            const port_str = s[0..colon];
+            const path_str = s[colon + 1 ..];
+            if (std.fmt.parseInt(u32, port_str, 10)) |port| {
+                if (path_str.len < vsock_uds_path_buf.len) {
+                    @memcpy(vsock_uds_path_buf[0..path_str.len], path_str);
+                    vsock_uds_path_buf[path_str.len] = 0;
+                    const z: [:0]const u8 = vsock_uds_path_buf[0..path_str.len :0];
+                    vsock_ports_buf[0] = .{ .guest_port = port, .uds_path = z };
+                    vsock_ports_count = 1;
+                }
+            } else |_| {}
+        }
+    }
+    var vsock_dev_opt: ?virtio.Device = null;
+    var vsock_bridge_opt: ?*vsock_mod.Bridge = null;
+    if (vsock_ports_count > 0) {
+        vsock_dev_opt = virtio.Device{
+            .base = virtio_vsock_base,
+            .size = virtio_vsock_size,
+            .id = .vsock,
+            .features = (1 << 32), // VIRTIO_F_VERSION_1
+            .config = std.mem.asBytes(&vsock_cid_storage),
+            .ram = ram,
+            .ram_base = cfg.ram_base,
+            .request_handler = &vsock_mod.Bridge.handleTxChain,
+            .request_ctx = null,
+            // Queue 0 is the guest's receive buffer pool — driver posts
+            // empty buffers; we fill them on demand from the bridge
+            // thread, not from every RX notify.
+            .skip_notify_queues = (1 << 0),
+        };
+    }
+    const vsock_dev_ptr: ?*virtio.Device = if (vsock_dev_opt) |_| &vsock_dev_opt.? else null;
+
     // Spin up libslirp so the TX handler has somewhere to route
     // frames. If Homebrew's libslirp is missing or init fails, fall
     // back to the classifier-only TX handler so the rest of the VMM
@@ -259,6 +309,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // virtio-mmio slots. spi.base + 16 is net, + 17 is blk.
     const virtio_irq: u32 = spi.base + 16;
     const virtio_blk_irq: u32 = spi.base + 17;
+    const virtio_vsock_irq: u32 = spi.base + 18;
 
     // Feed the virtio IRQ id into the network bridge, and arm
     // libslirp's RX callback to raise the SPI when it injects.
@@ -267,6 +318,35 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         s.on_rx = &onSlirpRx;
         s.on_rx_ctx = @ptrCast(&net_ctx);
     }
+
+    // virtio-vsock bridge startup.
+    var vsock_irq_ctx = VsockIrqCtx{ .irq = virtio_vsock_irq };
+    if (vsock_dev_ptr) |d| {
+        vsock_bridge_opt = vsock_mod.Bridge.create(gpa, d, .{
+            .ports = vsock_ports_buf[0..vsock_ports_count],
+            .raise_irq = &onVsockIrq,
+            .raise_irq_ctx = @ptrCast(&vsock_irq_ctx),
+        }) catch |err| blk: {
+            std.debug.print("vsock: bridge create failed: {s}\n", .{@errorName(err)});
+            break :blk null;
+        };
+        if (vsock_bridge_opt) |b| {
+            d.request_ctx = @ptrCast(b);
+            b.start() catch |err| {
+                std.debug.print("vsock: bridge start failed: {s}\n", .{@errorName(err)});
+                b.destroy();
+                vsock_bridge_opt = null;
+                vsock_dev_opt = null;
+            };
+            if (vsock_bridge_opt != null) {
+                std.debug.print("vsock: listening on {s} -> guest port {d}\n", .{
+                    vsock_ports_buf[0].uds_path,
+                    vsock_ports_buf[0].guest_port,
+                });
+            }
+        }
+    }
+    defer if (vsock_bridge_opt) |b| b.destroy();
 
     // Background thread pumps libslirp so host-side socket events
     // (TCP ACKs, DNS replies, etc.) get delivered to the guest even
@@ -420,6 +500,19 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
                         try vcpu.setReg(reg, d.read(info.ipa));
                     }
                     hvf.Gic.setSpi(virtio_blk_irq, d.interrupt_status != 0) catch {};
+                } else if (vsock_dev_ptr != null and vsock_dev_ptr.?.handles(info.ipa)) {
+                    const d = vsock_dev_ptr.?;
+                    if (info.is_write) {
+                        const value = try info.readSource(vcpu);
+                        // TX notify runs on the vCPU thread and shares
+                        // the bridge's connection table with the bridge
+                        // poll thread; the handler takes the mutex.
+                        d.write(info.ipa, value);
+                    } else if (info.srt != 31) {
+                        const reg: hvf.Reg = @enumFromInt(@as(u32, info.srt));
+                        try vcpu.setReg(reg, d.read(info.ipa));
+                    }
+                    hvf.Gic.setSpi(virtio_vsock_irq, d.interrupt_status != 0) catch {};
                 } else if (info.ipa >= 0x1000_0000 and info.ipa < 0x1200_0000) {
                     // Redistributor MMIO. Each vCPU's frame is 128 KB.
                     // For our single-vCPU setup, frame 0 = [0x10000000,
@@ -510,6 +603,16 @@ fn onSlirpRx(ctx: ?*anyopaque) void {
     // Device's interrupt_status was set inside injectRx. Sync the
     // GIC line so the guest sees a pending interrupt.
     hvf.Gic.setSpi(bridge.virtio_irq, true) catch {};
+}
+
+/// Opaque box holding the vsock virtio IRQ id. The Bridge thread calls
+/// the raise_irq callback; we carry the id so the callback doesn't
+/// capture a stack slot that may have moved.
+pub const VsockIrqCtx = struct { irq: u32 };
+
+fn onVsockIrq(ctx: ?*anyopaque) void {
+    const c: *VsockIrqCtx = @ptrCast(@alignCast(ctx.?));
+    hvf.Gic.setSpi(c.irq, true) catch {};
 }
 
 fn onTxFrame(ctx: ?*anyopaque, frame: []const u8) void {

@@ -1,0 +1,948 @@
+//! virtio-vsock device — guest↔host stream sockets over virtio.
+//!
+//! # M1 scope (#44)
+//!
+//! * Host-initiated stream connections only. The guest already has a
+//!   working kernel driver (vmw_vsock_virtio_transport.ko); all we do
+//!   is serve packets.
+//! * One guest (CID=3), one host (CID=2). No multi-tenancy.
+//! * A small port map declared at VMM boot: each entry says "when a
+//!   UDS client connects to this host socket path, open a stream to
+//!   the guest on this port." That's enough for:
+//!
+//!     host$ nc -U /tmp/machinen-vsock-1234.sock
+//!     guest$ socat VSOCK-LISTEN:1234,fork -
+//!
+//! * No credit-based flow control. We advertise a big buf_alloc on
+//!   every packet; the guest kernel respects that pace.
+//!
+//! # Packet layout
+//!
+//! Every TX/RX chain carries exactly one packet: a 44-byte header
+//! followed by 0..len bytes of payload. Chains are descriptor chains,
+//! possibly split across multiple descriptors, so we gather/scatter.
+//!
+//! Header (virtio_vsock_hdr, little-endian):
+//!
+//!   0   src_cid   u64
+//!   8   dst_cid   u64
+//!  16   src_port  u32
+//!  20   dst_port  u32
+//!  24   len       u32  — payload byte count (bytes after the header)
+//!  28   type      u16  — 1 = stream
+//!  30   op        u16  — see Op
+//!  32   flags     u32  — SHUTDOWN uses bit 0 (recv) / bit 1 (send)
+//!  36   buf_alloc u32  — how many bytes peer may send us before draining
+//!  40   fwd_cnt   u32  — bytes we've consumed (for credit update)
+
+const std = @import("std");
+const virtio = @import("virtio.zig");
+
+/// pthread-backed mutex. Zig 0.16 tucked std.Thread.Mutex behind an Io
+/// context; we already use this pattern in hvf.Pl011.
+const PthreadMutex = extern struct {
+    sig: c_long = 0x32AAABA7, // macOS PTHREAD_MUTEX_INITIALIZER magic
+    opaque_bytes: [56]u8 = @splat(0),
+
+    extern "c" fn pthread_mutex_lock(m: *PthreadMutex) c_int;
+    extern "c" fn pthread_mutex_unlock(m: *PthreadMutex) c_int;
+
+    pub fn lock(self: *PthreadMutex) void {
+        _ = pthread_mutex_lock(self);
+    }
+    pub fn unlock(self: *PthreadMutex) void {
+        _ = pthread_mutex_unlock(self);
+    }
+};
+
+pub const header_size: usize = 44;
+
+pub const host_cid: u64 = 2;
+pub const default_guest_cid: u64 = 3;
+
+/// On-wire virtio_vsock_hdr. Extern + packed field order; the whole
+/// structure is little-endian on every arch that matters (arm64 LE).
+pub const VsockHdr = extern struct {
+    src_cid: u64,
+    dst_cid: u64,
+    src_port: u32,
+    dst_port: u32,
+    len: u32,
+    type: u16,
+    op: u16,
+    flags: u32,
+    buf_alloc: u32,
+    fwd_cnt: u32,
+
+    pub fn encode(self: VsockHdr, out: *[header_size]u8) void {
+        std.mem.writeInt(u64, out[0..8], self.src_cid, .little);
+        std.mem.writeInt(u64, out[8..16], self.dst_cid, .little);
+        std.mem.writeInt(u32, out[16..20], self.src_port, .little);
+        std.mem.writeInt(u32, out[20..24], self.dst_port, .little);
+        std.mem.writeInt(u32, out[24..28], self.len, .little);
+        std.mem.writeInt(u16, out[28..30], self.type, .little);
+        std.mem.writeInt(u16, out[30..32], self.op, .little);
+        std.mem.writeInt(u32, out[32..36], self.flags, .little);
+        std.mem.writeInt(u32, out[36..40], self.buf_alloc, .little);
+        std.mem.writeInt(u32, out[40..44], self.fwd_cnt, .little);
+    }
+
+    pub fn decode(in: *const [header_size]u8) VsockHdr {
+        return .{
+            .src_cid = std.mem.readInt(u64, in[0..8], .little),
+            .dst_cid = std.mem.readInt(u64, in[8..16], .little),
+            .src_port = std.mem.readInt(u32, in[16..20], .little),
+            .dst_port = std.mem.readInt(u32, in[20..24], .little),
+            .len = std.mem.readInt(u32, in[24..28], .little),
+            .type = std.mem.readInt(u16, in[28..30], .little),
+            .op = std.mem.readInt(u16, in[30..32], .little),
+            .flags = std.mem.readInt(u32, in[32..36], .little),
+            .buf_alloc = std.mem.readInt(u32, in[36..40], .little),
+            .fwd_cnt = std.mem.readInt(u32, in[40..44], .little),
+        };
+    }
+};
+
+// Note: @sizeOf(VsockHdr) rounds up to 48 due to u64 alignment. We
+// don't memcpy this struct to/from guest RAM — encode/decode below is
+// the authoritative wire format (44 bytes, no padding).
+
+pub const Op = enum(u16) {
+    invalid = 0,
+    request = 1,
+    response = 2,
+    rst = 3,
+    shutdown = 4,
+    rw = 5,
+    credit_update = 6,
+    credit_request = 7,
+    _,
+};
+
+pub const Type = enum(u16) {
+    stream = 1,
+    dgram = 3,
+    seqpacket = 2,
+    _,
+};
+
+pub const ShutdownFlag = struct {
+    pub const recv: u32 = 1 << 0;
+    pub const send: u32 = 1 << 1;
+    pub const both: u32 = recv | send;
+};
+
+/// Queue indices the Linux virtio-vsock driver uses.
+pub const Q_RX: u32 = 0;
+pub const Q_TX: u32 = 1;
+pub const Q_EVENT: u32 = 2;
+
+/// Max per-packet payload. The driver will split larger sends across
+/// packets; this just bounds our scratch buffer.
+pub const max_payload: usize = 64 * 1024;
+
+/// buf_alloc we advertise on every header we emit. Bigger is cheaper:
+/// fewer credit updates. The guest driver caps its in-flight bytes to
+/// this before draining.
+pub const advertised_buf_alloc: u32 = 256 * 1024;
+
+// =============================================================
+// Pure tests — no HVF, no sockets.
+// =============================================================
+
+test "VsockHdr round-trips through encode/decode" {
+    const hdr = VsockHdr{
+        .src_cid = host_cid,
+        .dst_cid = default_guest_cid,
+        .src_port = 49152,
+        .dst_port = 1234,
+        .len = 5,
+        .type = @intFromEnum(Type.stream),
+        .op = @intFromEnum(Op.request),
+        .flags = 0,
+        .buf_alloc = advertised_buf_alloc,
+        .fwd_cnt = 0,
+    };
+    var buf: [header_size]u8 = @splat(0);
+    hdr.encode(&buf);
+    const out = VsockHdr.decode(&buf);
+    try std.testing.expectEqual(hdr.src_cid, out.src_cid);
+    try std.testing.expectEqual(hdr.dst_cid, out.dst_cid);
+    try std.testing.expectEqual(hdr.src_port, out.src_port);
+    try std.testing.expectEqual(hdr.dst_port, out.dst_port);
+    try std.testing.expectEqual(hdr.len, out.len);
+    try std.testing.expectEqual(hdr.type, out.type);
+    try std.testing.expectEqual(hdr.op, out.op);
+    try std.testing.expectEqual(hdr.flags, out.flags);
+    try std.testing.expectEqual(hdr.buf_alloc, out.buf_alloc);
+    try std.testing.expectEqual(hdr.fwd_cnt, out.fwd_cnt);
+}
+
+test "VsockHdr encode writes fields at documented offsets" {
+    const hdr = VsockHdr{
+        .src_cid = 0x1122_3344_5566_7788,
+        .dst_cid = 0xAABB_CCDD_EEFF_0011,
+        .src_port = 0xDEAD_BEEF,
+        .dst_port = 0xCAFE_0001,
+        .len = 0x00AA_00BB,
+        .type = 1,
+        .op = 5,
+        .flags = 0x8000_0001,
+        .buf_alloc = 0x0001_0000,
+        .fwd_cnt = 0x0000_0042,
+    };
+    var buf: [header_size]u8 = @splat(0);
+    hdr.encode(&buf);
+    // src_cid little-endian at [0..8]
+    try std.testing.expectEqual(@as(u8, 0x88), buf[0]);
+    try std.testing.expectEqual(@as(u8, 0x77), buf[1]);
+    try std.testing.expectEqual(@as(u8, 0x11), buf[7]);
+    // op at [30..32], little-endian 0x0005
+    try std.testing.expectEqual(@as(u8, 0x05), buf[30]);
+    try std.testing.expectEqual(@as(u8, 0x00), buf[31]);
+    // fwd_cnt at [40..44], low byte 0x42
+    try std.testing.expectEqual(@as(u8, 0x42), buf[40]);
+}
+
+test "Op and Type enums survive unknown values via catch-all" {
+    const op: Op = @enumFromInt(999);
+    try std.testing.expect(op != .request);
+    const ty: Type = @enumFromInt(42);
+    try std.testing.expect(ty != .stream);
+}
+
+// ---------------------------------------------------------------
+// Walk a guest descriptor chain and pull out the packet (hdr + body).
+// ---------------------------------------------------------------
+
+/// Read one TX packet off a descriptor chain starting at `head`.
+/// Returns the parsed header plus a borrowed slice of the payload
+/// that lives inside the caller-provided `scratch` buffer.
+///
+/// Returns `null` if the chain is malformed (too short, header read
+/// went out of guest RAM, etc.).
+pub fn readPacket(
+    dev: *virtio.Device,
+    q_idx: u32,
+    head: u16,
+    scratch: []u8,
+) ?struct { hdr: VsockHdr, body: []const u8 } {
+    // Gather the whole chain contents into scratch. The split between
+    // "header" and "body" is fixed at header_size bytes, regardless of
+    // how the descriptors fall.
+    var written: usize = 0;
+    var idx: u16 = head;
+    var steps: u32 = 0;
+    while (steps < 32) : (steps += 1) {
+        const d = dev.queueDescriptor(q_idx, idx) orelse return null;
+        if (d.len > 0) {
+            const take: usize = @min(@as(usize, d.len), scratch.len - written);
+            if (take > 0) {
+                const src = dev.guestBytes(d.addr, take) orelse return null;
+                @memcpy(scratch[written..][0..take], src);
+                written += take;
+            }
+        }
+        if ((d.flags & virtio.VringDesc.F_NEXT) == 0) break;
+        idx = d.next;
+    }
+    if (written < header_size) return null;
+
+    var hdr_bytes: [header_size]u8 = undefined;
+    @memcpy(&hdr_bytes, scratch[0..header_size]);
+    const hdr = VsockHdr.decode(&hdr_bytes);
+
+    const body_end: usize = @min(scratch.len, header_size + @as(usize, hdr.len));
+    const body = scratch[header_size..body_end];
+    return .{ .hdr = hdr, .body = body };
+}
+
+/// Write one RX packet into the descriptor chain starting at `head`.
+/// Lays down hdr.encode() followed by `body`. Returns the number of
+/// bytes written (= header_size + body.len on success), or `null` if
+/// the chain was too short to hold everything.
+pub fn writePacket(
+    dev: *virtio.Device,
+    q_idx: u32,
+    head: u16,
+    hdr: VsockHdr,
+    body: []const u8,
+) ?u32 {
+    var hdr_bytes: [header_size]u8 = undefined;
+    hdr.encode(&hdr_bytes);
+
+    var remaining_hdr: []const u8 = &hdr_bytes;
+    var remaining_body: []const u8 = body;
+
+    var idx: u16 = head;
+    var steps: u32 = 0;
+    var total: u32 = 0;
+    while (steps < 32) : (steps += 1) {
+        const d = dev.queueDescriptor(q_idx, idx) orelse return null;
+        // RX descriptors must be writable.
+        if ((d.flags & virtio.VringDesc.F_WRITE) == 0) return null;
+
+        var budget: u32 = d.len;
+        var desc_off: u32 = 0;
+        while (budget > 0 and (remaining_hdr.len > 0 or remaining_body.len > 0)) {
+            const source: []const u8 = if (remaining_hdr.len > 0) remaining_hdr else remaining_body;
+            const chunk: u32 = @intCast(@min(@as(u64, budget), source.len));
+            const dst = dev.guestBytes(d.addr + desc_off, chunk) orelse return null;
+            @memcpy(dst, source[0..chunk]);
+            if (remaining_hdr.len > 0) {
+                remaining_hdr = remaining_hdr[chunk..];
+            } else {
+                remaining_body = remaining_body[chunk..];
+            }
+            budget -= chunk;
+            desc_off += chunk;
+            total += chunk;
+        }
+
+        if (remaining_hdr.len == 0 and remaining_body.len == 0) break;
+        if ((d.flags & virtio.VringDesc.F_NEXT) == 0) return null; // chain too short
+        idx = d.next;
+    }
+    if (remaining_hdr.len != 0 or remaining_body.len != 0) return null;
+    return total;
+}
+
+test "readPacket reads a single-descriptor TX chain" {
+    const num = 4;
+    var ram: [4096]u8 = @splat(0);
+    var dev = virtio.Device{ .base = 0x0A00_0000, .id = .vsock, .ram = &ram, .ram_base = 0 };
+
+    // Ring layout: descriptors at 0, avail after descriptors, used after avail.
+    const desc_addr: u64 = 0;
+    const driver_addr: u64 = num * @sizeOf(virtio.VringDesc);
+    const device_addr: u64 = driver_addr + @sizeOf(virtio.VringAvail) + num * @sizeOf(u16);
+    dev.queues[Q_TX] = .{
+        .num = num,
+        .ready = 1,
+        .desc_addr = desc_addr,
+        .driver_addr = driver_addr,
+        .device_addr = device_addr,
+    };
+
+    // Plant a header + 5-byte payload at offset 0x300 in guest RAM.
+    const pkt_off: usize = 0x300;
+    const hdr = VsockHdr{
+        .src_cid = default_guest_cid,
+        .dst_cid = host_cid,
+        .src_port = 1234,
+        .dst_port = 5678,
+        .len = 5,
+        .type = @intFromEnum(Type.stream),
+        .op = @intFromEnum(Op.rw),
+        .flags = 0,
+        .buf_alloc = 0x4000,
+        .fwd_cnt = 0,
+    };
+    var hdr_bytes: [header_size]u8 = undefined;
+    hdr.encode(&hdr_bytes);
+    @memcpy(ram[pkt_off..][0..header_size], &hdr_bytes);
+    const body = "hello";
+    @memcpy(ram[pkt_off + header_size ..][0..body.len], body);
+
+    // Descriptor 0 points at pkt_off, len=header_size+body.len.
+    const desc0 = virtio.VringDesc{
+        .addr = pkt_off,
+        .len = @intCast(header_size + body.len),
+        .flags = 0,
+        .next = 0,
+    };
+    @memcpy(ram[0..@sizeOf(virtio.VringDesc)], std.mem.asBytes(&desc0));
+
+    var scratch: [256]u8 = undefined;
+    const pkt = readPacket(&dev, Q_TX, 0, &scratch) orelse return error.TestFailed;
+    try std.testing.expectEqual(hdr.src_cid, pkt.hdr.src_cid);
+    try std.testing.expectEqual(hdr.dst_port, pkt.hdr.dst_port);
+    try std.testing.expectEqual(@as(u32, 5), pkt.hdr.len);
+    try std.testing.expectEqualSlices(u8, body, pkt.body);
+}
+
+test "writePacket lays down hdr + body into an RX chain" {
+    const num = 4;
+    var ram: [4096]u8 = @splat(0);
+    var dev = virtio.Device{ .base = 0x0A00_0000, .id = .vsock, .ram = &ram, .ram_base = 0 };
+
+    const desc_addr: u64 = 0;
+    const driver_addr: u64 = num * @sizeOf(virtio.VringDesc);
+    const device_addr: u64 = driver_addr + @sizeOf(virtio.VringAvail) + num * @sizeOf(u16);
+    dev.queues[Q_RX] = .{
+        .num = num,
+        .ready = 1,
+        .desc_addr = desc_addr,
+        .driver_addr = driver_addr,
+        .device_addr = device_addr,
+    };
+
+    // Writable descriptor pointing at a 128-byte buffer at 0x800.
+    const buf_off: usize = 0x800;
+    const desc0 = virtio.VringDesc{
+        .addr = buf_off,
+        .len = 128,
+        .flags = virtio.VringDesc.F_WRITE,
+        .next = 0,
+    };
+    @memcpy(ram[0..@sizeOf(virtio.VringDesc)], std.mem.asBytes(&desc0));
+
+    const hdr = VsockHdr{
+        .src_cid = host_cid,
+        .dst_cid = default_guest_cid,
+        .src_port = 7777,
+        .dst_port = 1234,
+        .len = 3,
+        .type = @intFromEnum(Type.stream),
+        .op = @intFromEnum(Op.response),
+        .flags = 0,
+        .buf_alloc = advertised_buf_alloc,
+        .fwd_cnt = 0,
+    };
+    const body = [_]u8{ 0xAA, 0xBB, 0xCC };
+    const n = writePacket(&dev, Q_RX, 0, hdr, &body) orelse return error.TestFailed;
+    try std.testing.expectEqual(@as(u32, header_size + 3), n);
+
+    // Verify what the guest would see.
+    var dst_hdr_bytes: [header_size]u8 = undefined;
+    @memcpy(&dst_hdr_bytes, ram[buf_off..][0..header_size]);
+    const read_back = VsockHdr.decode(&dst_hdr_bytes);
+    try std.testing.expectEqual(hdr.op, read_back.op);
+    try std.testing.expectEqual(hdr.dst_port, read_back.dst_port);
+    try std.testing.expectEqual(@as(u32, 3), read_back.len);
+    try std.testing.expectEqualSlices(u8, &body, ram[buf_off + header_size ..][0..3]);
+}
+
+// ---------------------------------------------------------------
+// Bridge — host↔guest byte forwarding.
+//
+// This is the wires-and-glue part: a background thread opens UDS
+// listeners, maps each incoming UDS connection to a guest vsock port,
+// and forwards bytes. It cooperates with the vCPU thread (which calls
+// handleTx when the guest kicks the TX queue) via a mutex.
+// ---------------------------------------------------------------
+
+pub const PortMap = struct {
+    guest_port: u32,
+    /// Absolute path to the UDS the host listens on. Unlinked at start.
+    uds_path: [:0]const u8,
+};
+
+const POLLIN: i16 = 0x0001;
+const POLLERR: i16 = 0x0008;
+const POLLHUP: i16 = 0x0010;
+
+const PollFd = extern struct { fd: c_int, events: i16, revents: i16 };
+extern "c" fn poll(fds: [*]PollFd, nfds: c_ulong, timeout_ms: c_int) c_int;
+
+// BSD socket bits — we bind and open UDS listeners by hand because
+// std.posix's async-flavoured API churns between Zig releases.
+const AF_UNIX: c_int = 1;
+const SOCK_STREAM: c_int = 1;
+const SOL_SOCKET: c_int = if (@import("builtin").os.tag == .macos) 0xFFFF else 1;
+const SO_REUSEADDR: c_int = if (@import("builtin").os.tag == .macos) 0x0004 else 2;
+const F_SETFL: c_int = 4;
+const O_NONBLOCK: c_int = if (@import("builtin").os.tag == .macos) 0x0004 else 0o04000;
+
+extern "c" fn socket(domain: c_int, sock_type: c_int, protocol: c_int) c_int;
+extern "c" fn bind(fd: c_int, addr: *const anyopaque, addrlen: u32) c_int;
+extern "c" fn listen(fd: c_int, backlog: c_int) c_int;
+extern "c" fn accept(fd: c_int, addr: ?*anyopaque, addrlen: ?*u32) c_int;
+extern "c" fn close(fd: c_int) c_int;
+extern "c" fn unlink(path: [*:0]const u8) c_int;
+extern "c" fn pipe(fds: *[2]c_int) c_int;
+extern "c" fn read(fd: c_int, buf: [*]u8, count: usize) isize;
+extern "c" fn write(fd: c_int, buf: [*]const u8, count: usize) isize;
+extern "c" fn fcntl(fd: c_int, cmd: c_int, ...) c_int;
+extern "c" fn setsockopt(fd: c_int, level: c_int, name: c_int, val: *const anyopaque, len: u32) c_int;
+
+// On macOS sockaddr_un has a 1-byte sun_len; on Linux it doesn't.
+// Construct the buffer as a blob and pass addrlen separately.
+const SockaddrUn = extern struct {
+    // Layout sufficient for both platforms: we zero it and fill in the
+    // path, then compute addrlen = offsetof(path) + strlen(path) + 1.
+    bytes: [110]u8 align(4) = @splat(0),
+};
+
+fn makeSockaddrUn(path: []const u8) struct { sa: SockaddrUn, len: u32 } {
+    var sa = SockaddrUn{};
+    if (@import("builtin").os.tag == .macos) {
+        // sun_len (1 byte), sun_family (1 byte), sun_path (104 bytes on macOS)
+        // Path starts at byte 2.
+        sa.bytes[1] = AF_UNIX;
+        const path_off: usize = 2;
+        const take = @min(path.len, sa.bytes.len - path_off - 1);
+        @memcpy(sa.bytes[path_off..][0..take], path[0..take]);
+        sa.bytes[0] = @intCast(path_off + take + 1);
+        return .{ .sa = sa, .len = @as(u32, @intCast(path_off + take + 1)) };
+    } else {
+        // sun_family u16, sun_path 108 bytes (path starts at byte 2).
+        sa.bytes[0] = AF_UNIX;
+        sa.bytes[1] = 0;
+        const path_off: usize = 2;
+        const take = @min(path.len, sa.bytes.len - path_off - 1);
+        @memcpy(sa.bytes[path_off..][0..take], path[0..take]);
+        return .{ .sa = sa, .len = @as(u32, @intCast(path_off + take + 1)) };
+    }
+}
+
+fn setNonblocking(fd: c_int) void {
+    _ = fcntl(fd, F_SETFL, O_NONBLOCK);
+}
+
+pub const ConnState = enum {
+    /// We sent REQUEST; waiting for guest RESPONSE.
+    connecting,
+    /// Guest replied RESPONSE; both sides can exchange RW packets.
+    established,
+    /// Either side initiated close; drain and free.
+    closing,
+};
+
+pub const Connection = struct {
+    guest_port: u32,
+    host_port: u32,
+    uds_fd: c_int,
+    state: ConnState,
+    /// Bytes the guest has told us it has consumed so far (for credit
+    /// update accounting). M1 doesn't implement back-pressure — we
+    /// always have room — but we carry this so we can answer
+    /// CREDIT_REQUEST correctly.
+    fwd_cnt: u32 = 0,
+    /// Bytes we've delivered into this connection. Used to populate
+    /// our side of fwd_cnt.
+    peer_fwd_cnt: u32 = 0,
+};
+
+pub const BridgeConfig = struct {
+    guest_cid: u64 = default_guest_cid,
+    ports: []const PortMap,
+    /// Set by boot.zig to hvf.Gic.setSpi(irq, true). Called after we
+    /// inject an RX packet so the guest sees the virtio interrupt.
+    raise_irq: ?*const fn (ctx: ?*anyopaque) void = null,
+    raise_irq_ctx: ?*anyopaque = null,
+};
+
+pub const Bridge = struct {
+    gpa: std.mem.Allocator,
+    cfg: BridgeConfig,
+    dev: *virtio.Device,
+
+    mu: PthreadMutex = .{},
+    stop_flag: std.atomic.Value(bool) = .init(false),
+
+    /// Next host-side port to allocate for an outgoing stream.
+    next_host_port: u32 = 1024,
+
+    /// One listener fd per entry in cfg.ports.
+    listeners: std.ArrayList(c_int) = .empty,
+
+    /// Active connections.
+    conns: std.ArrayList(Connection) = .empty,
+
+    /// Self-pipe so sendPacket wakes the poll loop. Index 0 = read, 1 = write.
+    wake: [2]c_int = .{ -1, -1 },
+
+    thread: ?std.Thread = null,
+
+    pub fn create(gpa: std.mem.Allocator, dev: *virtio.Device, cfg: BridgeConfig) !*Bridge {
+        const self = try gpa.create(Bridge);
+        self.* = .{
+            .gpa = gpa,
+            .cfg = cfg,
+            .dev = dev,
+        };
+        return self;
+    }
+
+    pub fn destroy(self: *Bridge) void {
+        self.stop() catch {};
+        for (self.listeners.items) |fd| _ = close(fd);
+        self.listeners.deinit(self.gpa);
+        for (self.conns.items) |c| _ = close(c.uds_fd);
+        self.conns.deinit(self.gpa);
+        if (self.wake[0] >= 0) _ = close(self.wake[0]);
+        if (self.wake[1] >= 0) _ = close(self.wake[1]);
+        self.gpa.destroy(self);
+    }
+
+    pub fn start(self: *Bridge) !void {
+        // Open every UDS listener up front so a failure here is visible
+        // before the guest ever boots.
+        for (self.cfg.ports) |pm| {
+            _ = unlink(pm.uds_path.ptr);
+            const fd = socket(AF_UNIX, SOCK_STREAM, 0);
+            if (fd < 0) return error.UdsSocketFailed;
+            errdefer _ = close(fd);
+            const yes: c_int = 1;
+            _ = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, @sizeOf(c_int));
+            const made = makeSockaddrUn(pm.uds_path);
+            if (bind(fd, &made.sa, made.len) != 0) return error.UdsBindFailed;
+            if (listen(fd, 8) != 0) return error.UdsListenFailed;
+            setNonblocking(fd);
+            try self.listeners.append(self.gpa, fd);
+        }
+
+        var pipe_fds: [2]c_int = .{ -1, -1 };
+        if (pipe(&pipe_fds) != 0) return error.PipeFailed;
+        setNonblocking(pipe_fds[0]);
+        setNonblocking(pipe_fds[1]);
+        self.wake = pipe_fds;
+
+        self.thread = try std.Thread.spawn(.{}, runThread, .{self});
+    }
+
+    pub fn stop(self: *Bridge) !void {
+        self.stop_flag.store(true, .release);
+        self.nudge();
+        if (self.thread) |t| {
+            t.join();
+            self.thread = null;
+        }
+    }
+
+    fn nudge(self: *Bridge) void {
+        if (self.wake[1] >= 0) {
+            const b: [1]u8 = .{1};
+            _ = write(self.wake[1], &b, 1);
+        }
+    }
+
+    fn runThread(self: *Bridge) void {
+        var scratch = self.gpa.alloc(PollFd, 64) catch return;
+        defer self.gpa.free(scratch);
+
+        while (!self.stop_flag.load(.acquire)) {
+            // Build poll set: [wake, listeners..., conns...]
+            self.mu.lock();
+            const want = 1 + self.listeners.items.len + self.conns.items.len;
+            if (want > scratch.len) {
+                scratch = self.gpa.realloc(scratch, want) catch {
+                    self.mu.unlock();
+                    return;
+                };
+            }
+            var n: usize = 0;
+            scratch[n] = .{ .fd = self.wake[0], .events = POLLIN, .revents = 0 };
+            n += 1;
+            for (self.listeners.items) |fd| {
+                scratch[n] = .{ .fd = fd, .events = POLLIN, .revents = 0 };
+                n += 1;
+            }
+            for (self.conns.items) |c| {
+                scratch[n] = .{ .fd = c.uds_fd, .events = POLLIN, .revents = 0 };
+                n += 1;
+            }
+            self.mu.unlock();
+
+            _ = poll(scratch.ptr, @intCast(n), 250);
+
+            // Drain the wake pipe.
+            if ((scratch[0].revents & POLLIN) != 0) {
+                var drain: [64]u8 = undefined;
+                while (read(self.wake[0], &drain, drain.len) > 0) {}
+            }
+
+            // Accept listeners.
+            const listener_end = 1 + self.listeners.items.len;
+            var i: usize = 1;
+            while (i < listener_end) : (i += 1) {
+                if ((scratch[i].revents & POLLIN) == 0) continue;
+                self.mu.lock();
+                const listener_idx = i - 1;
+                if (listener_idx < self.listeners.items.len and listener_idx < self.cfg.ports.len) {
+                    const lfd = self.listeners.items[listener_idx];
+                    const port = self.cfg.ports[listener_idx].guest_port;
+                    const c = accept(lfd, null, null);
+                    if (c >= 0) {
+                        setNonblocking(c);
+                        self.startConnection(c, port) catch |err| {
+                            std.debug.print("vsock: startConnection failed: {s}\n", .{@errorName(err)});
+                            _ = close(c);
+                        };
+                    }
+                }
+                self.mu.unlock();
+            }
+
+            // Read from established conns.
+            i = listener_end;
+            while (i < n) : (i += 1) {
+                const events = scratch[i].revents;
+                if (events == 0) continue;
+                self.mu.lock();
+                // conns may have shifted under us — re-look up by fd.
+                const fd = scratch[i].fd;
+                var match: ?usize = null;
+                for (self.conns.items, 0..) |c, k| if (c.uds_fd == fd) {
+                    match = k;
+                    break;
+                };
+                if (match) |k| {
+                    if ((events & POLLIN) != 0) {
+                        self.drainConnection(k) catch |err| {
+                            std.debug.print("vsock: drainConnection err {s}\n", .{@errorName(err)});
+                            self.closeConnection(k);
+                        };
+                    } else if ((events & (POLLERR | POLLHUP)) != 0) {
+                        self.closeConnection(k);
+                    }
+                }
+                self.mu.unlock();
+            }
+        }
+    }
+
+    // Must be called with self.mu held.
+    fn startConnection(self: *Bridge, uds_fd: c_int, guest_port: u32) !void {
+        const host_port = self.next_host_port;
+        self.next_host_port += 1;
+        try self.conns.append(self.gpa, .{
+            .guest_port = guest_port,
+            .host_port = host_port,
+            .uds_fd = uds_fd,
+            .state = .connecting,
+        });
+        // Inject REQUEST into guest RX.
+        const hdr = VsockHdr{
+            .src_cid = host_cid,
+            .dst_cid = self.cfg.guest_cid,
+            .src_port = host_port,
+            .dst_port = guest_port,
+            .len = 0,
+            .type = @intFromEnum(Type.stream),
+            .op = @intFromEnum(Op.request),
+            .flags = 0,
+            .buf_alloc = advertised_buf_alloc,
+            .fwd_cnt = 0,
+        };
+        const ok = self.injectRx(hdr, &[_]u8{});
+        if (!ok) {
+            std.debug.print("vsock: REQUEST inject failed (guest not ready?) — closing\n", .{});
+            self.closeConnection(self.conns.items.len - 1);
+        }
+    }
+
+    // Must be called with self.mu held.
+    fn drainConnection(self: *Bridge, idx: usize) !void {
+        const c = &self.conns.items[idx];
+        if (c.state != .established) return; // wait for RESPONSE first
+        var buf: [8192]u8 = undefined;
+        const n = read(c.uds_fd, &buf, buf.len);
+        if (n == 0) {
+            // EOF from the UDS side — tell the guest and start close.
+            const hdr = VsockHdr{
+                .src_cid = host_cid,
+                .dst_cid = self.cfg.guest_cid,
+                .src_port = c.host_port,
+                .dst_port = c.guest_port,
+                .len = 0,
+                .type = @intFromEnum(Type.stream),
+                .op = @intFromEnum(Op.shutdown),
+                .flags = ShutdownFlag.both,
+                .buf_alloc = advertised_buf_alloc,
+                .fwd_cnt = c.fwd_cnt,
+            };
+            _ = self.injectRx(hdr, &[_]u8{});
+            c.state = .closing;
+            return;
+        }
+        if (n < 0) return; // EAGAIN / try later
+        const payload = buf[0..@intCast(n)];
+        c.peer_fwd_cnt +%= @intCast(payload.len);
+        const hdr = VsockHdr{
+            .src_cid = host_cid,
+            .dst_cid = self.cfg.guest_cid,
+            .src_port = c.host_port,
+            .dst_port = c.guest_port,
+            .len = @intCast(payload.len),
+            .type = @intFromEnum(Type.stream),
+            .op = @intFromEnum(Op.rw),
+            .flags = 0,
+            .buf_alloc = advertised_buf_alloc,
+            .fwd_cnt = c.fwd_cnt,
+        };
+        _ = self.injectRx(hdr, payload);
+    }
+
+    // Must be called with self.mu held.
+    fn closeConnection(self: *Bridge, idx: usize) void {
+        const c = self.conns.swapRemove(idx);
+        _ = close(c.uds_fd);
+    }
+
+    // Must be called with self.mu held.
+    //
+    // Claim the next posted RX descriptor chain, lay down hdr+body,
+    // push used, and raise the virtio IRQ.
+    fn injectRx(self: *Bridge, hdr: VsockHdr, body: []const u8) bool {
+        const q = &self.dev.queues[Q_RX];
+        if (q.ready == 0 or q.num == 0) return false;
+
+        // Read avail.idx via helpers that live on virtio.Device. We
+        // can't import private helpers so we read directly by walking
+        // guest RAM via guestBytes.
+        const avail_addr = q.driver_addr;
+        const avail_bytes = self.dev.guestBytes(avail_addr, @sizeOf(virtio.VringAvail)) orelse return false;
+        var avail: virtio.VringAvail = undefined;
+        @memcpy(std.mem.asBytes(&avail), avail_bytes);
+        if (q.last_avail_idx == avail.idx) return false; // no buffer posted
+
+        // avail.ring[slot]
+        const slot: u32 = @as(u32, q.last_avail_idx) % q.num;
+        const ring_off: u64 = avail_addr + @sizeOf(virtio.VringAvail) + @as(u64, slot) * @sizeOf(u16);
+        const ring_bytes = self.dev.guestBytes(ring_off, @sizeOf(u16)) orelse return false;
+        const head: u16 = std.mem.readInt(u16, ring_bytes[0..2], .little);
+
+        const written = writePacket(self.dev, Q_RX, head, hdr, body) orelse return false;
+        self.dev.queuePushUsed(Q_RX, head, written);
+        q.last_avail_idx +%= 1;
+        self.dev.interrupt_status |= virtio.IRQ_USED_BUFFER;
+
+        if (self.cfg.raise_irq) |f| f(self.cfg.raise_irq_ctx);
+        return true;
+    }
+
+    /// Called from the vCPU thread when the guest kicks the TX queue.
+    /// Signature matches virtio.Device.request_handler.
+    pub fn handleTxChain(ctx: ?*anyopaque, dev: *virtio.Device, q_idx: u32, head: u16) void {
+        const self: *Bridge = @ptrCast(@alignCast(ctx.?));
+        if (q_idx != Q_TX) {
+            // Event queue or unexpected: ack and move on.
+            dev.queuePushUsed(q_idx, head, 0);
+            return;
+        }
+
+        var scratch: [max_payload + header_size]u8 = undefined;
+        const pkt = readPacket(dev, q_idx, head, &scratch) orelse {
+            dev.queuePushUsed(q_idx, head, 0);
+            return;
+        };
+        const total_len: u32 = @as(u32, @intCast(header_size)) + @as(u32, @intCast(pkt.body.len));
+        dev.queuePushUsed(q_idx, head, total_len);
+
+        self.mu.lock();
+        defer self.mu.unlock();
+        self.dispatchGuestPacket(pkt.hdr, pkt.body);
+    }
+
+    // Must be called with self.mu held.
+    fn dispatchGuestPacket(self: *Bridge, hdr: VsockHdr, body: []const u8) void {
+        // Match by (src_port = guest_port, dst_port = host_port).
+        var match: ?usize = null;
+        for (self.conns.items, 0..) |c, k| {
+            if (c.guest_port == hdr.src_port and c.host_port == hdr.dst_port) {
+                match = k;
+                break;
+            }
+        }
+        const op: Op = @enumFromInt(hdr.op);
+
+        if (match == null) {
+            // Unknown stream from guest → reject with RST.
+            const rst = VsockHdr{
+                .src_cid = host_cid,
+                .dst_cid = self.cfg.guest_cid,
+                .src_port = hdr.dst_port,
+                .dst_port = hdr.src_port,
+                .len = 0,
+                .type = hdr.type,
+                .op = @intFromEnum(Op.rst),
+                .flags = 0,
+                .buf_alloc = advertised_buf_alloc,
+                .fwd_cnt = 0,
+            };
+            _ = self.injectRx(rst, &[_]u8{});
+            return;
+        }
+        const idx = match.?;
+        const c = &self.conns.items[idx];
+
+        switch (op) {
+            .response => {
+                c.state = .established;
+            },
+            .rw => {
+                // Write body to UDS; may partial-write, loop.
+                var remaining = body;
+                while (remaining.len > 0) {
+                    const n = write(c.uds_fd, remaining.ptr, remaining.len);
+                    if (n <= 0) break; // blocked or peer closed
+                    remaining = remaining[@intCast(n)..];
+                }
+                c.fwd_cnt +%= @intCast(body.len);
+                // Emit an explicit credit update so the guest knows we've
+                // consumed these bytes. Cheap insurance.
+                const credit = VsockHdr{
+                    .src_cid = host_cid,
+                    .dst_cid = self.cfg.guest_cid,
+                    .src_port = c.host_port,
+                    .dst_port = c.guest_port,
+                    .len = 0,
+                    .type = @intFromEnum(Type.stream),
+                    .op = @intFromEnum(Op.credit_update),
+                    .flags = 0,
+                    .buf_alloc = advertised_buf_alloc,
+                    .fwd_cnt = c.fwd_cnt,
+                };
+                _ = self.injectRx(credit, &[_]u8{});
+            },
+            .shutdown, .rst => {
+                self.closeConnection(idx);
+            },
+            .credit_request => {
+                const credit = VsockHdr{
+                    .src_cid = host_cid,
+                    .dst_cid = self.cfg.guest_cid,
+                    .src_port = c.host_port,
+                    .dst_port = c.guest_port,
+                    .len = 0,
+                    .type = @intFromEnum(Type.stream),
+                    .op = @intFromEnum(Op.credit_update),
+                    .flags = 0,
+                    .buf_alloc = advertised_buf_alloc,
+                    .fwd_cnt = c.fwd_cnt,
+                };
+                _ = self.injectRx(credit, &[_]u8{});
+            },
+            .credit_update => {
+                // Purely informational for M1.
+            },
+            else => {},
+        }
+    }
+};
+
+test "writePacket fails cleanly when the chain is too short" {
+    const num = 4;
+    var ram: [4096]u8 = @splat(0);
+    var dev = virtio.Device{ .base = 0x0A00_0000, .id = .vsock, .ram = &ram, .ram_base = 0 };
+
+    const driver_addr: u64 = num * @sizeOf(virtio.VringDesc);
+    const device_addr: u64 = driver_addr + @sizeOf(virtio.VringAvail) + num * @sizeOf(u16);
+    dev.queues[Q_RX] = .{
+        .num = num,
+        .ready = 1,
+        .desc_addr = 0,
+        .driver_addr = driver_addr,
+        .device_addr = device_addr,
+    };
+
+    // Writable descriptor, but only 10 bytes — not even enough for the header.
+    const desc0 = virtio.VringDesc{ .addr = 0x400, .len = 10, .flags = virtio.VringDesc.F_WRITE, .next = 0 };
+    @memcpy(ram[0..@sizeOf(virtio.VringDesc)], std.mem.asBytes(&desc0));
+
+    const hdr = VsockHdr{
+        .src_cid = host_cid,
+        .dst_cid = default_guest_cid,
+        .src_port = 1,
+        .dst_port = 2,
+        .len = 0,
+        .type = @intFromEnum(Type.stream),
+        .op = @intFromEnum(Op.rst),
+        .flags = 0,
+        .buf_alloc = advertised_buf_alloc,
+        .fwd_cnt = 0,
+    };
+    try std.testing.expectEqual(@as(?u32, null), writePacket(&dev, Q_RX, 0, hdr, &[_]u8{}));
+}
