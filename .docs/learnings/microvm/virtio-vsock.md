@@ -9,14 +9,14 @@ the real machinen control-plane case (supervisor/checkpoint traffic).
 
 slirp gives the guest real TCP/IP through the VMM process's sockets.
 That's great for "let the guest reach the outside world." But for
-host↔guest *control plane* things — "hey host, I'm idle, checkpoint
+host↔guest _control plane_ things — "hey host, I'm idle, checkpoint
 me now" or "send this JSON to the agent inside" — you don't want to
 route through DHCP/NAT/TCP. You want a point-to-point channel that:
 
-* doesn't fight with guest network config (no `eth0 down` killing it),
-* survives IP reconfiguration,
-* doesn't need a port mapping the guest can see,
-* doesn't hit the TIME_WAIT/ephemeral-port issues a shared NAT has.
+- doesn't fight with guest network config (no `eth0 down` killing it),
+- survives IP reconfiguration,
+- doesn't need a port mapping the guest can see,
+- doesn't hit the TIME_WAIT/ephemeral-port issues a shared NAT has.
 
 virtio-vsock is exactly that. Linux's AF_VSOCK family looks like a
 normal socket family to userspace (`socket(AF_VSOCK, SOCK_STREAM, 0)`
@@ -37,9 +37,9 @@ One guest, one host, two CIDs. No multi-tenancy.
 Unlike virtio-net (2 queues) or virtio-blk (1 queue), virtio-vsock
 has three:
 
-* queue 0 = RX — **guest posts empty buffers, device fills them**
-* queue 1 = TX — **guest posts full buffers for device to read**
-* queue 2 = event — rarely used; only kicks on transport reset
+- queue 0 = RX — **guest posts empty buffers, device fills them**
+- queue 1 = TX — **guest posts full buffers for device to read**
+- queue 2 = event — rarely used; only kicks on transport reset
 
 The RX/TX asymmetry bit me. Our generic `virtio.Device` request-handler
 path auto-drains the avail ring on every `notify()`, assuming the
@@ -79,16 +79,16 @@ the normally-helpful `@sizeOf` sanity assert that would fire here.
 
 ### Op table
 
-| Op             | Value | Meaning                                    |
-|----------------|-------|--------------------------------------------|
-| invalid        | 0     | padding, should never appear on wire       |
-| request        | 1     | "please connect"                           |
-| response       | 2     | "accepted"                                 |
-| rst            | 3     | reset; kill the connection                 |
-| shutdown       | 4     | graceful close of recv/send half(s)        |
-| rw             | 5     | carries payload bytes                      |
-| credit_update  | 6     | informational: "I've consumed N bytes"     |
-| credit_request | 7     | "tell me how much you've consumed"         |
+| Op             | Value | Meaning                                |
+| -------------- | ----- | -------------------------------------- |
+| invalid        | 0     | padding, should never appear on wire   |
+| request        | 1     | "please connect"                       |
+| response       | 2     | "accepted"                             |
+| rst            | 3     | reset; kill the connection             |
+| shutdown       | 4     | graceful close of recv/send half(s)    |
+| rw             | 5     | carries payload bytes                  |
+| credit_update  | 6     | informational: "I've consumed N bytes" |
+| credit_request | 7     | "tell me how much you've consumed"     |
 
 ## The UDS bridge
 
@@ -140,28 +140,28 @@ closes.
 
 What the bridge does:
 
-* **Tracks per connection**: `bytes_to_peer`, `peer_buf_alloc`,
+- **Tracks per connection**: `bytes_to_peer`, `peer_buf_alloc`,
   `peer_fwd_cnt`, `fwd_cnt` (bytes we've consumed off the UDS),
   `last_credit_fwd_cnt` (last advertised).
-* **Respects the peer window** on sends: `drainConnection` caps the
+- **Respects the peer window** on sends: `drainConnection` caps the
   `read()` from UDS to `peerRoom(c)`. If room is 0, sets `paused=true`
   and drops the fd from the POLLIN set.
-* **Unpauses** when an inbound packet advances `peer_fwd_cnt` far
+- **Unpauses** when an inbound packet advances `peer_fwd_cnt` far
   enough to re-open the window. Nudges the poll loop so the fd is
   re-added immediately.
-* **Emits CREDIT_UPDATE** when we've drained (into the UDS) half of
+- **Emits CREDIT_UPDATE** when we've drained (into the UDS) half of
   our advertised buf_alloc worth of new bytes since the last update.
   Also responds to explicit CREDIT_REQUEST.
-* **Advertises** `buf_alloc = 256 KiB` on every outgoing packet. The
+- **Advertises** `buf_alloc = 256 KiB` on every outgoing packet. The
   guest kernel treats this as a hint and paces accordingly.
 
 ## Threading + locking
 
 Two threads touch the Device:
 
-* vCPU thread: handles MMIO exits (status writes, queue config, TX
+- vCPU thread: handles MMIO exits (status writes, queue config, TX
   doorbell → `handleTxChain`).
-* Bridge thread: poll()s the UDS listener + all connection fds,
+- Bridge thread: poll()s the UDS listener + all connection fds,
   handles accepts and reads from UDS, injects RX packets.
 
 Both threads walk virtqueue memory. A `PthreadMutex` (the same
@@ -187,12 +187,12 @@ it (CRIU restore is the obvious trigger).
 
 ## What's still missing (M3+)
 
-* **Dynamic port map at runtime.** Env var is fine for smoke/
+- **Dynamic port map at runtime.** Env var is fine for smoke/
   integration; a control-plane RPC to add/remove mappings without a
   VMM restart is what production wants.
-* **Transport-reset trigger on restore.** Primitive's in place; hook
+- **Transport-reset trigger on restore.** Primitive's in place; hook
   isn't wired into the CRIU restore path.
-* **Multi-guest-CID / hotplug.** Not needed until we're running
+- **Multi-guest-CID / hotplug.** Not needed until we're running
   multiple VMs against one VMM process.
 
 ## Repro
@@ -217,6 +217,6 @@ Interactive poke:
 
 ## Refs
 
-* virtio 1.2 spec, §5.10 (Socket Device) — wire format, queue layout.
-* Linux kernel: `net/vmw_vsock/virtio_transport.c` (guest driver),
+- virtio 1.2 spec, §5.10 (Socket Device) — wire format, queue layout.
+- Linux kernel: `net/vmw_vsock/virtio_transport.c` (guest driver),
   `net/vmw_vsock/virtio_transport_common.c` (state machine).

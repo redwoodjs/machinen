@@ -81,11 +81,7 @@ export class VsockWinsize {
    */
   send(cols: number, rows: number): void {
     if (this.closed) return;
-    if (
-      this.lastSent &&
-      this.lastSent.cols === cols &&
-      this.lastSent.rows === rows
-    ) {
+    if (this.lastSent && this.lastSent.cols === cols && this.lastSent.rows === rows) {
       return;
     }
     this.lastSent = { cols, rows };

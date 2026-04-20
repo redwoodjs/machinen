@@ -50,7 +50,7 @@ In rough order:
 2. **Allocate guest memory on the host.** Regular `mmap`, then
    tell HVF "this region is guest-physical RAM."
 3. **Map memory into the guest.** `hv_vm_map(host_addr,
-   guest_phys_addr, size, flags)`.
+guest_phys_addr, size, flags)`.
 4. **Create a vCPU.** `hv_vcpu_create()` — one call per virtual
    CPU the guest will have.
 5. **Set initial registers.** `hv_vcpu_set_reg(vcpu, reg, val)`
@@ -71,6 +71,7 @@ top of this loop.
 ## arm64 vs x86_64
 
 On Apple Silicon (arm64):
+
 - Register names and layout are ARM-style (X0..X30, SP, PC,
   CPSR, plus system registers).
 - Boot protocol: Linux expects you to put the kernel at a
@@ -79,6 +80,7 @@ On Apple Silicon (arm64):
   address, rest zeroed).
 
 On Intel Macs (x86_64):
+
 - Register names are x86-style (RAX, RBX, RIP, RSP, CR3...).
 - Boot protocol: Linux bzImage format; you set up a specific
   zero-page layout and real/protected-mode transition.
@@ -89,6 +91,7 @@ names and different kernel-loading conventions.
 ## The files you'll see
 
 When writing Zig bindings:
+
 - `/System/Library/Frameworks/Hypervisor.framework/Headers/hv.h`
   — the C header. Defines all the `hv_*` functions and types.
 - Related headers: `hv_vm.h`, `hv_vcpu.h`, `hv_error.h`,

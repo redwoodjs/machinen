@@ -7,8 +7,8 @@ process end-to-end. This note is a resume-guide for that work.
 ## What already works (no more investigation needed)
 
 - VMM boots, runs Debian userspace, runs Node (`packages/microvm`
-  + `test-fixtures/virt.dts` + the Dockerfile / downloaded-deb
-  rootfs path).
+  - `test-fixtures/virt.dts` + the Dockerfile / downloaded-deb
+    rootfs path).
 - Ticker program (a Node process that counts and prints every
   500 ms) runs inside the guest and its output reaches the
   host through our emulated serial port.
@@ -91,6 +91,7 @@ term anyway — the freezing and moving is a host operation,
 not a guest operation.
 
 What it takes:
+
 - A host-side module in Zig that iterates the guest's memory
   mappings, dumps them + register state, and optionally also
   dumps the DTB + kernel image metadata.
@@ -130,7 +131,7 @@ should follow.
 - Guest userspace: `node:lts-slim` Docker image (Debian
   bookworm-slim + Node 24) + `criu` + `kmod` + their deps
   from the apt pool.
-- Orbstack / Docker is *not* required for the rootfs. We
+- Orbstack / Docker is _not_ required for the rootfs. We
   verified we can pull individual Debian `.deb`s with `curl`
   and extract them with `ar` + `tar` on macOS, then layer the
   result into an existing rootfs directory, then cpio-pack it

@@ -33,7 +33,12 @@ describe("Sandboxes", () => {
     try {
       reg.add("alice", a);
       reg.add("bob", b);
-      expect(reg.list().map((r) => r.id).sort()).toEqual(["alice", "bob"]);
+      expect(
+        reg
+          .list()
+          .map((r) => r.id)
+          .sort(),
+      ).toEqual(["alice", "bob"]);
       expect(reg.get("alice")?.id).toBe("alice");
       reg.remove("alice");
       expect(reg.list().map((r) => r.id)).toEqual(["bob"]);

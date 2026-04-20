@@ -1,9 +1,5 @@
 export { Sandboxes, Supervisor } from "./multiplex.ts";
-export type {
-  SandboxEntry,
-  OnOutputListener,
-  SupervisorOptions,
-} from "./multiplex.ts";
+export type { SandboxEntry, OnOutputListener, SupervisorOptions } from "./multiplex.ts";
 export { spawnPty } from "./pty.ts";
 export type { PtySpawnOptions, PtyVmHandle } from "./pty.ts";
 export { VsockWinsize } from "./winsize.ts";
@@ -28,10 +24,7 @@ export type { VsockWinsizeOptions } from "./winsize.ts";
 //
 // No multiplexing yet — one VM per handle (#51 is its own issue).
 
-import {
-  type ChildProcessWithoutNullStreams,
-  spawn as nodeSpawn,
-} from "node:child_process";
+import { type ChildProcessWithoutNullStreams, spawn as nodeSpawn } from "node:child_process";
 import { once } from "node:events";
 import { closeSync, existsSync, openSync, writeSync } from "node:fs";
 import { resolve } from "node:path";
@@ -211,9 +204,7 @@ export interface SnapshotResult {
  *      SYSTEM_OFF once CRIU dump is done).
  *   4. Returns the path + stats.
  */
-export async function buildSnapshot(
-  opts: BuildSnapshotOptions,
-): Promise<SnapshotResult> {
+export async function buildSnapshot(opts: BuildSnapshotOptions): Promise<SnapshotResult> {
   const diskPath = resolve(opts.cwd ?? process.cwd(), opts.diskPath);
   const size = opts.diskSizeBytes ?? 128 * 1024 * 1024;
 

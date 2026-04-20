@@ -6,11 +6,11 @@ second-generation substrate.
 
 ## Decision
 
-| Option                  | Role                    | Timeline             |
-| ----------------------- | ----------------------- | -------------------- |
-| **cloud-hypervisor**    | v1 substrate            | ship now             |
+| Option                           | Role                   | Timeline           |
+| -------------------------------- | ---------------------- | ------------------ |
+| **cloud-hypervisor**             | v1 substrate           | ship now           |
 | **Zig VMM** (`packages/microvm`) | parallel track, own it | months, becomes v2 |
-| **libkrun**             | not used                | —                    |
+| **libkrun**                      | not used               | —                  |
 
 ## Why cloud-hypervisor for v1
 

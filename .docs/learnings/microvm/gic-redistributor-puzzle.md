@@ -59,7 +59,7 @@ distributor is global, not per-vCPU.
    address only after the vCPU's first `hv_vcpu_run`, that
    confirms the "must run first" theory and we can adjust by
    pre-running a tiny stub before handing over to the kernel.
-4. **Try HV_MEMORY_* flags on the redistributor region.**
+4. **Try HV*MEMORY*\* flags on the redistributor region.**
    Possibly we're supposed to not call `hv_vm_map` there at all
    (we don't — good) but also set some hint that says "HVF
    owns this region."
@@ -67,7 +67,7 @@ distributor is global, not per-vCPU.
    v3 minimum; macOS 15 may have fixes. macOS 26 betas may be
    different again.
 6. **Fall back to emulating the redistributor ourselves.**
-   Read the GICR_* register enum, maintain state per-vCPU,
+   Read the GICR\_\* register enum, maintain state per-vCPU,
    serve MMIO from our own tables. Lots more code but avoids
    the Apple API black box.
 

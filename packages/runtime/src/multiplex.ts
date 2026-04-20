@@ -116,11 +116,7 @@ export class Sandboxes {
     };
   }
 
-  private record(
-    entry: SandboxEntry,
-    chunk: Buffer,
-    source: "stdout" | "stderr",
-  ): void {
+  private record(entry: SandboxEntry, chunk: Buffer, source: "stdout" | "stderr"): void {
     const combined = Buffer.concat([entry.scrollback, chunk]);
     entry.scrollback =
       combined.length <= this.scrollbackBytes
@@ -338,9 +334,7 @@ export class Supervisor {
   private handleCommand(raw: string): void {
     const line = raw.trim();
     if (!line.startsWith(this.prefix)) {
-      this.print(
-        `(unknown input; commands start with '${this.prefix}'. try /help)\n`,
-      );
+      this.print(`(unknown input; commands start with '${this.prefix}'. try /help)\n`);
       return;
     }
     const [cmd, ...rest] = line.slice(this.prefix.length).split(/\s+/);

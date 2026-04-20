@@ -98,9 +98,9 @@ describe("spawn", () => {
 
 describe("disk option", () => {
   it("throws SpawnError when the disk path does not exist", async () => {
-    await expect(
-      spawn({ binary: "/bin/sh", disk: "/nope/missing.img" }),
-    ).rejects.toThrow(/disk image not found/);
+    await expect(spawn({ binary: "/bin/sh", disk: "/nope/missing.img" })).rejects.toThrow(
+      /disk image not found/,
+    );
   });
 
   it("passes the resolved disk path as MACHINEN_DISK to the child", async () => {
