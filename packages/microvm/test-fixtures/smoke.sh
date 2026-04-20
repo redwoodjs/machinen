@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+# Integration smoke tests for the microVM.
+#
+# Runs two end-to-end checks against the built VMM:
+#
+#   repl   Boot with Node.js as init, pipe `1+1` + `.exit`, assert the
+#          guest evaluated the expression and started a real Node REPL.
+#   criu   Boot with the CRIU fork demo, assert the counter after
+#          restore is greater than the counter at dump time.
+#
+# Prints pass/fail per check and exits non-zero if any fail. Writes
+# full guest-console logs to /tmp/microvm-smoke-*.log for post-mortems.
+#
+# Usage: ./test-fixtures/smoke.sh [repl|criu|all]   (default: all)
+#
+# These require an Apple Silicon host with the HVF entitlement setup.
+# They aren't wired into `zig build test` because they depend on
+# packed initramfs + kernel fixtures and take ~20s each.
+
+set -euo pipefail
+
+MODE=${1:-all}
+HERE=$(cd "$(dirname "$0")/.." && pwd)
+cd "$HERE"
+
+FIXTURES=$HERE/test-fixtures
+ROOTFS=$FIXTURES/rootfs
+
+for f in "$FIXTURES/Image" "$FIXTURES/virt.dtb"; do
+    [[ -f "$f" ]] || { echo "FAIL: missing fixture: $f" >&2; exit 1; }
+done
+[[ -d "$ROOTFS" ]] || { echo "FAIL: missing $ROOTFS" >&2; exit 1; }
+
+# Strip ANSI color codes and CRs so grep can match plain text.
+strip_tty() { sed -E $'s/\x1b\\[[0-9;]*[a-zA-Z]//g; s/\r$//'; }
+
+# Build once, find the binary that contains the boot test.
+build_and_find_bin() {
+    zig build test >/dev/null 2>&1 || true
+    for f in $(ls -t .zig-cache/o/*/test 2>/dev/null); do
+        if strings "$f" 2>/dev/null | grep -q MACHINEN_BOOT_TEST; then
+            echo "$f"
+            return 0
+        fi
+    done
+    return 1
+}
+TEST_BIN=$(build_and_find_bin) || { echo "FAIL: no boot-test binary" >&2; exit 1; }
+
+# Repack the initramfs with the given demo.sh. `stage` is a shell
+# command that sets up $ROOTFS (paths are absolute).
+repack_with() {
+    local stage_cmd=$1
+    eval "$stage_cmd"
+    python3 "$FIXTURES/mkinitramfs.py" --rootfs "$ROOTFS" >/dev/null
+}
+
+# Run the VMM with the given stdin feed; kill it after a timeout; return
+# the stripped log.
+run_vmm() {
+    local feed=$1 timeout_s=$2 log=$3
+    eval "$feed" | MACHINEN_BOOT_TEST=1 "$TEST_BIN" 2>"$log" &
+    local vm_pid=$!
+    local elapsed=0
+    while kill -0 $vm_pid 2>/dev/null; do
+        (( elapsed += 1 ))
+        if (( elapsed >= timeout_s )); then kill -9 $vm_pid 2>/dev/null || true; break; fi
+        sleep 1
+    done
+    wait $vm_pid 2>/dev/null || true
+    strip_tty <"$log" >"${log}.clean"
+}
+
+PASS=0; FAIL=0
+pass() { echo "PASS: $1"; (( ++PASS )); }
+fail() { echo "FAIL: $1"; (( ++FAIL )); }
+
+smoke_repl() {
+    echo "--- repl ---"
+    local log=/tmp/microvm-smoke-repl.log
+    repack_with "
+        cat > $ROOTFS/demo.sh <<'SH'
+#!/bin/sh
+PATH=/usr/local/bin:/usr/bin:/bin:/sbin; export PATH
+exec /usr/local/bin/node
+SH
+        chmod +x $ROOTFS/demo.sh
+    "
+    run_vmm '{ sleep 12; printf "1 + 1\n.exit\n"; sleep 5; }' 22 "$log"
+
+    grep -q 'Welcome to Node' "${log}.clean"   && pass 'Node REPL banner shown'   || fail 'no Node REPL banner'
+    grep -qE '^2$' "${log}.clean"              && pass '1 + 1 evaluated to 2'     || fail '1 + 1 did not print 2'
+    grep -q 'Kernel panic' "${log}.clean"     && pass '.exit caused clean exit' || fail '.exit did not exit Node'
+}
+
+smoke_criu() {
+    echo "--- criu ---"
+    local log=/tmp/microvm-smoke-criu.log
+    for helper in lo-up no-iou; do
+        src=$FIXTURES/$helper.c
+        bin=$ROOTFS/usr/bin/$helper
+        if [[ ! -x "$bin" || "$src" -nt "$bin" ]]; then
+            zig cc -target aarch64-linux-musl -static -Os -o "$bin" "$src"
+        fi
+    done
+    repack_with "
+        cp $FIXTURES/counter.js $FIXTURES/fork-demo.sh $ROOTFS/
+        chmod +x $ROOTFS/fork-demo.sh
+        cat > $ROOTFS/demo.sh <<'SH'
+#!/bin/sh
+PATH=/usr/local/bin:/usr/bin:/bin:/sbin; export PATH
+exec /bin/sh /fork-demo.sh
+SH
+        chmod +x $ROOTFS/demo.sh
+    "
+    run_vmm 'printf ""' 32 "$log"
+
+    # Two 'count file:' lines: one before dump, one after restore.
+    local before after
+    before=$(grep 'count file:' "${log}.clean" | sed -n '1p' | awk '{print $3}')
+    after=$(grep 'count file:' "${log}.clean" | sed -n '3p' | awk '{print $3}')
+
+    grep -q 'dump OK'    "${log}.clean" && pass 'CRIU dump succeeded'    || fail 'CRIU dump did not succeed'
+    grep -q 'restore OK' "${log}.clean" && pass 'CRIU restore succeeded' || fail 'CRIU restore did not succeed'
+
+    if [[ -n "$before" && -n "$after" && "$after" -gt "$before" ]]; then
+        pass "counter advanced after restore ($before -> $after)"
+    else
+        fail "counter did not advance (before='$before' after='$after')"
+    fi
+}
+
+case "$MODE" in
+    repl) smoke_repl ;;
+    criu) smoke_criu ;;
+    all)  smoke_repl; smoke_criu ;;
+    *) echo "unknown mode: $MODE" >&2; exit 2 ;;
+esac
+
+echo
+echo "summary: $PASS passed, $FAIL failed"
+exit $(( FAIL == 0 ? 0 : 1 ))
