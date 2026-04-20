@@ -143,6 +143,18 @@ export interface SupervisorOptions {
   output?: Writable;
   /** Prefix for slash-commands. Default `/`. */
   commandPrefix?: string;
+  /**
+   * Flip the terminal into raw mode while a sandbox is attached, and
+   * restore it on detach. Enabled by default when `input` is a TTY.
+   * Set to `false` in tests where `input` is a plain PassThrough.
+   */
+  rawTtyOnAttach?: boolean;
+  /**
+   * Forward SIGWINCH on the parent process (terminal resize) to any
+   * attached sandbox that implements `.resize(cols, rows)`. Enabled
+   * by default when `output` is a TTY.
+   */
+  forwardResize?: boolean;
 }
 
 /**
@@ -163,18 +175,28 @@ export class Supervisor {
   private readonly input: NodeJS.ReadableStream;
   private readonly output: Writable;
   private readonly prefix: string;
+  private readonly rawTtyOnAttach: boolean;
+  private readonly forwardResize: boolean;
 
   private attachedId: string | null = null;
   private attachedUnsub: (() => void) | null = null;
   private lastGs: boolean = false; // tracks consecutive Ctrl-] for detach
   private stopped = false;
   private onEnd: (() => void) | null = null;
+  private priorRawState: boolean | null = null;
+  private winchHandler: (() => void) | null = null;
 
   constructor(opts: SupervisorOptions) {
     this.sandboxes = opts.sandboxes;
     this.input = opts.input ?? process.stdin;
     this.output = opts.output ?? process.stdout;
     this.prefix = opts.commandPrefix ?? "/";
+    // Raw mode: on if explicitly requested, off if explicitly refused,
+    // else on when the input is an actual TTY.
+    const inIsTty = (this.input as NodeJS.ReadStream).isTTY === true;
+    const outIsTty = (this.output as NodeJS.WriteStream).isTTY === true;
+    this.rawTtyOnAttach = opts.rawTtyOnAttach ?? inIsTty;
+    this.forwardResize = opts.forwardResize ?? outIsTty;
   }
 
   /** Run until stopped. Resolves when input ends or stop() is called. */
@@ -213,6 +235,14 @@ export class Supervisor {
     this.attachedUnsub = this.sandboxes.onOutput(id, (chunk) => {
       this.output.write(chunk);
     });
+
+    // Terminal handoff. Put host stdin into raw mode so every keystroke
+    // reaches the sandbox without the shell's line buffering eating it;
+    // hook SIGWINCH so a resize reshapes the sandbox's pty if it
+    // supports resize.
+    if (this.rawTtyOnAttach) this.enterRawTty();
+    if (this.forwardResize) this.installWinchHandler(entry);
+
     this.print(`\n-- attached to ${id} (Ctrl-] Ctrl-] to detach) --\n`);
   }
 
@@ -223,7 +253,52 @@ export class Supervisor {
     const prev = this.attachedId;
     this.attachedId = null;
     this.lastGs = false;
+    this.removeWinchHandler();
+    this.leaveRawTty();
     this.print(`\n-- detached from ${prev} --\n`);
+  }
+
+  private enterRawTty(): void {
+    const stream = this.input as NodeJS.ReadStream;
+    if (!stream.isTTY || typeof stream.setRawMode !== "function") return;
+    this.priorRawState = stream.isRaw ?? false;
+    stream.setRawMode(true);
+  }
+
+  private leaveRawTty(): void {
+    const stream = this.input as NodeJS.ReadStream;
+    if (!stream.isTTY || typeof stream.setRawMode !== "function") return;
+    if (this.priorRawState !== null) {
+      stream.setRawMode(this.priorRawState);
+      this.priorRawState = null;
+    }
+  }
+
+  private installWinchHandler(entry: SandboxEntry): void {
+    const resize = (entry.vm as { resize?: (cols: number, rows: number) => void }).resize;
+    if (typeof resize !== "function") return;
+    const outStream = this.output as NodeJS.WriteStream;
+    const push = () => {
+      const cols = outStream.columns ?? 80;
+      const rows = outStream.rows ?? 24;
+      try {
+        resize.call(entry.vm, cols, rows);
+      } catch {
+        /* best-effort — the vm may already be gone */
+      }
+    };
+    // Set the current size immediately so the sandbox sees a correct
+    // TIOCGWINSZ the first time it asks.
+    push();
+    this.winchHandler = push;
+    process.on("SIGWINCH", push);
+  }
+
+  private removeWinchHandler(): void {
+    if (this.winchHandler) {
+      process.off("SIGWINCH", this.winchHandler);
+      this.winchHandler = null;
+    }
   }
 
   private ingest(chunk: Buffer): void {

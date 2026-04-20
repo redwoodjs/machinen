@@ -4,6 +4,8 @@ export type {
   OnOutputListener,
   SupervisorOptions,
 } from "./multiplex.ts";
+export { spawnPty } from "./pty.ts";
+export type { PtySpawnOptions, PtyVmHandle } from "./pty.ts";
 
 // @machinen/runtime — TypeScript surface for spawning microVMs.
 //

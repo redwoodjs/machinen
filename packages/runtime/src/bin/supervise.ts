@@ -1,31 +1,37 @@
 #!/usr/bin/env node
-// Tiny interactive demo: launches N `cat` children as fake sandboxes
-// and hands the terminal to the Supervisor. Real use should register
-// actual `spawn(...)` handles, not /bin/cat.
+// Tiny interactive demo: launches N shell children, each under its
+// own pty, and hands the terminal to the Supervisor. Real use should
+// register actual microVM `spawn(...)` handles, but this lets you
+// feel the terminal layer without booting a kernel.
 //
 //   pnpm --filter @machinen/runtime exec tsx src/bin/supervise.ts 3
 //
-// Then try `/ls`, `/attach 0`, type a bit, `Ctrl-] Ctrl-]` to detach.
+// Then try `/ls`, `/attach 0`, run `ls --color=auto`, resize the
+// terminal window, `Ctrl-] Ctrl-]` to detach.
 
-import { Sandboxes, Supervisor, spawn } from "../index.ts";
+import { Sandboxes, Supervisor, spawnPty } from "../index.ts";
 
 async function main() {
   const count = Number.parseInt(process.argv[2] ?? "2", 10) || 2;
   const sandboxes = new Sandboxes();
-  const kids = [] as Awaited<ReturnType<typeof spawn>>[];
+  const kids = [] as ReturnType<typeof spawnPty>[];
   for (let i = 0; i < count; i++) {
-    const vm = await spawn({ binary: "/bin/cat", timeoutMs: null });
-    sandboxes.add(String(i), vm);
+    const shell = process.env.SHELL || "/bin/bash";
+    const vm = spawnPty({
+      binary: shell,
+      args: ["-i"],
+      env: { PS1: `sandbox-${i}> ` },
+    });
+    sandboxes.add(String(i), vm as unknown as Parameters<Sandboxes["add"]>[1]);
     kids.push(vm);
   }
 
+  // Supervisor picks up rawTtyOnAttach and forwardResize automatically
+  // when process.stdin / process.stdout are real TTYs.
   process.stdin.resume();
-  if (process.stdin.isTTY) process.stdin.setRawMode?.(true);
-
   const sup = new Supervisor({ sandboxes });
   await sup.run();
 
-  if (process.stdin.isTTY) process.stdin.setRawMode?.(false);
   for (const k of kids) await k.kill();
 }
 
