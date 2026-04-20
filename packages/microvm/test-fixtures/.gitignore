@@ -1,6 +1,13 @@
 Image
 Image.gz
 initrd*
+initramfs.cpio
+disk.img
+node-rootfs.tar
+rootfs/
+rootfs.old/
+rootfs.new/
+init
 *.dtb
 virt.dts.bak
 !.gitignore
