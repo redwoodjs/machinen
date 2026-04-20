@@ -4,6 +4,8 @@ export { spawnPty } from "./pty.ts";
 export type { PtySpawnOptions, PtyVmHandle } from "./pty.ts";
 export { VsockWinsize } from "./winsize.ts";
 export type { VsockWinsizeOptions } from "./winsize.ts";
+export { VsockSecrets } from "./secrets.ts";
+export type { VsockSecretsOptions } from "./secrets.ts";
 
 // @machinen/runtime — TypeScript surface for spawning microVMs.
 //
