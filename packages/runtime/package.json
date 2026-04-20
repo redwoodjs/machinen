@@ -8,5 +8,8 @@
   "scripts": {
     "typecheck": "tsgo --noEmit",
     "test": "vitest run"
+  },
+  "dependencies": {
+    "node-pty": "^1.0.0"
   }
 }
