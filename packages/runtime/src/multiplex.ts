@@ -94,7 +94,9 @@ export class Sandboxes {
   /** Write `data` to the sandbox's stdin. No-op if the id is unknown. */
   send(id: string, data: string | Buffer): boolean {
     const e = this.items.get(id);
-    if (!e) return false;
+    if (!e) {
+      return false;
+    }
     e.vm.stdin.write(data);
     return true;
   }
@@ -123,7 +125,11 @@ export class Sandboxes {
         ? combined
         : combined.subarray(combined.length - this.scrollbackBytes);
     const subs = this.subs.get(entry.id);
-    if (subs) for (const fn of subs) fn(chunk, source);
+    if (subs) {
+      for (const fn of subs) {
+        fn(chunk, source);
+      }
+    }
   }
 }
 
@@ -214,7 +220,9 @@ export class Supervisor {
 
   /** Programmatic stop (e.g. from a test). */
   stop(): void {
-    if (this.stopped) return;
+    if (this.stopped) {
+      return;
+    }
     this.stopped = true;
     this.detach();
     this.onEnd?.();
@@ -224,10 +232,14 @@ export class Supervisor {
   attach(id: string): void {
     this.detach();
     const entry = this.sandboxes.get(id);
-    if (!entry) throw new Error(`unknown sandboxes id: ${id}`);
+    if (!entry) {
+      throw new Error(`unknown sandboxes id: ${id}`);
+    }
     this.attachedId = id;
     // Replay scrollback so the user sees recent output.
-    if (entry.scrollback.length > 0) this.output.write(entry.scrollback);
+    if (entry.scrollback.length > 0) {
+      this.output.write(entry.scrollback);
+    }
     this.attachedUnsub = this.sandboxes.onOutput(id, (chunk) => {
       this.output.write(chunk);
     });
@@ -236,14 +248,20 @@ export class Supervisor {
     // reaches the sandbox without the shell's line buffering eating it;
     // hook SIGWINCH so a resize reshapes the sandbox's pty if it
     // supports resize.
-    if (this.rawTtyOnAttach) this.enterRawTty();
-    if (this.forwardResize) this.installWinchHandler(entry);
+    if (this.rawTtyOnAttach) {
+      this.enterRawTty();
+    }
+    if (this.forwardResize) {
+      this.installWinchHandler(entry);
+    }
 
     this.print(`\n-- attached to ${id} (Ctrl-] Ctrl-] to detach) --\n`);
   }
 
   detach(): void {
-    if (!this.attachedId) return;
+    if (!this.attachedId) {
+      return;
+    }
     this.attachedUnsub?.();
     this.attachedUnsub = null;
     const prev = this.attachedId;
@@ -256,14 +274,18 @@ export class Supervisor {
 
   private enterRawTty(): void {
     const stream = this.input as NodeJS.ReadStream;
-    if (!stream.isTTY || typeof stream.setRawMode !== "function") return;
+    if (!stream.isTTY || typeof stream.setRawMode !== "function") {
+      return;
+    }
     this.priorRawState = stream.isRaw ?? false;
     stream.setRawMode(true);
   }
 
   private leaveRawTty(): void {
     const stream = this.input as NodeJS.ReadStream;
-    if (!stream.isTTY || typeof stream.setRawMode !== "function") return;
+    if (!stream.isTTY || typeof stream.setRawMode !== "function") {
+      return;
+    }
     if (this.priorRawState !== null) {
       stream.setRawMode(this.priorRawState);
       this.priorRawState = null;
@@ -272,7 +294,9 @@ export class Supervisor {
 
   private installWinchHandler(entry: SandboxEntry): void {
     const resize = (entry.vm as { resize?: (cols: number, rows: number) => void }).resize;
-    if (typeof resize !== "function") return;
+    if (typeof resize !== "function") {
+      return;
+    }
     const outStream = this.output as NodeJS.WriteStream;
     const push = () => {
       const cols = outStream.columns ?? 80;
@@ -309,10 +333,14 @@ export class Supervisor {
             // Second in a row — detach, drop the two bytes, keep the
             // tail for the next command.
             const toSend = chunk.subarray(start, i - 1);
-            if (toSend.length > 0) this.sandboxes.send(this.attachedId, toSend);
+            if (toSend.length > 0) {
+              this.sandboxes.send(this.attachedId, toSend);
+            }
             this.detach();
             const remainder = chunk.subarray(i + 1);
-            if (remainder.length > 0) this.ingest(remainder);
+            if (remainder.length > 0) {
+              this.ingest(remainder);
+            }
             return;
           }
           this.lastGs = true;
@@ -326,7 +354,9 @@ export class Supervisor {
 
     // Detached: buffer lines and parse them as commands.
     for (const line of chunk.toString("utf8").split(/\r?\n/)) {
-      if (!line) continue;
+      if (!line) {
+        continue;
+      }
       this.handleCommand(line);
     }
   }
@@ -343,8 +373,11 @@ export class Supervisor {
         this.doLs();
         return;
       case "attach":
-        if (rest[0]) this.attach(rest[0]);
-        else this.print(`usage: /attach <id>\n`);
+        if (rest[0]) {
+          this.attach(rest[0]);
+        } else {
+          this.print(`usage: /attach <id>\n`);
+        }
         return;
       case "help":
         this.print(this.bannerText());
@@ -364,7 +397,9 @@ export class Supervisor {
       this.print("(no sandboxes registered)\n");
       return;
     }
-    for (const r of rows) this.print(`  ${r.id}\n`);
+    for (const r of rows) {
+      this.print(`  ${r.id}\n`);
+    }
   }
 
   private bannerText(): string {

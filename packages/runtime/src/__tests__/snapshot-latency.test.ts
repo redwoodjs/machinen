@@ -21,14 +21,18 @@ const microvmRoot = resolve(import.meta.dirname, "../../../microvm");
 
 function findBootTestBinary(): string | undefined {
   const cacheDir = resolve(microvmRoot, ".zig-cache/o");
-  if (!existsSync(cacheDir)) return undefined;
+  if (!existsSync(cacheDir)) {
+    return undefined;
+  }
   for (const name of readdirSync(cacheDir).sort((a, b) => {
     const am = statSync(resolve(cacheDir, a)).mtimeMs;
     const bm = statSync(resolve(cacheDir, b)).mtimeMs;
     return bm - am;
   })) {
     const p = resolve(cacheDir, name, "test");
-    if (!existsSync(p)) continue;
+    if (!existsSync(p)) {
+      continue;
+    }
     try {
       if (execSync(`strings ${p}`, { encoding: "utf8" }).includes("MACHINEN_BOOT_TEST")) {
         return p;
