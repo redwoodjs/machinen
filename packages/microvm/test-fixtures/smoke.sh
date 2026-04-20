@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
 # Integration smoke tests for the microVM.
 #
-# Runs two end-to-end checks against the built VMM:
+# Runs end-to-end checks against the built VMM:
 #
 #   repl   Boot with Node.js as init, pipe `1+1` + `.exit`, assert the
 #          guest evaluated the expression and started a real Node REPL.
 #   criu   Boot with the CRIU fork demo, assert the counter after
 #          restore is greater than the counter at dump time.
+#   net    Boot, load virtio modules, assert eth0 appears and the
+#          kernel's virtio-net driver bound to our virtio-MMIO device.
 #
 # Prints pass/fail per check and exits non-zero if any fail. Writes
 # full guest-console logs to /tmp/microvm-smoke-*.log for post-mortems.
 #
-# Usage: ./test-fixtures/smoke.sh [repl|criu|all]   (default: all)
+# Usage: ./test-fixtures/smoke.sh [repl|criu|net|all]   (default: all)
 #
 # These require an Apple Silicon host with the HVF entitlement setup.
 # They aren't wired into `zig build test` because they depend on
@@ -130,10 +132,30 @@ SH
     fi
 }
 
+smoke_net() {
+    echo "--- net ---"
+    local log=/tmp/microvm-smoke-net.log
+    repack_with "
+        cp $FIXTURES/net-demo.sh $ROOTFS/
+        chmod +x $ROOTFS/net-demo.sh
+        cat > $ROOTFS/demo.sh <<'SH'
+#!/bin/sh
+PATH=/usr/local/bin:/usr/bin:/bin:/sbin; export PATH
+exec /bin/sh /net-demo.sh
+SH
+        chmod +x $ROOTFS/demo.sh
+    "
+    run_vmm 'printf ""' 22 "$log"
+
+    grep -q '^eth0' "${log}.clean"                     && pass 'eth0 interface present'        || fail 'eth0 not found'
+    grep -q 'virtio0 device=0x0001' "${log}.clean"    && pass 'virtio-net bound on virtio0'   || fail 'virtio0 not bound to virtio-net'
+}
+
 case "$MODE" in
     repl) smoke_repl ;;
     criu) smoke_criu ;;
-    all)  smoke_repl; smoke_criu ;;
+    net)  smoke_net ;;
+    all)  smoke_repl; smoke_criu; smoke_net ;;
     *) echo "unknown mode: $MODE" >&2; exit 2 ;;
 esac
 
