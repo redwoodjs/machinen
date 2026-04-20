@@ -189,11 +189,47 @@ SH
         || fail 'HTTP GET did not return 200'
 }
 
+smoke_blk() {
+    echo "--- blk ---"
+    local log=/tmp/microvm-smoke-blk.log
+    local disk=$FIXTURES/disk.img
+
+    # Fresh 4 MiB image with a known marker at offset 0.
+    dd if=/dev/zero of="$disk" bs=1m count=4 >/dev/null 2>&1
+    printf 'MACHINEN_VDA_MARKER hello from host disk\n' \
+        | dd of="$disk" conv=notrunc bs=1 count=41 >/dev/null 2>&1
+
+    repack_with "
+        cp $FIXTURES/blk-demo.sh $ROOTFS/
+        chmod +x $ROOTFS/blk-demo.sh
+        cat > $ROOTFS/demo.sh <<'SH'
+#!/bin/sh
+PATH=/usr/local/bin:/usr/bin:/bin:/sbin; export PATH
+exec /bin/sh /blk-demo.sh
+SH
+        chmod +x $ROOTFS/demo.sh
+    "
+    run_vmm 'printf ""' 22 "$log"
+
+    grep -q 'virtio1 device=0x0002'             "${log}.clean" && pass 'virtio-blk device on virtio1' || fail 'virtio-blk device missing'
+    grep -q 'size bytes: 8192'                  "${log}.clean" && pass 'guest sees 4 MiB of sectors' || fail 'capacity wrong'
+    grep -q 'MACHINEN_VDA_MARKER'               "${log}.clean" && pass 'guest read host marker from /dev/vda' || fail 'host->guest read failed'
+    grep -q 'MACHINEN_GUEST_WROTE_THIS'         "${log}.clean" && pass 'guest read back its own write via /dev/vda' || fail 'guest write->read round trip failed'
+
+    # And check the write reached the host file too.
+    if grep -qa MACHINEN_GUEST_WROTE_THIS "$disk"; then
+        pass 'write persisted into host disk.img'
+    else
+        fail 'write did not reach host file'
+    fi
+}
+
 case "$MODE" in
     repl) smoke_repl ;;
     criu) smoke_criu ;;
     net)  smoke_net ;;
-    all)  smoke_repl; smoke_criu; smoke_net ;;
+    blk)  smoke_blk ;;
+    all)  smoke_repl; smoke_criu; smoke_net; smoke_blk ;;
     *) echo "unknown mode: $MODE" >&2; exit 2 ;;
 esac
 

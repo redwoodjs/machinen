@@ -25,11 +25,15 @@ comptime {
 const hvf = @import("hvf.zig");
 const virtio = @import("virtio.zig");
 const slirp_mod = @import("slirp.zig");
+const blk_mod = @import("blk.zig");
 
-// Guest-physical base for our one virtio-MMIO device slot. The DTS's
-// `virtio_mmio@a000000` node has to match this.
+// Guest-physical bases. Each virtio-MMIO device lives in a 0x200
+// window. The DTS has 32 slots at 0x0A000000 + i*0x200; we wire up
+// the first two.
 const virtio_net_base: u64 = 0x0A00_0000;
 const virtio_net_size: u64 = 0x200;
+const virtio_blk_base: u64 = 0x0A00_0200;
+const virtio_blk_size: u64 = 0x200;
 
 pub const Error = error{
     FixtureMissing,
@@ -43,6 +47,9 @@ pub const Config = struct {
     kernel_path: []const u8,
     dtb_path: []const u8,
     initrd_path: ?[]const u8 = null,
+    /// Optional path to a host file that becomes `/dev/vda` inside
+    /// the guest. `null` disables the virtio-blk device entirely.
+    disk_path: ?[]const u8 = null,
     ram_base: u64 = 0x4000_0000,
     ram_size: usize = 2 * 1024 * 1024 * 1024, // 2 GB — enough for a full Debian+Node+CRIU rootfs in RAM + headroom
     // DTB sits well past the kernel so the kernel doesn't clobber it.
@@ -194,6 +201,32 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         .tx_ctx = @ptrCast(&tx_stats),
     };
 
+    // virtio-blk (#47). If the caller gave us a host file path,
+    // open it read-write and expose it as `/dev/vda`. If the file is
+    // missing, just skip — the rest of the VMM still runs.
+    var blk_backend_opt: ?blk_mod.Backend = null;
+    defer if (blk_backend_opt) |*b| b.deinit();
+    var blkdev_opt: ?virtio.Device = null;
+    if (cfg.disk_path) |path| {
+        if (blk_mod.openFile(path)) |backend| {
+            blk_backend_opt = backend;
+            blkdev_opt = virtio.Device{
+                .base = virtio_blk_base,
+                .size = virtio_blk_size,
+                .id = .block,
+                .features = (1 << 32), // VIRTIO_F_VERSION_1
+                .config = std.mem.asBytes(&blk_backend_opt.?.config),
+                .ram = ram,
+                .ram_base = cfg.ram_base,
+                .request_handler = &blk_mod.Backend.handleRequest,
+                .request_ctx = @ptrCast(&blk_backend_opt.?),
+            };
+        } else |err| {
+            std.debug.print("virtio-blk disabled: {s} ({s})\n", .{ @errorName(err), path });
+        }
+    }
+    const blkdev_ptr: ?*virtio.Device = if (blkdev_opt) |_| &blkdev_opt.? else null;
+
     // Spin up libslirp so the TX handler has somewhere to route
     // frames. If Homebrew's libslirp is missing or init fails, fall
     // back to the classifier-only TX handler so the rest of the VMM
@@ -222,7 +255,10 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // The absolute GIC id is `spi.base + <n>`.
     const spi = try hvf.Gic.spiRange();
     const pl011_irq: u32 = spi.base + 1;
+    // DTS interrupts = <0 16 1> and <0 17 1> for the first two
+    // virtio-mmio slots. spi.base + 16 is net, + 17 is blk.
     const virtio_irq: u32 = spi.base + 16;
+    const virtio_blk_irq: u32 = spi.base + 17;
 
     // Feed the virtio IRQ id into the network bridge, and arm
     // libslirp's RX callback to raise the SPI when it injects.
@@ -366,12 +402,6 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
                         try vcpu.setReg(reg, hvf.Gic.readDistributor(offset));
                     }
                 } else if (netdev.handles(info.ipa)) {
-                    // virtio-MMIO device slot. The kernel's
-                    // virtio_mmio bus driver probes it, negotiates
-                    // features, sets up queues, and kicks the TX
-                    // queue doorbell to send packets. We service
-                    // TX (null backend: ack-and-drop), raise the
-                    // device IRQ when the used ring gains entries.
                     if (info.is_write) {
                         const value = try info.readSource(vcpu);
                         netdev.write(info.ipa, value);
@@ -379,9 +409,17 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
                         const reg: hvf.Reg = @enumFromInt(@as(u32, info.srt));
                         try vcpu.setReg(reg, netdev.read(info.ipa));
                     }
-                    // Level-triggered IRQ line: asserted while the
-                    // device has an unhandled interrupt condition.
                     hvf.Gic.setSpi(virtio_irq, netdev.interrupt_status != 0) catch {};
+                } else if (blkdev_ptr != null and blkdev_ptr.?.handles(info.ipa)) {
+                    const d = blkdev_ptr.?;
+                    if (info.is_write) {
+                        const value = try info.readSource(vcpu);
+                        d.write(info.ipa, value);
+                    } else if (info.srt != 31) {
+                        const reg: hvf.Reg = @enumFromInt(@as(u32, info.srt));
+                        try vcpu.setReg(reg, d.read(info.ipa));
+                    }
+                    hvf.Gic.setSpi(virtio_blk_irq, d.interrupt_status != 0) catch {};
                 } else if (info.ipa >= 0x1000_0000 and info.ipa < 0x1200_0000) {
                     // Redistributor MMIO. Each vCPU's frame is 128 KB.
                     // For our single-vCPU setup, frame 0 = [0x10000000,
@@ -623,10 +661,15 @@ test "boot a real arm64 Linux kernel" {
     }
 
     const gpa = std.testing.allocator;
+    // If the caller placed a disk image alongside the kernel, expose
+    // it as /dev/vda. Otherwise the virtio-blk device is disabled.
+    const disk_fixture = "test-fixtures/disk.img";
+    const disk_path: ?[]const u8 = if (access(disk_fixture ++ "\x00", F_OK) == 0) disk_fixture else null;
     const result = boot(gpa, .{
         .kernel_path = kernel_fixture,
         .dtb_path = dtb_fixture,
         .initrd_path = initrd_fixture,
+        .disk_path = disk_path,
     }) catch |err| {
         std.debug.print("boot returned {s}\n", .{@errorName(err)});
         if (err == error.Denied) return; // entitlement not set in this build

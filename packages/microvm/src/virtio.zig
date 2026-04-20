@@ -142,9 +142,15 @@ pub const Device = struct {
     /// Pluggable "a TX packet just came out of the guest" handler.
     /// `frame` is the ethernet frame with the 12-byte virtio-net
     /// header stripped; the slice lives only for the callback, copy
-    /// if you need to keep it.
+    /// if you need to keep it. virtio-net only.
     tx_handler: ?*const fn (ctx: ?*anyopaque, frame: []const u8) void = null,
     tx_ctx: ?*anyopaque = null,
+    /// Generic per-request handler. When set, overrides the net-style
+    /// drain behaviour for every queue: notify() walks avail and
+    /// invokes the handler once per descriptor chain. The handler
+    /// owns the used-ring bookkeeping via queuePushUsed.
+    request_handler: ?*const fn (ctx: ?*anyopaque, dev: *Device, q_idx: u32, head: u16) void = null,
+    request_ctx: ?*anyopaque = null,
 
     status: Status = .{},
     device_features_sel: u32 = 0,
@@ -238,7 +244,14 @@ pub const Device = struct {
     fn readConfig(self: *const Device, off: usize) u64 {
         const cfg = self.config orelse return 0;
         if (off >= cfg.len) return 0;
-        return @as(u64, cfg[off]);
+        // Guests read config space with varied widths (byte, halfword,
+        // word, double). Always pack up to 8 bytes little-endian; the
+        // guest's load instruction width zeroes the unused high bits
+        // of the destination register.
+        var buf: [8]u8 = @splat(0);
+        const n = @min(cfg.len - off, 8);
+        @memcpy(buf[0..n], cfg[off..][0..n]);
+        return std.mem.readInt(u64, &buf, .little);
     }
 
     /// Doorbell — the driver kicks us after posting descriptors on
@@ -256,11 +269,51 @@ pub const Device = struct {
     /// — the kernel's TX path completes successfully, `tx_packets`
     /// counter increments, buffers get freed.
     pub fn notify(self: *Device, q_idx: u32) void {
-        if (q_idx == 0) return; // RX: nothing to produce in M2
         if (q_idx >= max_queues) return;
         const q = &self.queues[q_idx];
         if (q.ready == 0 or q.num == 0) return;
+
+        // Generic: request-based device (block, etc.).
+        if (self.request_handler) |handler| {
+            const avail = self.readAvailHeader(q) orelse return;
+            while (q.last_avail_idx != avail.idx) {
+                const head = self.readAvailRingEntry(q, q.last_avail_idx) orelse return;
+                handler(self.request_ctx, self, q_idx, head);
+                q.last_avail_idx +%= 1;
+            }
+            self.interrupt_status |= IRQ_USED_BUFFER;
+            return;
+        }
+
+        // Net default: RX is driver-posts-empty-buffers (nothing to
+        // drain); TX chains get emitted via tx_handler.
+        if (q_idx == 0) return;
         self.drainAvail(q);
+    }
+
+    // --- Public helpers for external request handlers -------------
+
+    /// Read one descriptor from `q_idx` at index `idx`. Returns null
+    /// on out-of-range or missing ram.
+    pub fn queueDescriptor(self: *Device, q_idx: u32, idx: u16) ?VringDesc {
+        if (q_idx >= max_queues) return null;
+        return self.readDescriptor(&self.queues[q_idx], idx);
+    }
+
+    /// Mark a descriptor chain as processed. `head` is the head index
+    /// (from the avail ring); `len` is the total number of bytes the
+    /// device wrote into the chain (0 for read requests where we
+    /// provided data, since the guest cares about the byte count of
+    /// data written BY the device).
+    pub fn queuePushUsed(self: *Device, q_idx: u32, head: u16, len: u32) void {
+        if (q_idx >= max_queues) return;
+        self.pushUsed(&self.queues[q_idx], head, len);
+    }
+
+    /// Return a mutable slice of guest RAM starting at `addr`. Null
+    /// if out of range or if the device wasn't wired with ram.
+    pub fn guestBytes(self: *Device, addr: u64, len: usize) ?[]u8 {
+        return self.guestSlice(addr, len);
     }
 
     /// Deliver `frame` (a complete ethernet frame — no virtio-net
@@ -483,11 +536,14 @@ test "virtio: queue addresses round-trip per queue" {
     try std.testing.expectEqual(@as(u64, 0), dev.queues[0].desc_addr);
 }
 
-test "virtio: config-space reads pass through a caller-owned buffer" {
+test "virtio: config-space reads pack up to 8 bytes little-endian" {
     const mac = [_]u8{ 0x02, 0x00, 0x00, 0x11, 0x22, 0x33 };
     var dev = Device{ .base = 0x0A00_0000, .id = .net, .config = &mac };
-    try std.testing.expectEqual(@as(u64, 0x02), dev.read(0x0A00_0000 + 0x100));
+    // All six bytes, LE-packed into the low 48 bits.
+    try std.testing.expectEqual(@as(u64, 0x0000_3322_1100_0002), dev.read(0x0A00_0000 + 0x100));
+    // Starting at the last byte: just 0x33 in the low byte.
     try std.testing.expectEqual(@as(u64, 0x33), dev.read(0x0A00_0000 + 0x105));
+    // Past the end: zero.
     try std.testing.expectEqual(@as(u64, 0), dev.read(0x0A00_0000 + 0x106));
 }
 

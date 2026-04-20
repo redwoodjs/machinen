@@ -16,6 +16,7 @@ pub const hvf = if (builtin.os.tag == .macos) @import("hvf.zig") else struct {};
 pub const boot = if (builtin.os.tag == .macos) @import("boot.zig") else struct {};
 pub const slirp = if (builtin.os.tag == .macos) @import("slirp.zig") else struct {};
 pub const virtio = @import("virtio.zig"); // pure Zig, builds everywhere
+pub const blk = @import("blk.zig"); // pure Zig virtio-blk backend
 
 pub const Backend = enum { hvf, kvm, none };
 
