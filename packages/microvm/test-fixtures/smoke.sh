@@ -405,7 +405,81 @@ PY
         fail "UDS round-trip returned '$got' (expected 'hello-vsock')"
     fi
     strip_tty <"$log" >"${log}.clean"
-    grep -q 'vsock: listening on' "${log}" && pass 'vsock bridge came up on host' || fail 'vsock bridge never reported listening'
+    grep -qE 'vsock: in [0-9]+ <->' "${log}" && pass 'vsock bridge reported an inbound port' || fail 'vsock bridge never reported inbound mapping'
+}
+
+smoke_vsock_out() {
+    echo "--- vsock-out (guest-initiated) ---"
+    local log=/tmp/microvm-smoke-vsock-out.log
+    local sock=/tmp/machinen-vsock-out.sock
+    local echo_pid_file=/tmp/machinen-vsock-out-echo.pid
+    rm -f "$sock"
+
+    # Host-side uppercase echo server — listens on the UDS the bridge
+    # will dial when the guest's REQUEST for port 5678 lands.
+    python3 - "$sock" <<'PY' &
+import os, socket, sys, signal
+path = sys.argv[1]
+srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+srv.bind(path)
+srv.listen(1)
+# Signal readiness by touching a sentinel — harness waits for it.
+open(path + ".ready", "w").close()
+try:
+    srv.settimeout(60)
+    c, _ = srv.accept()
+    with c:
+        while True:
+            data = c.recv(4096)
+            if not data: break
+            c.sendall(data.upper())
+except socket.timeout:
+    sys.exit(0)
+finally:
+    srv.close()
+PY
+    local echo_pid=$!
+    echo "$echo_pid" > "$echo_pid_file"
+    # Wait for the echo server to bind.
+    local elapsed=0
+    while (( elapsed < 5 )) && [[ ! -f "${sock}.ready" ]]; do
+        sleep 1; (( ++elapsed ))
+    done
+    if [[ ! -f "${sock}.ready" ]]; then
+        fail 'host echo server never signalled ready'
+        kill -9 "$echo_pid" 2>/dev/null || true
+        rm -f "$sock" "${sock}.ready"
+        return
+    fi
+
+    repack_with "
+        cp $FIXTURES/vsock-out-demo.sh $ROOTFS/demo.sh
+        chmod +x $ROOTFS/demo.sh
+    "
+
+    MACHINEN_VSOCK="out:5678:$sock" MACHINEN_BOOT_TEST=1 "$TEST_BIN" </dev/null 2>"$log" &
+    local vm_pid=$!
+    local elapsed=0
+    local done=0
+    while (( elapsed < 40 )); do
+        if grep -qE 'vsock-out-demo: (OUTBOUND OK|OUTBOUND MISMATCH)' "$log" 2>/dev/null; then done=1; break; fi
+        sleep 1; (( ++elapsed ))
+    done
+    kill -9 $vm_pid 2>/dev/null || true
+    wait $vm_pid 2>/dev/null || true
+    kill -9 "$echo_pid" 2>/dev/null || true
+    rm -f "$sock" "${sock}.ready" "$echo_pid_file"
+
+    if (( done == 0 )); then
+        fail 'guest never emitted OUTBOUND verdict'
+        return
+    fi
+    grep -q 'vsock-out-demo: OUTBOUND OK' "$log" \
+        && pass 'guest-initiated round-trip (cid=2) returned uppercased bytes' \
+        || fail 'guest-initiated round-trip mismatch (see log)'
+    grep -qE 'vsock: out 5678 <->' "$log" \
+        && pass 'vsock bridge reported the outbound mapping' \
+        || fail 'vsock bridge did not log outbound mapping'
 }
 
 case "$MODE" in
@@ -417,7 +491,8 @@ case "$MODE" in
     cc-session) smoke_cc_session ;;
     spawn)      smoke_spawn ;;
     vsock)      smoke_vsock ;;
-    all)        smoke_repl; smoke_criu; smoke_net; smoke_blk; smoke_cc; smoke_spawn; smoke_vsock; smoke_cc_session ;;
+    vsock-out)  smoke_vsock_out ;;
+    all)        smoke_repl; smoke_criu; smoke_net; smoke_blk; smoke_cc; smoke_spawn; smoke_vsock; smoke_vsock_out; smoke_cc_session ;;
     *) echo "unknown mode: $MODE" >&2; exit 2 ;;
 esac
 
