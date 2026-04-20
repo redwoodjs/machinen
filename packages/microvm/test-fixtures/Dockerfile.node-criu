@@ -10,3 +10,11 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends \
         linux-image-cloud-arm64 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+
+# Claude Code — the agent runtime the sandbox is meant to host.
+# Installed globally so `claude --version` and `claude` work from
+# any PATH. Running an actual session needs an ANTHROPIC_API_KEY
+# which gets plumbed in at boot time (#48 M2). CC's postinstall
+# picks the correct platform native binary, so don't --ignore-scripts.
+RUN npm install -g @anthropic-ai/claude-code \
+    && npm cache clean --force

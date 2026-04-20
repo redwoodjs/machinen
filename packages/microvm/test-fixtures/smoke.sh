@@ -88,7 +88,7 @@ exec /usr/local/bin/node
 SH
         chmod +x $ROOTFS/demo.sh
     "
-    run_vmm '{ sleep 12; printf "1 + 1\n.exit\n"; sleep 5; }' 22 "$log"
+    run_vmm '{ sleep 14; printf "1 + 1\n.exit\n"; sleep 5; }' 28 "$log"
 
     grep -q 'Welcome to Node' "${log}.clean"   && pass 'Node REPL banner shown'   || fail 'no Node REPL banner'
     grep -qE '^2$' "${log}.clean"              && pass '1 + 1 evaluated to 2'     || fail '1 + 1 did not print 2'
@@ -115,7 +115,7 @@ exec /bin/sh /fork-demo.sh
 SH
         chmod +x $ROOTFS/demo.sh
     "
-    run_vmm 'printf ""' 32 "$log"
+    run_vmm 'printf ""' 50 "$log"
 
     # Two 'count file:' lines: one before dump, one after restore.
     local before after
@@ -153,7 +153,7 @@ exec /bin/sh /net-demo.sh
 SH
         chmod +x $ROOTFS/demo.sh
     "
-    run_vmm 'printf ""' 22 "$log"
+    run_vmm 'printf ""' 40 "$log"
 
     grep -q '^eth0'                 "${log}.clean" && pass 'eth0 interface present'        || fail 'eth0 not found'
     grep -q 'virtio0 device=0x0001' "${log}.clean" && pass 'virtio-net bound on virtio0'   || fail 'virtio0 not bound to virtio-net'
@@ -209,7 +209,7 @@ exec /bin/sh /blk-demo.sh
 SH
         chmod +x $ROOTFS/demo.sh
     "
-    run_vmm 'printf ""' 22 "$log"
+    run_vmm 'printf ""' 40 "$log"
 
     grep -q 'virtio1 device=0x0002'             "${log}.clean" && pass 'virtio-blk device on virtio1' || fail 'virtio-blk device missing'
     grep -q 'size bytes: 8192'                  "${log}.clean" && pass 'guest sees 4 MiB of sectors' || fail 'capacity wrong'
@@ -224,12 +224,35 @@ SH
     fi
 }
 
+smoke_cc() {
+    echo "--- cc ---"
+    local log=/tmp/microvm-smoke-cc.log
+    repack_with "
+        cp $FIXTURES/cc-demo.sh $ROOTFS/
+        chmod +x $ROOTFS/cc-demo.sh
+        cat > $ROOTFS/demo.sh <<'SH'
+#!/bin/sh
+PATH=/usr/local/bin:/usr/bin:/bin:/sbin; export PATH
+exec /bin/sh /cc-demo.sh
+SH
+        chmod +x $ROOTFS/demo.sh
+    "
+    run_vmm 'printf ""' 30 "$log"
+
+    grep -q '/usr/local/bin/claude'       "${log}.clean" && pass 'claude binary is on the guest PATH' || fail 'claude not found on PATH'
+    grep -qE '[0-9]+\.[0-9]+\.[0-9]+ \(Claude Code\)' "${log}.clean" \
+        && pass 'claude --version runs inside the guest' \
+        || fail 'claude --version did not produce a version string'
+    grep -qE '^v[0-9]+' "${log}.clean" && pass 'node --version runs inside the guest' || fail 'node --version failed'
+}
+
 case "$MODE" in
     repl) smoke_repl ;;
     criu) smoke_criu ;;
     net)  smoke_net ;;
     blk)  smoke_blk ;;
-    all)  smoke_repl; smoke_criu; smoke_net; smoke_blk ;;
+    cc)   smoke_cc ;;
+    all)  smoke_repl; smoke_criu; smoke_net; smoke_blk; smoke_cc ;;
     *) echo "unknown mode: $MODE" >&2; exit 2 ;;
 esac
 

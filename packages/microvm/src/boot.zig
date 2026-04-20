@@ -51,7 +51,7 @@ pub const Config = struct {
     /// the guest. `null` disables the virtio-blk device entirely.
     disk_path: ?[]const u8 = null,
     ram_base: u64 = 0x4000_0000,
-    ram_size: usize = 2 * 1024 * 1024 * 1024, // 2 GB — enough for a full Debian+Node+CRIU rootfs in RAM + headroom
+    ram_size: usize = 4 * 1024 * 1024 * 1024, // 4 GB — room for Debian+Node+CRIU+Claude Code in the initramfs tmpfs
     // DTB sits well past the kernel so the kernel doesn't clobber it.
     dtb_offset: u64 = 0x0300_0000, // 48 MB into RAM
     // Where the initramfs goes in guest RAM. Must match the
