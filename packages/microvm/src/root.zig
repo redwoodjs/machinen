@@ -14,6 +14,7 @@ const builtin = @import("builtin");
 
 pub const hvf = if (builtin.os.tag == .macos) @import("hvf.zig") else struct {};
 pub const boot = if (builtin.os.tag == .macos) @import("boot.zig") else struct {};
+pub const virtio = @import("virtio.zig"); // pure Zig, builds everywhere
 
 pub const Backend = enum { hvf, kvm, none };
 
@@ -42,4 +43,5 @@ test {
         _ = @import("hvf.zig");
         _ = @import("boot.zig");
     }
+    _ = @import("virtio.zig");
 }
