@@ -43,9 +43,14 @@ pub fn build(b: *std.Build) void {
         .link_libc = true,
     });
 
-    // HVF backend: link Hypervisor.framework when building for macOS.
+    // HVF backend + libslirp (used for virtio-net user-mode NAT).
     if (target.result.os.tag == .macos) {
         mod.linkFramework("Hypervisor", .{});
+        // Homebrew installs libslirp into the arch-appropriate prefix.
+        // On Apple Silicon that's /opt/homebrew; on Intel /usr/local.
+        mod.addIncludePath(.{ .cwd_relative = "/opt/homebrew/include" });
+        mod.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/lib" });
+        mod.linkSystemLibrary("slirp", .{});
     }
 
     // Here we define an executable. An executable needs to have a root module

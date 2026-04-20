@@ -135,8 +135,8 @@ SH
 smoke_net() {
     echo "--- net ---"
     local log=/tmp/microvm-smoke-net.log
-    # Keep the if-up helper fresh alongside lo-up/no-iou.
-    for helper in if-up; do
+    # Keep the C helpers built alongside lo-up / no-iou.
+    for helper in if-up gw-set; do
         src=$FIXTURES/$helper.c
         bin=$ROOTFS/usr/bin/$helper
         if [[ ! -x "$bin" || "$src" -nt "$bin" ]]; then
@@ -178,6 +178,15 @@ SH
     grep -q '^\[tx\] .* class=ipv6-mcast' "${log}" \
         && pass 'host received IPv6 multicast frames from guest' \
         || fail 'no IPv6-mcast frames captured on host'
+
+    # M3 proper: libslirp resolves DNS and a TCP fetch returns a 200.
+    # Asserts real packet flow both directions through our virtqueues.
+    grep -q 'dns: example.com ->' "${log}.clean" \
+        && pass 'DNS resolved via slirp' \
+        || fail 'DNS did not resolve through slirp'
+    grep -q 'first line: HTTP/1.1 200 OK' "${log}.clean" \
+        && pass 'TCP+HTTP round trip via slirp' \
+        || fail 'HTTP GET did not return 200'
 }
 
 case "$MODE" in

@@ -160,7 +160,7 @@ pub const Device = struct {
     }
 
     /// Handle an MMIO read. Returns the value the kernel should see.
-    pub fn read(self: *const Device, addr: u64) u64 {
+    pub fn read(self: *Device, addr: u64) u64 {
         const off = addr - self.base;
         return switch (off) {
             0x000 => magic,
@@ -261,6 +261,65 @@ pub const Device = struct {
         const q = &self.queues[q_idx];
         if (q.ready == 0 or q.num == 0) return;
         self.drainAvail(q);
+    }
+
+    /// Deliver `frame` (a complete ethernet frame — no virtio-net
+    /// header) to the guest's RX queue. Prepends the 12-byte v1
+    /// virtio-net header (all zeros; no GSO / no checksum offload),
+    /// grabs the next posted receive descriptor chain, copies bytes
+    /// in, posts a used entry, and sets the used-buffer IRQ bit.
+    ///
+    /// Returns true if the frame was delivered, false if the guest
+    /// hasn't posted any receive buffers (drop). Call setSpi after
+    /// this to match `interrupt_status`.
+    pub fn injectRx(self: *Device, frame: []const u8) bool {
+        const q = &self.queues[0]; // virtio-net: queue 0 is RX
+        if (q.ready == 0 or q.num == 0) return false;
+
+        const avail = self.readAvailHeader(q) orelse return false;
+        if (q.last_avail_idx == avail.idx) return false; // no buffers posted
+        const head = self.readAvailRingEntry(q, q.last_avail_idx) orelse return false;
+
+        // Build the payload: 12-byte header + frame bytes.
+        const net_hdr = [_]u8{0} ** 12;
+        const total_len: u32 = @intCast(net_hdr.len + frame.len);
+
+        // Walk descriptors, copying first the header then the frame.
+        var remaining: []const u8 = &net_hdr;
+        var frame_started = false;
+        var idx: u16 = head;
+        var written: u32 = 0;
+        var steps: u32 = 0;
+        while (steps < q.num) : (steps += 1) {
+            const desc = self.readDescriptor(q, idx) orelse return false;
+            // RX descriptors must be writable by the device.
+            if ((desc.flags & VringDesc.F_WRITE) == 0) return false;
+
+            var budget: u32 = desc.len;
+            while (budget > 0) {
+                if (remaining.len == 0) {
+                    if (frame_started) break;
+                    remaining = frame;
+                    frame_started = true;
+                    if (remaining.len == 0) break;
+                }
+                const chunk: u32 = @intCast(@min(@as(u64, budget), remaining.len));
+                const dst = self.guestSlice(desc.addr + (desc.len - budget), chunk) orelse return false;
+                @memcpy(dst, remaining[0..chunk]);
+                remaining = remaining[chunk..];
+                budget -= chunk;
+                written += chunk;
+            }
+
+            if ((desc.flags & VringDesc.F_NEXT) == 0) break;
+            idx = desc.next;
+        }
+
+        self.pushUsed(q, head, written);
+        q.last_avail_idx +%= 1;
+        self.interrupt_status |= IRQ_USED_BUFFER;
+        _ = total_len;
+        return true;
     }
 
     fn drainAvail(self: *Device, q: *Queue) void {
@@ -572,6 +631,55 @@ fn txCapture(_: ?*anyopaque, frame: []const u8) void {
     const n = @min(frame.len, tx_capture_buf.len);
     @memcpy(tx_capture_buf[0..n], frame[0..n]);
     tx_capture_len = n;
+}
+
+test "virtio: injectRx copies the frame into a posted RX descriptor + raises IRQ" {
+    const num = 4;
+    var ram: [4096]u8 = @splat(0);
+    var dev = Device{
+        .base = 0x0A00_0000,
+        .id = .net,
+        .ram = &ram,
+        .ram_base = 0,
+    };
+    const r = setupRing(&ram, num);
+    dev.queues[0] = r.q; // RX queue
+
+    // RX descriptor 0 points at a 128-byte guest buffer at 0x400 and
+    // is marked device-writable (F_WRITE).
+    const rx_buf_off: usize = 0x400;
+    const desc0 = VringDesc{ .addr = rx_buf_off, .len = 128, .flags = VringDesc.F_WRITE, .next = 0 };
+    @memcpy(ram[0..@sizeOf(VringDesc)], std.mem.asBytes(&desc0));
+
+    const avail = VringAvail{ .flags = 0, .idx = 1 };
+    @memcpy(ram[r.q.driver_addr..][0..@sizeOf(VringAvail)], std.mem.asBytes(&avail));
+    std.mem.writeInt(u16, ram[r.q.driver_addr + @sizeOf(VringAvail) ..][0..2], 0, .little);
+
+    const frame = [_]u8{ 0x02, 0x00, 0x00, 0x00, 0x00, 0x42, 0x02, 0xDE, 0xAD, 0xBE, 0xEF, 0x01, 0x08, 0x00, 0xAB, 0xCD };
+    try std.testing.expect(dev.injectRx(&frame));
+
+    // Guest buffer should now contain: 12 zero bytes (virtio-net header),
+    // followed by our frame.
+    try std.testing.expectEqualSlices(u8, &([_]u8{0} ** 12), ram[rx_buf_off..][0..12]);
+    try std.testing.expectEqualSlices(u8, &frame, ram[rx_buf_off + 12 ..][0..frame.len]);
+
+    // Used ring recorded the chain + IRQ bit asserted.
+    var used_hdr: VringUsed = undefined;
+    @memcpy(std.mem.asBytes(&used_hdr), ram[r.q.device_addr..][0..@sizeOf(VringUsed)]);
+    try std.testing.expectEqual(@as(u16, 1), used_hdr.idx);
+    try std.testing.expectEqual(IRQ_USED_BUFFER, dev.interrupt_status & IRQ_USED_BUFFER);
+}
+
+test "virtio: injectRx returns false when no RX buffers are posted" {
+    const num = 4;
+    var ram: [4096]u8 = @splat(0);
+    var dev = Device{ .base = 0x0A00_0000, .id = .net, .ram = &ram, .ram_base = 0 };
+    const r = setupRing(&ram, num);
+    dev.queues[0] = r.q;
+
+    // avail.idx stays at 0 -> no buffers posted yet.
+    try std.testing.expect(!dev.injectRx(&[_]u8{ 1, 2, 3, 4 }));
+    try std.testing.expectEqual(@as(u32, 0), dev.interrupt_status);
 }
 
 test "virtio: TX handler receives the ethernet frame with virtio-net header stripped" {
