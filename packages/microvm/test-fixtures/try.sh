@@ -148,10 +148,20 @@ load_ko() {
     ko=$(find /lib/modules -name "$1.ko" 2>/dev/null | head -1)
     [ -n "$ko" ] && insmod "$ko" 2>/dev/null
 }
-# Virtio drivers — without these, /dev/vda and eth0 don't exist.
-for m in virtio virtio_ring virtio_mmio virtio_blk failover net_failover virtio_net; do
+# Virtio drivers — without these, /dev/vda, eth0, and AF_VSOCK don't exist.
+for m in virtio virtio_ring virtio_mmio virtio_blk failover net_failover virtio_net \
+         vsock vmw_vsock_virtio_transport_common vmw_vsock_virtio_transport; do
     load_ko "$m"
 done
+
+# If /file-agent.py was cpio'd in (try.sh workspace mode), start it
+# in the background so the host can machinen-push / machinen-pull
+# during the session. It binds AF_VSOCK port 1976; the host-side UDS
+# is whatever MACHINEN_VSOCK in:1976:... pointed at when the VMM
+# was launched.
+if [ -x /file-agent.py ]; then
+    (python3 /file-agent.py >/var/log/file-agent.log 2>&1 &) 2>/dev/null
+fi
 
 # Set the guest clock from the boot epoch the wrapper baked in. TLS
 # cert validation needs a plausible current time or everything looks
@@ -211,6 +221,9 @@ echo "  ls /dev/vda                   # virtio-blk disk (if test-fixtures/disk.i
 if [ -d /workspace ]; then
     echo "  cd /workspace                 # your host dir, cpio'd in on boot"
 fi
+if [ -x /file-agent.py ]; then
+    echo "  host: VsockFiles.push/pull    # live file transfer on vsock :1976"
+fi
 echo "  exit or Ctrl-D                # quit (kernel will panic — expected)"
 echo ""
 # Drop into /workspace when it was cpio'd in (try.sh workspace mode).
@@ -221,6 +234,15 @@ SH
 esac
 
 chmod +x "$ROOTFS/demo.sh"
+
+# Workspace mode also ships the live file-agent so the host can
+# push/pull over vsock during the session. Dropped into rootfs/ so
+# the standard mkinitramfs --rootfs pass picks it up automatically;
+# guest's demo.sh starts it when /file-agent.py exists.
+if [[ -n "$WORKSPACE_DIR" ]]; then
+    cp "$FIXTURES/file-agent.py" "$ROOTFS/file-agent.py"
+    chmod +x "$ROOTFS/file-agent.py"
+fi
 
 # --- repack + build ------------------------------------------------
 echo "==> repacking initramfs"
@@ -267,6 +289,13 @@ case "$MODE" in
             echo "==> booting; wait ~10s for the 'microvm:/#' prompt"
             echo "==> exit with Ctrl-D or 'exit' (kernel will panic — expected)"
         fi
+        if [[ -n "$WORKSPACE_DIR" ]]; then
+            FILE_SOCK=/tmp/machinen-workspace-files.sock
+            rm -f "$FILE_SOCK"
+            echo "==> file-agent UDS: $FILE_SOCK (vsock :1976)"
+            echo "    host: VsockFiles.push('$FILE_SOCK', localDir, '/workspace')"
+            echo "    host: VsockFiles.pull('$FILE_SOCK', '/workspace', localDir)"
+        fi
         echo
         # Host terminal in raw mode so each keystroke reaches the guest
         # directly (otherwise your shell line-buffers + double-echoes).
@@ -288,7 +317,11 @@ case "$MODE" in
             trap 'stty "$HOST_STTY" </dev/tty 2>/dev/null || true; echo' EXIT TERM
             stty raw -echo -isig </dev/tty
         fi
-        MACHINEN_BOOT_TEST=1 "$TEST_BIN"
+        if [[ -n "$WORKSPACE_DIR" ]]; then
+            MACHINEN_VSOCK="in:1976:$FILE_SOCK" MACHINEN_BOOT_TEST=1 "$TEST_BIN"
+        else
+            MACHINEN_BOOT_TEST=1 "$TEST_BIN"
+        fi
         ;;
     criu|criu-demo|'criu demo')
         echo "==> booting; CRIU demo runs for ~15s after boot"
