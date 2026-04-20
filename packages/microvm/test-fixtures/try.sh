@@ -75,22 +75,84 @@ SH
         chmod +x "$ROOTFS/fork-demo.sh" "$ROOTFS/demo.sh"
         ;;
     shell|sh|bash)
-        # Drop straight into an interactive bash inside the guest. With
-        # virtio-net + virtio-blk both available, if you bring eth0 up
-        # (`/bin/if-up eth0 && /bin/gw-set 10.0.2.2`) you can curl, npm
-        # install, whatever.
+        # Drop straight into an interactive bash inside the guest with
+        # virtio-net + virtio-blk drivers already loaded and a `netup`
+        # helper that brings eth0 up in one command.
+        #
+        # Bake the host's current epoch into the rootfs so the guest
+        # can set its clock at boot. Without this the guest's clock
+        # starts at 1970 and every TLS cert looks "not yet valid."
+        date +%s > "$ROOTFS/etc/machinen-boot-epoch"
         cat > "$ROOTFS/demo.sh" <<'SH'
 #!/bin/sh
 PATH=/usr/local/bin:/usr/bin:/bin:/sbin
-export PATH HOME=/root TERM=linux PS1='microvm:\w# '
+export PATH HOME=/root TERM=linux
+
+load_ko() {
+    ko=$(find /lib/modules -name "$1.ko" 2>/dev/null | head -1)
+    [ -n "$ko" ] && insmod "$ko" 2>/dev/null
+}
+# Virtio drivers — without these, /dev/vda and eth0 don't exist.
+for m in virtio virtio_ring virtio_mmio virtio_blk failover net_failover virtio_net; do
+    load_ko "$m"
+done
+
+# Set the guest clock from the boot epoch the wrapper baked in. TLS
+# cert validation needs a plausible current time or everything looks
+# "not yet valid."
+if [ -f /etc/machinen-boot-epoch ]; then
+    date -s "@$(cat /etc/machinen-boot-epoch)" >/dev/null 2>&1
+fi
+
+# Seed /root/.bashrc with a `netup` helper so the user doesn't have
+# to remember every command to reach the internet. Also add a tiny
+# `http` helper because curl isn't in node:lts-slim.
+mkdir -p /root
+cat > /root/.bashrc <<'RC'
+export PS1='microvm:\w# '
+
+# Bring up eth0 with a static IP on slirp's network (10.0.2.15/24,
+# gateway 10.0.2.2, DNS 10.0.2.3), in one command.
+netup() {
+    /bin/if-up eth0 || return 1
+    python3 - <<'PY'
+import socket, fcntl, struct
+SIOCSIFADDR, SIOCSIFNETMASK = 0x8916, 0x891C
+def pack(ip):
+    return struct.pack('16sH2s4s8s', b'eth0', socket.AF_INET, b'\x00\x00', socket.inet_aton(ip), b'\x00'*8)
+s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+fcntl.ioctl(s, SIOCSIFADDR,    pack('10.0.2.15'))
+fcntl.ioctl(s, SIOCSIFNETMASK, pack('255.255.255.0'))
+PY
+    /bin/gw-set 10.0.2.2 || return 1
+    mkdir -p /etc
+    echo 'nameserver 10.0.2.3' > /etc/resolv.conf
+    echo 'network up: eth0=10.0.2.15, gw=10.0.2.2, dns=10.0.2.3'
+    echo 'try: http https://example.com'
+}
+
+# curl isn't in node:lts-slim; this is a tiny HTTP client using Python.
+# Usage: http <url>
+http() {
+    python3 - "$1" <<'PY'
+import sys, urllib.request
+req = urllib.request.Request(sys.argv[1], headers={'User-Agent': 'machinen-microvm/0.1'})
+with urllib.request.urlopen(req, timeout=15) as r:
+    print(f"HTTP {r.status} {r.reason}")
+    for k, v in r.headers.items():
+        print(f"{k}: {v}")
+PY
+}
+RC
+
 echo ""
 echo "=== machinen-microvm — interactive shell ==="
 echo "hints:"
-echo "  /bin/if-up eth0                                # bring eth0 up"
-echo "  /bin/gw-set 10.0.2.2                           # default route via slirp"
-echo "  echo 'nameserver 10.0.2.3' > /etc/resolv.conf  # use slirp DNS"
-echo "  claude --version                               # (CC is already installed)"
-echo "  exit or Ctrl-D                                 # to quit (kernel will panic — expected)"
+echo "  netup                         # bring eth0 up with static IP + DNS"
+echo "  http https://example.com      # tiny Python HTTP client (curl isn't here)"
+echo "  claude --version              # (CC is already installed)"
+echo "  ls /dev/vda                   # virtio-blk disk (if test-fixtures/disk.img exists)"
+echo "  exit or Ctrl-D                # quit (kernel will panic — expected)"
 echo ""
 exec /bin/bash --login
 SH
