@@ -32,7 +32,9 @@ async function main() {
   const sup = new Supervisor({ sandboxes });
   await sup.run();
 
-  for (const k of kids) await k.kill();
+  for (const k of kids) {
+    await k.kill();
+  }
 }
 
 main().catch((e) => {

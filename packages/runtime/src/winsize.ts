@@ -80,7 +80,9 @@ export class VsockWinsize {
    * are dropped so a chatty SIGWINCH doesn't spam the bridge.
    */
   send(cols: number, rows: number): void {
-    if (this.closed) return;
+    if (this.closed) {
+      return;
+    }
     if (this.lastSent && this.lastSent.cols === cols && this.lastSent.rows === rows) {
       return;
     }
@@ -89,7 +91,9 @@ export class VsockWinsize {
   }
 
   close(): void {
-    if (this.closed) return;
+    if (this.closed) {
+      return;
+    }
     this.closed = true;
     this.socket.end();
   }

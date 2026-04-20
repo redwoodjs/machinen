@@ -23,7 +23,9 @@ const require_ = createRequire(import.meta.url);
 type NodePty = typeof import("node-pty");
 let ptyMod: NodePty | null = null;
 function loadPty(): NodePty {
-  if (ptyMod) return ptyMod;
+  if (ptyMod) {
+    return ptyMod;
+  }
   ensureSpawnHelper();
   ptyMod = require_("node-pty") as NodePty;
   return ptyMod;
@@ -39,11 +41,15 @@ function ensureSpawnHelper(): void {
   try {
     const resolved = require_.resolve("node-pty");
     const pkgDir = findPackageDir(resolved);
-    if (!pkgDir) return;
+    if (!pkgDir) {
+      return;
+    }
     const prebuilds = join(pkgDir, "prebuilds");
     const platforms = readdirSync(prebuilds, { withFileTypes: true });
     for (const p of platforms) {
-      if (!p.isDirectory()) continue;
+      if (!p.isDirectory()) {
+        continue;
+      }
       const helper = join(prebuilds, p.name, "spawn-helper");
       try {
         const s = statSync(helper);
@@ -65,12 +71,16 @@ function findPackageDir(entry: string): string | null {
   for (let i = 0; i < 6; i++) {
     try {
       const pkg = statSync(join(dir, "package.json"));
-      if (pkg.isFile()) return dir;
+      if (pkg.isFile()) {
+        return dir;
+      }
     } catch {
       // keep walking up
     }
     const parent = dirname(dir);
-    if (parent === dir) break;
+    if (parent === dir) {
+      break;
+    }
     dir = parent;
   }
   return null;
@@ -117,7 +127,7 @@ export function spawnPty(opts: PtySpawnOptions): PtyVmHandle {
     cols: opts.cols ?? 80,
     rows: opts.rows ?? 24,
     cwd: opts.cwd ?? process.cwd(),
-    env: { ...(process.env as Record<string, string>), ...(opts.env ?? {}) },
+    env: { ...(process.env as Record<string, string>), ...opts.env },
   });
 
   // Wrap the pty data stream as a Node Readable so it works with

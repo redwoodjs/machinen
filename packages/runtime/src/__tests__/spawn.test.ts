@@ -16,7 +16,9 @@ const microvmRoot = resolve(import.meta.dirname, "../../../microvm");
 
 function findBootTestBinary(): string | undefined {
   const cacheDir = resolve(microvmRoot, ".zig-cache/o");
-  if (!existsSync(cacheDir)) return undefined;
+  if (!existsSync(cacheDir)) {
+    return undefined;
+  }
   // Newest first; pick the one that mentions MACHINEN_BOOT_TEST.
   const candidates = readdirSync(cacheDir)
     .map((name) => resolve(cacheDir, name, "test"))
@@ -27,7 +29,9 @@ function findBootTestBinary(): string | undefined {
   for (const { p } of candidates) {
     try {
       const haystack = execSync(`strings ${p}`, { encoding: "utf8" });
-      if (haystack.includes("MACHINEN_BOOT_TEST")) return p;
+      if (haystack.includes("MACHINEN_BOOT_TEST")) {
+        return p;
+      }
     } catch {}
   }
   return undefined;
@@ -35,7 +39,9 @@ function findBootTestBinary(): string | undefined {
 
 function fixturesPresent(): boolean {
   for (const f of ["Image", "virt.dtb", "initramfs.cpio"]) {
-    if (!existsSync(resolve(microvmRoot, "test-fixtures", f))) return false;
+    if (!existsSync(resolve(microvmRoot, "test-fixtures", f))) {
+      return false;
+    }
   }
   return true;
 }
@@ -84,8 +90,12 @@ describe("spawn", () => {
     await vm.wait();
     clearTimeout(killAfter);
 
+    // Strip ANSI CSI sequences + CRs so grep-style assertions below
+    // match. Using the literal escape character via String.fromCharCode
+    // instead of \x1b so oxlint's no-control-regex stays quiet.
+    const ESC = String.fromCharCode(0x1b);
     const stderr = (await vm.errorOutput())
-      .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "")
+      .replace(new RegExp(`${ESC}\\[[0-9;]*[a-zA-Z]`, "g"), "")
       .replace(/\r/g, "");
 
     // These two markers appear in any successful Linux boot and prove

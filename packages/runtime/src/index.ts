@@ -133,7 +133,9 @@ export async function spawn(opts: SpawnOptions): Promise<VmHandle> {
     },
 
     async kill() {
-      if (child.exitCode !== null || child.signalCode !== null) return;
+      if (child.exitCode !== null || child.signalCode !== null) {
+        return;
+      }
       child.kill("SIGKILL");
       await once(child, "exit");
     },
