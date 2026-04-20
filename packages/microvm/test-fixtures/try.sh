@@ -270,10 +270,23 @@ case "$MODE" in
         echo
         # Host terminal in raw mode so each keystroke reaches the guest
         # directly (otherwise your shell line-buffers + double-echoes).
+        #
+        # `-isig` — critical. With `isig`, the host terminal driver
+        # sees Ctrl-C and sends SIGINT to try.sh, which tears the VMM
+        # down. We want Ctrl-C to flow through as byte 0x03 so the
+        # guest's ttyAMA0 line discipline generates SIGINT INSIDE the
+        # guest (interrupt `python` / `claude` / whatever, not the
+        # whole VM). Ctrl-D still exits naturally — it reaches bash as
+        # 0x04, bash exits at an empty prompt, init dies, kernel
+        # panics, VMM stops.
         if [[ -t 0 ]]; then
             HOST_STTY=$(stty -g </dev/tty)
-            trap 'stty "$HOST_STTY" </dev/tty 2>/dev/null || true; echo' EXIT INT TERM
-            stty raw -echo isig </dev/tty
+            # No 'INT' in the trap: we're -isig, so the host doesn't
+            # generate SIGINT on Ctrl-C in the first place. EXIT covers
+            # the normal Ctrl-D → VMM-exits path; TERM covers external
+            # kills.
+            trap 'stty "$HOST_STTY" </dev/tty 2>/dev/null || true; echo' EXIT TERM
+            stty raw -echo -isig </dev/tty
         fi
         MACHINEN_BOOT_TEST=1 "$TEST_BIN"
         ;;
