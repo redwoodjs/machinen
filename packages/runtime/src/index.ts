@@ -6,6 +6,8 @@ export { VsockWinsize } from "./winsize.ts";
 export type { VsockWinsizeOptions } from "./winsize.ts";
 export { VsockSecrets } from "./secrets.ts";
 export type { VsockSecretsOptions } from "./secrets.ts";
+export { VsockFiles } from "./files.ts";
+export type { VsockFilesOptions } from "./files.ts";
 
 // @machinen/runtime — TypeScript surface for spawning microVMs.
 //
