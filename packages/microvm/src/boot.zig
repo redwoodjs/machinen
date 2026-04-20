@@ -23,6 +23,12 @@ comptime {
 }
 
 const hvf = @import("hvf.zig");
+const virtio = @import("virtio.zig");
+
+// Guest-physical base for our one virtio-MMIO device slot. The DTS's
+// `virtio_mmio@a000000` node has to match this.
+const virtio_net_base: u64 = 0x0A00_0000;
+const virtio_net_size: u64 = 0x200;
 
 pub const Error = error{
     FixtureMissing,
@@ -169,6 +175,19 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     var uart: hvf.Pl011 = .init;
     defer uart.deinit(gpa);
 
+    // virtio-net stub (#46 M1). Registers exist, kernel reaches
+    // DRIVER_OK, no packets flow yet. We offer VIRTIO_F_VERSION_1
+    // (bit 32) and VIRTIO_NET_F_MAC (bit 5) so the kernel gets a
+    // stable MAC and doesn't need to negotiate extra features.
+    const virtio_mac = [_]u8{ 0x02, 0xDE, 0xAD, 0xBE, 0xEF, 0x01 };
+    var netdev = virtio.Device{
+        .base = virtio_net_base,
+        .size = virtio_net_size,
+        .id = .net,
+        .features = (1 << 32) | (1 << 5),
+        .config = &virtio_mac,
+    };
+
     var exits: usize = 0;
     var saw_off = false;
 
@@ -287,6 +306,18 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
                     } else if (info.srt != 31) {
                         const reg: hvf.Reg = @enumFromInt(@as(u32, info.srt));
                         try vcpu.setReg(reg, hvf.Gic.readDistributor(offset));
+                    }
+                } else if (netdev.handles(info.ipa)) {
+                    // virtio-MMIO device slot. The kernel's
+                    // virtio_mmio bus driver probes it, negotiates
+                    // features, and sets up queues (which we accept
+                    // but don't yet service — #46 M2).
+                    if (info.is_write) {
+                        const value = try info.readSource(vcpu);
+                        netdev.write(info.ipa, value);
+                    } else if (info.srt != 31) {
+                        const reg: hvf.Reg = @enumFromInt(@as(u32, info.srt));
+                        try vcpu.setReg(reg, netdev.read(info.ipa));
                     }
                 } else if (info.ipa >= 0x1000_0000 and info.ipa < 0x1200_0000) {
                     // Redistributor MMIO. Each vCPU's frame is 128 KB.

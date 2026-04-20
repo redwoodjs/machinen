@@ -61,9 +61,24 @@ pub const Status = packed struct(u32) {
     _reserved_1: u24 = 0,
 };
 
+/// Max number of queues we let the driver configure. virtio-net
+/// uses 2 (RX, TX); reserving extra room is cheap.
+pub const max_queues: u32 = 8;
+
+/// Per-queue state tracked for each configured virtqueue. We don't
+/// parse descriptors yet (M2 job); we just remember what the driver
+/// told us so reads round-trip and we don't bail mid-handshake.
+pub const Queue = struct {
+    num: u32 = 0,
+    ready: u32 = 0,
+    desc_addr: u64 = 0,
+    driver_addr: u64 = 0,
+    device_addr: u64 = 0,
+};
+
 /// A minimum virtio-MMIO device. This struct is the state the kernel
-/// pokes via MMIO reads/writes. v0.1 has no queues so most of the
-/// queue-side state is present-but-ignored.
+/// pokes via MMIO reads/writes. We accept queue configuration so the
+/// driver reaches DRIVER_OK; servicing queues is the next milestone.
 pub const Device = struct {
     base: u64,
     size: u64 = 0x200,
@@ -71,6 +86,14 @@ pub const Device = struct {
     /// 64-bit feature bitmap. Bits 0..31 are device-type specific,
     /// bits 32..63 are transport features (e.g. VIRTIO_F_VERSION_1 = bit 32).
     features: u64 = (1 << 32), // VERSION_1 always required for v2 transport
+    /// Max per-queue size we claim to support. Reported back via
+    /// QueueNumMax. 256 is a common default and well within reason.
+    queue_num_max: u32 = 256,
+    /// Optional device-specific config space starting at offset 0x100.
+    /// virtio-net uses the first 6 bytes for the MAC address when
+    /// VIRTIO_NET_F_MAC is offered. Caller owns the buffer; `null`
+    /// means "reads return 0."
+    config: ?[]const u8 = null,
 
     status: Status = .{},
     device_features_sel: u32 = 0,
@@ -78,6 +101,7 @@ pub const Device = struct {
     driver_features_sel: u32 = 0,
     queue_sel: u32 = 0,
     config_generation: u32 = 0,
+    queues: [max_queues]Queue = @splat(.{}),
 
     pub fn handles(self: *const Device, addr: u64) bool {
         return addr >= self.base and addr < self.base + self.size;
@@ -96,11 +120,12 @@ pub const Device = struct {
                 1 => @as(u32, @truncate(self.features >> 32)),
                 else => 0,
             },
-            0x034 => 0, // QueueNumMax — 0 means "no queues supported here" (M1)
-            0x044 => 0, // QueueReady
-            0x060 => 0, // InterruptStatus
+            0x034 => if (self.queue_sel < max_queues) self.queue_num_max else 0,
+            0x044 => if (self.queue_sel < max_queues) self.queues[self.queue_sel].ready else 0,
+            0x060 => 0, // InterruptStatus — nothing pending until M2
             0x070 => @as(u32, @bitCast(self.status)),
             0x0FC => self.config_generation,
+            0x100...0x1FF => self.readConfig(@intCast(off - 0x100)),
             else => 0,
         };
     }
@@ -119,13 +144,49 @@ pub const Device = struct {
             },
             0x024 => self.driver_features_sel = v32,
             0x030 => self.queue_sel = v32,
-            0x038, 0x044, 0x050, 0x064 => {}, // QueueNum, QueueReady, QueueNotify, InterruptACK — ignored in M1
+            0x038 => if (self.queue_sel < max_queues) {
+                self.queues[self.queue_sel].num = v32;
+            },
+            0x044 => if (self.queue_sel < max_queues) {
+                self.queues[self.queue_sel].ready = v32;
+            },
+            0x050 => {}, // QueueNotify doorbell — the driver kicks; we don't service yet
+            0x064 => {}, // InterruptACK — nothing to ack
             0x070 => self.status = @bitCast(v32),
-            // Queue address registers: driver writes them; we ignore
-            // them in M1 because QueueNumMax=0 means "no queues."
-            0x080, 0x084, 0x090, 0x094, 0x0A0, 0x0A4 => {},
+            // 64-bit guest addresses written as low/high halves. Store
+            // them so reads (if any) round-trip; actual parsing is M2.
+            0x080 => if (self.queue_sel < max_queues) {
+                const q = &self.queues[self.queue_sel];
+                q.desc_addr = (q.desc_addr & 0xFFFF_FFFF_0000_0000) | v32;
+            },
+            0x084 => if (self.queue_sel < max_queues) {
+                const q = &self.queues[self.queue_sel];
+                q.desc_addr = (q.desc_addr & 0x0000_0000_FFFF_FFFF) | (@as(u64, v32) << 32);
+            },
+            0x090 => if (self.queue_sel < max_queues) {
+                const q = &self.queues[self.queue_sel];
+                q.driver_addr = (q.driver_addr & 0xFFFF_FFFF_0000_0000) | v32;
+            },
+            0x094 => if (self.queue_sel < max_queues) {
+                const q = &self.queues[self.queue_sel];
+                q.driver_addr = (q.driver_addr & 0x0000_0000_FFFF_FFFF) | (@as(u64, v32) << 32);
+            },
+            0x0A0 => if (self.queue_sel < max_queues) {
+                const q = &self.queues[self.queue_sel];
+                q.device_addr = (q.device_addr & 0xFFFF_FFFF_0000_0000) | v32;
+            },
+            0x0A4 => if (self.queue_sel < max_queues) {
+                const q = &self.queues[self.queue_sel];
+                q.device_addr = (q.device_addr & 0x0000_0000_FFFF_FFFF) | (@as(u64, v32) << 32);
+            },
             else => {},
         }
+    }
+
+    fn readConfig(self: *const Device, off: usize) u64 {
+        const cfg = self.config orelse return 0;
+        if (off >= cfg.len) return 0;
+        return @as(u64, cfg[off]);
     }
 };
 
@@ -164,10 +225,37 @@ test "virtio: Status register round-trips driver writes" {
     try std.testing.expect(dev.status.driver_ok);
 }
 
-test "virtio: QueueNumMax is 0 so the kernel skips queue setup" {
-    var dev = Device{ .base = 0x0A00_0000, .id = .net };
+test "virtio: QueueNumMax is reported so the driver can size its queues" {
+    var dev = Device{ .base = 0x0A00_0000, .id = .net, .queue_num_max = 256 };
     dev.write(0x0A00_0000 + 0x030, 0); // select queue 0
+    try std.testing.expectEqual(@as(u64, 256), dev.read(0x0A00_0000 + 0x034));
+    // Out-of-range queue index: report 0 so the driver stops iterating.
+    dev.write(0x0A00_0000 + 0x030, max_queues);
     try std.testing.expectEqual(@as(u64, 0), dev.read(0x0A00_0000 + 0x034));
+}
+
+test "virtio: queue addresses round-trip per queue" {
+    var dev = Device{ .base = 0x0A00_0000, .id = .net };
+    // Select queue 1, write desc_addr in low+high halves.
+    dev.write(0x0A00_0000 + 0x030, 1);
+    dev.write(0x0A00_0000 + 0x080, 0xCAFE_BABE); // low
+    dev.write(0x0A00_0000 + 0x084, 0xDEAD_BEEF); // high
+    dev.write(0x0A00_0000 + 0x038, 128); // QueueNum
+    dev.write(0x0A00_0000 + 0x044, 1); // QueueReady
+
+    try std.testing.expectEqual(@as(u64, 0xDEAD_BEEF_CAFE_BABE), dev.queues[1].desc_addr);
+    try std.testing.expectEqual(@as(u32, 128), dev.queues[1].num);
+    try std.testing.expectEqual(@as(u64, 1), dev.read(0x0A00_0000 + 0x044));
+    // Queue 0 untouched.
+    try std.testing.expectEqual(@as(u64, 0), dev.queues[0].desc_addr);
+}
+
+test "virtio: config-space reads pass through a caller-owned buffer" {
+    const mac = [_]u8{ 0x02, 0x00, 0x00, 0x11, 0x22, 0x33 };
+    var dev = Device{ .base = 0x0A00_0000, .id = .net, .config = &mac };
+    try std.testing.expectEqual(@as(u64, 0x02), dev.read(0x0A00_0000 + 0x100));
+    try std.testing.expectEqual(@as(u64, 0x33), dev.read(0x0A00_0000 + 0x105));
+    try std.testing.expectEqual(@as(u64, 0), dev.read(0x0A00_0000 + 0x106));
 }
 
 test "virtio: handles() bounds the MMIO window" {
