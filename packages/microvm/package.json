@@ -1,0 +1,11 @@
+{
+  "name": "@machine/microvm",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Zig-native microVM for machinen. Scaffold — see redwoodjs/machinen#42 and sibling issues.",
+  "scripts": {
+    "build": "zig build",
+    "test": "zig build test",
+    "run": "zig build run"
+  }
+}

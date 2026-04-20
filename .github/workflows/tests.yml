@@ -19,6 +19,20 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      # node-pty ships prebuilds only for darwin + win32. On the Linux
+      # CI runner pnpm falls through to node-gyp rebuild, which needs
+      # a C++ toolchain + Python to compile the native binding.
+      - name: Install node-pty build deps (Linux)
+        run: sudo apt-get install -y build-essential python3
+
+      # packages/microvm builds with Zig. The `pretest` hook runs
+      # `pnpm -r build`, which hits microvm's `zig build`. On Linux the
+      # HVF-specific code paths are ifdef'd out but the pure-Zig
+      # modules (virtio, vsock) still need the toolchain.
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.16.0
+
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm run format:check

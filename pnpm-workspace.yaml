@@ -4,5 +4,6 @@ packages:
 onlyBuiltDependencies:
   - cpu-features
   - esbuild
+  - node-pty
   - protobufjs
   - ssh2
