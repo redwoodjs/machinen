@@ -1,3 +1,10 @@
+export { Sandboxes, Supervisor } from "./multiplex.ts";
+export type {
+  SandboxEntry,
+  OnOutputListener,
+  SupervisorOptions,
+} from "./multiplex.ts";
+
 // @machinen/runtime — TypeScript surface for spawning microVMs.
 //
 // The Zig VMM is a separate binary (today: the test binary produced
