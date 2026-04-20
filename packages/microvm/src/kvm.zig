@@ -77,6 +77,14 @@ pub const KVM_SET_REGS = iow(KVMIO, 0x82, @sizeOf(X86Regs));
 pub const KVM_GET_SREGS = ior(KVMIO, 0x83, @sizeOf(X86Sregs));
 pub const KVM_SET_SREGS = iow(KVMIO, 0x84, @sizeOf(X86Sregs));
 
+// VM-scoped device creation (for vgic-v3, vsock, etc.) + per-device
+// attributes. `KVM_CREATE_DEVICE` returns a fd for the device; attr
+// ioctls happen on that fd.
+pub const KVM_CREATE_DEVICE = iowr(KVMIO, 0xE0, @sizeOf(CreateDevice));
+pub const KVM_SET_DEVICE_ATTR = iow(KVMIO, 0xE1, @sizeOf(DeviceAttr));
+pub const KVM_GET_DEVICE_ATTR = iow(KVMIO, 0xE2, @sizeOf(DeviceAttr));
+pub const KVM_HAS_DEVICE_ATTR = iow(KVMIO, 0xE3, @sizeOf(DeviceAttr));
+
 // ---------------------------------------------------------------
 // Flat structs — all have a KVM-stable layout across arm64/x86_64
 // but we only build on arm64 for our guest.
@@ -109,6 +117,40 @@ pub const Irqchip = extern struct {
     pad: u32,
     chip: [512]u8, // union of chip-specific state; opaque to us
 };
+
+// ---------------------------------------------------------------
+// KVM device ioctls (vgic-v3, etc.). `CreateDevice.type` + `flags`
+// select the device. For vgic-v3: type = KVM_DEV_TYPE_ARM_VGIC_V3
+// (7), flags = 0. After create, `fd` is populated.
+
+pub const CreateDevice = extern struct {
+    type: u32,
+    fd: u32, // out
+    flags: u32,
+};
+
+pub const DeviceAttr = extern struct {
+    flags: u32,
+    group: u32,
+    attr: u64,
+    addr: u64, // userspace pointer to the attribute's value
+};
+
+pub const KVM_DEV_TYPE_ARM_VGIC_V3: u32 = 7;
+
+// vgic-v3 attribute groups.
+pub const KVM_DEV_ARM_VGIC_GRP_ADDR: u32 = 0;
+pub const KVM_DEV_ARM_VGIC_GRP_CTRL: u32 = 4;
+
+// vgic-v3 address-type attrs inside GRP_ADDR.
+pub const KVM_VGIC_V3_ADDR_TYPE_DIST: u64 = 2;
+pub const KVM_VGIC_V3_ADDR_TYPE_REDIST: u64 = 3;
+
+// "init the device" attribute inside GRP_CTRL.
+pub const KVM_DEV_ARM_VGIC_CTRL_INIT: u64 = 0;
+
+// arm64 VCPU_INIT feature bits.
+pub const KVM_ARM_VCPU_PSCI_0_2: u32 = 2;
 
 // ---------------------------------------------------------------
 // x86_64 register banks. arm64 boots don't touch these; they live
@@ -381,6 +423,61 @@ pub const Vm = struct {
         }
     }
 
+    /// Create an in-kernel vgic-v3 and place its distributor +
+    /// redistributor MMIO windows at the given guest-physical
+    /// addresses. Call BEFORE `createVcpu` — KVM requires it.
+    /// Returns a Gic with the device fd owned; destroy() closes it.
+    pub fn createGicV3(
+        self: *Vm,
+        dist_addr: u64,
+        redist_addr: u64,
+    ) !Gic {
+        var args = CreateDevice{
+            .type = KVM_DEV_TYPE_ARM_VGIC_V3,
+            .fd = 0,
+            .flags = 0,
+        };
+        if (ioctl(self.fd, KVM_CREATE_DEVICE, &args) != 0) {
+            return error.KvmCreateIrqchipFailed;
+        }
+        const gic_fd: c_int = @intCast(args.fd);
+        errdefer _ = close(gic_fd);
+
+        var dist = dist_addr;
+        var dist_attr = DeviceAttr{
+            .flags = 0,
+            .group = KVM_DEV_ARM_VGIC_GRP_ADDR,
+            .attr = KVM_VGIC_V3_ADDR_TYPE_DIST,
+            .addr = @intFromPtr(&dist),
+        };
+        if (ioctl(gic_fd, KVM_SET_DEVICE_ATTR, &dist_attr) != 0) {
+            return error.KvmCreateIrqchipFailed;
+        }
+
+        var redist = redist_addr;
+        var redist_attr = DeviceAttr{
+            .flags = 0,
+            .group = KVM_DEV_ARM_VGIC_GRP_ADDR,
+            .attr = KVM_VGIC_V3_ADDR_TYPE_REDIST,
+            .addr = @intFromPtr(&redist),
+        };
+        if (ioctl(gic_fd, KVM_SET_DEVICE_ATTR, &redist_attr) != 0) {
+            return error.KvmCreateIrqchipFailed;
+        }
+
+        return .{ .fd = gic_fd, .vm_fd = self.fd };
+    }
+
+    /// Raise or lower an interrupt line. `irq` uses KVM's encoding:
+    /// bits 27:24 = type (0 = SPI), bits 23:16 = vcpu_id, bits 15:0 =
+    /// irq_number. For arm64 SPIs, irq_number = GIC SPI base (32) +
+    /// device-specific offset; our DTS maps PL011 to 33, virtio-net
+    /// to 48, etc.
+    pub fn setIrq(self: *Vm, irq: u32, level: u32) !void {
+        var lvl = IrqLevel{ .irq = irq, .level = level };
+        if (ioctl(self.fd, KVM_IRQ_LINE, &lvl) != 0) return error.KvmIrqLineFailed;
+    }
+
     pub fn createVcpu(self: *Vm, id: u32) !Vcpu {
         const fd = ioctl(self.fd, KVM_CREATE_VCPU, @as(c_ulong, id));
         if (fd < 0) return error.KvmCreateVcpuFailed;
@@ -398,6 +495,30 @@ pub const Vm = struct {
             return error.KvmPreferredTargetFailed;
         }
         return out;
+    }
+};
+
+/// In-kernel vgic-v3 handle. Addresses are set in createGicV3; the
+/// device is only "ready" after all vCPUs are up AND `finalize()`
+/// runs KVM_DEV_ARM_VGIC_CTRL_INIT.
+pub const Gic = struct {
+    fd: c_int,
+    vm_fd: c_int,
+
+    pub fn destroy(self: *Gic) void {
+        _ = close(self.fd);
+    }
+
+    pub fn finalize(self: *Gic) !void {
+        var attr = DeviceAttr{
+            .flags = 0,
+            .group = KVM_DEV_ARM_VGIC_GRP_CTRL,
+            .attr = KVM_DEV_ARM_VGIC_CTRL_INIT,
+            .addr = 0,
+        };
+        if (ioctl(self.fd, KVM_SET_DEVICE_ATTR, &attr) != 0) {
+            return error.KvmCreateIrqchipFailed;
+        }
     }
 };
 
@@ -457,6 +578,26 @@ pub const Vcpu = struct {
         var out: MmioExit = undefined;
         @memcpy(std.mem.asBytes(&out), base[0x90..][0..@sizeOf(MmioExit)]);
         return out;
+    }
+
+    /// Read the SYSTEM_EVENT exit payload. Used for PSCI SHUTDOWN /
+    /// RESET. Same struct union as MMIO; offset 0x90 inside kvm_run.
+    pub fn systemEventExit(self: *Vcpu) SystemEventExit {
+        const base: [*]u8 = @ptrCast(self.run_page);
+        var out: SystemEventExit = undefined;
+        @memcpy(std.mem.asBytes(&out), base[0x90..][0..@sizeOf(SystemEventExit)]);
+        return out;
+    }
+
+    /// When handling an MMIO READ exit, the guest expects us to
+    /// fill `kvm_run.mmio.data[0..len]` with the register contents
+    /// before the next `KVM_RUN`. This writes up to 8 bytes at the
+    /// in-struct data offset (0x90 + 8 = 0x98 on arm64 kvm_run).
+    pub fn writeMmioReadData(self: *Vcpu, value: u64, len: u32) void {
+        const base: [*]u8 = @ptrCast(self.run_page);
+        const slot: []u8 = base[0x98 .. 0x98 + 8];
+        std.mem.writeInt(u64, slot[0..8], value, .little);
+        _ = len;
     }
 
     // x86-specific register access. arm64 uses setReg/getReg above.
