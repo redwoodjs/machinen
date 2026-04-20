@@ -80,17 +80,43 @@ Equivalent to what `hvf.test.hv_vm_create and destroy` +
 `hvf.test.map a page, run hvc #0, observe exception exit` gave us
 on macOS.
 
-## What this commit doesn't do
+## `boot_kvm.zig` (now present)
 
-- **Boot Linux under KVM.** The boot path needs vgic_v3 setup,
-  MMIO routing to virtio + PL011 stubs, interrupt injection for
-  the arm timer + UART. That's `boot_kvm.zig` and it's substantial.
-- **CI exercising KVM.** GitHub ubuntu-latest is x86_64. To run
-  the arm64 guest under KVM we need an arm64 Linux runner (Oracle
-  Ampere free tier, Graviton, or a self-hosted runner on an M-series
-  Mac running Asahi or a nested arm64 Linux). Scaffold shows zig
-  compiles + unit tests pass on Linux already — that's the short-term
-  CI win.
+Parallel of `boot.zig` on the Linux side. Same kernel, same DTS,
+same rootfs, same boot protocol. Differences are all local to this
+file:
+
+- Memory via `KVM_SET_USER_MEMORY_REGION` instead of `hv_vm_map`.
+- In-kernel vgic-v3 via `KVM_CREATE_DEVICE` + `KVM_DEV_ARM_VGIC_GRP_ADDR`
+  for distributor (0x0800_0000) + redistributor (0x1000_0000),
+  `KVM_DEV_ARM_VGIC_CTRL_INIT` after vCPUs exist.
+- PSCI in-kernel: `KVM_ARM_VCPU_PSCI_0_2` feature bit on
+  `KVM_ARM_VCPU_INIT`. HVC #0 calls from the guest are served by
+  the kernel; we only see `KVM_EXIT_SYSTEM_EVENT` on shutdown/reset.
+- Arm virtual timer is built into KVM — no host-side plumbing.
+- PL011 via `pl011.zig` (shared with HVF), driven by
+  `KVM_EXIT_MMIO` events. `writeMmioReadData` on the Vcpu pokes
+  the read-back value into `kvm_run.mmio.data[...]` before the
+  next `KVM_RUN`.
+- Virtio not wired yet — currently reads return 0. Enough to watch
+  the kernel boot through console; devices follow.
+
+## What this still doesn't do
+
+- **Exercise the KVM path at runtime.** Our CI + the local Proxmox
+  are both x86_64; KVM on x86 can't host an arm64 guest (different
+  ISA). The test skips gracefully on non-arm64 hosts. Actually
+  running the boot needs an arm64 Linux host — Oracle Ampere free
+  tier, AWS Graviton, Hetzner arm64, or Asahi Linux on an M-series
+  Mac are the cheapest/most-accessible paths. Once one of those is
+  available: `MACHINEN_BOOT_TEST=1 zig build test` exercises the
+  boot end-to-end.
+- **Virtio (net/blk/vsock) under KVM.** The device models are
+  already pure-Zig and platform-agnostic; wiring them up behind
+  `KVM_EXIT_MMIO` is mechanical. Skipped in the scaffold to keep
+  the first boot commit focused.
+- **Multi-vCPU.** Just 1 vCPU today. KVM requires creating all
+  vCPUs before `GIC.finalize()`; easy extension later.
 
 ## Why compile-time \_IOC over hand-hex constants
 
