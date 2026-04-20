@@ -61,7 +61,9 @@ repack_with() {
 # the stripped log.
 run_vmm() {
     local feed=$1 timeout_s=$2 log=$3
-    eval "$feed" | MACHINEN_BOOT_TEST=1 "$TEST_BIN" 2>"$log" &
+    # Smokes scrape [tx] lines and diagnostic prints, so leave the
+    # debug channel on. Interactive try.sh boots leave it off.
+    eval "$feed" | MACHINEN_DEBUG=1 MACHINEN_BOOT_TEST=1 "$TEST_BIN" 2>"$log" &
     local vm_pid=$!
     local elapsed=0
     while kill -0 $vm_pid 2>/dev/null; do

@@ -54,10 +54,23 @@ case "$MODE" in
         cp "$FIXTURES/vsock-demo.sh" "$ROOTFS/demo.sh"
         ;;
     repl)
-        cat > "$ROOTFS/demo.sh" <<'SH'
+        # Capture the host terminal size so Node REPL's line editor
+        # wraps to the right column instead of reaching 80 and
+        # redrawing over itself.
+        if [[ -t 0 ]]; then
+            read -r HOST_ROWS HOST_COLS < <(stty size </dev/tty 2>/dev/null || echo "24 80")
+        else
+            HOST_ROWS=24; HOST_COLS=80
+        fi
+        cat > "$ROOTFS/demo.sh" <<SH
 #!/bin/sh
 PATH=/usr/local/bin:/usr/bin:/bin:/sbin
-export PATH
+# TERM=dumb disables Node's readline terminal mode (no autocomplete
+# preview, no cursor motion) — which otherwise mangles into the
+# PL011 byte stream as "Object [console] { log: ... error:le"
+# garbage. Plain line-oriented REPL is what we want here.
+export PATH TERM=dumb COLUMNS=$HOST_COLS LINES=$HOST_ROWS
+stty rows $HOST_ROWS cols $HOST_COLS 2>/dev/null || true
 echo ""
 echo "=== machinen-microvm — Node.js REPL ==="
 echo "(type JS; '.exit' or Ctrl-D to quit; ~10s boot before the '>')"
@@ -90,10 +103,28 @@ SH
         # can set its clock at boot. Without this the guest's clock
         # starts at 1970 and every TLS cert looks "not yet valid."
         date +%s > "$ROOTFS/etc/machinen-boot-epoch"
+        # Capture host terminal size so the first shell isn't stuck at
+        # 80x24 before the winsize agent (if any) runs. Written to a
+        # small env file the demo.sh sources on boot.
+        if [[ -t 0 ]]; then
+            read -r HOST_ROWS HOST_COLS < <(stty size </dev/tty 2>/dev/null || echo "24 80")
+        else
+            HOST_ROWS=24; HOST_COLS=80
+        fi
+        printf 'HOST_COLS=%s\nHOST_ROWS=%s\n' "$HOST_COLS" "$HOST_ROWS" \
+            > "$ROOTFS/etc/machinen-tty"
         cat > "$ROOTFS/demo.sh" <<'SH'
 #!/bin/sh
 PATH=/usr/local/bin:/usr/bin:/bin:/sbin
-export PATH HOME=/root TERM=linux
+# xterm-256color is what the host terminal almost always is. The PL011
+# passes bytes through verbatim, so color escapes from ls/grep/less
+# land in the host terminal intact.
+export PATH HOME=/root TERM=xterm-256color
+if [ -f /etc/machinen-tty ]; then
+    . /etc/machinen-tty
+    export COLUMNS="$HOST_COLS" LINES="$HOST_ROWS"
+    stty rows "$HOST_ROWS" cols "$HOST_COLS" 2>/dev/null || true
+fi
 
 load_ko() {
     ko=$(find /lib/modules -name "$1.ko" 2>/dev/null | head -1)
