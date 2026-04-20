@@ -498,11 +498,90 @@ PY
 
 smoke_files() {
     echo "--- files (push/pull over vsock) ---"
-    echo "SKIP: known vsock-bridge streaming bug — file-agent.py and"
-    echo "      VsockFiles are plumbed correctly but the bridge loses/reorders"
-    echo "      bytes on streams beyond the first RW packet. See GH issue."
-    echo "      Re-enable by restoring the original body of smoke_files()."
-    return 0
+    local log=/tmp/microvm-smoke-files.log
+    local sock=/tmp/machinen-smoke-files.sock
+    local src=/tmp/machinen-smoke-files-src
+    local out=/tmp/machinen-smoke-files-out
+    rm -f "$sock"
+    rm -rf "$src" "$out"
+
+    # Populate a source dir: small text files + a 10 KB blob (enough
+    # bytes to span multiple vsock RW packets, which is where the
+    # original streaming bug — #58 — bit us).
+    mkdir -p "$src/subdir"
+    printf 'hello from the host\n' > "$src/hello.txt"
+    printf 'nested\n' > "$src/subdir/nested.txt"
+    dd if=/dev/urandom of="$src/blob.bin" bs=1K count=10 status=none
+    local src_hash
+    src_hash=$(find "$src" -type f -exec shasum -a 256 {} + | awk '{print $1}' | sort | shasum -a 256 | awk '{print $1}')
+
+    repack_with "
+        cp $FIXTURES/file-agent.py $ROOTFS/file-agent.py
+        cp $FIXTURES/file-agent-demo.sh $ROOTFS/demo.sh
+        chmod +x $ROOTFS/demo.sh
+    "
+
+    MACHINEN_VSOCK="in:1976:$sock" MACHINEN_DEBUG=1 MACHINEN_BOOT_TEST=1 \
+        "$TEST_BIN" </dev/null 2>"$log" &
+    local vm_pid=$!
+    local elapsed=0 ready=0
+    while (( elapsed < 30 )); do
+        if grep -q 'file-agent: listening' "$log" 2>/dev/null; then ready=1; break; fi
+        sleep 1; (( ++elapsed ))
+    done
+    if (( ready == 0 )); then
+        fail 'file-agent never reported listening'
+        kill -9 $vm_pid 2>/dev/null || true
+        wait $vm_pid 2>/dev/null || true
+        tail -30 "$log"
+        return
+    fi
+
+    local runtime_entry="$HERE/../runtime/src/index.ts"
+    cat > /tmp/push-test.mjs <<EOJS
+import { VsockFiles } from '$runtime_entry';
+await VsockFiles.push('$sock', '$src', '/stash');
+console.log('push OK');
+EOJS
+    node --import tsx /tmp/push-test.mjs 2>&1 | tail -5
+
+    cat > /tmp/pull-test.mjs <<EOJS
+import { VsockFiles } from '$runtime_entry';
+try {
+  await VsockFiles.pull('$sock', '/stash', '$out');
+  console.log('pull OK');
+} catch (e) {
+  console.log('pull FAILED:', e.message);
+}
+EOJS
+    node --import tsx /tmp/pull-test.mjs 2>&1 | tail -5
+
+    kill -9 $vm_pid 2>/dev/null || true
+    wait $vm_pid 2>/dev/null || true
+    rm -f "$sock"
+
+    local out_hash
+    out_hash=$(find "$out" -type f -exec shasum -a 256 {} + | awk '{print $1}' | sort | shasum -a 256 | awk '{print $1}')
+
+    if [[ "$src_hash" == "$out_hash" ]]; then
+        pass 'push → guest → pull round-tripped all files byte-identical'
+    else
+        fail "content hash mismatch (src=$src_hash out=$out_hash)"
+        echo "--- src tree ---"; find "$src" -type f | head
+        echo "--- out tree ---"; find "$out" -type f | head
+    fi
+
+    local src_bytes out_bytes
+    src_bytes=$(wc -c < "$src/blob.bin" | tr -d ' ')
+    out_bytes=$(wc -c < "$out/blob.bin" 2>/dev/null | tr -d ' ' || echo 0)
+    if [[ "$src_bytes" == "$out_bytes" && "$src_bytes" == "10240" ]]; then
+        pass "10 KB binary round-tripped exact byte count ($src_bytes)"
+    else
+        fail "binary byte-count mismatch (src=$src_bytes out=$out_bytes)"
+    fi
+
+    rm -rf "$src" "$out"
+    rm -f /tmp/push-test.mjs /tmp/pull-test.mjs
 }
 
 smoke_winsize() {

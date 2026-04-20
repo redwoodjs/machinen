@@ -138,8 +138,29 @@ pub const Q_TX: u32 = 1;
 pub const Q_EVENT: u32 = 2;
 
 /// Max per-packet payload. The driver will split larger sends across
-/// packets; this just bounds our scratch buffer.
+/// packets; this just bounds our scratch buffer (TX direction).
 pub const max_payload: usize = 64 * 1024;
+
+/// Per-packet body cap we use when INJECTING RX packets into the
+/// guest. The Linux virtio-vsock driver posts RX buffers as a
+/// SINGLE flat descriptor (not a chain — contrary to what the
+/// spec-tour docs imply). Observed size in Debian 6.1 + modern
+/// kernels is 3776 bytes, covering both the 44-byte vsock header
+/// AND the body. So the body cap is 3776 - 44 = 3732. We round
+/// down further for safety — if any future kernel lowers the
+/// buffer size we'd rather ship packets that fit than silently
+/// corrupt streams.
+///
+/// The symptom of exceeding this cap is writePacket returning null,
+/// injectRx returning false, and `drainConnection` silently losing
+/// whatever it just read from the UDS. File-transfer #57 turned
+/// that into "tar says This does not look like a tar archive"
+/// because the tar header bytes were the ones dropped.
+///
+/// Callers that want to send > 3600 bytes just call drain multiple
+/// times; the poll loop re-fires while there's data in the UDS and
+/// room in the peer window.
+pub const rx_body_per_packet_max: usize = 3600;
 
 /// buf_alloc we advertise on every header we emit. Bigger is cheaper:
 /// fewer credit updates. The guest driver caps its in-flight bytes to
@@ -494,6 +515,7 @@ pub const PortMap = struct {
 };
 
 const POLLIN: i16 = 0x0001;
+const POLLOUT_: i16 = 0x0004;
 const POLLERR: i16 = 0x0008;
 const POLLHUP: i16 = 0x0010;
 
@@ -876,7 +898,12 @@ pub const Bridge = struct {
             c.paused = true;
             return;
         }
-        var buf: [8192]u8 = undefined;
+        // Cap to rx_body_per_packet_max so we never exceed the 4096-
+        // byte body descriptor the Linux vsock driver posts. Multi-
+        // packet streams fall out naturally: the poll loop re-fires
+        // while data is still in the UDS buffer + the peer window is
+        // still open.
+        var buf: [rx_body_per_packet_max]u8 = undefined;
         const cap: usize = @min(buf.len, room);
         const n = read(c.uds_fd, &buf, cap);
         if (n == 0) {
@@ -1050,12 +1077,28 @@ pub const Bridge = struct {
                 c.state = .established;
             },
             .rw => {
-                // Write body to UDS; may partial-write, loop.
+                // Write body to UDS, looping over partial writes AND
+                // brief EAGAIN stalls. The UDS fd is nonblocking (so
+                // the bridge thread's poll loop works); without the
+                // retry, a non-reading host peer made `write()` return
+                // EAGAIN and we'd drop everything past the first
+                // couple of KB. Bug bit hard on pull (#58): guest tar
+                // bytes 3K+ silently vanished and host tar reported
+                // "Truncated tar archive".
                 var remaining = body;
+                var stalls: u32 = 0;
                 while (remaining.len > 0) {
                     const n = write(c.uds_fd, remaining.ptr, remaining.len);
-                    if (n <= 0) break; // blocked or peer closed
-                    remaining = remaining[@intCast(n)..];
+                    if (n > 0) {
+                        remaining = remaining[@intCast(n)..];
+                        continue;
+                    }
+                    if (n == 0) break; // peer closed
+                    // n < 0: EAGAIN. Wait briefly for writability.
+                    var pfds = [_]PollFd{.{ .fd = c.uds_fd, .events = POLLOUT_, .revents = 0 }};
+                    _ = poll(&pfds, 1, 100);
+                    stalls += 1;
+                    if (stalls > 50) break; // ~5 s cumulative, give up
                 }
                 c.bytes_from_peer +%= @intCast(body.len);
                 c.fwd_cnt = c.bytes_from_peer;

@@ -106,8 +106,9 @@ export const VsockFiles = {
     mkdirSync(hostDir, { recursive: true });
     const sock = await connectWithRetry(udsPath, opts);
     try {
+      // `-m` so 1970-era mtimes the guest may stamp don't trip GNU tar.
       sock.write(`PULL ${guestPath}\n`);
-      const tar = spawn("tar", ["-xf", "-", "-C", hostDir], {
+      const tar = spawn("tar", ["-xmf", "-", "-C", hostDir], {
         stdio: ["pipe", "inherit", "inherit"],
       });
       await pipe(sock, tar);
