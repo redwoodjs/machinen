@@ -139,6 +139,12 @@ pub const Device = struct {
     /// `ram_base` is the guest-physical address ram[0] lives at.
     ram: ?[]u8 = null,
     ram_base: u64 = 0,
+    /// Pluggable "a TX packet just came out of the guest" handler.
+    /// `frame` is the ethernet frame with the 12-byte virtio-net
+    /// header stripped; the slice lives only for the callback, copy
+    /// if you need to keep it.
+    tx_handler: ?*const fn (ctx: ?*anyopaque, frame: []const u8) void = null,
+    tx_ctx: ?*anyopaque = null,
 
     status: Status = .{},
     device_features_sel: u32 = 0,
@@ -261,26 +267,49 @@ pub const Device = struct {
         const avail = self.readAvailHeader(q) orelse return;
         while (q.last_avail_idx != avail.idx) {
             const head = self.readAvailRingEntry(q, q.last_avail_idx) orelse return;
-            const total_len = self.walkDescChain(q, head);
+            const total_len = self.walkAndEmit(q, head);
             self.pushUsed(q, head, total_len);
             q.last_avail_idx +%= 1;
         }
         self.interrupt_status |= IRQ_USED_BUFFER;
     }
 
-    fn walkDescChain(self: *Device, q: *Queue, head: u16) u32 {
-        var total: u32 = 0;
+    /// Walk a descriptor chain, read every byte it covers into a
+    /// scratch buffer, and hand the resulting ethernet frame to the
+    /// TX handler (if any). Returns the total chain length so
+    /// pushUsed can write it into the used ring.
+    ///
+    /// virtio-net prepends a 12-byte header (virtio_net_hdr_v1) to
+    /// every packet when VIRTIO_F_VERSION_1 is negotiated. We strip
+    /// it before calling the handler — the handler gets a bare
+    /// ethernet frame, which is what any backend wants to forward.
+    fn walkAndEmit(self: *Device, q: *Queue, head: u16) u32 {
+        // Worst case: MTU 9000 + headers. 16 KiB is a comfortable cap.
+        var scratch: [16 * 1024]u8 = undefined;
+        var written: usize = 0;
+
         var idx: u16 = head;
-        // Cap iterations at q.num to avoid a malicious/broken chain
-        // spinning the host.
         var steps: u32 = 0;
         while (steps < q.num) : (steps += 1) {
-            const desc = self.readDescriptor(q, idx) orelse return total;
-            total +|= desc.len; // saturate on absurd totals
-            if ((desc.flags & VringDesc.F_NEXT) == 0) return total;
+            const desc = self.readDescriptor(q, idx) orelse break;
+            if (desc.len > 0 and written < scratch.len) {
+                const take: usize = @min(desc.len, scratch.len - written);
+                if (self.guestSlice(desc.addr, take)) |bytes| {
+                    @memcpy(scratch[written..][0..take], bytes);
+                    written += take;
+                }
+            }
+            if ((desc.flags & VringDesc.F_NEXT) == 0) break;
             idx = desc.next;
         }
-        return total;
+
+        if (self.tx_handler) |h| {
+            const net_hdr_size: usize = 12; // virtio_net_hdr_v1
+            if (written > net_hdr_size) {
+                h(self.tx_ctx, scratch[net_hdr_size..written]);
+            }
+        }
+        return @intCast(written);
     }
 
     /// Reads raw bytes from guest memory. `null` on out-of-range.
@@ -533,4 +562,52 @@ test "virtio: InterruptACK clears the bits the driver wrote" {
     try std.testing.expectEqual(IRQ_CONFIG_CHANGE, dev.interrupt_status);
     dev.write(0x0A00_0000 + 0x064, IRQ_CONFIG_CHANGE);
     try std.testing.expectEqual(@as(u32, 0), dev.interrupt_status);
+}
+
+// Capture handler used by the TX-readout test: copies frames into a
+// static buffer we can inspect after notify().
+var tx_capture_buf: [256]u8 = @splat(0);
+var tx_capture_len: usize = 0;
+fn txCapture(_: ?*anyopaque, frame: []const u8) void {
+    const n = @min(frame.len, tx_capture_buf.len);
+    @memcpy(tx_capture_buf[0..n], frame[0..n]);
+    tx_capture_len = n;
+}
+
+test "virtio: TX handler receives the ethernet frame with virtio-net header stripped" {
+    const num = 4;
+    var ram: [4096]u8 = @splat(0);
+    tx_capture_len = 0;
+
+    var dev = Device{
+        .base = 0x0A00_0000,
+        .id = .net,
+        .ram = &ram,
+        .ram_base = 0,
+        .tx_handler = &txCapture,
+    };
+    const r = setupRing(&ram, num);
+    dev.queues[1] = r.q;
+
+    // Plant a 12-byte virtio-net header + a tiny ethernet frame at 0x200.
+    // Header bytes are all zero (no GSO, no checksum offload). Frame
+    // payload is `ff ff ff ff ff ff` (broadcast MAC) + `aa bb cc dd ee ff`
+    // (source MAC) + `08 06` (ARP ethertype) — enough to recognise.
+    const pkt_off: usize = 0x200;
+    const frame = [_]u8{ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x08, 0x06 };
+    // 12 bytes header + frame
+    @memset(ram[pkt_off..][0..12], 0); // virtio-net header
+    @memcpy(ram[pkt_off + 12 ..][0..frame.len], &frame);
+
+    const desc0 = VringDesc{ .addr = pkt_off, .len = 12 + frame.len, .flags = 0, .next = 0 };
+    @memcpy(ram[0..@sizeOf(VringDesc)], std.mem.asBytes(&desc0));
+
+    const avail = VringAvail{ .flags = 0, .idx = 1 };
+    @memcpy(ram[r.q.driver_addr..][0..@sizeOf(VringAvail)], std.mem.asBytes(&avail));
+    std.mem.writeInt(u16, ram[r.q.driver_addr + @sizeOf(VringAvail) ..][0..2], 0, .little);
+
+    dev.notify(1);
+
+    try std.testing.expectEqual(@as(usize, frame.len), tx_capture_len);
+    try std.testing.expectEqualSlices(u8, &frame, tx_capture_buf[0..tx_capture_len]);
 }

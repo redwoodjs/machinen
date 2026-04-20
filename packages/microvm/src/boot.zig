@@ -175,11 +175,14 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     var uart: hvf.Pl011 = .init;
     defer uart.deinit(gpa);
 
-    // virtio-net (#46 M1 + M2). Registers + virtqueue processing.
-    // We offer VIRTIO_F_VERSION_1 (bit 32) and VIRTIO_NET_F_MAC
-    // (bit 5). Null backend: TX descriptors are acked, nothing
-    // sent anywhere; RX queue stays idle.
+    // virtio-net (#46 M1 + M2 + M3 foundation). Registers + virtqueue
+    // processing + TX handler that records each outbound ethernet
+    // frame. M3 will hand these frames to a real backend (user-mode
+    // slirp-style NAT). For now the handler just counts bytes and
+    // classifies frames so smoke tests can verify real packet data
+    // flowed out of the guest.
     const virtio_mac = [_]u8{ 0x02, 0xDE, 0xAD, 0xBE, 0xEF, 0x01 };
+    var tx_stats = TxStats{};
     var netdev = virtio.Device{
         .base = virtio_net_base,
         .size = virtio_net_size,
@@ -188,6 +191,8 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         .config = &virtio_mac,
         .ram = ram,
         .ram_base = cfg.ram_base,
+        .tx_handler = &onTxFrame,
+        .tx_ctx = @ptrCast(&tx_stats),
     };
 
     var exits: usize = 0;
@@ -379,6 +384,66 @@ const StdinThread = struct {
     gpa: std.mem.Allocator,
     stop: std.atomic.Value(bool) = .init(false),
 };
+
+/// Running count of TX frames the guest produces, classified by the
+/// first couple of bytes of the ethernet destination MAC. The M3
+/// backend will replace this with "hand frame to slirp"; for now it's
+/// just evidence that real packet bytes reach the host.
+pub const TxStats = struct {
+    frames: u64 = 0,
+    bytes: u64 = 0,
+    ipv4: u64 = 0,
+    ipv6_mcast: u64 = 0,
+    arp: u64 = 0,
+    other: u64 = 0,
+};
+
+fn onTxFrame(ctx: ?*anyopaque, frame: []const u8) void {
+    const stats: *TxStats = @ptrCast(@alignCast(ctx.?));
+    stats.frames += 1;
+    stats.bytes += frame.len;
+
+    var ethertype: u16 = 0;
+    var class: []const u8 = "short";
+    if (frame.len >= 14) {
+        ethertype = (@as(u16, frame[12]) << 8) | @as(u16, frame[13]);
+        class = switch (ethertype) {
+            0x0800 => blk: {
+                stats.ipv4 += 1;
+                break :blk "ipv4";
+            },
+            0x0806 => blk: {
+                stats.arp += 1;
+                break :blk "arp";
+            },
+            0x86DD => blk: {
+                if (frame[0] == 0x33 and frame[1] == 0x33) {
+                    stats.ipv6_mcast += 1;
+                    break :blk "ipv6-mcast";
+                } else {
+                    stats.other += 1;
+                    break :blk "ipv6";
+                }
+            },
+            else => blk: {
+                stats.other += 1;
+                break :blk "other";
+            },
+        };
+    } else {
+        stats.other += 1;
+    }
+
+    // One line per frame so smoke tests can grep. Kept short and
+    // parseable — host-side diagnostic, not guest serial.
+    var buf: [96]u8 = undefined;
+    const msg = std.fmt.bufPrint(
+        &buf,
+        "[tx] #{d} len={d} ethertype=0x{x:0>4} class={s}\n",
+        .{ stats.frames, frame.len, ethertype, class },
+    ) catch return;
+    _ = write(2, msg.ptr, msg.len);
+}
 
 fn stdinThreadMain(ctx: *StdinThread) void {
     var buf: [256]u8 = undefined;

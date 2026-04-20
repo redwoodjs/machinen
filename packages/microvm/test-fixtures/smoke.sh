@@ -170,6 +170,14 @@ SH
     else
         fail "TX queue did not drain (tx_packets='$tx_after')"
     fi
+
+    # M3 foundation: host read the actual frame bytes out of guest
+    # memory and classified them. IPv6 multicast frames are what the
+    # kernel auto-emits; any of them hitting the `[tx]` log proves
+    # the readout path works, not just the descriptor accounting.
+    grep -q '^\[tx\] .* class=ipv6-mcast' "${log}" \
+        && pass 'host received IPv6 multicast frames from guest' \
+        || fail 'no IPv6-mcast frames captured on host'
 }
 
 case "$MODE" in
