@@ -5,9 +5,20 @@ Newc cpio format, built byte-for-byte so we can include device nodes
 that macOS's native cpio tooling can't produce.
 
 Modes:
-  minimal           — tiny cpio with our hand-written /init + /dev/console.
-  --rootfs <dir>    — wrap an already-extracted Alpine-style rootfs, then
-                      overlay our /init and ensure /dev/console exists.
+  minimal                       — tiny cpio with our hand-written /init
+                                  + /dev/console.
+  --rootfs <dir>                — wrap an already-extracted Alpine-style
+                                  rootfs, then overlay our /init and
+                                  ensure /dev/console exists.
+  --workspace <dir> --out PATH  — emit a cpio containing only the files
+                                  under <dir>, rooted at /workspace. Meant
+                                  to be concatenated after the base
+                                  initramfs.cpio so the kernel's multi-cpio
+                                  unpacker drops the workspace into tmpfs
+                                  at /workspace. No trailer — the kernel
+                                  ignores everything after the trailer in
+                                  the base archive; we write one trailer
+                                  at the END of the concatenated stream.
 """
 import os, stat, struct, sys
 from pathlib import Path
@@ -72,8 +83,125 @@ def entries_from_rootfs(root: Path):
     yield newc(".", 0o40755)
     yield from walk("")
 
+DEFAULT_EXCLUDES = {
+    ".git",
+    "node_modules",
+    ".zig-cache",
+    "target",             # Rust
+    "dist",               # built artifacts
+    "build",              # CMake / autotools
+    "__pycache__",
+    ".venv", "venv",
+    ".DS_Store",
+    ".next", ".nuxt",     # framework caches
+    ".cache",
+    ".turbo",
+    ".pnpm-store",
+}
+
+
+def workspace_cpio(src: Path, mountpoint: str = "workspace", excludes=None):
+    """Yield cpio bytes for everything under `src`, rooted at `/<mountpoint>`.
+
+    This is appended to the base initramfs.cpio; the Linux kernel's
+    initramfs unpacker merges multiple concatenated cpio archives into
+    the same rootfs tmpfs. We emit NO trailer here — the caller writes
+    one trailer at the end of the whole stream.
+
+    `excludes` is a set of directory/file names to skip (matched by
+    basename at every level). Defaults to DEFAULT_EXCLUDES, which is
+    the usual "don't ship my 700 MB node_modules into a tmpfs" list.
+    """
+    ex = set(DEFAULT_EXCLUDES) if excludes is None else set(excludes)
+    yield newc(mountpoint, 0o40755)
+    root = str(src)
+
+    total_bytes = 0
+
+    def walk(rel):
+        nonlocal total_bytes
+        full = os.path.join(root, rel) if rel else root
+        try:
+            entries = sorted(os.listdir(full))
+        except (OSError, FileNotFoundError):
+            return
+        for name in entries:
+            if name in ex:
+                continue
+            child_rel = os.path.join(rel, name) if rel else name
+            child_full = os.path.join(full, name)
+            arc_name = f"{mountpoint}/{child_rel}"
+            try:
+                st = os.lstat(child_full)
+            except FileNotFoundError:
+                continue
+            m = st.st_mode
+            if stat.S_ISLNK(m):
+                target = os.readlink(child_full).encode()
+                yield newc(arc_name, 0o120000 | (m & 0o7777), data=target)
+            elif stat.S_ISDIR(m):
+                yield newc(arc_name, 0o40000 | (m & 0o7777))
+                yield from walk(child_rel)
+            elif stat.S_ISREG(m):
+                with open(child_full, "rb") as fh:
+                    data = fh.read()
+                total_bytes += len(data)
+                yield newc(arc_name, 0o100000 | (m & 0o7777), data=data)
+
+    yield from walk("")
+    # Reveal the size so the try.sh caller can sanity-check.
+    print(f"  workspace files: {total_bytes} bytes", file=sys.stderr)
+
+
 def main():
     args = sys.argv[1:]
+    # --workspace <dir> --out <path> [--exclude NAME]... [--max-mb N]
+    if args and args[0] == "--workspace":
+        src = Path(args[1]).resolve()
+        out = None
+        extra_ex = set()
+        max_mb = 500  # sensible default: initramfs lives in tmpfs
+        i = 2
+        while i < len(args):
+            if args[i] == "--out":
+                out = Path(args[i + 1]).resolve()
+                i += 2
+            elif args[i] == "--exclude":
+                extra_ex.add(args[i + 1])
+                i += 2
+            elif args[i] == "--max-mb":
+                max_mb = int(args[i + 1])
+                i += 2
+            else:
+                print(f"unknown flag: {args[i]}", file=sys.stderr)
+                sys.exit(2)
+        if out is None:
+            print("--workspace requires --out <path>", file=sys.stderr)
+            sys.exit(2)
+        if not src.is_dir():
+            print(f"--workspace: {src} is not a directory", file=sys.stderr)
+            sys.exit(2)
+        print(f"packing workspace: {src} -> {out}", file=sys.stderr)
+        excludes = DEFAULT_EXCLUDES | extra_ex
+        parts = list(workspace_cpio(src, excludes=excludes))
+        # Size cap — the workspace lands in tmpfs and 4 GB of guest
+        # RAM also has to hold the base rootfs + kernel. Fail loudly
+        # rather than OOM the guest silently.
+        total = sum(len(p) for p in parts)
+        cap = max_mb * 1024 * 1024
+        if total > cap:
+            print(
+                f"workspace is {total / 1024 / 1024:.0f} MB "
+                f"(cap {max_mb} MB). Try --exclude <dir> for each big subdir, "
+                f"or --max-mb <N> to raise the cap.",
+                file=sys.stderr,
+            )
+            sys.exit(3)
+        parts.append(newc("TRAILER!!!", 0))
+        out.write_bytes(b"".join(parts))
+        print(f"wrote {out} ({out.stat().st_size} bytes)", file=sys.stderr)
+        return
+
     if args and args[0] == "--rootfs":
         root = Path(args[1]).resolve()
         print(f"packing rootfs: {root}")
