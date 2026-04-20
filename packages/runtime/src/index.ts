@@ -9,14 +9,20 @@
 //   const out = await vm.output();
 //   await vm.wait();
 //
-// That's it for v0.1 — no virtio, no spawn-from-snapshot, no
-// multiplexing. Just a child-process wrapper with an async-friendly
-// shape. See issues #46, #50, #51 for the bigger pieces this depends
-// on or unblocks.
+// #50 M2 adds snapshot-aware spawn on top:
+//
+//   await buildSnapshot({ binary, diskPath: "./warm.img", ... });
+//   const vm = await spawn({ binary, disk: "./warm.img" });
+//   // vm is now running a process that was frozen in a previous VMM.
+//
+// No multiplexing yet — one VM per handle (#51 is its own issue).
 
-import { type ChildProcessWithoutNullStreams, spawn as nodeSpawn } from "node:child_process";
+import {
+  type ChildProcessWithoutNullStreams,
+  spawn as nodeSpawn,
+} from "node:child_process";
 import { once } from "node:events";
-import { existsSync } from "node:fs";
+import { closeSync, existsSync, openSync, writeSync } from "node:fs";
 import { resolve } from "node:path";
 import type { Readable, Writable } from "node:stream";
 
@@ -36,6 +42,12 @@ export interface SpawnOptions {
    * Defaults to 60s. Pass `null` to wait forever.
    */
   timeoutMs?: number | null;
+  /**
+   * Attach this host file as `/dev/vda` inside the guest. Same thing
+   * as setting `MACHINEN_DISK` in `env`; this is just the named
+   * shortcut. See #47 (virtio-blk) and #50 (snapshot-from-disk).
+   */
+  disk?: string;
 }
 
 export interface VmHandle {
@@ -63,9 +75,21 @@ export async function spawn(opts: SpawnOptions): Promise<VmHandle> {
     throw new SpawnError(`VMM binary not found at ${binary}`);
   }
 
+  const env: Record<string, string> = {
+    ...(process.env as Record<string, string>),
+    ...opts.env,
+  };
+  if (opts.disk) {
+    const abs = resolve(opts.cwd ?? process.cwd(), opts.disk);
+    if (!existsSync(abs)) {
+      throw new SpawnError(`disk image not found: ${abs}`);
+    }
+    env.MACHINEN_DISK = abs;
+  }
+
   const child = nodeSpawn(binary, opts.args ?? [], {
     cwd: opts.cwd,
-    env: { ...process.env, ...opts.env },
+    env,
     stdio: ["pipe", "pipe", "pipe"],
   }) as ChildProcessWithoutNullStreams;
 
@@ -124,5 +148,109 @@ function collect(stream: Readable): Promise<string> {
     stream.on("end", () => done(Buffer.concat(chunks).toString("utf8")));
     stream.on("close", () => done(Buffer.concat(chunks).toString("utf8")));
     stream.on("error", fail);
+  });
+}
+
+// =============================================================
+// Snapshots — #50 M2
+// =============================================================
+//
+// A snapshot is "the serialized state of a warm process tree plus
+// whatever filesystem state the warmup left behind." It lives as a
+// single ext4 disk image that the guest:
+//
+//   - formats and writes CRIU images into during the warmup boot, and
+//   - mounts and restores from during every spawn boot.
+//
+// The runtime's job here is the orchestration around that image:
+// create it, boot the VMM pointing at it, watch for the warmup to
+// finish, then hand the same image off to `spawn({ disk: ... })`
+// for as many restores as the caller wants.
+
+export interface BuildSnapshotOptions extends SpawnOptions {
+  /** Output file for the snapshot image. Created if missing. */
+  diskPath: string;
+  /** Size of the blank disk to create (bytes). Default 128 MiB. */
+  diskSizeBytes?: number;
+  /**
+   * Wall-clock ceiling for the warmup run. If the VMM doesn't exit
+   * cleanly in this window we SIGKILL it and fail. Default 90s.
+   */
+  timeoutMs?: number;
+}
+
+export interface SnapshotResult {
+  diskPath: string;
+  /** Time from process.spawn to VMM exit, in milliseconds. */
+  elapsedMs: number;
+  /** Guest console output captured during the warmup run. */
+  consoleLog: string;
+}
+
+/**
+ * Prepare a snapshot image by booting the VMM in "warmup" mode.
+ *
+ * The caller is responsible for providing a binary + initramfs whose
+ * /demo.sh runs the warmup flow (`spawn-warmup.sh` in the microvm
+ * package's test-fixtures is the reference). This function just:
+ *
+ *   1. Creates `diskPath` as a blank `diskSizeBytes`-byte file.
+ *   2. Launches the VMM with MACHINEN_DISK pointing at that file.
+ *   3. Waits for the VMM to exit (the guest triggers this via PSCI
+ *      SYSTEM_OFF once CRIU dump is done).
+ *   4. Returns the path + stats.
+ */
+export async function buildSnapshot(
+  opts: BuildSnapshotOptions,
+): Promise<SnapshotResult> {
+  const diskPath = resolve(opts.cwd ?? process.cwd(), opts.diskPath);
+  const size = opts.diskSizeBytes ?? 128 * 1024 * 1024;
+
+  // Allocate the empty disk file.
+  const fd = openSync(diskPath, "w");
+  try {
+    // Writing a single zero byte at size-1 sparsely extends the file.
+    const buf = Buffer.alloc(1);
+    writeSync(fd, buf, 0, 1, size - 1);
+  } finally {
+    closeSync(fd);
+  }
+
+  const t0 = Date.now();
+  const vm = await spawn({
+    ...opts,
+    disk: diskPath,
+    timeoutMs: opts.timeoutMs ?? null,
+  });
+  // Cap runtime outside of wait() so we can still kill and surface
+  // whatever console output we got.
+  const deadlineMs = opts.timeoutMs ?? 90_000;
+  const kill = setTimeout(() => void vm.kill(), deadlineMs);
+  kill.unref();
+  try {
+    await vm.wait();
+  } finally {
+    clearTimeout(kill);
+  }
+  const elapsedMs = Date.now() - t0;
+  const consoleLog = await vm.errorOutput();
+
+  if (!consoleLog.includes("dump OK")) {
+    throw new SpawnError(
+      `warmup never reported "dump OK" — check console log:\n${consoleLog.slice(-2000)}`,
+    );
+  }
+  return { diskPath, elapsedMs, consoleLog };
+}
+
+/**
+ * Time-to-first-output-byte for a spawn. Useful for measuring how
+ * much the snapshot path is (or isn't) buying us.
+ */
+export function measureFirstByte(vm: VmHandle): Promise<number> {
+  const started = Date.now();
+  return new Promise((done, fail) => {
+    vm.stderr.once("data", () => done(Date.now() - started));
+    vm.stderr.once("error", fail);
   });
 }

@@ -7,10 +7,10 @@
 // Image/virt.dtb/initramfs fixtures, or the HVF-entitled test binary.
 
 import { execSync } from "node:child_process";
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { SpawnError, spawn } from "../index.ts";
+import { SpawnError, buildSnapshot, measureFirstByte, spawn } from "../index.ts";
 
 const microvmRoot = resolve(import.meta.dirname, "../../../microvm");
 
@@ -94,4 +94,74 @@ describe("spawn", () => {
     expect(stderr).toContain("Linux version");
     expect(stderr).toContain("Freeing unused kernel memory");
   }, 30_000);
+});
+
+describe("disk option", () => {
+  it("throws SpawnError when the disk path does not exist", async () => {
+    await expect(
+      spawn({ binary: "/bin/sh", disk: "/nope/missing.img" }),
+    ).rejects.toThrow(/disk image not found/);
+  });
+
+  it("passes the resolved disk path as MACHINEN_DISK to the child", async () => {
+    // Round-trip test: echo-env-then-exit. Any existing file works as
+    // a stand-in for a disk image since we're not actually running a
+    // VMM here.
+    const disk = `/tmp/machinen-runtime-disk-${process.pid}`;
+    writeFileSync(disk, "");
+    try {
+      const vm = await spawn({
+        binary: "/bin/sh",
+        args: ["-c", "printf 'DISK=%s\\n' \"$MACHINEN_DISK\""],
+        disk,
+        timeoutMs: 2_000,
+      });
+      await vm.wait();
+      const out = await vm.output();
+      expect(out.trim()).toBe(`DISK=${disk}`);
+    } finally {
+      try {
+        unlinkSync(disk);
+      } catch {}
+    }
+  });
+});
+
+describe("measureFirstByte", () => {
+  it("returns the wall-clock time before the child produces stderr", async () => {
+    // /bin/sh writes the `1` to stderr immediately.
+    const vm = await spawn({
+      binary: "/bin/sh",
+      args: ["-c", "echo 1 >&2; sleep 1"],
+      timeoutMs: 3_000,
+    });
+    const ms = await measureFirstByte(vm);
+    await vm.wait();
+    expect(ms).toBeGreaterThanOrEqual(0);
+    expect(ms).toBeLessThan(1500); // well under the 1s sleep
+  });
+});
+
+describe("buildSnapshot", () => {
+  it("creates the disk file at the requested size even if the VMM fails fast", async () => {
+    // Point at a binary that exits immediately, so the VMM "fails"
+    // in the dump-OK-check but the disk file still exists.
+    const disk = `/tmp/machinen-runtime-snap-${process.pid}.img`;
+    try {
+      await expect(
+        buildSnapshot({
+          binary: "/usr/bin/true",
+          diskPath: disk,
+          diskSizeBytes: 1 * 1024 * 1024, // 1 MiB
+          timeoutMs: 5_000,
+        }),
+      ).rejects.toThrow(/dump OK/);
+      expect(existsSync(disk)).toBe(true);
+      expect(statSync(disk).size).toBe(1 * 1024 * 1024);
+    } finally {
+      try {
+        unlinkSync(disk);
+      } catch {}
+    }
+  });
 });

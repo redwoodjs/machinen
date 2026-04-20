@@ -661,10 +661,19 @@ test "boot a real arm64 Linux kernel" {
     }
 
     const gpa = std.testing.allocator;
-    // If the caller placed a disk image alongside the kernel, expose
-    // it as /dev/vda. Otherwise the virtio-blk device is disabled.
-    const disk_fixture = "test-fixtures/disk.img";
-    const disk_path: ?[]const u8 = if (access(disk_fixture ++ "\x00", F_OK) == 0) disk_fixture else null;
+    // If the caller placed a disk image alongside the kernel (or set
+    // MACHINEN_DISK in the env), expose it as /dev/vda. Otherwise
+    // the virtio-blk device is disabled.
+    const disk_env = getenv("MACHINEN_DISK");
+    const disk_path: ?[]const u8 = blk: {
+        if (disk_env) |p| {
+            const s = std.mem.span(p);
+            if (s.len > 0) break :blk s;
+        }
+        const fallback = "test-fixtures/disk.img";
+        if (access(fallback ++ "\x00", F_OK) == 0) break :blk fallback;
+        break :blk null;
+    };
     const result = boot(gpa, .{
         .kernel_path = kernel_fixture,
         .dtb_path = dtb_fixture,
