@@ -98,11 +98,13 @@ describe("spawn", () => {
       .replace(new RegExp(`${ESC}\\[[0-9;]*[a-zA-Z]`, "g"), "")
       .replace(/\r/g, "");
 
-    // These two markers appear in any successful Linux boot and prove
-    // the chain worked: our Zig VMM mapped memory, loaded the kernel,
-    // ran it, and piped its serial output back to us.
+    // These markers prove the chain worked: our Zig VMM mapped memory,
+    // loaded the kernel, ran it, and piped its serial output back to
+    // us. Kernel cmdline now boots quiet (loglevel=3) so most info-
+    // level setup chatter is suppressed — the banner line still makes
+    // it through because it's printed via earlycon before cmdline
+    // parsing applies the level filter.
     expect(stderr).toContain("Linux version");
-    expect(stderr).toContain("Freeing unused kernel memory");
   }, 30_000);
 });
 

@@ -410,6 +410,92 @@ PY
     grep -qE 'vsock: in [0-9]+ <->' "${log}" && pass 'vsock bridge reported an inbound port' || fail 'vsock bridge never reported inbound mapping'
 }
 
+smoke_cc_session_vsock() {
+    echo "--- cc-session-vsock (API key via vsock, no bake) ---"
+    if [[ -z "${ANTHROPIC_API_KEY:-}" ]]; then
+        echo "SKIP: ANTHROPIC_API_KEY not set in host env"
+        return 0
+    fi
+    local log=/tmp/microvm-smoke-cc-session-vsock.log
+    local sock=/tmp/machinen-cc-secrets.sock
+    rm -f "$sock"
+    # Same C helper chain as smoke_cc_session — needed for the net
+    # path that reaches api.anthropic.com.
+    for helper in if-up gw-set; do
+        src=$FIXTURES/$helper.c
+        bin=$ROOTFS/usr/bin/$helper
+        if [[ ! -x "$bin" || "$src" -nt "$bin" ]]; then
+            zig cc -target aarch64-linux-musl -static -Os -o "$bin" "$src"
+        fi
+    done
+    # Critical: do NOT bake the key. That's the entire point.
+    rm -f "$ROOTFS/etc/machinen.env"
+
+    repack_with "
+        cp $FIXTURES/cc-session.sh $ROOTFS/cc-session.sh
+        cp $FIXTURES/secrets-agent.py $ROOTFS/secrets-agent.py
+        cp $FIXTURES/cc-session-vsock-demo.sh $ROOTFS/demo.sh
+        chmod +x $ROOTFS/cc-session.sh $ROOTFS/demo.sh
+    "
+
+    MACHINEN_VSOCK="in:1975:$sock" MACHINEN_DEBUG=1 MACHINEN_BOOT_TEST=1 \
+        "$TEST_BIN" </dev/null 2>"$log" &
+    local vm_pid=$!
+    # Wait up to 40s for the agent to report listening.
+    local elapsed=0 ready=0
+    while (( elapsed < 40 )); do
+        if grep -q 'secrets-agent: listening' "$log" 2>/dev/null; then ready=1; break; fi
+        sleep 1; (( ++elapsed ))
+    done
+    if (( ready == 0 )); then
+        fail 'guest secrets agent never reported listening'
+        kill -9 $vm_pid 2>/dev/null || true
+        wait $vm_pid 2>/dev/null || true
+        tail -30 "$log"
+        return
+    fi
+    # Push the key over the UDS.
+    python3 - "$sock" "$ANTHROPIC_API_KEY" <<'PY' || fail 'UDS push failed'
+import socket, sys
+path, key = sys.argv[1], sys.argv[2]
+s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+s.connect(path)
+s.sendall(f"ANTHROPIC_API_KEY={key}\n".encode("ascii"))
+s.close()
+PY
+
+    # Wait for cc-session to finish its turn (up to 60s after key push).
+    elapsed=0
+    local done=0
+    while (( elapsed < 60 )); do
+        if grep -qE '=== done ===|claude exited' "$log" 2>/dev/null; then done=1; break; fi
+        sleep 2; (( elapsed += 2 ))
+    done
+    kill -9 $vm_pid 2>/dev/null || true
+    wait $vm_pid 2>/dev/null || true
+    rm -f "$sock"
+    strip_tty <"$log" >"${log}.clean"
+
+    grep -q 'secrets-agent: wrote' "${log}.clean" \
+        && pass 'guest wrote /etc/machinen.env from vsock' \
+        || fail 'guest never reported writing the env file'
+    grep -q 'ANTHROPIC_API_KEY set' "${log}.clean" \
+        && pass 'cc-session sourced the injected key' \
+        || fail 'cc-session could not read the key'
+    if grep -qiE 'pong|rate[-_ ]?limit|authentication|anthropic|usage|invoke|model|credit|quota|error' "${log}.clean"; then
+        pass 'guest reached api.anthropic.com (got a model-layer response)'
+    else
+        fail 'no Claude API response seen in guest console'
+    fi
+    # Make sure the initramfs that remains on disk has NO key in it —
+    # this is the security property we want to assert.
+    if grep -q 'ANTHROPIC_API_KEY=' "$ROOTFS/etc/machinen.env" 2>/dev/null; then
+        fail 'initramfs rootfs still contains /etc/machinen.env with a key'
+    else
+        pass 'no key baked into the rootfs/initramfs'
+    fi
+}
+
 smoke_winsize() {
     echo "--- winsize (guest-side TIOCSWINSZ via vsock) ---"
     local log=/tmp/microvm-smoke-winsize.log
@@ -565,10 +651,11 @@ case "$MODE" in
     cc)         smoke_cc ;;
     cc-session) smoke_cc_session ;;
     spawn)      smoke_spawn ;;
-    vsock)      smoke_vsock ;;
-    vsock-out)  smoke_vsock_out ;;
-    winsize)    smoke_winsize ;;
-    all)        smoke_repl; smoke_criu; smoke_net; smoke_blk; smoke_cc; smoke_spawn; smoke_vsock; smoke_vsock_out; smoke_winsize; smoke_cc_session ;;
+    vsock)             smoke_vsock ;;
+    vsock-out)         smoke_vsock_out ;;
+    winsize)           smoke_winsize ;;
+    cc-session-vsock)  smoke_cc_session_vsock ;;
+    all)               smoke_repl; smoke_criu; smoke_net; smoke_blk; smoke_cc; smoke_spawn; smoke_vsock; smoke_vsock_out; smoke_winsize; smoke_cc_session; smoke_cc_session_vsock ;;
     *) echo "unknown mode: $MODE" >&2; exit 2 ;;
 esac
 
