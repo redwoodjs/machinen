@@ -571,31 +571,32 @@ pub const Vcpu = struct {
     }
 
     /// Read the MMIO exit payload. Call only when run() returned
-    /// .mmio. The payload lives at offset 0x90 on arm64 kvm_run (a
-    /// kernel-ABI offset stable since kernel v3.x).
+    /// .mmio. The union starts at offset 0x20 inside kvm_run (right
+    /// after `apic_base` at 0x18), on builds without the S390
+    /// extension — which matches x86_64 and arm64.
     pub fn mmioExit(self: *Vcpu) MmioExit {
         const base: [*]u8 = @ptrCast(self.run_page);
         var out: MmioExit = undefined;
-        @memcpy(std.mem.asBytes(&out), base[0x90..][0..@sizeOf(MmioExit)]);
+        @memcpy(std.mem.asBytes(&out), base[0x20..][0..@sizeOf(MmioExit)]);
         return out;
     }
 
     /// Read the SYSTEM_EVENT exit payload. Used for PSCI SHUTDOWN /
-    /// RESET. Same struct union as MMIO; offset 0x90 inside kvm_run.
+    /// RESET. Same struct union as MMIO; offset 0x20 inside kvm_run.
     pub fn systemEventExit(self: *Vcpu) SystemEventExit {
         const base: [*]u8 = @ptrCast(self.run_page);
         var out: SystemEventExit = undefined;
-        @memcpy(std.mem.asBytes(&out), base[0x90..][0..@sizeOf(SystemEventExit)]);
+        @memcpy(std.mem.asBytes(&out), base[0x20..][0..@sizeOf(SystemEventExit)]);
         return out;
     }
 
     /// When handling an MMIO READ exit, the guest expects us to
     /// fill `kvm_run.mmio.data[0..len]` with the register contents
-    /// before the next `KVM_RUN`. This writes up to 8 bytes at the
-    /// in-struct data offset (0x90 + 8 = 0x98 on arm64 kvm_run).
+    /// before the next `KVM_RUN`. `mmio.data` lives at 0x20 + 8 =
+    /// 0x28 in the kvm_run page.
     pub fn writeMmioReadData(self: *Vcpu, value: u64, len: u32) void {
         const base: [*]u8 = @ptrCast(self.run_page);
-        const slot: []u8 = base[0x98 .. 0x98 + 8];
+        const slot: []u8 = base[0x28 .. 0x28 + 8];
         std.mem.writeInt(u64, slot[0..8], value, .little);
         _ = len;
     }
@@ -775,11 +776,16 @@ test "KVM proof-of-life: create VM, create vCPU, map + run one instr" {
     defer _ = munmap(page_ptr.?, page_size);
     const page: [*]u8 = @ptrCast(page_ptr.?);
 
-    // ARM64 `wfi` = 0xD503207F (little-endian: 0x7F 0x20 0x03 0xD5).
-    page[0] = 0x7F;
-    page[1] = 0x20;
-    page[2] = 0x03;
-    page[3] = 0xD5;
+    // ARM64 `LDR W0, [X0]` = 0xB9400000 (little-endian: 00 00 40 B9).
+    // With X0 preloaded to an unmapped guest-physical address, the
+    // load faults and KVM bounces back to userspace with KVM_EXIT_MMIO.
+    // This is the most portable "did a guest instruction run and did
+    // KVM return cleanly" check — WFI and HVC both have kernel paths
+    // that can swallow the exit.
+    page[0] = 0x00;
+    page[1] = 0x00;
+    page[2] = 0x40;
+    page[3] = 0xB9;
 
     const guest_phys: u64 = 0x4000_0000;
     try vm.mapMemory(0, guest_phys, page[0..page_size]);
@@ -791,10 +797,10 @@ test "KVM proof-of-life: create VM, create vCPU, map + run one instr" {
 
     try vcpu.init(target);
     try vcpu.setReg(REG_PC, guest_phys);
+    // Unmapped address — the load will fault and exit with MMIO.
+    try vcpu.setReg(REG_X0, 0xA000_0000);
 
     const reason = try vcpu.run();
-    // The guest went to sleep on WFI — KVM reports that as an
-    // internal exit (WFI without an interrupt pending parks the
-    // vCPU). Any clean exit is fine for "the plumbing works."
     std.debug.print("kvm proof-of-life: exit reason = {d}\n", .{@intFromEnum(reason)});
+    try std.testing.expectEqual(ExitReason.mmio, reason);
 }
