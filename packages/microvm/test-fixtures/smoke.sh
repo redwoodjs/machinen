@@ -351,6 +351,63 @@ SH
     fi
 }
 
+smoke_vsock() {
+    echo "--- vsock ---"
+    local log=/tmp/microvm-smoke-vsock.log
+    local sock=/tmp/machinen-smoke-vsock.sock
+    rm -f "$sock"
+    repack_with "
+        cp $FIXTURES/vsock-demo.sh $ROOTFS/demo.sh
+        chmod +x $ROOTFS/demo.sh
+    "
+    MACHINEN_VSOCK="1234:$sock" MACHINEN_BOOT_TEST=1 "$TEST_BIN" </dev/null 2>"$log" &
+    local vm_pid=$!
+    # Wait up to 30s for the guest echo server to report ready.
+    local elapsed=0
+    local ready=0
+    while (( elapsed < 30 )); do
+        if grep -q 'vsock-demo: listening' "$log" 2>/dev/null; then ready=1; break; fi
+        sleep 1; (( ++elapsed ))
+    done
+    if (( ready == 0 )); then
+        fail 'guest never reported vsock-demo: listening'
+        kill -9 $vm_pid 2>/dev/null || true
+        wait $vm_pid 2>/dev/null || true
+        return
+    fi
+    # Round-trip "hello-vsock" via the UDS.
+    local got
+    got=$(python3 - "$sock" <<'PY' 2>/dev/null
+import socket, sys, time
+s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+s.connect(sys.argv[1])
+msg = b"hello-vsock\n"
+s.sendall(msg)
+s.settimeout(5)
+data = b""
+t0 = time.time()
+while time.time() - t0 < 5 and len(data) < len(msg):
+    try:
+        chunk = s.recv(4096)
+        if not chunk: break
+        data += chunk
+    except socket.timeout: break
+sys.stdout.buffer.write(data)
+PY
+)
+    kill -9 $vm_pid 2>/dev/null || true
+    wait $vm_pid 2>/dev/null || true
+    rm -f "$sock"
+    # Command substitution strips trailing newlines, so compare without.
+    if [[ "$got" == "hello-vsock" ]]; then
+        pass 'UDS <-> guest AF_VSOCK round-trip'
+    else
+        fail "UDS round-trip returned '$got' (expected 'hello-vsock')"
+    fi
+    strip_tty <"$log" >"${log}.clean"
+    grep -q 'vsock: listening on' "${log}" && pass 'vsock bridge came up on host' || fail 'vsock bridge never reported listening'
+}
+
 case "$MODE" in
     repl)       smoke_repl ;;
     criu)       smoke_criu ;;
@@ -359,7 +416,8 @@ case "$MODE" in
     cc)         smoke_cc ;;
     cc-session) smoke_cc_session ;;
     spawn)      smoke_spawn ;;
-    all)        smoke_repl; smoke_criu; smoke_net; smoke_blk; smoke_cc; smoke_spawn; smoke_cc_session ;;
+    vsock)      smoke_vsock ;;
+    all)        smoke_repl; smoke_criu; smoke_net; smoke_blk; smoke_cc; smoke_spawn; smoke_vsock; smoke_cc_session ;;
     *) echo "unknown mode: $MODE" >&2; exit 2 ;;
 esac
 

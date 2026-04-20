@@ -151,6 +151,11 @@ pub const Device = struct {
     /// owns the used-ring bookkeeping via queuePushUsed.
     request_handler: ?*const fn (ctx: ?*anyopaque, dev: *Device, q_idx: u32, head: u16) void = null,
     request_ctx: ?*anyopaque = null,
+    /// Bitmap of queues to SKIP in the request-handler auto-drain loop.
+    /// Useful for vsock, where queue 0 is driver-posted receive buffers
+    /// the device fills on demand — not something we consume on notify.
+    /// Bit `i` set = skip queue i. Default 0 means "drain every queue".
+    skip_notify_queues: u32 = 0,
 
     status: Status = .{},
     device_features_sel: u32 = 0,
@@ -275,6 +280,11 @@ pub const Device = struct {
 
         // Generic: request-based device (block, etc.).
         if (self.request_handler) |handler| {
+            // Queues in skip_notify_queues are not auto-drained — the
+            // device is expected to consume those chains on its own
+            // cadence (e.g. vsock RX: filled lazily by the host when
+            // there's something to send to the guest).
+            if ((self.skip_notify_queues >> @as(u5, @intCast(q_idx))) & 1 != 0) return;
             const avail = self.readAvailHeader(q) orelse return;
             while (q.last_avail_idx != avail.idx) {
                 const head = self.readAvailRingEntry(q, q.last_avail_idx) orelse return;
