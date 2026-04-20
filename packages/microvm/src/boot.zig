@@ -175,10 +175,10 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     var uart: hvf.Pl011 = .init;
     defer uart.deinit(gpa);
 
-    // virtio-net stub (#46 M1). Registers exist, kernel reaches
-    // DRIVER_OK, no packets flow yet. We offer VIRTIO_F_VERSION_1
-    // (bit 32) and VIRTIO_NET_F_MAC (bit 5) so the kernel gets a
-    // stable MAC and doesn't need to negotiate extra features.
+    // virtio-net (#46 M1 + M2). Registers + virtqueue processing.
+    // We offer VIRTIO_F_VERSION_1 (bit 32) and VIRTIO_NET_F_MAC
+    // (bit 5). Null backend: TX descriptors are acked, nothing
+    // sent anywhere; RX queue stays idle.
     const virtio_mac = [_]u8{ 0x02, 0xDE, 0xAD, 0xBE, 0xEF, 0x01 };
     var netdev = virtio.Device{
         .base = virtio_net_base,
@@ -186,16 +186,20 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         .id = .net,
         .features = (1 << 32) | (1 << 5),
         .config = &virtio_mac,
+        .ram = ram,
+        .ram_base = cfg.ram_base,
     };
 
     var exits: usize = 0;
     var saw_off = false;
 
-    // PL011 IRQ. The device tree says `interrupts = <0 1 4>` — SPI #1
-    // in dts-relative numbering, which is `spi_base + 1` as an absolute
-    // GIC id.
+    // IRQs. DTS gives each device a SPI number (0-based within SPIs):
+    //   PL011 UART:  interrupts = <0 1  4>  -> SPI #1
+    //   virtio-mmio: interrupts = <0 16 1>  -> SPI #16
+    // The absolute GIC id is `spi.base + <n>`.
     const spi = try hvf.Gic.spiRange();
     const pl011_irq: u32 = spi.base + 1;
+    const virtio_irq: u32 = spi.base + 16;
 
     // Stdin-reader thread: blocks on read(0) and, when bytes arrive,
     // pushes them into the UART's RX FIFO and raises the PL011 IRQ.
@@ -310,8 +314,10 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
                 } else if (netdev.handles(info.ipa)) {
                     // virtio-MMIO device slot. The kernel's
                     // virtio_mmio bus driver probes it, negotiates
-                    // features, and sets up queues (which we accept
-                    // but don't yet service — #46 M2).
+                    // features, sets up queues, and kicks the TX
+                    // queue doorbell to send packets. We service
+                    // TX (null backend: ack-and-drop), raise the
+                    // device IRQ when the used ring gains entries.
                     if (info.is_write) {
                         const value = try info.readSource(vcpu);
                         netdev.write(info.ipa, value);
@@ -319,6 +325,9 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
                         const reg: hvf.Reg = @enumFromInt(@as(u32, info.srt));
                         try vcpu.setReg(reg, netdev.read(info.ipa));
                     }
+                    // Level-triggered IRQ line: asserted while the
+                    // device has an unhandled interrupt condition.
+                    hvf.Gic.setSpi(virtio_irq, netdev.interrupt_status != 0) catch {};
                 } else if (info.ipa >= 0x1000_0000 and info.ipa < 0x1200_0000) {
                     // Redistributor MMIO. Each vCPU's frame is 128 KB.
                     // For our single-vCPU setup, frame 0 = [0x10000000,

@@ -135,6 +135,14 @@ SH
 smoke_net() {
     echo "--- net ---"
     local log=/tmp/microvm-smoke-net.log
+    # Keep the if-up helper fresh alongside lo-up/no-iou.
+    for helper in if-up; do
+        src=$FIXTURES/$helper.c
+        bin=$ROOTFS/usr/bin/$helper
+        if [[ ! -x "$bin" || "$src" -nt "$bin" ]]; then
+            zig cc -target aarch64-linux-musl -static -Os -o "$bin" "$src"
+        fi
+    done
     repack_with "
         cp $FIXTURES/net-demo.sh $ROOTFS/
         chmod +x $ROOTFS/net-demo.sh
@@ -147,8 +155,21 @@ SH
     "
     run_vmm 'printf ""' 22 "$log"
 
-    grep -q '^eth0' "${log}.clean"                     && pass 'eth0 interface present'        || fail 'eth0 not found'
-    grep -q 'virtio0 device=0x0001' "${log}.clean"    && pass 'virtio-net bound on virtio0'   || fail 'virtio0 not bound to virtio-net'
+    grep -q '^eth0'                 "${log}.clean" && pass 'eth0 interface present'        || fail 'eth0 not found'
+    grep -q 'virtio0 device=0x0001' "${log}.clean" && pass 'virtio-net bound on virtio0'   || fail 'virtio0 not bound to virtio-net'
+    grep -q '^if-up ok'             "${log}.clean" && pass 'SIOCSIFFLAGS brought eth0 up'  || fail 'if-up eth0 failed'
+    grep -q 'operstate: up'         "${log}.clean" && pass 'operstate reports up'          || fail 'operstate not up'
+
+    # tx_packets after the interface is up: the kernel auto-emits IPv6
+    # NDP/MLD as soon as eth0 comes up, so any non-zero here means our
+    # TX queue actually drained through notify() and used-ring updates.
+    local tx_after
+    tx_after=$(sed -n 's/^tx_packets: //p' "${log}.clean" | sed -n '2p')
+    if [[ -n "$tx_after" && "$tx_after" -gt 0 ]]; then
+        pass "TX queue drained (tx_packets=$tx_after)"
+    else
+        fail "TX queue did not drain (tx_packets='$tx_after')"
+    fi
 }
 
 case "$MODE" in
