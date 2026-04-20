@@ -2,10 +2,11 @@
 # Boot the microVM in one of a handful of ready-made modes.
 #
 # Usage:
-#   ./test-fixtures/try.sh shell   # interactive bash prompt inside the guest
-#   ./test-fixtures/try.sh repl    # interactive Node.js REPL (type JS live)
-#   ./test-fixtures/try.sh criu    # CRIU freeze/restore demo (counter 5 → 9)
-#   ./test-fixtures/try.sh vsock   # virtio-vsock echo server + host round-trip
+#   ./test-fixtures/try.sh shell            # interactive bash prompt inside the guest
+#   ./test-fixtures/try.sh repl             # interactive Node.js REPL (type JS live)
+#   ./test-fixtures/try.sh criu             # CRIU freeze/restore demo
+#   ./test-fixtures/try.sh vsock            # virtio-vsock echo server + host round-trip
+#   ./test-fixtures/try.sh workspace DIR    # shell with DIR mounted at /workspace
 #   ./test-fixtures/try.sh --help
 #
 # What this actually does:
@@ -28,9 +29,26 @@ case "$MODE" in
         awk '/^$/{exit} NR>1{sub(/^# ?/, ""); print}' "$0"
         exit 0
         ;;
-    repl|criu|criu\ demo|criu-demo|shell|sh|bash|vsock) ;;
-    *) die "unknown mode: $MODE (try: repl | criu | shell | vsock)" ;;
+    repl|criu|criu\ demo|criu-demo|shell|sh|bash|vsock|workspace) ;;
+    *) die "unknown mode: $MODE (try: repl | criu | shell | vsock | workspace)" ;;
 esac
+
+# `workspace <DIR> [--exclude NAME ...]` — shell boot with the host DIR
+# cpio'd onto /workspace. Remaining args after DIR pass through as
+# additional excludes (default excludes already cover node_modules,
+# .git, etc).
+WORKSPACE_DIR=""
+WORKSPACE_EXTRA=()
+if [[ "$MODE" == "workspace" ]]; then
+    WORKSPACE_DIR=${2:-}
+    [[ -n "$WORKSPACE_DIR" ]] || die "workspace: need a directory. usage: try.sh workspace <DIR> [--exclude NAME]..."
+    WORKSPACE_DIR=$(cd "$WORKSPACE_DIR" && pwd)
+    [[ -d "$WORKSPACE_DIR" ]] || die "workspace: $WORKSPACE_DIR is not a directory"
+    shift 2 || true
+    WORKSPACE_EXTRA=("$@")
+    # Reuse the shell mode's demo.sh + raw-mode handling.
+    MODE=shell
+fi
 
 # Resolve the microvm package root.
 HERE=$(cd "$(dirname "$0")/.." && pwd)
@@ -190,8 +208,13 @@ echo "  netup                         # bring eth0 up with static IP + DNS"
 echo "  http https://example.com      # tiny Python HTTP client (curl isn't here)"
 echo "  claude --version              # (CC is already installed)"
 echo "  ls /dev/vda                   # virtio-blk disk (if test-fixtures/disk.img exists)"
+if [ -d /workspace ]; then
+    echo "  cd /workspace                 # your host dir, cpio'd in on boot"
+fi
 echo "  exit or Ctrl-D                # quit (kernel will panic — expected)"
 echo ""
+# Drop into /workspace when it was cpio'd in (try.sh workspace mode).
+[ -d /workspace ] && cd /workspace
 exec /bin/bash --login
 SH
         ;;
@@ -202,6 +225,24 @@ chmod +x "$ROOTFS/demo.sh"
 # --- repack + build ------------------------------------------------
 echo "==> repacking initramfs"
 python3 "$FIXTURES/mkinitramfs.py" --rootfs "$ROOTFS" | tail -1
+
+# If the user asked for `workspace <DIR>`, append a second cpio slice
+# with the host directory rooted at /workspace. The Linux kernel's
+# initramfs unpacker merges concatenated cpio archives in order.
+if [[ -n "$WORKSPACE_DIR" ]]; then
+    WS_CPIO=$FIXTURES/workspace.cpio
+    echo "==> packing workspace: $WORKSPACE_DIR -> /workspace"
+    # Forward any extra args from try.sh (--exclude NAME, --max-mb N).
+    # Bash: the idiom below expands to nothing (not an empty string)
+    # when the array is empty under `set -u`.
+    if [[ ${#WORKSPACE_EXTRA[@]} -gt 0 ]]; then
+        python3 "$FIXTURES/mkinitramfs.py" --workspace "$WORKSPACE_DIR" --out "$WS_CPIO" "${WORKSPACE_EXTRA[@]}"
+    else
+        python3 "$FIXTURES/mkinitramfs.py" --workspace "$WORKSPACE_DIR" --out "$WS_CPIO"
+    fi
+    cat "$WS_CPIO" >> "$FIXTURES/initramfs.cpio"
+    rm -f "$WS_CPIO"
+fi
 
 echo "==> building VMM test binary"
 zig build test >/dev/null 2>&1 || true   # boot test is skip-by-default; that's fine
