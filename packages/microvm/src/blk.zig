@@ -187,6 +187,11 @@ pub const Backend = struct {
 };
 
 fn traceBlk(kind: []const u8, sector: u64, segs: usize, bytes: u32) void {
+    // Per-request tracing is great for bring-up but useless at volume
+    // (mkfs.ext4 alone is thousands of requests). Disabled by default;
+    // flip to `true` when debugging a specific virtio-blk issue.
+    const enabled = false;
+    if (!enabled) return;
     var buf: [96]u8 = undefined;
     const msg = std.fmt.bufPrint(
         &buf,

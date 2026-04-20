@@ -246,13 +246,69 @@ SH
     grep -qE '^v[0-9]+' "${log}.clean" && pass 'node --version runs inside the guest' || fail 'node --version failed'
 }
 
+smoke_spawn() {
+    echo "--- spawn ---"
+    local p1_log=/tmp/microvm-smoke-spawn-warmup.log
+    local p2_log=/tmp/microvm-smoke-spawn-restore.log
+    local disk=$FIXTURES/disk.img
+
+    # Fresh 128 MiB raw disk. spawn-warmup.sh formats it ext4
+    # inside the guest on first boot.
+    dd if=/dev/zero of="$disk" bs=1m count=128 >/dev/null 2>&1
+
+    # Phase 1: warmup boot — runs counter, dumps onto /dev/vda.
+    repack_with "
+        cp $FIXTURES/spawn-warmup.sh $FIXTURES/spawn-restore.sh $ROOTFS/
+        chmod +x $ROOTFS/spawn-warmup.sh $ROOTFS/spawn-restore.sh
+        cat > $ROOTFS/demo.sh <<'SH'
+#!/bin/sh
+PATH=/usr/local/bin:/usr/bin:/bin:/sbin; export PATH
+exec /bin/sh /spawn-warmup.sh
+SH
+        chmod +x $ROOTFS/demo.sh
+    "
+    run_vmm 'printf ""' 45 "$p1_log"
+
+    grep -q 'dump OK' "${p1_log}.clean" && pass 'warmup: CRIU dump OK' || fail 'warmup: dump failed'
+
+    # Pull the snapshot count out of phase 1 so phase 2 can assert
+    # monotonicity.
+    local before
+    before=$(grep 'snap/count:' "${p1_log}.clean" | sed -n '1p' | awk '{print $2}')
+    echo "counter at dump: $before"
+
+    # Phase 2: restore boot — same disk, rewire demo.sh.
+    repack_with "
+        cat > $ROOTFS/demo.sh <<'SH'
+#!/bin/sh
+PATH=/usr/local/bin:/usr/bin:/bin:/sbin; export PATH
+exec /bin/sh /spawn-restore.sh
+SH
+        chmod +x $ROOTFS/demo.sh
+    "
+    run_vmm 'printf ""' 40 "$p2_log"
+
+    grep -q 'restore OK' "${p2_log}.clean" && pass 'restore: CRIU restore OK' || fail 'restore: failed'
+
+    # Last snap/count line on phase 2 should be strictly greater
+    # than `before`.
+    local after
+    after=$(grep 'snap/count:' "${p2_log}.clean" | tail -1 | awk '{print $2}')
+    if [[ -n "$before" && -n "$after" && "$after" =~ ^[0-9]+$ && "$after" -gt "$before" ]]; then
+        pass "counter advanced across VMM restarts ($before -> $after)"
+    else
+        fail "counter did not advance (before='$before' after='$after')"
+    fi
+}
+
 case "$MODE" in
-    repl) smoke_repl ;;
-    criu) smoke_criu ;;
-    net)  smoke_net ;;
-    blk)  smoke_blk ;;
-    cc)   smoke_cc ;;
-    all)  smoke_repl; smoke_criu; smoke_net; smoke_blk; smoke_cc ;;
+    repl)  smoke_repl ;;
+    criu)  smoke_criu ;;
+    net)   smoke_net ;;
+    blk)   smoke_blk ;;
+    cc)    smoke_cc ;;
+    spawn) smoke_spawn ;;
+    all)   smoke_repl; smoke_criu; smoke_net; smoke_blk; smoke_cc; smoke_spawn ;;
     *) echo "unknown mode: $MODE" >&2; exit 2 ;;
 esac
 
