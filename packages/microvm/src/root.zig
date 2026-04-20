@@ -16,9 +16,11 @@ pub const hvf = if (builtin.os.tag == .macos) @import("hvf.zig") else struct {};
 pub const boot = if (builtin.os.tag == .macos) @import("boot.zig") else struct {};
 pub const slirp = if (builtin.os.tag == .macos) @import("slirp.zig") else struct {};
 pub const kvm = if (builtin.os.tag == .linux) @import("kvm.zig") else struct {};
+pub const boot_kvm = if (builtin.os.tag == .linux) @import("boot_kvm.zig") else struct {};
 pub const virtio = @import("virtio.zig"); // pure Zig, builds everywhere
 pub const blk = @import("blk.zig"); // pure Zig virtio-blk backend
 pub const vsock = @import("vsock.zig"); // pure Zig virtio-vsock bridge
+pub const pl011 = @import("pl011.zig"); // pure Zig PL011 UART (shared HVF/KVM)
 
 pub const Backend = enum { hvf, kvm, none };
 
@@ -77,7 +79,9 @@ test {
     }
     if (builtin.os.tag == .linux) {
         _ = @import("kvm.zig");
+        _ = @import("boot_kvm.zig");
     }
     _ = @import("virtio.zig");
     _ = @import("vsock.zig");
+    _ = @import("pl011.zig");
 }
