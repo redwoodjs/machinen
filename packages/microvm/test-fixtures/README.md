@@ -3,6 +3,34 @@
 Large binaries (kernel images, device tree blobs) live here but
 aren't checked in. Regenerate locally with the commands below.
 
+## Tests
+
+Two layers — fast unit tests in the Zig source, plus integration
+smoke tests here that boot the whole VMM.
+
+**Unit tests** (`zig build test` from `packages/microvm/`):
+HVF lifecycle, MMIO trap handling, kernel-image header parse, PSCI
+shutdown, and the PL011 RX state machine (pushRx / IMSC-gated
+irqAsserted / ICR clears / DR drains / FR.RXFE / PrimeCell IDs).
+17 tests, all run in-process, finish in seconds.
+
+One cosmetic quirk: `zig build test` prints a `failed command: ...
+--listen=-` line at the end even when every test passes. The overall
+build exits 0; the noise is zig 0.16's test runner panicking with
+`EndOfStream` when the parent closes its IPC stdin. Not ours.
+
+**Integration smoke tests** (`test-fixtures/smoke.sh [repl|criu|all]`):
+spins up the full VMM with an initramfs, asserts specific behavior.
+Needs the kernel Image + virt.dtb + rootfs/ set up (see below). Takes
+~20 s per mode on an M-series Mac.
+
+  - `repl` — boots with `exec node` as init, pipes `1 + 1` then
+    `.exit` at the REPL, checks for the banner, the value `2`, and
+    a clean panic-on-init-exit.
+  - `criu` — boots the fork demo, checks that `dump OK` and
+    `restore OK` both happened, and that the `count file:` value
+    after restore is strictly greater than before the dump.
+
 ## Quick: try your own microVM (with your own files inside)
 
 You want to put some files in a Linux guest, boot it, see them

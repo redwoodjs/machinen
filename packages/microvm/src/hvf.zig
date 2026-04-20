@@ -929,6 +929,107 @@ test "guest writes bytes to PL011 UART, host captures them" {
     );
 }
 
+// =============================================================
+// Pl011 RX path — unit tests, no HVF needed
+// =============================================================
+//
+// These cover the pieces the stdin-reader thread and the guest ISR
+// touch: pushRx updates rx_buf + RIS, irqAsserted gates on IMSC,
+// ICR clears selected bits, a DR read pops a byte and clears RX_INT
+// when the FIFO drains. FR.RXFE flips with FIFO state. PrimeCell IDs
+// return the standard PL011 values so the AMBA bus binds.
+
+test "Pl011: pushRx buffers bytes and sets RX_INT in RIS" {
+    const gpa = std.testing.allocator;
+    var uart: Pl011 = .init;
+    defer uart.deinit(gpa);
+
+    try uart.pushRx(gpa, "abc");
+    try std.testing.expectEqual(@as(usize, 3), uart.rx_buf.items.len);
+    try std.testing.expect((uart.ris & Pl011.RX_INT) != 0);
+}
+
+test "Pl011: irqAsserted is gated on IMSC" {
+    const gpa = std.testing.allocator;
+    var uart: Pl011 = .init;
+    defer uart.deinit(gpa);
+
+    try uart.pushRx(gpa, "x");
+    // RIS has RX_INT set, but the kernel hasn't enabled the mask yet.
+    try std.testing.expect(!uart.irqAsserted());
+
+    // Kernel enables RX interrupt (IMSC bit 4 = 0x10).
+    try uart.write(gpa, uart.base + 0x038, 0x10);
+    try std.testing.expect(uart.irqAsserted());
+
+    // Kernel masks everything — IRQ line should drop even though bytes remain.
+    try uart.write(gpa, uart.base + 0x038, 0x00);
+    try std.testing.expect(!uart.irqAsserted());
+}
+
+test "Pl011: ICR clears selected RIS bits, preserves RX_INT while FIFO has bytes" {
+    const gpa = std.testing.allocator;
+    var uart: Pl011 = .init;
+    defer uart.deinit(gpa);
+
+    try uart.pushRx(gpa, "y");
+    // Enable + assert: the RT (receive-timeout) bit too, so we can see
+    // ICR clear it without clearing RX_INT.
+    uart.ris |= (1 << 6); // RT
+    try std.testing.expect((uart.ris & 0x10) != 0);
+    try std.testing.expect((uart.ris & 0x40) != 0);
+
+    // Kernel writes ICR=0x50 (RX | RT). RT should clear permanently;
+    // RX_INT should re-latch because rx_buf still holds a byte.
+    try uart.write(gpa, uart.base + 0x044, 0x50);
+    try std.testing.expectEqual(@as(u32, 0x10), uart.ris);
+}
+
+test "Pl011: DR read pops a byte; RX_INT clears when FIFO drains" {
+    const gpa = std.testing.allocator;
+    var uart: Pl011 = .init;
+    defer uart.deinit(gpa);
+
+    try uart.pushRx(gpa, "hi");
+    const a = uart.read(uart.base + 0x000); // DR
+    try std.testing.expectEqual(@as(u64, 'h'), a);
+    try std.testing.expect((uart.ris & Pl011.RX_INT) != 0); // still one byte left
+
+    const b = uart.read(uart.base + 0x000);
+    try std.testing.expectEqual(@as(u64, 'i'), b);
+    try std.testing.expectEqual(@as(usize, 0), uart.rx_buf.items.len);
+    try std.testing.expect((uart.ris & Pl011.RX_INT) == 0); // drained → clear
+}
+
+test "Pl011: FR.RXFE flips with FIFO occupancy" {
+    const gpa = std.testing.allocator;
+    var uart: Pl011 = .init;
+    defer uart.deinit(gpa);
+
+    // Empty: bit 4 (RXFE) set.
+    try std.testing.expect((uart.read(uart.base + 0x018) & (1 << 4)) != 0);
+
+    try uart.pushRx(gpa, "z");
+    // Not empty: RXFE clear.
+    try std.testing.expect((uart.read(uart.base + 0x018) & (1 << 4)) == 0);
+
+    _ = uart.read(uart.base + 0x000); // drain
+    try std.testing.expect((uart.read(uart.base + 0x018) & (1 << 4)) != 0);
+}
+
+test "Pl011: PrimeCell IDs return the standard PL011 values" {
+    var uart: Pl011 = .init;
+    // Without these, AMBA's bus scan refuses to bind the PL011 driver.
+    try std.testing.expectEqual(@as(u64, 0x11), uart.read(uart.base + 0xFE0));
+    try std.testing.expectEqual(@as(u64, 0x10), uart.read(uart.base + 0xFE4));
+    try std.testing.expectEqual(@as(u64, 0x14), uart.read(uart.base + 0xFE8));
+    try std.testing.expectEqual(@as(u64, 0x00), uart.read(uart.base + 0xFEC));
+    try std.testing.expectEqual(@as(u64, 0x0D), uart.read(uart.base + 0xFF0));
+    try std.testing.expectEqual(@as(u64, 0xF0), uart.read(uart.base + 0xFF4));
+    try std.testing.expectEqual(@as(u64, 0x05), uart.read(uart.base + 0xFF8));
+    try std.testing.expectEqual(@as(u64, 0xB1), uart.read(uart.base + 0xFFC));
+}
+
 test "KernelImage.parse accepts a valid header" {
     var header: [64]u8 = @splat(0);
     // text_offset at 0x08 (8 bytes, LE)
