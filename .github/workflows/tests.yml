@@ -23,7 +23,7 @@ jobs:
       # CI runner pnpm falls through to node-gyp rebuild, which needs
       # a C++ toolchain + Python to compile the native binding.
       - name: Install node-pty build deps (Linux)
-        run: sudo apt-get install -y build-essential python3
+        run: sudo apt-get update && sudo apt-get install -y build-essential python3
 
       # packages/microvm builds with Zig. The `pretest` hook runs
       # `pnpm -r build`, which hits microvm's `zig build`. On Linux the
