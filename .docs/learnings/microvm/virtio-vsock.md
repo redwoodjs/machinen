@@ -1,9 +1,9 @@
 # virtio-vsock — host↔guest stream sockets without a network
 
-Issue: redwoodjs/machinen#44. First cut landed with the bridge device
-+ a Unix-socket-to-guest-port bridge. What's here is enough to run
-`nc -U /tmp/machinen-vsock.sock` on the host and have bytes round-trip
-through an `AF_VSOCK` listener inside the guest.
+Issue: redwoodjs/machinen#44. Currently at M2+: inbound AND outbound
+stream connections, credit-based flow control, comma-separated
+multi-port config, event-queue carve-out. The bridge is usable for
+the real machinen control-plane case (supervisor/checkpoint traffic).
 
 ## Why bother when we have slirp?
 
@@ -92,38 +92,68 @@ the normally-helpful `@sizeOf` sanity assert that would fire here.
 
 ## The UDS bridge
 
-We map one or more Unix sockets on the host to guest ports. Set
-`MACHINEN_VSOCK=<guest_port>:<host_uds_path>` to enable (M1 supports
-one mapping; multi-port is a 10-line change — `PortMap[]` already
-exists in the API).
+Map one or more Unix sockets on the host to guest ports via
+`MACHINEN_VSOCK`. Comma-separated, each entry one of:
 
-Flow for a host-initiated connection:
+```
+<port>:<path>        # legacy — same as in:
+in:<port>:<path>     # host listens; UDS clients drive a stream into
+                     #   guest (cid=3, port)
+out:<port>:<path>    # guest initiates; when REQUEST for (cid=2, port)
+                     #   lands, host dials the UDS and wires it up
+```
+
+Example: `MACHINEN_VSOCK=in:1234:/tmp/svc.sock,out:5678:/tmp/rpc.sock`.
+
+### Inbound (host → guest) flow
 
 1. Something connects to the host UDS (e.g. `nc -U /tmp/foo.sock`).
-2. A bridge thread accepts, allocates a host-side source port
+2. Bridge thread accepts, allocates a host-side source port
    (starts at 1024, bumps per connection), records the connection.
-3. Injects a `REQUEST` packet into guest RX queue 0, raises the
+3. Injects `REQUEST` packet into guest RX queue 0, raises the
    vsock IRQ.
-4. Guest kernel delivers it to whichever listener is `bind()`ed to
-   that port. If no listener, guest sends `RST` back.
-5. On accept, guest sends `RESPONSE`. The connection is now open.
-6. UDS bytes → bridge reads → wraps in `RW` packet → guest RX.
-7. Guest writes → bridge reads TX queue on vCPU thread → unwraps →
-   write to UDS fd.
-8. Either side closes: `SHUTDOWN` or `RST`, bridge closes the UDS.
+4. Guest kernel delivers to whichever listener is `bind()`ed to
+   that port. If no listener, guest replies `RST`.
+5. On accept, guest sends `RESPONSE`. Connection open.
+6. UDS bytes → bridge reads → wraps in `RW` → guest RX.
+7. Guest writes → vCPU thread TX notify → unwrap → `write()` to UDS.
+8. Either side closes: `SHUTDOWN` or `RST` → bridge closes the UDS.
 
-## Flow control (we punt for now)
+### Outbound (guest → host) flow
 
-virtio-vsock has a credit scheme: every packet carries `buf_alloc`
-(my receive buffer size) and `fwd_cnt` (bytes I've consumed). The
-peer tracks `buf_alloc - (bytes_sent - fwd_cnt)` and stops sending
-when it hits zero, resuming on a `credit_update`.
+1. Guest userspace does `socket(AF_VSOCK, SOCK_STREAM)` +
+   `connect((2, port))`.
+2. Kernel sends `REQUEST` on TX queue 1. Bridge matches the dst_port
+   against outbound port-map entries.
+3. On match, bridge dials the mapped UDS path. On connect success,
+   registers a new Connection (state=established immediately) and
+   sends `RESPONSE`. On failure, sends `RST`.
+4. Bytes flow bidirectionally, same as inbound after step 5.
 
-For M1 we advertise a fixed large `buf_alloc` (256 KiB) and send a
-`credit_update` after every RW we forward to the UDS. The guest's
-in-tree transport plays nice with this — no stalls in testing.
-Tight flow-control matters when a slow UDS peer can't keep up with
-guest writes; we'll tackle it when it bites.
+## Flow control (credit-based, both directions)
+
+virtio-vsock uses a credit scheme: every packet carries `buf_alloc`
+(my receive-buffer size) and `fwd_cnt` (bytes I've consumed from the
+peer). Each side computes `peer_buf_alloc - (bytes_sent - peer_fwd_cnt)`
+to know how many bytes it may still send before the peer's window
+closes.
+
+What the bridge does:
+
+* **Tracks per connection**: `bytes_to_peer`, `peer_buf_alloc`,
+  `peer_fwd_cnt`, `fwd_cnt` (bytes we've consumed off the UDS),
+  `last_credit_fwd_cnt` (last advertised).
+* **Respects the peer window** on sends: `drainConnection` caps the
+  `read()` from UDS to `peerRoom(c)`. If room is 0, sets `paused=true`
+  and drops the fd from the POLLIN set.
+* **Unpauses** when an inbound packet advances `peer_fwd_cnt` far
+  enough to re-open the window. Nudges the poll loop so the fd is
+  re-added immediately.
+* **Emits CREDIT_UPDATE** when we've drained (into the UDS) half of
+  our advertised buf_alloc worth of new bytes since the last update.
+  Also responds to explicit CREDIT_REQUEST.
+* **Advertises** `buf_alloc = 256 KiB` on every outgoing packet. The
+  guest kernel treats this as a hint and paces accordingly.
 
 ## Threading + locking
 
@@ -142,38 +172,48 @@ during a narrow window at boot and then sit steady-state; a formal
 fix would be to atomic-flag "vsock ready" before the bridge starts
 processing. Tolerable for M1.
 
-## What's still missing (M2+)
+## Event queue
 
-* **Guest-initiated connections.** Right now only host→guest is
-  wired. The protocol supports it symmetrically; we'd need a UDS
-  *listener* in the bridge for each guest port we want to expose
-  *from* the host side.
-* **Proper flow control.** See above.
-* **Dynamic port map at runtime.** M1 parses one `MACHINEN_VSOCK`
-  env var; production wants a control plane API.
-* **Event queue handling.** Currently we ack-and-drop. The spec
-  uses it only for `VIRTIO_VSOCK_EVENT_TRANSPORT_RESET` which
-  matters mainly for migration / CRIU restore.
+Queue 2 is also driver-posts-empty-buffers (same pattern as RX). The
+spec only uses it for `VIRTIO_VSOCK_EVENT_TRANSPORT_RESET` (payload
+is a single u32 of value 0), which the guest respects by tearing down
+all its vsock state and starting over. That matters mainly on CRIU
+restore, where the pre-dump device state is gone.
+
+We set `skip_notify_queues` bits 0 and 2 so the generic auto-drain
+path leaves both alone. The bridge doesn't send events yet — wiring
+a `sendTransportReset()` helper is a ~10-line addition once we need
+it (CRIU restore is the obvious trigger).
+
+## What's still missing (M3+)
+
+* **Dynamic port map at runtime.** Env var is fine for smoke/
+  integration; a control-plane RPC to add/remove mappings without a
+  VMM restart is what production wants.
+* **Transport-reset trigger on restore.** Primitive's in place; hook
+  isn't wired into the CRIU restore path.
 * **Multi-guest-CID / hotplug.** Not needed until we're running
   multiple VMs against one VMM process.
 
 ## Repro
 
 ```
-# Terminal: run the smoke test.
+# Inbound round-trip — host UDS → guest AF_VSOCK listener.
 ./packages/microvm/test-fixtures/smoke.sh vsock
 # -> PASS: UDS <-> guest AF_VSOCK round-trip
-# -> PASS: vsock bridge came up on host
+# -> PASS: vsock bridge reported an inbound port
+
+# Outbound round-trip — guest AF_VSOCK connect(2, ...) → host UDS.
+./packages/microvm/test-fixtures/smoke.sh vsock-out
+# -> PASS: guest-initiated round-trip (cid=2) returned uppercased bytes
+# -> PASS: vsock bridge reported the outbound mapping
 ```
 
-Or for a manual poke:
+Interactive poke:
 
 ```
 ./packages/microvm/test-fixtures/try.sh vsock
 ```
-
-The guest side runs a Python echo server (`AF_VSOCK` port 1234); the
-host side uses Python to round-trip "hello-vsock" through the UDS.
 
 ## Refs
 

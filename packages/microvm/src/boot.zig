@@ -231,34 +231,26 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     const blkdev_ptr: ?*virtio.Device = if (blkdev_opt) |_| &blkdev_opt.? else null;
 
     // virtio-vsock (#44). Off by default; set MACHINEN_VSOCK to enable.
-    // Value syntax: `<guest_port>:<host_uds_path>` for M1. Example:
-    //   MACHINEN_VSOCK=1234:/tmp/machinen-vsock.sock
+    // Syntax (comma-separated):
+    //   in:<guest_port>:<host_uds>   host listens; UDS clients → guest
+    //   out:<guest_port>:<host_uds>  guest connects; host dials UDS
+    //   <guest_port>:<host_uds>      legacy; treated as in:
     //
-    // We leak the parsed PortMap into gpa since the VMM lives for the
-    // process lifetime.
+    // Parsed paths are allocated from gpa and leak for the VMM's life.
     var vsock_cid_storage: u64 = vsock_mod.default_guest_cid;
-    var vsock_ports_buf: [4]vsock_mod.PortMap = undefined;
-    var vsock_ports_count: usize = 0;
-    var vsock_uds_path_buf: [256:0]u8 = @splat(0);
+    var vsock_ports: []vsock_mod.PortMap = &.{};
     if (getenv("MACHINEN_VSOCK")) |raw| {
         const s = std.mem.span(raw);
-        if (std.mem.indexOfScalar(u8, s, ':')) |colon| {
-            const port_str = s[0..colon];
-            const path_str = s[colon + 1 ..];
-            if (std.fmt.parseInt(u32, port_str, 10)) |port| {
-                if (path_str.len < vsock_uds_path_buf.len) {
-                    @memcpy(vsock_uds_path_buf[0..path_str.len], path_str);
-                    vsock_uds_path_buf[path_str.len] = 0;
-                    const z: [:0]const u8 = vsock_uds_path_buf[0..path_str.len :0];
-                    vsock_ports_buf[0] = .{ .guest_port = port, .uds_path = z };
-                    vsock_ports_count = 1;
-                }
-            } else |_| {}
+        if (s.len > 0) {
+            vsock_ports = vsock_mod.parseEnv(gpa, s) catch |err| blk: {
+                std.debug.print("vsock: MACHINEN_VSOCK parse failed ({s}); ignoring\n", .{@errorName(err)});
+                break :blk &.{};
+            };
         }
     }
     var vsock_dev_opt: ?virtio.Device = null;
     var vsock_bridge_opt: ?*vsock_mod.Bridge = null;
-    if (vsock_ports_count > 0) {
+    if (vsock_ports.len > 0) {
         vsock_dev_opt = virtio.Device{
             .base = virtio_vsock_base,
             .size = virtio_vsock_size,
@@ -269,10 +261,9 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
             .ram_base = cfg.ram_base,
             .request_handler = &vsock_mod.Bridge.handleTxChain,
             .request_ctx = null,
-            // Queue 0 is the guest's receive buffer pool — driver posts
-            // empty buffers; we fill them on demand from the bridge
-            // thread, not from every RX notify.
-            .skip_notify_queues = (1 << 0),
+            // Queues 0 (RX) and 2 (event) are driver-posts-empty-buffers
+            // queues — we fill them on demand, not on every kick.
+            .skip_notify_queues = (1 << 0) | (1 << 2),
         };
     }
     const vsock_dev_ptr: ?*virtio.Device = if (vsock_dev_opt) |_| &vsock_dev_opt.? else null;
@@ -323,7 +314,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     var vsock_irq_ctx = VsockIrqCtx{ .irq = virtio_vsock_irq };
     if (vsock_dev_ptr) |d| {
         vsock_bridge_opt = vsock_mod.Bridge.create(gpa, d, .{
-            .ports = vsock_ports_buf[0..vsock_ports_count],
+            .ports = vsock_ports,
             .raise_irq = &onVsockIrq,
             .raise_irq_ctx = @ptrCast(&vsock_irq_ctx),
         }) catch |err| blk: {
@@ -339,10 +330,13 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
                 vsock_dev_opt = null;
             };
             if (vsock_bridge_opt != null) {
-                std.debug.print("vsock: listening on {s} -> guest port {d}\n", .{
-                    vsock_ports_buf[0].uds_path,
-                    vsock_ports_buf[0].guest_port,
-                });
+                for (vsock_ports) |pm| {
+                    const tag: []const u8 = switch (pm.direction) {
+                        .inbound => "in",
+                        .outbound => "out",
+                    };
+                    std.debug.print("vsock: {s} {d} <-> {s}\n", .{ tag, pm.guest_port, pm.uds_path });
+                }
             }
         }
     }

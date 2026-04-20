@@ -146,6 +146,56 @@ pub const max_payload: usize = 64 * 1024;
 /// this before draining.
 pub const advertised_buf_alloc: u32 = 256 * 1024;
 
+/// Parse a `MACHINEN_VSOCK` value into a `PortMap` list.
+///
+/// Accepted shapes per entry (comma-separated):
+///
+///   `<port>:<path>`     — legacy inbound (host listens, guest accepts)
+///   `in:<port>:<path>`  — inbound
+///   `out:<port>:<path>` — outbound (guest connects; host dials the
+///                         UDS when the guest's REQUEST lands)
+///
+/// The returned slice and the path strings inside it are allocated
+/// with `gpa` and must be freed by the caller (via `freeParsed`).
+pub fn parseEnv(gpa: std.mem.Allocator, raw: []const u8) ![]PortMap {
+    var list: std.ArrayList(PortMap) = .empty;
+    errdefer {
+        for (list.items) |pm| gpa.free(pm.uds_path);
+        list.deinit(gpa);
+    }
+    var rest: []const u8 = raw;
+    while (rest.len > 0) {
+        const end = std.mem.indexOfScalar(u8, rest, ',') orelse rest.len;
+        var entry = rest[0..end];
+        if (end < rest.len) rest = rest[end + 1 ..] else rest = "";
+        if (entry.len == 0) continue;
+
+        var direction: Direction = .inbound;
+        if (std.mem.startsWith(u8, entry, "in:")) {
+            entry = entry[3..];
+        } else if (std.mem.startsWith(u8, entry, "out:")) {
+            direction = .outbound;
+            entry = entry[4..];
+        }
+
+        const colon = std.mem.indexOfScalar(u8, entry, ':') orelse return error.MissingColon;
+        const port_str = entry[0..colon];
+        const path_str = entry[colon + 1 ..];
+        const port = std.fmt.parseInt(u32, port_str, 10) catch return error.BadPort;
+        if (path_str.len == 0) return error.EmptyPath;
+
+        const path = try gpa.allocSentinel(u8, path_str.len, 0);
+        @memcpy(path[0..path_str.len], path_str);
+        try list.append(gpa, .{ .guest_port = port, .uds_path = path, .direction = direction });
+    }
+    return list.toOwnedSlice(gpa);
+}
+
+pub fn freeParsed(gpa: std.mem.Allocator, parsed: []PortMap) void {
+    for (parsed) |pm| gpa.free(pm.uds_path);
+    gpa.free(parsed);
+}
+
 // =============================================================
 // Pure tests — no HVF, no sockets.
 // =============================================================
@@ -422,10 +472,25 @@ test "writePacket lays down hdr + body into an RX chain" {
 // handleTx when the guest kicks the TX queue) via a mutex.
 // ---------------------------------------------------------------
 
+pub const Direction = enum {
+    /// Host listens on a UDS; UDS clients drive a stream into the
+    /// guest (host-initiated). Example: `nc -U /tmp/x.sock` reaches
+    /// a listener on the guest side.
+    inbound,
+    /// Guest initiates a stream to (cid=2, port). When REQUEST lands,
+    /// the host opens the mapped UDS and wires it to the connection.
+    /// The UDS peer is typically a local echo/service.
+    outbound,
+};
+
 pub const PortMap = struct {
     guest_port: u32,
-    /// Absolute path to the UDS the host listens on. Unlinked at start.
+    /// For `inbound`: path to the UDS the host listens on. Unlinked
+    /// and re-bound on bridge start.
+    /// For `outbound`: path to the UDS the host connects to when the
+    /// guest sends a REQUEST to this port.
     uds_path: [:0]const u8,
+    direction: Direction = .inbound,
 };
 
 const POLLIN: i16 = 0x0001;
@@ -448,6 +513,7 @@ extern "c" fn socket(domain: c_int, sock_type: c_int, protocol: c_int) c_int;
 extern "c" fn bind(fd: c_int, addr: *const anyopaque, addrlen: u32) c_int;
 extern "c" fn listen(fd: c_int, backlog: c_int) c_int;
 extern "c" fn accept(fd: c_int, addr: ?*anyopaque, addrlen: ?*u32) c_int;
+extern "c" fn connect(fd: c_int, addr: *const anyopaque, addrlen: u32) c_int;
 extern "c" fn close(fd: c_int) c_int;
 extern "c" fn unlink(path: [*:0]const u8) c_int;
 extern "c" fn pipe(fds: *[2]c_int) c_int;
@@ -490,6 +556,19 @@ fn setNonblocking(fd: c_int) void {
     _ = fcntl(fd, F_SETFL, O_NONBLOCK);
 }
 
+/// Connect (blocking) to a UDS at `path`. Returns the fd on success,
+/// -1 on any failure. Caller sets nonblocking and tracks the fd.
+fn connectUds(path: [:0]const u8) c_int {
+    const fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (fd < 0) return -1;
+    const made = makeSockaddrUn(path);
+    if (connect(fd, &made.sa, made.len) != 0) {
+        _ = close(fd);
+        return -1;
+    }
+    return fd;
+}
+
 pub const ConnState = enum {
     /// We sent REQUEST; waiting for guest RESPONSE.
     connecting,
@@ -504,14 +583,32 @@ pub const Connection = struct {
     host_port: u32,
     uds_fd: c_int,
     state: ConnState,
-    /// Bytes the guest has told us it has consumed so far (for credit
-    /// update accounting). M1 doesn't implement back-pressure — we
-    /// always have room — but we carry this so we can answer
-    /// CREDIT_REQUEST correctly.
+    /// Bytes we've consumed off this connection's UDS fd (and forwarded
+    /// to the guest). Reported as `fwd_cnt` in every packet we emit so
+    /// the guest's credit accounting stays honest.
     fwd_cnt: u32 = 0,
-    /// Bytes we've delivered into this connection. Used to populate
-    /// our side of fwd_cnt.
+    /// Total bytes of payload the guest has sent us across all RW
+    /// packets for this connection. Bumped on every inbound RW.
+    bytes_from_peer: u32 = 0,
+    /// Total bytes of payload we've sent the guest across all RW
+    /// packets. Bumped on every successful injectRx(RW, body).
+    bytes_to_peer: u32 = 0,
+    /// Peer's advertised receive window, picked up from every inbound
+    /// header's buf_alloc. Caps how many of our bytes_to_peer can be
+    /// unacknowledged at once.
+    peer_buf_alloc: u32 = 0,
+    /// Peer's last-reported fwd_cnt (how many of OUR bytes it has
+    /// consumed). Together with bytes_to_peer this gives us the
+    /// in-flight count: bytes_to_peer - peer_fwd_cnt.
     peer_fwd_cnt: u32 = 0,
+    /// True once we've pulled this fd out of the poll set because
+    /// the peer window was full. When a CREDIT_UPDATE or RW from the
+    /// guest bumps peer_fwd_cnt, we re-enable POLLIN on it.
+    paused: bool = false,
+    /// The fwd_cnt we last advertised to the peer. Used to decide
+    /// when the gap with `fwd_cnt` is big enough to emit a new
+    /// CREDIT_UPDATE.
+    last_credit_fwd_cnt: u32 = 0,
 };
 
 pub const BridgeConfig = struct {
@@ -534,8 +631,10 @@ pub const Bridge = struct {
     /// Next host-side port to allocate for an outgoing stream.
     next_host_port: u32 = 1024,
 
-    /// One listener fd per entry in cfg.ports.
+    /// One listener fd per INBOUND entry in cfg.ports. Index-aligned
+    /// with `listener_port_idx` so we can reach back to cfg.ports.
     listeners: std.ArrayList(c_int) = .empty,
+    listener_port_idx: std.ArrayList(usize) = .empty,
 
     /// Active connections.
     conns: std.ArrayList(Connection) = .empty,
@@ -559,6 +658,7 @@ pub const Bridge = struct {
         self.stop() catch {};
         for (self.listeners.items) |fd| _ = close(fd);
         self.listeners.deinit(self.gpa);
+        self.listener_port_idx.deinit(self.gpa);
         for (self.conns.items) |c| _ = close(c.uds_fd);
         self.conns.deinit(self.gpa);
         if (self.wake[0] >= 0) _ = close(self.wake[0]);
@@ -567,9 +667,12 @@ pub const Bridge = struct {
     }
 
     pub fn start(self: *Bridge) !void {
-        // Open every UDS listener up front so a failure here is visible
-        // before the guest ever boots.
-        for (self.cfg.ports) |pm| {
+        // Open a UDS listener for every INBOUND entry up front so a
+        // failure here is visible before the guest boots. Outbound
+        // entries don't open anything yet — we dial on-demand when
+        // the guest sends REQUEST.
+        for (self.cfg.ports, 0..) |pm, i| {
+            if (pm.direction != .inbound) continue;
             _ = unlink(pm.uds_path.ptr);
             const fd = socket(AF_UNIX, SOCK_STREAM, 0);
             if (fd < 0) return error.UdsSocketFailed;
@@ -581,6 +684,7 @@ pub const Bridge = struct {
             if (listen(fd, 8) != 0) return error.UdsListenFailed;
             setNonblocking(fd);
             try self.listeners.append(self.gpa, fd);
+            try self.listener_port_idx.append(self.gpa, i);
         }
 
         var pipe_fds: [2]c_int = .{ -1, -1 };
@@ -630,7 +734,11 @@ pub const Bridge = struct {
                 n += 1;
             }
             for (self.conns.items) |c| {
-                scratch[n] = .{ .fd = c.uds_fd, .events = POLLIN, .revents = 0 };
+                // Paused connections are waiting on credit from the
+                // peer — no POLLIN; we still want POLLHUP/ERR so we
+                // notice a UDS peer close while paused.
+                const events: i16 = if (c.paused) 0 else POLLIN;
+                scratch[n] = .{ .fd = c.uds_fd, .events = events, .revents = 0 };
                 n += 1;
             }
             self.mu.unlock();
@@ -650,9 +758,10 @@ pub const Bridge = struct {
                 if ((scratch[i].revents & POLLIN) == 0) continue;
                 self.mu.lock();
                 const listener_idx = i - 1;
-                if (listener_idx < self.listeners.items.len and listener_idx < self.cfg.ports.len) {
+                if (listener_idx < self.listeners.items.len) {
                     const lfd = self.listeners.items[listener_idx];
-                    const port = self.cfg.ports[listener_idx].guest_port;
+                    const port_idx = self.listener_port_idx.items[listener_idx];
+                    const port = self.cfg.ports[port_idx].guest_port;
                     const c = accept(lfd, null, null);
                     if (c >= 0) {
                         setNonblocking(c);
@@ -693,6 +802,31 @@ pub const Bridge = struct {
         }
     }
 
+    fn findOutbound(self: *Bridge, host_port: u32) ?[:0]const u8 {
+        for (self.cfg.ports) |pm| {
+            if (pm.direction == .outbound and pm.guest_port == host_port) {
+                return pm.uds_path;
+            }
+        }
+        return null;
+    }
+
+    fn sendRst(self: *Bridge, in: VsockHdr) void {
+        const rst = VsockHdr{
+            .src_cid = host_cid,
+            .dst_cid = self.cfg.guest_cid,
+            .src_port = in.dst_port,
+            .dst_port = in.src_port,
+            .len = 0,
+            .type = in.type,
+            .op = @intFromEnum(Op.rst),
+            .flags = 0,
+            .buf_alloc = advertised_buf_alloc,
+            .fwd_cnt = 0,
+        };
+        _ = self.injectRx(rst, &[_]u8{});
+    }
+
     // Must be called with self.mu held.
     fn startConnection(self: *Bridge, uds_fd: c_int, guest_port: u32) !void {
         const host_port = self.next_host_port;
@@ -723,12 +857,28 @@ pub const Bridge = struct {
         }
     }
 
+    /// How many more bytes the peer will accept right now. A fresh
+    /// stream starts with no window info; treat zero as "send one
+    /// and see" so we don't deadlock before the first packet.
+    fn peerRoom(c: *const Connection) u32 {
+        if (c.peer_buf_alloc == 0) return 64 * 1024;
+        const inflight = c.bytes_to_peer -% c.peer_fwd_cnt;
+        if (inflight >= c.peer_buf_alloc) return 0;
+        return c.peer_buf_alloc - inflight;
+    }
+
     // Must be called with self.mu held.
     fn drainConnection(self: *Bridge, idx: usize) !void {
         const c = &self.conns.items[idx];
         if (c.state != .established) return; // wait for RESPONSE first
+        const room = peerRoom(c);
+        if (room == 0) {
+            c.paused = true;
+            return;
+        }
         var buf: [8192]u8 = undefined;
-        const n = read(c.uds_fd, &buf, buf.len);
+        const cap: usize = @min(buf.len, room);
+        const n = read(c.uds_fd, &buf, cap);
         if (n == 0) {
             // EOF from the UDS side — tell the guest and start close.
             const hdr = VsockHdr{
@@ -749,7 +899,6 @@ pub const Bridge = struct {
         }
         if (n < 0) return; // EAGAIN / try later
         const payload = buf[0..@intCast(n)];
-        c.peer_fwd_cnt +%= @intCast(payload.len);
         const hdr = VsockHdr{
             .src_cid = host_cid,
             .dst_cid = self.cfg.guest_cid,
@@ -762,7 +911,9 @@ pub const Bridge = struct {
             .buf_alloc = advertised_buf_alloc,
             .fwd_cnt = c.fwd_cnt,
         };
-        _ = self.injectRx(hdr, payload);
+        if (self.injectRx(hdr, payload)) {
+            c.bytes_to_peer +%= @intCast(payload.len);
+        }
     }
 
     // Must be called with self.mu held.
@@ -839,24 +990,60 @@ pub const Bridge = struct {
         const op: Op = @enumFromInt(hdr.op);
 
         if (match == null) {
-            // Unknown stream from guest → reject with RST.
-            const rst = VsockHdr{
-                .src_cid = host_cid,
-                .dst_cid = self.cfg.guest_cid,
-                .src_port = hdr.dst_port,
-                .dst_port = hdr.src_port,
-                .len = 0,
-                .type = hdr.type,
-                .op = @intFromEnum(Op.rst),
-                .flags = 0,
-                .buf_alloc = advertised_buf_alloc,
-                .fwd_cnt = 0,
-            };
-            _ = self.injectRx(rst, &[_]u8{});
+            // No existing connection. If it's a REQUEST targeting an
+            // outbound-mapped host port, dial the UDS and accept.
+            if (op == .request) {
+                if (self.findOutbound(hdr.dst_port)) |uds_path| {
+                    const fd = connectUds(uds_path);
+                    if (fd >= 0) {
+                        setNonblocking(fd);
+                        self.conns.append(self.gpa, .{
+                            .guest_port = hdr.src_port,
+                            .host_port = hdr.dst_port,
+                            .uds_fd = fd,
+                            .state = .established,
+                            .peer_buf_alloc = hdr.buf_alloc,
+                            .peer_fwd_cnt = hdr.fwd_cnt,
+                        }) catch {
+                            _ = close(fd);
+                            self.sendRst(hdr);
+                            return;
+                        };
+                        const resp = VsockHdr{
+                            .src_cid = host_cid,
+                            .dst_cid = self.cfg.guest_cid,
+                            .src_port = hdr.dst_port,
+                            .dst_port = hdr.src_port,
+                            .len = 0,
+                            .type = hdr.type,
+                            .op = @intFromEnum(Op.response),
+                            .flags = 0,
+                            .buf_alloc = advertised_buf_alloc,
+                            .fwd_cnt = 0,
+                        };
+                        _ = self.injectRx(resp, &[_]u8{});
+                        return;
+                    }
+                }
+            }
+            // Unknown / unmapped stream → reject with RST.
+            self.sendRst(hdr);
             return;
         }
         const idx = match.?;
         const c = &self.conns.items[idx];
+
+        // Every inbound packet carries peer window + fwd_cnt — pick them
+        // up before dispatch so peerRoom() reflects the latest view.
+        const had_room = peerRoom(c) > 0;
+        c.peer_buf_alloc = hdr.buf_alloc;
+        c.peer_fwd_cnt = hdr.fwd_cnt;
+        const has_room = peerRoom(c) > 0;
+        // If credit opened up, unpause so the next poll wakes the fd.
+        if (c.paused and !had_room and has_room) {
+            c.paused = false;
+            self.nudge();
+        }
 
         switch (op) {
             .response => {
@@ -870,48 +1057,85 @@ pub const Bridge = struct {
                     if (n <= 0) break; // blocked or peer closed
                     remaining = remaining[@intCast(n)..];
                 }
-                c.fwd_cnt +%= @intCast(body.len);
-                // Emit an explicit credit update so the guest knows we've
-                // consumed these bytes. Cheap insurance.
-                const credit = VsockHdr{
-                    .src_cid = host_cid,
-                    .dst_cid = self.cfg.guest_cid,
-                    .src_port = c.host_port,
-                    .dst_port = c.guest_port,
-                    .len = 0,
-                    .type = @intFromEnum(Type.stream),
-                    .op = @intFromEnum(Op.credit_update),
-                    .flags = 0,
-                    .buf_alloc = advertised_buf_alloc,
-                    .fwd_cnt = c.fwd_cnt,
-                };
-                _ = self.injectRx(credit, &[_]u8{});
+                c.bytes_from_peer +%= @intCast(body.len);
+                c.fwd_cnt = c.bytes_from_peer;
+                // Emit a credit update when we've consumed enough new
+                // bytes to be worth telling the peer about. "Enough" is
+                // half of our advertised window — chosen so the guest
+                // gets at least a handful of updates across a full
+                // window but we don't stuff the RX queue on small
+                // trickles.
+                const threshold: u32 = advertised_buf_alloc / 2;
+                if ((c.fwd_cnt -% c.last_credit_fwd_cnt) >= threshold) {
+                    self.sendCreditUpdate(c);
+                }
             },
             .shutdown, .rst => {
                 self.closeConnection(idx);
             },
             .credit_request => {
-                const credit = VsockHdr{
-                    .src_cid = host_cid,
-                    .dst_cid = self.cfg.guest_cid,
-                    .src_port = c.host_port,
-                    .dst_port = c.guest_port,
-                    .len = 0,
-                    .type = @intFromEnum(Type.stream),
-                    .op = @intFromEnum(Op.credit_update),
-                    .flags = 0,
-                    .buf_alloc = advertised_buf_alloc,
-                    .fwd_cnt = c.fwd_cnt,
-                };
-                _ = self.injectRx(credit, &[_]u8{});
+                self.sendCreditUpdate(c);
             },
             .credit_update => {
-                // Purely informational for M1.
+                // peer_fwd_cnt already absorbed above.
             },
             else => {},
         }
     }
+
+    fn sendCreditUpdate(self: *Bridge, c: *Connection) void {
+        const credit = VsockHdr{
+            .src_cid = host_cid,
+            .dst_cid = self.cfg.guest_cid,
+            .src_port = c.host_port,
+            .dst_port = c.guest_port,
+            .len = 0,
+            .type = @intFromEnum(Type.stream),
+            .op = @intFromEnum(Op.credit_update),
+            .flags = 0,
+            .buf_alloc = advertised_buf_alloc,
+            .fwd_cnt = c.fwd_cnt,
+        };
+        if (self.injectRx(credit, &[_]u8{})) {
+            c.last_credit_fwd_cnt = c.fwd_cnt;
+        }
+    }
 };
+
+test "parseEnv: legacy single-entry defaults to inbound" {
+    const gpa = std.testing.allocator;
+    const parsed = try parseEnv(gpa, "1234:/tmp/a.sock");
+    defer freeParsed(gpa, parsed);
+    try std.testing.expectEqual(@as(usize, 1), parsed.len);
+    try std.testing.expectEqual(@as(u32, 1234), parsed[0].guest_port);
+    try std.testing.expectEqual(Direction.inbound, parsed[0].direction);
+    try std.testing.expectEqualStrings("/tmp/a.sock", parsed[0].uds_path);
+}
+
+test "parseEnv: in: and out: prefixes" {
+    const gpa = std.testing.allocator;
+    const parsed = try parseEnv(gpa, "in:10:/tmp/i.sock,out:20:/tmp/o.sock");
+    defer freeParsed(gpa, parsed);
+    try std.testing.expectEqual(@as(usize, 2), parsed.len);
+    try std.testing.expectEqual(Direction.inbound, parsed[0].direction);
+    try std.testing.expectEqual(@as(u32, 10), parsed[0].guest_port);
+    try std.testing.expectEqual(Direction.outbound, parsed[1].direction);
+    try std.testing.expectEqual(@as(u32, 20), parsed[1].guest_port);
+}
+
+test "parseEnv: rejects malformed input" {
+    const gpa = std.testing.allocator;
+    try std.testing.expectError(error.MissingColon, parseEnv(gpa, "nope"));
+    try std.testing.expectError(error.BadPort, parseEnv(gpa, "abc:/tmp/x.sock"));
+    try std.testing.expectError(error.EmptyPath, parseEnv(gpa, "10:"));
+}
+
+test "parseEnv: skips empty segments (trailing comma)" {
+    const gpa = std.testing.allocator;
+    const parsed = try parseEnv(gpa, "1:/a.sock,,2:/b.sock,");
+    defer freeParsed(gpa, parsed);
+    try std.testing.expectEqual(@as(usize, 2), parsed.len);
+}
 
 test "writePacket fails cleanly when the chain is too short" {
     const num = 4;
