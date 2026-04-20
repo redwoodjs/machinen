@@ -50,12 +50,21 @@ importers:
       '@machine/sdk':
         specifier: workspace:*
         version: link:../sdk
+      dockerode:
+        specifier: ^4.0.4
+        version: 4.0.10
+
+  packages/microvm: {}
+
+  packages/runtime: {}
 
   packages/sdk:
     dependencies:
       dockerode:
         specifier: ^4.0.4
         version: 4.0.10
+
+  packages/vmm: {}
 
 packages:
 
