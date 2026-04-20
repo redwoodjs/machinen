@@ -103,10 +103,57 @@ then your `/demo.sh` output. Kill with Ctrl-C.
 
 - No network (the VMM doesn't emulate virtio-net yet).
 - No persistent disk — the initramfs *is* the filesystem.
-- No reading from host stdin back into the guest (read from
-  serial is unimplemented on the host side).
-- Checkpoint/restore inside the guest works up to a point —
-  see `.docs/learnings/microvm/criu-inside-vmm-next-steps.md`.
+
+### Fork a Node process with CRIU (the hot-move primitive)
+
+There's a ready-made demo that freezes a running Node counter, kills
+the original process, and resumes it in a brand-new process whose
+counter picks up where the original left off. Proof that the machinen
+primitive works end to end inside our VMM.
+
+Build the two helper tools (first time only):
+
+```bash
+cd packages/microvm/test-fixtures
+zig cc -target aarch64-linux-musl -static -Os -o rootfs/bin/lo-up  lo-up.c
+zig cc -target aarch64-linux-musl -static -Os -o rootfs/bin/no-iou no-iou.c
+```
+
+- `lo-up` brings the loopback interface up (CRIU's kerndat probes
+  connect() to loopback; without this they fail).
+- `no-iou` runs a child with a seccomp filter that blocks
+  `io_uring_setup`. Node's libuv opens io_uring rings on recent
+  kernels and CRIU can't dump a process with live io_uring state.
+  The wrapper forces libuv's epoll fallback.
+
+Copy the demo scripts into the rootfs and repack:
+
+```bash
+cp counter.js fork-demo.sh demo.sh rootfs/
+python3 mkinitramfs.py --rootfs rootfs
+```
+
+Boot it:
+
+```bash
+cd ..
+MACHINEN_BOOT_TEST=1 zig build test
+```
+
+Expected progression on the guest console:
+
+```
+=== starting counter ===
+count file: 3                 ← Node has been ticking for ~4s
+=== dumping pid=127 ===
+dump OK                       ← CRIU wrote image files
+=== count file should be frozen ===
+count file: 3                 ← original process is gone
+=== restoring ===
+restore OK                    ← brand new process, same state
+=== count file after restore ===
+count file: 7                 ← kept counting from 3, not from 1
+```
 
 
 ## What we need
