@@ -42,13 +42,50 @@ feel like a real shell instead of a pipe.
    PassThrough listener) because a listener would drain the buffer
    before the real consumer subscribes.
 
-## What this doesn't do (yet)
+## Guest-side TIOCSWINSZ (shipped)
 
-* **Guest-side TIOCSWINSZ.** The pty is host-side; the guest sees
-  `ttyAMA0`, not a pty. For the guest to know the terminal size we
-  need a vsock side-channel: supervisor → guest agent → `ioctl(fd,
-  TIOCSWINSZ)`. Easy once a guest agent exists (and vsock shipped in
-  #44 M2+).
+The host pty is only half the story — the guest sees `ttyAMA0`, not
+a pty, so host SIGWINCH doesn't automatically change the guest's
+columns/rows. We now cross that gap via vsock:
+
+* **`packages/microvm/test-fixtures/winsize-agent.py`** — runs as
+  PID 1's child inside the guest. Binds AF_VSOCK on port 1974,
+  reads `cols rows\n` lines, and calls `ioctl(fd, TIOCSWINSZ, …)`
+  on `/dev/console`, `/dev/ttyAMA0`, `/dev/tty0`, and every running
+  process's fd 0/1/2 that's a tty. That last bit catches
+  long-running shells whose TIOCGWINSZ was captured at boot — they
+  stop reporting 80x24 after the agent reaches their stdio.
+* **`VsockWinsize`** in `@machinen/runtime` — a two-method
+  (`send`, `close`) UDS client that wraps the host end of the
+  vsock bridge. `connect(udsPath, { timeoutMs })` retries until the
+  bridge publishes the socket. Idempotent on repeated same-size
+  sends so SIGWINCH storms don't flood the guest.
+
+Wiring it into a Supervisor app:
+
+```ts
+const vm = await spawn({
+  binary: VMM,
+  env: { MACHINEN_VSOCK: "in:1974:/tmp/machinen-winsize.sock" },
+});
+const ws = await VsockWinsize.connect("/tmp/machinen-winsize.sock");
+sandboxes.add("0", vm);
+
+// Wrap vm.resize (add if PtyVmHandle) so SIGWINCH fans out to both:
+const base = vm as Partial<PtyVmHandle>;
+base.resize = (c, r) => ws.send(c, r);
+```
+
+With that in place, `process.on("SIGWINCH", …)` in the Supervisor
+already calls `vm.resize(cols, rows)`, which now reaches the guest.
+
+Smoke: `./packages/microvm/test-fixtures/smoke.sh winsize` asserts
+host resize arrives at the agent (ack channel) AND that the guest
+actually called `ioctl(TIOCSWINSZ)` on `/dev/console` (scraped from
+the agent's "applied:" log lines).
+
+## What this still doesn't do
+
 * **Colors inside the VMM binary.** The VMM just pushes PL011 bytes
   through; it doesn't care about its own stdio. What it does is
   already byte-transparent, so colors emitted by CC in the guest

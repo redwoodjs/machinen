@@ -408,6 +408,79 @@ PY
     grep -qE 'vsock: in [0-9]+ <->' "${log}" && pass 'vsock bridge reported an inbound port' || fail 'vsock bridge never reported inbound mapping'
 }
 
+smoke_winsize() {
+    echo "--- winsize (guest-side TIOCSWINSZ via vsock) ---"
+    local log=/tmp/microvm-smoke-winsize.log
+    local sock=/tmp/machinen-winsize.sock
+    rm -f "$sock"
+
+    repack_with "
+        cp $FIXTURES/winsize-agent.py $ROOTFS/winsize-agent.py
+        cp $FIXTURES/winsize-demo.sh $ROOTFS/demo.sh
+        chmod +x $ROOTFS/demo.sh
+    "
+
+    MACHINEN_VSOCK="in:1974:$sock" MACHINEN_BOOT_TEST=1 "$TEST_BIN" </dev/null 2>"$log" &
+    local vm_pid=$!
+    # Wait up to 40s for the agent to report listening.
+    local elapsed=0 ready=0
+    while (( elapsed < 40 )); do
+        if grep -q 'winsize-agent: listening' "$log" 2>/dev/null; then ready=1; break; fi
+        sleep 1; (( ++elapsed ))
+    done
+    if (( ready == 0 )); then
+        fail 'guest agent never reported listening'
+        kill -9 $vm_pid 2>/dev/null || true
+        wait $vm_pid 2>/dev/null || true
+        tail -30 "$log"
+        return
+    fi
+
+    # Send two resizes and collect the ack text the agent prints.
+    local result
+    result=$(python3 - "$sock" <<'PY' 2>/dev/null
+import socket, sys, time
+path = sys.argv[1]
+s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+s.connect(path)
+s.sendall(b"80 24\n")
+time.sleep(0.5)
+s.sendall(b"132 50\n")
+time.sleep(0.5)
+# Read whatever the agent echoed back.
+s.settimeout(3)
+buf = b""
+t0 = time.time()
+while time.time() - t0 < 3:
+    try:
+        chunk = s.recv(4096)
+        if not chunk: break
+        buf += chunk
+    except socket.timeout:
+        break
+sys.stdout.buffer.write(buf)
+PY
+)
+    # Let the agent's stdout flush through the VMM's PL011 echo.
+    sleep 1
+    kill -9 $vm_pid 2>/dev/null || true
+    wait $vm_pid 2>/dev/null || true
+    rm -f "$sock"
+
+    if [[ "$result" == *"ok 80 24"* && "$result" == *"ok 132 50"* ]]; then
+        pass 'host resize arrived at the guest agent (both sizes acked)'
+    else
+        fail "agent ack channel missing expected lines (got '$result')"
+    fi
+
+    grep -q 'applied: 80 24 -> /dev/console' "$log" \
+        && pass 'guest ioctl(TIOCSWINSZ) succeeded on /dev/console (80x24)' \
+        || fail 'no applied 80x24 on /dev/console'
+    grep -q 'applied: 132 50 -> /dev/console' "$log" \
+        && pass 'guest ioctl(TIOCSWINSZ) succeeded on /dev/console (132x50)' \
+        || fail 'no applied 132x50 on /dev/console'
+}
+
 smoke_vsock_out() {
     echo "--- vsock-out (guest-initiated) ---"
     local log=/tmp/microvm-smoke-vsock-out.log
@@ -492,7 +565,8 @@ case "$MODE" in
     spawn)      smoke_spawn ;;
     vsock)      smoke_vsock ;;
     vsock-out)  smoke_vsock_out ;;
-    all)        smoke_repl; smoke_criu; smoke_net; smoke_blk; smoke_cc; smoke_spawn; smoke_vsock; smoke_vsock_out; smoke_cc_session ;;
+    winsize)    smoke_winsize ;;
+    all)        smoke_repl; smoke_criu; smoke_net; smoke_blk; smoke_cc; smoke_spawn; smoke_vsock; smoke_vsock_out; smoke_winsize; smoke_cc_session ;;
     *) echo "unknown mode: $MODE" >&2; exit 2 ;;
 esac
 

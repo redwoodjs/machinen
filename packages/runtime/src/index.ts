@@ -6,6 +6,8 @@ export type {
 } from "./multiplex.ts";
 export { spawnPty } from "./pty.ts";
 export type { PtySpawnOptions, PtyVmHandle } from "./pty.ts";
+export { VsockWinsize } from "./winsize.ts";
+export type { VsockWinsizeOptions } from "./winsize.ts";
 
 // @machinen/runtime — TypeScript surface for spawning microVMs.
 //
