@@ -251,6 +251,19 @@ describe("bundle option", () => {
     }
   });
 
+  it("throws SpawnError when baseRootfs is set but the tarball is missing", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-test-bundle-"));
+    try {
+      mkdirSync(join(dir, "rootfs"));
+      writeFileSync(join(dir, "machinen-config.json"), "{}");
+      await expect(
+        spawn({ binary: "/bin/sh", bundle: dir, baseRootfs: "/nope/missing-tarball.tgz" }),
+      ).rejects.toThrow(/base rootfs tarball not found/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("boots a bundle and the guest runs the cmd from machinen-config.json", async () => {
     const binary = findBootTestBinary();
     if (!binary || !fixturesPresent()) {

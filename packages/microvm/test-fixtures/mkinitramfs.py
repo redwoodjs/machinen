@@ -20,7 +20,7 @@ Modes:
                                   the base archive; we write one trailer
                                   at the END of the concatenated stream.
 """
-import fnmatch, os, stat, struct, sys
+import fnmatch, os, shutil, stat, struct, subprocess, sys, tempfile
 from pathlib import Path
 
 HERE = Path(__file__).parent
@@ -270,6 +270,22 @@ def main():
         excludes = load_excludes(Path(args[i + 1]).resolve())
         del args[i:i + 2]
 
+    # Optional base rootfs tarball. When combined with --bundle, extract
+    # the tarball into a temp dir, overlay the bundle's rootfs/ on top,
+    # and pack the merged tree. Matches the overlay model in
+    # .docs/learnings/microvm/rootfs-contract.md — bundles ship diffs,
+    # not standalone rootfses.
+    base_tarball = None
+    if "--base" in args:
+        i = args.index("--base")
+        base_tarball = Path(args[i + 1]).resolve()
+        del args[i:i + 2]
+        if not base_tarball.is_file():
+            print(f"--base: {base_tarball} is not a regular file", file=sys.stderr)
+            sys.exit(2)
+
+    merge_tmp = None
+
     if args and args[0] == "--bundle":
         # Bundle layout: <dir>/rootfs + <dir>/machinen-config.json.
         bundle = Path(args[1]).resolve()
@@ -281,8 +297,29 @@ def main():
         if not cfg_path.is_file():
             print(f"--bundle: missing {cfg_path}", file=sys.stderr)
             sys.exit(2)
+
+        if base_tarball is not None:
+            merge_tmp = Path(tempfile.mkdtemp(prefix="machinen-mkinitramfs-"))
+            print(f"extracting base: {base_tarball} -> {merge_tmp}")
+            subprocess.run(
+                ["tar", "-xzf", str(base_tarball), "-C", str(merge_tmp)],
+                check=True,
+            )
+            print(f"overlaying bundle/rootfs: {rootfs_dir} -> {merge_tmp}")
+            shutil.copytree(
+                rootfs_dir, merge_tmp,
+                dirs_exist_ok=True, symlinks=True,
+            )
+            pack_src = merge_tmp
+        else:
+            pack_src = rootfs_dir
+
         print(f"packing bundle: {bundle}")
-        parts = list(entries_from_rootfs(rootfs_dir, excludes=excludes))
+        try:
+            parts = list(entries_from_rootfs(pack_src, excludes=excludes))
+        finally:
+            if merge_tmp is not None:
+                shutil.rmtree(merge_tmp, ignore_errors=True)
         config_bytes = cfg_path.read_bytes()
     elif args and args[0] == "--rootfs":
         root = Path(args[1]).resolve()

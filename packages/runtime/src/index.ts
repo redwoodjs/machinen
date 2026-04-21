@@ -122,6 +122,14 @@ export interface SpawnOptions {
    */
   bundle?: string;
   /**
+   * Optional path to the base rootfs tarball (e.g. the one shipped in
+   * GitHub Releases as `rootfs-debian-arm64.tar.gz`). When provided with
+   * `bundle`, the runtime extracts the tarball and overlays
+   * `<bundle>/rootfs/` on top before packing the cpio. When omitted,
+   * `<bundle>/rootfs/` is treated as a standalone rootfs.
+   */
+  baseRootfs?: string;
+  /**
    * Override the mkinitramfs.py helper used to pack bundles. Defaults
    * to the script in this monorepo's `packages/microvm/test-fixtures/`.
    * Callers outside the monorepo (rare today) must supply it.
@@ -278,7 +286,18 @@ function packBundle(opts: SpawnOptions): { tempDir: string; cpioPath: string } {
   const tempDir = mkdtempSync(join(tmpdir(), "machinen-bundle-"));
   const cpioPath = join(tempDir, "initramfs.cpio");
 
-  const res = spawnSync("python3", [mk, "--bundle", bundleDir, "--out", cpioPath], {
+  const mkArgs = ["--bundle", bundleDir, "--out", cpioPath];
+  if (opts.baseRootfs) {
+    const baseAbs = resolve(opts.cwd ?? process.cwd(), opts.baseRootfs);
+    if (!existsSync(baseAbs)) {
+      try {
+        rmSync(tempDir, { recursive: true, force: true });
+      } catch {}
+      throw new SpawnError(`base rootfs tarball not found: ${baseAbs}`);
+    }
+    mkArgs.unshift("--base", baseAbs);
+  }
+  const res = spawnSync("python3", [mk, ...mkArgs], {
     stdio: ["ignore", "pipe", "pipe"],
   });
   if (res.status !== 0) {
