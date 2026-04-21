@@ -79,18 +79,23 @@ rm -rf rootfs && mkdir rootfs
 tar -xf rootfs.tar -C rootfs
 rm rootfs.tar
 
-# Option B: start from our tiny hand-written init (1 KB, single
-# binary from init.c) — already produced:
-#   rootfs/init        ← the binary
-#   rootfs/dev/console ← added automatically by mkinitramfs.py
+# Option B: start from our /init (~118 KB, static aarch64-linux-musl,
+# built from test-fixtures/init.zig) — produced by:
+#   test-fixtures/build-init.sh
+# The result goes to test-fixtures/init; mkinitramfs.py drops it at
+# /init inside the cpio. /dev/console is added automatically.
+#
+# /init reads /machinen-config.json if present (see
+# .docs/learnings/microvm/rootfs-contract.md). For backward-compat
+# with this README's flow, it also falls back to /bin/sh /demo.sh
+# when no config file is found.
 
 # Either way, put your own files in. For example:
 echo 'print("hello from python inside the microVM")' > rootfs/demo.py
 mkdir -p rootfs/srv
 echo "my custom data" > rootfs/srv/data.txt
 
-# Tell /init what to do. The shell-script path expects /demo.sh
-# as the entry point; edit it to do whatever you want:
+# Option 1 (legacy path — /bin/sh /demo.sh):
 cat > rootfs/demo.sh <<'SH'
 #!/bin/sh
 echo "hello from my custom demo"
@@ -100,6 +105,15 @@ cat /srv/data.txt
 sleep 999999
 SH
 chmod +x rootfs/demo.sh
+
+# Option 2 (bundle path — /machinen-config.json):
+cat > rootfs/machinen-config.json <<'JSON'
+{
+  "cmd": ["/bin/sh", "-c", "echo hi; ls -la /srv; sleep 999999"],
+  "env": { "PATH": "/usr/local/bin:/usr/bin:/bin:/sbin" },
+  "cwd": "/"
+}
+JSON
 
 # Pack it into the cpio archive the kernel boots from:
 python3 mkinitramfs.py --rootfs rootfs
@@ -119,8 +133,8 @@ then your `/demo.sh` output. Kill with Ctrl-C.
 
 - **Mount filesystems**: `mount -t proc proc /proc`,
   `mount -t sysfs sysfs /sys`, `mount -t devtmpfs devtmpfs /dev`
-  (the hand-written init.c does this already; a Debian rootfs
-  usually has these in fstab).
+  (our `/init` does this already; a Debian rootfs usually has
+  these in fstab too).
 - **Run programs**: `exec node myscript.js`, `/bin/bash`, etc.
 - **Write files**: anywhere on the in-RAM filesystem. Changes
   are lost when the VM stops (no persistent disk yet).
