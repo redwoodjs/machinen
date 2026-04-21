@@ -127,6 +127,13 @@ jobs:
           path: packages/vmm-arm64-linux/bin/
       - run: chmod +x packages/vmm-arm64-*/bin/microvm
 
+      # cli typechecks against @machinen/runtime's dist types, so the
+      # TS packages need a build before typecheck. Zig isn't available
+      # on this runner, so filter out @machinen/microvm (its binary is
+      # downloaded as an artifact above).
+      - name: Build TS packages
+        run: pnpm -F @machinen/runtime -F @machinen/cli build
+
       - name: Typecheck + test
         run: |
           pnpm -r typecheck
