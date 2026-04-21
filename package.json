@@ -16,7 +16,8 @@
     "format:check": "oxfmt --check",
     "changeset": "changeset",
     "version": "changeset version && oxfmt",
-    "release": "pnpm -F @machinen/runtime -F @machinen/cli build && changeset publish"
+    "release": "pnpm -F @machinen/runtime -F @machinen/cli build && changeset publish",
+    "machinen-dev": "bash scripts/machinen-dev.sh"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",
