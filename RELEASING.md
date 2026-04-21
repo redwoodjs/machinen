@@ -35,7 +35,7 @@ Multiple changesets accumulate into a single Version PR.
 
 Merge the Version PR. The release workflow runs again and:
 
-1. Cross-compiles the Zig VMM for `aarch64-macos` and `aarch64-linux-gnu`.
+1. Natively builds the Zig VMM on `macos-14` (arm64) and `ubuntu-24.04-arm`.
    Ad-hoc codesigns the darwin binary with the hypervisor entitlement.
 2. Builds the base assets: `Image-arm64`, `virt-arm64.dtb`,
    `rootfs-debian-arm64.tar.gz` + `.sha256` sidecars.
