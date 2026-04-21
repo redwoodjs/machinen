@@ -785,10 +785,21 @@ test "boot a real arm64 Linux kernel" {
         if (access(fallback ++ "\x00", F_OK) == 0) break :blk fallback;
         break :blk null;
     };
+    // Optional override: MACHINEN_INITRD lets the host-side runtime
+    // point at a freshly-packed initramfs without clobbering the
+    // in-tree fixture. Falls back to test-fixtures/initramfs.cpio.
+    const initrd_env = getenv("MACHINEN_INITRD");
+    const initrd_path: []const u8 = blk: {
+        if (initrd_env) |p| {
+            const s = std.mem.span(p);
+            if (s.len > 0) break :blk s;
+        }
+        break :blk initrd_fixture;
+    };
     const result = boot(gpa, .{
         .kernel_path = kernel_fixture,
         .dtb_path = dtb_fixture,
-        .initrd_path = initrd_fixture,
+        .initrd_path = initrd_path,
         .disk_path = disk_path,
     }) catch |err| {
         std.debug.print("boot returned {s}\n", .{@errorName(err)});

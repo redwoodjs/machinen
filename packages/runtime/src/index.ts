@@ -28,10 +28,23 @@ export type { VsockFilesOptions } from "./files.ts";
 //
 // No multiplexing yet — one VM per handle (#51 is its own issue).
 
-import { type ChildProcessWithoutNullStreams, spawn as nodeSpawn } from "node:child_process";
+import {
+  type ChildProcessWithoutNullStreams,
+  spawn as nodeSpawn,
+  spawnSync,
+} from "node:child_process";
 import { once } from "node:events";
-import { closeSync, existsSync, openSync, writeSync } from "node:fs";
-import { resolve } from "node:path";
+import {
+  closeSync,
+  existsSync,
+  mkdtempSync,
+  openSync,
+  rmSync,
+  statSync,
+  writeSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import type { Readable, Writable } from "node:stream";
 
 export class SpawnError extends Error {}
@@ -56,6 +69,19 @@ export interface SpawnOptions {
    * shortcut. See #47 (virtio-blk) and #50 (snapshot-from-disk).
    */
   disk?: string;
+  /**
+   * Path to a bundle directory: `<bundle>/rootfs/` + `<bundle>/machinen-config.json`.
+   * When set, the runtime packs the bundle into a cpio initramfs and
+   * points the VMM at it via `MACHINEN_INITRD`. See
+   * `.docs/learnings/microvm/rootfs-contract.md`.
+   */
+  bundle?: string;
+  /**
+   * Override the mkinitramfs.py helper used to pack bundles. Defaults
+   * to the script in this monorepo's `packages/microvm/test-fixtures/`.
+   * Callers outside the monorepo (rare today) must supply it.
+   */
+  mkinitramfs?: string;
 }
 
 export interface VmHandle {
@@ -95,11 +121,26 @@ export async function spawn(opts: SpawnOptions): Promise<VmHandle> {
     env.MACHINEN_DISK = abs;
   }
 
+  let bundleTempDir: string | undefined;
+  if (opts.bundle) {
+    const packed = packBundle(opts);
+    bundleTempDir = packed.tempDir;
+    env.MACHINEN_INITRD = packed.cpioPath;
+  }
+
   const child = nodeSpawn(binary, opts.args ?? [], {
     cwd: opts.cwd,
     env,
     stdio: ["pipe", "pipe", "pipe"],
   }) as ChildProcessWithoutNullStreams;
+
+  if (bundleTempDir) {
+    child.once("exit", () => {
+      try {
+        rmSync(bundleTempDir, { recursive: true, force: true });
+      } catch {}
+    });
+  }
 
   const timeoutMs = opts.timeoutMs === undefined ? 60_000 : opts.timeoutMs;
 
@@ -149,6 +190,46 @@ export async function spawn(opts: SpawnOptions): Promise<VmHandle> {
   };
 
   return handle;
+}
+
+function packBundle(opts: SpawnOptions): { tempDir: string; cpioPath: string } {
+  const bundleDir = resolve(opts.cwd ?? process.cwd(), opts.bundle!);
+  if (!existsSync(bundleDir) || !statSync(bundleDir).isDirectory()) {
+    throw new SpawnError(`bundle directory not found: ${bundleDir}`);
+  }
+  if (!existsSync(join(bundleDir, "rootfs"))) {
+    throw new SpawnError(`bundle missing rootfs/: ${bundleDir}`);
+  }
+  if (!existsSync(join(bundleDir, "machinen-config.json"))) {
+    throw new SpawnError(`bundle missing machinen-config.json: ${bundleDir}`);
+  }
+
+  const mk =
+    opts.mkinitramfs ??
+    resolve(
+      // @machinen/runtime → packages/microvm/test-fixtures/mkinitramfs.py
+      import.meta.dirname,
+      "../../microvm/test-fixtures/mkinitramfs.py",
+    );
+  if (!existsSync(mk)) {
+    throw new SpawnError(`mkinitramfs.py not found at ${mk}`);
+  }
+
+  const tempDir = mkdtempSync(join(tmpdir(), "machinen-bundle-"));
+  const cpioPath = join(tempDir, "initramfs.cpio");
+
+  const res = spawnSync("python3", [mk, "--bundle", bundleDir, "--out", cpioPath], {
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  if (res.status !== 0) {
+    try {
+      rmSync(tempDir, { recursive: true, force: true });
+    } catch {}
+    throw new SpawnError(
+      `mkinitramfs --bundle failed (status ${res.status}): ${res.stderr?.toString() ?? ""}`,
+    );
+  }
+  return { tempDir, cpioPath };
 }
 
 function collect(stream: Readable): Promise<string> {
