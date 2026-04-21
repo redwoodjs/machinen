@@ -25,7 +25,7 @@ import { binary } from "@machinen/vmm-arm64-darwin";
 
 const vm = await spawn({
   binary,
-  bundle: "./my-bundle", // dir with rootfs/ + machinen-config.json
+  bundle: "./path/to/bundle", // dir with rootfs/ + machinen-config.json
 });
 
 vm.stdout.pipe(process.stdout);

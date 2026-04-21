@@ -36,7 +36,7 @@ for the contract. In practice you drive it through `@machinen/runtime`:
 
 ```ts
 import { spawn } from "@machinen/runtime";
-const vm = await spawn({ binary: "./zig-out/bin/microvm", bundle: "./my-bundle" });
+const vm = await spawn({ binary: "./zig-out/bin/microvm", bundle: "./path/to/bundle" });
 ```
 
 ## License
