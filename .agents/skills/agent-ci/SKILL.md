@@ -18,6 +18,16 @@ Run the full CI pipeline locally before pushing. CI was green before you started
 npx @redwoodjs/agent-ci run --quiet --all --pause-on-failure
 ```
 
+Run the command raw. Do NOT pipe it to `tail`, `head`, or similar filters —
+those buffer until the process exits, so progress is invisible and on failure
+you see only the tail of the last step instead of which step failed. `--quiet`
+already suppresses the animated renderer; the remaining output is the signal
+you need.
+
+If the run will exceed the Bash tool's foreground timeout, launch it with
+`run_in_background: true` and read the output file directly (the path is
+returned with the task ID). Do not wrap it in `tail`.
+
 ## Retry
 
 When a step fails, the run pauses automatically. Fix the issue, then retry:

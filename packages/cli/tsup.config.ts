@@ -1,9 +1,11 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: ["src/machinen.ts"],
+  entry: ["src/cli.ts"],
   format: ["esm"],
-  sourcemap: true,
+  target: "node20",
   clean: true,
-  target: "node22",
+  sourcemap: true,
+  banner: { js: "#!/usr/bin/env node" },
+  external: ["@machinen/runtime", "@machinen/vmm-arm64-darwin", "@machinen/vmm-arm64-linux"],
 });

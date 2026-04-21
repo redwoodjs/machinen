@@ -1,0 +1,161 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".changeset/**"
+      - "packages/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/release.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ------------------------------------------------------------
+  # VMM binaries — built natively per target, uploaded as artifacts
+  # for the release job to stage into each vmm-* subpackage.
+  # ------------------------------------------------------------
+
+  build-vmm-darwin-arm64:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.14.0
+      - name: Build VMM (darwin-arm64, native)
+        # macos-14 is arm64 — native build picks up the Hypervisor
+        # framework from the system SDK. Passing -Dtarget=aarch64-macos
+        # would make Zig treat this as a cross-compile and fail to
+        # locate the framework.
+        working-directory: packages/microvm
+        run: zig build -Doptimize=ReleaseSafe
+      - name: Ad-hoc codesign with hypervisor entitlement
+        working-directory: packages/microvm
+        run: |
+          codesign -s - --force \
+            --entitlements entitlements.plist \
+            zig-out/bin/microvm
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vmm-arm64-darwin
+          path: packages/microvm/zig-out/bin/microvm
+          if-no-files-found: error
+
+  build-vmm-arm64-linux:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.14.0
+      - name: Build VMM (linux-arm64, native)
+        working-directory: packages/microvm
+        run: zig build -Doptimize=ReleaseSafe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vmm-arm64-linux
+          path: packages/microvm/zig-out/bin/microvm
+          if-no-files-found: error
+
+  # ------------------------------------------------------------
+  # Base assets — Linux kernel + dtb + Debian rootfs tarball.
+  # Uploaded to the GH Release by the publish job (see below).
+  # ------------------------------------------------------------
+
+  build-base-assets:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.14.0
+      - name: Install dtc
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends device-tree-compiler
+      - name: Build base assets
+        # Host is arm64 — Docker pulls native arm64 images without
+        # emulation (saves minutes vs. QEMU binfmt on an x86 runner).
+        run: ./scripts/build-base-assets.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: base-assets
+          path: release-assets/
+          if-no-files-found: error
+
+  # ------------------------------------------------------------
+  # Release — Changesets-driven. Opens a "Version Packages" PR on
+  # normal merges, publishes to npm + GH Release when that PR merges.
+  # ------------------------------------------------------------
+
+  release:
+    needs: [build-vmm-darwin-arm64, build-vmm-arm64-linux, build-base-assets]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.30.3
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+
+      # Stage VMM binaries into their subpackages so `changeset publish`
+      # picks them up. Each subpackage's `files` field must include `bin/`.
+      - uses: actions/download-artifact@v4
+        with:
+          name: vmm-arm64-darwin
+          path: packages/vmm-arm64-darwin/bin/
+      - uses: actions/download-artifact@v4
+        with:
+          name: vmm-arm64-linux
+          path: packages/vmm-arm64-linux/bin/
+      - run: chmod +x packages/vmm-arm64-*/bin/microvm
+
+      - name: Typecheck + test
+        run: |
+          pnpm -r typecheck
+          pnpm -r test
+
+      - name: Create Release PR or Publish
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          publish: pnpm release
+          version: pnpm run version
+          title: "chore: version packages"
+          commit: "chore: version packages"
+          createGithubReleases: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: true
+
+      # Only on a real publish: attach kernel + dtb + rootfs tarball
+      # to the GH Release that changesets/action just created.
+      - name: Download base assets
+        if: steps.changesets.outputs.published == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: base-assets
+          path: release-assets/
+      - name: Upload base assets to GH Release
+        if: steps.changesets.outputs.published == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # changesets/action tags each published package; they all share
+          # the same version thanks to the `fixed` group, so any tag works.
+          VERSION=$(node -p "require('./packages/runtime/package.json').version")
+          gh release upload "@machinen/runtime@${VERSION}" release-assets/* --clobber

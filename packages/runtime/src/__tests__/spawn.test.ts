@@ -166,9 +166,9 @@ describe("measureFirstByte", () => {
 
 describe("bundle option", () => {
   it("throws SpawnError when the bundle directory does not exist", async () => {
-    await expect(
-      spawn({ binary: "/bin/sh", bundle: "/nope/missing-bundle" }),
-    ).rejects.toThrow(/bundle directory not found/);
+    await expect(spawn({ binary: "/bin/sh", bundle: "/nope/missing-bundle" })).rejects.toThrow(
+      /bundle directory not found/,
+    );
   });
 
   it("throws SpawnError when the bundle is missing rootfs/", async () => {
@@ -215,11 +215,7 @@ describe("bundle option", () => {
       writeFileSync(
         join(bundleDir, "machinen-config.json"),
         JSON.stringify({
-          cmd: [
-            "/bin/sh",
-            "-c",
-            "echo BUNDLE_MARKER=$BUNDLE_MARKER; pwd; sleep 999999",
-          ],
+          cmd: ["/bin/sh", "-c", "echo BUNDLE_MARKER=$BUNDLE_MARKER; pwd; sleep 999999"],
           env: { PATH: "/usr/bin:/bin", BUNDLE_MARKER: "spawned-via-ts" },
           cwd: "/var",
         }),
