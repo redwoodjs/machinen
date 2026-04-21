@@ -69,4 +69,5 @@ and [`RELEASING.md`](RELEASING.md).
 
 ## License
 
-MIT
+[FSL-1.1-MIT](./LICENSE) — Functional Source License. Converts to MIT two
+years after each release.
