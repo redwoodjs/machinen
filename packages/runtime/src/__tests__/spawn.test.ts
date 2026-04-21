@@ -149,6 +149,62 @@ describe("disk option", () => {
   });
 });
 
+describe("kernel option", () => {
+  it("throws SpawnError when the kernel path does not exist", async () => {
+    await expect(spawn({ binary: "/bin/sh", kernel: "/nope/missing-kernel" })).rejects.toThrow(
+      /kernel not found/,
+    );
+  });
+
+  it("passes the resolved kernel path as MACHINEN_KERNEL to the child", async () => {
+    const kernel = `/tmp/machinen-runtime-kernel-${process.pid}`;
+    writeFileSync(kernel, "");
+    try {
+      const vm = await spawn({
+        binary: "/bin/sh",
+        args: ["-c", "printf 'KERNEL=%s\\n' \"$MACHINEN_KERNEL\""],
+        kernel,
+        timeoutMs: 2_000,
+      });
+      await vm.wait();
+      const out = await vm.output();
+      expect(out.trim()).toBe(`KERNEL=${kernel}`);
+    } finally {
+      try {
+        unlinkSync(kernel);
+      } catch {}
+    }
+  });
+});
+
+describe("dtb option", () => {
+  it("throws SpawnError when the dtb path does not exist", async () => {
+    await expect(spawn({ binary: "/bin/sh", dtb: "/nope/missing-dtb" })).rejects.toThrow(
+      /dtb not found/,
+    );
+  });
+
+  it("passes the resolved dtb path as MACHINEN_DTB to the child", async () => {
+    const dtb = `/tmp/machinen-runtime-dtb-${process.pid}`;
+    writeFileSync(dtb, "");
+    try {
+      const vm = await spawn({
+        binary: "/bin/sh",
+        args: ["-c", "printf 'DTB=%s\\n' \"$MACHINEN_DTB\""],
+        dtb,
+        timeoutMs: 2_000,
+      });
+      await vm.wait();
+      const out = await vm.output();
+      expect(out.trim()).toBe(`DTB=${dtb}`);
+    } finally {
+      try {
+        unlinkSync(dtb);
+      } catch {}
+    }
+  });
+});
+
 describe("measureFirstByte", () => {
   it("returns the wall-clock time before the child produces stderr", async () => {
     // /bin/sh writes the `1` to stderr immediately.
