@@ -46,4 +46,4 @@ const vm = await spawn({ binary, bundle: "./path/to/bundle" });
 
 ## License
 
-MIT
+[FSL-1.1-MIT](../../LICENSE) — converts to MIT two years after each release.

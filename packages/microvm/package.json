@@ -2,7 +2,7 @@
   "name": "@machinen/microvm",
   "version": "0.0.0",
   "description": "Zig-native arm64 microVM for machinen (HVF on darwin, KVM on Linux).",
-  "license": "MIT",
+  "license": "FSL-1.1-MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/redwoodjs/machinen.git",

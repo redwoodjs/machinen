@@ -41,4 +41,4 @@ const vm = await spawn({ binary: "./zig-out/bin/microvm", bundle: "./path/to/bun
 
 ## License
 
-MIT
+[FSL-1.1-MIT](../../LICENSE) — converts to MIT two years after each release.

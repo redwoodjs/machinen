@@ -61,4 +61,4 @@ release tag (defaults to this CLI's own version) into
 
 ## License
 
-MIT
+[FSL-1.1-MIT](../../LICENSE) — converts to MIT two years after each release.
