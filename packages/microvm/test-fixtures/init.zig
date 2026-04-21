@@ -215,17 +215,9 @@ pub fn main() noreturn {
     const arena = arena_state.allocator();
 
     const cfg = loadConfig(arena) catch |err| {
-        // Backward-compat: if /machinen-config.json isn't present or
-        // doesn't parse, fall back to the legacy /bin/sh /demo.sh path
-        // so the existing rootfs/ + smokes keep working. Only
-        // ConfigOpenFailed is a "no config" case; other errors still
-        // log so misconfigured bundles are obvious.
-        if (err != error.ConfigOpenFailed) {
-            var buf: [256]u8 = undefined;
-            const msg = std.fmt.bufPrint(&buf, "init: config error: {s}", .{@errorName(err)}) catch "init: config error";
-            logLine(msg);
-        }
-        legacyExec();
+        var buf: [256]u8 = undefined;
+        const msg = std.fmt.bufPrint(&buf, "init: config error: {s}", .{@errorName(err)}) catch "init: config error";
+        die(msg);
     };
 
     if (cfg.cwd_z) |p| {
@@ -235,18 +227,4 @@ pub fn main() noreturn {
     _ = execve(cfg.path, cfg.argv, cfg.envp);
     // execve only returns on failure.
     die("init: execve failed");
-}
-
-fn legacyExec() noreturn {
-    writeStr(1, "init: no /machinen-config.json, falling back to /bin/sh /demo.sh\n");
-    const argv = &[_:null]?[*:0]const u8{ "/bin/sh", "/demo.sh", null };
-    const envp = &[_:null]?[*:0]const u8{
-        "PATH=/usr/local/bin:/usr/bin:/bin:/sbin",
-        "NODE_NO_WARNINGS=1",
-        "HOME=/root",
-        "TERM=linux",
-        null,
-    };
-    _ = execve("/bin/sh", argv, envp);
-    die("init: legacy execve /bin/sh /demo.sh failed");
 }
