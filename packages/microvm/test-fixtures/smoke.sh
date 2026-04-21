@@ -49,15 +49,38 @@ build_and_find_bin() {
 }
 TEST_BIN=$(build_and_find_bin) || { echo "FAIL: no boot-test binary" >&2; exit 1; }
 
-# Repack the initramfs with the given demo.sh. `stage` is a shell
-# command that sets up $ROOTFS (paths are absolute). Optional second
-# arg is extra flags to mkinitramfs.py (e.g. `--exclude-from FILE`).
+# Repack the initramfs. `stage` is a shell command that sets up
+# $ROOTFS (paths are absolute). Optional second arg is extra flags
+# to mkinitramfs.py (e.g. `--exclude-from FILE`). Nukes any prior
+# machinen-config.json / demo.sh so each mode starts clean.
 repack_with() {
     local stage_cmd=$1
     local extra=${2:-}
+    rm -f "$ROOTFS/machinen-config.json" "$ROOTFS/demo.sh"
     eval "$stage_cmd"
     # shellcheck disable=SC2086  # extra is intentional flag-splitting.
     python3 "$FIXTURES/mkinitramfs.py" --rootfs "$ROOTFS" $extra >/dev/null
+}
+
+# Write $ROOTFS/machinen-config.json with the positional args as argv.
+# Matches the PATH/NODE_NO_WARNINGS/HOME env the old /demo.sh fallback
+# set; TERM=linux is auto-added by /init.
+write_config() {
+    local cmd_json=""
+    for a in "$@"; do
+        [[ -n "$cmd_json" ]] && cmd_json+=", "
+        cmd_json+="\"$a\""
+    done
+    cat > "$ROOTFS/machinen-config.json" <<EOF
+{
+  "cmd": [$cmd_json],
+  "env": {
+    "PATH": "/usr/local/bin:/usr/bin:/bin:/sbin",
+    "NODE_NO_WARNINGS": "1",
+    "HOME": "/root"
+  }
+}
+EOF
 }
 
 # Run the VMM with the given stdin feed; kill it after a timeout; return
@@ -85,14 +108,7 @@ fail() { echo "FAIL: $1"; (( ++FAIL )); }
 smoke_repl() {
     echo "--- repl ---"
     local log=/tmp/microvm-smoke-repl.log
-    repack_with "
-        cat > $ROOTFS/demo.sh <<'SH'
-#!/bin/sh
-PATH=/usr/local/bin:/usr/bin:/bin:/sbin; export PATH
-exec /usr/local/bin/node
-SH
-        chmod +x $ROOTFS/demo.sh
-    "
+    repack_with "write_config /usr/local/bin/node"
     run_vmm '{ sleep 14; printf "1 + 1\n.exit\n"; sleep 5; }' 28 "$log"
 
     grep -q 'Welcome to Node' "${log}.clean"   && pass 'Node REPL banner shown'   || fail 'no Node REPL banner'
@@ -113,12 +129,7 @@ smoke_criu() {
     repack_with "
         cp $FIXTURES/counter.js $FIXTURES/fork-demo.sh $ROOTFS/
         chmod +x $ROOTFS/fork-demo.sh
-        cat > $ROOTFS/demo.sh <<'SH'
-#!/bin/sh
-PATH=/usr/local/bin:/usr/bin:/bin:/sbin; export PATH
-exec /bin/sh /fork-demo.sh
-SH
-        chmod +x $ROOTFS/demo.sh
+        write_config /bin/sh /fork-demo.sh
     "
     run_vmm 'printf ""' 50 "$log"
 
@@ -151,12 +162,7 @@ smoke_net() {
     repack_with "
         cp $FIXTURES/net-demo.sh $ROOTFS/
         chmod +x $ROOTFS/net-demo.sh
-        cat > $ROOTFS/demo.sh <<'SH'
-#!/bin/sh
-PATH=/usr/local/bin:/usr/bin:/bin:/sbin; export PATH
-exec /bin/sh /net-demo.sh
-SH
-        chmod +x $ROOTFS/demo.sh
+        write_config /bin/sh /net-demo.sh
     "
     run_vmm 'printf ""' 40 "$log"
 
@@ -207,12 +213,7 @@ smoke_blk() {
     repack_with "
         cp $FIXTURES/blk-demo.sh $ROOTFS/
         chmod +x $ROOTFS/blk-demo.sh
-        cat > $ROOTFS/demo.sh <<'SH'
-#!/bin/sh
-PATH=/usr/local/bin:/usr/bin:/bin:/sbin; export PATH
-exec /bin/sh /blk-demo.sh
-SH
-        chmod +x $ROOTFS/demo.sh
+        write_config /bin/sh /blk-demo.sh
     "
     run_vmm 'printf ""' 40 "$log"
 
@@ -235,12 +236,7 @@ smoke_cc() {
     repack_with "
         cp $FIXTURES/cc-demo.sh $ROOTFS/
         chmod +x $ROOTFS/cc-demo.sh
-        cat > $ROOTFS/demo.sh <<'SH'
-#!/bin/sh
-PATH=/usr/local/bin:/usr/bin:/bin:/sbin; export PATH
-exec /bin/sh /cc-demo.sh
-SH
-        chmod +x $ROOTFS/demo.sh
+        write_config /bin/sh /cc-demo.sh
     "
     run_vmm 'printf ""' 30 "$log"
 
@@ -271,12 +267,7 @@ smoke_spawn() {
     repack_with "
         cp $FIXTURES/spawn-warmup.sh $FIXTURES/spawn-restore.sh $ROOTFS/
         chmod +x $ROOTFS/spawn-warmup.sh $ROOTFS/spawn-restore.sh
-        cat > $ROOTFS/demo.sh <<'SH'
-#!/bin/sh
-PATH=/usr/local/bin:/usr/bin:/bin:/sbin; export PATH
-exec /bin/sh /spawn-warmup.sh
-SH
-        chmod +x $ROOTFS/demo.sh
+        write_config /bin/sh /spawn-warmup.sh
     " "$slim"
     run_vmm 'printf ""' 45 "$p1_log"
 
@@ -288,16 +279,10 @@ SH
     before=$(grep 'snap/count:' "${p1_log}.clean" | sed -n '1p' | awk '{print $2}')
     echo "counter at dump: $before"
 
-    # Phase 2: restore boot — same disk, rewire demo.sh. Same slim
-    # exclude list; the restore path uses the same tools as warmup.
-    repack_with "
-        cat > $ROOTFS/demo.sh <<'SH'
-#!/bin/sh
-PATH=/usr/local/bin:/usr/bin:/bin:/sbin; export PATH
-exec /bin/sh /spawn-restore.sh
-SH
-        chmod +x $ROOTFS/demo.sh
-    " "$slim"
+    # Phase 2: restore boot — same disk, point /init at the restore
+    # script. Same slim exclude list; the restore path uses the same
+    # tools as warmup.
+    repack_with "write_config /bin/sh /spawn-restore.sh" "$slim"
     run_vmm 'printf ""' 40 "$p2_log"
 
     grep -q 'restore OK' "${p2_log}.clean" && pass 'restore: CRIU restore OK' || fail 'restore: failed'
@@ -339,12 +324,7 @@ smoke_cc_session() {
     repack_with "
         cp $FIXTURES/cc-session.sh $ROOTFS/
         chmod +x $ROOTFS/cc-session.sh
-        cat > $ROOTFS/demo.sh <<'SH'
-#!/bin/sh
-PATH=/usr/local/bin:/usr/bin:/bin:/sbin; export PATH
-exec /bin/sh /cc-session.sh
-SH
-        chmod +x $ROOTFS/demo.sh
+        write_config /bin/sh /cc-session.sh
     "
     run_vmm 'printf ""' 80 "$log"
 
@@ -369,8 +349,9 @@ smoke_vsock() {
     local sock=/tmp/machinen-smoke-vsock.sock
     rm -f "$sock"
     repack_with "
-        cp $FIXTURES/vsock-demo.sh $ROOTFS/demo.sh
-        chmod +x $ROOTFS/demo.sh
+        cp $FIXTURES/vsock-demo.sh $ROOTFS/vsock-demo.sh
+        chmod +x $ROOTFS/vsock-demo.sh
+        write_config /bin/sh /vsock-demo.sh
     "
     MACHINEN_VSOCK="1234:$sock" MACHINEN_BOOT_TEST=1 "$TEST_BIN" </dev/null 2>"$log" &
     local vm_pid=$!
@@ -444,8 +425,9 @@ smoke_cc_session_vsock() {
     repack_with "
         cp $FIXTURES/cc-session.sh $ROOTFS/cc-session.sh
         cp $FIXTURES/secrets-agent.py $ROOTFS/secrets-agent.py
-        cp $FIXTURES/cc-session-vsock-demo.sh $ROOTFS/demo.sh
-        chmod +x $ROOTFS/cc-session.sh $ROOTFS/demo.sh
+        cp $FIXTURES/cc-session-vsock-demo.sh $ROOTFS/cc-session-vsock-demo.sh
+        chmod +x $ROOTFS/cc-session.sh $ROOTFS/cc-session-vsock-demo.sh
+        write_config /bin/sh /cc-session-vsock-demo.sh
     "
 
     MACHINEN_VSOCK="in:1975:$sock" MACHINEN_DEBUG=1 MACHINEN_BOOT_TEST=1 \
@@ -527,8 +509,9 @@ smoke_files() {
 
     repack_with "
         cp $FIXTURES/file-agent.py $ROOTFS/file-agent.py
-        cp $FIXTURES/file-agent-demo.sh $ROOTFS/demo.sh
-        chmod +x $ROOTFS/demo.sh
+        cp $FIXTURES/file-agent-demo.sh $ROOTFS/file-agent-demo.sh
+        chmod +x $ROOTFS/file-agent-demo.sh
+        write_config /bin/sh /file-agent-demo.sh
     "
 
     MACHINEN_VSOCK="in:1976:$sock" MACHINEN_DEBUG=1 MACHINEN_BOOT_TEST=1 \
@@ -602,8 +585,9 @@ smoke_winsize() {
 
     repack_with "
         cp $FIXTURES/winsize-agent.py $ROOTFS/winsize-agent.py
-        cp $FIXTURES/winsize-demo.sh $ROOTFS/demo.sh
-        chmod +x $ROOTFS/demo.sh
+        cp $FIXTURES/winsize-demo.sh $ROOTFS/winsize-demo.sh
+        chmod +x $ROOTFS/winsize-demo.sh
+        write_config /bin/sh /winsize-demo.sh
     "
 
     MACHINEN_VSOCK="in:1974:$sock" MACHINEN_BOOT_TEST=1 "$TEST_BIN" </dev/null 2>"$log" &
@@ -712,8 +696,9 @@ PY
     fi
 
     repack_with "
-        cp $FIXTURES/vsock-out-demo.sh $ROOTFS/demo.sh
-        chmod +x $ROOTFS/demo.sh
+        cp $FIXTURES/vsock-out-demo.sh $ROOTFS/vsock-out-demo.sh
+        chmod +x $ROOTFS/vsock-out-demo.sh
+        write_config /bin/sh /vsock-out-demo.sh
     "
 
     MACHINEN_VSOCK="out:5678:$sock" MACHINEN_BOOT_TEST=1 "$TEST_BIN" </dev/null 2>"$log" &

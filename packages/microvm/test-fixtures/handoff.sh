@@ -43,17 +43,21 @@ for helper in lo-up no-iou; do
     fi
 done
 
-echo "==> staging handoff-dump.sh as the guest's demo.sh"
+echo "==> staging handoff-dump.sh as the guest's entry"
 cp "$FIXTURES/counter.js"          "$ROOTFS/counter.js"
 cp "$FIXTURES/handoff-dump.sh"     "$ROOTFS/handoff-dump.sh"
 chmod +x "$ROOTFS/handoff-dump.sh"
-cat > "$ROOTFS/demo.sh" <<'SH'
-#!/bin/sh
-PATH=/usr/local/bin:/usr/bin:/bin:/sbin
-export PATH
-exec /bin/sh /handoff-dump.sh
-SH
-chmod +x "$ROOTFS/demo.sh"
+rm -f "$ROOTFS/demo.sh"
+cat > "$ROOTFS/machinen-config.json" <<'JSON'
+{
+  "cmd": ["/bin/sh", "/handoff-dump.sh"],
+  "env": {
+    "PATH": "/usr/local/bin:/usr/bin:/bin:/sbin",
+    "NODE_NO_WARNINGS": "1",
+    "HOME": "/root"
+  }
+}
+JSON
 
 echo "==> repacking initramfs"
 python3 "$FIXTURES/mkinitramfs.py" --rootfs "$ROOTFS"
@@ -100,16 +104,20 @@ rm -rf "$STAGE/cpdump" && mkdir -p "$STAGE/cpdump"
 [[ -n "$(ls -A "$STAGE/cpdump" 2>/dev/null)" ]] || die "cpio extract produced no files"
 ls "$STAGE/cpdump" | head
 
-echo "==> rebuilding base initramfs with handoff-restore.sh as demo"
+echo "==> rebuilding base initramfs with handoff-restore.sh as entry"
 cp "$FIXTURES/handoff-restore.sh" "$ROOTFS/handoff-restore.sh"
 chmod +x "$ROOTFS/handoff-restore.sh"
-cat > "$ROOTFS/demo.sh" <<'SH'
-#!/bin/sh
-PATH=/usr/local/bin:/usr/bin:/bin:/sbin
-export PATH
-exec /bin/sh /handoff-restore.sh
-SH
-chmod +x "$ROOTFS/demo.sh"
+rm -f "$ROOTFS/demo.sh"
+cat > "$ROOTFS/machinen-config.json" <<'JSON'
+{
+  "cmd": ["/bin/sh", "/handoff-restore.sh"],
+  "env": {
+    "PATH": "/usr/local/bin:/usr/bin:/bin:/sbin",
+    "NODE_NO_WARNINGS": "1",
+    "HOME": "/root"
+  }
+}
+JSON
 python3 "$FIXTURES/mkinitramfs.py" --rootfs "$ROOTFS"
 
 echo "==> packing CRIU images as a workspace cpio"

@@ -340,7 +340,7 @@ test "KVM: boot a real arm64 Linux kernel" {
     }
     if (!fixturesPresent()) {
         std.debug.print(
-            "skip: missing {s} or {s} (see test-fixtures/README.md)\n",
+            "skip: missing {s} or {s} (run scripts/build-base-assets.sh)\n",
             .{ kernel_fixture, dtb_fixture },
         );
         return;

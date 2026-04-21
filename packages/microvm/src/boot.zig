@@ -846,8 +846,8 @@ fn readAll(gpa: std.mem.Allocator, path: []const u8) ![]u8 {
 // =============================================================
 
 /// Relative path from packages/microvm/ to the kernel. The test is
-/// skipped if this file isn't present — see test-fixtures/README.md
-/// for how to produce it.
+/// skipped if this file isn't present — run scripts/build-base-assets.sh
+/// from the repo root to produce it.
 const kernel_fixture = "test-fixtures/Image";
 const dtb_fixture = "test-fixtures/virt.dtb";
 const initrd_fixture = "test-fixtures/initramfs.cpio";
@@ -878,7 +878,7 @@ test "boot a real arm64 Linux kernel" {
     }
     if (!fixturesPresent()) {
         std.debug.print(
-            "skip: missing {s} or {s} (see test-fixtures/README.md)\n",
+            "skip: missing {s} or {s} (run scripts/build-base-assets.sh)\n",
             .{ kernel_fixture, dtb_fixture },
         );
         return;
