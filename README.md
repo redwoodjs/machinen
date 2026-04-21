@@ -37,7 +37,8 @@ for the contract.
 ```ts
 import { spawn } from "@machinen/runtime";
 
-const vm = await spawn({ binary: process.env.MACHINEN_VMM!, bundle: "./path/to/bundle" });
+// binary auto-resolves via @machinen/vmm-<arch>-<os> installed alongside.
+const vm = await spawn({ bundle: "./path/to/bundle" });
 vm.stdout.pipe(process.stdout);
 vm.stdin.write("echo hello from inside\n");
 await vm.wait();
@@ -55,17 +56,12 @@ See [`packages/runtime/README.md`](packages/runtime/README.md) for the full surf
 | [`@machinen/vmm-arm64-linux`](packages/vmm-arm64-linux)   | ✓          | Native VMM binary for arm64 Linux   |
 | [`@machinen/microvm`](packages/microvm)                   | ✓          | Zig VMM source                      |
 
-## Development
+## Contributing
 
-```bash
-pnpm install
-pnpm -r build       # TypeScript + Zig
-pnpm test           # vitest
-npx agent-ci run --all -q -p   # local CI
-```
-
-Contributor notes live in [`.docs/learnings/microvm/`](.docs/learnings/microvm/)
-and [`RELEASING.md`](RELEASING.md).
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, build, and local-run
+instructions. Release mechanics are in [`RELEASING.md`](RELEASING.md).
+Design notes and learnings live in
+[`.docs/learnings/microvm/`](.docs/learnings/microvm/).
 
 ## License
 
