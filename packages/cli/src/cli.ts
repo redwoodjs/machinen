@@ -193,9 +193,16 @@ async function cmdRun(args: string[]): Promise<number> {
     await ensureBaseAssets(RELEASE_TAG);
   }
 
+  // Resolve the kernel + DTB. MACHINEN_ASSETS_DIR uses the unrenamed
+  // build-base-assets.sh output names; the cache renames on download
+  // (see `ensureBaseAssets`'s `assets` array).
+  const baseDir = assetsOverride ? resolve(assetsOverride) : baseDirFor(RELEASE_TAG);
+  const kernelPath = join(baseDir, assetsOverride ? "Image-arm64" : "Image");
+  const dtbPath = join(baseDir, assetsOverride ? "virt-arm64.dtb" : "virt.dtb");
+
   let vm;
   try {
-    vm = await spawn({ bundle });
+    vm = await spawn({ bundle, kernel: kernelPath, dtb: dtbPath });
   } catch (err) {
     if (err instanceof SpawnError) {
       die(err.message);

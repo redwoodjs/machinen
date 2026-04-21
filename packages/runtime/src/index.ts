@@ -110,6 +110,10 @@ export interface SpawnOptions {
    * shortcut. See #47 (virtio-blk) and #50 (snapshot-from-disk).
    */
   disk?: string;
+  /** Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`. */
+  kernel?: string;
+  /** Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`. */
+  dtb?: string;
   /**
    * Path to a bundle directory: `<bundle>/rootfs/` + `<bundle>/machinen-config.json`.
    * When set, the runtime packs the bundle into a cpio initramfs and
@@ -161,6 +165,20 @@ export async function spawn(opts: SpawnOptions = {}): Promise<VmHandle> {
       throw new SpawnError(`disk image not found: ${abs}`);
     }
     env.MACHINEN_DISK = abs;
+  }
+  if (opts.kernel) {
+    const abs = resolve(opts.cwd ?? process.cwd(), opts.kernel);
+    if (!existsSync(abs)) {
+      throw new SpawnError(`kernel not found: ${abs}`);
+    }
+    env.MACHINEN_KERNEL = abs;
+  }
+  if (opts.dtb) {
+    const abs = resolve(opts.cwd ?? process.cwd(), opts.dtb);
+    if (!existsSync(abs)) {
+      throw new SpawnError(`dtb not found: ${abs}`);
+    }
+    env.MACHINEN_DTB = abs;
   }
 
   let bundleTempDir: string | undefined;
