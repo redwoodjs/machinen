@@ -23,9 +23,13 @@ jobs:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
-      - uses: goto-bus-stop/setup-zig@v2
+      - uses: mlugg/setup-zig@v2
         with:
-          version: 0.14.0
+          version: 0.16.0
+      - name: Install libslirp
+        # zig build links `-lslirp` for the user-mode network backend.
+        # macos-14 runners don't ship it; install via Homebrew.
+        run: brew install libslirp
       - name: Build VMM (darwin-arm64, native)
         # macos-14 is arm64 — native build picks up the Hypervisor
         # framework from the system SDK. Passing -Dtarget=aarch64-macos
@@ -49,9 +53,9 @@ jobs:
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
-      - uses: goto-bus-stop/setup-zig@v2
+      - uses: mlugg/setup-zig@v2
         with:
-          version: 0.14.0
+          version: 0.16.0
       - name: Build VMM (linux-arm64, native)
         working-directory: packages/microvm
         run: zig build -Doptimize=ReleaseSafe
@@ -70,9 +74,9 @@ jobs:
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
-      - uses: goto-bus-stop/setup-zig@v2
+      - uses: mlugg/setup-zig@v2
         with:
-          version: 0.14.0
+          version: 0.16.0
       - name: Install dtc
         run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends device-tree-compiler
       - name: Build base assets
