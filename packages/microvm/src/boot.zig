@@ -487,7 +487,12 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     }
     defer {
         slirp_stop.store(true, .release);
-        if (slirp_thread) |t| t.detach();
+        // Join (not detach): the sibling `defer` that destroys the
+        // slirp instance runs right after this one, and the pump
+        // thread calls slirp_pollfds_poll(self.handle, …) every ~10ms.
+        // Detach leaves the thread racing against destroy() and
+        // segfaulting on a freed handle.
+        if (slirp_thread) |t| t.join();
     }
 
     // Stdin-reader thread: blocks on read(0) and, when bytes arrive,
