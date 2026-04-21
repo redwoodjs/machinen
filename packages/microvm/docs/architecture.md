@@ -82,11 +82,12 @@ pre-baked because machinen agents target a Node runtime). Inside:
   vsock.
 
 The guest is delivered as a **bundle**: `rootfs/` +
-`machinen-config.json`. Full contract in `rootfs-contract.md`.
+`machinen-config.json`. The bundle layout and config schema are
+defined by what `/init` reads at boot.
 
 ## How this fits the rest of the product
 
-The microvm is *just* the substrate. `@machinen/runtime` drives it:
+The microvm is _just_ the substrate. `@machinen/runtime` drives it:
 
 - `build()` boots the base rootfs, pipes the user's install steps in
   over vsock, CRIU-freezes the guest, writes a snapshot file.
