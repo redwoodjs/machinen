@@ -3,7 +3,7 @@
 #
 #   Image-arm64                    ← Debian cloud arm64 kernel
 #   virt-arm64.dtb                 ← compiled device tree
-#   rootfs-debian-arm64.tar.gz     ← node:lts-slim + /init + /exec-agent
+#   rootfs-debian-arm64.tar.gz     ← debian minbase + /init + /exec-agent
 #   *.sha256                       ← integrity sidecars
 #
 # Inputs (relative to repo root):
@@ -65,33 +65,79 @@ for name in init exec-agent; do
 done
 
 # ------------------------------------------------------------
-# 4. Rootfs tarball — node:lts-slim arm64 + injected guest binaries
+# 4. Rootfs — mmdebstrap minbase + aggressive strip + guest binaries
 # ------------------------------------------------------------
+#
+# Single docker run: build inside the container's own filesystem and
+# only write the final tarball to the bind-mounted /out. Reason:
+# Docker Desktop on darwin uses virtio-fs for bind mounts, and dpkg
+# install touches symlinks (e.g. /usr/share/man/man7/pam.7.gz) that
+# trigger I/O errors through virtio-fs under qemu emulation. Building
+# on the container's overlay2 sidesteps that entirely.
+#
+# --privileged: mmdebstrap needs CAP_SYS_ADMIN for `unshare --mount`.
+# gpg + debian-archive-keyring: required to verify the Release signature.
+# --setup-hook: pre-seeds dpkg path-excludes BEFORE essential package
+#   install, so man/doc/info are never unpacked to begin with.
 
-echo "==> Exporting node:lts-slim arm64 rootfs + injecting guest binaries"
-CID=$(docker create --platform linux/arm64 node:lts-slim sleep 0)
-trap 'docker rm -f "$CID" >/dev/null 2>&1 || true; rm -rf "$STAGE"' EXIT
+echo "==> Building minimal Debian arm64 rootfs via mmdebstrap"
 
-ROOTFS_STAGE="${STAGE}/rootfs"
-mkdir -p "$ROOTFS_STAGE"
-docker export "$CID" | tar -x -C "$ROOTFS_STAGE"
-
-install -m 0755 "${STAGE}/init" "${ROOTFS_STAGE}/init"
-install -m 0755 "${STAGE}/exec-agent" "${ROOTFS_STAGE}/exec-agent"
-
-# Deterministic tar + gzip. We run this inside a container so the flags
-# (`--sort`, `--mtime`, `--owner`, `--group`, `--numeric-owner`) behave
-# consistently on Linux runners + darwin dev boxes; BSD tar on macOS
-# doesn't support these options.
-docker run --rm \
-  -v "$ROOTFS_STAGE":/rootfs:ro \
+docker run --rm -i --privileged --platform linux/arm64 \
+  -v "${STAGE}":/stage:ro \
   -v "$OUT":/out \
-  debian:bookworm-slim bash -c '
-    tar --sort=name --owner=0 --group=0 --numeric-owner \
-      --mtime="2020-01-01 00:00Z" \
-      -C /rootfs -cf - . |
-    gzip -n > /out/rootfs-debian-arm64.tar.gz
-  '
+  debian:bookworm-slim bash -s <<'CONTAINER_SCRIPT'
+set -euo pipefail
+
+apt-get update -qq > /dev/null
+apt-get install -y --no-install-recommends \
+  mmdebstrap gpg debian-archive-keyring > /dev/null
+
+mkdir -p /work
+
+cat > /tmp/setup-hook.sh <<'HOOK'
+#!/bin/sh
+set -e
+mkdir -p "$1/etc/dpkg/dpkg.cfg.d" "$1/etc/apt/apt.conf.d"
+cat > "$1/etc/dpkg/dpkg.cfg.d/99-machinen" <<EOF
+path-exclude /usr/share/doc/*
+path-exclude /usr/share/man/*
+path-exclude /usr/share/info/*
+path-exclude /usr/share/locale/*
+path-include /usr/share/locale/en*
+EOF
+cat > "$1/etc/apt/apt.conf.d/99-machinen" <<EOF
+APT::Install-Recommends "false";
+APT::Install-Suggests  "false";
+EOF
+HOOK
+chmod +x /tmp/setup-hook.sh
+
+mmdebstrap \
+  --variant=minbase \
+  --architectures=arm64 \
+  --setup-hook=/tmp/setup-hook.sh \
+  bookworm /work/rootfs
+
+# Belt-and-braces cleanup for things path-exclude doesn't cover.
+rm -rf \
+  /work/rootfs/usr/share/man \
+  /work/rootfs/usr/share/doc \
+  /work/rootfs/usr/share/info \
+  /work/rootfs/var/cache/apt/archives/*.deb \
+  /work/rootfs/var/lib/apt/lists/* \
+  /work/rootfs/var/log/*
+find /work/rootfs/usr/share/locale -mindepth 1 -maxdepth 1 \
+  ! -name "en*" -exec rm -rf {} + 2>/dev/null || true
+
+install -m 0755 /stage/init       /work/rootfs/init
+install -m 0755 /stage/exec-agent /work/rootfs/exec-agent
+
+# Deterministic tar + gzip written as a single file to the bind mount.
+tar --sort=name --owner=0 --group=0 --numeric-owner \
+  --mtime="2020-01-01 00:00Z" \
+  -C /work/rootfs -cf - . |
+gzip -n > /out/rootfs-debian-arm64.tar.gz
+CONTAINER_SCRIPT
 
 # ------------------------------------------------------------
 # 5. Sha256 sidecars
