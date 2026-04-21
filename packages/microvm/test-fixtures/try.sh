@@ -11,8 +11,8 @@
 #
 # What this actually does:
 #   1. Builds the VMM test binary (zig build test).
-#   2. Writes the right /demo.sh into rootfs/, plus any helper scripts
-#      the mode needs.
+#   2. Writes a mode-specific entry script into rootfs/ plus a
+#      machinen-config.json pointing /init at it.
 #   3. Repacks initramfs.cpio.
 #   4. Runs the VMM. For interactive modes, puts your terminal in raw
 #      mode so every keystroke goes straight through to the guest.
@@ -62,6 +62,30 @@ for f in $FIXTURES/Image $FIXTURES/virt.dtb; do
     [[ -f "$f" ]] || die "missing fixture: $f (see test-fixtures/README.md)"
 done
 [[ -d "$ROOTFS" ]] || die "missing $ROOTFS — see test-fixtures/README.md for how to build it"
+
+# Write $ROOTFS/machinen-config.json with the positional args as argv.
+# TERM=linux is auto-added by /init if absent; the shell-mode entry
+# overrides it to xterm-256color, so we don't set TERM here.
+write_config() {
+    local cmd_json=""
+    for a in "$@"; do
+        [[ -n "$cmd_json" ]] && cmd_json+=", "
+        cmd_json+="\"$a\""
+    done
+    cat > "$ROOTFS/machinen-config.json" <<EOF
+{
+  "cmd": [$cmd_json],
+  "env": {
+    "PATH": "/usr/local/bin:/usr/bin:/bin:/sbin",
+    "NODE_NO_WARNINGS": "1",
+    "HOME": "/root"
+  }
+}
+EOF
+}
+# Ensure a stale config from a previous try.sh mode doesn't leak into
+# this one.
+rm -f "$ROOTFS/machinen-config.json"
 
 # --- stage the mode ------------------------------------------------
 case "$MODE" in
@@ -234,6 +258,7 @@ SH
 esac
 
 chmod +x "$ROOTFS/demo.sh"
+write_config /bin/sh /demo.sh
 
 # Workspace mode also ships the live file-agent so the host can
 # push/pull over vsock during the session. Dropped into rootfs/ so
