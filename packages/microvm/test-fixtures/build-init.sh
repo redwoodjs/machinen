@@ -1,16 +1,24 @@
 #!/usr/bin/env bash
-# Build test-fixtures/init from init.zig. Static aarch64-linux-musl
-# so it runs under any arm64 rootfs regardless of its libc.
+# Build the static guest-side binaries (init + exec-agent) from their
+# .zig sources. Cross-compiled for aarch64-linux-musl so they run on
+# any arm64 guest rootfs regardless of its libc.
 #
 # Run from packages/microvm:
 #   test-fixtures/build-init.sh
 set -euo pipefail
 HERE=$(cd "$(dirname "$0")/.." && pwd)
 cd "$HERE"
-zig build-exe test-fixtures/init.zig \
-    -target aarch64-linux-musl \
-    -O ReleaseSmall \
-    -lc \
-    -femit-bin=test-fixtures/init
-rm -f test-fixtures/init.o
-echo "built test-fixtures/init ($(wc -c < test-fixtures/init) bytes)"
+
+build() {
+    local name=$1
+    zig build-exe "test-fixtures/${name}.zig" \
+        -target aarch64-linux-musl \
+        -O ReleaseSmall \
+        -lc \
+        -femit-bin="test-fixtures/${name}"
+    rm -f "test-fixtures/${name}.o"
+    echo "built test-fixtures/${name} ($(wc -c < "test-fixtures/${name}") bytes)"
+}
+
+build init
+build exec-agent
