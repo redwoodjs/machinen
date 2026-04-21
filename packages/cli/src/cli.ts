@@ -227,8 +227,36 @@ async function cmdRun(args: string[]): Promise<number> {
   vm.stderr.pipe(process.stderr);
   process.stdin.pipe(vm.stdin);
 
-  const { code } = await vm.wait();
-  return code ?? 0;
+  // Propagate SIGINT/SIGTERM to the VMM child. A terminal Ctrl-C
+  // already signals the whole process group (both us and the VMM), so
+  // this mostly matters when only the CLI is signalled — e.g. a
+  // supervisor sending SIGTERM to node, or `kill -INT <cli-pid>` from
+  // another shell. Without this, the VMM survives as an orphan.
+  let forwardedSignal: "SIGINT" | "SIGTERM" | null = null;
+  const onSigint = () => {
+    forwardedSignal = "SIGINT";
+    void vm.kill();
+  };
+  const onSigterm = () => {
+    forwardedSignal = "SIGTERM";
+    void vm.kill();
+  };
+  process.on("SIGINT", onSigint);
+  process.on("SIGTERM", onSigterm);
+
+  try {
+    const { code } = await vm.wait();
+    if (forwardedSignal === "SIGINT") {
+      return 130;
+    }
+    if (forwardedSignal === "SIGTERM") {
+      return 143;
+    }
+    return code ?? 0;
+  } finally {
+    process.off("SIGINT", onSigint);
+    process.off("SIGTERM", onSigterm);
+  }
 }
 
 async function cmdInstall(args: string[]): Promise<number> {
