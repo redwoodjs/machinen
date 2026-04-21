@@ -47,13 +47,13 @@ See [`packages/runtime/README.md`](packages/runtime/README.md) for the full surf
 
 ## Monorepo layout
 
-| Package                                                   | Published?  | What it is                          |
-| --------------------------------------------------------- | ----------- | ----------------------------------- |
-| [`@machinen/cli`](packages/cli)                           | ✓           | The `machinen` CLI                  |
-| [`@machinen/runtime`](packages/runtime)                   | ✓           | TypeScript API for driving microVMs |
-| [`@machinen/vmm-arm64-darwin`](packages/vmm-arm64-darwin) | ✓           | Native VMM binary for Apple Silicon |
-| [`@machinen/vmm-arm64-linux`](packages/vmm-arm64-linux)   | ✓           | Native VMM binary for arm64 Linux   |
-| `@machine/microvm`                                        | — (private) | Zig VMM source                      |
+| Package                                                   | Published? | What it is                          |
+| --------------------------------------------------------- | ---------- | ----------------------------------- |
+| [`@machinen/cli`](packages/cli)                           | ✓          | The `machinen` CLI                  |
+| [`@machinen/runtime`](packages/runtime)                   | ✓          | TypeScript API for driving microVMs |
+| [`@machinen/vmm-arm64-darwin`](packages/vmm-arm64-darwin) | ✓          | Native VMM binary for Apple Silicon |
+| [`@machinen/vmm-arm64-linux`](packages/vmm-arm64-linux)   | ✓          | Native VMM binary for arm64 Linux   |
+| [`@machinen/microvm`](packages/microvm)                   | ✓          | Zig VMM source                      |
 
 ## Development
 

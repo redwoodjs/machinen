@@ -6,6 +6,7 @@
     [
       "@machinen/cli",
       "@machinen/runtime",
+      "@machinen/microvm",
       "@machinen/vmm-arm64-darwin",
       "@machinen/vmm-arm64-linux"
     ]

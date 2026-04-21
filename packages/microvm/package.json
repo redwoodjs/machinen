@@ -1,8 +1,19 @@
 {
-  "name": "@machine/microvm",
+  "name": "@machinen/microvm",
   "version": "0.0.0",
-  "private": true,
-  "description": "Zig-native microVM for machinen. Scaffold — see redwoodjs/machinen#42 and sibling issues.",
+  "description": "Zig-native arm64 microVM for machinen (HVF on darwin, KVM on Linux).",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/redwoodjs/machinen.git",
+    "directory": "packages/microvm"
+  },
+  "files": [
+    "src/",
+    "build.zig",
+    "build.zig.zon",
+    "entitlements.plist"
+  ],
   "scripts": {
     "build": "zig build",
     "test": "zig build test",
