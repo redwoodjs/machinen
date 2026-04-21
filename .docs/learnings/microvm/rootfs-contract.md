@@ -92,7 +92,7 @@ Minimal schema. All fields optional except `cmd`.
   "env": { "PATH": "/usr/local/bin:/usr/bin:/bin" },
   "cwd": "/root",
   "user": "root",
-  "agents": { "winsize": true, "secrets": true, "files": true }
+  "agents": { "winsize": true, "secrets": true, "files": true },
 }
 ```
 
@@ -186,7 +186,7 @@ a detached sha256 + optional cosign signature is enough.
   later as an optional package that produces snapshots; the base
   product doesn't need it.
 - **Not a container runtime.** We don't implement namespaces, cgroups,
-  seccomp. The guest *is* the isolation boundary.
+  seccomp. The guest _is_ the isolation boundary.
 - **Not a plugin lifecycle API.** No `register()`, no hooks. People
   extending machinen either import the build API, produce a snapshot
   file, or ship an alternate base rootfs tarball.
@@ -197,7 +197,7 @@ a detached sha256 + optional cosign signature is enough.
   snapshot? Needs pinned apk/npm versions (lockfiles on the host,
   fed into the build) and a deterministic freeze point. Solvable;
   probably not v0.
-- **Build-time secrets.** Credentials needed *during* install
+- **Build-time secrets.** Credentials needed _during_ install
   (private registries, GitHub tokens) must not land in the frozen
   snapshot. Explicit scoped env + a "strip before freeze" hook.
 - **Incremental freeze / layer cache.** Docker caches layers; we

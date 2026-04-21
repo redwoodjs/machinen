@@ -2,21 +2,25 @@
   "name": "@machinen/vmm-arm64-linux",
   "version": "0.0.0",
   "description": "Machinen VMM binary for arm64 linux (KVM backend).",
-  "type": "module",
-  "main": "./index.mjs",
-  "os": ["linux"],
-  "cpu": ["arm64"],
-  "scripts": {
-    "postinstall": "node postinstall.mjs"
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/redwoodjs/machinen.git",
+    "directory": "packages/vmm-arm64-linux"
   },
   "files": [
     "bin/",
     "index.mjs",
     "postinstall.mjs"
   ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/redwoodjs/machinen.git",
-    "directory": "packages/vmm-arm64-linux"
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "type": "module",
+  "main": "./index.mjs",
+  "scripts": {
+    "postinstall": "node postinstall.mjs"
   }
 }

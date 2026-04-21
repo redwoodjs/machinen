@@ -53,9 +53,9 @@ The repo needs an `NPM_TOKEN` secret with publish access to the
 
 ## Local Commands
 
-| Command          | Description                                      |
-| ---------------- | ------------------------------------------------ |
-| `pnpm changeset` | Add a new changeset                              |
-| `pnpm version`   | Apply pending changesets locally (for testing)   |
-| `pnpm release`   | Build all packages and publish to npm            |
-| `pnpm -r build`  | Build every package without publishing           |
+| Command          | Description                                    |
+| ---------------- | ---------------------------------------------- |
+| `pnpm changeset` | Add a new changeset                            |
+| `pnpm version`   | Apply pending changesets locally (for testing) |
+| `pnpm release`   | Build all packages and publish to npm          |
+| `pnpm -r build`  | Build every package without publishing         |

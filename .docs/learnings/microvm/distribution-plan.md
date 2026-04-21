@@ -1,7 +1,7 @@
 # Distribution plan — how machinen ships the VMM and bases
 
-Companion to `rootfs-contract.md`. That doc says *what* a user hands to
-`spawn()`. This one says *how the bits get onto their machine*.
+Companion to `rootfs-contract.md`. That doc says _what_ a user hands to
+`spawn()`. This one says _how the bits get onto their machine_.
 
 ## Problem
 
@@ -74,11 +74,7 @@ ships arm64 the two packages sort together in any alphabetical listing.
 ```js
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-export const binary = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "bin",
-  "microvm",
-);
+export const binary = join(dirname(fileURLToPath(import.meta.url)), "bin", "microvm");
 ```
 
 `@machinen/cli` lists every VMM variant as `optionalDependencies`; npm

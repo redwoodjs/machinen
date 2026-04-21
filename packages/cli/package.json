@@ -1,13 +1,18 @@
 {
   "name": "@machinen/cli",
   "version": "0.1.0",
-  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/redwoodjs/machinen.git",
+    "directory": "packages/cli"
+  },
   "bin": {
     "machinen": "./dist/cli.js"
   },
   "files": [
     "dist/"
   ],
+  "type": "module",
   "scripts": {
     "build": "tsup",
     "typecheck": "tsgo --noEmit",
@@ -16,17 +21,12 @@
   "dependencies": {
     "@machinen/runtime": "workspace:*"
   },
-  "optionalDependencies": {
-    "@machinen/vmm-arm64-darwin": "workspace:*",
-    "@machinen/vmm-arm64-linux": "workspace:*"
-  },
   "devDependencies": {
     "@types/node": "^22",
     "tsup": "^8.3.5"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/redwoodjs/machinen.git",
-    "directory": "packages/cli"
+  "optionalDependencies": {
+    "@machinen/vmm-arm64-darwin": "workspace:*",
+    "@machinen/vmm-arm64-linux": "workspace:*"
   }
 }

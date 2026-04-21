@@ -56,11 +56,7 @@ export const VsockExec = {
    * when the bridge tries to forward them. We retry on those resets
    * until the agent is actually listening.
    */
-  async run(
-    udsPath: string,
-    cmd: string,
-    opts: VsockExecOptions = {},
-  ): Promise<VsockExecResult> {
+  async run(udsPath: string, cmd: string, opts: VsockExecOptions = {}): Promise<VsockExecResult> {
     if (/\r|\n/.test(cmd)) {
       throw new Error("VsockExec.run: cmd must not contain newlines");
     }

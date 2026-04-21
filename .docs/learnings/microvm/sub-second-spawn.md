@@ -138,7 +138,7 @@ zeros.
 
 Instrumented kernel (`loglevel=7 printk.time=1`) shows it sharply:
 the delta between full-cpio and slim-cpio runs is zero until the
-very first kernel print *after* unpack —
+very first kernel print _after_ unpack —
 `"Freeing initrd memory: 1507328K"` — where slim is exactly 630 ms
 slower. 1507328K is the full DTB-reserved region, same for both
 cpios, regardless of actual initramfs size. Smaller cpio = more
@@ -153,16 +153,16 @@ against a hand-built minimal FDT).
 
 Audit of the Debian rootfs used by `smoke.sh spawn`:
 
-| What                                   | Size | Used by spawn-warmup/restore? |
-| -------------------------------------- | ---- | ----------------------------- |
-| `@anthropic-ai/claude-code` npm bundle | 226 MB | No — spawn uses a tiny counter.js |
-| `npm` + `corepack` + `yarn`            | 20 MB | No |
-| `/boot` (duplicate kernel + initrd.img) | 39 MB | No — VMM loads Image directly |
-| `/usr/lib/udev`                        | 22 MB | No — we don't run udev |
-| most kernel driver modules             | 40 MB | No — we load 16 specific .ko files |
-| `/usr/share/{doc,man,locale,zoneinfo,…}` | 10 MB | No |
-| `/var/{cache,log,lib/apt,lib/dpkg}`    | ~15 MB | No |
-| `/usr/include`                         | 220 KB | No |
+| What                                     | Size   | Used by spawn-warmup/restore?      |
+| ---------------------------------------- | ------ | ---------------------------------- |
+| `@anthropic-ai/claude-code` npm bundle   | 226 MB | No — spawn uses a tiny counter.js  |
+| `npm` + `corepack` + `yarn`              | 20 MB  | No                                 |
+| `/boot` (duplicate kernel + initrd.img)  | 39 MB  | No — VMM loads Image directly      |
+| `/usr/lib/udev`                          | 22 MB  | No — we don't run udev             |
+| most kernel driver modules               | 40 MB  | No — we load 16 specific .ko files |
+| `/usr/share/{doc,man,locale,zoneinfo,…}` | 10 MB  | No                                 |
+| `/var/{cache,log,lib/apt,lib/dpkg}`      | ~15 MB | No                                 |
+| `/usr/include`                           | 220 KB | No                                 |
 
 `test-fixtures/spawn-minimal.excludes` captures the full list.
 `mkinitramfs.py --exclude-from FILE` applies it during packing.
@@ -174,17 +174,17 @@ of VMM-side "copy initramfs into guest RAM" time.
 
 ### Together
 
-| config                                | ms        | vs baseline |
-| ------------------------------------- | --------- | ----------- |
-| full cpio, DTB-reserved 1.48 GB (baseline) | 2270–2487 | — |
-| slim cpio, DTB-reserved 1.48 GB       | 2806–3013 | **+500 ms** (worse!) |
-| full cpio, dynamic initrd-end         | 1173–1231 | -1100 ms |
-| slim cpio, dynamic initrd-end         | **530–582** | **-1750 ms** |
+| config                                     | ms          | vs baseline          |
+| ------------------------------------------ | ----------- | -------------------- |
+| full cpio, DTB-reserved 1.48 GB (baseline) | 2270–2487   | —                    |
+| slim cpio, DTB-reserved 1.48 GB            | 2806–3013   | **+500 ms** (worse!) |
+| full cpio, dynamic initrd-end              | 1173–1231   | -1100 ms             |
+| slim cpio, dynamic initrd-end              | **530–582** | **-1750 ms**         |
 
 The slim-only case was counter-intuitively slower until the
 initrd-end bug was fixed — smaller cpio means more trailing dead
 bytes in the DTB-declared window, so the kernel's post-unpack
-scan got *longer* proportionally. The two fixes compound: slim
+scan got _longer_ proportionally. The two fixes compound: slim
 shaves VMM-side memcpy, dynamic initrd-end shaves kernel-side
 scan.
 
@@ -203,6 +203,7 @@ From `printk.time=1`:
 ```
 
 Remaining levers, in order of size:
+
 - **VMM spin-up + kernel-to-/init (~380 ms).** The kernel still
   does a fair amount of init before /init runs. Pre-booted VMM
   fork is the big hammer here.
