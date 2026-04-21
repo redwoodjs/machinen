@@ -3,13 +3,27 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
+  "files": [
+    "dist/",
+    "src/"
+  ],
   "scripts": {
+    "build": "tsup",
     "typecheck": "tsgo --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "pnpm build"
   },
   "dependencies": {
     "node-pty": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "tsup": "^8.3.5"
   }
 }
