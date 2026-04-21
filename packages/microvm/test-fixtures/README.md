@@ -85,28 +85,15 @@ rm rootfs.tar
 # The result goes to test-fixtures/init; mkinitramfs.py drops it at
 # /init inside the cpio. /dev/console is added automatically.
 #
-# /init reads /machinen-config.json if present (see
-# .docs/learnings/microvm/rootfs-contract.md). For backward-compat
-# with this README's flow, it also falls back to /bin/sh /demo.sh
-# when no config file is found.
+# /init reads /machinen-config.json (see
+# .docs/learnings/microvm/rootfs-contract.md) and execs the cmd it
+# declares. No config → /init errors out.
 
-# Either way, put your own files in. For example:
-echo 'print("hello from python inside the microVM")' > rootfs/demo.py
+# Put your own files in. For example:
 mkdir -p rootfs/srv
 echo "my custom data" > rootfs/srv/data.txt
 
-# Option 1 (legacy path — /bin/sh /demo.sh):
-cat > rootfs/demo.sh <<'SH'
-#!/bin/sh
-echo "hello from my custom demo"
-ls -la /srv
-cat /srv/data.txt
-# keep init alive — the kernel panics if init ever exits
-sleep 999999
-SH
-chmod +x rootfs/demo.sh
-
-# Option 2 (bundle path — /machinen-config.json):
+# Declare what to run via /machinen-config.json:
 cat > rootfs/machinen-config.json <<'JSON'
 {
   "cmd": ["/bin/sh", "-c", "echo hi; ls -la /srv; sleep 999999"],
@@ -126,8 +113,8 @@ cd packages/microvm
 MACHINEN_BOOT_TEST=1 zig build test
 ```
 
-You'll see kernel boot messages stream past on your terminal,
-then your `/demo.sh` output. Kill with Ctrl-C.
+You'll see kernel boot messages stream past on your terminal, then
+your cmd's output. Kill with Ctrl-C.
 
 ### What your init can do
 
@@ -168,10 +155,17 @@ zig cc -target aarch64-linux-musl -static -Os -o rootfs/bin/no-iou no-iou.c
   kernels and CRIU can't dump a process with live io_uring state.
   The wrapper forces libuv's epoll fallback.
 
-Copy the demo scripts into the rootfs and repack:
+Copy the demo scripts into the rootfs, declare the entry in
+machinen-config.json, and repack:
 
 ```bash
-cp counter.js fork-demo.sh demo.sh rootfs/
+cp counter.js fork-demo.sh rootfs/
+cat > rootfs/machinen-config.json <<'JSON'
+{
+  "cmd": ["/bin/sh", "/fork-demo.sh"],
+  "env": { "PATH": "/usr/local/bin:/usr/bin:/bin:/sbin", "HOME": "/root" }
+}
+JSON
 python3 mkinitramfs.py --rootfs rootfs
 ```
 
