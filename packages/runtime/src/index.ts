@@ -36,15 +36,7 @@ import {
   spawnSync,
 } from "node:child_process";
 import { once } from "node:events";
-import {
-  closeSync,
-  existsSync,
-  mkdtempSync,
-  openSync,
-  rmSync,
-  statSync,
-  writeSync,
-} from "node:fs";
+import { closeSync, existsSync, mkdtempSync, openSync, rmSync, statSync, writeSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { Readable, Writable } from "node:stream";
