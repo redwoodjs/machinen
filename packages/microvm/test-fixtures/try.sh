@@ -64,8 +64,7 @@ FIXTURES=test-fixtures
 ASSETS=$(cd "$HERE/../.." && pwd)/release-assets
 need_build() {
     die "missing $1
-    run ./scripts/build-base-assets.sh to produce release-assets/
-    or see test-fixtures/README.md"
+    run ./scripts/build-base-assets.sh to produce release-assets/"
 }
 
 if [[ ! -f $FIXTURES/Image ]]; then
