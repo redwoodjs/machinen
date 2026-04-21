@@ -23,8 +23,16 @@ One system dep is not yet statically linked:
 ## Boot a microVM
 
 ```bash
-machinen install                  # pre-fetch kernel + rootfs for the current release
 machinen run ./path/to/bundle     # spawn a microVM from a bundle directory
+```
+
+On first run, the kernel + rootfs for the current release are fetched into
+`~/.machinen/` automatically. To pre-fetch them ahead of time (CI cache warming,
+airgapped prep):
+
+```bash
+machinen install                  # optional: pre-fetch base assets
+machinen install --version <tag>  # pin to a specific release tag
 ```
 
 A bundle is a directory containing `rootfs/` (overlay on top of the base Debian
