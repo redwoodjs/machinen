@@ -1,6 +1,6 @@
 //! Boot an arm64 Linux kernel under KVM (Linux host).
 //!
-//! Shape mirrors boot.zig (HVF path) so the two backends pass the
+//! Shape mirrors boot_hvf.zig (HVF path) so the two backends pass the
 //! same kernel + dtb + initramfs through the same boot protocol.
 //! Differences, all local to this file:
 //!
@@ -49,6 +49,11 @@ pub const Config = struct {
     dtb_offset: u64 = 0x0300_0000,
     initrd_offset: u64 = 0x0400_0000,
     capture_bytes: usize = 262144,
+    // Mirrors boot_hvf.zig's flag. When false (default), the loop exits
+    // after `capture_bytes` bytes of serial — a test-oriented safety
+    // valve. When true, the loop runs until PSCI SYSTEM_OFF or
+    // `max_exits`. main.zig sets this for production boots.
+    unbounded_serial: bool = false,
     max_exits: usize = 5_000_000,
     // GIC v3 placement. Matches our virt.dts: distributor at
     // 0x08000000 (64 KiB window) and redistributor starting at
@@ -176,7 +181,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
                 return error.GuestCrashed;
             },
         }
-        if (uart.captured.items.len >= cfg.capture_bytes) break;
+        if (!cfg.unbounded_serial and uart.captured.items.len >= cfg.capture_bytes) break;
     }
 
     if (exits >= cfg.max_exits) {
