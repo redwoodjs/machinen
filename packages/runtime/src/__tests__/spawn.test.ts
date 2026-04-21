@@ -76,7 +76,7 @@ describe("spawn", () => {
   it("boots the VMM and the kernel reaches userspace", async () => {
     const binary = findBootTestBinary();
     if (!binary || !fixturesPresent()) {
-      // Fixtures missing — skip. See packages/microvm/test-fixtures/README.md.
+      // Fixtures missing — skip. Run ./scripts/build-base-assets.sh to produce them.
       return;
     }
 
