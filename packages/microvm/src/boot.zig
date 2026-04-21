@@ -81,6 +81,107 @@ fn debugEnabled() bool {
     return getenv("MACHINEN_DEBUG") != null;
 }
 
+/// Overwrite the `linux,initrd-end` u32 cell in a DTB with `new_end`.
+///
+/// The DTB is the Flattened Device Tree format (big-endian on the
+/// wire). Linux treats [initrd-start, initrd-end) as the initramfs
+/// region and scans the whole window for cpio / compressed archives —
+/// if we reserve 1 GB in the DTS but only ship a 300 MB cpio, the
+/// kernel spends real wall-clock walking the tail. Patching the end
+/// pointer to match the actual cpio eliminates that.
+fn patchDtbInitrdEnd(dtb: []u8, new_end: u32) !void {
+    if (dtb.len < 40) return error.DtbTooSmall;
+
+    const magic = std.mem.readInt(u32, dtb[0..4], .big);
+    if (magic != 0xd00dfeed) return error.DtbBadMagic;
+
+    const off_struct = std.mem.readInt(u32, dtb[8..12], .big);
+    const off_strings = std.mem.readInt(u32, dtb[12..16], .big);
+    const size_strings = std.mem.readInt(u32, dtb[32..36], .big);
+
+    if (@as(usize, off_strings) + @as(usize, size_strings) > dtb.len) return error.DtbOutOfBounds;
+    if (off_struct > dtb.len) return error.DtbOutOfBounds;
+
+    // Find "linux,initrd-end" in the strings block; record its offset
+    // within that block — the value FDT_PROP entries reference.
+    const needle = "linux,initrd-end\x00";
+    const strings = dtb[off_strings..][0..size_strings];
+    const pos = std.mem.indexOf(u8, strings, needle) orelse return error.InitrdEndNotFound;
+    const name_offset: u32 = @intCast(pos);
+
+    // FDT tokens (all big-endian u32).
+    const FDT_BEGIN_NODE: u32 = 1;
+    const FDT_END_NODE: u32 = 2;
+    const FDT_PROP: u32 = 3;
+    const FDT_NOP: u32 = 4;
+    const FDT_END: u32 = 9;
+
+    var i: usize = off_struct;
+    while (i + 4 <= dtb.len) {
+        const tok = std.mem.readInt(u32, dtb[i..][0..4], .big);
+        i += 4;
+        switch (tok) {
+            FDT_BEGIN_NODE => {
+                while (i < dtb.len and dtb[i] != 0) : (i += 1) {}
+                if (i >= dtb.len) return error.DtbTruncated;
+                i += 1; // consume null
+                i = std.mem.alignForward(usize, i, 4);
+            },
+            FDT_END_NODE, FDT_NOP => {},
+            FDT_PROP => {
+                if (i + 8 > dtb.len) return error.DtbTruncated;
+                const plen = std.mem.readInt(u32, dtb[i..][0..4], .big);
+                const nameoff = std.mem.readInt(u32, dtb[i + 4 ..][0..4], .big);
+                i += 8;
+                if (nameoff == name_offset) {
+                    if (plen != 4) return error.InitrdEndWrongSize;
+                    if (i + 4 > dtb.len) return error.DtbTruncated;
+                    std.mem.writeInt(u32, dtb[i..][0..4], new_end, .big);
+                    return;
+                }
+                i += plen;
+                i = std.mem.alignForward(usize, i, 4);
+            },
+            FDT_END => return error.InitrdEndNotFound,
+            else => return error.DtbBadToken,
+        }
+    }
+    return error.DtbTruncated;
+}
+
+test "patchDtbInitrdEnd round-trips a minimal hand-built DTB" {
+    // Minimal FDT with one node + one property named
+    // `linux,initrd-end` so the parser has something real to walk.
+    // Layout (byte offsets):
+    //   0x00 header (40 bytes)
+    //   0x28 mem rsvmap terminator (16 zero bytes)
+    //   0x38 struct block: BEGIN_NODE "" / PROP(len=4,nameoff=0,data) /
+    //                      END_NODE / END  — 32 bytes
+    //   0x58 strings block: "linux,initrd-end\0" — 17 bytes
+    //   end  at 0x69 (105 bytes)
+    var buf = [_]u8{
+        // header
+        0xd0, 0x0d, 0xfe, 0xed, 0x00, 0x00, 0x00, 0x69, // magic, totalsize
+        0x00, 0x00, 0x00, 0x38, 0x00, 0x00, 0x00, 0x58, // off_dt_struct, off_dt_strings
+        0x00, 0x00, 0x00, 0x28, 0x00, 0x00, 0x00, 0x11, // off_mem_rsvmap, version
+        0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00, // last_comp_version, boot_cpuid
+        0x00, 0x00, 0x00, 0x11, 0x00, 0x00, 0x00, 0x20, // size_dt_strings (17), size_dt_struct (32)
+        // mem rsvmap terminator
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        // struct block
+        0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, // BEGIN_NODE, "" + 3 pad
+        0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x04, // PROP, len=4
+        0x00, 0x00, 0x00, 0x00, 0xaa, 0xbb, 0xcc, 0xdd, // nameoff=0, data=0xaabbccdd
+        0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x09, // END_NODE, END
+        // strings block
+        'l', 'i', 'n', 'u', 'x', ',', 'i', 'n',
+        'i', 't', 'r', 'd', '-', 'e', 'n', 'd', 0x00,
+    };
+    try patchDtbInitrdEnd(&buf, 0x12345678);
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0x12, 0x34, 0x56, 0x78 }, buf[0x4C..][0..4]);
+}
+
 pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // --- load fixture files off disk ------------------------------
     const kernel = readAll(gpa, cfg.kernel_path) catch |err| {
@@ -124,6 +225,18 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         defer gpa.free(initrd);
         if (cfg.initrd_offset + initrd.len > cfg.ram_size) return error.DtbTooLarge;
         @memcpy(ram[cfg.initrd_offset..][0..initrd.len], initrd);
+        // Sub-second spawn (#50): patch the DTB's `linux,initrd-end` in
+        // place to point just past the actual cpio. The kernel scans the
+        // full [initrd-start, initrd-end) region for concatenated cpio /
+        // compressed archives — at ~1 GB/s of wall clock. Leaving 1 GB
+        // of dead tail in that window costs ~1 s of early boot.
+        const initrd_end_abs: u32 = @intCast(cfg.ram_base + cfg.initrd_offset + initrd.len);
+        patchDtbInitrdEnd(ram[cfg.dtb_offset..][0..dtb.len], initrd_end_abs) catch |err| {
+            if (debugEnabled()) std.debug.print(
+                "warn: patchDtbInitrdEnd failed ({s}); kernel will scan the full DTB-declared initrd window\n",
+                .{@errorName(err)},
+            );
+        };
     }
 
     const vm = try hvf.Vm.create();

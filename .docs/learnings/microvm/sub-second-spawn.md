@@ -120,3 +120,92 @@ Everything that was tested before still passes:
   full rebuild. Separate commit.
 - VMM fork / VM snapshot — its own issue.
 - Kernel rebuild — ditto.
+
+## Addendum (2026-04-21): under a second, via two fixes that compound
+
+Two findings, found in the same debugging session, get us to
+**~540 ms** cold spawn → `restore OK` on an M-series Mac.
+
+### Finding 1: the DTB lied about the initrd region
+
+`virt.dts` declared `linux,initrd-end = <0xa0000000>`, reserving
+**1.48 GB** for the initramfs regardless of what we actually
+loaded. The Linux kernel treats `[initrd-start, initrd-end)` as a
+scan window for concatenated cpio/compressed archives — it walks
+the whole thing looking for another header. At ~1 GB/s of wall
+clock, that's about 1.5 s of early boot per VM, spent reading
+zeros.
+
+Instrumented kernel (`loglevel=7 printk.time=1`) shows it sharply:
+the delta between full-cpio and slim-cpio runs is zero until the
+very first kernel print *after* unpack —
+`"Freeing initrd memory: 1507328K"` — where slim is exactly 630 ms
+slower. 1507328K is the full DTB-reserved region, same for both
+cpios, regardless of actual initramfs size. Smaller cpio = more
+trailing dead bytes = more kernel-time scanning.
+
+Fix in `src/boot.zig`: after copying the initramfs into guest RAM,
+walk the DTB in place and overwrite `linux,initrd-end` with the
+real end address. Unit test added alongside (`patchDtbInitrdEnd`
+against a hand-built minimal FDT).
+
+### Finding 2: the 676 MB rootfs carries 420 MB of dead weight
+
+Audit of the Debian rootfs used by `smoke.sh spawn`:
+
+| What                                   | Size | Used by spawn-warmup/restore? |
+| -------------------------------------- | ---- | ----------------------------- |
+| `@anthropic-ai/claude-code` npm bundle | 226 MB | No — spawn uses a tiny counter.js |
+| `npm` + `corepack` + `yarn`            | 20 MB | No |
+| `/boot` (duplicate kernel + initrd.img) | 39 MB | No — VMM loads Image directly |
+| `/usr/lib/udev`                        | 22 MB | No — we don't run udev |
+| most kernel driver modules             | 40 MB | No — we load 16 specific .ko files |
+| `/usr/share/{doc,man,locale,zoneinfo,…}` | 10 MB | No |
+| `/var/{cache,log,lib/apt,lib/dpkg}`    | ~15 MB | No |
+| `/usr/include`                         | 220 KB | No |
+
+`test-fixtures/spawn-minimal.excludes` captures the full list.
+`mkinitramfs.py --exclude-from FILE` applies it during packing.
+`smoke.sh spawn` passes this flag; other smoke modes (which do
+need Node + CC + full driver set) don't.
+
+Result: the cpio shrinks **884 MB → 307 MB**. That saves ~370 ms
+of VMM-side "copy initramfs into guest RAM" time.
+
+### Together
+
+| config                                | ms        | vs baseline |
+| ------------------------------------- | --------- | ----------- |
+| full cpio, DTB-reserved 1.48 GB (baseline) | 2270–2487 | — |
+| slim cpio, DTB-reserved 1.48 GB       | 2806–3013 | **+500 ms** (worse!) |
+| full cpio, dynamic initrd-end         | 1173–1231 | -1100 ms |
+| slim cpio, dynamic initrd-end         | **530–582** | **-1750 ms** |
+
+The slim-only case was counter-intuitively slower until the
+initrd-end bug was fixed — smaller cpio means more trailing dead
+bytes in the DTB-declared window, so the kernel's post-unpack
+scan got *longer* proportionally. The two fixes compound: slim
+shaves VMM-side memcpy, dynamic initrd-end shaves kernel-side
+scan.
+
+### Where the ~540 ms now lives (slim + dynamic)
+
+From `printk.time=1`:
+
+```
+[    0.000]  Booting Linux
+[    0.329]  Freeing initrd memory: 409600K     (kernel unpack done)
+[    0.383]  Run /init as init process
+... machinen /init mounts + console wait + demo.sh
+[    ~0.5]  === mount /dev/vda ===
+[    ~0.55] === criu restore ===
+[    ~0.6]  restore OK
+```
+
+Remaining levers, in order of size:
+- **VMM spin-up + kernel-to-/init (~380 ms).** The kernel still
+  does a fair amount of init before /init runs. Pre-booted VMM
+  fork is the big hammer here.
+- **/init + spawn-restore.sh setup (~100 ms).** Mounts, module
+  loads (insmod ×16). Could fold into /init.
+- **criu-ns restore itself (~60 ms).** Already pretty tight.
