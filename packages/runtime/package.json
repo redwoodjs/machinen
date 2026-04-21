@@ -31,5 +31,9 @@
   "devDependencies": {
     "@types/node": "^22",
     "tsup": "^8.3.5"
+  },
+  "optionalDependencies": {
+    "@machinen/vmm-arm64-darwin": "workspace:*",
+    "@machinen/vmm-arm64-linux": "workspace:*"
   }
 }

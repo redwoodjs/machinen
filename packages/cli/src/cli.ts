@@ -57,6 +57,25 @@ function baseAssetsComplete(tag: string): boolean {
   );
 }
 
+// Names match what `./scripts/build-base-assets.sh` produces under
+// `release-assets/` — the same files that get uploaded to the GH
+// Release and downloaded by `ensureBaseAssets`.
+const ASSETS_DIR_FILES = ["Image-arm64", "virt-arm64.dtb", "rootfs-debian-arm64.tar.gz"];
+
+function validateAssetsDir(dir: string): void {
+  const abs = resolve(dir);
+  if (!existsSync(abs)) {
+    die(`MACHINEN_ASSETS_DIR=${dir} does not exist`);
+  }
+  const missing = ASSETS_DIR_FILES.filter((f) => !existsSync(join(abs, f)));
+  if (missing.length > 0) {
+    die(
+      `MACHINEN_ASSETS_DIR=${dir} is missing: ${missing.join(", ")}\n` +
+        `  Produce them with ./scripts/build-base-assets.sh (outputs to ./release-assets/).`,
+    );
+  }
+}
+
 async function ensureBaseAssets(tag: string): Promise<string> {
   const base = baseDirFor(tag);
   const kernel = join(base, "Image");
@@ -159,9 +178,17 @@ async function cmdRun(args: string[]): Promise<number> {
     die(`bundle directory not found: ${bundle}`);
   }
 
-  // Base assets (kernel + dtb + rootfs) are needed to boot. Download
-  // them on first run so users don't have to remember `machinen install`.
-  if (!baseAssetsComplete(RELEASE_TAG)) {
+  // Base assets (kernel + dtb + rootfs) are needed to boot.
+  //
+  // MACHINEN_ASSETS_DIR overrides the cache entirely — used for local
+  // dev against `./scripts/build-base-assets.sh` output, airgapped
+  // installs, and anywhere a GitHub Releases fetch isn't possible.
+  // Otherwise auto-download them on first run so users don't have to
+  // remember `machinen install`.
+  const assetsOverride = process.env.MACHINEN_ASSETS_DIR;
+  if (assetsOverride) {
+    validateAssetsDir(assetsOverride);
+  } else if (!baseAssetsComplete(RELEASE_TAG)) {
     process.stderr.write(`machinen: fetching base assets for ${RELEASE_TAG} (first run)\n`);
     await ensureBaseAssets(RELEASE_TAG);
   }
@@ -229,6 +256,8 @@ function printHelp(): void {
       `\n` +
       `Environment:\n` +
       `  MACHINEN_VMM                    Override the VMM binary path (dev)\n` +
+      `  MACHINEN_ASSETS_DIR             Use base assets from this directory\n` +
+      `                                  instead of the cache / GH Releases\n` +
       `\n` +
       `Cache:\n` +
       `  ~/.machinen/<tag>/bases/debian-arm64/\n`,

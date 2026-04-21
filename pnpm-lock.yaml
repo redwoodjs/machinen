@@ -73,6 +73,13 @@ importers:
       tsup:
         specifier: ^8.3.5
         version: 8.5.1(postcss@8.5.9)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3)
+    optionalDependencies:
+      '@machinen/vmm-arm64-darwin':
+        specifier: workspace:*
+        version: link:../vmm-arm64-darwin
+      '@machinen/vmm-arm64-linux':
+        specifier: workspace:*
+        version: link:../vmm-arm64-linux
 
   packages/vmm-arm64-darwin: {}
 

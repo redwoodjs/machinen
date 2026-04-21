@@ -42,9 +42,13 @@ release tag (defaults to this CLI's own version) into
 
 ## Environment
 
-| Variable       | Purpose                                    |
-| -------------- | ------------------------------------------ |
-| `MACHINEN_VMM` | Override the VMM binary path (development) |
+| Variable              | Purpose                                                         |
+| --------------------- | --------------------------------------------------------------- |
+| `MACHINEN_VMM`        | Override the VMM binary path (development)                      |
+| `MACHINEN_ASSETS_DIR` | Use base assets (kernel, dtb, rootfs tarball) from this dir     |
+|                       | instead of the on-disk cache / GH Releases. Expected filenames: |
+|                       | `Image-arm64`, `virt-arm64.dtb`, `rootfs-debian-arm64.tar.gz` — |
+|                       | what `./scripts/build-base-assets.sh` produces.                 |
 
 ## Cache layout
 
