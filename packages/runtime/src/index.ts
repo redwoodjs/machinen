@@ -37,15 +37,62 @@ import {
 } from "node:child_process";
 import { once } from "node:events";
 import { closeSync, existsSync, mkdtempSync, openSync, rmSync, statSync, writeSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { createRequire } from "node:module";
+import { arch as osArch, platform as osPlatform, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { Readable, Writable } from "node:stream";
 
 export class SpawnError extends Error {}
 
+const require_ = createRequire(import.meta.url);
+
+/**
+ * Locate the VMM binary using the same lookup order as `@machinen/cli`:
+ *   1. `MACHINEN_VMM` env var (dev-mode override)
+ *   2. `require.resolve("@machinen/vmm-<arch>-<os>")` → `binary` export
+ *
+ * Callers can pass an explicit `binary` to `spawn()` to bypass this.
+ */
+export function resolveVmmBinary(): string {
+  const envOverride = process.env.MACHINEN_VMM;
+  if (envOverride) {
+    const abs = resolve(envOverride);
+    if (!existsSync(abs)) {
+      throw new SpawnError(`MACHINEN_VMM is set to ${envOverride}, but that file does not exist.`);
+    }
+    return abs;
+  }
+
+  const key = `${osArch()}-${osPlatform()}`;
+  const pkgName = `@machinen/vmm-${key}`;
+  try {
+    const mod = require_(pkgName) as { binary: string };
+    if (!mod.binary || !existsSync(mod.binary)) {
+      throw new SpawnError(`${pkgName} is installed but its binary is missing at ${mod.binary}.`);
+    }
+    return mod.binary;
+  } catch (err) {
+    if (err instanceof SpawnError) {
+      throw err;
+    }
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new SpawnError(
+      `No VMM binary found for ${key}.\n` +
+        `  Expected package: ${pkgName}\n` +
+        `  Install: npm i ${pkgName}   (or npm i -g @machinen/cli)\n` +
+        `  Error: ${msg}`,
+    );
+  }
+}
+
 export interface SpawnOptions {
-  /** Absolute or cwd-relative path to the built VMM binary. */
-  binary: string;
+  /**
+   * Absolute or cwd-relative path to the built VMM binary. Optional —
+   * if omitted, spawn() resolves it via `resolveVmmBinary()` (MACHINEN_VMM
+   * env override, falling back to the platform-matched
+   * `@machinen/vmm-<arch>-<os>` package).
+   */
+  binary?: string;
   /** Extra env vars passed to the guest wrapper (not into the guest itself). */
   env?: Record<string, string>;
   /** Working directory for the VMM (for finding fixture files). */
@@ -97,8 +144,9 @@ export interface VmHandle {
   errorOutput(): Promise<string>;
 }
 
-export async function spawn(opts: SpawnOptions): Promise<VmHandle> {
-  const binary = resolve(opts.cwd ?? process.cwd(), opts.binary);
+export async function spawn(opts: SpawnOptions = {}): Promise<VmHandle> {
+  const binaryInput = opts.binary ?? resolveVmmBinary();
+  const binary = resolve(opts.cwd ?? process.cwd(), binaryInput);
   if (!existsSync(binary)) {
     throw new SpawnError(`VMM binary not found at ${binary}`);
   }

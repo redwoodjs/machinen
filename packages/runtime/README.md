@@ -21,10 +21,11 @@ npm i @machinen/vmm-arm64-darwin    # or @machinen/vmm-arm64-linux
 
 ```ts
 import { spawn } from "@machinen/runtime";
-import { binary } from "@machinen/vmm-arm64-darwin";
 
+// binary is resolved automatically: MACHINEN_VMM env override, else
+// require.resolve("@machinen/vmm-<arch>-<os>"). Install one of the
+// vmm packages alongside this one.
 const vm = await spawn({
-  binary,
   bundle: "./path/to/bundle", // dir with rootfs/ + machinen-config.json
 });
 
@@ -42,15 +43,24 @@ process.exit(code ?? 0);
 Boots the VMM as a child process and returns a handle with `stdin`/`stdout`/
 `stderr` streams, `wait()`, `kill()`, and `output()`/`errorOutput()` buffers.
 
-Key options:
+Key options (all optional):
 
-| Option      | Description                                                     |
-| ----------- | --------------------------------------------------------------- |
-| `binary`    | Path to the VMM binary (or import from `@machinen/vmm-arm64-*`) |
-| `bundle`    | Bundle directory to pack into an initramfs                      |
-| `disk`      | Host file to attach as `/dev/vda` in the guest                  |
-| `env`       | Extra env passed to the VMM process                             |
-| `timeoutMs` | `wait()` deadline (default 60s, `null` to wait forever)         |
+| Option      | Description                                                       |
+| ----------- | ----------------------------------------------------------------- |
+| `binary`    | VMM binary path — auto-resolved if omitted (see resolution rules) |
+| `bundle`    | Bundle directory to pack into an initramfs                        |
+| `disk`      | Host file to attach as `/dev/vda` in the guest                    |
+| `env`       | Extra env passed to the VMM process                               |
+| `timeoutMs` | `wait()` deadline (default 60s, `null` to wait forever)           |
+
+### Binary resolution
+
+When `binary` is omitted, `spawn()` calls `resolveVmmBinary()`:
+
+1. `MACHINEN_VMM` env var — absolute or cwd-relative path (dev override)
+2. `require.resolve("@machinen/vmm-<arch>-<os>")` → `binary` export
+
+Throws `SpawnError` with an install hint if neither is available.
 
 ### `buildSnapshot(options): Promise<SnapshotResult>`
 
@@ -74,4 +84,4 @@ per-sandbox stdio routing. See `src/multiplex.ts` for the surface.
 
 ## License
 
-MIT
+[FSL-1.1-MIT](../../LICENSE) — converts to MIT two years after each release.
