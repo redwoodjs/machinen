@@ -1,6 +1,6 @@
 //! Boot an arm64 Linux kernel under KVM (Linux host).
 //!
-//! Shape mirrors boot.zig (HVF path) so the two backends pass the
+//! Shape mirrors boot_hvf.zig (HVF path) so the two backends pass the
 //! same kernel + dtb + initramfs through the same boot protocol.
 //! Differences, all local to this file:
 //!
@@ -49,7 +49,7 @@ pub const Config = struct {
     dtb_offset: u64 = 0x0300_0000,
     initrd_offset: u64 = 0x0400_0000,
     capture_bytes: usize = 262144,
-    // Mirrors boot.zig's flag. When false (default), the loop exits
+    // Mirrors boot_hvf.zig's flag. When false (default), the loop exits
     // after `capture_bytes` bytes of serial — a test-oriented safety
     // valve. When true, the loop runs until PSCI SYSTEM_OFF or
     // `max_exits`. main.zig sets this for production boots.
