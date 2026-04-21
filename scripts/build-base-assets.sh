@@ -79,11 +79,19 @@ docker export "$CID" | tar -x -C "$ROOTFS_STAGE"
 install -m 0755 "${STAGE}/init" "${ROOTFS_STAGE}/init"
 install -m 0755 "${STAGE}/exec-agent" "${ROOTFS_STAGE}/exec-agent"
 
-# tar + gzip (deterministic-ish: sort, strip ownership, no mtime noise)
-tar --sort=name --owner=0 --group=0 --numeric-owner \
-  --mtime='2020-01-01 00:00Z' \
-  -C "$ROOTFS_STAGE" -cf - . |
-  gzip -n > "${OUT}/rootfs-debian-arm64.tar.gz"
+# Deterministic tar + gzip. We run this inside a container so the flags
+# (`--sort`, `--mtime`, `--owner`, `--group`, `--numeric-owner`) behave
+# consistently on Linux runners + darwin dev boxes; BSD tar on macOS
+# doesn't support these options.
+docker run --rm \
+  -v "$ROOTFS_STAGE":/rootfs:ro \
+  -v "$OUT":/out \
+  debian:bookworm-slim bash -c '
+    tar --sort=name --owner=0 --group=0 --numeric-owner \
+      --mtime="2020-01-01 00:00Z" \
+      -C /rootfs -cf - . |
+    gzip -n > /out/rootfs-debian-arm64.tar.gz
+  '
 
 # ------------------------------------------------------------
 # 5. Sha256 sidecars
