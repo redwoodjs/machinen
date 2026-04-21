@@ -110,6 +110,10 @@ export interface SpawnOptions {
    * shortcut. See #47 (virtio-blk) and #50 (snapshot-from-disk).
    */
   disk?: string;
+  /** Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`. */
+  kernel?: string;
+  /** Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`. */
+  dtb?: string;
   /**
    * Path to a bundle directory: `<bundle>/rootfs/` + `<bundle>/machinen-config.json`.
    * When set, the runtime packs the bundle into a cpio initramfs and
@@ -117,6 +121,14 @@ export interface SpawnOptions {
    * `.docs/learnings/microvm/rootfs-contract.md`.
    */
   bundle?: string;
+  /**
+   * Optional path to the base rootfs tarball (e.g. the one shipped in
+   * GitHub Releases as `rootfs-debian-arm64.tar.gz`). When provided with
+   * `bundle`, the runtime extracts the tarball and overlays
+   * `<bundle>/rootfs/` on top before packing the cpio. When omitted,
+   * `<bundle>/rootfs/` is treated as a standalone rootfs.
+   */
+  baseRootfs?: string;
   /**
    * Override the mkinitramfs.py helper used to pack bundles. Defaults
    * to the script in this monorepo's `packages/microvm/test-fixtures/`.
@@ -161,6 +173,20 @@ export async function spawn(opts: SpawnOptions = {}): Promise<VmHandle> {
       throw new SpawnError(`disk image not found: ${abs}`);
     }
     env.MACHINEN_DISK = abs;
+  }
+  if (opts.kernel) {
+    const abs = resolve(opts.cwd ?? process.cwd(), opts.kernel);
+    if (!existsSync(abs)) {
+      throw new SpawnError(`kernel not found: ${abs}`);
+    }
+    env.MACHINEN_KERNEL = abs;
+  }
+  if (opts.dtb) {
+    const abs = resolve(opts.cwd ?? process.cwd(), opts.dtb);
+    if (!existsSync(abs)) {
+      throw new SpawnError(`dtb not found: ${abs}`);
+    }
+    env.MACHINEN_DTB = abs;
   }
 
   let bundleTempDir: string | undefined;
@@ -260,7 +286,18 @@ function packBundle(opts: SpawnOptions): { tempDir: string; cpioPath: string } {
   const tempDir = mkdtempSync(join(tmpdir(), "machinen-bundle-"));
   const cpioPath = join(tempDir, "initramfs.cpio");
 
-  const res = spawnSync("python3", [mk, "--bundle", bundleDir, "--out", cpioPath], {
+  const mkArgs = ["--bundle", bundleDir, "--out", cpioPath];
+  if (opts.baseRootfs) {
+    const baseAbs = resolve(opts.cwd ?? process.cwd(), opts.baseRootfs);
+    if (!existsSync(baseAbs)) {
+      try {
+        rmSync(tempDir, { recursive: true, force: true });
+      } catch {}
+      throw new SpawnError(`base rootfs tarball not found: ${baseAbs}`);
+    }
+    mkArgs.unshift("--base", baseAbs);
+  }
+  const res = spawnSync("python3", [mk, ...mkArgs], {
     stdio: ["ignore", "pipe", "pipe"],
   });
   if (res.status !== 0) {

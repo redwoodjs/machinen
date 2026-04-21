@@ -18,7 +18,7 @@ const builtin = @import("builtin");
 
 comptime {
     if (builtin.os.tag != .macos) {
-        @compileError("boot.zig only builds on macOS (uses HVF)");
+        @compileError("boot_hvf.zig only builds on macOS (uses HVF)");
     }
 }
 
@@ -61,8 +61,15 @@ pub const Config = struct {
     // `linux,initrd-start` property in the DTB's /chosen node.
     initrd_offset: u64 = 0x0400_0000, // 64 MB into RAM
     // How many bytes to capture from serial before we declare the
-    // boot "far enough along to stop."
+    // boot "far enough along to stop." Ignored when `unbounded_serial`
+    // is true.
     capture_bytes: usize = 262144,
+    // When false (default), the vCPU loop breaks once `captured` grows
+    // past `capture_bytes` — a safety valve for tests that just want to
+    // prove the kernel booted. When true, the loop only ends on PSCI
+    // SYSTEM_OFF, an unhandled exception, or `max_exits`. Production
+    // boots (main.zig) want this on; test fixtures want it off.
+    unbounded_serial: bool = false,
     // Stop the loop after this many data-abort/HVC exits no matter what.
     max_exits: usize = 5_000_000,
 };
@@ -487,7 +494,12 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     }
     defer {
         slirp_stop.store(true, .release);
-        if (slirp_thread) |t| t.detach();
+        // Join (not detach): the sibling `defer` that destroys the
+        // slirp instance runs right after this one, and the pump
+        // thread calls slirp_pollfds_poll(self.handle, …) every ~10ms.
+        // Detach leaves the thread racing against destroy() and
+        // segfaulting on a freed handle.
+        if (slirp_thread) |t| t.join();
     }
 
     // Stdin-reader thread: blocks on read(0) and, when bytes arrive,
@@ -661,9 +673,11 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
             },
         }
 
-        // Stop condition: we've seen enough serial output to be
-        // confident the kernel booted far enough to prove our point.
-        if (uart.captured.items.len >= cfg.capture_bytes) break;
+        // Test-mode stop condition: we've seen enough serial output to
+        // be confident the kernel booted far enough to prove our point.
+        // Production boots set `unbounded_serial` so the loop ends only
+        // on PSCI SYSTEM_OFF (or max_exits).
+        if (!cfg.unbounded_serial and uart.captured.items.len >= cfg.capture_bytes) break;
     }
 
     if (exits >= cfg.max_exits) return error.RanTooLong;

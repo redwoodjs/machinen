@@ -254,7 +254,7 @@ smoke_spawn() {
     local disk=$FIXTURES/disk.img
     # Drop Claude Code, npm, yarn, udev, most kernel driver modules —
     # none are touched by spawn-warmup.sh / spawn-restore.sh. Combined
-    # with the DTB initrd-end patch in src/boot.zig (kernel scans the
+    # with the DTB initrd-end patch in src/boot_hvf.zig (kernel scans the
     # initrd window for concatenated archives at ~1 GB/s wall-clock),
     # this drives `spawn → restore OK` under a second. See #50.
     local slim="--exclude-from $FIXTURES/spawn-minimal.excludes"

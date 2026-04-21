@@ -636,7 +636,7 @@ pub const Connection = struct {
 pub const BridgeConfig = struct {
     guest_cid: u64 = default_guest_cid,
     ports: []const PortMap,
-    /// Set by boot.zig to hvf.Gic.setSpi(irq, true). Called after we
+    /// Set by boot_hvf.zig to hvf.Gic.setSpi(irq, true). Called after we
     /// inject an RX packet so the guest sees the virtio interrupt.
     raise_irq: ?*const fn (ctx: ?*anyopaque) void = null,
     raise_irq_ctx: ?*anyopaque = null,

@@ -41,7 +41,7 @@ them. Each host OS has its own:
   idea, different OS — KVM is Linux's built-in hypervisor interface.
 
 `src/root.zig` picks between them at compile-time via
-`detectBackend()`. `src/boot.zig` / `src/boot_kvm.zig` are the
+`detectBackend()`. `src/boot_hvf.zig` / `src/boot_kvm.zig` are the
 per-backend kernel loaders — the register ABI at the kernel jump is
 the same, but how you set those registers differs per API.
 
@@ -147,7 +147,7 @@ HOST                                       GUEST
 The code is the source of truth. Starting points:
 
 - `../src/root.zig` — backend selection, module map
-- `../src/boot.zig` / `../src/boot_kvm.zig` — kernel + DTB load, vCPU setup
+- `../src/boot_hvf.zig` / `../src/boot_kvm.zig` — kernel + DTB load, vCPU setup
 - `../src/hvf.zig` / `../src/kvm.zig` — the two hypervisor backends
 - `../src/pl011.zig`, `../src/virtio.zig`, `../src/blk.zig`,
   `../src/vsock.zig`, `../src/slirp.zig` — device models

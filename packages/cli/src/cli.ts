@@ -193,9 +193,29 @@ async function cmdRun(args: string[]): Promise<number> {
     await ensureBaseAssets(RELEASE_TAG);
   }
 
+  // Resolve the kernel, DTB, and base rootfs tarball.
+  // MACHINEN_ASSETS_DIR uses the unrenamed build-base-assets.sh output
+  // names; the cache renames on download (see `ensureBaseAssets`'s
+  // `assets` array).
+  const baseDir = assetsOverride ? resolve(assetsOverride) : baseDirFor(RELEASE_TAG);
+  const kernelPath = join(baseDir, assetsOverride ? "Image-arm64" : "Image");
+  const dtbPath = join(baseDir, assetsOverride ? "virt-arm64.dtb" : "virt.dtb");
+  const baseRootfsPath = join(
+    baseDir,
+    assetsOverride ? "rootfs-debian-arm64.tar.gz" : "rootfs.tar.gz",
+  );
+
   let vm;
   try {
-    vm = await spawn({ bundle });
+    vm = await spawn({
+      bundle,
+      kernel: kernelPath,
+      dtb: dtbPath,
+      baseRootfs: baseRootfsPath,
+      // Interactive CLI: the session lives as long as the guest does.
+      // Don't impose the default 60s cap.
+      timeoutMs: null,
+    });
   } catch (err) {
     if (err instanceof SpawnError) {
       die(err.message);
@@ -207,8 +227,36 @@ async function cmdRun(args: string[]): Promise<number> {
   vm.stderr.pipe(process.stderr);
   process.stdin.pipe(vm.stdin);
 
-  const { code } = await vm.wait();
-  return code ?? 0;
+  // Propagate SIGINT/SIGTERM to the VMM child. A terminal Ctrl-C
+  // already signals the whole process group (both us and the VMM), so
+  // this mostly matters when only the CLI is signalled — e.g. a
+  // supervisor sending SIGTERM to node, or `kill -INT <cli-pid>` from
+  // another shell. Without this, the VMM survives as an orphan.
+  let forwardedSignal: "SIGINT" | "SIGTERM" | null = null;
+  const onSigint = () => {
+    forwardedSignal = "SIGINT";
+    void vm.kill();
+  };
+  const onSigterm = () => {
+    forwardedSignal = "SIGTERM";
+    void vm.kill();
+  };
+  process.on("SIGINT", onSigint);
+  process.on("SIGTERM", onSigterm);
+
+  try {
+    const { code } = await vm.wait();
+    if (forwardedSignal === "SIGINT") {
+      return 130;
+    }
+    if (forwardedSignal === "SIGTERM") {
+      return 143;
+    }
+    return code ?? 0;
+  } finally {
+    process.off("SIGINT", onSigint);
+    process.off("SIGTERM", onSigterm);
+  }
 }
 
 async function cmdInstall(args: string[]): Promise<number> {
