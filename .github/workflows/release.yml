@@ -134,12 +134,14 @@ jobs:
       - name: Build TS packages
         run: pnpm -F @machinen/runtime -F @machinen/cli build
 
-      # microvm's `test` script is `zig build test`; zig isn't set up
-      # on this runner, so restrict tests to the TS packages.
+      # vitest config lives at the repo root with a workspace-wide
+      # include, so tests must run from the root (not per-package).
+      # microvm's `zig build test` is covered by tests.yml; it isn't
+      # set up on this runner.
       - name: Typecheck + test
         run: |
           pnpm -r typecheck
-          pnpm -F @machinen/runtime -F @machinen/cli test
+          pnpm exec vitest run
 
       - name: Create Release PR or Publish
         id: changesets
