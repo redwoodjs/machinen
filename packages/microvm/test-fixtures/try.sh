@@ -58,10 +58,29 @@ ROOTFS=test-fixtures/rootfs
 FIXTURES=test-fixtures
 
 # --- sanity --------------------------------------------------------
-for f in $FIXTURES/Image $FIXTURES/virt.dtb; do
-    [[ -f "$f" ]] || die "missing fixture: $f (see test-fixtures/README.md)"
-done
-[[ -d "$ROOTFS" ]] || die "missing $ROOTFS — see test-fixtures/README.md for how to build it"
+# Fixtures aren't checked in. Fall back to release-assets/ at the repo
+# root (populated by scripts/build-base-assets.sh); otherwise tell the
+# user to build them.
+ASSETS=$(cd "$HERE/../.." && pwd)/release-assets
+need_build() {
+    die "missing $1
+    run ./scripts/build-base-assets.sh to produce release-assets/
+    or see test-fixtures/README.md"
+}
+
+if [[ ! -f $FIXTURES/Image ]]; then
+    [[ -f "$ASSETS/Image-arm64" ]] || need_build "$FIXTURES/Image"
+    cp "$ASSETS/Image-arm64" "$FIXTURES/Image"
+fi
+if [[ ! -f $FIXTURES/virt.dtb ]]; then
+    [[ -f "$ASSETS/virt-arm64.dtb" ]] || need_build "$FIXTURES/virt.dtb"
+    cp "$ASSETS/virt-arm64.dtb" "$FIXTURES/virt.dtb"
+fi
+if [[ ! -d $ROOTFS ]]; then
+    [[ -f "$ASSETS/rootfs-debian-arm64.tar.gz" ]] || need_build "$ROOTFS"
+    mkdir -p "$ROOTFS"
+    tar -xzf "$ASSETS/rootfs-debian-arm64.tar.gz" -C "$ROOTFS"
+fi
 
 # Write $ROOTFS/machinen-config.json with the positional args as argv.
 # TERM=linux is auto-added by /init if absent; the shell-mode entry
