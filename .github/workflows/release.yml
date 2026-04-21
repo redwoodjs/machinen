@@ -134,10 +134,12 @@ jobs:
       - name: Build TS packages
         run: pnpm -F @machinen/runtime -F @machinen/cli build
 
+      # microvm's `test` script is `zig build test`; zig isn't set up
+      # on this runner, so restrict tests to the TS packages.
       - name: Typecheck + test
         run: |
           pnpm -r typecheck
-          pnpm -r test
+          pnpm -F @machinen/runtime -F @machinen/cli test
 
       - name: Create Release PR or Publish
         id: changesets
