@@ -41,7 +41,7 @@ if it can't find the library.
 import { spawn } from "@machinen/runtime";
 import { binary } from "@machinen/vmm-arm64-darwin";
 
-const vm = await spawn({ binary, bundle: "./my-bundle" });
+const vm = await spawn({ binary, bundle: "./path/to/bundle" });
 ```
 
 ## License

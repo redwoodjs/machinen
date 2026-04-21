@@ -20,11 +20,11 @@ One system dep is not yet statically linked:
 - Fedora/RHEL: `dnf install libslirp`
 - Alpine: `apk add libslirp`
 
-## Run a bundle
+## Boot a microVM
 
 ```bash
-machinen install                # pre-fetch kernel + rootfs for the current release
-machinen run path/to/bundle     # boot a microVM from a bundle directory
+machinen install                  # pre-fetch kernel + rootfs for the current release
+machinen run ./path/to/bundle     # spawn a microVM from a bundle directory
 ```
 
 A bundle is a directory containing `rootfs/` (overlay on top of the base Debian
@@ -37,7 +37,7 @@ for the contract.
 ```ts
 import { spawn } from "@machinen/runtime";
 
-const vm = await spawn({ binary: process.env.MACHINEN_VMM!, bundle: "./my-bundle" });
+const vm = await spawn({ binary: process.env.MACHINEN_VMM!, bundle: "./path/to/bundle" });
 vm.stdout.pipe(process.stdout);
 vm.stdin.write("echo hello from inside\n");
 await vm.wait();
