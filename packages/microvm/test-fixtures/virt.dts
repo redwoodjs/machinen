@@ -121,7 +121,13 @@
 	chosen {
 		bootargs = "earlycon=pl011,mmio32,0x9000000 console=ttyAMA0 panic=1 loglevel=3 quiet";
 		linux,initrd-start = <0x44000000>;
-		linux,initrd-end = <0xa0000000>;
+		// End of the initrd reserved region. The kernel scans the whole
+		// window looking for concatenated cpio archives; leaving this
+		// too generous costs real wall-clock during early boot (#50
+		// sub-second spawn). Sized to fit the current full rootfs cpio
+		// (~884 MB) with slack. TODO: patch at runtime from the actual
+		// loaded initrd length so slim cpios get the full win.
+		linux,initrd-end = <0x84000000>;
 		stdout-path = "/pl011@9000000";
 		rng-seed = <0x1a11afe9 0x8fd8244a 0xab34bc9d 0x722c6957 0xd0b2f2e0 0x82d58105 0x88b74715 0x107ef8a1>;
 		kaslr-seed = <0xdb4642f7 0x8a825170>;

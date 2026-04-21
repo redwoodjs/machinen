@@ -20,7 +20,7 @@ Modes:
                                   the base archive; we write one trailer
                                   at the END of the concatenated stream.
 """
-import os, stat, struct, sys
+import fnmatch, os, stat, struct, sys
 from pathlib import Path
 
 HERE = Path(__file__).parent
@@ -43,15 +43,42 @@ def newc(name, mode, uid=0, gid=0, nlink=1, mtime=0,
     while len(out) % 4: out += b"\x00"
     return out
 
-def entries_from_rootfs(root: Path):
+def load_excludes(path: Path) -> list[str]:
+    """One pattern per line. Blank lines and '#' comments ignored.
+
+    Patterns are rootfs-relative paths matched with fnmatch against
+    each entry's rootfs-relative path during the walk. A match prunes
+    the entry (and, if a directory, its subtree).
+    """
+    out = []
+    for raw in path.read_text().splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if line:
+            out.append(line.lstrip("/"))
+    return out
+
+
+def entries_from_rootfs(root: Path, excludes: list[str] | None = None):
     """Yield cpio bytes for every file/dir/symlink under `root`.
 
     Walks manually (no os.walk/fwalk) because those follow symlinks
     to directories, which clobbers the /bin → /usr/bin style layout
     on modern Debian. Here a symlink — whether it points at a file
     or a directory — is always emitted as a symlink.
+
+    `excludes` are fnmatch patterns matched against each entry's
+    rootfs-relative path. A match prunes the entry and (for
+    directories) its subtree.
     """
     root = str(root)
+    ex = excludes or []
+    skipped = {"files": 0, "bytes": 0}
+
+    def excluded(rel: str) -> bool:
+        for pat in ex:
+            if fnmatch.fnmatchcase(rel, pat):
+                return True
+        return False
 
     def walk(rel):
         full = os.path.join(root, rel) if rel else root
@@ -62,6 +89,15 @@ def entries_from_rootfs(root: Path):
         for name in entries:
             child_rel = os.path.join(rel, name) if rel else name
             child_full = os.path.join(full, name)
+            if excluded(child_rel):
+                try:
+                    st = os.lstat(child_full)
+                    if stat.S_ISREG(st.st_mode):
+                        skipped["files"] += 1
+                        skipped["bytes"] += st.st_size
+                except FileNotFoundError:
+                    pass
+                continue
             try:
                 st = os.lstat(child_full)
             except FileNotFoundError:
@@ -82,6 +118,13 @@ def entries_from_rootfs(root: Path):
 
     yield newc(".", 0o40755)
     yield from walk("")
+    if ex:
+        print(
+            f"  excluded {skipped['files']} file(s), "
+            f"{skipped['bytes'] / 1024 / 1024:.1f} MB at top level "
+            f"(nested prunes not counted)",
+            file=sys.stderr,
+        )
 
 DEFAULT_EXCLUDES = {
     ".git",
@@ -219,6 +262,14 @@ def main():
         config_bytes = Path(args[i + 1]).resolve().read_bytes()
         del args[i:i + 2]
 
+    # Optional exclude list for --rootfs/--bundle modes. Patterns are
+    # fnmatch-style against each entry's rootfs-relative path.
+    excludes = []
+    if "--exclude-from" in args:
+        i = args.index("--exclude-from")
+        excludes = load_excludes(Path(args[i + 1]).resolve())
+        del args[i:i + 2]
+
     if args and args[0] == "--bundle":
         # Bundle layout: <dir>/rootfs + <dir>/machinen-config.json.
         bundle = Path(args[1]).resolve()
@@ -231,12 +282,12 @@ def main():
             print(f"--bundle: missing {cfg_path}", file=sys.stderr)
             sys.exit(2)
         print(f"packing bundle: {bundle}")
-        parts = list(entries_from_rootfs(rootfs_dir))
+        parts = list(entries_from_rootfs(rootfs_dir, excludes=excludes))
         config_bytes = cfg_path.read_bytes()
     elif args and args[0] == "--rootfs":
         root = Path(args[1]).resolve()
         print(f"packing rootfs: {root}")
-        parts = list(entries_from_rootfs(root))
+        parts = list(entries_from_rootfs(root, excludes=excludes))
     else:
         # Minimal mode: just our init.
         init_bytes = INIT.read_bytes()

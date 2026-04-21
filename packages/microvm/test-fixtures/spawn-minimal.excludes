@@ -1,0 +1,131 @@
+# Exclude list for the #50 spawn latency path.
+#
+# Patterns are fnmatch-style, matched against each entry's rootfs-
+# relative path during the walk in mkinitramfs.py. A match prunes the
+# entry (and, for directories, the whole subtree).
+#
+# The target scenario is spawn-warmup.sh + spawn-restore.sh: format
+# /dev/vda, run a Node counter, CRIU dump + restore. Everything
+# Claude-Code, npm, yarn, udev, and most kernel driver/fs/net modules
+# are dead weight for that flow.
+#
+# Non-spawn smoke modes (repl, criu, net, cc-*) still use the full
+# rootfs — smoke.sh only passes this file for `spawn`.
+
+# === Claude Code / JS ecosystem ===
+usr/local/lib/node_modules/@anthropic-ai
+usr/local/lib/node_modules/npm
+usr/local/lib/node_modules/corepack
+usr/local/bin/claude
+usr/local/bin/npm
+usr/local/bin/npx
+usr/local/bin/corepack
+usr/local/bin/yarn
+usr/local/bin/yarnpkg
+usr/local/bin/docker-entrypoint.sh
+usr/local/bin/nodejs
+usr/local/CHANGELOG.md
+usr/local/README.md
+usr/local/LICENSE
+usr/local/include
+opt/yarn-v1.22.22
+
+# === Duplicate kernel artefacts ===
+# VMM passes Image directly via MACHINEN_KERNEL; /boot is dead weight.
+boot
+
+# === Subsystems we don't run ===
+usr/lib/udev
+usr/lib/systemd
+etc/systemd
+etc/udev
+
+# === Unused kernel module subtrees ===
+# Keep drivers/virtio, drivers/block (virtio_blk), drivers/net (tun, veth),
+# lib (libcrc32c), net (netlink, unix, ipv4, packet, netfilter diagnostics
+# and nf_tables), and fs/ext4.
+usr/lib/modules/*/kernel/drivers/infiniband
+usr/lib/modules/*/kernel/drivers/md
+usr/lib/modules/*/kernel/drivers/scsi
+usr/lib/modules/*/kernel/drivers/target
+usr/lib/modules/*/kernel/drivers/ata
+usr/lib/modules/*/kernel/drivers/nvme
+usr/lib/modules/*/kernel/drivers/usb
+usr/lib/modules/*/kernel/drivers/mmc
+usr/lib/modules/*/kernel/drivers/gpu
+usr/lib/modules/*/kernel/drivers/sound
+usr/lib/modules/*/kernel/drivers/hid
+usr/lib/modules/*/kernel/drivers/input
+usr/lib/modules/*/kernel/drivers/crypto
+usr/lib/modules/*/kernel/drivers/char
+usr/lib/modules/*/kernel/drivers/pci
+usr/lib/modules/*/kernel/drivers/cpuidle
+usr/lib/modules/*/kernel/drivers/cpufreq
+usr/lib/modules/*/kernel/drivers/edac
+usr/lib/modules/*/kernel/drivers/thunderbolt
+usr/lib/modules/*/kernel/drivers/firewire
+usr/lib/modules/*/kernel/drivers/bluetooth
+usr/lib/modules/*/kernel/drivers/media
+usr/lib/modules/*/kernel/drivers/power
+usr/lib/modules/*/kernel/drivers/regulator
+usr/lib/modules/*/kernel/drivers/iio
+usr/lib/modules/*/kernel/sound
+usr/lib/modules/*/kernel/arch
+usr/lib/modules/*/kernel/crypto
+usr/lib/modules/*/kernel/fs/btrfs
+usr/lib/modules/*/kernel/fs/xfs
+usr/lib/modules/*/kernel/fs/nfs
+usr/lib/modules/*/kernel/fs/nfsd
+usr/lib/modules/*/kernel/fs/nilfs2
+usr/lib/modules/*/kernel/fs/jfs
+usr/lib/modules/*/kernel/fs/ocfs2
+usr/lib/modules/*/kernel/fs/cifs
+usr/lib/modules/*/kernel/fs/ceph
+usr/lib/modules/*/kernel/fs/f2fs
+usr/lib/modules/*/kernel/fs/gfs2
+usr/lib/modules/*/kernel/fs/hfs
+usr/lib/modules/*/kernel/fs/hfsplus
+usr/lib/modules/*/kernel/fs/squashfs
+usr/lib/modules/*/kernel/fs/reiserfs
+usr/lib/modules/*/kernel/fs/udf
+usr/lib/modules/*/kernel/fs/ntfs
+usr/lib/modules/*/kernel/fs/ntfs3
+usr/lib/modules/*/kernel/fs/fat
+usr/lib/modules/*/kernel/fs/isofs
+usr/lib/modules/*/kernel/fs/fuse
+usr/lib/modules/*/kernel/net/sched
+usr/lib/modules/*/kernel/net/sctp
+usr/lib/modules/*/kernel/net/sunrpc
+usr/lib/modules/*/kernel/net/bridge
+usr/lib/modules/*/kernel/net/wireless
+usr/lib/modules/*/kernel/net/bluetooth
+usr/lib/modules/*/kernel/net/mac80211
+usr/lib/modules/*/kernel/net/rds
+usr/lib/modules/*/kernel/net/dccp
+usr/lib/modules/*/kernel/net/l2tp
+usr/lib/modules/*/kernel/net/tipc
+usr/lib/modules/*/kernel/net/openvswitch
+
+# === Bulk: man, docs, locales, zoneinfo ===
+usr/share/doc
+usr/share/man
+usr/share/info
+usr/share/locale
+usr/share/zoneinfo
+usr/share/X11
+usr/share/terminfo
+usr/share/bash-completion
+usr/share/perl5
+usr/share/gcc
+usr/share/ca-certificates
+usr/share/keyrings
+usr/share/initramfs-tools
+
+# === Apt/dpkg state (not installing packages in-guest) ===
+var/cache
+var/log
+var/lib/apt
+var/lib/dpkg
+
+# === Compile-time headers ===
+usr/include

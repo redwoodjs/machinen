@@ -50,11 +50,14 @@ build_and_find_bin() {
 TEST_BIN=$(build_and_find_bin) || { echo "FAIL: no boot-test binary" >&2; exit 1; }
 
 # Repack the initramfs with the given demo.sh. `stage` is a shell
-# command that sets up $ROOTFS (paths are absolute).
+# command that sets up $ROOTFS (paths are absolute). Optional second
+# arg is extra flags to mkinitramfs.py (e.g. `--exclude-from FILE`).
 repack_with() {
     local stage_cmd=$1
+    local extra=${2:-}
     eval "$stage_cmd"
-    python3 "$FIXTURES/mkinitramfs.py" --rootfs "$ROOTFS" >/dev/null
+    # shellcheck disable=SC2086  # extra is intentional flag-splitting.
+    python3 "$FIXTURES/mkinitramfs.py" --rootfs "$ROOTFS" $extra >/dev/null
 }
 
 # Run the VMM with the given stdin feed; kill it after a timeout; return
@@ -253,6 +256,12 @@ smoke_spawn() {
     local p1_log=/tmp/microvm-smoke-spawn-warmup.log
     local p2_log=/tmp/microvm-smoke-spawn-restore.log
     local disk=$FIXTURES/disk.img
+    # Drop Claude Code, npm, yarn, udev, most kernel driver modules —
+    # none are touched by spawn-warmup.sh / spawn-restore.sh. Combined
+    # with the DTB initrd-end patch in src/boot.zig (kernel scans the
+    # initrd window for concatenated archives at ~1 GB/s wall-clock),
+    # this drives `spawn → restore OK` under a second. See #50.
+    local slim="--exclude-from $FIXTURES/spawn-minimal.excludes"
 
     # Fresh 128 MiB raw disk. spawn-warmup.sh formats it ext4
     # inside the guest on first boot.
@@ -268,7 +277,7 @@ PATH=/usr/local/bin:/usr/bin:/bin:/sbin; export PATH
 exec /bin/sh /spawn-warmup.sh
 SH
         chmod +x $ROOTFS/demo.sh
-    "
+    " "$slim"
     run_vmm 'printf ""' 45 "$p1_log"
 
     grep -q 'dump OK' "${p1_log}.clean" && pass 'warmup: CRIU dump OK' || fail 'warmup: dump failed'
@@ -279,7 +288,8 @@ SH
     before=$(grep 'snap/count:' "${p1_log}.clean" | sed -n '1p' | awk '{print $2}')
     echo "counter at dump: $before"
 
-    # Phase 2: restore boot — same disk, rewire demo.sh.
+    # Phase 2: restore boot — same disk, rewire demo.sh. Same slim
+    # exclude list; the restore path uses the same tools as warmup.
     repack_with "
         cat > $ROOTFS/demo.sh <<'SH'
 #!/bin/sh
@@ -287,7 +297,7 @@ PATH=/usr/local/bin:/usr/bin:/bin:/sbin; export PATH
 exec /bin/sh /spawn-restore.sh
 SH
         chmod +x $ROOTFS/demo.sh
-    "
+    " "$slim"
     run_vmm 'printf ""' 40 "$p2_log"
 
     grep -q 'restore OK' "${p2_log}.clean" && pass 'restore: CRIU restore OK' || fail 'restore: failed'
