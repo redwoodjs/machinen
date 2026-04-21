@@ -10,6 +10,7 @@ rootfs.new/
 rootfs-debian/
 rootfs-debian.tar
 init
+exec-agent
 *.dtb
 virt.dts.bak
 !.gitignore
