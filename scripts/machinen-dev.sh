@@ -37,11 +37,12 @@ rm -rf "$BUNDLE"
 mkdir -p "$BUNDLE/rootfs"
 cat > "$BUNDLE/machinen-config.json" <<'JSON'
 {
-  "cmd": ["/bin/sh"],
+  "cmd": ["/bin/sh", "-i"],
   "env": {
     "PATH": "/usr/local/bin:/usr/bin:/bin:/sbin",
     "HOME": "/root",
-    "TERM": "xterm-256color"
+    "TERM": "xterm-256color",
+    "PS1": "(microvm-dev) # "
   }
 }
 JSON
