@@ -7,8 +7,18 @@
 // Image/virt.dtb/initramfs fixtures, or the HVF-entitled test binary.
 
 import { execSync } from "node:child_process";
-import { existsSync, readdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { SpawnError, buildSnapshot, measureFirstByte, spawn } from "../index.ts";
 
@@ -152,6 +162,94 @@ describe("measureFirstByte", () => {
     expect(ms).toBeGreaterThanOrEqual(0);
     expect(ms).toBeLessThan(1500); // well under the 1s sleep
   });
+});
+
+describe("bundle option", () => {
+  it("throws SpawnError when the bundle directory does not exist", async () => {
+    await expect(
+      spawn({ binary: "/bin/sh", bundle: "/nope/missing-bundle" }),
+    ).rejects.toThrow(/bundle directory not found/);
+  });
+
+  it("throws SpawnError when the bundle is missing rootfs/", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-test-bundle-"));
+    try {
+      writeFileSync(join(dir, "machinen-config.json"), "{}");
+      await expect(spawn({ binary: "/bin/sh", bundle: dir })).rejects.toThrow(
+        /bundle missing rootfs\//,
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("throws SpawnError when the bundle is missing machinen-config.json", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-test-bundle-"));
+    try {
+      mkdirSync(join(dir, "rootfs"));
+      await expect(spawn({ binary: "/bin/sh", bundle: dir })).rejects.toThrow(
+        /bundle missing machinen-config.json/,
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("boots a bundle and the guest runs the cmd from machinen-config.json", async () => {
+    const binary = findBootTestBinary();
+    if (!binary || !fixturesPresent()) {
+      // VMM fixtures missing — skip.
+      return;
+    }
+    const debianRootfs = resolve(microvmRoot, "test-fixtures/rootfs-debian");
+    if (!existsSync(debianRootfs)) {
+      // Debian rootfs not produced in this checkout — skip.
+      return;
+    }
+
+    const bundleDir = mkdtempSync(join(tmpdir(), "machinen-e2e-bundle-"));
+    try {
+      // rootfs/ is a symlink to the staged Debian tree, so we don't
+      // pay a 100 MB copy per test run.
+      execSync(`ln -s ${debianRootfs} ${join(bundleDir, "rootfs")}`);
+      writeFileSync(
+        join(bundleDir, "machinen-config.json"),
+        JSON.stringify({
+          cmd: [
+            "/bin/sh",
+            "-c",
+            "echo BUNDLE_MARKER=$BUNDLE_MARKER; pwd; sleep 999999",
+          ],
+          env: { PATH: "/usr/bin:/bin", BUNDLE_MARKER: "spawned-via-ts" },
+          cwd: "/var",
+        }),
+      );
+
+      const vm = await spawn({
+        binary,
+        cwd: microvmRoot,
+        env: { MACHINEN_BOOT_TEST: "1", MACHINEN_DISK: "" },
+        bundle: bundleDir,
+        timeoutMs: null,
+      });
+      // Kill after 20s — enough for kernel boot + /init + sh to print.
+      const killAfter = setTimeout(() => void vm.kill(), 20_000);
+      killAfter.unref();
+      await vm.wait();
+      clearTimeout(killAfter);
+
+      const ESC = String.fromCharCode(0x1b);
+      const stderr = (await vm.errorOutput())
+        .replace(new RegExp(`${ESC}\\[[0-9;]*[a-zA-Z]`, "g"), "")
+        .replace(/\r/g, "");
+
+      expect(stderr).toContain("Linux version");
+      expect(stderr).toContain("BUNDLE_MARKER=spawned-via-ts");
+      expect(stderr).toContain("/var");
+    } finally {
+      rmSync(bundleDir, { recursive: true, force: true });
+    }
+  }, 40_000);
 });
 
 describe("buildSnapshot", () => {

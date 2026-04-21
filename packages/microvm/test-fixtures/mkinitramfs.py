@@ -202,7 +202,38 @@ def main():
         print(f"wrote {out} ({out.stat().st_size} bytes)", file=sys.stderr)
         return
 
-    if args and args[0] == "--rootfs":
+    # Optional --out <path> override. Applies to --rootfs and minimal
+    # modes; --workspace has its own --out handling above.
+    out_override = None
+    if "--out" in args:
+        i = args.index("--out")
+        out_override = Path(args[i + 1]).resolve()
+        del args[i:i + 2]
+
+    # Optional bundle config injected at /machinen-config.json. Bundle
+    # mode (below) sets this; --rootfs callers can pass --config <path>
+    # explicitly if they want the same behavior.
+    config_bytes = None
+    if "--config" in args:
+        i = args.index("--config")
+        config_bytes = Path(args[i + 1]).resolve().read_bytes()
+        del args[i:i + 2]
+
+    if args and args[0] == "--bundle":
+        # Bundle layout: <dir>/rootfs + <dir>/machinen-config.json.
+        bundle = Path(args[1]).resolve()
+        rootfs_dir = bundle / "rootfs"
+        cfg_path = bundle / "machinen-config.json"
+        if not rootfs_dir.is_dir():
+            print(f"--bundle: missing {rootfs_dir}", file=sys.stderr)
+            sys.exit(2)
+        if not cfg_path.is_file():
+            print(f"--bundle: missing {cfg_path}", file=sys.stderr)
+            sys.exit(2)
+        print(f"packing bundle: {bundle}")
+        parts = list(entries_from_rootfs(rootfs_dir))
+        config_bytes = cfg_path.read_bytes()
+    elif args and args[0] == "--rootfs":
         root = Path(args[1]).resolve()
         print(f"packing rootfs: {root}")
         parts = list(entries_from_rootfs(root))
@@ -218,13 +249,17 @@ def main():
     if INIT.exists():
         init_bytes = INIT.read_bytes()
         parts.append(newc("init", 0o100755, data=init_bytes))
+    if config_bytes is not None:
+        parts.append(newc("machinen-config.json", 0o100644, data=config_bytes))
     parts.append(newc("dev", 0o40755))
     parts.append(newc("dev/console", 0o20600, rmajor=5, rminor=1))
     # Trailer.
     parts.append(newc("TRAILER!!!", 0))
 
-    OUT.write_bytes(b"".join(parts))
-    print(f"wrote {OUT} ({OUT.stat().st_size} bytes)")
+    dst = out_override if out_override is not None else OUT
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    dst.write_bytes(b"".join(parts))
+    print(f"wrote {dst} ({dst.stat().st_size} bytes)")
 
 if __name__ == "__main__":
     main()
