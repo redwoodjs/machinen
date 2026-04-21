@@ -29,11 +29,11 @@ pub fn main(init: std.process.Init) !void {
     const initrd_path = envRequired("MACHINEN_INITRD");
 
     // Guest console is live-echoed to stderr from inside the boot loop
-    // (boot.zig's PL011 DR-write handler). The result.serial buffer is
+    // (boot_hvf.zig's PL011 DR-write handler). The result.serial buffer is
     // the same bytes, captured for tests — don't re-emit here.
     if (builtin.os.tag == .macos) {
         const disk_path = envOptional("MACHINEN_DISK");
-        const result = try microvm.boot.boot(gpa, .{
+        const result = try microvm.boot_hvf.boot(gpa, .{
             .kernel_path = kernel_path,
             .dtb_path = dtb_path,
             .initrd_path = initrd_path,

@@ -13,7 +13,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 pub const hvf = if (builtin.os.tag == .macos) @import("hvf.zig") else struct {};
-pub const boot = if (builtin.os.tag == .macos) @import("boot.zig") else struct {};
+pub const boot_hvf = if (builtin.os.tag == .macos) @import("boot_hvf.zig") else struct {};
 pub const slirp = if (builtin.os.tag == .macos) @import("slirp.zig") else struct {};
 pub const kvm = if (builtin.os.tag == .linux) @import("kvm.zig") else struct {};
 pub const boot_kvm = if (builtin.os.tag == .linux) @import("boot_kvm.zig") else struct {};
@@ -75,7 +75,7 @@ test "backendAvailable is a bool that corresponds to the OS" {
 test {
     if (builtin.os.tag == .macos) {
         _ = @import("hvf.zig");
-        _ = @import("boot.zig");
+        _ = @import("boot_hvf.zig");
     }
     if (builtin.os.tag == .linux) {
         _ = @import("kvm.zig");

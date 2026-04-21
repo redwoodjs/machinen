@@ -6,7 +6,7 @@
 //! decode. GIC wiring (distributor + redistributor for in-kernel
 //! vgic_v3) is stubbed here — a real boot path will flesh that out.
 //!
-//! Layered so boot.zig (on Linux) can call into a kvm.Vm/kvm.Vcpu
+//! Layered so boot_kvm.zig can call into a kvm.Vm/kvm.Vcpu
 //! pair that has the same shape as hvf.Vm/hvf.Vcpu. Not yet wired
 //! into a Linux boot path; this commit is the ioctl scaffold.
 
@@ -359,8 +359,8 @@ pub const KvmError = error{
 };
 
 // ---------------------------------------------------------------
-// Thin wrappers. The Vm/Vcpu types mirror hvf.zig naming so boot.zig
-// can eventually dispatch at comptime without special-casing.
+// Thin wrappers. The Vm/Vcpu types mirror hvf.zig naming so the
+// boot_{hvf,kvm}.zig pair can stay structurally symmetric.
 
 /// Top-level handle. Owns /dev/kvm and the VM fd.
 pub const Kvm = struct {

@@ -18,7 +18,7 @@ const builtin = @import("builtin");
 
 comptime {
     if (builtin.os.tag != .macos) {
-        @compileError("boot.zig only builds on macOS (uses HVF)");
+        @compileError("boot_hvf.zig only builds on macOS (uses HVF)");
     }
 }
 
