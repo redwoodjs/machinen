@@ -23,12 +23,11 @@ import {
   symlinkSync,
   unlinkSync,
 } from "node:fs";
-import { arch, homedir, platform } from "node:os";
+import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { pipeline } from "node:stream/promises";
-import { createRequire } from "node:module";
 
-import { spawn } from "@machinen/runtime";
+import { spawn, SpawnError } from "@machinen/runtime";
 
 import pkg from "../package.json" with { type: "json" };
 
@@ -36,43 +35,6 @@ const VERSION = pkg.version;
 const RELEASE_TAG = `@machinen/runtime@${VERSION}`;
 const REPO = "redwoodjs/machinen";
 const CACHE_ROOT = join(homedir(), ".machinen");
-
-const require_ = createRequire(import.meta.url);
-
-// ------------------------------------------------------------
-// VMM binary resolution
-// ------------------------------------------------------------
-
-function resolveVmmBinary(): string {
-  // 1. explicit env var (dev-mode override)
-  const envOverride = process.env.MACHINEN_VMM;
-  if (envOverride) {
-    const abs = resolve(envOverride);
-    if (!existsSync(abs)) {
-      die(`MACHINEN_VMM is set to ${envOverride}, but that file does not exist.`);
-    }
-    return abs;
-  }
-
-  // 2. platform-matched @machinen/vmm-<arch>-<os> package
-  const key = `${arch()}-${platform()}`;
-  const pkgName = `@machinen/vmm-${key}`;
-  try {
-    const mod = require_(pkgName) as { binary: string };
-    if (!mod.binary || !existsSync(mod.binary)) {
-      die(`${pkgName} is installed but its binary is missing at ${mod.binary}.`);
-    }
-    return mod.binary;
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    die(
-      `No VMM binary found for ${key}.\n` +
-        `  Expected package: ${pkgName}\n` +
-        `  Error: ${msg}\n` +
-        `  Install: npm i -g @machinen/cli  (pulls the right VMM via optionalDependencies)`,
-    );
-  }
-}
 
 // ------------------------------------------------------------
 // Base-asset cache
@@ -84,6 +46,15 @@ function cacheDirFor(tag: string): string {
 
 function baseDirFor(tag: string, distro = "debian", cpu = "arm64"): string {
   return join(cacheDirFor(tag), "bases", `${distro}-${cpu}`);
+}
+
+function baseAssetsComplete(tag: string): boolean {
+  const base = baseDirFor(tag);
+  return (
+    existsSync(join(base, "Image")) &&
+    existsSync(join(base, "virt.dtb")) &&
+    existsSync(join(base, "rootfs.tar.gz"))
+  );
 }
 
 async function ensureBaseAssets(tag: string): Promise<string> {
@@ -188,8 +159,22 @@ async function cmdRun(args: string[]): Promise<number> {
     die(`bundle directory not found: ${bundle}`);
   }
 
-  const binary = resolveVmmBinary();
-  const vm = await spawn({ binary, bundle });
+  // Base assets (kernel + dtb + rootfs) are needed to boot. Download
+  // them on first run so users don't have to remember `machinen install`.
+  if (!baseAssetsComplete(RELEASE_TAG)) {
+    process.stderr.write(`machinen: fetching base assets for ${RELEASE_TAG} (first run)\n`);
+    await ensureBaseAssets(RELEASE_TAG);
+  }
+
+  let vm;
+  try {
+    vm = await spawn({ bundle });
+  } catch (err) {
+    if (err instanceof SpawnError) {
+      die(err.message);
+    }
+    throw err;
+  }
 
   vm.stdout.pipe(process.stdout);
   vm.stderr.pipe(process.stderr);
