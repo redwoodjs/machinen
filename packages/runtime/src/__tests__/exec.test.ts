@@ -18,7 +18,9 @@ const microvmRoot = resolve(import.meta.dirname, "../../../microvm");
 
 function findBootTestBinary(): string | undefined {
   const cacheDir = resolve(microvmRoot, ".zig-cache/o");
-  if (!existsSync(cacheDir)) return undefined;
+  if (!existsSync(cacheDir)) {
+    return undefined;
+  }
   const candidates = readdirSync(cacheDir)
     .map((name) => resolve(cacheDir, name, "test"))
     .filter((p) => existsSync(p))
@@ -27,7 +29,9 @@ function findBootTestBinary(): string | undefined {
   for (const { p } of candidates) {
     try {
       const haystack = execSync(`strings ${p}`, { encoding: "utf8" });
-      if (haystack.includes("MACHINEN_BOOT_TEST")) return p;
+      if (haystack.includes("MACHINEN_BOOT_TEST")) {
+        return p;
+      }
     } catch {}
   }
   return undefined;
@@ -35,7 +39,9 @@ function findBootTestBinary(): string | undefined {
 
 function fixturesPresent(): boolean {
   for (const f of ["Image", "virt.dtb"]) {
-    if (!existsSync(resolve(microvmRoot, "test-fixtures", f))) return false;
+    if (!existsSync(resolve(microvmRoot, "test-fixtures", f))) {
+      return false;
+    }
   }
   return true;
 }
@@ -43,10 +49,16 @@ function fixturesPresent(): boolean {
 describe("VsockExec", () => {
   it("runs commands inside a booted bundle and returns exit codes", async () => {
     const binary = findBootTestBinary();
-    if (!binary || !fixturesPresent()) return;
+    if (!binary || !fixturesPresent()) {
+      return;
+    }
     const debianRootfs = resolve(microvmRoot, "test-fixtures/rootfs-debian");
-    if (!existsSync(debianRootfs)) return;
-    if (!existsSync(join(debianRootfs, "sbin/machinen-exec-agent"))) return;
+    if (!existsSync(debianRootfs)) {
+      return;
+    }
+    if (!existsSync(join(debianRootfs, "sbin/machinen-exec-agent"))) {
+      return;
+    }
 
     const bundleDir = mkdtempSync(join(tmpdir(), "machinen-exec-bundle-"));
     const udsPath = join(tmpdir(), `machinen-exec-${process.pid}.sock`);

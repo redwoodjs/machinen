@@ -10,7 +10,9 @@ import { existsSync } from "node:fs";
 
 // Workspace installs run postinstall for every workspace member
 // regardless of os/cpu. Only probe when we're actually on darwin.
-if (process.platform !== "darwin") process.exit(0);
+if (process.platform !== "darwin") {
+  process.exit(0);
+}
 
 const candidates = [
   "/opt/homebrew/lib/libslirp.dylib", // Apple Silicon

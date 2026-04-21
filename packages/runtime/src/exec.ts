@@ -75,7 +75,9 @@ export const VsockExec = {
         lastErr = err as Error;
         // EPIPE on write / unexpected close-before-X — the agent
         // probably wasn't listening yet. Retry the whole command.
-        if (!isTransientAgentError(lastErr)) throw lastErr;
+        if (!isTransientAgentError(lastErr)) {
+          throw lastErr;
+        }
       } finally {
         await endSocket(socket);
       }
@@ -90,7 +92,9 @@ export const VsockExec = {
 function isTransientAgentError(err: Error): boolean {
   // Node tags socket errors with `code`; cast narrowly.
   const code = (err as Error & { code?: string }).code;
-  if (code === "EPIPE" || code === "ECONNRESET") return true;
+  if (code === "EPIPE" || code === "ECONNRESET") {
+    return true;
+  }
   return /agent closed connection before X frame/.test(err.message);
 }
 
@@ -138,7 +142,9 @@ async function runOnSocket(
       // more bytes to make progress.
       while (true) {
         if (awaitingBytes > 0) {
-          if (buf.length === 0) return;
+          if (buf.length === 0) {
+            return;
+          }
           const take = Math.min(awaitingBytes, buf.length);
           const chunk = buf.subarray(0, take);
           buf = buf.subarray(take);
@@ -150,12 +156,16 @@ async function runOnSocket(
             stderrBufs.push(chunk);
             opts.onStderr?.(chunk);
           }
-          if (awaitingBytes === 0) payloadTag = null;
+          if (awaitingBytes === 0) {
+            payloadTag = null;
+          }
           continue;
         }
         // Header phase: look for \n.
         const nl = buf.indexOf(0x0a);
-        if (nl === -1) return;
+        if (nl === -1) {
+          return;
+        }
         const line = buf.subarray(0, nl).toString("ascii");
         buf = buf.subarray(nl + 1);
         const [tag, nStr] = line.split(" ");

@@ -15,8 +15,8 @@ importers:
         specifier: 1.0.1
         version: 1.0.1(eslint@9.39.4)(oxlint@1.48.0)(typescript@5.9.3)
       '@redwoodjs/agent-ci':
-        specifier: ^0.7.1
-        version: 0.7.1
+        specifier: ^0.12.4
+        version: 0.12.4
       '@types/node':
         specifier: ^22
         version: 22.19.17
@@ -796,8 +796,8 @@ packages:
   '@protobufjs/utf8@1.1.0':
     resolution: {integrity: sha512-Vvn3zZrhQZkkBE8LSuW3em98c0FwgO4nxzv6OdSxPKJIEKY2bGbHn+mhGIPerzI4twdxaP8/0+06HBpwf345Lw==}
 
-  '@redwoodjs/agent-ci@0.7.1':
-    resolution: {integrity: sha512-W4xNUE6dK69gvIPraURkReoYma8HyMI1LYLFMwI51M5J9GkefpK6Z8B9w6a3tduk0m2aRLqEOc8SI++ZIR2teA==}
+  '@redwoodjs/agent-ci@0.12.4':
+    resolution: {integrity: sha512-D9dXyMxOTh/SgLZzA5w6iaSLUHz9x30eORaqnTyQTmTTYw2IcqcCgENreP3/so5PvK/p/y5UJT2EeLZjt7VFgA==}
     engines: {node: '>=22'}
     hasBin: true
 
@@ -1406,8 +1406,8 @@ packages:
     resolution: {integrity: sha512-8L/P9JynLBiG7/coiA4FlQXegHltRqS0a+KqI44P1zgQh8QLHTg7FKOwhkBgSJwZTeHsq30WRoVFLuwkfK0YFg==}
     engines: {node: '>= 8.0'}
 
-  dtu-github-actions@0.7.1:
-    resolution: {integrity: sha512-TEDWv8zqWHBZPTXPximSz2BDEF3mgp/wG2EjsmGo37myZZuy58MlfFV9VqYq6tcxSaTgWfPp7FsPZ++d3yMRIA==}
+  dtu-github-actions@0.12.4:
+    resolution: {integrity: sha512-+pAQVOP+DjvN4FCjhtBR3ogfQEV82TRde+7TVPsE5K/DlMXTbx2Jry2+oYvJ8Arv92eVqbNdCID0Aob72uWRWg==}
     engines: {node: '>=22'}
 
   dunder-proto@1.0.1:
@@ -3265,11 +3265,11 @@ snapshots:
 
   '@protobufjs/utf8@1.1.0': {}
 
-  '@redwoodjs/agent-ci@0.7.1':
+  '@redwoodjs/agent-ci@0.12.4':
     dependencies:
       '@actions/workflow-parser': 0.3.43
       dockerode: 4.0.10
-      dtu-github-actions: 0.7.1
+      dtu-github-actions: 0.12.4
       log-update: 7.2.0
       minimatch: 10.2.5
       yaml: 2.8.3
@@ -3776,7 +3776,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  dtu-github-actions@0.7.1:
+  dtu-github-actions@0.12.4:
     dependencies:
       body-parser: 2.2.2
       jsonc-parser: 3.3.1

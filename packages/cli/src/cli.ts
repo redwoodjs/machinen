@@ -108,7 +108,9 @@ async function ensureBaseAssets(tag: string): Promise<string> {
 
   const current = join(CACHE_ROOT, "current");
   try {
-    if (existsSync(current) || isSymlink(current)) unlinkSync(current);
+    if (existsSync(current) || isSymlink(current)) {
+      unlinkSync(current);
+    }
   } catch {}
   symlinkSync(tag, current, "dir");
 
@@ -150,7 +152,9 @@ async function downloadTo(url: string, dest: string): Promise<void> {
 
 async function fetchText(url: string): Promise<string> {
   const res = await fetch(url, { redirect: "follow" });
-  if (!res.ok) die(`fetch ${url} failed: ${res.status} ${res.statusText}`);
+  if (!res.ok) {
+    die(`fetch ${url} failed: ${res.status} ${res.statusText}`);
+  }
   return res.text();
 }
 
@@ -180,7 +184,9 @@ async function cmdRun(args: string[]): Promise<number> {
   }
 
   const bundle = resolve(positional[0]);
-  if (!existsSync(bundle)) die(`bundle directory not found: ${bundle}`);
+  if (!existsSync(bundle)) {
+    die(`bundle directory not found: ${bundle}`);
+  }
 
   const binary = resolveVmmBinary();
   const vm = await spawn({ binary, bundle });
@@ -207,13 +213,17 @@ async function cmdInstall(args: string[]): Promise<number> {
 
 function splitDoubleDash(argv: string[]): { positional: string[]; double_dash_args: string[] } {
   const idx = argv.indexOf("--");
-  if (idx === -1) return { positional: argv, double_dash_args: [] };
+  if (idx === -1) {
+    return { positional: argv, double_dash_args: [] };
+  }
   return { positional: argv.slice(0, idx), double_dash_args: argv.slice(idx + 1) };
 }
 
 function argValue(argv: string[], name: string): string | undefined {
   const i = argv.indexOf(name);
-  if (i === -1) return undefined;
+  if (i === -1) {
+    return undefined;
+  }
   return argv[i + 1];
 }
 

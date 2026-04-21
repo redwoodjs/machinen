@@ -10,7 +10,9 @@ import { existsSync } from "node:fs";
 
 // Workspace installs run postinstall for every workspace member
 // regardless of os/cpu. Only probe when we're actually on linux.
-if (process.platform !== "linux") process.exit(0);
+if (process.platform !== "linux") {
+  process.exit(0);
+}
 
 const candidates = [
   "/usr/lib/aarch64-linux-gnu/libslirp.so.0",
