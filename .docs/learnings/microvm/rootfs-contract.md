@@ -23,8 +23,9 @@ That's it. No images, no registries, no Dockerfile.
 
 Three layers, each small and independent:
 
-- **Base rootfs.** Alpine + apk + `/init` + vsock agents. ~8MB. One,
-  not many. No Node, no Python, no agent-specific tools. We ship it.
+- **Base rootfs.** Debian `node:lts-slim` + `/init` + vsock agents. One,
+  not many. Node is pre-baked (agents target a Node runtime); no
+  agent-specific tools beyond that. We ship it.
 - **Build API.** A TypeScript function (`build(...)`) that boots the
   base, runs the user's install steps inside it, then freezes the
   guest state to disk. The user writes a `build.ts` that imports this.
@@ -134,12 +135,12 @@ import { build } from "@machinen/runtime";
 
 await build({
   // Optional: which base to start from. Defaults to the bundled
-  // Alpine base.
-  base: "alpine",
+  // Debian (`node:lts-slim`) base.
+  base: "debian",
 
   // Runs inside the booted VM. `vm` has exec/read/write helpers.
   install: async (vm) => {
-    await vm.exec("apk add nodejs npm git");
+    await vm.exec("apt-get update && apt-get install -y git");
     await vm.exec("npm i -g @anthropic-ai/claude-code");
   },
 
@@ -194,7 +195,7 @@ a detached sha256 + optional cosign signature is enough.
 ## Open questions
 
 - **Reproducibility of builds.** Same `build.ts` twice → same
-  snapshot? Needs pinned apk/npm versions (lockfiles on the host,
+  snapshot? Needs pinned apt/npm versions (lockfiles on the host,
   fed into the build) and a deterministic freeze point. Solvable;
   probably not v0.
 - **Build-time secrets.** Credentials needed _during_ install
