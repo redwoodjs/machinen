@@ -212,6 +212,9 @@ async function cmdRun(args: string[]): Promise<number> {
       kernel: kernelPath,
       dtb: dtbPath,
       baseRootfs: baseRootfsPath,
+      // Interactive CLI: the session lives as long as the guest does.
+      // Don't impose the default 60s cap.
+      timeoutMs: null,
     });
   } catch (err) {
     if (err instanceof SpawnError) {
