@@ -42,6 +42,9 @@ extern "c" fn lseek(fd: c_int, offset: i64, whence: c_int) i64;
 extern "c" fn fork() c_int;
 extern "c" fn waitpid(pid: c_int, status: ?*c_int, options: c_int) c_int;
 extern "c" fn _exit(status: c_int) noreturn;
+extern "c" fn clock_settime(clk_id: c_int, tp: *const timespec) c_int;
+
+const CLOCK_REALTIME: c_int = 0;
 
 const timespec = extern struct { tv_sec: i64, tv_nsec: i64 };
 
@@ -80,6 +83,26 @@ fn mountIgnore(src: [*:0]const u8, dst: [*:0]const u8, fstype: [*:0]const u8) vo
 
 fn mkdirIgnore(path: [*:0]const u8) void {
     _ = mkdir(path, 0o755);
+}
+
+// Set the realtime clock from /etc/machinen-boot-epoch. mkinitramfs.py
+// bakes the host's wall-clock epoch into the cpio at pack time; without
+// this the guest boots at 1970 and TLS / apt date checks fail.
+fn setBootClock() void {
+    const fd = open("/etc/machinen-boot-epoch", O_RDONLY);
+    if (fd < 0) return;
+    defer _ = close(fd);
+    var buf: [32]u8 = undefined;
+    const n = read(fd, &buf, buf.len);
+    if (n <= 0) return;
+    var sec: i64 = 0;
+    for (buf[0..@intCast(n)]) |b| {
+        if (b < '0' or b > '9') break;
+        sec = sec * 10 + @as(i64, b - '0');
+    }
+    if (sec <= 0) return;
+    const ts: timespec = .{ .tv_sec = sec, .tv_nsec = 0 };
+    _ = clock_settime(CLOCK_REALTIME, &ts);
 }
 
 // Bring up the user-mode network by fork+execing /sbin/machinen-netup
@@ -234,6 +257,7 @@ pub fn main() noreturn {
 
     writeStr(1, "\n=== machinen /init: reading /machinen-config.json ===\n");
 
+    setBootClock();
     bringUpNetwork();
 
     // Page allocator works on musl via mmap.
