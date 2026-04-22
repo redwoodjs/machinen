@@ -134,8 +134,31 @@ mmdebstrap \
   --setup-hook=/tmp/setup-hook.sh \
   bookworm /work/rootfs
 
-# Depmod so modprobe can resolve dependencies without a live uname.
+# linux-image-cloud-arm64 ships every driver the Debian cloud kernel
+# knows about (~28MB of .ko). We only ever modprobe a handful at boot
+# (see packages/microvm/test-fixtures/machinen-netup.c), so prune
+# the rest. Saves roughly 25MB on the rootfs tarball.
 KVER=$(ls /work/rootfs/lib/modules | head -1)
+KMODS=/work/rootfs/lib/modules/$KVER/kernel
+STAGE=$(mktemp -d)
+for f in \
+  drivers/virtio/virtio.ko \
+  drivers/virtio/virtio_ring.ko \
+  drivers/virtio/virtio_mmio.ko \
+  drivers/net/virtio_net.ko \
+  drivers/net/net_failover.ko \
+  net/core/failover.ko
+do
+  [ -f "$KMODS/$f" ] || { echo "missing module: $f" >&2; exit 1; }
+  mkdir -p "$STAGE/$(dirname "$f")"
+  mv "$KMODS/$f" "$STAGE/$f"
+done
+rm -rf "$KMODS"
+mkdir -p "$KMODS"
+cp -a "$STAGE/." "$KMODS/"
+rm -rf "$STAGE"
+
+# Depmod so modprobe can resolve dependencies without a live uname.
 chroot /work/rootfs depmod -a "$KVER"
 
 # Belt-and-braces cleanup for things path-exclude doesn't cover.
