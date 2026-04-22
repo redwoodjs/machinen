@@ -361,6 +361,7 @@ export function packBundle(opts: PackBundleOptions): void {
     appendFinalEntries(parts, {
       initPath: opts.initPath ?? defaultInitPath(),
       config: readFileSync(cfgPath),
+      injectInit: false,
     });
     writeFileSync(opts.out, Buffer.concat(parts));
   } finally {
@@ -387,6 +388,7 @@ export function packRootfs(opts: PackRootfsOptions): void {
   appendFinalEntries(parts, {
     initPath: opts.initPath ?? defaultInitPath(),
     config: opts.config ? readFileSync(opts.config) : undefined,
+    injectInit: true,
   });
   writeFileSync(opts.out, Buffer.concat(parts));
 }
@@ -407,6 +409,7 @@ export function packMinimal(opts: PackMinimalOptions): void {
   appendFinalEntries(parts, {
     initPath,
     config: opts.config ? readFileSync(opts.config) : undefined,
+    injectInit: true,
   });
   writeFileSync(opts.out, Buffer.concat(parts));
 }
@@ -451,20 +454,43 @@ export function packWorkspace(opts: PackWorkspaceOptions): void {
 interface FinalOptions {
   initPath: string;
   config?: Buffer;
+  /**
+   * When true (legacy --rootfs mode), inject the compiled /init on top of
+   * the walked rootfs. When false (--bundle mode), the base rootfs tarball
+   * already carries its own /init and overriding it would shadow build-time
+   * updates.
+   */
+  injectInit: boolean;
 }
 
 function appendFinalEntries(parts: Buffer[], opts: FinalOptions): void {
-  try {
-    const initBytes = readFileSync(opts.initPath);
-    parts.push(newc("init", 0o100755, { data: initBytes }));
-  } catch {
-    // init is optional — matches the Python code's `if INIT.exists():` guard.
+  if (opts.injectInit) {
+    try {
+      const initBytes = readFileSync(opts.initPath);
+      parts.push(newc("init", 0o100755, { data: initBytes }));
+    } catch {
+      // init is optional — matches the Python code's `if INIT.exists():` guard.
+    }
   }
   if (opts.config) {
     parts.push(newc("machinen-config.json", 0o100644, { data: opts.config }));
   }
+  // Bake the host's current epoch so /init can set the guest clock.
+  // Without this the guest boots at 1970-01-01 and TLS + apt Release
+  // date validation break.
+  parts.push(newc("etc", 0o40755));
+  parts.push(
+    newc("etc/machinen-boot-epoch", 0o100644, {
+      data: Buffer.from(String(Math.floor(Date.now() / 1000)), "ascii"),
+    }),
+  );
   parts.push(newc("dev", 0o40755));
   parts.push(newc("dev/console", 0o20600, { rmajor: 5, rminor: 1 }));
+  // Force /tmp to the canonical sticky-world-writable (1777). The base
+  // tarball ships /tmp that way but darwin tar strips the sticky bit
+  // when extracting as non-root, so apt (which drops privs to _apt for
+  // downloads) fails with "Couldn't create temporary file".
+  parts.push(newc("tmp", 0o41777));
   parts.push(newc("TRAILER!!!", 0));
 }
 
