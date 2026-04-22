@@ -2,12 +2,12 @@
 # Boot the microVM in one of a handful of ready-made modes.
 #
 # Usage:
-#   ./test-fixtures/try.sh shell            # interactive bash prompt inside the guest
-#   ./test-fixtures/try.sh repl             # interactive Node.js REPL (type JS live)
-#   ./test-fixtures/try.sh criu             # CRIU freeze/restore demo
-#   ./test-fixtures/try.sh vsock            # virtio-vsock echo server + host round-trip
-#   ./test-fixtures/try.sh workspace DIR    # shell with DIR mounted at /workspace
-#   ./test-fixtures/try.sh --help
+#   ./test-fixtures/assets/try.sh shell            # interactive bash prompt inside the guest
+#   ./test-fixtures/assets/try.sh repl             # interactive Node.js REPL (type JS live)
+#   ./test-fixtures/assets/try.sh criu             # CRIU freeze/restore demo
+#   ./test-fixtures/assets/try.sh vsock            # virtio-vsock echo server + host round-trip
+#   ./test-fixtures/assets/try.sh workspace DIR    # shell with DIR mounted at /workspace
+#   ./test-fixtures/assets/try.sh --help
 #
 # What this actually does:
 #   1. Builds the VMM test binary (zig build test).
@@ -51,7 +51,7 @@ if [[ "$MODE" == "workspace" ]]; then
 fi
 
 # Resolve the microvm package root.
-HERE=$(cd "$(dirname "$0")/.." && pwd)
+HERE=$(cd "$(dirname "$0")/../.." && pwd)
 cd "$HERE"
 
 ROOTFS=test-fixtures/rootfs
@@ -111,7 +111,7 @@ case "$MODE" in
         # Guest-side echo server + kernel modules. Host side talks to
         # it through a UDS the VMM listens on; the path is set below
         # via MACHINEN_VSOCK.
-        cp "$FIXTURES/vsock-demo.sh" "$ROOTFS/demo.sh"
+        cp "$FIXTURES/assets/vsock-demo.sh" "$ROOTFS/demo.sh"
         ;;
     repl)
         # Capture the host terminal size so Node REPL's line editor
@@ -142,16 +142,16 @@ SH
         # The CRIU demo needs the lo-up + no-iou helpers and the two
         # scripts. Build the helpers if they're missing.
         for helper in lo-up no-iou; do
-            src=$FIXTURES/$helper.c
+            src=$FIXTURES/assets/$helper.c
             bin=$ROOTFS/usr/bin/$helper   # rootfs/bin is a symlink to usr/bin
             if [[ ! -x "$bin" || "$src" -nt "$bin" ]]; then
                 echo "==> building $helper from $src"
                 zig cc -target aarch64-linux-musl -static -Os -o "$bin" "$src"
             fi
         done
-        cp "$FIXTURES/counter.js"    "$ROOTFS/counter.js"
-        cp "$FIXTURES/fork-demo.sh"  "$ROOTFS/fork-demo.sh"
-        cp "$FIXTURES/demo.sh"       "$ROOTFS/demo.sh"
+        cp "$FIXTURES/assets/counter.js"    "$ROOTFS/counter.js"
+        cp "$FIXTURES/assets/fork-demo.sh"  "$ROOTFS/fork-demo.sh"
+        cp "$FIXTURES/assets/demo.sh"       "$ROOTFS/demo.sh"
         chmod +x "$ROOTFS/fork-demo.sh" "$ROOTFS/demo.sh"
         ;;
     shell|sh|bash)
@@ -196,13 +196,13 @@ for m in virtio virtio_ring virtio_mmio virtio_blk failover net_failover virtio_
     load_ko "$m"
 done
 
-# If /file-agent.py was cpio'd in (try.sh workspace mode), start it
+# If /file-agent was cpio'd in (try.sh workspace mode), start it
 # in the background so the host can machinen-push / machinen-pull
 # during the session. It binds AF_VSOCK port 1976; the host-side UDS
 # is whatever MACHINEN_VSOCK in:1976:... pointed at when the VMM
 # was launched.
-if [ -x /file-agent.py ]; then
-    (python3 /file-agent.py >/var/log/file-agent.log 2>&1 &) 2>/dev/null
+if [ -x /file-agent ]; then
+    (/file-agent >/var/log/file-agent.log 2>&1 &) 2>/dev/null
 fi
 
 # Set the guest clock from the boot epoch the wrapper baked in. TLS
@@ -263,7 +263,7 @@ echo "  ls /dev/vda                   # virtio-blk disk (if test-fixtures/disk.i
 if [ -d /workspace ]; then
     echo "  cd /workspace                 # your host dir, cpio'd in on boot"
 fi
-if [ -x /file-agent.py ]; then
+if [ -x /file-agent ]; then
     echo "  host: VsockFiles.push/pull    # live file transfer on vsock :1976"
 fi
 echo "  exit or Ctrl-D                # quit (kernel will panic — expected)"
@@ -281,15 +281,15 @@ write_config /bin/sh /demo.sh
 # Workspace mode also ships the live file-agent so the host can
 # push/pull over vsock during the session. Dropped into rootfs/ so
 # the standard mkinitramfs --rootfs pass picks it up automatically;
-# guest's demo.sh starts it when /file-agent.py exists.
+# guest's demo.sh starts it when /file-agent exists.
 if [[ -n "$WORKSPACE_DIR" ]]; then
-    cp "$FIXTURES/file-agent.py" "$ROOTFS/file-agent.py"
-    chmod +x "$ROOTFS/file-agent.py"
+    cp "$FIXTURES/file-agent" "$ROOTFS/file-agent"
+    chmod +x "$ROOTFS/file-agent"
 fi
 
 # --- repack + build ------------------------------------------------
 echo "==> repacking initramfs"
-python3 "$FIXTURES/mkinitramfs.py" --rootfs "$ROOTFS" | tail -1
+node --import tsx "$FIXTURES/assets/mkinitramfs.ts" --rootfs "$ROOTFS" | tail -1
 
 # If the user asked for `workspace <DIR>`, append a second cpio slice
 # with the host directory rooted at /workspace. The Linux kernel's
@@ -301,9 +301,9 @@ if [[ -n "$WORKSPACE_DIR" ]]; then
     # Bash: the idiom below expands to nothing (not an empty string)
     # when the array is empty under `set -u`.
     if [[ ${#WORKSPACE_EXTRA[@]} -gt 0 ]]; then
-        python3 "$FIXTURES/mkinitramfs.py" --workspace "$WORKSPACE_DIR" --out "$WS_CPIO" "${WORKSPACE_EXTRA[@]}"
+        node --import tsx "$FIXTURES/assets/mkinitramfs.ts" --workspace "$WORKSPACE_DIR" --out "$WS_CPIO" "${WORKSPACE_EXTRA[@]}"
     else
-        python3 "$FIXTURES/mkinitramfs.py" --workspace "$WORKSPACE_DIR" --out "$WS_CPIO"
+        node --import tsx "$FIXTURES/assets/mkinitramfs.ts" --workspace "$WORKSPACE_DIR" --out "$WS_CPIO"
     fi
     cat "$WS_CPIO" >> "$FIXTURES/initramfs.cpio"
     rm -f "$WS_CPIO"

@@ -6,7 +6,7 @@
 // Preconditions (the test skips gracefully if either is missing):
 //   1. A built VMM binary under packages/microvm/.zig-cache/o/*/test.
 //   2. A disk.img pre-seeded with a CRIU snapshot —
-//      `packages/microvm/test-fixtures/smoke.sh spawn` produces one.
+//      `packages/microvm/test-fixtures/assets/smoke.sh spawn` produces one.
 //
 // Run manually:
 //   pnpm vitest run packages/runtime/src/__tests__/snapshot-latency.test.ts --reporter=verbose

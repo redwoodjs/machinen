@@ -13,7 +13,7 @@
 # Prints pass/fail per check and exits non-zero if any fail. Writes
 # full guest-console logs to /tmp/microvm-smoke-*.log for post-mortems.
 #
-# Usage: ./test-fixtures/smoke.sh [repl|criu|net|all]   (default: all)
+# Usage: ./test-fixtures/assets/smoke.sh [repl|criu|net|all]   (default: all)
 #
 # These require an Apple Silicon host with the HVF entitlement setup.
 # They aren't wired into `zig build test` because they depend on
@@ -22,7 +22,7 @@
 set -euo pipefail
 
 MODE=${1:-all}
-HERE=$(cd "$(dirname "$0")/.." && pwd)
+HERE=$(cd "$(dirname "$0")/../.." && pwd)
 cd "$HERE"
 
 FIXTURES=$HERE/test-fixtures
@@ -51,7 +51,7 @@ TEST_BIN=$(build_and_find_bin) || { echo "FAIL: no boot-test binary" >&2; exit 1
 
 # Repack the initramfs. `stage` is a shell command that sets up
 # $ROOTFS (paths are absolute). Optional second arg is extra flags
-# to mkinitramfs.py (e.g. `--exclude-from FILE`). Nukes any prior
+# to mkinitramfs.ts (e.g. `--exclude-from FILE`). Nukes any prior
 # machinen-config.json / demo.sh so each mode starts clean.
 repack_with() {
     local stage_cmd=$1
@@ -59,7 +59,7 @@ repack_with() {
     rm -f "$ROOTFS/machinen-config.json" "$ROOTFS/demo.sh"
     eval "$stage_cmd"
     # shellcheck disable=SC2086  # extra is intentional flag-splitting.
-    python3 "$FIXTURES/mkinitramfs.py" --rootfs "$ROOTFS" $extra >/dev/null
+    node --import tsx "$FIXTURES/assets/mkinitramfs.ts" --rootfs "$ROOTFS" $extra >/dev/null
 }
 
 # Write $ROOTFS/machinen-config.json with the positional args as argv.
@@ -120,14 +120,14 @@ smoke_criu() {
     echo "--- criu ---"
     local log=/tmp/microvm-smoke-criu.log
     for helper in lo-up no-iou; do
-        src=$FIXTURES/$helper.c
+        src=$FIXTURES/assets/$helper.c
         bin=$ROOTFS/usr/bin/$helper
         if [[ ! -x "$bin" || "$src" -nt "$bin" ]]; then
             zig cc -target aarch64-linux-musl -static -Os -o "$bin" "$src"
         fi
     done
     repack_with "
-        cp $FIXTURES/counter.js $FIXTURES/fork-demo.sh $ROOTFS/
+        cp $FIXTURES/assets/counter.js $FIXTURES/assets/fork-demo.sh $ROOTFS/
         chmod +x $ROOTFS/fork-demo.sh
         write_config /bin/sh /fork-demo.sh
     "
@@ -153,14 +153,14 @@ smoke_net() {
     local log=/tmp/microvm-smoke-net.log
     # Keep the C helpers built alongside lo-up / no-iou.
     for helper in if-up gw-set; do
-        src=$FIXTURES/$helper.c
+        src=$FIXTURES/assets/$helper.c
         bin=$ROOTFS/usr/bin/$helper
         if [[ ! -x "$bin" || "$src" -nt "$bin" ]]; then
             zig cc -target aarch64-linux-musl -static -Os -o "$bin" "$src"
         fi
     done
     repack_with "
-        cp $FIXTURES/net-demo.sh $ROOTFS/
+        cp $FIXTURES/assets/net-demo.sh $ROOTFS/
         chmod +x $ROOTFS/net-demo.sh
         write_config /bin/sh /net-demo.sh
     "
@@ -211,7 +211,7 @@ smoke_blk() {
         | dd of="$disk" conv=notrunc bs=1 count=41 >/dev/null 2>&1
 
     repack_with "
-        cp $FIXTURES/blk-demo.sh $ROOTFS/
+        cp $FIXTURES/assets/blk-demo.sh $ROOTFS/
         chmod +x $ROOTFS/blk-demo.sh
         write_config /bin/sh /blk-demo.sh
     "
@@ -234,7 +234,7 @@ smoke_cc() {
     echo "--- cc ---"
     local log=/tmp/microvm-smoke-cc.log
     repack_with "
-        cp $FIXTURES/cc-demo.sh $ROOTFS/
+        cp $FIXTURES/assets/cc-demo.sh $ROOTFS/
         chmod +x $ROOTFS/cc-demo.sh
         write_config /bin/sh /cc-demo.sh
     "
@@ -257,7 +257,7 @@ smoke_spawn() {
     # with the DTB initrd-end patch in src/boot_hvf.zig (kernel scans the
     # initrd window for concatenated archives at ~1 GB/s wall-clock),
     # this drives `spawn → restore OK` under a second. See #50.
-    local slim="--exclude-from $FIXTURES/spawn-minimal.excludes"
+    local slim="--exclude-from $FIXTURES/assets/spawn-minimal.excludes"
 
     # Fresh 128 MiB raw disk. spawn-warmup.sh formats it ext4
     # inside the guest on first boot.
@@ -265,7 +265,7 @@ smoke_spawn() {
 
     # Phase 1: warmup boot — runs counter, dumps onto /dev/vda.
     repack_with "
-        cp $FIXTURES/spawn-warmup.sh $FIXTURES/spawn-restore.sh $ROOTFS/
+        cp $FIXTURES/assets/spawn-warmup.sh $FIXTURES/assets/spawn-restore.sh $ROOTFS/
         chmod +x $ROOTFS/spawn-warmup.sh $ROOTFS/spawn-restore.sh
         write_config /bin/sh /spawn-warmup.sh
     " "$slim"
@@ -307,7 +307,7 @@ smoke_cc_session() {
     local log=/tmp/microvm-smoke-cc-session.log
     # Same helper chain as the net smoke (if-up, gw-set, no-iou, lo-up).
     for helper in if-up gw-set; do
-        src=$FIXTURES/$helper.c
+        src=$FIXTURES/assets/$helper.c
         bin=$ROOTFS/usr/bin/$helper
         if [[ ! -x "$bin" || "$src" -nt "$bin" ]]; then
             zig cc -target aarch64-linux-musl -static -Os -o "$bin" "$src"
@@ -322,7 +322,7 @@ smoke_cc_session() {
     chmod 600 "$ROOTFS/etc/machinen.env"
 
     repack_with "
-        cp $FIXTURES/cc-session.sh $ROOTFS/
+        cp $FIXTURES/assets/cc-session.sh $ROOTFS/
         chmod +x $ROOTFS/cc-session.sh
         write_config /bin/sh /cc-session.sh
     "
@@ -349,7 +349,7 @@ smoke_vsock() {
     local sock=/tmp/machinen-smoke-vsock.sock
     rm -f "$sock"
     repack_with "
-        cp $FIXTURES/vsock-demo.sh $ROOTFS/vsock-demo.sh
+        cp $FIXTURES/assets/vsock-demo.sh $ROOTFS/vsock-demo.sh
         chmod +x $ROOTFS/vsock-demo.sh
         write_config /bin/sh /vsock-demo.sh
     "
@@ -413,7 +413,7 @@ smoke_cc_session_vsock() {
     # Same C helper chain as smoke_cc_session — needed for the net
     # path that reaches api.anthropic.com.
     for helper in if-up gw-set; do
-        src=$FIXTURES/$helper.c
+        src=$FIXTURES/assets/$helper.c
         bin=$ROOTFS/usr/bin/$helper
         if [[ ! -x "$bin" || "$src" -nt "$bin" ]]; then
             zig cc -target aarch64-linux-musl -static -Os -o "$bin" "$src"
@@ -423,9 +423,10 @@ smoke_cc_session_vsock() {
     rm -f "$ROOTFS/etc/machinen.env"
 
     repack_with "
-        cp $FIXTURES/cc-session.sh $ROOTFS/cc-session.sh
-        cp $FIXTURES/secrets-agent.py $ROOTFS/secrets-agent.py
-        cp $FIXTURES/cc-session-vsock-demo.sh $ROOTFS/cc-session-vsock-demo.sh
+        cp $FIXTURES/assets/cc-session.sh $ROOTFS/cc-session.sh
+        cp $FIXTURES/secrets-agent $ROOTFS/secrets-agent
+        chmod +x $ROOTFS/secrets-agent
+        cp $FIXTURES/assets/cc-session-vsock-demo.sh $ROOTFS/cc-session-vsock-demo.sh
         chmod +x $ROOTFS/cc-session.sh $ROOTFS/cc-session-vsock-demo.sh
         write_config /bin/sh /cc-session-vsock-demo.sh
     "
@@ -508,8 +509,9 @@ smoke_files() {
     src_hash=$(find "$src" -type f -exec shasum -a 256 {} + | awk '{print $1}' | sort | shasum -a 256 | awk '{print $1}')
 
     repack_with "
-        cp $FIXTURES/file-agent.py $ROOTFS/file-agent.py
-        cp $FIXTURES/file-agent-demo.sh $ROOTFS/file-agent-demo.sh
+        cp $FIXTURES/file-agent $ROOTFS/file-agent
+        chmod +x $ROOTFS/file-agent
+        cp $FIXTURES/assets/file-agent-demo.sh $ROOTFS/file-agent-demo.sh
         chmod +x $ROOTFS/file-agent-demo.sh
         write_config /bin/sh /file-agent-demo.sh
     "
@@ -584,8 +586,9 @@ smoke_winsize() {
     rm -f "$sock"
 
     repack_with "
-        cp $FIXTURES/winsize-agent.py $ROOTFS/winsize-agent.py
-        cp $FIXTURES/winsize-demo.sh $ROOTFS/winsize-demo.sh
+        cp $FIXTURES/winsize-agent $ROOTFS/winsize-agent
+        chmod +x $ROOTFS/winsize-agent
+        cp $FIXTURES/assets/winsize-demo.sh $ROOTFS/winsize-demo.sh
         chmod +x $ROOTFS/winsize-demo.sh
         write_config /bin/sh /winsize-demo.sh
     "
@@ -696,7 +699,7 @@ PY
     fi
 
     repack_with "
-        cp $FIXTURES/vsock-out-demo.sh $ROOTFS/vsock-out-demo.sh
+        cp $FIXTURES/assets/vsock-out-demo.sh $ROOTFS/vsock-out-demo.sh
         chmod +x $ROOTFS/vsock-out-demo.sh
         write_config /bin/sh /vsock-out-demo.sh
     "
