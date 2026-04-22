@@ -17,7 +17,8 @@
     "changeset": "changeset",
     "version": "changeset version && oxfmt",
     "release": "pnpm -F @machinen/runtime -F @machinen/cli build && changeset publish",
-    "machinen-dev": "bash scripts/machinen-dev.sh"
+    "machinen-dev": "bash scripts/machinen-dev.sh",
+    "smoke-tests": "bash scripts/smoke-tests.sh"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",

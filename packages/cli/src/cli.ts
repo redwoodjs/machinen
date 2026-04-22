@@ -2,13 +2,14 @@
 // pre-fetch the kernel + rootfs assets published alongside each
 // release tag.
 //
-// v0 surface (see .docs/learnings/microvm/distribution-plan.md):
+// v0 surface:
 //   machinen run <bundle-dir>
+//   machinen run <bundle-dir> --mount <host-dir>:<guest-path>
+//   machinen run [--mount <host-dir>:<guest-path>] -- <cmd>...
 //   machinen install [--version <tag>]
 //   machinen --version | -h | --help
 //
 // Deferred (needs runtime API changes):
-//   machinen run -- <cmd>           (base-only, no bundle)
 //   machinen run --env FOO=bar ...
 //   machinen run --base alpine
 
@@ -17,13 +18,16 @@ import {
   createWriteStream,
   existsSync,
   mkdirSync,
+  mkdtempSync,
   readFileSync,
   renameSync,
+  rmSync,
   statSync,
   symlinkSync,
   unlinkSync,
+  writeFileSync,
 } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { pipeline } from "node:stream/promises";
 
@@ -159,23 +163,48 @@ function sha256OfFile(path: string): string {
 // ------------------------------------------------------------
 
 async function cmdRun(args: string[]): Promise<number> {
-  const { positional, double_dash_args } = splitDoubleDash(args);
+  const { positional, double_dash_args, mount } = parseRunArgs(args);
 
-  if (positional.length === 0 && double_dash_args.length > 0) {
-    die(
-      `'machinen run -- <cmd>' (base-only spawn) is not yet supported.\n` +
-        `  Hand it a bundle directory for now: machinen run <bundle-dir>\n` +
-        `  See .docs/learnings/microvm/distribution-plan.md §Runtime resolution.`,
+  if (positional.length > 1) {
+    die("usage: machinen run [<bundle-dir>] [--mount <host-dir>:<guest-path>] [-- <cmd>...]");
+  }
+
+  let bundle: string;
+  let synthesizedBundle: string | undefined;
+
+  if (positional.length === 1) {
+    if (double_dash_args.length > 0) {
+      die(
+        "machinen run <bundle> -- <cmd> is not supported — the bundle's " +
+          "machinen-config.json already declares the command. Drop one.",
+      );
+    }
+    bundle = resolve(positional[0]!);
+    if (!existsSync(bundle)) {
+      die(`bundle directory not found: ${bundle}`);
+    }
+  } else {
+    // No bundle — synthesize a minimal one so the runtime path is uniform.
+    // Requires `-- <cmd>` so the generated machinen-config.json has
+    // something to exec. Mounts are optional here (zero mounts + a cmd
+    // is still a valid base-only spawn).
+    if (double_dash_args.length === 0) {
+      die(
+        "usage: machinen run <bundle-dir>\n" +
+          "   or: machinen run [--mount <host-dir>:<guest-path>] -- <cmd> [args...]",
+      );
+    }
+    synthesizedBundle = mkdtempSync(join(tmpdir(), "machinen-run-"));
+    mkdirSync(join(synthesizedBundle, "rootfs"));
+    // Wrap the user cmd in /usr/bin/env so bare names like `node` or
+    // `bash` are PATH-resolved. The guest init uses execve(), which
+    // needs an absolute path for argv[0]; /usr/bin/env is the standard
+    // shim for this.
+    writeFileSync(
+      join(synthesizedBundle, "machinen-config.json"),
+      JSON.stringify({ cmd: ["/usr/bin/env", ...double_dash_args] }),
     );
-  }
-
-  if (positional.length !== 1) {
-    die("usage: machinen run <bundle-dir>");
-  }
-
-  const bundle = resolve(positional[0]);
-  if (!existsSync(bundle)) {
-    die(`bundle directory not found: ${bundle}`);
+    bundle = synthesizedBundle;
   }
 
   // Base assets (kernel + dtb + rootfs) are needed to boot.
@@ -205,6 +234,15 @@ async function cmdRun(args: string[]): Promise<number> {
     assetsOverride ? "rootfs-debian-arm64.tar.gz" : "rootfs.tar.gz",
   );
 
+  const cleanupSynthesized = () => {
+    if (synthesizedBundle) {
+      try {
+        rmSync(synthesizedBundle, { recursive: true, force: true });
+      } catch {}
+      synthesizedBundle = undefined;
+    }
+  };
+
   let vm;
   try {
     vm = await spawn({
@@ -212,16 +250,21 @@ async function cmdRun(args: string[]): Promise<number> {
       kernel: kernelPath,
       dtb: dtbPath,
       baseRootfs: baseRootfsPath,
+      mount,
       // Interactive CLI: the session lives as long as the guest does.
       // Don't impose the default 60s cap.
       timeoutMs: null,
     });
   } catch (err) {
+    cleanupSynthesized();
     if (err instanceof SpawnError) {
       die(err.message);
     }
     throw err;
   }
+  // spawn() has already read the bundle into a packed cpio — the
+  // synthesized source dir is no longer needed.
+  cleanupSynthesized();
 
   vm.stdout.pipe(process.stdout);
   vm.stderr.pipe(process.stderr);
@@ -271,12 +314,46 @@ async function cmdInstall(args: string[]): Promise<number> {
 // Arg helpers
 // ------------------------------------------------------------
 
-function splitDoubleDash(argv: string[]): { positional: string[]; double_dash_args: string[] } {
+interface ParsedRunArgs {
+  positional: string[];
+  double_dash_args: string[];
+  mount?: { host: string; guest: string };
+}
+
+function parseRunArgs(argv: string[]): ParsedRunArgs {
   const idx = argv.indexOf("--");
-  if (idx === -1) {
-    return { positional: argv, double_dash_args: [] };
+  const pre = idx === -1 ? argv : argv.slice(0, idx);
+  const double_dash_args = idx === -1 ? [] : argv.slice(idx + 1);
+
+  const positional: string[] = [];
+  let mount: { host: string; guest: string } | undefined;
+  for (let i = 0; i < pre.length; i++) {
+    const a = pre[i]!;
+    let spec: string | undefined;
+    if (a === "--mount") {
+      spec = pre[i + 1];
+      if (spec === undefined) {
+        die("--mount requires a <host-dir>:<guest-path> value");
+      }
+      i++;
+    } else if (a.startsWith("--mount=")) {
+      spec = a.slice("--mount=".length);
+    } else if (a.startsWith("-")) {
+      die(`unknown flag: ${a}`);
+    } else {
+      positional.push(a);
+      continue;
+    }
+    if (mount) {
+      die("--mount may be given at most once per invocation");
+    }
+    const colon = spec!.indexOf(":");
+    if (colon <= 0 || colon === spec!.length - 1) {
+      die(`--mount: expected <host-dir>:<guest-path>, got '${spec}'`);
+    }
+    mount = { host: spec!.slice(0, colon), guest: spec!.slice(colon + 1) };
   }
-  return { positional: argv.slice(0, idx), double_dash_args: argv.slice(idx + 1) };
+  return { positional, double_dash_args, mount };
 }
 
 function argValue(argv: string[], name: string): string | undefined {
@@ -297,15 +374,29 @@ function printHelp(): void {
     `machinen ${VERSION}\n` +
       `\n` +
       `Usage:\n` +
-      `  machinen run <bundle-dir>       Spawn a microVM from a bundle\n` +
-      `  machinen install                Pre-fetch the current-tag base assets\n` +
-      `    --version <tag>               Pin to a specific release tag\n` +
-      `  machinen --version | -h         Print version / help\n` +
+      `  machinen run <bundle-dir>                Spawn a microVM from a bundle\n` +
+      `  machinen run [opts] -- <cmd>             Spawn with a one-off cmd (no bundle)\n` +
+      `    --mount <host-dir>:<guest-path>        Expose one host directory inside the\n` +
+      `                                           guest. Host must be a directory; guest\n` +
+      `                                           path must live under /mnt/. At most\n` +
+      `                                           one --mount per invocation. Guest\n` +
+      `                                           writes are discarded when the VM\n` +
+      `                                           exits; the host directory on disk is\n` +
+      `                                           never modified. Bundle files win on\n` +
+      `                                           path collisions.\n` +
+      `  machinen install                         Pre-fetch the current-tag base assets\n` +
+      `    --version <tag>                        Pin to a specific release tag\n` +
+      `  machinen --version | -h                  Print version / help\n` +
+      `\n` +
+      `Examples:\n` +
+      `  machinen run ./my-bundle\n` +
+      `  machinen run --mount ./my-app:/mnt/app -- node /mnt/app/index.js\n` +
+      `  machinen run ./my-bundle --mount ./data:/mnt/data\n` +
       `\n` +
       `Environment:\n` +
-      `  MACHINEN_VMM                    Override the VMM binary path (dev)\n` +
-      `  MACHINEN_ASSETS_DIR             Use base assets from this directory\n` +
-      `                                  instead of the cache / GH Releases\n` +
+      `  MACHINEN_VMM                             Override the VMM binary path (dev)\n` +
+      `  MACHINEN_ASSETS_DIR                      Use base assets from this directory\n` +
+      `                                           instead of the cache / GH Releases\n` +
       `\n` +
       `Cache:\n` +
       `  ~/.machinen/<tag>/bases/debian-arm64/\n`,

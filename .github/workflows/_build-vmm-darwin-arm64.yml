@@ -1,0 +1,67 @@
+name: Build VMM darwin-arm64 (reusable)
+
+# Reusable workflow invoked by release.yml and smoke.yml. Builds and
+# codesigns the darwin-arm64 VMM binary so it can use HVF at runtime.
+#
+# Uploads a single artifact named `vmm-arm64-darwin` containing the
+# codesigned `microvm` binary.
+#
+# Cached on packages/microvm/{src,assets}/** + build.zig + entitlements
+# so re-runs on unchanged inputs skip the ~3-minute zig build.
+
+on:
+  workflow_call:
+
+jobs:
+  build:
+    # macos-15: boot_hvf.zig uses the GICv3 API (hv_gic_*) Apple added
+    # in macOS 15 / Xcode 16 SDK. macos-14's SDK doesn't export those
+    # symbols and the link fails.
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore cached VMM
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: packages/microvm/zig-out/bin/microvm
+          key: vmm-darwin-arm64-${{ hashFiles('packages/microvm/src/**', 'packages/microvm/assets/**/*.zig', 'packages/microvm/build.zig', 'packages/microvm/build.zig.zon', 'packages/microvm/entitlements.plist') }}
+
+      - name: Setup Zig
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.16.0
+
+      - name: Install libslirp
+        # zig build links `-lslirp` for the user-mode network backend.
+        # GitHub runners don't ship it; install via Homebrew.
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: brew install libslirp
+
+      - name: Build VMM
+        # macos-15 is arm64 — native build picks up the Hypervisor
+        # framework from the system SDK. Passing -Dtarget=aarch64-macos
+        # would make Zig treat this as a cross-compile and fail to
+        # locate the framework.
+        if: steps.cache.outputs.cache-hit != 'true'
+        working-directory: packages/microvm
+        run: zig build -Doptimize=ReleaseSafe
+
+      - name: Ad-hoc codesign with hypervisor entitlement
+        # Signature is embedded in the Mach-O, so it survives a cache
+        # restore on subsequent runs without needing to re-sign.
+        if: steps.cache.outputs.cache-hit != 'true'
+        working-directory: packages/microvm
+        run: |
+          codesign -s - --force \
+            --entitlements entitlements.plist \
+            zig-out/bin/microvm
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vmm-arm64-darwin
+          path: packages/microvm/zig-out/bin/microvm
+          if-no-files-found: error
+          retention-days: 7
