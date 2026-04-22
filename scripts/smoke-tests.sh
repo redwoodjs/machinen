@@ -244,5 +244,54 @@ else
   fail "T3 expected $T3_BUNDLE_MARKER (not $T3_MOUNT_MARKER) in guest output"
 fi
 
+# ----------------------------------------------------------------
+# Phase-1 base-rootfs contract tests — verify #77 step 1 plumbing.
+# Each asserts one thing scripts/build-base-assets.sh claims to ship.
+# ----------------------------------------------------------------
+
+# ---- P1: criu binary present and usable ----
+# Absolute path — the CLI wraps non-absolute cmds in `/usr/bin/env`,
+# which does its own PATH search that doesn't know about /sbin by
+# default. Using /usr/sbin/criu directly bypasses that and tests
+# exactly what phase 1 shipped.
+echo "P1: machinen run -- /usr/sbin/criu --version"
+P1_LOG="$FIXTURE/p1.log"
+run_timeout 60 node "$CLI" run -- /usr/sbin/criu --version >"$P1_LOG" 2>&1 || true
+if grep -q "^Version:" "$P1_LOG"; then
+  pass "criu runs inside the base rootfs"
+else
+  tail -50 "$P1_LOG" >&2
+  fail "P1 — criu --version did not print a Version: line"
+fi
+
+# ---- P2: virtio_blk + vmw_vsock_virtio_transport modprobed at boot ----
+# /init's loadPlumbingModules() runs before exec'ing the user cmd, so
+# /proc/modules should list both. Reading /proc directly avoids
+# depending on lsmod's PATH location.
+echo "P2: machinen run -- cat /proc/modules (virtio_blk + vmw_vsock_virtio_transport)"
+P2_LOG="$FIXTURE/p2.log"
+run_timeout 60 node "$CLI" run -- /bin/cat /proc/modules >"$P2_LOG" 2>&1 || true
+if grep -qE "^virtio_blk " "$P2_LOG" && grep -qE "^vmw_vsock_virtio_transport " "$P2_LOG"; then
+  pass "init loaded virtio_blk + vmw_vsock_virtio_transport"
+else
+  tail -50 "$P2_LOG" >&2
+  fail "P2 — expected virtio_blk and vmw_vsock_virtio_transport in /proc/modules"
+fi
+
+# ---- P3: machinen-poweroff triggers PSCI SYSTEM_OFF, VMM exits cleanly ----
+# The normal exit path (init exits → kernel panic → panic reboot) can
+# look the same to an outside observer. We specifically want to prove
+# the /sbin/machinen-poweroff helper works: the kernel prints
+# "reboot: Power down" only on a real POWER_OFF syscall.
+echo "P3: machinen run -- /sbin/machinen-poweroff"
+P3_LOG="$FIXTURE/p3.log"
+run_timeout 60 node "$CLI" run -- /sbin/machinen-poweroff >"$P3_LOG" 2>&1 || true
+if grep -q "reboot: Power down" "$P3_LOG"; then
+  pass "machinen-poweroff invoked reboot(POWER_OFF)"
+else
+  tail -50 "$P3_LOG" >&2
+  fail "P3 — kernel never reported 'reboot: Power down'"
+fi
+
 echo
 echo "all smoke tests passed"
