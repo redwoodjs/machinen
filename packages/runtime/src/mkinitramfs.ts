@@ -24,6 +24,7 @@ import { spawnSync } from "node:child_process";
 import {
   cpSync,
   lstatSync,
+  mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
@@ -316,6 +317,13 @@ export interface PackBundleOptions {
   out: string;
   /** Optional base rootfs tarball (rootfs-debian-arm64.tar.gz). */
   base?: string;
+  /**
+   * A single host directory copied into the guest between the base
+   * tarball and the bundle's rootfs. Bundle files win on path
+   * collisions. The caller is responsible for validating host exists
+   * and is a directory, and that guest lives under `/mnt/`. See #64.
+   */
+  mount?: { host: string; guest: string };
   /** fnmatch patterns matched against each rootfs-relative path. */
   excludes?: string[];
   /** Optional path to the compiled /init. Default: ../microvm/test-fixtures/init relative to this file. */
@@ -332,14 +340,21 @@ export function packBundle(opts: PackBundleOptions): void {
     throw new Error(`--bundle: missing ${cfgPath}`);
   }
 
+  const needsMerge = Boolean(opts.base) || Boolean(opts.mount);
+
   let packSrc = rootfsDir;
   let mergeTmp: string | undefined;
-  if (opts.base) {
+  if (needsMerge) {
     mergeTmp = mkdtempSync(join(tmpdir(), "machinen-mkinitramfs-"));
-    const res = spawnSync("tar", ["-xzf", opts.base, "-C", mergeTmp]);
-    if (res.status !== 0) {
-      rmSync(mergeTmp, { recursive: true, force: true });
-      throw new Error(`tar -xzf ${opts.base} failed: ${res.stderr?.toString() ?? ""}`);
+    if (opts.base) {
+      const res = spawnSync("tar", ["-xzf", opts.base, "-C", mergeTmp]);
+      if (res.status !== 0) {
+        rmSync(mergeTmp, { recursive: true, force: true });
+        throw new Error(`tar -xzf ${opts.base} failed: ${res.stderr?.toString() ?? ""}`);
+      }
+    }
+    if (opts.mount) {
+      overlayMount(mergeTmp, opts.mount.host, opts.mount.guest);
     }
     // Overlay the bundle's rootfs/ on top. Node's cp with recursive
     // preserves symlinks via `verbatimSymlinks`; `force: true` mirrors
@@ -369,6 +384,22 @@ export function packBundle(opts: PackBundleOptions): void {
       rmSync(mergeTmp, { recursive: true, force: true });
     }
   }
+}
+
+/**
+ * Copy a host directory into the merged rootfs at `guest`. Creates
+ * parent directories as needed. Merges into any existing tree at the
+ * destination (later layers overwrite per-file).
+ */
+function overlayMount(mergeRoot: string, hostAbs: string, guest: string): void {
+  const rel = guest.replace(/^\/+/, "");
+  const dst = join(mergeRoot, rel);
+  mkdirSync(dirname(dst), { recursive: true });
+  cpSync(hostAbs, dst, {
+    recursive: true,
+    force: true,
+    verbatimSymlinks: true,
+  });
 }
 
 export interface PackRootfsOptions {

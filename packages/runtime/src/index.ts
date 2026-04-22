@@ -121,8 +121,7 @@ export interface SpawnOptions {
   /**
    * Path to a bundle directory: `<bundle>/rootfs/` + `<bundle>/machinen-config.json`.
    * When set, the runtime packs the bundle into a cpio initramfs and
-   * points the VMM at it via `MACHINEN_INITRD`. See
-   * `.docs/learnings/microvm/rootfs-contract.md`.
+   * points the VMM at it via `MACHINEN_INITRD`.
    */
   bundle?: string;
   /**
@@ -133,6 +132,16 @@ export interface SpawnOptions {
    * `<bundle>/rootfs/` is treated as a standalone rootfs.
    */
   baseRootfs?: string;
+  /**
+   * A single host directory copied into the guest at boot, between the
+   * base rootfs and the bundle's `rootfs/` overlay. The guest path must
+   * live under `/mnt/`. Bundle files win on path collisions.
+   *
+   * Copy-once, scratch-layer semantics: guest writes are discarded when
+   * the VM exits; the host directory on disk is never modified. See
+   * #64. Live-share follow-up: #78.
+   */
+  mount?: { host: string; guest: string };
 }
 
 export interface VmHandle {
@@ -272,27 +281,70 @@ function packBundle(opts: SpawnOptions): { tempDir: string; cpioPath: string } {
 
   const tempDir = mkdtempSync(join(tmpdir(), "machinen-bundle-"));
   const cpioPath = join(tempDir, "initramfs.cpio");
+  const cleanup = () => {
+    try {
+      rmSync(tempDir, { recursive: true, force: true });
+    } catch {}
+  };
 
   let baseAbs: string | undefined;
   if (opts.baseRootfs) {
     baseAbs = resolve(opts.cwd ?? process.cwd(), opts.baseRootfs);
     if (!existsSync(baseAbs)) {
-      try {
-        rmSync(tempDir, { recursive: true, force: true });
-      } catch {}
+      cleanup();
       throw new SpawnError(`base rootfs tarball not found: ${baseAbs}`);
     }
   }
-  try {
-    mkinitramfsPackBundle({ bundle: bundleDir, out: cpioPath, base: baseAbs });
-  } catch (err) {
+
+  let mount: { host: string; guest: string } | undefined;
+  if (opts.mount) {
     try {
-      rmSync(tempDir, { recursive: true, force: true });
-    } catch {}
+      validateMountGuest(opts.mount.guest);
+    } catch (err) {
+      cleanup();
+      throw err;
+    }
+    const hostAbs = resolve(opts.cwd ?? process.cwd(), opts.mount.host);
+    if (!existsSync(hostAbs)) {
+      cleanup();
+      throw new SpawnError(`mount host path not found: ${opts.mount.host}`);
+    }
+    if (!statSync(hostAbs).isDirectory()) {
+      cleanup();
+      throw new SpawnError(`mount host path must be a directory (got a file): ${opts.mount.host}`);
+    }
+    mount = { host: hostAbs, guest: normalizeMountGuest(opts.mount.guest) };
+  }
+
+  try {
+    mkinitramfsPackBundle({ bundle: bundleDir, out: cpioPath, base: baseAbs, mount });
+  } catch (err) {
+    cleanup();
     const msg = err instanceof Error ? err.message : String(err);
     throw new SpawnError(`mkinitramfs --bundle failed: ${msg}`);
   }
   return { tempDir, cpioPath };
+}
+
+// The user-facing mount root. Guest paths must live under this prefix
+// so mounts can never shadow the base rootfs or kernel filesystems.
+const MOUNT_ROOT = "/mnt/";
+
+function normalizeMountGuest(guest: string): string {
+  return guest.replace(/\/+$/, "");
+}
+
+function validateMountGuest(guest: string): void {
+  if (!guest || !guest.startsWith("/")) {
+    throw new SpawnError(`mount guest path must be absolute: ${guest}`);
+  }
+  const trimmed = normalizeMountGuest(guest);
+  if (!trimmed.startsWith(MOUNT_ROOT) || trimmed === MOUNT_ROOT.replace(/\/$/, "")) {
+    throw new SpawnError(
+      `mount guest path must live under ${MOUNT_ROOT} (got ${guest}) — ` +
+        `pick a sub-path like ${MOUNT_ROOT}app`,
+    );
+  }
 }
 
 function collect(stream: Readable): Promise<string> {
