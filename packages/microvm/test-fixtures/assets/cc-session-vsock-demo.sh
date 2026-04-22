@@ -5,7 +5,7 @@
 # into the initramfs by the host harness), this one:
 #
 #   1. Loads vsock kernel modules.
-#   2. Starts secrets-agent.py. The agent binds AF_VSOCK port 1975
+#   2. Starts /secrets-agent. The agent binds AF_VSOCK port 1975
 #      and blocks on accept until the host pushes secrets.
 #   3. Waits for /etc/machinen.env to appear (the agent writes it
 #      after receiving).
@@ -33,7 +33,7 @@ fi
 
 echo "cc-session-vsock: starting secrets agent"
 rm -f /etc/machinen.env
-python3 /secrets-agent.py &
+/secrets-agent &
 AGENT_PID=$!
 
 # Wait up to 60s for the agent to write the env file. The host will

@@ -5,7 +5,7 @@
 // This class pushes secrets into the running guest over the same
 // vsock bridge we already use for winsize + control plane.
 //
-// Pairs with `packages/microvm/test-fixtures/secrets-agent.py`, which
+// Pairs with `packages/microvm/assets/secrets-agent.zig`, which
 // binds AF_VSOCK port 1975 inside the guest, reads KEY=VALUE lines,
 // and writes them to /etc/machinen.env (0600) for cc-session.sh (or
 // anything else) to source.

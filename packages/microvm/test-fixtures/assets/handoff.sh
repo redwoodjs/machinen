@@ -5,7 +5,7 @@
 # images and the counter file's contents.
 #
 # Usage:
-#   ./test-fixtures/handoff.sh <linux-ssh-target>   # e.g. friend@100.126.46.90
+#   ./test-fixtures/assets/handoff.sh <linux-ssh-target>   # e.g. friend@100.126.46.90
 #
 # What it does:
 #   1. On the Mac: build VMM, stage handoff-dump.sh, boot a VM under HVF,
@@ -25,7 +25,7 @@ die() { echo "$*" >&2; exit 1; }
 TARGET=${1:-}
 [[ -n "$TARGET" ]] || die "usage: $0 <linux-ssh-target>"
 
-HERE=$(cd "$(dirname "$0")/.." && pwd)
+HERE=$(cd "$(dirname "$0")/../.." && pwd)
 cd "$HERE"
 
 ROOTFS=test-fixtures/rootfs
@@ -36,7 +36,7 @@ STAGE=/tmp/machinen-handoff
 # --- Mac: stage + boot + dump --------------------------------------
 echo "==> ensuring helpers are built"
 for helper in lo-up no-iou; do
-    src=$FIXTURES/$helper.c
+    src=$FIXTURES/assets/$helper.c
     bin=$ROOTFS/usr/bin/$helper
     if [[ ! -x "$bin" || "$src" -nt "$bin" ]]; then
         zig cc -target aarch64-linux-musl -static -Os -o "$bin" "$src"
@@ -44,8 +44,8 @@ for helper in lo-up no-iou; do
 done
 
 echo "==> staging handoff-dump.sh as the guest's entry"
-cp "$FIXTURES/counter.js"          "$ROOTFS/counter.js"
-cp "$FIXTURES/handoff-dump.sh"     "$ROOTFS/handoff-dump.sh"
+cp "$FIXTURES/assets/counter.js"          "$ROOTFS/counter.js"
+cp "$FIXTURES/assets/handoff-dump.sh"     "$ROOTFS/handoff-dump.sh"
 chmod +x "$ROOTFS/handoff-dump.sh"
 rm -f "$ROOTFS/demo.sh"
 cat > "$ROOTFS/machinen-config.json" <<'JSON'
@@ -60,10 +60,10 @@ cat > "$ROOTFS/machinen-config.json" <<'JSON'
 JSON
 
 echo "==> repacking initramfs"
-python3 "$FIXTURES/mkinitramfs.py" --rootfs "$ROOTFS"
+node --import tsx "$FIXTURES/assets/mkinitramfs.ts" --rootfs "$ROOTFS"
 
 echo "==> zeroing disk.img so cpio trailer detection is unambiguous"
-[[ -f "$DISK" ]] || die "missing $DISK (run test-fixtures/smoke.sh once to create it)"
+[[ -f "$DISK" ]] || die "missing $DISK (run test-fixtures/assets/smoke.sh once to create it)"
 dd if=/dev/zero of="$DISK" bs=1M count=128 conv=notrunc status=none
 
 echo "==> building VMM"
@@ -105,7 +105,7 @@ rm -rf "$STAGE/cpdump" && mkdir -p "$STAGE/cpdump"
 ls "$STAGE/cpdump" | head
 
 echo "==> rebuilding base initramfs with handoff-restore.sh as entry"
-cp "$FIXTURES/handoff-restore.sh" "$ROOTFS/handoff-restore.sh"
+cp "$FIXTURES/assets/handoff-restore.sh" "$ROOTFS/handoff-restore.sh"
 chmod +x "$ROOTFS/handoff-restore.sh"
 rm -f "$ROOTFS/demo.sh"
 cat > "$ROOTFS/machinen-config.json" <<'JSON'
@@ -118,25 +118,26 @@ cat > "$ROOTFS/machinen-config.json" <<'JSON'
   }
 }
 JSON
-python3 "$FIXTURES/mkinitramfs.py" --rootfs "$ROOTFS"
+node --import tsx "$FIXTURES/assets/mkinitramfs.ts" --rootfs "$ROOTFS"
 
 echo "==> packing CRIU images as a workspace cpio"
-python3 "$FIXTURES/mkinitramfs.py" --workspace "$STAGE/cpdump" \
+node --import tsx "$FIXTURES/assets/mkinitramfs.ts" --workspace "$STAGE/cpdump" \
     --out "$STAGE/cpdump.cpio" --max-mb 200
 
 echo "==> concatenating base + workspace + terminator"
 cat "$FIXTURES/initramfs.cpio" "$STAGE/cpdump.cpio" > "$STAGE/combined.cpio"
 # Newc cpio trailer: TRAILER!!! as the name, zero-length body.
-python3 - "$STAGE/combined.cpio" <<'PY'
-import sys, struct
-path = sys.argv[1]
-name = b"TRAILER!!!\x00"
-fields = [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, len(name), 0]
-hdr = b"070701" + b"".join(f"{v:08x}".encode() for v in fields) + name
-while len(hdr) % 4: hdr += b"\x00"
-with open(path, "ab") as fh:
-    fh.write(hdr)
-PY
+node --import tsx - "$STAGE/combined.cpio" <<'JS'
+import { appendFileSync } from "node:fs";
+const path = process.argv[2];
+const name = Buffer.concat([Buffer.from("TRAILER!!!", "ascii"), Buffer.from([0])]);
+const fields = [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, name.length, 0];
+let hdr = "070701";
+for (const v of fields) hdr += v.toString(16).padStart(8, "0");
+let out = Buffer.concat([Buffer.from(hdr, "ascii"), name]);
+while (out.length % 4) out = Buffer.concat([out, Buffer.from([0])]);
+appendFileSync(path, out);
+JS
 
 echo "==> shipping combined initramfs to $TARGET ($(du -h "$STAGE/combined.cpio" | cut -f1))"
 ssh "$TARGET" 'mkdir -p ~/src/machinen/packages/microvm/test-fixtures'

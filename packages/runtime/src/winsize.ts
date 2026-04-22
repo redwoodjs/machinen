@@ -4,7 +4,7 @@
 // SIGWINCH. What it can't do is tell the GUEST to reshape its own
 // ttys. The vsock bridge (#44) gives us a byte pipe into the guest;
 // this class wraps that pipe with a tiny "C R\n" protocol that a
-// matching guest agent (`test-fixtures/winsize-agent.py`) translates
+// matching guest agent (`assets/winsize-agent.zig`) translates
 // into `ioctl(fd, TIOCSWINSZ)` on /dev/console + /dev/ttyAMA0 + any
 // tty-owning process's fd 0/1/2.
 //

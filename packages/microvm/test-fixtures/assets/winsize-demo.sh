@@ -24,4 +24,4 @@ if [ ! -c /dev/vsock ]; then
 fi
 
 echo "winsize-demo: boot done; starting agent"
-exec python3 /winsize-agent.py
+exec /winsize-agent
