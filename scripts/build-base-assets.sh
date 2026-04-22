@@ -172,6 +172,14 @@ mmdebstrap \
 #   dump; cheap to bake in:
 #     libcrc32c, nfnetlink, nf_tables
 #
+#   AF_VSOCK — the build()/spawn() install-hook flow drives the guest
+#   via a vsock exec-agent. CONFIG_VSOCKETS=m in the Debian cloud
+#   kernel, so we have to ship the module set; /init modprobes them
+#   at boot so userspace can `socket(AF_VSOCK, SOCK_STREAM, 0)`.
+#   vsock_diag is for CRIU walking vsock connections at dump time:
+#     vsock, vmw_vsock_virtio_transport,
+#     vmw_vsock_virtio_transport_common, vsock_diag
+#
 # Resolve each module by filename (find) rather than hard-coded path,
 # so the whitelist is robust to Debian kernel-package layout changes.
 KVER=$(ls /work/rootfs/lib/modules | head -1)
@@ -181,7 +189,8 @@ for m in \
   virtio virtio_ring virtio_mmio virtio_net net_failover failover \
   virtio_blk \
   netlink_diag unix_diag inet_diag tcp_diag udp_diag af_packet_diag \
-  libcrc32c nfnetlink nf_tables
+  libcrc32c nfnetlink nf_tables \
+  vsock vmw_vsock_virtio_transport vmw_vsock_virtio_transport_common vsock_diag
 do
   src=$(find "$KMODS" -type f -name "$m.ko" | head -1)
   [ -n "$src" ] || { echo "missing module: $m.ko" >&2; exit 1; }
