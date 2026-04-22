@@ -1,7 +1,11 @@
 # machinen
 
-Native arm64 microVM runtime for AI agents. Spawn a Linux VM from a bundle
-directory in under a second, drive it from Node, throw it away when you're done.
+Transport a running Linux process between machines. Freeze it on your laptop,
+thaw it on a server, resume it next week — heap, sockets, and open files
+intact.
+
+A native arm64 microVM runtime under the hood. Node.js is the first-class
+target; Python, bash, and anything else that boots in a Linux VM works too.
 
 ## Install
 
@@ -19,6 +23,24 @@ One system dep is not yet statically linked:
 - Debian/Ubuntu: `apt install libslirp0`
 - Fedora/RHEL: `dnf install libslirp`
 - Alpine: `apk add libslirp`
+
+## Transport a Node.js process
+
+```bash
+# host A
+machinen run ./examples/node-counter &   # HTTP server on :3000, counts requests
+curl localhost:3000/hit                   # { count: 1 }
+curl localhost:3000/hit                   # { count: 2 }
+
+machinen freeze <id> > counter.tar        # snapshot + rootfs delta
+
+# copy counter.tar to host B, then:
+machinen thaw counter.tar
+curl localhost:3000/hit                   # { count: 3 }  ← same process
+```
+
+Same arch only (arm64 ↔ arm64). The VM's memory, file descriptors, and
+timers come back exactly as they were.
 
 ## Boot a microVM
 
@@ -43,13 +65,17 @@ for the contract.
 ## Drive it from Node
 
 ```ts
-import { spawn } from "@machinen/runtime";
+import { spawn, freeze, thaw } from "@machinen/runtime";
 
 // binary auto-resolves via @machinen/vmm-<arch>-<os> installed alongside.
-const vm = await spawn({ bundle: "./path/to/bundle" });
-vm.stdout.pipe(process.stdout);
-vm.stdin.write("echo hello from inside\n");
-await vm.wait();
+const vm = await spawn({ bundle: "./examples/node-counter" });
+// ... let it run, serve traffic, accumulate state ...
+
+const artifact = await freeze(vm);        // Buffer or writable stream
+await fs.writeFile("counter.tar", artifact);
+
+// elsewhere:
+const restored = await thaw("counter.tar");
 ```
 
 See [`packages/runtime/README.md`](packages/runtime/README.md) for the full surface.
