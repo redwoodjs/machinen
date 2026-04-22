@@ -11,6 +11,9 @@
 #   packages/microvm/assets/init.zig
 #   packages/microvm/assets/exec-agent.zig
 #   packages/microvm/assets/machinen-netup.c
+#   packages/microvm/assets/lo-up.zig         ← CRIU plumbing (loopback ioctl)
+#   packages/microvm/assets/no-iou.zig        ← CRIU plumbing (block io_uring)
+#   packages/microvm/assets/poweroff.zig      ← clean shutdown → PSCI SYSTEM_OFF
 #
 # Requirements:
 #   - docker (with arm64 emulation; GH runners have this by default via
@@ -53,11 +56,15 @@ dtc -I dts -O dtb "${ASSETS}/virt.dts" -o "${OUT}/virt-arm64.dtb"
 #    (all statically linked against musl)
 # ------------------------------------------------------------
 
-echo "==> Building guest binaries (init, exec-agent, machinen-netup) for aarch64-linux-musl"
+echo "==> Building guest binaries (init, exec-agent, CRIU helpers, poweroff) for aarch64-linux-musl"
 STAGE=$(mktemp -d)
 trap 'rm -rf "$STAGE"' EXIT
 
-for name in init exec-agent; do
+# init + exec-agent land at /init and /exec-agent (machinen-owned root
+# entrypoints). lo-up, no-iou, poweroff are machinen-namespaced helpers
+# needed by any CRIU-based snapshot flow; they go under /sbin with the
+# machinen- prefix alongside machinen-netup.
+for name in init exec-agent lo-up no-iou poweroff; do
   zig build-exe "${ASSETS}/${name}.zig" \
     -target aarch64-linux-musl \
     -O ReleaseSmall \
@@ -127,31 +134,60 @@ chmod +x /tmp/setup-hook.sh
 # devices in the DTB but has no driver to bind to them — no eth0,
 # no networking. Install the matching kernel package and kmod;
 # /init will `modprobe virtio_net` via /sbin/machinen-netup at boot.
+#
+# criu: required by any snapshot flow (`build()` dumps at freeze
+# time, `spawn({ snapshot })` restores at boot time). Pulls ~5MB of
+# libs (libnl, libprotobuf-c, libnftables). The criu-ns shell helper
+# that solves PID collisions across boots ships in the same package.
+# APT::Install-Recommends "false" is already set by the setup hook,
+# so criu's optional python3 suggestion is skipped.
 mmdebstrap \
   --variant=minbase \
   --architectures=arm64 \
-  --include=linux-image-cloud-arm64,kmod \
+  --include=linux-image-cloud-arm64,kmod,criu \
   --setup-hook=/tmp/setup-hook.sh \
   bookworm /work/rootfs
 
 # linux-image-cloud-arm64 ships every driver the Debian cloud kernel
-# knows about (~28MB of .ko). We only ever modprobe a handful at boot
-# (see packages/microvm/assets/machinen-netup.c), so prune
-# the rest. Saves roughly 25MB on the rootfs tarball.
+# knows about (~28MB of .ko). Keep only the modules the base flow
+# actually loads:
+#
+#   Networking at boot (see machinen-netup.c):
+#     virtio, virtio_ring, virtio_mmio, virtio_net, net_failover, failover
+#
+#   Block device for snapshot images + persistent workspaces:
+#     virtio_blk
+#
+#   Socket state diag — CRIU walks these to dump/restore sockets.
+#   Missing any of them makes `criu dump` fail with obscure kerndat
+#   errors on a process that touches sockets (i.e. most of them).
+#   sock_diag itself is built into the Debian cloud kernel
+#   (CONFIG_SOCK_DIAG=y), so only the per-family backends need to
+#   be kept as modules:
+#     netlink_diag, unix_diag, inet_diag, tcp_diag, udp_diag,
+#     af_packet_diag
+#
+#   Netfilter + crc32c — defensively kept for processes that hold
+#   any iptables/nftables state. CRIU loads these lazily during
+#   dump; cheap to bake in:
+#     libcrc32c, nfnetlink, nf_tables
+#
+# Resolve each module by filename (find) rather than hard-coded path,
+# so the whitelist is robust to Debian kernel-package layout changes.
 KVER=$(ls /work/rootfs/lib/modules | head -1)
 KMODS=/work/rootfs/lib/modules/$KVER/kernel
 STAGE=$(mktemp -d)
-for f in \
-  drivers/virtio/virtio.ko \
-  drivers/virtio/virtio_ring.ko \
-  drivers/virtio/virtio_mmio.ko \
-  drivers/net/virtio_net.ko \
-  drivers/net/net_failover.ko \
-  net/core/failover.ko
+for m in \
+  virtio virtio_ring virtio_mmio virtio_net net_failover failover \
+  virtio_blk \
+  netlink_diag unix_diag inet_diag tcp_diag udp_diag af_packet_diag \
+  libcrc32c nfnetlink nf_tables
 do
-  [ -f "$KMODS/$f" ] || { echo "missing module: $f" >&2; exit 1; }
-  mkdir -p "$STAGE/$(dirname "$f")"
-  mv "$KMODS/$f" "$STAGE/$f"
+  src=$(find "$KMODS" -type f -name "$m.ko" | head -1)
+  [ -n "$src" ] || { echo "missing module: $m.ko" >&2; exit 1; }
+  rel=${src#$KMODS/}
+  mkdir -p "$STAGE/$(dirname "$rel")"
+  mv "$src" "$STAGE/$rel"
 done
 rm -rf "$KMODS"
 mkdir -p "$KMODS"
@@ -165,10 +201,21 @@ chroot /work/rootfs depmod -a "$KVER"
 # Also drop the second copy of the kernel image and initrd hooks we
 # don't use (we boot Image-arm64 from release-assets, not from
 # inside the guest's /boot).
+#
+# Python: criu Depends on python3-protobuf for the `crit` image-debug
+# tool. crit is the only python caller; we don't run it. Deleting the
+# interpreter + stdlib after install (rather than path-excluding during
+# install, which breaks python's own postinst) saves ~30 MB extracted
+# / ~10 MB gz. dpkg's database still lists the packages as installed
+# (`dpkg -l` shows ii) — only the on-disk files are gone.
 rm -rf \
   /work/rootfs/usr/share/man \
   /work/rootfs/usr/share/doc \
   /work/rootfs/usr/share/info \
+  /work/rootfs/usr/bin/python3 /work/rootfs/usr/bin/python3.* \
+  /work/rootfs/usr/lib/python3 \
+  /work/rootfs/usr/lib/python3.* \
+  /work/rootfs/usr/share/python3 \
   /work/rootfs/var/cache/apt/archives/*.deb \
   /work/rootfs/var/lib/apt/lists/* \
   /work/rootfs/var/log/* \
@@ -195,7 +242,10 @@ echo "nameserver 10.0.2.3" > /work/rootfs/etc/resolv.conf
 
 install -m 0755 /stage/init       /work/rootfs/init
 install -m 0755 /stage/exec-agent /work/rootfs/exec-agent
-install -m 0755 -D /stage/machinen-netup /work/rootfs/sbin/machinen-netup
+install -m 0755 -D /stage/machinen-netup    /work/rootfs/sbin/machinen-netup
+install -m 0755 -D /stage/lo-up             /work/rootfs/sbin/machinen-lo-up
+install -m 0755 -D /stage/no-iou            /work/rootfs/sbin/machinen-no-iou
+install -m 0755 -D /stage/poweroff          /work/rootfs/sbin/machinen-poweroff
 
 # Deterministic tar + gzip written as a single file to the bind mount.
 tar --sort=name --owner=0 --group=0 --numeric-owner \
