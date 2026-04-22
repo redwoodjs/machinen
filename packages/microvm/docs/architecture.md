@@ -151,5 +151,5 @@ The code is the source of truth. Starting points:
 - `../src/hvf.zig` / `../src/kvm.zig` — the two hypervisor backends
 - `../src/pl011.zig`, `../src/virtio.zig`, `../src/blk.zig`,
   `../src/vsock.zig`, `../src/slirp.zig` — device models
-- `../test-fixtures/init.zig` — the guest `/init`
+- `../assets/init.zig` — the guest `/init`
 - `../../runtime/src/index.ts` — how the VMM gets driven from Node

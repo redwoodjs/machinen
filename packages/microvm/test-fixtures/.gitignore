@@ -11,8 +11,8 @@ rootfs-debian/
 rootfs-debian.tar
 init
 exec-agent
+file-agent
+secrets-agent
+winsize-agent
 *.dtb
-virt.dts.bak
 !.gitignore
-!README.md
-!virt.dts

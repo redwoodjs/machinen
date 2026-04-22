@@ -1,4 +1,4 @@
-// Host-side exec client — pairs with test-fixtures/exec-agent.py.
+// Host-side exec client — pairs with assets/exec-agent.zig.
 //
 // Opens the UDS the vsock bridge is listening on, sends `EXEC <cmd>\n`,
 // demuxes the framed output stream until an `X <code>\n` terminator,

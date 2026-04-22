@@ -7,10 +7,10 @@
 #   *.sha256                       ← integrity sidecars
 #
 # Inputs (relative to repo root):
-#   packages/microvm/test-fixtures/virt.dts
-#   packages/microvm/test-fixtures/init.zig
-#   packages/microvm/test-fixtures/exec-agent.zig
-#   packages/microvm/test-fixtures/machinen-netup.c
+#   packages/microvm/assets/virt.dts
+#   packages/microvm/assets/init.zig
+#   packages/microvm/assets/exec-agent.zig
+#   packages/microvm/assets/machinen-netup.c
 #
 # Requirements:
 #   - docker (with arm64 emulation; GH runners have this by default via
@@ -23,7 +23,7 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-FIXTURES="${ROOT}/packages/microvm/test-fixtures"
+ASSETS="${ROOT}/packages/microvm/assets"
 OUT="${ROOT}/release-assets"
 
 mkdir -p "$OUT"
@@ -46,7 +46,7 @@ docker run --rm --platform linux/arm64 -v "$OUT":/out \
 # ------------------------------------------------------------
 
 echo "==> Compiling virt.dts -> virt-arm64.dtb"
-dtc -I dts -O dtb "${FIXTURES}/virt.dts" -o "${OUT}/virt-arm64.dtb"
+dtc -I dts -O dtb "${ASSETS}/virt.dts" -o "${OUT}/virt-arm64.dtb"
 
 # ------------------------------------------------------------
 # 3. Guest binaries: /init + /exec-agent + /sbin/machinen-netup
@@ -58,7 +58,7 @@ STAGE=$(mktemp -d)
 trap 'rm -rf "$STAGE"' EXIT
 
 for name in init exec-agent; do
-  zig build-exe "${FIXTURES}/${name}.zig" \
+  zig build-exe "${ASSETS}/${name}.zig" \
     -target aarch64-linux-musl \
     -O ReleaseSmall \
     -lc \
@@ -66,7 +66,7 @@ for name in init exec-agent; do
   rm -f "${STAGE}/${name}.o"
 done
 
-zig cc "${FIXTURES}/machinen-netup.c" \
+zig cc "${ASSETS}/machinen-netup.c" \
   -target aarch64-linux-musl \
   -static \
   -Os \
@@ -136,7 +136,7 @@ mmdebstrap \
 
 # linux-image-cloud-arm64 ships every driver the Debian cloud kernel
 # knows about (~28MB of .ko). We only ever modprobe a handful at boot
-# (see packages/microvm/test-fixtures/machinen-netup.c), so prune
+# (see packages/microvm/assets/machinen-netup.c), so prune
 # the rest. Saves roughly 25MB on the rootfs tarball.
 KVER=$(ls /work/rootfs/lib/modules | head -1)
 KMODS=/work/rootfs/lib/modules/$KVER/kernel

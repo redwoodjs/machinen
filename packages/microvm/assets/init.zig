@@ -7,7 +7,7 @@
 //! panics (same as today's init.c).
 //!
 //! Build (from packages/microvm):
-//!   zig build-exe test-fixtures/init.zig \
+//!   zig build-exe assets/init.zig \
 //!     -target aarch64-linux-musl -static -O ReleaseSmall \
 //!     -lc -femit-bin=test-fixtures/init
 //!
@@ -85,7 +85,7 @@ fn mkdirIgnore(path: [*:0]const u8) void {
     _ = mkdir(path, 0o755);
 }
 
-// Set the realtime clock from /etc/machinen-boot-epoch. mkinitramfs.py
+// Set the realtime clock from /etc/machinen-boot-epoch. mkinitramfs.ts
 // bakes the host's wall-clock epoch into the cpio at pack time; without
 // this the guest boots at 1970 and TLS / apt date checks fail.
 fn setBootClock() void {

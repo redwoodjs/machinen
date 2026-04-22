@@ -10,6 +10,13 @@ export { VsockFiles } from "./files.ts";
 export type { VsockFilesOptions } from "./files.ts";
 export { VsockExec } from "./exec.ts";
 export type { VsockExecOptions, VsockExecResult } from "./exec.ts";
+export {
+  packBundle as mkinitramfsBundle,
+  packRootfs as mkinitramfsRootfs,
+  packWorkspace as mkinitramfsWorkspace,
+  packMinimal as mkinitramfsMinimal,
+  cli as mkinitramfsCli,
+} from "./mkinitramfs.ts";
 
 // @machinen/runtime — TypeScript surface for spawning microVMs.
 //
@@ -30,17 +37,14 @@ export type { VsockExecOptions, VsockExecResult } from "./exec.ts";
 //
 // No multiplexing yet — one VM per handle (#51 is its own issue).
 
-import {
-  type ChildProcessWithoutNullStreams,
-  spawn as nodeSpawn,
-  spawnSync,
-} from "node:child_process";
+import { type ChildProcessWithoutNullStreams, spawn as nodeSpawn } from "node:child_process";
 import { once } from "node:events";
 import { closeSync, existsSync, mkdtempSync, openSync, rmSync, statSync, writeSync } from "node:fs";
 import { createRequire } from "node:module";
 import { arch as osArch, platform as osPlatform, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { Readable, Writable } from "node:stream";
+import { packBundle as mkinitramfsPackBundle } from "./mkinitramfs.ts";
 
 export class SpawnError extends Error {}
 
@@ -129,12 +133,6 @@ export interface SpawnOptions {
    * `<bundle>/rootfs/` is treated as a standalone rootfs.
    */
   baseRootfs?: string;
-  /**
-   * Override the mkinitramfs.py helper used to pack bundles. Defaults
-   * to the script in this monorepo's `packages/microvm/test-fixtures/`.
-   * Callers outside the monorepo (rare today) must supply it.
-   */
-  mkinitramfs?: string;
 }
 
 export interface VmHandle {
@@ -272,41 +270,27 @@ function packBundle(opts: SpawnOptions): { tempDir: string; cpioPath: string } {
     throw new SpawnError(`bundle missing machinen-config.json: ${bundleDir}`);
   }
 
-  const mk =
-    opts.mkinitramfs ??
-    resolve(
-      // @machinen/runtime → packages/microvm/test-fixtures/mkinitramfs.py
-      import.meta.dirname,
-      "../../microvm/test-fixtures/mkinitramfs.py",
-    );
-  if (!existsSync(mk)) {
-    throw new SpawnError(`mkinitramfs.py not found at ${mk}`);
-  }
-
   const tempDir = mkdtempSync(join(tmpdir(), "machinen-bundle-"));
   const cpioPath = join(tempDir, "initramfs.cpio");
 
-  const mkArgs = ["--bundle", bundleDir, "--out", cpioPath];
+  let baseAbs: string | undefined;
   if (opts.baseRootfs) {
-    const baseAbs = resolve(opts.cwd ?? process.cwd(), opts.baseRootfs);
+    baseAbs = resolve(opts.cwd ?? process.cwd(), opts.baseRootfs);
     if (!existsSync(baseAbs)) {
       try {
         rmSync(tempDir, { recursive: true, force: true });
       } catch {}
       throw new SpawnError(`base rootfs tarball not found: ${baseAbs}`);
     }
-    mkArgs.unshift("--base", baseAbs);
   }
-  const res = spawnSync("python3", [mk, ...mkArgs], {
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  if (res.status !== 0) {
+  try {
+    mkinitramfsPackBundle({ bundle: bundleDir, out: cpioPath, base: baseAbs });
+  } catch (err) {
     try {
       rmSync(tempDir, { recursive: true, force: true });
     } catch {}
-    throw new SpawnError(
-      `mkinitramfs --bundle failed (status ${res.status}): ${res.stderr?.toString() ?? ""}`,
-    );
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new SpawnError(`mkinitramfs --bundle failed: ${msg}`);
   }
   return { tempDir, cpioPath };
 }
@@ -362,7 +346,7 @@ export interface SnapshotResult {
  *
  * The caller is responsible for providing a binary + initramfs whose
  * /machinen-config.json points at a warmup entry (`spawn-warmup.sh`
- * in the microvm package's test-fixtures is the reference). This
+ * in the microvm package's test-fixtures/assets is the reference). This
  * function just:
  *
  *   1. Creates `diskPath` as a blank `diskSizeBytes`-byte file.

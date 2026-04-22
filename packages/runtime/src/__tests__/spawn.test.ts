@@ -85,7 +85,7 @@ describe("spawn", () => {
     // check that spawn() starts the VMM, stderr streams back, and
     // the kernel boots far enough to say so. That's enough to prove
     // the spawn/stdio wiring works; driving a specific workload is
-    // the microvm package's job (see test-fixtures/smoke.sh).
+    // the microvm package's job (see test-fixtures/assets/smoke.sh).
     const vm = await spawn({
       binary,
       cwd: microvmRoot,
