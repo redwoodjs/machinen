@@ -39,6 +39,9 @@ extern "c" fn mount(
 ) c_int;
 extern "c" fn nanosleep(req: *const timespec, rem: ?*timespec) c_int;
 extern "c" fn lseek(fd: c_int, offset: i64, whence: c_int) i64;
+extern "c" fn fork() c_int;
+extern "c" fn waitpid(pid: c_int, status: ?*c_int, options: c_int) c_int;
+extern "c" fn _exit(status: c_int) noreturn;
 
 const timespec = extern struct { tv_sec: i64, tv_nsec: i64 };
 
@@ -77,6 +80,28 @@ fn mountIgnore(src: [*:0]const u8, dst: [*:0]const u8, fstype: [*:0]const u8) vo
 
 fn mkdirIgnore(path: [*:0]const u8) void {
     _ = mkdir(path, 0o755);
+}
+
+// Bring up the user-mode network by fork+execing /sbin/machinen-netup
+// (a static helper shipped in the base rootfs). Best-effort: if the
+// helper is missing or fails, log and continue — the user cmd still
+// runs, just without networking.
+fn bringUpNetwork() void {
+    const pid = fork();
+    if (pid < 0) {
+        logLine("init: fork failed — skipping network bring-up");
+        return;
+    }
+    if (pid == 0) {
+        const path: [*:0]const u8 = "/sbin/machinen-netup";
+        const argv = [_:null]?[*:0]const u8{path};
+        const envp = [_:null]?[*:0]const u8{};
+        _ = execve(path, &argv, &envp);
+        _exit(127);
+    }
+    var status: c_int = 0;
+    _ = waitpid(pid, &status, 0);
+    if (status != 0) logLine("init: machinen-netup exited non-zero — network may not be up");
 }
 
 fn waitForConsole() c_int {
@@ -208,6 +233,8 @@ pub fn main() noreturn {
     }
 
     writeStr(1, "\n=== machinen /init: reading /machinen-config.json ===\n");
+
+    bringUpNetwork();
 
     // Page allocator works on musl via mmap.
     var arena_state = std.heap.ArenaAllocator.init(std.heap.page_allocator);
