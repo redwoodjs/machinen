@@ -65,17 +65,17 @@ for the contract.
 ## Drive it from Node
 
 ```ts
-import { spawn, freeze, thaw } from "@machinen/runtime";
+import { spawn, snapshot, restore } from "@machinen/runtime";
 
 // binary auto-resolves via @machinen/vmm-<arch>-<os> installed alongside.
 const vm = await spawn({ bundle: "./examples/node-counter" });
 // ... let it run, serve traffic, accumulate state ...
 
-const artifact = await freeze(vm);        // Buffer or writable stream
+const artifact = await snapshot(vm);      // Buffer or writable stream
 await fs.writeFile("counter.tar", artifact);
 
 // elsewhere:
-const restored = await thaw("counter.tar");
+const restored = await restore("counter.tar");
 ```
 
 See [`packages/runtime/README.md`](packages/runtime/README.md) for the full surface.
