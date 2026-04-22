@@ -10,6 +10,7 @@
 #   packages/microvm/test-fixtures/virt.dts
 #   packages/microvm/test-fixtures/init.zig
 #   packages/microvm/test-fixtures/exec-agent.zig
+#   packages/microvm/test-fixtures/machinen-netup.c
 #
 # Requirements:
 #   - docker (with arm64 emulation; GH runners have this by default via
@@ -48,10 +49,11 @@ echo "==> Compiling virt.dts -> virt-arm64.dtb"
 dtc -I dts -O dtb "${FIXTURES}/virt.dts" -o "${OUT}/virt-arm64.dtb"
 
 # ------------------------------------------------------------
-# 3. Guest binaries: /init + /exec-agent, statically linked musl
+# 3. Guest binaries: /init + /exec-agent + /sbin/machinen-netup
+#    (all statically linked against musl)
 # ------------------------------------------------------------
 
-echo "==> Building guest binaries (init, exec-agent) for aarch64-linux-musl"
+echo "==> Building guest binaries (init, exec-agent, machinen-netup) for aarch64-linux-musl"
 STAGE=$(mktemp -d)
 trap 'rm -rf "$STAGE"' EXIT
 
@@ -63,6 +65,12 @@ for name in init exec-agent; do
     -femit-bin="${STAGE}/${name}"
   rm -f "${STAGE}/${name}.o"
 done
+
+zig cc "${FIXTURES}/machinen-netup.c" \
+  -target aarch64-linux-musl \
+  -static \
+  -Os \
+  -o "${STAGE}/machinen-netup"
 
 # ------------------------------------------------------------
 # 4. Rootfs — mmdebstrap minbase + aggressive strip + guest binaries
@@ -129,8 +137,25 @@ rm -rf \
 find /work/rootfs/usr/share/locale -mindepth 1 -maxdepth 1 \
   ! -name "en*" -exec rm -rf {} + 2>/dev/null || true
 
+# Strip /dev/* device nodes. Two reasons:
+#   1) devtmpfs at boot populates /dev with real nodes anyway.
+#   2) Character-device entries in a tar archive can't be extracted as
+#      a non-root user (e.g. during `mkinitramfs` on darwin) — mknod
+#      requires CAP_MKNOD.
+# Keep /dev itself as an empty directory so the kernel has somewhere
+# to mount devtmpfs.
+rm -rf /work/rootfs/dev
+mkdir -m 0755 /work/rootfs/dev
+
+# DNS resolver. SLIRP (see packages/microvm/src/slirp.zig) exposes a
+# virtual nameserver at 10.0.2.3. Without a resolv.conf, glibc falls
+# back to 127.0.0.1 which has nothing listening — `apt-get update`
+# and any other hostname lookup will fail.
+echo "nameserver 10.0.2.3" > /work/rootfs/etc/resolv.conf
+
 install -m 0755 /stage/init       /work/rootfs/init
 install -m 0755 /stage/exec-agent /work/rootfs/exec-agent
+install -m 0755 -D /stage/machinen-netup /work/rootfs/sbin/machinen-netup
 
 # Deterministic tar + gzip written as a single file to the bind mount.
 tar --sort=name --owner=0 --group=0 --numeric-owner \
