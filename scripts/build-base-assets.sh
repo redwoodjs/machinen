@@ -120,20 +120,37 @@ EOF
 HOOK
 chmod +x /tmp/setup-hook.sh
 
+# linux-image-cloud-arm64 + kmod: the Debian cloud kernel we ship
+# (scripts/build-base-assets.sh section 1) carries virtio_mmio /
+# virtio_net as modules, not built-in. Without /lib/modules inside
+# the guest and modprobe to load them, the kernel sees virtio-mmio
+# devices in the DTB but has no driver to bind to them — no eth0,
+# no networking. Install the matching kernel package and kmod;
+# /init will `modprobe virtio_net` via /sbin/machinen-netup at boot.
 mmdebstrap \
   --variant=minbase \
   --architectures=arm64 \
+  --include=linux-image-cloud-arm64,kmod \
   --setup-hook=/tmp/setup-hook.sh \
   bookworm /work/rootfs
 
+# Depmod so modprobe can resolve dependencies without a live uname.
+KVER=$(ls /work/rootfs/lib/modules | head -1)
+chroot /work/rootfs depmod -a "$KVER"
+
 # Belt-and-braces cleanup for things path-exclude doesn't cover.
+# Also drop the second copy of the kernel image and initrd hooks we
+# don't use (we boot Image-arm64 from release-assets, not from
+# inside the guest's /boot).
 rm -rf \
   /work/rootfs/usr/share/man \
   /work/rootfs/usr/share/doc \
   /work/rootfs/usr/share/info \
   /work/rootfs/var/cache/apt/archives/*.deb \
   /work/rootfs/var/lib/apt/lists/* \
-  /work/rootfs/var/log/*
+  /work/rootfs/var/log/* \
+  /work/rootfs/boot/* \
+  /work/rootfs/etc/kernel
 find /work/rootfs/usr/share/locale -mindepth 1 -maxdepth 1 \
   ! -name "en*" -exec rm -rf {} + 2>/dev/null || true
 
