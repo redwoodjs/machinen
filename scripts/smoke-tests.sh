@@ -28,21 +28,10 @@ OS=$(uname -s)
 # Prereq checks
 # ----------------------------------------------------------------
 
-# coreutils ships `timeout`; BSD macOS ships `gtimeout` via coreutils
-# from brew. Pick whichever is on PATH.
-TIMEOUT_CMD=""
-for cand in gtimeout timeout; do
-  if command -v "$cand" >/dev/null 2>&1; then
-    TIMEOUT_CMD=$cand
-    break
-  fi
-done
-
 missing=()
 for bin in zig docker dtc; do
   command -v "$bin" >/dev/null || missing+=("$bin")
 done
-[[ -n "$TIMEOUT_CMD" ]] || missing+=("coreutils")
 
 # libslirp is a dylib the VMM links against at runtime, not a binary.
 # Check the common Homebrew locations.
@@ -126,9 +115,22 @@ FIXTURE=$(mktemp -d)
 trap 'rm -rf "$FIXTURE"' EXIT
 
 # Wall-clock ceiling per test. Cold kernel + rootfs startup is ~5-10s;
-# 60s is generous. `-s TERM` lets the CLI's SIGTERM handler kill the
-# VMM cleanly instead of leaving an orphan.
-TIMEOUT="$TIMEOUT_CMD -s TERM 60"
+# 60s is generous. Sends SIGTERM first (so the CLI's signal handler
+# can kill the VMM cleanly), escalates to SIGKILL after a 2s grace.
+# Rolled by hand because macOS BSD doesn't ship a `timeout` binary.
+run_timeout() {
+  local secs=$1
+  shift
+  "$@" &
+  local pid=$!
+  (sleep "$secs" && kill -TERM "$pid" 2>/dev/null && sleep 2 && kill -KILL "$pid" 2>/dev/null) &
+  local watcher=$!
+  local rc=0
+  wait "$pid" 2>/dev/null || rc=$?
+  kill "$watcher" 2>/dev/null || true
+  wait "$watcher" 2>/dev/null || true
+  return "$rc"
+}
 
 pass() { echo "  pass: $1"; }
 fail() { echo "  FAIL: $1" >&2; exit 1; }
@@ -140,7 +142,7 @@ T1_LOG="$FIXTURE/t1.log"
 # serial console, which the VMM writes to its stderr. The CLI pipes
 # that to the host process's stderr; we redirect both into one log
 # for grepping.
-$TIMEOUT node "$CLI" run -- echo "hello-world-$$" >"$T1_LOG" 2>&1 || true
+run_timeout 60 node "$CLI" run -- echo "hello-world-$$" >"$T1_LOG" 2>&1 || true
 if grep -q "hello-world-$$" "$T1_LOG"; then
   pass "base-only echo output visible on the host"
 else
@@ -154,7 +156,7 @@ T2_MARKER="mount-marker-$$"
 mkdir -p "$FIXTURE/data"
 echo "$T2_MARKER" >"$FIXTURE/data/hello.txt"
 T2_LOG="$FIXTURE/t2.log"
-$TIMEOUT node "$CLI" run \
+run_timeout 60 node "$CLI" run \
   --mount "$FIXTURE/data:/mnt/data" \
   -- cat /mnt/data/hello.txt \
   >"$T2_LOG" 2>&1 || true
@@ -178,7 +180,7 @@ JSON
 mkdir -p "$FIXTURE/alt"
 echo "$T3_MOUNT_MARKER" >"$FIXTURE/alt/x.txt"
 T3_LOG="$FIXTURE/t3.log"
-$TIMEOUT node "$CLI" run "$T3_BUNDLE" \
+run_timeout 60 node "$CLI" run "$T3_BUNDLE" \
   --mount "$FIXTURE/alt:/mnt/collide" \
   >"$T3_LOG" 2>&1 || true
 if grep -q "$T3_BUNDLE_MARKER" "$T3_LOG" && ! grep -q "$T3_MOUNT_MARKER" "$T3_LOG"; then
