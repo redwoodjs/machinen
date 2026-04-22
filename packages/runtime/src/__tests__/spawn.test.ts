@@ -317,6 +317,83 @@ describe("bundle option", () => {
   }, 40_000);
 });
 
+describe("mount option", () => {
+  function makeBundle(): string {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-mount-bundle-"));
+    mkdirSync(join(dir, "rootfs"));
+    writeFileSync(join(dir, "machinen-config.json"), JSON.stringify({ cmd: ["/bin/true"] }));
+    return dir;
+  }
+
+  it("rejects a mount with a non-absolute guest path", async () => {
+    const bundle = makeBundle();
+    try {
+      await expect(
+        spawn({ binary: "/bin/sh", bundle, mount: { host: "/tmp", guest: "mnt/app" } }),
+      ).rejects.toThrow(/guest path must be absolute/);
+    } finally {
+      rmSync(bundle, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a mount whose guest path is not under /mnt/", async () => {
+    const bundle = makeBundle();
+    try {
+      for (const guest of ["/srv/app", "/etc/config", "/proc", "/init", "/mntfoo"]) {
+        await expect(
+          spawn({ binary: "/bin/sh", bundle, mount: { host: "/tmp", guest } }),
+        ).rejects.toThrow(/must live under \/mnt\//);
+      }
+    } finally {
+      rmSync(bundle, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a mount whose guest path is the mount root itself", async () => {
+    const bundle = makeBundle();
+    try {
+      for (const guest of ["/mnt", "/mnt/"]) {
+        await expect(
+          spawn({ binary: "/bin/sh", bundle, mount: { host: "/tmp", guest } }),
+        ).rejects.toThrow(/must live under \/mnt\//);
+      }
+    } finally {
+      rmSync(bundle, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a mount whose host path does not exist", async () => {
+    const bundle = makeBundle();
+    try {
+      await expect(
+        spawn({
+          binary: "/bin/sh",
+          bundle,
+          mount: { host: "/nope/missing/host", guest: "/mnt/x" },
+        }),
+      ).rejects.toThrow(/mount host path not found/);
+    } finally {
+      rmSync(bundle, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a mount whose host path is a file (not a directory)", async () => {
+    const bundle = makeBundle();
+    const hostFile = `/tmp/machinen-mount-file-${process.pid}`;
+    writeFileSync(hostFile, "x");
+    try {
+      await expect(
+        spawn({ binary: "/bin/sh", bundle, mount: { host: hostFile, guest: "/mnt/x" } }),
+      ).rejects.toThrow(/must be a directory/);
+    } finally {
+      try {
+        unlinkSync(hostFile);
+      } catch {}
+      rmSync(bundle, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("buildSnapshot", () => {
   it("creates the disk file at the requested size even if the VMM fails fast", async () => {
     // Point at a binary that exits immediately, so the VMM "fails"

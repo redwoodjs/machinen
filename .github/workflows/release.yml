@@ -21,39 +21,11 @@ jobs:
   # ------------------------------------------------------------
 
   build-vmm-darwin-arm64:
-    # macos-15: boot_hvf.zig uses the GICv3 API (hv_gic_*) Apple added in
-    # macOS 15 / Xcode 16 SDK. macos-14's SDK doesn't export those symbols
-    # and the link fails.
-    runs-on: macos-15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: mlugg/setup-zig@v2
-        with:
-          version: 0.16.0
-      - name: Install libslirp
-        # zig build links `-lslirp` for the user-mode network backend.
-        # GitHub runners don't ship it; install via Homebrew.
-        run: brew install libslirp
-      - name: Build VMM (darwin-arm64, native)
-        # macos-15 is arm64 — native build picks up the Hypervisor
-        # framework from the system SDK. Passing -Dtarget=aarch64-macos
-        # would make Zig treat this as a cross-compile and fail to
-        # locate the framework.
-        working-directory: packages/microvm
-        run: zig build -Doptimize=ReleaseSafe
-      - name: Ad-hoc codesign with hypervisor entitlement
-        working-directory: packages/microvm
-        run: |
-          codesign -s - --force \
-            --entitlements entitlements.plist \
-            zig-out/bin/microvm
-      - uses: actions/upload-artifact@v4
-        with:
-          name: vmm-arm64-darwin
-          path: packages/microvm/zig-out/bin/microvm
-          if-no-files-found: error
+    uses: ./.github/workflows/_build-vmm-darwin-arm64.yml
 
   build-vmm-arm64-linux:
+    # Kept inline — smoke.yml doesn't run the Linux VMM (GitHub runners
+    # don't expose KVM), so this job has a single caller today.
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
@@ -75,23 +47,7 @@ jobs:
   # ------------------------------------------------------------
 
   build-base-assets:
-    runs-on: ubuntu-24.04-arm
-    steps:
-      - uses: actions/checkout@v4
-      - uses: mlugg/setup-zig@v2
-        with:
-          version: 0.16.0
-      - name: Install dtc
-        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends device-tree-compiler
-      - name: Build base assets
-        # Host is arm64 — Docker pulls native arm64 images without
-        # emulation (saves minutes vs. QEMU binfmt on an x86 runner).
-        run: ./scripts/build-base-assets.sh
-      - uses: actions/upload-artifact@v4
-        with:
-          name: base-assets
-          path: release-assets/
-          if-no-files-found: error
+    uses: ./.github/workflows/_build-base-assets.yml
 
   # ------------------------------------------------------------
   # Release — Changesets-driven. Opens a "Version Packages" PR on
