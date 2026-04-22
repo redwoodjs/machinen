@@ -73,22 +73,18 @@ fi
 # Build what's missing
 # ----------------------------------------------------------------
 
-if [[ ! -x "$VMM" ]]; then
-  echo "=== building VMM (~30s on first run) ==="
-  (cd "$ROOT/packages/microvm" && zig build -Doptimize=ReleaseSafe)
-fi
+# Always rebuild. Zig's incremental cache makes this ~1s on a warm
+# tree, and it guarantees local source edits are actually tested.
+echo "=== building VMM ==="
+(cd "$ROOT/packages/microvm" && zig build -Doptimize=ReleaseSafe)
 
 # On darwin the VMM needs the hypervisor entitlement or HVF fails
-# with HV_DENIED. Ad-hoc codesigning is cheap; re-sign if the current
-# binary doesn't carry the entitlement.
+# with HV_DENIED. Re-sign every time too — cheap, and the entitlement
+# file may have changed out from under us.
 if [[ "$OS" == "Darwin" ]]; then
-  if ! codesign -d --entitlements :- "$VMM" 2>/dev/null |
-    grep -q "com.apple.vm.hypervisor\|com.apple.security.hypervisor"; then
-    echo "=== codesigning VMM with hypervisor entitlement ==="
-    codesign -s - --force \
-      --entitlements "$ROOT/packages/microvm/entitlements.plist" \
-      "$VMM" 2>/dev/null
-  fi
+  codesign -s - --force \
+    --entitlements "$ROOT/packages/microvm/entitlements.plist" \
+    "$VMM" 2>/dev/null
 fi
 
 if [[ ! -f "$ASSETS/Image-arm64" ]]; then
