@@ -1,37 +1,75 @@
 #!/usr/bin/env bash
-# Smoke-test the machinen CLI against a real VMM + base assets.
+# End-to-end smoke tests for the machinen CLI.
 #
-# Requires:
-#   MACHINEN_VMM           Path to the built VMM binary (codesigned on
-#                          darwin, with the hypervisor entitlement).
-#   MACHINEN_ASSETS_DIR    Directory with Image-arm64, virt-arm64.dtb,
-#                          and rootfs-debian-arm64.tar.gz.
+# Local-only: boots a real guest and asserts on its output. GitHub-
+# hosted runners (macOS and Linux) don't expose nested virtualization,
+# so this can't run in hosted CI. Requires an Apple Silicon Mac with
+# HVF or a Linux machine with /dev/kvm.
 #
-# Also required on PATH:
-#   node, gtimeout (coreutils — `brew install coreutils` on darwin).
+# Invoke via `pnpm smoke-tests` from the repo root.
 #
 # Tests:
 #   T1  Base-only spawn — `echo hello-world` reaches the host console.
 #   T2  --mount exposes a host directory readable inside the guest.
 #   T3  Bundle wins on a /mnt/ collision — layering smoke.
 #
-# Run locally after `./scripts/build-base-assets.sh` and `zig build`:
+# Inputs (auto-discovered if unset):
+#   MACHINEN_VMM           Path to the built + codesigned VMM binary.
+#                          Default: packages/microvm/zig-out/bin/microvm
+#   MACHINEN_ASSETS_DIR    Directory with Image-arm64, virt-arm64.dtb,
+#                          rootfs-debian-arm64.tar.gz.
+#                          Default: ./release-assets
 #
-#   MACHINEN_VMM=$PWD/packages/microvm/zig-out/bin/microvm \
-#   MACHINEN_ASSETS_DIR=$PWD/release-assets \
-#   ./scripts/smoke-cli.sh
+# If either is missing, this script prints the command to produce it
+# and exits non-zero.
 
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 CLI="$ROOT/packages/cli/dist/cli.js"
 
-: "${MACHINEN_VMM:?required}"
-: "${MACHINEN_ASSETS_DIR:?required}"
-[[ -f "$CLI" ]] || {
-  echo "smoke: CLI not built at $CLI (run: pnpm -F @machinen/cli build)" >&2
-  exit 1
-}
+# Auto-discover the VMM binary in the local build output if the caller
+# didn't set MACHINEN_VMM explicitly.
+if [[ -z "${MACHINEN_VMM:-}" ]]; then
+  default_vmm="$ROOT/packages/microvm/zig-out/bin/microvm"
+  if [[ -x "$default_vmm" ]]; then
+    MACHINEN_VMM="$default_vmm"
+  else
+    cat >&2 <<EOF
+smoke: MACHINEN_VMM not set and no local build at $default_vmm
+
+Build it first:
+  (cd packages/microvm && zig build -Doptimize=ReleaseSafe)
+  codesign -s - --force \\
+    --entitlements packages/microvm/entitlements.plist \\
+    packages/microvm/zig-out/bin/microvm
+EOF
+    exit 1
+  fi
+fi
+
+# Auto-discover base assets if MACHINEN_ASSETS_DIR isn't set.
+if [[ -z "${MACHINEN_ASSETS_DIR:-}" ]]; then
+  default_assets="$ROOT/release-assets"
+  if [[ -f "$default_assets/Image-arm64" ]]; then
+    MACHINEN_ASSETS_DIR="$default_assets"
+  else
+    cat >&2 <<EOF
+smoke: MACHINEN_ASSETS_DIR not set and no local assets at $default_assets
+
+Build them first (needs Docker running):
+  ./scripts/build-base-assets.sh
+EOF
+    exit 1
+  fi
+fi
+
+# Auto-build the TS CLI if the dist bundle is missing. Cheap (~1s).
+if [[ ! -f "$CLI" ]]; then
+  echo "smoke: building @machinen/cli..."
+  pnpm -F @machinen/runtime -F @machinen/cli build >/dev/null
+fi
+
 [[ -x "$MACHINEN_VMM" ]] || {
   echo "smoke: MACHINEN_VMM is not executable: $MACHINEN_VMM" >&2
   exit 1
@@ -43,14 +81,17 @@ command -v gtimeout >/dev/null || {
 
 export MACHINEN_VMM MACHINEN_ASSETS_DIR
 
+echo "smoke: VMM=$MACHINEN_VMM"
+echo "smoke: ASSETS=$MACHINEN_ASSETS_DIR"
+echo
+
 FIXTURE=$(mktemp -d)
 trap 'rm -rf "$FIXTURE"' EXIT
 
 # Wall-clock ceiling per test. Each guest boots from scratch (no
 # snapshot yet), and a cold kernel + rootfs startup is ~5-10s; 60s
-# gives plenty of headroom for slow runners. `gtimeout -s TERM` lets
-# the CLI's SIGTERM handler kill the VMM cleanly instead of leaving
-# an orphan.
+# gives plenty of headroom. `gtimeout -s TERM` lets the CLI's SIGTERM
+# handler kill the VMM cleanly instead of leaving an orphan.
 TIMEOUT="gtimeout -s TERM 60"
 
 pass() { echo "  pass: $1"; }
