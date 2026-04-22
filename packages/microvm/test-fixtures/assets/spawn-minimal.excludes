@@ -1,7 +1,7 @@
 # Exclude list for the #50 spawn latency path.
 #
 # Patterns are fnmatch-style, matched against each entry's rootfs-
-# relative path during the walk in mkinitramfs.py. A match prunes the
+# relative path during the walk in mkinitramfs.ts. A match prunes the
 # entry (and, for directories, the whole subtree).
 #
 # The target scenario is spawn-warmup.sh + spawn-restore.sh: format

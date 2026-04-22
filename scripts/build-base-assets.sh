@@ -7,9 +7,9 @@
 #   *.sha256                       ← integrity sidecars
 #
 # Inputs (relative to repo root):
-#   packages/microvm/test-fixtures/virt.dts
-#   packages/microvm/test-fixtures/init.zig
-#   packages/microvm/test-fixtures/exec-agent.zig
+#   packages/microvm/assets/virt.dts
+#   packages/microvm/assets/init.zig
+#   packages/microvm/assets/exec-agent.zig
 #
 # Requirements:
 #   - docker (with arm64 emulation; GH runners have this by default via
@@ -22,7 +22,7 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-FIXTURES="${ROOT}/packages/microvm/test-fixtures"
+ASSETS="${ROOT}/packages/microvm/assets"
 OUT="${ROOT}/release-assets"
 
 mkdir -p "$OUT"
@@ -45,7 +45,7 @@ docker run --rm --platform linux/arm64 -v "$OUT":/out \
 # ------------------------------------------------------------
 
 echo "==> Compiling virt.dts -> virt-arm64.dtb"
-dtc -I dts -O dtb "${FIXTURES}/virt.dts" -o "${OUT}/virt-arm64.dtb"
+dtc -I dts -O dtb "${ASSETS}/virt.dts" -o "${OUT}/virt-arm64.dtb"
 
 # ------------------------------------------------------------
 # 3. Guest binaries: /init + /exec-agent, statically linked musl
@@ -56,7 +56,7 @@ STAGE=$(mktemp -d)
 trap 'rm -rf "$STAGE"' EXIT
 
 for name in init exec-agent; do
-  zig build-exe "${FIXTURES}/${name}.zig" \
+  zig build-exe "${ASSETS}/${name}.zig" \
     -target aarch64-linux-musl \
     -O ReleaseSmall \
     -lc \

@@ -7,7 +7,7 @@
 //! panics (same as today's init.c).
 //!
 //! Build (from packages/microvm):
-//!   zig build-exe test-fixtures/init.zig \
+//!   zig build-exe assets/init.zig \
 //!     -target aarch64-linux-musl -static -O ReleaseSmall \
 //!     -lc -femit-bin=test-fixtures/init
 //!

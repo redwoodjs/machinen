@@ -1,9 +1,9 @@
 #!/bin/sh
 # Guest side of the #57 file-agent smoke.
 #
-# Loads the vsock kernel modules and execs file-agent.py, which
-# binds AF_VSOCK port 1976 and loops accepting PUSH/PULL connections
-# from the host.
+# Loads the vsock kernel modules and execs /file-agent, which binds
+# AF_VSOCK port 1976 and loops accepting PUSH/PULL connections from
+# the host.
 
 PATH=/usr/local/bin:/usr/bin:/bin:/sbin
 export PATH
@@ -22,4 +22,4 @@ if [ ! -c /dev/vsock ]; then
     exit 1
 fi
 
-exec python3 /file-agent.py
+exec /file-agent

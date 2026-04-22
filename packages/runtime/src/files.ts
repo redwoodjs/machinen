@@ -1,6 +1,6 @@
 // Push files into / pull files out of a running guest over vsock (#57).
 //
-// Pairs with packages/microvm/test-fixtures/file-agent.py, which binds
+// Pairs with packages/microvm/assets/file-agent.zig, which binds
 // AF_VSOCK on port 1976. Boot the VMM with
 //   MACHINEN_VSOCK=in:1976:/tmp/machinen-files.sock
 // and these two calls round-trip files through the already-present

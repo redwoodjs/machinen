@@ -13,7 +13,7 @@
 //! can run many commands back-to-back.
 //!
 //! Build (from packages/microvm):
-//!   zig build-exe test-fixtures/exec-agent.zig \
+//!   zig build-exe assets/exec-agent.zig \
 //!     -target aarch64-linux-musl -O ReleaseSmall -lc \
 //!     -femit-bin=test-fixtures/exec-agent
 //!
