@@ -20,7 +20,7 @@ Modes:
                                   the base archive; we write one trailer
                                   at the END of the concatenated stream.
 """
-import fnmatch, os, shutil, stat, struct, subprocess, sys, tempfile
+import fnmatch, os, shutil, stat, struct, subprocess, sys, tempfile, time
 from pathlib import Path
 
 HERE = Path(__file__).parent
@@ -285,8 +285,10 @@ def main():
             sys.exit(2)
 
     merge_tmp = None
+    bundle_mode = False
 
     if args and args[0] == "--bundle":
+        bundle_mode = True
         # Bundle layout: <dir>/rootfs + <dir>/machinen-config.json.
         bundle = Path(args[1]).resolve()
         rootfs_dir = bundle / "rootfs"
@@ -333,14 +335,32 @@ def main():
             newc("dev", 0o40755),
             newc("init", 0o100755, data=init_bytes),
         ]
-    # Always ensure /init is our compiled one and /dev/console exists.
-    if INIT.exists():
+    # Legacy --rootfs callers (try.sh, smoke.sh, handoff.sh) pass a
+    # rootfs tree that doesn't carry its own /init, so we slap our
+    # pre-compiled test-fixtures/init on top. --bundle mode gets /init
+    # from the base rootfs tarball (built by build-base-assets.sh) and
+    # overriding it here would shadow build-time updates — don't.
+    if not bundle_mode and INIT.exists():
         init_bytes = INIT.read_bytes()
         parts.append(newc("init", 0o100755, data=init_bytes))
     if config_bytes is not None:
         parts.append(newc("machinen-config.json", 0o100644, data=config_bytes))
+    # Bake the host's current epoch so /init can set the guest clock.
+    # Without this the guest boots at 1970-01-01 and TLS + apt Release
+    # date validation break.
+    parts.append(newc("etc", 0o40755))
+    parts.append(newc(
+        "etc/machinen-boot-epoch",
+        0o100644,
+        data=str(int(time.time())).encode(),
+    ))
     parts.append(newc("dev", 0o40755))
     parts.append(newc("dev/console", 0o20600, rmajor=5, rminor=1))
+    # Force /tmp to the canonical sticky-world-writable (1777). The base
+    # tarball ships /tmp that way but macOS tar strips the sticky bit
+    # when extracting as non-root, so apt (which drops privs to _apt for
+    # downloads) fails with "Couldn't create temporary file".
+    parts.append(newc("tmp", 0o41777))
     # Trailer.
     parts.append(newc("TRAILER!!!", 0))
 
