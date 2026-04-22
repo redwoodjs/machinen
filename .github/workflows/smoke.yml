@@ -41,10 +41,12 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Install coreutils
-        # smoke-cli.sh uses gtimeout to cap each guest boot; BSD
-        # coreutils on macOS doesn't ship a `timeout` equivalent.
-        run: brew install coreutils
+      - name: Install runtime prerequisites
+        # libslirp: the VMM dylib-links the user-mode network backend;
+        #   the build runner has it but the runtime runner needs it too.
+        # coreutils: smoke-cli.sh uses gtimeout to cap each guest boot;
+        #   BSD coreutils on macOS doesn't ship a `timeout` equivalent.
+        run: brew install libslirp coreutils
 
       - uses: actions/download-artifact@v4
         with:
