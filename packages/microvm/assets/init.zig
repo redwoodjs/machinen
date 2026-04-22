@@ -127,6 +127,40 @@ fn bringUpNetwork() void {
     if (status != 0) logLine("init: machinen-netup exited non-zero — network may not be up");
 }
 
+// Load kernel modules that every machinen workload assumes are usable:
+//   virtio_blk — /dev/vda, for snapshot disks + persistent workspaces
+//   vsock stack — AF_VSOCK sockets; the exec-agent + file/secrets/winsize
+//                 agents all bind here. modprobe resolves the transport
+//                 dep chain (pulls in the _common module).
+//
+// All are in the base rootfs (whitelisted in scripts/build-base-assets.sh).
+// Best-effort: if a module is missing or fails to insert, log and move
+// on — the user cmd may still work depending on what it needs.
+// machinen-netup handles virtio_mmio + virtio_net separately so this
+// function stays focused on the non-network plumbing.
+fn loadPlumbingModules() void {
+    const mods = [_][*:0]const u8{
+        "virtio_blk",
+        "vmw_vsock_virtio_transport",
+    };
+    for (mods) |mod| {
+        const pid = fork();
+        if (pid < 0) continue;
+        if (pid == 0) {
+            const argv = [_:null]?[*:0]const u8{
+                "modprobe",
+                "-q",
+                mod,
+            };
+            const envp = [_:null]?[*:0]const u8{};
+            _ = execve("/sbin/modprobe", &argv, &envp);
+            _exit(127);
+        }
+        var status: c_int = 0;
+        _ = waitpid(pid, &status, 0);
+    }
+}
+
 fn waitForConsole() c_int {
     var i: u32 = 0;
     while (i < 100) : (i += 1) {
@@ -258,6 +292,7 @@ pub fn main() noreturn {
     writeStr(1, "\n=== machinen /init: reading /machinen-config.json ===\n");
 
     setBootClock();
+    loadPlumbingModules();
     bringUpNetwork();
 
     // Page allocator works on musl via mmap.
