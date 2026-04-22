@@ -12,9 +12,11 @@
 #   - release-assets/ (Image, dtb, rootfs tarball)  (~5 min, needs Docker)
 #
 # Tests:
-#   T1  Base-only spawn — `echo hello-world` reaches the host console.
-#   T2  --mount exposes a host directory readable inside the guest.
-#   T3  Bundle wins on a /mnt/ collision — layering smoke.
+#   V1-V4  Validation paths (no boot): host-missing, host-is-a-file,
+#          guest-outside-/mnt/, second --mount.
+#   T1     Base-only spawn — `echo hello-world` reaches the host console.
+#   T2     --mount exposes a host directory readable inside the guest.
+#   T3     Bundle wins on a /mnt/ collision — layering smoke.
 
 set -euo pipefail
 
@@ -134,6 +136,62 @@ run_timeout() {
 
 pass() { echo "  pass: $1"; }
 fail() { echo "  FAIL: $1" >&2; exit 1; }
+
+# Run the CLI and assert it exits non-zero with `needle` on stderr.
+# Used for validation paths that fail before any VMM boot, so no
+# run_timeout wrapping is needed — they return immediately.
+expect_cli_error() {
+  local label=$1
+  local needle=$2
+  shift 2
+  echo "$label"
+  local out
+  if out=$(node "$CLI" "$@" 2>&1); then
+    echo "  FAIL: expected error '$needle', CLI exited 0 with:" >&2
+    echo "$out" | head -20 >&2
+    exit 1
+  fi
+  if grep -q -- "$needle" <<<"$out"; then
+    pass "errored with '$needle'"
+  else
+    echo "  FAIL: expected '$needle' in output:" >&2
+    echo "$out" | head -20 >&2
+    exit 1
+  fi
+}
+
+# ----------------------------------------------------------------
+# Validation tests — no guest boot needed. Cheap, run first.
+# ----------------------------------------------------------------
+
+EMPTY_DIR="$FIXTURE/empty-dir"
+mkdir -p "$EMPTY_DIR"
+HOST_FILE="$FIXTURE/some-file.txt"
+echo "just-a-file" >"$HOST_FILE"
+
+expect_cli_error \
+  "V1: --mount with missing host path" \
+  "mount host path not found" \
+  run --mount "$FIXTURE/nope-does-not-exist:/mnt/x" -- true
+
+expect_cli_error \
+  "V2: --mount with a file instead of a directory" \
+  "must be a directory" \
+  run --mount "$HOST_FILE:/mnt/f" -- true
+
+expect_cli_error \
+  "V3: --mount with guest path outside /mnt/" \
+  "must live under /mnt/" \
+  run --mount "$EMPTY_DIR:/etc/passwd" -- true
+
+expect_cli_error \
+  "V4: second --mount rejected" \
+  "at most once" \
+  run --mount "$EMPTY_DIR:/mnt/a" --mount "$EMPTY_DIR:/mnt/b" -- true
+
+# ----------------------------------------------------------------
+# Boot tests — need HVF/KVM. Slow.
+# ----------------------------------------------------------------
 
 # ---- T1: base-only spawn with echo ----
 echo "T1: machinen run -- echo hello-world"
