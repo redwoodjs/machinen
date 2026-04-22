@@ -71,7 +71,7 @@ import { spawn, snapshot, restore } from "@machinen/runtime";
 const vm = await spawn({ bundle: "./examples/node-counter" });
 // ... let it run, serve traffic, accumulate state ...
 
-const artifact = await snapshot(vm);      // Buffer or writable stream
+const artifact = await snapshot(vm); // Buffer or writable stream
 await fs.writeFile("counter.tar", artifact);
 
 // elsewhere:
