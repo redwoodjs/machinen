@@ -535,9 +535,9 @@ function defaultInitPath(): string {
 // --- CLI entrypoint -----------------------------------------------
 
 /**
- * Invoked by the CLI shim at packages/microvm/test-fixtures/assets/mkinitramfs.ts.
- * Kept argv-compatible with the old Python script so shell fixtures
- * (smoke.sh, try.sh, handoff.sh) don't need deeper changes.
+ * CLI entrypoint for ad-hoc initramfs packing. Normal callers use
+ * packBundle() from @machinen/runtime; this exists so scripts that
+ * need to drive mkinitramfs from the shell have one.
  */
 export function cli(argv: string[]): void {
   if (argv[0] === "--workspace") {

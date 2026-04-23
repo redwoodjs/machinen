@@ -80,12 +80,11 @@ describe("spawn", () => {
       return;
     }
 
-    // We don't assume a particular /machinen-config.json cmd (the
-    // microvm package's smoke scripts rewrite it between runs). We
+    // We don't assume a particular /machinen-config.json cmd. We
     // check that spawn() starts the VMM, stderr streams back, and
     // the kernel boots far enough to say so. That's enough to prove
     // the spawn/stdio wiring works; driving a specific workload is
-    // the microvm package's job (see test-fixtures/assets/smoke.sh).
+    // the CLI's job (pnpm smoke-tests / pnpm machinen-dev).
     const vm = await spawn({
       binary,
       cwd: microvmRoot,

@@ -85,9 +85,9 @@ fn mkdirIgnore(path: [*:0]const u8) void {
     _ = mkdir(path, 0o755);
 }
 
-// Set the realtime clock from /etc/machinen-boot-epoch. mkinitramfs.ts
-// bakes the host's wall-clock epoch into the cpio at pack time; without
-// this the guest boots at 1970 and TLS / apt date checks fail.
+// Set the realtime clock from /etc/machinen-boot-epoch. @machinen/runtime's
+// mkinitramfs bakes the host's wall-clock epoch into the cpio at pack time;
+// without this the guest boots at 1970 and TLS / apt date checks fail.
 fn setBootClock() void {
     const fd = open("/etc/machinen-boot-epoch", O_RDONLY);
     if (fd < 0) return;

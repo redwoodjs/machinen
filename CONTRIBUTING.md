@@ -79,9 +79,9 @@ machinen run /tmp/example-bundle
 
 **Heads up on the current state:** the released VMM binary (`zig build`, i.e.
 `packages/microvm/src/main.zig`) is a scaffold — it prints a banner, detects
-HVF/KVM, and exits. The boot-Linux code path exists but is only reachable via
-`zig build test` + `packages/microvm/test-fixtures/assets/handoff.sh`. Wiring
-`main.zig` up to the real boot code is tracked separately.
+HVF/KVM, and exits. The boot-Linux code path exists but is driven by
+`@machinen/cli` (`pnpm smoke-tests`, `pnpm machinen-dev`). Wiring `main.zig`
+up to the real boot code is tracked separately.
 
 ## Tests, lint, format
 

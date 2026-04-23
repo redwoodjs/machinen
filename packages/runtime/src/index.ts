@@ -397,9 +397,9 @@ export interface SnapshotResult {
  * Prepare a snapshot image by booting the VMM in "warmup" mode.
  *
  * The caller is responsible for providing a binary + initramfs whose
- * /machinen-config.json points at a warmup entry (`spawn-warmup.sh`
- * in the microvm package's test-fixtures/assets is the reference). This
- * function just:
+ * /machinen-config.json points at a warmup entry that runs the
+ * workload, drives CRIU dump to /dev/vda, and triggers PSCI SYSTEM_OFF.
+ * This function just:
  *
  *   1. Creates `diskPath` as a blank `diskSizeBytes`-byte file.
  *   2. Launches the VMM with MACHINEN_DISK pointing at that file.
