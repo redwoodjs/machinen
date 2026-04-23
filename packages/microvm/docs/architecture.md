@@ -64,10 +64,12 @@ one device:
   to Unix-domain sockets via
   `MACHINEN_VSOCK=in:<port>:<path>,out:<port>:<path>`. No DHCP, no
   NAT, no port mapping; survives the guest reconfiguring `eth0`.
-- **`src/slirp.zig`** — user-mode networking via `libslirp`. Why:
+- **`src/net_socket.zig`** — virtio-net backend: dials a
+  [gvproxy](https://github.com/containers/gvisor-tap-vsock)
+  qemu-netdev Unix socket (length-prefixed ethernet frames). Why:
   gives the guest outbound internet without root privileges or tap
-  devices. libslirp is a userspace TCP/IP stack pretending to be the
-  outside world.
+  devices. gvproxy runs out-of-process as a userspace TCP/IP stack;
+  we just shuttle frames. Opt-in via `MACHINEN_NET_SOCKET=/path/to/sock`.
 
 ## What runs inside the guest
 
@@ -132,7 +134,7 @@ HOST                                       GUEST
    │  │  pl011  ──── console  ── serial bytes ──────────────────────▶ stdout/stderr        │
    │  │  virtio-blk ─────── │  │◀── block reqs ─────────────────────│  rootfs I/O          │
    │  │  virtio-vsock ───── │  │◀── control-plane packets ──────────│  vsock agents        │
-   │  │  slirp (net)  ───── │  │◀── IP packets ─────────────────────│  eth0 (outbound)     │
+   │  │  net_socket ─────── │  │◀── frames ↔ gvproxy UDS ───────────│  eth0 (outbound)     │
    │  └────────────────────┘  │                                     │                      │
    └──────────────────────────┘                                     └──────────────────────┘
          ▲                ▲
@@ -150,6 +152,6 @@ The code is the source of truth. Starting points:
 - `../src/boot_hvf.zig` / `../src/boot_kvm.zig` — kernel + DTB load, vCPU setup
 - `../src/hvf.zig` / `../src/kvm.zig` — the two hypervisor backends
 - `../src/pl011.zig`, `../src/virtio.zig`, `../src/blk.zig`,
-  `../src/vsock.zig`, `../src/slirp.zig` — device models
+  `../src/vsock.zig`, `../src/net_socket.zig` — device models
 - `../assets/init.zig` — the guest `/init`
 - `../../runtime/src/index.ts` — how the VMM gets driven from Node

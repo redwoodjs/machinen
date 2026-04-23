@@ -219,8 +219,8 @@ mkdir -p /root
 cat > /root/.bashrc <<'RC'
 export PS1='microvm:\w# '
 
-# Bring up eth0 with a static IP on slirp's network (10.0.2.15/24,
-# gateway 10.0.2.2, DNS 10.0.2.3), in one command.
+# Bring up eth0 with a static IP on gvproxy's network
+# (192.168.127.2/24, gateway+DNS 192.168.127.1), in one command.
 netup() {
     /bin/if-up eth0 || return 1
     python3 - <<'PY'
@@ -229,13 +229,13 @@ SIOCSIFADDR, SIOCSIFNETMASK = 0x8916, 0x891C
 def pack(ip):
     return struct.pack('16sH2s4s8s', b'eth0', socket.AF_INET, b'\x00\x00', socket.inet_aton(ip), b'\x00'*8)
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-fcntl.ioctl(s, SIOCSIFADDR,    pack('10.0.2.15'))
+fcntl.ioctl(s, SIOCSIFADDR,    pack('192.168.127.2'))
 fcntl.ioctl(s, SIOCSIFNETMASK, pack('255.255.255.0'))
 PY
-    /bin/gw-set 10.0.2.2 || return 1
+    /bin/gw-set 192.168.127.1 || return 1
     mkdir -p /etc
-    echo 'nameserver 10.0.2.3' > /etc/resolv.conf
-    echo 'network up: eth0=10.0.2.15, gw=10.0.2.2, dns=10.0.2.3'
+    echo 'nameserver 192.168.127.1' > /etc/resolv.conf
+    echo 'network up: eth0=192.168.127.2, gw=192.168.127.1, dns=192.168.127.1'
     echo 'try: http https://example.com'
 }
 

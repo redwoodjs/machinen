@@ -14,7 +14,7 @@ const builtin = @import("builtin");
 
 pub const hvf = if (builtin.os.tag == .macos) @import("hvf.zig") else struct {};
 pub const boot_hvf = if (builtin.os.tag == .macos) @import("boot_hvf.zig") else struct {};
-pub const slirp = if (builtin.os.tag == .macos) @import("slirp.zig") else struct {};
+pub const net_socket = if (builtin.os.tag == .macos) @import("net_socket.zig") else struct {};
 pub const kvm = if (builtin.os.tag == .linux) @import("kvm.zig") else struct {};
 pub const boot_kvm = if (builtin.os.tag == .linux) @import("boot_kvm.zig") else struct {};
 pub const virtio = @import("virtio.zig"); // pure Zig, builds everywhere

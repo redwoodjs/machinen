@@ -10,8 +10,7 @@
   },
   "files": [
     "bin/",
-    "index.mjs",
-    "postinstall.mjs"
+    "index.mjs"
   ],
   "os": [
     "linux"
@@ -20,8 +19,5 @@
     "arm64"
   ],
   "type": "module",
-  "main": "./index.mjs",
-  "scripts": {
-    "postinstall": "node postinstall.mjs"
-  }
+  "main": "./index.mjs"
 }

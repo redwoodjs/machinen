@@ -10,14 +10,9 @@ npm i -g @machinen/cli
 ```
 
 The matching VMM binary (`@machinen/vmm-arm64-darwin` or
-`@machinen/vmm-arm64-linux`) is pulled in via optional dependencies.
-
-A `libslirp` install is currently required at runtime:
-
-- macOS: `brew install libslirp`
-- Debian/Ubuntu: `apt install libslirp0`
-- Fedora/RHEL: `dnf install libslirp`
-- Alpine: `apk add libslirp`
+`@machinen/vmm-arm64-linux`) is pulled in via optional dependencies. Each VMM
+package also ships a sibling `gvproxy` binary that the runtime auto-spawns to
+provide guest networking — no system packages required.
 
 ## Commands
 

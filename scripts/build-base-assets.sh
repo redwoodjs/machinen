@@ -56,15 +56,16 @@ dtc -I dts -O dtb "${ASSETS}/virt.dts" -o "${OUT}/virt-arm64.dtb"
 #    (all statically linked against musl)
 # ------------------------------------------------------------
 
-echo "==> Building guest binaries (init, exec-agent, CRIU helpers, poweroff) for aarch64-linux-musl"
+echo "==> Building guest binaries (init, exec-agent, CRIU helpers, poweroff, net-bench-probe) for aarch64-linux-musl"
 STAGE=$(mktemp -d)
 trap 'rm -rf "$STAGE"' EXIT
 
 # init + exec-agent land at /init and /exec-agent (machinen-owned root
 # entrypoints). lo-up, no-iou, poweroff are machinen-namespaced helpers
 # needed by any CRIU-based snapshot flow; they go under /sbin with the
-# machinen- prefix alongside machinen-netup.
-for name in init exec-agent lo-up no-iou poweroff; do
+# machinen- prefix alongside machinen-netup. net-bench-probe is the
+# #82 gvproxy throughput/latency probe used by the smoke harness.
+for name in init exec-agent lo-up no-iou poweroff net-bench-probe; do
   zig build-exe "${ASSETS}/${name}.zig" \
     -target aarch64-linux-musl \
     -O ReleaseSmall \
@@ -243,11 +244,11 @@ find /work/rootfs/usr/share/locale -mindepth 1 -maxdepth 1 \
 rm -rf /work/rootfs/dev
 mkdir -m 0755 /work/rootfs/dev
 
-# DNS resolver. SLIRP (see packages/microvm/src/slirp.zig) exposes a
-# virtual nameserver at 10.0.2.3. Without a resolv.conf, glibc falls
-# back to 127.0.0.1 which has nothing listening — `apt-get update`
-# and any other hostname lookup will fail.
-echo "nameserver 10.0.2.3" > /work/rootfs/etc/resolv.conf
+# DNS resolver. gvproxy (containers/gvisor-tap-vsock) runs its own DNS
+# forwarder on the gateway IP (192.168.127.1). Without a resolv.conf,
+# glibc falls back to 127.0.0.1 which has nothing listening —
+# `apt-get update` and any other hostname lookup will fail.
+echo "nameserver 192.168.127.1" > /work/rootfs/etc/resolv.conf
 
 install -m 0755 /stage/init       /work/rootfs/init
 install -m 0755 /stage/exec-agent /work/rootfs/exec-agent
@@ -255,6 +256,7 @@ install -m 0755 -D /stage/machinen-netup    /work/rootfs/sbin/machinen-netup
 install -m 0755 -D /stage/lo-up             /work/rootfs/sbin/machinen-lo-up
 install -m 0755 -D /stage/no-iou            /work/rootfs/sbin/machinen-no-iou
 install -m 0755 -D /stage/poweroff          /work/rootfs/sbin/machinen-poweroff
+install -m 0755 -D /stage/net-bench-probe   /work/rootfs/sbin/machinen-net-bench-probe
 
 # Deterministic tar + gzip written as a single file to the bind mount.
 tar --sort=name --owner=0 --group=0 --numeric-owner \
