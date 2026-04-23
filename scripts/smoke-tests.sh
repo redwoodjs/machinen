@@ -17,6 +17,7 @@
 #   T1     Base-only spawn — `echo hello-world` reaches the host console.
 #   T2     --mount exposes a host directory readable inside the guest.
 #   T3     Bundle wins on a /mnt/ collision — layering smoke.
+#   T4     --env propagates into the guest process env — #89.
 
 set -euo pipefail
 
@@ -232,6 +233,21 @@ if grep -q "$T3_BUNDLE_MARKER" "$T3_LOG" && ! grep -q "$T3_MOUNT_MARKER" "$T3_LO
 else
   tail -50 "$T3_LOG" >&2
   fail "T3 expected $T3_BUNDLE_MARKER (not $T3_MOUNT_MARKER) in guest output"
+fi
+
+# ---- T4: --env propagates into the guest process env (#89) ----
+echo "T4: machinen run --env FOO=bar -- sh -c 'echo FOO=\$FOO'"
+T4_MARKER="env-marker-$$"
+T4_LOG="$FIXTURE/t4.log"
+run_timeout 60 node "$CLI" run \
+  --env "FOO=$T4_MARKER" \
+  -- /bin/sh -c 'echo FOO=$FOO' \
+  >"$T4_LOG" 2>&1 || true
+if grep -q "FOO=$T4_MARKER" "$T4_LOG"; then
+  pass "--env value visible inside the guest"
+else
+  tail -50 "$T4_LOG" >&2
+  fail "T4 marker (FOO=$T4_MARKER) not found in guest output"
 fi
 
 # ----------------------------------------------------------------
