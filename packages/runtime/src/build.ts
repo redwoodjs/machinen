@@ -39,7 +39,7 @@ import {
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { VsockExec, type VsockExecResult } from "./exec.ts";
-import { spawn, SpawnError } from "./index.ts";
+import { spawn } from "./index.ts";
 
 export class BuildError extends Error {}
 
@@ -230,10 +230,13 @@ export async function build(opts: BuildOptions): Promise<BuildResult> {
     const stderrTail = () => Buffer.concat(tailBuf).slice(-TAIL_MAX).toString("utf8");
 
     try {
-      // Hand control to the install hook.
+      // Hand control to the install hook. Per-command exec timeout
+      // inherits the outer build deadline — any single command that
+      // runs that long has already blown the budget; VsockExec's own
+      // 5-min default would otherwise trip first on slow libslirp.
       const handle: BuildHandle = {
         exec: async (cmd: string) => {
-          const res = await VsockExec.run(udsPath, cmd);
+          const res = await VsockExec.run(udsPath, cmd, { execTimeoutMs: deadlineMs });
           if (res.exitCode !== 0) {
             throw new BuildError(
               `exec failed (code ${res.exitCode}): ${cmd}\nstderr:\n${res.stderr}`,
@@ -241,14 +244,16 @@ export async function build(opts: BuildOptions): Promise<BuildResult> {
           }
           return res;
         },
-        execRaw: (cmd: string) => VsockExec.run(udsPath, cmd),
+        execRaw: (cmd: string) => VsockExec.run(udsPath, cmd, { execTimeoutMs: deadlineMs }),
       };
       try {
         await opts.install(handle);
       } catch (err) {
         const tail = stderrTail();
         const msg = err instanceof Error ? err.message : String(err);
-        throw new BuildError(`install hook failed: ${msg}\n--- VMM stderr (last 8 KB) ---\n${tail}`);
+        throw new BuildError(
+          `install hook failed: ${msg}\n--- VMM stderr (last 8 KB) ---\n${tail}`,
+        );
       }
 
       // Post-install: archive / to /dev/vda, then tell the guest to
@@ -314,31 +319,26 @@ function allocateSparseFile(path: string, sizeBytes: number): void {
 
 /**
  * Read the raw tar stream the guest wrote to the scratch disk and
- * re-emit it as a deterministic gzipped tarball. Extract+re-tar rather
- * than pipe tar through gzip directly: tar -x reliably stops at the
- * two-zero-block trailer on a block device / padded file, and a second
- * tar -c gives us the same deterministic options as the base rootfs.
+ * re-emit it as a gzipped tarball. Extract+re-tar rather than pipe tar
+ * through gzip directly: `tar -x` reliably stops at the two-zero-block
+ * trailer on a padded block device, so we don't have to size-trim the
+ * scratch file ourselves.
+ *
+ * The guest's tar already normalized ordering + ownership via GNU flags
+ * (`--sort=name --numeric-owner --owner=0 --group=0`), so the extracted
+ * tree is already deterministic. The host re-tar only needs to gzip;
+ * using only the flags both GNU tar (Linux/CI) and bsdtar (macOS) accept
+ * keeps the build path cross-platform. Byte-for-byte reproducibility
+ * across hosts is a nice-to-have we can layer on later if it ever
+ * matters (swap in a Node-side tar writer).
  */
 function repackDiskTarToGz(diskPath: string, outAbs: string): void {
   const extractDir = mkdtempSync(join(tmpdir(), "machinen-build-extract-"));
   try {
     execFileSync("tar", ["-xf", diskPath, "-C", extractDir]);
-    execFileSync(
-      "tar",
-      [
-        "--sort=name",
-        "--numeric-owner",
-        "--owner=0",
-        "--group=0",
-        "--mtime=2020-01-01 00:00Z",
-        "-czf",
-        outAbs,
-        "-C",
-        extractDir,
-        ".",
-      ],
-      { stdio: ["ignore", "ignore", "inherit"] },
-    );
+    execFileSync("tar", ["-czf", outAbs, "-C", extractDir, "."], {
+      stdio: ["ignore", "ignore", "inherit"],
+    });
   } finally {
     try {
       rmSync(extractDir, { recursive: true, force: true });
