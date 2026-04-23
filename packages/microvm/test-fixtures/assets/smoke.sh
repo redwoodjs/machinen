@@ -11,11 +11,15 @@
 #          kernel's virtio-net driver bound to our virtio-MMIO device.
 #   net-bench  Boot, run 100 TCP ping-pongs against a host echo server
 #          through slirp's vhost NAT (10.0.2.2), report μs-per-ping (#82).
+#   node-http  Boot with a Node HTTP server listening on :3000, install
+#          a host->guest forward via gvproxy's control API, assert
+#          curl on 127.0.0.1:<host_port> returns 200 + expected body
+#          (#87).
 #
 # Prints pass/fail per check and exits non-zero if any fail. Writes
 # full guest-console logs to /tmp/microvm-smoke-*.log for post-mortems.
 #
-# Usage: ./test-fixtures/assets/smoke.sh [repl|criu|net|net-bench|all]   (default: all)
+# Usage: ./test-fixtures/assets/smoke.sh [repl|criu|net|net-bench|node-http|all]   (default: all)
 #
 # These require an Apple Silicon host with the HVF entitlement setup.
 # They aren't wired into `zig build test` because they depend on
@@ -813,6 +817,138 @@ PY
         || fail 'no applied 132x50 on /dev/console'
 }
 
+smoke_node_http() {
+    echo "--- node-http (host->guest port forward) ---"
+    local log=/tmp/microvm-smoke-node-http.log
+    local host_port=38087
+    local guest_port=3000
+
+    if ! command -v gvproxy >/dev/null; then
+        echo "  skip: gvproxy not on PATH; node-http requires the control API"
+        return
+    fi
+    if lsof -iTCP:"$host_port" -sTCP:LISTEN -n -P >/dev/null 2>&1; then
+        fail "node-http: host port $host_port already in use"
+        return
+    fi
+
+    # Same C helpers smoke_net brings up — the guest needs eth0 + a
+    # default route before it can accept traffic coming from gvproxy.
+    for helper in if-up gw-set; do
+        src=$FIXTURES/assets/$helper.c
+        bin=$ROOTFS/usr/bin/$helper
+        if [[ ! -x "$bin" || "$src" -nt "$bin" ]]; then
+            zig cc -target aarch64-linux-musl -static -Os -o "$bin" "$src"
+        fi
+    done
+
+    # Spawn gvproxy with BOTH listeners: -listen-qemu for the VMM's
+    # netdev socket, --listen for the control API we POST to.
+    local gv_qemu gv_ctrl
+    gv_qemu=$(mktemp -u /tmp/machinen-gv.XXXXXX.sock)
+    gv_ctrl=$(mktemp -u /tmp/machinen-gv-ctrl.XXXXXX.sock)
+    gvproxy -listen-qemu "unix://$gv_qemu" -listen "unix://$gv_ctrl" \
+        >/tmp/microvm-smoke-node-http-gvproxy.log 2>&1 &
+    local gv_pid=$!
+    for _ in $(seq 1 40); do
+        [[ -S "$gv_qemu" && -S "$gv_ctrl" ]] && break
+        sleep 0.05
+    done
+    if [[ ! -S "$gv_qemu" || ! -S "$gv_ctrl" ]]; then
+        kill "$gv_pid" 2>/dev/null || true
+        fail "node-http: gvproxy did not create both sockets"
+        return
+    fi
+
+    # POST to the control API: bind 127.0.0.1:host_port on the host,
+    # forward to 192.168.127.2:guest_port in the guest.
+    local expose_status
+    expose_status=$(curl -sS --unix-socket "$gv_ctrl" -o /tmp/microvm-smoke-node-http-expose.out -w '%{http_code}' \
+        -X POST http:/unix/services/forwarder/expose \
+        -H 'content-type: application/json' \
+        -d "{\"local\":\"127.0.0.1:$host_port\",\"remote\":\"192.168.127.2:$guest_port\"}" || echo "curl-err")
+    if [[ "$expose_status" != "2"* ]]; then
+        kill "$gv_pid" 2>/dev/null || true
+        fail "node-http: gvproxy expose failed (status=$expose_status, body=$(cat /tmp/microvm-smoke-node-http-expose.out 2>/dev/null))"
+        return
+    fi
+
+    # Drop in the server + bring-up sequence. The guest must wire
+    # eth0 + default route before node listens, otherwise gvproxy's
+    # forwarded connection can't reach the server socket.
+    cat > "$ROOTFS/node-http-demo.sh" <<'DEMO'
+#!/bin/sh
+set -e
+# Bring up loopback + eth0 via gvproxy's DHCP (192.168.127.2/24).
+ip link set lo up
+if-up eth0 192.168.127.2 255.255.255.0
+gw-set 192.168.127.1
+# Start the server, write a readiness line the harness can grep on.
+cat > /server.js <<'JS'
+import { createServer } from "node:http";
+createServer((_req, res) => {
+  res.writeHead(200, { "content-type": "text/plain" });
+  res.end("hello from microvm\n");
+}).listen(3000, "0.0.0.0", () => {
+  console.log("node-http: listening on 0.0.0.0:3000");
+});
+JS
+exec /usr/local/bin/node /server.js
+DEMO
+    chmod +x "$ROOTFS/node-http-demo.sh"
+
+    repack_with "write_config /bin/sh /node-http-demo.sh"
+
+    # Boot the VMM with the gvproxy qemu-netdev socket.
+    MACHINEN_NET_SOCKET="$gv_qemu" MACHINEN_DEBUG=1 MACHINEN_BOOT_TEST=1 \
+        "$TEST_BIN" </dev/null >"$log" 2>&1 &
+    local vm_pid=$!
+
+    # Wait for the server to report readiness, up to 30s.
+    local elapsed=0 ready=0
+    while (( elapsed < 30 )); do
+        if grep -q 'node-http: listening on 0.0.0.0:3000' "$log" 2>/dev/null; then
+            ready=1
+            break
+        fi
+        sleep 1
+        (( ++elapsed ))
+    done
+    if (( ready == 0 )); then
+        fail 'node-http: guest never reported server readiness'
+        kill -9 "$vm_pid" 2>/dev/null || true
+        wait "$vm_pid" 2>/dev/null || true
+        kill "$gv_pid" 2>/dev/null || true
+        rm -f "$gv_qemu" "$gv_ctrl" "$ROOTFS/node-http-demo.sh"
+        tail -50 "$log"
+        return
+    fi
+    pass 'node-http: guest server reported listening'
+
+    # Host-side round trip.
+    local body status
+    body=$(curl -sS -o /tmp/microvm-smoke-node-http-curl.out -w '%{http_code}' \
+        "http://127.0.0.1:$host_port/" || echo "curl-err")
+    status=$body
+    body=$(cat /tmp/microvm-smoke-node-http-curl.out 2>/dev/null || echo '')
+
+    kill -9 "$vm_pid" 2>/dev/null || true
+    wait "$vm_pid" 2>/dev/null || true
+    kill "$gv_pid" 2>/dev/null || true
+    rm -f "$gv_qemu" "$gv_ctrl" "$ROOTFS/node-http-demo.sh"
+
+    if [[ "$status" == "200" ]]; then
+        pass "node-http: curl host:$host_port returned 200"
+    else
+        fail "node-http: curl status=$status (expected 200)"
+    fi
+    if [[ "$body" == "hello from microvm" ]]; then
+        pass 'node-http: response body matched expected'
+    else
+        fail "node-http: body='$body' (expected 'hello from microvm')"
+    fi
+}
+
 smoke_vsock_out() {
     echo "--- vsock-out (guest-initiated) ---"
     local log=/tmp/microvm-smoke-vsock-out.log
@@ -902,7 +1038,8 @@ case "$MODE" in
     winsize)           smoke_winsize ;;
     files)             smoke_files ;;
     cc-session-vsock)  smoke_cc_session_vsock ;;
-    all)               smoke_repl; smoke_criu; smoke_net; smoke_net_bench; smoke_blk; smoke_cc; smoke_spawn; smoke_vsock; smoke_vsock_out; smoke_winsize; smoke_files; smoke_cc_session; smoke_cc_session_vsock ;;
+    node-http)         smoke_node_http ;;
+    all)               smoke_repl; smoke_criu; smoke_net; smoke_net_bench; smoke_blk; smoke_cc; smoke_spawn; smoke_vsock; smoke_vsock_out; smoke_winsize; smoke_files; smoke_node_http; smoke_cc_session; smoke_cc_session_vsock ;;
     *) echo "unknown mode: $MODE" >&2; exit 2 ;;
 esac
 
