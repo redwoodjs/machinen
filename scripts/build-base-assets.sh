@@ -243,11 +243,11 @@ find /work/rootfs/usr/share/locale -mindepth 1 -maxdepth 1 \
 rm -rf /work/rootfs/dev
 mkdir -m 0755 /work/rootfs/dev
 
-# DNS resolver. SLIRP (see packages/microvm/src/slirp.zig) exposes a
-# virtual nameserver at 10.0.2.3. Without a resolv.conf, glibc falls
-# back to 127.0.0.1 which has nothing listening — `apt-get update`
-# and any other hostname lookup will fail.
-echo "nameserver 10.0.2.3" > /work/rootfs/etc/resolv.conf
+# DNS resolver. gvproxy (containers/gvisor-tap-vsock) runs its own DNS
+# forwarder on the gateway IP (192.168.127.1). Without a resolv.conf,
+# glibc falls back to 127.0.0.1 which has nothing listening —
+# `apt-get update` and any other hostname lookup will fail.
+echo "nameserver 192.168.127.1" > /work/rootfs/etc/resolv.conf
 
 install -m 0755 /stage/init       /work/rootfs/init
 install -m 0755 /stage/exec-agent /work/rootfs/exec-agent

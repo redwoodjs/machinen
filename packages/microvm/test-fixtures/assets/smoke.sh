@@ -166,7 +166,39 @@ smoke_net() {
         chmod +x $ROOTFS/net-demo.sh
         write_config /bin/sh /net-demo.sh
     "
+
+    # Stand up gvproxy so the guest has somewhere to talk. If it isn't
+    # installed, skip the traffic-asserting portion of the test — the
+    # virtio wiring checks can still run without a backend.
+    local gv_pid="" gv_sock=""
+    if command -v gvproxy >/dev/null; then
+        gv_sock=$(mktemp -u /tmp/machinen-gv.XXXXXX.sock)
+        gvproxy -listen-qemu "unix://$gv_sock" >/tmp/microvm-smoke-gvproxy.log 2>&1 &
+        gv_pid=$!
+        # Wait (up to ~2s) for the socket to appear.
+        for _ in $(seq 1 40); do
+            [[ -S "$gv_sock" ]] && break
+            sleep 0.05
+        done
+        if [[ ! -S "$gv_sock" ]]; then
+            echo "  skip: gvproxy did not create $gv_sock; running net smoke without a backend"
+            kill "$gv_pid" 2>/dev/null || true
+            gv_pid=""
+        else
+            export MACHINEN_NET_SOCKET="$gv_sock"
+        fi
+    else
+        echo "  note: gvproxy not on PATH; running net smoke without a backend"
+    fi
+
     run_vmm 'printf ""' 40 "$log"
+
+    # Tear gvproxy down regardless of outcome.
+    if [[ -n "$gv_pid" ]]; then
+        kill "$gv_pid" 2>/dev/null || true
+        unset MACHINEN_NET_SOCKET
+        rm -f "$gv_sock"
+    fi
 
     grep -q '^eth0'                 "${log}.clean" && pass 'eth0 interface present'        || fail 'eth0 not found'
     grep -q 'virtio0 device=0x0001' "${log}.clean" && pass 'virtio-net bound on virtio0'   || fail 'virtio0 not bound to virtio-net'
@@ -184,22 +216,26 @@ smoke_net() {
         fail "TX queue did not drain (tx_packets='$tx_after')"
     fi
 
-    # M3 foundation: host read the actual frame bytes out of guest
-    # memory and classified them. IPv6 multicast frames are what the
-    # kernel auto-emits; any of them hitting the `[tx]` log proves
-    # the readout path works, not just the descriptor accounting.
+    # Foundation: host read the actual frame bytes out of guest memory
+    # and classified them. IPv6 multicast frames are what the kernel
+    # auto-emits; any of them hitting the `[tx]` log proves the readout
+    # path works, not just the descriptor accounting.
     grep -q '^\[tx\] .* class=ipv6-mcast' "${log}" \
         && pass 'host received IPv6 multicast frames from guest' \
         || fail 'no IPv6-mcast frames captured on host'
 
-    # M3 proper: libslirp resolves DNS and a TCP fetch returns a 200.
-    # Asserts real packet flow both directions through our virtqueues.
-    grep -q 'dns: example.com ->' "${log}.clean" \
-        && pass 'DNS resolved via slirp' \
-        || fail 'DNS did not resolve through slirp'
-    grep -q 'first line: HTTP/1.1 200 OK' "${log}.clean" \
-        && pass 'TCP+HTTP round trip via slirp' \
-        || fail 'HTTP GET did not return 200'
+    # Traffic assertions only run when gvproxy was running — without a
+    # backend the frames have nowhere to go and DNS/HTTP won't resolve.
+    if [[ -n "$gv_pid" ]]; then
+        grep -q 'dns: example.com ->' "${log}.clean" \
+            && pass 'DNS resolved via gvproxy' \
+            || fail 'DNS did not resolve through gvproxy'
+        grep -q 'first line: HTTP/1.1 200 OK' "${log}.clean" \
+            && pass 'TCP+HTTP round trip via gvproxy' \
+            || fail 'HTTP GET did not return 200'
+    else
+        echo "  skip: DNS + HTTP assertions (no gvproxy backend)"
+    fi
 }
 
 # #82: measures guest -> host-loopback TCP round-trip latency through

@@ -1,8 +1,8 @@
 #!/bin/sh
-# Exercise the virtio-net + libslirp path end to end.
+# Exercise the virtio-net + gvproxy path end to end.
 #
 # Loads the virtio modules so the kernel probes our device, brings
-# eth0 up, then runs a DHCP client against libslirp's DHCP server.
+# eth0 up, then configures a static IP on gvproxy's subnet.
 # Reports what we can observe from inside the guest: MAC address,
 # tx/rx counters, operstate, IPv4 address, and a ping/curl attempt.
 PATH=/usr/local/bin:/usr/bin:/bin:/sbin
@@ -35,7 +35,7 @@ echo "=== bringing eth0 up ==="
 sleep 1
 
 echo
-echo "=== assigning eth0 a static IP (slirp's DHCP range starts at 10.0.2.15) ==="
+echo "=== assigning eth0 a static IP (first in gvproxy's DHCP pool) ==="
 python3 - <<'PY' 2>&1 | head -12
 import socket, fcntl, struct
 SIOCSIFADDR = 0x8916
@@ -43,17 +43,17 @@ SIOCSIFNETMASK = 0x891C
 def pack(ip):
     return struct.pack('16sH2s4s8s', b'eth0', socket.AF_INET, b'\x00\x00', socket.inet_aton(ip), b'\x00'*8)
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-fcntl.ioctl(s, SIOCSIFADDR,    pack('10.0.2.15'))
+fcntl.ioctl(s, SIOCSIFADDR,    pack('192.168.127.2'))
 fcntl.ioctl(s, SIOCSIFNETMASK, pack('255.255.255.0'))
-print("eth0 configured 10.0.2.15/24")
+print("eth0 configured 192.168.127.2/24")
 PY
 
 echo
-echo "=== adding default route via slirp gateway ==="
-/bin/gw-set 10.0.2.2 && echo "default route -> 10.0.2.2" || echo "gw-set failed $?"
+echo "=== adding default route via gvproxy gateway ==="
+/bin/gw-set 192.168.127.1 && echo "default route -> 192.168.127.1" || echo "gw-set failed $?"
 
 echo
-echo "=== resolving api.anthropic.com via slirp (the real target) ==="
+echo "=== resolving api.anthropic.com via gvproxy (the real target) ==="
 python3 - <<'PY' 2>&1 | head -5
 import socket
 try:
@@ -63,13 +63,13 @@ except Exception as e:
 PY
 
 echo
-echo "=== resolving + fetching example.com via slirp ==="
-# /etc/resolv.conf points at slirp's built-in DNS forwarder (10.0.2.3).
-mkdir -p /etc && echo 'nameserver 10.0.2.3' > /etc/resolv.conf
+echo "=== resolving + fetching example.com via gvproxy ==="
+# /etc/resolv.conf points at gvproxy's built-in DNS forwarder (192.168.127.1).
+mkdir -p /etc && echo 'nameserver 192.168.127.1' > /etc/resolv.conf
 # Use Python (already present) rather than risking a missing curl.
 python3 - <<'PY' 2>&1 | head -25
 import socket, time
-# Try DNS first. slirp proxies UDP/53 to the host resolver.
+# Try DNS first. gvproxy proxies UDP/53 to the host resolver.
 try:
     ip = socket.gethostbyname('example.com')
     print("dns: example.com ->", ip)
