@@ -88,6 +88,12 @@ if [[ ! -f "$CLI" ]]; then
   pnpm -F @machinen/runtime -F @machinen/cli build >/dev/null
 fi
 
+# Stage gvproxy next to the locally-built VMM so the runtime's
+# sibling-lookup in resolveGvproxyBinary() finds it. Same script the
+# release workflow runs (see .github/workflows/release.yml) — single
+# source of truth for the pinned version.
+"$ROOT/scripts/install-gvproxy.sh" --dest "$(dirname "$VMM")"
+
 export MACHINEN_VMM="$VMM"
 export MACHINEN_ASSETS_DIR="$ASSETS"
 

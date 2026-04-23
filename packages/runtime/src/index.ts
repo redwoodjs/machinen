@@ -12,6 +12,8 @@ export { VsockExec } from "./exec.ts";
 export type { VsockExecOptions, VsockExecResult } from "./exec.ts";
 export { build, BuildError, resolveBaseRootfs } from "./build.ts";
 export type { BuildHandle, BuildOptions, BuildResult } from "./build.ts";
+export { spawnArtifactCache, resolveCacheDir } from "./artifact-cache.ts";
+export type { ArtifactCacheHandle, ArtifactCacheOptions } from "./artifact-cache.ts";
 export {
   packBundle as mkinitramfsBundle,
   packRootfs as mkinitramfsRootfs,
@@ -48,6 +50,7 @@ import { join, resolve } from "node:path";
 import type { Readable, Writable } from "node:stream";
 import { packBundle as mkinitramfsPackBundle } from "./mkinitramfs.ts";
 import { exposePort, resolveGvproxyBinary, spawnGvproxy, warnGvproxyMissing } from "./gvproxy.ts";
+import { spawnArtifactCache } from "./artifact-cache.ts";
 
 export class SpawnError extends Error {}
 
@@ -286,13 +289,32 @@ export async function spawn(opts: SpawnOptions = {}): Promise<VmHandle> {
     }
   }
 
+  // Host-side artifact cache (#88). Only makes sense when networking
+  // is available — without gvproxy the guest can't reach loopback on
+  // the host anyway. Caller can override FNM_NODE_DIST_MIRROR to point
+  // somewhere else (e.g. to disable the cache entirely in tests).
+  let cacheStop: (() => Promise<void>) | undefined;
+  if (env.MACHINEN_NET_SOCKET) {
+    try {
+      const cache = await spawnArtifactCache();
+      cacheStop = cache.stop;
+      if (!env.FNM_NODE_DIST_MIRROR) {
+        env.FNM_NODE_DIST_MIRROR = `http://192.168.127.1:${cache.port}/node-dist`;
+      }
+    } catch (err) {
+      process.stderr.write(
+        `machinen: artifact cache failed to start (${err instanceof Error ? err.message : String(err)}) — continuing without it\n`,
+      );
+    }
+  }
+
   const child = nodeSpawn(binary, opts.args ?? [], {
     cwd: opts.cwd,
     env,
     stdio: ["pipe", "pipe", "pipe"],
   }) as ChildProcessWithoutNullStreams;
 
-  if (bundleTempDir || gvStop) {
+  if (bundleTempDir || gvStop || cacheStop) {
     child.once("exit", () => {
       if (bundleTempDir) {
         try {
@@ -301,6 +323,9 @@ export async function spawn(opts: SpawnOptions = {}): Promise<VmHandle> {
       }
       if (gvStop) {
         gvStop();
+      }
+      if (cacheStop) {
+        void cacheStop();
       }
     });
   }
