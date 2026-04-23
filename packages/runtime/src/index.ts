@@ -145,6 +145,14 @@ export interface SpawnOptions {
    * #64. Live-share follow-up: #78.
    */
   mount?: { host: string; guest: string };
+  /**
+   * Env vars to expose to the guest workload (i.e. to the process
+   * `cmd` execs inside the VM). Merged into the `env` field of the
+   * packed `/machinen-config.json`; the bundle's on-disk env wins on
+   * key collision. Distinct from `env`, which only affects the host-
+   * side VMM process. See #89.
+   */
+  guestEnv?: Record<string, string>;
 }
 
 export interface VmHandle {
@@ -351,7 +359,13 @@ function packBundle(opts: SpawnOptions): { tempDir: string; cpioPath: string } {
   }
 
   try {
-    mkinitramfsPackBundle({ bundle: bundleDir, out: cpioPath, base: baseAbs, mount });
+    mkinitramfsPackBundle({
+      bundle: bundleDir,
+      out: cpioPath,
+      base: baseAbs,
+      mount,
+      guestEnv: opts.guestEnv,
+    });
   } catch (err) {
     cleanup();
     const msg = err instanceof Error ? err.message : String(err);

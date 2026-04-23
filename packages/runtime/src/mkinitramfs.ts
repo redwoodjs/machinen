@@ -324,6 +324,13 @@ export interface PackBundleOptions {
    * and is a directory, and that guest lives under `/mnt/`. See #64.
    */
   mount?: { host: string; guest: string };
+  /**
+   * Extra env vars to merge into the bundle's machinen-config.json `env`
+   * field before packing. The bundle's on-disk env wins on key collision
+   * (same precedence as the mount overlay — bundle always gets the last
+   * word). See #89.
+   */
+  guestEnv?: Record<string, string>;
   /** fnmatch patterns matched against each rootfs-relative path. */
   excludes?: string[];
   /** Optional path to the compiled /init. Default: ../microvm/test-fixtures/init relative to this file. */
@@ -375,7 +382,7 @@ export function packBundle(opts: PackBundleOptions): void {
     }
     appendFinalEntries(parts, {
       initPath: opts.initPath ?? defaultInitPath(),
-      config: readFileSync(cfgPath),
+      config: patchConfigEnv(readFileSync(cfgPath), opts.guestEnv),
       injectInit: false,
     });
     writeFileSync(opts.out, Buffer.concat(parts));
@@ -384,6 +391,28 @@ export function packBundle(opts: PackBundleOptions): void {
       rmSync(mergeTmp, { recursive: true, force: true });
     }
   }
+}
+
+/**
+ * Merge runtime-injected env into the bundle's machinen-config.json
+ * `env` object. Bundle keys win on collision: the on-disk config is the
+ * source of truth, and runtime injection fills in anything it hasn't
+ * already declared. Bundles without an `env` field get one created.
+ *
+ * Returns the original buffer unchanged when there's nothing to inject,
+ * so unrelated callers don't pay a parse/stringify round-trip.
+ */
+export function patchConfigEnv(config: Buffer, guestEnv?: Record<string, string>): Buffer {
+  if (!guestEnv || Object.keys(guestEnv).length === 0) {
+    return config;
+  }
+  const parsed = JSON.parse(config.toString("utf8")) as {
+    env?: Record<string, string>;
+    [k: string]: unknown;
+  };
+  const existing = parsed.env ?? {};
+  parsed.env = { ...guestEnv, ...existing };
+  return Buffer.from(JSON.stringify(parsed), "utf8");
 }
 
 /**

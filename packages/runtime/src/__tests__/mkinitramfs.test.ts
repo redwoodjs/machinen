@@ -9,7 +9,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { packBundle } from "../mkinitramfs.ts";
+import { packBundle, patchConfigEnv } from "../mkinitramfs.ts";
 
 // Minimal parser for the newc cpio format produced by mkinitramfs.ts.
 // Returns a name → {data, mode} map for all non-TRAILER entries.
@@ -46,6 +46,33 @@ function listCpioEntries(cpioPath: string): Map<string, { data: Buffer; mode: nu
   }
   return out;
 }
+
+describe("patchConfigEnv", () => {
+  it("returns the original buffer untouched when guestEnv is absent", () => {
+    const input = Buffer.from(JSON.stringify({ cmd: ["/bin/true"] }), "utf8");
+    expect(patchConfigEnv(input, undefined)).toBe(input);
+    expect(patchConfigEnv(input, {})).toBe(input);
+  });
+
+  it("adds env field to configs that don't have one", () => {
+    const input = Buffer.from(JSON.stringify({ cmd: ["/bin/true"] }), "utf8");
+    const out = patchConfigEnv(input, { FOO: "bar" });
+    expect(JSON.parse(out.toString("utf8"))).toEqual({
+      cmd: ["/bin/true"],
+      env: { FOO: "bar" },
+    });
+  });
+
+  it("lets the on-disk env win on key collision", () => {
+    const input = Buffer.from(
+      JSON.stringify({ cmd: ["/bin/true"], env: { FOO: "bundle" } }),
+      "utf8",
+    );
+    const out = patchConfigEnv(input, { FOO: "runtime", BAR: "runtime" });
+    const parsed = JSON.parse(out.toString("utf8"));
+    expect(parsed.env).toEqual({ FOO: "bundle", BAR: "runtime" });
+  });
+});
 
 describe("packBundle mount", () => {
   let tmp: string;
@@ -105,6 +132,57 @@ describe("packBundle mount", () => {
 
     const entries = listCpioEntries(out);
     expect(entries.get("mnt/app/x.txt")?.data.toString("utf8")).toBe("bundle");
+  });
+
+  it("merges guestEnv into the packed machinen-config.json", () => {
+    const bundle = makeEmptyBundle();
+    const out = join(tmp, "out.cpio");
+    packBundle({
+      bundle,
+      out,
+      guestEnv: { FNM_NODE_DIST_MIRROR: "http://192.168.127.1:9000/node-dist" },
+    });
+
+    const entries = listCpioEntries(out);
+    const cfg = entries.get("machinen-config.json");
+    expect(cfg).toBeDefined();
+    const parsed = JSON.parse(cfg!.data.toString("utf8"));
+    expect(parsed.env).toEqual({
+      FNM_NODE_DIST_MIRROR: "http://192.168.127.1:9000/node-dist",
+    });
+    expect(parsed.cmd).toEqual(["/bin/true"]);
+  });
+
+  it("lets the bundle's on-disk env win over guestEnv on key collision", () => {
+    const bundleDir = join(tmp, "bundle");
+    mkdirSync(join(bundleDir, "rootfs"), { recursive: true });
+    writeFileSync(
+      join(bundleDir, "machinen-config.json"),
+      JSON.stringify({ cmd: ["/bin/true"], env: { FOO: "from-bundle" } }),
+    );
+
+    const out = join(tmp, "out.cpio");
+    packBundle({
+      bundle: bundleDir,
+      out,
+      guestEnv: { FOO: "from-runtime", BAR: "from-runtime" },
+    });
+
+    const entries = listCpioEntries(out);
+    const parsed = JSON.parse(entries.get("machinen-config.json")!.data.toString("utf8"));
+    expect(parsed.env).toEqual({ FOO: "from-bundle", BAR: "from-runtime" });
+  });
+
+  it("leaves bundle config untouched when guestEnv is absent", () => {
+    const bundle = makeEmptyBundle();
+    const out = join(tmp, "out.cpio");
+    packBundle({ bundle, out });
+
+    const entries = listCpioEntries(out);
+    const parsed = JSON.parse(entries.get("machinen-config.json")!.data.toString("utf8"));
+    // No env field should have been added.
+    expect(parsed.env).toBeUndefined();
+    expect(parsed.cmd).toEqual(["/bin/true"]);
   });
 
   it("leaves non-colliding mount paths alone when the bundle overlays a sibling", () => {
