@@ -35,19 +35,9 @@ for bin in zig docker dtc; do
   command -v "$bin" >/dev/null || missing+=("$bin")
 done
 
-# libslirp is a dylib the VMM links against at runtime, not a binary.
-# Check the common Homebrew locations.
-if [[ "$OS" == "Darwin" ]]; then
-  found=0
-  for p in /opt/homebrew/opt/libslirp/lib/libslirp.0.dylib \
-    /usr/local/opt/libslirp/lib/libslirp.0.dylib; do
-    [[ -f "$p" ]] && {
-      found=1
-      break
-    }
-  done
-  [[ "$found" -eq 1 ]] || missing+=("libslirp")
-fi
+# Note: the VMM no longer links libslirp (#82 — swapped for a gvproxy
+# UDS). Networking is opt-in via MACHINEN_NET_SOCKET; the smoke tests
+# below don't need it, so we don't gate on gvproxy here.
 
 if ((${#missing[@]} > 0)); then
   echo "smoke: missing prerequisites: ${missing[*]}" >&2

@@ -1,12 +1,13 @@
-// Bring up lo + eth0, assign 10.0.2.15/24 to eth0, install a default
-// route via 10.0.2.2. Matches SLIRP's defaults (see
-// packages/microvm/src/slirp.zig — guest net 10.0.2.0/24, gw 10.0.2.2,
-// DNS 10.0.2.3). Static musl binary invoked once by /init before it
-// execve's the user cmd, so every machinen microVM boots with working
-// network with no bundle-level boilerplate.
+// Bring up lo + eth0, assign 192.168.127.2/24 to eth0, install a
+// default route via 192.168.127.1. Matches gvproxy's defaults
+// (containers/gvisor-tap-vsock — guest net 192.168.127.0/24, gateway
+// 192.168.127.1, built-in DNS on the same IP). Static musl binary
+// invoked once by /init before it execve's the user cmd, so every
+// machinen microVM boots with working network with no bundle-level
+// boilerplate.
 //
-// We skip DHCP (no client in the minbase rootfs) and use the same
-// address libslirp's DHCP server would have handed out.
+// We skip DHCP (no client in the minbase rootfs) and pick the first
+// address in gvproxy's DHCP pool so there's no collision.
 //
 // Build: zig cc -target aarch64-linux-musl -static -Os -o machinen-netup machinen-netup.c
 #include <stdio.h>
@@ -104,10 +105,10 @@ int main(void) {
     if (s < 0) { perror("socket"); return 1; }
     if (if_up(s, "lo") < 0) perror("lo up");                  // non-fatal
     if (if_up(s, "eth0") < 0) { perror("eth0 up"); return 2; }
-    if (if_addr(s, "eth0", "10.0.2.15", "255.255.255.0") < 0) {
+    if (if_addr(s, "eth0", "192.168.127.2", "255.255.255.0") < 0) {
         perror("eth0 addr"); return 3;
     }
-    if (gw_set(s, "10.0.2.2") < 0) { perror("gw set"); return 4; }
+    if (gw_set(s, "192.168.127.1") < 0) { perror("gw set"); return 4; }
     close(s);
     return 0;
 }

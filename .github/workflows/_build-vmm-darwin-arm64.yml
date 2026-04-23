@@ -34,12 +34,6 @@ jobs:
         with:
           version: 0.16.0
 
-      - name: Install libslirp
-        # zig build links `-lslirp` for the user-mode network backend.
-        # GitHub runners don't ship it; install via Homebrew.
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: brew install libslirp
-
       - name: Build VMM
         # macos-15 is arm64 — native build picks up the Hypervisor
         # framework from the system SDK. Passing -Dtarget=aarch64-macos

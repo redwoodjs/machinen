@@ -47,6 +47,7 @@ import { arch as osArch, platform as osPlatform, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { Readable, Writable } from "node:stream";
 import { packBundle as mkinitramfsPackBundle } from "./mkinitramfs.ts";
+import { resolveGvproxyBinary, spawnGvproxy, warnGvproxyMissing } from "./gvproxy.ts";
 
 export class SpawnError extends Error {}
 
@@ -205,17 +206,38 @@ export async function spawn(opts: SpawnOptions = {}): Promise<VmHandle> {
     env.MACHINEN_INITRD = packed.cpioPath;
   }
 
+  // Stand up gvproxy unless the caller already handed us a socket.
+  // If gvproxy isn't on the host, warn once and let the VMM boot
+  // without networking — same graceful fallback the backend has when
+  // MACHINEN_NET_SOCKET is unset.
+  let gvStop: (() => void) | undefined;
+  if (!env.MACHINEN_NET_SOCKET) {
+    const gvBin = resolveGvproxyBinary(binary);
+    if (gvBin) {
+      const gv = await spawnGvproxy(gvBin);
+      env.MACHINEN_NET_SOCKET = gv.socketPath;
+      gvStop = gv.stop;
+    } else {
+      warnGvproxyMissing();
+    }
+  }
+
   const child = nodeSpawn(binary, opts.args ?? [], {
     cwd: opts.cwd,
     env,
     stdio: ["pipe", "pipe", "pipe"],
   }) as ChildProcessWithoutNullStreams;
 
-  if (bundleTempDir) {
+  if (bundleTempDir || gvStop) {
     child.once("exit", () => {
-      try {
-        rmSync(bundleTempDir, { recursive: true, force: true });
-      } catch {}
+      if (bundleTempDir) {
+        try {
+          rmSync(bundleTempDir, { recursive: true, force: true });
+        } catch {}
+      }
+      if (gvStop) {
+        gvStop();
+      }
     });
   }
 
