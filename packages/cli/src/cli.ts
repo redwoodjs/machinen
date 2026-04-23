@@ -172,7 +172,7 @@ async function cmdRun(args: string[]): Promise<number> {
     }
     throw err;
   }
-  const { positional, double_dash_args, mount, guestEnv } = parsed;
+  const { positional, double_dash_args, mount, guestEnv, portForward } = parsed;
 
   if (positional.length > 1) {
     die(
@@ -264,6 +264,7 @@ async function cmdRun(args: string[]): Promise<number> {
       baseRootfs: baseRootfsPath,
       mount,
       guestEnv,
+      portForward,
       // Interactive CLI: the session lives as long as the guest does.
       // Don't impose the default 60s cap.
       timeoutMs: null,
@@ -359,6 +360,9 @@ function printHelp(): void {
       `                                           the process run by the bundle's cmd).\n` +
       `                                           Repeatable. Bundle's on-disk env wins\n` +
       `                                           on key collision.\n` +
+      `    -p <hostPort>:<guestPort>              Forward 127.0.0.1:<hostPort> on the\n` +
+      `                                           host to <guestPort> inside the VM\n` +
+      `                                           via gvproxy. Repeatable.\n` +
       `  machinen install                         Pre-fetch the current-tag base assets\n` +
       `    --version <tag>                        Pin to a specific release tag\n` +
       `  machinen --version | -h                  Print version / help\n` +
@@ -368,6 +372,7 @@ function printHelp(): void {
       `  machinen run --mount ./my-app:/mnt/app -- node /mnt/app/index.js\n` +
       `  machinen run ./my-bundle --mount ./data:/mnt/data\n` +
       `  machinen run --env NODE_ENV=production -- node -e 'console.log(process.env.NODE_ENV)'\n` +
+      `  machinen run ./my-bundle -p 8080:3000\n` +
       `\n` +
       `Environment:\n` +
       `  MACHINEN_VMM                             Override the VMM binary path (dev)\n` +
