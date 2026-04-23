@@ -56,15 +56,16 @@ dtc -I dts -O dtb "${ASSETS}/virt.dts" -o "${OUT}/virt-arm64.dtb"
 #    (all statically linked against musl)
 # ------------------------------------------------------------
 
-echo "==> Building guest binaries (init, exec-agent, CRIU helpers, poweroff) for aarch64-linux-musl"
+echo "==> Building guest binaries (init, exec-agent, CRIU helpers, poweroff, net-bench-probe) for aarch64-linux-musl"
 STAGE=$(mktemp -d)
 trap 'rm -rf "$STAGE"' EXIT
 
 # init + exec-agent land at /init and /exec-agent (machinen-owned root
 # entrypoints). lo-up, no-iou, poweroff are machinen-namespaced helpers
 # needed by any CRIU-based snapshot flow; they go under /sbin with the
-# machinen- prefix alongside machinen-netup.
-for name in init exec-agent lo-up no-iou poweroff; do
+# machinen- prefix alongside machinen-netup. net-bench-probe is the
+# #82 gvproxy throughput/latency probe used by the smoke harness.
+for name in init exec-agent lo-up no-iou poweroff net-bench-probe; do
   zig build-exe "${ASSETS}/${name}.zig" \
     -target aarch64-linux-musl \
     -O ReleaseSmall \
@@ -255,6 +256,7 @@ install -m 0755 -D /stage/machinen-netup    /work/rootfs/sbin/machinen-netup
 install -m 0755 -D /stage/lo-up             /work/rootfs/sbin/machinen-lo-up
 install -m 0755 -D /stage/no-iou            /work/rootfs/sbin/machinen-no-iou
 install -m 0755 -D /stage/poweroff          /work/rootfs/sbin/machinen-poweroff
+install -m 0755 -D /stage/net-bench-probe   /work/rootfs/sbin/machinen-net-bench-probe
 
 # Deterministic tar + gzip written as a single file to the bind mount.
 tar --sort=name --owner=0 --group=0 --numeric-owner \
