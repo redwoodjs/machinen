@@ -130,6 +130,14 @@ const CTimespec = extern struct { tv_sec: i64, tv_nsec: c_long };
 extern "c" fn nanosleep(req: *const CTimespec, rem: ?*CTimespec) c_int;
 extern "c" fn clock_gettime(clk_id: c_int, tp: *CTimespec) c_int;
 const CLOCK_MONOTONIC: c_int = 6; // macOS
+
+// pthread mutex via extern bindings — std.Thread.Mutex was moved to
+// std.Io.Mutex in Zig 0.16 (requires an io context we don't carry).
+// Darwin's pthread_mutex_t is 64 bytes; the spec lets PTHREAD_MUTEX_INITIALIZER
+// be all-zeros for the default mutex type, so we just zero-init.
+const PthreadMutex = extern struct { opaque_bytes: [64]u8 = @splat(0) };
+extern "c" fn pthread_mutex_lock(m: *PthreadMutex) c_int;
+extern "c" fn pthread_mutex_unlock(m: *PthreadMutex) c_int;
 fn sleepMs(ms: u64) void {
     const ts = CTimespec{ .tv_sec = @intCast(ms / 1000), .tv_nsec = @intCast((ms % 1000) * 1_000_000) };
     _ = nanosleep(&ts, null);
@@ -150,9 +158,22 @@ pub const Slirp = struct {
     netdev: *virtio.Device,
     poll_fds: std.ArrayList(PollFd) = .empty,
     gpa: std.mem.Allocator,
-    /// Callback-after-RX-injection so the run loop can sync the IRQ line.
+    /// Callback fired once per pump iteration if at least one inbound
+    /// frame was injected, so the run loop can raise the IRQ line in
+    /// a single hypervisor call instead of one per packet.
     on_rx: ?*const fn (ctx: ?*anyopaque) void = null,
     on_rx_ctx: ?*anyopaque = null,
+    /// Set by sendCb on every frame; cleared by pump() after it raises
+    /// the IRQ line. pump thread is the only reader/writer, so no sync.
+    rx_pending: bool = false,
+    /// libslirp is not thread-safe. It was designed for QEMU's single-
+    /// threaded main loop and has no internal locking. We call it from
+    /// two threads: the pump thread (slirp_pollfds_poll) and the vCPU
+    /// thread (slirp_input, via Slirp.input). Under concurrent traffic
+    /// the races manifest as internal asserts ("sbcopy: ptr_diff !=
+    /// sb->sb_cc") or crashes in _if_output / _tcp_output. Every
+    /// public libslirp entry point has to happen under this mutex.
+    lock: PthreadMutex = .{},
 
     /// Create a libslirp instance + bridge to the given virtio-net
     /// Device. Returns a heap-allocated Slirp* because libslirp stores
@@ -207,15 +228,23 @@ pub const Slirp = struct {
 
     /// Feed an ethernet frame the guest just emitted.
     pub fn input(self: *Slirp, frame: []const u8) void {
+        _ = pthread_mutex_lock(&self.lock);
+        defer _ = pthread_mutex_unlock(&self.lock);
         slirp_input(self.handle, frame.ptr, @intCast(frame.len));
     }
 
     /// One tick of the libslirp event loop. Caller should invoke
     /// periodically (every ~10 ms) from a helper thread.
     pub fn pump(self: *Slirp, default_timeout_ms: u32) void {
+        // Hold the lock across both fill_socket and pollfds_poll.
+        // poll() itself releases the lock — it can block for up to
+        // 20ms and the vCPU thread needs to call slirp.input during
+        // that window or we starve TX.
+        _ = pthread_mutex_lock(&self.lock);
         self.poll_fds.clearRetainingCapacity();
         var timeout: u32 = default_timeout_ms;
         slirp_pollfds_fill_socket(self.handle, &timeout, addPollCb, @ptrCast(self));
+        _ = pthread_mutex_unlock(&self.lock);
 
         const n = self.poll_fds.items.len;
         if (n > 0) {
@@ -225,7 +254,19 @@ pub const Slirp = struct {
             sleepMs(@min(timeout, 5));
         }
 
+        _ = pthread_mutex_lock(&self.lock);
         slirp_pollfds_poll(self.handle, 0, getRevents, @ptrCast(self));
+        const had_rx = self.rx_pending;
+        self.rx_pending = false;
+        _ = pthread_mutex_unlock(&self.lock);
+
+        // Raise the virtio-net IRQ once per pump iteration rather than
+        // once per sendCb — libslirp dispatches many frames per call
+        // into the guest's RX ring under bulk traffic, and the guest's
+        // NAPI loop drains them all on the first interrupt anyway.
+        if (had_rx) {
+            if (self.on_rx) |cb| cb(self.on_rx_ctx);
+        }
     }
 };
 
@@ -239,8 +280,7 @@ fn selfFrom(opaque_: ?*anyopaque) *Slirp {
 fn sendCb(buf: ?*const anyopaque, len: usize, opaque_: ?*anyopaque) callconv(.c) isize {
     const self = selfFrom(opaque_);
     const bytes: [*]const u8 = @ptrCast(buf.?);
-    _ = self.netdev.injectRx(bytes[0..len]);
-    if (self.on_rx) |cb| cb(self.on_rx_ctx);
+    if (self.netdev.injectRx(bytes[0..len])) self.rx_pending = true;
     return @intCast(len);
 }
 
