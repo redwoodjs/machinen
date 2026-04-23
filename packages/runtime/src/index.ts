@@ -10,7 +10,7 @@ export { VsockFiles } from "./files.ts";
 export type { VsockFilesOptions } from "./files.ts";
 export { VsockExec } from "./exec.ts";
 export type { VsockExecOptions, VsockExecResult } from "./exec.ts";
-export { build, BuildError } from "./build.ts";
+export { build, BuildError, resolveBaseRootfs } from "./build.ts";
 export type { BuildHandle, BuildOptions, BuildResult } from "./build.ts";
 export {
   packBundle as mkinitramfsBundle,
