@@ -68,3 +68,47 @@ describe("parseRunArgs --env", () => {
     expect(parsed.double_dash_args).toEqual(["node", "/mnt/app/index.js"]);
   });
 });
+
+describe("parseRunArgs -p", () => {
+  it("parses a single -p into portForward", () => {
+    const parsed = parseRunArgs(["./bundle", "-p", "8080:3000"]);
+    expect(parsed.portForward).toEqual([{ hostPort: 8080, guestPort: 3000 }]);
+    expect(parsed.positional).toEqual(["./bundle"]);
+  });
+
+  it("accepts --publish and =form", () => {
+    const parsed = parseRunArgs(["--publish", "8080:3000", "--publish=9090:4000"]);
+    expect(parsed.portForward).toEqual([
+      { hostPort: 8080, guestPort: 3000 },
+      { hostPort: 9090, guestPort: 4000 },
+    ]);
+  });
+
+  it("returns undefined portForward when no -p is given", () => {
+    const parsed = parseRunArgs(["./bundle"]);
+    expect(parsed.portForward).toBeUndefined();
+  });
+
+  it("rejects duplicate hostPort", () => {
+    expect(() => parseRunArgs(["-p", "8080:3000", "-p", "8080:3001"])).toThrow(
+      /duplicate hostPort 8080/,
+    );
+  });
+
+  it("rejects out-of-range ports", () => {
+    expect(() => parseRunArgs(["-p", "0:3000"])).toThrow(/hostPort must be in 1..65535/);
+    expect(() => parseRunArgs(["-p", "8080:70000"])).toThrow(/guestPort must be in 1..65535/);
+  });
+
+  it("rejects non-numeric ports", () => {
+    expect(() => parseRunArgs(["-p", "abc:3000"])).toThrow(/hostPort must be numeric/);
+  });
+
+  it("rejects a malformed spec", () => {
+    expect(() => parseRunArgs(["-p", "8080"])).toThrow(/expected <hostPort>:<guestPort>/);
+  });
+
+  it("rejects a bare -p with no following argument", () => {
+    expect(() => parseRunArgs(["-p"])).toThrow(/-p requires/);
+  });
+});

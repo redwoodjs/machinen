@@ -47,7 +47,7 @@ import { arch as osArch, platform as osPlatform, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { Readable, Writable } from "node:stream";
 import { packBundle as mkinitramfsPackBundle } from "./mkinitramfs.ts";
-import { resolveGvproxyBinary, spawnGvproxy, warnGvproxyMissing } from "./gvproxy.ts";
+import { exposePort, resolveGvproxyBinary, spawnGvproxy, warnGvproxyMissing } from "./gvproxy.ts";
 
 export class SpawnError extends Error {}
 
@@ -153,6 +153,14 @@ export interface SpawnOptions {
    * side VMM process. See #89.
    */
   guestEnv?: Record<string, string>;
+  /**
+   * Host -> guest TCP port forwards installed via gvproxy's control
+   * API. Each entry maps `hostPort` on the host (bound to `hostAddr`,
+   * default `127.0.0.1`) to `guestPort` inside the guest. Only valid
+   * when the runtime owns the gvproxy it spawned — passing this
+   * alongside a pre-set `MACHINEN_NET_SOCKET` is an error.
+   */
+  portForward?: Array<{ hostPort: number; guestPort: number; hostAddr?: string }>;
 }
 
 export interface VmHandle {
@@ -175,6 +183,40 @@ export interface VmHandle {
 }
 
 export async function spawn(opts: SpawnOptions = {}): Promise<VmHandle> {
+  // Validate portForward up front — before resolving the binary or
+  // touching the filesystem — so caller-input errors surface with a
+  // clear message. The env-dependent "pre-set MACHINEN_NET_SOCKET"
+  // check happens alongside since it only reads env.
+  const portForward = opts.portForward ?? [];
+  if (portForward.length > 0) {
+    const preSetNetSock =
+      (opts.env && opts.env.MACHINEN_NET_SOCKET) || process.env.MACHINEN_NET_SOCKET;
+    if (preSetNetSock) {
+      throw new SpawnError(
+        "portForward requires the runtime to own gvproxy, but MACHINEN_NET_SOCKET " +
+          "is already set. Either drop the env var or install the forwards yourself " +
+          "against your gvproxy's control API.",
+      );
+    }
+    const seen = new Set<number>();
+    for (const m of portForward) {
+      for (const [label, port] of [
+        ["hostPort", m.hostPort],
+        ["guestPort", m.guestPort],
+      ] as const) {
+        if (!Number.isInteger(port) || port < 1 || port > 65535) {
+          throw new SpawnError(
+            `portForward: ${label} must be an integer in 1..65535 (got ${port})`,
+          );
+        }
+      }
+      if (seen.has(m.hostPort)) {
+        throw new SpawnError(`portForward: duplicate hostPort ${m.hostPort}`);
+      }
+      seen.add(m.hostPort);
+    }
+  }
+
   const binaryInput = opts.binary ?? resolveVmmBinary();
   const binary = resolve(opts.cwd ?? process.cwd(), binaryInput);
   if (!existsSync(binary)) {
@@ -225,7 +267,21 @@ export async function spawn(opts: SpawnOptions = {}): Promise<VmHandle> {
       const gv = await spawnGvproxy(gvBin);
       env.MACHINEN_NET_SOCKET = gv.socketPath;
       gvStop = gv.stop;
+      for (const m of portForward) {
+        try {
+          await exposePort(gv.controlSocketPath, m);
+        } catch (err) {
+          gv.stop();
+          throw err;
+        }
+      }
     } else {
+      if (portForward.length > 0) {
+        throw new SpawnError(
+          "portForward requires gvproxy, but no gvproxy binary was found. " +
+            "Install gvproxy or point MACHINEN_GVPROXY at one.",
+        );
+      }
       warnGvproxyMissing();
     }
   }
