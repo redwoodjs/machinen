@@ -9,11 +9,11 @@
 //              transfer is a separate concern (#82).
 
 import { execSync } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { describe, expect, it } from "vitest";
-import { build, BuildError, VsockExec, spawn } from "../index.ts";
+import { afterEach, describe, expect, it } from "vitest";
+import { build, BuildError, resolveBaseRootfs, VsockExec, spawn } from "../index.ts";
 
 const microvmRoot = resolve(import.meta.dirname, "../../../microvm");
 const releaseAssets = resolve(microvmRoot, "../../release-assets");
@@ -59,6 +59,54 @@ describe("build", () => {
         out: join(tmpdir(), "ignored.tar.gz"),
       }),
     ).rejects.toBeInstanceOf(BuildError);
+  });
+
+  describe("resolveBaseRootfs", () => {
+    const originalAssetsDir = process.env.MACHINEN_ASSETS_DIR;
+    afterEach(() => {
+      if (originalAssetsDir === undefined) {
+        delete process.env.MACHINEN_ASSETS_DIR;
+      } else {
+        process.env.MACHINEN_ASSETS_DIR = originalAssetsDir;
+      }
+    });
+
+    it("honors an explicit path", () => {
+      const dir = mkdtempSync(join(tmpdir(), "machinen-base-explicit-"));
+      const p = join(dir, "explicit.tar.gz");
+      try {
+        writeFileSync(p, "");
+        expect(resolveBaseRootfs(p)).toBe(p);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it("throws if the explicit path is missing", () => {
+      expect(() => resolveBaseRootfs("/nope/does/not/exist.tar.gz")).toThrow(BuildError);
+    });
+
+    it("falls back to MACHINEN_ASSETS_DIR when base is omitted", () => {
+      const dir = mkdtempSync(join(tmpdir(), "machinen-base-envdir-"));
+      const p = join(dir, "rootfs-debian-arm64.tar.gz");
+      try {
+        writeFileSync(p, "");
+        process.env.MACHINEN_ASSETS_DIR = dir;
+        expect(resolveBaseRootfs()).toBe(p);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it("throws if MACHINEN_ASSETS_DIR is set but missing the tarball", () => {
+      const dir = mkdtempSync(join(tmpdir(), "machinen-base-envdir-empty-"));
+      try {
+        process.env.MACHINEN_ASSETS_DIR = dir;
+        expect(() => resolveBaseRootfs()).toThrow(BuildError);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
   });
 
   it(

@@ -31,12 +31,13 @@ import {
   mkdirSync,
   mkdtempSync,
   openSync,
+  readFileSync,
   rmSync,
   statSync,
   writeFileSync,
   writeSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { VsockExec, type VsockExecResult } from "./exec.ts";
 import { spawn } from "./index.ts";
@@ -67,8 +68,12 @@ export interface BuildOptions {
    * Path to the base rootfs tarball to start from. Typically the
    * `rootfs-debian-arm64.tar.gz` produced by
    * `scripts/build-base-assets.sh` or shipped in a machinen release.
+   *
+   * Optional — when omitted, `build()` resolves it via `resolveBaseRootfs()`
+   * (MACHINEN_ASSETS_DIR env override, falling back to the `@machinen/cli`
+   * cache at `~/.machinen/@machinen/runtime@<version>/bases/debian-arm64/`).
    */
-  base: string;
+  base?: string;
 
   /**
    * User-supplied provisioning steps. Runs inside the guest via vsock.
@@ -155,12 +160,73 @@ const TAR_TO_DISK_CMD = [
   ".",
 ].join(" ");
 
+/**
+ * Resolve the path to the base rootfs tarball, in the same order
+ * `build()` itself does:
+ *
+ *   1. `explicit` — the caller-supplied path (resolved against `cwd`).
+ *   2. `MACHINEN_ASSETS_DIR` env var — points at a directory laid out like
+ *      `scripts/build-base-assets.sh`'s output (contains
+ *      `rootfs-debian-arm64.tar.gz`). Same convention `@machinen/cli`
+ *      honors for local/dev builds.
+ *   3. `@machinen/cli`'s on-disk cache at
+ *      `~/.machinen/@machinen/runtime@<version>/bases/debian-arm64/rootfs.tar.gz`.
+ *      Populated by running `machinen` once against the installed runtime.
+ *
+ * Throws `BuildError` with guidance if none of those turn up a file.
+ * Exported so callers can pre-check or build their own tooling on it.
+ */
+export function resolveBaseRootfs(explicit?: string, cwd: string = process.cwd()): string {
+  if (explicit) {
+    const abs = resolve(cwd, explicit);
+    if (!existsSync(abs)) {
+      throw new BuildError(`base rootfs tarball not found: ${abs}`);
+    }
+    return abs;
+  }
+
+  const assetsDir = process.env.MACHINEN_ASSETS_DIR;
+  if (assetsDir) {
+    const p = resolve(assetsDir, "rootfs-debian-arm64.tar.gz");
+    if (!existsSync(p)) {
+      throw new BuildError(
+        `MACHINEN_ASSETS_DIR=${assetsDir} does not contain rootfs-debian-arm64.tar.gz`,
+      );
+    }
+    return p;
+  }
+
+  const cached = cliCachedRootfsPath();
+  if (existsSync(cached)) {
+    return cached;
+  }
+
+  throw new BuildError(
+    `base rootfs not found. Either:\n` +
+      `  - pass \`base\` explicitly, or\n` +
+      `  - set MACHINEN_ASSETS_DIR to a directory containing rootfs-debian-arm64.tar.gz, or\n` +
+      `  - install @machinen/cli and run it once to populate ${cached}`,
+  );
+}
+
+function cliCachedRootfsPath(): string {
+  // Mirrors `@machinen/cli`'s `baseDirFor(RELEASE_TAG)` where
+  // RELEASE_TAG = `@machinen/runtime@${VERSION}`.
+  const pkgPath = resolve(import.meta.dirname, "..", "package.json");
+  const version = (JSON.parse(readFileSync(pkgPath, "utf8")) as { version: string }).version;
+  return join(
+    homedir(),
+    ".machinen",
+    `@machinen/runtime@${version}`,
+    "bases",
+    "debian-arm64",
+    "rootfs.tar.gz",
+  );
+}
+
 export async function build(opts: BuildOptions): Promise<BuildResult> {
   const cwd = opts.cwd ?? process.cwd();
-  const baseAbs = resolve(cwd, opts.base);
-  if (!existsSync(baseAbs)) {
-    throw new BuildError(`base rootfs tarball not found: ${baseAbs}`);
-  }
+  const baseAbs = resolveBaseRootfs(opts.base, cwd);
   const outAbs = resolve(cwd, opts.out);
 
   const t0 = Date.now();
