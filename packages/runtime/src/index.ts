@@ -237,6 +237,11 @@ export async function spawn(opts: SpawnOptions = {}): Promise<VmHandle> {
     stderr: child.stderr,
 
     async wait() {
+      // If the child already exited before we got here, `once("exit")`
+      // never fires — the event has already been emitted. Check first.
+      if (child.exitCode !== null || child.signalCode !== null) {
+        return { code: child.exitCode, signal: child.signalCode };
+      }
       const settled = once(child, "exit") as Promise<[number | null, NodeJS.Signals | null]>;
       const race =
         timeoutMs === null
@@ -259,6 +264,11 @@ export async function spawn(opts: SpawnOptions = {}): Promise<VmHandle> {
         return;
       }
       child.kill("SIGKILL");
+      // Same race: the child may finish dying between the guard above
+      // and the listener below. Re-check before waiting.
+      if (child.exitCode !== null || child.signalCode !== null) {
+        return;
+      }
       await once(child, "exit");
     },
 
