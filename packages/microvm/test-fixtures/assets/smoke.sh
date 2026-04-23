@@ -239,17 +239,21 @@ smoke_net() {
 }
 
 # #82: measures guest -> host-loopback TCP round-trip latency through
-# libslirp. The host runs a trivial echo server bound to 127.0.0.1;
-# the guest reaches it via slirp's vhost address 10.0.2.2 and does
-# 100 sequential 1-byte ping-pongs. Each inbound byte is delivered
-# by slirp's pump thread, so μs-per-ping is dominated by the pump
-# tick — a direct probe of the thing #82 tunes.
+# gvproxy. The host runs a trivial python3 echo server bound to
+# 127.0.0.1; the guest connects via gvproxy's host mapping
+# (192.168.127.254, which gvproxy proxies to host loopback) and runs
+# /sbin/machinen-net-bench-probe for 100 sequential 1-byte ping-pongs.
+# Informational only — records a baseline number, doesn't gate.
 smoke_net_bench() {
     echo "--- net-bench ---"
     local log=/tmp/microvm-smoke-net-bench.log
     local port=38080
     local echo_pid_file=/tmp/machinen-net-bench-echo.pid
 
+    if ! command -v gvproxy >/dev/null; then
+        echo "  skip: gvproxy not on PATH; net-bench requires a network backend"
+        return
+    fi
     if lsof -iTCP:"$port" -sTCP:LISTEN -n -P >/dev/null 2>&1; then
         fail "net-bench: port $port already in use on host"
         return
@@ -297,15 +301,49 @@ PY
         return
     fi
 
+    # Spawn gvproxy so the guest has a network backend. Same pattern
+    # as smoke_net above.
+    local gv_sock=""
+    gv_sock=$(mktemp -u /tmp/machinen-gv.XXXXXX.sock)
+    gvproxy -listen-qemu "unix://$gv_sock" >/tmp/microvm-smoke-gvproxy-bench.log 2>&1 &
+    local gv_pid=$!
+    for _ in $(seq 1 40); do
+        [[ -S "$gv_sock" ]] && break
+        sleep 0.05
+    done
+    if [[ ! -S "$gv_sock" ]]; then
+        kill "$gv_pid" 2>/dev/null || true
+        kill -9 "$echo_pid" 2>/dev/null || true
+        rm -f "$echo_pid_file"
+        fail "net-bench: gvproxy did not create $gv_sock"
+        return
+    fi
+    export MACHINEN_NET_SOCKET="$gv_sock"
+
+    # Compile the probe if missing / stale. Mirrors the if-up/gw-set
+    # on-demand build in smoke_net.
+    local probe_src=$FIXTURES/../assets/net-bench-probe.zig
+    local probe_bin=$ROOTFS/sbin/machinen-net-bench-probe
+    if [[ ! -x "$probe_bin" || "$probe_src" -nt "$probe_bin" ]]; then
+        mkdir -p "$ROOTFS/sbin"
+        zig build-exe "$probe_src" \
+            -target aarch64-linux-musl -static -O ReleaseSmall \
+            -lc -femit-bin="$probe_bin" >/dev/null 2>&1
+        rm -f "$probe_bin.o"
+    fi
+
     repack_with "
         cp $FIXTURES/assets/net-bench-demo.sh $ROOTFS/
         chmod +x $ROOTFS/net-bench-demo.sh
         write_config /bin/sh /net-bench-demo.sh
     "
-    # 100 pings @ 10ms pump tick ≈ 1s. Plus boot/teardown ~8s. 30s
+    # 100 pings at sub-ms RTT ≈ 0.1s. Plus boot/teardown ~8s. 30s
     # headroom covers the worst case if something stalls.
     run_vmm 'printf ""' 30 "$log"
 
+    kill "$gv_pid" 2>/dev/null || true
+    unset MACHINEN_NET_SOCKET
+    rm -f "$gv_sock"
     kill -9 "$echo_pid" 2>/dev/null || true
     rm -f "$echo_pid_file"
 
@@ -317,9 +355,8 @@ PY
     fi
     pass "$line"
 
-    # The asserted ceiling is set once the libslirp knobs land (#82).
-    # Until then this is informational — the `pass` line above
-    # documents the measurement without gating.
+    # Informational baseline — no asserted ceiling. The `pass` line
+    # above documents the measurement.
 }
 
 smoke_blk() {
