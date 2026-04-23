@@ -89,19 +89,13 @@ jobs:
 
       # gvproxy (containers/gvisor-tap-vsock) — bundled next to the VMM
       # so `@machinen/runtime` can auto-spawn it for virtio-net without
-      # a separate install step for consumers. Pinned so releases are
-      # reproducible; bump deliberately.
+      # a separate install step for consumers. Pinned in the shared
+      # install script so prod and local dev stay in lockstep.
       - name: Bundle gvproxy
-        env:
-          GVPROXY_VERSION: v0.8.6
         run: |
           set -euo pipefail
-          base="https://github.com/containers/gvisor-tap-vsock/releases/download/${GVPROXY_VERSION}"
-          curl -fsSL "${base}/gvproxy-darwin" \
-            -o packages/vmm-arm64-darwin/bin/gvproxy
-          curl -fsSL "${base}/gvproxy-linux-arm64" \
-            -o packages/vmm-arm64-linux/bin/gvproxy
-          chmod +x packages/vmm-arm64-*/bin/gvproxy
+          scripts/install-gvproxy.sh --os darwin --dest packages/vmm-arm64-darwin/bin
+          scripts/install-gvproxy.sh --os linux  --arch arm64 --dest packages/vmm-arm64-linux/bin
 
       # cli typechecks against @machinen/runtime's dist types, so the
       # TS packages need a build before typecheck. Zig isn't available
