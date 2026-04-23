@@ -5,12 +5,11 @@
 // v0 surface:
 //   machinen run <bundle-dir>
 //   machinen run <bundle-dir> --mount <host-dir>:<guest-path>
-//   machinen run [--mount <host-dir>:<guest-path>] -- <cmd>...
+//   machinen run [--mount <host-dir>:<guest-path>] [--env KEY=VALUE]... -- <cmd>...
 //   machinen install [--version <tag>]
 //   machinen --version | -h | --help
 //
 // Deferred (needs runtime API changes):
-//   machinen run --env FOO=bar ...
 //   machinen run --base alpine
 
 import { createHash } from "node:crypto";
@@ -34,6 +33,7 @@ import { pipeline } from "node:stream/promises";
 import { spawn, SpawnError } from "@machinen/runtime";
 
 import pkg from "../package.json" with { type: "json" };
+import { parseRunArgs, ParseRunArgsError } from "./parse-run-args.ts";
 
 const VERSION = pkg.version;
 const RELEASE_TAG = `@machinen/runtime@${VERSION}`;
@@ -163,10 +163,22 @@ function sha256OfFile(path: string): string {
 // ------------------------------------------------------------
 
 async function cmdRun(args: string[]): Promise<number> {
-  const { positional, double_dash_args, mount } = parseRunArgs(args);
+  let parsed;
+  try {
+    parsed = parseRunArgs(args);
+  } catch (err) {
+    if (err instanceof ParseRunArgsError) {
+      die(err.message);
+    }
+    throw err;
+  }
+  const { positional, double_dash_args, mount, guestEnv } = parsed;
 
   if (positional.length > 1) {
-    die("usage: machinen run [<bundle-dir>] [--mount <host-dir>:<guest-path>] [-- <cmd>...]");
+    die(
+      "usage: machinen run [<bundle-dir>] [--mount <host-dir>:<guest-path>] " +
+        "[--env KEY=VALUE]... [-- <cmd>...]",
+    );
   }
 
   let bundle: string;
@@ -251,6 +263,7 @@ async function cmdRun(args: string[]): Promise<number> {
       dtb: dtbPath,
       baseRootfs: baseRootfsPath,
       mount,
+      guestEnv,
       // Interactive CLI: the session lives as long as the guest does.
       // Don't impose the default 60s cap.
       timeoutMs: null,
@@ -314,48 +327,6 @@ async function cmdInstall(args: string[]): Promise<number> {
 // Arg helpers
 // ------------------------------------------------------------
 
-interface ParsedRunArgs {
-  positional: string[];
-  double_dash_args: string[];
-  mount?: { host: string; guest: string };
-}
-
-function parseRunArgs(argv: string[]): ParsedRunArgs {
-  const idx = argv.indexOf("--");
-  const pre = idx === -1 ? argv : argv.slice(0, idx);
-  const double_dash_args = idx === -1 ? [] : argv.slice(idx + 1);
-
-  const positional: string[] = [];
-  let mount: { host: string; guest: string } | undefined;
-  for (let i = 0; i < pre.length; i++) {
-    const a = pre[i]!;
-    let spec: string | undefined;
-    if (a === "--mount") {
-      spec = pre[i + 1];
-      if (spec === undefined) {
-        die("--mount requires a <host-dir>:<guest-path> value");
-      }
-      i++;
-    } else if (a.startsWith("--mount=")) {
-      spec = a.slice("--mount=".length);
-    } else if (a.startsWith("-")) {
-      die(`unknown flag: ${a}`);
-    } else {
-      positional.push(a);
-      continue;
-    }
-    if (mount) {
-      die("--mount may be given at most once per invocation");
-    }
-    const colon = spec!.indexOf(":");
-    if (colon <= 0 || colon === spec!.length - 1) {
-      die(`--mount: expected <host-dir>:<guest-path>, got '${spec}'`);
-    }
-    mount = { host: spec!.slice(0, colon), guest: spec!.slice(colon + 1) };
-  }
-  return { positional, double_dash_args, mount };
-}
-
 function argValue(argv: string[], name: string): string | undefined {
   const i = argv.indexOf(name);
   if (i === -1) {
@@ -384,6 +355,10 @@ function printHelp(): void {
       `                                           exits; the host directory on disk is\n` +
       `                                           never modified. Bundle files win on\n` +
       `                                           path collisions.\n` +
+      `    --env KEY=VALUE                        Set an env var inside the guest (for\n` +
+      `                                           the process run by the bundle's cmd).\n` +
+      `                                           Repeatable. Bundle's on-disk env wins\n` +
+      `                                           on key collision.\n` +
       `  machinen install                         Pre-fetch the current-tag base assets\n` +
       `    --version <tag>                        Pin to a specific release tag\n` +
       `  machinen --version | -h                  Print version / help\n` +
@@ -392,6 +367,7 @@ function printHelp(): void {
       `  machinen run ./my-bundle\n` +
       `  machinen run --mount ./my-app:/mnt/app -- node /mnt/app/index.js\n` +
       `  machinen run ./my-bundle --mount ./data:/mnt/data\n` +
+      `  machinen run --env NODE_ENV=production -- node -e 'console.log(process.env.NODE_ENV)'\n` +
       `\n` +
       `Environment:\n` +
       `  MACHINEN_VMM                             Override the VMM binary path (dev)\n` +
