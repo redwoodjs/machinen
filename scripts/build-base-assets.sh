@@ -15,11 +15,18 @@
 #   packages/microvm/assets/no-iou.zig        ← CRIU plumbing (block io_uring)
 #   packages/microvm/assets/poweroff.zig      ← clean shutdown → PSCI SYSTEM_OFF
 #
+# Also baked into the rootfs (downloaded at build time, not sourced):
+#   fnm @ /usr/local/bin/fnm  ← Node version manager (#88).
+#                                Points at the host-side cache via
+#                                FNM_NODE_DIST_MIRROR (wired in
+#                                packages/runtime/src/index.ts#spawn).
+#
 # Requirements:
 #   - docker (with arm64 emulation; GH runners have this by default via
 #     docker/setup-qemu-action)
 #   - dtc  (device-tree-compiler; apt: device-tree-compiler, brew: dtc)
 #   - zig  (0.14+; the release workflow installs it)
+#   - curl, unzip  (for downloading and unpacking fnm)
 #
 # Outputs to ./release-assets/ at the repo root.
 
@@ -79,6 +86,25 @@ zig cc "${ASSETS}/machinen-netup.c" \
   -static \
   -Os \
   -o "${STAGE}/machinen-netup"
+
+# ------------------------------------------------------------
+# 3a. fnm — Node version manager (#88)
+# ------------------------------------------------------------
+# Single static Rust binary from the upstream release. Pinned by
+# version + sha256 so rebuilds are reproducible and a compromised
+# upstream can't slip a different binary past us. The host-side cache
+# in packages/runtime/src/artifact-cache.ts fronts nodejs.org/dist
+# for the fnm-managed Node downloads; fnm itself still comes from
+# GitHub at build time.
+
+echo "==> Downloading fnm (static arm64 binary)"
+FNM_VERSION="1.38.1"
+FNM_SHA256="69feda9455931c26c84be9f95f5e6f69e8b64686e68069fab7cfc34756cd2944"
+FNM_URL="https://github.com/Schniz/fnm/releases/download/v${FNM_VERSION}/fnm-arm64.zip"
+curl -fsSL -o "${STAGE}/fnm.zip" "$FNM_URL"
+echo "${FNM_SHA256}  ${STAGE}/fnm.zip" | shasum -a 256 -c -
+unzip -q -o "${STAGE}/fnm.zip" -d "${STAGE}"
+chmod +x "${STAGE}/fnm"
 
 # ------------------------------------------------------------
 # 4. Rootfs — mmdebstrap minbase + aggressive strip + guest binaries
@@ -257,6 +283,7 @@ install -m 0755 -D /stage/lo-up             /work/rootfs/sbin/machinen-lo-up
 install -m 0755 -D /stage/no-iou            /work/rootfs/sbin/machinen-no-iou
 install -m 0755 -D /stage/poweroff          /work/rootfs/sbin/machinen-poweroff
 install -m 0755 -D /stage/net-bench-probe   /work/rootfs/sbin/machinen-net-bench-probe
+install -m 0755 -D /stage/fnm               /work/rootfs/usr/local/bin/fnm
 
 # Deterministic tar + gzip written as a single file to the bind mount.
 tar --sort=name --owner=0 --group=0 --numeric-owner \
