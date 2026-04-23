@@ -9,11 +9,13 @@
 #          restore is greater than the counter at dump time.
 #   net    Boot, load virtio modules, assert eth0 appears and the
 #          kernel's virtio-net driver bound to our virtio-MMIO device.
+#   net-bench  Boot, run 100 TCP ping-pongs against a host echo server
+#          through slirp's vhost NAT (10.0.2.2), report μs-per-ping (#82).
 #
 # Prints pass/fail per check and exits non-zero if any fail. Writes
 # full guest-console logs to /tmp/microvm-smoke-*.log for post-mortems.
 #
-# Usage: ./test-fixtures/assets/smoke.sh [repl|criu|net|all]   (default: all)
+# Usage: ./test-fixtures/assets/smoke.sh [repl|criu|net|net-bench|all]   (default: all)
 #
 # These require an Apple Silicon host with the HVF entitlement setup.
 # They aren't wired into `zig build test` because they depend on
@@ -198,6 +200,90 @@ smoke_net() {
     grep -q 'first line: HTTP/1.1 200 OK' "${log}.clean" \
         && pass 'TCP+HTTP round trip via slirp' \
         || fail 'HTTP GET did not return 200'
+}
+
+# #82: measures guest -> host-loopback TCP round-trip latency through
+# libslirp. The host runs a trivial echo server bound to 127.0.0.1;
+# the guest reaches it via slirp's vhost address 10.0.2.2 and does
+# 100 sequential 1-byte ping-pongs. Each inbound byte is delivered
+# by slirp's pump thread, so μs-per-ping is dominated by the pump
+# tick — a direct probe of the thing #82 tunes.
+smoke_net_bench() {
+    echo "--- net-bench ---"
+    local log=/tmp/microvm-smoke-net-bench.log
+    local port=38080
+    local echo_pid_file=/tmp/machinen-net-bench-echo.pid
+
+    if lsof -iTCP:"$port" -sTCP:LISTEN -n -P >/dev/null 2>&1; then
+        fail "net-bench: port $port already in use on host"
+        return
+    fi
+
+    # Host-side TCP echo server on 127.0.0.1. One connection, echoes
+    # bytes back as they arrive, exits when the guest closes.
+    python3 - "$port" <<'PY' &
+import socket, sys
+port = int(sys.argv[1])
+srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+srv.bind(("127.0.0.1", port))
+srv.listen(1)
+srv.settimeout(60)
+try:
+    conn, _ = srv.accept()
+    conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+    with conn:
+        while True:
+            data = conn.recv(4096)
+            if not data:
+                break
+            conn.sendall(data)
+except socket.timeout:
+    pass
+finally:
+    srv.close()
+PY
+    local echo_pid=$!
+    echo "$echo_pid" > "$echo_pid_file"
+
+    # Wait for bind.
+    local elapsed=0
+    while (( elapsed < 10 )); do
+        if lsof -iTCP:"$port" -sTCP:LISTEN -n -P >/dev/null 2>&1; then
+            break
+        fi
+        sleep 1; (( ++elapsed ))
+    done
+    if (( elapsed >= 10 )); then
+        kill -9 "$echo_pid" 2>/dev/null || true
+        rm -f "$echo_pid_file"
+        fail "net-bench: host echo server never bound 127.0.0.1:$port"
+        return
+    fi
+
+    repack_with "
+        cp $FIXTURES/assets/net-bench-demo.sh $ROOTFS/
+        chmod +x $ROOTFS/net-bench-demo.sh
+        write_config /bin/sh /net-bench-demo.sh
+    "
+    # 100 pings @ 10ms pump tick ≈ 1s. Plus boot/teardown ~8s. 30s
+    # headroom covers the worst case if something stalls.
+    run_vmm 'printf ""' 30 "$log"
+
+    kill -9 "$echo_pid" 2>/dev/null || true
+    rm -f "$echo_pid_file"
+
+    local line
+    line=$(grep '^net-bench: pings=' "${log}.clean" | head -1)
+    if [[ -z "$line" ]]; then
+        fail 'guest never reported net-bench latency (see log)'
+        return
+    fi
+    pass "$line"
+
+    # The asserted ceiling is set once the libslirp knobs land (#82).
+    # Until then this is informational — the `pass` line above
+    # documents the measurement without gating.
 }
 
 smoke_blk() {
@@ -733,6 +819,7 @@ case "$MODE" in
     repl)       smoke_repl ;;
     criu)       smoke_criu ;;
     net)        smoke_net ;;
+    net-bench)  smoke_net_bench ;;
     blk)        smoke_blk ;;
     cc)         smoke_cc ;;
     cc-session) smoke_cc_session ;;
@@ -742,7 +829,7 @@ case "$MODE" in
     winsize)           smoke_winsize ;;
     files)             smoke_files ;;
     cc-session-vsock)  smoke_cc_session_vsock ;;
-    all)               smoke_repl; smoke_criu; smoke_net; smoke_blk; smoke_cc; smoke_spawn; smoke_vsock; smoke_vsock_out; smoke_winsize; smoke_files; smoke_cc_session; smoke_cc_session_vsock ;;
+    all)               smoke_repl; smoke_criu; smoke_net; smoke_net_bench; smoke_blk; smoke_cc; smoke_spawn; smoke_vsock; smoke_vsock_out; smoke_winsize; smoke_files; smoke_cc_session; smoke_cc_session_vsock ;;
     *) echo "unknown mode: $MODE" >&2; exit 2 ;;
 esac
 
