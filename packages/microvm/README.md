@@ -19,14 +19,30 @@ zig build -Doptimize=ReleaseSafe
 # → zig-out/bin/microvm
 ```
 
-On darwin you'll also want `brew install libslirp` (user-mode network backend)
-and an ad-hoc codesign so the Hypervisor entitlement takes effect:
+On darwin, ad-hoc codesign so the Hypervisor entitlement takes effect:
 
 ```bash
 codesign -s - --force --entitlements entitlements.plist zig-out/bin/microvm
 ```
 
-On linux, install `libslirp0`/`libslirp` via your package manager.
+### Networking (optional)
+
+The VMM talks to [gvproxy](https://github.com/containers/gvisor-tap-vsock)
+over a Unix socket for virtio-net — no kernel entitlements, no
+privileged daemon. If `MACHINEN_NET_SOCKET` is set, the VMM dials that
+socket; otherwise networking is disabled and the rest of the VMM runs
+as usual.
+
+```bash
+# install gvproxy (ships with podman on macOS/Linux, or grab a
+# release binary from the gvisor-tap-vsock project)
+gvproxy -listen-qemu unix:///tmp/gv.sock &
+MACHINEN_NET_SOCKET=/tmp/gv.sock zig-out/bin/microvm …
+```
+
+Guest-side defaults: `eth0=192.168.127.2/24`, gateway+DNS
+`192.168.127.1` — applied by `/sbin/machinen-netup` in the baked
+rootfs.
 
 ## Run
 

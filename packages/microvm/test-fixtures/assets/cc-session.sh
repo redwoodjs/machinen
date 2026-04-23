@@ -2,7 +2,7 @@
 # Drive an actual Claude Code turn from inside the microVM. Requires
 # /etc/machinen.env to contain ANTHROPIC_API_KEY=... (the smoke
 # harness copies it in from the host's env before repacking).
-# Also requires virtio-net + a working slirp path so the guest can
+# Also requires virtio-net + a working network path so the guest can
 # reach api.anthropic.com (#46).
 PATH=/usr/local/bin:/usr/bin:/bin:/sbin
 export PATH
@@ -24,11 +24,11 @@ SIOCSIFADDR=0x8916; SIOCSIFNETMASK=0x891C
 def pack(ip):
     return struct.pack('16sH2s4s8s', b'eth0', socket.AF_INET, b'\x00\x00', socket.inet_aton(ip), b'\x00'*8)
 s=socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-fcntl.ioctl(s, SIOCSIFADDR,    pack('10.0.2.15'))
+fcntl.ioctl(s, SIOCSIFADDR,    pack('192.168.127.2'))
 fcntl.ioctl(s, SIOCSIFNETMASK, pack('255.255.255.0'))
 PY
-/bin/gw-set 10.0.2.2 >/dev/null 2>&1
-mkdir -p /etc && echo 'nameserver 10.0.2.3' > /etc/resolv.conf
+/bin/gw-set 192.168.127.1 >/dev/null 2>&1
+mkdir -p /etc && echo 'nameserver 192.168.127.1' > /etc/resolv.conf
 
 echo
 echo "=== loading API key from /etc/machinen.env ==="

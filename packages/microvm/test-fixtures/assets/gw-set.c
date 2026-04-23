@@ -1,5 +1,5 @@
 // Installs an IPv4 default route via the given gateway.
-// Usage: gw-set <gateway-ip>   (e.g. `gw-set 10.0.2.2`)
+// Usage: gw-set <gateway-ip>   (e.g. `gw-set 192.168.127.1`)
 //
 // Same reason lo-up.c / if-up.c exist: we don't want iproute2 in
 // this initramfs, and this is one ioctl call.

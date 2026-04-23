@@ -24,7 +24,7 @@ comptime {
 
 const hvf = @import("hvf.zig");
 const virtio = @import("virtio.zig");
-const slirp_mod = @import("slirp.zig");
+const net_mod = @import("net_socket.zig");
 const blk_mod = @import("blk.zig");
 const vsock_mod = @import("vsock.zig");
 
@@ -318,10 +318,11 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     var uart: hvf.Pl011 = .init;
     defer uart.deinit(gpa);
 
-    // virtio-net + libslirp (#46 M3). The Device is the "hardware";
-    // libslirp is a user-mode TCP/IP stack that provides DHCP, DNS,
-    // ARP, ICMP, and TCP/UDP NAT so the guest reaches real hosts
-    // through the VMM process's own sockets — no tap device, no root.
+    // virtio-net + gvproxy (#82). The Device is the "hardware"; gvproxy
+    // (containers/gvisor-tap-vsock) runs out-of-process as a user-mode
+    // TCP/IP stack and we talk to it over a Unix socket that carries
+    // virtio-net frames with a 4-byte length prefix — the same wire
+    // protocol QEMU uses with `-netdev socket,fd=…`.
     const virtio_mac = [_]u8{ 0x02, 0xDE, 0xAD, 0xBE, 0xEF, 0x01 };
     var tx_stats = TxStats{};
     var netdev = virtio.Device{
@@ -400,21 +401,28 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     }
     const vsock_dev_ptr: ?*virtio.Device = if (vsock_dev_opt) |_| &vsock_dev_opt.? else null;
 
-    // Spin up libslirp so the TX handler has somewhere to route
-    // frames. If Homebrew's libslirp is missing or init fails, fall
-    // back to the classifier-only TX handler so the rest of the VMM
-    // still runs.
-    const slirp_inst: ?*slirp_mod.Slirp = slirp_mod.Slirp.create(gpa, &netdev, .{}) catch |err| blk: {
-        std.debug.print("slirp init failed: {s} — continuing without network backend\n", .{@errorName(err)});
-        break :blk null;
+    // Connect to gvproxy if a socket path was provided. If
+    // MACHINEN_NET_SOCKET isn't set, or the connect fails, fall back
+    // to the classifier-only TX handler so the rest of the VMM still
+    // runs (same graceful behavior the libslirp path had).
+    const net_inst: ?*net_mod.NetSocket = blk: {
+        const env = getenv("MACHINEN_NET_SOCKET") orelse {
+            break :blk null;
+        };
+        const path = std.mem.span(env);
+        if (path.len == 0) break :blk null;
+        break :blk net_mod.NetSocket.connect(gpa, &netdev, .{ .socket_path = path }) catch |err| {
+            std.debug.print("net: connect to {s} failed: {s} — continuing without network\n", .{ path, @errorName(err) });
+            break :blk null;
+        };
     };
-    defer if (slirp_inst) |s| s.destroy();
+    defer if (net_inst) |n| n.destroy();
     // Bridge context passed into TX/RX callbacks.
     var net_ctx = NetBridge{
         .stats = &tx_stats,
-        .slirp = slirp_inst,
+        .net = net_inst,
     };
-    if (slirp_inst != null) {
+    if (net_inst != null) {
         netdev.tx_handler = &onTxFrameBridge;
         netdev.tx_ctx = @ptrCast(&net_ctx);
     }
@@ -434,12 +442,13 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     const virtio_blk_irq: u32 = spi.base + 17;
     const virtio_vsock_irq: u32 = spi.base + 18;
 
-    // Feed the virtio IRQ id into the network bridge, and arm
-    // libslirp's RX callback to raise the SPI when it injects.
+    // Feed the virtio IRQ id into the network bridge, and arm the
+    // RX callback so the net backend can raise the SPI after each
+    // frame it injects.
     net_ctx.virtio_irq = virtio_irq;
-    if (slirp_inst) |s| {
-        s.on_rx = &onSlirpRx;
-        s.on_rx_ctx = @ptrCast(&net_ctx);
+    if (net_inst) |n| {
+        n.on_rx = &onNetRx;
+        n.on_rx_ctx = @ptrCast(&net_ctx);
     }
 
     // virtio-vsock bridge startup.
@@ -474,33 +483,10 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     }
     defer if (vsock_bridge_opt) |b| b.destroy();
 
-    // Background thread pumps libslirp so host-side socket events
-    // (TCP ACKs, DNS replies, etc.) get delivered to the guest even
-    // when the guest isn't sending. We sleep briefly between ticks to
-    // keep CPU use sane.
-    var slirp_stop = std.atomic.Value(bool).init(false);
-    var slirp_thread: ?std.Thread = null;
-    if (slirp_inst) |s| {
-        const T = struct {
-            fn run(ctx: *SlirpPumpCtx) void {
-                while (!ctx.stop.load(.acquire)) {
-                    ctx.s.pump(10);
-                }
-            }
-        };
-        const ctx = try gpa.create(SlirpPumpCtx);
-        ctx.* = .{ .s = s, .stop = &slirp_stop };
-        slirp_thread = try std.Thread.spawn(.{}, T.run, .{ctx});
-    }
-    defer {
-        slirp_stop.store(true, .release);
-        // Join (not detach): the sibling `defer` that destroys the
-        // slirp instance runs right after this one, and the pump
-        // thread calls slirp_pollfds_poll(self.handle, …) every ~10ms.
-        // Detach leaves the thread racing against destroy() and
-        // segfaulting on a freed handle.
-        if (slirp_thread) |t| t.join();
-    }
+    // No host-side pump thread needed: net_socket.NetSocket spawns its
+    // own RX reader as part of `connect()`, and destroy() joins it.
+    // The RX thread blocks in read() — zero CPU when idle — and fires
+    // `on_rx` (wired above to `onNetRx`) after each injected frame.
 
     // Stdin-reader thread: blocks on read(0) and, when bytes arrive,
     // pushes them into the UART's RX FIFO and raises the PL011 IRQ.
@@ -709,17 +695,11 @@ pub const TxStats = struct {
     other: u64 = 0,
 };
 
-/// Context for the background thread that pumps libslirp.
-pub const SlirpPumpCtx = struct {
-    s: *slirp_mod.Slirp,
-    stop: *std.atomic.Value(bool),
-};
-
 /// Glue passed into the TX/RX callbacks so each frame can be counted
-/// AND handed to libslirp.
+/// AND handed to the net backend.
 pub const NetBridge = struct {
     stats: *TxStats,
-    slirp: ?*slirp_mod.Slirp,
+    net: ?*net_mod.NetSocket,
     virtio_irq: u32 = 0,
 };
 
@@ -727,14 +707,13 @@ fn onTxFrameBridge(ctx: ?*anyopaque, frame: []const u8) void {
     const bridge: *NetBridge = @ptrCast(@alignCast(ctx.?));
     // Still log for smoke tests and diagnostics.
     onTxFrame(@ptrCast(bridge.stats), frame);
-    // Hand to libslirp; it may synchronously call sendCb -> injectRx.
-    if (bridge.slirp) |s| s.input(frame);
+    if (bridge.net) |n| n.input(frame);
 }
 
-fn onSlirpRx(ctx: ?*anyopaque) void {
+fn onNetRx(ctx: ?*anyopaque) void {
     const bridge: *NetBridge = @ptrCast(@alignCast(ctx.?));
-    // Device's interrupt_status was set inside injectRx. Sync the
-    // GIC line so the guest sees a pending interrupt.
+    // Device's interrupt_status was set inside injectRx. Sync the GIC
+    // line so the guest sees a pending interrupt.
     hvf.Gic.setSpi(bridge.virtio_irq, true) catch {};
 }
 

@@ -7,6 +7,11 @@ Built from the Zig source in [`packages/microvm`](https://github.com/redwoodjs/m
 ships under `bin/microvm`. Uses KVM for hardware virtualization (host must have
 `/dev/kvm` accessible).
 
+The package also ships a sibling `bin/gvproxy` — the
+[gvisor-tap-vsock](https://github.com/containers/gvisor-tap-vsock) daemon that
+provides the user-mode network backend. `@machinen/runtime` auto-spawns it
+when present.
+
 ## Install
 
 Usually you don't install this directly — `@machinen/cli` pulls it in:
@@ -23,18 +28,6 @@ npm i @machinen/vmm-arm64-linux
 
 The package's `os`/`cpu` gates will refuse installation on anything other than
 `linux` + `arm64`.
-
-## Runtime dependency: libslirp
-
-The VMM dynamically links `libslirp` for its user-mode network backend. Until
-it's statically linked, install it through your package manager:
-
-- Debian/Ubuntu: `apt install libslirp0`
-- Fedora/RHEL: `dnf install libslirp`
-- Alpine: `apk add libslirp`
-
-The package's postinstall script probes the usual locations and prints a hint
-if it can't find the library.
 
 ## Usage
 
