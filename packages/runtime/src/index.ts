@@ -252,60 +252,78 @@ export async function spawn(opts: SpawnOptions = {}): Promise<VmHandle> {
     env.MACHINEN_DTB = abs;
   }
 
-  let bundleTempDir: string | undefined;
-  if (opts.bundle) {
-    const packed = packBundle(opts);
-    bundleTempDir = packed.tempDir;
-    env.MACHINEN_INITRD = packed.cpioPath;
-  }
-
-  // Stand up gvproxy unless the caller already handed us a socket.
-  // If gvproxy isn't on the host, warn once and let the VMM boot
-  // without networking — same graceful fallback the backend has when
-  // MACHINEN_NET_SOCKET is unset.
+  // gvproxy + artifact cache (#88) + host→guest port forwards (#87)
+  // are set up together so the cache's port can be wired into the
+  // guest env before packBundle seals the initramfs. If anything
+  // downstream throws (packBundle validation, exposePort failure,
+  // nodeSpawn failure), the outer catch shuts both supervisors back
+  // down — otherwise a failed spawn would leave orphans behind.
   let gvStop: (() => void) | undefined;
-  if (!env.MACHINEN_NET_SOCKET) {
-    const gvBin = resolveGvproxyBinary(binary);
-    if (gvBin) {
-      const gv = await spawnGvproxy(gvBin);
-      env.MACHINEN_NET_SOCKET = gv.socketPath;
-      gvStop = gv.stop;
-      for (const m of portForward) {
-        try {
+  let cacheStop: (() => Promise<void>) | undefined;
+  let bundleTempDir: string | undefined;
+  const mergedGuestEnv: Record<string, string> = { ...opts.guestEnv };
+
+  try {
+    if (!env.MACHINEN_NET_SOCKET) {
+      const gvBin = resolveGvproxyBinary(binary);
+      if (gvBin) {
+        const gv = await spawnGvproxy(gvBin);
+        env.MACHINEN_NET_SOCKET = gv.socketPath;
+        gvStop = gv.stop;
+        for (const m of portForward) {
           await exposePort(gv.controlSocketPath, m);
-        } catch (err) {
-          gv.stop();
-          throw err;
         }
+      } else {
+        if (portForward.length > 0) {
+          throw new SpawnError(
+            "portForward requires gvproxy, but no gvproxy binary was found. " +
+              "Install gvproxy or point MACHINEN_GVPROXY at one.",
+          );
+        }
+        warnGvproxyMissing();
       }
-    } else {
-      if (portForward.length > 0) {
-        throw new SpawnError(
-          "portForward requires gvproxy, but no gvproxy binary was found. " +
-            "Install gvproxy or point MACHINEN_GVPROXY at one.",
+    }
+
+    // Only useful when the guest has networking — without gvproxy
+    // the guest can't reach the host loopback anyway. Caller-provided
+    // FNM_NODE_DIST_MIRROR wins so tests and power users can point
+    // fnm at a different mirror.
+    if (env.MACHINEN_NET_SOCKET) {
+      try {
+        const cache = await spawnArtifactCache();
+        cacheStop = cache.stop;
+        if (!mergedGuestEnv.FNM_NODE_DIST_MIRROR) {
+          // 192.168.127.254 is gvproxy's "host" mapping — it forwards
+          // to the host's 127.0.0.1. (192.168.127.1 is the gateway,
+          // not the host.) See scripts/bench-net.sh header for the
+          // canonical description.
+          mergedGuestEnv.FNM_NODE_DIST_MIRROR = `http://192.168.127.254:${cache.port}/node-dist`;
+        }
+      } catch (err) {
+        process.stderr.write(
+          `machinen: artifact cache failed to start (${err instanceof Error ? err.message : String(err)}) — continuing without it\n`,
         );
       }
-      warnGvproxyMissing();
     }
-  }
 
-  // Host-side artifact cache (#88). Only makes sense when networking
-  // is available — without gvproxy the guest can't reach loopback on
-  // the host anyway. Caller can override FNM_NODE_DIST_MIRROR to point
-  // somewhere else (e.g. to disable the cache entirely in tests).
-  let cacheStop: (() => Promise<void>) | undefined;
-  if (env.MACHINEN_NET_SOCKET) {
-    try {
-      const cache = await spawnArtifactCache();
-      cacheStop = cache.stop;
-      if (!env.FNM_NODE_DIST_MIRROR) {
-        env.FNM_NODE_DIST_MIRROR = `http://192.168.127.1:${cache.port}/node-dist`;
-      }
-    } catch (err) {
-      process.stderr.write(
-        `machinen: artifact cache failed to start (${err instanceof Error ? err.message : String(err)}) — continuing without it\n`,
-      );
+    if (opts.bundle) {
+      const packed = packBundle({ ...opts, guestEnv: mergedGuestEnv });
+      bundleTempDir = packed.tempDir;
+      env.MACHINEN_INITRD = packed.cpioPath;
     }
+  } catch (err) {
+    if (cacheStop) {
+      await cacheStop();
+    }
+    if (gvStop) {
+      gvStop();
+    }
+    if (bundleTempDir) {
+      try {
+        rmSync(bundleTempDir, { recursive: true, force: true });
+      } catch {}
+    }
+    throw err;
   }
 
   const child = nodeSpawn(binary, opts.args ?? [], {
