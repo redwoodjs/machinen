@@ -17,6 +17,7 @@
 
 import { type ChildProcess, spawn as nodeSpawn } from "node:child_process";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { request as httpRequest } from "node:http";
 import { delimiter as pathSep, dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -58,6 +59,12 @@ export function resolveGvproxyBinary(vmmBinary: string): string | null {
 export interface GvproxyHandle {
   /** Absolute path to the qemu-netdev Unix socket. */
   socketPath: string;
+  /**
+   * Absolute path to gvproxy's control API unix socket. Used by
+   * `exposePort()` to install host->guest TCP forwards via
+   * `/services/forwarder/expose`.
+   */
+  controlSocketPath: string;
   /** The spawned gvproxy child. */
   child: ChildProcess;
   /** Kill gvproxy and clean up the socket + temp dir. Idempotent. */
@@ -77,13 +84,19 @@ export async function spawnGvproxy(
   // byte sun_path limit on macOS even if TMPDIR is long.
   const dir = mkdtempSync(join(tmpdir(), "mgv-"));
   const socketPath = join(dir, "qemu.sock");
+  const controlSocketPath = join(dir, "net.sock");
 
-  // gvproxy's `-listen-qemu` expects a unix:// URL. It auto-creates the
-  // socket file and listens. We only use the qemu-netdev protocol —
-  // no admin API listener, no vsock listener.
-  const child = nodeSpawn(binary, ["-listen-qemu", `unix://${socketPath}`], {
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  // Two listeners: `-listen-qemu` is the qemu-netdev protocol socket
+  // the VMM dials for frames; `-listen` is gvproxy's HTTP control API,
+  // used by `exposePort()` to install host->guest port forwards. Both
+  // unix:// URLs, both auto-created by gvproxy. No vsock listener.
+  const child = nodeSpawn(
+    binary,
+    ["-listen-qemu", `unix://${socketPath}`, "-listen", `unix://${controlSocketPath}`],
+    {
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
 
   let stopped = false;
   const stop = () => {
@@ -135,7 +148,72 @@ export async function spawnGvproxy(
     throw err;
   }
 
-  return { socketPath, child, stop };
+  return { socketPath, controlSocketPath, child, stop };
+}
+
+/**
+ * Install a host -> guest TCP port forward via gvproxy's control API.
+ *
+ * POSTs to `/services/forwarder/expose` with `{local, remote}` where:
+ *   - `local`  is `<hostAddr>:<hostPort>` on the host side of gvproxy
+ *   - `remote` is `<guestAddr>:<guestPort>` inside gvproxy's user-mode
+ *     network (the guest sits at 192.168.127.2 by default).
+ *
+ * gvproxy accepts host-side connections as soon as the forward is
+ * installed and buffers them until the guest's listener is ready, so
+ * calling this before the VMM boots is fine.
+ */
+export async function exposePort(
+  controlSocketPath: string,
+  opts: {
+    hostPort: number;
+    guestPort: number;
+    /** Host bind address. Default `127.0.0.1` (loopback-only). */
+    hostAddr?: string;
+    /** Guest IP inside gvproxy's user-mode NAT. Default `192.168.127.2`. */
+    guestAddr?: string;
+  },
+): Promise<void> {
+  const hostAddr = opts.hostAddr ?? "127.0.0.1";
+  const guestAddr = opts.guestAddr ?? "192.168.127.2";
+  const body = JSON.stringify({
+    local: `${hostAddr}:${opts.hostPort}`,
+    remote: `${guestAddr}:${opts.guestPort}`,
+  });
+
+  await new Promise<void>((done, fail) => {
+    const req = httpRequest(
+      {
+        socketPath: controlSocketPath,
+        method: "POST",
+        path: "/services/forwarder/expose",
+        headers: {
+          "content-type": "application/json",
+          "content-length": Buffer.byteLength(body).toString(),
+        },
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (c: Buffer) => chunks.push(c));
+        res.on("end", () => {
+          const status = res.statusCode ?? 0;
+          if (status >= 200 && status < 300) {
+            done();
+            return;
+          }
+          const text = Buffer.concat(chunks).toString("utf8").trim();
+          fail(
+            new Error(
+              `gvproxy expose failed (${status}) for ${hostAddr}:${opts.hostPort} -> ${guestAddr}:${opts.guestPort}: ${text || "<empty body>"}`,
+            ),
+          );
+        });
+      },
+    );
+    req.once("error", fail);
+    req.write(body);
+    req.end();
+  });
 }
 
 /**

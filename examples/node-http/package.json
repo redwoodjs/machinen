@@ -1,0 +1,12 @@
+{
+  "name": "@machinen/example-node-http",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --conditions=source --import tsx run.ts"
+  },
+  "dependencies": {
+    "@machinen/runtime": "workspace:*"
+  }
+}
