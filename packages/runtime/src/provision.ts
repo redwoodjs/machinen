@@ -39,6 +39,7 @@ import debugLib from "debug";
 import { ProvisionError } from "./errors.ts";
 import { VsockExec } from "./exec.ts";
 import { boot, type VmHandle } from "./index.ts";
+import type { OnLog } from "./log.ts";
 
 const debug = debugLib("machinen:provision");
 const vmmDebug = debugLib("machinen:vmm");
@@ -116,6 +117,14 @@ export interface ProvisionOptions {
 
   /** Path to the guest DTB. Same semantics as `boot({ dtb })`. */
   dtb?: string;
+
+  /**
+   * Streaming log callback — fires for every byte of guest output
+   * during the build: guest kernel console, every `vm.exec()` call
+   * the install hook makes, and the internal tar / poweroff execs.
+   * See `LogEvent.source` to tell them apart. See #83.
+   */
+  onLog?: OnLog;
 }
 
 export interface ProvisionResult {
@@ -272,6 +281,9 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
       // We drive the guest to exit via /sbin/machinen-poweroff at the
       // end; wait() has its own ceiling below.
       timeoutMs: null,
+      // Forward guest console + install-hook exec output to the caller.
+      // Internal tar / poweroff execs are forwarded explicitly below.
+      onLog: opts.onLog,
     });
 
     const deadlineMs = opts.timeoutMs ?? 10 * 60 * 1000;
@@ -326,6 +338,7 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
       const tarT0 = Date.now();
       const tar = await VsockExec.run(udsPath, TAR_TO_DISK_CMD, {
         execTimeoutMs: deadlineMs,
+        ...tapExecForLog(TAR_TO_DISK_CMD, opts.onLog),
       });
       debug("tar / -> /dev/vda done exit=%d elapsed=%dms", tar.exitCode, Date.now() - tarT0);
       if (tar.exitCode !== 0) {
@@ -346,6 +359,7 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
       debug("requesting guest poweroff");
       await VsockExec.run(udsPath, "/sbin/machinen-poweroff", {
         connectTimeoutMs: 2_000,
+        ...tapExecForLog("/sbin/machinen-poweroff", opts.onLog),
       }).catch(() => {});
 
       await vm.wait();
@@ -377,6 +391,25 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
       rmSync(workDir, { recursive: true, force: true });
     } catch {}
   }
+}
+
+/**
+ * Bridge a raw `VsockExec.run` call into the provision-level `onLog`.
+ * The bare VsockExec calls inside provision (tar, poweroff) don't go
+ * through the VmHandle, so they miss the handle-level tee; this applies
+ * the same `exec-stdout` / `exec-stderr` tagging shape by hand.
+ */
+function tapExecForLog(
+  cmd: string,
+  onLog: OnLog | undefined,
+): { onStdout?: (chunk: Buffer) => void; onStderr?: (chunk: Buffer) => void } {
+  if (!onLog) {
+    return {};
+  }
+  return {
+    onStdout: (chunk) => onLog({ source: "exec-stdout", cmd, chunk }),
+    onStderr: (chunk) => onLog({ source: "exec-stderr", cmd, chunk }),
+  };
 }
 
 function allocateSparseFile(path: string, sizeBytes: number): void {

@@ -57,10 +57,42 @@ Key options (all optional):
 | `binary`      | VMM binary path — auto-resolved if omitted                      |
 | `vmmEnv`      | Env for the VMM process itself (host side, rarely needed)       |
 | `timeoutMs`   | `wait()` deadline (default 60s, `null` to wait forever)         |
+| `onLog`       | Stream every byte of guest output (console + every exec)        |
 
 Images produced by `provision({ cmd, env })` carry a baked-in default cmd (and
 env) in `/machinen-config.json`, so callers can `boot({ image })` with no
 further args. User-supplied `cmd`/`env` on `boot()` override the image defaults.
+
+### Streaming logs
+
+Every long-running API — `boot`, `provision`, `vm.snapshot`, `attach` —
+accepts an `onLog` callback that fires for every byte of guest output as
+it arrives. Each event is tagged so callers can tell kernel console
+bytes from exec bytes:
+
+```ts
+import { provision, type LogEvent } from "@machinen/runtime";
+
+await provision({
+  base: "./rootfs-debian-arm64.tar.gz",
+  install: async (vm) => {
+    await vm.exec("apt-get update");
+    await vm.exec("apt-get install -y tree");
+  },
+  out: "./warm.tar.gz",
+  onLog: (evt: LogEvent) => {
+    // evt.source: "guest-console" | "exec-stdout" | "exec-stderr"
+    // evt.cmd:    the command string, when source is exec-*
+    // evt.chunk:  raw bytes as they arrive
+    process.stderr.write(evt.chunk);
+  },
+});
+```
+
+For a single exec with narrower output-only tees, `vm.exec` / `vm.execRaw`
+still take `{ onStdout, onStderr }`. Both layers coexist: `onLog` on
+`boot()` fires for every exec made through the handle; per-call
+`onStdout` / `onStderr` fires on top when set.
 
 ### Binary resolution
 
@@ -86,6 +118,22 @@ The VM exits as part of the snapshot. Restore for a sub-second cold start with
 `boot({ snapshot: snap.snapshotPath })`. Requires `snapshot` at boot (CRIU's
 target) and a guest-side dump helper at `/sbin/machinen-dump` (override via
 `opts.dumpCmd`).
+
+### Networking (gvproxy)
+
+`boot()` starts [gvproxy](https://github.com/containers/gvisor-tap-vsock) to
+provide the guest with outbound networking. It's resolved in this order:
+
+1. `$MACHINEN_GVPROXY` override.
+2. Sibling of the VMM binary — our `@machinen/vmm-*` npm packages bundle it.
+3. `~/.machinen/gvproxy/<version>/gvproxy` — auto-installed on first use.
+4. `gvproxy` on `$PATH`.
+
+If none of the above hit, `boot()` fetches the pinned release from
+`containers/gvisor-tap-vsock` into the cache dir. You'll see a single stderr
+line (`machinen: installing gvproxy v0.8.6 …`) the first time; subsequent
+boots are silent. If the fetch fails (offline), networking stays disabled
+and `boot()` continues.
 
 ### Host-side artifact cache
 
