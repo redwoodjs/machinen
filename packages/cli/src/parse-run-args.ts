@@ -8,6 +8,12 @@ export interface ParsedRunArgs {
   positional: string[];
   double_dash_args: string[];
   mount?: { host: string; guest: string };
+  /**
+   * Live-share FUSE mounts (`--mount-live <host>:<guest>`). Each
+   * entry stays connected to the host filesystem for the VM's life;
+   * guest reads stream in on demand. Read-only in this build. See #78.
+   */
+  liveMounts?: Array<{ host: string; guest: string }>;
   env?: Record<string, string>;
   portForward?: Array<{ hostPort: number; guestPort: number }>;
   /** Snapshot image to restore from (`--snapshot <path>`). */
@@ -23,6 +29,7 @@ export function parseRunArgs(argv: string[]): ParsedRunArgs {
 
   const positional: string[] = [];
   let mount: { host: string; guest: string } | undefined;
+  const liveMounts: Array<{ host: string; guest: string }> = [];
   const env: Record<string, string> = {};
   const portForward: Array<{ hostPort: number; guestPort: number }> = [];
   const seenHostPorts = new Set<number>();
@@ -58,6 +65,31 @@ export function parseRunArgs(argv: string[]): ParsedRunArgs {
         );
       }
       mount = { host: spec!.slice(0, colon), guest: spec!.slice(colon + 1) };
+    } else if (a === "--mount-live" || a.startsWith("--mount-live=")) {
+      let spec: string | undefined;
+      if (a === "--mount-live") {
+        spec = pre[i + 1];
+        if (spec === undefined) {
+          throw new ParseError(
+            "PARSE_FLAG_MISSING_VALUE",
+            "--mount-live requires a <host-dir>:<guest-path> value",
+          );
+        }
+        i++;
+      } else {
+        spec = a.slice("--mount-live=".length);
+      }
+      // Intentionally strict for v0: plain `<host>:<guest>`, no `:rw`
+      // suffix yet. Refusing now avoids callers baking `:rw` into
+      // scripts before write-through actually works.
+      const colon = spec!.indexOf(":");
+      if (colon <= 0 || colon === spec!.length - 1) {
+        throw new ParseError(
+          "PARSE_FLAG_MALFORMED",
+          `--mount-live: expected <host-dir>:<guest-path>, got '${spec}'`,
+        );
+      }
+      liveMounts.push({ host: spec!.slice(0, colon), guest: spec!.slice(colon + 1) });
     } else if (a === "--env" || a.startsWith("--env=")) {
       let spec: string | undefined;
       if (a === "--env") {
@@ -157,6 +189,7 @@ export function parseRunArgs(argv: string[]): ParsedRunArgs {
     positional,
     double_dash_args,
     mount,
+    liveMounts: liveMounts.length > 0 ? liveMounts : undefined,
     env: Object.keys(env).length > 0 ? env : undefined,
     portForward: portForward.length > 0 ? portForward : undefined,
     snapshot,

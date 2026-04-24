@@ -70,6 +70,59 @@ describe("parseRunArgs --env", () => {
   });
 });
 
+describe("parseRunArgs --mount-live", () => {
+  it("captures a single --mount-live", () => {
+    const parsed = parseRunArgs(["--mount-live", "./src:/mnt/src", "--", "/bin/true"]);
+    expect(parsed.liveMounts).toEqual([{ host: "./src", guest: "/mnt/src" }]);
+  });
+
+  it("accepts the =form", () => {
+    const parsed = parseRunArgs(["--mount-live=./src:/mnt/src"]);
+    expect(parsed.liveMounts).toEqual([{ host: "./src", guest: "/mnt/src" }]);
+  });
+
+  it("is repeatable and preserves order", () => {
+    const parsed = parseRunArgs([
+      "--mount-live",
+      "./a:/mnt/a",
+      "--mount-live=./b:/mnt/b",
+      "--mount-live",
+      "./c:/mnt/c",
+    ]);
+    expect(parsed.liveMounts).toEqual([
+      { host: "./a", guest: "/mnt/a" },
+      { host: "./b", guest: "/mnt/b" },
+      { host: "./c", guest: "/mnt/c" },
+    ]);
+  });
+
+  it("coexists with --mount (copy-once stays separate)", () => {
+    const parsed = parseRunArgs([
+      "--mount",
+      "./cfg:/mnt/cfg",
+      "--mount-live",
+      "./src:/mnt/src",
+    ]);
+    expect(parsed.mount).toEqual({ host: "./cfg", guest: "/mnt/cfg" });
+    expect(parsed.liveMounts).toEqual([{ host: "./src", guest: "/mnt/src" }]);
+  });
+
+  it("returns undefined liveMounts when the flag is absent", () => {
+    const parsed = parseRunArgs(["./bundle", "--", "ls"]);
+    expect(parsed.liveMounts).toBeUndefined();
+  });
+
+  it("rejects a malformed spec (missing colon)", () => {
+    expect(() => parseRunArgs(["--mount-live", "./src"])).toThrow(
+      /expected <host-dir>:<guest-path>/,
+    );
+  });
+
+  it("rejects a bare --mount-live with no value", () => {
+    expect(() => parseRunArgs(["--mount-live"])).toThrow(/--mount-live requires/);
+  });
+});
+
 describe("parseRunArgs -p", () => {
   it("parses a single -p into portForward", () => {
     const parsed = parseRunArgs(["./bundle", "-p", "8080:3000"]);

@@ -177,12 +177,13 @@ async function cmdBoot(args: string[]): Promise<number> {
   } catch (err) {
     handleError(err);
   }
-  const { positional, double_dash_args, mount, env, portForward, snapshot, name } = parsed;
+  const { positional, double_dash_args, mount, liveMounts, env, portForward, snapshot, name } =
+    parsed;
 
   if (positional.length > 1) {
     die(
       "usage: machinen boot [<image>] [--snapshot <path>] [--name <name>] " +
-        "[--mount ...] [--env KEY=VALUE]... [-- <cmd> [args...]]",
+        "[--mount ...] [--mount-live ...] [--env KEY=VALUE]... [-- <cmd> [args...]]",
     );
   }
   const imageOverride = positional[0];
@@ -246,6 +247,7 @@ async function cmdBoot(args: string[]): Promise<number> {
       kernel: kernelPath,
       dtb: dtbPath,
       mount,
+      liveMounts,
       portForward,
       snapshot,
       name,
@@ -683,6 +685,9 @@ function printHelp(): void {
       `                                                 disk for a future vm.snapshot().\n` +
       `    --mount <host-dir>:<guest-path>              Expose one host dir inside the guest\n` +
       `                                                 (path under /mnt/; copy-once).\n` +
+      `    --mount-live <host-dir>:<guest-path>         Live-share a host dir over FUSE.\n` +
+      `                                                 Guest reads stream in on demand; no\n` +
+      `                                                 copy at boot. Read-only for now.\n` +
       `    --env KEY=VALUE                              Set an env var inside the guest.\n` +
       `    -p <hostPort>:<guestPort>                    Forward host:hostPort → guest:guestPort.\n` +
       `\n` +
