@@ -261,6 +261,36 @@ export function buildAttrOut(a: FuseAttrOut): Uint8Array {
   return buf;
 }
 
+// --- fuse_kstatfs (STATFS reply) -----------------------------------------
+
+export const FUSE_KSTATFS_SIZE = 80;
+
+export interface FuseKstatfs {
+  blocks: bigint;
+  bfree: bigint;
+  bavail: bigint;
+  files: bigint;
+  ffree: bigint;
+  bsize: number;
+  namelen: number;
+  frsize: number;
+}
+
+export function buildKstatfs(s: FuseKstatfs): Uint8Array {
+  const buf = new Uint8Array(FUSE_KSTATFS_SIZE);
+  const dv = viewOf(buf, 0, FUSE_KSTATFS_SIZE);
+  dv.setBigUint64(0, s.blocks, true);
+  dv.setBigUint64(8, s.bfree, true);
+  dv.setBigUint64(16, s.bavail, true);
+  dv.setBigUint64(24, s.files, true);
+  dv.setBigUint64(32, s.ffree, true);
+  dv.setUint32(40, s.bsize, true);
+  dv.setUint32(44, s.namelen, true);
+  dv.setUint32(48, s.frsize, true);
+  // padding at 52, spare[6] zeroes at 56..79
+  return buf;
+}
+
 // --- fuse_init_in / fuse_init_out ----------------------------------------
 
 export const FUSE_INIT_IN_MIN_SIZE = 8; // pre-7.23 kernels send only major/minor
