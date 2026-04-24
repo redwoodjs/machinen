@@ -432,10 +432,11 @@ describe("vm.snapshot", () => {
     }
   });
 
-  it('throws when the guest never reported "dump OK"', async () => {
-    // /usr/bin/true exits immediately, so vm.wait() resolves without
-    // any "dump OK" marker ever landing in stderr. snapshot() should
-    // surface that as a clear error.
+  it("throws when the guest exits without writing to the disk", async () => {
+    // /usr/bin/true exits immediately, so the VMM comes down cleanly
+    // before the in-guest dump script has any chance to run. The mtime
+    // check in performSnapshot() catches "disk was never touched" as
+    // a dump failure.
     const snap = `/tmp/machinen-snap-nook-${process.pid}.img`;
     writeFileSync(snap, Buffer.alloc(1024));
     try {
@@ -444,7 +445,9 @@ describe("vm.snapshot", () => {
         snapshot: snap,
         timeoutMs: 5_000,
       });
-      await expect(vm.snapshot(snap, { timeoutMs: 2_000 })).rejects.toThrow(/dump OK/);
+      await expect(vm.snapshot(snap, { timeoutMs: 2_000 })).rejects.toThrow(
+        /disk|did not shut down/,
+      );
     } finally {
       try {
         unlinkSync(snap);

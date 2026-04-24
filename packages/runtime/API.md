@@ -1794,19 +1794,27 @@ Like `exec()` but returns non-zero exit codes instead of throwing.
 
 > **snapshot**(`outPath`, `opts?`): `Promise`\<[`SnapshotResult`](#snapshotresult)\>
 
-Defined in: [index.ts:297](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L297)
+Defined in: [index.ts:305](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L305)
 
 Freeze this VM with CRIU and write the image to `outPath`.
 
-The caller must have booted the VM with `disk: <path>` so CRIU has
-a target to write to; `vm.snapshot()` copies that disk to `outPath`
-once the dump completes. If boot had no disk attached, this throws.
+The caller must have booted the VM with `snapshot: <path>` so
+CRIU has a target to write to; `vm.snapshot()` copies that disk
+to `outPath` once the dump completes. If boot had no disk
+attached, this throws `SNAPSHOT_NO_DISK`.
 
 Guest contract: the rootfs must ship a dump helper callable via
-vsock exec that (1) runs `criu dump` against the workload process,
-(2) writes `dump OK` to the console, and (3) triggers PSCI
-SYSTEM_OFF. Default path is `/sbin/machinen-dump` — override via
-`opts.dumpCmd`. Implemented by #50.
+vsock exec — default path `/sbin/machinen-dump`, override via
+`opts.dumpCmd`. The helper runs `criu dump` against the workload
+tree, syncs the ext4 images it wrote to `/dev/vda`, and lets
+`/sbin/machinen-supervisor` trigger PSCI SYSTEM_OFF. Success is
+signalled by a clean VMM exit before `opts.timeoutMs` elapses
+plus an mtime bump on the disk file — if the timer fires first,
+`SNAPSHOT_TIMEOUT` is thrown; if the disk is untouched,
+`SNAPSHOT_DUMP_FAILED`.
+
+Supported on both boot-owned and attach handles — attach uses
+the `diskPath` stored in the VM registry entry at boot time.
 
 The VM exits as part of the dump. To continue using the VM
 afterwards, boot a new one from the produced snapshot.
@@ -1829,7 +1837,7 @@ afterwards, boot a new one from the produced snapshot.
 
 ### SnapshotOptions
 
-Defined in: [index.ts:300](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L300)
+Defined in: [index.ts:308](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L308)
 
 #### Properties
 
@@ -1837,7 +1845,7 @@ Defined in: [index.ts:300](https://github.com/redwoodjs/machinen/blob/main/packa
 
 > `optional` **dumpCmd?**: `string`
 
-Defined in: [index.ts:305](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L305)
+Defined in: [index.ts:313](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L313)
 
 Command to run in the guest to trigger the CRIU dump. Defaults to
 `/sbin/machinen-dump`.
@@ -1846,7 +1854,7 @@ Command to run in the guest to trigger the CRIU dump. Defaults to
 
 > `optional` **timeoutMs?**: `number`
 
-Defined in: [index.ts:310](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L310)
+Defined in: [index.ts:318](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L318)
 
 Wall-clock ceiling for the dump + shutdown. If the VMM hasn't exited
 in this window we SIGKILL it and fail. Default 90s.
@@ -1855,7 +1863,7 @@ in this window we SIGKILL it and fail. Default 90s.
 
 > `optional` **onLog?**: [`OnLog`](#onlog-3)
 
-Defined in: [index.ts:316](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L316)
+Defined in: [index.ts:324](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L324)
 
 Streaming log callback — fires for every byte the dump emits
 (guest console + the dump exec). See #83. When both the snapshot
@@ -1865,7 +1873,7 @@ call and `boot({ onLog })` have a callback set, both fire.
 
 ### SnapshotResult
 
-Defined in: [index.ts:319](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L319)
+Defined in: [index.ts:327](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L327)
 
 #### Properties
 
@@ -1873,7 +1881,7 @@ Defined in: [index.ts:319](https://github.com/redwoodjs/machinen/blob/main/packa
 
 > **snapshotPath**: `string`
 
-Defined in: [index.ts:321](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L321)
+Defined in: [index.ts:329](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L329)
 
 Absolute path to the written snapshot image.
 
@@ -1881,7 +1889,7 @@ Absolute path to the written snapshot image.
 
 > **elapsedMs**: `number`
 
-Defined in: [index.ts:323](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L323)
+Defined in: [index.ts:331](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L331)
 
 Time from `snapshot()` entry to VMM exit, in milliseconds.
 
@@ -1889,7 +1897,7 @@ Time from `snapshot()` entry to VMM exit, in milliseconds.
 
 > **consoleLog**: `string`
 
-Defined in: [index.ts:325](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L325)
+Defined in: [index.ts:333](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L333)
 
 Guest console output captured during the dump.
 
@@ -1897,7 +1905,7 @@ Guest console output captured during the dump.
 
 ### AttachOptions
 
-Defined in: [index.ts:811](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L811)
+Defined in: [index.ts:779](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L779)
 
 #### Properties
 
@@ -1905,7 +1913,7 @@ Defined in: [index.ts:811](https://github.com/redwoodjs/machinen/blob/main/packa
 
 > `optional` **id?**: `string`
 
-Defined in: [index.ts:813](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L813)
+Defined in: [index.ts:781](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L781)
 
 Look up a VM by its registry id. One of `id` or `name` is required.
 
@@ -1913,7 +1921,7 @@ Look up a VM by its registry id. One of `id` or `name` is required.
 
 > `optional` **name?**: `string`
 
-Defined in: [index.ts:815](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L815)
+Defined in: [index.ts:783](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L783)
 
 Look up a VM by the name passed to `boot({ name })`.
 
@@ -1921,7 +1929,7 @@ Look up a VM by the name passed to `boot({ name })`.
 
 > `optional` **onLog?**: [`OnLog`](#onlog-3)
 
-Defined in: [index.ts:822](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L822)
+Defined in: [index.ts:790](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L790)
 
 Streaming log callback — fires for every byte of output from execs
 made through the returned handle. See #83. Guest kernel console is
@@ -2647,11 +2655,23 @@ Defined in: [registry.ts:34](https://github.com/redwoodjs/machinen/blob/main/pac
 
 Path to the image the VM was booted from (diagnostic only).
 
+##### diskPath?
+
+> `optional` **diskPath?**: `string`
+
+Defined in: [registry.ts:42](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/registry.ts#L42)
+
+Host-side path of the disk file attached as /dev/vda (from
+`boot({ snapshot: <path> })`). Required for `attach().snapshot()`
+so the attached handle knows which file to copy to the caller's
+outPath after the guest dump completes. Undefined for VMs booted
+without a disk.
+
 ##### startedAt
 
 > **startedAt**: `number`
 
-Defined in: [registry.ts:36](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/registry.ts#L36)
+Defined in: [registry.ts:44](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/registry.ts#L44)
 
 ms epoch when the entry was created.
 
@@ -2831,9 +2851,9 @@ Defined in: [errors.ts:23](https://github.com/redwoodjs/machinen/blob/main/packa
 
 > `readonly` **SNAPSHOT\_DUMP\_FAILED**: `"SNAPSHOT_DUMP_FAILED"` = `"SNAPSHOT_DUMP_FAILED"`
 
-##### SNAPSHOT\_UNSUPPORTED\_ON\_ATTACH
+##### SNAPSHOT\_TIMEOUT
 
-> `readonly` **SNAPSHOT\_UNSUPPORTED\_ON\_ATTACH**: `"SNAPSHOT_UNSUPPORTED_ON_ATTACH"` = `"SNAPSHOT_UNSUPPORTED_ON_ATTACH"`
+> `readonly` **SNAPSHOT\_TIMEOUT**: `"SNAPSHOT_TIMEOUT"` = `"SNAPSHOT_TIMEOUT"`
 
 ##### PROVISION\_BASE\_NOT\_FOUND
 
@@ -3202,7 +3222,7 @@ BOOT_VMM_MISSING | BOOT_VMM_PACKAGE_BROKEN
 
 > **boot**(`opts?`): `Promise`\<[`VmHandle`](#vmhandle)\>
 
-Defined in: [index.ts:339](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L339)
+Defined in: [index.ts:347](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L347)
 
 Boot a microVM and return a handle to interact with it.
 
@@ -3232,7 +3252,7 @@ BOOT_VMM_MISSING | BOOT_VMM_PACKAGE_BROKEN |
 
 > **attach**(`opts`): `Promise`\<[`VmHandle`](#vmhandle)\>
 
-Defined in: [index.ts:838](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L838)
+Defined in: [index.ts:806](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L806)
 
 Reconnect to a running VM registered by an earlier `boot()` call
 (possibly from a different process). Returns a `VmHandle` that can
@@ -3264,7 +3284,7 @@ REGISTRY_VM_NOT_FOUND
 
 > **measureFirstByte**(`vm`): `Promise`\<`number`\>
 
-Defined in: [index.ts:1134](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L1134)
+Defined in: [index.ts:1291](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L1291)
 
 Time-to-first-output-byte for a boot. Useful for measuring how
 much the snapshot path is (or isn't) buying us.
@@ -3473,7 +3493,7 @@ registry can hold it.
 
 > **registryRoot**(): `string`
 
-Defined in: [registry.ts:45](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/registry.ts#L45)
+Defined in: [registry.ts:53](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/registry.ts#L53)
 
 Absolute path to the registry root. Honors `MACHINEN_REGISTRY_DIR`
 so tests can point at a scratch dir without stomping on real entries.
@@ -3488,7 +3508,7 @@ so tests can point at a scratch dir without stomping on real entries.
 
 > **list**(): [`RegistryEntry`](#registryentry)[]
 
-Defined in: [registry.ts:110](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/registry.ts#L110)
+Defined in: [registry.ts:118](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/registry.ts#L118)
 
 List all registry entries whose pid is still alive. Prunes stale
 entries (pid no longer alive) as a side effect, so a crashed VMM

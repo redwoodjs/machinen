@@ -32,6 +32,14 @@ export interface RegistryEntry {
   socketPath: string;
   /** Path to the image the VM was booted from (diagnostic only). */
   imagePath?: string;
+  /**
+   * Host-side path of the disk file attached as /dev/vda (from
+   * `boot({ snapshot: <path> })`). Required for `attach().snapshot()`
+   * so the attached handle knows which file to copy to the caller's
+   * outPath after the guest dump completes. Undefined for VMs booted
+   * without a disk.
+   */
+  diskPath?: string;
   /** ms epoch when the entry was created. */
   startedAt: number;
 }

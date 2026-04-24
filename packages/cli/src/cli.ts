@@ -231,7 +231,10 @@ async function cmdBoot(args: string[]): Promise<number> {
   let vm;
   try {
     vm = await boot({
-      image: snapshot ? undefined : imagePath,
+      // Always pass the base rootfs so /sbin/machinen-restore and
+      // friends are in the initramfs even on a bare `machinen restore
+      // <snap>` (no --image, no -- cmd).
+      image: imagePath,
       cmd,
       env,
       kernel: kernelPath,

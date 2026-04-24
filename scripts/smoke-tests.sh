@@ -112,6 +112,7 @@ echo
 ROOTFS_TAR="$ASSETS/rootfs-debian-arm64.tar.gz"
 ROOTFS_SUPPORTS_VSOCK_EXEC=1
 ROOTFS_SUPPORTS_CRIU=1
+ROOTFS_SUPPORTS_SNAPSHOT_HELPERS=1
 if ! tar tzf "$ROOTFS_TAR" 2>/dev/null | grep -q "vmw_vsock_virtio_transport"; then
   echo "smoke: WARN rootfs lacks vsock modules — N-series (vm.exec) will be skipped"
   ROOTFS_SUPPORTS_VSOCK_EXEC=0
@@ -119,6 +120,10 @@ fi
 if ! tar tzf "$ROOTFS_TAR" 2>/dev/null | grep -q "usr/sbin/criu"; then
   echo "smoke: WARN rootfs lacks criu — P/C-series will be skipped"
   ROOTFS_SUPPORTS_CRIU=0
+fi
+if ! tar tzf "$ROOTFS_TAR" 2>/dev/null | grep -q "sbin/machinen-dump"; then
+  echo "smoke: WARN rootfs lacks /sbin/machinen-dump — S-series (snapshot) will be skipped"
+  ROOTFS_SUPPORTS_SNAPSHOT_HELPERS=0
 fi
 
 # ----------------------------------------------------------------
@@ -520,6 +525,118 @@ else
   fail "C2 — warm install failed; cache is not being read"
 fi
 
+
+# ----------------------------------------------------------------
+# Snapshot/restore round-trip (#50 M2). Uses the supervisor +
+# /sbin/machinen-dump + /sbin/machinen-restore baked into the rootfs:
+#   1. boot with a scratch /dev/vda + named VM
+#   2. `machinen snapshot <name> <out>`  (attach-snapshot path)
+#   3. `machinen restore <out>`          (criu-ns restore path)
+#   4. exec into the restored VM to prove the agent re-spawned
+# ----------------------------------------------------------------
+if [[ "$ROOTFS_SUPPORTS_VSOCK_EXEC" -eq 0 || "$ROOTFS_SUPPORTS_CRIU" -eq 0 || "$ROOTFS_SUPPORTS_SNAPSHOT_HELPERS" -eq 0 ]]; then
+  echo "S1: skipped (rootfs lacks vsock/criu/snapshot helpers)"
+else
+  echo "S1: boot + snapshot + restore round-trip"
+  S1_NAME="snapshot-smoke-$$"
+  S1_BG_LOG="$FIXTURE/s1-bg.log"
+  S1_SNAP="$FIXTURE/s1.snap"
+  S1_SCRATCH="$FIXTURE/s1-scratch.img"
+  S1_RESTORE_LOG="$FIXTURE/s1-restore.log"
+
+  # 256 MB sparse scratch disk. CRIU images for a minimal shell fit
+  # well under a MB; the rest stays unallocated on disk.
+  truncate -s 256M "$S1_SCRATCH"
+
+  S1_PID=$(boot_bg "$S1_NAME" "$S1_BG_LOG" --snapshot "$S1_SCRATCH" -- \
+    /bin/sh -c "while :; do sleep 1; done")
+  cleanup_s1() {
+    kill -TERM "$S1_PID" 2>/dev/null || true
+    wait "$S1_PID" 2>/dev/null || true
+  }
+  trap 'cleanup_s1; rm -rf "$FIXTURE"' EXIT
+
+  if ! wait_for_vm "$S1_NAME"; then
+    tail -80 "$S1_BG_LOG" >&2
+    fail "S1 — '$S1_NAME' never appeared in 'machinen ls'"
+  fi
+  pass "boot --name --snapshot registered '$S1_NAME'"
+
+  # Confirm the supervisor's backgrounded exec-agent is live.
+  S1_EXEC_LOG="$FIXTURE/s1-exec.log"
+  if cli exec "$S1_NAME" -- uname -m >"$S1_EXEC_LOG" 2>&1 \
+     && grep -qE "aarch64|arm64" "$S1_EXEC_LOG"; then
+    pass "exec-agent responds on the dump-side VM"
+  else
+    cat "$S1_EXEC_LOG" >&2
+    tail -60 "$S1_BG_LOG" >&2
+    fail "S1 — exec against dump-side VM didn't return arch"
+  fi
+
+  # Snapshot via the attach path. `machinen snapshot <name> <out>`
+  # attaches, runs /sbin/machinen-dump, waits for clean VMM exit,
+  # copies /dev/vda → $S1_SNAP.
+  S1_DUMP_LOG="$FIXTURE/s1-dump.log"
+  if ! cli snapshot "$S1_NAME" "$S1_SNAP" 2>"$S1_DUMP_LOG"; then
+    tail -60 "$S1_BG_LOG" >&2
+    cat "$S1_DUMP_LOG" >&2
+    fail "S1 — 'machinen snapshot' failed"
+  fi
+  wait "$S1_PID" 2>/dev/null || true
+  pass "'machinen snapshot' returned 0"
+
+  if [[ ! -s "$S1_SNAP" ]]; then
+    ls -la "$S1_SNAP" >&2
+    fail "S1 — snapshot output is empty"
+  fi
+  # `file` identifies the ext4 superblock if machinen-dump mkfs'd
+  # /dev/vda. xxd's output shape varies between coreutils/busybox,
+  # so defer to `file`, which the base rootfs always ships.
+  if ! file "$S1_SNAP" 2>/dev/null | grep -qiE "ext[0-9] filesystem"; then
+    file "$S1_SNAP" >&2 || true
+    fail "S1 — snapshot output is not an ext filesystem"
+  fi
+  pass "snapshot output is an ext4 image"
+
+  # Restore in the background. No --name passed; the restored VM
+  # registers under a fresh id. Poll `ls` for whichever id appears.
+  node "$CLI" restore "$S1_SNAP" >"$S1_RESTORE_LOG" 2>&1 &
+  S1_RESTORE_PID=$!
+  cleanup_s1_restore() {
+    kill -TERM "$S1_RESTORE_PID" 2>/dev/null || true
+    wait "$S1_RESTORE_PID" 2>/dev/null || true
+  }
+  trap 'cleanup_s1; cleanup_s1_restore; rm -rf "$FIXTURE"' EXIT
+
+  S1_RESTORED_ID=""
+  deadline=$((SECONDS + 45))
+  while (( SECONDS < deadline )); do
+    id=$(cli ls 2>/dev/null | awk 'NR>1 {print $1; exit}')
+    if [[ -n "$id" && "$id" != "ID" ]]; then
+      S1_RESTORED_ID=$id
+      break
+    fi
+    sleep 1
+  done
+  if [[ -z "$S1_RESTORED_ID" ]]; then
+    tail -80 "$S1_RESTORE_LOG" >&2
+    fail "S1 — restored VM never registered"
+  fi
+  pass "restored VM registered as id=$S1_RESTORED_ID"
+
+  S1_RESTORE_EXEC_LOG="$FIXTURE/s1-restore-exec.log"
+  if cli exec "$S1_RESTORED_ID" -- uname -m >"$S1_RESTORE_EXEC_LOG" 2>&1 \
+     && grep -qE "aarch64|arm64" "$S1_RESTORE_EXEC_LOG"; then
+    pass "exec-agent responds on the restored VM"
+  else
+    cat "$S1_RESTORE_EXEC_LOG" >&2
+    tail -60 "$S1_RESTORE_LOG" >&2
+    fail "S1 — exec against restored VM failed"
+  fi
+
+  cleanup_s1_restore
+  trap 'rm -rf "$FIXTURE"' EXIT
+fi  # S1 rootfs-capability gate
 
 echo
 echo "all smoke tests passed"

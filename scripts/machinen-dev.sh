@@ -31,22 +31,12 @@ cp packages/microvm/zig-out/bin/microvm packages/vmm-arm64-darwin/bin/microvm
 step "building base assets (kernel + dtb + rootfs tarball)"
 ./scripts/build-base-assets.sh
 
-BUNDLE=/tmp/machinen-dev-bundle
-step "creating bundle at $BUNDLE"
-rm -rf "$BUNDLE"
-mkdir -p "$BUNDLE/rootfs"
-cat > "$BUNDLE/machinen-config.json" <<'JSON'
-{
-  "cmd": ["/bin/sh", "-i"],
-  "env": {
-    "PATH": "/usr/local/bin:/usr/bin:/bin:/sbin",
-    "HOME": "/root",
-    "TERM": "xterm-256color",
-    "PS1": "(microvm-dev) # "
-  }
-}
-JSON
-
-step "booting — Ctrl-D (in shell) to exit cleanly, Ctrl-C to kill from host"
+step "booting (name=dev) — Ctrl-D (in shell) to exit cleanly, Ctrl-C to kill from host"
 exec env MACHINEN_ASSETS_DIR="$ROOT/release-assets" \
-  node "$ROOT/packages/cli/dist/cli.js" run "$BUNDLE"
+  node "$ROOT/packages/cli/dist/cli.js" boot \
+    --name dev \
+    --env PATH=/usr/local/bin:/usr/bin:/bin:/sbin \
+    --env HOME=/root \
+    --env TERM=xterm-256color \
+    --env "PS1=(microvm-dev) # " \
+    -- /bin/sh -i
