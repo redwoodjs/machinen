@@ -4,12 +4,9 @@
 //! `-netdev socket,fd=N`. gvproxy terminates the guest's TCP/IP stack
 //! in its own user-space netstack, so we're just a frame pipe.
 //!
-//! Why this replaces src/slirp.zig:
-//!   - libslirp has no internal locking, caps per-flow throughput at
-//!     ~17 MB/s, and crashed under concurrent bulk RX (#82).
-//!   - gvproxy's netstack is thread-safe, runs as an unprivileged
-//!     subprocess, and the wire protocol is trivial enough that we
-//!     don't link anything — we just read/write bytes on a socket.
+//! gvproxy's netstack is thread-safe, runs as an unprivileged
+//! subprocess, and the wire protocol is trivial enough that we
+//! don't link anything — we just read/write bytes on a socket.
 //!
 //! Shape:
 //!   1. `NetSocket.connect(path)` dials the gvproxy qemu-netdev UDS

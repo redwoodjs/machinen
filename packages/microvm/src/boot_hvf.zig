@@ -404,7 +404,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // Connect to gvproxy if a socket path was provided. If
     // MACHINEN_NET_SOCKET isn't set, or the connect fails, fall back
     // to the classifier-only TX handler so the rest of the VMM still
-    // runs (same graceful behavior the libslirp path had).
+    // runs gracefully.
     const net_inst: ?*net_mod.NetSocket = blk: {
         const env = getenv("MACHINEN_NET_SOCKET") orelse {
             break :blk null;

@@ -39,9 +39,8 @@ for bin in zig docker dtc; do
   command -v "$bin" >/dev/null || missing+=("$bin")
 done
 
-# Note: the VMM no longer links libslirp (#82 — swapped for a gvproxy
-# UDS). Networking is opt-in via MACHINEN_NET_SOCKET; the smoke tests
-# below don't need it, so we don't gate on gvproxy here.
+# Networking is opt-in via MACHINEN_NET_SOCKET (gvproxy UDS). The
+# smoke tests below don't need it, so we don't gate on gvproxy here.
 
 if ((${#missing[@]} > 0)); then
   echo "smoke: missing prerequisites: ${missing[*]}" >&2
