@@ -1,6 +1,6 @@
 # @machinen/runtime
 
-TypeScript API for spawning and driving microVMs built by the
+TypeScript API for booting and driving microVMs built by the
 [machinen](https://github.com/redwoodjs/machinen) VMM.
 
 ## Install
@@ -20,17 +20,17 @@ npm i @machinen/vmm-arm64-darwin    # or @machinen/vmm-arm64-linux
 ## Basic usage
 
 ```ts
-import { spawn } from "@machinen/runtime";
+import { boot } from "@machinen/runtime";
 
 // binary is resolved automatically: MACHINEN_VMM env override, else
 // require.resolve("@machinen/vmm-<arch>-<os>"). Install one of the
 // vmm packages alongside this one.
-const vm = await spawn({
-  bundle: "./path/to/bundle", // dir with rootfs/ + machinen-config.json
+const vm = await boot({
+  image: "./rootfs-debian-arm64.tar.gz",
+  cmd: ["/bin/sh"],
 });
 
-vm.stdout.pipe(process.stdout);
-vm.stdin.write("echo hello from inside\n");
+await vm.exec("echo hello from inside");
 
 const { code } = await vm.wait();
 process.exit(code ?? 0);
@@ -38,35 +38,74 @@ process.exit(code ?? 0);
 
 ## Surface
 
-### `spawn(options): Promise<VmHandle>`
+### `boot(options): Promise<VmHandle>`
 
 Boots the VMM as a child process and returns a handle with `stdin`/`stdout`/
-`stderr` streams, `wait()`, `kill()`, and `output()`/`errorOutput()` buffers.
+`stderr` streams, `exec()`, `wait()`, `kill()`, `snapshot()`, and
+`output()`/`errorOutput()` buffers.
 
 Key options (all optional):
 
-| Option      | Description                                                       |
-| ----------- | ----------------------------------------------------------------- |
-| `binary`    | VMM binary path — auto-resolved if omitted (see resolution rules) |
-| `bundle`    | Bundle directory to pack into an initramfs                        |
-| `disk`      | Host file to attach as `/dev/vda` in the guest                    |
-| `env`       | Extra env passed to the VMM process                               |
-| `timeoutMs` | `wait()` deadline (default 60s, `null` to wait forever)           |
+| Option        | Description                                                     |
+| ------------- | --------------------------------------------------------------- |
+| `image`       | Path to a rootfs tarball to boot from                           |
+| `cmd`         | Guest workload argv; falls back to the image's baked-in default |
+| `env`         | Env vars exposed to the guest workload                          |
+| `snapshot`    | Host file attached as `/dev/vda` — typically a CRIU snapshot    |
+| `mount`       | Single host-dir → guest-path mount (guest path under `/mnt/`)   |
+| `portForward` | Host → guest TCP port forwards via gvproxy                      |
+| `binary`      | VMM binary path — auto-resolved if omitted                      |
+| `vmmEnv`      | Env for the VMM process itself (host side, rarely needed)       |
+| `timeoutMs`   | `wait()` deadline (default 60s, `null` to wait forever)         |
+
+Images produced by `provision({ cmd, env })` carry a baked-in default cmd (and
+env) in `/machinen-config.json`, so callers can `boot({ image })` with no
+further args. User-supplied `cmd`/`env` on `boot()` override the image defaults.
 
 ### Binary resolution
 
-When `binary` is omitted, `spawn()` calls `resolveVmmBinary()`:
+When `binary` is omitted, `boot()` calls `resolveVmmBinary()`:
 
 1. `MACHINEN_VMM` env var — absolute or cwd-relative path (dev override)
 2. `require.resolve("@machinen/vmm-<arch>-<os>")` → `binary` export
 
-Throws `SpawnError` with an install hint if neither is available.
+Throws `BootError` with an install hint if neither is available.
 
-### `buildSnapshot(options): Promise<SnapshotResult>`
+### `vm.snapshot(outPath, options?): Promise<SnapshotResult>`
 
-Builds an ext4 disk image by booting the VMM in warmup mode. The guest writes
-CRIU images into the disk during warmup; later `spawn({ disk })` calls restore
-from that image for sub-second cold starts.
+Freezes a running VM with CRIU and writes the image to `outPath`. The caller
+brings the VM to a warm state via `vm.exec()`, then snapshots it:
+
+```ts
+const vm = await boot({ image, cmd, snapshot: "./scratch.img" });
+await vm.exec("prep stuff");
+const snap = await vm.snapshot("./warm.img");
+```
+
+The VM exits as part of the snapshot. Restore for a sub-second cold start with
+`boot({ snapshot: snap.snapshotPath })`. Requires `snapshot` at boot (CRIU's
+target) and a guest-side dump helper at `/sbin/machinen-dump` (override via
+`opts.dumpCmd`).
+
+### Host-side artifact cache
+
+Every call to `boot()` or `provision()` also starts a small HTTP
+server on the host that caches large downloads outside the guest —
+today that's Node.js tarballs that `fnm` would otherwise pull from
+`nodejs.org/dist/`. The cache lives on disk at `~/.machinen/cache/`
+(overridable with `MACHINEN_CACHE_DIR`).
+
+The guest is auto-pointed at the cache: the runtime injects
+`FNM_NODE_DIST_MIRROR=http://192.168.127.254:<port>/node-dist` into
+the guest env, so `fnm install 22` inside a fresh VM pulls through
+the cache. First install populates it; subsequent installs are
+served entirely from local disk and work with no upstream reachable.
+
+Users who want to disable or redirect this can set their own
+`FNM_NODE_DIST_MIRROR` in `boot({ env })` — the runtime only fills
+the key when the caller hasn't. The cache itself is started by
+`spawnArtifactCache()`, which is also exported if you want to drive
+it directly for bespoke flows.
 
 ### Vsock helpers
 

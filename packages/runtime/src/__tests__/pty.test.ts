@@ -1,4 +1,4 @@
-// Tests for spawnPty + Supervisor's terminal integration (#51 M1.5).
+// Tests for bootPty + Supervisor's terminal integration (#51 M1.5).
 //
 // We fork /bin/sh under a pty and ask it questions that only make
 // sense when the child sees a real terminal:
@@ -8,7 +8,7 @@
 
 import { PassThrough } from "node:stream";
 import { describe, expect, it } from "vitest";
-import { Sandboxes, Supervisor, spawnPty } from "../index.ts";
+import { Sandboxes, Supervisor, bootPty } from "../index.ts";
 
 async function read(handle: { stdout: NodeJS.ReadableStream }, ms: number): Promise<Buffer> {
   return new Promise((done) => {
@@ -22,9 +22,9 @@ async function read(handle: { stdout: NodeJS.ReadableStream }, ms: number): Prom
   });
 }
 
-describe("spawnPty", () => {
+describe("bootPty", () => {
   it("the child sees a real TTY on stdin (tty prints /dev/pts/N)", async () => {
-    const vm = spawnPty({
+    const vm = bootPty({
       binary: "/bin/sh",
       args: ["-c", "tty; exit"],
     });
@@ -35,7 +35,7 @@ describe("spawnPty", () => {
   });
 
   it("resize() reshapes the pty — stty size reflects the new rows/cols", async () => {
-    const vm = spawnPty({
+    const vm = bootPty({
       binary: "/bin/sh",
       args: ["-c", "stty size; sleep 0.1; stty size; exit"],
       cols: 80,
@@ -57,7 +57,7 @@ describe("spawnPty", () => {
     // Keep the child alive long enough for Sandboxes.add to subscribe
     // and observe output. `sleep` with no exit makes wait() pend, so
     // the auto-remove-on-exit doesn't fire under us.
-    const vm = spawnPty({
+    const vm = bootPty({
       binary: "/bin/sh",
       args: ["-c", "printf 'hi-pty-sandbox'; sleep 2"],
     });

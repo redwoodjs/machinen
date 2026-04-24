@@ -12,9 +12,9 @@
 //
 // Usage:
 //
-//   const vm = await spawn({
+//   const vm = await boot({
 //     binary: VMM,
-//     env: { MACHINEN_VSOCK: "in:1975:/tmp/machinen-secrets.sock" },
+//     vmmEnv: { MACHINEN_VSOCK: "in:1975:/tmp/machinen-secrets.sock" },
 //   });
 //   await VsockSecrets.send("/tmp/machinen-secrets.sock", {
 //     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ?? "",

@@ -15,7 +15,7 @@ import { execSync } from "node:child_process";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, it } from "vitest";
-import { spawn } from "../index.ts";
+import { boot } from "../index.ts";
 
 const microvmRoot = resolve(import.meta.dirname, "../../../microvm");
 
@@ -52,11 +52,11 @@ describe("latency", () => {
     }
 
     const t0 = Date.now();
-    const vm = await spawn({
+    const vm = await boot({
       binary,
       cwd: microvmRoot,
-      env: { MACHINEN_BOOT_TEST: "1" },
-      disk,
+      vmmEnv: { MACHINEN_BOOT_TEST: "1" },
+      snapshot: disk,
       timeoutMs: null,
     });
 

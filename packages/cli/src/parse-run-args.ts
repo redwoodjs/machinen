@@ -1,4 +1,4 @@
-// Pure arg parser for `machinen run`. Split out from cli.ts so tests
+// Pure arg parser for `machinen boot`. Split out from cli.ts so tests
 // can import it without pulling @machinen/runtime (which resolves to
 // dist/ and is unbuilt in the monorepo dev loop).
 
@@ -6,8 +6,12 @@ export interface ParsedRunArgs {
   positional: string[];
   double_dash_args: string[];
   mount?: { host: string; guest: string };
-  guestEnv?: Record<string, string>;
+  env?: Record<string, string>;
   portForward?: Array<{ hostPort: number; guestPort: number }>;
+  /** Snapshot image to restore from (`--snapshot <path>`). */
+  snapshot?: string;
+  /** Optional VM name registered for `attach` (`--name <name>`). */
+  name?: string;
 }
 
 export class ParseRunArgsError extends Error {}
@@ -19,9 +23,11 @@ export function parseRunArgs(argv: string[]): ParsedRunArgs {
 
   const positional: string[] = [];
   let mount: { host: string; guest: string } | undefined;
-  const guestEnv: Record<string, string> = {};
+  const env: Record<string, string> = {};
   const portForward: Array<{ hostPort: number; guestPort: number }> = [];
   const seenHostPorts = new Set<number>();
+  let snapshot: string | undefined;
+  let name: string | undefined;
   for (let i = 0; i < pre.length; i++) {
     const a = pre[i]!;
     if (a === "--mount" || a.startsWith("--mount=")) {
@@ -60,7 +66,7 @@ export function parseRunArgs(argv: string[]): ParsedRunArgs {
       }
       const key = spec!.slice(0, eq);
       const value = spec!.slice(eq + 1);
-      guestEnv[key] = value;
+      env[key] = value;
     } else if (
       a === "-p" ||
       a === "--publish" ||
@@ -90,6 +96,36 @@ export function parseRunArgs(argv: string[]): ParsedRunArgs {
       }
       seenHostPorts.add(hostPort);
       portForward.push({ hostPort, guestPort });
+    } else if (a === "--snapshot" || a.startsWith("--snapshot=")) {
+      let spec: string | undefined;
+      if (a === "--snapshot") {
+        spec = pre[i + 1];
+        if (spec === undefined) {
+          throw new ParseRunArgsError("--snapshot requires a path value");
+        }
+        i++;
+      } else {
+        spec = a.slice("--snapshot=".length);
+      }
+      if (snapshot) {
+        throw new ParseRunArgsError("--snapshot may be given at most once per invocation");
+      }
+      snapshot = spec;
+    } else if (a === "--name" || a.startsWith("--name=")) {
+      let spec: string | undefined;
+      if (a === "--name") {
+        spec = pre[i + 1];
+        if (spec === undefined) {
+          throw new ParseRunArgsError("--name requires a value");
+        }
+        i++;
+      } else {
+        spec = a.slice("--name=".length);
+      }
+      if (name) {
+        throw new ParseRunArgsError("--name may be given at most once per invocation");
+      }
+      name = spec;
     } else if (a.startsWith("-")) {
       throw new ParseRunArgsError(`unknown flag: ${a}`);
     } else {
@@ -100,8 +136,10 @@ export function parseRunArgs(argv: string[]): ParsedRunArgs {
     positional,
     double_dash_args,
     mount,
-    guestEnv: Object.keys(guestEnv).length > 0 ? guestEnv : undefined,
+    env: Object.keys(env).length > 0 ? env : undefined,
     portForward: portForward.length > 0 ? portForward : undefined,
+    snapshot,
+    name,
   };
 }
 

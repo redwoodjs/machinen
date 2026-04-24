@@ -330,7 +330,7 @@ export interface PackBundleOptions {
    * (same precedence as the mount overlay — bundle always gets the last
    * word). See #89.
    */
-  guestEnv?: Record<string, string>;
+  env?: Record<string, string>;
   /** fnmatch patterns matched against each rootfs-relative path. */
   excludes?: string[];
   /** Optional path to the compiled /init. Default: ../microvm/test-fixtures/init relative to this file. */
@@ -382,7 +382,7 @@ export function packBundle(opts: PackBundleOptions): void {
     }
     appendFinalEntries(parts, {
       initPath: opts.initPath ?? defaultInitPath(),
-      config: patchConfigEnv(readFileSync(cfgPath), opts.guestEnv),
+      config: patchConfigEnv(readFileSync(cfgPath), opts.env),
       injectInit: false,
     });
     writeFileSync(opts.out, Buffer.concat(parts));
@@ -402,8 +402,8 @@ export function packBundle(opts: PackBundleOptions): void {
  * Returns the original buffer unchanged when there's nothing to inject,
  * so unrelated callers don't pay a parse/stringify round-trip.
  */
-export function patchConfigEnv(config: Buffer, guestEnv?: Record<string, string>): Buffer {
-  if (!guestEnv || Object.keys(guestEnv).length === 0) {
+export function patchConfigEnv(config: Buffer, env?: Record<string, string>): Buffer {
+  if (!env || Object.keys(env).length === 0) {
     return config;
   }
   const parsed = JSON.parse(config.toString("utf8")) as {
@@ -411,7 +411,7 @@ export function patchConfigEnv(config: Buffer, guestEnv?: Record<string, string>
     [k: string]: unknown;
   };
   const existing = parsed.env ?? {};
-  parsed.env = { ...guestEnv, ...existing };
+  parsed.env = { ...env, ...existing };
   return Buffer.from(JSON.stringify(parsed), "utf8");
 }
 

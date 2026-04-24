@@ -6,10 +6,10 @@
 
 import { PassThrough } from "node:stream";
 import { describe, expect, it } from "vitest";
-import { Sandboxes, type VmHandle, Supervisor, spawn } from "../index.ts";
+import { Sandboxes, type VmHandle, Supervisor, boot } from "../index.ts";
 
 async function fakeVm(args: string[] = []): Promise<VmHandle> {
-  return spawn({ binary: "/bin/cat", args, timeoutMs: 10_000 });
+  return boot({ binary: "/bin/cat", args, timeoutMs: 10_000 });
 }
 
 // Drain helper — read `ms` worth of pending data off the output stream.
@@ -104,7 +104,7 @@ describe("Sandboxes", () => {
   it("auto-removes an entry when the VM exits", async () => {
     const reg = new Sandboxes();
     // `true` exits immediately.
-    const vm = await spawn({ binary: "/usr/bin/true" });
+    const vm = await boot({ binary: "/usr/bin/true" });
     reg.add("quick", vm);
     await vm.wait();
     // Let the wait().then(remove) callback settle.
