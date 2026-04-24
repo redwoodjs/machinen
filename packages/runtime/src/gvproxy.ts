@@ -21,6 +21,7 @@ import { request as httpRequest } from "node:http";
 import { delimiter as pathSep, dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import debugLib from "debug";
+import { GvproxyError } from "./errors.ts";
 
 const debug = debugLib("machinen:gvproxy");
 
@@ -39,7 +40,10 @@ export function resolveGvproxyBinary(vmmBinary: string): string | null {
     }
     // Explicit override that points at nothing is a user mistake —
     // surface it rather than silently falling through.
-    throw new Error(`MACHINEN_GVPROXY=${envOverride} is set but that file does not exist.`);
+    throw new GvproxyError(
+      "GVPROXY_NOT_FOUND",
+      `MACHINEN_GVPROXY=${envOverride} is set but that file does not exist.`,
+    );
   }
 
   const sibling = join(dirname(vmmBinary), "gvproxy");
@@ -146,7 +150,8 @@ export async function spawnGvproxy(
       }
       await new Promise((r) => setTimeout(r, 25));
     }
-    throw new Error(
+    throw new GvproxyError(
+      "GVPROXY_NOT_FOUND",
       `gvproxy did not create ${socketPath} within ${timeoutMs}ms. ` + `Binary: ${binary}`,
     );
   })();
@@ -216,7 +221,8 @@ export async function exposePort(
           }
           const text = Buffer.concat(chunks).toString("utf8").trim();
           fail(
-            new Error(
+            new GvproxyError(
+              "GVPROXY_EXPOSE_FAILED",
               `gvproxy expose failed (${status}) for ${hostAddr}:${opts.hostPort} -> ${guestAddr}:${opts.guestPort}: ${text || "<empty body>"}`,
             ),
           );

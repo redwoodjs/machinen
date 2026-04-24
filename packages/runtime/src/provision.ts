@@ -36,13 +36,12 @@ import {
 import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import debugLib from "debug";
+import { ProvisionError } from "./errors.ts";
 import { VsockExec } from "./exec.ts";
 import { boot, type VmHandle } from "./index.ts";
 
 const debug = debugLib("machinen:provision");
 const vmmDebug = debugLib("machinen:vmm");
-
-export class ProvisionError extends Error {}
 
 export interface ProvisionOptions {
   /**
@@ -172,12 +171,14 @@ const TAR_TO_DISK_CMD = [
  *
  * Throws `ProvisionError` with guidance if none of those turn up a file.
  * Exported so callers can pre-check or build their own tooling on it.
+ *
+ * @throws {ProvisionError} PROVISION_BASE_NOT_FOUND | PROVISION_ASSETS_DIR_INVALID
  */
 export function resolveBaseRootfs(explicit?: string, cwd: string = process.cwd()): string {
   if (explicit) {
     const abs = resolve(cwd, explicit);
     if (!existsSync(abs)) {
-      throw new ProvisionError(`base rootfs tarball not found: ${abs}`);
+      throw new ProvisionError("PROVISION_BASE_NOT_FOUND", `base rootfs tarball not found: ${abs}`);
     }
     return abs;
   }
@@ -187,6 +188,7 @@ export function resolveBaseRootfs(explicit?: string, cwd: string = process.cwd()
     const p = resolve(assetsDir, "rootfs-debian-arm64.tar.gz");
     if (!existsSync(p)) {
       throw new ProvisionError(
+        "PROVISION_ASSETS_DIR_INVALID",
         `MACHINEN_ASSETS_DIR=${assetsDir} does not contain rootfs-debian-arm64.tar.gz`,
       );
     }
@@ -199,6 +201,7 @@ export function resolveBaseRootfs(explicit?: string, cwd: string = process.cwd()
   }
 
   throw new ProvisionError(
+    "PROVISION_BASE_NOT_FOUND",
     `base rootfs not found. Either:\n` +
       `  - pass \`base\` explicitly, or\n` +
       `  - set MACHINEN_ASSETS_DIR to a directory containing rootfs-debian-arm64.tar.gz, or\n` +
@@ -221,6 +224,15 @@ function cliCachedRootfsPath(): string {
   );
 }
 
+/**
+ * Boot the base rootfs, run the user install hook, and freeze the
+ * resulting filesystem state to a new tarball at `opts.out`.
+ *
+ * @throws {ProvisionError} PROVISION_BASE_NOT_FOUND |
+ *   PROVISION_ASSETS_DIR_INVALID | PROVISION_INSTALL_HOOK_FAILED |
+ *   PROVISION_DISK_TOO_SMALL
+ * @throws {BootError} see `boot()` — propagated from the inner boot
+ */
 export async function provision(opts: ProvisionOptions): Promise<ProvisionResult> {
   const cwd = opts.cwd ?? process.cwd();
   const baseAbs = resolveBaseRootfs(opts.base, cwd);
@@ -299,7 +311,9 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
         const msg = err instanceof Error ? err.message : String(err);
         debug("install hook failed err=%s tailBytes=%d", msg, tail.length);
         throw new ProvisionError(
+          "PROVISION_INSTALL_HOOK_FAILED",
           `install hook failed: ${msg}\n--- VMM stderr (last 8 KB) ---\n${tail}`,
+          { cause: err },
         );
       }
       debug("install hook done elapsed=%dms", Date.now() - installT0);
@@ -316,6 +330,7 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
       debug("tar / -> /dev/vda done exit=%d elapsed=%dms", tar.exitCode, Date.now() - tarT0);
       if (tar.exitCode !== 0) {
         throw new ProvisionError(
+          "PROVISION_DISK_TOO_SMALL",
           `tar / to /dev/vda failed (code ${tar.exitCode}) — scratch disk may be too small.\n` +
             `Bump scratchDiskSizeBytes. stderr:\n${tar.stderr}`,
         );

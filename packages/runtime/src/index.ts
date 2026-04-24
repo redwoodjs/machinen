@@ -10,7 +10,7 @@ export { VsockFiles } from "./files.ts";
 export type { VsockFilesOptions } from "./files.ts";
 export { VsockExec } from "./exec.ts";
 export type { VsockExecOptions, VsockExecResult } from "./exec.ts";
-export { provision, ProvisionError, resolveBaseRootfs } from "./provision.ts";
+export { provision, resolveBaseRootfs } from "./provision.ts";
 export type { ProvisionOptions, ProvisionResult } from "./provision.ts";
 export { spawnArtifactCache, resolveCacheDir } from "./artifact-cache.ts";
 export type { ArtifactCacheHandle, ArtifactCacheOptions } from "./artifact-cache.ts";
@@ -23,6 +23,26 @@ export {
   packMinimal as mkinitramfsMinimal,
   cli as mkinitramfsCli,
 } from "./mkinitramfs.ts";
+export {
+  MachinenError,
+  BootError,
+  ExecError,
+  SnapshotError,
+  ProvisionError,
+  RegistryError,
+  FilesError,
+  SecretsError,
+  WinsizeError,
+  SandboxError,
+  CacheError,
+  GvproxyError,
+  MkinitramfsError,
+  ParseError,
+  ErrorCode,
+  isMachinenError,
+  formatMachinenError,
+} from "./errors.ts";
+export type { MachinenErrorOptions } from "./errors.ts";
 
 // @machinen/runtime — TypeScript surface for booting microVMs.
 //
@@ -68,6 +88,7 @@ import debugLib from "debug";
 import { packBundle as mkinitramfsPackBundle } from "./mkinitramfs.ts";
 import { exposePort, resolveGvproxyBinary, spawnGvproxy, warnGvproxyMissing } from "./gvproxy.ts";
 import { spawnArtifactCache } from "./artifact-cache.ts";
+import { BootError, ExecError, RegistryError, SnapshotError } from "./errors.ts";
 import { VsockExec, type VsockExecOptions, type VsockExecResult } from "./exec.ts";
 import { findEntry, isAlive, newVmId, removeEntry, writeEntry } from "./registry.ts";
 
@@ -75,8 +96,6 @@ const debug = debugLib("machinen:boot");
 const debugAttach = debugLib("machinen:attach");
 const debugSnapshot = debugLib("machinen:snapshot");
 const vmmDebug = debugLib("machinen:vmm");
-
-export class BootError extends Error {}
 
 const require_ = createRequire(import.meta.url);
 
@@ -86,13 +105,18 @@ const require_ = createRequire(import.meta.url);
  *   2. `require.resolve("@machinen/vmm-<arch>-<os>")` → `binary` export
  *
  * Callers can pass an explicit `binary` to `boot()` to bypass this.
+ *
+ * @throws {BootError} BOOT_VMM_MISSING | BOOT_VMM_PACKAGE_BROKEN
  */
 export function resolveVmmBinary(): string {
   const envOverride = process.env.MACHINEN_VMM;
   if (envOverride) {
     const abs = resolve(envOverride);
     if (!existsSync(abs)) {
-      throw new BootError(`MACHINEN_VMM is set to ${envOverride}, but that file does not exist.`);
+      throw new BootError(
+        "BOOT_VMM_MISSING",
+        `MACHINEN_VMM is set to ${envOverride}, but that file does not exist.`,
+      );
     }
     return abs;
   }
@@ -102,19 +126,22 @@ export function resolveVmmBinary(): string {
   try {
     const mod = require_(pkgName) as { binary: string };
     if (!mod.binary || !existsSync(mod.binary)) {
-      throw new BootError(`${pkgName} is installed but its binary is missing at ${mod.binary}.`);
+      throw new BootError(
+        "BOOT_VMM_PACKAGE_BROKEN",
+        `${pkgName} is installed but its binary is missing at ${mod.binary}.`,
+      );
     }
     return mod.binary;
   } catch (err) {
     if (err instanceof BootError) {
       throw err;
     }
-    const msg = err instanceof Error ? err.message : String(err);
     throw new BootError(
+      "BOOT_VMM_MISSING",
       `No VMM binary found for ${key}.\n` +
         `  Expected package: ${pkgName}\n` +
-        `  Install: npm i ${pkgName}   (or npm i -g @machinen/cli)\n` +
-        `  Error: ${msg}`,
+        `  Install: npm i ${pkgName}   (or npm i -g @machinen/cli)`,
+      { cause: err },
     );
   }
 }
@@ -276,6 +303,17 @@ export interface SnapshotResult {
   consoleLog: string;
 }
 
+/**
+ * Boot a microVM and return a handle to interact with it.
+ *
+ * @throws {BootError} BOOT_VMM_MISSING | BOOT_VMM_PACKAGE_BROKEN |
+ *   BOOT_IMAGE_NOT_FOUND | BOOT_SNAPSHOT_NOT_FOUND |
+ *   BOOT_KERNEL_NOT_FOUND | BOOT_DTB_NOT_FOUND |
+ *   BOOT_CMD_WITHOUT_IMAGE | BOOT_CMD_MISSING |
+ *   BOOT_MOUNT_INVALID | BOOT_MOUNT_HOST_NOT_FOUND |
+ *   BOOT_PORT_FORWARD_INVALID | BOOT_PORT_FORWARD_CONFLICT |
+ *   BOOT_PORT_FORWARD_NO_GVPROXY | BOOT_PACK_FAILED
+ */
 export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   const bootT0 = Date.now();
   debug(
@@ -297,6 +335,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       (opts.vmmEnv && opts.vmmEnv.MACHINEN_NET_SOCKET) || process.env.MACHINEN_NET_SOCKET;
     if (preSetNetSock) {
       throw new BootError(
+        "BOOT_PORT_FORWARD_INVALID",
         "portForward requires the runtime to own gvproxy, but MACHINEN_NET_SOCKET " +
           "is already set. Either drop the env var or install the forwards yourself " +
           "against your gvproxy's control API.",
@@ -309,11 +348,17 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         ["guestPort", m.guestPort],
       ] as const) {
         if (!Number.isInteger(port) || port < 1 || port > 65535) {
-          throw new BootError(`portForward: ${label} must be an integer in 1..65535 (got ${port})`);
+          throw new BootError(
+            "BOOT_PORT_FORWARD_INVALID",
+            `portForward: ${label} must be an integer in 1..65535 (got ${port})`,
+          );
         }
       }
       if (seen.has(m.hostPort)) {
-        throw new BootError(`portForward: duplicate hostPort ${m.hostPort}`);
+        throw new BootError(
+          "BOOT_PORT_FORWARD_CONFLICT",
+          `portForward: duplicate hostPort ${m.hostPort}`,
+        );
       }
       seen.add(m.hostPort);
     }
@@ -322,7 +367,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   const binaryInput = opts.binary ?? resolveVmmBinary();
   const binary = resolve(opts.cwd ?? process.cwd(), binaryInput);
   if (!existsSync(binary)) {
-    throw new BootError(`VMM binary not found at ${binary}`);
+    throw new BootError("BOOT_VMM_MISSING", `VMM binary not found at ${binary}`);
   }
 
   // `cmd` requires an image to run against. `image` alone is allowed
@@ -330,7 +375,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   // `provision({ cmd })`); if it doesn't and the user didn't pass
   // one, `synthesizeAndPackBundle` errors with a clear message.
   if (opts.cmd && !opts.image) {
-    throw new BootError("boot: `image` is required when `cmd` is set.");
+    throw new BootError("BOOT_CMD_WITHOUT_IMAGE", "boot: `image` is required when `cmd` is set.");
   }
 
   const env: Record<string, string> = {
@@ -341,21 +386,21 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   if (opts.snapshot) {
     diskAbs = resolve(opts.cwd ?? process.cwd(), opts.snapshot);
     if (!existsSync(diskAbs)) {
-      throw new BootError(`snapshot image not found: ${diskAbs}`);
+      throw new BootError("BOOT_SNAPSHOT_NOT_FOUND", `snapshot image not found: ${diskAbs}`);
     }
     env.MACHINEN_DISK = diskAbs;
   }
   if (opts.kernel) {
     const abs = resolve(opts.cwd ?? process.cwd(), opts.kernel);
     if (!existsSync(abs)) {
-      throw new BootError(`kernel not found: ${abs}`);
+      throw new BootError("BOOT_KERNEL_NOT_FOUND", `kernel not found: ${abs}`);
     }
     env.MACHINEN_KERNEL = abs;
   }
   if (opts.dtb) {
     const abs = resolve(opts.cwd ?? process.cwd(), opts.dtb);
     if (!existsSync(abs)) {
-      throw new BootError(`dtb not found: ${abs}`);
+      throw new BootError("BOOT_DTB_NOT_FOUND", `dtb not found: ${abs}`);
     }
     env.MACHINEN_DTB = abs;
   }
@@ -404,6 +449,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       } else {
         if (portForward.length > 0) {
           throw new BootError(
+            "BOOT_PORT_FORWARD_NO_GVPROXY",
             "portForward requires gvproxy, but no gvproxy binary was found. " +
               "Install gvproxy or point MACHINEN_GVPROXY at one.",
           );
@@ -576,7 +622,8 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
               settled,
               new Promise<never>((_, reject) => {
                 setTimeout(
-                  () => reject(new BootError(`VMM did not exit within ${timeoutMs}ms`)),
+                  () =>
+                    reject(new BootError("BOOT_TIMEOUT", `VMM did not exit within ${timeoutMs}ms`)),
                   timeoutMs,
                 ).unref();
               }),
@@ -615,14 +662,16 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
 
     async exec(cmd, execOpts) {
       if (!vsockUdsPath) {
-        throw new BootError(
+        throw new ExecError(
+          "EXEC_VSOCK_UNAVAILABLE",
           "vm.exec: no vsock UDS available — MACHINEN_VSOCK was set to an " +
             "unrecognized spec. Expected `in:<port>:<uds-path>`.",
         );
       }
       const res = await VsockExec.run(vsockUdsPath, cmd, execOpts);
       if (res.exitCode !== 0) {
-        throw new BootError(
+        throw new ExecError(
+          "EXEC_NONZERO_EXIT",
           `vm.exec failed (code ${res.exitCode}): ${cmd}\nstderr:\n${res.stderr}`,
         );
       }
@@ -632,7 +681,8 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     execRaw(cmd, execOpts) {
       if (!vsockUdsPath) {
         return Promise.reject(
-          new BootError(
+          new ExecError(
+            "EXEC_VSOCK_UNAVAILABLE",
             "vm.execRaw: no vsock UDS available — MACHINEN_VSOCK was set to " +
               "an unrecognized spec. Expected `in:<port>:<uds-path>`.",
           ),
@@ -643,7 +693,8 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
 
     async snapshot(outPath, snapshotOpts) {
       if (!diskAbs) {
-        throw new BootError(
+        throw new SnapshotError(
+          "SNAPSHOT_NO_DISK",
           "vm.snapshot: no disk was attached at boot. Pass `snapshot: '<path>'` to " +
             "boot() so CRIU has a target to write to.",
         );
@@ -677,7 +728,8 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
 
       if (!consoleLog.includes("dump OK")) {
         debugSnapshot("dump OK not found in console — failing");
-        throw new BootError(
+        throw new SnapshotError(
+          "SNAPSHOT_DUMP_FAILED",
           `vm.snapshot: guest did not report "dump OK" — check console log:\n${consoleLog.slice(-2000)}`,
         );
       }
@@ -724,6 +776,8 @@ export interface AttachOptions {
  * `stderr` are empty `PassThrough`s) — those belong to the original
  * booter. `output()`/`errorOutput()` resolve with the empty string.
  * `wait()` polls the pid rather than listening for `exit`.
+ *
+ * @throws {RegistryError} REGISTRY_VM_NOT_FOUND
  */
 export async function attach(opts: AttachOptions): Promise<VmHandle> {
   debugAttach("attach lookup id=%s name=%s", opts.id ?? "<unset>", opts.name ?? "<unset>");
@@ -731,7 +785,7 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
   if (!entry) {
     const q = opts.id ? `id ${opts.id}` : `name ${opts.name}`;
     debugAttach("attach miss for %s", q);
-    throw new BootError(`attach: no running VM found for ${q}`);
+    throw new RegistryError("REGISTRY_VM_NOT_FOUND", `attach: no running VM found for ${q}`);
   }
   debugAttach(
     "attach hit id=%s name=%s pid=%d sock=%s",
@@ -799,7 +853,8 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
     async exec(cmd, execOpts) {
       const res = await VsockExec.run(entry.socketPath, cmd, execOpts);
       if (res.exitCode !== 0) {
-        throw new BootError(
+        throw new ExecError(
+          "EXEC_NONZERO_EXIT",
           `vm.exec failed (code ${res.exitCode}): ${cmd}\nstderr:\n${res.stderr}`,
         );
       }
@@ -815,7 +870,8 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
       // with. Triggering a CRIU dump still works; the output is written
       // to /dev/vda inside the guest, but we have no way to copy it
       // from here. Snapshot-from-attach is deferred to a follow-up.
-      throw new BootError(
+      throw new SnapshotError(
+        "SNAPSHOT_UNSUPPORTED_ON_ATTACH",
         "vm.snapshot() is not supported on attached handles yet — snapshot " +
           "from the process that called boot(). Output path was: " +
           String(outPath) +
@@ -872,7 +928,7 @@ function synthesizeAndPackBundle(
     baseAbs = resolve(opts.cwd ?? process.cwd(), opts.image);
     if (!existsSync(baseAbs)) {
       cleanup();
-      throw new BootError(`image tarball not found: ${baseAbs}`);
+      throw new BootError("BOOT_IMAGE_NOT_FOUND", `image tarball not found: ${baseAbs}`);
     }
     imageConfig = readImageConfig(baseAbs);
   }
@@ -883,6 +939,7 @@ function synthesizeAndPackBundle(
   if (!effectiveCmd) {
     cleanup();
     throw new BootError(
+      "BOOT_CMD_MISSING",
       "boot: no cmd to run — pass `cmd` on boot() or bake one into the " +
         "image via `provision({ cmd })`.",
     );
@@ -911,11 +968,17 @@ function synthesizeAndPackBundle(
     const hostAbs = resolve(opts.cwd ?? process.cwd(), opts.mount.host);
     if (!existsSync(hostAbs)) {
       cleanup();
-      throw new BootError(`mount host path not found: ${opts.mount.host}`);
+      throw new BootError(
+        "BOOT_MOUNT_HOST_NOT_FOUND",
+        `mount host path not found: ${opts.mount.host}`,
+      );
     }
     if (!statSync(hostAbs).isDirectory()) {
       cleanup();
-      throw new BootError(`mount host path must be a directory (got a file): ${opts.mount.host}`);
+      throw new BootError(
+        "BOOT_MOUNT_INVALID",
+        `mount host path must be a directory (got a file): ${opts.mount.host}`,
+      );
     }
     mount = { host: hostAbs, guest: normalizeMountGuest(opts.mount.guest) };
   }
@@ -931,7 +994,7 @@ function synthesizeAndPackBundle(
   } catch (err) {
     cleanup();
     const msg = err instanceof Error ? err.message : String(err);
-    throw new BootError(`mkinitramfs pack failed: ${msg}`);
+    throw new BootError("BOOT_PACK_FAILED", `mkinitramfs pack failed: ${msg}`, { cause: err });
   }
   return { tempDir, cpioPath };
 }
@@ -946,11 +1009,12 @@ function normalizeMountGuest(guest: string): string {
 
 function validateMountGuest(guest: string): void {
   if (!guest || !guest.startsWith("/")) {
-    throw new BootError(`mount guest path must be absolute: ${guest}`);
+    throw new BootError("BOOT_MOUNT_INVALID", `mount guest path must be absolute: ${guest}`);
   }
   const trimmed = normalizeMountGuest(guest);
   if (!trimmed.startsWith(MOUNT_ROOT) || trimmed === MOUNT_ROOT.replace(/\/$/, "")) {
     throw new BootError(
+      "BOOT_MOUNT_INVALID",
       `mount guest path must live under ${MOUNT_ROOT} (got ${guest}) — ` +
         `pick a sub-path like ${MOUNT_ROOT}app`,
     );

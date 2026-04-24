@@ -37,6 +37,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import debugLib from "debug";
+import { MkinitramfsError } from "./errors.ts";
 
 const debug = debugLib("machinen:mkinitramfs");
 
@@ -345,10 +346,10 @@ export function packBundle(opts: PackBundleOptions): void {
   const rootfsDir = join(opts.bundle, "rootfs");
   const cfgPath = join(opts.bundle, "machinen-config.json");
   if (!statSync(rootfsDir).isDirectory()) {
-    throw new Error(`--bundle: missing ${rootfsDir}`);
+    throw new MkinitramfsError("MKINITRAMFS_BUNDLE_INVALID", `--bundle: missing ${rootfsDir}`);
   }
   if (!statSync(cfgPath).isFile()) {
-    throw new Error(`--bundle: missing ${cfgPath}`);
+    throw new MkinitramfsError("MKINITRAMFS_BUNDLE_INVALID", `--bundle: missing ${cfgPath}`);
   }
 
   const needsMerge = Boolean(opts.base) || Boolean(opts.mount);
@@ -370,7 +371,10 @@ export function packBundle(opts: PackBundleOptions): void {
       const res = spawnSync("tar", ["-xzf", opts.base, "-C", mergeTmp]);
       if (res.status !== 0) {
         rmSync(mergeTmp, { recursive: true, force: true });
-        throw new Error(`tar -xzf ${opts.base} failed: ${res.stderr?.toString() ?? ""}`);
+        throw new MkinitramfsError(
+          "MKINITRAMFS_BASE_EXTRACT_FAILED",
+          `tar -xzf ${opts.base} failed: ${res.stderr?.toString() ?? ""}`,
+        );
       }
       debug("base extracted elapsed=%dms", Date.now() - extractT0);
     }
@@ -511,7 +515,10 @@ export function packWorkspace(opts: PackWorkspaceOptions): void {
   const maxMb = opts.maxMb ?? 500;
 
   if (!statSync(opts.workspace).isDirectory()) {
-    throw new Error(`--workspace: ${opts.workspace} is not a directory`);
+    throw new MkinitramfsError(
+      "MKINITRAMFS_WORKSPACE_INVALID",
+      `--workspace: ${opts.workspace} is not a directory`,
+    );
   }
 
   const counts: WalkCounts = { files: 0, bytes: 0 };
@@ -521,7 +528,8 @@ export function packWorkspace(opts: PackWorkspaceOptions): void {
   }
   const total = parts.reduce((n, b) => n + b.length, 0);
   if (total > maxMb * 1024 * 1024) {
-    throw new Error(
+    throw new MkinitramfsError(
+      "MKINITRAMFS_WORKSPACE_TOO_LARGE",
       `workspace is ${(total / 1024 / 1024).toFixed(0)} MB (cap ${maxMb} MB). ` +
         `Try --exclude <dir> for each big subdir, or --max-mb <N> to raise the cap.`,
     );
