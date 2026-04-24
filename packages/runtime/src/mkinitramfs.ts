@@ -36,7 +36,10 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import debugLib from "debug";
 import { MkinitramfsError } from "./errors.ts";
+
+const debug = debugLib("machinen:mkinitramfs");
 
 /**
  * Default excludes applied to --workspace packs. Skip the usual dev
@@ -339,6 +342,7 @@ export interface PackBundleOptions {
 }
 
 export function packBundle(opts: PackBundleOptions): void {
+  const t0 = Date.now();
   const rootfsDir = join(opts.bundle, "rootfs");
   const cfgPath = join(opts.bundle, "machinen-config.json");
   if (!statSync(rootfsDir).isDirectory()) {
@@ -349,12 +353,21 @@ export function packBundle(opts: PackBundleOptions): void {
   }
 
   const needsMerge = Boolean(opts.base) || Boolean(opts.mount);
+  debug(
+    "packBundle bundle=%s out=%s base=%s mount=%s needsMerge=%s",
+    opts.bundle,
+    opts.out,
+    opts.base ?? "<none>",
+    opts.mount ? `${opts.mount.host}->${opts.mount.guest}` : "<none>",
+    needsMerge,
+  );
 
   let packSrc = rootfsDir;
   let mergeTmp: string | undefined;
   if (needsMerge) {
     mergeTmp = mkdtempSync(join(tmpdir(), "machinen-mkinitramfs-"));
     if (opts.base) {
+      const extractT0 = Date.now();
       const res = spawnSync("tar", ["-xzf", opts.base, "-C", mergeTmp]);
       if (res.status !== 0) {
         rmSync(mergeTmp, { recursive: true, force: true });
@@ -363,6 +376,7 @@ export function packBundle(opts: PackBundleOptions): void {
           `tar -xzf ${opts.base} failed: ${res.stderr?.toString() ?? ""}`,
         );
       }
+      debug("base extracted elapsed=%dms", Date.now() - extractT0);
     }
     if (opts.mount) {
       overlayMount(mergeTmp, opts.mount.host, opts.mount.guest);
@@ -390,6 +404,12 @@ export function packBundle(opts: PackBundleOptions): void {
       injectInit: false,
     });
     writeFileSync(opts.out, Buffer.concat(parts));
+    debug(
+      "packBundle done files=%d bytes=%d elapsed=%dms",
+      counts.files,
+      counts.bytes,
+      Date.now() - t0,
+    );
   } finally {
     if (mergeTmp) {
       rmSync(mergeTmp, { recursive: true, force: true });

@@ -84,12 +84,18 @@ import { createRequire } from "node:module";
 import { arch as osArch, platform as osPlatform, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { Readable, Writable } from "node:stream";
+import debugLib from "debug";
 import { packBundle as mkinitramfsPackBundle } from "./mkinitramfs.ts";
 import { exposePort, resolveGvproxyBinary, spawnGvproxy, warnGvproxyMissing } from "./gvproxy.ts";
 import { spawnArtifactCache } from "./artifact-cache.ts";
 import { BootError, ExecError, RegistryError, SnapshotError } from "./errors.ts";
 import { VsockExec, type VsockExecOptions, type VsockExecResult } from "./exec.ts";
 import { findEntry, isAlive, newVmId, removeEntry, writeEntry } from "./registry.ts";
+
+const debug = debugLib("machinen:boot");
+const debugAttach = debugLib("machinen:attach");
+const debugSnapshot = debugLib("machinen:snapshot");
+const vmmDebug = debugLib("machinen:vmm");
 
 const require_ = createRequire(import.meta.url);
 
@@ -309,6 +315,16 @@ export interface SnapshotResult {
  *   BOOT_PORT_FORWARD_NO_GVPROXY | BOOT_PACK_FAILED
  */
 export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
+  const bootT0 = Date.now();
+  debug(
+    "boot entry image=%s cmd=%j name=%s portForward=%d hasSnapshot=%s mount=%s",
+    opts.image ?? "<none>",
+    opts.cmd ?? null,
+    opts.name ?? "<unset>",
+    (opts.portForward ?? []).length,
+    Boolean(opts.snapshot),
+    opts.mount ? `${opts.mount.host}->${opts.mount.guest}` : "<none>",
+  );
   // Validate portForward up front — before resolving the binary or
   // touching the filesystem — so caller-input errors surface with a
   // clear message. The env-dependent "pre-set MACHINEN_NET_SOCKET"
@@ -396,10 +412,16 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   let vsockTempDir: string | undefined;
   if (env.MACHINEN_VSOCK) {
     vsockUdsPath = parseVsockUdsPath(env.MACHINEN_VSOCK);
+    debug(
+      "vsock spec from caller env: %s (uds=%s)",
+      env.MACHINEN_VSOCK,
+      vsockUdsPath ?? "<unparsed>",
+    );
   } else {
     vsockTempDir = mkdtempSync(join(tmpdir(), "machinen-vsock-"));
     vsockUdsPath = join(vsockTempDir, "exec.sock");
     env.MACHINEN_VSOCK = `in:1978:${vsockUdsPath}`;
+    debug("vsock auto uds=%s", vsockUdsPath);
   }
 
   // gvproxy + artifact cache (#88) + host→guest port forwards (#87)
@@ -417,6 +439,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     if (!env.MACHINEN_NET_SOCKET) {
       const gvBin = resolveGvproxyBinary(binary);
       if (gvBin) {
+        debug("starting gvproxy bin=%s", gvBin);
         const gv = await spawnGvproxy(gvBin);
         env.MACHINEN_NET_SOCKET = gv.socketPath;
         gvStop = gv.stop;
@@ -431,8 +454,11 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
               "Install gvproxy or point MACHINEN_GVPROXY at one.",
           );
         }
+        debug("gvproxy not found — booting without networking");
         warnGvproxyMissing();
       }
+    } else {
+      debug("MACHINEN_NET_SOCKET already set — skipping gvproxy spawn");
     }
 
     // Only useful when the guest has networking — without gvproxy
@@ -458,9 +484,11 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     }
 
     if (opts.image || opts.cmd) {
+      const packT0 = Date.now();
       const packed = synthesizeAndPackBundle(opts, mergedGuestEnv);
       bundleTempDir = packed.tempDir;
       env.MACHINEN_INITRD = packed.cpioPath;
+      debug("initramfs packed cpio=%s elapsed=%dms", packed.cpioPath, Date.now() - packT0);
     }
   } catch (err) {
     if (cacheStop) {
@@ -487,6 +515,12 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     env,
     stdio: ["pipe", "pipe", "pipe"],
   }) as ChildProcessWithoutNullStreams;
+  debug(
+    "VMM spawned pid=%d binary=%s elapsedSinceEntry=%dms",
+    child.pid ?? -1,
+    binary,
+    Date.now() - bootT0,
+  );
 
   // #98: register the running VM so another process can attach. The
   // entry is keyed by an auto-generated id; optional name lets
@@ -506,13 +540,25 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         startedAt: Date.now(),
       });
       registered = true;
-    } catch {
+      debug("registered id=%s name=%s pid=%d", id, vmName ?? "<unset>", childPid);
+    } catch (err) {
       // Registry write is best-effort; attach won't find this VM but
       // local boot-and-use still works fine.
+      debug(
+        "registry write failed (best-effort) err=%s",
+        err instanceof Error ? err.message : String(err),
+      );
     }
   }
 
-  child.once("exit", () => {
+  child.once("exit", (code, signal) => {
+    debug(
+      "VMM exit pid=%d code=%s signal=%s lifetimeMs=%d",
+      childPid,
+      code,
+      signal,
+      Date.now() - bootT0,
+    );
     if (bundleTempDir) {
       try {
         rmSync(bundleTempDir, { recursive: true, force: true });
@@ -544,6 +590,15 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   // to fill a pipe buffer if nothing's draining it).
   const outputCollector = collect(child.stdout);
   const errorCollector = collect(child.stderr);
+
+  // DEBUG=machinen:vmm tees the VMM's stderr (kernel + early-userspace
+  // console) to the host stderr in real time. Replaces the legacy
+  // MACHINEN_BUILD_DEBUG flag.
+  if (vmmDebug.enabled) {
+    child.stderr.on("data", (chunk: Buffer) => {
+      process.stderr.write(chunk);
+    });
+  }
 
   const handle: VmHandle = {
     id,
@@ -647,6 +702,13 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       const dumpCmd = snapshotOpts?.dumpCmd ?? "/sbin/machinen-dump";
       const deadlineMs = snapshotOpts?.timeoutMs ?? 90_000;
       const t0 = Date.now();
+      debugSnapshot(
+        "snapshot start id=%s out=%s dumpCmd=%s timeoutMs=%d",
+        id,
+        outPath,
+        dumpCmd,
+        deadlineMs,
+      );
 
       // Trigger the in-guest dump. The vsock connection typically closes
       // mid-transaction as the guest powers off — all such close modes
@@ -662,8 +724,10 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       }
       const elapsedMs = Date.now() - t0;
       const consoleLog = await this.errorOutput();
+      debugSnapshot("guest exited elapsed=%dms consoleBytes=%d", elapsedMs, consoleLog.length);
 
       if (!consoleLog.includes("dump OK")) {
+        debugSnapshot("dump OK not found in console — failing");
         throw new SnapshotError(
           "SNAPSHOT_DUMP_FAILED",
           `vm.snapshot: guest did not report "dump OK" — check console log:\n${consoleLog.slice(-2000)}`,
@@ -672,8 +736,10 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
 
       const outAbs = resolve(outPath);
       if (outAbs !== diskAbs) {
+        debugSnapshot("copy disk %s -> %s", diskAbs, outAbs);
         copyFileSync(diskAbs, outAbs);
       }
+      debugSnapshot("snapshot done out=%s", outAbs);
       return { snapshotPath: outAbs, elapsedMs, consoleLog };
     },
   };
@@ -714,11 +780,20 @@ export interface AttachOptions {
  * @throws {RegistryError} REGISTRY_VM_NOT_FOUND
  */
 export async function attach(opts: AttachOptions): Promise<VmHandle> {
+  debugAttach("attach lookup id=%s name=%s", opts.id ?? "<unset>", opts.name ?? "<unset>");
   const entry = findEntry(opts);
   if (!entry) {
     const q = opts.id ? `id ${opts.id}` : `name ${opts.name}`;
+    debugAttach("attach miss for %s", q);
     throw new RegistryError("REGISTRY_VM_NOT_FOUND", `attach: no running VM found for ${q}`);
   }
+  debugAttach(
+    "attach hit id=%s name=%s pid=%d sock=%s",
+    entry.id,
+    entry.name ?? "<unset>",
+    entry.pid,
+    entry.socketPath,
+  );
   const { PassThrough } = await import("node:stream");
   const stdin = new PassThrough();
   const stdout = new PassThrough();

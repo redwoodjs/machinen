@@ -20,7 +20,10 @@ import { mkdir, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, normalize, resolve, sep } from "node:path";
 import { pipeline } from "node:stream/promises";
+import debugLib from "debug";
 import { CacheError } from "./errors.ts";
+
+const debug = debugLib("machinen:cache");
 
 // Upstream for the node-dist mirror. Env-overridable so tests can
 // point at a localhost stub without hitting nodejs.org.
@@ -100,6 +103,7 @@ export async function spawnArtifactCache(
     server.close();
     throw new CacheError("CACHE_BIND_FAILED", "artifact-cache: failed to read bound address");
   }
+  debug("listening port=%d cacheDir=%s", addr.port, cacheDir);
 
   let stopped = false;
   const stop = async () => {
@@ -165,6 +169,7 @@ async function handleRequest(
   try {
     const st = await stat(localPath);
     if (st.isFile()) {
+      debug("hit %s %s sizeBytes=%d", req.method, rest, st.size);
       res.statusCode = 200;
       res.setHeader("content-length", String(st.size));
       res.setHeader("content-type", "application/octet-stream");
@@ -183,10 +188,17 @@ async function handleRequest(
 
   // Miss — fetch upstream, tee to disk, stream to client.
   const upstream = `${nodeDistUpstream()}/${rest}`;
+  debug("miss %s upstream=%s", rest, upstream);
+  const fetchT0 = Date.now();
   let upstreamRes: Response;
   try {
     upstreamRes = await fetch(upstream);
   } catch (err) {
+    debug(
+      "upstream fetch failed %s err=%s",
+      upstream,
+      err instanceof Error ? err.message : String(err),
+    );
     res.statusCode = 502;
     res.setHeader("content-type", "text/plain");
     res.end(`upstream fetch failed: ${err instanceof Error ? err.message : String(err)}\n`);
@@ -235,6 +247,7 @@ async function handleRequest(
     return;
   }
 
+  debug("populated %s sizeBytes=%d fetchMs=%d", rest, body.length, Date.now() - fetchT0);
   res.statusCode = 200;
   res.setHeader("content-length", String(body.length));
   res.setHeader(

@@ -20,7 +20,10 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { delimiter as pathSep, dirname, join } from "node:path";
 import { tmpdir } from "node:os";
+import debugLib from "debug";
 import { GvproxyError } from "./errors.ts";
+
+const debug = debugLib("machinen:gvproxy");
 
 let warnedMissing = false;
 
@@ -32,6 +35,7 @@ export function resolveGvproxyBinary(vmmBinary: string): string | null {
   const envOverride = process.env.MACHINEN_GVPROXY;
   if (envOverride) {
     if (existsSync(envOverride)) {
+      debug("resolved via MACHINEN_GVPROXY=%s", envOverride);
       return envOverride;
     }
     // Explicit override that points at nothing is a user mistake —
@@ -44,6 +48,7 @@ export function resolveGvproxyBinary(vmmBinary: string): string | null {
 
   const sibling = join(dirname(vmmBinary), "gvproxy");
   if (existsSync(sibling)) {
+    debug("resolved via VMM sibling=%s", sibling);
     return sibling;
   }
 
@@ -54,9 +59,11 @@ export function resolveGvproxyBinary(vmmBinary: string): string | null {
     }
     const candidate = join(dir, "gvproxy");
     if (existsSync(candidate)) {
+      debug("resolved via PATH=%s", candidate);
       return candidate;
     }
   }
+  debug("not found (env, sibling, PATH all missed)");
   return null;
 }
 
@@ -94,6 +101,7 @@ export async function spawnGvproxy(
   // the VMM dials for frames; `-listen` is gvproxy's HTTP control API,
   // used by `exposePort()` to install host->guest port forwards. Both
   // unix:// URLs, both auto-created by gvproxy. No vsock listener.
+  const spawnT0 = Date.now();
   const child = nodeSpawn(
     binary,
     ["-listen-qemu", `unix://${socketPath}`, "-listen", `unix://${controlSocketPath}`],
@@ -101,6 +109,7 @@ export async function spawnGvproxy(
       stdio: ["ignore", "pipe", "pipe"],
     },
   );
+  debug("spawned pid=%d qemu=%s ctrl=%s", child.pid ?? -1, socketPath, controlSocketPath);
 
   let stopped = false;
   const stop = () => {
@@ -109,6 +118,7 @@ export async function spawnGvproxy(
     }
     stopped = true;
     if (child.exitCode === null && child.signalCode === null) {
+      debug("stop() killing pid=%d", child.pid ?? -1);
       child.kill("SIGTERM");
     }
     try {
@@ -149,9 +159,11 @@ export async function spawnGvproxy(
   try {
     await Promise.race([socketReady, earlyExit]);
   } catch (err) {
+    debug("startup failed err=%s", err instanceof Error ? err.message : String(err));
     stop();
     throw err;
   }
+  debug("ready elapsed=%dms", Date.now() - spawnT0);
 
   return { socketPath, controlSocketPath, child, stop };
 }
@@ -185,6 +197,7 @@ export async function exposePort(
     local: `${hostAddr}:${opts.hostPort}`,
     remote: `${guestAddr}:${opts.guestPort}`,
   });
+  debug("expose %s:%d -> %s:%d", hostAddr, opts.hostPort, guestAddr, opts.guestPort);
 
   await new Promise<void>((done, fail) => {
     const req = httpRequest(
