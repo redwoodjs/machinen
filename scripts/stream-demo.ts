@@ -54,7 +54,9 @@ const dtb = resolve(assetsDir, "virt-arm64.dtb");
 const microvmRoot = resolve(import.meta.dirname, "..", "packages", "microvm");
 const fixturesDir = join(microvmRoot, "test-fixtures");
 function stageFixture(src: string, dest: string) {
-  if (existsSync(dest)) return;
+  if (existsSync(dest)) {
+    return;
+  }
   mkdirSync(dirname(dest), { recursive: true });
   symlinkSync(src, dest);
 }
@@ -88,7 +90,9 @@ function printer(api: string) {
     let pending = (buffers.get(key) ?? "") + evt.chunk.toString("utf8");
     for (;;) {
       const nl = pending.indexOf("\n");
-      if (nl === -1) break;
+      if (nl === -1) {
+        break;
+      }
       process.stdout.write(`${prefix} ${pending.slice(0, nl)}\n`);
       pending = pending.slice(nl + 1);
     }
