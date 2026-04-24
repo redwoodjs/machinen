@@ -20,6 +20,7 @@ import { mkdir, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, normalize, resolve, sep } from "node:path";
 import { pipeline } from "node:stream/promises";
+import { CacheError } from "./errors.ts";
 
 // Upstream for the node-dist mirror. Env-overridable so tests can
 // point at a localhost stub without hitting nodejs.org.
@@ -97,7 +98,7 @@ export async function spawnArtifactCache(
   const addr = server.address();
   if (!addr || typeof addr === "string") {
     server.close();
-    throw new Error("artifact-cache: failed to read bound address");
+    throw new CacheError("CACHE_BIND_FAILED", "artifact-cache: failed to read bound address");
   }
 
   let stopped = false;

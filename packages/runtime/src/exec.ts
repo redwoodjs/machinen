@@ -19,6 +19,7 @@
 //   // res.exitCode, res.stdout, res.stderr
 
 import { connect as netConnect, type Socket } from "node:net";
+import { ExecError } from "./errors.ts";
 
 export interface VsockExecOptions {
   /** How long to keep retrying the UDS connect. Default 30s. */
@@ -56,9 +57,13 @@ export const VsockExec = {
    * when the bridge tries to forward them. We retry on those resets
    * until the agent is actually listening.
    */
+  /**
+   * @throws {ExecError} EXEC_CMD_INVALID | EXEC_AGENT_UNAVAILABLE (retryable) |
+   *   EXEC_AGENT_TIMEOUT (retryable) | EXEC_PROTOCOL
+   */
   async run(udsPath: string, cmd: string, opts: VsockExecOptions = {}): Promise<VsockExecResult> {
     if (/\r|\n/.test(cmd)) {
-      throw new Error("VsockExec.run: cmd must not contain newlines");
+      throw new ExecError("EXEC_CMD_INVALID", "VsockExec.run: cmd must not contain newlines");
     }
     const connectTimeout = opts.connectTimeoutMs ?? 30_000;
     const retryMs = opts.retryMs ?? 250;
@@ -83,8 +88,10 @@ export const VsockExec = {
       }
       await new Promise((r) => setTimeout(r, retryMs));
     }
-    throw new Error(
+    throw new ExecError(
+      "EXEC_AGENT_UNAVAILABLE",
       `VsockExec.run: agent did not respond within ${connectTimeout}ms: ${lastErr?.message ?? "no error"}`,
+      { retryable: true, cause: lastErr ?? undefined },
     );
   },
 } as const;
@@ -119,7 +126,11 @@ async function runOnSocket(
 
     const deadline = opts.execTimeoutMs ?? 5 * 60 * 1000;
     const timer = setTimeout(() => {
-      fail(new Error(`VsockExec.run: timed out after ${deadline}ms`));
+      fail(
+        new ExecError("EXEC_AGENT_TIMEOUT", `VsockExec.run: timed out after ${deadline}ms`, {
+          retryable: true,
+        }),
+      );
       socket.destroy();
     }, deadline);
     timer.unref();
@@ -127,7 +138,13 @@ async function runOnSocket(
     const finish = () => {
       clearTimeout(timer);
       if (exitCode === null) {
-        fail(new Error("VsockExec.run: agent closed connection before X frame"));
+        fail(
+          new ExecError(
+            "EXEC_AGENT_UNAVAILABLE",
+            "VsockExec.run: agent closed connection before X frame",
+            { retryable: true },
+          ),
+        );
       } else {
         done({
           exitCode,
@@ -175,13 +192,17 @@ async function runOnSocket(
         }
         if (tag !== "O" && tag !== "E") {
           // Unknown frame tag — treat as protocol error and end.
-          fail(new Error(`VsockExec: unknown frame tag ${JSON.stringify(tag)}`));
+          fail(
+            new ExecError("EXEC_PROTOCOL", `VsockExec: unknown frame tag ${JSON.stringify(tag)}`),
+          );
           socket.destroy();
           return;
         }
         const n = Number.parseInt(nStr ?? "", 10);
         if (!Number.isFinite(n) || n < 0) {
-          fail(new Error(`VsockExec: bad frame length ${JSON.stringify(nStr)}`));
+          fail(
+            new ExecError("EXEC_PROTOCOL", `VsockExec: bad frame length ${JSON.stringify(nStr)}`),
+          );
           socket.destroy();
           return;
         }
@@ -221,8 +242,10 @@ async function connectWithRetry(udsPath: string, opts: VsockExecOptions): Promis
       await new Promise((r) => setTimeout(r, retryMs));
     }
   }
-  throw new Error(
+  throw new ExecError(
+    "EXEC_AGENT_UNAVAILABLE",
     `VsockExec: could not reach ${udsPath} within ${opts.connectTimeoutMs ?? 30_000}ms: ${lastErr?.message ?? "no error"}`,
+    { retryable: true, cause: lastErr ?? undefined },
   );
 }
 
