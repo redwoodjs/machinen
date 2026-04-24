@@ -80,10 +80,11 @@ export function parseRunArgs(argv: string[]): ParsedRunArgs {
         spec = a.slice("--mount-live=".length);
       }
       // Intentionally strict for v0: plain `<host>:<guest>`, no `:rw`
-      // suffix yet. Refusing now avoids callers baking `:rw` into
-      // scripts before write-through actually works.
+      // suffix yet. Refusing any extra `:` now avoids callers baking
+      // `:rw` into scripts before write-through actually works and
+      // keeps the future upgrade additive.
       const colon = spec!.indexOf(":");
-      if (colon <= 0 || colon === spec!.length - 1) {
+      if (colon <= 0 || colon === spec!.length - 1 || spec!.indexOf(":", colon + 1) !== -1) {
         throw new ParseError(
           "PARSE_FLAG_MALFORMED",
           `--mount-live: expected <host-dir>:<guest-path>, got '${spec}'`,

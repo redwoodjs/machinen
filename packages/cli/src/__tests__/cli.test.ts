@@ -121,6 +121,12 @@ describe("parseRunArgs --mount-live", () => {
   it("rejects a bare --mount-live with no value", () => {
     expect(() => parseRunArgs(["--mount-live"])).toThrow(/--mount-live requires/);
   });
+
+  it("rejects a spec with a trailing :rw (reserved for write-through)", () => {
+    expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:rw"])).toThrow(
+      /expected <host-dir>:<guest-path>/,
+    );
+  });
 });
 
 describe("parseRunArgs -p", () => {
