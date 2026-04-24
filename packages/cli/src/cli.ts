@@ -30,9 +30,12 @@ import { dirname, join, resolve } from "node:path";
 import { pipeline } from "node:stream/promises";
 
 import { attach, boot, BootError, list } from "@machinen/runtime";
+import debugLib from "debug";
 
 import pkg from "../package.json" with { type: "json" };
 import { parseRunArgs, ParseRunArgsError } from "./parse-run-args.ts";
+
+const debug = debugLib("machinen:cli");
 
 const VERSION = pkg.version;
 const RELEASE_TAG = `@machinen/runtime@${VERSION}`;
@@ -210,6 +213,15 @@ async function cmdBoot(args: string[]): Promise<number> {
     assetsOverride ? "rootfs-debian-arm64.tar.gz" : "rootfs.tar.gz",
   );
   const imagePath = imageOverride ? resolve(imageOverride) : defaultImagePath;
+  debug(
+    "boot baseDir=%s kernel=%s dtb=%s image=%s snapshot=%s name=%s",
+    baseDir,
+    kernelPath,
+    dtbPath,
+    imagePath,
+    snapshot ?? "<none>",
+    name ?? "<unset>",
+  );
 
   // Wrap the user cmd in /usr/bin/env so bare names like `node` or
   // `bash` are PATH-resolved. The guest init uses execve(), which
@@ -570,6 +582,7 @@ function printHelp(): void {
 
 async function main(): Promise<number> {
   const [sub, ...rest] = process.argv.slice(2);
+  debug("dispatch sub=%s argc=%d", sub ?? "<empty>", rest.length);
 
   if (!sub || sub === "-h" || sub === "--help") {
     printHelp();
