@@ -25,6 +25,7 @@
 //   ws.send(process.stdout.columns ?? 80, process.stdout.rows ?? 24);
 
 import { connect as netConnect, type Socket } from "node:net";
+import { WinsizeError } from "./errors.ts";
 
 export interface VsockWinsizeOptions {
   /** How long to keep retrying the UDS connect. Default 10s. */
@@ -70,8 +71,10 @@ export class VsockWinsize {
         await new Promise((r) => setTimeout(r, retryMs));
       }
     }
-    throw new Error(
+    throw new WinsizeError(
+      "WINSIZE_AGENT_UNAVAILABLE",
       `VsockWinsize.connect(${udsPath}) gave up after ${opts.timeoutMs ?? 10_000}ms: ${lastErr?.message ?? "no error"}`,
+      { retryable: true, cause: lastErr ?? undefined },
     );
   }
 

@@ -20,7 +20,7 @@ import { createServer, type Server } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { BootError, measureFirstByte, boot } from "../index.ts";
+import { BootError, ExecError, measureFirstByte, boot } from "../index.ts";
 
 const microvmRoot = resolve(import.meta.dirname, "../../../microvm");
 
@@ -526,7 +526,7 @@ describe("vm.exec", () => {
     }
   });
 
-  it("exec() throws BootError on non-zero exit and surfaces stderr", async () => {
+  it("exec() throws ExecError on non-zero exit and surfaces stderr", async () => {
     const udsPath = join(tmpdir(), `machinen-vm-exec-${process.pid}-2.sock`);
     try {
       unlinkSync(udsPath);
@@ -543,7 +543,7 @@ describe("vm.exec", () => {
         timeoutMs: 5_000,
       });
       try {
-        await expect(vm.exec("doesnt-matter")).rejects.toThrow(BootError);
+        await expect(vm.exec("doesnt-matter")).rejects.toThrow(ExecError);
         await expect(vm.exec("doesnt-matter")).rejects.toThrow(/code 7.*boom happened/s);
       } finally {
         await vm.kill();

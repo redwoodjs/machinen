@@ -21,6 +21,7 @@
 //   });
 
 import { connect as netConnect, type Socket } from "node:net";
+import { SecretsError } from "./errors.ts";
 
 export interface VsockSecretsOptions {
   /** How long to keep retrying the UDS connect. Default 10s. */
@@ -45,7 +46,10 @@ export const VsockSecrets = {
   ): Promise<void> {
     for (const [k, v] of Object.entries(secrets)) {
       if (/[\r\n]/.test(v)) {
-        throw new Error(`secret ${k} contains a newline — reject at the host`);
+        throw new SecretsError(
+          "SECRETS_VALUE_INVALID",
+          `secret ${k} contains a newline — reject at the host`,
+        );
       }
     }
     const socket = await connectWithRetry(udsPath, opts);
@@ -71,8 +75,10 @@ async function connectWithRetry(udsPath: string, opts: VsockSecretsOptions): Pro
       await new Promise((r) => setTimeout(r, retryMs));
     }
   }
-  throw new Error(
+  throw new SecretsError(
+    "SECRETS_AGENT_UNAVAILABLE",
     `VsockSecrets.send(${udsPath}) gave up after ${opts.timeoutMs ?? 10_000}ms: ${lastErr?.message ?? "no error"}`,
+    { retryable: true, cause: lastErr ?? undefined },
   );
 }
 
