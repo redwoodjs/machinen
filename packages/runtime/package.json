@@ -26,9 +26,11 @@
     "prepublishOnly": "pnpm build"
   },
   "dependencies": {
+    "debug": "^4.4.1",
     "node-pty": "^1.0.0"
   },
   "devDependencies": {
+    "@types/debug": "^4.1.12",
     "@types/node": "^22",
     "tsup": "^8.3.5"
   },
