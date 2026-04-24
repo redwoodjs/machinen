@@ -10,6 +10,7 @@ export { VsockFiles } from "./files.ts";
 export type { VsockFilesOptions } from "./files.ts";
 export { VsockExec } from "./exec.ts";
 export type { VsockExecOptions, VsockExecResult } from "./exec.ts";
+export type { LogEvent, OnLog } from "./log.ts";
 export { provision, ProvisionError, resolveBaseRootfs } from "./provision.ts";
 export type { ProvisionOptions, ProvisionResult } from "./provision.ts";
 export { spawnArtifactCache, resolveCacheDir } from "./artifact-cache.ts";
@@ -65,9 +66,10 @@ import { arch as osArch, platform as osPlatform, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { Readable, Writable } from "node:stream";
 import { packBundle as mkinitramfsPackBundle } from "./mkinitramfs.ts";
-import { exposePort, resolveGvproxyBinary, spawnGvproxy, warnGvproxyMissing } from "./gvproxy.ts";
+import { ensureGvproxy, exposePort, spawnGvproxy, warnGvproxyMissing } from "./gvproxy.ts";
 import { spawnArtifactCache } from "./artifact-cache.ts";
 import { VsockExec, type VsockExecOptions, type VsockExecResult } from "./exec.ts";
+import type { OnLog } from "./log.ts";
 import { findEntry, isAlive, newVmId, removeEntry, writeEntry } from "./registry.ts";
 
 export class BootError extends Error {}
@@ -183,6 +185,14 @@ export interface BootOptions {
    * name is just for discovery.
    */
   name?: string;
+  /**
+   * Streaming log callback — fires for every byte of guest output:
+   * kernel console (VMM stderr) and every exec invocation made through
+   * the returned handle. See `LogEvent.source` to tell them apart. See
+   * #83. For per-call output-only tees on a single exec, use
+   * `vm.exec({ onStdout, onStderr })` instead.
+   */
+  onLog?: OnLog;
 }
 
 export interface VmHandle {
@@ -259,6 +269,12 @@ export interface SnapshotOptions {
    * in this window we SIGKILL it and fail. Default 90s.
    */
   timeoutMs?: number;
+  /**
+   * Streaming log callback — fires for every byte the dump emits
+   * (guest console + the dump exec). See #83. When both the snapshot
+   * call and `boot({ onLog })` have a callback set, both fire.
+   */
+  onLog?: OnLog;
 }
 
 export interface SnapshotResult {
@@ -370,7 +386,10 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
 
   try {
     if (!env.MACHINEN_NET_SOCKET) {
-      const gvBin = resolveGvproxyBinary(binary);
+      // Auto-install gvproxy on first use if not already resolvable —
+      // visible stderr line; cached under ~/.machinen so subsequent
+      // boots are silent. See #83 follow-up.
+      const gvBin = await ensureGvproxy(binary);
       if (gvBin) {
         const gv = await spawnGvproxy(gvBin);
         env.MACHINEN_NET_SOCKET = gv.socketPath;
@@ -498,6 +517,12 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   // to fill a pipe buffer if nothing's draining it).
   const outputCollector = collect(child.stdout);
   const errorCollector = collect(child.stderr);
+  const onLog = opts.onLog;
+  if (onLog) {
+    child.stderr.on("data", (chunk: Buffer) => {
+      onLog({ source: "guest-console", chunk });
+    });
+  }
 
   const handle: VmHandle = {
     id,
@@ -565,7 +590,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
             "unrecognized spec. Expected `in:<port>:<uds-path>`.",
         );
       }
-      const res = await VsockExec.run(vsockUdsPath, cmd, execOpts);
+      const res = await VsockExec.run(vsockUdsPath, cmd, teeOnLog(cmd, execOpts, onLog));
       if (res.exitCode !== 0) {
         throw new BootError(
           `vm.exec failed (code ${res.exitCode}): ${cmd}\nstderr:\n${res.stderr}`,
@@ -583,7 +608,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
           ),
         );
       }
-      return VsockExec.run(vsockUdsPath, cmd, execOpts);
+      return VsockExec.run(vsockUdsPath, cmd, teeOnLog(cmd, execOpts, onLog));
     },
 
     async snapshot(outPath, snapshotOpts) {
@@ -596,11 +621,29 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       const dumpCmd = snapshotOpts?.dumpCmd ?? "/sbin/machinen-dump";
       const deadlineMs = snapshotOpts?.timeoutMs ?? 90_000;
       const t0 = Date.now();
+      const snapshotOnLog = snapshotOpts?.onLog;
+
+      // If the caller asked for streaming, tee the VMM's stderr into it
+      // too — otherwise they'd only see the dump exec, not the kernel /
+      // CRIU console output that explains a dump-gone-wrong.
+      if (snapshotOnLog) {
+        child.stderr.on("data", (chunk: Buffer) => {
+          snapshotOnLog({ source: "guest-console", chunk });
+        });
+      }
 
       // Trigger the in-guest dump. The vsock connection typically closes
       // mid-transaction as the guest powers off — all such close modes
       // are fine; `wait()` below is the real success signal.
-      await this.execRaw(dumpCmd, { connectTimeoutMs: 2_000 }).catch(() => {});
+      await this.execRaw(dumpCmd, {
+        connectTimeoutMs: 2_000,
+        onStdout: snapshotOnLog
+          ? (chunk) => snapshotOnLog({ source: "exec-stdout", cmd: dumpCmd, chunk })
+          : undefined,
+        onStderr: snapshotOnLog
+          ? (chunk) => snapshotOnLog({ source: "exec-stderr", cmd: dumpCmd, chunk })
+          : undefined,
+      }).catch(() => {});
 
       const killTimer = setTimeout(() => void this.kill(), deadlineMs);
       killTimer.unref();
@@ -646,6 +689,13 @@ export interface AttachOptions {
   id?: string;
   /** Look up a VM by the name passed to `boot({ name })`. */
   name?: string;
+  /**
+   * Streaming log callback — fires for every byte of output from execs
+   * made through the returned handle. See #83. Guest kernel console is
+   * not available on attach handles (it belongs to the process that
+   * called `boot()`), so only `exec-stdout` / `exec-stderr` sources fire.
+   */
+  onLog?: OnLog;
 }
 
 /**
@@ -722,7 +772,7 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
     },
 
     async exec(cmd, execOpts) {
-      const res = await VsockExec.run(entry.socketPath, cmd, execOpts);
+      const res = await VsockExec.run(entry.socketPath, cmd, teeOnLog(cmd, execOpts, opts.onLog));
       if (res.exitCode !== 0) {
         throw new BootError(
           `vm.exec failed (code ${res.exitCode}): ${cmd}\nstderr:\n${res.stderr}`,
@@ -732,7 +782,7 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
     },
 
     execRaw(cmd, execOpts) {
-      return VsockExec.run(entry.socketPath, cmd, execOpts);
+      return VsockExec.run(entry.socketPath, cmd, teeOnLog(cmd, execOpts, opts.onLog));
     },
 
     async snapshot(outPath, snapshotOpts) {
@@ -880,6 +930,34 @@ function validateMountGuest(guest: string): void {
         `pick a sub-path like ${MOUNT_ROOT}app`,
     );
   }
+}
+
+/**
+ * Layer an `onLog` over per-call `onStdout` / `onStderr`: the caller's
+ * narrow callbacks still fire if they set them, and the handle-level
+ * `onLog` receives a tagged event for every chunk. See #83.
+ */
+function teeOnLog(
+  cmd: string,
+  execOpts: VsockExecOptions | undefined,
+  onLog: OnLog | undefined,
+): VsockExecOptions | undefined {
+  if (!onLog) {
+    return execOpts;
+  }
+  const userOnStdout = execOpts?.onStdout;
+  const userOnStderr = execOpts?.onStderr;
+  return {
+    ...execOpts,
+    onStdout(chunk) {
+      onLog({ source: "exec-stdout", cmd, chunk });
+      userOnStdout?.(chunk);
+    },
+    onStderr(chunk) {
+      onLog({ source: "exec-stderr", cmd, chunk });
+      userOnStderr?.(chunk);
+    },
+  };
 }
 
 function collect(stream: Readable): Promise<string> {
