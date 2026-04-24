@@ -65,6 +65,12 @@ export const ErrorCode = {
   FILES_HOST_DIR_NOT_FOUND: "FILES_HOST_DIR_NOT_FOUND",
   FILES_AGENT_UNAVAILABLE: "FILES_AGENT_UNAVAILABLE",
 
+  // mount — live-share (--mount-live, #78). Path containment is the
+  // load-bearing piece: any resolver failure means the guest tried to
+  // reach outside the mounted directory.
+  MOUNT_PATH_INVALID: "MOUNT_PATH_INVALID",
+  MOUNT_PATH_ESCAPE: "MOUNT_PATH_ESCAPE",
+
   // secrets — vsock KEY=VALUE injection
   SECRETS_VALUE_INVALID: "SECRETS_VALUE_INVALID",
   SECRETS_AGENT_UNAVAILABLE: "SECRETS_AGENT_UNAVAILABLE",
@@ -136,6 +142,7 @@ export class SnapshotError extends MachinenError {}
 export class ProvisionError extends MachinenError {}
 export class RegistryError extends MachinenError {}
 export class FilesError extends MachinenError {}
+export class MountError extends MachinenError {}
 export class SecretsError extends MachinenError {}
 export class WinsizeError extends MachinenError {}
 export class SandboxError extends MachinenError {}

@@ -226,6 +226,11 @@ mmdebstrap \
 #     vsock, vmw_vsock_virtio_transport,
 #     vmw_vsock_virtio_transport_common, vsock_diag
 #
+#   FUSE — `--mount-live` (#78) relays guest filesystem ops over vsock
+#   to a host-side server. The guest side is a FUSE daemon that talks
+#   to /dev/fuse; it only gets loaded when a live mount is requested,
+#   so this is opt-in at /init time rather than on every boot.
+#
 # Resolve each module by filename (find) rather than hard-coded path,
 # so the whitelist is robust to Debian kernel-package layout changes.
 KVER=$(ls /work/rootfs/lib/modules | head -1)
@@ -236,7 +241,8 @@ for m in \
   virtio_blk \
   netlink_diag unix_diag inet_diag tcp_diag udp_diag af_packet_diag \
   libcrc32c nfnetlink nf_tables \
-  vsock vmw_vsock_virtio_transport vmw_vsock_virtio_transport_common vsock_diag
+  vsock vmw_vsock_virtio_transport vmw_vsock_virtio_transport_common vsock_diag \
+  fuse
 do
   src=$(find "$KMODS" -type f -name "$m.ko" | head -1)
   [ -n "$src" ] || { echo "missing module: $m.ko" >&2; exit 1; }
