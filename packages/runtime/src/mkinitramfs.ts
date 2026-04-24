@@ -36,6 +36,10 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import debugLib from "debug";
+import { MkinitramfsError } from "./errors.ts";
+
+const debug = debugLib("machinen:mkinitramfs");
 
 /**
  * Default excludes applied to --workspace packs. Skip the usual dev
@@ -338,27 +342,41 @@ export interface PackBundleOptions {
 }
 
 export function packBundle(opts: PackBundleOptions): void {
+  const t0 = Date.now();
   const rootfsDir = join(opts.bundle, "rootfs");
   const cfgPath = join(opts.bundle, "machinen-config.json");
   if (!statSync(rootfsDir).isDirectory()) {
-    throw new Error(`--bundle: missing ${rootfsDir}`);
+    throw new MkinitramfsError("MKINITRAMFS_BUNDLE_INVALID", `--bundle: missing ${rootfsDir}`);
   }
   if (!statSync(cfgPath).isFile()) {
-    throw new Error(`--bundle: missing ${cfgPath}`);
+    throw new MkinitramfsError("MKINITRAMFS_BUNDLE_INVALID", `--bundle: missing ${cfgPath}`);
   }
 
   const needsMerge = Boolean(opts.base) || Boolean(opts.mount);
+  debug(
+    "packBundle bundle=%s out=%s base=%s mount=%s needsMerge=%s",
+    opts.bundle,
+    opts.out,
+    opts.base ?? "<none>",
+    opts.mount ? `${opts.mount.host}->${opts.mount.guest}` : "<none>",
+    needsMerge,
+  );
 
   let packSrc = rootfsDir;
   let mergeTmp: string | undefined;
   if (needsMerge) {
     mergeTmp = mkdtempSync(join(tmpdir(), "machinen-mkinitramfs-"));
     if (opts.base) {
+      const extractT0 = Date.now();
       const res = spawnSync("tar", ["-xzf", opts.base, "-C", mergeTmp]);
       if (res.status !== 0) {
         rmSync(mergeTmp, { recursive: true, force: true });
-        throw new Error(`tar -xzf ${opts.base} failed: ${res.stderr?.toString() ?? ""}`);
+        throw new MkinitramfsError(
+          "MKINITRAMFS_BASE_EXTRACT_FAILED",
+          `tar -xzf ${opts.base} failed: ${res.stderr?.toString() ?? ""}`,
+        );
       }
+      debug("base extracted elapsed=%dms", Date.now() - extractT0);
     }
     if (opts.mount) {
       overlayMount(mergeTmp, opts.mount.host, opts.mount.guest);
@@ -386,6 +404,12 @@ export function packBundle(opts: PackBundleOptions): void {
       injectInit: false,
     });
     writeFileSync(opts.out, Buffer.concat(parts));
+    debug(
+      "packBundle done files=%d bytes=%d elapsed=%dms",
+      counts.files,
+      counts.bytes,
+      Date.now() - t0,
+    );
   } finally {
     if (mergeTmp) {
       rmSync(mergeTmp, { recursive: true, force: true });
@@ -491,7 +515,10 @@ export function packWorkspace(opts: PackWorkspaceOptions): void {
   const maxMb = opts.maxMb ?? 500;
 
   if (!statSync(opts.workspace).isDirectory()) {
-    throw new Error(`--workspace: ${opts.workspace} is not a directory`);
+    throw new MkinitramfsError(
+      "MKINITRAMFS_WORKSPACE_INVALID",
+      `--workspace: ${opts.workspace} is not a directory`,
+    );
   }
 
   const counts: WalkCounts = { files: 0, bytes: 0 };
@@ -501,7 +528,8 @@ export function packWorkspace(opts: PackWorkspaceOptions): void {
   }
   const total = parts.reduce((n, b) => n + b.length, 0);
   if (total > maxMb * 1024 * 1024) {
-    throw new Error(
+    throw new MkinitramfsError(
+      "MKINITRAMFS_WORKSPACE_TOO_LARGE",
       `workspace is ${(total / 1024 / 1024).toFixed(0)} MB (cap ${maxMb} MB). ` +
         `Try --exclude <dir> for each big subdir, or --max-mb <N> to raise the cap.`,
     );

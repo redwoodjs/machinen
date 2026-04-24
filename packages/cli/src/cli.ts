@@ -29,10 +29,13 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { pipeline } from "node:stream/promises";
 
-import { attach, boot, BootError, list } from "@machinen/runtime";
+import { attach, boot, formatMachinenError, isMachinenError, list } from "@machinen/runtime";
+import debugLib from "debug";
 
 import pkg from "../package.json" with { type: "json" };
-import { parseRunArgs, ParseRunArgsError } from "./parse-run-args.ts";
+import { parseRunArgs } from "./parse-run-args.ts";
+
+const debug = debugLib("machinen:cli");
 
 const VERSION = pkg.version;
 const RELEASE_TAG = `@machinen/runtime@${VERSION}`;
@@ -166,10 +169,7 @@ async function cmdBoot(args: string[]): Promise<number> {
   try {
     parsed = parseRunArgs(args);
   } catch (err) {
-    if (err instanceof ParseRunArgsError) {
-      die(err.message);
-    }
-    throw err;
+    handleError(err);
   }
   const { positional, double_dash_args, mount, env, portForward, snapshot, name } = parsed;
 
@@ -210,6 +210,15 @@ async function cmdBoot(args: string[]): Promise<number> {
     assetsOverride ? "rootfs-debian-arm64.tar.gz" : "rootfs.tar.gz",
   );
   const imagePath = imageOverride ? resolve(imageOverride) : defaultImagePath;
+  debug(
+    "boot baseDir=%s kernel=%s dtb=%s image=%s snapshot=%s name=%s",
+    baseDir,
+    kernelPath,
+    dtbPath,
+    imagePath,
+    snapshot ?? "<none>",
+    name ?? "<unset>",
+  );
 
   // Wrap the user cmd in /usr/bin/env so bare names like `node` or
   // `bash` are PATH-resolved. The guest init uses execve(), which
@@ -236,10 +245,7 @@ async function cmdBoot(args: string[]): Promise<number> {
       timeoutMs: null,
     });
   } catch (err) {
-    if (err instanceof BootError) {
-      die(err.message);
-    }
-    throw err;
+    handleError(err);
   }
 
   vm.stdout.pipe(process.stdout);
@@ -348,12 +354,7 @@ async function cmdExec(args: string[]): Promise<number> {
     die("usage: machinen exec <name-or-id> -- <cmd>");
   }
   const target = pre[0]!;
-  const vm = await attach(lookupQuery(target)).catch((err) => {
-    if (err instanceof BootError) {
-      die(err.message);
-    }
-    throw err;
-  });
+  const vm = await attach(lookupQuery(target)).catch(handleError);
   try {
     // Shell out via `sh -c` on the guest so caller can pass piped
     // commands naturally. Users who want raw exec of a single binary
@@ -374,21 +375,13 @@ async function cmdSnapshot(args: string[]): Promise<number> {
     die("usage: machinen snapshot <name-or-id> <out-path>");
   }
   const [target, outPath] = args;
-  const vm = await attach(lookupQuery(target!)).catch((err) => {
-    if (err instanceof BootError) {
-      die(err.message);
-    }
-    throw err;
-  });
+  const vm = await attach(lookupQuery(target!)).catch(handleError);
   try {
     const res = await vm.snapshot(outPath!);
     process.stdout.write(`snapshot: ${res.snapshotPath} (${res.elapsedMs}ms)\n`);
     return 0;
   } catch (err) {
-    if (err instanceof BootError) {
-      die(err.message);
-    }
-    throw err;
+    handleError(err);
   } finally {
     await vm.detach();
   }
@@ -399,12 +392,7 @@ async function cmdAttach(args: string[]): Promise<number> {
     die("usage: machinen attach <name-or-id>");
   }
   const target = args[0]!;
-  const vm = await attach(lookupQuery(target)).catch((err) => {
-    if (err instanceof BootError) {
-      die(err.message);
-    }
-    throw err;
-  });
+  const vm = await attach(lookupQuery(target)).catch(handleError);
   process.stderr.write(`attached to ${vm.name ?? vm.id} (pid ${vm.pid})\n`);
   process.stderr.write(`type commands; Ctrl-D to detach.\n`);
   try {
@@ -523,6 +511,19 @@ function die(msg: string): never {
   process.exit(1);
 }
 
+/**
+ * Unified error handler. MachinenError gets a formatted `(CODE): message`
+ * + cause chain and an exit(1). Anything else re-throws so Node prints
+ * the full stack — those are genuine surprises we want to see.
+ */
+function handleError(err: unknown): never {
+  if (isMachinenError(err)) {
+    process.stderr.write(`machinen: ${formatMachinenError(err)}\n`);
+    process.exit(1);
+  }
+  throw err;
+}
+
 function printHelp(): void {
   process.stdout.write(
     `machinen ${VERSION}\n` +
@@ -572,6 +573,7 @@ function printHelp(): void {
 
 async function main(): Promise<number> {
   const [sub, ...rest] = process.argv.slice(2);
+  debug("dispatch sub=%s argc=%d", sub ?? "<empty>", rest.length);
 
   if (!sub || sub === "-h" || sub === "--help") {
     printHelp();
@@ -607,6 +609,10 @@ async function main(): Promise<number> {
 main().then(
   (code) => process.exit(code),
   (err) => {
+    if (isMachinenError(err)) {
+      process.stderr.write(`machinen: ${formatMachinenError(err)}\n`);
+      process.exit(1);
+    }
     process.stderr.write(
       `machinen: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}\n`,
     );

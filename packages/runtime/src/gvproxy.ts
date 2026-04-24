@@ -36,6 +36,10 @@ import { request as httpRequest } from "node:http";
 import { createServer, type AddressInfo } from "node:net";
 import { arch as osArch, homedir, platform as osPlatform, tmpdir } from "node:os";
 import { delimiter as pathSep, dirname, join } from "node:path";
+import debugLib from "debug";
+import { GvproxyError } from "./errors.ts";
+
+const debug = debugLib("machinen:gvproxy");
 
 /**
  * Pinned gvproxy version — matches `scripts/install-gvproxy.sh`. Bump
@@ -61,15 +65,20 @@ export function resolveGvproxyBinary(vmmBinary: string): string | null {
       return null;
     }
     if (existsSync(envOverride)) {
+      debug("resolved via MACHINEN_GVPROXY=%s", envOverride);
       return envOverride;
     }
     // Explicit override that points at nothing is a user mistake —
     // surface it rather than silently falling through.
-    throw new Error(`MACHINEN_GVPROXY=${envOverride} is set but that file does not exist.`);
+    throw new GvproxyError(
+      "GVPROXY_NOT_FOUND",
+      `MACHINEN_GVPROXY=${envOverride} is set but that file does not exist.`,
+    );
   }
 
   const sibling = join(dirname(vmmBinary), "gvproxy");
   if (existsSync(sibling)) {
+    debug("resolved via VMM sibling=%s", sibling);
     return sibling;
   }
 
@@ -85,9 +94,11 @@ export function resolveGvproxyBinary(vmmBinary: string): string | null {
     }
     const candidate = join(dir, "gvproxy");
     if (existsSync(candidate)) {
+      debug("resolved via PATH=%s", candidate);
       return candidate;
     }
   }
+  debug("not found (env, sibling, PATH all missed)");
   return null;
 }
 
@@ -180,7 +191,10 @@ async function downloadGvproxy(): Promise<string> {
     const tmp = `${outPath}.partial.${process.pid}`;
     const res = await fetch(url, { redirect: "follow" });
     if (!res.ok) {
-      throw new Error(`fetch ${url} failed: ${res.status} ${res.statusText}`);
+      throw new GvproxyError(
+        "GVPROXY_INSTALL_FAILED",
+        `fetch ${url} failed: ${res.status} ${res.statusText}`,
+      );
     }
     const body = Buffer.from(await res.arrayBuffer());
     // writeFile + explicit fsync + close before rename: createWriteStream
@@ -232,7 +246,8 @@ async function waitForCachedGvproxy(
     }
     await new Promise((r) => setTimeout(r, 100));
   }
-  throw new Error(
+  throw new GvproxyError(
+    "GVPROXY_INSTALL_FAILED",
     `timed out waiting ${timeoutMs}ms for another process to finish downloading gvproxy to ${outPath}`,
   );
 }
@@ -283,7 +298,10 @@ async function spawnWithEtxtbsyRetry(
   }
   throw lastErr instanceof Error
     ? lastErr
-    : new Error(`spawn ${binary}: ETXTBSY after ${attempts} retries`);
+    : new GvproxyError(
+        "GVPROXY_SPAWN_FAILED",
+        `spawn ${binary}: ETXTBSY after ${attempts} retries`,
+      );
 }
 
 /**
@@ -331,7 +349,10 @@ function gvproxyAssetName(): string {
     const gvArch = arch === "x64" ? "amd64" : arch;
     return `gvproxy-linux-${gvArch}`;
   }
-  throw new Error(`gvproxy: no prebuilt release asset for platform ${platform}`);
+  throw new GvproxyError(
+    "GVPROXY_INSTALL_FAILED",
+    `gvproxy: no prebuilt release asset for platform ${platform}`,
+  );
 }
 
 export interface GvproxyHandle {
@@ -385,12 +406,14 @@ export async function spawnGvproxy(
     "-ssh-port",
     String(sshPort),
   ];
+  const spawnT0 = Date.now();
   // Small retry loop around exec() for `ETXTBSY`. On Linux this fires
   // briefly after a freshly-written binary gets exec'd while a peer
   // still has a write fd open — rare with the lock + fsync in
   // `downloadGvproxy`, but belt-and-suspenders for multi-process
   // test runners.
   const child = await spawnWithEtxtbsyRetry(binary, args);
+  debug("spawned pid=%d qemu=%s ctrl=%s", child.pid ?? -1, socketPath, controlSocketPath);
 
   let stopped = false;
   const stop = () => {
@@ -399,6 +422,7 @@ export async function spawnGvproxy(
     }
     stopped = true;
     if (child.exitCode === null && child.signalCode === null) {
+      debug("stop() killing pid=%d", child.pid ?? -1);
       child.kill("SIGTERM");
     }
     try {
@@ -430,7 +454,8 @@ export async function spawnGvproxy(
       }
       await new Promise((r) => setTimeout(r, 25));
     }
-    throw new Error(
+    throw new GvproxyError(
+      "GVPROXY_NOT_FOUND",
       `gvproxy did not create ${socketPath} within ${timeoutMs}ms. ` + `Binary: ${binary}`,
     );
   })();
@@ -438,9 +463,11 @@ export async function spawnGvproxy(
   try {
     await Promise.race([socketReady, earlyExit]);
   } catch (err) {
+    debug("startup failed err=%s", err instanceof Error ? err.message : String(err));
     stop();
     throw err;
   }
+  debug("ready elapsed=%dms", Date.now() - spawnT0);
 
   return { socketPath, controlSocketPath, child, stop };
 }
@@ -474,6 +501,7 @@ export async function exposePort(
     local: `${hostAddr}:${opts.hostPort}`,
     remote: `${guestAddr}:${opts.guestPort}`,
   });
+  debug("expose %s:%d -> %s:%d", hostAddr, opts.hostPort, guestAddr, opts.guestPort);
 
   await new Promise<void>((done, fail) => {
     const req = httpRequest(
@@ -497,7 +525,8 @@ export async function exposePort(
           }
           const text = Buffer.concat(chunks).toString("utf8").trim();
           fail(
-            new Error(
+            new GvproxyError(
+              "GVPROXY_EXPOSE_FAILED",
               `gvproxy expose failed (${status}) for ${hostAddr}:${opts.hostPort} -> ${guestAddr}:${opts.guestPort}: ${text || "<empty body>"}`,
             ),
           );

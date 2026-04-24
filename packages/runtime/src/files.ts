@@ -21,6 +21,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { connect as netConnect, type Socket } from "node:net";
 import { PassThrough } from "node:stream";
+import { FilesError } from "./errors.ts";
 
 export interface VsockFilesOptions {
   /** How long to retry the UDS connect. Default 5s. */
@@ -43,7 +44,7 @@ export const VsockFiles = {
     opts: VsockFilesOptions = {},
   ): Promise<void> {
     if (!existsSync(hostDir)) {
-      throw new Error(`push: host dir does not exist: ${hostDir}`);
+      throw new FilesError("FILES_HOST_DIR_NOT_FOUND", `push: host dir does not exist: ${hostDir}`);
     }
     const sock = await connectWithRetry(udsPath, opts);
     try {
@@ -132,7 +133,11 @@ async function connectWithRetry(udsPath: string, opts: VsockFilesOptions): Promi
       await new Promise((r) => setTimeout(r, retryMs));
     }
   }
-  throw new Error(`VsockFiles: could not connect to ${udsPath}: ${last?.message ?? "no error"}`);
+  throw new FilesError(
+    "FILES_AGENT_UNAVAILABLE",
+    `VsockFiles: could not connect to ${udsPath}: ${last?.message ?? "no error"}`,
+    { retryable: true, cause: last ?? undefined },
+  );
 }
 
 function connectOnce(udsPath: string): Promise<Socket> {
