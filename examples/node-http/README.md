@@ -3,17 +3,21 @@
 A minimal Node HTTP server running inside a microVM, reachable from
 the host on `localhost:8080`.
 
-Demonstrates three things end-to-end:
+Demonstrates four things end-to-end:
 
-1. **Node in the guest** — `build({ install })` boots the base Debian
-   rootfs, runs `apt-get install -y nodejs` inside, and writes a
-   Node-capable tarball to `./.cache/node-rootfs.tar.gz`. First run
+1. **Node in the guest** — `provision({ install })` boots the base
+   Debian rootfs, runs `apt-get install -y nodejs` inside, and writes
+   a Node-capable image to `./.cache/node-image.tar.gz`. First run
    only; cached thereafter.
-2. **App files into the guest** — the bundle's `rootfs/server.mjs` is
-   merged on top of the base rootfs at pack time, so `/server.mjs`
-   exists inside the VM.
-3. **Host reaches a guest TCP port** — `portForward: [{ hostPort: 8080,
-guestPort: 3000 }]` installs a host → guest forward through
+2. **Baked-in default cmd** — the image carries a
+   `/machinen-config.json` with `cmd: ["/usr/bin/node",
+"/mnt/app/server.mjs"]`, so `boot({ image })` runs it without any
+   extra args.
+3. **App files into the guest** — the example's `rootfs/server.mjs`
+   is exposed at `/mnt/app/` via `mount`, so edits don't require
+   rebuilding the image.
+4. **Host reaches a guest TCP port** — `portForward: [{ hostPort:
+8080, guestPort: 3000 }]` installs a host → guest forward through
    gvproxy's control API. `127.0.0.1:8080` on the host is routed to
    port 3000 on the guest.
 
@@ -32,27 +36,28 @@ curl http://localhost:8080/
 ```
 
 First run takes a couple of minutes while `apt-get` installs nodejs.
-Subsequent runs are fast — the install output is cached in
-`./.cache/`.
+Subsequent runs are fast — the image is cached in `./.cache/`.
 
 ## The runtime API
 
 `run.ts` is the whole driver. The shape you'd use in your own code:
 
 ```ts
-import { build, spawn } from "@machinen/runtime";
+import { boot, provision } from "@machinen/runtime";
 
-await build({
+await provision({
   install: async (vm) => {
     await vm.exec("apt-get update");
     await vm.exec("apt-get install -y --no-install-recommends nodejs");
   },
-  out: "./node-rootfs.tar.gz",
+  cmd: ["/usr/bin/node", "/mnt/app/server.mjs"],
+  env: { NODE_NO_WARNINGS: "1" },
+  out: "./node-image.tar.gz",
 });
 
-const vm = await spawn({
-  baseRootfs: "./node-rootfs.tar.gz",
-  bundle: "./examples/node-http",
+const vm = await boot({
+  image: "./node-image.tar.gz",
+  mount: { host: "./rootfs", guest: "/mnt/app" },
   portForward: [{ hostPort: 8080, guestPort: 3000 }],
 });
 ```
@@ -63,14 +68,16 @@ const vm = await spawn({
 
 ## The CLI equivalent
 
-Once you have a Node-capable base tarball on hand, the same thing
-through `machinen run`:
+Once `.cache/node-image.tar.gz` exists, the same thing through
+`machinen boot`:
 
 ```sh
-MACHINEN_ASSETS_DIR=/path/with/node-rootfs \
-  machinen run ./examples/node-http -p 8080:3000
+machinen boot ./.cache/node-image.tar.gz \
+  -p 8080:3000 \
+  --mount ./rootfs:/mnt/app
 ```
 
-The CLI's `-p <hostPort>:<guestPort>` flag is repeatable. Host bind
-is always `127.0.0.1` from the CLI; drop to the runtime API if you
-need `0.0.0.0`.
+No `-- <cmd>` needed — the image carries its default. The CLI's
+`-p <hostPort>:<guestPort>` flag is repeatable. Host bind is always
+`127.0.0.1` from the CLI; drop to the runtime API if you need
+`0.0.0.0`.

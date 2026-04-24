@@ -4,16 +4,16 @@
 // demuxes the framed output stream until an `X <code>\n` terminator,
 // returns stdout/stderr + the exit code.
 //
-// Minimum-viable install primitive for `@machinen/runtime.build()`.
+// Minimum-viable install primitive for `@machinen/runtime.provision()`.
 //
 // Usage:
 //
-//   const vm = await spawn({
+//   const vm = await boot({
 //     binary,
 //     env: {
 //       MACHINEN_VSOCK: "in:1978:/tmp/machinen-exec.sock",
 //     },
-//     bundle: "./bundle-debian",
+//     image: "./rootfs-debian-arm64.tar.gz", cmd: ["/sbin/machinen-exec-agent"],
 //   });
 //   const res = await VsockExec.run("/tmp/machinen-exec.sock", "apt-get --version");
 //   // res.exitCode, res.stdout, res.stderr

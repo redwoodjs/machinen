@@ -1,7 +1,0 @@
-{
-  "cmd": ["/usr/bin/env", "node", "/server.mjs"],
-  "env": {
-    "PATH": "/usr/local/bin:/usr/bin:/bin:/sbin",
-    "NODE_NO_WARNINGS": "1"
-  }
-}

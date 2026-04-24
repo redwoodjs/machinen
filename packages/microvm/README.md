@@ -52,7 +52,11 @@ for the contract. In practice you drive it through `@machinen/runtime`:
 
 ```ts
 import { spawn } from "@machinen/runtime";
-const vm = await spawn({ binary: "./zig-out/bin/microvm", bundle: "./path/to/bundle" });
+const vm = await boot({
+  binary: "./zig-out/bin/microvm",
+  image: "./rootfs-debian-arm64.tar.gz",
+  cmd: ["/bin/sh"],
+});
 ```
 
 ## License

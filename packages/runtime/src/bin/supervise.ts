@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Tiny interactive demo: launches N shell children, each under its
 // own pty, and hands the terminal to the Supervisor. Real use should
-// register actual microVM `spawn(...)` handles, but this lets you
+// register actual microVM `boot(...)` handles, but this lets you
 // feel the terminal layer without booting a kernel.
 //
 //   pnpm --filter @machinen/runtime exec tsx src/bin/supervise.ts 3
@@ -9,15 +9,15 @@
 // Then try `/ls`, `/attach 0`, run `ls --color=auto`, resize the
 // terminal window, `Ctrl-] Ctrl-]` to detach.
 
-import { Sandboxes, Supervisor, spawnPty } from "../index.ts";
+import { Sandboxes, Supervisor, bootPty } from "../index.ts";
 
 async function main() {
   const count = Number.parseInt(process.argv[2] ?? "2", 10) || 2;
   const sandboxes = new Sandboxes();
-  const kids = [] as ReturnType<typeof spawnPty>[];
+  const kids = [] as ReturnType<typeof bootPty>[];
   for (let i = 0; i < count; i++) {
     const shell = process.env.SHELL || "/bin/bash";
-    const vm = spawnPty({
+    const vm = bootPty({
       binary: shell,
       args: ["-i"],
       env: { PS1: `sandbox-${i}> ` },

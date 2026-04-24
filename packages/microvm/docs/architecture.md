@@ -91,9 +91,13 @@ defined by what `/init` reads at boot.
 
 The microvm is _just_ the substrate. `@machinen/runtime` drives it:
 
-- `build()` boots the base rootfs, pipes the user's install steps in
-  over vsock, CRIU-freezes the guest, writes a snapshot file.
-- `spawn()` restores a snapshot into a fresh microvm.
+- `provision()` boots the base rootfs, pipes the user's install steps
+  in over vsock, freezes the resulting filesystem state to a new rootfs
+  tarball.
+- `vm.snapshot()` CRIU-freezes a running VM into a disk image for fast
+  restore on subsequent spawns.
+- `boot()` starts a fresh microvm against an image, or restores a
+  snapshot.
 
 The microvm itself knows nothing about snapshots, bundles, or agents
 — it boots a kernel and brokers virtio traffic. That separation is
@@ -108,7 +112,7 @@ HOST                                       GUEST
 
    ┌──────────────────────────┐
    │ @machinen/runtime        │
-   │  spawn({ bundle })       │
+   │  boot({ image, cmd })    │
    └──────────────┬───────────┘
                   │ spawns binary
                   ▼

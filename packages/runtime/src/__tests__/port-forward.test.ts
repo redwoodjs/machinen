@@ -1,4 +1,4 @@
-// Unit tests for gvproxy.ts's exposePort() + spawn()'s portForward
+// Unit tests for gvproxy.ts's exposePort() + boot()'s portForward
 // validation. These don't boot a VM — they stand up a tiny HTTP
 // server on a unix socket that impersonates gvproxy's control API and
 // verify the request shape.
@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { exposePort } from "../gvproxy.ts";
-import { spawn } from "../index.ts";
+import { boot } from "../index.ts";
 
 interface FakeGvproxy {
   socketPath: string;
@@ -123,19 +123,19 @@ describe("spawn portForward validation", () => {
 
   it("rejects out-of-range hostPort", async () => {
     await expect(
-      spawn({ binary: "/nonexistent", portForward: [{ hostPort: 0, guestPort: 3000 }] }),
+      boot({ binary: "/nonexistent", portForward: [{ hostPort: 0, guestPort: 3000 }] }),
     ).rejects.toThrow(/hostPort must be an integer in 1..65535/);
   });
 
   it("rejects out-of-range guestPort", async () => {
     await expect(
-      spawn({ binary: "/nonexistent", portForward: [{ hostPort: 8080, guestPort: 70000 }] }),
+      boot({ binary: "/nonexistent", portForward: [{ hostPort: 8080, guestPort: 70000 }] }),
     ).rejects.toThrow(/guestPort must be an integer in 1..65535/);
   });
 
   it("rejects duplicate hostPort", async () => {
     await expect(
-      spawn({
+      boot({
         binary: "/nonexistent",
         portForward: [
           { hostPort: 8080, guestPort: 3000 },
@@ -148,7 +148,7 @@ describe("spawn portForward validation", () => {
   it("rejects portForward when MACHINEN_NET_SOCKET is pre-set", async () => {
     process.env.MACHINEN_NET_SOCKET = "/tmp/whatever.sock";
     await expect(
-      spawn({ binary: "/nonexistent", portForward: [{ hostPort: 8080, guestPort: 3000 }] }),
+      boot({ binary: "/nonexistent", portForward: [{ hostPort: 8080, guestPort: 3000 }] }),
     ).rejects.toThrow(/portForward requires the runtime to own gvproxy/);
   });
 });

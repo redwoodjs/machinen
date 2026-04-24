@@ -48,7 +48,7 @@ function listCpioEntries(cpioPath: string): Map<string, { data: Buffer; mode: nu
 }
 
 describe("patchConfigEnv", () => {
-  it("returns the original buffer untouched when guestEnv is absent", () => {
+  it("returns the original buffer untouched when env is absent", () => {
     const input = Buffer.from(JSON.stringify({ cmd: ["/bin/true"] }), "utf8");
     expect(patchConfigEnv(input, undefined)).toBe(input);
     expect(patchConfigEnv(input, {})).toBe(input);
@@ -134,13 +134,13 @@ describe("packBundle mount", () => {
     expect(entries.get("mnt/app/x.txt")?.data.toString("utf8")).toBe("bundle");
   });
 
-  it("merges guestEnv into the packed machinen-config.json", () => {
+  it("merges env into the packed machinen-config.json", () => {
     const bundle = makeEmptyBundle();
     const out = join(tmp, "out.cpio");
     packBundle({
       bundle,
       out,
-      guestEnv: { FNM_NODE_DIST_MIRROR: "http://192.168.127.1:9000/node-dist" },
+      env: { FNM_NODE_DIST_MIRROR: "http://192.168.127.1:9000/node-dist" },
     });
 
     const entries = listCpioEntries(out);
@@ -153,7 +153,7 @@ describe("packBundle mount", () => {
     expect(parsed.cmd).toEqual(["/bin/true"]);
   });
 
-  it("lets the bundle's on-disk env win over guestEnv on key collision", () => {
+  it("lets the bundle's on-disk env win over env on key collision", () => {
     const bundleDir = join(tmp, "bundle");
     mkdirSync(join(bundleDir, "rootfs"), { recursive: true });
     writeFileSync(
@@ -165,7 +165,7 @@ describe("packBundle mount", () => {
     packBundle({
       bundle: bundleDir,
       out,
-      guestEnv: { FOO: "from-runtime", BAR: "from-runtime" },
+      env: { FOO: "from-runtime", BAR: "from-runtime" },
     });
 
     const entries = listCpioEntries(out);
@@ -173,7 +173,7 @@ describe("packBundle mount", () => {
     expect(parsed.env).toEqual({ FOO: "from-bundle", BAR: "from-runtime" });
   });
 
-  it("leaves bundle config untouched when guestEnv is absent", () => {
+  it("leaves bundle config untouched when env is absent", () => {
     const bundle = makeEmptyBundle();
     const out = join(tmp, "out.cpio");
     packBundle({ bundle, out });
