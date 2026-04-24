@@ -1,4 +1,4 @@
-// Pure arg parser for `machinen run`. Split out from cli.ts so tests
+// Pure arg parser for `machinen boot`. Split out from cli.ts so tests
 // can import it without pulling @machinen/runtime (which resolves to
 // dist/ and is unbuilt in the monorepo dev loop).
 
