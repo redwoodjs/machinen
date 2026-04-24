@@ -1,36 +1,35 @@
-// machinen CLI — spawn a microVM from a bundle directory, and
-// pre-fetch the kernel + rootfs assets published alongside each
+// machinen CLI — boot a microVM and drive it (exec, snapshot, attach),
+// plus pre-fetch the kernel + rootfs assets published alongside each
 // release tag.
 //
-// v0 surface:
-//   machinen run <bundle-dir>
-//   machinen run <bundle-dir> --mount <host-dir>:<guest-path>
-//   machinen run [--mount <host-dir>:<guest-path>] [--env KEY=VALUE]... -- <cmd>...
+// Surface:
+//   machinen boot [opts] -- <cmd>
+//   machinen boot --snapshot <path>
+//   machinen restore <snapshot>               # alias for boot --snapshot
+//   machinen ls
+//   machinen exec <name-or-id> -- <cmd>
+//   machinen snapshot <name-or-id> <out-path>
+//   machinen attach <name-or-id>              # line-based shell REPL
 //   machinen install [--version <tag>]
+//   machinen completion <bash|zsh|fish>
 //   machinen --version | -h | --help
-//
-// Deferred (needs runtime API changes):
-//   machinen run --base alpine
 
 import { createHash } from "node:crypto";
 import {
   createWriteStream,
   existsSync,
   mkdirSync,
-  mkdtempSync,
   readFileSync,
   renameSync,
-  rmSync,
   statSync,
   symlinkSync,
   unlinkSync,
-  writeFileSync,
 } from "node:fs";
-import { homedir, tmpdir } from "node:os";
+import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { pipeline } from "node:stream/promises";
 
-import { spawn, SpawnError } from "@machinen/runtime";
+import { attach, boot, BootError, list } from "@machinen/runtime";
 
 import pkg from "../package.json" with { type: "json" };
 import { parseRunArgs, ParseRunArgsError } from "./parse-run-args.ts";
@@ -162,7 +161,7 @@ function sha256OfFile(path: string): string {
 // Commands
 // ------------------------------------------------------------
 
-async function cmdRun(args: string[]): Promise<number> {
+async function cmdBoot(args: string[]): Promise<number> {
   let parsed;
   try {
     parsed = parseRunArgs(args);
@@ -172,51 +171,19 @@ async function cmdRun(args: string[]): Promise<number> {
     }
     throw err;
   }
-  const { positional, double_dash_args, mount, guestEnv, portForward } = parsed;
+  const { positional, double_dash_args, mount, env, portForward, snapshot, name } = parsed;
 
-  if (positional.length > 1) {
+  if (positional.length > 0) {
     die(
-      "usage: machinen run [<bundle-dir>] [--mount <host-dir>:<guest-path>] " +
-        "[--env KEY=VALUE]... [-- <cmd>...]",
+      "usage: machinen boot [--snapshot <path>] [--name <name>] [--mount ...] " +
+        "[--env KEY=VALUE]... -- <cmd> [args...]",
     );
   }
-
-  let bundle: string;
-  let synthesizedBundle: string | undefined;
-
-  if (positional.length === 1) {
-    if (double_dash_args.length > 0) {
-      die(
-        "machinen run <bundle> -- <cmd> is not supported — the bundle's " +
-          "machinen-config.json already declares the command. Drop one.",
-      );
-    }
-    bundle = resolve(positional[0]!);
-    if (!existsSync(bundle)) {
-      die(`bundle directory not found: ${bundle}`);
-    }
-  } else {
-    // No bundle — synthesize a minimal one so the runtime path is uniform.
-    // Requires `-- <cmd>` so the generated machinen-config.json has
-    // something to exec. Mounts are optional here (zero mounts + a cmd
-    // is still a valid base-only spawn).
-    if (double_dash_args.length === 0) {
-      die(
-        "usage: machinen run <bundle-dir>\n" +
-          "   or: machinen run [--mount <host-dir>:<guest-path>] -- <cmd> [args...]",
-      );
-    }
-    synthesizedBundle = mkdtempSync(join(tmpdir(), "machinen-run-"));
-    mkdirSync(join(synthesizedBundle, "rootfs"));
-    // Wrap the user cmd in /usr/bin/env so bare names like `node` or
-    // `bash` are PATH-resolved. The guest init uses execve(), which
-    // needs an absolute path for argv[0]; /usr/bin/env is the standard
-    // shim for this.
-    writeFileSync(
-      join(synthesizedBundle, "machinen-config.json"),
-      JSON.stringify({ cmd: ["/usr/bin/env", ...double_dash_args] }),
+  if (!snapshot && double_dash_args.length === 0) {
+    die(
+      "usage: machinen boot --snapshot <path>\n" +
+        "   or: machinen boot [--mount ...] [--env KEY=VALUE]... -- <cmd> [args...]",
     );
-    bundle = synthesizedBundle;
   }
 
   // Base assets (kernel + dtb + rootfs) are needed to boot.
@@ -241,44 +208,37 @@ async function cmdRun(args: string[]): Promise<number> {
   const baseDir = assetsOverride ? resolve(assetsOverride) : baseDirFor(RELEASE_TAG);
   const kernelPath = join(baseDir, assetsOverride ? "Image-arm64" : "Image");
   const dtbPath = join(baseDir, assetsOverride ? "virt-arm64.dtb" : "virt.dtb");
-  const baseRootfsPath = join(
-    baseDir,
-    assetsOverride ? "rootfs-debian-arm64.tar.gz" : "rootfs.tar.gz",
-  );
+  const imagePath = join(baseDir, assetsOverride ? "rootfs-debian-arm64.tar.gz" : "rootfs.tar.gz");
 
-  const cleanupSynthesized = () => {
-    if (synthesizedBundle) {
-      try {
-        rmSync(synthesizedBundle, { recursive: true, force: true });
-      } catch {}
-      synthesizedBundle = undefined;
-    }
-  };
+  // Wrap the user cmd in /usr/bin/env so bare names like `node` or
+  // `bash` are PATH-resolved. The guest init uses execve(), which
+  // needs an absolute path for argv[0]; /usr/bin/env is the standard
+  // shim for this. Skipped when we're restoring from a snapshot with
+  // no user cmd — init is driven by the baked initramfs.
+  const cmd = double_dash_args.length > 0 ? ["/usr/bin/env", ...double_dash_args] : undefined;
 
   let vm;
   try {
-    vm = await spawn({
-      bundle,
+    vm = await boot({
+      image: cmd ? imagePath : undefined,
+      cmd,
+      env,
       kernel: kernelPath,
       dtb: dtbPath,
-      baseRootfs: baseRootfsPath,
       mount,
-      guestEnv,
       portForward,
+      snapshot,
+      name,
       // Interactive CLI: the session lives as long as the guest does.
       // Don't impose the default 60s cap.
       timeoutMs: null,
     });
   } catch (err) {
-    cleanupSynthesized();
-    if (err instanceof SpawnError) {
+    if (err instanceof BootError) {
       die(err.message);
     }
     throw err;
   }
-  // spawn() has already read the bundle into a packed cpio — the
-  // synthesized source dir is no longer needed.
-  cleanupSynthesized();
 
   vm.stdout.pipe(process.stdout);
   vm.stderr.pipe(process.stderr);
@@ -324,6 +284,224 @@ async function cmdInstall(args: string[]): Promise<number> {
   return 0;
 }
 
+async function cmdRestore(args: string[]): Promise<number> {
+  // `machinen restore <snap>` is an alias for `machinen boot --snapshot <snap>`.
+  if (args.length === 0) {
+    die("usage: machinen restore <snapshot>");
+  }
+  const [snap, ...rest] = args;
+  return cmdBoot(["--snapshot", snap!, ...rest]);
+}
+
+async function cmdLs(_args: string[]): Promise<number> {
+  const entries = list();
+  if (entries.length === 0) {
+    process.stdout.write("(no running VMs)\n");
+    return 0;
+  }
+  // Plain tabular output. No fancy column widths — machinen ls is
+  // aimed at humans grepping quick status, plus shell completion
+  // parsing (see `completion` command).
+  const header = ["ID", "NAME", "PID", "UP", "IMAGE"];
+  const rows = entries.map((e) => [
+    e.id,
+    e.name ?? "-",
+    String(e.pid),
+    formatUptime(Date.now() - e.startedAt),
+    e.imagePath ?? "-",
+  ]);
+  const widths = header.map((h, i) => Math.max(h.length, ...rows.map((r) => r[i]!.length)));
+  const line = (cells: string[]) => cells.map((c, i) => c.padEnd(widths[i]!)).join("  ");
+  process.stdout.write(line(header) + "\n");
+  for (const row of rows) {
+    process.stdout.write(line(row) + "\n");
+  }
+  return 0;
+}
+
+function formatUptime(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  if (s < 60) {
+    return `${s}s`;
+  }
+  const m = Math.floor(s / 60);
+  if (m < 60) {
+    return `${m}m`;
+  }
+  const h = Math.floor(m / 60);
+  if (h < 24) {
+    return `${h}h`;
+  }
+  return `${Math.floor(h / 24)}d`;
+}
+
+async function cmdExec(args: string[]): Promise<number> {
+  const dashIdx = args.indexOf("--");
+  if (dashIdx === -1 || dashIdx === args.length - 1) {
+    die("usage: machinen exec <name-or-id> -- <cmd>");
+  }
+  const pre = args.slice(0, dashIdx);
+  const cmdArgs = args.slice(dashIdx + 1);
+  if (pre.length !== 1) {
+    die("usage: machinen exec <name-or-id> -- <cmd>");
+  }
+  const target = pre[0]!;
+  const vm = await attach(lookupQuery(target)).catch((err) => {
+    if (err instanceof BootError) {
+      die(err.message);
+    }
+    throw err;
+  });
+  try {
+    // Shell out via `sh -c` on the guest so caller can pass piped
+    // commands naturally. Users who want raw exec of a single binary
+    // can quote it like `machinen exec foo -- /bin/ls`.
+    const joined = cmdArgs.join(" ");
+    const res = await vm.execRaw(joined);
+    process.stdout.write(res.stdout);
+    process.stderr.write(res.stderr);
+    return res.exitCode;
+  } finally {
+    await vm.detach();
+  }
+}
+
+async function cmdSnapshot(args: string[]): Promise<number> {
+  if (args.length !== 2) {
+    die("usage: machinen snapshot <name-or-id> <out-path>");
+  }
+  const [target, outPath] = args;
+  const vm = await attach(lookupQuery(target!)).catch((err) => {
+    if (err instanceof BootError) {
+      die(err.message);
+    }
+    throw err;
+  });
+  try {
+    const res = await vm.snapshot(outPath!);
+    process.stdout.write(`snapshot: ${res.snapshotPath} (${res.elapsedMs}ms)\n`);
+    return 0;
+  } catch (err) {
+    if (err instanceof BootError) {
+      die(err.message);
+    }
+    throw err;
+  } finally {
+    await vm.detach();
+  }
+}
+
+async function cmdAttach(args: string[]): Promise<number> {
+  if (args.length !== 1) {
+    die("usage: machinen attach <name-or-id>");
+  }
+  const target = args[0]!;
+  const vm = await attach(lookupQuery(target)).catch((err) => {
+    if (err instanceof BootError) {
+      die(err.message);
+    }
+    throw err;
+  });
+  process.stderr.write(`attached to ${vm.name ?? vm.id} (pid ${vm.pid})\n`);
+  process.stderr.write(`type commands; Ctrl-D to detach.\n`);
+  try {
+    const { createInterface } = await import("node:readline");
+    const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: false });
+    for await (const line of rl) {
+      if (line.length === 0) {
+        continue;
+      }
+      const res = await vm.execRaw(line);
+      process.stdout.write(res.stdout);
+      process.stderr.write(res.stderr);
+    }
+    return 0;
+  } finally {
+    await vm.detach();
+  }
+}
+
+async function cmdCompletion(args: string[]): Promise<number> {
+  const shell = args[0] ?? "bash";
+  if (shell === "bash") {
+    process.stdout.write(BASH_COMPLETION);
+    return 0;
+  }
+  if (shell === "zsh") {
+    process.stdout.write(ZSH_COMPLETION);
+    return 0;
+  }
+  if (shell === "fish") {
+    process.stdout.write(FISH_COMPLETION);
+    return 0;
+  }
+  die(`unsupported shell: ${shell} (expected bash | zsh | fish)`);
+}
+
+function lookupQuery(target: string): { id?: string; name?: string } {
+  // Treat anything that matches the 8-hex id format as an id lookup;
+  // otherwise it's a name. Users can force name lookup by using a
+  // name that happens to look like hex... that's their problem.
+  return /^[0-9a-f]{8}$/.test(target) ? { id: target } : { name: target };
+}
+
+const BASH_COMPLETION = `# machinen bash completion — source this from ~/.bashrc, or:
+#   eval "$(machinen completion bash)"
+_machinen_completion() {
+  local cur prev words cword
+  _init_completion || return
+  local cmds="boot restore install ls exec snapshot attach completion --version --help -h -v"
+  if [[ \${cword} -eq 1 ]]; then
+    COMPREPLY=( $(compgen -W "\${cmds}" -- "\${cur}") )
+    return
+  fi
+  case "\${words[1]}" in
+    exec|snapshot|attach)
+      if [[ \${cword} -eq 2 ]]; then
+        local names
+        names=$(machinen ls 2>/dev/null | awk 'NR>1 && $2!="-"{print $2} NR>1{print $1}')
+        COMPREPLY=( $(compgen -W "\${names}" -- "\${cur}") )
+        return
+      fi
+      ;;
+  esac
+}
+complete -F _machinen_completion machinen
+`;
+
+const ZSH_COMPLETION = `# machinen zsh completion — source this from ~/.zshrc, or:
+#   eval "$(machinen completion zsh)"
+_machinen() {
+  local -a cmds
+  cmds=(boot restore install ls exec snapshot attach completion)
+  if (( CURRENT == 2 )); then
+    _describe 'command' cmds
+    return
+  fi
+  case "\${words[2]}" in
+    exec|snapshot|attach)
+      if (( CURRENT == 3 )); then
+        local -a names
+        names=(\${(f)"$(machinen ls 2>/dev/null | awk 'NR>1 && $2!="-"{print $2} NR>1{print $1}')"})
+        _describe 'vm' names
+        return
+      fi
+      ;;
+  esac
+}
+compdef _machinen machinen
+`;
+
+const FISH_COMPLETION = `# machinen fish completion — source this from your config.fish, or:
+#   machinen completion fish | source
+set -l cmds boot restore install ls exec snapshot attach completion
+complete -c machinen -f -n 'not __fish_seen_subcommand_from $cmds' -a "$cmds"
+for sub in exec snapshot attach
+  complete -c machinen -f -n "__fish_seen_subcommand_from $sub" -a \\
+    '(machinen ls 2>/dev/null | awk \\'NR>1 && $2!="-"{print $2} NR>1{print $1}\\')'
+end
+`;
+
 // ------------------------------------------------------------
 // Arg helpers
 // ------------------------------------------------------------
@@ -346,38 +524,38 @@ function printHelp(): void {
     `machinen ${VERSION}\n` +
       `\n` +
       `Usage:\n` +
-      `  machinen run <bundle-dir>                Spawn a microVM from a bundle\n` +
-      `  machinen run [opts] -- <cmd>             Spawn with a one-off cmd (no bundle)\n` +
+      `  machinen boot [opts] -- <cmd>            Boot a microVM and run <cmd>\n` +
+      `  machinen boot --snapshot <path>          Restore a VM from a CRIU snapshot\n` +
+      `  machinen restore <snapshot>              Alias for boot --snapshot\n` +
       `    --mount <host-dir>:<guest-path>        Expose one host directory inside the\n` +
-      `                                           guest. Host must be a directory; guest\n` +
-      `                                           path must live under /mnt/. At most\n` +
-      `                                           one --mount per invocation. Guest\n` +
-      `                                           writes are discarded when the VM\n` +
-      `                                           exits; the host directory on disk is\n` +
-      `                                           never modified. Bundle files win on\n` +
-      `                                           path collisions.\n` +
-      `    --env KEY=VALUE                        Set an env var inside the guest (for\n` +
-      `                                           the process run by the bundle's cmd).\n` +
-      `                                           Repeatable. Bundle's on-disk env wins\n` +
-      `                                           on key collision.\n` +
-      `    -p <hostPort>:<guestPort>              Forward 127.0.0.1:<hostPort> on the\n` +
-      `                                           host to <guestPort> inside the VM\n` +
-      `                                           via gvproxy. Repeatable.\n` +
+      `                                           guest (path under /mnt/; copy-once).\n` +
+      `    --env KEY=VALUE                        Set an env var inside the guest.\n` +
+      `    -p <hostPort>:<guestPort>              Forward host:hostPort → guest:guestPort.\n` +
+      `    --name <name>                          Register the VM under a human name\n` +
+      `                                           (makes 'exec', 'snapshot', 'attach' easier).\n` +
+      `  machinen ls                              List running VMs\n` +
+      `  machinen exec <name-or-id> -- <cmd>      Run a command in a running VM\n` +
+      `  machinen snapshot <name-or-id> <out>     CRIU-snapshot a running VM to <out>\n` +
+      `  machinen attach <name-or-id>             Line-based shell against a running VM\n` +
       `  machinen install                         Pre-fetch the current-tag base assets\n` +
       `    --version <tag>                        Pin to a specific release tag\n` +
+      `  machinen completion <shell>              Emit shell completion (bash|zsh|fish)\n` +
       `  machinen --version | -h                  Print version / help\n` +
       `\n` +
       `Examples:\n` +
-      `  machinen run ./my-bundle\n` +
-      `  machinen run --mount ./my-app:/mnt/app -- node /mnt/app/index.js\n` +
-      `  machinen run ./my-bundle --mount ./data:/mnt/data\n` +
-      `  machinen run --env NODE_ENV=production -- node -e 'console.log(process.env.NODE_ENV)'\n` +
-      `  machinen run ./my-bundle -p 8080:3000\n` +
+      `  machinen boot -- /bin/sh\n` +
+      `  machinen boot --name worker -- node server.js\n` +
+      `  machinen ls\n` +
+      `  machinen exec worker -- ps aux\n` +
+      `  machinen snapshot worker ./warm.snap\n` +
+      `  machinen restore ./warm.snap\n` +
       `\n` +
       `Environment:\n` +
       `  MACHINEN_VMM                             Override the VMM binary path (dev)\n` +
       `  MACHINEN_ASSETS_DIR                      Use base assets from this directory\n` +
       `                                           instead of the cache / GH Releases\n` +
+      `  MACHINEN_REGISTRY_DIR                    Override registry location (default\n` +
+      `                                           ~/.machinen/vms)\n` +
       `\n` +
       `Cache:\n` +
       `  ~/.machinen/<tag>/bases/debian-arm64/\n`,
@@ -401,10 +579,22 @@ async function main(): Promise<number> {
   }
 
   switch (sub) {
-    case "run":
-      return cmdRun(rest);
+    case "boot":
+      return cmdBoot(rest);
+    case "restore":
+      return cmdRestore(rest);
     case "install":
       return cmdInstall(rest);
+    case "ls":
+      return cmdLs(rest);
+    case "exec":
+      return cmdExec(rest);
+    case "snapshot":
+      return cmdSnapshot(rest);
+    case "attach":
+      return cmdAttach(rest);
+    case "completion":
+      return cmdCompletion(rest);
     default:
       die(`unknown command: ${sub}\nRun 'machinen --help' for usage.`);
   }

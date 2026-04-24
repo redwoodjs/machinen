@@ -1,16 +1,13 @@
-// build() — boot the base rootfs, run a user install hook via vsock,
-// freeze the resulting filesystem state to a new rootfs tarball.
+// provision() — boot the base rootfs, run a user install hook via
+// vsock, freeze the resulting filesystem state to a new rootfs tarball.
 //
-// The first cut (v1) produces a *filesystem* snapshot only: a tarball
-// that layers on top of the base rootfs. It is designed to be consumed
-// via `spawn({ baseRootfs: <build-output> })`, which overlays it onto
-// the base at pack-time the same way a bundle rootfs does. No CRIU
-// process freeze in this cut — sub-second spawn is explicitly a
-// #77 non-goal. The next cut adds CRIU dump on top of this flow.
+// Produces a *filesystem* image only: a tarball consumed via
+// `boot({ image: <provision-output> })`. Orthogonal to `vm.snapshot()`,
+// which captures live CRIU process state.
 //
 // Minimum correct round-trip:
 //
-//   const snap = await build({
+//   const snap = await provision({
 //     base: "./rootfs-debian-arm64.tar.gz",
 //     install: async vm => {
 //       await vm.exec("apt-get update");
@@ -19,57 +16,36 @@
 //     out: "./warm.tar.gz",
 //   });
 //
-//   const vm = await spawn({
-//     baseRootfs: snap.snapshotPath,
-//     bundle: "./my-app-bundle",
+//   const vm = await boot({
+//     image: snap.imagePath,
+//     cmd: ["/bin/sh"],
 //   });
 
 import { execFileSync } from "node:child_process";
 import {
   closeSync,
   existsSync,
-  mkdirSync,
   mkdtempSync,
   openSync,
   readFileSync,
   rmSync,
   statSync,
-  writeFileSync,
   writeSync,
 } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { VsockExec, type VsockExecResult } from "./exec.ts";
-import { spawn } from "./index.ts";
+import { VsockExec } from "./exec.ts";
+import { boot, type VmHandle } from "./index.ts";
 
-export class BuildError extends Error {}
+export class ProvisionError extends Error {}
 
-/**
- * The object passed to the user's `install` hook. For now, the only
- * method is `exec()`; later iterations will add `writeFile()`,
- * `readFile()`, etc. built on the existing `VsockFiles` agent.
- */
-export interface BuildHandle {
-  /**
-   * Run a shell command inside the guest. Throws BuildError on non-zero
-   * exit (callers who want to inspect failures should use `execRaw`).
-   *
-   * The command is passed verbatim to `sh -c` inside the guest, so
-   * shell syntax (pipes, redirection, env) works.
-   */
-  exec(cmd: string): Promise<VsockExecResult>;
-
-  /** Like exec(), but does not throw on non-zero exit. */
-  execRaw(cmd: string): Promise<VsockExecResult>;
-}
-
-export interface BuildOptions {
+export interface ProvisionOptions {
   /**
    * Path to the base rootfs tarball to start from. Typically the
    * `rootfs-debian-arm64.tar.gz` produced by
    * `scripts/build-base-assets.sh` or shipped in a machinen release.
    *
-   * Optional — when omitted, `build()` resolves it via `resolveBaseRootfs()`
+   * Optional — when omitted, `provision()` resolves it via `resolveBaseRootfs()`
    * (MACHINEN_ASSETS_DIR env override, falling back to the `@machinen/cli`
    * cache at `~/.machinen/@machinen/runtime@<version>/bases/debian-arm64/`).
    */
@@ -78,16 +54,16 @@ export interface BuildOptions {
   /**
    * User-supplied provisioning steps. Runs inside the guest via vsock.
    */
-  install: (vm: BuildHandle) => Promise<void>;
+  install: (vm: VmHandle) => Promise<void>;
 
   /**
    * Output path for the resulting rootfs tarball. Will be overwritten.
-   * Consumed via `spawn({ baseRootfs: out })`.
+   * Consumed via `boot({ image: out })`.
    */
   out: string;
 
   /**
-   * Optional VMM binary path. Same lookup rules as `spawn()` — if
+   * Optional VMM binary path. Same lookup rules as `boot()` — if
    * omitted, resolves `@machinen/vmm-<arch>-<os>`.
    */
   binary?: string;
@@ -115,16 +91,16 @@ export interface BuildOptions {
    */
   env?: Record<string, string>;
 
-  /** Path to the guest kernel. Same semantics as `spawn({ kernel })`. */
+  /** Path to the guest kernel. Same semantics as `boot({ kernel })`. */
   kernel?: string;
 
-  /** Path to the guest DTB. Same semantics as `spawn({ dtb })`. */
+  /** Path to the guest DTB. Same semantics as `boot({ dtb })`. */
   dtb?: string;
 }
 
-export interface BuildResult {
+export interface ProvisionResult {
   /** Absolute path to the output tarball. */
-  snapshotPath: string;
+  imagePath: string;
 
   /** Size of the output tarball in bytes. */
   sizeBytes: number;
@@ -162,7 +138,7 @@ const TAR_TO_DISK_CMD = [
 
 /**
  * Resolve the path to the base rootfs tarball, in the same order
- * `build()` itself does:
+ * `provision()` itself does:
  *
  *   1. `explicit` — the caller-supplied path (resolved against `cwd`).
  *   2. `MACHINEN_ASSETS_DIR` env var — points at a directory laid out like
@@ -173,14 +149,14 @@ const TAR_TO_DISK_CMD = [
  *      `~/.machinen/@machinen/runtime@<version>/bases/debian-arm64/rootfs.tar.gz`.
  *      Populated by running `machinen` once against the installed runtime.
  *
- * Throws `BuildError` with guidance if none of those turn up a file.
+ * Throws `ProvisionError` with guidance if none of those turn up a file.
  * Exported so callers can pre-check or build their own tooling on it.
  */
 export function resolveBaseRootfs(explicit?: string, cwd: string = process.cwd()): string {
   if (explicit) {
     const abs = resolve(cwd, explicit);
     if (!existsSync(abs)) {
-      throw new BuildError(`base rootfs tarball not found: ${abs}`);
+      throw new ProvisionError(`base rootfs tarball not found: ${abs}`);
     }
     return abs;
   }
@@ -189,7 +165,7 @@ export function resolveBaseRootfs(explicit?: string, cwd: string = process.cwd()
   if (assetsDir) {
     const p = resolve(assetsDir, "rootfs-debian-arm64.tar.gz");
     if (!existsSync(p)) {
-      throw new BuildError(
+      throw new ProvisionError(
         `MACHINEN_ASSETS_DIR=${assetsDir} does not contain rootfs-debian-arm64.tar.gz`,
       );
     }
@@ -201,7 +177,7 @@ export function resolveBaseRootfs(explicit?: string, cwd: string = process.cwd()
     return cached;
   }
 
-  throw new BuildError(
+  throw new ProvisionError(
     `base rootfs not found. Either:\n` +
       `  - pass \`base\` explicitly, or\n` +
       `  - set MACHINEN_ASSETS_DIR to a directory containing rootfs-debian-arm64.tar.gz, or\n` +
@@ -224,48 +200,39 @@ function cliCachedRootfsPath(): string {
   );
 }
 
-export async function build(opts: BuildOptions): Promise<BuildResult> {
+export async function provision(opts: ProvisionOptions): Promise<ProvisionResult> {
   const cwd = opts.cwd ?? process.cwd();
   const baseAbs = resolveBaseRootfs(opts.base, cwd);
   const outAbs = resolve(cwd, opts.out);
 
   const t0 = Date.now();
-  const workDir = mkdtempSync(join(tmpdir(), "machinen-build-"));
-  const bundleDir = join(workDir, "bundle");
-  const rootfsDir = join(bundleDir, "rootfs");
+  const workDir = mkdtempSync(join(tmpdir(), "machinen-provision-"));
   const diskPath = join(workDir, "scratch.img");
   const udsPath = join(workDir, "exec.sock");
 
   try {
-    // Minimal bundle: just a machinen-config.json pointing at the
-    // exec-agent. rootfs/ stays empty — the base rootfs is merged in
-    // by packBundle via `baseRootfs`.
-    mkdirSync(rootfsDir, { recursive: true });
-    writeFileSync(
-      join(bundleDir, "machinen-config.json"),
-      JSON.stringify({
-        cmd: ["/exec-agent"],
-        env: { PATH: "/usr/local/bin:/usr/bin:/bin:/sbin" },
-      }),
-    );
-
-    // Allocate the scratch disk sparsely.
+    // Allocate the scratch disk sparsely. The guest tars its filesystem
+    // into this block device; the host then repacks the raw tar stream
+    // into the output tarball.
     allocateSparseFile(diskPath, opts.scratchDiskSizeBytes ?? 1024 * 1024 * 1024);
 
-    // Spawn the VMM. MACHINEN_VSOCK=in:1978:<uds> bridges the guest's
-    // vsock listener at port 1978 to a host UDS we can connect to.
-    const vm = await spawn({
+    // Boot the VMM with the base rootfs as the image and the exec-agent
+    // as the cmd. We set MACHINEN_VSOCK explicitly via `vmmEnv` so the
+    // UDS path lives under workDir (predictable cleanup) rather than
+    // boot()'s auto-allocated tmp dir.
+    const vm = await boot({
       binary: opts.binary,
       cwd: opts.cwd,
-      env: {
+      vmmEnv: {
         ...opts.env,
         MACHINEN_VSOCK: `in:1978:${udsPath}`,
       },
       kernel: opts.kernel,
       dtb: opts.dtb,
-      baseRootfs: baseAbs,
-      bundle: bundleDir,
-      disk: diskPath,
+      image: baseAbs,
+      cmd: ["/exec-agent"],
+      env: { PATH: "/usr/local/bin:/usr/bin:/bin:/sbin" },
+      snapshot: diskPath,
       // We drive the guest to exit via /sbin/machinen-poweroff at the
       // end; wait() has its own ceiling below.
       timeoutMs: null,
@@ -296,28 +263,15 @@ export async function build(opts: BuildOptions): Promise<BuildResult> {
     const stderrTail = () => Buffer.concat(tailBuf).slice(-TAIL_MAX).toString("utf8");
 
     try {
-      // Hand control to the install hook. Per-command exec timeout
-      // inherits the outer build deadline — any single command that
-      // runs that long has already blown the budget; VsockExec's own
-      // 5-min default would otherwise trip first on slow libslirp.
-      const handle: BuildHandle = {
-        exec: async (cmd: string) => {
-          const res = await VsockExec.run(udsPath, cmd, { execTimeoutMs: deadlineMs });
-          if (res.exitCode !== 0) {
-            throw new BuildError(
-              `exec failed (code ${res.exitCode}): ${cmd}\nstderr:\n${res.stderr}`,
-            );
-          }
-          return res;
-        },
-        execRaw: (cmd: string) => VsockExec.run(udsPath, cmd, { execTimeoutMs: deadlineMs }),
-      };
+      // Hand control to the install hook. The spawned VM already has
+      // exec()/execRaw() hooked up to the vsock UDS we set via env, so
+      // the hook uses the same VmHandle shape as any other caller.
       try {
-        await opts.install(handle);
+        await opts.install(vm);
       } catch (err) {
         const tail = stderrTail();
         const msg = err instanceof Error ? err.message : String(err);
-        throw new BuildError(
+        throw new ProvisionError(
           `install hook failed: ${msg}\n--- VMM stderr (last 8 KB) ---\n${tail}`,
         );
       }
@@ -330,7 +284,7 @@ export async function build(opts: BuildOptions): Promise<BuildResult> {
         execTimeoutMs: deadlineMs,
       });
       if (tar.exitCode !== 0) {
-        throw new BuildError(
+        throw new ProvisionError(
           `tar / to /dev/vda failed (code ${tar.exitCode}) — scratch disk may be too small.\n` +
             `Bump scratchDiskSizeBytes. stderr:\n${tar.stderr}`,
         );
@@ -362,7 +316,7 @@ export async function build(opts: BuildOptions): Promise<BuildResult> {
 
     const sizeBytes = statSync(outAbs).size;
     return {
-      snapshotPath: outAbs,
+      imagePath: outAbs,
       sizeBytes,
       elapsedMs: Date.now() - t0,
     };
@@ -399,7 +353,7 @@ function allocateSparseFile(path: string, sizeBytes: number): void {
  * matters (swap in a Node-side tar writer).
  */
 function repackDiskTarToGz(diskPath: string, outAbs: string): void {
-  const extractDir = mkdtempSync(join(tmpdir(), "machinen-build-extract-"));
+  const extractDir = mkdtempSync(join(tmpdir(), "machinen-provision-extract-"));
   try {
     execFileSync("tar", ["-xf", diskPath, "-C", extractDir]);
     execFileSync("tar", ["-czf", outAbs, "-C", extractDir, "."], {

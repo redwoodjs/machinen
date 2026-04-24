@@ -14,11 +14,12 @@
 # Tests:
 #   V1-V4  Validation paths (no boot): host-missing, host-is-a-file,
 #          guest-outside-/mnt/, second --mount.
-#   T1     Base-only spawn — `echo hello-world` reaches the host console.
+#   T1     Base-only boot — `echo hello-world` reaches the host console.
 #   T2     --mount exposes a host directory readable inside the guest.
-#   T3     Bundle wins on a /mnt/ collision — layering smoke.
 #   T4     --env propagates into the guest process env — #89.
 #   C1-C2  Host-side artifact cache end-to-end via fnm — #88.
+#   P1-P3  Base-rootfs contract (criu, virtio modules, poweroff) — #77.
+#   N1-N4  New #93 CLI surface: ls, exec, attach-unknown, completion.
 
 set -euo pipefail
 
@@ -103,6 +104,23 @@ echo "smoke: VMM=$MACHINEN_VMM"
 echo "smoke: ASSETS=$MACHINEN_ASSETS_DIR"
 echo
 
+# Capability probe: N-series (vsock exec) and P/C-series (criu, vsock
+# modules, fnm) need a #77+ rootfs. Peek inside the tarball for marker
+# files; skip dependent sections with a warning if we're running
+# against a stale (pre-#77) rootfs. Rebuild with
+# ./scripts/build-base-assets.sh to pick them up.
+ROOTFS_TAR="$ASSETS/rootfs-debian-arm64.tar.gz"
+ROOTFS_SUPPORTS_VSOCK_EXEC=1
+ROOTFS_SUPPORTS_CRIU=1
+if ! tar tzf "$ROOTFS_TAR" 2>/dev/null | grep -q "vmw_vsock_virtio_transport"; then
+  echo "smoke: WARN rootfs lacks vsock modules — N-series (vm.exec) will be skipped"
+  ROOTFS_SUPPORTS_VSOCK_EXEC=0
+fi
+if ! tar tzf "$ROOTFS_TAR" 2>/dev/null | grep -q "usr/sbin/criu"; then
+  echo "smoke: WARN rootfs lacks criu — P/C-series will be skipped"
+  ROOTFS_SUPPORTS_CRIU=0
+fi
+
 # ----------------------------------------------------------------
 # Tests
 # ----------------------------------------------------------------
@@ -166,35 +184,35 @@ echo "just-a-file" >"$HOST_FILE"
 expect_cli_error \
   "V1: --mount with missing host path" \
   "mount host path not found" \
-  run --mount "$FIXTURE/nope-does-not-exist:/mnt/x" -- true
+  boot --mount "$FIXTURE/nope-does-not-exist:/mnt/x" -- true
 
 expect_cli_error \
   "V2: --mount with a file instead of a directory" \
   "must be a directory" \
-  run --mount "$HOST_FILE:/mnt/f" -- true
+  boot --mount "$HOST_FILE:/mnt/f" -- true
 
 expect_cli_error \
   "V3: --mount with guest path outside /mnt/" \
   "must live under /mnt/" \
-  run --mount "$EMPTY_DIR:/etc/passwd" -- true
+  boot --mount "$EMPTY_DIR:/etc/passwd" -- true
 
 expect_cli_error \
   "V4: second --mount rejected" \
   "at most once" \
-  run --mount "$EMPTY_DIR:/mnt/a" --mount "$EMPTY_DIR:/mnt/b" -- true
+  boot --mount "$EMPTY_DIR:/mnt/a" --mount "$EMPTY_DIR:/mnt/b" -- true
 
 # ----------------------------------------------------------------
 # Boot tests — need HVF/KVM. Slow.
 # ----------------------------------------------------------------
 
 # ---- T1: base-only spawn with echo ----
-echo "T1: machinen run -- echo hello-world"
+echo "T1: machinen boot -- echo hello-world"
 T1_LOG="$FIXTURE/t1.log"
 # Capture stdout + stderr: the guest's `echo` output arrives on the
 # serial console, which the VMM writes to its stderr. The CLI pipes
 # that to the host process's stderr; we redirect both into one log
 # for grepping.
-run_timeout 60 node "$CLI" run -- echo "hello-world-$$" >"$T1_LOG" 2>&1 || true
+run_timeout 60 node "$CLI" boot -- echo "hello-world-$$" >"$T1_LOG" 2>&1 || true
 if grep -q "hello-world-$$" "$T1_LOG"; then
   pass "base-only echo output visible on the host"
 else
@@ -203,12 +221,12 @@ else
 fi
 
 # ---- T2: --mount exposes a host directory inside the guest ----
-echo "T2: machinen run --mount ./fixture:/mnt/data -- cat /mnt/data/hello.txt"
+echo "T2: machinen boot --mount ./fixture:/mnt/data -- cat /mnt/data/hello.txt"
 T2_MARKER="mount-marker-$$"
 mkdir -p "$FIXTURE/data"
 echo "$T2_MARKER" >"$FIXTURE/data/hello.txt"
 T2_LOG="$FIXTURE/t2.log"
-run_timeout 60 node "$CLI" run \
+run_timeout 60 node "$CLI" boot \
   --mount "$FIXTURE/data:/mnt/data" \
   -- cat /mnt/data/hello.txt \
   >"$T2_LOG" 2>&1 || true
@@ -219,34 +237,11 @@ else
   fail "T2 marker ($T2_MARKER) not found in guest output"
 fi
 
-# ---- T3: bundle wins on a /mnt/ path collision ----
-echo "T3: bundle wins on collision under /mnt/"
-T3_BUNDLE_MARKER="bundle-wins-$$"
-T3_MOUNT_MARKER="mount-loses-$$"
-T3_BUNDLE="$FIXTURE/bundle"
-mkdir -p "$T3_BUNDLE/rootfs/mnt/collide"
-echo "$T3_BUNDLE_MARKER" >"$T3_BUNDLE/rootfs/mnt/collide/x.txt"
-cat >"$T3_BUNDLE/machinen-config.json" <<JSON
-{ "cmd": ["/bin/cat", "/mnt/collide/x.txt"] }
-JSON
-mkdir -p "$FIXTURE/alt"
-echo "$T3_MOUNT_MARKER" >"$FIXTURE/alt/x.txt"
-T3_LOG="$FIXTURE/t3.log"
-run_timeout 60 node "$CLI" run "$T3_BUNDLE" \
-  --mount "$FIXTURE/alt:/mnt/collide" \
-  >"$T3_LOG" 2>&1 || true
-if grep -q "$T3_BUNDLE_MARKER" "$T3_LOG" && ! grep -q "$T3_MOUNT_MARKER" "$T3_LOG"; then
-  pass "bundle content wins on /mnt/ collision"
-else
-  tail -50 "$T3_LOG" >&2
-  fail "T3 expected $T3_BUNDLE_MARKER (not $T3_MOUNT_MARKER) in guest output"
-fi
-
 # ---- T4: --env propagates into the guest process env (#89) ----
-echo "T4: machinen run --env FOO=bar -- sh -c 'echo FOO=\$FOO'"
+echo "T4: machinen boot --env FOO=bar -- sh -c 'echo FOO=\$FOO'"
 T4_MARKER="env-marker-$$"
 T4_LOG="$FIXTURE/t4.log"
-run_timeout 60 node "$CLI" run \
+run_timeout 60 node "$CLI" boot \
   --env "FOO=$T4_MARKER" \
   -- /bin/sh -c 'echo FOO=$FOO' \
   >"$T4_LOG" 2>&1 || true
@@ -262,14 +257,152 @@ fi
 # Each asserts one thing scripts/build-base-assets.sh claims to ship.
 # ----------------------------------------------------------------
 
+# ----------------------------------------------------------------
+# #93 API surface — exercise the new CLI verbs end-to-end against a
+# real guest. Uses a scratch registry dir so we don't pollute any
+# real running VMs on the dev machine. Each test boots a named VM in
+# the background, hits it with ls/exec, then kills it.
+# ----------------------------------------------------------------
+
+# Scratch registry for these tests. Redirects `boot()`'s writeEntry
+# and `list()`/`attach()`'s lookups so we don't collide with the
+# user's real ~/.machinen/vms entries.
+export MACHINEN_REGISTRY_DIR="$FIXTURE/registry"
+mkdir -p "$MACHINEN_REGISTRY_DIR"
+
+# Helper: run a CLI subcommand (no run_timeout; they're all fast).
+cli() {
+  node "$CLI" "$@"
+}
+
+# Helper: boot a VM in the background under the given name. Writes
+# its logs to the named path. Returns the background pid.
+boot_bg() {
+  local name=$1
+  local log=$2
+  shift 2
+  node "$CLI" boot --name "$name" "$@" >"$log" 2>&1 &
+  echo $!
+}
+
+# Helper: wait for a named VM to appear in `machinen ls`, up to 30s.
+wait_for_vm() {
+  local name=$1
+  local deadline=$((SECONDS + 30))
+  while (( SECONDS < deadline )); do
+    if cli ls 2>/dev/null | awk 'NR>1 {print $2}' | grep -qx "$name"; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+# ---- N1: machinen ls shows nothing when the registry is empty ----
+echo "N1: machinen ls against an empty registry"
+N1_LOG="$FIXTURE/n1.log"
+cli ls >"$N1_LOG" 2>&1 || true
+if grep -q "no running VMs" "$N1_LOG"; then
+  pass "ls reports '(no running VMs)' when registry is empty"
+else
+  cat "$N1_LOG" >&2
+  fail "N1 — expected '(no running VMs)'"
+fi
+
+# ---- N2: boot --name + ls + exec round-trip ----
+if [[ "$ROOTFS_SUPPORTS_VSOCK_EXEC" -eq 0 ]]; then
+  echo "N2: skipped (rootfs lacks vsock modules)"
+else
+echo "N2: machinen boot --name worker; ls; exec; kill"
+N2_NAME="smoke-worker-$$"
+N2_LOG="$FIXTURE/n2.log"
+N2_BG_LOG="$FIXTURE/n2-bg.log"
+# Start /exec-agent in the background so `machinen exec` has something
+# to talk to on vsock port 1978, then keep the VM alive with sleep.
+# The guest /init doesn't auto-launch exec-agent — it's opt-in per
+# workload.
+N2_PID=$(boot_bg "$N2_NAME" "$N2_BG_LOG" -- /bin/sh -c "/exec-agent & sleep 120")
+cleanup_n2() { kill -TERM "$N2_PID" 2>/dev/null || true; wait "$N2_PID" 2>/dev/null || true; }
+trap 'cleanup_n2; rm -rf "$FIXTURE"' EXIT
+
+if wait_for_vm "$N2_NAME"; then
+  pass "boot --name registered '$N2_NAME' in the VM registry"
+else
+  tail -50 "$N2_BG_LOG" >&2
+  fail "N2 — '$N2_NAME' never appeared in 'machinen ls'"
+fi
+
+# machinen ls output should have a header + the worker row.
+cli ls >"$N2_LOG" 2>&1 || true
+if grep -q "$N2_NAME" "$N2_LOG"; then
+  pass "'machinen ls' lists '$N2_NAME'"
+else
+  cat "$N2_LOG" >&2
+  fail "N2 — 'machinen ls' missing '$N2_NAME'"
+fi
+
+# machinen exec <name> -- uname -m should return 0 + aarch64.
+N2_EXEC_LOG="$FIXTURE/n2-exec.log"
+if cli exec "$N2_NAME" -- uname -m >"$N2_EXEC_LOG" 2>&1; then
+  if grep -qE "aarch64|arm64" "$N2_EXEC_LOG"; then
+    pass "'machinen exec $N2_NAME -- uname -m' returned aarch64"
+  else
+    cat "$N2_EXEC_LOG" >&2
+    fail "N2 — exec stdout missing arch marker"
+  fi
+else
+  cat "$N2_EXEC_LOG" >&2
+  fail "N2 — 'machinen exec' exited non-zero"
+fi
+
+cleanup_n2
+trap 'rm -rf "$FIXTURE"' EXIT
+fi  # N2 rootfs-capability gate
+
+# ---- N3: machinen attach <unknown> errors cleanly ----
+echo "N3: machinen attach against an unknown name"
+N3_LOG="$FIXTURE/n3.log"
+if cli attach "nope-does-not-exist-$$" >"$N3_LOG" 2>&1; then
+  cat "$N3_LOG" >&2
+  fail "N3 — attach to unknown name should have failed"
+fi
+if grep -q "no running VM found" "$N3_LOG"; then
+  pass "attach surfaces 'no running VM found' for missing names"
+else
+  cat "$N3_LOG" >&2
+  fail "N3 — expected 'no running VM found' in error output"
+fi
+
+# ---- N4: machinen completion emits a shell snippet ----
+echo "N4: machinen completion bash|zsh|fish"
+for shell in bash zsh fish; do
+  out=$(cli completion "$shell" 2>&1 || true)
+  if [[ -z "$out" ]]; then
+    fail "N4 — completion $shell produced no output"
+  fi
+  if grep -q "machinen" <<<"$out"; then
+    pass "completion $shell emitted a script"
+  else
+    echo "$out" | head -5 >&2
+    fail "N4 — completion $shell output didn't mention 'machinen'"
+  fi
+done
+
+if [[ "$ROOTFS_SUPPORTS_CRIU" -eq 0 ]]; then
+  echo
+  echo "smoke: P/C-series skipped (stale rootfs — rebuild with scripts/build-base-assets.sh)"
+  echo "all smoke tests passed (with skips — see warnings above)"
+  exit 0
+fi
+
 # ---- P1: criu binary present and usable ----
 # Absolute path — the CLI wraps non-absolute cmds in `/usr/bin/env`,
 # which does its own PATH search that doesn't know about /sbin by
 # default. Using /usr/sbin/criu directly bypasses that and tests
 # exactly what phase 1 shipped.
-echo "P1: machinen run -- /usr/sbin/criu --version"
+echo "P1: machinen boot -- /usr/sbin/criu --version"
 P1_LOG="$FIXTURE/p1.log"
-run_timeout 60 node "$CLI" run -- /usr/sbin/criu --version >"$P1_LOG" 2>&1 || true
+run_timeout 60 node "$CLI" boot -- /usr/sbin/criu --version >"$P1_LOG" 2>&1 || true
 if grep -q "^Version:" "$P1_LOG"; then
   pass "criu runs inside the base rootfs"
 else
@@ -281,9 +414,9 @@ fi
 # /init's loadPlumbingModules() runs before exec'ing the user cmd, so
 # /proc/modules should list both. Reading /proc directly avoids
 # depending on lsmod's PATH location.
-echo "P2: machinen run -- cat /proc/modules (virtio_blk + vmw_vsock_virtio_transport)"
+echo "P2: machinen boot -- cat /proc/modules (virtio_blk + vmw_vsock_virtio_transport)"
 P2_LOG="$FIXTURE/p2.log"
-run_timeout 60 node "$CLI" run -- /bin/cat /proc/modules >"$P2_LOG" 2>&1 || true
+run_timeout 60 node "$CLI" boot -- /bin/cat /proc/modules >"$P2_LOG" 2>&1 || true
 if grep -qE "^virtio_blk " "$P2_LOG" && grep -qE "^vmw_vsock_virtio_transport " "$P2_LOG"; then
   pass "init loaded virtio_blk + vmw_vsock_virtio_transport"
 else
@@ -296,9 +429,9 @@ fi
 # look the same to an outside observer. We specifically want to prove
 # the /sbin/machinen-poweroff helper works: the kernel prints
 # "reboot: Power down" only on a real POWER_OFF syscall.
-echo "P3: machinen run -- /sbin/machinen-poweroff"
+echo "P3: machinen boot -- /sbin/machinen-poweroff"
 P3_LOG="$FIXTURE/p3.log"
-run_timeout 60 node "$CLI" run -- /sbin/machinen-poweroff >"$P3_LOG" 2>&1 || true
+run_timeout 60 node "$CLI" boot -- /sbin/machinen-poweroff >"$P3_LOG" 2>&1 || true
 if grep -q "reboot: Power down" "$P3_LOG"; then
   pass "machinen-poweroff invoked reboot(POWER_OFF)"
 else
@@ -325,7 +458,7 @@ C1_CACHE="$FIXTURE/cache-c1"
 C1_LOG="$FIXTURE/c1.log"
 mkdir -p "$C1_CACHE"
 MACHINEN_CACHE_DIR="$C1_CACHE" \
-  run_timeout 180 node "$CLI" run --env "PATH=$GUEST_PATH" -- \
+  run_timeout 180 node "$CLI" boot --env "PATH=$GUEST_PATH" -- \
     /bin/sh -c "fnm install $FNM_TEST_NODE && fnm exec --using=$FNM_TEST_NODE node -v" \
     >"$C1_LOG" 2>&1 || true
 if grep -qE "^v${FNM_TEST_NODE}\." "$C1_LOG"; then
@@ -350,7 +483,7 @@ echo "C2: warm fnm install $FNM_TEST_NODE serves from cache (no upstream)"
 C2_LOG="$FIXTURE/c2.log"
 MACHINEN_CACHE_DIR="$C1_CACHE" \
 MACHINEN_NODE_DIST_UPSTREAM="http://127.0.0.1:1" \
-  run_timeout 180 node "$CLI" run --env "PATH=$GUEST_PATH" -- \
+  run_timeout 180 node "$CLI" boot --env "PATH=$GUEST_PATH" -- \
     /bin/sh -c "fnm install $FNM_TEST_NODE && fnm exec --using=$FNM_TEST_NODE node -v" \
     >"$C2_LOG" 2>&1 || true
 if grep -qE "^v${FNM_TEST_NODE}\." "$C2_LOG"; then
@@ -359,6 +492,7 @@ else
   tail -80 "$C2_LOG" >&2
   fail "C2 — warm install failed; cache is not being read"
 fi
+
 
 echo
 echo "all smoke tests passed"

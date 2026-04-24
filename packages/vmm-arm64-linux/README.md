@@ -35,7 +35,7 @@ The package's `os`/`cpu` gates will refuse installation on anything other than
 import { spawn } from "@machinen/runtime";
 import { binary } from "@machinen/vmm-arm64-linux";
 
-const vm = await spawn({ binary, bundle: "./path/to/bundle" });
+const vm = await boot({ binary, image: "./rootfs-debian-arm64.tar.gz", cmd: ["/bin/sh"] });
 ```
 
 ## License

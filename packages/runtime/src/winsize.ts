@@ -11,9 +11,9 @@
 // Usage:
 //
 //   // 1. boot the VMM with a vsock port mapped through
-//   const vm = await spawn({
+//   const vm = await boot({
 //     binary: VMM,
-//     env: { MACHINEN_VSOCK: "in:1974:/tmp/machinen-winsize.sock" },
+//     vmmEnv: { MACHINEN_VSOCK: "in:1974:/tmp/machinen-winsize.sock" },
 //   });
 //
 //   // 2. connect once the guest agent is listening
@@ -21,7 +21,7 @@
 //
 //   // 3. wrap the vm's resize (or hook the Supervisor's
 //   //    forwardResize path) so every host resize fans out to both
-//   //    the host pty (if spawnPty was used) and the guest agent
+//   //    the host pty (if bootPty was used) and the guest agent
 //   ws.send(process.stdout.columns ?? 80, process.stdout.rows ?? 24);
 
 import { connect as netConnect, type Socket } from "node:net";
