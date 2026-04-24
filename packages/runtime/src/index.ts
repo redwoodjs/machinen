@@ -45,7 +45,11 @@ export {
 //
 // No multiplexing yet — one VM per handle (#51 is its own issue).
 
-import { type ChildProcessWithoutNullStreams, spawn as nodeSpawn } from "node:child_process";
+import {
+  type ChildProcessWithoutNullStreams,
+  execFileSync,
+  spawn as nodeSpawn,
+} from "node:child_process";
 import { once } from "node:events";
 import {
   copyFileSync,
@@ -305,12 +309,12 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     throw new BootError(`VMM binary not found at ${binary}`);
   }
 
-  // `image` and `cmd` are paired: image provides the rootfs to boot,
-  // cmd is what runs inside it. Either both or neither. (Dummy-binary
-  // boots for tests, and snapshot-only restores that rely on a baked
-  // initramfs, both pass neither.)
-  if (Boolean(opts.image) !== Boolean(opts.cmd)) {
-    throw new BootError("boot: `image` and `cmd` must be specified together.");
+  // `cmd` requires an image to run against. `image` alone is allowed
+  // — the image may carry a baked-in default cmd (see
+  // `provision({ cmd })`); if it doesn't and the user didn't pass
+  // one, `synthesizeAndPackBundle` errors with a clear message.
+  if (opts.cmd && !opts.image) {
+    throw new BootError("boot: `image` is required when `cmd` is set.");
   }
 
   const env: Record<string, string> = {
@@ -747,6 +751,33 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
   return handle;
 }
 
+/**
+ * Peek at `/machinen-config.json` inside an image tarball (produced by
+ * `provision({ cmd, env })`). Returns the baked cmd/env if present, or
+ * undefined when the image has no config baked in — plain rootfs
+ * tarballs that pre-date this feature still boot fine.
+ */
+function readImageConfig(
+  imagePath: string,
+): { cmd?: string[]; env?: Record<string, string> } | undefined {
+  try {
+    // `-x` stream-extract, `-O` to stdout, `-z` auto-detect gzip. The
+    // target path matches the layout `provision()` writes.
+    const out = execFileSync("tar", ["-xzOf", imagePath, "./machinen-config.json"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    if (!out.trim()) {
+      return undefined;
+    }
+    return JSON.parse(out) as { cmd?: string[]; env?: Record<string, string> };
+  } catch {
+    // Either the tarball lacks the file or it's not a tarball we can
+    // read — boot will still try to use the rootfs as-is.
+    return undefined;
+  }
+}
+
 function synthesizeAndPackBundle(
   opts: BootOptions,
   mergedGuestEnv: Record<string, string>,
@@ -760,26 +791,39 @@ function synthesizeAndPackBundle(
     } catch {}
   };
 
-  // Synthesize the bundle directory from `cmd` + guest-env. No
-  // user-authored machinen-config.json; we generate it here and the
-  // caller never sees it.
-  mkdirSync(join(synthBundleDir, "rootfs"), { recursive: true });
-  writeFileSync(
-    join(synthBundleDir, "machinen-config.json"),
-    JSON.stringify({
-      cmd: opts.cmd,
-      env: mergedGuestEnv,
-    }),
-  );
-
   let baseAbs: string | undefined;
+  let imageConfig: { cmd?: string[]; env?: Record<string, string> } | undefined;
   if (opts.image) {
     baseAbs = resolve(opts.cwd ?? process.cwd(), opts.image);
     if (!existsSync(baseAbs)) {
       cleanup();
       throw new BootError(`image tarball not found: ${baseAbs}`);
     }
+    imageConfig = readImageConfig(baseAbs);
   }
+
+  // cmd: user's wins; fall back to image's baked default. Error
+  // clearly when neither side has one.
+  const effectiveCmd = opts.cmd ?? imageConfig?.cmd;
+  if (!effectiveCmd) {
+    cleanup();
+    throw new BootError(
+      "boot: no cmd to run — pass `cmd` on boot() or bake one into the " +
+        "image via `provision({ cmd })`.",
+    );
+  }
+  // env: image defaults overlaid by user + runtime-injected (gvproxy
+  // cache mirror, etc.). User + runtime wins on key collision.
+  const effectiveEnv = { ...imageConfig?.env, ...mergedGuestEnv };
+
+  // Synthesize the bundle directory from the effective cmd + env. No
+  // user-authored machinen-config.json; we generate it here and the
+  // caller never sees it.
+  mkdirSync(join(synthBundleDir, "rootfs"), { recursive: true });
+  writeFileSync(
+    join(synthBundleDir, "machinen-config.json"),
+    JSON.stringify({ cmd: effectiveCmd, env: effectiveEnv }),
+  );
 
   let mount: { host: string; guest: string } | undefined;
   if (opts.mount) {
@@ -807,7 +851,7 @@ function synthesizeAndPackBundle(
       out: cpioPath,
       base: baseAbs,
       mount,
-      guestEnv: mergedGuestEnv,
+      guestEnv: effectiveEnv,
     });
   } catch (err) {
     cleanup();

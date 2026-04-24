@@ -19,7 +19,8 @@
 #   T4     --env propagates into the guest process env — #89.
 #   C1-C2  Host-side artifact cache end-to-end via fnm — #88.
 #   P1-P3  Base-rootfs contract (criu, virtio modules, poweroff) — #77.
-#   N1-N4  New #93 CLI surface: ls, exec, attach-unknown, completion.
+#   N1-N5  New #93 CLI surface: ls, exec, attach-unknown, completion,
+#          plus image-carries-cmd default.
 
 set -euo pipefail
 
@@ -387,6 +388,33 @@ for shell in bash zsh fish; do
     fail "N4 — completion $shell output didn't mention 'machinen'"
   fi
 done
+
+# ---- N5: image carries a baked-in default cmd; `machinen boot
+#          <image>` runs it without needing `-- <cmd>` ----
+echo "N5: machinen boot <image-with-baked-cmd> (no -- cmd)"
+N5_MARKER="baked-cmd-$$"
+N5_IMG="$FIXTURE/baked-image.tar.gz"
+N5_STAGE="$FIXTURE/baked-stage"
+N5_LOG="$FIXTURE/n5.log"
+# Stage a tarball that overlays the base rootfs and carries a
+# /machinen-config.json pointing at /bin/echo. We untar the real
+# release rootfs, drop in the config, and re-tar — cheaper than
+# running a full provision() during smoke.
+mkdir -p "$N5_STAGE"
+tar -xzf "$ASSETS/rootfs-debian-arm64.tar.gz" -C "$N5_STAGE"
+cat > "$N5_STAGE/machinen-config.json" <<JSON
+{ "cmd": ["/bin/echo", "$N5_MARKER"] }
+JSON
+tar -C "$N5_STAGE" -czf "$N5_IMG" .
+rm -rf "$N5_STAGE"
+run_timeout 60 node "$CLI" boot "$N5_IMG" >"$N5_LOG" 2>&1 || true
+if grep -q "$N5_MARKER" "$N5_LOG"; then
+  pass "baked-in cmd fires without -- <cmd> on CLI"
+else
+  tail -50 "$N5_LOG" >&2
+  fail "N5 — expected '$N5_MARKER' in guest output"
+fi
+rm -f "$N5_IMG"
 
 if [[ "$ROOTFS_SUPPORTS_CRIU" -eq 0 ]]; then
   echo

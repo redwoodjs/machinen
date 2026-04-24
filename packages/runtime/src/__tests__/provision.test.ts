@@ -133,7 +133,7 @@ describe("provision", () => {
         const result = await provision({
           binary: prereqs.binary,
           cwd: microvmRoot,
-          env: { MACHINEN_BOOT_TEST: "1", MACHINEN_DEBUG: "1" },
+          vmmEnv: { MACHINEN_BOOT_TEST: "1", MACHINEN_DEBUG: "1" },
           base: prereqs.base,
           install: async (vm) => {
             await vm.exec(

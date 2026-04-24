@@ -30,6 +30,7 @@ import {
   readFileSync,
   rmSync,
   statSync,
+  writeFileSync,
   writeSync,
 } from "node:fs";
 import { homedir, tmpdir } from "node:os";
@@ -63,6 +64,21 @@ export interface ProvisionOptions {
   out: string;
 
   /**
+   * Default cmd baked into the image as `/machinen-config.json`.
+   * When the image is later booted via `boot({ image })` without a
+   * user-supplied `cmd`, the guest runs this. User-supplied `cmd` on
+   * `boot()` still wins if provided.
+   */
+  cmd?: string[];
+
+  /**
+   * Default guest env baked into the image alongside `cmd`. Merged
+   * with `boot({ env })` at boot time, with the caller's `env`
+   * overriding on key collision.
+   */
+  env?: Record<string, string>;
+
+  /**
    * Optional VMM binary path. Same lookup rules as `boot()` — if
    * omitted, resolves `@machinen/vmm-<arch>-<os>`.
    */
@@ -86,10 +102,11 @@ export interface ProvisionOptions {
   timeoutMs?: number;
 
   /**
-   * Extra env passed to the VMM. Useful for dev overrides like
-   * `MACHINEN_BOOT_TEST`, `MACHINEN_KERNEL`, `MACHINEN_DTB`.
+   * Extra env passed to the VMM process on the host side. Useful for
+   * dev overrides like `MACHINEN_BOOT_TEST`. Distinct from `env`,
+   * which bakes guest-workload env into the produced image.
    */
-  env?: Record<string, string>;
+  vmmEnv?: Record<string, string>;
 
   /** Path to the guest kernel. Same semantics as `boot({ kernel })`. */
   kernel?: string;
@@ -224,7 +241,7 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
       binary: opts.binary,
       cwd: opts.cwd,
       vmmEnv: {
-        ...opts.env,
+        ...opts.vmmEnv,
         MACHINEN_VSOCK: `in:1978:${udsPath}`,
       },
       kernel: opts.kernel,
@@ -312,7 +329,7 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
     // Scratch disk now holds a raw tar stream (padded with zeros up to
     // the scratch size). Repack it as a gzipped tarball at `out`, which
     // trims trailing zeros and normalizes compression.
-    repackDiskTarToGz(diskPath, outAbs);
+    repackDiskTarToGz(diskPath, outAbs, { cmd: opts.cmd, env: opts.env });
 
     const sizeBytes = statSync(outAbs).size;
     return {
@@ -352,10 +369,26 @@ function allocateSparseFile(path: string, sizeBytes: number): void {
  * across hosts is a nice-to-have we can layer on later if it ever
  * matters (swap in a Node-side tar writer).
  */
-function repackDiskTarToGz(diskPath: string, outAbs: string): void {
+function repackDiskTarToGz(
+  diskPath: string,
+  outAbs: string,
+  bakedConfig?: { cmd?: string[]; env?: Record<string, string> },
+): void {
   const extractDir = mkdtempSync(join(tmpdir(), "machinen-provision-extract-"));
   try {
     execFileSync("tar", ["-xf", diskPath, "-C", extractDir]);
+    // Bake the image's default cmd/env into /machinen-config.json so
+    // `boot({ image })` can run without every caller re-passing the
+    // same cmd. User-supplied cmd/env on boot() still override.
+    if (bakedConfig && (bakedConfig.cmd || bakedConfig.env)) {
+      writeFileSync(
+        join(extractDir, "machinen-config.json"),
+        JSON.stringify({
+          ...(bakedConfig.cmd ? { cmd: bakedConfig.cmd } : {}),
+          ...(bakedConfig.env ? { env: bakedConfig.env } : {}),
+        }),
+      );
+    }
     execFileSync("tar", ["-czf", outAbs, "-C", extractDir, "."], {
       stdio: ["ignore", "ignore", "inherit"],
     });
