@@ -8,14 +8,13 @@ Thanks for hacking on machinen. This doc gets you to the point of running
 Today's dev targets are **arm64 macOS** (HVF) and **arm64 Linux** (KVM). x86_64
 dev isn't wired up yet.
 
-| Tool     | Version                                           | Install                                                           |
-| -------- | ------------------------------------------------- | ----------------------------------------------------------------- |
-| Node     | 22+                                               | [nodejs.org](https://nodejs.org) or `fnm`/`nvm`                   |
-| pnpm     | see [package.json `packageManager`](package.json) | `corepack enable`                                                 |
-| Zig      | 0.16.0                                            | `brew install zig` · [ziglang.org](https://ziglang.org/download/) |
-| Docker   | any                                               | Docker Desktop / OrbStack / Colima                                |
-| dtc      | any                                               | `brew install dtc` · `apt install device-tree-compiler`           |
-| libslirp | any                                               | `brew install libslirp` · `apt install libslirp0`                 |
+| Tool   | Version                                           | Install                                                           |
+| ------ | ------------------------------------------------- | ----------------------------------------------------------------- |
+| Node   | 22+                                               | [nodejs.org](https://nodejs.org) or `fnm`/`nvm`                   |
+| pnpm   | see [package.json `packageManager`](package.json) | `corepack enable`                                                 |
+| Zig    | 0.16.0                                            | `brew install zig` · [ziglang.org](https://ziglang.org/download/) |
+| Docker | any                                               | Docker Desktop / OrbStack / Colima                                |
+| dtc    | any                                               | `brew install dtc` · `apt install device-tree-compiler`           |
 
 Clone and install:
 
@@ -49,32 +48,24 @@ cp packages/microvm/zig-out/bin/microvm packages/vmm-arm64-darwin/bin/microvm
 
 ## Run the CLI locally
 
-Two loose ends normally handled by the release pipeline that you need to
-cover by hand in dev:
+One loose end normally handled by the release pipeline you need to cover by
+hand in dev:
 
-1. **Base assets.** The CLI wants a kernel, device tree, and rootfs tarball.
-   Ordinarily `machinen run` fetches them from the GitHub Release that matches
-   the CLI's own version. For an unreleased dev checkout, build them yourself
-   and point the CLI at them with `MACHINEN_ASSETS_DIR`:
+- **Base assets.** The CLI wants a kernel, device tree, and rootfs tarball.
+  Ordinarily `machinen boot` fetches them from the GitHub Release that matches
+  the CLI's own version. For an unreleased dev checkout, build them yourself
+  and point the CLI at them with `MACHINEN_ASSETS_DIR`:
 
-   ```bash
-   ./scripts/build-base-assets.sh                  # outputs ./release-assets/
-   export MACHINEN_ASSETS_DIR=$PWD/release-assets
-   ```
+  ```bash
+  ./scripts/build-base-assets.sh                  # outputs ./release-assets/
+  export MACHINEN_ASSETS_DIR=$PWD/release-assets
+  ```
 
-2. **A bundle.** `machinen run` takes a directory with `rootfs/` and
-   `machinen-config.json`. For a throwaway bundle:
-
-   ```bash
-   mkdir -p /tmp/example-bundle/rootfs
-   echo '{"cmd":["/bin/sh"]}' > /tmp/example-bundle/machinen-config.json
-   ```
-
-Then run it:
+Then boot a shell in a throwaway VM:
 
 ```bash
 alias machinen="node $PWD/packages/cli/dist/cli.js"
-machinen run /tmp/example-bundle
+machinen boot -- /bin/sh
 ```
 
 **Heads up on the current state:** the released VMM binary (`zig build`, i.e.

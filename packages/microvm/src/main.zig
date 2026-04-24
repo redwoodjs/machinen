@@ -3,9 +3,9 @@
 // invokes the real boot path. The VMM is a dumb engine here: no cache
 // discovery, no tag awareness — that's the CLI's job.
 //
-// Invoked by @machinen/runtime's spawn(). Direct invocation requires
+// Invoked by @machinen/runtime's boot(). Direct invocation requires
 // setting the MACHINEN_* env vars by hand; the usage error below points
-// at `machinen run`.
+// at `machinen boot`.
 
 const std = @import("std");
 const builtin = @import("builtin");
@@ -73,7 +73,7 @@ fn dieUsage(missing: []const u8) noreturn {
     std.debug.print(
         "machinen-microvm: {s} is unset.\n" ++
             "  This binary is invoked by @machinen/runtime, not directly.\n" ++
-            "  Use `machinen run <bundle>` instead.\n",
+            "  Use `machinen boot` instead.\n",
         .{missing},
     );
     std.process.exit(2);
