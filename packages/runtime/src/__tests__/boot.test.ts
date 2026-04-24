@@ -422,6 +422,88 @@ describe("mount option", () => {
   });
 });
 
+describe("liveMounts option", () => {
+  const fakeImage = `/tmp/machinen-livemount-test-image-${process.pid}.tar.gz`;
+  const mountCmd = ["/bin/true"];
+
+  it("rejects a live mount with a non-absolute guest path", async () => {
+    writeFileSync(fakeImage, "");
+    try {
+      await expect(
+        boot({
+          binary: "/bin/sh",
+          image: fakeImage,
+          cmd: mountCmd,
+          liveMounts: [{ host: "/tmp", guest: "mnt/app" }],
+        }),
+      ).rejects.toThrow(/guest path must be absolute/);
+    } finally {
+      try {
+        unlinkSync(fakeImage);
+      } catch {}
+    }
+  });
+
+  it("rejects a live mount with a host path outside /mnt/", async () => {
+    writeFileSync(fakeImage, "");
+    try {
+      await expect(
+        boot({
+          binary: "/bin/sh",
+          image: fakeImage,
+          cmd: mountCmd,
+          liveMounts: [{ host: "/tmp", guest: "/srv/app" }],
+        }),
+      ).rejects.toThrow(/must live under \/mnt\//);
+    } finally {
+      try {
+        unlinkSync(fakeImage);
+      } catch {}
+    }
+  });
+
+  it("rejects a live mount with a missing host directory", async () => {
+    writeFileSync(fakeImage, "");
+    try {
+      await expect(
+        boot({
+          binary: "/bin/sh",
+          image: fakeImage,
+          cmd: mountCmd,
+          liveMounts: [{ host: "/nope/missing", guest: "/mnt/x" }],
+        }),
+      ).rejects.toThrow(/liveMounts\[0\] host path not found/);
+    } finally {
+      try {
+        unlinkSync(fakeImage);
+      } catch {}
+    }
+  });
+
+  it("rejects a live mount with a host path that is a file", async () => {
+    writeFileSync(fakeImage, "");
+    const hostFile = `/tmp/machinen-livemount-file-${process.pid}`;
+    writeFileSync(hostFile, "x");
+    try {
+      await expect(
+        boot({
+          binary: "/bin/sh",
+          image: fakeImage,
+          cmd: mountCmd,
+          liveMounts: [{ host: hostFile, guest: "/mnt/x" }],
+        }),
+      ).rejects.toThrow(/must be a directory/);
+    } finally {
+      try {
+        unlinkSync(hostFile);
+      } catch {}
+      try {
+        unlinkSync(fakeImage);
+      } catch {}
+    }
+  });
+});
+
 describe("vm.snapshot", () => {
   it("throws when the VM was spawned without a disk attached", async () => {
     const vm = await boot({ binary: "/usr/bin/yes", timeoutMs: 5_000 });
