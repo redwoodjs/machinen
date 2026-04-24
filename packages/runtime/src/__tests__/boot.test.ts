@@ -9,6 +9,7 @@
 import { execSync } from "node:child_process";
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readdirSync,
   rmSync,
@@ -513,6 +514,42 @@ describe("vm.snapshot", () => {
       );
     } finally {
       await vm.kill();
+    }
+  });
+
+  it("throws when a live mount is active (SNAPSHOT_LIVE_MOUNT_ACTIVE)", async () => {
+    // Live mounts share a persistent vsock channel that CRIU can't
+    // freeze — snapshotting would leave the restore pointing at a
+    // dead server.
+    const snap = `/tmp/machinen-snap-livemount-${process.pid}.img`;
+    writeFileSync(snap, Buffer.alloc(1024));
+    const liveDir = `/tmp/machinen-livemount-snap-${process.pid}`;
+    mkdirSync(liveDir, { recursive: true });
+    const outDir = `/tmp/machinen-livemount-snap-out-${process.pid}`;
+    try {
+      const vm = await boot({
+        binary: "/usr/bin/yes",
+        snapshot: snap,
+        liveMounts: [{ host: liveDir, guest: "/mnt/src" }],
+        timeoutMs: 5_000,
+      });
+      try {
+        await expect(vm.snapshot({ outDir })).rejects.toThrow(
+          /cannot snapshot .* --mount-live active/,
+        );
+      } finally {
+        await vm.kill();
+      }
+    } finally {
+      try {
+        rmSync(liveDir, { recursive: true, force: true });
+      } catch {}
+      try {
+        rmSync(outDir, { recursive: true, force: true });
+      } catch {}
+      try {
+        unlinkSync(snap);
+      } catch {}
     }
   });
 

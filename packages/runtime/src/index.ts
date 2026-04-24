@@ -849,6 +849,21 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
             "boot() so CRIU has a target to write to.",
         );
       }
+      if (liveMountsResolved.length > 0) {
+        // A live mount is a persistent vsock channel that CRIU has no
+        // way to freeze. Snapshotting and later restoring would leave
+        // the guest pointing at a dead UDS / dead host server, with
+        // every FS op returning errors. Refuse loudly until we decide
+        // how the two should compose (issue #78 "Known tradeoffs").
+        throw new SnapshotError(
+          "SNAPSHOT_LIVE_MOUNT_ACTIVE",
+          "vm.snapshot: cannot snapshot a VM with --mount-live active. " +
+            "The vsock FUSE channel doesn't survive snapshot/restore. " +
+            "Re-boot without live mounts if you need to snapshot, or use " +
+            "`--mount` (copy-once) which is baked into the rootfs and " +
+            "snapshots cleanly.",
+        );
+      }
       return performSnapshot(
         {
           pid: childPid,
