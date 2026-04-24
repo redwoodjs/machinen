@@ -96,7 +96,8 @@ The microvm is _just_ the substrate. `@machinen/runtime` drives it:
   tarball.
 - `vm.snapshot()` CRIU-freezes a running VM into a disk image for fast
   restore on subsequent spawns.
-- `spawn()` restores an image into a fresh microvm.
+- `boot()` starts a fresh microvm against an image, or restores a
+  snapshot.
 
 The microvm itself knows nothing about snapshots, bundles, or agents
 — it boots a kernel and brokers virtio traffic. That separation is
@@ -111,7 +112,7 @@ HOST                                       GUEST
 
    ┌──────────────────────────┐
    │ @machinen/runtime        │
-   │  spawn({ bundle })       │
+   │  boot({ image, cmd })    │
    └──────────────┬───────────┘
                   │ spawns binary
                   ▼
