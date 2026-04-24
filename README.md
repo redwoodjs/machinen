@@ -15,28 +15,21 @@ npm i -g @machinen/cli
 
 The right VMM binary is pulled automatically via optional dependencies
 (`@machinen/vmm-arm64-darwin` on Apple Silicon Macs, `@machinen/vmm-arm64-linux`
-on arm64 Linux).
-
-One system dep is not yet statically linked:
-
-- macOS: `brew install libslirp`
-- Debian/Ubuntu: `apt install libslirp0`
-- Fedora/RHEL: `dnf install libslirp`
-- Alpine: `apk add libslirp`
+on arm64 Linux). No system dependencies.
 
 ## Transport a Node.js process
 
 ```bash
 # host A
-machinen run ./examples/node-counter &   # HTTP server on :3000, counts requests
-curl localhost:3000/hit                   # { count: 1 }
-curl localhost:3000/hit                   # { count: 2 }
+machinen boot --name counter -- node ./server.js &  # HTTP on :3000, counts requests
+curl localhost:3000/hit                              # { count: 1 }
+curl localhost:3000/hit                              # { count: 2 }
 
-machinen freeze <id> > counter.tar        # snapshot + rootfs delta
+machinen snapshot counter ./counter.snap             # CRIU-freeze the running VM
 
-# copy counter.tar to host B, then:
-machinen thaw counter.tar
-curl localhost:3000/hit                   # { count: 3 }  ← same process
+# copy counter.snap to host B, then:
+machinen restore ./counter.snap
+curl localhost:3000/hit                              # { count: 3 }  ← same process
 ```
 
 Same arch only (arm64 ↔ arm64). The VM's memory, file descriptors, and
@@ -45,7 +38,8 @@ timers come back exactly as they were.
 ## Boot a microVM
 
 ```bash
-machinen run ./path/to/bundle     # spawn a microVM from a bundle directory
+machinen boot -- /bin/sh                    # ad-hoc: boot base + run a cmd
+machinen boot ./my-image.img                # boot a provisioned image
 ```
 
 On first run, the kernel + rootfs for the current release are fetched into
@@ -57,28 +51,41 @@ machinen install                  # optional: pre-fetch base assets
 machinen install --version <tag>  # pin to a specific release tag
 ```
 
-A bundle is a directory containing `rootfs/` (overlay on top of the base Debian
-rootfs) and `machinen-config.json` (boot config). See
-[`.docs/learnings/microvm/rootfs-contract.md`](.docs/learnings/microvm/rootfs-contract.md)
-for the contract.
-
 ## Drive it from Node
 
 ```ts
-import { spawn, snapshot, restore } from "@machinen/runtime";
+import { provision, boot } from "@machinen/runtime";
 
-// binary auto-resolves via @machinen/vmm-<arch>-<os> installed alongside.
-const vm = await spawn({ bundle: "./examples/node-counter" });
+// Bake an image once: base Debian + your deps + a default cmd.
+await provision({
+  base: "debian-arm64",
+  install: async (vm) => {
+    await vm.exec("apt-get install -y nodejs");
+  },
+  cmd: ["/usr/bin/node", "/opt/server.js"],
+  out: "./my-server.img",
+});
+
+// Boot it. The image's baked-in cmd runs by default.
+const vm = await boot({ image: "./my-server.img", name: "counter" });
 // ... let it run, serve traffic, accumulate state ...
 
-const artifact = await snapshot(vm); // Buffer or writable stream
-await fs.writeFile("counter.tar", artifact);
+await vm.snapshot("./counter.snap"); // CRIU-freeze to disk
 
-// elsewhere:
-const restored = await restore("counter.tar");
+// elsewhere (possibly on another host):
+const restored = await boot({ snapshot: "./counter.snap" });
 ```
 
 See [`packages/runtime/README.md`](packages/runtime/README.md) for the full surface.
+
+## Fast installs inside the guest
+
+A host-side HTTP cache fronts `nodejs.org/dist/`, so `fnm install` inside a
+fresh VM pulls through it instead of the internet. First install populates
+`~/.machinen/cache/`; subsequent installs are served entirely from disk, so a
+warm laptop boots Node-capable VMs with no upstream reachable. Transparent —
+the runtime starts the cache and points the guest's `FNM_NODE_DIST_MIRROR` at
+it automatically.
 
 ## Monorepo layout
 
