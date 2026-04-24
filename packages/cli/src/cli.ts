@@ -360,9 +360,10 @@ async function cmdExec(args: string[]): Promise<number> {
     // commands naturally. Users who want raw exec of a single binary
     // can quote it like `machinen exec foo -- /bin/ls`.
     const joined = cmdArgs.join(" ");
-    const res = await vm.execRaw(joined);
-    process.stdout.write(res.stdout);
-    process.stderr.write(res.stderr);
+    const res = await vm.execRaw(joined, {
+      onStdout: (chunk) => process.stdout.write(chunk),
+      onStderr: (chunk) => process.stderr.write(chunk),
+    });
     return res.exitCode;
   } finally {
     await vm.detach();
@@ -401,9 +402,10 @@ async function cmdAttach(args: string[]): Promise<number> {
       if (line.length === 0) {
         continue;
       }
-      const res = await vm.execRaw(line);
-      process.stdout.write(res.stdout);
-      process.stderr.write(res.stderr);
+      await vm.execRaw(line, {
+        onStdout: (chunk) => process.stdout.write(chunk),
+        onStderr: (chunk) => process.stderr.write(chunk),
+      });
     }
     return 0;
   } finally {
