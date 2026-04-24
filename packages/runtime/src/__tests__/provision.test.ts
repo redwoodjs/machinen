@@ -5,8 +5,8 @@
 //              hook, freezes, then spawns from the produced snapshot and
 //              asserts the marker's content + mode survive. Skips when the
 //              HVF test binary or base rootfs tarball aren't staged. Stays
-//              off the apt/network path — libslirp stability under sustained
-//              transfer is a separate concern (#82).
+//              off the network path — this test is about filesystem
+//              round-trip, not download reliability.
 
 import { execSync } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
@@ -128,8 +128,7 @@ describe("provision", () => {
         // a non-default mode. The round-trip below asserts both survive:
         // content proves repackDiskTarToGz captured the write; mode proves
         // tar `--numeric-owner` / perms were preserved. No network — the
-        // apt path depends on libslirp under sustained load, which is
-        // tracked separately (#82) and is not what this test validates.
+        // apt path is orthogonal to what this test validates.
         const result = await provision({
           binary: prereqs.binary,
           cwd: microvmRoot,

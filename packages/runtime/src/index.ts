@@ -851,7 +851,7 @@ function synthesizeAndPackBundle(
       out: cpioPath,
       base: baseAbs,
       mount,
-      guestEnv: effectiveEnv,
+      env: effectiveEnv,
     });
   } catch (err) {
     cleanup();
