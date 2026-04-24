@@ -21,6 +21,7 @@ import { homedir } from "node:os";
 import { dirname, join, normalize, resolve, sep } from "node:path";
 import { pipeline } from "node:stream/promises";
 import debugLib from "debug";
+import { CacheError } from "./errors.ts";
 
 const debug = debugLib("machinen:cache");
 
@@ -100,7 +101,7 @@ export async function spawnArtifactCache(
   const addr = server.address();
   if (!addr || typeof addr === "string") {
     server.close();
-    throw new Error("artifact-cache: failed to read bound address");
+    throw new CacheError("CACHE_BIND_FAILED", "artifact-cache: failed to read bound address");
   }
   debug("listening port=%d cacheDir=%s", addr.port, cacheDir);
 
