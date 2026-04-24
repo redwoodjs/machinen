@@ -1,6 +1,6 @@
-// PTY-backed spawn — #51 M1.5.
+// PTY-backed boot — #51 M1.5.
 //
-// `spawnPty()` is the terminal-aware sibling of `spawn()`. Same handle
+// `bootPty()` is the terminal-aware sibling of `boot()`. Same handle
 // shape (Sandboxes.add takes either one) plus a `.resize(cols, rows)`
 // method that routes through to the master fd, so SIGWINCH on the
 // supervisor's terminal can shrink/grow the attached sandbox's view.
@@ -86,7 +86,7 @@ function findPackageDir(entry: string): string | null {
   return null;
 }
 
-export interface PtySpawnOptions {
+export interface PtyBootOptions {
   /** Absolute or cwd-relative path to the binary to fork. */
   binary: string;
   /** Extra env. Merged over process.env. */
@@ -120,7 +120,7 @@ export interface PtyVmHandle {
  * compatible with `VmHandle` from index.ts so the existing Sandboxes
  * registry can hold it.
  */
-export function spawnPty(opts: PtySpawnOptions): PtyVmHandle {
+export function bootPty(opts: PtyBootOptions): PtyVmHandle {
   const pty = loadPty();
   const child = pty.spawn(opts.binary, opts.args ?? [], {
     name: opts.name ?? "xterm-256color",

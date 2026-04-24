@@ -2,15 +2,15 @@ import { describe, expect, it } from "vitest";
 import { ParseRunArgsError, parseRunArgs } from "../parse-run-args.ts";
 
 describe("parseRunArgs --env", () => {
-  it("collects repeated --env flags into guestEnv", () => {
+  it("collects repeated --env flags into env", () => {
     const parsed = parseRunArgs(["--env", "FOO=bar", "--env", "BAZ=qux", "--", "/bin/echo"]);
-    expect(parsed.guestEnv).toEqual({ FOO: "bar", BAZ: "qux" });
+    expect(parsed.env).toEqual({ FOO: "bar", BAZ: "qux" });
     expect(parsed.double_dash_args).toEqual(["/bin/echo"]);
   });
 
   it("supports --env=KEY=VALUE form", () => {
     const parsed = parseRunArgs(["--env=FOO=bar", "--", "/bin/true"]);
-    expect(parsed.guestEnv).toEqual({ FOO: "bar" });
+    expect(parsed.env).toEqual({ FOO: "bar" });
   });
 
   it("accepts values that contain '=' characters", () => {
@@ -20,24 +20,24 @@ describe("parseRunArgs --env", () => {
       "--",
       "/bin/true",
     ]);
-    expect(parsed.guestEnv).toEqual({
+    expect(parsed.env).toEqual({
       FNM_NODE_DIST_MIRROR: "http://192.168.127.1:9000/node-dist?x=1",
     });
   });
 
   it("allows empty string values", () => {
     const parsed = parseRunArgs(["--env", "FOO=", "--", "/bin/true"]);
-    expect(parsed.guestEnv).toEqual({ FOO: "" });
+    expect(parsed.env).toEqual({ FOO: "" });
   });
 
   it("lets a later --env override an earlier one", () => {
     const parsed = parseRunArgs(["--env", "FOO=first", "--env", "FOO=second", "--", "/bin/true"]);
-    expect(parsed.guestEnv).toEqual({ FOO: "second" });
+    expect(parsed.env).toEqual({ FOO: "second" });
   });
 
-  it("returns undefined guestEnv when no --env is given", () => {
+  it("returns undefined env when no --env is given", () => {
     const parsed = parseRunArgs(["./my-bundle"]);
-    expect(parsed.guestEnv).toBeUndefined();
+    expect(parsed.env).toBeUndefined();
     expect(parsed.positional).toEqual(["./my-bundle"]);
   });
 
@@ -64,7 +64,7 @@ describe("parseRunArgs --env", () => {
       "/mnt/app/index.js",
     ]);
     expect(parsed.mount).toEqual({ host: "/tmp/app", guest: "/mnt/app" });
-    expect(parsed.guestEnv).toEqual({ NODE_ENV: "production" });
+    expect(parsed.env).toEqual({ NODE_ENV: "production" });
     expect(parsed.double_dash_args).toEqual(["node", "/mnt/app/index.js"]);
   });
 });
@@ -110,5 +110,43 @@ describe("parseRunArgs -p", () => {
 
   it("rejects a bare -p with no following argument", () => {
     expect(() => parseRunArgs(["-p"])).toThrow(/-p requires/);
+  });
+});
+
+describe("parseRunArgs --snapshot", () => {
+  it("captures the snapshot path", () => {
+    const parsed = parseRunArgs(["--snapshot", "./warm.snap"]);
+    expect(parsed.snapshot).toBe("./warm.snap");
+  });
+
+  it("supports --snapshot=<path> form", () => {
+    const parsed = parseRunArgs(["--snapshot=./warm.snap"]);
+    expect(parsed.snapshot).toBe("./warm.snap");
+  });
+
+  it("rejects a second --snapshot", () => {
+    expect(() => parseRunArgs(["--snapshot", "a.snap", "--snapshot", "b.snap"])).toThrow(
+      /at most once/,
+    );
+  });
+
+  it("rejects a bare --snapshot with no following argument", () => {
+    expect(() => parseRunArgs(["--snapshot"])).toThrow(/requires a path value/);
+  });
+});
+
+describe("parseRunArgs --name", () => {
+  it("captures the name", () => {
+    const parsed = parseRunArgs(["--name", "worker", "--", "/bin/true"]);
+    expect(parsed.name).toBe("worker");
+  });
+
+  it("supports --name=<value> form", () => {
+    const parsed = parseRunArgs(["--name=worker"]);
+    expect(parsed.name).toBe("worker");
+  });
+
+  it("rejects a second --name", () => {
+    expect(() => parseRunArgs(["--name", "a", "--name", "b"])).toThrow(/at most once/);
   });
 });

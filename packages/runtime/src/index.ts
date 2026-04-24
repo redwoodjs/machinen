@@ -1,7 +1,7 @@
 export { Sandboxes, Supervisor } from "./multiplex.ts";
 export type { SandboxEntry, OnOutputListener, SupervisorOptions } from "./multiplex.ts";
-export { spawnPty } from "./pty.ts";
-export type { PtySpawnOptions, PtyVmHandle } from "./pty.ts";
+export { bootPty } from "./pty.ts";
+export type { PtyBootOptions, PtyVmHandle } from "./pty.ts";
 export { VsockWinsize } from "./winsize.ts";
 export type { VsockWinsizeOptions } from "./winsize.ts";
 export { VsockSecrets } from "./secrets.ts";
@@ -10,10 +10,12 @@ export { VsockFiles } from "./files.ts";
 export type { VsockFilesOptions } from "./files.ts";
 export { VsockExec } from "./exec.ts";
 export type { VsockExecOptions, VsockExecResult } from "./exec.ts";
-export { build, BuildError, resolveBaseRootfs } from "./build.ts";
-export type { BuildHandle, BuildOptions, BuildResult } from "./build.ts";
+export { provision, ProvisionError, resolveBaseRootfs } from "./provision.ts";
+export type { ProvisionOptions, ProvisionResult } from "./provision.ts";
 export { spawnArtifactCache, resolveCacheDir } from "./artifact-cache.ts";
 export type { ArtifactCacheHandle, ArtifactCacheOptions } from "./artifact-cache.ts";
+export { list, registryRoot } from "./registry.ts";
+export type { RegistryEntry } from "./registry.ts";
 export {
   packBundle as mkinitramfsBundle,
   packRootfs as mkinitramfsRootfs,
@@ -22,28 +24,38 @@ export {
   cli as mkinitramfsCli,
 } from "./mkinitramfs.ts";
 
-// @machinen/runtime — TypeScript surface for spawning microVMs.
+// @machinen/runtime — TypeScript surface for booting microVMs.
 //
 // The Zig VMM is a separate binary (today: the test binary produced
 // by `zig build test` in packages/microvm). This package wraps it so
 // application code can say:
 //
-//   const vm = await spawn({ binary, env: { MACHINEN_BOOT_TEST: "1" } });
-//   vm.stdin.write("process.version\n.exit\n");
-//   const out = await vm.output();
+//   const vm = await boot({ image: "./rootfs.tar.gz", cmd: ["/bin/sh"] });
+//   await vm.exec("uname -a");
 //   await vm.wait();
 //
-// #50 M2 adds snapshot-aware spawn on top:
+// #50 M2 adds CRIU snapshot/restore on top:
 //
-//   await buildSnapshot({ binary, diskPath: "./warm.img", ... });
-//   const vm = await spawn({ binary, disk: "./warm.img" });
-//   // vm is now running a process that was frozen in a previous VMM.
+//   const vm = await boot({ image, cmd });
+//   await vm.exec("prep stuff");
+//   await vm.snapshot("./warm.snap");           // CRIU dumps; VM exits
+//
+//   const restored = await boot({ snapshot: "./warm.snap" });
+//   // restored is running a process that was frozen in the prior VMM.
 //
 // No multiplexing yet — one VM per handle (#51 is its own issue).
 
 import { type ChildProcessWithoutNullStreams, spawn as nodeSpawn } from "node:child_process";
 import { once } from "node:events";
-import { closeSync, existsSync, mkdtempSync, openSync, rmSync, statSync, writeSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { createRequire } from "node:module";
 import { arch as osArch, platform as osPlatform, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -51,8 +63,10 @@ import type { Readable, Writable } from "node:stream";
 import { packBundle as mkinitramfsPackBundle } from "./mkinitramfs.ts";
 import { exposePort, resolveGvproxyBinary, spawnGvproxy, warnGvproxyMissing } from "./gvproxy.ts";
 import { spawnArtifactCache } from "./artifact-cache.ts";
+import { VsockExec, type VsockExecOptions, type VsockExecResult } from "./exec.ts";
+import { findEntry, isAlive, newVmId, removeEntry, writeEntry } from "./registry.ts";
 
-export class SpawnError extends Error {}
+export class BootError extends Error {}
 
 const require_ = createRequire(import.meta.url);
 
@@ -61,14 +75,14 @@ const require_ = createRequire(import.meta.url);
  *   1. `MACHINEN_VMM` env var (dev-mode override)
  *   2. `require.resolve("@machinen/vmm-<arch>-<os>")` → `binary` export
  *
- * Callers can pass an explicit `binary` to `spawn()` to bypass this.
+ * Callers can pass an explicit `binary` to `boot()` to bypass this.
  */
 export function resolveVmmBinary(): string {
   const envOverride = process.env.MACHINEN_VMM;
   if (envOverride) {
     const abs = resolve(envOverride);
     if (!existsSync(abs)) {
-      throw new SpawnError(`MACHINEN_VMM is set to ${envOverride}, but that file does not exist.`);
+      throw new BootError(`MACHINEN_VMM is set to ${envOverride}, but that file does not exist.`);
     }
     return abs;
   }
@@ -78,15 +92,15 @@ export function resolveVmmBinary(): string {
   try {
     const mod = require_(pkgName) as { binary: string };
     if (!mod.binary || !existsSync(mod.binary)) {
-      throw new SpawnError(`${pkgName} is installed but its binary is missing at ${mod.binary}.`);
+      throw new BootError(`${pkgName} is installed but its binary is missing at ${mod.binary}.`);
     }
     return mod.binary;
   } catch (err) {
-    if (err instanceof SpawnError) {
+    if (err instanceof BootError) {
       throw err;
     }
     const msg = err instanceof Error ? err.message : String(err);
-    throw new SpawnError(
+    throw new BootError(
       `No VMM binary found for ${key}.\n` +
         `  Expected package: ${pkgName}\n` +
         `  Install: npm i ${pkgName}   (or npm i -g @machinen/cli)\n` +
@@ -95,78 +109,83 @@ export function resolveVmmBinary(): string {
   }
 }
 
-export interface SpawnOptions {
+export interface BootOptions {
   /**
-   * Absolute or cwd-relative path to the built VMM binary. Optional —
-   * if omitted, spawn() resolves it via `resolveVmmBinary()` (MACHINEN_VMM
-   * env override, falling back to the platform-matched
-   * `@machinen/vmm-<arch>-<os>` package).
+   * Path to a rootfs tarball to boot from (e.g. the output of
+   * `provision()`, or `rootfs-debian-arm64.tar.gz` shipped in releases).
+   * Paired with `cmd` — both required, or neither (test-mode binary
+   * boots and snapshot-only restores both skip initramfs packing).
+   */
+  image?: string;
+  /**
+   * Command to run inside the guest. Packed into the synthesized
+   * `/machinen-config.json`. Paired with `image` — both required, or
+   * neither.
+   */
+  cmd?: string[];
+  /**
+   * Env vars exposed to the guest workload. Packed into the synthesized
+   * `/machinen-config.json`. Distinct from `vmmEnv`, which only affects
+   * the host-side VMM process.
+   */
+  env?: Record<string, string>;
+  /**
+   * Attach this host file as `/dev/vda` inside the guest. Typically a
+   * CRIU snapshot image produced by `vm.snapshot()`, for a sub-second
+   * restore on boot. See #47 (virtio-blk) and #50.
+   */
+  snapshot?: string;
+  /**
+   * A single host directory copied into the guest at boot. The guest
+   * path must live under `/mnt/`. Copy-once semantics: guest writes are
+   * discarded when the VM exits. See #64, #78.
+   */
+  mount?: { host: string; guest: string };
+  /**
+   * Host -> guest TCP port forwards installed via gvproxy's control
+   * API. Each entry maps `hostPort` on the host (bound to `hostAddr`,
+   * default `127.0.0.1`) to `guestPort` inside the guest.
+   */
+  portForward?: Array<{ hostPort: number; guestPort: number; hostAddr?: string }>;
+
+  // --- host/VMM-process config ---
+
+  /**
+   * Absolute or cwd-relative path to the VMM binary. Optional —
+   * if omitted, `boot()` resolves it via `resolveVmmBinary()`.
    */
   binary?: string;
-  /** Extra env vars passed to the guest wrapper (not into the guest itself). */
-  env?: Record<string, string>;
   /** Working directory for the VMM (for finding fixture files). */
   cwd?: string;
   /** Extra argv for the VMM. */
   args?: string[];
+  /** Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`. */
+  kernel?: string;
+  /** Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`. */
+  dtb?: string;
   /**
    * Milliseconds to wait in `wait()` before giving up and rejecting.
    * Defaults to 60s. Pass `null` to wait forever.
    */
   timeoutMs?: number | null;
   /**
-   * Attach this host file as `/dev/vda` inside the guest. Same thing
-   * as setting `MACHINEN_DISK` in `env`; this is just the named
-   * shortcut. See #47 (virtio-blk) and #50 (snapshot-from-disk).
+   * Env passed to the VMM process on the host side (not exposed to the
+   * guest workload). Mostly for dev/test flags like `MACHINEN_BOOT_TEST`.
    */
-  disk?: string;
-  /** Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`. */
-  kernel?: string;
-  /** Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`. */
-  dtb?: string;
+  vmmEnv?: Record<string, string>;
   /**
-   * Path to a bundle directory: `<bundle>/rootfs/` + `<bundle>/machinen-config.json`.
-   * When set, the runtime packs the bundle into a cpio initramfs and
-   * points the VMM at it via `MACHINEN_INITRD`.
+   * Optional human-friendly name for this VM. When set, `attach({ name })`
+   * can reconnect from another process. Auto-assigned id is always set;
+   * name is just for discovery.
    */
-  bundle?: string;
-  /**
-   * Optional path to the base rootfs tarball (e.g. the one shipped in
-   * GitHub Releases as `rootfs-debian-arm64.tar.gz`). When provided with
-   * `bundle`, the runtime extracts the tarball and overlays
-   * `<bundle>/rootfs/` on top before packing the cpio. When omitted,
-   * `<bundle>/rootfs/` is treated as a standalone rootfs.
-   */
-  baseRootfs?: string;
-  /**
-   * A single host directory copied into the guest at boot, between the
-   * base rootfs and the bundle's `rootfs/` overlay. The guest path must
-   * live under `/mnt/`. Bundle files win on path collisions.
-   *
-   * Copy-once, scratch-layer semantics: guest writes are discarded when
-   * the VM exits; the host directory on disk is never modified. See
-   * #64. Live-share follow-up: #78.
-   */
-  mount?: { host: string; guest: string };
-  /**
-   * Env vars to expose to the guest workload (i.e. to the process
-   * `cmd` execs inside the VM). Merged into the `env` field of the
-   * packed `/machinen-config.json`; the bundle's on-disk env wins on
-   * key collision. Distinct from `env`, which only affects the host-
-   * side VMM process. See #89.
-   */
-  guestEnv?: Record<string, string>;
-  /**
-   * Host -> guest TCP port forwards installed via gvproxy's control
-   * API. Each entry maps `hostPort` on the host (bound to `hostAddr`,
-   * default `127.0.0.1`) to `guestPort` inside the guest. Only valid
-   * when the runtime owns the gvproxy it spawned — passing this
-   * alongside a pre-set `MACHINEN_NET_SOCKET` is an error.
-   */
-  portForward?: Array<{ hostPort: number; guestPort: number; hostAddr?: string }>;
+  name?: string;
 }
 
 export interface VmHandle {
+  /** Auto-generated short id registered at boot. Stable across attach. */
+  readonly id: string;
+  /** Optional human-friendly name passed to `boot({ name })`. */
+  readonly name?: string;
   readonly pid: number;
   readonly stdin: Writable;
   readonly stdout: Readable;
@@ -178,14 +197,76 @@ export interface VmHandle {
   /** Send SIGKILL to the VM. Resolves once it's really gone. */
   kill(): Promise<void>;
 
+  /**
+   * Drop this host-side handle without killing the VMM. The VM keeps
+   * running and can be re-attached from another process. For locally-
+   * booted handles this closes captured streams; `wait()` and
+   * `exec()` become unreliable afterwards.
+   */
+  detach(): Promise<void>;
+
   /** Buffer stdout until the process exits; return it as a UTF-8 string. */
   output(): Promise<string>;
 
   /** Same as `output()` but for stderr (where guest console lands). */
   errorOutput(): Promise<string>;
+
+  /**
+   * Run a shell command inside the guest via the vsock exec-agent. Throws
+   * BootError on non-zero exit; callers who want to inspect failure
+   * should use `execRaw`.
+   *
+   * Requires the rootfs to have the exec-agent running on vsock port 1978
+   * (the standard debian base ships it). The vsock bridge is set up
+   * automatically by `boot()` unless the caller pre-set MACHINEN_VSOCK.
+   */
+  exec(cmd: string, opts?: VsockExecOptions): Promise<VsockExecResult>;
+
+  /** Like `exec()` but returns non-zero exit codes instead of throwing. */
+  execRaw(cmd: string, opts?: VsockExecOptions): Promise<VsockExecResult>;
+
+  /**
+   * Freeze this VM with CRIU and write the image to `outPath`.
+   *
+   * The caller must have booted the VM with `disk: <path>` so CRIU has
+   * a target to write to; `vm.snapshot()` copies that disk to `outPath`
+   * once the dump completes. If boot had no disk attached, this throws.
+   *
+   * Guest contract: the rootfs must ship a dump helper callable via
+   * vsock exec that (1) runs `criu dump` against the workload process,
+   * (2) writes `dump OK` to the console, and (3) triggers PSCI
+   * SYSTEM_OFF. Default path is `/sbin/machinen-dump` — override via
+   * `opts.dumpCmd`. Implemented by #50.
+   *
+   * The VM exits as part of the dump. To continue using the VM
+   * afterwards, boot a new one from the produced snapshot.
+   */
+  snapshot(outPath: string, opts?: SnapshotOptions): Promise<SnapshotResult>;
 }
 
-export async function spawn(opts: SpawnOptions = {}): Promise<VmHandle> {
+export interface SnapshotOptions {
+  /**
+   * Command to run in the guest to trigger the CRIU dump. Defaults to
+   * `/sbin/machinen-dump`.
+   */
+  dumpCmd?: string;
+  /**
+   * Wall-clock ceiling for the dump + shutdown. If the VMM hasn't exited
+   * in this window we SIGKILL it and fail. Default 90s.
+   */
+  timeoutMs?: number;
+}
+
+export interface SnapshotResult {
+  /** Absolute path to the written snapshot image. */
+  snapshotPath: string;
+  /** Time from `snapshot()` entry to VMM exit, in milliseconds. */
+  elapsedMs: number;
+  /** Guest console output captured during the dump. */
+  consoleLog: string;
+}
+
+export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   // Validate portForward up front — before resolving the binary or
   // touching the filesystem — so caller-input errors surface with a
   // clear message. The env-dependent "pre-set MACHINEN_NET_SOCKET"
@@ -193,9 +274,9 @@ export async function spawn(opts: SpawnOptions = {}): Promise<VmHandle> {
   const portForward = opts.portForward ?? [];
   if (portForward.length > 0) {
     const preSetNetSock =
-      (opts.env && opts.env.MACHINEN_NET_SOCKET) || process.env.MACHINEN_NET_SOCKET;
+      (opts.vmmEnv && opts.vmmEnv.MACHINEN_NET_SOCKET) || process.env.MACHINEN_NET_SOCKET;
     if (preSetNetSock) {
-      throw new SpawnError(
+      throw new BootError(
         "portForward requires the runtime to own gvproxy, but MACHINEN_NET_SOCKET " +
           "is already set. Either drop the env var or install the forwards yourself " +
           "against your gvproxy's control API.",
@@ -208,13 +289,11 @@ export async function spawn(opts: SpawnOptions = {}): Promise<VmHandle> {
         ["guestPort", m.guestPort],
       ] as const) {
         if (!Number.isInteger(port) || port < 1 || port > 65535) {
-          throw new SpawnError(
-            `portForward: ${label} must be an integer in 1..65535 (got ${port})`,
-          );
+          throw new BootError(`portForward: ${label} must be an integer in 1..65535 (got ${port})`);
         }
       }
       if (seen.has(m.hostPort)) {
-        throw new SpawnError(`portForward: duplicate hostPort ${m.hostPort}`);
+        throw new BootError(`portForward: duplicate hostPort ${m.hostPort}`);
       }
       seen.add(m.hostPort);
     }
@@ -223,33 +302,55 @@ export async function spawn(opts: SpawnOptions = {}): Promise<VmHandle> {
   const binaryInput = opts.binary ?? resolveVmmBinary();
   const binary = resolve(opts.cwd ?? process.cwd(), binaryInput);
   if (!existsSync(binary)) {
-    throw new SpawnError(`VMM binary not found at ${binary}`);
+    throw new BootError(`VMM binary not found at ${binary}`);
+  }
+
+  // `image` and `cmd` are paired: image provides the rootfs to boot,
+  // cmd is what runs inside it. Either both or neither. (Dummy-binary
+  // boots for tests, and snapshot-only restores that rely on a baked
+  // initramfs, both pass neither.)
+  if (Boolean(opts.image) !== Boolean(opts.cmd)) {
+    throw new BootError("boot: `image` and `cmd` must be specified together.");
   }
 
   const env: Record<string, string> = {
     ...(process.env as Record<string, string>),
-    ...opts.env,
+    ...opts.vmmEnv,
   };
-  if (opts.disk) {
-    const abs = resolve(opts.cwd ?? process.cwd(), opts.disk);
-    if (!existsSync(abs)) {
-      throw new SpawnError(`disk image not found: ${abs}`);
+  let diskAbs: string | undefined;
+  if (opts.snapshot) {
+    diskAbs = resolve(opts.cwd ?? process.cwd(), opts.snapshot);
+    if (!existsSync(diskAbs)) {
+      throw new BootError(`snapshot image not found: ${diskAbs}`);
     }
-    env.MACHINEN_DISK = abs;
+    env.MACHINEN_DISK = diskAbs;
   }
   if (opts.kernel) {
     const abs = resolve(opts.cwd ?? process.cwd(), opts.kernel);
     if (!existsSync(abs)) {
-      throw new SpawnError(`kernel not found: ${abs}`);
+      throw new BootError(`kernel not found: ${abs}`);
     }
     env.MACHINEN_KERNEL = abs;
   }
   if (opts.dtb) {
     const abs = resolve(opts.cwd ?? process.cwd(), opts.dtb);
     if (!existsSync(abs)) {
-      throw new SpawnError(`dtb not found: ${abs}`);
+      throw new BootError(`dtb not found: ${abs}`);
     }
     env.MACHINEN_DTB = abs;
+  }
+
+  // #94: always wire up a vsock UDS bridge so `vm.exec()` works out of
+  // the box. Callers who set their own `MACHINEN_VSOCK` (e.g. the build
+  // flow) win — we parse their spec to extract the UDS path for exec.
+  let vsockUdsPath: string | undefined;
+  let vsockTempDir: string | undefined;
+  if (env.MACHINEN_VSOCK) {
+    vsockUdsPath = parseVsockUdsPath(env.MACHINEN_VSOCK);
+  } else {
+    vsockTempDir = mkdtempSync(join(tmpdir(), "machinen-vsock-"));
+    vsockUdsPath = join(vsockTempDir, "exec.sock");
+    env.MACHINEN_VSOCK = `in:1978:${vsockUdsPath}`;
   }
 
   // gvproxy + artifact cache (#88) + host→guest port forwards (#87)
@@ -257,11 +358,11 @@ export async function spawn(opts: SpawnOptions = {}): Promise<VmHandle> {
   // guest env before packBundle seals the initramfs. If anything
   // downstream throws (packBundle validation, exposePort failure,
   // nodeSpawn failure), the outer catch shuts both supervisors back
-  // down — otherwise a failed spawn would leave orphans behind.
+  // down — otherwise a failed boot would leave orphans behind.
   let gvStop: (() => void) | undefined;
   let cacheStop: (() => Promise<void>) | undefined;
   let bundleTempDir: string | undefined;
-  const mergedGuestEnv: Record<string, string> = { ...opts.guestEnv };
+  const mergedGuestEnv: Record<string, string> = { ...opts.env };
 
   try {
     if (!env.MACHINEN_NET_SOCKET) {
@@ -275,7 +376,7 @@ export async function spawn(opts: SpawnOptions = {}): Promise<VmHandle> {
         }
       } else {
         if (portForward.length > 0) {
-          throw new SpawnError(
+          throw new BootError(
             "portForward requires gvproxy, but no gvproxy binary was found. " +
               "Install gvproxy or point MACHINEN_GVPROXY at one.",
           );
@@ -306,8 +407,8 @@ export async function spawn(opts: SpawnOptions = {}): Promise<VmHandle> {
       }
     }
 
-    if (opts.bundle) {
-      const packed = packBundle({ ...opts, guestEnv: mergedGuestEnv });
+    if (opts.image || opts.cmd) {
+      const packed = synthesizeAndPackBundle(opts, mergedGuestEnv);
       bundleTempDir = packed.tempDir;
       env.MACHINEN_INITRD = packed.cpioPath;
     }
@@ -323,6 +424,11 @@ export async function spawn(opts: SpawnOptions = {}): Promise<VmHandle> {
         rmSync(bundleTempDir, { recursive: true, force: true });
       } catch {}
     }
+    if (vsockTempDir) {
+      try {
+        rmSync(vsockTempDir, { recursive: true, force: true });
+      } catch {}
+    }
     throw err;
   }
 
@@ -332,21 +438,51 @@ export async function spawn(opts: SpawnOptions = {}): Promise<VmHandle> {
     stdio: ["pipe", "pipe", "pipe"],
   }) as ChildProcessWithoutNullStreams;
 
-  if (bundleTempDir || gvStop || cacheStop) {
-    child.once("exit", () => {
-      if (bundleTempDir) {
-        try {
-          rmSync(bundleTempDir, { recursive: true, force: true });
-        } catch {}
-      }
-      if (gvStop) {
-        gvStop();
-      }
-      if (cacheStop) {
-        void cacheStop();
-      }
-    });
+  // #98: register the running VM so another process can attach. The
+  // entry is keyed by an auto-generated id; optional name lets
+  // `attach({ name })` look it up by something memorable.
+  const id = newVmId();
+  const vmName = opts.name;
+  const childPid = child.pid ?? -1;
+  let registered = false;
+  if (childPid > 0 && vsockUdsPath) {
+    try {
+      writeEntry({
+        id,
+        name: vmName,
+        pid: childPid,
+        socketPath: vsockUdsPath,
+        imagePath: opts.image ? resolve(opts.cwd ?? process.cwd(), opts.image) : undefined,
+        startedAt: Date.now(),
+      });
+      registered = true;
+    } catch {
+      // Registry write is best-effort; attach won't find this VM but
+      // local boot-and-use still works fine.
+    }
   }
+
+  child.once("exit", () => {
+    if (bundleTempDir) {
+      try {
+        rmSync(bundleTempDir, { recursive: true, force: true });
+      } catch {}
+    }
+    if (vsockTempDir) {
+      try {
+        rmSync(vsockTempDir, { recursive: true, force: true });
+      } catch {}
+    }
+    if (gvStop) {
+      gvStop();
+    }
+    if (cacheStop) {
+      void cacheStop();
+    }
+    if (registered) {
+      removeEntry(id);
+    }
+  });
 
   const timeoutMs = opts.timeoutMs === undefined ? 60_000 : opts.timeoutMs;
 
@@ -360,7 +496,9 @@ export async function spawn(opts: SpawnOptions = {}): Promise<VmHandle> {
   const errorCollector = collect(child.stderr);
 
   const handle: VmHandle = {
-    pid: child.pid ?? -1,
+    id,
+    name: vmName,
+    pid: childPid,
     stdin: child.stdin,
     stdout: child.stdout,
     stderr: child.stderr,
@@ -379,7 +517,7 @@ export async function spawn(opts: SpawnOptions = {}): Promise<VmHandle> {
               settled,
               new Promise<never>((_, reject) => {
                 setTimeout(
-                  () => reject(new SpawnError(`VMM did not exit within ${timeoutMs}ms`)),
+                  () => reject(new BootError(`VMM did not exit within ${timeoutMs}ms`)),
                   timeoutMs,
                 ).unref();
               }),
@@ -403,37 +541,243 @@ export async function spawn(opts: SpawnOptions = {}): Promise<VmHandle> {
 
     output: () => outputCollector,
     errorOutput: () => errorCollector,
+
+    async detach() {
+      // Drop the locally-booted process's hold without killing it:
+      // unref stdio and unregister from the registry. The VMM keeps
+      // running; `attach({ name | id })` from another process can
+      // pick it back up via the vsock UDS, which is *not* cleaned up
+      // on detach (only on VMM exit).
+      child.stdin.end();
+      child.unref();
+      // Intentionally leave the registry entry in place — detach means
+      // "someone else will attach," not "this VM is gone."
+    },
+
+    async exec(cmd, execOpts) {
+      if (!vsockUdsPath) {
+        throw new BootError(
+          "vm.exec: no vsock UDS available — MACHINEN_VSOCK was set to an " +
+            "unrecognized spec. Expected `in:<port>:<uds-path>`.",
+        );
+      }
+      const res = await VsockExec.run(vsockUdsPath, cmd, execOpts);
+      if (res.exitCode !== 0) {
+        throw new BootError(
+          `vm.exec failed (code ${res.exitCode}): ${cmd}\nstderr:\n${res.stderr}`,
+        );
+      }
+      return res;
+    },
+
+    execRaw(cmd, execOpts) {
+      if (!vsockUdsPath) {
+        return Promise.reject(
+          new BootError(
+            "vm.execRaw: no vsock UDS available — MACHINEN_VSOCK was set to " +
+              "an unrecognized spec. Expected `in:<port>:<uds-path>`.",
+          ),
+        );
+      }
+      return VsockExec.run(vsockUdsPath, cmd, execOpts);
+    },
+
+    async snapshot(outPath, snapshotOpts) {
+      if (!diskAbs) {
+        throw new BootError(
+          "vm.snapshot: no disk was attached at boot. Pass `snapshot: '<path>'` to " +
+            "boot() so CRIU has a target to write to.",
+        );
+      }
+      const dumpCmd = snapshotOpts?.dumpCmd ?? "/sbin/machinen-dump";
+      const deadlineMs = snapshotOpts?.timeoutMs ?? 90_000;
+      const t0 = Date.now();
+
+      // Trigger the in-guest dump. The vsock connection typically closes
+      // mid-transaction as the guest powers off — all such close modes
+      // are fine; `wait()` below is the real success signal.
+      await this.execRaw(dumpCmd, { connectTimeoutMs: 2_000 }).catch(() => {});
+
+      const killTimer = setTimeout(() => void this.kill(), deadlineMs);
+      killTimer.unref();
+      try {
+        await this.wait();
+      } finally {
+        clearTimeout(killTimer);
+      }
+      const elapsedMs = Date.now() - t0;
+      const consoleLog = await this.errorOutput();
+
+      if (!consoleLog.includes("dump OK")) {
+        throw new BootError(
+          `vm.snapshot: guest did not report "dump OK" — check console log:\n${consoleLog.slice(-2000)}`,
+        );
+      }
+
+      const outAbs = resolve(outPath);
+      if (outAbs !== diskAbs) {
+        copyFileSync(diskAbs, outAbs);
+      }
+      return { snapshotPath: outAbs, elapsedMs, consoleLog };
+    },
   };
 
   return handle;
 }
 
-function packBundle(opts: SpawnOptions): { tempDir: string; cpioPath: string } {
-  const bundleDir = resolve(opts.cwd ?? process.cwd(), opts.bundle!);
-  if (!existsSync(bundleDir) || !statSync(bundleDir).isDirectory()) {
-    throw new SpawnError(`bundle directory not found: ${bundleDir}`);
-  }
-  if (!existsSync(join(bundleDir, "rootfs"))) {
-    throw new SpawnError(`bundle missing rootfs/: ${bundleDir}`);
-  }
-  if (!existsSync(join(bundleDir, "machinen-config.json"))) {
-    throw new SpawnError(`bundle missing machinen-config.json: ${bundleDir}`);
-  }
+/**
+ * Parse the UDS path out of a `MACHINEN_VSOCK` spec. Format is
+ * `<direction>:<port>:<uds-path>` — we return the path portion so
+ * `vm.exec()` knows where to dial. Returns undefined on unrecognized
+ * shapes (caller-provided bespoke formats) so the handle can throw a
+ * clear error if `.exec()` ends up called on it.
+ */
+function parseVsockUdsPath(spec: string): string | undefined {
+  const match = spec.match(/^[^:]+:\d+:(.+)$/);
+  return match ? match[1] : undefined;
+}
 
+export interface AttachOptions {
+  /** Look up a VM by its registry id. One of `id` or `name` is required. */
+  id?: string;
+  /** Look up a VM by the name passed to `boot({ name })`. */
+  name?: string;
+}
+
+/**
+ * Reconnect to a running VM registered by an earlier `boot()` call
+ * (possibly from a different process). Returns a `VmHandle` that can
+ * `exec()`, `snapshot()`, and `kill()` the remote VM via the vsock
+ * bridge the booter left behind.
+ *
+ * Attached handles have inert stream properties (`stdin`/`stdout`/
+ * `stderr` are empty `PassThrough`s) — those belong to the original
+ * booter. `output()`/`errorOutput()` resolve with the empty string.
+ * `wait()` polls the pid rather than listening for `exit`.
+ */
+export async function attach(opts: AttachOptions): Promise<VmHandle> {
+  const entry = findEntry(opts);
+  if (!entry) {
+    const q = opts.id ? `id ${opts.id}` : `name ${opts.name}`;
+    throw new BootError(`attach: no running VM found for ${q}`);
+  }
+  const { PassThrough } = await import("node:stream");
+  const stdin = new PassThrough();
+  const stdout = new PassThrough();
+  const stderr = new PassThrough();
+  stdout.end();
+  stderr.end();
+
+  const waitForExit = async (): Promise<{
+    code: number | null;
+    signal: NodeJS.Signals | null;
+  }> => {
+    // Poll the pid at 200ms cadence. Rough, but adequate for a
+    // rarely-hit path (usually attach is used for exec/snapshot, not
+    // for waiting on termination).
+    while (isAlive(entry.pid)) {
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    return { code: null, signal: null };
+  };
+
+  const handle: VmHandle = {
+    id: entry.id,
+    name: entry.name,
+    pid: entry.pid,
+    stdin,
+    stdout,
+    stderr,
+
+    async wait() {
+      return waitForExit();
+    },
+
+    async kill() {
+      if (!isAlive(entry.pid)) {
+        return;
+      }
+      try {
+        process.kill(entry.pid, "SIGKILL");
+      } catch {
+        // Already dead.
+      }
+      await waitForExit();
+    },
+
+    async detach() {
+      // No-op for attach handles — there's no local child to unref.
+    },
+
+    async output() {
+      return "";
+    },
+
+    async errorOutput() {
+      return "";
+    },
+
+    async exec(cmd, execOpts) {
+      const res = await VsockExec.run(entry.socketPath, cmd, execOpts);
+      if (res.exitCode !== 0) {
+        throw new BootError(
+          `vm.exec failed (code ${res.exitCode}): ${cmd}\nstderr:\n${res.stderr}`,
+        );
+      }
+      return res;
+    },
+
+    execRaw(cmd, execOpts) {
+      return VsockExec.run(entry.socketPath, cmd, execOpts);
+    },
+
+    async snapshot(outPath, snapshotOpts) {
+      // Attach-snapshot: we don't know the disk path the VM was booted
+      // with. Triggering a CRIU dump still works; the output is written
+      // to /dev/vda inside the guest, but we have no way to copy it
+      // from here. Snapshot-from-attach is deferred to a follow-up.
+      throw new BootError(
+        "vm.snapshot() is not supported on attached handles yet — snapshot " +
+          "from the process that called boot(). Output path was: " +
+          String(outPath) +
+          (snapshotOpts ? " (opts ignored)" : ""),
+      );
+    },
+  };
+  return handle;
+}
+
+function synthesizeAndPackBundle(
+  opts: BootOptions,
+  mergedGuestEnv: Record<string, string>,
+): { tempDir: string; cpioPath: string } {
   const tempDir = mkdtempSync(join(tmpdir(), "machinen-bundle-"));
   const cpioPath = join(tempDir, "initramfs.cpio");
+  const synthBundleDir = join(tempDir, "bundle");
   const cleanup = () => {
     try {
       rmSync(tempDir, { recursive: true, force: true });
     } catch {}
   };
 
+  // Synthesize the bundle directory from `cmd` + guest-env. No
+  // user-authored machinen-config.json; we generate it here and the
+  // caller never sees it.
+  mkdirSync(join(synthBundleDir, "rootfs"), { recursive: true });
+  writeFileSync(
+    join(synthBundleDir, "machinen-config.json"),
+    JSON.stringify({
+      cmd: opts.cmd,
+      env: mergedGuestEnv,
+    }),
+  );
+
   let baseAbs: string | undefined;
-  if (opts.baseRootfs) {
-    baseAbs = resolve(opts.cwd ?? process.cwd(), opts.baseRootfs);
+  if (opts.image) {
+    baseAbs = resolve(opts.cwd ?? process.cwd(), opts.image);
     if (!existsSync(baseAbs)) {
       cleanup();
-      throw new SpawnError(`base rootfs tarball not found: ${baseAbs}`);
+      throw new BootError(`image tarball not found: ${baseAbs}`);
     }
   }
 
@@ -448,27 +792,27 @@ function packBundle(opts: SpawnOptions): { tempDir: string; cpioPath: string } {
     const hostAbs = resolve(opts.cwd ?? process.cwd(), opts.mount.host);
     if (!existsSync(hostAbs)) {
       cleanup();
-      throw new SpawnError(`mount host path not found: ${opts.mount.host}`);
+      throw new BootError(`mount host path not found: ${opts.mount.host}`);
     }
     if (!statSync(hostAbs).isDirectory()) {
       cleanup();
-      throw new SpawnError(`mount host path must be a directory (got a file): ${opts.mount.host}`);
+      throw new BootError(`mount host path must be a directory (got a file): ${opts.mount.host}`);
     }
     mount = { host: hostAbs, guest: normalizeMountGuest(opts.mount.guest) };
   }
 
   try {
     mkinitramfsPackBundle({
-      bundle: bundleDir,
+      bundle: synthBundleDir,
       out: cpioPath,
       base: baseAbs,
       mount,
-      guestEnv: opts.guestEnv,
+      guestEnv: mergedGuestEnv,
     });
   } catch (err) {
     cleanup();
     const msg = err instanceof Error ? err.message : String(err);
-    throw new SpawnError(`mkinitramfs --bundle failed: ${msg}`);
+    throw new BootError(`mkinitramfs pack failed: ${msg}`);
   }
   return { tempDir, cpioPath };
 }
@@ -483,11 +827,11 @@ function normalizeMountGuest(guest: string): string {
 
 function validateMountGuest(guest: string): void {
   if (!guest || !guest.startsWith("/")) {
-    throw new SpawnError(`mount guest path must be absolute: ${guest}`);
+    throw new BootError(`mount guest path must be absolute: ${guest}`);
   }
   const trimmed = normalizeMountGuest(guest);
   if (!trimmed.startsWith(MOUNT_ROOT) || trimmed === MOUNT_ROOT.replace(/\/$/, "")) {
-    throw new SpawnError(
+    throw new BootError(
       `mount guest path must live under ${MOUNT_ROOT} (got ${guest}) — ` +
         `pick a sub-path like ${MOUNT_ROOT}app`,
     );
@@ -510,93 +854,14 @@ function collect(stream: Readable): Promise<string> {
 //
 // A snapshot is "the serialized state of a warm process tree plus
 // whatever filesystem state the warmup left behind." It lives as a
-// single ext4 disk image that the guest:
+// single ext4 disk image the guest writes CRIU images into.
 //
-//   - formats and writes CRIU images into during the warmup boot, and
-//   - mounts and restores from during every spawn boot.
-//
-// The runtime's job here is the orchestration around that image:
-// create it, boot the VMM pointing at it, watch for the warmup to
-// finish, then hand the same image off to `spawn({ disk: ... })`
-// for as many restores as the caller wants.
-
-export interface BuildSnapshotOptions extends SpawnOptions {
-  /** Output file for the snapshot image. Created if missing. */
-  diskPath: string;
-  /** Size of the blank disk to create (bytes). Default 128 MiB. */
-  diskSizeBytes?: number;
-  /**
-   * Wall-clock ceiling for the warmup run. If the VMM doesn't exit
-   * cleanly in this window we SIGKILL it and fail. Default 90s.
-   */
-  timeoutMs?: number;
-}
-
-export interface SnapshotResult {
-  diskPath: string;
-  /** Time from process.spawn to VMM exit, in milliseconds. */
-  elapsedMs: number;
-  /** Guest console output captured during the warmup run. */
-  consoleLog: string;
-}
+// Production path: `vm.snapshot(outPath)` on a running VM — the caller
+// brings the VM to a warm state via `vm.exec()`, then snapshots it.
+// Restore: `boot({ snapshot: <snapshot-path> })` on the next boot.
 
 /**
- * Prepare a snapshot image by booting the VMM in "warmup" mode.
- *
- * The caller is responsible for providing a binary + initramfs whose
- * /machinen-config.json points at a warmup entry (`spawn-warmup.sh`
- * in the microvm package's test-fixtures/assets is the reference). This
- * function just:
- *
- *   1. Creates `diskPath` as a blank `diskSizeBytes`-byte file.
- *   2. Launches the VMM with MACHINEN_DISK pointing at that file.
- *   3. Waits for the VMM to exit (the guest triggers this via PSCI
- *      SYSTEM_OFF once CRIU dump is done).
- *   4. Returns the path + stats.
- */
-export async function buildSnapshot(opts: BuildSnapshotOptions): Promise<SnapshotResult> {
-  const diskPath = resolve(opts.cwd ?? process.cwd(), opts.diskPath);
-  const size = opts.diskSizeBytes ?? 128 * 1024 * 1024;
-
-  // Allocate the empty disk file.
-  const fd = openSync(diskPath, "w");
-  try {
-    // Writing a single zero byte at size-1 sparsely extends the file.
-    const buf = Buffer.alloc(1);
-    writeSync(fd, buf, 0, 1, size - 1);
-  } finally {
-    closeSync(fd);
-  }
-
-  const t0 = Date.now();
-  const vm = await spawn({
-    ...opts,
-    disk: diskPath,
-    timeoutMs: opts.timeoutMs ?? null,
-  });
-  // Cap runtime outside of wait() so we can still kill and surface
-  // whatever console output we got.
-  const deadlineMs = opts.timeoutMs ?? 90_000;
-  const kill = setTimeout(() => void vm.kill(), deadlineMs);
-  kill.unref();
-  try {
-    await vm.wait();
-  } finally {
-    clearTimeout(kill);
-  }
-  const elapsedMs = Date.now() - t0;
-  const consoleLog = await vm.errorOutput();
-
-  if (!consoleLog.includes("dump OK")) {
-    throw new SpawnError(
-      `warmup never reported "dump OK" — check console log:\n${consoleLog.slice(-2000)}`,
-    );
-  }
-  return { diskPath, elapsedMs, consoleLog };
-}
-
-/**
- * Time-to-first-output-byte for a spawn. Useful for measuring how
+ * Time-to-first-output-byte for a boot. Useful for measuring how
  * much the snapshot path is (or isn't) buying us.
  */
 export function measureFirstByte(vm: VmHandle): Promise<number> {
