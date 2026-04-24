@@ -173,18 +173,13 @@ async function cmdBoot(args: string[]): Promise<number> {
   }
   const { positional, double_dash_args, mount, env, portForward, snapshot, name } = parsed;
 
-  if (positional.length > 0) {
+  if (positional.length > 1) {
     die(
-      "usage: machinen boot [--snapshot <path>] [--name <name>] [--mount ...] " +
-        "[--env KEY=VALUE]... -- <cmd> [args...]",
+      "usage: machinen boot [<image>] [--snapshot <path>] [--name <name>] " +
+        "[--mount ...] [--env KEY=VALUE]... [-- <cmd> [args...]]",
     );
   }
-  if (!snapshot && double_dash_args.length === 0) {
-    die(
-      "usage: machinen boot --snapshot <path>\n" +
-        "   or: machinen boot [--mount ...] [--env KEY=VALUE]... -- <cmd> [args...]",
-    );
-  }
+  const imageOverride = positional[0];
 
   // Base assets (kernel + dtb + rootfs) are needed to boot.
   //
@@ -204,23 +199,30 @@ async function cmdBoot(args: string[]): Promise<number> {
   // Resolve the kernel, DTB, and base rootfs tarball.
   // MACHINEN_ASSETS_DIR uses the unrenamed build-base-assets.sh output
   // names; the cache renames on download (see `ensureBaseAssets`'s
-  // `assets` array).
+  // `assets` array). When the caller passes an image positional, it
+  // replaces the default base rootfs; kernel + DTB still come from
+  // the cache.
   const baseDir = assetsOverride ? resolve(assetsOverride) : baseDirFor(RELEASE_TAG);
   const kernelPath = join(baseDir, assetsOverride ? "Image-arm64" : "Image");
   const dtbPath = join(baseDir, assetsOverride ? "virt-arm64.dtb" : "virt.dtb");
-  const imagePath = join(baseDir, assetsOverride ? "rootfs-debian-arm64.tar.gz" : "rootfs.tar.gz");
+  const defaultImagePath = join(
+    baseDir,
+    assetsOverride ? "rootfs-debian-arm64.tar.gz" : "rootfs.tar.gz",
+  );
+  const imagePath = imageOverride ? resolve(imageOverride) : defaultImagePath;
 
   // Wrap the user cmd in /usr/bin/env so bare names like `node` or
   // `bash` are PATH-resolved. The guest init uses execve(), which
   // needs an absolute path for argv[0]; /usr/bin/env is the standard
-  // shim for this. Skipped when we're restoring from a snapshot with
-  // no user cmd — init is driven by the baked initramfs.
+  // shim for this. When the caller passes no `-- cmd`, the image may
+  // carry a baked-in default (see `provision({ cmd })`); boot() falls
+  // back to that automatically.
   const cmd = double_dash_args.length > 0 ? ["/usr/bin/env", ...double_dash_args] : undefined;
 
   let vm;
   try {
     vm = await boot({
-      image: cmd ? imagePath : undefined,
+      image: snapshot ? undefined : imagePath,
       cmd,
       env,
       kernel: kernelPath,

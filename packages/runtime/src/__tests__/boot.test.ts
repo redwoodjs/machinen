@@ -7,7 +7,15 @@
 // Image/virt.dtb/initramfs fixtures, or the HVF-entitled test binary.
 
 import { execSync } from "node:child_process";
-import { existsSync, readdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { createServer, type Server } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -214,16 +222,55 @@ describe("measureFirstByte", () => {
 });
 
 describe("image + cmd", () => {
-  it("requires image and cmd together (image alone)", async () => {
-    await expect(boot({ binary: "/bin/sh", image: "/tmp/some-image.tar.gz" })).rejects.toThrow(
-      /must be specified together/,
+  it("rejects cmd without image", async () => {
+    await expect(boot({ binary: "/bin/sh", cmd: ["/bin/true"] })).rejects.toThrow(
+      /`image` is required when `cmd` is set/,
     );
   });
 
-  it("requires image and cmd together (cmd alone)", async () => {
-    await expect(boot({ binary: "/bin/sh", cmd: ["/bin/true"] })).rejects.toThrow(
-      /must be specified together/,
-    );
+  it("allows image alone when the image carries a baked-in cmd", async () => {
+    // Build a tiny tarball that has `/machinen-config.json` with a
+    // default cmd. boot() should read it and not complain about the
+    // missing `cmd` arg. (We use /bin/sh as the binary so no real
+    // VMM boot happens — we're exercising the validation + synthesis
+    // paths, not the kernel.)
+    const imgDir = mkdtempSync(join(tmpdir(), "machinen-baked-image-"));
+    const imgPath = `${imgDir}.tar.gz`;
+    try {
+      writeFileSync(join(imgDir, "machinen-config.json"), JSON.stringify({ cmd: ["/bin/true"] }));
+      execSync(`tar -czf ${imgPath} -C ${imgDir} .`);
+      const vm = await boot({
+        binary: "/bin/sh",
+        args: ["-c", "true"],
+        image: imgPath,
+        timeoutMs: 3_000,
+      });
+      await vm.wait();
+    } finally {
+      try {
+        unlinkSync(imgPath);
+      } catch {}
+      rmSync(imgDir, { recursive: true, force: true });
+    }
+  });
+
+  it("throws when neither the caller nor the image supplies a cmd", async () => {
+    // Image tarball with no /machinen-config.json — boot() should
+    // error with a clear "no cmd" message.
+    const imgDir = mkdtempSync(join(tmpdir(), "machinen-empty-image-"));
+    const imgPath = `${imgDir}.tar.gz`;
+    try {
+      writeFileSync(join(imgDir, "placeholder"), "x");
+      execSync(`tar -czf ${imgPath} -C ${imgDir} .`);
+      await expect(boot({ binary: "/bin/sh", image: imgPath, timeoutMs: 3_000 })).rejects.toThrow(
+        /no cmd to run/,
+      );
+    } finally {
+      try {
+        unlinkSync(imgPath);
+      } catch {}
+      rmSync(imgDir, { recursive: true, force: true });
+    }
   });
 
   it("throws BootError when image tarball is missing", async () => {

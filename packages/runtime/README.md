@@ -44,19 +44,23 @@ Boots the VMM as a child process and returns a handle with `stdin`/`stdout`/
 `stderr` streams, `exec()`, `wait()`, `kill()`, `snapshot()`, and
 `output()`/`errorOutput()` buffers.
 
-Key options (all optional — but `image` and `cmd` are paired and required together):
+Key options (all optional):
 
-| Option        | Description                                                   |
-| ------------- | ------------------------------------------------------------- |
-| `image`       | Path to a rootfs tarball to boot from                         |
-| `cmd`         | Guest workload argv (required when `image` is set)            |
-| `env`         | Env vars exposed to the guest workload                        |
-| `snapshot`    | Host file attached as `/dev/vda` — typically a CRIU snapshot  |
-| `mount`       | Single host-dir → guest-path mount (guest path under `/mnt/`) |
-| `portForward` | Host → guest TCP port forwards via gvproxy                    |
-| `binary`      | VMM binary path — auto-resolved if omitted                    |
-| `vmmEnv`      | Env for the VMM process itself (host side, rarely needed)     |
-| `timeoutMs`   | `wait()` deadline (default 60s, `null` to wait forever)       |
+| Option        | Description                                                     |
+| ------------- | --------------------------------------------------------------- |
+| `image`       | Path to a rootfs tarball to boot from                           |
+| `cmd`         | Guest workload argv; falls back to the image's baked-in default |
+| `env`         | Env vars exposed to the guest workload                          |
+| `snapshot`    | Host file attached as `/dev/vda` — typically a CRIU snapshot    |
+| `mount`       | Single host-dir → guest-path mount (guest path under `/mnt/`)   |
+| `portForward` | Host → guest TCP port forwards via gvproxy                      |
+| `binary`      | VMM binary path — auto-resolved if omitted                      |
+| `vmmEnv`      | Env for the VMM process itself (host side, rarely needed)       |
+| `timeoutMs`   | `wait()` deadline (default 60s, `null` to wait forever)         |
+
+Images produced by `provision({ cmd, env })` carry a baked-in default cmd (and
+env) in `/machinen-config.json`, so callers can `boot({ image })` with no
+further args. User-supplied `cmd`/`env` on `boot()` override the image defaults.
 
 ### Binary resolution
 
