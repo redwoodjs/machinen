@@ -38,6 +38,7 @@ export {
   ProvisionError,
   RegistryError,
   FilesError,
+  MountError,
   SecretsError,
   WinsizeError,
   SandboxError,
