@@ -9,7 +9,8 @@
   },
   "files": [
     "dist/",
-    "src/"
+    "src/",
+    "API.md"
   ],
   "type": "module",
   "exports": {

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["packages/runtime/src/index.ts"],
+  "tsconfig": "packages/runtime/tsconfig.json",
+  "plugin": ["typedoc-plugin-markdown"],
+  "out": "packages/runtime",
+  "entryFileName": "API.md",
+  "cleanOutputDir": false,
+  "readme": "none",
+  "githubPages": false,
+  "hideGenerator": true,
+  "hidePageHeader": true,
+  "hideBreadcrumbs": true,
+  "outputFileStrategy": "modules",
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "excludeExternals": true,
+  "sort": ["source-order"],
+  "gitRevision": "main",
+  "treatWarningsAsErrors": true
+}

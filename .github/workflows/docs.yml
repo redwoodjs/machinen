@@ -1,0 +1,33 @@
+name: Docs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # typedoc only parses TS source; skip postinstall scripts so we
+      # don't need the C++ toolchain or Zig that node-pty/microvm want.
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - run: pnpm docs
+
+      # Fail if the committed API.md drifts from the regenerated one —
+      # this is the canary for @throws (and other JSDoc) going stale.
+      # core.fileMode=false ignores mode-only diffs, which can appear
+      # when the file was committed from a different umask.
+      - name: Check API.md is up to date
+        run: git -c core.fileMode=false diff --exit-code -- packages/runtime/API.md
