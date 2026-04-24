@@ -17,6 +17,7 @@
 // obvious next step; this is the pipe-based M1.
 
 import type { Writable } from "node:stream";
+import { SandboxError } from "./errors.ts";
 import type { VmHandle } from "./index.ts";
 
 export interface SandboxEntry {
@@ -53,7 +54,7 @@ export class Sandboxes {
 
   add(id: string, vm: VmHandle): void {
     if (this.items.has(id)) {
-      throw new Error(`sandbox id already registered: ${id}`);
+      throw new SandboxError("SANDBOX_ID_DUPLICATE", `sandbox id already registered: ${id}`);
     }
     const entry: SandboxEntry = {
       id,
@@ -233,7 +234,7 @@ export class Supervisor {
     this.detach();
     const entry = this.sandboxes.get(id);
     if (!entry) {
-      throw new Error(`unknown sandboxes id: ${id}`);
+      throw new SandboxError("SANDBOX_ID_UNKNOWN", `unknown sandboxes id: ${id}`);
     }
     this.attachedId = id;
     // Replay scrollback so the user sees recent output.

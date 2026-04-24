@@ -169,6 +169,32 @@ Thin clients for the vsock services the guest `/init` + `exec-agent` expose:
 `Sandboxes` and `Supervisor` let a single host process manage multiple VMs with
 per-sandbox stdio routing. See `src/multiplex.ts` for the surface.
 
+## Debugging
+
+Set `DEBUG=machinen:*` to stream internal diagnostics to stderr. Uses the
+[`debug`](https://github.com/debug-js/debug) package, so it's zero-overhead
+when unset and supports the usual comma-separated namespace patterns.
+
+| Namespace              | Covers                                                          |
+| ---------------------- | --------------------------------------------------------------- |
+| `machinen:boot`        | `boot()` lifecycle — VMM spawn, vsock bridge, registry          |
+| `machinen:provision`   | `provision()` steps — install hook, tar-to-disk, repack         |
+| `machinen:exec`        | vsock exec — connect retries, frames, exit codes                |
+| `machinen:snapshot`    | CRIU dump trigger, wait, console-log inspection                 |
+| `machinen:attach`      | attach lookup, VM resolution                                    |
+| `machinen:registry`    | `~/.machinen/vms/` reads, writes, stale-entry pruning           |
+| `machinen:gvproxy`     | sidecar spawn, port-forward setup                               |
+| `machinen:cache`       | artifact-cache hits, misses, upstream fetches                   |
+| `machinen:mkinitramfs` | rootfs/bundle pack steps                                        |
+| `machinen:cli`         | `@machinen/cli` argv parsing and command dispatch               |
+| `machinen:vmm`         | tee VMM stderr to host stderr (replaces `MACHINEN_BUILD_DEBUG`) |
+
+```sh
+DEBUG=machinen:* machinen boot ./rootfs.tar.gz -- /bin/sh
+DEBUG=machinen:exec,machinen:registry node script.js
+DEBUG=machinen:cache* pnpm smoke-tests
+```
+
 ## License
 
 [FSL-1.1-MIT](../../LICENSE) — converts to MIT two years after each release.

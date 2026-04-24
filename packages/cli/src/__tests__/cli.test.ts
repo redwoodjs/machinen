@@ -1,5 +1,6 @@
+import { ParseError } from "@machinen/runtime";
 import { describe, expect, it } from "vitest";
-import { ParseRunArgsError, parseRunArgs } from "../parse-run-args.ts";
+import { parseRunArgs } from "../parse-run-args.ts";
 
 describe("parseRunArgs --env", () => {
   it("collects repeated --env flags into env", () => {
@@ -42,11 +43,11 @@ describe("parseRunArgs --env", () => {
   });
 
   it("rejects --env without a '=' separator", () => {
-    expect(() => parseRunArgs(["--env", "FOO", "--", "/bin/true"])).toThrow(ParseRunArgsError);
+    expect(() => parseRunArgs(["--env", "FOO", "--", "/bin/true"])).toThrow(ParseError);
   });
 
   it("rejects --env with an empty key", () => {
-    expect(() => parseRunArgs(["--env", "=bar", "--", "/bin/true"])).toThrow(ParseRunArgsError);
+    expect(() => parseRunArgs(["--env", "=bar", "--", "/bin/true"])).toThrow(ParseError);
   });
 
   it("rejects a bare --env with no following argument", () => {

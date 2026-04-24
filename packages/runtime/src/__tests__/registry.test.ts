@@ -9,7 +9,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { BootError, attach, boot, list, type RegistryEntry } from "../index.ts";
+import { RegistryError, attach, boot, list, type RegistryEntry } from "../index.ts";
 import {
   findEntry,
   isAlive,
@@ -190,9 +190,9 @@ describe("boot + attach end-to-end", () => {
     }
   });
 
-  it("attach() throws BootError when no VM matches", async () => {
-    await expect(attach({ name: "nothing-here" })).rejects.toThrow(BootError);
-    await expect(attach({ id: "deadbeef" })).rejects.toThrow(BootError);
+  it("attach() throws RegistryError when no VM matches", async () => {
+    await expect(attach({ name: "nothing-here" })).rejects.toThrow(RegistryError);
+    await expect(attach({ id: "deadbeef" })).rejects.toThrow(RegistryError);
   });
 
   it("vm.kill() removes the registry entry via child exit", async () => {
