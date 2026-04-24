@@ -24,6 +24,12 @@ export {
   packMinimal as mkinitramfsMinimal,
   cli as mkinitramfsCli,
 } from "./mkinitramfs.ts";
+export type {
+  PackBundleOptions,
+  PackRootfsOptions,
+  PackMinimalOptions,
+  PackWorkspaceOptions,
+} from "./mkinitramfs.ts";
 export {
   MachinenError,
   BootError,

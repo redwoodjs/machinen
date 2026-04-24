@@ -17,6 +17,7 @@
     "changeset": "changeset",
     "version": "changeset version && oxfmt",
     "release": "pnpm -F @machinen/runtime -F @machinen/cli build && changeset publish",
+    "docs": "typedoc",
     "machinen-dev": "bash scripts/machinen-dev.sh",
     "smoke-tests": "bash scripts/smoke-tests.sh",
     "bench-net": "bash scripts/bench-net.sh"
@@ -30,6 +31,8 @@
     "oxfmt": "0.33.0",
     "oxlint": "1.48.0",
     "tsx": "^4",
+    "typedoc": "^0.28.19",
+    "typedoc-plugin-markdown": "^4.11.0",
     "typescript": "^5.7",
     "vitest": "^4.1.0"
   },
