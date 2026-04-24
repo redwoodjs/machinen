@@ -17,6 +17,9 @@ import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import debugLib from "debug";
+
+const debug = debugLib("machinen:registry");
 
 export interface RegistryEntry {
   /** Auto-generated short id. Unique per VM. */
@@ -54,10 +57,18 @@ export function writeEntry(entry: RegistryEntry): void {
   const dir = join(root, entry.id);
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "meta.json"), JSON.stringify(entry));
+  debug(
+    "write id=%s name=%s pid=%d sock=%s",
+    entry.id,
+    entry.name ?? "<unset>",
+    entry.pid,
+    entry.socketPath,
+  );
 }
 
 /** Remove a registry entry. No-op if it's already gone. */
 export function removeEntry(id: string): void {
+  debug("remove id=%s", id);
   try {
     rmSync(join(registryRoot(), id), { recursive: true, force: true });
   } catch {}
@@ -102,19 +113,23 @@ export function list(): RegistryEntry[] {
     return [];
   }
   const out: RegistryEntry[] = [];
+  let pruned = 0;
   for (const id of readdirSync(root)) {
     const entry = readEntry(id);
     if (!entry) {
       // Malformed or missing meta.json — clean it up.
       removeEntry(id);
+      pruned++;
       continue;
     }
     if (!isAlive(entry.pid)) {
       removeEntry(entry.id);
+      pruned++;
       continue;
     }
     out.push(entry);
   }
+  debug("list root=%s alive=%d pruned=%d", root, out.length, pruned);
   return out;
 }
 

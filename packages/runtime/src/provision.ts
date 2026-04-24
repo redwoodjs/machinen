@@ -35,8 +35,12 @@ import {
 } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import debugLib from "debug";
 import { VsockExec } from "./exec.ts";
 import { boot, type VmHandle } from "./index.ts";
+
+const debug = debugLib("machinen:provision");
+const vmmDebug = debugLib("machinen:vmm");
 
 export class ProvisionError extends Error {}
 
@@ -226,12 +230,15 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
   const workDir = mkdtempSync(join(tmpdir(), "machinen-provision-"));
   const diskPath = join(workDir, "scratch.img");
   const udsPath = join(workDir, "exec.sock");
+  debug("provision start base=%s out=%s workDir=%s", baseAbs, outAbs, workDir);
 
   try {
     // Allocate the scratch disk sparsely. The guest tars its filesystem
     // into this block device; the host then repacks the raw tar stream
     // into the output tarball.
-    allocateSparseFile(diskPath, opts.scratchDiskSizeBytes ?? 1024 * 1024 * 1024);
+    const scratchBytes = opts.scratchDiskSizeBytes ?? 1024 * 1024 * 1024;
+    allocateSparseFile(diskPath, scratchBytes);
+    debug("scratch disk allocated path=%s sizeBytes=%d", diskPath, scratchBytes);
 
     // Boot the VMM with the base rootfs as the image and the exec-agent
     // as the cmd. We set MACHINEN_VSOCK explicitly via `vmmEnv` so the
@@ -273,7 +280,7 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
         tailBytes -= tailBuf[0]!.length;
         tailBuf.shift();
       }
-      if (process.env.MACHINEN_BUILD_DEBUG) {
+      if (vmmDebug.enabled) {
         process.stderr.write(chunk);
       }
     });
@@ -283,23 +290,30 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
       // Hand control to the install hook. The spawned VM already has
       // exec()/execRaw() hooked up to the vsock UDS we set via env, so
       // the hook uses the same VmHandle shape as any other caller.
+      const installT0 = Date.now();
+      debug("install hook entry");
       try {
         await opts.install(vm);
       } catch (err) {
         const tail = stderrTail();
         const msg = err instanceof Error ? err.message : String(err);
+        debug("install hook failed err=%s tailBytes=%d", msg, tail.length);
         throw new ProvisionError(
           `install hook failed: ${msg}\n--- VMM stderr (last 8 KB) ---\n${tail}`,
         );
       }
+      debug("install hook done elapsed=%dms", Date.now() - installT0);
 
       // Post-install: archive / to /dev/vda, then tell the guest to
       // power off cleanly (PSCI SYSTEM_OFF via /sbin/machinen-poweroff).
       // A failed tar here means our scratch disk was too small; surface
       // that specifically.
+      debug("tar / -> /dev/vda starting");
+      const tarT0 = Date.now();
       const tar = await VsockExec.run(udsPath, TAR_TO_DISK_CMD, {
         execTimeoutMs: deadlineMs,
       });
+      debug("tar / -> /dev/vda done exit=%d elapsed=%dms", tar.exitCode, Date.now() - tarT0);
       if (tar.exitCode !== 0) {
         throw new ProvisionError(
           `tar / to /dev/vda failed (code ${tar.exitCode}) — scratch disk may be too small.\n` +
@@ -314,11 +328,13 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
       // after the VMM has already exited) — all are fine; vm.wait()
       // below is the real success signal. Short connect timeout so
       // we don't burn 30s retrying a bridge that's already gone.
+      debug("requesting guest poweroff");
       await VsockExec.run(udsPath, "/sbin/machinen-poweroff", {
         connectTimeoutMs: 2_000,
       }).catch(() => {});
 
       await vm.wait();
+      debug("guest exited");
     } finally {
       clearTimeout(killTimer);
       if (vm.pid > 0) {
@@ -329,9 +345,13 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
     // Scratch disk now holds a raw tar stream (padded with zeros up to
     // the scratch size). Repack it as a gzipped tarball at `out`, which
     // trims trailing zeros and normalizes compression.
+    debug("repack disk tar -> %s starting", outAbs);
+    const repackT0 = Date.now();
     repackDiskTarToGz(diskPath, outAbs, { cmd: opts.cmd, env: opts.env });
+    debug("repack done elapsed=%dms", Date.now() - repackT0);
 
     const sizeBytes = statSync(outAbs).size;
+    debug("provision complete sizeBytes=%d totalElapsed=%dms", sizeBytes, Date.now() - t0);
     return {
       imagePath: outAbs,
       sizeBytes,

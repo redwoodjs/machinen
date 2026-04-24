@@ -20,9 +20,11 @@
     "prepublishOnly": "pnpm build"
   },
   "dependencies": {
-    "@machinen/runtime": "workspace:*"
+    "@machinen/runtime": "workspace:*",
+    "debug": "^4.4.1"
   },
   "devDependencies": {
+    "@types/debug": "^4.1.12",
     "@types/node": "^22",
     "tsup": "^8.3.5"
   },
