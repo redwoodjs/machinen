@@ -1,8 +1,18 @@
 // Host-side exec client — pairs with assets/exec-agent.zig.
 //
-// Opens the UDS the vsock bridge is listening on, sends `EXEC <cmd>\n`,
-// demuxes the framed output stream until an `X <code>\n` terminator,
-// returns stdout/stderr + the exit code.
+// Opens the UDS the vsock bridge is listening on, sends the cmd, demuxes
+// the framed output stream until an `X <code>\n` terminator, returns
+// stdout/stderr + the exit code.
+//
+// Two on-the-wire opcodes:
+//   `EXEC <cmd>\n`            — legacy single-line cmd (no \r or \n).
+//                                Compatible with all agents.
+//   `EXEC2 <byte-len>\n<cmd>` — length-prefixed cmd; supports any byte
+//                                content including newlines. Requires an
+//                                agent with EXEC2 support (#112).
+//
+// The host picks EXEC2 only when the cmd contains a newline so plain
+// single-line cmds keep working with older rootfs images.
 //
 // Minimum-viable install primitive for `@machinen/runtime.provision()`.
 //
@@ -61,13 +71,10 @@ export const VsockExec = {
    * until the agent is actually listening.
    */
   /**
-   * @throws {ExecError} EXEC_CMD_INVALID | EXEC_AGENT_UNAVAILABLE (retryable) |
+   * @throws {ExecError} EXEC_AGENT_UNAVAILABLE (retryable) |
    *   EXEC_AGENT_TIMEOUT (retryable) | EXEC_PROTOCOL
    */
   async run(udsPath: string, cmd: string, opts: VsockExecOptions = {}): Promise<VsockExecResult> {
-    if (/\r|\n/.test(cmd)) {
-      throw new ExecError("EXEC_CMD_INVALID", "VsockExec.run: cmd must not contain newlines");
-    }
     const connectTimeout = opts.connectTimeoutMs ?? 30_000;
     const retryMs = opts.retryMs ?? 250;
     const deadline = Date.now() + connectTimeout;
@@ -134,7 +141,16 @@ async function runOnSocket(
   cmd: string,
   opts: VsockExecOptions,
 ): Promise<VsockExecResult> {
-  socket.write(`EXEC ${cmd}\n`);
+  // Newline-free cmds use the legacy `EXEC <cmd>\n` opcode so older
+  // agents (rootfs images that pre-date #112) still work. Anything with
+  // an embedded newline goes through the length-prefixed EXEC2 frame.
+  if (/\r|\n/.test(cmd)) {
+    const buf = Buffer.from(cmd, "utf8");
+    socket.write(`EXEC2 ${buf.length}\n`);
+    socket.write(buf);
+  } else {
+    socket.write(`EXEC ${cmd}\n`);
+  }
 
   return new Promise<VsockExecResult>((done, fail) => {
     const stdoutBufs: Buffer[] = [];
