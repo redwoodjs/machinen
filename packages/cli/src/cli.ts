@@ -4,12 +4,11 @@
 //
 // Surface:
 //   machinen boot [opts] -- <cmd>
-//   machinen boot --snapshot <path>
-//   machinen restore <snapshot>               # alias for boot --snapshot
+//   machinen restore <snap-dir> [--name <name>]
 //   machinen ls
-//   machinen exec <name-or-id> -- <cmd>
-//   machinen snapshot <name-or-id> <out-path>
-//   machinen attach <name-or-id>              # line-based shell REPL
+//   machinen exec ( --name <name> | --pid <pid> ) -- <cmd>
+//   machinen snapshot ( --name <name> | --pid <pid> ) --out-dir <dir>
+//   machinen attach ( --name <name> | --pid <pid> )    # line-based shell REPL
 //   machinen install [--version <tag>]
 //   machinen completion <bash|zsh|fish>
 //   machinen --version | -h | --help
@@ -29,7 +28,14 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { pipeline } from "node:stream/promises";
 
-import { attach, boot, formatMachinenError, isMachinenError, list } from "@machinen/runtime";
+import {
+  attach,
+  boot,
+  formatMachinenError,
+  isMachinenError,
+  list,
+  restore,
+} from "@machinen/runtime";
 import debugLib from "debug";
 
 import pkg from "../package.json" with { type: "json" };
@@ -231,7 +237,10 @@ async function cmdBoot(args: string[]): Promise<number> {
   let vm;
   try {
     vm = await boot({
-      image: snapshot ? undefined : imagePath,
+      // Always pass the base rootfs so /sbin/machinen-restore and
+      // friends are in the initramfs even on a bare `machinen restore
+      // <snap>` (no --image, no -- cmd).
+      image: imagePath,
       cmd,
       env,
       kernel: kernelPath,
@@ -293,12 +302,86 @@ async function cmdInstall(args: string[]): Promise<number> {
 }
 
 async function cmdRestore(args: string[]): Promise<number> {
-  // `machinen restore <snap>` is an alias for `machinen boot --snapshot <snap>`.
-  if (args.length === 0) {
-    die("usage: machinen restore <snapshot>");
+  // `machinen restore <snap-dir> [--name <name>]`. The bundle dir
+  // (produced by `machinen snapshot`) holds disk.img + meta.json.
+  const positional: string[] = [];
+  let name: string | undefined;
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i]!;
+    if (a === "--name" || a.startsWith("--name=")) {
+      name = a === "--name" ? args[++i] : a.slice("--name=".length);
+      if (!name) {
+        die("--name requires a value");
+      }
+    } else if (a.startsWith("-")) {
+      die(`unknown flag: ${a}`);
+    } else {
+      positional.push(a);
+    }
   }
-  const [snap, ...rest] = args;
-  return cmdBoot(["--snapshot", snap!, ...rest]);
+  if (positional.length !== 1) {
+    die("usage: machinen restore <snap-dir> [--name <name>]");
+  }
+  const snapDir = resolve(positional[0]!);
+
+  // Restore needs the base rootfs in the initramfs (criu, machinen-
+  // restore, etc), so resolve it the same way `cmdBoot` does.
+  const assetsOverride = process.env.MACHINEN_ASSETS_DIR;
+  if (assetsOverride) {
+    validateAssetsDir(assetsOverride);
+  } else if (!baseAssetsComplete(RELEASE_TAG)) {
+    process.stderr.write(`machinen: fetching base assets for ${RELEASE_TAG} (first run)\n`);
+    await ensureBaseAssets(RELEASE_TAG);
+  }
+  const baseDir = assetsOverride ? resolve(assetsOverride) : baseDirFor(RELEASE_TAG);
+  const kernelPath = join(baseDir, assetsOverride ? "Image-arm64" : "Image");
+  const dtbPath = join(baseDir, assetsOverride ? "virt-arm64.dtb" : "virt.dtb");
+  const imagePath = join(baseDir, assetsOverride ? "rootfs-debian-arm64.tar.gz" : "rootfs.tar.gz");
+
+  let vm;
+  try {
+    vm = await restore({
+      snapDir,
+      image: imagePath,
+      kernel: kernelPath,
+      dtb: dtbPath,
+      name,
+      timeoutMs: null,
+    });
+  } catch (err) {
+    handleError(err);
+  }
+
+  process.stderr.write(`restored as: ${vm.name ?? "<anonymous>"} (pid ${vm.pid})\n`);
+
+  vm.stdout.pipe(process.stdout);
+  vm.stderr.pipe(process.stderr);
+  process.stdin.pipe(vm.stdin);
+
+  let forwardedSignal: "SIGINT" | "SIGTERM" | null = null;
+  const onSigint = () => {
+    forwardedSignal = "SIGINT";
+    void vm.kill();
+  };
+  const onSigterm = () => {
+    forwardedSignal = "SIGTERM";
+    void vm.kill();
+  };
+  process.on("SIGINT", onSigint);
+  process.on("SIGTERM", onSigterm);
+  try {
+    const { code } = await vm.wait();
+    if (forwardedSignal === "SIGINT") {
+      return 130;
+    }
+    if (forwardedSignal === "SIGTERM") {
+      return 143;
+    }
+    return code ?? 0;
+  } finally {
+    process.off("SIGINT", onSigint);
+    process.off("SIGTERM", onSigterm);
+  }
 }
 
 async function cmdLs(_args: string[]): Promise<number> {
@@ -307,16 +390,15 @@ async function cmdLs(_args: string[]): Promise<number> {
     process.stdout.write("(no running VMs)\n");
     return 0;
   }
-  // Plain tabular output. No fancy column widths — machinen ls is
-  // aimed at humans grepping quick status, plus shell completion
-  // parsing (see `completion` command).
-  const header = ["ID", "NAME", "PID", "UP", "IMAGE"];
+  // Plain tabular output. PID is the runtime handle; NAME is the
+  // optional human label; FORKED-FROM lets you trace lineage when
+  // the VM was created via `machinen restore`.
+  const header = ["PID", "NAME", "UP", "FORKED-FROM"];
   const rows = entries.map((e) => [
-    e.id,
-    e.name ?? "-",
     String(e.pid),
+    e.name ?? "-",
     formatUptime(Date.now() - e.startedAt),
-    e.imagePath ?? "-",
+    e.forkedFrom ?? "-",
   ]);
   const widths = header.map((h, i) => Math.max(h.length, ...rows.map((r) => r[i]!.length)));
   const line = (cells: string[]) => cells.map((c, i) => c.padEnd(widths[i]!)).join("  ");
@@ -346,19 +428,16 @@ function formatUptime(ms: number): string {
 async function cmdExec(args: string[]): Promise<number> {
   const dashIdx = args.indexOf("--");
   if (dashIdx === -1 || dashIdx === args.length - 1) {
-    die("usage: machinen exec <name-or-id> -- <cmd>");
+    die("usage: machinen exec ( --name <name> | --pid <pid> ) -- <cmd>");
   }
   const pre = args.slice(0, dashIdx);
   const cmdArgs = args.slice(dashIdx + 1);
-  if (pre.length !== 1) {
-    die("usage: machinen exec <name-or-id> -- <cmd>");
-  }
-  const target = pre[0]!;
-  const vm = await attach(lookupQuery(target)).catch(handleError);
+  const target = parseTargetFlags(pre, "exec");
+  const vm = await attach(target).catch(handleError);
   try {
     // Shell out via `sh -c` on the guest so caller can pass piped
     // commands naturally. Users who want raw exec of a single binary
-    // can quote it like `machinen exec foo -- /bin/ls`.
+    // can quote it like `machinen exec --name foo -- /bin/ls`.
     const joined = cmdArgs.join(" ");
     const res = await vm.execRaw(joined, {
       onStdout: (chunk) => process.stdout.write(chunk),
@@ -371,14 +450,28 @@ async function cmdExec(args: string[]): Promise<number> {
 }
 
 async function cmdSnapshot(args: string[]): Promise<number> {
-  if (args.length !== 2) {
-    die("usage: machinen snapshot <name-or-id> <out-path>");
+  // Pull --out-dir out of the arg list, then parse the target flags.
+  let outDir: string | undefined;
+  const rest: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i]!;
+    if (a === "--out-dir" || a.startsWith("--out-dir=")) {
+      outDir = a === "--out-dir" ? args[++i] : a.slice("--out-dir=".length);
+      if (!outDir) {
+        die("--out-dir requires a directory path");
+      }
+    } else {
+      rest.push(a);
+    }
   }
-  const [target, outPath] = args;
-  const vm = await attach(lookupQuery(target!)).catch(handleError);
+  if (!outDir) {
+    die("usage: machinen snapshot ( --name <name> | --pid <pid> ) --out-dir <dir>");
+  }
+  const target = parseTargetFlags(rest, "snapshot");
+  const vm = await attach(target).catch(handleError);
   try {
-    const res = await vm.snapshot(outPath!);
-    process.stdout.write(`snapshot: ${res.snapshotPath} (${res.elapsedMs}ms)\n`);
+    const res = await vm.snapshot({ outDir: resolve(outDir) });
+    process.stdout.write(`snapshot: ${res.snapDir} (${res.elapsedMs}ms)\n`);
     return 0;
   } catch (err) {
     handleError(err);
@@ -388,12 +481,9 @@ async function cmdSnapshot(args: string[]): Promise<number> {
 }
 
 async function cmdAttach(args: string[]): Promise<number> {
-  if (args.length !== 1) {
-    die("usage: machinen attach <name-or-id>");
-  }
-  const target = args[0]!;
-  const vm = await attach(lookupQuery(target)).catch(handleError);
-  process.stderr.write(`attached to ${vm.name ?? vm.id} (pid ${vm.pid})\n`);
+  const target = parseTargetFlags(args, "attach");
+  const vm = await attach(target).catch(handleError);
+  process.stderr.write(`attached to ${vm.name ?? `pid ${vm.pid}`}\n`);
   process.stderr.write(`type commands; Ctrl-D to detach.\n`);
   try {
     const { createInterface } = await import("node:readline");
@@ -430,13 +520,48 @@ async function cmdCompletion(args: string[]): Promise<number> {
   die(`unsupported shell: ${shell} (expected bash | zsh | fish)`);
 }
 
-function lookupQuery(target: string): { id?: string; name?: string } {
-  // Treat anything that matches the 8-hex id format as an id lookup;
-  // otherwise it's a name. Users can force name lookup by using a
-  // name that happens to look like hex... that's their problem.
-  return /^[0-9a-f]{8}$/.test(target) ? { id: target } : { name: target };
+/**
+ * Pull `--name <s>` / `--pid <n>` out of an arg list. Exactly one of
+ * the two must be present; reject zero, both, or unknown flags. The
+ * shape returned matches `AttachOptions` so callers can pass it
+ * straight to `attach()`.
+ */
+function parseTargetFlags(args: string[], cmd: string): { name: string } | { pid: number } {
+  let name: string | undefined;
+  let pid: number | undefined;
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i]!;
+    if (a === "--name" || a.startsWith("--name=")) {
+      const v = a === "--name" ? args[++i] : a.slice("--name=".length);
+      if (!v) {
+        die(`--name requires a value`);
+      }
+      name = v;
+    } else if (a === "--pid" || a.startsWith("--pid=")) {
+      const v = a === "--pid" ? args[++i] : a.slice("--pid=".length);
+      if (!v || !/^[0-9]+$/.test(v)) {
+        die(`--pid requires a numeric value`);
+      }
+      pid = Number(v);
+    } else {
+      die(`unknown argument: ${a}`);
+    }
+  }
+  if (name && pid !== undefined) {
+    die(`machinen ${cmd}: pass --name OR --pid, not both`);
+  }
+  if (!name && pid === undefined) {
+    die(`machinen ${cmd}: requires --name <name> or --pid <pid>`);
+  }
+  if (name) {
+    return { name };
+  }
+  return { pid: pid! };
 }
 
+// Names live in column 2 of `machinen ls`; pids in column 1. Both
+// are used as completion candidates after `--name`/`--pid` on
+// exec/snapshot/attach.
 const BASH_COMPLETION = `# machinen bash completion — source this from ~/.bashrc, or:
 #   eval "$(machinen completion bash)"
 _machinen_completion() {
@@ -447,14 +572,24 @@ _machinen_completion() {
     COMPREPLY=( $(compgen -W "\${cmds}" -- "\${cur}") )
     return
   fi
+  case "\${prev}" in
+    --name)
+      local names
+      names=$(machinen ls 2>/dev/null | awk 'NR>1 && $2!="-"{print $2}')
+      COMPREPLY=( $(compgen -W "\${names}" -- "\${cur}") )
+      return
+      ;;
+    --pid)
+      local pids
+      pids=$(machinen ls 2>/dev/null | awk 'NR>1{print $1}')
+      COMPREPLY=( $(compgen -W "\${pids}" -- "\${cur}") )
+      return
+      ;;
+  esac
   case "\${words[1]}" in
     exec|snapshot|attach)
-      if [[ \${cword} -eq 2 ]]; then
-        local names
-        names=$(machinen ls 2>/dev/null | awk 'NR>1 && $2!="-"{print $2} NR>1{print $1}')
-        COMPREPLY=( $(compgen -W "\${names}" -- "\${cur}") )
-        return
-      fi
+      COMPREPLY=( $(compgen -W "--name --pid" -- "\${cur}") )
+      return
       ;;
   esac
 }
@@ -470,14 +605,24 @@ _machinen() {
     _describe 'command' cmds
     return
   fi
+  case "\${words[CURRENT-1]}" in
+    --name)
+      local -a names
+      names=(\${(f)"$(machinen ls 2>/dev/null | awk 'NR>1 && $2!="-"{print $2}')"})
+      _describe 'name' names
+      return
+      ;;
+    --pid)
+      local -a pids
+      pids=(\${(f)"$(machinen ls 2>/dev/null | awk 'NR>1{print $1}')"})
+      _describe 'pid' pids
+      return
+      ;;
+  esac
   case "\${words[2]}" in
     exec|snapshot|attach)
-      if (( CURRENT == 3 )); then
-        local -a names
-        names=(\${(f)"$(machinen ls 2>/dev/null | awk 'NR>1 && $2!="-"{print $2} NR>1{print $1}')"})
-        _describe 'vm' names
-        return
-      fi
+      _describe 'flag' '(--name --pid)'
+      return
       ;;
   esac
 }
@@ -489,8 +634,10 @@ const FISH_COMPLETION = `# machinen fish completion — source this from your co
 set -l cmds boot restore install ls exec snapshot attach completion
 complete -c machinen -f -n 'not __fish_seen_subcommand_from $cmds' -a "$cmds"
 for sub in exec snapshot attach
-  complete -c machinen -f -n "__fish_seen_subcommand_from $sub" -a \\
-    '(machinen ls 2>/dev/null | awk \\'NR>1 && $2!="-"{print $2} NR>1{print $1}\\')'
+  complete -c machinen -f -n "__fish_seen_subcommand_from $sub" -l name \\
+    -a '(machinen ls 2>/dev/null | awk \\'NR>1 && $2!="-"{print $2}\\')'
+  complete -c machinen -f -n "__fish_seen_subcommand_from $sub" -l pid \\
+    -a '(machinen ls 2>/dev/null | awk \\'NR>1{print $1}\\')'
 end
 `;
 
@@ -529,31 +676,41 @@ function printHelp(): void {
     `machinen ${VERSION}\n` +
       `\n` +
       `Usage:\n` +
-      `  machinen boot [opts] -- <cmd>            Boot a microVM and run <cmd>\n` +
-      `  machinen boot --snapshot <path>          Restore a VM from a CRIU snapshot\n` +
-      `  machinen restore <snapshot>              Alias for boot --snapshot\n` +
-      `    --mount <host-dir>:<guest-path>        Expose one host directory inside the\n` +
-      `                                           guest (path under /mnt/; copy-once).\n` +
-      `    --env KEY=VALUE                        Set an env var inside the guest.\n` +
-      `    -p <hostPort>:<guestPort>              Forward host:hostPort → guest:guestPort.\n` +
-      `    --name <name>                          Register the VM under a human name\n` +
-      `                                           (makes 'exec', 'snapshot', 'attach' easier).\n` +
-      `  machinen ls                              List running VMs\n` +
-      `  machinen exec <name-or-id> -- <cmd>      Run a command in a running VM\n` +
-      `  machinen snapshot <name-or-id> <out>     CRIU-snapshot a running VM to <out>\n` +
-      `  machinen attach <name-or-id>             Line-based shell against a running VM\n` +
-      `  machinen install                         Pre-fetch the current-tag base assets\n` +
-      `    --version <tag>                        Pin to a specific release tag\n` +
-      `  machinen completion <shell>              Emit shell completion (bash|zsh|fish)\n` +
-      `  machinen --version | -h                  Print version / help\n` +
+      `  machinen boot [opts] -- <cmd>                  Boot a microVM and run <cmd>\n` +
+      `    --name <name>                                Register under a unique human name\n` +
+      `                                                 (path-shaped allowed: 'a/b/c').\n` +
+      `    --snapshot <path>                            Attach <path> as /dev/vda — scratch\n` +
+      `                                                 disk for a future vm.snapshot().\n` +
+      `    --mount <host-dir>:<guest-path>              Expose one host dir inside the guest\n` +
+      `                                                 (path under /mnt/; copy-once).\n` +
+      `    --env KEY=VALUE                              Set an env var inside the guest.\n` +
+      `    -p <hostPort>:<guestPort>                    Forward host:hostPort → guest:guestPort.\n` +
+      `\n` +
+      `  machinen restore <snap-dir> [--name <name>]    Restore a VM from a snapshot bundle.\n` +
+      `                                                 Anonymous restores auto-name as\n` +
+      `                                                 <source>/<pid>.\n` +
+      `\n` +
+      `  machinen ls                                    List running VMs (PID, NAME, UP,\n` +
+      `                                                 FORKED-FROM)\n` +
+      `\n` +
+      `  Targeting a running VM:\n` +
+      `    --name <name>     |  --pid <pid>             pick exactly one\n` +
+      `\n` +
+      `  machinen exec     <target-flag> -- <cmd>       Run a command in a running VM\n` +
+      `  machinen snapshot <target-flag> --out-dir <d>  CRIU-snapshot a running VM into <d>\n` +
+      `  machinen attach   <target-flag>                Line-based shell against a running VM\n` +
+      `\n` +
+      `  machinen install                               Pre-fetch the current-tag base assets\n` +
+      `    --version <tag>                              Pin to a specific release tag\n` +
+      `  machinen completion <shell>                    Emit shell completion (bash|zsh|fish)\n` +
+      `  machinen --version | -h                        Print version / help\n` +
       `\n` +
       `Examples:\n` +
-      `  machinen boot -- /bin/sh\n` +
       `  machinen boot --name worker -- node server.js\n` +
       `  machinen ls\n` +
-      `  machinen exec worker -- ps aux\n` +
-      `  machinen snapshot worker ./warm.snap\n` +
-      `  machinen restore ./warm.snap\n` +
+      `  machinen exec --name worker -- ps aux\n` +
+      `  machinen snapshot --name worker --out-dir ./warm\n` +
+      `  machinen restore ./warm\n` +
       `\n` +
       `Environment:\n` +
       `  MACHINEN_VMM                             Override the VMM binary path (dev)\n` +

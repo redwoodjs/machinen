@@ -83,6 +83,8 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
+  readFileSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -98,7 +100,7 @@ import { spawnArtifactCache } from "./artifact-cache.ts";
 import { BootError, ExecError, RegistryError, SnapshotError } from "./errors.ts";
 import { VsockExec, type VsockExecOptions, type VsockExecResult } from "./exec.ts";
 import type { OnLog } from "./log.ts";
-import { findEntry, isAlive, newVmId, removeEntry, writeEntry } from "./registry.ts";
+import { claimName, findEntry, isAlive, removeEntry, writeEntry } from "./registry.ts";
 
 const debug = debugLib("machinen:boot");
 const debugAttach = debugLib("machinen:attach");
@@ -181,6 +183,19 @@ export interface BootOptions {
    */
   snapshot?: string;
   /**
+   * Optional name to register this VM under (`attach({ name })`
+   * lookup key). Path-shaped strings ("worker/9012") are allowed.
+   * Names are unique while live — `boot()` throws
+   * `REGISTRY_NAME_IN_USE` if another VM already holds the name.
+   */
+  name?: string;
+  /**
+   * Bookkeeping: absolute path to the snapshot bundle this VM was
+   * forked from. Set by `restore({ snapDir })`; visible in
+   * `machinen ls`. Plain `boot()` leaves it undefined.
+   */
+  forkedFrom?: string;
+  /**
    * A single host directory copied into the guest at boot. The guest
    * path must live under `/mnt/`. Copy-once semantics: guest writes are
    * discarded when the VM exits. See #64, #78.
@@ -219,12 +234,6 @@ export interface BootOptions {
    */
   vmmEnv?: Record<string, string>;
   /**
-   * Optional human-friendly name for this VM. When set, `attach({ name })`
-   * can reconnect from another process. Auto-assigned id is always set;
-   * name is just for discovery.
-   */
-  name?: string;
-  /**
    * Streaming log callback — fires for every byte of guest output:
    * kernel console (VMM stderr) and every exec invocation made through
    * the returned handle. See `LogEvent.source` to tell them apart. See
@@ -235,11 +244,15 @@ export interface BootOptions {
 }
 
 export interface VmHandle {
-  /** Auto-generated short id registered at boot. Stable across attach. */
-  readonly id: string;
+  /**
+   * PID of the host-side VMM process — primary identifier across
+   * boot/attach. Kernel-unique while alive; reused after exit, so
+   * pass it to `attach({ pid })` while the VM is live (or use
+   * `--name` for a stable handle).
+   */
+  readonly pid: number;
   /** Optional human-friendly name passed to `boot({ name })`. */
   readonly name?: string;
-  readonly pid: number;
   readonly stdin: Writable;
   readonly stdout: Readable;
   readonly stderr: Readable;
@@ -279,25 +292,42 @@ export interface VmHandle {
   execRaw(cmd: string, opts?: VsockExecOptions): Promise<VsockExecResult>;
 
   /**
-   * Freeze this VM with CRIU and write the image to `outPath`.
+   * Freeze this VM with CRIU and write a snapshot bundle into
+   * `opts.outDir`. The bundle is a directory containing:
    *
-   * The caller must have booted the VM with `disk: <path>` so CRIU has
-   * a target to write to; `vm.snapshot()` copies that disk to `outPath`
-   * once the dump completes. If boot had no disk attached, this throws.
+   *   <outDir>/disk.img      ← CRIU image set on an ext4 volume
+   *   <outDir>/meta.json     ← source name + timestamp
    *
-   * Guest contract: the rootfs must ship a dump helper callable via
-   * vsock exec that (1) runs `criu dump` against the workload process,
-   * (2) writes `dump OK` to the console, and (3) triggers PSCI
-   * SYSTEM_OFF. Default path is `/sbin/machinen-dump` — override via
-   * `opts.dumpCmd`. Implemented by #50.
+   * The caller must have booted the VM with `snapshot: '<scratch>'`
+   * so the guest had a /dev/vda to dump into; otherwise this throws
+   * `SNAPSHOT_NO_DISK`.
+   *
+   * Guest contract: the rootfs ships a dump helper callable via
+   * vsock exec — default `/sbin/machinen-dump`, override via
+   * `opts.dumpCmd`. The helper runs `criu dump` against the
+   * workload tree, syncs the ext4 images, and lets
+   * `/sbin/machinen-supervisor` trigger PSCI SYSTEM_OFF. Success is
+   * signalled by a clean VMM exit before `opts.timeoutMs` elapses
+   * plus an mtime bump on the disk file — timer expiration throws
+   * `SNAPSHOT_TIMEOUT`; an untouched disk throws
+   * `SNAPSHOT_DUMP_FAILED`.
+   *
+   * Supported on both boot-owned and attach handles — attach uses
+   * the `diskPath` stored in the VM registry entry at boot time.
    *
    * The VM exits as part of the dump. To continue using the VM
-   * afterwards, boot a new one from the produced snapshot.
+   * afterwards, restore from the produced snapshot bundle.
    */
-  snapshot(outPath: string, opts?: SnapshotOptions): Promise<SnapshotResult>;
+  snapshot(opts: SnapshotOptions): Promise<SnapshotResult>;
 }
 
 export interface SnapshotOptions {
+  /**
+   * Directory the snapshot bundle is written to. Created if missing
+   * and required to be empty (or absent) so a previous snapshot
+   * can't be silently overwritten.
+   */
+  outDir: string;
   /**
    * Command to run in the guest to trigger the CRIU dump. Defaults to
    * `/sbin/machinen-dump`.
@@ -317,12 +347,25 @@ export interface SnapshotOptions {
 }
 
 export interface SnapshotResult {
-  /** Absolute path to the written snapshot image. */
-  snapshotPath: string;
+  /** Absolute path to the snapshot bundle directory. */
+  snapDir: string;
+  /** Absolute path to the disk image inside the bundle. */
+  diskPath: string;
   /** Time from `snapshot()` entry to VMM exit, in milliseconds. */
   elapsedMs: number;
   /** Guest console output captured during the dump. */
   consoleLog: string;
+}
+
+/**
+ * On-disk shape of the bundle's `meta.json`. Read by `restore()`
+ * to reconstruct the source VM's name when registering the fork.
+ */
+export interface SnapshotMeta {
+  /** Name passed to `boot({ name })` when the source VM was started. */
+  sourceName?: string;
+  /** ms epoch when `vm.snapshot()` returned. */
+  snappedAt: number;
 }
 
 /**
@@ -508,7 +551,11 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       }
     }
 
-    if (opts.image || opts.cmd) {
+    // Pack an initramfs whenever the guest needs userspace (image +
+    // cmd + snapshot-only restore all need /init + synthesized
+    // machinen-config.json). Test-mode zig boots fall through with no
+    // INITRD env set — the VMM uses its own fixture initramfs.
+    if (opts.image || opts.cmd || opts.snapshot) {
       const packT0 = Date.now();
       const packed = synthesizeAndPackBundle(opts, mergedGuestEnv);
       bundleTempDir = packed.tempDir;
@@ -548,24 +595,42 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   );
 
   // #98: register the running VM so another process can attach. The
-  // entry is keyed by an auto-generated id; optional name lets
-  // `attach({ name })` look it up by something memorable.
-  const id = newVmId();
+  // entry is keyed by pid (kernel-unique while alive); optional name
+  // lets `attach({ name })` look it up by something memorable.
+  //
+  // Name claim is authoritative — `claimName` uses O_EXCL on the
+  // pin file, so a concurrent boot of the same name loses the race
+  // and we throw REGISTRY_NAME_IN_USE. The just-spawned VMM has to
+  // be torn down on conflict; otherwise it'd be an orphan no one
+  // can reach.
   const vmName = opts.name;
   const childPid = child.pid ?? -1;
+  if (vmName && childPid > 0) {
+    if (!claimName(vmName, childPid)) {
+      try {
+        child.kill("SIGKILL");
+      } catch {}
+      throw new RegistryError(
+        "REGISTRY_NAME_IN_USE",
+        `boot: name '${vmName}' is already held by another live VM. ` +
+          `Pick a different --name or kill the existing VM first.`,
+      );
+    }
+  }
   let registered = false;
   if (childPid > 0 && vsockUdsPath) {
     try {
       writeEntry({
-        id,
-        name: vmName,
         pid: childPid,
+        name: vmName,
         socketPath: vsockUdsPath,
         imagePath: opts.image ? resolve(opts.cwd ?? process.cwd(), opts.image) : undefined,
+        diskPath: diskAbs,
+        forkedFrom: opts.forkedFrom,
         startedAt: Date.now(),
       });
       registered = true;
-      debug("registered id=%s name=%s pid=%d", id, vmName ?? "<unset>", childPid);
+      debug("registered pid=%d name=%s", childPid, vmName ?? "<unset>");
     } catch (err) {
       // Registry write is best-effort; attach won't find this VM but
       // local boot-and-use still works fine.
@@ -601,7 +666,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       void cacheStop();
     }
     if (registered) {
-      removeEntry(id);
+      removeEntry(childPid);
     }
   });
 
@@ -632,9 +697,8 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   }
 
   const handle: VmHandle = {
-    id,
-    name: vmName,
     pid: childPid,
+    name: vmName,
     stdin: child.stdin,
     stdout: child.stdout,
     stderr: child.stderr,
@@ -722,7 +786,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       return VsockExec.run(vsockUdsPath, cmd, teeOnLog(cmd, execOpts, onLog));
     },
 
-    async snapshot(outPath, snapshotOpts) {
+    async snapshot(snapshotOpts) {
       if (!diskAbs) {
         throw new SnapshotError(
           "SNAPSHOT_NO_DISK",
@@ -730,66 +794,21 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
             "boot() so CRIU has a target to write to.",
         );
       }
-      const dumpCmd = snapshotOpts?.dumpCmd ?? "/sbin/machinen-dump";
-      const deadlineMs = snapshotOpts?.timeoutMs ?? 90_000;
-      const t0 = Date.now();
-      const snapshotOnLog = snapshotOpts?.onLog;
-      debugSnapshot(
-        "snapshot start id=%s out=%s dumpCmd=%s timeoutMs=%d",
-        id,
-        outPath,
-        dumpCmd,
-        deadlineMs,
+      return performSnapshot(
+        {
+          pid: childPid,
+          sourceName: vmName,
+          diskPath: diskAbs,
+          execRaw: (cmd, execOpts) => this.execRaw(cmd, execOpts),
+          wait: () => this.wait(),
+          kill: () => this.kill(),
+          teeGuestConsole: (onChunk) => {
+            child.stderr.on("data", onChunk);
+          },
+          errorOutput: () => this.errorOutput(),
+        },
+        snapshotOpts,
       );
-
-      // If the caller asked for streaming, tee the VMM's stderr into it
-      // too — otherwise they'd only see the dump exec, not the kernel /
-      // CRIU console output that explains a dump-gone-wrong.
-      if (snapshotOnLog) {
-        child.stderr.on("data", (chunk: Buffer) => {
-          snapshotOnLog({ source: "guest-console", chunk });
-        });
-      }
-
-      // Trigger the in-guest dump. The vsock connection typically closes
-      // mid-transaction as the guest powers off — all such close modes
-      // are fine; `wait()` below is the real success signal.
-      await this.execRaw(dumpCmd, {
-        connectTimeoutMs: 2_000,
-        onStdout: snapshotOnLog
-          ? (chunk) => snapshotOnLog({ source: "exec-stdout", cmd: dumpCmd, chunk })
-          : undefined,
-        onStderr: snapshotOnLog
-          ? (chunk) => snapshotOnLog({ source: "exec-stderr", cmd: dumpCmd, chunk })
-          : undefined,
-      }).catch(() => {});
-
-      const killTimer = setTimeout(() => void this.kill(), deadlineMs);
-      killTimer.unref();
-      try {
-        await this.wait();
-      } finally {
-        clearTimeout(killTimer);
-      }
-      const elapsedMs = Date.now() - t0;
-      const consoleLog = await this.errorOutput();
-      debugSnapshot("guest exited elapsed=%dms consoleBytes=%d", elapsedMs, consoleLog.length);
-
-      if (!consoleLog.includes("dump OK")) {
-        debugSnapshot("dump OK not found in console — failing");
-        throw new SnapshotError(
-          "SNAPSHOT_DUMP_FAILED",
-          `vm.snapshot: guest did not report "dump OK" — check console log:\n${consoleLog.slice(-2000)}`,
-        );
-      }
-
-      const outAbs = resolve(outPath);
-      if (outAbs !== diskAbs) {
-        debugSnapshot("copy disk %s -> %s", diskAbs, outAbs);
-        copyFileSync(diskAbs, outAbs);
-      }
-      debugSnapshot("snapshot done out=%s", outAbs);
-      return { snapshotPath: outAbs, elapsedMs, consoleLog };
     },
   };
 
@@ -809,8 +828,12 @@ function parseVsockUdsPath(spec: string): string | undefined {
 }
 
 export interface AttachOptions {
-  /** Look up a VM by its registry id. One of `id` or `name` is required. */
-  id?: string;
+  /**
+   * Look up a VM by the host pid of its VMM process. Kernel-unique
+   * while alive; mutually exclusive with `name`. Exactly one of
+   * `pid` / `name` is required.
+   */
+  pid?: number;
   /** Look up a VM by the name passed to `boot({ name })`. */
   name?: string;
   /**
@@ -836,18 +859,17 @@ export interface AttachOptions {
  * @throws {RegistryError} REGISTRY_VM_NOT_FOUND
  */
 export async function attach(opts: AttachOptions): Promise<VmHandle> {
-  debugAttach("attach lookup id=%s name=%s", opts.id ?? "<unset>", opts.name ?? "<unset>");
+  debugAttach("attach lookup pid=%s name=%s", opts.pid ?? "<unset>", opts.name ?? "<unset>");
   const entry = findEntry(opts);
   if (!entry) {
-    const q = opts.id ? `id ${opts.id}` : `name ${opts.name}`;
+    const q = opts.pid !== undefined ? `pid ${opts.pid}` : `name ${opts.name}`;
     debugAttach("attach miss for %s", q);
     throw new RegistryError("REGISTRY_VM_NOT_FOUND", `attach: no running VM found for ${q}`);
   }
   debugAttach(
-    "attach hit id=%s name=%s pid=%d sock=%s",
-    entry.id,
-    entry.name ?? "<unset>",
+    "attach hit pid=%d name=%s sock=%s",
     entry.pid,
+    entry.name ?? "<unset>",
     entry.socketPath,
   );
   const { PassThrough } = await import("node:stream");
@@ -871,9 +893,8 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
   };
 
   const handle: VmHandle = {
-    id: entry.id,
-    name: entry.name,
     pid: entry.pid,
+    name: entry.name,
     stdin,
     stdout,
     stderr,
@@ -921,17 +942,29 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
       return VsockExec.run(entry.socketPath, cmd, teeOnLog(cmd, execOpts, opts.onLog));
     },
 
-    async snapshot(outPath, snapshotOpts) {
-      // Attach-snapshot: we don't know the disk path the VM was booted
-      // with. Triggering a CRIU dump still works; the output is written
-      // to /dev/vda inside the guest, but we have no way to copy it
-      // from here. Snapshot-from-attach is deferred to a follow-up.
-      throw new SnapshotError(
-        "SNAPSHOT_UNSUPPORTED_ON_ATTACH",
-        "vm.snapshot() is not supported on attached handles yet — snapshot " +
-          "from the process that called boot(). Output path was: " +
-          String(outPath) +
-          (snapshotOpts ? " (opts ignored)" : ""),
+    async snapshot(snapshotOpts) {
+      if (!entry.diskPath) {
+        throw new SnapshotError(
+          "SNAPSHOT_NO_DISK",
+          "vm.snapshot: no disk was attached at boot. The VM must have been booted " +
+            "with `snapshot: '<path>'` so CRIU has a target to write to.",
+        );
+      }
+      return performSnapshot(
+        {
+          pid: entry.pid,
+          sourceName: entry.name,
+          diskPath: entry.diskPath,
+          execRaw: (cmd, execOpts) => this.execRaw(cmd, execOpts),
+          wait: () => this.wait(),
+          kill: () => this.kill(),
+          // Attach handles don't own the VMM child, so there's no guest
+          // console stream to tee. Dump/CRIU failure detail still flows
+          // via exec-stdout / exec-stderr tags.
+          teeGuestConsole: undefined,
+          errorOutput: async () => "",
+        },
+        snapshotOpts,
       );
     },
   };
@@ -989,9 +1022,27 @@ function synthesizeAndPackBundle(
     imageConfig = readImageConfig(baseAbs);
   }
 
-  // cmd: user's wins; fall back to image's baked default. Error
-  // clearly when neither side has one.
-  const effectiveCmd = opts.cmd ?? imageConfig?.cmd;
+  // cmd resolution:
+  //   - Snapshot-only restore (`boot({ snapshot })` with no cmd):
+  //     synthesize `["/sbin/machinen-restore"]`. The helper mounts
+  //     /dev/vda, spawns a fresh exec-agent, and runs `criu-ns
+  //     restore` against the baked images.
+  //   - Normal boot: user's cmd wins; fall back to image's baked
+  //     default. Then wrap in /sbin/machinen-supervisor so the
+  //     workload runs as a CRIU-dumpable child of /init and the
+  //     exec-agent stays alive alongside it for vm.exec / vm.snapshot.
+  //     Exception: if the cmd is already `/exec-agent`, skip the
+  //     wrapper — the workload IS the agent (provision() flow).
+  //   - Neither snapshot nor cmd and no image default: error.
+  let effectiveCmd: string[] | undefined;
+  const hasSnapshot = Boolean(opts.snapshot);
+  if (opts.cmd) {
+    effectiveCmd = opts.cmd;
+  } else if (imageConfig?.cmd) {
+    effectiveCmd = imageConfig.cmd;
+  } else if (hasSnapshot) {
+    effectiveCmd = ["/sbin/machinen-restore"];
+  }
   if (!effectiveCmd) {
     cleanup();
     throw new BootError(
@@ -1000,6 +1051,27 @@ function synthesizeAndPackBundle(
         "image via `provision({ cmd })`.",
     );
   }
+
+  // Wrap the cmd in the supervisor unless the caller is booting the
+  // vsock agent directly (provision flow) or the runtime-synthesized
+  // restore helper (which already manages the agent itself).
+  //
+  // When a disk is attached (opts.snapshot set), pass `--session` so
+  // the supervisor runs the workload under `setsid`. CRIU dump
+  // requires the workload to be its own session leader; without
+  // --session, `criu dump --shell-job` fails with "session leader of
+  // N(N) is outside of its pid namespace". Interactive boots (no
+  // disk) skip --session so Ctrl-C / job control still work against
+  // the console.
+  const cmdHead = effectiveCmd[0];
+  const isAgentDirect = cmdHead === "/exec-agent";
+  const isRestoreHelper = cmdHead === "/sbin/machinen-restore";
+  const supervisorArgs = opts.snapshot ? ["--session"] : [];
+  const wrappedCmd =
+    isAgentDirect || isRestoreHelper
+      ? effectiveCmd
+      : ["/sbin/machinen-supervisor", ...supervisorArgs, ...effectiveCmd];
+
   // env: image defaults overlaid by user + runtime-injected (gvproxy
   // cache mirror, etc.). User + runtime wins on key collision.
   const effectiveEnv = { ...imageConfig?.env, ...mergedGuestEnv };
@@ -1010,7 +1082,7 @@ function synthesizeAndPackBundle(
   mkdirSync(join(synthBundleDir, "rootfs"), { recursive: true });
   writeFileSync(
     join(synthBundleDir, "machinen-config.json"),
-    JSON.stringify({ cmd: effectiveCmd, env: effectiveEnv }),
+    JSON.stringify({ cmd: wrappedCmd, env: effectiveEnv }),
   );
 
   let mount: { host: string; guest: string } | undefined;
@@ -1126,6 +1198,260 @@ function collect(stream: Readable): Promise<string> {
 // Production path: `vm.snapshot(outPath)` on a running VM — the caller
 // brings the VM to a warm state via `vm.exec()`, then snapshots it.
 // Restore: `boot({ snapshot: <snapshot-path> })` on the next boot.
+
+/**
+ * Injection surface for `performSnapshot`. The boot-owned handle and
+ * the attach handle both plug in the same way, swapping `teeGuestConsole`
+ * (only boot has a live stderr stream) and `errorOutput` (attach can't
+ * see the guest console).
+ */
+interface SnapshotContext {
+  /** PID of the host VMM process — used in debug logs. */
+  pid: number;
+  /** Optional source name (from `boot({ name })`); written into bundle meta.json. */
+  sourceName?: string;
+  /** Host file backing /dev/vda — what we copy into the bundle on success. */
+  diskPath: string;
+  execRaw: (cmd: string, opts?: VsockExecOptions) => Promise<VsockExecResult>;
+  wait: () => Promise<{ code: number | null; signal: NodeJS.Signals | null }>;
+  kill: () => Promise<void>;
+  teeGuestConsole: ((onChunk: (chunk: Buffer) => void) => void) | undefined;
+  errorOutput: () => Promise<string>;
+}
+
+/**
+ * Drive a CRIU dump inside the guest, wait for the VMM to exit, and
+ * copy the disk to the caller's outPath. Shared between boot-owned
+ * handles (`boot().snapshot(...)`) and attach handles
+ * (`attach().snapshot(...)`).
+ *
+ * Success signal (cross-process-safe):
+ *   - Kick off /sbin/machinen-dump via vsock exec.
+ *   - Wait for the VMM child to exit.
+ *   - If the host's kill-timer fired first, it's a SNAPSHOT_TIMEOUT.
+ *   - Otherwise the guest shut down cleanly under its own steam,
+ *     which only happens after /sbin/machinen-supervisor's wait()
+ *     returned — i.e. CRIU killed the dumped tree (success) or the
+ *     workload exited on its own (also fine; the dump either happened
+ *     before that or not at all). A failed dump does NOT kill the
+ *     workload, so the supervisor keeps waiting and the kill-timer
+ *     fires.
+ *
+ * The previous string-grep on `"dump OK"` in the VMM stderr was
+ * swapped out because attach-owned handles have no guest-console
+ * stream — the kill-timer boundary is the same signal without
+ * requiring console access.
+ */
+async function performSnapshot(
+  ctx: SnapshotContext,
+  opts: SnapshotOptions,
+): Promise<SnapshotResult> {
+  const dumpCmd = opts.dumpCmd ?? "/sbin/machinen-dump";
+  const deadlineMs = opts.timeoutMs ?? 90_000;
+  const onLog = opts.onLog;
+  const t0 = Date.now();
+
+  // Validate / prepare the bundle directory. We refuse to overwrite
+  // an existing populated directory so a previous snapshot can't
+  // disappear under a typo'd outDir.
+  const snapDir = resolve(opts.outDir);
+  if (existsSync(snapDir)) {
+    if (!statSync(snapDir).isDirectory()) {
+      throw new SnapshotError(
+        "SNAPSHOT_DUMP_FAILED",
+        `vm.snapshot: outDir exists and is not a directory: ${snapDir}`,
+      );
+    }
+    // An existing-but-empty dir is fine (CI fixtures preallocate it);
+    // anything with content gets refused.
+    const entries = readdirSync(snapDir);
+    if (entries.length > 0) {
+      throw new SnapshotError(
+        "SNAPSHOT_DUMP_FAILED",
+        `vm.snapshot: outDir is not empty: ${snapDir}`,
+      );
+    }
+  } else {
+    mkdirSync(snapDir, { recursive: true });
+  }
+
+  // Snapshot-dump produces a write to /dev/vda (mkfs.ext4 + CRIU
+  // images). mtime is our secondary success signal — if the VMM exits
+  // without the disk file being written, the dump didn't run. Catches
+  // cases where /usr/bin/true (or any no-op binary) exits cleanly
+  // before the dump has any effect.
+  const preMtime = statSync(ctx.diskPath).mtimeMs;
+  debugSnapshot(
+    "snapshot start pid=%d snapDir=%s dumpCmd=%s timeoutMs=%d diskPath=%s preMtime=%d",
+    ctx.pid,
+    snapDir,
+    dumpCmd,
+    deadlineMs,
+    ctx.diskPath,
+    preMtime,
+  );
+
+  if (onLog && ctx.teeGuestConsole) {
+    ctx.teeGuestConsole((chunk) => {
+      onLog({ source: "guest-console", chunk });
+    });
+  }
+
+  // Kick off the in-guest dump. The vsock connection typically closes
+  // mid-transaction as the guest powers off — `.catch(() => {})` swallows
+  // that expected tear-down; the real success signal is the VMM exit
+  // below. If the dump script fails outright before the guest powers
+  // off, the kill-timer below catches the hang.
+  void ctx
+    .execRaw(dumpCmd, {
+      connectTimeoutMs: 2_000,
+      onStdout: onLog
+        ? (chunk) => onLog({ source: "exec-stdout", cmd: dumpCmd, chunk })
+        : undefined,
+      onStderr: onLog
+        ? (chunk) => onLog({ source: "exec-stderr", cmd: dumpCmd, chunk })
+        : undefined,
+    })
+    .catch(() => {});
+
+  let timedOut = false;
+  const killTimer = setTimeout(() => {
+    timedOut = true;
+    void ctx.kill();
+  }, deadlineMs);
+  killTimer.unref();
+  try {
+    await ctx.wait();
+  } finally {
+    clearTimeout(killTimer);
+  }
+  const elapsedMs = Date.now() - t0;
+  const consoleLog = await ctx.errorOutput();
+  debugSnapshot(
+    "guest exited elapsed=%dms consoleBytes=%d timedOut=%s",
+    elapsedMs,
+    consoleLog.length,
+    timedOut,
+  );
+
+  if (timedOut) {
+    throw new SnapshotError(
+      "SNAPSHOT_TIMEOUT",
+      `vm.snapshot: guest did not shut down within ${deadlineMs}ms — dump likely failed.` +
+        (consoleLog ? `\nConsole tail:\n${consoleLog.slice(-2000)}` : ""),
+    );
+  }
+
+  // The VMM exited in time, but we still need to confirm the dump
+  // actually ran. `/usr/bin/true` boots, exits immediately, and the
+  // VMM comes down cleanly without ever touching the disk — we don't
+  // want that to pass as success. mtime delta catches it.
+  const postMtime = statSync(ctx.diskPath).mtimeMs;
+  if (postMtime === preMtime) {
+    throw new SnapshotError(
+      "SNAPSHOT_DUMP_FAILED",
+      "vm.snapshot: guest exited without writing to the disk — the dump script " +
+        "never ran (is /sbin/machinen-dump present in the rootfs?)." +
+        (consoleLog ? `\nConsole tail:\n${consoleLog.slice(-2000)}` : ""),
+    );
+  }
+
+  const diskOut = join(snapDir, "disk.img");
+  debugSnapshot("copy disk %s -> %s", ctx.diskPath, diskOut);
+  copyFileSync(ctx.diskPath, diskOut);
+
+  // Drop the bundle metadata next to the image so `restore({ snapDir })`
+  // can recover the source name without poking at the disk.
+  const meta: SnapshotMeta = {
+    sourceName: ctx.sourceName,
+    snappedAt: Date.now(),
+  };
+  writeFileSync(join(snapDir, "meta.json"), JSON.stringify(meta));
+
+  debugSnapshot("snapshot done snapDir=%s postMtime=%d", snapDir, postMtime);
+  return { snapDir, diskPath: diskOut, elapsedMs, consoleLog };
+}
+
+export interface RestoreOptions extends Omit<BootOptions, "snapshot" | "image" | "cmd" | "name"> {
+  /**
+   * Snapshot bundle directory produced by `vm.snapshot()`.
+   * Must contain `disk.img` and `meta.json`.
+   */
+  snapDir: string;
+  /**
+   * Override the rootfs image used for the restore boot. Defaults
+   * to whatever caller passes through `image`-equivalent — but
+   * `restore()` always needs a base rootfs in the initramfs to
+   * carry /sbin/machinen-restore + criu. Most callers pass the
+   * release rootfs path here.
+   */
+  image?: string;
+  /**
+   * Optional explicit name for the restored VM. When omitted, the
+   * fork is auto-named `<sourceName>/<pid>` after spawn so it stays
+   * unique under the source's namespace.
+   */
+  name?: string;
+}
+
+/**
+ * Restore a microVM from a snapshot bundle produced by
+ * `vm.snapshot({ outDir })`. Reads the bundle's `meta.json` to
+ * recover the source name, then `boot()`s with the right knobs:
+ *
+ *   - `snapshot: <snapDir>/disk.img`  attaches the dump as /dev/vda
+ *   - `name: <sourceName>/<pid>`      auto-named fork (unless caller
+ *                                     passed `name`)
+ *   - `forkedFrom: <snapDir>`         lineage for `machinen ls`
+ *
+ * The auto-name uses pid because pids are kernel-unique-while-live
+ * and we get one for free after spawn — no extra counter state.
+ *
+ * @throws {BootError} BOOT_SNAPSHOT_NOT_FOUND if `<snapDir>/disk.img`
+ *   is missing.
+ */
+export async function restore(opts: RestoreOptions): Promise<VmHandle> {
+  const snapDir = resolve(opts.snapDir);
+  const diskPath = join(snapDir, "disk.img");
+  const metaPath = join(snapDir, "meta.json");
+  if (!existsSync(diskPath)) {
+    throw new BootError("BOOT_SNAPSHOT_NOT_FOUND", `restore: ${diskPath} not found`);
+  }
+  let meta: SnapshotMeta = { snappedAt: 0 };
+  if (existsSync(metaPath)) {
+    try {
+      meta = JSON.parse(readFileSync(metaPath, "utf8")) as SnapshotMeta;
+    } catch {
+      // Bundle predates metadata or got corrupted; fall through with
+      // an anonymous source name. The fork still boots; it just won't
+      // have a memorable auto-name.
+    }
+  }
+
+  // boot() doesn't know the pid until after the VMM is spawned, so
+  // we can't pass `<sourceName>/<pid>` up front. Boot anonymous,
+  // then claim the auto-name and patch the registry entry below.
+  const vm = await boot({
+    ...opts,
+    snapshot: diskPath,
+    forkedFrom: snapDir,
+    name: opts.name,
+  });
+
+  if (!opts.name && meta.sourceName) {
+    const autoName = `${meta.sourceName}/${vm.pid}`;
+    if (claimName(autoName, vm.pid)) {
+      // Promote the registry entry to carry the auto-name.
+      const cur = findEntry({ pid: vm.pid });
+      if (cur) {
+        writeEntry({ ...cur, name: autoName });
+      }
+      // Mutate the handle so `vm.name` reflects the resolved name.
+      (vm as { name?: string }).name = autoName;
+    }
+  }
+  return vm;
+}
 
 /**
  * Time-to-first-output-byte for a boot. Useful for measuring how
