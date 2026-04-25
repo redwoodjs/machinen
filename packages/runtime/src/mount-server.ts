@@ -82,9 +82,7 @@ interface InodeEntry {
 }
 
 /** Per-connection file-handle table. One entry per OPEN/OPENDIR. */
-type OpenEntry =
-  | { kind: "file"; fh: FileHandle }
-  | { kind: "dir"; entries: Uint8Array[] };
+type OpenEntry = { kind: "file"; fh: FileHandle } | { kind: "dir"; entries: Uint8Array[] };
 
 export interface LiveMountServerOptions {
   /** Absolute host path that bounds every op. */
@@ -192,9 +190,7 @@ export async function* readFrames(sock: AsyncIterable<Buffer>): AsyncGenerator<U
     while (pending.length >= 4) {
       const len = pending.readUInt32LE(0);
       if (len < FUSE_IN_HEADER_SIZE) {
-        throw new Error(
-          `FUSE framing: len ${len} below header size ${FUSE_IN_HEADER_SIZE}`,
-        );
+        throw new Error(`FUSE framing: len ${len} below header size ${FUSE_IN_HEADER_SIZE}`);
       }
       if (pending.length < len) break;
       yield new Uint8Array(pending.buffer, pending.byteOffset, len).slice();
@@ -393,11 +389,7 @@ async function onStatfs(hdr: FuseInHeader, state: ServerState): Promise<Uint8Arr
   }
 }
 
-async function onOpen(
-  hdr: FuseInHeader,
-  msg: Uint8Array,
-  state: ServerState,
-): Promise<Uint8Array> {
+async function onOpen(hdr: FuseInHeader, msg: Uint8Array, state: ServerState): Promise<Uint8Array> {
   const req = readOpenIn(payloadOf(msg));
   // RO v0: reject anything that isn't pure-read.
   const accessMode = req.flags & 0o3; // O_RDONLY=0, O_WRONLY=1, O_RDWR=2
@@ -414,11 +406,7 @@ async function onOpen(
   return buildResponse(hdr.unique, buildOpenOut({ fh: id, open_flags: 0 }));
 }
 
-async function onRead(
-  hdr: FuseInHeader,
-  msg: Uint8Array,
-  state: ServerState,
-): Promise<Uint8Array> {
+async function onRead(hdr: FuseInHeader, msg: Uint8Array, state: ServerState): Promise<Uint8Array> {
   const req = readReadIn(payloadOf(msg));
   const handle = state.handles.get(req.fh);
   if (!handle || handle.kind !== "file") {
@@ -499,11 +487,7 @@ async function onReaddir(
   return buildResponse(hdr.unique, payload);
 }
 
-function onReleasedir(
-  hdr: FuseInHeader,
-  msg: Uint8Array,
-  state: ServerState,
-): Uint8Array {
+function onReleasedir(hdr: FuseInHeader, msg: Uint8Array, state: ServerState): Uint8Array {
   const { fh } = readReleaseIn(payloadOf(msg));
   state.handles.delete(fh);
   return buildErrorResponse(hdr.unique, 0);
@@ -625,14 +609,22 @@ function statToAttr(st: Stats, ino: bigint) {
 function modeToDT(mode: number): number {
   const type = mode & 0o170000;
   switch (type) {
-    case 0o040000: return DT.DIR;
-    case 0o100000: return DT.REG;
-    case 0o120000: return DT.LNK;
-    case 0o020000: return DT.CHR;
-    case 0o060000: return DT.BLK;
-    case 0o010000: return DT.FIFO;
-    case 0o140000: return DT.SOCK;
-    default: return DT.UNKNOWN;
+    case 0o040000:
+      return DT.DIR;
+    case 0o100000:
+      return DT.REG;
+    case 0o120000:
+      return DT.LNK;
+    case 0o020000:
+      return DT.CHR;
+    case 0o060000:
+      return DT.BLK;
+    case 0o010000:
+      return DT.FIFO;
+    case 0o140000:
+      return DT.SOCK;
+    default:
+      return DT.UNKNOWN;
   }
 }
 

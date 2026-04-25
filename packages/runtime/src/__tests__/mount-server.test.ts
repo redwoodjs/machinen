@@ -69,11 +69,7 @@ describe("live mount server — FUSE_INIT handshake", () => {
         payload: buildInitIn({ major: 7, minor: 37, flags: 0 }),
       });
       expect(reply.header.error).toBe(0);
-      const dv = new DataView(
-        reply.payload.buffer,
-        reply.payload.byteOffset,
-        reply.payload.length,
-      );
+      const dv = new DataView(reply.payload.buffer, reply.payload.byteOffset, reply.payload.length);
       expect(dv.getUint32(0, true)).toBe(FUSE_KERNEL_VERSION);
       expect(dv.getUint32(4, true)).toBe(FUSE_KERNEL_MINOR_VERSION);
     });
@@ -86,11 +82,7 @@ describe("live mount server — FUSE_INIT handshake", () => {
         nodeid: 0n,
         payload: buildInitIn({ major: 7, minor: 23, flags: 0 }),
       });
-      const dv = new DataView(
-        reply.payload.buffer,
-        reply.payload.byteOffset,
-        reply.payload.length,
-      );
+      const dv = new DataView(reply.payload.buffer, reply.payload.byteOffset, reply.payload.length);
       expect(dv.getUint32(4, true)).toBe(23);
     });
   });
@@ -296,9 +288,7 @@ describe("live mount server — OPENDIR / READDIR / RELEASEDIR", () => {
       expect(read.header.error).toBe(0);
       const names = parseDirentNames(read.payload);
       // Fixture contains: hello.txt, sub, link-inside, link-outside
-      expect(new Set(names)).toEqual(
-        new Set(["hello.txt", "sub", "link-inside", "link-outside"]),
-      );
+      expect(new Set(names)).toEqual(new Set(["hello.txt", "sub", "link-inside", "link-outside"]));
       const rel = await conn.request(FUSE_OP.RELEASEDIR, {
         unique: 4n,
         nodeid: 1n,

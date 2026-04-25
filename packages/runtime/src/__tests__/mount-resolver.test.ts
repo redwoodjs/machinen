@@ -190,9 +190,7 @@ describe("resolveUnderRoot — create/write mode (mustExist: false)", () => {
   });
 
   it("rejects creating a sibling outside root via `..`", async () => {
-    await expectEscape(
-      resolveUnderRoot(root, "../outside/new-secret.txt", { mustExist: false }),
-    );
+    await expectEscape(resolveUnderRoot(root, "../outside/new-secret.txt", { mustExist: false }));
   });
 
   it("propagates ENOENT when the parent directory doesn't exist", async () => {

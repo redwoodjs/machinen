@@ -97,12 +97,7 @@ describe("parseRunArgs --mount-live", () => {
   });
 
   it("coexists with --mount (copy-once stays separate)", () => {
-    const parsed = parseRunArgs([
-      "--mount",
-      "./cfg:/mnt/cfg",
-      "--mount-live",
-      "./src:/mnt/src",
-    ]);
+    const parsed = parseRunArgs(["--mount", "./cfg:/mnt/cfg", "--mount-live", "./src:/mnt/src"]);
     expect(parsed.mount).toEqual({ host: "./cfg", guest: "/mnt/cfg" });
     expect(parsed.liveMounts).toEqual([{ host: "./src", guest: "/mnt/src" }]);
   });

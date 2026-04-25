@@ -95,10 +95,7 @@ import { arch as osArch, platform as osPlatform, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { Readable, Writable } from "node:stream";
 import debugLib from "debug";
-import {
-  defaultFuseAgentPath,
-  packBundle as mkinitramfsPackBundle,
-} from "./mkinitramfs.ts";
+import { defaultFuseAgentPath, packBundle as mkinitramfsPackBundle } from "./mkinitramfs.ts";
 import { ensureGvproxy, exposePort, spawnGvproxy, warnGvproxyMissing } from "./gvproxy.ts";
 import { spawnArtifactCache } from "./artifact-cache.ts";
 import { BootError, ExecError, RegistryError, SnapshotError } from "./errors.ts";
