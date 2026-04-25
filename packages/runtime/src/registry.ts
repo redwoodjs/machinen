@@ -3,35 +3,60 @@
 //
 // Layout:
 //
-//   ~/.machinen/vms/<id>/meta.json
+//   ~/.machinen/vms/<pid>/meta.json     ← one per running VM
+//   ~/.machinen/vms/names/<name>        ← name pin file, contents = pid
+//                                          (mkdir -p the parent dirs;
+//                                           the leaf is the pin)
 //
-// `meta.json` contains the fields needed to reconnect: pid, the vsock
-// UDS path, and optional human-friendly name + image ref. `boot()`
-// writes the entry on spawn and removes it on child exit.
+// `meta.json` carries everything needed to reconnect: the vsock UDS
+// path, optional human-friendly name, source image / disk paths, etc.
+// `boot()` writes the entry on spawn and removes it on child exit.
+//
+// PID is the primary key. It's kernel-unique while alive, already
+// surfaced by the OS, and means we don't need a separate auto-id —
+// `attach({ pid })` reads `<pid>/meta.json` directly. Names are an
+// optional human label, enforced unique-while-live via the pin tree
+// so `attach({ name })` always resolves to one VM.
 //
 // `list()` walks the directory and prunes entries whose pid is no
-// longer alive. `attach()` looks up an entry by id or name and reads
-// it the same way.
+// longer alive — including any name pins that point at the dead pid.
 
-import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import debugLib from "debug";
 
 const debug = debugLib("machinen:registry");
 
 export interface RegistryEntry {
-  /** Auto-generated short id. Unique per VM. */
-  id: string;
-  /** Optional human-friendly name (from `boot({ name })`). */
-  name?: string;
-  /** PID of the VMM process on this host. */
+  /** PID of the VMM process on this host — primary key. */
   pid: number;
+  /** Optional human-friendly name (from `boot({ name })`). Path-shaped allowed. */
+  name?: string;
   /** Host-side vsock UDS the exec-agent is reachable on. */
   socketPath: string;
   /** Path to the image the VM was booted from (diagnostic only). */
   imagePath?: string;
+  /**
+   * Host-side path of the disk file attached as /dev/vda (from
+   * `boot({ snapshot: <path> })`). Required for `vm.snapshot()` —
+   * attached handles read it from the registry to find the host
+   * file to copy after the guest dump completes.
+   */
+  diskPath?: string;
+  /**
+   * Absolute path to the snapshot directory this VM was forked from
+   * (set by `restore({ snapDir })`). Visible in `ls`; informational.
+   */
+  forkedFrom?: string;
   /** ms epoch when the entry was created. */
   startedAt: number;
 }
@@ -46,37 +71,58 @@ export function registryRoot(): string {
   return process.env[REGISTRY_ROOT_ENV] ?? join(homedir(), ".machinen", "vms");
 }
 
-/** Generate a short (8-hex) id. */
-export function newVmId(): string {
-  return randomBytes(4).toString("hex");
+function namesDir(): string {
+  return join(registryRoot(), "names");
 }
 
-/** Write a registry entry, creating the directory tree if needed. */
+function pinPath(name: string): string {
+  return join(namesDir(), name);
+}
+
+/**
+ * Write a registry entry, creating the directory tree if needed.
+ * If `entry.name` is set, also creates the name pin file pointing
+ * at the pid. Caller is responsible for ensuring the name is free
+ * (use `claimName` before `writeEntry`).
+ */
 export function writeEntry(entry: RegistryEntry): void {
   const root = registryRoot();
-  const dir = join(root, entry.id);
+  const dir = join(root, String(entry.pid));
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "meta.json"), JSON.stringify(entry));
-  debug(
-    "write id=%s name=%s pid=%d sock=%s",
-    entry.id,
-    entry.name ?? "<unset>",
-    entry.pid,
-    entry.socketPath,
-  );
+  if (entry.name) {
+    const pin = pinPath(entry.name);
+    mkdirSync(dirname(pin), { recursive: true });
+    // O_CREAT only — `claimName` already guaranteed exclusivity. If
+    // a stale pin somehow lingered past claim, overwrite is safe
+    // (the previous owner is dead by definition).
+    writeFileSync(pin, String(entry.pid));
+  }
+  debug("write pid=%d name=%s sock=%s", entry.pid, entry.name ?? "<unset>", entry.socketPath);
 }
 
-/** Remove a registry entry. No-op if it's already gone. */
-export function removeEntry(id: string): void {
-  debug("remove id=%s", id);
+/**
+ * Remove a registry entry by pid. No-op if it's already gone. Also
+ * removes the matching name pin if the entry carried one.
+ */
+export function removeEntry(pid: number): void {
+  debug("remove pid=%d", pid);
+  const root = registryRoot();
+  // Read meta first to recover the name (so we can drop the pin).
+  const entry = readEntry(pid);
+  if (entry?.name) {
+    try {
+      unlinkSync(pinPath(entry.name));
+    } catch {}
+  }
   try {
-    rmSync(join(registryRoot(), id), { recursive: true, force: true });
+    rmSync(join(root, String(pid)), { recursive: true, force: true });
   } catch {}
 }
 
-/** Read an entry by id. Returns undefined if the directory or file is missing. */
-export function readEntry(id: string): RegistryEntry | undefined {
-  const path = join(registryRoot(), id, "meta.json");
+/** Read an entry by pid. Returns undefined if the directory or file is missing. */
+export function readEntry(pid: number): RegistryEntry | undefined {
+  const path = join(registryRoot(), String(pid), "meta.json");
   if (!existsSync(path)) {
     return undefined;
   }
@@ -104,8 +150,8 @@ export function isAlive(pid: number): boolean {
 
 /**
  * List all registry entries whose pid is still alive. Prunes stale
- * entries (pid no longer alive) as a side effect, so a crashed VMM
- * doesn't leave a stuck record behind.
+ * entries (pid no longer alive) and orphaned name pins as a side
+ * effect, so a crashed VMM doesn't leave a stuck record behind.
  */
 export function list(): RegistryEntry[] {
   const root = registryRoot();
@@ -114,49 +160,147 @@ export function list(): RegistryEntry[] {
   }
   const out: RegistryEntry[] = [];
   let pruned = 0;
-  for (const id of readdirSync(root)) {
-    const entry = readEntry(id);
+  for (const dirent of readdirSync(root, { withFileTypes: true })) {
+    if (!dirent.isDirectory()) {
+      continue;
+    }
+    if (dirent.name === "names") {
+      continue;
+    }
+    const pidNum = Number(dirent.name);
+    if (!Number.isInteger(pidNum) || pidNum <= 0) {
+      // Foreign directory — skip.
+      continue;
+    }
+    const entry = readEntry(pidNum);
     if (!entry) {
-      // Malformed or missing meta.json — clean it up.
-      removeEntry(id);
+      removeEntry(pidNum);
       pruned++;
       continue;
     }
     if (!isAlive(entry.pid)) {
-      removeEntry(entry.id);
+      removeEntry(entry.pid);
       pruned++;
       continue;
     }
     out.push(entry);
   }
+  pruneStaleNamePins();
   debug("list root=%s alive=%d pruned=%d", root, out.length, pruned);
   return out;
 }
 
 /**
- * Look up a running VM by id or name. Returns undefined if not found
+ * Walk the names tree, unlink any pin whose pid is dead. Idempotent.
+ */
+function pruneStaleNamePins(): void {
+  const base = namesDir();
+  if (!existsSync(base)) {
+    return;
+  }
+  walkPins(base, (pinAbs) => {
+    let pid: number;
+    try {
+      pid = Number(readFileSync(pinAbs, "utf8").trim());
+    } catch {
+      // Unreadable pin — drop it.
+      try {
+        unlinkSync(pinAbs);
+      } catch {}
+      return;
+    }
+    if (!Number.isInteger(pid) || pid <= 0 || !isAlive(pid)) {
+      try {
+        unlinkSync(pinAbs);
+      } catch {}
+    }
+  });
+}
+
+function walkPins(dir: string, onFile: (path: string) => void): void {
+  for (const dirent of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, dirent.name);
+    if (dirent.isDirectory()) {
+      walkPins(full, onFile);
+    } else if (dirent.isFile()) {
+      onFile(full);
+    }
+  }
+}
+
+/**
+ * Try to atomically reserve `name` for `pid`. Returns true on success,
+ * false if the name is held by another live VM. If a stale pin (pid
+ * dead) is in the way, it's removed and we retry once.
+ *
+ * Layered semantics: `O_CREAT|O_EXCL` is the underlying primitive,
+ * but Node's `writeFileSync(..., { flag: "wx" })` is the equivalent
+ * and works on every platform we ship.
+ */
+export function claimName(name: string, pid: number): boolean {
+  const pin = pinPath(name);
+  mkdirSync(dirname(pin), { recursive: true });
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      writeFileSync(pin, String(pid), { flag: "wx" });
+      debug("claimName name=%s pid=%d (attempt=%d)", name, pid, attempt);
+      return true;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "EEXIST") {
+        throw err;
+      }
+      // EEXIST: someone holds the pin. If they're dead, drop it and retry.
+      let heldPid = -1;
+      try {
+        heldPid = Number(readFileSync(pin, "utf8").trim());
+      } catch {}
+      if (heldPid > 0 && isAlive(heldPid)) {
+        debug("claimName name=%s held by live pid=%d — refusing", name, heldPid);
+        return false;
+      }
+      debug("claimName name=%s stale pin (heldPid=%d) — unlinking", name, heldPid);
+      try {
+        unlinkSync(pin);
+      } catch {}
+    }
+  }
+  return false;
+}
+
+/**
+ * Look up a running VM by pid or name. Returns undefined if not found
  * or if the backing pid is dead (in which case the entry is pruned).
  */
-export function findEntry(query: { id?: string; name?: string }): RegistryEntry | undefined {
-  if (!query.id && !query.name) {
-    return undefined;
-  }
-  if (query.id) {
-    const entry = readEntry(query.id);
+export function findEntry(query: { pid?: number; name?: string }): RegistryEntry | undefined {
+  if (query.pid !== undefined) {
+    const entry = readEntry(query.pid);
     if (!entry) {
       return undefined;
     }
     if (!isAlive(entry.pid)) {
-      removeEntry(entry.id);
+      removeEntry(entry.pid);
       return undefined;
     }
     return entry;
   }
-  // Name-based lookup: walk + filter.
-  for (const entry of list()) {
-    if (entry.name === query.name) {
-      return entry;
+  if (query.name !== undefined) {
+    const pin = pinPath(query.name);
+    if (!existsSync(pin)) {
+      return undefined;
     }
+    let pid = -1;
+    try {
+      pid = Number(readFileSync(pin, "utf8").trim());
+    } catch {
+      return undefined;
+    }
+    if (!Number.isInteger(pid) || pid <= 0 || !isAlive(pid)) {
+      try {
+        unlinkSync(pin);
+      } catch {}
+      return undefined;
+    }
+    return readEntry(pid);
   }
   return undefined;
 }

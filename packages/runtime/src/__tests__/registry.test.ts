@@ -1,8 +1,9 @@
 // Unit tests for the VM registry (#98).
 //
-// Exercises writeEntry/readEntry/findEntry/list/removeEntry against a
-// scratch MACHINEN_REGISTRY_DIR, plus round-trips boot()→list()→attach()
-// against a long-running /usr/bin/yes "VMM" so we don't need real HVF.
+// Exercises writeEntry/readEntry/findEntry/list/removeEntry/claimName
+// against a scratch MACHINEN_REGISTRY_DIR, plus round-trips
+// boot()→list()→attach() against a long-running /usr/bin/yes "VMM" so
+// we don't need real HVF.
 
 import { createServer } from "node:net";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -11,9 +12,9 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { RegistryError, attach, boot, list, type RegistryEntry } from "../index.ts";
 import {
+  claimName,
   findEntry,
   isAlive,
-  newVmId,
   readEntry,
   removeEntry,
   registryRoot,
@@ -33,84 +34,98 @@ describe("registry primitives", () => {
     rmSync(scratchDir, { recursive: true, force: true });
   });
 
-  it("newVmId returns an 8-char hex string", () => {
-    const id = newVmId();
-    expect(id).toMatch(/^[0-9a-f]{8}$/);
-  });
-
   it("registryRoot honors MACHINEN_REGISTRY_DIR", () => {
     expect(registryRoot()).toBe(scratchDir);
   });
 
-  it("writeEntry → readEntry round-trips", () => {
+  it("writeEntry → readEntry round-trips by pid", () => {
     const entry: RegistryEntry = {
-      id: "abcd1234",
-      name: "test-vm",
       pid: process.pid,
+      name: "test-vm",
       socketPath: "/tmp/fake.sock",
       imagePath: "/tmp/fake.tar.gz",
       startedAt: 1_700_000_000_000,
     };
     writeEntry(entry);
-    expect(readEntry("abcd1234")).toEqual(entry);
+    expect(readEntry(process.pid)).toEqual(entry);
   });
 
-  it("removeEntry drops the directory", () => {
+  it("removeEntry drops the directory + name pin", () => {
     writeEntry({
-      id: "abcd1234",
       pid: process.pid,
+      name: "to-remove",
       socketPath: "/tmp/fake.sock",
       startedAt: Date.now(),
     });
-    expect(readEntry("abcd1234")).toBeDefined();
-    removeEntry("abcd1234");
-    expect(readEntry("abcd1234")).toBeUndefined();
+    expect(readEntry(process.pid)).toBeDefined();
+    expect(findEntry({ name: "to-remove" })).toBeDefined();
+    removeEntry(process.pid);
+    expect(readEntry(process.pid)).toBeUndefined();
+    expect(findEntry({ name: "to-remove" })).toBeUndefined();
   });
 
   it("isAlive returns true for this process and false for a known-dead pid", () => {
     expect(isAlive(process.pid)).toBe(true);
-    // Pid 0 is a process group; Pid 1 is init (always alive). Use a
-    // very high pid that won't exist on a normal box.
     expect(isAlive(999_999_999)).toBe(false);
   });
 
   it("list skips entries whose pid is dead and prunes them", () => {
     writeEntry({
-      id: "alive",
       pid: process.pid,
+      name: "alive",
       socketPath: "/tmp/fake.sock",
       startedAt: Date.now(),
     });
     writeEntry({
-      id: "dead",
       pid: 999_999_999,
       socketPath: "/tmp/fake-dead.sock",
       startedAt: Date.now(),
     });
     const results = list();
-    expect(results.map((e) => e.id)).toEqual(["alive"]);
-    // Dead entry should have been pruned.
-    expect(readEntry("dead")).toBeUndefined();
+    expect(results.map((e) => e.pid)).toEqual([process.pid]);
+    expect(readEntry(999_999_999)).toBeUndefined();
   });
 
-  it("findEntry returns undefined when neither id nor name is given", () => {
+  it("findEntry returns undefined when neither pid nor name is given", () => {
     expect(findEntry({})).toBeUndefined();
   });
 
-  it("findEntry looks up by name", () => {
+  it("findEntry looks up by name (via pin file → pid)", () => {
     writeEntry({
-      id: "e1",
-      name: "worker",
       pid: process.pid,
+      name: "worker",
       socketPath: "/tmp/e1.sock",
       startedAt: Date.now(),
     });
     const hit = findEntry({ name: "worker" });
-    expect(hit?.id).toBe("e1");
+    expect(hit?.pid).toBe(process.pid);
+    expect(hit?.name).toBe("worker");
+  });
+
+  it("findEntry looks up by pid", () => {
+    writeEntry({
+      pid: process.pid,
+      name: "by-pid",
+      socketPath: "/tmp/e2.sock",
+      startedAt: Date.now(),
+    });
+    const hit = findEntry({ pid: process.pid });
+    expect(hit?.name).toBe("by-pid");
   });
 
   it("findEntry returns undefined for an unknown name", () => {
     expect(findEntry({ name: "nope" })).toBeUndefined();
+  });
+
+  it("claimName succeeds when free, fails when held by a live pid", () => {
+    expect(claimName("first", process.pid)).toBe(true);
+    expect(claimName("first", process.pid + 1)).toBe(false);
+  });
+
+  it("claimName recovers stale pins (held by a dead pid)", () => {
+    expect(claimName("recycled", 999_999_999)).toBe(true);
+    // The dead-pid pin should be replaced by our live one on retry.
+    expect(claimName("recycled", process.pid)).toBe(true);
   });
 });
 
@@ -161,17 +176,16 @@ describe("boot + attach end-to-end", () => {
         timeoutMs: 5_000,
       });
       try {
-        expect(vm.id).toMatch(/^[0-9a-f]{8}$/);
+        expect(vm.pid).toBeGreaterThan(0);
         expect(vm.name).toBe("my-worker");
 
         // list() should include it, pid alive.
         const entries = list();
-        expect(entries.some((e) => e.id === vm.id && e.name === "my-worker")).toBe(true);
+        expect(entries.some((e) => e.pid === vm.pid && e.name === "my-worker")).toBe(true);
 
         // attach({ name }) should connect and exec through the same UDS.
         const attached = await attach({ name: "my-worker" });
         try {
-          expect(attached.id).toBe(vm.id);
           expect(attached.pid).toBe(vm.pid);
           const res = await attached.exec("anything");
           expect(res.exitCode).toBe(0);
@@ -192,7 +206,7 @@ describe("boot + attach end-to-end", () => {
 
   it("attach() throws RegistryError when no VM matches", async () => {
     await expect(attach({ name: "nothing-here" })).rejects.toThrow(RegistryError);
-    await expect(attach({ id: "deadbeef" })).rejects.toThrow(RegistryError);
+    await expect(attach({ pid: 999_999_999 })).rejects.toThrow(RegistryError);
   });
 
   it("vm.kill() removes the registry entry via child exit", async () => {
@@ -209,6 +223,36 @@ describe("boot + attach end-to-end", () => {
       await vm.kill();
       // Child-exit cleanup should drop the entry.
       expect(list().some((e) => e.name === "killme")).toBe(false);
+    } finally {
+      await agent.stop();
+      try {
+        rmSync(udsPath);
+      } catch {}
+    }
+  });
+
+  it("boot() rejects a duplicate --name with REGISTRY_NAME_IN_USE", async () => {
+    const udsPath = join(tmpdir(), `machinen-attach-dup-${process.pid}.sock`);
+    const agent = startFakeAgent({ socketPath: udsPath, exitCode: 0 });
+    try {
+      const a = await boot({
+        binary: "/usr/bin/yes",
+        vmmEnv: { MACHINEN_VSOCK: `in:1978:${udsPath}` },
+        name: "dupe",
+        timeoutMs: 5_000,
+      });
+      try {
+        await expect(
+          boot({
+            binary: "/usr/bin/yes",
+            vmmEnv: { MACHINEN_VSOCK: `in:1978:${udsPath}` },
+            name: "dupe",
+            timeoutMs: 5_000,
+          }),
+        ).rejects.toThrow(/already held/i);
+      } finally {
+        await a.kill();
+      }
     } finally {
       await agent.stop();
       try {

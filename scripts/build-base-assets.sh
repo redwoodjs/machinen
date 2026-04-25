@@ -106,6 +106,14 @@ echo "${FNM_SHA256}  ${STAGE}/fnm.zip" | shasum -a 256 -c -
 unzip -q -o "${STAGE}/fnm.zip" -d "${STAGE}"
 chmod +x "${STAGE}/fnm"
 
+# Stage the shell-script helpers that implement the snapshot contract
+# (supervisor, dump, restore). They end up under /sbin/machinen-* inside
+# the guest — see the `install -m 0755` block further down.
+cp "${ASSETS}/machinen-supervisor.sh" "${STAGE}/machinen-supervisor.sh"
+cp "${ASSETS}/machinen-dump.sh"       "${STAGE}/machinen-dump.sh"
+cp "${ASSETS}/machinen-restore.sh"    "${STAGE}/machinen-restore.sh"
+chmod +x "${STAGE}/machinen-supervisor.sh" "${STAGE}/machinen-dump.sh" "${STAGE}/machinen-restore.sh"
+
 # ------------------------------------------------------------
 # 4. Rootfs — mmdebstrap minbase + aggressive strip + guest binaries
 # ------------------------------------------------------------
@@ -168,10 +176,21 @@ chmod +x /tmp/setup-hook.sh
 # that solves PID collisions across boots ships in the same package.
 # APT::Install-Recommends "false" is already set by the setup hook,
 # so criu's optional python3 suggestion is skipped.
+#
+# e2fsprogs: mkfs.ext4 + blkid. /sbin/machinen-dump formats /dev/vda
+# on first snapshot so CRIU has a filesystem to write images into;
+# /sbin/machinen-restore uses blkid to verify before mounting.
+#
+# mount: util-linux's `mount` / `umount` are Essential on Debian,
+# so they ride in with minbase — no extra --include line needed.
+#
+# iputils-ping: baked in so users can sanity-check connectivity
+# without an `apt install`. Over gvproxy ICMP works via unprivileged
+# ping sockets (sysctl is enabled in cloud kernels).
 mmdebstrap \
   --variant=minbase \
   --architectures=arm64 \
-  --include=linux-image-cloud-arm64,kmod,criu \
+  --include=linux-image-cloud-arm64,kmod,criu,e2fsprogs,iputils-ping \
   --setup-hook=/tmp/setup-hook.sh \
   bookworm /work/rootfs
 
@@ -284,6 +303,11 @@ install -m 0755 -D /stage/no-iou            /work/rootfs/sbin/machinen-no-iou
 install -m 0755 -D /stage/poweroff          /work/rootfs/sbin/machinen-poweroff
 install -m 0755 -D /stage/net-bench-probe   /work/rootfs/sbin/machinen-net-bench-probe
 install -m 0755 -D /stage/fnm               /work/rootfs/usr/local/bin/fnm
+# Shell-script helpers that drive the snapshot/restore contract. Staged
+# in by the host-side build step alongside the zig binaries.
+install -m 0755 -D /stage/machinen-supervisor.sh /work/rootfs/sbin/machinen-supervisor
+install -m 0755 -D /stage/machinen-dump.sh       /work/rootfs/sbin/machinen-dump
+install -m 0755 -D /stage/machinen-restore.sh    /work/rootfs/sbin/machinen-restore
 
 # Deterministic tar + gzip written as a single file to the bind mount.
 tar --sort=name --owner=0 --group=0 --numeric-owner \
