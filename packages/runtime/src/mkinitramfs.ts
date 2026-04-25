@@ -339,6 +339,12 @@ export interface PackBundleOptions {
   excludes?: string[];
   /** Optional path to the compiled /init. Default: ../microvm/test-fixtures/init relative to this file. */
   initPath?: string;
+  /**
+   * Optional host path to the compiled fuse-agent binary. When set,
+   * the binary is injected at `/fuse-agent` (mode 0755) inside the
+   * initramfs so /init can fork it per live-share mount. See #78.
+   */
+  fuseAgentPath?: string;
 }
 
 export function packBundle(opts: PackBundleOptions): void {
@@ -401,6 +407,7 @@ export function packBundle(opts: PackBundleOptions): void {
     appendFinalEntries(parts, {
       initPath: opts.initPath ?? defaultInitPath(),
       config: patchConfigEnv(readFileSync(cfgPath), opts.env),
+      fuseAgentPath: opts.fuseAgentPath,
       injectInit: false,
     });
     writeFileSync(opts.out, Buffer.concat(parts));
@@ -549,6 +556,8 @@ interface FinalOptions {
    * updates.
    */
   injectInit: boolean;
+  /** Optional path to fuse-agent; staged at /fuse-agent when provided. */
+  fuseAgentPath?: string;
 }
 
 function appendFinalEntries(parts: Buffer[], opts: FinalOptions): void {
@@ -558,6 +567,19 @@ function appendFinalEntries(parts: Buffer[], opts: FinalOptions): void {
       parts.push(newc("init", 0o100755, { data: initBytes }));
     } catch {
       // init is optional — matches the Python code's `if INIT.exists():` guard.
+    }
+  }
+  if (opts.fuseAgentPath) {
+    // Bake the agent at /fuse-agent so /init can fork it per
+    // liveMount entry. We don't gate on liveMounts being set — paying
+    // ~200KB when unused is cheaper than threading the option all the
+    // way through; the init only spawns it when configured.
+    try {
+      const bytes = readFileSync(opts.fuseAgentPath);
+      parts.push(newc("fuse-agent", 0o100755, { data: bytes }));
+    } catch {
+      // Optional — if missing, liveMount boot will fail later with a
+      // clear error, but non-liveMount paths keep working.
     }
   }
   if (opts.config) {
@@ -587,6 +609,16 @@ function defaultInitPath(): string {
   // Resolve via import.meta.url so it works under both ESM and tsx-CJS loaders.
   const here = dirname(fileURLToPath(import.meta.url));
   return join(here, "..", "..", "microvm", "test-fixtures", "init");
+}
+
+/**
+ * Default path to the compiled fuse-agent binary. Sibling of the
+ * default /init under packages/microvm/test-fixtures/. Callers can
+ * override via `PackBundleOptions.fuseAgentPath`.
+ */
+export function defaultFuseAgentPath(): string {
+  const here = dirname(fileURLToPath(import.meta.url));
+  return join(here, "..", "..", "microvm", "test-fixtures", "fuse-agent");
 }
 
 // --- CLI entrypoint -----------------------------------------------

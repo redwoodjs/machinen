@@ -206,6 +206,28 @@ expect_cli_error \
   "at most once" \
   boot --mount "$EMPTY_DIR:/mnt/a" --mount "$EMPTY_DIR:/mnt/b" -- true
 
+# --- #78 live-share mount (--mount-live) validation paths ---------
+
+expect_cli_error \
+  "V5: --mount-live with missing host path" \
+  "liveMounts\[0\] host path not found" \
+  boot --mount-live "$FIXTURE/nope-does-not-exist:/mnt/x" -- true
+
+expect_cli_error \
+  "V6: --mount-live with a file instead of a directory" \
+  "must be a directory" \
+  boot --mount-live "$HOST_FILE:/mnt/f" -- true
+
+expect_cli_error \
+  "V7: --mount-live with guest path outside /mnt/" \
+  "must live under /mnt/" \
+  boot --mount-live "$EMPTY_DIR:/etc/passwd" -- true
+
+expect_cli_error \
+  "V8: --mount-live rejects the :rw suffix (reserved for write-through)" \
+  "expected <host-dir>:<guest-path>" \
+  boot --mount-live "$EMPTY_DIR:/mnt/x:rw" -- true
+
 # ----------------------------------------------------------------
 # Boot tests — need HVF/KVM. Slow.
 # ----------------------------------------------------------------
@@ -240,6 +262,44 @@ if grep -q "$T2_MARKER" "$T2_LOG"; then
 else
   tail -50 "$T2_LOG" >&2
   fail "T2 marker ($T2_MARKER) not found in guest output"
+fi
+
+# ---- T3: --mount-live streams a file through the FUSE relay (#78) ----
+#
+# Unlike T2 (copy-once), the host file must land in the guest lazily
+# via the vsock FUSE server, NOT be baked into the boot cpio. We
+# write the marker after the VM starts to prove that.
+#
+# Skips if the current base kernel doesn't carry fuse.ko yet. That
+# whitelist change is in scripts/build-base-assets.sh on this branch
+# but the cached release-assets/ rootfs tarball may predate it.
+echo "T3: machinen boot --mount-live ./fixture:/mnt/live -- cat /mnt/live/hello.txt"
+if ! tar -tzf "$ASSETS/rootfs.tar.gz" 2>/dev/null | grep -q 'fuse\.ko'; then
+  echo "  skip: fuse.ko not in release-assets/rootfs.tar.gz — rebuild base assets"
+else
+  T3_MARKER="livemount-marker-$$"
+  T3_SRC="$FIXTURE/live-src"
+  T3_LOG="$FIXTURE/t3.log"
+  mkdir -p "$T3_SRC"
+  # Seed the marker file AFTER the VM is already running to prove the
+  # read streamed in through vsock (copy-once would have cached an
+  # empty dir at boot).
+  (
+    sleep 3
+    echo "$T3_MARKER" >"$T3_SRC/hello.txt"
+  ) &
+  SEEDER=$!
+  run_timeout 60 node "$CLI" boot \
+    --mount-live "$T3_SRC:/mnt/live" \
+    -- /bin/sh -c 'sleep 4 && cat /mnt/live/hello.txt' \
+    >"$T3_LOG" 2>&1 || true
+  wait "$SEEDER" 2>/dev/null || true
+  if grep -q "$T3_MARKER" "$T3_LOG"; then
+    pass "live-mount streamed a file written after boot"
+  else
+    tail -80 "$T3_LOG" >&2
+    fail "T3 marker ($T3_MARKER) not found — live mount didn't stream through"
+  fi
 fi
 
 # ---- T4: --env propagates into the guest process env (#89) ----

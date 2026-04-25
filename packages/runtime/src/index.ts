@@ -38,6 +38,7 @@ export {
   ProvisionError,
   RegistryError,
   FilesError,
+  MountError,
   SecretsError,
   WinsizeError,
   SandboxError,
@@ -94,11 +95,12 @@ import { arch as osArch, platform as osPlatform, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { Readable, Writable } from "node:stream";
 import debugLib from "debug";
-import { packBundle as mkinitramfsPackBundle } from "./mkinitramfs.ts";
+import { defaultFuseAgentPath, packBundle as mkinitramfsPackBundle } from "./mkinitramfs.ts";
 import { ensureGvproxy, exposePort, spawnGvproxy, warnGvproxyMissing } from "./gvproxy.ts";
 import { spawnArtifactCache } from "./artifact-cache.ts";
 import { BootError, ExecError, RegistryError, SnapshotError } from "./errors.ts";
 import { VsockExec, type VsockExecOptions, type VsockExecResult } from "./exec.ts";
+import { serveLiveMount } from "./mount-server.ts";
 import type { OnLog } from "./log.ts";
 import { claimName, findEntry, isAlive, removeEntry, writeEntry } from "./registry.ts";
 
@@ -201,6 +203,23 @@ export interface BootOptions {
    * discarded when the VM exits. See #64, #78.
    */
   mount?: { host: string; guest: string };
+  /**
+   * Host directories exposed to the guest as live-share FUSE mounts
+   * (#78). Unlike `mount` (copy-once into the boot rootfs), these stay
+   * connected to the host: the guest reads on demand via a vsock FUSE
+   * relay, and nothing is copied at boot. Read-only in this build;
+   * `:rw` write-through is a follow-up.
+   *
+   * Each guest path must live under `/mnt/` (same rule as `mount`).
+   * Repeatable; each entry gets its own vsock port.
+   *
+   * Security note: a live-share mount gives a compromised guest a
+   * persistent channel back to the host filesystem. Containment keeps
+   * that bounded to the configured host root. `mount` (copy-once) has
+   * no such runtime channel and is strictly safer — prefer it for
+   * inputs you don't need write-through on.
+   */
+  liveMounts?: Array<{ host: string; guest: string }>;
   /**
    * Host -> guest TCP port forwards installed via gvproxy's control
    * API. Each entry maps `hostPort` on the host (bound to `hostAddr`,
@@ -489,6 +508,23 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     debug("vsock auto uds=%s", vsockUdsPath);
   }
 
+  // #78: resolve live-share mounts. Each gets a fresh vsock port (base
+  // 1970, the band below the exec/file/secrets/winsize agents) and a
+  // UDS per mount so the VMM's MACHINEN_VSOCK spec can include one
+  // entry per mount. We compute these here so the port↔guest pairs can
+  // be baked into machinen-config.json at pack time — the guest's
+  // /init reads the same pairs and forks the FUSE agent per entry.
+  let liveMountsResolved: ResolvedLiveMount[] = [];
+  if ((opts.liveMounts ?? []).length > 0) {
+    if (!vsockTempDir) {
+      vsockTempDir = mkdtempSync(join(tmpdir(), "machinen-vsock-"));
+    }
+    liveMountsResolved = resolveLiveMounts(opts.liveMounts!, opts.cwd, vsockTempDir);
+    for (const lm of liveMountsResolved) {
+      env.MACHINEN_VSOCK = `${env.MACHINEN_VSOCK},in:${lm.port}:${lm.udsPath}`;
+    }
+  }
+
   // gvproxy + artifact cache (#88) + host→guest port forwards (#87)
   // are set up together so the cache's port can be wired into the
   // guest env before packBundle seals the initramfs. If anything
@@ -497,6 +533,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   // down — otherwise a failed boot would leave orphans behind.
   let gvStop: (() => void) | undefined;
   let cacheStop: (() => Promise<void>) | undefined;
+  const liveMountStops: Array<() => Promise<void>> = [];
   let bundleTempDir: string | undefined;
   const mergedGuestEnv: Record<string, string> = { ...opts.env };
 
@@ -551,18 +588,30 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       }
     }
 
+    // #78: start one live-share server per resolved mount before the
+    // VMM boots. The guest fuse-agent will dial these UDSes once it's
+    // past /dev/fuse mount; if we started them after the VMM, the
+    // agent would spin in connect-retry for as long as we took.
+    for (const lm of liveMountsResolved) {
+      const handle = await serveLiveMount(lm.udsPath, { rootAbs: lm.host });
+      liveMountStops.push(handle.stop);
+    }
+
     // Pack an initramfs whenever the guest needs userspace (image +
     // cmd + snapshot-only restore all need /init + synthesized
     // machinen-config.json). Test-mode zig boots fall through with no
     // INITRD env set — the VMM uses its own fixture initramfs.
     if (opts.image || opts.cmd || opts.snapshot) {
       const packT0 = Date.now();
-      const packed = synthesizeAndPackBundle(opts, mergedGuestEnv);
+      const packed = synthesizeAndPackBundle(opts, mergedGuestEnv, liveMountsResolved);
       bundleTempDir = packed.tempDir;
       env.MACHINEN_INITRD = packed.cpioPath;
       debug("initramfs packed cpio=%s elapsed=%dms", packed.cpioPath, Date.now() - packT0);
     }
   } catch (err) {
+    for (const stop of liveMountStops) {
+      await stop().catch(() => {});
+    }
     if (cacheStop) {
       await cacheStop();
     }
@@ -664,6 +713,9 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     }
     if (cacheStop) {
       void cacheStop();
+    }
+    for (const stop of liveMountStops) {
+      void stop().catch(() => {});
     }
     if (registered) {
       removeEntry(childPid);
@@ -792,6 +844,21 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
           "SNAPSHOT_NO_DISK",
           "vm.snapshot: no disk was attached at boot. Pass `snapshot: '<path>'` to " +
             "boot() so CRIU has a target to write to.",
+        );
+      }
+      if (liveMountsResolved.length > 0) {
+        // A live mount is a persistent vsock channel that CRIU has no
+        // way to freeze. Snapshotting and later restoring would leave
+        // the guest pointing at a dead UDS / dead host server, with
+        // every FS op returning errors. Refuse loudly until we decide
+        // how the two should compose (issue #78 "Known tradeoffs").
+        throw new SnapshotError(
+          "SNAPSHOT_LIVE_MOUNT_ACTIVE",
+          "vm.snapshot: cannot snapshot a VM with --mount-live active. " +
+            "The vsock FUSE channel doesn't survive snapshot/restore. " +
+            "Re-boot without live mounts if you need to snapshot, or use " +
+            "`--mount` (copy-once) which is baked into the rootfs and " +
+            "snapshots cleanly.",
         );
       }
       return performSnapshot(
@@ -998,9 +1065,56 @@ function readImageConfig(
   }
 }
 
+/**
+ * A caller-provided `liveMounts` entry after validation, with the
+ * vsock port + host UDS path allocated. Threaded from `boot()` into
+ * the initramfs packer so the config and the host servers agree on
+ * ports and guest paths.
+ */
+interface ResolvedLiveMount {
+  host: string;
+  guest: string;
+  port: number;
+  udsPath: string;
+}
+
+/** Base vsock port for live mounts. Chosen below the exec/file/
+ *  secrets/winsize agent band (1975–1978) so it doesn't collide. */
+const LIVE_MOUNT_PORT_BASE = 1970;
+
+function resolveLiveMounts(
+  mounts: Array<{ host: string; guest: string }>,
+  cwd: string | undefined,
+  udsDir: string,
+): ResolvedLiveMount[] {
+  return mounts.map((m, i) => {
+    validateMountGuest(m.guest);
+    const hostAbs = resolve(cwd ?? process.cwd(), m.host);
+    if (!existsSync(hostAbs)) {
+      throw new BootError(
+        "BOOT_MOUNT_HOST_NOT_FOUND",
+        `liveMounts[${i}] host path not found: ${m.host}`,
+      );
+    }
+    if (!statSync(hostAbs).isDirectory()) {
+      throw new BootError(
+        "BOOT_MOUNT_INVALID",
+        `liveMounts[${i}] host path must be a directory: ${m.host}`,
+      );
+    }
+    return {
+      host: hostAbs,
+      guest: normalizeMountGuest(m.guest),
+      port: LIVE_MOUNT_PORT_BASE + i,
+      udsPath: join(udsDir, `live-mount-${i}.sock`),
+    };
+  });
+}
+
 function synthesizeAndPackBundle(
   opts: BootOptions,
   mergedGuestEnv: Record<string, string>,
+  liveMounts: ResolvedLiveMount[],
 ): { tempDir: string; cpioPath: string } {
   const tempDir = mkdtempSync(join(tmpdir(), "machinen-bundle-"));
   const cpioPath = join(tempDir, "initramfs.cpio");
@@ -1080,10 +1194,14 @@ function synthesizeAndPackBundle(
   // user-authored machinen-config.json; we generate it here and the
   // caller never sees it.
   mkdirSync(join(synthBundleDir, "rootfs"), { recursive: true });
-  writeFileSync(
-    join(synthBundleDir, "machinen-config.json"),
-    JSON.stringify({ cmd: wrappedCmd, env: effectiveEnv }),
-  );
+  const configJson: Record<string, unknown> = { cmd: wrappedCmd, env: effectiveEnv };
+  if (liveMounts.length > 0) {
+    // Only the guest/port pairs get written — host paths never cross
+    // into the guest's view. /init reads this and forks fuse-agent
+    // per entry.
+    configJson.liveMounts = liveMounts.map(({ guest, port }) => ({ guest, port }));
+  }
+  writeFileSync(join(synthBundleDir, "machinen-config.json"), JSON.stringify(configJson));
 
   let mount: { host: string; guest: string } | undefined;
   if (opts.mount) {
@@ -1118,6 +1236,7 @@ function synthesizeAndPackBundle(
       base: baseAbs,
       mount,
       env: effectiveEnv,
+      fuseAgentPath: liveMounts.length > 0 ? defaultFuseAgentPath() : undefined,
     });
   } catch (err) {
     cleanup();

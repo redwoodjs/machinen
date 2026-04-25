@@ -23,5 +23,6 @@ build() {
 build init
 build exec-agent
 build file-agent
+build fuse-agent
 build secrets-agent
 build winsize-agent

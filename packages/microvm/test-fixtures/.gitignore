@@ -12,6 +12,7 @@ rootfs-debian.tar
 init
 exec-agent
 file-agent
+fuse-agent
 secrets-agent
 winsize-agent
 *.dtb
