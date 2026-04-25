@@ -73,7 +73,7 @@ if (!existsSync(dummyInitrd)) {
 const workDir = mkdtempSync(join(tmpdir(), "machinen-stream-demo-"));
 const warmImage = join(workDir, "warm.tar.gz");
 const scratchSnap = join(workDir, "scratch.img");
-const savedSnap = join(workDir, "saved.snap");
+const savedSnapDir = join(workDir, "saved");
 
 /**
  * Build a printer that buffers bytes per-source-key and flushes one
@@ -156,13 +156,14 @@ try {
     await alt.detach();
 
     process.stdout.write("\n=== snapshot ===\n");
-    await vm.snapshot(savedSnap, { onLog: printer("snapshot") }).catch((err: unknown) => {
-      // The base rootfs may not ship /sbin/machinen-dump; surface the
-      // failure but don't abort the demo.
-      process.stderr.write(
-        `snapshot skipped: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}\n`,
-      );
-    });
+    await vm
+      .snapshot({ outDir: savedSnapDir, onLog: printer("snapshot") })
+      .catch((err: unknown) => {
+        // Demo is best-effort: surface the failure but don't abort.
+        process.stderr.write(
+          `snapshot skipped: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}\n`,
+        );
+      });
   } finally {
     await vm.kill();
   }

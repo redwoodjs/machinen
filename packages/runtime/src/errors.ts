@@ -59,6 +59,7 @@ export const ErrorCode = {
 
   // registry / attach
   REGISTRY_VM_NOT_FOUND: "REGISTRY_VM_NOT_FOUND",
+  REGISTRY_NAME_IN_USE: "REGISTRY_NAME_IN_USE",
 
   // files — vsock push/pull
   FILES_HOST_DIR_NOT_FOUND: "FILES_HOST_DIR_NOT_FOUND",

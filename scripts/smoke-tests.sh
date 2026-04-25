@@ -346,9 +346,9 @@ else
   fail "N2 — 'machinen ls' missing '$N2_NAME'"
 fi
 
-# machinen exec <name> -- uname -m should return 0 + aarch64.
+# machinen exec --name <name> -- uname -m should return 0 + aarch64.
 N2_EXEC_LOG="$FIXTURE/n2-exec.log"
-if cli exec "$N2_NAME" -- uname -m >"$N2_EXEC_LOG" 2>&1; then
+if cli exec --name "$N2_NAME" -- uname -m >"$N2_EXEC_LOG" 2>&1; then
   if grep -qE "aarch64|arm64" "$N2_EXEC_LOG"; then
     pass "'machinen exec $N2_NAME -- uname -m' returned aarch64"
   else
@@ -367,7 +367,7 @@ fi  # N2 rootfs-capability gate
 # ---- N3: machinen attach <unknown> errors cleanly ----
 echo "N3: machinen attach against an unknown name"
 N3_LOG="$FIXTURE/n3.log"
-if cli attach "nope-does-not-exist-$$" >"$N3_LOG" 2>&1; then
+if cli attach --name "nope-does-not-exist-$$" >"$N3_LOG" 2>&1; then
   cat "$N3_LOG" >&2
   fail "N3 — attach to unknown name should have failed"
 fi
@@ -530,9 +530,10 @@ fi
 # Snapshot/restore round-trip (#50 M2). Uses the supervisor +
 # /sbin/machinen-dump + /sbin/machinen-restore baked into the rootfs:
 #   1. boot with a scratch /dev/vda + named VM
-#   2. `machinen snapshot <name> <out>`  (attach-snapshot path)
-#   3. `machinen restore <out>`          (criu-ns restore path)
-#   4. exec into the restored VM to prove the agent re-spawned
+#   2. `machinen snapshot --name <n> --out-dir <d>`   (attach-snapshot)
+#   3. `machinen restore <d>`                          (criu-ns restore)
+#   4. exec into the restored VM (auto-named <n>/<pid>) to prove the
+#      agent re-spawned
 # ----------------------------------------------------------------
 if [[ "$ROOTFS_SUPPORTS_VSOCK_EXEC" -eq 0 || "$ROOTFS_SUPPORTS_CRIU" -eq 0 || "$ROOTFS_SUPPORTS_SNAPSHOT_HELPERS" -eq 0 ]]; then
   echo "S1: skipped (rootfs lacks vsock/criu/snapshot helpers)"
@@ -540,7 +541,7 @@ else
   echo "S1: boot + snapshot + restore round-trip"
   S1_NAME="snapshot-smoke-$$"
   S1_BG_LOG="$FIXTURE/s1-bg.log"
-  S1_SNAP="$FIXTURE/s1.snap"
+  S1_SNAP_DIR="$FIXTURE/s1-snap"
   S1_SCRATCH="$FIXTURE/s1-scratch.img"
   S1_RESTORE_LOG="$FIXTURE/s1-restore.log"
 
@@ -564,7 +565,7 @@ else
 
   # Confirm the supervisor's backgrounded exec-agent is live.
   S1_EXEC_LOG="$FIXTURE/s1-exec.log"
-  if cli exec "$S1_NAME" -- uname -m >"$S1_EXEC_LOG" 2>&1 \
+  if cli exec --name "$S1_NAME" -- uname -m >"$S1_EXEC_LOG" 2>&1 \
      && grep -qE "aarch64|arm64" "$S1_EXEC_LOG"; then
     pass "exec-agent responds on the dump-side VM"
   else
@@ -573,11 +574,10 @@ else
     fail "S1 — exec against dump-side VM didn't return arch"
   fi
 
-  # Snapshot via the attach path. `machinen snapshot <name> <out>`
-  # attaches, runs /sbin/machinen-dump, waits for clean VMM exit,
-  # copies /dev/vda → $S1_SNAP.
+  # Snapshot via the attach path. The bundle (disk.img + meta.json)
+  # lands at $S1_SNAP_DIR; the VM exits as part of the dump.
   S1_DUMP_LOG="$FIXTURE/s1-dump.log"
-  if ! cli snapshot "$S1_NAME" "$S1_SNAP" 2>"$S1_DUMP_LOG"; then
+  if ! cli snapshot --name "$S1_NAME" --out-dir "$S1_SNAP_DIR" 2>"$S1_DUMP_LOG"; then
     tail -60 "$S1_BG_LOG" >&2
     cat "$S1_DUMP_LOG" >&2
     fail "S1 — 'machinen snapshot' failed"
@@ -585,22 +585,24 @@ else
   wait "$S1_PID" 2>/dev/null || true
   pass "'machinen snapshot' returned 0"
 
-  if [[ ! -s "$S1_SNAP" ]]; then
-    ls -la "$S1_SNAP" >&2
-    fail "S1 — snapshot output is empty"
+  S1_DISK="$S1_SNAP_DIR/disk.img"
+  if [[ ! -s "$S1_DISK" ]]; then
+    ls -la "$S1_SNAP_DIR" >&2
+    fail "S1 — snapshot disk.img is empty or missing"
   fi
-  # `file` identifies the ext4 superblock if machinen-dump mkfs'd
-  # /dev/vda. xxd's output shape varies between coreutils/busybox,
-  # so defer to `file`, which the base rootfs always ships.
-  if ! file "$S1_SNAP" 2>/dev/null | grep -qiE "ext[0-9] filesystem"; then
-    file "$S1_SNAP" >&2 || true
-    fail "S1 — snapshot output is not an ext filesystem"
+  if [[ ! -f "$S1_SNAP_DIR/meta.json" ]]; then
+    ls -la "$S1_SNAP_DIR" >&2
+    fail "S1 — snapshot bundle missing meta.json"
   fi
-  pass "snapshot output is an ext4 image"
+  if ! file "$S1_DISK" 2>/dev/null | grep -qiE "ext[0-9] filesystem"; then
+    file "$S1_DISK" >&2 || true
+    fail "S1 — snapshot disk.img is not an ext filesystem"
+  fi
+  pass "snapshot bundle has ext4 disk.img + meta.json"
 
-  # Restore in the background. No --name passed; the restored VM
-  # registers under a fresh id. Poll `ls` for whichever id appears.
-  node "$CLI" restore "$S1_SNAP" >"$S1_RESTORE_LOG" 2>&1 &
+  # Restore in the background. The auto-name is "<source>/<pid>";
+  # find the restored VM by listing names that start with the source.
+  node "$CLI" restore "$S1_SNAP_DIR" >"$S1_RESTORE_LOG" 2>&1 &
   S1_RESTORE_PID=$!
   cleanup_s1_restore() {
     kill -TERM "$S1_RESTORE_PID" 2>/dev/null || true
@@ -608,24 +610,25 @@ else
   }
   trap 'cleanup_s1; cleanup_s1_restore; rm -rf "$FIXTURE"' EXIT
 
-  S1_RESTORED_ID=""
+  S1_RESTORED_NAME=""
   deadline=$((SECONDS + 45))
   while (( SECONDS < deadline )); do
-    id=$(cli ls 2>/dev/null | awk 'NR>1 {print $1; exit}')
-    if [[ -n "$id" && "$id" != "ID" ]]; then
-      S1_RESTORED_ID=$id
+    cand=$(cli ls 2>/dev/null | awk -v src="$S1_NAME/" 'NR>1 && index($2, src)==1 {print $2; exit}')
+    if [[ -n "$cand" ]]; then
+      S1_RESTORED_NAME=$cand
       break
     fi
     sleep 1
   done
-  if [[ -z "$S1_RESTORED_ID" ]]; then
+  if [[ -z "$S1_RESTORED_NAME" ]]; then
     tail -80 "$S1_RESTORE_LOG" >&2
+    cli ls >&2 || true
     fail "S1 — restored VM never registered"
   fi
-  pass "restored VM registered as id=$S1_RESTORED_ID"
+  pass "restored VM auto-named as '$S1_RESTORED_NAME'"
 
   S1_RESTORE_EXEC_LOG="$FIXTURE/s1-restore-exec.log"
-  if cli exec "$S1_RESTORED_ID" -- uname -m >"$S1_RESTORE_EXEC_LOG" 2>&1 \
+  if cli exec --name "$S1_RESTORED_NAME" -- uname -m >"$S1_RESTORE_EXEC_LOG" 2>&1 \
      && grep -qE "aarch64|arm64" "$S1_RESTORE_EXEC_LOG"; then
     pass "exec-agent responds on the restored VM"
   else
