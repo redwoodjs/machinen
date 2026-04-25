@@ -43,6 +43,7 @@ extern "c" fn fork() c_int;
 extern "c" fn waitpid(pid: c_int, status: ?*c_int, options: c_int) c_int;
 extern "c" fn _exit(status: c_int) noreturn;
 extern "c" fn clock_settime(clk_id: c_int, tp: *const timespec) c_int;
+extern "c" fn clock_gettime(clk_id: c_int, tp: *timespec) c_int;
 
 const CLOCK_REALTIME: c_int = 0;
 
@@ -200,6 +201,12 @@ fn dupZ(arena: std.mem.Allocator, s: []const u8) ![*:0]const u8 {
     return @ptrCast(buf.ptr);
 }
 
+const LiveMount = struct {
+    port: u32,
+    guest_z: [*:0]const u8,
+    guest: []const u8,
+};
+
 const Config = struct {
     // Null-terminated arrays for execve.
     argv: [*:null]const ?[*:0]const u8,
@@ -207,6 +214,10 @@ const Config = struct {
     // argv[0] for the path arg of execve.
     path: [*:0]const u8,
     cwd_z: ?[*:0]const u8,
+    // Live-share FUSE mounts (#78). Each entry tells init to fork
+    // /fuse-agent with the given port + guest path before exec'ing the
+    // user cmd.
+    live_mounts: []LiveMount,
 };
 
 fn loadConfig(arena: std.mem.Allocator) !Config {
@@ -264,12 +275,149 @@ fn loadConfig(arena: std.mem.Allocator) !Config {
         cwd_z = try dupZ(arena, cwd_val.string);
     }
 
+    // liveMounts — optional array of {guest: string, port: int}.
+    var live_mounts: []LiveMount = &.{};
+    if (obj.get("liveMounts")) |lm_val| {
+        if (lm_val != .array) return error.LiveMountsNotArray;
+        const lm_arr = lm_val.array;
+        const buf = try arena.alloc(LiveMount, lm_arr.items.len);
+        for (lm_arr.items, 0..) |entry, i| {
+            if (entry != .object) return error.LiveMountItemNotObject;
+            const eobj = entry.object;
+            const guest_val = eobj.get("guest") orelse return error.LiveMountMissingGuest;
+            if (guest_val != .string) return error.LiveMountGuestNotString;
+            const port_val = eobj.get("port") orelse return error.LiveMountMissingPort;
+            if (port_val != .integer) return error.LiveMountPortNotInteger;
+            if (port_val.integer < 0 or port_val.integer > 0xFFFFFFFF) return error.LiveMountPortOutOfRange;
+            buf[i] = .{
+                .port = @intCast(port_val.integer),
+                .guest = guest_val.string,
+                .guest_z = try dupZ(arena, guest_val.string),
+            };
+        }
+        live_mounts = buf;
+    }
+
     return Config{
         .argv = argv,
         .envp = envp,
         .path = argv_buf[0].?,
         .cwd_z = cwd_z,
+        .live_mounts = live_mounts,
     };
+}
+
+// --- live-share mount bring-up (#78) -------------------------------------
+
+/// Bring up every live-share mount declared in config. Loads the fuse
+/// module once, forks /fuse-agent per entry, then waits for each mount
+/// to show up in /proc/self/mounts before returning so the user cmd
+/// sees the mount already populated.
+fn bringUpLiveMounts(mounts: []LiveMount, arena: std.mem.Allocator) void {
+    if (mounts.len == 0) return;
+    modprobe("fuse");
+    for (mounts) |lm| {
+        startFuseAgent(lm.port, lm.guest_z, arena) catch {
+            logLine("init: failed to fork fuse-agent");
+            continue;
+        };
+    }
+    for (mounts) |lm| {
+        if (!waitForFuseMount(lm.guest, 5_000)) {
+            var buf: [256]u8 = undefined;
+            const msg = std.fmt.bufPrint(
+                &buf,
+                "init: live mount {s} never appeared in /proc/self/mounts",
+                .{lm.guest},
+            ) catch "init: live mount never appeared";
+            logLine(msg);
+        }
+    }
+}
+
+/// fork+exec /sbin/modprobe <mod>. Best-effort, matches the pattern
+/// already used for virtio_blk and the vsock transport.
+fn modprobe(mod: [*:0]const u8) void {
+    const pid = fork();
+    if (pid < 0) return;
+    if (pid == 0) {
+        const argv = [_:null]?[*:0]const u8{ "modprobe", "-q", mod };
+        const envp = [_:null]?[*:0]const u8{};
+        _ = execve("/sbin/modprobe", &argv, &envp);
+        _exit(127);
+    }
+    var status: c_int = 0;
+    _ = waitpid(pid, &status, 0);
+}
+
+/// Fork /fuse-agent with `<port> <guest>`. Non-blocking — the agent
+/// lives for the VM's lifetime and we never reap it, same pattern as
+/// file-agent/exec-agent.
+fn startFuseAgent(port: u32, guest_z: [*:0]const u8, arena: std.mem.Allocator) !void {
+    const port_str = try std.fmt.allocPrintSentinel(arena, "{d}", .{port}, 0);
+    const argv = [_:null]?[*:0]const u8{ "/fuse-agent", port_str.ptr, guest_z };
+    const envp = [_:null]?[*:0]const u8{};
+    const pid = fork();
+    if (pid < 0) return error.ForkFailed;
+    if (pid == 0) {
+        _ = execve("/fuse-agent", &argv, &envp);
+        _exit(127);
+    }
+    // parent: keep going
+}
+
+/// Wait for `guest` to report itself as a fuse-typed filesystem. We
+/// open /proc/self/mounts and match lines starting with `fuse <guest>`
+/// since statfs() on AArch64 musl requires a struct we'd have to
+/// redeclare, while /proc parsing needs no extra bindings.
+fn waitForFuseMount(guest: []const u8, timeout_ms: i64) bool {
+    const deadline_ms = nowMs() + timeout_ms;
+    while (nowMs() < deadline_ms) {
+        if (fuseMountPresent(guest)) return true;
+        sleepMs(25);
+    }
+    return false;
+}
+
+fn fuseMountPresent(guest: []const u8) bool {
+    // /proc/self/mounts is mountinfo-like: `<src> <target> <fstype> ...`
+    // fuse-agent issues mount(src="fuse", target=guest, fstype="fuse"),
+    // so we look for "fuse <guest> fuse".
+    const fd = open("/proc/self/mounts", O_RDONLY);
+    if (fd < 0) return false;
+    defer _ = close(fd);
+    var buf: [4096]u8 = undefined;
+    const bufPtr: [*]u8 = &buf;
+    var scanned: usize = 0;
+    while (scanned < buf.len) {
+        const n = read(fd, bufPtr + scanned, buf.len - scanned);
+        if (n <= 0) break;
+        scanned += @intCast(n);
+    }
+    const text = buf[0..scanned];
+    // Pick through lines; trivial split.
+    var i: usize = 0;
+    while (i < text.len) {
+        const eol = std.mem.indexOfScalarPos(u8, text, i, '\n') orelse text.len;
+        const line = text[i..eol];
+        i = eol + 1;
+        // Expect "fuse <target> fuse ..." — leading token "fuse ".
+        if (!std.mem.startsWith(u8, line, "fuse ")) continue;
+        const after_src = line[5..];
+        if (after_src.len < guest.len + 1) continue;
+        if (!std.mem.startsWith(u8, after_src, guest)) continue;
+        if (after_src[guest.len] != ' ') continue;
+        return true;
+    }
+    return false;
+}
+
+fn nowMs() i64 {
+    // Simple, portable-enough elapsed source. Only used for mount wait
+    // timeout; jitter is fine.
+    var ts: timespec = .{ .tv_sec = 0, .tv_nsec = 0 };
+    _ = clock_gettime(CLOCK_REALTIME, &ts);
+    return ts.tv_sec * 1000 + @divTrunc(ts.tv_nsec, 1_000_000);
 }
 
 pub fn main() noreturn {
@@ -305,6 +453,11 @@ pub fn main() noreturn {
         const msg = std.fmt.bufPrint(&buf, "init: config error: {s}", .{@errorName(err)}) catch "init: config error";
         die(msg);
     };
+
+    // Live-share FUSE mounts go up before the user cmd so the mount
+    // points are populated when user code touches them. Each agent
+    // lives for the VM lifetime; we don't reap them.
+    bringUpLiveMounts(cfg.live_mounts, arena);
 
     if (cfg.cwd_z) |p| {
         if (chdir(p) < 0) logLine("init: chdir failed; staying in /");

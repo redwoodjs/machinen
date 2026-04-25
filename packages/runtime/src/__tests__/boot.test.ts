@@ -9,6 +9,7 @@
 import { execSync } from "node:child_process";
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readdirSync,
   rmSync,
@@ -422,6 +423,88 @@ describe("mount option", () => {
   });
 });
 
+describe("liveMounts option", () => {
+  const fakeImage = `/tmp/machinen-livemount-test-image-${process.pid}.tar.gz`;
+  const mountCmd = ["/bin/true"];
+
+  it("rejects a live mount with a non-absolute guest path", async () => {
+    writeFileSync(fakeImage, "");
+    try {
+      await expect(
+        boot({
+          binary: "/bin/sh",
+          image: fakeImage,
+          cmd: mountCmd,
+          liveMounts: [{ host: "/tmp", guest: "mnt/app" }],
+        }),
+      ).rejects.toThrow(/guest path must be absolute/);
+    } finally {
+      try {
+        unlinkSync(fakeImage);
+      } catch {}
+    }
+  });
+
+  it("rejects a live mount with a host path outside /mnt/", async () => {
+    writeFileSync(fakeImage, "");
+    try {
+      await expect(
+        boot({
+          binary: "/bin/sh",
+          image: fakeImage,
+          cmd: mountCmd,
+          liveMounts: [{ host: "/tmp", guest: "/srv/app" }],
+        }),
+      ).rejects.toThrow(/must live under \/mnt\//);
+    } finally {
+      try {
+        unlinkSync(fakeImage);
+      } catch {}
+    }
+  });
+
+  it("rejects a live mount with a missing host directory", async () => {
+    writeFileSync(fakeImage, "");
+    try {
+      await expect(
+        boot({
+          binary: "/bin/sh",
+          image: fakeImage,
+          cmd: mountCmd,
+          liveMounts: [{ host: "/nope/missing", guest: "/mnt/x" }],
+        }),
+      ).rejects.toThrow(/liveMounts\[0\] host path not found/);
+    } finally {
+      try {
+        unlinkSync(fakeImage);
+      } catch {}
+    }
+  });
+
+  it("rejects a live mount with a host path that is a file", async () => {
+    writeFileSync(fakeImage, "");
+    const hostFile = `/tmp/machinen-livemount-file-${process.pid}`;
+    writeFileSync(hostFile, "x");
+    try {
+      await expect(
+        boot({
+          binary: "/bin/sh",
+          image: fakeImage,
+          cmd: mountCmd,
+          liveMounts: [{ host: hostFile, guest: "/mnt/x" }],
+        }),
+      ).rejects.toThrow(/must be a directory/);
+    } finally {
+      try {
+        unlinkSync(hostFile);
+      } catch {}
+      try {
+        unlinkSync(fakeImage);
+      } catch {}
+    }
+  });
+});
+
 describe("vm.snapshot", () => {
   it("throws when the VM was spawned without a disk attached", async () => {
     const vm = await boot({ binary: "/usr/bin/yes", timeoutMs: 5_000 });
@@ -431,6 +514,42 @@ describe("vm.snapshot", () => {
       );
     } finally {
       await vm.kill();
+    }
+  });
+
+  it("throws when a live mount is active (SNAPSHOT_LIVE_MOUNT_ACTIVE)", async () => {
+    // Live mounts share a persistent vsock channel that CRIU can't
+    // freeze — snapshotting would leave the restore pointing at a
+    // dead server.
+    const snap = `/tmp/machinen-snap-livemount-${process.pid}.img`;
+    writeFileSync(snap, Buffer.alloc(1024));
+    const liveDir = `/tmp/machinen-livemount-snap-${process.pid}`;
+    mkdirSync(liveDir, { recursive: true });
+    const outDir = `/tmp/machinen-livemount-snap-out-${process.pid}`;
+    try {
+      const vm = await boot({
+        binary: "/usr/bin/yes",
+        snapshot: snap,
+        liveMounts: [{ host: liveDir, guest: "/mnt/src" }],
+        timeoutMs: 5_000,
+      });
+      try {
+        await expect(vm.snapshot({ outDir })).rejects.toThrow(
+          /cannot snapshot .* --mount-live active/,
+        );
+      } finally {
+        await vm.kill();
+      }
+    } finally {
+      try {
+        rmSync(liveDir, { recursive: true, force: true });
+      } catch {}
+      try {
+        rmSync(outDir, { recursive: true, force: true });
+      } catch {}
+      try {
+        unlinkSync(snap);
+      } catch {}
     }
   });
 
