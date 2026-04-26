@@ -54,6 +54,22 @@ extern "c" fn readdir(dirp: *anyopaque) ?*Dirent;
 extern "c" fn readlink(path: [*:0]const u8, buf: [*]u8, bufsize: usize) isize;
 extern "c" fn symlink(target: [*:0]const u8, linkpath: [*:0]const u8) c_int;
 
+// finit_module(2) — load a kernel module from an open file descriptor.
+// musl doesn't ship a wrapper, so we issue the syscall directly.
+// Empty params = no module options. Number 273 is aarch64-specific
+// (matches the kernel's UAPI for arm64); the rest of /init is already
+// arm64-only so a hardcoded number is fine.
+fn finit_module(fd: c_int, params: [*:0]const u8, flags: u32) isize {
+    return asm volatile ("svc #0"
+        : [ret] "={x0}" (-> isize),
+        : [number] "{x8}" (@as(usize, 273)),
+          [arg0] "{x0}" (@as(usize, @bitCast(@as(isize, fd)))),
+          [arg1] "{x1}" (@intFromPtr(params)),
+          [arg2] "{x2}" (@as(usize, flags)),
+        : "memory", "cc"
+    );
+}
+
 const CLOCK_REALTIME: c_int = 0;
 
 const timespec = extern struct { tv_sec: i64, tv_nsec: i64 };
@@ -164,41 +180,59 @@ fn bringUpNetwork() void {
     if (status != 0) logLine("init: machinen-netup exited non-zero — network may not be up");
 }
 
-// Load kernel modules that every machinen workload assumes are usable:
-//   virtio_mmio — the bus that publishes DTS virtio_mmio@... slots into
-//                 the virtio framework. Required for virtio_blk (and
-//                 virtio_net later) to find any devices to bind.
-//   virtio_blk  — /dev/vda, for snapshot disks + persistent workspaces.
-//   vsock stack — AF_VSOCK sockets; the exec-agent + file/secrets/winsize
-//                 agents all bind here. modprobe resolves the transport
-//                 dep chain (pulls in the _common module).
+// Load every kernel module the boot path needs by finit_module(2)'ing
+// the .ko files staged at /modules/*.ko in the cpio. Order matters:
+// virtio + virtio_ring expose the symbols virtio_mmio binds against,
+// jbd2 + mbcache are deps of ext4, failover is a dep of net_failover,
+// and the vsock transports layer on the vsock core.
 //
-// All are in the base rootfs (whitelisted in scripts/build-base-assets.sh).
-// Best-effort: if a module is missing or fails to insert, log and move
-// on — the user cmd may still work depending on what it needs.
-// virtio_net loads separately under /sbin/machinen-netup once we know
-// we want a network up.
+// The list is duplicated against scripts/build-base-assets.sh; if you
+// add or remove a .ko there you have to update it here too. We chose
+// a fixed list rather than walking /modules/ alphabetically because
+// load order is load-bearing and `ls`-order isn't load-order.
+//
+// Per-module failure is logged and skipped — a missing virtio_net hurts
+// networking but not the rootdisk pivot, and we'd rather boot degraded
+// than panic. fuse is loaded later from bringUpLiveMounts only when a
+// liveMount entry actually needs it.
 fn loadPlumbingModules() void {
     const mods = [_][*:0]const u8{
+        "virtio",
+        "virtio_ring",
         "virtio_mmio",
         "virtio_blk",
+        "mbcache",
+        "jbd2",
+        "ext4",
+        "failover",
+        "net_failover",
+        "virtio_net",
+        "vsock",
+        "vmw_vsock_virtio_transport_common",
         "vmw_vsock_virtio_transport",
     };
-    for (mods) |mod| {
-        const pid = fork();
-        if (pid < 0) continue;
-        if (pid == 0) {
-            const argv = [_:null]?[*:0]const u8{
-                "modprobe",
-                "-q",
-                mod,
-            };
-            const envp = [_:null]?[*:0]const u8{};
-            _ = execve("/sbin/modprobe", &argv, &envp);
-            _exit(127);
-        }
-        var status: c_int = 0;
-        _ = waitpid(pid, &status, 0);
+    for (mods) |mod| loadModule(mod);
+}
+
+// Load /modules/<name>.ko via finit_module(2). Best-effort — return
+// without complaint if the file is absent (the module may already be
+// built into the kernel) and log a single line if the syscall errors.
+fn loadModule(name: [*:0]const u8) void {
+    var path_buf: [128]u8 = undefined;
+    const name_slice = std.mem.span(name);
+    const path = std.fmt.bufPrintZ(&path_buf, "/modules/{s}.ko", .{name_slice}) catch return;
+    const fd = open(path.ptr, O_RDONLY);
+    if (fd < 0) return;
+    defer _ = close(fd);
+    const r = finit_module(fd, "", 0);
+    if (r != 0) {
+        var msg_buf: [192]u8 = undefined;
+        const msg = std.fmt.bufPrint(
+            &msg_buf,
+            "init: finit_module {s} failed: errno-ish={d}",
+            .{ name_slice, r },
+        ) catch return;
+        logLine(msg);
     }
 }
 
@@ -355,7 +389,7 @@ fn loadConfig(arena: std.mem.Allocator) !Config {
 /// sees the mount already populated.
 fn bringUpLiveMounts(mounts: []LiveMount, arena: std.mem.Allocator) void {
     if (mounts.len == 0) return;
-    modprobe("fuse");
+    loadModule("fuse");
     for (mounts) |lm| {
         startFuseAgent(lm.port, lm.guest_z, arena) catch {
             logLine("init: failed to fork fuse-agent");
@@ -373,21 +407,6 @@ fn bringUpLiveMounts(mounts: []LiveMount, arena: std.mem.Allocator) void {
             logLine(msg);
         }
     }
-}
-
-/// fork+exec /sbin/modprobe <mod>. Best-effort, matches the pattern
-/// already used for virtio_blk and the vsock transport.
-fn modprobe(mod: [*:0]const u8) void {
-    const pid = fork();
-    if (pid < 0) return;
-    if (pid == 0) {
-        const argv = [_:null]?[*:0]const u8{ "modprobe", "-q", mod };
-        const envp = [_:null]?[*:0]const u8{};
-        _ = execve("/sbin/modprobe", &argv, &envp);
-        _exit(127);
-    }
-    var status: c_int = 0;
-    _ = waitpid(pid, &status, 0);
 }
 
 /// Fork /fuse-agent with `<port> <guest>`. Non-blocking — the agent
