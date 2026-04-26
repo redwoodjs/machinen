@@ -346,6 +346,27 @@ export interface VmHandle {
   execRaw(cmd: string, opts?: VsockExecOptions): Promise<VsockExecResult>;
 
   /**
+   * Write `contents` to `guestPath` inside the VM. Convenience over
+   * `vm.exec(...)` for the common "drop a config file from the host"
+   * case — no quoting/heredoc gymnastics, binary-safe via base64.
+   *
+   * Parent directories are created by default (`recursive: true`).
+   * Pass `mode` to set the file mode (octal, e.g. `0o755`).
+   * Pass `append: true` to append instead of overwrite.
+   *
+   * Best for small-to-medium files (configs, scripts) — the contents
+   * ride through a single vsock exec frame, so very large blobs are
+   * better handled with `--mount` / `VsockFiles.push`.
+   *
+   * Throws `ExecError` (`EXEC_NONZERO_EXIT`) if the underlying shell
+   * write fails (e.g. permissions, full disk, missing `base64`).
+   *
+   * @throws {ExecError} EXEC_VSOCK_UNAVAILABLE | EXEC_NONZERO_EXIT |
+   *   EXEC_AGENT_UNAVAILABLE (retryable) | EXEC_AGENT_TIMEOUT (retryable)
+   */
+  writeFile(guestPath: string, contents: Buffer | string, opts?: WriteFileOptions): Promise<void>;
+
+  /**
    * Freeze this VM with CRIU and write a snapshot bundle into
    * `opts.outDir`. The bundle is a directory containing:
    *
@@ -373,6 +394,15 @@ export interface VmHandle {
    * afterwards, restore from the produced snapshot bundle.
    */
   snapshot(opts: SnapshotOptions): Promise<SnapshotResult>;
+}
+
+export interface WriteFileOptions {
+  /** Octal mode for the destination file (e.g. `0o755`). Default: leave as-is. */
+  mode?: number;
+  /** `mkdir -p` the parent directory before writing. Default: true. */
+  recursive?: boolean;
+  /** Append to the file instead of overwriting. Default: false. */
+  append?: boolean;
 }
 
 export interface SnapshotOptions {
@@ -906,6 +936,10 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       return VsockExec.run(vsockUdsPath, cmd, teeOnLog(cmd, execOpts, onLog));
     },
 
+    async writeFile(guestPath, contents, writeOpts) {
+      await this.exec(buildWriteFileCmd(guestPath, contents, writeOpts));
+    },
+
     async snapshot(snapshotOpts) {
       if (!diskAbs) {
         throw new SnapshotError(
@@ -1075,6 +1109,10 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
 
     execRaw(cmd, execOpts) {
       return VsockExec.run(entry.socketPath, cmd, teeOnLog(cmd, execOpts, opts.onLog));
+    },
+
+    async writeFile(guestPath, contents, writeOpts) {
+      await this.exec(buildWriteFileCmd(guestPath, contents, writeOpts));
     },
 
     async snapshot(snapshotOpts) {
@@ -1334,6 +1372,50 @@ function validateMountGuest(guest: string): void {
         `pick a sub-path like ${MOUNT_ROOT}app`,
     );
   }
+}
+
+/**
+ * Single-quote a string for safe interpolation inside a shell single-
+ * quoted literal. Embedded single quotes get the standard
+ * `'\''` close-escape-reopen treatment.
+ */
+function shellQuote(s: string): string {
+  return `'${s.replace(/'/g, "'\\''")}'`;
+}
+
+/**
+ * Build the shell pipeline that `vm.writeFile()` ships through the
+ * exec-agent. Stays single-line so it works against the legacy EXEC
+ * opcode too (no need for the EXEC2 multi-line frame, which only newer
+ * agents understand).
+ *
+ * Encoding: contents go over the wire as base64 inside an `echo … |
+ * base64 -d` pipe, so any byte sequence (binary, newlines, quotes) is
+ * safe. `mkdir -p` runs first when `recursive` (the default).
+ */
+export function buildWriteFileCmd(
+  guestPath: string,
+  contents: Buffer | string,
+  opts: WriteFileOptions = {},
+): string {
+  const buf = typeof contents === "string" ? Buffer.from(contents, "utf8") : contents;
+  const b64 = buf.toString("base64");
+  const path = shellQuote(guestPath);
+  const redir = opts.append ? ">>" : ">";
+  const parts: string[] = [];
+  if (opts.recursive ?? true) {
+    parts.push(`mkdir -p -- "$(dirname -- ${path})"`);
+  }
+  // base64 has no shell metacharacters, but we still single-quote it
+  // so the printf carries it verbatim regardless of length.
+  parts.push(`printf %s ${shellQuote(b64)} | base64 -d ${redir} ${path}`);
+  if (opts.mode !== undefined) {
+    if (!Number.isInteger(opts.mode) || opts.mode < 0 || opts.mode > 0o7777) {
+      throw new RangeError(`writeFile: mode out of range (got ${opts.mode})`);
+    }
+    parts.push(`chmod ${opts.mode.toString(8).padStart(3, "0")} ${path}`);
+  }
+  return parts.join(" && ");
 }
 
 /**
