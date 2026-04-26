@@ -47,8 +47,9 @@ import {
   unlinkSync,
   writeSync,
 } from "node:fs";
-import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { createRequire } from "node:module";
+import { arch, homedir, platform } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import debugLib from "debug";
 import { ProvisionError } from "./errors.ts";
 
@@ -156,16 +157,26 @@ export function ensureRootfsImage(tarPath: string, opts: EnsureRootfsImageOption
     } catch {}
   }
 
-  // mke2fs -d takes a staging directory and writes an ext4 image. Try
-  // a few names because Linux distros and macOS-via-brew disagree on
-  // which binary ships.
-  const mke2fs = whichFirst(["mke2fs", "mkfs.ext4"]);
+  // Resolve mke2fs in three steps:
+  //   1. The bundled `@machinen/e2fsprogs-<arch>-<os>` package (zero
+  //      user setup, present in normal installs). Each arch package
+  //      declares matching `os` + `cpu` so npm/pnpm only installs the
+  //      one that fits the host.
+  //   2. PATH (for hosts that have e2fsprogs installed system-wide).
+  //   3. Homebrew's keg-only prefix on macOS (#124) — `brew install
+  //      e2fsprogs` deliberately doesn't symlink mke2fs onto PATH.
+  const names = ["mke2fs", "mkfs.ext4"];
+  const mke2fs = findBundledMke2fs() ?? whichFirst(names) ?? findKegOnlyE2fs(names);
   if (!mke2fs) {
     throw new ProvisionError(
       "PROVISION_INSTALL_HOOK_FAILED",
-      "ensureRootfsImage: no e2fsprogs binary on PATH (looked for mke2fs / " +
-        "mkfs.ext4). Install it:\n" +
+      "ensureRootfsImage: no e2fsprogs binary found (no bundled package " +
+        "for this platform; looked for mke2fs / mkfs.ext4 on PATH and in " +
+        "Homebrew's keg-only prefix). Install it:\n" +
         "  • macOS:  brew install e2fsprogs\n" +
+        "            (e2fsprogs is keg-only on Homebrew; machinen also " +
+        "probes /opt/homebrew/opt/e2fsprogs/sbin and " +
+        "/usr/local/opt/e2fsprogs/sbin automatically)\n" +
         "  • Linux:  apt-get install -y e2fsprogs (or your distro's package)\n" +
         "  • or skip virtio-blk root and let boot() use the legacy " +
         "initramfs-as-rootfs path.",
@@ -351,6 +362,50 @@ function whichFirst(names: string[]): string | undefined {
   return undefined;
 }
 
+// Homebrew installs e2fsprogs keg-only because mkfs.ext4 / mke2fs would
+// shadow the BSD newfs_* family. The binaries land here instead of on
+// PATH, so users who run the recommended `brew install` see "not found"
+// errors anyway. Probe these prefixes directly so the install Just Works.
+const KEG_ONLY_E2FS_DIRS = [
+  "/opt/homebrew/opt/e2fsprogs/sbin", // Apple Silicon
+  "/usr/local/opt/e2fsprogs/sbin", // Intel
+];
+
+function findKegOnlyE2fs(
+  names: string[],
+  dirs: readonly string[] = KEG_ONLY_E2FS_DIRS,
+): string | undefined {
+  for (const dir of dirs) {
+    for (const name of names) {
+      const candidate = join(dir, name);
+      if (existsSync(candidate)) {
+        return candidate;
+      }
+    }
+  }
+  return undefined;
+}
+
+// Look for `@machinen/e2fsprogs-<arch>-<os>`, our optional per-arch
+// binary package. npm/pnpm install only the package whose `os` + `cpu`
+// match the host, so a successful resolve means the binary is on disk
+// and runnable here. Avoids the host-install dance for every user.
+const require_ = createRequire(import.meta.url);
+
+function findBundledMke2fs(): string | undefined {
+  const pkg = `@machinen/e2fsprogs-${arch()}-${platform()}`;
+  try {
+    const pkgJson = require_.resolve(`${pkg}/package.json`);
+    const candidate = join(dirname(pkgJson), "bin", "mke2fs");
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+  } catch {
+    // Optional dep not installed for this arch+os — fall through.
+  }
+  return undefined;
+}
+
 function duBytes(path: string): number {
   // `du -sk` returns size-on-disk in 1-KiB blocks. Faster than walking
   // ourselves and works on both GNU and BSD du.
@@ -377,4 +432,11 @@ function allocateSparseFile(path: string, sizeBytes: number): void {
 
 // Visible to tests that want to assert without invoking the real
 // materializer.
-export const _internal = { sha256OfFile, whichFirst, cachedImageIsUsable, looksLikeExt4 };
+export const _internal = {
+  sha256OfFile,
+  whichFirst,
+  cachedImageIsUsable,
+  looksLikeExt4,
+  findKegOnlyE2fs,
+  findBundledMke2fs,
+};

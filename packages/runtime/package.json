@@ -36,6 +36,8 @@
     "tsup": "^8.3.5"
   },
   "optionalDependencies": {
+    "@machinen/e2fsprogs-arm64-darwin": "workspace:*",
+    "@machinen/e2fsprogs-arm64-linux": "workspace:*",
     "@machinen/vmm-arm64-darwin": "workspace:*",
     "@machinen/vmm-arm64-linux": "workspace:*"
   }
