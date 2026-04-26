@@ -48,10 +48,28 @@ extern "c" fn waitpid(pid: c_int, status: ?*c_int, options: c_int) c_int;
 extern "c" fn _exit(status: c_int) noreturn;
 extern "c" fn clock_settime(clk_id: c_int, tp: *const timespec) c_int;
 extern "c" fn clock_gettime(clk_id: c_int, tp: *timespec) c_int;
+extern "c" fn opendir(path: [*:0]const u8) ?*anyopaque;
+extern "c" fn closedir(dirp: *anyopaque) c_int;
+extern "c" fn readdir(dirp: *anyopaque) ?*Dirent;
+extern "c" fn readlink(path: [*:0]const u8, buf: [*]u8, bufsize: usize) isize;
+extern "c" fn symlink(target: [*:0]const u8, linkpath: [*:0]const u8) c_int;
 
 const CLOCK_REALTIME: c_int = 0;
 
 const timespec = extern struct { tv_sec: i64, tv_nsec: i64 };
+
+// musl dirent layout. d_type + d_name are the only fields we touch.
+const Dirent = extern struct {
+    d_ino: u64,
+    d_off: i64,
+    d_reclen: u16,
+    d_type: u8,
+    d_name: [256]u8,
+};
+
+const DT_DIR: u8 = 4;
+const DT_REG: u8 = 8;
+const DT_LNK: u8 = 10;
 
 const O_RDONLY: c_int = 0;
 const O_RDWR: c_int = 2;
@@ -514,6 +532,13 @@ fn tryRootDiskPivot() bool {
     copyFileBest("/machinen-config.json", "/newroot/machinen-config.json");
     copyFileBest("/etc/machinen-boot-epoch", "/newroot/etc/machinen-boot-epoch");
 
+    // #125: carry the user's `mount: { host, guest }` payload across
+    // the pivot. mkinitramfs.ts overlays it under /mnt/<guest>/ in
+    // the cpio; without this copy it would be stranded on the
+    // discarded initramfs tmpfs after the chroot below. No-op when
+    // the user didn't pass a mount.
+    copyTreeBest("/mnt", "/newroot/mnt");
+
     if (chroot(NEWROOT) != 0) {
         // chroot can't really fail at PID 1 with valid args, but if it
         // does we'd be in a half-broken state. Best-effort fall-through.
@@ -558,6 +583,56 @@ fn copyFileBest(src: [*:0]const u8, dst: [*:0]const u8) void {
             const w = write(out_fd, buf[off..].ptr, total - off);
             if (w <= 0) return;
             off += @intCast(w);
+        }
+    }
+}
+
+// Best-effort recursive `cp -a` of the `src` directory into `dst`.
+// Used to bring the `mount: { host, guest }` payload (overlaid into
+// the initramfs at /mnt/<guest>/ by mkinitramfs.ts) across the
+// rootdisk pivot — the chroot to /newroot would otherwise strand it
+// on the discarded initramfs tmpfs. See #125.
+//
+// Failures are silent on a per-entry basis: a missing source dir, a
+// symlink whose target overruns PATH_MAX, or a single-file copy
+// failure does not abort the walk. The caller takes the resulting
+// "best-effort partial" mount as-is, mirroring copyFileBest's policy
+// for the per-boot ephemera the pivot also carries across.
+fn copyTreeBest(src: [*:0]const u8, dst: [*:0]const u8) void {
+    if (access(src, F_OK) != 0) return;
+    mkdirIgnore(dst);
+    const dir = opendir(src) orelse return;
+    defer _ = closedir(dir);
+
+    const src_str = std.mem.span(src);
+    const dst_str = std.mem.span(dst);
+
+    while (readdir(dir)) |ent| {
+        const name_ptr: [*:0]const u8 = @ptrCast(&ent.d_name);
+        const name = std.mem.span(name_ptr);
+        if (name.len == 0) continue;
+        if (std.mem.eql(u8, name, ".") or std.mem.eql(u8, name, "..")) continue;
+
+        // PATH_MAX on Linux is 4096; cap each path here regardless of
+        // the initial src/dst length. bufPrintZ failure means the
+        // path overruns, which we silently skip.
+        var src_buf: [4096]u8 = undefined;
+        var dst_buf: [4096]u8 = undefined;
+        const src_path = std.fmt.bufPrintZ(&src_buf, "{s}/{s}", .{ src_str, name }) catch continue;
+        const dst_path = std.fmt.bufPrintZ(&dst_buf, "{s}/{s}", .{ dst_str, name }) catch continue;
+
+        switch (ent.d_type) {
+            DT_DIR => copyTreeBest(src_path.ptr, dst_path.ptr),
+            DT_REG => copyFileBest(src_path.ptr, dst_path.ptr),
+            DT_LNK => {
+                var tgt_buf: [4096]u8 = undefined;
+                const n = readlink(src_path.ptr, &tgt_buf, tgt_buf.len - 1);
+                if (n <= 0) continue;
+                tgt_buf[@intCast(n)] = 0;
+                const tgt_ptr: [*:0]const u8 = @ptrCast(&tgt_buf[0]);
+                _ = symlink(tgt_ptr, dst_path.ptr);
+            },
+            else => {},
         }
     }
 }
