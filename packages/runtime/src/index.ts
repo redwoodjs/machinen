@@ -194,18 +194,21 @@ export interface BootOptions {
    * instead of inflating the whole rootfs into a RAM-backed tmpfs via
    * the initramfs. See #114.
    *
-   *   - `true` — materialize an ext4 image from `image` (cached under
-   *              `~/.cache/machinen/rootfs/<sha256>.img`) and attach
-   *              it as the rootdisk. The guest's `/init` mounts +
-   *              chroots into it before running the user cmd.
-   *   - `string` — path to a pre-built ext4 `.img` file to attach
-   *                directly. Skips the cache.
-   *   - `false` / unset — legacy initramfs-as-rootfs path. The cpio
-   *                        in `image` becomes the live rootfs in tmpfs.
+   * Default: `true` whenever `image` is set. The runtime materializes
+   * an ext4 image from `image` (cached at
+   * `~/.cache/machinen/rootfs/<sha256>.img`) and attaches it as the
+   * rootdisk; the guest's `/init` mounts + chroots into it before
+   * running the user cmd. Materialization needs `mke2fs` (or
+   * `mkfs.ext4`) on PATH — `brew install e2fsprogs` on macOS, the
+   * `e2fsprogs` package on Linux.
    *
-   * Materialization requires `mke2fs` (or `mkfs.ext4`) on PATH. On
-   * macOS run `brew install e2fsprogs`; on Linux it ships in the
-   * `e2fsprogs` package.
+   *   - `string` — path to a pre-built ext4 `.img` file to attach
+   *                directly. Skips the materialize step + cache.
+   *   - `false`  — opt out: keep the cpio-as-rootfs path. The whole
+   *                rootfs lands in a tmpfs at boot (RAM scales ~8×
+   *                with rootfs size). Mostly an escape hatch for
+   *                tooling that doesn't need disk-backed semantics
+   *                (e.g. `provision()` itself).
    */
   rootDisk?: boolean | string;
   /**
@@ -499,32 +502,20 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     env.MACHINEN_DISK = diskAbs;
   }
 
-  // #114: optional rootdisk. When set, the guest mounts /dev/vda as
-  // ext4 and chroots into it. The cpio initramfs becomes a tiny
-  // bootloader rather than the entire rootfs, sidestepping the "RAM
-  // scales 8× with rootfs" failure mode of initramfs-as-rootfs.
-  let rootDiskAbs: string | undefined;
-  if (opts.rootDisk) {
-    if (typeof opts.rootDisk === "string") {
-      rootDiskAbs = resolve(opts.cwd ?? process.cwd(), opts.rootDisk);
-      if (!existsSync(rootDiskAbs)) {
-        throw new BootError("BOOT_IMAGE_NOT_FOUND", `rootDisk image not found: ${rootDiskAbs}`);
-      }
-    } else {
-      // rootDisk: true — materialize from `image` if present.
-      if (!opts.image) {
-        throw new BootError(
-          "BOOT_CMD_WITHOUT_IMAGE",
-          "boot: rootDisk: true requires an `image` (the .tar.gz to materialize).",
-        );
-      }
-      const baseAbs = resolve(opts.cwd ?? process.cwd(), opts.image);
-      if (!existsSync(baseAbs)) {
-        throw new BootError("BOOT_IMAGE_NOT_FOUND", `image tarball not found: ${baseAbs}`);
-      }
-      rootDiskAbs = ensureRootfsImage(baseAbs);
-    }
-    env.MACHINEN_ROOTDISK = rootDiskAbs;
+  // #114: rootdisk-by-default. Boot mounts the rootfs from a
+  // virtio-blk device (/dev/vda) instead of inflating the whole tree
+  // into a RAM-backed tmpfs at boot. The user passes `rootDisk: false`
+  // to opt back into the legacy cpio-as-rootfs path (mostly used by
+  // `provision()` itself, which writes its scratch tar to /dev/vda).
+  // Resolution + materialization happens later, alongside packBundle,
+  // so per-arg validation (mount paths, liveMount, baked-cmd) fires
+  // before we spend time hashing the tarball.
+  const wantsRootDisk = opts.rootDisk !== false && (opts.rootDisk !== undefined || !!opts.image);
+  if (wantsRootDisk && typeof opts.rootDisk !== "string" && !opts.image) {
+    throw new BootError(
+      "BOOT_CMD_WITHOUT_IMAGE",
+      "boot: rootDisk: true requires an `image` (the .tar.gz to materialize).",
+    );
   }
   if (opts.kernel) {
     const abs = resolve(opts.cwd ?? process.cwd(), opts.kernel);
@@ -659,6 +650,23 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       bundleTempDir = packed.tempDir;
       env.MACHINEN_INITRD = packed.cpioPath;
       debug("initramfs packed cpio=%s elapsed=%dms", packed.cpioPath, Date.now() - packT0);
+    }
+
+    // #114: rootDisk materialization. After all input validation has
+    // passed (so a bad mount path or missing image fails before we
+    // hash a multi-GB tarball). On a cache hit this is a few ms.
+    if (wantsRootDisk) {
+      let rootDiskAbs: string;
+      if (typeof opts.rootDisk === "string") {
+        rootDiskAbs = resolve(opts.cwd ?? process.cwd(), opts.rootDisk);
+        if (!existsSync(rootDiskAbs)) {
+          throw new BootError("BOOT_IMAGE_NOT_FOUND", `rootDisk image not found: ${rootDiskAbs}`);
+        }
+      } else {
+        const baseAbs = resolve(opts.cwd ?? process.cwd(), opts.image!);
+        rootDiskAbs = ensureRootfsImage(baseAbs);
+      }
+      env.MACHINEN_ROOTDISK = rootDiskAbs;
     }
   } catch (err) {
     for (const stop of liveMountStops) {

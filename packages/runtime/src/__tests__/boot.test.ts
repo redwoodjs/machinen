@@ -244,6 +244,12 @@ describe("image + cmd", () => {
         binary: "/bin/sh",
         args: ["-c", "true"],
         image: imgPath,
+        // Skip the rootDisk materialize step: this test exercises the
+        // baked-config code path with /bin/sh as a stand-in VMM, so
+        // hashing + mkfs the placeholder tarball would fail (no
+        // e2fsprogs on the test runner) without exercising anything
+        // we actually care about here.
+        rootDisk: false,
         timeoutMs: 3_000,
       });
       await vm.wait();
