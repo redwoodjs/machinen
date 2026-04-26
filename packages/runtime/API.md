@@ -1942,7 +1942,7 @@ EXEC_VSOCK_UNAVAILABLE | EXEC_NONZERO_EXIT |
 
 > **snapshot**(`opts`): `Promise`\<[`SnapshotResult`](#snapshotresult)\>
 
-Defined in: [index.ts:365](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L365)
+Defined in: [index.ts:361](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L361)
 
 Freeze this VM with CRIU and write a snapshot bundle into
 `opts.outDir`. The bundle is a directory containing:
@@ -1984,7 +1984,7 @@ afterwards, restore from the produced snapshot bundle.
 
 ### WriteFileOptions
 
-Defined in: [index.ts:368](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L368)
+Defined in: [index.ts:364](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L364)
 
 #### Properties
 
@@ -1992,7 +1992,7 @@ Defined in: [index.ts:368](https://github.com/redwoodjs/machinen/blob/main/packa
 
 > `optional` **mode?**: `number`
 
-Defined in: [index.ts:370](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L370)
+Defined in: [index.ts:366](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L366)
 
 Octal mode for the destination file (e.g. `0o755`). Default: leave as-is.
 
@@ -2000,7 +2000,7 @@ Octal mode for the destination file (e.g. `0o755`). Default: leave as-is.
 
 > `optional` **recursive?**: `boolean`
 
-Defined in: [index.ts:372](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L372)
+Defined in: [index.ts:368](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L368)
 
 `mkdir -p` the parent directory before writing. Default: true.
 
@@ -2008,7 +2008,7 @@ Defined in: [index.ts:372](https://github.com/redwoodjs/machinen/blob/main/packa
 
 > `optional` **append?**: `boolean`
 
-Defined in: [index.ts:374](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L374)
+Defined in: [index.ts:370](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L370)
 
 Append to the file instead of overwriting. Default: false.
 
@@ -2016,7 +2016,7 @@ Append to the file instead of overwriting. Default: false.
 
 ### SnapshotOptions
 
-Defined in: [index.ts:377](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L377)
+Defined in: [index.ts:373](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L373)
 
 #### Properties
 
@@ -2024,7 +2024,7 @@ Defined in: [index.ts:377](https://github.com/redwoodjs/machinen/blob/main/packa
 
 > **outDir**: `string`
 
-Defined in: [index.ts:383](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L383)
+Defined in: [index.ts:379](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L379)
 
 Directory the snapshot bundle is written to. Created if missing
 and required to be empty (or absent) so a previous snapshot
@@ -2034,7 +2034,7 @@ can't be silently overwritten.
 
 > `optional` **dumpCmd?**: `string`
 
-Defined in: [index.ts:388](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L388)
+Defined in: [index.ts:384](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L384)
 
 Command to run in the guest to trigger the CRIU dump. Defaults to
 `/sbin/machinen-dump`.
@@ -2043,7 +2043,7 @@ Command to run in the guest to trigger the CRIU dump. Defaults to
 
 > `optional` **timeoutMs?**: `number`
 
-Defined in: [index.ts:393](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L393)
+Defined in: [index.ts:389](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L389)
 
 Wall-clock ceiling for the dump + shutdown. If the VMM hasn't exited
 in this window we SIGKILL it and fail. Default 90s.
@@ -2052,7 +2052,7 @@ in this window we SIGKILL it and fail. Default 90s.
 
 > `optional` **onLog?**: [`OnLog`](#onlog-4)
 
-Defined in: [index.ts:399](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L399)
+Defined in: [index.ts:395](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L395)
 
 Streaming log callback — fires for every byte the dump emits
 (guest console + the dump exec). See #83. When both the snapshot
@@ -2062,7 +2062,7 @@ call and `boot({ onLog })` have a callback set, both fire.
 
 ### SnapshotResult
 
-Defined in: [index.ts:402](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L402)
+Defined in: [index.ts:398](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L398)
 
 #### Properties
 
@@ -2070,7 +2070,7 @@ Defined in: [index.ts:402](https://github.com/redwoodjs/machinen/blob/main/packa
 
 > **snapDir**: `string`
 
-Defined in: [index.ts:404](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L404)
+Defined in: [index.ts:400](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L400)
 
 Absolute path to the snapshot bundle directory.
 
@@ -2078,7 +2078,7 @@ Absolute path to the snapshot bundle directory.
 
 > **diskPath**: `string`
 
-Defined in: [index.ts:406](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L406)
+Defined in: [index.ts:402](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L402)
 
 Absolute path to the disk image inside the bundle.
 
@@ -2086,7 +2086,7 @@ Absolute path to the disk image inside the bundle.
 
 > **elapsedMs**: `number`
 
-Defined in: [index.ts:408](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L408)
+Defined in: [index.ts:404](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L404)
 
 Time from `snapshot()` entry to VMM exit, in milliseconds.
 
@@ -2094,7 +2094,7 @@ Time from `snapshot()` entry to VMM exit, in milliseconds.
 
 > **consoleLog**: `string`
 
-Defined in: [index.ts:410](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L410)
+Defined in: [index.ts:406](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L406)
 
 Guest console output captured during the dump.
 
@@ -2102,7 +2102,7 @@ Guest console output captured during the dump.
 
 ### SnapshotMeta
 
-Defined in: [index.ts:417](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L417)
+Defined in: [index.ts:413](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L413)
 
 On-disk shape of the bundle's `meta.json`. Read by `restore()`
 to reconstruct the source VM's name when registering the fork.
@@ -2113,7 +2113,7 @@ to reconstruct the source VM's name when registering the fork.
 
 > `optional` **sourceName?**: `string`
 
-Defined in: [index.ts:419](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L419)
+Defined in: [index.ts:415](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L415)
 
 Name passed to `boot({ name })` when the source VM was started.
 
@@ -2121,7 +2121,7 @@ Name passed to `boot({ name })` when the source VM was started.
 
 > **snappedAt**: `number`
 
-Defined in: [index.ts:421](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L421)
+Defined in: [index.ts:417](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L417)
 
 ms epoch when `vm.snapshot()` returned.
 
@@ -2129,7 +2129,7 @@ ms epoch when `vm.snapshot()` returned.
 
 ### AttachOptions
 
-Defined in: [index.ts:935](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L935)
+Defined in: [index.ts:931](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L931)
 
 #### Properties
 
@@ -2137,7 +2137,7 @@ Defined in: [index.ts:935](https://github.com/redwoodjs/machinen/blob/main/packa
 
 > `optional` **pid?**: `number`
 
-Defined in: [index.ts:941](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L941)
+Defined in: [index.ts:937](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L937)
 
 Look up a VM by the host pid of its VMM process. Kernel-unique
 while alive; mutually exclusive with `name`. Exactly one of
@@ -2147,7 +2147,7 @@ while alive; mutually exclusive with `name`. Exactly one of
 
 > `optional` **name?**: `string`
 
-Defined in: [index.ts:943](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L943)
+Defined in: [index.ts:939](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L939)
 
 Look up a VM by the name passed to `boot({ name })`.
 
@@ -2155,7 +2155,7 @@ Look up a VM by the name passed to `boot({ name })`.
 
 > `optional` **onLog?**: [`OnLog`](#onlog-4)
 
-Defined in: [index.ts:950](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L950)
+Defined in: [index.ts:946](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L946)
 
 Streaming log callback — fires for every byte of output from execs
 made through the returned handle. See #83. Guest kernel console is
@@ -2166,7 +2166,7 @@ called `boot()`), so only `exec-stdout` / `exec-stderr` sources fire.
 
 ### RestoreOptions
 
-Defined in: [index.ts:1580](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L1580)
+Defined in: [index.ts:1576](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L1576)
 
 #### Extends
 
@@ -2390,7 +2390,7 @@ the returned handle. See `LogEvent.source` to tell them apart. See
 
 > **snapDir**: `string`
 
-Defined in: [index.ts:1585](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L1585)
+Defined in: [index.ts:1581](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L1581)
 
 Snapshot bundle directory produced by `vm.snapshot()`.
 Must contain `disk.img` and `meta.json`.
@@ -2399,7 +2399,7 @@ Must contain `disk.img` and `meta.json`.
 
 > `optional` **image?**: `string`
 
-Defined in: [index.ts:1593](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L1593)
+Defined in: [index.ts:1589](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L1589)
 
 Override the rootfs image used for the restore boot. Defaults
 to whatever caller passes through `image`-equivalent — but
@@ -2411,7 +2411,7 @@ release rootfs path here.
 
 > `optional` **name?**: `string`
 
-Defined in: [index.ts:1599](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L1599)
+Defined in: [index.ts:1595](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L1595)
 
 Optional explicit name for the restored VM. When omitted, the
 fork is auto-named `<sourceName>/<pid>` after spawn so it stays
@@ -3725,7 +3725,7 @@ BOOT_VMM_MISSING | BOOT_VMM_PACKAGE_BROKEN
 
 > **boot**(`opts?`): `Promise`\<[`VmHandle`](#vmhandle)\>
 
-Defined in: [index.ts:435](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L435)
+Defined in: [index.ts:431](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L431)
 
 Boot a microVM and return a handle to interact with it.
 
@@ -3755,7 +3755,7 @@ BOOT_VMM_MISSING | BOOT_VMM_PACKAGE_BROKEN |
 
 > **attach**(`opts`): `Promise`\<[`VmHandle`](#vmhandle)\>
 
-Defined in: [index.ts:966](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L966)
+Defined in: [index.ts:962](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L962)
 
 Reconnect to a running VM registered by an earlier `boot()` call
 (possibly from a different process). Returns a `VmHandle` that can
@@ -3787,7 +3787,7 @@ REGISTRY_VM_NOT_FOUND
 
 > **buildWriteFileCmd**(`guestPath`, `contents`, `opts?`): `string`
 
-Defined in: [index.ts:1332](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L1332)
+Defined in: [index.ts:1328](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L1328)
 
 Build the shell pipeline that `vm.writeFile()` ships through the
 exec-agent. Stays single-line so it works against the legacy EXEC
@@ -3822,7 +3822,7 @@ safe. `mkdir -p` runs first when `recursive` (the default).
 
 > **restore**(`opts`): `Promise`\<[`VmHandle`](#vmhandle)\>
 
-Defined in: [index.ts:1618](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L1618)
+Defined in: [index.ts:1614](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L1614)
 
 Restore a microVM from a snapshot bundle produced by
 `vm.snapshot({ outDir })`. Reads the bundle's `meta.json` to
@@ -3857,7 +3857,7 @@ BOOT_SNAPSHOT_NOT_FOUND if `<snapDir>/disk.img`
 
 > **measureFirstByte**(`vm`): `Promise`\<`number`\>
 
-Defined in: [index.ts:1665](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L1665)
+Defined in: [index.ts:1661](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/index.ts#L1661)
 
 Time-to-first-output-byte for a boot. Useful for measuring how
 much the snapshot path is (or isn't) buying us.
