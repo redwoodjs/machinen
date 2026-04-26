@@ -5,13 +5,18 @@
 // What stays in is what the guest kernel + our VMM actually touch:
 //   * the GIC v3 (interrupt controller — required)
 //   * PL011 UART at 0x9000000 (console)
-//   * three virtio-mmio slots (net / blk / vsock at 0x0a000000+i*0x200)
+//   * four virtio-mmio slots (net / blk / vsock / blk2 at 0x0a000000+i*0x200)
 //   * CPU, timer, psci, apb-pclk
+//
+// Slot 1 (blk) and slot 3 (blk2) carry the two virtio-blk devices:
+// rootdisk on slot 1 (becomes /dev/vda) and scratch on slot 3
+// (/dev/vdb when both are present). The runtime feeds them via
+// MACHINEN_ROOTDISK and MACHINEN_DISK respectively. See #114.
 //
 // Nodes we *used* to carry via the QEMU virt reference DTS and have
 // now dropped for sub-second-spawn work (#50): `pcie`, `pl031` rtc,
 // `pmu`, `flash`, `fw-cfg`, `platform-bus`, `gpio-keys`/`pl061`, the
-// GIC ITS, and 29 unused virtio_mmio slots. Each of these made the
+// GIC ITS, and 28 unused virtio_mmio slots. Each of these made the
 // kernel spend time probing things we never use.
 
 / {
@@ -54,6 +59,13 @@
 		dma-coherent;
 		interrupts = <0x00 0x12 0x01>;
 		reg = <0x00 0xa000400 0x00 0x200>;
+		compatible = "virtio,mmio";
+	};
+
+	virtio_mmio@a000600 {
+		dma-coherent;
+		interrupts = <0x00 0x13 0x01>;
+		reg = <0x00 0xa000600 0x00 0x200>;
 		compatible = "virtio,mmio";
 	};
 
