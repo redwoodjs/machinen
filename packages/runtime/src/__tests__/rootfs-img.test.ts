@@ -113,6 +113,51 @@ describe("boot({ rootDisk })", () => {
     }
   });
 
+  it("defaults to materializing the image when rootDisk is omitted", async () => {
+    // No explicit rootDisk + an image present → the runtime should
+    // try to materialize. We don't have mke2fs guaranteed on the
+    // runner, so we point image at a missing path and assert we
+    // hit the materialize path (which surfaces the "tarball not
+    // found" error before any e2fsprogs lookup).
+    const missing = `/tmp/machinen-rootdisk-default-missing-${process.pid}.tar.gz`;
+    await expect(
+      boot({
+        binary: "/bin/sh",
+        image: missing,
+        cmd: ["/bin/true"],
+        timeoutMs: 2_000,
+      }),
+    ).rejects.toThrow(/image tarball not found/);
+  });
+
+  it("opts back to the legacy initramfs path on rootDisk: false", async () => {
+    // Same shape as the test above, but with rootDisk: false the
+    // runtime should never call ensureRootfsImage. Confirms the
+    // escape hatch still routes around materialization.
+    const tarPath = `/tmp/machinen-rootdisk-optout-${process.pid}.tar.gz`;
+    const tmpDir = mkdtempSync(join(tmpdir(), "machinen-rootdisk-optout-"));
+    writeFileSync(join(tmpDir, "stub"), "x");
+    execSync(`tar -czf ${tarPath} -C ${tmpDir} .`);
+    try {
+      const vm = await boot({
+        binary: "/bin/sh",
+        args: ["-c", "printf 'ROOTDISK=%s\\n' \"${MACHINEN_ROOTDISK:-unset}\""],
+        image: tarPath,
+        cmd: ["/bin/true"],
+        rootDisk: false,
+        timeoutMs: 2_000,
+      });
+      await vm.wait();
+      const out = await vm.output();
+      expect(out.trim()).toBe("ROOTDISK=unset");
+    } finally {
+      try {
+        unlinkSync(tarPath);
+      } catch {}
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   it("forwards MACHINEN_ROOTDISK alongside MACHINEN_DISK when both are set", async () => {
     const rd = `/tmp/machinen-runtime-rootdisk2-${process.pid}`;
     const snap = `/tmp/machinen-runtime-snap2-${process.pid}`;

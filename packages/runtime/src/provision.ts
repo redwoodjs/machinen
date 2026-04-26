@@ -278,6 +278,12 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
       cmd: ["/exec-agent"],
       env: { PATH: "/usr/local/bin:/usr/bin:/bin:/sbin" },
       snapshot: diskPath,
+      // Opt out of the disk-backed boot path: the post-install
+      // `tar / -cf /dev/vda` below writes the captured rootfs onto
+      // the snapshot disk (which is /dev/vda when no rootdisk is
+      // attached). Promoting provision() to virtio-blk root would
+      // need a /dev/vdb-aware tar dump and is tracked separately.
+      rootDisk: false,
       // We drive the guest to exit via /sbin/machinen-poweroff at the
       // end; wait() has its own ceiling below.
       timeoutMs: null,
