@@ -33,10 +33,12 @@ pub fn main(init: std.process.Init) !void {
     // the same bytes, captured for tests — don't re-emit here.
     if (builtin.os.tag == .macos) {
         const disk_path = envOptional("MACHINEN_DISK");
+        const rootdisk_path = envOptional("MACHINEN_ROOTDISK");
         const result = try microvm.boot_hvf.boot(gpa, .{
             .kernel_path = kernel_path,
             .dtb_path = dtb_path,
             .initrd_path = initrd_path,
+            .rootdisk_path = rootdisk_path,
             .disk_path = disk_path,
             .unbounded_serial = true,
         });
