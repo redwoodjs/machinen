@@ -368,7 +368,7 @@ describe("FUSE protocol — dirent packing", () => {
     expect(dv.getUint32(20, true)).toBe(DT.REG);
     expect(d.slice(24, 27)).toEqual(new TextEncoder().encode("abc"));
     // trailing bytes within padding zero
-    expect([...d.slice(27, 32)]).toEqual([0, 0, 0, 0, 0]);
+    expect(Array.from(d.slice(27, 32))).toEqual([0, 0, 0, 0, 0]);
   });
 
   it("8-byte name: no padding added", () => {
