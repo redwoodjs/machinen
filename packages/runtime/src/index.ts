@@ -228,6 +228,14 @@ export interface BootOptions {
    * A single host directory copied into the guest at boot. The guest
    * path must live under `/mnt/`. Copy-once semantics: guest writes are
    * discarded when the VM exits. See #64, #78.
+   *
+   * The payload rides through the initramfs cpio (overlaid under
+   * `/mnt/<guest>/` at pack time) and is then carried across the
+   * rootdisk pivot by `/init` into the on-disk rootfs. With
+   * `rootDisk: true` (the default) the mount briefly counts against
+   * the initramfs RAM ceiling at unpack — the same ceiling #114 was
+   * designed to relieve for the rootfs proper. For very large mounts
+   * prefer `liveMount` (FUSE pass-through, no copy). See #125.
    */
   mount?: { host: string; guest: string };
   /**
