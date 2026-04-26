@@ -3,11 +3,16 @@
 //!
 //! Persistent AF_VSOCK listener on port 1978. Protocol:
 //!
-//!   client -> "EXEC <shell command>\n"
+//!   client -> "EXEC <shell command>\n"            (single line, legacy)
+//!         or "EXEC2 <byte-len>\n<shell command>"  (length-prefixed; #112)
 //!   agent  -> framed output chunks until the command exits:
 //!               "O <n>\n" + n bytes of stdout
 //!               "E <n>\n" + n bytes of stderr
 //!               "X <code>\n"   (terminator; agent closes the socket)
+//!
+//! EXEC2 lifts the no-newlines restriction baked into EXEC's framing
+//! (line-terminated). Hosts pick EXEC for newline-free cmds so older
+//! rootfs images keep working; multi-line cmds use EXEC2.
 //!
 //! One command per connection; the agent loops forever so the host
 //! can run many commands back-to-back.
@@ -127,6 +132,21 @@ fn readLine(fd: c_int, out: []u8) ?usize {
     return null;
 }
 
+fn readExact(fd: c_int, out: []u8) bool {
+    var off: usize = 0;
+    while (off < out.len) {
+        const n = read(fd, out.ptr + off, out.len - off);
+        if (n <= 0) return false;
+        off += @intCast(n);
+    }
+    return true;
+}
+
+// Cap on EXEC2 cmd payloads. 1 MiB is plenty for shell scripts and the
+// base64-encoded contents `vm.writeFile()` ships through; binary blobs
+// belong in the file/mount paths.
+const MAX_EXEC2_CMD: usize = 1 * 1024 * 1024;
+
 fn runCommand(client_fd: c_int, cmd: []const u8, alloc: std.mem.Allocator) !void {
     // Make a NUL-terminated copy for the shell.
     const cmd_z = try alloc.dupeZ(u8, cmd);
@@ -184,6 +204,36 @@ fn handleConnection(client_fd: c_int, alloc: std.mem.Allocator) void {
         return;
     };
     const line = line_buf[0..len];
+
+    // EXEC2 <bytes>\n<cmd-bytes> — length-prefixed, supports newlines (#112).
+    if (std.mem.startsWith(u8, line, "EXEC2 ")) {
+        const len_str = line[6..];
+        const cmd_len = std.fmt.parseInt(usize, len_str, 10) catch {
+            logErr("exec-agent: EXEC2 bad length");
+            return;
+        };
+        if (cmd_len > MAX_EXEC2_CMD) {
+            logErr("exec-agent: EXEC2 cmd too large");
+            return;
+        }
+        const cmd_buf = alloc.alloc(u8, cmd_len) catch {
+            logErr("exec-agent: EXEC2 alloc failed");
+            return;
+        };
+        defer alloc.free(cmd_buf);
+        if (cmd_len > 0 and !readExact(client_fd, cmd_buf)) {
+            logErr("exec-agent: EXEC2 short read");
+            return;
+        }
+        runCommand(client_fd, cmd_buf, alloc) catch |err| {
+            var msg_buf: [128]u8 = undefined;
+            const msg = std.fmt.bufPrint(&msg_buf, "exec-agent: run error: {s}", .{@errorName(err)}) catch "exec-agent: run error";
+            logErr(msg);
+        };
+        return;
+    }
+
+    // EXEC <cmd>\n — legacy single-line opcode.
     if (line.len < 5 or !std.mem.startsWith(u8, line, "EXEC ")) {
         logErr("exec-agent: unknown op");
         return;
