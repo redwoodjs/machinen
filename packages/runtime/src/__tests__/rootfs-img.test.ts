@@ -112,6 +112,46 @@ describe("ensureRootfsImage", () => {
     }
   });
 
+  it("findKegOnlyE2fs returns the absolute path when the binary lives in a keg-only prefix", () => {
+    // Simulates Homebrew's keg-only e2fsprogs install on macOS (#124),
+    // where `mke2fs` is on disk but not on PATH. The function should
+    // probe the supplied dirs and return the first match.
+    const dir = mkdtempSync(join(tmpdir(), "machinen-kegonly-"));
+    const fake = join(dir, "mke2fs");
+    writeFileSync(fake, "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+    try {
+      const found = _internal.findKegOnlyE2fs(["mke2fs", "mkfs.ext4"], [dir]);
+      expect(found).toBe(fake);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("findKegOnlyE2fs returns undefined when no candidate exists", () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-kegonly-empty-"));
+    try {
+      const found = _internal.findKegOnlyE2fs(["mke2fs", "mkfs.ext4"], [dir]);
+      expect(found).toBeUndefined();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("findBundledMke2fs resolves @machinen/e2fsprogs-<arch>-<os> when installed", () => {
+    // Bundled binary packages are declared as optionalDependencies of
+    // @machinen/runtime and gated by `os` + `cpu` in their package.json,
+    // so they're present on every developer host that matches an arch
+    // we ship. If this test runs on an unsupported host, skip — there's
+    // nothing to assert.
+    const found = _internal.findBundledMke2fs();
+    if (!found) {
+      // Unsupported arch+os; no bundled package on disk.
+      return;
+    }
+    expect(found).toMatch(/e2fsprogs-[^/]+\/bin\/mke2fs$/);
+    expect(existsSync(found)).toBe(true);
+  });
+
   it("returns the cached path when the tarball's sha256 already has an .img", () => {
     // Build a real (tiny) tarball so sha256ing has something to chew
     // on, then plant a pre-existing cache file at the matching name.
