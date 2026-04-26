@@ -192,7 +192,9 @@ export async function* readFrames(sock: AsyncIterable<Buffer>): AsyncGenerator<U
       if (len < FUSE_IN_HEADER_SIZE) {
         throw new Error(`FUSE framing: len ${len} below header size ${FUSE_IN_HEADER_SIZE}`);
       }
-      if (pending.length < len) {break;}
+      if (pending.length < len) {
+        break;
+      }
       yield new Uint8Array(pending.buffer, pending.byteOffset, len).slice();
       pending = pending.subarray(len);
     }
@@ -301,7 +303,9 @@ function onForget(hdr: FuseInHeader, msg: Uint8Array, state: ServerState): void 
 
 function onBatchForget(msg: Uint8Array, state: ServerState): void {
   const { entries } = readBatchForgetIn(payloadOf(msg));
-  for (const e of entries) {decrefInode(state, e.nodeid, Number(e.nlookup));}
+  for (const e of entries) {
+    decrefInode(state, e.nodeid, Number(e.nlookup));
+  }
 }
 
 async function onLookup(
@@ -479,7 +483,9 @@ async function onReaddir(
   const picked: Uint8Array[] = [];
   for (let i = startIdx; i < entry.entries.length; i++) {
     const e = entry.entries[i]!;
-    if (total + e.length > req.size) {break;}
+    if (total + e.length > req.size) {
+      break;
+    }
     picked.push(e);
     total += e.length;
   }
@@ -516,7 +522,9 @@ function validateName(name: string): void {
 }
 
 function joinRel(parentRel: string, name: string): string {
-  if (parentRel === "") {return name;}
+  if (parentRel === "") {
+    return name;
+  }
   return `${parentRel}/${name}`;
 }
 
@@ -538,7 +546,9 @@ function requireInode(state: ServerState, ino: bigint): InodeEntry {
  * the resolver rejects any that escape the mount root.
  */
 async function absPathForTraversal(state: ServerState, entry: InodeEntry): Promise<string> {
-  if (entry.relPath === "") {return await realpath(state.rootAbs);}
+  if (entry.relPath === "") {
+    return await realpath(state.rootAbs);
+  }
   return await resolveUnderRoot(state.rootAbs, entry.relPath);
 }
 
@@ -549,7 +559,9 @@ async function absPathForTraversal(state: ServerState, entry: InodeEntry): Promi
  * symlink basename stays a symlink.
  */
 async function absPathForLstat(state: ServerState, entry: InodeEntry): Promise<string> {
-  if (entry.relPath === "") {return await realpath(state.rootAbs);}
+  if (entry.relPath === "") {
+    return await realpath(state.rootAbs);
+  }
   const slashAt = entry.relPath.lastIndexOf("/");
   const parentRel = slashAt < 0 ? "" : entry.relPath.slice(0, slashAt);
   const baseName = slashAt < 0 ? entry.relPath : entry.relPath.slice(slashAt + 1);
@@ -565,7 +577,9 @@ function bindInode(state: ServerState, relPath: string): bigint {
   // LOOKUPs of the same name.
   for (const [ino, e] of state.inodes) {
     if (e.relPath === relPath) {
-      if (e.nlookup !== Number.POSITIVE_INFINITY) {e.nlookup++;}
+      if (e.nlookup !== Number.POSITIVE_INFINITY) {
+        e.nlookup++;
+      }
       return ino;
     }
   }
@@ -576,10 +590,16 @@ function bindInode(state: ServerState, relPath: string): bigint {
 
 function decrefInode(state: ServerState, ino: bigint, n: number): void {
   const e = state.inodes.get(ino);
-  if (!e) {return;}
-  if (e.nlookup === Number.POSITIVE_INFINITY) {return;} // root is pinned
+  if (!e) {
+    return;
+  }
+  if (e.nlookup === Number.POSITIVE_INFINITY) {
+    return;
+  } // root is pinned
   e.nlookup -= n;
-  if (e.nlookup <= 0) {state.inodes.delete(ino);}
+  if (e.nlookup <= 0) {
+    state.inodes.delete(ino);
+  }
 }
 
 function statToAttr(st: Stats, ino: bigint) {
@@ -649,8 +669,12 @@ function mapErrorToErrno(err: unknown): number {
     return -ERRNO.ENOENT;
   }
   const code = (err as NodeJS.ErrnoException | null)?.code;
-  if (!code) {return -ERRNO.EIO;}
+  if (!code) {
+    return -ERRNO.EIO;
+  }
   const key = code as keyof typeof ERRNO;
-  if (key in ERRNO) {return -ERRNO[key];}
+  if (key in ERRNO) {
+    return -ERRNO[key];
+  }
   return -ERRNO.EIO;
 }

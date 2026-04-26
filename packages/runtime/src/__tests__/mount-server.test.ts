@@ -419,7 +419,9 @@ async function withConnection(fn: (c: TestConnection) => Promise<void>): Promise
     inbox = Buffer.concat([inbox, chunk]);
     while (inbox.length >= 16) {
       const len = inbox.readUInt32LE(0);
-      if (inbox.length < len) {break;}
+      if (inbox.length < len) {
+        break;
+      }
       const frame = inbox.subarray(0, len);
       inbox = inbox.subarray(len);
       const error = frame.readInt32LE(4);
