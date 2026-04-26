@@ -89,8 +89,12 @@ export async function resolveUnderRoot(
 }
 
 function assertContained(targetReal: string, rootReal: string): void {
-  if (targetReal === rootReal) {return;}
-  if (targetReal.startsWith(rootReal + sep)) {return;}
+  if (targetReal === rootReal) {
+    return;
+  }
+  if (targetReal.startsWith(rootReal + sep)) {
+    return;
+  }
   throw new MountError(
     "MOUNT_PATH_ESCAPE",
     `path escapes mount root: ${targetReal} is not under ${rootReal}`,
