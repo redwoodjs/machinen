@@ -30,13 +30,22 @@ const vsock_mod = @import("vsock.zig");
 
 // Guest-physical bases. Each virtio-MMIO device lives in a 0x200
 // window. The DTS has 32 slots at 0x0A000000 + i*0x200; we wire up
-// the first three.
+// the first four.
+//
+// Slot 0 = net, slot 1 = blk (rootdisk), slot 2 = vsock,
+// slot 3 = blk2 (scratch / CRIU disk). When both blk slots are
+// populated the kernel sees them in DTB order, so slot 1 = /dev/vda
+// (rootfs) and slot 3 = /dev/vdb (scratch). When only one is
+// populated, Linux still names the lone device /dev/vda regardless
+// of its slot. See #114.
 const virtio_net_base: u64 = 0x0A00_0000;
 const virtio_net_size: u64 = 0x200;
 const virtio_blk_base: u64 = 0x0A00_0200;
 const virtio_blk_size: u64 = 0x200;
 const virtio_vsock_base: u64 = 0x0A00_0400;
 const virtio_vsock_size: u64 = 0x200;
+const virtio_blk2_base: u64 = 0x0A00_0600;
+const virtio_blk2_size: u64 = 0x200;
 
 pub const Error = error{
     FixtureMissing,
@@ -50,8 +59,15 @@ pub const Config = struct {
     kernel_path: []const u8,
     dtb_path: []const u8,
     initrd_path: ?[]const u8 = null,
-    /// Optional path to a host file that becomes `/dev/vda` inside
-    /// the guest. `null` disables the virtio-blk device entirely.
+    /// Optional path to a host file backing the rootdisk. When set,
+    /// it lands on slot 1 (DTS `virtio_mmio@a000200`) and the kernel
+    /// sees it as `/dev/vda`. The runtime mounts it as the rootfs and
+    /// switch_roots into it (see init.zig + #114).
+    rootdisk_path: ?[]const u8 = null,
+    /// Optional path to a host file backing the scratch disk. With
+    /// rootdisk_path set, this lands on slot 3 and the kernel names
+    /// it `/dev/vdb`. With no rootdisk it lands on slot 1 and the
+    /// kernel names it `/dev/vda` (legacy, pre-#114 layout).
     disk_path: ?[]const u8 = null,
     ram_base: u64 = 0x4000_0000,
     ram_size: usize = 4 * 1024 * 1024 * 1024, // 4 GB — room for Debian+Node+CRIU+Claude Code in the initramfs tmpfs
@@ -337,13 +353,23 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         .tx_ctx = @ptrCast(&tx_stats),
     };
 
-    // virtio-blk (#47). If the caller gave us a host file path,
-    // open it read-write and expose it as `/dev/vda`. If the file is
-    // missing, just skip — the rest of the VMM still runs.
+    // virtio-blk (#47, #114). Two slots:
+    //   slot 1 (virtio_blk_base)  — rootdisk preferred; falls back to
+    //                                disk_path so legacy boots (single
+    //                                /dev/vda for snapshot) keep working.
+    //   slot 3 (virtio_blk2_base) — scratch when rootdisk is also
+    //                                present; otherwise empty.
+    //
+    // Linux probes virtio-mmio buses in DTB order, so slot 1 always
+    // becomes /dev/vda and slot 3 becomes /dev/vdb when both are
+    // populated. With only one, the lone device is /dev/vda.
+    const slot1_path: ?[]const u8 = cfg.rootdisk_path orelse cfg.disk_path;
+    const slot3_path: ?[]const u8 = if (cfg.rootdisk_path != null) cfg.disk_path else null;
+
     var blk_backend_opt: ?blk_mod.Backend = null;
     defer if (blk_backend_opt) |*b| b.deinit();
     var blkdev_opt: ?virtio.Device = null;
-    if (cfg.disk_path) |path| {
+    if (slot1_path) |path| {
         if (blk_mod.openFile(path)) |backend| {
             blk_backend_opt = backend;
             blkdev_opt = virtio.Device{
@@ -358,10 +384,33 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
                 .request_ctx = @ptrCast(&blk_backend_opt.?),
             };
         } else |err| {
-            std.debug.print("virtio-blk disabled: {s} ({s})\n", .{ @errorName(err), path });
+            std.debug.print("virtio-blk slot 1 disabled: {s} ({s})\n", .{ @errorName(err), path });
         }
     }
     const blkdev_ptr: ?*virtio.Device = if (blkdev_opt) |_| &blkdev_opt.? else null;
+
+    var blk2_backend_opt: ?blk_mod.Backend = null;
+    defer if (blk2_backend_opt) |*b| b.deinit();
+    var blk2dev_opt: ?virtio.Device = null;
+    if (slot3_path) |path| {
+        if (blk_mod.openFile(path)) |backend| {
+            blk2_backend_opt = backend;
+            blk2dev_opt = virtio.Device{
+                .base = virtio_blk2_base,
+                .size = virtio_blk2_size,
+                .id = .block,
+                .features = (1 << 32),
+                .config = std.mem.asBytes(&blk2_backend_opt.?.config),
+                .ram = ram,
+                .ram_base = cfg.ram_base,
+                .request_handler = &blk_mod.Backend.handleRequest,
+                .request_ctx = @ptrCast(&blk2_backend_opt.?),
+            };
+        } else |err| {
+            std.debug.print("virtio-blk slot 3 disabled: {s} ({s})\n", .{ @errorName(err), path });
+        }
+    }
+    const blk2dev_ptr: ?*virtio.Device = if (blk2dev_opt) |_| &blk2dev_opt.? else null;
 
     // virtio-vsock (#44). Off by default; set MACHINEN_VSOCK to enable.
     // Syntax (comma-separated):
@@ -436,11 +485,15 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // The absolute GIC id is `spi.base + <n>`.
     const spi = try hvf.Gic.spiRange();
     const pl011_irq: u32 = spi.base + 1;
-    // DTS interrupts = <0 16 1> and <0 17 1> for the first two
-    // virtio-mmio slots. spi.base + 16 is net, + 17 is blk.
+    // DTS interrupts = <0 N 1> for each virtio-mmio slot. Slots:
+    //   slot 0 → SPI #16 (net)
+    //   slot 1 → SPI #17 (blk / rootdisk)
+    //   slot 2 → SPI #18 (vsock)
+    //   slot 3 → SPI #19 (blk2 / scratch)
     const virtio_irq: u32 = spi.base + 16;
     const virtio_blk_irq: u32 = spi.base + 17;
     const virtio_vsock_irq: u32 = spi.base + 18;
+    const virtio_blk2_irq: u32 = spi.base + 19;
 
     // Feed the virtio IRQ id into the network bridge, and arm the
     // RX callback so the net backend can raise the SPI after each
@@ -617,6 +670,16 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
                         try vcpu.setReg(reg, d.read(info.ipa));
                     }
                     hvf.Gic.setSpi(virtio_blk_irq, d.interrupt_status != 0) catch {};
+                } else if (blk2dev_ptr != null and blk2dev_ptr.?.handles(info.ipa)) {
+                    const d = blk2dev_ptr.?;
+                    if (info.is_write) {
+                        const value = try info.readSource(vcpu);
+                        d.write(info.ipa, value);
+                    } else if (info.srt != 31) {
+                        const reg: hvf.Reg = @enumFromInt(@as(u32, info.srt));
+                        try vcpu.setReg(reg, d.read(info.ipa));
+                    }
+                    hvf.Gic.setSpi(virtio_blk2_irq, d.interrupt_status != 0) catch {};
                 } else if (vsock_dev_ptr != null and vsock_dev_ptr.?.handles(info.ipa)) {
                     const d = vsock_dev_ptr.?;
                     if (info.is_write) {
@@ -902,10 +965,22 @@ test "boot a real arm64 Linux kernel" {
         }
         break :blk initrd_fixture;
     };
+    // The test fixture supports either layout: legacy single-disk
+    // (MACHINEN_DISK only) or virtio-blk root (MACHINEN_ROOTDISK +
+    // optional MACHINEN_DISK). #114.
+    const rootdisk_env = getenv("MACHINEN_ROOTDISK");
+    const rootdisk_path: ?[]const u8 = blk: {
+        if (rootdisk_env) |p| {
+            const s = std.mem.span(p);
+            if (s.len > 0) break :blk s;
+        }
+        break :blk null;
+    };
     const result = boot(gpa, .{
         .kernel_path = kernel_fixture,
         .dtb_path = dtb_fixture,
         .initrd_path = initrd_path,
+        .rootdisk_path = rootdisk_path,
         .disk_path = disk_path,
     }) catch |err| {
         std.debug.print("boot returned {s}\n", .{@errorName(err)});

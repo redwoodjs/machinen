@@ -28,13 +28,21 @@ export PATH
 /exec-agent </dev/null >/dev/null 2>&1 &
 AGENT_PID=$!
 
-# Mount the CRIU image store.
+# Mount the CRIU image store. Pick /dev/vdb when virtio-blk-root booted
+# (rootfs took /dev/vda); else /dev/vda for the legacy single-disk
+# layout. See #114.
+if [ -b /dev/vdb ]; then
+    SCRATCH=/dev/vdb
+else
+    SCRATCH=/dev/vda
+fi
+
 mkdir -p /mnt/snap
-if ! blkid /dev/vda 2>/dev/null | grep -q ext4; then
-    echo "machinen-restore: /dev/vda is not ext4 — aborting" >&2
+if ! blkid "$SCRATCH" 2>/dev/null | grep -q ext4; then
+    echo "machinen-restore: $SCRATCH is not ext4 — aborting" >&2
     exit 1
 fi
-mount /dev/vda /mnt/snap
+mount "$SCRATCH" /mnt/snap
 if [ ! -d /mnt/snap/img ] || [ -z "$(ls -A /mnt/snap/img 2>/dev/null)" ]; then
     echo "machinen-restore: no images at /mnt/snap/img — aborting" >&2
     exit 1

@@ -13,6 +13,8 @@ export type { VsockExecOptions, VsockExecResult } from "./exec.ts";
 export type { LogEvent, OnLog } from "./log.ts";
 export { provision, resolveBaseRootfs } from "./provision.ts";
 export type { ProvisionOptions, ProvisionResult } from "./provision.ts";
+export { ensureRootfsImage, rootfsImgCacheDir } from "./rootfs-img.ts";
+export type { EnsureRootfsImageOptions } from "./rootfs-img.ts";
 export { spawnArtifactCache, resolveCacheDir } from "./artifact-cache.ts";
 export type { ArtifactCacheHandle, ArtifactCacheOptions } from "./artifact-cache.ts";
 export { list, registryRoot } from "./registry.ts";
@@ -99,6 +101,7 @@ import { defaultFuseAgentPath, packBundle as mkinitramfsPackBundle } from "./mki
 import { ensureGvproxy, exposePort, spawnGvproxy, warnGvproxyMissing } from "./gvproxy.ts";
 import { spawnArtifactCache } from "./artifact-cache.ts";
 import { BootError, ExecError, RegistryError, SnapshotError } from "./errors.ts";
+import { ensureRootfsImage } from "./rootfs-img.ts";
 import { VsockExec, type VsockExecOptions, type VsockExecResult } from "./exec.ts";
 import { serveLiveMount } from "./mount-server.ts";
 import type { OnLog } from "./log.ts";
@@ -179,11 +182,32 @@ export interface BootOptions {
    */
   env?: Record<string, string>;
   /**
-   * Attach this host file as `/dev/vda` inside the guest. Typically a
+   * Attach this host file as the scratch virtio-blk device — `/dev/vdb`
+   * inside the guest when `rootDisk` is also set, or `/dev/vda` when
+   * only this disk is attached (legacy / pre-#114 layout). Typically a
    * CRIU snapshot image produced by `vm.snapshot()`, for a sub-second
    * restore on boot. See #47 (virtio-blk) and #50.
    */
   snapshot?: string;
+  /**
+   * Boot the guest with the rootfs on a virtio-blk device (`/dev/vda`)
+   * instead of inflating the whole rootfs into a RAM-backed tmpfs via
+   * the initramfs. See #114.
+   *
+   *   - `true` — materialize an ext4 image from `image` (cached under
+   *              `~/.cache/machinen/rootfs/<sha256>.img`) and attach
+   *              it as the rootdisk. The guest's `/init` mounts +
+   *              chroots into it before running the user cmd.
+   *   - `string` — path to a pre-built ext4 `.img` file to attach
+   *                directly. Skips the cache.
+   *   - `false` / unset — legacy initramfs-as-rootfs path. The cpio
+   *                        in `image` becomes the live rootfs in tmpfs.
+   *
+   * Materialization requires `mke2fs` (or `mkfs.ext4`) on PATH. On
+   * macOS run `brew install e2fsprogs`; on Linux it ships in the
+   * `e2fsprogs` package.
+   */
+  rootDisk?: boolean | string;
   /**
    * Optional name to register this VM under (`attach({ name })`
    * lookup key). Path-shaped strings ("worker/9012") are allowed.
@@ -473,6 +497,34 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       throw new BootError("BOOT_SNAPSHOT_NOT_FOUND", `snapshot image not found: ${diskAbs}`);
     }
     env.MACHINEN_DISK = diskAbs;
+  }
+
+  // #114: optional rootdisk. When set, the guest mounts /dev/vda as
+  // ext4 and chroots into it. The cpio initramfs becomes a tiny
+  // bootloader rather than the entire rootfs, sidestepping the "RAM
+  // scales 8× with rootfs" failure mode of initramfs-as-rootfs.
+  let rootDiskAbs: string | undefined;
+  if (opts.rootDisk) {
+    if (typeof opts.rootDisk === "string") {
+      rootDiskAbs = resolve(opts.cwd ?? process.cwd(), opts.rootDisk);
+      if (!existsSync(rootDiskAbs)) {
+        throw new BootError("BOOT_IMAGE_NOT_FOUND", `rootDisk image not found: ${rootDiskAbs}`);
+      }
+    } else {
+      // rootDisk: true — materialize from `image` if present.
+      if (!opts.image) {
+        throw new BootError(
+          "BOOT_CMD_WITHOUT_IMAGE",
+          "boot: rootDisk: true requires an `image` (the .tar.gz to materialize).",
+        );
+      }
+      const baseAbs = resolve(opts.cwd ?? process.cwd(), opts.image);
+      if (!existsSync(baseAbs)) {
+        throw new BootError("BOOT_IMAGE_NOT_FOUND", `image tarball not found: ${baseAbs}`);
+      }
+      rootDiskAbs = ensureRootfsImage(baseAbs);
+    }
+    env.MACHINEN_ROOTDISK = rootDiskAbs;
   }
   if (opts.kernel) {
     const abs = resolve(opts.cwd ?? process.cwd(), opts.kernel);

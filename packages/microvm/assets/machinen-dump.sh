@@ -1,12 +1,18 @@
 #!/bin/sh
-# /sbin/machinen-dump — dumps the user workload with CRIU onto /dev/vda
-# and triggers a clean poweroff.
+# /sbin/machinen-dump — dumps the user workload with CRIU onto the
+# scratch disk and triggers a clean poweroff.
 #
 # Runs inside the guest, invoked by `vm.snapshot()` via vsock exec.
-# The host-side `vm.snapshot()` then copies /dev/vda's backing file
-# to the caller's outPath and returns.
+# The host-side `vm.snapshot()` then copies the scratch disk's backing
+# file to the caller's outPath and returns.
 #
-# Layout on /dev/vda after a successful dump:
+# Scratch disk lives at /dev/vdb when the VM was booted with virtio-blk
+# root (/dev/vda is the rootfs in that case — see #114). On legacy
+# initramfs-as-rootfs boots there's only one virtio-blk device and it
+# lands at /dev/vda, so we fall back to that. The first existing path
+# wins.
+#
+# Layout on the scratch disk after a successful dump:
 #   /img/core-*.img           ← CRIU images
 #   /img/dump.log             ← CRIU verbose log (useful on failure)
 #
@@ -22,6 +28,14 @@ set -eu
 # PATH regardless of what /init's envp carried.
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
+
+# Pick the scratch disk: /dev/vdb when virtio-blk-root booted (rootfs
+# took /dev/vda); else /dev/vda for the legacy single-disk layout.
+if [ -b /dev/vdb ]; then
+    SCRATCH=/dev/vdb
+else
+    SCRATCH=/dev/vda
+fi
 
 # /init writes the workload's PID after fork. Fall back to PID 2 if
 # the file is missing — that's what's produced by the supervisor
@@ -51,15 +65,16 @@ echo "machinen-dump: preparing (pid=$DUMP_PID)"
     exit 1
 }
 
-# Format /dev/vda ext4 on first use. Subsequent snapshots just remount.
+# Format the scratch disk ext4 on first use. Subsequent snapshots just
+# remount.
 # -F: force (existing data is a scratch allocation; we're overwriting).
 # -q: quiet; noisy output confuses the host-side log tee.
-if ! blkid /dev/vda 2>/dev/null | grep -q ext4; then
-    echo "machinen-dump: formatting /dev/vda as ext4"
-    mkfs.ext4 -F -q /dev/vda
+if ! blkid "$SCRATCH" 2>/dev/null | grep -q ext4; then
+    echo "machinen-dump: formatting $SCRATCH as ext4"
+    mkfs.ext4 -F -q "$SCRATCH"
 fi
 mkdir -p /mnt/snap
-mount /dev/vda /mnt/snap
+mount "$SCRATCH" /mnt/snap
 
 # Clear previous images so a rerun doesn't mix core-*.img files across
 # generations. The CRIU restore side globs core-*.img for PID discovery,
