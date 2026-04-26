@@ -4,6 +4,11 @@
 #   Image-arm64                    ← Debian cloud arm64 kernel
 #   virt-arm64.dtb                 ← compiled device tree
 #   rootfs-debian-arm64.tar.gz     ← debian minbase + /init + /exec-agent
+#   modules-arm64.tar.gz           ← flat tar of the .ko files /init loads
+#                                    via finit_module (boot-path drivers).
+#                                    Used by the tiny initramfs path that
+#                                    ships per-VM (#119); avoids dragging
+#                                    /lib/modules + kmod into RAM at boot.
 #   *.sha256                       ← integrity sidecars
 #
 # Inputs (relative to repo root):
@@ -233,30 +238,56 @@ mmdebstrap \
 #
 # Resolve each module by filename (find) rather than hard-coded path,
 # so the whitelist is robust to Debian kernel-package layout changes.
+#
+# Two destinations:
+#   /work/rootfs/lib/modules/$KVER/kernel/  — for criu / modprobe inside
+#       the legacy fat-cpio path (provision()'s boot still has a full
+#       Debian userland and runs criu against /lib/modules).
+#   /work/rootfs/modules/                   — flat directory, what
+#       /init reads at boot via finit_module(2). Sourced into the tiny
+#       cpio used by every user-facing boot() (#119); also present in
+#       the fat tarball so /init takes the same path in both modes.
+#
+# /out/modules-arm64.tar.gz: the same flat /modules/ shipped on its own
+# so mkinitramfs can pull it into the tiny cpio without untar-ing the
+# whole rootfs.
 KVER=$(ls /work/rootfs/lib/modules | head -1)
 KMODS=/work/rootfs/lib/modules/$KVER/kernel
+FLAT=/work/rootfs/modules
 STAGE=$(mktemp -d)
+mkdir -p "$FLAT"
 for m in \
   virtio virtio_ring virtio_mmio virtio_net net_failover failover \
   virtio_blk \
   netlink_diag unix_diag inet_diag tcp_diag udp_diag af_packet_diag \
   libcrc32c nfnetlink nf_tables \
   vsock vmw_vsock_virtio_transport vmw_vsock_virtio_transport_common vsock_diag \
+  ext4 mbcache jbd2 \
   fuse
 do
   src=$(find "$KMODS" -type f -name "$m.ko" | head -1)
   [ -n "$src" ] || { echo "missing module: $m.ko" >&2; exit 1; }
   rel=${src#$KMODS/}
   mkdir -p "$STAGE/$(dirname "$rel")"
-  mv "$src" "$STAGE/$rel"
+  cp "$src" "$STAGE/$rel"
+  cp "$src" "$FLAT/$m.ko"
 done
 rm -rf "$KMODS"
 mkdir -p "$KMODS"
 cp -a "$STAGE/." "$KMODS/"
 rm -rf "$STAGE"
 
-# Depmod so modprobe can resolve dependencies without a live uname.
+# Depmod so modprobe (called by criu inside the fat-cpio provision
+# path) can resolve dependencies without a live uname.
 chroot /work/rootfs depmod -a "$KVER"
+
+# Pack the flat /modules/ as a standalone artifact for the tiny-cpio
+# path. Deterministic tar so the sha256 sidecar is reproducible across
+# rebuilds.
+tar --sort=name --owner=0 --group=0 --numeric-owner \
+  --mtime="2020-01-01 00:00Z" \
+  -C /work/rootfs/modules -cf - . |
+gzip -n > /out/modules-arm64.tar.gz
 
 # Belt-and-braces cleanup for things path-exclude doesn't cover.
 # Also drop the second copy of the kernel image and initrd hooks we
@@ -328,7 +359,7 @@ CONTAINER_SCRIPT
 
 echo "==> Writing sha256 sidecars"
 cd "$OUT"
-for f in Image-arm64 virt-arm64.dtb rootfs-debian-arm64.tar.gz; do
+for f in Image-arm64 virt-arm64.dtb rootfs-debian-arm64.tar.gz modules-arm64.tar.gz; do
   shasum -a 256 "$f" > "${f}.sha256"
 done
 

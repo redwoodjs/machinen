@@ -21,6 +21,7 @@ export { list, registryRoot } from "./registry.ts";
 export type { RegistryEntry } from "./registry.ts";
 export {
   packBundle as mkinitramfsBundle,
+  packTinyBundle as mkinitramfsTinyBundle,
   packRootfs as mkinitramfsRootfs,
   packWorkspace as mkinitramfsWorkspace,
   packMinimal as mkinitramfsMinimal,
@@ -28,6 +29,7 @@ export {
 } from "./mkinitramfs.ts";
 export type {
   PackBundleOptions,
+  PackTinyBundleOptions,
   PackRootfsOptions,
   PackMinimalOptions,
   PackWorkspaceOptions,
@@ -97,7 +99,11 @@ import { arch as osArch, platform as osPlatform, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { Readable, Writable } from "node:stream";
 import debugLib from "debug";
-import { defaultFuseAgentPath, packBundle as mkinitramfsPackBundle } from "./mkinitramfs.ts";
+import {
+  defaultFuseAgentPath,
+  packBundle as mkinitramfsPackBundle,
+  packTinyBundle as mkinitramfsPackTinyBundle,
+} from "./mkinitramfs.ts";
 import { ensureGvproxy, exposePort, spawnGvproxy, warnGvproxyMissing } from "./gvproxy.ts";
 import { spawnArtifactCache } from "./artifact-cache.ts";
 import { BootError, ExecError, RegistryError, SnapshotError } from "./errors.ts";
@@ -654,7 +660,10 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     // INITRD env set — the VMM uses its own fixture initramfs.
     if (opts.image || opts.cmd || opts.snapshot) {
       const packT0 = Date.now();
-      const packed = synthesizeAndPackBundle(opts, mergedGuestEnv, liveMountsResolved);
+      const packed = synthesizeAndPackBundle(opts, mergedGuestEnv, liveMountsResolved, {
+        useTiny: wantsRootDisk,
+        env,
+      });
       bundleTempDir = packed.tempDir;
       env.MACHINEN_INITRD = packed.cpioPath;
       debug("initramfs packed cpio=%s elapsed=%dms", packed.cpioPath, Date.now() - packT0);
@@ -1179,10 +1188,43 @@ function resolveLiveMounts(
   });
 }
 
+/**
+ * Resolve the modules-arm64 tarball for the tiny-cpio path (#119). The
+ * .ko files inside have to match the running kernel, so we anchor on
+ * MACHINEN_KERNEL: modules-arm64.tar.gz lives next to Image-arm64 in
+ * release-assets, and tests mirror the layout under
+ * packages/microvm/test-fixtures/. MACHINEN_MODULES wins if the caller
+ * sets it explicitly (e.g. mismatched layouts on dev machines).
+ */
+function resolveModulesTar(opts: BootOptions, env: Record<string, string>): string {
+  if (env.MACHINEN_MODULES) {
+    const abs = resolve(opts.cwd ?? process.cwd(), env.MACHINEN_MODULES);
+    if (!existsSync(abs)) {
+      throw new BootError("BOOT_MODULES_NOT_FOUND", `MACHINEN_MODULES set but not found: ${abs}`);
+    }
+    return abs;
+  }
+  const kernel = env.MACHINEN_KERNEL;
+  if (kernel) {
+    const candidate = join(resolve(kernel), "..", "modules-arm64.tar.gz");
+    const abs = resolve(candidate);
+    if (existsSync(abs)) {
+      return abs;
+    }
+  }
+  throw new BootError(
+    "BOOT_MODULES_NOT_FOUND",
+    "boot: cannot find modules-arm64.tar.gz. Place it next to MACHINEN_KERNEL " +
+      "or set MACHINEN_MODULES to its path. Run scripts/build-base-assets.sh " +
+      "to produce it alongside the kernel image.",
+  );
+}
+
 function synthesizeAndPackBundle(
   opts: BootOptions,
   mergedGuestEnv: Record<string, string>,
   liveMounts: ResolvedLiveMount[],
+  packerOpts: { useTiny: boolean; env: Record<string, string> },
 ): { tempDir: string; cpioPath: string } {
   const tempDir = mkdtempSync(join(tmpdir(), "machinen-bundle-"));
   const cpioPath = join(tempDir, "initramfs.cpio");
@@ -1298,14 +1340,35 @@ function synthesizeAndPackBundle(
   }
 
   try {
-    mkinitramfsPackBundle({
-      bundle: synthBundleDir,
-      out: cpioPath,
-      base: baseAbs,
-      mount,
-      env: effectiveEnv,
-      fuseAgentPath: liveMounts.length > 0 ? defaultFuseAgentPath() : undefined,
-    });
+    if (packerOpts.useTiny) {
+      // #119: rootDisk path. The on-disk rootfs is mounted from /dev/vda
+      // by /init; the cpio only needs to ship enough to load the
+      // boot-path drivers and pivot. ~1 MB. Resolve the modules
+      // tarball lazily, after every other validation has had a chance
+      // to throw a more specific error.
+      const modulesTarAbs = resolveModulesTar(opts, packerOpts.env);
+      mkinitramfsPackTinyBundle({
+        bundle: synthBundleDir,
+        out: cpioPath,
+        modulesTar: modulesTarAbs,
+        mount,
+        env: effectiveEnv,
+        fuseAgentPath: liveMounts.length > 0 ? defaultFuseAgentPath() : undefined,
+      });
+    } else {
+      // Legacy fat cpio: provision()'s `tar / -cf /dev/vda` and any
+      // explicit `rootDisk: false` opt-out. Drags the entire base
+      // tarball into RAM, by design — those callers need a Debian
+      // userland in the cpio.
+      mkinitramfsPackBundle({
+        bundle: synthBundleDir,
+        out: cpioPath,
+        base: baseAbs,
+        mount,
+        env: effectiveEnv,
+        fuseAgentPath: liveMounts.length > 0 ? defaultFuseAgentPath() : undefined,
+      });
+    }
   } catch (err) {
     cleanup();
     const msg = err instanceof Error ? err.message : String(err);
