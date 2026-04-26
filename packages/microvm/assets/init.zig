@@ -41,6 +41,7 @@ extern "c" fn mount(
     data: ?*const anyopaque,
 ) c_int;
 extern "c" fn nanosleep(req: *const timespec, rem: ?*timespec) c_int;
+extern "c" fn sched_yield() c_int;
 extern "c" fn lseek(fd: c_int, offset: i64, whence: c_int) i64;
 extern "c" fn fork() c_int;
 extern "c" fn waitpid(pid: c_int, status: ?*c_int, options: c_int) c_int;
@@ -146,7 +147,10 @@ fn bringUpNetwork() void {
 }
 
 // Load kernel modules that every machinen workload assumes are usable:
-//   virtio_blk — /dev/vda, for snapshot disks + persistent workspaces
+//   virtio_mmio — the bus that publishes DTS virtio_mmio@... slots into
+//                 the virtio framework. Required for virtio_blk (and
+//                 virtio_net later) to find any devices to bind.
+//   virtio_blk  — /dev/vda, for snapshot disks + persistent workspaces.
 //   vsock stack — AF_VSOCK sockets; the exec-agent + file/secrets/winsize
 //                 agents all bind here. modprobe resolves the transport
 //                 dep chain (pulls in the _common module).
@@ -154,10 +158,11 @@ fn bringUpNetwork() void {
 // All are in the base rootfs (whitelisted in scripts/build-base-assets.sh).
 // Best-effort: if a module is missing or fails to insert, log and move
 // on — the user cmd may still work depending on what it needs.
-// machinen-netup handles virtio_mmio + virtio_net separately so this
-// function stays focused on the non-network plumbing.
+// virtio_net loads separately under /sbin/machinen-netup once we know
+// we want a network up.
 fn loadPlumbingModules() void {
     const mods = [_][*:0]const u8{
+        "virtio_mmio",
         "virtio_blk",
         "vmw_vsock_virtio_transport",
     };
@@ -458,17 +463,37 @@ fn nowMs() i64 {
 // chroot(NEWROOT) + chdir("/"). Subsequent code runs against the
 // on-disk rootfs.
 fn tryRootDiskPivot() bool {
-    // Wait briefly for the device node — modprobe of virtio_blk runs
-    // asynchronously so /dev/vda may not be there immediately.
-    if (!waitForPath(ROOTDISK_DEV, 2_000)) return false;
+    // Wait for the device node. virtio_mmio + virtio_blk are loaded by
+    // loadPlumbingModules() right above; the kernel finishes binding
+    // /dev/vda within a few tens of ms. We cap the wait at 2s in case
+    // modprobe failed silently. sched_yield rather than nanosleep
+    // because with a single guest vCPU, nanosleep parks the whole
+    // guest and the kernel's deferred-probe workqueue can't progress.
+    {
+        const deadline_ms = nowMs() + 2_000;
+        var found = false;
+        while (nowMs() < deadline_ms) {
+            if (access(ROOTDISK_DEV, F_OK) == 0) {
+                found = true;
+                break;
+            }
+            _ = sched_yield();
+        }
+        if (!found) {
+            logLine("init: rootdisk skip: /dev/vda did not appear");
+            return false;
+        }
+    }
 
     mkdirIgnore(NEWROOT);
     if (mount(ROOTDISK_DEV, NEWROOT, "ext4", 0, null) != 0) {
         // /dev/vda isn't ext4 — assume legacy CRIU scratch mode.
+        logLine("init: rootdisk skip: mount /dev/vda failed");
         return false;
     }
     if (access(ROOTFS_MARKER, F_OK) != 0) {
         // Mounted, but no machinen rootfs inside — assume CRIU scratch.
+        logLine("init: rootdisk skip: marker /sbin/machinen-supervisor missing");
         _ = umount2(NEWROOT, MNT_DETACH);
         return false;
     }
