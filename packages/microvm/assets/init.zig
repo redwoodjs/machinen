@@ -25,6 +25,9 @@ extern "c" fn close(fd: c_int) c_int;
 extern "c" fn dup2(oldfd: c_int, newfd: c_int) c_int;
 extern "c" fn mkdir(path: [*:0]const u8, mode: c_uint) c_int;
 extern "c" fn chdir(path: [*:0]const u8) c_int;
+extern "c" fn chroot(path: [*:0]const u8) c_int;
+extern "c" fn access(path: [*:0]const u8, mode: c_int) c_int;
+extern "c" fn umount2(target: [*:0]const u8, flags: c_int) c_int;
 extern "c" fn execve(
     path: [*:0]const u8,
     argv: [*:null]const ?[*:0]const u8,
@@ -53,8 +56,22 @@ const O_RDONLY: c_int = 0;
 const O_RDWR: c_int = 2;
 const SEEK_END: c_int = 2;
 const SEEK_SET: c_int = 0;
+const F_OK: c_int = 0;
+const MS_MOVE: c_ulong = 8192;
+const MNT_DETACH: c_int = 2;
 
 const CONFIG_PATH = "/machinen-config.json";
+
+// Where the rootdisk gets mounted before the chroot. Anything not
+// already in use under / works; we pick a name unlikely to collide with
+// a user-visible directory inside the rootfs.
+const ROOTDISK_DEV = "/dev/vda";
+const NEWROOT = "/newroot";
+// Marker file we expect to find inside the rootfs to know "yes, this
+// is a machinen rootfs and we should pivot into it." machinen-supervisor
+// is shipped by every machinen base rootfs (scripts/build-base-assets.sh)
+// so its presence is a reliable signal. See #114.
+const ROOTFS_MARKER = "/newroot/sbin/machinen-supervisor";
 
 fn writeStr(fd: c_int, s: []const u8) void {
     _ = write(fd, s.ptr, s.len);
@@ -420,6 +437,106 @@ fn nowMs() i64 {
     return ts.tv_sec * 1000 + @divTrunc(ts.tv_nsec, 1_000_000);
 }
 
+// Try to mount /dev/vda as ext4 and chroot into it. Returns true if the
+// pivot happened (the caller's view of `/` has changed), false if we
+// fell through to the legacy initramfs-as-rootfs path.
+//
+// Detection is conservative: we mount, then check for /sbin/machinen-
+// supervisor inside the candidate root. If the marker is missing we
+// unmount and fall through. That way a CRIU scratch disk attached as
+// /dev/vda (legacy behavior) doesn't accidentally become the rootfs.
+//
+// Pre-conditions:
+//   * loadPlumbingModules() has already run (virtio_blk loaded so /dev/vda
+//     can appear).
+//   * /machinen-config.json exists in the cpio rootfs at /.
+//   * /etc/machinen-boot-epoch may exist in the cpio rootfs at /.
+//
+// On success the function copies the per-boot ephemera that lived in
+// the cpio (machinen-config.json, machinen-boot-epoch) into the
+// freshly-mounted rootfs, moves /proc, /sys, /dev across, then calls
+// chroot(NEWROOT) + chdir("/"). Subsequent code runs against the
+// on-disk rootfs.
+fn tryRootDiskPivot() bool {
+    // Wait briefly for the device node — modprobe of virtio_blk runs
+    // asynchronously so /dev/vda may not be there immediately.
+    if (!waitForPath(ROOTDISK_DEV, 2_000)) return false;
+
+    mkdirIgnore(NEWROOT);
+    if (mount(ROOTDISK_DEV, NEWROOT, "ext4", 0, null) != 0) {
+        // /dev/vda isn't ext4 — assume legacy CRIU scratch mode.
+        return false;
+    }
+    if (access(ROOTFS_MARKER, F_OK) != 0) {
+        // Mounted, but no machinen rootfs inside — assume CRIU scratch.
+        _ = umount2(NEWROOT, MNT_DETACH);
+        return false;
+    }
+
+    // Hand off /proc, /sys, /dev to the new root via MS_MOVE so the
+    // already-mounted filesystems stay live across the chroot. mkdir
+    // first in case the on-disk rootfs is too lean to ship them.
+    mkdirIgnore("/newroot/proc");
+    mkdirIgnore("/newroot/sys");
+    mkdirIgnore("/newroot/dev");
+    _ = mount("/proc", "/newroot/proc", "", MS_MOVE, null);
+    _ = mount("/sys", "/newroot/sys", "", MS_MOVE, null);
+    _ = mount("/dev", "/newroot/dev", "", MS_MOVE, null);
+
+    // Carry the per-boot ephemera the cpio packed at root level. The
+    // on-disk rootfs is shared across boots and intentionally doesn't
+    // bake these in.
+    copyFileBest("/machinen-config.json", "/newroot/machinen-config.json");
+    copyFileBest("/etc/machinen-boot-epoch", "/newroot/etc/machinen-boot-epoch");
+
+    if (chroot(NEWROOT) != 0) {
+        // chroot can't really fail at PID 1 with valid args, but if it
+        // does we'd be in a half-broken state. Best-effort fall-through.
+        return false;
+    }
+    if (chdir("/") != 0) {
+        // Same: shouldn't happen post-chroot.
+    }
+    writeStr(1, "init: pivoted into /dev/vda rootfs\n");
+    return true;
+}
+
+/// Wait up to `timeout_ms` for `path` to exist. Used to bridge the gap
+/// between modprobe and devtmpfs creating the matching device node.
+fn waitForPath(path: [*:0]const u8, timeout_ms: i64) bool {
+    const deadline_ms = nowMs() + timeout_ms;
+    while (nowMs() < deadline_ms) {
+        if (access(path, F_OK) == 0) return true;
+        sleepMs(25);
+    }
+    return false;
+}
+
+/// Best-effort `cp src dst`. Used to bring the per-boot config + epoch
+/// files across the pivot. Failures are silent — the boot continues
+/// without them and the caller deals with the consequences.
+fn copyFileBest(src: [*:0]const u8, dst: [*:0]const u8) void {
+    const in_fd = open(src, O_RDONLY);
+    if (in_fd < 0) return;
+    defer _ = close(in_fd);
+    // O_WRONLY | O_CREAT | O_TRUNC = 1 | 64 | 512 on Linux/musl.
+    const out_fd = open(dst, 0o1 | 0o100 | 0o1000, @as(c_uint, 0o644));
+    if (out_fd < 0) return;
+    defer _ = close(out_fd);
+    var buf: [8192]u8 = undefined;
+    while (true) {
+        const n = read(in_fd, &buf, buf.len);
+        if (n <= 0) return;
+        var off: usize = 0;
+        const total: usize = @intCast(n);
+        while (off < total) {
+            const w = write(out_fd, buf[off..].ptr, total - off);
+            if (w <= 0) return;
+            off += @intCast(w);
+        }
+    }
+}
+
 pub fn main() noreturn {
     // Basic FS mounts. Ignore failures — the kernel might have mounted
     // some already, or we might be in a stripped rootfs.
@@ -439,8 +556,20 @@ pub fn main() noreturn {
 
     writeStr(1, "\n=== machinen /init: reading /machinen-config.json ===\n");
 
-    setBootClock();
+    // virtio_blk has to load before we can probe /dev/vda for a
+    // rootdisk. The legacy path (no rootdisk) doesn't care about ordering
+    // — virtio_blk just shows up by the time provision()'s tar-to-disk
+    // runs. The pivot path needs it loaded right now.
     loadPlumbingModules();
+
+    // #114: try the virtio-blk-root pivot before doing any other setup.
+    // If /dev/vda has a machinen rootfs (ext4 + marker), we mount it +
+    // chroot into it; subsequent setup runs against the on-disk rootfs
+    // rather than the cpio-extracted tmpfs. Falls through silently to
+    // the legacy path if /dev/vda isn't a rootdisk.
+    _ = tryRootDiskPivot();
+
+    setBootClock();
     bringUpNetwork();
 
     // Page allocator works on musl via mmap.
