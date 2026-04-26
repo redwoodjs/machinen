@@ -3,11 +3,19 @@
 // Newc cpio format, written byte-for-byte so we can include device
 // nodes that macOS's native cpio tooling can't produce.
 //
-// Three modes exposed as functions:
+// Four modes exposed as functions:
+//
+//   packTinyBundle({ bundle, modulesTar, out, ... }) — pack a minimal
+//     cpio for the rootDisk boot path (#119): /init + /modules/*.ko +
+//     /machinen-config.json + /etc/machinen-boot-epoch + /dev/console.
+//     ~1 MB. The on-disk rootfs is mounted from /dev/vda by /init
+//     after finit_module loads the boot-path drivers.
 //
 //   packBundle({ bundle, base?, excludes?, out }) — pack a bundle's
 //     rootfs/, optionally overlaying it on a base tarball. Includes the
 //     bundle's machinen-config.json + a /dev/console node + a trailer.
+//     ~50 MB. Used by provision() (which needs a Debian userland in the
+//     cpio to run apt + tar against /dev/vda).
 //
 //   packRootfs({ rootfs, config?, excludes?, out }) — pack a rootfs
 //     directory directly. Adds /dev/console + trailer.
@@ -460,6 +468,181 @@ function overlayMount(mergeRoot: string, hostAbs: string, guest: string): void {
     force: true,
     verbatimSymlinks: true,
   });
+}
+
+export interface PackTinyBundleOptions {
+  /** Bundle directory with machinen-config.json. The bundle's rootfs/ is ignored — the on-disk rootfs is on /dev/vda. */
+  bundle: string;
+  /** Path to the initramfs cpio to write. */
+  out: string;
+  /**
+   * Path to modules-arm64.tar.gz (the flat /modules/*.ko archive
+   * built by scripts/build-base-assets.sh). Extracted at pack time
+   * and emitted as /modules/*.ko entries inside the cpio so /init
+   * can finit_module(2) them directly without a kmod / modprobe path.
+   */
+  modulesTar: string;
+  /** Extra env merged into the bundle's machinen-config.json. Bundle keys win on collision. */
+  env?: Record<string, string>;
+  /**
+   * Optional host directory copied into the cpio at `/<guest>/`. Same
+   * semantics as packBundle.mount — guest must live under /mnt/.
+   * /init carries it across the rootdisk pivot.
+   */
+  mount?: { host: string; guest: string };
+  /** Optional override for the compiled /init. Default: ../microvm/test-fixtures/init relative to this file. */
+  initPath?: string;
+  /** Optional path to the compiled fuse-agent; staged at /fuse-agent when set. */
+  fuseAgentPath?: string;
+}
+
+/**
+ * Build the tiny initramfs used by every user-facing boot() (#119).
+ *
+ * Layout:
+ *   /init                        compiled Zig init
+ *   /modules/<name>.ko           boot-path drivers /init finit_module(2)s
+ *   /machinen-config.json        cmd/env/cwd/liveMounts for /init
+ *   /etc/machinen-boot-epoch     wall clock seed for the guest
+ *   /dev/console                 char node 5,1 — kernel needs it before
+ *                                /init re-opens the console
+ *   /fuse-agent                  optional, only when liveMounts
+ *   /mnt/<guest>/                optional, when caller passed `mount`
+ *   /tmp                         sticky 1777
+ *
+ * No /lib/modules tree, no kmod, no Debian userland. /init pivots into
+ * /dev/vda (a virtio-blk-attached ext4 image) for the actual rootfs.
+ */
+export function packTinyBundle(opts: PackTinyBundleOptions): void {
+  const t0 = Date.now();
+  const cfgPath = join(opts.bundle, "machinen-config.json");
+  if (!statSync(cfgPath).isFile()) {
+    throw new MkinitramfsError("MKINITRAMFS_BUNDLE_INVALID", `--bundle: missing ${cfgPath}`);
+  }
+  if (!statSync(opts.modulesTar).isFile()) {
+    throw new MkinitramfsError(
+      "MKINITRAMFS_MODULES_NOT_FOUND",
+      `tiny bundle: modules tarball not found: ${opts.modulesTar}`,
+    );
+  }
+
+  const modulesTmp = mkdtempSync(join(tmpdir(), "machinen-mkinitramfs-mods-"));
+  try {
+    const res = spawnSync("tar", ["-xzf", opts.modulesTar, "-C", modulesTmp]);
+    if (res.status !== 0) {
+      throw new MkinitramfsError(
+        "MKINITRAMFS_MODULES_EXTRACT_FAILED",
+        `tar -xzf ${opts.modulesTar} failed: ${res.stderr?.toString() ?? ""}`,
+      );
+    }
+
+    const parts: Buffer[] = [];
+    parts.push(newc(".", 0o40755));
+    // /init is optional at pack time — matches packBundle's posture so
+    // tests that exercise env passthrough without a built /init keep
+    // working. A real boot without /init won't get past the kernel,
+    // but that failure surfaces clearly at the VMM layer.
+    try {
+      const initBytes = readFileSync(opts.initPath ?? defaultInitPath());
+      parts.push(newc("init", 0o100755, { data: initBytes }));
+    } catch {}
+
+    parts.push(newc("modules", 0o40755));
+    const modEntries = readdirSync(modulesTmp).sort();
+    let modCount = 0;
+    let modBytes = 0;
+    for (const name of modEntries) {
+      if (!name.endsWith(".ko")) {
+        continue;
+      }
+      const data = readFileSync(join(modulesTmp, name));
+      parts.push(newc(`modules/${name}`, 0o100644, { data }));
+      modCount += 1;
+      modBytes += data.length;
+    }
+
+    if (opts.mount) {
+      const rel = opts.mount.guest.replace(/^\/+/, "");
+      // Emit each path component as a directory entry, then walk the
+      // host tree under it. Same semantics as packBundle's
+      // overlayMount + walk, just without the merge-onto-base step.
+      const segments = rel.split("/").filter(Boolean);
+      let acc = "";
+      for (const seg of segments) {
+        acc = acc ? `${acc}/${seg}` : seg;
+        parts.push(newc(acc, 0o40755));
+      }
+      const counts: WalkCounts = { files: 0, bytes: 0 };
+      for (const e of mountOverlayEntries(opts.mount.host, rel, counts)) {
+        parts.push(e);
+      }
+    }
+
+    appendFinalEntries(parts, {
+      initPath: opts.initPath ?? defaultInitPath(),
+      config: patchConfigEnv(readFileSync(cfgPath), opts.env),
+      fuseAgentPath: opts.fuseAgentPath,
+      // We already emitted /init above, before the .ko files, so the
+      // final entries pass should not duplicate it.
+      injectInit: false,
+    });
+    writeFileSync(opts.out, Buffer.concat(parts));
+    debug(
+      "packTinyBundle done modules=%d module_bytes=%d elapsed=%dms",
+      modCount,
+      modBytes,
+      Date.now() - t0,
+    );
+  } finally {
+    rmSync(modulesTmp, { recursive: true, force: true });
+  }
+}
+
+function* mountOverlayEntries(
+  hostAbs: string,
+  guestRel: string,
+  counts: WalkCounts,
+): Generator<Buffer> {
+  yield* walkMount(hostAbs, "", guestRel, counts);
+}
+
+function* walkMount(
+  root: string,
+  rel: string,
+  mountpoint: string,
+  counts: WalkCounts,
+): Generator<Buffer> {
+  const full = rel ? join(root, rel) : root;
+  let entries: string[];
+  try {
+    entries = readdirSync(full).sort();
+  } catch {
+    return;
+  }
+  for (const name of entries) {
+    const childRel = rel ? join(rel, name) : name;
+    const childFull = join(full, name);
+    const arcName = `${mountpoint}/${childRel}`;
+    let st;
+    try {
+      st = lstatSync(childFull);
+    } catch {
+      continue;
+    }
+    const m = st.mode;
+    if (st.isSymbolicLink()) {
+      const target = readlinkSync(childFull);
+      yield newc(arcName, 0o120000 | (m & 0o7777), { data: Buffer.from(target, "utf8") });
+    } else if (st.isDirectory()) {
+      yield newc(arcName, 0o40000 | (m & 0o7777));
+      yield* walkMount(root, childRel, mountpoint, counts);
+    } else if (st.isFile()) {
+      const data = readFileSync(childFull);
+      counts.files += 1;
+      counts.bytes += data.length;
+      yield newc(arcName, 0o100000 | (m & 0o7777), { data });
+    }
+  }
 }
 
 export interface PackRootfsOptions {

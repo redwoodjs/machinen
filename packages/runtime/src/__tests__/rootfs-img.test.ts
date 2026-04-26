@@ -161,14 +161,21 @@ describe("boot({ rootDisk })", () => {
   it("forwards MACHINEN_ROOTDISK alongside MACHINEN_DISK when both are set", async () => {
     const rd = `/tmp/machinen-runtime-rootdisk2-${process.pid}`;
     const snap = `/tmp/machinen-runtime-snap2-${process.pid}`;
+    const mods = `/tmp/machinen-runtime-mods2-${process.pid}.tar.gz`;
     writeFileSync(rd, "");
     writeFileSync(snap, "");
+    // The tiny-cpio path packs a /modules/*.ko tree from this tarball;
+    // for an env-passthrough check (no real boot) any valid empty
+    // gzipped tar works.
+    const modStage = mkdtempSync(join(tmpdir(), "machinen-runtime-mods2-"));
+    execSync(`tar -czf ${mods} -C ${modStage} .`);
     try {
       const vm = await boot({
         binary: "/bin/sh",
         args: ["-c", 'printf \'ROOTDISK=%s DISK=%s\\n\' "$MACHINEN_ROOTDISK" "$MACHINEN_DISK"'],
         rootDisk: rd,
         snapshot: snap,
+        vmmEnv: { MACHINEN_MODULES: mods },
         timeoutMs: 2_000,
       });
       await vm.wait();
@@ -181,6 +188,10 @@ describe("boot({ rootDisk })", () => {
       try {
         unlinkSync(snap);
       } catch {}
+      try {
+        unlinkSync(mods);
+      } catch {}
+      rmSync(modStage, { recursive: true, force: true });
     }
   });
 });
