@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { boot, BootError, ensureRootfsImage, ProvisionError } from "../index.ts";
+import { _internal } from "../rootfs-img.ts";
 
 describe("ensureRootfsImage", () => {
   it("throws PROVISION_BASE_NOT_FOUND when the tarball is missing", () => {
@@ -48,6 +49,31 @@ describe("ensureRootfsImage", () => {
       rmSync(emptyDir, { recursive: true, force: true });
     }
   }, 20_000);
+
+  it("findKegOnlyE2fs returns the absolute path when the binary lives in a keg-only prefix", () => {
+    // Simulates Homebrew's keg-only e2fsprogs install on macOS (#124),
+    // where `mke2fs` is on disk but not on PATH. The function should
+    // probe the supplied dirs and return the first match.
+    const dir = mkdtempSync(join(tmpdir(), "machinen-kegonly-"));
+    const fake = join(dir, "mke2fs");
+    writeFileSync(fake, "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+    try {
+      const found = _internal.findKegOnlyE2fs(["mke2fs", "mkfs.ext4"], [dir]);
+      expect(found).toBe(fake);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("findKegOnlyE2fs returns undefined when no candidate exists", () => {
+    const dir = mkdtempSync(join(tmpdir(), "machinen-kegonly-empty-"));
+    try {
+      const found = _internal.findKegOnlyE2fs(["mke2fs", "mkfs.ext4"], [dir]);
+      expect(found).toBeUndefined();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 
   it("returns the cached path when the tarball's sha256 already has an .img", () => {
     // Build a real (tiny) tarball so sha256ing has something to chew
