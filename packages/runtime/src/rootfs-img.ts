@@ -104,14 +104,20 @@ export function ensureRootfsImage(tarPath: string, opts: EnsureRootfsImageOption
 
   // mke2fs -d takes a staging directory and writes an ext4 image. Try
   // a few names because Linux distros and macOS-via-brew disagree on
-  // which binary ships.
-  const mke2fs = whichFirst(["mke2fs", "mkfs.ext4"]);
+  // which binary ships. On macOS Homebrew installs e2fsprogs keg-only
+  // (its mkfs.ext4 / mke2fs would shadow the BSD newfs_* family), so
+  // fall back to the well-known brew prefix when PATH lookup fails.
+  const names = ["mke2fs", "mkfs.ext4"];
+  const mke2fs = whichFirst(names) ?? findKegOnlyE2fs(names);
   if (!mke2fs) {
     throw new ProvisionError(
       "PROVISION_INSTALL_HOOK_FAILED",
-      "ensureRootfsImage: no e2fsprogs binary on PATH (looked for mke2fs / " +
-        "mkfs.ext4). Install it:\n" +
+      "ensureRootfsImage: no e2fsprogs binary found (looked for mke2fs / " +
+        "mkfs.ext4 on PATH and in Homebrew's keg-only prefix). Install it:\n" +
         "  • macOS:  brew install e2fsprogs\n" +
+        "            (e2fsprogs is keg-only on Homebrew; machinen also " +
+        "probes /opt/homebrew/opt/e2fsprogs/sbin and " +
+        "/usr/local/opt/e2fsprogs/sbin automatically)\n" +
         "  • Linux:  apt-get install -y e2fsprogs (or your distro's package)\n" +
         "  • or skip virtio-blk root and let boot() use the legacy " +
         "initramfs-as-rootfs path.",
@@ -212,6 +218,30 @@ function whichFirst(names: string[]): string | undefined {
   return undefined;
 }
 
+// Homebrew installs e2fsprogs keg-only because mkfs.ext4 / mke2fs would
+// shadow the BSD newfs_* family. The binaries land here instead of on
+// PATH, so users who run the recommended `brew install` see "not found"
+// errors anyway. Probe these prefixes directly so the install Just Works.
+const KEG_ONLY_E2FS_DIRS = [
+  "/opt/homebrew/opt/e2fsprogs/sbin", // Apple Silicon
+  "/usr/local/opt/e2fsprogs/sbin", // Intel
+];
+
+function findKegOnlyE2fs(
+  names: string[],
+  dirs: readonly string[] = KEG_ONLY_E2FS_DIRS,
+): string | undefined {
+  for (const dir of dirs) {
+    for (const name of names) {
+      const candidate = join(dir, name);
+      if (existsSync(candidate)) {
+        return candidate;
+      }
+    }
+  }
+  return undefined;
+}
+
 function duBytes(path: string): number {
   // `du -sk` returns size-on-disk in 1-KiB blocks. Faster than walking
   // ourselves and works on both GNU and BSD du.
@@ -238,4 +268,4 @@ function allocateSparseFile(path: string, sizeBytes: number): void {
 
 // Visible to tests that want to assert without invoking the real
 // materializer.
-export const _internal = { sha256OfFile, whichFirst };
+export const _internal = { sha256OfFile, whichFirst, findKegOnlyE2fs };
