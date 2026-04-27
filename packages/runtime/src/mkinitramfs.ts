@@ -416,7 +416,17 @@ export function packBundle(opts: PackBundleOptions): void {
       initPath: opts.initPath ?? defaultInitPath(),
       config: patchConfigEnv(readFileSync(cfgPath), opts.env),
       fuseAgentPath: opts.fuseAgentPath,
-      injectInit: false,
+      // Always inject the fresh /init AFTER walking the rootfs.
+      // `provision()` flows feed the previous run's frozen rootfs back
+      // in as `base`, and that capture has /init at root. The walked
+      // copy is whatever was captured the last time provision ran;
+      // injecting machinen's current /init here means the cpio carries
+      // duplicate /init entries with the latest one last — Linux's
+      // initramfs unpacker resolves duplicates by overwriting earlier
+      // entries with later ones, so the fresh /init wins. Without
+      // this, fixes that land in init.zig (e.g. the /run tmpfs mount
+      // from #146) silently regress on every provision-cached image.
+      injectInit: true,
     });
     writeFileSync(opts.out, Buffer.concat(parts));
     debug(
