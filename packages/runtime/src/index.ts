@@ -230,6 +230,23 @@ export interface BootOptions {
    */
   rootDisk?: boolean | string;
   /**
+   * Absolute target size (bytes) for the materialized rootdisk image.
+   * Defaults to `max(2 GiB, treeBytes * 2.5)` — generous enough that
+   * boot-time `npm install -g <large package>` / `apt install ...`
+   * land without ENOSPC. Bump this for workloads that write more
+   * (e.g. 8 GiB for a build tree, 16 GiB for a model cache).
+   *
+   * The host file is sparse — unused capacity costs nothing on disk
+   * until the guest writes. The guest's online ext4 grow (in /init)
+   * resizes the on-disk filesystem to fill the file on every boot,
+   * so bumping this against an existing cached image works without
+   * a rematerialize.
+   *
+   * Ignored when `rootDisk` is a string path (the caller-provided
+   * image is taken as-is) or `rootDisk: false`. See #131.
+   */
+  rootDiskSizeBytes?: number;
+  /**
    * Optional name to register this VM under (`attach({ name })`
    * lookup key). Path-shaped strings ("worker/9012") are allowed.
    * Names are unique while live — `boot()` throws
@@ -736,7 +753,9 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         }
       } else {
         const baseAbs = resolve(opts.cwd ?? process.cwd(), opts.image!);
-        rootDiskAbs = ensureRootfsImage(baseAbs);
+        rootDiskAbs = ensureRootfsImage(baseAbs, {
+          sizeBytes: opts.rootDiskSizeBytes,
+        });
       }
       env.MACHINEN_ROOTDISK = rootDiskAbs;
     }
