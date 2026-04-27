@@ -77,9 +77,13 @@ const SIG_IGN: usize = 1;
 // matching the host_cid constant in packages/microvm/src/vsock.zig.
 const VMADDR_CID_HOST: u32 = 2;
 
-// /proc/sys/fs/fuse/conn/*/max_read — kernel's read buffer. 128KiB is
-// the common ceiling matching max_write negotiated in FUSE_INIT.
-const BUF_SIZE: usize = 128 * 1024;
+// Read buffer for /dev/fuse. The kernel rejects reads with `nbytes`
+// less than the largest queued request. With max_write=128KiB and
+// max_pages=32 we need room for a max-sized FUSE_WRITE: 40-byte
+// fuse_in_header + 64-byte fuse_write_in + 128KiB body + slack.
+// Linux's libfuse uses pagesize + max_write as its sizing rule;
+// matching that gives one full page of header headroom.
+const BUF_SIZE: usize = 128 * 1024 + 4096;
 // Upper bound for a single FUSE response body the host might send.
 // The kernel's max reply is max_write + headers; 256KiB is generous.
 const INBOUND_CAP: usize = 256 * 1024;
@@ -140,9 +144,16 @@ const Pipe = struct {
 /// host's readFrames() to reassemble framing from the 4-byte length
 /// prefix.
 fn devToSockThread(pipe: *Pipe) void {
-    var buf: [BUF_SIZE]u8 = undefined;
+    // Heap-allocated. BUF_SIZE (132 KiB) is larger than the default
+    // thread stack musl gives a std.Thread.spawn worker on aarch64
+    // (~80 KiB), so a stack-local would scribble past the guard page.
+    const buf = std.heap.c_allocator.alloc(u8, BUF_SIZE) catch {
+        logLine("fuse-agent: dev->sock buf alloc failed");
+        return;
+    };
+    defer std.heap.c_allocator.free(buf);
     while (true) {
-        const n = read(pipe.dev_fd, &buf, buf.len);
+        const n = read(pipe.dev_fd, buf.ptr, buf.len);
         if (n <= 0) {
             logErr("fuse-agent: /dev/fuse read ended", n);
             return;
