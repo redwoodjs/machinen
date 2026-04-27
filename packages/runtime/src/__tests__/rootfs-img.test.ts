@@ -8,11 +8,21 @@
 // surfaces through to MACHINEN_ROOTDISK in the spawned VMM's env.
 
 import { execSync } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  openSync,
+  rmSync,
+  unlinkSync,
+  writeFileSync,
+  writeSync,
+  closeSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { boot, BootError, ensureRootfsImage, ProvisionError } from "../index.ts";
+import { _internal } from "../rootfs-img.ts";
 
 describe("ensureRootfsImage", () => {
   it("throws PROVISION_BASE_NOT_FOUND when the tarball is missing", () => {
@@ -48,6 +58,58 @@ describe("ensureRootfsImage", () => {
       rmSync(emptyDir, { recursive: true, force: true });
     }
   }, 20_000);
+
+  it("looksLikeExt4 rejects files without the superblock magic", () => {
+    // The cache-trust escape hatch: anything that doesn't sniff as ext4
+    // is handed back as-is (test stubs, pre-baked non-ext4 images, etc.).
+    const stub = `/tmp/machinen-rootfs-img-magic-${process.pid}`;
+    writeFileSync(stub, "not an ext4 image, just bytes");
+    try {
+      expect(_internal.looksLikeExt4(stub)).toBe(false);
+    } finally {
+      try {
+        unlinkSync(stub);
+      } catch {}
+    }
+  });
+
+  it("looksLikeExt4 detects the 0xEF53 superblock magic at offset 1080", () => {
+    // Plant the two magic bytes at the right offset (inside what would
+    // be the ext4 superblock); everything else can be zeros. We don't
+    // need a complete superblock — only the sniff has to succeed.
+    const stub = `/tmp/machinen-rootfs-img-magic-yes-${process.pid}`;
+    const fd = openSync(stub, "w");
+    try {
+      const zeroPad = Buffer.alloc(1080);
+      writeSync(fd, zeroPad, 0, zeroPad.length, 0);
+      const magic = Buffer.from([0x53, 0xef]); // little-endian 0xEF53
+      writeSync(fd, magic, 0, magic.length, 1080);
+    } finally {
+      closeSync(fd);
+    }
+    try {
+      expect(_internal.looksLikeExt4(stub)).toBe(true);
+    } finally {
+      try {
+        unlinkSync(stub);
+      } catch {}
+    }
+  });
+
+  it("cachedImageIsUsable trusts non-ext4 cache hits without invoking e2fsck", () => {
+    // A planted cache file with stub bytes should be returned as-is —
+    // matches the existing "returns the cached path" test below, just
+    // exercises the helper directly so the contract is pinned down.
+    const stub = `/tmp/machinen-rootfs-img-trust-${process.pid}`;
+    writeFileSync(stub, "fake image bytes");
+    try {
+      expect(_internal.cachedImageIsUsable(stub)).toBe(true);
+    } finally {
+      try {
+        unlinkSync(stub);
+      } catch {}
+    }
+  });
 
   it("returns the cached path when the tarball's sha256 already has an .img", () => {
     // Build a real (tiny) tarball so sha256ing has something to chew
