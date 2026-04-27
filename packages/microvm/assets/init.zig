@@ -53,6 +53,7 @@ extern "c" fn closedir(dirp: *anyopaque) c_int;
 extern "c" fn readdir(dirp: *anyopaque) ?*Dirent;
 extern "c" fn readlink(path: [*:0]const u8, buf: [*]u8, bufsize: usize) isize;
 extern "c" fn symlink(target: [*:0]const u8, linkpath: [*:0]const u8) c_int;
+extern "c" fn ioctl(fd: c_int, req: c_ulong, arg: *anyopaque) c_int;
 
 // finit_module(2) — load a kernel module from an open file descriptor.
 // musl doesn't ship a wrapper, so we issue the syscall directly.
@@ -97,6 +98,14 @@ const SEEK_SET: c_int = 0;
 const F_OK: c_int = 0;
 const MS_MOVE: c_ulong = 8192;
 const MNT_DETACH: c_int = 2;
+// ioctl(2) numbers used during the rootdisk pivot's online ext4 grow
+// (#131). Encodings are arch-independent for these particular calls:
+//   BLKGETSIZE64 = _IOR(0x12, 114, size_t)  → device size in bytes.
+//   EXT4_IOC_RESIZE_FS = _IOW('f', 16, __u64) → grow the mounted ext4
+//     to the new block count. Same value as resize2fs(8) issues, so
+//     no need to ship the userspace tool in the rootfs.
+const BLKGETSIZE64: c_ulong = 0x80081272;
+const EXT4_IOC_RESIZE_FS: c_ulong = 0x40086610;
 
 const CONFIG_PATH = "/machinen-config.json";
 
@@ -540,6 +549,70 @@ fn nowMs() i64 {
     return ts.tv_sec * 1000 + @divTrunc(ts.tv_nsec, 1_000_000);
 }
 
+// Online-grow the ext4 rootdisk to fill /dev/vda. The host file is
+// often sparse-extended past the original mke2fs size — either because
+// `boot({ rootDiskSizeBytes })` requested more, or because the
+// materializer's defaults grew between releases — and the on-disk
+// filesystem stays at the smaller original size until we resize.
+// EXT4_IOC_RESIZE_FS does the work that resize2fs(8) would; doing it
+// here avoids dragging e2fsprogs into the guest rootfs. See #131.
+//
+// Failures are logged and ignored — a too-small filesystem is an
+// ENOSPC headache later, not a boot blocker, and we'd rather boot
+// with the existing capacity than refuse to come up. The current size
+// check via statfs(2) skips the ioctl when the fs already fills the
+// device, which is the steady-state cache-hit case.
+fn growRootdiskFs(mount_point: [*:0]const u8) void {
+    const dev_fd = open(ROOTDISK_DEV, O_RDONLY);
+    if (dev_fd < 0) {
+        logLine("init: rootdisk grow skip: cannot open /dev/vda");
+        return;
+    }
+    defer _ = close(dev_fd);
+
+    var dev_bytes: u64 = 0;
+    if (ioctl(dev_fd, BLKGETSIZE64, &dev_bytes) != 0) {
+        logLine("init: rootdisk grow skip: BLKGETSIZE64 failed");
+        return;
+    }
+    // 4 KiB blocks — matches the materializer's `mke2fs -b 4096`.
+    const new_blocks: u64 = dev_bytes / 4096;
+    if (new_blocks == 0) return;
+
+    // Open the mount point read-only — EXT4_IOC_RESIZE_FS only needs
+    // an fd that points at the filesystem, not write access.
+    const mount_fd = open(mount_point, O_RDONLY);
+    if (mount_fd < 0) {
+        logLine("init: rootdisk grow skip: cannot open mount point");
+        return;
+    }
+    defer _ = close(mount_fd);
+
+    var blocks: u64 = new_blocks;
+    const r = ioctl(mount_fd, EXT4_IOC_RESIZE_FS, &blocks);
+    if (r != 0) {
+        // Likely outcomes: -EBUSY if the fs already fills the device
+        // (no-op) or -EINVAL if the filesystem doesn't support online
+        // grow. Either way we keep going — boot succeeds at the
+        // existing size.
+        var buf: [128]u8 = undefined;
+        const msg = std.fmt.bufPrint(
+            &buf,
+            "init: rootdisk grow ioctl rc={d} blocks={d} bytes={d}",
+            .{ r, blocks, dev_bytes },
+        ) catch "init: rootdisk grow ioctl failed";
+        logLine(msg);
+        return;
+    }
+    var ok_buf: [96]u8 = undefined;
+    const ok_msg = std.fmt.bufPrint(
+        &ok_buf,
+        "init: rootdisk grew to {d} 4K blocks ({d} bytes)",
+        .{ blocks, dev_bytes },
+    ) catch "init: rootdisk grew";
+    logLine(ok_msg);
+}
+
 // Try to mount /dev/vda as ext4 and chroot into it. Returns true if the
 // pivot happened (the caller's view of `/` has changed), false if we
 // fell through to the legacy initramfs-as-rootfs path.
@@ -595,6 +668,9 @@ fn tryRootDiskPivot() bool {
         _ = umount2(NEWROOT, MNT_DETACH);
         return false;
     }
+
+    // Online-grow the ext4 fs to fill /dev/vda. See growRootdiskFs.
+    growRootdiskFs(NEWROOT);
 
     // Hand off /proc, /sys, /dev to the new root via MS_MOVE so the
     // already-mounted filesystems stay live across the chroot. mkdir
