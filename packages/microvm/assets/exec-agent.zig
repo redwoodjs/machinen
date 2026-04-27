@@ -50,6 +50,35 @@ extern "c" fn _exit(status: c_int) noreturn;
 extern "c" fn waitpid(pid: pid_t, status: ?*c_int, options: c_int) pid_t;
 extern "c" fn shutdown(fd: c_int, how: c_int) c_int;
 extern "c" fn signal(signum: c_int, handler: usize) usize;
+// PTY plumbing for the PTY opcode (#133).
+//   forkpty(3) — musl ships it in the main libc (no -lutil needed).
+//     Allocates a /dev/ptmx + /dev/pts/N pair, forks, dups the slave
+//     onto the child's stdio, sets it as the child's controlling tty,
+//     and returns the master fd to the parent. Saves us the
+//     posix_openpt/grantpt/unlockpt/ptsname/setsid/TIOCSCTTY dance.
+//   ioctl(2) — used here only for TIOCSWINSZ on resize. Variadic in C
+//     but every call site below passes exactly one trailing arg, so a
+//     fixed three-arg signature is fine for Zig's purposes.
+//   poll(2) — multiplex master fd ↔ vsock client_fd in the parent.
+const winsize = extern struct {
+    ws_row: u16,
+    ws_col: u16,
+    ws_xpixel: u16,
+    ws_ypixel: u16,
+};
+extern "c" fn forkpty(
+    amaster: *c_int,
+    name: ?[*]u8,
+    termp: ?*const anyopaque,
+    winp: ?*const winsize,
+) pid_t;
+extern "c" fn ioctl(fd: c_int, req: c_ulong, arg: *const anyopaque) c_int;
+const pollfd = extern struct {
+    fd: c_int,
+    events: i16,
+    revents: i16,
+};
+extern "c" fn poll(fds: [*]pollfd, nfds: c_uint, timeout: c_int) c_int;
 
 const AF_VSOCK: c_int = 40;
 const SOCK_STREAM: c_int = 1;
@@ -57,6 +86,13 @@ const SHUT_WR: c_int = 1;
 const SIGPIPE: c_int = 13;
 const SIG_IGN: usize = 1;
 const O_CLOEXEC: c_int = 0o02000000;
+// arm64 Linux constants. TIOCSWINSZ is the same on every Linux arch
+// (asm-generic/ioctls.h: 0x5414); poll event bits are too.
+const TIOCSWINSZ: c_ulong = 0x5414;
+const POLLIN: i16 = 0x0001;
+const POLLERR: i16 = 0x0008;
+const POLLHUP: i16 = 0x0010;
+const POLLNVAL: i16 = 0x0020;
 
 // Linux's VSOCK sockaddr layout (linux/vm_sockets.h):
 //   sa_family (u16) + reserved1 (u16) + port (u32) + cid (u32) + zero[4]
@@ -147,6 +183,11 @@ fn readExact(fd: c_int, out: []u8) bool {
 // belong in the file/mount paths.
 const MAX_EXEC2_CMD: usize = 1 * 1024 * 1024;
 
+// Cap on a single PTY `I <n>\n` input frame. Real keystroke bursts are
+// well under 1 KiB; this is a defensive ceiling so a malicious / buggy
+// client can't make us alloc unbounded.
+const MAX_PTY_INPUT: usize = 64 * 1024;
+
 fn runCommand(client_fd: c_int, cmd: []const u8, alloc: std.mem.Allocator) !void {
     // Make a NUL-terminated copy for the shell.
     const cmd_z = try alloc.dupeZ(u8, cmd);
@@ -196,6 +237,141 @@ fn runCommand(client_fd: c_int, cmd: []const u8, alloc: std.mem.Allocator) !void
     _ = shutdown(client_fd, SHUT_WR);
 }
 
+// PTY mode (#133). The host opens a session with the workload through
+// a pseudoterminal pair: workload's stdio is the slave, agent owns the
+// master. Bytes flow both ways via I/O frames; window-size updates
+// arrive as R frames. Ctrl-C / Ctrl-Z / EOF go through the PTY line
+// discipline naturally — the kernel translates them to signals on the
+// foreground process group and we don't need a separate signal channel
+// for the MVP.
+//
+// Closing the master fd at the end sends SIGHUP to the workload's
+// session leader, so the child terminates cleanly even when the host
+// disconnects mid-session.
+fn runPtyCommand(
+    client_fd: c_int,
+    cmd: []const u8,
+    cols: u16,
+    rows: u16,
+    alloc: std.mem.Allocator,
+) !void {
+    const cmd_z = try alloc.dupeZ(u8, cmd);
+    defer alloc.free(cmd_z);
+
+    const ws = winsize{
+        .ws_row = rows,
+        .ws_col = cols,
+        .ws_xpixel = 0,
+        .ws_ypixel = 0,
+    };
+
+    var master_fd: c_int = -1;
+    const pid = forkpty(&master_fd, null, null, &ws);
+    if (pid < 0) return error.ForkPtyFailed;
+    if (pid == 0) {
+        // Child: forkpty has already wired the slave onto fd 0/1/2 and
+        // promoted us to session leader with the slave as ctty. Just
+        // exec — no signals to clear, no fds to close.
+        const argv = &[_:null]?[*:0]const u8{ "sh", "-c", cmd_z.ptr, null };
+        const envp = &[_:null]?[*:0]const u8{
+            "PATH=/usr/local/bin:/usr/bin:/bin:/sbin",
+            // Default to a sane TERM so curses-based TUIs work
+            // out of the box. The host can override via env in cmd
+            // (e.g. `TERM=xterm-kitty bash -i`) if it knows better.
+            "TERM=xterm-256color",
+            null,
+        };
+        _ = execve("/bin/sh", argv, envp);
+        _exit(127);
+    }
+
+    // Parent. Multiplex master_fd ↔ client_fd via poll. The client
+    // direction reads frames synchronously after poll signals POLLIN —
+    // a partial header would block the master pump until the rest of
+    // the header arrives, which in practice never happens because the
+    // host writes whole frames in one syscall and TCP-over-vsock
+    // doesn't fragment them. If that assumption ever breaks we'd need
+    // a buffered non-blocking parser; for now keep it simple.
+    var fds = [_]pollfd{
+        .{ .fd = master_fd, .events = POLLIN, .revents = 0 },
+        .{ .fd = client_fd, .events = POLLIN, .revents = 0 },
+    };
+    var saw_master_eof = false;
+    pump: while (!saw_master_eof) {
+        fds[0].revents = 0;
+        fds[1].revents = 0;
+        const n = poll(&fds, 2, -1);
+        if (n < 0) {
+            // EINTR is the expected interruption (SIGCHLD, etc.). Loop.
+            continue;
+        }
+
+        if ((fds[0].revents & POLLIN) != 0) {
+            var out_buf: [CHUNK]u8 = undefined;
+            const r = read(master_fd, &out_buf, out_buf.len);
+            if (r > 0) {
+                if (!sendFrame(client_fd, 'O', out_buf[0..@intCast(r)])) break :pump;
+            } else {
+                // EOF on master = the slave was fully closed by the
+                // child (and any descendants that inherited it).
+                // Workload has exited or is about to.
+                saw_master_eof = true;
+            }
+        }
+        if ((fds[0].revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
+            saw_master_eof = true;
+        }
+
+        if ((fds[1].revents & POLLIN) != 0) {
+            var header: [256]u8 = undefined;
+            const hlen = readLine(client_fd, &header) orelse break :pump;
+            const line = header[0..hlen];
+            if (line.len >= 2 and std.mem.startsWith(u8, line, "I ")) {
+                const ilen = std.fmt.parseInt(usize, line[2..], 10) catch break :pump;
+                if (ilen > MAX_PTY_INPUT) {
+                    logErr("exec-agent: PTY I frame too large");
+                    break :pump;
+                }
+                if (ilen > 0) {
+                    var ibuf: [MAX_PTY_INPUT]u8 = undefined;
+                    if (!readExact(client_fd, ibuf[0..ilen])) break :pump;
+                    if (!writeAll(master_fd, ibuf[0..ilen])) break :pump;
+                }
+            } else if (line.len >= 2 and std.mem.startsWith(u8, line, "R ")) {
+                var it = std.mem.tokenizeScalar(u8, line[2..], ' ');
+                const c_str = it.next() orelse break :pump;
+                const r_str = it.next() orelse break :pump;
+                const new_cols = std.fmt.parseInt(u16, c_str, 10) catch continue :pump;
+                const new_rows = std.fmt.parseInt(u16, r_str, 10) catch continue :pump;
+                const new_ws = winsize{
+                    .ws_row = new_rows,
+                    .ws_col = new_cols,
+                    .ws_xpixel = 0,
+                    .ws_ypixel = 0,
+                };
+                _ = ioctl(master_fd, TIOCSWINSZ, &new_ws);
+            } else {
+                // Unknown frame on a PTY connection — bail rather than
+                // get out of sync.
+                logErr("exec-agent: PTY unknown frame");
+                break :pump;
+            }
+        }
+        if ((fds[1].revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
+            // Host disconnected. Closing master_fd below sends SIGHUP
+            // to the workload's session, so the child exits cleanly.
+            break :pump;
+        }
+    }
+
+    _ = close(master_fd);
+    const code = waitExitStatus(pid);
+    var tail_buf: [32]u8 = undefined;
+    const tail = std.fmt.bufPrint(&tail_buf, "X {d}\n", .{code}) catch "X 1\n";
+    _ = writeAll(client_fd, tail);
+    _ = shutdown(client_fd, SHUT_WR);
+}
+
 fn handleConnection(client_fd: c_int, alloc: std.mem.Allocator) void {
     defer _ = close(client_fd);
     var line_buf: [4096]u8 = undefined;
@@ -204,6 +380,57 @@ fn handleConnection(client_fd: c_int, alloc: std.mem.Allocator) void {
         return;
     };
     const line = line_buf[0..len];
+
+    // PTY <cols> <rows> <cmd-bytes>\n<cmd-bytes> — interactive
+    // session with a pseudoterminal pair. Length-prefixed cmd like
+    // EXEC2 so binary content (escape sequences in TUI scripts) and
+    // newlines pass through unchanged. See #133.
+    if (std.mem.startsWith(u8, line, "PTY ")) {
+        var it = std.mem.tokenizeScalar(u8, line[4..], ' ');
+        const cols_str = it.next() orelse {
+            logErr("exec-agent: PTY missing cols");
+            return;
+        };
+        const rows_str = it.next() orelse {
+            logErr("exec-agent: PTY missing rows");
+            return;
+        };
+        const len_str = it.next() orelse {
+            logErr("exec-agent: PTY missing cmd-bytes");
+            return;
+        };
+        const cols = std.fmt.parseInt(u16, cols_str, 10) catch {
+            logErr("exec-agent: PTY bad cols");
+            return;
+        };
+        const rows = std.fmt.parseInt(u16, rows_str, 10) catch {
+            logErr("exec-agent: PTY bad rows");
+            return;
+        };
+        const cmd_len = std.fmt.parseInt(usize, len_str, 10) catch {
+            logErr("exec-agent: PTY bad length");
+            return;
+        };
+        if (cmd_len > MAX_EXEC2_CMD) {
+            logErr("exec-agent: PTY cmd too large");
+            return;
+        }
+        const cmd_buf = alloc.alloc(u8, cmd_len) catch {
+            logErr("exec-agent: PTY alloc failed");
+            return;
+        };
+        defer alloc.free(cmd_buf);
+        if (cmd_len > 0 and !readExact(client_fd, cmd_buf)) {
+            logErr("exec-agent: PTY short read");
+            return;
+        }
+        runPtyCommand(client_fd, cmd_buf, cols, rows, alloc) catch |err| {
+            var msg_buf: [128]u8 = undefined;
+            const msg = std.fmt.bufPrint(&msg_buf, "exec-agent: pty error: {s}", .{@errorName(err)}) catch "exec-agent: pty error";
+            logErr(msg);
+        };
+        return;
+    }
 
     // EXEC2 <bytes>\n<cmd-bytes> — length-prefixed, supports newlines (#112).
     if (std.mem.startsWith(u8, line, "EXEC2 ")) {

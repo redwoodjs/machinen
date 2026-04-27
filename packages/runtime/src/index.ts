@@ -9,7 +9,13 @@ export type { VsockSecretsOptions } from "./secrets.ts";
 export { VsockFiles } from "./files.ts";
 export type { VsockFilesOptions } from "./files.ts";
 export { VsockExec } from "./exec.ts";
-export type { VsockExecOptions, VsockExecResult } from "./exec.ts";
+export type {
+  VsockExecOptions,
+  VsockExecPtyHandle,
+  VsockExecPtyOptions,
+  VsockExecPtyResult,
+  VsockExecResult,
+} from "./exec.ts";
 export type { LogEvent, OnLog } from "./log.ts";
 export { provision, resolveBaseRootfs } from "./provision.ts";
 export type { ProvisionOptions, ProvisionResult } from "./provision.ts";
@@ -108,7 +114,13 @@ import { ensureGvproxy, exposePort, spawnGvproxy, warnGvproxyMissing } from "./g
 import { spawnArtifactCache } from "./artifact-cache.ts";
 import { BootError, ExecError, RegistryError, SnapshotError } from "./errors.ts";
 import { ensureRootfsImage } from "./rootfs-img.ts";
-import { VsockExec, type VsockExecOptions, type VsockExecResult } from "./exec.ts";
+import {
+  VsockExec,
+  type VsockExecOptions,
+  type VsockExecPtyHandle,
+  type VsockExecPtyOptions,
+  type VsockExecResult,
+} from "./exec.ts";
 import { serveLiveMount } from "./mount-server.ts";
 import type { OnLog } from "./log.ts";
 import { claimName, findEntry, isAlive, removeEntry, writeEntry } from "./registry.ts";
@@ -350,6 +362,19 @@ export interface VmHandle {
 
   /** Like `exec()` but returns non-zero exit codes instead of throwing. */
   execRaw(cmd: string, opts?: VsockExecOptions): Promise<VsockExecResult>;
+
+  /**
+   * Run a shell command inside a pseudoterminal. Bidirectional bytes
+   * flow between `opts.stdin` and `opts.stdout`; the returned handle's
+   * `.resize(cols, rows)` propagates window-size changes (hook your
+   * host's SIGWINCH).
+   *
+   * Caller is responsible for putting the host terminal in raw mode
+   * before calling and restoring it after `.result` settles — without
+   * raw mode, Ctrl-C / arrow keys / etc. won't reach the guest as
+   * untranslated bytes. See #133.
+   */
+  execPty(cmd: string, opts: VsockExecPtyOptions): VsockExecPtyHandle;
 
   /**
    * Write `contents` to `guestPath` inside the VM. Convenience over
@@ -945,6 +970,24 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       return VsockExec.run(vsockUdsPath, cmd, teeOnLog(cmd, execOpts, onLog));
     },
 
+    execPty(cmd, ptyOpts) {
+      if (!vsockUdsPath) {
+        // Synchronous-handle API can't reject like execRaw — surface
+        // a handle whose `result` is already a rejected promise.
+        const err = new ExecError(
+          "EXEC_VSOCK_UNAVAILABLE",
+          "vm.execPty: no vsock UDS available — MACHINEN_VSOCK was set to " +
+            "an unrecognized spec. Expected `in:<port>:<uds-path>`.",
+        );
+        return {
+          result: Promise.reject(err),
+          resize: () => {},
+          cancel: () => {},
+        };
+      }
+      return VsockExec.startPty(vsockUdsPath, cmd, ptyOpts);
+    },
+
     async writeFile(guestPath, contents, writeOpts) {
       await this.exec(buildWriteFileCmd(guestPath, contents, writeOpts));
     },
@@ -1118,6 +1161,10 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
 
     execRaw(cmd, execOpts) {
       return VsockExec.run(entry.socketPath, cmd, teeOnLog(cmd, execOpts, opts.onLog));
+    },
+
+    execPty(cmd, ptyOpts) {
+      return VsockExec.startPty(entry.socketPath, cmd, ptyOpts);
     },
 
     async writeFile(guestPath, contents, writeOpts) {

@@ -29,6 +29,7 @@
 //   // res.exitCode, res.stdout, res.stderr
 
 import { connect as netConnect, type Socket } from "node:net";
+import type { Readable, Writable } from "node:stream";
 import debugLib from "debug";
 import { ExecError } from "./errors.ts";
 
@@ -125,7 +126,63 @@ export const VsockExec = {
       { retryable: true, cause: lastErr ?? undefined },
     );
   },
+
+  /**
+   * PTY-mode session against the exec-agent (#133). Bytes flow
+   * bidirectionally between `opts.stdin` (host keystrokes) and
+   * `opts.stdout` (workload's pty output); the returned handle's
+   * `.resize(cols, rows)` propagates window-size changes to the
+   * guest's `ioctl(TIOCSWINSZ)`, and `.cancel()` disconnects (the
+   * agent then closes its master fd, which sends SIGHUP to the
+   * workload's session and reaps the child).
+   *
+   * Resolves with `{ exitCode }` once the workload exits and the
+   * agent emits the X frame. The stdin listener attaches eagerly —
+   * the caller is responsible for putting the host terminal in raw
+   * mode beforehand (so Ctrl-C, arrows, etc. reach the guest as
+   * untranslated bytes) and restoring it after `result` settles.
+   *
+   * Connect retries are intentionally absent here: PTY sessions are
+   * always against an already-running VM whose agent is up. If the
+   * UDS isn't reachable on the first try, that's a real error worth
+   * surfacing — not a transient bring-up race like the `run()` path.
+   */
+  startPty(udsPath: string, cmd: string, opts: VsockExecPtyOptions): VsockExecPtyHandle {
+    return startPtyImpl(udsPath, cmd, opts);
+  },
 } as const;
+
+export interface VsockExecPtyOptions {
+  /** Initial window size; the guest passes this to forkpty()'s winp. */
+  cols: number;
+  rows: number;
+  /**
+   * Host-side input source. Each `data` chunk is forwarded as an
+   * `I <n>\n<bytes>` frame. Caller wires `process.stdin` (in raw
+   * mode) here for an interactive shell.
+   */
+  stdin: Readable;
+  /**
+   * Host-side sink for PTY master output (`O <n>\n<bytes>` frames).
+   * Caller wires `process.stdout`.
+   */
+  stdout: Writable;
+  /** Connect timeout (ms). Default 5000 — agent should already be up. */
+  connectTimeoutMs?: number;
+}
+
+export interface VsockExecPtyResult {
+  exitCode: number;
+}
+
+export interface VsockExecPtyHandle {
+  /** Resolves with the workload's exit code once X arrives. */
+  readonly result: Promise<VsockExecPtyResult>;
+  /** Send a TIOCSWINSZ update. Hook from host's SIGWINCH. */
+  resize(cols: number, rows: number): void;
+  /** Disconnect; agent will SIGHUP the workload. */
+  cancel(): void;
+}
 
 function isTransientAgentError(err: Error): boolean {
   // Node tags socket errors with `code`; cast narrowly.
@@ -327,5 +384,182 @@ function endSocket(s: Socket): Promise<void> {
     }
     s.once("close", () => done());
     s.end();
+  });
+}
+
+// Wire `cols`/`rows` + the existing `cmd` into the PTY opcode header,
+// then plug bidirectional pumps onto an already-connected socket. Why
+// a separate helper: keeps `startPty` readable — the public method is
+// "build a handle, kick off connect+pumps, return"; the actual frame
+// machinery lives here.
+function startPtyImpl(udsPath: string, cmd: string, opts: VsockExecPtyOptions): VsockExecPtyHandle {
+  let socket: Socket | null = null;
+  let exitCode: number | null = null;
+  let settled = false;
+  let resolveResult: (r: VsockExecPtyResult) => void;
+  let rejectResult: (e: Error) => void;
+  const result = new Promise<VsockExecPtyResult>((res, rej) => {
+    resolveResult = res;
+    rejectResult = rej;
+  });
+
+  // O-frame parser state: we may receive partial frames across
+  // socket data events. `awaitingBytes` > 0 means we're inside an
+  // O payload; otherwise we're scanning for the next header line.
+  let parseBuf: Buffer = Buffer.alloc(0);
+  let awaitingBytes = 0;
+
+  const reject = (err: Error) => {
+    if (settled) {
+      return;
+    }
+    settled = true;
+    rejectResult(err);
+    if (socket && !socket.destroyed) {
+      socket.destroy();
+    }
+  };
+
+  const resolve = () => {
+    if (settled) {
+      return;
+    }
+    settled = true;
+    if (exitCode === null) {
+      rejectResult(
+        new ExecError("EXEC_AGENT_UNAVAILABLE", "VsockExec.startPty: agent closed before X frame", {
+          retryable: false,
+        }),
+      );
+      return;
+    }
+    resolveResult({ exitCode });
+  };
+
+  const onSocketData = (data: Buffer) => {
+    parseBuf = parseBuf.length === 0 ? data : Buffer.concat([parseBuf, data]);
+    while (true) {
+      if (awaitingBytes > 0) {
+        if (parseBuf.length === 0) {
+          return;
+        }
+        const take = Math.min(awaitingBytes, parseBuf.length);
+        const chunk = parseBuf.subarray(0, take);
+        parseBuf = parseBuf.subarray(take);
+        awaitingBytes -= take;
+        opts.stdout.write(chunk);
+        continue;
+      }
+      const nl = parseBuf.indexOf(0x0a);
+      if (nl === -1) {
+        return;
+      }
+      const line = parseBuf.subarray(0, nl).toString("ascii");
+      parseBuf = parseBuf.subarray(nl + 1);
+      const [tag, nStr] = line.split(" ");
+      if (tag === "X") {
+        exitCode = Number.parseInt(nStr ?? "0", 10);
+        // Agent will close right after; wait for `close` event so we
+        // don't race the rest of the buffered O bytes.
+        return;
+      }
+      if (tag !== "O") {
+        reject(new ExecError("EXEC_PROTOCOL", `VsockExec.startPty: unknown PTY frame tag ${tag}`));
+        return;
+      }
+      const n = Number.parseInt(nStr ?? "", 10);
+      if (!Number.isFinite(n) || n < 0) {
+        reject(
+          new ExecError(
+            "EXEC_PROTOCOL",
+            `VsockExec.startPty: bad O frame length ${JSON.stringify(nStr)}`,
+          ),
+        );
+        return;
+      }
+      awaitingBytes = n;
+    }
+  };
+
+  const onStdinData = (chunk: Buffer | string) => {
+    if (!socket || socket.destroyed) {
+      return;
+    }
+    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    if (buf.length === 0) {
+      return;
+    }
+    // I <n>\n<bytes>. Two writes are fine — TCP-over-vsock will pass
+    // the bytes through in order, and the guest's readLine + readExact
+    // pair handles the split correctly.
+    socket.write(`I ${buf.length}\n`);
+    socket.write(buf);
+  };
+
+  // Kick off the connect + setup. We don't retry: the caller is
+  // attaching to an already-running VM whose agent is up. A first-try
+  // failure is real.
+  void (async () => {
+    try {
+      const connectTimeoutMs = opts.connectTimeoutMs ?? 5_000;
+      socket = await connectOnceWithTimeout(udsPath, connectTimeoutMs);
+      const cmdBuf = Buffer.from(cmd, "utf8");
+      socket.write(`PTY ${opts.cols} ${opts.rows} ${cmdBuf.length}\n`);
+      if (cmdBuf.length > 0) {
+        socket.write(cmdBuf);
+      }
+      socket.on("data", onSocketData);
+      socket.on("error", (err) => reject(err));
+      socket.on("close", () => {
+        opts.stdin.removeListener("data", onStdinData);
+        resolve();
+      });
+      opts.stdin.on("data", onStdinData);
+      debug("startPty connected uds=%s cols=%d rows=%d", udsPath, opts.cols, opts.rows);
+    } catch (err) {
+      reject(err as Error);
+    }
+  })();
+
+  return {
+    result,
+    resize(cols, rows) {
+      if (!socket || socket.destroyed) {
+        return;
+      }
+      socket.write(`R ${cols} ${rows}\n`);
+    },
+    cancel() {
+      if (socket && !socket.destroyed) {
+        socket.destroy();
+      }
+    },
+  };
+}
+
+// One-shot connect with an explicit timeout. Distinct from
+// `connectWithRetry` because PTY sessions don't want the bring-up
+// retry loop — see startPty's comment.
+function connectOnceWithTimeout(udsPath: string, timeoutMs: number): Promise<Socket> {
+  return new Promise((done, fail) => {
+    const s = netConnect(udsPath);
+    const timer = setTimeout(() => {
+      s.destroy();
+      fail(
+        new ExecError(
+          "EXEC_AGENT_UNAVAILABLE",
+          `VsockExec.startPty: connect to ${udsPath} timed out after ${timeoutMs}ms`,
+          { retryable: false },
+        ),
+      );
+    }, timeoutMs);
+    s.once("error", (e) => {
+      clearTimeout(timer);
+      fail(e);
+    });
+    s.once("connect", () => {
+      clearTimeout(timer);
+      done(s);
+    });
   });
 }
