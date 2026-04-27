@@ -209,7 +209,18 @@ fn runCommand(client_fd: c_int, cmd: []const u8, alloc: std.mem.Allocator) !void
         _ = close(err_pipe[0]);
         _ = close(err_pipe[1]);
         const argv = &[_:null]?[*:0]const u8{ "sh", "-c", cmd_z.ptr, null };
-        const envp = &[_:null]?[*:0]const u8{ "PATH=/usr/local/bin:/usr/bin:/bin:/sbin", null };
+        // HOME is the second-most-likely-to-bite missing env after
+        // PATH: git refuses without it ("fatal: $HOME not set"),
+        // ssh-keygen / npm / many install hooks read it, and shells
+        // expand `~` against it. Default to /root since the agent
+        // runs as PID 1's child and there's no real login session
+        // here. Callers who want a different home can override via
+        // the cmd itself (`HOME=/foo bash -c ...`).
+        const envp = &[_:null]?[*:0]const u8{
+            "PATH=/usr/local/bin:/usr/bin:/bin:/sbin",
+            "HOME=/root",
+            null,
+        };
         _ = execve("/bin/sh", argv, envp);
         _exit(127);
     }
@@ -275,6 +286,9 @@ fn runPtyCommand(
         const argv = &[_:null]?[*:0]const u8{ "sh", "-c", cmd_z.ptr, null };
         const envp = &[_:null]?[*:0]const u8{
             "PATH=/usr/local/bin:/usr/bin:/bin:/sbin",
+            // See the matching comment in runCommand — same rationale
+            // for HOME (git/npm/ssh-keygen/shells need it).
+            "HOME=/root",
             // Default to a sane TERM so curses-based TUIs work
             // out of the box. The host can override via env in cmd
             // (e.g. `TERM=xterm-kitty bash -i`) if it knows better.
