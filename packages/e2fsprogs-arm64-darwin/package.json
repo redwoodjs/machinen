@@ -1,0 +1,24 @@
+{
+  "name": "@machinen/e2fsprogs-arm64-darwin",
+  "version": "0.0.0",
+  "description": "Bundled mke2fs (e2fsprogs) for arm64 darwin. Lets @machinen/runtime materialize ext4 rootfs images without a host install.",
+  "license": "FSL-1.1-MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/redwoodjs/machinen.git",
+    "directory": "packages/e2fsprogs-arm64-darwin"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "index.mjs"
+  ],
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "type": "module",
+  "main": "./index.mjs"
+}
