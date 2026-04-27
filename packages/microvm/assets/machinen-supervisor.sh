@@ -34,32 +34,55 @@ set -u
 /exec-agent </dev/null >/dev/null 2>&1 &
 AGENT_PID=$!
 
-# `--session` runs the workload under setsid so CRIU can dump it.
-# Without its own session, the workload inherits the supervisor's,
-# and `criu dump --shell-job` fails with "A session leader of N(N)
-# is outside of its pid namespace" because the session leader
-# (supervisor) lives outside the dump tree. The runtime passes
-# --session when opts.snapshot is set (the VM is going to be
-# dumped); interactive boots skip it so Ctrl-C / job-control still
-# work against the console.
-USE_SETSID=0
+mkdir -p /run 2>/dev/null || true
+
+# `--session` is the legacy "run under setsid" toggle from when CRIU
+# dumps required it but interactive boots didn't. Both modes now go
+# through the same `setsid -c -w` path below — see the rationale block —
+# so the flag is just consumed and discarded for back-compat.
 if [ "${1:-}" = "--session" ]; then
-    USE_SETSID=1
     shift
 fi
 
-if [ "$USE_SETSID" = "1" ]; then
-    /usr/bin/setsid "$@" &
-else
-    "$@" &
-fi
+# Run the workload under `setsid -c -w` with stdio bound to /dev/console:
+#
+#   - `setsid` puts the workload in a brand-new session as leader.
+#     Required for CRIU `--shell-job` to dump cleanly: without it the
+#     session leader (supervisor) lives outside the dump tree and
+#     CRIU bails with "A session leader of N(N) is outside of its
+#     pid namespace".
+#   - `-c` (TIOCSCTTY) claims /dev/console as the new session's
+#     controlling terminal. Without this, backgrounding with `&` puts
+#     the workload in a process group that isn't the foreground of
+#     /dev/console — `/bin/sh -i` reads return EIO (orphaned pgrp),
+#     it prints the prompt once and exits, the supervisor's `wait`
+#     returns, and machinen-poweroff fires before the user types
+#     anything.
+#   - `-w` makes setsid(1) `wait` for the workload after the fork
+#     it has to perform when invoked from a process-group leader (we
+#     are one, courtesy of `&`). Without `-w`, the parent setsid
+#     forks, exits immediately, and `wait "$!"` returns before the
+#     workload starts — orphaning it under PID 1 and dropping the
+#     trap target.
+#   - Explicit </dev/console redirect ensures fd 0 is a tty when
+#     setsid runs (`-c` reads ctty from stdin).
+#
+# The inner `sh -c` writes /run/machinen-workload.pid using its own
+# $$ — which, because it then `exec`s the workload, IS the workload's
+# PID. Doing it here (rather than from the supervisor with $!) is
+# essential: $! points at the parent setsid, which has already exited.
+# That PID is what machinen-dump feeds to `criu dump --tree`, so
+# getting it wrong dumps a dead PID and CRIU bails with exit 32.
+/usr/bin/setsid -c -w sh -c \
+    'printf "%s" "$$" > /run/machinen-workload.pid; exec "$@"' \
+    inner "$@" </dev/console >/dev/console 2>/dev/console &
 PID=$!
-mkdir -p /run 2>/dev/null || true
-printf '%s' "$PID" > /run/machinen-workload.pid 2>/dev/null || true
 
 # Propagate SIGTERM / SIGINT to the workload so host-side vm.kill()
-# and Ctrl-C from the console signal the right process.
-trap 'kill -TERM "$PID" 2>/dev/null; wait "$PID"' TERM INT
+# and Ctrl-C from the console signal the right process. Read the pid
+# from the file rather than $! because $! is the setsid wrapper, not
+# the workload (see comment above).
+trap 'kill -TERM "$(cat /run/machinen-workload.pid 2>/dev/null)" 2>/dev/null; wait "$PID"' TERM INT
 
 wait "$PID"
 
