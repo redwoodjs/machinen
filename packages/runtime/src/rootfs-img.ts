@@ -19,6 +19,17 @@
 // — no privileged loop mount required. On hosts that don't ship the
 // tool the function throws with a clear install hint; the runtime
 // falls back to the legacy initramfs-as-rootfs path in that case.
+//
+// Cache-hit safety (#134): the cached `.img` is the same file the
+// guest writes to via virtio-blk. If the previous VMM died mid-write
+// (kill -9, host crash, panic), the ext4 journal is left half-applied
+// and the next mount fails with "JBD2: Invalid checksum recovering
+// data block … / EXT4-fs (vda): error loading journal". Without
+// intervention every future boot of the same image hits the same
+// broken file. Before returning a cache-hit path we run `e2fsck -fy`
+// so any unreplayable journal / orphaned-inode state gets fixed (or,
+// if it can't be fixed, the file is wiped and rematerialized from
+// the tarball).
 
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -32,6 +43,7 @@ import {
   renameSync,
   rmSync,
   statSync,
+  unlinkSync,
   writeSync,
 } from "node:fs";
 import { homedir } from "node:os";
@@ -99,7 +111,15 @@ export function ensureRootfsImage(tarPath: string, opts: EnsureRootfsImageOption
   const imgPath = join(cacheDir, `${sha}.img`);
   if (!opts.force && existsSync(imgPath)) {
     debug("cache hit sha=%s img=%s", sha.slice(0, 12), imgPath);
-    return imgPath;
+    if (cachedImageIsUsable(imgPath)) {
+      return imgPath;
+    }
+    // Unrecoverable. Wipe and fall through to materialize a fresh image
+    // from the tarball — same path a force=true caller would take.
+    debug("cache hit unusable, wiping img=%s", imgPath);
+    try {
+      unlinkSync(imgPath);
+    } catch {}
   }
 
   // mke2fs -d takes a staging directory and writes an ext4 image. Try
@@ -175,6 +195,78 @@ export function ensureRootfsImage(tarPath: string, opts: EnsureRootfsImageOption
   }
 }
 
+// Decide whether a cache-hit `.img` is safe to hand back to virtio-blk.
+//
+// `e2fsck -fy <img>` does the heavy lifting: replays the journal, fixes
+// orphaned inodes / cross-linked blocks, and exits 0 (clean) or 1/2
+// (errors corrected, no manual intervention required) when the image
+// is recoverable. Any other exit code (4 = uncorrected errors,
+// 8 = operational error, …) means the image is unusable; the caller
+// wipes it and rematerializes from the tarball.
+//
+// Pre-flights:
+//   * Skip when the file doesn't carry the ext4 superblock magic.
+//     Lets test fixtures plant arbitrary bytes at the cache path
+//     without tripping fsck, and matches the legacy behavior of
+//     trusting whatever's in the cache for non-ext4 layouts.
+//   * Skip when no `e2fsck` is on PATH. Cache hits historically didn't
+//     require e2fsprogs (you could pre-bake a `.img` and drop it in);
+//     we don't want to regress that. Hosts that DO ship e2fsprogs get
+//     the corruption recovery for free.
+function cachedImageIsUsable(imgPath: string): boolean {
+  if (!looksLikeExt4(imgPath)) {
+    return true;
+  }
+  const e2fsck = whichFirst(["e2fsck"]);
+  if (!e2fsck) {
+    debug("no e2fsck on PATH; trusting cached img=%s", imgPath);
+    return true;
+  }
+  // -f forces a full check even when the superblock is marked clean
+  // (a half-applied journal is invisible to the cleanliness flag).
+  // -y answers yes to every prompt so the call is non-interactive.
+  const r = spawnSync(e2fsck, ["-fy", imgPath], {
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  // Exit codes per e2fsck(8): 0 = no errors, 1 = errors corrected,
+  // 2 = errors corrected (reboot suggested — host kernel doesn't care).
+  // Anything else = unusable.
+  if (r.status === 0 || r.status === 1 || r.status === 2) {
+    return true;
+  }
+  debug(
+    "e2fsck rejected img=%s status=%s stderr=%s",
+    imgPath,
+    r.status,
+    r.stderr?.toString().slice(0, 200) ?? "",
+  );
+  return false;
+}
+
+// Sniff the ext4 superblock magic at offset 1080 (1024-byte superblock
+// offset + 0x38 byte offset of `s_magic` inside it). Cheap to do and
+// avoids a fork+exec for files that obviously aren't ext4.
+function looksLikeExt4(path: string): boolean {
+  let fd = -1;
+  try {
+    fd = openSync(path, "r");
+    const buf = Buffer.alloc(2);
+    const nread = readSync(fd, buf, 0, 2, 1080);
+    if (nread !== 2) {
+      return false;
+    }
+    return buf.readUInt16LE(0) === 0xef53;
+  } catch {
+    return false;
+  } finally {
+    if (fd >= 0) {
+      try {
+        closeSync(fd);
+      } catch {}
+    }
+  }
+}
+
 function sha256OfFile(path: string): string {
   // Streaming hash — these tarballs are big (hundreds of MB) and we
   // call this on every boot in the cache-hit path.
@@ -238,4 +330,4 @@ function allocateSparseFile(path: string, sizeBytes: number): void {
 
 // Visible to tests that want to assert without invoking the real
 // materializer.
-export const _internal = { sha256OfFile, whichFirst };
+export const _internal = { sha256OfFile, whichFirst, cachedImageIsUsable, looksLikeExt4 };
