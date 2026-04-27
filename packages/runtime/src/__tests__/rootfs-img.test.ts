@@ -13,6 +13,7 @@ import {
   mkdtempSync,
   openSync,
   rmSync,
+  statSync,
   unlinkSync,
   writeFileSync,
   writeSync,
@@ -132,6 +133,63 @@ describe("ensureRootfsImage", () => {
       expect(result).toBe(expected);
       // Cache file untouched.
       expect(existsSync(expected)).toBe(true);
+    } finally {
+      try {
+        unlinkSync(tarPath);
+      } catch {}
+      rmSync(tmpDir, { recursive: true, force: true });
+      rmSync(cacheDir, { recursive: true, force: true });
+    }
+  }, 20_000);
+
+  it("sparse-extends a cached .img up to sizeBytes when the caller asks for more", () => {
+    // #131: bumping rootDiskSizeBytes against an existing cache should
+    // grow the host file (sparse, free) rather than rematerialize. The
+    // guest's online ext4 grow makes the new capacity visible.
+    const tarPath = `/tmp/machinen-rootfs-img-grow-${process.pid}.tar.gz`;
+    const tmpDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-grow-tar-"));
+    const cacheDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-grow-img-"));
+    writeFileSync(join(tmpDir, "stub"), "x");
+    execSync(`tar -czf ${tarPath} -C ${tmpDir} .`);
+    try {
+      const sha = execSync(`shasum -a 256 ${tarPath}`, { encoding: "utf8" })
+        .trim()
+        .split(/\s+/, 1)[0]!;
+      const imgPath = join(cacheDir, `${sha}.img`);
+      // Plant a 1 KiB cache file (well under the requested 4 KiB
+      // target). Doesn't carry the ext4 magic, so cachedImageIsUsable
+      // skips fsck and we hit the truncate path directly.
+      writeFileSync(imgPath, Buffer.alloc(1024));
+      const result = ensureRootfsImage(tarPath, { cacheDir, sizeBytes: 4096 });
+      expect(result).toBe(imgPath);
+      expect(statSync(imgPath).size).toBe(4096);
+    } finally {
+      try {
+        unlinkSync(tarPath);
+      } catch {}
+      rmSync(tmpDir, { recursive: true, force: true });
+      rmSync(cacheDir, { recursive: true, force: true });
+    }
+  }, 20_000);
+
+  it("never shrinks a cached .img — sizeBytes < existing is a no-op", () => {
+    // Truncate-down would actually destroy data inside the ext4 fs, so
+    // the truncate guard is a critical safety: if the cache is already
+    // bigger than what the caller asked for, leave it alone.
+    const tarPath = `/tmp/machinen-rootfs-img-noshrink-${process.pid}.tar.gz`;
+    const tmpDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-noshrink-tar-"));
+    const cacheDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-noshrink-img-"));
+    writeFileSync(join(tmpDir, "stub"), "x");
+    execSync(`tar -czf ${tarPath} -C ${tmpDir} .`);
+    try {
+      const sha = execSync(`shasum -a 256 ${tarPath}`, { encoding: "utf8" })
+        .trim()
+        .split(/\s+/, 1)[0]!;
+      const imgPath = join(cacheDir, `${sha}.img`);
+      writeFileSync(imgPath, Buffer.alloc(8 * 1024));
+      const result = ensureRootfsImage(tarPath, { cacheDir, sizeBytes: 1024 });
+      expect(result).toBe(imgPath);
+      expect(statSync(imgPath).size).toBe(8 * 1024);
     } finally {
       try {
         unlinkSync(tarPath);
