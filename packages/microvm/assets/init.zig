@@ -688,6 +688,15 @@ fn tryRootDiskPivot() bool {
     copyFileBest("/machinen-config.json", "/newroot/machinen-config.json");
     copyFileBest("/etc/machinen-boot-epoch", "/newroot/etc/machinen-boot-epoch");
 
+    // #113: carry /fuse-agent from the cpio across the pivot so the
+    // freshest binary always wins, mirroring the /init injection
+    // pattern (#147). Cached rootdisks materialized from older
+    // rootfs tarballs may carry a stale /fuse-agent (or none at all);
+    // packBundle drops the current one at /fuse-agent in the cpio
+    // and we overwrite the disk version here. No-op when liveMounts
+    // wasn't requested (cpio /fuse-agent absent).
+    copyExecBest("/fuse-agent", "/newroot/fuse-agent");
+
     // #125: carry the user's `mount: { host, guest }` payload across
     // the pivot. mkinitramfs.ts overlays it under /mnt/<guest>/ in
     // the cpio; without this copy it would be stranded on the
@@ -722,11 +731,23 @@ fn waitForPath(path: [*:0]const u8, timeout_ms: i64) bool {
 /// files across the pivot. Failures are silent — the boot continues
 /// without them and the caller deals with the consequences.
 fn copyFileBest(src: [*:0]const u8, dst: [*:0]const u8) void {
+    copyFileWithMode(src, dst, 0o644);
+}
+
+/// Same as copyFileBest but creates the destination with mode 0755.
+/// Used for /fuse-agent — without the executable bit, /init's
+/// fork+exec of /fuse-agent fails with EACCES on first boot against a
+/// rootfs that doesn't already carry the binary.
+fn copyExecBest(src: [*:0]const u8, dst: [*:0]const u8) void {
+    copyFileWithMode(src, dst, 0o755);
+}
+
+fn copyFileWithMode(src: [*:0]const u8, dst: [*:0]const u8, mode: c_uint) void {
     const in_fd = open(src, O_RDONLY);
     if (in_fd < 0) return;
     defer _ = close(in_fd);
     // O_WRONLY | O_CREAT | O_TRUNC = 1 | 64 | 512 on Linux/musl.
-    const out_fd = open(dst, 0o1 | 0o100 | 0o1000, @as(c_uint, 0o644));
+    const out_fd = open(dst, 0o1 | 0o100 | 0o1000, mode);
     if (out_fd < 0) return;
     defer _ = close(out_fd);
     var buf: [8192]u8 = undefined;
