@@ -21,6 +21,14 @@
 //!
 //!   fuse-agent <vsock-port> <mount-path>
 //!
+//! The agent dials cid=2 (host) at the given port; the host-side VMM
+//! routes that REQUEST to the configured UDS where the mount-server is
+//! listening (MACHINEN_VSOCK="out:<port>:<uds>"). Listening on the
+//! guest side would also work, but only if some host-side actor dialed
+//! the VMM's UDS to trigger the bridge — and the mount-server is itself
+//! a UDS server, so there's no such actor. Guest-initiates is the path
+//! that closes the loop without a third process in the middle.
+//!
 //! The mount-path is created if missing. Mount flags are kept tight:
 //! MS_NOSUID | MS_NODEV, plus `default_permissions` so the guest
 //! kernel does its own permission check on the attrs we hand back.
@@ -42,9 +50,7 @@ extern "c" fn close(fd: c_int) c_int;
 extern "c" fn read(fd: c_int, buf: [*]u8, count: usize) isize;
 extern "c" fn write(fd: c_int, buf: [*]const u8, count: usize) isize;
 extern "c" fn socket(domain: c_int, sock_type: c_int, protocol: c_int) c_int;
-extern "c" fn bind(fd: c_int, addr: *const anyopaque, addrlen: c_uint) c_int;
-extern "c" fn listen(fd: c_int, backlog: c_int) c_int;
-extern "c" fn accept(fd: c_int, addr: ?*anyopaque, addrlen: ?*c_uint) c_int;
+extern "c" fn connect(fd: c_int, addr: *const anyopaque, addrlen: c_uint) c_int;
 extern "c" fn mount(
     src: [*:0]const u8,
     dst: [*:0]const u8,
@@ -67,7 +73,9 @@ const MS_NODEV: c_ulong = 4;
 const MNT_DETACH: c_int = 2;
 const SIGPIPE: c_int = 13;
 const SIG_IGN: usize = 1;
-const VMADDR_CID_ANY: u32 = 0xFFFF_FFFF;
+// host_cid=2 is the well-known CID for "this hypervisor" in AF_VSOCK,
+// matching the host_cid constant in packages/microvm/src/vsock.zig.
+const VMADDR_CID_HOST: u32 = 2;
 
 // /proc/sys/fs/fuse/conn/*/max_read — kernel's read buffer. 128KiB is
 // the common ceiling matching max_write negotiated in FUSE_INIT.
@@ -267,14 +275,17 @@ pub fn main(init: std.process.Init.Minimal) !void {
     var log_buf: [256]u8 = undefined;
     const log_msg = std.fmt.bufPrint(
         &log_buf,
-        "fuse-agent: mounted {s} (dev_fd={d}); listening on vsock port {d}",
+        "fuse-agent: mounted {s} (dev_fd={d}); dialing host on vsock port {d}",
         .{ mount_path, dev_fd, port },
-    ) catch "fuse-agent: mounted; listening";
+    ) catch "fuse-agent: mounted; dialing";
     logLine(log_msg);
 
-    // Listen on vsock.
-    const srv_fd = socket(AF_VSOCK, SOCK_STREAM, 0);
-    if (srv_fd < 0) {
+    // Dial the host. The VMM's vsock bridge sees the REQUEST for
+    // (cid=2, port) and connects the configured UDS where the
+    // mount-server is listening; a successful return here means the
+    // bridge is fully wired and we can start forwarding bytes.
+    const sock_fd = socket(AF_VSOCK, SOCK_STREAM, 0);
+    if (sock_fd < 0) {
         _ = umount2(target_z.ptr, MNT_DETACH);
         logLine("fuse-agent: vsock socket() failed");
         return error.VsockSocketFailed;
@@ -283,30 +294,16 @@ pub fn main(init: std.process.Init.Minimal) !void {
         .svm_family = @intCast(AF_VSOCK),
         .svm_reserved1 = 0,
         .svm_port = port,
-        .svm_cid = VMADDR_CID_ANY,
+        .svm_cid = VMADDR_CID_HOST,
         .svm_zero = .{ 0, 0, 0, 0 },
     };
-    if (bind(srv_fd, @ptrCast(&addr), @sizeOf(SockaddrVm)) < 0) {
+    if (connect(sock_fd, @ptrCast(&addr), @sizeOf(SockaddrVm)) < 0) {
+        _ = close(sock_fd);
         _ = umount2(target_z.ptr, MNT_DETACH);
-        logLine("fuse-agent: vsock bind() failed");
-        return error.VsockBindFailed;
+        logLine("fuse-agent: vsock connect() to host failed");
+        return error.VsockConnectFailed;
     }
-    if (listen(srv_fd, 1) < 0) {
-        _ = umount2(target_z.ptr, MNT_DETACH);
-        logLine("fuse-agent: vsock listen() failed");
-        return error.VsockListenFailed;
-    }
-
-    // One mount per agent, one connection per mount. The host server
-    // is also single-connection.
-    const sock_fd = accept(srv_fd, null, null);
-    if (sock_fd < 0) {
-        _ = umount2(target_z.ptr, MNT_DETACH);
-        logLine("fuse-agent: vsock accept() failed");
-        return error.VsockAcceptFailed;
-    }
-    _ = close(srv_fd);
-    logLine("fuse-agent: host connected; forwarding");
+    logLine("fuse-agent: connected to host; forwarding");
 
     var pipe = Pipe{ .dev_fd = dev_fd, .sock_fd = sock_fd };
 
