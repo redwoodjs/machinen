@@ -18,6 +18,7 @@
     "version": "changeset version && oxfmt",
     "release": "pnpm -F @machinen/runtime -F @machinen/cli build && changeset publish",
     "docs": "typedoc",
+    "dev": "bash scripts/dev.sh",
     "machinen-dev": "bash scripts/machinen-dev.sh",
     "smoke-tests": "bash scripts/smoke-tests.sh",
     "bench-net": "bash scripts/bench-net.sh"
