@@ -650,7 +650,12 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     }
     liveMountsResolved = resolveLiveMounts(opts.liveMounts!, opts.cwd, vsockTempDir);
     for (const lm of liveMountsResolved) {
-      env.MACHINEN_VSOCK = `${env.MACHINEN_VSOCK},in:${lm.port}:${lm.udsPath}`;
+      // `out:` — the guest fuse-agent connects to (cid=2, port=lm.port);
+      // when the VMM sees the REQUEST it dials the host's UDS where
+      // serveLiveMount is listening. Using `in:` here would have the
+      // VMM also listen on the UDS (clobbering serveLiveMount), and
+      // since fuse-agent doesn't initiate, nothing would ever bridge.
+      env.MACHINEN_VSOCK = `${env.MACHINEN_VSOCK},out:${lm.port}:${lm.udsPath}`;
     }
   }
 
