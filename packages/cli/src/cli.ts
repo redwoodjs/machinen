@@ -428,12 +428,26 @@ function formatUptime(ms: number): string {
 }
 
 async function cmdExec(args: string[]): Promise<number> {
-  const dashIdx = args.indexOf("--");
-  if (dashIdx === -1 || dashIdx === args.length - 1) {
-    die("usage: machinen exec ( --name <name> | --pid <pid> ) -- <cmd>");
+  // Pull --tty out before the `--` boundary so it isn't passed to the
+  // workload. Auto-enable when stdin is a TTY and no --tty was passed
+  // explicitly is *not* what we want — `machinen exec --name foo --
+  // ps aux` from a terminal should still be one-shot pipes, otherwise
+  // every output gets line-discipline-translated. Caller opts in.
+  let usePty = false;
+  const filtered: string[] = [];
+  for (const a of args) {
+    if (a === "--tty" || a === "--pty") {
+      usePty = true;
+    } else {
+      filtered.push(a);
+    }
   }
-  const pre = args.slice(0, dashIdx);
-  const cmdArgs = args.slice(dashIdx + 1);
+  const dashIdx = filtered.indexOf("--");
+  if (dashIdx === -1 || dashIdx === filtered.length - 1) {
+    die("usage: machinen exec ( --name <name> | --pid <pid> ) [--tty] -- <cmd>");
+  }
+  const pre = filtered.slice(0, dashIdx);
+  const cmdArgs = filtered.slice(dashIdx + 1);
   const target = parseTargetFlags(pre, "exec");
   const vm = await attach(target).catch(handleError);
   try {
@@ -441,6 +455,9 @@ async function cmdExec(args: string[]): Promise<number> {
     // commands naturally. Users who want raw exec of a single binary
     // can quote it like `machinen exec --name foo -- /bin/ls`.
     const joined = cmdArgs.join(" ");
+    if (usePty) {
+      return await runPtyExec(vm, joined);
+    }
     const res = await vm.execRaw(joined, {
       onStdout: (chunk) => process.stdout.write(chunk),
       onStderr: (chunk) => process.stderr.write(chunk),
@@ -448,6 +465,59 @@ async function cmdExec(args: string[]): Promise<number> {
     return res.exitCode;
   } finally {
     await vm.detach();
+  }
+}
+
+async function runPtyExec(
+  vm: {
+    execPty: (
+      cmd: string,
+      opts: import("@machinen/runtime").VsockExecPtyOptions,
+    ) => import("@machinen/runtime").VsockExecPtyHandle;
+  },
+  cmd: string,
+): Promise<number> {
+  // PTY mode (#133): bidirectional bytes between this terminal and a
+  // guest pseudoterminal. Flip stdin to raw so Ctrl-C, arrows, and
+  // function keys reach the guest as untranslated bytes; restore on
+  // every exit path so the user's shell isn't left in raw mode.
+  if (!process.stdin.isTTY) {
+    die("machinen exec --tty: stdin is not a TTY; pass via terminal or drop --tty");
+  }
+  const stdin = process.stdin;
+  const stdout = process.stdout;
+  const initialCols = stdout.columns ?? 80;
+  const initialRows = stdout.rows ?? 24;
+
+  const wasRaw = stdin.isRaw === true;
+  stdin.setRawMode(true);
+  stdin.resume();
+
+  const handle = vm.execPty(cmd, {
+    cols: initialCols,
+    rows: initialRows,
+    stdin,
+    stdout,
+  });
+
+  const onResize = () => {
+    handle.resize(stdout.columns ?? initialCols, stdout.rows ?? initialRows);
+  };
+  stdout.on("resize", onResize);
+
+  try {
+    const { exitCode } = await handle.result;
+    return exitCode;
+  } finally {
+    stdout.removeListener("resize", onResize);
+    if (!wasRaw) {
+      try {
+        stdin.setRawMode(false);
+      } catch {
+        // Already restored or stream destroyed; ignore.
+      }
+    }
+    // Don't .pause() — the parent process will exit shortly.
   }
 }
 
@@ -488,8 +558,8 @@ async function cmdAttach(args: string[]): Promise<number> {
   process.stderr.write(`attached to ${vm.name ?? `pid ${vm.pid}`}\n`);
   process.stderr.write(
     `each line is a fresh one-shot exec — cd / env vars / history do NOT persist.\n` +
-      `for a real interactive shell open another terminal and run:\n` +
-      `  machinen exec ${vm.name ? `--name ${vm.name}` : `--pid ${vm.pid}`} -- bash -i\n` +
+      `for a real interactive shell with job control + TUI support, open another terminal:\n` +
+      `  machinen exec ${vm.name ? `--name ${vm.name}` : `--pid ${vm.pid}`} --tty -- bash -i\n` +
       `Ctrl-D to detach.\n`,
   );
   try {
@@ -706,10 +776,15 @@ function printHelp(): void {
       `  Targeting a running VM:\n` +
       `    --name <name>     |  --pid <pid>             pick exactly one\n` +
       `\n` +
-      `  machinen exec     <target-flag> -- <cmd>       Run a command in a running VM.\n` +
-      `                                                 For a real interactive shell from a\n` +
-      `                                                 second terminal, use:\n` +
-      `                                                   machinen exec <target-flag> -- bash -i\n` +
+      `  machinen exec     <target-flag> [--tty] -- <cmd>\n` +
+      `                                                 Run a command in a running VM. Pass\n` +
+      `                                                 --tty for a real PTY session — needed\n` +
+      `                                                 for an interactive shell, vim, htop,\n` +
+      `                                                 or anything that wants job control.\n` +
+      `                                                 Without --tty stdio is line-buffered\n` +
+      `                                                 pipes (good for one-shot commands).\n` +
+      `                                                 Example:\n` +
+      `                                                   machinen exec <target-flag> --tty -- bash -i\n` +
       `  machinen snapshot <target-flag> --out-dir <d>  CRIU-snapshot a running VM into <d>\n` +
       `  machinen attach   <target-flag>                Per-line REPL: each line you type is\n` +
       `                                                 a fresh one-shot \`exec\`, not a\n` +
@@ -727,9 +802,8 @@ function printHelp(): void {
       `  machinen boot --name worker -- node server.js\n` +
       `  machinen ls\n` +
       `  machinen exec --name worker -- ps aux                # one-off command\n` +
-      `  machinen exec --name worker -- bash -i               # open a new terminal\n` +
-      `                                                       # (independent of the boot\n` +
-      `                                                       # console; bash holds state)\n` +
+      `  machinen exec --name worker --tty -- bash -i         # interactive shell w/ job control\n` +
+      `  machinen exec --name worker --tty -- vim /etc/passwd # full-screen TUI in a PTY\n` +
       `  machinen snapshot --name worker --out-dir ./warm\n` +
       `  machinen restore ./warm\n` +
       `\n` +
