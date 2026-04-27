@@ -725,6 +725,15 @@ pub fn main() noreturn {
     mountIgnore("devtmpfs", "/dev", "devtmpfs");
     mountIgnore("proc", "/proc", "proc");
     mountIgnore("sysfs", "/sys", "sysfs");
+    // /dev/pts is the slave-side namespace for pseudoterminals.
+    // Without it, anything that allocates a PTY pair via /dev/ptmx
+    // (e.g. forkpty(3) in the exec-agent's PTY path — #133, or
+    // `script` / `screen` / `tmux` invoked by the user) fails to
+    // open the slave node, because the slave name /dev/pts/<n> only
+    // resolves once devpts is mounted there. /dev/ptmx itself is
+    // already in /dev (devtmpfs creates it).
+    mkdirIgnore("/dev/pts");
+    mountIgnore("devpts", "/dev/pts", "devpts");
 
     // Wire up the serial console.
     const console = waitForConsole();
