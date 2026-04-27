@@ -75,16 +75,18 @@ dtc -I dts -O dtb "${ASSETS}/virt.dts" -o "${OUT}/virt-arm64.dtb"
 #    (all statically linked against musl)
 # ------------------------------------------------------------
 
-echo "==> Building guest binaries (init, exec-agent, CRIU helpers, poweroff, net-bench-probe) for aarch64-linux-musl"
+echo "==> Building guest binaries (init, exec-agent, fuse-agent, CRIU helpers, poweroff, net-bench-probe) for aarch64-linux-musl"
 STAGE=$(mktemp -d)
 trap 'rm -rf "$STAGE"' EXIT
 
-# init + exec-agent land at /init and /exec-agent (machinen-owned root
-# entrypoints). lo-up, no-iou, poweroff are machinen-namespaced helpers
-# needed by any CRIU-based snapshot flow; they go under /sbin with the
-# machinen- prefix alongside machinen-netup. net-bench-probe is the
-# #82 gvproxy throughput/latency probe used by the smoke harness.
-for name in init exec-agent lo-up no-iou poweroff net-bench-probe; do
+# init + exec-agent + fuse-agent land at /init, /exec-agent, /fuse-agent
+# (machinen-owned root entrypoints). lo-up, no-iou, poweroff are
+# machinen-namespaced helpers needed by any CRIU-based snapshot flow;
+# they go under /sbin with the machinen- prefix alongside machinen-netup.
+# net-bench-probe is the #82 gvproxy throughput/latency probe used by
+# the smoke harness. fuse-agent is the guest byte-pump for #78
+# `--mount-live`; /init forks it per liveMount entry.
+for name in init exec-agent fuse-agent lo-up no-iou poweroff net-bench-probe; do
   zig build-exe "${ASSETS}/${name}.zig" \
     -target aarch64-linux-musl \
     -O ReleaseSmall \
@@ -109,6 +111,7 @@ TEST_FIXTURES="${ROOT}/packages/microvm/test-fixtures"
 mkdir -p "${TEST_FIXTURES}"
 install -m 0755 "${STAGE}/init"        "${TEST_FIXTURES}/init"
 install -m 0755 "${STAGE}/exec-agent"  "${TEST_FIXTURES}/exec-agent"
+install -m 0755 "${STAGE}/fuse-agent"  "${TEST_FIXTURES}/fuse-agent"
 
 # ------------------------------------------------------------
 # 3a. fnm — Node version manager (#88)
@@ -351,6 +354,7 @@ echo "nameserver 192.168.127.1" > /work/rootfs/etc/resolv.conf
 
 install -m 0755 /stage/init       /work/rootfs/init
 install -m 0755 /stage/exec-agent /work/rootfs/exec-agent
+install -m 0755 /stage/fuse-agent /work/rootfs/fuse-agent
 install -m 0755 -D /stage/machinen-netup    /work/rootfs/sbin/machinen-netup
 install -m 0755 -D /stage/lo-up             /work/rootfs/sbin/machinen-lo-up
 install -m 0755 -D /stage/no-iou            /work/rootfs/sbin/machinen-no-iou
