@@ -61,8 +61,8 @@ extern "c" fn symlink(target: [*:0]const u8, linkpath: [*:0]const u8) c_int;
 // arm64-only so a hardcoded number is fine.
 //
 // Clobber list uses Zig 0.16 syntax (`.{ ... }`) — the older
-// `: "memory", "cc"` form no longer parses, and on aarch64 the
-// flag-register clobber is `nzcv`, not `cc`.
+// `: "memory", "cc"` doesn't parse, and on aarch64 the flag-register
+// clobber is `nzcv`, not `cc`.
 fn finit_module(fd: c_int, params: [*:0]const u8, flags: u32) isize {
     return asm volatile ("svc #0"
         : [ret] "={x0}" (-> isize),
@@ -115,7 +115,36 @@ fn writeStr(fd: c_int, s: []const u8) void {
     _ = write(fd, s.ptr, s.len);
 }
 
+// /dev/kmsg cache. Opened lazily on first klog() and reused. If the
+// open fails (devtmpfs not mounted yet, /dev/kmsg unavailable), klog
+// is a no-op — we don't want a missing diag channel to mask the real
+// log path.
+var kmsg_fd: c_int = -1;
+
+// Mirror a log line to the kernel printk ring buffer. Survives anything
+// the tty / chroot / MS_MOVE path can do to fd 1+2 — the bytes go
+// through `/dev/kmsg → printk → registered consoles`, on the level we
+// pick. <2> = KERN_CRIT, which prints under both the default
+// `loglevel=3 quiet` and a user's `loglevel=8 ignore_loglevel debug`.
+//
+// Recovery from issue #129: a tty-side bug between /init's first
+// writeStr and its final die() silently swallows intermediate writes
+// on the rootDisk path. Routing every logLine through klog as well
+// gives a parallel diagnostic stream so `dmesg` (or the host's
+// stderr echo from boot_hvf.zig's PL011 DR-write handler) shows
+// every reached checkpoint regardless.
+fn klog(s: []const u8) void {
+    if (kmsg_fd < 0) {
+        kmsg_fd = open("/dev/kmsg", O_RDWR);
+        if (kmsg_fd < 0) return;
+    }
+    var buf: [512]u8 = undefined;
+    const out = std.fmt.bufPrint(&buf, "<2>init: {s}\n", .{s}) catch return;
+    _ = write(kmsg_fd, out.ptr, out.len);
+}
+
 fn logLine(s: []const u8) void {
+    klog(s);
     writeStr(2, s);
     writeStr(2, "\n");
 }
@@ -134,9 +163,9 @@ fn sleepMs(ms: i64) void {
 // PSCI .system_off → saw_off = true → main.zig std.process.exit(0)),
 // which lets the host process Node sees terminate so the user gets
 // their terminal back. Without this, /init looping forever in
-// nanosleep would keep the VMM running indefinitely — Ctrl-C from
-// the host's stdin is forwarded through to the guest where nothing
-// reads it, so the user has to pgrep+kill the VMM by hand. See #135.
+// nanosleep would keep the VMM running indefinitely — Ctrl-C from the
+// host's stdin is forwarded through to the guest where nothing reads
+// it, so the user has to pgrep+kill the VMM by hand. See issue #135.
 fn psciSystemOff() noreturn {
     while (true) {
         asm volatile ("hvc #0"
@@ -212,8 +241,8 @@ fn bringUpNetwork() void {
 // Load every kernel module the boot path needs by finit_module(2)'ing
 // the .ko files staged at /modules/*.ko in the cpio. Order matters:
 // virtio + virtio_ring expose the symbols virtio_mmio binds against,
-// failover is a dep of net_failover, and the vsock transports layer
-// on the vsock core.
+// failover is a dep of net_failover, and the vsock transports layer on
+// the vsock core.
 //
 // The list is duplicated against scripts/build-base-assets.sh; if you
 // add or remove a .ko there you have to update it here too. We chose
@@ -224,7 +253,7 @@ fn bringUpNetwork() void {
 // in the Debian cloud arm64 kernel (built-in, not modules), so the
 // .ko files don't exist in modules-arm64.tar.gz. loadModule is a
 // silent no-op when the .ko is missing, but listing them anyway is
-// noise — the rootdisk pivot's ext4 mount works regardless. See #129.
+// noise — the rootdisk pivot's ext4 mount works regardless.
 //
 // Per-module failure is logged and skipped — a missing virtio_net hurts
 // networking but not the rootdisk pivot, and we'd rather boot degraded
@@ -706,22 +735,30 @@ pub fn main() noreturn {
     }
 
     writeStr(1, "\n=== machinen /init: reading /machinen-config.json ===\n");
+    // Mirror the boot banner to /dev/kmsg so post-pivot debug shows
+    // both channels in dmesg / the host stderr echo. See klog() above.
+    klog("=== machinen /init: reading /machinen-config.json ===");
+    klog("checkpoint: pre-loadPlumbingModules");
 
     // virtio_blk has to load before we can probe /dev/vda for a
     // rootdisk. The legacy path (no rootdisk) doesn't care about ordering
     // — virtio_blk just shows up by the time provision()'s tar-to-disk
     // runs. The pivot path needs it loaded right now.
     loadPlumbingModules();
+    klog("checkpoint: post-loadPlumbingModules");
 
     // #114: try the virtio-blk-root pivot before doing any other setup.
     // If /dev/vda has a machinen rootfs (ext4 + marker), we mount it +
     // chroot into it; subsequent setup runs against the on-disk rootfs
     // rather than the cpio-extracted tmpfs. Falls through silently to
     // the legacy path if /dev/vda isn't a rootdisk.
-    _ = tryRootDiskPivot();
+    const pivoted = tryRootDiskPivot();
+    klog(if (pivoted) "checkpoint: post-tryRootDiskPivot pivoted=true" else "checkpoint: post-tryRootDiskPivot pivoted=false");
 
     setBootClock();
+    klog("checkpoint: post-setBootClock");
     bringUpNetwork();
+    klog("checkpoint: post-bringUpNetwork");
 
     // Page allocator works on musl via mmap.
     var arena_state = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -733,17 +770,40 @@ pub fn main() noreturn {
         const msg = std.fmt.bufPrint(&buf, "init: config error: {s}", .{@errorName(err)}) catch "init: config error";
         die(msg);
     };
+    klog("checkpoint: post-loadConfig");
 
     // Live-share FUSE mounts go up before the user cmd so the mount
     // points are populated when user code touches them. Each agent
     // lives for the VM lifetime; we don't reap them.
     bringUpLiveMounts(cfg.live_mounts, arena);
+    klog("checkpoint: post-bringUpLiveMounts");
 
     if (cfg.cwd_z) |p| {
         if (chdir(p) < 0) logLine("init: chdir failed; staying in /");
     }
 
+    {
+        var buf: [512]u8 = undefined;
+        const msg = std.fmt.bufPrint(&buf, "checkpoint: about to execve path={s}", .{std.mem.span(cfg.path)}) catch "checkpoint: about to execve";
+        klog(msg);
+    }
     _ = execve(cfg.path, cfg.argv, cfg.envp);
-    // execve only returns on failure.
-    die("init: execve failed");
+    // execve only returns on failure. errno is set; report it on the
+    // diag channel because the tty path may have eaten the message.
+    {
+        const e = errnoValue();
+        var buf: [256]u8 = undefined;
+        const msg = std.fmt.bufPrint(&buf, "init: execve failed errno={d} path={s}", .{ e, std.mem.span(cfg.path) }) catch "init: execve failed";
+        die(msg);
+    }
+}
+
+// musl exposes errno via a per-thread `__errno_location()` returning
+// a pointer to the TLS slot. We read it directly so the execve failure
+// message can include the real reason — ENOENT (2) tells us the path
+// is missing (rootfs pivot incomplete?), EACCES (13) flags a perms
+// issue, ENOEXEC (8) means the binary is malformed, etc.
+extern "c" fn __errno_location() *c_int;
+fn errnoValue() c_int {
+    return __errno_location().*;
 }

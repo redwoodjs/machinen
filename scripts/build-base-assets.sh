@@ -40,9 +40,16 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 ASSETS="${ROOT}/packages/microvm/assets"
 OUT="${ROOT}/release-assets"
+# Per-tarball materialized ext4 images live here, keyed by sha256 of
+# the source rootfs-debian-arm64.tar.gz. A fresh build always produces
+# a new sha (mtimes / content shift), so old .img files are unreferenced
+# the moment this script finishes — wipe them so users don't pile up
+# stale GBs and so the next boot rematerializes against the new rootfs.
+ROOTFS_IMG_CACHE="${HOME}/.cache/machinen/rootfs"
 
 mkdir -p "$OUT"
 rm -f "$OUT"/*
+rm -rf "${ROOTFS_IMG_CACHE:?}"/*.img "${ROOTFS_IMG_CACHE:?}"/*-staging-* 2>/dev/null || true
 
 # ------------------------------------------------------------
 # 1. Kernel — Debian cloud-arm64
@@ -96,8 +103,8 @@ zig cc "${ASSETS}/machinen-netup.c" \
 # defaultInitPath() (packages/runtime/src/mkinitramfs.ts). Without this,
 # every user-facing boot() ships the binary that was checked in last,
 # regardless of how often you rerun this script — release-assets gets
-# the new /init, the tiny initramfs path keeps using the stale one,
-# and rootDisk: true boots silently regress. See issue #129.
+# the new /init, the tiny initramfs path keeps using the stale one, and
+# rootDisk: true boots silently regress. See issue #129.
 TEST_FIXTURES="${ROOT}/packages/microvm/test-fixtures"
 mkdir -p "${TEST_FIXTURES}"
 install -m 0755 "${STAGE}/init"        "${TEST_FIXTURES}/init"
