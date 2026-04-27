@@ -353,6 +353,12 @@ export interface PackBundleOptions {
    * initramfs so /init can fork it per live-share mount. See #78.
    */
   fuseAgentPath?: string;
+  /**
+   * Optional path to the compiled /exec-agent. Default: same dir as
+   * /init under packages/microvm/test-fixtures/. Used to override the
+   * stale /exec-agent that may live in a re-provisioned base tarball.
+   */
+  execAgentPath?: string;
 }
 
 export function packBundle(opts: PackBundleOptions): void {
@@ -427,6 +433,13 @@ export function packBundle(opts: PackBundleOptions): void {
       // this, fixes that land in init.zig (e.g. the /run tmpfs mount
       // from #146) silently regress on every provision-cached image.
       injectInit: true,
+      // Same dedup trick for /exec-agent: the user's frozen rootfs
+      // captures whatever /exec-agent was running at provision time,
+      // and that gets re-walked back into the cpio on the next round.
+      // Inject the fresh one so changes to exec-agent.zig (env
+      // defaults like HOME=/root, new opcodes) actually reach the
+      // running binary.
+      execAgentPath: opts.execAgentPath ?? defaultExecAgentPath(),
     });
     writeFileSync(opts.out, Buffer.concat(parts));
     debug(
@@ -751,6 +764,15 @@ interface FinalOptions {
   injectInit: boolean;
   /** Optional path to fuse-agent; staged at /fuse-agent when provided. */
   fuseAgentPath?: string;
+  /**
+   * Optional path to /exec-agent. When set, the binary is appended to
+   * the cpio after the rootfs walk so that any stale /exec-agent
+   * captured in the base tarball gets overwritten by Linux's
+   * initramfs unpacker (last entry wins). Same trick as `injectInit`.
+   * Used by the provision flow where the base is the previous run's
+   * frozen rootfs.
+   */
+  execAgentPath?: string;
 }
 
 function appendFinalEntries(parts: Buffer[], opts: FinalOptions): void {
@@ -760,6 +782,18 @@ function appendFinalEntries(parts: Buffer[], opts: FinalOptions): void {
       parts.push(newc("init", 0o100755, { data: initBytes }));
     } catch {
       // init is optional — matches the Python code's `if INIT.exists():` guard.
+    }
+  }
+  if (opts.execAgentPath) {
+    try {
+      const bytes = readFileSync(opts.execAgentPath);
+      parts.push(newc("exec-agent", 0o100755, { data: bytes }));
+    } catch {
+      // Optional — if the build hasn't produced one yet (fresh
+      // checkout, first run before build-base-assets.sh), boots that
+      // didn't need exec-agent (no vm.exec, no provision) keep
+      // working. The provision flow itself depends on it and will
+      // fail downstream with a clearer error if it's truly absent.
     }
   }
   if (opts.fuseAgentPath) {
@@ -812,6 +846,17 @@ function defaultInitPath(): string {
 export function defaultFuseAgentPath(): string {
   const here = dirname(fileURLToPath(import.meta.url));
   return join(here, "..", "..", "microvm", "test-fixtures", "fuse-agent");
+}
+
+/**
+ * Default path to the compiled /exec-agent binary. Sibling of the
+ * default /init. Used by the provision flow's cpio injection to
+ * override whatever stale /exec-agent the user's base tarball may
+ * have captured from a previous run.
+ */
+export function defaultExecAgentPath(): string {
+  const here = dirname(fileURLToPath(import.meta.url));
+  return join(here, "..", "..", "microvm", "test-fixtures", "exec-agent");
 }
 
 // --- CLI entrypoint -----------------------------------------------
