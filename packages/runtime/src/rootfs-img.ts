@@ -43,6 +43,7 @@ import {
   renameSync,
   rmSync,
   statSync,
+  truncateSync,
   unlinkSync,
   writeSync,
 } from "node:fs";
@@ -71,16 +72,30 @@ export interface EnsureRootfsImageOptions {
   force?: boolean;
   /**
    * Slack multiplier above the unpacked tarball size when sizing the
-   * ext4 filesystem. Default: 1.4 (40% slack for ext4 metadata + room
-   * for guest writes). Bump if the workload writes a lot post-boot.
+   * ext4 filesystem. Default: 2.5 — leaves enough room for the guest
+   * to install a few hundred MB of packages on top of the base rootfs
+   * before hitting ENOSPC. Sparse files cost nothing on disk until
+   * written, so over-provisioning is essentially free; the trade-off
+   * is a higher upper bound on physical disk use if the guest decides
+   * to fill the filesystem.
    */
   sizeMultiplier?: number;
   /**
    * Minimum image size in bytes. The materializer enforces at least
-   * this for very small rootfs (where the multiplier alone would leave
-   * insufficient ext4 metadata room). Default: 256 MiB.
+   * this for small rootfs where the multiplier alone would leave
+   * insufficient room for a real workload. Default: 2 GiB — boot-time
+   * `npm install -g <large package>`, `apt install`, etc. land here
+   * (#131). Sparse, so unused capacity is free.
    */
   minSizeBytes?: number;
+  /**
+   * Absolute target size in bytes. When set, overrides `sizeMultiplier`
+   * and `minSizeBytes` entirely — fresh materializations get exactly
+   * this size, cached `.img`s smaller than this are sparse-extended
+   * (truncate(2)) so the next boot's online ext4 grow can fill them.
+   * For the user-facing `boot({ rootDiskSizeBytes })` knob (#131).
+   */
+  sizeBytes?: number;
 }
 
 /**
@@ -112,6 +127,25 @@ export function ensureRootfsImage(tarPath: string, opts: EnsureRootfsImageOption
   if (!opts.force && existsSync(imgPath)) {
     debug("cache hit sha=%s img=%s", sha.slice(0, 12), imgPath);
     if (cachedImageIsUsable(imgPath)) {
+      // #131: if the caller asked for a larger image than what's on
+      // disk (typically because they bumped `rootDiskSizeBytes`, or
+      // because the materializer's defaults grew), sparse-extend the
+      // file in place. The on-disk ext4 fs is still sized to the old
+      // file; /init's tryRootDiskPivot resizes it online via
+      // EXT4_IOC_RESIZE_FS so the guest sees the new capacity.
+      // truncate-up on a sparse file is free; truncate-down would
+      // chop bytes, so we never shrink.
+      if (opts.sizeBytes !== undefined) {
+        try {
+          const cur = statSync(imgPath).size;
+          if (opts.sizeBytes > cur) {
+            truncateSync(imgPath, opts.sizeBytes);
+            debug("cache hit grew img=%s from=%d to=%d", imgPath, cur, opts.sizeBytes);
+          }
+        } catch (err) {
+          debug("cache hit grow failed img=%s err=%s", imgPath, (err as Error).message);
+        }
+      }
       return imgPath;
     }
     // Unrecoverable. Wipe and fall through to materialize a fresh image
@@ -157,12 +191,25 @@ export function ensureRootfsImage(tarPath: string, opts: EnsureRootfsImageOption
       );
     }
 
-    // 2. Size the image: unpacked tree + slack, with a floor.
+    // 2. Size the image. Three-way:
+    //    - sizeBytes wins outright when the caller passes it (the
+    //      user-facing rootDiskSizeBytes override; #131).
+    //    - Otherwise, max(minSizeBytes, treeBytes * sizeMultiplier).
+    //    Sparse files cost nothing on disk until written, so over-
+    //    provisioning the upper bound here is essentially free; the
+    //    guest's online ext4 grow (in /init) makes any extra capacity
+    //    visible without a rematerialize.
     const treeBytes = duBytes(stagingTree);
-    const multiplier = opts.sizeMultiplier ?? 1.4;
-    const minBytes = opts.minSizeBytes ?? 256 * 1024 * 1024;
-    const sizeBytes = Math.max(minBytes, Math.ceil(treeBytes * multiplier));
-    debug("size tree=%d size=%d multiplier=%s", treeBytes, sizeBytes, multiplier);
+    const multiplier = opts.sizeMultiplier ?? 2.5;
+    const minBytes = opts.minSizeBytes ?? 2 * 1024 * 1024 * 1024;
+    const sizeBytes = opts.sizeBytes ?? Math.max(minBytes, Math.ceil(treeBytes * multiplier));
+    debug(
+      "size tree=%d size=%d multiplier=%s explicit=%s",
+      treeBytes,
+      sizeBytes,
+      multiplier,
+      opts.sizeBytes !== undefined,
+    );
     allocateSparseFile(stagingImg, sizeBytes);
 
     // 3. mke2fs -d <tree> -t ext4 -F <img> <size-in-blocks>. The 4-KiB
