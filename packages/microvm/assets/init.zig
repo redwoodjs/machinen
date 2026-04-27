@@ -810,6 +810,18 @@ pub fn main() noreturn {
     // already in /dev (devtmpfs creates it).
     mkdirIgnore("/dev/pts");
     mountIgnore("devpts", "/dev/pts", "devpts");
+    // Fresh tmpfs on /run, matching the systemd / Debian default.
+    // Many maintainer scripts assume /run is a writable tmpfs:
+    // adduser/addgroup take a flock on /run/adduser, apt parks lock
+    // files in /run/lock, openssh-server's postinst expects /run/sshd,
+    // cron / dbus / etc. drop pid files there. Without this mount the
+    // user's rootfs tarball's /run is exposed as-is — any quirk in its
+    // permissions, ownership, or contents (a leftover lock from a
+    // previous provision, an unexpected symlink, root-not-owning the
+    // dir) breaks postinst flows mid-install. tmpfs gives every boot
+    // a clean, root-owned, writable /run regardless of what's on disk.
+    mkdirIgnore("/run");
+    mountIgnore("tmpfs", "/run", "tmpfs");
 
     // Wire up the serial console.
     const console = waitForConsole();
