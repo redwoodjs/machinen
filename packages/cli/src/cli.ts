@@ -486,7 +486,12 @@ async function cmdAttach(args: string[]): Promise<number> {
   const target = parseTargetFlags(args, "attach");
   const vm = await attach(target).catch(handleError);
   process.stderr.write(`attached to ${vm.name ?? `pid ${vm.pid}`}\n`);
-  process.stderr.write(`type commands; Ctrl-D to detach.\n`);
+  process.stderr.write(
+    `each line is a fresh one-shot exec — cd / env vars / history do NOT persist.\n` +
+      `for a real interactive shell open another terminal and run:\n` +
+      `  machinen exec ${vm.name ? `--name ${vm.name}` : `--pid ${vm.pid}`} -- bash -i\n` +
+      `Ctrl-D to detach.\n`,
+  );
   try {
     const { createInterface } = await import("node:readline");
     const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: false });
@@ -701,9 +706,17 @@ function printHelp(): void {
       `  Targeting a running VM:\n` +
       `    --name <name>     |  --pid <pid>             pick exactly one\n` +
       `\n` +
-      `  machinen exec     <target-flag> -- <cmd>       Run a command in a running VM\n` +
+      `  machinen exec     <target-flag> -- <cmd>       Run a command in a running VM.\n` +
+      `                                                 For a real interactive shell from a\n` +
+      `                                                 second terminal, use:\n` +
+      `                                                   machinen exec <target-flag> -- bash -i\n` +
       `  machinen snapshot <target-flag> --out-dir <d>  CRIU-snapshot a running VM into <d>\n` +
-      `  machinen attach   <target-flag>                Line-based shell against a running VM\n` +
+      `  machinen attach   <target-flag>                Per-line REPL: each line you type is\n` +
+      `                                                 a fresh one-shot \`exec\`, not a\n` +
+      `                                                 persistent shell — \`cd\`, env vars,\n` +
+      `                                                 and shell history do NOT carry over\n` +
+      `                                                 between lines. For an actual shell\n` +
+      `                                                 use \`machinen exec ... -- bash -i\`.\n` +
       `\n` +
       `  machinen install                               Pre-fetch the current-tag base assets\n` +
       `    --version <tag>                              Pin to a specific release tag\n` +
@@ -713,7 +726,10 @@ function printHelp(): void {
       `Examples:\n` +
       `  machinen boot --name worker -- node server.js\n` +
       `  machinen ls\n` +
-      `  machinen exec --name worker -- ps aux\n` +
+      `  machinen exec --name worker -- ps aux                # one-off command\n` +
+      `  machinen exec --name worker -- bash -i               # open a new terminal\n` +
+      `                                                       # (independent of the boot\n` +
+      `                                                       # console; bash holds state)\n` +
       `  machinen snapshot --name worker --out-dir ./warm\n` +
       `  machinen restore ./warm\n` +
       `\n` +
