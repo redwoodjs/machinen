@@ -212,13 +212,19 @@ fn bringUpNetwork() void {
 // Load every kernel module the boot path needs by finit_module(2)'ing
 // the .ko files staged at /modules/*.ko in the cpio. Order matters:
 // virtio + virtio_ring expose the symbols virtio_mmio binds against,
-// jbd2 + mbcache are deps of ext4, failover is a dep of net_failover,
-// and the vsock transports layer on the vsock core.
+// failover is a dep of net_failover, and the vsock transports layer
+// on the vsock core.
 //
 // The list is duplicated against scripts/build-base-assets.sh; if you
 // add or remove a .ko there you have to update it here too. We chose
 // a fixed list rather than walking /modules/ alphabetically because
 // load order is load-bearing and `ls`-order isn't load-order.
+//
+// ext4 / mbcache / jbd2 used to be in this list; they are CONFIG_*=y
+// in the Debian cloud arm64 kernel (built-in, not modules), so the
+// .ko files don't exist in modules-arm64.tar.gz. loadModule is a
+// silent no-op when the .ko is missing, but listing them anyway is
+// noise — the rootdisk pivot's ext4 mount works regardless. See #129.
 //
 // Per-module failure is logged and skipped — a missing virtio_net hurts
 // networking but not the rootdisk pivot, and we'd rather boot degraded
@@ -230,9 +236,6 @@ fn loadPlumbingModules() void {
         "virtio_ring",
         "virtio_mmio",
         "virtio_blk",
-        "mbcache",
-        "jbd2",
-        "ext4",
         "failover",
         "net_failover",
         "virtio_net",
