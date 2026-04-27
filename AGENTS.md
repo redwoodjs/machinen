@@ -12,7 +12,8 @@ If either fails, fix the issue and re-run. Do not tell the user work is done unt
 ## CI
 
 - Always use `--quiet` (`-q`) when running agent-ci.
-- Run `/validate` to check all workflows: `npx agent-ci run --all -q -p`
+- Check all workflows with: `npx agent-ci run --all -q -p`
+- **Never** pipe agent-ci through `2>&1`, `tail`, or any other pipe. agent-ci does not exit on its own — it stays attached after the run finishes. Run it as a background process and use the `Monitor` tool to stream its output, watching for a **pause event** that signals the run is complete. Only then read results.
 
 ## Code
 
