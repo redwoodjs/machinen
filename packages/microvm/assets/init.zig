@@ -59,6 +59,10 @@ extern "c" fn symlink(target: [*:0]const u8, linkpath: [*:0]const u8) c_int;
 // Empty params = no module options. Number 273 is aarch64-specific
 // (matches the kernel's UAPI for arm64); the rest of /init is already
 // arm64-only so a hardcoded number is fine.
+//
+// Clobber list uses Zig 0.16 syntax (`.{ ... }`) — the older
+// `: "memory", "cc"` form no longer parses, and on aarch64 the
+// flag-register clobber is `nzcv`, not `cc`.
 fn finit_module(fd: c_int, params: [*:0]const u8, flags: u32) isize {
     return asm volatile ("svc #0"
         : [ret] "={x0}" (-> isize),
@@ -66,8 +70,7 @@ fn finit_module(fd: c_int, params: [*:0]const u8, flags: u32) isize {
           [arg0] "{x0}" (@as(usize, @bitCast(@as(isize, fd)))),
           [arg1] "{x1}" (@intFromPtr(params)),
           [arg2] "{x2}" (@as(usize, flags)),
-        : "memory", "cc"
-    );
+        : .{ .memory = true, .nzcv = true });
 }
 
 const CLOCK_REALTIME: c_int = 0;
@@ -125,9 +128,35 @@ fn sleepMs(ms: i64) void {
     _ = nanosleep(&ts, null);
 }
 
+// Power off the guest via PSCI SYSTEM_OFF (function ID 0x84000008,
+// invoked through HVC #0 per the arm64 PSCI 1.0 spec). The VMM's HVF
+// loop matches on this and exits cleanly (boot_hvf.zig handles
+// PSCI .system_off → saw_off = true → main.zig std.process.exit(0)),
+// which lets the host process Node sees terminate so the user gets
+// their terminal back. Without this, /init looping forever in
+// nanosleep would keep the VMM running indefinitely — Ctrl-C from
+// the host's stdin is forwarded through to the guest where nothing
+// reads it, so the user has to pgrep+kill the VMM by hand. See #135.
+fn psciSystemOff() noreturn {
+    while (true) {
+        asm volatile ("hvc #0"
+            :
+            : [fid] "{x0}" (@as(usize, 0x8400_0008)),
+            : .{ .memory = true, .nzcv = true });
+        // PSCI SYSTEM_OFF is supposed to never return. If it does
+        // (older kernel without PSCI? hypervisor refused?), fall
+        // through and try again rather than spinning the CPU at 100%.
+        sleepMs(60_000);
+    }
+}
+
 fn die(msg: []const u8) noreturn {
     logLine(msg);
-    while (true) sleepMs(60_000);
+    // Give the kernel printk + pl011 TX FIFO a beat to drain so the
+    // failure message reaches the host before SYSTEM_OFF tears the
+    // VM down. 100ms is overkill for a virtual UART but cheap.
+    sleepMs(100);
+    psciSystemOff();
 }
 
 fn mountIgnore(src: [*:0]const u8, dst: [*:0]const u8, fstype: [*:0]const u8) void {
