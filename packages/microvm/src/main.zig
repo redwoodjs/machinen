@@ -31,6 +31,12 @@ pub fn main(init: std.process.Init) !void {
     // Guest console is live-echoed to stderr from inside the boot loop
     // (boot_hvf.zig's PL011 DR-write handler). The result.serial buffer is
     // the same bytes, captured for tests — don't re-emit here.
+    // Production boots end on PSCI SYSTEM_OFF or a fatal exception, not
+    // on a vCPU-exit counter. The 5_000_000 default in boot_{hvf,kvm}.zig
+    // is a test-fixture safety valve — easy to hit during a long-running
+    // interactive shell or a busy server, where it surfaces as a
+    // mysterious `error.RanTooLong` and the VM dies mid-session. Lift
+    // the cap here.
     if (builtin.os.tag == .macos) {
         const disk_path = envOptional("MACHINEN_DISK");
         const rootdisk_path = envOptional("MACHINEN_ROOTDISK");
@@ -41,6 +47,7 @@ pub fn main(init: std.process.Init) !void {
             .rootdisk_path = rootdisk_path,
             .disk_path = disk_path,
             .unbounded_serial = true,
+            .max_exits = std.math.maxInt(usize),
         });
         gpa.free(result.serial);
         std.process.exit(if (result.saw_psci_shutdown) 0 else 1);
@@ -52,6 +59,7 @@ pub fn main(init: std.process.Init) !void {
             .dtb_path = dtb_path,
             .initrd_path = initrd_path,
             .unbounded_serial = true,
+            .max_exits = std.math.maxInt(usize),
         });
         gpa.free(result.serial);
         std.process.exit(if (result.saw_psci_shutdown) 0 else 1);
