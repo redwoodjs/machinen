@@ -92,6 +92,17 @@ zig cc "${ASSETS}/machinen-netup.c" \
   -Os \
   -o "${STAGE}/machinen-netup"
 
+# Refresh the in-tree /init that mkinitramfs.packTinyBundle() reads via
+# defaultInitPath() (packages/runtime/src/mkinitramfs.ts). Without this,
+# every user-facing boot() ships the binary that was checked in last,
+# regardless of how often you rerun this script — release-assets gets
+# the new /init, the tiny initramfs path keeps using the stale one,
+# and rootDisk: true boots silently regress. See issue #129.
+TEST_FIXTURES="${ROOT}/packages/microvm/test-fixtures"
+mkdir -p "${TEST_FIXTURES}"
+install -m 0755 "${STAGE}/init"        "${TEST_FIXTURES}/init"
+install -m 0755 "${STAGE}/exec-agent"  "${TEST_FIXTURES}/exec-agent"
+
 # ------------------------------------------------------------
 # 3a. fnm — Node version manager (#88)
 # ------------------------------------------------------------
@@ -262,7 +273,6 @@ for m in \
   netlink_diag unix_diag inet_diag tcp_diag udp_diag af_packet_diag \
   libcrc32c nfnetlink nf_tables \
   vsock vmw_vsock_virtio_transport vmw_vsock_virtio_transport_common vsock_diag \
-  ext4 mbcache jbd2 \
   fuse
 do
   src=$(find "$KMODS" -type f -name "$m.ko" | head -1)
