@@ -16,8 +16,14 @@
 // the network dependency.
 //
 // Skipped when the prebuilt assets aren't available locally. Same gate
-// pattern as exec.test.ts. CI builds them via release.yml; for dev,
-// `scripts/build-base-assets.sh` + `pnpm provision` produces both.
+// pattern as exec.test.ts. Locally:
+//   1. `scripts/build-base-assets.sh` — kernel + base rootfs
+//   2. `pnpm provision-test-vm`        — small purpose-built test image
+//                                        (~/.cache/machinen/<repo>/test-vm.tar.gz)
+// CI builds these as separate workflow steps. The test image is
+// deliberately distinct from the dev VM's `app.tar.gz`: it carries
+// only what these workloads need (rsync, sqlite3 on top of the base),
+// so the dev VM stays minimal.
 
 import {
   existsSync,
@@ -40,19 +46,22 @@ const repoRoot = resolve(import.meta.dirname, "../../../..");
 const ASSETS = process.env.MACHINEN_ASSETS_DIR ?? resolve(repoRoot, "release-assets");
 const KERNEL = join(ASSETS, "Image-arm64");
 const DTB = join(ASSETS, "virt-arm64.dtb");
-// `provision()` (run from the user's checkout) drops the workload-ready
-// tarball under the per-repo cache. The basename of the repo is in the
-// path because each worktree gets its own — see provision.ts.
-const APP_TAR = join(homedir(), ".cache", "machinen", basename(repoRoot), "app.tar.gz");
+// Workloads run against a *purpose-built* test rootfs, not the dev
+// machine's `app.tar.gz`. Build with `pnpm provision-test-vm` — see
+// scripts/provision-test-vm.ts. Keeping these split means the dev VM
+// stays free of test-only tools (rsync, sqlite3) and the test image
+// stays small (no node, no fnm, no claude).
+const TEST_VM_TAR = join(homedir(), ".cache", "machinen", basename(repoRoot), "test-vm.tar.gz");
 
 // Ample headroom for boot + workload + power-down. A clean boot is
 // ~1–2 s on a dev laptop; the workloads themselves are sub-second
-// inside the VM.
-const VM_BOOT_TIMEOUT_MS = 60_000;
+// inside the VM. Generous bound mostly so a hot machine running tests
+// in parallel doesn't trip BOOT_TIMEOUT on contention.
+const VM_BOOT_TIMEOUT_MS = 120_000;
 const TEST_TIMEOUT_MS = VM_BOOT_TIMEOUT_MS + 30_000;
 
 function assetsPresent(): boolean {
-  return existsSync(KERNEL) && existsSync(DTB) && existsSync(APP_TAR);
+  return existsSync(KERNEL) && existsSync(DTB) && existsSync(TEST_VM_TAR);
 }
 
 interface WorkloadResult {
@@ -72,7 +81,7 @@ interface WorkloadResult {
  */
 async function runWorkload(scratch: string, script: string): Promise<WorkloadResult> {
   const ramBytes = (() => {
-    const size = statSync(APP_TAR).size;
+    const size = statSync(TEST_VM_TAR).size;
     const GIB = 1024 ** 3;
     const raw = Math.max(4 * GIB, size * 16 + 2 * GIB);
     const align = 256 * 1024 * 1024;
@@ -90,7 +99,7 @@ async function runWorkload(scratch: string, script: string): Promise<WorkloadRes
     const vm = await boot({
       kernel: KERNEL,
       dtb: DTB,
-      image: APP_TAR,
+      image: TEST_VM_TAR,
       cmd: ["/bin/bash", "-lc", script],
       liveMounts: [{ host: scratch, guest: "/mnt/workspace", mode: "rw" }],
       vmmEnv: { MACHINEN_RAM_BYTES: String(ramBytes) },
@@ -483,7 +492,7 @@ if (!assetsPresent()) {
   // eslint-disable-next-line no-console
   console.warn(
     `[mount-server-workloads] skipping: missing one of\n` +
-      `  ${KERNEL}\n  ${DTB}\n  ${APP_TAR}\n` +
-      `  Run scripts/build-base-assets.sh + pnpm provision to enable.`,
+      `  ${KERNEL}\n  ${DTB}\n  ${TEST_VM_TAR}\n` +
+      `  Run scripts/build-base-assets.sh + pnpm provision-test-vm to enable.`,
   );
 }

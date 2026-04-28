@@ -114,17 +114,12 @@ const installSteps = async (vm: VmHandle) => {
   //   jq                       — JSON munging.
   //   less, vim-tiny           — usable interactive shell.
   //   openssh-client, gh       — git/ssh + GitHub CLI.
-  //   rsync, sqlite3           — used by the FUSE workload tests
-  //                              (#165 layer 2). rsync exercises
-  //                              SETATTR/GETATTR at scale; sqlite WAL
-  //                              exercises advisory locks (GETLK/SETLK).
   // Symlink fd-find's binary to the upstream `fd` name.
   await vm.exec(
     "apt-get update -qq && " +
       "apt-get install -y --no-install-recommends " +
       "bash git build-essential ca-certificates curl " +
-      "ripgrep fd-find jq less vim-tiny openssh-client gh " +
-      "rsync sqlite3 && " +
+      "ripgrep fd-find jq less vim-tiny openssh-client gh && " +
       "ln -sf /usr/bin/fdfind /usr/local/bin/fd",
   );
 
