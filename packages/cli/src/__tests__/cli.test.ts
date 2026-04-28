@@ -71,14 +71,14 @@ describe("parseRunArgs --env", () => {
 });
 
 describe("parseRunArgs --mount-live", () => {
-  it("captures a single --mount-live", () => {
+  it("captures a single --mount-live (defaults to ro)", () => {
     const parsed = parseRunArgs(["--mount-live", "./src:/mnt/src", "--", "/bin/true"]);
-    expect(parsed.liveMounts).toEqual([{ host: "./src", guest: "/mnt/src" }]);
+    expect(parsed.liveMounts).toEqual([{ host: "./src", guest: "/mnt/src", mode: "ro" }]);
   });
 
   it("accepts the =form", () => {
     const parsed = parseRunArgs(["--mount-live=./src:/mnt/src"]);
-    expect(parsed.liveMounts).toEqual([{ host: "./src", guest: "/mnt/src" }]);
+    expect(parsed.liveMounts).toEqual([{ host: "./src", guest: "/mnt/src", mode: "ro" }]);
   });
 
   it("is repeatable and preserves order", () => {
@@ -90,16 +90,16 @@ describe("parseRunArgs --mount-live", () => {
       "./c:/mnt/c",
     ]);
     expect(parsed.liveMounts).toEqual([
-      { host: "./a", guest: "/mnt/a" },
-      { host: "./b", guest: "/mnt/b" },
-      { host: "./c", guest: "/mnt/c" },
+      { host: "./a", guest: "/mnt/a", mode: "ro" },
+      { host: "./b", guest: "/mnt/b", mode: "ro" },
+      { host: "./c", guest: "/mnt/c", mode: "ro" },
     ]);
   });
 
   it("coexists with --mount (copy-once stays separate)", () => {
     const parsed = parseRunArgs(["--mount", "./cfg:/mnt/cfg", "--mount-live", "./src:/mnt/src"]);
     expect(parsed.mount).toEqual({ host: "./cfg", guest: "/mnt/cfg" });
-    expect(parsed.liveMounts).toEqual([{ host: "./src", guest: "/mnt/src" }]);
+    expect(parsed.liveMounts).toEqual([{ host: "./src", guest: "/mnt/src", mode: "ro" }]);
   });
 
   it("returns undefined liveMounts when the flag is absent", () => {
@@ -109,7 +109,7 @@ describe("parseRunArgs --mount-live", () => {
 
   it("rejects a malformed spec (missing colon)", () => {
     expect(() => parseRunArgs(["--mount-live", "./src"])).toThrow(
-      /expected <host-dir>:<guest-path>/,
+      /expected <host-dir>:<guest-path>\[:<mode>\]/,
     );
   });
 
@@ -117,9 +117,25 @@ describe("parseRunArgs --mount-live", () => {
     expect(() => parseRunArgs(["--mount-live"])).toThrow(/--mount-live requires/);
   });
 
-  it("rejects a spec with a trailing :rw (reserved for write-through)", () => {
-    expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:rw"])).toThrow(
-      /expected <host-dir>:<guest-path>/,
+  it("accepts an explicit :ro suffix", () => {
+    const parsed = parseRunArgs(["--mount-live", "./src:/mnt/src:ro"]);
+    expect(parsed.liveMounts).toEqual([{ host: "./src", guest: "/mnt/src", mode: "ro" }]);
+  });
+
+  it("accepts a :rw suffix for write-through", () => {
+    const parsed = parseRunArgs(["--mount-live", "./src:/mnt/src:rw"]);
+    expect(parsed.liveMounts).toEqual([{ host: "./src", guest: "/mnt/src", mode: "rw" }]);
+  });
+
+  it("rejects an unknown mode", () => {
+    expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:xx"])).toThrow(
+      /mode must be 'ro' or 'rw'/,
+    );
+  });
+
+  it("rejects a spec with too many colons", () => {
+    expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:rw:extra"])).toThrow(
+      /expected <host-dir>:<guest-path>\[:<mode>\]/,
     );
   });
 });

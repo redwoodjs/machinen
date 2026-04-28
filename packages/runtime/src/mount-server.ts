@@ -1,4 +1,4 @@
-// Live-share mount server for `--mount-live` (#78).
+// Live-share mount server for `--mount-live` (#78, #151).
 //
 // One instance per mount. Binds a Unix socket that the VMM's vsock
 // bridge muxes to a fixed guest port (see MACHINEN_VSOCK spec). The
@@ -7,18 +7,31 @@
 // the other end of that pipe: it parses each FUSE kernel message,
 // dispatches to a handler, and writes the FUSE response back.
 //
-// Read-only v0. Every mutating op replies with ENOSYS; that's enough
-// for the default `--mount-live` user contract (guest can read the
-// host directory, writes stay in a scratch layer managed by the
-// kernel on top of our read-only mount). `:rw` lands in a follow-up.
+// Mode is per-mount: `ro` (default) accepts only read-side ops and
+// rejects mutations with EROFS; `rw` enables write-through so guest
+// writes land on the host directory.
 //
 // Path containment routes through `resolveUnderRoot` — the load-
 // bearing piece that keeps a crafted guest path from escaping the
 // mount root. See mount-resolver.ts.
 
 import { createServer, type Server, type Socket } from "node:net";
-import { open as fsOpen, lstat, readdir, realpath, statfs } from "node:fs/promises";
+import {
+  chmod,
+  mkdir,
+  open as fsOpen,
+  lstat,
+  readdir,
+  realpath,
+  rename,
+  rmdir,
+  statfs,
+  truncate,
+  unlink,
+  utimes,
+} from "node:fs/promises";
 import type { FileHandle } from "node:fs/promises";
+import { constants as fsConstants } from "node:fs";
 import type { Stats } from "node:fs";
 import { join } from "node:path";
 import debug from "debug";
@@ -26,13 +39,16 @@ import { MountError, isMachinenError } from "./errors.ts";
 import { resolveUnderRoot } from "./mount-resolver.ts";
 import {
   DT,
+  FATTR,
   FUSE_CAP,
   FUSE_IN_HEADER_SIZE,
   FUSE_KERNEL_MINOR_VERSION,
   FUSE_KERNEL_VERSION,
   FUSE_OP,
+  FUSE_WRITE_IN_SIZE,
   type FuseInHeader,
   buildAttrOut,
+  buildCreateOut,
   buildDirent,
   buildEntryOut,
   buildErrorResponse,
@@ -40,14 +56,20 @@ import {
   buildKstatfs,
   buildOpenOut,
   buildResponse,
+  buildWriteOut,
   payloadOf,
   readBatchForgetIn,
+  readCreateIn,
   readForgetIn,
   readInHeader,
   readInitIn,
+  readMkdirIn,
   readOpenIn,
   readReadIn,
   readReleaseIn,
+  readRenameIn,
+  readSetattrIn,
+  readWriteIn,
 } from "./mount-fuse-protocol.ts";
 
 const log = debug("machinen:mount-server");
@@ -87,6 +109,12 @@ type OpenEntry = { kind: "file"; fh: FileHandle } | { kind: "dir"; entries: Uint
 export interface LiveMountServerOptions {
   /** Absolute host path that bounds every op. */
   rootAbs: string;
+  /**
+   * `"ro"` (default) rejects mutating ops with EROFS. `"rw"` enables
+   * write-through: WRITE/CREATE/MKDIR/RMDIR/UNLINK/RENAME/SETATTR/FSYNC
+   * land on the host filesystem, all gated through `resolveUnderRoot`.
+   */
+  mode?: "ro" | "rw";
 }
 
 export interface LiveMountServerHandle {
@@ -104,7 +132,7 @@ export async function serveLiveMount(
   udsPath: string,
   opts: LiveMountServerOptions,
 ): Promise<LiveMountServerHandle> {
-  const state = createState(opts.rootAbs);
+  const state = createState(opts.rootAbs, opts.mode ?? "ro");
   const server = createServer((sock) => void handleConnection(sock, state));
   await new Promise<void>((done, fail) => {
     server.once("error", fail);
@@ -113,7 +141,7 @@ export async function serveLiveMount(
       done();
     });
   });
-  log("listening udsPath=%s rootAbs=%s", udsPath, opts.rootAbs);
+  log("listening udsPath=%s rootAbs=%s mode=%s", udsPath, opts.rootAbs, state.mode);
   return {
     stop: () => shutdown(server, state),
   };
@@ -121,6 +149,7 @@ export async function serveLiveMount(
 
 interface ServerState {
   rootAbs: string;
+  mode: "ro" | "rw";
   inodes: Map<bigint, InodeEntry>;
   nextInode: bigint;
   handles: Map<bigint, OpenEntry>;
@@ -128,12 +157,13 @@ interface ServerState {
   socket: Socket | null;
 }
 
-function createState(rootAbs: string): ServerState {
+function createState(rootAbs: string, mode: "ro" | "rw"): ServerState {
   const inodes = new Map<bigint, InodeEntry>();
   // Root is pinned. nlookup=Infinity sentinel means "never evict".
   inodes.set(1n, { relPath: "", nlookup: Number.POSITIVE_INFINITY });
   return {
     rootAbs,
+    mode,
     inodes,
     nextInode: 2n,
     handles: new Map(),
@@ -242,12 +272,26 @@ async function handle(
       return await onLookup(hdr, msg, state);
     case FUSE_OP.GETATTR:
       return await onGetattr(hdr, state);
+    case FUSE_OP.SETATTR:
+      return await onSetattr(hdr, msg, state);
     case FUSE_OP.STATFS:
       return await onStatfs(hdr, state);
     case FUSE_OP.OPEN:
       return await onOpen(hdr, msg, state);
     case FUSE_OP.READ:
       return await onRead(hdr, msg, state);
+    case FUSE_OP.WRITE:
+      return await onWrite(hdr, msg, state);
+    case FUSE_OP.CREATE:
+      return await onCreate(hdr, msg, state);
+    case FUSE_OP.MKDIR:
+      return await onMkdir(hdr, msg, state);
+    case FUSE_OP.RMDIR:
+      return await onRmdir(hdr, msg, state);
+    case FUSE_OP.UNLINK:
+      return await onUnlink(hdr, msg, state);
+    case FUSE_OP.RENAME:
+      return await onRename(hdr, msg, state);
     case FUSE_OP.RELEASE:
       return await onRelease(hdr, msg, state);
     case FUSE_OP.OPENDIR:
@@ -256,6 +300,8 @@ async function handle(
       return await onReaddir(hdr, msg, state);
     case FUSE_OP.RELEASEDIR:
       return onReleasedir(hdr, msg, state);
+    case FUSE_OP.FSYNC:
+      return await onFsync(hdr, msg, state);
     case FUSE_OP.FLUSH:
     case FUSE_OP.ACCESS:
       // Userspace ok-to-ignore ops: reply success with no payload.
@@ -395,16 +441,15 @@ async function onStatfs(hdr: FuseInHeader, state: ServerState): Promise<Uint8Arr
 
 async function onOpen(hdr: FuseInHeader, msg: Uint8Array, state: ServerState): Promise<Uint8Array> {
   const req = readOpenIn(payloadOf(msg));
-  // RO v0: reject anything that isn't pure-read.
   const accessMode = req.flags & 0o3; // O_RDONLY=0, O_WRONLY=1, O_RDWR=2
-  if (accessMode !== 0) {
+  if (accessMode !== 0 && state.mode === "ro") {
     return buildErrorResponse(hdr.unique, -ERRNO.EROFS);
   }
   const entry = requireInode(state, hdr.nodeid);
   // OPEN always targets a real regular file (LOOKUP returned S_IFREG),
   // so following any residual intermediate symlinks is fine.
   const abs = await absPathForTraversal(state, entry);
-  const fh = await fsOpen(abs, "r");
+  const fh = await fsOpen(abs, linuxOpenFlagsToNode(req.flags));
   const id = state.nextHandle++;
   state.handles.set(id, { kind: "file", fh });
   return buildResponse(hdr.unique, buildOpenOut({ fh: id, open_flags: 0 }));
@@ -496,6 +541,272 @@ async function onReaddir(
 function onReleasedir(hdr: FuseInHeader, msg: Uint8Array, state: ServerState): Uint8Array {
   const { fh } = readReleaseIn(payloadOf(msg));
   state.handles.delete(fh);
+  return buildErrorResponse(hdr.unique, 0);
+}
+
+// --- write-through handlers (only reachable in :rw mode) ----------------
+
+async function onWrite(
+  hdr: FuseInHeader,
+  msg: Uint8Array,
+  state: ServerState,
+): Promise<Uint8Array> {
+  if (state.mode === "ro") {
+    return buildErrorResponse(hdr.unique, -ERRNO.EROFS);
+  }
+  const body = payloadOf(msg);
+  const req = readWriteIn(body);
+  const data = body.subarray(FUSE_WRITE_IN_SIZE, FUSE_WRITE_IN_SIZE + req.size);
+  const handle = state.handles.get(req.fh);
+  if (!handle || handle.kind !== "file") {
+    return buildErrorResponse(hdr.unique, -ERRNO.EBADF);
+  }
+  const buf = Buffer.from(data.buffer, data.byteOffset, data.length);
+  const { bytesWritten } = await handle.fh.write(buf, 0, data.length, Number(req.offset));
+  return buildResponse(hdr.unique, buildWriteOut({ size: bytesWritten }));
+}
+
+async function onCreate(
+  hdr: FuseInHeader,
+  msg: Uint8Array,
+  state: ServerState,
+): Promise<Uint8Array> {
+  if (state.mode === "ro") {
+    return buildErrorResponse(hdr.unique, -ERRNO.EROFS);
+  }
+  const body = payloadOf(msg);
+  const req = readCreateIn(body);
+  const name = decodeName(body.subarray(16));
+  validateName(name);
+  const parent = requireInode(state, hdr.nodeid);
+  const parentAbs = await absPathForTraversal(state, parent);
+  const childAbs = join(parentAbs, name);
+  const childRel = joinRel(parent.relPath, name);
+  // Honour the kernel's flags + the request's mode verbatim. The
+  // kernel has already applied the guest's umask before sending us
+  // CREATE (we don't advertise FUSE_DONT_MASK).
+  const nodeFlags = linuxOpenFlagsToNode(req.flags) | fsConstants.O_CREAT;
+  const fh = await fsOpen(childAbs, nodeFlags, req.mode);
+  const st = await fh.stat();
+  const ino = bindInode(state, childRel);
+  const id = state.nextHandle++;
+  state.handles.set(id, { kind: "file", fh });
+  return buildResponse(
+    hdr.unique,
+    buildCreateOut(
+      {
+        nodeid: ino,
+        generation: 0n,
+        entry_valid: 1n,
+        attr_valid: 1n,
+        entry_valid_nsec: 0,
+        attr_valid_nsec: 0,
+        attr: statToAttr(st, ino),
+      },
+      { fh: id, open_flags: 0 },
+    ),
+  );
+}
+
+async function onMkdir(
+  hdr: FuseInHeader,
+  msg: Uint8Array,
+  state: ServerState,
+): Promise<Uint8Array> {
+  if (state.mode === "ro") {
+    return buildErrorResponse(hdr.unique, -ERRNO.EROFS);
+  }
+  const body = payloadOf(msg);
+  const req = readMkdirIn(body);
+  const name = decodeName(body.subarray(8));
+  validateName(name);
+  const parent = requireInode(state, hdr.nodeid);
+  const parentAbs = await absPathForTraversal(state, parent);
+  const childAbs = join(parentAbs, name);
+  const childRel = joinRel(parent.relPath, name);
+  // mode includes type bits in CREATE/MKNOD; for MKDIR the kernel
+  // already strips them. Mask to perm bits to be defensive.
+  await mkdir(childAbs, { mode: req.mode & 0o7777 });
+  const st = await lstat(childAbs);
+  const ino = bindInode(state, childRel);
+  return buildResponse(
+    hdr.unique,
+    buildEntryOut({
+      nodeid: ino,
+      generation: 0n,
+      entry_valid: 1n,
+      attr_valid: 1n,
+      entry_valid_nsec: 0,
+      attr_valid_nsec: 0,
+      attr: statToAttr(st, ino),
+    }),
+  );
+}
+
+async function onRmdir(
+  hdr: FuseInHeader,
+  msg: Uint8Array,
+  state: ServerState,
+): Promise<Uint8Array> {
+  if (state.mode === "ro") {
+    return buildErrorResponse(hdr.unique, -ERRNO.EROFS);
+  }
+  const name = decodeName(payloadOf(msg));
+  validateName(name);
+  const parent = requireInode(state, hdr.nodeid);
+  const parentAbs = await absPathForTraversal(state, parent);
+  await rmdir(join(parentAbs, name));
+  forgetByRelPath(state, joinRel(parent.relPath, name));
+  return buildErrorResponse(hdr.unique, 0);
+}
+
+async function onUnlink(
+  hdr: FuseInHeader,
+  msg: Uint8Array,
+  state: ServerState,
+): Promise<Uint8Array> {
+  if (state.mode === "ro") {
+    return buildErrorResponse(hdr.unique, -ERRNO.EROFS);
+  }
+  const name = decodeName(payloadOf(msg));
+  validateName(name);
+  const parent = requireInode(state, hdr.nodeid);
+  const parentAbs = await absPathForTraversal(state, parent);
+  await unlink(join(parentAbs, name));
+  forgetByRelPath(state, joinRel(parent.relPath, name));
+  return buildErrorResponse(hdr.unique, 0);
+}
+
+async function onRename(
+  hdr: FuseInHeader,
+  msg: Uint8Array,
+  state: ServerState,
+): Promise<Uint8Array> {
+  if (state.mode === "ro") {
+    return buildErrorResponse(hdr.unique, -ERRNO.EROFS);
+  }
+  const body = payloadOf(msg);
+  const req = readRenameIn(body);
+  // Two NUL-terminated names back-to-back after the struct.
+  const after = body.subarray(8);
+  const firstNul = after.indexOf(0);
+  if (firstNul < 0) {
+    return buildErrorResponse(hdr.unique, -ERRNO.EINVAL);
+  }
+  const oldName = decodeName(after.subarray(0, firstNul));
+  const newName = decodeName(after.subarray(firstNul + 1));
+  validateName(oldName);
+  validateName(newName);
+  const oldParent = requireInode(state, hdr.nodeid);
+  const newParent = requireInode(state, req.newdir);
+  // Resolve both parent dirs through the containment gate. The
+  // basename joins are then on canonical paths, so a symlink in either
+  // basename can't redirect outside root (the resolver realpath'd the
+  // parent, and join doesn't follow links).
+  const oldParentAbs = await absPathForTraversal(state, oldParent);
+  const newParentAbs = await absPathForTraversal(state, newParent);
+  await rename(join(oldParentAbs, oldName), join(newParentAbs, newName));
+  forgetByRelPath(state, joinRel(oldParent.relPath, oldName));
+  // The new name might shadow an existing inode entry; drop it so the
+  // next LOOKUP rebinds.
+  forgetByRelPath(state, joinRel(newParent.relPath, newName));
+  return buildErrorResponse(hdr.unique, 0);
+}
+
+async function onSetattr(
+  hdr: FuseInHeader,
+  msg: Uint8Array,
+  state: ServerState,
+): Promise<Uint8Array> {
+  const req = readSetattrIn(payloadOf(msg));
+  // Pure attr-fetch SETATTR (valid==0) is meaningless; treat as a
+  // no-op GETATTR-style reply. Otherwise mutating, so RO mounts
+  // refuse.
+  const isMutating =
+    (req.valid &
+      (FATTR.MODE |
+        FATTR.SIZE |
+        FATTR.ATIME |
+        FATTR.MTIME |
+        FATTR.CTIME |
+        FATTR.ATIME_NOW |
+        FATTR.MTIME_NOW |
+        FATTR.UID |
+        FATTR.GID)) !==
+    0;
+  if (isMutating && state.mode === "ro") {
+    return buildErrorResponse(hdr.unique, -ERRNO.EROFS);
+  }
+  const entry = requireInode(state, hdr.nodeid);
+  const abs = await absPathForTraversal(state, entry);
+  if (req.valid & FATTR.SIZE) {
+    if (req.valid & FATTR.FH) {
+      const handle = state.handles.get(req.fh);
+      if (!handle || handle.kind !== "file") {
+        return buildErrorResponse(hdr.unique, -ERRNO.EBADF);
+      }
+      await handle.fh.truncate(Number(req.size));
+    } else {
+      await truncate(abs, Number(req.size));
+    }
+  }
+  if (req.valid & FATTR.MODE) {
+    await chmod(abs, req.mode & 0o7777);
+  }
+  if (req.valid & (FATTR.ATIME | FATTR.MTIME | FATTR.ATIME_NOW | FATTR.MTIME_NOW)) {
+    // utimes wants seconds-since-epoch as numbers. Use current values
+    // for any axis the kernel didn't ask us to change, plus _NOW
+    // overrides.
+    const st = await lstat(abs);
+    const now = Date.now() / 1000;
+    const a =
+      req.valid & FATTR.ATIME_NOW
+        ? now
+        : req.valid & FATTR.ATIME
+          ? Number(req.atime) + req.atimensec / 1e9
+          : st.atimeMs / 1000;
+    const m =
+      req.valid & FATTR.MTIME_NOW
+        ? now
+        : req.valid & FATTR.MTIME
+          ? Number(req.mtime) + req.mtimensec / 1e9
+          : st.mtimeMs / 1000;
+    await utimes(abs, a, m);
+  }
+  // FATTR.UID / FATTR.GID: ignored. The host process is unprivileged
+  // in the typical case; chown would EPERM. The guest sees its own
+  // (uid=0) view via INIT and we don't pretend to enforce it.
+  const st = await lstat(abs);
+  return buildResponse(
+    hdr.unique,
+    buildAttrOut({
+      attr_valid: 1n,
+      attr_valid_nsec: 0,
+      attr: statToAttr(st, hdr.nodeid),
+    }),
+  );
+}
+
+async function onFsync(
+  hdr: FuseInHeader,
+  msg: Uint8Array,
+  state: ServerState,
+): Promise<Uint8Array> {
+  // fuse_fsync_in: { fh: u64, fsync_flags: u32, padding: u32 }
+  const body = payloadOf(msg);
+  if (body.length < 8) {
+    return buildErrorResponse(hdr.unique, -ERRNO.EINVAL);
+  }
+  const dv = new DataView(body.buffer, body.byteOffset, body.length);
+  const fh = dv.getBigUint64(0, true);
+  const handle = state.handles.get(fh);
+  if (!handle || handle.kind !== "file") {
+    return buildErrorResponse(hdr.unique, -ERRNO.EBADF);
+  }
+  // `:ro` mounts have no dirty data — sync is still legal (it's a
+  // read-side guarantee), so honour without a mode check. fsync is a
+  // no-op on a clean fd.
+  await handle.fh.sync();
   return buildErrorResponse(hdr.unique, 0);
 }
 
@@ -600,6 +911,57 @@ function decrefInode(state: ServerState, ino: bigint, n: number): void {
   if (e.nlookup <= 0) {
     state.inodes.delete(ino);
   }
+}
+
+/**
+ * Drop any inode entry pointing at `relPath`. Called after RMDIR /
+ * UNLINK / RENAME so a subsequent LOOKUP at the same path mints a
+ * fresh inode rather than reusing one whose underlying file is gone.
+ * The kernel still holds nlookup refs to the old inode and will
+ * FORGET it later — that's fine, decrefInode tolerates a missing
+ * entry.
+ */
+function forgetByRelPath(state: ServerState, relPath: string): void {
+  for (const [ino, e] of state.inodes) {
+    if (e.relPath === relPath) {
+      state.inodes.delete(ino);
+      return;
+    }
+  }
+}
+
+/**
+ * Translate Linux fcntl open flags (as the guest kernel sends them)
+ * into Node's portable `fs.constants` flags. The numeric values
+ * differ between Linux and macOS, so we can't pass the wire flags
+ * straight to `fs.open` on a macOS host.
+ *
+ * O_CREAT is intentionally not honoured here — plain OPEN never
+ * creates; CREATE is a separate FUSE op. Same for O_EXCL.
+ */
+function linuxOpenFlagsToNode(flags: number): number {
+  // Linux fcntl values, stable on x86_64 / arm64. RDONLY=0 is the
+  // default branch.
+  const LINUX_O_WRONLY = 1;
+  const LINUX_O_RDWR = 2;
+  const LINUX_O_TRUNC = 0o1000;
+  const LINUX_O_APPEND = 0o2000;
+  const accessMode = flags & 0o3;
+  let out: number;
+  if (accessMode === LINUX_O_WRONLY) {
+    out = fsConstants.O_WRONLY;
+  } else if (accessMode === LINUX_O_RDWR) {
+    out = fsConstants.O_RDWR;
+  } else {
+    out = fsConstants.O_RDONLY;
+  }
+  if (flags & LINUX_O_TRUNC) {
+    out |= fsConstants.O_TRUNC;
+  }
+  if (flags & LINUX_O_APPEND) {
+    out |= fsConstants.O_APPEND;
+  }
+  return out;
 }
 
 function statToAttr(st: Stats, ino: bigint) {

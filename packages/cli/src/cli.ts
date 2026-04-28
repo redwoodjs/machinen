@@ -760,9 +760,11 @@ function printHelp(): void {
       `                                                 disk for a future vm.snapshot().\n` +
       `    --mount <host-dir>:<guest-path>              Expose one host dir inside the guest\n` +
       `                                                 (path under /mnt/; copy-once).\n` +
-      `    --mount-live <host-dir>:<guest-path>         Live-share a host dir over FUSE.\n` +
+      `    --mount-live <host-dir>:<guest-path>[:<mode>]\n` +
+      `                                                 Live-share a host dir over FUSE.\n` +
       `                                                 Guest reads stream in on demand; no\n` +
-      `                                                 copy at boot. Read-only for now.\n` +
+      `                                                 copy at boot. mode is 'ro' (default)\n` +
+      `                                                 or 'rw' for write-through.\n` +
       `    --env KEY=VALUE                              Set an env var inside the guest.\n` +
       `    -p <hostPort>:<guestPort>                    Forward host:hostPort → guest:guestPort.\n` +
       `\n` +
