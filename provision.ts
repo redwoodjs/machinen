@@ -93,8 +93,14 @@ const PNPM_VERSION = (() => {
 })();
 
 const installSteps = async (vm: VmHandle) => {
-  // Remount tmpfs root at size=100% so pnpm/apt installs don't hit ENOSPC.
-  await vm.exec("mount -o remount,size=100% /");
+  // /tmp + /var/tmp need to exist with sticky-1777 before anything that
+  // drops privs (apt → _apt). Two reasons they may be off:
+  //   • Fresh base — mke2fs -d on macOS as a non-root user captures
+  //     uid 501 and silently drops sticky bits, so /tmp lands at 0755.
+  //   • Incremental base — the prior provision's tar excludes ./tmp,
+  //     so the directory is missing entirely on this boot.
+  // mkdir -p + chmod handles both shapes.
+  await vm.exec("mkdir -p /tmp /var/tmp && chmod 1777 /tmp /var/tmp");
 
   // gvproxy DNS jitter under apt's parallel fan-out.
   const aptResilience = [
