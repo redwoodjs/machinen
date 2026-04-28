@@ -277,9 +277,9 @@ export interface BootOptions {
    * Host directories exposed to the guest as live-share FUSE mounts
    * (#78). Unlike `mount` (copy-once into the boot rootfs), these stay
    * connected to the host: the guest reads on demand via a vsock FUSE
-   * relay, and nothing is copied at boot. `mode` defaults to `"ro"`;
-   * `"rw"` enables write-through so guest writes land on the host
-   * (#151).
+   * relay, and nothing is copied at boot. `mode` defaults to `"rw"` —
+   * guest writes land on the host (#151, #156). Set `"ro"` for a
+   * one-way share (host caches, untrusted guests).
    *
    * Each guest path must live under `/mnt/` (same rule as `mount`).
    * Repeatable; each entry gets its own vsock port.
@@ -1298,7 +1298,7 @@ function resolveLiveMounts(
       guest: normalizeMountGuest(m.guest),
       port: LIVE_MOUNT_PORT_BASE + i,
       udsPath: join(udsDir, `live-mount-${i}.sock`),
-      mode: m.mode ?? "ro",
+      mode: m.mode ?? "rw",
     };
   });
 }

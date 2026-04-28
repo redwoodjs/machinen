@@ -71,14 +71,14 @@ describe("parseRunArgs --env", () => {
 });
 
 describe("parseRunArgs --mount-live", () => {
-  it("captures a single --mount-live (defaults to ro)", () => {
+  it("captures a single --mount-live (defaults to rw)", () => {
     const parsed = parseRunArgs(["--mount-live", "./src:/mnt/src", "--", "/bin/true"]);
-    expect(parsed.liveMounts).toEqual([{ host: "./src", guest: "/mnt/src", mode: "ro" }]);
+    expect(parsed.liveMounts).toEqual([{ host: "./src", guest: "/mnt/src", mode: "rw" }]);
   });
 
   it("accepts the =form", () => {
     const parsed = parseRunArgs(["--mount-live=./src:/mnt/src"]);
-    expect(parsed.liveMounts).toEqual([{ host: "./src", guest: "/mnt/src", mode: "ro" }]);
+    expect(parsed.liveMounts).toEqual([{ host: "./src", guest: "/mnt/src", mode: "rw" }]);
   });
 
   it("is repeatable and preserves order", () => {
@@ -90,16 +90,16 @@ describe("parseRunArgs --mount-live", () => {
       "./c:/mnt/c",
     ]);
     expect(parsed.liveMounts).toEqual([
-      { host: "./a", guest: "/mnt/a", mode: "ro" },
-      { host: "./b", guest: "/mnt/b", mode: "ro" },
-      { host: "./c", guest: "/mnt/c", mode: "ro" },
+      { host: "./a", guest: "/mnt/a", mode: "rw" },
+      { host: "./b", guest: "/mnt/b", mode: "rw" },
+      { host: "./c", guest: "/mnt/c", mode: "rw" },
     ]);
   });
 
   it("coexists with --mount (copy-once stays separate)", () => {
     const parsed = parseRunArgs(["--mount", "./cfg:/mnt/cfg", "--mount-live", "./src:/mnt/src"]);
     expect(parsed.mount).toEqual({ host: "./cfg", guest: "/mnt/cfg" });
-    expect(parsed.liveMounts).toEqual([{ host: "./src", guest: "/mnt/src", mode: "ro" }]);
+    expect(parsed.liveMounts).toEqual([{ host: "./src", guest: "/mnt/src", mode: "rw" }]);
   });
 
   it("returns undefined liveMounts when the flag is absent", () => {
