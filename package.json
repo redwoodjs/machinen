@@ -19,12 +19,15 @@
     "release": "pnpm -F @machinen/runtime -F @machinen/cli build && changeset publish",
     "docs": "typedoc",
     "dev": "bash scripts/dev.sh",
+    "provision": "tsx provision.ts",
+    "vm": "tsx vm.ts",
     "machinen-dev": "bash scripts/machinen-dev.sh",
     "smoke-tests": "bash scripts/smoke-tests.sh",
     "bench-net": "bash scripts/bench-net.sh"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",
+    "@machinen/runtime": "workspace:*",
     "@nkzw/oxlint-config": "1.0.1",
     "@redwoodjs/agent-ci": "^0.12.4",
     "@types/node": "^22",
