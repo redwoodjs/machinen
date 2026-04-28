@@ -38,7 +38,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: vmm-arm64-linux
-          path: packages/microvm/zig-out/bin/microvm
+          path: packages/microvm/zig-out/bin/machinen-vm
           if-no-files-found: error
 
   # ------------------------------------------------------------
@@ -85,7 +85,7 @@ jobs:
         with:
           name: vmm-arm64-linux
           path: packages/vmm-arm64-linux/bin/
-      - run: chmod +x packages/vmm-arm64-*/bin/microvm
+      - run: chmod +x packages/vmm-arm64-*/bin/machinen-vm
 
       # gvproxy (containers/gvisor-tap-vsock) — bundled next to the VMM
       # so `@machinen/runtime` can auto-spawn it for virtio-net without

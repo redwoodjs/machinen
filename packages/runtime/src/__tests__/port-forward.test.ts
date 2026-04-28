@@ -170,7 +170,6 @@ async function holdEphemeralPort(): Promise<{ port: number; stop: () => Promise<
     stop: () =>
       new Promise<void>((done) => {
         srv.close(() => done());
-        srv.closeAllConnections?.();
       }),
   };
 }

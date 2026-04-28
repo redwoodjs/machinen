@@ -24,6 +24,8 @@
 import { execFileSync } from "node:child_process";
 import {
   closeSync,
+  constants as fsConstants,
+  copyFileSync,
   existsSync,
   mkdtempSync,
   openSync,
@@ -40,6 +42,7 @@ import { ProvisionError } from "./errors.ts";
 import { VsockExec } from "./exec.ts";
 import { boot, type VmHandle } from "./index.ts";
 import type { OnLog } from "./log.ts";
+import { ensureRootfsImage } from "./rootfs-img.ts";
 
 const debug = debugLib("machinen:provision");
 const vmmDebug = debugLib("machinen:vmm");
@@ -141,10 +144,12 @@ export interface ProvisionResult {
 /**
  * The guest-side command we run after `install` completes to capture
  * the rootfs state onto the scratch disk. Excludes volatile + special
- * filesystems; everything else goes into the tar stream we then write
- * raw to `/dev/vda`. At pack-time there is no filesystem on the disk,
- * so we're appending tar directly to the block device. The host reads
- * it back the same way (the trailing two zero blocks mark the end).
+ * filesystems; everything else goes into the tar stream we write raw
+ * to `/dev/vdb`. The scratch disk is the second virtio-blk slot (vda
+ * holds the live ext4 rootfs the guest is running from); at pack-time
+ * vdb has no filesystem so we append tar directly to the block device.
+ * The host reads it back the same way (the trailing two zero blocks
+ * mark the end).
  */
 const TAR_TO_DISK_CMD = [
   "tar",
@@ -154,14 +159,13 @@ const TAR_TO_DISK_CMD = [
   "--exclude=./dev",
   "--exclude=./tmp",
   "--exclude=./run",
-  "--exclude=./mnt",
   "--exclude=./machinen-config.json",
   "--exclude=./etc/machinen-boot-epoch",
   "--sort=name",
   "--numeric-owner",
   "--owner=0",
   "--group=0",
-  "-cf /dev/vda",
+  "-cf /dev/vdb",
   ".",
 ].join(" ");
 
@@ -250,6 +254,7 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
   const t0 = Date.now();
   const workDir = mkdtempSync(join(tmpdir(), "machinen-provision-"));
   const diskPath = join(workDir, "scratch.img");
+  const rootDiskPath = join(workDir, "rootfs.img");
   const udsPath = join(workDir, "exec.sock");
   debug("provision start base=%s out=%s workDir=%s", baseAbs, outAbs, workDir);
 
@@ -261,10 +266,22 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
     allocateSparseFile(diskPath, scratchBytes);
     debug("scratch disk allocated path=%s sizeBytes=%d", diskPath, scratchBytes);
 
-    // Boot the VMM with the base rootfs as the image and the exec-agent
-    // as the cmd. We set MACHINEN_VSOCK explicitly via `vmmEnv` so the
-    // UDS path lives under workDir (predictable cleanup) rather than
-    // boot()'s auto-allocated tmp dir.
+    // Materialize the base tarball into an ext4 image and COW-clone it
+    // into the workDir. The install hook mutates this throwaway copy, so
+    // the persistent ~/.cache/machinen/rootfs/<sha>.img cache stays
+    // pristine for normal `boot({ image })` callers that share the same
+    // base. COPYFILE_FICLONE → APFS clonefile / Linux FICLONE on
+    // reflink-capable fs (free); falls back to a regular copy elsewhere
+    // (one-time cost, sparse).
+    const cachedImg = ensureRootfsImage(baseAbs);
+    copyFileSync(cachedImg, rootDiskPath, fsConstants.COPYFILE_FICLONE);
+    debug("rootdisk cloned src=%s dst=%s", cachedImg, rootDiskPath);
+
+    // Boot the VMM with the base rootfs on /dev/vda (mounted ext4) and
+    // the exec-agent as the cmd. The scratch disk lands on /dev/vdb,
+    // ready for the post-install tar dump. We set MACHINEN_VSOCK
+    // explicitly via `vmmEnv` so the UDS path lives under workDir
+    // (predictable cleanup) rather than boot()'s auto-allocated tmp dir.
     const vm = await boot({
       binary: opts.binary,
       cwd: opts.cwd,
@@ -278,12 +295,7 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
       cmd: ["/exec-agent"],
       env: { PATH: "/usr/local/bin:/usr/bin:/bin:/sbin" },
       snapshot: diskPath,
-      // Opt out of the disk-backed boot path: the post-install
-      // `tar / -cf /dev/vda` below writes the captured rootfs onto
-      // the snapshot disk (which is /dev/vda when no rootdisk is
-      // attached). Promoting provision() to virtio-blk root would
-      // need a /dev/vdb-aware tar dump and is tracked separately.
-      rootDisk: false,
+      rootDisk: rootDiskPath,
       // We drive the guest to exit via /sbin/machinen-poweroff at the
       // end; wait() has its own ceiling below.
       timeoutMs: null,
@@ -336,21 +348,21 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
       }
       debug("install hook done elapsed=%dms", Date.now() - installT0);
 
-      // Post-install: archive / to /dev/vda, then tell the guest to
-      // power off cleanly (PSCI SYSTEM_OFF via /sbin/machinen-poweroff).
-      // A failed tar here means our scratch disk was too small; surface
-      // that specifically.
-      debug("tar / -> /dev/vda starting");
+      // Post-install: archive / to /dev/vdb (the scratch disk), then
+      // tell the guest to power off cleanly (PSCI SYSTEM_OFF via
+      // /sbin/machinen-poweroff). A failed tar here means our scratch
+      // disk was too small; surface that specifically.
+      debug("tar / -> /dev/vdb starting");
       const tarT0 = Date.now();
       const tar = await VsockExec.run(udsPath, TAR_TO_DISK_CMD, {
         execTimeoutMs: deadlineMs,
         ...tapExecForLog(TAR_TO_DISK_CMD, opts.onLog),
       });
-      debug("tar / -> /dev/vda done exit=%d elapsed=%dms", tar.exitCode, Date.now() - tarT0);
+      debug("tar / -> /dev/vdb done exit=%d elapsed=%dms", tar.exitCode, Date.now() - tarT0);
       if (tar.exitCode !== 0) {
         throw new ProvisionError(
           "PROVISION_DISK_TOO_SMALL",
-          `tar / to /dev/vda failed (code ${tar.exitCode}) — scratch disk may be too small.\n` +
+          `tar / to /dev/vdb failed (code ${tar.exitCode}) — scratch disk may be too small.\n` +
             `Bump scratchDiskSizeBytes. stderr:\n${tar.stderr}`,
         );
       }

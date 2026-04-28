@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 
 const binDir = join(dirname(fileURLToPath(import.meta.url)), "bin");
 
-export const binary = join(binDir, "microvm");
+export const binary = join(binDir, "machinen-vm");
 // gvproxy (containers/gvisor-tap-vsock) — optional sibling binary the
 // runtime auto-spawns for virtio-net. Present when CI stages it during
 // publish; absent in the repo so `git status` stays clean.
