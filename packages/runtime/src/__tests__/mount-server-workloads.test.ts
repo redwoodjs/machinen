@@ -199,6 +199,225 @@ describe.runIf(assetsPresent())("FUSE live-mount workloads (#165)", () => {
   );
 
   // -------------------------------------------------------------------
+  // git clone — host-side bare repo committed offline; guest clones via
+  // file://. Exercises CREATE + MKDIR + RENAME-into-place + git's own
+  // pack/index dance, plus a non-trivial rmdir flow when git fixes up
+  // its temp dirs. No network needed.
+  // -------------------------------------------------------------------
+
+  it(
+    "git clone file:///mnt/workspace/repo.git produces a working checkout on the host",
+    async () => {
+      const { scratch, cleanup } = makeScratch();
+      try {
+        // Build a bare repo with one commit, two files, and a branch
+        // entirely host-side (we have git locally). The VM will clone
+        // it; nothing here needs to run inside the guest.
+        const work = mkdtempSync(join(tmpdir(), "machinen-workload-gitwork-"));
+        try {
+          execFileSync("git", ["init", "-q", "-b", "main", work]);
+          writeFileSync(join(work, "README.md"), "# fixture\n");
+          writeFileSync(join(work, "data.txt"), "payload\n");
+          execFileSync("git", ["-C", work, "add", "."]);
+          execFileSync("git", [
+            "-C",
+            work,
+            "-c",
+            "user.email=fixture@test",
+            "-c",
+            "user.name=fixture",
+            "commit",
+            "-q",
+            "-m",
+            "initial",
+          ]);
+          execFileSync("git", ["clone", "-q", "--bare", work, join(scratch, "repo.git")]);
+        } finally {
+          rmSync(work, { recursive: true, force: true });
+        }
+
+        const result = await runWorkload(
+          scratch,
+          [
+            "set -e",
+            "cd /mnt/workspace",
+            // file:// clones from the live mount itself: the source
+            // path under /mnt/workspace is the same FUSE mount as the
+            // destination, so every read AND every write goes through
+            // the same wire. That's deliberate — both sides are
+            // covered in one boot.
+            "git clone -q file:///mnt/workspace/repo.git checkout",
+            "cat checkout/README.md",
+          ].join("\n"),
+        );
+
+        if (result.exitCode !== 0) {
+          reportFailure("git clone workload", result);
+        }
+
+        expect(readFileSync(join(scratch, "checkout", "README.md"), "utf8")).toBe("# fixture\n");
+        expect(readFileSync(join(scratch, "checkout", "data.txt"), "utf8")).toBe("payload\n");
+        expect(existsSync(join(scratch, "checkout", ".git", "HEAD"))).toBe(true);
+      } finally {
+        cleanup();
+      }
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  // -------------------------------------------------------------------
+  // rsync -a — recursive preserve-attributes copy. Same op coverage as
+  // the tar test (mtimes, perms, symlinks) but exercised through copy-
+  // from-FUSE rather than tarball-extract-onto-FUSE, and via rsync's
+  // own stat-everything-twice scan pattern that's harsher on
+  // GETATTR/READDIR than `cp -a`.
+  // -------------------------------------------------------------------
+
+  it(
+    "rsync -a from one /mnt/workspace subtree to another preserves content + attrs",
+    async () => {
+      const { scratch, cleanup } = makeScratch();
+      try {
+        const src = join(scratch, "src");
+        mkdirSync(join(src, "nested"), { recursive: true });
+        writeFileSync(join(src, "alpha.txt"), "alpha\n");
+        writeFileSync(join(src, "nested", "beta.txt"), "beta\n");
+        execFileSync("ln", ["-s", "alpha.txt", join(src, "alias")]);
+
+        const result = await runWorkload(
+          scratch,
+          [
+            "set -e",
+            "cd /mnt/workspace",
+            // Trailing slash on src/ makes rsync copy contents-of-src
+            // into dst/, matching the issue's example syntax.
+            "rsync -a src/ dst/",
+            // Explicit verification step inside the guest catches the
+            // case where the host sees the file but the guest didn't
+            // observe the rename — flushed FUSE caches differ.
+            "test -L dst/alias",
+            'test "$(readlink dst/alias)" = alpha.txt',
+          ].join("\n"),
+        );
+
+        if (result.exitCode !== 0) {
+          reportFailure("rsync -a workload", result);
+        }
+
+        expect(readFileSync(join(scratch, "dst", "alpha.txt"), "utf8")).toBe("alpha\n");
+        expect(readFileSync(join(scratch, "dst", "nested", "beta.txt"), "utf8")).toBe("beta\n");
+        const aliasLstat = statSync(join(scratch, "dst", "alias"));
+        expect(aliasLstat.isSymbolicLink() || aliasLstat.isFile()).toBe(true);
+      } finally {
+        cleanup();
+      }
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  // -------------------------------------------------------------------
+  // sqlite3 WAL — opens a fresh DB on /mnt/workspace, switches to WAL
+  // mode, inserts/reads. WAL uses POSIX advisory locks (fcntl GETLK/
+  // SETLK), which the FUSE server currently does NOT implement —
+  // returns ENOSYS. SQLite has a documented fallback: when locks are
+  // unavailable it can still operate, but only single-process. We
+  // assert the workload either succeeds or fails *cleanly* (no wedge)
+  // and the on-host file ends up readable. This catches the
+  // implemented-but-hangs class around lock ops if any of them ever
+  // gets wired up wrong.
+  // -------------------------------------------------------------------
+
+  it(
+    "sqlite3 WAL writes round-trip through the live mount",
+    async () => {
+      const { scratch, cleanup } = makeScratch();
+      try {
+        const result = await runWorkload(
+          scratch,
+          [
+            "set -e",
+            "cd /mnt/workspace",
+            // -bail: stop on first error. -batch: no interactive
+            // prompts. The semicolon-separated SQL drives the whole
+            // open → pragma → write → read round-trip in one process.
+            'sqlite3 -bail -batch test.db "' +
+              "PRAGMA journal_mode=WAL;" +
+              "CREATE TABLE t(k INTEGER PRIMARY KEY, v TEXT);" +
+              "INSERT INTO t VALUES(1,'one'),(2,'two'),(3,'three');" +
+              'SELECT v FROM t WHERE k=2;"',
+            'echo "SQLITE_EXIT=$?"',
+          ].join("\n"),
+        );
+
+        if (result.exitCode !== 0) {
+          reportFailure("sqlite3 WAL workload", result);
+        }
+
+        // The DB file must exist on the host and be readable as a
+        // sqlite database. We don't reach into the format — sqlite's
+        // own success above is the strong signal; we just check the
+        // file landed.
+        expect(existsSync(join(scratch, "test.db"))).toBe(true);
+        expect(statSync(join(scratch, "test.db")).size).toBeGreaterThan(0);
+      } finally {
+        cleanup();
+      }
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  // -------------------------------------------------------------------
+  // dd + cp --sparse=always — fills a file with zeros, then sparse-
+  // copies it. cp --sparse=always uses SEEK_HOLE/SEEK_DATA (LSEEK,
+  // currently NOT in the dispatch — falls through to ENOSYS). The
+  // assertion is that cp gracefully falls back rather than wedging
+  // or producing a corrupt file.
+  // -------------------------------------------------------------------
+
+  it(
+    "dd + cp --sparse=always produces a byte-identical copy on the host",
+    async () => {
+      const { scratch, cleanup } = makeScratch();
+      try {
+        // Small enough to keep test under a second; still exercises
+        // multiple FUSE WRITE round-trips at the runtime's max_write
+        // (128 KiB). Not a sparse-detection benchmark — just a
+        // wedge-free correctness check.
+        const SIZE_MB = 4;
+        const result = await runWorkload(
+          scratch,
+          [
+            "set -e",
+            "cd /mnt/workspace",
+            `dd if=/dev/zero of=zeros bs=1M count=${SIZE_MB} status=none`,
+            "cp --sparse=always zeros copy",
+            'echo "WORKLOAD_DD_SIZE=$(stat -c %s copy)"',
+          ].join("\n"),
+        );
+
+        if (result.exitCode !== 0) {
+          reportFailure("dd + cp --sparse=always workload", result);
+        }
+
+        const expectedBytes = SIZE_MB * 1024 * 1024;
+        expect(statSync(join(scratch, "zeros")).size).toBe(expectedBytes);
+        expect(statSync(join(scratch, "copy")).size).toBe(expectedBytes);
+        // Content must round-trip — host should see all zeros, no
+        // residual bytes.
+        const buf = readFileSync(join(scratch, "copy"));
+        expect(buf.length).toBe(expectedBytes);
+        // Quick spot-check rather than scanning every byte.
+        expect(buf[0]).toBe(0);
+        expect(buf[buf.length - 1]).toBe(0);
+        expect(buf[buf.length / 2]).toBe(0);
+      } finally {
+        cleanup();
+      }
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  // -------------------------------------------------------------------
   // find at scale — drives READDIR + LOOKUP + GETATTR over thousands of
   // entries in one boot. Catches off-by-one errors in dirent packing
   // and the resume-by-offset path tested in unit tests, but at a scale

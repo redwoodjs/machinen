@@ -114,12 +114,17 @@ const installSteps = async (vm: VmHandle) => {
   //   jq                       — JSON munging.
   //   less, vim-tiny           — usable interactive shell.
   //   openssh-client, gh       — git/ssh + GitHub CLI.
+  //   rsync, sqlite3           — used by the FUSE workload tests
+  //                              (#165 layer 2). rsync exercises
+  //                              SETATTR/GETATTR at scale; sqlite WAL
+  //                              exercises advisory locks (GETLK/SETLK).
   // Symlink fd-find's binary to the upstream `fd` name.
   await vm.exec(
     "apt-get update -qq && " +
       "apt-get install -y --no-install-recommends " +
       "bash git build-essential ca-certificates curl " +
-      "ripgrep fd-find jq less vim-tiny openssh-client gh && " +
+      "ripgrep fd-find jq less vim-tiny openssh-client gh " +
+      "rsync sqlite3 && " +
       "ln -sf /usr/bin/fdfind /usr/local/bin/fd",
   );
 
@@ -150,6 +155,13 @@ const installSteps = async (vm: VmHandle) => {
   // Materialize Claude Code credentials on first login. The boot cmd
   // is `bash -lc` (login shell), so /etc/profile + profile.d run and
   // this snippet fires before the interactive bash shows a prompt.
+  //
+  // CLAUDE_CREDENTIALS  -> ~/.claude/.credentials.json (OAuth tokens;
+  //                        rewritten every boot so a rotated host token
+  //                        propagates).
+  // CLAUDE_ACCOUNT_JSON -> ~/.claude.json (identity + onboarding slice;
+  //                        only seeded when the file is missing so we
+  //                        don't clobber state the VM accumulates).
   const profileSnippet = [
     "#!/bin/sh",
     'if [ -n "${CLAUDE_CREDENTIALS:-}" ]; then',
@@ -158,6 +170,11 @@ const installSteps = async (vm: VmHandle) => {
     '  chmod 600 "$HOME/.claude/.credentials.json"',
     "  unset CLAUDE_CREDENTIALS",
     "fi",
+    'if [ -n "${CLAUDE_ACCOUNT_JSON:-}" ] && [ ! -e "$HOME/.claude.json" ]; then',
+    '  printf "%s" "$CLAUDE_ACCOUNT_JSON" > "$HOME/.claude.json"',
+    '  chmod 600 "$HOME/.claude.json"',
+    "fi",
+    "unset CLAUDE_ACCOUNT_JSON",
     "",
   ].join("\n");
   const profileSnippetB64 = Buffer.from(profileSnippet).toString("base64");
