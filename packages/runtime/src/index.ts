@@ -618,8 +618,8 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   // #114: rootdisk-by-default. Boot mounts the rootfs from a
   // virtio-blk device (/dev/vda) instead of inflating the whole tree
   // into a RAM-backed tmpfs at boot. The user passes `rootDisk: false`
-  // to opt back into the legacy cpio-as-rootfs path (mostly used by
-  // `provision()` itself, which writes its scratch tar to /dev/vda).
+  // to opt back into the legacy cpio-as-rootfs path (rare — mostly for
+  // tests that need to assert the initramfs path explicitly).
   // Resolution + materialization happens later, alongside packBundle,
   // so per-arg validation (mount paths, liveMount, baked-cmd) fires
   // before we spend time hashing the tarball.
@@ -1497,10 +1497,9 @@ function synthesizeAndPackBundle(
         fuseAgentPath: liveMounts.length > 0 ? defaultFuseAgentPath() : undefined,
       });
     } else {
-      // Legacy fat cpio: provision()'s `tar / -cf /dev/vda` and any
-      // explicit `rootDisk: false` opt-out. Drags the entire base
-      // tarball into RAM, by design — those callers need a Debian
-      // userland in the cpio.
+      // Legacy fat cpio: explicit `rootDisk: false` opt-out. Drags the
+      // entire base tarball into RAM, by design — callers that need a
+      // Debian userland in the cpio (no virtio-blk root) land here.
       mkinitramfsPackBundle({
         bundle: synthBundleDir,
         out: cpioPath,

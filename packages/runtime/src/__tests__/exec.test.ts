@@ -53,7 +53,8 @@ describe("VsockExec", () => {
       return;
     }
     const debianTar = resolve(microvmRoot, "../../release-assets/rootfs-debian-arm64.tar.gz");
-    if (!existsSync(debianTar)) {
+    const modulesTar = resolve(microvmRoot, "../../release-assets/modules-arm64.tar.gz");
+    if (!existsSync(debianTar) || !existsSync(modulesTar)) {
       return;
     }
     const udsPath = join(tmpdir(), `machinen-exec-${process.pid}.sock`);
@@ -70,6 +71,10 @@ describe("VsockExec", () => {
         vmmEnv: {
           MACHINEN_BOOT_TEST: "1",
           MACHINEN_VSOCK: `in:1978:${udsPath}`,
+          // Test-fixture binary loads test-fixtures/Image directly, so
+          // the runtime never sees a MACHINEN_KERNEL it can probe for
+          // modules. Hand it the path explicitly.
+          MACHINEN_MODULES: modulesTar,
         },
         image: debianTar,
         cmd: ["/exec-agent"],
