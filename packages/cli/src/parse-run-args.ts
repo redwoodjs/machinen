@@ -11,8 +11,8 @@ export interface ParsedRunArgs {
   /**
    * Live-share FUSE mounts (`--mount-live <host>:<guest>[:<mode>]`).
    * Each entry stays connected to the host filesystem for the VM's
-   * life; guest reads stream in on demand. `mode` is `ro` (default) or
-   * `rw` for write-through. See #78, #151.
+   * life; guest reads stream in on demand. `mode` is `rw` (default,
+   * write-through) or `ro` for read-only. See #78, #151.
    */
   liveMounts?: Array<{ host: string; guest: string; mode: "ro" | "rw" }>;
   env?: Record<string, string>;
@@ -80,8 +80,8 @@ export function parseRunArgs(argv: string[]): ParsedRunArgs {
       } else {
         spec = a.slice("--mount-live=".length);
       }
-      // Format: `<host>:<guest>[:<mode>]`. Mode defaults to `ro`;
-      // explicit `:rw` enables write-through (#151). A guest path
+      // Format: `<host>:<guest>[:<mode>]`. Mode defaults to `rw`
+      // (write-through, #151); pass `:ro` for read-only. A guest path
       // containing a colon is rejected — same trade-off as `--mount`.
       const parts = spec!.split(":");
       if (parts.length < 2 || parts.length > 3 || !parts[0] || !parts[1]) {
@@ -100,7 +100,7 @@ export function parseRunArgs(argv: string[]): ParsedRunArgs {
       liveMounts.push({
         host: parts[0]!,
         guest: parts[1]!,
-        mode: (modeRaw as "ro" | "rw" | undefined) ?? "ro",
+        mode: (modeRaw as "ro" | "rw" | undefined) ?? "rw",
       });
     } else if (a === "--env" || a.startsWith("--env=")) {
       let spec: string | undefined;

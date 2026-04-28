@@ -110,9 +110,9 @@ export interface LiveMountServerOptions {
   /** Absolute host path that bounds every op. */
   rootAbs: string;
   /**
-   * `"ro"` (default) rejects mutating ops with EROFS. `"rw"` enables
-   * write-through: WRITE/CREATE/MKDIR/RMDIR/UNLINK/RENAME/SETATTR/FSYNC
-   * land on the host filesystem, all gated through `resolveUnderRoot`.
+   * `"rw"` (default) enables write-through: WRITE/CREATE/MKDIR/RMDIR/
+   * UNLINK/RENAME/SETATTR/FSYNC land on the host filesystem, all gated
+   * through `resolveUnderRoot`. `"ro"` rejects mutating ops with EROFS.
    */
   mode?: "ro" | "rw";
 }
@@ -132,7 +132,7 @@ export async function serveLiveMount(
   udsPath: string,
   opts: LiveMountServerOptions,
 ): Promise<LiveMountServerHandle> {
-  const state = createState(opts.rootAbs, opts.mode ?? "ro");
+  const state = createState(opts.rootAbs, opts.mode ?? "rw");
   const server = createServer((sock) => void handleConnection(sock, state));
   await new Promise<void>((done, fail) => {
     server.once("error", fail);

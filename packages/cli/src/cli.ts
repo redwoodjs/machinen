@@ -763,8 +763,8 @@ function printHelp(): void {
       `    --mount-live <host-dir>:<guest-path>[:<mode>]\n` +
       `                                                 Live-share a host dir over FUSE.\n` +
       `                                                 Guest reads stream in on demand; no\n` +
-      `                                                 copy at boot. mode is 'ro' (default)\n` +
-      `                                                 or 'rw' for write-through.\n` +
+      `                                                 copy at boot. mode is 'rw' (default,\n` +
+      `                                                 write-through) or 'ro' (read-only).\n` +
       `    --env KEY=VALUE                              Set an env var inside the guest.\n` +
       `    -p <hostPort>:<guestPort>                    Forward host:hostPort → guest:guestPort.\n` +
       `\n` +
