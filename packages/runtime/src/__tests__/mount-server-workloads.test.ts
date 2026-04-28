@@ -78,8 +78,15 @@ interface WorkloadResult {
  * no shell-after-workload fallback. Stdout/stderr are buffered into
  * strings, fine for the verifier `echo` lines we use; for big payloads
  * write to a file in the workspace and read it host-side instead.
+ *
+ * `timeoutMs` overrides the per-VM timeout (the pjdfstest workload
+ * runs ~8500 cases through FUSE and needs minutes, not the default 2).
  */
-async function runWorkload(scratch: string, script: string): Promise<WorkloadResult> {
+async function runWorkload(
+  scratch: string,
+  script: string,
+  timeoutMs: number = VM_BOOT_TIMEOUT_MS,
+): Promise<WorkloadResult> {
   const ramBytes = (() => {
     const size = statSync(TEST_VM_TAR).size;
     const GIB = 1024 ** 3;
@@ -103,7 +110,7 @@ async function runWorkload(scratch: string, script: string): Promise<WorkloadRes
       cmd: ["/bin/bash", "-lc", script],
       liveMounts: [{ host: scratch, guest: "/mnt/workspace", mode: "rw" }],
       vmmEnv: { MACHINEN_RAM_BYTES: String(ramBytes) },
-      timeoutMs: VM_BOOT_TIMEOUT_MS,
+      timeoutMs,
     });
 
     let stdout = "";
@@ -140,6 +147,54 @@ function reportFailure(label: string, result: WorkloadResult): never {
       `--- stdout (last 4KB) ---\n${result.stdout.slice(-4096)}\n` +
       `--- stderr (last 4KB) ---\n${result.stderr.slice(-4096)}`,
   );
+}
+
+interface PjdfstestSummary {
+  /** Total tests run (Files=…). */
+  files: number;
+  /** Total individual assertions (Tests=…). */
+  tests: number;
+  /** Number of asserting passes. */
+  passes: number;
+  /** Number of asserting failures. Always tests - passes for our parser. */
+  failures: number;
+}
+
+/**
+ * Parse the trailing summary that `prove` prints after a run. Two
+ * lines we depend on (in order):
+ *
+ *   Files=NN, Tests=MMMM, …
+ *   Result: PASS|FAIL
+ *
+ * When tests fail, `prove` also prints a per-file "Failed: M/M" line
+ * we can sum to derive `passes`. If failures are zero the summary
+ * line gives us everything directly.
+ *
+ * Returns null if neither anchor line is found — the caller treats
+ * that as a setup bug (suite didn't run) rather than a test failure.
+ */
+function parsePjdfstestSummary(text: string): PjdfstestSummary | null {
+  // "Files=37, Tests=8519,  173 wallclock secs (...)"
+  const fileMatch = text.match(/Files=(\d+),\s*Tests=(\d+)/);
+  if (!fileMatch) {
+    return null;
+  }
+  const files = Number(fileMatch[1]);
+  const tests = Number(fileMatch[2]);
+
+  // Sum any per-file "Failed: K/N" — this also catches the
+  // "Failed Tests" block prove emits before the summary line.
+  let failures = 0;
+  for (const m of text.matchAll(/Failed:\s+(\d+)\/\d+/g)) {
+    failures += Number(m[1]);
+  }
+  // Belt-and-suspenders: prove's "Result: FAIL" with no per-file
+  // breakdown still implies at least one failure.
+  if (failures === 0 && /Result:\s+FAIL/.test(text)) {
+    failures = 1;
+  }
+  return { files, tests, passes: tests - failures, failures };
 }
 
 // ----------------------------------------------------------------------
@@ -424,6 +479,97 @@ describe.runIf(assetsPresent())("FUSE live-mount workloads (#165)", () => {
       }
     },
     TEST_TIMEOUT_MS,
+  );
+
+  // -------------------------------------------------------------------
+  // pjdfstest (#165 layer 3) — POSIX filesystem conformance suite.
+  // ~8500 test cases covering chmod/chown/link/mkdir/mkfifo/open/
+  // rename/rmdir/symlink/truncate/unlink. Built into /opt/pjdfstest in
+  // the test image (see scripts/provision-test-vm.ts).
+  //
+  // We don't pass everything on day one — the baseline is recorded in
+  // pjdfstest-baseline.json and the test ratchets it. A drop in passes
+  // fails CI; a rise prints a hint to bump the baseline.
+  // -------------------------------------------------------------------
+
+  it(
+    "pjdfstest baseline holds (no regressions in POSIX conformance)",
+    async () => {
+      const { scratch, cleanup } = makeScratch();
+      try {
+        const result = await runWorkload(
+          scratch,
+          [
+            "set +e", // prove returns non-zero on any test failure; we capture it
+            "cd /mnt/workspace",
+            // Run the suite verbosely so the prove summary line lands
+            // in stdout for the host parser. --norc skips the per-user
+            // .proverc, --timer is harmless and useful for debug.
+            "prove -r --norc --timer /opt/pjdfstest/tests",
+            // Sentinel echo so the parser can find the trailing
+            // summary unambiguously even if prove's own output is
+            // interleaved with kernel logs.
+            'echo "PJDFSTEST_DONE"',
+          ].join("\n"),
+          // 8 minutes inside the VM. The outer it() timeout is 10
+          // minutes, leaving 2 min of margin for shutdown + parsing.
+          8 * 60_000,
+        );
+
+        const summary = parsePjdfstestSummary(result.stdout + "\n" + result.stderr);
+        if (!summary) {
+          throw new Error(
+            "pjdfstest workload: couldn't parse prove summary.\n" +
+              `--- stdout (last 4KB) ---\n${result.stdout.slice(-4096)}\n` +
+              `--- stderr (last 4KB) ---\n${result.stderr.slice(-4096)}`,
+          );
+        }
+
+        const baselinePath = join(import.meta.dirname, "pjdfstest-baseline.json");
+        if (!existsSync(baselinePath)) {
+          // First run: record current totals as the floor and fail
+          // loudly so a maintainer reviews the numbers before they
+          // become "the" baseline.
+          writeFileSync(baselinePath, `${JSON.stringify(summary, null, 2)}\n`);
+          throw new Error(
+            `pjdfstest baseline written to ${baselinePath} ` +
+              `(${JSON.stringify(summary)}). Review and commit, then re-run.`,
+          );
+        }
+
+        const baseline = JSON.parse(readFileSync(baselinePath, "utf8")) as typeof summary;
+
+        // Total-tests floor: pjdfstest occasionally adds upstream
+        // cases. A 5% drop means the suite was truncated (e.g. half
+        // the perl scripts didn't run) — that's a setup bug, not a
+        // conformance regression.
+        if (summary.tests < Math.floor(baseline.tests * 0.95)) {
+          throw new Error(
+            `pjdfstest: total tests dropped from ${baseline.tests} to ${summary.tests} — ` +
+              "is the suite truncated?",
+          );
+        }
+        if (summary.passes < baseline.passes) {
+          throw new Error(
+            `pjdfstest: passing tests regressed from ${baseline.passes} to ${summary.passes}. ` +
+              "If this is intentional, update pjdfstest-baseline.json.",
+          );
+        }
+        if (summary.passes > baseline.passes) {
+          // eslint-disable-next-line no-console
+          console.log(
+            `[pjdfstest] passes improved from ${baseline.passes} to ${summary.passes}. ` +
+              "Bump pjdfstest-baseline.json to lock in.",
+          );
+        }
+      } finally {
+        cleanup();
+      }
+    },
+    // pjdfstest is the slow workload — ~8500 cases through FUSE take
+    // a couple of minutes. 10 min ceiling so a wedge surfaces as a
+    // bounded failure rather than a hung CI job.
+    10 * 60_000,
   );
 
   // -------------------------------------------------------------------

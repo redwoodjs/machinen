@@ -49,19 +49,49 @@ const { provision } = (await import(
   resolve(MAIN_REPO, "node_modules/@machinen/runtime/dist/index.js")
 )) as typeof import("@machinen/runtime");
 
-// Minimal install: only the tools the workload tests need. The base
-// rootfs from scripts/build-base-assets.sh is bare Debian — even git
-// isn't in it. tar lives in coreutils; everything else gets added here.
+// Tools the workload tests need. The base rootfs from
+// scripts/build-base-assets.sh is bare Debian — even git isn't in it.
+// Layer 3 (pjdfstest) needs a C toolchain + autoconf to build from
+// source inside the VM, plus perl + Test::Harness to drive the suite.
 const installSteps = async (vm: VmHandle): Promise<void> => {
   await vm.exec(
     "apt-get update -qq && " +
-      "apt-get install -y --no-install-recommends git rsync sqlite3 && " +
+      "apt-get install -y --no-install-recommends " +
+      // ca-certificates: minbase rootfs doesn't ship them, so the
+      // git-clone step below fails TLS verification without this.
+      "ca-certificates " +
+      // workload basics
+      "git rsync sqlite3 " +
+      // pjdfstest build deps + runner. autoconf/automake/libtool drive
+      // its autogen.sh; libacl1-dev exposes the ACL syscalls a few
+      // tests touch (others probe and skip cleanly when ACLs aren't
+      // backed by the fs). prove ships in perl.
+      "build-essential autoconf automake libtool libacl1-dev perl && " +
       "apt-get clean && rm -rf /var/lib/apt/lists/*",
   );
   // file:// clones from the live FUSE mount fall foul of CVE-2022-24765
   // "dubious ownership" warnings — the FUSE uid won't match the guest's
   // uid. safe.directory '*' opts out, same as the dev provision.
   await vm.exec("git config --global --add safe.directory '*'");
+
+  // Build pjdfstest from source. Autotools build — autoreconf
+  // generates ./configure, which writes a Makefile that compiles the
+  // single C helper used by every test. The perl/prove scripts live
+  // in tests/ and are invoked at workload time, not here. Pin via
+  // the SHA recorded in /opt/pjdfstest/COMMIT so a baseline drift
+  // can be diagnosed; pinning to a fixed commit upstream is fine to
+  // do later if drift becomes a real problem.
+  await vm.exec(
+    "git clone --quiet --depth 1 https://github.com/pjd/pjdfstest /opt/pjdfstest && " +
+      "cd /opt/pjdfstest && " +
+      "git rev-parse HEAD > COMMIT && " +
+      "autoreconf -ifs >/dev/null && " +
+      "./configure --quiet >/dev/null && " +
+      "make pjdfstest >/dev/null && " +
+      // Drop the .git dir to keep the resulting image small — we
+      // recorded the SHA in COMMIT for traceability.
+      "rm -rf /opt/pjdfstest/.git",
+  );
 };
 
 // Stamp = hash of this file's contents. Any edit (new package, version

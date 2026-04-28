@@ -1,0 +1,98 @@
+name: FUSE workload tests
+
+# Real-VM workload integration tests for /mnt/workspace (#165 layer 2 + 3).
+#
+# Runs the workload subset of vitest against a fully booted microVM:
+#   - Builds the linux-arm64 VMM (zig).
+#   - Pulls / builds the cached base assets (kernel + dtb + rootfs).
+#   - Runs `pnpm provision-test-vm` to bake test-vm.tar.gz with the
+#     extra tools (git, rsync, sqlite3, pjdfstest).
+#   - Runs the workload-only vitest filter, which boots a real VM per
+#     test case and asserts behaviour against the live FUSE mount.
+#
+# Kept off the default `Tests` workflow because it (a) needs an arm64
+# runner — KVM only works for the matching arch and our VMM is only
+# wired up for arm64 today — and (b) takes minutes, not seconds.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/runtime/**"
+      - "packages/microvm/**"
+      - "scripts/build-base-assets.sh"
+      - "scripts/provision-test-vm.ts"
+      - "provision.ts"
+      - ".github/workflows/fuse-workloads.yml"
+      - ".github/workflows/_build-base-assets.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "packages/runtime/**"
+      - "packages/microvm/**"
+      - "scripts/build-base-assets.sh"
+      - "scripts/provision-test-vm.ts"
+      - "provision.ts"
+      - ".github/workflows/fuse-workloads.yml"
+      - ".github/workflows/_build-base-assets.yml"
+
+jobs:
+  base-assets:
+    uses: ./.github/workflows/_build-base-assets.yml
+
+  workloads:
+    needs: [base-assets]
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # The runtime spawns the VMM as a child process. On linux-arm64
+      # KVM is the hypervisor — the runner image exposes /dev/kvm to
+      # rootless processes via a udev rule, but we still need group
+      # membership; the GitHub-hosted arm64 runner already grants this
+      # to the workflow user.
+      - name: Confirm KVM is available
+        run: test -c /dev/kvm
+
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.16.0
+
+      - name: Build linux-arm64 VMM
+        working-directory: packages/microvm
+        run: zig build -Doptimize=ReleaseSafe
+
+      - name: Stage VMM for the runtime to find
+        run: |
+          mkdir -p packages/vmm-arm64-linux/bin
+          cp packages/microvm/zig-out/bin/microvm packages/vmm-arm64-linux/bin/microvm
+          cp packages/microvm/zig-out/bin/gvproxy packages/vmm-arm64-linux/bin/gvproxy
+
+      - run: pnpm install --frozen-lockfile
+
+      # Build runtime + cli so the workload tests import the compiled
+      # dist (vitest uses the source via tsx, but boot() flows through
+      # @machinen/runtime's package entrypoint which the test imports
+      # by relative path — rebuild keeps types in sync regardless).
+      - run: pnpm -F @machinen/runtime -F @machinen/cli build
+
+      - name: Materialize cached base assets
+        uses: actions/download-artifact@v4
+        with:
+          name: base-assets
+          path: release-assets/
+
+      - name: Provision the test VM image
+        run: pnpm provision-test-vm
+
+      # Filter to workloads — the rest of vitest already runs in the
+      # plain Tests workflow.
+      - name: Run workload tests
+        run: pnpm exec vitest run packages/runtime/src/__tests__/mount-server-workloads.test.ts
