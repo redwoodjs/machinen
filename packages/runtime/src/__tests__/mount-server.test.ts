@@ -9,7 +9,16 @@
 // exercises the actual mount → read path.
 
 import { connect as netConnect } from "node:net";
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -377,8 +386,8 @@ describe("live mount server — symlink semantics", () => {
   });
 });
 
-describe("live mount server — unknown ops reply ENOSYS", () => {
-  it("WRITE (not supported in RO v0) → ENOSYS", async () => {
+describe("live mount server — :ro mounts reject mutations", () => {
+  it("WRITE returns EROFS in :ro mode", async () => {
     await withConnection(async (conn) => {
       await doInit(conn);
       const reply = await conn.request(FUSE_OP.WRITE, {
@@ -386,7 +395,244 @@ describe("live mount server — unknown ops reply ENOSYS", () => {
         nodeid: 1n,
         payload: new Uint8Array(40),
       });
-      expect(reply.header.error).toBe(-38); // -ENOSYS
+      expect(reply.header.error).toBe(-30); // -EROFS
+    });
+  });
+
+  it("CREATE returns EROFS in :ro mode", async () => {
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const payload = new Uint8Array(16 + "new.txt\0".length);
+      const dv = new DataView(payload.buffer);
+      dv.setUint32(0, 0o100, true); // O_CREAT
+      dv.setUint32(4, 0o644, true); // mode
+      payload.set(new TextEncoder().encode("new.txt\0"), 16);
+      const reply = await conn.request(FUSE_OP.CREATE, {
+        unique: 2n,
+        nodeid: 1n,
+        payload,
+      });
+      expect(reply.header.error).toBe(-30); // -EROFS
+    });
+  });
+
+  it("UNLINK returns EROFS in :ro mode", async () => {
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const reply = await conn.request(FUSE_OP.UNLINK, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: nameBuf("hello.txt"),
+      });
+      expect(reply.header.error).toBe(-30);
+    });
+  });
+});
+
+// ---------------- :rw write-through ----------------
+
+describe("live mount server — :rw write-through", () => {
+  let rwScratch: string;
+  let rwRoot: string;
+  let rwUds: string;
+  let rwHandle: LiveMountServerHandle | undefined;
+
+  beforeEach(async () => {
+    rwScratch = mkdtempSync(join(tmpdir(), "machinen-mount-server-rw-"));
+    rwRoot = join(rwScratch, "root");
+    mkdirSync(rwRoot);
+    writeFileSync(join(rwRoot, "existing.txt"), "old\n");
+    mkdirSync(join(rwRoot, "dir"));
+    writeFileSync(join(rwRoot, "dir/file.txt"), "x");
+    rwUds = join(rwScratch, "fuse.sock");
+    rwHandle = await serveLiveMount(rwUds, { rootAbs: rwRoot, mode: "rw" });
+  });
+
+  afterEach(async () => {
+    await rwHandle?.stop();
+    rwHandle = undefined;
+    rmSync(rwScratch, { recursive: true, force: true });
+  });
+
+  async function rwConn(fn: (c: TestConnection) => Promise<void>): Promise<void> {
+    await withConnectionTo(rwUds, fn);
+  }
+
+  it("CREATE makes a new file and writes land on the host", async () => {
+    await rwConn(async (conn) => {
+      await doInit(conn);
+      // CREATE "new.txt" under root
+      const create = await conn.request(FUSE_OP.CREATE, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: buildCreateInWithName({ flags: 0o102, mode: 0o644, name: "new.txt" }),
+      });
+      expect(create.header.error).toBe(0);
+      // payload = entry_out (128) + open_out (16) = 144
+      expect(create.payload.length).toBe(144);
+      const fh = new DataView(
+        create.payload.buffer,
+        create.payload.byteOffset + 128,
+        16,
+      ).getBigUint64(0, true);
+      const inode = bigintFromEntry(create.payload);
+
+      // WRITE bytes
+      const data = new TextEncoder().encode("hello write\n");
+      const writeBody = buildWriteInWithData({ fh, offset: 0n, data });
+      const w = await conn.request(FUSE_OP.WRITE, {
+        unique: 3n,
+        nodeid: inode,
+        payload: writeBody,
+      });
+      expect(w.header.error).toBe(0);
+      // fuse_write_out: u32 size, u32 padding
+      expect(new DataView(w.payload.buffer, w.payload.byteOffset, 8).getUint32(0, true)).toBe(
+        data.length,
+      );
+
+      const rel = await conn.request(FUSE_OP.RELEASE, {
+        unique: 4n,
+        nodeid: inode,
+        payload: buildReleaseIn({ fh }),
+      });
+      expect(rel.header.error).toBe(0);
+
+      // The host file should exist with the bytes we wrote.
+      const onDisk = readFileSync(join(rwRoot, "new.txt"), "utf8");
+      expect(onDisk).toBe("hello write\n");
+    });
+  });
+
+  it("UNLINK removes a file from the host", async () => {
+    await rwConn(async (conn) => {
+      await doInit(conn);
+      const reply = await conn.request(FUSE_OP.UNLINK, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: nameBuf("existing.txt"),
+      });
+      expect(reply.header.error).toBe(0);
+      expect(existsSync(join(rwRoot, "existing.txt"))).toBe(false);
+    });
+  });
+
+  it("MKDIR + RMDIR round-trips on the host", async () => {
+    await rwConn(async (conn) => {
+      await doInit(conn);
+      // fuse_mkdir_in: u32 mode, u32 umask, then NUL-terminated name
+      const name = "new-dir";
+      const buf = new Uint8Array(8 + name.length + 1);
+      const dv = new DataView(buf.buffer);
+      dv.setUint32(0, 0o755, true);
+      dv.setUint32(4, 0, true);
+      buf.set(new TextEncoder().encode(name), 8);
+      const mk = await conn.request(FUSE_OP.MKDIR, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: buf,
+      });
+      expect(mk.header.error).toBe(0);
+      expect(statSync(join(rwRoot, name)).isDirectory()).toBe(true);
+
+      const rm = await conn.request(FUSE_OP.RMDIR, {
+        unique: 3n,
+        nodeid: 1n,
+        payload: nameBuf(name),
+      });
+      expect(rm.header.error).toBe(0);
+      expect(existsSync(join(rwRoot, name))).toBe(false);
+    });
+  });
+
+  it("RENAME moves a file under the host", async () => {
+    await rwConn(async (conn) => {
+      await doInit(conn);
+      // fuse_rename_in: u64 newdir, then "old\0new\0"
+      const buf = new Uint8Array(8 + "existing.txt\0renamed.txt\0".length);
+      const dv = new DataView(buf.buffer);
+      dv.setBigUint64(0, 1n, true); // newdir = root
+      buf.set(new TextEncoder().encode("existing.txt\0renamed.txt\0"), 8);
+      const reply = await conn.request(FUSE_OP.RENAME, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: buf,
+      });
+      expect(reply.header.error).toBe(0);
+      expect(existsSync(join(rwRoot, "existing.txt"))).toBe(false);
+      expect(readFileSync(join(rwRoot, "renamed.txt"), "utf8")).toBe("old\n");
+    });
+  });
+
+  it("SETATTR with FATTR_SIZE truncates the file", async () => {
+    await rwConn(async (conn) => {
+      await doInit(conn);
+      const lookup = await conn.request(FUSE_OP.LOOKUP, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: nameBuf("existing.txt"),
+      });
+      const ino = bigintFromEntry(lookup.payload);
+      // fuse_setattr_in: 88 bytes. We set FATTR_SIZE (1<<3) and size=0.
+      const buf = new Uint8Array(88);
+      const dv = new DataView(buf.buffer);
+      dv.setUint32(0, 1 << 3, true); // valid = FATTR_SIZE
+      dv.setBigUint64(16, 0n, true); // size = 0
+      const reply = await conn.request(FUSE_OP.SETATTR, {
+        unique: 3n,
+        nodeid: ino,
+        payload: buf,
+      });
+      expect(reply.header.error).toBe(0);
+      expect(readFileSync(join(rwRoot, "existing.txt"), "utf8")).toBe("");
+    });
+  });
+
+  it("CREATE refuses a malformed name (slash in basename → EINVAL)", async () => {
+    await rwConn(async (conn) => {
+      await doInit(conn);
+      const reply = await conn.request(FUSE_OP.CREATE, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: buildCreateInWithName({
+          flags: 0o102,
+          mode: 0o644,
+          name: "../escape.txt",
+        }),
+      });
+      expect(reply.header.error).toBe(-22); // -EINVAL
+    });
+  });
+
+  it("CREATE through a symlink that escapes the root → ENOENT", async () => {
+    // Plant a symlink inside the mount that points to a directory
+    // outside it, then try to CREATE a file under that link's inode.
+    // The resolver realpath's the parent through the symlink, sees
+    // the result is outside `rwRoot`, and throws MountError →
+    // ENOENT on the wire. The host's outside dir must stay untouched.
+    const outside = join(rwScratch, "outside");
+    mkdirSync(outside);
+    symlinkSync(outside, join(rwRoot, "escape-link"));
+    await rwConn(async (conn) => {
+      await doInit(conn);
+      const lookup = await conn.request(FUSE_OP.LOOKUP, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: nameBuf("escape-link"),
+      });
+      expect(lookup.header.error).toBe(0);
+      const linkIno = bigintFromEntry(lookup.payload);
+      const create = await conn.request(FUSE_OP.CREATE, {
+        unique: 3n,
+        nodeid: linkIno,
+        payload: buildCreateInWithName({
+          flags: 0o102,
+          mode: 0o644,
+          name: "planted.txt",
+        }),
+      });
+      expect(create.header.error).toBe(-2); // -ENOENT
+      expect(existsSync(join(outside, "planted.txt"))).toBe(false);
     });
   });
 });
@@ -405,8 +651,15 @@ interface TestConnection {
 }
 
 async function withConnection(fn: (c: TestConnection) => Promise<void>): Promise<void> {
+  return withConnectionTo(udsPath, fn);
+}
+
+async function withConnectionTo(
+  path: string,
+  fn: (c: TestConnection) => Promise<void>,
+): Promise<void> {
   const sock = await new Promise<Awaited<ReturnType<typeof netConnect>>>((done, fail) => {
-    const s = netConnect(udsPath);
+    const s = netConnect(path);
     s.once("error", fail);
     s.once("connect", () => {
       s.off("error", fail);
@@ -501,6 +754,27 @@ function buildReleaseIn(opts: { fh: bigint }): Uint8Array {
   const buf = new Uint8Array(24);
   const dv = new DataView(buf.buffer);
   dv.setBigUint64(0, opts.fh, true);
+  return buf;
+}
+
+function buildCreateInWithName(opts: { flags: number; mode: number; name: string }): Uint8Array {
+  const nameBytes = new TextEncoder().encode(opts.name);
+  const buf = new Uint8Array(16 + nameBytes.length + 1);
+  const dv = new DataView(buf.buffer);
+  dv.setUint32(0, opts.flags, true);
+  dv.setUint32(4, opts.mode, true);
+  // umask + open_flags = 0
+  buf.set(nameBytes, 16);
+  return buf;
+}
+
+function buildWriteInWithData(opts: { fh: bigint; offset: bigint; data: Uint8Array }): Uint8Array {
+  const buf = new Uint8Array(40 + opts.data.length);
+  const dv = new DataView(buf.buffer);
+  dv.setBigUint64(0, opts.fh, true);
+  dv.setBigUint64(8, opts.offset, true);
+  dv.setUint32(16, opts.data.length, true);
+  buf.set(opts.data, 40);
   return buf;
 }
 

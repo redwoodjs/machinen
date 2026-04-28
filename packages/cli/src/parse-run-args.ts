@@ -9,11 +9,12 @@ export interface ParsedRunArgs {
   double_dash_args: string[];
   mount?: { host: string; guest: string };
   /**
-   * Live-share FUSE mounts (`--mount-live <host>:<guest>`). Each
-   * entry stays connected to the host filesystem for the VM's life;
-   * guest reads stream in on demand. Read-only in this build. See #78.
+   * Live-share FUSE mounts (`--mount-live <host>:<guest>[:<mode>]`).
+   * Each entry stays connected to the host filesystem for the VM's
+   * life; guest reads stream in on demand. `mode` is `ro` (default) or
+   * `rw` for write-through. See #78, #151.
    */
-  liveMounts?: Array<{ host: string; guest: string }>;
+  liveMounts?: Array<{ host: string; guest: string; mode: "ro" | "rw" }>;
   env?: Record<string, string>;
   portForward?: Array<{ hostPort: number; guestPort: number }>;
   /** Snapshot image to restore from (`--snapshot <path>`). */
@@ -29,7 +30,7 @@ export function parseRunArgs(argv: string[]): ParsedRunArgs {
 
   const positional: string[] = [];
   let mount: { host: string; guest: string } | undefined;
-  const liveMounts: Array<{ host: string; guest: string }> = [];
+  const liveMounts: Array<{ host: string; guest: string; mode: "ro" | "rw" }> = [];
   const env: Record<string, string> = {};
   const portForward: Array<{ hostPort: number; guestPort: number }> = [];
   const seenHostPorts = new Set<number>();
@@ -79,18 +80,28 @@ export function parseRunArgs(argv: string[]): ParsedRunArgs {
       } else {
         spec = a.slice("--mount-live=".length);
       }
-      // Intentionally strict for v0: plain `<host>:<guest>`, no `:rw`
-      // suffix yet. Refusing any extra `:` now avoids callers baking
-      // `:rw` into scripts before write-through actually works and
-      // keeps the future upgrade additive.
-      const colon = spec!.indexOf(":");
-      if (colon <= 0 || colon === spec!.length - 1 || spec!.indexOf(":", colon + 1) !== -1) {
+      // Format: `<host>:<guest>[:<mode>]`. Mode defaults to `ro`;
+      // explicit `:rw` enables write-through (#151). A guest path
+      // containing a colon is rejected — same trade-off as `--mount`.
+      const parts = spec!.split(":");
+      if (parts.length < 2 || parts.length > 3 || !parts[0] || !parts[1]) {
         throw new ParseError(
           "PARSE_FLAG_MALFORMED",
-          `--mount-live: expected <host-dir>:<guest-path>, got '${spec}'`,
+          `--mount-live: expected <host-dir>:<guest-path>[:<mode>], got '${spec}'`,
         );
       }
-      liveMounts.push({ host: spec!.slice(0, colon), guest: spec!.slice(colon + 1) });
+      const modeRaw = parts[2];
+      if (modeRaw !== undefined && modeRaw !== "ro" && modeRaw !== "rw") {
+        throw new ParseError(
+          "PARSE_FLAG_MALFORMED",
+          `--mount-live: mode must be 'ro' or 'rw', got '${modeRaw}'`,
+        );
+      }
+      liveMounts.push({
+        host: parts[0]!,
+        guest: parts[1]!,
+        mode: (modeRaw as "ro" | "rw" | undefined) ?? "ro",
+      });
     } else if (a === "--env" || a.startsWith("--env=")) {
       let spec: string | undefined;
       if (a === "--env") {

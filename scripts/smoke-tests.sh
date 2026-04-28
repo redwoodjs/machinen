@@ -14,9 +14,12 @@
 # Tests:
 #   V1-V4  Validation paths (no boot): host-missing, host-is-a-file,
 #          guest-outside-/mnt/, second --mount.
+#   V5-V8  --mount-live validation, including :ro / :rw modes — #78, #151.
 #   T1     Base-only boot — `echo hello-world` reaches the host console.
 #   T2     --mount exposes a host directory readable inside the guest.
+#   T3     --mount-live :ro streams a host file in lazily — #78.
 #   T4     --env propagates into the guest process env — #89.
+#   T5     --mount-live :rw guest writes land on the host — #151.
 #   C1-C2  Host-side artifact cache end-to-end via fnm — #88.
 #   P1-P3  Base-rootfs contract (criu, virtio modules, poweroff) — #77.
 #   N1-N5  New #93 CLI surface: ls, exec, attach-unknown, completion,
@@ -224,9 +227,9 @@ expect_cli_error \
   boot --mount-live "$EMPTY_DIR:/etc/passwd" -- true
 
 expect_cli_error \
-  "V8: --mount-live rejects the :rw suffix (reserved for write-through)" \
-  "expected <host-dir>:<guest-path>" \
-  boot --mount-live "$EMPTY_DIR:/mnt/x:rw" -- true
+  "V8: --mount-live rejects an unknown mode" \
+  "mode must be 'ro' or 'rw'" \
+  boot --mount-live "$EMPTY_DIR:/mnt/x:xx" -- true
 
 # ----------------------------------------------------------------
 # Boot tests — need HVF/KVM. Slow.
@@ -299,6 +302,33 @@ else
   else
     tail -80 "$T3_LOG" >&2
     fail "T3 marker ($T3_MARKER) not found — live mount didn't stream through"
+  fi
+fi
+
+# ---- T5: --mount-live :rw writes from inside the guest land on the host (#151) ----
+#
+# Boots with `--mount-live <dir>:/mnt/live:rw`, has the guest echo a
+# marker into a file under that mount, then asserts the file appears
+# on the host filesystem with the right contents AFTER the VM exits.
+# Same fuse.ko gate as T3.
+echo "T5: machinen boot --mount-live :rw — guest write reaches the host"
+if ! tar -tzf "$ASSETS/rootfs.tar.gz" 2>/dev/null | grep -q 'fuse\.ko'; then
+  echo "  skip: fuse.ko not in release-assets/rootfs.tar.gz — rebuild base assets"
+else
+  T5_MARKER="livemount-rw-marker-$$"
+  T5_SRC="$FIXTURE/live-rw"
+  T5_LOG="$FIXTURE/t5.log"
+  mkdir -p "$T5_SRC"
+  run_timeout 60 node "$CLI" boot \
+    --mount-live "$T5_SRC:/mnt/live:rw" \
+    -- /bin/sh -c "echo $T5_MARKER >/mnt/live/from-guest.txt && sync" \
+    >"$T5_LOG" 2>&1 || true
+  if [[ -f "$T5_SRC/from-guest.txt" ]] && grep -q "$T5_MARKER" "$T5_SRC/from-guest.txt"; then
+    pass "guest write through :rw live-mount visible on the host"
+  else
+    tail -80 "$T5_LOG" >&2
+    echo "  host file: $(ls -la "$T5_SRC" 2>&1)" >&2
+    fail "T5 marker ($T5_MARKER) not found in $T5_SRC/from-guest.txt"
   fi
 fi
 

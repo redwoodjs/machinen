@@ -37,12 +37,18 @@ export const FUSE_OP = {
   LOOKUP: 1,
   FORGET: 2,
   GETATTR: 3,
+  SETATTR: 4,
   READLINK: 5,
+  MKDIR: 9,
+  UNLINK: 10,
+  RMDIR: 11,
+  RENAME: 12,
   OPEN: 14,
   READ: 15,
   WRITE: 16,
   STATFS: 17,
   RELEASE: 18,
+  FSYNC: 20,
   FLUSH: 25,
   INIT: 26,
   OPENDIR: 27,
@@ -54,6 +60,24 @@ export const FUSE_OP = {
   DESTROY: 38,
   BATCH_FORGET: 42,
   READDIRPLUS: 44,
+} as const;
+
+/**
+ * `fuse_setattr_in.valid` flags (uapi/linux/fuse.h FATTR_*).
+ * Tells the server which fields of the struct are meaningful.
+ */
+export const FATTR = {
+  MODE: 1 << 0,
+  UID: 1 << 1,
+  GID: 1 << 2,
+  SIZE: 1 << 3,
+  ATIME: 1 << 4,
+  MTIME: 1 << 5,
+  FH: 1 << 6,
+  ATIME_NOW: 1 << 7,
+  MTIME_NOW: 1 << 8,
+  LOCKOWNER: 1 << 9,
+  CTIME: 1 << 10,
 } as const;
 
 export type FuseOp = (typeof FUSE_OP)[keyof typeof FUSE_OP];
@@ -509,6 +533,161 @@ export const DT = {
   LNK: 10,
   SOCK: 12,
 } as const;
+
+// --- fuse_write_in / fuse_write_out -------------------------------------
+
+/**
+ * fuse_write_in is 40 bytes on protocol >=7.9 (which we require for
+ * INIT). Older kernels send a 24-byte prefix; we don't support those.
+ */
+export const FUSE_WRITE_IN_SIZE = 40;
+
+export interface FuseWriteIn {
+  fh: bigint;
+  offset: bigint;
+  size: number;
+  write_flags: number;
+  lock_owner: bigint;
+  flags: number;
+}
+
+export function readWriteIn(buf: Uint8Array, off = 0): FuseWriteIn {
+  const dv = viewOf(buf, off, FUSE_WRITE_IN_SIZE);
+  return {
+    fh: dv.getBigUint64(0, true),
+    offset: dv.getBigUint64(8, true),
+    size: dv.getUint32(16, true),
+    write_flags: dv.getUint32(20, true),
+    lock_owner: dv.getBigUint64(24, true),
+    flags: dv.getUint32(32, true),
+    // padding at 36
+  };
+}
+
+export interface FuseWriteOut {
+  size: number;
+}
+
+export function buildWriteOut(o: FuseWriteOut): Uint8Array {
+  const buf = new Uint8Array(8);
+  const dv = viewOf(buf, 0, 8);
+  dv.setUint32(0, o.size, true);
+  // padding at 4
+  return buf;
+}
+
+// --- fuse_create_in (CREATE = open + create in one round-trip) ----------
+
+/**
+ * fuse_create_in is 16 bytes on protocol >=7.12 (mode + flags + umask
+ * + open_flags). Followed by NUL-terminated name. We negotiate 7.31,
+ * so the wider layout is always present.
+ */
+export const FUSE_CREATE_IN_SIZE = 16;
+
+export interface FuseCreateIn {
+  flags: number;
+  mode: number;
+  umask: number;
+  open_flags: number;
+}
+
+export function readCreateIn(buf: Uint8Array, off = 0): FuseCreateIn {
+  const dv = viewOf(buf, off, FUSE_CREATE_IN_SIZE);
+  return {
+    flags: dv.getUint32(0, true),
+    mode: dv.getUint32(4, true),
+    umask: dv.getUint32(8, true),
+    open_flags: dv.getUint32(12, true),
+  };
+}
+
+/**
+ * CREATE response is fuse_entry_out (128) immediately followed by
+ * fuse_open_out (16) — the kernel reads both back-to-back.
+ */
+export function buildCreateOut(entry: FuseEntryOut, open: FuseOpenOut): Uint8Array {
+  const entryBuf = buildEntryOut(entry);
+  const openBuf = buildOpenOut(open);
+  const out = new Uint8Array(entryBuf.length + openBuf.length);
+  out.set(entryBuf, 0);
+  out.set(openBuf, entryBuf.length);
+  return out;
+}
+
+// --- fuse_setattr_in -----------------------------------------------------
+
+export const FUSE_SETATTR_IN_SIZE = 88;
+
+export interface FuseSetattrIn {
+  valid: number;
+  fh: bigint;
+  size: bigint;
+  lock_owner: bigint;
+  atime: bigint;
+  mtime: bigint;
+  ctime: bigint;
+  atimensec: number;
+  mtimensec: number;
+  ctimensec: number;
+  mode: number;
+  uid: number;
+  gid: number;
+}
+
+export function readSetattrIn(buf: Uint8Array, off = 0): FuseSetattrIn {
+  const dv = viewOf(buf, off, FUSE_SETATTR_IN_SIZE);
+  return {
+    valid: dv.getUint32(0, true),
+    // padding at 4
+    fh: dv.getBigUint64(8, true),
+    size: dv.getBigUint64(16, true),
+    lock_owner: dv.getBigUint64(24, true),
+    atime: dv.getBigUint64(32, true),
+    mtime: dv.getBigUint64(40, true),
+    ctime: dv.getBigUint64(48, true),
+    atimensec: dv.getUint32(56, true),
+    mtimensec: dv.getUint32(60, true),
+    ctimensec: dv.getUint32(64, true),
+    mode: dv.getUint32(68, true),
+    // unused4 at 72
+    uid: dv.getUint32(76, true),
+    gid: dv.getUint32(80, true),
+    // unused5 at 84
+  };
+}
+
+// --- fuse_mkdir_in ------------------------------------------------------
+
+export const FUSE_MKDIR_IN_SIZE = 8;
+
+export interface FuseMkdirIn {
+  mode: number;
+  umask: number;
+}
+
+export function readMkdirIn(buf: Uint8Array, off = 0): FuseMkdirIn {
+  const dv = viewOf(buf, off, FUSE_MKDIR_IN_SIZE);
+  return {
+    mode: dv.getUint32(0, true),
+    umask: dv.getUint32(4, true),
+  };
+}
+
+// --- fuse_rename_in -----------------------------------------------------
+
+export const FUSE_RENAME_IN_SIZE = 8;
+
+export interface FuseRenameIn {
+  newdir: bigint;
+}
+
+export function readRenameIn(buf: Uint8Array, off = 0): FuseRenameIn {
+  const dv = viewOf(buf, off, FUSE_RENAME_IN_SIZE);
+  return {
+    newdir: dv.getBigUint64(0, true),
+  };
+}
 
 // --- helpers -------------------------------------------------------------
 

@@ -277,8 +277,9 @@ export interface BootOptions {
    * Host directories exposed to the guest as live-share FUSE mounts
    * (#78). Unlike `mount` (copy-once into the boot rootfs), these stay
    * connected to the host: the guest reads on demand via a vsock FUSE
-   * relay, and nothing is copied at boot. Read-only in this build;
-   * `:rw` write-through is a follow-up.
+   * relay, and nothing is copied at boot. `mode` defaults to `"ro"`;
+   * `"rw"` enables write-through so guest writes land on the host
+   * (#151).
    *
    * Each guest path must live under `/mnt/` (same rule as `mount`).
    * Repeatable; each entry gets its own vsock port.
@@ -289,7 +290,7 @@ export interface BootOptions {
    * no such runtime channel and is strictly safer — prefer it for
    * inputs you don't need write-through on.
    */
-  liveMounts?: Array<{ host: string; guest: string }>;
+  liveMounts?: Array<{ host: string; guest: string; mode?: "ro" | "rw" }>;
   /**
    * Host -> guest TCP port forwards installed via gvproxy's control
    * API. Each entry maps `hostPort` on the host (bound to `hostAddr`,
@@ -727,7 +728,10 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     // past /dev/fuse mount; if we started them after the VMM, the
     // agent would spin in connect-retry for as long as we took.
     for (const lm of liveMountsResolved) {
-      const handle = await serveLiveMount(lm.udsPath, { rootAbs: lm.host });
+      const handle = await serveLiveMount(lm.udsPath, {
+        rootAbs: lm.host,
+        mode: lm.mode,
+      });
       liveMountStops.push(handle.stop);
     }
 
@@ -1262,6 +1266,7 @@ interface ResolvedLiveMount {
   guest: string;
   port: number;
   udsPath: string;
+  mode: "ro" | "rw";
 }
 
 /** Base vsock port for live mounts. Chosen below the exec/file/
@@ -1269,7 +1274,7 @@ interface ResolvedLiveMount {
 const LIVE_MOUNT_PORT_BASE = 1970;
 
 function resolveLiveMounts(
-  mounts: Array<{ host: string; guest: string }>,
+  mounts: Array<{ host: string; guest: string; mode?: "ro" | "rw" }>,
   cwd: string | undefined,
   udsDir: string,
 ): ResolvedLiveMount[] {
@@ -1293,6 +1298,7 @@ function resolveLiveMounts(
       guest: normalizeMountGuest(m.guest),
       port: LIVE_MOUNT_PORT_BASE + i,
       udsPath: join(udsDir, `live-mount-${i}.sock`),
+      mode: m.mode ?? "ro",
     };
   });
 }
