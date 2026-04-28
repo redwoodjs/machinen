@@ -39,10 +39,12 @@ export const FUSE_OP = {
   GETATTR: 3,
   SETATTR: 4,
   READLINK: 5,
+  SYMLINK: 6,
   MKDIR: 9,
   UNLINK: 10,
   RMDIR: 11,
   RENAME: 12,
+  LINK: 13,
   OPEN: 14,
   READ: 15,
   WRITE: 16,
@@ -671,6 +673,25 @@ export function readMkdirIn(buf: Uint8Array, off = 0): FuseMkdirIn {
   return {
     mode: dv.getUint32(0, true),
     umask: dv.getUint32(4, true),
+  };
+}
+
+// --- fuse_link_in -------------------------------------------------------
+
+/**
+ * fuse_link_in: u64 oldnodeid. The new name follows as a NUL-
+ * terminated string after the struct.
+ */
+export const FUSE_LINK_IN_SIZE = 8;
+
+export interface FuseLinkIn {
+  oldnodeid: bigint;
+}
+
+export function readLinkIn(buf: Uint8Array, off = 0): FuseLinkIn {
+  const dv = viewOf(buf, off, FUSE_LINK_IN_SIZE);
+  return {
+    oldnodeid: dv.getBigUint64(0, true),
   };
 }
 
