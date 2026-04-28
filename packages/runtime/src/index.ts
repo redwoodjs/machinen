@@ -110,7 +110,13 @@ import {
   packBundle as mkinitramfsPackBundle,
   packTinyBundle as mkinitramfsPackTinyBundle,
 } from "./mkinitramfs.ts";
-import { ensureGvproxy, exposePort, spawnGvproxy, warnGvproxyMissing } from "./gvproxy.ts";
+import {
+  ensureGvproxy,
+  exposePort,
+  probeHostPortFree,
+  spawnGvproxy,
+  warnGvproxyMissing,
+} from "./gvproxy.ts";
 import { spawnArtifactCache } from "./artifact-cache.ts";
 import { BootError, ExecError, RegistryError, SnapshotError } from "./errors.ts";
 import { ensureRootfsImage } from "./rootfs-img.ts";
@@ -510,7 +516,8 @@ export interface SnapshotMeta {
  *   BOOT_CMD_WITHOUT_IMAGE | BOOT_CMD_MISSING |
  *   BOOT_MOUNT_INVALID | BOOT_MOUNT_HOST_NOT_FOUND |
  *   BOOT_PORT_FORWARD_INVALID | BOOT_PORT_FORWARD_CONFLICT |
- *   BOOT_PORT_FORWARD_NO_GVPROXY | BOOT_PACK_FAILED
+ *   BOOT_PORT_FORWARD_NO_GVPROXY | BOOT_PORT_FORWARD_IN_USE |
+ *   BOOT_PACK_FAILED
  */
 export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   const bootT0 = Date.now();
@@ -559,6 +566,25 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         );
       }
       seen.add(m.hostPort);
+    }
+    // Pre-flight bind probe per requested host port. Without this,
+    // gvproxy's control API surfaces `address already in use` as an
+    // opaque GVPROXY_EXPOSE_FAILED 500 *after* we've spawned it. The
+    // common cause is an orphaned gvproxy from a prior `kill -9` of
+    // the runtime — the kernel reparents it to PID 1 and it keeps
+    // holding the host port. Surface the orphan hypothesis directly
+    // so the user knows what to clean up. See #115.
+    for (const m of portForward) {
+      const host = m.hostAddr ?? "127.0.0.1";
+      const errno = await probeHostPortFree(host, m.hostPort);
+      if (errno) {
+        throw new BootError(
+          "BOOT_PORT_FORWARD_IN_USE",
+          `portForward: host port ${host}:${m.hostPort} is already in use (${errno}). ` +
+            "Common cause: an orphaned gvproxy from a prior `kill -9` of the VMM. " +
+            "Try `pkill -f gvproxy` to clear it, or pick a different host port.",
+        );
+      }
     }
   }
 

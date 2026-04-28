@@ -305,6 +305,33 @@ async function spawnWithEtxtbsyRetry(
 }
 
 /**
+ * Try to bind a TCP listener at `host:port` and immediately close it.
+ * Returns `null` on success, or the OS errno code (typically
+ * `"EADDRINUSE"`) on failure. Used by `boot()` as a pre-flight probe
+ * for portForward host ports — gvproxy's HTTP control API surfaces
+ * `address already in use` as an opaque 500, so we want to fail fast
+ * with a useful error before we even spawn it.
+ *
+ * The probe binds and closes; the small race between close and
+ * gvproxy's subsequent bind is the same one `pickEphemeralPort` lives
+ * with and has not been observed to bite in practice.
+ */
+export async function probeHostPortFree(host: string, port: number): Promise<string | null> {
+  return new Promise((resolve) => {
+    const srv = createServer();
+    srv.unref();
+    const onError = (err: NodeJS.ErrnoException) => {
+      resolve(err.code ?? "EUNKNOWN");
+    };
+    srv.once("error", onError);
+    srv.listen({ port, host }, () => {
+      srv.removeListener("error", onError);
+      srv.close(() => resolve(null));
+    });
+  });
+}
+
+/**
  * Bind to 127.0.0.1:0 to let the OS pick a free TCP port, close the
  * probe socket, return the number. Good enough for gvproxy's
  * `-ssh-port` where the tiny close-to-bind race is ~never observed.
