@@ -1153,7 +1153,9 @@ async function raceWithDeadline<T>(p: Promise<T>, label: string): Promise<T> {
   try {
     return await Promise.race([p, deadline]);
   } finally {
-    if (timer) clearTimeout(timer);
+    if (timer) {
+      clearTimeout(timer);
+    }
   }
 }
 
