@@ -11,9 +11,11 @@
 import { connect as netConnect } from "node:net";
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readlinkSync,
   rmSync,
   statSync,
   symlinkSync,
@@ -364,6 +366,26 @@ describe("live mount server — symlink semantics", () => {
     });
   });
 
+  it("READLINK returns the raw target bytes (no NUL terminator)", async () => {
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const lookup = await conn.request(FUSE_OP.LOOKUP, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: nameBuf("link-inside"),
+      });
+      const linkIno = bigintFromEntry(lookup.payload);
+      const reply = await conn.request(FUSE_OP.READLINK, {
+        unique: 3n,
+        nodeid: linkIno,
+        payload: new Uint8Array(0),
+      });
+      expect(reply.header.error).toBe(0);
+      // fixture symlink target is "sub" — bytes only, no trailing NUL
+      expect(new TextDecoder().decode(reply.payload)).toBe("sub");
+    });
+  });
+
   it("rejects LOOKUP with `..` as name (EINVAL)", async () => {
     await withConnection(async (conn) => {
       await doInit(conn);
@@ -426,6 +448,35 @@ describe("live mount server — :ro mounts reject mutations", () => {
         unique: 2n,
         nodeid: 1n,
         payload: nameBuf("hello.txt"),
+      });
+      expect(reply.header.error).toBe(-30);
+    });
+  });
+
+  it("SYMLINK returns EROFS in :ro mode", async () => {
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const reply = await conn.request(FUSE_OP.SYMLINK, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: twoNulStrings("new-link", "target"),
+      });
+      expect(reply.header.error).toBe(-30);
+    });
+  });
+
+  it("LINK returns EROFS in :ro mode", async () => {
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      // body: u64 oldnodeid + name\0
+      const buf = new Uint8Array(8 + "lnk\0".length);
+      const dv = new DataView(buf.buffer);
+      dv.setBigUint64(0, 1n, true); // oldnodeid (ignored on EROFS)
+      buf.set(new TextEncoder().encode("lnk\0"), 8);
+      const reply = await conn.request(FUSE_OP.LINK, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: buf,
       });
       expect(reply.header.error).toBe(-30);
     });
@@ -619,6 +670,102 @@ describe("live mount server — :rw write-through", () => {
     });
   });
 
+  it("SYMLINK creates a symlink with the exact target bytes (#163)", async () => {
+    // pnpm install builds node_modules/.pnpm out of relative symlinks
+    // like "../../ms@2.1.3/node_modules/ms". Critical: target is
+    // stored verbatim, not realpath'd through the host fs.
+    await rwConn(async (conn) => {
+      await doInit(conn);
+      const target = "../../ms@2.1.3/node_modules/ms";
+      const reply = await conn.request(FUSE_OP.SYMLINK, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: twoNulStrings("ms", target),
+      });
+      expect(reply.header.error).toBe(0);
+      const attr = readAttr(reply.payload, 40);
+      expect(attr.mode & 0o170000).toBe(0o120000); // S_IFLNK
+      const onDisk = join(rwRoot, "ms");
+      expect(lstatSync(onDisk).isSymbolicLink()).toBe(true);
+      expect(readlinkSync(onDisk)).toBe(target);
+    });
+  });
+
+  it("SYMLINK then READLINK round-trips the target (#163)", async () => {
+    await rwConn(async (conn) => {
+      await doInit(conn);
+      const target = "./dir/file.txt";
+      const sym = await conn.request(FUSE_OP.SYMLINK, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: twoNulStrings("link", target),
+      });
+      expect(sym.header.error).toBe(0);
+      const linkIno = bigintFromEntry(sym.payload);
+      const reply = await conn.request(FUSE_OP.READLINK, {
+        unique: 3n,
+        nodeid: linkIno,
+        payload: new Uint8Array(0),
+      });
+      expect(reply.header.error).toBe(0);
+      expect(new TextDecoder().decode(reply.payload)).toBe(target);
+    });
+  });
+
+  it("SYMLINK rejects an empty target with EINVAL", async () => {
+    await rwConn(async (conn) => {
+      await doInit(conn);
+      const reply = await conn.request(FUSE_OP.SYMLINK, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: twoNulStrings("bad", ""),
+      });
+      expect(reply.header.error).toBe(-22); // -EINVAL
+    });
+  });
+
+  it("SYMLINK refuses a name with `..` (EINVAL)", async () => {
+    await rwConn(async (conn) => {
+      await doInit(conn);
+      const reply = await conn.request(FUSE_OP.SYMLINK, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: twoNulStrings("..", "target"),
+      });
+      expect(reply.header.error).toBe(-22);
+    });
+  });
+
+  it("LINK creates a hard link to an existing file (#163)", async () => {
+    await rwConn(async (conn) => {
+      await doInit(conn);
+      // First LOOKUP existing.txt to get its inode.
+      const lookup = await conn.request(FUSE_OP.LOOKUP, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: nameBuf("existing.txt"),
+      });
+      const oldIno = bigintFromEntry(lookup.payload);
+      // body: u64 oldnodeid + "hardlink\0"
+      const name = "hardlink";
+      const body = new Uint8Array(8 + name.length + 1);
+      const dv = new DataView(body.buffer);
+      dv.setBigUint64(0, oldIno, true);
+      body.set(new TextEncoder().encode(name), 8);
+      const reply = await conn.request(FUSE_OP.LINK, {
+        unique: 3n,
+        nodeid: 1n,
+        payload: body,
+      });
+      expect(reply.header.error).toBe(0);
+      const attr = readAttr(reply.payload, 40);
+      expect(attr.mode & 0o170000).toBe(0o100000); // S_IFREG
+      // Same content, same inode on host.
+      expect(readFileSync(join(rwRoot, name), "utf8")).toBe("old\n");
+      expect(statSync(join(rwRoot, name)).ino).toBe(statSync(join(rwRoot, "existing.txt")).ino);
+    });
+  });
+
   it("CREATE refuses a malformed name (slash in basename → EINVAL)", async () => {
     await rwConn(async (conn) => {
       await doInit(conn);
@@ -807,6 +954,16 @@ function buildWriteInWithData(opts: { fh: bigint; offset: bigint; data: Uint8Arr
   dv.setUint32(16, opts.data.length, true);
   buf.set(opts.data, 40);
   return buf;
+}
+
+function twoNulStrings(a: string, b: string): Uint8Array {
+  const aBytes = new TextEncoder().encode(a);
+  const bBytes = new TextEncoder().encode(b);
+  const out = new Uint8Array(aBytes.length + 1 + bBytes.length + 1);
+  out.set(aBytes, 0);
+  out.set(bBytes, aBytes.length + 1);
+  // trailing NULs already zero
+  return out;
 }
 
 function nameBuf(name: string): Uint8Array {

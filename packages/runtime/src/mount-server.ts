@@ -18,14 +18,17 @@
 import { createServer, type Server, type Socket } from "node:net";
 import {
   chmod,
+  link,
   mkdir,
   open as fsOpen,
   lstat,
   readdir,
+  readlink,
   realpath,
   rename,
   rmdir,
   statfs,
+  symlink,
   truncate,
   unlink,
   utimes,
@@ -63,6 +66,7 @@ import {
   readForgetIn,
   readInHeader,
   readInitIn,
+  readLinkIn,
   readMkdirIn,
   readOpenIn,
   readReadIn,
@@ -272,6 +276,12 @@ async function handle(
       return await onLookup(hdr, msg, state);
     case FUSE_OP.GETATTR:
       return await onGetattr(hdr, state);
+    case FUSE_OP.READLINK:
+      return await onReadlink(hdr, state);
+    case FUSE_OP.SYMLINK:
+      return await onSymlink(hdr, msg, state);
+    case FUSE_OP.LINK:
+      return await onLink(hdr, msg, state);
     case FUSE_OP.SETATTR:
       return await onSetattr(hdr, msg, state);
     case FUSE_OP.STATFS:
@@ -401,6 +411,19 @@ async function onGetattr(hdr: FuseInHeader, state: ServerState): Promise<Uint8Ar
       attr: statToAttr(st, hdr.nodeid),
     }),
   );
+}
+
+async function onReadlink(hdr: FuseInHeader, state: ServerState): Promise<Uint8Array> {
+  const entry = requireInode(state, hdr.nodeid);
+  // Don't follow the final component — the inode IS the symlink. We
+  // still gate the parent through the resolver so a symlink basename
+  // pointing outside root is opaque to the guest (the kernel will
+  // re-LOOKUP each component of the target through us, and the
+  // resolver catches escapes there).
+  const abs = await absPathForLstat(state, entry);
+  const target = await readlink(abs);
+  // FUSE READLINK reply is the raw target bytes — no NUL terminator.
+  return buildResponse(hdr.unique, new TextEncoder().encode(target));
 }
 
 async function onStatfs(hdr: FuseInHeader, state: ServerState): Promise<Uint8Array> {
@@ -605,6 +628,88 @@ async function onCreate(
       },
       { fh: id, open_flags: 0 },
     ),
+  );
+}
+
+async function onSymlink(
+  hdr: FuseInHeader,
+  msg: Uint8Array,
+  state: ServerState,
+): Promise<Uint8Array> {
+  if (state.mode === "ro") {
+    return buildErrorResponse(hdr.unique, -ERRNO.EROFS);
+  }
+  // Wire format: two NUL-terminated strings, name then target. No
+  // fixed-size struct prefix.
+  const body = payloadOf(msg);
+  const firstNul = body.indexOf(0);
+  if (firstNul < 0) {
+    return buildErrorResponse(hdr.unique, -ERRNO.EINVAL);
+  }
+  const name = decodeName(body.subarray(0, firstNul));
+  validateName(name);
+  // Target is a raw byte string stored verbatim on the host. It can
+  // be relative ("../foo") or absolute, can contain "..", can point
+  // outside the mount root — that's POSIX-compliant. The guest can't
+  // *traverse* through an out-of-root target because every subsequent
+  // LOOKUP through it gets gated by the resolver.
+  const targetEnd = body.indexOf(0, firstNul + 1);
+  const target = decodeName(body.subarray(firstNul + 1, targetEnd < 0 ? body.length : targetEnd));
+  if (target === "" || target.includes("\0")) {
+    return buildErrorResponse(hdr.unique, -ERRNO.EINVAL);
+  }
+  const parent = requireInode(state, hdr.nodeid);
+  const parentAbs = await absPathForTraversal(state, parent);
+  const childAbs = join(parentAbs, name);
+  const childRel = joinRel(parent.relPath, name);
+  await symlink(target, childAbs);
+  const st = await lstat(childAbs);
+  const ino = bindInode(state, childRel);
+  return buildResponse(
+    hdr.unique,
+    buildEntryOut({
+      nodeid: ino,
+      generation: 0n,
+      entry_valid: 1n,
+      attr_valid: 1n,
+      entry_valid_nsec: 0,
+      attr_valid_nsec: 0,
+      attr: statToAttr(st, ino),
+    }),
+  );
+}
+
+async function onLink(hdr: FuseInHeader, msg: Uint8Array, state: ServerState): Promise<Uint8Array> {
+  if (state.mode === "ro") {
+    return buildErrorResponse(hdr.unique, -ERRNO.EROFS);
+  }
+  const body = payloadOf(msg);
+  const req = readLinkIn(body);
+  const name = decodeName(body.subarray(8));
+  validateName(name);
+  const oldEntry = requireInode(state, req.oldnodeid);
+  const parent = requireInode(state, hdr.nodeid);
+  // For the source, use lstat-style resolution: link() should target
+  // the inode itself, not what a final-component symlink points at.
+  // (POSIX link(2) does not follow a trailing symlink.)
+  const oldAbs = await absPathForLstat(state, oldEntry);
+  const parentAbs = await absPathForTraversal(state, parent);
+  const childAbs = join(parentAbs, name);
+  const childRel = joinRel(parent.relPath, name);
+  await link(oldAbs, childAbs);
+  const st = await lstat(childAbs);
+  const ino = bindInode(state, childRel);
+  return buildResponse(
+    hdr.unique,
+    buildEntryOut({
+      nodeid: ino,
+      generation: 0n,
+      entry_valid: 1n,
+      attr_valid: 1n,
+      entry_valid_nsec: 0,
+      attr_valid_nsec: 0,
+      attr: statToAttr(st, ino),
+    }),
   );
 }
 
