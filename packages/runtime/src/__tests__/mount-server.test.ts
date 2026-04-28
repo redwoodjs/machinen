@@ -411,6 +411,168 @@ describe("live mount server — symlink semantics", () => {
   });
 });
 
+// ---------------- unimplemented-op coverage (#165) ----------------
+
+// Opcode -> minimal payload that the dispatcher will see. We never reach
+// the per-op decoder for these ops (the dispatch switch's default case
+// fires first), so payload size only has to clear the FUSE framing min.
+// Numbers are from Linux v6.1 uapi/linux/fuse.h. If any of these gets
+// implemented later, move it out of this list and add a happy-path test
+// in the same change (per AGENTS.md).
+const UNIMPLEMENTED_OPS = [
+  { name: "MKNOD", op: 8 },
+  { name: "SETXATTR", op: 21 },
+  { name: "GETXATTR", op: 22 },
+  { name: "LISTXATTR", op: 23 },
+  { name: "REMOVEXATTR", op: 24 },
+  { name: "FSYNCDIR", op: 30 },
+  { name: "GETLK", op: 31 },
+  { name: "SETLK", op: 32 },
+  { name: "SETLKW", op: 33 },
+  { name: "FALLOCATE", op: 43 },
+  { name: "READDIRPLUS", op: 44 },
+  { name: "RENAME2", op: 45 },
+  { name: "LSEEK", op: 46 },
+  { name: "COPY_FILE_RANGE", op: 47 },
+] as const;
+
+// Tight enough to flag a wedge but loose enough not to flake on a busy
+// CI runner. The dispatcher hits the default case synchronously, so the
+// real bound is socket round-trip, which is sub-millisecond locally.
+const OP_REPLY_DEADLINE_MS = 250;
+
+describe("live mount server — unimplemented ops reply ENOSYS without wedging (#165)", () => {
+  // The wedge class we're catching: a request that the dispatcher
+  // accepts but never replies to. The mount-server today routes every
+  // non-listed opcode through the default case, which builds a
+  // synchronous error response — but if anyone wires up an op without
+  // a reply path (or accidentally awaits a never-resolving promise),
+  // the kernel hangs the syscall forever. A bounded race turns that
+  // hang into a loud test failure.
+  it.each(UNIMPLEMENTED_OPS)("$name (op=$op) returns -ENOSYS within deadline", async ({ op }) => {
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const reply = await raceWithDeadline(
+        conn.request(op, {
+          unique: 100n + BigInt(op),
+          nodeid: 1n,
+          // Most missing ops have non-zero-size structs in the wire
+          // protocol, but the dispatcher never decodes them. 16 bytes
+          // is wide enough that even an op with a u64 fh + u64 something
+          // wouldn't underflow the framing checks.
+          payload: new Uint8Array(16),
+        }),
+        `op=${op}`,
+      );
+      expect(reply.header.error).toBe(-38); // -ENOSYS
+      expect(reply.payload.length).toBe(0);
+    });
+  });
+});
+
+describe("live mount server — defined-op coverage (#165)", () => {
+  it("STATFS returns a kstatfs payload", async () => {
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const reply = await raceWithDeadline(
+        conn.request(FUSE_OP.STATFS, { unique: 2n, nodeid: 1n, payload: new Uint8Array(0) }),
+        "STATFS",
+      );
+      expect(reply.header.error).toBe(0);
+      // fuse_kstatfs is 80 bytes
+      expect(reply.payload.length).toBe(80);
+    });
+  });
+
+  it("FLUSH replies success (no-op) within deadline", async () => {
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const reply = await raceWithDeadline(
+        // fuse_flush_in is { fh, unused, padding, lock_owner } = 24 bytes,
+        // but the dispatcher sends FLUSH straight to the success branch
+        // without decoding, so any payload is fine.
+        conn.request(FUSE_OP.FLUSH, { unique: 2n, nodeid: 1n, payload: new Uint8Array(24) }),
+        "FLUSH",
+      );
+      expect(reply.header.error).toBe(0);
+    });
+  });
+
+  it("ACCESS replies success (no-op) within deadline", async () => {
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const reply = await raceWithDeadline(
+        conn.request(FUSE_OP.ACCESS, { unique: 2n, nodeid: 1n, payload: new Uint8Array(8) }),
+        "ACCESS",
+      );
+      expect(reply.header.error).toBe(0);
+    });
+  });
+
+  it("DESTROY replies success (no-op) within deadline", async () => {
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const reply = await raceWithDeadline(
+        conn.request(FUSE_OP.DESTROY, { unique: 2n, nodeid: 0n, payload: new Uint8Array(0) }),
+        "DESTROY",
+      );
+      expect(reply.header.error).toBe(0);
+    });
+  });
+
+  it("LOOKUP with empty name → EINVAL", async () => {
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const reply = await conn.request(FUSE_OP.LOOKUP, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: nameBuf(""),
+      });
+      expect(reply.header.error).toBe(-22); // -EINVAL
+    });
+  });
+
+  it("GETATTR on a stale (never-allocated) inode → ESTALE", async () => {
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const reply = await conn.request(FUSE_OP.GETATTR, {
+        unique: 2n,
+        nodeid: 9_999_999n, // never minted
+        payload: new Uint8Array(16),
+      });
+      expect(reply.header.error).toBe(-116); // -ESTALE
+    });
+  });
+
+  it("INTERRUPT yields no reply at all (silent op)", async () => {
+    // FUSE_INTERRUPT MUST never be answered — the kernel uses it as a
+    // unidirectional signal. If we reply, the kernel mismatches `unique`
+    // on the next op. Assert by waiting a bounded window and seeing
+    // *nothing* arrive on the socket.
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const interruptUnique = 99n;
+      let gotReply = false;
+      const inflight = conn
+        .request(0x24 /* FUSE_INTERRUPT = 36 */, {
+          unique: interruptUnique,
+          nodeid: 0n,
+          payload: new Uint8Array(8),
+        })
+        .then(() => {
+          gotReply = true;
+        });
+      // Race against a short window. If the reply landed (gotReply
+      // flipped), the test fails. If the deadline wins, INTERRUPT was
+      // correctly silent.
+      await new Promise((done) => setTimeout(done, 75));
+      expect(gotReply).toBe(false);
+      // Don't await `inflight` — it would never resolve, by design.
+      void inflight;
+    });
+  });
+});
+
 describe("live mount server — :ro mounts reject mutations", () => {
   it("WRITE returns EROFS in :ro mode", async () => {
     await withConnection(async (conn) => {
@@ -766,6 +928,25 @@ describe("live mount server — :rw write-through", () => {
     });
   });
 
+  it("RENAME with no NUL between old and new names → EINVAL (#165)", async () => {
+    await rwConn(async (conn) => {
+      await doInit(conn);
+      // u64 newdir + bytes WITHOUT a NUL terminator anywhere — the
+      // server scans for the first NUL and rejects when it can't find
+      // one. Catches malformed-frame handling on a write-side op.
+      const buf = new Uint8Array(8 + 4);
+      const dv = new DataView(buf.buffer);
+      dv.setBigUint64(0, 1n, true);
+      buf.set(new TextEncoder().encode("AAAA"), 8);
+      const reply = await conn.request(FUSE_OP.RENAME, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: buf,
+      });
+      expect(reply.header.error).toBe(-22); // -EINVAL
+    });
+  });
+
   it("CREATE refuses a malformed name (slash in basename → EINVAL)", async () => {
     await rwConn(async (conn) => {
       await doInit(conn);
@@ -954,6 +1135,28 @@ function buildWriteInWithData(opts: { fh: bigint; offset: bigint; data: Uint8Arr
   dv.setUint32(16, opts.data.length, true);
   buf.set(opts.data, 40);
   return buf;
+}
+
+/**
+ * Race a request reply against a hard deadline. Catches the wedge
+ * class — an op the server accepts but never replies to — by turning
+ * an indefinite hang into a fast, specific test failure. See #165.
+ */
+async function raceWithDeadline<T>(p: Promise<T>, label: string): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const deadline = new Promise<never>((_, fail) => {
+    timer = setTimeout(
+      () => fail(new Error(`${label} did not reply within ${OP_REPLY_DEADLINE_MS}ms`)),
+      OP_REPLY_DEADLINE_MS,
+    );
+  });
+  try {
+    return await Promise.race([p, deadline]);
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
 }
 
 function twoNulStrings(a: string, b: string): Uint8Array {
