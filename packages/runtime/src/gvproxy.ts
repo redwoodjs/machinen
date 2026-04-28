@@ -38,6 +38,7 @@ import { arch as osArch, homedir, platform as osPlatform, tmpdir } from "node:os
 import { delimiter as pathSep, dirname, join } from "node:path";
 import debugLib from "debug";
 import { GvproxyError } from "./errors.ts";
+import { ensurePdeathsig, wrapWithPdeathsig } from "./pdeathsig.ts";
 
 const debug = debugLib("machinen:gvproxy");
 
@@ -434,12 +435,20 @@ export async function spawnGvproxy(
     String(sshPort),
   ];
   const spawnT0 = Date.now();
+  // Wrap through the parent-death shim so a kill -9 of the runtime
+  // takes gvproxy with it instead of orphaning it to PID 1 with the
+  // host port stuck. Falls through to direct spawn if the shim is
+  // unavailable (no `cc` toolchain, opted-out, unsupported platform);
+  // the BOOT_PORT_FORWARD_IN_USE pre-flight probe is the safety net
+  // in that case. See #115.
+  const pdeathsig = await ensurePdeathsig();
+  const wrapped = wrapWithPdeathsig(pdeathsig, binary, args);
   // Small retry loop around exec() for `ETXTBSY`. On Linux this fires
   // briefly after a freshly-written binary gets exec'd while a peer
   // still has a write fd open — rare with the lock + fsync in
   // `downloadGvproxy`, but belt-and-suspenders for multi-process
   // test runners.
-  const child = await spawnWithEtxtbsyRetry(binary, args);
+  const child = await spawnWithEtxtbsyRetry(wrapped.command, wrapped.args);
   debug("spawned pid=%d qemu=%s ctrl=%s", child.pid ?? -1, socketPath, controlSocketPath);
 
   let stopped = false;
