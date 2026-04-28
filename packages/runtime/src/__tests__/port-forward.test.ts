@@ -4,11 +4,12 @@
 // verify the request shape.
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { createServer as createNetServer, type AddressInfo, type Server } from "node:net";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { exposePort } from "../gvproxy.ts";
+import { exposePort, probeHostPortFree } from "../gvproxy.ts";
 import { boot } from "../index.ts";
 
 interface FakeGvproxy {
@@ -150,5 +151,118 @@ describe("spawn portForward validation", () => {
     await expect(
       boot({ binary: "/nonexistent", portForward: [{ hostPort: 8080, guestPort: 3000 }] }),
     ).rejects.toThrow(/portForward requires the runtime to own gvproxy/);
+  });
+});
+
+// Helper: bind on 127.0.0.1:0, return the chosen port and a stop fn.
+async function holdEphemeralPort(): Promise<{ port: number; stop: () => Promise<void> }> {
+  const srv: Server = createNetServer();
+  await new Promise<void>((done, fail) => {
+    srv.once("error", fail);
+    srv.listen(0, "127.0.0.1", () => {
+      srv.removeListener("error", fail);
+      done();
+    });
+  });
+  const port = (srv.address() as AddressInfo).port;
+  return {
+    port,
+    stop: () =>
+      new Promise<void>((done) => {
+        srv.close(() => done());
+        srv.closeAllConnections?.();
+      }),
+  };
+}
+
+describe("probeHostPortFree", () => {
+  it("returns null when the port is free", async () => {
+    const held = await holdEphemeralPort();
+    await held.stop();
+    // Port is free now (briefly). Probe should report null.
+    expect(await probeHostPortFree("127.0.0.1", held.port)).toBeNull();
+  });
+
+  it("returns EADDRINUSE when the port is held by another listener", async () => {
+    const held = await holdEphemeralPort();
+    try {
+      const errno = await probeHostPortFree("127.0.0.1", held.port);
+      expect(errno).toBe("EADDRINUSE");
+    } finally {
+      await held.stop();
+    }
+  });
+
+  it("releases the probe socket so the port is bindable immediately after", async () => {
+    // Pick a free port via the OS, probe it, then bind it. If the
+    // probe leaks the socket, this bind would fail with EADDRINUSE.
+    const held = await holdEphemeralPort();
+    const port = held.port;
+    await held.stop();
+    expect(await probeHostPortFree("127.0.0.1", port)).toBeNull();
+    const second = createNetServer();
+    await new Promise<void>((done, fail) => {
+      second.once("error", fail);
+      second.listen(port, "127.0.0.1", () => {
+        second.removeListener("error", fail);
+        done();
+      });
+    });
+    await new Promise<void>((done) => second.close(() => done()));
+  });
+});
+
+describe("boot pre-flight bind probe", () => {
+  const origNetSock = process.env.MACHINEN_NET_SOCKET;
+  beforeEach(() => {
+    delete process.env.MACHINEN_NET_SOCKET;
+  });
+  afterEach(() => {
+    if (origNetSock === undefined) {
+      delete process.env.MACHINEN_NET_SOCKET;
+    } else {
+      process.env.MACHINEN_NET_SOCKET = origNetSock;
+    }
+  });
+
+  it("rejects with BOOT_PORT_FORWARD_IN_USE when host port is already bound", async () => {
+    const held = await holdEphemeralPort();
+    try {
+      // binary: "/nonexistent" would normally error with BOOT_VMM_MISSING,
+      // but the probe runs before binary resolution, so the in-use port
+      // is what surfaces.
+      await expect(
+        boot({
+          binary: "/nonexistent",
+          portForward: [{ hostPort: held.port, guestPort: 3000 }],
+        }),
+      ).rejects.toMatchObject({
+        code: "BOOT_PORT_FORWARD_IN_USE",
+        message: expect.stringContaining(`127.0.0.1:${held.port}`),
+      });
+      await expect(
+        boot({
+          binary: "/nonexistent",
+          portForward: [{ hostPort: held.port, guestPort: 3000 }],
+        }),
+      ).rejects.toThrow(/orphaned gvproxy.*pkill -f gvproxy/);
+    } finally {
+      await held.stop();
+    }
+  });
+
+  it("range/duplicate validation fires before the probe", async () => {
+    // If the probe ran first, this would surface BOOT_PORT_FORWARD_IN_USE
+    // for whatever port it tried. The duplicate-hostPort check must
+    // win because the user's input is malformed.
+    await expect(
+      boot({
+        binary: "/nonexistent",
+        portForward: [
+          { hostPort: 8080, guestPort: 3000 },
+          { hostPort: 8080, guestPort: 3001 },
+        ],
+      }),
+    ).rejects.toMatchObject({ code: "BOOT_PORT_FORWARD_CONFLICT" });
   });
 });
