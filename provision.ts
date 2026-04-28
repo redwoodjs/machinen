@@ -12,7 +12,7 @@
 import type { VmHandle } from "@machinen/runtime";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
@@ -204,18 +204,6 @@ if (!FORCE && existsSync(OUT) && existsSync(STAMP)) {
 const base = !FORCE && existsSync(OUT) ? OUT : join(ASSETS, "rootfs-debian-arm64.tar.gz");
 console.log(`provision: base=${base === OUT ? "./app.tar.gz (incremental)" : base}`);
 
-function ramForImage(path: string): number {
-  const compressed = statSync(path).size;
-  const GIB = 1024 * 1024 * 1024;
-  const raw = Math.max(4 * GIB, compressed * 16 + 2 * GIB);
-  const align = 256 * 1024 * 1024;
-  return Math.ceil(raw / align) * align;
-}
-console.log(
-  `provision: ram=${(ramForImage(base) / 1024 ** 3).toFixed(1)} GiB ` +
-    `(base=${(statSync(base).size / 1024 ** 2).toFixed(0)} MB)`,
-);
-
 // --- run ------------------------------------------------------------------
 
 const result = await provision({
@@ -226,8 +214,6 @@ const result = await provision({
 
   // 1 GiB scratch is too small once node_modules + global npm pkgs land.
   scratchDiskSizeBytes: 8 * 1024 * 1024 * 1024,
-
-  vmmEnv: { MACHINEN_RAM_BYTES: String(ramForImage(base)) },
 
   // Boot directly into /mnt/workspace via a thin -c wrapper. The
   // FUSE mount used by liveMounts is currently root-only, so we run

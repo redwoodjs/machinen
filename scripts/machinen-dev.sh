@@ -23,10 +23,10 @@ step "building Zig VMM (ReleaseSafe) + codesigning with HVF entitlement"
 (
   cd packages/microvm
   zig build -Doptimize=ReleaseSafe
-  codesign -s - --force --entitlements entitlements.plist zig-out/bin/microvm
+  codesign -s - --force --entitlements entitlements.plist zig-out/bin/machinen-vm
 )
 mkdir -p packages/vmm-arm64-darwin/bin
-cp packages/microvm/zig-out/bin/microvm packages/vmm-arm64-darwin/bin/microvm
+cp packages/microvm/zig-out/bin/machinen-vm packages/vmm-arm64-darwin/bin/machinen-vm
 
 step "building base assets (kernel + dtb + rootfs tarball)"
 ./scripts/build-base-assets.sh
