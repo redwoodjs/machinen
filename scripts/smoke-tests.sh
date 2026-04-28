@@ -19,7 +19,7 @@
 #   T2     --mount exposes a host directory readable inside the guest.
 #   T3     --mount-live :ro streams a host file in lazily — #78.
 #   T4     --env propagates into the guest process env — #89.
-#   T5     --mount-live :rw guest writes land on the host — #151.
+#   T5     --mount-live (default :rw) guest writes land on the host — #151, #156.
 #   C1-C2  Host-side artifact cache end-to-end via fnm — #88.
 #   P1-P3  Base-rootfs contract (criu, virtio modules, poweroff) — #77.
 #   N1-N5  New #93 CLI surface: ls, exec, attach-unknown, completion,
@@ -276,9 +276,9 @@ fi
 # Skips if the current base kernel doesn't carry fuse.ko yet. That
 # whitelist change is in scripts/build-base-assets.sh on this branch
 # but the cached release-assets/ rootfs tarball may predate it.
-echo "T3: machinen boot --mount-live ./fixture:/mnt/live -- cat /mnt/live/hello.txt"
-if ! tar -tzf "$ASSETS/rootfs.tar.gz" 2>/dev/null | grep -q 'fuse\.ko'; then
-  echo "  skip: fuse.ko not in release-assets/rootfs.tar.gz — rebuild base assets"
+echo "T3: machinen boot --mount-live ./fixture:/mnt/live:ro -- cat /mnt/live/hello.txt"
+if ! tar -tzf "$ROOTFS_TAR" 2>/dev/null | grep -q 'fuse\.ko'; then
+  echo "  skip: fuse.ko not in $ROOTFS_TAR — rebuild base assets"
 else
   T3_MARKER="livemount-marker-$$"
   T3_SRC="$FIXTURE/live-src"
@@ -292,8 +292,10 @@ else
     echo "$T3_MARKER" >"$T3_SRC/hello.txt"
   ) &
   SEEDER=$!
+  # Explicit `:ro` since the default is `:rw` (#156); this test
+  # intentionally exercises the read-only path.
   run_timeout 60 node "$CLI" boot \
-    --mount-live "$T3_SRC:/mnt/live" \
+    --mount-live "$T3_SRC:/mnt/live:ro" \
     -- /bin/sh -c 'sleep 4 && cat /mnt/live/hello.txt' \
     >"$T3_LOG" 2>&1 || true
   wait "$SEEDER" 2>/dev/null || true
@@ -307,24 +309,24 @@ fi
 
 # ---- T5: --mount-live :rw writes from inside the guest land on the host (#151) ----
 #
-# Boots with `--mount-live <dir>:/mnt/live:rw`, has the guest echo a
-# marker into a file under that mount, then asserts the file appears
-# on the host filesystem with the right contents AFTER the VM exits.
-# Same fuse.ko gate as T3.
-echo "T5: machinen boot --mount-live :rw — guest write reaches the host"
-if ! tar -tzf "$ASSETS/rootfs.tar.gz" 2>/dev/null | grep -q 'fuse\.ko'; then
-  echo "  skip: fuse.ko not in release-assets/rootfs.tar.gz — rebuild base assets"
+# Boots with `--mount-live <dir>:/mnt/live` (default :rw post-#156),
+# has the guest echo a marker into a file under that mount, then
+# asserts the file appears on the host filesystem with the right
+# contents AFTER the VM exits. Same fuse.ko gate as T3.
+echo "T5: machinen boot --mount-live (default :rw) — guest write reaches the host"
+if ! tar -tzf "$ROOTFS_TAR" 2>/dev/null | grep -q 'fuse\.ko'; then
+  echo "  skip: fuse.ko not in $ROOTFS_TAR — rebuild base assets"
 else
   T5_MARKER="livemount-rw-marker-$$"
   T5_SRC="$FIXTURE/live-rw"
   T5_LOG="$FIXTURE/t5.log"
   mkdir -p "$T5_SRC"
   run_timeout 60 node "$CLI" boot \
-    --mount-live "$T5_SRC:/mnt/live:rw" \
+    --mount-live "$T5_SRC:/mnt/live" \
     -- /bin/sh -c "echo $T5_MARKER >/mnt/live/from-guest.txt && sync" \
     >"$T5_LOG" 2>&1 || true
   if [[ -f "$T5_SRC/from-guest.txt" ]] && grep -q "$T5_MARKER" "$T5_SRC/from-guest.txt"; then
-    pass "guest write through :rw live-mount visible on the host"
+    pass "guest write through default-rw live-mount visible on the host"
   else
     tail -80 "$T5_LOG" >&2
     echo "  host file: $(ls -la "$T5_SRC" 2>&1)" >&2

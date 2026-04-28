@@ -60,7 +60,10 @@ beforeEach(async () => {
   symlinkSync("sub", join(root, "link-inside"));
   symlinkSync(join(scratch, "outside"), join(root, "link-outside"));
   udsPath = join(scratch, "fuse.sock");
-  handle = await serveLiveMount(udsPath, { rootAbs: root });
+  // Default fixture is :ro — most tests in this file probe read paths
+  // or assert EROFS on mutations. The :rw write-through block below
+  // builds its own server.
+  handle = await serveLiveMount(udsPath, { rootAbs: root, mode: "ro" });
 });
 
 afterEach(async () => {
@@ -426,6 +429,34 @@ describe("live mount server — :ro mounts reject mutations", () => {
       });
       expect(reply.header.error).toBe(-30);
     });
+  });
+});
+
+// ---------------- default mode is :rw ----------------
+
+describe("live mount server — bare options default to :rw (#156)", () => {
+  it("a server with no mode flag accepts WRITE without EROFS", async () => {
+    const localScratch = mkdtempSync(join(tmpdir(), "machinen-mount-server-default-"));
+    const localRoot = join(localScratch, "root");
+    mkdirSync(localRoot);
+    const localUds = join(localScratch, "fuse.sock");
+    // No `mode` — assert the default is rw, not ro.
+    const localHandle = await serveLiveMount(localUds, { rootAbs: localRoot });
+    try {
+      await withConnectionTo(localUds, async (conn) => {
+        await doInit(conn);
+        const reply = await conn.request(FUSE_OP.WRITE, {
+          unique: 2n,
+          nodeid: 1n,
+          payload: new Uint8Array(40),
+        });
+        // RW with no FH yields EBADF, not EROFS — that's the ro→rw signal.
+        expect(reply.header.error).toBe(-9); // -EBADF
+      });
+    } finally {
+      await localHandle.stop();
+      rmSync(localScratch, { recursive: true, force: true });
+    }
   });
 });
 
