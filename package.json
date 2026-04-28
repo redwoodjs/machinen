@@ -21,6 +21,7 @@
     "dev": "bash scripts/dev.sh",
     "provision": "tsx provision.ts",
     "vm": "tsx vm.ts",
+    "vm-pick": "bash scripts/vm-pick.sh",
     "machinen-dev": "bash scripts/machinen-dev.sh",
     "smoke-tests": "bash scripts/smoke-tests.sh",
     "bench-net": "bash scripts/bench-net.sh"

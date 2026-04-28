@@ -4,41 +4,83 @@
 //   pnpm provision           # incremental — runs only what changed
 //   pnpm provision --force   # ignore the stamp, full rebuild
 //
-// See packages/runtime docs and the comments in vm.ts for the runtime
-// model (initramfs-as-rootfs, copy-once vs. live mounts, etc.).
+// Always anchors on the main repo (resolved via `git rev-parse
+// --git-common-dir`), so a fresh worktree can run `pnpm vm` and reuse
+// the same app.tar.gz / release-assets / runtime binaries — no need to
+// rebuild machinen inside every worktree.
 
-import { provision } from "@machinen/runtime";
+import type { VmHandle } from "@machinen/runtime";
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-// Homebrew's e2fsprogs is keg-only — see vm.ts for rationale.
+const HERE = dirname(fileURLToPath(import.meta.url));
+
+// provision belongs on the canonical checkout — clones share its
+// app.tar.gz via vm.ts's MAIN_REPO anchor, so re-provisioning from
+// inside a clone would shard the cache by clone path.
+if (existsSync(join(HERE, ".machinen-vm", "origin"))) {
+  console.error(
+    `provision: refusing to run inside a clone (.machinen-vm/origin found at ${HERE}).\n` +
+      "           Run from the canonical checkout instead.",
+  );
+  process.exit(1);
+}
+
+// --- main-repo anchor -----------------------------------------------------
+//
+// `git rev-parse --git-common-dir` always points at the *main* `.git`,
+// even from inside a linked worktree. Its parent is the main checkout.
+// We anchor every host-side path here so worktrees inherit main's
+// runtime, release-assets, and cache.
+function mainRepoRoot(): string {
+  try {
+    const commonDir = execFileSync(
+      "git",
+      ["rev-parse", "--path-format=absolute", "--git-common-dir"],
+      { cwd: HERE, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+    ).trim();
+    return dirname(commonDir);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message.split("\n")[0] : String(err);
+    console.error(`provision: could not resolve main repo from ${HERE} (${msg})`);
+    process.exit(1);
+  }
+}
+const MAIN_REPO = mainRepoRoot();
+
+// Homebrew's e2fsprogs is keg-only — see vm.ts for rationale. (The
+// runtime now bundles mke2fs, but keep the PATH munge as a fallback.)
 const BREW_E2FS = "/opt/homebrew/opt/e2fsprogs/sbin";
 if (existsSync(BREW_E2FS) && !(process.env.PATH ?? "").includes(BREW_E2FS)) {
   process.env.PATH = `${BREW_E2FS}:${process.env.PATH ?? ""}`;
 }
 
-const require = createRequire(import.meta.url);
-const runtimeEntry = require.resolve("@machinen/runtime");
-const ASSETS =
-  process.env.MACHINEN_ASSETS_DIR ??
-  resolve(dirname(runtimeEntry), "..", "..", "..", "release-assets");
-const HERE = dirname(fileURLToPath(import.meta.url));
+// Resolve @machinen/runtime against the *main repo*'s node_modules, not
+// the worktree's. Worktrees rarely have runtime built — main always does.
+const mainRequire = createRequire(join(MAIN_REPO, "package.json"));
+const runtimeEntry = mainRequire.resolve("@machinen/runtime");
+const { provision } = (await import(
+  pathToFileURL(runtimeEntry).href
+)) as typeof import("@machinen/runtime");
 
-// Build artifacts live in ~/.cache so they don't get dragged into the
-// guest's view of the workspace via the live mount in vm.ts.
-const CACHE_DIR = join(homedir(), ".cache", "machinen", basename(HERE));
+const ASSETS = process.env.MACHINEN_ASSETS_DIR ?? resolve(MAIN_REPO, "release-assets");
+
+// Cache key on the main repo basename so every worktree shares one
+// app.tar.gz. Build artifacts must live OUTSIDE the project dir or
+// they show up inside the guest via vm.ts's live mount.
+const CACHE_DIR = join(homedir(), ".cache", "machinen", basename(MAIN_REPO));
 mkdirSync(CACHE_DIR, { recursive: true });
 const OUT = join(CACHE_DIR, "app.tar.gz");
 const STAMP = `${OUT}.stamp`;
 const FORCE = process.argv.includes("--force");
 
-// pnpm version is pinned by the host repo's `packageManager` field —
-// match it inside the guest so installs use the same resolver.
-const PKG = JSON.parse(readFileSync(join(HERE, "package.json"), "utf8")) as {
+// Match the host repo's pinned pnpm version inside the guest.
+const PKG = JSON.parse(readFileSync(join(MAIN_REPO, "package.json"), "utf8")) as {
   packageManager?: string;
 };
 const PNPM_VERSION = (() => {
@@ -50,12 +92,11 @@ const PNPM_VERSION = (() => {
   return m[1];
 })();
 
-const installSteps = async (vm: import("@machinen/runtime").VmHandle) => {
+const installSteps = async (vm: VmHandle) => {
   // Remount tmpfs root at size=100% so pnpm/apt installs don't hit ENOSPC.
   await vm.exec("mount -o remount,size=100% /");
 
-  // gvproxy DNS jitter under apt's parallel fan-out — same hardening as
-  // the reference setup.
+  // gvproxy DNS jitter under apt's parallel fan-out.
   const aptResilience = [
     'Acquire::Retries "5";',
     'Acquire::Queue-Mode "access";',
@@ -73,7 +114,7 @@ const installSteps = async (vm: import("@machinen/runtime").VmHandle) => {
   //   jq                       — JSON munging.
   //   less, vim-tiny           — usable interactive shell.
   //   openssh-client, gh       — git/ssh + GitHub CLI.
-  // fd-find is shipped as `/usr/bin/fdfind`; symlink to the upstream name.
+  // Symlink fd-find's binary to the upstream `fd` name.
   await vm.exec(
     "apt-get update -qq && " +
       "apt-get install -y --no-install-recommends " +
@@ -82,15 +123,17 @@ const installSteps = async (vm: import("@machinen/runtime").VmHandle) => {
       "ln -sf /usr/bin/fdfind /usr/local/bin/fd",
   );
 
-  // Pre-bake git identity so commits inside the guest don't prompt.
+  // Pre-bake git identity. safe.directory '*' silences git's
+  // CVE-2022-24765 "dubious ownership" check — necessary because
+  // /mnt/workspace is FUSE-mounted with uids that may not line up.
   await vm.exec(
     "git config --global user.email 'peter.pistorius@gmail.com' && " +
       "git config --global user.name 'Peter Pistorius' && " +
-      "git config --global init.defaultBranch main",
+      "git config --global init.defaultBranch main && " +
+      "git config --global --add safe.directory '*'",
   );
 
-  // Node + pnpm + claude code via fnm. Idempotent: re-running a fnm/npm
-  // install of an already-installed version is sub-second.
+  // Node + pnpm + Claude Code via fnm. Idempotent on rebuilds.
   await vm.exec(
     "export FNM_DIR=/root/.local/share/fnm && " +
       "fnm install 22 && " +
@@ -104,16 +147,11 @@ const installSteps = async (vm: import("@machinen/runtime").VmHandle) => {
       "ln -sf $NODE_BIN/claude /usr/local/bin/claude",
   );
 
-  // Claude Code on Linux falls back to ~/.claude/.credentials.json when
-  // no keychain is present. The actual token is injected per-boot from
-  // the host's Keychain (see vm.ts) — we only stage the directory and
-  // a tiny boot-time helper that materializes the file from $CLAUDE_CREDENTIALS.
-  //
-  // The helper is sourced from /etc/profile.d/, so it runs whenever bash
-  // starts as a login shell (which is how vm.ts spawns it).
-  const claudeBootstrap = [
+  // Materialize Claude Code credentials on first login. The boot cmd
+  // is `bash -lc` (login shell), so /etc/profile + profile.d run and
+  // this snippet fires before the interactive bash shows a prompt.
+  const profileSnippet = [
     "#!/bin/sh",
-    "# Materialize ~/.claude/.credentials.json from the boot env, once.",
     'if [ -n "${CLAUDE_CREDENTIALS:-}" ]; then',
     '  mkdir -p "$HOME/.claude"',
     '  printf "%s" "$CLAUDE_CREDENTIALS" > "$HOME/.claude/.credentials.json"',
@@ -122,10 +160,10 @@ const installSteps = async (vm: import("@machinen/runtime").VmHandle) => {
     "fi",
     "",
   ].join("\n");
-  const claudeBootstrapB64 = Buffer.from(claudeBootstrap).toString("base64");
+  const profileSnippetB64 = Buffer.from(profileSnippet).toString("base64");
   await vm.exec(
-    `echo ${claudeBootstrapB64} | base64 -d > /etc/profile.d/00-claude-credentials.sh && ` +
-      "chmod 0755 /etc/profile.d/00-claude-credentials.sh",
+    `echo ${profileSnippetB64} | base64 -d > /etc/profile.d/00-machinen.sh && ` +
+      "chmod 0755 /etc/profile.d/00-machinen.sh",
   );
 
   // Sanity check.
@@ -134,7 +172,7 @@ const installSteps = async (vm: import("@machinen/runtime").VmHandle) => {
   );
 };
 
-// --- stamp check ---------------------------------------------------------
+// --- stamp check ----------------------------------------------------------
 
 const sourceHash = createHash("sha256")
   .update(readFileSync(fileURLToPath(import.meta.url)))
@@ -149,12 +187,11 @@ if (!FORCE && existsSync(OUT) && existsSync(STAMP)) {
   }
 }
 
-// --- incremental base ----------------------------------------------------
+// --- incremental base -----------------------------------------------------
 
 const base = !FORCE && existsSync(OUT) ? OUT : join(ASSETS, "rootfs-debian-arm64.tar.gz");
 console.log(`provision: base=${base === OUT ? "./app.tar.gz (incremental)" : base}`);
 
-// RAM auto-size from gzipped rootfs — see vm.ts for the formula's derivation.
 function ramForImage(path: string): number {
   const compressed = statSync(path).size;
   const GIB = 1024 * 1024 * 1024;
@@ -167,7 +204,7 @@ console.log(
     `(base=${(statSync(base).size / 1024 ** 2).toFixed(0)} MB)`,
 );
 
-// --- run -----------------------------------------------------------------
+// --- run ------------------------------------------------------------------
 
 const result = await provision({
   base,
@@ -180,7 +217,11 @@ const result = await provision({
 
   vmmEnv: { MACHINEN_RAM_BYTES: String(ramForImage(base)) },
 
-  cmd: ["/usr/bin/env", "/bin/bash", "-i"],
+  // Boot directly into /mnt/workspace via a thin -c wrapper. The
+  // FUSE mount used by liveMounts is currently root-only, so we run
+  // as root; `--dangerously-skip-permissions` won't work for `claude`
+  // inside the VM until fuse-agent supports allow_other.
+  cmd: ["/bin/bash", "-lc", "cd /mnt/workspace 2>/dev/null; exec bash -i"],
   env: {
     PATH: "/root/.local/share/fnm:/usr/local/bin:/usr/bin:/bin:/sbin",
     HOME: "/root",
