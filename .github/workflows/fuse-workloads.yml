@@ -72,7 +72,7 @@ jobs:
       - name: Stage VMM for the runtime to find
         run: |
           mkdir -p packages/vmm-arm64-linux/bin
-          cp packages/microvm/zig-out/bin/microvm packages/vmm-arm64-linux/bin/microvm
+          cp packages/microvm/zig-out/bin/machinen-vm packages/vmm-arm64-linux/bin/machinen-vm
           cp packages/microvm/zig-out/bin/gvproxy packages/vmm-arm64-linux/bin/gvproxy
 
       - run: pnpm install --frozen-lockfile
