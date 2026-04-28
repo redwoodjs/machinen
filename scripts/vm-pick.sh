@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+# vm-pick — fuzzy-pick an open issue/PR, CoW-clone the repo into a sibling
+#           "<reponame>.machinen/" tree, then exec `pnpm vm` inside the
+#           clone. Reuses an existing clone for the same issue/PR.
+#
+# Why CoW clones instead of git worktrees: a worktree's `.git` is a *file*
+# pointing to a host path that doesn't exist inside the guest, so `git`
+# inside the VM breaks. A `cp -c -R` reflink (APFS / btrfs / xfs) gives
+# the clone its own `.git` directory, instant and disk-cheap, with full
+# git/gh functionality inside the guest.
+
+set -euo pipefail
+
+if ! command -v fzf >/dev/null 2>&1; then
+  echo "vm-pick: fzf is required. Install with: brew install fzf" >&2
+  exit 1
+fi
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+  echo "vm-pick: not inside a git repository." >&2
+  exit 1
+fi
+
+# Anchor on the canonical checkout. From a clone, redirect there.
+HERE=$(pwd)
+if [[ -f "$HERE/.machinen-vm/origin" ]]; then
+  MAIN_REPO=$(<"$HERE/.machinen-vm/origin")
+  MAIN_REPO=${MAIN_REPO%$'\n'}
+  echo "vm-pick: redirecting to canonical at $MAIN_REPO" >&2
+else
+  MAIN_REPO=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
+fi
+PARENT_DIR=$(dirname "$MAIN_REPO")
+REPO_NAME=$(basename "$MAIN_REPO")
+CLONES_ROOT="${PARENT_DIR}/${REPO_NAME}.machinen"
+
+tmpdir=$(mktemp -d)
+trap 'rm -rf "$tmpdir"' EXIT
+
+(cd "$MAIN_REPO" && gh issue list --state open --limit 100 --json number,title,url) \
+  > "$tmpdir/issues.json" 2>"$tmpdir/issues.err" &
+issues_pid=$!
+(cd "$MAIN_REPO" && gh pr list --state open --limit 100 --json number,title,url) \
+  > "$tmpdir/prs.json" 2>"$tmpdir/prs.err" &
+prs_pid=$!
+wait "$issues_pid"; issues_rc=$?
+wait "$prs_pid";    prs_rc=$?
+
+if (( issues_rc != 0 )) || (( prs_rc != 0 )); then
+  echo "vm-pick: gh failed:" >&2
+  (( issues_rc != 0 )) && { echo "  issues:" >&2; sed 's/^/    /' "$tmpdir/issues.err" >&2; }
+  (( prs_rc    != 0 )) && { echo "  prs:"    >&2; sed 's/^/    /' "$tmpdir/prs.err"    >&2; }
+  exit 1
+fi
+
+# kind \t number \t title \t url
+{
+  jq -r '.[] | "issue\t\(.number)\t\(.title)\t\(.url)"' < "$tmpdir/issues.json"
+  jq -r '.[] | "pr\t\(.number)\t\(.title)\t\(.url)"'    < "$tmpdir/prs.json"
+} > "$tmpdir/combined"
+
+if [[ ! -s "$tmpdir/combined" ]]; then
+  echo "vm-pick: no open issues or PRs." >&2
+  exit 1
+fi
+
+selection=$(
+  fzf --delimiter=$'\t' \
+      --with-nth='1,2,3' \
+      --height=40% \
+      --reverse \
+      --prompt='vm-pick> ' \
+      < "$tmpdir/combined"
+) || exit 1
+
+IFS=$'\t' read -r kind num title _url <<< "$selection"
+
+# Slugify title: lowercase, non-alnum → '-', trim, cap at 40 chars.
+slug=$(printf '%s' "$title" \
+  | tr '[:upper:]' '[:lower:]' \
+  | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g' \
+  | cut -c1-40 \
+  | sed -E 's/-+$//')
+
+CLONE_DIR="${CLONES_ROOT}/${num}-${kind}-${slug}"
+
+if [[ -d "$CLONE_DIR" ]]; then
+  echo "vm-pick: reusing existing clone at $CLONE_DIR" >&2
+else
+  echo "vm-pick: creating CoW clone at $CLONE_DIR" >&2
+  mkdir -p "$CLONES_ROOT"
+  # APFS reflink on macOS. -c is the macOS clone flag; on Linux use
+  # `cp --reflink=auto` instead (this script targets Darwin).
+  cp -c -R "$MAIN_REPO" "$CLONE_DIR"
+  mkdir -p "$CLONE_DIR/.machinen-vm"
+  printf '%s\n' "$MAIN_REPO" > "$CLONE_DIR/.machinen-vm/origin"
+
+  if [[ "$kind" == "pr" ]]; then
+    (cd "$CLONE_DIR" && gh pr checkout "$num")
+  else
+    (cd "$CLONE_DIR" && git checkout -B "${num}-${slug}")
+  fi
+fi
+
+cd "$CLONE_DIR"
+exec pnpm vm
