@@ -31,7 +31,7 @@
     "@changesets/cli": "^2.30.0",
     "@machinen/runtime": "workspace:*",
     "@nkzw/oxlint-config": "1.0.1",
-    "@redwoodjs/agent-ci": "^0.12.4",
+    "@redwoodjs/agent-ci": "^0.13.0",
     "@types/node": "^22",
     "@typescript/native-preview": "^7.0.0-dev",
     "fallow": "^2.44.2",
