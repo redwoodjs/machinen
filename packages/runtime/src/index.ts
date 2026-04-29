@@ -367,7 +367,12 @@ export interface VmHandle {
    */
   detach(): Promise<void>;
 
-  /** Buffer stdout until the process exits; return it as a UTF-8 string. */
+  /**
+   * Buffer stdout until the process exits; return it as a UTF-8 string.
+   * Capped at ~1 MiB tail — long-running VMs keep only the most recent
+   * bytes (issue #150). Sufficient for kernel boot console + test
+   * assertions; not a full transcript.
+   */
   output(): Promise<string>;
 
   /** Same as `output()` but for stderr (where guest console lands). */
@@ -916,6 +921,9 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   // importantly, the child backpressures if no one is reading (the
   // PL011 echo path writes a lot of bytes during kernel boot, enough
   // to fill a pipe buffer if nothing's draining it).
+  //
+  // `collect()` ring-buffers to `CONSOLE_TAIL_BYTES` so a multi-hour
+  // VM doesn't drag the supervisor toward OOM (issue #150).
   const outputCollector = collect(child.stdout);
   const errorCollector = collect(child.stderr);
   const onLog = opts.onLog;
@@ -1611,15 +1619,51 @@ function teeOnLog(
   };
 }
 
-function collect(stream: Readable): Promise<string> {
+/**
+ * Cap on bytes retained per stream by `collect()`. Each VM session keeps
+ * the *last* this-many bytes of stdout/stderr; older bytes are dropped.
+ * The kernel boot console fits well under this, snapshot debugging only
+ * uses the last ~2 KB, and a multi-hour idle VM no longer accumulates
+ * gigabytes of console chatter in the supervisor's heap (issue #150).
+ */
+const CONSOLE_TAIL_BYTES = 1_048_576;
+
+function collect(stream: Readable, capBytes: number = CONSOLE_TAIL_BYTES): Promise<string> {
   return new Promise((done, fail) => {
     const chunks: Buffer[] = [];
-    stream.on("data", (c: Buffer) => chunks.push(c));
-    stream.on("end", () => done(Buffer.concat(chunks).toString("utf8")));
-    stream.on("close", () => done(Buffer.concat(chunks).toString("utf8")));
+    let totalBytes = 0;
+    stream.on("data", (c: Buffer) => {
+      chunks.push(c);
+      totalBytes += c.length;
+      // Drop whole chunks from the head while doing so leaves at least
+      // `capBytes` retained. This keeps the ring within [cap, cap +
+      // size-of-head-chunk] in steady state, which for line-buffered
+      // VMM stderr is comfortably bounded.
+      while (chunks.length > 1 && totalBytes - chunks[0].length >= capBytes) {
+        totalBytes -= chunks.shift()!.length;
+      }
+    });
+    const finish = () => {
+      let merged = Buffer.concat(chunks);
+      // If a single oversized chunk pushed us above cap (or we ended
+      // up holding more than cap because no head was safe to drop),
+      // tail-slice on the way out so the resolved string honors the cap.
+      if (merged.length > capBytes) {
+        merged = merged.subarray(merged.length - capBytes);
+      }
+      done(merged.toString("utf8"));
+    };
+    stream.on("end", finish);
+    stream.on("close", finish);
     stream.on("error", fail);
   });
 }
+
+// Visible to tests that exercise the ring-buffer logic without booting a VM.
+export const _internal = {
+  collect,
+  CONSOLE_TAIL_BYTES,
+};
 
 // =============================================================
 // Snapshots — #50 M2
