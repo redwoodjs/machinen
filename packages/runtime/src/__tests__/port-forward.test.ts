@@ -9,7 +9,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { exposePort, probeHostPortFree } from "../gvproxy.ts";
+import { describePortHolder, exposePort, probeHostPortFree } from "../gvproxy.ts";
 import { boot } from "../index.ts";
 
 interface FakeGvproxy {
@@ -95,14 +95,32 @@ describe("exposePort", () => {
     });
   });
 
-  it("rejects with gvproxy's error body on non-2xx", async () => {
+  it("rejects with GVPROXY_EXPOSE_FAILED + body for generic non-2xx", async () => {
     gv = await fakeGvproxy((_req, res) => {
       res.statusCode = 500;
-      res.end("address already in use");
+      res.end("malformed body");
     });
-    await expect(exposePort(gv.socketPath, { hostPort: 8080, guestPort: 3000 })).rejects.toThrow(
-      /gvproxy expose failed \(500\).*address already in use/,
-    );
+    await expect(
+      exposePort(gv.socketPath, { hostPort: 8080, guestPort: 3000 }),
+    ).rejects.toMatchObject({
+      code: "GVPROXY_EXPOSE_FAILED",
+      message: expect.stringMatching(/gvproxy expose failed \(500\).*malformed body/),
+    });
+  });
+
+  it("maps `address already in use` 500 body to GVPROXY_PORT_IN_USE", async () => {
+    gv = await fakeGvproxy((_req, res) => {
+      res.statusCode = 500;
+      res.end(
+        "listen tcp 127.0.0.1:5173: bind: address already in use",
+      );
+    });
+    await expect(
+      exposePort(gv.socketPath, { hostPort: 5173, guestPort: 3000 }),
+    ).rejects.toMatchObject({
+      code: "GVPROXY_PORT_IN_USE",
+      message: expect.stringContaining("127.0.0.1:5173 is already in use"),
+    });
   });
 });
 
@@ -239,12 +257,15 @@ describe("boot pre-flight bind probe", () => {
         code: "BOOT_PORT_FORWARD_IN_USE",
         message: expect.stringContaining(`127.0.0.1:${held.port}`),
       });
+      // The message either names the actual holder PID (via lsof) or
+      // falls back to the orphan-gvproxy hypothesis when lsof isn't
+      // available. Both shapes are valid — accept either.
       await expect(
         boot({
           binary: "/nonexistent",
           portForward: [{ hostPort: held.port, guestPort: 3000 }],
         }),
-      ).rejects.toThrow(/orphaned gvproxy.*pkill -f gvproxy/);
+      ).rejects.toThrow(/held by .* \(pid \d+\)|orphaned gvproxy.*pkill -f gvproxy/);
     } finally {
       await held.stop();
     }
@@ -263,5 +284,36 @@ describe("boot pre-flight bind probe", () => {
         ],
       }),
     ).rejects.toMatchObject({ code: "BOOT_PORT_FORWARD_CONFLICT" });
+  });
+});
+
+describe("describePortHolder", () => {
+  it("returns null for a port with no LISTEN holder", async () => {
+    // Pick a free ephemeral port via the OS, release it, then ask who
+    // holds it. Nothing does, so lsof exits nonzero and we should get null.
+    const held = await holdEphemeralPort();
+    const port = held.port;
+    await held.stop();
+    expect(await describePortHolder(port)).toBeNull();
+  });
+
+  it("identifies the holder PID + command when the port is bound", async () => {
+    const held = await holdEphemeralPort();
+    try {
+      const desc = await describePortHolder(held.port);
+      // Skip when lsof isn't on PATH (some minimal CI containers); the
+      // helper's contract is that a missing tool returns null and
+      // callers degrade gracefully.
+      if (desc === null) {
+        return;
+      }
+      // Holder is this test process — node, running from the host's
+      // node_modules (not under ~/.machinen). Don't pin the exact
+      // command, since macOS ps may truncate; pin the pid format.
+      expect(desc).toMatch(/held by .+ \(pid \d+\)/);
+      expect(desc).toContain(String(process.pid));
+    } finally {
+      await held.stop();
+    }
   });
 });

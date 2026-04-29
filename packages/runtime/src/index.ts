@@ -111,6 +111,7 @@ import {
   packTinyBundle as mkinitramfsPackTinyBundle,
 } from "./mkinitramfs.ts";
 import {
+  describePortHolder,
   ensureGvproxy,
   exposePort,
   probeHostPortFree,
@@ -583,11 +584,17 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       const host = m.hostAddr ?? "127.0.0.1";
       const errno = await probeHostPortFree(host, m.hostPort);
       if (errno) {
+        // Best-effort: name the offending PID and flag whether it's
+        // machinen-owned. lsof failures are non-fatal — fall back to the
+        // generic orphan-gvproxy hypothesis so the message still helps.
+        const holder = await describePortHolder(m.hostPort).catch(() => null);
+        const detail = holder
+          ? `${holder}.`
+          : "Common cause: an orphaned gvproxy from a prior `kill -9` of the VMM. " +
+            "Try `pkill -f gvproxy` to clear it, or pick a different host port.";
         throw new BootError(
           "BOOT_PORT_FORWARD_IN_USE",
-          `portForward: host port ${host}:${m.hostPort} is already in use (${errno}). ` +
-            "Common cause: an orphaned gvproxy from a prior `kill -9` of the VMM. " +
-            "Try `pkill -f gvproxy` to clear it, or pick a different host port.",
+          `portForward: host port ${host}:${m.hostPort} is already in use (${errno}). ${detail}`,
         );
       }
     }
