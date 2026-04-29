@@ -88,6 +88,7 @@ import {
   execFileSync,
   spawn as nodeSpawn,
 } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { once } from "node:events";
 import {
   copyFileSync,
@@ -1077,7 +1078,9 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     },
 
     async writeFile(guestPath, contents, writeOpts) {
-      await this.exec(buildWriteFileCmd(guestPath, contents, writeOpts));
+      for (const cmd of buildWriteFileCmds(guestPath, contents, writeOpts)) {
+        await this.exec(cmd);
+      }
     },
 
     async snapshot(snapshotOpts) {
@@ -1256,7 +1259,9 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
     },
 
     async writeFile(guestPath, contents, writeOpts) {
-      await this.exec(buildWriteFileCmd(guestPath, contents, writeOpts));
+      for (const cmd of buildWriteFileCmds(guestPath, contents, writeOpts)) {
+        await this.exec(cmd);
+      }
     },
 
     async snapshot(snapshotOpts) {
@@ -1591,6 +1596,10 @@ function shellQuote(s: string): string {
  * Encoding: contents go over the wire as base64 inside an `echo … |
  * base64 -d` pipe, so any byte sequence (binary, newlines, quotes) is
  * safe. `mkdir -p` runs first when `recursive` (the default).
+ *
+ * Returns a single cmd string. For payloads that would exceed Linux's
+ * `MAX_ARG_STRLEN` (128 KB per argv element) once shell-wrapped, use
+ * `buildWriteFileCmds` instead — `vm.writeFile()` does.
  */
 export function buildWriteFileCmd(
   guestPath: string,
@@ -1615,6 +1624,64 @@ export function buildWriteFileCmd(
     parts.push(`chmod ${opts.mode.toString(8).padStart(3, "0")} ${path}`);
   }
   return parts.join(" && ");
+}
+
+// Linux's `MAX_ARG_STRLEN` caps a single argv element at 32 pages
+// (128 KB on 4 KB-page arches). The exec-agent runs cmds via
+// `execve("/bin/sh", {"sh","-c",cmd,null}, ...)`, so the whole shell
+// pipeline is one argv element. Going over -> execve returns E2BIG ->
+// the agent's child falls through to `_exit(127)` and `vm.exec`
+// surfaces it as "vm.exec failed (code 127)". 64 KB per chunk leaves
+// generous headroom for the surrounding `printf %s '...' >> /tmp/X`
+// wrapper while still letting a typical small payload finish in one cmd.
+const WRITE_FILE_B64_CHUNK_BYTES = 64 * 1024;
+
+/**
+ * Plan the cmd sequence `vm.writeFile()` issues for `contents`.
+ * Small payloads (base64 ≤ `WRITE_FILE_B64_CHUNK_BYTES`) collapse to a
+ * single cmd identical to `buildWriteFileCmd`'s output. Larger payloads
+ * stage the base64 to /tmp in append-chunks and then decode once at the
+ * end, so no individual cmd line approaches `MAX_ARG_STRLEN`.
+ */
+export function buildWriteFileCmds(
+  guestPath: string,
+  contents: Buffer | string,
+  opts: WriteFileOptions = {},
+): string[] {
+  const buf = typeof contents === "string" ? Buffer.from(contents, "utf8") : contents;
+  const b64 = buf.toString("base64");
+  if (b64.length <= WRITE_FILE_B64_CHUNK_BYTES) {
+    return [buildWriteFileCmd(guestPath, contents, opts)];
+  }
+  if (opts.mode !== undefined) {
+    if (!Number.isInteger(opts.mode) || opts.mode < 0 || opts.mode > 0o7777) {
+      throw new RangeError(`writeFile: mode out of range (got ${opts.mode})`);
+    }
+  }
+  const path = shellQuote(guestPath);
+  const redir = opts.append ? ">>" : ">";
+  // Each cmd in the sequence runs in its own `sh -c`, so `$$` would
+  // expand to a different PID per invocation and the chunks would
+  // scatter across files. Bake a host-generated suffix into every cmd
+  // so they all hit the same staging file.
+  const stage = `/tmp/.machinen-wf.${randomBytes(8).toString("hex")}`;
+  const cmds: string[] = [];
+  const setupParts: string[] = [];
+  if (opts.recursive ?? true) {
+    setupParts.push(`mkdir -p -- "$(dirname -- ${path})"`);
+  }
+  setupParts.push(`: > ${stage}`);
+  cmds.push(setupParts.join(" && "));
+  for (let i = 0; i < b64.length; i += WRITE_FILE_B64_CHUNK_BYTES) {
+    const chunk = b64.slice(i, i + WRITE_FILE_B64_CHUNK_BYTES);
+    cmds.push(`printf %s ${shellQuote(chunk)} >> ${stage}`);
+  }
+  const finalParts: string[] = [`base64 -d < ${stage} ${redir} ${path}`, `rm -f ${stage}`];
+  if (opts.mode !== undefined) {
+    finalParts.push(`chmod ${opts.mode.toString(8).padStart(3, "0")} ${path}`);
+  }
+  cmds.push(finalParts.join(" && "));
+  return cmds;
 }
 
 /**
