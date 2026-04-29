@@ -27,21 +27,40 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Local agent-ci escape hatch: when the developer already has a
+      # built kernel + rootfs in release-assets/ (e.g. pulled from a
+      # remote arm64 builder via MACHINEN_REMOTE_BUILDER), skip the
+      # 5-minute build entirely. Real GitHub runners start with an
+      # empty workspace so this no-ops there and the cache+build steps
+      # run normally.
+      - name: Skip if pre-built base assets are present
+        id: prebuilt
+        run: |
+          if [ -f release-assets/Image-arm64 ] \
+             && [ -f release-assets/virt-arm64.dtb ] \
+             && [ -f release-assets/rootfs-debian-arm64.tar.gz ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "release-assets/ already populated — skipping build."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Restore cached base assets
         id: cache
+        if: steps.prebuilt.outputs.skip != 'true'
         uses: actions/cache@v4
         with:
           path: release-assets
           key: base-assets-${{ hashFiles('scripts/build-base-assets.sh', 'scripts/build-kernel-arm64.sh', 'packages/microvm/assets/init.zig', 'packages/microvm/assets/exec-agent.zig', 'packages/microvm/assets/machinen-netup.c', 'packages/microvm/assets/virt.dts') }}
 
       - name: Setup Zig
-        if: steps.cache.outputs.cache-hit != 'true'
+        if: steps.prebuilt.outputs.skip != 'true' && steps.cache.outputs.cache-hit != 'true'
         uses: mlugg/setup-zig@v2
         with:
           version: 0.16.0
 
       - name: Install build deps (dtc + kernel build chain)
-        if: steps.cache.outputs.cache-hit != 'true'
+        if: steps.prebuilt.outputs.skip != 'true' && steps.cache.outputs.cache-hit != 'true'
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
@@ -50,7 +69,7 @@ jobs:
             bc bison flex libssl-dev libelf-dev cpio xz-utils
 
       - name: Build base assets
-        if: steps.cache.outputs.cache-hit != 'true'
+        if: steps.prebuilt.outputs.skip != 'true' && steps.cache.outputs.cache-hit != 'true'
         run: ./scripts/build-base-assets.sh
 
       - uses: actions/upload-artifact@v4
