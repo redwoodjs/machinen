@@ -160,9 +160,13 @@ const installSteps = async (vm: VmHandle) => {
   // CLAUDE_CREDENTIALS  -> ~/.claude/.credentials.json (OAuth tokens;
   //                        rewritten every boot so a rotated host token
   //                        propagates).
-  // CLAUDE_ACCOUNT_JSON -> ~/.claude.json (identity + onboarding slice;
-  //                        only seeded when the file is missing so we
-  //                        don't clobber state the VM accumulates).
+  // CLAUDE_ACCOUNT_JSON -> ~/.claude.json. Holds the identity slice
+  //                        (userID, oauthAccount, hasCompletedOnboarding).
+  //                        Merged into any existing file via jq so we
+  //                        refresh stale identity without clobbering
+  //                        VM-accumulated state. Falls back to overwrite
+  //                        when jq isn't available or the existing file
+  //                        is unparseable.
   const profileSnippet = [
     "#!/bin/sh",
     'if [ -n "${CLAUDE_CREDENTIALS:-}" ]; then',
@@ -171,8 +175,15 @@ const installSteps = async (vm: VmHandle) => {
     '  chmod 600 "$HOME/.claude/.credentials.json"',
     "  unset CLAUDE_CREDENTIALS",
     "fi",
-    'if [ -n "${CLAUDE_ACCOUNT_JSON:-}" ] && [ ! -e "$HOME/.claude.json" ]; then',
-    '  printf "%s" "$CLAUDE_ACCOUNT_JSON" > "$HOME/.claude.json"',
+    'if [ -n "${CLAUDE_ACCOUNT_JSON:-}" ]; then',
+    '  if [ -e "$HOME/.claude.json" ] && command -v jq >/dev/null 2>&1 && \\',
+    '     jq -e . "$HOME/.claude.json" >/dev/null 2>&1; then',
+    "    tmp=$(mktemp) && \\",
+    '      jq -s ".[0] * .[1]" "$HOME/.claude.json" <(printf "%s" "$CLAUDE_ACCOUNT_JSON") > "$tmp" && \\',
+    '      mv "$tmp" "$HOME/.claude.json"',
+    "  else",
+    '    printf "%s" "$CLAUDE_ACCOUNT_JSON" > "$HOME/.claude.json"',
+    "  fi",
     '  chmod 600 "$HOME/.claude.json"',
     "fi",
     "unset CLAUDE_ACCOUNT_JSON",
