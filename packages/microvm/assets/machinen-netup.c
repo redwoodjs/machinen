@@ -62,9 +62,10 @@ static int gw_set(int s, const char *gw) {
 }
 
 // Poll /sys/class/net/eth0 for up to ~1s — virtio probe is async
-// after the kernel binds virtio_net to the DTB device. /init has
-// already loaded virtio_mmio + virtio_net via finit_module before
-// fork-exec'ing this binary.
+// after the kernel binds virtio_net to the DTB device. The drivers
+// themselves are built into the kernel (#119: CONFIG_VIRTIO_NET=y);
+// we just need to wait for the bind to complete before configuring
+// the interface.
 static int wait_for_eth0(void) {
     struct stat st;
     for (int i = 0; i < 20; i++) {

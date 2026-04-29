@@ -5,13 +5,16 @@ name: Build base assets (reusable)
 # and that the smoke job needs to boot a real guest.
 #
 # Uploads a single artifact named `base-assets` containing:
-#   Image-arm64
+#   Image-arm64                  ← custom upstream kernel built from
+#                                   source with virtio_*, ext4, vsock,
+#                                   fuse compiled in (#119).
 #   virt-arm64.dtb
 #   rootfs-debian-arm64.tar.gz
 #   *.sha256 sidecars
 #
-# Output is cached on the inputs of scripts/build-base-assets.sh, so
-# re-runs on unchanged inputs skip the 5-minute Docker build entirely.
+# Output is cached on the inputs of build-base-assets.sh +
+# build-kernel-arm64.sh + the .zig/.dts/.c sources + KVER pin, so
+# re-runs on unchanged inputs skip the kernel + Docker builds.
 
 on:
   workflow_call:
@@ -29,7 +32,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: release-assets
-          key: base-assets-${{ hashFiles('scripts/build-base-assets.sh', 'packages/microvm/assets/init.zig', 'packages/microvm/assets/exec-agent.zig', 'packages/microvm/assets/machinen-netup.c', 'packages/microvm/assets/virt.dts') }}
+          key: base-assets-${{ hashFiles('scripts/build-base-assets.sh', 'scripts/build-kernel-arm64.sh', 'packages/microvm/assets/init.zig', 'packages/microvm/assets/exec-agent.zig', 'packages/microvm/assets/machinen-netup.c', 'packages/microvm/assets/virt.dts') }}
 
       - name: Setup Zig
         if: steps.cache.outputs.cache-hit != 'true'
@@ -37,9 +40,14 @@ jobs:
         with:
           version: 0.16.0
 
-      - name: Install dtc
+      - name: Install build deps (dtc + kernel build chain)
         if: steps.cache.outputs.cache-hit != 'true'
-        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends device-tree-compiler
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            device-tree-compiler \
+            build-essential \
+            bc bison flex libssl-dev libelf-dev cpio xz-utils
 
       - name: Build base assets
         if: steps.cache.outputs.cache-hit != 'true'

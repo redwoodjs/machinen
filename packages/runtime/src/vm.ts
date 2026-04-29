@@ -1143,38 +1143,6 @@ function resolveLiveMounts(
 }
 
 /**
- * Resolve the modules-arm64 tarball for the tiny-cpio path (#119). The
- * .ko files inside have to match the running kernel, so we anchor on
- * MACHINEN_KERNEL: modules-arm64.tar.gz lives next to Image-arm64 in
- * release-assets, and tests mirror the layout under
- * packages/microvm/test-fixtures/. MACHINEN_MODULES wins if the caller
- * sets it explicitly (e.g. mismatched layouts on dev machines).
- */
-function resolveModulesTar(opts: BootOptions, env: Record<string, string>): string {
-  if (env.MACHINEN_MODULES) {
-    const abs = resolve(opts.cwd ?? process.cwd(), env.MACHINEN_MODULES);
-    if (!existsSync(abs)) {
-      throw new BootError("BOOT_MODULES_NOT_FOUND", `MACHINEN_MODULES set but not found: ${abs}`);
-    }
-    return abs;
-  }
-  const kernel = env.MACHINEN_KERNEL;
-  if (kernel) {
-    const candidate = join(resolve(kernel), "..", "modules-arm64.tar.gz");
-    const abs = resolve(candidate);
-    if (existsSync(abs)) {
-      return abs;
-    }
-  }
-  throw new BootError(
-    "BOOT_MODULES_NOT_FOUND",
-    "boot: cannot find modules-arm64.tar.gz. Place it next to MACHINEN_KERNEL " +
-      "or set MACHINEN_MODULES to its path. Run scripts/build-base-assets.sh " +
-      "to produce it alongside the kernel image.",
-  );
-}
-
-/**
  * Build the synthesized `machinen-config.json` payload that /init
  * reads at boot. Pure: takes the already-merged effective cmd/env
  * plus the cwd inputs (user's guestCwd overrides image-baked cwd) and
@@ -1343,15 +1311,13 @@ function synthesizeAndPackBundle(
   try {
     if (packerOpts.useTiny) {
       // #119: rootDisk path. The on-disk rootfs is mounted from /dev/vda
-      // by /init; the cpio only needs to ship enough to load the
-      // boot-path drivers and pivot. ~1 MB. Resolve the modules
-      // tarball lazily, after every other validation has had a chance
-      // to throw a more specific error.
-      const modulesTarAbs = resolveModulesTar(opts, packerOpts.env);
+      // by /init; the cpio only ships /init + machinen-config.json +
+      // boot-epoch + /dev/console (~500 KB). The custom kernel
+      // (scripts/build-kernel-arm64.sh) has virtio_*, ext4, and vsock
+      // built in, so no /modules/*.ko or finit_module pass is needed.
       mkinitramfsPackTinyBundle({
         bundle: synthBundleDir,
         out: cpioPath,
-        modulesTar: modulesTarAbs,
         mount,
         env: effectiveEnv,
         fuseAgentPath: liveMounts.length > 0 ? defaultFuseAgentPath() : undefined,
