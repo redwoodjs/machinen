@@ -9,15 +9,17 @@
 
 import { execSync } from "node:child_process";
 import {
+  closeSync,
   existsSync,
+  mkdirSync,
   mkdtempSync,
   openSync,
+  readFileSync,
   rmSync,
   statSync,
   unlinkSync,
   writeFileSync,
   writeSync,
-  closeSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -527,4 +529,157 @@ describe("boot({ rootDisk })", () => {
       rmSync(modStage, { recursive: true, force: true });
     }
   });
+});
+
+// #121: per-boot reflink copy of the cached rootfs image.
+//
+// `boot({ rootDisk: true })` mounts the image read-write on virtio-blk,
+// so handing the cached `<sha>.img` directly to the VMM would let one
+// boot's writes persist into the next boot from the same tarball.
+// The runtime now COPYFILE_FICLONEs the cache template to a per-boot
+// path, hands that copy to the VMM, and unlinks it on exit.
+//
+// These tests run `binary: "/bin/sh"` against a planted cache template
+// inside a private $HOME so they exercise the host-side wiring without
+// needing e2fsprogs or a real VMM.
+describe("boot({ rootDisk }) per-boot copy (#121)", () => {
+  // Plant a cache template under a temp $HOME and return the bits each
+  // test needs to drive boot() and assert against the copy.
+  function buildHarness(label: string) {
+    const homeDir = mkdtempSync(join(tmpdir(), `machinen-home-${label}-`));
+    const cacheDir = join(homeDir, ".cache", "machinen", "rootfs");
+    mkdirSync(cacheDir, { recursive: true });
+
+    // Unique tarball content per harness so the sha256-keyed cache
+    // entry never collides between concurrent vitest workers.
+    const tarPath = join(homeDir, `${label}.tar.gz`);
+    const stageDir = mkdtempSync(join(tmpdir(), `machinen-stage-${label}-`));
+    writeFileSync(join(stageDir, "stub"), `stub-${label}-${process.pid}-${Date.now()}`);
+    execSync(`tar -czf ${tarPath} -C ${stageDir} .`);
+
+    const sha = execSync(`shasum -a 256 ${tarPath}`, { encoding: "utf8" })
+      .trim()
+      .split(/\s+/, 1)[0]!;
+    const cachedImg = join(cacheDir, `${sha}.img`);
+    // Plant non-ext4 bytes so cachedImageIsUsable's e2fsck sniff is
+    // skipped and we reach the COPYFILE_FICLONE path directly.
+    writeFileSync(cachedImg, "TEMPLATE_CONTENT");
+    writeFileSync(`${cachedImg}.ok`, "");
+
+    // packTinyBundle requires a modules tarball; an empty gzipped tar
+    // is enough to satisfy it for an env-passthrough boot.
+    const modsTar = join(homeDir, `mods-${label}.tar.gz`);
+    const modsStage = mkdtempSync(join(tmpdir(), `machinen-mods-${label}-`));
+    execSync(`tar -czf ${modsTar} -C ${modsStage} .`);
+
+    return {
+      homeDir,
+      tarPath,
+      cachedImg,
+      modsTar,
+      cleanup() {
+        rmSync(homeDir, { recursive: true, force: true });
+        rmSync(stageDir, { recursive: true, force: true });
+        rmSync(modsStage, { recursive: true, force: true });
+      },
+    };
+  }
+
+  function withHome<T>(homeDir: string, fn: () => Promise<T>): Promise<T> {
+    const saved = process.env.HOME;
+    process.env.HOME = homeDir;
+    return fn().finally(() => {
+      if (saved === undefined) {
+        delete process.env.HOME;
+      } else {
+        process.env.HOME = saved;
+      }
+    });
+  }
+
+  it("clones the cached image to a per-boot path and removes it on exit", async () => {
+    const h = buildHarness(`clone-${process.pid}`);
+    try {
+      await withHome(h.homeDir, async () => {
+        const vm = await boot({
+          binary: "/bin/sh",
+          args: ["-c", 'printf "ROOTDISK=%s\\n" "$MACHINEN_ROOTDISK"'],
+          image: h.tarPath,
+          cmd: ["/bin/true"],
+          vmmEnv: { MACHINEN_MODULES: h.modsTar },
+          timeoutMs: 5_000,
+        });
+        await vm.wait();
+        const out = (await vm.output()).trim();
+        const m = /^ROOTDISK=(.+)$/m.exec(out);
+        expect(m, `no ROOTDISK line in output: ${out}`).not.toBeNull();
+        const perBoot = m![1]!;
+        // Per-boot path is a distinct file from the cached template.
+        expect(perBoot).not.toBe(h.cachedImg);
+        // Exit handler unlinks the per-boot file before vm.wait() resolves.
+        expect(existsSync(perBoot)).toBe(false);
+        // Cached template survives the boot.
+        expect(existsSync(h.cachedImg)).toBe(true);
+        expect(readFileSync(h.cachedImg, "utf8")).toBe("TEMPLATE_CONTENT");
+      });
+    } finally {
+      h.cleanup();
+    }
+  }, 20_000);
+
+  it("guest writes to the per-boot copy do not leak into the cached template", async () => {
+    const h = buildHarness(`leak-${process.pid}`);
+    try {
+      await withHome(h.homeDir, async () => {
+        const vm = await boot({
+          binary: "/bin/sh",
+          args: ["-c", 'printf "GUEST_WROTE_HERE" > "$MACHINEN_ROOTDISK"'],
+          image: h.tarPath,
+          cmd: ["/bin/true"],
+          vmmEnv: { MACHINEN_MODULES: h.modsTar },
+          timeoutMs: 5_000,
+        });
+        await vm.wait();
+        // The mock "guest" overwrote MACHINEN_ROOTDISK; the cached
+        // template at <sha>.img must be unchanged. This is the core
+        // contract per-boot copies restore.
+        expect(readFileSync(h.cachedImg, "utf8")).toBe("TEMPLATE_CONTENT");
+      });
+    } finally {
+      h.cleanup();
+    }
+  }, 20_000);
+
+  it("back-to-back boots from the same tarball get distinct per-boot copies", async () => {
+    const h = buildHarness(`distinct-${process.pid}`);
+    try {
+      await withHome(h.homeDir, async () => {
+        const launch = async () => {
+          const vm = await boot({
+            binary: "/bin/sh",
+            args: ["-c", 'printf "ROOTDISK=%s\\n" "$MACHINEN_ROOTDISK"'],
+            image: h.tarPath,
+            cmd: ["/bin/true"],
+            vmmEnv: { MACHINEN_MODULES: h.modsTar },
+            timeoutMs: 5_000,
+          });
+          await vm.wait();
+          const out = (await vm.output()).trim();
+          return /^ROOTDISK=(.+)$/m.exec(out)![1]!;
+        };
+        // Sequential rather than parallel — the cache marker
+        // (#170) is single-consumer, so two simultaneous boots
+        // would race on it. The per-boot path is what we're
+        // asserting on; two back-to-back boots each get their
+        // own copy in tmpdir.
+        const p1 = await launch();
+        const p2 = await launch();
+        expect(p1).not.toBe(p2);
+        expect(existsSync(p1)).toBe(false);
+        expect(existsSync(p2)).toBe(false);
+      });
+    } finally {
+      h.cleanup();
+    }
+  }, 30_000);
 });
