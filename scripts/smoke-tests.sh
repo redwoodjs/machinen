@@ -534,18 +534,21 @@ else
   fail "P1 — criu --version did not print a Version: line"
 fi
 
-# ---- P2: virtio_blk + vmw_vsock_virtio_transport modprobed at boot ----
-# /init's loadPlumbingModules() runs before exec'ing the user cmd, so
-# /proc/modules should list both. Reading /proc directly avoids
-# depending on lsmod's PATH location.
-echo "P2: machinen boot -- cat /proc/modules (virtio_blk + vmw_vsock_virtio_transport)"
+# ---- P2: virtio_blk + vsock visible to userspace at boot ----
+# Drivers are now compiled into the kernel (#119), so /proc/modules is
+# empty. Instead, prove they're live: /sys/class/block/vda exists once
+# virtio_blk has bound, and /proc/net/protocols lists AF_VSOCK once
+# vsock + virtio_vsock are linked in.
+echo "P2: machinen boot -- /sys/class/block/vda + AF_VSOCK in /proc/net/protocols"
 P2_LOG="$FIXTURE/p2.log"
-run_timeout 60 node "$CLI" boot -- /bin/cat /proc/modules >"$P2_LOG" 2>&1 || true
-if grep -qE "^virtio_blk " "$P2_LOG" && grep -qE "^vmw_vsock_virtio_transport " "$P2_LOG"; then
-  pass "init loaded virtio_blk + vmw_vsock_virtio_transport"
+run_timeout 60 node "$CLI" boot -- /bin/sh -c \
+  'ls /sys/class/block/vda 2>/dev/null && grep -E "^AF_VSOCK " /proc/net/protocols' \
+  >"$P2_LOG" 2>&1 || true
+if grep -q "/sys/class/block/vda" "$P2_LOG" && grep -qE "^AF_VSOCK " "$P2_LOG"; then
+  pass "kernel has virtio_blk + vsock built in (/dev/vda + AF_VSOCK live)"
 else
   tail -50 "$P2_LOG" >&2
-  fail "P2 — expected virtio_blk and vmw_vsock_virtio_transport in /proc/modules"
+  fail "P2 — expected /sys/class/block/vda and AF_VSOCK in /proc/net/protocols"
 fi
 
 # ---- P3: machinen-poweroff triggers PSCI SYSTEM_OFF, VMM exits cleanly ----

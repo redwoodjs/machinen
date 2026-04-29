@@ -41,8 +41,11 @@ async function startFakeAgent(udsPath: string): Promise<FakeAgent> {
         buf = buf.slice(nl + 1);
         received.push(line);
         for (const w of waiters.splice(0, waiters.length)) {
-          if (received.length >= w.count) w.done();
-          else waiters.push(w);
+          if (received.length >= w.count) {
+            w.done();
+          } else {
+            waiters.push(w);
+          }
         }
       }
     });
@@ -61,7 +64,9 @@ async function startFakeAgent(udsPath: string): Promise<FakeAgent> {
     udsPath,
     received,
     waitFor(count) {
-      if (received.length >= count) return Promise.resolve();
+      if (received.length >= count) {
+        return Promise.resolve();
+      }
       return new Promise((done) => waiters.push({ count, done }));
     },
     close() {

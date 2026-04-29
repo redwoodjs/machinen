@@ -82,8 +82,6 @@ export const FATTR = {
   CTIME: 1 << 10,
 } as const;
 
-type FuseOp = (typeof FUSE_OP)[keyof typeof FUSE_OP];
-
 /**
  * FUSE_INIT capability flags (fuse_init_in.flags / fuse_init_out.flags).
  * We only honor flags we actively support — everything else we mask
@@ -319,7 +317,6 @@ export function buildKstatfs(s: FuseKstatfs): Uint8Array {
 
 // --- fuse_init_in / fuse_init_out ----------------------------------------
 
-const FUSE_INIT_IN_MIN_SIZE = 8; // pre-7.23 kernels send only major/minor
 export const FUSE_INIT_OUT_SIZE = 64;
 
 interface FuseInitIn {
