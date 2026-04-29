@@ -82,6 +82,7 @@ export class VsockWinsize {
    * Send a new size. Idempotent against the most recent send — repeats
    * are dropped so a chatty SIGWINCH doesn't spam the bridge.
    */
+  // fallow-ignore-next-line unused-class-member
   send(cols: number, rows: number): void {
     if (this.closed) {
       return;
@@ -93,6 +94,7 @@ export class VsockWinsize {
     this.socket.write(`${cols} ${rows}\n`);
   }
 
+  // fallow-ignore-next-line unused-class-member
   close(): void {
     if (this.closed) {
       return;

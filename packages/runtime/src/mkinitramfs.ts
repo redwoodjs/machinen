@@ -53,7 +53,7 @@ const debug = debugLib("machinen:mkinitramfs");
  * Default excludes applied to --workspace packs. Skip the usual dev
  * droppings that nobody wants dragged into a tmpfs at boot.
  */
-export const DEFAULT_WORKSPACE_EXCLUDES = new Set<string>([
+const DEFAULT_WORKSPACE_EXCLUDES = new Set<string>([
   ".git",
   "node_modules",
   ".zig-cache",
@@ -130,7 +130,7 @@ function newc(
 // --- excludes ------------------------------------------------------
 
 /** Parse an excludes file (one fnmatch-style pattern per line, `#` comments). */
-export function loadExcludes(path: string): string[] {
+function loadExcludes(path: string): string[] {
   const raw = readFileSync(path, "utf8");
   const out: string[] = [];
   for (const line of raw.split("\n")) {
@@ -854,7 +854,7 @@ export function defaultFuseAgentPath(): string {
  * override whatever stale /exec-agent the user's base tarball may
  * have captured from a previous run.
  */
-export function defaultExecAgentPath(): string {
+function defaultExecAgentPath(): string {
   const here = dirname(fileURLToPath(import.meta.url));
   return join(here, "..", "..", "microvm", "test-fixtures", "exec-agent");
 }
@@ -970,5 +970,3 @@ function die(msg: string): never {
   process.exit(2);
 }
 
-// Re-exported for tests + callers that don't want to go through the CLI.
-export { newc, entriesFromRootfs };

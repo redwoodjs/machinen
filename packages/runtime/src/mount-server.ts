@@ -110,7 +110,7 @@ interface InodeEntry {
 /** Per-connection file-handle table. One entry per OPEN/OPENDIR. */
 type OpenEntry = { kind: "file"; fh: FileHandle } | { kind: "dir"; entries: Uint8Array[] };
 
-export interface LiveMountServerOptions {
+interface LiveMountServerOptions {
   /** Absolute host path that bounds every op. */
   rootAbs: string;
   /**
@@ -217,7 +217,7 @@ async function handleConnection(sock: Socket, state: ServerState): Promise<void>
  * 4-byte little-endian length prefix every FUSE request carries; we
  * don't add a second framing layer.
  */
-export async function* readFrames(sock: AsyncIterable<Buffer>): AsyncGenerator<Uint8Array> {
+async function* readFrames(sock: AsyncIterable<Buffer>): AsyncGenerator<Uint8Array> {
   let pending: Buffer = Buffer.alloc(0);
   for await (const chunk of sock) {
     pending = pending.length === 0 ? Buffer.from(chunk) : Buffer.concat([pending, chunk]);

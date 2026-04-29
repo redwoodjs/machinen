@@ -34,6 +34,7 @@
     "@redwoodjs/agent-ci": "^0.12.4",
     "@types/node": "^22",
     "@typescript/native-preview": "^7.0.0-dev",
+    "fallow": "^2.44.2",
     "oxfmt": "0.33.0",
     "oxlint": "1.48.0",
     "tsx": "^4",

@@ -1,10 +1,12 @@
 packages:
-  - "packages/*"
-  - "examples/*"
+  - packages/*
+  - examples/*
 
 onlyBuiltDependencies:
+  - '@homebridge/node-pty-prebuilt-multiarch'
   - cpu-features
   - esbuild
+  - fallow
   - node-pty
   - protobufjs
   - ssh2

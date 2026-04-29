@@ -33,7 +33,7 @@ import { realpath } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { MountError } from "./errors.ts";
 
-export interface ResolveOptions {
+interface ResolveOptions {
   /**
    * `true` (default): the target must already exist; returns its
    * fully-resolved path. `false`: the target may not exist (create/
