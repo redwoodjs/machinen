@@ -4,7 +4,7 @@
 //   MACHINEN_ASSETS_DIR=./release-assets \
 //   MACHINEN_VMM=$(find packages/microvm/.zig-cache/o -name test -type f \
 //                    -exec bash -c 'strings "$1" | grep -q MACHINEN_BOOT_TEST && echo "$1"' _ {} \; | head -1) \
-//   npx tsx scripts/stream-demo.ts
+//   node scripts/stream-demo.ts
 //
 // Needs:
 //   - A built VMM binary (packages/microvm: `zig build test`)
