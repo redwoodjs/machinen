@@ -387,6 +387,10 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
         ...tapExecForLog("/sbin/machinen-poweroff", opts.onLog),
       }).catch(() => {});
 
+      // Surface progress without requiring DEBUG. The kernel's last
+      // visible line is `reboot: Power down`, after which there's a
+      // 30–90 s gap of silent host-side CPU. See #162.
+      console.error("provision: waiting for guest exit…");
       await vm.wait();
       debug("guest exited");
     } finally {
@@ -469,6 +473,9 @@ function repackDiskTarToGz(
 ): void {
   const extractDir = mkdtempSync(join(tmpdir(), "machinen-provision-extract-"));
   try {
+    // Visible progress so the silent multi-GB tar pass doesn't look
+    // like a hang. See #162.
+    console.error("provision: packaging rootfs…");
     execFileSync("tar", ["-xf", diskPath, "-C", extractDir]);
     // Bake the image's default cmd/env into /machinen-config.json so
     // `boot({ image })` can run without every caller re-passing the
