@@ -75,7 +75,7 @@ dtc -I dts -O dtb "${ASSETS}/virt.dts" -o "${OUT}/virt-arm64.dtb"
 #    (all statically linked against musl)
 # ------------------------------------------------------------
 
-echo "==> Building guest binaries (init, exec-agent, fuse-agent, CRIU helpers, poweroff, net-bench-probe) for aarch64-linux-musl"
+echo "==> Building guest binaries (init, exec-agent, fuse-agent, winsize-agent, CRIU helpers, poweroff, net-bench-probe) for aarch64-linux-musl"
 STAGE=$(mktemp -d)
 trap 'rm -rf "$STAGE"' EXIT
 
@@ -86,7 +86,10 @@ trap 'rm -rf "$STAGE"' EXIT
 # net-bench-probe is the #82 gvproxy throughput/latency probe used by
 # the smoke harness. fuse-agent is the guest byte-pump for #78
 # `--mount-live`; /init forks it per liveMount entry.
-for name in init exec-agent fuse-agent lo-up no-iou poweroff net-bench-probe; do
+# winsize-agent is the #177 vsock TIOCSWINSZ daemon for dev-VM tty
+# resize forwarding; lives at /sbin/machinen-winsize-agent and is
+# launched by vm.ts's bootstrap (no auto-launch in non-dev paths).
+for name in init exec-agent fuse-agent winsize-agent lo-up no-iou poweroff net-bench-probe; do
   zig build-exe "${ASSETS}/${name}.zig" \
     -target aarch64-linux-musl \
     -O ReleaseSmall \
@@ -360,6 +363,7 @@ install -m 0755 -D /stage/lo-up             /work/rootfs/sbin/machinen-lo-up
 install -m 0755 -D /stage/no-iou            /work/rootfs/sbin/machinen-no-iou
 install -m 0755 -D /stage/poweroff          /work/rootfs/sbin/machinen-poweroff
 install -m 0755 -D /stage/net-bench-probe   /work/rootfs/sbin/machinen-net-bench-probe
+install -m 0755 -D /stage/winsize-agent     /work/rootfs/sbin/machinen-winsize-agent
 install -m 0755 -D /stage/fnm               /work/rootfs/usr/local/bin/fnm
 # Shell-script helpers that drive the snapshot/restore contract. Staged
 # in by the host-side build step alongside the zig binaries.

@@ -92,6 +92,30 @@ const PNPM_VERSION = (() => {
   return m[1];
 })();
 
+// #177: dev-VM tty resize forwarding. The launcher in vm.ts only does
+// anything if /sbin/machinen-winsize-agent is on disk, so push it here.
+// build-base-assets.sh bakes it into fresh release-assets, but users
+// with stale rootfs tarballs (most local checkouts) wouldn't get it
+// without this refresh. Source from the test-fixtures build output —
+// `bash packages/microvm/test-fixtures/assets/build-init.sh` from
+// packages/microvm produces the binary; no fail if missing because the
+// dev VM degrades to the e7e1db1 stty-on-bootstrap behavior (fine for
+// initial paint; just no SIGWINCH propagation mid-session).
+const WINSIZE_AGENT_HOST_PATH = resolve(
+  MAIN_REPO,
+  "packages/microvm/test-fixtures/winsize-agent",
+);
+const winsizeAgentBin = existsSync(WINSIZE_AGENT_HOST_PATH)
+  ? readFileSync(WINSIZE_AGENT_HOST_PATH)
+  : null;
+if (!winsizeAgentBin) {
+  console.warn(
+    `provision: ${WINSIZE_AGENT_HOST_PATH} missing — host SIGWINCH won't reach the guest.\n` +
+      "           Build it with `bash packages/microvm/test-fixtures/assets/build-init.sh`\n" +
+      "           from packages/microvm, then re-run provision.",
+  );
+}
+
 const installSteps = async (vm: VmHandle) => {
   // /tmp + /var/tmp need to exist with sticky-1777 before anything that
   // drops privs (apt → _apt). Two reasons they may be off:
@@ -194,6 +218,15 @@ const installSteps = async (vm: VmHandle) => {
     `echo ${profileSnippetB64} | base64 -d > /etc/profile.d/00-machinen.sh && ` +
       "chmod 0755 /etc/profile.d/00-machinen.sh",
   );
+
+  // #177 dev-VM tty resize agent. Overwrite even if /sbin/machinen-winsize-agent
+  // already exists in the base rootfs, so the freshest local build wins
+  // (mirrors the /fuse-agent + /init refresh idiom in init.zig).
+  if (winsizeAgentBin) {
+    await vm.writeFile("/sbin/machinen-winsize-agent", winsizeAgentBin, {
+      mode: 0o755,
+    });
+  }
 
   // Sanity check.
   await vm.exec(

@@ -14,7 +14,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -48,9 +48,14 @@ if (existsSync(BREW_E2FS) && !(process.env.PATH ?? "").includes(BREW_E2FS)) {
 // build machinen themselves.
 const mainRequire = createRequire(join(MAIN_REPO, "package.json"));
 const runtimeEntry = mainRequire.resolve("@machinen/runtime");
-const { boot } = (await import(
-  pathToFileURL(runtimeEntry).href
-)) as typeof import("@machinen/runtime");
+type Runtime = typeof import("@machinen/runtime");
+// VsockWinsize's constructor is private (callers must use the static
+// `connect()` factory), which means `InstanceType<typeof X>` doesn't
+// work — TS rejects assigning a private-constructor class to its
+// public constructor type. Pull the instance type off the factory's
+// return value instead.
+type VsockWinsizeHandle = Awaited<ReturnType<Runtime["VsockWinsize"]["connect"]>>;
+const { boot, VsockWinsize } = (await import(pathToFileURL(runtimeEntry).href)) as Runtime;
 
 const ASSETS = process.env.MACHINEN_ASSETS_DIR ?? resolve(MAIN_REPO, "release-assets");
 const CACHE_DIR = join(homedir(), ".cache", "machinen", basename(MAIN_REPO));
@@ -136,18 +141,21 @@ const claudeAccountJson = readHostClaudeAccount();
 // unconditionally `unset CLAUDE_ACCOUNT_JSON` before our bootstrap had
 // a chance to read it. With these names, the bootstrap is the only
 // thing that touches them.
-// Seed the guest TTY size from the host terminal. Without this the
-// guest's serial console reports 80x24 to anything that ioctl's
-// TIOCGWINSZ — TUIs (claude, vim, less) lay out for that and the host
-// terminal redraws over the gap, leaving smeared output until reset.
-// This handles the initial render only. Dynamic SIGWINCH after boot
-// requires the winsize-agent (`packages/microvm/assets/winsize-agent.zig`)
-// to be baked into the rootfs and wired to a VsockWinsize on the host;
-// not yet plumbed through provision.ts.
+// Seed the guest TTY size from the host terminal. The bootstrap below
+// `stty`'s the kernel TTY for first paint; the VsockWinsize wiring
+// after `boot()` propagates host SIGWINCH for the rest of the session
+// (#177). The two are complementary — if the agent isn't on the rootfs
+// or the vsock connect fails, the stty fallback still gives us a
+// correctly-sized tty on first render.
 const stdoutAny = process.stdout as NodeJS.WriteStream;
 const hostCols = stdoutAny.columns ?? 80;
 const hostRows = stdoutAny.rows ?? 24;
 
+// #177: ask the VMM to bridge AF_VSOCK port 1974 (the guest agent's
+// listen port) to a host UDS. boot()'s vsock-bridge code parses the
+// first `in:` entry to wire vm.exec(); we don't use vm.exec from this
+// script, so co-opting that slot for winsize is fine.
+const winsizeUdsPath = join(tmpdir(), `machinen-winsize-${process.pid}.sock`);
 const secretEnv: Record<string, string> = {
   GH_TOKEN: ghToken,
   GITHUB_TOKEN: ghToken,
@@ -219,6 +227,16 @@ const bootstrap = [
   'if [ -n "${COLUMNS:-}" ] && [ -n "${LINES:-}" ]; then',
   '  stty cols "$COLUMNS" rows "$LINES" 2>/dev/null || true',
   "fi",
+  // #177: launch the vsock TIOCSWINSZ agent so subsequent host
+  // SIGWINCH (forwarded by VsockWinsize below) resize the guest tty
+  // mid-session. Backgrounded + reparented to PID 1 once `exec bash -i`
+  // replaces this shell. /dev/null redirects so the agent's "applied:"
+  // log lines don't smear over the user's terminal. No-op if the
+  // binary is missing (stale rootfs); the host-side connect will
+  // time out and fall back to the stty-on-boot behavior above.
+  "if [ -x /sbin/machinen-winsize-agent ]; then",
+  "  /sbin/machinen-winsize-agent </dev/null >/dev/null 2>&1 &",
+  "fi",
   "cd /mnt/workspace 2>/dev/null",
   "exec bash -i",
 ].join("\n");
@@ -230,9 +248,34 @@ const vm = await boot({
   liveMounts: [{ host: HERE, guest: "/mnt/workspace", mode: "rw" }],
   cmd: ["/bin/bash", "-lc", bootstrap],
   env: secretEnv,
-  vmmEnv: { MACHINEN_RAM_BYTES: String(ramForImage(IMAGE)) },
+  vmmEnv: {
+    MACHINEN_RAM_BYTES: String(ramForImage(IMAGE)),
+    MACHINEN_VSOCK: `in:1974:${winsizeUdsPath}`,
+  },
   timeoutMs: null,
 });
+
+// #177: connect to the in-guest winsize-agent and forward host
+// SIGWINCH for the rest of the session. Non-fatal: a stale rootfs
+// without /sbin/machinen-winsize-agent leaves nothing listening on
+// vsock 1974, so the connect retries inside VsockWinsize will give up
+// after ~10s. We catch and continue — the stty-on-bootstrap path
+// already handled first paint, only mid-session resizes are lost.
+let winsize: VsockWinsizeHandle | undefined;
+try {
+  winsize = await VsockWinsize.connect(winsizeUdsPath, { timeoutMs: 10_000 });
+  winsize.send(hostCols, hostRows);
+  process.stdout.on("resize", () => {
+    if (!winsize) return;
+    const cols = stdoutAny.columns ?? hostCols;
+    const rows = stdoutAny.rows ?? hostRows;
+    winsize.send(cols, rows);
+  });
+} catch (err) {
+  process.stderr.write(
+    `[machinen] winsize forwarding unavailable (${err instanceof Error ? err.message : String(err)}) — host resizes won't reach the guest tty\n`,
+  );
+}
 
 const stdin = process.stdin as NodeJS.ReadStream & {
   setRawMode?: (m: boolean) => void;
@@ -247,6 +290,7 @@ vm.stderr.pipe(process.stderr);
 process.stdin.pipe(vm.stdin);
 
 const { code } = await vm.wait();
+winsize?.close();
 if (isTty) {
   stdin.setRawMode!(false);
   // RIS (full terminal reset) + clear scrollback + home cursor, so the
