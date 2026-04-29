@@ -176,8 +176,9 @@ export interface EnsureRootfsImageOptions {
  * forgot), the next `ensureRootfsImage()` for the same tarball
  * treats the image as poisoned and rebuilds it.
  *
- * @throws {ProvisionError} ROOTFS_IMG_TOOL_MISSING |
- *   ROOTFS_IMG_MATERIALIZE_FAILED | ROOTFS_IMG_TARBALL_NOT_FOUND
+ * @throws {ProvisionError} ROOTFS_IMG_TOOL_MISSING (no e2fsprogs found)
+ *   | PROVISION_BASE_NOT_FOUND (tarball missing) |
+ *   PROVISION_INSTALL_HOOK_FAILED (tar / mke2fs failed)
  */
 export function ensureRootfsImage(tarPath: string, opts: EnsureRootfsImageOptions = {}): string {
   const tarAbs = resolve(tarPath);
@@ -242,19 +243,26 @@ export function ensureRootfsImage(tarPath: string, opts: EnsureRootfsImageOption
     }
   }
 
-  // Resolve mke2fs in three steps:
-  //   1. The bundled `@machinen/e2fsprogs-<arch>-<os>` package (zero
+  // Resolve mke2fs in four steps:
+  //   1. `MACHINEN_MKE2FS` env override — for users pinning a specific
+  //      build (e.g. a debug binary, or a vendored copy outside the
+  //      bundled package). Mirrors `MACHINEN_VMM` / `MACHINEN_GVPROXY`.
+  //   2. The bundled `@machinen/e2fsprogs-<arch>-<os>` package (zero
   //      user setup, present in normal installs). Each arch package
   //      declares matching `os` + `cpu` so npm/pnpm only installs the
   //      one that fits the host.
-  //   2. PATH (for hosts that have e2fsprogs installed system-wide).
-  //   3. Homebrew's keg-only prefix on macOS (#124) — `brew install
+  //   3. PATH (for hosts that have e2fsprogs installed system-wide).
+  //   4. Homebrew's keg-only prefix on macOS (#124) — `brew install
   //      e2fsprogs` deliberately doesn't symlink mke2fs onto PATH.
   const names = ["mke2fs", "mkfs.ext4"];
-  const mke2fs = findBundledMke2fs() ?? whichFirst(names) ?? findKegOnlyE2fs(names);
+  const mke2fs =
+    resolveMke2fsEnvOverride() ??
+    findBundledMke2fs() ??
+    whichFirst(names) ??
+    findKegOnlyE2fs(names);
   if (!mke2fs) {
     throw new ProvisionError(
-      "PROVISION_INSTALL_HOOK_FAILED",
+      "ROOTFS_IMG_TOOL_MISSING",
       "ensureRootfsImage: no e2fsprogs binary found (no bundled package " +
         "for this platform; looked for mke2fs / mkfs.ext4 on PATH and in " +
         "Homebrew's keg-only prefix). Install it:\n" +
@@ -263,6 +271,7 @@ export function ensureRootfsImage(tarPath: string, opts: EnsureRootfsImageOption
         "probes /opt/homebrew/opt/e2fsprogs/sbin and " +
         "/usr/local/opt/e2fsprogs/sbin automatically)\n" +
         "  • Linux:  apt-get install -y e2fsprogs (or your distro's package)\n" +
+        "  • or set MACHINEN_MKE2FS=/abs/path/to/mke2fs to point at a vendored copy\n" +
         "  • or skip virtio-blk root and let boot() use the legacy " +
         "initramfs-as-rootfs path.",
     );
@@ -471,6 +480,25 @@ function findKegOnlyE2fs(
   return undefined;
 }
 
+// Honor `MACHINEN_MKE2FS` so users can pin a specific binary without
+// reaching for the bundled / PATH / keg-only fallbacks. An override
+// that points at nothing is a user mistake — surface it loudly rather
+// than silently falling through to the next step.
+function resolveMke2fsEnvOverride(): string | undefined {
+  const envOverride = process.env.MACHINEN_MKE2FS;
+  if (!envOverride) {
+    return undefined;
+  }
+  if (existsSync(envOverride)) {
+    debug("resolved via MACHINEN_MKE2FS=%s", envOverride);
+    return envOverride;
+  }
+  throw new ProvisionError(
+    "ROOTFS_IMG_TOOL_MISSING",
+    `MACHINEN_MKE2FS=${envOverride} is set but that file does not exist.`,
+  );
+}
+
 // Look for `@machinen/e2fsprogs-<arch>-<os>`, our optional per-arch
 // binary package. npm/pnpm install only the package whose `os` + `cpu`
 // match the host, so a successful resolve means the binary is on disk
@@ -524,5 +552,6 @@ export const _internal = {
   looksLikeExt4,
   findKegOnlyE2fs,
   findBundledMke2fs,
+  resolveMke2fsEnvOverride,
   okMarkerPath,
 };

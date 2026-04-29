@@ -158,6 +158,97 @@ describe("ensureRootfsImage", () => {
     expect(existsSync(found)).toBe(true);
   });
 
+  it("MACHINEN_MKE2FS env override resolves to the user-supplied path", () => {
+    // The env override is step 1 of the resolution chain (#120), mirroring
+    // MACHINEN_VMM / MACHINEN_GVPROXY. A valid path returns as-is.
+    const dir = mkdtempSync(join(tmpdir(), "machinen-mke2fs-env-"));
+    const fake = join(dir, "mke2fs-vendored");
+    writeFileSync(fake, "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+    const saved = process.env.MACHINEN_MKE2FS;
+    process.env.MACHINEN_MKE2FS = fake;
+    try {
+      expect(_internal.resolveMke2fsEnvOverride()).toBe(fake);
+    } finally {
+      if (saved === undefined) {
+        delete process.env.MACHINEN_MKE2FS;
+      } else {
+        process.env.MACHINEN_MKE2FS = saved;
+      }
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("MACHINEN_MKE2FS pointing at a missing path throws ROOTFS_IMG_TOOL_MISSING", () => {
+    // Explicit override that points at nothing is a user mistake — we
+    // surface it loudly rather than silently falling through to the
+    // bundled / PATH / keg-only steps.
+    const saved = process.env.MACHINEN_MKE2FS;
+    process.env.MACHINEN_MKE2FS = "/definitely/not/here/mke2fs";
+    try {
+      expect(() => _internal.resolveMke2fsEnvOverride()).toThrow(ProvisionError);
+      try {
+        _internal.resolveMke2fsEnvOverride();
+      } catch (err) {
+        expect(err).toBeInstanceOf(ProvisionError);
+        expect((err as ProvisionError).code).toBe("ROOTFS_IMG_TOOL_MISSING");
+      }
+    } finally {
+      if (saved === undefined) {
+        delete process.env.MACHINEN_MKE2FS;
+      } else {
+        process.env.MACHINEN_MKE2FS = saved;
+      }
+    }
+  });
+
+  it("ensureRootfsImage surfaces ROOTFS_IMG_TOOL_MISSING when MACHINEN_MKE2FS points at nothing", () => {
+    // The env override is the first step of the resolution chain, so
+    // pointing it at a missing file is enough to drive the missing-tool
+    // path on any host — even one with the bundled package installed.
+    const tarPath = `/tmp/machinen-rootfs-env-tool-missing-${process.pid}.tar.gz`;
+    const tmpDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-env-tar-"));
+    const cacheDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-env-cache-"));
+    writeFileSync(join(tmpDir, "stub"), "x");
+    execSync(`tar -czf ${tarPath} -C ${tmpDir} .`);
+    const saved = process.env.MACHINEN_MKE2FS;
+    process.env.MACHINEN_MKE2FS = "/definitely/not/here/mke2fs";
+    try {
+      try {
+        ensureRootfsImage(tarPath, { cacheDir });
+        // Unreachable — the override should always throw.
+        expect.fail("expected ProvisionError");
+      } catch (err) {
+        expect(err).toBeInstanceOf(ProvisionError);
+        expect((err as ProvisionError).code).toBe("ROOTFS_IMG_TOOL_MISSING");
+      }
+    } finally {
+      if (saved === undefined) {
+        delete process.env.MACHINEN_MKE2FS;
+      } else {
+        process.env.MACHINEN_MKE2FS = saved;
+      }
+      try {
+        unlinkSync(tarPath);
+      } catch {}
+      rmSync(tmpDir, { recursive: true, force: true });
+      rmSync(cacheDir, { recursive: true, force: true });
+    }
+  }, 20_000);
+
+  it("resolveMke2fsEnvOverride returns undefined when the env var is unset", () => {
+    // Empty / absent override falls through to the next resolution step;
+    // it should not throw.
+    const saved = process.env.MACHINEN_MKE2FS;
+    delete process.env.MACHINEN_MKE2FS;
+    try {
+      expect(_internal.resolveMke2fsEnvOverride()).toBeUndefined();
+    } finally {
+      if (saved !== undefined) {
+        process.env.MACHINEN_MKE2FS = saved;
+      }
+    }
+  });
+
   it("returns the cached path when the tarball's sha256 already has an .img", () => {
     // Build a real (tiny) tarball so sha256ing has something to chew
     // on, then plant a pre-existing cache file at the matching name.
