@@ -18,8 +18,8 @@ importers:
         specifier: 1.0.1
         version: 1.0.1(eslint@9.39.4)(oxlint@1.48.0)(typescript@5.9.3)
       '@redwoodjs/agent-ci':
-        specifier: ^0.13.0
-        version: 0.13.0
+        specifier: ^0.15.0
+        version: 0.15.0
       '@types/node':
         specifier: ^22
         version: 22.19.17
@@ -884,8 +884,8 @@ packages:
   '@protobufjs/utf8@1.1.0':
     resolution: {integrity: sha512-Vvn3zZrhQZkkBE8LSuW3em98c0FwgO4nxzv6OdSxPKJIEKY2bGbHn+mhGIPerzI4twdxaP8/0+06HBpwf345Lw==}
 
-  '@redwoodjs/agent-ci@0.13.0':
-    resolution: {integrity: sha512-3yN+c/DhgBRwPwwuNmP/1+1SYaBC0wXO25QdjNeUK3ehmZRMviiewPRyhTqbyS275fCmYME+Ehlst5S7gB6HXg==}
+  '@redwoodjs/agent-ci@0.15.0':
+    resolution: {integrity: sha512-VMbKFDMi6Efs0WMVEy5ZX/vPW0Xhk3NsDH8LD1B8MperBLQqRPd30M56wmRKslfNXP3qNjYj+fSRoVo6pmwjdg==}
     engines: {node: '>=22'}
     hasBin: true
 
@@ -1529,8 +1529,8 @@ packages:
     resolution: {integrity: sha512-8L/P9JynLBiG7/coiA4FlQXegHltRqS0a+KqI44P1zgQh8QLHTg7FKOwhkBgSJwZTeHsq30WRoVFLuwkfK0YFg==}
     engines: {node: '>= 8.0'}
 
-  dtu-github-actions@0.13.0:
-    resolution: {integrity: sha512-JkuGc8xJ4eI2RObQRyMt+ZsqF5HwRJCqAW8ISSHKV4rLcRaryyQtfYrLRFo8iZGiJtZoiFlF/k5Q7/yEMuxIig==}
+  dtu-github-actions@0.15.0:
+    resolution: {integrity: sha512-qz1TEVl2WFcfEIb1xEdgQrgEkYBAUxJTm6hC9r20pL6CWKHR8MbYAmzihlC2pw7yS0E2m3K3EQRR+cTlMuLVyQ==}
     engines: {node: '>=22'}
 
   dunder-proto@1.0.1:
@@ -2676,6 +2676,7 @@ packages:
 
   uuid@10.0.0:
     resolution: {integrity: sha512-8XkAphELsDnEGrDxUOHB3RGvXz6TeuYSGEZBOjtTtPm2lwhGBjLgOzLHB63IUWfBpNucQjND6d3AOudO+H3RWQ==}
+    deprecated: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
     hasBin: true
 
   vite@8.0.8:
@@ -3508,11 +3509,11 @@ snapshots:
 
   '@protobufjs/utf8@1.1.0': {}
 
-  '@redwoodjs/agent-ci@0.13.0':
+  '@redwoodjs/agent-ci@0.15.0':
     dependencies:
       '@actions/workflow-parser': 0.3.43
       dockerode: 4.0.10
-      dtu-github-actions: 0.13.0
+      dtu-github-actions: 0.15.0
       log-update: 7.2.0
       minimatch: 10.2.5
       yaml: 2.8.3
@@ -4057,7 +4058,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  dtu-github-actions@0.13.0:
+  dtu-github-actions@0.15.0:
     dependencies:
       body-parser: 2.2.2
       jsonc-parser: 3.3.1
