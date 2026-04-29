@@ -19,7 +19,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { VsockExec } from "../exec.ts";
-import { buildWriteFileCmd } from "../index.ts";
+import { buildWriteFileCmd, buildWriteFileCmds } from "../index.ts";
 
 interface FakeRequest {
   /** Raw bytes the host sent before the agent wrote its `X 0` reply. */
@@ -154,6 +154,21 @@ describe("VsockExec multi-line wire format", () => {
     expect(res.exitCode).toBe(0);
     expect(agent.requests[0]!.header.startsWith("EXEC2 ")).toBe(true);
   });
+
+  // The agent's `readLine` uses a 4096-byte buffer; a newline-free cmd
+  // bigger than that overflows it and the agent logs "bad header" then
+  // closes. vm.writeFile() of a multi-hundred-KB binary tripped this.
+  // The host must promote to EXEC2 on size, not just on newlines.
+  it("switches to EXEC2 for large newline-free cmds (4096-byte agent buffer)", async () => {
+    const uds = join(workDir, "exec.sock");
+    agent = startFakeAgent(uds);
+    const cmd = `echo ${"a".repeat(8000)}`;
+    const res = await VsockExec.run(uds, cmd);
+    expect(res.exitCode).toBe(0);
+    const req = agent.requests[0]!;
+    expect(req.header).toBe(`EXEC2 ${Buffer.byteLength(cmd, "utf8")}`);
+    expect(req.body.toString("utf8")).toBe(cmd);
+  });
 });
 
 describe("buildWriteFileCmd", () => {
@@ -204,5 +219,86 @@ describe("buildWriteFileCmd", () => {
     expect(() => buildWriteFileCmd("/x", "y", { mode: -1 })).toThrow(RangeError);
     expect(() => buildWriteFileCmd("/x", "y", { mode: 0o10000 })).toThrow(RangeError);
     expect(() => buildWriteFileCmd("/x", "y", { mode: 1.5 })).toThrow(RangeError);
+  });
+});
+
+describe("buildWriteFileCmds (chunking)", () => {
+  it("returns a single cmd for small payloads (matches buildWriteFileCmd)", () => {
+    const cmds = buildWriteFileCmds("/etc/foo.conf", "hello\n", { mode: 0o644 });
+    expect(cmds).toHaveLength(1);
+    expect(cmds[0]).toBe(buildWriteFileCmd("/etc/foo.conf", "hello\n", { mode: 0o644 }));
+  });
+
+  // Linux's MAX_ARG_STRLEN caps a single argv element at 128 KB; the
+  // exec-agent runs cmds via `sh -c <cmd>`, so a 200 KB binary's base64
+  // pipeline (~270 KB) blows past it and execve fails with E2BIG → 127.
+  // Chunking writes the base64 in append-batches and decodes once.
+  it("splits large payloads into setup + N append + finalize cmds, each < 128 KB", () => {
+    const big = Buffer.alloc(200 * 1024, 0x5a);
+    const cmds = buildWriteFileCmds("/sbin/winsize", big, { mode: 0o755 });
+    expect(cmds.length).toBeGreaterThanOrEqual(3);
+    for (const c of cmds) {
+      expect(Buffer.byteLength(c, "utf8")).toBeLessThan(128 * 1024);
+    }
+    expect(cmds[0]).toContain("mkdir -p");
+    const stageMatch = /(\/tmp\/\.machinen-wf\.[a-f0-9]+)/.exec(cmds[0]!);
+    expect(stageMatch).not.toBeNull();
+    const stage = stageMatch![1]!;
+    expect(cmds[0]).toContain(`: > ${stage}`);
+    const stageRe = new RegExp(`^printf %s '[A-Za-z0-9+/=]+' >> ${stage.replace(/\./g, "\\.")}$`);
+    for (const c of cmds.slice(1, -1)) {
+      expect(c).toMatch(stageRe);
+    }
+    const final = cmds[cmds.length - 1]!;
+    expect(final).toContain(`base64 -d < ${stage} > '/sbin/winsize'`);
+    expect(final).toContain(`rm -f ${stage}`);
+    expect(final).toContain("chmod 755 '/sbin/winsize'");
+  });
+
+  // The earlier $$ scheme broke here: each cmd ran in its own `sh -c`,
+  // so $$ expanded to a different PID per invocation and the chunks
+  // scattered across files. The host must bake a fixed suffix in.
+  it("uses a single host-generated staging path across every cmd", () => {
+    const big = Buffer.alloc(200 * 1024, 0x42);
+    const cmds = buildWriteFileCmds("/sbin/x", big);
+    const stages = cmds.map((c) => /(\/tmp\/\.machinen-wf\.[a-f0-9]+)/.exec(c)?.[1]);
+    for (const s of stages) {
+      expect(s).toBeDefined();
+    }
+    expect(new Set(stages).size).toBe(1);
+    for (const c of cmds) {
+      expect(c).not.toContain("$$");
+    }
+  });
+
+  it("reconstructs the original bytes when the chunked cmds are replayed", () => {
+    // Simulate the guest: run the cmds against a shell-like reducer.
+    const big = Buffer.from(
+      Array.from({ length: 150 * 1024 }, (_, i) => (i * 7 + 11) & 0xff),
+    );
+    const cmds = buildWriteFileCmds("/tmp/out", big);
+    let staged = "";
+    for (const c of cmds) {
+      // Pull the base64 chunk out of `printf %s '<b64>' >> /tmp/...`.
+      const m = /^printf %s '([A-Za-z0-9+/=]+)' >> /.exec(c);
+      if (m) {
+        staged += m[1]!;
+      }
+    }
+    expect(Buffer.from(staged, "base64").equals(big)).toBe(true);
+  });
+
+  it("uses >> (append) in the finalize step when opts.append is set", () => {
+    const big = Buffer.alloc(100 * 1024);
+    const cmds = buildWriteFileCmds("/var/log/x", big, { append: true });
+    const final = cmds[cmds.length - 1]!;
+    expect(final).toContain(">> '/var/log/x'");
+    expect(final).not.toMatch(/[^>]> '\/var\/log\/x'/);
+  });
+
+  it("validates mode up front before staging anything", () => {
+    const big = Buffer.alloc(100 * 1024);
+    expect(() => buildWriteFileCmds("/x", big, { mode: -1 })).toThrow(RangeError);
+    expect(() => buildWriteFileCmds("/x", big, { mode: 0o10000 })).toThrow(RangeError);
   });
 });
