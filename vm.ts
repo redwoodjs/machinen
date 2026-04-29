@@ -290,7 +290,7 @@ const bootstrap = [
   // the uid switch (without -m it would reset HOME/USER/etc.).
   // PATH includes /usr/local/bin where node/pnpm/claude live as symlinks.
   "exec env -i " +
-    'HOME=/home/dev USER=dev LOGNAME=dev SHELL=/bin/bash ' +
+    "HOME=/home/dev USER=dev LOGNAME=dev SHELL=/bin/bash " +
     'TERM="${TERM:-xterm-256color}" ' +
     'COLUMNS="${COLUMNS:-80}" LINES="${LINES:-24}" ' +
     'GH_TOKEN="${GH_TOKEN:-}" GITHUB_TOKEN="${GITHUB_TOKEN:-}" ' +
