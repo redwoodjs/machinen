@@ -31,10 +31,13 @@
 //!
 //! The mount-path is created if missing. Mount flags are kept tight:
 //! MS_NOSUID | MS_NODEV, plus `default_permissions` so the guest
-//! kernel does its own permission check on the attrs we hand back.
-//! No `allow_other` — the guest user that ran the mount (root, via
-//! init) is the only one that needs to see it, and user processes
-//! under that uid see the mount because init runs as uid=0.
+//! kernel does its own POSIX permission check against the uid/gid/
+//! mode we hand back from GETATTR, and `allow_other` so non-root
+//! guest processes can traverse the mount (#161). The mounter is
+//! always init/uid=0 (CAP_SYS_ADMIN), so the kernel accepts
+//! allow_other unconditionally — `/etc/fuse.conf user_allow_other`
+//! is irrelevant here because that gate is consulted only by the
+//! suid `fusermount` userspace wrapper, which we don't use.
 //!
 //! Build (from packages/microvm):
 //!   zig build-exe assets/fuse-agent.zig \
@@ -223,12 +226,16 @@ fn mkdirP(path: []u8) void {
 
 /// Mount the FUSE filesystem at `target` backed by `dev_fd`. Builds
 /// the options string the kernel expects — `fd=...,rootmode=040755,
-/// user_id=0,group_id=0,default_permissions`.
+/// user_id=0,group_id=0,default_permissions,allow_other`. See the
+/// header for why `allow_other` is safe (mounter is always uid=0
+/// with CAP_SYS_ADMIN, so /etc/fuse.conf doesn't gate us) and why
+/// it's needed (#161 — without it, every non-root guest user gets
+/// `d?????????` on `ls /mnt` and EACCES on traversal).
 fn mountFuse(dev_fd: c_int, target_z: [*:0]const u8) !void {
     var opts_buf: [256]u8 = undefined;
     const opts = try std.fmt.bufPrintZ(
         &opts_buf,
-        "fd={d},rootmode=040755,user_id=0,group_id=0,default_permissions",
+        "fd={d},rootmode=040755,user_id=0,group_id=0,default_permissions,allow_other",
         .{dev_fd},
     );
     const rc = mount(
