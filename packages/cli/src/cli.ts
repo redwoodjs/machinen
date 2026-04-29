@@ -5,7 +5,7 @@
 // Surface:
 //   machinen boot [opts] -- <cmd>
 //   machinen restore <snap-dir> [--name <name>]
-//   machinen ls
+//   machinen ls (alias: ps)
 //   machinen exec ( --name <name> | --pid <pid> ) -- <cmd>
 //   machinen snapshot ( --name <name> | --pid <pid> ) --out-dir <dir>
 //   machinen attach ( --name <name> | --pid <pid> )    # line-based shell REPL
@@ -644,7 +644,7 @@ const BASH_COMPLETION = `# machinen bash completion — source this from ~/.bash
 _machinen_completion() {
   local cur prev words cword
   _init_completion || return
-  local cmds="boot restore install ls exec snapshot attach completion --version --help -h -v"
+  local cmds="boot restore install ls ps exec snapshot attach completion --version --help -h -v"
   if [[ \${cword} -eq 1 ]]; then
     COMPREPLY=( $(compgen -W "\${cmds}" -- "\${cur}") )
     return
@@ -677,7 +677,7 @@ const ZSH_COMPLETION = `# machinen zsh completion — source this from ~/.zshrc,
 #   eval "$(machinen completion zsh)"
 _machinen() {
   local -a cmds
-  cmds=(boot restore install ls exec snapshot attach completion)
+  cmds=(boot restore install ls ps exec snapshot attach completion)
   if (( CURRENT == 2 )); then
     _describe 'command' cmds
     return
@@ -708,7 +708,7 @@ compdef _machinen machinen
 
 const FISH_COMPLETION = `# machinen fish completion — source this from your config.fish, or:
 #   machinen completion fish | source
-set -l cmds boot restore install ls exec snapshot attach completion
+set -l cmds boot restore install ls ps exec snapshot attach completion
 complete -c machinen -f -n 'not __fish_seen_subcommand_from $cmds' -a "$cmds"
 for sub in exec snapshot attach
   complete -c machinen -f -n "__fish_seen_subcommand_from $sub" -l name \\
@@ -772,7 +772,7 @@ function printHelp(): void {
       `                                                 Anonymous restores auto-name as\n` +
       `                                                 <source>/<pid>.\n` +
       `\n` +
-      `  machinen ls                                    List running VMs (PID, NAME, UP,\n` +
+      `  machinen ls   (alias: ps)                      List running VMs (PID, NAME, UP,\n` +
       `                                                 FORKED-FROM)\n` +
       `\n` +
       `  Targeting a running VM:\n` +
@@ -846,6 +846,7 @@ async function main(): Promise<number> {
     case "install":
       return cmdInstall(rest);
     case "ls":
+    case "ps":
       return cmdLs(rest);
     case "exec":
       return cmdExec(rest);
