@@ -14,27 +14,14 @@ name: FUSE workload tests
 # runner — KVM only works for the matching arch and our VMM is only
 # wired up for arm64 today — and (b) takes minutes, not seconds.
 
+# Disabled until we have an arm64 runner that exposes /dev/kvm. The
+# GitHub-hosted `ubuntu-24.04-arm` image no longer surfaces the KVM
+# device, and Depot's stock arm64 runner doesn't either, so the job
+# can't boot a real microVM. Triggered via `workflow_dispatch` only
+# in the meantime — restore the push/pull_request triggers (with the
+# same path filters) once a KVM-capable runner is wired up.
 on:
-  push:
-    branches: [main]
-    paths:
-      - "packages/runtime/**"
-      - "packages/microvm/**"
-      - "scripts/build-base-assets.sh"
-      - "scripts/provision-test-vm.ts"
-      - "provision.ts"
-      - ".github/workflows/fuse-workloads.yml"
-      - ".github/workflows/_build-base-assets.yml"
-  pull_request:
-    branches: [main]
-    paths:
-      - "packages/runtime/**"
-      - "packages/microvm/**"
-      - "scripts/build-base-assets.sh"
-      - "scripts/provision-test-vm.ts"
-      - "provision.ts"
-      - ".github/workflows/fuse-workloads.yml"
-      - ".github/workflows/_build-base-assets.yml"
+  workflow_dispatch:
 
 jobs:
   base-assets:
