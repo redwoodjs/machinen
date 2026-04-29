@@ -21,7 +21,7 @@ import { createServer, type Server } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { BootError, ExecError, measureFirstByte, boot } from "../index.ts";
+import { BootError, ExecError, buildMachinenConfig, measureFirstByte, boot } from "../index.ts";
 
 const microvmRoot = resolve(import.meta.dirname, "../../../microvm");
 
@@ -422,6 +422,97 @@ describe("mount option", () => {
       try {
         unlinkSync(hostFile);
       } catch {}
+      try {
+        unlinkSync(fakeImage);
+      } catch {}
+    }
+  });
+});
+
+describe("buildMachinenConfig (cwd)", () => {
+  const baseInput = {
+    cmd: ["/bin/true"],
+    env: {},
+    liveMounts: [],
+  };
+
+  it("writes guestCwd into the config as `cwd`", () => {
+    const cfg = buildMachinenConfig({ ...baseInput, guestCwd: "/mnt/workspace" });
+    expect(cfg.cwd).toBe("/mnt/workspace");
+  });
+
+  it("omits the `cwd` key when neither guestCwd nor imageCwd is set", () => {
+    const cfg = buildMachinenConfig({ ...baseInput });
+    expect("cwd" in cfg).toBe(false);
+  });
+
+  it("falls back to imageCwd when guestCwd is unset", () => {
+    const cfg = buildMachinenConfig({ ...baseInput, imageCwd: "/srv/app" });
+    expect(cfg.cwd).toBe("/srv/app");
+  });
+
+  it("guestCwd overrides imageCwd", () => {
+    const cfg = buildMachinenConfig({
+      ...baseInput,
+      guestCwd: "/mnt/workspace",
+      imageCwd: "/srv/app",
+    });
+    expect(cfg.cwd).toBe("/mnt/workspace");
+  });
+});
+
+describe("guestCwd option", () => {
+  const fakeImage = `/tmp/machinen-cwd-test-image-${process.pid}.tar.gz`;
+  const cmd = ["/bin/true"];
+
+  it("rejects a relative guestCwd", async () => {
+    writeFileSync(fakeImage, "");
+    try {
+      await expect(
+        boot({
+          binary: "/bin/sh",
+          image: fakeImage,
+          cmd,
+          guestCwd: "relative/dir",
+        }),
+      ).rejects.toThrow(/guestCwd must be an absolute path/);
+    } finally {
+      try {
+        unlinkSync(fakeImage);
+      } catch {}
+    }
+  });
+
+  it("rejects an empty guestCwd", async () => {
+    writeFileSync(fakeImage, "");
+    try {
+      await expect(
+        boot({
+          binary: "/bin/sh",
+          image: fakeImage,
+          cmd,
+          guestCwd: "",
+        }),
+      ).rejects.toThrow(/guestCwd must be an absolute path/);
+    } finally {
+      try {
+        unlinkSync(fakeImage);
+      } catch {}
+    }
+  });
+
+  it("rejects a guestCwd with NUL bytes", async () => {
+    writeFileSync(fakeImage, "");
+    try {
+      await expect(
+        boot({
+          binary: "/bin/sh",
+          image: fakeImage,
+          cmd,
+          guestCwd: "/mnt/work\0space",
+        }),
+      ).rejects.toThrow(/must not contain NUL/);
+    } finally {
       try {
         unlinkSync(fakeImage);
       } catch {}
