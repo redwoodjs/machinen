@@ -178,18 +178,39 @@ if (( WINDOW )); then
   # the child shell picks up PATH (pnpm, node) the same way the user's
   # interactive shell would. printf %q quotes the clone path safely
   # against spaces / shell metacharacters.
-  init_cmd="cd $(printf '%q' "$CLONE_DIR") && exec pnpm vm"
-  wrapped="bash -lc $(printf '%q' "$init_cmd")"
-  # Prefer `open -na` on macOS — Ghostty's `+new-window` IPC action
-  # is gated behind a build flag and not present in the stable
-  # release, so it errors with "+new-window is not supported on this
-  # platform" on a vanilla install. `open -na` always works and just
-  # costs one extra Ghostty process per window (one VM == one
-  # session is what we want here anyway).
+  bash_inner="cd $(printf '%q' "$CLONE_DIR") && exec pnpm vm"
+  ghostty_command="bash -lc $(printf '%q' "$bash_inner")"
+
   if [[ "$(uname)" == "Darwin" ]] && [[ -d "/Applications/Ghostty.app" ]]; then
-    exec open -na "/Applications/Ghostty.app" --args --initial-command="$wrapped"
+    # Drive Ghostty via its scripting dictionary (Ghostty.sdef ships
+    # `new window with configuration { command, initial working directory }`).
+    # This works whether Ghostty is already running or cold — `tell
+    # application` launches it on demand — and avoids two failure modes
+    # of `open -na`: macOS Sequoia silently swallows the new instance's
+    # window once Ghostty is already up, and `open -na` accumulates
+    # duplicate processes. AppleScript also avoids the Accessibility
+    # permission prompt that System Events `keystroke` requires.
+    applescript_quote() {
+      # Escape backslashes then double quotes for embedding in an AS string.
+      printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
+    }
+    as_command=$(applescript_quote "$ghostty_command")
+    as_cwd=$(applescript_quote "$CLONE_DIR")
+    rc=0
+    osascript >/dev/null <<APPLESCRIPT || rc=$?
+tell application "Ghostty"
+  activate
+  new window with configuration {command:"$as_command", initial working directory:"$as_cwd"}
+end tell
+APPLESCRIPT
+    if (( rc != 0 )); then
+      echo "vm-pick: Ghostty AppleScript failed (rc=$rc)." >&2
+      echo "         Falling back to \`open -na\`." >&2
+      exec open -na "/Applications/Ghostty.app" --args --initial-command="$ghostty_command"
+    fi
+    exit 0
   elif command -v ghostty >/dev/null 2>&1; then
-    exec ghostty +new-window --initial-command="$wrapped"
+    exec ghostty +new-window --initial-command="$ghostty_command"
   else
     echo "vm-pick: --window requires Ghostty (https://ghostty.org)" >&2
     exit 1
