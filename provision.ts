@@ -265,10 +265,10 @@ const result = await provision({
   // 1 GiB scratch is too small once node_modules + global npm pkgs land.
   scratchDiskSizeBytes: 8 * 1024 * 1024 * 1024,
 
-  // Boot directly into /mnt/workspace via a thin -c wrapper. The
-  // FUSE mount used by liveMounts is currently root-only, so we run
-  // as root; `--dangerously-skip-permissions` won't work for `claude`
-  // inside the VM until fuse-agent supports allow_other.
+  // Boot directly into /mnt/workspace via a thin -c wrapper. We run
+  // as root for now; switching to a non-root dev user (uid 501 to
+  // match the host) is unblocked since #161 added `allow_other` to
+  // the FUSE mount, but is left as a follow-up.
   cmd: ["/bin/bash", "-lc", "cd /mnt/workspace 2>/dev/null; exec bash -i"],
   env: {
     PATH: "/root/.local/share/fnm:/usr/local/bin:/usr/bin:/bin:/sbin",
