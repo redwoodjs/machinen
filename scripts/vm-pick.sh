@@ -16,18 +16,19 @@ set -euo pipefail
 # clone made before a fix to those files picks up the new behavior
 # without having to delete and re-clone. Anything else in the clone is
 # untouched.
-REFRESH=0
 WINDOW=0
 EXPLICIT_NUM=""
 for arg in "$@"; do
   case "$arg" in
-    --refresh) REFRESH=1 ;;
+    --refresh) ;; # boot-glue resync is now unconditional; flag kept as a no-op for muscle memory
     --window)  WINDOW=1 ;;
     -h|--help)
-      echo "usage: pnpm vm-pick [--refresh] [--window] [<number>]" >&2
+      echo "usage: pnpm vm-pick [--window] [<number>]" >&2
       echo "  <number>   skip the picker and jump to this issue or PR (e.g. 177 or #177)" >&2
-      echo "  --refresh  re-sync vm.ts + provision.ts from canonical into the chosen clone" >&2
       echo "  --window   spawn the boot in a new Ghostty window instead of the current TTY" >&2
+      echo "" >&2
+      echo "  vm.ts + provision.ts are always re-synced from canonical so stale clones" >&2
+      echo "  pick up boot-glue fixes automatically." >&2
       exit 0
       ;;
     \#*|[0-9]*)
@@ -140,12 +141,6 @@ CLONE_DIR="${CLONES_ROOT}/${num}-${kind}-${slug}"
 
 if [[ -d "$CLONE_DIR" ]]; then
   echo "vm-pick: reusing existing clone at $CLONE_DIR" >&2
-  if (( REFRESH )); then
-    echo "vm-pick: --refresh: re-syncing vm.ts + provision.ts from canonical" >&2
-    for f in vm.ts provision.ts; do
-      cp -c -f "$MAIN_REPO/$f" "$CLONE_DIR/$f"
-    done
-  fi
 else
   echo "vm-pick: creating CoW clone at $CLONE_DIR" >&2
   mkdir -p "$CLONES_ROOT"
@@ -159,6 +154,16 @@ else
     (cd "$CLONE_DIR" && git checkout -B "${num}-${slug}")
   fi
 fi
+
+# Always re-sync boot-glue from canonical. vm.ts and provision.ts are
+# launchers, not user content — stale copies in old clones held back
+# fixes (claude auto-launch, /dev/fd-free bootstrap) until users
+# remembered --refresh. Treating them as untracked-by-the-clone makes
+# the system self-healing: ship a fix to canonical and every clone
+# picks it up on next boot.
+for f in vm.ts provision.ts; do
+  cp -c -f "$MAIN_REPO/$f" "$CLONE_DIR/$f"
+done
 
 # Stamp marker files unconditionally — newer fields (issue ref) need
 # to land on existing clones too, not just freshly-created ones.
