@@ -25,6 +25,7 @@ import {
 import { randomBytes } from "node:crypto";
 import { once } from "node:events";
 import {
+  constants as fsConstants,
   copyFileSync,
   existsSync,
   mkdirSync,
@@ -33,6 +34,7 @@ import {
   readFileSync,
   rmSync,
   statSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { createRequire } from "node:module";
@@ -394,11 +396,12 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     ...opts.vmmEnv,
   };
   let diskAbs: string | undefined;
-  // #170: tracks the cached `<sha>.img` we materialized for this boot
-  // so the exit handler can mark it clean on a signal-free child exit.
-  // Stays undefined for a caller-supplied `rootDisk: '<path>'` (we
-  // don't manage that file's lifecycle) or `rootDisk: false`.
-  let cacheManagedRootDisk: string | undefined;
+  // #121: per-boot reflink clone of the cached `<sha>.img`. Tracking
+  // it lets the exit handler delete the copy so guest writes don't
+  // leak into the next boot from the same tarball. Stays undefined
+  // for a caller-supplied `rootDisk: '<path>'` (we don't manage that
+  // file's lifecycle) or `rootDisk: false`.
+  let perBootRootDisk: string | undefined;
   if (opts.snapshot) {
     diskAbs = resolve(opts.cwd ?? process.cwd(), opts.snapshot);
     if (!existsSync(diskAbs)) {
@@ -579,13 +582,30 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
           throw new BootError("BOOT_IMAGE_NOT_FOUND", `rootDisk image not found: ${rootDiskAbs}`);
         }
       } else {
+        // #121: hand the VMM a per-boot reflink clone of the cached
+        // template, never the template itself. virtio-blk mounts the
+        // image read-write, so without the clone every boot from the
+        // same tarball would inherit the previous boot's writes
+        // (apt installs leaking, /var/log poisoning, two concurrent
+        // boots stomping each other's filesystem). COPYFILE_FICLONE →
+        // APFS clonefile / Linux FICLONE on reflink-capable fs (free,
+        // shared blocks until the guest writes); falls back to a
+        // regular copy elsewhere (one-time cost, sparse).
         const baseAbs = resolve(opts.cwd ?? process.cwd(), opts.image!);
-        rootDiskAbs = ensureRootfsImage(baseAbs, {
+        const cachedImg = ensureRootfsImage(baseAbs, {
           sizeBytes: opts.rootDiskSizeBytes,
         });
-        // The cache owns this image — mark it clean again on a
-        // signal-free child exit so the next boot can reuse it.
-        cacheManagedRootDisk = rootDiskAbs;
+        const perBoot = join(
+          tmpdir(),
+          `machinen-rootdisk-${process.pid}-${randomBytes(6).toString("hex")}.img`,
+        );
+        copyFileSync(cachedImg, perBoot, fsConstants.COPYFILE_FICLONE);
+        // The cache file was only READ here — restore the
+        // clean-shutdown marker so the next boot finds a usable
+        // template instead of wiping and rematerializing (#170).
+        markRootfsImageClean(cachedImg);
+        perBootRootDisk = perBoot;
+        rootDiskAbs = perBoot;
       }
       env.MACHINEN_ROOTDISK = rootDiskAbs;
     }
@@ -607,6 +627,11 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     if (vsockTempDir) {
       try {
         rmSync(vsockTempDir, { recursive: true, force: true });
+      } catch {}
+    }
+    if (perBootRootDisk) {
+      try {
+        unlinkSync(perBootRootDisk);
       } catch {}
     }
     throw err;
@@ -679,15 +704,14 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       signal,
       Date.now() - bootT0,
     );
-    // #170: a signal-free exit means the kernel had time to flush
-    // and dismount the ext4 fs cleanly, so the cached image is safe
-    // to reuse. A signal exit (SIGKILL from vm.kill(), SIGTERM from a
-    // ctrl-C'd test runner) leaves the marker absent — next boot
-    // wipes and rebuilds. A non-zero exit code is fine: the guest's
-    // command failed, but the kernel still shut down normally.
-    if (cacheManagedRootDisk && signal === null) {
+    // #121: drop the per-boot reflink copy so guest writes don't
+    // persist across boots. Runs unconditionally (clean exit, signal
+    // exit, kernel panic) — the cached `<sha>.img` template was
+    // marked clean inline at copy time, so nothing here depends on
+    // the exit being graceful.
+    if (perBootRootDisk) {
       try {
-        markRootfsImageClean(cacheManagedRootDisk);
+        unlinkSync(perBootRootDisk);
       } catch {}
     }
     if (bundleTempDir) {

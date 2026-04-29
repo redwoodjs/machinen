@@ -2983,7 +2983,7 @@ ms epoch when `vm.snapshot()` returned.
 
 ### BootOptions
 
-Defined in: [vm.ts:125](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L125)
+Defined in: [vm.ts:127](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L127)
 
 #### Properties
 
@@ -2991,7 +2991,7 @@ Defined in: [vm.ts:125](https://github.com/redwoodjs/machinen/blob/main/packages
 
 > `optional` **image?**: `string`
 
-Defined in: [vm.ts:132](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L132)
+Defined in: [vm.ts:134](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L134)
 
 Path to a rootfs tarball to boot from (e.g. the output of
 `provision()`, or `rootfs-debian-arm64.tar.gz` shipped in releases).
@@ -3002,7 +3002,7 @@ boots and snapshot-only restores both skip initramfs packing).
 
 > `optional` **cmd?**: `string`[]
 
-Defined in: [vm.ts:138](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L138)
+Defined in: [vm.ts:140](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L140)
 
 Command to run inside the guest. Packed into the synthesized
 `/machinen-config.json`. Paired with `image` — both required, or
@@ -3012,7 +3012,7 @@ neither.
 
 > `optional` **env?**: `Record`\<`string`, `string`\>
 
-Defined in: [vm.ts:144](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L144)
+Defined in: [vm.ts:146](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L146)
 
 Env vars exposed to the guest workload. Packed into the synthesized
 `/machinen-config.json`. Distinct from `vmmEnv`, which only affects
@@ -3022,7 +3022,7 @@ the host-side VMM process.
 
 > `optional` **guestCwd?**: `string`
 
-Defined in: [vm.ts:156](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L156)
+Defined in: [vm.ts:158](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L158)
 
 Working directory for the guest cmd. Lands as `cwd` in the
 synthesized `/machinen-config.json`; `/init` calls `chdir()` to
@@ -3038,7 +3038,7 @@ image-baked `cwd` is overridden by this field when both are set.
 
 > `optional` **snapshot?**: `string`
 
-Defined in: [vm.ts:164](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L164)
+Defined in: [vm.ts:166](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L166)
 
 Attach this host file as the scratch virtio-blk device — `/dev/vdb`
 inside the guest when `rootDisk` is also set, or `/dev/vda` when
@@ -3050,7 +3050,7 @@ restore on boot. See #47 (virtio-blk) and #50.
 
 > `optional` **rootDisk?**: `string` \| `boolean`
 
-Defined in: [vm.ts:186](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L186)
+Defined in: [vm.ts:188](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L188)
 
 Boot the guest with the rootfs on a virtio-blk device (`/dev/vda`)
 instead of inflating the whole rootfs into a RAM-backed tmpfs via
@@ -3076,7 +3076,7 @@ running the user cmd. Materialization needs `mke2fs` (or
 
 > `optional` **rootDiskSizeBytes?**: `number`
 
-Defined in: [vm.ts:203](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L203)
+Defined in: [vm.ts:205](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L205)
 
 Absolute target size (bytes) for the materialized rootdisk image.
 Defaults to `max(2 GiB, treeBytes * 2.5)` — generous enough that
@@ -3097,7 +3097,7 @@ image is taken as-is) or `rootDisk: false`. See #131.
 
 > `optional` **name?**: `string`
 
-Defined in: [vm.ts:210](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L210)
+Defined in: [vm.ts:212](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L212)
 
 Optional name to register this VM under (`attach({ name })`
 lookup key). Path-shaped strings ("worker/9012") are allowed.
@@ -3108,7 +3108,7 @@ Names are unique while live — `boot()` throws
 
 > `optional` **forkedFrom?**: `string`
 
-Defined in: [vm.ts:216](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L216)
+Defined in: [vm.ts:218](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L218)
 
 Bookkeeping: absolute path to the snapshot bundle this VM was
 forked from. Set by `restore({ snapDir })`; visible in
@@ -3118,7 +3118,7 @@ forked from. Set by `restore({ snapDir })`; visible in
 
 > `optional` **mount?**: `object`
 
-Defined in: [vm.ts:230](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L230)
+Defined in: [vm.ts:232](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L232)
 
 A single host directory copied into the guest at boot. The guest
 path must live under `/mnt/`. Copy-once semantics: guest writes are
@@ -3144,7 +3144,7 @@ prefer `liveMount` (FUSE pass-through, no copy). See #125.
 
 > `optional` **liveMounts?**: `object`[]
 
-Defined in: [vm.ts:248](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L248)
+Defined in: [vm.ts:250](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L250)
 
 Host directories exposed to the guest as live-share FUSE mounts
 (#78). Unlike `mount` (copy-once into the boot rootfs), these stay
@@ -3178,7 +3178,7 @@ inputs you don't need write-through on.
 
 > `optional` **portForward?**: `object`[]
 
-Defined in: [vm.ts:254](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L254)
+Defined in: [vm.ts:256](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L256)
 
 Host -> guest TCP port forwards installed via gvproxy's control
 API. Each entry maps `hostPort` on the host (bound to `hostAddr`,
@@ -3200,7 +3200,7 @@ default `127.0.0.1`) to `guestPort` inside the guest.
 
 > `optional` **binary?**: `string`
 
-Defined in: [vm.ts:262](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L262)
+Defined in: [vm.ts:264](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L264)
 
 Absolute or cwd-relative path to the VMM binary. Optional —
 if omitted, `boot()` resolves it via `resolveVmmBinary()`.
@@ -3209,7 +3209,7 @@ if omitted, `boot()` resolves it via `resolveVmmBinary()`.
 
 > `optional` **cwd?**: `string`
 
-Defined in: [vm.ts:264](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L264)
+Defined in: [vm.ts:266](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L266)
 
 Working directory for the VMM (for finding fixture files).
 
@@ -3217,7 +3217,7 @@ Working directory for the VMM (for finding fixture files).
 
 > `optional` **args?**: `string`[]
 
-Defined in: [vm.ts:266](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L266)
+Defined in: [vm.ts:268](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L268)
 
 Extra argv for the VMM.
 
@@ -3225,7 +3225,7 @@ Extra argv for the VMM.
 
 > `optional` **kernel?**: `string`
 
-Defined in: [vm.ts:268](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L268)
+Defined in: [vm.ts:270](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L270)
 
 Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`.
 
@@ -3233,7 +3233,7 @@ Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`.
 
 > `optional` **dtb?**: `string`
 
-Defined in: [vm.ts:270](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L270)
+Defined in: [vm.ts:272](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L272)
 
 Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`.
 
@@ -3241,7 +3241,7 @@ Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`.
 
 > `optional` **timeoutMs?**: `number`
 
-Defined in: [vm.ts:275](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L275)
+Defined in: [vm.ts:277](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L277)
 
 Milliseconds to wait in `wait()` before giving up and rejecting.
 Defaults to 60s. Pass `null` to wait forever.
@@ -3250,7 +3250,7 @@ Defaults to 60s. Pass `null` to wait forever.
 
 > `optional` **vmmEnv?**: `Record`\<`string`, `string`\>
 
-Defined in: [vm.ts:280](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L280)
+Defined in: [vm.ts:282](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L282)
 
 Env passed to the VMM process on the host side (not exposed to the
 guest workload). Mostly for dev/test flags like `MACHINEN_BOOT_TEST`.
@@ -3259,7 +3259,7 @@ guest workload). Mostly for dev/test flags like `MACHINEN_BOOT_TEST`.
 
 > `optional` **onLog?**: [`OnLog`](#onlog)
 
-Defined in: [vm.ts:288](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L288)
+Defined in: [vm.ts:290](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L290)
 
 Streaming log callback — fires for every byte of guest output:
 kernel console (VMM stderr) and every exec invocation made through
@@ -3271,7 +3271,7 @@ the returned handle. See `LogEvent.source` to tell them apart. See
 
 ### AttachOptions
 
-Defined in: [vm.ts:916](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L916)
+Defined in: [vm.ts:940](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L940)
 
 #### Properties
 
@@ -3279,7 +3279,7 @@ Defined in: [vm.ts:916](https://github.com/redwoodjs/machinen/blob/main/packages
 
 > `optional` **pid?**: `number`
 
-Defined in: [vm.ts:922](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L922)
+Defined in: [vm.ts:946](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L946)
 
 Look up a VM by the host pid of its VMM process. Kernel-unique
 while alive; mutually exclusive with `name`. Exactly one of
@@ -3289,7 +3289,7 @@ while alive; mutually exclusive with `name`. Exactly one of
 
 > `optional` **name?**: `string`
 
-Defined in: [vm.ts:924](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L924)
+Defined in: [vm.ts:948](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L948)
 
 Look up a VM by the name passed to `boot({ name })`.
 
@@ -3297,7 +3297,7 @@ Look up a VM by the name passed to `boot({ name })`.
 
 > `optional` **onLog?**: [`OnLog`](#onlog)
 
-Defined in: [vm.ts:931](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L931)
+Defined in: [vm.ts:955](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L955)
 
 Streaming log callback — fires for every byte of output from execs
 made through the returned handle. See #83. Guest kernel console is
@@ -3308,7 +3308,7 @@ called `boot()`), so only `exec-stdout` / `exec-stderr` sources fire.
 
 ### RestoreOptions
 
-Defined in: [vm.ts:1742](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1742)
+Defined in: [vm.ts:1766](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1766)
 
 #### Extends
 
@@ -3320,7 +3320,7 @@ Defined in: [vm.ts:1742](https://github.com/redwoodjs/machinen/blob/main/package
 
 > `optional` **env?**: `Record`\<`string`, `string`\>
 
-Defined in: [vm.ts:144](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L144)
+Defined in: [vm.ts:146](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L146)
 
 Env vars exposed to the guest workload. Packed into the synthesized
 `/machinen-config.json`. Distinct from `vmmEnv`, which only affects
@@ -3334,7 +3334,7 @@ the host-side VMM process.
 
 > `optional` **guestCwd?**: `string`
 
-Defined in: [vm.ts:156](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L156)
+Defined in: [vm.ts:158](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L158)
 
 Working directory for the guest cmd. Lands as `cwd` in the
 synthesized `/machinen-config.json`; `/init` calls `chdir()` to
@@ -3354,7 +3354,7 @@ image-baked `cwd` is overridden by this field when both are set.
 
 > `optional` **rootDisk?**: `string` \| `boolean`
 
-Defined in: [vm.ts:186](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L186)
+Defined in: [vm.ts:188](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L188)
 
 Boot the guest with the rootfs on a virtio-blk device (`/dev/vda`)
 instead of inflating the whole rootfs into a RAM-backed tmpfs via
@@ -3384,7 +3384,7 @@ running the user cmd. Materialization needs `mke2fs` (or
 
 > `optional` **rootDiskSizeBytes?**: `number`
 
-Defined in: [vm.ts:203](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L203)
+Defined in: [vm.ts:205](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L205)
 
 Absolute target size (bytes) for the materialized rootdisk image.
 Defaults to `max(2 GiB, treeBytes * 2.5)` — generous enough that
@@ -3409,7 +3409,7 @@ image is taken as-is) or `rootDisk: false`. See #131.
 
 > `optional` **forkedFrom?**: `string`
 
-Defined in: [vm.ts:216](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L216)
+Defined in: [vm.ts:218](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L218)
 
 Bookkeeping: absolute path to the snapshot bundle this VM was
 forked from. Set by `restore({ snapDir })`; visible in
@@ -3423,7 +3423,7 @@ forked from. Set by `restore({ snapDir })`; visible in
 
 > `optional` **mount?**: `object`
 
-Defined in: [vm.ts:230](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L230)
+Defined in: [vm.ts:232](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L232)
 
 A single host directory copied into the guest at boot. The guest
 path must live under `/mnt/`. Copy-once semantics: guest writes are
@@ -3453,7 +3453,7 @@ prefer `liveMount` (FUSE pass-through, no copy). See #125.
 
 > `optional` **liveMounts?**: `object`[]
 
-Defined in: [vm.ts:248](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L248)
+Defined in: [vm.ts:250](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L250)
 
 Host directories exposed to the guest as live-share FUSE mounts
 (#78). Unlike `mount` (copy-once into the boot rootfs), these stay
@@ -3491,7 +3491,7 @@ inputs you don't need write-through on.
 
 > `optional` **portForward?**: `object`[]
 
-Defined in: [vm.ts:254](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L254)
+Defined in: [vm.ts:256](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L256)
 
 Host -> guest TCP port forwards installed via gvproxy's control
 API. Each entry maps `hostPort` on the host (bound to `hostAddr`,
@@ -3517,7 +3517,7 @@ default `127.0.0.1`) to `guestPort` inside the guest.
 
 > `optional` **binary?**: `string`
 
-Defined in: [vm.ts:262](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L262)
+Defined in: [vm.ts:264](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L264)
 
 Absolute or cwd-relative path to the VMM binary. Optional —
 if omitted, `boot()` resolves it via `resolveVmmBinary()`.
@@ -3530,7 +3530,7 @@ if omitted, `boot()` resolves it via `resolveVmmBinary()`.
 
 > `optional` **cwd?**: `string`
 
-Defined in: [vm.ts:264](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L264)
+Defined in: [vm.ts:266](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L266)
 
 Working directory for the VMM (for finding fixture files).
 
@@ -3542,7 +3542,7 @@ Working directory for the VMM (for finding fixture files).
 
 > `optional` **args?**: `string`[]
 
-Defined in: [vm.ts:266](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L266)
+Defined in: [vm.ts:268](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L268)
 
 Extra argv for the VMM.
 
@@ -3554,7 +3554,7 @@ Extra argv for the VMM.
 
 > `optional` **kernel?**: `string`
 
-Defined in: [vm.ts:268](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L268)
+Defined in: [vm.ts:270](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L270)
 
 Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`.
 
@@ -3566,7 +3566,7 @@ Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`.
 
 > `optional` **dtb?**: `string`
 
-Defined in: [vm.ts:270](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L270)
+Defined in: [vm.ts:272](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L272)
 
 Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`.
 
@@ -3578,7 +3578,7 @@ Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`.
 
 > `optional` **timeoutMs?**: `number`
 
-Defined in: [vm.ts:275](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L275)
+Defined in: [vm.ts:277](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L277)
 
 Milliseconds to wait in `wait()` before giving up and rejecting.
 Defaults to 60s. Pass `null` to wait forever.
@@ -3591,7 +3591,7 @@ Defaults to 60s. Pass `null` to wait forever.
 
 > `optional` **vmmEnv?**: `Record`\<`string`, `string`\>
 
-Defined in: [vm.ts:280](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L280)
+Defined in: [vm.ts:282](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L282)
 
 Env passed to the VMM process on the host side (not exposed to the
 guest workload). Mostly for dev/test flags like `MACHINEN_BOOT_TEST`.
@@ -3604,7 +3604,7 @@ guest workload). Mostly for dev/test flags like `MACHINEN_BOOT_TEST`.
 
 > `optional` **onLog?**: [`OnLog`](#onlog)
 
-Defined in: [vm.ts:288](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L288)
+Defined in: [vm.ts:290](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L290)
 
 Streaming log callback — fires for every byte of guest output:
 kernel console (VMM stderr) and every exec invocation made through
@@ -3620,7 +3620,7 @@ the returned handle. See `LogEvent.source` to tell them apart. See
 
 > **snapDir**: `string`
 
-Defined in: [vm.ts:1747](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1747)
+Defined in: [vm.ts:1771](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1771)
 
 Snapshot bundle directory produced by `vm.snapshot()`.
 Must contain `disk.img` and `meta.json`.
@@ -3629,7 +3629,7 @@ Must contain `disk.img` and `meta.json`.
 
 > `optional` **image?**: `string`
 
-Defined in: [vm.ts:1755](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1755)
+Defined in: [vm.ts:1779](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1779)
 
 Override the rootfs image used for the restore boot. Defaults
 to whatever caller passes through `image`-equivalent — but
@@ -3641,7 +3641,7 @@ release rootfs path here.
 
 > `optional` **name?**: `string`
 
-Defined in: [vm.ts:1761](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1761)
+Defined in: [vm.ts:1785](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1785)
 
 Optional explicit name for the restored VM. When omitted, the
 fork is auto-named `<sourceName>/<pid>` after spawn so it stays
@@ -4127,7 +4127,7 @@ the guest agent skips entries that don't match.
 
 > `const` **\_internal**: `object`
 
-Defined in: [vm.ts:1552](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1552)
+Defined in: [vm.ts:1576](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1576)
 
 #### Type Declaration
 
@@ -4598,7 +4598,7 @@ ROOTFS_IMG_TOOL_MISSING (no e2fsprogs found)
 
 > **resolveVmmBinary**(): `string`
 
-Defined in: [vm.ts:87](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L87)
+Defined in: [vm.ts:89](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L89)
 
 Locate the VMM binary using the same lookup order as `@machinen/cli`:
   1. `MACHINEN_VMM` env var (dev-mode override)
@@ -4620,7 +4620,7 @@ BOOT_VMM_MISSING | BOOT_VMM_PACKAGE_BROKEN
 
 > **boot**(`opts?`): `Promise`\<[`VmHandle`](#vmhandle)\>
 
-Defined in: [vm.ts:303](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L303)
+Defined in: [vm.ts:305](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L305)
 
 Boot a microVM and return a handle to interact with it.
 
@@ -4651,7 +4651,7 @@ BOOT_VMM_MISSING | BOOT_VMM_PACKAGE_BROKEN |
 
 > **attach**(`opts`): `Promise`\<[`VmHandle`](#vmhandle)\>
 
-Defined in: [vm.ts:947](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L947)
+Defined in: [vm.ts:971](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L971)
 
 Reconnect to a running VM registered by an earlier `boot()` call
 (possibly from a different process). Returns a `VmHandle` that can
@@ -4683,7 +4683,7 @@ REGISTRY_VM_NOT_FOUND
 
 > **buildWriteFileCmd**(`guestPath`, `contents`, `opts?`): `string`
 
-Defined in: [vm.ts:1400](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1400)
+Defined in: [vm.ts:1424](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1424)
 
 Build the shell pipeline that `vm.writeFile()` ships through the
 exec-agent. Stays single-line so it works against the legacy EXEC
@@ -4722,7 +4722,7 @@ Returns a single cmd string. For payloads that would exceed Linux's
 
 > **buildWriteFileCmds**(`guestPath`, `contents`, `opts?`): `string`[]
 
-Defined in: [vm.ts:1442](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1442)
+Defined in: [vm.ts:1466](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1466)
 
 Plan the cmd sequence `vm.writeFile()` issues for `contents`.
 Small payloads (base64 ≤ `WRITE_FILE_B64_CHUNK_BYTES`) collapse to a
@@ -4754,7 +4754,7 @@ end, so no individual cmd line approaches `MAX_ARG_STRLEN`.
 
 > **restore**(`opts`): `Promise`\<[`VmHandle`](#vmhandle)\>
 
-Defined in: [vm.ts:1780](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1780)
+Defined in: [vm.ts:1804](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1804)
 
 Restore a microVM from a snapshot bundle produced by
 `vm.snapshot({ outDir })`. Reads the bundle's `meta.json` to
@@ -4789,7 +4789,7 @@ BOOT_SNAPSHOT_NOT_FOUND if `<snapDir>/disk.img`
 
 > **measureFirstByte**(`vm`): `Promise`\<`number`\>
 
-Defined in: [vm.ts:1827](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1827)
+Defined in: [vm.ts:1851](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1851)
 
 Time-to-first-output-byte for a boot. Useful for measuring how
 much the snapshot path is (or isn't) buying us.
