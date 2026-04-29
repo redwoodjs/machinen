@@ -175,16 +175,16 @@ if (( WINDOW )); then
   # against spaces / shell metacharacters.
   init_cmd="cd $(printf '%q' "$CLONE_DIR") && exec pnpm vm"
   wrapped="bash -lc $(printf '%q' "$init_cmd")"
-  if command -v ghostty >/dev/null 2>&1; then
-    # `ghostty +new-window` reuses the running app via IPC; if none is
-    # running it boots a fresh one. --initial-command runs the wrapped
-    # command in the new window's pty.
-    exec ghostty +new-window --initial-command="$wrapped"
-  elif [[ -d "/Applications/Ghostty.app" ]]; then
-    # Fallback when the `ghostty` CLI helper isn't on PATH but the app
-    # is installed. -n forces a new instance; --args passes Ghostty's
-    # own flags through.
+  # Prefer `open -na` on macOS — Ghostty's `+new-window` IPC action
+  # is gated behind a build flag and not present in the stable
+  # release, so it errors with "+new-window is not supported on this
+  # platform" on a vanilla install. `open -na` always works and just
+  # costs one extra Ghostty process per window (one VM == one
+  # session is what we want here anyway).
+  if [[ "$(uname)" == "Darwin" ]] && [[ -d "/Applications/Ghostty.app" ]]; then
     exec open -na "/Applications/Ghostty.app" --args --initial-command="$wrapped"
+  elif command -v ghostty >/dev/null 2>&1; then
+    exec ghostty +new-window --initial-command="$wrapped"
   else
     echo "vm-pick: --window requires Ghostty (https://ghostty.org)" >&2
     exit 1
