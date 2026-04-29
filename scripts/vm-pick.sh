@@ -11,6 +11,27 @@
 
 set -euo pipefail
 
+# --refresh re-copies boot-glue files (vm.ts, provision.ts) from the
+# canonical checkout over the clone's versions before booting, so a
+# clone made before a fix to those files picks up the new behavior
+# without having to delete and re-clone. Anything else in the clone is
+# untouched.
+REFRESH=0
+for arg in "$@"; do
+  case "$arg" in
+    --refresh) REFRESH=1 ;;
+    -h|--help)
+      echo "usage: pnpm vm-pick [--refresh]" >&2
+      echo "  --refresh  re-sync vm.ts + provision.ts from canonical into the chosen clone" >&2
+      exit 0
+      ;;
+    *)
+      echo "vm-pick: unknown arg: $arg" >&2
+      exit 1
+      ;;
+  esac
+done
+
 if ! command -v fzf >/dev/null 2>&1; then
   echo "vm-pick: fzf is required. Install with: brew install fzf" >&2
   exit 1
@@ -85,6 +106,12 @@ CLONE_DIR="${CLONES_ROOT}/${num}-${kind}-${slug}"
 
 if [[ -d "$CLONE_DIR" ]]; then
   echo "vm-pick: reusing existing clone at $CLONE_DIR" >&2
+  if (( REFRESH )); then
+    echo "vm-pick: --refresh: re-syncing vm.ts + provision.ts from canonical" >&2
+    for f in vm.ts provision.ts; do
+      cp -c -f "$MAIN_REPO/$f" "$CLONE_DIR/$f"
+    done
+  fi
 else
   echo "vm-pick: creating CoW clone at $CLONE_DIR" >&2
   mkdir -p "$CLONES_ROOT"

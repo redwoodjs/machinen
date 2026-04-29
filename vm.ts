@@ -103,17 +103,112 @@ const claudeCreds = readHostCmd("Claude Code credentials", "security", [
   "-w",
 ]);
 
+// ~/.claude.json holds the identity slice (userID, oauthAccount,
+// hasCompletedOnboarding). Recent claude-code builds refuse to start an
+// authenticated session without it, so ship a trimmed copy of the host's
+// file on every boot. provision.ts only writes it when ~/.claude.json is
+// missing, so VM-accumulated state isn't clobbered.
+function readHostClaudeAccount(): string {
+  const path = join(homedir(), ".claude.json");
+  if (!existsSync(path)) {
+    console.error(`vm.ts: ${path} not found — run \`claude\` once on the host to log in.`);
+    process.exit(1);
+  }
+  const full = JSON.parse(readFileSync(path, "utf8"));
+  const slice: Record<string, unknown> = {};
+  for (const k of [
+    "userID",
+    "oauthAccount",
+    "hasCompletedOnboarding",
+    "firstStartTime",
+    "anonymousId",
+  ]) {
+    if (k in full) {
+      slice[k] = full[k];
+    }
+  }
+  return JSON.stringify(slice);
+}
+const claudeAccountJson = readHostClaudeAccount();
+
+// Use MACHINEN_-prefixed names so the OLD baked /etc/profile.d snippet
+// in pre-fix images doesn't see them — it consumed `CLAUDE_*` and
+// unconditionally `unset CLAUDE_ACCOUNT_JSON` before our bootstrap had
+// a chance to read it. With these names, the bootstrap is the only
+// thing that touches them.
 const secretEnv: Record<string, string> = {
   GH_TOKEN: ghToken,
   GITHUB_TOKEN: ghToken,
-  CLAUDE_CREDENTIALS: claudeCreds,
+  MACHINEN_CLAUDE_CREDENTIALS: claudeCreds,
+  MACHINEN_CLAUDE_ACCOUNT_JSON: claudeAccountJson,
 };
+
+// Bootstrap credentials at boot time (not via /etc/profile.d) so a
+// stale `app.tar.gz` doesn't pin us to whatever profile snippet was
+// current when the image was last provisioned. Always overwrite — the
+// host's keychain + ~/.claude.json are the source of truth, the image
+// is not.
+// IMPORTANT: this snippet is mirrored byte-for-byte (sans the final
+// `exec bash -i`) by scripts/test-claude-bootstrap.mjs, which executes
+// it on the host against an isolated $HOME to verify behaviour without
+// a 30-second VM boot loop. Keep them in sync.
+//
+// Older images may have a missing /tmp (pre fix #176) and a missing
+// /dev/fd (no proc->fd symlinks staged), so avoid both `mktemp` and
+// bash process substitution `<(...)`. Stage everything in $HOME.
+const bootstrap = [
+  'mkdir -p "$HOME/.claude"',
+  'if [ -n "${MACHINEN_CLAUDE_CREDENTIALS:-}" ]; then',
+  '  printf "%s" "$MACHINEN_CLAUDE_CREDENTIALS" > "$HOME/.claude/.credentials.json"',
+  '  chmod 600 "$HOME/.claude/.credentials.json"',
+  "fi",
+  // If the account env didn't make it through (vm.ts couldn't read the
+  // host slice, runtime stripped it, etc.) we MUST NOT write anything
+  // to ~/.claude.json — an empty/garbage file there breaks the claude
+  // CLI on next launch, which is how this bootstrap regressed before.
+  'if [ -n "${MACHINEN_CLAUDE_ACCOUNT_JSON:-}" ]; then',
+  '  acct="$HOME/.claude.json.machinen-acct"',
+  '  merged="$HOME/.claude.json.machinen-merged"',
+  '  printf "%s" "$MACHINEN_CLAUDE_ACCOUNT_JSON" > "$acct"',
+  '  if [ -e "$HOME/.claude.json" ] && command -v jq >/dev/null 2>&1 && \\',
+  '     jq -e . "$HOME/.claude.json" >/dev/null 2>&1; then',
+  '    if jq -s ".[0] * .[1]" "$HOME/.claude.json" "$acct" > "$merged" 2>/dev/null && \\',
+  '       [ -s "$merged" ]; then',
+  '      mv "$merged" "$HOME/.claude.json"',
+  "    else",
+  '      rm -f "$merged"',
+  '      cp "$acct" "$HOME/.claude.json"',
+  "    fi",
+  "  else",
+  '    cp "$acct" "$HOME/.claude.json"',
+  "  fi",
+  '  rm -f "$acct"',
+  '  chmod 600 "$HOME/.claude.json"',
+  "fi",
+  "unset MACHINEN_CLAUDE_CREDENTIALS MACHINEN_CLAUDE_ACCOUNT_JSON",
+  // Inside the sandbox VM, every claude invocation should run with
+  // IS_SANDBOX=1 + --dangerously-skip-permissions. Stage as a shell
+  // function in ~/.bashrc.machinen, sourced once from ~/.bashrc. The
+  // function uses `command claude` to bypass recursion. Re-written
+  // each boot so changes here propagate without manual cleanup.
+  'cat > "$HOME/.bashrc.machinen" <<\\EOF',
+  "claude() {",
+  '  IS_SANDBOX=1 command claude --dangerously-skip-permissions "$@"',
+  "}",
+  "EOF",
+  'if ! grep -q ".bashrc.machinen" "$HOME/.bashrc" 2>/dev/null; then',
+  '  printf "\\n[ -f \\"\\$HOME/.bashrc.machinen\\" ] && . \\"\\$HOME/.bashrc.machinen\\"\\n" >> "$HOME/.bashrc"',
+  "fi",
+  "cd /mnt/workspace 2>/dev/null",
+  "exec bash -i",
+].join("\n");
 
 const vm = await boot({
   kernel: join(ASSETS, "Image-arm64"),
   dtb: join(ASSETS, "virt-arm64.dtb"),
   image: IMAGE,
   liveMounts: [{ host: HERE, guest: "/mnt/workspace", mode: "rw" }],
+  cmd: ["/bin/bash", "-lc", bootstrap],
   env: secretEnv,
   vmmEnv: { MACHINEN_RAM_BYTES: String(ramForImage(IMAGE)) },
   timeoutMs: null,
@@ -134,5 +229,10 @@ process.stdin.pipe(vm.stdin);
 const { code } = await vm.wait();
 if (isTty) {
   stdin.setRawMode!(false);
+  // RIS (full terminal reset) + clear scrollback + home cursor, so the
+  // host shell starts fresh after `exit`. No-op when stdout isn't a TTY.
+  if (process.stdout.isTTY) {
+    process.stdout.write("\x1bc\x1b[3J\x1b[H");
+  }
 }
 process.exit(code ?? 0);
