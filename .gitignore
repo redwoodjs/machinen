@@ -6,3 +6,5 @@ node_modules/
 .machinen-vm/
 dist/
 release-assets/
+.claude/scheduled_tasks.lock
+.claude/worktrees/

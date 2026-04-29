@@ -7,5 +7,5 @@ export default defineConfig({
   dts: true,
   clean: true,
   sourcemap: true,
-  external: ["node-pty"],
+  external: ["@homebridge/node-pty-prebuilt-multiarch"],
 });
