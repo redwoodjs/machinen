@@ -40,8 +40,13 @@ export interface VsockExecOptions {
   connectTimeoutMs?: number;
   /** Poll interval in ms while retrying. Default 250. */
   retryMs?: number;
-  /** Cap total time spent on this command. Default 5 minutes. */
-  execTimeoutMs?: number;
+  /**
+   * Wall-clock ceiling for the spawned command. Default 5 minutes.
+   * Pass `null` (or `Infinity`) to disable — appropriate for
+   * long-running siblings (dev servers, file watchers, log tailers)
+   * that should live for the VM's lifetime. Mirrors `boot({ timeoutMs: null })`.
+   */
+  execTimeoutMs?: number | null;
   /** Called with each stdout chunk as it arrives (pass-through tee). */
   onStdout?: (chunk: Buffer) => void;
   /** Called with each stderr chunk as it arrives (pass-through tee). */
@@ -221,19 +226,35 @@ async function runOnSocket(
     let awaitingBytes = 0;
     let payloadTag: "O" | "E" | null = null;
 
-    const deadline = opts.execTimeoutMs ?? 5 * 60 * 1000;
-    const timer = setTimeout(() => {
-      fail(
-        new ExecError("EXEC_AGENT_TIMEOUT", `VsockExec.run: timed out after ${deadline}ms`, {
-          retryable: true,
-        }),
-      );
-      socket.destroy();
-    }, deadline);
-    timer.unref();
+    // `null` (or `Infinity`) disables the wall-clock ceiling — the
+    // command lives until it exits on its own or the VM goes away. The
+    // default 5-min cap is intentional for one-shot install/build steps
+    // where exceeding it means something's wedged; long-running
+    // siblings (dev servers, watchers) should opt out explicitly.
+    const deadlineOpt = opts.execTimeoutMs;
+    const deadline =
+      deadlineOpt === null || deadlineOpt === Infinity ? null : (deadlineOpt ?? 5 * 60 * 1000);
+    const timer =
+      deadline === null
+        ? null
+        : setTimeout(() => {
+            fail(
+              new ExecError(
+                "EXEC_AGENT_TIMEOUT",
+                `VsockExec.run: timed out after ${deadline}ms (default). ` +
+                  `Long-running siblings (dev servers, watchers) should pass ` +
+                  `{ execTimeoutMs: null } to disable this ceiling.`,
+                { retryable: true },
+              ),
+            );
+            socket.destroy();
+          }, deadline);
+    timer?.unref();
 
     const finish = () => {
-      clearTimeout(timer);
+      if (timer) {
+        clearTimeout(timer);
+      }
       if (exitCode === null) {
         fail(
           new ExecError(
@@ -318,7 +339,9 @@ async function runOnSocket(
       }
     });
     socket.on("error", (err) => {
-      clearTimeout(timer);
+      if (timer) {
+        clearTimeout(timer);
+      }
       fail(err);
     });
     socket.on("close", () => {
