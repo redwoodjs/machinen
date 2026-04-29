@@ -8,7 +8,8 @@
 //   machinen ls (alias: ps)
 //   machinen exec ( --name <name> | --pid <pid> ) -- <cmd>
 //   machinen snapshot ( --name <name> | --pid <pid> ) --out-dir <dir>
-//   machinen attach ( --name <name> | --pid <pid> )    # line-based shell REPL
+//   machinen attach ( --name <name> | --pid <pid> ) [--shell <cmd>]   # PTY shell
+//   machinen repl   ( --name <name> | --pid <pid> )                   # per-line exec
 //   machinen install [--version <tag>]
 //   machinen completion <bash|zsh|fish>
 //   machinen --version | -h | --help
@@ -456,6 +457,9 @@ async function cmdExec(args: string[]): Promise<number> {
     // can quote it like `machinen exec --name foo -- /bin/ls`.
     const joined = cmdArgs.join(" ");
     if (usePty) {
+      if (!process.stdin.isTTY) {
+        die("machinen exec --tty: stdin is not a TTY; pass via terminal or drop --tty");
+      }
       return await runPtyExec(vm, joined);
     }
     const res = await vm.execRaw(joined, {
@@ -481,9 +485,9 @@ async function runPtyExec(
   // guest pseudoterminal. Flip stdin to raw so Ctrl-C, arrows, and
   // function keys reach the guest as untranslated bytes; restore on
   // every exit path so the user's shell isn't left in raw mode.
-  if (!process.stdin.isTTY) {
-    die("machinen exec --tty: stdin is not a TTY; pass via terminal or drop --tty");
-  }
+  // Caller is responsible for asserting stdin is a TTY (the right
+  // error message depends on whether you got here via `attach` or
+  // `exec --tty`).
   const stdin = process.stdin;
   const stdout = process.stdout;
   const initialCols = stdout.columns ?? 80;
@@ -553,14 +557,53 @@ async function cmdSnapshot(args: string[]): Promise<number> {
 }
 
 async function cmdAttach(args: string[]): Promise<number> {
-  const target = parseTargetFlags(args, "attach");
+  // Pull `--shell` out before the target flags so unknown-arg checks
+  // in `parseTargetFlags` don't reject it. Default to `bash -i` —
+  // the Debian base rootfs ships bash, and `-i` gets job control,
+  // history, and a prompt.
+  let shell = "/bin/bash -i";
+  const filtered: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i]!;
+    if (a === "--shell" || a.startsWith("--shell=")) {
+      const v = a === "--shell" ? args[++i] : a.slice("--shell=".length);
+      if (!v) {
+        die("--shell requires a value");
+      }
+      shell = v;
+    } else {
+      filtered.push(a);
+    }
+  }
+  const target = parseTargetFlags(filtered, "attach");
+  if (!process.stdin.isTTY) {
+    die("machinen attach: stdin is not a TTY (pipe scripts via `machinen repl` instead)");
+  }
   const vm = await attach(target).catch(handleError);
-  process.stderr.write(`attached to ${vm.name ?? `pid ${vm.pid}`}\n`);
+  process.stderr.write(
+    `attached to ${vm.name ?? `pid ${vm.pid}`} — exit the shell to detach.\n`,
+  );
+  try {
+    return await runPtyExec(vm, shell);
+  } finally {
+    await vm.detach();
+  }
+}
+
+async function cmdRepl(args: string[]): Promise<number> {
+  // Per-line exec REPL — every line you type is a fresh one-shot
+  // command, so `cd`, env vars, and shell history do NOT carry over.
+  // This is the niche `attach` used to fill; kept around for piping
+  // a script of one-liners (e.g. `cat cmds.txt | machinen repl ...`).
+  // For an actual interactive shell, use `machinen attach`.
+  const target = parseTargetFlags(args, "repl");
+  const vm = await attach(target).catch(handleError);
+  process.stderr.write(`repl: ${vm.name ?? `pid ${vm.pid}`}\n`);
   process.stderr.write(
     `each line is a fresh one-shot exec — cd / env vars / history do NOT persist.\n` +
-      `for a real interactive shell with job control + TUI support, open another terminal:\n` +
-      `  machinen exec ${vm.name ? `--name ${vm.name}` : `--pid ${vm.pid}`} --tty -- bash -i\n` +
-      `Ctrl-D to detach.\n`,
+      `for an interactive shell with job control + TUI support, use:\n` +
+      `  machinen attach ${vm.name ? `--name ${vm.name}` : `--pid ${vm.pid}`}\n` +
+      `Ctrl-D to exit.\n`,
   );
   try {
     const { createInterface } = await import("node:readline");
@@ -638,13 +681,13 @@ function parseTargetFlags(args: string[], cmd: string): { name: string } | { pid
 
 // Names live in column 2 of `machinen ls`; pids in column 1. Both
 // are used as completion candidates after `--name`/`--pid` on
-// exec/snapshot/attach.
+// exec/snapshot/attach/repl.
 const BASH_COMPLETION = `# machinen bash completion — source this from ~/.bashrc, or:
 #   eval "$(machinen completion bash)"
 _machinen_completion() {
   local cur prev words cword
   _init_completion || return
-  local cmds="boot restore install ls ps exec snapshot attach completion --version --help -h -v"
+  local cmds="boot restore install ls ps exec snapshot attach repl completion --version --help -h -v"
   if [[ \${cword} -eq 1 ]]; then
     COMPREPLY=( $(compgen -W "\${cmds}" -- "\${cur}") )
     return
@@ -664,7 +707,7 @@ _machinen_completion() {
       ;;
   esac
   case "\${words[1]}" in
-    exec|snapshot|attach)
+    exec|snapshot|attach|repl)
       COMPREPLY=( $(compgen -W "--name --pid" -- "\${cur}") )
       return
       ;;
@@ -677,7 +720,7 @@ const ZSH_COMPLETION = `# machinen zsh completion — source this from ~/.zshrc,
 #   eval "$(machinen completion zsh)"
 _machinen() {
   local -a cmds
-  cmds=(boot restore install ls ps exec snapshot attach completion)
+  cmds=(boot restore install ls ps exec snapshot attach repl completion)
   if (( CURRENT == 2 )); then
     _describe 'command' cmds
     return
@@ -697,7 +740,7 @@ _machinen() {
       ;;
   esac
   case "\${words[2]}" in
-    exec|snapshot|attach)
+    exec|snapshot|attach|repl)
       _describe 'flag' '(--name --pid)'
       return
       ;;
@@ -708,9 +751,9 @@ compdef _machinen machinen
 
 const FISH_COMPLETION = `# machinen fish completion — source this from your config.fish, or:
 #   machinen completion fish | source
-set -l cmds boot restore install ls ps exec snapshot attach completion
+set -l cmds boot restore install ls ps exec snapshot attach repl completion
 complete -c machinen -f -n 'not __fish_seen_subcommand_from $cmds' -a "$cmds"
-for sub in exec snapshot attach
+for sub in exec snapshot attach repl
   complete -c machinen -f -n "__fish_seen_subcommand_from $sub" -l name \\
     -a '(machinen ls 2>/dev/null | awk \\'NR>1 && $2!="-"{print $2}\\')'
   complete -c machinen -f -n "__fish_seen_subcommand_from $sub" -l pid \\
@@ -788,12 +831,16 @@ function printHelp(): void {
       `                                                 Example:\n` +
       `                                                   machinen exec <target-flag> --tty -- bash -i\n` +
       `  machinen snapshot <target-flag> --out-dir <d>  CRIU-snapshot a running VM into <d>\n` +
-      `  machinen attach   <target-flag>                Per-line REPL: each line you type is\n` +
-      `                                                 a fresh one-shot \`exec\`, not a\n` +
-      `                                                 persistent shell — \`cd\`, env vars,\n` +
-      `                                                 and shell history do NOT carry over\n` +
-      `                                                 between lines. For an actual shell\n` +
-      `                                                 use \`machinen exec ... -- bash -i\`.\n` +
+      `  machinen attach   <target-flag> [--shell <c>]  Drop into an interactive PTY shell\n` +
+      `                                                 in the running VM (default \`bash -i\`).\n` +
+      `                                                 \`cd\`, env vars, history, job control\n` +
+      `                                                 and full-screen TUIs all work. Exit\n` +
+      `                                                 the shell (Ctrl-D) to detach.\n` +
+      `  machinen repl     <target-flag>                Per-line exec REPL: each line is a\n` +
+      `                                                 fresh one-shot \`exec\`, no persistent\n` +
+      `                                                 state. Useful for piping a script of\n` +
+      `                                                 one-liners; for an interactive shell\n` +
+      `                                                 use \`machinen attach\` instead.\n` +
       `\n` +
       `  machinen install                               Pre-fetch the current-tag base assets\n` +
       `    --version <tag>                              Pin to a specific release tag\n` +
@@ -854,6 +901,8 @@ async function main(): Promise<number> {
       return cmdSnapshot(rest);
     case "attach":
       return cmdAttach(rest);
+    case "repl":
+      return cmdRepl(rest);
     case "completion":
       return cmdCompletion(rest);
     default:
