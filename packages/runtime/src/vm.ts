@@ -56,11 +56,7 @@ import {
 import { spawnArtifactCache } from "./artifact-cache.ts";
 import { BootError, ExecError, RegistryError, SnapshotError } from "./errors.ts";
 import { ensureRootfsImage, markRootfsImageClean } from "./rootfs-img.ts";
-import {
-  VsockExec,
-  type VsockExecOptions,
-  type VsockExecResult,
-} from "./exec.ts";
+import { VsockExec, type VsockExecOptions, type VsockExecResult } from "./exec.ts";
 import { serveLiveMount } from "./mount-server.ts";
 import type { OnLog } from "./log.ts";
 import { claimName, findEntry, isAlive, removeEntry, writeEntry } from "./registry.ts";
@@ -1391,10 +1387,7 @@ function normalizeMountGuest(guest: string): string {
 
 function validateGuestCwd(cwd: string): void {
   if (!cwd || !cwd.startsWith("/")) {
-    throw new BootError(
-      "BOOT_CWD_INVALID",
-      `guestCwd must be an absolute path (got '${cwd}')`,
-    );
+    throw new BootError("BOOT_CWD_INVALID", `guestCwd must be an absolute path (got '${cwd}')`);
   }
   if (cwd.includes("\0")) {
     throw new BootError("BOOT_CWD_INVALID", "guestCwd must not contain NUL bytes");

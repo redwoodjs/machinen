@@ -3,7 +3,7 @@ packages:
   - examples/*
 
 onlyBuiltDependencies:
-  - '@homebridge/node-pty-prebuilt-multiarch'
+  - "@homebridge/node-pty-prebuilt-multiarch"
   - cpu-features
   - esbuild
   - fallow

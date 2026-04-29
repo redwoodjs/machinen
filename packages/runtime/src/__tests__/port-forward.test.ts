@@ -111,9 +111,7 @@ describe("exposePort", () => {
   it("maps `address already in use` 500 body to GVPROXY_PORT_IN_USE", async () => {
     gv = await fakeGvproxy((_req, res) => {
       res.statusCode = 500;
-      res.end(
-        "listen tcp 127.0.0.1:5173: bind: address already in use",
-      );
+      res.end("listen tcp 127.0.0.1:5173: bind: address already in use");
     });
     await expect(
       exposePort(gv.socketPath, { hostPort: 5173, guestPort: 3000 }),

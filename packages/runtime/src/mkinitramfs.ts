@@ -969,4 +969,3 @@ function die(msg: string): never {
   process.stderr.write(msg + "\n");
   process.exit(2);
 }
-
