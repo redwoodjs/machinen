@@ -82,7 +82,7 @@ export const FATTR = {
   CTIME: 1 << 10,
 } as const;
 
-export type FuseOp = (typeof FUSE_OP)[keyof typeof FUSE_OP];
+type FuseOp = (typeof FUSE_OP)[keyof typeof FUSE_OP];
 
 /**
  * FUSE_INIT capability flags (fuse_init_in.flags / fuse_init_out.flags).
@@ -179,7 +179,7 @@ export function buildResponse(unique: bigint, payload: Uint8Array): Uint8Array {
 
 export const FUSE_ATTR_SIZE = 88;
 
-export interface FuseAttr {
+interface FuseAttr {
   ino: bigint;
   size: bigint;
   blocks: bigint;
@@ -244,7 +244,7 @@ export function readAttr(buf: Uint8Array, offset = 0): FuseAttr {
 
 export const FUSE_ENTRY_OUT_SIZE = 40 + FUSE_ATTR_SIZE; // 128
 
-export interface FuseEntryOut {
+interface FuseEntryOut {
   nodeid: bigint;
   generation: bigint;
   entry_valid: bigint;
@@ -271,7 +271,7 @@ export function buildEntryOut(e: FuseEntryOut): Uint8Array {
 
 export const FUSE_ATTR_OUT_SIZE = 16 + FUSE_ATTR_SIZE; // 104
 
-export interface FuseAttrOut {
+interface FuseAttrOut {
   attr_valid: bigint;
   attr_valid_nsec: number;
   attr: FuseAttr;
@@ -289,9 +289,9 @@ export function buildAttrOut(a: FuseAttrOut): Uint8Array {
 
 // --- fuse_kstatfs (STATFS reply) -----------------------------------------
 
-export const FUSE_KSTATFS_SIZE = 80;
+const FUSE_KSTATFS_SIZE = 80;
 
-export interface FuseKstatfs {
+interface FuseKstatfs {
   blocks: bigint;
   bfree: bigint;
   bavail: bigint;
@@ -319,10 +319,10 @@ export function buildKstatfs(s: FuseKstatfs): Uint8Array {
 
 // --- fuse_init_in / fuse_init_out ----------------------------------------
 
-export const FUSE_INIT_IN_MIN_SIZE = 8; // pre-7.23 kernels send only major/minor
+const FUSE_INIT_IN_MIN_SIZE = 8; // pre-7.23 kernels send only major/minor
 export const FUSE_INIT_OUT_SIZE = 64;
 
-export interface FuseInitIn {
+interface FuseInitIn {
   major: number;
   minor: number;
   max_readahead: number;
@@ -345,7 +345,7 @@ export function readInitIn(buf: Uint8Array, offset = 0): FuseInitIn {
   };
 }
 
-export interface FuseInitOut {
+interface FuseInitOut {
   major: number;
   minor: number;
   max_readahead: number;
@@ -379,7 +379,7 @@ export function buildInitOut(o: FuseInitOut): Uint8Array {
 
 // --- fuse_getattr_in -----------------------------------------------------
 
-export interface FuseGetattrIn {
+interface FuseGetattrIn {
   getattr_flags: number;
   fh: bigint;
 }
@@ -395,7 +395,7 @@ export function readGetattrIn(buf: Uint8Array, offset = 0): FuseGetattrIn {
 
 // --- fuse_forget_in / fuse_batch_forget_in -------------------------------
 
-export interface FuseForgetIn {
+interface FuseForgetIn {
   nlookup: bigint;
 }
 
@@ -404,7 +404,7 @@ export function readForgetIn(buf: Uint8Array, offset = 0): FuseForgetIn {
   return { nlookup: dv.getBigUint64(0, true) };
 }
 
-export interface FuseForgetOne {
+interface FuseForgetOne {
   nodeid: bigint;
   nlookup: bigint;
 }
@@ -430,7 +430,7 @@ export function readBatchForgetIn(
 
 // --- fuse_open_in / fuse_open_out ----------------------------------------
 
-export interface FuseOpenIn {
+interface FuseOpenIn {
   flags: number;
   open_flags: number;
 }
@@ -443,7 +443,7 @@ export function readOpenIn(buf: Uint8Array, offset = 0): FuseOpenIn {
   };
 }
 
-export interface FuseOpenOut {
+interface FuseOpenOut {
   fh: bigint;
   open_flags: number;
 }
@@ -459,7 +459,7 @@ export function buildOpenOut(o: FuseOpenOut): Uint8Array {
 
 // --- fuse_read_in --------------------------------------------------------
 
-export interface FuseReadIn {
+interface FuseReadIn {
   fh: bigint;
   offset: bigint;
   size: number;
@@ -483,7 +483,7 @@ export function readReadIn(buf: Uint8Array, off = 0): FuseReadIn {
 
 // --- fuse_release_in -----------------------------------------------------
 
-export interface FuseReleaseIn {
+interface FuseReleaseIn {
   fh: bigint;
   flags: number;
   release_flags: number;
@@ -544,7 +544,7 @@ export const DT = {
  */
 export const FUSE_WRITE_IN_SIZE = 40;
 
-export interface FuseWriteIn {
+interface FuseWriteIn {
   fh: bigint;
   offset: bigint;
   size: number;
@@ -566,7 +566,7 @@ export function readWriteIn(buf: Uint8Array, off = 0): FuseWriteIn {
   };
 }
 
-export interface FuseWriteOut {
+interface FuseWriteOut {
   size: number;
 }
 
@@ -585,9 +585,9 @@ export function buildWriteOut(o: FuseWriteOut): Uint8Array {
  * + open_flags). Followed by NUL-terminated name. We negotiate 7.31,
  * so the wider layout is always present.
  */
-export const FUSE_CREATE_IN_SIZE = 16;
+const FUSE_CREATE_IN_SIZE = 16;
 
-export interface FuseCreateIn {
+interface FuseCreateIn {
   flags: number;
   mode: number;
   umask: number;
@@ -619,9 +619,9 @@ export function buildCreateOut(entry: FuseEntryOut, open: FuseOpenOut): Uint8Arr
 
 // --- fuse_setattr_in -----------------------------------------------------
 
-export const FUSE_SETATTR_IN_SIZE = 88;
+const FUSE_SETATTR_IN_SIZE = 88;
 
-export interface FuseSetattrIn {
+interface FuseSetattrIn {
   valid: number;
   fh: bigint;
   size: bigint;
@@ -661,9 +661,9 @@ export function readSetattrIn(buf: Uint8Array, off = 0): FuseSetattrIn {
 
 // --- fuse_mkdir_in ------------------------------------------------------
 
-export const FUSE_MKDIR_IN_SIZE = 8;
+const FUSE_MKDIR_IN_SIZE = 8;
 
-export interface FuseMkdirIn {
+interface FuseMkdirIn {
   mode: number;
   umask: number;
 }
@@ -682,9 +682,9 @@ export function readMkdirIn(buf: Uint8Array, off = 0): FuseMkdirIn {
  * fuse_link_in: u64 oldnodeid. The new name follows as a NUL-
  * terminated string after the struct.
  */
-export const FUSE_LINK_IN_SIZE = 8;
+const FUSE_LINK_IN_SIZE = 8;
 
-export interface FuseLinkIn {
+interface FuseLinkIn {
   oldnodeid: bigint;
 }
 
@@ -697,9 +697,9 @@ export function readLinkIn(buf: Uint8Array, off = 0): FuseLinkIn {
 
 // --- fuse_rename_in -----------------------------------------------------
 
-export const FUSE_RENAME_IN_SIZE = 8;
+const FUSE_RENAME_IN_SIZE = 8;
 
-export interface FuseRenameIn {
+interface FuseRenameIn {
   newdir: bigint;
 }
 

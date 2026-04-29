@@ -40,7 +40,8 @@ import { join, resolve } from "node:path";
 import debugLib from "debug";
 import { ProvisionError } from "./errors.ts";
 import { VsockExec } from "./exec.ts";
-import { boot, type VmHandle } from "./index.ts";
+import { boot } from "./vm.ts";
+import type { VmHandle } from "./vm-handle.ts";
 import type { OnLog } from "./log.ts";
 import { ensureRootfsImage, markRootfsImageClean } from "./rootfs-img.ts";
 
