@@ -20,7 +20,7 @@ jobs:
   build:
     # Native arm64 Linux: Docker pulls linux/arm64 images without QEMU
     # emulation, which turns a ~15-minute mmdebstrap build into ~5.
-    runs-on: ubuntu-24.04-arm
+    runs-on: depot-ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
 

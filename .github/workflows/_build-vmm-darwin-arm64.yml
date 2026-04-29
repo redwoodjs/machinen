@@ -17,7 +17,7 @@ jobs:
     # macos-15: boot_hvf.zig uses the GICv3 API (hv_gic_*) Apple added
     # in macOS 15 / Xcode 16 SDK. macos-14's SDK doesn't export those
     # symbols and the link fails.
-    runs-on: macos-15
+    runs-on: depot-macos-15
     steps:
       - uses: actions/checkout@v4
 
