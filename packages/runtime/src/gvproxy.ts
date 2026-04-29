@@ -18,7 +18,7 @@
 //      can stop here; callers that can install it on demand go through
 //      `ensureGvproxy()`.
 
-import { type ChildProcess, spawn as nodeSpawn } from "node:child_process";
+import { type ChildProcess, execFile, spawn as nodeSpawn } from "node:child_process";
 import {
   chmodSync,
   closeSync,
@@ -36,6 +36,7 @@ import { request as httpRequest } from "node:http";
 import { createServer, type AddressInfo } from "node:net";
 import { arch as osArch, homedir, platform as osPlatform, tmpdir } from "node:os";
 import { delimiter as pathSep, dirname, join } from "node:path";
+import { promisify } from "node:util";
 import debugLib from "debug";
 import { GvproxyError } from "./errors.ts";
 import { ensurePdeathsig, wrapWithPdeathsig } from "./pdeathsig.ts";
@@ -332,6 +333,70 @@ export async function probeHostPortFree(host: string, port: number): Promise<str
   });
 }
 
+const execFileAsync = promisify(execFile);
+
+/**
+ * Best-effort identification of which process is holding a TCP port.
+ * Shells out to `lsof -nP -iTCP:<port> -sTCP:LISTEN`, parses the first
+ * LISTEN line, then resolves the holder's full command via
+ * `ps -p <pid> -o command=` to spot machinen-owned orphans (gvproxy
+ * cached under `~/.machinen/`, or a stray `microvm`).
+ *
+ * Returns `null` when:
+ *   - `lsof` isn't on PATH (some minimal containers),
+ *   - lsof times out / returns nonzero (no LISTEN holder, transient),
+ *   - the output didn't parse into a recognizable line.
+ *
+ * The returned string is meant to be appended verbatim to a port-in-use
+ * error message; format is one of:
+ *   - `held by machinen-owned gvproxy (pid 1234) — try \`kill 1234\` to clear it`
+ *   - `held by chrome (pid 5678)`
+ */
+export async function describePortHolder(port: number): Promise<string | null> {
+  let stdout: string;
+  try {
+    const result = await execFileAsync("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN"], {
+      timeout: 2_000,
+    });
+    stdout = result.stdout;
+  } catch {
+    return null;
+  }
+  // First non-header line: COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME
+  const line = stdout
+    .split("\n")
+    .map((l) => l.trim())
+    .find((l) => l && !l.startsWith("COMMAND"));
+  if (!line) {
+    return null;
+  }
+  const fields = line.split(/\s+/);
+  const cmd = fields[0];
+  const pid = fields[1];
+  if (!cmd || !pid || !/^\d+$/.test(pid)) {
+    return null;
+  }
+
+  let fullCmd = "";
+  try {
+    const { stdout: psOut } = await execFileAsync("ps", ["-p", pid, "-o", "command="], {
+      timeout: 1_000,
+    });
+    fullCmd = psOut.trim();
+  } catch {
+    // ps unavailable or process exited between lsof and ps — fall back
+    // to the bare COMMAND from lsof.
+  }
+
+  const machinenDir = join(homedir(), ".machinen");
+  const looksMachinen =
+    (fullCmd && fullCmd.includes(machinenDir)) || cmd === "gvproxy" || cmd === "microvm";
+
+  return looksMachinen
+    ? `held by machinen-owned ${cmd} (pid ${pid}) — try \`kill ${pid}\` to clear it`
+    : `held by ${cmd} (pid ${pid})`;
+}
+
 /**
  * Bind to 127.0.0.1:0 to let the OS pick a free TCP port, close the
  * probe socket, return the number. Good enough for gvproxy's
@@ -560,6 +625,31 @@ export async function exposePort(
             return;
           }
           const text = Buffer.concat(chunks).toString("utf8").trim();
+          // Map gvproxy's opaque 500 to a specific code when the embedded
+          // Go errno text reveals an EADDRINUSE — callers (and humans)
+          // can then decide to wait, kill, or pick another port instead
+          // of grepping the message. The pre-flight probe in `boot()`
+          // catches most occurrences; this is the safety net for the
+          // close-to-bind race window and for direct callers of
+          // `exposePort` that skip the probe.
+          if (/address already in use/i.test(text)) {
+            // describePortHolder shells out, so resolve the message
+            // before rejecting. Failures fall back to a no-hint message.
+            describePortHolder(opts.hostPort)
+              .catch(() => null)
+              .then((holder) => {
+                const hint = holder
+                  ? ` (${holder})`
+                  : " (set by another process — try `lsof -nP -iTCP:" + opts.hostPort + "`)";
+                fail(
+                  new GvproxyError(
+                    "GVPROXY_PORT_IN_USE",
+                    `host port ${hostAddr}:${opts.hostPort} is already in use${hint}.`,
+                  ),
+                );
+              });
+            return;
+          }
           fail(
             new GvproxyError(
               "GVPROXY_EXPOSE_FAILED",
