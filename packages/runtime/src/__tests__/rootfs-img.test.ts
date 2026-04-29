@@ -22,7 +22,13 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { boot, BootError, ensureRootfsImage, ProvisionError } from "../index.ts";
+import {
+  boot,
+  BootError,
+  ensureRootfsImage,
+  markRootfsImageClean,
+  ProvisionError,
+} from "../index.ts";
 import { _internal } from "../rootfs-img.ts";
 
 describe("ensureRootfsImage", () => {
@@ -169,10 +175,17 @@ describe("ensureRootfsImage", () => {
         .split(/\s+/, 1)[0]!;
       const expected = join(cacheDir, `${sha}.img`);
       writeFileSync(expected, "fake image bytes");
+      // #170: planted .img also needs the clean-shutdown marker;
+      // without it the cache hit path would treat the image as
+      // poisoned and rematerialize.
+      writeFileSync(_internal.okMarkerPath(expected), "");
       const result = ensureRootfsImage(tarPath, { cacheDir });
       expect(result).toBe(expected);
       // Cache file untouched.
       expect(existsSync(expected)).toBe(true);
+      // The marker is consumed atomically on hand-off so a kill
+      // between here and the next clean exit leaves it dirty.
+      expect(existsSync(_internal.okMarkerPath(expected))).toBe(false);
     } finally {
       try {
         unlinkSync(tarPath);
@@ -200,6 +213,7 @@ describe("ensureRootfsImage", () => {
       // target). Doesn't carry the ext4 magic, so cachedImageIsUsable
       // skips fsck and we hit the truncate path directly.
       writeFileSync(imgPath, Buffer.alloc(1024));
+      writeFileSync(_internal.okMarkerPath(imgPath), "");
       const result = ensureRootfsImage(tarPath, { cacheDir, sizeBytes: 4096 });
       expect(result).toBe(imgPath);
       expect(statSync(imgPath).size).toBe(4096);
@@ -211,6 +225,73 @@ describe("ensureRootfsImage", () => {
       rmSync(cacheDir, { recursive: true, force: true });
     }
   }, 20_000);
+
+  it("wipes a cached .img with no clean-shutdown marker (#170)", () => {
+    // Simulates a previous boot that was killed mid-write: the .img
+    // is on disk but the .ok marker was never re-created. The next
+    // call must NOT trust the planted bytes — it should wipe and
+    // try to rematerialize from the tarball.
+    const tarPath = `/tmp/machinen-rootfs-img-poisoned-${process.pid}.tar.gz`;
+    const tmpDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-poisoned-tar-"));
+    const cacheDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-poisoned-img-"));
+    writeFileSync(join(tmpDir, "stub"), "x");
+    execSync(`tar -czf ${tarPath} -C ${tmpDir} .`);
+    try {
+      const sha = execSync(`shasum -a 256 ${tarPath}`, { encoding: "utf8" })
+        .trim()
+        .split(/\s+/, 1)[0]!;
+      const imgPath = join(cacheDir, `${sha}.img`);
+      // Plant a stub `.img` with no `.ok` next to it — the dirty
+      // state a kill mid-boot leaves behind.
+      const planted = Buffer.from("poisoned bytes that look nothing like ext4");
+      writeFileSync(imgPath, planted);
+      // No e2fsprogs guaranteed on the runner — if rematerialization
+      // can't run the function throws ProvisionError. Either outcome
+      // proves the planted bytes were rejected.
+      let rematerialized = false;
+      try {
+        ensureRootfsImage(tarPath, { cacheDir });
+        rematerialized = true;
+      } catch (err) {
+        expect(err).toBeInstanceOf(ProvisionError);
+      }
+      if (rematerialized) {
+        // If we got back an image, it must NOT be the planted bytes.
+        const after = statSync(imgPath).size;
+        expect(after).not.toBe(planted.length);
+      } else {
+        // Materialize failed — the planted file should still have
+        // been wiped on entry.
+        expect(existsSync(imgPath)).toBe(false);
+      }
+    } finally {
+      try {
+        unlinkSync(tarPath);
+      } catch {}
+      rmSync(tmpDir, { recursive: true, force: true });
+      rmSync(cacheDir, { recursive: true, force: true });
+    }
+  }, 20_000);
+
+  it("markRootfsImageClean writes the .ok marker only when the image exists", () => {
+    // The runtime calls this on a clean VMM exit so the next boot
+    // can reuse the cached file. No-op when the image is missing —
+    // marking a non-existent file would cause `ensureRootfsImage`
+    // to trust a phantom cache hit.
+    const dir = mkdtempSync(join(tmpdir(), "machinen-rootfs-mark-clean-"));
+    try {
+      const missing = join(dir, "missing.img");
+      markRootfsImageClean(missing);
+      expect(existsSync(_internal.okMarkerPath(missing))).toBe(false);
+
+      const present = join(dir, "present.img");
+      writeFileSync(present, "fake image bytes");
+      markRootfsImageClean(present);
+      expect(existsSync(_internal.okMarkerPath(present))).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 
   it("never shrinks a cached .img — sizeBytes < existing is a no-op", () => {
     // Truncate-down would actually destroy data inside the ext4 fs, so
@@ -227,6 +308,7 @@ describe("ensureRootfsImage", () => {
         .split(/\s+/, 1)[0]!;
       const imgPath = join(cacheDir, `${sha}.img`);
       writeFileSync(imgPath, Buffer.alloc(8 * 1024));
+      writeFileSync(_internal.okMarkerPath(imgPath), "");
       const result = ensureRootfsImage(tarPath, { cacheDir, sizeBytes: 1024 });
       expect(result).toBe(imgPath);
       expect(statSync(imgPath).size).toBe(8 * 1024);
