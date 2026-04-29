@@ -290,7 +290,9 @@ try {
   winsize = await VsockWinsize.connect(winsizeUdsPath, { timeoutMs: 10_000 });
   winsize.send(hostCols, hostRows);
   process.stdout.on("resize", () => {
-    if (!winsize) return;
+    if (!winsize) {
+      return;
+    }
     const cols = stdoutAny.columns ?? hostCols;
     const rows = stdoutAny.rows ?? hostRows;
     winsize.send(cols, rows);
