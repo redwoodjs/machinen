@@ -178,12 +178,22 @@ async function cmdBoot(args: string[]): Promise<number> {
   } catch (err) {
     handleError(err);
   }
-  const { positional, double_dash_args, mount, liveMounts, env, portForward, snapshot, name } =
-    parsed;
+  const {
+    positional,
+    double_dash_args,
+    mount,
+    liveMounts,
+    env,
+    portForward,
+    snapshot,
+    name,
+    guestCwd,
+  } = parsed;
 
   if (positional.length > 1) {
     die(
       "usage: machinen boot [<image>] [--snapshot <path>] [--name <name>] " +
+        "[--cwd <abs-path>] " +
         "[--mount ...] [--mount-live ...] [--env KEY=VALUE]... [-- <cmd> [args...]]",
     );
   }
@@ -252,6 +262,7 @@ async function cmdBoot(args: string[]): Promise<number> {
       portForward,
       snapshot,
       name,
+      guestCwd,
       // Interactive CLI: the session lives as long as the guest does.
       // Don't impose the default 60s cap.
       timeoutMs: null,
@@ -809,6 +820,8 @@ function printHelp(): void {
       `                                                 copy at boot. mode is 'rw' (default,\n` +
       `                                                 write-through) or 'ro' (read-only).\n` +
       `    --env KEY=VALUE                              Set an env var inside the guest.\n` +
+      `    --cwd <abs-path>                             Start the guest cmd in this directory\n` +
+      `                                                 (must be absolute).\n` +
       `    -p <hostPort>:<guestPort>                    Forward host:hostPort → guest:guestPort.\n` +
       `\n` +
       `  machinen restore <snap-dir> [--name <name>]    Restore a VM from a snapshot bundle.\n` +

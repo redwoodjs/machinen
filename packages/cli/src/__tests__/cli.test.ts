@@ -221,3 +221,36 @@ describe("parseRunArgs --name", () => {
     expect(() => parseRunArgs(["--name", "a", "--name", "b"])).toThrow(/at most once/);
   });
 });
+
+describe("parseRunArgs --cwd", () => {
+  it("captures the cwd", () => {
+    const parsed = parseRunArgs(["--cwd", "/mnt/workspace", "--", "/bin/bash"]);
+    expect(parsed.guestCwd).toBe("/mnt/workspace");
+  });
+
+  it("supports --cwd=<path> form", () => {
+    const parsed = parseRunArgs(["--cwd=/srv/y"]);
+    expect(parsed.guestCwd).toBe("/srv/y");
+  });
+
+  it("leaves guestCwd undefined when not passed", () => {
+    const parsed = parseRunArgs(["./bundle"]);
+    expect(parsed.guestCwd).toBeUndefined();
+  });
+
+  it("rejects a bare --cwd with no following argument", () => {
+    expect(() => parseRunArgs(["--cwd"])).toThrow(/--cwd requires/);
+  });
+
+  it("rejects a second --cwd", () => {
+    expect(() => parseRunArgs(["--cwd", "/a", "--cwd", "/b"])).toThrow(/at most once/);
+  });
+
+  // Path-shape validation lives in the runtime (`BOOT_CWD_INVALID`),
+  // not the parser — the parser captures the raw string and forwards
+  // it. We assert capture only here.
+  it("captures relative paths verbatim (runtime validates shape)", () => {
+    const parsed = parseRunArgs(["--cwd", "relative/dir"]);
+    expect(parsed.guestCwd).toBe("relative/dir");
+  });
+});

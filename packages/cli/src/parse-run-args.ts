@@ -21,6 +21,12 @@ export interface ParsedRunArgs {
   snapshot?: string;
   /** Optional VM name registered for `attach` (`--name <name>`). */
   name?: string;
+  /**
+   * Working directory for the guest cmd (`--cwd <abs-path>`). Lands
+   * as `cwd` in the synthesized `machinen-config.json` and is
+   * consumed by the guest `/init`. Must be absolute.
+   */
+  guestCwd?: string;
 }
 
 export function parseRunArgs(argv: string[]): ParsedRunArgs {
@@ -36,6 +42,7 @@ export function parseRunArgs(argv: string[]): ParsedRunArgs {
   const seenHostPorts = new Set<number>();
   let snapshot: string | undefined;
   let name: string | undefined;
+  let guestCwd: string | undefined;
   for (let i = 0; i < pre.length; i++) {
     const a = pre[i]!;
     if (a === "--mount" || a.startsWith("--mount=")) {
@@ -173,6 +180,24 @@ export function parseRunArgs(argv: string[]): ParsedRunArgs {
         );
       }
       snapshot = spec;
+    } else if (a === "--cwd" || a.startsWith("--cwd=")) {
+      let spec: string | undefined;
+      if (a === "--cwd") {
+        spec = pre[i + 1];
+        if (spec === undefined) {
+          throw new ParseError("PARSE_FLAG_MISSING_VALUE", "--cwd requires an absolute path value");
+        }
+        i++;
+      } else {
+        spec = a.slice("--cwd=".length);
+      }
+      if (guestCwd !== undefined) {
+        throw new ParseError(
+          "PARSE_FLAG_DUPLICATE",
+          "--cwd may be given at most once per invocation",
+        );
+      }
+      guestCwd = spec;
     } else if (a === "--name" || a.startsWith("--name=")) {
       let spec: string | undefined;
       if (a === "--name") {
@@ -206,6 +231,7 @@ export function parseRunArgs(argv: string[]): ParsedRunArgs {
     portForward: portForward.length > 0 ? portForward : undefined,
     snapshot,
     name,
+    guestCwd,
   };
 }
 
