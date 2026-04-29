@@ -150,14 +150,15 @@ const installSteps = async (vm: VmHandle) => {
       "ln -sf /usr/bin/fdfind /usr/local/bin/fd",
   );
 
-  // Pre-bake git identity. safe.directory '*' silences git's
+  // Pre-bake git identity in /etc/gitconfig (--system) so both root
+  // and the dev user inherit it. safe.directory '*' silences git's
   // CVE-2022-24765 "dubious ownership" check — necessary because
   // /mnt/workspace is FUSE-mounted with uids that may not line up.
   await vm.exec(
-    "git config --global user.email 'peter.pistorius@gmail.com' && " +
-      "git config --global user.name 'Peter Pistorius' && " +
-      "git config --global init.defaultBranch main && " +
-      "git config --global --add safe.directory '*'",
+    "git config --system user.email 'peter.pistorius@gmail.com' && " +
+      "git config --system user.name 'Peter Pistorius' && " +
+      "git config --system init.defaultBranch main && " +
+      "git config --system --add safe.directory '*'",
   );
 
   // Node + pnpm + Claude Code via fnm. Idempotent on rebuilds.
@@ -225,9 +226,19 @@ const installSteps = async (vm: VmHandle) => {
     });
   }
 
-  // Sanity check.
+  // Non-root dev user. uid 501 matches the typical macOS host uid so
+  // files on the live FUSE mount line up. #161 added `allow_other` to
+  // the FUSE mount so dev can traverse it; this user is what vm.ts
+  // drops into so `claude --dangerously-skip-permissions` (which
+  // refuses euid 0) works inside the guest. Idempotent on rebuilds.
+  await vm.exec("id dev >/dev/null 2>&1 || useradd -m -u 501 -s /bin/bash dev");
+
+  // Sanity check — covers both root and dev (verifies the dev user
+  // inherits node/pnpm/claude via /usr/local/bin and gets git config
+  // via /etc/gitconfig).
   await vm.exec(
-    "node --version && pnpm --version && claude --version && bash --version | head -1 && git --version && gh --version | head -1",
+    "node --version && pnpm --version && claude --version && bash --version | head -1 && git --version && gh --version | head -1 && " +
+      "runuser -l dev -c 'node --version && pnpm --version && claude --version && git config --get user.email'",
   );
 };
 
@@ -262,10 +273,10 @@ const result = await provision({
   // 1 GiB scratch is too small once node_modules + global npm pkgs land.
   scratchDiskSizeBytes: 8 * 1024 * 1024 * 1024,
 
-  // Boot directly into /mnt/workspace via a thin -c wrapper. We run
-  // as root for now; switching to a non-root dev user (uid 501 to
-  // match the host) is unblocked since #161 added `allow_other` to
-  // the FUSE mount, but is left as a follow-up.
+  // Keep-alive shell for the install-phase boot. Runs as root because
+  // installSteps issue commands via vsock-exec (which always lands as
+  // root) and the cmd here is just init's foreground placeholder until
+  // provision powers off the VM. vm.ts drops to the dev user.
   cmd: ["/bin/bash", "-lc", "cd /mnt/workspace 2>/dev/null; exec bash -i"],
   env: {
     PATH: "/root/.local/share/fnm:/usr/local/bin:/usr/bin:/bin:/sbin",
