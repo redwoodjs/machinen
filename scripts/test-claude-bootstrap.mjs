@@ -43,9 +43,10 @@ function readHostSlice() {
   return JSON.stringify(slice);
 }
 
-// --- Mirror vm.ts's bootstrap (minus `exec bash -i`) ------------------
-// Keep this byte-for-byte in sync with the bootstrap in vm.ts. The only
-// change is dropping the final `exec bash -i` so the test process exits.
+// --- Mirror vm.ts's STAGE_BOOTSTRAP -----------------------------------
+// Keep this byte-for-byte in sync with STAGE_BOOTSTRAP in vm.ts. The
+// dev-side bits (stty, winsize agent, cd, exec) and the runuser handoff
+// run after a uid switch and aren't exercised here.
 const BOOTSTRAP = [
   'mkdir -p "$HOME/.claude"',
   'if [ -n "${MACHINEN_CLAUDE_CREDENTIALS:-}" ]; then',
@@ -79,12 +80,6 @@ const BOOTSTRAP = [
   "EOF",
   'if ! grep -q ".bashrc.machinen" "$HOME/.bashrc" 2>/dev/null; then',
   '  printf "\\n[ -f \\"\\$HOME/.bashrc.machinen\\" ] && . \\"\\$HOME/.bashrc.machinen\\"\\n" >> "$HOME/.bashrc"',
-  "fi",
-  'if [ -n "${COLUMNS:-}" ] && [ -n "${LINES:-}" ]; then',
-  '  stty cols "$COLUMNS" rows "$LINES" 2>/dev/null || true',
-  "fi",
-  "if [ -x /sbin/machinen-winsize-agent ]; then",
-  "  /sbin/machinen-winsize-agent </dev/null >/dev/null 2>&1 &",
   "fi",
 ].join("\n");
 

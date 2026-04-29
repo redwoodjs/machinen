@@ -178,6 +178,11 @@ const secretEnv: Record<string, string> = {
   MACHINEN_CLAUDE_ACCOUNT_JSON: claudeAccountJson,
   COLUMNS: String(hostCols),
   LINES: String(hostRows),
+  // The bootstrap below stages credentials into $HOME and then drops
+  // privileges to the `dev` user (uid 501, provisioned by provision.ts
+  // in install hooks). Setting HOME up front targets dev's home for the
+  // staging step, so a single chown -R hands everything off cleanly.
+  HOME: "/home/dev",
 };
 
 // Bootstrap credentials at boot time (not via /etc/profile.d) so a
@@ -185,15 +190,21 @@ const secretEnv: Record<string, string> = {
 // current when the image was last provisioned. Always overwrite — the
 // host's keychain + ~/.claude.json are the source of truth, the image
 // is not.
-// IMPORTANT: this snippet is mirrored byte-for-byte (sans the final
-// `exec bash -i`) by scripts/test-claude-bootstrap.mjs, which executes
-// it on the host against an isolated $HOME to verify behaviour without
-// a 30-second VM boot loop. Keep them in sync.
+//
+// Two-stage: STAGE_BOOTSTRAP runs as root with HOME=/home/dev (set in
+// secretEnv) and writes credentials/bashrc into the dev user's home.
+// DEV_BOOTSTRAP runs after a chown + uid switch via runuser, and
+// handles tty setup, the winsize agent, and the final exec.
+//
+// IMPORTANT: STAGE_BOOTSTRAP is mirrored byte-for-byte by
+// scripts/test-claude-bootstrap.mjs, which executes it on the host
+// against an isolated $HOME to verify behaviour without a 30-second VM
+// boot loop. Keep them in sync.
 //
 // Older images may have a missing /tmp (pre fix #176) and a missing
 // /dev/fd (no proc->fd symlinks staged), so avoid both `mktemp` and
 // bash process substitution `<(...)`. Stage everything in $HOME.
-const bootstrap = [
+const STAGE_BOOTSTRAP = [
   'mkdir -p "$HOME/.claude"',
   'if [ -n "${MACHINEN_CLAUDE_CREDENTIALS:-}" ]; then',
   '  printf "%s" "$MACHINEN_CLAUDE_CREDENTIALS" > "$HOME/.claude/.credentials.json"',
@@ -236,33 +247,55 @@ const bootstrap = [
   'if ! grep -q ".bashrc.machinen" "$HOME/.bashrc" 2>/dev/null; then',
   '  printf "\\n[ -f \\"\\$HOME/.bashrc.machinen\\" ] && . \\"\\$HOME/.bashrc.machinen\\"\\n" >> "$HOME/.bashrc"',
   "fi",
-  // Apply COLUMNS/LINES from vm.ts to the kernel TTY so TUIs see the
-  // host terminal's real dimensions on first paint. Failure (no tty,
-  // bad size) is silent — bash will fall back to its 80x24 default.
+];
+
+// Dev-side bootstrap. Runs as uid 501 (the `dev` user) after the
+// chown + runuser handoff. issueNumber-aware exec mirrors the previous
+// flow: when vm-pick stamped an issue ref, exec straight into claude
+// so it owns the host TTY (functions don't survive exec, so inline the
+// IS_SANDBOX/--dangerously-skip-permissions pair). Otherwise drop into
+// an interactive bash, which sources ~/.bashrc.machinen for the
+// `claude` wrapper.
+const DEV_BOOTSTRAP = [
+  // Apply COLUMNS/LINES to the kernel TTY for first-paint sizing (#177's
+  // VsockWinsize handles mid-session resizes). Silent on failure.
   'if [ -n "${COLUMNS:-}" ] && [ -n "${LINES:-}" ]; then',
   '  stty cols "$COLUMNS" rows "$LINES" 2>/dev/null || true',
   "fi",
-  // #177: launch the vsock TIOCSWINSZ agent so subsequent host
-  // SIGWINCH (forwarded by VsockWinsize below) resize the guest tty
-  // mid-session. Backgrounded + reparented to PID 1 once `exec bash -i`
-  // replaces this shell. /dev/null redirects so the agent's "applied:"
-  // log lines don't smear over the user's terminal. No-op if the
-  // binary is missing (stale rootfs); the host-side connect will
-  // time out and fall back to the stty-on-boot behavior above.
+  // #177 vsock TIOCSWINSZ agent. Reparented to PID 1 once exec replaces
+  // this shell. Vsock has no privileged-port concept so dev can bind 1974.
   "if [ -x /sbin/machinen-winsize-agent ]; then",
   "  /sbin/machinen-winsize-agent </dev/null >/dev/null 2>&1 &",
   "fi",
   "cd /mnt/workspace 2>/dev/null",
-  // When vm-pick stamped an issue ref, hand the host TTY directly to
-  // claude — exec replaces the bootstrap shell so claude is the
-  // foreground process the user is interacting with, not a child of
-  // bash. The IS_SANDBOX/--dangerously-skip-permissions pair mirrors
-  // the bashrc.machinen `claude` function (functions don't survive
-  // exec, so inline them). When claude exits, the bootstrap ends and
-  // the VM powers off.
   issueNumber
     ? `exec env IS_SANDBOX=1 claude --dangerously-skip-permissions "work on #${issueNumber}"`
     : "exec bash -i",
+].join("\n");
+const DEV_BOOTSTRAP_B64 = Buffer.from(DEV_BOOTSTRAP).toString("base64");
+
+const bootstrap = [
+  ...STAGE_BOOTSTRAP,
+  // Hand the staged files off to dev. Cheap because /home/dev is
+  // small (creds + bashrc files only).
+  'chown -R dev:dev "$HOME"',
+  // Stage the dev-side bootstrap as a script. Base64 sidesteps the
+  // quoting headache of nesting a multi-line shell snippet inside the
+  // outer runuser invocation.
+  `echo ${DEV_BOOTSTRAP_B64} | base64 -d > /tmp/machinen-dev-bootstrap.sh`,
+  "chmod 755 /tmp/machinen-dev-bootstrap.sh",
+  // Drop privs to dev with a controlled env. `env -i` clears the
+  // inherited env (including MACHINEN_* leftovers) and we forward only
+  // what dev needs. `runuser -m` preserves the env we just built across
+  // the uid switch (without -m it would reset HOME/USER/etc.).
+  // PATH includes /usr/local/bin where node/pnpm/claude live as symlinks.
+  "exec env -i " +
+    "HOME=/home/dev USER=dev LOGNAME=dev SHELL=/bin/bash " +
+    'TERM="${TERM:-xterm-256color}" ' +
+    'COLUMNS="${COLUMNS:-80}" LINES="${LINES:-24}" ' +
+    'GH_TOKEN="${GH_TOKEN:-}" GITHUB_TOKEN="${GITHUB_TOKEN:-}" ' +
+    "PATH=/usr/local/bin:/usr/bin:/bin:/sbin " +
+    "runuser -m -u dev -- bash /tmp/machinen-dev-bootstrap.sh",
 ].join("\n");
 
 const vm = await boot({
