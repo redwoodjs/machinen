@@ -42,7 +42,11 @@ jobs:
 
   workloads:
     needs: [base-assets]
-    runs-on: depot-ubuntu-24.04-arm
+    # Stays on the GH-hosted arm64 runner: it exposes /dev/kvm to the
+    # workflow user, which the VMM needs to boot the guest. Depot's
+    # standard `depot-ubuntu-24.04-arm` image does not surface the KVM
+    # device, so this job would fail at the `test -c /dev/kvm` gate.
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
 
