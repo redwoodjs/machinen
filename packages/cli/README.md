@@ -24,7 +24,8 @@ machinen restore <snapshot>                Alias for boot --snapshot
 machinen ls                                List running VMs
 machinen exec <name-or-id> -- <cmd>        Run a command in a running VM
 machinen snapshot <name-or-id> <out>       CRIU-snapshot a running VM to <out>
-machinen attach <name-or-id>               Line-based shell against a running VM
+machinen attach <name-or-id>               Interactive PTY shell into a running VM
+machinen repl <name-or-id>                 Per-line exec REPL (no persistent state)
 machinen install [--version <tag>]         Pre-fetch base assets for a release
 machinen completion <bash|zsh|fish>        Emit shell completion
 machinen --version | -h                    Print version / help
@@ -53,11 +54,13 @@ Options:
 | `-p <hostPort>:<guestPort>`      | Forward a host TCP port to the guest (repeatable)  |
 | `--snapshot <path>`              | Restore from a snapshot instead of booting fresh   |
 
-### `machinen ls` / `exec` / `snapshot` / `attach`
+### `machinen ls` / `exec` / `snapshot` / `attach` / `repl`
 
 Once a VM is running (booted with `--name`), other shells can find it with
 `ls`, run commands against it with `exec`, freeze it to disk with `snapshot`,
-or drop into a line-based REPL with `attach`. All target VMs by name or id.
+or drop into an interactive PTY shell with `attach` (default `bash -i`,
+override with `--shell <cmd>`). For piping a script of one-liners through
+fresh one-shot execs, use `repl`. All target VMs by name or id.
 
 ### `machinen install [--version <tag>]`
 
