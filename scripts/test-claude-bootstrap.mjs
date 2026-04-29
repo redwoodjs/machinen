@@ -83,6 +83,9 @@ const BOOTSTRAP = [
   'if [ -n "${COLUMNS:-}" ] && [ -n "${LINES:-}" ]; then',
   '  stty cols "$COLUMNS" rows "$LINES" 2>/dev/null || true',
   "fi",
+  "if [ -x /sbin/machinen-winsize-agent ]; then",
+  "  /sbin/machinen-winsize-agent </dev/null >/dev/null 2>&1 &",
+  "fi",
 ].join("\n");
 
 // --- Run a bootstrap scenario in an isolated $HOME --------------------
