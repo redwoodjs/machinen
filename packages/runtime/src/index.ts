@@ -19,7 +19,7 @@ export type {
 export type { LogEvent, OnLog } from "./log.ts";
 export { provision, resolveBaseRootfs } from "./provision.ts";
 export type { ProvisionOptions, ProvisionResult } from "./provision.ts";
-export { ensureRootfsImage, rootfsImgCacheDir } from "./rootfs-img.ts";
+export { ensureRootfsImage, markRootfsImageClean, rootfsImgCacheDir } from "./rootfs-img.ts";
 export type { EnsureRootfsImageOptions } from "./rootfs-img.ts";
 export { spawnArtifactCache, resolveCacheDir } from "./artifact-cache.ts";
 export type { ArtifactCacheHandle, ArtifactCacheOptions } from "./artifact-cache.ts";
@@ -119,7 +119,7 @@ import {
 } from "./gvproxy.ts";
 import { spawnArtifactCache } from "./artifact-cache.ts";
 import { BootError, ExecError, RegistryError, SnapshotError } from "./errors.ts";
-import { ensureRootfsImage } from "./rootfs-img.ts";
+import { ensureRootfsImage, markRootfsImageClean } from "./rootfs-img.ts";
 import {
   VsockExec,
   type VsockExecOptions,
@@ -607,6 +607,11 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     ...opts.vmmEnv,
   };
   let diskAbs: string | undefined;
+  // #170: tracks the cached `<sha>.img` we materialized for this boot
+  // so the exit handler can mark it clean on a signal-free child exit.
+  // Stays undefined for a caller-supplied `rootDisk: '<path>'` (we
+  // don't manage that file's lifecycle) or `rootDisk: false`.
+  let cacheManagedRootDisk: string | undefined;
   if (opts.snapshot) {
     diskAbs = resolve(opts.cwd ?? process.cwd(), opts.snapshot);
     if (!existsSync(diskAbs)) {
@@ -791,6 +796,9 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         rootDiskAbs = ensureRootfsImage(baseAbs, {
           sizeBytes: opts.rootDiskSizeBytes,
         });
+        // The cache owns this image — mark it clean again on a
+        // signal-free child exit so the next boot can reuse it.
+        cacheManagedRootDisk = rootDiskAbs;
       }
       env.MACHINEN_ROOTDISK = rootDiskAbs;
     }
@@ -884,6 +892,17 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       signal,
       Date.now() - bootT0,
     );
+    // #170: a signal-free exit means the kernel had time to flush
+    // and dismount the ext4 fs cleanly, so the cached image is safe
+    // to reuse. A signal exit (SIGKILL from vm.kill(), SIGTERM from a
+    // ctrl-C'd test runner) leaves the marker absent — next boot
+    // wipes and rebuilds. A non-zero exit code is fine: the guest's
+    // command failed, but the kernel still shut down normally.
+    if (cacheManagedRootDisk && signal === null) {
+      try {
+        markRootfsImageClean(cacheManagedRootDisk);
+      } catch {}
+    }
     if (bundleTempDir) {
       try {
         rmSync(bundleTempDir, { recursive: true, force: true });

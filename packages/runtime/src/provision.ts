@@ -42,7 +42,7 @@ import { ProvisionError } from "./errors.ts";
 import { VsockExec } from "./exec.ts";
 import { boot, type VmHandle } from "./index.ts";
 import type { OnLog } from "./log.ts";
-import { ensureRootfsImage } from "./rootfs-img.ts";
+import { ensureRootfsImage, markRootfsImageClean } from "./rootfs-img.ts";
 
 const debug = debugLib("machinen:provision");
 const vmmDebug = debugLib("machinen:vmm");
@@ -276,6 +276,13 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
     const cachedImg = ensureRootfsImage(baseAbs);
     copyFileSync(cachedImg, rootDiskPath, fsConstants.COPYFILE_FICLONE);
     debug("rootdisk cloned src=%s dst=%s", cachedImg, rootDiskPath);
+    // The cached `<sha>.img` was only READ here — the FICLONE / copy
+    // landed in workDir, and the upcoming boot() targets that copy via
+    // `rootDisk: rootDiskPath`. Restore the clean-shutdown marker the
+    // cache entry semantics expect (#170): without this the next
+    // provision() with the same base would see a missing `.ok` and
+    // wastefully rematerialize a known-good image.
+    markRootfsImageClean(cachedImg);
 
     // Boot the VMM with the base rootfs on /dev/vda (mounted ext4) and
     // the exec-agent as the cmd. The scratch disk lands on /dev/vdb,
