@@ -30,12 +30,25 @@
 // so any unreplayable journal / orphaned-inode state gets fixed (or,
 // if it can't be fixed, the file is wiped and rematerialized from
 // the tarball).
+//
+// Clean-shutdown sentinel (#170): e2fsck handles the journal but
+// not torn data-block writes. A test killed mid-`apt`/`pnpm` can
+// leave bytes inside the ext4 fs that fsck declares clean yet the
+// kernel later faults on with `EXT4-fs error … checksumming
+// directory block` at runtime. We pair the cache file with a
+// sibling marker `<sha>.img.ok` whose presence means "the previous
+// owner exited cleanly." On entry the marker is atomically removed
+// before the path is handed to the VMM; on a clean child exit the
+// runtime calls `markRootfsImageClean()` to recreate it. A cache
+// hit with no marker is treated as poisoned — wiped and
+// rematerialized from the tarball.
 
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   closeSync,
   existsSync,
+  fsyncSync,
   mkdirSync,
   mkdtempSync,
   openSync,
@@ -58,6 +71,51 @@ const debug = debugLib("machinen:rootfs-img");
 /** Default cache root: `~/.cache/machinen/rootfs`. */
 export function rootfsImgCacheDir(): string {
   return join(homedir(), ".cache", "machinen", "rootfs");
+}
+
+function okMarkerPath(imgPath: string): string {
+  return `${imgPath}.ok`;
+}
+
+/**
+ * Mark a cached rootfs image as "cleanly released" by writing the
+ * sentinel that `ensureRootfsImage()` looks for on the next boot.
+ * Called by the runtime after a VMM child exits without a signal —
+ * an exit-code-only termination means the kernel had time to flush
+ * and dismount the ext4 fs, so reusing the file is safe.
+ *
+ * No-op if the image doesn't exist (e.g. the runtime never
+ * materialized one). Failures are swallowed: a missing marker just
+ * means the next boot rebuilds from the tarball, which is wasteful
+ * but never wrong.
+ */
+export function markRootfsImageClean(imgPath: string): void {
+  if (!existsSync(imgPath)) {
+    return;
+  }
+  const okPath = okMarkerPath(imgPath);
+  // tmp + fsync + atomic rename so the marker is durable. If the
+  // host crashes between rename and the next reboot, we still see
+  // a complete `.ok` file rather than a half-written one.
+  const tmp = `${okPath}.tmp.${process.pid}`;
+  let fd = -1;
+  try {
+    fd = openSync(tmp, "w");
+    fsyncSync(fd);
+    closeSync(fd);
+    fd = -1;
+    renameSync(tmp, okPath);
+  } catch (err) {
+    debug("markRootfsImageClean failed img=%s err=%s", imgPath, (err as Error).message);
+    if (fd >= 0) {
+      try {
+        closeSync(fd);
+      } catch {}
+    }
+    try {
+      unlinkSync(tmp);
+    } catch {}
+  }
 }
 
 export interface EnsureRootfsImageOptions {
@@ -109,6 +167,15 @@ export interface EnsureRootfsImageOptions {
  * rename into place — at worst two callers do redundant work; the
  * loser of the rename race re-checks and uses the winner's image.
  *
+ * Lifecycle (#170): the returned path is handed back in the "in-use"
+ * state (no `.ok` marker on disk). The caller is expected to invoke
+ * `markRootfsImageClean(path)` once they're done — `boot()` does this
+ * from its child-exit handler when the VMM exits without a signal,
+ * `provision()` does it after cloning the image read-only. If the
+ * marker is never recreated (caller crashed mid-write or simply
+ * forgot), the next `ensureRootfsImage()` for the same tarball
+ * treats the image as poisoned and rebuilds it.
+ *
  * @throws {ProvisionError} ROOTFS_IMG_TOOL_MISSING |
  *   ROOTFS_IMG_MATERIALIZE_FAILED | ROOTFS_IMG_TARBALL_NOT_FOUND
  */
@@ -125,36 +192,54 @@ export function ensureRootfsImage(tarPath: string, opts: EnsureRootfsImageOption
 
   const sha = sha256OfFile(tarAbs);
   const imgPath = join(cacheDir, `${sha}.img`);
+  const okPath = okMarkerPath(imgPath);
   if (!opts.force && existsSync(imgPath)) {
     debug("cache hit sha=%s img=%s", sha.slice(0, 12), imgPath);
-    if (cachedImageIsUsable(imgPath)) {
-      // #131: if the caller asked for a larger image than what's on
-      // disk (typically because they bumped `rootDiskSizeBytes`, or
-      // because the materializer's defaults grew), sparse-extend the
-      // file in place. The on-disk ext4 fs is still sized to the old
-      // file; /init's tryRootDiskPivot resizes it online via
-      // EXT4_IOC_RESIZE_FS so the guest sees the new capacity.
-      // truncate-up on a sparse file is free; truncate-down would
-      // chop bytes, so we never shrink.
-      if (opts.sizeBytes !== undefined) {
-        try {
-          const cur = statSync(imgPath).size;
-          if (opts.sizeBytes > cur) {
-            truncateSync(imgPath, opts.sizeBytes);
-            debug("cache hit grew img=%s from=%d to=%d", imgPath, cur, opts.sizeBytes);
+    // #170: require the clean-shutdown marker. Missing means the
+    // previous VMM was killed mid-write — fsck won't catch torn data
+    // blocks, so treat the image as poisoned and rebuild from the
+    // tarball.
+    if (!existsSync(okPath)) {
+      debug("cache hit but no clean marker, wiping img=%s", imgPath);
+      try {
+        unlinkSync(imgPath);
+      } catch {}
+    } else {
+      // Atomically clear the marker BEFORE handing the path off, so
+      // a kill between here and `markRootfsImageClean()` leaves the
+      // image flagged dirty for the next boot.
+      try {
+        unlinkSync(okPath);
+      } catch {}
+      if (cachedImageIsUsable(imgPath)) {
+        // #131: if the caller asked for a larger image than what's on
+        // disk (typically because they bumped `rootDiskSizeBytes`, or
+        // because the materializer's defaults grew), sparse-extend the
+        // file in place. The on-disk ext4 fs is still sized to the old
+        // file; /init's tryRootDiskPivot resizes it online via
+        // EXT4_IOC_RESIZE_FS so the guest sees the new capacity.
+        // truncate-up on a sparse file is free; truncate-down would
+        // chop bytes, so we never shrink.
+        if (opts.sizeBytes !== undefined) {
+          try {
+            const cur = statSync(imgPath).size;
+            if (opts.sizeBytes > cur) {
+              truncateSync(imgPath, opts.sizeBytes);
+              debug("cache hit grew img=%s from=%d to=%d", imgPath, cur, opts.sizeBytes);
+            }
+          } catch (err) {
+            debug("cache hit grow failed img=%s err=%s", imgPath, (err as Error).message);
           }
-        } catch (err) {
-          debug("cache hit grow failed img=%s err=%s", imgPath, (err as Error).message);
         }
+        return imgPath;
       }
-      return imgPath;
+      // Unrecoverable. Wipe and fall through to materialize a fresh image
+      // from the tarball — same path a force=true caller would take.
+      debug("cache hit unusable, wiping img=%s", imgPath);
+      try {
+        unlinkSync(imgPath);
+      } catch {}
     }
-    // Unrecoverable. Wipe and fall through to materialize a fresh image
-    // from the tarball — same path a force=true caller would take.
-    debug("cache hit unusable, wiping img=%s", imgPath);
-    try {
-      unlinkSync(imgPath);
-    } catch {}
   }
 
   // Resolve mke2fs in three steps:
@@ -439,4 +524,5 @@ export const _internal = {
   looksLikeExt4,
   findKegOnlyE2fs,
   findBundledMke2fs,
+  okMarkerPath,
 };
