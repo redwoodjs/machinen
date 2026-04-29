@@ -36,6 +36,21 @@ if (!existsSync(MAIN_REPO)) {
   process.exit(1);
 }
 
+// Optional issue ref written by vm-pick — when present, the boot
+// drops the user straight into `claude "work on #NNN"` instead of a
+// bare bash. Reject anything that isn't a bare integer so the value
+// can be safely substituted into a shell command.
+const ISSUE_FILE = join(HERE, ".machinen-vm", "issue");
+let issueNumber = "";
+if (existsSync(ISSUE_FILE)) {
+  const raw = readFileSync(ISSUE_FILE, "utf8").trim();
+  if (/^\d+$/.test(raw)) {
+    issueNumber = raw;
+  } else if (raw) {
+    console.error(`vm.ts: ignoring malformed .machinen-vm/issue contents: ${JSON.stringify(raw)}`);
+  }
+}
+
 // e2fsprogs is keg-only on Homebrew (its `mkfs.ext4`/`mke2fs` would
 // collide with macOS's `newfs_*` family). The runtime now bundles
 // mke2fs, but keep the PATH munge as a fallback.
@@ -238,7 +253,16 @@ const bootstrap = [
   "  /sbin/machinen-winsize-agent </dev/null >/dev/null 2>&1 &",
   "fi",
   "cd /mnt/workspace 2>/dev/null",
-  "exec bash -i",
+  // When vm-pick stamped an issue ref, hand the host TTY directly to
+  // claude — exec replaces the bootstrap shell so claude is the
+  // foreground process the user is interacting with, not a child of
+  // bash. The IS_SANDBOX/--dangerously-skip-permissions pair mirrors
+  // the bashrc.machinen `claude` function (functions don't survive
+  // exec, so inline them). When claude exits, the bootstrap ends and
+  // the VM powers off.
+  issueNumber
+    ? `exec env IS_SANDBOX=1 claude --dangerously-skip-permissions "work on #${issueNumber}"`
+    : "exec bash -i",
 ].join("\n");
 
 const vm = await boot({

@@ -118,8 +118,6 @@ else
   # APFS reflink on macOS. -c is the macOS clone flag; on Linux use
   # `cp --reflink=auto` instead (this script targets Darwin).
   cp -c -R "$MAIN_REPO" "$CLONE_DIR"
-  mkdir -p "$CLONE_DIR/.machinen-vm"
-  printf '%s\n' "$MAIN_REPO" > "$CLONE_DIR/.machinen-vm/origin"
 
   if [[ "$kind" == "pr" ]]; then
     (cd "$CLONE_DIR" && gh pr checkout "$num")
@@ -127,6 +125,12 @@ else
     (cd "$CLONE_DIR" && git checkout -B "${num}-${slug}")
   fi
 fi
+
+# Stamp marker files unconditionally — newer fields (issue ref) need
+# to land on existing clones too, not just freshly-created ones.
+mkdir -p "$CLONE_DIR/.machinen-vm"
+printf '%s\n' "$MAIN_REPO" > "$CLONE_DIR/.machinen-vm/origin"
+printf '%s\n' "$num" > "$CLONE_DIR/.machinen-vm/issue"
 
 cd "$CLONE_DIR"
 exec pnpm vm
