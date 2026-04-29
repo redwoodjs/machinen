@@ -17,12 +17,15 @@ set -euo pipefail
 # without having to delete and re-clone. Anything else in the clone is
 # untouched.
 REFRESH=0
+WINDOW=0
 for arg in "$@"; do
   case "$arg" in
     --refresh) REFRESH=1 ;;
+    --window)  WINDOW=1 ;;
     -h|--help)
-      echo "usage: pnpm vm-pick [--refresh]" >&2
+      echo "usage: pnpm vm-pick [--refresh] [--window]" >&2
       echo "  --refresh  re-sync vm.ts + provision.ts from canonical into the chosen clone" >&2
+      echo "  --window   spawn the boot in a new Ghostty window instead of the current TTY" >&2
       exit 0
       ;;
     *)
@@ -133,4 +136,28 @@ printf '%s\n' "$MAIN_REPO" > "$CLONE_DIR/.machinen-vm/origin"
 printf '%s\n' "$num" > "$CLONE_DIR/.machinen-vm/issue"
 
 cd "$CLONE_DIR"
+
+if (( WINDOW )); then
+  # Hand the boot to a fresh Ghostty window. Use a bash -lc wrapper so
+  # the child shell picks up PATH (pnpm, node) the same way the user's
+  # interactive shell would. printf %q quotes the clone path safely
+  # against spaces / shell metacharacters.
+  init_cmd="cd $(printf '%q' "$CLONE_DIR") && exec pnpm vm"
+  wrapped="bash -lc $(printf '%q' "$init_cmd")"
+  if command -v ghostty >/dev/null 2>&1; then
+    # `ghostty +new-window` reuses the running app via IPC; if none is
+    # running it boots a fresh one. --initial-command runs the wrapped
+    # command in the new window's pty.
+    exec ghostty +new-window --initial-command="$wrapped"
+  elif [[ -d "/Applications/Ghostty.app" ]]; then
+    # Fallback when the `ghostty` CLI helper isn't on PATH but the app
+    # is installed. -n forces a new instance; --args passes Ghostty's
+    # own flags through.
+    exec open -na "/Applications/Ghostty.app" --args --initial-command="$wrapped"
+  else
+    echo "vm-pick: --window requires Ghostty (https://ghostty.org)" >&2
+    exit 1
+  fi
+fi
+
 exec pnpm vm
