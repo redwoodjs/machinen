@@ -5,41 +5,43 @@
 // method that routes through to the master fd, so SIGWINCH on the
 // supervisor's terminal can shrink/grow the attached sandbox's view.
 //
-// On the inside it's `node-pty`: that's the production-tested way to
-// fork a child under a pty pair in Node, and it ships prebuilt
-// binaries for darwin/linux (arm64 + x64). The only gotcha is that
-// on macOS the companion `spawn-helper` binary sometimes lands with
-// its exec bit stripped after a pnpm install; `ensureSpawnHelper`
-// fixes that up lazily.
+// On the inside it's `@homebridge/node-pty-prebuilt-multiarch`: an
+// API-compatible fork of node-pty that ships prebuilt binaries for
+// darwin/linux (arm64 + x64) without requiring python/node-gyp at
+// install time. The only gotcha is that on macOS the companion
+// `spawn-helper` binary sometimes lands with its exec bit stripped
+// after a pnpm install; `ensureSpawnHelper` fixes that up lazily.
 
 import { chmodSync, constants as fsConstants, readdirSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { PassThrough, type Readable, type Writable } from "node:stream";
 import { createRequire } from "node:module";
 
-// node-pty publishes CommonJS only (as of 1.1); import via createRequire
-// so this file stays ESM like the rest of the package.
+const PTY_MODULE = "@homebridge/node-pty-prebuilt-multiarch";
+
+// The prebuilt-multiarch fork publishes CommonJS only; import via
+// createRequire so this file stays ESM like the rest of the package.
 const require_ = createRequire(import.meta.url);
-type NodePty = typeof import("node-pty");
+type NodePty = typeof import("@homebridge/node-pty-prebuilt-multiarch");
 let ptyMod: NodePty | null = null;
 function loadPty(): NodePty {
   if (ptyMod) {
     return ptyMod;
   }
   ensureSpawnHelper();
-  ptyMod = require_("node-pty") as NodePty;
+  ptyMod = require_(PTY_MODULE) as NodePty;
   return ptyMod;
 }
 
 /**
- * Walk node-pty's prebuilds dir and make sure the spawn-helper is
- * executable. pnpm sometimes unpacks prebuilt binaries without the
+ * Walk the pty package's prebuilds dir and make sure the spawn-helper
+ * is executable. pnpm sometimes unpacks prebuilt binaries without the
  * exec bit; posix_spawnp then fails with a cryptic "posix_spawnp
  * failed." This is a one-shot no-op on healthy installs.
  */
 function ensureSpawnHelper(): void {
   try {
-    const resolved = require_.resolve("node-pty");
+    const resolved = require_.resolve(PTY_MODULE);
     const pkgDir = findPackageDir(resolved);
     if (!pkgDir) {
       return;
