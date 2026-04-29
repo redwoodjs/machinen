@@ -198,6 +198,13 @@ function isTransientAgentError(err: Error): boolean {
   return /agent closed connection before X frame/.test(err.message);
 }
 
+// EXEC's guest-side `readLine` uses a 4096-byte buffer (see
+// packages/microvm/assets/exec-agent.zig). Anything approaching that
+// length must take the EXEC2 path or the agent will overflow and
+// log "bad header". 3500 leaves comfortable slack for the `EXEC `
+// prefix, the trailing `\n`, and minor encoding overhead.
+const EXEC_LEGACY_MAX_BYTES = 3500;
+
 async function runOnSocket(
   socket: Socket,
   cmd: string,
@@ -205,8 +212,10 @@ async function runOnSocket(
 ): Promise<VsockExecResult> {
   // Newline-free cmds use the legacy `EXEC <cmd>\n` opcode so older
   // agents (rootfs images that pre-date #112) still work. Anything with
-  // an embedded newline goes through the length-prefixed EXEC2 frame.
-  if (/\r|\n/.test(cmd)) {
+  // an embedded newline — or anything that wouldn't fit in the agent's
+  // line buffer — goes through the length-prefixed EXEC2 frame.
+  const cmdBytes = Buffer.byteLength(cmd, "utf8");
+  if (/\r|\n/.test(cmd) || cmdBytes > EXEC_LEGACY_MAX_BYTES) {
     const buf = Buffer.from(cmd, "utf8");
     socket.write(`EXEC2 ${buf.length}\n`);
     socket.write(buf);
