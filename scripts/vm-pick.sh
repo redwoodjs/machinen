@@ -18,15 +18,29 @@ set -euo pipefail
 # untouched.
 REFRESH=0
 WINDOW=0
+EXPLICIT_NUM=""
 for arg in "$@"; do
   case "$arg" in
     --refresh) REFRESH=1 ;;
     --window)  WINDOW=1 ;;
     -h|--help)
-      echo "usage: pnpm vm-pick [--refresh] [--window]" >&2
+      echo "usage: pnpm vm-pick [--refresh] [--window] [<number>]" >&2
+      echo "  <number>   skip the picker and jump to this issue or PR (e.g. 177 or #177)" >&2
       echo "  --refresh  re-sync vm.ts + provision.ts from canonical into the chosen clone" >&2
       echo "  --window   spawn the boot in a new Ghostty window instead of the current TTY" >&2
       exit 0
+      ;;
+    \#*|[0-9]*)
+      candidate=${arg#\#}
+      if [[ -n "$EXPLICIT_NUM" ]]; then
+        echo "vm-pick: more than one number passed (have $EXPLICIT_NUM, also got $arg)" >&2
+        exit 1
+      fi
+      if [[ ! "$candidate" =~ ^[0-9]+$ ]]; then
+        echo "vm-pick: not a valid issue/PR number: $arg" >&2
+        exit 1
+      fi
+      EXPLICIT_NUM=$candidate
       ;;
     *)
       echo "vm-pick: unknown arg: $arg" >&2
@@ -35,8 +49,8 @@ for arg in "$@"; do
   esac
 done
 
-if ! command -v fzf >/dev/null 2>&1; then
-  echo "vm-pick: fzf is required. Install with: brew install fzf" >&2
+if [[ -z "$EXPLICIT_NUM" ]] && ! command -v fzf >/dev/null 2>&1; then
+  echo "vm-pick: fzf is required (or pass an explicit number). Install with: brew install fzf" >&2
   exit 1
 fi
 if ! git rev-parse --git-dir > /dev/null 2>&1; then
@@ -60,43 +74,60 @@ CLONES_ROOT="${PARENT_DIR}/${REPO_NAME}.machinen"
 tmpdir=$(mktemp -d)
 trap 'rm -rf "$tmpdir"' EXIT
 
-(cd "$MAIN_REPO" && gh issue list --state open --limit 100 --json number,title,url) \
-  > "$tmpdir/issues.json" 2>"$tmpdir/issues.err" &
-issues_pid=$!
-(cd "$MAIN_REPO" && gh pr list --state open --limit 100 --json number,title,url) \
-  > "$tmpdir/prs.json" 2>"$tmpdir/prs.err" &
-prs_pid=$!
-wait "$issues_pid"; issues_rc=$?
-wait "$prs_pid";    prs_rc=$?
+if [[ -n "$EXPLICIT_NUM" ]]; then
+  # Resolve directly. `gh issue view` refuses PR numbers and vice
+  # versa, so try issue first, then PR. State filter is intentionally
+  # absent — we want closed/merged refs to work too if the user asks.
+  if title=$(cd "$MAIN_REPO" && gh issue view "$EXPLICIT_NUM" --json title -q .title 2>/dev/null) \
+       && [[ -n "$title" ]]; then
+    kind=issue
+  elif title=$(cd "$MAIN_REPO" && gh pr view "$EXPLICIT_NUM" --json title -q .title 2>/dev/null) \
+         && [[ -n "$title" ]]; then
+    kind=pr
+  else
+    echo "vm-pick: no issue or PR #$EXPLICIT_NUM in $(basename "$MAIN_REPO")" >&2
+    exit 1
+  fi
+  num=$EXPLICIT_NUM
+else
+  (cd "$MAIN_REPO" && gh issue list --state open --limit 100 --json number,title,url) \
+    > "$tmpdir/issues.json" 2>"$tmpdir/issues.err" &
+  issues_pid=$!
+  (cd "$MAIN_REPO" && gh pr list --state open --limit 100 --json number,title,url) \
+    > "$tmpdir/prs.json" 2>"$tmpdir/prs.err" &
+  prs_pid=$!
+  wait "$issues_pid"; issues_rc=$?
+  wait "$prs_pid";    prs_rc=$?
 
-if (( issues_rc != 0 )) || (( prs_rc != 0 )); then
-  echo "vm-pick: gh failed:" >&2
-  (( issues_rc != 0 )) && { echo "  issues:" >&2; sed 's/^/    /' "$tmpdir/issues.err" >&2; }
-  (( prs_rc    != 0 )) && { echo "  prs:"    >&2; sed 's/^/    /' "$tmpdir/prs.err"    >&2; }
-  exit 1
+  if (( issues_rc != 0 )) || (( prs_rc != 0 )); then
+    echo "vm-pick: gh failed:" >&2
+    (( issues_rc != 0 )) && { echo "  issues:" >&2; sed 's/^/    /' "$tmpdir/issues.err" >&2; }
+    (( prs_rc    != 0 )) && { echo "  prs:"    >&2; sed 's/^/    /' "$tmpdir/prs.err"    >&2; }
+    exit 1
+  fi
+
+  # kind \t number \t title \t url
+  {
+    jq -r '.[] | "issue\t\(.number)\t\(.title)\t\(.url)"' < "$tmpdir/issues.json"
+    jq -r '.[] | "pr\t\(.number)\t\(.title)\t\(.url)"'    < "$tmpdir/prs.json"
+  } > "$tmpdir/combined"
+
+  if [[ ! -s "$tmpdir/combined" ]]; then
+    echo "vm-pick: no open issues or PRs." >&2
+    exit 1
+  fi
+
+  selection=$(
+    fzf --delimiter=$'\t' \
+        --with-nth='1,2,3' \
+        --height=40% \
+        --reverse \
+        --prompt='vm-pick> ' \
+        < "$tmpdir/combined"
+  ) || exit 1
+
+  IFS=$'\t' read -r kind num title _url <<< "$selection"
 fi
-
-# kind \t number \t title \t url
-{
-  jq -r '.[] | "issue\t\(.number)\t\(.title)\t\(.url)"' < "$tmpdir/issues.json"
-  jq -r '.[] | "pr\t\(.number)\t\(.title)\t\(.url)"'    < "$tmpdir/prs.json"
-} > "$tmpdir/combined"
-
-if [[ ! -s "$tmpdir/combined" ]]; then
-  echo "vm-pick: no open issues or PRs." >&2
-  exit 1
-fi
-
-selection=$(
-  fzf --delimiter=$'\t' \
-      --with-nth='1,2,3' \
-      --height=40% \
-      --reverse \
-      --prompt='vm-pick> ' \
-      < "$tmpdir/combined"
-) || exit 1
-
-IFS=$'\t' read -r kind num title _url <<< "$selection"
 
 # Slugify title: lowercase, non-alnum → '-', trim, cap at 40 chars.
 slug=$(printf '%s' "$title" \
