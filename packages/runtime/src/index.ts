@@ -208,6 +208,18 @@ export interface BootOptions {
    */
   env?: Record<string, string>;
   /**
+   * Working directory for the guest cmd. Lands as `cwd` in the
+   * synthesized `/machinen-config.json`; `/init` calls `chdir()` to
+   * this path before exec'ing the cmd. Useful with `mount` /
+   * `liveMounts` to land directly inside the share (e.g.
+   * `guestCwd: "/mnt/workspace"`).
+   *
+   * Must be absolute. Throws `BOOT_CWD_INVALID` for relative paths or
+   * paths containing NULs. Same precedence as `cmd`/`env`: an
+   * image-baked `cwd` is overridden by this field when both are set.
+   */
+  guestCwd?: string;
+  /**
    * Attach this host file as the scratch virtio-blk device — `/dev/vdb`
    * inside the guest when `rootDisk` is also set, or `/dev/vda` when
    * only this disk is attached (legacy / pre-#114 layout). Typically a
@@ -1301,7 +1313,7 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
  */
 function readImageConfig(
   imagePath: string,
-): { cmd?: string[]; env?: Record<string, string> } | undefined {
+): { cmd?: string[]; env?: Record<string, string>; cwd?: string } | undefined {
   try {
     // `-x` stream-extract, `-O` to stdout, `-z` auto-detect gzip. The
     // target path matches the layout `provision()` writes.
@@ -1312,7 +1324,7 @@ function readImageConfig(
     if (!out.trim()) {
       return undefined;
     }
-    return JSON.parse(out) as { cmd?: string[]; env?: Record<string, string> };
+    return JSON.parse(out) as { cmd?: string[]; env?: Record<string, string>; cwd?: string };
   } catch {
     // Either the tarball lacks the file or it's not a tarball we can
     // read — boot will still try to use the rootfs as-is.
@@ -1400,6 +1412,41 @@ function resolveModulesTar(opts: BootOptions, env: Record<string, string>): stri
   );
 }
 
+/**
+ * Build the synthesized `machinen-config.json` payload that /init
+ * reads at boot. Pure: takes the already-merged effective cmd/env
+ * plus the cwd inputs (user's guestCwd overrides image-baked cwd) and
+ * the live-mount ports.
+ *
+ * Exposed for tests; `synthesizeAndPackBundle` is the only production
+ * caller.
+ *
+ * @internal
+ */
+export function buildMachinenConfig(input: {
+  cmd: string[];
+  env: Record<string, string>;
+  guestCwd?: string;
+  imageCwd?: string;
+  liveMounts: ResolvedLiveMount[];
+}): Record<string, unknown> {
+  // cwd: image-baked default overlaid by user's guestCwd (same
+  // precedence as cmd/env). /init reads `cwd` and chdirs before exec.
+  const effectiveCwd = input.guestCwd ?? input.imageCwd;
+
+  const cfg: Record<string, unknown> = { cmd: input.cmd, env: input.env };
+  if (effectiveCwd !== undefined) {
+    cfg.cwd = effectiveCwd;
+  }
+  if (input.liveMounts.length > 0) {
+    // Only the guest/port pairs get written — host paths never cross
+    // into the guest's view. /init reads this and forks fuse-agent
+    // per entry.
+    cfg.liveMounts = input.liveMounts.map(({ guest, port }) => ({ guest, port }));
+  }
+  return cfg;
+}
+
 function synthesizeAndPackBundle(
   opts: BootOptions,
   mergedGuestEnv: Record<string, string>,
@@ -1415,8 +1462,17 @@ function synthesizeAndPackBundle(
     } catch {}
   };
 
+  if (opts.guestCwd !== undefined) {
+    try {
+      validateGuestCwd(opts.guestCwd);
+    } catch (err) {
+      cleanup();
+      throw err;
+    }
+  }
+
   let baseAbs: string | undefined;
-  let imageConfig: { cmd?: string[]; env?: Record<string, string> } | undefined;
+  let imageConfig: { cmd?: string[]; env?: Record<string, string>; cwd?: string } | undefined;
   if (opts.image) {
     baseAbs = resolve(opts.cwd ?? process.cwd(), opts.image);
     if (!existsSync(baseAbs)) {
@@ -1477,20 +1533,23 @@ function synthesizeAndPackBundle(
       : ["/sbin/machinen-supervisor", ...supervisorArgs, ...effectiveCmd];
 
   // env: image defaults overlaid by user + runtime-injected (gvproxy
-  // cache mirror, etc.). User + runtime wins on key collision.
+  // cache mirror, etc.). User + runtime wins on key collision. Shared
+  // between the synthesized config.json (read by /init) and the
+  // packer's runtime env injection (written into the cpio's
+  // env-overlay file).
   const effectiveEnv = { ...imageConfig?.env, ...mergedGuestEnv };
 
   // Synthesize the bundle directory from the effective cmd + env. No
   // user-authored machinen-config.json; we generate it here and the
   // caller never sees it.
   mkdirSync(join(synthBundleDir, "rootfs"), { recursive: true });
-  const configJson: Record<string, unknown> = { cmd: wrappedCmd, env: effectiveEnv };
-  if (liveMounts.length > 0) {
-    // Only the guest/port pairs get written — host paths never cross
-    // into the guest's view. /init reads this and forks fuse-agent
-    // per entry.
-    configJson.liveMounts = liveMounts.map(({ guest, port }) => ({ guest, port }));
-  }
+  const configJson = buildMachinenConfig({
+    cmd: wrappedCmd,
+    env: effectiveEnv,
+    guestCwd: opts.guestCwd,
+    imageCwd: imageConfig?.cwd,
+    liveMounts,
+  });
   writeFileSync(join(synthBundleDir, "machinen-config.json"), JSON.stringify(configJson));
 
   let mount: { host: string; guest: string } | undefined;
@@ -1562,6 +1621,18 @@ const MOUNT_ROOT = "/mnt/";
 
 function normalizeMountGuest(guest: string): string {
   return guest.replace(/\/+$/, "");
+}
+
+function validateGuestCwd(cwd: string): void {
+  if (!cwd || !cwd.startsWith("/")) {
+    throw new BootError(
+      "BOOT_CWD_INVALID",
+      `guestCwd must be an absolute path (got '${cwd}')`,
+    );
+  }
+  if (cwd.includes("\0")) {
+    throw new BootError("BOOT_CWD_INVALID", "guestCwd must not contain NUL bytes");
+  }
 }
 
 function validateMountGuest(guest: string): void {
