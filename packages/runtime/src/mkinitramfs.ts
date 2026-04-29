@@ -5,11 +5,12 @@
 //
 // Four modes exposed as functions:
 //
-//   packTinyBundle({ bundle, modulesTar, out, ... }) — pack a minimal
-//     cpio for the rootDisk boot path (#119): /init + /modules/*.ko +
-//     /machinen-config.json + /etc/machinen-boot-epoch + /dev/console.
-//     ~1 MB. The on-disk rootfs is mounted from /dev/vda by /init
-//     after finit_module loads the boot-path drivers.
+//   packTinyBundle({ bundle, out, ... }) — pack a minimal cpio for the
+//     rootDisk boot path (#119): /init + /machinen-config.json +
+//     /etc/machinen-boot-epoch + /dev/console. ~500 KB. The on-disk
+//     rootfs is mounted from /dev/vda by /init; the kernel ships with
+//     virtio_*, ext4, and vsock built in, so no /modules/*.ko or
+//     finit_module pass is needed at boot.
 //
 //   packBundle({ bundle, base?, excludes?, out }) — pack a bundle's
 //     rootfs/, optionally overlaying it on a base tarball. Includes the
@@ -498,13 +499,6 @@ export interface PackTinyBundleOptions {
   bundle: string;
   /** Path to the initramfs cpio to write. */
   out: string;
-  /**
-   * Path to modules-arm64.tar.gz (the flat /modules/*.ko archive
-   * built by scripts/build-base-assets.sh). Extracted at pack time
-   * and emitted as /modules/*.ko entries inside the cpio so /init
-   * can finit_module(2) them directly without a kmod / modprobe path.
-   */
-  modulesTar: string;
   /** Extra env merged into the bundle's machinen-config.json. Bundle keys win on collision. */
   env?: Record<string, string>;
   /**
@@ -524,7 +518,6 @@ export interface PackTinyBundleOptions {
  *
  * Layout:
  *   /init                        compiled Zig init
- *   /modules/<name>.ko           boot-path drivers /init finit_module(2)s
  *   /machinen-config.json        cmd/env/cwd/liveMounts for /init
  *   /etc/machinen-boot-epoch     wall clock seed for the guest
  *   /dev/console                 char node 5,1 — kernel needs it before
@@ -533,8 +526,10 @@ export interface PackTinyBundleOptions {
  *   /mnt/<guest>/                optional, when caller passed `mount`
  *   /tmp                         sticky 1777
  *
- * No /lib/modules tree, no kmod, no Debian userland. /init pivots into
- * /dev/vda (a virtio-blk-attached ext4 image) for the actual rootfs.
+ * No /lib/modules tree, no kmod, no /modules/*.ko, no Debian userland.
+ * The custom kernel ships with virtio_*, ext4, and vsock built in
+ * (scripts/build-kernel-arm64.sh), so /init pivots straight into
+ * /dev/vda without a finit_module pass.
  */
 export function packTinyBundle(opts: PackTinyBundleOptions): void {
   const t0 = Date.now();
@@ -542,83 +537,35 @@ export function packTinyBundle(opts: PackTinyBundleOptions): void {
   if (!statSync(cfgPath).isFile()) {
     throw new MkinitramfsError("MKINITRAMFS_BUNDLE_INVALID", `--bundle: missing ${cfgPath}`);
   }
-  if (!statSync(opts.modulesTar).isFile()) {
-    throw new MkinitramfsError(
-      "MKINITRAMFS_MODULES_NOT_FOUND",
-      `tiny bundle: modules tarball not found: ${opts.modulesTar}`,
-    );
+
+  const parts: Buffer[] = [];
+  parts.push(newc(".", 0o40755));
+
+  if (opts.mount) {
+    const rel = opts.mount.guest.replace(/^\/+/, "");
+    // Emit each path component as a directory entry, then walk the
+    // host tree under it. Same semantics as packBundle's
+    // overlayMount + walk, just without the merge-onto-base step.
+    const segments = rel.split("/").filter(Boolean);
+    let acc = "";
+    for (const seg of segments) {
+      acc = acc ? `${acc}/${seg}` : seg;
+      parts.push(newc(acc, 0o40755));
+    }
+    const counts: WalkCounts = { files: 0, bytes: 0 };
+    for (const e of mountOverlayEntries(opts.mount.host, rel, counts)) {
+      parts.push(e);
+    }
   }
 
-  const modulesTmp = mkdtempSync(join(tmpdir(), "machinen-mkinitramfs-mods-"));
-  try {
-    const res = spawnSync("tar", ["-xzf", opts.modulesTar, "-C", modulesTmp]);
-    if (res.status !== 0) {
-      throw new MkinitramfsError(
-        "MKINITRAMFS_MODULES_EXTRACT_FAILED",
-        `tar -xzf ${opts.modulesTar} failed: ${res.stderr?.toString() ?? ""}`,
-      );
-    }
-
-    const parts: Buffer[] = [];
-    parts.push(newc(".", 0o40755));
-    // /init is optional at pack time — matches packBundle's posture so
-    // tests that exercise env passthrough without a built /init keep
-    // working. A real boot without /init won't get past the kernel,
-    // but that failure surfaces clearly at the VMM layer.
-    try {
-      const initBytes = readFileSync(opts.initPath ?? defaultInitPath());
-      parts.push(newc("init", 0o100755, { data: initBytes }));
-    } catch {}
-
-    parts.push(newc("modules", 0o40755));
-    const modEntries = readdirSync(modulesTmp).sort();
-    let modCount = 0;
-    let modBytes = 0;
-    for (const name of modEntries) {
-      if (!name.endsWith(".ko")) {
-        continue;
-      }
-      const data = readFileSync(join(modulesTmp, name));
-      parts.push(newc(`modules/${name}`, 0o100644, { data }));
-      modCount += 1;
-      modBytes += data.length;
-    }
-
-    if (opts.mount) {
-      const rel = opts.mount.guest.replace(/^\/+/, "");
-      // Emit each path component as a directory entry, then walk the
-      // host tree under it. Same semantics as packBundle's
-      // overlayMount + walk, just without the merge-onto-base step.
-      const segments = rel.split("/").filter(Boolean);
-      let acc = "";
-      for (const seg of segments) {
-        acc = acc ? `${acc}/${seg}` : seg;
-        parts.push(newc(acc, 0o40755));
-      }
-      const counts: WalkCounts = { files: 0, bytes: 0 };
-      for (const e of mountOverlayEntries(opts.mount.host, rel, counts)) {
-        parts.push(e);
-      }
-    }
-
-    appendFinalEntries(parts, {
-      initPath: opts.initPath ?? defaultInitPath(),
-      config: patchConfigEnv(readFileSync(cfgPath), opts.env),
-      fuseAgentPath: opts.fuseAgentPath,
-      // We already emitted /init above, before the .ko files, so the
-      // final entries pass should not duplicate it.
-      injectInit: false,
-    });
-    writeFileSync(opts.out, Buffer.concat(parts));
-    debug(
-      "packTinyBundle done modules=%d module_bytes=%d elapsed=%dms",
-      modCount,
-      modBytes,
-      Date.now() - t0,
-    );
-  } finally {
-    rmSync(modulesTmp, { recursive: true, force: true });
-  }
+  appendFinalEntries(parts, {
+    initPath: opts.initPath ?? defaultInitPath(),
+    config: patchConfigEnv(readFileSync(cfgPath), opts.env),
+    fuseAgentPath: opts.fuseAgentPath,
+    injectInit: true,
+  });
+  writeFileSync(opts.out, Buffer.concat(parts));
+  debug("packTinyBundle done elapsed=%dms", Date.now() - t0);
 }
 
 function* mountOverlayEntries(

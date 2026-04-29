@@ -1,15 +1,20 @@
 #!/usr/bin/env bash
 # Produce the release assets that ship alongside every tag:
 #
-#   Image-arm64                    ← Debian cloud arm64 kernel
+#   Image-arm64                    ← custom arm64 kernel built from
+#                                    upstream kernel.org source with
+#                                    virtio_*, ext4, vsock, fuse, and
+#                                    CRIU's sock_diag families compiled
+#                                    in (CONFIG_*=y, no modules). See
+#                                    scripts/build-kernel-arm64.sh and
+#                                    issue #119.
 #   virt-arm64.dtb                 ← compiled device tree
 #   rootfs-debian-arm64.tar.gz     ← debian minbase + /init + /exec-agent
-#   modules-arm64.tar.gz           ← flat tar of the .ko files /init loads
-#                                    via finit_module (boot-path drivers).
-#                                    Used by the tiny initramfs path that
-#                                    ships per-VM (#119); avoids dragging
-#                                    /lib/modules + kmod into RAM at boot.
 #   *.sha256                       ← integrity sidecars
+#
+# We no longer ship modules-arm64.tar.gz — the boot-path drivers are
+# built into the kernel, so the tiny cpio (#119) doesn't need /lib/modules
+# or any finit_module(2) pass at boot.
 #
 # Inputs (relative to repo root):
 #   packages/microvm/assets/virt.dts
@@ -33,6 +38,12 @@
 #   - zig  (0.14+; the release workflow installs it)
 #   - curl, unzip  (for downloading and unpacking fnm)
 #
+# Optional: if MACHINEN_REMOTE_BUILDER is set (e.g. friend@dgx-01), the
+# kernel build runs natively on that arm64 host instead of locally —
+# turns a multi-hour qemu-arm64 emulated kernel build on darwin into
+# a ~3 min native compile. The script rsyncs the kernel build script
+# over, runs it remotely, and pulls the resulting Image-arm64 back.
+#
 # Outputs to ./release-assets/ at the repo root.
 
 set -euo pipefail
@@ -52,16 +63,48 @@ rm -f "$OUT"/*
 rm -rf "${ROOTFS_IMG_CACHE:?}"/*.img "${ROOTFS_IMG_CACHE:?}"/*-staging-* 2>/dev/null || true
 
 # ------------------------------------------------------------
-# 1. Kernel — Debian cloud-arm64
+# 1. Kernel — custom upstream arm64 build with built-in drivers (#119)
 # ------------------------------------------------------------
+# The Debian cloud kernel ships virtio_*, ext4, etc. as modules, which
+# forced the cpio to drag /lib/modules + kmod + libc into RAM at every
+# boot just to load them. Building our own kernel with CONFIG_*=y for
+# those drivers shrinks the cpio to ~500 KB.
+#
+# Delegated to scripts/build-kernel-arm64.sh — runs natively on arm64
+# (CI uses ubuntu-24.04-arm; for darwin dev set MACHINEN_REMOTE_BUILDER
+# to ssh into a native arm64 box). qemu-emulated kernel builds work
+# but take hours, so we hard-fail rather than silently sandbag.
 
-echo "==> Extracting arm64 kernel from debian:bookworm-slim"
-docker run --rm --platform linux/arm64 -v "$OUT":/out \
-  debian:bookworm-slim bash -c '
-    apt-get update -qq > /dev/null &&
-    apt-get install -y --no-install-recommends linux-image-cloud-arm64 > /dev/null &&
-    cp /boot/vmlinuz-* /out/Image-arm64
-  '
+echo "==> Building custom arm64 kernel with virtio_* + ext4 + vsock + fuse =y"
+
+if [ -n "${MACHINEN_REMOTE_BUILDER:-}" ]; then
+  # Remote build: rsync the kernel build script over, run it, pull
+  # the Image back. The remote host owns its own kernel-source cache
+  # at $REMOTE_WORKDIR (defaults to ~/.cache/machinen/kernel) so
+  # repeated rebuilds reuse the unpacked source tree.
+  REMOTE_WORKDIR="${MACHINEN_REMOTE_WORKDIR:-\$HOME/.cache/machinen/kernel}"
+  echo "    via remote builder: $MACHINEN_REMOTE_BUILDER (workdir=$REMOTE_WORKDIR)"
+  ssh "$MACHINEN_REMOTE_BUILDER" "mkdir -p $REMOTE_WORKDIR"
+  rsync -az "${ROOT}/scripts/build-kernel-arm64.sh" \
+    "$MACHINEN_REMOTE_BUILDER:$REMOTE_WORKDIR/build-kernel-arm64.sh"
+  ssh "$MACHINEN_REMOTE_BUILDER" \
+    "WORKDIR=$REMOTE_WORKDIR bash $REMOTE_WORKDIR/build-kernel-arm64.sh"
+  rsync -az \
+    "$MACHINEN_REMOTE_BUILDER:$REMOTE_WORKDIR/Image-arm64" \
+    "$OUT/Image-arm64"
+elif [ "$(uname -m)" = "aarch64" ] || [ "$(uname -m)" = "arm64" ] && [ "$(uname -s)" = "Linux" ]; then
+  # Native arm64 Linux (CI's ubuntu-24.04-arm runner). Build directly
+  # on the host — no docker overhead, no emulation.
+  WORKDIR="${MACHINEN_KERNEL_WORKDIR:-${ROOT}/.kernel-build}" \
+  OUT="$OUT/Image-arm64" \
+    bash "${ROOT}/scripts/build-kernel-arm64.sh"
+else
+  echo "build-base-assets: cannot build the kernel here." >&2
+  echo "  Native build needs an arm64 Linux host." >&2
+  echo "  Set MACHINEN_REMOTE_BUILDER=user@host (an arm64 ssh target) to" >&2
+  echo "  delegate the build, or run this script on ubuntu-24.04-arm." >&2
+  exit 1
+fi
 
 # ------------------------------------------------------------
 # 2. Device tree blob
@@ -76,7 +119,16 @@ dtc -I dts -O dtb "${ASSETS}/virt.dts" -o "${OUT}/virt-arm64.dtb"
 # ------------------------------------------------------------
 
 echo "==> Building guest binaries (init, exec-agent, fuse-agent, winsize-agent, CRIU helpers, poweroff, net-bench-probe) for aarch64-linux-musl"
-STAGE=$(mktemp -d)
+# STAGE has to live inside ROOT, not /tmp, because the mmdebstrap step
+# below runs docker with `-v "$STAGE":/stage:ro`. When build-base-assets
+# itself runs inside a container (agent-ci's local runner, dev shell
+# in a devcontainer), the -v path is interpreted by the *host* docker
+# daemon — anything under /tmp inside the runner container is invisible
+# to the host. The repo workspace is bind-mounted in by the outer
+# orchestrator, so paths under it round-trip correctly.
+STAGE="${ROOT}/.build-stage"
+rm -rf "$STAGE"
+mkdir -p "$STAGE"
 trap 'rm -rf "$STAGE"' EXIT
 
 # init + exec-agent + fuse-agent land at /init, /exec-agent, /fuse-agent
@@ -191,126 +243,33 @@ EOF
 HOOK
 chmod +x /tmp/setup-hook.sh
 
-# linux-image-cloud-arm64 + kmod: the Debian cloud kernel we ship
-# (scripts/build-base-assets.sh section 1) carries virtio_mmio /
-# virtio_net as modules, not built-in. Without /lib/modules inside
-# the guest and modprobe to load them, the kernel sees virtio-mmio
-# devices in the DTB but has no driver to bind to them — no eth0,
-# no networking. Install the matching kernel package and kmod;
-# /init will `modprobe virtio_net` via /sbin/machinen-netup at boot.
+# With virtio_*, ext4, vsock, and fuse compiled into our custom kernel
+# (#119), the guest no longer needs /lib/modules or kmod inside the
+# rootfs. We still install:
 #
-# criu: required by any snapshot flow (`build()` dumps at freeze
-# time, `spawn({ snapshot })` restores at boot time). Pulls ~5MB of
-# libs (libnl, libprotobuf-c, libnftables). The criu-ns shell helper
-# that solves PID collisions across boots ships in the same package.
-# APT::Install-Recommends "false" is already set by the setup hook,
-# so criu's optional python3 suggestion is skipped.
+#   criu: required by any snapshot flow (`build()` dumps at freeze
+#   time, `spawn({ snapshot })` restores at boot time). Pulls ~5MB of
+#   libs (libnl, libprotobuf-c, libnftables). The criu-ns shell helper
+#   that solves PID collisions across boots ships in the same package.
+#   APT::Install-Recommends "false" is already set by the setup hook,
+#   so criu's optional python3 suggestion is skipped.
 #
-# e2fsprogs: mkfs.ext4 + blkid. /sbin/machinen-dump formats /dev/vda
-# on first snapshot so CRIU has a filesystem to write images into;
-# /sbin/machinen-restore uses blkid to verify before mounting.
+#   e2fsprogs: mkfs.ext4 + blkid. /sbin/machinen-dump formats /dev/vda
+#   on first snapshot so CRIU has a filesystem to write images into;
+#   /sbin/machinen-restore uses blkid to verify before mounting.
 #
-# mount: util-linux's `mount` / `umount` are Essential on Debian,
-# so they ride in with minbase — no extra --include line needed.
+#   mount: util-linux's `mount` / `umount` are Essential on Debian,
+#   so they ride in with minbase — no extra --include line needed.
 #
-# iputils-ping: baked in so users can sanity-check connectivity
-# without an `apt install`. Over gvproxy ICMP works via unprivileged
-# ping sockets (sysctl is enabled in cloud kernels).
+#   iputils-ping: baked in so users can sanity-check connectivity
+#   without an `apt install`. Over gvproxy ICMP works via unprivileged
+#   ping sockets (sysctl is enabled in cloud kernels).
 mmdebstrap \
   --variant=minbase \
   --architectures=arm64 \
-  --include=linux-image-cloud-arm64,kmod,criu,e2fsprogs,iputils-ping \
+  --include=criu,e2fsprogs,iputils-ping \
   --setup-hook=/tmp/setup-hook.sh \
   bookworm /work/rootfs
-
-# linux-image-cloud-arm64 ships every driver the Debian cloud kernel
-# knows about (~28MB of .ko). Keep only the modules the base flow
-# actually loads:
-#
-#   Networking at boot (see machinen-netup.c):
-#     virtio, virtio_ring, virtio_mmio, virtio_net, net_failover, failover
-#
-#   Block device for snapshot images + persistent workspaces:
-#     virtio_blk
-#
-#   Socket state diag — CRIU walks these to dump/restore sockets.
-#   Missing any of them makes `criu dump` fail with obscure kerndat
-#   errors on a process that touches sockets (i.e. most of them).
-#   sock_diag itself is built into the Debian cloud kernel
-#   (CONFIG_SOCK_DIAG=y), so only the per-family backends need to
-#   be kept as modules:
-#     netlink_diag, unix_diag, inet_diag, tcp_diag, udp_diag,
-#     af_packet_diag
-#
-#   Netfilter + crc32c — defensively kept for processes that hold
-#   any iptables/nftables state. CRIU loads these lazily during
-#   dump; cheap to bake in:
-#     libcrc32c, nfnetlink, nf_tables
-#
-#   AF_VSOCK — the build()/spawn() install-hook flow drives the guest
-#   via a vsock exec-agent. CONFIG_VSOCKETS=m in the Debian cloud
-#   kernel, so we have to ship the module set; /init modprobes them
-#   at boot so userspace can `socket(AF_VSOCK, SOCK_STREAM, 0)`.
-#   vsock_diag is for CRIU walking vsock connections at dump time:
-#     vsock, vmw_vsock_virtio_transport,
-#     vmw_vsock_virtio_transport_common, vsock_diag
-#
-#   FUSE — `--mount-live` (#78) relays guest filesystem ops over vsock
-#   to a host-side server. The guest side is a FUSE daemon that talks
-#   to /dev/fuse; it only gets loaded when a live mount is requested,
-#   so this is opt-in at /init time rather than on every boot.
-#
-# Resolve each module by filename (find) rather than hard-coded path,
-# so the whitelist is robust to Debian kernel-package layout changes.
-#
-# Two destinations:
-#   /work/rootfs/lib/modules/$KVER/kernel/  — for criu / modprobe inside
-#       the legacy fat-cpio path (provision()'s boot still has a full
-#       Debian userland and runs criu against /lib/modules).
-#   /work/rootfs/modules/                   — flat directory, what
-#       /init reads at boot via finit_module(2). Sourced into the tiny
-#       cpio used by every user-facing boot() (#119); also present in
-#       the fat tarball so /init takes the same path in both modes.
-#
-# /out/modules-arm64.tar.gz: the same flat /modules/ shipped on its own
-# so mkinitramfs can pull it into the tiny cpio without untar-ing the
-# whole rootfs.
-KVER=$(ls /work/rootfs/lib/modules | head -1)
-KMODS=/work/rootfs/lib/modules/$KVER/kernel
-FLAT=/work/rootfs/modules
-STAGE=$(mktemp -d)
-mkdir -p "$FLAT"
-for m in \
-  virtio virtio_ring virtio_mmio virtio_net net_failover failover \
-  virtio_blk \
-  netlink_diag unix_diag inet_diag tcp_diag udp_diag af_packet_diag \
-  libcrc32c nfnetlink nf_tables \
-  vsock vmw_vsock_virtio_transport vmw_vsock_virtio_transport_common vsock_diag \
-  fuse
-do
-  src=$(find "$KMODS" -type f -name "$m.ko" | head -1)
-  [ -n "$src" ] || { echo "missing module: $m.ko" >&2; exit 1; }
-  rel=${src#$KMODS/}
-  mkdir -p "$STAGE/$(dirname "$rel")"
-  cp "$src" "$STAGE/$rel"
-  cp "$src" "$FLAT/$m.ko"
-done
-rm -rf "$KMODS"
-mkdir -p "$KMODS"
-cp -a "$STAGE/." "$KMODS/"
-rm -rf "$STAGE"
-
-# Depmod so modprobe (called by criu inside the fat-cpio provision
-# path) can resolve dependencies without a live uname.
-chroot /work/rootfs depmod -a "$KVER"
-
-# Pack the flat /modules/ as a standalone artifact for the tiny-cpio
-# path. Deterministic tar so the sha256 sidecar is reproducible across
-# rebuilds.
-tar --sort=name --owner=0 --group=0 --numeric-owner \
-  --mtime="2020-01-01 00:00Z" \
-  -C /work/rootfs/modules -cf - . |
-gzip -n > /out/modules-arm64.tar.gz
 
 # Belt-and-braces cleanup for things path-exclude doesn't cover.
 # Also drop the second copy of the kernel image and initrd hooks we
@@ -384,7 +343,7 @@ CONTAINER_SCRIPT
 
 echo "==> Writing sha256 sidecars"
 cd "$OUT"
-for f in Image-arm64 virt-arm64.dtb rootfs-debian-arm64.tar.gz modules-arm64.tar.gz; do
+for f in Image-arm64 virt-arm64.dtb rootfs-debian-arm64.tar.gz; do
   shasum -a 256 "$f" > "${f}.sha256"
 done
 

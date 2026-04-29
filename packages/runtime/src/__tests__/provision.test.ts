@@ -39,22 +39,15 @@ function findBootTestBinary(): string | undefined {
   return undefined;
 }
 
-function integrationPrereqs(): { binary: string; base: string; modules: string } | undefined {
+function integrationPrereqs(): { binary: string; base: string } | undefined {
   const binary = findBootTestBinary();
   const base = resolve(releaseAssets, "rootfs-debian-arm64.tar.gz");
-  const modules = resolve(releaseAssets, "modules-arm64.tar.gz");
   const kernel = resolve(microvmRoot, "test-fixtures/Image");
   const dtb = resolve(microvmRoot, "test-fixtures/virt.dtb");
-  if (
-    !binary ||
-    !existsSync(base) ||
-    !existsSync(modules) ||
-    !existsSync(kernel) ||
-    !existsSync(dtb)
-  ) {
+  if (!binary || !existsSync(base) || !existsSync(kernel) || !existsSync(dtb)) {
     return undefined;
   }
-  return { binary, base, modules };
+  return { binary, base };
 }
 
 describe("provision", () => {
@@ -142,10 +135,6 @@ describe("provision", () => {
           vmmEnv: {
             MACHINEN_BOOT_TEST: "1",
             MACHINEN_DEBUG: "1",
-            // Test-fixture binary uses test-fixtures/Image directly, so
-            // the runtime can't probe for modules next to MACHINEN_KERNEL
-            // (it never sets one). Hand it the path explicitly.
-            MACHINEN_MODULES: prereqs.modules,
           },
           base: prereqs.base,
           install: async (vm) => {
@@ -168,7 +157,6 @@ describe("provision", () => {
           cwd: microvmRoot,
           vmmEnv: {
             MACHINEN_BOOT_TEST: "1",
-            MACHINEN_MODULES: prereqs.modules,
           },
           image: result.imagePath,
           cmd: ["/exec-agent"],

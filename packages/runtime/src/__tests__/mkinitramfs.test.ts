@@ -5,11 +5,11 @@
 // `cpio -id`) keeps the tests hermetic — not every CI runner ships a
 // cpio binary with matching flag semantics.
 
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { packBundle, patchConfigEnv } from "../mkinitramfs.ts";
+import { packBundle, packTinyBundle, patchConfigEnv } from "../mkinitramfs.ts";
 
 // Minimal parser for the newc cpio format produced by mkinitramfs.ts.
 // Returns a name → {data, mode} map for all non-TRAILER entries.
@@ -183,6 +183,42 @@ describe("packBundle mount", () => {
     // No env field should have been added.
     expect(parsed.env).toBeUndefined();
     expect(parsed.cmd).toEqual(["/bin/true"]);
+  });
+
+  // #119: packTinyBundle ships ~500 KB cpios for the rootDisk path —
+  // /init + machinen-config.json + boot-epoch + /dev/console only.
+  // No /modules/*.ko, no Debian rootfs tar overlay. The kernel has the
+  // boot-path drivers compiled in, so the cpio carries only what /init
+  // itself needs to read before pivoting to /dev/vda. These tests
+  // codify the layout so the cpio doesn't silently re-fatten.
+  it("produces a tiny cpio with no /modules tree", () => {
+    const bundle = makeEmptyBundle();
+    const out = join(tmp, "tiny.cpio");
+    // Pass an explicit initPath so the test passes whether or not the
+    // host has run `zig build` to populate test-fixtures/init. CI's
+    // tests.yml job doesn't pre-build microvm assets — we don't want to
+    // require it just to assert the cpio layout.
+    const stubInit = join(tmp, "stub-init");
+    writeFileSync(stubInit, "stub");
+    packTinyBundle({ bundle, out, initPath: stubInit });
+
+    const entries = listCpioEntries(out);
+    // Must-haves for the kernel + /init handshake.
+    expect(entries.has("init")).toBe(true);
+    expect(entries.has("machinen-config.json")).toBe(true);
+    expect(entries.has("etc/machinen-boot-epoch")).toBe(true);
+    expect(entries.has("dev/console")).toBe(true);
+    // Must-not-haves: the legacy /modules/*.ko tree is gone now that
+    // the kernel ships virtio_*, ext4, vsock, fuse compiled in.
+    for (const name of entries.keys()) {
+      expect(name.startsWith("modules/")).toBe(false);
+    }
+    // Cap the cpio at 1 MiB. The issue's test plan asks for < 5 MB; we
+    // come in well under that today (~130 KB without /init, ~250 KB
+    // with). 1 MiB leaves room for /fuse-agent or a small mount payload
+    // before this test starts complaining.
+    const size = statSync(out).size;
+    expect(size).toBeLessThan(1024 * 1024);
   });
 
   it("leaves non-colliding mount paths alone when the bundle overlays a sibling", () => {
