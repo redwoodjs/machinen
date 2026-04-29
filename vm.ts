@@ -136,11 +136,25 @@ const claudeAccountJson = readHostClaudeAccount();
 // unconditionally `unset CLAUDE_ACCOUNT_JSON` before our bootstrap had
 // a chance to read it. With these names, the bootstrap is the only
 // thing that touches them.
+// Seed the guest TTY size from the host terminal. Without this the
+// guest's serial console reports 80x24 to anything that ioctl's
+// TIOCGWINSZ — TUIs (claude, vim, less) lay out for that and the host
+// terminal redraws over the gap, leaving smeared output until reset.
+// This handles the initial render only. Dynamic SIGWINCH after boot
+// requires the winsize-agent (`packages/microvm/assets/winsize-agent.zig`)
+// to be baked into the rootfs and wired to a VsockWinsize on the host;
+// not yet plumbed through provision.ts.
+const stdoutAny = process.stdout as NodeJS.WriteStream;
+const hostCols = stdoutAny.columns ?? 80;
+const hostRows = stdoutAny.rows ?? 24;
+
 const secretEnv: Record<string, string> = {
   GH_TOKEN: ghToken,
   GITHUB_TOKEN: ghToken,
   MACHINEN_CLAUDE_CREDENTIALS: claudeCreds,
   MACHINEN_CLAUDE_ACCOUNT_JSON: claudeAccountJson,
+  COLUMNS: String(hostCols),
+  LINES: String(hostRows),
 };
 
 // Bootstrap credentials at boot time (not via /etc/profile.d) so a
@@ -198,6 +212,12 @@ const bootstrap = [
   "EOF",
   'if ! grep -q ".bashrc.machinen" "$HOME/.bashrc" 2>/dev/null; then',
   '  printf "\\n[ -f \\"\\$HOME/.bashrc.machinen\\" ] && . \\"\\$HOME/.bashrc.machinen\\"\\n" >> "$HOME/.bashrc"',
+  "fi",
+  // Apply COLUMNS/LINES from vm.ts to the kernel TTY so TUIs see the
+  // host terminal's real dimensions on first paint. Failure (no tty,
+  // bad size) is silent — bash will fall back to its 80x24 default.
+  'if [ -n "${COLUMNS:-}" ] && [ -n "${LINES:-}" ]; then',
+  '  stty cols "$COLUMNS" rows "$LINES" 2>/dev/null || true',
   "fi",
   "cd /mnt/workspace 2>/dev/null",
   "exec bash -i",

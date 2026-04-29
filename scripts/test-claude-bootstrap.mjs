@@ -80,6 +80,9 @@ const BOOTSTRAP = [
   'if ! grep -q ".bashrc.machinen" "$HOME/.bashrc" 2>/dev/null; then',
   '  printf "\\n[ -f \\"\\$HOME/.bashrc.machinen\\" ] && . \\"\\$HOME/.bashrc.machinen\\"\\n" >> "$HOME/.bashrc"',
   "fi",
+  'if [ -n "${COLUMNS:-}" ] && [ -n "${LINES:-}" ]; then',
+  '  stty cols "$COLUMNS" rows "$LINES" 2>/dev/null || true',
+  "fi",
 ].join("\n");
 
 // --- Run a bootstrap scenario in an isolated $HOME --------------------
