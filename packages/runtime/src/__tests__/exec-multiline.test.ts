@@ -273,9 +273,7 @@ describe("buildWriteFileCmds (chunking)", () => {
 
   it("reconstructs the original bytes when the chunked cmds are replayed", () => {
     // Simulate the guest: run the cmds against a shell-like reducer.
-    const big = Buffer.from(
-      Array.from({ length: 150 * 1024 }, (_, i) => (i * 7 + 11) & 0xff),
-    );
+    const big = Buffer.from(Array.from({ length: 150 * 1024 }, (_, i) => (i * 7 + 11) & 0xff));
     const cmds = buildWriteFileCmds("/tmp/out", big);
     let staged = "";
     for (const c of cmds) {

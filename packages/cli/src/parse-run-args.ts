@@ -4,7 +4,7 @@
 
 import { ParseError } from "@machinen/runtime";
 
-export interface ParsedRunArgs {
+interface ParsedRunArgs {
   positional: string[];
   double_dash_args: string[];
   mount?: { host: string; guest: string };

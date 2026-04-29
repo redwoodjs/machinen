@@ -41,7 +41,7 @@ const debug = debugLib("machinen:pdeathsig");
  * Bumped whenever the C source below changes in a way that changes
  * behavior. Recompiles instead of silently reusing a stale binary.
  */
-export const PDEATHSIG_VERSION = "v2";
+const PDEATHSIG_VERSION = "v2";
 
 let warnedNoCompiler = false;
 let installInFlight: Promise<string | null> | null = null;
@@ -218,7 +218,7 @@ static int run(int argc, char **argv) {
  * Where the compiled shim lands. Versioned so a source bump
  * recompiles instead of reusing a stale binary.
  */
-export function pdeathsigCachePath(): string {
+function pdeathsigCachePath(): string {
   return join(homedir(), ".machinen", "pdeathsig", PDEATHSIG_VERSION, "pdeathsig");
 }
 

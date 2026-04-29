@@ -48,7 +48,7 @@ const debug = debugLib("machinen:gvproxy");
  * in lockstep with that script so the release path (bundled in
  * `@machinen/vmm-*`) and the dev auto-install path stay aligned.
  */
-export const GVPROXY_VERSION = "v0.8.6";
+const GVPROXY_VERSION = "v0.8.6";
 
 let warnedMissing = false;
 let installInFlight: Promise<string | null> | null = null;
@@ -57,7 +57,7 @@ let installInFlight: Promise<string | null> | null = null;
  * Find the gvproxy binary using the documented lookup order. Returns
  * an absolute path, or `null` if gvproxy isn't available on this host.
  */
-export function resolveGvproxyBinary(vmmBinary: string): string | null {
+function resolveGvproxyBinary(vmmBinary: string): string | null {
   const envOverride = process.env.MACHINEN_GVPROXY;
   if (envOverride) {
     // Sentinel values — opt out of gvproxy entirely without fabricating
@@ -109,7 +109,7 @@ export function resolveGvproxyBinary(vmmBinary: string): string | null {
  * Versioned so a pinned-version bump re-downloads instead of silently
  * reusing a stale binary.
  */
-export function gvproxyCachePath(): string {
+function gvproxyCachePath(): string {
   return join(homedir(), ".machinen", "gvproxy", GVPROXY_VERSION, "gvproxy");
 }
 
@@ -448,7 +448,7 @@ function gvproxyAssetName(): string {
   );
 }
 
-export interface GvproxyHandle {
+interface GvproxyHandle {
   /** Absolute path to the qemu-netdev Unix socket. */
   socketPath: string;
   /**

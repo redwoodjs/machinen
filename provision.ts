@@ -101,10 +101,7 @@ const PNPM_VERSION = (() => {
 // packages/microvm produces the binary; no fail if missing because the
 // dev VM degrades to the e7e1db1 stty-on-bootstrap behavior (fine for
 // initial paint; just no SIGWINCH propagation mid-session).
-const WINSIZE_AGENT_HOST_PATH = resolve(
-  MAIN_REPO,
-  "packages/microvm/test-fixtures/winsize-agent",
-);
+const WINSIZE_AGENT_HOST_PATH = resolve(MAIN_REPO, "packages/microvm/test-fixtures/winsize-agent");
 const winsizeAgentBin = existsSync(WINSIZE_AGENT_HOST_PATH)
   ? readFileSync(WINSIZE_AGENT_HOST_PATH)
   : null;

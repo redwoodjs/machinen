@@ -591,9 +591,7 @@ async function cmdAttach(args: string[]): Promise<number> {
     die("machinen attach: stdin is not a TTY (pipe scripts via `machinen repl` instead)");
   }
   const vm = await attach(target).catch(handleError);
-  process.stderr.write(
-    `attached to ${vm.name ?? `pid ${vm.pid}`} — exit the shell to detach.\n`,
-  );
+  process.stderr.write(`attached to ${vm.name ?? `pid ${vm.pid}`} — exit the shell to detach.\n`);
   try {
     return await runPtyExec(vm, shell);
   } finally {

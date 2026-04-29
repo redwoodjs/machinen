@@ -4,6 +4,7 @@ node_modules/
 .devcontainer/kindling/
 .machinen/
 .machinen-vm/
+.fallow/
 dist/
 release-assets/
 .claude/scheduled_tasks.lock

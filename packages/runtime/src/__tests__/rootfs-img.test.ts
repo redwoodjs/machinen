@@ -29,7 +29,7 @@ import {
   markRootfsImageClean,
   ProvisionError,
 } from "../index.ts";
-import { _internal } from "../rootfs-img.ts";
+import { _rootfsImgInternal as _internal } from "../rootfs-img.ts";
 
 describe("ensureRootfsImage", () => {
   it("throws PROVISION_BASE_NOT_FOUND when the tarball is missing", () => {

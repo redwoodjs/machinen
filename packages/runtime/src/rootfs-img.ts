@@ -545,7 +545,7 @@ function allocateSparseFile(path: string, sizeBytes: number): void {
 
 // Visible to tests that want to assert without invoking the real
 // materializer.
-export const _internal = {
+export const _rootfsImgInternal = {
   sha256OfFile,
   whichFirst,
   cachedImageIsUsable,
