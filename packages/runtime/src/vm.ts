@@ -57,6 +57,7 @@ import {
 } from "./gvproxy.ts";
 import { spawnArtifactCache } from "./artifact-cache.ts";
 import { BootError, ExecError, RegistryError, SnapshotError } from "./errors.ts";
+import { ensurePdeathsig, wrapWithPdeathsig } from "./pdeathsig.ts";
 import { ensureRootfsImage, markRootfsImageClean } from "./rootfs-img.ts";
 import { VsockExec, type VsockExecOptions, type VsockExecResult } from "./exec.ts";
 import { serveLiveMount } from "./mount-server.ts";
@@ -637,15 +638,23 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     throw err;
   }
 
-  const child = nodeSpawn(binary, opts.args ?? [], {
+  // Wrap through the parent-death shim so the VMM dies with the
+  // runtime instead of orphaning to PID 1 holding the rootdisk fd and
+  // ~1.7 GiB RSS (#200). Mirrors `spawnGvproxy`. Falls through to a
+  // direct spawn if the shim is unavailable (no `cc`, opted-out,
+  // unsupported platform).
+  const vmmPdeathsig = await ensurePdeathsig();
+  const wrappedVmm = wrapWithPdeathsig(vmmPdeathsig, binary, opts.args ?? []);
+  const child = nodeSpawn(wrappedVmm.command, wrappedVmm.args, {
     cwd: opts.cwd,
     env,
     stdio: ["pipe", "pipe", "pipe"],
   }) as ChildProcessWithoutNullStreams;
   debug(
-    "VMM spawned pid=%d binary=%s elapsedSinceEntry=%dms",
+    "VMM spawned pid=%d binary=%s wrapped=%s elapsedSinceEntry=%dms",
     child.pid ?? -1,
     binary,
+    vmmPdeathsig ? "yes" : "no",
     Date.now() - bootT0,
   );
 
