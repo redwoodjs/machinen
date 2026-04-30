@@ -44,7 +44,13 @@ const debug = debugLib("machinen:pdeathsig");
 const PDEATHSIG_VERSION = "v2";
 
 let warnedNoCompiler = false;
-let installInFlight: Promise<string | null> | null = null;
+// Keyed by the resolved cache path. Two reasons it has to be a map and
+// not a single global: tests rebind `process.env.HOME` per-case (so the
+// cache path differs across calls in the same process), and the
+// runtime now calls `ensurePdeathsig()` in two spots per `boot()`
+// (gvproxy + the VMM, #200) — caching by path keeps the dedup correct
+// without leaking a stale promise from one HOME into the next call.
+const installInFlight = new Map<string, Promise<string | null>>();
 
 /**
  * The shim's source. Embedded so the runtime ships exactly one file
@@ -262,10 +268,11 @@ export async function ensurePdeathsig(): Promise<string | null> {
   if (existsSync(cached)) {
     return cached;
   }
-  if (installInFlight) {
-    return installInFlight;
+  const existing = installInFlight.get(cached);
+  if (existing) {
+    return existing;
   }
-  installInFlight = (async () => {
+  const promise = (async () => {
     try {
       return compilePdeathsig(cached);
     } catch (err) {
@@ -282,11 +289,15 @@ export async function ensurePdeathsig(): Promise<string | null> {
       }
       debug("compile failed err=%s", err instanceof Error ? err.message : String(err));
       return null;
-    } finally {
-      installInFlight = null;
     }
   })();
-  return installInFlight;
+  installInFlight.set(cached, promise);
+  void promise.finally(() => {
+    if (installInFlight.get(cached) === promise) {
+      installInFlight.delete(cached);
+    }
+  });
+  return promise;
 }
 
 /**
