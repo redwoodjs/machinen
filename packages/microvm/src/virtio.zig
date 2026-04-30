@@ -452,11 +452,20 @@ pub const Device = struct {
         return d;
     }
 
-    fn readAvailHeader(self: *Device, q: *const Queue) ?VringAvail {
+    pub fn readAvailHeader(self: *Device, q: *const Queue) ?VringAvail {
         const bytes = self.guestSlice(q.driver_addr, @sizeOf(VringAvail)) orelse return null;
-        var a: VringAvail = undefined;
-        @memcpy(std.mem.asBytes(&a), bytes);
-        return a;
+        // The driver's smp_wmb() pairs `ring[idx] = head` (release)
+        // with the `avail.idx` bump. We must acquire-load `avail.idx`
+        // so the subsequent `ring[idx]` read can't be hoisted above
+        // it. Without this, weakly-ordered cores (Apple Silicon, every
+        // ARM) can read a stale ring slot, push a garbage `head` to
+        // the used ring, and the guest sees `rx:id N is not a head!`
+        // when virtio_ring's detach_buf_split finds desc_state[N]
+        // empty. See #192.
+        const flags = std.mem.readInt(u16, bytes[0..2], .little);
+        const idx_ptr: *const u16 = @ptrCast(@alignCast(bytes[2..4]));
+        const idx = @atomicLoad(u16, idx_ptr, .acquire);
+        return .{ .flags = flags, .idx = idx };
     }
 
     fn readAvailRingEntry(self: *Device, q: *const Queue, idx: u16) ?u16 {
@@ -479,10 +488,13 @@ pub const Device = struct {
         const elem = VringUsedElem{ .id = id, .len = len };
         @memcpy(elem_bytes, std.mem.asBytes(&elem));
 
-        // Bump the used.idx — the driver watches this to learn about
-        // completions. Write back into guest memory.
-        header.idx +%= 1;
-        @memcpy(used_bytes, std.mem.asBytes(&header));
+        // Release-store on used.idx pairs with the driver's
+        // load-acquire: the guest mustn't observe the new idx before
+        // the ring[idx] write above is visible. Mirror of the avail
+        // fix in readAvailHeader. Leave used.flags alone — it's at
+        // offset 0 and untouched here.
+        const idx_ptr: *u16 = @ptrCast(@alignCast(used_bytes[2..4]));
+        @atomicStore(u16, idx_ptr, header.idx +% 1, .release);
     }
 };
 
