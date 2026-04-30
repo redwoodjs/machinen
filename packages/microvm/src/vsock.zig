@@ -957,18 +957,18 @@ pub const Bridge = struct {
         const q = &self.dev.queues[Q_RX];
         if (q.ready == 0 or q.num == 0) return false;
 
-        // Read avail.idx via helpers that live on virtio.Device. We
-        // can't import private helpers so we read directly by walking
-        // guest RAM via guestBytes.
-        const avail_addr = q.driver_addr;
-        const avail_bytes = self.dev.guestBytes(avail_addr, @sizeOf(virtio.VringAvail)) orelse return false;
-        var avail: virtio.VringAvail = undefined;
-        @memcpy(std.mem.asBytes(&avail), avail_bytes);
+        // Use Device.readAvailHeader (now pub) so we get its acquire-
+        // load on avail.idx — required to pair with the driver's
+        // smp_wmb() between writing ring[idx] and bumping avail.idx.
+        // Inlining @memcpy here used to skip the barrier and let
+        // weakly-ordered cores hoist the ring[idx] read above the
+        // avail.idx load. See #192.
+        const avail = self.dev.readAvailHeader(q) orelse return false;
         if (q.last_avail_idx == avail.idx) return false; // no buffer posted
 
         // avail.ring[slot]
         const slot: u32 = @as(u32, q.last_avail_idx) % q.num;
-        const ring_off: u64 = avail_addr + @sizeOf(virtio.VringAvail) + @as(u64, slot) * @sizeOf(u16);
+        const ring_off: u64 = q.driver_addr + @sizeOf(virtio.VringAvail) + @as(u64, slot) * @sizeOf(u16);
         const ring_bytes = self.dev.guestBytes(ring_off, @sizeOf(u16)) orelse return false;
         const head: u16 = std.mem.readInt(u16, ring_bytes[0..2], .little);
 
