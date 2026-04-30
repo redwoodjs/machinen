@@ -244,9 +244,7 @@ async function main(): Promise<void> {
       results.push(await runOne(i));
     }
   } else {
-    const settled = await Promise.all(
-      Array.from({ length: args.n }, (_, i) => runOne(i)),
-    );
+    const settled = await Promise.all(Array.from({ length: args.n }, (_, i) => runOne(i)));
     results.push(...settled);
   }
   const elapsedSec = (Date.now() - t0) / 1000;

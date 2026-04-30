@@ -27,12 +27,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Local agent-ci escape hatch: when the developer already has a
-      # built kernel + rootfs in release-assets/ (e.g. pulled from a
-      # remote arm64 builder via MACHINEN_REMOTE_BUILDER), skip the
-      # 5-minute build entirely. Real GitHub runners start with an
-      # empty workspace so this no-ops there and the cache+build steps
-      # run normally.
+      # Local agent-ci escape hatch. Two cases short-circuit the build:
+      #
+      #   1) The developer already has a built kernel + rootfs in
+      #      release-assets/ (e.g. pulled from a remote arm64 builder
+      #      via MACHINEN_REMOTE_BUILDER). Use those.
+      #
+      #   2) Running under agent-ci (AGENT_CI_LOCAL=true) without
+      #      prebuilt assets. The build calls `docker run -v
+      #      $REPO/.build-stage:/stage:ro`, which the *host* docker
+      #      daemon resolves against a path that only exists inside
+      #      agent-ci's runner container — so /stage mounts as an
+      #      empty dir and `install /stage/init` fails. There's no way
+      #      to make this work without either bind-mounting the
+      #      workspace from host to runner at the same path, or
+      #      pre-populating release-assets/. Fail fast with a clear
+      #      message instead of letting the build run and ENOENT.
+      #
+      # Real GitHub runners hit neither branch and the cache+build
+      # steps run normally.
       - name: Skip if pre-built base assets are present
         id: prebuilt
         run: |
@@ -41,6 +54,9 @@ jobs:
              && [ -f release-assets/rootfs-debian-arm64.tar.gz ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "release-assets/ already populated — skipping build."
+          elif [ "${AGENT_CI_LOCAL:-}" = "true" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::AGENT_CI_LOCAL detected without release-assets/ — skipping the docker-based base-assets build (host docker daemon can't see the runner's bind-mount paths). Pre-populate release-assets/ to exercise this workflow locally; on real CI this branch never fires."
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
@@ -72,7 +88,12 @@ jobs:
         if: steps.prebuilt.outputs.skip != 'true' && steps.cache.outputs.cache-hit != 'true'
         run: ./scripts/build-base-assets.sh
 
+      # Skip the upload when the build was short-circuited and
+      # release-assets/ is empty — `if-no-files-found: error` would
+      # otherwise fail the job on agent-ci local without prebuilt
+      # assets. On real CI the build always populates release-assets/.
       - uses: actions/upload-artifact@v4
+        if: steps.prebuilt.outputs.skip != 'true' || hashFiles('release-assets/Image-arm64') != ''
         with:
           name: base-assets
           path: release-assets/

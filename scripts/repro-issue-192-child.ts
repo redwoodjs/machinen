@@ -51,7 +51,9 @@ const vm = await boot({
   cmd: ["/bin/bash", "-lc", inner],
   timeoutMs: null,
   onLog: (evt) => {
-    if (evt.source !== "guest-console") return;
+    if (evt.source !== "guest-console") {
+      return;
+    }
     tail = (tail + evt.chunk.toString("utf8")).slice(-65536);
     if (!hit) {
       const m = HIT_RE.exec(tail);
@@ -59,7 +61,9 @@ const vm = await boot({
         hit = true;
         descId = Number(m[1]);
         const um = UPTIME_RE.exec(tail);
-        if (um) uptime = Number(um[1]);
+        if (um) {
+          uptime = Number(um[1]);
+        }
       }
     }
   },
