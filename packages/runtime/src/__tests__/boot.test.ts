@@ -6,7 +6,7 @@
 // expression. Skipped (not failed) if the prerequisites aren't there:
 // Image/virt.dtb/initramfs fixtures, or the HVF-entitled test binary.
 
-import { execSync } from "node:child_process";
+import { execSync, spawn } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
@@ -22,6 +22,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { BootError, ExecError, buildMachinenConfig, measureFirstByte, boot } from "../index.ts";
+import { ensurePdeathsig } from "../pdeathsig.ts";
 
 const microvmRoot = resolve(import.meta.dirname, "../../../microvm");
 
@@ -61,6 +62,86 @@ describe("boot", () => {
   it("throws BootError when the binary path does not exist", async () => {
     await expect(boot({ binary: "/nope/does/not/exist" })).rejects.toThrow(BootError);
   });
+
+  // #200: the VMM was spawned without parent-death wiring, so a
+  // SIGKILL of the runtime process orphaned `machinen-vm` to PID 1
+  // with the rootdisk fd and ~1.7 GiB RSS still held. Wrap the spawn
+  // through the same shim `spawnGvproxy` uses; assert end-to-end that
+  // the VMM dies with its parent.
+  it("VMM dies with the parent process (#200)", async () => {
+    if (process.platform !== "linux" && process.platform !== "darwin") {
+      return; // shim is no-op on other platforms
+    }
+    const shim = await ensurePdeathsig();
+    if (!shim) {
+      // No C toolchain — graceful-fallback path is still safe (issue #200
+      // notes the unwrapped behavior is the previous status quo). Nothing
+      // for this test to assert.
+      console.warn("pdeathsig shim unavailable; skipping VMM orphan test");
+      return;
+    }
+
+    const fixture = resolve(import.meta.dirname, "fixtures/boot-and-hold.ts");
+    // `node --import tsx` keeps everything in a single node process —
+    // important here, because we need the SIGKILL'd process to be the
+    // VMM's direct parent. (The `tsx` CLI binary spawns its target as
+    // a child, which would put another layer between us and the VMM.)
+    const parent = spawn(process.execPath, ["--import", "tsx", fixture], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    const pidLine = await new Promise<number>((res, rej) => {
+      let buf = "";
+      const t = setTimeout(() => rej(new Error("never received VMM_PID")), 30_000);
+      parent.stdout!.on("data", (c: Buffer) => {
+        buf += c.toString();
+        const m = buf.match(/VMM_PID=(\d+)/);
+        if (m) {
+          clearTimeout(t);
+          res(Number(m[1]));
+        }
+      });
+      parent.once("error", rej);
+      parent.once("exit", (code, signal) => {
+        if (!buf.match(/VMM_PID=(\d+)/)) {
+          clearTimeout(t);
+          rej(new Error(`fixture exited before reporting VMM_PID (code=${code} sig=${signal})`));
+        }
+      });
+    });
+
+    const pidAlive = (pid: number): boolean => {
+      try {
+        process.kill(pid, 0);
+        return true;
+      } catch (err) {
+        return (err as NodeJS.ErrnoException).code !== "ESRCH";
+      }
+    };
+    expect(pidAlive(pidLine)).toBe(true);
+
+    // SIGKILL the parent. With the shim in place, `pidLine` (the VMM
+    // wrapper on darwin, the VMM directly on linux) must die within a
+    // few hundred ms.
+    parent.kill("SIGKILL");
+
+    const deadline = Date.now() + 5_000;
+    let gone = false;
+    while (Date.now() < deadline) {
+      if (!pidAlive(pidLine)) {
+        gone = true;
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 25));
+    }
+    if (!gone) {
+      // Last-resort cleanup so we don't leak a sleep(1) across runs.
+      try {
+        process.kill(pidLine, "SIGKILL");
+      } catch {}
+    }
+    expect(gone).toBe(true);
+  }, 60_000);
 
   it("rejects wait() when the VMM exceeds its timeout", async () => {
     // Use a binary that just sleeps (the macOS `yes` command never
