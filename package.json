@@ -23,6 +23,7 @@
     "provision-test-vm": "node scripts/provision-test-vm.ts",
     "vm": "node vm.ts",
     "vm-pick": "bash scripts/vm-pick.sh",
+    "repro-192": "node scripts/repro-issue-192.ts",
     "machinen-dev": "bash scripts/machinen-dev.sh",
     "smoke-tests": "bash scripts/smoke-tests.sh",
     "bench-net": "bash scripts/bench-net.sh"
