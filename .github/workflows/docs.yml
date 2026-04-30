@@ -29,5 +29,12 @@ jobs:
       # this is the canary for @throws (and other JSDoc) going stale.
       # core.fileMode=false ignores mode-only diffs, which can appear
       # when the file was committed from a different umask.
+      #
+      # Skip on agent-ci local: typedoc's `Defined in: [path](url)` links
+      # rely on `git ls-files` resolving the absolute paths typedoc
+      # passes in. agent-ci's snapshot checkout puts the workspace
+      # somewhere typedoc can't match, so it strips the URLs and the
+      # diff is non-empty even on a clean tree. Real CI doesn't hit this.
       - name: Check API.md is up to date
+        if: env.AGENT_CI_LOCAL != 'true'
         run: git -c core.fileMode=false diff --exit-code -- packages/runtime/API.md

@@ -31,11 +31,31 @@ jobs:
     needs: [base-assets]
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v4
+      # agent-ci's local runner doesn't expose /dev/kvm (and the
+      # GitHub-hosted arm64 image no longer does either — see #197),
+      # so the rest of this job can't boot a real microVM. Detect that
+      # up front and short-circuit the remaining steps with a warning.
+      # Job-level `if:` would be cleaner, but GitHub Actions doesn't
+      # expose runner-set env vars (like AGENT_CI_LOCAL) to job-level
+      # conditions — only workflow-level env. So gate per-step.
+      - name: Detect agent-ci local runner
+        id: gate
+        run: |
+          if [ "${AGENT_CI_LOCAL:-}" = "true" ]; then
+            echo "::warning::AGENT_CI_LOCAL detected — skipping the workloads job (no /dev/kvm on local runner)."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
 
-      - uses: pnpm/action-setup@v4
+      - if: steps.gate.outputs.skip != 'true'
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - if: steps.gate.outputs.skip != 'true'
+        uses: pnpm/action-setup@v4
+
+      - if: steps.gate.outputs.skip != 'true'
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
@@ -46,40 +66,49 @@ jobs:
       # membership; the GitHub-hosted arm64 runner already grants this
       # to the workflow user.
       - name: Confirm KVM is available
+        if: steps.gate.outputs.skip != 'true'
         run: test -c /dev/kvm
 
-      - uses: mlugg/setup-zig@v2
+      - if: steps.gate.outputs.skip != 'true'
+        uses: mlugg/setup-zig@v2
         with:
           version: 0.16.0
 
       - name: Build linux-arm64 VMM
+        if: steps.gate.outputs.skip != 'true'
         working-directory: packages/microvm
         run: zig build -Doptimize=ReleaseSafe
 
       - name: Stage VMM for the runtime to find
+        if: steps.gate.outputs.skip != 'true'
         run: |
           mkdir -p packages/vmm-arm64-linux/bin
           cp packages/microvm/zig-out/bin/machinen-vm packages/vmm-arm64-linux/bin/machinen-vm
           cp packages/microvm/zig-out/bin/gvproxy packages/vmm-arm64-linux/bin/gvproxy
 
-      - run: pnpm install --frozen-lockfile
+      - if: steps.gate.outputs.skip != 'true'
+        run: pnpm install --frozen-lockfile
 
       # Build runtime + cli so the workload tests import the compiled
       # dist (vitest uses the source via tsx, but boot() flows through
       # @machinen/runtime's package entrypoint which the test imports
       # by relative path — rebuild keeps types in sync regardless).
-      - run: pnpm -F @machinen/runtime -F @machinen/cli build
+      - if: steps.gate.outputs.skip != 'true'
+        run: pnpm -F @machinen/runtime -F @machinen/cli build
 
       - name: Materialize cached base assets
+        if: steps.gate.outputs.skip != 'true'
         uses: actions/download-artifact@v4
         with:
           name: base-assets
           path: release-assets/
 
       - name: Provision the test VM image
+        if: steps.gate.outputs.skip != 'true'
         run: pnpm provision-test-vm
 
       # Filter to workloads — the rest of vitest already runs in the
       # plain Tests workflow.
       - name: Run workload tests
+        if: steps.gate.outputs.skip != 'true'
         run: pnpm exec vitest run packages/runtime/src/__tests__/mount-server-workloads.test.ts
