@@ -314,6 +314,17 @@ mkdir -m 0755 /work/rootfs/dev
 # `apt-get update` and any other hostname lookup will fail.
 echo "nameserver 192.168.127.1" > /work/rootfs/etc/resolv.conf
 
+# /tmp — mmdebstrap minbase doesn't always include this directory in the
+# extracted rootfs (depends on which essential packages happen to ship
+# /tmp ownership, and our path-excludes can shave it). Without a 1777
+# /tmp the guest is missing a place anyone-can-write things, and CRIU's
+# kerndat probes (run on every `criu dump` AND `criu restore` from
+# kerndat_has_move_mount_set_group on) try to mkdir
+# `/tmp/.criu.move_mount_set_group.XXXXXX` and bail with ENOENT,
+# breaking both snapshot and restore. Create it explicitly with the
+# usual sticky-write-everyone mode so any caller can rely on it.
+install -m 1777 -d /work/rootfs/tmp
+
 install -m 0755 /stage/init       /work/rootfs/init
 install -m 0755 /stage/exec-agent /work/rootfs/exec-agent
 install -m 0755 /stage/fuse-agent /work/rootfs/fuse-agent

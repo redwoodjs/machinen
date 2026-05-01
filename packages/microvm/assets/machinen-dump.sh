@@ -65,6 +65,14 @@ echo "machinen-dump: preparing (pid=$DUMP_PID)"
     exit 1
 }
 
+# CRIU's kerndat_has_move_mount_set_group probe creates a throwaway dir
+# under /tmp (`/tmp/.criu.move_mount_set_group.XXXXXX`); a rootfs with
+# no /tmp (older app.tar.gz layers, minimal images) makes it fail with
+# ENOENT and aborts the dump before it touches the workload. The base
+# rootfs ships /tmp, but be defensive in case a layered image stripped it.
+mkdir -p /tmp
+chmod 1777 /tmp 2>/dev/null || true
+
 # Format the scratch disk ext4 on first use. Subsequent snapshots just
 # remount.
 # -F: force (existing data is a scratch allocation; we're overwriting).
