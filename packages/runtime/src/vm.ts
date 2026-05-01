@@ -29,11 +29,13 @@ import {
   constants as fsConstants,
   copyFileSync,
   existsSync,
+  linkSync,
   mkdirSync,
   mkdtempSync,
   openSync,
   readdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   statSync,
   unlinkSync,
@@ -1009,15 +1011,22 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
 }
 
 /**
- * Parse the UDS path out of a `MACHINEN_VSOCK` spec. Format is
- * `<direction>:<port>:<uds-path>` — we return the path portion so
- * `vm.exec()` knows where to dial. Returns undefined on unrecognized
- * shapes (caller-provided bespoke formats) so the handle can throw a
- * clear error if `.exec()` ends up called on it.
+ * Parse the UDS path out of a `MACHINEN_VSOCK` spec. The spec may be a
+ * single `<direction>:<port>:<uds-path>` entry or a comma-joined list
+ * of them (`in:1978:/a,in:1974:/b,out:1970:/c`). For attach/exec we want
+ * the FIRST `in:` entry's path — that's the exec-agent UDS the runtime
+ * just allocated (or, when the caller set MACHINEN_VSOCK explicitly,
+ * the entry they put first). Returns undefined on unrecognized shapes
+ * so the handle can throw a clear error if `.exec()` ends up called on it.
  */
 function parseVsockUdsPath(spec: string): string | undefined {
-  const match = spec.match(/^[^:]+:\d+:(.+)$/);
-  return match ? match[1] : undefined;
+  for (const entry of spec.split(",")) {
+    const match = entry.match(/^[^:]+:\d+:(.+)$/);
+    if (match) {
+      return match[1];
+    }
+  }
+  return undefined;
 }
 
 export interface AttachOptions {
@@ -1758,6 +1767,35 @@ async function performSnapshot(
   // cases where /usr/bin/true (or any no-op binary) exits cleanly
   // before the dump has any effect.
   const preMtime = statSync(ctx.diskPath).mtimeMs;
+  // Hardlink the live scratch disk into the bundle BEFORE the dump
+  // dispatches. boot()'s VMM-exit handler unlinks `perBootSnapDisk`
+  // synchronously (see `child.once("exit", ...)`), and when the
+  // snapshot is driven from a different process (e.g. `machinen
+  // snapshot --name X` against a backgrounded `machinen boot`), that
+  // unlink races our `copyFileSync(diskPath, ...)` after `wait()`
+  // returns — and wins, because the boot-process handler is sync-on-exit
+  // while we're poll-based. The hardlink shares the inode so guest
+  // writes still land on the same data, but our second name keeps it
+  // alive even after the boot process drops its name. We rename the
+  // staging name to disk.img on success; on failure we unlink it.
+  // Falls back to copyFileSync at the bottom of the function if we
+  // can't link (cross-fs EXDEV — rare, since tmpdir and snapDir are
+  // usually the same fs).
+  const stagingPath = join(snapDir, "disk.img.staging");
+  let stagedViaLink = false;
+  try {
+    if (existsSync(stagingPath)) {
+      unlinkSync(stagingPath);
+    }
+    linkSync(ctx.diskPath, stagingPath);
+    stagedViaLink = true;
+    debugSnapshot("staged scratch via hardlink %s -> %s", ctx.diskPath, stagingPath);
+  } catch (err) {
+    debugSnapshot(
+      "hardlink staging skipped (%s) — falling back to post-exit copy",
+      err instanceof Error ? err.message : String(err),
+    );
+  }
   debugSnapshot(
     "snapshot start pid=%d snapDir=%s dumpCmd=%s timeoutMs=%d diskPath=%s preMtime=%d",
     ctx.pid,
@@ -1775,13 +1813,31 @@ async function performSnapshot(
   }
 
   // Kick off the in-guest dump. The vsock connection typically closes
-  // mid-transaction as the guest powers off — `.catch(() => {})` swallows
-  // that expected tear-down; the real success signal is the VMM exit
-  // below. If the dump script fails outright before the guest powers
-  // off, the kill-timer below catches the hang.
-  void ctx
+  // mid-transaction as the guest powers off (CRIU kills the dumped tree,
+  // the supervisor poweroffs, the agent dies with it) — that path
+  // surfaces here as either a clean exit or an EXEC_AGENT_UNAVAILABLE
+  // rejection. We capture both so that on SNAPSHOT_TIMEOUT we can tell
+  // the caller whether the dump even reached the guest.
+  type DumpOutcome = { kind: "exited"; exitCode: number } | { kind: "rejected"; error: unknown };
+  let dumpOutcome: DumpOutcome | undefined;
+  const dumpDispatch = ctx
     .execRaw(dumpCmd, {
-      connectTimeoutMs: 2_000,
+      // Default exec connect is 30s. The dump runs against an
+      // already-attached, healthy VM, so we don't need that much, but
+      // 2s was tight enough to reject under load and then get silently
+      // swallowed — leaving the host to wait the full deadline for an
+      // exit that was never going to come. Bound by the snapshot
+      // deadline so a small `timeoutMs` (e.g. unit tests pointing
+      // `/usr/bin/true` at this) doesn't stall on connect retries
+      // longer than the caller is willing to wait for the whole op.
+      connectTimeoutMs: Math.min(deadlineMs, 10_000),
+      // Bound the per-call exec timeout by the snapshot deadline. Without
+      // this, a kill-timer-induced VMM SIGKILL doesn't always close the
+      // host-side vsock socket cleanly; the exec pump then sits waiting
+      // for EOF until VsockExec.run's own 5-min default fires, which
+      // means `await dumpDispatch` below blocks for up to 300s after the
+      // snapshot has already declared SNAPSHOT_TIMEOUT.
+      execTimeoutMs: deadlineMs,
       onStdout: onLog
         ? (chunk) => onLog({ source: "exec-stdout", cmd: dumpCmd, chunk })
         : undefined,
@@ -1789,7 +1845,19 @@ async function performSnapshot(
         ? (chunk) => onLog({ source: "exec-stderr", cmd: dumpCmd, chunk })
         : undefined,
     })
-    .catch(() => {});
+    .then(
+      (res) => {
+        dumpOutcome = { kind: "exited", exitCode: res.exitCode };
+        debugSnapshot("dump exec returned exitCode=%d", res.exitCode);
+      },
+      (err) => {
+        dumpOutcome = { kind: "rejected", error: err };
+        debugSnapshot(
+          "dump exec dispatch rejected: %s",
+          err instanceof Error ? err.message : String(err),
+        );
+      },
+    );
 
   let timedOut = false;
   const killTimer = setTimeout(() => {
@@ -1802,19 +1870,33 @@ async function performSnapshot(
   } finally {
     clearTimeout(killTimer);
   }
+  // The dispatch promise may still be racing the VMM exit; wait it out
+  // so the timeout/dump-failed errors below can include its outcome.
+  // `.then(_, _)` converts the rejection into a resolution, so this
+  // never throws.
+  await dumpDispatch;
   const elapsedMs = Date.now() - t0;
   const consoleLog = await ctx.errorOutput();
   debugSnapshot(
-    "guest exited elapsed=%dms consoleBytes=%d timedOut=%s",
+    "guest exited elapsed=%dms consoleBytes=%d timedOut=%s dumpOutcome=%j",
     elapsedMs,
     consoleLog.length,
     timedOut,
+    dumpOutcome,
   );
 
+  const dumpHint = formatDumpOutcomeHint(dumpOutcome);
+
   if (timedOut) {
+    if (stagedViaLink) {
+      try {
+        unlinkSync(stagingPath);
+      } catch {}
+    }
     throw new SnapshotError(
       "SNAPSHOT_TIMEOUT",
       `vm.snapshot: guest did not shut down within ${deadlineMs}ms — dump likely failed.` +
+        dumpHint +
         (consoleLog ? `\nConsole tail:\n${consoleLog.slice(-2000)}` : ""),
     );
   }
@@ -1823,19 +1905,35 @@ async function performSnapshot(
   // actually ran. `/usr/bin/true` boots, exits immediately, and the
   // VMM comes down cleanly without ever touching the disk — we don't
   // want that to pass as success. mtime delta catches it.
-  const postMtime = statSync(ctx.diskPath).mtimeMs;
+  // Post-mtime check — read via the staging hardlink when we have one
+  // (it shares the inode with `ctx.diskPath`, so the mtime is identical
+  // and survives the boot-process unlink). Falls back to the live path
+  // when staging wasn't possible.
+  const mtimeProbePath = stagedViaLink ? stagingPath : ctx.diskPath;
+  const postMtime = statSync(mtimeProbePath).mtimeMs;
   if (postMtime === preMtime) {
+    if (stagedViaLink) {
+      try {
+        unlinkSync(stagingPath);
+      } catch {}
+    }
     throw new SnapshotError(
       "SNAPSHOT_DUMP_FAILED",
       "vm.snapshot: guest exited without writing to the disk — the dump script " +
         "never ran (is /sbin/machinen-dump present in the rootfs?)." +
+        dumpHint +
         (consoleLog ? `\nConsole tail:\n${consoleLog.slice(-2000)}` : ""),
     );
   }
 
   const diskOut = join(snapDir, "disk.img");
-  debugSnapshot("copy disk %s -> %s", ctx.diskPath, diskOut);
-  copyFileSync(ctx.diskPath, diskOut);
+  if (stagedViaLink) {
+    debugSnapshot("promote staging %s -> %s", stagingPath, diskOut);
+    renameSync(stagingPath, diskOut);
+  } else {
+    debugSnapshot("copy disk %s -> %s", ctx.diskPath, diskOut);
+    copyFileSync(ctx.diskPath, diskOut);
+  }
 
   // Drop the bundle metadata next to the image so `restore({ snapDir })`
   // can recover the source name without poking at the disk.
@@ -1847,6 +1945,23 @@ async function performSnapshot(
 
   debugSnapshot("snapshot done snapDir=%s postMtime=%d", snapDir, postMtime);
   return { snapDir, diskPath: diskOut, elapsedMs, consoleLog };
+}
+
+function formatDumpOutcomeHint(
+  outcome: { kind: "exited"; exitCode: number } | { kind: "rejected"; error: unknown } | undefined,
+): string {
+  if (!outcome) {
+    return "";
+  }
+  if (outcome.kind === "rejected") {
+    const err = outcome.error;
+    const msg = err instanceof Error ? err.message : String(err);
+    return `\nDump exec dispatch failed: ${msg}`;
+  }
+  if (outcome.exitCode !== 0) {
+    return `\nDump exec exited ${outcome.exitCode} (workload kept running).`;
+  }
+  return "";
 }
 
 export interface RestoreOptions extends Omit<BootOptions, "snapshot" | "image" | "cmd" | "name"> {

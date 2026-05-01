@@ -34,7 +34,32 @@ set -u
 /exec-agent </dev/null >/dev/null 2>&1 &
 AGENT_PID=$!
 
+# Spawn winsize-agent (vsock 1974, see #177) as a SIBLING of the
+# workload — never as a descendant. CRIU 3.17 has no AF_VSOCK dump
+# support; any vsock fd inside the workload tree breaks `criu dump`
+# with "BUG! Unknown socket collected (family 40)". Putting the agent
+# here, alongside exec-agent, keeps it outside `criu dump --tree
+# <workload-pid>` so snapshot just works on VMs that asked the runtime
+# to bridge in:1974. Optional — older rootfs builds (or callers that
+# didn't include the agent) just skip this. Same /dev/null teardown
+# pattern as exec-agent so workload stdout stays clean.
+WINSIZE_PID=""
+if [ -x /sbin/machinen-winsize-agent ]; then
+    /sbin/machinen-winsize-agent </dev/null >/dev/null 2>&1 &
+    WINSIZE_PID=$!
+fi
+
 mkdir -p /run 2>/dev/null || true
+# /tmp is required by CRIU's kerndat probes (mkdir under /tmp on every
+# `criu dump` AND `criu restore`), and by lots of other software that
+# expects a sticky-writable scratch dir. The base rootfs ships it 1777,
+# but layered images (app.tar.gz produced by provision.ts intentionally
+# excludes ./tmp) drop it on the floor — without this `machinen
+# snapshot` and any restore both fail kerndat init. Universal fix: make
+# the supervisor responsible for the directory's existence so any
+# rootfs the runtime boots gets a usable /tmp before the workload runs.
+mkdir -p /tmp /var/tmp 2>/dev/null || true
+chmod 1777 /tmp /var/tmp 2>/dev/null || true
 
 # `--session` is the legacy "run under setsid" toggle from when CRIU
 # dumps required it but interactive boots didn't. Both modes now go
@@ -86,7 +111,11 @@ trap 'kill -TERM "$(cat /run/machinen-workload.pid 2>/dev/null)" 2>/dev/null; wa
 
 wait "$PID"
 
-# Workload exited — stop the agent and power off cleanly.
+# Workload exited — stop the agents and power off cleanly.
 kill -TERM "$AGENT_PID" 2>/dev/null || true
 wait "$AGENT_PID" 2>/dev/null || true
+if [ -n "$WINSIZE_PID" ]; then
+    kill -TERM "$WINSIZE_PID" 2>/dev/null || true
+    wait "$WINSIZE_PID" 2>/dev/null || true
+fi
 exec /sbin/machinen-poweroff

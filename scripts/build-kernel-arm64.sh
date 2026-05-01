@@ -73,7 +73,29 @@ make ARCH=arm64 defconfig >/dev/null
 # host over vsock; without VSOCKETS + virtio transport, vm.exec breaks.
 #
 # Netfilter — defensively kept for processes that hold iptables/nftables
-# state at dump time. Cheap to bake in.
+# state at dump time. NF_TABLES + NETFILTER_NETLINK alone is not enough:
+# CRIU's kerndat probes (run on every `criu dump`, not gated by flags)
+# create an `inet`-AF nftables table and a concat-typed set to verify
+# the kernel can support its restore plan. Without NF_TABLES_INET those
+# probes return EOPNOTSUPP and dump bails before doing anything. NFT_CT
+# covers connection-tracking expressions; NF_CONNTRACK is the underlying
+# subsystem any restore that touches conntrack needs. The set types
+# themselves (hash / rbtree / pipapo) are no longer separate Kconfig
+# options in 6.x — NF_TABLES_CORE selects them in.
+#
+# VETH — CRIU's kerndat also creates a throwaway veth pair via netlink to
+# verify RTM_NEWLINK. Without the veth driver this returns EOPNOTSUPP (-95)
+# and the dump fails the same way. Independent of whether the workload
+# uses veth — it's a probe.
+#
+# USERFAULTFD — CRIU's lazy-pages probe needs userfaultfd(2). Dump runs
+# without it (just emits a warning), but restore can hang attempting to
+# install pages via uffd. Built in.
+#
+# IPV6 — defconfig leaves this =m. CRIU restore walks IPv6 socket diag
+# during the network-restore phase even when the workload only used
+# IPv4, and a missing module here can hang the restore loop. Force =y
+# to match the rest of the boot-path drivers.
 #
 # FUSE — guest side of `--mount-live` (#78). Builtin so liveMounts work
 # without /init having to finit_module fuse first.
@@ -93,7 +115,11 @@ make ARCH=arm64 defconfig >/dev/null
   --enable INET_DIAG --enable NETLINK_DIAG --enable UNIX_DIAG \
   --enable INET_TCP_DIAG --enable INET_UDP_DIAG \
   --enable PACKET_DIAG --enable VSOCKETS_DIAG \
-  --enable NF_TABLES --enable NETFILTER_NETLINK \
+  --enable NF_TABLES --enable NF_TABLES_INET --enable NETFILTER_NETLINK \
+  --enable NF_CONNTRACK --enable NFT_CT \
+  --enable VETH \
+  --enable USERFAULTFD \
+  --enable IPV6 \
   --enable LIBCRC32C \
   --enable FUSE_FS \
   --enable IKCONFIG --enable IKCONFIG_PROC \
@@ -111,6 +137,12 @@ required=(
   NET_FAILOVER FAILOVER
   EXT4_FS
   VSOCKETS VIRTIO_VSOCKETS
+  VETH
+  NF_TABLES NF_TABLES_INET NETFILTER_NETLINK
+  NFT_CT
+  NF_CONNTRACK
+  USERFAULTFD
+  IPV6
 )
 for c in "${required[@]}"; do
   if ! grep -q "^CONFIG_${c}=y" .config; then
