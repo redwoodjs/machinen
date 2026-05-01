@@ -10,6 +10,7 @@
 // address in gvproxy's DHCP pool so there's no collision.
 //
 // Build: zig cc -target aarch64-linux-musl -static -Os -o machinen-netup machinen-netup.c
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -46,6 +47,20 @@ static int if_addr(int s, const char *name, const char *ip, const char *mask) {
     return 0;
 }
 
+// Open the unprivileged ICMP datagram socket gid range to every gid so
+// `ping` works for non-root users (#203). Upstream default is `1 0`
+// (an empty range) which makes `socket(AF_INET, SOCK_DGRAM,
+// IPPROTO_ICMP)` return EAFNOSUPPORT for any gid. Best-effort: if the
+// sysctl is missing (older kernel, hardened sysctl namespace) just
+// continue — root still has raw sockets.
+static void enable_unpriv_ping(void) {
+    int fd = open("/proc/sys/net/ipv4/ping_group_range", O_WRONLY);
+    if (fd < 0) return;
+    static const char range[] = "0\t2147483647\n";
+    (void)write(fd, range, sizeof(range) - 1);
+    close(fd);
+}
+
 static int gw_set(int s, const char *gw) {
     struct rtentry rt;
     memset(&rt, 0, sizeof(rt));
@@ -76,6 +91,11 @@ static int wait_for_eth0(void) {
 }
 
 int main(void) {
+    // Independent of eth0 — runs first so even a partial network
+    // bring-up (or a re-invocation that hits EEXIST on the route) still
+    // leaves unprivileged ping working for non-root users (#203).
+    enable_unpriv_ping();
+
     if (wait_for_eth0() < 0) {
         fprintf(stderr, "machinen-netup: eth0 did not appear\n");
         return 6;
