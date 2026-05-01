@@ -258,7 +258,7 @@ const STAGE_BOOTSTRAP = [
   "claude() {",
   '  IS_SANDBOX=1 command claude --dangerously-skip-permissions "$@"',
   "}",
-  "if [ -d /mnt/workspace ] && [ \"$PWD\" = \"$HOME\" ]; then",
+  'if [ -d /mnt/workspace ] && [ "$PWD" = "$HOME" ]; then',
   "  cd /mnt/workspace",
   "fi",
   "EOF",
