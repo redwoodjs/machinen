@@ -19,6 +19,16 @@
 
 const std = @import("std");
 const virtio = @import("virtio.zig");
+const assert = std.debug.assert;
+
+comptime {
+    // virtio-blk wire format: outhdr is exactly 16 bytes (type:u32, reserved:u32, sector:u64).
+    // The driver writes this layout into guest memory; mismatched size means we'd memcpy
+    // garbage into out_hdr and dispatch on uninitialized bytes.
+    assert(@sizeOf(BlkOutHdr) == 16);
+    assert(@offsetOf(BlkOutHdr, "type") == 0);
+    assert(@offsetOf(BlkOutHdr, "sector") == 8);
+}
 
 pub const BlkType = enum(u32) {
     in = 0, // read sectors into guest memory
@@ -62,7 +72,13 @@ pub const Backend = struct {
     config: BlkConfig,
 
     pub fn initFromFd(fd: c_int, size_bytes: u64) Backend {
+        assert(fd >= 0);
+        assert(size_bytes > 0);
+        // virtio-blk capacity is in 512-byte sectors; a non-multiple would silently truncate.
+        assert(size_bytes % 512 == 0);
         const sectors = size_bytes / 512;
+        assert(sectors * 512 == size_bytes);
+        assert(sectors > 0);
         return .{
             .fd = fd,
             .capacity_sectors = sectors,
@@ -71,13 +87,17 @@ pub const Backend = struct {
     }
 
     pub fn deinit(self: *Backend) void {
+        assert(self.fd >= 0);
         _ = close(self.fd);
     }
 
     /// The request-handler callback to feed `virtio.Device.request_handler`.
     pub fn handleRequest(ctx: ?*anyopaque, dev: *virtio.Device, q_idx: u32, head: u16) void {
+        assert(ctx != null);
         _ = q_idx; // virtio-blk has just one queue (0)
         const self: *Backend = @ptrCast(@alignCast(ctx.?));
+        assert(self.fd >= 0);
+        assert(self.capacity_sectors > 0);
 
         // Walk the chain, categorise each descriptor into (hdr, data, status).
         var hdr: ?virtio.VringDesc = null;
@@ -87,6 +107,8 @@ pub const Backend = struct {
 
         var idx: u16 = head;
         var steps: u32 = 0;
+        // 32 is a guest-input bound, not a programmer invariant; an evil/buggy guest can ring
+        // a longer chain and we silently break, which is the right policy here.
         while (steps < 32) : (steps += 1) {
             const d = dev.queueDescriptor(0, idx) orelse break;
             if (hdr == null) {
@@ -103,6 +125,9 @@ pub const Backend = struct {
             if ((d.flags & virtio.VringDesc.F_NEXT) == 0) break;
             idx = d.next;
         }
+        assert(data_count <= data.len);
+        assert(steps <= 32);
+        if (status_desc) |s| assert(s.len == 1);
 
         // Parse outhdr.
         var status: u8 = VIRTIO_BLK_S_OK;
@@ -117,6 +142,8 @@ pub const Backend = struct {
             dev.queuePushUsed(0, head, 0);
             return;
         };
+        // Pair with the comptime layout assertion: every byte we copy lines up with a field.
+        assert(hdr_bytes.len == @sizeOf(BlkOutHdr));
         var out_hdr: BlkOutHdr = undefined;
         @memcpy(std.mem.asBytes(&out_hdr), hdr_bytes);
 
@@ -163,10 +190,12 @@ pub const Backend = struct {
                 // Fill the first data descriptor with a 20-byte device id.
                 if (data_count >= 1) {
                     const id_str: []const u8 = "machinen-vda" ++ ("\x00" ** 8);
+                    assert(id_str.len == 20);
                     const dst = dev.guestBytes(data[0].addr, @min(data[0].len, 20)) orelse {
                         status = VIRTIO_BLK_S_IOERR;
                         return;
                     };
+                    assert(dst.len <= 20);
                     @memset(dst, 0);
                     @memcpy(dst[0..@min(dst.len, id_str.len)], id_str[0..@min(dst.len, id_str.len)]);
                     written = @intCast(dst.len);
@@ -175,8 +204,13 @@ pub const Backend = struct {
             else => status = VIRTIO_BLK_S_UNSUPP,
         }
 
+        assert(status == VIRTIO_BLK_S_OK or
+            status == VIRTIO_BLK_S_IOERR or
+            status == VIRTIO_BLK_S_UNSUPP);
+
         // Write the status byte the device owes the guest.
         if (dev.guestBytes(status_desc.?.addr, 1)) |st| {
+            assert(st.len == 1);
             st[0] = status;
         }
 
@@ -187,6 +221,8 @@ pub const Backend = struct {
 };
 
 fn traceBlk(kind: []const u8, sector: u64, segs: usize, bytes: u32) void {
+    assert(kind.len > 0);
+    assert(kind.len < 16);
     // Per-request tracing is great for bring-up but useless at volume
     // (mkfs.ext4 alone is thousands of requests). Disabled by default;
     // flip to `true` when debugging a specific virtio-blk issue.
@@ -217,16 +253,20 @@ pub const SEEK_END: c_int = 2;
 /// Convenience: open a host file read-write and wrap it as a Backend.
 /// Returns `FileNotFound` / `IoError` on obvious failures.
 pub fn openFile(path: []const u8) !Backend {
+    assert(path.len > 0);
     var buf: [4096]u8 = undefined;
     if (path.len >= buf.len) return error.NameTooLong;
+    assert(path.len < buf.len);
     @memcpy(buf[0..path.len], path);
     buf[path.len] = 0;
     const fd = open(@ptrCast(&buf), O_RDWR);
     if (fd < 0) return error.FileNotFound;
+    assert(fd >= 0);
     const size = lseek(fd, 0, SEEK_END);
     if (size < 0) {
         _ = close(fd);
         return error.IoError;
     }
+    assert(size > 0);
     return Backend.initFromFd(fd, @intCast(size));
 }
