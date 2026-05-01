@@ -25,17 +25,20 @@ import {
 import { randomBytes } from "node:crypto";
 import { once } from "node:events";
 import {
+  closeSync,
   constants as fsConstants,
   copyFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
+  openSync,
   readdirSync,
   readFileSync,
   rmSync,
   statSync,
   unlinkSync,
   writeFileSync,
+  writeSync,
 } from "node:fs";
 import { createRequire } from "node:module";
 import { arch as osArch, platform as osPlatform, tmpdir } from "node:os";
@@ -77,6 +80,24 @@ const debugSnapshot = debugLib("machinen:snapshot");
 const vmmDebug = debugLib("machinen:vmm");
 
 const require_ = createRequire(import.meta.url);
+
+// Default size for the auto-allocated snapshot scratch (#TBD). Sparse,
+// so the file's real disk usage stays at zero until the guest dumps
+// memory pages into it via /sbin/machinen-dump. 8 GiB is enough headroom
+// for a CRIU dump of typical dev workloads (Node, claude-code, a few
+// shells) without bumping into the cap; callers with bigger workloads
+// can pass an explicit `snapshot: '<path>'` and pre-allocate it themselves.
+const SNAP_SCRATCH_BYTES = 8 * 1024 * 1024 * 1024;
+
+function allocateSparseFile(path: string, sizeBytes: number): void {
+  const fd = openSync(path, "w");
+  try {
+    const buf = Buffer.alloc(1);
+    writeSync(fd, buf, 0, 1, sizeBytes - 1);
+  } finally {
+    closeSync(fd);
+  }
+}
 
 /**
  * Locate the VMM binary using the same lookup order as `@machinen/cli`:
@@ -158,13 +179,26 @@ export interface BootOptions {
    */
   guestCwd?: string;
   /**
-   * Attach this host file as the scratch virtio-blk device — `/dev/vdb`
-   * inside the guest when `rootDisk` is also set, or `/dev/vda` when
-   * only this disk is attached (legacy / pre-#114 layout). Typically a
-   * CRIU snapshot image produced by `vm.snapshot()`, for a sub-second
-   * restore on boot. See #47 (virtio-blk) and #50.
+   * Attach a scratch virtio-blk device (`/dev/vdb`, or `/dev/vda` on
+   * pre-#114 layouts) so this VM can be CRIU-snapshotted later via
+   * `vm.snapshot()`. Three forms:
+   *
+   *   - `undefined` (default) — the runtime auto-allocates a per-boot
+   *     ~8 GiB sparse scratch in `tmpdir()` and unlinks it on VM exit.
+   *     Disk usage stays at zero until the guest writes; the upside is
+   *     every booted VM is snapshotable without re-booting. See #50.
+   *
+   *   - `'<path>'` — caller-managed file. Used as-is (must exist).
+   *     Required when restoring: pass the snapshot bundle's disk image
+   *     produced by a prior `vm.snapshot()`. The runtime synthesizes
+   *     `cmd: ['/sbin/machinen-restore']` if no other cmd is given.
+   *
+   *   - `false` — opt out entirely. No `/dev/vdb` attached. Use when
+   *     you don't need snapshot capability and want to skip the
+   *     (sparse, but still nonzero) inode allocation — typical for
+   *     fast-cycling test boots.
    */
-  snapshot?: string;
+  snapshot?: string | false;
   /**
    * Boot the guest with the rootfs on a virtio-blk device (`/dev/vda`)
    * instead of inflating the whole rootfs into a RAM-backed tmpfs via
@@ -403,12 +437,41 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   // for a caller-supplied `rootDisk: '<path>'` (we don't manage that
   // file's lifecycle) or `rootDisk: false`.
   let perBootRootDisk: string | undefined;
-  if (opts.snapshot) {
+  // The scratch virtio-blk device serves two unrelated workloads:
+  //   - caller-supplied path (string): a CRIU snapshot bundle to
+  //     restore from at boot — the runtime synthesizes
+  //     /sbin/machinen-restore when no cmd is given.
+  //   - default (undefined): per-boot sparse scratch so any VM is
+  //     CRIU-dumpable later via vm.snapshot(). 8 GiB sparse means zero
+  //     real disk until the guest writes; cleaned up alongside the
+  //     rootdisk reflink on VM exit. Don't synthesize restore for this
+  //     case (the file is empty).
+  //   - `false`: opt out, no /dev/vdb. Test-fast paths use this.
+  let perBootSnapDisk: string | undefined;
+  if (opts.snapshot === false) {
+    // explicit opt-out
+  } else if (typeof opts.snapshot === "string") {
     diskAbs = resolve(opts.cwd ?? process.cwd(), opts.snapshot);
     if (!existsSync(diskAbs)) {
       throw new BootError("BOOT_SNAPSHOT_NOT_FOUND", `snapshot image not found: ${diskAbs}`);
     }
     env.MACHINEN_DISK = diskAbs;
+  } else if (opts.image) {
+    // Auto-allocate only when the caller is booting a real image-backed
+    // guest. VMM-only smoke boots (no image — e.g. MACHINEN_BOOT_TEST=1)
+    // would otherwise be handed a zero-byte file as /dev/vda, failing
+    // root mount; they have nothing to snapshot anyway. `cmd && !image`
+    // already errors above, so this check covers all snapshotable
+    // workload paths.
+    const scratchPath = join(
+      tmpdir(),
+      `machinen-snap-${process.pid}-${randomBytes(6).toString("hex")}.img`,
+    );
+    allocateSparseFile(scratchPath, SNAP_SCRATCH_BYTES);
+    diskAbs = scratchPath;
+    perBootSnapDisk = scratchPath;
+    env.MACHINEN_DISK = scratchPath;
+    debug("snap-scratch auto path=%s sizeBytes=%d", scratchPath, SNAP_SCRATCH_BYTES);
   }
 
   // #114: rootdisk-by-default. Boot mounts the rootfs from a
@@ -635,6 +698,11 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         unlinkSync(perBootRootDisk);
       } catch {}
     }
+    if (perBootSnapDisk) {
+      try {
+        unlinkSync(perBootSnapDisk);
+      } catch {}
+    }
     throw err;
   }
 
@@ -721,6 +789,11 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     if (perBootRootDisk) {
       try {
         unlinkSync(perBootRootDisk);
+      } catch {}
+    }
+    if (perBootSnapDisk) {
+      try {
+        unlinkSync(perBootSnapDisk);
       } catch {}
     }
     if (bundleTempDir) {
@@ -894,8 +967,9 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       if (!diskAbs) {
         throw new SnapshotError(
           "SNAPSHOT_NO_DISK",
-          "vm.snapshot: no disk was attached at boot. Pass `snapshot: '<path>'` to " +
-            "boot() so CRIU has a target to write to.",
+          "vm.snapshot: this VM was booted with `snapshot: false` (no scratch " +
+            "disk attached). Re-boot without that flag — the runtime will " +
+            "auto-allocate a sparse scratch — or pass `snapshot: '<path>'`.",
         );
       }
       if (liveMountsResolved.length > 0) {
@@ -1075,8 +1149,9 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
       if (!entry.diskPath) {
         throw new SnapshotError(
           "SNAPSHOT_NO_DISK",
-          "vm.snapshot: no disk was attached at boot. The VM must have been booted " +
-            "with `snapshot: '<path>'` so CRIU has a target to write to.",
+          "vm.snapshot: this VM was booted with `snapshot: false` (no scratch " +
+            "disk attached). Re-boot without that flag — the runtime will " +
+            "auto-allocate a sparse scratch — or pass `snapshot: '<path>'`.",
         );
       }
       return performSnapshot(
@@ -1258,12 +1333,15 @@ function synthesizeAndPackBundle(
   //     wrapper — the workload IS the agent (provision() flow).
   //   - Neither snapshot nor cmd and no image default: error.
   let effectiveCmd: string[] | undefined;
-  const hasSnapshot = Boolean(opts.snapshot);
   if (opts.cmd) {
     effectiveCmd = opts.cmd;
   } else if (imageConfig?.cmd) {
     effectiveCmd = imageConfig.cmd;
-  } else if (hasSnapshot) {
+  } else if (typeof opts.snapshot === "string") {
+    // Only synthesize the restore helper when the caller explicitly
+    // passed a snapshot path. The auto-allocated scratch (default
+    // `snapshot: undefined`) is empty, so synthesizing here would feed
+    // CRIU a bundle-less file and fail.
     effectiveCmd = ["/sbin/machinen-restore"];
   }
   if (!effectiveCmd) {
@@ -1279,17 +1357,16 @@ function synthesizeAndPackBundle(
   // vsock agent directly (provision flow) or the runtime-synthesized
   // restore helper (which already manages the agent itself).
   //
-  // When a disk is attached (opts.snapshot set), pass `--session` so
-  // the supervisor runs the workload under `setsid`. CRIU dump
-  // requires the workload to be its own session leader; without
-  // --session, `criu dump --shell-job` fails with "session leader of
-  // N(N) is outside of its pid namespace". Interactive boots (no
-  // disk) skip --session so Ctrl-C / job control still work against
-  // the console.
+  // `--session` is the legacy "run under setsid" toggle from when CRIU
+  // dumps required it but interactive boots didn't. Both modes now go
+  // through the same `setsid -c -w` path in the supervisor, so the flag
+  // is just consumed for back-compat. Pass it whenever a caller-managed
+  // snapshot path is present — purely cosmetic, mirrors how older
+  // releases logged the boot.
   const cmdHead = effectiveCmd[0];
   const isAgentDirect = cmdHead === "/exec-agent";
   const isRestoreHelper = cmdHead === "/sbin/machinen-restore";
-  const supervisorArgs = opts.snapshot ? ["--session"] : [];
+  const supervisorArgs = typeof opts.snapshot === "string" ? ["--session"] : [];
   const wrappedCmd =
     isAgentDirect || isRestoreHelper
       ? effectiveCmd

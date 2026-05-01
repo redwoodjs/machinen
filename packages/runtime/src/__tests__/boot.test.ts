@@ -230,6 +230,20 @@ describe("snapshot option", () => {
       } catch {}
     }
   });
+
+  it("does not set MACHINEN_DISK on a VMM-only boot (no image)", async () => {
+    // Without `image`, the auto-scratch is skipped — VMM-only smoke
+    // boots have nothing to dump. End-to-end auto-allocation lands on
+    // the integration tests that boot a real rootfs.
+    const vm = await boot({
+      binary: "/bin/sh",
+      args: ["-c", "printf 'DISK=[%s]\\n' \"${MACHINEN_DISK:-}\""],
+      timeoutMs: 2_000,
+    });
+    await vm.wait();
+    const out = await vm.output();
+    expect(out.trim()).toBe("DISK=[]");
+  });
 });
 
 describe("kernel option", () => {
@@ -684,11 +698,11 @@ describe("liveMounts option", () => {
 });
 
 describe("vm.snapshot", () => {
-  it("throws when the VM was spawned without a disk attached", async () => {
-    const vm = await boot({ binary: "/usr/bin/yes", timeoutMs: 5_000 });
+  it("throws when the VM was spawned with snapshot: false", async () => {
+    const vm = await boot({ binary: "/usr/bin/yes", snapshot: false, timeoutMs: 5_000 });
     try {
       await expect(vm.snapshot({ outDir: "/tmp/unused-snap-out" })).rejects.toThrow(
-        /no disk was attached at boot/,
+        /booted with `snapshot: false`/,
       );
     } finally {
       await vm.kill();
