@@ -736,5 +736,147 @@ else
   trap 'rm -rf "$FIXTURE"' EXIT
 fi  # S1 rootfs-capability gate
 
+# ----------------------------------------------------------------
+# S2: chained snapshot — snapshot a restored VM (#207).
+#   1. boot fresh, snapshot → bundle A
+#   2. restore bundle A
+#   3. snapshot the restored VM → bundle B
+#   4. restore bundle B and exec on it to prove it's alive
+# Verifies the reflink-clone (so bundle A survives step 3) and
+# /run/machinen-workload.pid (written by criu --pidfile on restore so
+# step 3 can find the workload).
+# ----------------------------------------------------------------
+if [[ "$ROOTFS_SUPPORTS_VSOCK_EXEC" -eq 0 || "$ROOTFS_SUPPORTS_CRIU" -eq 0 || "$ROOTFS_SUPPORTS_SNAPSHOT_HELPERS" -eq 0 ]]; then
+  echo "S2: skipped (rootfs lacks vsock/criu/snapshot helpers)"
+else
+  echo "S2: chained snapshot (snapshot a restored VM)"
+  S2_NAME="chained-smoke-$$"
+  S2_BG_LOG="$FIXTURE/s2-bg.log"
+  S2_SNAP_A="$FIXTURE/s2-snap-a"
+  S2_SNAP_B="$FIXTURE/s2-snap-b"
+  S2_SCRATCH="$FIXTURE/s2-scratch.img"
+  S2_RESTORE_A_LOG="$FIXTURE/s2-restore-a.log"
+  S2_RESTORE_B_LOG="$FIXTURE/s2-restore-b.log"
+
+  truncate -s 256M "$S2_SCRATCH"
+
+  S2_PID=$(boot_bg "$S2_NAME" "$S2_BG_LOG" --snapshot "$S2_SCRATCH" -- \
+    /bin/sh -c "while :; do sleep 1; done")
+  cleanup_s2() {
+    kill -TERM "$S2_PID" 2>/dev/null || true
+    wait "$S2_PID" 2>/dev/null || true
+  }
+  trap 'cleanup_s2; rm -rf "$FIXTURE"' EXIT
+
+  if ! wait_for_vm "$S2_NAME"; then
+    tail -80 "$S2_BG_LOG" >&2
+    fail "S2 — '$S2_NAME' never appeared in 'machinen ls'"
+  fi
+
+  # Snapshot to bundle A.
+  S2_DUMP_A_LOG="$FIXTURE/s2-dump-a.log"
+  if ! cli snapshot --name "$S2_NAME" --out-dir "$S2_SNAP_A" 2>"$S2_DUMP_A_LOG"; then
+    tail -60 "$S2_BG_LOG" >&2
+    cat "$S2_DUMP_A_LOG" >&2
+    fail "S2 — first 'machinen snapshot' (to A) failed"
+  fi
+  wait "$S2_PID" 2>/dev/null || true
+  pass "snapshot → bundle A"
+
+  S2_BUNDLE_A_BEFORE=$(stat -c '%Y' "$S2_SNAP_A/disk.img" 2>/dev/null \
+    || stat -f '%m' "$S2_SNAP_A/disk.img")
+
+  # Restore bundle A in the background, then snapshot the restored VM.
+  node "$CLI" restore "$S2_SNAP_A" >"$S2_RESTORE_A_LOG" 2>&1 &
+  S2_RESTORE_A_PID=$!
+  cleanup_s2_restore_a() {
+    kill -TERM "$S2_RESTORE_A_PID" 2>/dev/null || true
+    wait "$S2_RESTORE_A_PID" 2>/dev/null || true
+  }
+  trap 'cleanup_s2; cleanup_s2_restore_a; rm -rf "$FIXTURE"' EXIT
+
+  S2_RESTORED_A=""
+  deadline=$((SECONDS + 45))
+  while (( SECONDS < deadline )); do
+    cand=$(cli ls 2>/dev/null | awk -v src="$S2_NAME/" 'NR>1 && index($2, src)==1 {print $2; exit}')
+    if [[ -n "$cand" ]]; then
+      S2_RESTORED_A=$cand
+      break
+    fi
+    sleep 1
+  done
+  if [[ -z "$S2_RESTORED_A" ]]; then
+    tail -80 "$S2_RESTORE_A_LOG" >&2
+    cli ls >&2 || true
+    fail "S2 — restored-from-A VM never registered"
+  fi
+  pass "restored bundle A as '$S2_RESTORED_A'"
+
+  # Snapshot the restored VM to bundle B. This is the operation that
+  # used to fail with EBUSY on /dev/vdb and 'PID file missing'.
+  S2_DUMP_B_LOG="$FIXTURE/s2-dump-b.log"
+  if ! cli snapshot --name "$S2_RESTORED_A" --out-dir "$S2_SNAP_B" 2>"$S2_DUMP_B_LOG"; then
+    tail -80 "$S2_RESTORE_A_LOG" >&2
+    cat "$S2_DUMP_B_LOG" >&2
+    fail "S2 — chained 'machinen snapshot' (restored → B) failed"
+  fi
+  wait "$S2_RESTORE_A_PID" 2>/dev/null || true
+  pass "chained snapshot → bundle B"
+
+  if [[ ! -s "$S2_SNAP_B/disk.img" ]]; then
+    fail "S2 — chained snapshot bundle B has empty disk.img"
+  fi
+
+  # Bundle A must NOT have been mutated by the chained dump (the
+  # reflink clone is what protects it).
+  S2_BUNDLE_A_AFTER=$(stat -c '%Y' "$S2_SNAP_A/disk.img" 2>/dev/null \
+    || stat -f '%m' "$S2_SNAP_A/disk.img")
+  if [[ "$S2_BUNDLE_A_BEFORE" != "$S2_BUNDLE_A_AFTER" ]]; then
+    fail "S2 — bundle A's disk.img was modified by the chained dump (reflink protection failed)"
+  fi
+  pass "bundle A's disk.img unchanged after chained dump"
+
+  # Restore bundle B and prove it's alive via exec.
+  node "$CLI" restore "$S2_SNAP_B" >"$S2_RESTORE_B_LOG" 2>&1 &
+  S2_RESTORE_B_PID=$!
+  cleanup_s2_restore_b() {
+    kill -TERM "$S2_RESTORE_B_PID" 2>/dev/null || true
+    wait "$S2_RESTORE_B_PID" 2>/dev/null || true
+  }
+  trap 'cleanup_s2; cleanup_s2_restore_b; rm -rf "$FIXTURE"' EXIT
+
+  S2_RESTORED_B=""
+  deadline=$((SECONDS + 45))
+  while (( SECONDS < deadline )); do
+    # The restored-from-B VM's source name is "<S2_RESTORED_A>", so
+    # the auto-name is "<S2_RESTORED_A>/<pid>".
+    cand=$(cli ls 2>/dev/null | awk -v src="$S2_RESTORED_A/" 'NR>1 && index($2, src)==1 {print $2; exit}')
+    if [[ -n "$cand" ]]; then
+      S2_RESTORED_B=$cand
+      break
+    fi
+    sleep 1
+  done
+  if [[ -z "$S2_RESTORED_B" ]]; then
+    tail -80 "$S2_RESTORE_B_LOG" >&2
+    cli ls >&2 || true
+    fail "S2 — restored-from-B VM never registered"
+  fi
+  pass "restored bundle B as '$S2_RESTORED_B'"
+
+  S2_RESTORE_B_EXEC_LOG="$FIXTURE/s2-restore-b-exec.log"
+  if cli exec --name "$S2_RESTORED_B" -- uname -m >"$S2_RESTORE_B_EXEC_LOG" 2>&1 \
+     && grep -qE "aarch64|arm64" "$S2_RESTORE_B_EXEC_LOG"; then
+    pass "exec-agent responds on the chain-restored VM"
+  else
+    cat "$S2_RESTORE_B_EXEC_LOG" >&2
+    tail -60 "$S2_RESTORE_B_LOG" >&2
+    fail "S2 — exec against chain-restored VM failed"
+  fi
+
+  cleanup_s2_restore_b
+  trap 'rm -rf "$FIXTURE"' EXIT
+fi  # S2 rootfs-capability gate
+
 echo
 echo "all smoke tests passed"
