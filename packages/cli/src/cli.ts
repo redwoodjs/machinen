@@ -14,14 +14,15 @@
 //   machinen completion <bash|zsh|fish>
 //   machinen --version | -h | --help
 
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   createWriteStream,
   existsSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
   renameSync,
-  statSync,
   symlinkSync,
   unlinkSync,
 } from "node:fs";
@@ -45,7 +46,13 @@ import { parseRunArgs } from "./parse-run-args.ts";
 const debug = debugLib("machinen:cli");
 
 const VERSION = pkg.version;
-const RELEASE_TAG = `@machinen/runtime@${VERSION}`;
+// Slash-free tag shape — GitHub's release web UI and the
+// `releases/download/<tag>/<asset>` URL pattern both fall over when the
+// tag itself contains a `/` (the router can't tell where the tag ends
+// and the asset path begins). The previous `@machinen/runtime@0.0.0`
+// tag created releases that the API could see but no public URL could
+// fetch from. Keep the shape `runtime-v<semver>`.
+const RELEASE_TAG = `runtime-v${VERSION}`;
 const REPO = "redwoodjs/machinen";
 const CACHE_ROOT = join(homedir(), ".machinen");
 
@@ -101,13 +108,21 @@ async function ensureBaseAssets(tag: string): Promise<string> {
 
   mkdirSync(base, { recursive: true });
 
+  // The repo is private, so the public `releases/download/<tag>/<asset>`
+  // path 404s for unauthenticated callers. Look up asset IDs once via
+  // the API (with the host's `gh auth token`) and stream each one
+  // through `releases/assets/<id>` with `Accept: application/octet-stream`,
+  // which is the same path `gh release download` uses internally.
+  const token = ghAuthToken();
+  const assetIndex = await fetchReleaseAssets(tag, token);
+
   const assets = [
     { name: "Image-arm64", dest: kernel },
     { name: "virt-arm64.dtb", dest: dtb },
     { name: "rootfs-debian-arm64.tar.gz", dest: tarball },
   ];
 
-  await Promise.all(assets.map((a) => downloadWithChecksum(tag, a.name, a.dest)));
+  await Promise.all(assets.map((a) => downloadWithChecksum(a.name, a.dest, assetIndex, token)));
 
   const current = join(CACHE_ROOT, "current");
   try {
@@ -121,21 +136,79 @@ async function ensureBaseAssets(tag: string): Promise<string> {
 }
 
 function isSymlink(p: string): boolean {
+  // lstatSync (NOT statSync) so we still detect a dangling symlink whose
+  // target was removed — `existsSync` and `statSync` both follow the
+  // link and return false in that case, leaving stale `current`
+  // symlinks in place and breaking the unlink+symlinkSync replace below.
   try {
-    return statSync(p).isSymbolicLink();
+    return lstatSync(p).isSymbolicLink();
   } catch {
     return false;
   }
 }
 
-async function downloadWithChecksum(tag: string, asset: string, dest: string): Promise<void> {
-  const base = `https://github.com/${REPO}/releases/download/${encodeURIComponent(tag)}`;
+function ghAuthToken(): string {
+  // `gh auth token` is the user-facing way to get the OAuth token —
+  // matches the project's stance of "user authenticates via gh, never
+  // raw API keys" (see CLAUDE.md). Errors loud if gh isn't installed
+  // or the user hasn't logged in: re-running with a hint is much
+  // friendlier than a downstream 401 on the API call.
+  try {
+    return execFileSync("gh", ["auth", "token"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    }).trim();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message.split("\n")[0] : String(err);
+    die(
+      `failed to read gh auth token (${msg}).\n` +
+        "  Install GitHub CLI and run `gh auth login` so the runtime can fetch\n" +
+        `  release assets from the private repo ${REPO}.`,
+    );
+  }
+}
+
+interface ReleaseAssetIndex {
+  byName: Map<string, number>;
+}
+
+async function fetchReleaseAssets(tag: string, token: string): Promise<ReleaseAssetIndex> {
+  const url = `https://api.github.com/repos/${REPO}/releases/tags/${encodeURIComponent(tag)}`;
+  const res = await fetch(url, {
+    headers: {
+      Accept: "application/vnd.github+json",
+      Authorization: `Bearer ${token}`,
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+  });
+  if (!res.ok) {
+    die(
+      `lookup release ${tag} failed: ${res.status} ${res.statusText}\n` +
+        `  url: ${url}\n` +
+        "  check that `gh auth token` returns a token with repo-read scope, and that the\n" +
+        `  release tag exists in ${REPO}.`,
+    );
+  }
+  const body = (await res.json()) as { assets?: Array<{ id: number; name: string }> };
+  const byName = new Map<string, number>();
+  for (const a of body.assets ?? []) {
+    byName.set(a.name, a.id);
+  }
+  return { byName };
+}
+
+async function downloadWithChecksum(
+  asset: string,
+  dest: string,
+  index: ReleaseAssetIndex,
+  token: string,
+): Promise<void> {
   const tmp = `${dest}.partial`;
 
   process.stderr.write(`  fetch ${asset}\n`);
-  await downloadTo(`${base}/${asset}`, tmp);
+  await downloadAssetById(asset, tmp, index, token);
 
-  const sha = (await fetchText(`${base}/${asset}.sha256`)).trim().split(/\s+/)[0];
+  const sha = (await fetchAssetText(`${asset}.sha256`, index, token)).trim().split(/\s+/)[0];
   const got = sha256OfFile(tmp);
   if (sha && got !== sha) {
     unlinkSync(tmp);
@@ -144,19 +217,52 @@ async function downloadWithChecksum(tag: string, asset: string, dest: string): P
   renameSync(tmp, dest);
 }
 
-async function downloadTo(url: string, dest: string): Promise<void> {
+async function downloadAssetById(
+  name: string,
+  dest: string,
+  index: ReleaseAssetIndex,
+  token: string,
+): Promise<void> {
+  const id = index.byName.get(name);
+  if (id === undefined) {
+    die(`asset not found in release: ${name}`);
+  }
   mkdirSync(dirname(dest), { recursive: true });
-  const res = await fetch(url, { redirect: "follow" });
+  const url = `https://api.github.com/repos/${REPO}/releases/assets/${id}`;
+  const res = await fetch(url, {
+    redirect: "follow",
+    headers: {
+      Accept: "application/octet-stream",
+      Authorization: `Bearer ${token}`,
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+  });
   if (!res.ok || !res.body) {
-    die(`fetch ${url} failed: ${res.status} ${res.statusText}`);
+    die(`fetch asset ${name} failed: ${res.status} ${res.statusText}`);
   }
   await pipeline(res.body as unknown as NodeJS.ReadableStream, createWriteStream(dest));
 }
 
-async function fetchText(url: string): Promise<string> {
-  const res = await fetch(url, { redirect: "follow" });
+async function fetchAssetText(
+  name: string,
+  index: ReleaseAssetIndex,
+  token: string,
+): Promise<string> {
+  const id = index.byName.get(name);
+  if (id === undefined) {
+    die(`asset not found in release: ${name}`);
+  }
+  const url = `https://api.github.com/repos/${REPO}/releases/assets/${id}`;
+  const res = await fetch(url, {
+    redirect: "follow",
+    headers: {
+      Accept: "application/octet-stream",
+      Authorization: `Bearer ${token}`,
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+  });
   if (!res.ok) {
-    die(`fetch ${url} failed: ${res.status} ${res.statusText}`);
+    die(`fetch asset ${name} failed: ${res.status} ${res.statusText}`);
   }
   return res.text();
 }
@@ -557,7 +663,12 @@ async function cmdSnapshot(args: string[]): Promise<number> {
   const target = parseTargetFlags(rest, "snapshot");
   const vm = await attach(target).catch(handleError);
   try {
-    const res = await vm.snapshot({ outDir: resolve(outDir) });
+    const res = await vm.snapshot({
+      outDir: resolve(outDir),
+      onLog: (evt) => {
+        process.stderr.write(evt.chunk);
+      },
+    });
     process.stdout.write(`snapshot: ${res.snapDir} (${res.elapsedMs}ms)\n`);
     return 0;
   } catch (err) {

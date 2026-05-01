@@ -225,13 +225,15 @@ export function resolveBaseRootfs(explicit?: string, cwd: string = process.cwd()
 
 function cliCachedRootfsPath(): string {
   // Mirrors `@machinen/cli`'s `baseDirFor(RELEASE_TAG)` where
-  // RELEASE_TAG = `@machinen/runtime@${VERSION}`.
+  // RELEASE_TAG = `runtime-v${VERSION}` (slash-free so the GitHub
+  // release URL pattern works — see the comment on RELEASE_TAG in
+  // packages/cli/src/cli.ts).
   const pkgPath = resolve(import.meta.dirname, "..", "package.json");
   const version = (JSON.parse(readFileSync(pkgPath, "utf8")) as { version: string }).version;
   return join(
     homedir(),
     ".machinen",
-    `@machinen/runtime@${version}`,
+    `runtime-v${version}`,
     "bases",
     "debian-arm64",
     "rootfs.tar.gz",

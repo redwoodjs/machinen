@@ -21,6 +21,15 @@ export PATH
 # (TCP kerndat, IPv6 probes, etc.).
 /sbin/machinen-lo-up || echo "machinen-restore: lo-up failed" >&2
 
+# /tmp must exist for CRIU's kerndat probes (kerndat_has_move_mount_set_group
+# mkdirs `/tmp/.criu.move_mount_set_group.XXXXXX`). The base rootfs ships
+# /tmp 1777, but be defensive in case a layered image (app.tar.gz) stripped
+# it — without /tmp here, criu restore fails kerndat init, exits 1, and
+# /init dying with that exit code panics the kernel ("Attempted to kill
+# init!"), which is a much more confusing failure than a clean error.
+mkdir -p /tmp
+chmod 1777 /tmp 2>/dev/null || true
+
 # Spawn a fresh exec-agent so vm.exec / vm.snapshot work on the
 # restored VM. The original dump tree did NOT include exec-agent —
 # that was a sibling under the supervisor, not a descendant of the

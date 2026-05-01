@@ -166,10 +166,15 @@ const stdoutAny = process.stdout as NodeJS.WriteStream;
 const hostCols = stdoutAny.columns ?? 80;
 const hostRows = stdoutAny.rows ?? 24;
 
-// #177: ask the VMM to bridge AF_VSOCK port 1974 (the guest agent's
-// listen port) to a host UDS. boot()'s vsock-bridge code parses the
-// first `in:` entry to wire vm.exec(); we don't use vm.exec from this
-// script, so co-opting that slot for winsize is fine.
+// #177: ask the VMM to bridge AF_VSOCK port 1974 (winsize agent) to a
+// host UDS. We ALSO wire up port 1978 (exec-agent) so `machinen exec
+// --pid <X>` and `machinen snapshot --pid <X>` work against this VM —
+// the runtime's registry stores the FIRST entry's UDS as the socket
+// path attach handles use, so put exec first and winsize second.
+// Without this the registered socketPath was the winsize UDS, which
+// doesn't speak the exec protocol, and any exec/snapshot stalled until
+// timeout with zero output.
+const execUdsPath = join(tmpdir(), `machinen-exec-${process.pid}.sock`);
 const winsizeUdsPath = join(tmpdir(), `machinen-winsize-${process.pid}.sock`);
 const secretEnv: Record<string, string> = {
   GH_TOKEN: ghToken,
@@ -239,10 +244,23 @@ const STAGE_BOOTSTRAP = [
   // function in ~/.bashrc.machinen, sourced once from ~/.bashrc. The
   // function uses `command claude` to bypass recursion. Re-written
   // each boot so changes here propagate without manual cleanup.
+  // ~/.bashrc.machinen: claude wrapper + auto-cd into /mnt/workspace.
+  // The auto-cd lives in bashrc rather than the dev bootstrap so the
+  // EXEC'd workload's CWD stays at /home/dev (always exists in the
+  // rootfs). Snapshotting a workload whose CWD points at the live FUSE
+  // bind mount /mnt/workspace makes restore fail with "Can't open cwd"
+  // because that path doesn't exist on the restored VM (no live mount
+  // is re-attached on restore). Keeping the workload's CWD at /home/dev
+  // and pushing the convenience cd into interactive shells means
+  // snapshot/restore round-trips cleanly while the user still lands in
+  // the workspace dir on every new shell.
   'cat > "$HOME/.bashrc.machinen" <<\\EOF',
   "claude() {",
   '  IS_SANDBOX=1 command claude --dangerously-skip-permissions "$@"',
   "}",
+  'if [ -d /mnt/workspace ] && [ "$PWD" = "$HOME" ]; then',
+  "  cd /mnt/workspace",
+  "fi",
   "EOF",
   'if ! grep -q ".bashrc.machinen" "$HOME/.bashrc" 2>/dev/null; then',
   '  printf "\\n[ -f \\"\\$HOME/.bashrc.machinen\\" ] && . \\"\\$HOME/.bashrc.machinen\\"\\n" >> "$HOME/.bashrc"',
@@ -262,14 +280,18 @@ const DEV_BOOTSTRAP = [
   'if [ -n "${COLUMNS:-}" ] && [ -n "${LINES:-}" ]; then',
   '  stty cols "$COLUMNS" rows "$LINES" 2>/dev/null || true',
   "fi",
-  // #177 vsock TIOCSWINSZ agent. Reparented to PID 1 once exec replaces
-  // this shell. Vsock has no privileged-port concept so dev can bind 1974.
-  "if [ -x /sbin/machinen-winsize-agent ]; then",
-  "  /sbin/machinen-winsize-agent </dev/null >/dev/null 2>&1 &",
-  "fi",
-  "cd /mnt/workspace 2>/dev/null",
+  // #177 vsock TIOCSWINSZ agent is now spawned by /sbin/machinen-supervisor
+  // as a SIBLING of the workload (alongside /exec-agent), so its
+  // AF_VSOCK fd never appears inside the dumpable workload tree.
+  // Putting the spawn here used to make the agent a workload descendant,
+  // which broke `criu dump` ("BUG! Unknown socket collected (family 40)")
+  // and made `machinen snapshot --pid X` fail on every vm-pick'd VM.
+  // CWD stays at /home/dev (set by env above) so snapshot/restore can
+  // re-open it on the restored VM. ~/.bashrc.machinen handles the
+  // convenience cd into /mnt/workspace for interactive shells — see the
+  // STAGE_BOOTSTRAP block where that bashrc snippet is staged.
   issueNumber
-    ? `exec env IS_SANDBOX=1 claude --dangerously-skip-permissions "work on #${issueNumber}"`
+    ? `cd /mnt/workspace 2>/dev/null; exec env IS_SANDBOX=1 claude --dangerously-skip-permissions "work on #${issueNumber}"`
     : "exec bash -i",
 ].join("\n");
 const DEV_BOOTSTRAP_B64 = Buffer.from(DEV_BOOTSTRAP).toString("base64");
@@ -309,7 +331,7 @@ const vm = await boot({
   env: secretEnv,
   vmmEnv: {
     MACHINEN_RAM_BYTES: String(ramForImage(IMAGE)),
-    MACHINEN_VSOCK: `in:1974:${winsizeUdsPath}`,
+    MACHINEN_VSOCK: `in:1978:${execUdsPath},in:1974:${winsizeUdsPath}`,
   },
   timeoutMs: null,
 });
