@@ -8,7 +8,7 @@
 # This script is self-sufficient: it builds anything it needs that
 # isn't already built, then runs the tests.
 #   - @machinen/runtime + @machinen/cli  (fast)
-#   - packages/microvm/zig-out/bin/microvm  (~30s on first run)
+#   - packages/microvm/zig-out/bin/machinen-vm  (~30s on first run)
 #   - release-assets/ (Image, dtb, rootfs tarball)  (~5 min, needs Docker)
 #
 # Tests:
@@ -29,7 +29,7 @@ set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 CLI="$ROOT/packages/cli/dist/cli.js"
-VMM="$ROOT/packages/microvm/zig-out/bin/microvm"
+VMM="$ROOT/packages/microvm/zig-out/bin/machinen-vm"
 ASSETS="$ROOT/release-assets"
 OS=$(uname -s)
 
@@ -542,7 +542,7 @@ fi
 echo "P2: machinen boot -- /sys/class/block/vda + AF_VSOCK in /proc/net/protocols"
 P2_LOG="$FIXTURE/p2.log"
 run_timeout 60 node "$CLI" boot -- /bin/sh -c \
-  'ls /sys/class/block/vda 2>/dev/null && grep -E "^AF_VSOCK " /proc/net/protocols' \
+  'ls -d /sys/class/block/vda 2>/dev/null && grep -E "^AF_VSOCK " /proc/net/protocols' \
   >"$P2_LOG" 2>&1 || true
 if grep -q "/sys/class/block/vda" "$P2_LOG" && grep -qE "^AF_VSOCK " "$P2_LOG"; then
   pass "kernel has virtio_blk + vsock built in (/dev/vda + AF_VSOCK live)"
