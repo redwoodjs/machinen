@@ -508,7 +508,15 @@ describe("boot({ rootDisk })", () => {
       });
       await vm.wait();
       const out = await vm.output();
-      expect(out.trim()).toBe(`ROOTDISK=${rd} DISK=${snap}`);
+      // ROOTDISK is the caller's path verbatim; DISK is a per-boot
+      // reflink-clone of `snap` so the chained-snapshot path can mkfs
+      // the disk without corrupting the source bundle (#207). The
+      // clone lives in tmpdir and carries a `machinen-snap-restore-`
+      // prefix.
+      const m = out.trim().match(/^ROOTDISK=(.+) DISK=(.+)$/);
+      expect(m, `unexpected output: ${out.trim()}`).not.toBeNull();
+      expect(m![1]).toBe(rd);
+      expect(m![2]).toMatch(/machinen-snap-restore-.*\.img$/);
     } finally {
       try {
         unlinkSync(rd);

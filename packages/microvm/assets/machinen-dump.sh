@@ -73,8 +73,26 @@ echo "machinen-dump: preparing (pid=$DUMP_PID)"
 mkdir -p /tmp
 chmod 1777 /tmp 2>/dev/null || true
 
+# Drop any lingering restore-side mount of the same disk (#207).
+# /sbin/machinen-restore mounts the bundle's images at /mnt/snap-src
+# (read-only) and doesn't unmount when restore returns. The parent
+# bundle's images aren't needed for the running workload; clear the
+# mount so the kernel will let us re-mount $SCRATCH at /mnt/snap
+# (the kernel rejects mounting the same block device at a second
+# point with the original "already mounted" error otherwise).
+if mountpoint -q /mnt/snap-src 2>/dev/null; then
+    # `umount -l` (lazy) as a fallback: criu may still hold an fd into
+    # the restored images while it's parenting the workload. Lazy
+    # detach removes the mount from the namespace immediately and
+    # defers actual freeing until the last reference closes — which
+    # is enough for the kernel to let us mount the same device
+    # elsewhere.
+    umount /mnt/snap-src 2>/dev/null || umount -l /mnt/snap-src
+fi
+
 # Format the scratch disk ext4 on first use. Subsequent snapshots just
-# remount.
+# remount and `rm -rf /mnt/snap/img` below clears any prior images
+# (including the parent bundle's, on chained snapshots).
 # -F: force (existing data is a scratch allocation; we're overwriting).
 # -q: quiet; noisy output confuses the host-side log tee.
 if ! blkid "$SCRATCH" 2>/dev/null | grep -q ext4; then
