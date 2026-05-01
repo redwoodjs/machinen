@@ -57,6 +57,14 @@ esac
 
 echo "machinen-dump: preparing (pid=$DUMP_PID)"
 
+# Pre-flight: refuse to dump trees that hold raw IP sockets, etc.
+# Logic lives in machinen-dump-preflight.sh so it can be unit-tested
+# against a synthetic /proc tree without booting a VM.
+. /sbin/machinen-dump-preflight
+if ! scan_raw_inet_sockets "$DUMP_PID"; then
+    exit 1
+fi
+
 # CRIU's kerndat_tcp_repair probe fails with ENETUNREACH if `lo` is
 # still DOWN. /init doesn't bring it up; we do it here so snapshot is
 # self-contained.

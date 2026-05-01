@@ -190,10 +190,12 @@ chmod +x "${STAGE}/fnm"
 # Stage the shell-script helpers that implement the snapshot contract
 # (supervisor, dump, restore). They end up under /sbin/machinen-* inside
 # the guest — see the `install -m 0755` block further down.
-cp "${ASSETS}/machinen-supervisor.sh" "${STAGE}/machinen-supervisor.sh"
-cp "${ASSETS}/machinen-dump.sh"       "${STAGE}/machinen-dump.sh"
-cp "${ASSETS}/machinen-restore.sh"    "${STAGE}/machinen-restore.sh"
-chmod +x "${STAGE}/machinen-supervisor.sh" "${STAGE}/machinen-dump.sh" "${STAGE}/machinen-restore.sh"
+cp "${ASSETS}/machinen-supervisor.sh"      "${STAGE}/machinen-supervisor.sh"
+cp "${ASSETS}/machinen-dump.sh"            "${STAGE}/machinen-dump.sh"
+cp "${ASSETS}/machinen-dump-preflight.sh"  "${STAGE}/machinen-dump-preflight.sh"
+cp "${ASSETS}/machinen-restore.sh"         "${STAGE}/machinen-restore.sh"
+chmod +x "${STAGE}/machinen-supervisor.sh" "${STAGE}/machinen-dump.sh" \
+         "${STAGE}/machinen-dump-preflight.sh" "${STAGE}/machinen-restore.sh"
 
 # ------------------------------------------------------------
 # 4. Rootfs — mmdebstrap minbase + aggressive strip + guest binaries
@@ -337,9 +339,10 @@ install -m 0755 -D /stage/winsize-agent     /work/rootfs/sbin/machinen-winsize-a
 install -m 0755 -D /stage/fnm               /work/rootfs/usr/local/bin/fnm
 # Shell-script helpers that drive the snapshot/restore contract. Staged
 # in by the host-side build step alongside the zig binaries.
-install -m 0755 -D /stage/machinen-supervisor.sh /work/rootfs/sbin/machinen-supervisor
-install -m 0755 -D /stage/machinen-dump.sh       /work/rootfs/sbin/machinen-dump
-install -m 0755 -D /stage/machinen-restore.sh    /work/rootfs/sbin/machinen-restore
+install -m 0755 -D /stage/machinen-supervisor.sh     /work/rootfs/sbin/machinen-supervisor
+install -m 0755 -D /stage/machinen-dump.sh           /work/rootfs/sbin/machinen-dump
+install -m 0755 -D /stage/machinen-dump-preflight.sh /work/rootfs/sbin/machinen-dump-preflight
+install -m 0755 -D /stage/machinen-restore.sh        /work/rootfs/sbin/machinen-restore
 
 # Deterministic tar + gzip written as a single file to the bind mount.
 tar --sort=name --owner=0 --group=0 --numeric-owner \
