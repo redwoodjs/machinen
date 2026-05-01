@@ -23,7 +23,6 @@ import {
   mkdirSync,
   readFileSync,
   renameSync,
-  statSync,
   symlinkSync,
   unlinkSync,
 } from "node:fs";
@@ -163,7 +162,7 @@ function ghAuthToken(): string {
     const msg = err instanceof Error ? err.message.split("\n")[0] : String(err);
     die(
       `failed to read gh auth token (${msg}).\n` +
-        "  Install GitHub CLI and run \`gh auth login\` so the runtime can fetch\n" +
+        "  Install GitHub CLI and run `gh auth login` so the runtime can fetch\n" +
         `  release assets from the private repo ${REPO}.`,
     );
   }
@@ -209,11 +208,7 @@ async function downloadWithChecksum(
   process.stderr.write(`  fetch ${asset}\n`);
   await downloadAssetById(asset, tmp, index, token);
 
-  const sha = (
-    await fetchAssetText(`${asset}.sha256`, index, token)
-  )
-    .trim()
-    .split(/\s+/)[0];
+  const sha = (await fetchAssetText(`${asset}.sha256`, index, token)).trim().split(/\s+/)[0];
   const got = sha256OfFile(tmp);
   if (sha && got !== sha) {
     unlinkSync(tmp);
