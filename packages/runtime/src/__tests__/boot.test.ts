@@ -207,11 +207,10 @@ describe("snapshot option", () => {
     );
   });
 
-  it("passes the resolved snapshot path as MACHINEN_DISK to the child", async () => {
-    // Round-trip test: echo-env-then-exit. Any existing file works as
-    // a stand-in for a snapshot image since we're not actually running
-    // a VMM here. Snapshot-only (no image/cmd) is the CRIU-restore
-    // flow where the initramfs is baked.
+  it("passes a per-boot reflink-clone of the snapshot path as MACHINEN_DISK", async () => {
+    // The runtime reflink-clones the bundle disk into tmpdir() so a
+    // chained snapshot can mkfs the disk without corrupting the source
+    // bundle (#207). MACHINEN_DISK is the clone, not the original.
     const snap = `/tmp/machinen-runtime-snap-${process.pid}`;
     writeFileSync(snap, "");
     try {
@@ -223,7 +222,10 @@ describe("snapshot option", () => {
       });
       await vm.wait();
       const out = await vm.output();
-      expect(out.trim()).toBe(`DISK=${snap}`);
+      const m = out.trim().match(/^DISK=(.+)$/);
+      expect(m, `unexpected output: ${out.trim()}`).not.toBeNull();
+      expect(m![1]).not.toBe(snap);
+      expect(m![1]).toMatch(/machinen-snap-restore-.*\.img$/);
     } finally {
       try {
         unlinkSync(snap);
