@@ -442,7 +442,10 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   // The scratch virtio-blk device serves two unrelated workloads:
   //   - caller-supplied path (string): a CRIU snapshot bundle to
   //     restore from at boot — the runtime synthesizes
-  //     /sbin/machinen-restore when no cmd is given.
+  //     /sbin/machinen-restore when no cmd is given. The bundle is
+  //     reflink-cloned into a per-boot path so a future `vm.snapshot()`
+  //     against the restored VM doesn't corrupt the source bundle
+  //     when machinen-dump.sh re-formats the disk (#207).
   //   - default (undefined): per-boot sparse scratch so any VM is
   //     CRIU-dumpable later via vm.snapshot(). 8 GiB sparse means zero
   //     real disk until the guest writes; cleaned up alongside the
@@ -453,11 +456,26 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   if (opts.snapshot === false) {
     // explicit opt-out
   } else if (typeof opts.snapshot === "string") {
-    diskAbs = resolve(opts.cwd ?? process.cwd(), opts.snapshot);
-    if (!existsSync(diskAbs)) {
-      throw new BootError("BOOT_SNAPSHOT_NOT_FOUND", `snapshot image not found: ${diskAbs}`);
+    const bundleDisk = resolve(opts.cwd ?? process.cwd(), opts.snapshot);
+    if (!existsSync(bundleDisk)) {
+      throw new BootError("BOOT_SNAPSHOT_NOT_FOUND", `snapshot image not found: ${bundleDisk}`);
     }
-    env.MACHINEN_DISK = diskAbs;
+    // Reflink-clone the bundle disk into a per-boot path so the
+    // restored VM can be snapshotted again (#207). machinen-dump
+    // mkfs's the scratch disk on every dump; without the clone, the
+    // second snapshot would corrupt the parent bundle on the host fs.
+    // Same pattern as #121 for the rootdisk: COPYFILE_FICLONE → cheap
+    // shared blocks until guest writes, falls back to a full copy on
+    // non-reflink filesystems.
+    const perBoot = join(
+      tmpdir(),
+      `machinen-snap-restore-${process.pid}-${randomBytes(6).toString("hex")}.img`,
+    );
+    copyFileSync(bundleDisk, perBoot, fsConstants.COPYFILE_FICLONE);
+    diskAbs = perBoot;
+    perBootSnapDisk = perBoot;
+    env.MACHINEN_DISK = perBoot;
+    debug("snap-restore reflink-clone src=%s dst=%s", bundleDisk, perBoot);
   } else if (opts.image) {
     // Auto-allocate only when the caller is booting a real image-backed
     // guest. VMM-only smoke boots (no image — e.g. MACHINEN_BOOT_TEST=1)
