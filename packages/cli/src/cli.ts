@@ -698,10 +698,14 @@ async function cmdAttach(args: string[]): Promise<number> {
     }
   }
   const target = parseTargetFlags(filtered, "attach");
+  // Resolve the target before the TTY check: a typo in --name should
+  // surface "no running VM found", not the TTY error. The TTY error
+  // is only useful once we know the VM exists.
+  const vm = await attach(target).catch(handleError);
   if (!process.stdin.isTTY) {
+    await vm.detach();
     die("machinen attach: stdin is not a TTY (pipe scripts via `machinen repl` instead)");
   }
-  const vm = await attach(target).catch(handleError);
   process.stderr.write(`attached to ${vm.name ?? `pid ${vm.pid}`} — exit the shell to detach.\n`);
   try {
     return await runPtyExec(vm, shell);
