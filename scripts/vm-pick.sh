@@ -18,13 +18,17 @@ set -euo pipefail
 # untouched.
 WINDOW=0
 EXPLICIT_NUM=""
+SCRATCH=0
 for arg in "$@"; do
   case "$arg" in
     --refresh) ;; # boot-glue resync is now unconditional; flag kept as a no-op for muscle memory
     --window)  WINDOW=1 ;;
+    --scratch|scratch) SCRATCH=1 ;;
     -h|--help)
-      echo "usage: pnpm vm-pick [--window] [<number>]" >&2
+      echo "usage: pnpm vm-pick [--window] [--scratch | <number>]" >&2
       echo "  <number>   skip the picker and jump to this issue or PR (e.g. 177 or #177)" >&2
+      echo "  --scratch  skip the picker and create a fresh throwaway clone" >&2
+      echo "             (no issue/PR ref, drops into bash instead of auto-claude)" >&2
       echo "  --window   spawn the boot in a new Ghostty window instead of the current TTY" >&2
       echo "" >&2
       echo "  vm.ts + provision.ts are always re-synced from canonical so stale clones" >&2
@@ -50,8 +54,13 @@ for arg in "$@"; do
   esac
 done
 
-if [[ -z "$EXPLICIT_NUM" ]] && ! command -v fzf >/dev/null 2>&1; then
-  echo "vm-pick: fzf is required (or pass an explicit number). Install with: brew install fzf" >&2
+if [[ -n "$EXPLICIT_NUM" ]] && (( SCRATCH )); then
+  echo "vm-pick: --scratch and an explicit number are mutually exclusive" >&2
+  exit 1
+fi
+
+if [[ -z "$EXPLICIT_NUM" ]] && (( ! SCRATCH )) && ! command -v fzf >/dev/null 2>&1; then
+  echo "vm-pick: fzf is required (or pass an explicit number / --scratch). Install with: brew install fzf" >&2
   exit 1
 fi
 if ! git rev-parse --git-dir > /dev/null 2>&1; then
@@ -75,7 +84,11 @@ CLONES_ROOT="${PARENT_DIR}/${REPO_NAME}.machinen"
 tmpdir=$(mktemp -d)
 trap 'rm -rf "$tmpdir"' EXIT
 
-if [[ -n "$EXPLICIT_NUM" ]]; then
+if (( SCRATCH )); then
+  kind=scratch
+  num=$(date +%Y%m%dT%H%M%S)
+  title="scratch"
+elif [[ -n "$EXPLICIT_NUM" ]]; then
   # Resolve directly. `gh issue view` refuses PR numbers and vice
   # versa, so try issue first, then PR. State filter is intentionally
   # absent — we want closed/merged refs to work too if the user asks.
@@ -91,10 +104,10 @@ if [[ -n "$EXPLICIT_NUM" ]]; then
   fi
   num=$EXPLICIT_NUM
 else
-  (cd "$MAIN_REPO" && gh issue list --state open --limit 100 --json number,title,url) \
+  (cd "$MAIN_REPO" && gh issue list --state open --limit 100 --json number,title,url,labels) \
     > "$tmpdir/issues.json" 2>"$tmpdir/issues.err" &
   issues_pid=$!
-  (cd "$MAIN_REPO" && gh pr list --state open --limit 100 --json number,title,url) \
+  (cd "$MAIN_REPO" && gh pr list --state open --limit 100 --json number,title,url,labels) \
     > "$tmpdir/prs.json" 2>"$tmpdir/prs.err" &
   prs_pid=$!
   wait "$issues_pid"; issues_rc=$?
@@ -107,10 +120,14 @@ else
     exit 1
   fi
 
-  # kind \t number \t title \t url
+  # kind \t number \t title \t url \t labels
+  # The synthetic `scratch` row gives users a one-keystroke escape
+  # hatch when they want a fresh clone but aren't tied to an
+  # issue/PR. Selecting it skips gh checkout / issue-marker writes.
   {
-    jq -r '.[] | "issue\t\(.number)\t\(.title)\t\(.url)"' < "$tmpdir/issues.json"
-    jq -r '.[] | "pr\t\(.number)\t\(.title)\t\(.url)"'    < "$tmpdir/prs.json"
+    printf 'scratch\t-\tscratch session (no issue/PR)\t-\t-\n'
+    jq -r '.[] | "issue\t\(.number)\t\(.title)\t\(.url)\t\((.labels // []) | map(.name) | join(","))"' < "$tmpdir/issues.json"
+    jq -r '.[] | "pr\t\(.number)\t\(.title)\t\(.url)\t\((.labels // []) | map(.name) | join(","))"'    < "$tmpdir/prs.json"
   } > "$tmpdir/combined"
 
   if [[ ! -s "$tmpdir/combined" ]]; then
@@ -120,14 +137,18 @@ else
 
   selection=$(
     fzf --delimiter=$'\t' \
-        --with-nth='1,2,3' \
+        --with-nth='1,2,5,3' \
         --height=40% \
         --reverse \
         --prompt='vm-pick> ' \
         < "$tmpdir/combined"
   ) || exit 1
 
-  IFS=$'\t' read -r kind num title _url <<< "$selection"
+  IFS=$'\t' read -r kind num title _url _labels <<< "$selection"
+  if [[ "$kind" == "scratch" ]]; then
+    SCRATCH=1
+    num=$(date +%Y%m%dT%H%M%S)
+  fi
 fi
 
 # Slugify title: lowercase, non-alnum → '-', trim, cap at 40 chars.
@@ -137,7 +158,11 @@ slug=$(printf '%s' "$title" \
   | cut -c1-40 \
   | sed -E 's/-+$//')
 
-CLONE_DIR="${CLONES_ROOT}/${num}-${kind}-${slug}"
+if (( SCRATCH )); then
+  CLONE_DIR="${CLONES_ROOT}/scratch-${num}"
+else
+  CLONE_DIR="${CLONES_ROOT}/${num}-${kind}-${slug}"
+fi
 
 if [[ -d "$CLONE_DIR" ]]; then
   echo "vm-pick: reusing existing clone at $CLONE_DIR" >&2
@@ -150,8 +175,10 @@ else
 
   if [[ "$kind" == "pr" ]]; then
     (cd "$CLONE_DIR" && gh pr checkout "$num")
-  else
+  elif [[ "$kind" == "issue" ]]; then
     (cd "$CLONE_DIR" && git checkout -B "${num}-${slug}")
+  elif [[ "$kind" == "scratch" ]]; then
+    (cd "$CLONE_DIR" && git checkout -B "scratch-${num}")
   fi
 fi
 
@@ -167,9 +194,16 @@ done
 
 # Stamp marker files unconditionally — newer fields (issue ref) need
 # to land on existing clones too, not just freshly-created ones.
+# Scratch clones intentionally omit the issue marker so vm.ts drops
+# into bash instead of auto-launching `claude "work on #NNN"`. Also
+# remove any stale issue file from a re-used scratch dir.
 mkdir -p "$CLONE_DIR/.machinen-vm"
 printf '%s\n' "$MAIN_REPO" > "$CLONE_DIR/.machinen-vm/origin"
-printf '%s\n' "$num" > "$CLONE_DIR/.machinen-vm/issue"
+if (( SCRATCH )); then
+  rm -f "$CLONE_DIR/.machinen-vm/issue"
+else
+  printf '%s\n' "$num" > "$CLONE_DIR/.machinen-vm/issue"
+fi
 
 cd "$CLONE_DIR"
 

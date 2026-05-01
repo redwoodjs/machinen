@@ -276,14 +276,16 @@ const DEV_BOOTSTRAP_B64 = Buffer.from(DEV_BOOTSTRAP).toString("base64");
 
 const bootstrap = [
   ...STAGE_BOOTSTRAP,
+  // Stage the dev-side bootstrap into $HOME (NOT /tmp — older images
+  // may not have /tmp, see the STAGE_BOOTSTRAP comment above). Base64
+  // sidesteps the quoting headache of nesting a multi-line shell
+  // snippet inside the outer runuser invocation. Stage BEFORE the
+  // chown so dev inherits ownership in one pass.
+  `echo ${DEV_BOOTSTRAP_B64} | base64 -d > "$HOME/.machinen-dev-bootstrap.sh"`,
+  'chmod 755 "$HOME/.machinen-dev-bootstrap.sh"',
   // Hand the staged files off to dev. Cheap because /home/dev is
-  // small (creds + bashrc files only).
+  // small (creds + bashrc + dev-bootstrap files only).
   'chown -R dev:dev "$HOME"',
-  // Stage the dev-side bootstrap as a script. Base64 sidesteps the
-  // quoting headache of nesting a multi-line shell snippet inside the
-  // outer runuser invocation.
-  `echo ${DEV_BOOTSTRAP_B64} | base64 -d > /tmp/machinen-dev-bootstrap.sh`,
-  "chmod 755 /tmp/machinen-dev-bootstrap.sh",
   // Drop privs to dev with a controlled env. `env -i` clears the
   // inherited env (including MACHINEN_* leftovers) and we forward only
   // what dev needs. `runuser -m` preserves the env we just built across
@@ -295,7 +297,7 @@ const bootstrap = [
     'COLUMNS="${COLUMNS:-80}" LINES="${LINES:-24}" ' +
     'GH_TOKEN="${GH_TOKEN:-}" GITHUB_TOKEN="${GITHUB_TOKEN:-}" ' +
     "PATH=/usr/local/bin:/usr/bin:/bin:/sbin " +
-    "runuser -m -u dev -- bash /tmp/machinen-dev-bootstrap.sh",
+    "runuser -m -u dev -- bash /home/dev/.machinen-dev-bootstrap.sh",
 ].join("\n");
 
 const vm = await boot({
@@ -312,30 +314,10 @@ const vm = await boot({
   timeoutMs: null,
 });
 
-// #177: connect to the in-guest winsize-agent and forward host
-// SIGWINCH for the rest of the session. Non-fatal: a stale rootfs
-// without /sbin/machinen-winsize-agent leaves nothing listening on
-// vsock 1974, so the connect retries inside VsockWinsize will give up
-// after ~10s. We catch and continue — the stty-on-bootstrap path
-// already handled first paint, only mid-session resizes are lost.
-let winsize: VsockWinsizeHandle | undefined;
-try {
-  winsize = await VsockWinsize.connect(winsizeUdsPath, { timeoutMs: 10_000 });
-  winsize.send(hostCols, hostRows);
-  process.stdout.on("resize", () => {
-    if (!winsize) {
-      return;
-    }
-    const cols = stdoutAny.columns ?? hostCols;
-    const rows = stdoutAny.rows ?? hostRows;
-    winsize.send(cols, rows);
-  });
-} catch (err) {
-  process.stderr.write(
-    `[machinen] winsize forwarding unavailable (${err instanceof Error ? err.message : String(err)}) — host resizes won't reach the guest tty\n`,
-  );
-}
-
+// Wire host <-> guest stdio FIRST. Anything that blocks before this
+// (e.g. the winsize connect below) eats kernel boot output and any
+// errors a fast-exiting bootstrap prints — making a failed boot look
+// like a silent "didn't boot, console clear" mystery.
 const stdin = process.stdin as NodeJS.ReadStream & {
   setRawMode?: (m: boolean) => void;
 };
@@ -348,14 +330,47 @@ vm.stdout.pipe(process.stdout);
 vm.stderr.pipe(process.stderr);
 process.stdin.pipe(vm.stdin);
 
+// #177: connect to the in-guest winsize-agent and forward host
+// SIGWINCH for the rest of the session. Non-fatal: a stale rootfs
+// without /sbin/machinen-winsize-agent leaves nothing listening on
+// vsock 1974, so the connect retries inside VsockWinsize will give up
+// after ~10s. We catch and continue — the stty-on-bootstrap path
+// already handled first paint, only mid-session resizes are lost.
+// Run in the background so the connect's 10s ceiling never delays
+// stdio piping (see the block above).
+let winsize: VsockWinsizeHandle | undefined;
+const winsizeReady = (async () => {
+  try {
+    winsize = await VsockWinsize.connect(winsizeUdsPath, { timeoutMs: 10_000 });
+    winsize.send(hostCols, hostRows);
+    process.stdout.on("resize", () => {
+      if (!winsize) {
+        return;
+      }
+      const cols = stdoutAny.columns ?? hostCols;
+      const rows = stdoutAny.rows ?? hostRows;
+      winsize.send(cols, rows);
+    });
+  } catch (err) {
+    process.stderr.write(
+      `[machinen] winsize forwarding unavailable (${err instanceof Error ? err.message : String(err)}) — host resizes won't reach the guest tty\n`,
+    );
+  }
+})();
+
 const { code } = await vm.wait();
+await winsizeReady;
 winsize?.close();
 if (isTty) {
   stdin.setRawMode!(false);
-  // RIS (full terminal reset) + clear scrollback + home cursor, so the
-  // host shell starts fresh after `exit`. No-op when stdout isn't a TTY.
-  if (process.stdout.isTTY) {
+  // Terminal-reset on exit (`\x1bc\x1b[3J\x1b[H`) used to run here so
+  // the host shell felt fresh after the agent loop finished. It's
+  // user-hostile during debugging — a failed boot, or a session that
+  // exits faster than the user can read, leaves nothing on screen.
+  // Opt-in via MACHINEN_VM_CLEAR_ON_EXIT=1 if the old behavior is wanted.
+  if (process.stdout.isTTY && process.env.MACHINEN_VM_CLEAR_ON_EXIT === "1") {
     process.stdout.write("\x1bc\x1b[3J\x1b[H");
   }
 }
+process.stderr.write(`[machinen] vm exited with code ${code ?? 0}\n`);
 process.exit(code ?? 0);
