@@ -460,22 +460,32 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     if (!existsSync(bundleDisk)) {
       throw new BootError("BOOT_SNAPSHOT_NOT_FOUND", `snapshot image not found: ${bundleDisk}`);
     }
-    // Reflink-clone the bundle disk into a per-boot path so the
-    // restored VM can be snapshotted again (#207). machinen-dump
-    // mkfs's the scratch disk on every dump; without the clone, the
-    // second snapshot would corrupt the parent bundle on the host fs.
-    // Same pattern as #121 for the rootdisk: COPYFILE_FICLONE → cheap
-    // shared blocks until guest writes, falls back to a full copy on
-    // non-reflink filesystems.
-    const perBoot = join(
-      tmpdir(),
-      `machinen-snap-restore-${process.pid}-${randomBytes(6).toString("hex")}.img`,
-    );
-    copyFileSync(bundleDisk, perBoot, fsConstants.COPYFILE_FICLONE);
-    diskAbs = perBoot;
-    perBootSnapDisk = perBoot;
-    env.MACHINEN_DISK = perBoot;
-    debug("snap-restore reflink-clone src=%s dst=%s", bundleDisk, perBoot);
+    // An explicit `cmd` means the caller is running their own workload
+    // (e.g. provision()'s tar-to-/dev/vdb dump), not restoring a CRIU
+    // bundle — so attach the disk in place. The reflink-clone below is
+    // only needed for the restore path, where machinen-dump.sh later
+    // mkfs's the scratch disk and would otherwise corrupt the source
+    // bundle on the host fs (#207).
+    if (opts.cmd) {
+      diskAbs = bundleDisk;
+      env.MACHINEN_DISK = bundleDisk;
+      debug("snap-restore in-place (explicit cmd) path=%s", bundleDisk);
+    } else {
+      // Reflink-clone the bundle disk into a per-boot path so the
+      // restored VM can be snapshotted again (#207). Same pattern as
+      // #121 for the rootdisk: COPYFILE_FICLONE → cheap shared blocks
+      // until guest writes, falls back to a full copy on non-reflink
+      // filesystems.
+      const perBoot = join(
+        tmpdir(),
+        `machinen-snap-restore-${process.pid}-${randomBytes(6).toString("hex")}.img`,
+      );
+      copyFileSync(bundleDisk, perBoot, fsConstants.COPYFILE_FICLONE);
+      diskAbs = perBoot;
+      perBootSnapDisk = perBoot;
+      env.MACHINEN_DISK = perBoot;
+      debug("snap-restore reflink-clone src=%s dst=%s", bundleDisk, perBoot);
+    }
   } else if (opts.image) {
     // Auto-allocate only when the caller is booting a real image-backed
     // guest. VMM-only smoke boots (no image — e.g. MACHINEN_BOOT_TEST=1)
@@ -904,13 +914,32 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       if (child.exitCode !== null || child.signalCode !== null) {
         return;
       }
-      child.kill("SIGKILL");
-      // Same race: the child may finish dying between the guard above
-      // and the listener below. Re-check before waiting.
+      // Send SIGTERM, not SIGKILL: on darwin the spawn target is the
+      // pdeathsig shim, which can't catch SIGKILL — that orphans its
+      // inner VMM (#200), keeping the stderr pipe open so any caller
+      // awaiting `errorOutput()` (collected via stream "close") never
+      // wakes up. The shim does catch SIGTERM and forwards it to the
+      // VMM, which exits cleanly. Linux has the same shape via
+      // PR_SET_PDEATHSIG, so the same path applies.
+      child.kill("SIGTERM");
       if (child.exitCode !== null || child.signalCode !== null) {
         return;
       }
-      await once(child, "exit");
+      // Escalate to SIGKILL if the shim+inner don't exit within 2s —
+      // covers a wedged inner that ignores SIGTERM. SIGKILL'ing the
+      // shim still orphans the inner, but at that point the inner is
+      // already unresponsive and we've done what we can from here.
+      const escalate = setTimeout(() => {
+        try {
+          child.kill("SIGKILL");
+        } catch {}
+      }, 2_000);
+      escalate.unref();
+      try {
+        await once(child, "exit");
+      } finally {
+        clearTimeout(escalate);
+      }
     },
 
     output: () => outputCollector,
