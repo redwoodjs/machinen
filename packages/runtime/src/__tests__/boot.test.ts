@@ -771,6 +771,48 @@ describe("vm.snapshot", () => {
     }
   });
 
+  it("vm.fork throws SNAPSHOT_NO_DISK when source booted with snapshot:false", async () => {
+    // The source can't be CRIU-dumped without a /dev/vda scratch — so
+    // fork (which always snapshots) refuses up front. Same shape as
+    // vm.snapshot's own NO_DISK guard, just under a different name.
+    const vm = await boot({ binary: "/usr/bin/yes", snapshot: false, timeoutMs: 5_000 });
+    try {
+      await expect(vm.fork()).rejects.toThrow(/has no scratch disk/);
+    } finally {
+      await vm.kill();
+    }
+  });
+
+  it("vm.fork throws SNAPSHOT_LIVE_MOUNT_ACTIVE when source has a live mount", async () => {
+    // Same constraint as vm.snapshot — vsock FUSE channels don't
+    // survive CRIU, so neither dump-then-restore nor fork can compose
+    // with --mount-live.
+    const snap = `/tmp/machinen-fork-livemount-${process.pid}.img`;
+    writeFileSync(snap, Buffer.alloc(1024));
+    const liveDir = `/tmp/machinen-fork-livemount-${process.pid}`;
+    mkdirSync(liveDir, { recursive: true });
+    try {
+      const vm = await boot({
+        binary: "/usr/bin/yes",
+        snapshot: snap,
+        liveMounts: [{ host: liveDir, guest: "/mnt/src" }],
+        timeoutMs: 5_000,
+      });
+      try {
+        await expect(vm.fork()).rejects.toThrow(/cannot fork .* --mount-live active/);
+      } finally {
+        await vm.kill();
+      }
+    } finally {
+      try {
+        rmSync(liveDir, { recursive: true, force: true });
+      } catch {}
+      try {
+        unlinkSync(snap);
+      } catch {}
+    }
+  });
+
   it("throws when the guest exits without writing to the disk", async () => {
     // /usr/bin/true exits immediately, so the VMM comes down cleanly
     // before the in-guest dump script has any chance to run. The mtime

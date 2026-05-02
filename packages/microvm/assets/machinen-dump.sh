@@ -1,10 +1,25 @@
 #!/bin/sh
 # /sbin/machinen-dump — dumps the user workload with CRIU onto the
-# scratch disk and triggers a clean poweroff.
+# scratch disk and triggers a clean poweroff (or, with
+# MACHINEN_DUMP_LEAVE_RUNNING=1, leaves the workload running so the
+# host can fork it — see #216).
 #
 # Runs inside the guest, invoked by `vm.snapshot()` via vsock exec.
 # The host-side `vm.snapshot()` then copies the scratch disk's backing
 # file to the caller's outPath and returns.
+#
+# Env knobs:
+#   MACHINEN_DUMP_LEAVE_RUNNING=1   pass --leave-running to criu dump.
+#                                    The workload survives the dump and
+#                                    the supervisor's wait does NOT
+#                                    return — the host signals success
+#                                    by this script's exit, not by VMM
+#                                    poweroff. Used by `vm.fork()`.
+#   MACHINEN_DUMP_TCP_CLOSE=1        omit --tcp-established. Default
+#                                    (no env / unset) keeps it. The
+#                                    fork path sets this so the cloned
+#                                    VM doesn't share live TCP state
+#                                    with the parent.
 #
 # Scratch disk lives at /dev/vdb when the VM was booted with virtio-blk
 # root (/dev/vda is the rootfs in that case — see #114). On legacy
@@ -39,6 +54,18 @@ case "${1:-}" in
         shift
         ;;
 esac
+
+# Read fork-mode knobs (#216). nsenter passes env through to the
+# re-exec'd self in the sub-NS, so reading them here covers both the
+# direct dump and the chained dump path.
+LEAVE_RUNNING=0
+if [ "${MACHINEN_DUMP_LEAVE_RUNNING:-0}" = "1" ]; then
+    LEAVE_RUNNING=1
+fi
+TCP_CLOSE=0
+if [ "${MACHINEN_DUMP_TCP_CLOSE:-0}" = "1" ]; then
+    TCP_CLOSE=1
+fi
 
 # Pick the scratch disk: /dev/vdb when virtio-blk-root booted (rootfs
 # took /dev/vda); else /dev/vda for the legacy single-disk layout.
@@ -208,18 +235,29 @@ mount "$SCRATCH" /mnt/snap
 rm -rf /mnt/snap/img
 mkdir -p /mnt/snap/img
 
-echo "machinen-dump: dumping tree rooted at pid=$DUMP_PID"
+echo "machinen-dump: dumping tree rooted at pid=$DUMP_PID (leave_running=$LEAVE_RUNNING tcp_close=$TCP_CLOSE)"
 # --tree recurses automatically.
 # --shell-job lets CRIU dump processes whose session leader is /init.
-# --tcp-established keeps TCP sockets (gvproxy-backed connections etc.)
+# --tcp-established keeps TCP sockets (gvproxy-backed connections etc.).
+#   Omitted when MACHINEN_DUMP_TCP_CLOSE=1 — fork (#216) sets that so
+#   the new VM doesn't share live TCP sockets with the source. CRIU
+#   restores those sockets in CLOSED state on the new side, which the
+#   workload sees as ECONNRESET on first I/O — the right semantic for
+#   "this is a copy, not a continuation."
+# --leave-running: CRIU normally SIGKILLs the dumped tree on success.
+#   Fork (#216) wants the source VM to keep going; this flag suppresses
+#   the kill so the supervisor's `wait` stays blocked and the workload
+#   resumes execution from the dump point with no observable hiccup.
 # -v3 + log file: if dump fails, tail /mnt/snap/img/dump.log on stderr.
-if ! criu dump \
-        --tree "$DUMP_PID" \
-        --images-dir /mnt/snap/img \
-        --shell-job \
-        --tcp-established \
-        -v3 \
-        -o dump.log; then
+DUMP_ARGS="--tree $DUMP_PID --images-dir /mnt/snap/img --shell-job -v3 -o dump.log"
+if [ "$TCP_CLOSE" -eq 0 ]; then
+    DUMP_ARGS="$DUMP_ARGS --tcp-established"
+fi
+if [ "$LEAVE_RUNNING" -eq 1 ]; then
+    DUMP_ARGS="$DUMP_ARGS --leave-running"
+fi
+# shellcheck disable=SC2086 # word splitting on DUMP_ARGS is intentional
+if ! criu dump $DUMP_ARGS; then
     echo "machinen-dump: CRIU dump failed — tail of dump.log:" >&2
     tail -40 /mnt/snap/img/dump.log >&2 || true
     # Leave the mount + images in place for post-mortem. The host's
@@ -245,4 +283,10 @@ sync
 # Our process here may be SIGKILLed by the kernel's pid_ns destruction
 # before this exit fires (we're a process inside the dying sub-NS), but
 # the data has already been flushed to the block device above.
+#
+# Leave-running mode (#216): CRIU did NOT kill the workload, so the
+# supervisor's wait stays blocked and the VM keeps running. The host
+# uses our exit code (delivered over vsock by the exec-agent) as the
+# success signal instead of the VMM exit. There's nothing further to
+# do here; just exit 0.
 exit 0

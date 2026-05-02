@@ -239,7 +239,21 @@ function walkPins(dir: string, onFile: (path: string) => void): void {
  */
 export function claimName(name: string, pid: number): boolean {
   const pin = pinPath(name);
-  mkdirSync(dirname(pin), { recursive: true });
+  // Path-shaped names like `<src>/<pid>` (chained restore — #208) need
+  // their parent dir to exist. mkdir is idempotent for directories;
+  // it throws EEXIST when a regular file blocks the parent path —
+  // typical when the source VM is alive and pinned at `<src>` (the
+  // fork case, #216). Treat that as "name unavailable" so callers
+  // can fall back to a non-nested name rather than crash.
+  try {
+    mkdirSync(dirname(pin), { recursive: true });
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "EEXIST") {
+      debug("claimName name=%s parent path is a live pin — refusing", name);
+      return false;
+    }
+    throw err;
+  }
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       writeFileSync(pin, String(pid), { flag: "wx" });

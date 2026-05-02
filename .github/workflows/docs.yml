@@ -23,7 +23,7 @@ jobs:
       # don't need the C++ toolchain or Zig that node-pty/microvm want.
       - run: pnpm install --frozen-lockfile --ignore-scripts
 
-      - run: pnpm run docs
+      - run: pnpm run build:docs
 
       # Fail if the committed API.md drifts from the regenerated one —
       # this is the canary for @throws (and other JSDoc) going stale.

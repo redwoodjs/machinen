@@ -69,6 +69,7 @@ export {
 } from "./errors.ts";
 export type { MachinenErrorOptions } from "./errors.ts";
 export type {
+  ForkOptions,
   SnapshotMeta,
   SnapshotOptions,
   SnapshotResult,
