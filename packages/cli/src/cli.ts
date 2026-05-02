@@ -273,6 +273,31 @@ function sha256OfFile(path: string): string {
   return hash.digest("hex");
 }
 
+// Boot/restore wire host stdin straight into the VMM's stdin pipe (the
+// guest serial console). In cooked mode the host kernel's tty driver
+// eats Ctrl-C as SIGINT before the byte reaches the guest, so killing
+// `ping` in the guest tears down the whole VM. Flip stdin to raw so
+// 0x03 / 0x04 / arrows pass through untranslated; the guest's own tty
+// turns Ctrl-C into SIGINT for its foreground process and Ctrl-D into
+// EOF on bash, which exits the shell and shuts the VM down cleanly.
+function rawModeStdinIfTTY(): () => void {
+  const stdin = process.stdin;
+  if (stdin.isTTY !== true) {
+    return () => {};
+  }
+  const wasRaw = stdin.isRaw === true;
+  stdin.setRawMode(true);
+  return () => {
+    if (!wasRaw) {
+      try {
+        stdin.setRawMode(false);
+      } catch {
+        // Already restored or stream destroyed; ignore.
+      }
+    }
+  };
+}
+
 // ------------------------------------------------------------
 // Commands
 // ------------------------------------------------------------
@@ -379,13 +404,15 @@ async function cmdBoot(args: string[]): Promise<number> {
 
   vm.stdout.pipe(process.stdout);
   vm.stderr.pipe(process.stderr);
+  const restoreStdin = rawModeStdinIfTTY();
   process.stdin.pipe(vm.stdin);
 
-  // Propagate SIGINT/SIGTERM to the VMM child. A terminal Ctrl-C
-  // already signals the whole process group (both us and the VMM), so
-  // this mostly matters when only the CLI is signalled — e.g. a
-  // supervisor sending SIGTERM to node, or `kill -INT <cli-pid>` from
-  // another shell. Without this, the VMM survives as an orphan.
+  // Propagate SIGINT/SIGTERM to the VMM child. With stdin in raw mode
+  // the host kernel no longer turns keyboard Ctrl-C into SIGINT (the
+  // byte goes through to the guest), so this only fires when the CLI
+  // is signalled directly — e.g. a supervisor sending SIGTERM to node,
+  // or `kill -INT <cli-pid>` from another shell. Without this, the
+  // VMM survives as an orphan.
   let forwardedSignal: "SIGINT" | "SIGTERM" | null = null;
   const onSigint = () => {
     forwardedSignal = "SIGINT";
@@ -410,6 +437,7 @@ async function cmdBoot(args: string[]): Promise<number> {
   } finally {
     process.off("SIGINT", onSigint);
     process.off("SIGTERM", onSigterm);
+    restoreStdin();
   }
 }
 
@@ -476,6 +504,7 @@ async function cmdRestore(args: string[]): Promise<number> {
 
   vm.stdout.pipe(process.stdout);
   vm.stderr.pipe(process.stderr);
+  const restoreStdin = rawModeStdinIfTTY();
   process.stdin.pipe(vm.stdin);
 
   let forwardedSignal: "SIGINT" | "SIGTERM" | null = null;
@@ -501,6 +530,7 @@ async function cmdRestore(args: string[]): Promise<number> {
   } finally {
     process.off("SIGINT", onSigint);
     process.off("SIGTERM", onSigterm);
+    restoreStdin();
   }
 }
 

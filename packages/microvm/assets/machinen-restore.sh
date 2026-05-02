@@ -147,8 +147,13 @@ fi
 RC=0
 wait "$UNSHARE_PID" || RC=$?
 if [ "$RC" -ne 0 ]; then
-    echo "machinen-restore: CRIU restore failed (rc=$RC) — tail of restore.log:" >&2
-    tail -40 /tmp/restore.log >&2 || true
+    # tail -40 of a v3 log is dominated by per-fd restore noise and
+    # rarely captures the actual error. Print Err/Warn lines first so
+    # the cause is visible even when the panic scrolls the console.
+    echo "machinen-restore: CRIU restore failed (rc=$RC) — Err/Warn from restore.log:" >&2
+    grep -E "^(Error|Warn|\([0-9.]+\)\s+[0-9]+:\s*(Error|Warn))" /tmp/restore.log >&2 || true
+    echo "machinen-restore: --- last 200 lines of restore.log ---" >&2
+    tail -200 /tmp/restore.log >&2 || true
     kill -TERM "$AGENT_PID" 2>/dev/null || true
     if [ -n "$WINSIZE_PID" ]; then
         kill -TERM "$WINSIZE_PID" 2>/dev/null || true
