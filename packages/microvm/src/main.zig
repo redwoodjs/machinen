@@ -52,12 +52,14 @@ pub fn main(init: std.process.Init) !void {
         gpa.free(result.serial);
         std.process.exit(if (result.saw_psci_shutdown) 0 else 1);
     } else {
-        // KVM's Config doesn't carry disk_path yet — follow-up to #68.
-        // The boot-to-shell goal doesn't need virtio-blk.
+        const disk_path = envOptional("MACHINEN_DISK");
+        const rootdisk_path = envOptional("MACHINEN_ROOTDISK");
         const result = try microvm.boot_kvm.boot(gpa, .{
             .kernel_path = kernel_path,
             .dtb_path = dtb_path,
             .initrd_path = initrd_path,
+            .rootdisk_path = rootdisk_path,
+            .disk_path = disk_path,
             .unbounded_serial = true,
             .max_exits = std.math.maxInt(usize),
         });
