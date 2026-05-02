@@ -1,6 +1,6 @@
 {
   "name": "@machinen/microvm",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Zig-native arm64 microVM for machinen (HVF on darwin, KVM on Linux).",
   "license": "FSL-1.1-MIT",
   "repository": {
