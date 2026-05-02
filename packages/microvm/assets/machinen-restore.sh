@@ -11,8 +11,8 @@
 set -eu
 
 # Debian's dash defaults PATH to /usr/bin:/bin when unset, which
-# leaves criu (in /usr/sbin) unreachable. Export a broad PATH
-# regardless of what /init's envp carried.
+# leaves criu (in /usr/sbin) and unshare/nsenter unreachable. Export
+# a broad PATH regardless of what /init's envp carried.
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
 
@@ -70,20 +70,32 @@ if [ ! -d /mnt/snap-src/img ] || [ -z "$(ls -A /mnt/snap-src/img 2>/dev/null)" ]
     exit 1
 fi
 
-echo "machinen-restore: starting criu restore"
-# No `unshare --pid` (#207): the original layout put criu in a fresh
-# PID namespace so dumped PIDs couldn't collide with anything in the
-# restore container, but that left the restored workload one namespace
-# below where /sbin/machinen-dump runs — making it impossible to dump
-# again. We're PID 1 with only exec-agent / winsize-agent (low PIDs)
-# alongside us, dumped workload PIDs are typically much higher, so
-# collisions are rare in practice. If they happen, criu surfaces a
-# clear error instead of corrupting state.
+echo "machinen-restore: starting criu restore in a fresh PID namespace"
+# Run criu inside `unshare --pid --fork --mount-proc` so the restored
+# workload's PIDs land in a fresh namespace (#215). Without this, the
+# dumped tree's PIDs (e.g. 60, 73, 77 — captured wherever the source
+# VM's PID counter happened to sit) collide with PIDs already
+# allocated to /exec-agent, machinen-winsize-agent, and the
+# mount/blkid/grep/mkdir helpers above, and `criu` aborts with
+# `clone3(set_tid=N): EEXIST`. Burning PIDs in the parent NS is
+# unreliable because the dumped range is open-ended (longer chains
+# amplify it); a fresh sub-NS guarantees the dumped PIDs are free.
 #
-# --pidfile writes the restored task's host PID to a file we can hand
-# to a future `criu dump --tree <pid>`. Counterpart of what
-# machinen-supervisor.sh writes from its inner sh -c on a fresh boot;
-# same path so machinen-dump finds either flavor uniformly.
+# --pid: new PID namespace.
+# --fork: required because unshare(CLONE_NEWPID) only takes effect for
+#   the calling process's children; --fork makes unshare actually do
+#   that fork before exec'ing criu, so criu becomes PID 1 of the new NS.
+# --mount-proc: clones the mount namespace and remounts /proc to
+#   reflect the new PID NS. Without this, criu would read the parent's
+#   /proc and see PIDs that don't match its own NS.
+#
+# We background the unshare so we can record the criu host PID before
+# `wait`-ing — `/sbin/machinen-dump` needs it to nsenter the sub-NS
+# on a chained snapshot.
+#
+# --pidfile writes the restored task's pid (in the new NS) — useful for
+# `criu dump --tree <pid>` after we nsenter into the sub-NS. The
+# corresponding host PID is captured below.
 #
 # --work-dir /tmp keeps logs + per-restore working state off the
 # read-only bundle mount. CRIU writes `restore.log` (and stats / aux
@@ -91,19 +103,51 @@ echo "machinen-restore: starting criu restore"
 # fail with "Can't create log file restore.log: Read-only file system"
 # on v4.2 (3.17.1 was lenient about this and didn't always need to
 # write the log).
-#
-# No -d: block until the restored tree's session leader exits, so this
-# shell (PID 1) stays alive for the life of the workload and can
-# trigger a clean poweroff afterwards.
-if ! criu restore \
-        --images-dir /mnt/snap-src/img \
-        --work-dir /tmp \
-        --shell-job \
-        --tcp-established \
-        --pidfile /run/machinen-workload.pid \
-        -v3 \
-        -o restore.log; then
-    echo "machinen-restore: CRIU restore failed — tail of restore.log:" >&2
+unshare --pid --fork --mount-proc -- \
+        criu restore \
+            --images-dir /mnt/snap-src/img \
+            --work-dir /tmp \
+            --shell-job \
+            --tcp-established \
+            --pidfile /run/machinen-workload.pid \
+            -v3 \
+            -o restore.log &
+UNSHARE_PID=$!
+
+# Discover the criu host PID (the sole child of the unshare process).
+# /proc/<pid>/task/<pid>/children is space-separated; in our case
+# there's exactly one entry — the forked child that exec'd criu.
+# Loop briefly because unshare's fork happens after we capture $!.
+CRIU_HOST_PID=""
+i=0
+while [ $i -lt 50 ]; do
+    if [ -r "/proc/$UNSHARE_PID/task/$UNSHARE_PID/children" ]; then
+        first=$(cut -d' ' -f1 < "/proc/$UNSHARE_PID/task/$UNSHARE_PID/children" 2>/dev/null || true)
+        case "$first" in
+            ''|*[!0-9]*) ;;
+            *) CRIU_HOST_PID="$first"; break ;;
+        esac
+    fi
+    sleep 0.1
+    i=$((i + 1))
+done
+
+# Persist the criu host PID for /sbin/machinen-dump. Empty means a
+# chained snapshot will refuse to dump and the user gets a clear
+# error rather than CRIU walking the wrong tree.
+if [ -n "$CRIU_HOST_PID" ]; then
+    printf '%s' "$CRIU_HOST_PID" > /run/machinen-workload-host.pid
+else
+    echo "machinen-restore: warning — could not discover criu host PID" >&2
+fi
+
+# Wait for criu to finish (it blocks until the restored tree exits,
+# courtesy of no -d). Using `|| RC=$?` keeps `set -e` from yanking us
+# before we can drain logs and signal the agents.
+RC=0
+wait "$UNSHARE_PID" || RC=$?
+if [ "$RC" -ne 0 ]; then
+    echo "machinen-restore: CRIU restore failed (rc=$RC) — tail of restore.log:" >&2
     tail -40 /tmp/restore.log >&2 || true
     kill -TERM "$AGENT_PID" 2>/dev/null || true
     if [ -n "$WINSIZE_PID" ]; then

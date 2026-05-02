@@ -59,7 +59,11 @@ OUT="${ROOT}/release-assets"
 ROOTFS_IMG_CACHE="${HOME}/.cache/machinen/rootfs"
 
 mkdir -p "$OUT"
-rm -f "$OUT"/*
+# Preserve any pre-staged kernel/dtb (darwin dev workflow); wipe
+# everything else so a stale rootfs.tar.gz can't get picked up.
+find "$OUT" -mindepth 1 -maxdepth 1 \
+  ! -name 'Image-arm64' ! -name 'virt-arm64.dtb' ! -name '*.sha256' \
+  -exec rm -f {} +
 rm -rf "${ROOTFS_IMG_CACHE:?}"/*.img "${ROOTFS_IMG_CACHE:?}"/*-staging-* 2>/dev/null || true
 
 # ------------------------------------------------------------
@@ -75,6 +79,9 @@ rm -rf "${ROOTFS_IMG_CACHE:?}"/*.img "${ROOTFS_IMG_CACHE:?}"/*-staging-* 2>/dev/
 # to ssh into a native arm64 box). qemu-emulated kernel builds work
 # but take hours, so we hard-fail rather than silently sandbag.
 
+if [ -f "$OUT/Image-arm64" ]; then
+  echo "==> Reusing existing kernel: $OUT/Image-arm64 ($(stat -f %z "$OUT/Image-arm64" 2>/dev/null || stat -c %s "$OUT/Image-arm64") bytes)"
+else
 echo "==> Building custom arm64 kernel with virtio_* + ext4 + vsock + fuse =y"
 
 if [ -n "${MACHINEN_REMOTE_BUILDER:-}" ]; then
@@ -105,13 +112,18 @@ else
   echo "  delegate the build, or run this script on ubuntu-24.04-arm." >&2
   exit 1
 fi
+fi  # close the "Reuse existing kernel" guard
 
 # ------------------------------------------------------------
 # 2. Device tree blob
 # ------------------------------------------------------------
 
-echo "==> Compiling virt.dts -> virt-arm64.dtb"
-dtc -I dts -O dtb "${ASSETS}/virt.dts" -o "${OUT}/virt-arm64.dtb"
+if [ -f "$OUT/virt-arm64.dtb" ]; then
+  echo "==> Reusing existing dtb: $OUT/virt-arm64.dtb"
+else
+  echo "==> Compiling virt.dts -> virt-arm64.dtb"
+  dtc -I dts -O dtb "${ASSETS}/virt.dts" -o "${OUT}/virt-arm64.dtb"
+fi
 
 # ------------------------------------------------------------
 # 3. Guest binaries: /init + /exec-agent + /sbin/machinen-netup
@@ -251,20 +263,26 @@ chmod +x /tmp/setup-hook.sh
 #
 #   criu: required by any snapshot flow (`build()` dumps at freeze
 #   time, `spawn({ snapshot })` restores at boot time). Pulls ~5MB of
-#   libs (libnl, libprotobuf-c, libnftables). The criu-ns shell helper
-#   that solves PID collisions across boots ships in the same package.
-#   APT::Install-Recommends "false" is already set by the setup hook,
-#   so criu's optional python3 suggestion is skipped. The Debian
-#   binary is overlaid with an upstream-tag build below — see
-#   "CRIU overlay" — but we keep the package installed for its
-#   runtime libs and the dpkg manifest.
+#   libs (libnl, libprotobuf-c, libnftables).  The PID-namespace
+#   isolation that solves cross-restore collisions (#215) is wrapped
+#   in /sbin/machinen-restore with util-linux's `unshare`, not the
+#   upstream criu-ns Python helper — Python is stripped from the
+#   rootfs to save ~30 MB.  APT::Install-Recommends "false" is set
+#   by the setup hook so criu's optional python3 suggestion is
+#   skipped.  The Debian binary is overlaid with an upstream-tag
+#   build below — see "CRIU overlay" — but we keep the package
+#   installed for its runtime libs and the dpkg manifest.
 #
 #   e2fsprogs: mkfs.ext4 + blkid. /sbin/machinen-dump formats /dev/vda
 #   on first snapshot so CRIU has a filesystem to write images into;
 #   /sbin/machinen-restore uses blkid to verify before mounting.
 #
-#   mount: util-linux's `mount` / `umount` are Essential on Debian,
-#   so they ride in with minbase — no extra --include line needed.
+#   mount + unshare + nsenter: util-linux's `mount`/`umount` are
+#   Essential on Debian, so they ride in with minbase — no extra
+#   --include line needed. `unshare` (used by /sbin/machinen-restore
+#   to put criu in a fresh PID NS, #215) and `nsenter` (used by
+#   /sbin/machinen-dump to dump across the sub-NS boundary) are
+#   shipped in the same util-linux package.
 #
 #   iputils-ping: baked in so users can sanity-check connectivity
 #   without an `apt install`. Over gvproxy ICMP works via unprivileged

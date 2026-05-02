@@ -1379,8 +1379,10 @@ function synthesizeAndPackBundle(
   // cmd resolution:
   //   - Snapshot-only restore (`boot({ snapshot })` with no cmd):
   //     synthesize `["/sbin/machinen-restore"]`. The helper mounts
-  //     /dev/vda, spawns a fresh exec-agent, and runs `criu-ns
-  //     restore` against the baked images.
+  //     /dev/vda, spawns a fresh exec-agent, and runs `criu restore`
+  //     inside `unshare --pid --fork --mount-proc` so the dumped
+  //     workload's PIDs don't collide with the restore-side helpers
+  //     on chained restores (#215).
   //   - Normal boot: user's cmd wins; fall back to image's baked
   //     default. Then wrap in /sbin/machinen-supervisor so the
   //     workload runs as a CRIU-dumpable child of /init and the
