@@ -696,9 +696,7 @@ async function cmdSnapshot(args: string[]): Promise<number> {
     }
   }
   if (!outDir) {
-    die(
-      "usage: machinen snapshot ( --name <name> | --pid <pid> ) --out-dir <dir> [--keep-alive]",
-    );
+    die("usage: machinen snapshot ( --name <name> | --pid <pid> ) --out-dir <dir> [--keep-alive]");
   }
   const target = parseTargetFlags(rest, "snapshot");
   const vm = await attach(target).catch(handleError);
