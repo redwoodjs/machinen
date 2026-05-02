@@ -36,14 +36,34 @@
 //!  40   fwd_cnt   u32  — bytes we've consumed (for credit update)
 
 const std = @import("std");
+const builtin = @import("builtin");
 const virtio = @import("virtio.zig");
 const assert = std.debug.assert;
 
-/// pthread-backed mutex. Zig 0.16 tucked std.Thread.Mutex behind an Io
-/// context; we already use this pattern in hvf.Pl011.
+/// Platform-sized pthread mutex. Zig 0.16 moved `std.Thread.Mutex`
+/// under `std.Io` (it now requires an Io context), so we bind
+/// pthread directly rather than take on that dependency just for
+/// a lock. macOS layout: 64 bytes with a `sig` magic. Linux glibc
+/// layout: 40 bytes, all-zeros == `PTHREAD_MUTEX_INITIALIZER`.
+///
+/// Mirrors `pl011.PthreadMutex`. The previous form here hardcoded
+/// the macOS magic into a 64-byte struct and relied on the bridge
+/// thread being the only caller — on Linux that magic put glibc's
+/// pthread_mutex_lock into an undefined state so the bridge silently
+/// hung, but no other thread tried to take the same mutex so nothing
+/// else broke. The vsock-MMIO lock-take in boot_kvm.zig is the first
+/// place the vCPU thread tries to acquire it, which is what surfaced
+/// the bug as a kernel hang at earlycon.
 const PthreadMutex = extern struct {
-    sig: c_long = 0x32AAABA7, // macOS PTHREAD_MUTEX_INITIALIZER magic
-    opaque_bytes: [56]u8 = @splat(0),
+    _bytes: [64]u8 align(8) = if (builtin.os.tag == .macos) macosInit() else @splat(0),
+
+    fn macosInit() [64]u8 {
+        var out: [64]u8 = @splat(0);
+        // sig = 0x32AAABA7 (macOS PTHREAD_MUTEX_INITIALIZER magic).
+        const sig: u64 = 0x32AAABA7;
+        std.mem.writeInt(u64, out[0..8], sig, .little);
+        return out;
+    }
 
     extern "c" fn pthread_mutex_lock(m: *PthreadMutex) c_int;
     extern "c" fn pthread_mutex_unlock(m: *PthreadMutex) c_int;
@@ -1060,6 +1080,14 @@ pub const Bridge = struct {
 
     /// Called from the vCPU thread when the guest kicks the TX queue.
     /// Signature matches virtio.Device.request_handler.
+    ///
+    /// PRECONDITION: caller holds `self.mu`. The vCPU's vsock-MMIO
+    /// handler must lock the bridge mutex around the whole MMIO so the
+    /// (RMW interrupt_status + setIrq) pair can't interleave with the
+    /// bridge poll thread's own pair — see the `Why locking the bridge
+    /// mutex around vsock MMIO` doc on `Bridge`. We rely on that
+    /// outer lock instead of taking it again here (PthreadMutex isn't
+    /// reentrant).
     pub fn handleTxChain(ctx: ?*anyopaque, dev: *virtio.Device, q_idx: u32, head: u16) void {
         assert(ctx != null);
         assert(q_idx < virtio.max_queues);
@@ -1079,8 +1107,6 @@ pub const Bridge = struct {
         const total_len: u32 = @as(u32, @intCast(header_size)) + @as(u32, @intCast(pkt.body.len));
         dev.queuePushUsed(q_idx, head, total_len);
 
-        self.mu.lock();
-        defer self.mu.unlock();
         self.dispatchGuestPacket(pkt.hdr, pkt.body);
     }
 

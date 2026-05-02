@@ -29,34 +29,47 @@ const pl011 = @import("pl011.zig"); // for the shared PthreadMutex shim
 const assert = std.debug.assert;
 
 comptime {
-    if (builtin.os.tag != .macos) {
-        @compileError("net_socket.zig targets macOS (matches boot_hvf.zig)");
+    // sockaddr_un layout the kernel expects:
+    //   macOS: { u8 sun_len; u8 sun_family; char[104] sun_path; } (106B)
+    //   Linux: { u16 sun_family; char[108] sun_path; }            (110B)
+    // A mismatch would silently truncate the path during connect()
+    // and the socket dial would land somewhere else (or fail).
+    if (builtin.os.tag == .macos) {
+        assert(@sizeOf(sockaddr_un) == 106);
+        assert(@offsetOf(sockaddr_un, "sun_len") == 0);
+        assert(@offsetOf(sockaddr_un, "sun_family") == 1);
+        assert(@offsetOf(sockaddr_un, "sun_path") == 2);
+    } else {
+        assert(@sizeOf(sockaddr_un) == 110);
+        assert(@offsetOf(sockaddr_un, "sun_family") == 0);
+        assert(@offsetOf(sockaddr_un, "sun_path") == 2);
     }
-    // sockaddr_un layout the kernel expects (macOS): sun_len, sun_family,
-    // sun_path[104]. A mismatch would silently truncate the path during
-    // connect() and the socket dial would land somewhere else (or fail).
-    assert(@sizeOf(sockaddr_un) == 106);
-    assert(@offsetOf(sockaddr_un, "sun_len") == 0);
-    assert(@offsetOf(sockaddr_un, "sun_family") == 1);
-    assert(@offsetOf(sockaddr_un, "sun_path") == 2);
     // The qemu-netdev wire format prefixes every frame with a 4-byte
     // big-endian length; both writeInt sites below depend on this.
     assert(AF_UNIX == 1);
     assert(SHUT_RDWR == 2);
 }
 
-// ---- libc + sockaddr_un (macOS layout: u8 sun_len, u8 sun_family,
-// char[104] sun_path). sa_family_t on macOS is u8. ------------------
+// ---- libc + sockaddr_un. Layouts differ between platforms:
+//   macOS: { u8 sun_len; u8 sun_family; char[104] sun_path; }
+//          (sa_family_t == u8; address length is wire-encoded)
+//   Linux: { u16 sun_family; char[108] sun_path; }
+//          (no sun_len; sa_family_t == u16)
+// AF_UNIX is 1 on both. SOCK_STREAM is 1 on both. EINTR is 4 on
+// both. SHUT_RDWR is 2 on both. ------------------------------------
 
 const AF_UNIX: c_int = 1;
 const SOCK_STREAM: c_int = 1;
 const SHUT_RDWR: c_int = 2;
 const EINTR: c_int = 4;
 
-const sockaddr_un = extern struct {
+const sockaddr_un = if (builtin.os.tag == .macos) extern struct {
     sun_len: u8,
     sun_family: u8,
     sun_path: [104]u8,
+} else extern struct {
+    sun_family: u16,
+    sun_path: [108]u8,
 };
 
 extern "c" fn socket(domain: c_int, typ: c_int, protocol: c_int) c_int;
@@ -71,10 +84,11 @@ extern "c" fn shutdown(fd: c_int, how: c_int) c_int;
 extern "c" fn read(fd: c_int, buf: [*]u8, count: usize) isize;
 extern "c" fn write(fd: c_int, buf: [*]const u8, count: usize) isize;
 
-// macOS errno is a thread-local reached via __error().
+// errno: macOS uses __error(), glibc uses __errno_location().
 extern "c" fn __error() *c_int;
+extern "c" fn __errno_location() *c_int;
 fn errno() c_int {
-    return __error().*;
+    return if (builtin.os.tag == .macos) __error().* else __errno_location().*;
 }
 
 // ---- public API ----------------------------------------------------
@@ -104,6 +118,17 @@ pub const NetSocket = struct {
     /// its length prefix with someone else's payload bytes. pthread
     /// shim because std.Thread.Mutex moved under std.Io in Zig 0.16.
     tx_mutex: pl011.PthreadMutex = .{},
+    /// Serialises the (RMW interrupt_status + setIrq) pair so the
+    /// RX thread's "I just injected, raise the line" can't be
+    /// overridden by the vCPU thread's "post-MMIO snapshot says
+    /// line=0". Taken inside `rxLoop` around `injectRx + on_rx`,
+    /// and by the vCPU's net-MMIO handler around its read/write +
+    /// setIrq via `lockIrq` / `unlockIrq` below. Same shape as the
+    /// vsock Bridge mutex; without it, KVM_IRQ_LINE delivery loses
+    /// the rising edge for RX frames whenever the vCPU is mid-MMIO
+    /// at the moment the bridge thread injects. See #231 / #234 /
+    /// the vsock-IRQ commit (PR #235) for the analogous race.
+    irq_mu: pl011.PthreadMutex = .{},
 
     /// Dial gvproxy and spawn the RX thread. Heap-allocated because
     /// the RX thread and `on_rx_ctx` callers keep a stable pointer.
@@ -119,12 +144,22 @@ pub const NetSocket = struct {
         assert(fd >= 0);
         errdefer _ = close(fd);
 
-        var addr: sockaddr_un = .{ .sun_len = 0, .sun_family = AF_UNIX, .sun_path = @splat(0) };
+        // macOS: 1-byte sun_len + 1-byte sun_family before sun_path
+        //        (header is 2 bytes). Address length is wire-encoded
+        //        in sun_len.
+        // Linux: 2-byte sun_family before sun_path (header is 2 bytes).
+        //        sun_len doesn't exist; addrlen is what the kernel uses.
+        // The total header size happens to be 2 bytes on both, so the
+        // addrlen formula is the same — only the per-field assignments
+        // differ.
+        var addr: sockaddr_un = if (builtin.os.tag == .macos)
+            .{ .sun_len = 0, .sun_family = AF_UNIX, .sun_path = @splat(0) }
+        else
+            .{ .sun_family = AF_UNIX, .sun_path = @splat(0) };
         @memcpy(addr.sun_path[0..cfg.socket_path.len], cfg.socket_path);
-        // Total address length: 2 bytes (sun_len + sun_family) + path + NUL.
         const addrlen: u32 = @intCast(2 + cfg.socket_path.len + 1);
         assert(addrlen <= @sizeOf(sockaddr_un));
-        addr.sun_len = @intCast(addrlen);
+        if (builtin.os.tag == .macos) addr.sun_len = @intCast(addrlen);
 
         if (c_connect(fd, @ptrCast(&addr), addrlen) < 0) return error.ConnectFailed;
 
@@ -180,9 +215,20 @@ pub const NetSocket = struct {
 
             if (readAll(self.fd, buf[0..len]) != 0) return;
 
+            self.irq_mu.lock();
             _ = self.netdev.injectRx(buf[0..len]);
             if (self.on_rx) |cb| cb(self.on_rx_ctx);
+            self.irq_mu.unlock();
         }
+    }
+
+    /// Take/release `irq_mu` for the vCPU's net-MMIO handler. See
+    /// the field doc above for why.
+    pub fn lockIrq(self: *NetSocket) void {
+        self.irq_mu.lock();
+    }
+    pub fn unlockIrq(self: *NetSocket) void {
+        self.irq_mu.unlock();
     }
 };
 
