@@ -180,7 +180,7 @@ describe("machinen-dump-preflight", () => {
     }
   });
 
-  it("flags SOCK_DGRAM/IPPROTO_ICMP \"ping\" sockets (CRIU 3.17.1 rejects them)", () => {
+  it('flags SOCK_DGRAM/IPPROTO_ICMP "ping" sockets (CRIU 3.17.1 rejects them)', () => {
     // CRIU 3.17.1's can_dump_ipproto (criu/sk-inet.c:128) only allows
     // non-SOCK_RAW sockets with proto ∈ {IP, TCP, UDP, UDPLITE}, so a
     // SOCK_DGRAM/IPPROTO_ICMP socket — what iputils-ping uses by
