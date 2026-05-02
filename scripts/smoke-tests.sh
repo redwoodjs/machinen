@@ -276,12 +276,13 @@ fi
 # via the vsock FUSE server, NOT be baked into the boot cpio. We
 # write the marker after the VM starts to prove that.
 #
-# Skips if the current base kernel doesn't carry fuse.ko yet. That
-# whitelist change is in scripts/build-base-assets.sh on this branch
-# but the cached release-assets/ rootfs tarball may predate it.
+# Skips if the rootfs tarball doesn't ship the fuse-agent userspace
+# relay — the kernel always has FUSE built in (`=y`, see
+# build-kernel-arm64.sh), so the previous `fuse.ko` gate would skip
+# forever. Stale tarballs from before #78 won't have fuse-agent.
 echo "T3: machinen boot --mount-live ./fixture:/mnt/live:ro -- cat /mnt/live/hello.txt"
-if ! tar -tzf "$ROOTFS_TAR" 2>/dev/null | grep -q 'fuse\.ko'; then
-  echo "  skip: fuse.ko not in $ROOTFS_TAR — rebuild base assets"
+if ! tar -tzf "$ROOTFS_TAR" 2>/dev/null | grep -q 'fuse-agent$'; then
+  echo "  skip: fuse-agent not in $ROOTFS_TAR — rebuild base assets"
 else
   T3_MARKER="livemount-marker-$$"
   T3_SRC="$FIXTURE/live-src"
@@ -315,10 +316,10 @@ fi
 # Boots with `--mount-live <dir>:/mnt/live` (default :rw post-#156),
 # has the guest echo a marker into a file under that mount, then
 # asserts the file appears on the host filesystem with the right
-# contents AFTER the VM exits. Same fuse.ko gate as T3.
+# contents AFTER the VM exits. Same fuse-agent gate as T3.
 echo "T5: machinen boot --mount-live (default :rw) — guest write reaches the host"
-if ! tar -tzf "$ROOTFS_TAR" 2>/dev/null | grep -q 'fuse\.ko'; then
-  echo "  skip: fuse.ko not in $ROOTFS_TAR — rebuild base assets"
+if ! tar -tzf "$ROOTFS_TAR" 2>/dev/null | grep -q 'fuse-agent$'; then
+  echo "  skip: fuse-agent not in $ROOTFS_TAR — rebuild base assets"
 else
   T5_MARKER="livemount-rw-marker-$$"
   T5_SRC="$FIXTURE/live-rw"
