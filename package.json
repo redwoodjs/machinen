@@ -19,7 +19,7 @@
     "release": "pnpm -F @machinen/runtime -F @machinen/cli build && changeset publish",
     "premachinen": "pnpm -F @machinen/runtime -F @machinen/cli build",
     "machinen": "MACHINEN_ASSETS_DIR=${MACHINEN_ASSETS_DIR:-$PWD/release-assets} node packages/cli/dist/cli.js",
-    "docs": "typedoc",
+    "build:docs": "typedoc",
     "dev": "bash scripts/dev.sh",
     "provision": "node provision.ts",
     "provision-test-vm": "node scripts/provision-test-vm.ts",
