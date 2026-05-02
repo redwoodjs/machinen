@@ -24,8 +24,6 @@
 import { execFileSync } from "node:child_process";
 import {
   closeSync,
-  constants as fsConstants,
-  copyFileSync,
   existsSync,
   mkdtempSync,
   openSync,
@@ -40,6 +38,7 @@ import { join, resolve } from "node:path";
 import debugLib from "debug";
 import { ProvisionError } from "./errors.ts";
 import { VsockExec } from "./exec.ts";
+import { reflinkCopy } from "./reflink.ts";
 import { boot } from "./vm.ts";
 import type { VmHandle } from "./vm-handle.ts";
 import type { OnLog } from "./log.ts";
@@ -273,11 +272,11 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
     // into the workDir. The install hook mutates this throwaway copy, so
     // the persistent ~/.cache/machinen/rootfs/<sha>.img cache stays
     // pristine for normal `boot({ image })` callers that share the same
-    // base. COPYFILE_FICLONE → APFS clonefile / Linux FICLONE on
-    // reflink-capable fs (free); falls back to a regular copy elsewhere
+    // base. reflinkCopy → APFS clonefile / Linux FICLONE on reflink-
+    // capable fs (free); falls back to a regular copy elsewhere
     // (one-time cost, sparse).
     const cachedImg = ensureRootfsImage(baseAbs);
-    copyFileSync(cachedImg, rootDiskPath, fsConstants.COPYFILE_FICLONE);
+    reflinkCopy(cachedImg, rootDiskPath);
     debug("rootdisk cloned src=%s dst=%s", cachedImg, rootDiskPath);
     // The cached `<sha>.img` was only READ here — the FICLONE / copy
     // landed in workDir, and the upcoming boot() targets that copy via
