@@ -49,13 +49,43 @@ function findBootTestBinary(): string | undefined {
   return undefined;
 }
 
-function fixturesPresent(): boolean {
-  for (const f of ["Image", "virt.dtb", "initramfs.cpio"]) {
+const FIXTURE_FILES = ["Image", "virt.dtb", "initramfs.cpio"];
+
+// #212: replace silent `return` skips on missing fixtures with a loud
+// failure so a stale or absent kernel can't masquerade as a passing
+// run. Set MACHINEN_REQUIRE_FIXTURES=0 to keep the legacy skip on
+// hosts that can't build the microVM artifacts (CI smoke runners,
+// docs-only contributors).
+function requireFixturesOrSkip(extraPaths: string[] = []): {
+  skip: boolean;
+  binary: string;
+} {
+  const binary = findBootTestBinary();
+  const missing: string[] = [];
+  if (!binary) {
+    missing.push("microvm/.zig-cache boot-test binary");
+  }
+  for (const f of FIXTURE_FILES) {
     if (!existsSync(resolve(microvmRoot, "test-fixtures", f))) {
-      return false;
+      missing.push(`test-fixtures/${f}`);
     }
   }
-  return true;
+  for (const p of extraPaths) {
+    if (!existsSync(p)) {
+      missing.push(p);
+    }
+  }
+  if (missing.length === 0) {
+    return { skip: false, binary: binary! };
+  }
+  if (process.env.MACHINEN_REQUIRE_FIXTURES === "0") {
+    return { skip: true, binary: "" };
+  }
+  throw new Error(
+    `test requires microVM fixtures (missing: ${missing.join(", ")}); ` +
+      `run scripts/build-base-assets.sh + pnpm provision ` +
+      `(or set MACHINEN_REQUIRE_FIXTURES=0 to opt out)`,
+  );
 }
 
 describe("boot", () => {
@@ -156,9 +186,8 @@ describe("boot", () => {
   });
 
   it("boots the VMM and the kernel reaches userspace", async () => {
-    const binary = findBootTestBinary();
-    if (!binary || !fixturesPresent()) {
-      // Fixtures missing — skip. Run ./scripts/build-base-assets.sh to produce them.
+    const { skip, binary } = requireFixturesOrSkip();
+    if (skip) {
       return;
     }
 
@@ -384,14 +413,9 @@ describe("image + cmd", () => {
   });
 
   it("boots an image + cmd and the guest runs the cmd", async () => {
-    const binary = findBootTestBinary();
-    if (!binary || !fixturesPresent()) {
-      // VMM fixtures missing — skip.
-      return;
-    }
     const debianRootfs = resolve(microvmRoot, "test-fixtures/rootfs-debian-arm64.tar.gz");
-    if (!existsSync(debianRootfs)) {
-      // Debian rootfs tarball not produced in this checkout — skip.
+    const { skip, binary } = requireFixturesOrSkip([debianRootfs]);
+    if (skip) {
       return;
     }
 

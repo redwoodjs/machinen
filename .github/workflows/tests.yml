@@ -41,4 +41,10 @@ jobs:
 
       - run: pnpm typecheck
 
+      # Hosted runners don't have the microVM fixtures (Image, virt.dtb,
+      # built boot-test binary). #212 made missing fixtures a hard
+      # failure for local dev; opt CI out so the integration cases skip
+      # cleanly the way they always have.
       - run: pnpm test
+        env:
+          MACHINEN_REQUIRE_FIXTURES: "0"
