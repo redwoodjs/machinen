@@ -1052,7 +1052,7 @@ pub const Bridge = struct {
         const written = writePacket(self.dev, Q_RX, head, hdr, body) orelse return false;
         self.dev.queuePushUsed(Q_RX, head, written);
         q.last_avail_idx +%= 1;
-        self.dev.interrupt_status |= virtio.IRQ_USED_BUFFER;
+        _ = @atomicRmw(u32, &self.dev.interrupt_status, .Or, virtio.IRQ_USED_BUFFER, .release);
 
         if (self.cfg.raise_irq) |f| f(self.cfg.raise_irq_ctx);
         return true;
