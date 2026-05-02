@@ -6,8 +6,11 @@ Before completing any work, you MUST run and pass:
 
 1. Unit tests: `npx vitest run`
 2. Workflows: `npx agent-ci run --all -q -p`
+3. Smoke tests: `pnpm smoke-tests` — end-to-end VM boot/exec/snapshot
+   coverage the unit suite can't reach. Treat as a peer of 1 and 2;
+   don't report work done while it's red.
 
-If either fails, fix the issue and re-run. Do not tell the user work is done until both pass.
+If any of the three fails, fix the issue and re-run.
 
 ## CI
 

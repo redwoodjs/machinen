@@ -13,16 +13,24 @@
 #
 # Both paths read /proc by default. Tests override via $PROC.
 
-# Refuse to dump trees that hold raw IP sockets. CRIU has no encoder
-# for SOCK_RAW of any IPPROTO_* (sk-inet.c rejects with "Unsupported
-# proto N for socket M" deep in the dumper, which is unactionable
-# without reading the source). Catch them up front and emit a
-# pid+fd+ipproto line so the user can find and close the offending fd.
+# Refuse to dump trees that hold ICMP sockets — both SOCK_RAW (any
+# IPPROTO_*) and SOCK_DGRAM (the "unprivileged ping" path,
+# IPPROTO_ICMP{,V6}). CRIU 3.17.1 (Debian 12's package) rejects both
+# in `can_dump_ipproto` (criu/sk-inet.c:128) with "Unsupported proto N
+# for socket M": SOCK_RAW with non-{IP,TCP,UDP,UDPLITE} fails the
+# proto switch, and SOCK_DGRAM IPPROTO_ICMP fails for the same reason
+# because IPPROTO_ICMP isn't in 3.17.1's allowed set. Upstream master
+# added IPPROTO_ICMP/ICMPV6 to the switch, but the Debian build we
+# ship doesn't have that yet, so we have to be conservative.
 #
-# Unprivileged ping sockets (SOCK_DGRAM / IPPROTO_ICMP) live in
-# /proc/net/icmp{,6} and are explicitly NOT scanned — CRIU 3.17+
-# supports those, and machinen-netup widens net.ipv4.ping_group_range
-# at boot so iputils-ping uses that path by default (#203).
+# `machinen-netup` widens net.ipv4.ping_group_range at boot so
+# iputils-ping uses SOCK_DGRAM IPPROTO_ICMP by default (#203). That
+# means a workload that ran `ping` and held the socket open is the
+# common trigger for the failure mode this guard catches.
+#
+# Catch the offenders up front and emit a pid+fd+ipproto line so the
+# user can find and close the fd. Both SOCK_RAW and SOCK_DGRAM ICMP
+# variants surface here.
 scan_raw_inet_sockets() {
     root=$1
     proc=${PROC:-/proc}
@@ -52,6 +60,15 @@ scan_raw_inet_sockets() {
         # Per-pid net view in case anything in the tree unshare'd a
         # network namespace; raw sockets there wouldn't appear in the
         # init netns's /proc/net/raw.
+        #
+        # /proc/net/{raw,raw6}  → SOCK_RAW; col 2's right half is the
+        #                          IPPROTO_*. CRIU rejects all of these.
+        # /proc/net/{icmp,icmp6} → SOCK_DGRAM IPPROTO_ICMP{,V6}
+        #                          ("unprivileged ping"); CRIU 3.17.1
+        #                          rejects these too. col 2's right
+        #                          half is the source port (not proto)
+        #                          for icmp{,6}, so we hardcode the
+        #                          proto in the map.
         map=""
         for f in "$proc/$pid/net/raw" "$proc/$pid/net/raw6"; do
             [ -r "$f" ] || continue
@@ -59,6 +76,18 @@ scan_raw_inet_sockets() {
             [ -n "$entries" ] && map="$map
 $entries"
         done
+        # icmp = 1 (0x01), icmp6 = 58 (0x3A). Hex to match the raw-side
+        # encoding so the consumer below can treat both maps uniformly.
+        if [ -r "$proc/$pid/net/icmp" ]; then
+            entries=$(awk 'NR>1 { printf "%s 0001\n", $10 }' "$proc/$pid/net/icmp")
+            [ -n "$entries" ] && map="$map
+$entries"
+        fi
+        if [ -r "$proc/$pid/net/icmp6" ]; then
+            entries=$(awk 'NR>1 { printf "%s 003A\n", $10 }' "$proc/$pid/net/icmp6")
+            [ -n "$entries" ] && map="$map
+$entries"
+        fi
         [ -z "$map" ] && continue
 
         for fd in "$proc/$pid"/fd/*; do
@@ -81,11 +110,12 @@ $entries"
 
     if [ -n "$bad" ]; then
         cat >&2 <<EOF
-machinen-dump: workload holds raw IP socket(s) — CRIU has no encoder
-  for SOCK_RAW and the dump would fail with "Unsupported proto N":$bad
-machinen-dump: close the offending fd(s) before snapshot. The
-  unprivileged ping path (SOCK_DGRAM / IPPROTO_ICMP) IS supported —
-  use it instead of SOCK_RAW where possible.
+machinen-dump: workload holds ICMP/raw IP socket(s) — CRIU 3.17.1
+  rejects these in can_dump_ipproto (sk-inet.c:128) and the dump
+  would fail with "Unsupported proto N":$bad
+machinen-dump: close the offending fd(s) before snapshot. iputils-ping
+  uses SOCK_DGRAM/IPPROTO_ICMP via ping_group_range (#203); a recent
+  \`ping\` whose socket is still open is the common trigger.
 EOF
         return 1
     fi

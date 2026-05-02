@@ -43,6 +43,12 @@ type FakePid = {
   // the local_address ($2) and inode ($10) fields actually matter.
   rawLines?: string[];
   raw6Lines?: string[];
+  // /proc/<pid>/net/icmp{,6} entries — SOCK_DGRAM IPPROTO_ICMP{,V6}
+  // ("unprivileged ping" sockets). Same kernel layout as raw, but
+  // col 2's right half is the source port instead of the proto, so
+  // only $10 (inode) is consulted by the scanner.
+  icmpLines?: string[];
+  icmp6Lines?: string[];
 };
 
 function buildProc(root: string, pids: FakePid[]): string {
@@ -78,6 +84,14 @@ function buildProc(root: string, pids: FakePid[]): string {
       join(base, "net", "raw6"),
       rawHeader + (p.raw6Lines ?? []).join("\n") + (p.raw6Lines?.length ? "\n" : ""),
     );
+    writeFileSync(
+      join(base, "net", "icmp"),
+      rawHeader + (p.icmpLines ?? []).join("\n") + (p.icmpLines?.length ? "\n" : ""),
+    );
+    writeFileSync(
+      join(base, "net", "icmp6"),
+      rawHeader + (p.icmp6Lines ?? []).join("\n") + (p.icmp6Lines?.length ? "\n" : ""),
+    );
   }
   return procRoot;
 }
@@ -88,6 +102,14 @@ function buildProc(root: string, pids: FakePid[]): string {
 function rawLine(inode: number, ipproto: number): string {
   const hex = ipproto.toString(16).toUpperCase().padStart(4, "0");
   return `   0: 00000000:${hex} 00000000:0000 07 00000000:00000000 00:00000000 00000000     0        0  ${inode} 2 ffffffff 0`;
+}
+
+// Build a /proc/net/icmp{,6} line for an inode. The right half of $2
+// is the source port for these (not the protocol); the scanner ignores
+// it and hardcodes the proto based on which file the entry came from.
+function icmpLine(inode: number, srcPort: number = 0): string {
+  const portHex = srcPort.toString(16).toUpperCase().padStart(4, "0");
+  return `   0: 00000000:${portHex} 00000000:0000 07 00000000:00000000 00:00000000 00000000     0        0  ${inode} 2 ffffffff 0`;
 }
 
 function runPreflight(procRoot: string, rootPid: number) {
@@ -158,17 +180,56 @@ describe("machinen-dump-preflight", () => {
     }
   });
 
-  it("ignores socket fds whose inode is not in /proc/net/raw{,6}", () => {
-    // Specifically: a SOCK_DGRAM/IPPROTO_ICMP "ping" socket lives in
-    // /proc/net/icmp, NOT /proc/net/raw — CRIU 3.17+ supports it, so
-    // the scan must NOT flag it.
-    const root = mkdtempSync(join(tmpdir(), "preflight-ping-ok-"));
+  it('flags SOCK_DGRAM/IPPROTO_ICMP "ping" sockets (CRIU 3.17.1 rejects them)', () => {
+    // CRIU 3.17.1's can_dump_ipproto (criu/sk-inet.c:128) only allows
+    // non-SOCK_RAW sockets with proto ∈ {IP, TCP, UDP, UDPLITE}, so a
+    // SOCK_DGRAM/IPPROTO_ICMP socket — what iputils-ping uses by
+    // default once machinen-netup widens ping_group_range (#203) —
+    // makes the dump fail. The scanner reports it as ipproto=1.
+    const root = mkdtempSync(join(tmpdir(), "preflight-ping-icmp-"));
     try {
       const procRoot = buildProc(root, [
         {
           pid: 100,
           fds: { 9: "socket:[7777]" },
-          // /proc/net/raw is empty — the inode 7777 is not a raw socket.
+          icmpLines: [icmpLine(7777)],
+        },
+      ]);
+      const r = runPreflight(procRoot, 100);
+      expect(r.status).toBe(1);
+      expect(r.stderr).toMatch(/pid=100 fd=9 ipproto=1/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("flags SOCK_DGRAM/IPPROTO_ICMPV6 ping sockets via /proc/net/icmp6", () => {
+    const root = mkdtempSync(join(tmpdir(), "preflight-ping-icmp6-"));
+    try {
+      const procRoot = buildProc(root, [
+        {
+          pid: 100,
+          fds: { 8: "socket:[8888]" },
+          icmp6Lines: [icmpLine(8888)],
+        },
+      ]);
+      const r = runPreflight(procRoot, 100);
+      expect(r.status).toBe(1);
+      expect(r.stderr).toMatch(/pid=100 fd=8 ipproto=58/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("ignores socket fds whose inode is in none of raw/raw6/icmp/icmp6", () => {
+    // E.g. a TCP socket — listed in /proc/net/tcp, which the scanner
+    // doesn't read (CRIU handles TCP fine). Must pass through.
+    const root = mkdtempSync(join(tmpdir(), "preflight-tcp-ok-"));
+    try {
+      const procRoot = buildProc(root, [
+        {
+          pid: 100,
+          fds: { 9: "socket:[7777]" },
         },
       ]);
       const r = runPreflight(procRoot, 100);
