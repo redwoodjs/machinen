@@ -107,7 +107,6 @@ unshare --pid --fork --mount-proc -- \
         criu restore \
             --images-dir /mnt/snap-src/img \
             --work-dir /tmp \
-            --shell-job \
             --tcp-established \
             --pidfile /run/machinen-workload.pid \
             -v3 \
