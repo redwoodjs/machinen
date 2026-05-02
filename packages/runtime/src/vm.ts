@@ -69,6 +69,7 @@ import { serveLiveMount } from "./mount-server.ts";
 import type { OnLog } from "./log.ts";
 import { claimName, findEntry, isAlive, removeEntry, writeEntry } from "./registry.ts";
 import type {
+  ForkOptions,
   SnapshotMeta,
   SnapshotOptions,
   SnapshotResult,
@@ -79,6 +80,7 @@ import type {
 const debug = debugLib("machinen:boot");
 const debugAttach = debugLib("machinen:attach");
 const debugSnapshot = debugLib("machinen:snapshot");
+const debugFork = debugLib("machinen:fork");
 const vmmDebug = debugLib("machinen:vmm");
 
 const require_ = createRequire(import.meta.url);
@@ -307,6 +309,17 @@ export interface BootOptions {
   kernel?: string;
   /** Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`. */
   dtb?: string;
+  /**
+   * Wrap the VMM through the parent-death shim so it dies with this
+   * runtime process. Default true — the right answer for the common
+   * "boot, do work, exit" CLI flow.
+   *
+   * Set to false when the VMM is supposed to outlive the spawning
+   * process. `vm.fork()` (#216) sets this so the forked sibling
+   * survives `cli fork` returning. Without it, the kqueue-watching
+   * shim catches the CLI exit and SIGTERMs the fork mid-startup.
+   */
+  pdeathsig?: boolean;
   /**
    * Milliseconds to wait in `wait()` before giving up and rejecting.
    * Defaults to 60s. Pass `null` to wait forever.
@@ -741,7 +754,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   // ~1.7 GiB RSS (#200). Mirrors `spawnGvproxy`. Falls through to a
   // direct spawn if the shim is unavailable (no `cc`, opted-out,
   // unsupported platform).
-  const vmmPdeathsig = await ensurePdeathsig();
+  const vmmPdeathsig = opts.pdeathsig === false ? null : await ensurePdeathsig();
   const wrappedVmm = wrapWithPdeathsig(vmmPdeathsig, binary, opts.args ?? []);
   const child = nodeSpawn(wrappedVmm.command, wrappedVmm.args, {
     cwd: opts.cwd,
@@ -1052,6 +1065,38 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         snapshotOpts,
       );
     },
+
+    async fork(forkOpts) {
+      if (!diskAbs) {
+        throw new SnapshotError(
+          "SNAPSHOT_NO_DISK",
+          "vm.fork: source VM has no scratch disk (booted with `snapshot: false`). " +
+            "Re-boot the source without that flag so it can be snapshotted.",
+        );
+      }
+      if (liveMountsResolved.length > 0) {
+        throw new SnapshotError(
+          "SNAPSHOT_LIVE_MOUNT_ACTIVE",
+          "vm.fork: cannot fork a VM with --mount-live active (same reason " +
+            "vm.snapshot refuses — vsock FUSE channels don't survive CRIU).",
+        );
+      }
+      return performFork(
+        {
+          pid: childPid,
+          sourceName: vmName,
+          diskPath: diskAbs,
+          execRaw: (cmd, execOpts) => this.execRaw(cmd, execOpts),
+          wait: () => this.wait(),
+          kill: () => this.kill(),
+          teeGuestConsole: (onChunk) => {
+            child.stderr.on("data", onChunk);
+          },
+          errorOutput: () => this.errorOutput(),
+        },
+        forkOpts ?? {},
+      );
+    },
   };
 
   return handle;
@@ -1225,6 +1270,28 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
           errorOutput: async () => "",
         },
         snapshotOpts,
+      );
+    },
+
+    async fork(forkOpts) {
+      if (!entry.diskPath) {
+        throw new SnapshotError(
+          "SNAPSHOT_NO_DISK",
+          "vm.fork: source VM has no scratch disk (booted with `snapshot: false`).",
+        );
+      }
+      return performFork(
+        {
+          pid: entry.pid,
+          sourceName: entry.name,
+          diskPath: entry.diskPath,
+          execRaw: (cmd, execOpts) => this.execRaw(cmd, execOpts),
+          wait: () => this.wait(),
+          kill: () => this.kill(),
+          teeGuestConsole: undefined,
+          errorOutput: async () => "",
+        },
+        forkOpts ?? {},
       );
     },
   };
@@ -1781,9 +1848,22 @@ async function performSnapshot(
   ctx: SnapshotContext,
   opts: SnapshotOptions,
 ): Promise<SnapshotResult> {
-  const dumpCmd = opts.dumpCmd ?? "/sbin/machinen-dump";
+  const baseDumpCmd = opts.dumpCmd ?? "/sbin/machinen-dump";
   const deadlineMs = opts.timeoutMs ?? 90_000;
   const onLog = opts.onLog;
+  const leaveRunning = opts.leaveRunning === true;
+  const tcpClose = opts.tcpClose === true;
+  // Env-prefix the dump command so /sbin/machinen-dump picks the
+  // knobs up (#216). The exec-agent runs commands via `sh -c`, so
+  // standard shell `VAR=val cmd` syntax flows through unmodified.
+  const envPrefix: string[] = [];
+  if (leaveRunning) {
+    envPrefix.push("MACHINEN_DUMP_LEAVE_RUNNING=1");
+  }
+  if (tcpClose) {
+    envPrefix.push("MACHINEN_DUMP_TCP_CLOSE=1");
+  }
+  const dumpCmd = envPrefix.length > 0 ? `${envPrefix.join(" ")} ${baseDumpCmd}` : baseDumpCmd;
   const t0 = Date.now();
 
   // Validate / prepare the bundle directory. We refuse to overwrite
@@ -1908,29 +1988,62 @@ async function performSnapshot(
       },
     );
 
+  // Success-signal split:
+  //
+  // Default (destructive) path: CRIU kills the dumped tree → the
+  // supervisor's `wait` returns → the supervisor poweroffs → VMM
+  // exits. Wait for VMM exit; SIGKILL it if the deadline fires.
+  //
+  // Leave-running path (#216): CRIU does NOT kill the dumped tree, so
+  // the supervisor's `wait` stays blocked and the VMM never exits on
+  // its own. The dump exec returning over vsock is the success signal
+  // instead. We must NOT kill the VM on timeout — it's supposed to
+  // keep running for the caller (`vm.fork()` is the typical caller).
   let timedOut = false;
-  const killTimer = setTimeout(() => {
-    timedOut = true;
-    void ctx.kill();
-  }, deadlineMs);
-  killTimer.unref();
-  try {
-    await ctx.wait();
-  } finally {
-    clearTimeout(killTimer);
+  if (leaveRunning) {
+    // Race the dump exec against a plain timer. The exec already has
+    // its own execTimeoutMs bound to deadlineMs, so we'll get either
+    // a resolution from dumpDispatch or our own timeout fires first.
+    let timer: NodeJS.Timeout | undefined;
+    await Promise.race([
+      dumpDispatch,
+      new Promise<void>((resolve) => {
+        timer = setTimeout(() => {
+          timedOut = true;
+          resolve();
+        }, deadlineMs);
+        timer.unref();
+      }),
+    ]);
+    if (timer) {
+      clearTimeout(timer);
+    }
+    // Never kill the VM here — the source must survive the snapshot.
+  } else {
+    const killTimer = setTimeout(() => {
+      timedOut = true;
+      void ctx.kill();
+    }, deadlineMs);
+    killTimer.unref();
+    try {
+      await ctx.wait();
+    } finally {
+      clearTimeout(killTimer);
+    }
+    // The dispatch promise may still be racing the VMM exit; wait it
+    // out so the timeout/dump-failed errors below can include its
+    // outcome. `.then(_, _)` converts the rejection into a resolution,
+    // so this never throws.
+    await dumpDispatch;
   }
-  // The dispatch promise may still be racing the VMM exit; wait it out
-  // so the timeout/dump-failed errors below can include its outcome.
-  // `.then(_, _)` converts the rejection into a resolution, so this
-  // never throws.
-  await dumpDispatch;
   const elapsedMs = Date.now() - t0;
   const consoleLog = await ctx.errorOutput();
   debugSnapshot(
-    "guest exited elapsed=%dms consoleBytes=%d timedOut=%s dumpOutcome=%j",
+    "guest exited elapsed=%dms consoleBytes=%d timedOut=%s leaveRunning=%s dumpOutcome=%j",
     elapsedMs,
     consoleLog.length,
     timedOut,
+    leaveRunning,
     dumpOutcome,
   );
 
@@ -1942,12 +2055,44 @@ async function performSnapshot(
         unlinkSync(stagingPath);
       } catch {}
     }
+    const what = leaveRunning ? "dump exec did not return" : "guest did not shut down";
     throw new SnapshotError(
       "SNAPSHOT_TIMEOUT",
-      `vm.snapshot: guest did not shut down within ${deadlineMs}ms — dump likely failed.` +
+      `vm.snapshot: ${what} within ${deadlineMs}ms — dump likely failed.` +
         dumpHint +
         (consoleLog ? `\nConsole tail:\n${consoleLog.slice(-2000)}` : ""),
     );
+  }
+
+  if (leaveRunning) {
+    // In leave-running mode, the dump exec's exit code IS the success
+    // signal. A non-zero exit (or a rejected dispatch — vsock dropped
+    // mid-call) means the dump did not land cleanly; refuse to
+    // promote the staging bundle.
+    if (!dumpOutcome) {
+      if (stagedViaLink) {
+        try {
+          unlinkSync(stagingPath);
+        } catch {}
+      }
+      throw new SnapshotError(
+        "SNAPSHOT_DUMP_FAILED",
+        "vm.snapshot(leaveRunning): dump exec produced no outcome — dispatch raced the timeout.",
+      );
+    }
+    if (dumpOutcome.kind === "rejected" || dumpOutcome.exitCode !== 0) {
+      if (stagedViaLink) {
+        try {
+          unlinkSync(stagingPath);
+        } catch {}
+      }
+      throw new SnapshotError(
+        "SNAPSHOT_DUMP_FAILED",
+        `vm.snapshot(leaveRunning): dump exec failed.` +
+          dumpHint +
+          (consoleLog ? `\nConsole tail:\n${consoleLog.slice(-2000)}` : ""),
+      );
+    }
   }
 
   // The VMM exited in time, but we still need to confirm the dump
@@ -2080,18 +2225,125 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
   });
 
   if (!opts.name && meta.sourceName) {
-    const autoName = `${meta.sourceName}/${vm.pid}`;
-    if (claimName(autoName, vm.pid)) {
-      // Promote the registry entry to carry the auto-name.
-      const cur = findEntry({ pid: vm.pid });
-      if (cur) {
-        writeEntry({ ...cur, name: autoName });
+    // Default auto-name nests under the source: `<src>/<pid>`.
+    // claimName refuses (returns false) when `<src>` exists as a live
+    // pin file blocking the parent dir — the fork case (#216), where
+    // the source VM is still running. In that case fall back to a
+    // flat sibling name `<src>~<pid>` so the fork still gets a
+    // meaningful auto-id in `machinen ls`.
+    const candidates = [`${meta.sourceName}/${vm.pid}`, `${meta.sourceName}~${vm.pid}`];
+    for (const candidate of candidates) {
+      if (claimName(candidate, vm.pid)) {
+        // Promote the registry entry to carry the auto-name.
+        const cur = findEntry({ pid: vm.pid });
+        if (cur) {
+          writeEntry({ ...cur, name: candidate });
+        }
+        // Mutate the handle so `vm.name` reflects the resolved name.
+        (vm as { name?: string }).name = candidate;
+        break;
       }
-      // Mutate the handle so `vm.name` reflects the resolved name.
-      (vm as { name?: string }).name = autoName;
     }
   }
   return vm;
+}
+
+// =============================================================
+// Fork — #216
+// =============================================================
+
+/**
+ * Snapshot the VM with --leave-running, immediately restore the
+ * bundle into a sibling, and (optionally) clean up the bundle when
+ * the fork exits. Shared between boot-owned and attach-owned handles.
+ *
+ * Bundle lifecycle:
+ *   - opts.outDir set:    bundle stays at that path; caller owns cleanup.
+ *   - opts.outDir absent: bundle in a temp dir, removed on fork.wait().
+ */
+async function performFork(ctx: SnapshotContext, opts: ForkOptions): Promise<VmHandle> {
+  const ephemeral = !opts.outDir;
+  const snapDir = opts.outDir
+    ? resolve(opts.outDir)
+    : mkdtempSync(join(tmpdir(), "machinen-fork-"));
+  debugFork(
+    "fork start srcPid=%d srcName=%s snapDir=%s ephemeral=%s tcpKeep=%s",
+    ctx.pid,
+    ctx.sourceName ?? "<unset>",
+    snapDir,
+    ephemeral,
+    opts.tcpKeep === true,
+  );
+
+  // Snapshot half: source survives. tcpClose flips the spec's default.
+  let snap: SnapshotResult;
+  try {
+    snap = await performSnapshot(ctx, {
+      outDir: snapDir,
+      leaveRunning: true,
+      tcpClose: opts.tcpKeep !== true,
+      timeoutMs: opts.timeoutMs,
+      onLog: opts.onLog,
+    });
+  } catch (err) {
+    // Don't leave an empty temp dir behind on snapshot failure.
+    if (ephemeral) {
+      try {
+        rmSync(snapDir, { recursive: true, force: true });
+      } catch {}
+    }
+    throw err;
+  }
+  debugFork("fork dump complete elapsedMs=%d", snap.elapsedMs);
+
+  // Restore half: a fresh sibling VM. boot() inside restore() auto-
+  // allocates its own vsock UDS and (if needed) gvproxy — vsock
+  // identity and L2 networking are isolated per-VM. portForward is
+  // intentionally NOT inherited from the source: host ports are
+  // global, so source + fork would race on the same bind.
+  let fork: VmHandle;
+  try {
+    fork = await restore({
+      snapDir,
+      name: opts.name,
+      image: opts.image,
+      kernel: opts.kernel,
+      dtb: opts.dtb,
+      portForward: opts.portForward ?? [],
+      // The fork outlives the process that spawned it (CLI returns
+      // immediately; programmatic callers detach() and move on).
+      // Skip the parent-death shim so the fork's VMM isn't SIGTERM'd
+      // when this process exits.
+      pdeathsig: false,
+    });
+  } catch (err) {
+    if (ephemeral) {
+      try {
+        rmSync(snapDir, { recursive: true, force: true });
+      } catch {}
+    }
+    throw err;
+  }
+  debugFork("fork restored pid=%d name=%s", fork.pid, fork.name ?? "<unset>");
+
+  if (ephemeral) {
+    void fork
+      .wait()
+      .catch(() => {})
+      .finally(() => {
+        try {
+          rmSync(snapDir, { recursive: true, force: true });
+          debugFork("fork ephemeral bundle cleaned up snapDir=%s", snapDir);
+        } catch (cleanupErr) {
+          debugFork(
+            "fork ephemeral cleanup failed snapDir=%s err=%s",
+            snapDir,
+            cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr),
+          );
+        }
+      });
+  }
+  return fork;
 }
 
 /**

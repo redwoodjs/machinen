@@ -965,5 +965,158 @@ else
   trap 'rm -rf "$FIXTURE"' EXIT
 fi  # S2 rootfs-capability gate
 
+# ----------------------------------------------------------------
+# S3: fork (#216) — snapshot a live VM and restore into a sibling
+# without killing the source. Then fork the fork. Verifies:
+#   1. `machinen fork` returns a new VM and the source stays alive.
+#   2. Both VMs have independent disk state — writes on the source
+#      don't appear on the fork and vice versa.
+#   3. Fork-of-fork works (chained leave-running snapshot exercises
+#      the same #215 sub-NS dump path that S2 covers for destructive
+#      snapshots).
+#   4. Each generation has independent disk state from its siblings.
+# ----------------------------------------------------------------
+if [[ "$ROOTFS_SUPPORTS_VSOCK_EXEC" -eq 0 || "$ROOTFS_SUPPORTS_CRIU" -eq 0 || "$ROOTFS_SUPPORTS_SNAPSHOT_HELPERS" -eq 0 ]]; then
+  echo "S3: skipped (rootfs lacks vsock/criu/snapshot helpers)"
+else
+  echo "S3: machinen fork (live snapshot + sibling, fork-the-fork)"
+  S3_NAME="fork-smoke-$$"
+  S3_BG_LOG="$FIXTURE/s3-bg.log"
+  S3_SCRATCH="$FIXTURE/s3-scratch.img"
+  truncate -s 256M "$S3_SCRATCH"
+
+  # Long-lived sleep workload — fork doesn't care what the workload
+  # does, only that it stays running across the dump.
+  S3_PID=$(boot_bg "$S3_NAME" "$S3_BG_LOG" --snapshot "$S3_SCRATCH" -- \
+    /bin/sh -c '
+      while :; do sleep 1000; done
+    ')
+  cleanup_s3() {
+    kill -TERM "$S3_PID" 2>/dev/null || true
+    wait "$S3_PID" 2>/dev/null || true
+  }
+  trap 'cleanup_s3; rm -rf "$FIXTURE"' EXIT
+
+  if ! wait_for_vm "$S3_NAME"; then
+    tail -80 "$S3_BG_LOG" >&2
+    fail "S3 — '$S3_NAME' never appeared in 'machinen ls'"
+  fi
+  pass "boot --name --snapshot registered '$S3_NAME'"
+
+  # Mark the source's disk before forking. The fork inherits this
+  # exact byte (it's part of the dumped state) but writes after the
+  # fork must NOT cross between source and fork.
+  # `cli exec` joins all post-`--` args with spaces and runs the result
+  # under `sh -c` in the guest. To get a real shell redirect inside the
+  # guest we have to send `>` as a literal arg (single-quoted on the
+  # host so the host bash doesn't interpret it as a redirect).
+  if ! cli exec --name "$S3_NAME" -- echo source '>' /tmp/who; then
+    tail -60 "$S3_BG_LOG" >&2
+    fail "S3 — couldn't seed /tmp/who on source"
+  fi
+
+  # Fork. Source stays alive; fork registers under '<src>/<pid>' via
+  # the standard restore() auto-naming.
+  S3_FORK_LOG="$FIXTURE/s3-fork.log"
+  S3_FORK_BUNDLE="$FIXTURE/s3-fork-bundle"
+  if ! cli fork --name "$S3_NAME" --out-dir "$S3_FORK_BUNDLE" 2>"$S3_FORK_LOG"; then
+    cat "$S3_FORK_LOG" >&2
+    tail -60 "$S3_BG_LOG" >&2
+    fail "S3 — 'machinen fork' failed"
+  fi
+  S3_FORK_NAME=""
+  deadline=$((SECONDS + 30))
+  while (( SECONDS < deadline )); do
+    # Fork's auto-name is `<src>~<pid>` when source is alive (#216),
+    # falling back from the chained-restore convention `<src>/<pid>`
+    # which collides on the live source's pin file.
+    cand=$(cli ls 2>/dev/null | awk -v src="$S3_NAME~" 'NR>1 && index($2, src)==1 {print $2; exit}')
+    if [[ -n "$cand" ]]; then
+      S3_FORK_NAME=$cand
+      break
+    fi
+    sleep 1
+  done
+  if [[ -z "$S3_FORK_NAME" ]]; then
+    cat "$S3_FORK_LOG" >&2
+    cli ls >&2 || true
+    fail "S3 — fork never appeared in 'machinen ls' under '$S3_NAME/...'"
+  fi
+  pass "fork registered as '$S3_FORK_NAME'"
+
+  # Source must still be in the registry — proves --leave-running
+  # actually left it running. Without it, criu would have killed the
+  # workload, the supervisor would have powered off, and the source
+  # would be gone from `machinen ls`.
+  if ! cli ls 2>/dev/null | awk -v n="$S3_NAME" 'NR>1 && $2==n {found=1} END{exit !found}'; then
+    cli ls >&2 || true
+    fail "S3 — source VM '$S3_NAME' disappeared after fork (--leave-running broke?)"
+  fi
+  pass "source VM '$S3_NAME' survived the fork"
+
+  # Independence check: write 'fork' on the fork's disk, 'source' is
+  # already on the source. Re-read both — neither should see the
+  # other's value.
+  if ! cli exec --name "$S3_FORK_NAME" -- echo fork '>' /tmp/who; then
+    tail -60 "$S3_BG_LOG" >&2
+    fail "S3 — couldn't write /tmp/who on fork"
+  fi
+  S3_SRC_AFTER=$(cli exec --name "$S3_NAME" -- cat /tmp/who 2>/dev/null | tr -d '\r\n')
+  S3_FORK_AFTER=$(cli exec --name "$S3_FORK_NAME" -- cat /tmp/who 2>/dev/null | tr -d '\r\n')
+  if [[ "$S3_SRC_AFTER" != "source" || "$S3_FORK_AFTER" != "fork" ]]; then
+    fail "S3 — disk state crossed between source ('$S3_SRC_AFTER') and fork ('$S3_FORK_AFTER')"
+  fi
+  pass "source & fork have independent disk state"
+
+  # Fork-the-fork. The fork is itself snapshot-eligible (it boots
+  # with the standard scratch disk). Exercises the leave-running
+  # path through machinen-restore.sh's sub-NS — the same combo S2
+  # hits with destructive snapshots.
+  S3_GRAND_LOG="$FIXTURE/s3-fork-of-fork.log"
+  S3_GRAND_BUNDLE="$FIXTURE/s3-grand-bundle"
+  if ! cli fork --name "$S3_FORK_NAME" --out-dir "$S3_GRAND_BUNDLE" 2>"$S3_GRAND_LOG"; then
+    cat "$S3_GRAND_LOG" >&2
+    tail -60 "$S3_BG_LOG" >&2
+    fail "S3 — 'machinen fork' on the fork (gen-2) failed"
+  fi
+  S3_GRAND_NAME=""
+  deadline=$((SECONDS + 30))
+  while (( SECONDS < deadline )); do
+    cand=$(cli ls 2>/dev/null | awk -v src="$S3_FORK_NAME~" 'NR>1 && index($2, src)==1 {print $2; exit}')
+    if [[ -n "$cand" ]]; then
+      S3_GRAND_NAME=$cand
+      break
+    fi
+    sleep 1
+  done
+  if [[ -z "$S3_GRAND_NAME" ]]; then
+    cat "$S3_GRAND_LOG" >&2
+    cli ls >&2 || true
+    fail "S3 — fork-of-fork never appeared in 'machinen ls' under '$S3_FORK_NAME/...'"
+  fi
+  pass "fork-of-fork registered as '$S3_GRAND_NAME'"
+
+  # Three-way independence: write 'grand' on the grandchild, then
+  # check all three /tmp/who files are independent.
+  if ! cli exec --name "$S3_GRAND_NAME" -- echo grand '>' /tmp/who; then
+    fail "S3 — couldn't write /tmp/who on grand"
+  fi
+  S3_FINAL_SRC=$(cli exec --name "$S3_NAME" -- cat /tmp/who 2>/dev/null | tr -d '\r\n')
+  S3_FINAL_FORK=$(cli exec --name "$S3_FORK_NAME" -- cat /tmp/who 2>/dev/null | tr -d '\r\n')
+  S3_FINAL_GRAND=$(cli exec --name "$S3_GRAND_NAME" -- cat /tmp/who 2>/dev/null | tr -d '\r\n')
+  if [[ "$S3_FINAL_SRC" != "source" || "$S3_FINAL_FORK" != "fork" || "$S3_FINAL_GRAND" != "grand" ]]; then
+    fail "S3 — three-way independence broken: src='$S3_FINAL_SRC' fork='$S3_FINAL_FORK' grand='$S3_FINAL_GRAND'"
+  fi
+  pass "source, fork, and fork-of-fork all hold independent disk state"
+
+  # Tear down the forks (poweroff via vsock). The source goes down
+  # with cleanup_s3 below.
+  cli exec --name "$S3_GRAND_NAME" -- /sbin/machinen-poweroff >/dev/null 2>&1 || true
+  cli exec --name "$S3_FORK_NAME" -- /sbin/machinen-poweroff >/dev/null 2>&1 || true
+  rm -rf "$S3_GRAND_BUNDLE" "$S3_FORK_BUNDLE" 2>/dev/null || true
+  cleanup_s3
+  trap 'rm -rf "$FIXTURE"' EXIT
+fi  # S3 rootfs-capability gate
+
 echo
 echo "all smoke tests passed"
