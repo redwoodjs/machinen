@@ -17,6 +17,7 @@
 // rollup and its components are both visible in the same line.
 
 import type debugLib from "debug";
+import type { PhaseLogEvent } from "./log.ts";
 
 type DebugFn = ReturnType<typeof debugLib>;
 
@@ -90,5 +91,20 @@ export class PhaseTimer {
    */
   flush(debugFn: DebugFn, kind: string, totalMs?: number): void {
     debugFn("%s", this.format(kind, totalMs));
+  }
+
+  /**
+   * Snapshot the timer as a structured `PhaseLogEvent` so callers can
+   * forward it to an `onLog` callback without parsing the debug
+   * one-liner. Returns an immutable copy of `phases` so the caller
+   * holds a stable view even if the timer keeps recording.
+   */
+  toEvent(kind: PhaseLogEvent["kind"], totalMs?: number): PhaseLogEvent {
+    return {
+      source: "phase",
+      kind,
+      totalMs: totalMs ?? this.totalMs(),
+      phases: new Map(this.durations),
+    };
   }
 }

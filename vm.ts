@@ -72,6 +72,53 @@ type Runtime = typeof import("@machinen/runtime");
 type VsockWinsizeHandle = Awaited<ReturnType<Runtime["VsockWinsize"]["connect"]>>;
 const { boot, VsockWinsize } = (await import(pathToFileURL(runtimeEntry).href)) as Runtime;
 
+// --- benchmarks ---------------------------------------------------------
+//
+// Permanent step-level timings. `bench(label, fn)` logs start/done
+// lines so the user sees what stage we're in (also surfaces in the
+// Claude Code sidebar). Runtime-side phase events from boot() get
+// rendered into a one-shot breakdown block once `boot()` returns —
+// see #233.
+const fmtMs = (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms.toFixed(0)}ms`);
+async function bench<T>(label: string, fn: () => T | Promise<T>): Promise<T> {
+  const start = performance.now();
+  process.stderr.write(`[machinen] ${label}...\n`);
+  try {
+    const result = await fn();
+    process.stderr.write(`[machinen] ${label} (${fmtMs(performance.now() - start)})\n`);
+    return result;
+  } catch (err) {
+    process.stderr.write(`[machinen] ${label} FAILED (${fmtMs(performance.now() - start)})\n`);
+    throw err;
+  }
+}
+
+function renderPhaseBlock(evt: import("@machinen/runtime").PhaseLogEvent): void {
+  const total = evt.totalMs;
+  const names = [...evt.phases.keys()];
+  const labelW = Math.max(20, ...names.map((n) => n.length + (n.includes(".") ? 2 : 0)));
+  process.stderr.write(`[machinen] === ${evt.kind} phases (total ${fmtMs(total)}) ===\n`);
+  let topSum = 0;
+  for (const [name, ms] of evt.phases) {
+    const isSub = name.includes(".");
+    if (!isSub) {
+      topSum += ms;
+    }
+    const display = isSub ? `  ${name}` : name;
+    const pct = total > 0 ? ((ms / total) * 100).toFixed(0).padStart(3) : "  -";
+    process.stderr.write(
+      `[machinen]   ${display.padEnd(labelW)} ${fmtMs(ms).padStart(8)}  ${pct}%\n`,
+    );
+  }
+  const other = Math.max(0, total - topSum);
+  if (other > 0 && total > 0) {
+    const pct = ((other / total) * 100).toFixed(0).padStart(3);
+    process.stderr.write(
+      `[machinen]   ${"(unattributed)".padEnd(labelW)} ${fmtMs(other).padStart(8)}  ${pct}%\n`,
+    );
+  }
+}
+
 const ASSETS = process.env.MACHINEN_ASSETS_DIR ?? resolve(MAIN_REPO, "release-assets");
 const CACHE_DIR = join(homedir(), ".cache", "machinen", basename(MAIN_REPO));
 await mkdir(CACHE_DIR, { recursive: true });
@@ -109,19 +156,21 @@ function readHostCmd(label: string, file: string, args: string[]): string {
   }
 }
 
-const ghToken = readHostCmd("GH_TOKEN", "gh", ["auth", "token"]);
+const ghToken = await bench("read gh token", () =>
+  readHostCmd("GH_TOKEN", "gh", ["auth", "token"]));
 
 // Claude Code's OAuth blob lives in the macOS Keychain under
 // "Claude Code-credentials". -w prints the JSON blob. On the guest,
 // /etc/bash.bashrc (staged at provision time) writes it to
 // ~/.claude/.credentials.json on first interactive shell, then unsets
 // the env var.
-const claudeCreds = readHostCmd("Claude Code credentials", "security", [
-  "find-generic-password",
-  "-s",
-  "Claude Code-credentials",
-  "-w",
-]);
+const claudeCreds = await bench("read claude creds", () =>
+  readHostCmd("Claude Code credentials", "security", [
+    "find-generic-password",
+    "-s",
+    "Claude Code-credentials",
+    "-w",
+  ]));
 
 // ~/.claude.json holds the identity slice (userID, oauthAccount,
 // hasCompletedOnboarding). Recent claude-code builds refuse to start an
@@ -149,7 +198,7 @@ function readHostClaudeAccount(): string {
   }
   return JSON.stringify(slice);
 }
-const claudeAccountJson = readHostClaudeAccount();
+const claudeAccountJson = await bench("read claude account", () => readHostClaudeAccount());
 
 // Use MACHINEN_-prefixed names so the OLD baked /etc/profile.d snippet
 // in pre-fix images doesn't see them — it consumed `CLAUDE_*` and
@@ -322,19 +371,30 @@ const bootstrap = [
     "runuser -m -u dev -- bash /home/dev/.machinen-dev-bootstrap.sh",
 ].join("\n");
 
-const vm = await boot({
-  kernel: join(ASSETS, "Image-arm64"),
-  dtb: join(ASSETS, "virt-arm64.dtb"),
-  image: IMAGE,
-  liveMounts: [{ host: HERE, guest: "/mnt/workspace", mode: "rw" }],
-  cmd: ["/bin/bash", "-lc", bootstrap],
-  env: secretEnv,
-  vmmEnv: {
-    MACHINEN_RAM_BYTES: String(ramForImage(IMAGE)),
-    MACHINEN_VSOCK: `in:1978:${execUdsPath},in:1974:${winsizeUdsPath}`,
-  },
-  timeoutMs: null,
-});
+const vm = await bench("vm boot", () =>
+  boot({
+    kernel: join(ASSETS, "Image-arm64"),
+    dtb: join(ASSETS, "virt-arm64.dtb"),
+    image: IMAGE,
+    liveMounts: [{ host: HERE, guest: "/mnt/workspace", mode: "rw" }],
+    cmd: ["/bin/bash", "-lc", bootstrap],
+    env: secretEnv,
+    vmmEnv: {
+      MACHINEN_RAM_BYTES: String(ramForImage(IMAGE)),
+      MACHINEN_VSOCK: `in:1978:${execUdsPath},in:1974:${winsizeUdsPath}`,
+    },
+    timeoutMs: null,
+    // Surface the runtime's per-phase boot timeline (#233). Prints
+    // once when the VMM's first stderr byte arrives — fits the "show
+    // what the boot is doing" sidebar slot. Console bytes still flow
+    // through the stdout/stderr pipes wired below, so we don't need
+    // to forward chunk events here.
+    onLog: (evt) => {
+      if (evt.source === "phase") {
+        renderPhaseBlock(evt);
+      }
+    },
+  }));
 
 // Wire host <-> guest stdio FIRST. Anything that blocks before this
 // (e.g. the winsize connect below) eats kernel boot output and any

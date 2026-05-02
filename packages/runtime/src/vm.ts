@@ -731,12 +731,18 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         const baseAbs = resolve(opts.cwd ?? process.cwd(), opts.image!);
         const cachedImg = ensureRootfsImage(baseAbs, {
           sizeBytes: opts.rootDiskSizeBytes,
+          // #233 follow-up: surface the sub-steps of ensureRootfsImage
+          // (sha256, e2fsck, sparse-extend, …) as dot-separated
+          // children of `rootdisk-materialize` in the boot timeline.
+          onPhase: (name, ms) => phases.mark(`rootdisk-materialize.${name}`, ms),
         });
         const perBoot = join(
           tmpdir(),
           `machinen-rootdisk-${process.pid}-${randomBytes(6).toString("hex")}.img`,
         );
+        const reflinkT0 = Date.now();
         reflinkCopy(cachedImg, perBoot);
+        phases.mark("rootdisk-materialize.reflink", Date.now() - reflinkT0);
         // The cache file was only READ here — restore the
         // clean-shutdown marker so the next boot finds a usable
         // template instead of wiping and rematerializing (#170).
@@ -931,6 +937,8 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   // #221: stamp first-guest-byte and emit the boot timeline. Either
   // path (first stderr byte, or VMM exit before any output) flushes
   // exactly once — `phases.end` is a no-op the second time around.
+  // #233: also emit a `phase` LogEvent so callers can fold the
+  // breakdown into their own UI without parsing debug strings.
   let phasesFlushed = false;
   const flushPhases = () => {
     if (phasesFlushed) {
@@ -939,6 +947,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     phasesFlushed = true;
     phases.end("first-guest-byte");
     phases.flush(debug, "boot");
+    onLog?.(phases.toEvent("boot"));
   };
   child.stderr.once("data", flushPhases);
   child.once("exit", flushPhases);

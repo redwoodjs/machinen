@@ -68,6 +68,57 @@ const { provision } = (await import(
   pathToFileURL(runtimeEntry).href
 )) as typeof import("@machinen/runtime");
 
+// --- benchmarks -----------------------------------------------------------
+//
+// Permanent step-level timings. `bench(label, fn)` logs `start`/`done`
+// lines for each install step and accumulates into `phases` for a host
+// summary. Runtime-side phase events (`source: "phase"` LogEvents from
+// boot() and provision()) get collected into `runtimePhases` and
+// rendered in the same summary block — see #233.
+type Phase = { label: string; ms: number };
+const phases: Phase[] = [];
+const runtimePhases: import("@machinen/runtime").PhaseLogEvent[] = [];
+const fmtMs = (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms.toFixed(0)}ms`);
+async function bench<T>(label: string, fn: () => T | Promise<T>): Promise<T> {
+  const start = performance.now();
+  console.log(`provision: ${label}...`);
+  try {
+    const result = await fn();
+    const ms = performance.now() - start;
+    phases.push({ label, ms });
+    console.log(`provision: ${label} (${fmtMs(ms)})`);
+    return result;
+  } catch (err) {
+    const ms = performance.now() - start;
+    console.log(`provision: ${label} FAILED (${fmtMs(ms)})`);
+    throw err;
+  }
+}
+
+function renderPhaseBlock(evt: import("@machinen/runtime").PhaseLogEvent): void {
+  const total = evt.totalMs;
+  const names = [...evt.phases.keys()];
+  const labelW = Math.max(22, ...names.map((n) => n.length + (n.includes(".") ? 2 : 0)));
+  console.log(`\nprovision: === runtime phases (${evt.kind}, total ${fmtMs(total)}) ===`);
+  let topSum = 0;
+  for (const [name, ms] of evt.phases) {
+    const isSub = name.includes(".");
+    if (!isSub) {
+      topSum += ms;
+    }
+    const display = isSub ? `  ${name}` : name;
+    const pct = total > 0 ? ((ms / total) * 100).toFixed(0).padStart(3) : "  -";
+    console.log(`provision:   ${display.padEnd(labelW)} ${fmtMs(ms).padStart(8)}  ${pct}%`);
+  }
+  const other = Math.max(0, total - topSum);
+  if (other > 0 && total > 0) {
+    const pct = ((other / total) * 100).toFixed(0).padStart(3);
+    console.log(
+      `provision:   ${"(unattributed)".padEnd(labelW)} ${fmtMs(other).padStart(8)}  ${pct}%`,
+    );
+  }
+}
+
 const ASSETS = process.env.MACHINEN_ASSETS_DIR ?? resolve(MAIN_REPO, "release-assets");
 
 // Cache key on the main repo basename so every worktree shares one
@@ -121,7 +172,7 @@ const installSteps = async (vm: VmHandle) => {
   //   • Incremental base — the prior provision's tar excludes ./tmp,
   //     so the directory is missing entirely on this boot.
   // mkdir -p + chmod handles both shapes.
-  await vm.exec("mkdir -p /tmp /var/tmp && chmod 1777 /tmp /var/tmp");
+  await bench("tmp dirs", () => vm.exec("mkdir -p /tmp /var/tmp && chmod 1777 /tmp /var/tmp"));
 
   // gvproxy DNS jitter under apt's parallel fan-out.
   const aptResilience = [
@@ -132,9 +183,8 @@ const installSteps = async (vm: VmHandle) => {
     'Acquire::https::Timeout "60";',
   ].join("\n");
   const aptResilienceB64 = Buffer.from(aptResilience).toString("base64");
-  await vm.exec(
-    `echo ${aptResilienceB64} | base64 -d > /etc/apt/apt.conf.d/99-machinen-resilience`,
-  );
+  await bench("apt config", () =>
+    vm.exec(`echo ${aptResilienceB64} | base64 -d > /etc/apt/apt.conf.d/99-machinen-resilience`));
 
   // System packages.
   //   ripgrep, fd-find        — fast code search.
@@ -142,38 +192,41 @@ const installSteps = async (vm: VmHandle) => {
   //   less, vim-tiny           — usable interactive shell.
   //   openssh-client, gh       — git/ssh + GitHub CLI.
   // Symlink fd-find's binary to the upstream `fd` name.
-  await vm.exec(
-    "apt-get update -qq && " +
-      "apt-get install -y --no-install-recommends " +
-      "bash git build-essential ca-certificates curl " +
-      "ripgrep fd-find jq less vim-tiny openssh-client gh && " +
-      "ln -sf /usr/bin/fdfind /usr/local/bin/fd",
-  );
+  await bench("apt install", () =>
+    vm.exec(
+      "apt-get update -qq && " +
+        "apt-get install -y --no-install-recommends " +
+        "bash git build-essential ca-certificates curl " +
+        "ripgrep fd-find jq less vim-tiny openssh-client gh && " +
+        "ln -sf /usr/bin/fdfind /usr/local/bin/fd",
+    ));
 
   // Pre-bake git identity in /etc/gitconfig (--system) so both root
   // and the dev user inherit it. safe.directory '*' silences git's
   // CVE-2022-24765 "dubious ownership" check — necessary because
   // /mnt/workspace is FUSE-mounted with uids that may not line up.
-  await vm.exec(
-    "git config --system user.email 'peter.pistorius@gmail.com' && " +
-      "git config --system user.name 'Peter Pistorius' && " +
-      "git config --system init.defaultBranch main && " +
-      "git config --system --add safe.directory '*'",
-  );
+  await bench("git config", () =>
+    vm.exec(
+      "git config --system user.email 'peter.pistorius@gmail.com' && " +
+        "git config --system user.name 'Peter Pistorius' && " +
+        "git config --system init.defaultBranch main && " +
+        "git config --system --add safe.directory '*'",
+    ));
 
   // Node + pnpm + Claude Code via fnm. Idempotent on rebuilds.
-  await vm.exec(
-    "export FNM_DIR=/root/.local/share/fnm && " +
-      "fnm install 22 && " +
-      "fnm default 22 && " +
-      "NODE_BIN=$(fnm exec --using=22 -- sh -c 'dirname $(which node)') && " +
-      "ln -sf $NODE_BIN/node /usr/local/bin/node && " +
-      "ln -sf $NODE_BIN/npm  /usr/local/bin/npm  && " +
-      "ln -sf $NODE_BIN/npx  /usr/local/bin/npx  && " +
-      `fnm exec --using=22 npm install -g pnpm@${PNPM_VERSION} @anthropic-ai/claude-code && ` +
-      "ln -sf $NODE_BIN/pnpm   /usr/local/bin/pnpm && " +
-      "ln -sf $NODE_BIN/claude /usr/local/bin/claude",
-  );
+  await bench("node + pnpm + claude", () =>
+    vm.exec(
+      "export FNM_DIR=/root/.local/share/fnm && " +
+        "fnm install 22 && " +
+        "fnm default 22 && " +
+        "NODE_BIN=$(fnm exec --using=22 -- sh -c 'dirname $(which node)') && " +
+        "ln -sf $NODE_BIN/node /usr/local/bin/node && " +
+        "ln -sf $NODE_BIN/npm  /usr/local/bin/npm  && " +
+        "ln -sf $NODE_BIN/npx  /usr/local/bin/npx  && " +
+        `fnm exec --using=22 npm install -g pnpm@${PNPM_VERSION} @anthropic-ai/claude-code && ` +
+        "ln -sf $NODE_BIN/pnpm   /usr/local/bin/pnpm && " +
+        "ln -sf $NODE_BIN/claude /usr/local/bin/claude",
+    ));
 
   // Materialize Claude Code credentials on first login. The boot cmd
   // is `bash -lc` (login shell), so /etc/profile + profile.d run and
@@ -212,18 +265,20 @@ const installSteps = async (vm: VmHandle) => {
     "",
   ].join("\n");
   const profileSnippetB64 = Buffer.from(profileSnippet).toString("base64");
-  await vm.exec(
-    `echo ${profileSnippetB64} | base64 -d > /etc/profile.d/00-machinen.sh && ` +
-      "chmod 0755 /etc/profile.d/00-machinen.sh",
-  );
+  await bench("claude bootstrap", () =>
+    vm.exec(
+      `echo ${profileSnippetB64} | base64 -d > /etc/profile.d/00-machinen.sh && ` +
+        "chmod 0755 /etc/profile.d/00-machinen.sh",
+    ));
 
   // #177 dev-VM tty resize agent. Overwrite even if /sbin/machinen-winsize-agent
   // already exists in the base rootfs, so the freshest local build wins
   // (mirrors the /fuse-agent + /init refresh idiom in init.zig).
   if (winsizeAgentBin) {
-    await vm.writeFile("/sbin/machinen-winsize-agent", winsizeAgentBin, {
-      mode: 0o755,
-    });
+    await bench("winsize agent", () =>
+      vm.writeFile("/sbin/machinen-winsize-agent", winsizeAgentBin, {
+        mode: 0o755,
+      }));
   }
 
   // Non-root dev user. uid 501 matches the typical macOS host uid so
@@ -231,15 +286,17 @@ const installSteps = async (vm: VmHandle) => {
   // the FUSE mount so dev can traverse it; this user is what vm.ts
   // drops into so `claude --dangerously-skip-permissions` (which
   // refuses euid 0) works inside the guest. Idempotent on rebuilds.
-  await vm.exec("id dev >/dev/null 2>&1 || useradd -m -u 501 -s /bin/bash dev");
+  await bench("useradd dev", () =>
+    vm.exec("id dev >/dev/null 2>&1 || useradd -m -u 501 -s /bin/bash dev"));
 
   // Sanity check — covers both root and dev (verifies the dev user
   // inherits node/pnpm/claude via /usr/local/bin and gets git config
   // via /etc/gitconfig).
-  await vm.exec(
-    "node --version && pnpm --version && claude --version && bash --version | head -1 && git --version && gh --version | head -1 && " +
-      "runuser -l dev -c 'node --version && pnpm --version && claude --version && git config --get user.email'",
-  );
+  await bench("sanity check", () =>
+    vm.exec(
+      "node --version && pnpm --version && claude --version && bash --version | head -1 && git --version && gh --version | head -1 && " +
+        "runuser -l dev -c 'node --version && pnpm --version && claude --version && git config --get user.email'",
+    ));
 };
 
 // --- stamp check ----------------------------------------------------------
@@ -264,6 +321,7 @@ console.log(`provision: base=${base === OUT ? "./app.tar.gz (incremental)" : bas
 
 // --- run ------------------------------------------------------------------
 
+const provisionStart = performance.now();
 const result = await provision({
   base,
   kernel: join(ASSETS, "Image-arm64"),
@@ -290,6 +348,8 @@ const result = await provision({
       process.stdout.write(evt.chunk);
     } else if (evt.source === "exec-stderr") {
       process.stderr.write(evt.chunk);
+    } else if (evt.source === "phase") {
+      runtimePhases.push(evt);
     }
   },
 
@@ -297,5 +357,22 @@ const result = await provision({
   install: installSteps,
 });
 
+const totalMs = performance.now() - provisionStart;
+
 writeFileSync(STAMP, sourceHash);
 console.log(`\nBuilt ${result.imagePath} (${(result.elapsedMs / 1000).toFixed(1)}s)`);
+
+// Host install-step breakdown (drills into the runtime's `install`
+// phase). Runtime-side `provision` and `boot` phase blocks render
+// after this, sourced from `source: "phase"` LogEvents.
+const labelW = Math.max(22, ...phases.map((p) => p.label.length));
+console.log("\nprovision: === install-step timing ===");
+for (const p of phases) {
+  const pct = ((p.ms / totalMs) * 100).toFixed(0).padStart(3);
+  console.log(`provision:   ${p.label.padEnd(labelW)} ${fmtMs(p.ms).padStart(8)}  ${pct}%`);
+}
+console.log(`provision:   ${"".padEnd(labelW)} ${"--------".padStart(8)}`);
+console.log(`provision:   ${"wall total".padEnd(labelW)} ${fmtMs(totalMs).padStart(8)}  100%`);
+for (const evt of runtimePhases) {
+  renderPhaseBlock(evt);
+}

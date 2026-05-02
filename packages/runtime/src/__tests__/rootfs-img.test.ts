@@ -403,14 +403,40 @@ describe("ensureRootfsImage", () => {
     }
   }
 
-  it("siblingPrebakePath strips .tar.gz / .tgz / .tar and appends .img.gz", () => {
-    expect(_internal.siblingPrebakePath("/r/rootfs.tar.gz")).toBe("/r/rootfs.img.gz");
-    expect(_internal.siblingPrebakePath("/r/rootfs.tgz")).toBe("/r/rootfs.img.gz");
-    expect(_internal.siblingPrebakePath("/r/rootfs.tar")).toBe("/r/rootfs.img.gz");
+  it("siblingPrebakePath strips .tar.gz / .tgz / .tar and falls back to .img.gz", () => {
+    // No on-disk sibling → defaults to the gzipped form.
+    expect(_internal.siblingPrebakePath("/r/rootfs.tar.gz")).toEqual({
+      path: "/r/rootfs.img.gz",
+      gzipped: true,
+    });
+    expect(_internal.siblingPrebakePath("/r/rootfs.tgz")).toEqual({
+      path: "/r/rootfs.img.gz",
+      gzipped: true,
+    });
+    expect(_internal.siblingPrebakePath("/r/rootfs.tar")).toEqual({
+      path: "/r/rootfs.img.gz",
+      gzipped: true,
+    });
     // Non-tarball paths return undefined — no prebake convention exists
     // for them, so the runtime falls through to the materialize path.
     expect(_internal.siblingPrebakePath("/r/rootfs")).toBeUndefined();
     expect(_internal.siblingPrebakePath("/r/rootfs.zip")).toBeUndefined();
+  });
+
+  it("siblingPrebakePath prefers an uncompressed .img sibling when present", () => {
+    const dir = mkdtempSync(join(tmpdir(), "ensure-img-sibling-prefer-"));
+    try {
+      const tarPath = join(dir, "app.tar.gz");
+      const imgPath = join(dir, "app.img");
+      writeFileSync(tarPath, Buffer.from("not actually a tarball"));
+      writeFileSync(imgPath, Buffer.from("not actually an image"));
+      expect(_internal.siblingPrebakePath(tarPath)).toEqual({
+        path: imgPath,
+        gzipped: false,
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("uses a sibling .img.gz to populate the cache and skips mke2fs", () => {

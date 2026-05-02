@@ -85,6 +85,10 @@ const savedSnapDir = join(workDir, "saved");
 function printer(api: string) {
   const buffers = new Map<string, string>();
   return (evt: LogEvent) => {
+    if (evt.source === "phase") {
+      process.stderr.write(`[${api}][phase ${evt.kind}] total=${evt.totalMs}ms\n`);
+      return;
+    }
     const prefix = evt.cmd ? `[${api}][${evt.source} ${evt.cmd}]` : `[${api}][${evt.source}]`;
     const key = `${evt.source}|${evt.cmd ?? ""}`;
     let pending = (buffers.get(key) ?? "") + evt.chunk.toString("utf8");
