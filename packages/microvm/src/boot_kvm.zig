@@ -36,10 +36,13 @@ const pl011_mod = @import("pl011.zig");
 const virtio = @import("virtio.zig");
 const blk_mod = @import("blk.zig");
 const vsock_mod = @import("vsock.zig");
+const net_mod = @import("net_socket.zig");
 
 // Guest-physical bases. Same MMIO layout as HVF (see boot_hvf.zig
 // for the slot layout doc) so the shared `virt.dts` works for both
 // backends.
+const virtio_net_base: u64 = 0x0A00_0000;
+const virtio_net_size: u64 = 0x200;
 const virtio_blk_base: u64 = 0x0A00_0200;
 const virtio_blk_size: u64 = 0x200;
 const virtio_vsock_base: u64 = 0x0A00_0400;
@@ -180,6 +183,13 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // never reaching the guest after the kernel writes QueueNotify.
     const pl011_irq: u32 = kvm.irqSpi(1);
 
+    // virtio-net (#197). Slot 0 → SPI #16 → eth0 in the guest. Off
+    // by default; the runtime sets `MACHINEN_NET_SOCKET` to a UDS
+    // path that gvproxy is listening on when the guest needs network
+    // (artifact-cache / fnm fetch / outbound HTTP). Same wire protocol
+    // as HVF: 4-byte length prefix per frame.
+    const virtio_net_irq: u32 = kvm.irqSpi(16);
+
     // virtio-blk (#114). Two slots, mirroring boot_hvf.zig:
     //   slot 1 → SPI #17 → /dev/vda — rootdisk preferred, else disk.
     //   slot 3 → SPI #19 → /dev/vdb — scratch when both are present.
@@ -236,6 +246,59 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         }
     }
     const blk2dev_ptr: ?*virtio.Device = if (blk2dev_opt) |_| &blk2dev_opt.? else null;
+
+    // virtio-net (#197). Slot 0; gvproxy backs RX/TX over a UDS
+    // pointed at by `MACHINEN_NET_SOCKET`. Without that env (or
+    // with a connect failure), the device still exists in the MMIO
+    // window — the kernel binds a virtio-net driver to it — but
+    // RX/TX go nowhere, so eth0 stays link-down. That matches the
+    // pre-#197 behaviour where the slot returned zeros.
+    const virtio_mac = [_]u8{ 0x02, 0xDE, 0xAD, 0xBE, 0xEF, 0x01 };
+    var netdev = virtio.Device{
+        .base = virtio_net_base,
+        .size = virtio_net_size,
+        .id = .net,
+        // VIRTIO_F_VERSION_1 (bit 32) | VIRTIO_NET_F_MAC (bit 5).
+        .features = (1 << 32) | (1 << 5),
+        .config = &virtio_mac,
+        .ram = ram,
+        .ram_base = cfg.ram_base,
+    };
+    const net_inst: ?*net_mod.NetSocket = blk: {
+        const env = getenv("MACHINEN_NET_SOCKET") orelse {
+            break :blk null;
+        };
+        const path = std.mem.span(env);
+        if (path.len == 0) break :blk null;
+        break :blk net_mod.NetSocket.connect(gpa, &netdev, .{ .socket_path = path }) catch |err| {
+            std.debug.print("net: connect to {s} failed: {s} — continuing without network\n", .{ path, @errorName(err) });
+            break :blk null;
+        };
+    };
+    defer if (net_inst) |n| n.destroy();
+    var net_irq_ctx = NetIrqCtx{ .vm = &vm, .irq = virtio_net_irq };
+    if (net_inst) |n| {
+        // TX: every guest-emitted frame goes through NetSocket.input
+        // → gvproxy. The kernel's notify() drains the TX avail queue
+        // and calls tx_handler per frame (with the 12-byte virtio-net
+        // header already stripped by virtio.zig::walkAndEmit).
+        netdev.tx_handler = &onNetTx;
+        netdev.tx_ctx = @ptrCast(n);
+        // RX: NetSocket's rxLoop calls on_rx after each injectRx,
+        // both under `n.irq_mu`. The vCPU's net-MMIO handler in
+        // handleMmio takes the same mutex, so the (RMW + setIrq)
+        // pairs serialise across the two threads — without this,
+        // the bridge thread's setIrq(1) for an RX frame can be
+        // overridden by a stale vCPU setIrq(0).
+        n.on_rx = &onNetIrq;
+        n.on_rx_ctx = @ptrCast(&net_irq_ctx);
+    }
+    // Always hand the netdev to handleMmio so the kernel's probe
+    // of slot 0 finds a valid virtio-net device and binds the
+    // driver — even when no gvproxy backend is connected. eth0
+    // then comes up but has no link, which is exactly what should
+    // happen if MACHINEN_NET_SOCKET wasn't set.
+    const netdev_ptr: *virtio.Device = &netdev;
 
     // virtio-vsock (#44). Off by default; the runtime sets MACHINEN_VSOCK
     // when it wants the guest exec/fuse agents to be reachable. Same
@@ -315,7 +378,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         switch (reason) {
             .mmio => {
                 const ev = vcpu.mmioExit();
-                try handleMmio(gpa, &vm, &vcpu, &uart, ev, pl011_irq, blkdev_ptr, virtio_blk_irq, blk2dev_ptr, virtio_blk2_irq, vsock_dev_ptr_run, virtio_vsock_irq, vsock_bridge_opt);
+                try handleMmio(gpa, &vm, &vcpu, &uart, ev, pl011_irq, netdev_ptr, virtio_net_irq, net_inst, blkdev_ptr, virtio_blk_irq, blk2dev_ptr, virtio_blk2_irq, vsock_dev_ptr_run, virtio_vsock_irq, vsock_bridge_opt);
             },
             .system_event => {
                 const ev = vcpu.systemEventExit();
@@ -357,6 +420,9 @@ fn handleMmio(
     uart: *pl011_mod.Pl011,
     ev: kvm.MmioExit,
     pl011_irq: u32,
+    netdev: *virtio.Device,
+    virtio_net_irq: u32,
+    net_inst: ?*net_mod.NetSocket,
     blkdev: ?*virtio.Device,
     virtio_blk_irq: u32,
     blk2dev: ?*virtio.Device,
@@ -379,6 +445,24 @@ fn handleMmio(
             vcpu.writeMmioReadData(val, ev.len);
         }
         vm.setIrq(pl011_irq, if (uart.irqAsserted()) 1 else 0) catch {};
+        return;
+    }
+    if (netdev.handles(ev.phys_addr)) {
+        // Same race / serialisation story as vsock below: the RX
+        // thread inside NetSocket sets interrupt_status and asserts
+        // the SPI line under `n.irq_mu`; we take the same mutex so
+        // our snapshot-based setIrq can't override the bridge's.
+        // No-op when `net_inst` is null (no gvproxy backend) — there
+        // is no second thread to race against, and the kernel still
+        // sees a valid virtio-net device with link-down.
+        if (net_inst) |n| n.lockIrq();
+        defer if (net_inst) |n| n.unlockIrq();
+        if (ev.is_write != 0) {
+            netdev.write(ev.phys_addr, mmioReadValue(ev));
+        } else {
+            vcpu.writeMmioReadData(netdev.read(ev.phys_addr), ev.len);
+        }
+        vm.setIrq(virtio_net_irq, if (@atomicLoad(u32, &netdev.interrupt_status, .acquire) != 0) 1 else 0) catch {};
         return;
     }
     if (blkdev) |d| {
@@ -513,6 +597,30 @@ pub const VsockIrqCtx = struct {
 fn onVsockIrq(ctx: ?*anyopaque) void {
     const c: *VsockIrqCtx = @ptrCast(@alignCast(ctx.?));
     c.vm.setIrq(c.irq, 1) catch {};
+}
+
+/// Same shape as VsockIrqCtx, but for the virtio-net SPI. NetSocket's
+/// rxLoop calls `onNetIrq` after each frame it injects, with
+/// `n.irq_mu` already held — we just pulse the line.
+pub const NetIrqCtx = struct {
+    vm: *kvm.Vm,
+    irq: u32,
+};
+
+fn onNetIrq(ctx: ?*anyopaque) void {
+    const c: *NetIrqCtx = @ptrCast(@alignCast(ctx.?));
+    c.vm.setIrq(c.irq, 1) catch {};
+}
+
+/// Pump a guest-emitted ethernet frame through to gvproxy. Called
+/// from `virtio.Device.notify()` on the vCPU thread when the kernel
+/// kicks the TX queue. The 12-byte virtio-net header has already
+/// been stripped by `walkAndEmit`, so we just hand the bare ethernet
+/// frame to NetSocket.input which prepends the 4-byte length prefix
+/// and writes to the gvproxy UDS.
+fn onNetTx(ctx: ?*anyopaque, frame: []const u8) void {
+    const n: *net_mod.NetSocket = @ptrCast(@alignCast(ctx.?));
+    n.input(frame);
 }
 
 // arm64 Linux kernel Image header — same parser as hvf.zig has;
