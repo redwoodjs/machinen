@@ -116,18 +116,26 @@ ROOTFS_TAR="$ASSETS/rootfs-debian-arm64.tar.gz"
 ROOTFS_SUPPORTS_VSOCK_EXEC=1
 ROOTFS_SUPPORTS_CRIU=1
 ROOTFS_SUPPORTS_SNAPSHOT_HELPERS=1
+# Probe the rootfs tarball once. We can't `tar tzf | grep -q` directly
+# under `set -o pipefail`: grep -q exits as soon as it finds a match,
+# tar gets SIGPIPE on its next write and exits 141, and pipefail
+# surfaces that 141 — every probe lights up "missing" even when the
+# entry is right there. Linux GNU tar reproduces this; BSD tar on
+# darwin happens to absorb it, which is why this only manifests on
+# linux smoke runs and the regression went silent for a while.
+ROOTFS_ENTRIES=$(tar tzf "$ROOTFS_TAR" 2>/dev/null || true)
 # vsock support moved from /lib/modules into the kernel image (#119),
 # so the modern marker is /exec-agent in the rootfs (#93's vsock-using
 # helper) rather than the old `vmw_vsock_virtio_transport.ko` path.
-if ! tar tzf "$ROOTFS_TAR" 2>/dev/null | grep -q "^./exec-agent$"; then
+if ! grep -q "^./exec-agent$" <<<"$ROOTFS_ENTRIES"; then
   echo "smoke: WARN rootfs lacks /exec-agent — N-series (vm.exec) will be skipped"
   ROOTFS_SUPPORTS_VSOCK_EXEC=0
 fi
-if ! tar tzf "$ROOTFS_TAR" 2>/dev/null | grep -q "usr/sbin/criu"; then
+if ! grep -q "usr/sbin/criu" <<<"$ROOTFS_ENTRIES"; then
   echo "smoke: WARN rootfs lacks criu — P/C-series will be skipped"
   ROOTFS_SUPPORTS_CRIU=0
 fi
-if ! tar tzf "$ROOTFS_TAR" 2>/dev/null | grep -q "sbin/machinen-dump"; then
+if ! grep -q "sbin/machinen-dump" <<<"$ROOTFS_ENTRIES"; then
   echo "smoke: WARN rootfs lacks /sbin/machinen-dump — S-series (snapshot) will be skipped"
   ROOTFS_SUPPORTS_SNAPSHOT_HELPERS=0
 fi
@@ -281,7 +289,7 @@ fi
 # build-kernel-arm64.sh), so the previous `fuse.ko` gate would skip
 # forever. Stale tarballs from before #78 won't have fuse-agent.
 echo "T3: machinen boot --mount-live ./fixture:/mnt/live:ro -- cat /mnt/live/hello.txt"
-if ! tar -tzf "$ROOTFS_TAR" 2>/dev/null | grep -q 'fuse-agent$'; then
+if ! grep -q 'fuse-agent$' <<<"$ROOTFS_ENTRIES"; then
   echo "  skip: fuse-agent not in $ROOTFS_TAR — rebuild base assets"
 else
   T3_MARKER="livemount-marker-$$"
@@ -318,7 +326,7 @@ fi
 # asserts the file appears on the host filesystem with the right
 # contents AFTER the VM exits. Same fuse-agent gate as T3.
 echo "T5: machinen boot --mount-live (default :rw) — guest write reaches the host"
-if ! tar -tzf "$ROOTFS_TAR" 2>/dev/null | grep -q 'fuse-agent$'; then
+if ! grep -q 'fuse-agent$' <<<"$ROOTFS_ENTRIES"; then
   echo "  skip: fuse-agent not in $ROOTFS_TAR — rebuild base assets"
 else
   T5_MARKER="livemount-rw-marker-$$"
