@@ -26,7 +26,6 @@ import { randomBytes } from "node:crypto";
 import { once } from "node:events";
 import {
   closeSync,
-  constants as fsConstants,
   copyFileSync,
   existsSync,
   linkSync,
@@ -63,10 +62,12 @@ import {
 import { spawnArtifactCache } from "./artifact-cache.ts";
 import { BootError, ExecError, RegistryError, SnapshotError } from "./errors.ts";
 import { ensurePdeathsig, wrapWithPdeathsig } from "./pdeathsig.ts";
+import { reflinkCopy } from "./reflink.ts";
 import { ensureRootfsImage, markRootfsImageClean } from "./rootfs-img.ts";
 import { VsockExec, type VsockExecOptions, type VsockExecResult } from "./exec.ts";
 import { serveLiveMount } from "./mount-server.ts";
 import type { OnLog } from "./log.ts";
+import { PhaseTimer } from "./phase-timer.ts";
 import { claimName, findEntry, isAlive, removeEntry, writeEntry } from "./registry.ts";
 import type {
   ForkOptions,
@@ -79,6 +80,7 @@ import type {
 
 const debug = debugLib("machinen:boot");
 const debugAttach = debugLib("machinen:attach");
+const debugRestore = debugLib("machinen:restore");
 const debugSnapshot = debugLib("machinen:snapshot");
 const debugFork = debugLib("machinen:fork");
 const vmmDebug = debugLib("machinen:vmm");
@@ -354,6 +356,9 @@ export interface BootOptions {
  */
 export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   const bootT0 = Date.now();
+  // #221: per-phase wall-clock timeline emitted as one line under
+  // DEBUG=machinen:boot once the VMM produces its first console byte.
+  const phases = new PhaseTimer();
   debug(
     "boot entry image=%s cmd=%j name=%s portForward=%d hasSnapshot=%s mount=%s",
     opts.image ?? "<none>",
@@ -363,6 +368,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     Boolean(opts.snapshot),
     opts.mount ? `${opts.mount.host}->${opts.mount.guest}` : "<none>",
   );
+  phases.start("asset-resolve");
   // Validate portForward up front — before resolving the binary or
   // touching the filesystem — so caller-input errors surface with a
   // clear message. The env-dependent "pre-set MACHINEN_NET_SOCKET"
@@ -440,11 +446,13 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   if (opts.cmd && !opts.image) {
     throw new BootError("BOOT_CMD_WITHOUT_IMAGE", "boot: `image` is required when `cmd` is set.");
   }
+  phases.end("asset-resolve");
 
   const env: Record<string, string> = {
     ...(process.env as Record<string, string>),
     ...opts.vmmEnv,
   };
+  phases.start("disk-prep");
   let diskAbs: string | undefined;
   // #121: per-boot reflink clone of the cached `<sha>.img`. Tracking
   // it lets the exit handler delete the copy so guest writes don't
@@ -493,7 +501,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         tmpdir(),
         `machinen-snap-restore-${process.pid}-${randomBytes(6).toString("hex")}.img`,
       );
-      copyFileSync(bundleDisk, perBoot, fsConstants.COPYFILE_FICLONE);
+      reflinkCopy(bundleDisk, perBoot);
       diskAbs = perBoot;
       perBootSnapDisk = perBoot;
       env.MACHINEN_DISK = perBoot;
@@ -516,6 +524,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     env.MACHINEN_DISK = scratchPath;
     debug("snap-scratch auto path=%s sizeBytes=%d", scratchPath, SNAP_SCRATCH_BYTES);
   }
+  phases.end("disk-prep");
 
   // #114: rootdisk-by-default. Boot mounts the rootfs from a
   // virtio-blk device (/dev/vda) instead of inflating the whole tree
@@ -612,6 +621,8 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   }
 
   try {
+    phases.start("net-services");
+    phases.start("net-services.gvproxy");
     if (!env.MACHINEN_NET_SOCKET) {
       // Auto-install gvproxy on first use if not already resolvable —
       // visible stderr line; cached under ~/.machinen so subsequent
@@ -639,11 +650,13 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     } else {
       debug("MACHINEN_NET_SOCKET already set — skipping gvproxy spawn");
     }
+    phases.end("net-services.gvproxy");
 
     // Only useful when the guest has networking — without gvproxy
     // the guest can't reach the host loopback anyway. Caller-provided
     // FNM_NODE_DIST_MIRROR wins so tests and power users can point
     // fnm at a different mirror.
+    phases.start("net-services.cache");
     if (env.MACHINEN_NET_SOCKET) {
       try {
         const cache = await spawnArtifactCache();
@@ -661,11 +674,13 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         );
       }
     }
+    phases.end("net-services.cache");
 
     // #78: start one live-share server per resolved mount before the
     // VMM boots. The guest fuse-agent will dial these UDSes once it's
     // past /dev/fuse mount; if we started them after the VMM, the
     // agent would spin in connect-retry for as long as we took.
+    phases.start("net-services.live-mounts");
     for (const lm of liveMountsResolved) {
       const handle = await serveLiveMount(lm.udsPath, {
         rootAbs: lm.host,
@@ -673,25 +688,29 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       });
       liveMountStops.push(handle.stop);
     }
+    phases.end("net-services.live-mounts");
+    phases.end("net-services");
 
     // Pack an initramfs whenever the guest needs userspace (image +
     // cmd + snapshot-only restore all need /init + synthesized
     // machinen-config.json). Test-mode zig boots fall through with no
     // INITRD env set — the VMM uses its own fixture initramfs.
     if (opts.image || opts.cmd || opts.snapshot) {
-      const packT0 = Date.now();
+      phases.start("initramfs-pack");
       const packed = synthesizeAndPackBundle(opts, mergedGuestEnv, liveMountsResolved, {
         useTiny: wantsRootDisk,
         env,
       });
       bundleTempDir = packed.tempDir;
       env.MACHINEN_INITRD = packed.cpioPath;
-      debug("initramfs packed cpio=%s elapsed=%dms", packed.cpioPath, Date.now() - packT0);
+      const packMs = phases.end("initramfs-pack");
+      debug("initramfs packed cpio=%s elapsed=%dms", packed.cpioPath, packMs ?? -1);
     }
 
     // #114: rootDisk materialization. After all input validation has
     // passed (so a bad mount path or missing image fails before we
     // hash a multi-GB tarball). On a cache hit this is a few ms.
+    phases.start("rootdisk-materialize");
     if (wantsRootDisk) {
       let rootDiskAbs: string;
       if (typeof opts.rootDisk === "string") {
@@ -717,7 +736,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
           tmpdir(),
           `machinen-rootdisk-${process.pid}-${randomBytes(6).toString("hex")}.img`,
         );
-        copyFileSync(cachedImg, perBoot, fsConstants.COPYFILE_FICLONE);
+        reflinkCopy(cachedImg, perBoot);
         // The cache file was only READ here — restore the
         // clean-shutdown marker so the next boot finds a usable
         // template instead of wiping and rematerializing (#170).
@@ -727,6 +746,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       }
       env.MACHINEN_ROOTDISK = rootDiskAbs;
     }
+    phases.end("rootdisk-materialize");
   } catch (err) {
     for (const stop of liveMountStops) {
       await stop().catch(() => {});
@@ -765,6 +785,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   // ~1.7 GiB RSS (#200). Mirrors `spawnGvproxy`. Falls through to a
   // direct spawn if the shim is unavailable (no `cc`, opted-out,
   // unsupported platform).
+  phases.start("vmm-spawn");
   const vmmPdeathsig = opts.pdeathsig === false ? null : await ensurePdeathsig();
   const wrappedVmm = wrapWithPdeathsig(vmmPdeathsig, binary, opts.args ?? []);
   const child = nodeSpawn(wrappedVmm.command, wrappedVmm.args, {
@@ -772,6 +793,10 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     env,
     stdio: ["pipe", "pipe", "pipe"],
   }) as ChildProcessWithoutNullStreams;
+  phases.end("vmm-spawn");
+  // first-guest-byte starts ticking from VMM-spawn — that's the point
+  // after which any console output is real guest progress.
+  phases.start("first-guest-byte");
   debug(
     "VMM spawned pid=%d binary=%s wrapped=%s elapsedSinceEntry=%dms",
     child.pid ?? -1,
@@ -902,6 +927,21 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       process.stderr.write(chunk);
     });
   }
+
+  // #221: stamp first-guest-byte and emit the boot timeline. Either
+  // path (first stderr byte, or VMM exit before any output) flushes
+  // exactly once — `phases.end` is a no-op the second time around.
+  let phasesFlushed = false;
+  const flushPhases = () => {
+    if (phasesFlushed) {
+      return;
+    }
+    phasesFlushed = true;
+    phases.end("first-guest-byte");
+    phases.flush(debug, "boot");
+  };
+  child.stderr.once("data", flushPhases);
+  child.once("exit", flushPhases);
 
   const handle: VmHandle = {
     pid: childPid,
@@ -1887,6 +1927,9 @@ async function performSnapshot(
   }
   const dumpCmd = envPrefix.length > 0 ? `${envPrefix.join(" ")} ${baseDumpCmd}` : baseDumpCmd;
   const t0 = Date.now();
+  // #221: per-phase timeline emitted under DEBUG=machinen:snapshot.
+  const phases = new PhaseTimer();
+  phases.start("staging");
 
   // Validate / prepare the bundle directory. We refuse to overwrite
   // an existing populated directory so a previous snapshot can't
@@ -1962,6 +2005,8 @@ async function performSnapshot(
       onLog({ source: "guest-console", chunk });
     });
   }
+  phases.end("staging");
+  phases.start("dump-exec");
 
   // Kick off the in-guest dump. The vsock connection typically closes
   // mid-transaction as the guest powers off (CRIU kills the dumped tree,
@@ -2058,6 +2103,8 @@ async function performSnapshot(
     // so this never throws.
     await dumpDispatch;
   }
+  phases.end("dump-exec");
+  phases.start("validation");
   const elapsedMs = Date.now() - t0;
   const consoleLog = await ctx.errorOutput();
   debugSnapshot(
@@ -2142,6 +2189,8 @@ async function performSnapshot(
     );
   }
 
+  phases.end("validation");
+  phases.start("finalize");
   const diskOut = join(snapDir, "disk.img");
   if (stagedViaLink) {
     debugSnapshot("promote staging %s -> %s", stagingPath, diskOut);
@@ -2158,8 +2207,10 @@ async function performSnapshot(
     snappedAt: Date.now(),
   };
   writeFileSync(join(snapDir, "meta.json"), JSON.stringify(meta));
+  phases.end("finalize");
 
   debugSnapshot("snapshot done snapDir=%s postMtime=%d", snapDir, postMtime);
+  phases.flush(debugSnapshot, "snapshot");
   return { snapDir, diskPath: diskOut, elapsedMs, consoleLog };
 }
 
@@ -2219,12 +2270,18 @@ export interface RestoreOptions extends Omit<BootOptions, "snapshot" | "image" |
  *   is missing.
  */
 export async function restore(opts: RestoreOptions): Promise<VmHandle> {
+  // #221: per-phase timeline for restore. Boot's own phases get logged
+  // separately under DEBUG=machinen:boot — restore tracks the parts
+  // that are restore-specific (meta-read, the boot rollup, and the
+  // wall-clock until the restored guest is responsive over vsock).
+  const phases = new PhaseTimer();
   const snapDir = resolve(opts.snapDir);
   const diskPath = join(snapDir, "disk.img");
   const metaPath = join(snapDir, "meta.json");
   if (!existsSync(diskPath)) {
     throw new BootError("BOOT_SNAPSHOT_NOT_FOUND", `restore: ${diskPath} not found`);
   }
+  phases.start("snapshot-meta-read");
   let meta: SnapshotMeta = { snappedAt: 0 };
   if (existsSync(metaPath)) {
     try {
@@ -2235,16 +2292,19 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
       // have a memorable auto-name.
     }
   }
+  phases.end("snapshot-meta-read");
 
   // boot() doesn't know the pid until after the VMM is spawned, so
   // we can't pass `<sourceName>/<pid>` up front. Boot anonymous,
   // then claim the auto-name and patch the registry entry below.
+  phases.start("boot");
   const vm = await boot({
     ...opts,
     snapshot: diskPath,
     forkedFrom: snapDir,
     name: opts.name,
   });
+  phases.end("boot");
 
   if (!opts.name && meta.sourceName) {
     // Default auto-name nests under the source: `<src>/<pid>`.
@@ -2273,7 +2333,17 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
   // `hostname <label>` over vsock (fire-and-forget) so the guest's
   // kernel hostname uniquely identifies this VM, with the host VMM
   // pid as the disambiguator. See buildGuestHostname for the format.
-  void setGuestHostname(vm, buildGuestHostname(vm.pid, vm.name));
+  //
+  // #221: piggy-back on the same vsock round-trip to time how long
+  // CRIU restore + supervisor takes to become responsive. Anything
+  // that lets the hostname call return is a usable proxy for "guest
+  // ready". We don't await it — boot() already happened, this just
+  // closes the timing line in the background.
+  phases.start("criu-restore-probe");
+  void setGuestHostname(vm, buildGuestHostname(vm.pid, vm.name)).finally(() => {
+    phases.end("criu-restore-probe");
+    phases.flush(debugRestore, "restore");
+  });
   return vm;
 }
 
