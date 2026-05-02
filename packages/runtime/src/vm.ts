@@ -600,6 +600,17 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   let bundleTempDir: string | undefined;
   const mergedGuestEnv: Record<string, string> = { ...opts.env };
 
+  // Surface the VM name in the guest so an interactive shell prompt
+  // (\h in bash's default Debian PS1) tells the user which VM they're
+  // attached to. machinen-supervisor.sh consumes this and calls
+  // sethostname() before spawning the workload. We don't have the host
+  // VMM pid yet — that's only known after spawn — so the name-less case
+  // simply doesn't set a hostname; users who want a labelled prompt
+  // pass --name.
+  if (opts.name && !mergedGuestEnv.MACHINEN_VM_NAME) {
+    mergedGuestEnv.MACHINEN_VM_NAME = opts.name;
+  }
+
   try {
     if (!env.MACHINEN_NET_SOCKET) {
       // Auto-install gvproxy on first use if not already resolvable —
@@ -2245,12 +2256,55 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
       }
     }
   }
+
+  // CRIU restores the dumped UTS namespace, which means the hostname
+  // is whatever the source VM had — not what the caller picked for
+  // the new VM. Fire `hostname <name>` over vsock (fire-and-forget)
+  // so an interactive shell's `\h` prompt expansion reflects the
+  // new VM's name. Failure is harmless: the prompt just stays at
+  // the inherited value.
+  if (vm.name) {
+    void setGuestHostname(vm, vm.name);
+  }
   return vm;
 }
 
 // =============================================================
 // Fork — #216
 // =============================================================
+
+/**
+ * Set the guest's kernel hostname over vsock-exec. Fire-and-forget:
+ * any failure is logged at debug level and swallowed — a wrong prompt
+ * label is strictly cosmetic and must never break a boot/restore.
+ *
+ * Safe vs. arbitrary names: the guest runs `hostname <quoted>`. We
+ * single-quote and reject any name containing a single quote so a
+ * caller-supplied name can't escape into a shell injection.
+ */
+async function setGuestHostname(vm: VmHandle, name: string): Promise<void> {
+  if (name.length === 0 || name.includes("'") || name.includes("\n") || name.includes("\0")) {
+    debug("setGuestHostname: refusing unsafe name %j", name);
+    return;
+  }
+  try {
+    // execRaw doesn't throw on non-zero exit; we just don't care
+    // either way. 5s connectTimeout covers slow boot agent bring-up
+    // without dragging caller latency.
+    await vm.execRaw(`hostname '${name}' 2>/dev/null || true`, {
+      connectTimeoutMs: 5_000,
+      execTimeoutMs: 5_000,
+    });
+    debug("setGuestHostname: set pid=%d name=%s", vm.pid, name);
+  } catch (err) {
+    debug(
+      "setGuestHostname: failed pid=%d name=%s err=%s",
+      vm.pid,
+      name,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
 
 /**
  * Snapshot the VM with --leave-running, immediately restore the
@@ -2315,6 +2369,13 @@ async function performFork(ctx: SnapshotContext, opts: ForkOptions): Promise<VmH
       // Skip the parent-death shim so the fork's VMM isn't SIGTERM'd
       // when this process exits.
       pdeathsig: false,
+      // Disable the implicit 60s wait deadline that boot() applies
+      // by default. Forks are long-lived sibling VMs — `cmdFork`
+      // (and any caller that drops the user into the fork's console)
+      // calls `fork.wait()` with no time bound. Without this null,
+      // the wait throws BOOT_TIMEOUT after 60s of an idle interactive
+      // session, killing the fork mid-shell.
+      timeoutMs: null,
     });
   } catch (err) {
     if (ephemeral) {

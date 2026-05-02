@@ -1019,7 +1019,7 @@ else
   # the standard restore() auto-naming.
   S3_FORK_LOG="$FIXTURE/s3-fork.log"
   S3_FORK_BUNDLE="$FIXTURE/s3-fork-bundle"
-  if ! cli fork --name "$S3_NAME" --out-dir "$S3_FORK_BUNDLE" 2>"$S3_FORK_LOG"; then
+  if ! cli fork --name "$S3_NAME" --out-dir "$S3_FORK_BUNDLE" --detach 2>"$S3_FORK_LOG"; then
     cat "$S3_FORK_LOG" >&2
     tail -60 "$S3_BG_LOG" >&2
     fail "S3 — 'machinen fork' failed"
@@ -1074,7 +1074,7 @@ else
   # hits with destructive snapshots.
   S3_GRAND_LOG="$FIXTURE/s3-fork-of-fork.log"
   S3_GRAND_BUNDLE="$FIXTURE/s3-grand-bundle"
-  if ! cli fork --name "$S3_FORK_NAME" --out-dir "$S3_GRAND_BUNDLE" 2>"$S3_GRAND_LOG"; then
+  if ! cli fork --name "$S3_FORK_NAME" --out-dir "$S3_GRAND_BUNDLE" --detach 2>"$S3_GRAND_LOG"; then
     cat "$S3_GRAND_LOG" >&2
     tail -60 "$S3_BG_LOG" >&2
     fail "S3 — 'machinen fork' on the fork (gen-2) failed"
