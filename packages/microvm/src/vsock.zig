@@ -37,6 +37,7 @@
 
 const std = @import("std");
 const virtio = @import("virtio.zig");
+const assert = std.debug.assert;
 
 /// pthread-backed mutex. Zig 0.16 tucked std.Thread.Mutex behind an Io
 /// context; we already use this pattern in hvf.Pl011.
@@ -166,6 +167,43 @@ pub const rx_body_per_packet_max: usize = 3600;
 /// fewer credit updates. The guest driver caps its in-flight bytes to
 /// this before draining.
 pub const advertised_buf_alloc: u32 = 256 * 1024;
+
+comptime {
+    // Wire-format size: every encode/decode call assumes a 44-byte
+    // virtio_vsock_hdr. (@sizeOf(VsockHdr) is 48 because the u64s
+    // force 8-byte alignment — encode/decode is the wire authority,
+    // not the struct layout.)
+    assert(header_size == 44);
+    // Op enum values are wire constants; flipping any of these would
+    // silently mistype packets in dispatchGuestPacket.
+    assert(@intFromEnum(Op.invalid) == 0);
+    assert(@intFromEnum(Op.request) == 1);
+    assert(@intFromEnum(Op.response) == 2);
+    assert(@intFromEnum(Op.rst) == 3);
+    assert(@intFromEnum(Op.shutdown) == 4);
+    assert(@intFromEnum(Op.rw) == 5);
+    assert(@intFromEnum(Op.credit_update) == 6);
+    assert(@intFromEnum(Op.credit_request) == 7);
+    assert(@intFromEnum(Type.stream) == 1);
+    // Queue indices we route through virtio.Device must fit the
+    // device's queue table.
+    assert(Q_RX < virtio.max_queues);
+    assert(Q_TX < virtio.max_queues);
+    assert(Q_EVENT < virtio.max_queues);
+    assert(Q_RX != Q_TX and Q_TX != Q_EVENT and Q_RX != Q_EVENT);
+    // CIDs are protocol-fixed; mixing them up would mis-route packets.
+    assert(host_cid != default_guest_cid);
+    // RX body cap leaves room for the header inside the kernel-posted
+    // 4096-byte buffer (3776 observed - 44 header = 3732, rounded to 3600).
+    assert(rx_body_per_packet_max + header_size < 4096);
+    assert(rx_body_per_packet_max > 0);
+    assert(advertised_buf_alloc > 0);
+    assert(max_payload >= rx_body_per_packet_max);
+    // ShutdownFlag bit layout matches the wire spec.
+    assert(ShutdownFlag.recv == 1);
+    assert(ShutdownFlag.send == 2);
+    assert(ShutdownFlag.both == 3);
+}
 
 /// Parse a `MACHINEN_VSOCK` value into a `PortMap` list.
 ///
@@ -298,6 +336,10 @@ pub fn readPacket(
     head: u16,
     scratch: []u8,
 ) ?struct { hdr: VsockHdr, body: []const u8 } {
+    // Programmer-side preconditions: caller picks a real queue index
+    // and gives us a scratch large enough to hold at least the header.
+    assert(q_idx < virtio.max_queues);
+    assert(scratch.len >= header_size);
     // Gather the whole chain contents into scratch. The split between
     // "header" and "body" is fixed at header_size bytes, regardless of
     // how the descriptors fall.
@@ -317,6 +359,8 @@ pub fn readPacket(
         if ((d.flags & virtio.VringDesc.F_NEXT) == 0) break;
         idx = d.next;
     }
+    assert(steps <= 32);
+    assert(written <= scratch.len);
     if (written < header_size) return null;
 
     var hdr_bytes: [header_size]u8 = undefined;
@@ -324,6 +368,8 @@ pub fn readPacket(
     const hdr = VsockHdr.decode(&hdr_bytes);
 
     const body_end: usize = @min(scratch.len, header_size + @as(usize, hdr.len));
+    assert(body_end >= header_size);
+    assert(body_end <= scratch.len);
     const body = scratch[header_size..body_end];
     return .{ .hdr = hdr, .body = body };
 }
@@ -339,6 +385,10 @@ pub fn writePacket(
     hdr: VsockHdr,
     body: []const u8,
 ) ?u32 {
+    assert(q_idx < virtio.max_queues);
+    // The bridge never hands us > max_payload bytes; bigger means a
+    // caller bug, not a guest one.
+    assert(body.len <= max_payload);
     var hdr_bytes: [header_size]u8 = undefined;
     hdr.encode(&hdr_bytes);
 
@@ -374,7 +424,9 @@ pub fn writePacket(
         if ((d.flags & virtio.VringDesc.F_NEXT) == 0) return null; // chain too short
         idx = d.next;
     }
+    assert(steps <= 32);
     if (remaining_hdr.len != 0 or remaining_body.len != 0) return null;
+    assert(total == @as(u32, header_size) + @as(u32, @intCast(body.len)));
     return total;
 }
 
@@ -553,6 +605,9 @@ const SockaddrUn = extern struct {
 };
 
 fn makeSockaddrUn(path: []const u8) struct { sa: SockaddrUn, len: u32 } {
+    assert(path.len > 0);
+    // Leave room for sun_len/sun_family + NUL.
+    assert(path.len < 100);
     var sa = SockaddrUn{};
     if (@import("builtin").os.tag == .macos) {
         // sun_len (1 byte), sun_family (1 byte), sun_path (104 bytes on macOS)
@@ -575,12 +630,15 @@ fn makeSockaddrUn(path: []const u8) struct { sa: SockaddrUn, len: u32 } {
 }
 
 fn setNonblocking(fd: c_int) void {
+    assert(fd >= 0);
     _ = fcntl(fd, F_SETFL, O_NONBLOCK);
 }
 
 /// Connect (blocking) to a UDS at `path`. Returns the fd on success,
 /// -1 on any failure. Caller sets nonblocking and tracks the fd.
 fn connectUds(path: [:0]const u8) c_int {
+    assert(path.len > 0);
+    assert(path.len < 100);
     const fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (fd < 0) return -1;
     const made = makeSockaddrUn(path);
@@ -667,6 +725,8 @@ pub const Bridge = struct {
     thread: ?std.Thread = null,
 
     pub fn create(gpa: std.mem.Allocator, dev: *virtio.Device, cfg: BridgeConfig) !*Bridge {
+        assert(dev.size > 0);
+        assert(cfg.guest_cid != host_cid);
         const self = try gpa.create(Bridge);
         self.* = .{
             .gpa = gpa,
@@ -689,6 +749,9 @@ pub const Bridge = struct {
     }
 
     pub fn start(self: *Bridge) !void {
+        // No double-start: listeners + thread must be untouched.
+        assert(self.thread == null);
+        assert(self.listeners.items.len == 0);
         // Open a UDS listener for every INBOUND entry up front so a
         // failure here is visible before the guest boots. Outbound
         // entries don't open anything yet — we dial on-demand when
@@ -735,6 +798,9 @@ pub const Bridge = struct {
     }
 
     fn runThread(self: *Bridge) void {
+        // Self-pipe must be wired up by start() before this thread spawns.
+        assert(self.wake[0] >= 0);
+        assert(self.wake[1] >= 0);
         var scratch = self.gpa.alloc(PollFd, 64) catch return;
         defer self.gpa.free(scratch);
 
@@ -851,8 +917,11 @@ pub const Bridge = struct {
 
     // Must be called with self.mu held.
     fn startConnection(self: *Bridge, uds_fd: c_int, guest_port: u32) !void {
+        assert(uds_fd >= 0);
+        assert(guest_port != 0);
         const host_port = self.next_host_port;
         self.next_host_port += 1;
+        assert(host_port != 0);
         try self.conns.append(self.gpa, .{
             .guest_port = guest_port,
             .host_port = host_port,
@@ -891,7 +960,9 @@ pub const Bridge = struct {
 
     // Must be called with self.mu held.
     fn drainConnection(self: *Bridge, idx: usize) !void {
+        assert(idx < self.conns.items.len);
         const c = &self.conns.items[idx];
+        assert(c.uds_fd >= 0);
         if (c.state != .established) return; // wait for RESPONSE first
         const room = peerRoom(c);
         if (room == 0) {
@@ -945,7 +1016,9 @@ pub const Bridge = struct {
 
     // Must be called with self.mu held.
     fn closeConnection(self: *Bridge, idx: usize) void {
+        assert(idx < self.conns.items.len);
         const c = self.conns.swapRemove(idx);
+        assert(c.uds_fd >= 0);
         _ = close(c.uds_fd);
     }
 
@@ -954,6 +1027,10 @@ pub const Bridge = struct {
     // Claim the next posted RX descriptor chain, lay down hdr+body,
     // push used, and raise the virtio IRQ.
     fn injectRx(self: *Bridge, hdr: VsockHdr, body: []const u8) bool {
+        assert(self.dev.size > 0);
+        // Body is constructed on the host side; oversized means a
+        // bridge-internal bug, not a guest one.
+        assert(body.len <= rx_body_per_packet_max);
         const q = &self.dev.queues[Q_RX];
         if (q.ready == 0 or q.num == 0) return false;
 
@@ -984,7 +1061,10 @@ pub const Bridge = struct {
     /// Called from the vCPU thread when the guest kicks the TX queue.
     /// Signature matches virtio.Device.request_handler.
     pub fn handleTxChain(ctx: ?*anyopaque, dev: *virtio.Device, q_idx: u32, head: u16) void {
+        assert(ctx != null);
+        assert(q_idx < virtio.max_queues);
         const self: *Bridge = @ptrCast(@alignCast(ctx.?));
+        assert(self.dev == dev);
         if (q_idx != Q_TX) {
             // Event queue or unexpected: ack and move on.
             dev.queuePushUsed(q_idx, head, 0);
@@ -1006,6 +1086,9 @@ pub const Bridge = struct {
 
     // Must be called with self.mu held.
     fn dispatchGuestPacket(self: *Bridge, hdr: VsockHdr, body: []const u8) void {
+        // body is the slice readPacket carved out of its scratch; the
+        // caller bounded it to scratch.len = max_payload + header_size.
+        assert(body.len <= max_payload);
         // Match by (src_port = guest_port, dst_port = host_port).
         var match: ?usize = null;
         for (self.conns.items, 0..) |c, k| {
@@ -1127,6 +1210,8 @@ pub const Bridge = struct {
     }
 
     fn sendCreditUpdate(self: *Bridge, c: *Connection) void {
+        assert(c.uds_fd >= 0);
+        assert(c.host_port != 0);
         const credit = VsockHdr{
             .src_cid = host_cid,
             .dst_cid = self.cfg.guest_cid,
