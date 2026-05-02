@@ -123,10 +123,35 @@ export interface VmHandle {
    * Supported on both boot-owned and attach handles — attach uses
    * the `diskPath` stored in the VM registry entry at boot time.
    *
-   * The VM exits as part of the dump. To continue using the VM
-   * afterwards, restore from the produced snapshot bundle.
+   * By default the VM exits as part of the dump (CRIU kills the
+   * dumped tree on success). Pass `opts.leaveRunning: true` to keep
+   * the source VM alive — the workload resumes from the dump point
+   * and the bundle can be restored into a sibling VM (`vm.fork()`).
    */
   snapshot(opts: SnapshotOptions): Promise<SnapshotResult>;
+
+  /**
+   * Snapshot this VM without killing it and immediately restore the
+   * bundle into a new sibling VM. Both source and fork keep running,
+   * independently addressable. See #216.
+   *
+   * Wraps `vm.snapshot({ leaveRunning: true })` + `restore()` with
+   * the safety defaults a fork wants:
+   *   - `tcpKeep: false` (default) → the fork sees ECONNRESET on
+   *     inherited TCP sockets, source keeps them. Set `tcpKeep: true`
+   *     if you want both copies to share state (rarely correct).
+   *   - `portForward: []` (default) → host ports are NOT inherited
+   *     (they're global; source + fork would race). Pass new
+   *     forwards explicitly.
+   *
+   * Returns a handle to the forked VM. The source VM is unaffected
+   * apart from being briefly frozen during `criu dump`.
+   *
+   * Bundle lifecycle: when `opts.outDir` is set, the bundle is kept
+   * and you can re-restore from it. When omitted, the bundle is
+   * written to a temp dir and removed when the fork exits.
+   */
+  fork(opts?: ForkOptions): Promise<VmHandle>;
 }
 
 export interface WriteFileOptions {
@@ -161,6 +186,25 @@ export interface SnapshotOptions {
    * call and `boot({ onLog })` have a callback set, both fire.
    */
   onLog?: OnLog;
+  /**
+   * Pass `--leave-running` to `criu dump` so the source workload
+   * survives the snapshot. The VMM stays up after the dump; success
+   * is signalled by the dump exec returning 0 instead of by VMM exit.
+   * Used by `vm.fork()` (#216).
+   *
+   * Default: false (current destructive snapshot behavior).
+   */
+  leaveRunning?: boolean;
+  /**
+   * Omit `--tcp-established` from `criu dump`. Restored sockets come
+   * back in CLOSED state — the workload sees ECONNRESET on first
+   * I/O, which is the right semantic when the dump is the source for
+   * a fork (otherwise both copies would race on the same connection
+   * state). See #216.
+   *
+   * Default: false (preserve TCP — current snapshot/restore behavior).
+   */
+  tcpClose?: boolean;
 }
 
 export interface SnapshotResult {
@@ -183,4 +227,52 @@ export interface SnapshotMeta {
   sourceName?: string;
   /** ms epoch when `vm.snapshot()` returned. */
   snappedAt: number;
+}
+
+export interface ForkOptions {
+  /**
+   * Name for the forked VM. When omitted, the existing restore()
+   * auto-naming kicks in: `<sourceName>/<fork.pid>`.
+   */
+  name?: string;
+  /**
+   * If set, the snapshot bundle is written here and kept after the
+   * fork exits — re-restore from this path to spawn another sibling.
+   * If omitted, the bundle is written to a temp dir and removed
+   * when the fork's VMM exits.
+   */
+  outDir?: string;
+  /**
+   * Override the rootfs image used for the fork's restore boot.
+   * Same semantics as `restore({ image })`.
+   */
+  image?: string;
+  /** Kernel path for the fork's boot. Same semantics as `boot({ kernel })`. */
+  kernel?: string;
+  /** DTB path for the fork's boot. Same semantics as `boot({ dtb })`. */
+  dtb?: string;
+  /**
+   * Wall-clock ceiling for the dump half. Default 90s (matches
+   * `vm.snapshot({ timeoutMs })`). Restore boot has its own
+   * implicit deadlines via `boot()`.
+   */
+  timeoutMs?: number;
+  /**
+   * Streaming log callback for the snapshot half. Same shape as
+   * `vm.snapshot({ onLog })`.
+   */
+  onLog?: OnLog;
+  /**
+   * Default false: omit `--tcp-established` from the dump so the
+   * fork sees ECONNRESET on sockets the source had open. Set true
+   * to clone live TCP state into the fork (both VMs then race on
+   * the same connection — only correct in narrow scenarios).
+   */
+  tcpKeep?: boolean;
+  /**
+   * Host→guest port forwards for the fork. NOT inherited from the
+   * source — host ports are global and source + fork would race on
+   * the same bind. Pass explicitly when the fork needs forwards.
+   */
+  portForward?: Array<{ hostPort: number; guestPort: number; hostAddr?: string }>;
 }

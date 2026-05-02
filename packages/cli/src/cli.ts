@@ -21,12 +21,13 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
+  mkdtempSync,
   readFileSync,
   renameSync,
   symlinkSync,
   unlinkSync,
 } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { pipeline } from "node:stream/promises";
 
@@ -673,8 +674,10 @@ async function runPtyExec(
 }
 
 async function cmdSnapshot(args: string[]): Promise<number> {
-  // Pull --out-dir out of the arg list, then parse the target flags.
+  // Pull --out-dir / --keep-alive out of the arg list, then parse the
+  // target flags.
   let outDir: string | undefined;
+  let keepAlive = false;
   const rest: string[] = [];
   for (let i = 0; i < args.length; i++) {
     const a = args[i]!;
@@ -683,23 +686,113 @@ async function cmdSnapshot(args: string[]): Promise<number> {
       if (!outDir) {
         die("--out-dir requires a directory path");
       }
+    } else if (a === "--keep-alive") {
+      // Source survives the dump (CRIU --leave-running). Default
+      // closes inherited TCP sockets — two live copies sharing the
+      // same connection state can't both talk to the peer cleanly.
+      keepAlive = true;
     } else {
       rest.push(a);
     }
   }
   if (!outDir) {
-    die("usage: machinen snapshot ( --name <name> | --pid <pid> ) --out-dir <dir>");
+    die(
+      "usage: machinen snapshot ( --name <name> | --pid <pid> ) --out-dir <dir> [--keep-alive]",
+    );
   }
   const target = parseTargetFlags(rest, "snapshot");
   const vm = await attach(target).catch(handleError);
   try {
     const res = await vm.snapshot({
       outDir: resolve(outDir),
+      leaveRunning: keepAlive,
+      tcpClose: keepAlive,
       onLog: (evt) => {
         process.stderr.write(evt.chunk);
       },
     });
     process.stdout.write(`snapshot: ${res.snapDir} (${res.elapsedMs}ms)\n`);
+    return 0;
+  } catch (err) {
+    handleError(err);
+  } finally {
+    await vm.detach();
+  }
+}
+
+async function cmdFork(args: string[]): Promise<number> {
+  // `machinen fork ( --name <src> | --pid <pid> ) [--new-name <dst>]
+  //                [--out-dir <dir>] [--tcp-keep]`.
+  //
+  // Snapshots the source live (--leave-running), restores into a
+  // sibling, and prints the new VM's identity. Source keeps running.
+  let newName: string | undefined;
+  let outDir: string | undefined;
+  let tcpKeep = false;
+  const rest: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i]!;
+    if (a === "--new-name" || a.startsWith("--new-name=")) {
+      newName = a === "--new-name" ? args[++i] : a.slice("--new-name=".length);
+      if (!newName) {
+        die("--new-name requires a value");
+      }
+    } else if (a === "--out-dir" || a.startsWith("--out-dir=")) {
+      outDir = a === "--out-dir" ? args[++i] : a.slice("--out-dir=".length);
+      if (!outDir) {
+        die("--out-dir requires a directory path");
+      }
+    } else if (a === "--tcp-keep") {
+      tcpKeep = true;
+    } else {
+      rest.push(a);
+    }
+  }
+  const target = parseTargetFlags(rest, "fork");
+
+  // The fork is a fresh restore boot, so it needs the same base
+  // assets `cmdRestore` resolves (kernel + dtb + rootfs in the
+  // initramfs for /sbin/machinen-restore + criu).
+  const assetsOverride = process.env.MACHINEN_ASSETS_DIR;
+  if (assetsOverride) {
+    validateAssetsDir(assetsOverride);
+  } else if (!baseAssetsComplete(RELEASE_TAG)) {
+    process.stderr.write(`machinen: fetching base assets for ${RELEASE_TAG} (first run)\n`);
+    await ensureBaseAssets(RELEASE_TAG);
+  }
+  const baseDir = assetsOverride ? resolve(assetsOverride) : baseDirFor(RELEASE_TAG);
+  const kernelPath = join(baseDir, assetsOverride ? "Image-arm64" : "Image");
+  const dtbPath = join(baseDir, assetsOverride ? "virt-arm64.dtb" : "virt.dtb");
+  const imagePath = join(baseDir, assetsOverride ? "rootfs-debian-arm64.tar.gz" : "rootfs.tar.gz");
+
+  // The runtime's ephemeral-bundle cleanup hangs off `fork.wait()`,
+  // which the CLI can't await — `cmdFork` returns as soon as the
+  // fork is registered. So the CLI always materializes an explicit
+  // outDir (caller-supplied or a temp dir we print) and skips the
+  // runtime's ephemeral mode. When --out-dir was omitted the user
+  // is responsible for `rm -rf`-ing the printed path.
+  const resolvedOutDir = outDir ? resolve(outDir) : mkdtempSync(join(tmpdir(), "machinen-fork-"));
+  const vm = await attach(target).catch(handleError);
+  try {
+    const fork = await vm.fork({
+      name: newName,
+      outDir: resolvedOutDir,
+      image: imagePath,
+      kernel: kernelPath,
+      dtb: dtbPath,
+      tcpKeep,
+      onLog: (evt) => {
+        process.stderr.write(evt.chunk);
+      },
+    });
+    process.stdout.write(`forked: ${fork.name ?? "<anonymous>"} (pid ${fork.pid})\n`);
+    if (!outDir) {
+      process.stderr.write(`bundle: ${resolvedOutDir} (rm -rf when the fork exits)\n`);
+    }
+    // Detach the fork handle — the new VM keeps running, owned by its
+    // own VMM process. Same shape as `cmdSnapshot`: we did the work,
+    // hand it off, return.
+    await fork.detach();
     return 0;
   } catch (err) {
     handleError(err);
@@ -841,7 +934,7 @@ const BASH_COMPLETION = `# machinen bash completion — source this from ~/.bash
 _machinen_completion() {
   local cur prev words cword
   _init_completion || return
-  local cmds="boot restore install ls ps exec snapshot attach repl completion --version --help -h -v"
+  local cmds="boot restore install ls ps exec snapshot fork attach repl completion --version --help -h -v"
   if [[ \${cword} -eq 1 ]]; then
     COMPREPLY=( $(compgen -W "\${cmds}" -- "\${cur}") )
     return
@@ -861,7 +954,7 @@ _machinen_completion() {
       ;;
   esac
   case "\${words[1]}" in
-    exec|snapshot|attach|repl)
+    exec|snapshot|fork|attach|repl)
       COMPREPLY=( $(compgen -W "--name --pid" -- "\${cur}") )
       return
       ;;
@@ -874,7 +967,7 @@ const ZSH_COMPLETION = `# machinen zsh completion — source this from ~/.zshrc,
 #   eval "$(machinen completion zsh)"
 _machinen() {
   local -a cmds
-  cmds=(boot restore install ls ps exec snapshot attach repl completion)
+  cmds=(boot restore install ls ps exec snapshot fork attach repl completion)
   if (( CURRENT == 2 )); then
     _describe 'command' cmds
     return
@@ -894,7 +987,7 @@ _machinen() {
       ;;
   esac
   case "\${words[2]}" in
-    exec|snapshot|attach|repl)
+    exec|snapshot|fork|attach|repl)
       _describe 'flag' '(--name --pid)'
       return
       ;;
@@ -905,9 +998,9 @@ compdef _machinen machinen
 
 const FISH_COMPLETION = `# machinen fish completion — source this from your config.fish, or:
 #   machinen completion fish | source
-set -l cmds boot restore install ls ps exec snapshot attach repl completion
+set -l cmds boot restore install ls ps exec snapshot fork attach repl completion
 complete -c machinen -f -n 'not __fish_seen_subcommand_from $cmds' -a "$cmds"
-for sub in exec snapshot attach repl
+for sub in exec snapshot fork attach repl
   complete -c machinen -f -n "__fish_seen_subcommand_from $sub" -l name \\
     -a '(machinen ls 2>/dev/null | awk \\'NR>1 && $2!="-"{print $2}\\')'
   complete -c machinen -f -n "__fish_seen_subcommand_from $sub" -l pid \\
@@ -986,7 +1079,18 @@ function printHelp(): void {
       `                                                 pipes (good for one-shot commands).\n` +
       `                                                 Example:\n` +
       `                                                   machinen exec <target-flag> --tty -- bash -i\n` +
-      `  machinen snapshot <target-flag> --out-dir <d>  CRIU-snapshot a running VM into <d>\n` +
+      `  machinen snapshot <target-flag> --out-dir <d> [--keep-alive]\n` +
+      `                                                 CRIU-snapshot a running VM into <d>.\n` +
+      `                                                 Default: source VM exits as part of the\n` +
+      `                                                 dump. --keep-alive leaves it running\n` +
+      `                                                 (and closes inherited TCP sockets to\n` +
+      `                                                 avoid two live copies racing on shared\n` +
+      `                                                 connection state).\n` +
+      `  machinen fork     <target-flag> [--new-name <n>] [--out-dir <d>] [--tcp-keep]\n` +
+      `                                                 Snapshot the source live (it keeps\n` +
+      `                                                 running) and restore into a sibling VM.\n` +
+      `                                                 Without --out-dir, the bundle is\n` +
+      `                                                 ephemeral and removed when the fork exits.\n` +
       `  machinen attach   <target-flag> [--shell <c>]  Drop into an interactive PTY shell\n` +
       `                                                 in the running VM (default \`bash -i\`).\n` +
       `                                                 \`cd\`, env vars, history, job control\n` +
@@ -1055,6 +1159,8 @@ async function main(): Promise<number> {
       return cmdExec(rest);
     case "snapshot":
       return cmdSnapshot(rest);
+    case "fork":
+      return cmdFork(rest);
     case "attach":
       return cmdAttach(rest);
     case "repl":
