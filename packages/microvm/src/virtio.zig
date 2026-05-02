@@ -218,7 +218,7 @@ pub const Device = struct {
             },
             0x034 => if (self.queue_sel < max_queues) self.queue_num_max else 0,
             0x044 => if (self.queue_sel < max_queues) self.queues[self.queue_sel].ready else 0,
-            0x060 => self.interrupt_status,
+            0x060 => @atomicLoad(u32, &self.interrupt_status, .acquire),
             0x070 => @as(u32, @bitCast(self.status)),
             0x0FC => self.config_generation,
             0x100...0x1FF => self.readConfig(@intCast(off - 0x100)),
@@ -249,7 +249,7 @@ pub const Device = struct {
                 self.queues[self.queue_sel].ready = v32;
             },
             0x050 => self.notify(v32),
-            0x064 => self.interrupt_status &= ~v32,
+            0x064 => _ = @atomicRmw(u32, &self.interrupt_status, .And, ~v32, .acq_rel),
             0x070 => self.status = @bitCast(v32),
             // 64-bit guest addresses written as low/high halves. Store
             // them so reads (if any) round-trip; actual parsing is M2.
@@ -333,7 +333,7 @@ pub const Device = struct {
                 handler(self.request_ctx, self, q_idx, head);
                 q.last_avail_idx +%= 1;
             }
-            self.interrupt_status |= IRQ_USED_BUFFER;
+            _ = @atomicRmw(u32, &self.interrupt_status, .Or, IRQ_USED_BUFFER, .release);
             return;
         }
 
@@ -433,7 +433,7 @@ pub const Device = struct {
 
         self.pushUsed(q, head, written);
         q.last_avail_idx +%= 1;
-        self.interrupt_status |= IRQ_USED_BUFFER;
+        _ = @atomicRmw(u32, &self.interrupt_status, .Or, IRQ_USED_BUFFER, .release);
         _ = total_len;
         return true;
     }
@@ -450,7 +450,7 @@ pub const Device = struct {
             self.pushUsed(q, head, total_len);
             q.last_avail_idx +%= 1;
         }
-        self.interrupt_status |= IRQ_USED_BUFFER;
+        _ = @atomicRmw(u32, &self.interrupt_status, .Or, IRQ_USED_BUFFER, .release);
     }
 
     /// Walk a descriptor chain, read every byte it covers into a
