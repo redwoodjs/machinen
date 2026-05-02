@@ -173,9 +173,12 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     var uart = pl011_mod.Pl011.init;
     defer uart.deinit(gpa);
 
-    // PL011 SPI per DTS (interrupts = <0 1 4>). GIC SPI N maps to
-    // KVM irq number 32 + N. For our PL011 that's 33.
-    const pl011_irq: u32 = 32 + 1;
+    // SPI numbers per DTS, encoded for KVM_IRQ_LINE. The encoding
+    // (KVM_ARM_IRQ_TYPE_SPI in bits 27:24) is non-optional — without
+    // it, KVM treats the call as the legacy CPU-line type and the
+    // delivery silently drops, which manifests as virtio doorbells
+    // never reaching the guest after the kernel writes QueueNotify.
+    const pl011_irq: u32 = kvm.irqSpi(1);
 
     // virtio-blk (#114). Two slots, mirroring boot_hvf.zig:
     //   slot 1 → SPI #17 → /dev/vda — rootdisk preferred, else disk.
@@ -183,8 +186,8 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // Linux probes virtio-mmio buses in DTB order, so DTB slot order
     // determines /dev/vd* naming. With only one slot populated the
     // lone device is always /dev/vda regardless of which slot.
-    const virtio_blk_irq: u32 = 32 + 17;
-    const virtio_blk2_irq: u32 = 32 + 19;
+    const virtio_blk_irq: u32 = kvm.irqSpi(17);
+    const virtio_blk2_irq: u32 = kvm.irqSpi(19);
     const slot1_path: ?[]const u8 = cfg.rootdisk_path orelse cfg.disk_path;
     const slot3_path: ?[]const u8 = if (cfg.rootdisk_path != null) cfg.disk_path else null;
 
@@ -238,7 +241,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // when it wants the guest exec/fuse agents to be reachable. Same
     // env grammar as HVF (see boot_hvf.zig for the syntax doc) — parsed
     // ports are gpa-allocated and leak for the VMM's life.
-    const virtio_vsock_irq: u32 = 32 + 18;
+    const virtio_vsock_irq: u32 = kvm.irqSpi(18);
     var vsock_cid_storage: u64 = vsock_mod.default_guest_cid;
     var vsock_ports: []vsock_mod.PortMap = &.{};
     if (getenv("MACHINEN_VSOCK")) |raw| {
