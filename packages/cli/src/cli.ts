@@ -809,6 +809,22 @@ async function cmdFork(args: string[]): Promise<number> {
     fork.stderr.pipe(process.stderr);
     const restoreStdin = rawModeStdinIfTTY();
     process.stdin.pipe(fork.stdin);
+    // The source shell printed PS1 to the source's tty before the
+    // dump, so the restored shell starts up sitting in read() without
+    // redrawing — without this nudge the user has to hit Enter
+    // themselves to see anything past `machinen-restore: starting…`.
+    // The CR makes bash treat it as an empty Enter and reprints the
+    // prompt. Wait ~1.5s before sending: at `vm.fork()`-resolve the
+    // VMM's just spawned and the kernel is still booting; bytes sent
+    // earlier get dropped before bash starts reading from the tty.
+    const promptNudge = setTimeout(() => {
+      try {
+        fork.stdin.write("\r");
+      } catch {
+        // fork already exited / pipe closed — nothing to nudge.
+      }
+    }, 1500);
+    promptNudge.unref();
 
     let forwardedSignal: "SIGINT" | "SIGTERM" | null = null;
     const onSigint = () => {
