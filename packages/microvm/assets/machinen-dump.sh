@@ -245,7 +245,14 @@ mkdir -p /mnt/snap/img
 
 echo "machinen-dump: dumping tree rooted at pid=$DUMP_PID (leave_running=$LEAVE_RUNNING tcp_close=$TCP_CLOSE)"
 # --tree recurses automatically.
-# --shell-job lets CRIU dump processes whose session leader is /init.
+# We DO NOT pass --shell-job. The supervisor's `setsid -c` makes the
+# workload its own session leader, and that session leader IS the
+# dump tree's root — so CRIU has all the session info it needs in-
+# tree. --shell-job tells CRIU "the session leader lives outside the
+# dump and the calling process will reattach the tty for you"; that
+# mode skips restoring the tty's foreground process group, which left
+# a forked VM with `tpgid=-1` and VINTR/VSUSP signals silently going
+# nowhere (Ctrl-C/Ctrl-Z were no-ops in the restored shell).
 # --tcp-established keeps TCP sockets (gvproxy-backed connections etc.).
 #   Omitted when MACHINEN_DUMP_TCP_CLOSE=1 — fork (#216) sets that so
 #   the new VM doesn't share live TCP sockets with the source. CRIU
@@ -257,7 +264,7 @@ echo "machinen-dump: dumping tree rooted at pid=$DUMP_PID (leave_running=$LEAVE_
 #   the kill so the supervisor's `wait` stays blocked and the workload
 #   resumes execution from the dump point with no observable hiccup.
 # -v3 + log file: if dump fails, tail /mnt/snap/img/dump.log on stderr.
-DUMP_ARGS="--tree $DUMP_PID --images-dir /mnt/snap/img --shell-job -v3 -o dump.log"
+DUMP_ARGS="--tree $DUMP_PID --images-dir /mnt/snap/img -v3 -o dump.log"
 if [ "$TCP_CLOSE" -eq 0 ]; then
     DUMP_ARGS="$DUMP_ARGS --tcp-established"
 fi

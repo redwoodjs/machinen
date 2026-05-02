@@ -79,27 +79,31 @@ if [ "${1:-}" = "--session" ]; then
     shift
 fi
 
-# Run the workload under `setsid -c -w` with stdio bound to /dev/console:
+# Run the workload under `setsid -c -w` with stdio bound to /dev/ttyAMA0:
 #
 #   - `setsid` puts the workload in a brand-new session as leader.
-#     Required for CRIU `--shell-job` to dump cleanly: without it the
-#     session leader (supervisor) lives outside the dump tree and
-#     CRIU bails with "A session leader of N(N) is outside of its
-#     pid namespace".
-#   - `-c` (TIOCSCTTY) claims /dev/console as the new session's
+#     The session leader IS the dump tree's root, so CRIU has the
+#     full session info in-tree and we don't need --shell-job.
+#   - `-c` (TIOCSCTTY) claims the tty on fd 0 as the new session's
 #     controlling terminal. Without this, backgrounding with `&` puts
-#     the workload in a process group that isn't the foreground of
-#     /dev/console — `/bin/sh -i` reads return EIO (orphaned pgrp),
-#     it prints the prompt once and exits, the supervisor's `wait`
-#     returns, and machinen-poweroff fires before the user types
-#     anything.
+#     the workload in a process group that isn't the tty's foreground
+#     PG — `/bin/sh -i` reads return EIO (orphaned pgrp), it prints
+#     the prompt once and exits, the supervisor's `wait` returns, and
+#     machinen-poweroff fires before the user types anything.
+#   - We bind to **/dev/ttyAMA0** (the real PL011 tty), not
+#     /dev/console (the kernel's virtual console proxy). CRIU can't
+#     reliably round-trip the foreground-PG state on /dev/console:
+#     a forked VM ended up with `tpgid=-1` so VINTR/VSUSP fired in
+#     the kernel but went nowhere — Ctrl-C/Ctrl-Z became no-ops in
+#     the restored shell. /dev/ttyAMA0 is a regular tty inode that
+#     CRIU restores cleanly.
 #   - `-w` makes setsid(1) `wait` for the workload after the fork
 #     it has to perform when invoked from a process-group leader (we
 #     are one, courtesy of `&`). Without `-w`, the parent setsid
 #     forks, exits immediately, and `wait "$!"` returns before the
 #     workload starts — orphaning it under PID 1 and dropping the
 #     trap target.
-#   - Explicit </dev/console redirect ensures fd 0 is a tty when
+#   - Explicit </dev/ttyAMA0 redirect ensures fd 0 is a tty when
 #     setsid runs (`-c` reads ctty from stdin).
 #
 # The inner `sh -c` writes /run/machinen-workload.pid using its own
@@ -110,7 +114,7 @@ fi
 # getting it wrong dumps a dead PID and CRIU bails with exit 32.
 /usr/bin/setsid -c -w sh -c \
     'printf "%s" "$$" > /run/machinen-workload.pid; exec "$@"' \
-    inner "$@" </dev/console >/dev/console 2>/dev/console &
+    inner "$@" </dev/ttyAMA0 >/dev/ttyAMA0 2>/dev/ttyAMA0 &
 PID=$!
 
 # Propagate SIGTERM / SIGINT to the workload so host-side vm.kill()
