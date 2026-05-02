@@ -26,11 +26,23 @@ const std = @import("std");
 const builtin = @import("builtin");
 const virtio = @import("virtio.zig");
 const pl011 = @import("pl011.zig"); // for the shared PthreadMutex shim
+const assert = std.debug.assert;
 
 comptime {
     if (builtin.os.tag != .macos) {
         @compileError("net_socket.zig targets macOS (matches boot_hvf.zig)");
     }
+    // sockaddr_un layout the kernel expects (macOS): sun_len, sun_family,
+    // sun_path[104]. A mismatch would silently truncate the path during
+    // connect() and the socket dial would land somewhere else (or fail).
+    assert(@sizeOf(sockaddr_un) == 106);
+    assert(@offsetOf(sockaddr_un, "sun_len") == 0);
+    assert(@offsetOf(sockaddr_un, "sun_family") == 1);
+    assert(@offsetOf(sockaddr_un, "sun_path") == 2);
+    // The qemu-netdev wire format prefixes every frame with a 4-byte
+    // big-endian length; both writeInt sites below depend on this.
+    assert(AF_UNIX == 1);
+    assert(SHUT_RDWR == 2);
 }
 
 // ---- libc + sockaddr_un (macOS layout: u8 sun_len, u8 sun_family,
@@ -96,18 +108,22 @@ pub const NetSocket = struct {
     /// Dial gvproxy and spawn the RX thread. Heap-allocated because
     /// the RX thread and `on_rx_ctx` callers keep a stable pointer.
     pub fn connect(gpa: std.mem.Allocator, netdev: *virtio.Device, cfg: Config) !*NetSocket {
+        assert(cfg.socket_path.len > 0);
+        assert(netdev.size > 0);
         if (cfg.socket_path.len >= @sizeOf(@TypeOf(@as(sockaddr_un, undefined).sun_path))) {
             return error.SocketPathTooLong;
         }
 
         const fd = socket(AF_UNIX, SOCK_STREAM, 0);
         if (fd < 0) return error.SocketCreateFailed;
+        assert(fd >= 0);
         errdefer _ = close(fd);
 
         var addr: sockaddr_un = .{ .sun_len = 0, .sun_family = AF_UNIX, .sun_path = @splat(0) };
         @memcpy(addr.sun_path[0..cfg.socket_path.len], cfg.socket_path);
         // Total address length: 2 bytes (sun_len + sun_family) + path + NUL.
         const addrlen: u32 = @intCast(2 + cfg.socket_path.len + 1);
+        assert(addrlen <= @sizeOf(sockaddr_un));
         addr.sun_len = @intCast(addrlen);
 
         if (c_connect(fd, @ptrCast(&addr), addrlen) < 0) return error.ConnectFailed;
@@ -119,6 +135,7 @@ pub const NetSocket = struct {
     }
 
     pub fn destroy(self: *NetSocket) void {
+        assert(self.fd >= 0);
         self.stop.store(true, .release);
         // Wake the RX thread if it's parked in read().
         _ = shutdown(self.fd, SHUT_RDWR);
@@ -131,8 +148,10 @@ pub const NetSocket = struct {
     /// the kernel buffers the stream so this is effectively non-blocking
     /// under normal load.
     pub fn input(self: *NetSocket, frame: []const u8) void {
+        assert(self.fd >= 0);
         if (frame.len == 0 or frame.len > std.math.maxInt(u32)) return;
         var prefix: [4]u8 = undefined;
+        assert(prefix.len == 4);
         std.mem.writeInt(u32, &prefix, @intCast(frame.len), .big);
 
         self.tx_mutex.lock();
@@ -146,15 +165,18 @@ pub const NetSocket = struct {
     }
 
     fn rxLoop(self: *NetSocket) void {
+        assert(self.fd >= 0);
         // One buffer for the whole thread. MTU is 1500 on the gvproxy
         // tap; 16 KiB is plenty of headroom for a future jumbo config.
         var buf: [16 * 1024]u8 = undefined;
+        assert(buf.len >= 1500);
 
         while (!self.stop.load(.acquire)) {
             var prefix: [4]u8 = undefined;
             if (readAll(self.fd, &prefix) != 0) return;
             const len = std.mem.readInt(u32, &prefix, .big);
             if (len == 0 or len > buf.len) return;
+            assert(len > 0 and len <= buf.len);
 
             if (readAll(self.fd, buf[0..len]) != 0) return;
 
@@ -167,6 +189,8 @@ pub const NetSocket = struct {
 // ---- helpers -------------------------------------------------------
 
 fn writeAll(fd: c_int, data: []const u8) c_int {
+    assert(fd >= 0);
+    assert(data.len > 0);
     var remaining = data;
     while (remaining.len > 0) {
         const n = write(fd, remaining.ptr, remaining.len);
@@ -181,6 +205,8 @@ fn writeAll(fd: c_int, data: []const u8) c_int {
 }
 
 fn readAll(fd: c_int, into: []u8) c_int {
+    assert(fd >= 0);
+    assert(into.len > 0);
     var remaining = into;
     while (remaining.len > 0) {
         const n = read(fd, remaining.ptr, remaining.len);
