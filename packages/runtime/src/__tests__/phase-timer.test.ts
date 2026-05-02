@@ -62,4 +62,34 @@ describe("PhaseTimer", () => {
     t.flush(fakeDebug, "snapshot", 50);
     expect(captured).toBe("phases kind=snapshot total=50 only=7");
   });
+
+  it("toEvent() returns a structured PhaseLogEvent with insertion order preserved", () => {
+    const t = new PhaseTimer();
+    t.mark("first", 10);
+    t.mark("second", 20);
+    const evt = t.toEvent("provision", 100);
+    expect(evt.source).toBe("phase");
+    expect(evt.kind).toBe("provision");
+    expect(evt.totalMs).toBe(100);
+    expect([...evt.phases]).toEqual([
+      ["first", 10],
+      ["second", 20],
+    ]);
+  });
+
+  it("toEvent() snapshots a stable copy — later mutations don't bleed in", () => {
+    const t = new PhaseTimer();
+    t.mark("a", 1);
+    const evt = t.toEvent("boot");
+    t.mark("b", 2);
+    expect([...evt.phases.keys()]).toEqual(["a"]);
+  });
+
+  it("toEvent() defaults totalMs to the timer's wall-clock", async () => {
+    const t = new PhaseTimer();
+    t.mark("only", 1);
+    await sleep(5);
+    const evt = t.toEvent("boot");
+    expect(evt.totalMs).toBeGreaterThanOrEqual(5);
+  });
 });
