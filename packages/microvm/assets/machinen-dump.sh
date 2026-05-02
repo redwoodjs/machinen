@@ -57,13 +57,15 @@ esac
 
 echo "machinen-dump: preparing (pid=$DUMP_PID)"
 
-# Pre-flight: refuse to dump trees that hold raw IP sockets, etc.
-# Logic lives in machinen-dump-preflight.sh so it can be unit-tested
-# against a synthetic /proc tree without booting a VM.
-. /sbin/machinen-dump-preflight
-if ! scan_raw_inet_sockets "$DUMP_PID"; then
-    exit 1
-fi
+# Pre-flight scan removed in #214: CRIU v4.2 (now in the rootfs)
+# accepts SOCK_DGRAM/IPPROTO_ICMP{,V6} sockets and has always accepted
+# SOCK_RAW of any IPPROTO_*, so the cases #209's scan claimed to
+# catch — `/proc/<pid>/net/{raw,raw6,icmp,icmp6}` entries — are all
+# supported by the dumper now. The premise behind the original PR
+# (3.17.1's `can_dump_ipproto` rejecting these) was incorrect for
+# SOCK_RAW even on 3.17.1, and is moot for both on v4.2. The scan
+# script ships in /sbin/machinen-dump-preflight for manual debugging
+# but is no longer invoked from the dump path.
 
 # CRIU's kerndat_tcp_repair probe fails with ENETUNREACH if `lo` is
 # still DOWN. /init doesn't bring it up; we do it here so snapshot is
