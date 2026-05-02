@@ -85,18 +85,26 @@ echo "machinen-restore: starting criu restore"
 # machinen-supervisor.sh writes from its inner sh -c on a fresh boot;
 # same path so machinen-dump finds either flavor uniformly.
 #
+# --work-dir /tmp keeps logs + per-restore working state off the
+# read-only bundle mount. CRIU writes `restore.log` (and stats / aux
+# scratch) here; without --work-dir it'd default to --images-dir and
+# fail with "Can't create log file restore.log: Read-only file system"
+# on v4.2 (3.17.1 was lenient about this and didn't always need to
+# write the log).
+#
 # No -d: block until the restored tree's session leader exits, so this
 # shell (PID 1) stays alive for the life of the workload and can
 # trigger a clean poweroff afterwards.
 if ! criu restore \
         --images-dir /mnt/snap-src/img \
+        --work-dir /tmp \
         --shell-job \
         --tcp-established \
         --pidfile /run/machinen-workload.pid \
         -v3 \
         -o restore.log; then
     echo "machinen-restore: CRIU restore failed — tail of restore.log:" >&2
-    tail -40 /mnt/snap-src/img/restore.log >&2 || true
+    tail -40 /tmp/restore.log >&2 || true
     kill -TERM "$AGENT_PID" 2>/dev/null || true
     if [ -n "$WINSIZE_PID" ]; then
         kill -TERM "$WINSIZE_PID" 2>/dev/null || true
