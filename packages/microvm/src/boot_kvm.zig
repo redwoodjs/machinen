@@ -17,8 +17,10 @@
 //!   * PL011: same byte-for-byte model as HVF (shared via pl011.zig),
 //!     driven by KVM_EXIT_MMIO events.
 //!   * Virtio-blk: slots 1 and 3 are wired the same way HVF does it
-//!     (#114). Slot 0 (net) and slot 2 (vsock) are not yet wired —
-//!     reads/writes to those windows still return 0 / are ignored.
+//!     (#114).
+//!   * Virtio-vsock: slot 2 wires up the same Bridge HVF uses (#44),
+//!     opt-in via `MACHINEN_VSOCK`. Slot 0 (net) is not yet wired —
+//!     reads/writes to that window still return 0 / are ignored.
 
 const std = @import("std");
 const builtin = @import("builtin");
@@ -33,12 +35,15 @@ const kvm = @import("kvm.zig");
 const pl011_mod = @import("pl011.zig");
 const virtio = @import("virtio.zig");
 const blk_mod = @import("blk.zig");
+const vsock_mod = @import("vsock.zig");
 
 // Guest-physical bases. Same MMIO layout as HVF (see boot_hvf.zig
 // for the slot layout doc) so the shared `virt.dts` works for both
 // backends.
 const virtio_blk_base: u64 = 0x0A00_0200;
 const virtio_blk_size: u64 = 0x200;
+const virtio_vsock_base: u64 = 0x0A00_0400;
+const virtio_vsock_size: u64 = 0x200;
 const virtio_blk2_base: u64 = 0x0A00_0600;
 const virtio_blk2_size: u64 = 0x200;
 
@@ -168,9 +173,12 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     var uart = pl011_mod.Pl011.init;
     defer uart.deinit(gpa);
 
-    // PL011 SPI per DTS (interrupts = <0 1 4>). GIC SPI N maps to
-    // KVM irq number 32 + N. For our PL011 that's 33.
-    const pl011_irq: u32 = 32 + 1;
+    // SPI numbers per DTS, encoded for KVM_IRQ_LINE. The encoding
+    // (KVM_ARM_IRQ_TYPE_SPI in bits 27:24) is non-optional — without
+    // it, KVM treats the call as the legacy CPU-line type and the
+    // delivery silently drops, which manifests as virtio doorbells
+    // never reaching the guest after the kernel writes QueueNotify.
+    const pl011_irq: u32 = kvm.irqSpi(1);
 
     // virtio-blk (#114). Two slots, mirroring boot_hvf.zig:
     //   slot 1 → SPI #17 → /dev/vda — rootdisk preferred, else disk.
@@ -178,8 +186,8 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // Linux probes virtio-mmio buses in DTB order, so DTB slot order
     // determines /dev/vd* naming. With only one slot populated the
     // lone device is always /dev/vda regardless of which slot.
-    const virtio_blk_irq: u32 = 32 + 17;
-    const virtio_blk2_irq: u32 = 32 + 19;
+    const virtio_blk_irq: u32 = kvm.irqSpi(17);
+    const virtio_blk2_irq: u32 = kvm.irqSpi(19);
     const slot1_path: ?[]const u8 = cfg.rootdisk_path orelse cfg.disk_path;
     const slot3_path: ?[]const u8 = if (cfg.rootdisk_path != null) cfg.disk_path else null;
 
@@ -229,6 +237,76 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     }
     const blk2dev_ptr: ?*virtio.Device = if (blk2dev_opt) |_| &blk2dev_opt.? else null;
 
+    // virtio-vsock (#44). Off by default; the runtime sets MACHINEN_VSOCK
+    // when it wants the guest exec/fuse agents to be reachable. Same
+    // env grammar as HVF (see boot_hvf.zig for the syntax doc) — parsed
+    // ports are gpa-allocated and leak for the VMM's life.
+    const virtio_vsock_irq: u32 = kvm.irqSpi(18);
+    var vsock_cid_storage: u64 = vsock_mod.default_guest_cid;
+    var vsock_ports: []vsock_mod.PortMap = &.{};
+    if (getenv("MACHINEN_VSOCK")) |raw| {
+        const s = std.mem.span(raw);
+        if (s.len > 0) {
+            vsock_ports = vsock_mod.parseEnv(gpa, s) catch |err| blk: {
+                std.debug.print("vsock: MACHINEN_VSOCK parse failed ({s}); ignoring\n", .{@errorName(err)});
+                break :blk &.{};
+            };
+        }
+    }
+    var vsock_dev_opt: ?virtio.Device = null;
+    var vsock_bridge_opt: ?*vsock_mod.Bridge = null;
+    if (vsock_ports.len > 0) {
+        vsock_dev_opt = virtio.Device{
+            .base = virtio_vsock_base,
+            .size = virtio_vsock_size,
+            .id = .vsock,
+            .features = (1 << 32), // VIRTIO_F_VERSION_1
+            .config = std.mem.asBytes(&vsock_cid_storage),
+            .ram = ram,
+            .ram_base = cfg.ram_base,
+            .request_handler = &vsock_mod.Bridge.handleTxChain,
+            .request_ctx = null,
+            // Queues 0 (RX) and 2 (event) are driver-posts-empty-buffers
+            // queues — host fills them on demand, not on every kick.
+            .skip_notify_queues = (1 << 0) | (1 << 2),
+        };
+    }
+    const vsock_dev_ptr: ?*virtio.Device = if (vsock_dev_opt) |_| &vsock_dev_opt.? else null;
+
+    var vsock_irq_ctx = VsockIrqCtx{ .vm = &vm, .irq = virtio_vsock_irq };
+    if (vsock_dev_ptr) |d| {
+        vsock_bridge_opt = vsock_mod.Bridge.create(gpa, d, .{
+            .ports = vsock_ports,
+            .raise_irq = &onVsockIrq,
+            .raise_irq_ctx = @ptrCast(&vsock_irq_ctx),
+        }) catch |err| blk: {
+            std.debug.print("vsock: bridge create failed: {s}\n", .{@errorName(err)});
+            break :blk null;
+        };
+        if (vsock_bridge_opt) |b| {
+            d.request_ctx = @ptrCast(b);
+            b.start() catch |err| {
+                std.debug.print("vsock: bridge start failed: {s}\n", .{@errorName(err)});
+                b.destroy();
+                vsock_bridge_opt = null;
+                vsock_dev_opt = null;
+            };
+            if (vsock_bridge_opt != null) {
+                for (vsock_ports) |pm| {
+                    const tag: []const u8 = switch (pm.direction) {
+                        .inbound => "in",
+                        .outbound => "out",
+                    };
+                    std.debug.print("vsock: {s} {d} <-> {s}\n", .{ tag, pm.guest_port, pm.uds_path });
+                }
+            }
+        }
+    }
+    defer if (vsock_bridge_opt) |b| b.destroy();
+    // The vsock_dev pointer might have been cleared above on bridge
+    // start failure; re-resolve so the run loop dispatch matches.
+    const vsock_dev_ptr_run: ?*virtio.Device = if (vsock_dev_opt) |_| &vsock_dev_opt.? else null;
+
     var exits: usize = 0;
     var saw_off = false;
 
@@ -237,7 +315,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         switch (reason) {
             .mmio => {
                 const ev = vcpu.mmioExit();
-                try handleMmio(gpa, &vm, &vcpu, &uart, ev, pl011_irq, blkdev_ptr, virtio_blk_irq, blk2dev_ptr, virtio_blk2_irq);
+                try handleMmio(gpa, &vm, &vcpu, &uart, ev, pl011_irq, blkdev_ptr, virtio_blk_irq, blk2dev_ptr, virtio_blk2_irq, vsock_dev_ptr_run, virtio_vsock_irq);
             },
             .system_event => {
                 const ev = vcpu.systemEventExit();
@@ -283,6 +361,8 @@ fn handleMmio(
     virtio_blk_irq: u32,
     blk2dev: ?*virtio.Device,
     virtio_blk2_irq: u32,
+    vsockdev: ?*virtio.Device,
+    virtio_vsock_irq: u32,
 ) !void {
     if (uart.handles(ev.phys_addr)) {
         if (ev.is_write != 0) {
@@ -322,7 +402,21 @@ fn handleMmio(
             return;
         }
     }
-    // Other MMIO (virtio-mmio net/vsock windows, etc.) — for reads, hand
+    if (vsockdev) |d| {
+        if (d.handles(ev.phys_addr)) {
+            if (ev.is_write != 0) {
+                // TX notify runs on the vCPU thread and shares the
+                // bridge's connection table with the bridge poll
+                // thread; the handler takes the mutex.
+                d.write(ev.phys_addr, mmioReadValue(ev));
+            } else {
+                vcpu.writeMmioReadData(d.read(ev.phys_addr), ev.len);
+            }
+            vm.setIrq(virtio_vsock_irq, if (d.interrupt_status != 0) 1 else 0) catch {};
+            return;
+        }
+    }
+    // Other MMIO (virtio-mmio net window, etc.) — for reads, hand
     // back zeros (the writeMmioReadData default on untouched kvm_run
     // bytes is already zero, but be explicit so a future non-zero
     // lingerer doesn't bite).
@@ -391,6 +485,20 @@ fn hostWrite(fd: c_int, buf: [*]const u8, count: usize) isize {
 }
 fn hostLseek(fd: c_int, offset: i64, whence: c_int) i64 {
     return lseek(fd, offset, whence);
+}
+
+/// Carried as the bridge's raise_irq context. The Bridge poll thread
+/// calls onVsockIrq(ctx) when it has injected RX/event traffic; we
+/// pulse the SPI line via KVM_IRQ_LINE on whichever VM the boot loop
+/// owns.
+pub const VsockIrqCtx = struct {
+    vm: *kvm.Vm,
+    irq: u32,
+};
+
+fn onVsockIrq(ctx: ?*anyopaque) void {
+    const c: *VsockIrqCtx = @ptrCast(@alignCast(ctx.?));
+    c.vm.setIrq(c.irq, 1) catch {};
 }
 
 // arm64 Linux kernel Image header — same parser as hvf.zig has;
