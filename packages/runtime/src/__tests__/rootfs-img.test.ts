@@ -319,11 +319,19 @@ describe("ensureRootfsImage", () => {
     }
   }, 20_000);
 
-  it("wipes a cached .img with no clean-shutdown marker (#170)", () => {
-    // Simulates a previous boot that was killed mid-write: the .img
-    // is on disk but the .ok marker was never re-created. The next
-    // call must NOT trust the planted bytes — it should wipe and
-    // try to rematerialize from the tarball.
+  it("rematerializes over a cached .img with no clean-shutdown marker (#170)", () => {
+    // Simulates a previous boot killed mid-write: the .img is on disk
+    // but the .ok marker was never re-created. The next call must NOT
+    // RETURN the planted bytes — it must fall through to materialize,
+    // which atomically replaces the file via renameSync (or throws if
+    // materialize can't run on this host).
+    //
+    // The eager unlinkSync(imgPath) on entry was removed in #233 because
+    // it raced with concurrent callers holding imgPath as a cache-hit
+    // return value (parallel test files; multiple boot()s on the same
+    // tarball). The contract that matters is "we don't trust torn
+    // bytes" — preserved by the always-materialize fallthrough — not
+    // "the file is gone on entry."
     const tarPath = `/tmp/machinen-rootfs-img-poisoned-${process.pid}.tar.gz`;
     const tmpDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-poisoned-tar-"));
     const cacheDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-poisoned-img-"));
@@ -334,8 +342,6 @@ describe("ensureRootfsImage", () => {
         .trim()
         .split(/\s+/, 1)[0]!;
       const imgPath = join(cacheDir, `${sha}.img`);
-      // Plant a stub `.img` with no `.ok` next to it — the dirty
-      // state a kill mid-boot leaves behind.
       const planted = Buffer.from("poisoned bytes that look nothing like ext4");
       writeFileSync(imgPath, planted);
       // No e2fsprogs guaranteed on the runner — if rematerialization
@@ -349,14 +355,13 @@ describe("ensureRootfsImage", () => {
         expect(err).toBeInstanceOf(ProvisionError);
       }
       if (rematerialized) {
-        // If we got back an image, it must NOT be the planted bytes.
+        // Atomic rename replaced the planted bytes with a real ext4 image.
         const after = statSync(imgPath).size;
         expect(after).not.toBe(planted.length);
-      } else {
-        // Materialize failed — the planted file should still have
-        // been wiped on entry.
-        expect(existsSync(imgPath)).toBe(false);
       }
+      // No assertion when materialize failed — the planted bytes may
+      // still be on disk, but they will never be RETURNED to a caller
+      // (the next call enters the same fallthrough path).
     } finally {
       try {
         unlinkSync(tarPath);
