@@ -85,7 +85,7 @@ describe("latency", () => {
     console.log(
       JSON.stringify({
         spawnToRestoreOkMs: restoreOkMs,
-        note: "cold VMM boot + kernel + criu-ns restore to 'restore OK'",
+        note: "cold VMM boot + kernel + criu restore (in fresh PID NS) to 'restore OK'",
       }),
     );
   }, 60_000);
