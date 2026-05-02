@@ -682,11 +682,19 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
                     hvf.Gic.setSpi(virtio_blk2_irq, @atomicLoad(u32, &d.interrupt_status, .acquire) != 0) catch {};
                 } else if (vsock_dev_ptr != null and vsock_dev_ptr.?.handles(info.ipa)) {
                     const d = vsock_dev_ptr.?;
+                    // The vCPU side of (RMW interrupt_status + setSpi)
+                    // must serialise against the bridge poll thread's
+                    // same pair. Apple's hv_gic_set_spi appears to
+                    // absorb the race in practice, but the underlying
+                    // hazard is the same as on KVM (where it bites
+                    // hard) — taking the bridge lock here makes the
+                    // semantics identical across backends and removes
+                    // a latent footgun. handleTxChain assumes the
+                    // caller holds bridge.mu; see its docstring.
+                    if (vsock_bridge_opt) |b| b.mu.lock();
+                    defer if (vsock_bridge_opt) |b| b.mu.unlock();
                     if (info.is_write) {
                         const value = try info.readSource(vcpu);
-                        // TX notify runs on the vCPU thread and shares
-                        // the bridge's connection table with the bridge
-                        // poll thread; the handler takes the mutex.
                         d.write(info.ipa, value);
                     } else if (info.srt != 31) {
                         const reg: hvf.Reg = @enumFromInt(@as(u32, info.srt));

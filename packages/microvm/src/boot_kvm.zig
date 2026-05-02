@@ -315,7 +315,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         switch (reason) {
             .mmio => {
                 const ev = vcpu.mmioExit();
-                try handleMmio(gpa, &vm, &vcpu, &uart, ev, pl011_irq, blkdev_ptr, virtio_blk_irq, blk2dev_ptr, virtio_blk2_irq, vsock_dev_ptr_run, virtio_vsock_irq);
+                try handleMmio(gpa, &vm, &vcpu, &uart, ev, pl011_irq, blkdev_ptr, virtio_blk_irq, blk2dev_ptr, virtio_blk2_irq, vsock_dev_ptr_run, virtio_vsock_irq, vsock_bridge_opt);
             },
             .system_event => {
                 const ev = vcpu.systemEventExit();
@@ -363,6 +363,7 @@ fn handleMmio(
     virtio_blk2_irq: u32,
     vsockdev: ?*virtio.Device,
     virtio_vsock_irq: u32,
+    vsock_bridge: ?*vsock_mod.Bridge,
 ) !void {
     if (uart.handles(ev.phys_addr)) {
         if (ev.is_write != 0) {
@@ -404,10 +405,23 @@ fn handleMmio(
     }
     if (vsockdev) |d| {
         if (d.handles(ev.phys_addr)) {
+            // The vCPU side of (RMW interrupt_status + setIrq) must
+            // serialise against the bridge poll thread's same pair.
+            // Without this, the bridge's setIrq(1) — issued the
+            // moment it injects an RX packet — can be overridden by
+            // a stale setIrq(0) we computed before the bridge's RMW
+            // and only got around to syscalling now. Symptom: guest
+            // never sees the CONNECT RESPONSE, fuse-agent's dial
+            // wedges, T3/T5/N2/S* all fail deterministically on KVM.
+            // Apple's hv_gic_set_spi happens to absorb this race;
+            // KVM_IRQ_LINE doesn't, which is why HVF passes smoke
+            // and KVM doesn't until this lock lands.
+            if (vsock_bridge) |b| b.mu.lock();
+            defer if (vsock_bridge) |b| b.mu.unlock();
             if (ev.is_write != 0) {
-                // TX notify runs on the vCPU thread and shares the
-                // bridge's connection table with the bridge poll
-                // thread; the handler takes the mutex.
+                // TX notify runs on the vCPU thread and goes through
+                // notify() → handleTxChain. handleTxChain assumes the
+                // caller holds bridge.mu — see its docstring.
                 d.write(ev.phys_addr, mmioReadValue(ev));
             } else {
                 vcpu.writeMmioReadData(d.read(ev.phys_addr), ev.len);
