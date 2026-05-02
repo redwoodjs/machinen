@@ -387,7 +387,7 @@ fn handleMmio(
             } else {
                 vcpu.writeMmioReadData(d.read(ev.phys_addr), ev.len);
             }
-            vm.setIrq(virtio_blk_irq, if (d.interrupt_status != 0) 1 else 0) catch {};
+            vm.setIrq(virtio_blk_irq, if (@atomicLoad(u32, &d.interrupt_status, .acquire) != 0) 1 else 0) catch {};
             return;
         }
     }
@@ -398,7 +398,7 @@ fn handleMmio(
             } else {
                 vcpu.writeMmioReadData(d.read(ev.phys_addr), ev.len);
             }
-            vm.setIrq(virtio_blk2_irq, if (d.interrupt_status != 0) 1 else 0) catch {};
+            vm.setIrq(virtio_blk2_irq, if (@atomicLoad(u32, &d.interrupt_status, .acquire) != 0) 1 else 0) catch {};
             return;
         }
     }
@@ -412,7 +412,7 @@ fn handleMmio(
             } else {
                 vcpu.writeMmioReadData(d.read(ev.phys_addr), ev.len);
             }
-            vm.setIrq(virtio_vsock_irq, if (d.interrupt_status != 0) 1 else 0) catch {};
+            vm.setIrq(virtio_vsock_irq, if (@atomicLoad(u32, &d.interrupt_status, .acquire) != 0) 1 else 0) catch {};
             return;
         }
     }

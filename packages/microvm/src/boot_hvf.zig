@@ -659,7 +659,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
                         const reg: hvf.Reg = @enumFromInt(@as(u32, info.srt));
                         try vcpu.setReg(reg, netdev.read(info.ipa));
                     }
-                    hvf.Gic.setSpi(virtio_irq, netdev.interrupt_status != 0) catch {};
+                    hvf.Gic.setSpi(virtio_irq, @atomicLoad(u32, &netdev.interrupt_status, .acquire) != 0) catch {};
                 } else if (blkdev_ptr != null and blkdev_ptr.?.handles(info.ipa)) {
                     const d = blkdev_ptr.?;
                     if (info.is_write) {
@@ -669,7 +669,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
                         const reg: hvf.Reg = @enumFromInt(@as(u32, info.srt));
                         try vcpu.setReg(reg, d.read(info.ipa));
                     }
-                    hvf.Gic.setSpi(virtio_blk_irq, d.interrupt_status != 0) catch {};
+                    hvf.Gic.setSpi(virtio_blk_irq, @atomicLoad(u32, &d.interrupt_status, .acquire) != 0) catch {};
                 } else if (blk2dev_ptr != null and blk2dev_ptr.?.handles(info.ipa)) {
                     const d = blk2dev_ptr.?;
                     if (info.is_write) {
@@ -679,7 +679,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
                         const reg: hvf.Reg = @enumFromInt(@as(u32, info.srt));
                         try vcpu.setReg(reg, d.read(info.ipa));
                     }
-                    hvf.Gic.setSpi(virtio_blk2_irq, d.interrupt_status != 0) catch {};
+                    hvf.Gic.setSpi(virtio_blk2_irq, @atomicLoad(u32, &d.interrupt_status, .acquire) != 0) catch {};
                 } else if (vsock_dev_ptr != null and vsock_dev_ptr.?.handles(info.ipa)) {
                     const d = vsock_dev_ptr.?;
                     if (info.is_write) {
@@ -692,7 +692,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
                         const reg: hvf.Reg = @enumFromInt(@as(u32, info.srt));
                         try vcpu.setReg(reg, d.read(info.ipa));
                     }
-                    hvf.Gic.setSpi(virtio_vsock_irq, d.interrupt_status != 0) catch {};
+                    hvf.Gic.setSpi(virtio_vsock_irq, @atomicLoad(u32, &d.interrupt_status, .acquire) != 0) catch {};
                 } else if (info.ipa >= 0x1000_0000 and info.ipa < 0x1200_0000) {
                     // Redistributor MMIO. Each vCPU's frame is 128 KB.
                     // For our single-vCPU setup, frame 0 = [0x10000000,
