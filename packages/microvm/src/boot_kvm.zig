@@ -16,9 +16,9 @@
 //!     model; no host-side plumbing.
 //!   * PL011: same byte-for-byte model as HVF (shared via pl011.zig),
 //!     driven by KVM_EXIT_MMIO events.
-//!   * Virtio: not wired yet. Reads/writes to virtio-mmio windows
-//!     currently return 0 / are ignored. That's enough to watch the
-//!     kernel boot through its console; devices follow.
+//!   * Virtio-blk: slots 1 and 3 are wired the same way HVF does it
+//!     (#114). Slot 0 (net) and slot 2 (vsock) are not yet wired —
+//!     reads/writes to those windows still return 0 / are ignored.
 
 const std = @import("std");
 const builtin = @import("builtin");
@@ -31,6 +31,16 @@ comptime {
 
 const kvm = @import("kvm.zig");
 const pl011_mod = @import("pl011.zig");
+const virtio = @import("virtio.zig");
+const blk_mod = @import("blk.zig");
+
+// Guest-physical bases. Same MMIO layout as HVF (see boot_hvf.zig
+// for the slot layout doc) so the shared `virt.dts` works for both
+// backends.
+const virtio_blk_base: u64 = 0x0A00_0200;
+const virtio_blk_size: u64 = 0x200;
+const virtio_blk2_base: u64 = 0x0A00_0600;
+const virtio_blk2_size: u64 = 0x200;
 
 pub const Error = error{
     FixtureMissing,
@@ -44,6 +54,15 @@ pub const Config = struct {
     kernel_path: []const u8,
     dtb_path: []const u8,
     initrd_path: ?[]const u8 = null,
+    /// Optional path to a host file backing the rootdisk. When set,
+    /// it lands on slot 1 (DTS `virtio_mmio@a000200`) and the kernel
+    /// sees it as `/dev/vda`. Mirrors boot_hvf.zig's field. See #114.
+    rootdisk_path: ?[]const u8 = null,
+    /// Optional path to a host file backing the scratch disk. With
+    /// rootdisk_path also set, this lands on slot 3 and the kernel
+    /// names it `/dev/vdb`. With no rootdisk it lands on slot 1 and
+    /// the kernel names it `/dev/vda` (legacy, pre-#114 layout).
+    disk_path: ?[]const u8 = null,
     ram_base: u64 = 0x4000_0000,
     ram_size: usize = 4 * 1024 * 1024 * 1024,
     dtb_offset: u64 = 0x0300_0000,
@@ -153,6 +172,63 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // KVM irq number 32 + N. For our PL011 that's 33.
     const pl011_irq: u32 = 32 + 1;
 
+    // virtio-blk (#114). Two slots, mirroring boot_hvf.zig:
+    //   slot 1 → SPI #17 → /dev/vda — rootdisk preferred, else disk.
+    //   slot 3 → SPI #19 → /dev/vdb — scratch when both are present.
+    // Linux probes virtio-mmio buses in DTB order, so DTB slot order
+    // determines /dev/vd* naming. With only one slot populated the
+    // lone device is always /dev/vda regardless of which slot.
+    const virtio_blk_irq: u32 = 32 + 17;
+    const virtio_blk2_irq: u32 = 32 + 19;
+    const slot1_path: ?[]const u8 = cfg.rootdisk_path orelse cfg.disk_path;
+    const slot3_path: ?[]const u8 = if (cfg.rootdisk_path != null) cfg.disk_path else null;
+
+    var blk_backend_opt: ?blk_mod.Backend = null;
+    defer if (blk_backend_opt) |*b| b.deinit();
+    var blkdev_opt: ?virtio.Device = null;
+    if (slot1_path) |path| {
+        if (blk_mod.openFile(path)) |backend| {
+            blk_backend_opt = backend;
+            blkdev_opt = virtio.Device{
+                .base = virtio_blk_base,
+                .size = virtio_blk_size,
+                .id = .block,
+                .features = (1 << 32), // VIRTIO_F_VERSION_1
+                .config = std.mem.asBytes(&blk_backend_opt.?.config),
+                .ram = ram,
+                .ram_base = cfg.ram_base,
+                .request_handler = &blk_mod.Backend.handleRequest,
+                .request_ctx = @ptrCast(&blk_backend_opt.?),
+            };
+        } else |err| {
+            std.debug.print("virtio-blk slot 1 disabled: {s} ({s})\n", .{ @errorName(err), path });
+        }
+    }
+    const blkdev_ptr: ?*virtio.Device = if (blkdev_opt) |_| &blkdev_opt.? else null;
+
+    var blk2_backend_opt: ?blk_mod.Backend = null;
+    defer if (blk2_backend_opt) |*b| b.deinit();
+    var blk2dev_opt: ?virtio.Device = null;
+    if (slot3_path) |path| {
+        if (blk_mod.openFile(path)) |backend| {
+            blk2_backend_opt = backend;
+            blk2dev_opt = virtio.Device{
+                .base = virtio_blk2_base,
+                .size = virtio_blk2_size,
+                .id = .block,
+                .features = (1 << 32),
+                .config = std.mem.asBytes(&blk2_backend_opt.?.config),
+                .ram = ram,
+                .ram_base = cfg.ram_base,
+                .request_handler = &blk_mod.Backend.handleRequest,
+                .request_ctx = @ptrCast(&blk2_backend_opt.?),
+            };
+        } else |err| {
+            std.debug.print("virtio-blk slot 3 disabled: {s} ({s})\n", .{ @errorName(err), path });
+        }
+    }
+    const blk2dev_ptr: ?*virtio.Device = if (blk2dev_opt) |_| &blk2dev_opt.? else null;
+
     var exits: usize = 0;
     var saw_off = false;
 
@@ -161,7 +237,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         switch (reason) {
             .mmio => {
                 const ev = vcpu.mmioExit();
-                try handleMmio(gpa, &vm, &vcpu, &uart, ev, pl011_irq);
+                try handleMmio(gpa, &vm, &vcpu, &uart, ev, pl011_irq, blkdev_ptr, virtio_blk_irq, blk2dev_ptr, virtio_blk2_irq);
             },
             .system_event => {
                 const ev = vcpu.systemEventExit();
@@ -203,14 +279,14 @@ fn handleMmio(
     uart: *pl011_mod.Pl011,
     ev: kvm.MmioExit,
     pl011_irq: u32,
+    blkdev: ?*virtio.Device,
+    virtio_blk_irq: u32,
+    blk2dev: ?*virtio.Device,
+    virtio_blk2_irq: u32,
 ) !void {
     if (uart.handles(ev.phys_addr)) {
         if (ev.is_write != 0) {
-            var val: u64 = 0;
-            const n = @min(@as(usize, ev.len), 8);
-            for (0..n) |i| {
-                val |= @as(u64, ev.data[i]) << @as(u6, @intCast(i * 8));
-            }
+            const val = mmioReadValue(ev);
             try uart.write(gpa, ev.phys_addr, val);
             // Echo console bytes to host stderr.
             if ((ev.phys_addr - uart.base) == 0 and ev.len > 0) {
@@ -224,11 +300,44 @@ fn handleMmio(
         vm.setIrq(pl011_irq, if (uart.irqAsserted()) 1 else 0) catch {};
         return;
     }
-    // Other MMIO (virtio-mmio windows, etc.) — for reads, hand back
-    // zeros (the writeMmioReadData default on untouched kvm_run bytes
-    // is already zero, but be explicit so a future non-zero lingerer
-    // doesn't bite).
+    if (blkdev) |d| {
+        if (d.handles(ev.phys_addr)) {
+            if (ev.is_write != 0) {
+                d.write(ev.phys_addr, mmioReadValue(ev));
+            } else {
+                vcpu.writeMmioReadData(d.read(ev.phys_addr), ev.len);
+            }
+            vm.setIrq(virtio_blk_irq, if (d.interrupt_status != 0) 1 else 0) catch {};
+            return;
+        }
+    }
+    if (blk2dev) |d| {
+        if (d.handles(ev.phys_addr)) {
+            if (ev.is_write != 0) {
+                d.write(ev.phys_addr, mmioReadValue(ev));
+            } else {
+                vcpu.writeMmioReadData(d.read(ev.phys_addr), ev.len);
+            }
+            vm.setIrq(virtio_blk2_irq, if (d.interrupt_status != 0) 1 else 0) catch {};
+            return;
+        }
+    }
+    // Other MMIO (virtio-mmio net/vsock windows, etc.) — for reads, hand
+    // back zeros (the writeMmioReadData default on untouched kvm_run
+    // bytes is already zero, but be explicit so a future non-zero
+    // lingerer doesn't bite).
     if (ev.is_write == 0) vcpu.writeMmioReadData(0, ev.len);
+}
+
+/// Pack the up-to-8 little-endian bytes KVM hands us in `mmio.data`
+/// into a u64 the device handlers expect.
+fn mmioReadValue(ev: kvm.MmioExit) u64 {
+    var val: u64 = 0;
+    const n = @min(@as(usize, ev.len), 8);
+    for (0..n) |i| {
+        val |= @as(u64, ev.data[i]) << @as(u6, @intCast(i * 8));
+    }
+    return val;
 }
 
 fn readAll(gpa: std.mem.Allocator, path: []const u8) ![]u8 {
