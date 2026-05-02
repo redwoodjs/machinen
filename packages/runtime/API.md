@@ -3284,7 +3284,7 @@ the returned handle. See `LogEvent.source` to tell them apart. See
 
 ### AttachOptions
 
-Defined in: [vm.ts:1050](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1050)
+Defined in: [vm.ts:1079](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1079)
 
 #### Properties
 
@@ -3292,7 +3292,7 @@ Defined in: [vm.ts:1050](https://github.com/redwoodjs/machinen/blob/main/package
 
 > `optional` **pid?**: `number`
 
-Defined in: [vm.ts:1056](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1056)
+Defined in: [vm.ts:1085](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1085)
 
 Look up a VM by the host pid of its VMM process. Kernel-unique
 while alive; mutually exclusive with `name`. Exactly one of
@@ -3302,7 +3302,7 @@ while alive; mutually exclusive with `name`. Exactly one of
 
 > `optional` **name?**: `string`
 
-Defined in: [vm.ts:1058](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1058)
+Defined in: [vm.ts:1087](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1087)
 
 Look up a VM by the name passed to `boot({ name })`.
 
@@ -3310,7 +3310,7 @@ Look up a VM by the name passed to `boot({ name })`.
 
 > `optional` **onLog?**: [`OnLog`](#onlog)
 
-Defined in: [vm.ts:1065](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1065)
+Defined in: [vm.ts:1094](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1094)
 
 Streaming log callback — fires for every byte of output from execs
 made through the returned handle. See #83. Guest kernel console is
@@ -3321,7 +3321,7 @@ called `boot()`), so only `exec-stdout` / `exec-stderr` sources fire.
 
 ### RestoreOptions
 
-Defined in: [vm.ts:1985](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1985)
+Defined in: [vm.ts:2014](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2014)
 
 #### Extends
 
@@ -3633,7 +3633,7 @@ the returned handle. See `LogEvent.source` to tell them apart. See
 
 > **snapDir**: `string`
 
-Defined in: [vm.ts:1990](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1990)
+Defined in: [vm.ts:2019](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2019)
 
 Snapshot bundle directory produced by `vm.snapshot()`.
 Must contain `disk.img` and `meta.json`.
@@ -3642,7 +3642,7 @@ Must contain `disk.img` and `meta.json`.
 
 > `optional` **image?**: `string`
 
-Defined in: [vm.ts:1998](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1998)
+Defined in: [vm.ts:2027](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2027)
 
 Override the rootfs image used for the restore boot. Defaults
 to whatever caller passes through `image`-equivalent — but
@@ -3654,7 +3654,7 @@ release rootfs path here.
 
 > `optional` **name?**: `string`
 
-Defined in: [vm.ts:2004](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2004)
+Defined in: [vm.ts:2033](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2033)
 
 Optional explicit name for the restored VM. When omitted, the
 fork is auto-named `<sourceName>/<pid>` after spawn so it stays
@@ -4140,7 +4140,7 @@ the guest agent skips entries that don't match.
 
 > `const` **\_internal**: `object`
 
-Defined in: [vm.ts:1689](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1689)
+Defined in: [vm.ts:1718](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1718)
 
 #### Type Declaration
 
@@ -4664,7 +4664,7 @@ BOOT_VMM_MISSING | BOOT_VMM_PACKAGE_BROKEN |
 
 > **attach**(`opts`): `Promise`\<[`VmHandle`](#vmhandle)\>
 
-Defined in: [vm.ts:1081](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1081)
+Defined in: [vm.ts:1110](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1110)
 
 Reconnect to a running VM registered by an earlier `boot()` call
 (possibly from a different process). Returns a `VmHandle` that can
@@ -4696,7 +4696,7 @@ REGISTRY_VM_NOT_FOUND
 
 > **buildWriteFileCmd**(`guestPath`, `contents`, `opts?`): `string`
 
-Defined in: [vm.ts:1537](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1537)
+Defined in: [vm.ts:1566](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1566)
 
 Build the shell pipeline that `vm.writeFile()` ships through the
 exec-agent. Stays single-line so it works against the legacy EXEC
@@ -4735,7 +4735,7 @@ Returns a single cmd string. For payloads that would exceed Linux's
 
 > **buildWriteFileCmds**(`guestPath`, `contents`, `opts?`): `string`[]
 
-Defined in: [vm.ts:1579](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1579)
+Defined in: [vm.ts:1608](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1608)
 
 Plan the cmd sequence `vm.writeFile()` issues for `contents`.
 Small payloads (base64 ≤ `WRITE_FILE_B64_CHUNK_BYTES`) collapse to a
@@ -4767,7 +4767,7 @@ end, so no individual cmd line approaches `MAX_ARG_STRLEN`.
 
 > **restore**(`opts`): `Promise`\<[`VmHandle`](#vmhandle)\>
 
-Defined in: [vm.ts:2023](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2023)
+Defined in: [vm.ts:2052](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2052)
 
 Restore a microVM from a snapshot bundle produced by
 `vm.snapshot({ outDir })`. Reads the bundle's `meta.json` to
@@ -4802,7 +4802,7 @@ BOOT_SNAPSHOT_NOT_FOUND if `<snapDir>/disk.img`
 
 > **measureFirstByte**(`vm`): `Promise`\<`number`\>
 
-Defined in: [vm.ts:2070](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2070)
+Defined in: [vm.ts:2099](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2099)
 
 Time-to-first-output-byte for a boot. Useful for measuring how
 much the snapshot path is (or isn't) buying us.
