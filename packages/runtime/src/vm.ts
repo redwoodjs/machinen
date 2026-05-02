@@ -42,7 +42,7 @@ import {
   writeSync,
 } from "node:fs";
 import { createRequire } from "node:module";
-import { arch as osArch, platform as osPlatform, tmpdir } from "node:os";
+import { arch as osArch, homedir, platform as osPlatform, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { Readable } from "node:stream";
 import debugLib from "debug";
@@ -1366,9 +1366,52 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
  * undefined when the image has no config baked in — plain rootfs
  * tarballs that pre-date this feature still boot fine.
  */
-function readImageConfig(
-  imagePath: string,
-): { cmd?: string[]; env?: Record<string, string>; cwd?: string } | undefined {
+type ImageConfig = { cmd?: string[]; env?: Record<string, string>; cwd?: string };
+
+/**
+ * Disk cache for `readImageConfig`. The base tarball is regenerated only
+ * by `scripts/build-base-assets.sh` / `provision()`, so its (size, mtime)
+ * is a reliable fingerprint between runs. Without this cache, every
+ * boot() pays ~170 ms decompressing a 2 GiB gzip stream looking for
+ * (or failing to find) `./machinen-config.json` — that single call
+ * was ~98 % of the `initramfs-pack` phase. Negative results are cached
+ * too: most user-built tarballs don't carry the file.
+ */
+function imageConfigCacheDir(): string {
+  return join(homedir(), ".cache", "machinen", "image-config");
+}
+
+function imageConfigCachePath(imagePath: string): string | undefined {
+  let st;
+  try {
+    st = statSync(imagePath);
+  } catch {
+    return undefined;
+  }
+  // basename + size + mtime is enough to distinguish typical builds;
+  // collisions are harmless because the cache file's body is the
+  // authoritative answer for the keying tarball — a stale cache means
+  // the tarball was overwritten without changing size+mtime, which
+  // would also confuse `ensureRootfsImage`'s sha-based cache the same
+  // way.
+  const base = imagePath.split("/").pop() ?? "image";
+  const key = `${base}-${st.size}-${Math.floor(st.mtimeMs)}.json`;
+  return join(imageConfigCacheDir(), key);
+}
+
+/** @internal — exported for tests; production callers should not use directly. */
+export function readImageConfig(imagePath: string): ImageConfig | undefined {
+  const cachePath = imageConfigCachePath(imagePath);
+  if (cachePath && existsSync(cachePath)) {
+    try {
+      const raw = readFileSync(cachePath, "utf8");
+      const cached = JSON.parse(raw) as { config: ImageConfig | null };
+      return cached.config ?? undefined;
+    } catch {
+      // Corrupt cache — fall through, regenerate.
+    }
+  }
+  let result: ImageConfig | undefined;
   try {
     // `-x` stream-extract, `-O` to stdout, `-z` auto-detect gzip. The
     // target path matches the layout `provision()` writes.
@@ -1376,15 +1419,23 @@ function readImageConfig(
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
     });
-    if (!out.trim()) {
-      return undefined;
+    if (out.trim()) {
+      result = JSON.parse(out) as ImageConfig;
     }
-    return JSON.parse(out) as { cmd?: string[]; env?: Record<string, string>; cwd?: string };
   } catch {
     // Either the tarball lacks the file or it's not a tarball we can
     // read — boot will still try to use the rootfs as-is.
-    return undefined;
   }
+  if (cachePath) {
+    try {
+      mkdirSync(imageConfigCacheDir(), { recursive: true });
+      writeFileSync(cachePath, JSON.stringify({ config: result ?? null }));
+    } catch {
+      // Best-effort cache write — a missing cache just means we redo
+      // the slow path next time.
+    }
+  }
+  return result;
 }
 
 /**
