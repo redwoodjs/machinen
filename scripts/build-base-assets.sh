@@ -10,6 +10,11 @@
 #                                    issue #119.
 #   virt-arm64.dtb                 ← compiled device tree
 #   rootfs-debian-arm64.tar.gz     ← debian minbase + /init + /exec-agent
+#   rootfs-debian-arm64.img.gz     ← prebaked ext4 image of the same
+#                                    rootfs; lets cold boots skip
+#                                    tar -xf + mke2fs (#223). Sparse
+#                                    inside the gzip — wire size is
+#                                    close to the tarball.
 #   *.sha256                       ← integrity sidecars
 #
 # We no longer ship modules-arm64.tar.gz — the boot-path drivers are
@@ -64,7 +69,8 @@ mkdir -p "$OUT"
 find "$OUT" -mindepth 1 -maxdepth 1 \
   ! -name 'Image-arm64' ! -name 'virt-arm64.dtb' ! -name '*.sha256' \
   -exec rm -f {} +
-rm -rf "${ROOTFS_IMG_CACHE:?}"/*.img "${ROOTFS_IMG_CACHE:?}"/*-staging-* 2>/dev/null || true
+rm -rf "${ROOTFS_IMG_CACHE:?}"/*.img "${ROOTFS_IMG_CACHE:?}"/*-staging-* \
+       "${ROOTFS_IMG_CACHE:?}"/*-prebake-* 2>/dev/null || true
 
 # ------------------------------------------------------------
 # 1. Kernel — custom upstream arm64 build with built-in drivers (#119)
@@ -234,8 +240,11 @@ docker run --rm -i --privileged --platform linux/arm64 \
 set -euo pipefail
 
 apt-get update -qq > /dev/null
+# e2fsprogs is the host-side tool that builds the prebake `.img` from
+# the staged rootfs tree (#223). gzip ships with debian:bookworm-slim
+# already; listed here for clarity.
 apt-get install -y --no-install-recommends \
-  mmdebstrap gpg debian-archive-keyring > /dev/null
+  mmdebstrap gpg debian-archive-keyring e2fsprogs gzip > /dev/null
 
 mkdir -p /work
 
@@ -424,6 +433,31 @@ tar --sort=name --owner=0 --group=0 --numeric-owner \
   --mtime="2020-01-01 00:00Z" \
   -C /work/rootfs -cf - . |
 gzip -n > /out/rootfs-debian-arm64.tar.gz
+
+# ----------------------------------------------------------------
+# #223: prebake the ext4 `.img` next to the tarball so cold boots
+# can skip tar -xf + mke2fs entirely. Materializes once at release
+# time (which already takes minutes for the rest of the bake) so
+# every consumer of the published asset bundle inherits a ~1100 ms
+# cold-boot win.
+#
+# The image size mirrors ensureRootfsImage's defaults:
+#   max(2 GiB, du -sk(rootfs) * 2.5 KiB rounded up to whole bytes)
+# Sparse, so over-provisioning costs nothing on the wire (gzip
+# collapses zero-runs) and gives the guest room to apt install on
+# top of the base. `rootDiskSizeBytes` callers still sparse-extend
+# in place against the unpacked .img, same as cache-hit paths today.
+#
+# 4-KiB block size matches the kernel's arm64 page size so reads
+# are page-cache-aligned; same as the runtime materializer.
+TREE_KIB=$(du -sk /work/rootfs | awk '{print $1}')
+SIZE_BYTES=$(awk -v k="$TREE_KIB" 'BEGIN { s = int(k * 1024 * 2.5); m = 2 * 1024 * 1024 * 1024; if (s < m) s = m; print s }')
+BLOCKS=$(( SIZE_BYTES / 4096 ))
+echo "==> Prebaking rootfs ext4 image: ${SIZE_BYTES} bytes (${BLOCKS} x 4 KiB blocks)"
+truncate -s "$SIZE_BYTES" /tmp/rootfs.img
+mke2fs -d /work/rootfs -t ext4 -F -q -b 4096 /tmp/rootfs.img "$BLOCKS"
+gzip -n -c /tmp/rootfs.img > /out/rootfs-debian-arm64.img.gz
+rm -f /tmp/rootfs.img
 CONTAINER_SCRIPT
 
 # ------------------------------------------------------------
@@ -432,7 +466,7 @@ CONTAINER_SCRIPT
 
 echo "==> Writing sha256 sidecars"
 cd "$OUT"
-for f in Image-arm64 virt-arm64.dtb rootfs-debian-arm64.tar.gz; do
+for f in Image-arm64 virt-arm64.dtb rootfs-debian-arm64.tar.gz rootfs-debian-arm64.img.gz; do
   shasum -a 256 "$f" > "${f}.sha256"
 done
 
