@@ -700,6 +700,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       const packed = synthesizeAndPackBundle(opts, mergedGuestEnv, liveMountsResolved, {
         useTiny: wantsRootDisk,
         env,
+        onPhase: (name, ms) => phases.mark(`initramfs-pack.${name}`, ms),
       });
       bundleTempDir = packed.tempDir;
       env.MACHINEN_INITRD = packed.cpioPath;
@@ -1408,6 +1409,32 @@ function imageConfigCachePath(imagePath: string): string | undefined {
   return join(imageConfigCacheDir(), key);
 }
 
+/**
+ * Pre-populate the image-config cache for a freshly-written tarball.
+ * Lets `provision()` (and other tarball producers) skip the slow
+ * `tar -xzOf` lookup that the next `boot()` would otherwise pay —
+ * see #233. Best-effort: a missing/unwritable cache dir just falls
+ * back to the slow path on the next boot.
+ *
+ * Call AFTER the tarball is on disk (so size+mtime match what the
+ * cache key will be on read), passing exactly the config that was
+ * baked into the tarball's `./machinen-config.json` (or `null` when
+ * none was baked).
+ */
+export function warmImageConfigCache(imagePath: string, config: ImageConfig | null): void {
+  const cachePath = imageConfigCachePath(imagePath);
+  if (!cachePath) {
+    return;
+  }
+  try {
+    mkdirSync(imageConfigCacheDir(), { recursive: true });
+    writeFileSync(cachePath, JSON.stringify({ config }));
+  } catch {
+    // Best-effort — a missing cache file just costs the next boot
+    // an image-config-read hit.
+  }
+}
+
 /** @internal — exported for tests; production callers should not use directly. */
 export function readImageConfig(imagePath: string): ImageConfig | undefined {
   const cachePath = imageConfigCachePath(imagePath);
@@ -1534,7 +1561,11 @@ function synthesizeAndPackBundle(
   opts: BootOptions,
   mergedGuestEnv: Record<string, string>,
   liveMounts: ResolvedLiveMount[],
-  packerOpts: { useTiny: boolean; env: Record<string, string> },
+  packerOpts: {
+    useTiny: boolean;
+    env: Record<string, string>;
+    onPhase?: (name: string, ms: number) => void;
+  },
 ): { tempDir: string; cpioPath: string } {
   const tempDir = mkdtempSync(join(tmpdir(), "machinen-bundle-"));
   const cpioPath = join(tempDir, "initramfs.cpio");
@@ -1562,7 +1593,9 @@ function synthesizeAndPackBundle(
       cleanup();
       throw new BootError("BOOT_IMAGE_NOT_FOUND", `image tarball not found: ${baseAbs}`);
     }
+    const cfgT0 = Date.now();
     imageConfig = readImageConfig(baseAbs);
+    packerOpts.onPhase?.("image-config-read", Date.now() - cfgT0);
   }
 
   // cmd resolution:
@@ -1666,6 +1699,7 @@ function synthesizeAndPackBundle(
   }
 
   try {
+    const packT0 = Date.now();
     if (packerOpts.useTiny) {
       // #119: rootDisk path. The on-disk rootfs is mounted from /dev/vda
       // by /init; the cpio only ships /init + machinen-config.json +
@@ -1692,6 +1726,7 @@ function synthesizeAndPackBundle(
         fuseAgentPath: liveMounts.length > 0 ? defaultFuseAgentPath() : undefined,
       });
     }
+    packerOpts.onPhase?.("cpio-write", Date.now() - packT0);
   } catch (err) {
     cleanup();
     const msg = err instanceof Error ? err.message : String(err);

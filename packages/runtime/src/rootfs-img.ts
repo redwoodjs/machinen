@@ -224,11 +224,16 @@ export function ensureRootfsImage(tarPath: string, opts: EnsureRootfsImageOption
     // previous VMM was killed mid-write — fsck won't catch torn data
     // blocks, so treat the image as poisoned and rebuild from the
     // tarball.
+    //
+    // We deliberately do NOT `unlinkSync(imgPath)` here on the wipe
+    // paths. Concurrent callers (parallel test files, multiple `boot()`
+    // calls) may already hold imgPath as a cache-hit return value and
+    // be about to reflink from it — deleting the file out from under
+    // them races to ENOENT. The renameSync at the end of the materialize
+    // / prebake paths atomically replaces imgPath with fresh bytes, so
+    // the wipe is redundant; falling through is sufficient.
     if (!existsSync(okPath)) {
-      debug("cache hit but no clean marker, wiping img=%s", imgPath);
-      try {
-        unlinkSync(imgPath);
-      } catch {}
+      debug("cache hit but no clean marker, will rematerialize img=%s", imgPath);
     } else {
       // Atomically clear the marker BEFORE handing the path off, so
       // a kill between here and `markRootfsImageClean()` leaves the
@@ -263,12 +268,9 @@ export function ensureRootfsImage(tarPath: string, opts: EnsureRootfsImageOption
         }
         return imgPath;
       }
-      // Unrecoverable. Wipe and fall through to materialize a fresh image
-      // from the tarball — same path a force=true caller would take.
-      debug("cache hit unusable, wiping img=%s", imgPath);
-      try {
-        unlinkSync(imgPath);
-      } catch {}
+      // Unrecoverable. Fall through to materialize a fresh image — same
+      // path a force=true caller would take. renameSync replaces.
+      debug("cache hit unusable, will rematerialize img=%s", imgPath);
     }
   }
 
@@ -292,7 +294,10 @@ export function ensureRootfsImage(tarPath: string, opts: EnsureRootfsImageOption
         imgPath,
         sizeBytes: opts.sizeBytes,
       });
-      opts.onPhase?.(sibling.gzipped ? "gunzip-prebake" : "reflink-prebake", Date.now() - prebakeT0);
+      opts.onPhase?.(
+        sibling.gzipped ? "gunzip-prebake" : "reflink-prebake",
+        Date.now() - prebakeT0,
+      );
       if (fast) {
         return fast;
       }
@@ -724,10 +729,7 @@ function allocateSparseFile(path: string, sizeBytes: number): void {
 export function resolveMke2fs(): string | undefined {
   const names = ["mke2fs", "mkfs.ext4"];
   return (
-    resolveMke2fsEnvOverride() ??
-    findBundledMke2fs() ??
-    whichFirst(names) ??
-    findKegOnlyE2fs(names)
+    resolveMke2fsEnvOverride() ?? findBundledMke2fs() ?? whichFirst(names) ?? findKegOnlyE2fs(names)
   );
 }
 

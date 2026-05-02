@@ -26,7 +26,7 @@ import {
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { readImageConfig } from "../vm.ts";
+import { readImageConfig, warmImageConfigCache } from "../vm.ts";
 
 const CACHE_DIR = join(homedir(), ".cache", "machinen", "image-config");
 
@@ -91,6 +91,32 @@ describe("readImageConfig cache (#221)", () => {
 
     expect(readImageConfig(tarball)).toBeUndefined();
     expect(cacheEntriesFor(tarball).length).toBe(1);
+    expect(readImageConfig(tarball)).toBeUndefined();
+  });
+
+  it("warmImageConfigCache pre-populates the cache so the next read skips tar -xzOf (#233)", () => {
+    workDir = mkdtempSync(join(tmpdir(), "image-cfg-"));
+    const tarball = join(workDir, `rootfs-test-warmed-${Date.now()}.tar.gz`);
+    // Tarball body intentionally LACKS machinen-config.json — proves
+    // the cache short-circuits the actual tar lookup. If the cache
+    // weren't consulted, readImageConfig would scan the tarball, find
+    // nothing, and return undefined.
+    buildTarball(tarball, null);
+    const baked = { cmd: ["/sbin/init"], env: { PATH: "/usr/bin" } };
+    warmImageConfigCache(tarball, baked);
+    expect(cacheEntriesFor(tarball).length).toBe(1);
+    expect(readImageConfig(tarball)).toEqual(baked);
+  });
+
+  it("warmImageConfigCache(null) caches the negative result", () => {
+    workDir = mkdtempSync(join(tmpdir(), "image-cfg-"));
+    const tarball = join(workDir, `rootfs-test-warmed-null-${Date.now()}.tar.gz`);
+    // Tarball CONTAINS a config but we warm with null — the cache
+    // should be authoritative, returning undefined despite the embedded
+    // file. Mirrors the contract for negative results in the
+    // already-tested negative caching path.
+    buildTarball(tarball, JSON.stringify({ cmd: ["/should-not-see-this"] }));
+    warmImageConfigCache(tarball, null);
     expect(readImageConfig(tarball)).toBeUndefined();
   });
 

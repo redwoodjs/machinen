@@ -42,7 +42,7 @@ import { VsockExec } from "./exec.ts";
 import type { OnLog } from "./log.ts";
 import { PhaseTimer } from "./phase-timer.ts";
 import { reflinkCopy } from "./reflink.ts";
-import { boot } from "./vm.ts";
+import { boot, warmImageConfigCache } from "./vm.ts";
 import type { VmHandle } from "./vm-handle.ts";
 import { ensureRootfsImage, markRootfsImageClean, resolveMke2fs } from "./rootfs-img.ts";
 
@@ -440,6 +440,18 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
     debug("repack done elapsed=%dms", Date.now() - repackT0);
 
     const sizeBytes = statSync(outAbs).size;
+    // Warm boot()'s image-config cache (#233 follow-up): we know the
+    // exact bytes that landed in the tarball's machinen-config.json,
+    // so the next boot() can skip the ~1 s `tar -xzOf` decompress.
+    warmImageConfigCache(
+      outAbs,
+      opts.cmd || opts.env
+        ? {
+            ...(opts.cmd ? { cmd: opts.cmd } : {}),
+            ...(opts.env ? { env: opts.env } : {}),
+          }
+        : null,
+    );
     const elapsedMs = Date.now() - t0;
     debug("provision complete sizeBytes=%d totalElapsed=%dms", sizeBytes, elapsedMs);
     phases.flush(debug, "provision", elapsedMs);
