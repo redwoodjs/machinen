@@ -2471,7 +2471,7 @@ ms epoch when the entry was created.
 
 ### EnsureRootfsImageOptions
 
-Defined in: [rootfs-img.ts:121](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L121)
+Defined in: [rootfs-img.ts:134](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L134)
 
 #### Properties
 
@@ -2479,7 +2479,7 @@ Defined in: [rootfs-img.ts:121](https://github.com/redwoodjs/machinen/blob/main/
 
 > `optional` **cacheDir?**: `string`
 
-Defined in: [rootfs-img.ts:126](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L126)
+Defined in: [rootfs-img.ts:139](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L139)
 
 Override the cache directory. Default: `~/.cache/machinen/rootfs`.
 Useful for tests.
@@ -2488,7 +2488,7 @@ Useful for tests.
 
 > `optional` **force?**: `boolean`
 
-Defined in: [rootfs-img.ts:131](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L131)
+Defined in: [rootfs-img.ts:144](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L144)
 
 Force re-materialization even if a cached image is already present.
 Mostly for debugging the materializer.
@@ -2497,7 +2497,7 @@ Mostly for debugging the materializer.
 
 > `optional` **sizeMultiplier?**: `number`
 
-Defined in: [rootfs-img.ts:141](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L141)
+Defined in: [rootfs-img.ts:154](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L154)
 
 Slack multiplier above the unpacked tarball size when sizing the
 ext4 filesystem. Default: 2.5 — leaves enough room for the guest
@@ -2511,7 +2511,7 @@ to fill the filesystem.
 
 > `optional` **minSizeBytes?**: `number`
 
-Defined in: [rootfs-img.ts:149](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L149)
+Defined in: [rootfs-img.ts:162](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L162)
 
 Minimum image size in bytes. The materializer enforces at least
 this for small rootfs where the multiplier alone would leave
@@ -2523,7 +2523,7 @@ insufficient room for a real workload. Default: 2 GiB — boot-time
 
 > `optional` **sizeBytes?**: `number`
 
-Defined in: [rootfs-img.ts:157](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L157)
+Defined in: [rootfs-img.ts:170](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L170)
 
 Absolute target size in bytes. When set, overrides `sizeMultiplier`
 and `minSizeBytes` entirely — fresh materializations get exactly
@@ -4726,7 +4726,7 @@ effect, so a crashed VMM doesn't leave a stuck record behind.
 
 > **rootfsImgCacheDir**(): `string`
 
-Defined in: [rootfs-img.ts:72](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L72)
+Defined in: [rootfs-img.ts:85](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L85)
 
 Default cache root: `~/.cache/machinen/rootfs`.
 
@@ -4740,7 +4740,7 @@ Default cache root: `~/.cache/machinen/rootfs`.
 
 > **markRootfsImageClean**(`imgPath`): `void`
 
-Defined in: [rootfs-img.ts:92](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L92)
+Defined in: [rootfs-img.ts:105](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L105)
 
 Mark a cached rootfs image as "cleanly released" by writing the
 sentinel that `ensureRootfsImage()` looks for on the next boot.
@@ -4769,7 +4769,7 @@ but never wrong.
 
 > **ensureRootfsImage**(`tarPath`, `opts?`): `string`
 
-Defined in: [rootfs-img.ts:183](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L183)
+Defined in: [rootfs-img.ts:196](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L196)
 
 Resolve `tarPath` to a cached ext4 `.img`, materializing it on first
 call. Returns the absolute path to the cached image.

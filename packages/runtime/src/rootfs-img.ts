@@ -42,6 +42,19 @@
 // runtime calls `markRootfsImageClean()` to recreate it. A cache
 // hit with no marker is treated as poisoned — wiped and
 // rematerialized from the tarball.
+//
+// Prebake fast path (#223): when the release build shipped an
+// already-materialized `<basename>.img.gz` next to the tarball
+// (build-base-assets.sh runs mke2fs once at release time), we
+// gunzip it directly into the cache instead of doing tar -xf +
+// mke2fs every cold boot. Drops cold rootdisk-materialize from
+// ~1100 ms to ~150 ms (gunzip-only). The cache key stays the
+// tarball sha so the .ok marker, sparse-extend, and per-boot
+// reflink clones (#121) all work unchanged. Falls back to the
+// materialize path when no sibling is present (provision()-built
+// tarballs, fixture builds) or when the sibling fails to
+// decompress / lacks the ext4 magic — the fallback is invisible
+// to the caller.
 
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -240,6 +253,30 @@ export function ensureRootfsImage(tarPath: string, opts: EnsureRootfsImageOption
       try {
         unlinkSync(imgPath);
       } catch {}
+    }
+  }
+
+  // #223: prebake fast path. If the release build dropped a
+  // sibling `<basename>.img.gz` next to the tarball, gunzip it
+  // straight into the cache and skip tar+mke2fs. The decompressed
+  // bytes are an ext4 image; the cache key (tarball sha) is the
+  // same one the materialize path would write to, so downstream
+  // (per-boot reflink, sparse-extend, .ok marker) is unchanged.
+  if (!opts.force) {
+    const sibling = siblingPrebakePath(tarAbs);
+    if (sibling && existsSync(sibling)) {
+      const fast = tryPrebakeFromSibling({
+        sibling,
+        cacheDir,
+        sha,
+        imgPath,
+        sizeBytes: opts.sizeBytes,
+      });
+      if (fast) {
+        return fast;
+      }
+      // Fall through to materialize on any failure — same outcome
+      // as if the sibling weren't there. Slow but always correct.
     }
   }
 
@@ -533,6 +570,86 @@ function duBytes(path: string): number {
   return statSync(path).size || 0;
 }
 
+// Resolve the prebake sibling that build-base-assets.sh produces
+// (`<basename>.img.gz`). We strip a recognized tarball suffix from
+// the input — `.tar.gz`, `.tgz`, `.tar` — and append `.img.gz`.
+// Returns undefined when the path doesn't look like a tarball at
+// all; nothing else carries a meaningful sibling pairing.
+function siblingPrebakePath(tarAbs: string): string | undefined {
+  const m = /^(.*)(\.tar\.gz|\.tgz|\.tar)$/i.exec(tarAbs);
+  if (!m) {
+    return undefined;
+  }
+  return `${m[1]}.img.gz`;
+}
+
+// Try to populate the cache by decompressing a prebuilt sibling
+// `.img.gz`. Returns the cache path on success, undefined on any
+// failure (gunzip error, decompressed bytes don't look like ext4).
+// The caller falls back to the slow materialize path on undefined.
+function tryPrebakeFromSibling(args: {
+  sibling: string;
+  cacheDir: string;
+  sha: string;
+  imgPath: string;
+  sizeBytes?: number;
+}): string | undefined {
+  const { sibling, cacheDir, sha, imgPath, sizeBytes } = args;
+  const stagingDir = mkdtempSync(join(cacheDir, `${sha.slice(0, 12)}-prebake-`));
+  const stagingImg = join(stagingDir, "rootfs.img");
+  try {
+    debug("prebake try sibling=%s sha=%s", sibling, sha.slice(0, 12));
+    const dstFd = openSync(stagingImg, "w");
+    let gunzipOk = false;
+    try {
+      const r = spawnSync("gunzip", ["-c", sibling], {
+        stdio: ["ignore", dstFd, "pipe"],
+      });
+      gunzipOk = r.status === 0;
+      if (!gunzipOk) {
+        debug(
+          "prebake gunzip failed sibling=%s status=%s stderr=%s",
+          sibling,
+          r.status,
+          r.stderr?.toString().slice(0, 200) ?? "",
+        );
+      }
+    } finally {
+      closeSync(dstFd);
+    }
+    if (!gunzipOk) {
+      return undefined;
+    }
+    // Sniff ext4 magic so a corrupted / wrong-content sibling can't
+    // pollute the cache. We don't run e2fsck here — the build
+    // pipeline already produced a clean fs, and a host crash this
+    // soon after rename is rare enough that the .ok marker handles
+    // it on the next boot.
+    if (!looksLikeExt4(stagingImg)) {
+      debug("prebake sibling did not decompress to ext4 — falling back");
+      return undefined;
+    }
+    // #131: sparse-extend in place if the caller wants more headroom
+    // than the prebuilt image's native size.
+    if (sizeBytes !== undefined) {
+      const cur = statSync(stagingImg).size;
+      if (sizeBytes > cur) {
+        truncateSync(stagingImg, sizeBytes);
+      }
+    }
+    renameSync(stagingImg, imgPath);
+    debug("prebake done sha=%s img=%s", sha.slice(0, 12), imgPath);
+    return imgPath;
+  } catch (err) {
+    debug("prebake error sibling=%s err=%s", sibling, (err as Error).message);
+    return undefined;
+  } finally {
+    try {
+      rmSync(stagingDir, { recursive: true, force: true });
+    } catch {}
+  }
+}
+
 function allocateSparseFile(path: string, sizeBytes: number): void {
   const fd = openSync(path, "w");
   try {
@@ -554,4 +671,5 @@ export const _rootfsImgInternal = {
   findBundledMke2fs,
   resolveMke2fsEnvOverride,
   okMarkerPath,
+  siblingPrebakePath,
 };

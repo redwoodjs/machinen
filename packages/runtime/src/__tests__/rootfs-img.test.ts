@@ -386,6 +386,151 @@ describe("ensureRootfsImage", () => {
     }
   });
 
+  // #223 prebake fast path. When build-base-assets.sh ships a
+  // sibling `<basename>.img.gz` next to the tarball, ensureRootfsImage
+  // gunzips it directly into the cache and skips tar -xf + mke2fs.
+  // Tests use a synthetic "image" that's just the ext4 superblock
+  // magic stamped at offset 1080 — looksLikeExt4 sniffs that and
+  // doesn't need e2fsprogs on the runner.
+  function writeFakeExt4Image(path: string, sizeBytes = 4096): void {
+    const fd = openSync(path, "w");
+    try {
+      writeSync(fd, Buffer.alloc(sizeBytes), 0, sizeBytes, 0);
+      // Little-endian 0xEF53 at offset 1080 — the ext4 superblock magic.
+      writeSync(fd, Buffer.from([0x53, 0xef]), 0, 2, 1080);
+    } finally {
+      closeSync(fd);
+    }
+  }
+
+  it("siblingPrebakePath strips .tar.gz / .tgz / .tar and appends .img.gz", () => {
+    expect(_internal.siblingPrebakePath("/r/rootfs.tar.gz")).toBe("/r/rootfs.img.gz");
+    expect(_internal.siblingPrebakePath("/r/rootfs.tgz")).toBe("/r/rootfs.img.gz");
+    expect(_internal.siblingPrebakePath("/r/rootfs.tar")).toBe("/r/rootfs.img.gz");
+    // Non-tarball paths return undefined — no prebake convention exists
+    // for them, so the runtime falls through to the materialize path.
+    expect(_internal.siblingPrebakePath("/r/rootfs")).toBeUndefined();
+    expect(_internal.siblingPrebakePath("/r/rootfs.zip")).toBeUndefined();
+  });
+
+  it("uses a sibling .img.gz to populate the cache and skips mke2fs", () => {
+    // Pair a tarball with a sibling prebake. Pointing MACHINEN_MKE2FS
+    // at a missing path proves the materialize branch was never
+    // reached — the override would throw ROOTFS_IMG_TOOL_MISSING the
+    // moment we tried to resolve mke2fs.
+    const tarPath = `/tmp/machinen-rootfs-prebake-${process.pid}.tar.gz`;
+    const tmpDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-prebake-tar-"));
+    const cacheDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-prebake-cache-"));
+    writeFileSync(join(tmpDir, "stub"), `prebake-${process.pid}-${Date.now()}`);
+    execSync(`tar -czf ${tarPath} -C ${tmpDir} .`);
+    const fakeImg = join(tmpDir, "fake.img");
+    writeFakeExt4Image(fakeImg, 4096);
+    const sibling = tarPath.replace(/\.tar\.gz$/, ".img.gz");
+    execSync(`gzip -n -c ${fakeImg} > ${sibling}`);
+    const saved = process.env.MACHINEN_MKE2FS;
+    process.env.MACHINEN_MKE2FS = "/definitely/not/here/mke2fs";
+    try {
+      const sha = execSync(`shasum -a 256 ${tarPath}`, { encoding: "utf8" })
+        .trim()
+        .split(/\s+/, 1)[0]!;
+      const result = ensureRootfsImage(tarPath, { cacheDir });
+      expect(result).toBe(join(cacheDir, `${sha}.img`));
+      expect(_internal.looksLikeExt4(result)).toBe(true);
+    } finally {
+      if (saved === undefined) {
+        delete process.env.MACHINEN_MKE2FS;
+      } else {
+        process.env.MACHINEN_MKE2FS = saved;
+      }
+      try {
+        unlinkSync(tarPath);
+      } catch {}
+      try {
+        unlinkSync(sibling);
+      } catch {}
+      rmSync(tmpDir, { recursive: true, force: true });
+      rmSync(cacheDir, { recursive: true, force: true });
+    }
+  }, 20_000);
+
+  it("sibling .img.gz fast path sparse-extends to sizeBytes when larger", () => {
+    const tarPath = `/tmp/machinen-rootfs-prebake-grow-${process.pid}.tar.gz`;
+    const tmpDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-prebake-grow-tar-"));
+    const cacheDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-prebake-grow-cache-"));
+    writeFileSync(join(tmpDir, "stub"), `prebake-grow-${process.pid}-${Date.now()}`);
+    execSync(`tar -czf ${tarPath} -C ${tmpDir} .`);
+    const fakeImg = join(tmpDir, "fake.img");
+    writeFakeExt4Image(fakeImg, 4096);
+    const sibling = tarPath.replace(/\.tar\.gz$/, ".img.gz");
+    execSync(`gzip -n -c ${fakeImg} > ${sibling}`);
+    const saved = process.env.MACHINEN_MKE2FS;
+    process.env.MACHINEN_MKE2FS = "/definitely/not/here/mke2fs";
+    try {
+      const requested = 32 * 1024;
+      const result = ensureRootfsImage(tarPath, { cacheDir, sizeBytes: requested });
+      // The decompressed image was 4 KiB; sizeBytes asks for 32 KiB,
+      // which is sparse-extended in place before atomic-rename so the
+      // guest's online ext4 grow has the headroom #131 promises.
+      expect(statSync(result).size).toBe(requested);
+    } finally {
+      if (saved === undefined) {
+        delete process.env.MACHINEN_MKE2FS;
+      } else {
+        process.env.MACHINEN_MKE2FS = saved;
+      }
+      try {
+        unlinkSync(tarPath);
+      } catch {}
+      try {
+        unlinkSync(sibling);
+      } catch {}
+      rmSync(tmpDir, { recursive: true, force: true });
+      rmSync(cacheDir, { recursive: true, force: true });
+    }
+  }, 20_000);
+
+  it("falls back to materialize when sibling .img.gz decompresses to non-ext4 bytes", () => {
+    // Corrupted prebake: gunzip succeeds but the bytes inside don't
+    // carry the ext4 superblock magic. The fast path must reject the
+    // decompressed file and fall through to the materialize branch.
+    // We point MACHINEN_MKE2FS at nothing so the fallback throws —
+    // the throw itself proves the prebake branch returned undefined.
+    const tarPath = `/tmp/machinen-rootfs-prebake-corrupt-${process.pid}.tar.gz`;
+    const tmpDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-prebake-corrupt-tar-"));
+    const cacheDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-prebake-corrupt-cache-"));
+    writeFileSync(join(tmpDir, "stub"), `prebake-corrupt-${process.pid}-${Date.now()}`);
+    execSync(`tar -czf ${tarPath} -C ${tmpDir} .`);
+    const garbage = join(tmpDir, "garbage.bin");
+    writeFileSync(garbage, "not an ext4 image, just some bytes");
+    const sibling = tarPath.replace(/\.tar\.gz$/, ".img.gz");
+    execSync(`gzip -n -c ${garbage} > ${sibling}`);
+    const saved = process.env.MACHINEN_MKE2FS;
+    process.env.MACHINEN_MKE2FS = "/definitely/not/here/mke2fs";
+    try {
+      expect(() => ensureRootfsImage(tarPath, { cacheDir })).toThrow(ProvisionError);
+      try {
+        ensureRootfsImage(tarPath, { cacheDir });
+      } catch (err) {
+        expect(err).toBeInstanceOf(ProvisionError);
+        expect((err as ProvisionError).code).toBe("ROOTFS_IMG_TOOL_MISSING");
+      }
+    } finally {
+      if (saved === undefined) {
+        delete process.env.MACHINEN_MKE2FS;
+      } else {
+        process.env.MACHINEN_MKE2FS = saved;
+      }
+      try {
+        unlinkSync(tarPath);
+      } catch {}
+      try {
+        unlinkSync(sibling);
+      } catch {}
+      rmSync(tmpDir, { recursive: true, force: true });
+      rmSync(cacheDir, { recursive: true, force: true });
+    }
+  }, 20_000);
+
   it("never shrinks a cached .img — sizeBytes < existing is a no-op", () => {
     // Truncate-down would actually destroy data inside the ext4 fs, so
     // the truncate guard is a critical safety: if the cache is already
