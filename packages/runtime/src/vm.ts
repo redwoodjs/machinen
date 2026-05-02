@@ -1110,6 +1110,17 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     },
   };
 
+  // Set a per-VM kernel hostname so `\h` prompts and other
+  // hostname-aware tooling can tell VMs apart. Fire-and-forget
+  // over vsock — for fresh boots this races bash startup, so a
+  // workload shell may still cache the kernel's pre-call value
+  // (`(none)` on Linux). Subsequent shells (e.g. via
+  // `machinen attach`) read the post-call value. Suppressed when
+  // we have no vsock UDS (boot-without-exec-agent paths).
+  if (vsockUdsPath) {
+    void setGuestHostname(handle, buildGuestHostname(handle.pid, handle.name));
+  }
+
   return handle;
 }
 
@@ -2258,14 +2269,11 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
   }
 
   // CRIU restores the dumped UTS namespace, which means the hostname
-  // is whatever the source VM had — not what the caller picked for
-  // the new VM. Fire `hostname <name>` over vsock (fire-and-forget)
-  // so an interactive shell's `\h` prompt expansion reflects the
-  // new VM's name. Failure is harmless: the prompt just stays at
-  // the inherited value.
-  if (vm.name) {
-    void setGuestHostname(vm, vm.name);
-  }
+  // is whatever the source VM had — not the new VM's identity. Fire
+  // `hostname <label>` over vsock (fire-and-forget) so the guest's
+  // kernel hostname uniquely identifies this VM, with the host VMM
+  // pid as the disambiguator. See buildGuestHostname for the format.
+  void setGuestHostname(vm, buildGuestHostname(vm.pid, vm.name));
   return vm;
 }
 
@@ -2274,33 +2282,66 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
 // =============================================================
 
 /**
+ * Build the kernel hostname we set on the guest. Always includes the
+ * host VMM pid so each running VM has a unique label, even when the
+ * caller didn't pass a name. Format:
+ *   - named:    `<name>-pid-<host_pid>`
+ *   - nameless: `vm-pid-<host_pid>`
+ *
+ * Sanitizes the name component (replaces anything outside the POSIX
+ * hostname charset with `-`) so an auto-name like `<src>~<pid>` or
+ * `<src>/<pid>` becomes a valid hostname instead of being rejected.
+ */
+function buildGuestHostname(pid: number, name?: string): string {
+  const tag = `pid-${pid}`;
+  if (!name) {
+    return `vm-${tag}`;
+  }
+  // RFC 952/1123: letters, digits, hyphen. Map everything else to `-`,
+  // collapse runs of `-`, and trim leading/trailing `-`.
+  const safe = name
+    .replace(/[^A-Za-z0-9-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return safe.length > 0 ? `${safe}-${tag}` : `vm-${tag}`;
+}
+
+/**
  * Set the guest's kernel hostname over vsock-exec. Fire-and-forget:
  * any failure is logged at debug level and swallowed — a wrong prompt
  * label is strictly cosmetic and must never break a boot/restore.
  *
- * Safe vs. arbitrary names: the guest runs `hostname <quoted>`. We
- * single-quote and reject any name containing a single quote so a
- * caller-supplied name can't escape into a shell injection.
+ * Note for callers chasing prompt updates: bash's `\h` reads
+ * `gethostname()` once at shell startup and caches it. Restored
+ * (CRIU) shells and shells already running before this call won't
+ * pick up the change in their prompt — the kernel value updates,
+ * but the live shell needs `exec bash` (or a new shell via
+ * `machinen attach`) to re-read.
  */
-async function setGuestHostname(vm: VmHandle, name: string): Promise<void> {
-  if (name.length === 0 || name.includes("'") || name.includes("\n") || name.includes("\0")) {
-    debug("setGuestHostname: refusing unsafe name %j", name);
+async function setGuestHostname(vm: VmHandle, hostname: string): Promise<void> {
+  if (
+    hostname.length === 0 ||
+    hostname.includes("'") ||
+    hostname.includes("\n") ||
+    hostname.includes("\0")
+  ) {
+    debug("setGuestHostname: refusing unsafe hostname %j", hostname);
     return;
   }
   try {
     // execRaw doesn't throw on non-zero exit; we just don't care
     // either way. 5s connectTimeout covers slow boot agent bring-up
     // without dragging caller latency.
-    await vm.execRaw(`hostname '${name}' 2>/dev/null || true`, {
+    await vm.execRaw(`hostname '${hostname}' 2>/dev/null || true`, {
       connectTimeoutMs: 5_000,
       execTimeoutMs: 5_000,
     });
-    debug("setGuestHostname: set pid=%d name=%s", vm.pid, name);
+    debug("setGuestHostname: set pid=%d hostname=%s", vm.pid, hostname);
   } catch (err) {
     debug(
-      "setGuestHostname: failed pid=%d name=%s err=%s",
+      "setGuestHostname: failed pid=%d hostname=%s err=%s",
       vm.pid,
-      name,
+      hostname,
       err instanceof Error ? err.message : String(err),
     );
   }

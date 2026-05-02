@@ -81,14 +81,22 @@ if [ "$IN_SUB_NS" -eq 1 ]; then
     DUMP_PID="${1:-}"
     SUB_NS_HOST_PID=""
 else
-    # /init writes the workload's PID after fork. Fall back to PID 2 if
-    # the file is missing — that's what's produced by the supervisor
-    # spawning the workload as its first background job.
+    # /init writes the workload's PID after fork. Wait briefly for it
+    # to land — the dump can race the supervisor's setsid+printf
+    # wrapper if other vsock-execs (e.g. the runtime's post-boot
+    # `hostname` call) warm the agent before the workload is up. Fall
+    # back to PID 2 only after the wait expires; that's what's produced
+    # by the supervisor spawning the workload as its first background job.
     PIDFILE=/run/machinen-workload.pid
+    i=0
+    while [ ! -f "$PIDFILE" ] && [ "$i" -lt 50 ]; do
+        sleep 0.1
+        i=$((i + 1))
+    done
     if [ -f "$PIDFILE" ]; then
         DUMP_PID=$(cat "$PIDFILE")
     else
-        echo "machinen-dump: $PIDFILE missing; falling back to PID 2" >&2
+        echo "machinen-dump: $PIDFILE missing after 5s; falling back to PID 2" >&2
         DUMP_PID=2
     fi
 
