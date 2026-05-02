@@ -254,7 +254,10 @@ chmod +x /tmp/setup-hook.sh
 #   libs (libnl, libprotobuf-c, libnftables). The criu-ns shell helper
 #   that solves PID collisions across boots ships in the same package.
 #   APT::Install-Recommends "false" is already set by the setup hook,
-#   so criu's optional python3 suggestion is skipped.
+#   so criu's optional python3 suggestion is skipped. The Debian
+#   binary is overlaid with an upstream-tag build below — see
+#   "CRIU overlay" — but we keep the package installed for its
+#   runtime libs and the dpkg manifest.
 #
 #   e2fsprogs: mkfs.ext4 + blkid. /sbin/machinen-dump formats /dev/vda
 #   on first snapshot so CRIU has a filesystem to write images into;
@@ -272,6 +275,60 @@ mmdebstrap \
   --include=criu,e2fsprogs,iputils-ping \
   --setup-hook=/tmp/setup-hook.sh \
   bookworm /work/rootfs
+
+# ----------------------------------------------------------------
+# CRIU overlay — replace the Debian 3.17.1 binary with an upstream
+# tag that supports SOCK_DGRAM/IPPROTO_ICMP{,V6} ("unprivileged ping"
+# sockets, opened by iputils-ping via ping_group_range, #203).
+#
+# Debian 12's CRIU is 3.17.1, whose can_dump_ipproto rejects
+# SOCK_DGRAM/IPPROTO_ICMP — any workload that ran `ping` and held
+# the socket open made `vm.snapshot()` fail with
+# "Unsupported proto 1 for socket M" deep in sk-inet.c. The fix
+# (sk-inet: Add support for checkpoint/restore of ICMP sockets,
+# upstream a80c5448 from 2024-12-26) only landed in v4.1+, and the
+# next Debian stable to pick it up is at least a year out.
+#
+# We pin a specific tag so the artifact is reproducible. Bump by
+# editing CRIU_TAG (and re-pinning the tarball sha if you want
+# stronger integrity than HTTPS). The Debian `criu` package stays
+# installed — only the /usr/sbin/criu binary is overlaid, so we
+# inherit Debian's runtime libs (libnl-3, libprotobuf-c,
+# libnftables) and the dpkg manifest stays consistent.
+#
+# Build deps install into the container's overlay, not /work/rootfs,
+# so nothing extra ships in the final tarball. Build runs under
+# linux/arm64 — native on CI's arm64 runner, qemu-emulated on darwin
+# (~3-5 min added to base-assets wall time on darwin; ~1 min on CI).
+CRIU_TAG="v4.2"
+echo "==> Overlaying CRIU $CRIU_TAG (Debian's 3.17.1 lacks ICMP socket support)"
+# Build deps install into the container's overlay, not /work/rootfs,
+# so nothing extra ships in the final tarball. We only build the
+# `criu` target (the binary) — the `all` default also tries to build
+# `lib-py` (Python bindings via crit), which needs a python3 we
+# strip from the rootfs anyway and which we don't ship to users.
+apt-get install -y --no-install-recommends \
+  build-essential pkg-config \
+  libprotobuf-dev libprotobuf-c-dev protobuf-c-compiler protobuf-compiler \
+  libnl-3-dev libnet-dev libcap-dev libnftables-dev uuid-dev \
+  curl ca-certificates \
+  > /dev/null
+mkdir -p /tmp/criu-build
+curl -fsSL "https://github.com/checkpoint-restore/criu/archive/refs/tags/${CRIU_TAG}.tar.gz" \
+  | tar -xzf - -C /tmp/criu-build --strip-components=1
+make -C /tmp/criu-build -j"$(nproc)" PIE=1 NO_GNUTLS=1 criu > /tmp/criu-build.log 2>&1 || {
+  echo "criu build failed; tail of log:"
+  tail -60 /tmp/criu-build.log
+  exit 1
+}
+install -m 0755 /tmp/criu-build/criu/criu /work/rootfs/usr/sbin/criu
+# Sanity-check the overlay landed and reports the expected tag.
+# `criu --version` prints "Version: 4.2" verbatim — chroot in so the
+# binary resolves the runtime libs the rootfs actually ships
+# (libnl-3, libprotobuf-c, libnftables — same versions Debian's
+# package was linked against, since we kept that package installed).
+chroot /work/rootfs /usr/sbin/criu --version | tee /dev/stderr | grep -qE "Version: ${CRIU_TAG#v}" \
+  || { echo "criu overlay version mismatch — expected ${CRIU_TAG#v}"; exit 1; }
 
 # Belt-and-braces cleanup for things path-exclude doesn't cover.
 # Also drop the second copy of the kernel image and initrd hooks we
