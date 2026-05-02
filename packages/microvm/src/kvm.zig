@@ -152,6 +152,21 @@ pub const KVM_DEV_ARM_VGIC_CTRL_INIT: u64 = 0;
 // arm64 VCPU_INIT feature bits.
 pub const KVM_ARM_VCPU_PSCI_0_2: u32 = 2;
 
+// KVM_IRQ_LINE encoding (arm64).
+pub const KVM_ARM_IRQ_TYPE_SHIFT: u5 = 24;
+pub const KVM_ARM_IRQ_TYPE_CPU: u32 = 0;
+pub const KVM_ARM_IRQ_TYPE_SPI: u32 = 1;
+pub const KVM_ARM_IRQ_TYPE_PPI: u32 = 2;
+
+/// Encode `KVM_ARM_IRQ_TYPE_SPI | (32 + spi_id)` for `Vm.setIrq`.
+/// `spi_id` is the device-tree-relative SPI number (e.g. PL011 = 1,
+/// virtio-blk slot 1 = 17). Without the type bits, KVM treats the
+/// call as a legacy CPU-line IRQ (type 0) and silently drops virtio
+/// doorbells, which manifests as guest hangs after QueueNotify.
+pub fn irqSpi(spi_id: u32) u32 {
+    return (KVM_ARM_IRQ_TYPE_SPI << KVM_ARM_IRQ_TYPE_SHIFT) | (32 + spi_id);
+}
+
 // ---------------------------------------------------------------
 // x86_64 register banks. arm64 boots don't touch these; they live
 // here so the same kvm.zig wrapper serves both arches. Layouts
@@ -468,11 +483,18 @@ pub const Vm = struct {
         return .{ .fd = gic_fd, .vm_fd = self.fd };
     }
 
-    /// Raise or lower an interrupt line. `irq` uses KVM's encoding:
-    /// bits 27:24 = type (0 = SPI), bits 23:16 = vcpu_id, bits 15:0 =
-    /// irq_number. For arm64 SPIs, irq_number = GIC SPI base (32) +
-    /// device-specific offset; our DTS maps PL011 to 33, virtio-net
-    /// to 48, etc.
+    /// Raise or lower an interrupt line. `irq` uses KVM's arm64
+    /// encoding (uapi/linux/kvm.h):
+    ///
+    ///   bits 27:24 = type (KVM_ARM_IRQ_TYPE_SPI = 1, _PPI = 2, _CPU = 0)
+    ///   bits 23:16 = vCPU index (PPI/CPU only; SPI is system-wide)
+    ///   bits 15:0  = irq_number; for SPI this is the GIC INTID
+    ///                (private-IRQs offset 32 already included; KVM
+    ///                subtracts 32 internally before talking to vgic).
+    ///
+    /// Use `irqSpi(spi_id)` to encode the type+id correctly. Without
+    /// the type bits, KVM treats the call as a CPU-line legacy IRQ
+    /// (type 0) which silently drops virtio doorbells.
     pub fn setIrq(self: *Vm, irq: u32, level: u32) !void {
         var lvl = IrqLevel{ .irq = irq, .level = level };
         if (ioctl(self.fd, KVM_IRQ_LINE, &lvl) != 0) return error.KvmIrqLineFailed;
