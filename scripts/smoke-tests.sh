@@ -107,17 +107,20 @@ echo "smoke: VMM=$MACHINEN_VMM"
 echo "smoke: ASSETS=$MACHINEN_ASSETS_DIR"
 echo
 
-# Capability probe: N-series (vsock exec) and P/C-series (criu, vsock
-# modules, fnm) need a #77+ rootfs. Peek inside the tarball for marker
-# files; skip dependent sections with a warning if we're running
-# against a stale (pre-#77) rootfs. Rebuild with
-# ./scripts/build-base-assets.sh to pick them up.
+# Capability probe: N-series (vsock exec) and P/C-series (criu, fnm)
+# need a #77+ rootfs. Peek inside the tarball for marker files; skip
+# dependent sections with a warning if we're running against a stale
+# (pre-#77) rootfs. Rebuild with ./scripts/build-base-assets.sh to
+# pick them up.
 ROOTFS_TAR="$ASSETS/rootfs-debian-arm64.tar.gz"
 ROOTFS_SUPPORTS_VSOCK_EXEC=1
 ROOTFS_SUPPORTS_CRIU=1
 ROOTFS_SUPPORTS_SNAPSHOT_HELPERS=1
-if ! tar tzf "$ROOTFS_TAR" 2>/dev/null | grep -q "vmw_vsock_virtio_transport"; then
-  echo "smoke: WARN rootfs lacks vsock modules — N-series (vm.exec) will be skipped"
+# vsock support moved from /lib/modules into the kernel image (#119),
+# so the modern marker is /exec-agent in the rootfs (#93's vsock-using
+# helper) rather than the old `vmw_vsock_virtio_transport.ko` path.
+if ! tar tzf "$ROOTFS_TAR" 2>/dev/null | grep -q "^./exec-agent$"; then
+  echo "smoke: WARN rootfs lacks /exec-agent — N-series (vm.exec) will be skipped"
   ROOTFS_SUPPORTS_VSOCK_EXEC=0
 fi
 if ! tar tzf "$ROOTFS_TAR" 2>/dev/null | grep -q "usr/sbin/criu"; then
@@ -737,31 +740,62 @@ else
 fi  # S1 rootfs-capability gate
 
 # ----------------------------------------------------------------
-# S2: chained snapshot — snapshot a restored VM (#207).
-#   1. boot fresh, snapshot → bundle A
+# S2: chained snapshot — snapshot a restored VM (#207, #215).
+#   1. boot a high-PID bash workload, snapshot → bundle A
 #   2. restore bundle A
-#   3. snapshot the restored VM → bundle B
-#   4. restore bundle B and exec on it to prove it's alive
-# Verifies the reflink-clone (so bundle A survives step 3) and
-# /run/machinen-workload.pid (written by criu --pidfile on restore so
-# step 3 can find the workload).
+#   3. snapshot the restored VM → bundle B  (2nd-generation chain)
+#   4. restore bundle B
+#   5. snapshot the chain-restored VM → bundle C  (3rd-gen chain — #215)
+#   6. restore bundle C and exec on it to prove it's alive
+# Verifies:
+#   - reflink-clone (bundle A survives step 3) — #207
+#   - /run/machinen-workload.pid (written by criu --pidfile on restore so
+#     step 3 can find the workload) — #207
+#   - PID-namespace isolation in machinen-restore.sh (#215). The bash
+#     workload below runs 200 short-lived subshells before the long
+#     sleep loop so the dumped tree's PIDs are well above what the
+#     restore-side helpers (exec-agent, mount, blkid, mkdir, the sub-NS
+#     criu daemon) want to allocate. Without #215's `unshare --pid`
+#     the chained restore (step 4) fails with `clone3(set_tid=N): EEXIST`
+#     and the kernel panics ("init exited 1").
 # ----------------------------------------------------------------
 if [[ "$ROOTFS_SUPPORTS_VSOCK_EXEC" -eq 0 || "$ROOTFS_SUPPORTS_CRIU" -eq 0 || "$ROOTFS_SUPPORTS_SNAPSHOT_HELPERS" -eq 0 ]]; then
   echo "S2: skipped (rootfs lacks vsock/criu/snapshot helpers)"
 else
-  echo "S2: chained snapshot (snapshot a restored VM)"
+  echo "S2: chained snapshot (snapshot a restored VM, 3 generations, high PIDs)"
   S2_NAME="chained-smoke-$$"
   S2_BG_LOG="$FIXTURE/s2-bg.log"
   S2_SNAP_A="$FIXTURE/s2-snap-a"
   S2_SNAP_B="$FIXTURE/s2-snap-b"
+  S2_SNAP_C="$FIXTURE/s2-snap-c"
   S2_SCRATCH="$FIXTURE/s2-scratch.img"
   S2_RESTORE_A_LOG="$FIXTURE/s2-restore-a.log"
   S2_RESTORE_B_LOG="$FIXTURE/s2-restore-b.log"
+  S2_RESTORE_C_LOG="$FIXTURE/s2-restore-c.log"
 
   truncate -s 256M "$S2_SCRATCH"
 
+  # Spawn 30 long-running sleep children so the dumped tree spans a
+  # range of PIDs (workload + 30 sleeps as direct children). This
+  # reproduces the #215 collision: on chained restore CRIU has to
+  # set_tid each PID in turn, and its own internal forks between
+  # set_tid calls land on the same range — last_pid advances past
+  # the next set_tid target and clone3() returns EEXIST. Without
+  # `unshare --pid` in /sbin/machinen-restore the chain falls over
+  # at gen-2 or gen-3 with "Can't fork for N: File exists" and
+  # /init dies, panicking the kernel ("Attempted to kill init!").
+  # /bin/bash isn't in the base rootfs (Debian minbase ships
+  # /bin/dash + /bin/sh) so we use sh; the dumped tree shape is
+  # what matters, not the shell choice.
   S2_PID=$(boot_bg "$S2_NAME" "$S2_BG_LOG" --snapshot "$S2_SCRATCH" -- \
-    /bin/sh -c "while :; do sleep 1; done")
+    /bin/sh -c '
+      i=0
+      while [ "$i" -lt 30 ]; do
+        sleep 100000 &
+        i=$((i + 1))
+      done
+      wait
+    ')
   cleanup_s2() {
     kill -TERM "$S2_PID" 2>/dev/null || true
     wait "$S2_PID" 2>/dev/null || true
@@ -867,14 +901,67 @@ else
   S2_RESTORE_B_EXEC_LOG="$FIXTURE/s2-restore-b-exec.log"
   if cli exec --name "$S2_RESTORED_B" -- uname -m >"$S2_RESTORE_B_EXEC_LOG" 2>&1 \
      && grep -qE "aarch64|arm64" "$S2_RESTORE_B_EXEC_LOG"; then
-    pass "exec-agent responds on the chain-restored VM"
+    pass "exec-agent responds on the chain-restored VM (gen 2)"
   else
     cat "$S2_RESTORE_B_EXEC_LOG" >&2
     tail -60 "$S2_RESTORE_B_LOG" >&2
     fail "S2 — exec against chain-restored VM failed"
   fi
 
-  cleanup_s2_restore_b
+  # 3rd-generation chain (#215): snapshot the chain-restored VM, then
+  # restore that and exec. This is the case the issue calls out as
+  # recursive-safe — the dumped tree's PIDs accumulate as the chain
+  # deepens, so a depth-3 restore is the canary for whether
+  # /sbin/machinen-dump can dump across a sub-NS boundary.
+  S2_DUMP_C_LOG="$FIXTURE/s2-dump-c.log"
+  if ! cli snapshot --name "$S2_RESTORED_B" --out-dir "$S2_SNAP_C" 2>"$S2_DUMP_C_LOG"; then
+    tail -80 "$S2_RESTORE_B_LOG" >&2
+    cat "$S2_DUMP_C_LOG" >&2
+    fail "S2 — gen-3 'machinen snapshot' (restored-B → C) failed"
+  fi
+  wait "$S2_RESTORE_B_PID" 2>/dev/null || true
+  pass "gen-3 chained snapshot → bundle C"
+
+  if [[ ! -s "$S2_SNAP_C/disk.img" ]]; then
+    fail "S2 — gen-3 snapshot bundle C has empty disk.img"
+  fi
+
+  node "$CLI" restore "$S2_SNAP_C" >"$S2_RESTORE_C_LOG" 2>&1 &
+  S2_RESTORE_C_PID=$!
+  cleanup_s2_restore_c() {
+    kill -TERM "$S2_RESTORE_C_PID" 2>/dev/null || true
+    wait "$S2_RESTORE_C_PID" 2>/dev/null || true
+  }
+  trap 'cleanup_s2; cleanup_s2_restore_c; rm -rf "$FIXTURE"' EXIT
+
+  S2_RESTORED_C=""
+  deadline=$((SECONDS + 45))
+  while (( SECONDS < deadline )); do
+    cand=$(cli ls 2>/dev/null | awk -v src="$S2_RESTORED_B/" 'NR>1 && index($2, src)==1 {print $2; exit}')
+    if [[ -n "$cand" ]]; then
+      S2_RESTORED_C=$cand
+      break
+    fi
+    sleep 1
+  done
+  if [[ -z "$S2_RESTORED_C" ]]; then
+    tail -80 "$S2_RESTORE_C_LOG" >&2
+    cli ls >&2 || true
+    fail "S2 — gen-3 restored-from-C VM never registered"
+  fi
+  pass "restored bundle C as '$S2_RESTORED_C'"
+
+  S2_RESTORE_C_EXEC_LOG="$FIXTURE/s2-restore-c-exec.log"
+  if cli exec --name "$S2_RESTORED_C" -- uname -m >"$S2_RESTORE_C_EXEC_LOG" 2>&1 \
+     && grep -qE "aarch64|arm64" "$S2_RESTORE_C_EXEC_LOG"; then
+    pass "exec-agent responds on the gen-3 chain-restored VM"
+  else
+    cat "$S2_RESTORE_C_EXEC_LOG" >&2
+    tail -60 "$S2_RESTORE_C_LOG" >&2
+    fail "S2 — exec against gen-3 chain-restored VM failed"
+  fi
+
+  cleanup_s2_restore_c
   trap 'rm -rf "$FIXTURE"' EXIT
 fi  # S2 rootfs-capability gate
 
