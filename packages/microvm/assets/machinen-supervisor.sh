@@ -49,6 +49,16 @@ if [ -x /sbin/machinen-winsize-agent ]; then
     WINSIZE_PID=$!
 fi
 
+# Label the guest with the VM's name so an interactive shell prompt
+# (\h in bash's default Debian PS1) shows which VM is attached. The
+# runtime injects MACHINEN_VM_NAME via machinen-config.json when the
+# caller passed --name; nameless boots leave the hostname unchanged.
+# `hostname` here is a no-op if the binary is missing or the value
+# fails validation — we never want a prompt cosmetic to break boot.
+if [ -n "${MACHINEN_VM_NAME:-}" ]; then
+    hostname "$MACHINEN_VM_NAME" 2>/dev/null || true
+fi
+
 mkdir -p /run 2>/dev/null || true
 # /tmp is required by CRIU's kerndat probes (mkdir under /tmp on every
 # `criu dump` AND `criu restore`), and by lots of other software that

@@ -720,13 +720,18 @@ async function cmdSnapshot(args: string[]): Promise<number> {
 
 async function cmdFork(args: string[]): Promise<number> {
   // `machinen fork ( --name <src> | --pid <pid> ) [--new-name <dst>]
-  //                [--out-dir <dir>] [--tcp-keep]`.
+  //                [--out-dir <dir>] [--tcp-keep] [--detach]`.
   //
   // Snapshots the source live (--leave-running), restores into a
-  // sibling, and prints the new VM's identity. Source keeps running.
+  // sibling, and by default attaches the fork's console to host
+  // stdio so the user lands inside the new VM (same shape as
+  // `machinen restore`). `--detach` keeps the fire-and-forget shape
+  // (CI / scripted workflows): print identity, hand off, return.
+  // Source keeps running either way.
   let newName: string | undefined;
   let outDir: string | undefined;
   let tcpKeep = false;
+  let detach = false;
   const rest: string[] = [];
   for (let i = 0; i < args.length; i++) {
     const a = args[i]!;
@@ -742,6 +747,8 @@ async function cmdFork(args: string[]): Promise<number> {
       }
     } else if (a === "--tcp-keep") {
       tcpKeep = true;
+    } else if (a === "--detach") {
+      detach = true;
     } else {
       rest.push(a);
     }
@@ -783,15 +790,51 @@ async function cmdFork(args: string[]): Promise<number> {
         process.stderr.write(evt.chunk);
       },
     });
-    process.stdout.write(`forked: ${fork.name ?? "<anonymous>"} (pid ${fork.pid})\n`);
+    process.stderr.write(`forked: ${fork.name ?? "<anonymous>"} (pid ${fork.pid})\n`);
     if (!outDir) {
       process.stderr.write(`bundle: ${resolvedOutDir} (rm -rf when the fork exits)\n`);
     }
-    // Detach the fork handle — the new VM keeps running, owned by its
-    // own VMM process. Same shape as `cmdSnapshot`: we did the work,
-    // hand it off, return.
-    await fork.detach();
-    return 0;
+    if (detach) {
+      // Fire-and-forget: hand the fork off to its own VMM process
+      // (boot was spawned with pdeathsig=false so it survives this
+      // CLI exit) and return.
+      await fork.detach();
+      return 0;
+    }
+
+    // Drop the user into the fork's interactive console — same shape
+    // as `cmdRestore`. The source VM keeps running in the background,
+    // owned by whoever booted it; we never had its console fd.
+    fork.stdout.pipe(process.stdout);
+    fork.stderr.pipe(process.stderr);
+    const restoreStdin = rawModeStdinIfTTY();
+    process.stdin.pipe(fork.stdin);
+
+    let forwardedSignal: "SIGINT" | "SIGTERM" | null = null;
+    const onSigint = () => {
+      forwardedSignal = "SIGINT";
+      void fork.kill();
+    };
+    const onSigterm = () => {
+      forwardedSignal = "SIGTERM";
+      void fork.kill();
+    };
+    process.on("SIGINT", onSigint);
+    process.on("SIGTERM", onSigterm);
+    try {
+      const { code } = await fork.wait();
+      if (forwardedSignal === "SIGINT") {
+        return 130;
+      }
+      if (forwardedSignal === "SIGTERM") {
+        return 143;
+      }
+      return code ?? 0;
+    } finally {
+      process.off("SIGINT", onSigint);
+      process.off("SIGTERM", onSigterm);
+      restoreStdin();
+    }
   } catch (err) {
     handleError(err);
   } finally {
@@ -1084,9 +1127,13 @@ function printHelp(): void {
       `                                                 (and closes inherited TCP sockets to\n` +
       `                                                 avoid two live copies racing on shared\n` +
       `                                                 connection state).\n` +
-      `  machinen fork     <target-flag> [--new-name <n>] [--out-dir <d>] [--tcp-keep]\n` +
+      `  machinen fork     <target-flag> [--new-name <n>] [--out-dir <d>] [--tcp-keep] [--detach]\n` +
       `                                                 Snapshot the source live (it keeps\n` +
-      `                                                 running) and restore into a sibling VM.\n` +
+      `                                                 running) and restore into a sibling VM,\n` +
+      `                                                 dropping the caller into the fork's\n` +
+      `                                                 interactive console. Pass --detach to\n` +
+      `                                                 hand the fork off and return immediately\n` +
+      `                                                 (CI / scripted use).\n` +
       `                                                 Without --out-dir, the bundle is\n` +
       `                                                 ephemeral and removed when the fork exits.\n` +
       `  machinen attach   <target-flag> [--shell <c>]  Drop into an interactive PTY shell\n` +
