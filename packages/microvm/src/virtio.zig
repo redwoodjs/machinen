@@ -39,6 +39,7 @@
 //!   0x100+ Config space      RW  device-specific (e.g. virtio-net MAC lives here)
 
 const std = @import("std");
+const assert = std.debug.assert;
 
 pub const magic: u32 = 0x74726976; // 'v','i','r','t' little-endian
 pub const version: u32 = 2;
@@ -69,6 +70,33 @@ pub const Status = packed struct(u32) {
 /// Max number of queues we let the driver configure. virtio-net
 /// uses 2 (RX, TX); reserving extra room is cheap.
 pub const max_queues: u32 = 8;
+
+comptime {
+    // Wire-format layouts the guest driver writes / reads directly. A
+    // mismatch here means @memcpy at runtime would shred a parsed ring
+    // header. Pair with the @sizeOf-based length checks below.
+    assert(@sizeOf(VringDesc) == 16);
+    assert(@offsetOf(VringDesc, "addr") == 0);
+    assert(@offsetOf(VringDesc, "len") == 8);
+    assert(@offsetOf(VringDesc, "flags") == 12);
+    assert(@offsetOf(VringDesc, "next") == 14);
+    assert(@sizeOf(VringAvail) == 4);
+    assert(@offsetOf(VringAvail, "flags") == 0);
+    assert(@offsetOf(VringAvail, "idx") == 2);
+    assert(@sizeOf(VringUsedElem) == 8);
+    assert(@offsetOf(VringUsedElem, "id") == 0);
+    assert(@offsetOf(VringUsedElem, "len") == 4);
+    assert(@sizeOf(VringUsed) == 4);
+    assert(@offsetOf(VringUsed, "flags") == 0);
+    assert(@offsetOf(VringUsed, "idx") == 2);
+    // Status is u32-wide so it round-trips through the 0x070 register.
+    assert(@bitSizeOf(Status) == 32);
+    assert(@sizeOf(Status) == 4);
+    // skip_notify_queues is u32; queue index is shifted as u5. The
+    // hard cap is 32, but 8 is what we actually support.
+    assert(max_queues > 0);
+    assert(max_queues <= 32);
+}
 
 /// Interrupt-status bits the driver expects to see at 0x060.
 pub const IRQ_USED_BUFFER: u32 = 1 << 0; // VIRTIO_MMIO_INT_VRING
@@ -167,11 +195,16 @@ pub const Device = struct {
     queues: [max_queues]Queue = @splat(.{}),
 
     pub fn handles(self: *const Device, addr: u64) bool {
+        assert(self.size > 0);
+        // No address-space wraparound in the MMIO window.
+        assert(self.base +% self.size > self.base);
         return addr >= self.base and addr < self.base + self.size;
     }
 
     /// Handle an MMIO read. Returns the value the kernel should see.
     pub fn read(self: *Device, addr: u64) u64 {
+        assert(self.size > 0);
+        assert(self.handles(addr));
         const off = addr - self.base;
         return switch (off) {
             0x000 => magic,
@@ -196,6 +229,8 @@ pub const Device = struct {
     /// Handle an MMIO write. Updates internal state; returns void
     /// because the caller advances PC regardless.
     pub fn write(self: *Device, addr: u64, value: u64) void {
+        assert(self.size > 0);
+        assert(self.handles(addr));
         const off = addr - self.base;
         const v32: u32 = @truncate(value);
         switch (off) {
@@ -247,6 +282,9 @@ pub const Device = struct {
     }
 
     fn readConfig(self: *const Device, off: usize) u64 {
+        // Caller in `read` masks 0x100..0x1FF and subtracts 0x100, so
+        // off is bounded by the MMIO window — programmer error if not.
+        assert(off < 0x100);
         const cfg = self.config orelse return 0;
         if (off >= cfg.len) return 0;
         // Guests read config space with varied widths (byte, halfword,
@@ -255,6 +293,7 @@ pub const Device = struct {
         // of the destination register.
         var buf: [8]u8 = @splat(0);
         const n = @min(cfg.len - off, 8);
+        assert(n <= buf.len);
         @memcpy(buf[0..n], cfg[off..][0..n]);
         return std.mem.readInt(u64, &buf, .little);
     }
@@ -274,7 +313,10 @@ pub const Device = struct {
     /// — the kernel's TX path completes successfully, `tx_packets`
     /// counter increments, buffers get freed.
     pub fn notify(self: *Device, q_idx: u32) void {
+        assert(self.size > 0);
         if (q_idx >= max_queues) return;
+        // Inside the gate: q_idx fits a u5, so the shift below is well-defined.
+        assert(q_idx < 32);
         const q = &self.queues[q_idx];
         if (q.ready == 0 or q.num == 0) return;
 
@@ -306,6 +348,8 @@ pub const Device = struct {
     /// Read one descriptor from `q_idx` at index `idx`. Returns null
     /// on out-of-range or missing ram.
     pub fn queueDescriptor(self: *Device, q_idx: u32, idx: u16) ?VringDesc {
+        assert(self.size > 0);
+        assert(self.queue_num_max > 0);
         if (q_idx >= max_queues) return null;
         return self.readDescriptor(&self.queues[q_idx], idx);
     }
@@ -316,6 +360,8 @@ pub const Device = struct {
     /// provided data, since the guest cares about the byte count of
     /// data written BY the device).
     pub fn queuePushUsed(self: *Device, q_idx: u32, head: u16, len: u32) void {
+        assert(self.size > 0);
+        assert(self.queue_num_max > 0);
         if (q_idx >= max_queues) return;
         self.pushUsed(&self.queues[q_idx], head, len);
     }
@@ -336,6 +382,12 @@ pub const Device = struct {
     /// hasn't posted any receive buffers (drop). Call setSpi after
     /// this to match `interrupt_status`.
     pub fn injectRx(self: *Device, frame: []const u8) bool {
+        assert(self.size > 0);
+        // Programmer error to inject an empty frame; jumbo > 16K is
+        // larger than the TX scratch can ever produce, so the same
+        // bound applies in the other direction.
+        assert(frame.len > 0);
+        assert(frame.len <= 16 * 1024);
         const q = &self.queues[0]; // virtio-net: queue 0 is RX
         if (q.ready == 0 or q.num == 0) return false;
 
@@ -345,6 +397,7 @@ pub const Device = struct {
 
         // Build the payload: 12-byte header + frame bytes.
         const net_hdr = [_]u8{0} ** 12;
+        assert(net_hdr.len == 12);
         const total_len: u32 = @intCast(net_hdr.len + frame.len);
 
         // Walk descriptors, copying first the header then the frame.
@@ -386,6 +439,10 @@ pub const Device = struct {
     }
 
     fn drainAvail(self: *Device, q: *Queue) void {
+        // Caller (notify) gates on these; assert them so a bad caller
+        // doesn't quietly enter the loop body.
+        assert(q.ready != 0);
+        assert(q.num > 0);
         const avail = self.readAvailHeader(q) orelse return;
         while (q.last_avail_idx != avail.idx) {
             const head = self.readAvailRingEntry(q, q.last_avail_idx) orelse return;
@@ -406,8 +463,12 @@ pub const Device = struct {
     /// it before calling the handler — the handler gets a bare
     /// ethernet frame, which is what any backend wants to forward.
     fn walkAndEmit(self: *Device, q: *Queue, head: u16) u32 {
+        // Caller drains under notify, which has gated on q.num > 0.
+        // We use q.num as the loop bound below.
+        assert(q.num > 0);
         // Worst case: MTU 9000 + headers. 16 KiB is a comfortable cap.
         var scratch: [16 * 1024]u8 = undefined;
+        assert(scratch.len == 16 * 1024);
         var written: usize = 0;
 
         var idx: u16 = head;
@@ -425,6 +486,7 @@ pub const Device = struct {
             idx = desc.next;
         }
 
+        assert(written <= scratch.len);
         if (self.tx_handler) |h| {
             const net_hdr_size: usize = 12; // virtio_net_hdr_v1
             if (written > net_hdr_size) {
@@ -445,15 +507,21 @@ pub const Device = struct {
 
     fn readDescriptor(self: *Device, q: *const Queue, idx: u16) ?VringDesc {
         if (idx >= q.num) return null;
+        // Past the gate above: q.num > 0 (idx is a u16; idx >= 0 is
+        // tautological, so reaching here implies q.num >= 1).
+        assert(q.num > 0);
         const offset: u64 = q.desc_addr + @as(u64, idx) * @sizeOf(VringDesc);
         const bytes = self.guestSlice(offset, @sizeOf(VringDesc)) orelse return null;
+        assert(bytes.len == @sizeOf(VringDesc));
         var d: VringDesc = undefined;
         @memcpy(std.mem.asBytes(&d), bytes);
         return d;
     }
 
     pub fn readAvailHeader(self: *Device, q: *const Queue) ?VringAvail {
+        assert(self.size > 0);
         const bytes = self.guestSlice(q.driver_addr, @sizeOf(VringAvail)) orelse return null;
+        assert(bytes.len == @sizeOf(VringAvail));
         // The driver's smp_wmb() pairs `ring[idx] = head` (release)
         // with the `avail.idx` bump. We must acquire-load `avail.idx`
         // so the subsequent `ring[idx]` read can't be hoisted above
@@ -469,22 +537,30 @@ pub const Device = struct {
     }
 
     fn readAvailRingEntry(self: *Device, q: *const Queue, idx: u16) ?u16 {
+        // mod by q.num below — caller (notify / injectRx) has gated.
+        assert(q.num > 0);
         // avail.ring follows the 4-byte avail header.
         const slot: u32 = @as(u32, idx) % q.num;
+        assert(slot < q.num);
         const offset: u64 = q.driver_addr + @sizeOf(VringAvail) + @as(u64, slot) * @sizeOf(u16);
         const bytes = self.guestSlice(offset, @sizeOf(u16)) orelse return null;
         return std.mem.readInt(u16, bytes[0..2], .little);
     }
 
     fn pushUsed(self: *Device, q: *Queue, id: u16, len: u32) void {
+        // mod by q.num below — caller has already gated on this.
+        assert(q.num > 0);
         // used header (4 bytes) + used.ring[num] of VringUsedElem (8 bytes each)
         const used_bytes = self.guestSlice(q.device_addr, @sizeOf(VringUsed)) orelse return;
+        assert(used_bytes.len == @sizeOf(VringUsed));
         var header: VringUsed = undefined;
         @memcpy(std.mem.asBytes(&header), used_bytes);
         const slot: u32 = @as(u32, header.idx) % q.num;
+        assert(slot < q.num);
 
         const elem_off: u64 = q.device_addr + @sizeOf(VringUsed) + @as(u64, slot) * @sizeOf(VringUsedElem);
         const elem_bytes = self.guestSlice(elem_off, @sizeOf(VringUsedElem)) orelse return;
+        assert(elem_bytes.len == @sizeOf(VringUsedElem));
         const elem = VringUsedElem{ .id = id, .len = len };
         @memcpy(elem_bytes, std.mem.asBytes(&elem));
 

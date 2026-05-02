@@ -14,6 +14,7 @@
 
 const std = @import("std");
 const builtin = @import("builtin");
+const assert = std.debug.assert;
 
 /// Platform-sized pthread mutex. Zig 0.16 moved `std.Thread.Mutex`
 /// under `std.Io` (it now requires an Io context), so we bind
@@ -63,6 +64,19 @@ pub const Pl011 = struct {
     // Bit 4 of RIS/MIS/ICR is RX interrupt.
     pub const RX_INT: u32 = 1 << 4;
 
+    comptime {
+        // PL011 wire constants — flipping these would silently break
+        // the guest driver's interrupt + framing logic.
+        assert(RX_INT == 0x10);
+        // The MMIO window must cover up through the PrimeCell IDs at
+        // 0xFFC; default size is 0x1000.
+        assert(0x1000 > 0xFFC);
+        // PthreadMutex blob must be >= every supported pthread_mutex_t.
+        assert(@sizeOf(PthreadMutex) >= 64);
+        assert(@sizeOf(PthreadMutex) >= PthreadMutex.macos_pad);
+        assert(@sizeOf(PthreadMutex) >= PthreadMutex.linux_pad);
+    }
+
     pub const init: Pl011 = .{
         .base = 0x0900_0000,
         .captured = .empty,
@@ -70,33 +84,46 @@ pub const Pl011 = struct {
     };
 
     pub fn withBase(base: u64) Pl011 {
+        // base 0 collides with the GIC distributor on the arm-virt
+        // machine; non-zero is a programmer invariant for every caller.
+        assert(base != 0);
         return .{ .base = base, .captured = .empty, .rx_buf = .empty };
     }
 
     pub fn deinit(self: *Pl011, gpa: std.mem.Allocator) void {
+        assert(self.size > 0);
         self.captured.deinit(gpa);
         self.rx_buf.deinit(gpa);
     }
 
     pub fn handles(self: *const Pl011, addr: u64) bool {
+        assert(self.size > 0);
+        // Window must cover the PrimeCell IDs.
+        assert(self.size >= 0x1000);
         return addr >= self.base and addr < self.base + self.size;
     }
 
     /// IRQ line should be asserted iff there's any masked interrupt pending.
     pub fn irqAsserted(self: *Pl011) bool {
+        assert(self.size > 0);
         self.mutex.lock();
         defer self.mutex.unlock();
         return (self.ris & self.imsc) != 0;
     }
 
     pub fn pushRx(self: *Pl011, gpa: std.mem.Allocator, bytes: []const u8) !void {
+        assert(self.size > 0);
         self.mutex.lock();
         defer self.mutex.unlock();
+        const before = self.rx_buf.items.len;
         try self.rx_buf.appendSlice(gpa, bytes);
+        assert(self.rx_buf.items.len == before + bytes.len);
         if (self.rx_buf.items.len > 0) self.ris |= RX_INT;
     }
 
     pub fn write(self: *Pl011, gpa: std.mem.Allocator, addr: u64, value: u64) !void {
+        assert(self.size > 0);
+        assert(self.handles(addr));
         self.mutex.lock();
         defer self.mutex.unlock();
         const offset = addr - self.base;
@@ -112,15 +139,19 @@ pub const Pl011 = struct {
     }
 
     pub fn read(self: *Pl011, addr: u64) u64 {
+        assert(self.size > 0);
+        assert(self.handles(addr));
         self.mutex.lock();
         defer self.mutex.unlock();
         const offset = addr - self.base;
         switch (offset) {
             0x000 => {
                 if (self.rx_buf.items.len == 0) return 0;
+                const before = self.rx_buf.items.len;
                 const b = self.rx_buf.items[0];
                 std.mem.copyForwards(u8, self.rx_buf.items[0 .. self.rx_buf.items.len - 1], self.rx_buf.items[1..]);
                 self.rx_buf.items.len -= 1;
+                assert(self.rx_buf.items.len + 1 == before);
                 if (self.rx_buf.items.len == 0) self.ris &= ~RX_INT;
                 return b;
             },
