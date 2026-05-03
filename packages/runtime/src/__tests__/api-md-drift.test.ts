@@ -21,6 +21,13 @@ import { describe, expect, it } from "vitest";
 const REPO_ROOT = resolve(import.meta.dirname, "../../../..");
 const COMMITTED_API_MD = join(REPO_ROOT, "packages/runtime/API.md");
 
+// Vitest's default `testTimeout` is 5s. Typedoc cold-start + plugin
+// load is ~1s on a warm `node_modules` but ~10-15s on hosted CI
+// runners (slower disks, cold caches, npx resolution overhead), so
+// the default fires before typedoc finishes its first run. 60s gives
+// plenty of headroom; the inner `execFileSync` uses the same cap.
+const TYPEDOC_TIMEOUT_MS = 60_000;
+
 /**
  * Strip the "Defined in: [path](url)" link block from API.md content.
  * These lines change on every code edit (line numbers shift) and are
@@ -47,9 +54,7 @@ describe("API.md drift", () => {
         execFileSync("npx", ["typedoc", "--out", out], {
           cwd: REPO_ROOT,
           stdio: ["ignore", "ignore", "pipe"],
-          // Generous: typedoc cold-start + plugin load is ~1s on warm
-          // node_modules, slower on a fresh CI checkout.
-          timeout: 60_000,
+          timeout: TYPEDOC_TIMEOUT_MS,
         });
         const generated = readFileSync(join(out, "API.md"), "utf8");
         const committed = readFileSync(COMMITTED_API_MD, "utf8");
@@ -69,12 +74,6 @@ describe("API.md drift", () => {
         rmSync(out, { recursive: true, force: true });
       }
     },
-    // Vitest's default `testTimeout` is 5s. Typedoc cold-start + plugin
-    // load is ~1s on a warm `node_modules` but ~10-15s on hosted CI
-    // runners (slower disks, cold caches, npx resolution overhead),
-    // so the default fires before typedoc finishes its first run.
-    // 60s gives plenty of headroom; the actual `execFileSync` carries
-    // its own 60s cap above for the same reason.
-    60_000,
+    TYPEDOC_TIMEOUT_MS,
   );
 });
