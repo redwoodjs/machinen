@@ -178,9 +178,7 @@ function readPsIdentity(pid: number): ProcessIdentity | undefined {
   // first whitespace-delimited token after lstart; basename of it is
   // what we compare against (best-effort — our binary paths don't
   // contain spaces).
-  const m = trimmed.match(
-    /^(\S{3}\s+\d{1,2}\s+\S{3}\s+\d{2}:\d{2}:\d{2}\s+\d{4})\s+(\S+)/,
-  );
+  const m = trimmed.match(/^(\S{3}\s+\d{1,2}\s+\S{3}\s+\d{2}:\d{2}:\d{2}\s+\d{4})\s+(\S+)/);
   if (!m) {
     return undefined;
   }
