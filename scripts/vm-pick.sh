@@ -169,9 +169,27 @@ if [[ -d "$CLONE_DIR" ]]; then
 else
   echo "vm-pick: creating CoW clone at $CLONE_DIR" >&2
   mkdir -p "$CLONES_ROOT"
-  # APFS reflink on macOS. -c is the macOS clone flag; on Linux use
-  # `cp --reflink=auto` instead (this script targets Darwin).
-  cp -c -R "$MAIN_REPO" "$CLONE_DIR"
+  # Single clonefile(2) syscall on the source dir clones the whole tree
+  # in the kernel — ~10x faster than `cp -c -R`, which walks userspace
+  # and pays per-file metadata overhead for ~42k files. Build the helper
+  # on first use; it's macOS-arm64-only and intentionally not checked in.
+  SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+  CLONEFILE_BIN="$SCRIPT_DIR/clonefile"
+  CLONEFILE_SRC="$SCRIPT_DIR/clonefile.zig"
+  if [[ ! -x "$CLONEFILE_BIN" ]] || [[ "$CLONEFILE_SRC" -nt "$CLONEFILE_BIN" ]]; then
+    if command -v zig >/dev/null 2>&1; then
+      echo "vm-pick: building clonefile helper..." >&2
+      (cd "$SCRIPT_DIR" && zig build-exe -O ReleaseSmall clonefile.zig >/dev/null)
+    else
+      echo "vm-pick: zig not found, falling back to cp -c -R (slower)" >&2
+      CLONEFILE_BIN=""
+    fi
+  fi
+  if [[ -n "$CLONEFILE_BIN" ]]; then
+    "$CLONEFILE_BIN" "$MAIN_REPO" "$CLONE_DIR"
+  else
+    cp -c -R "$MAIN_REPO" "$CLONE_DIR"
+  fi
 
   if [[ "$kind" == "pr" ]]; then
     (cd "$CLONE_DIR" && gh pr checkout "$num")
