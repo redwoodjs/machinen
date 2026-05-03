@@ -11,3 +11,9 @@ release-assets/
 .kernel-build/
 .claude/scheduled_tasks.lock
 .claude/worktrees/
+
+# vm-pick clonefile helper (built on first use; macOS-arm64 only)
+scripts/clonefile
+scripts/clonefile.o
+scripts/clonefile.o.o
+.zig-cache/

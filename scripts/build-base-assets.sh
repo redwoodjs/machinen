@@ -451,7 +451,11 @@ gzip -n > /out/rootfs-debian-arm64.tar.gz
 # 4-KiB block size matches the kernel's arm64 page size so reads
 # are page-cache-aligned; same as the runtime materializer.
 TREE_KIB=$(du -sk /work/rootfs | awk '{print $1}')
-SIZE_BYTES=$(awk -v k="$TREE_KIB" 'BEGIN { s = int(k * 1024 * 2.5); m = 2 * 1024 * 1024 * 1024; if (s < m) s = m; printf "%d\n", s }')
+# printf "%d" on macOS awk clamps at INT32_MAX (2147483647), so a 2 GiB
+# default became 2^31-1 — odd, not 512-aligned, and the VMM's
+# blk.Backend.initFromFd asserts on the misalignment. %.0f keeps the
+# value as a double-rendered integer all the way through.
+SIZE_BYTES=$(awk -v k="$TREE_KIB" 'BEGIN { s = int(k * 1024 * 2.5); m = 2 * 1024 * 1024 * 1024; if (s < m) s = m; printf "%.0f\n", s }')
 BLOCKS=$(( SIZE_BYTES / 4096 ))
 echo "==> Prebaking rootfs ext4 image: ${SIZE_BYTES} bytes (${BLOCKS} x 4 KiB blocks)"
 truncate -s "$SIZE_BYTES" /tmp/rootfs.img

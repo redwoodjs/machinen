@@ -63,6 +63,12 @@ const SOCK_STREAM: c_int = 1;
 const SHUT_RDWR: c_int = 2;
 const EINTR: c_int = 4;
 
+/// Per call to writeAll/readAll, cap the number of consecutive EINTR
+/// retries so a signal storm can't pin the thread. A healthy socket
+/// either makes byte-progress or closes; EINTR is transient. 64 is
+/// generous (NASA Power-of-Ten Rule 2 / #238).
+const max_eintr_retries: u32 = 64;
+
 const sockaddr_un = if (builtin.os.tag == .macos) extern struct {
     sun_len: u8,
     sun_family: u8,
@@ -206,6 +212,12 @@ pub const NetSocket = struct {
         var buf: [16 * 1024]u8 = undefined;
         assert(buf.len >= 1500);
 
+        // Service loop: termination bound is `self.stop` (set by
+        // destroy() before shutdown()). Per-iteration work is bounded
+        // statically — exactly one frame, ≤ buf.len bytes, plus two
+        // readAll() calls each capped on EINTR by max_eintr_retries.
+        // No frames-per-wake throttle: incoming frames are real work
+        // and the kernel buffer keeps them ordered while we drain.
         while (!self.stop.load(.acquire)) {
             var prefix: [4]u8 = undefined;
             if (readAll(self.fd, &prefix) != 0) return;
@@ -238,13 +250,22 @@ fn writeAll(fd: c_int, data: []const u8) c_int {
     assert(fd >= 0);
     assert(data.len > 0);
     var remaining = data;
+    var eintr: u32 = 0;
+    // remaining strictly shrinks on every n>0; eintr counts the
+    // signal-retry path independently and is bounded by
+    // max_eintr_retries (#238).
     while (remaining.len > 0) {
         const n = write(fd, remaining.ptr, remaining.len);
         if (n > 0) {
             remaining = remaining[@intCast(n)..];
+            eintr = 0;
             continue;
         }
-        if (n < 0 and errno() == EINTR) continue;
+        if (n < 0 and errno() == EINTR) {
+            eintr += 1;
+            if (eintr > max_eintr_retries) return -1;
+            continue;
+        }
         return -1;
     }
     return 0;
@@ -254,14 +275,20 @@ fn readAll(fd: c_int, into: []u8) c_int {
     assert(fd >= 0);
     assert(into.len > 0);
     var remaining = into;
+    var eintr: u32 = 0;
     while (remaining.len > 0) {
         const n = read(fd, remaining.ptr, remaining.len);
         if (n > 0) {
             remaining = remaining[@intCast(n)..];
+            eintr = 0;
             continue;
         }
         if (n == 0) return -1; // peer closed
-        if (errno() == EINTR) continue;
+        if (errno() == EINTR) {
+            eintr += 1;
+            if (eintr > max_eintr_retries) return -1;
+            continue;
+        }
         return -1;
     }
     return 0;
