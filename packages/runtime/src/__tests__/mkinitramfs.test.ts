@@ -223,6 +223,31 @@ describe("packBundle mount", () => {
     }
   });
 
+  it("preserves the underlying ENOENT on the cause chain so EACCES/EISDIR don't get misreported", () => {
+    // The throw collapses every readFileSync failure into the same
+    // top-level message; without `cause` set, an EACCES on a chmod-0
+    // fixture or an EISDIR on a directory-shaped path would all read
+    // as "rebuild it" and send the user down the wrong rabbit hole.
+    // Pin the chain so formatMachinenError's "caused by:" walker has
+    // the real errno to surface.
+    const bundle = makeEmptyBundle();
+    const out = join(tmp, "no-init-cause.cpio");
+    const prev = process.env.MACHINEN_REQUIRE_FIXTURES;
+    delete process.env.MACHINEN_REQUIRE_FIXTURES;
+    try {
+      packTinyBundle({ bundle, out, initPath: join(tmp, "does-not-exist") });
+      throw new Error("expected MKINITRAMFS_INIT_MISSING");
+    } catch (err) {
+      const cause = (err as { cause?: unknown }).cause;
+      expect(cause).toBeInstanceOf(Error);
+      expect((cause as NodeJS.ErrnoException).code).toBe("ENOENT");
+    } finally {
+      if (prev !== undefined) {
+        process.env.MACHINEN_REQUIRE_FIXTURES = prev;
+      }
+    }
+  });
+
   it("packTinyBundle silently skips a missing /init when MACHINEN_REQUIRE_FIXTURES=0", () => {
     // Test-only escape hatch for fake-VMM tests (binary: "/bin/sh"),
     // where the cpio's contents don't matter because the spawn is

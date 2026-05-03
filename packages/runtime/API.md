@@ -4994,7 +4994,7 @@ Defined in: [mkinitramfs.ts:672](https://github.com/redwoodjs/machinen/blob/main
 
 > **mkinitramfsCli**(`argv`): `void`
 
-Defined in: [mkinitramfs.ts:826](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/mkinitramfs.ts#L826)
+Defined in: [mkinitramfs.ts:838](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/mkinitramfs.ts#L838)
 
 Invoked by the CLI shim at packages/microvm/test-fixtures/assets/mkinitramfs.ts.
 Kept argv-compatible with the old Python script so shell fixtures
