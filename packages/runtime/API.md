@@ -4193,7 +4193,7 @@ Defined in: [log.ts:45](https://github.com/redwoodjs/machinen/blob/main/packages
 
 > **PidStatus** = `"alive"` \| `"dead"` \| `"recycled"`
 
-Defined in: [pid-validate.ts:40](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/pid-validate.ts#L40)
+Defined in: [pid-validate.ts:44](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/pid-validate.ts#L44)
 
 Result of `validatePid` — easy to switch on at the call site.
 
@@ -5012,7 +5012,7 @@ Kept argv-compatible with the old Python script so shell fixtures
 
 > **validatePid**(`pid`, `expected`): [`PidStatus`](#pidstatus)
 
-Defined in: [pid-validate.ts:56](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/pid-validate.ts#L56)
+Defined in: [pid-validate.ts:60](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/pid-validate.ts#L60)
 
 Return whether the running process at `pid` is still our VMM.
 
