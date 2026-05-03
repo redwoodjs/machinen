@@ -879,6 +879,14 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   // and we throw REGISTRY_NAME_IN_USE. The just-spawned VMM has to
   // be torn down on conflict; otherwise it'd be an orphan no one
   // can reach.
+  //
+  // INVARIANT (#150 phase 2): this whole block must complete
+  // synchronously before any `await` — in particular, before the
+  // readiness gate further down can call `handle.detach()` and
+  // unref the child. Detaching a name-conflict losers' child means
+  // the SIGKILL above wouldn't reach an orphaned-to-PID-1 VMM.
+  // Today the structure enforces this (no awaits between here and
+  // the gate); don't reorder.
   const vmName = opts.name;
   const childPid = child.pid ?? -1;
   if (vmName && childPid > 0) {
@@ -896,6 +904,25 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   // #150 phase 2: detached VMs record where the boot-console snapshot
   // will land so `attach` / `ls` / `gc` can find it later.
   const bootLogPath = opts.detached && childPid > 0 ? bootSnapshotPath(childPid) : undefined;
+  // #150 phase 2 PR2: persist per-boot artifacts in the registry so
+  // `machinen gc` / `machinen stop` can clean them up after the
+  // parent has exited (the in-process exit hook below stops firing
+  // once we detach). Recorded for *every* boot, not just detached —
+  // gc is a backstop, the inline rm still runs first for the common
+  // attached case.
+  const cleanupPaths: string[] = [];
+  if (perBootRootDisk) {
+    cleanupPaths.push(perBootRootDisk);
+  }
+  if (perBootSnapDisk) {
+    cleanupPaths.push(perBootSnapDisk);
+  }
+  if (bundleTempDir) {
+    cleanupPaths.push(bundleTempDir);
+  }
+  if (vsockTempDir) {
+    cleanupPaths.push(vsockTempDir);
+  }
   let registered = false;
   if (childPid > 0 && vsockUdsPath) {
     try {
@@ -907,6 +934,8 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         diskPath: diskAbs,
         forkedFrom: opts.forkedFrom,
         bootLogPath,
+        cleanupPaths: cleanupPaths.length > 0 ? cleanupPaths : undefined,
+        vmmExe: binary,
         startedAt: Date.now(),
       });
       registered = true;

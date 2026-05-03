@@ -1644,6 +1644,84 @@ Forwarded to `tar --exclude=PATTERN`. Repeat per pattern.
 
 ***
 
+### GcResult
+
+Defined in: [gc.ts:22](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/gc.ts#L22)
+
+Per-entry record of what `runGc` did (or would do, with dryRun).
+
+#### Properties
+
+##### pid
+
+> **pid**: `number`
+
+Defined in: [gc.ts:23](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/gc.ts#L23)
+
+##### name?
+
+> `optional` **name?**: `string`
+
+Defined in: [gc.ts:24](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/gc.ts#L24)
+
+##### status
+
+> **status**: [`PidStatus`](#pidstatus)
+
+Defined in: [gc.ts:25](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/gc.ts#L25)
+
+##### removedPaths
+
+> **removedPaths**: `string`[]
+
+Defined in: [gc.ts:27](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/gc.ts#L27)
+
+Paths removed (or that would be removed under `dryRun`).
+
+##### failedPaths
+
+> **failedPaths**: `string`[]
+
+Defined in: [gc.ts:29](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/gc.ts#L29)
+
+Paths the gc tried to rm but couldn't (already gone, EPERM, …).
+
+##### registryRemoved
+
+> **registryRemoved**: `boolean`
+
+Defined in: [gc.ts:31](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/gc.ts#L31)
+
+True if the registry entry was (or would be) dropped.
+
+***
+
+### RunGcOptions
+
+Defined in: [gc.ts:34](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/gc.ts#L34)
+
+#### Properties
+
+##### dryRun?
+
+> `optional` **dryRun?**: `boolean`
+
+Defined in: [gc.ts:39](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/gc.ts#L39)
+
+When true, list what would be cleaned without touching the disk
+or registry. Used by `machinen gc --dry-run` and tests.
+
+##### pid?
+
+> `optional` **pid?**: `number`
+
+Defined in: [gc.ts:44](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/gc.ts#L44)
+
+Only act on this single entry (skip everything else in the
+registry). Used by `machinen stop` after killing a specific VM.
+
+***
+
 ### ChunkLogEvent
 
 Defined in: [log.ts:19](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/log.ts#L19)
@@ -2509,11 +2587,36 @@ Path to the one-shot boot-console snapshot written at detach time
 floor (the VMM ignores SIGPIPE), so this file is the only record
 of the boot sequence on a detached VM.
 
+##### cleanupPaths?
+
+> `optional` **cleanupPaths?**: `string`[]
+
+Defined in: [registry.ts:76](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/registry.ts#L76)
+
+Per-boot artifacts that need to be removed when the VMM exits.
+Today the in-process exit hook handles this for non-detached
+boots. After detach (#150 phase 2) the parent is gone before the
+VMM exits — `machinen gc` / `machinen stop` use this list to
+clean up afterward. Each entry is an absolute path to either a
+file (per-boot disk image) or a directory (bundle / vsock UDS).
+
+##### vmmExe?
+
+> `optional` **vmmExe?**: `string`
+
+Defined in: [registry.ts:84](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/registry.ts#L84)
+
+Absolute path to the VMM binary that was spawned. `machinen gc`
+compares this against `/proc/<pid>/exe` (Linux) or `ps -o comm=`
+(macOS) before treating an entry as live — without it, a recycled
+pid that happens to belong to some other process would look alive
+to `kill(pid, 0)` and the entry would be kept around forever.
+
 ##### startedAt
 
 > **startedAt**: `number`
 
-Defined in: [registry.ts:69](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/registry.ts#L69)
+Defined in: [registry.ts:86](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/registry.ts#L86)
 
 ms epoch when the entry was created.
 
@@ -3574,7 +3677,7 @@ the registry entry stays live, the vsock UDS is still listening.
 
 ### AttachOptions
 
-Defined in: [vm.ts:1346](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1346)
+Defined in: [vm.ts:1375](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1375)
 
 #### Properties
 
@@ -3582,7 +3685,7 @@ Defined in: [vm.ts:1346](https://github.com/redwoodjs/machinen/blob/main/package
 
 > `optional` **pid?**: `number`
 
-Defined in: [vm.ts:1352](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1352)
+Defined in: [vm.ts:1381](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1381)
 
 Look up a VM by the host pid of its VMM process. Kernel-unique
 while alive; mutually exclusive with `name`. Exactly one of
@@ -3592,7 +3695,7 @@ while alive; mutually exclusive with `name`. Exactly one of
 
 > `optional` **name?**: `string`
 
-Defined in: [vm.ts:1354](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1354)
+Defined in: [vm.ts:1383](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1383)
 
 Look up a VM by the name passed to `boot({ name })`.
 
@@ -3600,7 +3703,7 @@ Look up a VM by the name passed to `boot({ name })`.
 
 > `optional` **onLog?**: [`OnLog`](#onlog)
 
-Defined in: [vm.ts:1361](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1361)
+Defined in: [vm.ts:1390](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1390)
 
 Streaming log callback — fires for every byte of output from execs
 made through the returned handle. See #83. Guest kernel console is
@@ -3611,7 +3714,7 @@ called `boot()`), so only `exec-stdout` / `exec-stderr` sources fire.
 
 ### RestoreOptions
 
-Defined in: [vm.ts:2486](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2486)
+Defined in: [vm.ts:2515](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2515)
 
 #### Extends
 
@@ -3975,7 +4078,7 @@ the registry entry stays live, the vsock UDS is still listening.
 
 > **snapDir**: `string`
 
-Defined in: [vm.ts:2491](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2491)
+Defined in: [vm.ts:2520](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2520)
 
 Snapshot bundle directory produced by `vm.snapshot()`.
 Must contain `disk.img` and `meta.json`.
@@ -3984,7 +4087,7 @@ Must contain `disk.img` and `meta.json`.
 
 > `optional` **image?**: `string`
 
-Defined in: [vm.ts:2499](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2499)
+Defined in: [vm.ts:2528](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2528)
 
 Override the rootfs image used for the restore boot. Defaults
 to whatever caller passes through `image`-equivalent — but
@@ -3996,7 +4099,7 @@ release rootfs path here.
 
 > `optional` **name?**: `string`
 
-Defined in: [vm.ts:2505](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2505)
+Defined in: [vm.ts:2534](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2534)
 
 Optional explicit name for the restored VM. When omitted, the
 fork is auto-named `<sourceName>/<pid>` after spawn so it stays
@@ -4062,11 +4165,21 @@ Defined in: [log.ts:45](https://github.com/redwoodjs/machinen/blob/main/packages
 
 ***
 
+### PidStatus
+
+> **PidStatus** = `"alive"` \| `"dead"` \| `"recycled"`
+
+Defined in: [pid-validate.ts:40](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/pid-validate.ts#L40)
+
+Result of `validatePid` — easy to switch on at the call site.
+
+***
+
 ### ImageConfig
 
 > **ImageConfig** = `object`
 
-Defined in: [vm.ts:1536](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1536)
+Defined in: [vm.ts:1565](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1565)
 
 Shape of the optional `./machinen-config.json` baked into a rootfs
 tarball by `provision({ cmd, env })`. `boot()` reads it via
@@ -4080,19 +4193,19 @@ tarball-producing tool can pre-populate the lookup cache.
 
 > `optional` **cmd?**: `string`[]
 
-Defined in: [vm.ts:1536](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1536)
+Defined in: [vm.ts:1565](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1565)
 
 ##### env?
 
 > `optional` **env?**: `Record`\<`string`, `string`\>
 
-Defined in: [vm.ts:1536](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1536)
+Defined in: [vm.ts:1565](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1565)
 
 ##### cwd?
 
 > `optional` **cwd?**: `string`
 
-Defined in: [vm.ts:1536](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1536)
+Defined in: [vm.ts:1565](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1565)
 
 ## Variables
 
@@ -4532,7 +4645,7 @@ the guest agent skips entries that don't match.
 
 > `const` **\_internal**: `object`
 
-Defined in: [vm.ts:2101](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2101)
+Defined in: [vm.ts:2130](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2130)
 
 #### Type Declaration
 
@@ -4720,6 +4833,28 @@ library callers can adopt the same format if they want to.
 
 ***
 
+### runGc()
+
+> **runGc**(`opts?`): [`GcResult`](#gcresult)[]
+
+Defined in: [gc.ts:52](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/gc.ts#L52)
+
+Walk the registry; for each entry that's dead or pid-recycled,
+remove its cleanupPaths + bootLog + registry entry. Returns one
+result per entry processed (live entries are skipped silently).
+
+#### Parameters
+
+##### opts?
+
+[`RunGcOptions`](#rungcoptions) = `{}`
+
+#### Returns
+
+[`GcResult`](#gcresult)[]
+
+***
+
 ### mkinitramfsBundle()
 
 > **mkinitramfsBundle**(`opts`): `void`
@@ -4849,6 +4984,47 @@ Kept argv-compatible with the old Python script so shell fixtures
 
 ***
 
+### validatePid()
+
+> **validatePid**(`pid`, `expected`): [`PidStatus`](#pidstatus)
+
+Defined in: [pid-validate.ts:56](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/pid-validate.ts#L56)
+
+Return whether the running process at `pid` is still our VMM.
+
+- `alive`     — pid is alive AND the exe + start-time match.
+- `dead`      — kill(pid, 0) failed (gone or permission-denied,
+                either way unreachable).
+- `recycled`  — pid is alive but the process isn't ours (different
+                exe, or start time outside skew).
+
+Falls back to `alive` when the recorded entry lacks `vmmExe` /
+`startedAt` (older entries from before PR2). Conservative on
+purpose: the gc decision then leans on `kill(pid, 0)` alone, same
+behaviour we had before.
+
+#### Parameters
+
+##### pid
+
+`number`
+
+##### expected
+
+###### vmmExe?
+
+`string`
+
+###### startedAt?
+
+`number`
+
+#### Returns
+
+[`PidStatus`](#pidstatus)
+
+***
+
 ### resolveBaseRootfs()
 
 > **resolveBaseRootfs**(`explicit?`, `cwd?`): `string`
@@ -4947,7 +5123,7 @@ registry can hold it.
 
 > **registryRoot**(): `string`
 
-Defined in: [registry.ts:78](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/registry.ts#L78)
+Defined in: [registry.ts:95](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/registry.ts#L95)
 
 Absolute path to the registry root. Honors `MACHINEN_REGISTRY_DIR`
 so tests can point at a scratch dir without stomping on real entries.
@@ -4962,7 +5138,7 @@ so tests can point at a scratch dir without stomping on real entries.
 
 > **list**(): [`RegistryEntry`](#registryentry)[]
 
-Defined in: [registry.ts:164](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/registry.ts#L164)
+Defined in: [registry.ts:212](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/registry.ts#L212)
 
 List all registry entries whose pid is still alive. Prunes stale
 entries (pid no longer alive) and orphaned name pins as a side
@@ -5142,7 +5318,7 @@ BOOT_VMM_MISSING | BOOT_VMM_PACKAGE_BROKEN |
 
 > **attach**(`opts`): `Promise`\<[`VmHandle`](#vmhandle)\>
 
-Defined in: [vm.ts:1377](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1377)
+Defined in: [vm.ts:1406](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1406)
 
 Reconnect to a running VM registered by an earlier `boot()` call
 (possibly from a different process). Returns a `VmHandle` that can
@@ -5174,7 +5350,7 @@ REGISTRY_VM_NOT_FOUND
 
 > **warmImageConfigCache**(`imagePath`, `config`): `void`
 
-Defined in: [vm.ts:1581](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1581)
+Defined in: [vm.ts:1610](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1610)
 
 Pre-populate the image-config cache for a freshly-written tarball.
 Lets `provision()` (and other tarball producers) skip the slow
@@ -5207,7 +5383,7 @@ none was baked).
 
 > **buildWriteFileCmd**(`guestPath`, `contents`, `opts?`): `string`
 
-Defined in: [vm.ts:1949](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1949)
+Defined in: [vm.ts:1978](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1978)
 
 Build the shell pipeline that `vm.writeFile()` ships through the
 exec-agent. Stays single-line so it works against the legacy EXEC
@@ -5246,7 +5422,7 @@ Returns a single cmd string. For payloads that would exceed Linux's
 
 > **buildWriteFileCmds**(`guestPath`, `contents`, `opts?`): `string`[]
 
-Defined in: [vm.ts:1991](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1991)
+Defined in: [vm.ts:2020](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2020)
 
 Plan the cmd sequence `vm.writeFile()` issues for `contents`.
 Small payloads (base64 ≤ `WRITE_FILE_B64_CHUNK_BYTES`) collapse to a
@@ -5278,7 +5454,7 @@ end, so no individual cmd line approaches `MAX_ARG_STRLEN`.
 
 > **restore**(`opts`): `Promise`\<[`VmHandle`](#vmhandle)\>
 
-Defined in: [vm.ts:2524](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2524)
+Defined in: [vm.ts:2553](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2553)
 
 Restore a microVM from a snapshot bundle produced by
 `vm.snapshot({ outDir })`. Reads the bundle's `meta.json` to
@@ -5313,7 +5489,7 @@ BOOT_SNAPSHOT_NOT_FOUND if `<snapDir>/disk.img`
 
 > **measureFirstByte**(`vm`): `Promise`\<`number`\>
 
-Defined in: [vm.ts:2777](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2777)
+Defined in: [vm.ts:2806](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2806)
 
 Time-to-first-output-byte for a boot. Useful for measuring how
 much the snapshot path is (or isn't) buying us.
