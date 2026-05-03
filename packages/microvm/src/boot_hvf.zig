@@ -238,65 +238,11 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     assert(cfg.initrd_offset < cfg.ram_size);
     assert(cfg.max_exits > 0);
 
-    // --- load fixture files off disk ------------------------------
-    const kernel = readAll(gpa, cfg.kernel_path) catch |err| {
-        if (err == error.FileNotFound) return error.FixtureMissing;
-        return err;
-    };
-    defer gpa.free(kernel);
-    assert(kernel.len > 0);
+    var fx = try loadFixtures(gpa, cfg);
+    defer fx.deinit(gpa);
 
-    const dtb = readAll(gpa, cfg.dtb_path) catch |err| {
-        if (err == error.FileNotFound) return error.FixtureMissing;
-        return err;
-    };
-    defer gpa.free(dtb);
-    assert(dtb.len > 0);
-
-    const img = try hvf.KernelImage.parse(kernel);
-
-    if (img.text_offset + kernel.len > cfg.ram_size) return error.KernelTooLarge;
-    if (cfg.dtb_offset + dtb.len > cfg.ram_size) return error.DtbTooLarge;
-
-    // --- allocate + map guest RAM ---------------------------------
-    const ram = try std.posix.mmap(
-        null,
-        cfg.ram_size,
-        .{ .READ = true, .WRITE = true },
-        .{ .TYPE = .PRIVATE, .ANONYMOUS = true },
-        -1,
-        0,
-    );
+    const ram = try allocateAndPopulateRam(gpa, cfg, fx);
     defer std.posix.munmap(ram);
-    assert(ram.len == cfg.ram_size);
-    assert(@intFromPtr(ram.ptr) % hvf.page_size == 0);
-
-    // copy kernel and DTB into RAM
-    @memcpy(ram[img.text_offset..][0..kernel.len], kernel);
-    @memcpy(ram[cfg.dtb_offset..][0..dtb.len], dtb);
-
-    // optional initramfs
-    if (cfg.initrd_path) |initrd_path| {
-        const initrd = readAll(gpa, initrd_path) catch |err| {
-            if (err == error.OpenFailed) return error.FixtureMissing;
-            return err;
-        };
-        defer gpa.free(initrd);
-        if (cfg.initrd_offset + initrd.len > cfg.ram_size) return error.DtbTooLarge;
-        @memcpy(ram[cfg.initrd_offset..][0..initrd.len], initrd);
-        // Sub-second spawn (#50): patch the DTB's `linux,initrd-end` in
-        // place to point just past the actual cpio. The kernel scans the
-        // full [initrd-start, initrd-end) region for concatenated cpio /
-        // compressed archives — at ~1 GB/s of wall clock. Leaving 1 GB
-        // of dead tail in that window costs ~1 s of early boot.
-        const initrd_end_abs: u32 = @intCast(cfg.ram_base + cfg.initrd_offset + initrd.len);
-        patchDtbInitrdEnd(ram[cfg.dtb_offset..][0..dtb.len], initrd_end_abs) catch |err| {
-            if (debugEnabled()) std.debug.print(
-                "warn: patchDtbInitrdEnd failed ({s}); kernel will scan the full DTB-declared initrd window\n",
-                .{@errorName(err)},
-            );
-        };
-    }
 
     const vm = try hvf.Vm.create();
     defer vm.destroy();
@@ -328,47 +274,8 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     try vm.map(ram, cfg.ram_base, hvf.MapFlags.rwx);
     defer vm.unmap(cfg.ram_base, cfg.ram_size) catch {};
 
-    // --- vCPU setup ----------------------------------------------
-    const vcpu = try hvf.Vcpu.create();
+    const vcpu = try initVcpu(fx.img, cfg);
     defer vcpu.destroy();
-
-    // Set the vCPU's multiprocessor affinity. Without this, Apple's
-    // GIC won't associate this vCPU with a redistributor frame and
-    // any `hv_gic_*_redistributor_reg` call returns HV_DENIED. Value
-    // layout: bit 31 reserved-as-1, bits 23:16/15:8/7:0 = Aff2/Aff1/Aff0.
-    // For our single-CPU guest, all affinity fields = 0.
-    try vcpu.setSysReg(.mpidr_el1, 1 << 31);
-
-    // Let the virtual timer wake the vCPU so we can deliver ticks.
-    try vcpu.setVtimerMask(false);
-
-    // Diagnostic: query where HVF actually placed this vCPU's
-    // redistributor. If this differs from what we told the kernel via
-    // the DTB, the kernel will report "No redistributor present."
-    if (debugEnabled()) {
-        if (hvf.Gic.redistributorBase(vcpu)) |rdist| {
-            std.debug.print("GIC redistributor for vcpu 0: 0x{x}\n", .{rdist});
-        } else |err| {
-            std.debug.print("GIC redistributor query failed: {s}\n", .{@errorName(err)});
-        }
-    }
-
-    // EL1h, all interrupts masked.
-    try vcpu.setReg(.cpsr, 0x3C5);
-    // MMU off (kernel turns it on itself); I-bit for executable fetches.
-    try vcpu.setSysReg(.sctlr_el1, 1 << 12);
-
-    // arm64 Linux boot protocol: X0 = physical address of DTB.
-    const dtb_phys = cfg.ram_base + cfg.dtb_offset;
-    const entry_phys = cfg.ram_base + img.text_offset;
-    assert(dtb_phys >= cfg.ram_base);
-    assert(entry_phys >= cfg.ram_base);
-    assert(entry_phys < cfg.ram_base + cfg.ram_size);
-    try vcpu.setReg(.x0, dtb_phys);
-    try vcpu.setReg(.x1, 0);
-    try vcpu.setReg(.x2, 0);
-    try vcpu.setReg(.x3, 0);
-    try vcpu.setReg(.pc, entry_phys);
 
     // --- run loop -------------------------------------------------
     var uart: hvf.Pl011 = .init;
@@ -381,17 +288,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // protocol QEMU uses with `-netdev socket,fd=…`.
     const virtio_mac = [_]u8{ 0x02, 0xDE, 0xAD, 0xBE, 0xEF, 0x01 };
     var tx_stats = TxStats{};
-    var netdev = virtio.Device{
-        .base = virtio_net_base,
-        .size = virtio_net_size,
-        .id = .net,
-        .features = (1 << 32) | (1 << 5),
-        .config = &virtio_mac,
-        .ram = ram,
-        .ram_base = cfg.ram_base,
-        .tx_handler = &onTxFrame,
-        .tx_ctx = @ptrCast(&tx_stats),
-    };
+    var netdev = makeNetDevice(ram, cfg, &virtio_mac, &onTxFrame, @ptrCast(&tx_stats));
 
     // virtio-blk (#47, #114). Two slots:
     //   slot 1 (virtio_blk_base)  — rootdisk preferred; falls back to
@@ -406,50 +303,20 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     const slot1_path: ?[]const u8 = cfg.rootdisk_path orelse cfg.disk_path;
     const slot3_path: ?[]const u8 = if (cfg.rootdisk_path != null) cfg.disk_path else null;
 
-    var blk_backend_opt: ?blk_mod.Backend = null;
+    var blk_backend_opt: ?blk_mod.Backend = openBlkBackend(slot1_path, "slot 1");
     defer if (blk_backend_opt) |*b| b.deinit();
-    var blkdev_opt: ?virtio.Device = null;
-    if (slot1_path) |path| {
-        if (blk_mod.openFile(path)) |backend| {
-            blk_backend_opt = backend;
-            blkdev_opt = virtio.Device{
-                .base = virtio_blk_base,
-                .size = virtio_blk_size,
-                .id = .block,
-                .features = (1 << 32), // VIRTIO_F_VERSION_1
-                .config = std.mem.asBytes(&blk_backend_opt.?.config),
-                .ram = ram,
-                .ram_base = cfg.ram_base,
-                .request_handler = &blk_mod.Backend.handleRequest,
-                .request_ctx = @ptrCast(&blk_backend_opt.?),
-            };
-        } else |err| {
-            std.debug.print("virtio-blk slot 1 disabled: {s} ({s})\n", .{ @errorName(err), path });
-        }
-    }
+    var blkdev_opt: ?virtio.Device = if (blk_backend_opt) |*b|
+        makeBlkDevice(virtio_blk_base, virtio_blk_size, ram, cfg, b)
+    else
+        null;
     const blkdev_ptr: ?*virtio.Device = if (blkdev_opt) |_| &blkdev_opt.? else null;
 
-    var blk2_backend_opt: ?blk_mod.Backend = null;
+    var blk2_backend_opt: ?blk_mod.Backend = openBlkBackend(slot3_path, "slot 3");
     defer if (blk2_backend_opt) |*b| b.deinit();
-    var blk2dev_opt: ?virtio.Device = null;
-    if (slot3_path) |path| {
-        if (blk_mod.openFile(path)) |backend| {
-            blk2_backend_opt = backend;
-            blk2dev_opt = virtio.Device{
-                .base = virtio_blk2_base,
-                .size = virtio_blk2_size,
-                .id = .block,
-                .features = (1 << 32),
-                .config = std.mem.asBytes(&blk2_backend_opt.?.config),
-                .ram = ram,
-                .ram_base = cfg.ram_base,
-                .request_handler = &blk_mod.Backend.handleRequest,
-                .request_ctx = @ptrCast(&blk2_backend_opt.?),
-            };
-        } else |err| {
-            std.debug.print("virtio-blk slot 3 disabled: {s} ({s})\n", .{ @errorName(err), path });
-        }
-    }
+    var blk2dev_opt: ?virtio.Device = if (blk2_backend_opt) |*b|
+        makeBlkDevice(virtio_blk2_base, virtio_blk2_size, ram, cfg, b)
+    else
+        null;
     const blk2dev_ptr: ?*virtio.Device = if (blk2dev_opt) |_| &blk2dev_opt.? else null;
 
     // virtio-vsock (#44). Off by default; set MACHINEN_VSOCK to enable.
@@ -459,52 +326,16 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     //   <guest_port>:<host_uds>      legacy; treated as in:
     //
     // Parsed paths are allocated from gpa and leak for the VMM's life.
-    var vsock_cid_storage: u64 = vsock_mod.default_guest_cid;
-    var vsock_ports: []vsock_mod.PortMap = &.{};
-    if (getenv("MACHINEN_VSOCK")) |raw| {
-        const s = std.mem.span(raw);
-        if (s.len > 0) {
-            vsock_ports = vsock_mod.parseEnv(gpa, s) catch |err| blk: {
-                std.debug.print("vsock: MACHINEN_VSOCK parse failed ({s}); ignoring\n", .{@errorName(err)});
-                break :blk &.{};
-            };
-        }
-    }
-    var vsock_dev_opt: ?virtio.Device = null;
-    var vsock_bridge_opt: ?*vsock_mod.Bridge = null;
-    if (vsock_ports.len > 0) {
-        vsock_dev_opt = virtio.Device{
-            .base = virtio_vsock_base,
-            .size = virtio_vsock_size,
-            .id = .vsock,
-            .features = (1 << 32), // VIRTIO_F_VERSION_1
-            .config = std.mem.asBytes(&vsock_cid_storage),
-            .ram = ram,
-            .ram_base = cfg.ram_base,
-            .request_handler = &vsock_mod.Bridge.handleTxChain,
-            .request_ctx = null,
-            // Queues 0 (RX) and 2 (event) are driver-posts-empty-buffers
-            // queues — we fill them on demand, not on every kick.
-            .skip_notify_queues = (1 << 0) | (1 << 2),
-        };
-    }
+    const vsock_cid_storage: u64 = vsock_mod.default_guest_cid;
+    const vsock_ports = parseVsockEnv(gpa);
+    var vsock_dev_opt: ?virtio.Device = if (vsock_ports.len > 0)
+        makeVsockDevice(ram, cfg, &vsock_cid_storage)
+    else
+        null;
     const vsock_dev_ptr: ?*virtio.Device = if (vsock_dev_opt) |_| &vsock_dev_opt.? else null;
 
-    // Connect to gvproxy if a socket path was provided. If
-    // MACHINEN_NET_SOCKET isn't set, or the connect fails, fall back
-    // to the classifier-only TX handler so the rest of the VMM still
-    // runs gracefully.
-    const net_inst: ?*net_mod.NetSocket = blk: {
-        const env = getenv("MACHINEN_NET_SOCKET") orelse {
-            break :blk null;
-        };
-        const path = std.mem.span(env);
-        if (path.len == 0) break :blk null;
-        break :blk net_mod.NetSocket.connect(gpa, &netdev, .{ .socket_path = path }) catch |err| {
-            std.debug.print("net: connect to {s} failed: {s} — continuing without network\n", .{ path, @errorName(err) });
-            break :blk null;
-        };
-    };
+    // Connect to gvproxy if a socket path was provided.
+    const net_inst: ?*net_mod.NetSocket = connectGvproxy(gpa, &netdev);
     defer if (net_inst) |n| n.destroy();
     // Bridge context passed into TX/RX callbacks.
     var net_ctx = NetBridge{
@@ -516,67 +347,24 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         netdev.tx_ctx = @ptrCast(&net_ctx);
     }
 
-    var exits: usize = 0;
-    var saw_off = false;
-
-    // IRQs. DTS gives each device a SPI number (0-based within SPIs):
-    //   PL011 UART:  interrupts = <0 1  4>  -> SPI #1
-    //   virtio-mmio: interrupts = <0 16 1>  -> SPI #16
-    // The absolute GIC id is `spi.base + <n>`.
-    const spi = try hvf.Gic.spiRange();
-    // SPIs start at 32 on ARM GIC; HVF must report at least the four
-    // device IDs we wire up (1, 16, 17, 18, 19) past spi.base.
-    assert(spi.base >= 32);
-    assert(spi.count >= 20);
-    const pl011_irq: u32 = spi.base + 1;
-    // DTS interrupts = <0 N 1> for each virtio-mmio slot. Slots:
-    //   slot 0 → SPI #16 (net)
-    //   slot 1 → SPI #17 (blk / rootdisk)
-    //   slot 2 → SPI #18 (vsock)
-    //   slot 3 → SPI #19 (blk2 / scratch)
-    const virtio_irq: u32 = spi.base + 16;
-    const virtio_blk_irq: u32 = spi.base + 17;
-    const virtio_vsock_irq: u32 = spi.base + 18;
-    const virtio_blk2_irq: u32 = spi.base + 19;
+    const irqs = try assignIrqs();
 
     // Feed the virtio IRQ id into the network bridge, and arm the
     // RX callback so the net backend can raise the SPI after each
     // frame it injects.
-    net_ctx.virtio_irq = virtio_irq;
+    net_ctx.virtio_irq = irqs.net;
     if (net_inst) |n| {
         n.on_rx = &onNetRx;
         n.on_rx_ctx = @ptrCast(&net_ctx);
     }
 
-    // virtio-vsock bridge startup.
-    var vsock_irq_ctx = VsockIrqCtx{ .irq = virtio_vsock_irq };
+    // virtio-vsock bridge startup. On any failure we drop the device
+    // too so MMIO routing skips the now-half-initialised slot.
+    var vsock_irq_ctx = VsockIrqCtx{ .irq = irqs.vsock };
+    var vsock_bridge_opt: ?*vsock_mod.Bridge = null;
     if (vsock_dev_ptr) |d| {
-        vsock_bridge_opt = vsock_mod.Bridge.create(gpa, d, .{
-            .ports = vsock_ports,
-            .raise_irq = &onVsockIrq,
-            .raise_irq_ctx = @ptrCast(&vsock_irq_ctx),
-        }) catch |err| blk: {
-            std.debug.print("vsock: bridge create failed: {s}\n", .{@errorName(err)});
-            break :blk null;
-        };
-        if (vsock_bridge_opt) |b| {
-            d.request_ctx = @ptrCast(b);
-            b.start() catch |err| {
-                std.debug.print("vsock: bridge start failed: {s}\n", .{@errorName(err)});
-                b.destroy();
-                vsock_bridge_opt = null;
-                vsock_dev_opt = null;
-            };
-            if (vsock_bridge_opt != null) {
-                for (vsock_ports) |pm| {
-                    const tag: []const u8 = switch (pm.direction) {
-                        .inbound => "in",
-                        .outbound => "out",
-                    };
-                    std.debug.print("vsock: {s} {d} <-> {s}\n", .{ tag, pm.guest_port, pm.uds_path });
-                }
-            }
-        }
+        vsock_bridge_opt = startVsockBridge(gpa, d, vsock_ports, &vsock_irq_ctx);
+        if (vsock_bridge_opt == null) vsock_dev_opt = null;
     }
     defer if (vsock_bridge_opt) |b| b.destroy();
 
@@ -592,7 +380,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // poll stdin. The stdin fd stays in its default blocking mode.
     var stdin_ctx = StdinThread{
         .uart = &uart,
-        .irq = pl011_irq,
+        .irq = irqs.pl011,
         .gpa = gpa,
     };
     const stdin_thread = try std.Thread.spawn(.{}, stdinThreadMain, .{&stdin_ctx});
@@ -601,16 +389,30 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         stdin_thread.detach();
     }
 
-    // Helper: sync the PL011 IRQ line to match the UART's current state.
-    // Called by the main thread after any MMIO access that can change
-    // imsc/ris (e.g. the kernel masking interrupts in its ISR). The
-    // stdin thread does its own update after pushing bytes.
-    const syncIrq = struct {
-        fn call(u: *hvf.Pl011, id: u32) void {
-            hvf.Gic.setSpi(id, u.irqAsserted()) catch {};
-        }
-    }.call;
+    const devs = Devices{
+        .uart = &uart,
+        .netdev = &netdev,
+        .blk_dev = blkdev_ptr,
+        .blk2_dev = blk2dev_ptr,
+        .vsock_dev = vsock_dev_ptr,
+        .vsock_bridge = vsock_bridge_opt,
+    };
+    return try runLoop(gpa, cfg, vcpu, &devs, irqs);
+}
 
+/// Drive the vCPU until PSCI SYSTEM_OFF, an unhandled exception, the
+/// configured serial-capture threshold, or `max_exits`. Each exit is
+/// classified and dispatched to the appropriate handler; the loop
+/// owns the `saw_off` / `exits` accounting and emits the final Result.
+fn runLoop(
+    gpa: std.mem.Allocator,
+    cfg: Config,
+    vcpu: hvf.Vcpu,
+    devs: *const Devices,
+    irqs: IrqMap,
+) !Result {
+    var exits: usize = 0;
+    var saw_off = false;
     while (exits < cfg.max_exits) : (exits += 1) {
         try vcpu.run();
 
@@ -626,147 +428,19 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         if (vcpu.exit.reason != .exception) return error.GuestCrashed;
         const ec = hvf.ExceptionClass.fromSyndrome(vcpu.exit.exception.syndrome);
 
-
         switch (ec) {
             .hvc_aarch64 => {
-                if (try hvf.Psci.decode(vcpu)) |f| switch (f) {
-                    .system_off, .system_reset => {
+                switch (try handlePsci(vcpu)) {
+                    .shutdown => {
                         saw_off = true;
                         break;
                     },
-                    .version => {
-                        // PSCI 1.0 = major 1, minor 0.
-                        try vcpu.setReg(.x0, 0x0001_0000);
-                    },
-                    .migrate_info_type => {
-                        // "Not present" — no migratable trusted OS.
-                        try vcpu.setReg(.x0, 2);
-                    },
-                    .affinity_info_64 => {
-                        // CPU 0 is "ON." The kernel queries this as part
-                        // of setup; anything else gets NOT_SUPPORTED.
-                        const x1 = try vcpu.getReg(.x1);
-                        try vcpu.setReg(.x0, if (x1 == 0) 0 else @bitCast(@as(i64, -1)));
-                    },
-                    .cpu_off, .cpu_on_64, .features => {
-                        // We only support one CPU and no optional features.
-                        try vcpu.setReg(.x0, @bitCast(@as(i64, -1)));
-                    },
-                    _ => {
-                        try vcpu.setReg(.x0, @bitCast(@as(i64, -1)));
-                    },
-                } else {
-                    // Unknown HVC — skip it. Safer than crashing the run.
+                    .handled => {},
                 }
             },
             .data_abort_lower_el => {
                 const info = hvf.DataAbort.decode(vcpu.exit.exception);
-                if (uart.handles(info.ipa)) {
-                    if (info.is_write) {
-                        const value = try info.readSource(vcpu);
-                        try uart.write(gpa, info.ipa, value);
-                        // Echo DR writes (offset 0) to host stderr so the
-                        // user sees guest console output live.
-                        if ((info.ipa - uart.base) == 0) {
-                            const byte: [1]u8 = .{@truncate(value)};
-                            _ = write(2, &byte, 1);
-                        }
-                        // The guest may have masked/unmasked or cleared
-                        // interrupts — resync the PL011 IRQ line.
-                        syncIrq(&uart, pl011_irq);
-                    } else {
-                        // Reads: return the UART's answer into the target
-                        // register so the guest sees valid flags.
-                        const v = uart.read(info.ipa);
-                        if (info.srt != 31) {
-                            const reg: hvf.Reg = @enumFromInt(@as(u32, info.srt));
-                            try vcpu.setReg(reg, v);
-                        }
-                        // A DR read drains rx_buf; resync the IRQ line.
-                        syncIrq(&uart, pl011_irq);
-                    }
-                } else if (info.ipa >= 0x0800_0000 and info.ipa < 0x0801_0000) {
-                    // Distributor MMIO. Route to HVF.
-                    const offset: u32 = @truncate(info.ipa - 0x0800_0000);
-                    if (info.is_write) {
-                        const value = try info.readSource(vcpu);
-                        hvf.Gic.writeDistributor(offset, value);
-                    } else if (info.srt != 31) {
-                        const reg: hvf.Reg = @enumFromInt(@as(u32, info.srt));
-                        try vcpu.setReg(reg, hvf.Gic.readDistributor(offset));
-                    }
-                } else if (netdev.handles(info.ipa)) {
-                    if (info.is_write) {
-                        const value = try info.readSource(vcpu);
-                        netdev.write(info.ipa, value);
-                    } else if (info.srt != 31) {
-                        const reg: hvf.Reg = @enumFromInt(@as(u32, info.srt));
-                        try vcpu.setReg(reg, netdev.read(info.ipa));
-                    }
-                    hvf.Gic.setSpi(virtio_irq, @atomicLoad(u32, &netdev.interrupt_status, .acquire) != 0) catch {};
-                } else if (blkdev_ptr != null and blkdev_ptr.?.handles(info.ipa)) {
-                    const d = blkdev_ptr.?;
-                    if (info.is_write) {
-                        const value = try info.readSource(vcpu);
-                        d.write(info.ipa, value);
-                    } else if (info.srt != 31) {
-                        const reg: hvf.Reg = @enumFromInt(@as(u32, info.srt));
-                        try vcpu.setReg(reg, d.read(info.ipa));
-                    }
-                    hvf.Gic.setSpi(virtio_blk_irq, @atomicLoad(u32, &d.interrupt_status, .acquire) != 0) catch {};
-                } else if (blk2dev_ptr != null and blk2dev_ptr.?.handles(info.ipa)) {
-                    const d = blk2dev_ptr.?;
-                    if (info.is_write) {
-                        const value = try info.readSource(vcpu);
-                        d.write(info.ipa, value);
-                    } else if (info.srt != 31) {
-                        const reg: hvf.Reg = @enumFromInt(@as(u32, info.srt));
-                        try vcpu.setReg(reg, d.read(info.ipa));
-                    }
-                    hvf.Gic.setSpi(virtio_blk2_irq, @atomicLoad(u32, &d.interrupt_status, .acquire) != 0) catch {};
-                } else if (vsock_dev_ptr != null and vsock_dev_ptr.?.handles(info.ipa)) {
-                    const d = vsock_dev_ptr.?;
-                    // The vCPU side of (RMW interrupt_status + setSpi)
-                    // must serialise against the bridge poll thread's
-                    // same pair. Apple's hv_gic_set_spi appears to
-                    // absorb the race in practice, but the underlying
-                    // hazard is the same as on KVM (where it bites
-                    // hard) — taking the bridge lock here makes the
-                    // semantics identical across backends and removes
-                    // a latent footgun. handleTxChain assumes the
-                    // caller holds bridge.mu; see its docstring.
-                    if (vsock_bridge_opt) |b| b.mu.lock();
-                    defer if (vsock_bridge_opt) |b| b.mu.unlock();
-                    if (info.is_write) {
-                        const value = try info.readSource(vcpu);
-                        d.write(info.ipa, value);
-                    } else if (info.srt != 31) {
-                        const reg: hvf.Reg = @enumFromInt(@as(u32, info.srt));
-                        try vcpu.setReg(reg, d.read(info.ipa));
-                    }
-                    hvf.Gic.setSpi(virtio_vsock_irq, @atomicLoad(u32, &d.interrupt_status, .acquire) != 0) catch {};
-                } else if (info.ipa >= 0x1000_0000 and info.ipa < 0x1200_0000) {
-                    // Redistributor MMIO. Each vCPU's frame is 128 KB.
-                    // For our single-vCPU setup, frame 0 = [0x10000000,
-                    // 0x10020000); offset into frame is the HVF register.
-                    const offset: u32 = @truncate((info.ipa - 0x1000_0000) % 0x0002_0000);
-                    if (info.is_write) {
-                        const value = try info.readSource(vcpu);
-                        hvf.Gic.writeRedistributor(vcpu, offset, value);
-                    } else if (info.srt != 31) {
-                        const reg: hvf.Reg = @enumFromInt(@as(u32, info.srt));
-                        try vcpu.setReg(reg, hvf.Gic.readRedistributor(vcpu, offset));
-                    }
-                } else {
-                    // Unknown MMIO region — reads return 0, writes ignored.
-                    if (!info.is_write and info.srt != 31) {
-                        const reg: hvf.Reg = @enumFromInt(@as(u32, info.srt));
-                        try vcpu.setReg(reg, 0);
-                    }
-                }
-                // Advance PC past the faulting instruction.
-                const pc = try vcpu.getReg(.pc);
-                try vcpu.setReg(.pc, pc + 4);
+                try routeDataAbort(gpa, vcpu, devs, irqs, info);
             },
             else => {
                 // Unhandled exception — record and stop.
@@ -778,12 +452,12 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         // be confident the kernel booted far enough to prove our point.
         // Production boots set `unbounded_serial` so the loop ends only
         // on PSCI SYSTEM_OFF (or max_exits).
-        if (!cfg.unbounded_serial and uart.captured.items.len >= cfg.capture_bytes) break;
+        if (!cfg.unbounded_serial and devs.uart.captured.items.len >= cfg.capture_bytes) break;
     }
 
     if (exits >= cfg.max_exits) return error.RanTooLong;
 
-    const serial = try gpa.dupe(u8, uart.captured.items);
+    const serial = try gpa.dupe(u8, devs.uart.captured.items);
     return .{
         .serial = serial,
         .saw_psci_shutdown = saw_off,
@@ -896,6 +570,477 @@ fn onTxFrame(ctx: ?*anyopaque, frame: []const u8) void {
         .{ stats.frames, frame.len, ethertype, class },
     ) catch return;
     _ = write(2, msg.ptr, msg.len);
+}
+
+/// Kernel + DTB bytes loaded off disk plus the parsed kernel header.
+/// Owns the two byte buffers; caller invokes `deinit` once boot is
+/// done with them (the @memcpy into guest RAM doesn't keep them live).
+const LoadedFixtures = struct {
+    kernel: []u8,
+    dtb: []u8,
+    img: hvf.KernelImage,
+
+    fn deinit(self: *LoadedFixtures, gpa: std.mem.Allocator) void {
+        gpa.free(self.kernel);
+        gpa.free(self.dtb);
+    }
+};
+
+/// Read kernel + DTB off disk, parse the kernel header, and validate
+/// they fit in the configured guest RAM. `error.FixtureMissing` is
+/// surfaced so the boot tests can `expectError` it cleanly.
+fn loadFixtures(gpa: std.mem.Allocator, cfg: Config) !LoadedFixtures {
+    const kernel = readAll(gpa, cfg.kernel_path) catch |err| {
+        if (err == error.FileNotFound) return error.FixtureMissing;
+        return err;
+    };
+    errdefer gpa.free(kernel);
+    assert(kernel.len > 0);
+
+    const dtb = readAll(gpa, cfg.dtb_path) catch |err| {
+        if (err == error.FileNotFound) return error.FixtureMissing;
+        return err;
+    };
+    errdefer gpa.free(dtb);
+    assert(dtb.len > 0);
+
+    const img = try hvf.KernelImage.parse(kernel);
+    if (img.text_offset + kernel.len > cfg.ram_size) return error.KernelTooLarge;
+    if (cfg.dtb_offset + dtb.len > cfg.ram_size) return error.DtbTooLarge;
+
+    return .{ .kernel = kernel, .dtb = dtb, .img = img };
+}
+
+/// Allocate the host-backed slab the guest sees as its RAM, then copy
+/// kernel + DTB + (optional) initramfs into it. Returns the mapped
+/// slice; caller owns the munmap.
+fn allocateAndPopulateRam(
+    gpa: std.mem.Allocator,
+    cfg: Config,
+    fx: LoadedFixtures,
+) ![]align(std.heap.page_size_min) u8 {
+    const ram = try std.posix.mmap(
+        null,
+        cfg.ram_size,
+        .{ .READ = true, .WRITE = true },
+        .{ .TYPE = .PRIVATE, .ANONYMOUS = true },
+        -1,
+        0,
+    );
+    errdefer std.posix.munmap(ram);
+    assert(ram.len == cfg.ram_size);
+    assert(@intFromPtr(ram.ptr) % hvf.page_size == 0);
+
+    @memcpy(ram[fx.img.text_offset..][0..fx.kernel.len], fx.kernel);
+    @memcpy(ram[cfg.dtb_offset..][0..fx.dtb.len], fx.dtb);
+
+    if (cfg.initrd_path) |initrd_path| {
+        const initrd = readAll(gpa, initrd_path) catch |err| {
+            if (err == error.OpenFailed) return error.FixtureMissing;
+            return err;
+        };
+        defer gpa.free(initrd);
+        if (cfg.initrd_offset + initrd.len > cfg.ram_size) return error.DtbTooLarge;
+        @memcpy(ram[cfg.initrd_offset..][0..initrd.len], initrd);
+        // Sub-second spawn (#50): patch the DTB's `linux,initrd-end` in
+        // place to point just past the actual cpio. The kernel scans the
+        // full [initrd-start, initrd-end) region for concatenated cpio /
+        // compressed archives — at ~1 GB/s of wall clock. Leaving 1 GB
+        // of dead tail in that window costs ~1 s of early boot.
+        const initrd_end_abs: u32 = @intCast(cfg.ram_base + cfg.initrd_offset + initrd.len);
+        patchDtbInitrdEnd(ram[cfg.dtb_offset..][0..fx.dtb.len], initrd_end_abs) catch |err| {
+            if (debugEnabled()) std.debug.print(
+                "warn: patchDtbInitrdEnd failed ({s}); kernel will scan the full DTB-declared initrd window\n",
+                .{@errorName(err)},
+            );
+        };
+    }
+    return ram;
+}
+
+/// Bring up the vCPU: register MPIDR/timer/EL1 state, then point
+/// X0 at the DTB and PC at the kernel entry per the arm64 Linux boot
+/// protocol. Caller owns the destroy.
+fn initVcpu(img: hvf.KernelImage, cfg: Config) !hvf.Vcpu {
+    const vcpu = try hvf.Vcpu.create();
+    errdefer vcpu.destroy();
+
+    // Set the vCPU's multiprocessor affinity. Without this, Apple's
+    // GIC won't associate this vCPU with a redistributor frame and
+    // any `hv_gic_*_redistributor_reg` call returns HV_DENIED. Value
+    // layout: bit 31 reserved-as-1, bits 23:16/15:8/7:0 = Aff2/Aff1/Aff0.
+    // For our single-CPU guest, all affinity fields = 0.
+    try vcpu.setSysReg(.mpidr_el1, 1 << 31);
+
+    // Let the virtual timer wake the vCPU so we can deliver ticks.
+    try vcpu.setVtimerMask(false);
+
+    // Diagnostic: query where HVF actually placed this vCPU's
+    // redistributor. If this differs from what we told the kernel via
+    // the DTB, the kernel will report "No redistributor present."
+    if (debugEnabled()) {
+        if (hvf.Gic.redistributorBase(vcpu)) |rdist| {
+            std.debug.print("GIC redistributor for vcpu 0: 0x{x}\n", .{rdist});
+        } else |err| {
+            std.debug.print("GIC redistributor query failed: {s}\n", .{@errorName(err)});
+        }
+    }
+
+    // EL1h, all interrupts masked.
+    try vcpu.setReg(.cpsr, 0x3C5);
+    // MMU off (kernel turns it on itself); I-bit for executable fetches.
+    try vcpu.setSysReg(.sctlr_el1, 1 << 12);
+
+    // arm64 Linux boot protocol: X0 = physical address of DTB.
+    const dtb_phys = cfg.ram_base + cfg.dtb_offset;
+    const entry_phys = cfg.ram_base + img.text_offset;
+    assert(dtb_phys >= cfg.ram_base);
+    assert(entry_phys >= cfg.ram_base);
+    assert(entry_phys < cfg.ram_base + cfg.ram_size);
+    try vcpu.setReg(.x0, dtb_phys);
+    try vcpu.setReg(.x1, 0);
+    try vcpu.setReg(.x2, 0);
+    try vcpu.setReg(.x3, 0);
+    try vcpu.setReg(.pc, entry_phys);
+
+    return vcpu;
+}
+
+/// SPI ids for the four virtio-mmio slots + PL011, derived from the
+/// Apple-supplied SPI base. DTS IRQ numbers are encoded as `<0 N 1>`
+/// (0 = SPI namespace, N = offset, 1 = edge) so the absolute id is
+/// `spi.base + N`. Layout must stay byte-identical to virt.dts.
+const IrqMap = struct {
+    pl011: u32,
+    net: u32,
+    blk: u32,
+    blk2: u32,
+    vsock: u32,
+};
+
+fn assignIrqs() !IrqMap {
+    const spi = try hvf.Gic.spiRange();
+    // SPIs start at 32 on ARM GIC; HVF must report at least the device
+    // IDs we wire up (1, 16, 17, 18, 19) past spi.base.
+    assert(spi.base >= 32);
+    assert(spi.count >= 20);
+    return .{
+        .pl011 = spi.base + 1,
+        .net = spi.base + 16,
+        .blk = spi.base + 17,
+        .vsock = spi.base + 18,
+        .blk2 = spi.base + 19,
+    };
+}
+
+/// Build the virtio-net device. virtio-net sits in slot 0 with a
+/// stable MAC the runtime hands the gvproxy DHCP server.
+fn makeNetDevice(ram: []u8, cfg: Config, mac: *const [6]u8, tx_handler: *const fn (?*anyopaque, []const u8) void, tx_ctx: ?*anyopaque) virtio.Device {
+    return .{
+        .base = virtio_net_base,
+        .size = virtio_net_size,
+        .id = .net,
+        // Bit 32 = VIRTIO_F_VERSION_1 (always required for v2 transport);
+        // bit 5 = VIRTIO_NET_F_MAC (we publish the MAC in config space).
+        .features = (1 << 32) | (1 << 5),
+        .config = mac,
+        .ram = ram,
+        .ram_base = cfg.ram_base,
+        .tx_handler = tx_handler,
+        .tx_ctx = tx_ctx,
+    };
+}
+
+/// Open a host file as a virtio-blk backend. Returns null when the
+/// caller didn't ask for this slot, or when the file open failed —
+/// matches the original "warn and continue" policy so a missing scratch
+/// disk doesn't prevent the rest of the VMM from booting.
+fn openBlkBackend(path: ?[]const u8, label: []const u8) ?blk_mod.Backend {
+    const p = path orelse return null;
+    return blk_mod.openFile(p) catch |err| {
+        std.debug.print("virtio-blk {s} disabled: {s} ({s})\n", .{ label, @errorName(err), p });
+        return null;
+    };
+}
+
+/// Wrap a `blk_mod.Backend` as a virtio-mmio device. `backend` must
+/// outlive the returned device — the device's `config` and
+/// `request_ctx` are pointers into it.
+fn makeBlkDevice(base: u64, size: u64, ram: []u8, cfg: Config, backend: *blk_mod.Backend) virtio.Device {
+    return .{
+        .base = base,
+        .size = size,
+        .id = .block,
+        .features = (1 << 32), // VIRTIO_F_VERSION_1
+        .config = std.mem.asBytes(&backend.config),
+        .ram = ram,
+        .ram_base = cfg.ram_base,
+        .request_handler = &blk_mod.Backend.handleRequest,
+        .request_ctx = @ptrCast(backend),
+    };
+}
+
+/// Parse `MACHINEN_VSOCK` into a port-map list. Empty/missing returns
+/// an empty slice; parse errors log and return empty so a typo in the
+/// env doesn't prevent boot. The returned slice and its path strings
+/// are allocated from `gpa`.
+fn parseVsockEnv(gpa: std.mem.Allocator) []vsock_mod.PortMap {
+    const raw = getenv("MACHINEN_VSOCK") orelse return &.{};
+    const s = std.mem.span(raw);
+    if (s.len == 0) return &.{};
+    return vsock_mod.parseEnv(gpa, s) catch |err| {
+        std.debug.print("vsock: MACHINEN_VSOCK parse failed ({s}); ignoring\n", .{@errorName(err)});
+        return &.{};
+    };
+}
+
+/// Build the virtio-vsock device. `cid_ptr` must outlive the device —
+/// the config field is a pointer into it.
+fn makeVsockDevice(ram: []u8, cfg: Config, cid_ptr: *const u64) virtio.Device {
+    return .{
+        .base = virtio_vsock_base,
+        .size = virtio_vsock_size,
+        .id = .vsock,
+        .features = (1 << 32), // VIRTIO_F_VERSION_1
+        .config = std.mem.asBytes(cid_ptr),
+        .ram = ram,
+        .ram_base = cfg.ram_base,
+        .request_handler = &vsock_mod.Bridge.handleTxChain,
+        .request_ctx = null,
+        // Queues 0 (RX) and 2 (event) are driver-posts-empty-buffers
+        // queues — we fill them on demand, not on every kick.
+        .skip_notify_queues = (1 << 0) | (1 << 2),
+    };
+}
+
+/// Dial gvproxy if `MACHINEN_NET_SOCKET` is set; null on missing env
+/// or any connect failure (the rest of the VMM still runs without
+/// network).
+fn connectGvproxy(gpa: std.mem.Allocator, netdev: *virtio.Device) ?*net_mod.NetSocket {
+    const env = getenv("MACHINEN_NET_SOCKET") orelse return null;
+    const path = std.mem.span(env);
+    if (path.len == 0) return null;
+    return net_mod.NetSocket.connect(gpa, netdev, .{ .socket_path = path }) catch |err| {
+        std.debug.print("net: connect to {s} failed: {s} — continuing without network\n", .{ path, @errorName(err) });
+        return null;
+    };
+}
+
+/// Bring up the vsock bridge: create it, wire its request_ctx into the
+/// device, start the poll thread, and log the active port mappings.
+/// Returns null on any failure (and clears `dev` so callers know the
+/// device is no longer live).
+fn startVsockBridge(
+    gpa: std.mem.Allocator,
+    dev: *virtio.Device,
+    ports: []const vsock_mod.PortMap,
+    irq_ctx: *VsockIrqCtx,
+) ?*vsock_mod.Bridge {
+    const bridge = vsock_mod.Bridge.create(gpa, dev, .{
+        .ports = ports,
+        .raise_irq = &onVsockIrq,
+        .raise_irq_ctx = @ptrCast(irq_ctx),
+    }) catch |err| {
+        std.debug.print("vsock: bridge create failed: {s}\n", .{@errorName(err)});
+        return null;
+    };
+    dev.request_ctx = @ptrCast(bridge);
+    bridge.start() catch |err| {
+        std.debug.print("vsock: bridge start failed: {s}\n", .{@errorName(err)});
+        bridge.destroy();
+        return null;
+    };
+    for (ports) |pm| {
+        const tag: []const u8 = switch (pm.direction) {
+            .inbound => "in",
+            .outbound => "out",
+        };
+        std.debug.print("vsock: {s} {d} <-> {s}\n", .{ tag, pm.guest_port, pm.uds_path });
+    }
+    return bridge;
+}
+
+/// What `handlePsci` decided. Most PSCI calls just return a value to
+/// the guest; SYSTEM_OFF / SYSTEM_RESET ask the run loop to stop.
+const PsciOutcome = enum { handled, shutdown };
+
+/// Decode and respond to a PSCI HVC. Returns `.shutdown` only on
+/// SYSTEM_OFF / SYSTEM_RESET; all other cases are answered in-place.
+fn handlePsci(vcpu: hvf.Vcpu) !PsciOutcome {
+    const f = try hvf.Psci.decode(vcpu) orelse return .handled;
+    switch (f) {
+        .system_off, .system_reset => return .shutdown,
+        .version => {
+            // PSCI 1.0 = major 1, minor 0.
+            try vcpu.setReg(.x0, 0x0001_0000);
+        },
+        .migrate_info_type => {
+            // "Not present" — no migratable trusted OS.
+            try vcpu.setReg(.x0, 2);
+        },
+        .affinity_info_64 => {
+            // CPU 0 is "ON." The kernel queries this as part of setup;
+            // anything else gets NOT_SUPPORTED.
+            const x1 = try vcpu.getReg(.x1);
+            try vcpu.setReg(.x0, if (x1 == 0) 0 else @bitCast(@as(i64, -1)));
+        },
+        .cpu_off, .cpu_on_64, .features => {
+            // We only support one CPU and no optional features.
+            try vcpu.setReg(.x0, @bitCast(@as(i64, -1)));
+        },
+        _ => {
+            try vcpu.setReg(.x0, @bitCast(@as(i64, -1)));
+        },
+    }
+    return .handled;
+}
+
+/// Owning handles for everything the run loop needs to dispatch MMIO
+/// against. Construction in boot() drives the lifetimes; this struct
+/// is just the bag of pointers we hand to runLoop / its callees.
+const Devices = struct {
+    uart: *hvf.Pl011,
+    netdev: *virtio.Device,
+    blk_dev: ?*virtio.Device,
+    blk2_dev: ?*virtio.Device,
+    vsock_dev: ?*virtio.Device,
+    vsock_bridge: ?*vsock_mod.Bridge,
+};
+
+/// Route a data-abort MMIO fault to the device that owns the IPA, then
+/// advance PC past the faulting load/store. This is the dispatch table
+/// — the per-device helpers do the actual read/write.
+fn routeDataAbort(
+    gpa: std.mem.Allocator,
+    vcpu: hvf.Vcpu,
+    devs: *const Devices,
+    irqs: IrqMap,
+    info: hvf.DataAbort,
+) !void {
+    if (devs.uart.handles(info.ipa)) {
+        try handlePl011Mmio(devs.uart, gpa, vcpu, info, irqs.pl011);
+    } else if (info.ipa >= 0x0800_0000 and info.ipa < 0x0801_0000) {
+        try handleGicDistMmio(vcpu, info);
+    } else if (devs.netdev.handles(info.ipa)) {
+        try handleVirtioMmio(devs.netdev, irqs.net, vcpu, info);
+    } else if (devs.blk_dev != null and devs.blk_dev.?.handles(info.ipa)) {
+        try handleVirtioMmio(devs.blk_dev.?, irqs.blk, vcpu, info);
+    } else if (devs.blk2_dev != null and devs.blk2_dev.?.handles(info.ipa)) {
+        try handleVirtioMmio(devs.blk2_dev.?, irqs.blk2, vcpu, info);
+    } else if (devs.vsock_dev != null and devs.vsock_dev.?.handles(info.ipa)) {
+        // The vCPU side of (RMW interrupt_status + setSpi) must
+        // serialise against the bridge poll thread's same pair.
+        // Apple's hv_gic_set_spi appears to absorb the race in
+        // practice, but the underlying hazard is the same as on KVM
+        // (where it bites hard) — taking the bridge lock here makes
+        // the semantics identical across backends and removes a
+        // latent footgun. handleTxChain assumes the caller holds
+        // bridge.mu; see its docstring.
+        if (devs.vsock_bridge) |b| b.mu.lock();
+        defer if (devs.vsock_bridge) |b| b.mu.unlock();
+        try handleVirtioMmio(devs.vsock_dev.?, irqs.vsock, vcpu, info);
+    } else if (info.ipa >= 0x1000_0000 and info.ipa < 0x1200_0000) {
+        try handleGicRdistMmio(vcpu, info);
+    } else {
+        try handleUnknownMmio(vcpu, info);
+    }
+    const pc = try vcpu.getReg(.pc);
+    try vcpu.setReg(.pc, pc + 4);
+}
+
+/// Sync the PL011 IRQ line to the UART's current state. Called from
+/// the vCPU thread after any PL011 MMIO that can change imsc/ris (the
+/// kernel masking interrupts in its ISR is the common case). The
+/// stdin thread does its own update after pushing bytes.
+fn syncPl011Irq(uart: *hvf.Pl011, irq: u32) void {
+    assert(irq >= 32);
+    hvf.Gic.setSpi(irq, uart.irqAsserted()) catch {};
+}
+
+/// PL011 MMIO. DR-write echoes to host stderr so the user sees guest
+/// console output live; every access resyncs the IRQ line.
+fn handlePl011Mmio(
+    uart: *hvf.Pl011,
+    gpa: std.mem.Allocator,
+    vcpu: hvf.Vcpu,
+    info: hvf.DataAbort,
+    irq: u32,
+) !void {
+    assert(uart.handles(info.ipa));
+    if (info.is_write) {
+        const value = try info.readSource(vcpu);
+        try uart.write(gpa, info.ipa, value);
+        if ((info.ipa - uart.base) == 0) {
+            const byte: [1]u8 = .{@truncate(value)};
+            _ = write(2, &byte, 1);
+        }
+    } else {
+        const v = uart.read(info.ipa);
+        if (info.srt != 31) {
+            const reg: hvf.Reg = @enumFromInt(@as(u32, info.srt));
+            try vcpu.setReg(reg, v);
+        }
+    }
+    syncPl011Irq(uart, irq);
+}
+
+/// virtio-MMIO read/write + raise/lower the SPI based on the device's
+/// post-access interrupt_status. Shared shape across net / blk / blk2;
+/// vsock callers wrap this in `bridge.mu` per the locking note in
+/// `vsock.Bridge.handleTxChain`.
+fn handleVirtioMmio(
+    dev: *virtio.Device,
+    irq: u32,
+    vcpu: hvf.Vcpu,
+    info: hvf.DataAbort,
+) !void {
+    assert(dev.handles(info.ipa));
+    assert(irq >= 32);
+    if (info.is_write) {
+        const value = try info.readSource(vcpu);
+        dev.write(info.ipa, value);
+    } else if (info.srt != 31) {
+        const reg: hvf.Reg = @enumFromInt(@as(u32, info.srt));
+        try vcpu.setReg(reg, dev.read(info.ipa));
+    }
+    hvf.Gic.setSpi(irq, @atomicLoad(u32, &dev.interrupt_status, .acquire) != 0) catch {};
+}
+
+/// GIC distributor MMIO ([0x0800_0000, 0x0801_0000)). Routes the
+/// access to HVF; reads land in the target register.
+fn handleGicDistMmio(vcpu: hvf.Vcpu, info: hvf.DataAbort) !void {
+    const offset: u32 = @truncate(info.ipa - 0x0800_0000);
+    if (info.is_write) {
+        const value = try info.readSource(vcpu);
+        hvf.Gic.writeDistributor(offset, value);
+    } else if (info.srt != 31) {
+        const reg: hvf.Reg = @enumFromInt(@as(u32, info.srt));
+        try vcpu.setReg(reg, hvf.Gic.readDistributor(offset));
+    }
+}
+
+/// GIC redistributor MMIO ([0x1000_0000, 0x1200_0000)). Each vCPU's
+/// frame is 128 KB; for our single-vCPU setup, frame 0 is the only
+/// one and the offset within it is the HVF register.
+fn handleGicRdistMmio(vcpu: hvf.Vcpu, info: hvf.DataAbort) !void {
+    const offset: u32 = @truncate((info.ipa - 0x1000_0000) % 0x0002_0000);
+    if (info.is_write) {
+        const value = try info.readSource(vcpu);
+        hvf.Gic.writeRedistributor(vcpu, offset, value);
+    } else if (info.srt != 31) {
+        const reg: hvf.Reg = @enumFromInt(@as(u32, info.srt));
+        try vcpu.setReg(reg, hvf.Gic.readRedistributor(vcpu, offset));
+    }
+}
+
+/// MMIO outside any registered window. Reads return 0; writes are
+/// dropped. Keeps the boot moving instead of crashing the run loop on
+/// stray DTB-described regions we haven't hooked up yet.
+fn handleUnknownMmio(vcpu: hvf.Vcpu, info: hvf.DataAbort) !void {
+    if (!info.is_write and info.srt != 31) {
+        const reg: hvf.Reg = @enumFromInt(@as(u32, info.srt));
+        try vcpu.setReg(reg, 0);
+    }
 }
 
 fn stdinThreadMain(ctx: *StdinThread) void {
