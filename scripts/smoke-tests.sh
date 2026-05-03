@@ -525,8 +525,70 @@ else
   cat "$N2D_EXEC_LOG" >&2
   fail "N2D — post-detach 'machinen exec' exited non-zero"
 fi
+# Don't call cleanup_n2d here — N2S below uses `machinen stop` to
+# tear it down and asserts the cleanup actually happened. The EXIT
+# trap is still set, so a failure between here and the end of N2S
+# still kills the VMM.
 
-cleanup_n2d
+# ---- N2S: machinen stop <name> — clean SIGTERM + gc.
+# Issue #150 phase 2 PR2. Reuses the N2D-booted detached VM: now
+# tear it down via `machinen stop` instead of raw kill, and assert
+# both the registry entry and the per-boot artifacts are gone.
+echo "N2S: machinen stop $N2D_NAME"
+# Snapshot the cleanupPaths we expect gc to nuke. Pull them straight
+# from the registry's meta.json — gc has the source of truth.
+N2D_META="$MACHINEN_REGISTRY_DIR/$N2D_PID/meta.json"
+if [[ ! -s "$N2D_META" ]]; then
+  fail "N2S — meta.json missing for pid $N2D_PID"
+fi
+# `node -p` to extract cleanupPaths reliably without a JSON parser
+# in bash. Falls back to empty string if the field is absent.
+N2D_CLEANUP_PATHS=$(node -p "JSON.parse(require('fs').readFileSync('$N2D_META','utf8')).cleanupPaths?.join('\\n') ?? ''" 2>/dev/null || true)
+
+N2S_LOG="$FIXTURE/n2s.log"
+if cli stop --name "$N2D_NAME" >"$N2S_LOG" 2>&1; then
+  pass "machinen stop --name $N2D_NAME exited 0"
+else
+  cat "$N2S_LOG" >&2
+  fail "N2S — machinen stop exited non-zero"
+fi
+
+# Registry entry should be gone.
+if cli ls 2>/dev/null | grep -q "$N2D_NAME"; then
+  cli ls >&2
+  fail "N2S — '$N2D_NAME' still listed after machinen stop"
+fi
+pass "machinen ls no longer lists '$N2D_NAME'"
+
+# Each cleanupPath should now be gone too. Skip the loop body when
+# cleanupPaths was empty in the registry (e.g. snapshot: false boots).
+if [[ -n "$N2D_CLEANUP_PATHS" ]]; then
+  while IFS= read -r path; do
+    [[ -z "$path" ]] && continue
+    if [[ -e "$path" ]]; then
+      fail "N2S — cleanupPath survived gc: $path"
+    fi
+  done <<<"$N2D_CLEANUP_PATHS"
+  pass "machinen stop removed all recorded cleanupPaths"
+else
+  pass "no cleanupPaths recorded (nothing to verify)"
+fi
+
+# Stop is idempotent — calling it again on a missing name should
+# error cleanly, not crash.
+N2S_AGAIN_LOG="$FIXTURE/n2s-again.log"
+if cli stop --name "$N2D_NAME" >"$N2S_AGAIN_LOG" 2>&1; then
+  cat "$N2S_AGAIN_LOG" >&2
+  fail "N2S — second 'stop' on missing name should have failed"
+fi
+if grep -q "no running VM matched" "$N2S_AGAIN_LOG"; then
+  pass "second stop reports 'no running VM matched'"
+else
+  cat "$N2S_AGAIN_LOG" >&2
+  fail "N2S — expected 'no running VM matched' on missing name"
+fi
+
+# Already cleaned by `machinen stop`, so cleanup_n2d is a no-op now.
 trap 'rm -rf "$FIXTURE"' EXIT
 fi  # N2 rootfs-capability gate
 
