@@ -25,6 +25,8 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
+const assert = std.debug.assert;
+
 comptime {
     if (builtin.os.tag != .linux) {
         @compileError("boot_kvm.zig only builds on Linux (uses /dev/kvm)");
@@ -49,6 +51,19 @@ const virtio_vsock_base: u64 = 0x0A00_0400;
 const virtio_vsock_size: u64 = 0x200;
 const virtio_blk2_base: u64 = 0x0A00_0600;
 const virtio_blk2_size: u64 = 0x200;
+
+comptime {
+    // virtio-mmio slot layout — must stay byte-identical to virt.dts.
+    // Drift here means the kernel probes the wrong window and devices
+    // never bind, with no clear runtime signal.
+    assert(virtio_net_size == 0x200);
+    assert(virtio_blk_size == 0x200);
+    assert(virtio_vsock_size == 0x200);
+    assert(virtio_blk2_size == 0x200);
+    assert(virtio_blk_base == virtio_net_base + virtio_net_size);
+    assert(virtio_vsock_base == virtio_blk_base + virtio_blk_size);
+    assert(virtio_blk2_base == virtio_vsock_base + virtio_vsock_size);
+}
 
 pub const Error = error{
     FixtureMissing,
@@ -96,18 +111,35 @@ pub const Result = struct {
 };
 
 pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
+    // Caller-supplied layout must satisfy the basic geometry the boot
+    // protocol depends on. These are programmer errors at the call
+    // site, not anything the guest can influence.
+    assert(cfg.kernel_path.len > 0);
+    assert(cfg.dtb_path.len > 0);
+    assert(cfg.ram_size >= 16 * 1024 * 1024);
+    assert(cfg.ram_size % 4096 == 0);
+    assert(cfg.ram_base % 4096 == 0);
+    assert(cfg.dtb_offset % 4096 == 0);
+    assert(cfg.initrd_offset % 4096 == 0);
+    assert(cfg.dtb_offset < cfg.ram_size);
+    assert(cfg.initrd_offset < cfg.ram_size);
+    assert(cfg.gic_dist_addr != cfg.gic_redist_addr);
+    assert(cfg.max_exits > 0);
+
     // --- load fixture files --------------------------------------
     const kernel = readAll(gpa, cfg.kernel_path) catch |err| {
         if (err == error.FileNotFound) return error.FixtureMissing;
         return err;
     };
     defer gpa.free(kernel);
+    assert(kernel.len > 0);
 
     const dtb = readAll(gpa, cfg.dtb_path) catch |err| {
         if (err == error.FileNotFound) return error.FixtureMissing;
         return err;
     };
     defer gpa.free(dtb);
+    assert(dtb.len > 0);
 
     const img = try KernelImage.parse(kernel);
     if (img.text_offset + kernel.len > cfg.ram_size) return error.KernelTooLarge;
@@ -124,6 +156,8 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     ) catch return error.KvmSetMemoryFailed;
     defer std.posix.munmap(ram_ptr);
     const ram: []u8 = ram_ptr;
+    assert(ram.len == cfg.ram_size);
+    assert(@intFromPtr(ram.ptr) % 4096 == 0);
 
     @memcpy(ram[img.text_offset..][0..kernel.len], kernel);
     @memcpy(ram[cfg.dtb_offset..][0..dtb.len], dtb);
@@ -166,11 +200,15 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
 
     // arm64 boot protocol: X0 = dtb phys addr, PC = kernel entry.
     const dtb_phys = cfg.ram_base + cfg.dtb_offset;
+    const entry_phys = cfg.ram_base + img.text_offset;
+    assert(dtb_phys >= cfg.ram_base);
+    assert(entry_phys >= cfg.ram_base);
+    assert(entry_phys < cfg.ram_base + cfg.ram_size);
     try vcpu.setReg(kvm.REG_X0, dtb_phys);
     try vcpu.setReg(kvm.REG_X1, 0);
     try vcpu.setReg(kvm.REG_X2, 0);
     try vcpu.setReg(kvm.REG_X3, 0);
-    try vcpu.setReg(kvm.REG_PC, cfg.ram_base + img.text_offset);
+    try vcpu.setReg(kvm.REG_PC, entry_phys);
 
     // --- run loop -------------------------------------------------
     var uart = pl011_mod.Pl011.init;
@@ -431,6 +469,17 @@ fn handleMmio(
     virtio_vsock_irq: u32,
     vsock_bridge: ?*vsock_mod.Bridge,
 ) !void {
+    // KVM never emits an MMIO exit with len outside [1,8]; values
+    // outside that mean we read the wrong kvm_run union slot.
+    assert(ev.len >= 1 and ev.len <= 8);
+    assert(ev.is_write <= 1);
+    // SPI encodings must include the SPI type bits — without them
+    // setIrq silently drops doorbells (see kvm.irqSpi docstring).
+    assert(pl011_irq >> kvm.KVM_ARM_IRQ_TYPE_SHIFT == kvm.KVM_ARM_IRQ_TYPE_SPI);
+    assert(virtio_net_irq >> kvm.KVM_ARM_IRQ_TYPE_SHIFT == kvm.KVM_ARM_IRQ_TYPE_SPI);
+    assert(virtio_blk_irq >> kvm.KVM_ARM_IRQ_TYPE_SHIFT == kvm.KVM_ARM_IRQ_TYPE_SPI);
+    assert(virtio_blk2_irq >> kvm.KVM_ARM_IRQ_TYPE_SHIFT == kvm.KVM_ARM_IRQ_TYPE_SPI);
+    assert(virtio_vsock_irq >> kvm.KVM_ARM_IRQ_TYPE_SHIFT == kvm.KVM_ARM_IRQ_TYPE_SPI);
     if (uart.handles(ev.phys_addr)) {
         if (ev.is_write != 0) {
             const val = mmioReadValue(ev);
@@ -524,8 +573,10 @@ fn handleMmio(
 /// Pack the up-to-8 little-endian bytes KVM hands us in `mmio.data`
 /// into a u64 the device handlers expect.
 fn mmioReadValue(ev: kvm.MmioExit) u64 {
+    assert(ev.len >= 1 and ev.len <= 8);
     var val: u64 = 0;
     const n = @min(@as(usize, ev.len), 8);
+    assert(n >= 1 and n <= 8);
     for (0..n) |i| {
         val |= @as(u64, ev.data[i]) << @as(u6, @intCast(i * 8));
     }
@@ -533,6 +584,7 @@ fn mmioReadValue(ev: kvm.MmioExit) u64 {
 }
 
 fn readAll(gpa: std.mem.Allocator, path: []const u8) ![]u8 {
+    assert(path.len > 0);
     var path_buf: [4096]u8 = undefined;
     if (path.len >= path_buf.len) return error.NameTooLong;
     @memcpy(path_buf[0..path.len], path);
@@ -541,12 +593,14 @@ fn readAll(gpa: std.mem.Allocator, path: []const u8) ![]u8 {
 
     const fd = hostOpen(path_z, 0, 0);
     if (fd < 0) return error.OpenFailed;
+    assert(fd >= 0);
     defer _ = hostClose(fd);
 
     const size_i = hostLseek(fd, 0, 2);
     if (size_i < 0) return error.SeekFailed;
     _ = hostLseek(fd, 0, 0);
     const size: usize = @intCast(size_i);
+    assert(size > 0);
 
     const buf = try gpa.alloc(u8, size);
     errdefer gpa.free(buf);
@@ -556,6 +610,7 @@ fn readAll(gpa: std.mem.Allocator, path: []const u8) ![]u8 {
         if (n <= 0) return error.ShortRead;
         total += @intCast(n);
     }
+    assert(total == size);
     return buf;
 }
 
@@ -595,7 +650,9 @@ pub const VsockIrqCtx = struct {
 };
 
 fn onVsockIrq(ctx: ?*anyopaque) void {
+    assert(ctx != null);
     const c: *VsockIrqCtx = @ptrCast(@alignCast(ctx.?));
+    assert(c.irq >> kvm.KVM_ARM_IRQ_TYPE_SHIFT == kvm.KVM_ARM_IRQ_TYPE_SPI);
     c.vm.setIrq(c.irq, 1) catch {};
 }
 
@@ -608,7 +665,9 @@ pub const NetIrqCtx = struct {
 };
 
 fn onNetIrq(ctx: ?*anyopaque) void {
+    assert(ctx != null);
     const c: *NetIrqCtx = @ptrCast(@alignCast(ctx.?));
+    assert(c.irq >> kvm.KVM_ARM_IRQ_TYPE_SHIFT == kvm.KVM_ARM_IRQ_TYPE_SPI);
     c.vm.setIrq(c.irq, 1) catch {};
 }
 
@@ -619,6 +678,8 @@ fn onNetIrq(ctx: ?*anyopaque) void {
 /// frame to NetSocket.input which prepends the 4-byte length prefix
 /// and writes to the gvproxy UDS.
 fn onNetTx(ctx: ?*anyopaque, frame: []const u8) void {
+    assert(ctx != null);
+    assert(frame.len > 0);
     const n: *net_mod.NetSocket = @ptrCast(@alignCast(ctx.?));
     n.input(frame);
 }
@@ -635,12 +696,16 @@ pub const KernelImage = struct {
     pub const Error = error{ TooSmall, BadMagic };
 
     pub fn parse(bytes: []const u8) KernelImage.Error!KernelImage {
+        assert(bytes.len > 0);
         if (bytes.len < 64) return error.TooSmall;
+        assert(bytes.len >= 0x40);
         const got_magic = std.mem.readInt(u32, bytes[0x38..0x3C], .little);
         if (got_magic != magic) return error.BadMagic;
+        const text_offset = std.mem.readInt(u64, bytes[0x08..0x10], .little);
+        const image_size = std.mem.readInt(u64, bytes[0x10..0x18], .little);
         return .{
-            .text_offset = std.mem.readInt(u64, bytes[0x08..0x10], .little),
-            .image_size = std.mem.readInt(u64, bytes[0x10..0x18], .little),
+            .text_offset = text_offset,
+            .image_size = image_size,
             .bytes = bytes,
         };
     }
