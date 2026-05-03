@@ -23,10 +23,15 @@ export type {
   VsockExecPtyResult,
   VsockExecResult,
 } from "./exec.ts";
-export type { LogEvent, OnLog } from "./log.ts";
+export type { ChunkLogEvent, LogEvent, OnLog, PhaseLogEvent } from "./log.ts";
 export { provision, resolveBaseRootfs } from "./provision.ts";
 export type { ProvisionOptions, ProvisionResult } from "./provision.ts";
-export { ensureRootfsImage, markRootfsImageClean, rootfsImgCacheDir } from "./rootfs-img.ts";
+export {
+  ensureRootfsImage,
+  markRootfsImageClean,
+  resolveMke2fs,
+  rootfsImgCacheDir,
+} from "./rootfs-img.ts";
 export type { EnsureRootfsImageOptions } from "./rootfs-img.ts";
 export { spawnArtifactCache, resolveCacheDir } from "./artifact-cache.ts";
 export type { ArtifactCacheHandle, ArtifactCacheOptions } from "./artifact-cache.ts";
@@ -87,4 +92,5 @@ export {
   resolveVmmBinary,
   restore,
 } from "./vm.ts";
-export type { AttachOptions, BootOptions, RestoreOptions } from "./vm.ts";
+export { warmImageConfigCache } from "./vm.ts";
+export type { AttachOptions, BootOptions, ImageConfig, RestoreOptions } from "./vm.ts";
