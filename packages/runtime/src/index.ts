@@ -93,4 +93,4 @@ export {
   restore,
 } from "./vm.ts";
 export { warmImageConfigCache } from "./vm.ts";
-export type { AttachOptions, BootOptions, RestoreOptions } from "./vm.ts";
+export type { AttachOptions, BootOptions, ImageConfig, RestoreOptions } from "./vm.ts";
