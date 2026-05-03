@@ -459,6 +459,12 @@ interface GvproxyHandle {
   controlSocketPath: string;
   /** The spawned gvproxy child. */
   child: ChildProcess;
+  /**
+   * Directory holding both unix sockets. `cleanupPaths` in the VMM's
+   * registry entry references this so `machinen gc` can rm it after
+   * a detached gvproxy exits (issue #150 phase 2 PR3).
+   */
+  socketDir: string;
   /** Kill gvproxy and clean up the socket + temp dir. Idempotent. */
   stop: () => void;
 }
@@ -466,10 +472,17 @@ interface GvproxyHandle {
 /**
  * Spawn gvproxy and block until its qemu-netdev socket is ready.
  * Throws if the socket doesn't appear within `timeoutMs`.
+ *
+ * `detached: true` (issue #150 phase 2 PR3) skips the parent-death
+ * shim and unrefs the child so the runtime parent can exit while
+ * gvproxy keeps running — required when `boot({ detached: true })`
+ * needs guest networking. Caller is responsible for persisting the
+ * child's pid in the VMM registry so `machinen stop` / `machinen gc`
+ * can clean it up later.
  */
 export async function spawnGvproxy(
   binary: string,
-  opts: { timeoutMs?: number } = {},
+  opts: { timeoutMs?: number; detached?: boolean } = {},
 ): Promise<GvproxyHandle> {
   const timeoutMs = opts.timeoutMs ?? 3000;
   // Short, unique dir so the socket path stays well under the ~104
@@ -506,7 +519,13 @@ export async function spawnGvproxy(
   // unavailable (no `cc` toolchain, opted-out, unsupported platform);
   // the BOOT_PORT_FORWARD_IN_USE pre-flight probe is the safety net
   // in that case. See #115.
-  const pdeathsig = await ensurePdeathsig();
+  //
+  // Detached mode (#150 phase 2 PR3) skips the shim — the whole
+  // point is the parent exits while gvproxy keeps running. The
+  // VMM's registry entry records gvproxy's pid + socket dir so
+  // `machinen stop` SIGTERMs both processes and `machinen gc` rms
+  // the socket dir.
+  const pdeathsig = opts.detached ? null : await ensurePdeathsig();
   const wrapped = wrapWithPdeathsig(pdeathsig, binary, args);
   // Small retry loop around exec() for `ETXTBSY`. On Linux this fires
   // briefly after a freshly-written binary gets exec'd while a peer
@@ -515,6 +534,13 @@ export async function spawnGvproxy(
   // test runners.
   const child = await spawnWithEtxtbsyRetry(wrapped.command, wrapped.args);
   debug("spawned pid=%d qemu=%s ctrl=%s", child.pid ?? -1, socketPath, controlSocketPath);
+  if (opts.detached) {
+    // Drop the event-loop pin so the runtime parent can exit while
+    // gvproxy keeps running. The default-piped stdio streams stay
+    // paused (nobody reads them), and a paused pipe doesn't keep the
+    // loop alive on its own.
+    child.unref();
+  }
 
   let stopped = false;
   const stop = () => {
@@ -570,7 +596,7 @@ export async function spawnGvproxy(
   }
   debug("ready elapsed=%dms", Date.now() - spawnT0);
 
-  return { socketPath, controlSocketPath, child, stop };
+  return { socketPath, controlSocketPath, child, socketDir: dir, stop };
 }
 
 /**
