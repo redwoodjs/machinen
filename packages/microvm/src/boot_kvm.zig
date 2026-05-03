@@ -126,51 +126,11 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     assert(cfg.gic_dist_addr != cfg.gic_redist_addr);
     assert(cfg.max_exits > 0);
 
-    // --- load fixture files --------------------------------------
-    const kernel = readAll(gpa, cfg.kernel_path) catch |err| {
-        if (err == error.FileNotFound) return error.FixtureMissing;
-        return err;
-    };
-    defer gpa.free(kernel);
-    assert(kernel.len > 0);
+    var fx = try loadFixtures(gpa, cfg);
+    defer fx.deinit(gpa);
 
-    const dtb = readAll(gpa, cfg.dtb_path) catch |err| {
-        if (err == error.FileNotFound) return error.FixtureMissing;
-        return err;
-    };
-    defer gpa.free(dtb);
-    assert(dtb.len > 0);
-
-    const img = try KernelImage.parse(kernel);
-    if (img.text_offset + kernel.len > cfg.ram_size) return error.KernelTooLarge;
-    if (cfg.dtb_offset + dtb.len > cfg.ram_size) return error.DtbTooLarge;
-
-    // --- allocate + map guest RAM --------------------------------
-    const ram_ptr = std.posix.mmap(
-        null,
-        cfg.ram_size,
-        .{ .READ = true, .WRITE = true },
-        .{ .TYPE = .PRIVATE, .ANONYMOUS = true },
-        -1,
-        0,
-    ) catch return error.KvmSetMemoryFailed;
-    defer std.posix.munmap(ram_ptr);
-    const ram: []u8 = ram_ptr;
-    assert(ram.len == cfg.ram_size);
-    assert(@intFromPtr(ram.ptr) % 4096 == 0);
-
-    @memcpy(ram[img.text_offset..][0..kernel.len], kernel);
-    @memcpy(ram[cfg.dtb_offset..][0..dtb.len], dtb);
-
-    if (cfg.initrd_path) |initrd_path| {
-        const initrd = readAll(gpa, initrd_path) catch |err| {
-            if (err == error.OpenFailed) return error.FixtureMissing;
-            return err;
-        };
-        defer gpa.free(initrd);
-        if (cfg.initrd_offset + initrd.len > cfg.ram_size) return error.DtbTooLarge;
-        @memcpy(ram[cfg.initrd_offset..][0..initrd.len], initrd);
-    }
+    const ram = try allocateAndPopulateRam(gpa, cfg, fx);
+    defer std.posix.munmap(ram);
 
     // --- KVM bring-up --------------------------------------------
     var k = try kvm.Kvm.open_();
@@ -185,20 +145,192 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     var gic = try vm.createGicV3(cfg.gic_dist_addr, cfg.gic_redist_addr);
     defer gic.destroy();
 
-    var vcpu = try vm.createVcpu(0);
+    var vcpu = try initVcpu(&vm, fx.img, cfg);
     defer vcpu.destroy();
-
-    // PSCI_0_2 lets KVM handle HVC-based shutdown / cpu-on / etc.
-    // inside the kernel — the guest calls `SYSTEM_OFF` and KVM
-    // reports it to us as KVM_EXIT_SYSTEM_EVENT instead of raw HVC.
-    var init = try vm.preferredTarget();
-    init.features[0] |= (@as(u32, 1) << @as(u5, @intCast(kvm.KVM_ARM_VCPU_PSCI_0_2)));
-    try vcpu.init(init);
 
     // vGIC finalize happens AFTER vcpus exist.
     try gic.finalize();
 
-    // arm64 boot protocol: X0 = dtb phys addr, PC = kernel entry.
+    // --- run loop -------------------------------------------------
+    var uart = pl011_mod.Pl011.init;
+    defer uart.deinit(gpa);
+
+    const irqs = IrqMap.init();
+
+    // virtio-blk (#114). Two slots, mirroring boot_hvf.zig:
+    //   slot 1 → SPI #17 → /dev/vda — rootdisk preferred, else disk.
+    //   slot 3 → SPI #19 → /dev/vdb — scratch when both are present.
+    // Linux probes virtio-mmio buses in DTB order, so DTB slot order
+    // determines /dev/vd* naming. With only one slot populated the
+    // lone device is always /dev/vda regardless of which slot.
+    const slot1_path: ?[]const u8 = cfg.rootdisk_path orelse cfg.disk_path;
+    const slot3_path: ?[]const u8 = if (cfg.rootdisk_path != null) cfg.disk_path else null;
+
+    var blk_backend_opt: ?blk_mod.Backend = openBlkBackend(slot1_path, "slot 1");
+    defer if (blk_backend_opt) |*b| b.deinit();
+    var blkdev_opt: ?virtio.Device = if (blk_backend_opt) |*b|
+        makeBlkDevice(virtio_blk_base, virtio_blk_size, ram, cfg, b)
+    else
+        null;
+    const blkdev_ptr: ?*virtio.Device = if (blkdev_opt) |_| &blkdev_opt.? else null;
+
+    var blk2_backend_opt: ?blk_mod.Backend = openBlkBackend(slot3_path, "slot 3");
+    defer if (blk2_backend_opt) |*b| b.deinit();
+    var blk2dev_opt: ?virtio.Device = if (blk2_backend_opt) |*b|
+        makeBlkDevice(virtio_blk2_base, virtio_blk2_size, ram, cfg, b)
+    else
+        null;
+    const blk2dev_ptr: ?*virtio.Device = if (blk2dev_opt) |_| &blk2dev_opt.? else null;
+
+    // virtio-net (#197). Slot 0; gvproxy backs RX/TX over a UDS
+    // pointed at by `MACHINEN_NET_SOCKET`. Without that env (or
+    // with a connect failure), the device still exists in the MMIO
+    // window — the kernel binds a virtio-net driver to it — but
+    // RX/TX go nowhere, so eth0 stays link-down. That matches the
+    // pre-#197 behaviour where the slot returned zeros.
+    const virtio_mac = [_]u8{ 0x02, 0xDE, 0xAD, 0xBE, 0xEF, 0x01 };
+    var netdev = makeNetDevice(ram, cfg, &virtio_mac);
+    const net_inst: ?*net_mod.NetSocket = connectGvproxy(gpa, &netdev);
+    defer if (net_inst) |n| n.destroy();
+    var net_irq_ctx = NetIrqCtx{ .vm = &vm, .irq = irqs.net };
+    if (net_inst) |n| {
+        // TX: every guest-emitted frame goes through NetSocket.input
+        // → gvproxy. The kernel's notify() drains the TX avail queue
+        // and calls tx_handler per frame (with the 12-byte virtio-net
+        // header already stripped by virtio.zig::walkAndEmit).
+        netdev.tx_handler = &onNetTx;
+        netdev.tx_ctx = @ptrCast(n);
+        // RX: NetSocket's rxLoop calls on_rx after each injectRx,
+        // both under `n.irq_mu`. routeMmio takes the same mutex
+        // around the net arm, so the (RMW + setIrq) pairs serialise
+        // across the two threads — without this, the RX thread's
+        // setIrq(1) can be overridden by a stale vCPU setIrq(0).
+        n.on_rx = &onNetIrq;
+        n.on_rx_ctx = @ptrCast(&net_irq_ctx);
+    }
+
+    // virtio-vsock (#44). Off by default; the runtime sets MACHINEN_VSOCK
+    // when it wants the guest exec/fuse agents to be reachable. Same
+    // env grammar as HVF (see boot_hvf.zig for the syntax doc) — parsed
+    // ports are gpa-allocated and leak for the VMM's life.
+    const vsock_cid_storage: u64 = vsock_mod.default_guest_cid;
+    const vsock_ports = parseVsockEnv(gpa);
+    var vsock_dev_opt: ?virtio.Device = if (vsock_ports.len > 0)
+        makeVsockDevice(ram, cfg, &vsock_cid_storage)
+    else
+        null;
+    const vsock_dev_ptr: ?*virtio.Device = if (vsock_dev_opt) |_| &vsock_dev_opt.? else null;
+
+    var vsock_irq_ctx = VsockIrqCtx{ .vm = &vm, .irq = irqs.vsock };
+    var vsock_bridge_opt: ?*vsock_mod.Bridge = null;
+    if (vsock_dev_ptr) |d| {
+        vsock_bridge_opt = startVsockBridge(gpa, d, vsock_ports, &vsock_irq_ctx);
+        if (vsock_bridge_opt == null) vsock_dev_opt = null;
+    }
+    defer if (vsock_bridge_opt) |b| b.destroy();
+    // The vsock_dev pointer may have been cleared above on bridge
+    // start failure; re-resolve so the run loop dispatch matches.
+    const vsock_dev_ptr_run: ?*virtio.Device = if (vsock_dev_opt) |_| &vsock_dev_opt.? else null;
+
+    const devs = Devices{
+        .uart = &uart,
+        .netdev = &netdev,
+        .net_inst = net_inst,
+        .blk_dev = blkdev_ptr,
+        .blk2_dev = blk2dev_ptr,
+        .vsock_dev = vsock_dev_ptr_run,
+        .vsock_bridge = vsock_bridge_opt,
+    };
+    return try runLoop(gpa, cfg, &vm, &vcpu, &devs, irqs);
+}
+
+/// Kernel + DTB bytes loaded off disk plus the parsed kernel header.
+/// Owns the two byte buffers; caller invokes `deinit` once boot is
+/// done with them (the @memcpy into guest RAM doesn't keep them live).
+const LoadedFixtures = struct {
+    kernel: []u8,
+    dtb: []u8,
+    img: KernelImage,
+
+    fn deinit(self: *LoadedFixtures, gpa: std.mem.Allocator) void {
+        gpa.free(self.kernel);
+        gpa.free(self.dtb);
+    }
+};
+
+/// Read kernel + DTB off disk, parse the kernel header, and validate
+/// they fit in the configured guest RAM. `error.FixtureMissing` is
+/// surfaced so callers can `expectError` it cleanly.
+fn loadFixtures(gpa: std.mem.Allocator, cfg: Config) !LoadedFixtures {
+    const kernel = readAll(gpa, cfg.kernel_path) catch |err| {
+        if (err == error.FileNotFound) return error.FixtureMissing;
+        return err;
+    };
+    errdefer gpa.free(kernel);
+    assert(kernel.len > 0);
+
+    const dtb = readAll(gpa, cfg.dtb_path) catch |err| {
+        if (err == error.FileNotFound) return error.FixtureMissing;
+        return err;
+    };
+    errdefer gpa.free(dtb);
+    assert(dtb.len > 0);
+
+    const img = try KernelImage.parse(kernel);
+    if (img.text_offset + kernel.len > cfg.ram_size) return error.KernelTooLarge;
+    if (cfg.dtb_offset + dtb.len > cfg.ram_size) return error.DtbTooLarge;
+
+    return .{ .kernel = kernel, .dtb = dtb, .img = img };
+}
+
+/// Allocate the host-backed slab the guest sees as its RAM, then copy
+/// kernel + DTB + (optional) initramfs into it. Returns the mapped
+/// slice; caller owns the munmap.
+fn allocateAndPopulateRam(
+    gpa: std.mem.Allocator,
+    cfg: Config,
+    fx: LoadedFixtures,
+) ![]align(std.heap.page_size_min) u8 {
+    const ram = std.posix.mmap(
+        null,
+        cfg.ram_size,
+        .{ .READ = true, .WRITE = true },
+        .{ .TYPE = .PRIVATE, .ANONYMOUS = true },
+        -1,
+        0,
+    ) catch return error.KvmSetMemoryFailed;
+    errdefer std.posix.munmap(ram);
+    assert(ram.len == cfg.ram_size);
+    assert(@intFromPtr(ram.ptr) % 4096 == 0);
+
+    @memcpy(ram[fx.img.text_offset..][0..fx.kernel.len], fx.kernel);
+    @memcpy(ram[cfg.dtb_offset..][0..fx.dtb.len], fx.dtb);
+
+    if (cfg.initrd_path) |initrd_path| {
+        const initrd = readAll(gpa, initrd_path) catch |err| {
+            if (err == error.OpenFailed) return error.FixtureMissing;
+            return err;
+        };
+        defer gpa.free(initrd);
+        if (cfg.initrd_offset + initrd.len > cfg.ram_size) return error.DtbTooLarge;
+        @memcpy(ram[cfg.initrd_offset..][0..initrd.len], initrd);
+    }
+    return ram;
+}
+
+/// Bring up the vCPU: enable PSCI 0.2 in the init features (so KVM
+/// handles HVC #0 in-kernel and surfaces SYSTEM_OFF as
+/// KVM_EXIT_SYSTEM_EVENT), then point X0 at the DTB and PC at the
+/// kernel entry per the arm64 Linux boot protocol. Caller owns the
+/// destroy.
+fn initVcpu(vm: *kvm.Vm, img: KernelImage, cfg: Config) !kvm.Vcpu {
+    var vcpu = try vm.createVcpu(0);
+    errdefer vcpu.destroy();
+
+    var init = try vm.preferredTarget();
+    init.features[0] |= (@as(u32, 1) << @as(u5, @intCast(kvm.KVM_ARM_VCPU_PSCI_0_2)));
+    try vcpu.init(init);
+
     const dtb_phys = cfg.ram_base + cfg.dtb_offset;
     const entry_phys = cfg.ram_base + img.text_offset;
     assert(dtb_phys >= cfg.ram_base);
@@ -210,213 +342,151 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     try vcpu.setReg(kvm.REG_X3, 0);
     try vcpu.setReg(kvm.REG_PC, entry_phys);
 
-    // --- run loop -------------------------------------------------
-    var uart = pl011_mod.Pl011.init;
-    defer uart.deinit(gpa);
+    return vcpu;
+}
 
-    // SPI numbers per DTS, encoded for KVM_IRQ_LINE. The encoding
-    // (KVM_ARM_IRQ_TYPE_SPI in bits 27:24) is non-optional — without
-    // it, KVM treats the call as the legacy CPU-line type and the
-    // delivery silently drops, which manifests as virtio doorbells
-    // never reaching the guest after the kernel writes QueueNotify.
-    const pl011_irq: u32 = kvm.irqSpi(1);
-
-    // virtio-net (#197). Slot 0 → SPI #16 → eth0 in the guest. Off
-    // by default; the runtime sets `MACHINEN_NET_SOCKET` to a UDS
-    // path that gvproxy is listening on when the guest needs network
-    // (artifact-cache / fnm fetch / outbound HTTP). Same wire protocol
-    // as HVF: 4-byte length prefix per frame.
-    const virtio_net_irq: u32 = kvm.irqSpi(16);
-
-    // virtio-blk (#114). Two slots, mirroring boot_hvf.zig:
-    //   slot 1 → SPI #17 → /dev/vda — rootdisk preferred, else disk.
-    //   slot 3 → SPI #19 → /dev/vdb — scratch when both are present.
-    // Linux probes virtio-mmio buses in DTB order, so DTB slot order
-    // determines /dev/vd* naming. With only one slot populated the
-    // lone device is always /dev/vda regardless of which slot.
-    const virtio_blk_irq: u32 = kvm.irqSpi(17);
-    const virtio_blk2_irq: u32 = kvm.irqSpi(19);
-    const slot1_path: ?[]const u8 = cfg.rootdisk_path orelse cfg.disk_path;
-    const slot3_path: ?[]const u8 = if (cfg.rootdisk_path != null) cfg.disk_path else null;
-
-    var blk_backend_opt: ?blk_mod.Backend = null;
-    defer if (blk_backend_opt) |*b| b.deinit();
-    var blkdev_opt: ?virtio.Device = null;
-    if (slot1_path) |path| {
-        if (blk_mod.openFile(path)) |backend| {
-            blk_backend_opt = backend;
-            blkdev_opt = virtio.Device{
-                .base = virtio_blk_base,
-                .size = virtio_blk_size,
-                .id = .block,
-                .features = (1 << 32), // VIRTIO_F_VERSION_1
-                .config = std.mem.asBytes(&blk_backend_opt.?.config),
-                .ram = ram,
-                .ram_base = cfg.ram_base,
-                .request_handler = &blk_mod.Backend.handleRequest,
-                .request_ctx = @ptrCast(&blk_backend_opt.?),
-            };
-        } else |err| {
-            std.debug.print("virtio-blk slot 1 disabled: {s} ({s})\n", .{ @errorName(err), path });
-        }
-    }
-    const blkdev_ptr: ?*virtio.Device = if (blkdev_opt) |_| &blkdev_opt.? else null;
-
-    var blk2_backend_opt: ?blk_mod.Backend = null;
-    defer if (blk2_backend_opt) |*b| b.deinit();
-    var blk2dev_opt: ?virtio.Device = null;
-    if (slot3_path) |path| {
-        if (blk_mod.openFile(path)) |backend| {
-            blk2_backend_opt = backend;
-            blk2dev_opt = virtio.Device{
-                .base = virtio_blk2_base,
-                .size = virtio_blk2_size,
-                .id = .block,
-                .features = (1 << 32),
-                .config = std.mem.asBytes(&blk2_backend_opt.?.config),
-                .ram = ram,
-                .ram_base = cfg.ram_base,
-                .request_handler = &blk_mod.Backend.handleRequest,
-                .request_ctx = @ptrCast(&blk2_backend_opt.?),
-            };
-        } else |err| {
-            std.debug.print("virtio-blk slot 3 disabled: {s} ({s})\n", .{ @errorName(err), path });
-        }
-    }
-    const blk2dev_ptr: ?*virtio.Device = if (blk2dev_opt) |_| &blk2dev_opt.? else null;
-
-    // virtio-net (#197). Slot 0; gvproxy backs RX/TX over a UDS
-    // pointed at by `MACHINEN_NET_SOCKET`. Without that env (or
-    // with a connect failure), the device still exists in the MMIO
-    // window — the kernel binds a virtio-net driver to it — but
-    // RX/TX go nowhere, so eth0 stays link-down. That matches the
-    // pre-#197 behaviour where the slot returned zeros.
-    const virtio_mac = [_]u8{ 0x02, 0xDE, 0xAD, 0xBE, 0xEF, 0x01 };
-    var netdev = virtio.Device{
+/// Build the virtio-net device. virtio-net sits in slot 0 with a
+/// stable MAC the runtime hands the gvproxy DHCP server. tx_handler /
+/// tx_ctx are wired later, after the gvproxy connect.
+fn makeNetDevice(ram: []u8, cfg: Config, mac: *const [6]u8) virtio.Device {
+    return .{
         .base = virtio_net_base,
         .size = virtio_net_size,
         .id = .net,
         // VIRTIO_F_VERSION_1 (bit 32) | VIRTIO_NET_F_MAC (bit 5).
         .features = (1 << 32) | (1 << 5),
-        .config = &virtio_mac,
+        .config = mac,
         .ram = ram,
         .ram_base = cfg.ram_base,
     };
-    const net_inst: ?*net_mod.NetSocket = blk: {
-        const env = getenv("MACHINEN_NET_SOCKET") orelse {
-            break :blk null;
-        };
-        const path = std.mem.span(env);
-        if (path.len == 0) break :blk null;
-        break :blk net_mod.NetSocket.connect(gpa, &netdev, .{ .socket_path = path }) catch |err| {
-            std.debug.print("net: connect to {s} failed: {s} — continuing without network\n", .{ path, @errorName(err) });
-            break :blk null;
-        };
+}
+
+/// Open a host file as a virtio-blk backend. Returns null when the
+/// caller didn't ask for this slot, or when the file open failed.
+fn openBlkBackend(path: ?[]const u8, label: []const u8) ?blk_mod.Backend {
+    const p = path orelse return null;
+    return blk_mod.openFile(p) catch |err| {
+        std.debug.print("virtio-blk {s} disabled: {s} ({s})\n", .{ label, @errorName(err), p });
+        return null;
     };
-    defer if (net_inst) |n| n.destroy();
-    var net_irq_ctx = NetIrqCtx{ .vm = &vm, .irq = virtio_net_irq };
-    if (net_inst) |n| {
-        // TX: every guest-emitted frame goes through NetSocket.input
-        // → gvproxy. The kernel's notify() drains the TX avail queue
-        // and calls tx_handler per frame (with the 12-byte virtio-net
-        // header already stripped by virtio.zig::walkAndEmit).
-        netdev.tx_handler = &onNetTx;
-        netdev.tx_ctx = @ptrCast(n);
-        // RX: NetSocket's rxLoop calls on_rx after each injectRx,
-        // both under `n.irq_mu`. The vCPU's net-MMIO handler in
-        // handleMmio takes the same mutex, so the (RMW + setIrq)
-        // pairs serialise across the two threads — without this,
-        // the bridge thread's setIrq(1) for an RX frame can be
-        // overridden by a stale vCPU setIrq(0).
-        n.on_rx = &onNetIrq;
-        n.on_rx_ctx = @ptrCast(&net_irq_ctx);
-    }
-    // Always hand the netdev to handleMmio so the kernel's probe
-    // of slot 0 finds a valid virtio-net device and binds the
-    // driver — even when no gvproxy backend is connected. eth0
-    // then comes up but has no link, which is exactly what should
-    // happen if MACHINEN_NET_SOCKET wasn't set.
-    const netdev_ptr: *virtio.Device = &netdev;
+}
 
-    // virtio-vsock (#44). Off by default; the runtime sets MACHINEN_VSOCK
-    // when it wants the guest exec/fuse agents to be reachable. Same
-    // env grammar as HVF (see boot_hvf.zig for the syntax doc) — parsed
-    // ports are gpa-allocated and leak for the VMM's life.
-    const virtio_vsock_irq: u32 = kvm.irqSpi(18);
-    var vsock_cid_storage: u64 = vsock_mod.default_guest_cid;
-    var vsock_ports: []vsock_mod.PortMap = &.{};
-    if (getenv("MACHINEN_VSOCK")) |raw| {
-        const s = std.mem.span(raw);
-        if (s.len > 0) {
-            vsock_ports = vsock_mod.parseEnv(gpa, s) catch |err| blk: {
-                std.debug.print("vsock: MACHINEN_VSOCK parse failed ({s}); ignoring\n", .{@errorName(err)});
-                break :blk &.{};
-            };
-        }
-    }
-    var vsock_dev_opt: ?virtio.Device = null;
-    var vsock_bridge_opt: ?*vsock_mod.Bridge = null;
-    if (vsock_ports.len > 0) {
-        vsock_dev_opt = virtio.Device{
-            .base = virtio_vsock_base,
-            .size = virtio_vsock_size,
-            .id = .vsock,
-            .features = (1 << 32), // VIRTIO_F_VERSION_1
-            .config = std.mem.asBytes(&vsock_cid_storage),
-            .ram = ram,
-            .ram_base = cfg.ram_base,
-            .request_handler = &vsock_mod.Bridge.handleTxChain,
-            .request_ctx = null,
-            // Queues 0 (RX) and 2 (event) are driver-posts-empty-buffers
-            // queues — host fills them on demand, not on every kick.
-            .skip_notify_queues = (1 << 0) | (1 << 2),
+/// Wrap a `blk_mod.Backend` as a virtio-mmio device. `backend` must
+/// outlive the returned device — the device's `config` and
+/// `request_ctx` are pointers into it.
+fn makeBlkDevice(base: u64, size: u64, ram: []u8, cfg: Config, backend: *blk_mod.Backend) virtio.Device {
+    return .{
+        .base = base,
+        .size = size,
+        .id = .block,
+        .features = (1 << 32), // VIRTIO_F_VERSION_1
+        .config = std.mem.asBytes(&backend.config),
+        .ram = ram,
+        .ram_base = cfg.ram_base,
+        .request_handler = &blk_mod.Backend.handleRequest,
+        .request_ctx = @ptrCast(backend),
+    };
+}
+
+/// Parse `MACHINEN_VSOCK` into a port-map list. Empty/missing returns
+/// an empty slice; parse errors log and return empty so a typo in the
+/// env doesn't prevent boot. Returned slice + path strings allocated
+/// from `gpa`.
+fn parseVsockEnv(gpa: std.mem.Allocator) []vsock_mod.PortMap {
+    const raw = getenv("MACHINEN_VSOCK") orelse return &.{};
+    const s = std.mem.span(raw);
+    if (s.len == 0) return &.{};
+    return vsock_mod.parseEnv(gpa, s) catch |err| {
+        std.debug.print("vsock: MACHINEN_VSOCK parse failed ({s}); ignoring\n", .{@errorName(err)});
+        return &.{};
+    };
+}
+
+/// Build the virtio-vsock device. `cid_ptr` must outlive the device —
+/// the config field is a pointer into it.
+fn makeVsockDevice(ram: []u8, cfg: Config, cid_ptr: *const u64) virtio.Device {
+    return .{
+        .base = virtio_vsock_base,
+        .size = virtio_vsock_size,
+        .id = .vsock,
+        .features = (1 << 32), // VIRTIO_F_VERSION_1
+        .config = std.mem.asBytes(cid_ptr),
+        .ram = ram,
+        .ram_base = cfg.ram_base,
+        .request_handler = &vsock_mod.Bridge.handleTxChain,
+        .request_ctx = null,
+        // Queues 0 (RX) and 2 (event) are driver-posts-empty-buffers
+        // queues — host fills them on demand, not on every kick.
+        .skip_notify_queues = (1 << 0) | (1 << 2),
+    };
+}
+
+/// Dial gvproxy if `MACHINEN_NET_SOCKET` is set; null on missing env
+/// or any connect failure (the rest of the VMM still runs without
+/// network).
+fn connectGvproxy(gpa: std.mem.Allocator, netdev: *virtio.Device) ?*net_mod.NetSocket {
+    const env = getenv("MACHINEN_NET_SOCKET") orelse return null;
+    const path = std.mem.span(env);
+    if (path.len == 0) return null;
+    return net_mod.NetSocket.connect(gpa, netdev, .{ .socket_path = path }) catch |err| {
+        std.debug.print("net: connect to {s} failed: {s} — continuing without network\n", .{ path, @errorName(err) });
+        return null;
+    };
+}
+
+/// Bring up the vsock bridge: create it, wire its request_ctx into the
+/// device, start the poll thread, and log the active port mappings.
+/// Returns null on any failure (and clears `dev` so callers know the
+/// device is no longer live).
+fn startVsockBridge(
+    gpa: std.mem.Allocator,
+    dev: *virtio.Device,
+    ports: []const vsock_mod.PortMap,
+    irq_ctx: *VsockIrqCtx,
+) ?*vsock_mod.Bridge {
+    const bridge = vsock_mod.Bridge.create(gpa, dev, .{
+        .ports = ports,
+        .raise_irq = &onVsockIrq,
+        .raise_irq_ctx = @ptrCast(irq_ctx),
+    }) catch |err| {
+        std.debug.print("vsock: bridge create failed: {s}\n", .{@errorName(err)});
+        return null;
+    };
+    dev.request_ctx = @ptrCast(bridge);
+    bridge.start() catch |err| {
+        std.debug.print("vsock: bridge start failed: {s}\n", .{@errorName(err)});
+        bridge.destroy();
+        return null;
+    };
+    for (ports) |pm| {
+        const tag: []const u8 = switch (pm.direction) {
+            .inbound => "in",
+            .outbound => "out",
         };
+        std.debug.print("vsock: {s} {d} <-> {s}\n", .{ tag, pm.guest_port, pm.uds_path });
     }
-    const vsock_dev_ptr: ?*virtio.Device = if (vsock_dev_opt) |_| &vsock_dev_opt.? else null;
+    return bridge;
+}
 
-    var vsock_irq_ctx = VsockIrqCtx{ .vm = &vm, .irq = virtio_vsock_irq };
-    if (vsock_dev_ptr) |d| {
-        vsock_bridge_opt = vsock_mod.Bridge.create(gpa, d, .{
-            .ports = vsock_ports,
-            .raise_irq = &onVsockIrq,
-            .raise_irq_ctx = @ptrCast(&vsock_irq_ctx),
-        }) catch |err| blk: {
-            std.debug.print("vsock: bridge create failed: {s}\n", .{@errorName(err)});
-            break :blk null;
-        };
-        if (vsock_bridge_opt) |b| {
-            d.request_ctx = @ptrCast(b);
-            b.start() catch |err| {
-                std.debug.print("vsock: bridge start failed: {s}\n", .{@errorName(err)});
-                b.destroy();
-                vsock_bridge_opt = null;
-                vsock_dev_opt = null;
-            };
-            if (vsock_bridge_opt != null) {
-                for (vsock_ports) |pm| {
-                    const tag: []const u8 = switch (pm.direction) {
-                        .inbound => "in",
-                        .outbound => "out",
-                    };
-                    std.debug.print("vsock: {s} {d} <-> {s}\n", .{ tag, pm.guest_port, pm.uds_path });
-                }
-            }
-        }
-    }
-    defer if (vsock_bridge_opt) |b| b.destroy();
-    // The vsock_dev pointer might have been cleared above on bridge
-    // start failure; re-resolve so the run loop dispatch matches.
-    const vsock_dev_ptr_run: ?*virtio.Device = if (vsock_dev_opt) |_| &vsock_dev_opt.? else null;
-
+/// Drive the vCPU until PSCI SYSTEM_OFF, an unhandled exit, the
+/// configured serial-capture threshold, or `max_exits`. Owns the
+/// `exits` / `saw_off` accounting and the final Result.
+fn runLoop(
+    gpa: std.mem.Allocator,
+    cfg: Config,
+    vm: *kvm.Vm,
+    vcpu: *kvm.Vcpu,
+    devs: *const Devices,
+    irqs: IrqMap,
+) !Result {
     var exits: usize = 0;
     var saw_off = false;
-
     while (exits < cfg.max_exits) : (exits += 1) {
         const reason = try vcpu.run();
         switch (reason) {
             .mmio => {
                 const ev = vcpu.mmioExit();
-                try handleMmio(gpa, &vm, &vcpu, &uart, ev, pl011_irq, netdev_ptr, virtio_net_irq, net_inst, blkdev_ptr, virtio_blk_irq, blk2dev_ptr, virtio_blk2_irq, vsock_dev_ptr_run, virtio_vsock_irq, vsock_bridge_opt);
+                try routeMmio(gpa, vm, vcpu, devs, irqs, ev);
             },
             .system_event => {
                 const ev = vcpu.systemEventExit();
@@ -436,67 +506,121 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
                 return error.GuestCrashed;
             },
         }
-        if (!cfg.unbounded_serial and uart.captured.items.len >= cfg.capture_bytes) break;
+        if (!cfg.unbounded_serial and devs.uart.captured.items.len >= cfg.capture_bytes) break;
     }
 
     if (exits >= cfg.max_exits) {
         std.debug.print(
             "kvm boot: RanTooLong after {d} exits. Captured serial ({d} bytes):\n{s}\n",
-            .{ exits, uart.captured.items.len, uart.captured.items },
+            .{ exits, devs.uart.captured.items.len, devs.uart.captured.items },
         );
         return error.RanTooLong;
     }
 
-    const serial = try gpa.dupe(u8, uart.captured.items);
+    const serial = try gpa.dupe(u8, devs.uart.captured.items);
     return .{ .serial = serial, .saw_psci_shutdown = saw_off, .exits = exits };
 }
 
-fn handleMmio(
+/// SPI ids encoded for KVM_IRQ_LINE (with KVM_ARM_IRQ_TYPE_SPI in
+/// bits 27:24). Layout must stay byte-identical to virt.dts. Unlike
+/// HVF, the encoding is fixed — there is no host-supplied SPI base.
+const IrqMap = struct {
+    pl011: u32,
+    net: u32,
+    blk: u32,
+    blk2: u32,
+    vsock: u32,
+
+    fn init() IrqMap {
+        return .{
+            .pl011 = kvm.irqSpi(1),
+            .net = kvm.irqSpi(16),
+            .blk = kvm.irqSpi(17),
+            .vsock = kvm.irqSpi(18),
+            .blk2 = kvm.irqSpi(19),
+        };
+    }
+};
+
+/// Owning handles for everything the run loop needs to dispatch MMIO
+/// against. `net_inst` is included separately from `netdev` so the
+/// MMIO path can take its `irq_mu` even when the device is wired but
+/// no gvproxy backend connected.
+const Devices = struct {
+    uart: *pl011_mod.Pl011,
+    netdev: *virtio.Device,
+    net_inst: ?*net_mod.NetSocket,
+    blk_dev: ?*virtio.Device,
+    blk2_dev: ?*virtio.Device,
+    vsock_dev: ?*virtio.Device,
+    vsock_bridge: ?*vsock_mod.Bridge,
+};
+
+/// PL011 MMIO. Console-byte writes echo to host stderr; every access
+/// resyncs the SPI line based on `irqAsserted()`.
+fn handlePl011Mmio(
     gpa: std.mem.Allocator,
     vm: *kvm.Vm,
     vcpu: *kvm.Vcpu,
     uart: *pl011_mod.Pl011,
     ev: kvm.MmioExit,
-    pl011_irq: u32,
-    netdev: *virtio.Device,
-    virtio_net_irq: u32,
-    net_inst: ?*net_mod.NetSocket,
-    blkdev: ?*virtio.Device,
-    virtio_blk_irq: u32,
-    blk2dev: ?*virtio.Device,
-    virtio_blk2_irq: u32,
-    vsockdev: ?*virtio.Device,
-    virtio_vsock_irq: u32,
-    vsock_bridge: ?*vsock_mod.Bridge,
+    irq: u32,
+) !void {
+    assert(uart.handles(ev.phys_addr));
+    if (ev.is_write != 0) {
+        const val = mmioReadValue(ev);
+        try uart.write(gpa, ev.phys_addr, val);
+        if ((ev.phys_addr - uart.base) == 0 and ev.len > 0) {
+            const byte: [1]u8 = .{ev.data[0]};
+            _ = hostWrite(2, &byte, 1);
+        }
+    } else {
+        vcpu.writeMmioReadData(uart.read(ev.phys_addr), ev.len);
+    }
+    vm.setIrq(irq, if (uart.irqAsserted()) 1 else 0) catch {};
+}
+
+/// virtio-MMIO read/write + raise/lower the SPI based on the device's
+/// post-access interrupt_status. Shared shape across net / blk / blk2 /
+/// vsock; the callers that need cross-thread serialisation take the
+/// appropriate mutex around this call.
+fn handleVirtioMmio(
+    vm: *kvm.Vm,
+    vcpu: *kvm.Vcpu,
+    dev: *virtio.Device,
+    irq: u32,
+    ev: kvm.MmioExit,
+) !void {
+    assert(dev.handles(ev.phys_addr));
+    assert(irq >> kvm.KVM_ARM_IRQ_TYPE_SHIFT == kvm.KVM_ARM_IRQ_TYPE_SPI);
+    if (ev.is_write != 0) {
+        dev.write(ev.phys_addr, mmioReadValue(ev));
+    } else {
+        vcpu.writeMmioReadData(dev.read(ev.phys_addr), ev.len);
+    }
+    vm.setIrq(irq, if (@atomicLoad(u32, &dev.interrupt_status, .acquire) != 0) 1 else 0) catch {};
+}
+
+/// Route an MMIO exit to the device that owns the IPA. Each cross-
+/// thread arm wraps `handleVirtioMmio` in the appropriate mutex.
+fn routeMmio(
+    gpa: std.mem.Allocator,
+    vm: *kvm.Vm,
+    vcpu: *kvm.Vcpu,
+    devs: *const Devices,
+    irqs: IrqMap,
+    ev: kvm.MmioExit,
 ) !void {
     // KVM never emits an MMIO exit with len outside [1,8]; values
     // outside that mean we read the wrong kvm_run union slot.
     assert(ev.len >= 1 and ev.len <= 8);
     assert(ev.is_write <= 1);
-    // SPI encodings must include the SPI type bits — without them
-    // setIrq silently drops doorbells (see kvm.irqSpi docstring).
-    assert(pl011_irq >> kvm.KVM_ARM_IRQ_TYPE_SHIFT == kvm.KVM_ARM_IRQ_TYPE_SPI);
-    assert(virtio_net_irq >> kvm.KVM_ARM_IRQ_TYPE_SHIFT == kvm.KVM_ARM_IRQ_TYPE_SPI);
-    assert(virtio_blk_irq >> kvm.KVM_ARM_IRQ_TYPE_SHIFT == kvm.KVM_ARM_IRQ_TYPE_SPI);
-    assert(virtio_blk2_irq >> kvm.KVM_ARM_IRQ_TYPE_SHIFT == kvm.KVM_ARM_IRQ_TYPE_SPI);
-    assert(virtio_vsock_irq >> kvm.KVM_ARM_IRQ_TYPE_SHIFT == kvm.KVM_ARM_IRQ_TYPE_SPI);
-    if (uart.handles(ev.phys_addr)) {
-        if (ev.is_write != 0) {
-            const val = mmioReadValue(ev);
-            try uart.write(gpa, ev.phys_addr, val);
-            // Echo console bytes to host stderr.
-            if ((ev.phys_addr - uart.base) == 0 and ev.len > 0) {
-                const byte: [1]u8 = .{ev.data[0]};
-                _ = hostWrite(2, &byte, 1);
-            }
-        } else {
-            const val = uart.read(ev.phys_addr);
-            vcpu.writeMmioReadData(val, ev.len);
-        }
-        vm.setIrq(pl011_irq, if (uart.irqAsserted()) 1 else 0) catch {};
+
+    if (devs.uart.handles(ev.phys_addr)) {
+        try handlePl011Mmio(gpa, vm, vcpu, devs.uart, ev, irqs.pl011);
         return;
     }
-    if (netdev.handles(ev.phys_addr)) {
+    if (devs.netdev.handles(ev.phys_addr)) {
         // Same race / serialisation story as vsock below: the RX
         // thread inside NetSocket sets interrupt_status and asserts
         // the SPI line under `n.irq_mu`; we take the same mutex so
@@ -504,69 +628,41 @@ fn handleMmio(
         // No-op when `net_inst` is null (no gvproxy backend) — there
         // is no second thread to race against, and the kernel still
         // sees a valid virtio-net device with link-down.
-        if (net_inst) |n| n.lockIrq();
-        defer if (net_inst) |n| n.unlockIrq();
-        if (ev.is_write != 0) {
-            netdev.write(ev.phys_addr, mmioReadValue(ev));
-        } else {
-            vcpu.writeMmioReadData(netdev.read(ev.phys_addr), ev.len);
-        }
-        vm.setIrq(virtio_net_irq, if (@atomicLoad(u32, &netdev.interrupt_status, .acquire) != 0) 1 else 0) catch {};
+        if (devs.net_inst) |n| n.lockIrq();
+        defer if (devs.net_inst) |n| n.unlockIrq();
+        try handleVirtioMmio(vm, vcpu, devs.netdev, irqs.net, ev);
         return;
     }
-    if (blkdev) |d| {
-        if (d.handles(ev.phys_addr)) {
-            if (ev.is_write != 0) {
-                d.write(ev.phys_addr, mmioReadValue(ev));
-            } else {
-                vcpu.writeMmioReadData(d.read(ev.phys_addr), ev.len);
-            }
-            vm.setIrq(virtio_blk_irq, if (@atomicLoad(u32, &d.interrupt_status, .acquire) != 0) 1 else 0) catch {};
-            return;
-        }
-    }
-    if (blk2dev) |d| {
-        if (d.handles(ev.phys_addr)) {
-            if (ev.is_write != 0) {
-                d.write(ev.phys_addr, mmioReadValue(ev));
-            } else {
-                vcpu.writeMmioReadData(d.read(ev.phys_addr), ev.len);
-            }
-            vm.setIrq(virtio_blk2_irq, if (@atomicLoad(u32, &d.interrupt_status, .acquire) != 0) 1 else 0) catch {};
-            return;
-        }
-    }
-    if (vsockdev) |d| {
-        if (d.handles(ev.phys_addr)) {
-            // The vCPU side of (RMW interrupt_status + setIrq) must
-            // serialise against the bridge poll thread's same pair.
-            // Without this, the bridge's setIrq(1) — issued the
-            // moment it injects an RX packet — can be overridden by
-            // a stale setIrq(0) we computed before the bridge's RMW
-            // and only got around to syscalling now. Symptom: guest
-            // never sees the CONNECT RESPONSE, fuse-agent's dial
-            // wedges, T3/T5/N2/S* all fail deterministically on KVM.
-            // Apple's hv_gic_set_spi happens to absorb this race;
-            // KVM_IRQ_LINE doesn't, which is why HVF passes smoke
-            // and KVM doesn't until this lock lands.
-            if (vsock_bridge) |b| b.mu.lock();
-            defer if (vsock_bridge) |b| b.mu.unlock();
-            if (ev.is_write != 0) {
-                // TX notify runs on the vCPU thread and goes through
-                // notify() → handleTxChain. handleTxChain assumes the
-                // caller holds bridge.mu — see its docstring.
-                d.write(ev.phys_addr, mmioReadValue(ev));
-            } else {
-                vcpu.writeMmioReadData(d.read(ev.phys_addr), ev.len);
-            }
-            vm.setIrq(virtio_vsock_irq, if (@atomicLoad(u32, &d.interrupt_status, .acquire) != 0) 1 else 0) catch {};
-            return;
-        }
-    }
-    // Other MMIO (virtio-mmio net window, etc.) — for reads, hand
-    // back zeros (the writeMmioReadData default on untouched kvm_run
-    // bytes is already zero, but be explicit so a future non-zero
-    // lingerer doesn't bite).
+    if (devs.blk_dev) |d| if (d.handles(ev.phys_addr)) {
+        try handleVirtioMmio(vm, vcpu, d, irqs.blk, ev);
+        return;
+    };
+    if (devs.blk2_dev) |d| if (d.handles(ev.phys_addr)) {
+        try handleVirtioMmio(vm, vcpu, d, irqs.blk2, ev);
+        return;
+    };
+    if (devs.vsock_dev) |d| if (d.handles(ev.phys_addr)) {
+        // The vCPU side of (RMW interrupt_status + setIrq) must
+        // serialise against the bridge poll thread's same pair.
+        // Without this, the bridge's setIrq(1) — issued the moment
+        // it injects an RX packet — can be overridden by a stale
+        // setIrq(0) we computed before the bridge's RMW and only
+        // got around to syscalling now. Symptom: guest never sees
+        // the CONNECT RESPONSE, fuse-agent's dial wedges, T3/T5/N2
+        // /S* all fail deterministically on KVM. Apple's
+        // hv_gic_set_spi happens to absorb this race; KVM_IRQ_LINE
+        // doesn't, which is why HVF passes smoke and KVM doesn't
+        // until this lock lands. handleTxChain assumes the caller
+        // holds bridge.mu — see its docstring.
+        if (devs.vsock_bridge) |b| b.mu.lock();
+        defer if (devs.vsock_bridge) |b| b.mu.unlock();
+        try handleVirtioMmio(vm, vcpu, d, irqs.vsock, ev);
+        return;
+    };
+    // Other MMIO (DTB-described regions we haven't hooked up) — for
+    // reads, hand back zeros (the writeMmioReadData default on
+    // untouched kvm_run bytes is already zero, but be explicit so a
+    // future non-zero lingerer doesn't bite).
     if (ev.is_write == 0) vcpu.writeMmioReadData(0, ev.len);
 }
 
