@@ -706,7 +706,9 @@ async function cmdSnapshot(args: string[]): Promise<number> {
       leaveRunning: keepAlive,
       tcpClose: keepAlive,
       onLog: (evt) => {
-        process.stderr.write(evt.chunk);
+        if (evt.source !== "phase") {
+          process.stderr.write(evt.chunk);
+        }
       },
     });
     process.stdout.write(`snapshot: ${res.snapDir} (${res.elapsedMs}ms)\n`);
@@ -787,7 +789,9 @@ async function cmdFork(args: string[]): Promise<number> {
       dtb: dtbPath,
       tcpKeep,
       onLog: (evt) => {
-        process.stderr.write(evt.chunk);
+        if (evt.source !== "phase") {
+          process.stderr.write(evt.chunk);
+        }
       },
     });
     process.stderr.write(`forked: ${fork.name ?? "<anonymous>"} (pid ${fork.pid})\n`);

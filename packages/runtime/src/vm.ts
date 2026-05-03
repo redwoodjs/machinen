@@ -700,6 +700,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       const packed = synthesizeAndPackBundle(opts, mergedGuestEnv, liveMountsResolved, {
         useTiny: wantsRootDisk,
         env,
+        onPhase: (name, ms) => phases.mark(`initramfs-pack.${name}`, ms),
       });
       bundleTempDir = packed.tempDir;
       env.MACHINEN_INITRD = packed.cpioPath;
@@ -731,12 +732,18 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         const baseAbs = resolve(opts.cwd ?? process.cwd(), opts.image!);
         const cachedImg = ensureRootfsImage(baseAbs, {
           sizeBytes: opts.rootDiskSizeBytes,
+          // #233 follow-up: surface the sub-steps of ensureRootfsImage
+          // (sha256, e2fsck, sparse-extend, …) as dot-separated
+          // children of `rootdisk-materialize` in the boot timeline.
+          onPhase: (name, ms) => phases.mark(`rootdisk-materialize.${name}`, ms),
         });
         const perBoot = join(
           tmpdir(),
           `machinen-rootdisk-${process.pid}-${randomBytes(6).toString("hex")}.img`,
         );
+        const reflinkT0 = Date.now();
         reflinkCopy(cachedImg, perBoot);
+        phases.mark("rootdisk-materialize.reflink", Date.now() - reflinkT0);
         // The cache file was only READ here — restore the
         // clean-shutdown marker so the next boot finds a usable
         // template instead of wiping and rematerializing (#170).
@@ -931,6 +938,8 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   // #221: stamp first-guest-byte and emit the boot timeline. Either
   // path (first stderr byte, or VMM exit before any output) flushes
   // exactly once — `phases.end` is a no-op the second time around.
+  // #233: also emit a `phase` LogEvent so callers can fold the
+  // breakdown into their own UI without parsing debug strings.
   let phasesFlushed = false;
   const flushPhases = () => {
     if (phasesFlushed) {
@@ -939,6 +948,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     phasesFlushed = true;
     phases.end("first-guest-byte");
     phases.flush(debug, "boot");
+    onLog?.(phases.toEvent("boot"));
   };
   child.stderr.once("data", flushPhases);
   child.once("exit", flushPhases);
@@ -1366,7 +1376,14 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
  * undefined when the image has no config baked in — plain rootfs
  * tarballs that pre-date this feature still boot fine.
  */
-type ImageConfig = { cmd?: string[]; env?: Record<string, string>; cwd?: string };
+/**
+ * Shape of the optional `./machinen-config.json` baked into a rootfs
+ * tarball by `provision({ cmd, env })`. `boot()` reads it via
+ * `readImageConfig()` so callers don't need to re-pass `cmd`/`env` on
+ * every boot. `warmImageConfigCache()` accepts the same shape so a
+ * tarball-producing tool can pre-populate the lookup cache.
+ */
+export type ImageConfig = { cmd?: string[]; env?: Record<string, string>; cwd?: string };
 
 /**
  * Disk cache for `readImageConfig`. The base tarball is regenerated only
@@ -1397,6 +1414,32 @@ function imageConfigCachePath(imagePath: string): string | undefined {
   const base = imagePath.split("/").pop() ?? "image";
   const key = `${base}-${st.size}-${Math.floor(st.mtimeMs)}.json`;
   return join(imageConfigCacheDir(), key);
+}
+
+/**
+ * Pre-populate the image-config cache for a freshly-written tarball.
+ * Lets `provision()` (and other tarball producers) skip the slow
+ * `tar -xzOf` lookup that the next `boot()` would otherwise pay —
+ * see #233. Best-effort: a missing/unwritable cache dir just falls
+ * back to the slow path on the next boot.
+ *
+ * Call AFTER the tarball is on disk (so size+mtime match what the
+ * cache key will be on read), passing exactly the config that was
+ * baked into the tarball's `./machinen-config.json` (or `null` when
+ * none was baked).
+ */
+export function warmImageConfigCache(imagePath: string, config: ImageConfig | null): void {
+  const cachePath = imageConfigCachePath(imagePath);
+  if (!cachePath) {
+    return;
+  }
+  try {
+    mkdirSync(imageConfigCacheDir(), { recursive: true });
+    writeFileSync(cachePath, JSON.stringify({ config }));
+  } catch {
+    // Best-effort — a missing cache file just costs the next boot
+    // an image-config-read hit.
+  }
 }
 
 /** @internal — exported for tests; production callers should not use directly. */
@@ -1525,7 +1568,11 @@ function synthesizeAndPackBundle(
   opts: BootOptions,
   mergedGuestEnv: Record<string, string>,
   liveMounts: ResolvedLiveMount[],
-  packerOpts: { useTiny: boolean; env: Record<string, string> },
+  packerOpts: {
+    useTiny: boolean;
+    env: Record<string, string>;
+    onPhase?: (name: string, ms: number) => void;
+  },
 ): { tempDir: string; cpioPath: string } {
   const tempDir = mkdtempSync(join(tmpdir(), "machinen-bundle-"));
   const cpioPath = join(tempDir, "initramfs.cpio");
@@ -1553,7 +1600,9 @@ function synthesizeAndPackBundle(
       cleanup();
       throw new BootError("BOOT_IMAGE_NOT_FOUND", `image tarball not found: ${baseAbs}`);
     }
+    const cfgT0 = Date.now();
     imageConfig = readImageConfig(baseAbs);
+    packerOpts.onPhase?.("image-config-read", Date.now() - cfgT0);
   }
 
   // cmd resolution:
@@ -1657,6 +1706,7 @@ function synthesizeAndPackBundle(
   }
 
   try {
+    const packT0 = Date.now();
     if (packerOpts.useTiny) {
       // #119: rootDisk path. The on-disk rootfs is mounted from /dev/vda
       // by /init; the cpio only ships /init + machinen-config.json +
@@ -1683,6 +1733,7 @@ function synthesizeAndPackBundle(
         fuseAgentPath: liveMounts.length > 0 ? defaultFuseAgentPath() : undefined,
       });
     }
+    packerOpts.onPhase?.("cpio-write", Date.now() - packT0);
   } catch (err) {
     cleanup();
     const msg = err instanceof Error ? err.message : String(err);

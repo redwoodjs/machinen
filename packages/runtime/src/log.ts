@@ -10,8 +10,13 @@
 // onLog at boot-level get exec output too: the handle tees each exec
 // into the onLog under the `exec-stdout` / `exec-stderr` sources with
 // the command string set on `cmd`.
+//
+// `phase` events surface the runtime's PhaseTimer breakdown to host
+// scripts without forcing them to parse `DEBUG=machinen:boot` strings.
+// One event per `kind` (boot / provision / snapshot / restore) fires
+// when the underlying timer flushes — see #233.
 
-export interface LogEvent {
+export interface ChunkLogEvent {
   /**
    * Where the chunk came from:
    *   - `guest-console` — kernel / PL011 console bytes (VMM stderr)
@@ -24,5 +29,17 @@ export interface LogEvent {
   /** Raw bytes as they arrive — not line-split, not decoded. */
   chunk: Buffer;
 }
+
+export interface PhaseLogEvent {
+  source: "phase";
+  /** Which runtime entry point produced these phases. */
+  kind: "boot" | "provision" | "snapshot" | "restore";
+  /** Phase name → wall-clock ms. Insertion order = timeline order. */
+  phases: ReadonlyMap<string, number>;
+  /** Wall-clock between PhaseTimer construction and flush. */
+  totalMs: number;
+}
+
+export type LogEvent = ChunkLogEvent | PhaseLogEvent;
 
 export type OnLog = (evt: LogEvent) => void;

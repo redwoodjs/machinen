@@ -319,11 +319,19 @@ describe("ensureRootfsImage", () => {
     }
   }, 20_000);
 
-  it("wipes a cached .img with no clean-shutdown marker (#170)", () => {
-    // Simulates a previous boot that was killed mid-write: the .img
-    // is on disk but the .ok marker was never re-created. The next
-    // call must NOT trust the planted bytes — it should wipe and
-    // try to rematerialize from the tarball.
+  it("rematerializes over a cached .img with no clean-shutdown marker (#170)", () => {
+    // Simulates a previous boot killed mid-write: the .img is on disk
+    // but the .ok marker was never re-created. The next call must NOT
+    // RETURN the planted bytes — it must fall through to materialize,
+    // which atomically replaces the file via renameSync (or throws if
+    // materialize can't run on this host).
+    //
+    // The eager unlinkSync(imgPath) on entry was removed in #233 because
+    // it raced with concurrent callers holding imgPath as a cache-hit
+    // return value (parallel test files; multiple boot()s on the same
+    // tarball). The contract that matters is "we don't trust torn
+    // bytes" — preserved by the always-materialize fallthrough — not
+    // "the file is gone on entry."
     const tarPath = `/tmp/machinen-rootfs-img-poisoned-${process.pid}.tar.gz`;
     const tmpDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-poisoned-tar-"));
     const cacheDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-poisoned-img-"));
@@ -334,8 +342,6 @@ describe("ensureRootfsImage", () => {
         .trim()
         .split(/\s+/, 1)[0]!;
       const imgPath = join(cacheDir, `${sha}.img`);
-      // Plant a stub `.img` with no `.ok` next to it — the dirty
-      // state a kill mid-boot leaves behind.
       const planted = Buffer.from("poisoned bytes that look nothing like ext4");
       writeFileSync(imgPath, planted);
       // No e2fsprogs guaranteed on the runner — if rematerialization
@@ -349,14 +355,13 @@ describe("ensureRootfsImage", () => {
         expect(err).toBeInstanceOf(ProvisionError);
       }
       if (rematerialized) {
-        // If we got back an image, it must NOT be the planted bytes.
+        // Atomic rename replaced the planted bytes with a real ext4 image.
         const after = statSync(imgPath).size;
         expect(after).not.toBe(planted.length);
-      } else {
-        // Materialize failed — the planted file should still have
-        // been wiped on entry.
-        expect(existsSync(imgPath)).toBe(false);
       }
+      // No assertion when materialize failed — the planted bytes may
+      // still be on disk, but they will never be RETURNED to a caller
+      // (the next call enters the same fallthrough path).
     } finally {
       try {
         unlinkSync(tarPath);
@@ -403,14 +408,40 @@ describe("ensureRootfsImage", () => {
     }
   }
 
-  it("siblingPrebakePath strips .tar.gz / .tgz / .tar and appends .img.gz", () => {
-    expect(_internal.siblingPrebakePath("/r/rootfs.tar.gz")).toBe("/r/rootfs.img.gz");
-    expect(_internal.siblingPrebakePath("/r/rootfs.tgz")).toBe("/r/rootfs.img.gz");
-    expect(_internal.siblingPrebakePath("/r/rootfs.tar")).toBe("/r/rootfs.img.gz");
+  it("siblingPrebakePath strips .tar.gz / .tgz / .tar and falls back to .img.gz", () => {
+    // No on-disk sibling → defaults to the gzipped form.
+    expect(_internal.siblingPrebakePath("/r/rootfs.tar.gz")).toEqual({
+      path: "/r/rootfs.img.gz",
+      gzipped: true,
+    });
+    expect(_internal.siblingPrebakePath("/r/rootfs.tgz")).toEqual({
+      path: "/r/rootfs.img.gz",
+      gzipped: true,
+    });
+    expect(_internal.siblingPrebakePath("/r/rootfs.tar")).toEqual({
+      path: "/r/rootfs.img.gz",
+      gzipped: true,
+    });
     // Non-tarball paths return undefined — no prebake convention exists
     // for them, so the runtime falls through to the materialize path.
     expect(_internal.siblingPrebakePath("/r/rootfs")).toBeUndefined();
     expect(_internal.siblingPrebakePath("/r/rootfs.zip")).toBeUndefined();
+  });
+
+  it("siblingPrebakePath prefers an uncompressed .img sibling when present", () => {
+    const dir = mkdtempSync(join(tmpdir(), "ensure-img-sibling-prefer-"));
+    try {
+      const tarPath = join(dir, "app.tar.gz");
+      const imgPath = join(dir, "app.img");
+      writeFileSync(tarPath, Buffer.from("not actually a tarball"));
+      writeFileSync(imgPath, Buffer.from("not actually an image"));
+      expect(_internal.siblingPrebakePath(tarPath)).toEqual({
+        path: imgPath,
+        gzipped: false,
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("uses a sibling .img.gz to populate the cache and skips mke2fs", () => {

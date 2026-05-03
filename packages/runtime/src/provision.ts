@@ -21,13 +21,14 @@
 //     cmd: ["/bin/sh"],
 //   });
 
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import {
   closeSync,
   existsSync,
   mkdtempSync,
   openSync,
   readFileSync,
+  renameSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -38,11 +39,12 @@ import { join, resolve } from "node:path";
 import debugLib from "debug";
 import { ProvisionError } from "./errors.ts";
 import { VsockExec } from "./exec.ts";
-import { reflinkCopy } from "./reflink.ts";
-import { boot } from "./vm.ts";
-import type { VmHandle } from "./vm-handle.ts";
 import type { OnLog } from "./log.ts";
-import { ensureRootfsImage, markRootfsImageClean } from "./rootfs-img.ts";
+import { PhaseTimer } from "./phase-timer.ts";
+import { reflinkCopy } from "./reflink.ts";
+import { boot, warmImageConfigCache } from "./vm.ts";
+import type { VmHandle } from "./vm-handle.ts";
+import { ensureRootfsImage, markRootfsImageClean, resolveMke2fs } from "./rootfs-img.ts";
 
 const debug = debugLib("machinen:provision");
 const vmmDebug = debugLib("machinen:vmm");
@@ -260,6 +262,13 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
   const udsPath = join(workDir, "exec.sock");
   debug("provision start base=%s out=%s workDir=%s", baseAbs, outAbs, workDir);
 
+  // #233: per-phase wall-clock timeline emitted as a `PhaseLogEvent`
+  // via opts.onLog (and as a debug one-liner under DEBUG=machinen:provision).
+  // Mirrors boot()'s instrumentation so host scripts can show callers
+  // where provision wall time actually goes — install hooks rarely
+  // dominate; the inner boot, tar, and repack do.
+  const phases = new PhaseTimer();
+
   try {
     // Allocate the scratch disk sparsely. The guest tars its filesystem
     // into this block device; the host then repacks the raw tar stream
@@ -275,8 +284,13 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
     // base. reflinkCopy → APFS clonefile / Linux FICLONE on reflink-
     // capable fs (free); falls back to a regular copy elsewhere
     // (one-time cost, sparse).
-    const cachedImg = ensureRootfsImage(baseAbs);
+    phases.start("rootdisk-prep");
+    const cachedImg = ensureRootfsImage(baseAbs, {
+      onPhase: (name, ms) => phases.mark(`rootdisk-prep.${name}`, ms),
+    });
+    const reflinkT0 = Date.now();
     reflinkCopy(cachedImg, rootDiskPath);
+    phases.mark("rootdisk-prep.reflink", Date.now() - reflinkT0);
     debug("rootdisk cloned src=%s dst=%s", cachedImg, rootDiskPath);
     // The cached `<sha>.img` was only READ here — the FICLONE / copy
     // landed in workDir, and the upcoming boot() targets that copy via
@@ -285,12 +299,14 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
     // provision() with the same base would see a missing `.ok` and
     // wastefully rematerialize a known-good image.
     markRootfsImageClean(cachedImg);
+    phases.end("rootdisk-prep");
 
     // Boot the VMM with the base rootfs on /dev/vda (mounted ext4) and
     // the exec-agent as the cmd. The scratch disk lands on /dev/vdb,
     // ready for the post-install tar dump. We set MACHINEN_VSOCK
     // explicitly via `vmmEnv` so the UDS path lives under workDir
     // (predictable cleanup) rather than boot()'s auto-allocated tmp dir.
+    phases.start("boot");
     const vm = await boot({
       binary: opts.binary,
       cwd: opts.cwd,
@@ -312,6 +328,7 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
       // Internal tar / poweroff execs are forwarded explicitly below.
       onLog: opts.onLog,
     });
+    phases.end("boot");
 
     const deadlineMs = opts.timeoutMs ?? 10 * 60 * 1000;
     const killTimer = setTimeout(() => void vm.kill(), deadlineMs);
@@ -343,6 +360,7 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
       // the hook uses the same VmHandle shape as any other caller.
       const installT0 = Date.now();
       debug("install hook entry");
+      phases.start("install");
       try {
         await opts.install(vm);
       } catch (err) {
@@ -355,6 +373,7 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
           { cause: err },
         );
       }
+      phases.end("install");
       debug("install hook done elapsed=%dms", Date.now() - installT0);
 
       // Post-install: archive / to /dev/vdb (the scratch disk), then
@@ -363,10 +382,12 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
       // disk was too small; surface that specifically.
       debug("tar / -> /dev/vdb starting");
       const tarT0 = Date.now();
+      phases.start("tar-to-disk");
       const tar = await VsockExec.run(udsPath, TAR_TO_DISK_CMD, {
         execTimeoutMs: deadlineMs,
         ...tapExecForLog(TAR_TO_DISK_CMD, opts.onLog),
       });
+      phases.end("tar-to-disk");
       debug("tar / -> /dev/vdb done exit=%d elapsed=%dms", tar.exitCode, Date.now() - tarT0);
       if (tar.exitCode !== 0) {
         throw new ProvisionError(
@@ -384,6 +405,7 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
       // below is the real success signal. Short connect timeout so
       // we don't burn 30s retrying a bridge that's already gone.
       debug("requesting guest poweroff");
+      phases.start("poweroff-wait");
       await VsockExec.run(udsPath, "/sbin/machinen-poweroff", {
         connectTimeoutMs: 2_000,
         ...tapExecForLog("/sbin/machinen-poweroff", opts.onLog),
@@ -394,6 +416,7 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
       // 30–90 s gap of silent host-side CPU. See #162.
       console.error("provision: waiting for guest exit…");
       await vm.wait();
+      phases.end("poweroff-wait");
       debug("guest exited");
     } finally {
       clearTimeout(killTimer);
@@ -407,15 +430,36 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
     // trims trailing zeros and normalizes compression.
     debug("repack disk tar -> %s starting", outAbs);
     const repackT0 = Date.now();
-    repackDiskTarToGz(diskPath, outAbs, { cmd: opts.cmd, env: opts.env });
+    phases.start("repack-targz");
+    repackDiskTarToGz(diskPath, outAbs, {
+      cmd: opts.cmd,
+      env: opts.env,
+      onPhase: (name, ms) => phases.mark(`repack-targz.${name}`, ms),
+    });
+    phases.end("repack-targz");
     debug("repack done elapsed=%dms", Date.now() - repackT0);
 
     const sizeBytes = statSync(outAbs).size;
-    debug("provision complete sizeBytes=%d totalElapsed=%dms", sizeBytes, Date.now() - t0);
+    // Warm boot()'s image-config cache (#233 follow-up): we know the
+    // exact bytes that landed in the tarball's machinen-config.json,
+    // so the next boot() can skip the ~1 s `tar -xzOf` decompress.
+    warmImageConfigCache(
+      outAbs,
+      opts.cmd || opts.env
+        ? {
+            ...(opts.cmd ? { cmd: opts.cmd } : {}),
+            ...(opts.env ? { env: opts.env } : {}),
+          }
+        : null,
+    );
+    const elapsedMs = Date.now() - t0;
+    debug("provision complete sizeBytes=%d totalElapsed=%dms", sizeBytes, elapsedMs);
+    phases.flush(debug, "provision", elapsedMs);
+    opts.onLog?.(phases.toEvent("provision", elapsedMs));
     return {
       imagePath: outAbs,
       sizeBytes,
-      elapsedMs: Date.now() - t0,
+      elapsedMs,
     };
   } finally {
     try {
@@ -467,36 +511,138 @@ function allocateSparseFile(path: string, sizeBytes: number): void {
  * keeps the build path cross-platform. Byte-for-byte reproducibility
  * across hosts is a nice-to-have we can layer on later if it ever
  * matters (swap in a Node-side tar writer).
+ *
+ * #233 follow-up: also emits a `<out>.img.gz` prebake sibling. The
+ * extracted tree is already on disk for re-tar; mke2fs from it costs
+ * a few seconds and saves ~10 s on every subsequent `boot()` of this
+ * tarball (the cached `<sha>.img` would otherwise miss on every
+ * provision and force a tar-extract + mke2fs on the next boot). When
+ * mke2fs isn't available we silently skip the prebake — provision
+ * still produces a valid tarball, the next boot just pays the cold-
+ * materialize price.
  */
 function repackDiskTarToGz(
   diskPath: string,
   outAbs: string,
-  bakedConfig?: { cmd?: string[]; env?: Record<string, string> },
+  opts: {
+    cmd?: string[];
+    env?: Record<string, string>;
+    onPhase?: (name: string, ms: number) => void;
+  } = {},
 ): void {
   const extractDir = mkdtempSync(join(tmpdir(), "machinen-provision-extract-"));
   try {
     // Visible progress so the silent multi-GB tar pass doesn't look
     // like a hang. See #162.
     console.error("provision: packaging rootfs…");
+    const extractT0 = Date.now();
     execFileSync("tar", ["-xf", diskPath, "-C", extractDir]);
+    opts.onPhase?.("disk-tar-extract", Date.now() - extractT0);
     // Bake the image's default cmd/env into /machinen-config.json so
     // `boot({ image })` can run without every caller re-passing the
     // same cmd. User-supplied cmd/env on boot() still override.
-    if (bakedConfig && (bakedConfig.cmd || bakedConfig.env)) {
+    if (opts.cmd || opts.env) {
       writeFileSync(
         join(extractDir, "machinen-config.json"),
         JSON.stringify({
-          ...(bakedConfig.cmd ? { cmd: bakedConfig.cmd } : {}),
-          ...(bakedConfig.env ? { env: bakedConfig.env } : {}),
+          ...(opts.cmd ? { cmd: opts.cmd } : {}),
+          ...(opts.env ? { env: opts.env } : {}),
         }),
       );
     }
+    const tarT0 = Date.now();
     execFileSync("tar", ["-czf", outAbs, "-C", extractDir, "."], {
       stdio: ["ignore", "ignore", "inherit"],
     });
+    opts.onPhase?.("targz", Date.now() - tarT0);
+    emitPrebakeSibling(extractDir, outAbs, opts.onPhase);
   } finally {
     try {
       rmSync(extractDir, { recursive: true, force: true });
     } catch {}
   }
+}
+
+/**
+ * Build `<outAbs>.img` from the already-extracted rootfs tree so the
+ * next `boot()` against `<outAbs>` hits `tryPrebakeFromSibling` and
+ * reflinks the file straight into the cache instead of cold-materialize
+ * (tar-extract + mke2fs ≈ 10 s on a typical dev rootfs).
+ *
+ * We emit the uncompressed `.img` form (sparse, ~500 MB on disk for a
+ * 2 GiB allocated image with a typical Debian rootfs) rather than the
+ * gzipped `.img.gz` form release builds use: the prebake then reflinks
+ * from sibling to cache in milliseconds, vs ~2 s for `gunzip`. Build-
+ * time gzip would also add ~25 s on a single-threaded host. Disk cost
+ * is similar — gzip(.img) and sparse(.img) both land ~500 MB on APFS.
+ *
+ * Best-effort: any failure (no mke2fs binary, mke2fs error, unexpected
+ * outAbs suffix) is logged and swallowed; the tarball alone is still
+ * a complete provision output, the next boot just falls back to the
+ * slow materialize path.
+ */
+function emitPrebakeSibling(
+  treeDir: string,
+  outAbs: string,
+  onPhase?: (name: string, ms: number) => void,
+): void {
+  const mke2fs = resolveMke2fs();
+  if (!mke2fs) {
+    debug("prebake skip: no mke2fs available");
+    return;
+  }
+  const m = /^(.*)(\.tar\.gz|\.tgz|\.tar)$/i.exec(outAbs);
+  if (!m) {
+    debug("prebake skip: outAbs %s lacks a recognized tarball suffix", outAbs);
+    return;
+  }
+  const prebakePath = `${m[1]}.img`;
+  const tmpImg = `${prebakePath}.tmp.${process.pid}`;
+
+  try {
+    const treeBytes = duBytes(treeDir);
+    const sizeBytes = Math.max(2 * 1024 * 1024 * 1024, Math.ceil(treeBytes * 2.5));
+    allocateSparseFile(tmpImg, sizeBytes);
+
+    const blocks = Math.floor(sizeBytes / 4096);
+    const mkT0 = Date.now();
+    const mk = spawnSync(
+      mke2fs,
+      ["-d", treeDir, "-t", "ext4", "-F", "-q", "-b", "4096", tmpImg, String(blocks)],
+      { stdio: ["ignore", "ignore", "pipe"] },
+    );
+    onPhase?.("prebake.mke2fs", Date.now() - mkT0);
+    if (mk.status !== 0) {
+      debug(
+        "prebake mke2fs failed status=%s stderr=%s",
+        mk.status,
+        mk.stderr?.toString().slice(0, 200) ?? "",
+      );
+      return;
+    }
+
+    renameSync(tmpImg, prebakePath);
+    debug("prebake emitted prebake=%s sizeBytes=%d", prebakePath, sizeBytes);
+  } catch (err) {
+    debug("prebake error err=%s", (err as Error).message);
+  } finally {
+    try {
+      rmSync(tmpImg, { force: true });
+    } catch {}
+  }
+}
+
+/**
+ * `du -sk <path>` in bytes. Mirrors the helper in rootfs-img.ts;
+ * duplicated here to keep that module's surface narrow.
+ */
+function duBytes(path: string): number {
+  try {
+    const out = execFileSync("du", ["-sk", path], { encoding: "utf8" }).trim();
+    const kib = parseInt(out.split(/\s+/, 1)[0]!, 10);
+    if (Number.isFinite(kib) && kib > 0) {
+      return kib * 1024;
+    }
+  } catch {}
+  return statSync(path).size || 0;
 }
