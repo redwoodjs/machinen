@@ -398,9 +398,14 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   // #150 phase 2: refuse `--detached` with options that keep helpers
   // alive in the JS supervisor. After detach the supervisor is gone;
   // any guest call back into one of these (a FUSE op, an artifact-
-  // cache fetch, a port-forward control change) would land on a dead
-  // socket. Phase 3 extracts these helpers into standalone daemons —
-  // until then, the gate is hard.
+  // cache fetch) would land on a dead socket. Phase 3 extracts those
+  // helpers into standalone daemons — until then, the gate is hard.
+  //
+  // PR3 lifted the `portForward` restriction: gvproxy now also
+  // detaches (its pid + socket dir are persisted in the registry so
+  // `machinen stop` reaps them), and `exposePort` runs *before*
+  // detach completes, so the forwards are configured by the time the
+  // parent exits.
   if (opts.detached) {
     const incompatible: string[] = [];
     if (opts.mount) {
@@ -408,9 +413,6 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     }
     if ((opts.liveMounts ?? []).length > 0) {
       incompatible.push("liveMounts");
-    }
-    if ((opts.portForward ?? []).length > 0) {
-      incompatible.push("portForward");
     }
     if (incompatible.length > 0) {
       throw new BootError(
@@ -656,6 +658,9 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   // nodeSpawn failure), the outer catch shuts both supervisors back
   // down — otherwise a failed boot would leave orphans behind.
   let gvStop: (() => void) | undefined;
+  let gvPid: number | undefined;
+  let gvExe: string | undefined;
+  let gvSocketDir: string | undefined;
   let cacheStop: (() => Promise<void>) | undefined;
   const liveMountStops: Array<() => Promise<void>> = [];
   let bundleTempDir: string | undefined;
@@ -682,9 +687,14 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       const gvBin = await ensureGvproxy(binary);
       if (gvBin) {
         debug("starting gvproxy bin=%s", gvBin);
-        const gv = await spawnGvproxy(gvBin);
+        // Detach gvproxy alongside the VMM so the parent can exit
+        // without stranding the guest's networking (#150 phase 2 PR3).
+        const gv = await spawnGvproxy(gvBin, { detached: opts.detached });
         env.MACHINEN_NET_SOCKET = gv.socketPath;
         gvStop = gv.stop;
+        gvPid = gv.child.pid;
+        gvExe = gvBin;
+        gvSocketDir = gv.socketDir;
         for (const m of portForward) {
           await exposePort(gv.controlSocketPath, m);
         }
@@ -923,6 +933,9 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   if (vsockTempDir) {
     cleanupPaths.push(vsockTempDir);
   }
+  if (gvSocketDir) {
+    cleanupPaths.push(gvSocketDir);
+  }
   let registered = false;
   if (childPid > 0 && vsockUdsPath) {
     try {
@@ -936,6 +949,8 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         bootLogPath,
         cleanupPaths: cleanupPaths.length > 0 ? cleanupPaths : undefined,
         vmmExe: binary,
+        gvproxyPid: gvPid,
+        gvproxyExe: gvExe,
         startedAt: Date.now(),
       });
       registered = true;

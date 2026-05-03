@@ -82,6 +82,22 @@ export interface RegistryEntry {
    * to `kill(pid, 0)` and the entry would be kept around forever.
    */
   vmmExe?: string;
+  /**
+   * PID of the gvproxy process spawned alongside this VMM (issue #150
+   * phase 2 PR3). Recorded so `machinen stop` can SIGTERM gvproxy at
+   * the same time as the VMM, and so `machinen gc` can validate /
+   * reap it independently. Undefined when the VM was booted without
+   * networking (no gvproxy binary, or `MACHINEN_NET_SOCKET` was
+   * pre-set by the caller).
+   */
+  gvproxyPid?: number;
+  /**
+   * Absolute path to the gvproxy binary spawned for this VM. Used by
+   * `machinen stop` for the same anti-recycling check the VMM gets
+   * via `vmmExe` — we don't want to SIGTERM whatever process inherits
+   * gvproxy's pid weeks later.
+   */
+  gvproxyExe?: string;
   /** ms epoch when the entry was created. */
   startedAt: number;
 }
