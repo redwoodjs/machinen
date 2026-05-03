@@ -724,11 +724,32 @@ interface FinalOptions {
 
 function appendFinalEntries(parts: Buffer[], opts: FinalOptions): void {
   if (opts.injectInit) {
+    let initBytes: Buffer | null = null;
     try {
-      const initBytes = readFileSync(opts.initPath);
+      initBytes = readFileSync(opts.initPath);
+    } catch (err) {
+      // packTinyBundle / packBundle both rely on /init mounting
+      // /dev/vda — without it the kernel falls through to
+      // prepare_namespace() with no `root=` and panics with
+      // "Can't open blockdev". A silent skip here turned a missing
+      // fixture into an opaque kernel panic, so fail loudly.
+      //
+      // Tests that don't actually boot a real VMM (binary: "/bin/sh"
+      // and friends) opt out via MACHINEN_REQUIRE_FIXTURES=0 — the
+      // same flag the integration suites use to skip when fixtures
+      // are absent. Hosted CI sets it; local dev with `pretest`
+      // doesn't, so this still fires for anyone whose worktree is
+      // missing the build-base-assets.sh artifacts.
+      if (process.env.MACHINEN_REQUIRE_FIXTURES !== "0") {
+        throw new MkinitramfsError(
+          "MKINITRAMFS_INIT_MISSING",
+          `mkinitramfs: /init binary not readable at ${opts.initPath} (${err instanceof Error ? err.message : String(err)}). ` +
+            `Build it with scripts/build-base-assets.sh, or pass initPath to point at a custom one.`,
+        );
+      }
+    }
+    if (initBytes !== null) {
       parts.push(newc("init", 0o100755, { data: initBytes }));
-    } catch {
-      // init is optional — matches the Python code's `if INIT.exists():` guard.
     }
   }
   if (opts.execAgentPath) {
