@@ -55,6 +55,14 @@ pub const Pl011 = struct {
     size: u64 = 0x1000,
     captured: std.ArrayList(u8),
     rx_buf: std.ArrayList(u8),
+    /// Whether DR-write bytes are appended to `captured`. Test boots
+    /// rely on the captured buffer to assert on guest output; production
+    /// boots discard `Result.serial` immediately (see main.zig — the
+    /// same bytes already live-echo to host stderr from the boot loop's
+    /// PL011 handler). Skipping the append eliminates the per-byte
+    /// ArrayList grow on the production hot path. NASA Power-of-Ten
+    /// Rule 3, see .docs/learnings/microvm/allocations.md (#240).
+    capture_enabled: bool = true,
     // Interrupt mask/status. The kernel's PL011 IRQ handler reads MIS
     // (masked = RIS & IMSC) and clears matching bits via ICR.
     imsc: u32 = 0,
@@ -128,7 +136,7 @@ pub const Pl011 = struct {
         defer self.mutex.unlock();
         const offset = addr - self.base;
         switch (offset) {
-            0x000 => try self.captured.append(gpa, @truncate(value)),
+            0x000 => if (self.capture_enabled) try self.captured.append(gpa, @truncate(value)),
             0x038 => self.imsc = @truncate(value),
             0x044 => {
                 self.ris &= ~@as(u32, @truncate(value));

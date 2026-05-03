@@ -279,6 +279,10 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
 
     // --- run loop -------------------------------------------------
     var uart: hvf.Pl011 = .init;
+    // Production boots discard Result.serial unread (main.zig); skip
+    // the per-byte capture allocations in that mode. See
+    // .docs/learnings/microvm/allocations.md (#240).
+    uart.capture_enabled = !cfg.unbounded_serial;
     defer uart.deinit(gpa);
 
     // virtio-net + gvproxy (#82). The Device is the "hardware"; gvproxy
