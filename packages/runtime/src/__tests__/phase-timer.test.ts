@@ -88,7 +88,12 @@ describe("PhaseTimer", () => {
   it("toEvent() defaults totalMs to the timer's wall-clock", async () => {
     const t = new PhaseTimer();
     t.mark("only", 1);
-    await sleep(5);
+    // setTimeout(5) + the >=5 assertion is racy on busy CI runners —
+    // Linux schedulers occasionally wake setTimeout up to ~1ms early
+    // (saw `expected 4 >= 5` on PR #245's hosted CI). Bumping to 25ms
+    // keeps the test fast while putting enough headroom on the
+    // schedule that "time elapsed" measures truthfully.
+    await sleep(25);
     const evt = t.toEvent("boot");
     expect(evt.totalMs).toBeGreaterThanOrEqual(5);
   });
