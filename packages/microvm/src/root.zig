@@ -12,6 +12,16 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
+const assert = std.debug.assert;
+
+comptime {
+    // The Backend enum is plumbed across both backends and the JS
+    // runtime; tag values are part of the cross-language ABI.
+    assert(@intFromEnum(Backend.hvf) == 0);
+    assert(@intFromEnum(Backend.kvm) == 1);
+    assert(@intFromEnum(Backend.none) == 2);
+}
+
 pub const hvf = if (builtin.os.tag == .macos) @import("hvf.zig") else struct {};
 pub const boot_hvf = if (builtin.os.tag == .macos) @import("boot_hvf.zig") else struct {};
 pub const net_socket = if (builtin.os.tag == .macos) @import("net_socket.zig") else struct {};

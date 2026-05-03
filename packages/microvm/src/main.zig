@@ -11,6 +11,8 @@ const std = @import("std");
 const builtin = @import("builtin");
 const microvm = @import("microvm");
 
+const assert = std.debug.assert;
+
 comptime {
     if (builtin.os.tag != .macos and builtin.os.tag != .linux) {
         @compileError("machinen-microvm only supports macOS (HVF) and arm64 Linux (KVM)");
@@ -69,19 +71,23 @@ pub fn main(init: std.process.Init) !void {
 }
 
 fn envRequired(comptime name: [:0]const u8) []const u8 {
+    comptime assert(name.len > 0);
     const raw = getenv(name.ptr) orelse dieUsage(name);
     const s = std.mem.span(raw);
     if (s.len == 0) dieUsage(name);
+    assert(s.len > 0);
     return s;
 }
 
 fn envOptional(comptime name: [:0]const u8) ?[]const u8 {
+    comptime assert(name.len > 0);
     const raw = getenv(name.ptr) orelse return null;
     const s = std.mem.span(raw);
     return if (s.len == 0) null else s;
 }
 
 fn dieUsage(missing: []const u8) noreturn {
+    assert(missing.len > 0);
     std.debug.print(
         "machinen-microvm: {s} is unset.\n" ++
             "  This binary is invoked by @machinen/runtime, not directly.\n" ++

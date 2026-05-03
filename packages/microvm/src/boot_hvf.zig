@@ -16,6 +16,8 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
+const assert = std.debug.assert;
+
 comptime {
     if (builtin.os.tag != .macos) {
         @compileError("boot_hvf.zig only builds on macOS (uses HVF)");
@@ -46,6 +48,19 @@ const virtio_vsock_base: u64 = 0x0A00_0400;
 const virtio_vsock_size: u64 = 0x200;
 const virtio_blk2_base: u64 = 0x0A00_0600;
 const virtio_blk2_size: u64 = 0x200;
+
+comptime {
+    // virtio-mmio slot layout — must stay byte-identical to virt.dts
+    // and to boot_kvm.zig's matching constants. Drift here means the
+    // kernel probes the wrong window and devices never bind.
+    assert(virtio_net_size == 0x200);
+    assert(virtio_blk_size == 0x200);
+    assert(virtio_vsock_size == 0x200);
+    assert(virtio_blk2_size == 0x200);
+    assert(virtio_blk_base == virtio_net_base + virtio_net_size);
+    assert(virtio_vsock_base == virtio_blk_base + virtio_blk_size);
+    assert(virtio_blk2_base == virtio_vsock_base + virtio_vsock_size);
+}
 
 pub const Error = error{
     FixtureMissing,
@@ -113,7 +128,9 @@ fn debugEnabled() bool {
 /// kernel spends real wall-clock walking the tail. Patching the end
 /// pointer to match the actual cpio eliminates that.
 fn patchDtbInitrdEnd(dtb: []u8, new_end: u32) !void {
+    assert(dtb.len > 0);
     if (dtb.len < 40) return error.DtbTooSmall;
+    assert(dtb.len >= 40);
 
     const magic = std.mem.readInt(u32, dtb[0..4], .big);
     if (magic != 0xd00dfeed) return error.DtbBadMagic;
@@ -124,6 +141,7 @@ fn patchDtbInitrdEnd(dtb: []u8, new_end: u32) !void {
 
     if (@as(usize, off_strings) + @as(usize, size_strings) > dtb.len) return error.DtbOutOfBounds;
     if (off_struct > dtb.len) return error.DtbOutOfBounds;
+    assert(size_strings > 0);
 
     // Find "linux,initrd-end" in the strings block; record its offset
     // within that block — the value FDT_PROP entries reference.
@@ -206,18 +224,34 @@ test "patchDtbInitrdEnd round-trips a minimal hand-built DTB" {
 }
 
 pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
+    // Caller-supplied layout must satisfy the basic geometry the boot
+    // protocol depends on. These are programmer errors at the call
+    // site, not anything the guest can influence.
+    assert(cfg.kernel_path.len > 0);
+    assert(cfg.dtb_path.len > 0);
+    assert(cfg.ram_size >= 16 * 1024 * 1024);
+    assert(cfg.ram_size % hvf.page_size == 0);
+    assert(cfg.ram_base % hvf.page_size == 0);
+    assert(cfg.dtb_offset % hvf.page_size == 0);
+    assert(cfg.initrd_offset % hvf.page_size == 0);
+    assert(cfg.dtb_offset < cfg.ram_size);
+    assert(cfg.initrd_offset < cfg.ram_size);
+    assert(cfg.max_exits > 0);
+
     // --- load fixture files off disk ------------------------------
     const kernel = readAll(gpa, cfg.kernel_path) catch |err| {
         if (err == error.FileNotFound) return error.FixtureMissing;
         return err;
     };
     defer gpa.free(kernel);
+    assert(kernel.len > 0);
 
     const dtb = readAll(gpa, cfg.dtb_path) catch |err| {
         if (err == error.FileNotFound) return error.FixtureMissing;
         return err;
     };
     defer gpa.free(dtb);
+    assert(dtb.len > 0);
 
     const img = try hvf.KernelImage.parse(kernel);
 
@@ -234,6 +268,8 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         0,
     );
     defer std.posix.munmap(ram);
+    assert(ram.len == cfg.ram_size);
+    assert(@intFromPtr(ram.ptr) % hvf.page_size == 0);
 
     // copy kernel and DTB into RAM
     @memcpy(ram[img.text_offset..][0..kernel.len], kernel);
@@ -324,11 +360,15 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
 
     // arm64 Linux boot protocol: X0 = physical address of DTB.
     const dtb_phys = cfg.ram_base + cfg.dtb_offset;
+    const entry_phys = cfg.ram_base + img.text_offset;
+    assert(dtb_phys >= cfg.ram_base);
+    assert(entry_phys >= cfg.ram_base);
+    assert(entry_phys < cfg.ram_base + cfg.ram_size);
     try vcpu.setReg(.x0, dtb_phys);
     try vcpu.setReg(.x1, 0);
     try vcpu.setReg(.x2, 0);
     try vcpu.setReg(.x3, 0);
-    try vcpu.setReg(.pc, cfg.ram_base + img.text_offset);
+    try vcpu.setReg(.pc, entry_phys);
 
     // --- run loop -------------------------------------------------
     var uart: hvf.Pl011 = .init;
@@ -484,6 +524,10 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     //   virtio-mmio: interrupts = <0 16 1>  -> SPI #16
     // The absolute GIC id is `spi.base + <n>`.
     const spi = try hvf.Gic.spiRange();
+    // SPIs start at 32 on ARM GIC; HVF must report at least the four
+    // device IDs we wire up (1, 16, 17, 18, 19) past spi.base.
+    assert(spi.base >= 32);
+    assert(spi.count >= 20);
     const pl011_irq: u32 = spi.base + 1;
     // DTS interrupts = <0 N 1> for each virtio-mmio slot. Slots:
     //   slot 0 → SPI #16 (net)
@@ -775,6 +819,8 @@ pub const NetBridge = struct {
 };
 
 fn onTxFrameBridge(ctx: ?*anyopaque, frame: []const u8) void {
+    assert(ctx != null);
+    assert(frame.len > 0);
     const bridge: *NetBridge = @ptrCast(@alignCast(ctx.?));
     // Still log for smoke tests and diagnostics.
     onTxFrame(@ptrCast(bridge.stats), frame);
@@ -782,7 +828,9 @@ fn onTxFrameBridge(ctx: ?*anyopaque, frame: []const u8) void {
 }
 
 fn onNetRx(ctx: ?*anyopaque) void {
+    assert(ctx != null);
     const bridge: *NetBridge = @ptrCast(@alignCast(ctx.?));
+    assert(bridge.virtio_irq >= 32);
     // Device's interrupt_status was set inside injectRx. Sync the GIC
     // line so the guest sees a pending interrupt.
     hvf.Gic.setSpi(bridge.virtio_irq, true) catch {};
@@ -794,11 +842,14 @@ fn onNetRx(ctx: ?*anyopaque) void {
 pub const VsockIrqCtx = struct { irq: u32 };
 
 fn onVsockIrq(ctx: ?*anyopaque) void {
+    assert(ctx != null);
     const c: *VsockIrqCtx = @ptrCast(@alignCast(ctx.?));
+    assert(c.irq >= 32);
     hvf.Gic.setSpi(c.irq, true) catch {};
 }
 
 fn onTxFrame(ctx: ?*anyopaque, frame: []const u8) void {
+    assert(ctx != null);
     const stats: *TxStats = @ptrCast(@alignCast(ctx.?));
     stats.frames += 1;
     stats.bytes += frame.len;
@@ -848,6 +899,7 @@ fn onTxFrame(ctx: ?*anyopaque, frame: []const u8) void {
 }
 
 fn stdinThreadMain(ctx: *StdinThread) void {
+    assert(ctx.irq >= 32);
     var buf: [256]u8 = undefined;
     while (!ctx.stop.load(.acquire)) {
         const n = read(0, &buf, buf.len);
@@ -856,6 +908,7 @@ fn stdinThreadMain(ctx: *StdinThread) void {
             // it just won't receive any more serial input.
             return;
         }
+        assert(@as(usize, @intCast(n)) <= buf.len);
         ctx.uart.pushRx(ctx.gpa, buf[0..@intCast(n)]) catch return;
         // Assert the IRQ so the vCPU wakes from WFI and services it.
         hvf.Gic.setSpi(ctx.irq, ctx.uart.irqAsserted()) catch {};
@@ -878,6 +931,7 @@ extern "c" fn access(path: [*:0]const u8, mode: c_int) c_int;
 extern "c" fn getenv(name: [*:0]const u8) ?[*:0]const u8;
 
 fn readAll(gpa: std.mem.Allocator, path: []const u8) ![]u8 {
+    assert(path.len > 0);
     var path_buf: [4096]u8 = undefined;
     if (path.len >= path_buf.len) return error.NameTooLong;
     @memcpy(path_buf[0..path.len], path);
@@ -886,12 +940,14 @@ fn readAll(gpa: std.mem.Allocator, path: []const u8) ![]u8 {
 
     const fd = open(path_z, O_RDONLY);
     if (fd < 0) return error.OpenFailed;
+    assert(fd >= 0);
     defer _ = close(fd);
 
     const size_i = lseek(fd, 0, SEEK_END);
     if (size_i < 0) return error.SeekFailed;
     _ = lseek(fd, 0, SEEK_SET);
     const size: usize = @intCast(size_i);
+    assert(size > 0);
 
     const buf = try gpa.alloc(u8, size);
     errdefer gpa.free(buf);
@@ -902,6 +958,7 @@ fn readAll(gpa: std.mem.Allocator, path: []const u8) ![]u8 {
         if (n <= 0) return error.ShortRead;
         total += @intCast(n);
     }
+    assert(total == size);
     return buf;
 }
 

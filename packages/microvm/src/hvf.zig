@@ -6,6 +6,8 @@ const std = @import("std");
 const builtin = @import("builtin");
 const pl011_mod = @import("pl011.zig");
 
+const assert = std.debug.assert;
+
 comptime {
     if (builtin.os.tag != .macos) {
         @compileError("hvf.zig only builds on macOS");
@@ -67,15 +69,62 @@ pub const Vm = struct {
 
     /// Map host memory into the guest's physical address space.
     pub fn map(_: Vm, host_mem: []align(page_size) u8, guest_phys: u64, flags: MapFlags) Error!void {
+        // HVF requires page-aligned, page-sized regions. Host pointer
+        // alignment is enforced by the slice type; guest_phys + size
+        // alignment are runtime invariants.
+        assert(host_mem.len > 0);
+        assert(host_mem.len % page_size == 0);
+        assert(guest_phys % page_size == 0);
+        // Mapping an unreadable page is a programmer bug — the guest
+        // would trap on the first fetch with no useful diagnostic.
+        assert(flags.read or flags.write or flags.exec);
         try check(c.hv_vm_map(host_mem.ptr, guest_phys, host_mem.len, flags.bits()));
     }
 
     pub fn unmap(_: Vm, guest_phys: u64, size: usize) Error!void {
+        assert(size > 0);
+        assert(size % page_size == 0);
+        assert(guest_phys % page_size == 0);
         try check(c.hv_vm_unmap(guest_phys, size));
     }
 };
 
 pub const page_size = 0x4000; // 16 KiB pages on Apple Silicon arm64
+
+comptime {
+    // Apple Silicon arm64 mandates 16 KiB pages — anything else
+    // means the wrong target was selected for this build.
+    assert(page_size == 0x4000);
+
+    // HVF ABI struct layouts. ExitReason is u32 then ExitException
+    // (24 B, 8-aligned) → 4 B padding → total 32 B for VcpuExit.
+    assert(@sizeOf(ExitException) == 24);
+    assert(@offsetOf(ExitException, "syndrome") == 0);
+    assert(@offsetOf(ExitException, "virtual_address") == 8);
+    assert(@offsetOf(ExitException, "physical_address") == 16);
+    assert(@sizeOf(VcpuExit) == 32);
+    assert(@offsetOf(VcpuExit, "reason") == 0);
+    assert(@offsetOf(VcpuExit, "exception") == 8);
+
+    // Reg enum tags must match hv_reg_t values (X0..X30 contiguous,
+    // then PC=31, FPCR=32, FPSR=33, CPSR=34).
+    assert(@intFromEnum(Reg.x0) == 0);
+    assert(@intFromEnum(Reg.x30) == 30);
+    assert(@intFromEnum(Reg.pc) == 31);
+    assert(@intFromEnum(Reg.cpsr) == 34);
+
+    // ExceptionClass: top 6 bits of ESR_EL2.
+    assert(@intFromEnum(ExceptionClass.hvc_aarch64) == 0x16);
+    assert(@intFromEnum(ExceptionClass.data_abort_lower_el) == 0x24);
+    assert(@intFromEnum(ExceptionClass.brk_aarch64) == 0x3C);
+
+    // PSCI v1.1 function IDs (ARM DEN 0022).
+    assert(@intFromEnum(Psci.Function.version) == 0x84000000);
+    assert(@intFromEnum(Psci.Function.system_off) == 0x84000008);
+    assert(@intFromEnum(Psci.Function.system_reset) == 0x84000009);
+    // SMC64 entry points have the top nibble flipped from 0x8 to 0xC.
+    assert(@intFromEnum(Psci.Function.cpu_on_64) == 0xC4000003);
+}
 
 pub const MapFlags = packed struct {
     read: bool = false,
@@ -202,6 +251,12 @@ pub const Gic = struct {
     };
 
     pub fn enable(cfg: Config) Error!void {
+        // Distributor and redistributor MMIO windows must be distinct
+        // and non-zero; placing them at the same address silently
+        // breaks GIC routing.
+        assert(cfg.distributor_base != 0);
+        assert(cfg.redistributor_base != 0);
+        assert(cfg.distributor_base != cfg.redistributor_base);
         const config = hv_gic_config_create() orelse return error.NoResources;
         try check(hv_gic_config_set_distributor_base(config, cfg.distributor_base));
         try check(hv_gic_config_set_redistributor_base(config, cfg.redistributor_base));
@@ -223,6 +278,7 @@ pub const Gic = struct {
     pub fn redistributorBase(vcpu: Vcpu) Error!u64 {
         var b: u64 = 0;
         try check(hv_gic_get_redistributor_base(vcpu.handle, &b));
+        assert(b != 0);
         return b;
     }
 
@@ -273,6 +329,11 @@ pub const Gic = struct {
     /// on ARM GIC; the DTS number is 0-based within SPIs, so for a
     /// device that says `interrupts = <0 1 4>` call with intid = 33).
     pub fn setSpi(intid: u32, level: bool) Error!void {
+        // SPIs start at 32 on ARM GIC; values below that hit SGI/PPI
+        // ranges and silently drop on hv_gic_set_spi.
+        assert(intid >= 32);
+        // GICv3 caps SPI INTID at 1019 (hardware-defined).
+        assert(intid <= 1019);
         try check(hv_gic_set_spi(intid, level));
     }
 
@@ -385,6 +446,10 @@ pub const DataAbort = struct {
     /// Read the guest register holding the value the guest was storing.
     /// XZR reads as 0. Out-of-range is a bug.
     pub fn readSource(self: DataAbort, vcpu: Vcpu) Error!u64 {
+        // Only meaningful when the syndrome decoded a load/store
+        // operand; otherwise srt is whatever bits happened to land.
+        assert(self.isv);
+        assert(self.srt <= 31);
         if (self.srt == 31) return 0; // XZR
         const reg: Reg = @enumFromInt(@as(u32, self.srt));
         return vcpu.getReg(reg);
@@ -412,12 +477,16 @@ pub const KernelImage = struct {
 
     /// Parse the header. `bytes` is the entire kernel Image file.
     pub fn parse(bytes: []const u8) KernelImage.Error!KernelImage {
+        assert(bytes.len > 0);
         if (bytes.len < 64) return error.TooSmall;
+        assert(bytes.len >= 0x40);
         const got_magic = std.mem.readInt(u32, bytes[0x38..0x3C], .little);
         if (got_magic != magic) return error.BadMagic;
+        const text_offset = std.mem.readInt(u64, bytes[0x08..0x10], .little);
+        const image_size = std.mem.readInt(u64, bytes[0x10..0x18], .little);
         return .{
-            .text_offset = std.mem.readInt(u64, bytes[0x08..0x10], .little),
-            .image_size = std.mem.readInt(u64, bytes[0x10..0x18], .little),
+            .text_offset = text_offset,
+            .image_size = image_size,
             .bytes = bytes,
         };
     }
