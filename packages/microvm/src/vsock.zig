@@ -162,6 +162,23 @@ pub const Q_EVENT: u32 = 2;
 /// packets; this just bounds our scratch buffer (TX direction).
 pub const max_payload: usize = 64 * 1024;
 
+/// Per-iteration cap on the wake-pipe drain in the bridge poll loop.
+/// Each read drains up to 64 B; 256 iterations covers a 16 KiB
+/// backlog. A peer that keeps writing past this just wakes us again
+/// next poll — the surrounding poll() already serves as the rate limit.
+pub const wake_drain_iters_max: u32 = 256;
+
+/// Cumulative EAGAIN stalls allowed while waiting for a UDS write to
+/// drain in dispatchGuestPacket. Each stall is a 100 ms poll, so 50
+/// caps the per-packet wait at ~5 s before we give up on a wedged
+/// peer rather than block the bridge thread indefinitely.
+pub const tx_eagain_stalls_max: u32 = 50;
+
+/// Hard cap on entries parsed out of MACHINEN_VSOCK. Bounded by the
+/// number of port-mapping arguments a sane operator would ever pass.
+/// Keeps parseEnv from looping forever on a pathological input.
+pub const parse_env_entries_max: u32 = 256;
+
 /// Per-packet body cap we use when INJECTING RX packets into the
 /// guest. The Linux virtio-vsock driver posts RX buffers as a
 /// SINGLE flat descriptor (not a chain — contrary to what the
@@ -223,6 +240,9 @@ comptime {
     assert(ShutdownFlag.recv == 1);
     assert(ShutdownFlag.send == 2);
     assert(ShutdownFlag.both == 3);
+    assert(wake_drain_iters_max > 0);
+    assert(tx_eagain_stalls_max > 0);
+    assert(parse_env_entries_max > 0);
 }
 
 /// Parse a `MACHINEN_VSOCK` value into a `PortMap` list.
@@ -243,7 +263,11 @@ pub fn parseEnv(gpa: std.mem.Allocator, raw: []const u8) ![]PortMap {
         list.deinit(gpa);
     }
     var rest: []const u8 = raw;
-    while (rest.len > 0) {
+    var entries: u32 = 0;
+    // #238: cap entries so a pathological env value can't pin the
+    // parser. Real configs have a handful of mappings; 256 is far
+    // beyond anything a sane operator would set.
+    while (rest.len > 0 and entries < parse_env_entries_max) : (entries += 1) {
         const end = std.mem.indexOfScalar(u8, rest, ',') orelse rest.len;
         var entry = rest[0..end];
         if (end < rest.len) rest = rest[end + 1 ..] else rest = "";
@@ -366,7 +390,10 @@ pub fn readPacket(
     var written: usize = 0;
     var idx: u16 = head;
     var steps: u32 = 0;
-    while (steps < 32) : (steps += 1) {
+    // Chain length is guest-driven; cap at virtio.max_chain_descriptors
+    // (the same 32-entry policy as blk.zig and virtio's own walks)
+    // and silently truncate longer chains.
+    while (steps < virtio.max_chain_descriptors) : (steps += 1) {
         const d = dev.queueDescriptor(q_idx, idx) orelse return null;
         if (d.len > 0) {
             const take: usize = @min(@as(usize, d.len), scratch.len - written);
@@ -379,7 +406,7 @@ pub fn readPacket(
         if ((d.flags & virtio.VringDesc.F_NEXT) == 0) break;
         idx = d.next;
     }
-    assert(steps <= 32);
+    assert(steps <= virtio.max_chain_descriptors);
     assert(written <= scratch.len);
     if (written < header_size) return null;
 
@@ -418,16 +445,23 @@ pub fn writePacket(
     var idx: u16 = head;
     var steps: u32 = 0;
     var total: u32 = 0;
-    while (steps < 32) : (steps += 1) {
+    // Mirror the readPacket bound: cap at virtio.max_chain_descriptors
+    // and treat a longer chain as "too short" to fit our packet (return
+    // null) — same fail-soft as the chain-too-short branch below.
+    while (steps < virtio.max_chain_descriptors) : (steps += 1) {
         const d = dev.queueDescriptor(q_idx, idx) orelse return null;
         // RX descriptors must be writable.
         if ((d.flags & virtio.VringDesc.F_WRITE) == 0) return null;
 
         var budget: u32 = d.len;
         var desc_off: u32 = 0;
+        // Inner loop: each iteration consumes ≥ 1 byte from
+        // remaining_hdr or remaining_body (both bounded), so it
+        // terminates in at most header_size + body.len iterations.
         while (budget > 0 and (remaining_hdr.len > 0 or remaining_body.len > 0)) {
             const source: []const u8 = if (remaining_hdr.len > 0) remaining_hdr else remaining_body;
             const chunk: u32 = @intCast(@min(@as(u64, budget), source.len));
+            assert(chunk > 0);
             const dst = dev.guestBytes(d.addr + desc_off, chunk) orelse return null;
             @memcpy(dst, source[0..chunk]);
             if (remaining_hdr.len > 0) {
@@ -444,7 +478,7 @@ pub fn writePacket(
         if ((d.flags & virtio.VringDesc.F_NEXT) == 0) return null; // chain too short
         idx = d.next;
     }
-    assert(steps <= 32);
+    assert(steps <= virtio.max_chain_descriptors);
     if (remaining_hdr.len != 0 or remaining_body.len != 0) return null;
     assert(total == @as(u32, header_size) + @as(u32, @intCast(body.len)));
     return total;
@@ -853,10 +887,15 @@ pub const Bridge = struct {
 
             _ = poll(scratch.ptr, @intCast(n), 250);
 
-            // Drain the wake pipe.
+            // Drain the wake pipe. Capped per #238 so a peer that keeps
+            // writing nudges can't pin this thread out of the poll set.
             if ((scratch[0].revents & POLLIN) != 0) {
                 var drain: [64]u8 = undefined;
-                while (read(self.wake[0], &drain, drain.len) > 0) {}
+                var drain_iters: u32 = 0;
+                while (drain_iters < wake_drain_iters_max) : (drain_iters += 1) {
+                    if (read(self.wake[0], &drain, drain.len) <= 0) break;
+                }
+                assert(drain_iters <= wake_drain_iters_max);
             }
 
             // Accept listeners.
@@ -1196,7 +1235,10 @@ pub const Bridge = struct {
                 // "Truncated tar archive".
                 var remaining = body;
                 var stalls: u32 = 0;
-                while (remaining.len > 0) {
+                // remaining strictly shrinks on n > 0; stalls is the
+                // EAGAIN-only counter, capped to keep a wedged peer
+                // from pinning the bridge thread (#238).
+                while (remaining.len > 0 and stalls <= tx_eagain_stalls_max) {
                     const n = write(c.uds_fd, remaining.ptr, remaining.len);
                     if (n > 0) {
                         remaining = remaining[@intCast(n)..];
@@ -1207,8 +1249,8 @@ pub const Bridge = struct {
                     var pfds = [_]PollFd{.{ .fd = c.uds_fd, .events = POLLOUT_, .revents = 0 }};
                     _ = poll(&pfds, 1, 100);
                     stalls += 1;
-                    if (stalls > 50) break; // ~5 s cumulative, give up
                 }
+                assert(stalls <= tx_eagain_stalls_max + 1);
                 c.bytes_from_peer +%= @intCast(body.len);
                 c.fwd_cnt = c.bytes_from_peer;
                 // Emit a credit update when we've consumed enough new
