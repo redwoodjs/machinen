@@ -18,12 +18,12 @@ describe("parseRunArgs --env", () => {
   it("accepts values that contain '=' characters", () => {
     const parsed = parseRunArgs([
       "--env",
-      "FNM_NODE_DIST_MIRROR=http://192.168.127.1:9000/node-dist?x=1",
+      "WEBHOOK_URL=http://192.168.127.1:9000/hook?x=1",
       "--",
       "/bin/true",
     ]);
     expect(parsed.env).toEqual({
-      FNM_NODE_DIST_MIRROR: "http://192.168.127.1:9000/node-dist?x=1",
+      WEBHOOK_URL: "http://192.168.127.1:9000/hook?x=1",
     });
   });
 

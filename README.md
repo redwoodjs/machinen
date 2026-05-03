@@ -85,15 +85,6 @@ const restored = await restore({ snapDir: "./counter.snap" });
 
 See [`packages/runtime/README.md`](packages/runtime/README.md) for the full surface.
 
-## Fast installs inside the guest
-
-A host-side HTTP cache fronts `nodejs.org/dist/`, so `fnm install` inside a
-fresh VM pulls through it instead of the internet. First install populates
-`~/.machinen/cache/`; subsequent installs are served entirely from disk, so a
-warm laptop boots Node-capable VMs with no upstream reachable. Transparent —
-the runtime starts the cache and points the guest's `FNM_NODE_DIST_MIRROR` at
-it automatically.
-
 ## Monorepo layout
 
 | Package                                                               | Published? | What it is                          |

@@ -140,7 +140,7 @@ describe("packBundle mount", () => {
     packBundle({
       bundle,
       out,
-      env: { FNM_NODE_DIST_MIRROR: "http://192.168.127.1:9000/node-dist" },
+      env: { WEBHOOK_URL: "http://192.168.127.1:9000/hook" },
     });
 
     const entries = listCpioEntries(out);
@@ -148,7 +148,7 @@ describe("packBundle mount", () => {
     expect(cfg).toBeDefined();
     const parsed = JSON.parse(cfg!.data.toString("utf8"));
     expect(parsed.env).toEqual({
-      FNM_NODE_DIST_MIRROR: "http://192.168.127.1:9000/node-dist",
+      WEBHOOK_URL: "http://192.168.127.1:9000/hook",
     });
     expect(parsed.cmd).toEqual(["/bin/true"]);
   });
