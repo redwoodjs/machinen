@@ -17,17 +17,24 @@ The right VMM binary is pulled automatically via optional dependencies
 (`@machinen/vmm-arm64-darwin` on Apple Silicon Macs, `@machinen/vmm-arm64-linux`
 on arm64 Linux). No system dependencies.
 
+First run fetches the kernel + rootfs from a private GitHub release, so you'll
+need [GitHub CLI](https://cli.github.com/) authenticated:
+
+```bash
+gh auth login
+```
+
 ## Transport a Node.js process
 
 ```bash
-# host A
-machinen boot --name counter -- node ./server.js &  # HTTP on :3000, counts requests
+# host A — boot an image with node + your server baked in (see provision below)
+machinen boot --name counter -p 3000:3000 ./counter.tar.gz &  # HTTP on :3000
 curl localhost:3000/hit                              # { count: 1 }
 curl localhost:3000/hit                              # { count: 2 }
 
-machinen snapshot counter ./counter.snap             # CRIU-freeze the running VM
+machinen snapshot --name counter --out-dir ./counter.snap   # CRIU-freeze the VM
 
-# copy counter.snap to host B, then:
+# copy ./counter.snap (a directory: disk.img + meta.json) to host B, then:
 machinen restore ./counter.snap
 curl localhost:3000/hit                              # { count: 3 }  ← same process
 ```
@@ -39,7 +46,7 @@ timers come back exactly as they were.
 
 ```bash
 machinen boot -- /bin/sh                    # ad-hoc: boot base + run a cmd
-machinen boot ./my-image.img                # boot a provisioned image
+machinen boot ./my-image.tar.gz             # boot a provisioned rootfs tarball
 ```
 
 On first run, the kernel + rootfs for the current release are fetched into
@@ -54,26 +61,26 @@ machinen install --version <tag>  # pin to a specific release tag
 ## Drive it from Node
 
 ```ts
-import { provision, boot } from "@machinen/runtime";
+import { boot, provision, restore } from "@machinen/runtime";
 
 // Bake an image once: base Debian + your deps + a default cmd.
 await provision({
-  base: "debian-arm64",
+  base: "./rootfs-debian-arm64.tar.gz",
   install: async (vm) => {
     await vm.exec("apt-get install -y nodejs");
   },
   cmd: ["/usr/bin/node", "/opt/server.js"],
-  out: "./my-server.img",
+  out: "./my-server.tar.gz",
 });
 
 // Boot it. The image's baked-in cmd runs by default.
-const vm = await boot({ image: "./my-server.img", name: "counter" });
+const vm = await boot({ image: "./my-server.tar.gz", name: "counter" });
 // ... let it run, serve traffic, accumulate state ...
 
-await vm.snapshot("./counter.snap"); // CRIU-freeze to disk
+await vm.snapshot({ outDir: "./counter.snap" }); // CRIU-freeze to disk
 
 // elsewhere (possibly on another host):
-const restored = await boot({ snapshot: "./counter.snap" });
+const restored = await restore({ snapDir: "./counter.snap" });
 ```
 
 See [`packages/runtime/README.md`](packages/runtime/README.md) for the full surface.
@@ -89,13 +96,15 @@ it automatically.
 
 ## Monorepo layout
 
-| Package                                                   | Published? | What it is                          |
-| --------------------------------------------------------- | ---------- | ----------------------------------- |
-| [`@machinen/cli`](packages/cli)                           | ✓          | The `machinen` CLI                  |
-| [`@machinen/runtime`](packages/runtime)                   | ✓          | TypeScript API for driving microVMs |
-| [`@machinen/vmm-arm64-darwin`](packages/vmm-arm64-darwin) | ✓          | Native VMM binary for Apple Silicon |
-| [`@machinen/vmm-arm64-linux`](packages/vmm-arm64-linux)   | ✓          | Native VMM binary for arm64 Linux   |
-| [`@machinen/microvm`](packages/microvm)                   | ✓          | Zig VMM source                      |
+| Package                                                               | Published? | What it is                          |
+| --------------------------------------------------------------------- | ---------- | ----------------------------------- |
+| [`@machinen/cli`](packages/cli)                                       | ✓          | The `machinen` CLI                  |
+| [`@machinen/runtime`](packages/runtime)                               | ✓          | TypeScript API for driving microVMs |
+| [`@machinen/vmm-arm64-darwin`](packages/vmm-arm64-darwin)             | ✓          | Native VMM binary for Apple Silicon |
+| [`@machinen/vmm-arm64-linux`](packages/vmm-arm64-linux)               | ✓          | Native VMM binary for arm64 Linux   |
+| [`@machinen/e2fsprogs-arm64-darwin`](packages/e2fsprogs-arm64-darwin) | ✓          | Bundled `mke2fs` for Apple Silicon  |
+| [`@machinen/e2fsprogs-arm64-linux`](packages/e2fsprogs-arm64-linux)   | ✓          | Bundled `mke2fs` for arm64 Linux    |
+| [`@machinen/microvm`](packages/microvm)                               | ✓          | Zig VMM source                      |
 
 ## Contributing
 
