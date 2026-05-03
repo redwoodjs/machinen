@@ -38,7 +38,10 @@ import {
   isMachinenError,
   list,
   restore,
+  runGc,
+  validatePid,
 } from "@machinen/runtime";
+import type { RegistryEntry } from "@machinen/runtime";
 import debugLib from "debug";
 
 import pkg from "../package.json" with { type: "json" };
@@ -596,6 +599,132 @@ function formatUptime(ms: number): string {
   return `${Math.floor(h / 24)}d`;
 }
 
+// `machinen gc` — drop registry entries whose VMM is dead (or whose
+// pid was recycled to some other process) and remove their per-boot
+// artifacts. Backstop for `--detached` boots, where the in-process
+// exit hook can't run because the parent is gone (issue #150 phase 2
+// PR2).
+async function cmdGc(args: string[]): Promise<number> {
+  let dryRun = false;
+  for (const a of args) {
+    if (a === "--dry-run" || a === "-n") {
+      dryRun = true;
+    } else {
+      die(`unknown flag: ${a}`);
+    }
+  }
+  const results = runGc({ dryRun });
+  if (results.length === 0) {
+    process.stdout.write("(nothing to clean up)\n");
+    return 0;
+  }
+  for (const r of results) {
+    const label = r.name ? `${r.name} (pid ${r.pid})` : `pid ${r.pid}`;
+    const verb = dryRun ? "would clean" : "cleaned";
+    process.stdout.write(`${verb} ${label} [${r.status}]: ${r.removedPaths.length} path(s)\n`);
+    for (const p of r.removedPaths) {
+      process.stdout.write(`  ${p}\n`);
+    }
+    for (const p of r.failedPaths) {
+      process.stdout.write(`  failed: ${p}\n`);
+    }
+  }
+  return 0;
+}
+
+// `machinen stop <name|pid>` — SIGTERM the VMM, escalate to SIGKILL
+// after 2s, then gc its entry. Resolves `--detached` boots' Ctrl-C
+// problem: the CLI no longer holds the VMM, so a separate `stop`
+// command is the only way to ask for a clean shutdown.
+async function cmdStop(args: string[]): Promise<number> {
+  let force = false;
+  const rest: string[] = [];
+  for (const a of args) {
+    if (a === "--force" || a === "-9") {
+      force = true;
+    } else {
+      rest.push(a);
+    }
+  }
+  const target = parseTargetFlags(rest, "stop");
+  const entry = lookupEntry(target);
+  if (!entry) {
+    process.stderr.write(`machinen stop: no running VM matched ${describeTarget(target)}\n`);
+    return 1;
+  }
+  // Pid-validate before signalling — refuses to kill a recycled pid.
+  const status = validatePid(entry.pid, {
+    vmmExe: entry.vmmExe,
+    startedAt: entry.startedAt,
+  });
+  if (status === "recycled") {
+    process.stderr.write(
+      `machinen stop: registry entry pid ${entry.pid} is now held by an unrelated process; ` +
+        "skipping kill and running gc.\n",
+    );
+    runGc({ pid: entry.pid });
+    return 0;
+  }
+  if (status === "dead") {
+    process.stderr.write(`machinen stop: pid ${entry.pid} already gone; running gc.\n`);
+    runGc({ pid: entry.pid });
+    return 0;
+  }
+  const sig = force ? "SIGKILL" : "SIGTERM";
+  try {
+    process.kill(entry.pid, sig);
+  } catch (err) {
+    process.stderr.write(
+      `machinen stop: failed to signal pid ${entry.pid}: ${err instanceof Error ? err.message : String(err)}\n`,
+    );
+    return 1;
+  }
+  if (!force) {
+    // Wait up to 2s for graceful shutdown, then escalate. Polling
+    // beats kqueue/inotify here — the pid we're watching is *not*
+    // our child, so there's no SIGCHLD to listen for.
+    const deadline = Date.now() + 2_000;
+    while (Date.now() < deadline) {
+      try {
+        process.kill(entry.pid, 0);
+      } catch {
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    try {
+      process.kill(entry.pid, 0);
+      // Still alive — escalate.
+      try {
+        process.kill(entry.pid, "SIGKILL");
+      } catch {}
+    } catch {
+      // Already gone.
+    }
+  }
+  // Final gc to drop the registry entry + cleanupPaths.
+  runGc({ pid: entry.pid });
+  const label = entry.name ? `${entry.name} (pid ${entry.pid})` : `pid ${entry.pid}`;
+  process.stdout.write(`stopped ${label}\n`);
+  return 0;
+}
+
+function lookupEntry(target: { name: string } | { pid: number }): RegistryEntry | undefined {
+  for (const e of list()) {
+    if ("name" in target && e.name === target.name) {
+      return e;
+    }
+    if ("pid" in target && e.pid === target.pid) {
+      return e;
+    }
+  }
+  return undefined;
+}
+
+function describeTarget(target: { name: string } | { pid: number }): string {
+  return "name" in target ? `--name ${target.name}` : `--pid ${target.pid}`;
+}
+
 async function cmdExec(args: string[]): Promise<number> {
   // Pull --tty out before the `--` boundary so it isn't passed to the
   // workload. Auto-enable when stdin is a TTY and no --tty was passed
@@ -1015,7 +1144,7 @@ const BASH_COMPLETION = `# machinen bash completion — source this from ~/.bash
 _machinen_completion() {
   local cur prev words cword
   _init_completion || return
-  local cmds="boot restore install ls ps exec snapshot fork attach repl completion --version --help -h -v"
+  local cmds="boot restore install ls ps exec snapshot fork attach repl gc stop completion --version --help -h -v"
   if [[ \${cword} -eq 1 ]]; then
     COMPREPLY=( $(compgen -W "\${cmds}" -- "\${cur}") )
     return
@@ -1035,8 +1164,12 @@ _machinen_completion() {
       ;;
   esac
   case "\${words[1]}" in
-    exec|snapshot|fork|attach|repl)
+    exec|snapshot|fork|attach|repl|stop)
       COMPREPLY=( $(compgen -W "--name --pid" -- "\${cur}") )
+      return
+      ;;
+    gc)
+      COMPREPLY=( $(compgen -W "--dry-run" -- "\${cur}") )
       return
       ;;
   esac
@@ -1048,7 +1181,7 @@ const ZSH_COMPLETION = `# machinen zsh completion — source this from ~/.zshrc,
 #   eval "$(machinen completion zsh)"
 _machinen() {
   local -a cmds
-  cmds=(boot restore install ls ps exec snapshot fork attach repl completion)
+  cmds=(boot restore install ls ps exec snapshot fork attach repl gc stop completion)
   if (( CURRENT == 2 )); then
     _describe 'command' cmds
     return
@@ -1068,8 +1201,12 @@ _machinen() {
       ;;
   esac
   case "\${words[2]}" in
-    exec|snapshot|fork|attach|repl)
+    exec|snapshot|fork|attach|repl|stop)
       _describe 'flag' '(--name --pid)'
+      return
+      ;;
+    gc)
+      _describe 'flag' '(--dry-run)'
       return
       ;;
   esac
@@ -1079,14 +1216,15 @@ compdef _machinen machinen
 
 const FISH_COMPLETION = `# machinen fish completion — source this from your config.fish, or:
 #   machinen completion fish | source
-set -l cmds boot restore install ls ps exec snapshot fork attach repl completion
+set -l cmds boot restore install ls ps exec snapshot fork attach repl gc stop completion
 complete -c machinen -f -n 'not __fish_seen_subcommand_from $cmds' -a "$cmds"
-for sub in exec snapshot fork attach repl
+for sub in exec snapshot fork attach repl stop
   complete -c machinen -f -n "__fish_seen_subcommand_from $sub" -l name \\
     -a '(machinen ls 2>/dev/null | awk \\'NR>1 && $2!="-"{print $2}\\')'
   complete -c machinen -f -n "__fish_seen_subcommand_from $sub" -l pid \\
     -a '(machinen ls 2>/dev/null | awk \\'NR>1{print $1}\\')'
 end
+complete -c machinen -f -n "__fish_seen_subcommand_from gc" -l dry-run
 `;
 
 // ------------------------------------------------------------
@@ -1252,6 +1390,10 @@ async function main(): Promise<number> {
       return cmdRepl(rest);
     case "completion":
       return cmdCompletion(rest);
+    case "gc":
+      return cmdGc(rest);
+    case "stop":
+      return cmdStop(rest);
     default:
       die(`unknown command: ${sub}\nRun 'machinen --help' for usage.`);
   }

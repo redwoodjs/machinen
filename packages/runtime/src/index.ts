@@ -36,6 +36,10 @@ export type { EnsureRootfsImageOptions } from "./rootfs-img.ts";
 export { spawnArtifactCache, resolveCacheDir } from "./artifact-cache.ts";
 export type { ArtifactCacheHandle, ArtifactCacheOptions } from "./artifact-cache.ts";
 export { bootSnapshotPath, detachedLogRoot, writeBootSnapshot } from "./detached-log.ts";
+export { validatePid } from "./pid-validate.ts";
+export type { PidStatus } from "./pid-validate.ts";
+export { runGc } from "./gc.ts";
+export type { GcResult, RunGcOptions } from "./gc.ts";
 export { list, registryRoot } from "./registry.ts";
 export type { RegistryEntry } from "./registry.ts";
 export {

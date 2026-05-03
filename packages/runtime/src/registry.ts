@@ -65,6 +65,23 @@ export interface RegistryEntry {
    * of the boot sequence on a detached VM.
    */
   bootLogPath?: string;
+  /**
+   * Per-boot artifacts that need to be removed when the VMM exits.
+   * Today the in-process exit hook handles this for non-detached
+   * boots. After detach (#150 phase 2) the parent is gone before the
+   * VMM exits — `machinen gc` / `machinen stop` use this list to
+   * clean up afterward. Each entry is an absolute path to either a
+   * file (per-boot disk image) or a directory (bundle / vsock UDS).
+   */
+  cleanupPaths?: string[];
+  /**
+   * Absolute path to the VMM binary that was spawned. `machinen gc`
+   * compares this against `/proc/<pid>/exe` (Linux) or `ps -o comm=`
+   * (macOS) before treating an entry as live — without it, a recycled
+   * pid that happens to belong to some other process would look alive
+   * to `kill(pid, 0)` and the entry would be kept around forever.
+   */
+  vmmExe?: string;
   /** ms epoch when the entry was created. */
   startedAt: number;
 }
@@ -154,6 +171,37 @@ export function isAlive(pid: number): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * List every registry entry on disk, including ones whose pid is
+ * dead. Side-effect-free: nothing is removed, no pins are pruned.
+ *
+ * `machinen gc` (issue #150 phase 2 PR2) needs this to see dead
+ * entries before deciding whether to drop their cleanupPaths —
+ * `list()` would have already removed the registry directory by the
+ * time gc looked, leaving no record of what to clean up.
+ */
+export function listAll(): RegistryEntry[] {
+  const root = registryRoot();
+  if (!existsSync(root)) {
+    return [];
+  }
+  const out: RegistryEntry[] = [];
+  for (const dirent of readdirSync(root, { withFileTypes: true })) {
+    if (!dirent.isDirectory() || dirent.name === "names") {
+      continue;
+    }
+    const pidNum = Number(dirent.name);
+    if (!Number.isInteger(pidNum) || pidNum <= 0) {
+      continue;
+    }
+    const entry = readEntry(pidNum);
+    if (entry) {
+      out.push(entry);
+    }
+  }
+  return out;
 }
 
 /**
