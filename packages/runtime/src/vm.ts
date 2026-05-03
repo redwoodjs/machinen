@@ -60,6 +60,7 @@ import {
   warnGvproxyMissing,
 } from "./gvproxy.ts";
 import { spawnArtifactCache } from "./artifact-cache.ts";
+import { bootSnapshotPath, writeBootSnapshot } from "./detached-log.ts";
 import { BootError, ExecError, RegistryError, SnapshotError } from "./errors.ts";
 import { ensurePdeathsig, wrapWithPdeathsig } from "./pdeathsig.ts";
 import { reflinkCopy } from "./reflink.ts";
@@ -340,6 +341,31 @@ export interface BootOptions {
    * `vm.exec({ onStdout, onStderr })` instead.
    */
   onLog?: OnLog;
+  /**
+   * Detach the VMM from the runtime parent so the parent can exit
+   * while the VM keeps running (issue #150 phase 2). When set, `boot()`
+   * blocks only until the guest produces its first console byte
+   * (readiness signal) and then resolves a handle whose `.wait()` /
+   * `.output()` no longer reflect the live VM — the parent has unrefed
+   * the child and is free to exit.
+   *
+   * Forces `pdeathsig: false` (otherwise the parent's exit kills the
+   * VMM, defeating the purpose). Refused in v1 alongside `liveMounts`,
+   * `mount`, and `portForward`: those all keep helpers in the JS
+   * process that the detached VMM still needs to call back into.
+   * Phase 3 lifts those gates by extracting the helpers into
+   * standalone daemons.
+   *
+   * Cleanup of per-boot reflink disks, bundle dirs, and vsock UDS
+   * directories normally happens in the parent's `child.once("exit")`
+   * hook. After detach the parent is gone, so those leak until the
+   * follow-up `machinen gc` / `machinen stop` commands (PR2 of #150)
+   * land. Use `--detached` only when you understand that trade-off.
+   *
+   * Reattach with `attach({ name | pid })` from another process —
+   * the registry entry stays live, the vsock UDS is still listening.
+   */
+  detached?: boolean;
 }
 
 /**
@@ -369,6 +395,32 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     opts.mount ? `${opts.mount.host}->${opts.mount.guest}` : "<none>",
   );
   phases.start("asset-resolve");
+  // #150 phase 2: refuse `--detached` with options that keep helpers
+  // alive in the JS supervisor. After detach the supervisor is gone;
+  // any guest call back into one of these (a FUSE op, an artifact-
+  // cache fetch, a port-forward control change) would land on a dead
+  // socket. Phase 3 extracts these helpers into standalone daemons —
+  // until then, the gate is hard.
+  if (opts.detached) {
+    const incompatible: string[] = [];
+    if (opts.mount) {
+      incompatible.push("mount");
+    }
+    if ((opts.liveMounts ?? []).length > 0) {
+      incompatible.push("liveMounts");
+    }
+    if ((opts.portForward ?? []).length > 0) {
+      incompatible.push("portForward");
+    }
+    if (incompatible.length > 0) {
+      throw new BootError(
+        "BOOT_DETACHED_INCOMPATIBLE",
+        `boot({ detached: true }) is not yet compatible with: ${incompatible.join(", ")}. ` +
+          "Those keep helpers alive in the runtime supervisor — after detach, " +
+          "the helpers die with it. Phase 3 of #150 will lift this restriction.",
+      );
+    }
+  }
   // Validate portForward up front — before resolving the binary or
   // touching the filesystem — so caller-input errors surface with a
   // clear message. The env-dependent "pre-set MACHINEN_NET_SOCKET"
@@ -792,8 +844,14 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   // ~1.7 GiB RSS (#200). Mirrors `spawnGvproxy`. Falls through to a
   // direct spawn if the shim is unavailable (no `cc`, opted-out,
   // unsupported platform).
+  //
+  // Detached mode (#150) explicitly wants the orphan: the parent CLI
+  // exits while the VMM keeps running. Force pdeathsig off, ignoring
+  // any caller value, since both `pdeathsig: true` and the default
+  // `undefined` would otherwise SIGTERM the VMM the moment the parent
+  // exits.
   phases.start("vmm-spawn");
-  const vmmPdeathsig = opts.pdeathsig === false ? null : await ensurePdeathsig();
+  const vmmPdeathsig = opts.detached || opts.pdeathsig === false ? null : await ensurePdeathsig();
   const wrappedVmm = wrapWithPdeathsig(vmmPdeathsig, binary, opts.args ?? []);
   const child = nodeSpawn(wrappedVmm.command, wrappedVmm.args, {
     cwd: opts.cwd,
@@ -835,6 +893,9 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       );
     }
   }
+  // #150 phase 2: detached VMs record where the boot-console snapshot
+  // will land so `attach` / `ls` / `gc` can find it later.
+  const bootLogPath = opts.detached && childPid > 0 ? bootSnapshotPath(childPid) : undefined;
   let registered = false;
   if (childPid > 0 && vsockUdsPath) {
     try {
@@ -845,6 +906,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         imagePath: opts.image ? resolve(opts.cwd ?? process.cwd(), opts.image) : undefined,
         diskPath: diskAbs,
         forkedFrom: opts.forkedFrom,
+        bootLogPath,
         startedAt: Date.now(),
       });
       registered = true;
@@ -952,6 +1014,27 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   };
   child.stderr.once("data", flushPhases);
   child.once("exit", flushPhases);
+
+  // #150 phase 2: in-flight ring buffer of stderr captured *only* for
+  // detached boots, dumped to `bootLogPath` once readiness fires. The
+  // existing `errorCollector` resolves on stream close — too late for
+  // the detach handoff. Capped at the same `CONSOLE_TAIL_BYTES` Phase 1
+  // uses, so a slow boot can't balloon the supervisor heap before
+  // detach completes.
+  const detachedBootChunks: Buffer[] = [];
+  let detachedBootBytes = 0;
+  if (opts.detached) {
+    child.stderr.on("data", (chunk: Buffer) => {
+      detachedBootChunks.push(chunk);
+      detachedBootBytes += chunk.length;
+      while (
+        detachedBootChunks.length > 1 &&
+        detachedBootBytes - detachedBootChunks[0]!.length >= CONSOLE_TAIL_BYTES
+      ) {
+        detachedBootBytes -= detachedBootChunks.shift()!.length;
+      }
+    });
+  }
 
   const handle: VmHandle = {
     pid: childPid,
@@ -1169,6 +1252,73 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   // we have no vsock UDS (boot-without-exec-agent paths).
   if (vsockUdsPath) {
     void setGuestHostname(handle, buildGuestHostname(handle.pid, handle.name));
+  }
+
+  // #150 phase 2: detached mode blocks until the guest produces its
+  // first console byte (readiness), then dumps the boot snapshot,
+  // unrefs the child, and resolves. Two failure shapes to gate on:
+  //
+  //   - VMM dies in the readiness window. The exit hook above will
+  //     have torn down per-boot disks / vsock dirs / gvproxy / cache /
+  //     live mounts already; we still need to surface the failure to
+  //     the caller instead of silently resolving. Snapshot whatever
+  //     stderr we captured before death so a post-mortem has bytes
+  //     to work with.
+  //   - Readiness never arrives. Cap at `timeoutMs` (caller default
+  //     60s, CLI passes null for interactive boots — but `--detached`
+  //     forces a finite wait so the CLI can exit cleanly).
+  if (opts.detached && bootLogPath) {
+    const readinessTimeoutMs = timeoutMs ?? 60_000;
+    let onByte: (() => void) | null = null;
+    let onExit: (() => void) | null = null;
+    const readiness = new Promise<"ready" | "exit">((resolve) => {
+      onByte = () => resolve("ready");
+      onExit = () => resolve("exit");
+      child.stderr.once("data", onByte);
+      child.once("exit", onExit);
+    });
+    const timeoutP = new Promise<"timeout">((resolve) => {
+      setTimeout(() => resolve("timeout"), readinessTimeoutMs).unref();
+    });
+    const outcome = await Promise.race([readiness, timeoutP]);
+    // Cleanup whichever listeners didn't fire so a throw below doesn't
+    // leave orphaned handlers holding the event loop.
+    if (onByte) {
+      child.stderr.removeListener("data", onByte);
+    }
+    if (onExit) {
+      child.removeListener("exit", onExit);
+    }
+    // Always dump whatever stderr we have so far — failure paths
+    // benefit from the snapshot more than success paths do.
+    writeBootSnapshot(bootLogPath, Buffer.concat(detachedBootChunks).toString("utf8"));
+    if (outcome === "exit") {
+      const code = child.exitCode;
+      const signal = child.signalCode;
+      throw new BootError(
+        "BOOT_DETACHED_READINESS_FAILED",
+        `boot --detached: VMM exited before readiness (code=${code} signal=${signal}). ` +
+          `Boot console snapshot at ${bootLogPath}`,
+      );
+    }
+    if (outcome === "timeout") {
+      // The VMM is still alive but never wrote a console byte. Kill
+      // it (parent still holds the pdeathsig-less child handle) so
+      // we don't leave an orphan after throwing.
+      try {
+        child.kill("SIGTERM");
+      } catch {}
+      throw new BootError(
+        "BOOT_DETACHED_READINESS_FAILED",
+        `boot --detached: VMM did not signal readiness within ${readinessTimeoutMs}ms. ` +
+          `Boot console snapshot at ${bootLogPath}`,
+      );
+    }
+    // Ready. Stop accumulating stderr — the snapshot is already on
+    // disk, and post-detach bytes are the SIGPIPE-ignored bit-bucket.
+    detachedBootChunks.length = 0;
+    detachedBootBytes = 0;
+    await handle.detach();
   }
 
   return handle;

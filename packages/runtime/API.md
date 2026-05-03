@@ -4,7 +4,7 @@
 
 ### MachinenError
 
-Defined in: [errors.ts:132](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L132)
+Defined in: [errors.ts:134](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L134)
 
 Base class for every error raised by @machinen/runtime and
 @machinen/cli. Carries a flat `code`, a `retryable` hint, and the
@@ -37,7 +37,7 @@ underlying cause via the standard `Error.cause` mechanism.
 
 > **new MachinenError**(`code`, `message`, `opts?`): [`MachinenError`](#machinenerror)
 
-Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L136)
+Defined in: [errors.ts:138](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L138)
 
 ###### Parameters
 
@@ -67,19 +67,19 @@ Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **code**: [`ErrorCode`](#errorcode-1)
 
-Defined in: [errors.ts:133](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L133)
+Defined in: [errors.ts:135](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L135)
 
 ##### retryable
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [errors.ts:134](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L134)
+Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L136)
 
 ***
 
 ### BootError
 
-Defined in: [errors.ts:145](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L145)
+Defined in: [errors.ts:147](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L147)
 
 Base class for every error raised by @machinen/runtime and
 @machinen/cli. Carries a flat `code`, a `retryable` hint, and the
@@ -95,7 +95,7 @@ underlying cause via the standard `Error.cause` mechanism.
 
 > **new BootError**(`code`, `message`, `opts?`): [`BootError`](#booterror)
 
-Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L136)
+Defined in: [errors.ts:138](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L138)
 
 ###### Parameters
 
@@ -125,7 +125,7 @@ Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **code**: [`ErrorCode`](#errorcode-1)
 
-Defined in: [errors.ts:133](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L133)
+Defined in: [errors.ts:135](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L135)
 
 ###### Inherited from
 
@@ -135,7 +135,7 @@ Defined in: [errors.ts:133](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [errors.ts:134](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L134)
+Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L136)
 
 ###### Inherited from
 
@@ -145,7 +145,7 @@ Defined in: [errors.ts:134](https://github.com/redwoodjs/machinen/blob/main/pack
 
 ### ExecError
 
-Defined in: [errors.ts:146](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L146)
+Defined in: [errors.ts:148](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L148)
 
 Base class for every error raised by @machinen/runtime and
 @machinen/cli. Carries a flat `code`, a `retryable` hint, and the
@@ -161,7 +161,7 @@ underlying cause via the standard `Error.cause` mechanism.
 
 > **new ExecError**(`code`, `message`, `opts?`): [`ExecError`](#execerror)
 
-Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L136)
+Defined in: [errors.ts:138](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L138)
 
 ###### Parameters
 
@@ -191,7 +191,7 @@ Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **code**: [`ErrorCode`](#errorcode-1)
 
-Defined in: [errors.ts:133](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L133)
+Defined in: [errors.ts:135](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L135)
 
 ###### Inherited from
 
@@ -201,7 +201,7 @@ Defined in: [errors.ts:133](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [errors.ts:134](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L134)
+Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L136)
 
 ###### Inherited from
 
@@ -211,7 +211,7 @@ Defined in: [errors.ts:134](https://github.com/redwoodjs/machinen/blob/main/pack
 
 ### SnapshotError
 
-Defined in: [errors.ts:147](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L147)
+Defined in: [errors.ts:149](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L149)
 
 Base class for every error raised by @machinen/runtime and
 @machinen/cli. Carries a flat `code`, a `retryable` hint, and the
@@ -227,7 +227,7 @@ underlying cause via the standard `Error.cause` mechanism.
 
 > **new SnapshotError**(`code`, `message`, `opts?`): [`SnapshotError`](#snapshoterror)
 
-Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L136)
+Defined in: [errors.ts:138](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L138)
 
 ###### Parameters
 
@@ -257,7 +257,7 @@ Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **code**: [`ErrorCode`](#errorcode-1)
 
-Defined in: [errors.ts:133](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L133)
+Defined in: [errors.ts:135](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L135)
 
 ###### Inherited from
 
@@ -267,7 +267,7 @@ Defined in: [errors.ts:133](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [errors.ts:134](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L134)
+Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L136)
 
 ###### Inherited from
 
@@ -277,7 +277,7 @@ Defined in: [errors.ts:134](https://github.com/redwoodjs/machinen/blob/main/pack
 
 ### ProvisionError
 
-Defined in: [errors.ts:148](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L148)
+Defined in: [errors.ts:150](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L150)
 
 Base class for every error raised by @machinen/runtime and
 @machinen/cli. Carries a flat `code`, a `retryable` hint, and the
@@ -293,7 +293,7 @@ underlying cause via the standard `Error.cause` mechanism.
 
 > **new ProvisionError**(`code`, `message`, `opts?`): [`ProvisionError`](#provisionerror)
 
-Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L136)
+Defined in: [errors.ts:138](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L138)
 
 ###### Parameters
 
@@ -323,7 +323,7 @@ Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **code**: [`ErrorCode`](#errorcode-1)
 
-Defined in: [errors.ts:133](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L133)
+Defined in: [errors.ts:135](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L135)
 
 ###### Inherited from
 
@@ -333,7 +333,7 @@ Defined in: [errors.ts:133](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [errors.ts:134](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L134)
+Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L136)
 
 ###### Inherited from
 
@@ -343,7 +343,7 @@ Defined in: [errors.ts:134](https://github.com/redwoodjs/machinen/blob/main/pack
 
 ### RegistryError
 
-Defined in: [errors.ts:149](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L149)
+Defined in: [errors.ts:151](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L151)
 
 Base class for every error raised by @machinen/runtime and
 @machinen/cli. Carries a flat `code`, a `retryable` hint, and the
@@ -359,7 +359,7 @@ underlying cause via the standard `Error.cause` mechanism.
 
 > **new RegistryError**(`code`, `message`, `opts?`): [`RegistryError`](#registryerror)
 
-Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L136)
+Defined in: [errors.ts:138](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L138)
 
 ###### Parameters
 
@@ -389,7 +389,7 @@ Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **code**: [`ErrorCode`](#errorcode-1)
 
-Defined in: [errors.ts:133](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L133)
+Defined in: [errors.ts:135](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L135)
 
 ###### Inherited from
 
@@ -399,7 +399,7 @@ Defined in: [errors.ts:133](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [errors.ts:134](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L134)
+Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L136)
 
 ###### Inherited from
 
@@ -409,7 +409,7 @@ Defined in: [errors.ts:134](https://github.com/redwoodjs/machinen/blob/main/pack
 
 ### FilesError
 
-Defined in: [errors.ts:150](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L150)
+Defined in: [errors.ts:152](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L152)
 
 Base class for every error raised by @machinen/runtime and
 @machinen/cli. Carries a flat `code`, a `retryable` hint, and the
@@ -425,7 +425,7 @@ underlying cause via the standard `Error.cause` mechanism.
 
 > **new FilesError**(`code`, `message`, `opts?`): [`FilesError`](#fileserror)
 
-Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L136)
+Defined in: [errors.ts:138](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L138)
 
 ###### Parameters
 
@@ -455,7 +455,7 @@ Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **code**: [`ErrorCode`](#errorcode-1)
 
-Defined in: [errors.ts:133](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L133)
+Defined in: [errors.ts:135](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L135)
 
 ###### Inherited from
 
@@ -465,7 +465,7 @@ Defined in: [errors.ts:133](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [errors.ts:134](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L134)
+Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L136)
 
 ###### Inherited from
 
@@ -475,7 +475,7 @@ Defined in: [errors.ts:134](https://github.com/redwoodjs/machinen/blob/main/pack
 
 ### MountError
 
-Defined in: [errors.ts:151](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L151)
+Defined in: [errors.ts:153](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L153)
 
 Base class for every error raised by @machinen/runtime and
 @machinen/cli. Carries a flat `code`, a `retryable` hint, and the
@@ -491,7 +491,7 @@ underlying cause via the standard `Error.cause` mechanism.
 
 > **new MountError**(`code`, `message`, `opts?`): [`MountError`](#mounterror)
 
-Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L136)
+Defined in: [errors.ts:138](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L138)
 
 ###### Parameters
 
@@ -521,7 +521,7 @@ Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **code**: [`ErrorCode`](#errorcode-1)
 
-Defined in: [errors.ts:133](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L133)
+Defined in: [errors.ts:135](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L135)
 
 ###### Inherited from
 
@@ -531,7 +531,7 @@ Defined in: [errors.ts:133](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [errors.ts:134](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L134)
+Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L136)
 
 ###### Inherited from
 
@@ -541,7 +541,7 @@ Defined in: [errors.ts:134](https://github.com/redwoodjs/machinen/blob/main/pack
 
 ### SecretsError
 
-Defined in: [errors.ts:152](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L152)
+Defined in: [errors.ts:154](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L154)
 
 Base class for every error raised by @machinen/runtime and
 @machinen/cli. Carries a flat `code`, a `retryable` hint, and the
@@ -557,7 +557,7 @@ underlying cause via the standard `Error.cause` mechanism.
 
 > **new SecretsError**(`code`, `message`, `opts?`): [`SecretsError`](#secretserror)
 
-Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L136)
+Defined in: [errors.ts:138](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L138)
 
 ###### Parameters
 
@@ -587,7 +587,7 @@ Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **code**: [`ErrorCode`](#errorcode-1)
 
-Defined in: [errors.ts:133](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L133)
+Defined in: [errors.ts:135](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L135)
 
 ###### Inherited from
 
@@ -597,7 +597,7 @@ Defined in: [errors.ts:133](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [errors.ts:134](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L134)
+Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L136)
 
 ###### Inherited from
 
@@ -607,7 +607,7 @@ Defined in: [errors.ts:134](https://github.com/redwoodjs/machinen/blob/main/pack
 
 ### WinsizeError
 
-Defined in: [errors.ts:153](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L153)
+Defined in: [errors.ts:155](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L155)
 
 Base class for every error raised by @machinen/runtime and
 @machinen/cli. Carries a flat `code`, a `retryable` hint, and the
@@ -623,7 +623,7 @@ underlying cause via the standard `Error.cause` mechanism.
 
 > **new WinsizeError**(`code`, `message`, `opts?`): [`WinsizeError`](#winsizeerror)
 
-Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L136)
+Defined in: [errors.ts:138](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L138)
 
 ###### Parameters
 
@@ -653,7 +653,7 @@ Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **code**: [`ErrorCode`](#errorcode-1)
 
-Defined in: [errors.ts:133](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L133)
+Defined in: [errors.ts:135](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L135)
 
 ###### Inherited from
 
@@ -663,7 +663,7 @@ Defined in: [errors.ts:133](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [errors.ts:134](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L134)
+Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L136)
 
 ###### Inherited from
 
@@ -673,7 +673,7 @@ Defined in: [errors.ts:134](https://github.com/redwoodjs/machinen/blob/main/pack
 
 ### SandboxError
 
-Defined in: [errors.ts:154](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L154)
+Defined in: [errors.ts:156](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L156)
 
 Base class for every error raised by @machinen/runtime and
 @machinen/cli. Carries a flat `code`, a `retryable` hint, and the
@@ -689,7 +689,7 @@ underlying cause via the standard `Error.cause` mechanism.
 
 > **new SandboxError**(`code`, `message`, `opts?`): [`SandboxError`](#sandboxerror)
 
-Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L136)
+Defined in: [errors.ts:138](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L138)
 
 ###### Parameters
 
@@ -719,7 +719,7 @@ Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **code**: [`ErrorCode`](#errorcode-1)
 
-Defined in: [errors.ts:133](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L133)
+Defined in: [errors.ts:135](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L135)
 
 ###### Inherited from
 
@@ -729,7 +729,7 @@ Defined in: [errors.ts:133](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [errors.ts:134](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L134)
+Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L136)
 
 ###### Inherited from
 
@@ -739,7 +739,7 @@ Defined in: [errors.ts:134](https://github.com/redwoodjs/machinen/blob/main/pack
 
 ### CacheError
 
-Defined in: [errors.ts:155](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L155)
+Defined in: [errors.ts:157](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L157)
 
 Base class for every error raised by @machinen/runtime and
 @machinen/cli. Carries a flat `code`, a `retryable` hint, and the
@@ -755,7 +755,7 @@ underlying cause via the standard `Error.cause` mechanism.
 
 > **new CacheError**(`code`, `message`, `opts?`): [`CacheError`](#cacheerror)
 
-Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L136)
+Defined in: [errors.ts:138](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L138)
 
 ###### Parameters
 
@@ -785,7 +785,7 @@ Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **code**: [`ErrorCode`](#errorcode-1)
 
-Defined in: [errors.ts:133](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L133)
+Defined in: [errors.ts:135](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L135)
 
 ###### Inherited from
 
@@ -795,7 +795,7 @@ Defined in: [errors.ts:133](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [errors.ts:134](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L134)
+Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L136)
 
 ###### Inherited from
 
@@ -805,7 +805,7 @@ Defined in: [errors.ts:134](https://github.com/redwoodjs/machinen/blob/main/pack
 
 ### GvproxyError
 
-Defined in: [errors.ts:156](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L156)
+Defined in: [errors.ts:158](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L158)
 
 Base class for every error raised by @machinen/runtime and
 @machinen/cli. Carries a flat `code`, a `retryable` hint, and the
@@ -821,7 +821,7 @@ underlying cause via the standard `Error.cause` mechanism.
 
 > **new GvproxyError**(`code`, `message`, `opts?`): [`GvproxyError`](#gvproxyerror)
 
-Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L136)
+Defined in: [errors.ts:138](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L138)
 
 ###### Parameters
 
@@ -851,7 +851,7 @@ Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **code**: [`ErrorCode`](#errorcode-1)
 
-Defined in: [errors.ts:133](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L133)
+Defined in: [errors.ts:135](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L135)
 
 ###### Inherited from
 
@@ -861,7 +861,7 @@ Defined in: [errors.ts:133](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [errors.ts:134](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L134)
+Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L136)
 
 ###### Inherited from
 
@@ -871,7 +871,7 @@ Defined in: [errors.ts:134](https://github.com/redwoodjs/machinen/blob/main/pack
 
 ### MkinitramfsError
 
-Defined in: [errors.ts:157](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L157)
+Defined in: [errors.ts:159](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L159)
 
 Base class for every error raised by @machinen/runtime and
 @machinen/cli. Carries a flat `code`, a `retryable` hint, and the
@@ -887,7 +887,7 @@ underlying cause via the standard `Error.cause` mechanism.
 
 > **new MkinitramfsError**(`code`, `message`, `opts?`): [`MkinitramfsError`](#mkinitramfserror)
 
-Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L136)
+Defined in: [errors.ts:138](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L138)
 
 ###### Parameters
 
@@ -917,7 +917,7 @@ Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **code**: [`ErrorCode`](#errorcode-1)
 
-Defined in: [errors.ts:133](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L133)
+Defined in: [errors.ts:135](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L135)
 
 ###### Inherited from
 
@@ -927,7 +927,7 @@ Defined in: [errors.ts:133](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [errors.ts:134](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L134)
+Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L136)
 
 ###### Inherited from
 
@@ -937,7 +937,7 @@ Defined in: [errors.ts:134](https://github.com/redwoodjs/machinen/blob/main/pack
 
 ### ParseError
 
-Defined in: [errors.ts:158](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L158)
+Defined in: [errors.ts:160](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L160)
 
 Base class for every error raised by @machinen/runtime and
 @machinen/cli. Carries a flat `code`, a `retryable` hint, and the
@@ -953,7 +953,7 @@ underlying cause via the standard `Error.cause` mechanism.
 
 > **new ParseError**(`code`, `message`, `opts?`): [`ParseError`](#parseerror)
 
-Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L136)
+Defined in: [errors.ts:138](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L138)
 
 ###### Parameters
 
@@ -983,7 +983,7 @@ Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **code**: [`ErrorCode`](#errorcode-1)
 
-Defined in: [errors.ts:133](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L133)
+Defined in: [errors.ts:135](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L135)
 
 ###### Inherited from
 
@@ -993,7 +993,7 @@ Defined in: [errors.ts:133](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [errors.ts:134](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L134)
+Defined in: [errors.ts:136](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L136)
 
 ###### Inherited from
 
@@ -1377,7 +1377,7 @@ else `~/.machinen/cache`.
 
 ### MachinenErrorOptions
 
-Defined in: [errors.ts:115](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L115)
+Defined in: [errors.ts:117](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L117)
 
 #### Properties
 
@@ -1385,7 +1385,7 @@ Defined in: [errors.ts:115](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `optional` **retryable?**: `boolean`
 
-Defined in: [errors.ts:122](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L122)
+Defined in: [errors.ts:124](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L124)
 
 True if retrying the same call could plausibly succeed (transient
 network blip, upstream fetch, vsock agent not listening yet). False
@@ -1396,7 +1396,7 @@ port).
 
 > `optional` **cause?**: `unknown`
 
-Defined in: [errors.ts:124](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L124)
+Defined in: [errors.ts:126](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L126)
 
 Underlying error preserved via the standard `Error.cause` chain.
 
@@ -2497,11 +2497,23 @@ Defined in: [registry.ts:59](https://github.com/redwoodjs/machinen/blob/main/pac
 Absolute path to the snapshot directory this VM was forked from
 (set by `restore({ snapDir })`). Visible in `ls`; informational.
 
+##### bootLogPath?
+
+> `optional` **bootLogPath?**: `string`
+
+Defined in: [registry.ts:67](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/registry.ts#L67)
+
+Path to the one-shot boot-console snapshot written at detach time
+(issue #150 phase 2). Only set on entries booted with
+`--detached`; live post-detach console bytes are dropped on the
+floor (the VMM ignores SIGPIPE), so this file is the only record
+of the boot sequence on a detached VM.
+
 ##### startedAt
 
 > **startedAt**: `number`
 
-Defined in: [registry.ts:61](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/registry.ts#L61)
+Defined in: [registry.ts:69](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/registry.ts#L69)
 
 ms epoch when the entry was created.
 
@@ -3217,7 +3229,7 @@ the same bind. Pass explicitly when the fork needs forwards.
 
 ### BootOptions
 
-Defined in: [vm.ts:155](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L155)
+Defined in: [vm.ts:156](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L156)
 
 #### Properties
 
@@ -3225,7 +3237,7 @@ Defined in: [vm.ts:155](https://github.com/redwoodjs/machinen/blob/main/packages
 
 > `optional` **image?**: `string`
 
-Defined in: [vm.ts:162](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L162)
+Defined in: [vm.ts:163](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L163)
 
 Path to a rootfs tarball to boot from (e.g. the output of
 `provision()`, or `rootfs-debian-arm64.tar.gz` shipped in releases).
@@ -3236,7 +3248,7 @@ boots and snapshot-only restores both skip initramfs packing).
 
 > `optional` **cmd?**: `string`[]
 
-Defined in: [vm.ts:168](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L168)
+Defined in: [vm.ts:169](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L169)
 
 Command to run inside the guest. Packed into the synthesized
 `/machinen-config.json`. Paired with `image` — both required, or
@@ -3246,7 +3258,7 @@ neither.
 
 > `optional` **env?**: `Record`\<`string`, `string`\>
 
-Defined in: [vm.ts:174](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L174)
+Defined in: [vm.ts:175](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L175)
 
 Env vars exposed to the guest workload. Packed into the synthesized
 `/machinen-config.json`. Distinct from `vmmEnv`, which only affects
@@ -3256,7 +3268,7 @@ the host-side VMM process.
 
 > `optional` **guestCwd?**: `string`
 
-Defined in: [vm.ts:186](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L186)
+Defined in: [vm.ts:187](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L187)
 
 Working directory for the guest cmd. Lands as `cwd` in the
 synthesized `/machinen-config.json`; `/init` calls `chdir()` to
@@ -3272,7 +3284,7 @@ image-baked `cwd` is overridden by this field when both are set.
 
 > `optional` **snapshot?**: `string` \| `false`
 
-Defined in: [vm.ts:207](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L207)
+Defined in: [vm.ts:208](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L208)
 
 Attach a scratch virtio-blk device (`/dev/vdb`, or `/dev/vda` on
 pre-#114 layouts) so this VM can be CRIU-snapshotted later via
@@ -3297,7 +3309,7 @@ pre-#114 layouts) so this VM can be CRIU-snapshotted later via
 
 > `optional` **rootDisk?**: `string` \| `boolean`
 
-Defined in: [vm.ts:229](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L229)
+Defined in: [vm.ts:230](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L230)
 
 Boot the guest with the rootfs on a virtio-blk device (`/dev/vda`)
 instead of inflating the whole rootfs into a RAM-backed tmpfs via
@@ -3323,7 +3335,7 @@ running the user cmd. Materialization needs `mke2fs` (or
 
 > `optional` **rootDiskSizeBytes?**: `number`
 
-Defined in: [vm.ts:246](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L246)
+Defined in: [vm.ts:247](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L247)
 
 Absolute target size (bytes) for the materialized rootdisk image.
 Defaults to `max(2 GiB, treeBytes * 2.5)` — generous enough that
@@ -3344,7 +3356,7 @@ image is taken as-is) or `rootDisk: false`. See #131.
 
 > `optional` **name?**: `string`
 
-Defined in: [vm.ts:253](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L253)
+Defined in: [vm.ts:254](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L254)
 
 Optional name to register this VM under (`attach({ name })`
 lookup key). Path-shaped strings ("worker/9012") are allowed.
@@ -3355,7 +3367,7 @@ Names are unique while live — `boot()` throws
 
 > `optional` **forkedFrom?**: `string`
 
-Defined in: [vm.ts:259](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L259)
+Defined in: [vm.ts:260](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L260)
 
 Bookkeeping: absolute path to the snapshot bundle this VM was
 forked from. Set by `restore({ snapDir })`; visible in
@@ -3365,7 +3377,7 @@ forked from. Set by `restore({ snapDir })`; visible in
 
 > `optional` **mount?**: `object`
 
-Defined in: [vm.ts:273](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L273)
+Defined in: [vm.ts:274](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L274)
 
 A single host directory copied into the guest at boot. The guest
 path must live under `/mnt/`. Copy-once semantics: guest writes are
@@ -3391,7 +3403,7 @@ prefer `liveMount` (FUSE pass-through, no copy). See #125.
 
 > `optional` **liveMounts?**: `object`[]
 
-Defined in: [vm.ts:291](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L291)
+Defined in: [vm.ts:292](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L292)
 
 Host directories exposed to the guest as live-share FUSE mounts
 (#78). Unlike `mount` (copy-once into the boot rootfs), these stay
@@ -3425,7 +3437,7 @@ inputs you don't need write-through on.
 
 > `optional` **portForward?**: `object`[]
 
-Defined in: [vm.ts:297](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L297)
+Defined in: [vm.ts:298](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L298)
 
 Host -> guest TCP port forwards installed via gvproxy's control
 API. Each entry maps `hostPort` on the host (bound to `hostAddr`,
@@ -3447,7 +3459,7 @@ default `127.0.0.1`) to `guestPort` inside the guest.
 
 > `optional` **binary?**: `string`
 
-Defined in: [vm.ts:305](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L305)
+Defined in: [vm.ts:306](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L306)
 
 Absolute or cwd-relative path to the VMM binary. Optional —
 if omitted, `boot()` resolves it via `resolveVmmBinary()`.
@@ -3456,7 +3468,7 @@ if omitted, `boot()` resolves it via `resolveVmmBinary()`.
 
 > `optional` **cwd?**: `string`
 
-Defined in: [vm.ts:307](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L307)
+Defined in: [vm.ts:308](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L308)
 
 Working directory for the VMM (for finding fixture files).
 
@@ -3464,7 +3476,7 @@ Working directory for the VMM (for finding fixture files).
 
 > `optional` **args?**: `string`[]
 
-Defined in: [vm.ts:309](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L309)
+Defined in: [vm.ts:310](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L310)
 
 Extra argv for the VMM.
 
@@ -3472,7 +3484,7 @@ Extra argv for the VMM.
 
 > `optional` **kernel?**: `string`
 
-Defined in: [vm.ts:311](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L311)
+Defined in: [vm.ts:312](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L312)
 
 Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`.
 
@@ -3480,7 +3492,7 @@ Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`.
 
 > `optional` **dtb?**: `string`
 
-Defined in: [vm.ts:313](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L313)
+Defined in: [vm.ts:314](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L314)
 
 Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`.
 
@@ -3488,7 +3500,7 @@ Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`.
 
 > `optional` **pdeathsig?**: `boolean`
 
-Defined in: [vm.ts:324](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L324)
+Defined in: [vm.ts:325](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L325)
 
 Wrap the VMM through the parent-death shim so it dies with this
 runtime process. Default true — the right answer for the common
@@ -3503,7 +3515,7 @@ shim catches the CLI exit and SIGTERMs the fork mid-startup.
 
 > `optional` **timeoutMs?**: `number`
 
-Defined in: [vm.ts:329](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L329)
+Defined in: [vm.ts:330](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L330)
 
 Milliseconds to wait in `wait()` before giving up and rejecting.
 Defaults to 60s. Pass `null` to wait forever.
@@ -3512,7 +3524,7 @@ Defaults to 60s. Pass `null` to wait forever.
 
 > `optional` **vmmEnv?**: `Record`\<`string`, `string`\>
 
-Defined in: [vm.ts:334](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L334)
+Defined in: [vm.ts:335](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L335)
 
 Env passed to the VMM process on the host side (not exposed to the
 guest workload). Mostly for dev/test flags like `MACHINEN_BOOT_TEST`.
@@ -3521,7 +3533,7 @@ guest workload). Mostly for dev/test flags like `MACHINEN_BOOT_TEST`.
 
 > `optional` **onLog?**: [`OnLog`](#onlog)
 
-Defined in: [vm.ts:342](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L342)
+Defined in: [vm.ts:343](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L343)
 
 Streaming log callback — fires for every byte of guest output:
 kernel console (VMM stderr) and every exec invocation made through
@@ -3529,11 +3541,40 @@ the returned handle. See `LogEvent.source` to tell them apart. See
 #83. For per-call output-only tees on a single exec, use
 `vm.exec({ onStdout, onStderr })` instead.
 
+##### detached?
+
+> `optional` **detached?**: `boolean`
+
+Defined in: [vm.ts:368](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L368)
+
+Detach the VMM from the runtime parent so the parent can exit
+while the VM keeps running (issue #150 phase 2). When set, `boot()`
+blocks only until the guest produces its first console byte
+(readiness signal) and then resolves a handle whose `.wait()` /
+`.output()` no longer reflect the live VM — the parent has unrefed
+the child and is free to exit.
+
+Forces `pdeathsig: false` (otherwise the parent's exit kills the
+VMM, defeating the purpose). Refused in v1 alongside `liveMounts`,
+`mount`, and `portForward`: those all keep helpers in the JS
+process that the detached VMM still needs to call back into.
+Phase 3 lifts those gates by extracting the helpers into
+standalone daemons.
+
+Cleanup of per-boot reflink disks, bundle dirs, and vsock UDS
+directories normally happens in the parent's `child.once("exit")`
+hook. After detach the parent is gone, so those leak until the
+follow-up `machinen gc` / `machinen stop` commands (PR2 of #150)
+land. Use `--detached` only when you understand that trade-off.
+
+Reattach with `attach({ name | pid })` from another process —
+the registry entry stays live, the vsock UDS is still listening.
+
 ***
 
 ### AttachOptions
 
-Defined in: [vm.ts:1196](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1196)
+Defined in: [vm.ts:1346](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1346)
 
 #### Properties
 
@@ -3541,7 +3582,7 @@ Defined in: [vm.ts:1196](https://github.com/redwoodjs/machinen/blob/main/package
 
 > `optional` **pid?**: `number`
 
-Defined in: [vm.ts:1202](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1202)
+Defined in: [vm.ts:1352](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1352)
 
 Look up a VM by the host pid of its VMM process. Kernel-unique
 while alive; mutually exclusive with `name`. Exactly one of
@@ -3551,7 +3592,7 @@ while alive; mutually exclusive with `name`. Exactly one of
 
 > `optional` **name?**: `string`
 
-Defined in: [vm.ts:1204](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1204)
+Defined in: [vm.ts:1354](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1354)
 
 Look up a VM by the name passed to `boot({ name })`.
 
@@ -3559,7 +3600,7 @@ Look up a VM by the name passed to `boot({ name })`.
 
 > `optional` **onLog?**: [`OnLog`](#onlog)
 
-Defined in: [vm.ts:1211](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1211)
+Defined in: [vm.ts:1361](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1361)
 
 Streaming log callback — fires for every byte of output from execs
 made through the returned handle. See #83. Guest kernel console is
@@ -3570,7 +3611,7 @@ called `boot()`), so only `exec-stdout` / `exec-stderr` sources fire.
 
 ### RestoreOptions
 
-Defined in: [vm.ts:2336](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2336)
+Defined in: [vm.ts:2486](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2486)
 
 #### Extends
 
@@ -3582,7 +3623,7 @@ Defined in: [vm.ts:2336](https://github.com/redwoodjs/machinen/blob/main/package
 
 > `optional` **env?**: `Record`\<`string`, `string`\>
 
-Defined in: [vm.ts:174](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L174)
+Defined in: [vm.ts:175](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L175)
 
 Env vars exposed to the guest workload. Packed into the synthesized
 `/machinen-config.json`. Distinct from `vmmEnv`, which only affects
@@ -3596,7 +3637,7 @@ the host-side VMM process.
 
 > `optional` **guestCwd?**: `string`
 
-Defined in: [vm.ts:186](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L186)
+Defined in: [vm.ts:187](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L187)
 
 Working directory for the guest cmd. Lands as `cwd` in the
 synthesized `/machinen-config.json`; `/init` calls `chdir()` to
@@ -3616,7 +3657,7 @@ image-baked `cwd` is overridden by this field when both are set.
 
 > `optional` **rootDisk?**: `string` \| `boolean`
 
-Defined in: [vm.ts:229](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L229)
+Defined in: [vm.ts:230](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L230)
 
 Boot the guest with the rootfs on a virtio-blk device (`/dev/vda`)
 instead of inflating the whole rootfs into a RAM-backed tmpfs via
@@ -3646,7 +3687,7 @@ running the user cmd. Materialization needs `mke2fs` (or
 
 > `optional` **rootDiskSizeBytes?**: `number`
 
-Defined in: [vm.ts:246](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L246)
+Defined in: [vm.ts:247](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L247)
 
 Absolute target size (bytes) for the materialized rootdisk image.
 Defaults to `max(2 GiB, treeBytes * 2.5)` — generous enough that
@@ -3671,7 +3712,7 @@ image is taken as-is) or `rootDisk: false`. See #131.
 
 > `optional` **forkedFrom?**: `string`
 
-Defined in: [vm.ts:259](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L259)
+Defined in: [vm.ts:260](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L260)
 
 Bookkeeping: absolute path to the snapshot bundle this VM was
 forked from. Set by `restore({ snapDir })`; visible in
@@ -3685,7 +3726,7 @@ forked from. Set by `restore({ snapDir })`; visible in
 
 > `optional` **mount?**: `object`
 
-Defined in: [vm.ts:273](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L273)
+Defined in: [vm.ts:274](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L274)
 
 A single host directory copied into the guest at boot. The guest
 path must live under `/mnt/`. Copy-once semantics: guest writes are
@@ -3715,7 +3756,7 @@ prefer `liveMount` (FUSE pass-through, no copy). See #125.
 
 > `optional` **liveMounts?**: `object`[]
 
-Defined in: [vm.ts:291](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L291)
+Defined in: [vm.ts:292](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L292)
 
 Host directories exposed to the guest as live-share FUSE mounts
 (#78). Unlike `mount` (copy-once into the boot rootfs), these stay
@@ -3753,7 +3794,7 @@ inputs you don't need write-through on.
 
 > `optional` **portForward?**: `object`[]
 
-Defined in: [vm.ts:297](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L297)
+Defined in: [vm.ts:298](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L298)
 
 Host -> guest TCP port forwards installed via gvproxy's control
 API. Each entry maps `hostPort` on the host (bound to `hostAddr`,
@@ -3779,7 +3820,7 @@ default `127.0.0.1`) to `guestPort` inside the guest.
 
 > `optional` **binary?**: `string`
 
-Defined in: [vm.ts:305](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L305)
+Defined in: [vm.ts:306](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L306)
 
 Absolute or cwd-relative path to the VMM binary. Optional —
 if omitted, `boot()` resolves it via `resolveVmmBinary()`.
@@ -3792,7 +3833,7 @@ if omitted, `boot()` resolves it via `resolveVmmBinary()`.
 
 > `optional` **cwd?**: `string`
 
-Defined in: [vm.ts:307](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L307)
+Defined in: [vm.ts:308](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L308)
 
 Working directory for the VMM (for finding fixture files).
 
@@ -3804,7 +3845,7 @@ Working directory for the VMM (for finding fixture files).
 
 > `optional` **args?**: `string`[]
 
-Defined in: [vm.ts:309](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L309)
+Defined in: [vm.ts:310](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L310)
 
 Extra argv for the VMM.
 
@@ -3816,7 +3857,7 @@ Extra argv for the VMM.
 
 > `optional` **kernel?**: `string`
 
-Defined in: [vm.ts:311](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L311)
+Defined in: [vm.ts:312](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L312)
 
 Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`.
 
@@ -3828,7 +3869,7 @@ Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`.
 
 > `optional` **dtb?**: `string`
 
-Defined in: [vm.ts:313](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L313)
+Defined in: [vm.ts:314](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L314)
 
 Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`.
 
@@ -3840,7 +3881,7 @@ Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`.
 
 > `optional` **pdeathsig?**: `boolean`
 
-Defined in: [vm.ts:324](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L324)
+Defined in: [vm.ts:325](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L325)
 
 Wrap the VMM through the parent-death shim so it dies with this
 runtime process. Default true — the right answer for the common
@@ -3859,7 +3900,7 @@ shim catches the CLI exit and SIGTERMs the fork mid-startup.
 
 > `optional` **timeoutMs?**: `number`
 
-Defined in: [vm.ts:329](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L329)
+Defined in: [vm.ts:330](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L330)
 
 Milliseconds to wait in `wait()` before giving up and rejecting.
 Defaults to 60s. Pass `null` to wait forever.
@@ -3872,7 +3913,7 @@ Defaults to 60s. Pass `null` to wait forever.
 
 > `optional` **vmmEnv?**: `Record`\<`string`, `string`\>
 
-Defined in: [vm.ts:334](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L334)
+Defined in: [vm.ts:335](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L335)
 
 Env passed to the VMM process on the host side (not exposed to the
 guest workload). Mostly for dev/test flags like `MACHINEN_BOOT_TEST`.
@@ -3885,7 +3926,7 @@ guest workload). Mostly for dev/test flags like `MACHINEN_BOOT_TEST`.
 
 > `optional` **onLog?**: [`OnLog`](#onlog)
 
-Defined in: [vm.ts:342](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L342)
+Defined in: [vm.ts:343](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L343)
 
 Streaming log callback — fires for every byte of guest output:
 kernel console (VMM stderr) and every exec invocation made through
@@ -3897,11 +3938,44 @@ the returned handle. See `LogEvent.source` to tell them apart. See
 
 [`BootOptions`](#bootoptions).[`onLog`](#onlog-4)
 
+##### detached?
+
+> `optional` **detached?**: `boolean`
+
+Defined in: [vm.ts:368](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L368)
+
+Detach the VMM from the runtime parent so the parent can exit
+while the VM keeps running (issue #150 phase 2). When set, `boot()`
+blocks only until the guest produces its first console byte
+(readiness signal) and then resolves a handle whose `.wait()` /
+`.output()` no longer reflect the live VM — the parent has unrefed
+the child and is free to exit.
+
+Forces `pdeathsig: false` (otherwise the parent's exit kills the
+VMM, defeating the purpose). Refused in v1 alongside `liveMounts`,
+`mount`, and `portForward`: those all keep helpers in the JS
+process that the detached VMM still needs to call back into.
+Phase 3 lifts those gates by extracting the helpers into
+standalone daemons.
+
+Cleanup of per-boot reflink disks, bundle dirs, and vsock UDS
+directories normally happens in the parent's `child.once("exit")`
+hook. After detach the parent is gone, so those leak until the
+follow-up `machinen gc` / `machinen stop` commands (PR2 of #150)
+land. Use `--detached` only when you understand that trade-off.
+
+Reattach with `attach({ name | pid })` from another process —
+the registry entry stays live, the vsock UDS is still listening.
+
+###### Inherited from
+
+[`BootOptions`](#bootoptions).[`detached`](#detached)
+
 ##### snapDir
 
 > **snapDir**: `string`
 
-Defined in: [vm.ts:2341](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2341)
+Defined in: [vm.ts:2491](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2491)
 
 Snapshot bundle directory produced by `vm.snapshot()`.
 Must contain `disk.img` and `meta.json`.
@@ -3910,7 +3984,7 @@ Must contain `disk.img` and `meta.json`.
 
 > `optional` **image?**: `string`
 
-Defined in: [vm.ts:2349](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2349)
+Defined in: [vm.ts:2499](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2499)
 
 Override the rootfs image used for the restore boot. Defaults
 to whatever caller passes through `image`-equivalent — but
@@ -3922,7 +3996,7 @@ release rootfs path here.
 
 > `optional` **name?**: `string`
 
-Defined in: [vm.ts:2355](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2355)
+Defined in: [vm.ts:2505](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2505)
 
 Optional explicit name for the restored VM. When omitted, the
 fork is auto-named `<sourceName>/<pid>` after spawn so it stays
@@ -3992,7 +4066,7 @@ Defined in: [log.ts:45](https://github.com/redwoodjs/machinen/blob/main/packages
 
 > **ImageConfig** = `object`
 
-Defined in: [vm.ts:1386](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1386)
+Defined in: [vm.ts:1536](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1536)
 
 Shape of the optional `./machinen-config.json` baked into a rootfs
 tarball by `provision({ cmd, env })`. `boot()` reads it via
@@ -4006,19 +4080,19 @@ tarball-producing tool can pre-populate the lookup cache.
 
 > `optional` **cmd?**: `string`[]
 
-Defined in: [vm.ts:1386](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1386)
+Defined in: [vm.ts:1536](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1536)
 
 ##### env?
 
 > `optional` **env?**: `Record`\<`string`, `string`\>
 
-Defined in: [vm.ts:1386](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1386)
+Defined in: [vm.ts:1536](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1536)
 
 ##### cwd?
 
 > `optional` **cwd?**: `string`
 
-Defined in: [vm.ts:1386](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1386)
+Defined in: [vm.ts:1536](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1536)
 
 ## Variables
 
@@ -4097,6 +4171,14 @@ Defined in: [errors.ts:23](https://github.com/redwoodjs/machinen/blob/main/packa
 ##### BOOT\_TIMEOUT
 
 > `readonly` **BOOT\_TIMEOUT**: `"BOOT_TIMEOUT"` = `"BOOT_TIMEOUT"`
+
+##### BOOT\_DETACHED\_INCOMPATIBLE
+
+> `readonly` **BOOT\_DETACHED\_INCOMPATIBLE**: `"BOOT_DETACHED_INCOMPATIBLE"` = `"BOOT_DETACHED_INCOMPATIBLE"`
+
+##### BOOT\_DETACHED\_READINESS\_FAILED
+
+> `readonly` **BOOT\_DETACHED\_READINESS\_FAILED**: `"BOOT_DETACHED_READINESS_FAILED"` = `"BOOT_DETACHED_READINESS_FAILED"`
 
 ##### EXEC\_VSOCK\_UNAVAILABLE
 
@@ -4450,7 +4532,7 @@ the guest agent skips entries that don't match.
 
 > `const` **\_internal**: `object`
 
-Defined in: [vm.ts:1951](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1951)
+Defined in: [vm.ts:2101](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2101)
 
 #### Type Declaration
 
@@ -4527,11 +4609,75 @@ The returned handle stays valid until `stop()` is called.
 
 ***
 
+### detachedLogRoot()
+
+> **detachedLogRoot**(): `string`
+
+Defined in: [detached-log.ts:28](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/detached-log.ts#L28)
+
+Default directory for `<pid>.boot.log` snapshots. Honors
+`MACHINEN_DETACHED_LOG_DIR` so tests can scope writes to a tmpdir
+without scribbling under `$HOME`.
+
+#### Returns
+
+`string`
+
+***
+
+### bootSnapshotPath()
+
+> **bootSnapshotPath**(`pid`): `string`
+
+Defined in: [detached-log.ts:33](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/detached-log.ts#L33)
+
+Path the next snapshot for `pid` will be written to.
+
+#### Parameters
+
+##### pid
+
+`number`
+
+#### Returns
+
+`string`
+
+***
+
+### writeBootSnapshot()
+
+> **writeBootSnapshot**(`path`, `contents`): `boolean`
+
+Defined in: [detached-log.ts:44](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/detached-log.ts#L44)
+
+Atomically write the captured boot console to `path`. Best-effort:
+a failure here must not block the detach — the VMM is already
+running and the boot succeeded, so a missing snapshot is a
+diagnostic loss, not a correctness issue. Returns `true` on
+success, `false` if the write was skipped or failed.
+
+#### Parameters
+
+##### path
+
+`string`
+
+##### contents
+
+`string`
+
+#### Returns
+
+`boolean`
+
+***
+
 ### isMachinenError()
 
 > **isMachinenError**(`err`, `code?`): `err is MachinenError`
 
-Defined in: [errors.ts:164](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L164)
+Defined in: [errors.ts:166](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L166)
 
 Narrowing type guard. Pass a specific `code` to check both identity
 and discriminant in one call.
@@ -4556,7 +4702,7 @@ and discriminant in one call.
 
 > **formatMachinenError**(`err`): `string`
 
-Defined in: [errors.ts:173](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L173)
+Defined in: [errors.ts:175](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L175)
 
 Format a MachinenError for CLI stderr. Shows the code inline and walks
 the `cause` chain. Used by the CLI's unified `handleError`; exported so
@@ -4801,7 +4947,7 @@ registry can hold it.
 
 > **registryRoot**(): `string`
 
-Defined in: [registry.ts:70](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/registry.ts#L70)
+Defined in: [registry.ts:78](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/registry.ts#L78)
 
 Absolute path to the registry root. Honors `MACHINEN_REGISTRY_DIR`
 so tests can point at a scratch dir without stomping on real entries.
@@ -4816,7 +4962,7 @@ so tests can point at a scratch dir without stomping on real entries.
 
 > **list**(): [`RegistryEntry`](#registryentry)[]
 
-Defined in: [registry.ts:156](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/registry.ts#L156)
+Defined in: [registry.ts:164](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/registry.ts#L164)
 
 List all registry entries whose pid is still alive. Prunes stale
 entries (pid no longer alive) and orphaned name pins as a side
@@ -4943,7 +5089,7 @@ next `boot()` pays ~10 s for tar-extract + mke2fs.
 
 > **resolveVmmBinary**(): `string`
 
-Defined in: [vm.ts:117](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L117)
+Defined in: [vm.ts:118](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L118)
 
 Locate the VMM binary using the same lookup order as `@machinen/cli`:
   1. `MACHINEN_VMM` env var (dev-mode override)
@@ -4965,7 +5111,7 @@ BOOT_VMM_MISSING | BOOT_VMM_PACKAGE_BROKEN
 
 > **boot**(`opts?`): `Promise`\<[`VmHandle`](#vmhandle)\>
 
-Defined in: [vm.ts:357](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L357)
+Defined in: [vm.ts:383](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L383)
 
 Boot a microVM and return a handle to interact with it.
 
@@ -4996,7 +5142,7 @@ BOOT_VMM_MISSING | BOOT_VMM_PACKAGE_BROKEN |
 
 > **attach**(`opts`): `Promise`\<[`VmHandle`](#vmhandle)\>
 
-Defined in: [vm.ts:1227](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1227)
+Defined in: [vm.ts:1377](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1377)
 
 Reconnect to a running VM registered by an earlier `boot()` call
 (possibly from a different process). Returns a `VmHandle` that can
@@ -5028,7 +5174,7 @@ REGISTRY_VM_NOT_FOUND
 
 > **warmImageConfigCache**(`imagePath`, `config`): `void`
 
-Defined in: [vm.ts:1431](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1431)
+Defined in: [vm.ts:1581](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1581)
 
 Pre-populate the image-config cache for a freshly-written tarball.
 Lets `provision()` (and other tarball producers) skip the slow
@@ -5061,7 +5207,7 @@ none was baked).
 
 > **buildWriteFileCmd**(`guestPath`, `contents`, `opts?`): `string`
 
-Defined in: [vm.ts:1799](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1799)
+Defined in: [vm.ts:1949](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1949)
 
 Build the shell pipeline that `vm.writeFile()` ships through the
 exec-agent. Stays single-line so it works against the legacy EXEC
@@ -5100,7 +5246,7 @@ Returns a single cmd string. For payloads that would exceed Linux's
 
 > **buildWriteFileCmds**(`guestPath`, `contents`, `opts?`): `string`[]
 
-Defined in: [vm.ts:1841](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1841)
+Defined in: [vm.ts:1991](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L1991)
 
 Plan the cmd sequence `vm.writeFile()` issues for `contents`.
 Small payloads (base64 ≤ `WRITE_FILE_B64_CHUNK_BYTES`) collapse to a
@@ -5132,7 +5278,7 @@ end, so no individual cmd line approaches `MAX_ARG_STRLEN`.
 
 > **restore**(`opts`): `Promise`\<[`VmHandle`](#vmhandle)\>
 
-Defined in: [vm.ts:2374](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2374)
+Defined in: [vm.ts:2524](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2524)
 
 Restore a microVM from a snapshot bundle produced by
 `vm.snapshot({ outDir })`. Reads the bundle's `meta.json` to
@@ -5167,7 +5313,7 @@ BOOT_SNAPSHOT_NOT_FOUND if `<snapDir>/disk.img`
 
 > **measureFirstByte**(`vm`): `Promise`\<`number`\>
 
-Defined in: [vm.ts:2627](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2627)
+Defined in: [vm.ts:2777](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2777)
 
 Time-to-first-output-byte for a boot. Useful for measuring how
 much the snapshot path is (or isn't) buying us.

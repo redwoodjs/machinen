@@ -27,6 +27,14 @@ interface ParsedRunArgs {
    * consumed by the guest `/init`. Must be absolute.
    */
   guestCwd?: string;
+  /**
+   * Detach the VMM from the CLI on first-guest-byte readiness so the
+   * shell can exit while the VM keeps running. Reattach later with
+   * `machinen attach <name|pid>`. See issue #150 phase 2 — refused in
+   * v1 alongside `--mount`, `--mount-live`, and `-p` (those keep
+   * helpers alive in the CLI).
+   */
+  detached?: boolean;
 }
 
 export function parseRunArgs(argv: string[]): ParsedRunArgs {
@@ -43,6 +51,7 @@ export function parseRunArgs(argv: string[]): ParsedRunArgs {
   let snapshot: string | undefined;
   let name: string | undefined;
   let guestCwd: string | undefined;
+  let detached = false;
   for (let i = 0; i < pre.length; i++) {
     const a = pre[i]!;
     if (a === "--mount" || a.startsWith("--mount=")) {
@@ -216,6 +225,14 @@ export function parseRunArgs(argv: string[]): ParsedRunArgs {
         );
       }
       name = spec;
+    } else if (a === "--detached" || a === "--detach") {
+      if (detached) {
+        throw new ParseError(
+          "PARSE_FLAG_DUPLICATE",
+          "--detached may be given at most once per invocation",
+        );
+      }
+      detached = true;
     } else if (a.startsWith("-")) {
       throw new ParseError("PARSE_FLAG_UNKNOWN", `unknown flag: ${a}`);
     } else {
@@ -232,6 +249,7 @@ export function parseRunArgs(argv: string[]): ParsedRunArgs {
     snapshot,
     name,
     guestCwd,
+    detached: detached || undefined,
   };
 }
 
