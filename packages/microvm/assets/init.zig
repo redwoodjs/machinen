@@ -11,7 +11,7 @@
 //!     -target aarch64-linux-musl -static -O ReleaseSmall \
 //!     -lc -femit-bin=test-fixtures/init
 //!
-//! Companion of `.docs/learnings/microvm/rootfs-contract.md`.
+//! Companion of `../docs/rootfs.md`.
 
 const std = @import("std");
 
