@@ -10,15 +10,15 @@ you have to honor.
 The VMM reads paths and feature flags from `MACHINEN_*` env vars
 (`src/main.zig`, `src/boot_hvf.zig`, `src/boot_kvm.zig`):
 
-| Var | Required | Purpose |
-| --- | --- | --- |
-| `MACHINEN_KERNEL` | yes | Path to the arm64 `Image` (uncompressed). Loaded into guest RAM. |
-| `MACHINEN_DTB` | yes | Path to the device tree blob. Address handed to the kernel in `X0`. |
-| `MACHINEN_INITRD` | yes | Path to the cpio initramfs. Holds `/init` plus per-boot ephemera. |
-| `MACHINEN_ROOTDISK` | no | Path to an ext4 image exposed as `/dev/vda`. `/init` pivots into it (see below). |
-| `MACHINEN_DISK` | no | Path to a scratch disk. Exposed as `/dev/vda` when `MACHINEN_ROOTDISK` is unset, otherwise as `/dev/vdb`. |
-| `MACHINEN_VSOCK` | no | Comma-separated `in:<port>:<uds>` / `out:<port>:<uds>` entries. Bridges guest vsock ports to host Unix-domain sockets. |
-| `MACHINEN_NET_SOCKET` | no | Path to a [gvproxy](https://github.com/containers/gvisor-tap-vsock) qemu-netdev UDS. When set, the VMM dials it for virtio-net; otherwise networking is off. |
+| Var                   | Required | Purpose                                                                                                                                                      |
+| --------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `MACHINEN_KERNEL`     | yes      | Path to the arm64 `Image` (uncompressed). Loaded into guest RAM.                                                                                             |
+| `MACHINEN_DTB`        | yes      | Path to the device tree blob. Address handed to the kernel in `X0`.                                                                                          |
+| `MACHINEN_INITRD`     | yes      | Path to the cpio initramfs. Holds `/init` plus per-boot ephemera.                                                                                            |
+| `MACHINEN_ROOTDISK`   | no       | Path to an ext4 image exposed as `/dev/vda`. `/init` pivots into it (see below).                                                                             |
+| `MACHINEN_DISK`       | no       | Path to a scratch disk. Exposed as `/dev/vda` when `MACHINEN_ROOTDISK` is unset, otherwise as `/dev/vdb`.                                                    |
+| `MACHINEN_VSOCK`      | no       | Comma-separated `in:<port>:<uds>` / `out:<port>:<uds>` entries. Bridges guest vsock ports to host Unix-domain sockets.                                       |
+| `MACHINEN_NET_SOCKET` | no       | Path to a [gvproxy](https://github.com/containers/gvisor-tap-vsock) qemu-netdev UDS. When set, the VMM dials it for virtio-net; otherwise networking is off. |
 
 Direct invocation without these vars exits with a usage error
 pointing at `machinen boot`.
@@ -85,12 +85,12 @@ boot, `/init` looks for the following paths:
 Parsed by `loadConfig` in `assets/init.zig`. JSON object with the
 following keys:
 
-| Key | Type | Required | Notes |
-| --- | --- | --- | --- |
-| `cmd` | `string[]` | yes | Argv for `execve`. Must be non-empty; `cmd[0]` is also the path. |
-| `env` | `{ [k: string]: string }` | no | Each entry becomes a `KEY=VALUE` envp slot. If `TERM` isn't set, `/init` injects `TERM=linux`. |
-| `cwd` | `string` | no | `chdir`'d before `execve`. |
-| `liveMounts` | `[{ guest: string, port: integer }]` | no | One FUSE mount per entry. `port` must fit in u32. `/init` forks `/fuse-agent <port> <guest>` and waits up to 5s for the mount to appear in `/proc/self/mounts` before exec'ing `cmd`. |
+| Key          | Type                                 | Required | Notes                                                                                                                                                                                 |
+| ------------ | ------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cmd`        | `string[]`                           | yes      | Argv for `execve`. Must be non-empty; `cmd[0]` is also the path.                                                                                                                      |
+| `env`        | `{ [k: string]: string }`            | no       | Each entry becomes a `KEY=VALUE` envp slot. If `TERM` isn't set, `/init` injects `TERM=linux`.                                                                                        |
+| `cwd`        | `string`                             | no       | `chdir`'d before `execve`.                                                                                                                                                            |
+| `liveMounts` | `[{ guest: string, port: integer }]` | no       | One FUSE mount per entry. `port` must fit in u32. `/init` forks `/fuse-agent <port> <guest>` and waits up to 5s for the mount to appear in `/proc/self/mounts` before exec'ing `cmd`. |
 
 Validation errors abort the boot via PSCI `SYSTEM_OFF` after logging
 to `/dev/kmsg` and the console. Unknown keys are ignored.

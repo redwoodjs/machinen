@@ -15,11 +15,15 @@
 // is rock-solid. `/proc/<pid>/stat` field 22 (starttime in clock
 // ticks since boot) gives the start time we cross-check.
 //
-// macOS: no /proc. `ps -o comm=,lstart= -p <pid>` is the portable
-// answer; comm is the basename, lstart is a wall-clock human-readable
-// timestamp. Comparing basenames means we miss exe-replacement
-// attacks, but the threat model here is pid recycling on a
-// development laptop — comm + lstart-within-skew is enough.
+// macOS: no /proc. `ps -o command=,lstart= -p <pid>` is the portable
+// answer; argv[0] gives the executable path, lstart is a wall-clock
+// human-readable timestamp. (We avoid `comm=` because the kernel
+// truncates it to MAXCOMLEN ≈ 16 chars, which false-positives
+// "recycled" whenever the absolute exe path is longer — common for
+// dev binaries under $HOME.) Comparing basenames means we miss
+// exe-replacement attacks, but the threat model here is pid
+// recycling on a development laptop — basename + lstart-within-skew
+// is enough.
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readlinkSync } from "node:fs";
@@ -152,7 +156,13 @@ function readBootTimeSeconds(): number | undefined {
 function readPsIdentity(pid: number): ProcessIdentity | undefined {
   let out: string;
   try {
-    out = execFileSync("ps", ["-o", "comm=,lstart=", "-p", String(pid)], {
+    // Order matters: when `command=` appears before another column,
+    // BSD ps truncates *all* preceding columns to keep the layout
+    // tabular (and `command` shares the truncation, capping argv at
+    // ~16 chars). Putting `lstart=` first sidesteps that — lstart is
+    // a fixed-width 24-char ctime-ish string ("Sun  3 May 09:37:27
+    // 2026") and command runs to end-of-line untruncated.
+    out = execFileSync("ps", ["-o", "lstart=,command=", "-p", String(pid)], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
     });
@@ -163,16 +173,17 @@ function readPsIdentity(pid: number): ProcessIdentity | undefined {
   if (!trimmed) {
     return undefined;
   }
-  // Format from `man ps`: comm is one whitespace-separated token; the
-  // rest is the lstart wall-clock string ("Sun May  3 07:13:52 2026"),
-  // which Date.parse can read directly (the locale-independent
-  // ctime-ish format ps uses).
-  const m = trimmed.match(/^(\S+)\s+(.+)$/);
+  // lstart format from `man ps`: "%a %e %b %T %Y" = "Sun  3 May
+  // 09:37:27 2026". Date.parse reads it directly. argv[0] is the
+  // first whitespace-delimited token after lstart; basename of it is
+  // what we compare against (best-effort — our binary paths don't
+  // contain spaces).
+  const m = trimmed.match(/^(\S{3}\s+\d{1,2}\s+\S{3}\s+\d{2}:\d{2}:\d{2}\s+\d{4})\s+(\S+)/);
   if (!m) {
     return undefined;
   }
-  const exeBase = basename(m[1]!);
-  const lstartMs = Date.parse(m[2]!);
+  const lstartMs = Date.parse(m[1]!);
+  const exeBase = basename(m[2]!);
   return {
     exeBase,
     startedAtMs: Number.isFinite(lstartMs) ? lstartMs : undefined,
