@@ -71,6 +71,14 @@ pub const Status = packed struct(u32) {
 /// uses 2 (RX, TX); reserving extra room is cheap.
 pub const max_queues: u32 = 8;
 
+/// Hard cap on descriptors per chain. The virtio spec doesn't fix
+/// this, but in practice every workload we serve (net, blk, vsock)
+/// uses chains of ≤ 4. A buggy or hostile guest could ring a longer
+/// chain — including a `next` cycle — which would otherwise spin the
+/// VMM thread indefinitely. We break out silently when exceeded:
+/// guest-input bound, fail-soft, exactly as `blk.zig` does.
+pub const max_chain_descriptors: u32 = 32;
+
 comptime {
     // Wire-format layouts the guest driver writes / reads directly. A
     // mismatch here means @memcpy at runtime would shred a parsed ring
@@ -96,6 +104,10 @@ comptime {
     // hard cap is 32, but 8 is what we actually support.
     assert(max_queues > 0);
     assert(max_queues <= 32);
+    assert(max_chain_descriptors > 0);
+    // A chain longer than the queue itself is impossible on a
+    // well-formed driver; the cap is the smaller bound for runtime.
+    assert(max_chain_descriptors <= 256);
 }
 
 /// Interrupt-status bits the driver expects to see at 0x060.
@@ -328,11 +340,18 @@ pub const Device = struct {
             // there's something to send to the guest).
             if ((self.skip_notify_queues >> @as(u5, @intCast(q_idx))) & 1 != 0) return;
             const avail = self.readAvailHeader(q) orelse return;
-            while (q.last_avail_idx != avail.idx) {
+            // A well-formed driver can post at most q.num avail entries
+            // before it must wait for used. A buggy driver that bumps
+            // avail.idx past that bound would otherwise spin us; cap at
+            // q.num and let the next notify (or the next iteration of
+            // the boot run loop) catch up.
+            var chains: u32 = 0;
+            while (chains < q.num and q.last_avail_idx != avail.idx) : (chains += 1) {
                 const head = self.readAvailRingEntry(q, q.last_avail_idx) orelse return;
                 handler(self.request_ctx, self, q_idx, head);
                 q.last_avail_idx +%= 1;
             }
+            assert(chains <= q.num);
             _ = @atomicRmw(u32, &self.interrupt_status, .Or, IRQ_USED_BUFFER, .release);
             return;
         }
@@ -406,12 +425,20 @@ pub const Device = struct {
         var idx: u16 = head;
         var written: u32 = 0;
         var steps: u32 = 0;
-        while (steps < q.num) : (steps += 1) {
+        // Chain walk capped at max_chain_descriptors per #238: a guest
+        // that points `next` in a cycle would otherwise spin the VMM.
+        // Truncating an over-long chain is fail-soft (we drop the frame
+        // and the next inject will pick up a fresh head).
+        while (steps < max_chain_descriptors) : (steps += 1) {
             const desc = self.readDescriptor(q, idx) orelse return false;
             // RX descriptors must be writable by the device.
             if ((desc.flags & VringDesc.F_WRITE) == 0) return false;
 
             var budget: u32 = desc.len;
+            // Inner loop terminates because either `remaining` shrinks
+            // (bounded by net_hdr.len + frame.len) or we break out when
+            // both buffers are empty. Each iteration that enters the
+            // copy branch consumes at least 1 byte from `remaining`.
             while (budget > 0) {
                 if (remaining.len == 0) {
                     if (frame_started) break;
@@ -420,6 +447,7 @@ pub const Device = struct {
                     if (remaining.len == 0) break;
                 }
                 const chunk: u32 = @intCast(@min(@as(u64, budget), remaining.len));
+                assert(chunk > 0);
                 const dst = self.guestSlice(desc.addr + (desc.len - budget), chunk) orelse return false;
                 @memcpy(dst, remaining[0..chunk]);
                 remaining = remaining[chunk..];
@@ -430,6 +458,7 @@ pub const Device = struct {
             if ((desc.flags & VringDesc.F_NEXT) == 0) break;
             idx = desc.next;
         }
+        assert(steps <= max_chain_descriptors);
 
         self.pushUsed(q, head, written);
         q.last_avail_idx +%= 1;
@@ -444,12 +473,16 @@ pub const Device = struct {
         assert(q.ready != 0);
         assert(q.num > 0);
         const avail = self.readAvailHeader(q) orelse return;
-        while (q.last_avail_idx != avail.idx) {
+        // Bound matches the request_handler path in notify(): no driver
+        // can post more than q.num avail entries before consuming used.
+        var chains: u32 = 0;
+        while (chains < q.num and q.last_avail_idx != avail.idx) : (chains += 1) {
             const head = self.readAvailRingEntry(q, q.last_avail_idx) orelse return;
             const total_len = self.walkAndEmit(q, head);
             self.pushUsed(q, head, total_len);
             q.last_avail_idx +%= 1;
         }
+        assert(chains <= q.num);
         _ = @atomicRmw(u32, &self.interrupt_status, .Or, IRQ_USED_BUFFER, .release);
     }
 
@@ -464,7 +497,6 @@ pub const Device = struct {
     /// ethernet frame, which is what any backend wants to forward.
     fn walkAndEmit(self: *Device, q: *Queue, head: u16) u32 {
         // Caller drains under notify, which has gated on q.num > 0.
-        // We use q.num as the loop bound below.
         assert(q.num > 0);
         // Worst case: MTU 9000 + headers. 16 KiB is a comfortable cap.
         var scratch: [16 * 1024]u8 = undefined;
@@ -473,7 +505,10 @@ pub const Device = struct {
 
         var idx: u16 = head;
         var steps: u32 = 0;
-        while (steps < q.num) : (steps += 1) {
+        // #238: cap at max_chain_descriptors so a guest that points
+        // `next` in a cycle truncates the frame instead of pinning the
+        // VMM thread. Same fail-soft policy as injectRx / blk.zig.
+        while (steps < max_chain_descriptors) : (steps += 1) {
             const desc = self.readDescriptor(q, idx) orelse break;
             if (desc.len > 0 and written < scratch.len) {
                 const take: usize = @min(desc.len, scratch.len - written);
@@ -486,6 +521,7 @@ pub const Device = struct {
             idx = desc.next;
         }
 
+        assert(steps <= max_chain_descriptors);
         assert(written <= scratch.len);
         if (self.tx_handler) |h| {
             const net_hdr_size: usize = 12; // virtio_net_hdr_v1
