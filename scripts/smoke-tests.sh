@@ -544,6 +544,11 @@ fi
 # `node -p` to extract cleanupPaths reliably without a JSON parser
 # in bash. Falls back to empty string if the field is absent.
 N2D_CLEANUP_PATHS=$(node -p "JSON.parse(require('fs').readFileSync('$N2D_META','utf8')).cleanupPaths?.join('\\n') ?? ''" 2>/dev/null || true)
+# #150 phase 2 PR3: gvproxy is also detached for --detached boots,
+# its pid is recorded in the registry, and `machinen stop` should
+# SIGTERM it alongside the VMM. Capture it here so we can assert
+# it's gone post-stop.
+N2D_GVPROXY_PID=$(node -p "JSON.parse(require('fs').readFileSync('$N2D_META','utf8')).gvproxyPid ?? ''" 2>/dev/null || true)
 
 N2S_LOG="$FIXTURE/n2s.log"
 if cli stop --name "$N2D_NAME" >"$N2S_LOG" 2>&1; then
@@ -572,6 +577,19 @@ if [[ -n "$N2D_CLEANUP_PATHS" ]]; then
   pass "machinen stop removed all recorded cleanupPaths"
 else
   pass "no cleanupPaths recorded (nothing to verify)"
+fi
+
+# gvproxy should be reaped by `machinen stop`. Without PR3 it would
+# survive (no pdeathsig in detached mode → orphaned to PID 1, holding
+# the qemu/control sockets and any host port forwards).
+if [[ -n "$N2D_GVPROXY_PID" ]]; then
+  if kill -0 "$N2D_GVPROXY_PID" 2>/dev/null; then
+    ps -o pid=,comm=,lstart= -p "$N2D_GVPROXY_PID" >&2 || true
+    fail "N2S — gvproxy pid $N2D_GVPROXY_PID still alive after machinen stop"
+  fi
+  pass "machinen stop reaped gvproxy (pid $N2D_GVPROXY_PID)"
+else
+  pass "no gvproxy spawned for this VM (nothing to reap)"
 fi
 
 # Stop is idempotent — calling it again on a missing name should

@@ -84,27 +84,21 @@ describe("boot({ detached }) compatibility gate", () => {
     expect(err.message).toContain("liveMounts");
   });
 
-  it("rejects --portForward", async () => {
-    const err = await boot({
-      detached: true,
-      image: "/tmp/does-not-exist.tar.gz",
-      portForward: [{ hostPort: 8080, guestPort: 80 }],
-    }).catch((e) => e);
-    expect(isMachinenError(err, "BOOT_DETACHED_INCOMPATIBLE")).toBe(true);
-    expect(err.message).toContain("portForward");
-  });
+  // #150 phase 2 PR3 lifted the portForward gate: gvproxy now also
+  // detaches (its pid + socket dir are persisted in the registry so
+  // `machinen stop` reaps them). `--detached -p` is allowed; the
+  // failure modes that previously needed gating come from the
+  // mount-* options below.
 
-  it("lists every incompatible option in one error", async () => {
+  it("lists mount + liveMounts in one error", async () => {
     const err = await boot({
       detached: true,
       image: "/tmp/does-not-exist.tar.gz",
       mount: { host: "/tmp", guest: "/mnt/in" },
       liveMounts: [{ host: "/tmp", guest: "/mnt/live" }],
-      portForward: [{ hostPort: 8080, guestPort: 80 }],
     }).catch((e) => e);
     expect(isMachinenError(err, "BOOT_DETACHED_INCOMPATIBLE")).toBe(true);
     expect(err.message).toContain("mount");
     expect(err.message).toContain("liveMounts");
-    expect(err.message).toContain("portForward");
   });
 });

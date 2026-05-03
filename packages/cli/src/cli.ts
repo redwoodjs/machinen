@@ -46,6 +46,7 @@ import debugLib from "debug";
 
 import pkg from "../package.json" with { type: "json" };
 import { parseRunArgs } from "./parse-run-args.ts";
+import { tailLines } from "./tail-lines.ts";
 
 const debug = debugLib("machinen:cli");
 
@@ -680,18 +681,7 @@ async function cmdStop(args: string[]): Promise<number> {
     return 1;
   }
   if (!force) {
-    // Wait up to 2s for graceful shutdown, then escalate. Polling
-    // beats kqueue/inotify here — the pid we're watching is *not*
-    // our child, so there's no SIGCHLD to listen for.
-    const deadline = Date.now() + 2_000;
-    while (Date.now() < deadline) {
-      try {
-        process.kill(entry.pid, 0);
-      } catch {
-        break;
-      }
-      await new Promise((r) => setTimeout(r, 50));
-    }
+    await waitForExit(entry.pid, 2_000);
     try {
       process.kill(entry.pid, 0);
       // Still alive — escalate.
@@ -702,11 +692,63 @@ async function cmdStop(args: string[]): Promise<number> {
       // Already gone.
     }
   }
-  // Final gc to drop the registry entry + cleanupPaths.
+  // #150 phase 2 PR3: signal gvproxy too. Detached gvproxy survives
+  // the parent's exit on its own (no pdeathsig); without this it'd
+  // outlive every `machinen stop`, holding host ports and leaking
+  // the qemu/control sockets. Anti-recycling guard mirrors the VMM
+  // path — basename match against the recorded gvproxy binary, so
+  // an unrelated pid that inherited gvproxy's slot weeks later
+  // doesn't get killed. Wait for it to exit so the test/user can
+  // assume "stop returned → process is gone" without a follow-up
+  // poll.
+  if (entry.gvproxyPid && entry.gvproxyExe) {
+    const gvStatus = validatePid(entry.gvproxyPid, { vmmExe: entry.gvproxyExe });
+    if (gvStatus === "alive") {
+      try {
+        process.kill(entry.gvproxyPid, sig);
+      } catch (err) {
+        process.stderr.write(
+          `machinen stop: failed to signal gvproxy pid ${entry.gvproxyPid}: ${err instanceof Error ? err.message : String(err)}\n`,
+        );
+      }
+      if (!force) {
+        await waitForExit(entry.gvproxyPid, 2_000);
+        try {
+          process.kill(entry.gvproxyPid, 0);
+          try {
+            process.kill(entry.gvproxyPid, "SIGKILL");
+          } catch {}
+        } catch {}
+      }
+    } else if (gvStatus === "recycled") {
+      process.stderr.write(
+        `machinen stop: gvproxy pid ${entry.gvproxyPid} now held by an unrelated process; skipping.\n`,
+      );
+    }
+  }
+  // Final gc to drop the registry entry + cleanupPaths (including the
+  // gvproxy socket dir that PR3 added to the cleanup list).
   runGc({ pid: entry.pid });
   const label = entry.name ? `${entry.name} (pid ${entry.pid})` : `pid ${entry.pid}`;
   process.stdout.write(`stopped ${label}\n`);
   return 0;
+}
+
+/**
+ * Poll `kill(pid, 0)` until the process is gone or the deadline
+ * passes. Polling beats kqueue/inotify here — the pid we're watching
+ * is *not* our child, so there's no SIGCHLD to listen for.
+ */
+async function waitForExit(pid: number, timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      process.kill(pid, 0);
+    } catch {
+      return;
+    }
+    await new Promise((r) => setTimeout(r, 50));
+  }
 }
 
 function lookupEntry(target: { name: string } | { pid: number }): RegistryEntry | undefined {
@@ -1012,11 +1054,12 @@ async function cmdFork(args: string[]): Promise<number> {
 }
 
 async function cmdAttach(args: string[]): Promise<number> {
-  // Pull `--shell` out before the target flags so unknown-arg checks
-  // in `parseTargetFlags` don't reject it. Default to `bash -i` —
-  // the Debian base rootfs ships bash, and `-i` gets job control,
-  // history, and a prompt.
+  // Pull `--shell` and `--tail` out before the target flags so the
+  // unknown-arg checks in `parseTargetFlags` don't reject them.
+  // `--shell` defaults to `bash -i` — the Debian base rootfs ships
+  // bash, and `-i` gets job control, history, and a prompt.
   let shell = "/bin/bash -i";
+  let tail: number | "all" | undefined;
   const filtered: string[] = [];
   for (let i = 0; i < args.length; i++) {
     const a = args[i]!;
@@ -1026,11 +1069,51 @@ async function cmdAttach(args: string[]): Promise<number> {
         die("--shell requires a value");
       }
       shell = v;
+    } else if (a === "--tail" || a.startsWith("--tail=")) {
+      // `--tail` (no value) prints the whole snapshot. `--tail N`
+      // prints the last N lines. The snapshot is capped at ~1 MiB so
+      // even the no-value form is bounded.
+      let v: string | undefined;
+      if (a === "--tail") {
+        const peek = args[i + 1];
+        if (peek && /^[0-9]+$/.test(peek)) {
+          v = peek;
+          i++;
+        }
+      } else {
+        v = a.slice("--tail=".length);
+      }
+      if (v === undefined) {
+        tail = "all";
+      } else {
+        const n = Number(v);
+        if (!Number.isInteger(n) || n < 0) {
+          die(`--tail: expected a non-negative integer, got '${v}'`);
+        }
+        tail = n;
+      }
     } else {
       filtered.push(a);
     }
   }
   const target = parseTargetFlags(filtered, "attach");
+  // #150 phase 2 PR3: --tail dumps the boot-console snapshot before
+  // (or instead of) the interactive shell. Look up the registry
+  // entry directly — `attach()` only returns a VmHandle, not the
+  // entry, and we need `bootLogPath` from the registry.
+  if (tail !== undefined) {
+    const entry = lookupEntry(target);
+    if (!entry) {
+      die(`machinen attach: no running VM matched ${describeTarget(target)}`);
+    }
+    if (!entry.bootLogPath) {
+      die(
+        `machinen attach --tail: VM was not booted with --detached, no snapshot exists. ` +
+          `Use 'machinen attach' (no --tail) for live console access.`,
+      );
+    }
+    printBootLogTail(entry.bootLogPath, tail);
+  }
   // Resolve the target before the TTY check: a typo in --name should
   // surface "no running VM found", not the TTY error. The TTY error
   // is only useful once we know the VM exists.
@@ -1045,6 +1128,19 @@ async function cmdAttach(args: string[]): Promise<number> {
   } finally {
     await vm.detach();
   }
+}
+
+function printBootLogTail(path: string, tail: number | "all"): void {
+  let content: string;
+  try {
+    content = readFileSync(path, "utf8");
+  } catch (err) {
+    process.stderr.write(
+      `machinen attach --tail: couldn't read ${path}: ${err instanceof Error ? err.message : String(err)}\n`,
+    );
+    return;
+  }
+  process.stderr.write(tailLines(content, tail));
 }
 
 async function cmdRepl(args: string[]): Promise<number> {
