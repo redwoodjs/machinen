@@ -20,7 +20,6 @@
 #   T3     --mount-live :ro streams a host file in lazily — #78.
 #   T4     --env propagates into the guest process env — #89.
 #   T5     --mount-live (default :rw) guest writes land on the host — #151, #156.
-#   C1-C2  Host-side artifact cache end-to-end via fnm — #88.
 #   P1-P3  Base-rootfs contract (criu, virtio modules, poweroff) — #77.
 #   N1-N5  New #93 CLI surface: ls, exec, attach-unknown, completion,
 #          plus image-carries-cmd default.
@@ -719,61 +718,6 @@ else
   tail -50 "$P3_LOG" >&2
   fail "P3 — kernel never reported 'reboot: Power down'"
 fi
-
-# ----------------------------------------------------------------
-# #88 artifact-cache tests — verify the host-side node-dist mirror
-# end-to-end. spawn() starts the cache, injects FNM_NODE_DIST_MIRROR
-# into the guest env via #89's guestEnv plumbing, and fnm inside the
-# guest pulls through it.
-# ----------------------------------------------------------------
-
-FNM_TEST_NODE="22"
-
-# fnm shells out and requires PATH in its env. init doesn't set one
-# by default (it only backfills TERM), so pass one through --env.
-GUEST_PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-
-# ---- C1: cold `fnm install` populates the host-side cache ----
-echo "C1: cold fnm install $FNM_TEST_NODE populates host cache"
-C1_CACHE="$FIXTURE/cache-c1"
-C1_LOG="$FIXTURE/c1.log"
-mkdir -p "$C1_CACHE"
-MACHINEN_CACHE_DIR="$C1_CACHE" \
-  run_timeout 180 node "$CLI" boot --env "PATH=$GUEST_PATH" -- \
-    /bin/sh -c "fnm install $FNM_TEST_NODE && fnm exec --using=$FNM_TEST_NODE node -v" \
-    >"$C1_LOG" 2>&1 || true
-if grep -qE "^v${FNM_TEST_NODE}\." "$C1_LOG"; then
-  pass "fnm install + node -v reported v${FNM_TEST_NODE}.*"
-else
-  tail -80 "$C1_LOG" >&2
-  fail "C1 — expected a v${FNM_TEST_NODE}.* line in guest output"
-fi
-# Tarball filename shape matches fnm's layout:
-# node-dist/vX.Y.Z/node-vX.Y.Z-linux-arm64.tar.xz.
-if find "$C1_CACHE/node-dist" -name "node-v${FNM_TEST_NODE}.*-linux-arm64.tar.*" 2>/dev/null | grep -q .; then
-  pass "cache populated under $C1_CACHE/node-dist/"
-else
-  ls -R "$C1_CACHE" >&2 || true
-  fail "C1 — expected a node-v${FNM_TEST_NODE}.* tarball under cache dir"
-fi
-
-# ---- C2: warm `fnm install` served entirely from the on-disk cache ----
-# Second boot reuses the C1 cache dir. Upstream pointed at a refused
-# port — if anything reaches through the cache, the install fails.
-echo "C2: warm fnm install $FNM_TEST_NODE serves from cache (no upstream)"
-C2_LOG="$FIXTURE/c2.log"
-MACHINEN_CACHE_DIR="$C1_CACHE" \
-MACHINEN_NODE_DIST_UPSTREAM="http://127.0.0.1:1" \
-  run_timeout 180 node "$CLI" boot --env "PATH=$GUEST_PATH" -- \
-    /bin/sh -c "fnm install $FNM_TEST_NODE && fnm exec --using=$FNM_TEST_NODE node -v" \
-    >"$C2_LOG" 2>&1 || true
-if grep -qE "^v${FNM_TEST_NODE}\." "$C2_LOG"; then
-  pass "warm install worked with upstream pointed at a dead port"
-else
-  tail -80 "$C2_LOG" >&2
-  fail "C2 — warm install failed; cache is not being read"
-fi
-
 
 # ----------------------------------------------------------------
 # Snapshot/restore round-trip (#50 M2). Uses the supervisor +

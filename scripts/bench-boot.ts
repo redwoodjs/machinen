@@ -14,8 +14,8 @@
 //   (`~/.cache/machinen/rootfs/<sha>.img`) before each iteration so
 //   `rootdisk-materialize` pays the full mke2fs price. "Warm" leaves
 //   it in place and the same iteration shows reflink-clone-only cost.
-//   gvproxy install / artifact-cache / initramfs-pack are NOT cleared:
-//   their per-boot cost is what we want to measure here.
+//   gvproxy install / initramfs-pack are NOT cleared: their per-boot
+//   cost is what we want to measure here.
 //
 // Usage:
 //   pnpm bench-boot                       # 5 cold + 5 warm boots

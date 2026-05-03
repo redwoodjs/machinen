@@ -31,10 +31,10 @@
 #   packages/microvm/assets/poweroff.zig      ← clean shutdown → PSCI SYSTEM_OFF
 #
 # Also baked into the rootfs (downloaded at build time, not sourced):
-#   fnm @ /usr/local/bin/fnm  ← Node version manager (#88).
-#                                Points at the host-side cache via
-#                                FNM_NODE_DIST_MIRROR (wired in
-#                                packages/runtime/src/index.ts#spawn).
+#   fnm @ /usr/local/bin/fnm  ← Node version manager. Hits the public
+#                                node-dist mirror by default; callers
+#                                can redirect via FNM_NODE_DIST_MIRROR
+#                                in `boot({ env })`.
 #
 # Requirements:
 #   - docker (with arm64 emulation; GH runners have this by default via
@@ -187,14 +187,14 @@ install -m 0755 "${STAGE}/exec-agent"  "${TEST_FIXTURES}/exec-agent"
 install -m 0755 "${STAGE}/fuse-agent"  "${TEST_FIXTURES}/fuse-agent"
 
 # ------------------------------------------------------------
-# 3a. fnm — Node version manager (#88)
+# 3a. fnm — Node version manager
 # ------------------------------------------------------------
 # Single static Rust binary from the upstream release. Pinned by
 # version + sha256 so rebuilds are reproducible and a compromised
-# upstream can't slip a different binary past us. The host-side cache
-# in packages/runtime/src/artifact-cache.ts fronts nodejs.org/dist
-# for the fnm-managed Node downloads; fnm itself still comes from
-# GitHub at build time.
+# upstream can't slip a different binary past us. fnm itself comes
+# from GitHub at build time; node-dist downloads inside the guest go
+# straight to nodejs.org unless the caller redirects via
+# FNM_NODE_DIST_MIRROR in `boot({ env })`.
 
 echo "==> Downloading fnm (static arm64 binary)"
 FNM_VERSION="1.38.1"
