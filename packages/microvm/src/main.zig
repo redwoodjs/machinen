@@ -18,9 +18,23 @@ comptime {
 }
 
 extern "c" fn getenv(name: [*:0]const u8) ?[*:0]const u8;
+extern "c" fn signal(sig: c_int, handler: usize) usize;
+
+// SIG_IGN is `(void (*)(int)) 1` on every Unix the VMM runs on.
+const SIG_IGN: usize = 1;
+const SIGPIPE: c_int = 13;
 
 pub fn main(init: std.process.Init) !void {
     _ = init;
+
+    // Survive a vanished console reader. The `--detached` boot path
+    // (issue #150) intentionally lets the runtime parent exit while
+    // the VMM keeps running — at that point the stderr pipe has no
+    // reader, and the next PL011 DR-write echo (boot_hvf.zig:628 /
+    // the KVM equivalent) would otherwise SIGPIPE-kill the VMM.
+    // The console write call sites already discard the return value,
+    // so silencing the signal is the only piece missing.
+    _ = signal(SIGPIPE, SIG_IGN);
 
     const gpa = std.heap.page_allocator;
 

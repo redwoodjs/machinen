@@ -254,3 +254,29 @@ describe("parseRunArgs --cwd", () => {
     expect(parsed.guestCwd).toBe("relative/dir");
   });
 });
+
+describe("parseRunArgs --detached", () => {
+  it("captures --detached as a boolean", () => {
+    const parsed = parseRunArgs(["--detached", "--", "/bin/true"]);
+    expect(parsed.detached).toBe(true);
+  });
+
+  it("accepts --detach as an alias", () => {
+    const parsed = parseRunArgs(["--detach", "--", "/bin/true"]);
+    expect(parsed.detached).toBe(true);
+  });
+
+  it("leaves detached unset when the flag is absent", () => {
+    const parsed = parseRunArgs(["./bundle"]);
+    expect(parsed.detached).toBeUndefined();
+  });
+
+  it("rejects a duplicate --detached", () => {
+    expect(() => parseRunArgs(["--detached", "--detached"])).toThrow(/at most once/);
+  });
+
+  // Compatibility gating (--detached vs. --mount/--mount-live/-p) is
+  // enforced by the runtime's BOOT_DETACHED_INCOMPATIBLE check, not
+  // the parser — the parser is happy to capture both. The runtime
+  // gate is covered in detached.test.ts.
+});
