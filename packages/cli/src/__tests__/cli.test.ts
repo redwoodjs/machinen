@@ -1,6 +1,7 @@
 import { ParseError } from "@machinen/runtime";
 import { describe, expect, it } from "vitest";
 import { parseRunArgs } from "../parse-run-args.ts";
+import { tailLines } from "../tail-lines.ts";
 
 describe("parseRunArgs --env", () => {
   it("collects repeated --env flags into env", () => {
@@ -279,4 +280,41 @@ describe("parseRunArgs --detached", () => {
   // enforced by the runtime's BOOT_DETACHED_INCOMPATIBLE check, not
   // the parser — the parser is happy to capture both. The runtime
   // gate is covered in detached.test.ts.
+});
+
+describe("tailLines (machinen attach --tail slicing)", () => {
+  it("returns content unchanged when tail is 'all' and content ends with newline", () => {
+    expect(tailLines("a\nb\nc\n", "all")).toBe("a\nb\nc\n");
+  });
+
+  it("appends a trailing newline when content has none", () => {
+    expect(tailLines("a\nb\nc", "all")).toBe("a\nb\nc\n");
+  });
+
+  it("treats tail=0 as 'all' (preserves the legacy `--tail 0` quirk)", () => {
+    expect(tailLines("a\nb\nc\n", 0)).toBe("a\nb\nc\n");
+  });
+
+  it("returns the last N lines, terminated with a newline", () => {
+    expect(tailLines("a\nb\nc\nd\ne\n", 2)).toBe("d\ne\n");
+  });
+
+  it("doesn't double-count the trailing-newline empty in line counts", () => {
+    // Without the trim, a 3-line file with trailing \n would split
+    // into 4 elements and `tail=3` would return only 2 actual lines.
+    expect(tailLines("a\nb\nc\n", 3)).toBe("a\nb\nc\n");
+  });
+
+  it("handles content without a trailing newline", () => {
+    expect(tailLines("a\nb\nc", 2)).toBe("b\nc\n");
+  });
+
+  it("returns empty string for empty content", () => {
+    expect(tailLines("", "all")).toBe("");
+    expect(tailLines("", 5)).toBe("");
+  });
+
+  it("returns the whole content when tail >= line count", () => {
+    expect(tailLines("a\nb\n", 99)).toBe("a\nb\n");
+  });
 });
