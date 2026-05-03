@@ -179,6 +179,14 @@ pub const tx_eagain_stalls_max: u32 = 50;
 /// Keeps parseEnv from looping forever on a pathological input.
 pub const parse_env_entries_max: u32 = 256;
 
+/// Initial capacity for `Bridge.runThread`'s pollset scratch slice.
+/// Sized to comfortably cover the steady-state pollset (one entry per
+/// listener + one per active connection + the wake-pipe head); chosen
+/// to keep the realloc branch in `runThread` from firing under any
+/// realistic operator config. NASA Power-of-Ten Rule 3, see
+/// .docs/learnings/microvm/allocations.md (#240).
+pub const bridge_initial_poll_cap: usize = 256;
+
 /// Per-packet body cap we use when INJECTING RX packets into the
 /// guest. The Linux virtio-vsock driver posts RX buffers as a
 /// SINGLE flat descriptor (not a chain — contrary to what the
@@ -243,6 +251,7 @@ comptime {
     assert(wake_drain_iters_max > 0);
     assert(tx_eagain_stalls_max > 0);
     assert(parse_env_entries_max > 0);
+    assert(bridge_initial_poll_cap > 0);
 }
 
 /// Parse a `MACHINEN_VSOCK` value into a `PortMap` list.
@@ -855,7 +864,10 @@ pub const Bridge = struct {
         // Self-pipe must be wired up by start() before this thread spawns.
         assert(self.wake[0] >= 0);
         assert(self.wake[1] >= 0);
-        var scratch = self.gpa.alloc(PollFd, 64) catch return;
+        // #240: pre-sized large enough that the realloc branch below
+        // is dead code under any realistic operator config. Kept as a
+        // safety valve for pathological port-map / connection counts.
+        var scratch = self.gpa.alloc(PollFd, bridge_initial_poll_cap) catch return;
         defer self.gpa.free(scratch);
 
         while (!self.stop_flag.load(.acquire)) {
