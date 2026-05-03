@@ -745,6 +745,7 @@ function appendFinalEntries(parts: Buffer[], opts: FinalOptions): void {
           "MKINITRAMFS_INIT_MISSING",
           `mkinitramfs: /init binary not readable at ${opts.initPath} (${err instanceof Error ? err.message : String(err)}). ` +
             `Build it with scripts/build-base-assets.sh, or pass initPath to point at a custom one.`,
+          { cause: err },
         );
       }
     }
