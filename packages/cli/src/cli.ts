@@ -320,13 +320,15 @@ async function cmdBoot(args: string[]): Promise<number> {
     snapshot,
     name,
     guestCwd,
+    detached,
   } = parsed;
 
   if (positional.length > 1) {
     die(
       "usage: machinen boot [<image>] [--snapshot <path>] [--name <name>] " +
         "[--cwd <abs-path>] " +
-        "[--mount ...] [--mount-live ...] [--env KEY=VALUE]... [-- <cmd> [args...]]",
+        "[--mount ...] [--mount-live ...] [--env KEY=VALUE]... [--detached] " +
+        "[-- <cmd> [args...]]",
     );
   }
   const imageOverride = positional[0];
@@ -395,12 +397,30 @@ async function cmdBoot(args: string[]): Promise<number> {
       snapshot,
       name,
       guestCwd,
+      detached,
       // Interactive CLI: the session lives as long as the guest does.
-      // Don't impose the default 60s cap.
-      timeoutMs: null,
+      // Don't impose the default 60s cap. Detached boots fall back to
+      // the runtime's own readiness timeout (60s) so the CLI can't
+      // hang forever waiting for first-guest-byte.
+      timeoutMs: detached ? undefined : null,
     });
   } catch (err) {
     handleError(err);
+  }
+
+  // #150 phase 2: detached boot — VMM is already unrefed inside boot()
+  // and the registry entry stays live for `machinen attach`. Print a
+  // short hint so users know how to reach the VM and exit cleanly.
+  // Cleanup of per-boot disks/dirs is documented as a known limitation
+  // of PR1; PR2 ships `machinen gc` and `machinen stop`.
+  if (detached) {
+    const target = name ?? `pid ${vm.pid}`;
+    process.stderr.write(
+      `machinen: detached (${target}). ` +
+        `Reattach: machinen attach ${name ?? vm.pid}\n` +
+        `Stop: kill ${vm.pid}  (machinen stop ships in PR2)\n`,
+    );
+    return 0;
   }
 
   vm.stdout.pipe(process.stdout);

@@ -35,6 +35,7 @@ export {
 export type { EnsureRootfsImageOptions } from "./rootfs-img.ts";
 export { spawnArtifactCache, resolveCacheDir } from "./artifact-cache.ts";
 export type { ArtifactCacheHandle, ArtifactCacheOptions } from "./artifact-cache.ts";
+export { bootSnapshotPath, detachedLogRoot, writeBootSnapshot } from "./detached-log.ts";
 export { list, registryRoot } from "./registry.ts";
 export type { RegistryEntry } from "./registry.ts";
 export {

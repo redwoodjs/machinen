@@ -57,6 +57,14 @@ export interface RegistryEntry {
    * (set by `restore({ snapDir })`). Visible in `ls`; informational.
    */
   forkedFrom?: string;
+  /**
+   * Path to the one-shot boot-console snapshot written at detach time
+   * (issue #150 phase 2). Only set on entries booted with
+   * `--detached`; live post-detach console bytes are dropped on the
+   * floor (the VMM ignores SIGPIPE), so this file is the only record
+   * of the boot sequence on a detached VM.
+   */
+  bootLogPath?: string;
   /** ms epoch when the entry was created. */
   startedAt: number;
 }

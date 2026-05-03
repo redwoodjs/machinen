@@ -466,6 +466,68 @@ fi
 
 cleanup_n2
 trap 'rm -rf "$FIXTURE"' EXIT
+
+# ---- N2D: machinen boot --detached — CLI exits 0; VMM keeps running.
+# Issue #150 phase 2. Reuses the N2 rootfs-capability gate (we still
+# need vsock-exec inside the guest to prove the VMM is alive after
+# the CLI returns).
+echo "N2D: machinen boot --detached --name worker; CLI exits; exec round-trip"
+N2D_NAME="smoke-detached-$$"
+N2D_LOG="$FIXTURE/n2d.log"
+N2D_LOG_DIR="$FIXTURE/n2d-logs"
+mkdir -p "$N2D_LOG_DIR"
+# Foreground boot — should return quickly because --detached unrefs
+# the VMM after first-guest-byte.
+n2d_t0=$SECONDS
+if MACHINEN_DETACHED_LOG_DIR="$N2D_LOG_DIR" cli boot \
+    --name "$N2D_NAME" --detached \
+    -- /bin/sh -c "/exec-agent & sleep 120" >"$N2D_LOG" 2>&1; then
+  pass "boot --detached returned 0 in $((SECONDS - n2d_t0))s"
+else
+  cat "$N2D_LOG" >&2
+  fail "N2D — boot --detached exited non-zero"
+fi
+
+# Pull the VMM pid from the registry so we can kill it on the way out.
+N2D_PID=$(cli ls 2>/dev/null | awk -v n="$N2D_NAME" 'NR>1 && $2==n {print $1}')
+cleanup_n2d() {
+  [[ -n "${N2D_PID:-}" ]] && kill -TERM "$N2D_PID" 2>/dev/null || true
+}
+trap 'cleanup_n2d; cleanup_n2; rm -rf "$FIXTURE"' EXIT
+
+if [[ -z "$N2D_PID" ]]; then
+  cli ls >&2 || true
+  fail "N2D — '$N2D_NAME' missing from 'machinen ls' after detach"
+fi
+pass "ls shows '$N2D_NAME' (pid $N2D_PID) post-detach"
+
+# Boot snapshot should land at <log-dir>/<pid>.boot.log with content.
+N2D_SNAPSHOT="$N2D_LOG_DIR/$N2D_PID.boot.log"
+if [[ -s "$N2D_SNAPSHOT" ]]; then
+  pass "boot snapshot written to $N2D_SNAPSHOT ($(wc -c <"$N2D_SNAPSHOT") bytes)"
+else
+  ls -la "$N2D_LOG_DIR" >&2
+  fail "N2D — boot snapshot empty or missing at $N2D_SNAPSHOT"
+fi
+
+# Live exec proves the VMM survived the CLI exit (the SIGPIPE-ignore
+# in main.zig is what keeps it alive once the parent's stderr pipe
+# breaks).
+N2D_EXEC_LOG="$FIXTURE/n2d-exec.log"
+if cli exec --name "$N2D_NAME" -- uname -m >"$N2D_EXEC_LOG" 2>&1; then
+  if grep -qE "aarch64|arm64" "$N2D_EXEC_LOG"; then
+    pass "post-detach 'exec $N2D_NAME -- uname -m' returned aarch64"
+  else
+    cat "$N2D_EXEC_LOG" >&2
+    fail "N2D — post-detach exec stdout missing arch marker"
+  fi
+else
+  cat "$N2D_EXEC_LOG" >&2
+  fail "N2D — post-detach 'machinen exec' exited non-zero"
+fi
+
+cleanup_n2d
+trap 'rm -rf "$FIXTURE"' EXIT
 fi  # N2 rootfs-capability gate
 
 # ---- N3: machinen attach <unknown> errors cleanly ----
