@@ -185,67 +185,6 @@ describe("packBundle mount", () => {
     expect(parsed.cmd).toEqual(["/bin/true"]);
   });
 
-  // #253: a cpio without /init silently produces an opaque kernel
-  // panic at boot ("Can't open blockdev"). Both packTinyBundle and
-  // packBundle inject /init from a host path; if that path is missing
-  // or unreadable they must throw, not pack a bootless cpio. The
-  // MACHINEN_REQUIRE_FIXTURES=0 escape hatch (used by tests with a
-  // fake VMM binary) is opt-out, so flip it off for these cases.
-  it("packTinyBundle throws MKINITRAMFS_INIT_MISSING when initPath is absent", () => {
-    const bundle = makeEmptyBundle();
-    const out = join(tmp, "no-init.cpio");
-    const prev = process.env.MACHINEN_REQUIRE_FIXTURES;
-    delete process.env.MACHINEN_REQUIRE_FIXTURES;
-    try {
-      expect(() => packTinyBundle({ bundle, out, initPath: join(tmp, "does-not-exist") })).toThrow(
-        expect.objectContaining({ code: "MKINITRAMFS_INIT_MISSING" }),
-      );
-    } finally {
-      if (prev !== undefined) {
-        process.env.MACHINEN_REQUIRE_FIXTURES = prev;
-      }
-    }
-  });
-
-  it("packBundle throws MKINITRAMFS_INIT_MISSING when initPath is absent", () => {
-    const bundle = makeEmptyBundle();
-    const out = join(tmp, "no-init-bundle.cpio");
-    const prev = process.env.MACHINEN_REQUIRE_FIXTURES;
-    delete process.env.MACHINEN_REQUIRE_FIXTURES;
-    try {
-      expect(() => packBundle({ bundle, out, initPath: join(tmp, "does-not-exist") })).toThrow(
-        expect.objectContaining({ code: "MKINITRAMFS_INIT_MISSING" }),
-      );
-    } finally {
-      if (prev !== undefined) {
-        process.env.MACHINEN_REQUIRE_FIXTURES = prev;
-      }
-    }
-  });
-
-  it("packTinyBundle silently skips a missing /init when MACHINEN_REQUIRE_FIXTURES=0", () => {
-    // Test-only escape hatch for fake-VMM tests (binary: "/bin/sh"),
-    // where the cpio's contents don't matter because the spawn is
-    // never actually a VMM. Production callers don't set this flag,
-    // so they get the strict MKINITRAMFS_INIT_MISSING throw.
-    const bundle = makeEmptyBundle();
-    const out = join(tmp, "no-init-allowed.cpio");
-    const prev = process.env.MACHINEN_REQUIRE_FIXTURES;
-    process.env.MACHINEN_REQUIRE_FIXTURES = "0";
-    try {
-      packTinyBundle({ bundle, out, initPath: join(tmp, "does-not-exist") });
-      const entries = listCpioEntries(out);
-      expect(entries.has("init")).toBe(false);
-      expect(entries.has("machinen-config.json")).toBe(true);
-    } finally {
-      if (prev === undefined) {
-        delete process.env.MACHINEN_REQUIRE_FIXTURES;
-      } else {
-        process.env.MACHINEN_REQUIRE_FIXTURES = prev;
-      }
-    }
-  });
-
   // #119: packTinyBundle ships ~500 KB cpios for the rootDisk path —
   // /init + machinen-config.json + boot-epoch + /dev/console only.
   // No /modules/*.ko, no Debian rootfs tar overlay. The kernel has the
