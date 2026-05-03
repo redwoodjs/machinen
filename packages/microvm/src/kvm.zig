@@ -13,6 +13,8 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
+const assert = std.debug.assert;
+
 comptime {
     if (builtin.os.tag != .linux) {
         @compileError("kvm.zig only builds on Linux (uses /dev/kvm)");
@@ -164,7 +166,12 @@ pub const KVM_ARM_IRQ_TYPE_PPI: u32 = 2;
 /// call as a legacy CPU-line IRQ (type 0) and silently drops virtio
 /// doorbells, which manifests as guest hangs after QueueNotify.
 pub fn irqSpi(spi_id: u32) u32 {
-    return (KVM_ARM_IRQ_TYPE_SPI << KVM_ARM_IRQ_TYPE_SHIFT) | (32 + spi_id);
+    // INTID lives in bits 15:0 of the encoded value; anything wider
+    // would either collide with the type field or wrap silently.
+    assert(spi_id < (1 << 16) - 32);
+    const intid: u32 = 32 + spi_id;
+    assert(intid >= 32);
+    return (KVM_ARM_IRQ_TYPE_SPI << KVM_ARM_IRQ_TYPE_SHIFT) | intid;
 }
 
 // ---------------------------------------------------------------
@@ -335,6 +342,82 @@ pub const REG_PC = armCoreReg(0x100);
 pub const REG_PSTATE = armCoreReg(0x108);
 
 // ---------------------------------------------------------------
+// Layout asserts — KVM ABI is stable; if any of these trip, our
+// struct definitions drifted from <linux/kvm.h> and every ioctl in
+// this file will silently corrupt kernel memory.
+
+comptime {
+    // _IOC dir bits.
+    assert(IOC_NONE == 0);
+    assert(IOC_WRITE == 1);
+    assert(IOC_READ == 2);
+    assert(KVMIO == 0xAE);
+
+    // KVM_IRQ_LINE arm64 encoding constants.
+    assert(KVM_ARM_IRQ_TYPE_SHIFT == 24);
+    assert(KVM_ARM_IRQ_TYPE_CPU == 0);
+    assert(KVM_ARM_IRQ_TYPE_SPI == 1);
+    assert(KVM_ARM_IRQ_TYPE_PPI == 2);
+
+    // UserspaceMemoryRegion (32 B).
+    assert(@sizeOf(UserspaceMemoryRegion) == 32);
+    assert(@offsetOf(UserspaceMemoryRegion, "slot") == 0);
+    assert(@offsetOf(UserspaceMemoryRegion, "flags") == 4);
+    assert(@offsetOf(UserspaceMemoryRegion, "guest_phys_addr") == 8);
+    assert(@offsetOf(UserspaceMemoryRegion, "memory_size") == 16);
+    assert(@offsetOf(UserspaceMemoryRegion, "userspace_addr") == 24);
+
+    // VcpuInit (32 B: u32 target + 7 × u32 features).
+    assert(@sizeOf(VcpuInit) == 32);
+    assert(@offsetOf(VcpuInit, "target") == 0);
+    assert(@offsetOf(VcpuInit, "features") == 4);
+
+    // OneReg / IrqLevel.
+    assert(@sizeOf(OneReg) == 16);
+    assert(@offsetOf(OneReg, "id") == 0);
+    assert(@offsetOf(OneReg, "addr") == 8);
+    assert(@sizeOf(IrqLevel) == 8);
+    assert(@offsetOf(IrqLevel, "irq") == 0);
+    assert(@offsetOf(IrqLevel, "level") == 4);
+
+    // CreateDevice / DeviceAttr.
+    assert(@sizeOf(CreateDevice) == 12);
+    assert(@offsetOf(CreateDevice, "type") == 0);
+    assert(@offsetOf(CreateDevice, "fd") == 4);
+    assert(@offsetOf(CreateDevice, "flags") == 8);
+    assert(@sizeOf(DeviceAttr) == 24);
+    assert(@offsetOf(DeviceAttr, "flags") == 0);
+    assert(@offsetOf(DeviceAttr, "group") == 4);
+    assert(@offsetOf(DeviceAttr, "attr") == 8);
+    assert(@offsetOf(DeviceAttr, "addr") == 16);
+
+    // x86 register banks — sizes are baked into the ioctl numbers.
+    assert(@sizeOf(X86Regs) == 144);
+    assert(@sizeOf(X86Segment) == 24);
+    assert(@sizeOf(X86Dtable) == 16);
+    assert(@sizeOf(X86Sregs) == 312);
+
+    // kvm_run union payloads we touch (offsets relative to union base).
+    assert(@sizeOf(MmioExit) == 24);
+    assert(@offsetOf(MmioExit, "phys_addr") == 0);
+    assert(@offsetOf(MmioExit, "data") == 8);
+    assert(@offsetOf(MmioExit, "len") == 16);
+    assert(@offsetOf(MmioExit, "is_write") == 20);
+    assert(@sizeOf(SystemEventExit) == 136);
+    assert(@offsetOf(SystemEventExit, "type") == 0);
+    assert(@offsetOf(SystemEventExit, "ndata") == 4);
+    assert(@offsetOf(SystemEventExit, "data") == 8);
+
+    // arm64 core-reg encoding (see armCoreReg).
+    assert(REG_ARM64 == 0x6000_0000_0000_0000);
+    assert(REG_SIZE_U64 == 0x0030_0000_0000_0000);
+    assert(REG_ARM_CORE == 0x0010_0000);
+    assert(REG_PC == 0x6030_0000_0010_0040);
+    assert(REG_PSTATE == 0x6030_0000_0010_0042);
+    assert(REG_X0 == 0x6030_0000_0010_0000);
+}
+
+// ---------------------------------------------------------------
 // libc bindings. Kept narrow so we don't pull in std.posix's
 // ever-shifting Io surface.
 
@@ -386,6 +469,7 @@ pub const Kvm = struct {
         const fd = open("/dev/kvm", O_RDWR | O_CLOEXEC);
         if (fd < 0) return error.KvmDeviceOpenFailed;
         errdefer _ = close(fd);
+        assert(fd >= 0);
 
         // glibc's ioctl is declared `int ioctl(int, unsigned long,
         // ...)` — the third arg is variadic. Even for "no payload"
@@ -397,16 +481,23 @@ pub const Kvm = struct {
 
         const sz = ioctl(fd, @as(c_ulong, KVM_GET_VCPU_MMAP_SIZE), @as(c_ulong, 0));
         if (sz <= 0) return error.Unsupported;
+        // Mmap size must be at least one page; anything smaller is a
+        // kernel bug we can't safely cast or mmap.
+        assert(sz >= 4096);
         return .{ .kvm_fd = fd, .vcpu_mmap_size = @intCast(sz) };
     }
 
     pub fn close_(self: *Kvm) void {
+        assert(self.kvm_fd >= 0);
         _ = close(self.kvm_fd);
     }
 
     pub fn createVm(self: *Kvm) !Vm {
+        assert(self.kvm_fd >= 0);
+        assert(self.vcpu_mmap_size >= 4096);
         const fd = ioctl(self.kvm_fd, KVM_CREATE_VM, @as(c_ulong, 0));
         if (fd < 0) return error.KvmCreateVmFailed;
+        assert(fd != self.kvm_fd);
         return .{ .fd = fd, .parent = self };
     }
 };
@@ -416,6 +507,7 @@ pub const Vm = struct {
     parent: *Kvm,
 
     pub fn destroy(self: *Vm) void {
+        assert(self.fd >= 0);
         _ = close(self.fd);
     }
 
@@ -426,6 +518,16 @@ pub const Vm = struct {
         guest_phys_addr: u64,
         host_buf: []u8,
     ) !void {
+        assert(self.fd >= 0);
+        assert(host_buf.len > 0);
+        // KVM requires both the guest-physical address and the host
+        // userspace address to be page-aligned, and the size to be a
+        // multiple of the page size. Mis-aligned mappings are a
+        // programmer bug — KVM rejects with -EINVAL but we want a
+        // clearer signal in debug builds.
+        assert(guest_phys_addr % 4096 == 0);
+        assert(@intFromPtr(host_buf.ptr) % 4096 == 0);
+        assert(host_buf.len % 4096 == 0);
         const r = UserspaceMemoryRegion{
             .slot = slot,
             .flags = 0,
@@ -447,6 +549,14 @@ pub const Vm = struct {
         dist_addr: u64,
         redist_addr: u64,
     ) !Gic {
+        assert(self.fd >= 0);
+        // Distributor and redistributor MMIO windows must occupy
+        // distinct, non-zero, 64 KiB-aligned guest-physical regions.
+        assert(dist_addr != 0);
+        assert(redist_addr != 0);
+        assert(dist_addr != redist_addr);
+        assert(dist_addr % 0x10000 == 0);
+        assert(redist_addr % 0x10000 == 0);
         var args = CreateDevice{
             .type = KVM_DEV_TYPE_ARM_VGIC_V3,
             .fd = 0,
@@ -456,6 +566,8 @@ pub const Vm = struct {
             return error.KvmCreateIrqchipFailed;
         }
         const gic_fd: c_int = @intCast(args.fd);
+        assert(gic_fd >= 0);
+        assert(gic_fd != self.fd);
         errdefer _ = close(gic_fd);
 
         var dist = dist_addr;
@@ -496,13 +608,21 @@ pub const Vm = struct {
     /// the type bits, KVM treats the call as a CPU-line legacy IRQ
     /// (type 0) which silently drops virtio doorbells.
     pub fn setIrq(self: *Vm, irq: u32, level: u32) !void {
+        assert(self.fd >= 0);
+        // KVM_IRQ_LINE level is a boolean (0 = deassert, 1 = assert).
+        // Anything else is a programmer bug — the kernel ignores high
+        // bits but a non-{0,1} value usually means we forgot to mask.
+        assert(level <= 1);
         var lvl = IrqLevel{ .irq = irq, .level = level };
         if (ioctl(self.fd, KVM_IRQ_LINE, &lvl) != 0) return error.KvmIrqLineFailed;
     }
 
     pub fn createVcpu(self: *Vm, id: u32) !Vcpu {
+        assert(self.fd >= 0);
+        assert(self.parent.vcpu_mmap_size >= 4096);
         const fd = ioctl(self.fd, KVM_CREATE_VCPU, @as(c_ulong, id));
         if (fd < 0) return error.KvmCreateVcpuFailed;
+        assert(fd != self.fd);
         errdefer _ = close(fd);
         const run_ptr = mmap(null, self.parent.vcpu_mmap_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
         if (run_ptr == MAP_FAILED or run_ptr == null) return error.KvmMmapRunFailed;
@@ -512,6 +632,7 @@ pub const Vm = struct {
     /// Fill in `out` with the host's preferred CPU target for this
     /// VM's arm64 vCPUs. Caller passes that to Vcpu.init.
     pub fn preferredTarget(self: *Vm) !VcpuInit {
+        assert(self.fd >= 0);
         var out: VcpuInit = .{ .target = 0, .features = @splat(0) };
         if (ioctl(self.fd, KVM_ARM_PREFERRED_TARGET, &out) != 0) {
             return error.KvmPreferredTargetFailed;
@@ -528,10 +649,15 @@ pub const Gic = struct {
     vm_fd: c_int,
 
     pub fn destroy(self: *Gic) void {
+        assert(self.fd >= 0);
+        assert(self.vm_fd >= 0);
+        assert(self.fd != self.vm_fd);
         _ = close(self.fd);
     }
 
     pub fn finalize(self: *Gic) !void {
+        assert(self.fd >= 0);
+        assert(self.vm_fd >= 0);
         var attr = DeviceAttr{
             .flags = 0,
             .group = KVM_DEV_ARM_VGIC_GRP_CTRL,
@@ -550,11 +676,14 @@ pub const Vcpu = struct {
     run_size: usize,
 
     pub fn destroy(self: *Vcpu) void {
+        assert(self.fd >= 0);
+        assert(self.run_size >= 4096);
         _ = munmap(self.run_page, self.run_size);
         _ = close(self.fd);
     }
 
     pub fn init(self: *Vcpu, vi: VcpuInit) !void {
+        assert(self.fd >= 0);
         var v = vi;
         if (ioctl(self.fd, KVM_ARM_VCPU_INIT, &v) != 0) {
             return error.KvmVcpuInitFailed;
@@ -562,6 +691,9 @@ pub const Vcpu = struct {
     }
 
     pub fn setReg(self: *Vcpu, id: u64, value: u64) !void {
+        assert(self.fd >= 0);
+        // Reg id 0 is reserved; KVM rejects with -ENOENT.
+        assert(id != 0);
         var v = value;
         const r = OneReg{ .id = id, .addr = @intFromPtr(&v) };
         if (ioctl(self.fd, KVM_SET_ONE_REG, &r) != 0) {
@@ -570,6 +702,8 @@ pub const Vcpu = struct {
     }
 
     pub fn getReg(self: *Vcpu, id: u64) !u64 {
+        assert(self.fd >= 0);
+        assert(id != 0);
         var v: u64 = 0;
         const r = OneReg{ .id = id, .addr = @intFromPtr(&v) };
         if (ioctl(self.fd, KVM_GET_ONE_REG, &r) != 0) {
@@ -579,6 +713,11 @@ pub const Vcpu = struct {
     }
 
     pub fn run(self: *Vcpu) !ExitReason {
+        assert(self.fd >= 0);
+        // We at minimum need to read exit_reason (offset 8, 4 bytes)
+        // and decode the union at offset 0x20. Anything smaller and
+        // the mmap is a kernel bug we can't safely indirect through.
+        assert(self.run_size >= 0x20 + @sizeOf(SystemEventExit));
         if (ioctl(self.fd, KVM_RUN, @as(c_ulong, 0)) != 0) {
             return error.KvmRunFailed;
         }
@@ -597,18 +736,26 @@ pub const Vcpu = struct {
     /// after `apic_base` at 0x18), on builds without the S390
     /// extension — which matches x86_64 and arm64.
     pub fn mmioExit(self: *Vcpu) MmioExit {
+        assert(self.run_size >= 0x20 + @sizeOf(MmioExit));
         const base: [*]u8 = @ptrCast(self.run_page);
         var out: MmioExit = undefined;
         @memcpy(std.mem.asBytes(&out), base[0x20..][0..@sizeOf(MmioExit)]);
+        // The kernel never emits len > 8 (mmio.data is 8 bytes); a
+        // wider value means we read the wrong offset.
+        assert(out.len <= 8);
+        assert(out.is_write <= 1);
         return out;
     }
 
     /// Read the SYSTEM_EVENT exit payload. Used for PSCI SHUTDOWN /
     /// RESET. Same struct union as MMIO; offset 0x20 inside kvm_run.
     pub fn systemEventExit(self: *Vcpu) SystemEventExit {
+        assert(self.run_size >= 0x20 + @sizeOf(SystemEventExit));
         const base: [*]u8 = @ptrCast(self.run_page);
         var out: SystemEventExit = undefined;
         @memcpy(std.mem.asBytes(&out), base[0x20..][0..@sizeOf(SystemEventExit)]);
+        // ndata bounds the populated portion of `data` and must fit.
+        assert(out.ndata <= out.data.len);
         return out;
     }
 
@@ -617,32 +764,39 @@ pub const Vcpu = struct {
     /// before the next `KVM_RUN`. `mmio.data` lives at 0x20 + 8 =
     /// 0x28 in the kvm_run page.
     pub fn writeMmioReadData(self: *Vcpu, value: u64, len: u32) void {
+        assert(self.run_size >= 0x28 + 8);
+        // mmio.data is 8 bytes; len > 8 would corrupt the next field.
+        assert(len <= 8);
+        assert(len > 0);
         const base: [*]u8 = @ptrCast(self.run_page);
         const slot: []u8 = base[0x28 .. 0x28 + 8];
         std.mem.writeInt(u64, slot[0..8], value, .little);
-        _ = len;
     }
 
     // x86-specific register access. arm64 uses setReg/getReg above.
 
     pub fn getRegsX86(self: *Vcpu) !X86Regs {
+        assert(self.fd >= 0);
         var r: X86Regs = undefined;
         if (ioctl(self.fd, KVM_GET_REGS, &r) != 0) return error.KvmGetRegFailed;
         return r;
     }
 
     pub fn setRegsX86(self: *Vcpu, r: X86Regs) !void {
+        assert(self.fd >= 0);
         var v = r;
         if (ioctl(self.fd, KVM_SET_REGS, &v) != 0) return error.KvmSetRegFailed;
     }
 
     pub fn getSregsX86(self: *Vcpu) !X86Sregs {
+        assert(self.fd >= 0);
         var s: X86Sregs = undefined;
         if (ioctl(self.fd, KVM_GET_SREGS, &s) != 0) return error.KvmGetRegFailed;
         return s;
     }
 
     pub fn setSregsX86(self: *Vcpu, s: X86Sregs) !void {
+        assert(self.fd >= 0);
         var v = s;
         if (ioctl(self.fd, KVM_SET_SREGS, &v) != 0) return error.KvmSetRegFailed;
     }
