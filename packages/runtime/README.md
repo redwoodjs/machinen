@@ -135,26 +135,6 @@ line (`machinen: installing gvproxy v0.8.6 …`) the first time; subsequent
 boots are silent. If the fetch fails (offline), networking stays disabled
 and `boot()` continues.
 
-### Host-side artifact cache
-
-Every call to `boot()` or `provision()` also starts a small HTTP
-server on the host that caches large downloads outside the guest —
-today that's Node.js tarballs that `fnm` would otherwise pull from
-`nodejs.org/dist/`. The cache lives on disk at `~/.machinen/cache/`
-(overridable with `MACHINEN_CACHE_DIR`).
-
-The guest is auto-pointed at the cache: the runtime injects
-`FNM_NODE_DIST_MIRROR=http://192.168.127.254:<port>/node-dist` into
-the guest env, so `fnm install 22` inside a fresh VM pulls through
-the cache. First install populates it; subsequent installs are
-served entirely from local disk and work with no upstream reachable.
-
-Users who want to disable or redirect this can set their own
-`FNM_NODE_DIST_MIRROR` in `boot({ env })` — the runtime only fills
-the key when the caller hasn't. The cache itself is started by
-`spawnArtifactCache()`, which is also exported if you want to drive
-it directly for bespoke flows.
-
 ### Vsock helpers
 
 Thin clients for the vsock services the guest `/init` + `exec-agent` expose:
@@ -184,7 +164,6 @@ when unset and supports the usual comma-separated namespace patterns.
 | `machinen:attach`      | attach lookup, VM resolution                                    |
 | `machinen:registry`    | `~/.machinen/vms/` reads, writes, stale-entry pruning           |
 | `machinen:gvproxy`     | sidecar spawn, port-forward setup                               |
-| `machinen:cache`       | artifact-cache hits, misses, upstream fetches                   |
 | `machinen:mkinitramfs` | rootfs/bundle pack steps                                        |
 | `machinen:cli`         | `@machinen/cli` argv parsing and command dispatch               |
 | `machinen:vmm`         | tee VMM stderr to host stderr (replaces `MACHINEN_BUILD_DEBUG`) |
@@ -192,7 +171,7 @@ when unset and supports the usual comma-separated namespace patterns.
 ```sh
 DEBUG=machinen:* machinen boot ./rootfs.tar.gz -- /bin/sh
 DEBUG=machinen:exec,machinen:registry node script.js
-DEBUG=machinen:cache* pnpm smoke-tests
+DEBUG=machinen:gvproxy* pnpm smoke-tests
 ```
 
 ## License

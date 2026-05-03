@@ -85,9 +85,6 @@ against the live `machinen ls` output.
 |                         | what `./scripts/build-base-assets.sh` produces.                 |
 | `MACHINEN_REGISTRY_DIR` | Override the running-VM registry location (default              |
 |                         | `~/.machinen/vms/`).                                            |
-| `MACHINEN_CACHE_DIR`    | Override the host-side artifact cache (default                  |
-|                         | `~/.machinen/cache/`) — fronts `nodejs.org/dist/` for `fnm`     |
-|                         | installs inside the guest.                                      |
 
 ## Cache layout
 
@@ -101,7 +98,6 @@ against the live `machinen ls` output.
         rootfs.tar.gz   # Debian base rootfs
   current -> <release-tag>   # symlink to the most recent install
   vms/<id>/meta.json         # one entry per running VM (name, pid, socket)
-  cache/node-dist/           # fnm-compatible Node tarball mirror
 ```
 
 ## License

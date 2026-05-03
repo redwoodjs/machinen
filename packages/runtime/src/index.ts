@@ -33,8 +33,6 @@ export {
   rootfsImgCacheDir,
 } from "./rootfs-img.ts";
 export type { EnsureRootfsImageOptions } from "./rootfs-img.ts";
-export { spawnArtifactCache, resolveCacheDir } from "./artifact-cache.ts";
-export type { ArtifactCacheHandle, ArtifactCacheOptions } from "./artifact-cache.ts";
 export { bootSnapshotPath, detachedLogRoot, writeBootSnapshot } from "./detached-log.ts";
 export { validatePid } from "./pid-validate.ts";
 export type { PidStatus } from "./pid-validate.ts";

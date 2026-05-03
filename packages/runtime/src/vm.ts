@@ -59,7 +59,6 @@ import {
   spawnGvproxy,
   warnGvproxyMissing,
 } from "./gvproxy.ts";
-import { spawnArtifactCache } from "./artifact-cache.ts";
 import { bootSnapshotPath, writeBootSnapshot } from "./detached-log.ts";
 import { BootError, ExecError, RegistryError, SnapshotError } from "./errors.ts";
 import { ensurePdeathsig, wrapWithPdeathsig } from "./pdeathsig.ts";
@@ -651,17 +650,15 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     }
   }
 
-  // gvproxy + artifact cache (#88) + host→guest port forwards (#87)
-  // are set up together so the cache's port can be wired into the
-  // guest env before packBundle seals the initramfs. If anything
-  // downstream throws (packBundle validation, exposePort failure,
-  // nodeSpawn failure), the outer catch shuts both supervisors back
+  // gvproxy + host→guest port forwards (#87) are set up before the
+  // VMM boots so packBundle sees a populated MACHINEN_NET_SOCKET. If
+  // anything downstream throws (packBundle validation, exposePort
+  // failure, nodeSpawn failure), the outer catch shuts gvproxy back
   // down — otherwise a failed boot would leave orphans behind.
   let gvStop: (() => void) | undefined;
   let gvPid: number | undefined;
   let gvExe: string | undefined;
   let gvSocketDir: string | undefined;
-  let cacheStop: (() => Promise<void>) | undefined;
   const liveMountStops: Array<() => Promise<void>> = [];
   let bundleTempDir: string | undefined;
   const mergedGuestEnv: Record<string, string> = { ...opts.env };
@@ -713,30 +710,6 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       debug("MACHINEN_NET_SOCKET already set — skipping gvproxy spawn");
     }
     phases.end("net-services.gvproxy");
-
-    // Only useful when the guest has networking — without gvproxy
-    // the guest can't reach the host loopback anyway. Caller-provided
-    // FNM_NODE_DIST_MIRROR wins so tests and power users can point
-    // fnm at a different mirror.
-    phases.start("net-services.cache");
-    if (env.MACHINEN_NET_SOCKET) {
-      try {
-        const cache = await spawnArtifactCache();
-        cacheStop = cache.stop;
-        if (!mergedGuestEnv.FNM_NODE_DIST_MIRROR) {
-          // 192.168.127.254 is gvproxy's "host" mapping — it forwards
-          // to the host's 127.0.0.1. (192.168.127.1 is the gateway,
-          // not the host.) See scripts/bench-net.sh header for the
-          // canonical description.
-          mergedGuestEnv.FNM_NODE_DIST_MIRROR = `http://192.168.127.254:${cache.port}/node-dist`;
-        }
-      } catch (err) {
-        process.stderr.write(
-          `machinen: artifact cache failed to start (${err instanceof Error ? err.message : String(err)}) — continuing without it\n`,
-        );
-      }
-    }
-    phases.end("net-services.cache");
 
     // #78: start one live-share server per resolved mount before the
     // VMM boots. The guest fuse-agent will dial these UDSes once it's
@@ -819,9 +792,6 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   } catch (err) {
     for (const stop of liveMountStops) {
       await stop().catch(() => {});
-    }
-    if (cacheStop) {
-      await cacheStop();
     }
     if (gvStop) {
       gvStop();
@@ -1000,9 +970,6 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     }
     if (gvStop) {
       gvStop();
-    }
-    if (cacheStop) {
-      void cacheStop();
     }
     for (const stop of liveMountStops) {
       void stop().catch(() => {});
