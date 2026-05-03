@@ -47,11 +47,12 @@ rootfs.
 ## Run
 
 The VMM expects a kernel, device tree, and initramfs — see
-[`.docs/learnings/microvm/rootfs-contract.md`](../../.docs/learnings/microvm/rootfs-contract.md)
-for the contract. In practice you drive it through `@machinen/runtime`:
+[`docs/rootfs.md`](./docs/rootfs.md) for the contract and
+[`docs/architecture.md`](./docs/architecture.md) for the bigger
+picture. In practice you drive it through `@machinen/runtime`:
 
 ```ts
-import { spawn } from "@machinen/runtime";
+import { boot } from "@machinen/runtime";
 const vm = await boot({
   binary: "./zig-out/bin/microvm",
   image: "./rootfs-debian-arm64.tar.gz",
