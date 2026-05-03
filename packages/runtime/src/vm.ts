@@ -1376,7 +1376,14 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
  * undefined when the image has no config baked in — plain rootfs
  * tarballs that pre-date this feature still boot fine.
  */
-type ImageConfig = { cmd?: string[]; env?: Record<string, string>; cwd?: string };
+/**
+ * Shape of the optional `./machinen-config.json` baked into a rootfs
+ * tarball by `provision({ cmd, env })`. `boot()` reads it via
+ * `readImageConfig()` so callers don't need to re-pass `cmd`/`env` on
+ * every boot. `warmImageConfigCache()` accepts the same shape so a
+ * tarball-producing tool can pre-populate the lookup cache.
+ */
+export type ImageConfig = { cmd?: string[]; env?: Record<string, string>; cwd?: string };
 
 /**
  * Disk cache for `readImageConfig`. The base tarball is regenerated only
