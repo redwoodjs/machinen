@@ -59,6 +59,12 @@ import {
   spawnGvproxy,
   warnGvproxyMissing,
 } from "./gvproxy.ts";
+import {
+  BRIDGE_VSOCK_PORT,
+  startBridgeServer,
+  type BridgeHandler,
+  type BridgeServer,
+} from "./bridge.ts";
 import { bootSnapshotPath, writeBootSnapshot } from "./detached-log.ts";
 import { BootError, ExecError, RegistryError, SnapshotError } from "./errors.ts";
 import { ensurePdeathsig, wrapWithPdeathsig } from "./pdeathsig.ts";
@@ -614,6 +620,11 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   // flow) win — we parse their spec to extract the UDS path for exec.
   let vsockUdsPath: string | undefined;
   let vsockTempDir: string | undefined;
+  // Bridge (#217): auto-allocated alongside the exec UDS when the
+  // caller didn't pre-set MACHINEN_VSOCK. Skipped when the caller
+  // supplies their own spec — they're driving and can opt in by
+  // appending `out:1979:<uds>` themselves.
+  let bridgeUdsPath: string | undefined;
   if (env.MACHINEN_VSOCK) {
     vsockUdsPath = parseVsockUdsPath(env.MACHINEN_VSOCK);
     debug(
@@ -624,8 +635,9 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   } else {
     vsockTempDir = mkdtempSync(join(tmpdir(), "machinen-vsock-"));
     vsockUdsPath = join(vsockTempDir, "exec.sock");
-    env.MACHINEN_VSOCK = `in:1978:${vsockUdsPath}`;
-    debug("vsock auto uds=%s", vsockUdsPath);
+    bridgeUdsPath = join(vsockTempDir, "bridge.sock");
+    env.MACHINEN_VSOCK = `in:1978:${vsockUdsPath},out:${BRIDGE_VSOCK_PORT}:${bridgeUdsPath}`;
+    debug("vsock auto uds=%s bridge=%s", vsockUdsPath, bridgeUdsPath);
   }
 
   // #78: resolve live-share mounts. Each gets a fresh vsock port (base
@@ -661,6 +673,11 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   let gvSocketDir: string | undefined;
   const liveMountStops: Array<() => Promise<void>> = [];
   let bundleTempDir: string | undefined;
+  // Bridge dispatch table — mutated by the handle's expose/unexpose.
+  // Lives at boot scope so the listener (started below) and the
+  // returned handle share the same Map by reference.
+  const bridgeMethods = new Map<string, BridgeHandler>();
+  let bridgeServer: BridgeServer | undefined;
   const mergedGuestEnv: Record<string, string> = { ...opts.env };
 
   // Surface the VM name in the guest so an interactive shell prompt
@@ -724,6 +741,18 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       liveMountStops.push(handle.stop);
     }
     phases.end("net-services.live-mounts");
+    // Bridge listener (#217). Bound before the VMM spawn so a guest
+    // dialing port 1979 immediately after boot doesn't race the UDS.
+    // Skipped when bridgeUdsPath is undefined — that path means the
+    // caller supplied their own MACHINEN_VSOCK and is opting out.
+    if (bridgeUdsPath) {
+      phases.start("net-services.bridge");
+      bridgeServer = await startBridgeServer({
+        udsPath: bridgeUdsPath,
+        methods: bridgeMethods,
+      });
+      phases.end("net-services.bridge");
+    }
     phases.end("net-services");
 
     // Pack an initramfs whenever the guest needs userspace (image +
@@ -792,6 +821,9 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   } catch (err) {
     for (const stop of liveMountStops) {
       await stop().catch(() => {});
+    }
+    if (bridgeServer) {
+      await bridgeServer.close().catch(() => {});
     }
     if (gvStop) {
       gvStop();
@@ -973,6 +1005,9 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     }
     for (const stop of liveMountStops) {
       void stop().catch(() => {});
+    }
+    if (bridgeServer) {
+      void bridgeServer.close().catch(() => {});
     }
     if (registered) {
       removeEntry(childPid);
@@ -1252,6 +1287,21 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         forkOpts ?? {},
       );
     },
+
+    expose(method, handler) {
+      bridgeMethods.set(method, handler);
+      return () => {
+        // Only delete if still ours — guards against an unexpose() racing
+        // an expose(method, newHandler) overwrite.
+        if (bridgeMethods.get(method) === handler) {
+          bridgeMethods.delete(method);
+        }
+      };
+    },
+
+    unexpose(method) {
+      bridgeMethods.delete(method);
+    },
   };
 
   // Set a per-VM kernel hostname so `\h` prompts and other
@@ -1526,6 +1576,24 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
         },
         forkOpts ?? {},
       );
+    },
+
+    // Bridge dispatch lives in the *booting* process — attach handles
+    // can't reach into that other process's method registry. Throw
+    // loudly so users don't sit puzzled when their handler "isn't being
+    // called." The bridge is still usable from the booting process.
+    expose() {
+      throw new RegistryError(
+        "REGISTRY_VM_NOT_FOUND",
+        "vm.expose is only available on the boot-owning handle. " +
+          "Attach handles can't register bridge methods because the " +
+          "listener runs in the process that called boot(). Move the " +
+          "expose() call into that process.",
+      );
+    },
+
+    unexpose() {
+      // No-op: nothing was registered here in the first place.
     },
   };
   return handle;

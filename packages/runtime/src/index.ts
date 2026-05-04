@@ -15,6 +15,8 @@ export { VsockSecrets } from "./secrets.ts";
 export type { VsockSecretsOptions } from "./secrets.ts";
 export { VsockFiles } from "./files.ts";
 export type { VsockFilesOptions } from "./files.ts";
+export { BRIDGE_VSOCK_PORT, BridgeErrorCode } from "./bridge.ts";
+export type { BridgeHandler } from "./bridge.ts";
 export { VsockExec } from "./exec.ts";
 export type {
   VsockExecOptions,

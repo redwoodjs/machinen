@@ -4,6 +4,7 @@
 // through `index.ts`.
 
 import type { Readable, Writable } from "node:stream";
+import type { BridgeHandler } from "./bridge.ts";
 import type {
   VsockExecOptions,
   VsockExecPtyHandle,
@@ -152,6 +153,36 @@ export interface VmHandle {
    * written to a temp dir and removed when the fork exits.
    */
   fork(opts?: ForkOptions): Promise<VmHandle>;
+
+  /**
+   * Register a JSON-RPC method that the guest can call over the bridge
+   * (vsock port 1979). The runtime ships no built-in methods — callers
+   * compose whatever surface they want.
+   *
+   * Wire format (line-delimited JSON-RPC 2.0 over AF_VSOCK CID 2 port
+   * 1979):
+   *   {"jsonrpc":"2.0","id":1,"method":"<m>","params":<any>}
+   *
+   * The handler receives `params` and may return a value (sent back as
+   * `result`) or throw (sent back as `error`). Notifications (no `id`)
+   * get no reply, even on failure.
+   *
+   * Returns a function that unregisters the method — equivalent to
+   * `vm.unexpose(method)` and convenient for one-liner cleanup. Calling
+   * `expose` for a name that's already registered overwrites the handler.
+   *
+   * Example — fork the running VM in response to a guest event:
+   *
+   *   vm.expose("fork", async (params) => {
+   *     const f = await vm.fork({ name: (params as any)?.name });
+   *     await f.detach();
+   *     return { name: f.name, pid: f.pid };
+   *   });
+   */
+  expose(method: string, handler: BridgeHandler): () => void;
+
+  /** Remove a previously registered bridge method. No-op if not registered. */
+  unexpose(method: string): void;
 }
 
 export interface WriteFileOptions {
