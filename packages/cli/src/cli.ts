@@ -1270,7 +1270,7 @@ _machinen_completion() {
       ;;
   esac
 }
-complete -F _machinen_completion machinen
+complete -F _machinen_completion machinen mn
 `;
 
 const ZSH_COMPLETION = `# machinen zsh completion — source this from ~/.zshrc, or:
@@ -1307,20 +1307,22 @@ _machinen() {
       ;;
   esac
 }
-compdef _machinen machinen
+compdef _machinen machinen mn
 `;
 
 const FISH_COMPLETION = `# machinen fish completion — source this from your config.fish, or:
 #   machinen completion fish | source
 set -l cmds boot restore install ls ps exec snapshot fork attach repl gc stop completion
-complete -c machinen -f -n 'not __fish_seen_subcommand_from $cmds' -a "$cmds"
-for sub in exec snapshot fork attach repl stop
-  complete -c machinen -f -n "__fish_seen_subcommand_from $sub" -l name \\
-    -a '(machinen ls 2>/dev/null | awk \\'NR>1 && $2!="-"{print $2}\\')'
-  complete -c machinen -f -n "__fish_seen_subcommand_from $sub" -l pid \\
-    -a '(machinen ls 2>/dev/null | awk \\'NR>1{print $1}\\')'
+for bin in machinen mn
+  complete -c $bin -f -n 'not __fish_seen_subcommand_from $cmds' -a "$cmds"
+  for sub in exec snapshot fork attach repl stop
+    complete -c $bin -f -n "__fish_seen_subcommand_from $sub" -l name \\
+      -a '(machinen ls 2>/dev/null | awk \\'NR>1 && $2!="-"{print $2}\\')'
+    complete -c $bin -f -n "__fish_seen_subcommand_from $sub" -l pid \\
+      -a '(machinen ls 2>/dev/null | awk \\'NR>1{print $1}\\')'
+  end
+  complete -c $bin -f -n "__fish_seen_subcommand_from gc" -l dry-run
 end
-complete -c machinen -f -n "__fish_seen_subcommand_from gc" -l dry-run
 `;
 
 // ------------------------------------------------------------

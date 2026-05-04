@@ -8,7 +8,8 @@
     "directory": "packages/cli"
   },
   "bin": {
-    "machinen": "./dist/cli.js"
+    "machinen": "./dist/cli.js",
+    "mn": "./dist/cli.js"
   },
   "files": [
     "dist/"

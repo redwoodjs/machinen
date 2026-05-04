@@ -30,9 +30,11 @@ command-by-command reference, see [API.md](./API.md).
 ## Install
 
 ```bash
-npm i @machinen/cli           # then run via `npx machinen …`
+npm i @machinen/cli           # then run via `npx machinen …` or `npx mn …`
 npm i -g @machinen/cli        # or globally if you prefer it on PATH
 ```
+
+Both `machinen` and the shorter alias `mn` are installed.
 
 The matching VMM binary (`@machinen/vmm-arm64-darwin` or
 `@machinen/vmm-arm64-linux`) is pulled in via optional dependencies.

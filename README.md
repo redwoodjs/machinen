@@ -17,8 +17,9 @@ target; Python, bash, and anything else that boots in a Linux VM works too.
 npm i @machinen/cli @machinen/runtime
 ```
 
-Then run the CLI with `npx machinen …`. Prefer it on your PATH? `npm i -g
-@machinen/cli` is fine too.
+Then run the CLI with `npx machinen …` (or the shorter `npx mn …` — both
+names install). Prefer it on your PATH? `npm i -g @machinen/cli` is fine
+too.
 
 The right VMM binary is pulled automatically via optional dependencies
 (`@machinen/vmm-arm64-darwin` on Apple Silicon Macs, `@machinen/vmm-arm64-linux`
