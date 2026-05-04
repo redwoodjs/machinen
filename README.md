@@ -4,7 +4,7 @@
 
 <h1 align="center">M A C H I N E N</h1>
 
-Hand off a running Linux process between machines. Freeze it on your laptop,
+Hand off a running Linux machine between hosts. Freeze it on your laptop,
 thaw it on a server, resume it next week. The program picks up exactly where
 it left off — like waking a laptop from sleep, except on a different
 computer.
