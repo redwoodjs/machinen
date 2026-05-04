@@ -6,7 +6,8 @@ boot and drive native arm64 Linux microVMs from the shell.
 ## Install
 
 ```bash
-npm i -g @machinen/cli
+npm i @machinen/cli           # then run via `npx machinen …`
+npm i -g @machinen/cli        # or globally if you prefer it on PATH
 ```
 
 The matching VMM binary (`@machinen/vmm-arm64-darwin` or
@@ -17,19 +18,24 @@ provide guest networking — no system packages required.
 ## Commands
 
 ```
-machinen boot [<image>] [opts] -- <cmd>   Boot a microVM and run <cmd>
-machinen boot <image>                      Boot an image that has a baked-in cmd
-machinen boot --snapshot <path>            Restore a VM from a CRIU snapshot
-machinen restore <snapshot>                Alias for boot --snapshot
-machinen ls                                List running VMs
-machinen exec <name-or-id> -- <cmd>        Run a command in a running VM
-machinen snapshot <name-or-id> <out>       CRIU-snapshot a running VM to <out>
-machinen attach <name-or-id>               Interactive PTY shell into a running VM
-machinen repl <name-or-id>                 Per-line exec REPL (no persistent state)
-machinen install [--version <tag>]         Pre-fetch base assets for a release
-machinen completion <bash|zsh|fish>        Emit shell completion
-machinen --version | -h                    Print version / help
+machinen boot     [<image>] [opts] -- <cmd>     Boot a microVM
+machinen restore  <snap-dir> [--name <name>]    Restore a VM from a snapshot bundle
+machinen ls       (alias: ps)                    List running VMs
+machinen exec     <target> [--tty] -- <cmd>     Run a command in a running VM
+machinen snapshot <target> --out-dir <d> [--keep-alive]
+                                                CRIU-snapshot a running VM
+machinen fork     <target> [opts]               Clone a running VM into a sibling
+machinen attach   <target> [--shell <c>] [--tail [N]]
+                                                Interactive PTY shell into a VM
+machinen repl     <target>                       Per-line exec REPL (no persistent state)
+machinen stop     <target> [--force|-9]         Stop a running VM
+machinen gc       [--dry-run|-n]                Drop dead registry entries + clean artifacts
+machinen install  [--version <tag>]             Pre-fetch base assets for a release
+machinen completion <bash|zsh|fish>             Emit shell completion
+machinen --version | -h                          Print version / help
 ```
+
+`<target>` is exactly one of `--name <name>` or `--pid <pid>`.
 
 ### `machinen boot`
 
@@ -42,25 +48,123 @@ Boots a microVM. Kernel and device tree come from the on-disk release cache
   `provision()` from `@machinen/runtime`. If the image carries a baked-in
   default cmd (set via `provision({ cmd })`), `-- <cmd>` is optional; pass it
   to override.
-- With `--snapshot <path>`: restores a CRIU-frozen VM in under a second.
 
 Options:
 
-| Flag                             | What it does                                       |
-| -------------------------------- | -------------------------------------------------- |
-| `--name <name>`                  | Register the VM under a human-friendly name        |
-| `--mount <host-dir>:<guest-dir>` | Expose a host directory under `/mnt/` in the guest |
-| `--env KEY=VALUE`                | Set an env var inside the guest (repeatable)       |
-| `-p <hostPort>:<guestPort>`      | Forward a host TCP port to the guest (repeatable)  |
-| `--snapshot <path>`              | Restore from a snapshot instead of booting fresh   |
+| Flag                                          | What it does                                                                |
+| --------------------------------------------- | --------------------------------------------------------------------------- |
+| `--name <name>`                               | Register the VM under a human-friendly name (path-shaped allowed: `a/b/c`)  |
+| `--mount <host-dir>:<guest-path>`             | Copy-once host directory into the guest (`/mnt/...`)                        |
+| `--mount-live <host-dir>:<guest-path>[:rw\|ro]` | Live-share via FUSE — guest reads stream in on demand. `rw` (default) or `ro` |
+| `--env KEY=VALUE`                             | Set an env var inside the guest (repeatable)                                |
+| `--cwd <abs-path>`                            | Start the guest cmd in this directory (must be absolute)                    |
+| `-p <hostPort>:<guestPort>`                   | Forward a host TCP port to the guest (repeatable)                           |
+| `--detached`                                  | Detach the VMM from the CLI on first-guest-byte readiness; reattach with `attach`. Mutually exclusive with `--mount`, `--mount-live`, `-p` |
+| `--snapshot <path>`                           | Attach `<path>` as `/dev/vda` — scratch disk for a future `vm.snapshot()`   |
 
-### `machinen ls` / `exec` / `snapshot` / `attach` / `repl`
+### `machinen restore`
 
-Once a VM is running (booted with `--name`), other shells can find it with
-`ls`, run commands against it with `exec`, freeze it to disk with `snapshot`,
-or drop into an interactive PTY shell with `attach` (default `bash -i`,
-override with `--shell <cmd>`). For piping a script of one-liners through
-fresh one-shot execs, use `repl`. All target VMs by name or id.
+```
+machinen restore <snap-dir> [--name <name>]
+```
+
+Restores a VM from a snapshot bundle (a directory holding `disk.img` +
+`meta.json` produced by `machinen snapshot`). Anonymous restores auto-name as
+`<source-name>/<pid>` so lineage shows up in `machinen ls`. Resolves base
+assets the same way `boot` does.
+
+### `machinen ls` / `ps`
+
+Lists running VMs as `PID  NAME  UP  FORKED-FROM`. `ps` is an alias.
+
+### `machinen exec`
+
+```
+machinen exec <target> [--tty|--pty] -- <cmd>
+```
+
+Runs `<cmd>` inside a running VM via vsock. Without `--tty`, stdio is
+line-buffered pipes (good for one-shot commands and piping). Pass `--tty` for
+a real PTY session — needed for an interactive shell, vim, htop, or anything
+that wants job control.
+
+```bash
+machinen exec --name worker -- ps aux
+machinen exec --name worker --tty -- bash -i
+```
+
+### `machinen snapshot`
+
+```
+machinen snapshot <target> --out-dir <dir> [--keep-alive]
+```
+
+CRIU-snapshots a running VM into `<dir>` (`disk.img` + `meta.json`). The
+default freezes-and-exits the source. `--keep-alive` leaves it running and
+closes inherited TCP sockets so two live copies don't race on shared
+connection state.
+
+### `machinen fork`
+
+```
+machinen fork <target> [--new-name <n>] [--out-dir <d>] [--tcp-keep] [--detach]
+```
+
+Snapshots the source live (it keeps running) and restores into a sibling VM,
+dropping the caller into the fork's interactive console. Pass `--detach` to
+hand the fork off and return immediately (CI / scripted use).
+
+| Flag             | What it does                                                              |
+| ---------------- | ------------------------------------------------------------------------- |
+| `--new-name <n>` | Name for the fork (defaults to `<source>/<fork-pid>`)                     |
+| `--out-dir <d>`  | Keep the snapshot bundle here. Without this, the bundle is temp-dir'd     |
+| `--tcp-keep`     | Inherit TCP socket state in the fork (rarely correct — both copies race)  |
+| `--detach`       | Don't attach the caller's stdio to the fork — return as soon as it's up   |
+
+### `machinen attach`
+
+```
+machinen attach <target> [--shell <cmd>] [--tail [N]]
+```
+
+Drops into an interactive PTY shell in the running VM (default `bash -i`,
+override with `--shell`). `cd`, env vars, history, job control, and full-screen
+TUIs all work. Exit the shell (Ctrl-D) to detach.
+
+`--tail` dumps the boot-console snapshot before opening the shell. With no
+value it prints the whole snapshot (capped at ~1 MiB); `--tail N` prints the
+last N lines. Only works for VMs booted with `--detached`.
+
+### `machinen repl`
+
+```
+machinen repl <target>
+```
+
+Per-line exec REPL: every line is a fresh one-shot `exec`, so `cd`, env vars,
+and shell history do **not** carry over. Useful for piping a script of
+one-liners (`cat cmds.txt | machinen repl --name foo`). For an actual
+interactive shell, use `machinen attach`.
+
+### `machinen stop`
+
+```
+machinen stop <target> [--force|-9]
+```
+
+SIGTERM the VMM, escalate to SIGKILL after 2s, then `gc` its entry. `--force`
+sends SIGKILL immediately. Also signals the sibling `gvproxy` so host ports
+don't leak. Pid-validates first to refuse killing a recycled pid.
+
+### `machinen gc`
+
+```
+machinen gc [--dry-run|-n]
+```
+
+Drops registry entries whose VMM is dead (or whose pid was recycled to some
+other process) and removes their per-boot artifacts. Backstop for `--detached`
+boots, where the in-process exit hook can't run because the parent is gone.
 
 ### `machinen install [--version <tag>]`
 
