@@ -1,5 +1,7 @@
 # machinen
 
+![machinen](./docs/logo.svg)
+
 Transport a running Linux process between machines. Freeze it on your laptop,
 thaw it on a server, resume it next week — heap, sockets, and open files
 intact.
@@ -24,78 +26,106 @@ need [GitHub CLI](https://cli.github.com/) authenticated:
 gh auth login
 ```
 
-## Transport a Node.js process
+## Quickstart
 
-```bash
-# host A — boot an image with node + your server baked in (see provision below)
-machinen boot --name counter -p 3000:3000 ./counter.tar.gz &  # HTTP on :3000
-curl localhost:3000/hit                              # { count: 1 }
-curl localhost:3000/hit                              # { count: 2 }
+Bake an image, boot it, accumulate some state, then move the running process
+to another host.
 
-machinen snapshot --name counter --out-dir ./counter.snap   # CRIU-freeze the VM
+### 1. Bake
 
-# copy ./counter.snap (a directory: disk.img + meta.json) to host B, then:
-machinen restore ./counter.snap
-curl localhost:3000/hit                              # { count: 3 }  ← same process
+A tiny HTTP server that counts hits in memory:
+
+```js
+// counter.js
+import { createServer } from "node:http";
+let count = 0;
+createServer((_, res) => {
+  res.end(JSON.stringify({ count: ++count }) + "\n");
+}).listen(3000);
 ```
 
-Same arch only (arm64 ↔ arm64). The VM's memory, file descriptors, and
-timers come back exactly as they were.
-
-## Boot a microVM
-
-```bash
-machinen boot -- /bin/sh                    # ad-hoc: boot base + run a cmd
-machinen boot ./my-image.tar.gz             # boot a provisioned rootfs tarball
-```
-
-On first run, the kernel + rootfs for the current release are fetched into
-`~/.machinen/` automatically. To pre-fetch them ahead of time (CI cache warming,
-airgapped prep):
-
-```bash
-machinen install                  # optional: pre-fetch base assets
-machinen install --version <tag>  # pin to a specific release tag
-```
-
-## Drive it from Node
+Bake it into a rootfs tarball with `provision()`:
 
 ```ts
+// bake.ts
+import { readFileSync } from "node:fs";
+import { provision } from "@machinen/runtime";
+
+await provision({
+  install: async (vm) => {
+    await vm.exec("apt-get update && apt-get install -y nodejs");
+    await vm.writeFile("/opt/counter.js", readFileSync("./counter.js"));
+  },
+  cmd: ["/usr/bin/node", "/opt/counter.js"],
+  out: "./counter.tar.gz",
+});
+```
+
+```bash
+node bake.ts
+```
+
+### 2. Boot
+
+```bash
+machinen boot --name counter -p 3000:3000 --detached ./counter.tar.gz
+curl localhost:3000                        # { count: 1 }
+curl localhost:3000                        # { count: 2 }
+```
+
+The process is now sitting on host A with `count = 2` in its heap.
+
+### 3. Transport
+
+Freeze it, copy the bundle to host B, thaw it:
+
+```bash
+machinen snapshot --name counter --out-dir ./counter.snap
+scp -r ./counter.snap host-b:
+ssh host-b machinen restore ./counter.snap &
+curl host-b:3000                           # { count: 3 }  ← same process
+```
+
+Same arch only (arm64 ↔ arm64). Memory, file descriptors, and timers come
+back exactly as they were.
+
+## From Node
+
+Same arc, driven from TypeScript:
+
+```ts
+import { readFileSync } from "node:fs";
 import { boot, provision, restore } from "@machinen/runtime";
 
-// Bake an image once: base Debian + your deps + a default cmd.
 await provision({
-  base: "./rootfs-debian-arm64.tar.gz",
   install: async (vm) => {
     await vm.exec("apt-get install -y nodejs");
+    await vm.writeFile("/opt/counter.js", readFileSync("./counter.js"));
   },
-  cmd: ["/usr/bin/node", "/opt/server.js"],
-  out: "./my-server.tar.gz",
+  cmd: ["/usr/bin/node", "/opt/counter.js"],
+  out: "./counter.tar.gz",
 });
 
-// Boot it. The image's baked-in cmd runs by default.
-const vm = await boot({ image: "./my-server.tar.gz", name: "counter" });
+const vm = await boot({ image: "./counter.tar.gz", name: "counter" });
 // ... let it run, serve traffic, accumulate state ...
 
-await vm.snapshot({ outDir: "./counter.snap" }); // CRIU-freeze to disk
+await vm.snapshot({ outDir: "./counter.snap" });
 
 // elsewhere (possibly on another host):
 const restored = await restore({ snapDir: "./counter.snap" });
 ```
 
-See [`packages/runtime/README.md`](packages/runtime/README.md) for the full surface.
+See [`packages/runtime/README.md`](packages/runtime/README.md) for the full
+surface.
 
-## Monorepo layout
+## Other ways to boot
 
-| Package                                                               | Published? | What it is                          |
-| --------------------------------------------------------------------- | ---------- | ----------------------------------- |
-| [`@machinen/cli`](packages/cli)                                       | ✓          | The `machinen` CLI                  |
-| [`@machinen/runtime`](packages/runtime)                               | ✓          | TypeScript API for driving microVMs |
-| [`@machinen/vmm-arm64-darwin`](packages/vmm-arm64-darwin)             | ✓          | Native VMM binary for Apple Silicon |
-| [`@machinen/vmm-arm64-linux`](packages/vmm-arm64-linux)               | ✓          | Native VMM binary for arm64 Linux   |
-| [`@machinen/e2fsprogs-arm64-darwin`](packages/e2fsprogs-arm64-darwin) | ✓          | Bundled `mke2fs` for Apple Silicon  |
-| [`@machinen/e2fsprogs-arm64-linux`](packages/e2fsprogs-arm64-linux)   | ✓          | Bundled `mke2fs` for arm64 Linux    |
-| [`@machinen/microvm`](packages/microvm)                               | ✓          | Zig VMM source                      |
+```bash
+machinen boot -- /bin/sh                    # ad-hoc: boot base + run a cmd
+machinen boot ./my-image.tar.gz             # boot a provisioned rootfs tarball
+machinen install                            # pre-fetch base assets (CI / airgap)
+machinen install --version <tag>            # pin to a specific release tag
+```
 
 ## Contributing
 
