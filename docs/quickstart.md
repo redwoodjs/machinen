@@ -1,11 +1,17 @@
 # Quickstart
 
-Bake an image, boot it, accumulate some state, then move the running process
-to another host.
+You're going to build a tiny HTTP server, boot it inside a VM, hit it a few
+times so it accumulates state in memory, then move that running process to
+another machine and watch it pick up exactly where it left off.
 
-## 1. Bake
+This is the trick machinen exists for: a process's heap, sockets, and open
+files travel with it. Three steps.
 
-A tiny HTTP server that counts hits in memory:
+## 1. Bake an image
+
+Start with a Node.js server that counts requests in memory — nothing
+persistent, no database. The whole point is that "in memory" survives the
+move.
 
 ```js
 // counter.js
@@ -16,7 +22,10 @@ createServer((_, res) => {
 }).listen(3000);
 ```
 
-Bake it into a rootfs tarball with `provision()`:
+To run it inside a VM you need a rootfs tarball: a Linux filesystem with
+Node installed, your script copied in, and a default command that launches
+it. `provision()` builds that for you. Under the hood it boots a Debian
+base, runs the install steps you give it, then archives the result.
 
 ```ts
 // bake.ts
@@ -37,7 +46,10 @@ await provision({
 node bake.ts
 ```
 
-## 2. Boot
+You now have `counter.tar.gz` — a self-contained image you can boot
+anywhere machinen runs.
+
+## 2. Boot it and give it some state
 
 ```bash
 npx machinen boot --name counter -p 3000:3000 --detached ./counter.tar.gz
@@ -45,26 +57,44 @@ curl localhost:3000                        # { count: 1 }
 curl localhost:3000                        # { count: 2 }
 ```
 
-The process is now sitting on host A with `count = 2` in its heap.
+A few things are happening here. `--name counter` registers the VM under
+a name so you can reach it from another shell. `-p 3000:3000` forwards the
+host port to the guest. `--detached` lets the boot command return as soon
+as the guest is ready, instead of holding your terminal.
 
-## 3. Handoff
+After the two `curl`s, the Node process inside the VM has `count = 2` in
+its heap. That's the state we're about to move.
 
-Freeze it, copy the bundle to host B, thaw it:
+## 3. Hand it off to another machine
+
+`machinen snapshot` freezes the running VM into a directory on disk. The
+directory is the whole snapshot: `disk.img` is the workload's memory and
+file descriptors as a CRIU dump on an ext4 volume; `meta.json` is a small
+manifest.
 
 ```bash
 npx machinen snapshot --name counter --out-dir ./counter.snap
 scp -r ./counter.snap host-b:
 ssh host-b npx machinen restore ./counter.snap &
-curl host-b:3000                           # { count: 3 }  ← same process
+curl host-b:3000                           # { count: 3 }
 ```
 
-Same arch only (arm64 ↔ arm64). Memory, file descriptors, and timers come
-back exactly as they were.
+The third `curl` returns `{ count: 3 }` because it's the same process —
+it just resumed on a different host. Same heap, same TCP listener, same
+counter. The Node runtime never noticed the move.
 
-## Next steps
+A constraint to know about: the host architectures have to match. arm64
+to arm64 works (your laptop to a Graviton instance, say). arm64 to x86
+does not — CRIU is replaying actual machine-code register state, and that
+doesn't translate.
 
-- [Create a VM](./guides/create-a-vm.md) — the three ways to get a workload running
-- [Snapshot, restore, and fork](./guides/snapshot-restore-fork.md) — clone a
-  running process, branching futures from one heap
-- [Mount files into a VM](./guides/mount-files.md) — `--mount`, `--mount-live`, `vm.writeFile`
-- [Networking](./guides/networking.md) — port forwards and outbound traffic via gvproxy
+## Where to go next
+
+- [Create a VM](./guides/create-a-vm.md) once you want more control over
+  what's inside.
+- [Snapshot, restore, and fork](./guides/snapshot-restore-fork.md) covers
+  the cloning trick — running two copies of the same process at once.
+- [Mount files into a VM](./guides/mount-files.md) for sharing data
+  between the host and guest.
+- [Networking](./guides/networking.md) for how the guest reaches the
+  internet and how to expose more ports.

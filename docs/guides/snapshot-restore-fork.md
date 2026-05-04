@@ -1,76 +1,152 @@
 # Snapshot, restore, and fork
 
-All three use CRIU under the hood. Same arch only — arm64 ↔ arm64. Memory,
-file descriptors, and timers come back exactly as they were.
+A snapshot is a complete picture of a running VM frozen to disk: every
+page of memory, every open file descriptor, every TCP listener, the
+program counter of every thread. Restoring it doesn't *start* the
+process — it *resumes* it, like waking a laptop from sleep.
 
-## Snapshot — freeze a VM to disk
+Two patterns get a lot of mileage out of that:
+
+- **Move a long-running process to another machine.** Snapshot it on
+  host A, copy the bundle, restore on host B. The process never noticed.
+- **Clone a warmed-up process.** Snapshot it without killing it,
+  immediately restore the bundle into a sibling VM. Now you have two
+  copies of the same process running side by side.
+
+This guide covers both. There's a constraint worth getting out of the
+way first: same arch only. arm64 to arm64 works (laptop to Graviton).
+arm64 to x86 does not — the snapshot includes machine-code register
+state, and that doesn't translate.
+
+## Moving a process between machines
+
+Boot the workload, let it accumulate whatever in-memory state matters,
+then snapshot:
 
 ```bash
 npx machinen boot --name counter -p 3000:3000 --detached ./counter.tar.gz
-# ... let the workload accumulate state ...
+# ... requests come in, the process builds up state ...
 npx machinen snapshot --name counter --out-dir ./counter.snap
 ```
 
-The bundle is a directory:
+`./counter.snap` is a directory holding two files: `disk.img` (the
+process state, stored as CRIU images on an ext4 volume) and `meta.json`
+(a small manifest with the source name and a timestamp). It's a
+self-contained bundle — copy the whole directory and you've copied the
+snapshot.
 
-```
-counter.snap/
-  disk.img        # CRIU image set on an ext4 volume
-  meta.json       # source name + timestamp
-```
+By default `snapshot` is destructive: the source VM exits as part of
+the dump. CRIU kills the workload tree once it has the images, and the
+VM shuts down cleanly. This is what you want for a *handoff* — the
+process should only be running in one place at a time.
 
-By default the source VM **exits** as part of the snapshot — CRIU kills the
-dumped tree on success. Pass `--keep-alive` to leave it running (and close
-inherited TCP sockets so two live copies don't race on shared connection
-state).
-
-## Restore — thaw a bundle on the same or another machine
+To move it:
 
 ```bash
 scp -r ./counter.snap host-b:
 ssh host-b npx machinen restore ./counter.snap
 ```
 
-Or from Node:
+`restore` takes the bundle directory and boots a VM that resumes from
+that frozen state. The first request to host B picks up exactly where
+the last request to host A left off — same heap, same connection
+state, same counter value.
+
+From Node, the same flow:
 
 ```ts
-import { restore } from "@machinen/runtime";
-const vm = await restore({ snapDir: "./counter.snap" });
+import { boot, restore } from "@machinen/runtime";
+
+const vm = await boot({ image: "./counter.tar.gz", name: "counter" });
+// ... let it run ...
+await vm.snapshot({ outDir: "./counter.snap" });
+
+// possibly on another host:
+const restored = await restore({ snapDir: "./counter.snap" });
 ```
 
-Anonymous restores auto-name as `<sourceName>/<pid>` so lineage shows up in
-`machinen ls`.
+Restored VMs without an explicit name get an auto-name shaped like
+`<sourceName>/<pid>` so lineage shows up in `machinen ls`. You can pass
+`--name` (CLI) or `name` (API) to override.
 
-## Fork — clone a running VM
+## Cloning a running process
 
-`fork` is `snapshot --keep-alive` + `restore` in one step. Both VMs keep
-running with diverging futures.
+The same machinery, used differently. If you snapshot *without* killing
+the source and immediately restore, you get two VMs running the same
+process from the same instant. They share a heap up to that moment;
+from then on they diverge.
+
+That's what `fork` does:
 
 ```bash
 npx machinen fork --name counter --new-name counter-b --detach
-npx machinen exec --name counter-b -- curl -s localhost:3000
 ```
 
-Or:
+The source `counter` is unaffected — briefly frozen during the dump,
+then resumes. `counter-b` is a fresh sibling with a copy of the same
+heap. Both keep running independently.
 
 ```ts
 const fork = await vm.fork({ name: "counter-b" });
 ```
 
-**Two fork gotchas worth knowing about:**
+There are two pieces of inherited state where the defaults are
+deliberately *unsafe* if you don't think about them:
 
-1. **TCP sockets reset.** The fork sees `ECONNRESET` on inherited TCP
-   connections by default. The source keeps them. Pass `tcpKeep: true` /
-   `--tcp-keep` only if you really want both copies racing on the same
-   connection state.
-2. **Port forwards aren't inherited.** Host ports are global — the source
-   already owns the bind. Pass new `portForward` entries explicitly when the
-   fork needs network exposure, or reach the fork via `machinen exec`.
+**TCP connections.** The source had open sockets to clients; both VMs
+can't hold the same connection without racing on sequence numbers.
+`fork` defaults to dropping inherited connections in the fork — your
+process sees `ECONNRESET` on first I/O. The source keeps them. Pass
+`--tcp-keep` only if you genuinely want both copies talking on the
+same connection (rare; usually means a load test or a CRIU experiment).
 
-## When the snapshot bundle gets huge
+**Host port forwards.** A port like `:3000` is global on the host —
+only one process can bind it. The source already does. So `fork`
+doesn't inherit port forwards by default; the new VM has no exposed
+ports. Either reach the fork via `machinen exec` (vsock, doesn't go
+through host networking), or pass new `portForward` entries explicitly:
 
-The bundle's `disk.img` covers the **scratch disk** allocated at boot time
-(default ~8 GiB sparse). If you're snapshotting a workload that wrote a lot,
-the resulting `disk.img` reflects that. Keep snapshots tight by snapshotting
-warm-but-idle states, or by sizing the scratch disk down via
-`boot({ snapshot: "<smaller pre-allocated file>" })`.
+```ts
+await vm.fork({
+  name: "counter-b",
+  portForward: [{ hostPort: 3001, guestPort: 3000 }],
+});
+```
+
+## When you need the source to survive the snapshot
+
+Sometimes you want to snapshot a VM, hand someone the bundle for later
+restore, and keep the source running. Pass `--keep-alive`:
+
+```bash
+npx machinen snapshot --name counter --out-dir ./counter.snap --keep-alive
+```
+
+Same as fork's snapshot half: the source survives, and inherited TCP
+sockets get closed in the bundle so a future restore won't fight the
+source over connection state.
+
+## Snapshot bundles are bigger than they look
+
+The `disk.img` inside a bundle is the entire scratch disk that was
+attached at boot time — by default ~8 GiB sparse. The CRIU images
+themselves are usually small (proportional to your process's heap), but
+the surrounding ext4 volume can grow if the workload wrote a lot during
+its run.
+
+For now, two practical workarounds:
+
+- For transport, tar with `-S` so sparseness is preserved (a 2 GiB
+  sparse image is typically well under 100 MiB on the wire):
+  ```bash
+  tar -czSf counter.snap.tar.gz counter.snap/
+  ```
+  Use `rsync -aS` instead of `scp -r` if you're going host-to-host —
+  `scp` doesn't preserve sparseness.
+
+- If you know the workload only writes a few hundred MB, pre-size the
+  scratch disk down via `boot({ snapshot: "<smaller pre-allocated
+  file>" })` so the bundle starts smaller.
+
+A `--compact` flag that trims unused blocks at snapshot time is tracked
+in [issue #261](https://github.com/redwoodjs/machinen/issues/261).
