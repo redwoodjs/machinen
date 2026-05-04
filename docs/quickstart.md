@@ -4,8 +4,9 @@ You're going to build a tiny HTTP server, boot it inside a VM, hit it a few
 times so it accumulates state in memory, then move that running process to
 another machine and watch it pick up exactly where it left off.
 
-This is the trick machinen exists for: a process's heap, sockets, and open
-files travel with it. Three steps.
+This is the trick machinen exists for: the program's entire state — what
+it's holding in memory, the connections it has open, the files it's
+reading — travels with it. Three steps.
 
 ## 1. Bake an image
 
