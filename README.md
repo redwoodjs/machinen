@@ -89,6 +89,34 @@ curl host-b:3000                           # { count: 3 }  ← same process
 Same arch only (arm64 ↔ arm64). Memory, file descriptors, and timers come
 back exactly as they were.
 
+## Fork
+
+`fork` is snapshot + restore without killing the source. The original keeps
+running; you get a sibling VM with the same heap, same open files, and a
+copy-on-write disk. Both processes diverge from the same instant.
+
+Pick up from Step 2 above — `counter` is running with `count = 2`:
+
+```bash
+machinen fork --name counter --new-name counter-b --detach
+
+machinen exec --name counter   -- curl -s localhost:3000   # { count: 3 }
+machinen exec --name counter-b -- curl -s localhost:3000   # { count: 3 }
+machinen exec --name counter-b -- curl -s localhost:3000   # { count: 4 }
+machinen exec --name counter   -- curl -s localhost:3000   # { count: 4 }
+```
+
+Both VMs branched from the same `count = 2` heap and now count
+independently. Use it to clone a warmed-up process: a database with caches
+loaded, a test fixture in exactly the right state, a long-running compute
+job branched into N parallel explorations.
+
+From Node, same shape:
+
+```ts
+const fork = await vm.fork({ name: "counter-b" });
+```
+
 ## From Node
 
 Same arc, driven from TypeScript:
