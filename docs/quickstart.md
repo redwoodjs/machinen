@@ -63,8 +63,8 @@ back exactly as they were.
 
 ## Next steps
 
-- [Create a VM](./create-a-vm.md) — the three ways to get a workload running
-- [Snapshot, restore, and fork](./snapshot-restore-fork.md) — clone a running
-  process, branching futures from one heap
-- [Mount files into a VM](./mount-files.md) — `--mount`, `--mount-live`, `vm.writeFile`
-- [Networking](./networking.md) — port forwards and outbound traffic via gvproxy
+- [Create a VM](./guides/create-a-vm.md) — the three ways to get a workload running
+- [Snapshot, restore, and fork](./guides/snapshot-restore-fork.md) — clone a
+  running process, branching futures from one heap
+- [Mount files into a VM](./guides/mount-files.md) — `--mount`, `--mount-live`, `vm.writeFile`
+- [Networking](./guides/networking.md) — port forwards and outbound traffic via gvproxy
