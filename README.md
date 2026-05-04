@@ -2,7 +2,7 @@
 
 ![machinen](./docs/logo.svg)
 
-Transport a running Linux process between machines. Freeze it on your laptop,
+Hand off a running Linux process between machines. Freeze it on your laptop,
 thaw it on a server, resume it next week — heap, sockets, and open files
 intact.
 
@@ -75,7 +75,7 @@ curl localhost:3000                        # { count: 2 }
 
 The process is now sitting on host A with `count = 2` in its heap.
 
-### 3. Transport
+### 3. Handoff
 
 Freeze it, copy the bundle to host B, thaw it:
 
