@@ -3,8 +3,8 @@
 // `multiplex.ts`) can import the type without creating an import cycle
 // through `index.ts`.
 
+import type { RpcTarget } from "capnweb";
 import type { Readable, Writable } from "node:stream";
-import type { BridgeHandler } from "./bridge.ts";
 import type {
   VsockExecOptions,
   VsockExecPtyHandle,
@@ -155,34 +155,36 @@ export interface VmHandle {
   fork(opts?: ForkOptions): Promise<VmHandle>;
 
   /**
-   * Register a JSON-RPC method that the guest can call over the bridge
-   * (vsock port 1979). The runtime ships no built-in methods — callers
-   * compose whatever surface they want.
+   * Cap'n Web target the guest reaches over the bridge (AF_VSOCK CID 2
+   * port 1979). Methods on the target are the bridge surface — the
+   * runtime ships no built-in methods. Set via `boot({ bridge })` or
+   * by reassignment; both are supported.
    *
-   * Wire format (line-delimited JSON-RPC 2.0 over AF_VSOCK CID 2 port
-   * 1979):
-   *   {"jsonrpc":"2.0","id":1,"method":"<m>","params":<any>}
+   * Reassignment is honored for connections opened *after* the new
+   * target is set; in-flight sessions keep their original target.
    *
-   * The handler receives `params` and may return a value (sent back as
-   * `result`) or throw (sent back as `error`). Notifications (no `id`)
-   * get no reply, even on failure.
+   * Example — fork the running VM in response to a guest call:
    *
-   * Returns a function that unregisters the method — equivalent to
-   * `vm.unexpose(method)` and convenient for one-liner cleanup. Calling
-   * `expose` for a name that's already registered overwrites the handler.
+   *   import { RpcTarget } from "capnweb"
    *
-   * Example — fork the running VM in response to a guest event:
+   *   class Api extends RpcTarget {
+   *     constructor(private vm: VmHandle) { super() }
+   *     async fork(params: { name?: string }) {
+   *       const f = await this.vm.fork({ name: params.name })
+   *       await f.detach()
+   *       return { name: f.name, pid: f.pid }
+   *     }
+   *   }
    *
-   *   vm.expose("fork", async (params) => {
-   *     const f = await vm.fork({ name: (params as any)?.name });
-   *     await f.detach();
-   *     return { name: f.name, pid: f.pid };
-   *   });
+   *   const vm = await boot({ ..., bridge: (vm) => new Api(vm) })
+   *   // …or live swap:
+   *   vm.bridge = new OtherApi(vm)
+   *
+   * Only meaningful on the boot-owning handle. Attach handles always
+   * see `undefined` here — the listener runs in the booting process,
+   * so writes from another process can't reach it.
    */
-  expose(method: string, handler: BridgeHandler): () => void;
-
-  /** Remove a previously registered bridge method. No-op if not registered. */
-  unexpose(method: string): void;
+  bridge: RpcTarget | undefined;
 }
 
 export interface WriteFileOptions {

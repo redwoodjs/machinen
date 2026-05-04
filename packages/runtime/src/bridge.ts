@@ -3,30 +3,25 @@
 // Pairs with vsock port 1979 inside the guest. Boot wires the VMM with
 //   MACHINEN_VSOCK=...,out:1979:/tmp/machinen-bridge.sock
 // so any guest process that connects to AF_VSOCK CID 2 port 1979 gets
-// bridged to this UDS, where the runtime parses JSON-RPC 2.0 frames
-// and dispatches to methods registered via `vm.expose(method, handler)`.
+// bridged to this UDS, where the runtime hands the connection to a
+// Cap'n Web `RpcSession` whose `localMain` is the host-side target.
 //
-// Wire format (line-delimited JSON, one frame per line):
-//   request:      {"jsonrpc":"2.0","id":<n|str>,"method":"<m>","params":<any?>}
-//   notification: {"jsonrpc":"2.0","method":"<m>","params":<any?>}
-//   response:     {"jsonrpc":"2.0","id":<n|str>,"result":<any>}
-//   error:        {"jsonrpc":"2.0","id":<n|str|null>,"error":{"code":<n>,"message":<s>,"data":<any?>}}
+// The user-facing API is just a JS class extending `RpcTarget` from
+// capnweb. Methods on the class are the bridge surface; nothing else is
+// exposed. `boot({ bridge })` takes a factory `(vm) => new MyApi(vm)`
+// so the target can hold a reference to the VmHandle without the
+// chicken-and-egg of `vm.bridge = new MyApi(vm)`. `vm.bridge` is a
+// writable property — assigning a new target affects sessions opened
+// after the assignment; in-flight sessions keep their original target.
 //
-// The runtime is intentionally agnostic to method names — there are no
-// built-in handlers. Callers register whatever methods make sense for
-// their VM. A common consumer is `vm.fork()`:
-//
-//   vm.expose("fork", async (params) => {
-//     const f = await vm.fork({ name: params?.name });
-//     await f.detach();
-//     return { name: f.name, pid: f.pid };
-//   });
-//
-// Notifications (no `id`) get no reply, even on dispatch error. This
-// matches JSON-RPC 2.0 §4.1 and is the right call for fire-and-forget
-// events.
+// Wire framing: newline-delimited Cap'n Web messages. capnweb's
+// `RpcTransport` is message-oriented (one `send`/`receive` per logical
+// message), so we frame each message with a trailing `\n`. capnweb's
+// own messages are single-line JSON arrays — never contain raw
+// newlines — so newline framing is unambiguous.
 
 import debugLib from "debug";
+import { RpcSession, type RpcTarget, type RpcTransport } from "capnweb";
 import { createServer, type Server, type Socket } from "node:net";
 
 const debug = debugLib("machinen:bridge");
@@ -34,30 +29,25 @@ const debug = debugLib("machinen:bridge");
 /** Default vsock port the guest connects to. Documented; not configurable. */
 export const BRIDGE_VSOCK_PORT = 1979;
 
-/** Bound on a single JSON line. Anything larger is dropped. Mirrors the
- *  exec/file agent caps so a malicious or buggy guest can't OOM the
- *  runtime by spamming an unterminated line. */
-const MAX_LINE_BYTES = 64 * 1024;
+/** Bound on a single message frame. Anything larger drops the connection.
+ *  Mirrors the exec/file agent caps so a malicious or buggy guest can't
+ *  OOM the runtime by spamming an unterminated line. */
+const MAX_FRAME_BYTES = 64 * 1024;
 
-/** JSON-RPC 2.0 standard error codes (subset we use). */
-export const BridgeErrorCode = {
-  PARSE_ERROR: -32700,
-  INVALID_REQUEST: -32600,
-  METHOD_NOT_FOUND: -32601,
-  INTERNAL_ERROR: -32603,
-} as const;
-
-export type BridgeHandler = (params: unknown) => unknown | Promise<unknown>;
+/**
+ * Looked up on each new connection so live `vm.bridge =` swaps take
+ * effect for sessions opened after the swap. Returning `undefined`
+ * means "no bridge target configured" — connections in that state
+ * see an empty surface (every method call resolves to a "method not
+ * found"-shaped Cap'n Web error).
+ */
+export type BridgeTargetGetter = () => RpcTarget | undefined;
 
 export interface BridgeServerOptions {
   /** UDS path to listen on. Created (and removed on `close`) by the server. */
   udsPath: string;
-  /**
-   * Method registry. The bridge looks up handlers by name on each
-   * incoming request. Mutating the map after `start()` is fine —
-   * vm.expose / vm.unexpose work that way.
-   */
-  methods: Map<string, BridgeHandler>;
+  /** Per-connection lookup of the current bridge target. */
+  getTarget: BridgeTargetGetter;
 }
 
 export interface BridgeServer {
@@ -67,16 +57,19 @@ export interface BridgeServer {
 
 /**
  * Start a bridge UDS server listening on `udsPath`. Each connection
- * stays open for the lifetime of the guest process that connected;
- * multiple frames per connection are supported.
+ * is wrapped in an `RpcSession` whose `localMain` is the target
+ * `getTarget()` returns at the time the connection is accepted.
  */
 export async function startBridgeServer(opts: BridgeServerOptions): Promise<BridgeServer> {
-  const conns = new Set<Socket>();
-  const server = createServer((sock) => {
-    conns.add(sock);
-    sock.on("close", () => conns.delete(sock));
+  const sessions = new Set<{ sock: Socket; session: RpcSession }>();
+  const server: Server = createServer((sock) => {
     sock.on("error", (err) => debug("socket error: %s", err.message));
-    void handleConnection(sock, opts.methods);
+    const target = opts.getTarget();
+    const transport = socketTransport(sock);
+    const session = new RpcSession(transport, target);
+    const entry = { sock, session };
+    sessions.add(entry);
+    sock.on("close", () => sessions.delete(entry));
   });
   await new Promise<void>((done, fail) => {
     server.once("error", fail);
@@ -90,113 +83,99 @@ export async function startBridgeServer(opts: BridgeServerOptions): Promise<Brid
   let closed = false;
   return {
     async close() {
-      if (closed) return;
+      if (closed) {
+        return;
+      }
       closed = true;
-      for (const sock of conns) {
+      for (const { sock } of sessions) {
         sock.destroy();
       }
-      conns.clear();
+      sessions.clear();
       await new Promise<void>((done) => server.close(() => done()));
       debug("closed udsPath=%s", opts.udsPath);
     },
   };
 }
 
-async function handleConnection(sock: Socket, methods: Map<string, BridgeHandler>): Promise<void> {
-  let buf = Buffer.alloc(0);
+/**
+ * Adapt a Node `Socket` to capnweb's `RpcTransport` — newline-framed
+ * UTF-8 strings in both directions. Receives queue messages until the
+ * session calls `receive()`; receives queue resolvers until a message
+ * arrives. Either side closing the socket rejects pending receives
+ * (which capnweb propagates as a session error).
+ */
+function socketTransport(sock: Socket): RpcTransport {
+  let buf: Buffer = Buffer.alloc(0);
+  const queue: string[] = [];
+  const waiters: Array<{ resolve: (v: string) => void; reject: (e: Error) => void }> = [];
+  let closeError: Error | undefined;
+
+  const flushClose = () => {
+    while (waiters.length > 0) {
+      waiters.shift()!.reject(closeError ?? new Error("bridge socket closed"));
+    }
+  };
+
   sock.on("data", (chunk: Buffer) => {
     buf = buf.length === 0 ? chunk : Buffer.concat([buf, chunk]);
     while (true) {
       const nl = buf.indexOf(0x0a);
       if (nl < 0) {
-        if (buf.length > MAX_LINE_BYTES) {
-          debug("dropping connection: line exceeds %d bytes", MAX_LINE_BYTES);
+        if (buf.length > MAX_FRAME_BYTES) {
+          debug("dropping connection: frame exceeds %d bytes", MAX_FRAME_BYTES);
+          closeError = new Error(`bridge frame exceeds ${MAX_FRAME_BYTES} bytes`);
           sock.destroy();
           return;
         }
         break;
       }
-      const line = buf.subarray(0, nl);
-      buf = buf.subarray(nl + 1);
-      if (line.length === 0) continue;
-      if (line.length > MAX_LINE_BYTES) {
-        debug("dropping line: %d bytes > %d", line.length, MAX_LINE_BYTES);
+      if (nl > MAX_FRAME_BYTES) {
+        debug("dropping frame: %d bytes > %d", nl, MAX_FRAME_BYTES);
+        buf = buf.subarray(nl + 1);
         continue;
       }
-      // Concurrent dispatch is fine — JSON-RPC carries the id back, so
-      // out-of-order responses are correct. Each response is one atomic
-      // sock.write() so frames don't interleave on the wire.
-      void dispatch(line.toString("utf8"), sock, methods);
+      const line = buf.subarray(0, nl).toString("utf8");
+      buf = buf.subarray(nl + 1);
+      if (line.length === 0) {
+        continue;
+      }
+      if (waiters.length > 0) {
+        waiters.shift()!.resolve(line);
+      } else {
+        queue.push(line);
+      }
     }
   });
-}
+  sock.on("close", () => {
+    closeError ??= new Error("bridge socket closed");
+    flushClose();
+  });
+  sock.on("error", (err) => {
+    closeError = err;
+    flushClose();
+  });
 
-interface JsonRpcRequest {
-  jsonrpc: "2.0";
-  id?: number | string | null;
-  method: string;
-  params?: unknown;
-}
-
-async function dispatch(
-  line: string,
-  sock: Socket,
-  methods: Map<string, BridgeHandler>,
-): Promise<void> {
-  let req: JsonRpcRequest;
-  try {
-    req = JSON.parse(line) as JsonRpcRequest;
-  } catch (err) {
-    debug("parse error: %s", err instanceof Error ? err.message : String(err));
-    writeError(sock, null, BridgeErrorCode.PARSE_ERROR, "parse error");
-    return;
-  }
-  if (typeof req !== "object" || req === null || typeof req.method !== "string") {
-    writeError(sock, req?.id ?? null, BridgeErrorCode.INVALID_REQUEST, "invalid request");
-    return;
-  }
-  const isNotification = !("id" in req) || req.id === undefined;
-  const handler = methods.get(req.method);
-  if (!handler) {
-    debug("method not found: %s", req.method);
-    if (!isNotification) {
-      writeError(
-        sock,
-        req.id ?? null,
-        BridgeErrorCode.METHOD_NOT_FOUND,
-        `method not found: ${req.method}`,
-      );
-    }
-    return;
-  }
-  try {
-    const result = await handler(req.params);
-    if (!isNotification) {
-      writeResult(sock, req.id ?? null, result);
-    }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    debug("handler '%s' threw: %s", req.method, message);
-    if (!isNotification) {
-      writeError(sock, req.id ?? null, BridgeErrorCode.INTERNAL_ERROR, message);
-    }
-  }
-}
-
-function writeResult(sock: Socket, id: number | string | null, result: unknown): void {
-  const frame = JSON.stringify({ jsonrpc: "2.0", id, result: result ?? null }) + "\n";
-  if (sock.writable) sock.write(frame);
-}
-
-function writeError(
-  sock: Socket,
-  id: number | string | null,
-  code: number,
-  message: string,
-  data?: unknown,
-): void {
-  const error: { code: number; message: string; data?: unknown } = { code, message };
-  if (data !== undefined) error.data = data;
-  const frame = JSON.stringify({ jsonrpc: "2.0", id, error }) + "\n";
-  if (sock.writable) sock.write(frame);
+  return {
+    async send(message: string) {
+      if (!sock.writable) {
+        throw closeError ?? new Error("bridge socket not writable");
+      }
+      await new Promise<void>((done, fail) => {
+        sock.write(message + "\n", (err) => (err ? fail(err) : done()));
+      });
+    },
+    receive(): Promise<string> {
+      if (queue.length > 0) {
+        return Promise.resolve(queue.shift()!);
+      }
+      if (closeError) {
+        return Promise.reject(closeError);
+      }
+      return new Promise<string>((resolve, reject) => waiters.push({ resolve, reject }));
+    },
+    abort(reason: unknown) {
+      closeError = reason instanceof Error ? reason : new Error(String(reason));
+      sock.destroy();
+    },
+  };
 }

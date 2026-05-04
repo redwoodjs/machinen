@@ -15,8 +15,12 @@ export { VsockSecrets } from "./secrets.ts";
 export type { VsockSecretsOptions } from "./secrets.ts";
 export { VsockFiles } from "./files.ts";
 export type { VsockFilesOptions } from "./files.ts";
-export { BRIDGE_VSOCK_PORT, BridgeErrorCode } from "./bridge.ts";
-export type { BridgeHandler } from "./bridge.ts";
+export { BRIDGE_VSOCK_PORT } from "./bridge.ts";
+// Re-export `RpcTarget` so users don't have to add capnweb as a direct
+// dep just to subclass for `boot({ bridge })`. The other capnweb
+// surface (sessions, transports) lives behind `import "capnweb"` for
+// users who need it.
+export { RpcTarget } from "capnweb";
 export { VsockExec } from "./exec.ts";
 export type {
   VsockExecOptions,

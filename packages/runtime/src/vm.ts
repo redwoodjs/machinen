@@ -59,12 +59,8 @@ import {
   spawnGvproxy,
   warnGvproxyMissing,
 } from "./gvproxy.ts";
-import {
-  BRIDGE_VSOCK_PORT,
-  startBridgeServer,
-  type BridgeHandler,
-  type BridgeServer,
-} from "./bridge.ts";
+import { BRIDGE_VSOCK_PORT, startBridgeServer, type BridgeServer } from "./bridge.ts";
+import type { RpcTarget } from "capnweb";
 import { bootSnapshotPath, writeBootSnapshot } from "./detached-log.ts";
 import { BootError, ExecError, RegistryError, SnapshotError } from "./errors.ts";
 import { ensurePdeathsig, wrapWithPdeathsig } from "./pdeathsig.ts";
@@ -371,6 +367,18 @@ export interface BootOptions {
    * the registry entry stays live, the vsock UDS is still listening.
    */
   detached?: boolean;
+  /**
+   * Factory that constructs the Cap'n Web target the guest reaches
+   * over the bridge (AF_VSOCK CID 2 port 1979). Called once after the
+   * VmHandle is built so the target can capture `vm`. The returned
+   * value lands at `vm.bridge` and can be reassigned later.
+   *
+   * Without a factory, `vm.bridge` starts as `undefined` and the
+   * listener still runs — guest connections see a Cap'n Web error
+   * for any method call. Set `bridge` either at boot or via
+   * `vm.bridge = new MyApi(vm)` afterward.
+   */
+  bridge?: (vm: VmHandle) => RpcTarget;
 }
 
 /**
@@ -673,10 +681,11 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   let gvSocketDir: string | undefined;
   const liveMountStops: Array<() => Promise<void>> = [];
   let bundleTempDir: string | undefined;
-  // Bridge dispatch table — mutated by the handle's expose/unexpose.
-  // Lives at boot scope so the listener (started below) and the
-  // returned handle share the same Map by reference.
-  const bridgeMethods = new Map<string, BridgeHandler>();
+  // Bridge target — written by `boot({ bridge })` after the handle
+  // exists, and by users via `vm.bridge =`. The listener's
+  // `getTarget` getter reads this on each new connection so live
+  // swaps take effect for sessions opened afterward.
+  let currentBridge: RpcTarget | undefined;
   let bridgeServer: BridgeServer | undefined;
   const mergedGuestEnv: Record<string, string> = { ...opts.env };
 
@@ -749,7 +758,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       phases.start("net-services.bridge");
       bridgeServer = await startBridgeServer({
         udsPath: bridgeUdsPath,
-        methods: bridgeMethods,
+        getTarget: () => currentBridge,
       });
       phases.end("net-services.bridge");
     }
@@ -1288,21 +1297,21 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       );
     },
 
-    expose(method, handler) {
-      bridgeMethods.set(method, handler);
-      return () => {
-        // Only delete if still ours — guards against an unexpose() racing
-        // an expose(method, newHandler) overwrite.
-        if (bridgeMethods.get(method) === handler) {
-          bridgeMethods.delete(method);
-        }
-      };
+    get bridge() {
+      return currentBridge;
     },
-
-    unexpose(method) {
-      bridgeMethods.delete(method);
+    set bridge(target: RpcTarget | undefined) {
+      currentBridge = target;
     },
   };
+
+  // #217: invoke the bridge factory once the handle exists so the
+  // target can capture `vm`. Connections that opened during boot
+  // (rare — guest userspace isn't up yet) read `currentBridge` on
+  // their next message and pick this up automatically.
+  if (opts.bridge) {
+    currentBridge = opts.bridge(handle);
+  }
 
   // Set a per-VM kernel hostname so `\h` prompts and other
   // hostname-aware tooling can tell VMs apart. Fire-and-forget
@@ -1578,22 +1587,21 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
       );
     },
 
-    // Bridge dispatch lives in the *booting* process — attach handles
-    // can't reach into that other process's method registry. Throw
-    // loudly so users don't sit puzzled when their handler "isn't being
-    // called." The bridge is still usable from the booting process.
-    expose() {
+    // Bridge listener lives in the booting process — attach handles
+    // can't reach into another process's target. Reads return
+    // undefined; writes throw loudly so users don't sit puzzled
+    // wondering why their target "isn't being called."
+    get bridge() {
+      return undefined;
+    },
+    set bridge(_target: RpcTarget | undefined) {
       throw new RegistryError(
         "REGISTRY_VM_NOT_FOUND",
-        "vm.expose is only available on the boot-owning handle. " +
-          "Attach handles can't register bridge methods because the " +
+        "vm.bridge is only writable on the boot-owning handle. " +
+          "Attach handles can't set the bridge target because the " +
           "listener runs in the process that called boot(). Move the " +
-          "expose() call into that process.",
+          "assignment into that process.",
       );
-    },
-
-    unexpose() {
-      // No-op: nothing was registered here in the first place.
     },
   };
   return handle;

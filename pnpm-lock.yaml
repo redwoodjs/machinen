@@ -94,6 +94,9 @@ importers:
       '@homebridge/node-pty-prebuilt-multiarch':
         specifier: ^0.12.0
         version: 0.12.0
+      capnweb:
+        specifier: ^0.6.1
+        version: 0.6.1
       debug:
         specifier: ^4.4.1
         version: 4.4.3
@@ -1418,6 +1421,9 @@ packages:
 
   caniuse-lite@1.0.30001788:
     resolution: {integrity: sha512-6q8HFp+lOQtcf7wBK+uEenxymVWkGKkjFpCvw5W25cmMwEDU45p1xQFBQv8JDlMMry7eNxyBaR+qxgmTUZkIRQ==}
+
+  capnweb@0.6.1:
+    resolution: {integrity: sha512-fmhV26QPd1ewf5R74h55oVZnGwIcSaRMzbfLQUy8+zOBjuTmT3KXoT8wxHvnp1m9Ht9BoUUS5ZwNLoVLfQTyBg==}
 
   chai@6.2.2:
     resolution: {integrity: sha512-NUPRluOfOiTKBKvWPtSD4PhFvWCqOi0BGStNWs57X9js7XGTprSmFoz5F0tWhR4WPjNeR9jXqdC7/UpSJTnlRg==}
@@ -3957,6 +3963,8 @@ snapshots:
   callsites@3.1.0: {}
 
   caniuse-lite@1.0.30001788: {}
+
+  capnweb@0.6.1: {}
 
   chai@6.2.2: {}
 
