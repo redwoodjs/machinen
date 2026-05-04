@@ -4,10 +4,9 @@
 
 <h1 align="center">M A C H I N E N</h1>
 
-Hand off a running Linux machine between hosts. Freeze it on your laptop,
-thaw it on a server, resume it next week. The program picks up exactly where
-it left off — like waking a laptop from sleep, except on a different
-computer.
+Hand off a running Linux VM between hosts. Freeze it on your laptop, thaw it
+on a server, resume it next week. The program picks up exactly where it left
+off — like waking a laptop from sleep, except on a different computer.
 
 A native arm64 microVM runtime under the hood. Node.js is the first-class
 target; Python, bash, and anything else that boots in a Linux VM works too.
