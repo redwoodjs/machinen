@@ -19,21 +19,21 @@ The bridge surface is whatever methods you put on a class extending
 methods can drive the VM (fork, exec, mount, etc.).
 
 ```ts
-import { boot, RpcTarget, type VmHandle } from "@machinen/runtime"
+import { boot, RpcTarget, type VmHandle } from "@machinen/runtime";
 
 class Api extends RpcTarget {
   constructor(private vm: VmHandle) {
-    super()
+    super();
   }
 
   async fork(params: { name?: string }) {
-    const f = await this.vm.fork({ name: params.name })
-    await f.detach()
-    return { name: f.name, pid: f.pid }
+    const f = await this.vm.fork({ name: params.name });
+    await f.detach();
+    return { name: f.name, pid: f.pid };
   }
 
   async log(line: string) {
-    process.stdout.write(`[guest] ${line}\n`)
+    process.stdout.write(`[guest] ${line}\n`);
   }
 }
 
@@ -41,7 +41,7 @@ const vm = await boot({
   image: "rootfs.tar.gz",
   cmd: ["/bin/sh"],
   bridge: (vm) => new Api(vm), // factory — receives the handle
-})
+});
 ```
 
 The `bridge` option is a factory `(vm: VmHandle) => RpcTarget`. It's
@@ -57,7 +57,7 @@ their original target. Good for swapping APIs between phases of a
 workload's lifecycle.
 
 ```ts
-vm.bridge = new OtherApi(vm)
+vm.bridge = new OtherApi(vm);
 ```
 
 Set to `undefined` to drop the surface entirely — the listener stays
