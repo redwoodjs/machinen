@@ -1,6 +1,8 @@
-# machinen
+<p align="center">
+  <img src="./docs/logo.svg" alt="machinen" />
+</p>
 
-![machinen](./docs/logo.svg)
+<h1 align="center">M A C H I N E N</h1>
 
 Hand off a running Linux process between machines. Freeze it on your laptop,
 thaw it on a server, resume it next week — heap, sockets, and open files
@@ -146,8 +148,16 @@ await vm.snapshot({ outDir: "./counter.snap" });
 const restored = await restore({ snapDir: "./counter.snap" });
 ```
 
-See [`packages/runtime/README.md`](packages/runtime/README.md) for the full
-surface.
+## Documentation
+
+- [Quickstart](./docs/quickstart.md) — the same three-step walkthrough
+  with more colour
+- [Guides](./docs/) — recipes for creating VMs, snapshots and forks,
+  mounts, and networking
+- [`@machinen/cli` reference](./packages/cli/API.md) — every command
+  and flag
+- [`@machinen/runtime` reference](./packages/runtime/API.md) — every
+  exported function, type, and error class (typedoc-generated)
 
 ## Other ways to boot
 
