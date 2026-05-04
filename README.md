@@ -159,8 +159,6 @@ machinen install --version <tag>            # pin to a specific release tag
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, build, and local-run
 instructions. Release mechanics are in [`RELEASING.md`](RELEASING.md).
-Design notes and learnings live in
-[`.docs/learnings/microvm/`](.docs/learnings/microvm/).
 
 ## License
 
