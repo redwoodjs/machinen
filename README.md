@@ -12,8 +12,11 @@ target; Python, bash, and anything else that boots in a Linux VM works too.
 ## Install
 
 ```bash
-npm i -g @machinen/cli
+npm i @machinen/cli @machinen/runtime
 ```
+
+Then run the CLI with `npx machinen …`. Prefer it on your PATH? `npm i -g
+@machinen/cli` is fine too.
 
 The right VMM binary is pulled automatically via optional dependencies
 (`@machinen/vmm-arm64-darwin` on Apple Silicon Macs, `@machinen/vmm-arm64-linux`
@@ -68,7 +71,7 @@ node bake.ts
 ### 2. Boot
 
 ```bash
-machinen boot --name counter -p 3000:3000 --detached ./counter.tar.gz
+npx machinen boot --name counter -p 3000:3000 --detached ./counter.tar.gz
 curl localhost:3000                        # { count: 1 }
 curl localhost:3000                        # { count: 2 }
 ```
@@ -80,9 +83,9 @@ The process is now sitting on host A with `count = 2` in its heap.
 Freeze it, copy the bundle to host B, thaw it:
 
 ```bash
-machinen snapshot --name counter --out-dir ./counter.snap
+npx machinen snapshot --name counter --out-dir ./counter.snap
 scp -r ./counter.snap host-b:
-ssh host-b machinen restore ./counter.snap &
+ssh host-b npx machinen restore ./counter.snap &
 curl host-b:3000                           # { count: 3 }  ← same process
 ```
 
@@ -98,12 +101,12 @@ copy-on-write disk. Both processes diverge from the same instant.
 Pick up from Step 2 above — `counter` is running with `count = 2`:
 
 ```bash
-machinen fork --name counter --new-name counter-b --detach
+npx machinen fork --name counter --new-name counter-b --detach
 
-machinen exec --name counter   -- curl -s localhost:3000   # { count: 3 }
-machinen exec --name counter-b -- curl -s localhost:3000   # { count: 3 }
-machinen exec --name counter-b -- curl -s localhost:3000   # { count: 4 }
-machinen exec --name counter   -- curl -s localhost:3000   # { count: 4 }
+npx machinen exec --name counter   -- curl -s localhost:3000   # { count: 3 }
+npx machinen exec --name counter-b -- curl -s localhost:3000   # { count: 3 }
+npx machinen exec --name counter-b -- curl -s localhost:3000   # { count: 4 }
+npx machinen exec --name counter   -- curl -s localhost:3000   # { count: 4 }
 ```
 
 Both VMs branched from the same `count = 2` heap and now count
@@ -149,10 +152,10 @@ surface.
 ## Other ways to boot
 
 ```bash
-machinen boot -- /bin/sh                    # ad-hoc: boot base + run a cmd
-machinen boot ./my-image.tar.gz             # boot a provisioned rootfs tarball
-machinen install                            # pre-fetch base assets (CI / airgap)
-machinen install --version <tag>            # pin to a specific release tag
+npx machinen boot -- /bin/sh                    # ad-hoc: boot base + run a cmd
+npx machinen boot ./my-image.tar.gz             # boot a provisioned rootfs tarball
+npx machinen install                            # pre-fetch base assets (CI / airgap)
+npx machinen install --version <tag>            # pin to a specific release tag
 ```
 
 ## Contributing
