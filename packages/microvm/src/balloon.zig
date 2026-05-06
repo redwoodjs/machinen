@@ -30,11 +30,25 @@
 //! Each reporting chain is one or more descriptors. Each descriptor
 //! describes a contiguous *guest-physical* range of free memory:
 //! `{ addr = guest_phys, len = bytes }`. We translate to host VA via
-//! `ram_base + addr` and call `madvise(host_va, len, MADV_DONTNEED)`.
-//! The kernel rounds the range down/up to host-page boundaries, so a
-//! sub-host-page report (e.g. 4 KiB on a 16 KiB host) is a no-op for
-//! that page — safe but doesn't free it. In practice the guest
-//! coalesces contiguous free runs and the larger reports do reclaim.
+//! `ram_base + addr` and atomically replace the range with fresh
+//! zero-fill pages via `mmap(MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS)`.
+//! That immediately drops the host's resident-set count for those
+//! bytes; next guest access lazy-faults a zero page back in via
+//! the same path as the original boot-time mapping.
+//!
+//! Why mmap rather than `madvise(MADV_DONTNEED)`: on Linux
+//! `MADV_DONTNEED` does this exactly, but on Darwin it's only an
+//! advisory hint to the page-replacement algorithm — the pages stay
+//! resident until external memory pressure. `MADV_FREE_REUSABLE`
+//! marks them discardable but still resident in `task_basic_info`.
+//! `mmap MAP_FIXED` is the one operation with consistent immediate-
+//! reclaim semantics across both platforms. (Firecracker uses the
+//! same approach for the same reason.)
+//!
+//! The reported runs are MAX_PAGE_ORDER-aligned (4 MiB on arm64
+//! defconfig) — comfortably aligned to both the 4 KiB Linux host
+//! page size and the 16 KiB Darwin host page size, so mmap accepts
+//! them without rounding.
 //!
 //! ## Page granularity
 //!
@@ -185,24 +199,60 @@ pub const Backend = struct {
         const ram_end = ram_base +% ram_slice.len;
 
         var bytes_freed: u64 = 0;
+        var descs: u32 = 0;
+        var bytes_seen: u64 = 0;
         var idx: u16 = head;
         var steps: u32 = 0;
         while (steps < virtio.max_chain_descriptors) : (steps += 1) {
             const d = dev.queueDescriptor(QUEUE_REPORTING, idx) orelse break;
+            descs += 1;
+            bytes_seen += d.len;
             // Descriptor describes a guest-physical range. Validate it
             // sits inside our RAM slab before madvising — a malformed
             // or hostile descriptor pointing outside RAM (e.g. into
             // MMIO) would otherwise blow up the host process.
             if (d.len > 0 and d.addr >= ram_base and d.addr + d.len <= ram_end) {
                 const offset: usize = @intCast(d.addr - ram_base);
-                const host_va: [*]u8 = @ptrFromInt(@intFromPtr(ram_slice.ptr) + offset);
+                const host_va_ptr: *anyopaque = @ptrFromInt(@intFromPtr(ram_slice.ptr) + offset);
                 const len: usize = @intCast(d.len);
-                if (madvise(host_va, len, MADV_DONTNEED) == 0) {
+                // mmap MAP_FIXED|MAP_PRIVATE|MAP_ANONYMOUS atomically
+                // replaces the range with a fresh zero-fill mapping.
+                // Returns the same address on success; MAP_FAILED
+                // (-1 cast to pointer) on error. The HVF/KVM stage-2
+                // entries for the range still resolve through the
+                // host VA, so the next guest access faults a fresh
+                // zero page back in — same lazy-commit path as the
+                // original mapping.
+                const got = mmap(
+                    host_va_ptr,
+                    len,
+                    PROT_READ | PROT_WRITE,
+                    MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS,
+                    -1,
+                    0,
+                );
+                if (@intFromPtr(got) == @intFromPtr(host_va_ptr)) {
                     bytes_freed += d.len;
+                } else if (debugEnabled()) {
+                    std.debug.print(
+                        "balloon: mmap MAP_FIXED failed addr=0x{x} len={d} got=0x{x}\n",
+                        .{ d.addr, d.len, @intFromPtr(got) },
+                    );
                 }
+            } else if (debugEnabled()) {
+                std.debug.print(
+                    "balloon: report out of RAM range addr=0x{x} len={d} ram=[0x{x},0x{x})\n",
+                    .{ d.addr, d.len, ram_base, ram_end },
+                );
             }
             if ((d.flags & virtio.VringDesc.F_NEXT) == 0) break;
             idx = d.next;
+        }
+        if (debugEnabled() and descs > 0) {
+            std.debug.print(
+                "balloon: reporting chain head={d} descs={d} seen={d} freed={d}\n",
+                .{ head, descs, bytes_seen, bytes_freed },
+            );
         }
         _ = self.bytes_reported.fetchAdd(bytes_freed, .monotonic);
         dev.queuePushUsed(QUEUE_REPORTING, head, 0);
@@ -222,21 +272,37 @@ fn ackChain(dev: *virtio.Device, q_idx: u32, head: u16) void {
     dev.queuePushUsed(q_idx, head, 0);
 }
 
-// libc bindings: `madvise(MADV_DONTNEED)` is the page-release hook
-// on both Darwin and Linux. The flag value differs between platforms;
-// pin the right one at compile time so a misconfigured build doesn't
-// silently call the wrong advise (e.g. MADV_FREE on Linux, which has
-// different semantics).
-extern "c" fn madvise(addr: *anyopaque, len: usize, advice: c_int) c_int;
-
-pub const MADV_DONTNEED: c_int = if (builtin.os.tag == .macos) 4 else 4;
-
-comptime {
-    // Both Darwin and Linux happen to define MADV_DONTNEED == 4 in
-    // their headers. If a port to FreeBSD lands later this constant
-    // diverges, hence the ifdef hook.
-    assert(MADV_DONTNEED == 4);
+/// Gate noisy diagnostics on `MACHINEN_DEBUG=1` so production runs
+/// stay quiet. Mirrors `boot_hvf.zig`'s `debugEnabled` helper.
+fn debugEnabled() bool {
+    const c = struct {
+        extern "c" fn getenv(name: [*:0]const u8) ?[*:0]const u8;
+    };
+    return c.getenv("MACHINEN_DEBUG") != null;
 }
+
+// libc bindings for the mmap-based reclaim. mmap with MAP_FIXED is
+// the portable "release these pages now" primitive: Linux drops RSS
+// immediately, Darwin does the same. The flag values below are the
+// canonical macOS / Linux constants — both happen to agree on
+// MAP_PRIVATE (2) and MAP_FIXED (0x10), and on PROT_READ (1) /
+// PROT_WRITE (2), but MAP_ANONYMOUS differs:
+//   * Linux:  MAP_ANONYMOUS = 0x20
+//   * Darwin: MAP_ANON      = 0x1000
+extern "c" fn mmap(
+    addr: ?*anyopaque,
+    len: usize,
+    prot: c_int,
+    flags: c_int,
+    fd: c_int,
+    offset: c_long,
+) *anyopaque;
+
+const PROT_READ: c_int = 0x1;
+const PROT_WRITE: c_int = 0x2;
+const MAP_PRIVATE: c_int = 0x2;
+const MAP_FIXED: c_int = 0x10;
+const MAP_ANONYMOUS: c_int = if (builtin.os.tag == .macos) 0x1000 else 0x20;
 
 // --- tests ---
 

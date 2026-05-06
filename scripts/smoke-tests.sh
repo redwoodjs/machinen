@@ -441,20 +441,12 @@ else
 fi
 
 # ----------------------------------------------------------------
-# Phase-1 base-rootfs contract tests — verify #77 step 1 plumbing.
-# Each asserts one thing scripts/build-base-assets.sh claims to ship.
+# Helpers that B-series and the later N/P/S sections share.
+# Hoisted here because B1 boots a long-lived named VM the same way
+# N2 / S1 do. Scratch registry redirects `boot()`'s writeEntry and
+# `list()`/`attach()`'s lookups so we don't collide with the user's
+# real ~/.machinen/vms entries.
 # ----------------------------------------------------------------
-
-# ----------------------------------------------------------------
-# #93 API surface — exercise the new CLI verbs end-to-end against a
-# real guest. Uses a scratch registry dir so we don't pollute any
-# real running VMs on the dev machine. Each test boots a named VM in
-# the background, hits it with ls/exec, then kills it.
-# ----------------------------------------------------------------
-
-# Scratch registry for these tests. Redirects `boot()`'s writeEntry
-# and `list()`/`attach()`'s lookups so we don't collide with the
-# user's real ~/.machinen/vms entries.
 export MACHINEN_REGISTRY_DIR="$FIXTURE/registry"
 mkdir -p "$MACHINEN_REGISTRY_DIR"
 
@@ -485,6 +477,186 @@ wait_for_vm() {
   done
   return 1
 }
+
+# ----------------------------------------------------------------
+# B-series: #263 phase B — virtio-balloon free-page-reporting.
+#
+# B0  device bound + feature-negotiated inside the guest.
+# B1  spike-and-idle reclaim: drive a 1 GiB workload through dirty
+#     anon pages, free it, wait for the kernel's free-page-reporting
+#     thread to fire, assert host RSS drops back close to baseline.
+#
+# Host RSS is read via `ps -o rss= -p <vmm_pid>` (KiB, portable
+# across darwin + linux). The VMM pid comes from `cli ls`. RSS is
+# best-effort — kernel page reporting batches and is gated on
+# free-area watermarks, so a tight tolerance would flake.
+# ----------------------------------------------------------------
+
+# Helper: resolve the actual VMM pid from a registry-recorded pid.
+# `cli ls` reports the pdeathsig shim pid (a ~1 MiB watcher that
+# SIGTERMs the VMM if the parent dies). Its only child is the real
+# machinen-vm. Falls back to the input pid if pgrep finds no child
+# — happens when the caller passed a non-shim pid directly.
+vmm_real_pid() {
+  local outer=$1
+  local child
+  child=$(pgrep -P "$outer" 2>/dev/null | head -1)
+  if [[ -n "$child" ]]; then
+    echo "$child"
+  else
+    echo "$outer"
+  fi
+}
+
+# Helper: read VMM RSS in MiB. Reports 0 if `ps` can't see the pid.
+# Resolves through the pdeathsig shim if the input pid wraps one.
+vmm_rss_mib() {
+  local outer=$1
+  local pid
+  pid=$(vmm_real_pid "$outer")
+  local kib
+  kib=$(ps -o rss= -p "$pid" 2>/dev/null | awk 'NR==1 { print $1 }')
+  if [[ -z "$kib" || "$kib" == "0" ]]; then
+    echo 0
+  else
+    echo $(( kib / 1024 ))
+  fi
+}
+
+# ---- B0: balloon device bound + feature flags negotiated ----
+if [[ "$ROOTFS_SUPPORTS_VSOCK_EXEC" -eq 0 ]]; then
+  echo "B0: skipped (rootfs lacks vsock-exec)"
+else
+echo "B0: virtio-balloon driver bound to slot 4"
+B0_LOG="$FIXTURE/b0.log"
+run_timeout 60 node "$CLI" boot -- /bin/sh -c \
+  'echo "DRIVER=$(readlink /sys/bus/virtio/devices/virtio4/driver | xargs basename)"; echo "DEVICE=$(cat /sys/bus/virtio/devices/virtio4/device)"' \
+  >"$B0_LOG" 2>&1 || true
+# `readlink` of /sys/bus/virtio/devices/virtio4/driver should resolve
+# to .../drivers/virtio_balloon when our slot 4 device is bound. The
+# guest's virtio_balloon driver is built-in (CONFIG_VIRTIO_BALLOON=y);
+# binding fails only if our feature set is one the driver refuses.
+if grep -q "^DRIVER=virtio_balloon" "$B0_LOG" && grep -q "^DEVICE=0x0005" "$B0_LOG"; then
+  pass "balloon driver bound to virtio4 (device id 0x0005)"
+else
+  tail -50 "$B0_LOG" >&2
+  fail "B0 — virtio_balloon not bound to slot 4"
+fi
+fi  # B0 rootfs gate
+
+# ---- B1: spike-and-idle reclaim ----
+# Boot a long-running named VM, measure baseline RSS, drive a spike
+# through tmpfs (anon pages — not pagecache), free + sync, wait
+# REPORT_GRACE seconds for the guest's page-reporting kthread to fire,
+# remeasure. A working balloon brings RSS back down (within tolerance);
+# without it, the post-spike RSS stays at the high-water mark.
+if [[ "$ROOTFS_SUPPORTS_VSOCK_EXEC" -eq 0 ]]; then
+  echo "B1: skipped (rootfs lacks vsock-exec)"
+else
+echo "B1: spike-and-idle reclaim — RSS drops after free-page-reporting fires"
+B1_NAME="balloon-smoke-$$"
+B1_BG_LOG="$FIXTURE/b1-bg.log"
+B1_PID=$(boot_bg "$B1_NAME" "$B1_BG_LOG" --memory 2048 -- \
+  /bin/sh -c "/exec-agent & sleep 600")
+cleanup_b1() {
+  kill -TERM "$B1_PID" 2>/dev/null || true
+  wait "$B1_PID" 2>/dev/null || true
+}
+trap 'cleanup_b1; rm -rf "$FIXTURE"' EXIT
+
+if ! wait_for_vm "$B1_NAME"; then
+  tail -60 "$B1_BG_LOG" >&2
+  fail "B1 — '$B1_NAME' never appeared in 'machinen ls'"
+fi
+
+# Discover VMM pid via the registry.
+B1_VMM_PID=$(cli ls 2>/dev/null | awk -v n="$B1_NAME" 'NR>1 && $2==n {print $1}')
+if [[ -z "$B1_VMM_PID" ]]; then
+  cli ls >&2 || true
+  fail "B1 — couldn't find VMM pid for '$B1_NAME'"
+fi
+
+# Let post-boot allocations settle before snapshotting baseline.
+sleep 3
+B1_BASELINE=$(vmm_rss_mib "$B1_VMM_PID")
+echo "  baseline RSS=${B1_BASELINE} MiB (vmm pid $B1_VMM_PID)"
+
+# Drive a 1 GiB spike inside the guest, then free it with rm + sync
+# + drop_caches. Writing into a tmpfs mount would be ideal (pure
+# anon pages) but the base rootfs doesn't ship one — falling back to
+# /tmp on the rootdisk works because ext4 pagecache + drop_caches
+# returns the pages to the kernel's free pool, which is exactly
+# what free-page-reporting hands back to the host. With ram=2048
+# MiB and the kernel reserving ~150 MiB, 1 GiB is well within
+# budget but big enough that the RSS delta is unmistakable.
+#
+# `cli exec` joins post-`--` args with spaces and runs the result
+# under `sh -c` in the guest — so we pass the command as one
+# already-shell-ready string, no extra `/bin/sh -c` wrapping.
+B1_SPIKE_LOG="$FIXTURE/b1-spike.log"
+if ! cli exec --name "$B1_NAME" -- \
+  'dd if=/dev/zero of=/tmp/big bs=1M count=1024 status=none && sync && echo SPIKE_DONE' \
+  >"$B1_SPIKE_LOG" 2>&1; then
+  cat "$B1_SPIKE_LOG" >&2
+  fail "B1 — spike workload failed"
+fi
+B1_SPIKE=$(vmm_rss_mib "$B1_VMM_PID")
+echo "  post-spike RSS=${B1_SPIKE} MiB"
+
+# A working spike should add at least ~700 MiB (rounding for ext4
+# pagecache + kernel internal allocations on top of the 1 GiB tmpfs).
+if (( B1_SPIKE - B1_BASELINE < 700 )); then
+  fail "B1 — spike only added $(( B1_SPIKE - B1_BASELINE )) MiB; expected ≥700"
+fi
+pass "spike added $(( B1_SPIKE - B1_BASELINE )) MiB to host RSS"
+
+# Free + sync, then wait for the kernel's reporting thread.
+# `page_reporting_period_ms` defaults to 2000; report budget is 16
+# 2-MiB blocks per cycle, so a 1 GiB free-run takes a few cycles to
+# fully drain. 30s is comfortable.
+if ! cli exec --name "$B1_NAME" -- \
+  'rm /tmp/big && sync && echo 3 > /proc/sys/vm/drop_caches && echo FREE_DONE' \
+  >"$FIXTURE/b1-free.log" 2>&1; then
+  cat "$FIXTURE/b1-free.log" >&2
+  fail "B1 — free workload failed"
+fi
+sleep 30
+B1_RECLAIMED=$(vmm_rss_mib "$B1_VMM_PID")
+echo "  post-free + 30s wait RSS=${B1_RECLAIMED} MiB"
+
+# Reclaim won't return RSS to baseline — the guest's still-mapped
+# working set (kernel slab, init + exec-agent, ext4 metadata, the
+# stage-2 page tables for every page the guest ever touched) all
+# stay resident. What we *do* expect: a meaningful drop from the
+# post-spike high-water mark, ≥500 MiB out of the 700+ MiB spike.
+# A drop below that threshold means the device's mmap-replace path
+# isn't actually freeing memory (e.g., stale Linux MADV_DONTNEED
+# on Darwin, which is just an advisory hint).
+B1_RECLAIMED_DROP=$(( B1_SPIKE - B1_RECLAIMED ))
+if (( B1_RECLAIMED_DROP < 500 )); then
+  fail "B1 — RSS only dropped ${B1_RECLAIMED_DROP} MiB after reclaim (spike ${B1_SPIKE} → ${B1_RECLAIMED}); expected ≥500"
+fi
+pass "balloon reclaim: ${B1_RECLAIMED_DROP} MiB returned to host (spike ${B1_SPIKE} → ${B1_RECLAIMED} MiB)"
+
+cleanup_b1
+trap 'rm -rf "$FIXTURE"' EXIT
+fi  # B1 rootfs gate
+
+# ----------------------------------------------------------------
+# Phase-1 base-rootfs contract tests — verify #77 step 1 plumbing.
+# Each asserts one thing scripts/build-base-assets.sh claims to ship.
+# ----------------------------------------------------------------
+
+# ----------------------------------------------------------------
+# #93 API surface — exercise the new CLI verbs end-to-end against a
+# real guest. Uses a scratch registry dir so we don't pollute any
+# real running VMs on the dev machine. Each test boots a named VM in
+# the background, hits it with ls/exec, then kills it.
+# ----------------------------------------------------------------
+
+# Registry + cli/boot_bg/wait_for_vm helpers are hoisted above the
+# B-series — see the "Helpers that B-series and the later sections
+# share" block earlier in this script.
 
 # ---- N1: machinen ls shows nothing when the registry is empty ----
 echo "N1: machinen ls against an empty registry"
