@@ -976,6 +976,94 @@ else
 fi
 
 # ----------------------------------------------------------------
+# C-series: #263 phase C — CRIU lazy-pages restore + the `--eager`
+# opt-out. The S-series below already covers the lazy-default path
+# end-to-end (S1/S2/S3 all run under `criu restore --lazy-pages`
+# now that `restore()` defaults to lazy). C0 specifically exercises
+# the eager fall-back so that path doesn't bit-rot.
+#
+# A measurable RSS-saved-by-lazy assertion needs a workload that
+# holds a large anonymous mapping across snapshot/restore — the
+# base rootfs ships no malloc helper that fits, so that smoke
+# (the issue's "fork five times, ≪ N GiB each" assertion) waits
+# on a follow-up that adds a `/sbin/machinen-memdirty` helper. See
+# the deferred-items note in #263.
+# ----------------------------------------------------------------
+if [[ "$ROOTFS_SUPPORTS_VSOCK_EXEC" -eq 0 || "$ROOTFS_SUPPORTS_CRIU" -eq 0 || "$ROOTFS_SUPPORTS_SNAPSHOT_HELPERS" -eq 0 ]]; then
+  echo "C0: skipped (rootfs lacks vsock/criu/snapshot helpers)"
+else
+  echo "C0: machinen restore --eager (opt-out from lazy default)"
+  C0_NAME="eager-smoke-$$"
+  C0_BG_LOG="$FIXTURE/c0-bg.log"
+  C0_SNAP_DIR="$FIXTURE/c0-snap"
+  C0_SCRATCH="$FIXTURE/c0-scratch.img"
+  C0_RESTORE_LOG="$FIXTURE/c0-restore.log"
+
+  truncate -s 256M "$C0_SCRATCH"
+  C0_PID=$(boot_bg "$C0_NAME" "$C0_BG_LOG" --snapshot "$C0_SCRATCH" -- \
+    /bin/sh -c "while :; do sleep 1; done")
+  cleanup_c0() {
+    cli stop --name "$C0_NAME" >/dev/null 2>&1 || true
+    kill -TERM "$C0_PID" 2>/dev/null || true
+    wait "$C0_PID" 2>/dev/null || true
+  }
+  trap 'cleanup_c0; rm -rf "$FIXTURE"' EXIT
+
+  if ! wait_for_vm "$C0_NAME"; then
+    tail -60 "$C0_BG_LOG" >&2
+    fail "C0 — '$C0_NAME' never appeared in 'machinen ls'"
+  fi
+
+  if ! cli snapshot --name "$C0_NAME" --out-dir "$C0_SNAP_DIR" >/dev/null 2>&1; then
+    fail "C0 — snapshot failed"
+  fi
+  wait "$C0_PID" 2>/dev/null || true
+  pass "snapshotted bundle"
+
+  # Restore with --eager. Watch the restore log for the mode banner
+  # and assert it picked eager (lazy is the default; --eager flips it).
+  node "$CLI" restore --eager "$C0_SNAP_DIR" >"$C0_RESTORE_LOG" 2>&1 &
+  C0_RESTORE_PID=$!
+  cleanup_c0_restore() {
+    kill -TERM "$C0_RESTORE_PID" 2>/dev/null || true
+    wait "$C0_RESTORE_PID" 2>/dev/null || true
+  }
+  trap 'cleanup_c0; cleanup_c0_restore; rm -rf "$FIXTURE"' EXIT
+
+  C0_RESTORED=""
+  deadline=$((SECONDS + 45))
+  while (( SECONDS < deadline )); do
+    cand=$(cli ls 2>/dev/null | awk -v src="$C0_NAME/" 'NR>1 && index($2, src)==1 {print $2; exit}')
+    if [[ -n "$cand" ]]; then
+      C0_RESTORED=$cand
+      break
+    fi
+    sleep 1
+  done
+  if [[ -z "$C0_RESTORED" ]]; then
+    tail -80 "$C0_RESTORE_LOG" >&2
+    cli ls >&2 || true
+    fail "C0 — eager-restored VM never registered"
+  fi
+  if ! grep -q "starting criu restore (mode=eager)" "$C0_RESTORE_LOG"; then
+    tail -60 "$C0_RESTORE_LOG" >&2
+    fail "C0 — restore log doesn't show mode=eager (was --eager honoured?)"
+  fi
+  pass "machinen restore --eager → guest log shows mode=eager"
+
+  if cli exec --name "$C0_RESTORED" -- uname -m 2>&1 | grep -qE "aarch64|arm64"; then
+    pass "exec-agent responds on the eager-restored VM"
+  else
+    tail -60 "$C0_RESTORE_LOG" >&2
+    fail "C0 — exec against eager-restored VM failed"
+  fi
+
+  cli stop --name "$C0_RESTORED" >/dev/null 2>&1 || true
+  cleanup_c0_restore
+  trap 'rm -rf "$FIXTURE"' EXIT
+fi  # C0 rootfs gate
+
+# ----------------------------------------------------------------
 # Snapshot/restore round-trip (#50 M2). Uses the supervisor +
 # /sbin/machinen-dump + /sbin/machinen-restore baked into the rootfs:
 #   1. boot with a scratch /dev/vda + named VM

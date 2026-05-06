@@ -3298,6 +3298,18 @@ the same bind. Pass explicitly when the fork needs forwards.
 
 > `optional` **hostAddr?**: `string`
 
+##### eager?
+
+> `optional` **eager?**: `boolean`
+
+Defined in: [vm-handle.ts:285](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm-handle.ts#L285)
+
+Pre-load all guest pages from the snapshot at restore time
+instead of serving them on-demand via userfaultfd. Default:
+`false` (lazy). Set `true` for workloads that touch most of
+memory immediately and would rather pay the cost up front than
+eat first-touch latency on every page. See #263 phase C.
+
 ***
 
 ### BootOptions
@@ -4112,6 +4124,19 @@ Defined in: [vm.ts:2578](https://github.com/redwoodjs/machinen/blob/main/package
 Optional explicit name for the restored VM. When omitted, the
 fork is auto-named `<sourceName>/<pid>` after spawn so it stays
 unique under the source's namespace.
+
+##### eager?
+
+> `optional` **eager?**: `boolean`
+
+Defined in: [vm.ts:2587](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2587)
+
+Pre-load all guest pages from the snapshot at restore time
+instead of serving them on-demand via userfaultfd. Default:
+`false` (lazy). With lazy restore, a fresh fork starts at
+roughly the parent's idle baseline RSS instead of pre-loading
+the parent's full working-set; pages get faulted in on first
+touch. See #263 phase C.
 
 ***
 
@@ -5459,7 +5484,7 @@ end, so no individual cmd line approaches `MAX_ARG_STRLEN`.
 
 > **restore**(`opts`): `Promise`\<[`VmHandle`](#vmhandle)\>
 
-Defined in: [vm.ts:2597](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2597)
+Defined in: [vm.ts:2606](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2606)
 
 Restore a microVM from a snapshot bundle produced by
 `vm.snapshot({ outDir })`. Reads the bundle's `meta.json` to
@@ -5494,7 +5519,7 @@ BOOT_SNAPSHOT_NOT_FOUND if `<snapDir>/disk.img`
 
 > **measureFirstByte**(`vm`): `Promise`\<`number`\>
 
-Defined in: [vm.ts:2850](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2850)
+Defined in: [vm.ts:2874](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2874)
 
 Time-to-first-output-byte for a boot. Useful for measuring how
 much the snapshot path is (or isn't) buying us.

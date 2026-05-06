@@ -70,7 +70,77 @@ if [ ! -d /mnt/snap-src/img ] || [ -z "$(ls -A /mnt/snap-src/img 2>/dev/null)" ]
     exit 1
 fi
 
-echo "machinen-restore: starting criu restore in a fresh PID namespace"
+# Lazy vs eager mode (#263 phase C).
+#
+# Default: lazy. CRIU restore registers userfaultfd over the workload's
+# address space; pages are served on demand by a lazy-pages daemon
+# reading from the bundle. First-touch latency goes up, restore-time
+# RSS goes way down — a freshly restored fork starts at ~baseline
+# instead of pre-loading everything the parent ever touched.
+#
+# Opt-out: set MACHINEN_RESTORE_EAGER=1 in the guest env (which the
+# runtime forwards via opts.env when boot({ eager: true }) is set).
+# Eager loads every page up front, same as the legacy v3 / 4.x default.
+RESTORE_MODE=lazy
+if [ "${MACHINEN_RESTORE_EAGER:-}" = "1" ]; then
+    RESTORE_MODE=eager
+fi
+
+# Spawn the lazy-pages daemon BEFORE `criu restore` so its socket is
+# already listening when the restorer connects. Stays in the parent
+# NS — userfaultfd is per-mm (memory-management context), not per-PID-
+# NS, so pages can be served across the unshare boundary.
+#
+# CRIU 4.x hardcodes the local-UDS path to `<work-dir>/lazy-pages.socket`
+# (the --address flag is for network-mode lazy migration only — passing
+# a UDS path there is silently ignored, which surfaces as "socket
+# never appeared" because we'd be looking at the wrong path). Both
+# the daemon and the restorer must point at the same hardcoded path.
+LAZY_SOCK=/tmp/lazy-pages.socket
+LAZY_PID=""
+if [ "$RESTORE_MODE" = lazy ]; then
+    echo "machinen-restore: starting criu lazy-pages daemon (mode=lazy)"
+    rm -f "$LAZY_SOCK"
+    criu lazy-pages \
+        --images-dir /mnt/snap-src/img \
+        --work-dir /tmp \
+        -v3 \
+        -o lazy-pages.log &
+    LAZY_PID=$!
+    # Wait for the socket to appear (typical: <100 ms). Bail early
+    # if the daemon process dies — no point waiting for a socket the
+    # dead process can never bind.
+    i=0
+    while [ $i -lt 100 ] && [ ! -S "$LAZY_SOCK" ]; do
+        if ! kill -0 "$LAZY_PID" 2>/dev/null; then
+            wait "$LAZY_PID" 2>/dev/null
+            LAZY_RC=$?
+            echo "machinen-restore: lazy-pages daemon exited rc=$LAZY_RC before binding socket" >&2
+            if [ -r /tmp/lazy-pages.log ]; then
+                echo "machinen-restore: --- full lazy-pages.log ---" >&2
+                cat /tmp/lazy-pages.log >&2 || true
+            fi
+            LAZY_PID=""
+            RESTORE_MODE=eager
+            break
+        fi
+        sleep 0.05
+        i=$((i + 1))
+    done
+    if [ "$RESTORE_MODE" = lazy ] && [ ! -S "$LAZY_SOCK" ]; then
+        echo "machinen-restore: lazy-pages socket never appeared after 5s — falling back to eager" >&2
+        if [ -r /tmp/lazy-pages.log ]; then
+            echo "machinen-restore: --- full lazy-pages.log ---" >&2
+            cat /tmp/lazy-pages.log >&2 || true
+        fi
+        kill -TERM "$LAZY_PID" 2>/dev/null || true
+        wait "$LAZY_PID" 2>/dev/null || true
+        LAZY_PID=""
+        RESTORE_MODE=eager
+    fi
+fi
+
+echo "machinen-restore: starting criu restore (mode=$RESTORE_MODE) in a fresh PID namespace"
 # Run criu inside `unshare --pid --fork --mount-proc` so the restored
 # workload's PIDs land in a fresh namespace (#215). Without this, the
 # dumped tree's PIDs (e.g. 60, 73, 77 — captured wherever the source
@@ -103,12 +173,25 @@ echo "machinen-restore: starting criu restore in a fresh PID namespace"
 # fail with "Can't create log file restore.log: Read-only file system"
 # on v4.2 (3.17.1 was lenient about this and didn't always need to
 # write the log).
+#
+# `--lazy-pages` (in lazy mode) tells the restorer to register
+# userfaultfd over the restored memory and forward fault requests
+# to the lazy-pages daemon. Memory pages aren't pre-loaded — they're
+# served on first-touch. Without this flag CRIU does the legacy eager
+# copy-everything path. The daemon and restorer find each other via
+# the hardcoded `<work-dir>/lazy-pages.socket` path; no --address.
+LAZY_FLAGS=""
+if [ "$RESTORE_MODE" = lazy ]; then
+    LAZY_FLAGS=--lazy-pages
+fi
+# shellcheck disable=SC2086 # word splitting is intentional for $LAZY_FLAGS
 unshare --pid --fork --mount-proc -- \
         criu restore \
             --images-dir /mnt/snap-src/img \
             --work-dir /tmp \
             --tcp-established \
             --pidfile /run/machinen-workload.pid \
+            $LAZY_FLAGS \
             -v3 \
             -o restore.log &
 UNSHARE_PID=$!
@@ -153,6 +236,11 @@ if [ "$RC" -ne 0 ]; then
     grep -E "^(Error|Warn|\([0-9.]+\)\s+[0-9]+:\s*(Error|Warn))" /tmp/restore.log >&2 || true
     echo "machinen-restore: --- last 200 lines of restore.log ---" >&2
     tail -200 /tmp/restore.log >&2 || true
+    if [ -n "$LAZY_PID" ]; then
+        echo "machinen-restore: --- last 100 lines of lazy-pages.log ---" >&2
+        tail -100 /tmp/lazy-pages.log >&2 || true
+        kill -TERM "$LAZY_PID" 2>/dev/null || true
+    fi
     kill -TERM "$AGENT_PID" 2>/dev/null || true
     if [ -n "$WINSIZE_PID" ]; then
         kill -TERM "$WINSIZE_PID" 2>/dev/null || true
@@ -161,6 +249,13 @@ if [ "$RC" -ne 0 ]; then
 fi
 
 # Restored tree exited cleanly. Stop the agents and power off.
+# The lazy-pages daemon (if any) usually exits on its own once all
+# pages have been served; SIGTERM it as a safety net so it can't
+# outlive the workload.
+if [ -n "$LAZY_PID" ]; then
+    kill -TERM "$LAZY_PID" 2>/dev/null || true
+    wait "$LAZY_PID" 2>/dev/null || true
+fi
 kill -TERM "$AGENT_PID" 2>/dev/null || true
 wait "$AGENT_PID" 2>/dev/null || true
 if [ -n "$WINSIZE_PID" ]; then

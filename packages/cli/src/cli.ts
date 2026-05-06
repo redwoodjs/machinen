@@ -477,10 +477,14 @@ async function cmdInstall(args: string[]): Promise<number> {
 }
 
 async function cmdRestore(args: string[]): Promise<number> {
-  // `machinen restore <snap-dir> [--name <name>]`. The bundle dir
-  // (produced by `machinen snapshot`) holds disk.img + meta.json.
+  // `machinen restore <snap-dir> [--name <name>] [--eager]`. The
+  // bundle dir (produced by `machinen snapshot`) holds disk.img +
+  // meta.json. `--eager` flips back to legacy CRIU behaviour
+  // (pre-load all pages at restore time) — default is lazy via
+  // userfaultfd. See #263 phase C.
   const positional: string[] = [];
   let name: string | undefined;
+  let eager = false;
   for (let i = 0; i < args.length; i++) {
     const a = args[i]!;
     if (a === "--name" || a.startsWith("--name=")) {
@@ -488,6 +492,8 @@ async function cmdRestore(args: string[]): Promise<number> {
       if (!name) {
         die("--name requires a value");
       }
+    } else if (a === "--eager") {
+      eager = true;
     } else if (a.startsWith("-")) {
       die(`unknown flag: ${a}`);
     } else {
@@ -495,7 +501,7 @@ async function cmdRestore(args: string[]): Promise<number> {
     }
   }
   if (positional.length !== 1) {
-    die("usage: machinen restore <snap-dir> [--name <name>]");
+    die("usage: machinen restore <snap-dir> [--name <name>] [--eager]");
   }
   const snapDir = resolve(positional[0]!);
 
@@ -521,6 +527,7 @@ async function cmdRestore(args: string[]): Promise<number> {
       kernel: kernelPath,
       dtb: dtbPath,
       name,
+      eager,
       timeoutMs: null,
     });
   } catch (err) {
@@ -927,6 +934,7 @@ async function cmdFork(args: string[]): Promise<number> {
   let outDir: string | undefined;
   let tcpKeep = false;
   let detach = false;
+  let eager = false;
   const rest: string[] = [];
   for (let i = 0; i < args.length; i++) {
     const a = args[i]!;
@@ -944,6 +952,8 @@ async function cmdFork(args: string[]): Promise<number> {
       tcpKeep = true;
     } else if (a === "--detach") {
       detach = true;
+    } else if (a === "--eager") {
+      eager = true;
     } else {
       rest.push(a);
     }
@@ -981,6 +991,7 @@ async function cmdFork(args: string[]): Promise<number> {
       kernel: kernelPath,
       dtb: dtbPath,
       tcpKeep,
+      eager,
       onLog: (evt) => {
         if (evt.source !== "phase") {
           process.stderr.write(evt.chunk);

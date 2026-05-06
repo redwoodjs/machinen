@@ -275,4 +275,12 @@ export interface ForkOptions {
    * the same bind. Pass explicitly when the fork needs forwards.
    */
   portForward?: Array<{ hostPort: number; guestPort: number; hostAddr?: string }>;
+  /**
+   * Pre-load all guest pages from the snapshot at restore time
+   * instead of serving them on-demand via userfaultfd. Default:
+   * `false` (lazy). Set `true` for workloads that touch most of
+   * memory immediately and would rather pay the cost up front than
+   * eat first-touch latency on every page. See #263 phase C.
+   */
+  eager?: boolean;
 }

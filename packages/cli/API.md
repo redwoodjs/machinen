@@ -8,7 +8,8 @@ recipes, see the [guides](../../docs/).
 
 ```
 machinen boot     [<image>] [opts] -- <cmd>     Boot a microVM
-machinen restore  <snap-dir> [--name <name>]    Restore a VM from a snapshot bundle
+machinen restore  <snap-dir> [--name <name>] [--eager]
+                                                Restore a VM from a snapshot bundle
 machinen ls       (alias: ps)                    List running VMs
 machinen exec     <target> [--tty] -- <cmd>     Run a command in a running VM
 machinen snapshot <target> --out-dir <d> [--keep-alive]
@@ -53,13 +54,18 @@ cache (populated by `machinen install`, or auto-fetched on first use).
 ## `machinen restore`
 
 ```
-machinen restore <snap-dir> [--name <name>]
+machinen restore <snap-dir> [--name <name>] [--eager]
 ```
 
 Restores a VM from a snapshot bundle (a directory holding `disk.img` +
 `meta.json` produced by `machinen snapshot`). Anonymous restores
 auto-name as `<source-name>/<pid>` so lineage shows up in `machinen ls`.
 Resolves base assets the same way `boot` does.
+
+| Flag            | What it does                                                                                                                                                                                                       |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--name <name>` | Override the auto-name                                                                                                                                                                                             |
+| `--eager`       | Pre-load all guest pages at restore time. Default is lazy via userfaultfd — pages are served on first-touch from the bundle. Eager pays the cost up front in exchange for no first-touch latency. See #263 phase C |
 
 ## `machinen ls` / `ps`
 
@@ -103,12 +109,13 @@ sibling VM, dropping the caller into the fork's interactive console.
 Pass `--detach` to hand the fork off and return immediately
 (CI / scripted use).
 
-| Flag             | What it does                                                             |
-| ---------------- | ------------------------------------------------------------------------ |
-| `--new-name <n>` | Name for the fork (defaults to `<source>/<fork-pid>`)                    |
-| `--out-dir <d>`  | Keep the snapshot bundle here. Without this, the bundle is temp-dir'd    |
-| `--tcp-keep`     | Inherit TCP socket state in the fork (rarely correct — both copies race) |
-| `--detach`       | Don't attach the caller's stdio to the fork — return as soon as it's up  |
+| Flag             | What it does                                                                                                                                                                     |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--new-name <n>` | Name for the fork (defaults to `<source>/<fork-pid>`)                                                                                                                            |
+| `--out-dir <d>`  | Keep the snapshot bundle here. Without this, the bundle is temp-dir'd                                                                                                            |
+| `--tcp-keep`     | Inherit TCP socket state in the fork (rarely correct — both copies race)                                                                                                         |
+| `--detach`       | Don't attach the caller's stdio to the fork — return as soon as it's up                                                                                                          |
+| `--eager`        | Pre-load all guest pages at restore time. Same semantics as `machinen restore --eager` — flips the lazy default. Useful for fork workloads that touch most of memory immediately |
 
 ## `machinen attach`
 

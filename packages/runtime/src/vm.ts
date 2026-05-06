@@ -2576,6 +2576,15 @@ export interface RestoreOptions extends Omit<BootOptions, "snapshot" | "image" |
    * unique under the source's namespace.
    */
   name?: string;
+  /**
+   * Pre-load all guest pages from the snapshot at restore time
+   * instead of serving them on-demand via userfaultfd. Default:
+   * `false` (lazy). With lazy restore, a fresh fork starts at
+   * roughly the parent's idle baseline RSS instead of pre-loading
+   * the parent's full working-set; pages get faulted in on first
+   * touch. See #263 phase C.
+   */
+  eager?: boolean;
 }
 
 /**
@@ -2622,12 +2631,22 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
   // boot() doesn't know the pid until after the VMM is spawned, so
   // we can't pass `<sourceName>/<pid>` up front. Boot anonymous,
   // then claim the auto-name and patch the registry entry below.
+  //
+  // `eager` is a restore-only flag; strip it before forwarding into
+  // boot() and turn it into a guest env var the restore script reads
+  // (#263 phase C).
+  const { eager, env: callerEnv, ...bootOpts } = opts;
+  const restoreEnv: Record<string, string> = { ...callerEnv };
+  if (eager) {
+    restoreEnv.MACHINEN_RESTORE_EAGER = "1";
+  }
   phases.start("boot");
   const vm = await boot({
-    ...opts,
+    ...bootOpts,
     snapshot: diskPath,
     forkedFrom: snapDir,
     name: opts.name,
+    env: restoreEnv,
   });
   phases.end("boot");
 
@@ -2800,6 +2819,11 @@ async function performFork(ctx: SnapshotContext, opts: ForkOptions): Promise<VmH
       kernel: opts.kernel,
       dtb: opts.dtb,
       portForward: opts.portForward ?? [],
+      // #263 phase C: forks default to lazy restore — the whole
+      // point of forking is to start cheap. Caller can flip with
+      // `vm.fork({ eager: true })` for workloads that touch most
+      // of memory immediately and prefer paying that cost up front.
+      eager: opts.eager,
       // The fork outlives the process that spawned it (CLI returns
       // immediately; programmatic callers detach() and move on).
       // Skip the parent-death shim so the fork's VMM isn't SIGTERM'd
