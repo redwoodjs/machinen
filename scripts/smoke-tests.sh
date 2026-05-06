@@ -558,7 +558,11 @@ B1_NAME="balloon-smoke-$$"
 B1_BG_LOG="$FIXTURE/b1-bg.log"
 B1_PID=$(boot_bg "$B1_NAME" "$B1_BG_LOG" --memory 2048 -- \
   /bin/sh -c "/exec-agent & sleep 600")
+# B1 runs before the N-series which asserts an empty registry, so
+# cleanup MUST remove the registry entry, not just kill the VMM.
+# `machinen stop --name` does both (SIGTERM + writeEntry remove).
 cleanup_b1() {
+  cli stop --name "$B1_NAME" >/dev/null 2>&1 || true
   kill -TERM "$B1_PID" 2>/dev/null || true
   wait "$B1_PID" 2>/dev/null || true
 }
