@@ -124,7 +124,8 @@ make ARCH=arm64 defconfig >/dev/null
   --enable FUSE_FS \
   --enable IKCONFIG --enable IKCONFIG_PROC \
   --enable CHECKPOINT_RESTORE --enable KCMP \
-  --enable USER_NS --enable PID_NS --enable NET_NS
+  --enable USER_NS --enable PID_NS --enable NET_NS \
+  --enable VIRTIO_BALLOON --enable PAGE_REPORTING
 
 make ARCH=arm64 olddefconfig >/dev/null
 
@@ -143,6 +144,7 @@ required=(
   NF_CONNTRACK
   USERFAULTFD
   IPV6
+  VIRTIO_BALLOON PAGE_REPORTING
 )
 for c in "${required[@]}"; do
   if ! grep -q "^CONFIG_${c}=y" .config; then

@@ -30,6 +30,7 @@ pub const boot_kvm = if (builtin.os.tag == .linux) @import("boot_kvm.zig") else 
 pub const virtio = @import("virtio.zig"); // pure Zig, builds everywhere
 pub const blk = @import("blk.zig"); // pure Zig virtio-blk backend
 pub const vsock = @import("vsock.zig"); // pure Zig virtio-vsock bridge
+pub const balloon = @import("balloon.zig"); // pure Zig virtio-balloon backend
 pub const pl011 = @import("pl011.zig"); // pure Zig PL011 UART (shared HVF/KVM)
 pub const dtb_patch = @import("dtb_patch.zig"); // FDT memory/initrd patcher
 
@@ -94,6 +95,7 @@ test {
     }
     _ = @import("virtio.zig");
     _ = @import("vsock.zig");
+    _ = @import("balloon.zig");
     _ = @import("pl011.zig");
     _ = @import("dtb_patch.zig");
 }

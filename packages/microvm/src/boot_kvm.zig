@@ -40,6 +40,7 @@ const blk_mod = @import("blk.zig");
 const vsock_mod = @import("vsock.zig");
 const net_mod = @import("net_socket.zig");
 const dtb_patch = @import("dtb_patch.zig");
+const balloon_mod = @import("balloon.zig");
 
 // Guest-physical bases. Same MMIO layout as HVF (see boot_hvf.zig
 // for the slot layout doc) so the shared `virt.dts` works for both
@@ -52,6 +53,8 @@ const virtio_vsock_base: u64 = 0x0A00_0400;
 const virtio_vsock_size: u64 = 0x200;
 const virtio_blk2_base: u64 = 0x0A00_0600;
 const virtio_blk2_size: u64 = 0x200;
+const virtio_balloon_base: u64 = 0x0A00_0800;
+const virtio_balloon_size: u64 = 0x200;
 
 comptime {
     // virtio-mmio slot layout — must stay byte-identical to virt.dts.
@@ -61,9 +64,11 @@ comptime {
     assert(virtio_blk_size == 0x200);
     assert(virtio_vsock_size == 0x200);
     assert(virtio_blk2_size == 0x200);
+    assert(virtio_balloon_size == 0x200);
     assert(virtio_blk_base == virtio_net_base + virtio_net_size);
     assert(virtio_vsock_base == virtio_blk_base + virtio_blk_size);
     assert(virtio_blk2_base == virtio_vsock_base + virtio_vsock_size);
+    assert(virtio_balloon_base == virtio_blk2_base + virtio_blk2_size);
 }
 
 pub const Error = error{
@@ -237,6 +242,14 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // start failure; re-resolve so the run loop dispatch matches.
     const vsock_dev_ptr_run: ?*virtio.Device = if (vsock_dev_opt) |_| &vsock_dev_opt.? else null;
 
+    // virtio-balloon (#263 phase B). Same as HVF — always present;
+    // the guest's free-page-reporting kernel thread feeds the
+    // reporting queue continuously, and our backend madvises each
+    // reported run out of host RSS.
+    var balloon_backend = balloon_mod.Backend.init();
+    var balloon_dev = makeBalloonDevice(ram, cfg, &balloon_backend);
+    const balloon_dev_ptr: ?*virtio.Device = &balloon_dev;
+
     const devs = Devices{
         .uart = &uart,
         .netdev = &netdev,
@@ -245,6 +258,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         .blk2_dev = blk2dev_ptr,
         .vsock_dev = vsock_dev_ptr_run,
         .vsock_bridge = vsock_bridge_opt,
+        .balloon_dev = balloon_dev_ptr,
     };
     return try runLoop(gpa, cfg, &vm, &vcpu, &devs, irqs);
 }
@@ -442,6 +456,23 @@ fn makeVsockDevice(ram: []u8, cfg: Config, cid_ptr: *const u64) virtio.Device {
     };
 }
 
+/// Build the virtio-balloon device. `backend` must outlive the
+/// returned Device — config + request_ctx are pointers into it.
+/// #263 phase B: continuous free-page reporting.
+fn makeBalloonDevice(ram: []u8, cfg: Config, backend: *balloon_mod.Backend) virtio.Device {
+    return .{
+        .base = virtio_balloon_base,
+        .size = virtio_balloon_size,
+        .id = .balloon,
+        .features = balloon_mod.Backend.features(),
+        .config = backend.configBytes(),
+        .ram = ram,
+        .ram_base = cfg.ram_base,
+        .request_handler = &balloon_mod.Backend.handleRequest,
+        .request_ctx = @ptrCast(backend),
+    };
+}
+
 /// Dial gvproxy if `MACHINEN_NET_SOCKET` is set; null on missing env
 /// or any connect failure (the rest of the VMM still runs without
 /// network).
@@ -551,6 +582,7 @@ const IrqMap = struct {
     blk: u32,
     blk2: u32,
     vsock: u32,
+    balloon: u32,
 
     fn init() IrqMap {
         return .{
@@ -559,6 +591,7 @@ const IrqMap = struct {
             .blk = kvm.irqSpi(17),
             .vsock = kvm.irqSpi(18),
             .blk2 = kvm.irqSpi(19),
+            .balloon = kvm.irqSpi(20),
         };
     }
 };
@@ -575,6 +608,7 @@ const Devices = struct {
     blk2_dev: ?*virtio.Device,
     vsock_dev: ?*virtio.Device,
     vsock_bridge: ?*vsock_mod.Bridge,
+    balloon_dev: ?*virtio.Device,
 };
 
 /// PL011 MMIO. Console-byte writes echo to host stderr; every access
@@ -678,6 +712,10 @@ fn routeMmio(
         if (devs.vsock_bridge) |b| b.mu.lock();
         defer if (devs.vsock_bridge) |b| b.mu.unlock();
         try handleVirtioMmio(vm, vcpu, d, irqs.vsock, ev);
+        return;
+    };
+    if (devs.balloon_dev) |d| if (d.handles(ev.phys_addr)) {
+        try handleVirtioMmio(vm, vcpu, d, irqs.balloon, ev);
         return;
     };
     // Other MMIO (DTB-described regions we haven't hooked up) — for

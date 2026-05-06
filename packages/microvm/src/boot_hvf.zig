@@ -29,6 +29,7 @@ const virtio = @import("virtio.zig");
 const net_mod = @import("net_socket.zig");
 const blk_mod = @import("blk.zig");
 const vsock_mod = @import("vsock.zig");
+const balloon_mod = @import("balloon.zig");
 const dtb_patch = @import("dtb_patch.zig");
 
 // Guest-physical bases. Each virtio-MMIO device lives in a 0x200
@@ -49,6 +50,8 @@ const virtio_vsock_base: u64 = 0x0A00_0400;
 const virtio_vsock_size: u64 = 0x200;
 const virtio_blk2_base: u64 = 0x0A00_0600;
 const virtio_blk2_size: u64 = 0x200;
+const virtio_balloon_base: u64 = 0x0A00_0800;
+const virtio_balloon_size: u64 = 0x200;
 
 comptime {
     // virtio-mmio slot layout — must stay byte-identical to virt.dts
@@ -61,6 +64,8 @@ comptime {
     assert(virtio_blk_base == virtio_net_base + virtio_net_size);
     assert(virtio_vsock_base == virtio_blk_base + virtio_blk_size);
     assert(virtio_blk2_base == virtio_vsock_base + virtio_vsock_size);
+    assert(virtio_balloon_size == 0x200);
+    assert(virtio_balloon_base == virtio_blk2_base + virtio_blk2_size);
 }
 
 pub const Error = error{
@@ -223,6 +228,14 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         null;
     const blk2dev_ptr: ?*virtio.Device = if (blk2dev_opt) |_| &blk2dev_opt.? else null;
 
+    // virtio-balloon (#263 phase B). Always present; the guest's
+    // free-page-reporting kernel thread continuously hands us free
+    // runs, and the device's reporting handler madvises them out
+    // of host RSS. No env knob — this is fire-and-forget memory.
+    var balloon_backend = balloon_mod.Backend.init();
+    var balloon_dev = makeBalloonDevice(ram, cfg, &balloon_backend);
+    const balloon_dev_ptr: ?*virtio.Device = &balloon_dev;
+
     // virtio-vsock (#44). Off by default; set MACHINEN_VSOCK to enable.
     // Syntax (comma-separated):
     //   in:<guest_port>:<host_uds>   host listens; UDS clients → guest
@@ -300,6 +313,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         .blk2_dev = blk2dev_ptr,
         .vsock_dev = vsock_dev_ptr,
         .vsock_bridge = vsock_bridge_opt,
+        .balloon_dev = balloon_dev_ptr,
     };
     return try runLoop(gpa, cfg, vcpu, &devs, irqs);
 }
@@ -632,20 +646,22 @@ const IrqMap = struct {
     blk: u32,
     blk2: u32,
     vsock: u32,
+    balloon: u32,
 };
 
 fn assignIrqs() !IrqMap {
     const spi = try hvf.Gic.spiRange();
     // SPIs start at 32 on ARM GIC; HVF must report at least the device
-    // IDs we wire up (1, 16, 17, 18, 19) past spi.base.
+    // IDs we wire up (1, 16, 17, 18, 19, 20) past spi.base.
     assert(spi.base >= 32);
-    assert(spi.count >= 20);
+    assert(spi.count >= 21);
     return .{
         .pl011 = spi.base + 1,
         .net = spi.base + 16,
         .blk = spi.base + 17,
         .vsock = spi.base + 18,
         .blk2 = spi.base + 19,
+        .balloon = spi.base + 20,
     };
 }
 
@@ -707,6 +723,23 @@ fn parseVsockEnv(gpa: std.mem.Allocator) []vsock_mod.PortMap {
     return vsock_mod.parseEnv(gpa, s) catch |err| {
         std.debug.print("vsock: MACHINEN_VSOCK parse failed ({s}); ignoring\n", .{@errorName(err)});
         return &.{};
+    };
+}
+
+/// Build the virtio-balloon device. `backend` must outlive the
+/// returned Device — the config + request_ctx are pointers into it.
+/// #263 phase B: continuous free-page reporting (no inflate driving).
+fn makeBalloonDevice(ram: []u8, cfg: Config, backend: *balloon_mod.Backend) virtio.Device {
+    return .{
+        .base = virtio_balloon_base,
+        .size = virtio_balloon_size,
+        .id = .balloon,
+        .features = balloon_mod.Backend.features(),
+        .config = backend.configBytes(),
+        .ram = ram,
+        .ram_base = cfg.ram_base,
+        .request_handler = &balloon_mod.Backend.handleRequest,
+        .request_ctx = @ptrCast(backend),
     };
 }
 
@@ -821,6 +854,7 @@ const Devices = struct {
     blk2_dev: ?*virtio.Device,
     vsock_dev: ?*virtio.Device,
     vsock_bridge: ?*vsock_mod.Bridge,
+    balloon_dev: ?*virtio.Device,
 };
 
 /// Route a data-abort MMIO fault to the device that owns the IPA, then
@@ -855,6 +889,8 @@ fn routeDataAbort(
         if (devs.vsock_bridge) |b| b.mu.lock();
         defer if (devs.vsock_bridge) |b| b.mu.unlock();
         try handleVirtioMmio(devs.vsock_dev.?, irqs.vsock, vcpu, info);
+    } else if (devs.balloon_dev != null and devs.balloon_dev.?.handles(info.ipa)) {
+        try handleVirtioMmio(devs.balloon_dev.?, irqs.balloon, vcpu, info);
     } else if (info.ipa >= 0x1000_0000 and info.ipa < 0x1200_0000) {
         try handleGicRdistMmio(vcpu, info);
     } else {

@@ -51,6 +51,7 @@ pub const DeviceId = enum(u32) {
     block = 2,
     console = 3,
     rng = 4,
+    balloon = 5,
     vsock = 19,
     _,
 };
