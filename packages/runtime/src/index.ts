@@ -87,6 +87,7 @@ export type {
 export {
   _internal,
   attach,
+  autoSizeMemoryMib,
   boot,
   buildMachinenConfig,
   buildWriteFileCmd,

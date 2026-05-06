@@ -73,8 +73,8 @@ await boot({
   image,
   cmd,
   portForward: [
-    { hostPort: 3000, guestPort: 3000 },                       // localhost only
-    { hostPort: 5432, guestPort: 5432, hostAddr: "0.0.0.0" },   // all interfaces
+    { hostPort: 3000, guestPort: 3000 }, // localhost only
+    { hostPort: 5432, guestPort: 5432, hostAddr: "0.0.0.0" }, // all interfaces
   ],
 });
 ```

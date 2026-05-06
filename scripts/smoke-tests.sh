@@ -361,6 +361,86 @@ else
 fi
 
 # ----------------------------------------------------------------
+# M-series: #263 phase A — auto-sized RAM ceiling + --memory knob.
+# Each boot cats /proc/meminfo into the kernel console; we assert the
+# guest's MemTotal lands in the expected band. MemTotal is reported in
+# kB and is always less than the configured ceiling: the kernel
+# reserves bookkeeping (~1-2% on small VMs, ~0.1% on large ones).
+# ----------------------------------------------------------------
+
+# Helper: extract MemTotal in MiB from a console log (kB / 1024,
+# floored). Returns 0 if the line wasn't captured.
+mem_total_mib() {
+  local log=$1
+  awk '/^MemTotal:/ { printf("%d\n", $2 / 1024); exit }' "$log" 2>/dev/null || echo 0
+}
+
+# ---- M0: --memory rejects bogus values via the parser ----
+expect_cli_error \
+  "M0a: --memory 0 rejected" \
+  "must be > 0" \
+  boot --memory 0 -- true
+
+expect_cli_error \
+  "M0b: --memory 1G rejected (no unit suffix)" \
+  "decimal integer" \
+  boot --memory 1G -- true
+
+# ---- M1: default boot — guest sees a sane auto-sized MemTotal ----
+echo "M1: machinen boot — auto-sized MemTotal"
+M1_LOG="$FIXTURE/m1.log"
+run_timeout 60 node "$CLI" boot -- /bin/sh -c \
+  'cat /proc/meminfo | grep ^MemTotal' \
+  >"$M1_LOG" 2>&1 || true
+M1_MIB=$(mem_total_mib "$M1_LOG")
+# Auto-size policy: min(host_ram/2, 16384) MiB, floor 512. So the
+# guest can land anywhere in [400, 17000] MiB once the kernel takes
+# its cut. A value below 400 means the patch silently fell back to
+# the DTB's hardcoded 4 GiB or smaller; above 17000 means the cap
+# isn't enforced.
+if (( M1_MIB >= 400 && M1_MIB <= 17000 )); then
+  pass "default MemTotal ${M1_MIB} MiB lands in the auto-size band"
+else
+  cat "$M1_LOG" >&2
+  fail "M1 — MemTotal ${M1_MIB} MiB outside the expected auto-size band [400..17000]"
+fi
+
+# ---- M2: --memory 1024 — guest sees ~1 GiB ----
+echo "M2: machinen boot --memory 1024"
+M2_LOG="$FIXTURE/m2.log"
+run_timeout 60 node "$CLI" boot --memory 1024 -- /bin/sh -c \
+  'cat /proc/meminfo | grep ^MemTotal' \
+  >"$M2_LOG" 2>&1 || true
+M2_MIB=$(mem_total_mib "$M2_LOG")
+# 1024 MiB requested → MemTotal usually ~960-1010 MiB after the
+# kernel's reservation. Tolerate [900, 1024].
+if (( M2_MIB >= 900 && M2_MIB <= 1024 )); then
+  pass "--memory 1024 → MemTotal ${M2_MIB} MiB"
+else
+  cat "$M2_LOG" >&2
+  fail "M2 — MemTotal ${M2_MIB} MiB outside the expected --memory 1024 band [900..1024]"
+fi
+
+# ---- M3: --memory 32768 — guest sees ~32 GiB ----
+# This exercises the larger-than-DTB-default path: the shipped DTB
+# hardcodes 4 GiB, so without dtb_patch.patchMemorySize the guest
+# would clamp to 4 GiB and this would fail.
+echo "M3: machinen boot --memory 32768"
+M3_LOG="$FIXTURE/m3.log"
+run_timeout 60 node "$CLI" boot --memory 32768 -- /bin/sh -c \
+  'cat /proc/meminfo | grep ^MemTotal' \
+  >"$M3_LOG" 2>&1 || true
+M3_MIB=$(mem_total_mib "$M3_LOG")
+# 32 GiB requested. With lazy commit the host doesn't pay 32 GiB of
+# RSS — only address-space mapping. Tolerate [30 GiB, 32 GiB].
+if (( M3_MIB >= 30000 && M3_MIB <= 32768 )); then
+  pass "--memory 32768 → MemTotal ${M3_MIB} MiB (DTB memory@ size patch effective)"
+else
+  cat "$M3_LOG" >&2
+  fail "M3 — MemTotal ${M3_MIB} MiB outside the expected --memory 32768 band [30000..32768]"
+fi
+
+# ----------------------------------------------------------------
 # Phase-1 base-rootfs contract tests — verify #77 step 1 plumbing.
 # Each asserts one thing scripts/build-base-assets.sh claims to ship.
 # ----------------------------------------------------------------

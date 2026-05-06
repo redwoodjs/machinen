@@ -35,6 +35,13 @@ interface ParsedRunArgs {
    * helpers alive in the CLI).
    */
   detached?: boolean;
+  /**
+   * Guest RAM ceiling in MiB (`--memory <mib>`). Decimal integer, no
+   * unit suffixes. Forwards to `boot({ memory })`. Documented as a
+   * debug knob — most workloads should let the runtime auto-size.
+   * See #263.
+   */
+  memory?: number;
 }
 
 export function parseRunArgs(argv: string[]): ParsedRunArgs {
@@ -52,6 +59,7 @@ export function parseRunArgs(argv: string[]): ParsedRunArgs {
   let name: string | undefined;
   let guestCwd: string | undefined;
   let detached = false;
+  let memory: number | undefined;
   for (let i = 0; i < pre.length; i++) {
     const a = pre[i]!;
     if (a === "--mount" || a.startsWith("--mount=")) {
@@ -233,6 +241,40 @@ export function parseRunArgs(argv: string[]): ParsedRunArgs {
         );
       }
       detached = true;
+    } else if (a === "--memory" || a.startsWith("--memory=")) {
+      // #263 phase A: decimal MiB, no unit suffix. Same shape as
+      // MACHINEN_MEMORY. The runtime validates the floor; we only
+      // reject syntactically bad values here.
+      let spec: string | undefined;
+      if (a === "--memory") {
+        spec = pre[i + 1];
+        if (spec === undefined) {
+          throw new ParseError(
+            "PARSE_FLAG_MISSING_VALUE",
+            "--memory requires a <mib> value (decimal integer, no unit suffix)",
+          );
+        }
+        i++;
+      } else {
+        spec = a.slice("--memory=".length);
+      }
+      if (memory !== undefined) {
+        throw new ParseError(
+          "PARSE_FLAG_DUPLICATE",
+          "--memory may be given at most once per invocation",
+        );
+      }
+      if (!/^[0-9]+$/.test(spec!)) {
+        throw new ParseError(
+          "PARSE_FLAG_MALFORMED",
+          `--memory: expected a decimal integer (MiB, no unit suffix), got '${spec}'`,
+        );
+      }
+      const n = Number(spec);
+      if (!Number.isFinite(n) || n <= 0) {
+        throw new ParseError("PARSE_FLAG_MALFORMED", `--memory: must be > 0 (got '${spec}')`);
+      }
+      memory = n;
     } else if (a.startsWith("-")) {
       throw new ParseError("PARSE_FLAG_UNKNOWN", `unknown flag: ${a}`);
     } else {
@@ -250,6 +292,7 @@ export function parseRunArgs(argv: string[]): ParsedRunArgs {
     name,
     guestCwd,
     detached: detached || undefined,
+    memory,
   };
 }
 

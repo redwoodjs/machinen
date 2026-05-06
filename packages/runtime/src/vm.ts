@@ -42,7 +42,7 @@ import {
   writeSync,
 } from "node:fs";
 import { createRequire } from "node:module";
-import { arch as osArch, homedir, platform as osPlatform, tmpdir } from "node:os";
+import { arch as osArch, homedir, platform as osPlatform, tmpdir, totalmem } from "node:os";
 import { join, resolve } from "node:path";
 import type { Readable } from "node:stream";
 import debugLib from "debug";
@@ -103,6 +103,43 @@ function allocateSparseFile(path: string, sizeBytes: number): void {
   } finally {
     closeSync(fd);
   }
+}
+
+// #263 phase A: pick the guest RAM ceiling (in MiB). Half of host RAM
+// is generous enough for typical dev workloads while leaving the host
+// responsive; the 16 GiB cap stops a 128 GiB workstation from handing
+// out a ceiling that would dwarf the actual working set. The 512 MiB
+// floor matches the `cfg.ram_size >= 16 MiB` assert in boot_*.zig with
+// room to boot Debian + a small workload on memory-constrained hosts.
+//
+// The ceiling is approximately free until touched (see
+// `packages/microvm/docs/memory.md`). Phase B's balloon will let the
+// host reclaim pages the guest has freed; until then, raising the
+// ceiling makes the high-water mark worse, so default conservatively.
+const MEMORY_FLOOR_MIB = 512;
+const MEMORY_CAP_MIB = 16384;
+
+export function autoSizeMemoryMib(hostBytes: number = totalmem()): number {
+  const hostMib = Math.floor(hostBytes / (1024 * 1024));
+  const half = Math.floor(hostMib / 2);
+  return Math.max(MEMORY_FLOOR_MIB, Math.min(half, MEMORY_CAP_MIB));
+}
+
+function validateMemoryMib(mib: number): number {
+  if (!Number.isInteger(mib) || mib <= 0) {
+    throw new BootError(
+      "BOOT_MEMORY_INVALID",
+      `boot: memory must be a positive integer (MiB, no unit suffix), got ${mib}`,
+    );
+  }
+  if (mib < MEMORY_FLOOR_MIB) {
+    throw new BootError(
+      "BOOT_MEMORY_INVALID",
+      `boot: memory must be at least ${MEMORY_FLOOR_MIB} MiB (got ${mib}); the kernel + ` +
+        `initramfs need headroom to boot.`,
+    );
+  }
+  return mib;
 }
 
 /**
@@ -312,6 +349,19 @@ export interface BootOptions {
   /** Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`. */
   dtb?: string;
   /**
+   * Guest RAM ceiling, in MiB (decimal integer; no unit suffixes). The
+   * VMM reads this as `MACHINEN_MEMORY` (#263 phase A). Defaults to
+   * `min(host_ram_mib / 2, 16384)` with a floor of 512 — sized for
+   * typical dev workloads while leaving the host responsive. The
+   * ceiling is approximately free until the guest touches a page (see
+   * `packages/microvm/docs/memory.md`), so over-provisioning costs
+   * little until phase B's balloon lands and lets it actually shrink.
+   *
+   * This is documented as a debug knob — most workloads should never
+   * need to set it.
+   */
+  memory?: number;
+  /**
    * Wrap the VMM through the parent-death shim so it dies with this
    * runtime process. Default true — the right answer for the common
    * "boot, do work, exit" CLI flow.
@@ -505,6 +555,17 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     ...(process.env as Record<string, string>),
     ...opts.vmmEnv,
   };
+
+  // #263 phase A: forward the guest RAM ceiling so the VMM doesn't
+  // fall back to its boot_*.zig hardcoded default. An explicit caller
+  // value via vmmEnv wins over our auto-size; that's the documented
+  // debug-knob escape hatch.
+  if (env.MACHINEN_MEMORY === undefined) {
+    const memoryMib =
+      opts.memory !== undefined ? validateMemoryMib(opts.memory) : autoSizeMemoryMib();
+    env.MACHINEN_MEMORY = String(memoryMib);
+  }
+
   phases.start("disk-prep");
   let diskAbs: string | undefined;
   // #121: per-boot reflink clone of the cached `<sha>.img`. Tracking
@@ -2112,6 +2173,7 @@ function collect(stream: Readable, capBytes: number = CONSOLE_TAIL_BYTES): Promi
 export const _internal = {
   collect,
   CONSOLE_TAIL_BYTES,
+  validateMemoryMib,
 };
 
 // =============================================================

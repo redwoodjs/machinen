@@ -31,6 +31,7 @@ pub const virtio = @import("virtio.zig"); // pure Zig, builds everywhere
 pub const blk = @import("blk.zig"); // pure Zig virtio-blk backend
 pub const vsock = @import("vsock.zig"); // pure Zig virtio-vsock bridge
 pub const pl011 = @import("pl011.zig"); // pure Zig PL011 UART (shared HVF/KVM)
+pub const dtb_patch = @import("dtb_patch.zig"); // FDT memory/initrd patcher
 
 pub const Backend = enum { hvf, kvm, none };
 
@@ -94,4 +95,5 @@ test {
     _ = @import("virtio.zig");
     _ = @import("vsock.zig");
     _ = @import("pl011.zig");
+    _ = @import("dtb_patch.zig");
 }

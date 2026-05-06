@@ -39,6 +39,7 @@ const virtio = @import("virtio.zig");
 const blk_mod = @import("blk.zig");
 const vsock_mod = @import("vsock.zig");
 const net_mod = @import("net_socket.zig");
+const dtb_patch = @import("dtb_patch.zig");
 
 // Guest-physical bases. Same MMIO layout as HVF (see boot_hvf.zig
 // for the slot layout doc) so the shared `virt.dts` works for both
@@ -310,6 +311,16 @@ fn allocateAndPopulateRam(
     @memcpy(ram[fx.img.text_offset..][0..fx.kernel.len], fx.kernel);
     @memcpy(ram[cfg.dtb_offset..][0..fx.dtb.len], fx.dtb);
 
+    // #263 phase A: rewrite the DTB's `memory@<base>` reg-size cells
+    // to match cfg.ram_size. Without this the shipped DTB caps the
+    // guest at the DTS-declared 4 GiB regardless of cfg.ram_size.
+    dtb_patch.patchMemorySize(ram[cfg.dtb_offset..][0..fx.dtb.len], cfg.ram_size) catch |err| {
+        std.debug.print(
+            "warn: patchMemorySize failed ({s}); guest will see the DTB-declared ceiling, not cfg.ram_size={d}\n",
+            .{ @errorName(err), cfg.ram_size },
+        );
+    };
+
     if (cfg.initrd_path) |initrd_path| {
         const initrd = readAll(gpa, initrd_path) catch |err| {
             if (err == error.OpenFailed) return error.FixtureMissing;
@@ -318,6 +329,12 @@ fn allocateAndPopulateRam(
         defer gpa.free(initrd);
         if (cfg.initrd_offset + initrd.len > cfg.ram_size) return error.DtbTooLarge;
         @memcpy(ram[cfg.initrd_offset..][0..initrd.len], initrd);
+        // Mirror boot_hvf.zig: cap the kernel's initramfs scan window
+        // to the actual cpio length so we don't burn boot time
+        // walking dead tail. Failures here only cost startup latency,
+        // so log only with MACHINEN_DEBUG set (the kernel still boots).
+        const initrd_end_abs: u32 = @intCast(cfg.ram_base + cfg.initrd_offset + initrd.len);
+        dtb_patch.patchInitrdEnd(ram[cfg.dtb_offset..][0..fx.dtb.len], initrd_end_abs) catch {};
     }
     return ram;
 }
