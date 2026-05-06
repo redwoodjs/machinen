@@ -77,6 +77,35 @@ if [ -z "$(ls -A /mnt/snap-src/img 2>/dev/null)" ]; then
     exit 1
 fi
 
+# Lazy-pages mode (#266): when the host has spawned a page-server and
+# plumbed `MACHINEN_RESTORE_PAGE_SERVER=<addr>:<port>` into our env,
+# split the restore in two:
+#   1. `criu lazy-pages` opens a UDS at /tmp/lazy-pages.socket and
+#      forwards UFFD page requests to the host page-server over TCP.
+#   2. `criu restore --lazy-pages` skips the eager copy of pagemap
+#      entries flagged PE_LAZY and registers UFFD on those VMA's,
+#      then defers to the lazy-pages daemon.
+# Both must live in the same PID-NS we set up for the restore (#215),
+# so we put the daemon under the same `unshare`. lazy-pages talks to
+# the daemon via a UDS in /tmp (--work-dir keeps it off any read-only
+# mounts).
+LAZY_FLAGS=""
+LAZY_PAGES_PID=""
+if [ -n "${MACHINEN_RESTORE_PAGE_SERVER:-}" ]; then
+    case "$MACHINEN_RESTORE_PAGE_SERVER" in
+        *:*)
+            LAZY_ADDR="${MACHINEN_RESTORE_PAGE_SERVER%:*}"
+            LAZY_PORT="${MACHINEN_RESTORE_PAGE_SERVER##*:}"
+            ;;
+        *)
+            echo "machinen-restore: MACHINEN_RESTORE_PAGE_SERVER must be 'addr:port', got '$MACHINEN_RESTORE_PAGE_SERVER'" >&2
+            exit 1
+            ;;
+    esac
+    echo "machinen-restore: lazy-pages mode — page-server $LAZY_ADDR:$LAZY_PORT" >&2
+    LAZY_FLAGS="--lazy-pages"
+fi
+
 echo "machinen-restore: starting criu restore in a fresh PID namespace" >&2
 # Run criu inside `unshare --pid --fork --mount-proc` so the restored
 # workload's PIDs land in a fresh namespace (#215). Without this, the
@@ -107,11 +136,29 @@ echo "machinen-restore: starting criu restore in a fresh PID namespace" >&2
 # --work-dir /tmp keeps logs + per-restore working state off the
 # read-only bundle mount. CRIU writes `restore.log` (and stats / aux
 # scratch) here.
+if [ -n "$LAZY_FLAGS" ]; then
+    # Spawn the lazy-pages daemon BEFORE criu restore. It connects to
+    # the host page-server, opens /tmp/lazy-pages.socket, and waits for
+    # criu restore to coordinate. The daemon must outlive `criu restore`
+    # because UFFD events keep flowing as the workload runs.
+    criu lazy-pages \
+        --images-dir /mnt/snap-src/img \
+        --work-dir /tmp \
+        --address "$LAZY_ADDR" \
+        --port "$LAZY_PORT" \
+        --page-server \
+        -v3 \
+        -o lazy-pages.log &
+    LAZY_PAGES_PID=$!
+    echo "machinen-restore: lazy-pages daemon pid=$LAZY_PAGES_PID" >&2
+fi
+# shellcheck disable=SC2086 # word splitting on LAZY_FLAGS is intentional
 unshare --pid --fork --mount-proc -- \
         criu restore \
             --images-dir /mnt/snap-src/img \
             --work-dir /tmp \
             --tcp-established \
+            $LAZY_FLAGS \
             --pidfile /run/machinen-workload.pid \
             -v3 \
             -o restore.log &
@@ -157,6 +204,11 @@ if [ "$RC" -ne 0 ]; then
     grep -E "^(Error|Warn|\([0-9.]+\)\s+[0-9]+:\s*(Error|Warn))" /tmp/restore.log >&2 || true
     echo "machinen-restore: --- last 200 lines of restore.log ---" >&2
     tail -200 /tmp/restore.log >&2 || true
+    if [ -n "$LAZY_PAGES_PID" ]; then
+        echo "machinen-restore: --- last 200 lines of lazy-pages.log ---" >&2
+        tail -200 /tmp/lazy-pages.log >&2 || true
+        kill -TERM "$LAZY_PAGES_PID" 2>/dev/null || true
+    fi
     kill -TERM "$AGENT_PID" 2>/dev/null || true
     if [ -n "$WINSIZE_PID" ]; then
         kill -TERM "$WINSIZE_PID" 2>/dev/null || true
@@ -164,7 +216,14 @@ if [ "$RC" -ne 0 ]; then
     exit 1
 fi
 
-# Restored tree exited cleanly. Stop the agents and power off.
+# Restored tree exited cleanly. Stop the lazy-pages daemon (if any) and
+# the agents, then power off. lazy-pages exits on its own when criu
+# restore signals completion and the workload's UFFD fds drain, but
+# SIGTERM-after-exit is harmless and keeps the cleanup uniform.
+if [ -n "$LAZY_PAGES_PID" ]; then
+    kill -TERM "$LAZY_PAGES_PID" 2>/dev/null || true
+    wait "$LAZY_PAGES_PID" 2>/dev/null || true
+fi
 kill -TERM "$AGENT_PID" 2>/dev/null || true
 wait "$AGENT_PID" 2>/dev/null || true
 if [ -n "$WINSIZE_PID" ]; then

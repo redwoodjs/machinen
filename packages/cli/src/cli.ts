@@ -477,10 +477,14 @@ async function cmdInstall(args: string[]): Promise<number> {
 }
 
 async function cmdRestore(args: string[]): Promise<number> {
-  // `machinen restore <snap-dir> [--name <name>]`. The bundle dir
-  // (produced by `machinen snapshot`) holds img/<criu-images> + meta.json.
+  // `machinen restore <snap-dir> [--name <name>] [--lazy-pages]`. The
+  // bundle dir (produced by `machinen snapshot`) holds img/<criu-images>
+  // + meta.json. `--lazy-pages` wires up the host-side page-server so
+  // pages flow into the workload's anon mappings only when faulted —
+  // see #266 for the RSS argument.
   const positional: string[] = [];
   let name: string | undefined;
+  let lazyPages = false;
   for (let i = 0; i < args.length; i++) {
     const a = args[i]!;
     if (a === "--name" || a.startsWith("--name=")) {
@@ -488,6 +492,8 @@ async function cmdRestore(args: string[]): Promise<number> {
       if (!name) {
         die("--name requires a value");
       }
+    } else if (a === "--lazy-pages") {
+      lazyPages = true;
     } else if (a.startsWith("-")) {
       die(`unknown flag: ${a}`);
     } else {
@@ -495,7 +501,7 @@ async function cmdRestore(args: string[]): Promise<number> {
     }
   }
   if (positional.length !== 1) {
-    die("usage: machinen restore <snap-dir> [--name <name>]");
+    die("usage: machinen restore <snap-dir> [--name <name>] [--lazy-pages]");
   }
   const snapDir = resolve(positional[0]!);
 
@@ -521,6 +527,7 @@ async function cmdRestore(args: string[]): Promise<number> {
       kernel: kernelPath,
       dtb: dtbPath,
       name,
+      lazyPages,
       timeoutMs: null,
     });
   } catch (err) {

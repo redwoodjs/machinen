@@ -279,4 +279,16 @@ export interface ForkOptions {
    * the same bind. Pass explicitly when the fork needs forwards.
    */
   portForward?: Array<{ hostPort: number; guestPort: number; hostAddr?: string }>;
+  /**
+   * Restore via CRIU lazy-pages over a host-side page-server (#266).
+   * The runtime spawns `machinen-page-server` against the bundle's
+   * `img/` dir and tells the guest to fault pages from it via TCP.
+   * This is what keeps RSS down when forking a snapshot of a large
+   * workload — pages flow into anon only when the workload actually
+   * touches them, not eagerly at restore.
+   *
+   * Default false (eager restore). Requires the rootfs to ship a
+   * `criu lazy-pages`-capable binary (the rootfs we ship does).
+   */
+  lazyPages?: boolean;
 }

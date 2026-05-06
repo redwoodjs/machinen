@@ -63,6 +63,7 @@ import { reflinkCopy } from "./reflink.ts";
 import { ensureRootfsImage, markRootfsImageClean } from "./rootfs-img.ts";
 import { VsockExec, type VsockExecOptions, type VsockExecResult } from "./exec.ts";
 import { serveLiveMount } from "./mount-server.ts";
+import { spawnPageServer, type PageServerHandle } from "./page-server.ts";
 import type { OnLog } from "./log.ts";
 import { PhaseTimer } from "./phase-timer.ts";
 import { claimName, findEntry, isAlive, removeEntry, writeEntry } from "./registry.ts";
@@ -2541,6 +2542,13 @@ export interface RestoreOptions extends Omit<BootOptions, "snapshot" | "image" |
    * unique under the source's namespace.
    */
   name?: string;
+  /**
+   * Restore via CRIU lazy-pages over a host-side page-server (#266).
+   * Pages flow into the workload's anon mappings only when faulted,
+   * which keeps RSS proportional to the touched set rather than the
+   * full snapshot size. Default false (eager restore).
+   */
+  lazyPages?: boolean;
 }
 
 /**
@@ -2637,6 +2645,26 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
   }
   phases.end("snapshot-pack");
 
+  // Spawn the host-side CRIU page-server when the caller opted into
+  // lazy-pages restore (#266). The guest connects to it via the
+  // gvproxy default NAT (192.168.127.254 → host's 127.0.0.1) so we
+  // don't have to thread routing through `exposePort`. The page-
+  // server's lifetime is tied to the restored VM via the boot child's
+  // `exit` hook a few lines below.
+  let pageServerHandle: PageServerHandle | undefined;
+  const restoreEnv: Record<string, string> = {};
+  if (opts.lazyPages) {
+    phases.start("page-server-spawn");
+    pageServerHandle = await spawnPageServer({ imgDir });
+    restoreEnv.MACHINEN_RESTORE_PAGE_SERVER = pageServerHandle.guestEndpoint;
+    debug(
+      "lazy-pages restore: page-server pid=%d endpoint=%s",
+      pageServerHandle.child.pid ?? -1,
+      pageServerHandle.guestEndpoint,
+    );
+    phases.end("page-server-spawn");
+  }
+
   // boot() doesn't know the pid until after the VMM is spawned, so
   // we can't pass `<sourceName>/<pid>` up front. Boot anonymous,
   // then claim the auto-name and patch the registry entry below.
@@ -2648,7 +2676,11 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
       snapshot: tarPath,
       forkedFrom: snapDir,
       name: opts.name,
+      env: { ...opts.env, ...restoreEnv },
     });
+  } catch (err) {
+    pageServerHandle?.stop();
+    throw err;
   } finally {
     // boot() reflink-clones the source into a per-boot path before
     // attaching, so the source tar isn't needed after boot returns
@@ -2659,6 +2691,15 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
     } catch {}
   }
   phases.end("boot");
+
+  // Tie the page-server's lifetime to the restored VM. We can't hook
+  // boot()'s child.once("exit") from here without a new injection
+  // point, but vm.wait() chains the same lifecycle and resolves on
+  // VMM exit either way (foreground or attached / detached). Fire-
+  // and-forget — the stop() is idempotent.
+  if (pageServerHandle) {
+    void vm.wait().finally(() => pageServerHandle.stop());
+  }
 
   if (!opts.name && meta.sourceName) {
     // Default auto-name nests under the source: `<src>/<pid>`.
@@ -2829,6 +2870,7 @@ async function performFork(ctx: SnapshotContext, opts: ForkOptions): Promise<VmH
       kernel: opts.kernel,
       dtb: opts.dtb,
       portForward: opts.portForward ?? [],
+      lazyPages: opts.lazyPages,
       // The fork outlives the process that spawned it (CLI returns
       // immediately; programmatic callers detach() and move on).
       // Skip the parent-death shim so the fork's VMM isn't SIGTERM'd

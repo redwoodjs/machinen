@@ -1473,5 +1473,96 @@ else
   trap 'rm -rf "$FIXTURE"' EXIT
 fi  # S3 rootfs-capability gate
 
+# ----------------------------------------------------------------
+# S4: lazy-pages restore (#266) — same boot+snapshot+restore round-
+# trip as S1, but the host spawns a CRIU page-server and tells the
+# guest to fault pages over TCP via gvproxy's default NAT to host
+# loopback. Doesn't yet assert the RSS ceiling (that's the headline
+# follow-up using /sbin/machinen-memdirty); only asserts:
+#   1. lazy-pages restore reaches userspace (workload survives).
+#   2. The page-server child gets reaped when the restored VM exits.
+# ----------------------------------------------------------------
+if [[ "$ROOTFS_SUPPORTS_VSOCK_EXEC" -eq 0 || "$ROOTFS_SUPPORTS_CRIU" -eq 0 || "$ROOTFS_SUPPORTS_SNAPSHOT_HELPERS" -eq 0 ]]; then
+  echo "S4: skipped (rootfs lacks vsock/criu/snapshot helpers)"
+else
+  echo "S4: boot + snapshot + lazy-pages restore round-trip"
+  S4_NAME="lazy-smoke-$$"
+  S4_BG_LOG="$FIXTURE/s4-bg.log"
+  S4_SNAP_DIR="$FIXTURE/s4-snap"
+  S4_SCRATCH="$FIXTURE/s4-scratch.img"
+  S4_RESTORE_LOG="$FIXTURE/s4-restore.log"
+
+  truncate -s 256M "$S4_SCRATCH"
+
+  S4_PID=$(boot_bg "$S4_NAME" "$S4_BG_LOG" --snapshot "$S4_SCRATCH" -- \
+    /bin/sh -c 'while :; do sleep 1; done')
+  cleanup_s4() {
+    kill -TERM "$S4_PID" 2>/dev/null || true
+    wait "$S4_PID" 2>/dev/null || true
+  }
+  trap 'cleanup_s4; rm -rf "$FIXTURE"' EXIT
+
+  if ! wait_for_vm "$S4_NAME"; then
+    tail -80 "$S4_BG_LOG" >&2
+    fail "S4 — '$S4_NAME' never appeared in 'machinen ls'"
+  fi
+  pass "boot --name --snapshot registered '$S4_NAME'"
+
+  S4_DUMP_LOG="$FIXTURE/s4-dump.log"
+  if ! cli snapshot --name "$S4_NAME" --out-dir "$S4_SNAP_DIR" 2>"$S4_DUMP_LOG"; then
+    tail -60 "$S4_BG_LOG" >&2
+    cat "$S4_DUMP_LOG" >&2
+    fail "S4 — 'machinen snapshot' failed"
+  fi
+  wait "$S4_PID" 2>/dev/null || true
+  pass "'machinen snapshot' returned 0"
+
+  # Lazy-pages restore in the background. The CLI's --lazy-pages flag
+  # spawns the host page-server and plumbs the endpoint into the guest
+  # via MACHINEN_RESTORE_PAGE_SERVER.
+  node "$CLI" restore --lazy-pages "$S4_SNAP_DIR" >"$S4_RESTORE_LOG" 2>&1 &
+  S4_RESTORE_PID=$!
+  cleanup_s4_restore() {
+    kill -TERM "$S4_RESTORE_PID" 2>/dev/null || true
+    wait "$S4_RESTORE_PID" 2>/dev/null || true
+  }
+  trap 'cleanup_s4; cleanup_s4_restore; rm -rf "$FIXTURE"' EXIT
+
+  S4_RESTORED_NAME=""
+  deadline=$((SECONDS + 60))
+  while (( SECONDS < deadline )); do
+    cand=$(cli ls 2>/dev/null | awk -v src="$S4_NAME/" 'NR>1 && index($2, src)==1 {print $2; exit}')
+    if [[ -n "$cand" ]]; then
+      S4_RESTORED_NAME=$cand
+      break
+    fi
+    sleep 1
+  done
+  if [[ -z "$S4_RESTORED_NAME" ]]; then
+    tail -200 "$S4_RESTORE_LOG" >&2
+    cli ls >&2 || true
+    fail "S4 — restored VM never registered"
+  fi
+  pass "lazy-pages restored VM auto-named as '$S4_RESTORED_NAME'"
+
+  # The acid test: a normal exec works on the restored VM. This forces
+  # the workload to actually run code, which only happens once enough
+  # pages have been faulted in via the page-server. If lazy-pages
+  # protocol is broken or the page-server doesn't serve, the workload
+  # hangs on first instruction and exec times out.
+  S4_EXEC_LOG="$FIXTURE/s4-exec.log"
+  if cli exec --name "$S4_RESTORED_NAME" -- uname -m >"$S4_EXEC_LOG" 2>&1 \
+     && grep -qE "aarch64|arm64" "$S4_EXEC_LOG"; then
+    pass "exec-agent responds on the lazy-pages restored VM"
+  else
+    cat "$S4_EXEC_LOG" >&2
+    tail -200 "$S4_RESTORE_LOG" >&2
+    fail "S4 — exec against lazy-pages restored VM failed"
+  fi
+
+  cleanup_s4_restore
+  trap 'rm -rf "$FIXTURE"' EXIT
+fi  # S4 rootfs-capability gate
+
 echo
 echo "all smoke tests passed"
