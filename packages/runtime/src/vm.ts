@@ -868,6 +868,10 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   // Today the structure enforces this (no awaits between here and
   // the gate); don't reorder.
   const vmName = opts.name;
+  // Resolved once: shared by the registry entry and any future snapshot
+  // ctx so the bundle's meta.json points at the same absolute path the
+  // source booted from. Cheap (just a path resolve), so unconditional.
+  const sourceImageAbs = opts.image ? resolve(opts.cwd ?? process.cwd(), opts.image) : undefined;
   const childPid = child.pid ?? -1;
   if (vmName && childPid > 0) {
     if (!claimName(vmName, childPid)) {
@@ -913,7 +917,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         pid: childPid,
         name: vmName,
         socketPath: vsockUdsPath,
-        imagePath: opts.image ? resolve(opts.cwd ?? process.cwd(), opts.image) : undefined,
+        imagePath: sourceImageAbs,
         diskPath: diskAbs,
         forkedFrom: opts.forkedFrom,
         bootLogPath,
@@ -1209,6 +1213,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         {
           pid: childPid,
           sourceName: vmName,
+          sourceImage: sourceImageAbs,
           diskPath: diskAbs,
           execRaw: (cmd, execOpts) => this.execRaw(cmd, execOpts),
           wait: () => this.wait(),
@@ -1241,6 +1246,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         {
           pid: childPid,
           sourceName: vmName,
+          sourceImage: sourceImageAbs,
           diskPath: diskAbs,
           execRaw: (cmd, execOpts) => this.execRaw(cmd, execOpts),
           wait: () => this.wait(),
@@ -1493,6 +1499,7 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
         {
           pid: entry.pid,
           sourceName: entry.name,
+          sourceImage: entry.imagePath,
           diskPath: entry.diskPath,
           execRaw: (cmd, execOpts) => this.execRaw(cmd, execOpts),
           wait: () => this.wait(),
@@ -1518,6 +1525,7 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
         {
           pid: entry.pid,
           sourceName: entry.name,
+          sourceImage: entry.imagePath,
           diskPath: entry.diskPath,
           execRaw: (cmd, execOpts) => this.execRaw(cmd, execOpts),
           wait: () => this.wait(),
@@ -1773,7 +1781,11 @@ function synthesizeAndPackBundle(
   //     /dev/vda, spawns a fresh exec-agent, and runs `criu restore`
   //     inside `unshare --pid --fork --mount-proc` so the dumped
   //     workload's PIDs don't collide with the restore-side helpers
-  //     on chained restores (#215).
+  //     on chained restores (#215). This MUST take precedence over
+  //     the rootfs's baked `imageConfig.cmd` — that field is the
+  //     fresh-boot default; replaying it on restore would launch a
+  //     brand-new workload instead of resuming the dumped one,
+  //     silently dropping all in-memory state.
   //   - Normal boot: user's cmd wins; fall back to image's baked
   //     default. Then wrap in /sbin/machinen-supervisor so the
   //     workload runs as a CRIU-dumpable child of /init and the
@@ -1784,14 +1796,14 @@ function synthesizeAndPackBundle(
   let effectiveCmd: string[] | undefined;
   if (opts.cmd) {
     effectiveCmd = opts.cmd;
-  } else if (imageConfig?.cmd) {
-    effectiveCmd = imageConfig.cmd;
   } else if (typeof opts.snapshot === "string") {
     // Only synthesize the restore helper when the caller explicitly
     // passed a snapshot path. The auto-allocated scratch (default
     // `snapshot: undefined`) is empty, so synthesizing here would feed
     // CRIU a bundle-less file and fail.
     effectiveCmd = ["/sbin/machinen-restore"];
+  } else if (imageConfig?.cmd) {
+    effectiveCmd = imageConfig.cmd;
   }
   if (!effectiveCmd) {
     cleanup();
@@ -2138,6 +2150,13 @@ interface SnapshotContext {
   pid: number;
   /** Optional source name (from `boot({ name })`); written into bundle meta.json. */
   sourceName?: string;
+  /**
+   * Absolute path of the rootfs tarball the source VM was booted with;
+   * written into bundle meta.json so `restore()` can default to the
+   * same image. Optional because attach handles may be looking at a
+   * registry entry that pre-dates `imagePath` tracking.
+   */
+  sourceImage?: string;
   /** Host file backing /dev/vda — what we copy into the bundle on success. */
   diskPath: string;
   execRaw: (cmd: string, opts?: VsockExecOptions) => Promise<VsockExecResult>;
@@ -2465,9 +2484,15 @@ async function performSnapshot(
   }
 
   // Drop the bundle metadata next to the image so `restore({ snapDir })`
-  // can recover the source name without poking at the disk.
+  // can recover the source name and rootfs path without poking at the
+  // disk. `sourceImage` is the absolute host path to the tarball the
+  // source VM booted from — restore uses it as the default rootfs so
+  // CRIU can re-open file-backed VMAs (executable, libraries) at the
+  // paths they were dumped from. Cross-host restores still need the
+  // path to resolve on the new host (or `--image` to override).
   const meta: SnapshotMeta = {
     sourceName: ctx.sourceName,
+    sourceImage: ctx.sourceImage,
     snappedAt: Date.now(),
   };
   writeFileSync(join(snapDir, "meta.json"), JSON.stringify(meta));
@@ -2558,12 +2583,56 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
   }
   phases.end("snapshot-meta-read");
 
+  // Resolve the rootfs image: caller's `opts.image` wins; otherwise
+  // fall back to the path the source booted from (recorded in
+  // meta.json). Without a usable image, criu's file-backed VMA
+  // restore has nothing to reopen and PID 1 panics — so we throw
+  // here with a message the user can act on instead.
+  let resolvedImage: string | undefined;
+  if (opts.image) {
+    resolvedImage = resolve(opts.cwd ?? process.cwd(), opts.image);
+    if (!existsSync(resolvedImage)) {
+      throw new BootError("BOOT_IMAGE_NOT_FOUND", `restore: image not found: ${resolvedImage}`);
+    }
+  } else if (meta.sourceImage && existsSync(meta.sourceImage)) {
+    resolvedImage = meta.sourceImage;
+    debugRestore("using meta.sourceImage path=%s", resolvedImage);
+  } else if (meta.sourceImage) {
+    // The bundle remembers a path, but it's gone on this host (e.g.
+    // restored on a different machine, or the tarball was deleted).
+    // Surface it so the user can scp it over or pass --image.
+    throw new BootError(
+      "BOOT_IMAGE_NOT_FOUND",
+      `restore: source image not found at ${meta.sourceImage}\n` +
+        `  The snapshot was taken with this rootfs tarball, and CRIU needs\n` +
+        `  it to reopen the process's file-backed memory mappings (e.g.\n` +
+        `  /usr/bin/node, libc, etc).\n` +
+        `  • copy the tarball to that path on this host, OR\n` +
+        `  • pass an explicit override via the runtime's restore({ image })\n` +
+        `    or the CLI's \`machinen restore --image <tarball>\`.`,
+    );
+  } else {
+    // No --image, and the bundle's meta.json has no sourceImage (an
+    // old bundle predating this field, or one written without the
+    // source's image path). Without something to mount as /, criu
+    // can't reopen file-backed VMAs. Tell the user up front.
+    throw new BootError(
+      "BOOT_IMAGE_NOT_FOUND",
+      `restore: no rootfs image available for this bundle.\n` +
+        `  The snapshot's meta.json doesn't record a source image (likely\n` +
+        `  predates the field). Pass the same tarball you booted the\n` +
+        `  source VM with via the runtime's restore({ image }) or the\n` +
+        `  CLI's \`machinen restore --image <tarball>\`.`,
+    );
+  }
+
   // boot() doesn't know the pid until after the VMM is spawned, so
   // we can't pass `<sourceName>/<pid>` up front. Boot anonymous,
   // then claim the auto-name and patch the registry entry below.
   phases.start("boot");
   const vm = await boot({
     ...opts,
+    image: resolvedImage,
     snapshot: diskPath,
     forkedFrom: snapDir,
     name: opts.name,

@@ -2,6 +2,7 @@ import { ParseError } from "@machinen/runtime";
 import { describe, expect, it } from "vitest";
 import { formatPorts } from "../format-ports.ts";
 import { parseForkArgs } from "../parse-fork-args.ts";
+import { parseRestoreArgs } from "../parse-restore-args.ts";
 import { parseRunArgs } from "../parse-run-args.ts";
 import { tailLines } from "../tail-lines.ts";
 
@@ -378,6 +379,88 @@ describe("parseForkArgs", () => {
     const parsed = parseForkArgs(["--name", "src", "--pid", "1234", "--detach"]);
     expect(parsed.rest).toEqual(["--name", "src", "--pid", "1234"]);
     expect(parsed.detach).toBe(true);
+  });
+});
+
+describe("parseRestoreArgs", () => {
+  it("captures the snap-dir positional", () => {
+    const parsed = parseRestoreArgs(["./warm"]);
+    expect(parsed.positional).toEqual(["./warm"]);
+    expect(parsed.name).toBeUndefined();
+    expect(parsed.image).toBeUndefined();
+    expect(parsed.portForward).toEqual([]);
+  });
+
+  it("captures --name and --image (space and = forms)", () => {
+    const a = parseRestoreArgs(["./warm", "--name", "restored", "--image", "./rootfs.tar.gz"]);
+    expect(a.name).toBe("restored");
+    expect(a.image).toBe("./rootfs.tar.gz");
+    const b = parseRestoreArgs(["--name=restored", "--image=./rootfs.tar.gz", "./warm"]);
+    expect(b.name).toBe("restored");
+    expect(b.image).toBe("./rootfs.tar.gz");
+  });
+
+  it("collects -p / --publish into portForward", () => {
+    const parsed = parseRestoreArgs([
+      "./warm",
+      "-p",
+      "3001:3000",
+      "--publish",
+      "5433:5432",
+      "--publish=8081:8080",
+    ]);
+    expect(parsed.portForward).toEqual([
+      { hostPort: 3001, guestPort: 3000 },
+      { hostPort: 5433, guestPort: 5432 },
+      { hostPort: 8081, guestPort: 8080 },
+    ]);
+  });
+
+  it("rejects duplicate hostPort across the same restore", () => {
+    expect(() => parseRestoreArgs(["./warm", "-p", "3001:3000", "-p", "3001:3001"])).toThrow(
+      /duplicate hostPort 3001/,
+    );
+  });
+
+  it("rejects malformed -p", () => {
+    expect(() => parseRestoreArgs(["./warm", "-p", "3001"])).toThrow(
+      /expected <hostPort>:<guestPort>/,
+    );
+  });
+
+  it("rejects out-of-range -p ports", () => {
+    expect(() => parseRestoreArgs(["./warm", "-p", "0:3000"])).toThrow(
+      /hostPort must be in 1..65535/,
+    );
+    expect(() => parseRestoreArgs(["./warm", "-p", "3001:70000"])).toThrow(
+      /guestPort must be in 1..65535/,
+    );
+  });
+
+  it("rejects a bare -p with no following argument", () => {
+    expect(() => parseRestoreArgs(["./warm", "-p"])).toThrow(/-p requires/);
+  });
+
+  it("rejects a bare --name / --image with no following argument", () => {
+    expect(() => parseRestoreArgs(["./warm", "--name"])).toThrow(/--name requires/);
+    expect(() => parseRestoreArgs(["./warm", "--image"])).toThrow(/--image requires/);
+  });
+
+  it("rejects a duplicate --name / --image", () => {
+    expect(() => parseRestoreArgs(["./warm", "--name", "a", "--name", "b"])).toThrow(
+      /at most once/,
+    );
+    expect(() => parseRestoreArgs(["./warm", "--image", "a", "--image", "b"])).toThrow(
+      /at most once/,
+    );
+  });
+
+  it("rejects unknown flags", () => {
+    expect(() => parseRestoreArgs(["./warm", "--bogus"])).toThrow(/unknown flag: --bogus/);
+  });
+
+  it("throws ParseError (not generic Error) so the CLI can format it", () => {
+    expect(() => parseRestoreArgs(["./warm", "-p"])).toThrow(ParseError);
   });
 });
 
