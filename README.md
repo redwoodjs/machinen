@@ -87,13 +87,19 @@ Freeze it, copy the bundle to host B, thaw it:
 
 ```bash
 npx machinen snapshot --name counter --out-dir ./counter.snap
-scp -r ./counter.snap host-b:
+scp ./counter.tar.gz ./counter.snap host-b:
 ssh host-b npx machinen restore ./counter.snap &
 curl host-b:3000                           # { count: 3 }  ← same process
 ```
 
 Same arch only (arm64 ↔ arm64). Memory, file descriptors, and timers come
 back exactly as they were.
+
+The bundle remembers the absolute path of the rootfs tarball you booted
+from. On the same host that's all you need — `restore` reuses the same
+tarball so CRIU can re-open file-backed VMAs (executable, shared
+libraries) at the paths they were dumped from. Across hosts, copy the
+tarball to the same path or pass `--image <tarball>` to override.
 
 ## Fork
 
