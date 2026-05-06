@@ -98,6 +98,13 @@ export interface RegistryEntry {
    * gvproxy's pid weeks later.
    */
   gvproxyExe?: string;
+  /**
+   * Host→guest port forwards configured at boot/fork time. Surfaced
+   * in `machinen ls` so users can see which host port maps to which
+   * VM without re-reading the launch command. Undefined when the VM
+   * was booted without `-p` / `portForward: []`.
+   */
+  portForward?: Array<{ hostPort: number; guestPort: number; hostAddr?: string }>;
   /** ms epoch when the entry was created. */
   startedAt: number;
 }

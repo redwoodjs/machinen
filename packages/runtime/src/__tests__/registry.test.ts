@@ -50,6 +50,21 @@ describe("registry primitives", () => {
     expect(readEntry(process.pid)).toEqual(entry);
   });
 
+  it("writeEntry → readEntry round-trips portForward", () => {
+    const entry: RegistryEntry = {
+      pid: process.pid,
+      name: "with-ports",
+      socketPath: "/tmp/fake.sock",
+      portForward: [
+        { hostPort: 3000, guestPort: 3000 },
+        { hostPort: 5432, guestPort: 5432, hostAddr: "0.0.0.0" },
+      ],
+      startedAt: 1_700_000_000_000,
+    };
+    writeEntry(entry);
+    expect(readEntry(process.pid)).toEqual(entry);
+  });
+
   it("removeEntry drops the directory + name pin", () => {
     writeEntry({
       pid: process.pid,

@@ -1,5 +1,6 @@
 import { ParseError } from "@machinen/runtime";
 import { describe, expect, it } from "vitest";
+import { formatPorts } from "../format-ports.ts";
 import { parseForkArgs } from "../parse-fork-args.ts";
 import { parseRunArgs } from "../parse-run-args.ts";
 import { tailLines } from "../tail-lines.ts";
@@ -377,6 +378,32 @@ describe("parseForkArgs", () => {
     const parsed = parseForkArgs(["--name", "src", "--pid", "1234", "--detach"]);
     expect(parsed.rest).toEqual(["--name", "src", "--pid", "1234"]);
     expect(parsed.detach).toBe(true);
+  });
+});
+
+describe("formatPorts (machinen ls PORTS column)", () => {
+  it("renders '-' when no forwards are configured", () => {
+    expect(formatPorts(undefined)).toBe("-");
+    expect(formatPorts([])).toBe("-");
+  });
+
+  it("renders a single forward as <hostPort>:<guestPort>", () => {
+    expect(formatPorts([{ hostPort: 3000, guestPort: 3000 }])).toBe("3000:3000");
+  });
+
+  it("comma-separates multiple forwards", () => {
+    expect(
+      formatPorts([
+        { hostPort: 3000, guestPort: 3000 },
+        { hostPort: 5432, guestPort: 5432 },
+      ]),
+    ).toBe("3000:3000,5432:5432");
+  });
+
+  it("ignores hostAddr in the rendered cell (kept terse for the table)", () => {
+    expect(formatPorts([{ hostPort: 5432, guestPort: 5432, hostAddr: "0.0.0.0" }])).toBe(
+      "5432:5432",
+    );
   });
 });
 
