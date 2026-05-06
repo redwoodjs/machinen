@@ -285,10 +285,7 @@ describe("snapshot option", () => {
       execSync(`tar -czf ${imgPath} -C ${imgDir} .`);
       const vm = await boot({
         binary: "/bin/sh",
-        args: [
-          "-c",
-          `cp "$(dirname "$MACHINEN_INITRD")/bundle/machinen-config.json" ${dumpPath}`,
-        ],
+        args: ["-c", `cp "$(dirname "$MACHINEN_INITRD")/bundle/machinen-config.json" ${dumpPath}`],
         image: imgPath,
         snapshot: snap,
         rootDisk: false,
