@@ -1,12 +1,20 @@
 #!/bin/sh
-# /sbin/machinen-restore — restores a CRIU dump from /dev/vda and
-# supervises the restored workload until it exits.
+# /sbin/machinen-restore — restores a CRIU dump from a tar archive
+# attached as the scratch block device, then supervises the restored
+# workload until it exits.
 #
 # Invoked as /init's direct child (via cmd=["/sbin/machinen-restore"]
 # synthesized by the runtime when boot() gets an opts.snapshot but
 # no opts.cmd). Counterpart of /sbin/machinen-supervisor — same
 # "restore vsock + wait + poweroff" shape, just with the workload
 # coming from a CRIU image set instead of a fresh fork+execve.
+#
+# Bundle delivery (#266): the host attaches the bundle as a raw tar
+# archive on the scratch block device (no filesystem). We untar into
+# tmpfs and run criu against that. The old ext4-on-blk delivery was
+# replaced because the new bundle format on the host is a directory
+# of CRIU image files; staging through tar avoids any need for the
+# host to mkfs ext4.
 
 set -eu
 
@@ -45,7 +53,7 @@ if [ -x /sbin/machinen-winsize-agent ]; then
     WINSIZE_PID=$!
 fi
 
-# Mount the CRIU image store. Pick /dev/vdb when virtio-blk-root booted
+# Pick the scratch block device: /dev/vdb when virtio-blk-root booted
 # (rootfs took /dev/vda); else /dev/vda for the legacy single-disk
 # layout. See #114.
 if [ -b /dev/vdb ]; then
@@ -54,23 +62,22 @@ else
     SCRATCH=/dev/vda
 fi
 
-# Mount the bundle disk at /mnt/snap-src (NOT /mnt/snap) so a future
-# `machinen snapshot` against the restored VM can use /mnt/snap as its
-# own scratch mountpoint without colliding (#207). machinen-dump.sh
-# unmounts /mnt/snap-src before re-formatting the disk for the new dump;
-# see that script for the cleanup.
-mkdir -p /mnt/snap-src
-if ! blkid "$SCRATCH" 2>/dev/null | grep -q ext4; then
-    echo "machinen-restore: $SCRATCH is not ext4 — aborting" >&2
+# Untar the bundle off the raw block device into /mnt/snap-src/img.
+# /mnt/snap-src lives on the rootfs (tmpfs-style); a future
+# `machinen snapshot` against this VM will write its OWN dump to the
+# scratch disk via /mnt/snap, so we keep the two paths separate (#207).
+mkdir -p /mnt/snap-src/img
+echo "machinen-restore: untarring $SCRATCH into /mnt/snap-src/img" >&2
+if ! tar -xmf "$SCRATCH" -C /mnt/snap-src/img; then
+    echo "machinen-restore: failed to untar bundle from $SCRATCH" >&2
     exit 1
 fi
-mount -o ro "$SCRATCH" /mnt/snap-src
-if [ ! -d /mnt/snap-src/img ] || [ -z "$(ls -A /mnt/snap-src/img 2>/dev/null)" ]; then
-    echo "machinen-restore: no images at /mnt/snap-src/img — aborting" >&2
+if [ -z "$(ls -A /mnt/snap-src/img 2>/dev/null)" ]; then
+    echo "machinen-restore: bundle on $SCRATCH was empty" >&2
     exit 1
 fi
 
-echo "machinen-restore: starting criu restore in a fresh PID namespace"
+echo "machinen-restore: starting criu restore in a fresh PID namespace" >&2
 # Run criu inside `unshare --pid --fork --mount-proc` so the restored
 # workload's PIDs land in a fresh namespace (#215). Without this, the
 # dumped tree's PIDs (e.g. 60, 73, 77 — captured wherever the source
@@ -99,10 +106,7 @@ echo "machinen-restore: starting criu restore in a fresh PID namespace"
 #
 # --work-dir /tmp keeps logs + per-restore working state off the
 # read-only bundle mount. CRIU writes `restore.log` (and stats / aux
-# scratch) here; without --work-dir it'd default to --images-dir and
-# fail with "Can't create log file restore.log: Read-only file system"
-# on v4.2 (3.17.1 was lenient about this and didn't always need to
-# write the log).
+# scratch) here.
 unshare --pid --fork --mount-proc -- \
         criu restore \
             --images-dir /mnt/snap-src/img \

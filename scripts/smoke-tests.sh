@@ -1023,7 +1023,7 @@ else
     fail "S1 — exec against dump-side VM didn't return arch"
   fi
 
-  # Snapshot via the attach path. The bundle (disk.img + meta.json)
+  # Snapshot via the attach path. The bundle (img/<criu> + meta.json)
   # lands at $S1_SNAP_DIR; the VM exits as part of the dump.
   S1_DUMP_LOG="$FIXTURE/s1-dump.log"
   if ! cli snapshot --name "$S1_NAME" --out-dir "$S1_SNAP_DIR" 2>"$S1_DUMP_LOG"; then
@@ -1034,20 +1034,19 @@ else
   wait "$S1_PID" 2>/dev/null || true
   pass "'machinen snapshot' returned 0"
 
-  S1_DISK="$S1_SNAP_DIR/disk.img"
-  if [[ ! -s "$S1_DISK" ]]; then
+  if [[ ! -d "$S1_SNAP_DIR/img" ]]; then
     ls -la "$S1_SNAP_DIR" >&2
-    fail "S1 — snapshot disk.img is empty or missing"
+    fail "S1 — snapshot bundle missing img/ directory"
+  fi
+  if ! ls "$S1_SNAP_DIR"/img/core-*.img >/dev/null 2>&1; then
+    ls -la "$S1_SNAP_DIR/img" >&2
+    fail "S1 — snapshot bundle has no img/core-*.img"
   fi
   if [[ ! -f "$S1_SNAP_DIR/meta.json" ]]; then
     ls -la "$S1_SNAP_DIR" >&2
     fail "S1 — snapshot bundle missing meta.json"
   fi
-  if ! file "$S1_DISK" 2>/dev/null | grep -qiE "ext[0-9] filesystem"; then
-    file "$S1_DISK" >&2 || true
-    fail "S1 — snapshot disk.img is not an ext filesystem"
-  fi
-  pass "snapshot bundle has ext4 disk.img + meta.json"
+  pass "snapshot bundle has img/core-*.img + meta.json"
 
   # Restore in the background. The auto-name is "<source>/<pid>";
   # find the restored VM by listing names that start with the source.
@@ -1168,8 +1167,12 @@ else
   wait "$S2_PID" 2>/dev/null || true
   pass "snapshot → bundle A"
 
-  S2_BUNDLE_A_BEFORE=$(stat -c '%Y' "$S2_SNAP_A/disk.img" 2>/dev/null \
-    || stat -f '%m' "$S2_SNAP_A/disk.img")
+  if ! ls "$S2_SNAP_A"/img/core-*.img >/dev/null 2>&1; then
+    fail "S2 — bundle A has no img/core-*.img"
+  fi
+  S2_BUNDLE_A_PROBE=$(ls "$S2_SNAP_A"/img/core-*.img | head -1)
+  S2_BUNDLE_A_BEFORE=$(stat -c '%Y' "$S2_BUNDLE_A_PROBE" 2>/dev/null \
+    || stat -f '%m' "$S2_BUNDLE_A_PROBE")
 
   # Restore bundle A in the background, then snapshot the restored VM.
   node "$CLI" restore "$S2_SNAP_A" >"$S2_RESTORE_A_LOG" 2>&1 &
@@ -1208,18 +1211,19 @@ else
   wait "$S2_RESTORE_A_PID" 2>/dev/null || true
   pass "chained snapshot → bundle B"
 
-  if [[ ! -s "$S2_SNAP_B/disk.img" ]]; then
-    fail "S2 — chained snapshot bundle B has empty disk.img"
+  if ! ls "$S2_SNAP_B"/img/core-*.img >/dev/null 2>&1; then
+    fail "S2 — chained snapshot bundle B has no img/core-*.img"
   fi
 
-  # Bundle A must NOT have been mutated by the chained dump (the
-  # reflink clone is what protects it).
-  S2_BUNDLE_A_AFTER=$(stat -c '%Y' "$S2_SNAP_A/disk.img" 2>/dev/null \
-    || stat -f '%m' "$S2_SNAP_A/disk.img")
+  # Bundle A must NOT have been mutated by the chained dump. Restore
+  # tars a temp copy on the host before attaching, so the source
+  # bundle's files are read-only — the mtime check is a backstop.
+  S2_BUNDLE_A_AFTER=$(stat -c '%Y' "$S2_BUNDLE_A_PROBE" 2>/dev/null \
+    || stat -f '%m' "$S2_BUNDLE_A_PROBE")
   if [[ "$S2_BUNDLE_A_BEFORE" != "$S2_BUNDLE_A_AFTER" ]]; then
-    fail "S2 — bundle A's disk.img was modified by the chained dump (reflink protection failed)"
+    fail "S2 — bundle A was modified by the chained dump"
   fi
-  pass "bundle A's disk.img unchanged after chained dump"
+  pass "bundle A unchanged after chained dump"
 
   # Restore bundle B and prove it's alive via exec.
   node "$CLI" restore "$S2_SNAP_B" >"$S2_RESTORE_B_LOG" 2>&1 &
@@ -1273,8 +1277,8 @@ else
   wait "$S2_RESTORE_B_PID" 2>/dev/null || true
   pass "gen-3 chained snapshot → bundle C"
 
-  if [[ ! -s "$S2_SNAP_C/disk.img" ]]; then
-    fail "S2 — gen-3 snapshot bundle C has empty disk.img"
+  if ! ls "$S2_SNAP_C"/img/core-*.img >/dev/null 2>&1; then
+    fail "S2 — gen-3 snapshot bundle C has no img/core-*.img"
   fi
 
   node "$CLI" restore "$S2_SNAP_C" >"$S2_RESTORE_C_LOG" 2>&1 &

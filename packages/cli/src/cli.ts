@@ -478,7 +478,7 @@ async function cmdInstall(args: string[]): Promise<number> {
 
 async function cmdRestore(args: string[]): Promise<number> {
   // `machinen restore <snap-dir> [--name <name>]`. The bundle dir
-  // (produced by `machinen snapshot`) holds disk.img + meta.json.
+  // (produced by `machinen snapshot`) holds img/<criu-images> + meta.json.
   const positional: string[] = [];
   let name: string | undefined;
   for (let i = 0; i < args.length; i++) {
