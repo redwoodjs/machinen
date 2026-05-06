@@ -23,6 +23,10 @@
 #   P1-P3  Base-rootfs contract (criu, virtio modules, poweroff) — #77.
 #   N1-N5  New #93 CLI surface: ls, exec, attach-unknown, completion,
 #          plus image-carries-cmd default.
+#   B0-B1  virtio-balloon free-page-reporting — #263.
+#   S1-S3  Snapshot, chained-snapshot, fork — #207, #215, #216.
+#   S4     Lazy-pages restore round-trip — #266.
+#   S5     Headline RSS: fork RSS ≪ dirty parent RSS — #266.
 
 set -euo pipefail
 
@@ -144,6 +148,11 @@ fi
 if ! grep -q "sbin/machinen-dump" <<<"$ROOTFS_ENTRIES"; then
   echo "smoke: WARN rootfs lacks /sbin/machinen-dump — S-series (snapshot) will be skipped"
   ROOTFS_SUPPORTS_SNAPSHOT_HELPERS=0
+fi
+ROOTFS_SUPPORTS_MEMDIRTY=1
+if ! grep -q "sbin/machinen-memdirty" <<<"$ROOTFS_ENTRIES"; then
+  echo "smoke: WARN rootfs lacks /sbin/machinen-memdirty — S5 (headline RSS) will be skipped"
+  ROOTFS_SUPPORTS_MEMDIRTY=0
 fi
 
 # ----------------------------------------------------------------
@@ -1570,6 +1579,153 @@ else
   cleanup_s4_restore
   trap 'rm -rf "$FIXTURE"' EXIT
 fi  # S4 rootfs-capability gate
+
+# ----------------------------------------------------------------
+# S5: headline RSS (#266) — the *point* of the page-server. Boot a
+# parent, dirty N MiB of anon via /sbin/machinen-memdirty, snapshot,
+# restore with --lazy-pages, then assert the restored VM's host RSS
+# is far below the parent's. memdirty parks on pause() after dirtying,
+# so nothing in the restored guest touches the workload's anon — its
+# pages stay on the page-server and host RSS hovers near boot-baseline.
+# An eager restore (or a broken page-server) would copy all N MiB
+# back into host memory and this assertion fails.
+# ----------------------------------------------------------------
+if [[ "$ROOTFS_SUPPORTS_VSOCK_EXEC" -eq 0 || "$ROOTFS_SUPPORTS_CRIU" -eq 0 \
+      || "$ROOTFS_SUPPORTS_SNAPSHOT_HELPERS" -eq 0 || "$ROOTFS_SUPPORTS_MEMDIRTY" -eq 0 ]]; then
+  echo "S5: skipped (rootfs lacks vsock/criu/snapshot/memdirty helpers)"
+else
+  echo "S5: lazy-pages restore — fork RSS ≪ dirty parent RSS"
+  S5_NAME="rss-smoke-$$"
+  S5_BG_LOG="$FIXTURE/s5-bg.log"
+  S5_SCRATCH="$FIXTURE/s5-scratch.img"
+  S5_SNAP_DIR="$FIXTURE/s5-snap"
+  S5_DIRTY_MIB=2048
+
+  # Scratch holds the criu image directory in-guest before it's
+  # streamed over vsock. 2 GiB of dirty anon → pages-*.img alone is
+  # ~2 GiB, plus criu's bookkeeping. Sparse, so 8 GiB ceiling costs
+  # nothing until written.
+  truncate -s 8G "$S5_SCRATCH"
+
+  # 4 GiB RAM ceiling: workload + kernel + criu daemon all need
+  # room. memdirty mmaps S5_DIRTY_MIB anon, dirties every page,
+  # prints "READY mib=…" on the console, then parks on pause(2).
+  S5_PID=$(boot_bg "$S5_NAME" "$S5_BG_LOG" --memory 4096 --snapshot "$S5_SCRATCH" -- \
+    /sbin/machinen-memdirty "$S5_DIRTY_MIB")
+  cleanup_s5() {
+    kill -TERM "$S5_PID" 2>/dev/null || true
+    wait "$S5_PID" 2>/dev/null || true
+  }
+  trap 'cleanup_s5; rm -rf "$FIXTURE"' EXIT
+
+  if ! wait_for_vm "$S5_NAME"; then
+    tail -80 "$S5_BG_LOG" >&2
+    fail "S5 — '$S5_NAME' never appeared in 'machinen ls'"
+  fi
+
+  # Wait for memdirty's READY marker — proves the dirty loop finished
+  # before we measure RSS.
+  deadline=$((SECONDS + 90))
+  while (( SECONDS < deadline )); do
+    if grep -q "READY mib=$S5_DIRTY_MIB" "$S5_BG_LOG"; then
+      break
+    fi
+    sleep 1
+  done
+  if ! grep -q "READY mib=$S5_DIRTY_MIB" "$S5_BG_LOG"; then
+    tail -120 "$S5_BG_LOG" >&2
+    fail "S5 — memdirty never printed READY mib=$S5_DIRTY_MIB"
+  fi
+
+  # Settle: kernel write-back, balloon reporting, scheduler. Without
+  # this the parent RSS reading is jumpy.
+  sleep 2
+  S5_PARENT_VMM=$(cli ls 2>/dev/null | awk -v n="$S5_NAME" 'NR>1 && $2==n {print $1}')
+  if [[ -z "$S5_PARENT_VMM" ]]; then
+    cli ls >&2 || true
+    fail "S5 — couldn't find VMM pid for '$S5_NAME'"
+  fi
+  S5_PARENT_RSS=$(vmm_rss_mib "$S5_PARENT_VMM")
+  echo "  parent RSS=${S5_PARENT_RSS} MiB after dirtying ${S5_DIRTY_MIB} MiB"
+
+  # Sanity gate: if the parent's host RSS doesn't reflect the dirty
+  # footprint, comparing the fork against it is meaningless. The
+  # delta-from-parent assertion below would also pass on a broken
+  # baseline — guard explicitly.
+  if (( S5_PARENT_RSS < S5_DIRTY_MIB )); then
+    tail -120 "$S5_BG_LOG" >&2
+    fail "S5 — parent RSS ${S5_PARENT_RSS} MiB < dirtied ${S5_DIRTY_MIB} MiB; baseline can't anchor the comparison"
+  fi
+  pass "parent's ${S5_DIRTY_MIB} MiB dirty footprint visible as host RSS (${S5_PARENT_RSS} MiB)"
+
+  # Snapshot — destructive. Parent dies after the dump.
+  S5_DUMP_LOG="$FIXTURE/s5-dump.log"
+  if ! cli snapshot --name "$S5_NAME" --out-dir "$S5_SNAP_DIR" 2>"$S5_DUMP_LOG"; then
+    tail -60 "$S5_BG_LOG" >&2
+    cat "$S5_DUMP_LOG" >&2
+    fail "S5 — 'machinen snapshot' failed"
+  fi
+  wait "$S5_PID" 2>/dev/null || true
+  pass "'machinen snapshot' returned 0"
+
+  # Lazy-pages restore. The page-server holds the dumped pages; the
+  # restored guest only faults the criu bring-up handful in. memdirty
+  # itself sits in pause(), so its dirty anon stays on the page-server.
+  S5_RESTORE_LOG="$FIXTURE/s5-restore.log"
+  node "$CLI" restore --lazy-pages "$S5_SNAP_DIR" >"$S5_RESTORE_LOG" 2>&1 &
+  S5_RESTORE_PID=$!
+  cleanup_s5_restore() {
+    kill -TERM "$S5_RESTORE_PID" 2>/dev/null || true
+    wait "$S5_RESTORE_PID" 2>/dev/null || true
+  }
+  trap 'cleanup_s5; cleanup_s5_restore; rm -rf "$FIXTURE"' EXIT
+
+  S5_FORK_NAME=""
+  deadline=$((SECONDS + 90))
+  while (( SECONDS < deadline )); do
+    cand=$(cli ls 2>/dev/null | awk -v src="$S5_NAME/" 'NR>1 && index($2, src)==1 {print $2; exit}')
+    if [[ -n "$cand" ]]; then
+      S5_FORK_NAME=$cand
+      break
+    fi
+    sleep 1
+  done
+  if [[ -z "$S5_FORK_NAME" ]]; then
+    tail -200 "$S5_RESTORE_LOG" >&2
+    cli ls >&2 || true
+    fail "S5 — restored VM never registered"
+  fi
+
+  # Settle: criu's kerndat probes after the restore touch a small
+  # handful of pages, and the supervisor reattaches stdio. A few
+  # seconds is enough for those to land in the RSS reading.
+  sleep 3
+  S5_FORK_VMM=$(cli ls 2>/dev/null | awk -v n="$S5_FORK_NAME" 'NR>1 && $2==n {print $1}')
+  if [[ -z "$S5_FORK_VMM" ]]; then
+    cli ls >&2 || true
+    fail "S5 — couldn't find VMM pid for restored VM '$S5_FORK_NAME'"
+  fi
+  S5_FORK_RSS=$(vmm_rss_mib "$S5_FORK_VMM")
+  echo "  fork RSS=${S5_FORK_RSS} MiB after lazy-pages restore"
+
+  # Headline claim: a fork that hasn't touched the workload's anon
+  # weighs much less than the parent. Tolerance is half the dirty
+  # footprint — page tables, criu daemon, kerndat probes, and the
+  # supervisor all consume RSS but are dwarfed by the workload bytes
+  # that should *not* be there. A drop below this threshold means
+  # restore eagerly faulted pages back in (page-server bypassed,
+  # broken protocol, or the lazy-pages daemon mis-wired).
+  S5_RSS_DROP=$(( S5_PARENT_RSS - S5_FORK_RSS ))
+  S5_THRESHOLD=$(( S5_DIRTY_MIB / 2 ))
+  if (( S5_RSS_DROP < S5_THRESHOLD )); then
+    tail -200 "$S5_RESTORE_LOG" >&2
+    fail "S5 — fork RSS only ${S5_RSS_DROP} MiB lighter than parent (${S5_PARENT_RSS} → ${S5_FORK_RSS}); expected ≥ ${S5_THRESHOLD} MiB"
+  fi
+  pass "fork RSS ${S5_FORK_RSS} MiB ≪ parent ${S5_PARENT_RSS} MiB (saved ${S5_RSS_DROP} MiB via lazy-pages)"
+
+  cleanup_s5_restore
+  trap 'rm -rf "$FIXTURE"' EXIT
+fi  # S5 rootfs-capability gate
 
 echo
 echo "all smoke tests passed"
