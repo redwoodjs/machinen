@@ -1,5 +1,6 @@
 import { ParseError } from "@machinen/runtime";
 import { describe, expect, it } from "vitest";
+import { parseForkArgs } from "../parse-fork-args.ts";
 import { parseRunArgs } from "../parse-run-args.ts";
 import { tailLines } from "../tail-lines.ts";
 
@@ -280,6 +281,103 @@ describe("parseRunArgs --detached", () => {
   // enforced by the runtime's BOOT_DETACHED_INCOMPATIBLE check, not
   // the parser — the parser is happy to capture both. The runtime
   // gate is covered in detached.test.ts.
+});
+
+describe("parseForkArgs", () => {
+  it("captures --new-name and --out-dir", () => {
+    const parsed = parseForkArgs([
+      "--name",
+      "src",
+      "--new-name",
+      "fork-b",
+      "--out-dir",
+      "./bundle",
+    ]);
+    expect(parsed.newName).toBe("fork-b");
+    expect(parsed.outDir).toBe("./bundle");
+    expect(parsed.rest).toEqual(["--name", "src"]);
+  });
+
+  it("supports --new-name=<v> and --out-dir=<v>", () => {
+    const parsed = parseForkArgs(["--new-name=fork-b", "--out-dir=./bundle"]);
+    expect(parsed.newName).toBe("fork-b");
+    expect(parsed.outDir).toBe("./bundle");
+  });
+
+  it("captures --tcp-keep and --detach", () => {
+    const parsed = parseForkArgs(["--tcp-keep", "--detach"]);
+    expect(parsed.tcpKeep).toBe(true);
+    expect(parsed.detach).toBe(true);
+  });
+
+  it("defaults tcpKeep, detach, and portForward when no flags are given", () => {
+    const parsed = parseForkArgs(["--name", "src"]);
+    expect(parsed.tcpKeep).toBe(false);
+    expect(parsed.detach).toBe(false);
+    expect(parsed.portForward).toEqual([]);
+    expect(parsed.newName).toBeUndefined();
+    expect(parsed.outDir).toBeUndefined();
+  });
+
+  it("collects -p / --publish into portForward", () => {
+    const parsed = parseForkArgs([
+      "-p",
+      "3001:3000",
+      "--publish",
+      "5433:5432",
+      "--publish=8081:8080",
+    ]);
+    expect(parsed.portForward).toEqual([
+      { hostPort: 3001, guestPort: 3000 },
+      { hostPort: 5433, guestPort: 5432 },
+      { hostPort: 8081, guestPort: 8080 },
+    ]);
+  });
+
+  it("rejects duplicate hostPort across the same fork", () => {
+    expect(() => parseForkArgs(["-p", "3001:3000", "-p", "3001:3001"])).toThrow(
+      /duplicate hostPort 3001/,
+    );
+  });
+
+  it("rejects malformed -p", () => {
+    expect(() => parseForkArgs(["-p", "3001"])).toThrow(/expected <hostPort>:<guestPort>/);
+  });
+
+  it("rejects out-of-range -p ports", () => {
+    expect(() => parseForkArgs(["-p", "0:3000"])).toThrow(/hostPort must be in 1..65535/);
+    expect(() => parseForkArgs(["-p", "3001:70000"])).toThrow(/guestPort must be in 1..65535/);
+  });
+
+  it("rejects a bare -p with no following argument", () => {
+    expect(() => parseForkArgs(["-p"])).toThrow(/-p requires/);
+  });
+
+  it("rejects a bare --new-name with no following argument", () => {
+    expect(() => parseForkArgs(["--new-name"])).toThrow(/--new-name requires/);
+  });
+
+  it("rejects a bare --out-dir with no following argument", () => {
+    expect(() => parseForkArgs(["--out-dir"])).toThrow(/--out-dir requires/);
+  });
+
+  it("rejects a duplicate --new-name", () => {
+    expect(() => parseForkArgs(["--new-name", "a", "--new-name", "b"])).toThrow(/at most once/);
+  });
+
+  it("rejects a duplicate --out-dir", () => {
+    expect(() => parseForkArgs(["--out-dir", "a", "--out-dir", "b"])).toThrow(/at most once/);
+  });
+
+  it("throws ParseError (not generic Error) so the CLI can format it", () => {
+    expect(() => parseForkArgs(["-p"])).toThrow(ParseError);
+  });
+
+  it("preserves unknown args in rest for parseTargetFlags", () => {
+    const parsed = parseForkArgs(["--name", "src", "--pid", "1234", "--detach"]);
+    expect(parsed.rest).toEqual(["--name", "src", "--pid", "1234"]);
+    expect(parsed.detach).toBe(true);
+  });
 });
 
 describe("tailLines (machinen attach --tail slicing)", () => {

@@ -104,7 +104,12 @@ same connection (rare; usually means a load test or a CRIU experiment).
 only one process can bind it. The source already does. So `fork`
 doesn't inherit port forwards by default; the new VM has no exposed
 ports. Either reach the fork via `machinen exec` (vsock, doesn't go
-through host networking), or pass new `portForward` entries explicitly:
+through host networking), or pass new forwards explicitly — both the
+CLI and Node API accept them:
+
+```bash
+npx machinen fork --name counter --new-name counter-b -p 3001:3000
+```
 
 ```ts
 await vm.fork({
@@ -112,6 +117,10 @@ await vm.fork({
   portForward: [{ hostPort: 3001, guestPort: 3000 }],
 });
 ```
+
+If you pick a host port the source is already forwarding, the bind
+probe fires `BOOT_PORT_FORWARD_IN_USE` with the holding VM's name —
+not advice to `kill` it — so you know to pick a different host port.
 
 ## When you need the source to survive the snapshot
 
