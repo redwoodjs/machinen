@@ -73,8 +73,8 @@ await boot({
   image,
   cmd,
   portForward: [
-    { hostPort: 3000, guestPort: 3000 },                       // localhost only
-    { hostPort: 5432, guestPort: 5432, hostAddr: "0.0.0.0" },   // all interfaces
+    { hostPort: 3000, guestPort: 3000 }, // localhost only
+    { hostPort: 5432, guestPort: 5432, hostAddr: "0.0.0.0" }, // all interfaces
   ],
 });
 ```
@@ -106,20 +106,19 @@ when:
 For interactive use (a real terminal, full-screen TUIs), `machinen
 attach` is the right tool — same vsock channel, but with a PTY.
 
-## A current limitation: detached boots and port forwards
+## A current limitation: detached boots and mounts
 
-If you've used `--detached` before, you'll find that `-p`, `--mount`,
-and `--mount-live` all refuse to combine with it. The reason: each of
-those features keeps a helper running in the original Node process —
-gvproxy's port-forward setup, the mount FUSE relay — and `--detached`
-is meant to let that Node process exit. The VMM can outlive the parent;
-the helpers can't yet.
+If you've used `--detached` before, you'll find that `--mount` and
+`--mount-live` refuse to combine with it: those features keep a FUSE
+relay running in the original Node process, and `--detached` is meant
+to let that Node process exit. The VMM can outlive the parent; the
+mount helpers can't yet. Phase 3 will lift those helpers out into
+standalone daemons so detached boots can have everything.
 
-There's a phase 3 of this work that lifts the helpers out into
-standalone daemons so detached boots can have everything. Until then,
-if you need both a long-running VM and a port forward, run the boot
-under a process supervisor (systemd, pm2, tmux) so something keeps the
-helper alive.
+`-p` used to be in the same boat, but PR3 detached gvproxy too: its
+pid lives in the registry, `exposePort` runs before detach completes,
+and `machinen stop` reaps it on shutdown. So `boot --detached -p ...`
+and `fork --detach -p ...` both work today.
 
 ## Custom gvproxy
 

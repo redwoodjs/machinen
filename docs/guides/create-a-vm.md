@@ -1,7 +1,7 @@
 # Create a VM
 
-This guide is about the trade-off between *getting started fast* and
-*having something reusable*. There are three points on that line, and which
+This guide is about the trade-off between _getting started fast_ and
+_having something reusable_. There are three points on that line, and which
 one's right depends on what you're doing right now.
 
 ## "I just want a Linux shell"
@@ -77,13 +77,13 @@ and the VM keeps running in the background.
 Once it's running, you can find it again from any shell:
 
 ```bash
-npx machinen ls                              # see PID, NAME, uptime
+npx machinen ls                              # see PID, NAME, uptime, port forwards
 npx machinen exec --name worker -- ps aux    # run a one-off command
 npx machinen attach --name worker            # interactive shell with job control
 ```
 
 `exec` is for scripted use — pipes are line-buffered, the command runs
-to completion, exit code propagates. `attach` is for when *you* want a
+to completion, exit code propagates. `attach` is for when _you_ want a
 real terminal: tab completion, full-screen TUIs, Ctrl-C signalling the
 guest process and not the host CLI.
 

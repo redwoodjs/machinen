@@ -921,6 +921,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         vmmExe: binary,
         gvproxyPid: gvPid,
         gvproxyExe: gvExe,
+        portForward: portForward.length > 0 ? portForward : undefined,
         startedAt: Date.now(),
       });
       registered = true;

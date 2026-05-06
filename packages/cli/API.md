@@ -38,16 +38,16 @@ cache (populated by `machinen install`, or auto-fetched on first use).
   baked-in default cmd (set via `provision({ cmd })`), `-- <cmd>` is
   optional; pass it to override.
 
-| Flag                                            | What it does                                                                                                                              |
-| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `--name <name>`                                 | Register the VM under a human-friendly name (path-shaped allowed: `a/b/c`)                                                                |
-| `--mount <host-dir>:<guest-path>`               | Copy-once host directory into the guest (`/mnt/...`)                                                                                      |
-| `--mount-live <host-dir>:<guest-path>[:rw\|ro]` | Live-share via FUSE — guest reads stream in on demand. `rw` (default) or `ro`                                                             |
-| `--env KEY=VALUE`                               | Set an env var inside the guest (repeatable)                                                                                              |
-| `--cwd <abs-path>`                              | Start the guest cmd in this directory (must be absolute)                                                                                  |
-| `-p <hostPort>:<guestPort>`                     | Forward a host TCP port to the guest (repeatable)                                                                                         |
+| Flag                                            | What it does                                                                                                                               |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--name <name>`                                 | Register the VM under a human-friendly name (path-shaped allowed: `a/b/c`)                                                                 |
+| `--mount <host-dir>:<guest-path>`               | Copy-once host directory into the guest (`/mnt/...`)                                                                                       |
+| `--mount-live <host-dir>:<guest-path>[:rw\|ro]` | Live-share via FUSE — guest reads stream in on demand. `rw` (default) or `ro`                                                              |
+| `--env KEY=VALUE`                               | Set an env var inside the guest (repeatable)                                                                                               |
+| `--cwd <abs-path>`                              | Start the guest cmd in this directory (must be absolute)                                                                                   |
+| `-p <hostPort>:<guestPort>`                     | Forward a host TCP port to the guest (repeatable)                                                                                          |
 | `--detached`                                    | Detach the VMM from the CLI on first-guest-byte readiness; reattach with `attach`. Mutually exclusive with `--mount`, `--mount-live`, `-p` |
-| `--snapshot <path>`                             | Attach `<path>` as `/dev/vda` — scratch disk for a future `vm.snapshot()`                                                                 |
+| `--snapshot <path>`                             | Attach `<path>` as `/dev/vda` — scratch disk for a future `vm.snapshot()`                                                                  |
 
 ## `machinen restore`
 
@@ -62,7 +62,10 @@ Resolves base assets the same way `boot` does.
 
 ## `machinen ls` / `ps`
 
-Lists running VMs as `PID  NAME  UP  FORKED-FROM`. `ps` is an alias.
+Lists running VMs as `PID  NAME  UP  PORTS  FORKED-FROM`. `PORTS` is
+the host-port forwards configured at boot/fork time, rendered as
+`<hostPort>:<guestPort>` (comma-separated for multi-port VMs, `-` for
+none). `ps` is an alias.
 
 ## `machinen exec`
 
@@ -102,12 +105,12 @@ sibling VM, dropping the caller into the fork's interactive console.
 Pass `--detach` to hand the fork off and return immediately
 (CI / scripted use).
 
-| Flag             | What it does                                                              |
-| ---------------- | ------------------------------------------------------------------------- |
-| `--new-name <n>` | Name for the fork (defaults to `<source>/<fork-pid>`)                     |
-| `--out-dir <d>`  | Keep the snapshot bundle here. Without this, the bundle is temp-dir'd     |
-| `--tcp-keep`     | Inherit TCP socket state in the fork (rarely correct — both copies race)  |
-| `--detach`       | Don't attach the caller's stdio to the fork — return as soon as it's up   |
+| Flag             | What it does                                                             |
+| ---------------- | ------------------------------------------------------------------------ |
+| `--new-name <n>` | Name for the fork (defaults to `<source>/<fork-pid>`)                    |
+| `--out-dir <d>`  | Keep the snapshot bundle here. Without this, the bundle is temp-dir'd    |
+| `--tcp-keep`     | Inherit TCP socket state in the fork (rarely correct — both copies race) |
+| `--detach`       | Don't attach the caller's stdio to the fork — return as soon as it's up  |
 
 ## `machinen attach`
 

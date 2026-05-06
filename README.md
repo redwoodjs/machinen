@@ -117,6 +117,23 @@ independently. Use it to clone a warmed-up process: a database with caches
 loaded, a test fixture in exactly the right state, a long-running compute
 job branched into N parallel explorations.
 
+The fork doesn't inherit the source's `-p` host forwards — host ports are
+global, only one process can bind each one. Two ways to reach a fork:
+
+```bash
+# A) exec over vsock — works for any guest port, no host forward needed.
+npx machinen exec --name counter-b -- curl -s localhost:3000
+
+# B) -p with non-conflicting host ports — forwards on the host.
+npx machinen fork --name counter --new-name counter-b -p 3001:3000 --detach
+curl localhost:3001                                            # the fork
+curl localhost:3000                                            # still the source
+```
+
+Pass `-p` multiple times for multiple ports. If you pick a host port the
+source is already forwarding, `fork` errors with
+`BOOT_PORT_FORWARD_IN_USE` and names the VM that's holding it.
+
 From Node, same shape:
 
 ```ts

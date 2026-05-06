@@ -2,8 +2,8 @@
 
 A snapshot is a complete picture of a running VM frozen to disk: every
 page of memory, every open file descriptor, every TCP listener, the
-program counter of every thread. Restoring it doesn't *start* the
-process — it *resumes* it, like waking a laptop from sleep.
+program counter of every thread. Restoring it doesn't _start_ the
+process — it _resumes_ it, like waking a laptop from sleep.
 
 Two patterns get a lot of mileage out of that:
 
@@ -37,7 +37,7 @@ snapshot.
 
 By default `snapshot` is destructive: the source VM exits as part of
 the dump. CRIU kills the workload tree once it has the images, and the
-VM shuts down cleanly. This is what you want for a *handoff* — the
+VM shuts down cleanly. This is what you want for a _handoff_ — the
 process should only be running in one place at a time.
 
 To move it:
@@ -71,7 +71,7 @@ Restored VMs without an explicit name get an auto-name shaped like
 
 ## Cloning a running process
 
-The same machinery, used differently. If you snapshot *without* killing
+The same machinery, used differently. If you snapshot _without_ killing
 the source and immediately restore, you get two VMs running the same
 process from the same instant. They share a heap up to that moment;
 from then on they diverge.
@@ -91,7 +91,7 @@ const fork = await vm.fork({ name: "counter-b" });
 ```
 
 There are two pieces of inherited state where the defaults are
-deliberately *unsafe* if you don't think about them:
+deliberately _unsafe_ if you don't think about them:
 
 **TCP connections.** The source had open sockets to clients; both VMs
 can't hold the same connection without racing on sequence numbers.
@@ -104,7 +104,12 @@ same connection (rare; usually means a load test or a CRIU experiment).
 only one process can bind it. The source already does. So `fork`
 doesn't inherit port forwards by default; the new VM has no exposed
 ports. Either reach the fork via `machinen exec` (vsock, doesn't go
-through host networking), or pass new `portForward` entries explicitly:
+through host networking), or pass new forwards explicitly — both the
+CLI and Node API accept them:
+
+```bash
+npx machinen fork --name counter --new-name counter-b -p 3001:3000
+```
 
 ```ts
 await vm.fork({
@@ -112,6 +117,10 @@ await vm.fork({
   portForward: [{ hostPort: 3001, guestPort: 3000 }],
 });
 ```
+
+If you pick a host port the source is already forwarding, the bind
+probe fires `BOOT_PORT_FORWARD_IN_USE` with the holding VM's name —
+not advice to `kill` it — so you know to pick a different host port.
 
 ## When you need the source to survive the snapshot
 
@@ -138,15 +147,17 @@ For now, two practical workarounds:
 
 - For transport, tar with `-S` so sparseness is preserved (a 2 GiB
   sparse image is typically well under 100 MiB on the wire):
+
   ```bash
   tar -czSf counter.snap.tar.gz counter.snap/
   ```
+
   Use `rsync -aS` instead of `scp -r` if you're going host-to-host —
   `scp` doesn't preserve sparseness.
 
 - If you know the workload only writes a few hundred MB, pre-size the
   scratch disk down via `boot({ snapshot: "<smaller pre-allocated
-  file>" })` so the bundle starts smaller.
+file>" })` so the bundle starts smaller.
 
 A `--compact` flag that trims unused blocks at snapshot time is tracked
 in [issue #261](https://github.com/redwoodjs/machinen/issues/261).

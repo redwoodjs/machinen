@@ -45,6 +45,8 @@ import type { RegistryEntry } from "@machinen/runtime";
 import debugLib from "debug";
 
 import pkg from "../package.json" with { type: "json" };
+import { formatPorts } from "./format-ports.ts";
+import { parseForkArgs } from "./parse-fork-args.ts";
 import { parseRunArgs } from "./parse-run-args.ts";
 import { tailLines } from "./tail-lines.ts";
 
@@ -566,13 +568,15 @@ async function cmdLs(_args: string[]): Promise<number> {
     return 0;
   }
   // Plain tabular output. PID is the runtime handle; NAME is the
-  // optional human label; FORKED-FROM lets you trace lineage when
-  // the VM was created via `machinen restore`.
-  const header = ["PID", "NAME", "UP", "FORKED-FROM"];
+  // optional human label; PORTS lists `<hostPort>:<guestPort>` pairs
+  // configured at boot/fork (comma-separated, `-` if none); FORKED-FROM
+  // lets you trace lineage when the VM was created via `machinen restore`.
+  const header = ["PID", "NAME", "UP", "PORTS", "FORKED-FROM"];
   const rows = entries.map((e) => [
     String(e.pid),
     e.name ?? "-",
     formatUptime(Date.now() - e.startedAt),
+    formatPorts(e.portForward),
     e.forkedFrom ?? "-",
   ]);
   const widths = header.map((h, i) => Math.max(h.length, ...rows.map((r) => r[i]!.length)));
@@ -921,31 +925,13 @@ async function cmdFork(args: string[]): Promise<number> {
   // `machinen restore`). `--detach` keeps the fire-and-forget shape
   // (CI / scripted workflows): print identity, hand off, return.
   // Source keeps running either way.
-  let newName: string | undefined;
-  let outDir: string | undefined;
-  let tcpKeep = false;
-  let detach = false;
-  const rest: string[] = [];
-  for (let i = 0; i < args.length; i++) {
-    const a = args[i]!;
-    if (a === "--new-name" || a.startsWith("--new-name=")) {
-      newName = a === "--new-name" ? args[++i] : a.slice("--new-name=".length);
-      if (!newName) {
-        die("--new-name requires a value");
-      }
-    } else if (a === "--out-dir" || a.startsWith("--out-dir=")) {
-      outDir = a === "--out-dir" ? args[++i] : a.slice("--out-dir=".length);
-      if (!outDir) {
-        die("--out-dir requires a directory path");
-      }
-    } else if (a === "--tcp-keep") {
-      tcpKeep = true;
-    } else if (a === "--detach") {
-      detach = true;
-    } else {
-      rest.push(a);
-    }
+  let parsed;
+  try {
+    parsed = parseForkArgs(args);
+  } catch (err) {
+    handleError(err);
   }
+  const { newName, outDir, tcpKeep, detach, portForward, rest } = parsed;
   const target = parseTargetFlags(rest, "fork");
 
   // The fork is a fresh restore boot, so it needs the same base
@@ -979,6 +965,7 @@ async function cmdFork(args: string[]): Promise<number> {
       kernel: kernelPath,
       dtb: dtbPath,
       tcpKeep,
+      portForward: portForward.length > 0 ? portForward : undefined,
       onLog: (evt) => {
         if (evt.source !== "phase") {
           process.stderr.write(evt.chunk);
@@ -1382,7 +1369,7 @@ function printHelp(): void {
       `                                                 <source>/<pid>.\n` +
       `\n` +
       `  machinen ls   (alias: ps)                      List running VMs (PID, NAME, UP,\n` +
-      `                                                 FORKED-FROM)\n` +
+      `                                                 PORTS, FORKED-FROM)\n` +
       `\n` +
       `  Targeting a running VM:\n` +
       `    --name <name>     |  --pid <pid>             pick exactly one\n` +
@@ -1403,7 +1390,7 @@ function printHelp(): void {
       `                                                 (and closes inherited TCP sockets to\n` +
       `                                                 avoid two live copies racing on shared\n` +
       `                                                 connection state).\n` +
-      `  machinen fork     <target-flag> [--new-name <n>] [--out-dir <d>] [--tcp-keep] [--detach]\n` +
+      `  machinen fork     <target-flag> [--new-name <n>] [--out-dir <d>] [--tcp-keep] [--detach] [-p ...]\n` +
       `                                                 Snapshot the source live (it keeps\n` +
       `                                                 running) and restore into a sibling VM,\n` +
       `                                                 dropping the caller into the fork's\n` +
@@ -1412,6 +1399,11 @@ function printHelp(): void {
       `                                                 (CI / scripted use).\n` +
       `                                                 Without --out-dir, the bundle is\n` +
       `                                                 ephemeral and removed when the fork exits.\n` +
+      `                                                 -p <hostPort>:<guestPort> forwards a host\n` +
+      `                                                 port into the fork; host forwards are NOT\n` +
+      `                                                 inherited from the source (host ports are\n` +
+      `                                                 global), so pick a host port the source\n` +
+      `                                                 isn't already using.\n` +
       `  machinen attach   <target-flag> [--shell <c>]  Drop into an interactive PTY shell\n` +
       `                                                 in the running VM (default \`bash -i\`).\n` +
       `                                                 \`cd\`, env vars, history, job control\n` +
