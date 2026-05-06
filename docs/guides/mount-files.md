@@ -142,7 +142,7 @@ the mount paths above are more efficient.
 ## Landing the workload inside the share
 
 A small ergonomic note: you'll often want the guest's entrypoint to
-run *inside* the directory you mounted, instead of starting in `/` and
+run _inside_ the directory you mounted, instead of starting in `/` and
 needing a `cd` in your wrapper script. Pass `--cwd` to set the guest's
 working directory:
 

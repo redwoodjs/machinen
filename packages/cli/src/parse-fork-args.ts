@@ -50,10 +50,7 @@ export function parseForkArgs(argv: string[]): ParsedForkArgs {
     } else if (a === "--out-dir" || a.startsWith("--out-dir=")) {
       const v = a === "--out-dir" ? argv[++i] : a.slice("--out-dir=".length);
       if (!v) {
-        throw new ParseError(
-          "PARSE_FLAG_MISSING_VALUE",
-          "--out-dir requires a directory path",
-        );
+        throw new ParseError("PARSE_FLAG_MISSING_VALUE", "--out-dir requires a directory path");
       }
       if (outDir !== undefined) {
         throw new ParseError(
