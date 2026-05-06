@@ -458,6 +458,12 @@ fn loadPagemap(
     }
 
     // Open the matching pages-<pages_id>.img.
+    //
+    // pages-*.img is a RAW_IMAGE — `criu/image.c` short-circuits the
+    // magic check for `imgset_template[type].magic == RAW_IMAGE_MAGIC`,
+    // so the file starts at offset 0 with raw page bytes, no header.
+    // Don't try to read 8 bytes of magic here; the entries' pages_off
+    // values are already absolute offsets into the file.
     var pages_name_buf: [64]u8 = undefined;
     const pages_name = try std.fmt.bufPrint(&pages_name_buf, "pages-{d}.img", .{head.pages_id});
     var pages_path_buf: [2048]u8 = undefined;
@@ -468,21 +474,6 @@ fn loadPagemap(
         return error.OpenFailed;
     }
     errdefer _ = close(pages_fd);
-
-    // Verify pages magic (8 bytes header: COMMON + RAW_IMAGE_MAGIC=0).
-    if (try readU32LE(pages_fd) != IMG_COMMON_MAGIC) {
-        log.err("{s}: bad common magic", .{pages_name});
-        return error.BadMagic;
-    }
-    if (try readU32LE(pages_fd) != PAGES_MAGIC) {
-        log.err("{s}: bad pages magic", .{pages_name});
-        return error.BadMagic;
-    }
-    // After the 8-byte header, the file is raw page bytes. Patch all
-    // entries to absolute file offsets so callers don't need to know
-    // about the framing.
-    const HEADER_BYTES: u64 = 8;
-    for (entries.items) |*e| e.pages_off += HEADER_BYTES;
 
     const owned_entries = try entries.toOwnedSlice(allocator);
 

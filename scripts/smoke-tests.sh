@@ -100,10 +100,17 @@ fi
 
 export MACHINEN_VMM="$VMM"
 export MACHINEN_ASSETS_DIR="$ASSETS"
+# Page-server is built alongside the VMM (zig build target). The
+# runtime's page-server resolver follows the same env-override-first
+# pattern as the VMM resolver. Without this, S4 (lazy-pages restore)
+# would fail to find the binary in @machinen/vmm-<arch>-<os>/bin
+# because we don't stage it there in the smoke run.
+export MACHINEN_PAGE_SERVER="$ROOT/packages/microvm/zig-out/bin/machinen-page-server"
 
 echo
 echo "smoke: VMM=$MACHINEN_VMM"
 echo "smoke: ASSETS=$MACHINEN_ASSETS_DIR"
+echo "smoke: PAGE_SERVER=$MACHINEN_PAGE_SERVER"
 echo
 
 # Capability probe: N-series (vsock exec) and P/C-series (criu, fnm)
