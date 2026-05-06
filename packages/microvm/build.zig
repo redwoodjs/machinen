@@ -99,6 +99,30 @@ pub fn build(b: *std.Build) void {
     // by passing `--prefix` or `-p`.
     b.installArtifact(exe);
 
+    // Host-side CRIU page-server (#266 step 2). Standalone exec, no
+    // dependency on the VMM's HVF/KVM modules — pure userspace TCP
+    // server that reads bundle img/ and serves pages-*.img content
+    // to a connecting `criu lazy-pages --page-server` client. Native
+    // target so it ships alongside the host runtime, not the guest rootfs.
+    const page_server = b.addExecutable(.{
+        .name = "machinen-page-server",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/page-server.zig"),
+            .target = target,
+            .optimize = optimize,
+            .link_libc = true,
+        }),
+    });
+    b.installArtifact(page_server);
+
+    // Tests for the page-server module — wired into the same `test`
+    // step below as the VMM tests so `zig build test` covers both.
+    const page_server_tests = b.addTest(.{
+        .root_module = page_server.root_module,
+    });
+    const run_page_server_tests = b.addRunArtifact(page_server_tests);
+    run_page_server_tests.setCwd(b.path("."));
+
     // This creates a top level step. Top level steps have a name and can be
     // invoked by name when running `zig build` (e.g. `zig build run`).
     // This will evaluate the `run` step rather than the default step.
@@ -171,6 +195,7 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&run_mod_tests.step);
     test_step.dependOn(&run_exe_tests.step);
+    test_step.dependOn(&run_page_server_tests.step);
 
     // Just like flags, top level steps are also listed in the `--help` menu.
     //
