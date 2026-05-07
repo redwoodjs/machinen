@@ -626,6 +626,10 @@ fn tryRootDiskPivot() bool {
     // bake these in.
     copyFileBest("/machinen-config.json", "/newroot/machinen-config.json");
     copyFileBest("/etc/machinen-boot-epoch", "/newroot/etc/machinen-boot-epoch");
+    // #272: bringUpMountDisk reads this file from /etc/ post-pivot to
+    // learn which guest path the squashfs+ext4 overlay should land at.
+    // Without the carry it would stay on the discarded initramfs tmpfs.
+    copyFileBest("/etc/machinen-mountdisk-guest", "/newroot/etc/machinen-mountdisk-guest");
 
     // #113: carry /fuse-agent from the cpio across the pivot so the
     // freshest binary always wins, mirroring the /init injection
