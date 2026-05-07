@@ -84,10 +84,9 @@ fi
 
 # Lazy-pages mode (#266): when MACHINEN_RESTORE_LAZY_PAGES=1, run a
 # `criu lazy-pages` daemon alongside `criu restore --lazy-pages`. The
-# daemon reads pagemap-*.img + pages-*.img from /mnt/snap-src/img
-# directly — which, in the live-mount path, streams bytes from the
-# host on demand. No remote `--page-server` needed; vsock-FUSE is
-# already the data path.
+# daemon reads pagemap-*.img + pages-*.img from /mnt/snap-src/img,
+# which (with MACHINEN_RESTORE_BUNDLE_LIVE=1) is a vsock-FUSE mount of
+# the host bundle dir — bytes stream from the host on demand.
 LAZY_FLAGS=""
 LAZY_PAGES_PID=""
 if [ "${MACHINEN_RESTORE_LAZY_PAGES:-0}" = "1" ]; then
@@ -143,11 +142,7 @@ if [ -n "$LAZY_FLAGS" ]; then
     # Wait for the daemon to bind /tmp/lazy-pages.socket before we
     # start criu restore — restore connects to that socket near the
     # end of its own setup and exits with criu/uffd.c:349 (ENOENT)
-    # if it loses the race. Pre-#266 dumps had no PE_LAZY entries so
-    # restore never made the connection; once we mark entries lazy on
-    # the host (vm.ts → markPagemapsLazy), restore actually does the
-    # connect and the race becomes load-bearing. Bail if the daemon
-    # dies during startup — usually a host-page-server connect failure.
+    # if it loses the race. Bail if the daemon dies during startup.
     for _ in $(seq 1 50); do
         if [ -S /tmp/lazy-pages.socket ]; then
             break

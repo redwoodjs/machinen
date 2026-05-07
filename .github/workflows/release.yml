@@ -71,7 +71,6 @@ jobs:
         with:
           path: |
             packages/microvm/zig-out/bin/machinen-vm
-            packages/microvm/zig-out/bin/machinen-page-server
           key: vmm-darwin-arm64-${{ hashFiles('packages/microvm/src/**', 'packages/microvm/assets/**/*.zig', 'packages/microvm/build.zig', 'packages/microvm/build.zig.zon', 'packages/microvm/entitlements.plist') }}
       - name: Setup Zig
         if: steps.cache.outputs.cache-hit != 'true'
@@ -89,21 +88,17 @@ jobs:
       - name: Ad-hoc codesign with hypervisor entitlement
         # Signature is embedded in the Mach-O, so it survives a cache
         # restore on subsequent runs without needing to re-sign.
-        # machinen-page-server is a plain TCP server (no HVF), so it
-        # gets a default ad-hoc signature without entitlements.
         if: steps.cache.outputs.cache-hit != 'true'
         working-directory: packages/microvm
         run: |
           codesign -s - --force \
             --entitlements entitlements.plist \
             zig-out/bin/machinen-vm
-          codesign -s - --force zig-out/bin/machinen-page-server
       - uses: actions/upload-artifact@v4
         with:
           name: vmm-arm64-darwin
           path: |
             packages/microvm/zig-out/bin/machinen-vm
-            packages/microvm/zig-out/bin/machinen-page-server
           if-no-files-found: error
           retention-days: 7
 
@@ -126,7 +121,6 @@ jobs:
           name: vmm-arm64-linux
           path: |
             packages/microvm/zig-out/bin/machinen-vm
-            packages/microvm/zig-out/bin/machinen-page-server
           if-no-files-found: error
 
   # ------------------------------------------------------------
@@ -176,7 +170,7 @@ jobs:
         with:
           name: vmm-arm64-linux
           path: packages/vmm-arm64-linux/bin/
-      - run: chmod +x packages/vmm-arm64-*/bin/machinen-vm packages/vmm-arm64-*/bin/machinen-page-server
+      - run: chmod +x packages/vmm-arm64-*/bin/machinen-vm
 
       # gvproxy (containers/gvisor-tap-vsock) — bundled next to the VMM
       # so `@machinen/runtime` can auto-spawn it for virtio-net without

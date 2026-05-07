@@ -479,9 +479,10 @@ async function cmdInstall(args: string[]): Promise<number> {
 async function cmdRestore(args: string[]): Promise<number> {
   // `machinen restore <snap-dir> [--name <name>] [--lazy-pages]`. The
   // bundle dir (produced by `machinen snapshot`) holds img/<criu-images>
-  // + meta.json. `--lazy-pages` wires up the host-side page-server so
-  // pages flow into the workload's anon mappings only when faulted —
-  // see #266 for the RSS argument.
+  // + meta.json. `--lazy-pages` live-mounts the bundle into the guest
+  // and runs `criu restore --lazy-pages` so pages flow into the
+  // workload's anon mappings only when faulted — see #266 for the RSS
+  // argument.
   const positional: string[] = [];
   let name: string | undefined;
   let lazyPages = false;

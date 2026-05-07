@@ -7,11 +7,11 @@
 //! Usage: /sbin/machinen-memdirty <MiB>
 //!
 //! Why a separate helper and not `dd if=/dev/urandom of=/dev/shm/...`:
-//! tmpfs-backed pages live in page cache, not anon, and CRIU dumps
-//! anon mappings via the page-server lazy-pages path we're trying to
-//! exercise. Hence: explicit MAP_PRIVATE | MAP_ANONYMOUS mmap, dirtied
-//! pagewise so each 4 KiB really materializes in the workload's anon
-//! RSS before the snapshot fires.
+//! tmpfs-backed pages live in page cache, not anon, and CRIU's
+//! lazy-pages restore only defers anon mappings. Hence: explicit
+//! MAP_PRIVATE | MAP_ANONYMOUS mmap, dirtied pagewise so each 4 KiB
+//! really materializes in the workload's anon RSS before the
+//! snapshot fires.
 //!
 //! Build (matches the loop in scripts/build-base-assets.sh):
 //!   zig build-exe assets/memdirty.zig \

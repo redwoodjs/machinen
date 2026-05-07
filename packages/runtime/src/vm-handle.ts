@@ -280,12 +280,14 @@ export interface ForkOptions {
    */
   portForward?: Array<{ hostPort: number; guestPort: number; hostAddr?: string }>;
   /**
-   * Restore via CRIU lazy-pages over a host-side page-server (#266).
-   * The runtime spawns `machinen-page-server` against the bundle's
-   * `img/` dir and tells the guest to fault pages from it via TCP.
-   * This is what keeps RSS down when forking a snapshot of a large
-   * workload — pages flow into anon only when the workload actually
-   * touches them, not eagerly at restore.
+   * Restore via CRIU lazy-pages with the bundle vsock-FUSE-mounted
+   * read-only into the guest (#266). The runtime live-mounts the
+   * bundle's `img/` dir at `/mnt/snap-src/img`; the in-guest
+   * `criu lazy-pages` daemon serves UFFD faults by reading from that
+   * mount, which streams bytes from the host on demand. Pages flow
+   * into the workload's anon only when actually touched, not
+   * eagerly at restore — that's what keeps RSS down when forking a
+   * snapshot of a large workload.
    *
    * Default false (eager restore). Requires the rootfs to ship a
    * `criu lazy-pages`-capable binary (the rootfs we ship does).

@@ -2543,10 +2543,11 @@ export interface RestoreOptions extends Omit<BootOptions, "snapshot" | "image" |
    */
   name?: string;
   /**
-   * Restore via CRIU lazy-pages over a host-side page-server (#266).
-   * Pages flow into the workload's anon mappings only when faulted,
-   * which keeps RSS proportional to the touched set rather than the
-   * full snapshot size. Default false (eager restore).
+   * Restore via CRIU lazy-pages with the bundle vsock-FUSE-mounted
+   * read-only into the guest (#266). Pages flow into the workload's
+   * anon mappings only when faulted, streaming from the host bundle
+   * on demand — host RSS is proportional to the touched set rather
+   * than the full snapshot size. Default false (eager restore).
    */
   lazyPages?: boolean;
 }
@@ -2615,14 +2616,14 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
   // the front and the zeros after the EOF marker are ignored by `tar
   // -x`; the chained dump's `mkfs.ext4 -F` then has the full sparse
   // capacity to work with.
-  // Lazy-pages mode (#266): mark every PE_PRESENT pagemap entry with
-  // PE_LAZY in place on the host so `criu restore --lazy-pages` actually
-  // registers UFFD on those entries instead of loading them eagerly.
-  // Dumps were taken without `--lazy-pages` (machinen-dump.sh keeps the
-  // dump path simple), so without this rewrite the lazy-pages daemon
-  // and host page-server are dead infrastructure: the guest never
-  // faults a single page through them. Idempotent + safe to call on
-  // already-lazy bundles.
+  // Lazy-pages mode (#266): mark every PE_PRESENT pagemap entry that
+  // lives in an anon-private VMA with PE_LAZY in place on the host
+  // before boot, so `criu restore --lazy-pages` actually registers
+  // UFFD on those entries instead of loading them eagerly. Dumps are
+  // taken without `--lazy-pages` (machinen-dump.sh keeps the dump
+  // path simple); without this rewrite the lazy-pages daemon would
+  // see no lazy entries and load the whole image up front. Idempotent.
+  // See packages/runtime/src/lazy-pagemap.ts.
   if (opts.lazyPages) {
     phases.start("snapshot-mark-lazy");
     const marked = markPagemapsLazy(imgDir);

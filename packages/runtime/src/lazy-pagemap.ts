@@ -4,8 +4,8 @@
 // (because `criu dump` was invoked without `--lazy-pages`), registers
 // no UFFD handlers, and loads every page eagerly — defeating #266
 // entirely. Marking the dump lazy on the host before it ships makes
-// the lazy-pages daemon (in-guest) actually fault pages from the host
-// page-server on demand.
+// the in-guest lazy-pages daemon actually fault pages on demand from
+// the live-mounted bundle.
 //
 // Why only anon-private and not every PE_PRESENT entry: criu restore
 // errors out when asked to register UFFD on a VMA it can't UFFD

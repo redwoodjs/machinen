@@ -104,17 +104,10 @@ fi
 
 export MACHINEN_VMM="$VMM"
 export MACHINEN_ASSETS_DIR="$ASSETS"
-# Page-server is built alongside the VMM (zig build target). The
-# runtime's page-server resolver follows the same env-override-first
-# pattern as the VMM resolver. Without this, S4 (lazy-pages restore)
-# would fail to find the binary in @machinen/vmm-<arch>-<os>/bin
-# because we don't stage it there in the smoke run.
-export MACHINEN_PAGE_SERVER="$ROOT/packages/microvm/zig-out/bin/machinen-page-server"
 
 echo
 echo "smoke: VMM=$MACHINEN_VMM"
 echo "smoke: ASSETS=$MACHINEN_ASSETS_DIR"
-echo "smoke: PAGE_SERVER=$MACHINEN_PAGE_SERVER"
 echo
 
 # Capability probe: N-series (vsock exec) and P/C-series (criu, fnm)
@@ -1491,12 +1484,15 @@ fi  # S3 rootfs-capability gate
 
 # ----------------------------------------------------------------
 # S4: lazy-pages restore (#266) — same boot+snapshot+restore round-
-# trip as S1, but the host spawns a CRIU page-server and tells the
-# guest to fault pages over TCP via gvproxy's default NAT to host
-# loopback. Doesn't yet assert the RSS ceiling (that's the headline
-# follow-up using /sbin/machinen-memdirty); only asserts:
+# trip as S1, but the runtime live-mounts the bundle dir into the
+# guest read-only and runs `criu restore --lazy-pages`. Pages flow
+# into the workload's anon mappings only on UFFD faults, with the
+# in-guest lazy-pages daemon reading bytes through the FUSE mount
+# (which streams from the host on demand). Doesn't assert the RSS
+# ceiling here — that's S5; S4 only asserts:
 #   1. lazy-pages restore reaches userspace (workload survives).
-#   2. The page-server child gets reaped when the restored VM exits.
+#   2. The exec-agent in the restored VM responds (so the workload
+#      faulted in enough pages to run a syscall).
 # ----------------------------------------------------------------
 if [[ "$ROOTFS_SUPPORTS_VSOCK_EXEC" -eq 0 || "$ROOTFS_SUPPORTS_CRIU" -eq 0 || "$ROOTFS_SUPPORTS_SNAPSHOT_HELPERS" -eq 0 ]]; then
   echo "S4: skipped (rootfs lacks vsock/criu/snapshot helpers)"
@@ -1534,8 +1530,8 @@ else
   pass "'machinen snapshot' returned 0"
 
   # Lazy-pages restore in the background. The CLI's --lazy-pages flag
-  # spawns the host page-server and plumbs the endpoint into the guest
-  # via MACHINEN_RESTORE_PAGE_SERVER.
+  # live-mounts the bundle dir into the guest and starts the in-guest
+  # `criu lazy-pages` daemon to serve UFFD faults from the FUSE mount.
   node "$CLI" restore --lazy-pages "$S4_SNAP_DIR" >"$S4_RESTORE_LOG" 2>&1 &
   S4_RESTORE_PID=$!
   cleanup_s4_restore() {
@@ -1563,9 +1559,9 @@ else
 
   # The acid test: a normal exec works on the restored VM. This forces
   # the workload to actually run code, which only happens once enough
-  # pages have been faulted in via the page-server. If lazy-pages
-  # protocol is broken or the page-server doesn't serve, the workload
-  # hangs on first instruction and exec times out.
+  # pages have been faulted in via the lazy-pages daemon. If the
+  # protocol is broken or FUSE reads fail, the workload hangs on first
+  # instruction and exec times out.
   S4_EXEC_LOG="$FIXTURE/s4-exec.log"
   if cli exec --name "$S4_RESTORED_NAME" -- uname -m >"$S4_EXEC_LOG" 2>&1 \
      && grep -qE "aarch64|arm64" "$S4_EXEC_LOG"; then
@@ -1581,14 +1577,14 @@ else
 fi  # S4 rootfs-capability gate
 
 # ----------------------------------------------------------------
-# S5: headline RSS (#266) — the *point* of the page-server. Boot a
+# S5: headline RSS (#266) — the *point* of lazy-pages restore. Boot a
 # parent, dirty N MiB of anon via /sbin/machinen-memdirty, snapshot,
 # restore with --lazy-pages, then assert the restored VM's host RSS
 # is far below the parent's. memdirty parks on pause() after dirtying,
 # so nothing in the restored guest touches the workload's anon — its
-# pages stay on the page-server and host RSS hovers near boot-baseline.
-# An eager restore (or a broken page-server) would copy all N MiB
-# back into host memory and this assertion fails.
+# pages stay on the host bundle (live-mounted into the guest) and the
+# fork's host RSS hovers near boot-baseline. An eager restore would
+# copy all N MiB back into host memory and this assertion fails.
 # ----------------------------------------------------------------
 if [[ "$ROOTFS_SUPPORTS_VSOCK_EXEC" -eq 0 || "$ROOTFS_SUPPORTS_CRIU" -eq 0 \
       || "$ROOTFS_SUPPORTS_SNAPSHOT_HELPERS" -eq 0 || "$ROOTFS_SUPPORTS_MEMDIRTY" -eq 0 ]]; then
@@ -1668,9 +1664,9 @@ else
   wait "$S5_PID" 2>/dev/null || true
   pass "'machinen snapshot' returned 0"
 
-  # Lazy-pages restore. The page-server holds the dumped pages; the
+  # Lazy-pages restore. The bundle is live-mounted into the guest; the
   # restored guest only faults the criu bring-up handful in. memdirty
-  # itself sits in pause(), so its dirty anon stays on the page-server.
+  # itself sits in pause(), so its dirty anon stays on the host bundle.
   S5_RESTORE_LOG="$FIXTURE/s5-restore.log"
   node "$CLI" restore --lazy-pages "$S5_SNAP_DIR" >"$S5_RESTORE_LOG" 2>&1 &
   S5_RESTORE_PID=$!
@@ -1713,8 +1709,9 @@ else
   # footprint — page tables, criu daemon, kerndat probes, and the
   # supervisor all consume RSS but are dwarfed by the workload bytes
   # that should *not* be there. A drop below this threshold means
-  # restore eagerly faulted pages back in (page-server bypassed,
-  # broken protocol, or the lazy-pages daemon mis-wired).
+  # restore eagerly faulted pages back in (markPagemapsLazy didn't
+  # mark, the live-mount didn't engage, or the lazy-pages daemon
+  # mis-wired).
   S5_RSS_DROP=$(( S5_PARENT_RSS - S5_FORK_RSS ))
   S5_THRESHOLD=$(( S5_DIRTY_MIB / 2 ))
   if (( S5_RSS_DROP < S5_THRESHOLD )); then

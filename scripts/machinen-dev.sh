@@ -27,7 +27,6 @@ step "building Zig VMM (ReleaseSafe) + codesigning with HVF entitlement"
 )
 mkdir -p packages/vmm-arm64-darwin/bin
 cp packages/microvm/zig-out/bin/machinen-vm packages/vmm-arm64-darwin/bin/machinen-vm
-cp packages/microvm/zig-out/bin/machinen-page-server packages/vmm-arm64-darwin/bin/machinen-page-server
 
 step "building base assets (kernel + dtb + rootfs tarball)"
 ./scripts/build-base-assets.sh

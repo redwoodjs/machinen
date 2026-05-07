@@ -1,6 +1,6 @@
 // Unit tests for the pagemap PE_LAZY rewriter. We hand-build pagemap
 // bytes following criu/image.c v4.2 framing so the round-trip exercises
-// the same wire format the page-server reads in production.
+// the same wire format CRIU reads in production.
 
 import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
