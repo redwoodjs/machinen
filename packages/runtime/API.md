@@ -4131,7 +4131,7 @@ the registry entry stays live, the vsock UDS is still listening.
 
 > `optional` **image?**: `string`
 
-Defined in: [vm.ts:2937](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2937)
+Defined in: [vm.ts:2955](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2955)
 
 Override the rootfs image used for the restore boot. Defaults
 to whatever caller passes through `image`-equivalent — but
@@ -4575,7 +4575,7 @@ called `boot()`), so only `exec-stdout` / `exec-stderr` sources fire.
 
 ### RestoreOptions
 
-Defined in: [vm.ts:2924](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2924)
+Defined in: [vm.ts:2942](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2942)
 
 #### Extends
 
@@ -4991,7 +4991,7 @@ the registry entry stays live, the vsock UDS is still listening.
 
 > **snapDir**: `string`
 
-Defined in: [vm.ts:2929](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2929)
+Defined in: [vm.ts:2947](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2947)
 
 Snapshot bundle directory produced by `vm.snapshot()`.
 Must contain `img/<crius>` and `meta.json`.
@@ -5000,7 +5000,7 @@ Must contain `img/<crius>` and `meta.json`.
 
 > `optional` **image?**: `string`
 
-Defined in: [vm.ts:2937](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2937)
+Defined in: [vm.ts:2955](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2955)
 
 Override the rootfs image used for the restore boot. Defaults
 to whatever caller passes through `image`-equivalent — but
@@ -5012,7 +5012,7 @@ release rootfs path here.
 
 > `optional` **name?**: `string`
 
-Defined in: [vm.ts:2943](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2943)
+Defined in: [vm.ts:2961](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2961)
 
 Optional explicit name for the restored VM. When omitted, the
 fork is auto-named `<sourceName>/<pid>` after spawn so it stays
@@ -5022,7 +5022,7 @@ unique under the source's namespace.
 
 > `optional` **eager?**: `boolean`
 
-Defined in: [vm.ts:2953](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2953)
+Defined in: [vm.ts:2971](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2971)
 
 Force eager restore — load every page from the bundle into host
 RAM up front. Default false (lazy: bundle is vsock-FUSE-mounted
@@ -6691,7 +6691,7 @@ end, so no individual cmd line approaches `MAX_ARG_STRLEN`.
 
 > **restore**(`opts`): `Promise`\<[`VmHandle`](#vmhandle)\>
 
-Defined in: [vm.ts:2975](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2975)
+Defined in: [vm.ts:2993](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2993)
 
 Restore a microVM from a snapshot bundle produced by
 `vm.snapshot({ outDir })`. Reads the bundle's `meta.json` to
@@ -6729,7 +6729,7 @@ BOOT_SNAPSHOT_NOT_FOUND if `<snapDir>/img/`
 
 > **measureFirstByte**(`vm`): `Promise`\<`number`\>
 
-Defined in: [vm.ts:3434](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L3434)
+Defined in: [vm.ts:3452](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L3452)
 
 Time-to-first-output-byte for a boot. Useful for measuring how
 much the snapshot path is (or isn't) buying us.
