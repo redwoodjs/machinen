@@ -1323,7 +1323,7 @@ Defined in: [winsize.ts:98](https://github.com/redwoodjs/machinen/blob/main/pack
 
 ### BalloonCounters
 
-Defined in: balloon-stats.ts:20
+Defined in: [balloon-stats.ts:20](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/balloon-stats.ts#L20)
 
 #### Properties
 
@@ -1331,7 +1331,7 @@ Defined in: balloon-stats.ts:20
 
 > **bytesReported**: `number`
 
-Defined in: balloon-stats.ts:22
+Defined in: [balloon-stats.ts:22](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/balloon-stats.ts#L22)
 
 Total bytes the balloon device has reclaimed via reporting.
 
@@ -1339,7 +1339,7 @@ Total bytes the balloon device has reclaimed via reporting.
 
 > **bytesInflated**: `number`
 
-Defined in: balloon-stats.ts:29
+Defined in: [balloon-stats.ts:29](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/balloon-stats.ts#L29)
 
 Total bytes the inflate queue has seen. We don't drive inflate
 (`num_pages` stays 0), so this stays at 0 in well-behaved
@@ -1697,7 +1697,7 @@ registry). Used by `machinen stop` after killing a specific VM.
 
 ### CheckForkBackpressureOptions
 
-Defined in: host-mem.ts:103
+Defined in: [host-mem.ts:103](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/host-mem.ts#L103)
 
 #### Properties
 
@@ -1705,7 +1705,7 @@ Defined in: host-mem.ts:103
 
 > **threshold**: `number`
 
-Defined in: host-mem.ts:110
+Defined in: [host-mem.ts:110](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/host-mem.ts#L110)
 
 Fraction of host total memory that must remain free for a fork
 to proceed. Pass `0` (or any non-positive number) to disable the
@@ -1716,7 +1716,7 @@ unless half the host is free."
 
 > `optional` **readFree?**: () => `Promise`\<`number`\>
 
-Defined in: host-mem.ts:112
+Defined in: [host-mem.ts:112](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/host-mem.ts#L112)
 
 Pluggable for tests; defaults to [readHostFreeBytes](#readhostfreebytes).
 
@@ -1728,7 +1728,7 @@ Pluggable for tests; defaults to [readHostFreeBytes](#readhostfreebytes).
 
 > `optional` **totalBytes?**: `number`
 
-Defined in: host-mem.ts:114
+Defined in: [host-mem.ts:114](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/host-mem.ts#L114)
 
 Pluggable for tests; defaults to [readHostTotalBytes](#readhosttotalbytes).
 
@@ -4877,7 +4877,7 @@ Defined in: [vm.ts:1698](https://github.com/redwoodjs/machinen/blob/main/package
 
 > `const` **STATS\_FILE\_SIZE**: `16` = `16`
 
-Defined in: balloon-stats.ts:18
+Defined in: [balloon-stats.ts:18](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/balloon-stats.ts#L18)
 
 ***
 
@@ -5290,7 +5290,7 @@ Stream a tar of `guestPath` from the guest and untar into
 
 > `const` **DEFAULT\_FREE\_MEMORY\_THRESHOLD**: `0.01` = `0.01`
 
-Defined in: host-mem.ts:101
+Defined in: [host-mem.ts:101](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/host-mem.ts#L101)
 
 Default fraction of host memory we require to be free before
 `vm.fork()` is allowed to proceed. The gate exists to keep a
@@ -5403,7 +5403,7 @@ gigabytes of console chatter in the supervisor's heap (issue #150).
 
 > **readBalloonStats**(`path`): [`BalloonCounters`](#ballooncounters)
 
-Defined in: balloon-stats.ts:41
+Defined in: [balloon-stats.ts:41](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/balloon-stats.ts#L41)
 
 Read the balloon-stats file at `path`. Returns `null` when:
   - the file is missing (VMM was launched without
@@ -5562,7 +5562,7 @@ result per entry processed (live entries are skipped silently).
 
 > **readHostFreeBytes**(): `Promise`\<`number`\>
 
-Defined in: host-mem.ts:34
+Defined in: [host-mem.ts:34](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/host-mem.ts#L34)
 
 Bytes of memory the OS reports as available right now. "Available"
 is the loose union the kernel exposes:
@@ -5587,7 +5587,7 @@ is the loose union the kernel exposes:
 
 > **readHostTotalBytes**(): `number`
 
-Defined in: host-mem.ts:49
+Defined in: [host-mem.ts:49](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/host-mem.ts#L49)
 
 Total physical memory in bytes. Thin wrapper over `os.totalmem()`
 exported alongside the free reader so tests and the backpressure
@@ -5603,7 +5603,7 @@ check pull both numbers from the same module.
 
 > **checkForkBackpressure**(`opts`): `Promise`\<`void`\>
 
-Defined in: host-mem.ts:124
+Defined in: [host-mem.ts:124](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/host-mem.ts#L124)
 
 Refuse a fork when the host is under memory pressure. Throws
 `BootError("FORK_MEMORY_BACKPRESSURE")` when free < total *
@@ -5797,7 +5797,7 @@ behaviour we had before.
 
 > **readHostRssBytes**(`pid`): `number`
 
-Defined in: proc-rss.ts:21
+Defined in: [proc-rss.ts:21](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/proc-rss.ts#L21)
 
 RSS bytes for one pid, or null if not readable.
 
@@ -5817,7 +5817,7 @@ RSS bytes for one pid, or null if not readable.
 
 > **readHostRssBytesMulti**(`pids`): `Map`\<`number`, `number`\>
 
-Defined in: proc-rss.ts:37
+Defined in: [proc-rss.ts:37](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/proc-rss.ts#L37)
 
 Bulk variant for `machinen ls`: one syscall (Linux) or one
 subprocess (Darwin) for every live VM, instead of N. Pids that
