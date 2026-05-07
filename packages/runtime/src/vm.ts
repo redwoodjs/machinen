@@ -2914,13 +2914,14 @@ async function performFork(ctx: SnapshotContext, opts: ForkOptions): Promise<VmH
   );
 
   // Snapshot half: source survives. tcpClose flips the spec's default.
+  // Uses performSnapshot's own 90s default ceiling — the dump half is
+  // not user-configurable through ForkOptions today.
   let snap: SnapshotResult;
   try {
     snap = await performSnapshot(ctx, {
       outDir: snapDir,
       leaveRunning: true,
       tcpClose: opts.tcpKeep !== true,
-      timeoutMs: opts.timeoutMs,
       onLog: opts.onLog,
     });
   } catch (err) {
@@ -2936,31 +2937,36 @@ async function performFork(ctx: SnapshotContext, opts: ForkOptions): Promise<VmH
 
   // Restore half: a fresh sibling VM. boot() inside restore() auto-
   // allocates its own vsock UDS and (if needed) gvproxy — vsock
-  // identity and L2 networking are isolated per-VM. portForward is
-  // intentionally NOT inherited from the source: host ports are
-  // global, so source + fork would race on the same bind.
+  // identity and L2 networking are isolated per-VM.
+  //
+  // Strip the two fork-only fields (outDir, tcpKeep) and forward the
+  // rest of `opts` straight to restore(). This is the "fork = snapshot
+  // + restore, no diverging path" surface: every BootOptions field the
+  // user could pass at boot time also works on a fork (mount,
+  // liveMounts, env, guestCwd, memory, kernel, dtb, …) and lands on
+  // the restored sibling.
+  //
+  // Two invariants we preserve regardless of caller input:
+  //   - portForward: NOT inherited from source. Host ports are global,
+  //     so source + fork would race on the same bind. Caller must
+  //     re-declare any forwards they want on the fork.
+  //   - pdeathsig: forced false. The fork outlives the process that
+  //     spawned it (CLI returns immediately; programmatic callers
+  //     detach()). The parent-death shim would SIGTERM the fork on
+  //     CLI exit otherwise.
+  //   - timeoutMs: defaults to null (forever) instead of boot()'s 60s.
+  //     Forks are long-lived siblings; an idle interactive console
+  //     would otherwise be reaped mid-shell. Caller can override.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { outDir: _outDir, tcpKeep: _tcpKeep, ...restoreOpts } = opts;
   let fork: VmHandle;
   try {
     fork = await restore({
+      ...restoreOpts,
       snapDir,
-      name: opts.name,
-      image: opts.image,
-      kernel: opts.kernel,
-      dtb: opts.dtb,
       portForward: opts.portForward ?? [],
-      lazyPages: opts.lazyPages,
-      // The fork outlives the process that spawned it (CLI returns
-      // immediately; programmatic callers detach() and move on).
-      // Skip the parent-death shim so the fork's VMM isn't SIGTERM'd
-      // when this process exits.
       pdeathsig: false,
-      // Disable the implicit 60s wait deadline that boot() applies
-      // by default. Forks are long-lived sibling VMs — `cmdFork`
-      // (and any caller that drops the user into the fork's console)
-      // calls `fork.wait()` with no time bound. Without this null,
-      // the wait throws BOOT_TIMEOUT after 60s of an idle interactive
-      // session, killing the fork mid-shell.
-      timeoutMs: null,
+      timeoutMs: opts.timeoutMs ?? null,
     });
   } catch (err) {
     if (ephemeral) {

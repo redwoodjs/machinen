@@ -942,7 +942,9 @@ async function cmdSnapshot(args: string[]): Promise<number> {
 
 async function cmdFork(args: string[]): Promise<number> {
   // `machinen fork ( --name <src> | --pid <pid> ) [--new-name <dst>]
-  //                [--out-dir <dir>] [--tcp-keep] [--detach]`.
+  //                [--out-dir <dir>] [--tcp-keep] [--detach]
+  //                [-p ...] [--mount ...] [--mount-live ...]
+  //                [--env KEY=VALUE]... [--cwd <abs>] [--memory <mib>]`.
   //
   // Snapshots the source live (--leave-running), restores into a
   // sibling, and by default attaches the fork's console to host
@@ -950,13 +952,30 @@ async function cmdFork(args: string[]): Promise<number> {
   // `machinen restore`). `--detach` keeps the fire-and-forget shape
   // (CI / scripted workflows): print identity, hand off, return.
   // Source keeps running either way.
+  //
+  // The boot-shaped flags (`--mount`, `--mount-live`, `--env`, `--cwd`,
+  // `--memory`) take effect on the *forked* sibling, not the source.
+  // Fork = snapshot + restore, so anything you can pass to `boot` /
+  // `restore` works here too.
   let parsed;
   try {
     parsed = parseForkArgs(args);
   } catch (err) {
     handleError(err);
   }
-  const { newName, outDir, tcpKeep, detach, portForward, rest } = parsed;
+  const {
+    newName,
+    outDir,
+    tcpKeep,
+    detach,
+    portForward,
+    mount,
+    liveMounts,
+    env,
+    guestCwd,
+    memory,
+    rest,
+  } = parsed;
   const target = parseTargetFlags(rest, "fork");
 
   // The fork is a fresh restore boot, so it needs the same base
@@ -991,6 +1010,11 @@ async function cmdFork(args: string[]): Promise<number> {
       dtb: dtbPath,
       tcpKeep,
       portForward: portForward.length > 0 ? portForward : undefined,
+      mount,
+      liveMounts,
+      env,
+      guestCwd,
+      memory,
       onLog: (evt) => {
         if (evt.source !== "phase") {
           process.stderr.write(evt.chunk);
@@ -1424,7 +1448,9 @@ function printHelp(): void {
       `                                                 (and closes inherited TCP sockets to\n` +
       `                                                 avoid two live copies racing on shared\n` +
       `                                                 connection state).\n` +
-      `  machinen fork     <target-flag> [--new-name <n>] [--out-dir <d>] [--tcp-keep] [--detach] [-p ...]\n` +
+      `  machinen fork     <target-flag> [--new-name <n>] [--out-dir <d>] [--tcp-keep] [--detach]\n` +
+      `                    [-p ...] [--mount ...] [--mount-live ...] [--env KEY=VALUE]...\n` +
+      `                    [--cwd <abs>] [--memory <mib>]\n` +
       `                                                 Snapshot the source live (it keeps\n` +
       `                                                 running) and restore into a sibling VM,\n` +
       `                                                 dropping the caller into the fork's\n` +
@@ -1438,6 +1464,10 @@ function printHelp(): void {
       `                                                 inherited from the source (host ports are\n` +
       `                                                 global), so pick a host port the source\n` +
       `                                                 isn't already using.\n` +
+      `                                                 The boot-shaped flags (--mount,\n` +
+      `                                                 --mount-live, --env, --cwd, --memory)\n` +
+      `                                                 take effect on the forked sibling, not\n` +
+      `                                                 the source.\n` +
       `  machinen attach   <target-flag> [--shell <c>]  Drop into an interactive PTY shell\n` +
       `                                                 in the running VM (default \`bash -i\`).\n` +
       `                                                 \`cd\`, env vars, history, job control\n` +
