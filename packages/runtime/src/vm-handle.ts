@@ -136,6 +136,35 @@ export interface VmHandle {
   snapshot(opts: SnapshotOptions): Promise<SnapshotResult>;
 
   /**
+   * Read the host's view of this VM's memory: the ceiling the VMM was
+   * sized at, the host RSS the VMM is currently holding, the bytes
+   * the virtio-balloon device has reported back to the host, and the
+   * count of lazy-restore pages the guest hasn't faulted in yet (#274).
+   *
+   * Pure read, no side effects. The numbers come from:
+   *   - `ceiling`           — captured at boot from the resolved
+   *                            `MACHINEN_MEMORY` env (fork: from the
+   *                            registry entry).
+   *   - `hostRss`           — `/proc/<vmm>/status:VmRSS` on Linux,
+   *                            `ps -o rss=` on Darwin. May be `null`
+   *                            if the VMM exited between calls.
+   *   - `balloonInflated`   — running total of bytes the balloon
+   *                            device has reclaimed via free-page
+   *                            reporting (`mmap MAP_FIXED` on the
+   *                            reported runs). Read out of the shared
+   *                            stats file the VMM mmaps at startup.
+   *                            `0` when the VMM was launched without
+   *                            `MACHINEN_STATS_FILE`.
+   *   - `lazyPagesPending`  — for forks restored lazily (#266), the
+   *                            count of pages the rewriter marked
+   *                            PE_LAZY at restore time minus pages
+   *                            served from `pages-*.img` over the
+   *                            FUSE mount since. `0` for eager
+   *                            restores and plain boots.
+   */
+  memoryStats(): Promise<MemoryStats>;
+
+  /**
    * Snapshot this VM without killing it and immediately restore the
    * bundle into a new sibling VM. Both source and fork keep running,
    * independently addressable. See #216.
@@ -157,6 +186,44 @@ export interface VmHandle {
    * written to a temp dir and removed when the fork exits.
    */
   fork(opts?: ForkOptions): Promise<VmHandle>;
+}
+
+/**
+ * Host-observable memory state for one VM (#274). All four fields are
+ * snapshots of "now" — call `memoryStats()` again to refresh.
+ */
+export interface MemoryStats {
+  /**
+   * Ceiling the VMM was sized at (MiB). The actual RSS climbs into
+   * this on demand and is reclaimed by the balloon (#263 phase B);
+   * the ceiling itself is fixed for the lifetime of the VM. `null`
+   * when the runtime didn't pick the value (caller pre-set
+   * `MACHINEN_MEMORY` via `vmmEnv`) — we won't honestly report a
+   * number we don't own.
+   */
+  ceilingMib: number | null;
+  /**
+   * Resident bytes the host kernel sees the VMM holding. `null`
+   * when the VMM has exited or `/proc/<pid>/status` / `ps` couldn't
+   * be read.
+   */
+  hostRssBytes: number | null;
+  /**
+   * Bytes the virtio-balloon device has reclaimed via free-page
+   * reporting since the VMM started. Strictly increases over the
+   * VMM's lifetime; if `hostRssBytes` is well below ceiling, balloon
+   * reclaim is the reason. Read out of the shared stats file the VMM
+   * writes via `MACHINEN_STATS_FILE`. `0` when the VMM was launched
+   * without that env var.
+   */
+  balloonInflatedBytes: number;
+  /**
+   * Pages the lazy-restore path (#266) has registered as PE_LAZY but
+   * the guest hasn't faulted in yet. Approximated as
+   * `entriesFlagged - bytesServedFromPagesImg / 4096`, clamped to
+   * `>= 0`. `0` for eager restores and plain (non-restored) boots.
+   */
+  lazyPagesPending: number;
 }
 
 export interface WriteFileOptions {
@@ -315,4 +382,20 @@ export interface ForkOptions extends Omit<RestoreOptions, "snapDir"> {
    *   - you're debugging a lazy-restore failure on a fresh rootfs.
    */
   eager?: boolean;
+  /**
+   * Backpressure gate (#274). Fraction of host total memory that must
+   * be free before `vm.fork()` is allowed to proceed; if `MemAvailable`
+   * (Linux) / `vm_stat free+speculative+purgeable` (Darwin) drops below
+   * `totalmem() * threshold`, the fork is refused with
+   * `FORK_MEMORY_BACKPRESSURE`. Mirrors the throw-immediately shape of
+   * #267's port-conflict gate — caller decides whether to retry.
+   *
+   * Default 1% (`0.01`) — about 250 MiB on a 24 GiB host. The gate
+   * exists to head off OOM kills, not to enforce a working-set
+   * policy; bigger thresholds trip on real dev loops that boot
+   * several VMs in sequence. Pass `0` to disable the gate entirely
+   * (useful in tests or when you're knowingly running close to the
+   * edge).
+   */
+  freeMemoryThreshold?: number;
 }

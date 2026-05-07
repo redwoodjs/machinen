@@ -61,6 +61,7 @@
 
 const std = @import("std");
 const builtin = @import("builtin");
+const stats_mod = @import("stats.zig");
 const virtio = @import("virtio.zig");
 const assert = std.debug.assert;
 
@@ -105,18 +106,25 @@ comptime {
 
 pub const Backend = struct {
     config: BalloonConfig = .{},
-    /// Total bytes the device has reported via madvise(MADV_DONTNEED).
-    /// Updated atomically on every reporting-queue chain so a
-    /// supervisor thread can read it without locking. Useful for
-    /// the future `vm.memoryStats()` (#263 phase E).
-    bytes_reported: std.atomic.Value(u64) = std.atomic.Value(u64).init(0),
-    /// Total bytes the device has seen on the inflate queue. We don't
-    /// drive inflate, but a buggy / hostile guest could push pages
-    /// anyway — track for visibility.
-    bytes_inflated: std.atomic.Value(u64) = std.atomic.Value(u64).init(0),
+    /// Pointer to the shared host↔VMM `Counters` struct from
+    /// stats.zig. Atomic increments here are visible to the host TS
+    /// runtime through `MACHINEN_STATS_FILE` (#274). Defaults to the
+    /// process-static stub when the VMM was launched without that
+    /// env var; observability degrades silently to "always 0" but
+    /// the device keeps working.
+    counters: *stats_mod.Counters,
 
+    /// Default constructor — uses the process-static stub. Convenient
+    /// for unit tests and dev runs that don't need host-side stats.
     pub fn init() Backend {
-        return .{};
+        return .{ .counters = stats_mod.stubCounters() };
+    }
+
+    /// Construct a backend whose counters live at the caller-supplied
+    /// pointer. Used by the boot wiring to redirect updates into the
+    /// mmap'd stats region.
+    pub fn initWithCounters(counters: *stats_mod.Counters) Backend {
+        return .{ .counters = counters };
     }
 
     /// Feature bitmap to advertise in the device's `features` field.
@@ -170,7 +178,7 @@ pub const Backend = struct {
             if ((d.flags & virtio.VringDesc.F_NEXT) == 0) break;
             idx = d.next;
         }
-        _ = self.bytes_inflated.fetchAdd(bytes_seen, .monotonic);
+        _ = @atomicRmw(u64, &self.counters.bytes_inflated, .Add, bytes_seen, .monotonic);
         dev.queuePushUsed(QUEUE_INFLATE, head, 0);
     }
 
@@ -293,7 +301,7 @@ pub const Backend = struct {
                 .{ head, descs, n_merged, bytes_seen, bytes_freed },
             );
         }
-        _ = self.bytes_reported.fetchAdd(bytes_freed, .monotonic);
+        _ = @atomicRmw(u64, &self.counters.bytes_reported, .Add, bytes_freed, .monotonic);
         dev.queuePushUsed(QUEUE_REPORTING, head, 0);
     }
 };
@@ -388,9 +396,16 @@ test "BalloonConfig has the v1.1 layout the driver expects" {
 }
 
 test "Backend.init starts with zero accounting" {
-    const b: Backend = .init();
-    try std.testing.expectEqual(@as(u64, 0), b.bytes_reported.load(.monotonic));
-    try std.testing.expectEqual(@as(u64, 0), b.bytes_inflated.load(.monotonic));
+    var counters: stats_mod.Counters = .{};
+    const b: Backend = .initWithCounters(&counters);
+    try std.testing.expectEqual(
+        @as(u64, 0),
+        @atomicLoad(u64, &b.counters.bytes_reported, .monotonic),
+    );
+    try std.testing.expectEqual(
+        @as(u64, 0),
+        @atomicLoad(u64, &b.counters.bytes_inflated, .monotonic),
+    );
 }
 
 test "sortByAddr orders ranges and short-circuits sorted input" {

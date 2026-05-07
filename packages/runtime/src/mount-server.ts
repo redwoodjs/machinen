@@ -108,7 +108,9 @@ interface InodeEntry {
 }
 
 /** Per-connection file-handle table. One entry per OPEN/OPENDIR. */
-type OpenEntry = { kind: "file"; fh: FileHandle } | { kind: "dir"; entries: Uint8Array[] };
+type OpenEntry =
+  | { kind: "file"; fh: FileHandle; lazyPagesContrib: boolean }
+  | { kind: "dir"; entries: Uint8Array[] };
 
 interface LiveMountServerOptions {
   /** Absolute host path that bounds every op. */
@@ -124,6 +126,20 @@ interface LiveMountServerOptions {
 export interface LiveMountServerHandle {
   /** Close the socket, evict handles. Idempotent. */
   stop(): Promise<void>;
+  /**
+   * Bytes served from any `pages-*.img` file under this mount since
+   * startup (#274). Used by `vm.memoryStats()` to approximate the
+   * lazy-restore page-fault progress: each FUSE READ on `pages-*.img`
+   * corresponds to (roughly) one CRIU UFFD fault being satisfied,
+   * since the guest CRIU's lazy-pages daemon preads exactly the
+   * faulted page into the registered VMA.
+   *
+   * Restricted to `pages-*.img` to avoid counting traffic from
+   * unrelated live mounts the user happens to have configured —
+   * that filename is uniquely owned by CRIU bundles. Returns 0 on
+   * mounts that never see lazy-restore traffic.
+   */
+  bytesServedOnPagesImg(): number;
 }
 
 /**
@@ -148,6 +164,7 @@ export async function serveLiveMount(
   log("listening udsPath=%s rootAbs=%s mode=%s", udsPath, opts.rootAbs, state.mode);
   return {
     stop: () => shutdown(server, state),
+    bytesServedOnPagesImg: () => state.bytesServedOnPagesImg,
   };
 }
 
@@ -159,6 +176,13 @@ interface ServerState {
   handles: Map<bigint, OpenEntry>;
   nextHandle: bigint;
   socket: Socket | null;
+  /**
+   * Running total of bytes served from `pages-*.img` files (#274). Set
+   * on every successful FUSE READ whose open handle was flagged at
+   * OPEN time as a lazy-pages contribution. Read by
+   * `LiveMountServerHandle.bytesServedOnPagesImg()`; never decremented.
+   */
+  bytesServedOnPagesImg: number;
 }
 
 function createState(rootAbs: string, mode: "ro" | "rw"): ServerState {
@@ -173,7 +197,14 @@ function createState(rootAbs: string, mode: "ro" | "rw"): ServerState {
     handles: new Map(),
     nextHandle: 1n,
     socket: null,
+    bytesServedOnPagesImg: 0,
   };
+}
+
+const PAGES_IMG_RE = /(?:^|\/)pages-\d+\.img$/;
+
+function isPagesImgPath(relPath: string): boolean {
+  return PAGES_IMG_RE.test(relPath);
 }
 
 async function shutdown(server: Server, state: ServerState): Promise<void> {
@@ -474,7 +505,11 @@ async function onOpen(hdr: FuseInHeader, msg: Uint8Array, state: ServerState): P
   const abs = await absPathForTraversal(state, entry);
   const fh = await fsOpen(abs, linuxOpenFlagsToNode(req.flags));
   const id = state.nextHandle++;
-  state.handles.set(id, { kind: "file", fh });
+  state.handles.set(id, {
+    kind: "file",
+    fh,
+    lazyPagesContrib: isPagesImgPath(entry.relPath),
+  });
   return buildResponse(hdr.unique, buildOpenOut({ fh: id, open_flags: 0 }));
 }
 
@@ -486,6 +521,9 @@ async function onRead(hdr: FuseInHeader, msg: Uint8Array, state: ServerState): P
   }
   const buf = Buffer.alloc(req.size);
   const { bytesRead } = await handle.fh.read(buf, 0, req.size, Number(req.offset));
+  if (handle.lazyPagesContrib && bytesRead > 0) {
+    state.bytesServedOnPagesImg += bytesRead;
+  }
   return buildResponse(hdr.unique, new Uint8Array(buf.buffer, buf.byteOffset, bytesRead));
 }
 
@@ -613,7 +651,11 @@ async function onCreate(
   const st = await fh.stat();
   const ino = bindInode(state, childRel);
   const id = state.nextHandle++;
-  state.handles.set(id, { kind: "file", fh });
+  state.handles.set(id, {
+    kind: "file",
+    fh,
+    lazyPagesContrib: isPagesImgPath(childRel),
+  });
   return buildResponse(
     hdr.unique,
     buildCreateOut(

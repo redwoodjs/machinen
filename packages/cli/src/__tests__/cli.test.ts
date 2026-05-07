@@ -1,5 +1,6 @@
 import { ParseError } from "@machinen/runtime";
 import { describe, expect, it } from "vitest";
+import { formatMem } from "../format-mem.ts";
 import { formatPorts } from "../format-ports.ts";
 import { parseForkArgs } from "../parse-fork-args.ts";
 import { parseRestoreArgs } from "../parse-restore-args.ts";
@@ -582,6 +583,43 @@ describe("formatPorts (machinen ls PORTS column)", () => {
     expect(formatPorts([{ hostPort: 5432, guestPort: 5432, hostAddr: "0.0.0.0" }])).toBe(
       "5432:5432",
     );
+  });
+});
+
+describe("formatMem (machinen ls MEM column, #274)", () => {
+  const KIB = 1024;
+  const MIB = 1024 * 1024;
+  const GIB = 1024 * 1024 * 1024;
+
+  it("renders '-' when neither rss nor ceiling is known", () => {
+    expect(formatMem(null, undefined)).toBe("-");
+    expect(formatMem(undefined, undefined)).toBe("-");
+    expect(formatMem(0, undefined)).toBe("-");
+  });
+
+  it("renders just rss when ceiling is unknown", () => {
+    expect(formatMem(512 * MIB, undefined)).toBe("512M");
+    expect(formatMem(2 * GIB, undefined)).toBe("2.0G");
+  });
+
+  it("renders ?/<ceiling> when rss isn't readable but ceiling is", () => {
+    expect(formatMem(null, 4096)).toBe("?/4.0G");
+  });
+
+  it("renders rss/ceiling in the same scale", () => {
+    expect(formatMem(1.2 * GIB, 4096)).toBe("1.2G/4.0G");
+    expect(formatMem(16 * GIB, 16384)).toBe("16G/16G");
+    expect(formatMem(256 * MIB, 512)).toBe("256M/512M");
+  });
+
+  it("rounds down to integer once a side hits 10 (keeps the cell narrow)", () => {
+    expect(formatMem(11.4 * GIB, 16384)).toBe("11G/16G");
+    expect(formatMem(10 * MIB, 512)).toBe("10M/512M");
+  });
+
+  it("falls through to KiB / bytes for tiny values", () => {
+    expect(formatMem(8 * KIB, undefined)).toBe("8K");
+    expect(formatMem(42, undefined)).toBe("42B");
   });
 });
 

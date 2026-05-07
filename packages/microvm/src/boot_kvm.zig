@@ -41,6 +41,7 @@ const vsock_mod = @import("vsock.zig");
 const net_mod = @import("net_socket.zig");
 const dtb_patch = @import("dtb_patch.zig");
 const balloon_mod = @import("balloon.zig");
+const stats_mod = @import("stats.zig");
 
 // Guest-physical bases. Same MMIO layout as HVF (see boot_hvf.zig
 // for the slot layout doc) so the shared `virt.dts` works for both
@@ -246,7 +247,13 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // the guest's free-page-reporting kernel thread feeds the
     // reporting queue continuously, and our backend madvises each
     // reported run out of host RSS.
-    var balloon_backend = balloon_mod.Backend.init();
+    //
+    // #274: redirect accounting into the shared stats file pointed
+    // at by MACHINEN_STATS_FILE; falls back to a process-static stub
+    // when missing.
+    var stats_inst = stats_mod.Stats.openOrStub();
+    defer stats_inst.deinit();
+    var balloon_backend = balloon_mod.Backend.initWithCounters(stats_inst.counters);
     var balloon_dev = makeBalloonDevice(ram, cfg, &balloon_backend);
     const balloon_dev_ptr: ?*virtio.Device = &balloon_dev;
 
