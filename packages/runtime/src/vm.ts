@@ -58,17 +58,21 @@ import {
 } from "./gvproxy.ts";
 import { bootSnapshotPath, writeBootSnapshot } from "./detached-log.ts";
 import { BootError, ExecError, RegistryError, SnapshotError } from "./errors.ts";
+import { readBalloonStats } from "./balloon-stats.ts";
+import { checkForkBackpressure, DEFAULT_FREE_MEMORY_THRESHOLD } from "./host-mem.ts";
+import { readHostRssBytes } from "./proc-rss.ts";
 import { ensurePdeathsig, wrapWithPdeathsig } from "./pdeathsig.ts";
 import { reflinkCopy } from "./reflink.ts";
 import { ensureRootfsImage, markRootfsImageClean } from "./rootfs-img.ts";
 import { VsockExec, type VsockExecOptions, type VsockExecResult } from "./exec.ts";
-import { serveLiveMount } from "./mount-server.ts";
+import { serveLiveMount, type LiveMountServerHandle } from "./mount-server.ts";
 import { markPagemapsLazy } from "./lazy-pagemap.ts";
 import type { OnLog } from "./log.ts";
 import { PhaseTimer } from "./phase-timer.ts";
 import { claimName, findEntry, isAlive, removeEntry, writeEntry } from "./registry.ts";
 import type {
   ForkOptions,
+  MemoryStats,
   SnapshotMeta,
   SnapshotOptions,
   SnapshotResult,
@@ -560,10 +564,17 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   // fall back to its boot_*.zig hardcoded default. An explicit caller
   // value via vmmEnv wins over our auto-size; that's the documented
   // debug-knob escape hatch.
+  //
+  // #274: capture the resolved ceiling so we can persist it on the
+  // registry entry — `machinen ls` and `vm.memoryStats()` both need
+  // it later. We don't synthesize a value when the caller pre-set
+  // MACHINEN_MEMORY via vmmEnv (debug knob) — the runtime didn't
+  // pick the number, so it can't honestly report it.
+  let memoryCeilingMib: number | undefined;
   if (env.MACHINEN_MEMORY === undefined) {
-    const memoryMib =
+    memoryCeilingMib =
       opts.memory !== undefined ? validateMemoryMib(opts.memory) : autoSizeMemoryMib();
-    env.MACHINEN_MEMORY = String(memoryMib);
+    env.MACHINEN_MEMORY = String(memoryCeilingMib);
   }
 
   phases.start("disk-prep");
@@ -689,6 +700,36 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     debug("vsock auto uds=%s", vsockUdsPath);
   }
 
+  // #274: shared stats file the balloon backend writes counters to.
+  // 16 bytes (two u64 LE atomics, see balloon-stats.ts + stats.zig).
+  // Pre-allocated zero-filled here so the VMM's mmap'd writer and our
+  // host-side reader see a coherent layout even before the first
+  // reporting chain. Co-located under `vsockTempDir` when we own one
+  // (so cleanup rides along on its rmSync); otherwise allocated in
+  // tmpdir() with its own cleanup entry. Skipped when the caller
+  // already pre-set `MACHINEN_STATS_FILE` (debug knob).
+  let statsFilePath: string | undefined;
+  let statsTempDir: string | undefined;
+  if (env.MACHINEN_STATS_FILE === undefined) {
+    if (vsockTempDir) {
+      statsFilePath = join(vsockTempDir, "stats.bin");
+    } else {
+      statsTempDir = mkdtempSync(join(tmpdir(), "machinen-stats-"));
+      statsFilePath = join(statsTempDir, "stats.bin");
+    }
+    {
+      const fd = openSync(statsFilePath, "w");
+      try {
+        writeSync(fd, Buffer.alloc(16), 0, 16, 0);
+      } finally {
+        closeSync(fd);
+      }
+    }
+    env.MACHINEN_STATS_FILE = statsFilePath;
+  } else {
+    statsFilePath = env.MACHINEN_STATS_FILE;
+  }
+
   // #78: resolve live-share mounts. Each gets a fresh vsock port (base
   // 1970, the band below the exec/file/secrets/winsize agents) and a
   // UDS per mount so the VMM's MACHINEN_VSOCK spec can include one
@@ -720,7 +761,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   let gvPid: number | undefined;
   let gvExe: string | undefined;
   let gvSocketDir: string | undefined;
-  const liveMountStops: Array<() => Promise<void>> = [];
+  const liveMountServers: LiveMountServerHandle[] = [];
   let bundleTempDir: string | undefined;
   const mergedGuestEnv: Record<string, string> = { ...opts.env };
 
@@ -782,7 +823,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         rootAbs: lm.host,
         mode: lm.mode,
       });
-      liveMountStops.push(handle.stop);
+      liveMountServers.push(handle);
     }
     phases.end("net-services.live-mounts");
     phases.end("net-services");
@@ -851,8 +892,8 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     }
     phases.end("rootdisk-materialize");
   } catch (err) {
-    for (const stop of liveMountStops) {
-      await stop().catch(() => {});
+    for (const server of liveMountServers) {
+      await server.stop().catch(() => {});
     }
     if (gvStop) {
       gvStop();
@@ -968,6 +1009,9 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   if (vsockTempDir) {
     cleanupPaths.push(vsockTempDir);
   }
+  if (statsTempDir) {
+    cleanupPaths.push(statsTempDir);
+  }
   if (gvSocketDir) {
     cleanupPaths.push(gvSocketDir);
   }
@@ -987,6 +1031,8 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         gvproxyPid: gvPid,
         gvproxyExe: gvExe,
         portForward: portForward.length > 0 ? portForward : undefined,
+        memoryCeilingMib,
+        statsPath: statsFilePath,
         startedAt: Date.now(),
       });
       registered = true;
@@ -1034,11 +1080,16 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         rmSync(vsockTempDir, { recursive: true, force: true });
       } catch {}
     }
+    if (statsTempDir) {
+      try {
+        rmSync(statsTempDir, { recursive: true, force: true });
+      } catch {}
+    }
     if (gvStop) {
       gvStop();
     }
-    for (const stop of liveMountStops) {
-      void stop().catch(() => {});
+    for (const server of liveMountServers) {
+      void server.stop().catch(() => {});
     }
     if (registered) {
       removeEntry(childPid);
@@ -1244,6 +1295,26 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       for (const cmd of buildWriteFileCmds(guestPath, contents, writeOpts)) {
         await this.exec(cmd);
       }
+    },
+
+    async memoryStats(): Promise<MemoryStats> {
+      const balloon = statsFilePath ? readBalloonStats(statsFilePath) : null;
+      // Re-read the registry for lazy bookkeeping — restore() patches
+      // the entry with `lazyPagesTotal` after boot returns, and the
+      // handle was constructed before that patch.
+      const cur = findEntry({ pid: childPid });
+      const lazyTotal = cur?.lazyPagesTotal ?? 0;
+      let bytesServed = 0;
+      for (const server of liveMountServers) {
+        bytesServed += server.bytesServedOnPagesImg();
+      }
+      const pagesServed = Math.floor(bytesServed / 4096);
+      return {
+        ceilingMib: memoryCeilingMib ?? null,
+        hostRssBytes: readHostRssBytes(childPid),
+        balloonInflatedBytes: balloon?.bytesReported ?? 0,
+        lazyPagesPending: Math.max(0, lazyTotal - pagesServed),
+      };
     },
 
     async snapshot(snapshotOpts) {
@@ -1545,6 +1616,16 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
       for (const cmd of buildWriteFileCmds(guestPath, contents, writeOpts)) {
         await this.exec(cmd);
       }
+    },
+
+    async memoryStats(): Promise<MemoryStats> {
+      const balloon = entry.statsPath ? readBalloonStats(entry.statsPath) : null;
+      return {
+        ceilingMib: entry.memoryCeilingMib ?? null,
+        hostRssBytes: readHostRssBytes(entry.pid),
+        balloonInflatedBytes: balloon?.bytesReported ?? 0,
+        lazyPagesPending: 0,
+      };
     },
 
     async snapshot(snapshotOpts) {
@@ -2684,9 +2765,11 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
   // entries and load the whole image up front. Idempotent. See
   // packages/runtime/src/lazy-pagemap.ts.
   const lazyPages = !opts.eager;
+  let lazyPagesTotal: number | undefined;
   if (lazyPages) {
     phases.start("snapshot-mark-lazy");
     const marked = markPagemapsLazy(imgDir);
+    lazyPagesTotal = marked.entriesFlagged + marked.entriesAlreadyLazy;
     debug(
       "lazy-pages mark: files=%d entriesFlagged=%d alreadyLazy=%d",
       marked.filesRewritten,
@@ -2807,6 +2890,22 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
     }
   }
 
+  // #274: persist lazy-restore bookkeeping so `vm.memoryStats()` can
+  // approximate `lazyPagesPending` without re-reading the bundle.
+  // Boot-owned handles read this back through the registry on every
+  // call; attach handles read it for the same reason but can't
+  // observe the FUSE counter half (no in-process mount-server).
+  if (lazyPagesTotal !== undefined) {
+    const cur = findEntry({ pid: vm.pid });
+    if (cur) {
+      writeEntry({
+        ...cur,
+        lazyPagesTotal,
+        lazyPagesMountRoot: imgDir,
+      });
+    }
+  }
+
   // CRIU restores the dumped UTS namespace, which means the hostname
   // is whatever the source VM had — not the new VM's identity. Fire
   // `hostname <label>` over vsock (fire-and-forget) so the guest's
@@ -2906,6 +3005,15 @@ async function setGuestHostname(vm: VmHandle, hostname: string): Promise<void> {
  *   - opts.outDir absent: bundle in a temp dir, removed on fork.wait().
  */
 async function performFork(ctx: SnapshotContext, opts: ForkOptions): Promise<VmHandle> {
+  // #274: refuse the fork up-front when the host is already under
+  // memory pressure. Modeled on the #267 port-conflict gate — throw
+  // immediately, let the caller back off. Runs before `performSnapshot`
+  // so a doomed fork doesn't briefly freeze the source via criu dump
+  // only to fail at restore.
+  await checkForkBackpressure({
+    threshold: opts.freeMemoryThreshold ?? DEFAULT_FREE_MEMORY_THRESHOLD,
+  });
+
   const ephemeral = !opts.outDir;
   const snapDir = opts.outDir
     ? resolve(opts.outDir)

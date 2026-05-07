@@ -78,6 +78,7 @@ export {
 export type { MachinenErrorOptions } from "./errors.ts";
 export type {
   ForkOptions,
+  MemoryStats,
   SnapshotMeta,
   SnapshotOptions,
   SnapshotResult,
@@ -98,3 +99,13 @@ export {
 } from "./vm.ts";
 export { warmImageConfigCache } from "./vm.ts";
 export type { AttachOptions, BootOptions, ImageConfig, RestoreOptions } from "./vm.ts";
+export {
+  checkForkBackpressure,
+  DEFAULT_FREE_MEMORY_THRESHOLD,
+  readHostFreeBytes,
+  readHostTotalBytes,
+} from "./host-mem.ts";
+export type { CheckForkBackpressureOptions } from "./host-mem.ts";
+export { readHostRssBytes, readHostRssBytesMulti } from "./proc-rss.ts";
+export { readBalloonStats, STATS_FILE_SIZE } from "./balloon-stats.ts";
+export type { BalloonCounters } from "./balloon-stats.ts";

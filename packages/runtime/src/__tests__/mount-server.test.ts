@@ -249,6 +249,67 @@ describe("live mount server — OPEN / READ / RELEASE", () => {
     });
   });
 
+  it("counts bytes served from pages-*.img toward the lazy-pages metric (#274)", async () => {
+    // Drop a CRIU-shaped pages file into the mount root and read it.
+    // Bytes served on pages-*.img count; bytes from any other file
+    // don't.
+    writeFileSync(join(root, "pages-1234.img"), Buffer.alloc(8192, 0xab));
+
+    expect(handle!.bytesServedOnPagesImg()).toBe(0);
+
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const lookup = await conn.request(FUSE_OP.LOOKUP, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: nameBuf("pages-1234.img"),
+      });
+      const ino = bigintFromEntry(lookup.payload);
+      const open = await conn.request(FUSE_OP.OPEN, {
+        unique: 3n,
+        nodeid: ino,
+        payload: u32u32(0, 0),
+      });
+      const fh = new DataView(
+        open.payload.buffer,
+        open.payload.byteOffset,
+        open.payload.length,
+      ).getBigUint64(0, true);
+      const read = await conn.request(FUSE_OP.READ, {
+        unique: 4n,
+        nodeid: ino,
+        payload: buildReadIn({ fh, offset: 0n, size: 4096 }),
+      });
+      expect(read.header.error).toBe(0);
+      expect(read.payload.length).toBe(4096);
+      expect(handle!.bytesServedOnPagesImg()).toBe(4096);
+
+      // Reads from a non-pages file shouldn't bump the counter.
+      const helloLookup = await conn.request(FUSE_OP.LOOKUP, {
+        unique: 5n,
+        nodeid: 1n,
+        payload: nameBuf("hello.txt"),
+      });
+      const helloIno = bigintFromEntry(helloLookup.payload);
+      const helloOpen = await conn.request(FUSE_OP.OPEN, {
+        unique: 6n,
+        nodeid: helloIno,
+        payload: u32u32(0, 0),
+      });
+      const helloFh = new DataView(
+        helloOpen.payload.buffer,
+        helloOpen.payload.byteOffset,
+        helloOpen.payload.length,
+      ).getBigUint64(0, true);
+      await conn.request(FUSE_OP.READ, {
+        unique: 7n,
+        nodeid: helloIno,
+        payload: buildReadIn({ fh: helloFh, offset: 0n, size: 64 }),
+      });
+      expect(handle!.bytesServedOnPagesImg()).toBe(4096);
+    });
+  });
+
   it("READ at offset past EOF returns zero bytes", async () => {
     await withConnection(async (conn) => {
       await doInit(conn);

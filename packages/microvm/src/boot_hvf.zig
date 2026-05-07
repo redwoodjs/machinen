@@ -30,6 +30,7 @@ const net_mod = @import("net_socket.zig");
 const blk_mod = @import("blk.zig");
 const vsock_mod = @import("vsock.zig");
 const balloon_mod = @import("balloon.zig");
+const stats_mod = @import("stats.zig");
 const dtb_patch = @import("dtb_patch.zig");
 
 // Guest-physical bases. Each virtio-MMIO device lives in a 0x200
@@ -232,7 +233,15 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // free-page-reporting kernel thread continuously hands us free
     // runs, and the device's reporting handler madvises them out
     // of host RSS. No env knob — this is fire-and-forget memory.
-    var balloon_backend = balloon_mod.Backend.init();
+    //
+    // #274: redirect the balloon backend's accounting into the shared
+    // stats file pointed at by `MACHINEN_STATS_FILE`, so the host's
+    // `vm.memoryStats()` can read the live counters. Falls back to
+    // a process-static stub on env-missing or open failure —
+    // observability is best-effort, the device must boot regardless.
+    var stats_inst = stats_mod.Stats.openOrStub();
+    defer stats_inst.deinit();
+    var balloon_backend = balloon_mod.Backend.initWithCounters(stats_inst.counters);
     var balloon_dev = makeBalloonDevice(ram, cfg, &balloon_backend);
     const balloon_dev_ptr: ?*virtio.Device = &balloon_dev;
 

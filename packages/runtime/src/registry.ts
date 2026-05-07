@@ -106,6 +106,40 @@ export interface RegistryEntry {
    * was booted without `-p` / `portForward: []`.
    */
   portForward?: Array<{ hostPort: number; guestPort: number; hostAddr?: string }>;
+  /**
+   * Guest RAM ceiling in MiB, as resolved by `boot()` (either the
+   * caller's `memory:` option or `autoSizeMemoryMib()` for this host
+   * — see #263 phase A). Surfaced in `machinen ls` (MEM column) and
+   * read by `vm.memoryStats()` so callers can compare host RSS
+   * against the ceiling without re-deriving it. Undefined when the
+   * caller pre-set `MACHINEN_MEMORY` via `vmmEnv` and we never
+   * computed our own.
+   */
+  memoryCeilingMib?: number;
+  /**
+   * Absolute path to the shared stats file the VMM writes balloon
+   * counters to (#274). 16 bytes, mmaped MAP_SHARED on the VMM side
+   * via `MACHINEN_STATS_FILE`. Persisted so an attach-owned handle
+   * can read the same counters its boot-owned sibling sees. Undefined
+   * for VMMs launched outside the runtime (which never received the
+   * env var).
+   */
+  statsPath?: string;
+  /**
+   * Total pages the lazy-pages rewriter (#266) marked PE_LAZY when
+   * the VM was restored. Set on restore-derived entries, undefined
+   * for plain boots and eager restores. Surfaced via
+   * `vm.memoryStats().lazyPagesPending`.
+   */
+  lazyPagesTotal?: number;
+  /**
+   * Absolute path under which the lazy-restore FUSE mount serves
+   * `pages-*.img` reads. The mount-server tracks bytes served below
+   * this prefix; `vm.memoryStats()` divides that by 4096 and
+   * subtracts from `lazyPagesTotal` to derive `lazyPagesPending`.
+   * Undefined when the VM wasn't lazy-restored.
+   */
+  lazyPagesMountRoot?: string;
   /** ms epoch when the entry was created. */
   startedAt: number;
 }

@@ -37,6 +37,7 @@ import {
   formatMachinenError,
   isMachinenError,
   list,
+  readHostRssBytesMulti,
   restore,
   runGc,
   validatePid,
@@ -45,6 +46,7 @@ import type { RegistryEntry } from "@machinen/runtime";
 import debugLib from "debug";
 
 import pkg from "../package.json" with { type: "json" };
+import { formatMem } from "./format-mem.ts";
 import { formatPorts } from "./format-ports.ts";
 import { parseForkArgs } from "./parse-fork-args.ts";
 import { parseRestoreArgs } from "./parse-restore-args.ts";
@@ -596,19 +598,32 @@ async function cmdLs(_args: string[]): Promise<number> {
     return 0;
   }
   // Plain tabular output. PID is the runtime handle; NAME is the
-  // optional human label; PORTS lists `<hostPort>:<guestPort>` pairs
-  // configured at boot/fork (comma-separated, `-` if none); FORKED-FROM
-  // lets you trace lineage when the VM was created via `machinen restore`.
-  const header = ["PID", "NAME", "UP", "PORTS", "FORKED-FROM"];
+  // optional human label; MEM is `hostRss/ceiling` (#274); PORTS lists
+  // `<hostPort>:<guestPort>` pairs configured at boot/fork
+  // (comma-separated, `-` if none); FORKED-FROM lets you trace
+  // lineage when the VM was created via `machinen restore`.
+  const rssByPid = readHostRssBytesMulti(entries.map((e) => e.pid));
+  const header = ["PID", "NAME", "UP", "MEM", "PORTS", "FORKED-FROM"];
   const rows = entries.map((e) => [
     String(e.pid),
     e.name ?? "-",
     formatUptime(Date.now() - e.startedAt),
+    formatMem(rssByPid.get(e.pid) ?? null, e.memoryCeilingMib),
     formatPorts(e.portForward),
     e.forkedFrom ?? "-",
   ]);
   const widths = header.map((h, i) => Math.max(h.length, ...rows.map((r) => r[i]!.length)));
-  const line = (cells: string[]) => cells.map((c, i) => c.padEnd(widths[i]!)).join("  ");
+  const gap = "  ";
+  const fullWidth = widths.reduce((sum, w) => sum + w, 0) + gap.length * (widths.length - 1);
+  // Hide MEM (column index 3) on terminals that can't fit the full
+  // line. Pipes / non-TTY stdout report `process.stdout.columns`
+  // undefined — keep the column there so scripts get a stable shape.
+  const cols = process.stdout.columns;
+  const includeMem = cols === undefined || fullWidth <= cols;
+  const visible = includeMem
+    ? header.map((_, i) => i)
+    : header.map((_, i) => i).filter((i) => i !== 3);
+  const line = (cells: string[]) => visible.map((i) => cells[i]!.padEnd(widths[i]!)).join(gap);
   process.stdout.write(line(header) + "\n");
   for (const row of rows) {
     process.stdout.write(line(row) + "\n");
