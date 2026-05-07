@@ -26,24 +26,26 @@ export interface ParsedRestoreArgs {
    */
   portForward: Array<{ hostPort: number; guestPort: number }>;
   /**
-   * `--lazy-pages` — live-mount the bundle into the guest and run
+   * `--eager` — opt out of the default lazy restore and load every
+   * page from the bundle into host RAM up front (#263). The default
+   * (lazy) live-mounts the bundle into the guest and runs
    * `criu restore --lazy-pages` so anon pages flow into the workload
-   * only when faulted (#266). Default false (eager restore).
+   * only when faulted (#266).
    */
-  lazyPages: boolean;
+  eager: boolean;
 }
 
 export function parseRestoreArgs(argv: string[]): ParsedRestoreArgs {
   const positional: string[] = [];
   let name: string | undefined;
   let image: string | undefined;
-  let lazyPages = false;
+  let eager = false;
   const portForward: Array<{ hostPort: number; guestPort: number }> = [];
   const seenHostPorts = new Set<number>();
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
-    if (a === "--lazy-pages") {
-      lazyPages = true;
+    if (a === "--eager") {
+      eager = true;
     } else if (a === "--name" || a.startsWith("--name=")) {
       const v = a === "--name" ? argv[++i] : a.slice("--name=".length);
       if (!v) {
@@ -81,5 +83,5 @@ export function parseRestoreArgs(argv: string[]): ParsedRestoreArgs {
       positional.push(a);
     }
   }
-  return { positional, name, image, portForward, lazyPages };
+  return { positional, name, image, portForward, eager };
 }

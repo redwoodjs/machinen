@@ -3349,6 +3349,31 @@ Streaming log callback for the snapshot half. Same shape as
 
 [`BootOptions`](#bootoptions).[`onLog`](#onlog-4)
 
+##### eager?
+
+> `optional` **eager?**: `boolean`
+
+Defined in: [vm-handle.ts:317](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm-handle.ts#L317)
+
+Force eager restore — load every page from the bundle into host
+RAM up front, the way restore worked before #266. Default false
+(lazy via vsock-FUSE-mounted bundle + `criu restore --lazy-pages`).
+
+The lazy default keeps fork RSS proportional to the pages the
+sibling actually touches, not the full snapshot size. Set this
+to true when:
+
+  - the runtime supervisor is about to exit while the fork keeps
+    running (lazy needs the host-side FUSE server alive for as
+    long as the guest may fault — see #150 phase 3),
+  - the workload is going to fault every page anyway and you want
+    to skip the per-page UFFD round-trips, or
+  - you're debugging a lazy-restore failure on a fresh rootfs.
+
+###### Overrides
+
+[`RestoreOptions`](#restoreoptions).[`eager`](#eager-1)
+
 ##### env?
 
 > `optional` **env?**: `Record`\<`string`, `string`\>
@@ -3682,22 +3707,6 @@ release rootfs path here.
 ###### Inherited from
 
 [`RestoreOptions`](#restoreoptions).[`image`](#image-2)
-
-##### lazyPages?
-
-> `optional` **lazyPages?**: `boolean`
-
-Defined in: [vm.ts:2578](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2578)
-
-Restore via CRIU lazy-pages with the bundle vsock-FUSE-mounted
-read-only into the guest (#266). Pages flow into the workload's
-anon mappings only when faulted, streaming from the host bundle
-on demand — host RSS is proportional to the touched set rather
-than the full snapshot size. Default false (eager restore).
-
-###### Inherited from
-
-[`RestoreOptions`](#restoreoptions).[`lazyPages`](#lazypages-1)
 
 ***
 
@@ -4516,17 +4525,19 @@ Optional explicit name for the restored VM. When omitted, the
 fork is auto-named `<sourceName>/<pid>` after spawn so it stays
 unique under the source's namespace.
 
-##### lazyPages?
+##### eager?
 
-> `optional` **lazyPages?**: `boolean`
+> `optional` **eager?**: `boolean`
 
-Defined in: [vm.ts:2578](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2578)
+Defined in: [vm.ts:2580](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2580)
 
-Restore via CRIU lazy-pages with the bundle vsock-FUSE-mounted
-read-only into the guest (#266). Pages flow into the workload's
-anon mappings only when faulted, streaming from the host bundle
-on demand — host RSS is proportional to the touched set rather
-than the full snapshot size. Default false (eager restore).
+Force eager restore — load every page from the bundle into host
+RAM up front. Default false (lazy: bundle is vsock-FUSE-mounted
+read-only into the guest and `criu restore --lazy-pages` faults
+pages on demand, #266). The lazy default keeps host RSS
+proportional to the touched set rather than the full snapshot
+size; eager exists as an opt-out for debugging or for workloads
+that are about to fault every page anyway.
 
 ***
 
@@ -5874,7 +5885,7 @@ end, so no individual cmd line approaches `MAX_ARG_STRLEN`.
 
 > **restore**(`opts`): `Promise`\<[`VmHandle`](#vmhandle)\>
 
-Defined in: [vm.ts:2600](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2600)
+Defined in: [vm.ts:2602](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L2602)
 
 Restore a microVM from a snapshot bundle produced by
 `vm.snapshot({ outDir })`. Reads the bundle's `meta.json` to
@@ -5912,7 +5923,7 @@ BOOT_SNAPSHOT_NOT_FOUND if `<snapDir>/img/`
 
 > **measureFirstByte**(`vm`): `Promise`\<`number`\>
 
-Defined in: [vm.ts:3005](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L3005)
+Defined in: [vm.ts:3011](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L3011)
 
 Time-to-first-output-byte for a boot. Useful for measuring how
 much the snapshot path is (or isn't) buying us.

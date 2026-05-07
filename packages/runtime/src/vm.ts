@@ -2569,13 +2569,15 @@ export interface RestoreOptions extends Omit<BootOptions, "snapshot" | "image" |
    */
   name?: string;
   /**
-   * Restore via CRIU lazy-pages with the bundle vsock-FUSE-mounted
-   * read-only into the guest (#266). Pages flow into the workload's
-   * anon mappings only when faulted, streaming from the host bundle
-   * on demand — host RSS is proportional to the touched set rather
-   * than the full snapshot size. Default false (eager restore).
+   * Force eager restore — load every page from the bundle into host
+   * RAM up front. Default false (lazy: bundle is vsock-FUSE-mounted
+   * read-only into the guest and `criu restore --lazy-pages` faults
+   * pages on demand, #266). The lazy default keeps host RSS
+   * proportional to the touched set rather than the full snapshot
+   * size; eager exists as an opt-out for debugging or for workloads
+   * that are about to fault every page anyway.
    */
-  lazyPages?: boolean;
+  eager?: boolean;
 }
 
 /**
@@ -2672,15 +2674,17 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
     );
   }
 
-  // Lazy-pages mode (#266): mark every PE_PRESENT pagemap entry that
-  // lives in an anon-private VMA with PE_LAZY in place on the host
-  // before boot, so `criu restore --lazy-pages` actually registers
-  // UFFD on those entries instead of loading them eagerly. Dumps are
-  // taken without `--lazy-pages` (machinen-dump.sh keeps the dump
-  // path simple); without this rewrite the lazy-pages daemon would
-  // see no lazy entries and load the whole image up front. Idempotent.
-  // See packages/runtime/src/lazy-pagemap.ts.
-  if (opts.lazyPages) {
+  // Lazy-pages mode (#266, default — opt out via `eager: true`):
+  // mark every PE_PRESENT pagemap entry that lives in an anon-private
+  // VMA with PE_LAZY in place on the host before boot, so
+  // `criu restore --lazy-pages` actually registers UFFD on those
+  // entries instead of loading them eagerly. Dumps are taken without
+  // `--lazy-pages` (machinen-dump.sh keeps the dump path simple);
+  // without this rewrite the lazy-pages daemon would see no lazy
+  // entries and load the whole image up front. Idempotent. See
+  // packages/runtime/src/lazy-pagemap.ts.
+  const lazyPages = !opts.eager;
+  if (lazyPages) {
     phases.start("snapshot-mark-lazy");
     const marked = markPagemapsLazy(imgDir);
     debug(
@@ -2693,21 +2697,23 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
   }
 
   // Bundle delivery split by mode:
-  //   - lazyPages: vsock-FUSE-mount `imgDir/` read-only at /mnt/snap-src/img.
-  //     CRIU restore reads pagemap-*.img + pages-*.img directly through FUSE;
-  //     bytes stream from the host on demand and never materialize in guest
-  //     tmpfs. This is the #266 path — it removes the duplicate-copy that
-  //     was eating ~workload-size of guest RAM.
-  //   - eager (default): pack `imgDir/` into a tar archive attached as
-  //     /dev/vdb. The guest's machinen-restore.sh untars into tmpfs and
-  //     CRIU does an eager load. We keep this path for non-lazy restores
-  //     because every pread through FUSE costs a vsock round-trip; eager
-  //     restore is many MB of preadv calls and would slow the restore.
+  //   - lazy (default): vsock-FUSE-mount `imgDir/` read-only at
+  //     /mnt/snap-src/img. CRIU restore reads pagemap-*.img +
+  //     pages-*.img directly through FUSE; bytes stream from the host
+  //     on demand and never materialize in guest tmpfs. This is the
+  //     #266 path — it removes the duplicate-copy that was eating
+  //     ~workload-size of guest RAM.
+  //   - eager (opt-in via `eager: true`): pack `imgDir/` into a tar
+  //     archive attached as /dev/vdb. The guest's machinen-restore.sh
+  //     untars into tmpfs and CRIU does an eager load. Kept as an
+  //     opt-out because every pread through FUSE costs a vsock
+  //     round-trip; eager wins when the workload is about to fault
+  //     every page anyway.
   phases.start("snapshot-pack");
   const restoreEnv: Record<string, string> = {};
   let scratchPath: string;
   let liveMounts: Array<{ host: string; guest: string; mode?: "ro" | "rw" }> | undefined;
-  if (opts.lazyPages) {
+  if (lazyPages) {
     scratchPath = join(
       tmpdir(),
       `machinen-restore-scratch-${process.pid}-${randomBytes(6).toString("hex")}.img`,

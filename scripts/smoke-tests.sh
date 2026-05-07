@@ -1540,10 +1540,11 @@ else
   wait "$S4_PID" 2>/dev/null || true
   pass "'machinen snapshot' returned 0"
 
-  # Lazy-pages restore in the background. The CLI's --lazy-pages flag
-  # live-mounts the bundle dir into the guest and starts the in-guest
-  # `criu lazy-pages` daemon to serve UFFD faults from the FUSE mount.
-  node "$CLI" restore --lazy-pages "$S4_SNAP_DIR" >"$S4_RESTORE_LOG" 2>&1 &
+  # Restore is lazy by default (#263). The runtime live-mounts the
+  # bundle dir into the guest and starts the in-guest `criu lazy-pages`
+  # daemon to serve UFFD faults from the FUSE mount. `--eager` would
+  # opt back into the pre-#266 tar-on-vdb path; we want lazy here.
+  node "$CLI" restore "$S4_SNAP_DIR" >"$S4_RESTORE_LOG" 2>&1 &
   S4_RESTORE_PID=$!
   cleanup_s4_restore() {
     kill -TERM "$S4_RESTORE_PID" 2>/dev/null || true
@@ -1675,11 +1676,12 @@ else
   wait "$S5_PID" 2>/dev/null || true
   pass "'machinen snapshot' returned 0"
 
-  # Lazy-pages restore. The bundle is live-mounted into the guest; the
-  # restored guest only faults the criu bring-up handful in. memdirty
-  # itself sits in pause(), so its dirty anon stays on the host bundle.
+  # Restore (lazy by default, #263). The bundle is live-mounted into
+  # the guest; the restored guest only faults the criu bring-up handful
+  # in. memdirty itself sits in pause(), so its dirty anon stays on the
+  # host bundle.
   S5_RESTORE_LOG="$FIXTURE/s5-restore.log"
-  node "$CLI" restore --lazy-pages "$S5_SNAP_DIR" >"$S5_RESTORE_LOG" 2>&1 &
+  node "$CLI" restore "$S5_SNAP_DIR" >"$S5_RESTORE_LOG" 2>&1 &
   S5_RESTORE_PID=$!
   cleanup_s5_restore() {
     kill -TERM "$S5_RESTORE_PID" 2>/dev/null || true

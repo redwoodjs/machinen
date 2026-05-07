@@ -481,7 +481,7 @@ async function cmdInstall(args: string[]): Promise<number> {
 
 async function cmdRestore(args: string[]): Promise<number> {
   // `machinen restore <snap-dir> [--image <tarball>] [--name <name>]
-  // [--lazy-pages] [-p <hostPort>:<guestPort>]`. The bundle dir
+  // [--eager] [-p <hostPort>:<guestPort>]`. The bundle dir
   // (produced by `machinen snapshot`) holds img/<criu-images> +
   // meta.json. The bundle carries CRIU's process images but not the
   // workload's rootfs, so any process whose memory map references
@@ -492,20 +492,23 @@ async function cmdRestore(args: string[]): Promise<number> {
   // or directory" and /sbin/machinen-restore exits 1, panicking the
   // guest kernel ("Attempted to kill init!").
   //
-  // `--lazy-pages` live-mounts the bundle into the guest and runs
-  // `criu restore --lazy-pages` so pages flow into the workload's
-  // anon mappings only when faulted — see #266 for the RSS argument.
+  // Restore is lazy by default (#263 / #266): the bundle is
+  // vsock-FUSE-mounted into the guest and `criu restore --lazy-pages`
+  // faults workload pages on demand, keeping host RSS proportional to
+  // what the restored VM actually touches. Pass `--eager` to force the
+  // pre-#266 behaviour (tar the bundle onto /dev/vdb, untar in guest,
+  // load every page up front).
   let parsed;
   try {
     parsed = parseRestoreArgs(args);
   } catch (err) {
     handleError(err);
   }
-  const { positional, name, image: imageOverride, portForward, lazyPages } = parsed;
+  const { positional, name, image: imageOverride, portForward, eager } = parsed;
   if (positional.length !== 1) {
     die(
       "usage: machinen restore <snap-dir> [--image <tarball>] [--name <name>] " +
-        "[--lazy-pages] [-p <hostPort>:<guestPort>]",
+        "[--eager] [-p <hostPort>:<guestPort>]",
     );
   }
   const snapDir = resolve(positional[0]!);
@@ -544,7 +547,7 @@ async function cmdRestore(args: string[]): Promise<number> {
       kernel: kernelPath,
       dtb: dtbPath,
       name,
-      lazyPages,
+      eager,
       portForward: portForward.length > 0 ? portForward : undefined,
       timeoutMs: null,
     });
@@ -968,6 +971,7 @@ async function cmdFork(args: string[]): Promise<number> {
     outDir,
     tcpKeep,
     detach,
+    eager,
     portForward,
     mount,
     liveMounts,
@@ -1009,6 +1013,7 @@ async function cmdFork(args: string[]): Promise<number> {
       kernel: kernelPath,
       dtb: dtbPath,
       tcpKeep,
+      eager,
       portForward: portForward.length > 0 ? portForward : undefined,
       mount,
       liveMounts,

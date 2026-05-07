@@ -298,4 +298,21 @@ export interface ForkOptions extends Omit<RestoreOptions, "snapDir"> {
    * `vm.snapshot({ onLog })`. Also used by the restore boot.
    */
   onLog?: OnLog;
+  /**
+   * Force eager restore — load every page from the bundle into host
+   * RAM up front, the way restore worked before #266. Default false
+   * (lazy via vsock-FUSE-mounted bundle + `criu restore --lazy-pages`).
+   *
+   * The lazy default keeps fork RSS proportional to the pages the
+   * sibling actually touches, not the full snapshot size. Set this
+   * to true when:
+   *
+   *   - the runtime supervisor is about to exit while the fork keeps
+   *     running (lazy needs the host-side FUSE server alive for as
+   *     long as the guest may fault — see #150 phase 3),
+   *   - the workload is going to fault every page anyway and you want
+   *     to skip the per-page UFFD round-trips, or
+   *   - you're debugging a lazy-restore failure on a fresh rootfs.
+   */
+  eager?: boolean;
 }
