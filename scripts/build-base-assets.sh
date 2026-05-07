@@ -477,5 +477,15 @@ for f in Image-arm64 virt-arm64.dtb rootfs-debian-arm64.tar.gz rootfs-debian-arm
   shasum -a 256 "$f" > "${f}.sha256"
 done
 
+# Input-hash sidecars consumed by scripts/check-asset-freshness.sh.
+# Source the checker so the file list lives in one place — drift
+# between "what we hash here" and "what the checker hashes" would
+# defeat the whole point of the staleness probe.
+echo "==> Writing input-hash sidecars"
+# shellcheck source=./check-asset-freshness.sh
+source "${ROOT}/scripts/check-asset-freshness.sh"
+rootfs_input_files | compute_sha > "${OUT}/rootfs-debian-arm64.tar.gz.inputs-sha256"
+kernel_input_files | compute_sha > "${OUT}/Image-arm64.inputs-sha256"
+
 ls -lh "$OUT"
 echo "==> Done."

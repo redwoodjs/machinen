@@ -91,6 +91,17 @@ if [[ ! -f "$ASSETS/Image-arm64" ]]; then
   "$ROOT/scripts/build-base-assets.sh"
 fi
 
+# Catch a stale rootfs / kernel before booting. Without this, an
+# out-of-date /sbin/machinen-dump (e.g. release-assets/ predates a
+# host-side change to the snapshot protocol) produces a 10s vsock
+# timeout in S1 that looks like a runtime regression. The checker
+# diffs source-file hashes against sidecars baked at build time;
+# missing sidecars (older release-assets/) just warn.
+if ! "$ROOT/scripts/check-asset-freshness.sh" --quiet; then
+  echo "smoke: release-assets/ is stale — rebuild with bash $ROOT/scripts/build-base-assets.sh" >&2
+  exit 1
+fi
+
 if [[ ! -f "$CLI" ]]; then
   echo "=== building @machinen/runtime + @machinen/cli ==="
   pnpm -F @machinen/runtime -F @machinen/cli build >/dev/null
