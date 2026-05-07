@@ -63,7 +63,10 @@ Resolves base assets the same way `boot` does.
 
 ## `machinen ls` / `ps`
 
-Lists running VMs as `PID  NAME  UP  FORKED-FROM`. `ps` is an alias.
+Lists running VMs as `PID  NAME  UP  PORTS  FORKED-FROM`. `PORTS` is
+the host-port forwards configured at boot/fork time, rendered as
+`<hostPort>:<guestPort>` (comma-separated for multi-port VMs, `-` for
+none). `ps` is an alias.
 
 ## `machinen exec`
 
