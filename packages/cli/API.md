@@ -99,6 +99,8 @@ on shared connection state.
 
 ```
 machinen fork <target> [--new-name <n>] [--out-dir <d>] [--tcp-keep] [--detach]
+              [-p ...] [--mount ...] [--mount-live ...] [--env KEY=VALUE]...
+              [--cwd <abs>] [--memory <mib>]
 ```
 
 Snapshots the source live (it keeps running) and restores into a
@@ -106,12 +108,25 @@ sibling VM, dropping the caller into the fork's interactive console.
 Pass `--detach` to hand the fork off and return immediately
 (CI / scripted use).
 
-| Flag             | What it does                                                             |
-| ---------------- | ------------------------------------------------------------------------ |
-| `--new-name <n>` | Name for the fork (defaults to `<source>/<fork-pid>`)                    |
-| `--out-dir <d>`  | Keep the snapshot bundle here. Without this, the bundle is temp-dir'd    |
-| `--tcp-keep`     | Inherit TCP socket state in the fork (rarely correct — both copies race) |
-| `--detach`       | Don't attach the caller's stdio to the fork — return as soon as it's up  |
+Fork = `snapshot --keep-alive` + `restore` rolled into one call, so
+the boot-shaped flags (`--mount`, `--mount-live`, `--env`, `--cwd`,
+`--memory`) take effect on the _forked sibling_, not the source. They
+default to "not set" — the source's own configuration is what's
+encoded in the snapshot, and the fork inherits whatever lived on the
+source's rootdisk at dump time.
+
+| Flag                                            | What it does                                                                                                              |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `--new-name <n>`                                | Name for the fork (defaults to `<source>/<fork-pid>`)                                                                     |
+| `--out-dir <d>`                                 | Keep the snapshot bundle here. Without this, the bundle is temp-dir'd                                                     |
+| `--tcp-keep`                                    | Inherit TCP socket state in the fork (rarely correct — both copies race)                                                  |
+| `--detach`                                      | Don't attach the caller's stdio to the fork — return as soon as it's up                                                   |
+| `-p <hostPort>:<guestPort>`                     | Forward a host TCP port into the fork. NOT inherited from the source (host ports are global) — pick a non-conflicting one |
+| `--mount <host-dir>:<guest-path>`               | Overlay an additional copy-once host directory on the fork                                                                |
+| `--mount-live <host-dir>:<guest-path>[:rw\|ro]` | Establish a fresh FUSE live-share on the fork. Source must NOT have its own live mount active (vsock FUSE ≠ CRIU)         |
+| `--env KEY=VALUE`                               | Set an env var inside the forked guest (repeatable)                                                                       |
+| `--cwd <abs-path>`                              | Working directory for the guest cmd in the fork (must be absolute)                                                        |
+| `--memory <mib>`                                | Guest RAM ceiling for the fork, decimal MiB. Debug knob                                                                   |
 
 ## `machinen attach`
 

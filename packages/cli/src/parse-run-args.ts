@@ -63,149 +63,60 @@ export function parseRunArgs(argv: string[]): ParsedRunArgs {
   for (let i = 0; i < pre.length; i++) {
     const a = pre[i]!;
     if (a === "--mount" || a.startsWith("--mount=")) {
-      let spec: string | undefined;
-      if (a === "--mount") {
-        spec = pre[i + 1];
-        if (spec === undefined) {
-          throw new ParseError(
-            "PARSE_FLAG_MISSING_VALUE",
-            "--mount requires a <host-dir>:<guest-path> value",
-          );
-        }
-        i++;
-      } else {
-        spec = a.slice("--mount=".length);
-      }
       if (mount) {
         throw new ParseError(
           "PARSE_FLAG_DUPLICATE",
           "--mount may be given at most once per invocation",
         );
       }
-      const colon = spec!.indexOf(":");
-      if (colon <= 0 || colon === spec!.length - 1) {
-        throw new ParseError(
-          "PARSE_FLAG_MALFORMED",
-          `--mount: expected <host-dir>:<guest-path>, got '${spec}'`,
-        );
-      }
-      mount = { host: spec!.slice(0, colon), guest: spec!.slice(colon + 1) };
+      const r = consumeMount(a, pre, i);
+      mount = r.value;
+      i = r.next;
     } else if (a === "--mount-live" || a.startsWith("--mount-live=")) {
-      let spec: string | undefined;
-      if (a === "--mount-live") {
-        spec = pre[i + 1];
-        if (spec === undefined) {
-          throw new ParseError(
-            "PARSE_FLAG_MISSING_VALUE",
-            "--mount-live requires a <host-dir>:<guest-path> value",
-          );
-        }
-        i++;
-      } else {
-        spec = a.slice("--mount-live=".length);
-      }
-      // Format: `<host>:<guest>[:<mode>]`. Mode defaults to `rw`
-      // (write-through, #151); pass `:ro` for read-only. A guest path
-      // containing a colon is rejected — same trade-off as `--mount`.
-      const parts = spec!.split(":");
-      if (parts.length < 2 || parts.length > 3 || !parts[0] || !parts[1]) {
-        throw new ParseError(
-          "PARSE_FLAG_MALFORMED",
-          `--mount-live: expected <host-dir>:<guest-path>[:<mode>], got '${spec}'`,
-        );
-      }
-      const modeRaw = parts[2];
-      if (modeRaw !== undefined && modeRaw !== "ro" && modeRaw !== "rw") {
-        throw new ParseError(
-          "PARSE_FLAG_MALFORMED",
-          `--mount-live: mode must be 'ro' or 'rw', got '${modeRaw}'`,
-        );
-      }
-      liveMounts.push({
-        host: parts[0]!,
-        guest: parts[1]!,
-        mode: (modeRaw as "ro" | "rw" | undefined) ?? "rw",
-      });
+      const r = consumeLiveMount(a, pre, i);
+      liveMounts.push(r.value);
+      i = r.next;
     } else if (a === "--env" || a.startsWith("--env=")) {
-      let spec: string | undefined;
-      if (a === "--env") {
-        spec = pre[i + 1];
-        if (spec === undefined) {
-          throw new ParseError("PARSE_FLAG_MISSING_VALUE", "--env requires a KEY=VALUE value");
-        }
-        i++;
-      } else {
-        spec = a.slice("--env=".length);
-      }
-      const eq = spec!.indexOf("=");
-      if (eq <= 0) {
-        throw new ParseError("PARSE_FLAG_MALFORMED", `--env: expected KEY=VALUE, got '${spec}'`);
-      }
-      const key = spec!.slice(0, eq);
-      const value = spec!.slice(eq + 1);
-      env[key] = value;
+      const r = consumeEnv(a, pre, i);
+      env[r.key] = r.value;
+      i = r.next;
     } else if (
       a === "-p" ||
       a === "--publish" ||
       a.startsWith("-p=") ||
       a.startsWith("--publish=")
     ) {
-      const consumed = consumePortForward(a, pre, i, seenHostPorts, portForward);
-      i = consumed;
+      i = consumePortForward(a, pre, i, seenHostPorts, portForward);
     } else if (a === "--snapshot" || a.startsWith("--snapshot=")) {
-      let spec: string | undefined;
-      if (a === "--snapshot") {
-        spec = pre[i + 1];
-        if (spec === undefined) {
-          throw new ParseError("PARSE_FLAG_MISSING_VALUE", "--snapshot requires a path value");
-        }
-        i++;
-      } else {
-        spec = a.slice("--snapshot=".length);
-      }
       if (snapshot) {
         throw new ParseError(
           "PARSE_FLAG_DUPLICATE",
           "--snapshot may be given at most once per invocation",
         );
       }
+      const { spec, next } = takeValue(a, pre, i, "a path value");
       snapshot = spec;
+      i = next;
     } else if (a === "--cwd" || a.startsWith("--cwd=")) {
-      let spec: string | undefined;
-      if (a === "--cwd") {
-        spec = pre[i + 1];
-        if (spec === undefined) {
-          throw new ParseError("PARSE_FLAG_MISSING_VALUE", "--cwd requires an absolute path value");
-        }
-        i++;
-      } else {
-        spec = a.slice("--cwd=".length);
-      }
       if (guestCwd !== undefined) {
         throw new ParseError(
           "PARSE_FLAG_DUPLICATE",
           "--cwd may be given at most once per invocation",
         );
       }
-      guestCwd = spec;
+      const r = consumeGuestCwd(a, pre, i);
+      guestCwd = r.value;
+      i = r.next;
     } else if (a === "--name" || a.startsWith("--name=")) {
-      let spec: string | undefined;
-      if (a === "--name") {
-        spec = pre[i + 1];
-        if (spec === undefined) {
-          throw new ParseError("PARSE_FLAG_MISSING_VALUE", "--name requires a value");
-        }
-        i++;
-      } else {
-        spec = a.slice("--name=".length);
-      }
       if (name) {
         throw new ParseError(
           "PARSE_FLAG_DUPLICATE",
           "--name may be given at most once per invocation",
         );
       }
+      const { spec, next } = takeValue(a, pre, i, "a value");
       name = spec;
+      i = next;
     } else if (a === "--detached" || a === "--detach") {
       if (detached) {
         throw new ParseError(
@@ -218,36 +129,15 @@ export function parseRunArgs(argv: string[]): ParsedRunArgs {
       // #263 phase A: decimal MiB, no unit suffix. Same shape as
       // MACHINEN_MEMORY. The runtime validates the floor; we only
       // reject syntactically bad values here.
-      let spec: string | undefined;
-      if (a === "--memory") {
-        spec = pre[i + 1];
-        if (spec === undefined) {
-          throw new ParseError(
-            "PARSE_FLAG_MISSING_VALUE",
-            "--memory requires a <mib> value (decimal integer, no unit suffix)",
-          );
-        }
-        i++;
-      } else {
-        spec = a.slice("--memory=".length);
-      }
       if (memory !== undefined) {
         throw new ParseError(
           "PARSE_FLAG_DUPLICATE",
           "--memory may be given at most once per invocation",
         );
       }
-      if (!/^[0-9]+$/.test(spec!)) {
-        throw new ParseError(
-          "PARSE_FLAG_MALFORMED",
-          `--memory: expected a decimal integer (MiB, no unit suffix), got '${spec}'`,
-        );
-      }
-      const n = Number(spec);
-      if (!Number.isFinite(n) || n <= 0) {
-        throw new ParseError("PARSE_FLAG_MALFORMED", `--memory: must be > 0 (got '${spec}')`);
-      }
-      memory = n;
+      const r = consumeMemory(a, pre, i);
+      memory = r.value;
+      i = r.next;
     } else if (a.startsWith("-")) {
       throw new ParseError("PARSE_FLAG_UNKNOWN", `unknown flag: ${a}`);
     } else {
@@ -281,6 +171,32 @@ function parsePort(raw: string, label: string): number {
 }
 
 /**
+ * Pull the value attached to a flag, supporting both `--flag value` and
+ * `--flag=value` forms. Returns the spec string and the new loop index.
+ * Throws `PARSE_FLAG_MISSING_VALUE` when the space form has nothing
+ * following it.
+ *
+ * Shared between `parseRunArgs` (boot) and `parseForkArgs`. Each
+ * `consume*` helper below uses this to keep the dispatch loop short.
+ */
+export function takeValue(
+  flag: string,
+  args: string[],
+  i: number,
+  label: string,
+): { spec: string; next: number } {
+  if (flag.includes("=")) {
+    const eq = flag.indexOf("=");
+    return { spec: flag.slice(eq + 1), next: i };
+  }
+  const spec = args[i + 1];
+  if (spec === undefined) {
+    throw new ParseError("PARSE_FLAG_MISSING_VALUE", `${flag} requires ${label}`);
+  }
+  return { spec, next: i + 1 };
+}
+
+/**
  * Consume one `-p`/`--publish` token (and the following value, if the
  * flag was given without `=`). Pushes onto `portForward`, updates
  * `seenHostPorts`, and returns the new loop index. Shared between
@@ -293,22 +209,7 @@ export function consumePortForward(
   seenHostPorts: Set<number>,
   portForward: Array<{ hostPort: number; guestPort: number }>,
 ): number {
-  let spec: string | undefined;
-  let next = i;
-  if (flag === "-p" || flag === "--publish") {
-    spec = args[i + 1];
-    if (spec === undefined) {
-      throw new ParseError(
-        "PARSE_FLAG_MISSING_VALUE",
-        `${flag} requires a <hostPort>:<guestPort> value`,
-      );
-    }
-    next = i + 1;
-  } else if (flag.startsWith("-p=")) {
-    spec = flag.slice("-p=".length);
-  } else {
-    spec = flag.slice("--publish=".length);
-  }
+  const { spec, next } = takeValue(flag, args, i, "a <hostPort>:<guestPort> value");
   const colon = spec.indexOf(":");
   if (colon <= 0 || colon === spec.length - 1) {
     throw new ParseError(
@@ -324,4 +225,122 @@ export function consumePortForward(
   seenHostPorts.add(hostPort);
   portForward.push({ hostPort, guestPort });
   return next;
+}
+
+/**
+ * Consume one `--mount <host>:<guest>` token. Returns the parsed value
+ * and the new loop index. Caller enforces "at most once" against its
+ * own state — same shape as `consumePortForward`.
+ */
+export function consumeMount(
+  flag: string,
+  args: string[],
+  i: number,
+): { value: { host: string; guest: string }; next: number } {
+  const { spec, next } = takeValue(flag, args, i, "a <host-dir>:<guest-path> value");
+  const colon = spec.indexOf(":");
+  if (colon <= 0 || colon === spec.length - 1) {
+    throw new ParseError(
+      "PARSE_FLAG_MALFORMED",
+      `--mount: expected <host-dir>:<guest-path>, got '${spec}'`,
+    );
+  }
+  return { value: { host: spec.slice(0, colon), guest: spec.slice(colon + 1) }, next };
+}
+
+/**
+ * Consume one `--mount-live <host>:<guest>[:<mode>]` token. `mode`
+ * defaults to `"rw"` (write-through). Returns the parsed entry and
+ * the new loop index. Caller pushes onto its own array.
+ */
+export function consumeLiveMount(
+  flag: string,
+  args: string[],
+  i: number,
+): { value: { host: string; guest: string; mode: "ro" | "rw" }; next: number } {
+  const { spec, next } = takeValue(flag, args, i, "a <host-dir>:<guest-path> value");
+  // Format: `<host>:<guest>[:<mode>]`. A guest path containing a colon
+  // is rejected — same trade-off as `--mount`.
+  const parts = spec.split(":");
+  if (parts.length < 2 || parts.length > 3 || !parts[0] || !parts[1]) {
+    throw new ParseError(
+      "PARSE_FLAG_MALFORMED",
+      `--mount-live: expected <host-dir>:<guest-path>[:<mode>], got '${spec}'`,
+    );
+  }
+  const modeRaw = parts[2];
+  if (modeRaw !== undefined && modeRaw !== "ro" && modeRaw !== "rw") {
+    throw new ParseError(
+      "PARSE_FLAG_MALFORMED",
+      `--mount-live: mode must be 'ro' or 'rw', got '${modeRaw}'`,
+    );
+  }
+  return {
+    value: {
+      host: parts[0]!,
+      guest: parts[1]!,
+      mode: (modeRaw as "ro" | "rw" | undefined) ?? "rw",
+    },
+    next,
+  };
+}
+
+/**
+ * Consume one `--env KEY=VALUE` token. Returns the key/value pair and
+ * the new loop index. Caller assigns onto its own map (later entries
+ * win on duplicate keys, matching boot semantics).
+ */
+export function consumeEnv(
+  flag: string,
+  args: string[],
+  i: number,
+): { key: string; value: string; next: number } {
+  const { spec, next } = takeValue(flag, args, i, "a KEY=VALUE value");
+  const eq = spec.indexOf("=");
+  if (eq <= 0) {
+    throw new ParseError("PARSE_FLAG_MALFORMED", `--env: expected KEY=VALUE, got '${spec}'`);
+  }
+  return { key: spec.slice(0, eq), value: spec.slice(eq + 1), next };
+}
+
+/**
+ * Consume one `--memory <mib>` token. Returns the parsed integer and
+ * the new loop index. Caller enforces "at most once". The runtime
+ * validates the floor against host RAM.
+ */
+export function consumeMemory(
+  flag: string,
+  args: string[],
+  i: number,
+): { value: number; next: number } {
+  const { spec, next } = takeValue(
+    flag,
+    args,
+    i,
+    "a <mib> value (decimal integer, no unit suffix)",
+  );
+  if (!/^[0-9]+$/.test(spec)) {
+    throw new ParseError(
+      "PARSE_FLAG_MALFORMED",
+      `--memory: expected a decimal integer (MiB, no unit suffix), got '${spec}'`,
+    );
+  }
+  const n = Number(spec);
+  if (!Number.isFinite(n) || n <= 0) {
+    throw new ParseError("PARSE_FLAG_MALFORMED", `--memory: must be > 0 (got '${spec}')`);
+  }
+  return { value: n, next };
+}
+
+/**
+ * Consume one `--cwd <abs-path>` token. The runtime validates the
+ * absolute-path requirement; we only collect the spec here.
+ */
+export function consumeGuestCwd(
+  flag: string,
+  args: string[],
+  i: number,
+): { value: string; next: number } {
+  const { spec, next } = takeValue(flag, args, i, "an absolute path value");
+  return { value: spec, next };
 }

@@ -122,6 +122,33 @@ If you pick a host port the source is already forwarding, the bind
 probe fires `BOOT_PORT_FORWARD_IN_USE` with the holding VM's name —
 not advice to `kill` it — so you know to pick a different host port.
 
+### Boot-shaped flags work on the fork too
+
+`fork` is `snapshot --keep-alive` + `restore` rolled into one call, so
+anything you can pass at `boot` time also works on a fork — and lands
+on the _forked sibling_, not the source. That covers `--mount`,
+`--mount-live`, `--env`, `--cwd`, and `--memory`.
+
+The source's own `--mount` payload was baked into its rootdisk before
+the snapshot, so the fork inherits it via the disk image without you
+re-passing anything. Use these flags when you want the fork to differ
+from the source — e.g. layer in an additional input dir, set an env
+var that wasn't there before, or hand the fork more RAM:
+
+```bash
+npx machinen fork --name worker --new-name worker-eval \
+  --mount ./eval-fixtures:/mnt/in \
+  --env RUN_MODE=eval \
+  --memory 8192
+```
+
+Live mounts (`--mount-live`) on a fork establish a _fresh_ vsock FUSE
+channel on the sibling. The source must not have its own live mount
+active at fork time — vsock FUSE channels can't survive a CRIU dump,
+which is why `vm.fork` rejects sources with live mounts. Tear down the
+source's live mount, fork, and re-attach a new one if you need
+write-through on both copies.
+
 ## When you need the source to survive the snapshot
 
 Sometimes you want to snapshot a VM, hand someone the bundle for later

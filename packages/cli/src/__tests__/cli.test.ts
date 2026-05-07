@@ -415,6 +415,47 @@ describe("parseForkArgs", () => {
     expect(parsed.rest).toEqual(["--name", "src", "--pid", "1234"]);
     expect(parsed.detach).toBe(true);
   });
+
+  it("captures --mount and --mount-live", () => {
+    const parsed = parseForkArgs([
+      "--mount",
+      "/tmp/host:/mnt/in",
+      "--mount-live",
+      "/tmp/live:/mnt/live:ro",
+    ]);
+    expect(parsed.mount).toEqual({ host: "/tmp/host", guest: "/mnt/in" });
+    expect(parsed.liveMounts).toEqual([{ host: "/tmp/live", guest: "/mnt/live", mode: "ro" }]);
+  });
+
+  it("captures --env (repeatable) and --cwd", () => {
+    const parsed = parseForkArgs(["--env", "FOO=bar", "--env=BAZ=qux", "--cwd", "/mnt/in"]);
+    expect(parsed.env).toEqual({ FOO: "bar", BAZ: "qux" });
+    expect(parsed.guestCwd).toBe("/mnt/in");
+  });
+
+  it("captures --memory and rejects malformed values", () => {
+    expect(parseForkArgs(["--memory", "1024"]).memory).toBe(1024);
+    expect(parseForkArgs(["--memory=2048"]).memory).toBe(2048);
+    expect(() => parseForkArgs(["--memory", "1g"])).toThrow(/decimal integer/);
+    expect(() => parseForkArgs(["--memory", "0"])).toThrow(/must be > 0/);
+    expect(() => parseForkArgs(["--memory", "1024", "--memory", "2048"])).toThrow(/at most once/);
+  });
+
+  it("rejects a duplicate --mount but allows repeated --mount-live", () => {
+    expect(() => parseForkArgs(["--mount", "a:/m/a", "--mount", "b:/m/b"])).toThrow(/at most once/);
+    const parsed = parseForkArgs(["--mount-live", "a:/m/a", "--mount-live", "b:/m/b:ro"]);
+    expect(parsed.liveMounts).toHaveLength(2);
+  });
+
+  it("rejects an invalid --mount-live mode", () => {
+    expect(() => parseForkArgs(["--mount-live", "h:/m/x:bogus"])).toThrow(
+      /mode must be 'ro' or 'rw'/,
+    );
+  });
+
+  it("rejects a duplicate --cwd", () => {
+    expect(() => parseForkArgs(["--cwd", "/a", "--cwd", "/b"])).toThrow(/at most once/);
+  });
 });
 
 describe("parseRestoreArgs", () => {

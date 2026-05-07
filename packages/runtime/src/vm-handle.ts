@@ -11,6 +11,7 @@ import type {
   VsockExecResult,
 } from "./exec.ts";
 import type { OnLog } from "./log.ts";
+import type { RestoreOptions } from "./vm.ts";
 
 export interface VmHandle {
   /**
@@ -242,12 +243,22 @@ export interface SnapshotMeta {
   snappedAt: number;
 }
 
-export interface ForkOptions {
-  /**
-   * Name for the forked VM. When omitted, the existing restore()
-   * auto-naming kicks in: `<sourceName>/<fork.pid>`.
-   */
-  name?: string;
+/**
+ * Fork = `vm.snapshot({ leaveRunning: true })` + `restore(...)` rolled
+ * into one call. The shape mirrors `RestoreOptions` (so anything you
+ * could pass to `restore()` works on a fork) plus two fork-only knobs:
+ * `outDir` (where to write the bundle) and `tcpKeep` (snapshot half).
+ *
+ * Notably this means `mount`, `liveMounts`, `env`, `guestCwd`, `memory`,
+ * etc. are all settable on the fork — they take effect on the restored
+ * sibling, not the source.
+ *
+ * `snapDir` is omitted because `vm.fork()` produces the bundle itself.
+ * Re-included here are the fork-shaped docs for `name`, `portForward`,
+ * `timeoutMs`, and `onLog` so call sites see the fork-specific defaults
+ * instead of the boot/restore ones.
+ */
+export interface ForkOptions extends Omit<RestoreOptions, "snapDir"> {
   /**
    * If set, the snapshot bundle is written here and kept after the
    * fork exits — re-restore from this path to spawn another sibling.
@@ -256,26 +267,6 @@ export interface ForkOptions {
    */
   outDir?: string;
   /**
-   * Override the rootfs image used for the fork's restore boot.
-   * Same semantics as `restore({ image })`.
-   */
-  image?: string;
-  /** Kernel path for the fork's boot. Same semantics as `boot({ kernel })`. */
-  kernel?: string;
-  /** DTB path for the fork's boot. Same semantics as `boot({ dtb })`. */
-  dtb?: string;
-  /**
-   * Wall-clock ceiling for the dump half. Default 90s (matches
-   * `vm.snapshot({ timeoutMs })`). Restore boot has its own
-   * implicit deadlines via `boot()`.
-   */
-  timeoutMs?: number;
-  /**
-   * Streaming log callback for the snapshot half. Same shape as
-   * `vm.snapshot({ onLog })`.
-   */
-  onLog?: OnLog;
-  /**
    * Default false: omit `--tcp-established` from the dump so the
    * fork sees ECONNRESET on sockets the source had open. Set true
    * to clone live TCP state into the fork (both VMs then race on
@@ -283,23 +274,28 @@ export interface ForkOptions {
    */
   tcpKeep?: boolean;
   /**
+   * Name for the forked VM. When omitted, restore()'s auto-naming
+   * kicks in: `<sourceName>/<fork.pid>`.
+   */
+  name?: string;
+  /**
    * Host→guest port forwards for the fork. NOT inherited from the
    * source — host ports are global and source + fork would race on
    * the same bind. Pass explicitly when the fork needs forwards.
    */
   portForward?: Array<{ hostPort: number; guestPort: number; hostAddr?: string }>;
   /**
-   * Restore via CRIU lazy-pages with the bundle vsock-FUSE-mounted
-   * read-only into the guest (#266). The runtime live-mounts the
-   * bundle's `img/` dir at `/mnt/snap-src/img`; the in-guest
-   * `criu lazy-pages` daemon serves UFFD faults by reading from that
-   * mount, which streams bytes from the host on demand. Pages flow
-   * into the workload's anon only when actually touched, not
-   * eagerly at restore — that's what keeps RSS down when forking a
-   * snapshot of a large workload.
-   *
-   * Default false (eager restore). Requires the rootfs to ship a
-   * `criu lazy-pages`-capable binary (the rootfs we ship does).
+   * Wall-clock ceiling for the restored fork's `wait()`. Defaults to
+   * `null` (forever) — forks are typically long-lived sibling VMs and
+   * interactive sessions can sit idle. Set a finite deadline if you
+   * want the fork to be reaped after N ms of unresponsiveness. The
+   * dump half uses `performSnapshot`'s own 90s default and isn't
+   * configurable here.
    */
-  lazyPages?: boolean;
+  timeoutMs?: number | null;
+  /**
+   * Streaming log callback for the snapshot half. Same shape as
+   * `vm.snapshot({ onLog })`. Also used by the restore boot.
+   */
+  onLog?: OnLog;
 }
