@@ -42,6 +42,13 @@ interface ParsedRunArgs {
    * See #263.
    */
   memory?: number;
+  /**
+   * Emit the boot identity (pid + name) as JSON to stdout. Only
+   * meaningful with `--detach` — attached boots hand stdio to the
+   * guest and have no clean place to print structured output. See
+   * Trevin's principle 2 (structured output).
+   */
+  json?: boolean;
 }
 
 export function parseRunArgs(argv: string[]): ParsedRunArgs {
@@ -60,6 +67,7 @@ export function parseRunArgs(argv: string[]): ParsedRunArgs {
   let guestCwd: string | undefined;
   let detached = false;
   let memory: number | undefined;
+  let json = false;
   for (let i = 0; i < pre.length; i++) {
     const a = pre[i]!;
     if (a === "--mount" || a.startsWith("--mount=")) {
@@ -125,6 +133,18 @@ export function parseRunArgs(argv: string[]): ParsedRunArgs {
         );
       }
       detached = true;
+      // `--detached` is the legacy spelling. Surface a one-line
+      // deprecation note so existing scripts keep working but agents
+      // (and humans) learn the canonical name. Suppressed under
+      // MACHINEN_QUIET_DEPRECATIONS (set by tests) and under VITEST
+      // (parseRunArgs is unit-tested with --detached on every run).
+      if (a === "--detached" && !process.env.MACHINEN_QUIET_DEPRECATIONS && !process.env.VITEST) {
+        process.stderr.write(
+          "machinen: --detached is deprecated; use --detach (same behaviour).\n",
+        );
+      }
+    } else if (a === "--json") {
+      json = true;
     } else if (a === "--memory" || a.startsWith("--memory=")) {
       // #263 phase A: decimal MiB, no unit suffix. Same shape as
       // MACHINEN_MEMORY. The runtime validates the floor; we only
@@ -156,6 +176,7 @@ export function parseRunArgs(argv: string[]): ParsedRunArgs {
     guestCwd,
     detached: detached || undefined,
     memory,
+    json: json || undefined,
   };
 }
 
