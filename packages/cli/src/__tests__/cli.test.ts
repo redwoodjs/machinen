@@ -347,13 +347,26 @@ describe("parseForkArgs", () => {
     expect(parsed.detach).toBe(true);
   });
 
-  it("defaults tcpKeep, detach, and portForward when no flags are given", () => {
+  it("defaults tcpKeep, detach, eager, and portForward when no flags are given", () => {
     const parsed = parseForkArgs(["--name", "src"]);
     expect(parsed.tcpKeep).toBe(false);
     expect(parsed.detach).toBe(false);
+    expect(parsed.eager).toBe(false);
     expect(parsed.portForward).toEqual([]);
     expect(parsed.newName).toBeUndefined();
     expect(parsed.outDir).toBeUndefined();
+  });
+
+  it("captures --eager", () => {
+    const parsed = parseForkArgs(["--eager"]);
+    expect(parsed.eager).toBe(true);
+    expect(parsed.detach).toBe(false);
+  });
+
+  it("forces eager when --detach is set (FUSE server can't survive detach yet)", () => {
+    const parsed = parseForkArgs(["--detach"]);
+    expect(parsed.detach).toBe(true);
+    expect(parsed.eager).toBe(true);
   });
 
   it("collects -p / --publish into portForward", () => {
@@ -465,6 +478,12 @@ describe("parseRestoreArgs", () => {
     expect(parsed.name).toBeUndefined();
     expect(parsed.image).toBeUndefined();
     expect(parsed.portForward).toEqual([]);
+    expect(parsed.eager).toBe(false);
+  });
+
+  it("captures --eager (opt out of the default lazy restore)", () => {
+    const parsed = parseRestoreArgs(["./warm", "--eager"]);
+    expect(parsed.eager).toBe(true);
   });
 
   it("captures --name and --image (space and = forms)", () => {
