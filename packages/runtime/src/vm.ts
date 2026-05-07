@@ -63,7 +63,7 @@ import { reflinkCopy } from "./reflink.ts";
 import { ensureRootfsImage, markRootfsImageClean } from "./rootfs-img.ts";
 import { VsockExec, type VsockExecOptions, type VsockExecResult } from "./exec.ts";
 import { serveLiveMount } from "./mount-server.ts";
-import { spawnPageServer, type PageServerHandle } from "./page-server.ts";
+import { markPagemapsLazy } from "./lazy-pagemap.ts";
 import type { OnLog } from "./log.ts";
 import { PhaseTimer } from "./phase-timer.ts";
 import { claimName, findEntry, isAlive, removeEntry, writeEntry } from "./registry.ts";
@@ -2615,55 +2615,87 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
   // the front and the zeros after the EOF marker are ignored by `tar
   // -x`; the chained dump's `mkfs.ext4 -F` then has the full sparse
   // capacity to work with.
-  phases.start("snapshot-pack");
-  const tarPath = join(
-    tmpdir(),
-    `machinen-restore-bundle-${process.pid}-${randomBytes(6).toString("hex")}.tar`,
-  );
-  try {
-    execFileSync("tar", ["-cf", tarPath, "-C", imgDir, "."]);
-    const fd = openSync(tarPath, "r+");
-    try {
-      // Extend to SNAP_SCRATCH_BYTES (sparse). truncateSync would
-      // also work here; openSync+writeSync at the last byte mirrors
-      // allocateSparseFile() and matches what's already in the file.
-      const buf = Buffer.alloc(1);
-      writeSync(fd, buf, 0, 1, SNAP_SCRATCH_BYTES - 1);
-    } finally {
-      closeSync(fd);
-    }
-  } catch (err) {
-    try {
-      unlinkSync(tarPath);
-    } catch {}
-    throw new BootError(
-      "BOOT_SNAPSHOT_NOT_FOUND",
-      `restore: failed to pack bundle from ${imgDir}: ${
-        err instanceof Error ? err.message : String(err)
-      }`,
+  // Lazy-pages mode (#266): mark every PE_PRESENT pagemap entry with
+  // PE_LAZY in place on the host so `criu restore --lazy-pages` actually
+  // registers UFFD on those entries instead of loading them eagerly.
+  // Dumps were taken without `--lazy-pages` (machinen-dump.sh keeps the
+  // dump path simple), so without this rewrite the lazy-pages daemon
+  // and host page-server are dead infrastructure: the guest never
+  // faults a single page through them. Idempotent + safe to call on
+  // already-lazy bundles.
+  if (opts.lazyPages) {
+    phases.start("snapshot-mark-lazy");
+    const marked = markPagemapsLazy(imgDir);
+    debug(
+      "lazy-pages mark: files=%d entriesFlagged=%d alreadyLazy=%d",
+      marked.filesRewritten,
+      marked.entriesFlagged,
+      marked.entriesAlreadyLazy,
     );
+    phases.end("snapshot-mark-lazy");
+  }
+
+  // Bundle delivery split by mode:
+  //   - lazyPages: vsock-FUSE-mount `imgDir/` read-only at /mnt/snap-src/img.
+  //     CRIU restore reads pagemap-*.img + pages-*.img directly through FUSE;
+  //     bytes stream from the host on demand and never materialize in guest
+  //     tmpfs. This is the #266 path — it removes the duplicate-copy that
+  //     was eating ~workload-size of guest RAM.
+  //   - eager (default): pack `imgDir/` into a tar archive attached as
+  //     /dev/vdb. The guest's machinen-restore.sh untars into tmpfs and
+  //     CRIU does an eager load. We keep this path for non-lazy restores
+  //     because every pread through FUSE costs a vsock round-trip; eager
+  //     restore is many MB of preadv calls and would slow the restore.
+  phases.start("snapshot-pack");
+  const restoreEnv: Record<string, string> = {};
+  let scratchPath: string;
+  let liveMounts: Array<{ host: string; guest: string; mode?: "ro" | "rw" }> | undefined;
+  if (opts.lazyPages) {
+    scratchPath = join(
+      tmpdir(),
+      `machinen-restore-scratch-${process.pid}-${randomBytes(6).toString("hex")}.img`,
+    );
+    allocateSparseFile(scratchPath, SNAP_SCRATCH_BYTES);
+    restoreEnv.MACHINEN_RESTORE_BUNDLE_LIVE = "1";
+    restoreEnv.MACHINEN_RESTORE_LAZY_PAGES = "1";
+    liveMounts = [
+      ...(opts.liveMounts ?? []),
+      { host: imgDir, guest: "/mnt/snap-src/img", mode: "ro" as const },
+    ];
+  } else {
+    // Pack the bundle into a tar so machinen-restore.sh can untar it
+    // off /dev/vdb. tar is `bsdtar` on darwin and `gnu tar` on linux;
+    // both produce archives the guest's `tar -xmf` reads. The trailing
+    // sparse extension keeps /dev/vdb at SNAP_SCRATCH_BYTES so chained
+    // `vm.snapshot()` against this VM has scratch room (its mkfs.ext4
+    // happily ignores tar bytes at the front).
+    scratchPath = join(
+      tmpdir(),
+      `machinen-restore-bundle-${process.pid}-${randomBytes(6).toString("hex")}.tar`,
+    );
+    try {
+      execFileSync("tar", ["-cf", scratchPath, "-C", imgDir, "."]);
+      const fd = openSync(scratchPath, "r+");
+      try {
+        const buf = Buffer.alloc(1);
+        writeSync(fd, buf, 0, 1, SNAP_SCRATCH_BYTES - 1);
+      } finally {
+        closeSync(fd);
+      }
+    } catch (err) {
+      try {
+        unlinkSync(scratchPath);
+      } catch {}
+      throw new BootError(
+        "BOOT_SNAPSHOT_NOT_FOUND",
+        `restore: failed to pack bundle from ${imgDir}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+    liveMounts = opts.liveMounts;
   }
   phases.end("snapshot-pack");
-
-  // Spawn the host-side CRIU page-server when the caller opted into
-  // lazy-pages restore (#266). The guest connects to it via the
-  // gvproxy default NAT (192.168.127.254 → host's 127.0.0.1) so we
-  // don't have to thread routing through `exposePort`. The page-
-  // server's lifetime is tied to the restored VM via the boot child's
-  // `exit` hook a few lines below.
-  let pageServerHandle: PageServerHandle | undefined;
-  const restoreEnv: Record<string, string> = {};
-  if (opts.lazyPages) {
-    phases.start("page-server-spawn");
-    pageServerHandle = await spawnPageServer({ imgDir });
-    restoreEnv.MACHINEN_RESTORE_PAGE_SERVER = pageServerHandle.guestEndpoint;
-    debug(
-      "lazy-pages restore: page-server pid=%d endpoint=%s",
-      pageServerHandle.child.pid ?? -1,
-      pageServerHandle.guestEndpoint,
-    );
-    phases.end("page-server-spawn");
-  }
 
   // boot() doesn't know the pid until after the VMM is spawned, so
   // we can't pass `<sourceName>/<pid>` up front. Boot anonymous,
@@ -2673,33 +2705,21 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
   try {
     vm = await boot({
       ...opts,
-      snapshot: tarPath,
+      snapshot: scratchPath,
       forkedFrom: snapDir,
       name: opts.name,
+      liveMounts,
       env: { ...opts.env, ...restoreEnv },
     });
-  } catch (err) {
-    pageServerHandle?.stop();
-    throw err;
   } finally {
     // boot() reflink-clones the source into a per-boot path before
-    // attaching, so the source tar isn't needed after boot returns
-    // (the per-boot copy is what the VM reads). Clean up regardless
-    // of success — failure cases shouldn't leak the temp file either.
+    // attaching, so the source scratch/tar isn't needed after boot
+    // returns. Clean up regardless of success.
     try {
-      unlinkSync(tarPath);
+      unlinkSync(scratchPath);
     } catch {}
   }
   phases.end("boot");
-
-  // Tie the page-server's lifetime to the restored VM. We can't hook
-  // boot()'s child.once("exit") from here without a new injection
-  // point, but vm.wait() chains the same lifecycle and resolves on
-  // VMM exit either way (foreground or attached / detached). Fire-
-  // and-forget — the stop() is idempotent.
-  if (pageServerHandle) {
-    void vm.wait().finally(() => pageServerHandle.stop());
-  }
 
   if (!opts.name && meta.sourceName) {
     // Default auto-name nests under the source: `<src>/<pid>`.

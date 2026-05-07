@@ -53,56 +53,45 @@ if [ -x /sbin/machinen-winsize-agent ]; then
     WINSIZE_PID=$!
 fi
 
-# Pick the scratch block device: /dev/vdb when virtio-blk-root booted
-# (rootfs took /dev/vda); else /dev/vda for the legacy single-disk
-# layout. See #114.
-if [ -b /dev/vdb ]; then
-    SCRATCH=/dev/vdb
-else
-    SCRATCH=/dev/vda
-fi
-
-# Untar the bundle off the raw block device into /mnt/snap-src/img.
-# /mnt/snap-src lives on the rootfs (tmpfs-style); a future
-# `machinen snapshot` against this VM will write its OWN dump to the
-# scratch disk via /mnt/snap, so we keep the two paths separate (#207).
+# Bundle delivery (#266 final): the host vsock-FUSE-mounts its bundle
+# `img/` directory at /mnt/snap-src/img read-only and signals us with
+# MACHINEN_RESTORE_BUNDLE_LIVE=1. Reads stream from the host's bundle
+# on demand — no tmpfs duplicate copy. Legacy mode (no env) falls back
+# to untarring /dev/vdb into tmpfs.
 mkdir -p /mnt/snap-src/img
-echo "machinen-restore: untarring $SCRATCH into /mnt/snap-src/img" >&2
-if ! tar -xmf "$SCRATCH" -C /mnt/snap-src/img; then
-    echo "machinen-restore: failed to untar bundle from $SCRATCH" >&2
-    exit 1
-fi
-if [ -z "$(ls -A /mnt/snap-src/img 2>/dev/null)" ]; then
-    echo "machinen-restore: bundle on $SCRATCH was empty" >&2
-    exit 1
+if [ "${MACHINEN_RESTORE_BUNDLE_LIVE:-0}" = "1" ]; then
+    if [ -z "$(ls -A /mnt/snap-src/img 2>/dev/null)" ]; then
+        echo "machinen-restore: live-mounted bundle at /mnt/snap-src/img is empty" >&2
+        exit 1
+    fi
+    echo "machinen-restore: bundle live-mounted at /mnt/snap-src/img" >&2
+else
+    if [ -b /dev/vdb ]; then
+        SCRATCH=/dev/vdb
+    else
+        SCRATCH=/dev/vda
+    fi
+    echo "machinen-restore: untarring $SCRATCH into /mnt/snap-src/img" >&2
+    if ! tar -xmf "$SCRATCH" -C /mnt/snap-src/img; then
+        echo "machinen-restore: failed to untar bundle from $SCRATCH" >&2
+        exit 1
+    fi
+    if [ -z "$(ls -A /mnt/snap-src/img 2>/dev/null)" ]; then
+        echo "machinen-restore: bundle on $SCRATCH was empty" >&2
+        exit 1
+    fi
 fi
 
-# Lazy-pages mode (#266): when the host has spawned a page-server and
-# plumbed `MACHINEN_RESTORE_PAGE_SERVER=<addr>:<port>` into our env,
-# split the restore in two:
-#   1. `criu lazy-pages` opens a UDS at /tmp/lazy-pages.socket and
-#      forwards UFFD page requests to the host page-server over TCP.
-#   2. `criu restore --lazy-pages` skips the eager copy of pagemap
-#      entries flagged PE_LAZY and registers UFFD on those VMA's,
-#      then defers to the lazy-pages daemon.
-# Both must live in the same PID-NS we set up for the restore (#215),
-# so we put the daemon under the same `unshare`. lazy-pages talks to
-# the daemon via a UDS in /tmp (--work-dir keeps it off any read-only
-# mounts).
+# Lazy-pages mode (#266): when MACHINEN_RESTORE_LAZY_PAGES=1, run a
+# `criu lazy-pages` daemon alongside `criu restore --lazy-pages`. The
+# daemon reads pagemap-*.img + pages-*.img from /mnt/snap-src/img
+# directly — which, in the live-mount path, streams bytes from the
+# host on demand. No remote `--page-server` needed; vsock-FUSE is
+# already the data path.
 LAZY_FLAGS=""
 LAZY_PAGES_PID=""
-if [ -n "${MACHINEN_RESTORE_PAGE_SERVER:-}" ]; then
-    case "$MACHINEN_RESTORE_PAGE_SERVER" in
-        *:*)
-            LAZY_ADDR="${MACHINEN_RESTORE_PAGE_SERVER%:*}"
-            LAZY_PORT="${MACHINEN_RESTORE_PAGE_SERVER##*:}"
-            ;;
-        *)
-            echo "machinen-restore: MACHINEN_RESTORE_PAGE_SERVER must be 'addr:port', got '$MACHINEN_RESTORE_PAGE_SERVER'" >&2
-            exit 1
-            ;;
-    esac
-    echo "machinen-restore: lazy-pages mode — page-server $LAZY_ADDR:$LAZY_PORT" >&2
+if [ "${MACHINEN_RESTORE_LAZY_PAGES:-0}" = "1" ]; then
+    echo "machinen-restore: lazy-pages mode — daemon reads bundle locally" >&2
     LAZY_FLAGS="--lazy-pages"
 fi
 
@@ -137,20 +126,46 @@ echo "machinen-restore: starting criu restore in a fresh PID namespace" >&2
 # read-only bundle mount. CRIU writes `restore.log` (and stats / aux
 # scratch) here.
 if [ -n "$LAZY_FLAGS" ]; then
-    # Spawn the lazy-pages daemon BEFORE criu restore. It connects to
-    # the host page-server, opens /tmp/lazy-pages.socket, and waits for
-    # criu restore to coordinate. The daemon must outlive `criu restore`
-    # because UFFD events keep flowing as the workload runs.
+    # Spawn the lazy-pages daemon BEFORE criu restore. It opens
+    # /tmp/lazy-pages.socket and serves UFFD page faults from
+    # pages-*.img in /mnt/snap-src/img — which is the host's bundle
+    # over vsock-FUSE in live-mount mode. The daemon must outlive
+    # `criu restore` because UFFD events keep flowing as the workload
+    # runs.
     criu lazy-pages \
         --images-dir /mnt/snap-src/img \
         --work-dir /tmp \
-        --address "$LAZY_ADDR" \
-        --port "$LAZY_PORT" \
-        --page-server \
         -v3 \
         -o lazy-pages.log &
     LAZY_PAGES_PID=$!
     echo "machinen-restore: lazy-pages daemon pid=$LAZY_PAGES_PID" >&2
+
+    # Wait for the daemon to bind /tmp/lazy-pages.socket before we
+    # start criu restore — restore connects to that socket near the
+    # end of its own setup and exits with criu/uffd.c:349 (ENOENT)
+    # if it loses the race. Pre-#266 dumps had no PE_LAZY entries so
+    # restore never made the connection; once we mark entries lazy on
+    # the host (vm.ts → markPagemapsLazy), restore actually does the
+    # connect and the race becomes load-bearing. Bail if the daemon
+    # dies during startup — usually a host-page-server connect failure.
+    for _ in $(seq 1 50); do
+        if [ -S /tmp/lazy-pages.socket ]; then
+            break
+        fi
+        if ! kill -0 "$LAZY_PAGES_PID" 2>/dev/null; then
+            echo "machinen-restore: lazy-pages daemon exited before socket appeared" >&2
+            tail -200 /tmp/lazy-pages.log >&2 || true
+            exit 1
+        fi
+        sleep 0.1
+    done
+    if [ ! -S /tmp/lazy-pages.socket ]; then
+        echo "machinen-restore: timed out waiting for /tmp/lazy-pages.socket" >&2
+        tail -200 /tmp/lazy-pages.log >&2 || true
+        kill -TERM "$LAZY_PAGES_PID" 2>/dev/null || true
+        exit 1
+    fi
+    echo "machinen-restore: lazy-pages daemon ready (UDS bound)" >&2
 fi
 # shellcheck disable=SC2086 # word splitting on LAZY_FLAGS is intentional
 unshare --pid --fork --mount-proc -- \
