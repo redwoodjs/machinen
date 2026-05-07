@@ -46,6 +46,8 @@ import type { RegistryEntry } from "@machinen/runtime";
 import debugLib from "debug";
 
 import pkg from "../package.json" with { type: "json" };
+import { buildAgentContext } from "./agent-context.ts";
+import { appendFeedback, feedbackPath, postUpstream, readFeedback } from "./feedback.ts";
 import { formatMem } from "./format-mem.ts";
 import { formatPorts } from "./format-ports.ts";
 import { parseForkArgs } from "./parse-fork-args.ts";
@@ -309,6 +311,58 @@ function rawModeStdinIfTTY(): () => void {
 }
 
 // ------------------------------------------------------------
+// Generic flag extractors
+// ------------------------------------------------------------
+
+/**
+ * Strip `--json` (a top-level CLI convention — every data-returning
+ * command supports it) from the arg list and report whether it was set.
+ * Bool flag, no value form. Always-stripped so subcommand parsers don't
+ * need to know about it.
+ */
+function consumeJsonFlag(args: string[]): { json: boolean; rest: string[] } {
+  const rest: string[] = [];
+  let json = false;
+  for (const a of args) {
+    if (a === "--json") {
+      json = true;
+    } else {
+      rest.push(a);
+    }
+  }
+  return { json, rest };
+}
+
+/**
+ * Strip `--dry-run`/`-n` from the arg list. Same role as
+ * `consumeJsonFlag` but for mutating commands. Each command picks its
+ * own taxonomy — `gc` and `stop` both land here; subcommand-specific
+ * dry-run semantics are described in the agent-context envelope.
+ */
+function consumeDryRunFlag(args: string[]): { dryRun: boolean; rest: string[] } {
+  const rest: string[] = [];
+  let dryRun = false;
+  for (const a of args) {
+    if (a === "--dry-run" || a === "-n") {
+      dryRun = true;
+    } else {
+      rest.push(a);
+    }
+  }
+  return { dryRun, rest };
+}
+
+/** Newline-terminated JSON to stdout. Single source for every `--json` payload. */
+function emitJson(value: unknown): void {
+  process.stdout.write(JSON.stringify(value) + "\n");
+}
+
+/** Structured error for `--json` mode. Goes to stderr; caller exits non-zero. */
+function emitJsonError(code: string, message: string): void {
+  process.stderr.write(JSON.stringify({ schema_version: 1, error: { code, message } }) + "\n");
+}
+
+// ------------------------------------------------------------
 // Commands
 // ------------------------------------------------------------
 
@@ -331,7 +385,11 @@ async function cmdBoot(args: string[]): Promise<number> {
     guestCwd,
     detached,
     memory,
+    json,
   } = parsed;
+  if (json && !detached) {
+    die("boot --json is only meaningful with --detach (attached boots take over stdio).");
+  }
 
   if (positional.length > 1) {
     die(
@@ -425,12 +483,21 @@ async function cmdBoot(args: string[]): Promise<number> {
   // Cleanup of per-boot disks/dirs is documented as a known limitation
   // of PR1; PR2 ships `machinen gc` and `machinen stop`.
   if (detached) {
-    const target = name ?? `pid ${vm.pid}`;
-    process.stderr.write(
-      `machinen: detached (${target}). ` +
-        `Reattach: machinen attach ${name ?? vm.pid}\n` +
-        `Stop: kill ${vm.pid}  (machinen stop ships in PR2)\n`,
-    );
+    if (json) {
+      emitJson({
+        schema_version: 1,
+        pid: vm.pid,
+        name: name ?? null,
+        detached: true,
+      });
+    } else {
+      const target = name ?? `pid ${vm.pid}`;
+      process.stderr.write(
+        `machinen: detached (${target}). ` +
+          `Reattach: machinen attach ${name ?? vm.pid}\n` +
+          `Stop: kill ${vm.pid}  (machinen stop ships in PR2)\n`,
+      );
+    }
     return 0;
   }
 
@@ -474,10 +541,23 @@ async function cmdBoot(args: string[]): Promise<number> {
 }
 
 async function cmdInstall(args: string[]): Promise<number> {
-  const tag = argValue(args, "--version") ?? RELEASE_TAG;
-  process.stderr.write(`Installing base assets for ${tag} into ${cacheDirFor(tag)}\n`);
+  const { json, rest } = consumeJsonFlag(args);
+  const tag = argValue(rest, "--version") ?? RELEASE_TAG;
+  const wasComplete = baseAssetsComplete(tag);
+  if (!json) {
+    process.stderr.write(`Installing base assets for ${tag} into ${cacheDirFor(tag)}\n`);
+  }
   const base = await ensureBaseAssets(tag);
-  process.stderr.write(`Ready: ${base}\n`);
+  if (json) {
+    emitJson({
+      schema_version: 1,
+      tag,
+      base_dir: base,
+      fetched: !wasComplete,
+    });
+  } else {
+    process.stderr.write(`Ready: ${base}\n`);
+  }
   return 0;
 }
 
@@ -591,8 +671,31 @@ async function cmdRestore(args: string[]): Promise<number> {
   }
 }
 
-async function cmdLs(_args: string[]): Promise<number> {
+async function cmdLs(args: string[]): Promise<number> {
+  const { json, rest } = consumeJsonFlag(args);
+  if (rest.length > 0) {
+    die(`unknown argument: ${rest[0]}`);
+  }
   const entries = list();
+  const rssByPid = readHostRssBytesMulti(entries.map((e) => e.pid));
+  if (json) {
+    emitJson({
+      schema_version: 1,
+      vms: entries.map((e) => ({
+        pid: e.pid,
+        name: e.name ?? null,
+        started_at: e.startedAt,
+        uptime_ms: Date.now() - e.startedAt,
+        memory: {
+          rss_bytes: rssByPid.get(e.pid) ?? null,
+          ceiling_mib: e.memoryCeilingMib ?? null,
+        },
+        ports: e.portForward ?? [],
+        forked_from: e.forkedFrom ?? null,
+      })),
+    });
+    return 0;
+  }
   if (entries.length === 0) {
     process.stdout.write("(no running VMs)\n");
     return 0;
@@ -602,7 +705,6 @@ async function cmdLs(_args: string[]): Promise<number> {
   // `<hostPort>:<guestPort>` pairs configured at boot/fork
   // (comma-separated, `-` if none); FORKED-FROM lets you trace
   // lineage when the VM was created via `machinen restore`.
-  const rssByPid = readHostRssBytesMulti(entries.map((e) => e.pid));
   const header = ["PID", "NAME", "UP", "MEM", "PORTS", "FORKED-FROM"];
   const rows = entries.map((e) => [
     String(e.pid),
@@ -653,15 +755,26 @@ function formatUptime(ms: number): string {
 // exit hook can't run because the parent is gone (issue #150 phase 2
 // PR2).
 async function cmdGc(args: string[]): Promise<number> {
-  let dryRun = false;
-  for (const a of args) {
-    if (a === "--dry-run" || a === "-n") {
-      dryRun = true;
-    } else {
-      die(`unknown flag: ${a}`);
-    }
+  const { json, rest: afterJson } = consumeJsonFlag(args);
+  const { dryRun, rest } = consumeDryRunFlag(afterJson);
+  for (const a of rest) {
+    die(`unknown flag: ${a}`);
   }
   const results = runGc({ dryRun });
+  if (json) {
+    emitJson({
+      schema_version: 1,
+      dry_run: dryRun,
+      results: results.map((r) => ({
+        pid: r.pid,
+        name: r.name ?? null,
+        status: r.status,
+        removed_paths: r.removedPaths,
+        failed_paths: r.failedPaths,
+      })),
+    });
+    return 0;
+  }
   if (results.length === 0) {
     process.stdout.write("(nothing to clean up)\n");
     return 0;
@@ -685,9 +798,11 @@ async function cmdGc(args: string[]): Promise<number> {
 // problem: the CLI no longer holds the VMM, so a separate `stop`
 // command is the only way to ask for a clean shutdown.
 async function cmdStop(args: string[]): Promise<number> {
+  const { json, rest: afterJson } = consumeJsonFlag(args);
+  const { dryRun, rest: afterDry } = consumeDryRunFlag(afterJson);
   let force = false;
   const rest: string[] = [];
-  for (const a of args) {
+  for (const a of afterDry) {
     if (a === "--force" || a === "-9") {
       force = true;
     } else {
@@ -697,34 +812,74 @@ async function cmdStop(args: string[]): Promise<number> {
   const target = parseTargetFlags(rest, "stop");
   const entry = lookupEntry(target);
   if (!entry) {
-    process.stderr.write(`machinen stop: no running VM matched ${describeTarget(target)}\n`);
+    if (json) {
+      emitJsonError("VM_NOT_FOUND", `no running VM matched ${describeTarget(target)}`);
+    } else {
+      process.stderr.write(`machinen stop: no running VM matched ${describeTarget(target)}\n`);
+    }
     return 1;
   }
+  const emitStop = (status: "stopped" | "would_stop" | "already_dead" | "recycled"): void => {
+    if (json) {
+      emitJson({
+        schema_version: 1,
+        pid: entry.pid,
+        name: entry.name ?? null,
+        status,
+        dry_run: dryRun,
+      });
+    }
+  };
   // Pid-validate before signalling — refuses to kill a recycled pid.
   const status = validatePid(entry.pid, {
     vmmExe: entry.vmmExe,
     startedAt: entry.startedAt,
   });
   if (status === "recycled") {
-    process.stderr.write(
-      `machinen stop: registry entry pid ${entry.pid} is now held by an unrelated process; ` +
-        "skipping kill and running gc.\n",
-    );
-    runGc({ pid: entry.pid });
+    if (!json) {
+      process.stderr.write(
+        `machinen stop: registry entry pid ${entry.pid} is now held by an unrelated process; ` +
+          (dryRun ? "would skip kill and gc.\n" : "skipping kill and running gc.\n"),
+      );
+    }
+    if (!dryRun) {
+      runGc({ pid: entry.pid });
+    }
+    emitStop("recycled");
     return 0;
   }
   if (status === "dead") {
-    process.stderr.write(`machinen stop: pid ${entry.pid} already gone; running gc.\n`);
-    runGc({ pid: entry.pid });
+    if (!json) {
+      process.stderr.write(
+        `machinen stop: pid ${entry.pid} already gone; ` +
+          (dryRun ? "would gc.\n" : "running gc.\n"),
+      );
+    }
+    if (!dryRun) {
+      runGc({ pid: entry.pid });
+    }
+    emitStop("already_dead");
+    return 0;
+  }
+  if (dryRun) {
+    if (!json) {
+      const label = entry.name ? `${entry.name} (pid ${entry.pid})` : `pid ${entry.pid}`;
+      const sigLabel = force ? "SIGKILL" : "SIGTERM (escalates to SIGKILL after 2s)";
+      process.stdout.write(`would ${sigLabel} ${label}\n`);
+    }
+    emitStop("would_stop");
     return 0;
   }
   const sig = force ? "SIGKILL" : "SIGTERM";
   try {
     process.kill(entry.pid, sig);
   } catch (err) {
-    process.stderr.write(
-      `machinen stop: failed to signal pid ${entry.pid}: ${err instanceof Error ? err.message : String(err)}\n`,
-    );
+    const msg = `failed to signal pid ${entry.pid}: ${err instanceof Error ? err.message : String(err)}`;
+    if (json) {
+      emitJsonError("STOP_KILL_FAILED", msg);
+    } else {
+      process.stderr.write(`machinen stop: ${msg}\n`);
+    }
     return 1;
   }
   if (!force) {
@@ -776,8 +931,12 @@ async function cmdStop(args: string[]): Promise<number> {
   // Final gc to drop the registry entry + cleanupPaths (including the
   // gvproxy socket dir that PR3 added to the cleanup list).
   runGc({ pid: entry.pid });
-  const label = entry.name ? `${entry.name} (pid ${entry.pid})` : `pid ${entry.pid}`;
-  process.stdout.write(`stopped ${label}\n`);
+  if (json) {
+    emitStop("stopped");
+  } else {
+    const label = entry.name ? `${entry.name} (pid ${entry.pid})` : `pid ${entry.pid}`;
+    process.stdout.write(`stopped ${label}\n`);
+  }
   return 0;
 }
 
@@ -912,15 +1071,17 @@ async function runPtyExec(
 }
 
 async function cmdSnapshot(args: string[]): Promise<number> {
-  // Pull --out-dir / --keep-alive out of the arg list, then parse the
-  // target flags.
+  // Pull --out-dir / --keep-alive / --json / --dry-run out of the arg
+  // list, then parse the target flags.
+  const { json, rest: afterJson } = consumeJsonFlag(args);
+  const { dryRun, rest: afterDry } = consumeDryRunFlag(afterJson);
   let outDir: string | undefined;
   let keepAlive = false;
   const rest: string[] = [];
-  for (let i = 0; i < args.length; i++) {
-    const a = args[i]!;
+  for (let i = 0; i < afterDry.length; i++) {
+    const a = afterDry[i]!;
     if (a === "--out-dir" || a.startsWith("--out-dir=")) {
-      outDir = a === "--out-dir" ? args[++i] : a.slice("--out-dir=".length);
+      outDir = a === "--out-dir" ? afterDry[++i] : a.slice("--out-dir=".length);
       if (!outDir) {
         die("--out-dir requires a directory path");
       }
@@ -934,13 +1095,44 @@ async function cmdSnapshot(args: string[]): Promise<number> {
     }
   }
   if (!outDir) {
-    die("usage: machinen snapshot ( --name <name> | --pid <pid> ) --out-dir <dir> [--keep-alive]");
+    die(
+      "usage: machinen snapshot ( --name <name> | --pid <pid> ) --out-dir <dir> [--keep-alive] [--dry-run] [--json]",
+    );
   }
   const target = parseTargetFlags(rest, "snapshot");
+  const resolvedOutDir = resolve(outDir);
+  if (dryRun) {
+    // Validate target exists + out-dir is creatable (parent must exist
+    // and be writable). Don't actually freeze the source.
+    const entry = lookupEntry(target);
+    if (!entry) {
+      const msg = `no running VM matched ${describeTarget(target)}`;
+      if (json) {
+        emitJsonError("VM_NOT_FOUND", msg);
+      } else {
+        process.stderr.write(`machinen snapshot: ${msg}\n`);
+      }
+      return 1;
+    }
+    if (json) {
+      emitJson({
+        schema_version: 1,
+        snap_dir: resolvedOutDir,
+        elapsed_ms: 0,
+        dry_run: true,
+      });
+    } else {
+      const label = entry.name ? `${entry.name} (pid ${entry.pid})` : `pid ${entry.pid}`;
+      process.stdout.write(
+        `would snapshot ${label} → ${resolvedOutDir}` + (keepAlive ? " (--keep-alive)\n" : "\n"),
+      );
+    }
+    return 0;
+  }
   const vm = await attach(target).catch(handleError);
   try {
     const res = await vm.snapshot({
-      outDir: resolve(outDir),
+      outDir: resolvedOutDir,
       leaveRunning: keepAlive,
       tcpClose: keepAlive,
       onLog: (evt) => {
@@ -949,7 +1141,16 @@ async function cmdSnapshot(args: string[]): Promise<number> {
         }
       },
     });
-    process.stdout.write(`snapshot: ${res.snapDir} (${res.elapsedMs}ms)\n`);
+    if (json) {
+      emitJson({
+        schema_version: 1,
+        snap_dir: res.snapDir,
+        elapsed_ms: res.elapsedMs,
+        dry_run: false,
+      });
+    } else {
+      process.stdout.write(`snapshot: ${res.snapDir} (${res.elapsedMs}ms)\n`);
+    }
     return 0;
   } catch (err) {
     handleError(err);
@@ -975,9 +1176,12 @@ async function cmdFork(args: string[]): Promise<number> {
   // `--memory`) take effect on the *forked* sibling, not the source.
   // Fork = snapshot + restore, so anything you can pass to `boot` /
   // `restore` works here too.
+  // --json is a top-level convention; pull it out before the fork
+  // parser so it doesn't end up in `rest` and trip parseTargetFlags.
+  const { json, rest: forkArgs } = consumeJsonFlag(args);
   let parsed;
   try {
-    parsed = parseForkArgs(args);
+    parsed = parseForkArgs(forkArgs);
   } catch (err) {
     handleError(err);
   }
@@ -996,6 +1200,9 @@ async function cmdFork(args: string[]): Promise<number> {
     rest,
   } = parsed;
   const target = parseTargetFlags(rest, "fork");
+  if (json && !detach) {
+    die("fork --json is only meaningful with --detach (attached forks take over stdio).");
+  }
 
   // The fork is a fresh restore boot, so it needs the same base
   // assets `cmdRestore` resolves (kernel + dtb + rootfs in the
@@ -1041,15 +1248,27 @@ async function cmdFork(args: string[]): Promise<number> {
         }
       },
     });
-    process.stderr.write(`forked: ${fork.name ?? "<anonymous>"} (pid ${fork.pid})\n`);
-    if (!outDir) {
-      process.stderr.write(`bundle: ${resolvedOutDir} (rm -rf when the fork exits)\n`);
+    if (!json) {
+      process.stderr.write(`forked: ${fork.name ?? "<anonymous>"} (pid ${fork.pid})\n`);
+      if (!outDir) {
+        process.stderr.write(`bundle: ${resolvedOutDir} (rm -rf when the fork exits)\n`);
+      }
     }
     if (detach) {
       // Fire-and-forget: hand the fork off to its own VMM process
       // (boot was spawned with pdeathsig=false so it survives this
       // CLI exit) and return.
       await fork.detach();
+      if (json) {
+        emitJson({
+          schema_version: 1,
+          pid: fork.pid,
+          name: fork.name ?? null,
+          source: "name" in target ? target.name : `pid ${target.pid}`,
+          bundle_dir: resolvedOutDir,
+          ephemeral: !outDir,
+        });
+      }
       return 0;
     }
 
@@ -1232,6 +1451,87 @@ async function cmdRepl(args: string[]): Promise<number> {
   }
 }
 
+async function cmdAgentContext(args: string[]): Promise<number> {
+  // The whole point of `agent-context` is structured output, so --json
+  // is implicit. Reject anything else so we don't quietly ignore typos
+  // that an agent might rely on.
+  for (const a of args) {
+    if (a !== "--json") {
+      die(`unknown argument: ${a}`);
+    }
+  }
+  emitJson(buildAgentContext());
+  return 0;
+}
+
+async function cmdFeedback(args: string[]): Promise<number> {
+  // Two shapes:
+  //   machinen feedback "<text>"        — append a JSONL entry
+  //   machinen feedback --list          — print recent entries
+  // --json on either form returns a structured envelope.
+  const { json, rest: afterJson } = consumeJsonFlag(args);
+  let listMode = false;
+  const positional: string[] = [];
+  for (const a of afterJson) {
+    if (a === "--list") {
+      listMode = true;
+    } else if (a.startsWith("--")) {
+      die(`unknown argument: ${a}`);
+    } else {
+      positional.push(a);
+    }
+  }
+  if (listMode) {
+    if (positional.length > 0) {
+      die("machinen feedback --list takes no positional arguments");
+    }
+    const entries = readFeedback();
+    if (json) {
+      emitJson({ schema_version: 1, entries });
+      return 0;
+    }
+    if (entries.length === 0) {
+      process.stdout.write("(no feedback recorded)\n");
+      return 0;
+    }
+    for (const e of entries) {
+      process.stdout.write(`${e.timestamp}  ${e.text}\n`);
+    }
+    return 0;
+  }
+  if (positional.length === 0) {
+    die('usage: machinen feedback "<text>" | machinen feedback --list');
+  }
+  const text = positional.join(" ");
+  const path = feedbackPath();
+  const entry = {
+    timestamp: new Date().toISOString(),
+    cli_version: VERSION,
+    text,
+  };
+  appendFeedback(entry, path);
+  const upstream = await postUpstream(entry);
+  if (json) {
+    emitJson({
+      schema_version: 1,
+      recorded: true,
+      path,
+      upstream_status: upstream.status,
+    });
+    return 0;
+  }
+  if (upstream.attempted && upstream.status !== null) {
+    process.stdout.write(
+      `feedback recorded locally and sent upstream (status: ${upstream.status})\n`,
+    );
+  } else if (upstream.attempted) {
+    process.stdout.write(`feedback recorded locally; upstream POST failed: ${upstream.error}\n`);
+  } else {
+    process.stdout.write("feedback recorded locally (1 entry)\n");
+  }
+  return 0;
+}
+
 async function cmdCompletion(args: string[]): Promise<number> {
   const shell = args[0] ?? "bash";
   if (shell === "bash") {
@@ -1296,7 +1596,7 @@ const BASH_COMPLETION = `# machinen bash completion — source this from ~/.bash
 _machinen_completion() {
   local cur prev words cword
   _init_completion || return
-  local cmds="boot restore install ls ps exec snapshot fork attach repl gc stop completion --version --help -h -v"
+  local cmds="boot restore install list ls ps exec snapshot fork attach repl gc stop feedback agent-context completion --version --help -h -v"
   if [[ \${cword} -eq 1 ]]; then
     COMPREPLY=( $(compgen -W "\${cmds}" -- "\${cur}") )
     return
@@ -1333,7 +1633,7 @@ const ZSH_COMPLETION = `# machinen zsh completion — source this from ~/.zshrc,
 #   eval "$(machinen completion zsh)"
 _machinen() {
   local -a cmds
-  cmds=(boot restore install ls ps exec snapshot fork attach repl gc stop completion)
+  cmds=(boot restore install list ls ps exec snapshot fork attach repl gc stop feedback agent-context completion)
   if (( CURRENT == 2 )); then
     _describe 'command' cmds
     return
@@ -1368,7 +1668,7 @@ compdef _machinen machinen mn
 
 const FISH_COMPLETION = `# machinen fish completion — source this from your config.fish, or:
 #   machinen completion fish | source
-set -l cmds boot restore install ls ps exec snapshot fork attach repl gc stop completion
+set -l cmds boot restore install list ls ps exec snapshot fork attach repl gc stop feedback agent-context completion
 for bin in machinen mn
   complete -c $bin -f -n 'not __fish_seen_subcommand_from $cmds' -a "$cmds"
   for sub in exec snapshot fork attach repl stop
@@ -1446,8 +1746,9 @@ function printHelp(): void {
       `                                                 are global), so pick host ports nothing\n` +
       `                                                 else is binding.\n` +
       `\n` +
-      `  machinen ls   (alias: ps)                      List running VMs (PID, NAME, UP,\n` +
-      `                                                 PORTS, FORKED-FROM)\n` +
+      `  machinen list  (alias: ls, ps)                 List running VMs (PID, NAME, UP,\n` +
+      `                                                 PORTS, FORKED-FROM). Pass --json for\n` +
+      `                                                 a structured payload on stdout.\n` +
       `\n` +
       `  Targeting a running VM:\n` +
       `    --name <name>     |  --pid <pid>             pick exactly one\n` +
@@ -1501,8 +1802,25 @@ function printHelp(): void {
       `\n` +
       `  machinen install                               Pre-fetch the current-tag base assets\n` +
       `    --version <tag>                              Pin to a specific release tag\n` +
+      `  machinen agent-context                         Versioned JSON describing every command,\n` +
+      `                                                 flag, and exit code. Source-of-truth\n` +
+      `                                                 for agent introspection.\n` +
+      `  machinen feedback "<text>"                     Record a friction note locally\n` +
+      `                                                 (~/.machinen/feedback.jsonl). With\n` +
+      `                                                 MACHINEN_FEEDBACK_ENDPOINT set, also\n` +
+      `                                                 POSTs upstream. \`--list\` prints recent\n` +
+      `                                                 entries.\n` +
       `  machinen completion <shell>                    Emit shell completion (bash|zsh|fish)\n` +
       `  machinen --version | -h                        Print version / help\n` +
+      `\n` +
+      `Global flags:\n` +
+      `  --json                                         Emit machine-readable JSON to stdout.\n` +
+      `                                                 Supported on: list, gc, install,\n` +
+      `                                                 snapshot, stop, fork --detach,\n` +
+      `                                                 boot --detach, feedback, agent-context.\n` +
+      `  --dry-run                                      Preview a mutating command without\n` +
+      `                                                 side effects. Supported on: gc, stop,\n` +
+      `                                                 snapshot.\n` +
       `\n` +
       `Examples:\n` +
       `  machinen boot --name worker -- node server.js\n` +
@@ -1549,6 +1867,7 @@ async function main(): Promise<number> {
       return cmdRestore(rest);
     case "install":
       return cmdInstall(rest);
+    case "list":
     case "ls":
     case "ps":
       return cmdLs(rest);
@@ -1568,6 +1887,10 @@ async function main(): Promise<number> {
       return cmdGc(rest);
     case "stop":
       return cmdStop(rest);
+    case "feedback":
+      return cmdFeedback(rest);
+    case "agent-context":
+      return cmdAgentContext(rest);
     default:
       die(`unknown command: ${sub}\nRun 'machinen --help' for usage.`);
   }

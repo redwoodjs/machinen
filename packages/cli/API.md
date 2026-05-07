@@ -9,22 +9,44 @@ recipes, see the [guides](../../docs/).
 ```
 machinen boot     [<image>] [opts] -- <cmd>     Boot a microVM
 machinen restore  <snap-dir> [--name <name>]    Restore a VM from a snapshot bundle
-machinen ls       (alias: ps)                    List running VMs
+machinen list     (alias: ls, ps)               List running VMs
 machinen exec     <target> [--tty] -- <cmd>     Run a command in a running VM
-machinen snapshot <target> --out-dir <d> [--keep-alive]
+machinen snapshot <target> --out-dir <d> [--keep-alive] [--dry-run]
                                                 CRIU-snapshot a running VM
 machinen fork     <target> [opts]               Clone a running VM into a sibling
 machinen attach   <target> [--shell <c>] [--tail [N]]
                                                 Interactive PTY shell into a VM
 machinen repl     <target>                       Per-line exec REPL (no persistent state)
-machinen stop     <target> [--force|-9]         Stop a running VM
+machinen stop     <target> [--force|-9] [--dry-run]
+                                                Stop a running VM
 machinen gc       [--dry-run|-n]                Drop dead registry entries + clean artifacts
 machinen install  [--version <tag>]             Pre-fetch base assets for a release
+machinen feedback "<text>" | --list             Record agent-friction notes locally
+machinen agent-context                          Versioned JSON describing the CLI surface
 machinen completion <bash|zsh|fish>             Emit shell completion
 machinen --version | -h                          Print version / help
 ```
 
 `<target>` is exactly one of `--name <name>` or `--pid <pid>`.
+
+## Agent-friendly conventions
+
+Every data-returning command supports `--json` for machine-readable
+output to stdout: `list`, `gc`, `install`, `snapshot`, `stop`,
+`feedback`, `agent-context`, plus `boot --detach` and `fork --detach`
+(where the CLI returns identity instead of taking over stdio).
+Mutating commands (`gc`, `stop`, `snapshot`) accept `--dry-run` to
+preview without side effects.
+
+`machinen agent-context` emits a versioned JSON description of every
+command, flag, and exit code. Treat it as the source of truth for
+agent introspection — it is generated from the same schema the CLI's
+internal lint check verifies.
+
+`machinen feedback "<text>"` records friction notes as JSONL at
+`~/.machinen/feedback.jsonl`. With `MACHINEN_FEEDBACK_ENDPOINT` set,
+the entry also POSTs upstream. `machinen feedback --list` prints
+recent entries.
 
 ## `machinen boot`
 

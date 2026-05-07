@@ -19,9 +19,16 @@ or a script — without writing any TypeScript.
 - **Reach into a running VM.** `attach` for an interactive shell with
   job control; `exec` for one-off commands; `repl` for piping a script
   of one-liners.
-- **Manage VM lifecycles.** `ls` to see what's running, `stop` to shut
-  one down cleanly, `gc` to clean up after detached boots that
-  crashed.
+- **Manage VM lifecycles.** `list` (alias `ls`) to see what's
+  running, `stop` to shut one down cleanly, `gc` to clean up after
+  detached boots that crashed.
+- **Drive it from an agent.** `--json` on every data-returning
+  command (`list`, `gc`, `install`, `snapshot`, `stop`,
+  `boot --detach`, `fork --detach`, `feedback`). `mn agent-context`
+  emits a versioned JSON description of the whole CLI surface for
+  introspection. `mn feedback "<text>"` records friction notes
+  locally (and POSTs upstream when `MACHINEN_FEEDBACK_ENDPOINT` is
+  set).
 
 For end-to-end recipes (provisioning images, mounts, networking,
 snapshot patterns), see the [guides](../../docs/). For the full
