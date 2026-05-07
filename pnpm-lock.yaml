@@ -114,12 +114,22 @@ importers:
       '@machinen/e2fsprogs-arm64-linux':
         specifier: workspace:*
         version: link:../e2fsprogs-arm64-linux
+      '@machinen/squashfs-tools-arm64-darwin':
+        specifier: workspace:*
+        version: link:../squashfs-tools-arm64-darwin
+      '@machinen/squashfs-tools-arm64-linux':
+        specifier: workspace:*
+        version: link:../squashfs-tools-arm64-linux
       '@machinen/vmm-arm64-darwin':
         specifier: workspace:*
         version: link:../vmm-arm64-darwin
       '@machinen/vmm-arm64-linux':
         specifier: workspace:*
         version: link:../vmm-arm64-linux
+
+  packages/squashfs-tools-arm64-darwin: {}
+
+  packages/squashfs-tools-arm64-linux: {}
 
   packages/vmm-arm64-darwin: {}
 

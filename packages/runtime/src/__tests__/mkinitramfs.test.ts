@@ -307,6 +307,45 @@ describe("packBundle mount", () => {
     expect(size).toBeLessThan(1024 * 1024);
   });
 
+  // #272: packTinyBundle no longer carries the `--mount` payload in
+  // the cpio. The lower (squashfs) + upper (ext4) ride on virtio-blk
+  // slots 5 and 6 instead. The cpio just needs to know the guest path
+  // so /init can target the overlay there. Asserts:
+  //   - /etc/machinen-mountdisk-guest exists with the path verbatim
+  //   - the cpio does NOT carry /mnt/<guest>/* entries (those used to
+  //     bake the host source dir into the cpio)
+  it("packTinyBundle writes /etc/machinen-mountdisk-guest and does NOT overlay /mnt/", () => {
+    const bundle = makeEmptyBundle();
+    const out = join(tmp, "tiny-with-mount.cpio");
+    const stubInit = join(tmp, "stub-init");
+    writeFileSync(stubInit, "stub");
+    packTinyBundle({
+      bundle,
+      out,
+      initPath: stubInit,
+      mountGuest: "/mnt/app",
+    });
+    const entries = listCpioEntries(out);
+    const guestEntry = entries.get("etc/machinen-mountdisk-guest");
+    expect(guestEntry).toBeDefined();
+    expect(guestEntry!.data.toString("utf8").trim()).toBe("/mnt/app");
+    // The legacy cpio overlay should NOT be present — the payload now
+    // rides on virtio-blk, not in the cpio.
+    for (const name of entries.keys()) {
+      expect(name.startsWith("mnt/")).toBe(false);
+    }
+  });
+
+  it("packTinyBundle omits /etc/machinen-mountdisk-guest when no mountGuest", () => {
+    const bundle = makeEmptyBundle();
+    const out = join(tmp, "tiny.cpio");
+    const stubInit = join(tmp, "stub-init");
+    writeFileSync(stubInit, "stub");
+    packTinyBundle({ bundle, out, initPath: stubInit });
+    const entries = listCpioEntries(out);
+    expect(entries.has("etc/machinen-mountdisk-guest")).toBe(false);
+  });
+
   it("leaves non-colliding mount paths alone when the bundle overlays a sibling", () => {
     // Mount populates /mnt/app with a+b; bundle only provides /mnt/app/a.
     // After layering, bundle's a wins, mount's b survives.

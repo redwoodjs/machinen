@@ -104,9 +104,20 @@ export interface VmHandle {
    * Freeze this VM with CRIU and write a snapshot bundle into
    * `opts.outDir`. The bundle is a directory containing:
    *
-   *   <outDir>/img/          ← CRIU image files (pages-*.img,
-   *                            pagemap-*.img, core-*.img, dump.log, ...)
-   *   <outDir>/meta.json     ← source name + timestamp
+   *   <outDir>/img/                ← CRIU image files (pages-*.img,
+   *                                  pagemap-*.img, core-*.img,
+   *                                  dump.log, ...)
+   *   <outDir>/meta.json           ← source name + timestamp +
+   *                                  optional mountDisk pointers
+   *   <outDir>/mount-lower.sqfs    ← squashfs RO lower (only when
+   *                                  the source VM had `mount` set)
+   *   <outDir>/mount-upper.img     ← ext4 RW upper (only when
+   *                                  the source VM had `mount` set)
+   *
+   * `mount-lower.sqfs` and `mount-upper.img` are reflinked from the
+   * runtime's per-VM materialization (#272), so on APFS / btrfs / xfs
+   * the snapshot is essentially free space-wise even for a large
+   * mount payload — blocks stay shared until either side writes.
    *
    * The caller must have booted the VM with a scratch disk (`snapshot:
    * '<path>'` or default auto-allocation) so the guest had `/dev/vdb`
@@ -308,6 +319,20 @@ export interface SnapshotMeta {
   sourceImage?: string;
   /** ms epoch when `vm.snapshot()` returned. */
   snappedAt: number;
+  /**
+   * #272: when the source VM was booted with `mount: { host, guest }`,
+   * the snapshot bundle includes both halves of the overlay so a
+   * restore (same- or cross-host) can mount the same overlay without
+   * consulting the host source dir.
+   *   - `guest`: absolute guest path the overlay mounts at.
+   *   - `lower`: basename of the squashfs RO lower in the bundle dir.
+   *   - `upper`: basename of the ext4 RW upper in the bundle dir.
+   */
+  mountDisk?: {
+    guest: string;
+    lower: string;
+    upper: string;
+  };
 }
 
 /**

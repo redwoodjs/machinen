@@ -5,13 +5,25 @@
 // What stays in is what the guest kernel + our VMM actually touch:
 //   * the GIC v3 (interrupt controller — required)
 //   * PL011 UART at 0x9000000 (console)
-//   * four virtio-mmio slots (net / blk / vsock / blk2 at 0x0a000000+i*0x200)
+//   * seven virtio-mmio slots at 0x0a000000+i*0x200:
+//       0=net, 1=blk (rootdisk), 2=vsock, 3=blk2 (scratch),
+//       4=balloon, 5=blk3 (mount lower / squashfs RO),
+//       6=blk4 (mount upper / ext4 RW)
 //   * CPU, timer, psci, apb-pclk
 //
 // Slot 1 (blk) and slot 3 (blk2) carry the two virtio-blk devices:
 // rootdisk on slot 1 (becomes /dev/vda) and scratch on slot 3
 // (/dev/vdb when both are present). The runtime feeds them via
 // MACHINEN_ROOTDISK and MACHINEN_DISK respectively. See #114.
+//
+// Slots 5 (blk3) and 6 (blk4) carry the `--mount` payload (#272):
+// a content-addressed squashfs lower (RO) and a per-VM ext4 upper
+// (RW), layered into a single overlayfs at /mnt/<guest>/ by /init.
+// They become /dev/vdc and /dev/vdd in DTB order when rootdisk +
+// scratch are both populated. The runtime feeds them via
+// MACHINEN_MOUNTDISK_LOWER_FD and MACHINEN_MOUNTDISK_UPPER_FD —
+// fd-passed, never path-passed, so the host source dir is never
+// consulted by the guest at runtime.
 //
 // Nodes we *used* to carry via the QEMU virt reference DTS and have
 // now dropped for sub-second-spawn work (#50): `pcie`, `pl031` rtc,
@@ -77,6 +89,29 @@
 		dma-coherent;
 		interrupts = <0x00 0x14 0x01>;
 		reg = <0x00 0xa000800 0x00 0x200>;
+		compatible = "virtio,mmio";
+	};
+
+	// #272: slot 5 carries the squashfs RO lower for the `--mount`
+	// payload. The runtime fd-passes the content-addressed cache
+	// file via MACHINEN_MOUNTDISK_LOWER_FD; /init mounts the
+	// resulting /dev/vdc read-only at a pre-pivot path.
+	virtio_mmio@a000a00 {
+		dma-coherent;
+		interrupts = <0x00 0x15 0x01>;
+		reg = <0x00 0xa000a00 0x00 0x200>;
+		compatible = "virtio,mmio";
+	};
+
+	// #272: slot 6 carries the ext4 RW upper for the `--mount`
+	// overlay. Per-VM sparse file fd-passed via
+	// MACHINEN_MOUNTDISK_UPPER_FD; /init mounts /dev/vdd with
+	// `discard` so deletes auto-reclaim host disk via virtio-blk
+	// VIRTIO_BLK_F_DISCARD → fallocate(PUNCH_HOLE).
+	virtio_mmio@a000c00 {
+		dma-coherent;
+		interrupts = <0x00 0x16 0x01>;
+		reg = <0x00 0xa000c00 0x00 0x200>;
 		compatible = "virtio,mmio";
 	};
 

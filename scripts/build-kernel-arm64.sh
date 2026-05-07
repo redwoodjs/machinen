@@ -100,6 +100,11 @@ make ARCH=arm64 defconfig >/dev/null
 # FUSE — guest side of `--mount-live` (#78). Builtin so liveMounts work
 # without /init having to finit_module fuse first.
 #
+# SQUASHFS / SQUASHFS_ZSTD / OVERLAY_FS — `--mount` payload now rides
+# in a squashfs (RO lower) + ext4 (RW upper) overlay, two virtio-blk
+# slots (#272). Without these the guest can't mount the lower or layer
+# the overlay, and /init bails on the mount-disk path.
+#
 # CHECKPOINT_RESTORE / KCMP / namespace toggles — required by criu.
 # Most are already =y in arm64 defconfig but pinning protects against
 # upstream defconfig drift.
@@ -122,6 +127,7 @@ make ARCH=arm64 defconfig >/dev/null
   --enable IPV6 \
   --enable LIBCRC32C \
   --enable FUSE_FS \
+  --enable SQUASHFS --enable SQUASHFS_ZSTD --enable OVERLAY_FS \
   --enable IKCONFIG --enable IKCONFIG_PROC \
   --enable CHECKPOINT_RESTORE --enable KCMP \
   --enable USER_NS --enable PID_NS --enable NET_NS \
@@ -145,6 +151,7 @@ required=(
   USERFAULTFD
   IPV6
   VIRTIO_BALLOON PAGE_REPORTING
+  SQUASHFS SQUASHFS_ZSTD OVERLAY_FS
 )
 for c in "${required[@]}"; do
   if ! grep -q "^CONFIG_${c}=y" .config; then
