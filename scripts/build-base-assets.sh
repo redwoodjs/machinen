@@ -159,7 +159,9 @@ trap 'rm -rf "$STAGE"' EXIT
 # winsize-agent is the #177 vsock TIOCSWINSZ daemon for dev-VM tty
 # resize forwarding; lives at /sbin/machinen-winsize-agent and is
 # launched by vm.ts's bootstrap (no auto-launch in non-dev paths).
-for name in init exec-agent fuse-agent winsize-agent lo-up no-iou poweroff net-bench-probe; do
+# memdirty is the #266 RSS-spike workload helper used by the headline
+# lazy-pages smoke test: mmaps N MiB anon, dirties every page, parks.
+for name in init exec-agent fuse-agent winsize-agent lo-up no-iou poweroff net-bench-probe memdirty; do
   zig build-exe "${ASSETS}/${name}.zig" \
     -target aarch64-linux-musl \
     -O ReleaseSmall \
@@ -419,6 +421,7 @@ install -m 0755 -D /stage/lo-up             /work/rootfs/sbin/machinen-lo-up
 install -m 0755 -D /stage/no-iou            /work/rootfs/sbin/machinen-no-iou
 install -m 0755 -D /stage/poweroff          /work/rootfs/sbin/machinen-poweroff
 install -m 0755 -D /stage/net-bench-probe   /work/rootfs/sbin/machinen-net-bench-probe
+install -m 0755 -D /stage/memdirty          /work/rootfs/sbin/machinen-memdirty
 install -m 0755 -D /stage/winsize-agent     /work/rootfs/sbin/machinen-winsize-agent
 install -m 0755 -D /stage/fnm               /work/rootfs/usr/local/bin/fnm
 # Shell-script helpers that drive the snapshot/restore contract. Staged

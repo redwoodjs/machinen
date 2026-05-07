@@ -1,40 +1,38 @@
 #!/bin/sh
-# /sbin/machinen-dump — dumps the user workload with CRIU onto the
-# scratch disk and triggers a clean poweroff (or, with
-# MACHINEN_DUMP_LEAVE_RUNNING=1, leaves the workload running so the
-# host can fork it — see #216).
+# /sbin/machinen-dump — dumps the user workload with CRIU and streams
+# the resulting image set out to the host as a tar archive on stdout.
 #
 # Runs inside the guest, invoked by `vm.snapshot()` via vsock exec.
-# The host-side `vm.snapshot()` then copies the scratch disk's backing
-# file to the caller's outPath and returns.
+# The host's `performSnapshot` consumes our stdout into a host-side
+# `tar x` and (for destructive snapshots) follows up with a separate
+# `/sbin/machinen-poweroff` exec to bring the VM down.
+#
+# All log lines go to stderr so stdout stays exclusively for tar bytes.
+#
+# Bundle format (#266): the host receives a directory of CRIU images
+# (`pages-*.img`, `pagemap-*.img`, `core-*.img`, `dump.log`, ...). The
+# scratch disk inside the guest is just transient working space; the
+# host no longer keeps the ext4 image, only the directory of files.
 #
 # Env knobs:
-#   MACHINEN_DUMP_LEAVE_RUNNING=1   pass --leave-running to criu dump.
-#                                    The workload survives the dump and
-#                                    the supervisor's wait does NOT
-#                                    return — the host signals success
-#                                    by this script's exit, not by VMM
-#                                    poweroff. Used by `vm.fork()`.
-#   MACHINEN_DUMP_TCP_CLOSE=1        omit --tcp-established. Default
-#                                    (no env / unset) keeps it. The
-#                                    fork path sets this so the cloned
-#                                    VM doesn't share live TCP state
-#                                    with the parent.
+#   MACHINEN_DUMP_TCP_CLOSE=1       omit --tcp-established. Default
+#                                   (no env / unset) keeps it. Fork
+#                                   sets this so the cloned VM doesn't
+#                                   share live TCP state with the parent.
+#
+# Note: this script ALWAYS passes `--leave-running` to `criu dump`.
+# That keeps the supervisor's `wait` blocked on the workload (so the
+# exec-agent and our stdout pipe stay alive while we tar), which is
+# essential for the tar-on-stdout transport. The host decides whether
+# to kill the workload afterwards by issuing /sbin/machinen-poweroff
+# in destructive snapshots; `vm.fork()` skips the poweroff so the
+# source survives.
 #
 # Scratch disk lives at /dev/vdb when the VM was booted with virtio-blk
 # root (/dev/vda is the rootfs in that case — see #114). On legacy
 # initramfs-as-rootfs boots there's only one virtio-blk device and it
 # lands at /dev/vda, so we fall back to that. The first existing path
 # wins.
-#
-# Layout on the scratch disk after a successful dump:
-#   /img/core-*.img           ← CRIU images
-#   /img/dump.log             ← CRIU verbose log (useful on failure)
-#
-# Success signal to the host: a clean PSCI SYSTEM_OFF (VMM exits 0)
-# before the snapshot timer fires. A non-zero exit here leaves /init's
-# waitpid blocked and the kill-timer fires on the host — that's how
-# failures surface.
 
 set -eu
 
@@ -55,13 +53,6 @@ case "${1:-}" in
         ;;
 esac
 
-# Read fork-mode knobs (#216). nsenter passes env through to the
-# re-exec'd self in the sub-NS, so reading them here covers both the
-# direct dump and the chained dump path.
-LEAVE_RUNNING=0
-if [ "${MACHINEN_DUMP_LEAVE_RUNNING:-0}" = "1" ]; then
-    LEAVE_RUNNING=1
-fi
 TCP_CLOSE=0
 if [ "${MACHINEN_DUMP_TCP_CLOSE:-0}" = "1" ]; then
     TCP_CLOSE=1
@@ -133,76 +124,43 @@ case "$DUMP_PID" in
         ;;
 esac
 
-echo "machinen-dump: preparing (pid=$DUMP_PID, sub_ns=${SUB_NS_HOST_PID:-none}, in_sub_ns=$IN_SUB_NS)"
+echo "machinen-dump: preparing (pid=$DUMP_PID, sub_ns=${SUB_NS_HOST_PID:-none}, in_sub_ns=$IN_SUB_NS)" >&2
 
 if [ "$IN_SUB_NS" -eq 0 ] && [ -n "$SUB_NS_HOST_PID" ]; then
-    # Drop the parent's read-only bundle mount before we hand off to
-    # the sub-NS — mkfs (re-)formats the device from inside, and we
-    # don't want the parent to keep an open ref. The sub-NS has its
-    # own copy of /mnt/snap-src (cloned at unshare time); the
-    # re-entered half umounts that one.
+    # Chained dump: the workload lives in a sub-PID-namespace. Re-exec
+    # ourselves through nsenter so criu sees the sub-NS's /proc.
+    #
+    # With --leave-running (always, see header), the sub-NS workload
+    # survives the dump and the sub-NS stays alive, so nsenter returns
+    # cleanly with the in-sub-ns child's exit status (no SIGKILL race
+    # like the old destructive flow had).
+    #
+    # The in-sub-ns half tars to its stdout, which nsenter forwards to
+    # our stdout, which the exec-agent forwards over vsock to the host.
+    # We drop the parent's read-only bundle mount first because the
+    # in-sub-ns half re-mounts the scratch disk in its own NS for the
+    # criu output; leaving our copy attached is harmless but noisy.
     if mountpoint -q /mnt/snap-src 2>/dev/null; then
         umount /mnt/snap-src 2>/dev/null || umount -l /mnt/snap-src
     fi
 
-    # Re-enter the sub-PID + sub-mount NS by re-exec'ing ourselves.
-    # nsenter forks a child into the target NS; the child's exit
-    # status comes back as nsenter's exit. We don't `exec` here
-    # because the sub-NS dies as soon as criu kills the dumped tree
-    # (criu_restore is PID 1 of the NS and exits the moment its
-    # workload is gone) — and the kernel SIGKILLs everything
-    # remaining in that NS, including our re-exec'd self mid-cleanup.
-    # We need the parent to survive the nsenter exit to flush the
-    # block device and verify the dump landed on disk.
-    #
-    # /usr/sbin/machinen-dump (not /sbin/...) — the sub-NS's mount
-    # namespace was cloned by `unshare --mount-proc`, but Debian's
-    # /sbin → /usr/sbin merge is a top-level symlink and CRIU may
-    # have pivoted into a private root that doesn't see it. Going
-    # through the canonical path skips the dependency.
-    # `--root` switches the process's fs root to the target's root
-    # before exec. Without it, our process keeps its parent-NS chroot
-    # view and path lookup into the new mount NS misses everything
-    # (every "/usr/sbin/foo" comes back ENOENT) — the rootfs IS
-    # there, just not at the path our chroot points to. `--wd /` is
-    # belt-and-braces in case the parent's cwd doesn't exist in the
-    # target NS.
-    set +e
-    nsenter --target "$SUB_NS_HOST_PID" --pid --mount --root --wd=/ -- \
+    # /usr/sbin/machinen-dump (not /sbin/...) — Debian's /sbin →
+    # /usr/sbin merge is a top-level symlink and CRIU may have pivoted
+    # into a private root that doesn't see it. `--root` switches the
+    # process's fs root to the target's root before exec; without it,
+    # path lookup into the new mount NS misses everything (every
+    # "/usr/sbin/foo" comes back ENOENT) — the rootfs IS there, just
+    # not at the path our chroot points to. `--wd /` is belt-and-braces
+    # in case the parent's cwd doesn't exist in the target NS.
+    exec nsenter --target "$SUB_NS_HOST_PID" --pid --mount --root --wd=/ -- \
         /usr/sbin/machinen-dump --in-sub-ns "$DUMP_PID"
-    nsenter_rc=$?
-    set -e
-
-    # Flush the block device — sync covers all pages regardless of
-    # which mount namespace dirtied them.
-    sync
-
-    # Verify the dump landed on disk: mount the scratch in our parent
-    # NS (it was unmounted when the sub-NS died) and look for CRIU
-    # core images. nsenter_rc is unreliable here — exit 137 (SIGKILL)
-    # is normal when the sub-NS dies on us, but exit 0 also happens
-    # if our re-exec'd self finishes cleanup before the SIGKILL lands.
-    mkdir -p /mnt/snap
-    if ! mount "$SCRATCH" /mnt/snap 2>/dev/null; then
-        echo "machinen-dump: chained dump — couldn't mount $SCRATCH to verify (nsenter rc=$nsenter_rc)" >&2
-        exit 1
-    fi
-    if ! ls /mnt/snap/img/core-*.img >/dev/null 2>&1; then
-        echo "machinen-dump: chained CRIU dump failed (nsenter rc=$nsenter_rc) — tail of dump.log:" >&2
-        tail -40 /mnt/snap/img/dump.log 2>/dev/null >&2 || echo "(no dump.log)" >&2
-        exit 1
-    fi
-    sync
-    umount /mnt/snap
-    sync
-    exit 0
 fi
 
 # CRIU's kerndat_tcp_repair probe fails with ENETUNREACH if `lo` is
 # still DOWN. /init doesn't bring it up; we do it here so snapshot is
 # self-contained. (lo-up is idempotent and the network NS is shared
 # with the parent, so this is a no-op when we're inside the sub-NS.)
-/sbin/machinen-lo-up || {
+/sbin/machinen-lo-up >&2 || {
     echo "machinen-dump: lo-up failed" >&2
     exit 1
 }
@@ -210,29 +168,27 @@ fi
 # CRIU's kerndat_has_move_mount_set_group probe creates a throwaway dir
 # under /tmp (`/tmp/.criu.move_mount_set_group.XXXXXX`); a rootfs with
 # no /tmp (older app.tar.gz layers, minimal images) makes it fail with
-# ENOENT and aborts the dump before it touches the workload. The base
-# rootfs ships /tmp, but be defensive in case a layered image stripped it.
+# ENOENT and aborts the dump before it touches the workload.
 mkdir -p /tmp
 chmod 1777 /tmp 2>/dev/null || true
 
 # Drop the read-only bundle mount in our current NS.
 # /sbin/machinen-restore mounts the bundle's images at /mnt/snap-src
-# (read-only) and doesn't unmount when restore returns. The parent
-# bundle's images aren't needed for the running workload; clear the
-# mount so the kernel will let us re-mount $SCRATCH at /mnt/snap
-# (mkfs.ext4 -F refuses if the device is mounted anywhere visible).
+# (read-only) and doesn't unmount when restore returns. We don't need
+# the parent bundle's images anymore; clear the mount so the kernel
+# will let us re-format $SCRATCH (mkfs.ext4 -F refuses if the device
+# is mounted anywhere visible).
 if mountpoint -q /mnt/snap-src 2>/dev/null; then
     umount /mnt/snap-src 2>/dev/null || umount -l /mnt/snap-src
 fi
 
 # Format the scratch disk ext4 on first use. Subsequent snapshots just
-# remount and `rm -rf /mnt/snap/img` below clears any prior images
-# (including the parent bundle's, on chained snapshots).
+# remount and `rm -rf /mnt/snap/img` below clears any prior images.
 # -F: force (existing data is a scratch allocation; we're overwriting).
 # -q: quiet; noisy output confuses the host-side log tee.
 if ! blkid "$SCRATCH" 2>/dev/null | grep -q ext4; then
-    echo "machinen-dump: formatting $SCRATCH as ext4"
-    mkfs.ext4 -F -q "$SCRATCH"
+    echo "machinen-dump: formatting $SCRATCH as ext4" >&2
+    mkfs.ext4 -F -q "$SCRATCH" >&2
 fi
 mkdir -p /mnt/snap
 mount "$SCRATCH" /mnt/snap
@@ -243,65 +199,48 @@ mount "$SCRATCH" /mnt/snap
 rm -rf /mnt/snap/img
 mkdir -p /mnt/snap/img
 
-echo "machinen-dump: dumping tree rooted at pid=$DUMP_PID (leave_running=$LEAVE_RUNNING tcp_close=$TCP_CLOSE)"
+echo "machinen-dump: dumping tree rooted at pid=$DUMP_PID (tcp_close=$TCP_CLOSE)" >&2
 # --tree recurses automatically.
 # We DO NOT pass --shell-job. The supervisor's `setsid -c` makes the
 # workload its own session leader, and that session leader IS the
-# dump tree's root — so CRIU has all the session info it needs in-
-# tree. --shell-job tells CRIU "the session leader lives outside the
-# dump and the calling process will reattach the tty for you"; that
-# mode skips restoring the tty's foreground process group, which left
-# a forked VM with `tpgid=-1` and VINTR/VSUSP signals silently going
-# nowhere (Ctrl-C/Ctrl-Z were no-ops in the restored shell).
-# --tcp-established keeps TCP sockets (gvproxy-backed connections etc.).
-#   Omitted when MACHINEN_DUMP_TCP_CLOSE=1 — fork (#216) sets that so
-#   the new VM doesn't share live TCP sockets with the source. CRIU
-#   restores those sockets in CLOSED state on the new side, which the
-#   workload sees as ECONNRESET on first I/O — the right semantic for
-#   "this is a copy, not a continuation."
-# --leave-running: CRIU normally SIGKILLs the dumped tree on success.
-#   Fork (#216) wants the source VM to keep going; this flag suppresses
-#   the kill so the supervisor's `wait` stays blocked and the workload
-#   resumes execution from the dump point with no observable hiccup.
+# dump tree's root — so CRIU has all the session info it needs in-tree.
+# --tcp-established keeps TCP sockets across the dump. Omitted when
+#   MACHINEN_DUMP_TCP_CLOSE=1 — fork sets that so the new VM doesn't
+#   share live TCP sockets with the source.
+# --leave-running: ALWAYS set. CRIU normally SIGKILLs the dumped tree
+#   on success, but we need the workload (and the supervisor's wait, and
+#   the exec-agent it shares a process tree with) alive long enough to
+#   tar the images out to stdout. The host follows up with poweroff for
+#   destructive snapshots; vm.fork() skips that so the source survives.
 # -v3 + log file: if dump fails, tail /mnt/snap/img/dump.log on stderr.
-DUMP_ARGS="--tree $DUMP_PID --images-dir /mnt/snap/img -v3 -o dump.log"
+DUMP_ARGS="--tree $DUMP_PID --images-dir /mnt/snap/img -v3 -o dump.log --leave-running"
 if [ "$TCP_CLOSE" -eq 0 ]; then
     DUMP_ARGS="$DUMP_ARGS --tcp-established"
 fi
-if [ "$LEAVE_RUNNING" -eq 1 ]; then
-    DUMP_ARGS="$DUMP_ARGS --leave-running"
-fi
 # shellcheck disable=SC2086 # word splitting on DUMP_ARGS is intentional
-if ! criu dump $DUMP_ARGS; then
+if ! criu dump $DUMP_ARGS >&2; then
     echo "machinen-dump: CRIU dump failed — tail of dump.log:" >&2
     tail -40 /mnt/snap/img/dump.log >&2 || true
-    # Leave the mount + images in place for post-mortem. The host's
-    # kill-timer will tear the VM down; the caller sees SNAPSHOT_TIMEOUT.
     exit 1
 fi
 
-echo "machinen-dump: dump OK — flushing + unmounting"
-sync
-umount /mnt/snap
+echo "machinen-dump: dump OK — flushing + streaming bundle" >&2
 sync
 
-# Don't issue the poweroff here. CRIU's default is to KILL the dumped
-# tree on success, which makes /sbin/machinen-supervisor's `wait` on
-# the workload return; the supervisor then runs the clean shutdown.
-# Racing two poweroffs from different processes works but makes for
-# confusing logs; leaving it to the supervisor keeps the shutdown path
-# single-sourced.
+# Stream the image directory out to the host as a tar archive on
+# stdout. The host pipes our stdout into `tar x -C <snapDir>/img` to
+# materialize the directory bundle. Logs are on stderr so they don't
+# corrupt the tar stream.
 #
-# In the chained-restore case (--in-sub-ns), the same chain works: criu
-# dump kills the dumped tree → criu_restore's wait returns → criu_restore
-# exits → /sbin/machinen-restore unblocks → /sbin/machinen-poweroff.
-# Our process here may be SIGKILLed by the kernel's pid_ns destruction
-# before this exit fires (we're a process inside the dying sub-NS), but
-# the data has already been flushed to the block device above.
-#
-# Leave-running mode (#216): CRIU did NOT kill the workload, so the
-# supervisor's wait stays blocked and the VM keeps running. The host
-# uses our exit code (delivered over vsock by the exec-agent) as the
-# success signal instead of the VMM exit. There's nothing further to
-# do here; just exit 0.
+# `tar c .` from /mnt/snap/img produces a relative-path archive (no
+# leading /mnt/snap/img/ prefix), which is what host-side `tar x -C
+# <snapDir>/img` expects.
+tar -c -C /mnt/snap/img . || {
+    echo "machinen-dump: tar of /mnt/snap/img failed" >&2
+    exit 1
+}
+
+# Don't unmount /mnt/snap or poweroff. The host issues poweroff via a
+# separate vsock-exec when it wants the VM down (destructive snapshot);
+# vm.fork() leaves the VM running.
 exit 0

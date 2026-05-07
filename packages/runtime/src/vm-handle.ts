@@ -103,22 +103,26 @@ export interface VmHandle {
    * Freeze this VM with CRIU and write a snapshot bundle into
    * `opts.outDir`. The bundle is a directory containing:
    *
-   *   <outDir>/disk.img      ← CRIU image set on an ext4 volume
+   *   <outDir>/img/          ← CRIU image files (pages-*.img,
+   *                            pagemap-*.img, core-*.img, dump.log, ...)
    *   <outDir>/meta.json     ← source name + timestamp
    *
-   * The caller must have booted the VM with `snapshot: '<scratch>'`
-   * so the guest had a /dev/vda to dump into; otherwise this throws
-   * `SNAPSHOT_NO_DISK`.
+   * The caller must have booted the VM with a scratch disk (`snapshot:
+   * '<path>'` or default auto-allocation) so the guest had `/dev/vdb`
+   * to dump into; otherwise this throws `SNAPSHOT_NO_DISK`.
    *
    * Guest contract: the rootfs ships a dump helper callable via
    * vsock exec — default `/sbin/machinen-dump`, override via
-   * `opts.dumpCmd`. The helper runs `criu dump` against the
-   * workload tree, syncs the ext4 images, and lets
-   * `/sbin/machinen-supervisor` trigger PSCI SYSTEM_OFF. Success is
-   * signalled by a clean VMM exit before `opts.timeoutMs` elapses
-   * plus an mtime bump on the disk file — timer expiration throws
-   * `SNAPSHOT_TIMEOUT`; an untouched disk throws
-   * `SNAPSHOT_DUMP_FAILED`.
+   * `opts.dumpCmd`. The helper runs `criu dump --leave-running` and
+   * tars the resulting image set out on stdout, which the host
+   * extracts into `<outDir>/img/`. For destructive snapshots (default)
+   * the runtime then issues `/sbin/machinen-poweroff` over vsock to
+   * bring the VMM down; `opts.leaveRunning: true` skips that step
+   * and the source VM keeps running.
+   *
+   * `SNAPSHOT_TIMEOUT` if the dump exec doesn't return within
+   * `opts.timeoutMs`; `SNAPSHOT_DUMP_FAILED` if it returns non-zero
+   * or the streamed bundle is empty.
    *
    * Supported on both boot-owned and attach handles — attach uses
    * the `diskPath` stored in the VM registry entry at boot time.
@@ -210,8 +214,8 @@ export interface SnapshotOptions {
 export interface SnapshotResult {
   /** Absolute path to the snapshot bundle directory. */
   snapDir: string;
-  /** Absolute path to the disk image inside the bundle. */
-  diskPath: string;
+  /** Absolute path to the CRIU image directory inside the bundle. */
+  imgDir: string;
   /** Time from `snapshot()` entry to VMM exit, in milliseconds. */
   elapsedMs: number;
   /** Guest console output captured during the dump. */
@@ -284,4 +288,18 @@ export interface ForkOptions {
    * the same bind. Pass explicitly when the fork needs forwards.
    */
   portForward?: Array<{ hostPort: number; guestPort: number; hostAddr?: string }>;
+  /**
+   * Restore via CRIU lazy-pages with the bundle vsock-FUSE-mounted
+   * read-only into the guest (#266). The runtime live-mounts the
+   * bundle's `img/` dir at `/mnt/snap-src/img`; the in-guest
+   * `criu lazy-pages` daemon serves UFFD faults by reading from that
+   * mount, which streams bytes from the host on demand. Pages flow
+   * into the workload's anon only when actually touched, not
+   * eagerly at restore — that's what keeps RSS down when forking a
+   * snapshot of a large workload.
+   *
+   * Default false (eager restore). Requires the rootfs to ship a
+   * `criu lazy-pages`-capable binary (the rootfs we ship does).
+   */
+  lazyPages?: boolean;
 }

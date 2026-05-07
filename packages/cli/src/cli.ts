@@ -480,8 +480,9 @@ async function cmdInstall(args: string[]): Promise<number> {
 }
 
 async function cmdRestore(args: string[]): Promise<number> {
-  // `machinen restore <snap-dir> [--image <tarball>] [--name <name>]`.
-  // The bundle dir (produced by `machinen snapshot`) holds disk.img +
+  // `machinen restore <snap-dir> [--image <tarball>] [--name <name>]
+  // [--lazy-pages] [-p <hostPort>:<guestPort>]`. The bundle dir
+  // (produced by `machinen snapshot`) holds img/<criu-images> +
   // meta.json. The bundle carries CRIU's process images but not the
   // workload's rootfs, so any process whose memory map references
   // files outside the base debian rootfs (e.g. /usr/bin/node from a
@@ -490,17 +491,21 @@ async function cmdRestore(args: string[]): Promise<number> {
   // restore with "Can't open file <path> on restore: No such file
   // or directory" and /sbin/machinen-restore exits 1, panicking the
   // guest kernel ("Attempted to kill init!").
+  //
+  // `--lazy-pages` live-mounts the bundle into the guest and runs
+  // `criu restore --lazy-pages` so pages flow into the workload's
+  // anon mappings only when faulted — see #266 for the RSS argument.
   let parsed;
   try {
     parsed = parseRestoreArgs(args);
   } catch (err) {
     handleError(err);
   }
-  const { positional, name, image: imageOverride, portForward } = parsed;
+  const { positional, name, image: imageOverride, portForward, lazyPages } = parsed;
   if (positional.length !== 1) {
     die(
       "usage: machinen restore <snap-dir> [--image <tarball>] [--name <name>] " +
-        "[-p <hostPort>:<guestPort>]",
+        "[--lazy-pages] [-p <hostPort>:<guestPort>]",
     );
   }
   const snapDir = resolve(positional[0]!);
@@ -539,6 +544,7 @@ async function cmdRestore(args: string[]): Promise<number> {
       kernel: kernelPath,
       dtb: dtbPath,
       name,
+      lazyPages,
       portForward: portForward.length > 0 ? portForward : undefined,
       timeoutMs: null,
     });

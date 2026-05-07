@@ -1,12 +1,20 @@
 #!/bin/sh
-# /sbin/machinen-restore — restores a CRIU dump from /dev/vda and
-# supervises the restored workload until it exits.
+# /sbin/machinen-restore — restores a CRIU dump from a tar archive
+# attached as the scratch block device, then supervises the restored
+# workload until it exits.
 #
 # Invoked as /init's direct child (via cmd=["/sbin/machinen-restore"]
 # synthesized by the runtime when boot() gets an opts.snapshot but
 # no opts.cmd). Counterpart of /sbin/machinen-supervisor — same
 # "restore vsock + wait + poweroff" shape, just with the workload
 # coming from a CRIU image set instead of a fresh fork+execve.
+#
+# Bundle delivery (#266): the host attaches the bundle as a raw tar
+# archive on the scratch block device (no filesystem). We untar into
+# tmpfs and run criu against that. The old ext4-on-blk delivery was
+# replaced because the new bundle format on the host is a directory
+# of CRIU image files; staging through tar avoids any need for the
+# host to mkfs ext4.
 
 set -eu
 
@@ -45,32 +53,48 @@ if [ -x /sbin/machinen-winsize-agent ]; then
     WINSIZE_PID=$!
 fi
 
-# Mount the CRIU image store. Pick /dev/vdb when virtio-blk-root booted
-# (rootfs took /dev/vda); else /dev/vda for the legacy single-disk
-# layout. See #114.
-if [ -b /dev/vdb ]; then
-    SCRATCH=/dev/vdb
+# Bundle delivery (#266 final): the host vsock-FUSE-mounts its bundle
+# `img/` directory at /mnt/snap-src/img read-only and signals us with
+# MACHINEN_RESTORE_BUNDLE_LIVE=1. Reads stream from the host's bundle
+# on demand — no tmpfs duplicate copy. Legacy mode (no env) falls back
+# to untarring /dev/vdb into tmpfs.
+mkdir -p /mnt/snap-src/img
+if [ "${MACHINEN_RESTORE_BUNDLE_LIVE:-0}" = "1" ]; then
+    if [ -z "$(ls -A /mnt/snap-src/img 2>/dev/null)" ]; then
+        echo "machinen-restore: live-mounted bundle at /mnt/snap-src/img is empty" >&2
+        exit 1
+    fi
+    echo "machinen-restore: bundle live-mounted at /mnt/snap-src/img" >&2
 else
-    SCRATCH=/dev/vda
+    if [ -b /dev/vdb ]; then
+        SCRATCH=/dev/vdb
+    else
+        SCRATCH=/dev/vda
+    fi
+    echo "machinen-restore: untarring $SCRATCH into /mnt/snap-src/img" >&2
+    if ! tar -xmf "$SCRATCH" -C /mnt/snap-src/img; then
+        echo "machinen-restore: failed to untar bundle from $SCRATCH" >&2
+        exit 1
+    fi
+    if [ -z "$(ls -A /mnt/snap-src/img 2>/dev/null)" ]; then
+        echo "machinen-restore: bundle on $SCRATCH was empty" >&2
+        exit 1
+    fi
 fi
 
-# Mount the bundle disk at /mnt/snap-src (NOT /mnt/snap) so a future
-# `machinen snapshot` against the restored VM can use /mnt/snap as its
-# own scratch mountpoint without colliding (#207). machinen-dump.sh
-# unmounts /mnt/snap-src before re-formatting the disk for the new dump;
-# see that script for the cleanup.
-mkdir -p /mnt/snap-src
-if ! blkid "$SCRATCH" 2>/dev/null | grep -q ext4; then
-    echo "machinen-restore: $SCRATCH is not ext4 — aborting" >&2
-    exit 1
-fi
-mount -o ro "$SCRATCH" /mnt/snap-src
-if [ ! -d /mnt/snap-src/img ] || [ -z "$(ls -A /mnt/snap-src/img 2>/dev/null)" ]; then
-    echo "machinen-restore: no images at /mnt/snap-src/img — aborting" >&2
-    exit 1
+# Lazy-pages mode (#266): when MACHINEN_RESTORE_LAZY_PAGES=1, run a
+# `criu lazy-pages` daemon alongside `criu restore --lazy-pages`. The
+# daemon reads pagemap-*.img + pages-*.img from /mnt/snap-src/img,
+# which (with MACHINEN_RESTORE_BUNDLE_LIVE=1) is a vsock-FUSE mount of
+# the host bundle dir — bytes stream from the host on demand.
+LAZY_FLAGS=""
+LAZY_PAGES_PID=""
+if [ "${MACHINEN_RESTORE_LAZY_PAGES:-0}" = "1" ]; then
+    echo "machinen-restore: lazy-pages mode — daemon reads bundle locally" >&2
+    LAZY_FLAGS="--lazy-pages"
 fi
 
-echo "machinen-restore: starting criu restore in a fresh PID namespace"
+echo "machinen-restore: starting criu restore in a fresh PID namespace" >&2
 # Run criu inside `unshare --pid --fork --mount-proc` so the restored
 # workload's PIDs land in a fresh namespace (#215). Without this, the
 # dumped tree's PIDs (e.g. 60, 73, 77 — captured wherever the source
@@ -99,15 +123,52 @@ echo "machinen-restore: starting criu restore in a fresh PID namespace"
 #
 # --work-dir /tmp keeps logs + per-restore working state off the
 # read-only bundle mount. CRIU writes `restore.log` (and stats / aux
-# scratch) here; without --work-dir it'd default to --images-dir and
-# fail with "Can't create log file restore.log: Read-only file system"
-# on v4.2 (3.17.1 was lenient about this and didn't always need to
-# write the log).
+# scratch) here.
+if [ -n "$LAZY_FLAGS" ]; then
+    # Spawn the lazy-pages daemon BEFORE criu restore. It opens
+    # /tmp/lazy-pages.socket and serves UFFD page faults from
+    # pages-*.img in /mnt/snap-src/img — which is the host's bundle
+    # over vsock-FUSE in live-mount mode. The daemon must outlive
+    # `criu restore` because UFFD events keep flowing as the workload
+    # runs.
+    criu lazy-pages \
+        --images-dir /mnt/snap-src/img \
+        --work-dir /tmp \
+        -v3 \
+        -o lazy-pages.log &
+    LAZY_PAGES_PID=$!
+    echo "machinen-restore: lazy-pages daemon pid=$LAZY_PAGES_PID" >&2
+
+    # Wait for the daemon to bind /tmp/lazy-pages.socket before we
+    # start criu restore — restore connects to that socket near the
+    # end of its own setup and exits with criu/uffd.c:349 (ENOENT)
+    # if it loses the race. Bail if the daemon dies during startup.
+    for _ in $(seq 1 50); do
+        if [ -S /tmp/lazy-pages.socket ]; then
+            break
+        fi
+        if ! kill -0 "$LAZY_PAGES_PID" 2>/dev/null; then
+            echo "machinen-restore: lazy-pages daemon exited before socket appeared" >&2
+            tail -200 /tmp/lazy-pages.log >&2 || true
+            exit 1
+        fi
+        sleep 0.1
+    done
+    if [ ! -S /tmp/lazy-pages.socket ]; then
+        echo "machinen-restore: timed out waiting for /tmp/lazy-pages.socket" >&2
+        tail -200 /tmp/lazy-pages.log >&2 || true
+        kill -TERM "$LAZY_PAGES_PID" 2>/dev/null || true
+        exit 1
+    fi
+    echo "machinen-restore: lazy-pages daemon ready (UDS bound)" >&2
+fi
+# shellcheck disable=SC2086 # word splitting on LAZY_FLAGS is intentional
 unshare --pid --fork --mount-proc -- \
         criu restore \
             --images-dir /mnt/snap-src/img \
             --work-dir /tmp \
             --tcp-established \
+            $LAZY_FLAGS \
             --pidfile /run/machinen-workload.pid \
             -v3 \
             -o restore.log &
@@ -153,6 +214,11 @@ if [ "$RC" -ne 0 ]; then
     grep -E "^(Error|Warn|\([0-9.]+\)\s+[0-9]+:\s*(Error|Warn))" /tmp/restore.log >&2 || true
     echo "machinen-restore: --- last 200 lines of restore.log ---" >&2
     tail -200 /tmp/restore.log >&2 || true
+    if [ -n "$LAZY_PAGES_PID" ]; then
+        echo "machinen-restore: --- last 200 lines of lazy-pages.log ---" >&2
+        tail -200 /tmp/lazy-pages.log >&2 || true
+        kill -TERM "$LAZY_PAGES_PID" 2>/dev/null || true
+    fi
     kill -TERM "$AGENT_PID" 2>/dev/null || true
     if [ -n "$WINSIZE_PID" ]; then
         kill -TERM "$WINSIZE_PID" 2>/dev/null || true
@@ -160,7 +226,14 @@ if [ "$RC" -ne 0 ]; then
     exit 1
 fi
 
-# Restored tree exited cleanly. Stop the agents and power off.
+# Restored tree exited cleanly. Stop the lazy-pages daemon (if any) and
+# the agents, then power off. lazy-pages exits on its own when criu
+# restore signals completion and the workload's UFFD fds drain, but
+# SIGTERM-after-exit is harmless and keeps the cleanup uniform.
+if [ -n "$LAZY_PAGES_PID" ]; then
+    kill -TERM "$LAZY_PAGES_PID" 2>/dev/null || true
+    wait "$LAZY_PAGES_PID" 2>/dev/null || true
+fi
 kill -TERM "$AGENT_PID" 2>/dev/null || true
 wait "$AGENT_PID" 2>/dev/null || true
 if [ -n "$WINSIZE_PID" ]; then

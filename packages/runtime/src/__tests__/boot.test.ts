@@ -859,11 +859,13 @@ describe("vm.snapshot", () => {
     }
   });
 
-  it("throws when the guest exits without writing to the disk", async () => {
+  it("throws when the guest exits without producing a dump", async () => {
     // /usr/bin/true exits immediately, so the VMM comes down cleanly
-    // before the in-guest dump script has any chance to run. The mtime
-    // check in performSnapshot() catches "disk was never touched" as
-    // a dump failure.
+    // before the in-guest dump script has any chance to run. The host
+    // never sees the dump exec return on its own → SNAPSHOT_TIMEOUT
+    // (or, if vsock comes down faster than the deadline, a no-bundle
+    // SNAPSHOT_DUMP_FAILED). Either is the right "dump never ran"
+    // signal; we accept both.
     const snap = `/tmp/machinen-snap-nook-${process.pid}.img`;
     const outDir = `/tmp/machinen-snap-nook-out-${process.pid}`;
     writeFileSync(snap, Buffer.alloc(1024));
@@ -874,7 +876,7 @@ describe("vm.snapshot", () => {
         timeoutMs: 5_000,
       });
       await expect(vm.snapshot({ outDir, timeoutMs: 2_000 })).rejects.toThrow(
-        /disk|did not shut down/,
+        /dump exec did not return|dump exec failed|core-\*\.img/,
       );
     } finally {
       try {

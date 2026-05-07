@@ -26,15 +26,12 @@ import { randomBytes } from "node:crypto";
 import { once } from "node:events";
 import {
   closeSync,
-  copyFileSync,
   existsSync,
-  linkSync,
   mkdirSync,
   mkdtempSync,
   openSync,
   readdirSync,
   readFileSync,
-  renameSync,
   rmSync,
   statSync,
   unlinkSync,
@@ -66,6 +63,7 @@ import { reflinkCopy } from "./reflink.ts";
 import { ensureRootfsImage, markRootfsImageClean } from "./rootfs-img.ts";
 import { VsockExec, type VsockExecOptions, type VsockExecResult } from "./exec.ts";
 import { serveLiveMount } from "./mount-server.ts";
+import { markPagemapsLazy } from "./lazy-pagemap.ts";
 import type { OnLog } from "./log.ts";
 import { PhaseTimer } from "./phase-timer.ts";
 import { claimName, findEntry, isAlive, removeEntry, writeEntry } from "./registry.ts";
@@ -232,9 +230,11 @@ export interface BootOptions {
    *     every booted VM is snapshotable without re-booting. See #50.
    *
    *   - `'<path>'` — caller-managed file. Used as-is (must exist).
-   *     Required when restoring: pass the snapshot bundle's disk image
-   *     produced by a prior `vm.snapshot()`. The runtime synthesizes
-   *     `cmd: ['/sbin/machinen-restore']` if no other cmd is given.
+   *     Used by `restore()` to attach a tar archive of the bundle's
+   *     CRIU images on `/dev/vdb`; the guest's
+   *     `/sbin/machinen-restore` untars it and runs `criu restore`.
+   *     The runtime synthesizes `cmd: ['/sbin/machinen-restore']` if
+   *     no other cmd is given.
    *
    *   - `false` — opt out entirely. No `/dev/vdb` attached. Use when
    *     you don't need snapshot capability and want to skip the
@@ -2260,13 +2260,9 @@ async function performSnapshot(
   const onLog = opts.onLog;
   const leaveRunning = opts.leaveRunning === true;
   const tcpClose = opts.tcpClose === true;
-  // Env-prefix the dump command so /sbin/machinen-dump picks the
-  // knobs up (#216). The exec-agent runs commands via `sh -c`, so
-  // standard shell `VAR=val cmd` syntax flows through unmodified.
+  // Env-prefix the dump command. The exec-agent runs commands via
+  // `sh -c`, so standard shell `VAR=val cmd` syntax flows unmodified.
   const envPrefix: string[] = [];
-  if (leaveRunning) {
-    envPrefix.push("MACHINEN_DUMP_LEAVE_RUNNING=1");
-  }
   if (tcpClose) {
     envPrefix.push("MACHINEN_DUMP_TCP_CLOSE=1");
   }
@@ -2276,9 +2272,9 @@ async function performSnapshot(
   const phases = new PhaseTimer();
   phases.start("staging");
 
-  // Validate / prepare the bundle directory. We refuse to overwrite
-  // an existing populated directory so a previous snapshot can't
-  // disappear under a typo'd outDir.
+  // Validate / prepare the bundle directory. We refuse to overwrite an
+  // existing populated directory so a previous snapshot can't disappear
+  // under a typo'd outDir.
   const snapDir = resolve(opts.outDir);
   if (existsSync(snapDir)) {
     if (!statSync(snapDir).isDirectory()) {
@@ -2287,8 +2283,6 @@ async function performSnapshot(
         `vm.snapshot: outDir exists and is not a directory: ${snapDir}`,
       );
     }
-    // An existing-but-empty dir is fine (CI fixtures preallocate it);
-    // anything with content gets refused.
     const entries = readdirSync(snapDir);
     if (entries.length > 0) {
       throw new SnapshotError(
@@ -2299,50 +2293,16 @@ async function performSnapshot(
   } else {
     mkdirSync(snapDir, { recursive: true });
   }
+  const imgDir = join(snapDir, "img");
+  mkdirSync(imgDir, { recursive: true });
 
-  // Snapshot-dump produces a write to /dev/vda (mkfs.ext4 + CRIU
-  // images). mtime is our secondary success signal — if the VMM exits
-  // without the disk file being written, the dump didn't run. Catches
-  // cases where /usr/bin/true (or any no-op binary) exits cleanly
-  // before the dump has any effect.
-  const preMtime = statSync(ctx.diskPath).mtimeMs;
-  // Hardlink the live scratch disk into the bundle BEFORE the dump
-  // dispatches. boot()'s VMM-exit handler unlinks `perBootSnapDisk`
-  // synchronously (see `child.once("exit", ...)`), and when the
-  // snapshot is driven from a different process (e.g. `machinen
-  // snapshot --name X` against a backgrounded `machinen boot`), that
-  // unlink races our `copyFileSync(diskPath, ...)` after `wait()`
-  // returns — and wins, because the boot-process handler is sync-on-exit
-  // while we're poll-based. The hardlink shares the inode so guest
-  // writes still land on the same data, but our second name keeps it
-  // alive even after the boot process drops its name. We rename the
-  // staging name to disk.img on success; on failure we unlink it.
-  // Falls back to copyFileSync at the bottom of the function if we
-  // can't link (cross-fs EXDEV — rare, since tmpdir and snapDir are
-  // usually the same fs).
-  const stagingPath = join(snapDir, "disk.img.staging");
-  let stagedViaLink = false;
-  try {
-    if (existsSync(stagingPath)) {
-      unlinkSync(stagingPath);
-    }
-    linkSync(ctx.diskPath, stagingPath);
-    stagedViaLink = true;
-    debugSnapshot("staged scratch via hardlink %s -> %s", ctx.diskPath, stagingPath);
-  } catch (err) {
-    debugSnapshot(
-      "hardlink staging skipped (%s) — falling back to post-exit copy",
-      err instanceof Error ? err.message : String(err),
-    );
-  }
   debugSnapshot(
-    "snapshot start pid=%d snapDir=%s dumpCmd=%s timeoutMs=%d diskPath=%s preMtime=%d",
+    "snapshot start pid=%d snapDir=%s dumpCmd=%s timeoutMs=%d leaveRunning=%s",
     ctx.pid,
     snapDir,
     dumpCmd,
     deadlineMs,
-    ctx.diskPath,
-    preMtime,
+    leaveRunning,
   );
 
   if (onLog && ctx.teeGuestConsole) {
@@ -2353,35 +2313,56 @@ async function performSnapshot(
   phases.end("staging");
   phases.start("dump-exec");
 
-  // Kick off the in-guest dump. The vsock connection typically closes
-  // mid-transaction as the guest powers off (CRIU kills the dumped tree,
-  // the supervisor poweroffs, the agent dies with it) — that path
-  // surfaces here as either a clean exit or an EXEC_AGENT_UNAVAILABLE
-  // rejection. We capture both so that on SNAPSHOT_TIMEOUT we can tell
-  // the caller whether the dump even reached the guest.
+  // Spawn the host-side `tar x` that materializes the bundle. The
+  // dump script tars its CRIU image directory to stdout; we pump the
+  // bytes through this child's stdin. tar logs its own errors on
+  // stderr (inherited) which surface in the user's terminal if the
+  // stream is malformed.
+  const tarChild = nodeSpawn("tar", ["-xmf", "-", "-C", imgDir], {
+    stdio: ["pipe", "ignore", "pipe"],
+  });
+  let tarStderr = "";
+  tarChild.stderr.on("data", (chunk: Buffer) => {
+    tarStderr += chunk.toString("utf8");
+  });
+  let tarSpawnError: Error | undefined;
+  tarChild.on("error", (err) => {
+    tarSpawnError = err;
+  });
+  const tarExit = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>(
+    (resolveExit) => {
+      tarChild.once("exit", (code, signal) => resolveExit({ code, signal }));
+    },
+  );
+
+  // Pipe vsock-exec stdout chunks (binary tar bytes) into the host
+  // tar's stdin. Drop dump-exec stdout from the user-visible onLog
+  // stream — those are tar bytes, not log content. Stderr from the
+  // dump script (all log lines) still flows to onLog as exec-stderr.
   type DumpOutcome = { kind: "exited"; exitCode: number } | { kind: "rejected"; error: unknown };
   let dumpOutcome: DumpOutcome | undefined;
   const dumpDispatch = ctx
     .execRaw(dumpCmd, {
-      // Default exec connect is 30s. The dump runs against an
-      // already-attached, healthy VM, so we don't need that much, but
-      // 2s was tight enough to reject under load and then get silently
-      // swallowed — leaving the host to wait the full deadline for an
-      // exit that was never going to come. Bound by the snapshot
-      // deadline so a small `timeoutMs` (e.g. unit tests pointing
-      // `/usr/bin/true` at this) doesn't stall on connect retries
-      // longer than the caller is willing to wait for the whole op.
+      // The dump runs against an already-attached, healthy VM, so a
+      // long connect timeout is overkill, but 2s was tight enough to
+      // reject under load and then get silently swallowed. Bound by
+      // the snapshot deadline so a small `timeoutMs` doesn't stall
+      // on connect retries.
       connectTimeoutMs: Math.min(deadlineMs, 10_000),
-      // Bound the per-call exec timeout by the snapshot deadline. Without
-      // this, a kill-timer-induced VMM SIGKILL doesn't always close the
-      // host-side vsock socket cleanly; the exec pump then sits waiting
-      // for EOF until VsockExec.run's own 5-min default fires, which
-      // means `await dumpDispatch` below blocks for up to 300s after the
-      // snapshot has already declared SNAPSHOT_TIMEOUT.
       execTimeoutMs: deadlineMs,
-      onStdout: onLog
-        ? (chunk) => onLog({ source: "exec-stdout", cmd: dumpCmd, chunk })
-        : undefined,
+      onStdout: (chunk) => {
+        if (tarSpawnError || tarChild.stdin.destroyed) {
+          return;
+        }
+        try {
+          tarChild.stdin.write(chunk);
+        } catch (err) {
+          debugSnapshot(
+            "tar stdin write failed: %s",
+            err instanceof Error ? err.message : String(err),
+          );
+        }
+      },
       onStderr: onLog
         ? (chunk) => onLog({ source: "exec-stderr", cmd: dumpCmd, chunk })
         : undefined,
@@ -2400,152 +2381,137 @@ async function performSnapshot(
       },
     );
 
-  // Success-signal split:
-  //
-  // Default (destructive) path: CRIU kills the dumped tree → the
-  // supervisor's `wait` returns → the supervisor poweroffs → VMM
-  // exits. Wait for VMM exit; SIGKILL it if the deadline fires.
-  //
-  // Leave-running path (#216): CRIU does NOT kill the dumped tree, so
-  // the supervisor's `wait` stays blocked and the VMM never exits on
-  // its own. The dump exec returning over vsock is the success signal
-  // instead. We must NOT kill the VM on timeout — it's supposed to
-  // keep running for the caller (`vm.fork()` is the typical caller).
+  // Race the dump exec against a wall-clock timeout. The dump always
+  // runs with --leave-running internally (so the supervisor's wait
+  // stays parked while we tar), so the source VM keeps running until
+  // the destructive-path poweroff below. Either flavor (leaveRunning
+  // or not) needs the dump exec to return on its own.
   let timedOut = false;
-  if (leaveRunning) {
-    // Race the dump exec against a plain timer. The exec already has
-    // its own execTimeoutMs bound to deadlineMs, so we'll get either
-    // a resolution from dumpDispatch or our own timeout fires first.
-    let timer: NodeJS.Timeout | undefined;
-    await Promise.race([
-      dumpDispatch,
-      new Promise<void>((resolve) => {
-        timer = setTimeout(() => {
-          timedOut = true;
-          resolve();
-        }, deadlineMs);
-        timer.unref();
-      }),
-    ]);
-    if (timer) {
-      clearTimeout(timer);
-    }
-    // Never kill the VM here — the source must survive the snapshot.
-  } else {
-    const killTimer = setTimeout(() => {
-      timedOut = true;
-      void ctx.kill();
-    }, deadlineMs);
-    killTimer.unref();
-    try {
-      await ctx.wait();
-    } finally {
-      clearTimeout(killTimer);
-    }
-    // The dispatch promise may still be racing the VMM exit; wait it
-    // out so the timeout/dump-failed errors below can include its
-    // outcome. `.then(_, _)` converts the rejection into a resolution,
-    // so this never throws.
-    await dumpDispatch;
+  let timer: NodeJS.Timeout | undefined;
+  await Promise.race([
+    dumpDispatch,
+    new Promise<void>((resolveTimer) => {
+      timer = setTimeout(() => {
+        timedOut = true;
+        resolveTimer();
+      }, deadlineMs);
+      timer.unref();
+    }),
+  ]);
+  if (timer) {
+    clearTimeout(timer);
   }
+
+  // Close tar's stdin so it sees EOF and exits, then wait for it.
+  // `tar -x` happily processes a truncated archive (it'll error on
+  // the partial member), but our SNAPSHOT_TIMEOUT/SNAPSHOT_DUMP_FAILED
+  // checks below will surface the underlying problem regardless.
+  if (!tarChild.stdin.destroyed) {
+    tarChild.stdin.end();
+  }
+  const tarResult = await tarExit;
   phases.end("dump-exec");
   phases.start("validation");
   const elapsedMs = Date.now() - t0;
   const consoleLog = await ctx.errorOutput();
   debugSnapshot(
-    "guest exited elapsed=%dms consoleBytes=%d timedOut=%s leaveRunning=%s dumpOutcome=%j",
+    "dump phase done elapsed=%dms consoleBytes=%d timedOut=%s tarExit=%j dumpOutcome=%j",
     elapsedMs,
     consoleLog.length,
     timedOut,
-    leaveRunning,
+    tarResult,
     dumpOutcome,
   );
 
   const dumpHint = formatDumpOutcomeHint(dumpOutcome);
+  const tail = consoleLog ? `\nConsole tail:\n${consoleLog.slice(-2000)}` : "";
 
   if (timedOut) {
-    if (stagedViaLink) {
-      try {
-        unlinkSync(stagingPath);
-      } catch {}
-    }
-    const what = leaveRunning ? "dump exec did not return" : "guest did not shut down";
+    // Source VM is still up (--leave-running). Don't kill it — caller
+    // can retry or kill manually. We just report the failure.
     throw new SnapshotError(
       "SNAPSHOT_TIMEOUT",
-      `vm.snapshot: ${what} within ${deadlineMs}ms — dump likely failed.` +
+      `vm.snapshot: dump exec did not return within ${deadlineMs}ms — dump likely failed.` +
         dumpHint +
-        (consoleLog ? `\nConsole tail:\n${consoleLog.slice(-2000)}` : ""),
+        tail,
     );
   }
-
-  if (leaveRunning) {
-    // In leave-running mode, the dump exec's exit code IS the success
-    // signal. A non-zero exit (or a rejected dispatch — vsock dropped
-    // mid-call) means the dump did not land cleanly; refuse to
-    // promote the staging bundle.
-    if (!dumpOutcome) {
-      if (stagedViaLink) {
-        try {
-          unlinkSync(stagingPath);
-        } catch {}
-      }
-      throw new SnapshotError(
-        "SNAPSHOT_DUMP_FAILED",
-        "vm.snapshot(leaveRunning): dump exec produced no outcome — dispatch raced the timeout.",
-      );
-    }
-    if (dumpOutcome.kind === "rejected" || dumpOutcome.exitCode !== 0) {
-      if (stagedViaLink) {
-        try {
-          unlinkSync(stagingPath);
-        } catch {}
-      }
-      throw new SnapshotError(
-        "SNAPSHOT_DUMP_FAILED",
-        `vm.snapshot(leaveRunning): dump exec failed.` +
-          dumpHint +
-          (consoleLog ? `\nConsole tail:\n${consoleLog.slice(-2000)}` : ""),
-      );
-    }
-  }
-
-  // The VMM exited in time, but we still need to confirm the dump
-  // actually ran. `/usr/bin/true` boots, exits immediately, and the
-  // VMM comes down cleanly without ever touching the disk — we don't
-  // want that to pass as success. mtime delta catches it.
-  // Post-mtime check — read via the staging hardlink when we have one
-  // (it shares the inode with `ctx.diskPath`, so the mtime is identical
-  // and survives the boot-process unlink). Falls back to the live path
-  // when staging wasn't possible.
-  const mtimeProbePath = stagedViaLink ? stagingPath : ctx.diskPath;
-  const postMtime = statSync(mtimeProbePath).mtimeMs;
-  if (postMtime === preMtime) {
-    if (stagedViaLink) {
-      try {
-        unlinkSync(stagingPath);
-      } catch {}
-    }
+  if (!dumpOutcome) {
     throw new SnapshotError(
       "SNAPSHOT_DUMP_FAILED",
-      "vm.snapshot: guest exited without writing to the disk — the dump script " +
-        "never ran (is /sbin/machinen-dump present in the rootfs?)." +
-        dumpHint +
-        (consoleLog ? `\nConsole tail:\n${consoleLog.slice(-2000)}` : ""),
+      "vm.snapshot: dump exec produced no outcome — dispatch raced the timeout.",
     );
+  }
+  if (dumpOutcome.kind === "rejected" || dumpOutcome.exitCode !== 0) {
+    throw new SnapshotError(
+      "SNAPSHOT_DUMP_FAILED",
+      "vm.snapshot: dump exec failed." + dumpHint + tail,
+    );
+  }
+  if (tarSpawnError || tarResult.code !== 0) {
+    const tarErr = tarSpawnError
+      ? `\nHost tar spawn failed: ${tarSpawnError.message}`
+      : `\nHost tar exited code=${tarResult.code} signal=${tarResult.signal}.${
+          tarStderr ? ` stderr:\n${tarStderr.slice(-1000)}` : ""
+        }`;
+    throw new SnapshotError(
+      "SNAPSHOT_DUMP_FAILED",
+      "vm.snapshot: failed to extract bundle on the host." + tarErr + tail,
+    );
+  }
+
+  // Sanity-check the materialized bundle: we expect at least one
+  // core-*.img (CRIU produces one per task). An empty img/ means the
+  // dump script ran but didn't actually dump anything (e.g. caller
+  // pointed dumpCmd at /usr/bin/true).
+  const imgEntries = readdirSync(imgDir);
+  if (!imgEntries.some((name) => /^core-\d+\.img$/.test(name))) {
+    throw new SnapshotError(
+      "SNAPSHOT_DUMP_FAILED",
+      `vm.snapshot: bundle has no core-*.img — the dump script likely never ran.` + dumpHint + tail,
+    );
+  }
+
+  // Destructive snapshot: the source VM is still alive (we always
+  // pass --leave-running internally). Bring it down via a clean
+  // poweroff so callers see the same "VM is gone after snapshot"
+  // semantics as before. Fork (leaveRunning: true) skips this.
+  if (!leaveRunning) {
+    phases.start("poweroff");
+    debugSnapshot("issuing /sbin/machinen-poweroff to bring VMM down");
+    // Fire-and-forget: poweroff triggers PSCI SYSTEM_OFF which kills
+    // the VMM, which closes vsock — the exec usually rejects or
+    // returns with no exit code. Either is fine.
+    ctx
+      .execRaw("/sbin/machinen-poweroff", {
+        connectTimeoutMs: Math.min(deadlineMs, 5_000),
+        execTimeoutMs: 10_000,
+      })
+      .catch((err) => {
+        debugSnapshot(
+          "poweroff exec rejected (expected): %s",
+          err instanceof Error ? err.message : String(err),
+        );
+      });
+    // Wait for the VMM to actually exit. Bound by the same deadline
+    // so a stuck guest doesn't hang the snapshot indefinitely.
+    const powerOffTimer = setTimeout(() => {
+      debugSnapshot("poweroff deadline fired — SIGKILLing VMM");
+      void ctx.kill();
+    }, deadlineMs);
+    powerOffTimer.unref();
+    try {
+      await ctx.wait();
+    } finally {
+      clearTimeout(powerOffTimer);
+    }
+    phases.end("poweroff");
   }
 
   phases.end("validation");
   phases.start("finalize");
-  const diskOut = join(snapDir, "disk.img");
-  if (stagedViaLink) {
-    debugSnapshot("promote staging %s -> %s", stagingPath, diskOut);
-    renameSync(stagingPath, diskOut);
-  } else {
-    debugSnapshot("copy disk %s -> %s", ctx.diskPath, diskOut);
-    copyFileSync(ctx.diskPath, diskOut);
-  }
 
-  // Drop the bundle metadata next to the image so `restore({ snapDir })`
+  // Drop the bundle metadata next to the images so `restore({ snapDir })`
   // can recover the source name and rootfs path without poking at the
   // disk. `sourceImage` is the absolute host path to the tarball the
   // source VM booted from — restore uses it as the default rootfs so
@@ -2560,9 +2526,9 @@ async function performSnapshot(
   writeFileSync(join(snapDir, "meta.json"), JSON.stringify(meta));
   phases.end("finalize");
 
-  debugSnapshot("snapshot done snapDir=%s postMtime=%d", snapDir, postMtime);
+  debugSnapshot("snapshot done snapDir=%s imgEntries=%d", snapDir, imgEntries.length);
   phases.flush(debugSnapshot, "snapshot");
-  return { snapDir, diskPath: diskOut, elapsedMs, consoleLog };
+  return { snapDir, imgDir, elapsedMs, consoleLog };
 }
 
 function formatDumpOutcomeHint(
@@ -2585,7 +2551,7 @@ function formatDumpOutcomeHint(
 export interface RestoreOptions extends Omit<BootOptions, "snapshot" | "image" | "cmd" | "name"> {
   /**
    * Snapshot bundle directory produced by `vm.snapshot()`.
-   * Must contain `disk.img` and `meta.json`.
+   * Must contain `img/<crius>` and `meta.json`.
    */
   snapDir: string;
   /**
@@ -2602,23 +2568,34 @@ export interface RestoreOptions extends Omit<BootOptions, "snapshot" | "image" |
    * unique under the source's namespace.
    */
   name?: string;
+  /**
+   * Restore via CRIU lazy-pages with the bundle vsock-FUSE-mounted
+   * read-only into the guest (#266). Pages flow into the workload's
+   * anon mappings only when faulted, streaming from the host bundle
+   * on demand — host RSS is proportional to the touched set rather
+   * than the full snapshot size. Default false (eager restore).
+   */
+  lazyPages?: boolean;
 }
 
 /**
  * Restore a microVM from a snapshot bundle produced by
  * `vm.snapshot({ outDir })`. Reads the bundle's `meta.json` to
- * recover the source name, then `boot()`s with the right knobs:
+ * recover the source name, tars the CRIU image directory into a
+ * temporary archive, then `boot()`s with that archive attached as
+ * the scratch block device — the guest's `/sbin/machinen-restore`
+ * untars `/dev/vdb` into tmpfs and runs `criu restore` against the
+ * extracted images.
  *
- *   - `snapshot: <snapDir>/disk.img`  attaches the dump as /dev/vda
- *   - `name: <sourceName>/<pid>`      auto-named fork (unless caller
- *                                     passed `name`)
- *   - `forkedFrom: <snapDir>`         lineage for `machinen ls`
+ * The boot knobs:
  *
- * The auto-name uses pid because pids are kernel-unique-while-live
- * and we get one for free after spawn — no extra counter state.
+ *   - `snapshot: <tar>`     attaches the bundle archive as /dev/vdb
+ *   - `name: <sourceName>/<pid>`  auto-named fork (unless caller
+ *                                 passed `name`)
+ *   - `forkedFrom: <snapDir>`     lineage for `machinen ls`
  *
- * @throws {BootError} BOOT_SNAPSHOT_NOT_FOUND if `<snapDir>/disk.img`
- *   is missing.
+ * @throws {BootError} BOOT_SNAPSHOT_NOT_FOUND if `<snapDir>/img/`
+ *   is missing or empty.
  */
 export async function restore(opts: RestoreOptions): Promise<VmHandle> {
   // #221: per-phase timeline for restore. Boot's own phases get logged
@@ -2627,10 +2604,17 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
   // wall-clock until the restored guest is responsive over vsock).
   const phases = new PhaseTimer();
   const snapDir = resolve(opts.snapDir);
-  const diskPath = join(snapDir, "disk.img");
+  const imgDir = join(snapDir, "img");
   const metaPath = join(snapDir, "meta.json");
-  if (!existsSync(diskPath)) {
-    throw new BootError("BOOT_SNAPSHOT_NOT_FOUND", `restore: ${diskPath} not found`);
+  if (!existsSync(imgDir) || !statSync(imgDir).isDirectory()) {
+    throw new BootError("BOOT_SNAPSHOT_NOT_FOUND", `restore: ${imgDir} not found`);
+  }
+  const imgEntries = readdirSync(imgDir);
+  if (!imgEntries.some((name) => /^core-\d+\.img$/.test(name))) {
+    throw new BootError(
+      "BOOT_SNAPSHOT_NOT_FOUND",
+      `restore: ${imgDir} has no core-*.img — is this a snapshot bundle?`,
+    );
   }
   phases.start("snapshot-meta-read");
   let meta: SnapshotMeta = { snappedAt: 0 };
@@ -2688,17 +2672,111 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
     );
   }
 
+  // Lazy-pages mode (#266): mark every PE_PRESENT pagemap entry that
+  // lives in an anon-private VMA with PE_LAZY in place on the host
+  // before boot, so `criu restore --lazy-pages` actually registers
+  // UFFD on those entries instead of loading them eagerly. Dumps are
+  // taken without `--lazy-pages` (machinen-dump.sh keeps the dump
+  // path simple); without this rewrite the lazy-pages daemon would
+  // see no lazy entries and load the whole image up front. Idempotent.
+  // See packages/runtime/src/lazy-pagemap.ts.
+  if (opts.lazyPages) {
+    phases.start("snapshot-mark-lazy");
+    const marked = markPagemapsLazy(imgDir);
+    debug(
+      "lazy-pages mark: files=%d entriesFlagged=%d alreadyLazy=%d",
+      marked.filesRewritten,
+      marked.entriesFlagged,
+      marked.entriesAlreadyLazy,
+    );
+    phases.end("snapshot-mark-lazy");
+  }
+
+  // Bundle delivery split by mode:
+  //   - lazyPages: vsock-FUSE-mount `imgDir/` read-only at /mnt/snap-src/img.
+  //     CRIU restore reads pagemap-*.img + pages-*.img directly through FUSE;
+  //     bytes stream from the host on demand and never materialize in guest
+  //     tmpfs. This is the #266 path — it removes the duplicate-copy that
+  //     was eating ~workload-size of guest RAM.
+  //   - eager (default): pack `imgDir/` into a tar archive attached as
+  //     /dev/vdb. The guest's machinen-restore.sh untars into tmpfs and
+  //     CRIU does an eager load. We keep this path for non-lazy restores
+  //     because every pread through FUSE costs a vsock round-trip; eager
+  //     restore is many MB of preadv calls and would slow the restore.
+  phases.start("snapshot-pack");
+  const restoreEnv: Record<string, string> = {};
+  let scratchPath: string;
+  let liveMounts: Array<{ host: string; guest: string; mode?: "ro" | "rw" }> | undefined;
+  if (opts.lazyPages) {
+    scratchPath = join(
+      tmpdir(),
+      `machinen-restore-scratch-${process.pid}-${randomBytes(6).toString("hex")}.img`,
+    );
+    allocateSparseFile(scratchPath, SNAP_SCRATCH_BYTES);
+    restoreEnv.MACHINEN_RESTORE_BUNDLE_LIVE = "1";
+    restoreEnv.MACHINEN_RESTORE_LAZY_PAGES = "1";
+    liveMounts = [
+      ...(opts.liveMounts ?? []),
+      { host: imgDir, guest: "/mnt/snap-src/img", mode: "ro" as const },
+    ];
+  } else {
+    // Pack the bundle into a tar so machinen-restore.sh can untar it
+    // off /dev/vdb. tar is `bsdtar` on darwin and `gnu tar` on linux;
+    // both produce archives the guest's `tar -xmf` reads. The trailing
+    // sparse extension keeps /dev/vdb at SNAP_SCRATCH_BYTES so chained
+    // `vm.snapshot()` against this VM has scratch room (its mkfs.ext4
+    // happily ignores tar bytes at the front).
+    scratchPath = join(
+      tmpdir(),
+      `machinen-restore-bundle-${process.pid}-${randomBytes(6).toString("hex")}.tar`,
+    );
+    try {
+      execFileSync("tar", ["-cf", scratchPath, "-C", imgDir, "."]);
+      const fd = openSync(scratchPath, "r+");
+      try {
+        const buf = Buffer.alloc(1);
+        writeSync(fd, buf, 0, 1, SNAP_SCRATCH_BYTES - 1);
+      } finally {
+        closeSync(fd);
+      }
+    } catch (err) {
+      try {
+        unlinkSync(scratchPath);
+      } catch {}
+      throw new BootError(
+        "BOOT_SNAPSHOT_NOT_FOUND",
+        `restore: failed to pack bundle from ${imgDir}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+    liveMounts = opts.liveMounts;
+  }
+  phases.end("snapshot-pack");
+
   // boot() doesn't know the pid until after the VMM is spawned, so
   // we can't pass `<sourceName>/<pid>` up front. Boot anonymous,
   // then claim the auto-name and patch the registry entry below.
   phases.start("boot");
-  const vm = await boot({
-    ...opts,
-    image: resolvedImage,
-    snapshot: diskPath,
-    forkedFrom: snapDir,
-    name: opts.name,
-  });
+  let vm: VmHandle;
+  try {
+    vm = await boot({
+      ...opts,
+      image: resolvedImage,
+      snapshot: scratchPath,
+      forkedFrom: snapDir,
+      name: opts.name,
+      liveMounts,
+      env: { ...opts.env, ...restoreEnv },
+    });
+  } finally {
+    // boot() reflink-clones the source into a per-boot path before
+    // attaching, so the source scratch/tar isn't needed after boot
+    // returns. Clean up regardless of success.
+    try {
+      unlinkSync(scratchPath);
+    } catch {}
+  }
   phases.end("boot");
 
   if (!opts.name && meta.sourceName) {
@@ -2870,6 +2948,7 @@ async function performFork(ctx: SnapshotContext, opts: ForkOptions): Promise<VmH
       kernel: opts.kernel,
       dtb: opts.dtb,
       portForward: opts.portForward ?? [],
+      lazyPages: opts.lazyPages,
       // The fork outlives the process that spawned it (CLI returns
       // immediately; programmatic callers detach() and move on).
       // Skip the parent-death shim so the fork's VMM isn't SIGTERM'd

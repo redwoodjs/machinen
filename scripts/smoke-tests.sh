@@ -23,6 +23,10 @@
 #   P1-P3  Base-rootfs contract (criu, virtio modules, poweroff) — #77.
 #   N1-N5  New #93 CLI surface: ls, exec, attach-unknown, completion,
 #          plus image-carries-cmd default.
+#   B0-B1  virtio-balloon free-page-reporting — #263.
+#   S1-S3  Snapshot, chained-snapshot, fork — #207, #215, #216.
+#   S4     Lazy-pages restore round-trip — #266.
+#   S5     Headline RSS: fork RSS ≪ dirty parent RSS — #266.
 
 set -euo pipefail
 
@@ -137,6 +141,11 @@ fi
 if ! grep -q "sbin/machinen-dump" <<<"$ROOTFS_ENTRIES"; then
   echo "smoke: WARN rootfs lacks /sbin/machinen-dump — S-series (snapshot) will be skipped"
   ROOTFS_SUPPORTS_SNAPSHOT_HELPERS=0
+fi
+ROOTFS_SUPPORTS_MEMDIRTY=1
+if ! grep -q "sbin/machinen-memdirty" <<<"$ROOTFS_ENTRIES"; then
+  echo "smoke: WARN rootfs lacks /sbin/machinen-memdirty — S5 (headline RSS) will be skipped"
+  ROOTFS_SUPPORTS_MEMDIRTY=0
 fi
 
 # ----------------------------------------------------------------
@@ -1023,7 +1032,7 @@ else
     fail "S1 — exec against dump-side VM didn't return arch"
   fi
 
-  # Snapshot via the attach path. The bundle (disk.img + meta.json)
+  # Snapshot via the attach path. The bundle (img/<criu> + meta.json)
   # lands at $S1_SNAP_DIR; the VM exits as part of the dump.
   S1_DUMP_LOG="$FIXTURE/s1-dump.log"
   if ! cli snapshot --name "$S1_NAME" --out-dir "$S1_SNAP_DIR" 2>"$S1_DUMP_LOG"; then
@@ -1034,20 +1043,19 @@ else
   wait "$S1_PID" 2>/dev/null || true
   pass "'machinen snapshot' returned 0"
 
-  S1_DISK="$S1_SNAP_DIR/disk.img"
-  if [[ ! -s "$S1_DISK" ]]; then
+  if [[ ! -d "$S1_SNAP_DIR/img" ]]; then
     ls -la "$S1_SNAP_DIR" >&2
-    fail "S1 — snapshot disk.img is empty or missing"
+    fail "S1 — snapshot bundle missing img/ directory"
+  fi
+  if ! ls "$S1_SNAP_DIR"/img/core-*.img >/dev/null 2>&1; then
+    ls -la "$S1_SNAP_DIR/img" >&2
+    fail "S1 — snapshot bundle has no img/core-*.img"
   fi
   if [[ ! -f "$S1_SNAP_DIR/meta.json" ]]; then
     ls -la "$S1_SNAP_DIR" >&2
     fail "S1 — snapshot bundle missing meta.json"
   fi
-  if ! file "$S1_DISK" 2>/dev/null | grep -qiE "ext[0-9] filesystem"; then
-    file "$S1_DISK" >&2 || true
-    fail "S1 — snapshot disk.img is not an ext filesystem"
-  fi
-  pass "snapshot bundle has ext4 disk.img + meta.json"
+  pass "snapshot bundle has img/core-*.img + meta.json"
 
   # Restore in the background. The auto-name is "<source>/<pid>";
   # find the restored VM by listing names that start with the source.
@@ -1168,8 +1176,12 @@ else
   wait "$S2_PID" 2>/dev/null || true
   pass "snapshot → bundle A"
 
-  S2_BUNDLE_A_BEFORE=$(stat -c '%Y' "$S2_SNAP_A/disk.img" 2>/dev/null \
-    || stat -f '%m' "$S2_SNAP_A/disk.img")
+  if ! ls "$S2_SNAP_A"/img/core-*.img >/dev/null 2>&1; then
+    fail "S2 — bundle A has no img/core-*.img"
+  fi
+  S2_BUNDLE_A_PROBE=$(ls "$S2_SNAP_A"/img/core-*.img | head -1)
+  S2_BUNDLE_A_BEFORE=$(stat -c '%Y' "$S2_BUNDLE_A_PROBE" 2>/dev/null \
+    || stat -f '%m' "$S2_BUNDLE_A_PROBE")
 
   # Restore bundle A in the background, then snapshot the restored VM.
   node "$CLI" restore "$S2_SNAP_A" >"$S2_RESTORE_A_LOG" 2>&1 &
@@ -1208,18 +1220,19 @@ else
   wait "$S2_RESTORE_A_PID" 2>/dev/null || true
   pass "chained snapshot → bundle B"
 
-  if [[ ! -s "$S2_SNAP_B/disk.img" ]]; then
-    fail "S2 — chained snapshot bundle B has empty disk.img"
+  if ! ls "$S2_SNAP_B"/img/core-*.img >/dev/null 2>&1; then
+    fail "S2 — chained snapshot bundle B has no img/core-*.img"
   fi
 
-  # Bundle A must NOT have been mutated by the chained dump (the
-  # reflink clone is what protects it).
-  S2_BUNDLE_A_AFTER=$(stat -c '%Y' "$S2_SNAP_A/disk.img" 2>/dev/null \
-    || stat -f '%m' "$S2_SNAP_A/disk.img")
+  # Bundle A must NOT have been mutated by the chained dump. Restore
+  # tars a temp copy on the host before attaching, so the source
+  # bundle's files are read-only — the mtime check is a backstop.
+  S2_BUNDLE_A_AFTER=$(stat -c '%Y' "$S2_BUNDLE_A_PROBE" 2>/dev/null \
+    || stat -f '%m' "$S2_BUNDLE_A_PROBE")
   if [[ "$S2_BUNDLE_A_BEFORE" != "$S2_BUNDLE_A_AFTER" ]]; then
-    fail "S2 — bundle A's disk.img was modified by the chained dump (reflink protection failed)"
+    fail "S2 — bundle A was modified by the chained dump"
   fi
-  pass "bundle A's disk.img unchanged after chained dump"
+  pass "bundle A unchanged after chained dump"
 
   # Restore bundle B and prove it's alive via exec.
   node "$CLI" restore "$S2_SNAP_B" >"$S2_RESTORE_B_LOG" 2>&1 &
@@ -1273,8 +1286,8 @@ else
   wait "$S2_RESTORE_B_PID" 2>/dev/null || true
   pass "gen-3 chained snapshot → bundle C"
 
-  if [[ ! -s "$S2_SNAP_C/disk.img" ]]; then
-    fail "S2 — gen-3 snapshot bundle C has empty disk.img"
+  if ! ls "$S2_SNAP_C"/img/core-*.img >/dev/null 2>&1; then
+    fail "S2 — gen-3 snapshot bundle C has no img/core-*.img"
   fi
 
   node "$CLI" restore "$S2_SNAP_C" >"$S2_RESTORE_C_LOG" 2>&1 &
@@ -1468,6 +1481,248 @@ else
   cleanup_s3
   trap 'rm -rf "$FIXTURE"' EXIT
 fi  # S3 rootfs-capability gate
+
+# ----------------------------------------------------------------
+# S4: lazy-pages restore (#266) — same boot+snapshot+restore round-
+# trip as S1, but the runtime live-mounts the bundle dir into the
+# guest read-only and runs `criu restore --lazy-pages`. Pages flow
+# into the workload's anon mappings only on UFFD faults, with the
+# in-guest lazy-pages daemon reading bytes through the FUSE mount
+# (which streams from the host on demand). Doesn't assert the RSS
+# ceiling here — that's S5; S4 only asserts:
+#   1. lazy-pages restore reaches userspace (workload survives).
+#   2. The exec-agent in the restored VM responds (so the workload
+#      faulted in enough pages to run a syscall).
+# ----------------------------------------------------------------
+if [[ "$ROOTFS_SUPPORTS_VSOCK_EXEC" -eq 0 || "$ROOTFS_SUPPORTS_CRIU" -eq 0 || "$ROOTFS_SUPPORTS_SNAPSHOT_HELPERS" -eq 0 ]]; then
+  echo "S4: skipped (rootfs lacks vsock/criu/snapshot helpers)"
+else
+  echo "S4: boot + snapshot + lazy-pages restore round-trip"
+  S4_NAME="lazy-smoke-$$"
+  S4_BG_LOG="$FIXTURE/s4-bg.log"
+  S4_SNAP_DIR="$FIXTURE/s4-snap"
+  S4_SCRATCH="$FIXTURE/s4-scratch.img"
+  S4_RESTORE_LOG="$FIXTURE/s4-restore.log"
+
+  truncate -s 256M "$S4_SCRATCH"
+
+  S4_PID=$(boot_bg "$S4_NAME" "$S4_BG_LOG" --snapshot "$S4_SCRATCH" -- \
+    /bin/sh -c 'while :; do sleep 1; done')
+  cleanup_s4() {
+    kill -TERM "$S4_PID" 2>/dev/null || true
+    wait "$S4_PID" 2>/dev/null || true
+  }
+  trap 'cleanup_s4; rm -rf "$FIXTURE"' EXIT
+
+  if ! wait_for_vm "$S4_NAME"; then
+    tail -80 "$S4_BG_LOG" >&2
+    fail "S4 — '$S4_NAME' never appeared in 'machinen ls'"
+  fi
+  pass "boot --name --snapshot registered '$S4_NAME'"
+
+  S4_DUMP_LOG="$FIXTURE/s4-dump.log"
+  if ! cli snapshot --name "$S4_NAME" --out-dir "$S4_SNAP_DIR" 2>"$S4_DUMP_LOG"; then
+    tail -60 "$S4_BG_LOG" >&2
+    cat "$S4_DUMP_LOG" >&2
+    fail "S4 — 'machinen snapshot' failed"
+  fi
+  wait "$S4_PID" 2>/dev/null || true
+  pass "'machinen snapshot' returned 0"
+
+  # Lazy-pages restore in the background. The CLI's --lazy-pages flag
+  # live-mounts the bundle dir into the guest and starts the in-guest
+  # `criu lazy-pages` daemon to serve UFFD faults from the FUSE mount.
+  node "$CLI" restore --lazy-pages "$S4_SNAP_DIR" >"$S4_RESTORE_LOG" 2>&1 &
+  S4_RESTORE_PID=$!
+  cleanup_s4_restore() {
+    kill -TERM "$S4_RESTORE_PID" 2>/dev/null || true
+    wait "$S4_RESTORE_PID" 2>/dev/null || true
+  }
+  trap 'cleanup_s4; cleanup_s4_restore; rm -rf "$FIXTURE"' EXIT
+
+  S4_RESTORED_NAME=""
+  deadline=$((SECONDS + 60))
+  while (( SECONDS < deadline )); do
+    cand=$(cli ls 2>/dev/null | awk -v src="$S4_NAME/" 'NR>1 && index($2, src)==1 {print $2; exit}')
+    if [[ -n "$cand" ]]; then
+      S4_RESTORED_NAME=$cand
+      break
+    fi
+    sleep 1
+  done
+  if [[ -z "$S4_RESTORED_NAME" ]]; then
+    tail -200 "$S4_RESTORE_LOG" >&2
+    cli ls >&2 || true
+    fail "S4 — restored VM never registered"
+  fi
+  pass "lazy-pages restored VM auto-named as '$S4_RESTORED_NAME'"
+
+  # The acid test: a normal exec works on the restored VM. This forces
+  # the workload to actually run code, which only happens once enough
+  # pages have been faulted in via the lazy-pages daemon. If the
+  # protocol is broken or FUSE reads fail, the workload hangs on first
+  # instruction and exec times out.
+  S4_EXEC_LOG="$FIXTURE/s4-exec.log"
+  if cli exec --name "$S4_RESTORED_NAME" -- uname -m >"$S4_EXEC_LOG" 2>&1 \
+     && grep -qE "aarch64|arm64" "$S4_EXEC_LOG"; then
+    pass "exec-agent responds on the lazy-pages restored VM"
+  else
+    cat "$S4_EXEC_LOG" >&2
+    tail -200 "$S4_RESTORE_LOG" >&2
+    fail "S4 — exec against lazy-pages restored VM failed"
+  fi
+
+  cleanup_s4_restore
+  trap 'rm -rf "$FIXTURE"' EXIT
+fi  # S4 rootfs-capability gate
+
+# ----------------------------------------------------------------
+# S5: headline RSS (#266) — the *point* of lazy-pages restore. Boot a
+# parent, dirty N MiB of anon via /sbin/machinen-memdirty, snapshot,
+# restore with --lazy-pages, then assert the restored VM's host RSS
+# is far below the parent's. memdirty parks on pause() after dirtying,
+# so nothing in the restored guest touches the workload's anon — its
+# pages stay on the host bundle (live-mounted into the guest) and the
+# fork's host RSS hovers near boot-baseline. An eager restore would
+# copy all N MiB back into host memory and this assertion fails.
+# ----------------------------------------------------------------
+if [[ "$ROOTFS_SUPPORTS_VSOCK_EXEC" -eq 0 || "$ROOTFS_SUPPORTS_CRIU" -eq 0 \
+      || "$ROOTFS_SUPPORTS_SNAPSHOT_HELPERS" -eq 0 || "$ROOTFS_SUPPORTS_MEMDIRTY" -eq 0 ]]; then
+  echo "S5: skipped (rootfs lacks vsock/criu/snapshot/memdirty helpers)"
+else
+  echo "S5: lazy-pages restore — fork RSS ≪ dirty parent RSS"
+  S5_NAME="rss-smoke-$$"
+  S5_BG_LOG="$FIXTURE/s5-bg.log"
+  S5_SCRATCH="$FIXTURE/s5-scratch.img"
+  S5_SNAP_DIR="$FIXTURE/s5-snap"
+  S5_DIRTY_MIB=2048
+
+  # Scratch holds the criu image directory in-guest before it's
+  # streamed over vsock. 2 GiB of dirty anon → pages-*.img alone is
+  # ~2 GiB, plus criu's bookkeeping. Sparse, so 8 GiB ceiling costs
+  # nothing until written.
+  truncate -s 8G "$S5_SCRATCH"
+
+  # 4 GiB RAM ceiling: workload + kernel + criu daemon all need
+  # room. memdirty mmaps S5_DIRTY_MIB anon, dirties every page,
+  # prints "READY mib=…" on the console, then parks on pause(2).
+  S5_PID=$(boot_bg "$S5_NAME" "$S5_BG_LOG" --memory 4096 --snapshot "$S5_SCRATCH" -- \
+    /sbin/machinen-memdirty "$S5_DIRTY_MIB")
+  cleanup_s5() {
+    kill -TERM "$S5_PID" 2>/dev/null || true
+    wait "$S5_PID" 2>/dev/null || true
+  }
+  trap 'cleanup_s5; rm -rf "$FIXTURE"' EXIT
+
+  if ! wait_for_vm "$S5_NAME"; then
+    tail -80 "$S5_BG_LOG" >&2
+    fail "S5 — '$S5_NAME' never appeared in 'machinen ls'"
+  fi
+
+  # Wait for memdirty's READY marker — proves the dirty loop finished
+  # before we measure RSS.
+  deadline=$((SECONDS + 90))
+  while (( SECONDS < deadline )); do
+    if grep -q "READY mib=$S5_DIRTY_MIB" "$S5_BG_LOG"; then
+      break
+    fi
+    sleep 1
+  done
+  if ! grep -q "READY mib=$S5_DIRTY_MIB" "$S5_BG_LOG"; then
+    tail -120 "$S5_BG_LOG" >&2
+    fail "S5 — memdirty never printed READY mib=$S5_DIRTY_MIB"
+  fi
+
+  # Settle: kernel write-back, balloon reporting, scheduler. Without
+  # this the parent RSS reading is jumpy.
+  sleep 2
+  S5_PARENT_VMM=$(cli ls 2>/dev/null | awk -v n="$S5_NAME" 'NR>1 && $2==n {print $1}')
+  if [[ -z "$S5_PARENT_VMM" ]]; then
+    cli ls >&2 || true
+    fail "S5 — couldn't find VMM pid for '$S5_NAME'"
+  fi
+  S5_PARENT_RSS=$(vmm_rss_mib "$S5_PARENT_VMM")
+  echo "  parent RSS=${S5_PARENT_RSS} MiB after dirtying ${S5_DIRTY_MIB} MiB"
+
+  # Sanity gate: if the parent's host RSS doesn't reflect the dirty
+  # footprint, comparing the fork against it is meaningless. The
+  # delta-from-parent assertion below would also pass on a broken
+  # baseline — guard explicitly.
+  if (( S5_PARENT_RSS < S5_DIRTY_MIB )); then
+    tail -120 "$S5_BG_LOG" >&2
+    fail "S5 — parent RSS ${S5_PARENT_RSS} MiB < dirtied ${S5_DIRTY_MIB} MiB; baseline can't anchor the comparison"
+  fi
+  pass "parent's ${S5_DIRTY_MIB} MiB dirty footprint visible as host RSS (${S5_PARENT_RSS} MiB)"
+
+  # Snapshot — destructive. Parent dies after the dump.
+  S5_DUMP_LOG="$FIXTURE/s5-dump.log"
+  if ! cli snapshot --name "$S5_NAME" --out-dir "$S5_SNAP_DIR" 2>"$S5_DUMP_LOG"; then
+    tail -60 "$S5_BG_LOG" >&2
+    cat "$S5_DUMP_LOG" >&2
+    fail "S5 — 'machinen snapshot' failed"
+  fi
+  wait "$S5_PID" 2>/dev/null || true
+  pass "'machinen snapshot' returned 0"
+
+  # Lazy-pages restore. The bundle is live-mounted into the guest; the
+  # restored guest only faults the criu bring-up handful in. memdirty
+  # itself sits in pause(), so its dirty anon stays on the host bundle.
+  S5_RESTORE_LOG="$FIXTURE/s5-restore.log"
+  node "$CLI" restore --lazy-pages "$S5_SNAP_DIR" >"$S5_RESTORE_LOG" 2>&1 &
+  S5_RESTORE_PID=$!
+  cleanup_s5_restore() {
+    kill -TERM "$S5_RESTORE_PID" 2>/dev/null || true
+    wait "$S5_RESTORE_PID" 2>/dev/null || true
+  }
+  trap 'cleanup_s5; cleanup_s5_restore; rm -rf "$FIXTURE"' EXIT
+
+  S5_FORK_NAME=""
+  deadline=$((SECONDS + 90))
+  while (( SECONDS < deadline )); do
+    cand=$(cli ls 2>/dev/null | awk -v src="$S5_NAME/" 'NR>1 && index($2, src)==1 {print $2; exit}')
+    if [[ -n "$cand" ]]; then
+      S5_FORK_NAME=$cand
+      break
+    fi
+    sleep 1
+  done
+  if [[ -z "$S5_FORK_NAME" ]]; then
+    tail -200 "$S5_RESTORE_LOG" >&2
+    cli ls >&2 || true
+    fail "S5 — restored VM never registered"
+  fi
+
+  # Settle: criu's kerndat probes after the restore touch a small
+  # handful of pages, and the supervisor reattaches stdio. A few
+  # seconds is enough for those to land in the RSS reading.
+  sleep 3
+  S5_FORK_VMM=$(cli ls 2>/dev/null | awk -v n="$S5_FORK_NAME" 'NR>1 && $2==n {print $1}')
+  if [[ -z "$S5_FORK_VMM" ]]; then
+    cli ls >&2 || true
+    fail "S5 — couldn't find VMM pid for restored VM '$S5_FORK_NAME'"
+  fi
+  S5_FORK_RSS=$(vmm_rss_mib "$S5_FORK_VMM")
+  echo "  fork RSS=${S5_FORK_RSS} MiB after lazy-pages restore"
+
+  # Headline claim: a fork that hasn't touched the workload's anon
+  # weighs much less than the parent. Tolerance is half the dirty
+  # footprint — page tables, criu daemon, kerndat probes, and the
+  # supervisor all consume RSS but are dwarfed by the workload bytes
+  # that should *not* be there. A drop below this threshold means
+  # restore eagerly faulted pages back in (markPagemapsLazy didn't
+  # mark, the live-mount didn't engage, or the lazy-pages daemon
+  # mis-wired).
+  S5_RSS_DROP=$(( S5_PARENT_RSS - S5_FORK_RSS ))
+  S5_THRESHOLD=$(( S5_DIRTY_MIB / 2 ))
+  if (( S5_RSS_DROP < S5_THRESHOLD )); then
+    tail -200 "$S5_RESTORE_LOG" >&2
+    fail "S5 — fork RSS only ${S5_RSS_DROP} MiB lighter than parent (${S5_PARENT_RSS} → ${S5_FORK_RSS}); expected ≥ ${S5_THRESHOLD} MiB"
+  fi
+  pass "fork RSS ${S5_FORK_RSS} MiB ≪ parent ${S5_PARENT_RSS} MiB (saved ${S5_RSS_DROP} MiB via lazy-pages)"
+
+  cleanup_s5_restore
+  trap 'rm -rf "$FIXTURE"' EXIT
+fi  # S5 rootfs-capability gate
 
 echo
 echo "all smoke tests passed"

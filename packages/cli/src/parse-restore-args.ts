@@ -25,17 +25,26 @@ export interface ParsedRestoreArgs {
    * host ports.
    */
   portForward: Array<{ hostPort: number; guestPort: number }>;
+  /**
+   * `--lazy-pages` — live-mount the bundle into the guest and run
+   * `criu restore --lazy-pages` so anon pages flow into the workload
+   * only when faulted (#266). Default false (eager restore).
+   */
+  lazyPages: boolean;
 }
 
 export function parseRestoreArgs(argv: string[]): ParsedRestoreArgs {
   const positional: string[] = [];
   let name: string | undefined;
   let image: string | undefined;
+  let lazyPages = false;
   const portForward: Array<{ hostPort: number; guestPort: number }> = [];
   const seenHostPorts = new Set<number>();
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
-    if (a === "--name" || a.startsWith("--name=")) {
+    if (a === "--lazy-pages") {
+      lazyPages = true;
+    } else if (a === "--name" || a.startsWith("--name=")) {
       const v = a === "--name" ? argv[++i] : a.slice("--name=".length);
       if (!v) {
         throw new ParseError("PARSE_FLAG_MISSING_VALUE", "--name requires a value");
@@ -72,5 +81,5 @@ export function parseRestoreArgs(argv: string[]): ParsedRestoreArgs {
       positional.push(a);
     }
   }
-  return { positional, name, image, portForward };
+  return { positional, name, image, portForward, lazyPages };
 }

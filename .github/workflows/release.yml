@@ -69,7 +69,8 @@ jobs:
         id: cache
         uses: actions/cache@v4
         with:
-          path: packages/microvm/zig-out/bin/machinen-vm
+          path: |
+            packages/microvm/zig-out/bin/machinen-vm
           key: vmm-darwin-arm64-${{ hashFiles('packages/microvm/src/**', 'packages/microvm/assets/**/*.zig', 'packages/microvm/build.zig', 'packages/microvm/build.zig.zon', 'packages/microvm/entitlements.plist') }}
       - name: Setup Zig
         if: steps.cache.outputs.cache-hit != 'true'
@@ -96,7 +97,8 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: vmm-arm64-darwin
-          path: packages/microvm/zig-out/bin/machinen-vm
+          path: |
+            packages/microvm/zig-out/bin/machinen-vm
           if-no-files-found: error
           retention-days: 7
 
@@ -117,7 +119,8 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: vmm-arm64-linux
-          path: packages/microvm/zig-out/bin/machinen-vm
+          path: |
+            packages/microvm/zig-out/bin/machinen-vm
           if-no-files-found: error
 
   # ------------------------------------------------------------

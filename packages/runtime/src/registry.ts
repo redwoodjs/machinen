@@ -48,10 +48,9 @@ export interface RegistryEntry {
   /** Path to the image the VM was booted from (diagnostic only). */
   imagePath?: string;
   /**
-   * Host-side path of the disk file attached as /dev/vda (from
-   * `boot({ snapshot: <path> })`). Required for `vm.snapshot()` —
-   * attached handles read it from the registry to find the host
-   * file to copy after the guest dump completes.
+   * Host-side path of the scratch disk attached to the guest. Used by
+   * `attach().snapshot()` so an attach-owned handle can find the
+   * guest-side scratch disk that backs the in-VM dump.
    */
   diskPath?: string;
   /**
