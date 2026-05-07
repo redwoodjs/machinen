@@ -43,6 +43,9 @@ pub fn main(init: std.process.Init) !void {
     const kernel_path = envRequired("MACHINEN_KERNEL");
     const dtb_path = envRequired("MACHINEN_DTB");
     const initrd_path = envRequired("MACHINEN_INITRD");
+    // #263 phase A: optional ceiling override. Runtime auto-sizes and
+    // forwards a value; direct invocations get the boot_*.zig default.
+    const ram_size_override = envMemoryMib();
 
     // Guest console is live-echoed to stderr from inside the boot loop
     // (boot_hvf.zig's PL011 DR-write handler). The result.serial buffer is
@@ -56,7 +59,7 @@ pub fn main(init: std.process.Init) !void {
     if (builtin.os.tag == .macos) {
         const disk_path = envOptional("MACHINEN_DISK");
         const rootdisk_path = envOptional("MACHINEN_ROOTDISK");
-        const result = try microvm.boot_hvf.boot(gpa, .{
+        var cfg: microvm.boot_hvf.Config = .{
             .kernel_path = kernel_path,
             .dtb_path = dtb_path,
             .initrd_path = initrd_path,
@@ -64,13 +67,15 @@ pub fn main(init: std.process.Init) !void {
             .disk_path = disk_path,
             .unbounded_serial = true,
             .max_exits = std.math.maxInt(usize),
-        });
+        };
+        if (ram_size_override) |bytes| cfg.ram_size = bytes;
+        const result = try microvm.boot_hvf.boot(gpa, cfg);
         gpa.free(result.serial);
         std.process.exit(if (result.saw_psci_shutdown) 0 else 1);
     } else {
         const disk_path = envOptional("MACHINEN_DISK");
         const rootdisk_path = envOptional("MACHINEN_ROOTDISK");
-        const result = try microvm.boot_kvm.boot(gpa, .{
+        var cfg: microvm.boot_kvm.Config = .{
             .kernel_path = kernel_path,
             .dtb_path = dtb_path,
             .initrd_path = initrd_path,
@@ -78,10 +83,35 @@ pub fn main(init: std.process.Init) !void {
             .disk_path = disk_path,
             .unbounded_serial = true,
             .max_exits = std.math.maxInt(usize),
-        });
+        };
+        if (ram_size_override) |bytes| cfg.ram_size = bytes;
+        const result = try microvm.boot_kvm.boot(gpa, cfg);
         gpa.free(result.serial);
         std.process.exit(if (result.saw_psci_shutdown) 0 else 1);
     }
+}
+
+/// Read MACHINEN_MEMORY (decimal MiB, no unit suffix). Returns the
+/// value in bytes, or null if the var is unset / empty. Refuses
+/// anything we can't safely turn into a `usize` byte count: bad
+/// digits, zero, or values that would overflow.
+fn envMemoryMib() ?usize {
+    const raw = getenv("MACHINEN_MEMORY") orelse return null;
+    const s = std.mem.span(raw);
+    if (s.len == 0) return null;
+    const mib = std.fmt.parseInt(u64, s, 10) catch dieMemory(s, "must be a decimal integer");
+    if (mib == 0) dieMemory(s, "must be > 0");
+    const bytes = std.math.mul(u64, mib, 1024 * 1024) catch dieMemory(s, "value overflows usize");
+    if (bytes > std.math.maxInt(usize)) dieMemory(s, "value overflows usize");
+    return @intCast(bytes);
+}
+
+fn dieMemory(value: []const u8, why: []const u8) noreturn {
+    std.debug.print(
+        "machinen-microvm: MACHINEN_MEMORY={s} is invalid: {s} (MiB, no unit suffix).\n",
+        .{ value, why },
+    );
+    std.process.exit(2);
 }
 
 fn envRequired(comptime name: [:0]const u8) []const u8 {

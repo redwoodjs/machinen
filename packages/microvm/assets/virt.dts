@@ -69,6 +69,17 @@
 		compatible = "virtio,mmio";
 	};
 
+	// #263 phase B: slot 4 carries virtio-balloon. The driver posts
+	// free-page batches on the page-reporting virtqueue; the host
+	// madvises(MADV_DONTNEED) the corresponding range so RSS shrinks
+	// alongside guest free memory.
+	virtio_mmio@a000800 {
+		dma-coherent;
+		interrupts = <0x00 0x14 0x01>;
+		reg = <0x00 0xa000800 0x00 0x200>;
+		compatible = "virtio,mmio";
+	};
+
 	pl011@9000000 {
 		current-speed = <0x1c200>;  // 115200
 		clock-names = "uartclk", "apb_pclk";

@@ -361,20 +361,92 @@ else
 fi
 
 # ----------------------------------------------------------------
-# Phase-1 base-rootfs contract tests — verify #77 step 1 plumbing.
-# Each asserts one thing scripts/build-base-assets.sh claims to ship.
+# M-series: #263 phase A — auto-sized RAM ceiling + --memory knob.
+# Each boot cats /proc/meminfo into the kernel console; we assert the
+# guest's MemTotal lands in the expected band. MemTotal is reported in
+# kB and is always less than the configured ceiling: the kernel
+# reserves bookkeeping (~1-2% on small VMs, ~0.1% on large ones).
 # ----------------------------------------------------------------
 
-# ----------------------------------------------------------------
-# #93 API surface — exercise the new CLI verbs end-to-end against a
-# real guest. Uses a scratch registry dir so we don't pollute any
-# real running VMs on the dev machine. Each test boots a named VM in
-# the background, hits it with ls/exec, then kills it.
-# ----------------------------------------------------------------
+# Helper: extract MemTotal in MiB from a console log (kB / 1024,
+# floored). Returns 0 if the line wasn't captured.
+mem_total_mib() {
+  local log=$1
+  awk '/^MemTotal:/ { printf("%d\n", $2 / 1024); exit }' "$log" 2>/dev/null || echo 0
+}
 
-# Scratch registry for these tests. Redirects `boot()`'s writeEntry
-# and `list()`/`attach()`'s lookups so we don't collide with the
-# user's real ~/.machinen/vms entries.
+# ---- M0: --memory rejects bogus values via the parser ----
+expect_cli_error \
+  "M0a: --memory 0 rejected" \
+  "must be > 0" \
+  boot --memory 0 -- true
+
+expect_cli_error \
+  "M0b: --memory 1G rejected (no unit suffix)" \
+  "decimal integer" \
+  boot --memory 1G -- true
+
+# ---- M1: default boot — guest sees a sane auto-sized MemTotal ----
+echo "M1: machinen boot — auto-sized MemTotal"
+M1_LOG="$FIXTURE/m1.log"
+run_timeout 60 node "$CLI" boot -- /bin/sh -c \
+  'cat /proc/meminfo | grep ^MemTotal' \
+  >"$M1_LOG" 2>&1 || true
+M1_MIB=$(mem_total_mib "$M1_LOG")
+# Auto-size policy: min(host_ram/2, 16384) MiB, floor 512. So the
+# guest can land anywhere in [400, 17000] MiB once the kernel takes
+# its cut. A value below 400 means the patch silently fell back to
+# the DTB's hardcoded 4 GiB or smaller; above 17000 means the cap
+# isn't enforced.
+if (( M1_MIB >= 400 && M1_MIB <= 17000 )); then
+  pass "default MemTotal ${M1_MIB} MiB lands in the auto-size band"
+else
+  cat "$M1_LOG" >&2
+  fail "M1 — MemTotal ${M1_MIB} MiB outside the expected auto-size band [400..17000]"
+fi
+
+# ---- M2: --memory 1024 — guest sees ~1 GiB ----
+echo "M2: machinen boot --memory 1024"
+M2_LOG="$FIXTURE/m2.log"
+run_timeout 60 node "$CLI" boot --memory 1024 -- /bin/sh -c \
+  'cat /proc/meminfo | grep ^MemTotal' \
+  >"$M2_LOG" 2>&1 || true
+M2_MIB=$(mem_total_mib "$M2_LOG")
+# 1024 MiB requested → MemTotal usually ~960-1010 MiB after the
+# kernel's reservation. Tolerate [900, 1024].
+if (( M2_MIB >= 900 && M2_MIB <= 1024 )); then
+  pass "--memory 1024 → MemTotal ${M2_MIB} MiB"
+else
+  cat "$M2_LOG" >&2
+  fail "M2 — MemTotal ${M2_MIB} MiB outside the expected --memory 1024 band [900..1024]"
+fi
+
+# ---- M3: --memory 32768 — guest sees ~32 GiB ----
+# This exercises the larger-than-DTB-default path: the shipped DTB
+# hardcodes 4 GiB, so without dtb_patch.patchMemorySize the guest
+# would clamp to 4 GiB and this would fail.
+echo "M3: machinen boot --memory 32768"
+M3_LOG="$FIXTURE/m3.log"
+run_timeout 60 node "$CLI" boot --memory 32768 -- /bin/sh -c \
+  'cat /proc/meminfo | grep ^MemTotal' \
+  >"$M3_LOG" 2>&1 || true
+M3_MIB=$(mem_total_mib "$M3_LOG")
+# 32 GiB requested. With lazy commit the host doesn't pay 32 GiB of
+# RSS — only address-space mapping. Tolerate [30 GiB, 32 GiB].
+if (( M3_MIB >= 30000 && M3_MIB <= 32768 )); then
+  pass "--memory 32768 → MemTotal ${M3_MIB} MiB (DTB memory@ size patch effective)"
+else
+  cat "$M3_LOG" >&2
+  fail "M3 — MemTotal ${M3_MIB} MiB outside the expected --memory 32768 band [30000..32768]"
+fi
+
+# ----------------------------------------------------------------
+# Helpers that B-series and the later N/P/S sections share.
+# Hoisted here because B1 boots a long-lived named VM the same way
+# N2 / S1 do. Scratch registry redirects `boot()`'s writeEntry and
+# `list()`/`attach()`'s lookups so we don't collide with the user's
+# real ~/.machinen/vms entries.
+# ----------------------------------------------------------------
 export MACHINEN_REGISTRY_DIR="$FIXTURE/registry"
 mkdir -p "$MACHINEN_REGISTRY_DIR"
 
@@ -405,6 +477,190 @@ wait_for_vm() {
   done
   return 1
 }
+
+# ----------------------------------------------------------------
+# B-series: #263 phase B — virtio-balloon free-page-reporting.
+#
+# B0  device bound + feature-negotiated inside the guest.
+# B1  spike-and-idle reclaim: drive a 1 GiB workload through dirty
+#     anon pages, free it, wait for the kernel's free-page-reporting
+#     thread to fire, assert host RSS drops back close to baseline.
+#
+# Host RSS is read via `ps -o rss= -p <vmm_pid>` (KiB, portable
+# across darwin + linux). The VMM pid comes from `cli ls`. RSS is
+# best-effort — kernel page reporting batches and is gated on
+# free-area watermarks, so a tight tolerance would flake.
+# ----------------------------------------------------------------
+
+# Helper: resolve the actual VMM pid from a registry-recorded pid.
+# `cli ls` reports the pdeathsig shim pid (a ~1 MiB watcher that
+# SIGTERMs the VMM if the parent dies). Its only child is the real
+# machinen-vm. Falls back to the input pid if pgrep finds no child
+# — happens when the caller passed a non-shim pid directly.
+vmm_real_pid() {
+  local outer=$1
+  local child
+  child=$(pgrep -P "$outer" 2>/dev/null | head -1)
+  if [[ -n "$child" ]]; then
+    echo "$child"
+  else
+    echo "$outer"
+  fi
+}
+
+# Helper: read VMM RSS in MiB. Reports 0 if `ps` can't see the pid.
+# Resolves through the pdeathsig shim if the input pid wraps one.
+vmm_rss_mib() {
+  local outer=$1
+  local pid
+  pid=$(vmm_real_pid "$outer")
+  local kib
+  kib=$(ps -o rss= -p "$pid" 2>/dev/null | awk 'NR==1 { print $1 }')
+  if [[ -z "$kib" || "$kib" == "0" ]]; then
+    echo 0
+  else
+    echo $(( kib / 1024 ))
+  fi
+}
+
+# ---- B0: balloon device bound + feature flags negotiated ----
+if [[ "$ROOTFS_SUPPORTS_VSOCK_EXEC" -eq 0 ]]; then
+  echo "B0: skipped (rootfs lacks vsock-exec)"
+else
+echo "B0: virtio-balloon driver bound to slot 4"
+B0_LOG="$FIXTURE/b0.log"
+run_timeout 60 node "$CLI" boot -- /bin/sh -c \
+  'echo "DRIVER=$(readlink /sys/bus/virtio/devices/virtio4/driver | xargs basename)"; echo "DEVICE=$(cat /sys/bus/virtio/devices/virtio4/device)"' \
+  >"$B0_LOG" 2>&1 || true
+# `readlink` of /sys/bus/virtio/devices/virtio4/driver should resolve
+# to .../drivers/virtio_balloon when our slot 4 device is bound. The
+# guest's virtio_balloon driver is built-in (CONFIG_VIRTIO_BALLOON=y);
+# binding fails only if our feature set is one the driver refuses.
+if grep -q "^DRIVER=virtio_balloon" "$B0_LOG" && grep -q "^DEVICE=0x0005" "$B0_LOG"; then
+  pass "balloon driver bound to virtio4 (device id 0x0005)"
+else
+  tail -50 "$B0_LOG" >&2
+  fail "B0 — virtio_balloon not bound to slot 4"
+fi
+fi  # B0 rootfs gate
+
+# ---- B1: spike-and-idle reclaim ----
+# Boot a long-running named VM, measure baseline RSS, drive a spike
+# through tmpfs (anon pages — not pagecache), free + sync, wait
+# REPORT_GRACE seconds for the guest's page-reporting kthread to fire,
+# remeasure. A working balloon brings RSS back down (within tolerance);
+# without it, the post-spike RSS stays at the high-water mark.
+if [[ "$ROOTFS_SUPPORTS_VSOCK_EXEC" -eq 0 ]]; then
+  echo "B1: skipped (rootfs lacks vsock-exec)"
+else
+echo "B1: spike-and-idle reclaim — RSS drops after free-page-reporting fires"
+B1_NAME="balloon-smoke-$$"
+B1_BG_LOG="$FIXTURE/b1-bg.log"
+B1_PID=$(boot_bg "$B1_NAME" "$B1_BG_LOG" --memory 2048 -- \
+  /bin/sh -c "/exec-agent & sleep 600")
+# B1 runs before the N-series which asserts an empty registry, so
+# cleanup MUST remove the registry entry, not just kill the VMM.
+# `machinen stop --name` does both (SIGTERM + writeEntry remove).
+cleanup_b1() {
+  cli stop --name "$B1_NAME" >/dev/null 2>&1 || true
+  kill -TERM "$B1_PID" 2>/dev/null || true
+  wait "$B1_PID" 2>/dev/null || true
+}
+trap 'cleanup_b1; rm -rf "$FIXTURE"' EXIT
+
+if ! wait_for_vm "$B1_NAME"; then
+  tail -60 "$B1_BG_LOG" >&2
+  fail "B1 — '$B1_NAME' never appeared in 'machinen ls'"
+fi
+
+# Discover VMM pid via the registry.
+B1_VMM_PID=$(cli ls 2>/dev/null | awk -v n="$B1_NAME" 'NR>1 && $2==n {print $1}')
+if [[ -z "$B1_VMM_PID" ]]; then
+  cli ls >&2 || true
+  fail "B1 — couldn't find VMM pid for '$B1_NAME'"
+fi
+
+# Let post-boot allocations settle before snapshotting baseline.
+sleep 3
+B1_BASELINE=$(vmm_rss_mib "$B1_VMM_PID")
+echo "  baseline RSS=${B1_BASELINE} MiB (vmm pid $B1_VMM_PID)"
+
+# Drive a 1 GiB spike inside the guest, then free it with rm + sync
+# + drop_caches. Writing into a tmpfs mount would be ideal (pure
+# anon pages) but the base rootfs doesn't ship one — falling back to
+# /tmp on the rootdisk works because ext4 pagecache + drop_caches
+# returns the pages to the kernel's free pool, which is exactly
+# what free-page-reporting hands back to the host. With ram=2048
+# MiB and the kernel reserving ~150 MiB, 1 GiB is well within
+# budget but big enough that the RSS delta is unmistakable.
+#
+# `cli exec` joins post-`--` args with spaces and runs the result
+# under `sh -c` in the guest — so we pass the command as one
+# already-shell-ready string, no extra `/bin/sh -c` wrapping.
+B1_SPIKE_LOG="$FIXTURE/b1-spike.log"
+if ! cli exec --name "$B1_NAME" -- \
+  'dd if=/dev/zero of=/tmp/big bs=1M count=1024 status=none && sync && echo SPIKE_DONE' \
+  >"$B1_SPIKE_LOG" 2>&1; then
+  cat "$B1_SPIKE_LOG" >&2
+  fail "B1 — spike workload failed"
+fi
+B1_SPIKE=$(vmm_rss_mib "$B1_VMM_PID")
+echo "  post-spike RSS=${B1_SPIKE} MiB"
+
+# A working spike should add at least ~700 MiB (rounding for ext4
+# pagecache + kernel internal allocations on top of the 1 GiB tmpfs).
+if (( B1_SPIKE - B1_BASELINE < 700 )); then
+  fail "B1 — spike only added $(( B1_SPIKE - B1_BASELINE )) MiB; expected ≥700"
+fi
+pass "spike added $(( B1_SPIKE - B1_BASELINE )) MiB to host RSS"
+
+# Free + sync, then wait for the kernel's reporting thread.
+# `page_reporting_period_ms` defaults to 2000; report budget is 16
+# 2-MiB blocks per cycle, so a 1 GiB free-run takes a few cycles to
+# fully drain. 30s is comfortable.
+if ! cli exec --name "$B1_NAME" -- \
+  'rm /tmp/big && sync && echo 3 > /proc/sys/vm/drop_caches && echo FREE_DONE' \
+  >"$FIXTURE/b1-free.log" 2>&1; then
+  cat "$FIXTURE/b1-free.log" >&2
+  fail "B1 — free workload failed"
+fi
+sleep 30
+B1_RECLAIMED=$(vmm_rss_mib "$B1_VMM_PID")
+echo "  post-free + 30s wait RSS=${B1_RECLAIMED} MiB"
+
+# Reclaim won't return RSS to baseline — the guest's still-mapped
+# working set (kernel slab, init + exec-agent, ext4 metadata, the
+# stage-2 page tables for every page the guest ever touched) all
+# stay resident. What we *do* expect: a meaningful drop from the
+# post-spike high-water mark, ≥500 MiB out of the 700+ MiB spike.
+# A drop below that threshold means the device's mmap-replace path
+# isn't actually freeing memory (e.g., stale Linux MADV_DONTNEED
+# on Darwin, which is just an advisory hint).
+B1_RECLAIMED_DROP=$(( B1_SPIKE - B1_RECLAIMED ))
+if (( B1_RECLAIMED_DROP < 500 )); then
+  fail "B1 — RSS only dropped ${B1_RECLAIMED_DROP} MiB after reclaim (spike ${B1_SPIKE} → ${B1_RECLAIMED}); expected ≥500"
+fi
+pass "balloon reclaim: ${B1_RECLAIMED_DROP} MiB returned to host (spike ${B1_SPIKE} → ${B1_RECLAIMED} MiB)"
+
+cleanup_b1
+trap 'rm -rf "$FIXTURE"' EXIT
+fi  # B1 rootfs gate
+
+# ----------------------------------------------------------------
+# Phase-1 base-rootfs contract tests — verify #77 step 1 plumbing.
+# Each asserts one thing scripts/build-base-assets.sh claims to ship.
+# ----------------------------------------------------------------
+
+# ----------------------------------------------------------------
+# #93 API surface — exercise the new CLI verbs end-to-end against a
+# real guest. Uses a scratch registry dir so we don't pollute any
+# real running VMs on the dev machine. Each test boots a named VM in
+# the background, hits it with ls/exec, then kills it.
+# ----------------------------------------------------------------
+
+# Registry + cli/boot_bg/wait_for_vm helpers are hoisted above the
+# B-series — see the "Helpers that B-series and the later sections
+# share" block earlier in this script.
 
 # ---- N1: machinen ls shows nothing when the registry is empty ----
 echo "N1: machinen ls against an empty registry"

@@ -285,6 +285,41 @@ describe("parseRunArgs --detached", () => {
   // gate is covered in detached.test.ts.
 });
 
+describe("parseRunArgs --memory (#263 phase A)", () => {
+  it("captures --memory as a decimal MiB count", () => {
+    const parsed = parseRunArgs(["--memory", "1024", "--", "/bin/true"]);
+    expect(parsed.memory).toBe(1024);
+  });
+
+  it("supports the --memory=<mib> form", () => {
+    const parsed = parseRunArgs(["--memory=32768", "--", "/bin/true"]);
+    expect(parsed.memory).toBe(32768);
+  });
+
+  it("leaves memory unset when the flag is absent", () => {
+    const parsed = parseRunArgs(["./bundle"]);
+    expect(parsed.memory).toBeUndefined();
+  });
+
+  it("rejects unit suffixes — MACHINEN_MEMORY is bare MiB", () => {
+    expect(() => parseRunArgs(["--memory", "1G", "--", "/bin/true"])).toThrow(/decimal integer/);
+    expect(() => parseRunArgs(["--memory", "1024M", "--", "/bin/true"])).toThrow(/decimal integer/);
+  });
+
+  it("rejects negative or zero", () => {
+    expect(() => parseRunArgs(["--memory", "-1", "--"])).toThrow(/decimal integer/);
+    expect(() => parseRunArgs(["--memory", "0", "--"])).toThrow(/must be > 0/);
+  });
+
+  it("rejects a bare --memory with no following argument", () => {
+    expect(() => parseRunArgs(["--memory"])).toThrow(/--memory requires/);
+  });
+
+  it("rejects a duplicate --memory", () => {
+    expect(() => parseRunArgs(["--memory", "1024", "--memory", "2048"])).toThrow(/at most once/);
+  });
+});
+
 describe("parseForkArgs", () => {
   it("captures --new-name and --out-dir", () => {
     const parsed = parseForkArgs([

@@ -328,6 +328,7 @@ async function cmdBoot(args: string[]): Promise<number> {
     name,
     guestCwd,
     detached,
+    memory,
   } = parsed;
 
   if (positional.length > 1) {
@@ -335,7 +336,7 @@ async function cmdBoot(args: string[]): Promise<number> {
       "usage: machinen boot [<image>] [--snapshot <path>] [--name <name>] " +
         "[--cwd <abs-path>] " +
         "[--mount ...] [--mount-live ...] [--env KEY=VALUE]... [--detached] " +
-        "[-- <cmd> [args...]]",
+        "[--memory <mib>] [-- <cmd> [args...]]",
     );
   }
   const imageOverride = positional[0];
@@ -405,6 +406,7 @@ async function cmdBoot(args: string[]): Promise<number> {
       name,
       guestCwd,
       detached,
+      memory,
       // Interactive CLI: the session lives as long as the guest does.
       // Don't impose the default 60s cap. Detached boots fall back to
       // the runtime's own readiness timeout (60s) so the CLI can't

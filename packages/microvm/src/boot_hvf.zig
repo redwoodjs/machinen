@@ -29,6 +29,8 @@ const virtio = @import("virtio.zig");
 const net_mod = @import("net_socket.zig");
 const blk_mod = @import("blk.zig");
 const vsock_mod = @import("vsock.zig");
+const balloon_mod = @import("balloon.zig");
+const dtb_patch = @import("dtb_patch.zig");
 
 // Guest-physical bases. Each virtio-MMIO device lives in a 0x200
 // window. The DTS has 32 slots at 0x0A000000 + i*0x200; we wire up
@@ -48,6 +50,8 @@ const virtio_vsock_base: u64 = 0x0A00_0400;
 const virtio_vsock_size: u64 = 0x200;
 const virtio_blk2_base: u64 = 0x0A00_0600;
 const virtio_blk2_size: u64 = 0x200;
+const virtio_balloon_base: u64 = 0x0A00_0800;
+const virtio_balloon_size: u64 = 0x200;
 
 comptime {
     // virtio-mmio slot layout — must stay byte-identical to virt.dts
@@ -60,6 +64,8 @@ comptime {
     assert(virtio_blk_base == virtio_net_base + virtio_net_size);
     assert(virtio_vsock_base == virtio_blk_base + virtio_blk_size);
     assert(virtio_blk2_base == virtio_vsock_base + virtio_vsock_size);
+    assert(virtio_balloon_size == 0x200);
+    assert(virtio_balloon_base == virtio_blk2_base + virtio_blk2_size);
 }
 
 pub const Error = error{
@@ -119,109 +125,8 @@ fn debugEnabled() bool {
     return getenv("MACHINEN_DEBUG") != null;
 }
 
-/// Overwrite the `linux,initrd-end` u32 cell in a DTB with `new_end`.
-///
-/// The DTB is the Flattened Device Tree format (big-endian on the
-/// wire). Linux treats [initrd-start, initrd-end) as the initramfs
-/// region and scans the whole window for cpio / compressed archives —
-/// if we reserve 1 GB in the DTS but only ship a 300 MB cpio, the
-/// kernel spends real wall-clock walking the tail. Patching the end
-/// pointer to match the actual cpio eliminates that.
-fn patchDtbInitrdEnd(dtb: []u8, new_end: u32) !void {
-    assert(dtb.len > 0);
-    if (dtb.len < 40) return error.DtbTooSmall;
-    assert(dtb.len >= 40);
-
-    const magic = std.mem.readInt(u32, dtb[0..4], .big);
-    if (magic != 0xd00dfeed) return error.DtbBadMagic;
-
-    const off_struct = std.mem.readInt(u32, dtb[8..12], .big);
-    const off_strings = std.mem.readInt(u32, dtb[12..16], .big);
-    const size_strings = std.mem.readInt(u32, dtb[32..36], .big);
-
-    if (@as(usize, off_strings) + @as(usize, size_strings) > dtb.len) return error.DtbOutOfBounds;
-    if (off_struct > dtb.len) return error.DtbOutOfBounds;
-    assert(size_strings > 0);
-
-    // Find "linux,initrd-end" in the strings block; record its offset
-    // within that block — the value FDT_PROP entries reference.
-    const needle = "linux,initrd-end\x00";
-    const strings = dtb[off_strings..][0..size_strings];
-    const pos = std.mem.indexOf(u8, strings, needle) orelse return error.InitrdEndNotFound;
-    const name_offset: u32 = @intCast(pos);
-
-    // FDT tokens (all big-endian u32).
-    const FDT_BEGIN_NODE: u32 = 1;
-    const FDT_END_NODE: u32 = 2;
-    const FDT_PROP: u32 = 3;
-    const FDT_NOP: u32 = 4;
-    const FDT_END: u32 = 9;
-
-    var i: usize = off_struct;
-    while (i + 4 <= dtb.len) {
-        const tok = std.mem.readInt(u32, dtb[i..][0..4], .big);
-        i += 4;
-        switch (tok) {
-            FDT_BEGIN_NODE => {
-                while (i < dtb.len and dtb[i] != 0) : (i += 1) {}
-                if (i >= dtb.len) return error.DtbTruncated;
-                i += 1; // consume null
-                i = std.mem.alignForward(usize, i, 4);
-            },
-            FDT_END_NODE, FDT_NOP => {},
-            FDT_PROP => {
-                if (i + 8 > dtb.len) return error.DtbTruncated;
-                const plen = std.mem.readInt(u32, dtb[i..][0..4], .big);
-                const nameoff = std.mem.readInt(u32, dtb[i + 4 ..][0..4], .big);
-                i += 8;
-                if (nameoff == name_offset) {
-                    if (plen != 4) return error.InitrdEndWrongSize;
-                    if (i + 4 > dtb.len) return error.DtbTruncated;
-                    std.mem.writeInt(u32, dtb[i..][0..4], new_end, .big);
-                    return;
-                }
-                i += plen;
-                i = std.mem.alignForward(usize, i, 4);
-            },
-            FDT_END => return error.InitrdEndNotFound,
-            else => return error.DtbBadToken,
-        }
-    }
-    return error.DtbTruncated;
-}
-
-test "patchDtbInitrdEnd round-trips a minimal hand-built DTB" {
-    // Minimal FDT with one node + one property named
-    // `linux,initrd-end` so the parser has something real to walk.
-    // Layout (byte offsets):
-    //   0x00 header (40 bytes)
-    //   0x28 mem rsvmap terminator (16 zero bytes)
-    //   0x38 struct block: BEGIN_NODE "" / PROP(len=4,nameoff=0,data) /
-    //                      END_NODE / END  — 32 bytes
-    //   0x58 strings block: "linux,initrd-end\0" — 17 bytes
-    //   end  at 0x69 (105 bytes)
-    var buf = [_]u8{
-        // header
-        0xd0, 0x0d, 0xfe, 0xed, 0x00, 0x00, 0x00, 0x69, // magic, totalsize
-        0x00, 0x00, 0x00, 0x38, 0x00, 0x00, 0x00, 0x58, // off_dt_struct, off_dt_strings
-        0x00, 0x00, 0x00, 0x28, 0x00, 0x00, 0x00, 0x11, // off_mem_rsvmap, version
-        0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00, // last_comp_version, boot_cpuid
-        0x00, 0x00, 0x00, 0x11, 0x00, 0x00, 0x00, 0x20, // size_dt_strings (17), size_dt_struct (32)
-        // mem rsvmap terminator
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        // struct block
-        0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, // BEGIN_NODE, "" + 3 pad
-        0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x04, // PROP, len=4
-        0x00, 0x00, 0x00, 0x00, 0xaa, 0xbb, 0xcc, 0xdd, // nameoff=0, data=0xaabbccdd
-        0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x09, // END_NODE, END
-        // strings block
-        'l', 'i', 'n', 'u', 'x', ',', 'i', 'n',
-        'i', 't', 'r', 'd', '-', 'e', 'n', 'd', 0x00,
-    };
-    try patchDtbInitrdEnd(&buf, 0x12345678);
-    try std.testing.expectEqualSlices(u8, &[_]u8{ 0x12, 0x34, 0x56, 0x78 }, buf[0x4C..][0..4]);
-}
+// DTB patching (initrd-end + memory@ size) lives in `dtb_patch.zig`,
+// shared with boot_kvm.zig. See that file for the FDT walker + tests.
 
 pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // Caller-supplied layout must satisfy the basic geometry the boot
@@ -323,6 +228,14 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         null;
     const blk2dev_ptr: ?*virtio.Device = if (blk2dev_opt) |_| &blk2dev_opt.? else null;
 
+    // virtio-balloon (#263 phase B). Always present; the guest's
+    // free-page-reporting kernel thread continuously hands us free
+    // runs, and the device's reporting handler madvises them out
+    // of host RSS. No env knob — this is fire-and-forget memory.
+    var balloon_backend = balloon_mod.Backend.init();
+    var balloon_dev = makeBalloonDevice(ram, cfg, &balloon_backend);
+    const balloon_dev_ptr: ?*virtio.Device = &balloon_dev;
+
     // virtio-vsock (#44). Off by default; set MACHINEN_VSOCK to enable.
     // Syntax (comma-separated):
     //   in:<guest_port>:<host_uds>   host listens; UDS clients → guest
@@ -400,6 +313,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         .blk2_dev = blk2dev_ptr,
         .vsock_dev = vsock_dev_ptr,
         .vsock_bridge = vsock_bridge_opt,
+        .balloon_dev = balloon_dev_ptr,
     };
     return try runLoop(gpa, cfg, vcpu, &devs, irqs);
 }
@@ -638,6 +552,18 @@ fn allocateAndPopulateRam(
     @memcpy(ram[fx.img.text_offset..][0..fx.kernel.len], fx.kernel);
     @memcpy(ram[cfg.dtb_offset..][0..fx.dtb.len], fx.dtb);
 
+    // #263 phase A: rewrite the DTB's `memory@<base>` reg-size cells
+    // to match cfg.ram_size. The shipped DTB hardcodes 4 GiB (compiled
+    // from virt.dts); without this patch any other ceiling silently
+    // becomes 4 GiB to the kernel. Failures here would silently cap
+    // the guest, so log loudly even outside debug mode.
+    dtb_patch.patchMemorySize(ram[cfg.dtb_offset..][0..fx.dtb.len], cfg.ram_size) catch |err| {
+        std.debug.print(
+            "warn: patchMemorySize failed ({s}); guest will see the DTB-declared ceiling, not cfg.ram_size={d}\n",
+            .{ @errorName(err), cfg.ram_size },
+        );
+    };
+
     if (cfg.initrd_path) |initrd_path| {
         const initrd = readAll(gpa, initrd_path) catch |err| {
             if (err == error.OpenFailed) return error.FixtureMissing;
@@ -652,9 +578,9 @@ fn allocateAndPopulateRam(
         // compressed archives — at ~1 GB/s of wall clock. Leaving 1 GB
         // of dead tail in that window costs ~1 s of early boot.
         const initrd_end_abs: u32 = @intCast(cfg.ram_base + cfg.initrd_offset + initrd.len);
-        patchDtbInitrdEnd(ram[cfg.dtb_offset..][0..fx.dtb.len], initrd_end_abs) catch |err| {
+        dtb_patch.patchInitrdEnd(ram[cfg.dtb_offset..][0..fx.dtb.len], initrd_end_abs) catch |err| {
             if (debugEnabled()) std.debug.print(
-                "warn: patchDtbInitrdEnd failed ({s}); kernel will scan the full DTB-declared initrd window\n",
+                "warn: patchInitrdEnd failed ({s}); kernel will scan the full DTB-declared initrd window\n",
                 .{@errorName(err)},
             );
         };
@@ -720,20 +646,22 @@ const IrqMap = struct {
     blk: u32,
     blk2: u32,
     vsock: u32,
+    balloon: u32,
 };
 
 fn assignIrqs() !IrqMap {
     const spi = try hvf.Gic.spiRange();
     // SPIs start at 32 on ARM GIC; HVF must report at least the device
-    // IDs we wire up (1, 16, 17, 18, 19) past spi.base.
+    // IDs we wire up (1, 16, 17, 18, 19, 20) past spi.base.
     assert(spi.base >= 32);
-    assert(spi.count >= 20);
+    assert(spi.count >= 21);
     return .{
         .pl011 = spi.base + 1,
         .net = spi.base + 16,
         .blk = spi.base + 17,
         .vsock = spi.base + 18,
         .blk2 = spi.base + 19,
+        .balloon = spi.base + 20,
     };
 }
 
@@ -795,6 +723,23 @@ fn parseVsockEnv(gpa: std.mem.Allocator) []vsock_mod.PortMap {
     return vsock_mod.parseEnv(gpa, s) catch |err| {
         std.debug.print("vsock: MACHINEN_VSOCK parse failed ({s}); ignoring\n", .{@errorName(err)});
         return &.{};
+    };
+}
+
+/// Build the virtio-balloon device. `backend` must outlive the
+/// returned Device — the config + request_ctx are pointers into it.
+/// #263 phase B: continuous free-page reporting (no inflate driving).
+fn makeBalloonDevice(ram: []u8, cfg: Config, backend: *balloon_mod.Backend) virtio.Device {
+    return .{
+        .base = virtio_balloon_base,
+        .size = virtio_balloon_size,
+        .id = .balloon,
+        .features = balloon_mod.Backend.features(),
+        .config = backend.configBytes(),
+        .ram = ram,
+        .ram_base = cfg.ram_base,
+        .request_handler = &balloon_mod.Backend.handleRequest,
+        .request_ctx = @ptrCast(backend),
     };
 }
 
@@ -909,6 +854,7 @@ const Devices = struct {
     blk2_dev: ?*virtio.Device,
     vsock_dev: ?*virtio.Device,
     vsock_bridge: ?*vsock_mod.Bridge,
+    balloon_dev: ?*virtio.Device,
 };
 
 /// Route a data-abort MMIO fault to the device that owns the IPA, then
@@ -943,6 +889,8 @@ fn routeDataAbort(
         if (devs.vsock_bridge) |b| b.mu.lock();
         defer if (devs.vsock_bridge) |b| b.mu.unlock();
         try handleVirtioMmio(devs.vsock_dev.?, irqs.vsock, vcpu, info);
+    } else if (devs.balloon_dev != null and devs.balloon_dev.?.handles(info.ipa)) {
+        try handleVirtioMmio(devs.balloon_dev.?, irqs.balloon, vcpu, info);
     } else if (info.ipa >= 0x1000_0000 and info.ipa < 0x1200_0000) {
         try handleGicRdistMmio(vcpu, info);
     } else {
