@@ -436,45 +436,66 @@ fi
 # Test: boot with --mount; write a marker INTO /mnt/data from the
 # guest (lands in the upper); snapshot; delete the host source dir;
 # restore the snapshot; read /mnt/data/<marker>, assert it's there.
-if ! grep -q 'criu$' <<<"$ROOTFS_ENTRIES" || ! grep -q 'machinen-supervisor$' <<<"$ROOTFS_ENTRIES"; then
-  echo "T7: skipped (rootfs lacks criu/snapshot helpers)"
+if [[ "$ROOTFS_SUPPORTS_VSOCK_EXEC" -eq 0 || "$ROOTFS_SUPPORTS_CRIU" -eq 0 || "$ROOTFS_SUPPORTS_SNAPSHOT_HELPERS" -eq 0 ]]; then
+  echo "T7: skipped (rootfs lacks vsock/criu/snapshot helpers)"
 else
   echo "T7: snapshot durability across the source dir disappearing"
   T7_NAME="t7-mount-snap-$$"
   T7_HOST="$FIXTURE/t7-host"
   T7_BUNDLE="$FIXTURE/t7-bundle"
-  T7_LOG="$FIXTURE/t7-boot.log"
-  T7_LOG2="$FIXTURE/t7-restore.log"
+  T7_BG_LOG="$FIXTURE/t7-bg.log"
+  T7_SCRATCH="$FIXTURE/t7-scratch.img"
+  truncate -s 256M "$T7_SCRATCH"
   mkdir -p "$T7_HOST"
   echo "from-host" >"$T7_HOST/seed.txt"
-  # Boot detached, write a guest-side file into the upper, then
-  # snapshot. The snapshot's --leave-running flag is implicit when we
-  # just call `machinen snapshot` — but the destructive snapshot we
-  # use here brings the VM down, which is what we want for restore.
-  run_timeout 90 node "$CLI" boot \
-    --detached \
-    --name "$T7_NAME" \
+  # Background-boot the source. Inlining instead of using the
+  # `boot_bg` / `wait_for_vm` helpers (defined further down) so this
+  # block stays self-contained. --detached is incompatible with
+  # --mount (#150 phase 3 lifts that restriction).
+  node "$CLI" boot --name "$T7_NAME" \
     --mount "$T7_HOST:/mnt/data" \
-    --snapshot scratch \
-    -- /bin/sh -c 'while :; do sleep 1; done' \
-    >"$T7_LOG" 2>&1 || true
-  if ! node "$CLI" ls 2>/dev/null | grep -q "$T7_NAME"; then
-    tail -50 "$T7_LOG" >&2
-    fail "T7 — boot --detached didn't register $T7_NAME"
+    --snapshot "$T7_SCRATCH" \
+    -- /bin/sh -c 'while :; do sleep 1000; done' \
+    >"$T7_BG_LOG" 2>&1 &
+  T7_PID=$!
+  cleanup_t7() {
+    kill -TERM "$T7_PID" 2>/dev/null || true
+    wait "$T7_PID" 2>/dev/null || true
+  }
+  # Wait up to 30s for the VM to register.
+  deadline=$((SECONDS + 30))
+  vm_up=0
+  while (( SECONDS < deadline )); do
+    if node "$CLI" ls 2>/dev/null | awk 'NR>1 {print $2}' | grep -qx "$T7_NAME"; then
+      vm_up=1
+      break
+    fi
+    sleep 1
+  done
+  if [[ "$vm_up" -ne 1 ]]; then
+    tail -50 "$T7_BG_LOG" >&2
+    cleanup_t7
+    fail "T7 — '$T7_NAME' never appeared in 'machinen ls'"
   fi
   # Plant a marker into the writable upper from inside the guest.
-  node "$CLI" exec --name "$T7_NAME" -- /bin/sh -c 'echo guest-wrote >/mnt/data/from-guest.txt' >>"$T7_LOG" 2>&1 || {
-    tail -50 "$T7_LOG" >&2
+  # cli exec joins post-`--` args with spaces and runs the result via
+  # `sh -c` in the guest. The single-quoted `'>'` reaches the guest's
+  # shell as a literal redirect operator, the same trick S3 uses to
+  # write into /tmp/who.
+  if ! node "$CLI" exec --name "$T7_NAME" -- echo guest-wrote '>' /mnt/data/from-guest.txt; then
+    tail -50 "$T7_BG_LOG" >&2
+    cleanup_t7
     fail "T7 — couldn't write to /mnt/data from the guest"
-  }
-  # Snapshot. We assume the bundle ends up in $T7_BUNDLE.
-  node "$CLI" snapshot --name "$T7_NAME" --out-dir "$T7_BUNDLE" >>"$T7_LOG" 2>&1 || {
-    tail -50 "$T7_LOG" >&2
+  fi
+  # Snapshot. Default destructive — VM exits when the dump finishes,
+  # so we don't need cleanup_t7 afterwards.
+  if ! node "$CLI" snapshot --name "$T7_NAME" --out-dir "$T7_BUNDLE" >>"$T7_BG_LOG" 2>&1; then
+    tail -50 "$T7_BG_LOG" >&2
+    cleanup_t7
     fail "T7 — machinen snapshot failed"
-  }
-  # Now make the original host source disappear, simulating a
-  # different machine. The bundle's mount-lower.sqfs and
-  # mount-upper.img must carry the data forward.
+  fi
+  # Now make the original host source disappear. The bundle's
+  # mount-lower.sqfs and mount-upper.img must carry the data forward.
   rm -rf "$T7_HOST"
   if [[ -f "$T7_BUNDLE/mount-lower.sqfs" && -f "$T7_BUNDLE/mount-upper.img" ]]; then
     pass "snapshot bundle carries mount-lower.sqfs + mount-upper.img"
@@ -482,28 +503,47 @@ else
     ls -la "$T7_BUNDLE" >&2
     fail "T7 — bundle missing mount-lower.sqfs / mount-upper.img"
   fi
-  # Restore. The CLI auto-names the fork; we just want to read the
-  # marker through it.
-  T7_RESTORE_NAME="$(run_timeout 90 node "$CLI" restore --snap-dir "$T7_BUNDLE" --detached 2>>"$T7_LOG2" | awk '/^name:/ {print $2; exit}' || true)"
+  # Restore. Auto-named under the source.
+  T7_RESTORE_LOG="$FIXTURE/t7-restore.log"
+  T7_RESTORE_BG_LOG="$FIXTURE/t7-restore-bg.log"
+  node "$CLI" restore "$T7_BUNDLE" --eager >"$T7_RESTORE_BG_LOG" 2>&1 &
+  T7_RESTORE_PID=$!
+  cleanup_t7_restore() {
+    kill -TERM "$T7_RESTORE_PID" 2>/dev/null || true
+    wait "$T7_RESTORE_PID" 2>/dev/null || true
+  }
+  # Wait for the restored VM under "$T7_NAME/<pid>" or "$T7_NAME~<pid>".
+  T7_RESTORE_NAME=""
+  deadline=$((SECONDS + 60))
+  while (( SECONDS < deadline )); do
+    cand=$(node "$CLI" ls 2>/dev/null | awk -v src="$T7_NAME" 'NR>1 && (index($2, src "/")==1 || index($2, src "~")==1) {print $2; exit}')
+    if [[ -n "$cand" ]]; then
+      T7_RESTORE_NAME=$cand
+      break
+    fi
+    sleep 1
+  done
   if [[ -z "$T7_RESTORE_NAME" ]]; then
-    tail -50 "$T7_LOG2" >&2
-    fail "T7 — restore didn't print a name"
+    node "$CLI" ls >&2
+    tail -50 "$T7_RESTORE_BG_LOG" >&2
+    cleanup_t7_restore
+    fail "T7 — restored VM never registered"
   fi
-  if node "$CLI" exec --name "$T7_RESTORE_NAME" -- cat /mnt/data/from-guest.txt 2>>"$T7_LOG2" | grep -q "guest-wrote"; then
+  if node "$CLI" exec --name "$T7_RESTORE_NAME" -- cat /mnt/data/from-guest.txt 2>>"$T7_RESTORE_LOG" | grep -q "guest-wrote"; then
     pass "restored guest sees writes the source guest made into the upper"
   else
-    tail -50 "$T7_LOG2" >&2
+    tail -50 "$T7_RESTORE_LOG" >&2
+    cleanup_t7_restore
     fail "T7 — restored guest can't read from-guest.txt"
   fi
-  if node "$CLI" exec --name "$T7_RESTORE_NAME" -- cat /mnt/data/seed.txt 2>>"$T7_LOG2" | grep -q "from-host"; then
+  if node "$CLI" exec --name "$T7_RESTORE_NAME" -- cat /mnt/data/seed.txt 2>>"$T7_RESTORE_LOG" | grep -q "from-host"; then
     pass "restored guest sees pre-snapshot host bytes after the source dir is gone"
   else
-    tail -50 "$T7_LOG2" >&2
+    tail -50 "$T7_RESTORE_LOG" >&2
+    cleanup_t7_restore
     fail "T7 — restored guest can't read seed.txt"
   fi
-  # Tidy up.
-  node "$CLI" stop --name "$T7_NAME" >/dev/null 2>&1 || true
-  node "$CLI" stop --name "$T7_RESTORE_NAME" >/dev/null 2>&1 || true
+  cleanup_t7_restore
 fi
 
 # ---- T8: /init mount-order — overlay is up before the user cmd runs ----

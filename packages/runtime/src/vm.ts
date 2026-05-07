@@ -1147,6 +1147,17 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         portForward: portForward.length > 0 ? portForward : undefined,
         memoryCeilingMib,
         statsPath: statsFilePath,
+        // #272: persist mount-overlay paths so an attach-owned
+        // vm.snapshot()/fork() can reflink the lower+upper into the
+        // bundle. Without this, `machinen snapshot --name <vm>` from
+        // the CLI produces a bundle that's missing the overlay halves.
+        mountDisk: mountDiskPaths
+          ? {
+              guest: mountDiskPaths.guest,
+              lowerPath: mountDiskPaths.lowerPath,
+              upperPath: mountDiskPaths.upperPath,
+            }
+          : undefined,
         startedAt: Date.now(),
       });
       registered = true;
@@ -1778,6 +1789,10 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
           sourceName: entry.name,
           sourceImage: entry.imagePath,
           diskPath: entry.diskPath,
+          // #272: re-hydrate mount-overlay paths from the registry so
+          // attach-owned snapshots reflink the lower+upper into the
+          // bundle exactly like boot-owned snapshots do.
+          mountDisk: entry.mountDisk,
           execRaw: (cmd, execOpts) => this.execRaw(cmd, execOpts),
           wait: () => this.wait(),
           kill: () => this.kill(),
@@ -1804,6 +1819,7 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
           sourceName: entry.name,
           sourceImage: entry.imagePath,
           diskPath: entry.diskPath,
+          mountDisk: entry.mountDisk,
           execRaw: (cmd, execOpts) => this.execRaw(cmd, execOpts),
           wait: () => this.wait(),
           kill: () => this.kill(),
@@ -2798,6 +2814,54 @@ async function performSnapshot(
     );
   }
 
+  // #272: reflink the `--mount` overlay's lower + upper into the
+  // bundle BEFORE the destructive poweroff. Two ordering concerns:
+  //   1. The runtime's exit handler unlinks the per-VM upper file
+  //      the moment the VMM exits — doing the reflink afterwards
+  //      would race ENOENT.
+  //   2. Guest writes to /mnt/<guest>/* land in the kernel's
+  //      ext4 page cache first; reflinking the upper before those
+  //      pages are flushed gives the restored VM a stale view of
+  //      the upper. CRIU dump doesn't sync the guest's filesystems,
+  //      so we issue `sync` via vsock first.
+  let mountDiskMeta: SnapshotMeta["mountDisk"] | undefined;
+  if (ctx.mountDisk) {
+    try {
+      // Best-effort sync. A failure here doesn't block the
+      // snapshot — the overlay is just at risk of a partial view,
+      // which the restored VM would surface as a missing recent
+      // write rather than corruption. We log and proceed.
+      await ctx.execRaw("sync && sync /mnt 2>/dev/null; true", {
+        connectTimeoutMs: Math.min(deadlineMs, 5_000),
+        execTimeoutMs: 10_000,
+      });
+    } catch (err) {
+      debugSnapshot(
+        "pre-reflink sync failed (continuing): %s",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+    const lowerName = "mount-lower.sqfs";
+    const upperName = "mount-upper.img";
+    try {
+      reflinkCopy(ctx.mountDisk.lowerPath, join(snapDir, lowerName));
+      reflinkCopy(ctx.mountDisk.upperPath, join(snapDir, upperName));
+    } catch (err) {
+      throw new SnapshotError(
+        "SNAPSHOT_DUMP_FAILED",
+        `vm.snapshot: failed to reflink mount overlay into bundle: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+        { cause: err },
+      );
+    }
+    mountDiskMeta = {
+      guest: ctx.mountDisk.guest,
+      lower: lowerName,
+      upper: upperName,
+    };
+  }
+
   // Destructive snapshot: the source VM is still alive (we always
   // pass --leave-running internally). Bring it down via a clean
   // poweroff so callers see the same "VM is gone after snapshot"
@@ -2836,35 +2900,6 @@ async function performSnapshot(
 
   phases.end("validation");
   phases.start("finalize");
-
-  // #272: if the source VM had a `--mount` overlay, reflink both
-  // backing files into the bundle. APFS clonefile / Linux FICLONE
-  // shares blocks until the next write to either side, so this is
-  // essentially free on capable filesystems and a regular copy
-  // elsewhere. Fork or cross-host restore reopen these files by fd
-  // without consulting the host source dir.
-  let mountDiskMeta: SnapshotMeta["mountDisk"] | undefined;
-  if (ctx.mountDisk) {
-    const lowerName = "mount-lower.sqfs";
-    const upperName = "mount-upper.img";
-    try {
-      reflinkCopy(ctx.mountDisk.lowerPath, join(snapDir, lowerName));
-      reflinkCopy(ctx.mountDisk.upperPath, join(snapDir, upperName));
-    } catch (err) {
-      throw new SnapshotError(
-        "SNAPSHOT_DUMP_FAILED",
-        `vm.snapshot: failed to reflink mount overlay into bundle: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-        { cause: err },
-      );
-    }
-    mountDiskMeta = {
-      guest: ctx.mountDisk.guest,
-      lower: lowerName,
-      upper: upperName,
-    };
-  }
 
   // Drop the bundle metadata next to the images so `restore({ snapDir })`
   // can recover the source name and rootfs path without poking at the
