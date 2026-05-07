@@ -381,6 +381,155 @@ else
 fi
 
 # ----------------------------------------------------------------
+# T6-T8: #272 mount-overlay end-to-end. T2 above proves the happy
+# path; these check the load-bearing properties the cpio path could
+# only guarantee by accident.
+# ----------------------------------------------------------------
+
+# ---- T6: sealed-fd — host source mutations after boot don't leak in ----
+#
+# Guarantee: the runtime opens the squashfs O_RDONLY before posix_spawn
+# and the VMM holds that fd for the VM's life. Even if mksquashfs were
+# re-run mid-VM (or someone mutates the host source dir on the side),
+# the guest's view stays anchored to the original snapshot.
+#
+# Test: boot with --mount; inside the guest, write a marker through
+# /tmp (which IS host-visible) so we know the VM is alive; then have
+# the guest sleep, mutate the host source, ls /mnt/data, assert the
+# new file is NOT visible inside the guest.
+#
+# Rather than juggle a long-lived VM, we exercise the simpler shape:
+# write the host marker FIRST, boot, mutate the host source, exec
+# `ls /mnt/data`. Because the VMM has already opened its fd, the
+# mid-run host write must not appear.
+echo "T6: --mount payload is sealed against mid-run host mutations"
+T6_MARKER="sealed-marker-$$"
+T6_LATE="late-host-write-$$"
+T6_DIR="$FIXTURE/t6-host"
+T6_LOG="$FIXTURE/t6.log"
+mkdir -p "$T6_DIR"
+echo "$T6_MARKER" >"$T6_DIR/anchored.txt"
+# Boot a long-running shell so we can mutate the host between the VMM
+# spawn and the guest's first read. The shell sleeps a beat, then ls's
+# the mount.
+( sleep 4; echo "$T6_LATE" >"$T6_DIR/late.txt" ) &
+LATE_PID=$!
+run_timeout 60 node "$CLI" boot \
+  --mount "$T6_DIR:/mnt/data" \
+  -- /bin/sh -c 'sleep 6; ls /mnt/data; cat /mnt/data/anchored.txt' \
+  >"$T6_LOG" 2>&1 || true
+wait $LATE_PID 2>/dev/null || true
+if grep -q "$T6_MARKER" "$T6_LOG" && ! grep -q "late.txt" "$T6_LOG"; then
+  pass "guest sees pre-boot bytes; mid-run host write was sealed out"
+else
+  tail -50 "$T6_LOG" >&2
+  fail "T6 — guest either missed the anchored marker or saw the late host write"
+fi
+
+# ---- T7: snapshot durability + cross-host restore ----
+#
+# Guarantee: the snapshot bundle reflinks the squashfs lower + ext4
+# upper into the bundle dir. Restore reads them back via fd, so the
+# original host source dir is never consulted on restore — even when
+# it doesn't exist on the restoring host.
+#
+# Test: boot with --mount; write a marker INTO /mnt/data from the
+# guest (lands in the upper); snapshot; delete the host source dir;
+# restore the snapshot; read /mnt/data/<marker>, assert it's there.
+if ! grep -q 'criu$' <<<"$ROOTFS_ENTRIES" || ! grep -q 'machinen-supervisor$' <<<"$ROOTFS_ENTRIES"; then
+  echo "T7: skipped (rootfs lacks criu/snapshot helpers)"
+else
+  echo "T7: snapshot durability across the source dir disappearing"
+  T7_NAME="t7-mount-snap-$$"
+  T7_HOST="$FIXTURE/t7-host"
+  T7_BUNDLE="$FIXTURE/t7-bundle"
+  T7_LOG="$FIXTURE/t7-boot.log"
+  T7_LOG2="$FIXTURE/t7-restore.log"
+  mkdir -p "$T7_HOST"
+  echo "from-host" >"$T7_HOST/seed.txt"
+  # Boot detached, write a guest-side file into the upper, then
+  # snapshot. The snapshot's --leave-running flag is implicit when we
+  # just call `machinen snapshot` — but the destructive snapshot we
+  # use here brings the VM down, which is what we want for restore.
+  run_timeout 90 node "$CLI" boot \
+    --detached \
+    --name "$T7_NAME" \
+    --mount "$T7_HOST:/mnt/data" \
+    --snapshot scratch \
+    -- /bin/sh -c 'while :; do sleep 1; done' \
+    >"$T7_LOG" 2>&1 || true
+  if ! node "$CLI" ls 2>/dev/null | grep -q "$T7_NAME"; then
+    tail -50 "$T7_LOG" >&2
+    fail "T7 — boot --detached didn't register $T7_NAME"
+  fi
+  # Plant a marker into the writable upper from inside the guest.
+  node "$CLI" exec --name "$T7_NAME" -- /bin/sh -c 'echo guest-wrote >/mnt/data/from-guest.txt' >>"$T7_LOG" 2>&1 || {
+    tail -50 "$T7_LOG" >&2
+    fail "T7 — couldn't write to /mnt/data from the guest"
+  }
+  # Snapshot. We assume the bundle ends up in $T7_BUNDLE.
+  node "$CLI" snapshot --name "$T7_NAME" --out-dir "$T7_BUNDLE" >>"$T7_LOG" 2>&1 || {
+    tail -50 "$T7_LOG" >&2
+    fail "T7 — machinen snapshot failed"
+  }
+  # Now make the original host source disappear, simulating a
+  # different machine. The bundle's mount-lower.sqfs and
+  # mount-upper.img must carry the data forward.
+  rm -rf "$T7_HOST"
+  if [[ -f "$T7_BUNDLE/mount-lower.sqfs" && -f "$T7_BUNDLE/mount-upper.img" ]]; then
+    pass "snapshot bundle carries mount-lower.sqfs + mount-upper.img"
+  else
+    ls -la "$T7_BUNDLE" >&2
+    fail "T7 — bundle missing mount-lower.sqfs / mount-upper.img"
+  fi
+  # Restore. The CLI auto-names the fork; we just want to read the
+  # marker through it.
+  T7_RESTORE_NAME="$(run_timeout 90 node "$CLI" restore --snap-dir "$T7_BUNDLE" --detached 2>>"$T7_LOG2" | awk '/^name:/ {print $2; exit}' || true)"
+  if [[ -z "$T7_RESTORE_NAME" ]]; then
+    tail -50 "$T7_LOG2" >&2
+    fail "T7 — restore didn't print a name"
+  fi
+  if node "$CLI" exec --name "$T7_RESTORE_NAME" -- cat /mnt/data/from-guest.txt 2>>"$T7_LOG2" | grep -q "guest-wrote"; then
+    pass "restored guest sees writes the source guest made into the upper"
+  else
+    tail -50 "$T7_LOG2" >&2
+    fail "T7 — restored guest can't read from-guest.txt"
+  fi
+  if node "$CLI" exec --name "$T7_RESTORE_NAME" -- cat /mnt/data/seed.txt 2>>"$T7_LOG2" | grep -q "from-host"; then
+    pass "restored guest sees pre-snapshot host bytes after the source dir is gone"
+  else
+    tail -50 "$T7_LOG2" >&2
+    fail "T7 — restored guest can't read seed.txt"
+  fi
+  # Tidy up.
+  node "$CLI" stop --name "$T7_NAME" >/dev/null 2>&1 || true
+  node "$CLI" stop --name "$T7_RESTORE_NAME" >/dev/null 2>&1 || true
+fi
+
+# ---- T8: /init mount-order — overlay is up before the user cmd runs ----
+#
+# Guarantee: bringUpMountDisk runs before /init exec's the user's
+# command. The user's `cat /proc/self/mounts` therefore shows an
+# overlay entry rooted at the guest path.
+echo "T8: /init mounts the --mount overlay before the user cmd runs"
+T8_DIR="$FIXTURE/t8-host"
+T8_LOG="$FIXTURE/t8.log"
+mkdir -p "$T8_DIR"
+echo "anchor" >"$T8_DIR/anchor.txt"
+run_timeout 60 node "$CLI" boot \
+  --mount "$T8_DIR:/mnt/t8" \
+  -- /bin/sh -c 'cat /proc/self/mounts' \
+  >"$T8_LOG" 2>&1 || true
+# Overlayfs lines are formatted like:
+#   overlay /mnt/t8 overlay rw,relatime,...
+if grep -E '^overlay /mnt/t8 overlay ' "$T8_LOG" >/dev/null; then
+  pass "/proc/self/mounts shows overlay rooted at the guest path"
+else
+  tail -50 "$T8_LOG" >&2
+  fail "T8 — overlay mount missing from /proc/self/mounts at user-cmd time"
+fi
+
+# ----------------------------------------------------------------
 # M-series: #263 phase A — auto-sized RAM ceiling + --memory knob.
 # Each boot cats /proc/meminfo into the kernel console; we assert the
 # guest's MemTotal lands in the expected band. MemTotal is reported in

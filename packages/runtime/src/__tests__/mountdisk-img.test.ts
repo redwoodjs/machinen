@@ -6,6 +6,7 @@
 // tests here cover the parts that can be tested without shelling out:
 // manifest hashing, cache-key computation, and the resolver chain.
 
+import { execFileSync } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
@@ -248,5 +249,70 @@ describe("ensureMountDiskImage", () => {
 describe("ensureMountDiskUpper", () => {
   it("rejects non-aligned sizeBytes", () => {
     expect(() => ensureMountDiskUpper({ sizeBytes: 4097 })).toThrow(/multiple of 4096/);
+  });
+});
+
+// #272: prove the squashfs lower preserves symlinks bit-for-bit.
+// mksquashfs pulls in libraries (lz4, lzma, zstd) and a real read of
+// the host fs, so this test only runs when the runtime can resolve a
+// usable mksquashfs (bundled package, env override, or PATH). On
+// hosts without it the test skips silently — that matches how other
+// optional-tool tests in this repo behave.
+describe("ensureMountDiskImage symlink round-trip", () => {
+  let tmp: string;
+
+  beforeEach(() => {
+    tmp = mkdtempSync(join(tmpdir(), "machinen-mountdisk-symlink-"));
+  });
+
+  afterEach(() => {
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it("preserves symlinks through the squashfs round-trip", () => {
+    if (!resolveMksquashfs()) {
+      // No mksquashfs on this host — bundled package missing, env
+      // override unset, system squashfs-tools not installed. Skip.
+      return;
+    }
+    // Find unsquashfs alongside mksquashfs (same package). Without
+    // it we can't read the squashfs back here — skip.
+    let unsquashfs: string | undefined;
+    try {
+      const out = execFileSync("/usr/bin/env", ["which", "unsquashfs"], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim();
+      if (out) {
+        unsquashfs = out;
+      }
+    } catch {
+      // not on PATH — fall through and skip.
+    }
+    if (!unsquashfs) {
+      return;
+    }
+
+    // Build a host dir with a symlink we can recognise.
+    const host = join(tmp, "host");
+    mkdirSync(host, { recursive: true });
+    writeFileSync(join(host, "real.txt"), "real-content");
+    symlinkSync("real.txt", join(host, "alias"));
+    utimesSync(join(host, "real.txt"), 1000, 1000);
+
+    const cacheDir = join(tmp, "cache");
+    mkdirSync(cacheDir, { recursive: true });
+    const r = ensureMountDiskImage(host, { cacheDir });
+
+    // Use unsquashfs -ll to list the archive without unpacking.
+    // Symlinks appear with `lrwxrwxrwx` and `-> target` in the output.
+    const out = execFileSync(unsquashfs, ["-no-progress", "-ll", r.lowerPath], {
+      encoding: "utf8",
+    });
+    // Look for the alias symlink line.
+    const aliasLine = out.split("\n").find((line) => line.includes("alias"));
+    expect(aliasLine, "alias entry missing from squashfs listing").toBeDefined();
+    expect(aliasLine!).toMatch(/^l/); // entry type letter for symlinks
+    expect(aliasLine!).toContain("-> real.txt");
   });
 });

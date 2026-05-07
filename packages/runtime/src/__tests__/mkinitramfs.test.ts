@@ -5,7 +5,17 @@
 // `cpio -id`) keeps the tests hermetic — not every CI runner ships a
 // cpio binary with matching flag semantics.
 
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  ftruncateSync,
+  mkdirSync,
+  mkdtempSync,
+  openSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -344,6 +354,42 @@ describe("packBundle mount", () => {
     packTinyBundle({ bundle, out, initPath: stubInit });
     const entries = listCpioEntries(out);
     expect(entries.has("etc/machinen-mountdisk-guest")).toBe(false);
+  });
+
+  // #272: inverse of the existing tiny-cpio size cap. The host source
+  // dir for a `--mount` no longer rides through the cpio, so even a
+  // half-gig mount should leave packTinyBundle's output well under
+  // 1 MiB. Pre-#272 this test would have ballooned the cpio to ~512
+  // MiB. Uses a single sparse file so the test costs no disk and
+  // doesn't slow CI; the property under test is "cpio stays tiny",
+  // not "fs handles huge files."
+  it("packTinyBundle stays tiny even with a 512 MiB mount source", () => {
+    const bundle = makeEmptyBundle();
+    const out = join(tmp, "tiny-large-mount.cpio");
+    const stubInit = join(tmp, "stub-init");
+    writeFileSync(stubInit, "stub");
+    // Build a host dir with a 512 MiB sparse file. The runtime would
+    // mksquashfs this out-of-band; the cpio shouldn't carry it.
+    const hostDir = join(tmp, "host");
+    mkdirSync(hostDir);
+    const bigFd = openSync(join(hostDir, "big.bin"), "w");
+    try {
+      // Stretch to 512 MiB without actually writing.
+      ftruncateSync(bigFd, 512 * 1024 * 1024);
+    } finally {
+      closeSync(bigFd);
+    }
+    packTinyBundle({
+      bundle,
+      out,
+      initPath: stubInit,
+      mountGuest: "/mnt/data",
+    });
+    // Cap matches the existing tiny-cpio assertion above. If this
+    // ever fails, somebody re-introduced a cpio-overlay path for the
+    // mount payload — which #272 explicitly removed.
+    const size = statSync(out).size;
+    expect(size).toBeLessThan(1024 * 1024);
   });
 
   it("leaves non-colliding mount paths alone when the bundle overlays a sibling", () => {
