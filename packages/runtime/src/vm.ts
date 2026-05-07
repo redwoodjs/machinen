@@ -64,6 +64,11 @@ import { readHostRssBytes } from "./proc-rss.ts";
 import { ensurePdeathsig, wrapWithPdeathsig } from "./pdeathsig.ts";
 import { reflinkCopy } from "./reflink.ts";
 import { ensureRootfsImage, markRootfsImageClean } from "./rootfs-img.ts";
+import {
+  ensureMountDiskImage,
+  ensureMountDiskUpper,
+  markMountDiskImageClean,
+} from "./mountdisk-img.ts";
 import { VsockExec, type VsockExecOptions, type VsockExecResult } from "./exec.ts";
 import { serveLiveMount, type LiveMountServerHandle } from "./mount-server.ts";
 import { markPagemapsLazy } from "./lazy-pagemap.ts";
@@ -299,19 +304,59 @@ export interface BootOptions {
    */
   forkedFrom?: string;
   /**
-   * A single host directory copied into the guest at boot. The guest
-   * path must live under `/mnt/`. Copy-once semantics: guest writes are
-   * discarded when the VM exits. See #64, #78.
+   * A single host directory exposed to the guest as a writable
+   * filesystem rooted under `/mnt/<guest>/`. Guest writes survive
+   * snapshot/restore but never leak to the host source dir.
    *
-   * The payload rides through the initramfs cpio (overlaid under
-   * `/mnt/<guest>/` at pack time) and is then carried across the
-   * rootdisk pivot by `/init` into the on-disk rootfs. With
-   * `rootDisk: true` (the default) the mount briefly counts against
-   * the initramfs RAM ceiling at unpack — the same ceiling #114 was
-   * designed to relieve for the rootfs proper. For very large mounts
-   * prefer `liveMount` (FUSE pass-through, no copy). See #125.
+   * Implementation (#272): the runtime builds a content-addressed
+   * read-only squashfs lower from `host` (cached in
+   * `~/.cache/machinen/mountdisk/`) and a per-VM ext4 sparse upper
+   * (4 GiB by default; bump via `mountDiskUpperSizeBytes`). Both
+   * files are fd-passed to the VMM, surfacing inside the guest as
+   * `/dev/vdc` (RO) and `/dev/vdd` (RW); /init layers them as a
+   * single overlayfs at `<guest>/`. The squashfs lower stays
+   * sealed for the VM's lifetime; writes go to the upper, which
+   * is reflinked into snapshot bundles so forks see prior writes
+   * without touching the source dir.
+   *
+   * Trade-off vs. `liveMount`: `mount` is copy-into-disk-image (no
+   * runtime channel back to the host source dir, snapshots cleanly,
+   * but writes don't propagate to the host); `liveMount` is a live
+   * vsock-FUSE pass-through (writes land on the host, doesn't survive
+   * snapshot/restore). Pick `mount` for inputs the guest may modify
+   * but the host shouldn't see; `liveMount` for shared scratch.
+   *
+   * See #64 (original `mount`), #78 (`liveMount`), #114 (rootdisk
+   * relocation; same shape), #272 (this overlay relocation).
    */
   mount?: { host: string; guest: string };
+  /**
+   * Absolute target size (bytes) for the per-VM ext4 RW upper of
+   * the `--mount` overlay (#272). Sparse, so unused capacity costs
+   * nothing on the host disk. Mirrors `rootDiskSizeBytes` (#131) —
+   * over-provision so the guest has plenty of room to write into
+   * the mount before hitting ENOSPC.
+   *
+   * Must be a positive multiple of 4096. Default 4 GiB.
+   */
+  mountDiskUpperSizeBytes?: number;
+  /**
+   * Internal: when set, skips the squashfs+ext4 materialization
+   * pipeline and uses pre-existing lower/upper files (typically the
+   * ones a snapshot bundle carries). Used by `restore()` to
+   * reconstruct the overlay without re-running `mksquashfs` on the
+   * host source dir (which may not exist on the restoring host).
+   *
+   * The runtime reflinks `upperPath` into a per-VM path so guest
+   * writes don't mutate the bundle in-place.
+   *
+   * @internal
+   */
+  _restoreMountDisk?: {
+    guest: string;
+    lowerPath: string;
+    upperPath: string;
+  };
   /**
    * Host directories exposed to the guest as live-share FUSE mounts
    * (#78). Unlike `mount` (copy-once into the boot rootfs), these stay
@@ -763,6 +808,14 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   let gvSocketDir: string | undefined;
   const liveMountServers: LiveMountServerHandle[] = [];
   let bundleTempDir: string | undefined;
+  // #272: paths to the materialized squashfs lower + per-VM ext4
+  // upper for the `--mount` overlay. The lower lives in the host
+  // cache and survives this boot; the upper is per-VM and gets
+  // unlinked on VM exit unless a snapshot reflinks it first.
+  let mountDiskPaths:
+    | { lowerPath: string; upperPath: string; guest: string; upperSizeBytes: number }
+    | undefined;
+  let perBootMountUpper: string | undefined;
   const mergedGuestEnv: Record<string, string> = { ...opts.env };
 
   // Surface the VM name in the guest so an interactive shell prompt
@@ -837,10 +890,16 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       const packed = synthesizeAndPackBundle(opts, mergedGuestEnv, liveMountsResolved, {
         useTiny: wantsRootDisk,
         env,
+        mountDiskUpperSizeBytes: opts.mountDiskUpperSizeBytes,
         onPhase: (name, ms) => phases.mark(`initramfs-pack.${name}`, ms),
       });
       bundleTempDir = packed.tempDir;
       env.MACHINEN_INITRD = packed.cpioPath;
+      // #272: stash the materialized squashfs lower / ext4 upper so
+      // the spawn block can openSync + fd-pass them. The per-VM upper
+      // gets unlinked on VM exit alongside the per-boot rootdisk
+      // reflink; the lower stays in the host cache.
+      mountDiskPaths = packed.mountDisk;
       const packMs = phases.end("initramfs-pack");
       debug("initramfs packed cpio=%s elapsed=%dms", packed.cpioPath, packMs ?? -1);
     }
@@ -918,6 +977,11 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         unlinkSync(perBootSnapDisk);
       } catch {}
     }
+    if (perBootMountUpper) {
+      try {
+        unlinkSync(perBootMountUpper);
+      } catch {}
+    }
     throw err;
   }
 
@@ -935,11 +999,56 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   phases.start("vmm-spawn");
   const vmmPdeathsig = opts.detached || opts.pdeathsig === false ? null : await ensurePdeathsig();
   const wrappedVmm = wrapWithPdeathsig(vmmPdeathsig, binary, opts.args ?? []);
+  // #272: when the runtime materialized a `--mount` overlay, openSync
+  // the squashfs lower (O_RDONLY) and the per-VM ext4 upper (O_RDWR)
+  // and pass both fds through `stdio` so the VMM child inherits them.
+  // The child receives them at array indexes 3 and 4, so we tell the
+  // VMM to wrap fds 3 and 4 as the slot-5 / slot-6 virtio-blk
+  // backends via env vars. The host source dir is never opened by
+  // the child — the fds are the only handle into the payload.
+  const stdio: Array<"pipe" | number> = ["pipe", "pipe", "pipe"];
+  let mountDiskLowerFd: number | undefined;
+  let mountDiskUpperFd: number | undefined;
+  if (mountDiskPaths) {
+    try {
+      mountDiskLowerFd = openSync(mountDiskPaths.lowerPath, "r");
+      mountDiskUpperFd = openSync(mountDiskPaths.upperPath, "r+");
+    } catch (err) {
+      if (mountDiskLowerFd !== undefined) {
+        try {
+          closeSync(mountDiskLowerFd);
+        } catch {}
+      }
+      throw new BootError(
+        "BOOT_MOUNTDISK_TOOL_MISSING",
+        `boot: failed to open mountdisk fd: ${err instanceof Error ? err.message : String(err)}`,
+        { cause: err },
+      );
+    }
+    stdio.push(mountDiskLowerFd, mountDiskUpperFd);
+    env.MACHINEN_MOUNTDISK_LOWER_FD = "3";
+    env.MACHINEN_MOUNTDISK_UPPER_FD = "4";
+    perBootMountUpper = mountDiskPaths.upperPath;
+  }
   const child = nodeSpawn(wrappedVmm.command, wrappedVmm.args, {
     cwd: opts.cwd,
     env,
-    stdio: ["pipe", "pipe", "pipe"],
+    stdio,
   }) as ChildProcessWithoutNullStreams;
+  // The child has dup'd both fds; close our copies in the parent so
+  // the file isn't held open beyond what the child needs. Closing
+  // here is safe — the child has its own dup'd fd via posix_spawn /
+  // libuv's fd inheritance.
+  if (mountDiskLowerFd !== undefined) {
+    try {
+      closeSync(mountDiskLowerFd);
+    } catch {}
+  }
+  if (mountDiskUpperFd !== undefined) {
+    try {
+      closeSync(mountDiskUpperFd);
+    } catch {}
+  }
   phases.end("vmm-spawn");
   // first-guest-byte starts ticking from VMM-spawn — that's the point
   // after which any console output is real guest progress.
@@ -1003,6 +1112,11 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   if (perBootSnapDisk) {
     cleanupPaths.push(perBootSnapDisk);
   }
+  if (perBootMountUpper) {
+    // #272: per-VM ext4 upper. Reflinked into a snapshot bundle by
+    // performSnapshot when present; otherwise unlinked on VM exit.
+    cleanupPaths.push(perBootMountUpper);
+  }
   if (bundleTempDir) {
     cleanupPaths.push(bundleTempDir);
   }
@@ -1033,6 +1147,17 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         portForward: portForward.length > 0 ? portForward : undefined,
         memoryCeilingMib,
         statsPath: statsFilePath,
+        // #272: persist mount-overlay paths so an attach-owned
+        // vm.snapshot()/fork() can reflink the lower+upper into the
+        // bundle. Without this, `machinen snapshot --name <vm>` from
+        // the CLI produces a bundle that's missing the overlay halves.
+        mountDisk: mountDiskPaths
+          ? {
+              guest: mountDiskPaths.guest,
+              lowerPath: mountDiskPaths.lowerPath,
+              upperPath: mountDiskPaths.upperPath,
+            }
+          : undefined,
         startedAt: Date.now(),
       });
       registered = true;
@@ -1068,6 +1193,13 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     if (perBootSnapDisk) {
       try {
         unlinkSync(perBootSnapDisk);
+      } catch {}
+    }
+    if (perBootMountUpper) {
+      // #272: drop the per-VM ext4 upper unless something earlier
+      // already moved it (vm.snapshot reflinks-and-keeps the upper).
+      try {
+        unlinkSync(perBootMountUpper);
       } catch {}
     }
     if (bundleTempDir) {
@@ -1347,6 +1479,13 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
           sourceName: vmName,
           sourceImage: sourceImageAbs,
           diskPath: diskAbs,
+          mountDisk: mountDiskPaths
+            ? {
+                guest: mountDiskPaths.guest,
+                lowerPath: mountDiskPaths.lowerPath,
+                upperPath: mountDiskPaths.upperPath,
+              }
+            : undefined,
           execRaw: (cmd, execOpts) => this.execRaw(cmd, execOpts),
           wait: () => this.wait(),
           kill: () => this.kill(),
@@ -1380,6 +1519,13 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
           sourceName: vmName,
           sourceImage: sourceImageAbs,
           diskPath: diskAbs,
+          mountDisk: mountDiskPaths
+            ? {
+                guest: mountDiskPaths.guest,
+                lowerPath: mountDiskPaths.lowerPath,
+                upperPath: mountDiskPaths.upperPath,
+              }
+            : undefined,
           execRaw: (cmd, execOpts) => this.execRaw(cmd, execOpts),
           wait: () => this.wait(),
           kill: () => this.kill(),
@@ -1643,6 +1789,10 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
           sourceName: entry.name,
           sourceImage: entry.imagePath,
           diskPath: entry.diskPath,
+          // #272: re-hydrate mount-overlay paths from the registry so
+          // attach-owned snapshots reflink the lower+upper into the
+          // bundle exactly like boot-owned snapshots do.
+          mountDisk: entry.mountDisk,
           execRaw: (cmd, execOpts) => this.execRaw(cmd, execOpts),
           wait: () => this.wait(),
           kill: () => this.kill(),
@@ -1669,6 +1819,7 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
           sourceName: entry.name,
           sourceImage: entry.imagePath,
           diskPath: entry.diskPath,
+          mountDisk: entry.mountDisk,
           execRaw: (cmd, execOpts) => this.execRaw(cmd, execOpts),
           wait: () => this.wait(),
           kill: () => this.kill(),
@@ -1883,9 +2034,19 @@ function synthesizeAndPackBundle(
   packerOpts: {
     useTiny: boolean;
     env: Record<string, string>;
+    mountDiskUpperSizeBytes?: number;
     onPhase?: (name: string, ms: number) => void;
   },
-): { tempDir: string; cpioPath: string } {
+): {
+  tempDir: string;
+  cpioPath: string;
+  mountDisk?: {
+    lowerPath: string;
+    upperPath: string;
+    guest: string;
+    upperSizeBytes: number;
+  };
+} {
   const tempDir = mkdtempSync(join(tmpdir(), "machinen-bundle-"));
   const cpioPath = join(tempDir, "initramfs.cpio");
   const synthBundleDir = join(tempDir, "bundle");
@@ -2027,12 +2188,22 @@ function synthesizeAndPackBundle(
       // #119: rootDisk path. The on-disk rootfs is mounted from /dev/vda
       // by /init; the cpio only ships /init + machinen-config.json +
       // boot-epoch + /dev/console (~500 KB). The custom kernel
-      // (scripts/build-kernel-arm64.sh) has virtio_*, ext4, and vsock
-      // built in, so no /modules/*.ko or finit_module pass is needed.
+      // (scripts/build-kernel-arm64.sh) has virtio_*, ext4, vsock,
+      // squashfs, and overlayfs built in, so no /modules/*.ko or
+      // finit_module pass is needed.
+      //
+      // #272: the `--mount` payload no longer rides in the cpio. We
+      // pass `mountGuest` so /init learns the target path; the actual
+      // bytes ride on virtio-blk slots 5+6 (set up further down in
+      // boot()).
       mkinitramfsPackTinyBundle({
         bundle: synthBundleDir,
         out: cpioPath,
-        mount,
+        // The cpio just carries the guest mountpoint string for /init
+        // to read. The actual payload (whether materialized fresh or
+        // sourced from a snapshot bundle) rides on virtio-blk slots
+        // 5+6, attached further down in boot().
+        mountGuest: mount?.guest ?? opts._restoreMountDisk?.guest,
         env: effectiveEnv,
         fuseAgentPath: liveMounts.length > 0 ? defaultFuseAgentPath() : undefined,
       });
@@ -2040,6 +2211,9 @@ function synthesizeAndPackBundle(
       // Legacy fat cpio: explicit `rootDisk: false` opt-out. Drags the
       // entire base tarball into RAM, by design — callers that need a
       // Debian userland in the cpio (no virtio-blk root) land here.
+      // The legacy cpio overlay path is preserved here: this branch
+      // does not get the virtio-blk mount overlay, since the kernel
+      // would have to wait for the rootdisk pivot anyway.
       mkinitramfsPackBundle({
         bundle: synthBundleDir,
         out: cpioPath,
@@ -2055,7 +2229,82 @@ function synthesizeAndPackBundle(
     const msg = err instanceof Error ? err.message : String(err);
     throw new BootError("BOOT_PACK_FAILED", `mkinitramfs pack failed: ${msg}`, { cause: err });
   }
-  return { tempDir, cpioPath };
+  // #272: the rootDisk path also needs the squashfs+ext4 payload
+  // built and fd-passed to the VMM. Two paths:
+  //   - fresh boot with `mount`: materialize a content-addressed
+  //     squashfs lower from the host source dir + a per-VM ext4 upper.
+  //   - restore from a snapshot bundle (`_restoreMountDisk`): reuse
+  //     the bundle's lower as-is (it's already content-addressed and
+  //     immutable), but reflink the bundle's upper into a per-VM
+  //     path so guest writes don't mutate the bundle in-place.
+  //
+  // Materialize here so a missing mksquashfs fails fast at boot rather
+  // than mid-spawn.
+  let mountDisk:
+    | { lowerPath: string; upperPath: string; guest: string; upperSizeBytes: number }
+    | undefined;
+  if (packerOpts.useTiny) {
+    if (opts._restoreMountDisk) {
+      try {
+        const r = opts._restoreMountDisk;
+        if (!existsSync(r.lowerPath)) {
+          throw new BootError(
+            "BOOT_SNAPSHOT_NOT_FOUND",
+            `restore: bundle is missing mount-lower at ${r.lowerPath}`,
+          );
+        }
+        if (!existsSync(r.upperPath)) {
+          throw new BootError(
+            "BOOT_SNAPSHOT_NOT_FOUND",
+            `restore: bundle is missing mount-upper at ${r.upperPath}`,
+          );
+        }
+        // Reflink the upper so writes accumulate per-fork instead of
+        // mutating the bundle. APFS clonefile / Linux FICLONE on
+        // capable fs (free, shared blocks until guest writes); falls
+        // back to a regular copy elsewhere.
+        const perVMUpper = join(
+          tmpdir(),
+          `machinen-mountdisk-upper-${process.pid}-${randomBytes(6).toString("hex")}.img`,
+        );
+        reflinkCopy(r.upperPath, perVMUpper);
+        const upperSize = statSync(perVMUpper).size;
+        mountDisk = {
+          lowerPath: r.lowerPath,
+          upperPath: perVMUpper,
+          guest: r.guest,
+          upperSizeBytes: upperSize,
+        };
+      } catch (err) {
+        cleanup();
+        throw err;
+      }
+    } else if (mount) {
+      try {
+        const lower = ensureMountDiskImage(mount.host, {
+          onPhase: (name, ms) => packerOpts.onPhase?.(`mountdisk.${name}`, ms),
+        });
+        // markMountDiskImageClean is idempotent and safe to call here —
+        // we only READ the cached file; the per-boot boot() flow takes
+        // ownership of the .ok marker via the same lifecycle the
+        // rootdisk uses.
+        const upper = ensureMountDiskUpper({
+          sizeBytes: packerOpts.mountDiskUpperSizeBytes,
+        });
+        mountDisk = {
+          lowerPath: lower.lowerPath,
+          upperPath: upper.upperPath,
+          guest: mount.guest,
+          upperSizeBytes: upper.sizeBytes,
+        };
+        markMountDiskImageClean(lower.lowerPath);
+      } catch (err) {
+        cleanup();
+        throw err;
+      }
+    }
+  }
+  return { tempDir, cpioPath, mountDisk };
 }
 
 // The user-facing mount root. Guest paths must live under this prefix
@@ -2302,6 +2551,18 @@ interface SnapshotContext {
   sourceImage?: string;
   /** Host file backing /dev/vda — what we copy into the bundle on success. */
   diskPath: string;
+  /**
+   * #272: when the source VM was booted with `mount: { host, guest }`,
+   * the runtime materialized a squashfs lower + ext4 upper. We need
+   * to reflink both files into the snapshot bundle so a restore
+   * elsewhere can mount the same overlay without consulting the host
+   * source dir. Undefined when no mount was configured.
+   */
+  mountDisk?: {
+    guest: string;
+    lowerPath: string;
+    upperPath: string;
+  };
   execRaw: (cmd: string, opts?: VsockExecOptions) => Promise<VsockExecResult>;
   wait: () => Promise<{ code: number | null; signal: NodeJS.Signals | null }>;
   kill: () => Promise<void>;
@@ -2553,6 +2814,54 @@ async function performSnapshot(
     );
   }
 
+  // #272: reflink the `--mount` overlay's lower + upper into the
+  // bundle BEFORE the destructive poweroff. Two ordering concerns:
+  //   1. The runtime's exit handler unlinks the per-VM upper file
+  //      the moment the VMM exits — doing the reflink afterwards
+  //      would race ENOENT.
+  //   2. Guest writes to /mnt/<guest>/* land in the kernel's
+  //      ext4 page cache first; reflinking the upper before those
+  //      pages are flushed gives the restored VM a stale view of
+  //      the upper. CRIU dump doesn't sync the guest's filesystems,
+  //      so we issue `sync` via vsock first.
+  let mountDiskMeta: SnapshotMeta["mountDisk"] | undefined;
+  if (ctx.mountDisk) {
+    try {
+      // Best-effort sync. A failure here doesn't block the
+      // snapshot — the overlay is just at risk of a partial view,
+      // which the restored VM would surface as a missing recent
+      // write rather than corruption. We log and proceed.
+      await ctx.execRaw("sync && sync /mnt 2>/dev/null; true", {
+        connectTimeoutMs: Math.min(deadlineMs, 5_000),
+        execTimeoutMs: 10_000,
+      });
+    } catch (err) {
+      debugSnapshot(
+        "pre-reflink sync failed (continuing): %s",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+    const lowerName = "mount-lower.sqfs";
+    const upperName = "mount-upper.img";
+    try {
+      reflinkCopy(ctx.mountDisk.lowerPath, join(snapDir, lowerName));
+      reflinkCopy(ctx.mountDisk.upperPath, join(snapDir, upperName));
+    } catch (err) {
+      throw new SnapshotError(
+        "SNAPSHOT_DUMP_FAILED",
+        `vm.snapshot: failed to reflink mount overlay into bundle: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+        { cause: err },
+      );
+    }
+    mountDiskMeta = {
+      guest: ctx.mountDisk.guest,
+      lower: lowerName,
+      upper: upperName,
+    };
+  }
+
   // Destructive snapshot: the source VM is still alive (we always
   // pass --leave-running internally). Bring it down via a clean
   // poweroff so callers see the same "VM is gone after snapshot"
@@ -2603,6 +2912,7 @@ async function performSnapshot(
     sourceName: ctx.sourceName,
     sourceImage: ctx.sourceImage,
     snappedAt: Date.now(),
+    mountDisk: mountDiskMeta,
   };
   writeFileSync(join(snapDir, "meta.json"), JSON.stringify(meta));
   phases.end("finalize");
@@ -2843,6 +3153,28 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
   }
   phases.end("snapshot-pack");
 
+  // #272: when the snapshot bundle includes a `--mount` overlay,
+  // hand the lower/upper paths through to boot() so it can fd-pass
+  // them to the VMM without re-running mksquashfs on the host source
+  // dir. Each fork reflinks the upper into a per-VM file so guest
+  // writes accumulate per-fork, not in the bundle.
+  let restoreMountDisk: BootOptions["_restoreMountDisk"];
+  if (meta.mountDisk) {
+    const lowerAbs = join(snapDir, meta.mountDisk.lower);
+    const upperAbs = join(snapDir, meta.mountDisk.upper);
+    if (!existsSync(lowerAbs) || !existsSync(upperAbs)) {
+      throw new BootError(
+        "BOOT_SNAPSHOT_NOT_FOUND",
+        `restore: bundle's mount overlay is missing one of:\n  ${lowerAbs}\n  ${upperAbs}`,
+      );
+    }
+    restoreMountDisk = {
+      guest: meta.mountDisk.guest,
+      lowerPath: lowerAbs,
+      upperPath: upperAbs,
+    };
+  }
+
   // boot() doesn't know the pid until after the VMM is spawned, so
   // we can't pass `<sourceName>/<pid>` up front. Boot anonymous,
   // then claim the auto-name and patch the registry entry below.
@@ -2857,6 +3189,7 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
       name: opts.name,
       liveMounts,
       env: { ...opts.env, ...restoreEnv },
+      _restoreMountDisk: restoreMountDisk,
     });
   } finally {
     // boot() reflink-clones the source into a per-boot path before

@@ -140,6 +140,21 @@ export interface RegistryEntry {
    * Undefined when the VM wasn't lazy-restored.
    */
   lazyPagesMountRoot?: string;
+  /**
+   * #272: when the VM was booted with `mount: { host, guest }`, the
+   * runtime materialized a squashfs RO lower + ext4 RW upper. Persist
+   * those host paths so an attach-owned `vm.snapshot()` /
+   * `vm.fork()` can reflink them into the snapshot bundle exactly
+   * like the boot-owned handle does — without this, a CLI-side
+   * `machinen snapshot --name <vm>` produces a bundle missing
+   * `mount-lower.sqfs` / `mount-upper.img` and a later `restore`
+   * silently boots without the overlay.
+   */
+  mountDisk?: {
+    guest: string;
+    lowerPath: string;
+    upperPath: string;
+  };
   /** ms epoch when the entry was created. */
   startedAt: number;
 }

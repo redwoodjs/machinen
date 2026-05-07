@@ -101,6 +101,22 @@ const NEWROOT = "/newroot";
 // so its presence is a reliable signal. See #114.
 const ROOTFS_MARKER = "/newroot/sbin/machinen-supervisor";
 
+// #272: virtio-blk slots 5 and 6 carry the `--mount` overlay's RO
+// lower (squashfs) and RW upper (ext4). DTB probe order maps them to
+// /dev/vdc and /dev/vdd when rootdisk + scratch are also present;
+// without rootdisk + scratch the letters shift down. We wait for
+// either pair (one rootdisk + scratch + lower + upper, or rootdisk +
+// lower + upper, or just lower + upper) to bind by walking
+// /sys/block for any virtio-blk device whose first 4 bytes are the
+// squashfs magic. See bringUpMountDisk() below.
+const MOUNTDISK_GUEST_PATH = "/etc/machinen-mountdisk-guest";
+// Workdir for the overlay's atomic-rename machinery. Must live on the
+// same fs as the upperdir; ext4 satisfies that.
+const OVERLAY_LOWER_MNT = "/run/.mountdisk-lower";
+const OVERLAY_UPPER_MNT = "/run/.mountdisk-upper";
+const OVERLAY_UPPER_DIR = "/run/.mountdisk-upper/upper";
+const OVERLAY_WORK_DIR = "/run/.mountdisk-upper/work";
+
 fn writeStr(fd: c_int, s: []const u8) void {
     _ = write(fd, s.ptr, s.len);
 }
@@ -610,6 +626,10 @@ fn tryRootDiskPivot() bool {
     // bake these in.
     copyFileBest("/machinen-config.json", "/newroot/machinen-config.json");
     copyFileBest("/etc/machinen-boot-epoch", "/newroot/etc/machinen-boot-epoch");
+    // #272: bringUpMountDisk reads this file from /etc/ post-pivot to
+    // learn which guest path the squashfs+ext4 overlay should land at.
+    // Without the carry it would stay on the discarded initramfs tmpfs.
+    copyFileBest("/etc/machinen-mountdisk-guest", "/newroot/etc/machinen-mountdisk-guest");
 
     // #113: carry /fuse-agent from the cpio across the pivot so the
     // freshest binary always wins, mirroring the /init injection
@@ -620,12 +640,10 @@ fn tryRootDiskPivot() bool {
     // wasn't requested (cpio /fuse-agent absent).
     copyExecBest("/fuse-agent", "/newroot/fuse-agent");
 
-    // #125: carry the user's `mount: { host, guest }` payload across
-    // the pivot. mkinitramfs.ts overlays it under /mnt/<guest>/ in
-    // the cpio; without this copy it would be stranded on the
-    // discarded initramfs tmpfs after the chroot below. No-op when
-    // the user didn't pass a mount.
-    copyTreeBest("/mnt", "/newroot/mnt");
+    // #272: the `--mount` payload no longer rides in the cpio. It now
+    // lives on /dev/vdc (squashfs RO lower) + /dev/vdd (ext4 RW upper),
+    // mounted as an overlayfs after the chroot below by
+    // bringUpMountDisk(). Nothing to copy across the pivot.
 
     if (chroot(NEWROOT) != 0) {
         // chroot can't really fail at PID 1 with valid args, but if it
@@ -648,6 +666,260 @@ fn waitForPath(path: [*:0]const u8, timeout_ms: i64) bool {
         sleepMs(25);
     }
     return false;
+}
+
+// #272: bring up the `--mount` overlay. The runtime fd-passes a
+// content-addressed squashfs lower and a per-VM ext4 upper through
+// MACHINEN_MOUNTDISK_{LOWER,UPPER}_FD; the VMM exposes both as
+// virtio-blk devices on slots 5+6. We:
+//
+//   1. Read the desired guest mountpoint from /etc/machinen-mountdisk-guest
+//      (a few bytes baked in by the cpio; absent → no mount payload).
+//   2. Walk /dev for virtio-blk devices and identify which one is the
+//      squashfs (magic "hsqs") vs the ext4 (magic 0xEF53 at offset 1080).
+//      We don't hardcode /dev/vdc/vdd because the letter assignment
+//      shifts based on which other slots are present.
+//   3. Mount the squashfs read-only at OVERLAY_LOWER_MNT.
+//   4. Mount the ext4 with discard at OVERLAY_UPPER_MNT, online-grow it
+//      to fill the device, then ensure upper/ + work/ exist.
+//   5. Mount overlayfs(lowerdir, upperdir, workdir) at the user's
+//      guest path (created mkdir -p).
+//
+// Failures are surfaced via klog and the boot continues — a broken
+// mount is not worth refusing the whole boot, and the user cmd will
+// fail with a clear ENOENT against /mnt/<guest>/ anyway. The
+// happy-path flow assumes the kernel ships SQUASHFS + OVERLAY_FS
+// (scripts/build-kernel-arm64.sh enforces this).
+fn bringUpMountDisk() void {
+    // 1. Guest path. Absent → no mount was requested by the runtime.
+    const guest = readGuestMountpoint() orelse return;
+    klog("checkpoint: mountdisk: guest path read");
+
+    // 2. Identify the two virtio-blk devices. squashfs lower first,
+    //    ext4 upper second.
+    var lower_dev_buf: [64]u8 = undefined;
+    var upper_dev_buf: [64]u8 = undefined;
+    const found = identifyMountDiskDevices(&lower_dev_buf, &upper_dev_buf, 5_000) catch {
+        logLine("init: mountdisk: device probe failed");
+        return;
+    };
+    if (!found) {
+        logLine("init: mountdisk: lower or upper device not found within 5s — skipping");
+        return;
+    }
+    const lower_dev_z: [*:0]const u8 = @ptrCast(&lower_dev_buf[0]);
+    const upper_dev_z: [*:0]const u8 = @ptrCast(&upper_dev_buf[0]);
+    klog("checkpoint: mountdisk: devices identified");
+
+    // 3. Mount squashfs RO. MS_RDONLY = 1 on Linux/musl.
+    mkdirIgnore(OVERLAY_LOWER_MNT);
+    if (mount(lower_dev_z, OVERLAY_LOWER_MNT, "squashfs", 1, null) != 0) {
+        var buf: [256]u8 = undefined;
+        const msg = std.fmt.bufPrint(&buf, "init: mountdisk: squashfs mount failed dev={s}", .{std.mem.span(lower_dev_z)}) catch "init: mountdisk: squashfs mount failed";
+        logLine(msg);
+        return;
+    }
+    klog("checkpoint: mountdisk: lower mounted");
+
+    // 4. Mount ext4 RW with discard. The `data` arg of mount(2) is the
+    //    options string; "discard" tells ext4 to issue VIRTIO_BLK_T_DISCARD
+    //    on file deletes so the host backing file releases bytes via
+    //    fallocate(PUNCH_HOLE).
+    mkdirIgnore(OVERLAY_UPPER_MNT);
+    const ext4_opts: [*:0]const u8 = "discard";
+    if (mount(upper_dev_z, OVERLAY_UPPER_MNT, "ext4", 0, @ptrCast(ext4_opts)) != 0) {
+        // First ext4 mount on a freshly-mke2fs'd image sometimes needs
+        // a no-options retry on older kernels — try once without
+        // `discard` before giving up. Logged either way.
+        if (mount(upper_dev_z, OVERLAY_UPPER_MNT, "ext4", 0, null) != 0) {
+            logLine("init: mountdisk: ext4 mount failed");
+            _ = umount2(OVERLAY_LOWER_MNT, MNT_DETACH);
+            return;
+        }
+        logLine("init: mountdisk: ext4 mount succeeded only without `discard`");
+    }
+    growMountDiskUpperFs(OVERLAY_UPPER_MNT, upper_dev_z);
+    mkdirIgnore(OVERLAY_UPPER_DIR);
+    mkdirIgnore(OVERLAY_WORK_DIR);
+    klog("checkpoint: mountdisk: upper mounted");
+
+    // 5. mkdir -p the user's guest path, then layer the overlay on top.
+    //    We walk and mkdir each segment by hand because the on-disk
+    //    rootfs may not have any of these directories yet (typical:
+    //    /mnt exists, /mnt/<sub> doesn't).
+    mkdirParents(guest);
+
+    // overlayfs options string. lowerdir is the squashfs mount,
+    // upperdir lives inside the ext4 mount (so writes survive
+    // snapshot/restore via the virtio-blk file), workdir is its
+    // sibling per overlayfs requirements.
+    var opts_buf: [512]u8 = undefined;
+    const opts = std.fmt.bufPrintZ(
+        &opts_buf,
+        "lowerdir={s},upperdir={s},workdir={s}",
+        .{ OVERLAY_LOWER_MNT, OVERLAY_UPPER_DIR, OVERLAY_WORK_DIR },
+    ) catch {
+        logLine("init: mountdisk: overlay opts buffer overrun");
+        return;
+    };
+    var guest_buf: [512]u8 = undefined;
+    @memcpy(guest_buf[0..guest.len], guest);
+    guest_buf[guest.len] = 0;
+    const guest_z: [*:0]const u8 = @ptrCast(&guest_buf[0]);
+    if (mount("overlay", guest_z, "overlay", 0, opts.ptr) != 0) {
+        var buf: [256]u8 = undefined;
+        const msg = std.fmt.bufPrint(&buf, "init: mountdisk: overlay mount failed at {s}", .{guest}) catch "init: mountdisk: overlay mount failed";
+        logLine(msg);
+        return;
+    }
+    klog("checkpoint: mountdisk: overlay mounted");
+
+    var ok_buf: [256]u8 = undefined;
+    const ok_msg = std.fmt.bufPrint(&ok_buf, "init: mountdisk overlay live at {s}", .{guest}) catch "init: mountdisk overlay live";
+    logLine(ok_msg);
+}
+
+/// Read /etc/machinen-mountdisk-guest into a static buffer.
+/// Returns the guest path slice (without trailing whitespace) or
+/// null when the file is absent / empty.
+fn readGuestMountpoint() ?[]const u8 {
+    const Static = struct {
+        var buf: [512]u8 = undefined;
+    };
+    const fd = open(MOUNTDISK_GUEST_PATH, O_RDONLY);
+    if (fd < 0) return null;
+    defer _ = close(fd);
+    const n = read(fd, &Static.buf, Static.buf.len - 1);
+    if (n <= 0) return null;
+    Static.buf[@intCast(n)] = 0;
+    var len: usize = @intCast(n);
+    // Trim trailing whitespace (newline, CR, spaces).
+    while (len > 0 and (Static.buf[len - 1] == '\n' or Static.buf[len - 1] == '\r' or Static.buf[len - 1] == ' ' or Static.buf[len - 1] == '\t')) {
+        len -= 1;
+    }
+    if (len == 0) return null;
+    if (Static.buf[0] != '/') return null; // Must be absolute.
+    return Static.buf[0..len];
+}
+
+/// Walk /dev/vd? until we find a virtio-blk device whose first 4
+/// bytes match squashfs magic (lower) and another whose ext4
+/// superblock magic (offset 1080, u16 LE 0xEF53) matches (upper),
+/// with a deadline. `lower_buf` and `upper_buf` are filled with the
+/// resolved /dev/vdN paths (NUL-terminated). Returns true when both
+/// are found, false on timeout.
+///
+/// Skips /dev/vda (rootdisk) and the configured /dev/vdb (scratch
+/// snapshot disk) — both could in theory carry an ext4 fs whose
+/// magic would otherwise confuse us. They were mounted before /init
+/// reached this code (rootdisk pivot) or are reserved for the CRIU
+/// scratch volume; identifying them via the negative list is simpler
+/// than holding a list of "candidate" letters that shifts with which
+/// slots happen to be populated.
+fn identifyMountDiskDevices(
+    lower_buf: *[64]u8,
+    upper_buf: *[64]u8,
+    timeout_ms: i64,
+) !bool {
+    // We probe a fixed candidate list that covers every layout the
+    // VMM produces today: slot 5 always lands at vdc, vdd, or vde
+    // depending on which earlier slots are populated. /dev/vdf is
+    // included as headroom in case future slots shift letters again.
+    const candidates = [_][]const u8{ "/dev/vdc", "/dev/vdd", "/dev/vde", "/dev/vdf" };
+
+    const deadline_ms = nowMs() + timeout_ms;
+    while (nowMs() < deadline_ms) {
+        var lower_idx: ?usize = null;
+        var upper_idx: ?usize = null;
+        for (candidates, 0..) |c, i| {
+            // Use a stack buffer for the NUL-terminated form.
+            var path_buf: [64]u8 = undefined;
+            @memcpy(path_buf[0..c.len], c);
+            path_buf[c.len] = 0;
+            const path_z: [*:0]const u8 = @ptrCast(&path_buf[0]);
+            if (access(path_z, F_OK) != 0) continue;
+            const fd = open(path_z, O_RDONLY);
+            if (fd < 0) continue;
+            defer _ = close(fd);
+
+            // Read the first 4 bytes for squashfs magic.
+            var magic_buf: [4]u8 = undefined;
+            _ = lseek(fd, 0, SEEK_SET);
+            if (read(fd, &magic_buf, 4) == 4) {
+                // squashfs little-endian magic: 0x73717368 ("hsqs").
+                if (magic_buf[0] == 0x68 and magic_buf[1] == 0x73 and magic_buf[2] == 0x71 and magic_buf[3] == 0x73) {
+                    if (lower_idx == null) lower_idx = i;
+                    continue;
+                }
+            }
+
+            // Read the ext4 superblock magic at offset 1080.
+            _ = lseek(fd, 1080, SEEK_SET);
+            var ext4_magic: [2]u8 = undefined;
+            if (read(fd, &ext4_magic, 2) == 2) {
+                if (ext4_magic[0] == 0x53 and ext4_magic[1] == 0xEF) {
+                    if (upper_idx == null) upper_idx = i;
+                }
+            }
+        }
+
+        if (lower_idx) |li| {
+            if (upper_idx) |ui| {
+                const lower = candidates[li];
+                const upper = candidates[ui];
+                @memcpy(lower_buf[0..lower.len], lower);
+                lower_buf[lower.len] = 0;
+                @memcpy(upper_buf[0..upper.len], upper);
+                upper_buf[upper.len] = 0;
+                return true;
+            }
+        }
+
+        sleepMs(25);
+    }
+    return false;
+}
+
+/// Online-grow the ext4 upper fs to fill its backing device. Same
+/// trick as growRootdiskFs (#131) — the host file is sparse and may
+/// have been extended past the fs size since the last boot.
+/// Failures are logged and ignored: the caller falls back to
+/// whatever capacity the on-disk fs already has.
+fn growMountDiskUpperFs(mount_point: [*:0]const u8, dev: [*:0]const u8) void {
+    const dev_fd = open(dev, O_RDONLY);
+    if (dev_fd < 0) return;
+    defer _ = close(dev_fd);
+
+    var dev_bytes: u64 = 0;
+    if (ioctl(dev_fd, BLKGETSIZE64, &dev_bytes) != 0) return;
+    const new_blocks: u64 = dev_bytes / 4096;
+    if (new_blocks == 0) return;
+
+    const mount_fd = open(mount_point, O_RDONLY);
+    if (mount_fd < 0) return;
+    defer _ = close(mount_fd);
+
+    var blocks: u64 = new_blocks;
+    _ = ioctl(mount_fd, EXT4_IOC_RESIZE_FS, &blocks);
+}
+
+/// mkdir -p for an absolute path. Walks from the root, mkdir-ing
+/// each segment with mode 0755. Existing dirs are tolerated. Used to
+/// stage the user's guest mountpoint before the overlay mount.
+fn mkdirParents(path: []const u8) void {
+    if (path.len == 0 or path[0] != '/') return;
+    var i: usize = 1;
+    while (i <= path.len) : (i += 1) {
+        if (i == path.len or path[i] == '/') {
+            if (i == 0) continue;
+            var seg_buf: [512]u8 = undefined;
+            if (i >= seg_buf.len) return;
+            @memcpy(seg_buf[0..i], path[0..i]);
+            seg_buf[i] = 0;
+            const seg_z: [*:0]const u8 = @ptrCast(&seg_buf[0]);
+            mkdirIgnore(seg_z);
+        }
+    }
 }
 
 /// Best-effort `cp src dst`. Used to bring the per-boot config + epoch
@@ -804,6 +1076,13 @@ pub fn main() noreturn {
         die(msg);
     };
     klog("checkpoint: post-loadConfig");
+
+    // #272: bring up the `--mount` overlay (squashfs RO + ext4 RW).
+    // Goes up before live mounts and the user cmd so the user's guest
+    // path is populated when their code touches it. No-op when the
+    // runtime didn't pass mountdisk fds.
+    bringUpMountDisk();
+    klog("checkpoint: post-bringUpMountDisk");
 
     // Live-share FUSE mounts go up before the user cmd so the mount
     // points are populated when user code touches them. Each agent

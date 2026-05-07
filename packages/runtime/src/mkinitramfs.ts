@@ -502,11 +502,13 @@ export interface PackTinyBundleOptions {
   /** Extra env merged into the bundle's machinen-config.json. Bundle keys win on collision. */
   env?: Record<string, string>;
   /**
-   * Optional host directory copied into the cpio at `/<guest>/`. Same
-   * semantics as packBundle.mount — guest must live under /mnt/.
-   * /init carries it across the rootdisk pivot.
+   * Guest mountpoint for the `--mount` overlay (#272). When set, the
+   * cpio carries `/etc/machinen-mountdisk-guest` with this path so
+   * /init knows where to layer the squashfs+ext4 overlay after the
+   * rootdisk pivot. The actual payload rides on virtio-blk slots 5+6,
+   * not in the cpio. Must be an absolute path under `/mnt/`.
    */
-  mount?: { host: string; guest: string };
+  mountGuest?: string;
   /** Optional override for the compiled /init. Default: ../microvm/test-fixtures/init relative to this file. */
   initPath?: string;
   /** Optional path to the compiled fuse-agent; staged at /fuse-agent when set. */
@@ -517,19 +519,22 @@ export interface PackTinyBundleOptions {
  * Build the tiny initramfs used by every user-facing boot() (#119).
  *
  * Layout:
- *   /init                        compiled Zig init
- *   /machinen-config.json        cmd/env/cwd/liveMounts for /init
- *   /etc/machinen-boot-epoch     wall clock seed for the guest
- *   /dev/console                 char node 5,1 — kernel needs it before
- *                                /init re-opens the console
- *   /fuse-agent                  optional, only when liveMounts
- *   /mnt/<guest>/                optional, when caller passed `mount`
- *   /tmp                         sticky 1777
+ *   /init                            compiled Zig init
+ *   /machinen-config.json            cmd/env/cwd/liveMounts for /init
+ *   /etc/machinen-boot-epoch         wall clock seed for the guest
+ *   /etc/machinen-mountdisk-guest    optional, target dir for the
+ *                                    `--mount` overlay (#272). The
+ *                                    actual payload rides on virtio-
+ *                                    blk slots 5+6, not in the cpio.
+ *   /dev/console                     char node 5,1 — kernel needs it
+ *                                    before /init re-opens the console
+ *   /fuse-agent                      optional, only when liveMounts
+ *   /tmp                             sticky 1777
  *
  * No /lib/modules tree, no kmod, no /modules/*.ko, no Debian userland.
- * The custom kernel ships with virtio_*, ext4, and vsock built in
- * (scripts/build-kernel-arm64.sh), so /init pivots straight into
- * /dev/vda without a finit_module pass.
+ * The custom kernel ships with virtio_*, ext4, vsock, squashfs, and
+ * overlayfs built in (scripts/build-kernel-arm64.sh), so /init pivots
+ * straight into /dev/vda without a finit_module pass.
  */
 export function packTinyBundle(opts: PackTinyBundleOptions): void {
   const t0 = Date.now();
@@ -541,78 +546,15 @@ export function packTinyBundle(opts: PackTinyBundleOptions): void {
   const parts: Buffer[] = [];
   parts.push(newc(".", 0o40755));
 
-  if (opts.mount) {
-    const rel = opts.mount.guest.replace(/^\/+/, "");
-    // Emit each path component as a directory entry, then walk the
-    // host tree under it. Same semantics as packBundle's
-    // overlayMount + walk, just without the merge-onto-base step.
-    const segments = rel.split("/").filter(Boolean);
-    let acc = "";
-    for (const seg of segments) {
-      acc = acc ? `${acc}/${seg}` : seg;
-      parts.push(newc(acc, 0o40755));
-    }
-    const counts: WalkCounts = { files: 0, bytes: 0 };
-    for (const e of mountOverlayEntries(opts.mount.host, rel, counts)) {
-      parts.push(e);
-    }
-  }
-
   appendFinalEntries(parts, {
     initPath: opts.initPath ?? defaultInitPath(),
     config: patchConfigEnv(readFileSync(cfgPath), opts.env),
     fuseAgentPath: opts.fuseAgentPath,
     injectInit: true,
+    mountGuest: opts.mountGuest,
   });
   writeFileSync(opts.out, Buffer.concat(parts));
   debug("packTinyBundle done elapsed=%dms", Date.now() - t0);
-}
-
-function* mountOverlayEntries(
-  hostAbs: string,
-  guestRel: string,
-  counts: WalkCounts,
-): Generator<Buffer> {
-  yield* walkMount(hostAbs, "", guestRel, counts);
-}
-
-function* walkMount(
-  root: string,
-  rel: string,
-  mountpoint: string,
-  counts: WalkCounts,
-): Generator<Buffer> {
-  const full = rel ? join(root, rel) : root;
-  let entries: string[];
-  try {
-    entries = readdirSync(full).sort();
-  } catch {
-    return;
-  }
-  for (const name of entries) {
-    const childRel = rel ? join(rel, name) : name;
-    const childFull = join(full, name);
-    const arcName = `${mountpoint}/${childRel}`;
-    let st;
-    try {
-      st = lstatSync(childFull);
-    } catch {
-      continue;
-    }
-    const m = st.mode;
-    if (st.isSymbolicLink()) {
-      const target = readlinkSync(childFull);
-      yield newc(arcName, 0o120000 | (m & 0o7777), { data: Buffer.from(target, "utf8") });
-    } else if (st.isDirectory()) {
-      yield newc(arcName, 0o40000 | (m & 0o7777));
-      yield* walkMount(root, childRel, mountpoint, counts);
-    } else if (st.isFile()) {
-      const data = readFileSync(childFull);
-      counts.files += 1;
-      counts.bytes += data.length;
-      yield newc(arcName, 0o100000 | (m & 0o7777), { data });
-    }
-  }
 }
 
 export interface PackRootfsOptions {
@@ -720,6 +662,12 @@ interface FinalOptions {
    * frozen rootfs.
    */
   execAgentPath?: string;
+  /**
+   * #272: when set, write the absolute guest mountpoint into the cpio
+   * at `/etc/machinen-mountdisk-guest`. /init reads this file on boot
+   * and uses it as the target for the squashfs+ext4 overlay.
+   */
+  mountGuest?: string;
 }
 
 function appendFinalEntries(parts: Buffer[], opts: FinalOptions): void {
@@ -790,6 +738,16 @@ function appendFinalEntries(parts: Buffer[], opts: FinalOptions): void {
       data: Buffer.from(String(Math.floor(Date.now() / 1000)), "ascii"),
     }),
   );
+  // #272: tell /init which guest path to mount the `--mount` overlay
+  // at. The actual squashfs+ext4 payload rides on virtio-blk slots 5
+  // and 6 — only the target path lives in the cpio.
+  if (opts.mountGuest) {
+    parts.push(
+      newc("etc/machinen-mountdisk-guest", 0o100644, {
+        data: Buffer.from(opts.mountGuest + "\n", "ascii"),
+      }),
+    );
+  }
   parts.push(newc("dev", 0o40755));
   parts.push(newc("dev/console", 0o20600, { rmajor: 5, rminor: 1 }));
   // Force /tmp to the canonical sticky-world-writable (1777). The base

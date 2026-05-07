@@ -33,6 +33,19 @@ export {
   rootfsImgCacheDir,
 } from "./rootfs-img.ts";
 export type { EnsureRootfsImageOptions } from "./rootfs-img.ts";
+export {
+  ensureMountDiskImage,
+  ensureMountDiskUpper,
+  markMountDiskImageClean,
+  mountdiskImgCacheDir,
+  resolveMksquashfs,
+} from "./mountdisk-img.ts";
+export type {
+  EnsureMountDiskImageOptions,
+  EnsureMountDiskImageResult,
+  EnsureMountDiskUpperOptions,
+  EnsureMountDiskUpperResult,
+} from "./mountdisk-img.ts";
 export { bootSnapshotPath, detachedLogRoot, writeBootSnapshot } from "./detached-log.ts";
 export { validatePid } from "./pid-validate.ts";
 export type { PidStatus } from "./pid-validate.ts";

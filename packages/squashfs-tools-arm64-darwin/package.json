@@ -1,0 +1,24 @@
+{
+  "name": "@machinen/squashfs-tools-arm64-darwin",
+  "version": "0.0.0",
+  "description": "Bundled mksquashfs (squashfs-tools) for arm64 darwin. Lets @machinen/runtime build the read-only squashfs lower for `--mount` overlays without a host install.",
+  "license": "FSL-1.1-MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/redwoodjs/machinen.git",
+    "directory": "packages/squashfs-tools-arm64-darwin"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "index.mjs"
+  ],
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "type": "module",
+  "main": "./index.mjs"
+}

@@ -56,6 +56,14 @@ pub fn main(init: std.process.Init) !void {
     // interactive shell or a busy server, where it surfaces as a
     // mysterious `error.RanTooLong` and the VM dies mid-session. Lift
     // the cap here.
+    // #272: optional fds for the mount-overlay slots. The runtime
+    // opens both files (squashfs lower, ext4 upper) before posix_spawn
+    // and passes the inherited fd numbers in the env. The VMM then
+    // wraps them as virtio-blk backends without ever consulting the
+    // host source dir.
+    const mountdisk_lower_fd = envInt("MACHINEN_MOUNTDISK_LOWER_FD");
+    const mountdisk_upper_fd = envInt("MACHINEN_MOUNTDISK_UPPER_FD");
+
     if (builtin.os.tag == .macos) {
         const disk_path = envOptional("MACHINEN_DISK");
         const rootdisk_path = envOptional("MACHINEN_ROOTDISK");
@@ -65,6 +73,8 @@ pub fn main(init: std.process.Init) !void {
             .initrd_path = initrd_path,
             .rootdisk_path = rootdisk_path,
             .disk_path = disk_path,
+            .mountdisk_lower_fd = mountdisk_lower_fd,
+            .mountdisk_upper_fd = mountdisk_upper_fd,
             .unbounded_serial = true,
             .max_exits = std.math.maxInt(usize),
         };
@@ -81,6 +91,8 @@ pub fn main(init: std.process.Init) !void {
             .initrd_path = initrd_path,
             .rootdisk_path = rootdisk_path,
             .disk_path = disk_path,
+            .mountdisk_lower_fd = mountdisk_lower_fd,
+            .mountdisk_upper_fd = mountdisk_upper_fd,
             .unbounded_serial = true,
             .max_exits = std.math.maxInt(usize),
         };
@@ -89,6 +101,32 @@ pub fn main(init: std.process.Init) !void {
         gpa.free(result.serial);
         std.process.exit(if (result.saw_psci_shutdown) 0 else 1);
     }
+}
+
+/// Read an integer from the env. Returns null when the var is unset
+/// or empty; rejects non-numeric values with a die() rather than
+/// silently treating them as 0 (a fd of 0 is stdin and would mask a
+/// configuration mistake).
+fn envInt(comptime name: [:0]const u8) ?c_int {
+    comptime assert(name.len > 0);
+    const raw = getenv(name.ptr) orelse return null;
+    const s = std.mem.span(raw);
+    if (s.len == 0) return null;
+    const parsed = std.fmt.parseInt(c_int, s, 10) catch {
+        std.debug.print(
+            "machinen-microvm: {s}={s} is invalid: must be a decimal integer fd.\n",
+            .{ name, s },
+        );
+        std.process.exit(2);
+    };
+    if (parsed < 0) {
+        std.debug.print(
+            "machinen-microvm: {s}={d} is invalid: fd must be non-negative.\n",
+            .{ name, parsed },
+        );
+        std.process.exit(2);
+    }
+    return parsed;
 }
 
 /// Read MACHINEN_MEMORY (decimal MiB, no unit suffix). Returns the

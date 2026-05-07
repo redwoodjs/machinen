@@ -35,14 +35,18 @@ const dtb_patch = @import("dtb_patch.zig");
 
 // Guest-physical bases. Each virtio-MMIO device lives in a 0x200
 // window. The DTS has 32 slots at 0x0A000000 + i*0x200; we wire up
-// the first four.
+// the first seven.
 //
 // Slot 0 = net, slot 1 = blk (rootdisk), slot 2 = vsock,
-// slot 3 = blk2 (scratch / CRIU disk). When both blk slots are
-// populated the kernel sees them in DTB order, so slot 1 = /dev/vda
-// (rootfs) and slot 3 = /dev/vdb (scratch). When only one is
-// populated, Linux still names the lone device /dev/vda regardless
-// of its slot. See #114.
+// slot 3 = blk2 (scratch / CRIU disk), slot 4 = balloon,
+// slot 5 = blk3 (mount lower / squashfs RO),
+// slot 6 = blk4 (mount upper / ext4 RW).
+//
+// When all four blk slots are populated the kernel sees them in DTB
+// order, so slot 1 = /dev/vda (rootfs), slot 3 = /dev/vdb (scratch),
+// slot 5 = /dev/vdc (mount lower), slot 6 = /dev/vdd (mount upper).
+// Linux assigns names by probe order, so absent slots shift letters
+// down. See #114 (rootdisk) and #272 (mount overlay).
 const virtio_net_base: u64 = 0x0A00_0000;
 const virtio_net_size: u64 = 0x200;
 const virtio_blk_base: u64 = 0x0A00_0200;
@@ -53,6 +57,10 @@ const virtio_blk2_base: u64 = 0x0A00_0600;
 const virtio_blk2_size: u64 = 0x200;
 const virtio_balloon_base: u64 = 0x0A00_0800;
 const virtio_balloon_size: u64 = 0x200;
+const virtio_blk3_base: u64 = 0x0A00_0A00;
+const virtio_blk3_size: u64 = 0x200;
+const virtio_blk4_base: u64 = 0x0A00_0C00;
+const virtio_blk4_size: u64 = 0x200;
 
 comptime {
     // virtio-mmio slot layout — must stay byte-identical to virt.dts
@@ -67,6 +75,10 @@ comptime {
     assert(virtio_blk2_base == virtio_vsock_base + virtio_vsock_size);
     assert(virtio_balloon_size == 0x200);
     assert(virtio_balloon_base == virtio_blk2_base + virtio_blk2_size);
+    assert(virtio_blk3_size == 0x200);
+    assert(virtio_blk3_base == virtio_balloon_base + virtio_balloon_size);
+    assert(virtio_blk4_size == 0x200);
+    assert(virtio_blk4_base == virtio_blk3_base + virtio_blk3_size);
 }
 
 pub const Error = error{
@@ -91,6 +103,18 @@ pub const Config = struct {
     /// it `/dev/vdb`. With no rootdisk it lands on slot 1 and the
     /// kernel names it `/dev/vda` (legacy, pre-#114 layout).
     disk_path: ?[]const u8 = null,
+    /// #272: pre-opened fd backing the squashfs RO lower for the
+    /// `--mount` payload. The runtime opens the host file `O_RDONLY`
+    /// (so the content-addressed cache file can never be corrupted
+    /// by a buggy guest) and inherits the fd through `posix_spawn`.
+    /// When set, lands on slot 5 → /dev/vdc.
+    mountdisk_lower_fd: ?c_int = null,
+    /// #272: pre-opened fd backing the ext4 RW upper for the
+    /// `--mount` overlay. Per-VM sparse file, opened `O_RDWR`. When
+    /// set, lands on slot 6 → /dev/vdd, with VIRTIO_BLK_F_DISCARD
+    /// negotiated so ext4's `discard` mount option releases bytes
+    /// back to the host.
+    mountdisk_upper_fd: ?c_int = null,
     ram_base: u64 = 0x4000_0000,
     ram_size: usize = 4 * 1024 * 1024 * 1024, // 4 GB — room for Debian+Node+CRIU+Claude Code in the initramfs tmpfs
     // DTB sits well past the kernel so the kernel doesn't clobber it.
@@ -245,6 +269,30 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     var balloon_dev = makeBalloonDevice(ram, cfg, &balloon_backend);
     const balloon_dev_ptr: ?*virtio.Device = &balloon_dev;
 
+    // virtio-blk slot 5 — squashfs RO lower for the `--mount` overlay
+    // (#272). The runtime fd-passes the content-addressed cache file
+    // O_RDONLY; we wrap it in a read-only Backend so any guest write
+    // is rejected with VIRTIO_BLK_S_IOERR before the host pwrite.
+    var blk3_backend_opt: ?blk_mod.Backend = openBlkBackendFromFd(cfg.mountdisk_lower_fd, true, "slot 5 (mount lower)");
+    defer if (blk3_backend_opt) |*b| b.deinit();
+    var blk3dev_opt: ?virtio.Device = if (blk3_backend_opt) |*b|
+        makeBlkDevice(virtio_blk3_base, virtio_blk3_size, ram, cfg, b)
+    else
+        null;
+    const blk3dev_ptr: ?*virtio.Device = if (blk3dev_opt) |_| &blk3dev_opt.? else null;
+
+    // virtio-blk slot 6 — ext4 RW upper for the `--mount` overlay
+    // (#272). Per-VM sparse file, opened O_RDWR; we negotiate
+    // VIRTIO_BLK_F_DISCARD so ext4's `discard` mount option auto-
+    // PUNCH_HOLEs the upper as the guest deletes.
+    var blk4_backend_opt: ?blk_mod.Backend = openBlkBackendFromFd(cfg.mountdisk_upper_fd, false, "slot 6 (mount upper)");
+    defer if (blk4_backend_opt) |*b| b.deinit();
+    var blk4dev_opt: ?virtio.Device = if (blk4_backend_opt) |*b|
+        makeBlkDeviceWithDiscard(virtio_blk4_base, virtio_blk4_size, ram, cfg, b)
+    else
+        null;
+    const blk4dev_ptr: ?*virtio.Device = if (blk4dev_opt) |_| &blk4dev_opt.? else null;
+
     // virtio-vsock (#44). Off by default; set MACHINEN_VSOCK to enable.
     // Syntax (comma-separated):
     //   in:<guest_port>:<host_uds>   host listens; UDS clients → guest
@@ -320,6 +368,8 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         .netdev = &netdev,
         .blk_dev = blkdev_ptr,
         .blk2_dev = blk2dev_ptr,
+        .blk3_dev = blk3dev_ptr,
+        .blk4_dev = blk4dev_ptr,
         .vsock_dev = vsock_dev_ptr,
         .vsock_bridge = vsock_bridge_opt,
         .balloon_dev = balloon_dev_ptr,
@@ -656,14 +706,16 @@ const IrqMap = struct {
     blk2: u32,
     vsock: u32,
     balloon: u32,
+    blk3: u32,
+    blk4: u32,
 };
 
 fn assignIrqs() !IrqMap {
     const spi = try hvf.Gic.spiRange();
     // SPIs start at 32 on ARM GIC; HVF must report at least the device
-    // IDs we wire up (1, 16, 17, 18, 19, 20) past spi.base.
+    // IDs we wire up (1, 16, 17, 18, 19, 20, 21, 22) past spi.base.
     assert(spi.base >= 32);
-    assert(spi.count >= 21);
+    assert(spi.count >= 23);
     return .{
         .pl011 = spi.base + 1,
         .net = spi.base + 16,
@@ -671,6 +723,8 @@ fn assignIrqs() !IrqMap {
         .vsock = spi.base + 18,
         .blk2 = spi.base + 19,
         .balloon = spi.base + 20,
+        .blk3 = spi.base + 21,
+        .blk4 = spi.base + 22,
     };
 }
 
@@ -704,6 +758,34 @@ fn openBlkBackend(path: ?[]const u8, label: []const u8) ?blk_mod.Backend {
     };
 }
 
+/// Wrap a runtime-passed fd as a virtio-blk backend (#272). The
+/// runtime opens the host file (squashfs lower or ext4 upper) before
+/// `posix_spawn` and inherits the fd into the VMM; we just
+/// `lseek(SEEK_END)` to discover the size and wrap. Returns null
+/// when the caller didn't pass an fd — matches the warn-and-continue
+/// policy so the rest of the VMM keeps booting if the runtime
+/// neglected to wire the slot up.
+fn openBlkBackendFromFd(fd: ?c_int, read_only: bool, label: []const u8) ?blk_mod.Backend {
+    const f = fd orelse return null;
+    if (f < 0) return null;
+    // SEEK_END to discover size — same trick `openFile` uses. The
+    // file-scope `lseek` extern further down in this file resolves
+    // against libc; both squashfs and ext4 images are seekable.
+    const sz = lseek(f, 0, SEEK_END);
+    if (sz <= 0) {
+        std.debug.print("virtio-blk {s} disabled: lseek(fd={d}) returned {d}\n", .{ label, f, sz });
+        return null;
+    }
+    if (@rem(sz, 512) != 0) {
+        std.debug.print(
+            "virtio-blk {s} disabled: size {d} is not a multiple of 512 (fd={d})\n",
+            .{ label, sz, f },
+        );
+        return null;
+    }
+    return blk_mod.Backend.initFromFdWithMode(f, @intCast(sz), read_only);
+}
+
 /// Wrap a `blk_mod.Backend` as a virtio-mmio device. `backend` must
 /// outlive the returned device — the device's `config` and
 /// `request_ctx` are pointers into it.
@@ -713,6 +795,25 @@ fn makeBlkDevice(base: u64, size: u64, ram: []u8, cfg: Config, backend: *blk_mod
         .size = size,
         .id = .block,
         .features = (1 << 32), // VIRTIO_F_VERSION_1
+        .config = std.mem.asBytes(&backend.config),
+        .ram = ram,
+        .ram_base = cfg.ram_base,
+        .request_handler = &blk_mod.Backend.handleRequest,
+        .request_ctx = @ptrCast(backend),
+    };
+}
+
+/// Variant of `makeBlkDevice` that advertises VIRTIO_BLK_F_DISCARD
+/// in the feature bits. Used by the mount-upper slot (#272) so the
+/// guest's ext4 driver can issue discard requests when mounted with
+/// `discard` and the host punches the corresponding holes via
+/// fallocate(PUNCH_HOLE).
+fn makeBlkDeviceWithDiscard(base: u64, size: u64, ram: []u8, cfg: Config, backend: *blk_mod.Backend) virtio.Device {
+    return .{
+        .base = base,
+        .size = size,
+        .id = .block,
+        .features = (1 << 32) | (@as(u64, 1) << blk_mod.VIRTIO_BLK_F_DISCARD),
         .config = std.mem.asBytes(&backend.config),
         .ram = ram,
         .ram_base = cfg.ram_base,
@@ -861,6 +962,8 @@ const Devices = struct {
     netdev: *virtio.Device,
     blk_dev: ?*virtio.Device,
     blk2_dev: ?*virtio.Device,
+    blk3_dev: ?*virtio.Device,
+    blk4_dev: ?*virtio.Device,
     vsock_dev: ?*virtio.Device,
     vsock_bridge: ?*vsock_mod.Bridge,
     balloon_dev: ?*virtio.Device,
@@ -886,6 +989,10 @@ fn routeDataAbort(
         try handleVirtioMmio(devs.blk_dev.?, irqs.blk, vcpu, info);
     } else if (devs.blk2_dev != null and devs.blk2_dev.?.handles(info.ipa)) {
         try handleVirtioMmio(devs.blk2_dev.?, irqs.blk2, vcpu, info);
+    } else if (devs.blk3_dev != null and devs.blk3_dev.?.handles(info.ipa)) {
+        try handleVirtioMmio(devs.blk3_dev.?, irqs.blk3, vcpu, info);
+    } else if (devs.blk4_dev != null and devs.blk4_dev.?.handles(info.ipa)) {
+        try handleVirtioMmio(devs.blk4_dev.?, irqs.blk4, vcpu, info);
     } else if (devs.vsock_dev != null and devs.vsock_dev.?.handles(info.ipa)) {
         // The vCPU side of (RMW interrupt_status + setSpi) must
         // serialise against the bridge poll thread's same pair.
