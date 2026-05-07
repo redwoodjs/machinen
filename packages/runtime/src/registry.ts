@@ -27,6 +27,8 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  rmdirSync,
+  statSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -97,6 +99,13 @@ export interface RegistryEntry {
    * gvproxy's pid weeks later.
    */
   gvproxyExe?: string;
+  /**
+   * Host→guest port forwards configured at boot/fork time. Surfaced
+   * in `machinen ls` so users can see which host port maps to which
+   * VM without re-reading the launch command. Undefined when the VM
+   * was booted without `-p` / `portForward: []`.
+   */
+  portForward?: Array<{ hostPort: number; guestPort: number; hostAddr?: string }>;
   /** ms epoch when the entry was created. */
   startedAt: number;
 }
@@ -151,13 +160,32 @@ export function removeEntry(pid: number): void {
   // Read meta first to recover the name (so we can drop the pin).
   const entry = readEntry(pid);
   if (entry?.name) {
+    const pin = pinPath(entry.name);
     try {
-      unlinkSync(pinPath(entry.name));
+      unlinkSync(pin);
     } catch {}
+    // For path-shaped names (`<src>/<pid>` chained restore — #208) the
+    // pin's parent dirs were created by `claimName`'s recursive mkdir.
+    // Walk up and rmdir any that are now empty, stopping at namesDir().
+    // rmdirSync errors on non-empty dirs, so siblings stay intact.
+    pruneEmptyParents(dirname(pin));
   }
   try {
     rmSync(join(root, String(pid)), { recursive: true, force: true });
   } catch {}
+}
+
+function pruneEmptyParents(dir: string): void {
+  const stop = namesDir();
+  let cur = dir;
+  while (cur.startsWith(stop) && cur !== stop) {
+    try {
+      rmdirSync(cur);
+    } catch {
+      return;
+    }
+    cur = dirname(cur);
+  }
 }
 
 /** Read an entry by pid. Returns undefined if the directory or file is missing. */
@@ -334,7 +362,25 @@ export function claimName(name: string, pid: number): boolean {
       if ((err as NodeJS.ErrnoException).code !== "EEXIST") {
         throw err;
       }
-      // EEXIST: someone holds the pin. If they're dead, drop it and retry.
+      // EEXIST: a file or a directory occupies the pin path. An empty
+      // directory is a leftover from a path-shaped child pin whose
+      // leaf was unlinked (pre-#268 removeEntry didn't prune parents).
+      // A non-empty directory is holding live nested pins — refuse.
+      let isDir = false;
+      try {
+        isDir = statSync(pin).isDirectory();
+      } catch {}
+      if (isDir) {
+        try {
+          rmdirSync(pin);
+          debug("claimName name=%s removed empty stale dir — retrying", name);
+          continue;
+        } catch {
+          debug("claimName name=%s dir holds live nested pins — refusing", name);
+          return false;
+        }
+      }
+      // Pin is a regular file. If the holding pid is dead, drop it and retry.
       let heldPid = -1;
       try {
         heldPid = Number(readFileSync(pin, "utf8").trim());

@@ -40,6 +40,7 @@ import { promisify } from "node:util";
 import debugLib from "debug";
 import { GvproxyError } from "./errors.ts";
 import { ensurePdeathsig, wrapWithPdeathsig } from "./pdeathsig.ts";
+import { listAll } from "./registry.ts";
 
 const debug = debugLib("machinen:gvproxy");
 
@@ -349,7 +350,8 @@ const execFileAsync = promisify(execFile);
  *
  * The returned string is meant to be appended verbatim to a port-in-use
  * error message; format is one of:
- *   - `held by machinen-owned gvproxy (pid 1234) — try \`kill 1234\` to clear it`
+ *   - `held by VM 'counter' (gvproxy pid 1234) — pick a different host port`
+ *   - `held by machinen-owned gvproxy (pid 1234, no live VM) — likely orphaned, try \`kill 1234\` to clear it`
  *   - `held by chrome (pid 5678)`
  */
 export async function describePortHolder(port: number): Promise<string | null> {
@@ -376,6 +378,7 @@ export async function describePortHolder(port: number): Promise<string | null> {
   if (!cmd || !pid || !/^\d+$/.test(pid)) {
     return null;
   }
+  const pidNum = Number(pid);
 
   let fullCmd = "";
   try {
@@ -392,9 +395,31 @@ export async function describePortHolder(port: number): Promise<string | null> {
   const looksMachinen =
     (fullCmd && fullCmd.includes(machinenDir)) || cmd === "gvproxy" || cmd === "microvm";
 
-  return looksMachinen
-    ? `held by machinen-owned ${cmd} (pid ${pid}) — try \`kill ${pid}\` to clear it`
-    : `held by ${cmd} (pid ${pid})`;
+  if (!looksMachinen) {
+    return `held by ${cmd} (pid ${pid})`;
+  }
+  // Machinen-owned. Walk the registry to see if the holding gvproxy
+  // belongs to a live VM — most common in fork: the source VM still
+  // forwards the port, and the user picked the same host port for the
+  // fork. In that case `kill <pid>` would take down the source, so
+  // route the user toward a different host port instead.
+  let owningVm: { name?: string; pid: number } | null = null;
+  try {
+    for (const entry of listAll()) {
+      if (entry.gvproxyPid === pidNum) {
+        owningVm = { name: entry.name, pid: entry.pid };
+        break;
+      }
+    }
+  } catch {
+    // Registry read is best-effort — if it throws, fall through to
+    // the orphan-fallback message.
+  }
+  if (owningVm) {
+    const label = owningVm.name ? `VM '${owningVm.name}'` : `VM (pid ${owningVm.pid})`;
+    return `held by ${label} (gvproxy pid ${pid}) — pick a different host port`;
+  }
+  return `held by machinen-owned ${cmd} (pid ${pid}, no live VM) — likely orphaned, try \`kill ${pid}\` to clear it`;
 }
 
 /**

@@ -4,7 +4,7 @@
 //
 // Surface:
 //   machinen boot [opts] -- <cmd>
-//   machinen restore <snap-dir> [--name <name>]
+//   machinen restore <snap-dir> [--name <name>] [-p <hostPort>:<guestPort>]
 //   machinen ls (alias: ps)
 //   machinen exec ( --name <name> | --pid <pid> ) -- <cmd>
 //   machinen snapshot ( --name <name> | --pid <pid> ) --out-dir <dir>
@@ -45,6 +45,9 @@ import type { RegistryEntry } from "@machinen/runtime";
 import debugLib from "debug";
 
 import pkg from "../package.json" with { type: "json" };
+import { formatPorts } from "./format-ports.ts";
+import { parseForkArgs } from "./parse-fork-args.ts";
+import { parseRestoreArgs } from "./parse-restore-args.ts";
 import { parseRunArgs } from "./parse-run-args.ts";
 import { tailLines } from "./tail-lines.ts";
 
@@ -477,37 +480,43 @@ async function cmdInstall(args: string[]): Promise<number> {
 }
 
 async function cmdRestore(args: string[]): Promise<number> {
-  // `machinen restore <snap-dir> [--name <name>] [--lazy-pages]`. The
-  // bundle dir (produced by `machinen snapshot`) holds img/<criu-images>
-  // + meta.json. `--lazy-pages` live-mounts the bundle into the guest
-  // and runs `criu restore --lazy-pages` so pages flow into the
-  // workload's anon mappings only when faulted — see #266 for the RSS
-  // argument.
-  const positional: string[] = [];
-  let name: string | undefined;
-  let lazyPages = false;
-  for (let i = 0; i < args.length; i++) {
-    const a = args[i]!;
-    if (a === "--name" || a.startsWith("--name=")) {
-      name = a === "--name" ? args[++i] : a.slice("--name=".length);
-      if (!name) {
-        die("--name requires a value");
-      }
-    } else if (a === "--lazy-pages") {
-      lazyPages = true;
-    } else if (a.startsWith("-")) {
-      die(`unknown flag: ${a}`);
-    } else {
-      positional.push(a);
-    }
+  // `machinen restore <snap-dir> [--image <tarball>] [--name <name>]
+  // [--lazy-pages] [-p <hostPort>:<guestPort>]`. The bundle dir
+  // (produced by `machinen snapshot`) holds img/<criu-images> +
+  // meta.json. The bundle carries CRIU's process images but not the
+  // workload's rootfs, so any process whose memory map references
+  // files outside the base debian rootfs (e.g. /usr/bin/node from a
+  // `provision()`d tarball) needs the same workload tarball passed
+  // here as `--image`. Without it, criu fails its file-backed VMA
+  // restore with "Can't open file <path> on restore: No such file
+  // or directory" and /sbin/machinen-restore exits 1, panicking the
+  // guest kernel ("Attempted to kill init!").
+  //
+  // `--lazy-pages` live-mounts the bundle into the guest and runs
+  // `criu restore --lazy-pages` so pages flow into the workload's
+  // anon mappings only when faulted — see #266 for the RSS argument.
+  let parsed;
+  try {
+    parsed = parseRestoreArgs(args);
+  } catch (err) {
+    handleError(err);
   }
+  const { positional, name, image: imageOverride, portForward, lazyPages } = parsed;
   if (positional.length !== 1) {
-    die("usage: machinen restore <snap-dir> [--name <name>] [--lazy-pages]");
+    die(
+      "usage: machinen restore <snap-dir> [--image <tarball>] [--name <name>] " +
+        "[--lazy-pages] [-p <hostPort>:<guestPort>]",
+    );
   }
   const snapDir = resolve(positional[0]!);
 
-  // Restore needs the base rootfs in the initramfs (criu, machinen-
-  // restore, etc), so resolve it the same way `cmdBoot` does.
+  // Kernel + dtb always come from the base assets (the workload tarball
+  // doesn't carry them). The rootfs comes from --image when given, or
+  // falls back to meta.sourceImage inside restore() so the same-host
+  // quickstart works without a flag. The base release rootfs is no
+  // longer a silent default — workloads beyond a bare /bin/sh need
+  // their own tarball, and a confused-by-default restore that panics
+  // the guest kernel was the original bug we shipped this fix for.
   const assetsOverride = process.env.MACHINEN_ASSETS_DIR;
   if (assetsOverride) {
     validateAssetsDir(assetsOverride);
@@ -518,7 +527,14 @@ async function cmdRestore(args: string[]): Promise<number> {
   const baseDir = assetsOverride ? resolve(assetsOverride) : baseDirFor(RELEASE_TAG);
   const kernelPath = join(baseDir, assetsOverride ? "Image-arm64" : "Image");
   const dtbPath = join(baseDir, assetsOverride ? "virt-arm64.dtb" : "virt.dtb");
-  const imagePath = join(baseDir, assetsOverride ? "rootfs-debian-arm64.tar.gz" : "rootfs.tar.gz");
+
+  let imagePath: string | undefined;
+  if (imageOverride) {
+    imagePath = resolve(imageOverride);
+    if (!existsSync(imagePath)) {
+      die(`--image: file not found: ${imagePath}`);
+    }
+  }
 
   let vm;
   try {
@@ -529,6 +545,7 @@ async function cmdRestore(args: string[]): Promise<number> {
       dtb: dtbPath,
       name,
       lazyPages,
+      portForward: portForward.length > 0 ? portForward : undefined,
       timeoutMs: null,
     });
   } catch (err) {
@@ -576,13 +593,15 @@ async function cmdLs(_args: string[]): Promise<number> {
     return 0;
   }
   // Plain tabular output. PID is the runtime handle; NAME is the
-  // optional human label; FORKED-FROM lets you trace lineage when
-  // the VM was created via `machinen restore`.
-  const header = ["PID", "NAME", "UP", "FORKED-FROM"];
+  // optional human label; PORTS lists `<hostPort>:<guestPort>` pairs
+  // configured at boot/fork (comma-separated, `-` if none); FORKED-FROM
+  // lets you trace lineage when the VM was created via `machinen restore`.
+  const header = ["PID", "NAME", "UP", "PORTS", "FORKED-FROM"];
   const rows = entries.map((e) => [
     String(e.pid),
     e.name ?? "-",
     formatUptime(Date.now() - e.startedAt),
+    formatPorts(e.portForward),
     e.forkedFrom ?? "-",
   ]);
   const widths = header.map((h, i) => Math.max(h.length, ...rows.map((r) => r[i]!.length)));
@@ -931,31 +950,13 @@ async function cmdFork(args: string[]): Promise<number> {
   // `machinen restore`). `--detach` keeps the fire-and-forget shape
   // (CI / scripted workflows): print identity, hand off, return.
   // Source keeps running either way.
-  let newName: string | undefined;
-  let outDir: string | undefined;
-  let tcpKeep = false;
-  let detach = false;
-  const rest: string[] = [];
-  for (let i = 0; i < args.length; i++) {
-    const a = args[i]!;
-    if (a === "--new-name" || a.startsWith("--new-name=")) {
-      newName = a === "--new-name" ? args[++i] : a.slice("--new-name=".length);
-      if (!newName) {
-        die("--new-name requires a value");
-      }
-    } else if (a === "--out-dir" || a.startsWith("--out-dir=")) {
-      outDir = a === "--out-dir" ? args[++i] : a.slice("--out-dir=".length);
-      if (!outDir) {
-        die("--out-dir requires a directory path");
-      }
-    } else if (a === "--tcp-keep") {
-      tcpKeep = true;
-    } else if (a === "--detach") {
-      detach = true;
-    } else {
-      rest.push(a);
-    }
+  let parsed;
+  try {
+    parsed = parseForkArgs(args);
+  } catch (err) {
+    handleError(err);
   }
+  const { newName, outDir, tcpKeep, detach, portForward, rest } = parsed;
   const target = parseTargetFlags(rest, "fork");
 
   // The fork is a fresh restore boot, so it needs the same base
@@ -989,6 +990,7 @@ async function cmdFork(args: string[]): Promise<number> {
       kernel: kernelPath,
       dtb: dtbPath,
       tcpKeep,
+      portForward: portForward.length > 0 ? portForward : undefined,
       onLog: (evt) => {
         if (evt.source !== "phase") {
           process.stderr.write(evt.chunk);
@@ -1387,12 +1389,21 @@ function printHelp(): void {
       `                                                 (must be absolute).\n` +
       `    -p <hostPort>:<guestPort>                    Forward host:hostPort → guest:guestPort.\n` +
       `\n` +
-      `  machinen restore <snap-dir> [--name <name>]    Restore a VM from a snapshot bundle.\n` +
+      `  machinen restore <snap-dir> [--image <tar.gz>] [--name <name>] [-p ...]\n` +
+      `                                                 Restore a VM from a snapshot bundle.\n` +
       `                                                 Anonymous restores auto-name as\n` +
-      `                                                 <source>/<pid>.\n` +
+      `                                                 <source>/<pid>. Pass --image with the\n` +
+      `                                                 same tarball used to boot the source VM\n` +
+      `                                                 when the workload references files\n` +
+      `                                                 outside the base rootfs (e.g. node).\n` +
+      `                                                 -p <hostPort>:<guestPort> forwards a host\n` +
+      `                                                 port into the restored VM; forwards are\n` +
+      `                                                 NOT inherited from the source (host ports\n` +
+      `                                                 are global), so pick host ports nothing\n` +
+      `                                                 else is binding.\n` +
       `\n` +
       `  machinen ls   (alias: ps)                      List running VMs (PID, NAME, UP,\n` +
-      `                                                 FORKED-FROM)\n` +
+      `                                                 PORTS, FORKED-FROM)\n` +
       `\n` +
       `  Targeting a running VM:\n` +
       `    --name <name>     |  --pid <pid>             pick exactly one\n` +
@@ -1413,7 +1424,7 @@ function printHelp(): void {
       `                                                 (and closes inherited TCP sockets to\n` +
       `                                                 avoid two live copies racing on shared\n` +
       `                                                 connection state).\n` +
-      `  machinen fork     <target-flag> [--new-name <n>] [--out-dir <d>] [--tcp-keep] [--detach]\n` +
+      `  machinen fork     <target-flag> [--new-name <n>] [--out-dir <d>] [--tcp-keep] [--detach] [-p ...]\n` +
       `                                                 Snapshot the source live (it keeps\n` +
       `                                                 running) and restore into a sibling VM,\n` +
       `                                                 dropping the caller into the fork's\n` +
@@ -1422,6 +1433,11 @@ function printHelp(): void {
       `                                                 (CI / scripted use).\n` +
       `                                                 Without --out-dir, the bundle is\n` +
       `                                                 ephemeral and removed when the fork exits.\n` +
+      `                                                 -p <hostPort>:<guestPort> forwards a host\n` +
+      `                                                 port into the fork; host forwards are NOT\n` +
+      `                                                 inherited from the source (host ports are\n` +
+      `                                                 global), so pick a host port the source\n` +
+      `                                                 isn't already using.\n` +
       `  machinen attach   <target-flag> [--shell <c>]  Drop into an interactive PTY shell\n` +
       `                                                 in the running VM (default \`bash -i\`).\n` +
       `                                                 \`cd\`, env vars, history, job control\n` +

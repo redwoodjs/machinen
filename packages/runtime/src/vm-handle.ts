@@ -229,6 +229,15 @@ export interface SnapshotResult {
 export interface SnapshotMeta {
   /** Name passed to `boot({ name })` when the source VM was started. */
   sourceName?: string;
+  /**
+   * Absolute path of the rootfs tarball the source VM was booted with
+   * (`boot({ image })` or its restored equivalent). `restore()` uses
+   * this as the default rootfs, so the same-host quickstart works
+   * without callers having to repeat the image path. Cross-host
+   * restores need either the path to resolve on the new host, or an
+   * explicit `image` override.
+   */
+  sourceImage?: string;
   /** ms epoch when `vm.snapshot()` returned. */
   snappedAt: number;
 }

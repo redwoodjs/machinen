@@ -77,7 +77,7 @@ and the VM keeps running in the background.
 Once it's running, you can find it again from any shell:
 
 ```bash
-npx machinen ls                              # see PID, NAME, uptime
+npx machinen ls                              # see PID, NAME, uptime, port forwards
 npx machinen exec --name worker -- ps aux    # run a one-off command
 npx machinen attach --name worker            # interactive shell with job control
 ```

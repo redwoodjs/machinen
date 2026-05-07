@@ -150,35 +150,8 @@ export function parseRunArgs(argv: string[]): ParsedRunArgs {
       a.startsWith("-p=") ||
       a.startsWith("--publish=")
     ) {
-      let spec: string | undefined;
-      if (a === "-p" || a === "--publish") {
-        spec = pre[i + 1];
-        if (spec === undefined) {
-          throw new ParseError(
-            "PARSE_FLAG_MISSING_VALUE",
-            `${a} requires a <hostPort>:<guestPort> value`,
-          );
-        }
-        i++;
-      } else if (a.startsWith("-p=")) {
-        spec = a.slice("-p=".length);
-      } else {
-        spec = a.slice("--publish=".length);
-      }
-      const colon = spec!.indexOf(":");
-      if (colon <= 0 || colon === spec!.length - 1) {
-        throw new ParseError(
-          "PARSE_FLAG_MALFORMED",
-          `-p: expected <hostPort>:<guestPort>, got '${spec}'`,
-        );
-      }
-      const hostPort = parsePort(spec!.slice(0, colon), "hostPort");
-      const guestPort = parsePort(spec!.slice(colon + 1), "guestPort");
-      if (seenHostPorts.has(hostPort)) {
-        throw new ParseError("PARSE_FLAG_DUPLICATE", `-p: duplicate hostPort ${hostPort}`);
-      }
-      seenHostPorts.add(hostPort);
-      portForward.push({ hostPort, guestPort });
+      const consumed = consumePortForward(a, pre, i, seenHostPorts, portForward);
+      i = consumed;
     } else if (a === "--snapshot" || a.startsWith("--snapshot=")) {
       let spec: string | undefined;
       if (a === "--snapshot") {
@@ -305,4 +278,50 @@ function parsePort(raw: string, label: string): number {
     throw new ParseError("PARSE_PORT_INVALID", `-p: ${label} must be in 1..65535 (got ${n})`);
   }
   return n;
+}
+
+/**
+ * Consume one `-p`/`--publish` token (and the following value, if the
+ * flag was given without `=`). Pushes onto `portForward`, updates
+ * `seenHostPorts`, and returns the new loop index. Shared between
+ * `parseRunArgs` (boot) and the inline parser in `cmdFork`.
+ */
+export function consumePortForward(
+  flag: string,
+  args: string[],
+  i: number,
+  seenHostPorts: Set<number>,
+  portForward: Array<{ hostPort: number; guestPort: number }>,
+): number {
+  let spec: string | undefined;
+  let next = i;
+  if (flag === "-p" || flag === "--publish") {
+    spec = args[i + 1];
+    if (spec === undefined) {
+      throw new ParseError(
+        "PARSE_FLAG_MISSING_VALUE",
+        `${flag} requires a <hostPort>:<guestPort> value`,
+      );
+    }
+    next = i + 1;
+  } else if (flag.startsWith("-p=")) {
+    spec = flag.slice("-p=".length);
+  } else {
+    spec = flag.slice("--publish=".length);
+  }
+  const colon = spec.indexOf(":");
+  if (colon <= 0 || colon === spec.length - 1) {
+    throw new ParseError(
+      "PARSE_FLAG_MALFORMED",
+      `-p: expected <hostPort>:<guestPort>, got '${spec}'`,
+    );
+  }
+  const hostPort = parsePort(spec.slice(0, colon), "hostPort");
+  const guestPort = parsePort(spec.slice(colon + 1), "guestPort");
+  if (seenHostPorts.has(hostPort)) {
+    throw new ParseError("PARSE_FLAG_DUPLICATE", `-p: duplicate hostPort ${hostPort}`);
+  }
+  seenHostPorts.add(hostPort);
+  portForward.push({ hostPort, guestPort });
+  return next;
 }

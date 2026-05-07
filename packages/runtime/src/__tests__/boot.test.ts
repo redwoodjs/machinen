@@ -11,6 +11,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   readdirSync,
   rmSync,
   statSync,
@@ -259,6 +260,51 @@ describe("snapshot option", () => {
       try {
         unlinkSync(snap);
       } catch {}
+    }
+  });
+
+  it("synthesizes /sbin/machinen-restore even when the image carries a baked cmd", async () => {
+    // Restore against an image whose tarball has a baked default cmd
+    // (e.g. `provision({ cmd })`). The snapshot helper must take
+    // precedence over the baked cmd — replaying the baked cmd would
+    // launch a fresh workload and silently drop the in-memory state
+    // CRIU was supposed to restore (counter starts back at 0). The
+    // /bin/sh stand-in copies the synthesized machinen-config.json
+    // out of the bundle dir (sibling of $MACHINEN_INITRD) so we can
+    // assert what /init would have run.
+    const imgDir = mkdtempSync(join(tmpdir(), "machinen-snap-baked-"));
+    const imgPath = `${imgDir}.tar.gz`;
+    const snap = `/tmp/machinen-runtime-snap-baked-${process.pid}`;
+    const dumpPath = `/tmp/machinen-runtime-config-dump-${process.pid}`;
+    writeFileSync(snap, "");
+    try {
+      writeFileSync(
+        join(imgDir, "machinen-config.json"),
+        JSON.stringify({ cmd: ["/usr/bin/node", "/opt/counter.mjs"] }),
+      );
+      execSync(`tar -czf ${imgPath} -C ${imgDir} .`);
+      const vm = await boot({
+        binary: "/bin/sh",
+        args: ["-c", `cp "$(dirname "$MACHINEN_INITRD")/bundle/machinen-config.json" ${dumpPath}`],
+        image: imgPath,
+        snapshot: snap,
+        rootDisk: false,
+        timeoutMs: 3_000,
+      });
+      await vm.wait();
+      const config = JSON.parse(readFileSync(dumpPath, "utf8")) as { cmd: string[] };
+      expect(config.cmd).toEqual(["/sbin/machinen-restore"]);
+    } finally {
+      try {
+        unlinkSync(snap);
+      } catch {}
+      try {
+        unlinkSync(imgPath);
+      } catch {}
+      try {
+        unlinkSync(dumpPath);
+      } catch {}
+      rmSync(imgDir, { recursive: true, force: true });
     }
   });
 

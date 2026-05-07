@@ -6,7 +6,7 @@
 // we don't need real HVF.
 
 import { createServer } from "node:net";
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -44,6 +44,21 @@ describe("registry primitives", () => {
       name: "test-vm",
       socketPath: "/tmp/fake.sock",
       imagePath: "/tmp/fake.tar.gz",
+      startedAt: 1_700_000_000_000,
+    };
+    writeEntry(entry);
+    expect(readEntry(process.pid)).toEqual(entry);
+  });
+
+  it("writeEntry → readEntry round-trips portForward", () => {
+    const entry: RegistryEntry = {
+      pid: process.pid,
+      name: "with-ports",
+      socketPath: "/tmp/fake.sock",
+      portForward: [
+        { hostPort: 3000, guestPort: 3000 },
+        { hostPort: 5432, guestPort: 5432, hostAddr: "0.0.0.0" },
+      ],
       startedAt: 1_700_000_000_000,
     };
     writeEntry(entry);
@@ -126,6 +141,35 @@ describe("registry primitives", () => {
     expect(claimName("recycled", 999_999_999)).toBe(true);
     // The dead-pid pin should be replaced by our live one on retry.
     expect(claimName("recycled", process.pid)).toBe(true);
+  });
+
+  it("claimName self-heals an empty stale directory at the pin path", () => {
+    // Reproduces the leftover from a path-shaped child pin (pre-#268
+    // removeEntry didn't prune parents): names/<name>/ ends up empty.
+    mkdirSync(join(scratchDir, "names", "stranded"), { recursive: true });
+    expect(claimName("stranded", process.pid)).toBe(true);
+  });
+
+  it("claimName refuses when a non-empty directory holds nested pins", () => {
+    // A live child pin at names/parent/<pid> means the plain name is taken.
+    mkdirSync(join(scratchDir, "names", "parent"), { recursive: true });
+    writeFileSync(join(scratchDir, "names", "parent", "1234"), "1234");
+    expect(claimName("parent", process.pid)).toBe(false);
+  });
+
+  it("removeEntry prunes empty parent dirs of a path-shaped pin", () => {
+    writeEntry({
+      pid: process.pid,
+      name: "src/child",
+      socketPath: "/tmp/fake.sock",
+      startedAt: Date.now(),
+    });
+    expect(existsSync(join(scratchDir, "names", "src", "child"))).toBe(true);
+    removeEntry(process.pid);
+    // Both the leaf pin and the now-empty parent should be gone, so the
+    // plain name "src" is claimable again.
+    expect(existsSync(join(scratchDir, "names", "src"))).toBe(false);
+    expect(claimName("src", process.pid)).toBe(true);
   });
 });
 
