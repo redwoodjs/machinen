@@ -29,7 +29,7 @@
 
 set -eu
 
-ROOT=$(cd "$(dirname "$0")/.." && pwd)
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 ASSETS="${ROOT}/packages/microvm/assets"
 SCRIPTS="${ROOT}/scripts"
 OUT="${ROOT}/release-assets"
