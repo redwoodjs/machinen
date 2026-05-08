@@ -458,7 +458,13 @@ describe("image + cmd", () => {
   });
 
   it("boots an image + cmd and the guest runs the cmd", async () => {
-    const debianRootfs = resolve(microvmRoot, "test-fixtures/rootfs-debian-arm64.tar.gz");
+    // Sibling tests (exec.test.ts, ping.test.ts, provision.test.ts) all
+    // resolve the base rootfs out of release-assets/, which is where
+    // build-base-assets.sh actually writes it. test-fixtures/ only ever
+    // gets the kernel + DTB synced in (vitest.setup.ts), never the
+    // rootfs tarball — pointing at it there made this test guaranteed
+    // to fail on every host.
+    const debianRootfs = resolve(microvmRoot, "../../release-assets/rootfs-debian-arm64.tar.gz");
     const { skip, binary } = requireFixturesOrSkip([debianRootfs]);
     if (skip) {
       return;
