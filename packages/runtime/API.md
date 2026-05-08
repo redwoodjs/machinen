@@ -6608,7 +6608,7 @@ ROOTFS_IMG_TOOL_MISSING (no e2fsprogs found)
 
 > **resolveMke2fs**(): `string`
 
-Defined in: [rootfs-img.ts:729](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L729)
+Defined in: [rootfs-img.ts:744](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L744)
 
 Resolve the mke2fs binary path using the same lookup order as
 `ensureRootfsImage` itself: env override → bundled package → PATH →
