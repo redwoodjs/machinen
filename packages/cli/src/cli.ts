@@ -586,11 +586,12 @@ async function cmdRestore(args: string[]): Promise<number> {
   } catch (err) {
     handleError(err);
   }
-  const { positional, name, image: imageOverride, portForward, eager } = parsed;
+  const { positional, name, image: imageOverride, portForward, eager, liveMounts } = parsed;
   if (positional.length !== 1) {
     die(
       "usage: machinen restore <snap-dir> [--image <tarball>] [--name <name>] " +
-        "[--eager] [-p <hostPort>:<guestPort>]",
+        "[--eager] [-p <hostPort>:<guestPort>] " +
+        "[--mount-live <host>:<guest>[:<mode>]]",
     );
   }
   const snapDir = resolve(positional[0]!);
@@ -631,6 +632,11 @@ async function cmdRestore(args: string[]): Promise<number> {
       name,
       eager,
       portForward: portForward.length > 0 ? portForward : undefined,
+      // #273: per-guest overrides for the bundle's recorded
+      // liveMounts. Empty list = use the bundle's recorded mounts
+      // verbatim; non-empty entries replace the matching guest's
+      // host/mode (BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN if no match).
+      liveMounts: liveMounts.length > 0 ? liveMounts : undefined,
       timeoutMs: null,
     });
   } catch (err) {
@@ -1734,6 +1740,7 @@ function printHelp(): void {
       `    -p <hostPort>:<guestPort>                    Forward host:hostPort → guest:guestPort.\n` +
       `\n` +
       `  machinen restore <snap-dir> [--image <tar.gz>] [--name <name>] [-p ...]\n` +
+      `                              [--mount-live <host>:<guest>[:<mode>]]\n` +
       `                                                 Restore a VM from a snapshot bundle.\n` +
       `                                                 Anonymous restores auto-name as\n` +
       `                                                 <source>/<pid>. Pass --image with the\n` +

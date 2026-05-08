@@ -396,7 +396,18 @@ fn loadConfig(arena: std.mem.Allocator) !Config {
 /// /proc/self/mounts before returning so the user cmd sees the mount
 /// already populated. The fuse driver is built into the kernel
 /// (CONFIG_FUSE_FS=y) so no module load is needed first.
+///
+/// Side-effect (#273): writes `/etc/machinen-livemounts` with one
+/// `<port>\t<guest>\n` line per entry. The file is the source of
+/// truth for /sbin/machinen-dump-preflight (umount before CRIU dump)
+/// and /sbin/machinen-remount (re-fork fuse-agent after dump on a
+/// `leaveRunning` snapshot or the restore side of a fork). Both are
+/// shell scripts; parsing JSON in dash isn't worth the ceremony, so
+/// we materialize a TSV here. Empty mount list → empty file (still
+/// written so downstream scripts can stat-then-loop without an
+/// existence check).
 fn bringUpLiveMounts(mounts: []LiveMount, arena: std.mem.Allocator) void {
+    writeLiveMountsList(mounts);
     if (mounts.len == 0) return;
     for (mounts) |lm| {
         startFuseAgent(lm.port, lm.guest_z, arena) catch {
@@ -413,6 +424,36 @@ fn bringUpLiveMounts(mounts: []LiveMount, arena: std.mem.Allocator) void {
                 .{lm.guest},
             ) catch "init: live mount never appeared";
             logLine(msg);
+        }
+    }
+}
+
+/// Write `/etc/machinen-livemounts` — TSV `<port>\t<guest>\n` per
+/// entry. Read by /sbin/machinen-dump-preflight and
+/// /sbin/machinen-remount (#273). /etc is created if missing (tiny
+/// cpio-only rootfs paths don't always carry it). Failures are
+/// logged and ignored — a missing sidecar surfaces as a snapshot
+/// preflight failure later, which is the same shape as any other
+/// pre-dump misconfiguration.
+fn writeLiveMountsList(mounts: []LiveMount) void {
+    mkdirIgnore("/etc");
+    // O_WRONLY | O_CREAT | O_TRUNC = 1 | 64 | 512 on Linux/musl —
+    // same flag triple copyFileWithMode uses below. The mode arg is
+    // variadic for open(2) so Zig requires an explicit cast.
+    const fd = open("/etc/machinen-livemounts", 0o1 | 0o100 | 0o1000, @as(c_uint, 0o644));
+    if (fd < 0) {
+        logLine("init: failed to open /etc/machinen-livemounts for write");
+        return;
+    }
+    defer _ = close(fd);
+    var buf: [512]u8 = undefined;
+    for (mounts) |lm| {
+        const line = std.fmt.bufPrint(&buf, "{d}\t{s}\n", .{ lm.port, lm.guest }) catch continue;
+        var off: usize = 0;
+        while (off < line.len) {
+            const w = write(fd, line.ptr + off, line.len - off);
+            if (w <= 0) break;
+            off += @intCast(w);
         }
     }
 }

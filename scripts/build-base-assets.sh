@@ -214,8 +214,10 @@ cp "${ASSETS}/machinen-supervisor.sh"      "${STAGE}/machinen-supervisor.sh"
 cp "${ASSETS}/machinen-dump.sh"            "${STAGE}/machinen-dump.sh"
 cp "${ASSETS}/machinen-dump-preflight.sh"  "${STAGE}/machinen-dump-preflight.sh"
 cp "${ASSETS}/machinen-restore.sh"         "${STAGE}/machinen-restore.sh"
+cp "${ASSETS}/machinen-remount.sh"         "${STAGE}/machinen-remount.sh"
 chmod +x "${STAGE}/machinen-supervisor.sh" "${STAGE}/machinen-dump.sh" \
-         "${STAGE}/machinen-dump-preflight.sh" "${STAGE}/machinen-restore.sh"
+         "${STAGE}/machinen-dump-preflight.sh" "${STAGE}/machinen-restore.sh" \
+         "${STAGE}/machinen-remount.sh"
 
 # ------------------------------------------------------------
 # 4. Rootfs — mmdebstrap minbase + aggressive strip + guest binaries
@@ -430,6 +432,7 @@ install -m 0755 -D /stage/machinen-supervisor.sh     /work/rootfs/sbin/machinen-
 install -m 0755 -D /stage/machinen-dump.sh           /work/rootfs/sbin/machinen-dump
 install -m 0755 -D /stage/machinen-dump-preflight.sh /work/rootfs/sbin/machinen-dump-preflight
 install -m 0755 -D /stage/machinen-restore.sh        /work/rootfs/sbin/machinen-restore
+install -m 0755 -D /stage/machinen-remount.sh        /work/rootfs/sbin/machinen-remount
 
 # Deterministic tar + gzip written as a single file to the bind mount.
 tar --sort=name --owner=0 --group=0 --numeric-owner \

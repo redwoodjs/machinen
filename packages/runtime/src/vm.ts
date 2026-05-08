@@ -368,6 +368,30 @@ export interface BootOptions {
    * Each guest path must live under `/mnt/` (same rule as `mount`).
    * Repeatable; each entry gets its own vsock port.
    *
+   * Snapshot / restore / fork (#273): liveMount has no guest-side
+   * state worth checkpointing — reads come from the host on demand,
+   * writes (in `"rw"`) land on the host immediately. The runtime
+   * unmounts each mount before CRIU dumps, then re-establishes a
+   * fresh window on the other side: for `vm.snapshot({ leaveRunning:
+   * true })` and `vm.fork()` the source's workload sees `/mnt/<guest>/`
+   * disappear for the dump duration (typically seconds, scales with
+   * memory size) before reappearing under fresh server state. Open
+   * fds across that window see EBADF on next syscall — same shape
+   * as "don't snapshot during a database write." Workloads that
+   * quiesce before snapshot are unaffected.
+   *
+   * Concurrent writes from multiple forks against the same host
+   * directory are no different from any other shared filesystem —
+   * the runtime re-establishes the window per-VM but doesn't
+   * coordinate writes between siblings. If two forks need
+   * non-overlapping write surfaces, point each at a distinct
+   * `host` path or use `mount` (copy-once, per-VM upper).
+   *
+   * Restore on a host where the recorded `host` path doesn't exist:
+   * fails loudly via `BOOT_MOUNT_HOST_NOT_FOUND`. Pass
+   * `restore({ liveMounts: [...] })` to override per-`guest` —
+   * each override entry's `guest` must match a recorded entry.
+   *
    * Security note: a live-share mount gives a compromised guest a
    * persistent channel back to the host filesystem. Containment keeps
    * that bounded to the configured host root. `mount` (copy-once) has
@@ -1158,6 +1182,17 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
               upperPath: mountDiskPaths.upperPath,
             }
           : undefined,
+        // #273: persist live-share mount config so an attach-owned
+        // snapshot/fork can write the same `meta.liveMounts` block
+        // and trigger /sbin/machinen-remount post-dump on
+        // leaveRunning paths. Host UDS / vsock port aren't carried —
+        // those are this process's private state and the attach side
+        // doesn't need them (the source's servers stay listening
+        // through the dump and the re-fork'd fuse-agent reconnects).
+        liveMounts:
+          liveMountsResolved.length > 0
+            ? liveMountsResolved.map(({ guest, host, mode }) => ({ guest, host, mode }))
+            : undefined,
         startedAt: Date.now(),
       });
       registered = true;
@@ -1458,44 +1493,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
             "auto-allocate a sparse scratch — or pass `snapshot: '<path>'`.",
         );
       }
-      if (liveMountsResolved.length > 0) {
-        // A live mount is a persistent vsock channel that CRIU has no
-        // way to freeze. Snapshotting and later restoring would leave
-        // the guest pointing at a dead UDS / dead host server, with
-        // every FS op returning errors. Refuse loudly until we decide
-        // how the two should compose (issue #78 "Known tradeoffs").
-        throw new SnapshotError(
-          "SNAPSHOT_LIVE_MOUNT_ACTIVE",
-          "vm.snapshot: cannot snapshot a VM with --mount-live active. " +
-            "The vsock FUSE channel doesn't survive snapshot/restore. " +
-            "Re-boot without live mounts if you need to snapshot, or use " +
-            "`--mount` (copy-once) which is baked into the rootfs and " +
-            "snapshots cleanly.",
-        );
-      }
-      return performSnapshot(
-        {
-          pid: childPid,
-          sourceName: vmName,
-          sourceImage: sourceImageAbs,
-          diskPath: diskAbs,
-          mountDisk: mountDiskPaths
-            ? {
-                guest: mountDiskPaths.guest,
-                lowerPath: mountDiskPaths.lowerPath,
-                upperPath: mountDiskPaths.upperPath,
-              }
-            : undefined,
-          execRaw: (cmd, execOpts) => this.execRaw(cmd, execOpts),
-          wait: () => this.wait(),
-          kill: () => this.kill(),
-          teeGuestConsole: (onChunk) => {
-            child.stderr.on("data", onChunk);
-          },
-          errorOutput: () => this.errorOutput(),
-        },
-        snapshotOpts,
-      );
+      return performSnapshot(buildBootSnapshotContext(), snapshotOpts);
     },
 
     async fork(forkOpts) {
@@ -1506,38 +1504,80 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
             "Re-boot the source without that flag so it can be snapshotted.",
         );
       }
-      if (liveMountsResolved.length > 0) {
-        throw new SnapshotError(
-          "SNAPSHOT_LIVE_MOUNT_ACTIVE",
-          "vm.fork: cannot fork a VM with --mount-live active (same reason " +
-            "vm.snapshot refuses — vsock FUSE channels don't survive CRIU).",
-        );
-      }
-      return performFork(
-        {
-          pid: childPid,
-          sourceName: vmName,
-          sourceImage: sourceImageAbs,
-          diskPath: diskAbs,
-          mountDisk: mountDiskPaths
-            ? {
-                guest: mountDiskPaths.guest,
-                lowerPath: mountDiskPaths.lowerPath,
-                upperPath: mountDiskPaths.upperPath,
-              }
-            : undefined,
-          execRaw: (cmd, execOpts) => this.execRaw(cmd, execOpts),
-          wait: () => this.wait(),
-          kill: () => this.kill(),
-          teeGuestConsole: (onChunk) => {
-            child.stderr.on("data", onChunk);
-          },
-          errorOutput: () => this.errorOutput(),
-        },
-        forkOpts ?? {},
-      );
+      return performFork(buildBootSnapshotContext(), forkOpts ?? {});
     },
   };
+
+  // #273: shared snapshot-context builder for the boot-owned
+  // `snapshot()` and `fork()` paths. Threads the live-share mount
+  // config + lifecycle hooks through to performSnapshot so it can:
+  //   - record `liveMounts` in the bundle's meta.json,
+  //   - tear down the host-side `serveLiveMount` instances after the
+  //     dump completes (the guest's preflight already unmounted),
+  //   - respawn fresh ones on the same UDSes for `leaveRunning` so
+  //     `/sbin/machinen-remount` reconnects to clean state.
+  // For attach-handle snapshots, the registry doesn't carry the
+  // resolved config so a parallel ctx omits these fields — see
+  // attach()'s snapshot() implementation below.
+  function buildBootSnapshotContext(): SnapshotContext {
+    const liveMountsForCtx =
+      liveMountsResolved.length > 0
+        ? liveMountsResolved.map((lm) => ({
+            host: lm.host,
+            guest: lm.guest,
+            mode: lm.mode,
+          }))
+        : undefined;
+    return {
+      pid: childPid,
+      sourceName: vmName,
+      sourceImage: sourceImageAbs,
+      diskPath: diskAbs!,
+      mountDisk: mountDiskPaths
+        ? {
+            guest: mountDiskPaths.guest,
+            lowerPath: mountDiskPaths.lowerPath,
+            upperPath: mountDiskPaths.upperPath,
+          }
+        : undefined,
+      liveMounts: liveMountsForCtx,
+      stopLiveMountServers: liveMountsForCtx
+        ? async () => {
+            // Stop in place, then clear the array so the boot exit
+            // hook (line ~1223) doesn't double-stop. Idempotent stops
+            // are safe but the array is also the source of truth for
+            // memoryStats's bytesServedOnPagesImg sum — stale handles
+            // would skew that.
+            await Promise.all(liveMountServers.map((s) => s.stop().catch(() => {})));
+            liveMountServers.length = 0;
+          }
+        : undefined,
+      respawnLiveMountServers: liveMountsForCtx
+        ? async () => {
+            // Fresh inode + handle tables. Same UDS path so the
+            // guest's re-fork'd fuse-agent (started via vsock-exec
+            // of /sbin/machinen-remount) reconnects to a listening
+            // server. memoryStats's lazy-pages accounting resets to
+            // zero, which is correct — restored guests start a new
+            // fault stream.
+            for (const lm of liveMountsResolved) {
+              const fresh = await serveLiveMount(lm.udsPath, {
+                rootAbs: lm.host,
+                mode: lm.mode,
+              });
+              liveMountServers.push(fresh);
+            }
+          }
+        : undefined,
+      execRaw: (cmd, execOpts) => handle.execRaw(cmd, execOpts),
+      wait: () => handle.wait(),
+      kill: () => handle.kill(),
+      teeGuestConsole: (onChunk) => {
+        child.stderr.on("data", onChunk);
+      },
+      errorOutput: () => handle.errorOutput(),
+    };
+  }
 
   // Set a per-VM kernel hostname so `\h` prompts and other
   // hostname-aware tooling can tell VMs apart. Fire-and-forget
@@ -1783,27 +1823,7 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
             "auto-allocate a sparse scratch — or pass `snapshot: '<path>'`.",
         );
       }
-      return performSnapshot(
-        {
-          pid: entry.pid,
-          sourceName: entry.name,
-          sourceImage: entry.imagePath,
-          diskPath: entry.diskPath,
-          // #272: re-hydrate mount-overlay paths from the registry so
-          // attach-owned snapshots reflink the lower+upper into the
-          // bundle exactly like boot-owned snapshots do.
-          mountDisk: entry.mountDisk,
-          execRaw: (cmd, execOpts) => this.execRaw(cmd, execOpts),
-          wait: () => this.wait(),
-          kill: () => this.kill(),
-          // Attach handles don't own the VMM child, so there's no guest
-          // console stream to tee. Dump/CRIU failure detail still flows
-          // via exec-stdout / exec-stderr tags.
-          teeGuestConsole: undefined,
-          errorOutput: async () => "",
-        },
-        snapshotOpts,
-      );
+      return performSnapshot(buildAttachSnapshotContext(), snapshotOpts);
     },
 
     async fork(forkOpts) {
@@ -1813,23 +1833,41 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
           "vm.fork: source VM has no scratch disk (booted with `snapshot: false`).",
         );
       }
-      return performFork(
-        {
-          pid: entry.pid,
-          sourceName: entry.name,
-          sourceImage: entry.imagePath,
-          diskPath: entry.diskPath,
-          mountDisk: entry.mountDisk,
-          execRaw: (cmd, execOpts) => this.execRaw(cmd, execOpts),
-          wait: () => this.wait(),
-          kill: () => this.kill(),
-          teeGuestConsole: undefined,
-          errorOutput: async () => "",
-        },
-        forkOpts ?? {},
-      );
+      return performFork(buildAttachSnapshotContext(), forkOpts ?? {});
     },
   };
+
+  // #273: snapshot ctx for the attach surface. Mirrors the boot-handle
+  // builder but reads liveMount config from the registry (which the
+  // boot process persisted) and intentionally leaves the
+  // stop/respawnLiveMountServers callbacks undefined — the host-side
+  // serveLiveMount instances belong to the OWNING process, so this
+  // process can't bind their UDSes. performSnapshot's choreography
+  // tolerates the gap: kill snapshots clean up via the owning
+  // process's exit hook; leaveRunning paths still exec
+  // /sbin/machinen-remount, and the re-fork'd fuse-agent dials the
+  // owning process's still-listening UDS.
+  function buildAttachSnapshotContext(): SnapshotContext {
+    return {
+      pid: entry.pid,
+      sourceName: entry.name,
+      sourceImage: entry.imagePath,
+      diskPath: entry.diskPath!,
+      // #272: re-hydrate mount-overlay paths from the registry so
+      // attach-owned snapshots reflink the lower+upper into the
+      // bundle exactly like boot-owned snapshots do.
+      mountDisk: entry.mountDisk,
+      liveMounts: entry.liveMounts,
+      execRaw: (cmd, execOpts) => handle.execRaw(cmd, execOpts),
+      wait: () => handle.wait(),
+      kill: () => handle.kill(),
+      // Attach handles don't own the VMM child, so there's no guest
+      // console stream to tee. Dump/CRIU failure detail still flows
+      // via exec-stdout / exec-stderr tags.
+      teeGuestConsole: undefined,
+      errorOutput: async () => "",
+    };
+  }
   return handle;
 }
 
@@ -2025,6 +2063,59 @@ export function buildMachinenConfig(input: {
     cfg.liveMounts = input.liveMounts.map(({ guest, port }) => ({ guest, port }));
   }
   return cfg;
+}
+
+/**
+ * #273: merge a snapshot bundle's recorded live-mount config with
+ * caller-provided per-guest overrides into the effective list
+ * `restore()` hands to `boot()`. Pure — extracted so the override
+ * semantics can be unit-tested without booting a VM.
+ *
+ * Semantics:
+ *   - `recorded` empty / undefined: legacy bundle (predates #273) —
+ *     forward `overrides` as-is so existing additive callers keep
+ *     working. Returns undefined when both inputs are empty.
+ *   - `recorded` non-empty: each entry is re-established by default.
+ *     For each entry in `overrides`, the matching `recorded` entry's
+ *     `host` and (optionally) `mode` are replaced. An override whose
+ *     `guest` doesn't appear in `recorded` is rejected with
+ *     BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN — the override knob is for
+ *     remapping bundle-recorded mounts, not for adding new ones.
+ *
+ * @internal exported for tests
+ */
+export function resolveRestoreLiveMounts(
+  recorded: SnapshotMeta["liveMounts"] | undefined,
+  overrides: BootOptions["liveMounts"] | undefined,
+): BootOptions["liveMounts"] {
+  const recordedList = recorded ?? [];
+  const overrideList = overrides ?? [];
+  if (recordedList.length === 0) {
+    return overrideList.length > 0 ? overrideList : undefined;
+  }
+  const recordedByGuest = new Map(recordedList.map((m) => [m.guest, m]));
+  const overridesByGuest = new Map<string, { host: string; guest: string; mode?: "ro" | "rw" }>();
+  for (const ov of overrideList) {
+    if (!recordedByGuest.has(ov.guest)) {
+      const known = recordedList.map((m) => m.guest).join(", ");
+      throw new BootError(
+        "BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN",
+        `restore: liveMounts override for guest=${ov.guest} doesn't match any\n` +
+          `  liveMount recorded in the bundle. The bundle's recorded guest paths are:\n` +
+          `    ${known}\n` +
+          `  restore() reproduces the snapshot's mount topology — opts.liveMounts is\n` +
+          `  an override map, not an additive list. To override, set 'guest' to one\n` +
+          `  of the recorded paths above and supply a new 'host' / 'mode'.`,
+      );
+    }
+    overridesByGuest.set(ov.guest, ov);
+  }
+  return recordedList.map((rec) => {
+    const ov = overridesByGuest.get(rec.guest);
+    return ov
+      ? { guest: rec.guest, host: ov.host, mode: ov.mode ?? rec.mode }
+      : { guest: rec.guest, host: rec.host, mode: rec.mode };
+  });
 }
 
 function synthesizeAndPackBundle(
@@ -2563,6 +2654,37 @@ interface SnapshotContext {
     lowerPath: string;
     upperPath: string;
   };
+  /**
+   * #273: live-share FUSE mounts the source VM has active. Threaded
+   * into the bundle's `meta.json` so `restore()` can re-establish
+   * the same window (or apply per-guest overrides on a different
+   * host). Both boot- and attach-handle ctxes populate this — boot
+   * from `liveMountsResolved`, attach from the registry. Undefined
+   * / empty for VMs booted without `liveMounts`.
+   */
+  liveMounts?: ReadonlyArray<{ host: string; guest: string; mode: "ro" | "rw" }>;
+  /**
+   * #273: tear down the host-side mount-server instances (the
+   * `LiveMountServerHandle` from `serveLiveMount`). Called once
+   * after the dump completes successfully — the guest's preflight
+   * already unmounted, so the servers are idle. Boot-handle ctxes
+   * pass a closure that stops the boot scope's `liveMountServers`
+   * array; attach-handle ctxes leave this undefined because the
+   * servers belong to another (owning) process — they keep
+   * listening through the dump and the guest's remount reconnects
+   * to them. Skipped silently when undefined.
+   */
+  stopLiveMountServers?: () => Promise<void>;
+  /**
+   * #273: respawn fresh `serveLiveMount` instances on the same UDS
+   * paths the original servers listened on, so the guest's
+   * `/sbin/machinen-remount` reconnects to a clean inode/handle
+   * table. Boot-handle only — attach can't bind UDSes the boot
+   * process owns. Only invoked on `leaveRunning: true`. When
+   * undefined and leaveRunning is set, the remount still runs but
+   * targets whatever server the owning process has up.
+   */
+  respawnLiveMountServers?: () => Promise<void>;
   execRaw: (cmd: string, opts?: VsockExecOptions) => Promise<VsockExecResult>;
   wait: () => Promise<{ code: number | null; signal: NodeJS.Signals | null }>;
   kill: () => Promise<void>;
@@ -2862,6 +2984,79 @@ async function performSnapshot(
     };
   }
 
+  // #273: live-share FUSE mount choreography. The guest's preflight
+  // already unmounted before CRIU ran (machinen-dump-preflight.sh's
+  // `unmount_live_mounts`), so the FUSE state CRIU sees is clean.
+  // What's left to do here is host-side hygiene + (for leaveRunning)
+  // putting the workload's mount view back together:
+  //
+  //   - Stop owned servers via ctx.stopLiveMountServers if present.
+  //     Boot-handle: closures over the boot scope's array; clears it
+  //     so the exit hook doesn't double-stop. Attach-handle: undefined
+  //     (the servers live in the owning process and stay listening
+  //     through the dump, which is what lets the remount-from-attach
+  //     case work without cross-process server handoff).
+  //   - leaveRunning + boot-handle: respawn fresh servers on the same
+  //     UDSes for clean inode/handle tables.
+  //   - leaveRunning + any handle: exec /sbin/machinen-remount in the
+  //     guest. It re-forks fuse-agent and waits for /mnt/<guest>/ to
+  //     reappear in /proc/self/mounts. For attach-handle the new
+  //     fuse-agent dials the owning process's still-listening UDS;
+  //     for boot-handle it dials the freshly-respawned server.
+  //
+  // Skipped silently when ctx.liveMounts is unset (no live mounts on
+  // this VM, or a code path that can't surface the config).
+  if (ctx.liveMounts && ctx.liveMounts.length > 0) {
+    if (ctx.stopLiveMountServers) {
+      try {
+        await ctx.stopLiveMountServers();
+      } catch (err) {
+        debugSnapshot(
+          "stopLiveMountServers failed (continuing): %s",
+          err instanceof Error ? err.message : String(err),
+        );
+      }
+    }
+    if (leaveRunning) {
+      if (ctx.respawnLiveMountServers) {
+        try {
+          await ctx.respawnLiveMountServers();
+        } catch (err) {
+          // Fail loudly — leaveRunning workloads expect their FS view
+          // back. Without the respawn the remount would hang on
+          // connect-retry.
+          throw new SnapshotError(
+            "SNAPSHOT_DUMP_FAILED",
+            `vm.snapshot: failed to respawn live-mount servers post-dump: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+            { cause: err },
+          );
+        }
+      }
+      // Tell the guest to re-fork fuse-agent. Reads
+      // /etc/machinen-livemounts (written by /init's bringUpLiveMounts)
+      // and waits for each mount to reappear in /proc/self/mounts.
+      try {
+        await ctx.execRaw("/sbin/machinen-remount", {
+          connectTimeoutMs: Math.min(deadlineMs, 5_000),
+          execTimeoutMs: 15_000,
+          onStderr: onLog
+            ? (chunk) => onLog({ source: "exec-stderr", cmd: "/sbin/machinen-remount", chunk })
+            : undefined,
+        });
+      } catch (err) {
+        throw new SnapshotError(
+          "SNAPSHOT_DUMP_FAILED",
+          `vm.snapshot: post-dump remount in guest failed: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+          { cause: err },
+        );
+      }
+    }
+  }
+
   // Destructive snapshot: the source VM is still alive (we always
   // pass --leave-running internally). Bring it down via a clean
   // poweroff so callers see the same "VM is gone after snapshot"
@@ -2913,6 +3108,14 @@ async function performSnapshot(
     sourceImage: ctx.sourceImage,
     snappedAt: Date.now(),
     mountDisk: mountDiskMeta,
+    // #273: bytes are NOT in the bundle — `host` is a path on the
+    // snapshotting host that the restoring host has to resolve (or
+    // remap via `restore({ liveMounts })`). Recorded only when ctx
+    // carried a resolved list (boot-handle path).
+    liveMounts:
+      ctx.liveMounts && ctx.liveMounts.length > 0
+        ? ctx.liveMounts.map(({ guest, host, mode }) => ({ guest, host, mode }))
+        : undefined,
   };
   writeFileSync(join(snapDir, "meta.json"), JSON.stringify(meta));
   phases.end("finalize");
@@ -2987,8 +3190,23 @@ export interface RestoreOptions extends Omit<BootOptions, "snapshot" | "image" |
  *                                 passed `name`)
  *   - `forkedFrom: <snapDir>`     lineage for `machinen ls`
  *
+ * Live-share mounts (#273): bundles created with active `liveMounts`
+ * carry only the `{guest, host, mode}` triples in `meta.liveMounts`
+ * — no bytes. By default `restore()` re-establishes each recorded
+ * mount as-is; the boot-time `existsSync(host)` check fails loudly
+ * (BOOT_MOUNT_HOST_NOT_FOUND) if the recorded host path is gone on
+ * the restoring host. Pass `liveMounts: [...]` to override per-
+ * `guest` (e.g. cross-host restore with remapped paths). Each
+ * override entry's `guest` MUST match a recorded one — the field is
+ * an override map, not an additive list. Bundles predating this
+ * field have `meta.liveMounts === undefined`; in that case
+ * `opts.liveMounts` is forwarded as-is for backward compatibility.
+ *
  * @throws {BootError} BOOT_SNAPSHOT_NOT_FOUND if `<snapDir>/img/`
  *   is missing or empty.
+ * @throws {BootError} BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN if an entry in
+ *   `opts.liveMounts` has a `guest` that doesn't appear in the
+ *   bundle's `meta.liveMounts`.
  */
 export async function restore(opts: RestoreOptions): Promise<VmHandle> {
   // #221: per-phase timeline for restore. Boot's own phases get logged
@@ -3089,6 +3307,12 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
     phases.end("snapshot-mark-lazy");
   }
 
+  // #273: live-share FUSE mounts the source had at snapshot time.
+  // Re-establish them on the restored VM so the workload's view of
+  // /mnt/<guest>/ comes back intact. opts.liveMounts is an override
+  // map keyed by `guest` (see resolveRestoreLiveMounts).
+  const effectiveLiveMounts = resolveRestoreLiveMounts(meta.liveMounts, opts.liveMounts);
+
   // Bundle delivery split by mode:
   //   - lazy (default): vsock-FUSE-mount `imgDir/` read-only at
   //     /mnt/snap-src/img. CRIU restore reads pagemap-*.img +
@@ -3115,7 +3339,7 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
     restoreEnv.MACHINEN_RESTORE_BUNDLE_LIVE = "1";
     restoreEnv.MACHINEN_RESTORE_LAZY_PAGES = "1";
     liveMounts = [
-      ...(opts.liveMounts ?? []),
+      ...(effectiveLiveMounts ?? []),
       { host: imgDir, guest: "/mnt/snap-src/img", mode: "ro" as const },
     ];
   } else {
@@ -3149,7 +3373,7 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
         }`,
       );
     }
-    liveMounts = opts.liveMounts;
+    liveMounts = effectiveLiveMounts;
   }
   phases.end("snapshot-pack");
 

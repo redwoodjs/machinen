@@ -4,7 +4,7 @@
 
 import { ParseError } from "@machinen/runtime";
 
-import { consumePortForward } from "./parse-run-args.ts";
+import { consumeLiveMount, consumePortForward } from "./parse-run-args.ts";
 
 export interface ParsedRestoreArgs {
   /**
@@ -33,6 +33,15 @@ export interface ParsedRestoreArgs {
    * only when faulted (#266).
    */
   eager: boolean;
+  /**
+   * #273: per-`guest` overrides for the live-share mounts recorded in
+   * the bundle's `meta.liveMounts`. Each entry's `guest` MUST match a
+   * recorded entry — restore() reproduces the snapshot's mount
+   * topology, so this knob remaps the host path / mode for an
+   * existing mount, it doesn't add new ones. The runtime emits
+   * BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN for any unmatched entry.
+   */
+  liveMounts: Array<{ host: string; guest: string; mode: "ro" | "rw" }>;
 }
 
 export function parseRestoreArgs(argv: string[]): ParsedRestoreArgs {
@@ -41,6 +50,8 @@ export function parseRestoreArgs(argv: string[]): ParsedRestoreArgs {
   let image: string | undefined;
   let eager = false;
   const portForward: Array<{ hostPort: number; guestPort: number }> = [];
+  const liveMounts: Array<{ host: string; guest: string; mode: "ro" | "rw" }> = [];
+  const seenLiveGuests = new Set<string>();
   const seenHostPorts = new Set<number>();
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
@@ -70,6 +81,20 @@ export function parseRestoreArgs(argv: string[]): ParsedRestoreArgs {
         );
       }
       image = v;
+    } else if (a === "--mount-live" || a.startsWith("--mount-live=")) {
+      const { value, next } = consumeLiveMount(a, argv, i);
+      i = next;
+      // CLI-side dedup: two overrides for the same guest is a typo,
+      // not a feature. Runtime would still accept the second one
+      // silently (last write wins on Map.set) — fail fast here.
+      if (seenLiveGuests.has(value.guest)) {
+        throw new ParseError(
+          "PARSE_FLAG_DUPLICATE",
+          `--mount-live override for guest=${value.guest} given more than once`,
+        );
+      }
+      seenLiveGuests.add(value.guest);
+      liveMounts.push(value);
     } else if (
       a === "-p" ||
       a === "--publish" ||
@@ -83,5 +108,5 @@ export function parseRestoreArgs(argv: string[]): ParsedRestoreArgs {
       positional.push(a);
     }
   }
-  return { positional, name, image, portForward, eager };
+  return { positional, name, image, portForward, eager, liveMounts };
 }

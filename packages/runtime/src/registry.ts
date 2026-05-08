@@ -155,6 +155,18 @@ export interface RegistryEntry {
     lowerPath: string;
     upperPath: string;
   };
+  /**
+   * #273: live-share FUSE mounts (`liveMounts: [...]` at boot) the
+   * VM was started with. Persisted so an attach-owned `vm.snapshot()`
+   * / `vm.fork()` can record the same `meta.liveMounts` block in the
+   * bundle and trigger /sbin/machinen-remount post-dump on
+   * leaveRunning paths. Host UDS paths and vsock ports are NOT
+   * recorded — those are the boot process's private state and aren't
+   * useful to other processes (the owning process keeps the servers
+   * listening through the dump, so attach reconnects without having
+   * to bind anything).
+   */
+  liveMounts?: Array<{ guest: string; host: string; mode: "ro" | "rw" }>;
   /** ms epoch when the entry was created. */
   startedAt: number;
 }
