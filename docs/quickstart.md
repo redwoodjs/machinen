@@ -15,7 +15,7 @@ persistent, no database. The whole point is that "in memory" survives the
 move.
 
 ```js
-// counter.js
+// counter.mjs
 import { createServer } from "node:http";
 let count = 0;
 createServer((_, res) => {
@@ -36,9 +36,9 @@ import { provision } from "@machinen/runtime";
 await provision({
   install: async (vm) => {
     await vm.exec("apt-get update && apt-get install -y nodejs");
-    await vm.writeFile("/opt/counter.js", readFileSync("./counter.js"));
+    await vm.writeFile("/opt/counter.mjs", readFileSync("./counter.mjs"));
   },
-  cmd: ["/usr/bin/node", "/opt/counter.js"],
+  cmd: ["/usr/bin/node", "/opt/counter.mjs"],
   out: "./counter.tar.gz",
 });
 ```
