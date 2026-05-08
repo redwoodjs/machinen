@@ -117,6 +117,13 @@ export const COMMANDS: CommandSpec[] = [
         repeatable: true,
         description: "Forward host TCP port. Not inherited from the source.",
       },
+      {
+        name: "--mount-live",
+        type: "string",
+        repeatable: true,
+        description:
+          "Override a recorded live-share mount's host/mode (#273). Each entry's <guest> must match a guest path recorded in the bundle's meta.liveMounts.",
+      },
     ],
   },
   {

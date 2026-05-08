@@ -51,6 +51,7 @@ rootfs_input_files() {
     "${ASSETS}/machinen-dump-preflight.sh" \
     "${ASSETS}/machinen-dump.sh" \
     "${ASSETS}/machinen-netup.c" \
+    "${ASSETS}/machinen-remount.sh" \
     "${ASSETS}/machinen-restore.sh" \
     "${ASSETS}/machinen-supervisor.sh" \
     "${ASSETS}/memdirty.zig" \

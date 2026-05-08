@@ -246,6 +246,17 @@ export interface WriteFileOptions {
   append?: boolean;
 }
 
+/**
+ * Options for `vm.snapshot(opts)`.
+ *
+ * Live-share mount note (#273): VMs booted with `liveMounts: [...]`
+ * are snapshottable. The runtime unmounts each FUSE mount before
+ * CRIU dumps and (for `leaveRunning: true`) re-establishes them
+ * after. Bytes are NOT captured into the bundle — only the host
+ * path / guest path / mode get recorded in `meta.liveMounts` so
+ * `restore()` can reconnect a live window on the other side. See
+ * the `liveMounts` doc on `BootOptions` for the full contract.
+ */
 export interface SnapshotOptions {
   /**
    * Directory the snapshot bundle is written to. Created if missing
@@ -333,6 +344,26 @@ export interface SnapshotMeta {
     lower: string;
     upper: string;
   };
+  /**
+   * #273: live-share FUSE mounts (`liveMounts: [...]` at boot) the
+   * source VM had at snapshot time. Unlike `mountDisk`, no bytes are
+   * captured — `host` is the path on the host that was being live-
+   * shared, recorded so `restore()` can re-establish the same window
+   * on the restoring host. Each entry is the resolved config from the
+   * source's `resolveLiveMounts()`:
+   *   - `guest`: absolute guest path the FUSE mount lands at.
+   *   - `host`:  absolute host path that was being shared.
+   *   - `mode`:  `"ro"` or `"rw"`, the share's write semantics.
+   *
+   * Restore policy: the bundle's recorded mounts are re-established
+   * verbatim by default. Pass `restore({ liveMounts })` to override
+   * per-guest `host`/`mode` — each override entry's `guest` must
+   * match a recorded entry, else BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN.
+   * Cross-host bundles where a recorded `host` doesn't exist on the
+   * restoring host fail loudly via the boot-time existence check —
+   * users remap with the override knob.
+   */
+  liveMounts?: Array<{ guest: string; host: string; mode: "ro" | "rw" }>;
 }
 
 /**

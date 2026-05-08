@@ -558,6 +558,48 @@ describe("parseRestoreArgs", () => {
   it("throws ParseError (not generic Error) so the CLI can format it", () => {
     expect(() => parseRestoreArgs(["./warm", "-p"])).toThrow(ParseError);
   });
+
+  // #273: --mount-live on restore is the per-guest override knob for
+  // the bundle's recorded liveMounts. Same wire shape as boot's
+  // --mount-live, different semantics — restore() refuses unknown
+  // guests at the runtime layer, the parser just collects entries.
+  it("collects --mount-live overrides with default :rw mode", () => {
+    const parsed = parseRestoreArgs(["./warm", "--mount-live", "/host/work:/mnt/work"]);
+    expect(parsed.liveMounts).toEqual([{ host: "/host/work", guest: "/mnt/work", mode: "rw" }]);
+  });
+
+  it("collects --mount-live with explicit :ro and :rw modes", () => {
+    const parsed = parseRestoreArgs([
+      "./warm",
+      "--mount-live",
+      "/host/cache:/mnt/cache:ro",
+      "--mount-live=/host/work:/mnt/work:rw",
+    ]);
+    expect(parsed.liveMounts).toEqual([
+      { host: "/host/cache", guest: "/mnt/cache", mode: "ro" },
+      { host: "/host/work", guest: "/mnt/work", mode: "rw" },
+    ]);
+  });
+
+  it("rejects two --mount-live overrides for the same guest", () => {
+    // Last-write-wins on the runtime side would silently swallow a
+    // typo; surface it at parse time so the user notices.
+    expect(() =>
+      parseRestoreArgs([
+        "./warm",
+        "--mount-live",
+        "/host/a:/mnt/work",
+        "--mount-live",
+        "/host/b:/mnt/work",
+      ]),
+    ).toThrow(/--mount-live override for guest=\/mnt\/work given more than once/);
+  });
+
+  it("rejects malformed --mount-live spec on restore (same as boot)", () => {
+    expect(() => parseRestoreArgs(["./warm", "--mount-live", "no-colon"])).toThrow(
+      /--mount-live: expected/,
+    );
+  });
 });
 
 describe("formatPorts (machinen ls PORTS column)", () => {

@@ -113,9 +113,13 @@ function icmpLine(inode: number, srcPort: number = 0): string {
 }
 
 function runPreflight(procRoot: string, rootPid: number) {
+  // Pin LIVE_MOUNTS_FILE to /dev/null so the #273 unmount check
+  // no-ops; this suite exclusively exercises scan_raw_inet_sockets,
+  // and a stray /etc/machinen-livemounts on the host (or future
+  // tests' fixtures) shouldn't perturb that.
   return spawnSync("/bin/dash", [preflight, String(rootPid)], {
     encoding: "utf8",
-    env: { ...process.env, PROC: procRoot },
+    env: { ...process.env, PROC: procRoot, LIVE_MOUNTS_FILE: "/dev/null" },
   });
 }
 
@@ -274,6 +278,108 @@ describe("machinen-dump-preflight", () => {
       const r = runPreflight(procRoot, 100);
       expect(r.status).toBe(1);
       expect(r.stderr).toMatch(/pid=100 fd=6 ipproto=58/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+// #273: in-guest live-share FUSE mount unmount step. The real umount
+// path needs a real FUSE mount and root, which is smoke-test territory;
+// here we cover the dispatcher (file present/absent, line parsing,
+// skip-if-not-a-mountpoint) — the corners that decide whether umount
+// is invoked at all.
+describe("machinen-dump-preflight: unmount_live_mounts", () => {
+  if (!hasDash()) {
+    it.skip("requires /bin/dash", () => {});
+    return;
+  }
+
+  // A clean-/proc fixture all of these reuse — we're exercising the
+  // unmount loop, not the raw-socket scan, but the script runs both
+  // checks unconditionally so we still need a synthetic /proc.
+  function makeProc(root: string): string {
+    return buildProc(root, [{ pid: 1 }]);
+  }
+
+  function runWith(args: { procRoot: string; liveMountsFile: string }) {
+    return spawnSync("/bin/dash", [preflight, "1"], {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PROC: args.procRoot,
+        LIVE_MOUNTS_FILE: args.liveMountsFile,
+      },
+    });
+  }
+
+  it("succeeds silently when LIVE_MOUNTS_FILE is absent", () => {
+    // Bundles / boots without --mount-live never wrote the sidecar.
+    // The unmount step has nothing to do; preflight should exit 0
+    // without printing about it.
+    const root = mkdtempSync(join(tmpdir(), "preflight-livemount-absent-"));
+    try {
+      const procRoot = makeProc(root);
+      const missing = join(root, "definitely-not-here");
+      const r = runWith({ procRoot, liveMountsFile: missing });
+      expect(r.status).toBe(0);
+      expect(r.stderr).not.toMatch(/refusing to dump/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("succeeds silently when LIVE_MOUNTS_FILE is empty", () => {
+    // /init wrote an empty sidecar (zero liveMounts at boot — weird,
+    // but the schema permits it). Same outcome as a missing file:
+    // nothing to unmount, nothing to complain about.
+    const root = mkdtempSync(join(tmpdir(), "preflight-livemount-empty-"));
+    try {
+      const procRoot = makeProc(root);
+      const list = join(root, "livemounts");
+      writeFileSync(list, "");
+      const r = runWith({ procRoot, liveMountsFile: list });
+      expect(r.status).toBe(0);
+      expect(r.stderr).not.toMatch(/refusing to dump/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("skips entries whose guest path isn't currently a mountpoint", () => {
+    // The sidecar describes the *intent* — a fuse-agent that died at
+    // boot, or a path that was unmounted by the user already, leaves
+    // a stale entry. Preflight just no-ops on those (mountpoint -q
+    // returns 1) and moves on rather than failing the dump on
+    // something already in the desired state.
+    const root = mkdtempSync(join(tmpdir(), "preflight-livemount-stale-"));
+    try {
+      const procRoot = makeProc(root);
+      const guestDir = join(root, "guest-not-mounted");
+      mkdirSync(guestDir);
+      const list = join(root, "livemounts");
+      writeFileSync(list, `1970\t${guestDir}\n`);
+      const r = runWith({ procRoot, liveMountsFile: list });
+      expect(r.status).toBe(0);
+      expect(r.stderr).not.toMatch(/refusing to dump/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("ignores blank lines in the sidecar", () => {
+    // Defensive: an editor or future writer adds a trailing newline
+    // or splits writes across boundaries. The loop's `[ -n "$guest" ]
+    // || continue` guard should keep us from invoking umount with an
+    // empty target.
+    const root = mkdtempSync(join(tmpdir(), "preflight-livemount-blanks-"));
+    try {
+      const procRoot = makeProc(root);
+      const list = join(root, "livemounts");
+      writeFileSync(list, "\n\n");
+      const r = runWith({ procRoot, liveMountsFile: list });
+      expect(r.status).toBe(0);
+      expect(r.stderr).not.toMatch(/refusing to dump/);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

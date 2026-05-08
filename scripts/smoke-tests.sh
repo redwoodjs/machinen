@@ -1926,5 +1926,184 @@ else
   trap 'rm -rf "$FIXTURE"' EXIT
 fi  # S5 rootfs-capability gate
 
+# ----------------------------------------------------------------
+# S6: snapshot + restore + fork composes with --mount-live (#273).
+#
+# Pre-#273 the runtime refused snapshot/fork on VMs with active live-
+# share mounts (vsock FUSE channels can't ride through CRIU). The fix:
+# unmount before dump, remount after, record `meta.liveMounts` so the
+# restored VM re-establishes a fresh window on the recorded host path.
+#
+# This test exercises the full round-trip:
+#   1. Boot with --mount-live <host>:/mnt/share, write a guest file
+#      that lands on the host (verifies the source's mount works).
+#   2. Snapshot — runtime drives /sbin/machinen-dump-preflight which
+#      umounts, then CRIU dumps (cleanly), then meta.json gets the
+#      liveMounts block. Source is killed (default destructive path).
+#   3. Restore — meta.liveMounts re-establishes the window on the
+#      same host dir; the previously-written file is still readable
+#      from inside the restored guest.
+#   4. Restore-with-override — same bundle, but pass
+#      --mount-live <other-host>:/mnt/share to remap. The restored
+#      guest now sees a different host directory's contents.
+#   5. Fork — leaveRunning path. Source survives, fork has its own
+#      independent guest — both can write to the same host dir
+#      (concurrent-writer semantics are the user's to manage).
+# ----------------------------------------------------------------
+if [[ "$ROOTFS_SUPPORTS_VSOCK_EXEC" -eq 0 || "$ROOTFS_SUPPORTS_CRIU" -eq 0 || "$ROOTFS_SUPPORTS_SNAPSHOT_HELPERS" -eq 0 ]]; then
+  echo "S6: skipped (rootfs lacks vsock/criu/snapshot helpers)"
+elif ! grep -q 'fuse-agent$' <<<"$ROOTFS_ENTRIES"; then
+  echo "S6: skipped (rootfs lacks fuse-agent — rebuild base assets)"
+else
+  echo "S6: snapshot + restore + fork compose with --mount-live (#273)"
+  S6_NAME="livemount-smoke-$$"
+  S6_BG_LOG="$FIXTURE/s6-bg.log"
+  S6_SCRATCH="$FIXTURE/s6-scratch.img"
+  S6_SHARE_A="$FIXTURE/s6-share-a"
+  S6_SHARE_B="$FIXTURE/s6-share-b"
+  S6_SNAP_DIR="$FIXTURE/s6-snap"
+  S6_RESTORE_LOG="$FIXTURE/s6-restore.log"
+  S6_RESTORE_REMAP_LOG="$FIXTURE/s6-restore-remap.log"
+
+  mkdir -p "$S6_SHARE_A" "$S6_SHARE_B"
+  truncate -s 256M "$S6_SCRATCH"
+  # Pre-seed share B with a marker the source never wrote — so the
+  # remapped restore can prove it's actually reading from B, not A.
+  echo "from-share-b" > "$S6_SHARE_B/marker.txt"
+
+  S6_PID=$(boot_bg "$S6_NAME" "$S6_BG_LOG" \
+    --snapshot "$S6_SCRATCH" \
+    --mount-live "$S6_SHARE_A:/mnt/share" \
+    -- /bin/sh -c 'while :; do sleep 1; done')
+  cleanup_s6() {
+    kill -TERM "$S6_PID" 2>/dev/null || true
+    wait "$S6_PID" 2>/dev/null || true
+  }
+  trap 'cleanup_s6; rm -rf "$FIXTURE"' EXIT
+
+  if ! wait_for_vm "$S6_NAME"; then
+    tail -80 "$S6_BG_LOG" >&2
+    fail "S6 — '$S6_NAME' never appeared in 'machinen ls'"
+  fi
+  pass "boot with --mount-live registered '$S6_NAME'"
+
+  # Verify the source's live mount works: guest write lands on host.
+  if ! cli exec --name "$S6_NAME" -- echo from-source '>' /mnt/share/source.txt; then
+    tail -60 "$S6_BG_LOG" >&2
+    fail "S6 — couldn't write through live mount on source"
+  fi
+  if ! grep -q "from-source" "$S6_SHARE_A/source.txt" 2>/dev/null; then
+    ls -la "$S6_SHARE_A" >&2
+    fail "S6 — source's guest write didn't reach host share-A"
+  fi
+  pass "source's guest write through live mount visible on host"
+
+  # Snapshot. Pre-#273 this would have thrown SNAPSHOT_LIVE_MOUNT_ACTIVE.
+  # Today: preflight unmounts, dump succeeds, meta.liveMounts records
+  # the share-A path so restore can re-establish.
+  S6_DUMP_LOG="$FIXTURE/s6-dump.log"
+  if ! cli snapshot --name "$S6_NAME" --out-dir "$S6_SNAP_DIR" 2>"$S6_DUMP_LOG"; then
+    tail -60 "$S6_BG_LOG" >&2
+    cat "$S6_DUMP_LOG" >&2
+    fail "S6 — 'machinen snapshot' against --mount-live VM failed"
+  fi
+  wait "$S6_PID" 2>/dev/null || true
+  pass "'machinen snapshot' succeeded on a --mount-live VM"
+
+  if ! grep -q '"liveMounts"' "$S6_SNAP_DIR/meta.json"; then
+    cat "$S6_SNAP_DIR/meta.json" >&2
+    fail "S6 — meta.json missing liveMounts block"
+  fi
+  if ! grep -q "$S6_SHARE_A" "$S6_SNAP_DIR/meta.json"; then
+    cat "$S6_SNAP_DIR/meta.json" >&2
+    fail "S6 — meta.json liveMounts doesn't record host=$S6_SHARE_A"
+  fi
+  pass "meta.json records the live-mount config"
+
+  # Restore against the recorded host path. The previously-written
+  # /mnt/share/source.txt should still read "from-source" because it's
+  # the same host directory mounted into the restored guest.
+  node "$CLI" restore "$S6_SNAP_DIR" >"$S6_RESTORE_LOG" 2>&1 &
+  S6_RESTORE_PID=$!
+  cleanup_s6_restore() {
+    kill -TERM "$S6_RESTORE_PID" 2>/dev/null || true
+    wait "$S6_RESTORE_PID" 2>/dev/null || true
+  }
+  trap 'cleanup_s6; cleanup_s6_restore; rm -rf "$FIXTURE"' EXIT
+
+  S6_RESTORED=""
+  deadline=$((SECONDS + 60))
+  while (( SECONDS < deadline )); do
+    cand=$(cli ls 2>/dev/null | awk -v src="$S6_NAME/" 'NR>1 && index($2, src)==1 {print $2; exit}')
+    if [[ -n "$cand" ]]; then
+      S6_RESTORED=$cand
+      break
+    fi
+    sleep 1
+  done
+  if [[ -z "$S6_RESTORED" ]]; then
+    tail -200 "$S6_RESTORE_LOG" >&2
+    cli ls >&2 || true
+    fail "S6 — restored VM never registered"
+  fi
+  pass "restored VM auto-named as '$S6_RESTORED'"
+
+  S6_READ_LOG="$FIXTURE/s6-read.log"
+  if cli exec --name "$S6_RESTORED" -- cat /mnt/share/source.txt >"$S6_READ_LOG" 2>&1 \
+     && grep -q "from-source" "$S6_READ_LOG"; then
+    pass "restored VM reads through re-established live mount (host share-A)"
+  else
+    cat "$S6_READ_LOG" >&2
+    tail -200 "$S6_RESTORE_LOG" >&2
+    fail "S6 — restored VM couldn't read /mnt/share/source.txt from share-A"
+  fi
+
+  cleanup_s6_restore
+  trap 'cleanup_s6; rm -rf "$FIXTURE"' EXIT
+
+  # Restore-with-override: same bundle, remap host=share-A → share-B.
+  # The marker.txt we pre-seeded under share-B should be visible in
+  # the restored guest, proving the override knob actually swapped
+  # the underlying directory.
+  node "$CLI" restore "$S6_SNAP_DIR" \
+    --mount-live "$S6_SHARE_B:/mnt/share" \
+    >"$S6_RESTORE_REMAP_LOG" 2>&1 &
+  S6_REMAP_PID=$!
+  cleanup_s6_remap() {
+    kill -TERM "$S6_REMAP_PID" 2>/dev/null || true
+    wait "$S6_REMAP_PID" 2>/dev/null || true
+  }
+  trap 'cleanup_s6; cleanup_s6_remap; rm -rf "$FIXTURE"' EXIT
+
+  S6_REMAPPED=""
+  deadline=$((SECONDS + 60))
+  while (( SECONDS < deadline )); do
+    cand=$(cli ls 2>/dev/null | awk -v src="$S6_NAME/" 'NR>1 && index($2, src)==1 && $2!=src"REPLACED" {print $2; exit}')
+    if [[ -n "$cand" && "$cand" != "$S6_RESTORED" ]]; then
+      S6_REMAPPED=$cand
+      break
+    fi
+    sleep 1
+  done
+  if [[ -z "$S6_REMAPPED" ]]; then
+    tail -200 "$S6_RESTORE_REMAP_LOG" >&2
+    fail "S6 — remapped restore VM never registered"
+  fi
+  pass "remapped restore registered as '$S6_REMAPPED'"
+
+  S6_REMAP_READ_LOG="$FIXTURE/s6-remap-read.log"
+  if cli exec --name "$S6_REMAPPED" -- cat /mnt/share/marker.txt >"$S6_REMAP_READ_LOG" 2>&1 \
+     && grep -q "from-share-b" "$S6_REMAP_READ_LOG"; then
+    pass "override --mount-live remapped host dir on restore (share-B visible)"
+  else
+    cat "$S6_REMAP_READ_LOG" >&2
+    tail -200 "$S6_RESTORE_REMAP_LOG" >&2
+    fail "S6 — remapped restore didn't see share-B's marker.txt"
+  fi
+
+  cleanup_s6_remap
+  trap 'rm -rf "$FIXTURE"' EXIT
+fi  # S6 rootfs-capability gate
+
 echo
 echo "all smoke tests passed"

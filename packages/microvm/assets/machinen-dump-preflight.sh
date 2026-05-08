@@ -122,16 +122,66 @@ EOF
     return 0
 }
 
-# When invoked directly (not sourced), run the scan against $1. dash
-# doesn't expose `BASH_SOURCE`, so we use the convention of comparing
-# $0's basename — when sourced, $0 is whatever sourced us.
+# Unmount every live-share FUSE mount (#78, #273) so CRIU dumps a
+# tree free of active FUSE connections. /init writes the
+# `<port>\t<guest>` table to /etc/machinen-livemounts after
+# bringUpLiveMounts; we read the second column. Empty / absent file
+# is fine — VMs without --mount-live just no-op here.
+#
+# A failed `umount` almost always means a workload fd is still open
+# under the mount; CRIU would then fail with "fuse_conn still
+# active". Surface the name so the user can find the holder via
+# `lsof /mnt/<guest>` (or `fuser -m`) before re-running snapshot.
+# `umount -l` is intentionally NOT used as a fallback: lazy unmount
+# keeps the kernel's FUSE connection structure alive past the
+# syscall return, which doesn't fix the CRIU-dumpability problem.
+unmount_live_mounts() {
+    list=${LIVE_MOUNTS_FILE:-/etc/machinen-livemounts}
+    [ -r "$list" ] || return 0
+    bad=""
+    while IFS="$(printf '\t')" read -r port guest; do
+        [ -n "$guest" ] || continue
+        # Skip if not actually mounted (fuse-agent failed at boot, or a
+        # prior preflight already cleared it). `mountpoint -q` returns
+        # 0 for mounted, 1 for not — we tolerate both.
+        if ! mountpoint -q "$guest" 2>/dev/null; then
+            continue
+        fi
+        if ! umount "$guest" 2>/dev/null; then
+            bad="$bad
+  guest=$guest port=$port"
+        fi
+    done < "$list"
+    if [ -n "$bad" ]; then
+        cat >&2 <<EOF
+machinen-dump: refusing to dump — these live-share mounts could not
+  be unmounted (typically a workload fd is still open underneath;
+  see \`lsof <guest>\` or \`fuser -m <guest>\`):$bad
+machinen-dump: close the offending fd(s) and retry. Live mounts have
+  no checkpointable state in the guest — the unmount/remount window
+  is the snapshot contract (#273).
+EOF
+        return 1
+    fi
+    return 0
+}
+
+# When invoked directly (not sourced), run every check against $1.
+# dash doesn't expose `BASH_SOURCE`, so we use the convention of
+# comparing $0's basename — when sourced, $0 is whatever sourced us.
+#
+# Each check is independent and runs unconditionally so the operator
+# sees the full set of blockers in one shot, not a fail-fast cascade.
+# Aggregate exit is non-zero iff any check failed.
 case "${0##*/}" in
     machinen-dump-preflight|machinen-dump-preflight.sh)
         if [ "$#" -ne 1 ]; then
             echo "usage: machinen-dump-preflight <root-pid>" >&2
             exit 2
         fi
-        scan_raw_inet_sockets "$1"
-        exit $?
+        rc=0
+        scan_raw_inet_sockets "$1" || rc=$?
+        unmount_live_mounts        || rc=$?
+        exit $rc
         ;;
 esac
