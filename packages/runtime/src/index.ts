@@ -24,7 +24,7 @@ export type {
   VsockExecResult,
 } from "./exec.ts";
 export type { ChunkLogEvent, LogEvent, OnLog, PhaseLogEvent } from "./log.ts";
-export { provision, resolveBaseRootfs } from "./provision.ts";
+export { provision, resolveBaseDtb, resolveBaseKernel, resolveBaseRootfs } from "./provision.ts";
 export type { ProvisionOptions, ProvisionResult } from "./provision.ts";
 export {
   ensureRootfsImage,

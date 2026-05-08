@@ -117,10 +117,18 @@ export interface ProvisionOptions {
    */
   vmmEnv?: Record<string, string>;
 
-  /** Path to the guest kernel. Same semantics as `boot({ kernel })`. */
+  /**
+   * Path to the guest kernel. Optional — when omitted, `provision()`
+   * resolves it via `resolveBaseKernel()` (MACHINEN_ASSETS_DIR override,
+   * falling back to the `@machinen/cli` cache). Same semantics as
+   * `boot({ kernel })` once resolved.
+   */
   kernel?: string;
 
-  /** Path to the guest DTB. Same semantics as `boot({ dtb })`. */
+  /**
+   * Path to the guest DTB. Optional — when omitted, resolved via
+   * `resolveBaseDtb()` from the same fallback chain as `kernel`.
+   */
   dtb?: string;
 
   /**
@@ -190,55 +198,115 @@ const TAR_TO_DISK_CMD = [
  * @throws {ProvisionError} PROVISION_BASE_NOT_FOUND | PROVISION_ASSETS_DIR_INVALID
  */
 export function resolveBaseRootfs(explicit?: string, cwd: string = process.cwd()): string {
+  return resolveBaseAsset(
+    {
+      kind: "base rootfs tarball",
+      param: "base",
+      assetsDirName: "rootfs-debian-arm64.tar.gz",
+      cliCacheName: "rootfs.tar.gz",
+      missingCode: "PROVISION_BASE_NOT_FOUND",
+    },
+    explicit,
+    cwd,
+  );
+}
+
+/**
+ * Resolve the path to the guest kernel Image. Same fallback chain as
+ * `resolveBaseRootfs`: explicit → `MACHINEN_ASSETS_DIR/Image-arm64` →
+ * `@machinen/cli` cache at `<base>/Image`. Exported for callers that
+ * want to pre-check or wire the path into `boot()`.
+ *
+ * @throws {ProvisionError} PROVISION_KERNEL_NOT_FOUND |
+ *   PROVISION_ASSETS_DIR_INVALID
+ */
+export function resolveBaseKernel(explicit?: string, cwd: string = process.cwd()): string {
+  return resolveBaseAsset(
+    {
+      kind: "kernel image",
+      param: "kernel",
+      assetsDirName: "Image-arm64",
+      cliCacheName: "Image",
+      missingCode: "PROVISION_KERNEL_NOT_FOUND",
+    },
+    explicit,
+    cwd,
+  );
+}
+
+/**
+ * Resolve the path to the guest DTB. Same fallback chain as
+ * `resolveBaseRootfs`: explicit → `MACHINEN_ASSETS_DIR/virt-arm64.dtb` →
+ * `@machinen/cli` cache at `<base>/virt.dtb`.
+ *
+ * @throws {ProvisionError} PROVISION_DTB_NOT_FOUND |
+ *   PROVISION_ASSETS_DIR_INVALID
+ */
+export function resolveBaseDtb(explicit?: string, cwd: string = process.cwd()): string {
+  return resolveBaseAsset(
+    {
+      kind: "device tree blob",
+      param: "dtb",
+      assetsDirName: "virt-arm64.dtb",
+      cliCacheName: "virt.dtb",
+      missingCode: "PROVISION_DTB_NOT_FOUND",
+    },
+    explicit,
+    cwd,
+  );
+}
+
+interface BaseAssetSpec {
+  kind: string;
+  param: string;
+  assetsDirName: string;
+  cliCacheName: string;
+  missingCode: "PROVISION_BASE_NOT_FOUND" | "PROVISION_KERNEL_NOT_FOUND" | "PROVISION_DTB_NOT_FOUND";
+}
+
+function resolveBaseAsset(spec: BaseAssetSpec, explicit: string | undefined, cwd: string): string {
   if (explicit) {
     const abs = resolve(cwd, explicit);
     if (!existsSync(abs)) {
-      throw new ProvisionError("PROVISION_BASE_NOT_FOUND", `base rootfs tarball not found: ${abs}`);
+      throw new ProvisionError(spec.missingCode, `${spec.kind} not found: ${abs}`);
     }
     return abs;
   }
 
   const assetsDir = process.env.MACHINEN_ASSETS_DIR;
   if (assetsDir) {
-    const p = resolve(assetsDir, "rootfs-debian-arm64.tar.gz");
+    const p = resolve(assetsDir, spec.assetsDirName);
     if (!existsSync(p)) {
       throw new ProvisionError(
         "PROVISION_ASSETS_DIR_INVALID",
-        `MACHINEN_ASSETS_DIR=${assetsDir} does not contain rootfs-debian-arm64.tar.gz`,
+        `MACHINEN_ASSETS_DIR=${assetsDir} does not contain ${spec.assetsDirName}`,
       );
     }
     return p;
   }
 
-  const cached = cliCachedRootfsPath();
+  const cached = join(cliCachedBaseDir(), spec.cliCacheName);
   if (existsSync(cached)) {
     return cached;
   }
 
   throw new ProvisionError(
-    "PROVISION_BASE_NOT_FOUND",
-    `base rootfs not found. Either:\n` +
-      `  - pass \`base\` explicitly, or\n` +
-      `  - set MACHINEN_ASSETS_DIR to a directory containing rootfs-debian-arm64.tar.gz, or\n` +
+    spec.missingCode,
+    `${spec.kind} not found. Either:\n` +
+      `  - pass \`${spec.param}\` explicitly, or\n` +
+      `  - set MACHINEN_ASSETS_DIR to a directory containing ${spec.assetsDirName}, or\n` +
       `  - install @machinen/cli and run it once to populate ${cached}`,
   );
 }
 
-function cliCachedRootfsPath(): string {
+function cliCachedBaseDir(): string {
   // Mirrors `@machinen/cli`'s `baseDirFor(RELEASE_TAG)` where
   // RELEASE_TAG = `runtime-v${VERSION}` (slash-free so the GitHub
   // release URL pattern works — see the comment on RELEASE_TAG in
   // packages/cli/src/cli.ts).
   const pkgPath = resolve(import.meta.dirname, "..", "package.json");
   const version = (JSON.parse(readFileSync(pkgPath, "utf8")) as { version: string }).version;
-  return join(
-    homedir(),
-    ".machinen",
-    `runtime-v${version}`,
-    "bases",
-    "debian-arm64",
-    "rootfs.tar.gz",
-  );
+  return join(homedir(), ".machinen", `runtime-v${version}`, "bases", "debian-arm64");
 }
 
 /**
@@ -246,6 +314,7 @@ function cliCachedRootfsPath(): string {
  * resulting filesystem state to a new tarball at `opts.out`.
  *
  * @throws {ProvisionError} PROVISION_BASE_NOT_FOUND |
+ *   PROVISION_KERNEL_NOT_FOUND | PROVISION_DTB_NOT_FOUND |
  *   PROVISION_ASSETS_DIR_INVALID | PROVISION_INSTALL_HOOK_FAILED |
  *   PROVISION_DISK_TOO_SMALL
  * @throws {BootError} see `boot()` — propagated from the inner boot
@@ -253,6 +322,8 @@ function cliCachedRootfsPath(): string {
 export async function provision(opts: ProvisionOptions): Promise<ProvisionResult> {
   const cwd = opts.cwd ?? process.cwd();
   const baseAbs = resolveBaseRootfs(opts.base, cwd);
+  const kernelAbs = resolveBaseKernel(opts.kernel, cwd);
+  const dtbAbs = resolveBaseDtb(opts.dtb, cwd);
   const outAbs = resolve(cwd, opts.out);
 
   const t0 = Date.now();
@@ -314,8 +385,8 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
         ...opts.vmmEnv,
         MACHINEN_VSOCK: `in:1978:${udsPath}`,
       },
-      kernel: opts.kernel,
-      dtb: opts.dtb,
+      kernel: kernelAbs,
+      dtb: dtbAbs,
       image: baseAbs,
       cmd: ["/exec-agent"],
       env: { PATH: "/usr/local/bin:/usr/bin:/bin:/sbin" },

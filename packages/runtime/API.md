@@ -4,7 +4,7 @@
 
 ### MachinenError
 
-Defined in: [errors.ts:139](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L139)
+Defined in: [errors.ts:141](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L141)
 
 Base class for every error raised by @machinen/runtime and
 @machinen/cli. Carries a flat `code`, a `retryable` hint, and the
@@ -37,7 +37,7 @@ underlying cause via the standard `Error.cause` mechanism.
 
 > **new MachinenError**(`code`, `message`, `opts?`): [`MachinenError`](#machinenerror)
 
-Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L143)
+Defined in: [errors.ts:145](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L145)
 
 ###### Parameters
 
@@ -67,19 +67,19 @@ Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **code**: [`ErrorCode`](#errorcode-1)
 
-Defined in: [errors.ts:140](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L140)
+Defined in: [errors.ts:142](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L142)
 
 ##### retryable
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [errors.ts:141](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L141)
+Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L143)
 
 ***
 
 ### BootError
 
-Defined in: [errors.ts:152](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L152)
+Defined in: [errors.ts:154](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L154)
 
 Base class for every error raised by @machinen/runtime and
 @machinen/cli. Carries a flat `code`, a `retryable` hint, and the
@@ -95,7 +95,7 @@ underlying cause via the standard `Error.cause` mechanism.
 
 > **new BootError**(`code`, `message`, `opts?`): [`BootError`](#booterror)
 
-Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L143)
+Defined in: [errors.ts:145](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L145)
 
 ###### Parameters
 
@@ -125,7 +125,7 @@ Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **code**: [`ErrorCode`](#errorcode-1)
 
-Defined in: [errors.ts:140](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L140)
+Defined in: [errors.ts:142](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L142)
 
 ###### Inherited from
 
@@ -135,7 +135,7 @@ Defined in: [errors.ts:140](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [errors.ts:141](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L141)
+Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L143)
 
 ###### Inherited from
 
@@ -145,7 +145,7 @@ Defined in: [errors.ts:141](https://github.com/redwoodjs/machinen/blob/main/pack
 
 ### ExecError
 
-Defined in: [errors.ts:153](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L153)
+Defined in: [errors.ts:155](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L155)
 
 Base class for every error raised by @machinen/runtime and
 @machinen/cli. Carries a flat `code`, a `retryable` hint, and the
@@ -161,7 +161,7 @@ underlying cause via the standard `Error.cause` mechanism.
 
 > **new ExecError**(`code`, `message`, `opts?`): [`ExecError`](#execerror)
 
-Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L143)
+Defined in: [errors.ts:145](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L145)
 
 ###### Parameters
 
@@ -191,7 +191,7 @@ Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **code**: [`ErrorCode`](#errorcode-1)
 
-Defined in: [errors.ts:140](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L140)
+Defined in: [errors.ts:142](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L142)
 
 ###### Inherited from
 
@@ -201,7 +201,7 @@ Defined in: [errors.ts:140](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [errors.ts:141](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L141)
+Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L143)
 
 ###### Inherited from
 
@@ -211,7 +211,7 @@ Defined in: [errors.ts:141](https://github.com/redwoodjs/machinen/blob/main/pack
 
 ### SnapshotError
 
-Defined in: [errors.ts:154](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L154)
+Defined in: [errors.ts:156](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L156)
 
 Base class for every error raised by @machinen/runtime and
 @machinen/cli. Carries a flat `code`, a `retryable` hint, and the
@@ -227,7 +227,7 @@ underlying cause via the standard `Error.cause` mechanism.
 
 > **new SnapshotError**(`code`, `message`, `opts?`): [`SnapshotError`](#snapshoterror)
 
-Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L143)
+Defined in: [errors.ts:145](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L145)
 
 ###### Parameters
 
@@ -257,7 +257,7 @@ Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **code**: [`ErrorCode`](#errorcode-1)
 
-Defined in: [errors.ts:140](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L140)
+Defined in: [errors.ts:142](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L142)
 
 ###### Inherited from
 
@@ -267,7 +267,7 @@ Defined in: [errors.ts:140](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [errors.ts:141](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L141)
+Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L143)
 
 ###### Inherited from
 
@@ -277,7 +277,7 @@ Defined in: [errors.ts:141](https://github.com/redwoodjs/machinen/blob/main/pack
 
 ### ProvisionError
 
-Defined in: [errors.ts:155](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L155)
+Defined in: [errors.ts:157](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L157)
 
 Base class for every error raised by @machinen/runtime and
 @machinen/cli. Carries a flat `code`, a `retryable` hint, and the
@@ -293,7 +293,7 @@ underlying cause via the standard `Error.cause` mechanism.
 
 > **new ProvisionError**(`code`, `message`, `opts?`): [`ProvisionError`](#provisionerror)
 
-Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L143)
+Defined in: [errors.ts:145](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L145)
 
 ###### Parameters
 
@@ -323,7 +323,7 @@ Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **code**: [`ErrorCode`](#errorcode-1)
 
-Defined in: [errors.ts:140](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L140)
+Defined in: [errors.ts:142](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L142)
 
 ###### Inherited from
 
@@ -333,7 +333,7 @@ Defined in: [errors.ts:140](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [errors.ts:141](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L141)
+Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L143)
 
 ###### Inherited from
 
@@ -343,7 +343,7 @@ Defined in: [errors.ts:141](https://github.com/redwoodjs/machinen/blob/main/pack
 
 ### RegistryError
 
-Defined in: [errors.ts:156](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L156)
+Defined in: [errors.ts:158](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L158)
 
 Base class for every error raised by @machinen/runtime and
 @machinen/cli. Carries a flat `code`, a `retryable` hint, and the
@@ -359,7 +359,7 @@ underlying cause via the standard `Error.cause` mechanism.
 
 > **new RegistryError**(`code`, `message`, `opts?`): [`RegistryError`](#registryerror)
 
-Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L143)
+Defined in: [errors.ts:145](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L145)
 
 ###### Parameters
 
@@ -389,7 +389,7 @@ Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **code**: [`ErrorCode`](#errorcode-1)
 
-Defined in: [errors.ts:140](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L140)
+Defined in: [errors.ts:142](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L142)
 
 ###### Inherited from
 
@@ -399,7 +399,7 @@ Defined in: [errors.ts:140](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [errors.ts:141](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L141)
+Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L143)
 
 ###### Inherited from
 
@@ -409,7 +409,7 @@ Defined in: [errors.ts:141](https://github.com/redwoodjs/machinen/blob/main/pack
 
 ### FilesError
 
-Defined in: [errors.ts:157](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L157)
+Defined in: [errors.ts:159](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L159)
 
 Base class for every error raised by @machinen/runtime and
 @machinen/cli. Carries a flat `code`, a `retryable` hint, and the
@@ -425,7 +425,7 @@ underlying cause via the standard `Error.cause` mechanism.
 
 > **new FilesError**(`code`, `message`, `opts?`): [`FilesError`](#fileserror)
 
-Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L143)
+Defined in: [errors.ts:145](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L145)
 
 ###### Parameters
 
@@ -455,7 +455,7 @@ Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **code**: [`ErrorCode`](#errorcode-1)
 
-Defined in: [errors.ts:140](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L140)
+Defined in: [errors.ts:142](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L142)
 
 ###### Inherited from
 
@@ -465,7 +465,7 @@ Defined in: [errors.ts:140](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [errors.ts:141](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L141)
+Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L143)
 
 ###### Inherited from
 
@@ -475,7 +475,7 @@ Defined in: [errors.ts:141](https://github.com/redwoodjs/machinen/blob/main/pack
 
 ### MountError
 
-Defined in: [errors.ts:158](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L158)
+Defined in: [errors.ts:160](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L160)
 
 Base class for every error raised by @machinen/runtime and
 @machinen/cli. Carries a flat `code`, a `retryable` hint, and the
@@ -491,7 +491,7 @@ underlying cause via the standard `Error.cause` mechanism.
 
 > **new MountError**(`code`, `message`, `opts?`): [`MountError`](#mounterror)
 
-Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L143)
+Defined in: [errors.ts:145](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L145)
 
 ###### Parameters
 
@@ -521,7 +521,7 @@ Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **code**: [`ErrorCode`](#errorcode-1)
 
-Defined in: [errors.ts:140](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L140)
+Defined in: [errors.ts:142](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L142)
 
 ###### Inherited from
 
@@ -531,7 +531,7 @@ Defined in: [errors.ts:140](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [errors.ts:141](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L141)
+Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L143)
 
 ###### Inherited from
 
@@ -541,7 +541,7 @@ Defined in: [errors.ts:141](https://github.com/redwoodjs/machinen/blob/main/pack
 
 ### SecretsError
 
-Defined in: [errors.ts:159](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L159)
+Defined in: [errors.ts:161](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L161)
 
 Base class for every error raised by @machinen/runtime and
 @machinen/cli. Carries a flat `code`, a `retryable` hint, and the
@@ -557,7 +557,7 @@ underlying cause via the standard `Error.cause` mechanism.
 
 > **new SecretsError**(`code`, `message`, `opts?`): [`SecretsError`](#secretserror)
 
-Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L143)
+Defined in: [errors.ts:145](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L145)
 
 ###### Parameters
 
@@ -587,7 +587,7 @@ Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **code**: [`ErrorCode`](#errorcode-1)
 
-Defined in: [errors.ts:140](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L140)
+Defined in: [errors.ts:142](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L142)
 
 ###### Inherited from
 
@@ -597,7 +597,7 @@ Defined in: [errors.ts:140](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [errors.ts:141](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L141)
+Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L143)
 
 ###### Inherited from
 
@@ -607,7 +607,7 @@ Defined in: [errors.ts:141](https://github.com/redwoodjs/machinen/blob/main/pack
 
 ### WinsizeError
 
-Defined in: [errors.ts:160](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L160)
+Defined in: [errors.ts:162](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L162)
 
 Base class for every error raised by @machinen/runtime and
 @machinen/cli. Carries a flat `code`, a `retryable` hint, and the
@@ -623,7 +623,7 @@ underlying cause via the standard `Error.cause` mechanism.
 
 > **new WinsizeError**(`code`, `message`, `opts?`): [`WinsizeError`](#winsizeerror)
 
-Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L143)
+Defined in: [errors.ts:145](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L145)
 
 ###### Parameters
 
@@ -653,7 +653,7 @@ Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **code**: [`ErrorCode`](#errorcode-1)
 
-Defined in: [errors.ts:140](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L140)
+Defined in: [errors.ts:142](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L142)
 
 ###### Inherited from
 
@@ -663,7 +663,7 @@ Defined in: [errors.ts:140](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [errors.ts:141](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L141)
+Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L143)
 
 ###### Inherited from
 
@@ -673,7 +673,7 @@ Defined in: [errors.ts:141](https://github.com/redwoodjs/machinen/blob/main/pack
 
 ### SandboxError
 
-Defined in: [errors.ts:161](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L161)
+Defined in: [errors.ts:163](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L163)
 
 Base class for every error raised by @machinen/runtime and
 @machinen/cli. Carries a flat `code`, a `retryable` hint, and the
@@ -689,7 +689,7 @@ underlying cause via the standard `Error.cause` mechanism.
 
 > **new SandboxError**(`code`, `message`, `opts?`): [`SandboxError`](#sandboxerror)
 
-Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L143)
+Defined in: [errors.ts:145](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L145)
 
 ###### Parameters
 
@@ -719,7 +719,7 @@ Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **code**: [`ErrorCode`](#errorcode-1)
 
-Defined in: [errors.ts:140](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L140)
+Defined in: [errors.ts:142](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L142)
 
 ###### Inherited from
 
@@ -729,7 +729,7 @@ Defined in: [errors.ts:140](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [errors.ts:141](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L141)
+Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L143)
 
 ###### Inherited from
 
@@ -739,7 +739,7 @@ Defined in: [errors.ts:141](https://github.com/redwoodjs/machinen/blob/main/pack
 
 ### CacheError
 
-Defined in: [errors.ts:162](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L162)
+Defined in: [errors.ts:164](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L164)
 
 Base class for every error raised by @machinen/runtime and
 @machinen/cli. Carries a flat `code`, a `retryable` hint, and the
@@ -755,7 +755,7 @@ underlying cause via the standard `Error.cause` mechanism.
 
 > **new CacheError**(`code`, `message`, `opts?`): [`CacheError`](#cacheerror)
 
-Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L143)
+Defined in: [errors.ts:145](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L145)
 
 ###### Parameters
 
@@ -785,7 +785,7 @@ Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **code**: [`ErrorCode`](#errorcode-1)
 
-Defined in: [errors.ts:140](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L140)
+Defined in: [errors.ts:142](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L142)
 
 ###### Inherited from
 
@@ -795,7 +795,7 @@ Defined in: [errors.ts:140](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [errors.ts:141](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L141)
+Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L143)
 
 ###### Inherited from
 
@@ -805,7 +805,7 @@ Defined in: [errors.ts:141](https://github.com/redwoodjs/machinen/blob/main/pack
 
 ### GvproxyError
 
-Defined in: [errors.ts:163](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L163)
+Defined in: [errors.ts:165](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L165)
 
 Base class for every error raised by @machinen/runtime and
 @machinen/cli. Carries a flat `code`, a `retryable` hint, and the
@@ -821,7 +821,7 @@ underlying cause via the standard `Error.cause` mechanism.
 
 > **new GvproxyError**(`code`, `message`, `opts?`): [`GvproxyError`](#gvproxyerror)
 
-Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L143)
+Defined in: [errors.ts:145](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L145)
 
 ###### Parameters
 
@@ -851,7 +851,7 @@ Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **code**: [`ErrorCode`](#errorcode-1)
 
-Defined in: [errors.ts:140](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L140)
+Defined in: [errors.ts:142](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L142)
 
 ###### Inherited from
 
@@ -861,7 +861,7 @@ Defined in: [errors.ts:140](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [errors.ts:141](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L141)
+Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L143)
 
 ###### Inherited from
 
@@ -871,7 +871,7 @@ Defined in: [errors.ts:141](https://github.com/redwoodjs/machinen/blob/main/pack
 
 ### MkinitramfsError
 
-Defined in: [errors.ts:164](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L164)
+Defined in: [errors.ts:166](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L166)
 
 Base class for every error raised by @machinen/runtime and
 @machinen/cli. Carries a flat `code`, a `retryable` hint, and the
@@ -887,7 +887,7 @@ underlying cause via the standard `Error.cause` mechanism.
 
 > **new MkinitramfsError**(`code`, `message`, `opts?`): [`MkinitramfsError`](#mkinitramfserror)
 
-Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L143)
+Defined in: [errors.ts:145](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L145)
 
 ###### Parameters
 
@@ -917,7 +917,7 @@ Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **code**: [`ErrorCode`](#errorcode-1)
 
-Defined in: [errors.ts:140](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L140)
+Defined in: [errors.ts:142](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L142)
 
 ###### Inherited from
 
@@ -927,7 +927,7 @@ Defined in: [errors.ts:140](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [errors.ts:141](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L141)
+Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L143)
 
 ###### Inherited from
 
@@ -937,7 +937,7 @@ Defined in: [errors.ts:141](https://github.com/redwoodjs/machinen/blob/main/pack
 
 ### ParseError
 
-Defined in: [errors.ts:165](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L165)
+Defined in: [errors.ts:167](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L167)
 
 Base class for every error raised by @machinen/runtime and
 @machinen/cli. Carries a flat `code`, a `retryable` hint, and the
@@ -953,7 +953,7 @@ underlying cause via the standard `Error.cause` mechanism.
 
 > **new ParseError**(`code`, `message`, `opts?`): [`ParseError`](#parseerror)
 
-Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L143)
+Defined in: [errors.ts:145](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L145)
 
 ###### Parameters
 
@@ -983,7 +983,7 @@ Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **code**: [`ErrorCode`](#errorcode-1)
 
-Defined in: [errors.ts:140](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L140)
+Defined in: [errors.ts:142](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L142)
 
 ###### Inherited from
 
@@ -993,7 +993,7 @@ Defined in: [errors.ts:140](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [errors.ts:141](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L141)
+Defined in: [errors.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L143)
 
 ###### Inherited from
 
@@ -1350,7 +1350,7 @@ pages into the balloon on its own.
 
 ### MachinenErrorOptions
 
-Defined in: [errors.ts:122](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L122)
+Defined in: [errors.ts:124](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L124)
 
 #### Properties
 
@@ -1358,7 +1358,7 @@ Defined in: [errors.ts:122](https://github.com/redwoodjs/machinen/blob/main/pack
 
 > `optional` **retryable?**: `boolean`
 
-Defined in: [errors.ts:129](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L129)
+Defined in: [errors.ts:131](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L131)
 
 True if retrying the same call could plausibly succeed (transient
 network blip, upstream fetch, vsock agent not listening yet). False
@@ -1369,7 +1369,7 @@ port).
 
 > `optional` **cause?**: `unknown`
 
-Defined in: [errors.ts:131](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L131)
+Defined in: [errors.ts:133](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L133)
 
 Underlying error preserved via the standard `Error.cause` chain.
 
@@ -2424,23 +2424,27 @@ which bakes guest-workload env into the produced image.
 
 > `optional` **kernel?**: `string`
 
-Defined in: [provision.ts:121](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L121)
+Defined in: [provision.ts:126](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L126)
 
-Path to the guest kernel. Same semantics as `boot({ kernel })`.
+Path to the guest kernel. Optional — when omitted, `provision()`
+resolves it via `resolveBaseKernel()` (MACHINEN_ASSETS_DIR override,
+falling back to the `@machinen/cli` cache). Same semantics as
+`boot({ kernel })` once resolved.
 
 ##### dtb?
 
 > `optional` **dtb?**: `string`
 
-Defined in: [provision.ts:124](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L124)
+Defined in: [provision.ts:132](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L132)
 
-Path to the guest DTB. Same semantics as `boot({ dtb })`.
+Path to the guest DTB. Optional — when omitted, resolved via
+`resolveBaseDtb()` from the same fallback chain as `kernel`.
 
 ##### onLog?
 
 > `optional` **onLog?**: [`OnLog`](#onlog)
 
-Defined in: [provision.ts:132](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L132)
+Defined in: [provision.ts:140](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L140)
 
 Streaming log callback — fires for every byte of guest output
 during the build: guest kernel console, every `vm.exec()` call
@@ -2451,7 +2455,7 @@ See `LogEvent.source` to tell them apart. See #83.
 
 ### ProvisionResult
 
-Defined in: [provision.ts:135](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L135)
+Defined in: [provision.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L143)
 
 #### Properties
 
@@ -2459,7 +2463,7 @@ Defined in: [provision.ts:135](https://github.com/redwoodjs/machinen/blob/main/p
 
 > **imagePath**: `string`
 
-Defined in: [provision.ts:137](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L137)
+Defined in: [provision.ts:145](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L145)
 
 Absolute path to the output tarball.
 
@@ -2467,7 +2471,7 @@ Absolute path to the output tarball.
 
 > **sizeBytes**: `number`
 
-Defined in: [provision.ts:140](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L140)
+Defined in: [provision.ts:148](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L148)
 
 Size of the output tarball in bytes.
 
@@ -2475,7 +2479,7 @@ Size of the output tarball in bytes.
 
 > **elapsedMs**: `number`
 
-Defined in: [provision.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L143)
+Defined in: [provision.ts:151](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L151)
 
 Wall-clock time from build() entry to return.
 
@@ -5426,6 +5430,14 @@ Defined in: [errors.ts:23](https://github.com/redwoodjs/machinen/blob/main/packa
 
 > `readonly` **PROVISION\_BASE\_NOT\_FOUND**: `"PROVISION_BASE_NOT_FOUND"` = `"PROVISION_BASE_NOT_FOUND"`
 
+##### PROVISION\_KERNEL\_NOT\_FOUND
+
+> `readonly` **PROVISION\_KERNEL\_NOT\_FOUND**: `"PROVISION_KERNEL_NOT_FOUND"` = `"PROVISION_KERNEL_NOT_FOUND"`
+
+##### PROVISION\_DTB\_NOT\_FOUND
+
+> `readonly` **PROVISION\_DTB\_NOT\_FOUND**: `"PROVISION_DTB_NOT_FOUND"` = `"PROVISION_DTB_NOT_FOUND"`
+
 ##### PROVISION\_ASSETS\_DIR\_INVALID
 
 > `readonly` **PROVISION\_ASSETS\_DIR\_INVALID**: `"PROVISION_ASSETS_DIR_INVALID"` = `"PROVISION_ASSETS_DIR_INVALID"`
@@ -5906,7 +5918,7 @@ success, `false` if the write was skipped or failed.
 
 > **isMachinenError**(`err`, `code?`): `err is MachinenError`
 
-Defined in: [errors.ts:171](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L171)
+Defined in: [errors.ts:173](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L173)
 
 Narrowing type guard. Pass a specific `code` to check both identity
 and discriminant in one call.
@@ -5931,7 +5943,7 @@ and discriminant in one call.
 
 > **formatMachinenError**(`err`): `string`
 
-Defined in: [errors.ts:180](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L180)
+Defined in: [errors.ts:182](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/errors.ts#L182)
 
 Format a MachinenError for CLI stderr. Shows the code inline and walks
 the `cause` chain. Used by the CLI's unified `handleError`; exported so
@@ -6394,7 +6406,7 @@ readonly `number`[]
 
 > **resolveBaseRootfs**(`explicit?`, `cwd?`): `string`
 
-Defined in: [provision.ts:192](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L192)
+Defined in: [provision.ts:200](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L200)
 
 Resolve the path to the base rootfs tarball, in the same order
 `provision()` itself does:
@@ -6431,11 +6443,74 @@ PROVISION_BASE_NOT_FOUND | PROVISION_ASSETS_DIR_INVALID
 
 ***
 
+### resolveBaseKernel()
+
+> **resolveBaseKernel**(`explicit?`, `cwd?`): `string`
+
+Defined in: [provision.ts:223](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L223)
+
+Resolve the path to the guest kernel Image. Same fallback chain as
+`resolveBaseRootfs`: explicit → `MACHINEN_ASSETS_DIR/Image-arm64` →
+`@machinen/cli` cache at `<base>/Image`. Exported for callers that
+want to pre-check or wire the path into `boot()`.
+
+#### Parameters
+
+##### explicit?
+
+`string`
+
+##### cwd?
+
+`string` = `...`
+
+#### Returns
+
+`string`
+
+#### Throws
+
+PROVISION_KERNEL_NOT_FOUND |
+  PROVISION_ASSETS_DIR_INVALID
+
+***
+
+### resolveBaseDtb()
+
+> **resolveBaseDtb**(`explicit?`, `cwd?`): `string`
+
+Defined in: [provision.ts:245](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L245)
+
+Resolve the path to the guest DTB. Same fallback chain as
+`resolveBaseRootfs`: explicit → `MACHINEN_ASSETS_DIR/virt-arm64.dtb` →
+`@machinen/cli` cache at `<base>/virt.dtb`.
+
+#### Parameters
+
+##### explicit?
+
+`string`
+
+##### cwd?
+
+`string` = `...`
+
+#### Returns
+
+`string`
+
+#### Throws
+
+PROVISION_DTB_NOT_FOUND |
+  PROVISION_ASSETS_DIR_INVALID
+
+***
+
 ### provision()
 
 > **provision**(`opts`): `Promise`\<[`ProvisionResult`](#provisionresult)\>
 
-Defined in: [provision.ts:253](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L253)
+Defined in: [provision.ts:322](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L322)
 
 Boot the base rootfs, run the user install hook, and freeze the
 resulting filesystem state to a new tarball at `opts.out`.
@@ -6453,6 +6528,7 @@ resulting filesystem state to a new tarball at `opts.out`.
 #### Throws
 
 PROVISION_BASE_NOT_FOUND |
+  PROVISION_KERNEL_NOT_FOUND | PROVISION_DTB_NOT_FOUND |
   PROVISION_ASSETS_DIR_INVALID | PROVISION_INSTALL_HOOK_FAILED |
   PROVISION_DISK_TOO_SMALL
 

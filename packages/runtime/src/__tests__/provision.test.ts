@@ -13,7 +13,14 @@ import { existsSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync }
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { provision, ProvisionError, resolveBaseRootfs, boot } from "../index.ts";
+import {
+  boot,
+  provision,
+  ProvisionError,
+  resolveBaseDtb,
+  resolveBaseKernel,
+  resolveBaseRootfs,
+} from "../index.ts";
 
 const microvmRoot = resolve(import.meta.dirname, "../../../microvm");
 const releaseAssets = resolve(microvmRoot, "../../release-assets");
@@ -103,6 +110,102 @@ describe("provision", () => {
       try {
         process.env.MACHINEN_ASSETS_DIR = dir;
         expect(() => resolveBaseRootfs()).toThrow(ProvisionError);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe("resolveBaseKernel", () => {
+    const originalAssetsDir = process.env.MACHINEN_ASSETS_DIR;
+    afterEach(() => {
+      if (originalAssetsDir === undefined) {
+        delete process.env.MACHINEN_ASSETS_DIR;
+      } else {
+        process.env.MACHINEN_ASSETS_DIR = originalAssetsDir;
+      }
+    });
+
+    it("honors an explicit path", () => {
+      const dir = mkdtempSync(join(tmpdir(), "machinen-kernel-explicit-"));
+      const p = join(dir, "Image");
+      try {
+        writeFileSync(p, "");
+        expect(resolveBaseKernel(p)).toBe(p);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it("throws if the explicit path is missing", () => {
+      expect(() => resolveBaseKernel("/nope/does/not/exist/Image")).toThrow(ProvisionError);
+    });
+
+    it("falls back to MACHINEN_ASSETS_DIR/Image-arm64 when kernel is omitted", () => {
+      const dir = mkdtempSync(join(tmpdir(), "machinen-kernel-envdir-"));
+      const p = join(dir, "Image-arm64");
+      try {
+        writeFileSync(p, "");
+        process.env.MACHINEN_ASSETS_DIR = dir;
+        expect(resolveBaseKernel()).toBe(p);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it("throws if MACHINEN_ASSETS_DIR is set but missing the kernel", () => {
+      const dir = mkdtempSync(join(tmpdir(), "machinen-kernel-envdir-empty-"));
+      try {
+        process.env.MACHINEN_ASSETS_DIR = dir;
+        expect(() => resolveBaseKernel()).toThrow(ProvisionError);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe("resolveBaseDtb", () => {
+    const originalAssetsDir = process.env.MACHINEN_ASSETS_DIR;
+    afterEach(() => {
+      if (originalAssetsDir === undefined) {
+        delete process.env.MACHINEN_ASSETS_DIR;
+      } else {
+        process.env.MACHINEN_ASSETS_DIR = originalAssetsDir;
+      }
+    });
+
+    it("honors an explicit path", () => {
+      const dir = mkdtempSync(join(tmpdir(), "machinen-dtb-explicit-"));
+      const p = join(dir, "virt.dtb");
+      try {
+        writeFileSync(p, "");
+        expect(resolveBaseDtb(p)).toBe(p);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it("throws if the explicit path is missing", () => {
+      expect(() => resolveBaseDtb("/nope/does/not/exist/virt.dtb")).toThrow(ProvisionError);
+    });
+
+    it("falls back to MACHINEN_ASSETS_DIR/virt-arm64.dtb when dtb is omitted", () => {
+      const dir = mkdtempSync(join(tmpdir(), "machinen-dtb-envdir-"));
+      const p = join(dir, "virt-arm64.dtb");
+      try {
+        writeFileSync(p, "");
+        process.env.MACHINEN_ASSETS_DIR = dir;
+        expect(resolveBaseDtb()).toBe(p);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it("throws if MACHINEN_ASSETS_DIR is set but missing the dtb", () => {
+      const dir = mkdtempSync(join(tmpdir(), "machinen-dtb-envdir-empty-"));
+      try {
+        process.env.MACHINEN_ASSETS_DIR = dir;
+        expect(() => resolveBaseDtb()).toThrow(ProvisionError);
       } finally {
         rmSync(dir, { recursive: true, force: true });
       }
