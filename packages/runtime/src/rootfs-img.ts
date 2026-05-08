@@ -350,16 +350,8 @@ export function ensureRootfsImage(tarPath: string, opts: EnsureRootfsImageOption
     // 1. Extract the tarball into the staging directory. tar handles
     //    both gzip and plain.
     const extractT0 = Date.now();
-    const extract = spawnSync("tar", ["-xf", tarAbs, "-C", stagingTree], {
-      stdio: ["ignore", "ignore", "pipe"],
-    });
+    extractTarball(tarAbs, stagingTree);
     opts.onPhase?.("tar-extract", Date.now() - extractT0);
-    if (extract.status !== 0) {
-      throw new ProvisionError(
-        "PROVISION_INSTALL_HOOK_FAILED",
-        `ensureRootfsImage: tar -xf failed (code ${extract.status}): ${extract.stderr?.toString() ?? ""}`,
-      );
-    }
 
     // 2. Size the image. Three-way:
     //    - sizeBytes wins outright when the caller passes it (the
@@ -705,6 +697,29 @@ function tryPrebakeFromSibling(args: {
   }
 }
 
+// Extract `tarPath` into `dest` with mode-bit fidelity.
+//
+// `-p` (--preserve-permissions) matters: BSD tar (the macOS default)
+// applies the host umask when extracting as non-root, which silently
+// drops the sticky bit and other "extra" mode bits declared in the
+// archive. /tmp ships at 1777 in our base rootfs but extracts as 0755
+// without -p, which bakes into the ext4 image and breaks `apt-get`
+// in the booted guest — apt drops to the `_apt` user for fetches and
+// can't write to /tmp, so apt-key fails and Release files look
+// unsigned (#262). GNU tar treats -p as a no-op for non-root (umask
+// is already not applied there), so adding it is safe on every host.
+function extractTarball(tarPath: string, dest: string): void {
+  const r = spawnSync("tar", ["-xpf", tarPath, "-C", dest], {
+    stdio: ["ignore", "ignore", "pipe"],
+  });
+  if (r.status !== 0) {
+    throw new ProvisionError(
+      "PROVISION_INSTALL_HOOK_FAILED",
+      `ensureRootfsImage: tar -xpf failed (code ${r.status}): ${r.stderr?.toString() ?? ""}`,
+    );
+  }
+}
+
 function allocateSparseFile(path: string, sizeBytes: number): void {
   const fd = openSync(path, "w");
   try {
@@ -745,4 +760,5 @@ export const _rootfsImgInternal = {
   resolveMke2fsEnvOverride,
   okMarkerPath,
   siblingPrebakePath,
+  extractTarball,
 };

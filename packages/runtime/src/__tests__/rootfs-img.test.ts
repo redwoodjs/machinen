@@ -9,6 +9,7 @@
 
 import { execSync } from "node:child_process";
 import {
+  chmodSync,
   closeSync,
   existsSync,
   mkdirSync,
@@ -561,6 +562,40 @@ describe("ensureRootfsImage", () => {
       rmSync(cacheDir, { recursive: true, force: true });
     }
   }, 20_000);
+
+  it("preserves the sticky bit on /tmp during extract (#262)", () => {
+    // BSD tar (the macOS default) applies the host umask when extracting
+    // as non-root, which silently drops the sticky bit. Our base rootfs
+    // ships /tmp at 1777; without `tar -p` it lands as 0755 in the
+    // staging tree, gets baked into the ext4 image, and breaks
+    // `apt-get install` in the booted guest because apt drops to the
+    // _apt user for fetches and can't write to /tmp.
+    //
+    // Build a tiny tarball with /tmp at 1777 and run the extract helper
+    // ensureRootfsImage uses internally. The mode the helper wrote must
+    // match the archive byte-for-byte (1777, not 0755).
+    const stage = mkdtempSync(join(tmpdir(), "machinen-rootfs-tmp-perms-stage-"));
+    const dest = mkdtempSync(join(tmpdir(), "machinen-rootfs-tmp-perms-dest-"));
+    const tarPath = join(stage, "rootfs.tar.gz");
+    try {
+      const src = join(stage, "src");
+      mkdirSync(join(src, "tmp"), { recursive: true });
+      // mkdirSync applies the process umask, so set the mode explicitly
+      // — the test's invariant is "the archive declares 1777 and the
+      // extracted tree matches" and we need the source side to actually
+      // be 1777 before we tar it up.
+      chmodSync(join(src, "tmp"), 0o1777);
+      execSync(`tar -czf ${tarPath} -C ${src} .`);
+
+      _internal.extractTarball(tarPath, dest);
+
+      const mode = statSync(join(dest, "tmp")).mode & 0o7777;
+      expect(mode).toBe(0o1777);
+    } finally {
+      rmSync(stage, { recursive: true, force: true });
+      rmSync(dest, { recursive: true, force: true });
+    }
+  });
 
   it("never shrinks a cached .img — sizeBytes < existing is a no-op", () => {
     // Truncate-down would actually destroy data inside the ext4 fs, so
