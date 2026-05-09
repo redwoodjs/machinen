@@ -26,13 +26,17 @@ export interface ParsedRestoreArgs {
    */
   portForward: Array<{ hostPort: number; guestPort: number }>;
   /**
-   * `--eager` — opt out of the default lazy restore and load every
-   * page from the bundle into host RAM up front (#263). The default
-   * (lazy) live-mounts the bundle into the guest and runs
-   * `criu restore --lazy-pages` so anon pages flow into the workload
-   * only when faulted (#266).
+   * `--lazy` — opt into lazy-pages restore (#266). Live-mounts the
+   * bundle into the guest and runs `criu restore --lazy-pages` so
+   * anon pages flow into the workload only when faulted. Default
+   * is eager: the runtime packs the CRIU image as a tar on
+   * /dev/vdb, the guest untars into tmpfs, and CRIU loads
+   * everything up front. Eager is the default because it composes
+   * with `--detach` and doesn't fight virtio-balloon's free-page-
+   * reporting kthread; the lazy save is moot on workloads that
+   * fault every page within the first second anyway.
    */
-  eager: boolean;
+  lazy: boolean;
   /**
    * #273: per-`guest` overrides for the live-share mounts recorded in
    * the bundle's `meta.liveMounts`. Each entry's `guest` MUST match a
@@ -48,15 +52,15 @@ export function parseRestoreArgs(argv: string[]): ParsedRestoreArgs {
   const positional: string[] = [];
   let name: string | undefined;
   let image: string | undefined;
-  let eager = false;
+  let lazy = false;
   const portForward: Array<{ hostPort: number; guestPort: number }> = [];
   const liveMounts: Array<{ host: string; guest: string; mode: "ro" | "rw" }> = [];
   const seenLiveGuests = new Set<string>();
   const seenHostPorts = new Set<number>();
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
-    if (a === "--eager") {
-      eager = true;
+    if (a === "--lazy") {
+      lazy = true;
     } else if (a === "--name" || a.startsWith("--name=")) {
       const v = a === "--name" ? argv[++i] : a.slice("--name=".length);
       if (!v) {
@@ -108,5 +112,5 @@ export function parseRestoreArgs(argv: string[]): ParsedRestoreArgs {
       positional.push(a);
     }
   }
-  return { positional, name, image, portForward, eager, liveMounts };
+  return { positional, name, image, portForward, lazy, liveMounts };
 }

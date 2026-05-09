@@ -265,6 +265,12 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // observability is best-effort, the device must boot regardless.
     var stats_inst = stats_mod.Stats.openOrStub();
     defer stats_inst.deinit();
+    // Darwin-only background thread that polls `phys_footprint`
+    // into the stats file every ~500 ms, so the host runtime's
+    // `vm.memoryStats().hostRssBytes` reflects balloon reclaim
+    // (`MADV_FREE_REUSABLE` doesn't drop `task_basic_info.resident_size`).
+    // No-op on Linux. See `stats.zig` for details.
+    stats_mod.startPhysFootprintSampler(stats_inst.counters);
     var balloon_backend = balloon_mod.Backend.initWithCounters(stats_inst.counters);
     var balloon_dev = makeBalloonDevice(ram, cfg, &balloon_backend);
     const balloon_dev_ptr: ?*virtio.Device = &balloon_dev;

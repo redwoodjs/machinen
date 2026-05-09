@@ -636,7 +636,7 @@ async function cmdInstall(args: string[]): Promise<number> {
 
 async function cmdRestore(args: string[]): Promise<number> {
   // `machinen restore <snap-dir> [--image <tarball>] [--name <name>]
-  // [--eager] [-p <hostPort>:<guestPort>]`. The bundle dir
+  // [--lazy] [-p <hostPort>:<guestPort>]`. The bundle dir
   // (produced by `machinen snapshot`) holds img/<criu-images> +
   // meta.json. The bundle carries CRIU's process images but not the
   // workload's rootfs, so any process whose memory map references
@@ -647,23 +647,25 @@ async function cmdRestore(args: string[]): Promise<number> {
   // or directory" and /sbin/machinen-restore exits 1, panicking the
   // guest kernel ("Attempted to kill init!").
   //
-  // Restore is lazy by default (#263 / #266): the bundle is
-  // vsock-FUSE-mounted into the guest and `criu restore --lazy-pages`
-  // faults workload pages on demand, keeping host RSS proportional to
-  // what the restored VM actually touches. Pass `--eager` to force the
-  // pre-#266 behaviour (tar the bundle onto /dev/vdb, untar in guest,
-  // load every page up front).
+  // Restore is eager by default: the runtime packs the CRIU image
+  // as a tar on /dev/vdb, the guest's /sbin/machinen-restore untars
+  // into tmpfs, and CRIU loads everything up front. Pass `--lazy`
+  // to opt into the #266 path — vsock-FUSE-mount the bundle into
+  // the guest and run `criu restore --lazy-pages` so workload pages
+  // flow in only when faulted. Lazy keeps host RSS proportional to
+  // the touched set but doesn't compose with `--detach` and trades
+  // simplicity for a per-page UFFD round-trip cost.
   let parsed;
   try {
     parsed = parseRestoreArgs(args);
   } catch (err) {
     handleError(err);
   }
-  const { positional, name, image: imageOverride, portForward, eager, liveMounts } = parsed;
+  const { positional, name, image: imageOverride, portForward, lazy, liveMounts } = parsed;
   if (positional.length !== 1) {
     die(
       "usage: machinen restore <snap-dir> [--image <tarball>] [--name <name>] " +
-        "[--eager] [-p <hostPort>:<guestPort>] " +
+        "[--lazy] [-p <hostPort>:<guestPort>] " +
         "[--mount-live <host>:<guest>[:<mode>]]",
     );
   }
@@ -703,7 +705,7 @@ async function cmdRestore(args: string[]): Promise<number> {
       kernel: kernelPath,
       dtb: dtbPath,
       name,
-      eager,
+      lazy,
       portForward: portForward.length > 0 ? portForward : undefined,
       // #273: per-guest overrides for the bundle's recorded
       // liveMounts. Empty list = use the bundle's recorded mounts
@@ -764,7 +766,9 @@ async function cmdLs(args: string[]): Promise<number> {
     die(`unknown argument: ${rest[0]}`);
   }
   const entries = list();
-  const rssByPid = readHostRssBytesMulti(entries.map((e) => e.pid));
+  const rssByPid = readHostRssBytesMulti(
+    entries.map((e) => ({ pid: e.pid, statsPath: e.statsPath })),
+  );
   if (json) {
     emitJson({
       schema_version: 1,
@@ -1273,7 +1277,7 @@ async function cmdFork(args: string[]): Promise<number> {
     outDir,
     tcpKeep,
     detach,
-    eager,
+    lazy,
     portForward,
     mount,
     liveMounts,
@@ -1318,7 +1322,7 @@ async function cmdFork(args: string[]): Promise<number> {
       kernel: kernelPath,
       dtb: dtbPath,
       tcpKeep,
-      eager,
+      lazy,
       portForward: portForward.length > 0 ? portForward : undefined,
       mount,
       liveMounts,

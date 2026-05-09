@@ -127,9 +127,10 @@ export const COMMANDS: CommandSpec[] = [
           "Workload tarball used at boot time (needed when CRIU references files outside the base rootfs).",
       },
       {
-        name: "--eager",
+        name: "--lazy",
         type: "boolean",
-        description: "Pre-#266 behaviour: load every page up front.",
+        description:
+          "Opt into lazy-pages restore (#266) — vsock-FUSE mount the bundle and fault pages on demand. Default is eager.",
       },
       {
         name: "-p",
@@ -223,9 +224,10 @@ export const COMMANDS: CommandSpec[] = [
         description: "Don't attach to the fork's stdio — return as soon as it's up.",
       },
       {
-        name: "--eager",
+        name: "--lazy",
         type: "boolean",
-        description: "Pre-#266 behaviour: load every page up front.",
+        description:
+          "Opt into lazy-pages restore (#266); ignored when --detach is set since the FUSE server can't survive supervisor exit.",
       },
       {
         name: "-p",

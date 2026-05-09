@@ -1323,7 +1323,7 @@ Defined in: [winsize.ts:98](https://github.com/redwoodjs/machinen/blob/main/pack
 
 ### BalloonCounters
 
-Defined in: [balloon-stats.ts:20](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/balloon-stats.ts#L20)
+Defined in: [balloon-stats.ts:23](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/balloon-stats.ts#L23)
 
 #### Properties
 
@@ -1331,7 +1331,7 @@ Defined in: [balloon-stats.ts:20](https://github.com/redwoodjs/machinen/blob/mai
 
 > **bytesReported**: `number`
 
-Defined in: [balloon-stats.ts:22](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/balloon-stats.ts#L22)
+Defined in: [balloon-stats.ts:25](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/balloon-stats.ts#L25)
 
 Total bytes the balloon device has reclaimed via reporting.
 
@@ -1339,12 +1339,26 @@ Total bytes the balloon device has reclaimed via reporting.
 
 > **bytesInflated**: `number`
 
-Defined in: [balloon-stats.ts:29](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/balloon-stats.ts#L29)
+Defined in: [balloon-stats.ts:32](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/balloon-stats.ts#L32)
 
 Total bytes the inflate queue has seen. We don't drive inflate
 (`num_pages` stays 0), so this stays at 0 in well-behaved
 deployments — non-zero means a buggy/hostile guest is pushing
 pages into the balloon on its own.
+
+##### hostPhysFootprintBytes
+
+> **hostPhysFootprintBytes**: `number`
+
+Defined in: [balloon-stats.ts:42](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/balloon-stats.ts#L42)
+
+Latest sample of this VMM's Darwin `phys_footprint` (the metric
+that backs Activity Monitor's "Memory" column and excludes
+`MADV_FREE_REUSABLE` pages). Refreshed every ~500 ms by a
+sampler thread inside the VMM. Always 0 on Linux — there's no
+Darwin-equivalent metric and the runtime reads
+`/proc/<pid>/status:VmRSS` instead, which already reflects
+`MADV_DONTNEED` reclaim.
 
 ***
 
@@ -2302,6 +2316,33 @@ Defined in: [multiplex.ts:162](https://github.com/redwoodjs/machinen/blob/main/p
 Forward SIGWINCH on the parent process (terminal resize) to any
 attached sandbox that implements `.resize(cols, rows)`. Enabled
 by default when `output` is a TTY.
+
+***
+
+### RssTarget
+
+Defined in: [proc-rss.ts:35](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/proc-rss.ts#L35)
+
+A pid plus the absolute path to its stats file (when available).
+
+#### Properties
+
+##### pid
+
+> **pid**: `number`
+
+Defined in: [proc-rss.ts:36](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/proc-rss.ts#L36)
+
+##### statsPath?
+
+> `optional` **statsPath?**: `string`
+
+Defined in: [proc-rss.ts:43](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/proc-rss.ts#L43)
+
+MACHINEN_STATS_FILE path for this VMM (registry entry's
+`statsPath`). On Darwin we read `phys_footprint` from this file
+in preference to `ps -o rss=`. Optional / undefined for arbitrary
+pids that aren't machinen-managed; those fall back to ps.
 
 ***
 
@@ -3811,36 +3852,33 @@ Streaming log callback for the snapshot half. Same shape as
 
 [`BootOptions`](#bootoptions).[`onLog`](#onlog-4)
 
-##### eager?
+##### lazy?
 
-> `optional` **eager?**: `boolean`
+> `optional` **lazy?**: `boolean`
 
-Defined in: [vm-handle.ts:440](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm-handle.ts#L440)
+Defined in: [vm-handle.ts:437](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm-handle.ts#L437)
 
-Force eager restore — load every page from the bundle into host
-RAM up front, the way restore worked before #266. Default false
-(lazy via vsock-FUSE-mounted bundle + `criu restore --lazy-pages`).
+Opt into lazy-pages restore for the fork — vsock-FUSE-mounted
+bundle + `criu restore --lazy-pages`. Default false: the runtime
+packs the CRIU image into a tar on `/dev/vdb` and the guest does
+an eager load.
 
-The lazy default keeps fork RSS proportional to the pages the
-sibling actually touches, not the full snapshot size. Set this
-to true when:
-
-  - the runtime supervisor is about to exit while the fork keeps
-    running (lazy needs the host-side FUSE server alive for as
-    long as the guest may fault — see #150 phase 3),
-  - the workload is going to fault every page anyway and you want
-    to skip the per-page UFFD round-trips, or
-  - you're debugging a lazy-restore failure on a fresh rootfs.
+Lazy keeps fork RSS proportional to the pages the sibling
+actually touches, not the full snapshot size. Worth setting when
+the source dumped a large heap that the fork will only sample.
+Cannot combine with `--detach` (the lazy path needs the host's
+FUSE server alive as long as the guest may fault, see #150
+phase 3); the runtime falls back to eager in that case.
 
 ###### Overrides
 
-[`RestoreOptions`](#restoreoptions).[`eager`](#eager-1)
+[`RestoreOptions`](#restoreoptions).[`lazy`](#lazy-1)
 
 ##### freeMemoryThreshold?
 
 > `optional` **freeMemoryThreshold?**: `number`
 
-Defined in: [vm-handle.ts:456](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm-handle.ts#L456)
+Defined in: [vm-handle.ts:453](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm-handle.ts#L453)
 
 Backpressure gate (#274). Fraction of host total memory that must
 be free before `vm.fork()` is allowed to proceed; if `MemAvailable`
@@ -5168,19 +5206,27 @@ Optional explicit name for the restored VM. When omitted, the
 fork is auto-named `<sourceName>/<pid>` after spawn so it stays
 unique under the source's namespace.
 
-##### eager?
+##### lazy?
 
-> `optional` **eager?**: `boolean`
+> `optional` **lazy?**: `boolean`
 
-Defined in: [vm.ts:3218](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L3218)
+Defined in: [vm.ts:3226](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L3226)
 
-Force eager restore — load every page from the bundle into host
-RAM up front. Default false (lazy: bundle is vsock-FUSE-mounted
-read-only into the guest and `criu restore --lazy-pages` faults
-pages on demand, #266). The lazy default keeps host RSS
-proportional to the touched set rather than the full snapshot
-size; eager exists as an opt-out for debugging or for workloads
-that are about to fault every page anyway.
+Opt into lazy-pages restore — bundle is vsock-FUSE-mounted into
+the guest read-only and `criu restore --lazy-pages` faults pages
+on demand (#266). Default false: the runtime packs the CRIU
+image into a tar on `/dev/vdb`, the guest's
+`/sbin/machinen-restore` untars it into tmpfs, and CRIU does an
+eager load.
+
+Eager is the default because the lazy path has subtle
+interactions with virtio-balloon free-page-reporting (the
+guest's reporting kthread reads pages to identify them as free,
+which is exactly what UFFDIO_COPY's them back from the bundle —
+defeating the lazy promise). The runtime sets
+`MACHINEN_DISABLE_BALLOON_REPORTING=1` to suppress that when
+`lazy: true` is requested, but for the common case eager is
+simpler and faster on small workloads.
 
 ***
 
@@ -5288,9 +5334,9 @@ Defined in: [vm.ts:1931](https://github.com/redwoodjs/machinen/blob/main/package
 
 ### STATS\_FILE\_SIZE
 
-> `const` **STATS\_FILE\_SIZE**: `16` = `16`
+> `const` **STATS\_FILE\_SIZE**: `24` = `24`
 
-Defined in: [balloon-stats.ts:18](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/balloon-stats.ts#L18)
+Defined in: [balloon-stats.ts:21](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/balloon-stats.ts#L21)
 
 ***
 
@@ -5828,7 +5874,7 @@ gigabytes of console chatter in the supervisor's heap (issue #150).
 
 > **readBalloonStats**(`path`): [`BalloonCounters`](#ballooncounters)
 
-Defined in: [balloon-stats.ts:41](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/balloon-stats.ts#L41)
+Defined in: [balloon-stats.ts:54](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/balloon-stats.ts#L54)
 
 Read the balloon-stats file at `path`. Returns `null` when:
   - the file is missing (VMM was launched without
@@ -6361,9 +6407,9 @@ behaviour we had before.
 
 ### readHostRssBytes()
 
-> **readHostRssBytes**(`pid`): `number`
+> **readHostRssBytes**(`pid`, `statsPath?`): `number`
 
-Defined in: [proc-rss.ts:21](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/proc-rss.ts#L21)
+Defined in: [proc-rss.ts:47](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/proc-rss.ts#L47)
 
 RSS bytes for one pid, or null if not readable.
 
@@ -6373,6 +6419,10 @@ RSS bytes for one pid, or null if not readable.
 
 `number`
 
+##### statsPath?
+
+`string`
+
 #### Returns
 
 `number`
@@ -6381,9 +6431,9 @@ RSS bytes for one pid, or null if not readable.
 
 ### readHostRssBytesMulti()
 
-> **readHostRssBytesMulti**(`pids`): `Map`\<`number`, `number`\>
+> **readHostRssBytesMulti**(`targets`): `Map`\<`number`, `number`\>
 
-Defined in: [proc-rss.ts:37](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/proc-rss.ts#L37)
+Defined in: [proc-rss.ts:67](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/proc-rss.ts#L67)
 
 Bulk variant for `machinen ls`: one syscall (Linux) or one
 subprocess (Darwin) for every live VM, instead of N. Pids that
@@ -6392,9 +6442,9 @@ decides whether to render "?" or skip the row.
 
 #### Parameters
 
-##### pids
+##### targets
 
-readonly `number`[]
+readonly (`number` \| [`RssTarget`](#rsstarget))[]
 
 #### Returns
 
@@ -6913,7 +6963,7 @@ end, so no individual cmd line approaches `MAX_ARG_STRLEN`.
 
 > **restore**(`opts`): `Promise`\<[`VmHandle`](#vmhandle)\>
 
-Defined in: [vm.ts:3255](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L3255)
+Defined in: [vm.ts:3263](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L3263)
 
 Restore a microVM from a snapshot bundle produced by
 `vm.snapshot({ outDir })`. Reads the bundle's `meta.json` to
@@ -6969,7 +7019,7 @@ BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN if an entry in
 
 > **measureFirstByte**(`vm`): `Promise`\<`number`\>
 
-Defined in: [vm.ts:3720](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L3720)
+Defined in: [vm.ts:3743](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L3743)
 
 Time-to-first-output-byte for a boot. Useful for measuring how
 much the snapshot path is (or isn't) buying us.

@@ -349,26 +349,26 @@ describe("parseForkArgs", () => {
     expect(parsed.detach).toBe(true);
   });
 
-  it("defaults tcpKeep, detach, eager, and portForward when no flags are given", () => {
+  it("defaults tcpKeep, detach, lazy, and portForward when no flags are given", () => {
     const parsed = parseForkArgs(["--name", "src"]);
     expect(parsed.tcpKeep).toBe(false);
     expect(parsed.detach).toBe(false);
-    expect(parsed.eager).toBe(false);
+    expect(parsed.lazy).toBe(false);
     expect(parsed.portForward).toEqual([]);
     expect(parsed.newName).toBeUndefined();
     expect(parsed.outDir).toBeUndefined();
   });
 
-  it("captures --eager", () => {
-    const parsed = parseForkArgs(["--eager"]);
-    expect(parsed.eager).toBe(true);
+  it("captures --lazy", () => {
+    const parsed = parseForkArgs(["--lazy"]);
+    expect(parsed.lazy).toBe(true);
     expect(parsed.detach).toBe(false);
   });
 
-  it("forces eager when --detach is set (FUSE server can't survive detach yet)", () => {
-    const parsed = parseForkArgs(["--detach"]);
+  it("forces lazy=false when --detach is set (FUSE server can't survive detach yet)", () => {
+    const parsed = parseForkArgs(["--detach", "--lazy"]);
     expect(parsed.detach).toBe(true);
-    expect(parsed.eager).toBe(true);
+    expect(parsed.lazy).toBe(false);
   });
 
   it("collects -p / --publish into portForward", () => {
@@ -480,12 +480,12 @@ describe("parseRestoreArgs", () => {
     expect(parsed.name).toBeUndefined();
     expect(parsed.image).toBeUndefined();
     expect(parsed.portForward).toEqual([]);
-    expect(parsed.eager).toBe(false);
+    expect(parsed.lazy).toBe(false);
   });
 
-  it("captures --eager (opt out of the default lazy restore)", () => {
-    const parsed = parseRestoreArgs(["./warm", "--eager"]);
-    expect(parsed.eager).toBe(true);
+  it("captures --lazy (opt into the lazy-pages restore path)", () => {
+    const parsed = parseRestoreArgs(["./warm", "--lazy"]);
+    expect(parsed.lazy).toBe(true);
   });
 
   it("captures --name and --image (space and = forms)", () => {

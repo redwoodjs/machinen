@@ -1522,7 +1522,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       const pagesServed = Math.floor(bytesServed / 4096);
       return {
         ceilingMib: memoryCeilingMib ?? null,
-        hostRssBytes: readHostRssBytes(childPid),
+        hostRssBytes: readHostRssBytes(childPid, statsFilePath),
         balloonInflatedBytes: balloon?.bytesReported ?? 0,
         lazyPagesPending: Math.max(0, lazyTotal - pagesServed),
       };
@@ -1852,7 +1852,7 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
       const balloon = entry.statsPath ? readBalloonStats(entry.statsPath) : null;
       return {
         ceilingMib: entry.memoryCeilingMib ?? null,
-        hostRssBytes: readHostRssBytes(entry.pid),
+        hostRssBytes: readHostRssBytes(entry.pid, entry.statsPath),
         balloonInflatedBytes: balloon?.bytesReported ?? 0,
         lazyPagesPending: 0,
       };
@@ -3207,15 +3207,23 @@ export interface RestoreOptions extends Omit<BootOptions, "snapshot" | "image" |
    */
   name?: string;
   /**
-   * Force eager restore — load every page from the bundle into host
-   * RAM up front. Default false (lazy: bundle is vsock-FUSE-mounted
-   * read-only into the guest and `criu restore --lazy-pages` faults
-   * pages on demand, #266). The lazy default keeps host RSS
-   * proportional to the touched set rather than the full snapshot
-   * size; eager exists as an opt-out for debugging or for workloads
-   * that are about to fault every page anyway.
+   * Opt into lazy-pages restore — bundle is vsock-FUSE-mounted into
+   * the guest read-only and `criu restore --lazy-pages` faults pages
+   * on demand (#266). Default false: the runtime packs the CRIU
+   * image into a tar on `/dev/vdb`, the guest's
+   * `/sbin/machinen-restore` untars it into tmpfs, and CRIU does an
+   * eager load.
+   *
+   * Eager is the default because the lazy path has subtle
+   * interactions with virtio-balloon free-page-reporting (the
+   * guest's reporting kthread reads pages to identify them as free,
+   * which is exactly what UFFDIO_COPY's them back from the bundle —
+   * defeating the lazy promise). The runtime sets
+   * `MACHINEN_DISABLE_BALLOON_REPORTING=1` to suppress that when
+   * `lazy: true` is requested, but for the common case eager is
+   * simpler and faster on small workloads.
    */
-  eager?: boolean;
+  lazy?: boolean;
 }
 
 /**
@@ -3327,16 +3335,16 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
     );
   }
 
-  // Lazy-pages mode (#266, default — opt out via `eager: true`):
-  // mark every PE_PRESENT pagemap entry that lives in an anon-private
-  // VMA with PE_LAZY in place on the host before boot, so
+  // Lazy-pages mode (#266, opt-in via `lazy: true`): mark every
+  // PE_PRESENT pagemap entry that lives in an anon-private VMA with
+  // PE_LAZY in place on the host before boot, so
   // `criu restore --lazy-pages` actually registers UFFD on those
   // entries instead of loading them eagerly. Dumps are taken without
   // `--lazy-pages` (machinen-dump.sh keeps the dump path simple);
   // without this rewrite the lazy-pages daemon would see no lazy
   // entries and load the whole image up front. Idempotent. See
   // packages/runtime/src/lazy-pagemap.ts.
-  const lazyPages = !opts.eager;
+  const lazyPages = opts.lazy === true;
   let lazyPagesTotal: number | undefined;
   if (lazyPages) {
     phases.start("snapshot-mark-lazy");
@@ -3358,18 +3366,23 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
   const effectiveLiveMounts = resolveRestoreLiveMounts(meta.liveMounts, opts.liveMounts);
 
   // Bundle delivery split by mode:
-  //   - lazy (default): vsock-FUSE-mount `imgDir/` read-only at
-  //     /mnt/snap-src/img. CRIU restore reads pagemap-*.img +
-  //     pages-*.img directly through FUSE; bytes stream from the host
-  //     on demand and never materialize in guest tmpfs. This is the
-  //     #266 path — it removes the duplicate-copy that was eating
-  //     ~workload-size of guest RAM.
-  //   - eager (opt-in via `eager: true`): pack `imgDir/` into a tar
-  //     archive attached as /dev/vdb. The guest's machinen-restore.sh
-  //     untars into tmpfs and CRIU does an eager load. Kept as an
-  //     opt-out because every pread through FUSE costs a vsock
-  //     round-trip; eager wins when the workload is about to fault
-  //     every page anyway.
+  //   - eager (default): pack `imgDir/` into a tar archive attached
+  //     as /dev/vdb. The guest's machinen-restore.sh untars into
+  //     tmpfs and CRIU does an eager load. Simple, robust, no FUSE
+  //     vsock channel to keep alive — and on the workloads we
+  //     actually ship for (small JS heaps, short-lived MicroVMs)
+  //     the workload faults every page within the first second
+  //     anyway, so the lazy save is moot.
+  //   - lazy (opt-in via `lazy: true`): vsock-FUSE-mount `imgDir/`
+  //     read-only at /mnt/snap-src/img. CRIU restore reads
+  //     pagemap-*.img + pages-*.img directly through FUSE; bytes
+  //     stream from the host on demand and never materialize in
+  //     guest tmpfs. This is the #266 path — it keeps host RSS
+  //     proportional to the touched set, but the path interacts
+  //     subtly with virtio-balloon free-page-reporting (see the
+  //     `MACHINEN_DISABLE_BALLOON_REPORTING` comment below) and
+  //     can't compose with `--detach` until the FUSE server learns
+  //     to hand off (#150 phase 3).
   phases.start("snapshot-pack");
   const restoreEnv: Record<string, string> = {};
   let scratchPath: string;
@@ -3382,6 +3395,16 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
     allocateSparseFile(scratchPath, SNAP_SCRATCH_BYTES);
     restoreEnv.MACHINEN_RESTORE_BUNDLE_LIVE = "1";
     restoreEnv.MACHINEN_RESTORE_LAZY_PAGES = "1";
+    // Suppress virtio-balloon free-page-reporting on lazy-pages
+    // restores. With REPORTING on, the guest kernel's reporting
+    // kthread walks every "free" page in the workload's anon range
+    // — and that walk reads each page to identify it as free, which
+    // is exactly what userfaultfd UFFDIO_COPYs the page back from
+    // the bundle for. The result is the entire workload getting
+    // eagerly faulted in within seconds of restore, which defeats
+    // the whole point of lazy-pages. Fresh boots and eager restores
+    // leave REPORTING on so long-running idle VMs return memory.
+    restoreEnv.MACHINEN_DISABLE_BALLOON_REPORTING = "1";
     liveMounts = [
       ...(effectiveLiveMounts ?? []),
       { host: imgDir, guest: "/mnt/snap-src/img", mode: "ro" as const },
