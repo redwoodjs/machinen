@@ -752,6 +752,14 @@ pub const Connection = struct {
     /// when the gap with `fwd_cnt` is big enough to emit a new
     /// CREDIT_UPDATE.
     last_credit_fwd_cnt: u32 = 0,
+    /// Bytes already read off the UDS that we couldn't inject because
+    /// the guest's virtio RX ring had no descriptor posted. Holding
+    /// them lets the next drain retry instead of dropping them — the
+    /// stream framing depends on every byte landing in order, and
+    /// drops were the root cause of the FUSE-agent "bad reply len"
+    /// crash class. `pending_rx_len == 0` means no pending data.
+    pending_rx_buf: [rx_body_per_packet_max]u8 = undefined,
+    pending_rx_len: usize = 0,
 };
 
 pub const BridgeConfig = struct {
@@ -958,6 +966,23 @@ pub const Bridge = struct {
                 }
                 self.mu.unlock();
             }
+
+            // Retry connections with parked bytes from a previous
+            // drain that couldn't inject (RX ring was empty). Without
+            // this, a connection whose host side has stopped sending
+            // would leave its tail bytes stuck — POLLIN never fires
+            // again, so drainConnection wouldn't get called even
+            // though pending_rx still has bytes to deliver.
+            self.mu.lock();
+            var k: usize = 0;
+            while (k < self.conns.items.len) : (k += 1) {
+                if (self.conns.items[k].pending_rx_len == 0) continue;
+                self.drainConnection(k) catch |err| {
+                    std.debug.print("vsock: pending drainConnection err {s}\n", .{@errorName(err)});
+                    self.closeConnection(k);
+                };
+            }
+            self.mu.unlock();
         }
     }
 
@@ -1035,6 +1060,38 @@ pub const Bridge = struct {
         const c = &self.conns.items[idx];
         assert(c.uds_fd >= 0);
         if (c.state != .established) return; // wait for RESPONSE first
+
+        // First try to flush any pending bytes from a prior drain that
+        // couldn't inject because the guest's RX ring was empty. The
+        // poll loop re-fires often enough that the guest will have
+        // refilled the ring by some later iteration.
+        if (c.pending_rx_len > 0) {
+            const room = peerRoom(c);
+            if (room == 0) {
+                c.paused = true;
+                return;
+            }
+            const hdr = VsockHdr{
+                .src_cid = host_cid,
+                .dst_cid = self.cfg.guest_cid,
+                .src_port = c.host_port,
+                .dst_port = c.guest_port,
+                .len = @intCast(c.pending_rx_len),
+                .type = @intFromEnum(Type.stream),
+                .op = @intFromEnum(Op.rw),
+                .flags = 0,
+                .buf_alloc = advertised_buf_alloc,
+                .fwd_cnt = c.fwd_cnt,
+            };
+            if (!self.injectRx(hdr, c.pending_rx_buf[0..c.pending_rx_len])) {
+                // Ring is still empty; keep the bytes parked, return,
+                // try again next poll cycle.
+                return;
+            }
+            c.bytes_to_peer +%= @intCast(c.pending_rx_len);
+            c.pending_rx_len = 0;
+        }
+
         const room = peerRoom(c);
         if (room == 0) {
             c.paused = true;
@@ -1082,7 +1139,14 @@ pub const Bridge = struct {
         };
         if (self.injectRx(hdr, payload)) {
             c.bytes_to_peer +%= @intCast(payload.len);
+            return;
         }
+        // Inject failed — ring's empty, no descriptor posted by the
+        // guest. We've already consumed these bytes from the UDS, so
+        // dropping them would corrupt the stream. Park them in
+        // pending_rx_buf; the next drain (or next nudge) retries.
+        @memcpy(c.pending_rx_buf[0..payload.len], payload);
+        c.pending_rx_len = payload.len;
     }
 
     // Must be called with self.mu held.
