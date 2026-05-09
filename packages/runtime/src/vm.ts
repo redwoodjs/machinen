@@ -75,6 +75,8 @@ import { markPagemapsLazy } from "./lazy-pagemap.ts";
 import type { OnLog } from "./log.ts";
 import { PhaseTimer } from "./phase-timer.ts";
 import { claimName, findEntry, isAlive, removeEntry, writeEntry } from "./registry.ts";
+import { runGc } from "./gc.ts";
+import { readProcessIdentity } from "./pid-validate.ts";
 import type {
   ForkOptions,
   MemoryStats,
@@ -1110,14 +1112,25 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   const childPid = child.pid ?? -1;
   if (vmName && childPid > 0) {
     if (!claimName(vmName, childPid)) {
-      try {
-        child.kill("SIGKILL");
-      } catch {}
-      throw new RegistryError(
-        "REGISTRY_NAME_IN_USE",
-        `boot: name '${vmName}' is already held by another live VM. ` +
-          `Pick a different --name or kill the existing VM first.`,
-      );
+      // Backstop for the recycled-pid case: claimName already drops
+      // pins whose holder fails the recycling/orphan check, but a
+      // pre-#268 entry without `vmmExe`/`startedAt` falls back to
+      // `kill(pid,0)` and can stay pinned by an unrelated process now
+      // sitting on the recycled pid. `runGc` walks the whole registry
+      // (also cleaning cleanupPaths) and then we retry the claim
+      // once. If a still-live VMM genuinely holds the name, the
+      // retry fails and we throw.
+      runGc();
+      if (!claimName(vmName, childPid)) {
+        try {
+          child.kill("SIGKILL");
+        } catch {}
+        throw new RegistryError(
+          "REGISTRY_NAME_IN_USE",
+          `boot: name '${vmName}' is already held by another live VM. ` +
+            `Pick a different --name or kill the existing VM first.`,
+        );
+      }
     }
   }
   // #150 phase 2: detached VMs record where the boot-console snapshot
@@ -1165,9 +1178,24 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         forkedFrom: opts.forkedFrom,
         bootLogPath,
         cleanupPaths: cleanupPaths.length > 0 ? cleanupPaths : undefined,
-        vmmExe: binary,
+        // Snapshot what the OS reports for this pid right now, not the
+        // path we asked spawn to run. On Linux those line up after the
+        // shim execvp's the target, but on macOS pdeathsig forks +
+        // stays alive as the parent — `ps` shows "pdeathsig", not the
+        // VMM binary — so storing `binary` here makes validatePid
+        // (used by list() / runGc / claimName via pinIsStale) report
+        // every macOS-spawned VM as `recycled`. Recording the
+        // OS-observed basename keeps the comparison apples-to-apples.
+        vmmExe: readProcessIdentity(childPid)?.exeBase ?? binary,
         gvproxyPid: gvPid,
-        gvproxyExe: gvExe,
+        // Same OS-snapshot rationale as `vmmExe` above: gvproxy is
+        // also pdeathsig-wrapped on macOS, so the on-disk path the
+        // caller passed to `spawnGvproxy` doesn't match what `ps`
+        // reports for the running pid.
+        gvproxyExe:
+          gvPid !== undefined && gvPid > 0
+            ? (readProcessIdentity(gvPid)?.exeBase ?? gvExe)
+            : gvExe,
         portForward: portForward.length > 0 ? portForward : undefined,
         memoryCeilingMib,
         statsPath: statsFilePath,

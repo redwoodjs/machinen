@@ -93,12 +93,20 @@ export function validatePid(
   return "alive";
 }
 
-interface ProcessIdentity {
+export interface ProcessIdentity {
   exeBase: string;
   startedAtMs?: number;
 }
 
-function readProcessIdentity(pid: number): ProcessIdentity | undefined {
+/**
+ * Read the OS's view of `pid`'s exe basename and start time. Exposed
+ * so `boot()` can snapshot the values at spawn time and persist them
+ * into the registry entry — that way `validatePid` later compares
+ * apples-to-apples instead of comparing what we *asked* spawn to run
+ * (which on macOS is the pdeathsig fork-wrapper, not the target the
+ * caller named).
+ */
+export function readProcessIdentity(pid: number): ProcessIdentity | undefined {
   if (platform() === "linux") {
     return readLinuxIdentity(pid);
   }

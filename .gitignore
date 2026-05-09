@@ -17,3 +17,16 @@ scripts/clonefile
 scripts/clonefile.o
 scripts/clonefile.o.o
 .zig-cache/
+
+# Quickstart bake outputs and snapshot bundles. The example sources
+# (bake.ts, counter.mjs) are tracked; everything `node bake.ts` and
+# `mn-dev snapshot` produce is regenerable from those.
+examples/quickstart/counter.tar.gz
+examples/quickstart/counter.img
+examples/quickstart/snapshot-counter/
+examples/quickstart/.claude/
+counter-snap/
+
+# Sidecar produced by scripts/build-vmm.sh next to the (also-untracked)
+# locally-built VMM binary at packages/vmm-arm64-darwin/bin/machinen-vm.
+packages/vmm-arm64-darwin/bin/machinen-vm.inputs-sha256

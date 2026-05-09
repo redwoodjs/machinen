@@ -491,4 +491,25 @@ rootfs_input_files | compute_sha > "${OUT}/rootfs-debian-arm64.tar.gz.inputs-sha
 kernel_input_files | compute_sha > "${OUT}/Image-arm64.inputs-sha256"
 
 ls -lh "$OUT"
+
+# ------------------------------------------------------------
+# 6. Refresh the local cache the runtime falls back to when neither an
+#    explicit asset path nor MACHINEN_ASSETS_DIR is set. The version is
+#    pinned at "0.0.0" during local dev (see packages/runtime/package.json),
+#    so the cache key never rolls and a once-populated tree stays put
+#    forever — bare `node packages/cli/dist/cli.js` would otherwise bake
+#    stale rootfs layers into provision() outputs even immediately after
+#    a fresh rebuild here. Mirrors the filename rewrite the runtime's
+#    cliCachedBaseDir() resolution expects (see packages/runtime/src/provision.ts).
+# ------------------------------------------------------------
+echo "==> Refreshing local cache"
+RUNTIME_VERSION=$(node -p "require('${ROOT}/packages/runtime/package.json').version")
+CACHE_DIR="${HOME}/.machinen/runtime-v${RUNTIME_VERSION}/bases/debian-arm64"
+mkdir -p "$CACHE_DIR"
+cp "${OUT}/rootfs-debian-arm64.tar.gz" "${CACHE_DIR}/rootfs.tar.gz"
+cp "${OUT}/rootfs-debian-arm64.img.gz" "${CACHE_DIR}/rootfs.img.gz"
+cp "${OUT}/Image-arm64"                "${CACHE_DIR}/Image"
+cp "${OUT}/virt-arm64.dtb"             "${CACHE_DIR}/virt.dtb"
+echo "    refreshed: $CACHE_DIR"
+
 echo "==> Done."

@@ -20,6 +20,24 @@ import {
   registryRoot,
   writeEntry,
 } from "../registry.ts";
+import { readProcessIdentity } from "../pid-validate.ts";
+
+/**
+ * Build a registry entry for the test runner that passes
+ * `validatePid` ("alive"). Uses the OS's reported start time +
+ * exe basename so the snapshot in the entry matches what
+ * `validatePid` re-reads from `ps` / `/proc`.
+ */
+function entryForSelf(name: string): RegistryEntry {
+  const observed = readProcessIdentity(process.pid);
+  return {
+    pid: process.pid,
+    name,
+    socketPath: "/tmp/fake.sock",
+    vmmExe: observed?.exeBase,
+    startedAt: observed?.startedAtMs ?? Date.now(),
+  };
+}
 
 describe("registry primitives", () => {
   let scratchDir: string;
@@ -66,12 +84,7 @@ describe("registry primitives", () => {
   });
 
   it("removeEntry drops the directory + name pin", () => {
-    writeEntry({
-      pid: process.pid,
-      name: "to-remove",
-      socketPath: "/tmp/fake.sock",
-      startedAt: Date.now(),
-    });
+    writeEntry(entryForSelf("to-remove"));
     expect(readEntry(process.pid)).toBeDefined();
     expect(findEntry({ name: "to-remove" })).toBeDefined();
     removeEntry(process.pid);
@@ -85,12 +98,7 @@ describe("registry primitives", () => {
   });
 
   it("list skips entries whose pid is dead and prunes them", () => {
-    writeEntry({
-      pid: process.pid,
-      name: "alive",
-      socketPath: "/tmp/fake.sock",
-      startedAt: Date.now(),
-    });
+    writeEntry(entryForSelf("alive"));
     writeEntry({
       pid: 999_999_999,
       socketPath: "/tmp/fake-dead.sock",
@@ -106,24 +114,14 @@ describe("registry primitives", () => {
   });
 
   it("findEntry looks up by name (via pin file → pid)", () => {
-    writeEntry({
-      pid: process.pid,
-      name: "worker",
-      socketPath: "/tmp/e1.sock",
-      startedAt: Date.now(),
-    });
+    writeEntry(entryForSelf("worker"));
     const hit = findEntry({ name: "worker" });
     expect(hit?.pid).toBe(process.pid);
     expect(hit?.name).toBe("worker");
   });
 
   it("findEntry looks up by pid", () => {
-    writeEntry({
-      pid: process.pid,
-      name: "by-pid",
-      socketPath: "/tmp/e2.sock",
-      startedAt: Date.now(),
-    });
+    writeEntry(entryForSelf("by-pid"));
     const hit = findEntry({ pid: process.pid });
     expect(hit?.name).toBe("by-pid");
   });
@@ -134,6 +132,11 @@ describe("registry primitives", () => {
 
   it("claimName succeeds when free, fails when held by a live pid", () => {
     expect(claimName("first", process.pid)).toBe(true);
+    // Real-world flow: writeEntry follows claimName synchronously, so
+    // pinIsStale always sees a matching <pid>/meta.json. Without it
+    // here the orphan check would fire and the second claim would
+    // succeed (replacing the pin).
+    writeEntry(entryForSelf("first"));
     expect(claimName("first", process.pid + 1)).toBe(false);
   });
 
@@ -170,6 +173,57 @@ describe("registry primitives", () => {
     // plain name "src" is claimable again.
     expect(existsSync(join(scratchDir, "names", "src"))).toBe(false);
     expect(claimName("src", process.pid)).toBe(true);
+  });
+
+  it("claimName drops an orphan pin whose meta dir is missing", () => {
+    // Reproduces the bug where ls shows nothing but boot still says
+    // REGISTRY_NAME_IN_USE: a name pin pointing at a pid whose
+    // <pid>/meta.json is gone. kill(pid, 0) succeeds for the
+    // unrelated process now sitting on that recycled pid, so the
+    // pre-fix isAlive() check kept the pin pinned forever.
+    mkdirSync(join(scratchDir, "names"), { recursive: true });
+    // Pin points at *this* process — alive per kill(0) — but no meta dir.
+    writeFileSync(join(scratchDir, "names", "orphan"), String(process.pid));
+    expect(claimName("orphan", process.pid)).toBe(true);
+  });
+
+  it("claimName drops a pin whose meta says the pid was recycled", () => {
+    // vmmExe basename won't match this process's exe, and startedAt=0
+    // is far outside the skew window — validatePid returns "recycled".
+    writeEntry({
+      pid: process.pid,
+      name: "ghost",
+      socketPath: "/tmp/fake.sock",
+      vmmExe: "/never-installed-binary",
+      startedAt: 0,
+    });
+    expect(claimName("ghost", process.pid)).toBe(true);
+    // Stale meta dir should be reaped too — otherwise the next list()
+    // would still see it and have to clean up redundantly.
+    expect(readEntry(process.pid)).toBeUndefined();
+  });
+
+  it("list() prunes a recycled-pid entry and its pin", () => {
+    writeEntry({
+      pid: process.pid,
+      name: "stale-vmm",
+      socketPath: "/tmp/fake.sock",
+      vmmExe: "/never-installed-binary",
+      startedAt: 0,
+    });
+    expect(list().some((e) => e.name === "stale-vmm")).toBe(false);
+    expect(readEntry(process.pid)).toBeUndefined();
+    expect(findEntry({ name: "stale-vmm" })).toBeUndefined();
+  });
+
+  it("list() sweeps empty pin-parent dirs left over from pre-#268 entries", () => {
+    // Pre-#268 path-shaped pins didn't prune their parents on remove,
+    // so old `proof-*` / `dbg-*` empty dirs accumulate under names/.
+    mkdirSync(join(scratchDir, "names", "proof-65761"), { recursive: true });
+    mkdirSync(join(scratchDir, "names", "dbg-65992"), { recursive: true });
+    list();
+    expect(existsSync(join(scratchDir, "names", "proof-65761"))).toBe(false);
+    expect(existsSync(join(scratchDir, "names", "dbg-65992"))).toBe(false);
   });
 });
 

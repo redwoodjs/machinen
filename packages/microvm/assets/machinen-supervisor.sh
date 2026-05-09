@@ -79,6 +79,23 @@ if [ "${1:-}" = "--session" ]; then
     shift
 fi
 
+# Tell the user what we're about to run. Goes to /dev/ttyAMA0 alongside
+# the kernel's init checkpoints so it shows up in the boot stream.
+printf 'supervisor: starting cmd=%s\n' "$*" > /dev/ttyAMA0
+
+# /sbin/machinen-no-iou: seccomp-bpf shim that returns ENOSYS for the
+# io_uring_setup/_enter/_register triple. Wraps every workload because
+# Node 24+'s libuv opens an io_uring instance unconditionally on
+# recent kernels, and CRIU (master through v4.2) has no support for
+# dumping anon_inode:[io_uring] mappings — proc_parse.c bails with
+# "Unknown shit … anon_inode:[io_uring]" mid-dump. With the shim,
+# libuv's startup probe gets ENOSYS, falls back to its epoll +
+# threadpool path (the only path that existed pre-libuv-1.45), and
+# the process becomes dumpable. Filter is inherited across execve
+# and into every fork, so the user cmd and all its children are
+# covered. Cost on workloads that never call io_uring: a couple of
+# BPF compare instructions per syscall — unmeasurable.
+#
 # Run the workload under `setsid -c -w` with stdio bound to /dev/ttyAMA0:
 #
 #   - `setsid` puts the workload in a brand-new session as leader.
@@ -107,13 +124,15 @@ fi
 #     setsid runs (`-c` reads ctty from stdin).
 #
 # The inner `sh -c` writes /run/machinen-workload.pid using its own
-# $$ — which, because it then `exec`s the workload, IS the workload's
-# PID. Doing it here (rather than from the supervisor with $!) is
-# essential: $! points at the parent setsid, which has already exited.
-# That PID is what machinen-dump feeds to `criu dump --tree`, so
-# getting it wrong dumps a dead PID and CRIU bails with exit 32.
+# $$ — which, because it then `exec`s the no-iou shim (which then
+# execvp's the user cmd), IS the workload's PID. Both `exec` calls
+# preserve the pid, so the value in the pidfile is what `criu dump
+# --tree` ends up dumping. Doing it here (rather than from the
+# supervisor with $!) is essential: $! points at the parent setsid,
+# which has already exited. Wrong pid = CRIU dumps a dead pid and
+# bails with exit 32.
 /usr/bin/setsid -c -w sh -c \
-    'printf "%s" "$$" > /run/machinen-workload.pid; exec "$@"' \
+    'printf "%s" "$$" > /run/machinen-workload.pid; exec /sbin/machinen-no-iou "$@"' \
     inner "$@" </dev/ttyAMA0 >/dev/ttyAMA0 2>/dev/ttyAMA0 &
 PID=$!
 
