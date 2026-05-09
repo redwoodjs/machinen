@@ -74,31 +74,26 @@ describe("boot({ detached }) compatibility gate", () => {
     expect(err.message).toContain("mount");
   });
 
-  it("rejects --mount-live", async () => {
-    const err = await boot({
-      detached: true,
-      image: "/tmp/does-not-exist.tar.gz",
-      liveMounts: [{ host: "/tmp", guest: "/mnt/live" }],
-    }).catch((e) => e);
-    expect(isMachinenError(err, "BOOT_DETACHED_INCOMPATIBLE")).toBe(true);
-    expect(err.message).toContain("liveMounts");
-  });
-
   // #150 phase 2 PR3 lifted the portForward gate: gvproxy now also
   // detaches (its pid + socket dir are persisted in the registry so
-  // `machinen stop` reaps them). `--detached -p` is allowed; the
-  // failure modes that previously needed gating come from the
-  // mount-* options below.
+  // `machinen stop` reaps them). `--detached -p` is allowed.
+  //
+  // #150 phase 3 lifted the liveMounts gate: each live-mount now
+  // spawns as a detached helper wrapped through pdeathsig
+  // --watch-pid <vmm>. The helper survives supervisor exit and dies
+  // when the VMM dies. Only `mount` (the squashfs+ext4 overlay)
+  // remains incompatible.
 
-  it("lists mount + liveMounts in one error", async () => {
+  it("does NOT reject liveMounts (#150 phase 3 lifted the gate)", async () => {
     const err = await boot({
       detached: true,
       image: "/tmp/does-not-exist.tar.gz",
-      mount: { host: "/tmp", guest: "/mnt/in" },
       liveMounts: [{ host: "/tmp", guest: "/mnt/live" }],
     }).catch((e) => e);
-    expect(isMachinenError(err, "BOOT_DETACHED_INCOMPATIBLE")).toBe(true);
-    expect(err.message).toContain("mount");
-    expect(err.message).toContain("liveMounts");
+    // The boot will still fail (the image path doesn't exist), but
+    // the failure should not be the gate — assert it's a different
+    // BootError code.
+    expect(isMachinenError(err)).toBe(true);
+    expect(isMachinenError(err, "BOOT_DETACHED_INCOMPATIBLE")).toBe(false);
   });
 });

@@ -286,6 +286,10 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // when missing.
     var stats_inst = stats_mod.Stats.openOrStub();
     defer stats_inst.deinit();
+    // No-op on Linux — runtime reads `/proc/<pid>/status:VmRSS`,
+    // which is exact and reflects `MADV_DONTNEED` reclaim. See
+    // `stats.zig` for the Darwin rationale.
+    stats_mod.startPhysFootprintSampler(stats_inst.counters);
     var balloon_backend = balloon_mod.Backend.initWithCounters(stats_inst.counters);
     var balloon_dev = makeBalloonDevice(ram, cfg, &balloon_backend);
     const balloon_dev_ptr: ?*virtio.Device = &balloon_dev;

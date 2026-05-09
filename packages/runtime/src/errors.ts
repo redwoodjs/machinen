@@ -83,6 +83,11 @@ export const ErrorCode = {
   // reach outside the mounted directory.
   MOUNT_PATH_INVALID: "MOUNT_PATH_INVALID",
   MOUNT_PATH_ESCAPE: "MOUNT_PATH_ESCAPE",
+  // mount-server-detached spawn (#150 phase 3): the standalone helper
+  // bin couldn't be located (no dist build, no source, no override) or
+  // failed to start.
+  MOUNT_SERVER_BIN_MISSING: "MOUNT_SERVER_BIN_MISSING",
+  MOUNT_SERVER_SPAWN_FAILED: "MOUNT_SERVER_SPAWN_FAILED",
 
   // secrets — vsock KEY=VALUE injection
   SECRETS_VALUE_INVALID: "SECRETS_VALUE_INVALID",

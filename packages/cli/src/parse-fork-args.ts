@@ -30,15 +30,15 @@ export interface ParsedForkArgs {
   /** Hand the fork off and return immediately (`--detach`). */
   detach: boolean;
   /**
-   * `--eager` — opt out of the default lazy restore for this fork
-   * (#263). Forced to true whenever `--detach` is set: the lazy path
-   * relies on a host-side FUSE server (#266) that lives in the
-   * runtime supervisor process, and `--detach` exits that process,
-   * which would leave the in-guest `criu lazy-pages` daemon blocked
-   * on the now-dead FUSE channel. Lifting this constraint is #150
-   * phase 3 — until then, detach implies eager.
+   * `--lazy` — opt into lazy-pages restore for this fork (#266).
+   * Forced off whenever `--detach` is set: the lazy path relies on
+   * a host-side FUSE server that lives in the runtime supervisor
+   * process, and `--detach` exits that process, which would leave
+   * the in-guest `criu lazy-pages` daemon blocked on the now-dead
+   * FUSE channel. Lifting this constraint is #150 phase 3 — until
+   * then, detach implies eager.
    */
-  eager: boolean;
+  lazy: boolean;
   /**
    * Host→guest port forwards (`-p <hostPort>:<guestPort>`). NOT
    * inherited from the source — host ports are global, so the source
@@ -85,7 +85,7 @@ export function parseForkArgs(argv: string[]): ParsedForkArgs {
   let outDir: string | undefined;
   let tcpKeep = false;
   let detach = false;
-  let eager = false;
+  let lazy = false;
   const portForward: Array<{ hostPort: number; guestPort: number }> = [];
   const seenHostPorts = new Set<number>();
   let mount: { host: string; guest: string } | undefined;
@@ -120,8 +120,8 @@ export function parseForkArgs(argv: string[]): ParsedForkArgs {
       tcpKeep = true;
     } else if (a === "--detach") {
       detach = true;
-    } else if (a === "--eager") {
-      eager = true;
+    } else if (a === "--lazy") {
+      lazy = true;
     } else if (
       a === "-p" ||
       a === "--publish" ||
@@ -173,14 +173,15 @@ export function parseForkArgs(argv: string[]): ParsedForkArgs {
   }
   // Detach exits the runtime supervisor, taking the host-side FUSE
   // server with it — the in-guest lazy-pages daemon would then block
-  // on a dead FUSE channel. Force eager to keep --detach usable until
-  // the FUSE server gains its own detach handoff (#150 phase 3).
+  // on a dead FUSE channel. Force eager (lazy=false) to keep --detach
+  // usable until the FUSE server gains its own detach handoff
+  // (#150 phase 3).
   return {
     newName,
     outDir,
     tcpKeep,
     detach,
-    eager: eager || detach,
+    lazy: lazy && !detach,
     portForward,
     mount,
     liveMounts: liveMounts.length > 0 ? liveMounts : undefined,

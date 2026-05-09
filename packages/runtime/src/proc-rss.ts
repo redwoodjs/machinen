@@ -1,8 +1,21 @@
 // Read the resident-set size of a host pid, in bytes (#274).
 //
 // Linux  → /proc/<pid>/status:VmRSS (kB; multiply by 1024).
-// Darwin → `ps -o rss= -p <pid>` (KiB on darwin, multiply by 1024).
+// Darwin → the VMM's own `phys_footprint` sample, written into the
+//          MACHINEN_STATS_FILE every ~500 ms by a sampler thread
+//          (see `packages/microvm/src/stats.zig`). Falls back to
+//          `ps -o rss=` when no statsPath is supplied (e.g. for an
+//          arbitrary host pid that isn't a machinen VMM) or when the
+//          stats file is missing / hasn't been initialised yet.
 // other  → null (we don't measure on platforms machinen doesn't ship for).
+//
+// Why prefer phys_footprint on Darwin: after balloon reclaim the VMM
+// calls `madvise(MADV_FREE_REUSABLE)`. Reusable pages stay counted
+// in `task_basic_info.resident_size` (what `ps -o rss=` reads) until
+// the kernel actually reclaims them under memory pressure, but they
+// are excluded from `phys_footprint` immediately. So `ps rss` makes
+// reclaim look broken even when it's working; `phys_footprint`
+// (Activity Monitor's "Memory" column) shows the truth.
 //
 // Synchronous because callers — `machinen ls` and `vm.memoryStats()` —
 // fetch the number once, at the moment they need it. There's no
@@ -16,13 +29,30 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { platform as osPlatform } from "node:os";
+import { readBalloonStats } from "./balloon-stats.ts";
+
+/** A pid plus the absolute path to its stats file (when available). */
+export interface RssTarget {
+  pid: number;
+  /**
+   * MACHINEN_STATS_FILE path for this VMM (registry entry's
+   * `statsPath`). On Darwin we read `phys_footprint` from this file
+   * in preference to `ps -o rss=`. Optional / undefined for arbitrary
+   * pids that aren't machinen-managed; those fall back to ps.
+   */
+  statsPath?: string;
+}
 
 /** RSS bytes for one pid, or null if not readable. */
-export function readHostRssBytes(pid: number): number | null {
+export function readHostRssBytes(pid: number, statsPath?: string): number | null {
   if (osPlatform() === "linux") {
     return readVmRssLinux(pid);
   }
   if (osPlatform() === "darwin") {
+    const fromStats = readPhysFootprintFromStats(statsPath);
+    if (fromStats !== null) {
+      return fromStats;
+    }
     return readPsRssDarwin([pid]).get(pid) ?? null;
   }
   return null;
@@ -34,13 +64,16 @@ export function readHostRssBytes(pid: number): number | null {
  * can't be read are simply absent from the result map — caller
  * decides whether to render "?" or skip the row.
  */
-export function readHostRssBytesMulti(pids: readonly number[]): Map<number, number> {
-  if (pids.length === 0) {
-    return new Map();
+export function readHostRssBytesMulti(
+  targets: ReadonlyArray<RssTarget | number>,
+): Map<number, number> {
+  const out = new Map<number, number>();
+  if (targets.length === 0) {
+    return out;
   }
+  const normalised: RssTarget[] = targets.map((t) => (typeof t === "number" ? { pid: t } : t));
   if (osPlatform() === "linux") {
-    const out = new Map<number, number>();
-    for (const pid of pids) {
+    for (const { pid } of normalised) {
       const v = readVmRssLinux(pid);
       if (v !== null) {
         out.set(pid, v);
@@ -49,9 +82,28 @@ export function readHostRssBytesMulti(pids: readonly number[]): Map<number, numb
     return out;
   }
   if (osPlatform() === "darwin") {
-    return readPsRssDarwin(pids);
+    // Per-VM phys_footprint from the stats file is free (one
+    // readFileSync per VM, ~µs). Anything that doesn't have a
+    // statsPath, or whose stats file hasn't been written to yet,
+    // falls through to a single bulk `ps` call.
+    const fallbackPids: number[] = [];
+    for (const { pid, statsPath } of normalised) {
+      const fromStats = readPhysFootprintFromStats(statsPath);
+      if (fromStats !== null) {
+        out.set(pid, fromStats);
+      } else {
+        fallbackPids.push(pid);
+      }
+    }
+    if (fallbackPids.length > 0) {
+      const psResults = readPsRssDarwin(fallbackPids);
+      for (const [pid, rss] of psResults) {
+        out.set(pid, rss);
+      }
+    }
+    return out;
   }
-  return new Map();
+  return out;
 }
 
 function readVmRssLinux(pid: number): number | null {
@@ -62,6 +114,22 @@ function readVmRssLinux(pid: number): number | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Read `phys_footprint` from a VMM's stats file. Returns null when
+ * no path was supplied, the file is missing/short, or the sampler
+ * hasn't written its first reading yet (counter still 0).
+ */
+function readPhysFootprintFromStats(statsPath: string | undefined): number | null {
+  if (!statsPath) {
+    return null;
+  }
+  const stats = readBalloonStats(statsPath);
+  if (!stats || stats.hostPhysFootprintBytes === 0) {
+    return null;
+  }
+  return stats.hostPhysFootprintBytes;
 }
 
 function readPsRssDarwin(pids: readonly number[]): Map<number, number> {

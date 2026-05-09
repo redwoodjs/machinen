@@ -120,5 +120,6 @@ export {
 } from "./host-mem.ts";
 export type { CheckForkBackpressureOptions } from "./host-mem.ts";
 export { readHostRssBytes, readHostRssBytesMulti } from "./proc-rss.ts";
+export type { RssTarget } from "./proc-rss.ts";
 export { readBalloonStats, STATS_FILE_SIZE } from "./balloon-stats.ts";
 export type { BalloonCounters } from "./balloon-stats.ts";

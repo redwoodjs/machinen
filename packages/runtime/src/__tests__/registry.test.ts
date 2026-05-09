@@ -15,6 +15,7 @@ import {
   claimName,
   findEntry,
   isAlive,
+  patchEntry,
   readEntry,
   removeEntry,
   registryRoot,
@@ -128,6 +129,27 @@ describe("registry primitives", () => {
 
   it("findEntry returns undefined for an unknown name", () => {
     expect(findEntry({ name: "nope" })).toBeUndefined();
+  });
+
+  it("patchEntry merges a partial update without losing fields", () => {
+    writeEntry(entryForSelf("with-helpers"));
+    patchEntry(process.pid, {
+      liveMountServers: [
+        { pid: 4242, exe: "/usr/local/bin/node" },
+        { pid: 4243, exe: "/usr/local/bin/pdeathsig" },
+      ],
+    });
+    const got = readEntry(process.pid);
+    expect(got?.name).toBe("with-helpers");
+    expect(got?.liveMountServers).toEqual([
+      { pid: 4242, exe: "/usr/local/bin/node" },
+      { pid: 4243, exe: "/usr/local/bin/pdeathsig" },
+    ]);
+  });
+
+  it("patchEntry is a no-op when the entry doesn't exist", () => {
+    expect(() => patchEntry(999_999_999, { liveMountServers: [] })).not.toThrow();
+    expect(readEntry(999_999_999)).toBeUndefined();
   });
 
   it("claimName succeeds when free, fails when held by a live pid", () => {

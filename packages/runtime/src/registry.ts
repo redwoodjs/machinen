@@ -168,6 +168,17 @@ export interface RegistryEntry {
    * to bind anything).
    */
   liveMounts?: Array<{ guest: string; host: string; mode: "ro" | "rw" }>;
+  /**
+   * #150 phase 3: pids + exes of the detached mount-server helpers
+   * spawned alongside this VMM, one per live-mount. The helpers die
+   * with the VMM via `pdeathsig --watch-pid` already, but `machinen
+   * stop` SIGTERMs them up-front so the VMM exit hook doesn't race
+   * with the helper's own pdeathsig-driven shutdown, and `machinen
+   * gc` validates pid+exe to detect recycled pids the same way the
+   * VMM and gvproxy entries do. Empty / undefined for VMs booted
+   * without `liveMounts`.
+   */
+  liveMountServers?: Array<{ pid: number; exe: string }>;
   /** ms epoch when the entry was created. */
   startedAt: number;
 }
@@ -210,6 +221,24 @@ export function writeEntry(entry: RegistryEntry): void {
     writeFileSync(pin, String(entry.pid));
   }
   debug("write pid=%d name=%s sock=%s", entry.pid, entry.name ?? "<unset>", entry.socketPath);
+}
+
+/**
+ * Merge a partial entry into the existing one for `pid`. Used when a
+ * field becomes known after the initial `writeEntry` — e.g. detached
+ * mount-server pids are only known after the helpers have spawned,
+ * which (per the registry-claim invariant in vm.ts) has to happen
+ * after the initial sync write. No-op if no entry exists.
+ */
+export function patchEntry(pid: number, patch: Partial<RegistryEntry>): void {
+  const existing = readEntry(pid);
+  if (!existing) {
+    debug("patch pid=%d skipped (no entry)", pid);
+    return;
+  }
+  const merged: RegistryEntry = { ...existing, ...patch, pid: existing.pid };
+  // Reuse writeEntry so the name pin is preserved.
+  writeEntry(merged);
 }
 
 /**

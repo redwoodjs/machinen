@@ -1,6 +1,6 @@
 //! virtio-balloon backend — lets the guest tell the host which pages
 //! it considers free, so the host can release the corresponding RSS
-//! via `madvise(MADV_DONTNEED)`.
+//! via `madvise` (Linux `MADV_DONTNEED`, Darwin `MADV_FREE_REUSABLE`).
 //!
 //! Why this exists: see `docs/memory.md`. On both HVF and KVM the
 //! guest's anonymous RAM mapping is demand-paged (lazy commit), so
@@ -11,16 +11,12 @@
 //!
 //! ## Mode
 //!
-//! Currently we advertise `VIRTIO_F_VERSION_1` only — no
-//! `VIRTIO_BALLOON_F_REPORTING`, no inflate/deflate driver. The
-//! guest's virtio-balloon driver instantiates with the always-present
-//! inflate + deflate queues; both queue handlers are minimal acks
-//! since `num_pages` stays 0 and we never ask the guest to inflate.
-//! The reporting handler is implemented (see `handleReporting`) but
-//! unreachable while bit 5 is off — kept so reintroducing reporting
-//! is a one-line change once we have a reclaim path that doesn't
-//! corrupt the guest. See the comment on `Backend.features` for the
-//! corruption story.
+//! We advertise `VIRTIO_F_VERSION_1` and `VIRTIO_BALLOON_F_REPORTING`.
+//! The guest's virtio-balloon driver instantiates with the always-
+//! present inflate + deflate queues plus the reporting queue; we
+//! drive reclaim entirely through reporting. `num_pages` stays 0 so
+//! the inflate handler is a minimal ack. See `handleReporting` for
+//! the reclaim path.
 //!
 //! ## Queues (driver order, with REPORTING + no STATS / FREE_PAGE_HINT)
 //!
@@ -33,25 +29,47 @@
 //! Each reporting chain is one or more descriptors. Each descriptor
 //! describes a contiguous *guest-physical* range of free memory:
 //! `{ addr = guest_phys, len = bytes }`. We translate to host VA via
-//! `ram_base + addr` and atomically replace the range with fresh
-//! zero-fill pages via `mmap(MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS)`.
-//! That immediately drops the host's resident-set count for those
-//! bytes; next guest access lazy-faults a zero page back in via
-//! the same path as the original boot-time mapping.
+//! `ram_base + addr` and reclaim the range via `madvise`:
+//!   * Linux:  `madvise(addr, len, MADV_DONTNEED)` — kernel drops
+//!     the physical pages immediately; next guest access zero-faults
+//!     a fresh page through the same lazy-commit path as boot.
+//!   * Darwin: `madvise(addr, len, MADV_FREE_REUSABLE)` — pages are
+//!     marked discardable; the kernel reclaims them under pressure
+//!     and the next guest access either re-uses the (now zeroed-on-
+//!     reclaim or kept-as-is) page or zero-faults. Either way is
+//!     safe — the guest only reports pages it considers free, so it
+//!     never reads them; allocators overwrite on the next allocation.
 //!
-//! Why mmap rather than `madvise(MADV_DONTNEED)`: on Linux
-//! `MADV_DONTNEED` does this exactly, but on Darwin it's only an
-//! advisory hint to the page-replacement algorithm — the pages stay
-//! resident until external memory pressure. `MADV_FREE_REUSABLE`
-//! marks them discardable but still resident in `task_basic_info`.
-//! `mmap MAP_FIXED` is the one operation with consistent immediate-
-//! reclaim semantics across both platforms. (Firecracker uses the
-//! same approach for the same reason.)
+//! Why `madvise` rather than `mmap(MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS)`:
+//! the hypervisor's stage-2 mapping (`hv_vm_map` on HVF,
+//! `KVM_SET_USER_MEMORY_REGION` on KVM) is registered against a
+//! specific host VA. `mmap MAP_FIXED` tears down the existing VMA
+//! and installs a fresh one at the same VA — a primitive whose
+//! contract is "replace the address-space mapping", which is exactly
+//! the relationship the hypervisor was told is stable. Whether the
+//! kernel invalidates stage-2 in lockstep is implementation-defined;
+//! under load the guest reads zeros from pages it still considers
+//! in-use and corrupts its own page cache (HTTP stress reproduces it
+//! as binaries getting `Exec format error`). KVM's API docs say so
+//! directly: use `madvise(MADV_DONTNEED)`, not `mmap MAP_FIXED`.
+//! `madvise` leaves the VMA — and therefore the hypervisor's view —
+//! untouched; the kernel just drops physical pages.
 //!
 //! The reported runs are MAX_PAGE_ORDER-aligned (4 MiB on arm64
 //! defconfig) — comfortably aligned to both the 4 KiB Linux host
-//! page size and the 16 KiB Darwin host page size, so mmap accepts
-//! them without rounding.
+//! page size and the 16 KiB Darwin host page size, so `madvise`
+//! accepts them without rounding.
+//!
+//! ## Darwin RSS-reporting note
+//!
+//! After `MADV_FREE_REUSABLE`, `task_basic_info.resident_size` (what
+//! `ps -o rss=` reads) does *not* drop until the kernel actually
+//! reclaims the pages under pressure. `phys_footprint` (what
+//! Activity Monitor's "Memory" column shows) *does* drop immediately
+//! because reusable pages are excluded from the metric ledger. The
+//! host runtime reads `phys_footprint` for `vm.memoryStats()
+//! .hostRssBytes` so reclaim is observable in the natural place
+//! (#274). See `packages/runtime/src/proc-rss.ts`.
 //!
 //! ## Page granularity
 //!
@@ -135,20 +153,33 @@ pub const Backend = struct {
     /// without a matching queue handler will hang the driver at
     /// `find_vqs`.
     ///
-    /// We DO NOT advertise `VIRTIO_BALLOON_F_REPORTING`. The reporting
-    /// handler reclaims pages via `mmap(MAP_FIXED|MAP_PRIVATE|MAP_ANONYMOUS)`
-    /// over guest RAM, and that races with the guest's own use of
-    /// reported pages — under load the guest reads zeros from pages
-    /// it still considers in-use, corrupting its own page cache (HTTP
-    /// stress reproduces it as binaries getting `Exec format error`
-    /// while the host-side rootdisk image stays clean). Until we have
-    /// a reclaim path that doesn't have this race, leave the bit off:
-    /// the guest never queues reporting chains, host RSS doesn't shrink
-    /// mid-run, but the VM stops corrupting itself. `handleReporting`
-    /// is kept around so reintroducing the bit is a one-line change.
+    /// We advertise `VIRTIO_BALLOON_F_REPORTING` so the guest posts
+    /// free runs to the reporting queue and `handleReporting` can
+    /// `madvise` them out of host RSS. The earlier corruption
+    /// (#282 — guest reading zeros from pages it still considers in-
+    /// use under HTTP stress) was a property of the previous reclaim
+    /// primitive, `mmap(MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS)`,
+    /// which tore down the host VMA the hypervisor's stage-2 mapping
+    /// was registered against. `madvise` leaves the VMA intact —
+    /// the kernel just drops physical pages — so the race goes away.
     pub fn features() u64 {
         // Bit 32 (VERSION_1, required for v2 transport).
-        return @as(u64, 1) << 32;
+        // REPORTING is on by default. The runtime sets
+        // `MACHINEN_DISABLE_BALLOON_REPORTING=1` for snapshot-restore
+        // boots: with REPORTING on the guest kernel's free-page-
+        // reporting kthread walks every page in the workload's anon
+        // range, the kernel reads each page to identify it as free,
+        // and *that read* is what userfaultfd UFFDIO_COPYs the page
+        // back from the bundle for — defeating the whole "lazy
+        // pages" promise of #266. Fresh boots leave it on so
+        // long-running idle VMs return memory to the host.
+        var bits: u64 = (@as(u64, 1) << 32);
+        const disable_env = getenv("MACHINEN_DISABLE_BALLOON_REPORTING");
+        const disabled = if (disable_env) |p| p[0] == '1' else false;
+        if (!disabled) {
+            bits |= (@as(u64, 1) << VIRTIO_BALLOON_F_REPORTING);
+        }
+        return bits;
     }
 
     /// Wire-format config bytes for `virtio.Device.config`. Stable
@@ -209,16 +240,16 @@ pub const Backend = struct {
     /// guest-physical range of free memory:
     ///   `{ addr = guest_phys, len = bytes }`
     /// We walk the chain once, collect all valid ranges, coalesce
-    /// adjacent ones into a single mmap call, then issue the reclaims.
+    /// adjacent ones into a single madvise call, then issue the
+    /// reclaims.
     ///
     /// Coalescing matters: the kernel's free-page-reporting framework
     /// posts up to 32 contiguous MAX_PAGE_ORDER (4 MiB) blocks in a
     /// single chain when a large run drains. Without merging, that's
-    /// 32 separate mmap MAP_FIXED syscalls — each one takes a host
-    /// kernel lock and invalidates stage-2 page tables on HVF, all
-    /// on the vCPU thread. Merging into one mmap of `n × 4 MiB`
-    /// keeps the syscall count proportional to the number of
-    /// non-contiguous *runs*, not raw descriptors.
+    /// 32 separate madvise syscalls — each one takes a host kernel
+    /// lock on the vCPU thread. Merging into one madvise of
+    /// `n × 4 MiB` keeps the syscall count proportional to the
+    /// number of non-contiguous *runs*, not raw descriptors.
     ///
     /// Firecracker's other half of this policy — rate-limiting across
     /// chains, to avoid hurting next-touch latency on workloads that
@@ -286,26 +317,21 @@ pub const Backend = struct {
             const offset: usize = @intCast(r.addr - ram_base);
             const host_va_ptr: *anyopaque = @ptrFromInt(@intFromPtr(ram_slice.ptr) + offset);
             const len: usize = @intCast(r.len);
-            // mmap MAP_FIXED|MAP_PRIVATE|MAP_ANONYMOUS atomically
-            // replaces the range with a fresh zero-fill mapping.
-            // The HVF/KVM stage-2 entries for the range still resolve
-            // through the host VA, so the next guest access faults a
-            // fresh zero page back in — same lazy-commit path as the
-            // original boot mapping.
-            const got = mmap(
-                host_va_ptr,
-                len,
-                PROT_READ | PROT_WRITE,
-                MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS,
-                -1,
-                0,
-            );
-            if (@intFromPtr(got) == @intFromPtr(host_va_ptr)) {
+            // `madvise` releases the physical pages backing the range
+            // without touching the VMA — the HVF/KVM stage-2 mapping
+            // registered against this host VA stays valid, so the
+            // hypervisor's view never desynchronises with the kernel's.
+            // Linux uses MADV_DONTNEED (immediate drop, next access
+            // zero-faults); Darwin uses MADV_FREE_REUSABLE (lazy drop
+            // under memory pressure, accounted out of `phys_footprint`
+            // immediately).
+            const rc = madvise(host_va_ptr, len, MADVISE_RECLAIM);
+            if (rc == 0) {
                 bytes_freed += r.len;
             } else if (debugEnabled()) {
                 std.debug.print(
-                    "balloon: mmap MAP_FIXED failed addr=0x{x} len={d} got=0x{x}\n",
-                    .{ r.addr, r.len, @intFromPtr(got) },
+                    "balloon: madvise reclaim failed addr=0x{x} len={d} rc={d}\n",
+                    .{ r.addr, r.len, rc },
                 );
             }
         }
@@ -358,49 +384,55 @@ fn ackChain(dev: *virtio.Device, q_idx: u32, head: u16) void {
 /// Gate noisy diagnostics on `MACHINEN_DEBUG=1` so production runs
 /// stay quiet. Mirrors `boot_hvf.zig`'s `debugEnabled` helper.
 fn debugEnabled() bool {
-    const c = struct {
-        extern "c" fn getenv(name: [*:0]const u8) ?[*:0]const u8;
-    };
-    return c.getenv("MACHINEN_DEBUG") != null;
+    return getenv("MACHINEN_DEBUG") != null;
 }
 
-// libc bindings for the mmap-based reclaim. mmap with MAP_FIXED is
-// the portable "release these pages now" primitive: Linux drops RSS
-// immediately, Darwin does the same. The flag values below are the
-// canonical macOS / Linux constants — both happen to agree on
-// MAP_PRIVATE (2) and MAP_FIXED (0x10), and on PROT_READ (1) /
-// PROT_WRITE (2), but MAP_ANONYMOUS differs:
-//   * Linux:  MAP_ANONYMOUS = 0x20
-//   * Darwin: MAP_ANON      = 0x1000
-extern "c" fn mmap(
-    addr: ?*anyopaque,
-    len: usize,
-    prot: c_int,
-    flags: c_int,
-    fd: c_int,
-    offset: c_long,
-) *anyopaque;
+extern "c" fn getenv(name: [*:0]const u8) ?[*:0]const u8;
 
-const PROT_READ: c_int = 0x1;
-const PROT_WRITE: c_int = 0x2;
-const MAP_PRIVATE: c_int = 0x2;
-const MAP_FIXED: c_int = 0x10;
-const MAP_ANONYMOUS: c_int = if (builtin.os.tag == .macos) 0x1000 else 0x20;
+// libc binding for the madvise-based reclaim. `madvise` leaves the
+// VMA intact — it just drops the physical pages — which is the
+// property we need for HVF/KVM: their stage-2 mappings are
+// registered against the host VA and must not be torn down by a
+// reclaim-time call.
+//
+// Constants below are the canonical macOS / Linux values:
+//   * Linux:  MADV_DONTNEED       = 4   (immediate drop; next access
+//                                        zero-faults a fresh page)
+//   * Darwin: MADV_FREE_REUSABLE  = 7   (mark discardable; kernel
+//                                        reclaims under pressure;
+//                                        excluded from phys_footprint
+//                                        immediately)
+extern "c" fn madvise(addr: *anyopaque, len: usize, advice: c_int) c_int;
+
+const MADV_DONTNEED: c_int = 4;
+const MADV_FREE_REUSABLE: c_int = 7;
+const MADVISE_RECLAIM: c_int = if (builtin.os.tag == .macos) MADV_FREE_REUSABLE else MADV_DONTNEED;
 
 // --- tests ---
 
-test "Backend.features advertises VERSION_1 only (REPORTING off — see header)" {
+test "Backend.features advertises VERSION_1 + REPORTING by default" {
+    // Tests run without MACHINEN_DISABLE_BALLOON_REPORTING set.
     const f = Backend.features();
     try std.testing.expect((f & (@as(u64, 1) << 32)) != 0); // VERSION_1
-    // REPORTING is intentionally off — the mmap-based reclaim races
-    // with the guest's use of reported pages and corrupts the page
-    // cache. See the comment on `Backend.features`.
-    try std.testing.expect((f & (@as(u64, 1) << VIRTIO_BALLOON_F_REPORTING)) == 0);
+    // REPORTING drives the reclaim path — see `handleReporting`.
+    try std.testing.expect((f & (@as(u64, 1) << VIRTIO_BALLOON_F_REPORTING)) != 0);
     // We must NOT advertise STATS_VQ or FREE_PAGE_HINT — those add
     // queues we don't implement, and the driver hangs at find_vqs
     // if we offer them.
     try std.testing.expect((f & (@as(u64, 1) << VIRTIO_BALLOON_F_STATS_VQ)) == 0);
     try std.testing.expect((f & (@as(u64, 1) << VIRTIO_BALLOON_F_FREE_PAGE_HINT)) == 0);
+}
+
+test "Backend.features drops REPORTING when MACHINEN_DISABLE_BALLOON_REPORTING=1" {
+    const c_setenv = struct {
+        extern "c" fn setenv(name: [*:0]const u8, value: [*:0]const u8, overwrite: c_int) c_int;
+        extern "c" fn unsetenv(name: [*:0]const u8) c_int;
+    };
+    _ = c_setenv.setenv("MACHINEN_DISABLE_BALLOON_REPORTING", "1", 1);
+    defer _ = c_setenv.unsetenv("MACHINEN_DISABLE_BALLOON_REPORTING");
+    const f = Backend.features();
+    try std.testing.expect((f & (@as(u64, 1) << 32)) != 0); // VERSION_1 still on
+    try std.testing.expect((f & (@as(u64, 1) << VIRTIO_BALLOON_F_REPORTING)) == 0);
 }
 
 test "BalloonConfig has the v1.1 layout the driver expects" {

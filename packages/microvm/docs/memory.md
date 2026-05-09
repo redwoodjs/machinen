@@ -57,11 +57,14 @@ Three things this confirms:
    ~685 MiB RSS bump. The extra above 512 MiB is stage-2 page
    tables, kernel buffers around `dd`/`sync`, and 16 KiB page-
    granularity rounding.
-3. **There is no shrink path.** Freeing every guest byte and
-   dropping caches did not release a single host page. Once a page
-   has been zero-filled by a stage-2 fault, the host has no
-   visibility into the guest knowing it's free again. RSS only falls
-   when the VMM exits and `munmap` runs.
+3. **Shrink-as-needed runs through the balloon's reporting queue.**
+   Once the guest's free-page-reporting framework hands a free run
+   back to the VMM, the balloon backend `madvise`s it out of host
+   RSS. Without the balloon enabled (older kernels, or
+   `CONFIG_VIRTIO_BALLOON=n`) RSS only falls when the VMM exits.
+   The numbers in this table predate the balloon being wired up;
+   re-running with reporting enabled shows the post-`drop_caches`
+   row drift back toward the post-boot 302 MiB.
 
 KVM behaves the same way; the `MAP_ANONYMOUS` semantics are
 identical and the `KVM_SET_USER_MEMORY_REGION` call is even more
@@ -75,25 +78,95 @@ own: the anonymous page is _resident_, owned by the VMM process,
 and no Linux/Darwin reclaim heuristic knows that the guest kernel
 has marked the corresponding guest physical page as free.
 
-The standard fix is a **virtio-balloon** device:
+The standard fix is a **virtio-balloon** device. machinen advertises
+the **free-page-reporting** variant (Linux 5.7+) — the guest
+proactively reports free runs over a dedicated virtqueue, no
+inflate/deflate ping-pong:
 
-1. Guest driver pins free pages into a "balloon" array.
-2. VMM walks the array, calls `madvise(addr, len, MADV_DONTNEED)`
-   on the corresponding host range. The host kernel drops the
-   physical pages; the next guest read returns the zero page.
-3. To "deflate," the guest just stops referencing those pages and
-   re-uses them; first re-touch zero-fills again.
+1. Guest driver posts free runs as `{ guest_phys, len }` descriptors.
+2. The VMM coalesces adjacent ranges and calls `madvise` on each:
+   - **Linux:** `madvise(addr, len, MADV_DONTNEED)`. Kernel drops the
+     physical pages immediately; next guest access zero-faults a
+     fresh page through the same lazy-commit path as boot.
+   - **Darwin:** `madvise(addr, len, MADV_FREE_REUSABLE)`. Pages are
+     marked discardable; the kernel reclaims them under memory
+     pressure, and `phys_footprint` drops immediately even when
+     `task_basic_info.resident_size` doesn't.
 
-A modern variant — **free-page-reporting** (Linux 5.7+) — has the
-guest proactively tell the VMM about free runs without the
-inflate/deflate ping-pong. Same `MADV_DONTNEED` mechanic on the host
-side; less pressure on the guest allocator.
-
-`virtio-mem` is a third option that hot-plugs/un-plugs whole memory
+`virtio-mem` is an alternative that hot-plugs/un-plugs whole memory
 blocks. Powerful, but more complex than this codebase needs.
 
-None of these are wired up in `@machinen/microvm` today: the device
-list in `boot_hvf.zig` / `boot_kvm.zig` is `blk` + `net` + `vsock`.
+### Why `madvise`, not `mmap MAP_FIXED`
+
+An earlier iteration of the reclaim path used
+`mmap(addr, len, PROT_READ | PROT_WRITE, MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS)`
+to atomically install a fresh zero-fill mapping over the guest range.
+That worked under light load but corrupted the guest under stress
+(#282 — HTTP load reproduces it as `Exec format error` on freshly
+exec'd binaries while the rootdisk image stays clean).
+
+The root cause is a primitive mismatch: `hv_vm_map` and
+`KVM_SET_USER_MEMORY_REGION` register a host-VA → guest-PA
+relationship and expect the host VA to be stable. `mmap MAP_FIXED`
+tears down the existing VMA and installs a fresh one at the same
+VA. Whether the kernel invalidates stage-2 in lockstep with that
+teardown is implementation-defined; under load the hypervisor's
+view and the host kernel's view can desynchronise long enough that
+the guest reads zeros from a page it still considers in use.
+
+`madvise` doesn't fight this invariant. It releases the physical
+pages backing the range without touching the VMA — the host VA is
+still valid, the hypervisor's stage-2 entry still points at it, and
+the next guest access faults through the same lazy-commit path it
+always did. KVM's API docs say so directly: use
+`madvise(MADV_DONTNEED)`, not `mmap MAP_FIXED`.
+
+### Darwin RSS reporting note
+
+`MADV_FREE_REUSABLE` excludes the affected pages from
+`phys_footprint` immediately, but they stay counted in
+`task_basic_info.resident_size` until the kernel actually reclaims
+them. So `ps -o rss=` doesn't reflect balloon reclaim on Darwin even
+when reclaim is working. To keep `vm.memoryStats().hostRssBytes`
+honest, the VMM samples its own `phys_footprint` via
+`proc_pid_rusage(getpid(), RUSAGE_INFO_V4, ...)` once every ~500 ms
+and writes it into the shared `MACHINEN_STATS_FILE`. The host
+runtime prefers that value over `ps -o rss=`. See
+`packages/microvm/src/stats.zig` and
+`packages/runtime/src/proc-rss.ts`.
+
+## Restore: eager by default, lazy as opt-in
+
+Restore has two paths that load the workload's CRIU image into the
+guest:
+
+- **Eager (default).** The runtime packs `imgDir/` into a tar
+  attached as `/dev/vdb`. The guest's `/sbin/machinen-restore`
+  untars into tmpfs and CRIU loads every page up front. Simple,
+  robust, works under `--detach`, doesn't fight free-page-reporting.
+- **Lazy (`--lazy` / `restore({ lazy: true })`).** The bundle is
+  vsock-FUSE-mounted into the guest and `criu restore --lazy-pages`
+  faults workload pages on demand (#266). Keeps host RSS
+  proportional to the touched set on big idle heaps, but:
+  1. It can't compose with `--detach` today — the host-side FUSE
+     server lives in the runtime supervisor, and detach exits
+     that. The runtime forces `lazy: false` when `--detach` is set
+     to keep that combination usable. A standalone FUSE helper
+     that survives supervisor exit is on the roadmap (#150 phase 3).
+  2. The `MADV_FREE_REUSABLE` reclaim path interacts badly with
+     free-page-reporting under lazy: the guest kernel's reporting
+     kthread reads each "free" page to confirm it's free, which is
+     exactly what userfaultfd UFFDIO_COPYs the page back from the
+     bundle for. The runtime sets
+     `MACHINEN_DISABLE_BALLOON_REPORTING=1` for lazy boots to
+     suppress that — at the cost of giving up reclaim on those VMs.
+  3. The promised RSS savings haven't been measurably reproduced on
+     Darwin/HVF for small-heap workloads (tracked separately).
+
+The default flipped to eager because the lazy savings only matter
+when the workload's anon is large enough to be worth deferring, and
+the failure modes (1) + (2) bite anything else. Pass `--lazy` when
+you have a >GiB heap that the restored process will only sample.
 
 ## Initramfs scan window: a related growth trap
 
@@ -188,12 +261,13 @@ cooperate fast enough.
 
 1. **Firecracker is the right comparison.** Same use case (short-lived
    MicroVMs over KVM/HVF), same starting problem (lazy-commit grow but no
-   shrink), same answer (virtio-balloon, opt-in). They did not pursue
-   virtio-mem.
+   shrink), same answer (virtio-balloon's free-page-reporting variant).
+   They did not pursue virtio-mem.
 2. **Firecracker's balloon driver is conservative on purpose.** They batch
    `MADV_DONTNEED` and rate-limit it — naive "drop everything immediately"
    is measurably bad because cold-start latency on the _next_ page touch
-   spikes. Worth copying that policy if/when balloon lands here.
+   spikes. machinen coalesces adjacent runs in a single chain (#263
+   phase D); cross-chain rate-limiting is the next step (phase E).
 
 A bonus observation: Apple's `Virtualization.framework` not exposing
 balloon is the reason Lima-on-vz and UTM-on-vz feel memory-hungry compared
@@ -203,11 +277,14 @@ projects can't.
 
 ## Summary
 
-- **Grow-as-needed** up to the configured ceiling already works on both
-  HVF and KVM. No code change required.
-- **Shrink-as-needed** requires a balloon (or free-page-reporting, or
-  virtio-mem). The microvm device list does not include one today; adding
-  one is a real piece of work that touches the virtio device layer on both
-  backends and depends on the guest kernel's `CONFIG_VIRTIO_BALLOON`.
-- **Industry consensus** for VMMs in this niche is virtio-balloon (or its
-  free-page-reporting variant), per Firecracker and Cloud Hypervisor.
+- **Grow-as-needed** up to the configured ceiling works on both HVF
+  and KVM through the standard lazy-commit anonymous mapping. No
+  code change required.
+- **Shrink-as-needed** runs through the virtio-balloon
+  free-page-reporting queue, with `madvise` as the host-side reclaim
+  primitive (`MADV_DONTNEED` on Linux, `MADV_FREE_REUSABLE` on
+  Darwin). Requires the guest kernel's `CONFIG_VIRTIO_BALLOON`.
+- **`vm.memoryStats().hostRssBytes`** reads `phys_footprint` from
+  the VMM's stats file on Darwin (sampled every ~500 ms) and
+  `/proc/<pid>/status:VmRSS` on Linux, so reclaim is observable on
+  both backends.

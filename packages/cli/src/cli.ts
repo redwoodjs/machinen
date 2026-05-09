@@ -636,7 +636,7 @@ async function cmdInstall(args: string[]): Promise<number> {
 
 async function cmdRestore(args: string[]): Promise<number> {
   // `machinen restore <snap-dir> [--image <tarball>] [--name <name>]
-  // [--eager] [-p <hostPort>:<guestPort>]`. The bundle dir
+  // [--lazy] [-p <hostPort>:<guestPort>]`. The bundle dir
   // (produced by `machinen snapshot`) holds img/<criu-images> +
   // meta.json. The bundle carries CRIU's process images but not the
   // workload's rootfs, so any process whose memory map references
@@ -647,23 +647,25 @@ async function cmdRestore(args: string[]): Promise<number> {
   // or directory" and /sbin/machinen-restore exits 1, panicking the
   // guest kernel ("Attempted to kill init!").
   //
-  // Restore is lazy by default (#263 / #266): the bundle is
-  // vsock-FUSE-mounted into the guest and `criu restore --lazy-pages`
-  // faults workload pages on demand, keeping host RSS proportional to
-  // what the restored VM actually touches. Pass `--eager` to force the
-  // pre-#266 behaviour (tar the bundle onto /dev/vdb, untar in guest,
-  // load every page up front).
+  // Restore is eager by default: the runtime packs the CRIU image
+  // as a tar on /dev/vdb, the guest's /sbin/machinen-restore untars
+  // into tmpfs, and CRIU loads everything up front. Pass `--lazy`
+  // to opt into the #266 path — vsock-FUSE-mount the bundle into
+  // the guest and run `criu restore --lazy-pages` so workload pages
+  // flow in only when faulted. Lazy keeps host RSS proportional to
+  // the touched set but doesn't compose with `--detach` and trades
+  // simplicity for a per-page UFFD round-trip cost.
   let parsed;
   try {
     parsed = parseRestoreArgs(args);
   } catch (err) {
     handleError(err);
   }
-  const { positional, name, image: imageOverride, portForward, eager, liveMounts } = parsed;
+  const { positional, name, image: imageOverride, portForward, lazy, liveMounts } = parsed;
   if (positional.length !== 1) {
     die(
       "usage: machinen restore <snap-dir> [--image <tarball>] [--name <name>] " +
-        "[--eager] [-p <hostPort>:<guestPort>] " +
+        "[--lazy] [-p <hostPort>:<guestPort>] " +
         "[--mount-live <host>:<guest>[:<mode>]]",
     );
   }
@@ -703,7 +705,7 @@ async function cmdRestore(args: string[]): Promise<number> {
       kernel: kernelPath,
       dtb: dtbPath,
       name,
-      eager,
+      lazy,
       portForward: portForward.length > 0 ? portForward : undefined,
       // #273: per-guest overrides for the bundle's recorded
       // liveMounts. Empty list = use the bundle's recorded mounts
@@ -764,7 +766,9 @@ async function cmdLs(args: string[]): Promise<number> {
     die(`unknown argument: ${rest[0]}`);
   }
   const entries = list();
-  const rssByPid = readHostRssBytesMulti(entries.map((e) => e.pid));
+  const rssByPid = readHostRssBytesMulti(
+    entries.map((e) => ({ pid: e.pid, statsPath: e.statsPath })),
+  );
   if (json) {
     emitJson({
       schema_version: 1,
@@ -1012,6 +1016,36 @@ async function cmdStop(args: string[]): Promise<number> {
     } else if (gvStatus === "recycled") {
       process.stderr.write(
         `machinen stop: gvproxy pid ${entry.gvproxyPid} now held by an unrelated process; skipping.\n`,
+      );
+    }
+  }
+  // #150 phase 3: signal each detached live-mount helper too. They
+  // die with the VMM via pdeathsig already, but signaling explicitly
+  // lets us wait for clean exit and avoids a window where SIGTERM-on-
+  // VMM races the helper's own pdeathsig-triggered shutdown.
+  // Anti-recycling guard mirrors the gvproxy path.
+  for (const helper of entry.liveMountServers ?? []) {
+    const status = validatePid(helper.pid, { vmmExe: helper.exe });
+    if (status === "alive") {
+      try {
+        process.kill(helper.pid, sig);
+      } catch (err) {
+        process.stderr.write(
+          `machinen stop: failed to signal mount-server pid ${helper.pid}: ${err instanceof Error ? err.message : String(err)}\n`,
+        );
+      }
+      if (!force) {
+        await waitForExit(helper.pid, 2_000);
+        try {
+          process.kill(helper.pid, 0);
+          try {
+            process.kill(helper.pid, "SIGKILL");
+          } catch {}
+        } catch {}
+      }
+    } else if (status === "recycled") {
+      process.stderr.write(
+        `machinen stop: mount-server pid ${helper.pid} now held by an unrelated process; skipping.\n`,
       );
     }
   }
@@ -1273,7 +1307,7 @@ async function cmdFork(args: string[]): Promise<number> {
     outDir,
     tcpKeep,
     detach,
-    eager,
+    lazy,
     portForward,
     mount,
     liveMounts,
@@ -1318,7 +1352,7 @@ async function cmdFork(args: string[]): Promise<number> {
       kernel: kernelPath,
       dtb: dtbPath,
       tcpKeep,
-      eager,
+      lazy,
       portForward: portForward.length > 0 ? portForward : undefined,
       mount,
       liveMounts,
