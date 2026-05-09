@@ -6510,7 +6510,7 @@ PROVISION_DTB_NOT_FOUND |
 
 > **provision**(`opts`): `Promise`\<[`ProvisionResult`](#provisionresult)\>
 
-Defined in: [provision.ts:322](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L322)
+Defined in: [provision.ts:325](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L325)
 
 Boot the base rootfs, run the user install hook, and freeze the
 resulting filesystem state to a new tarball at `opts.out`.

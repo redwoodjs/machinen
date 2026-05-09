@@ -261,7 +261,10 @@ interface BaseAssetSpec {
   param: string;
   assetsDirName: string;
   cliCacheName: string;
-  missingCode: "PROVISION_BASE_NOT_FOUND" | "PROVISION_KERNEL_NOT_FOUND" | "PROVISION_DTB_NOT_FOUND";
+  missingCode:
+    | "PROVISION_BASE_NOT_FOUND"
+    | "PROVISION_KERNEL_NOT_FOUND"
+    | "PROVISION_DTB_NOT_FOUND";
 }
 
 function resolveBaseAsset(spec: BaseAssetSpec, explicit: string | undefined, cwd: string): string {
