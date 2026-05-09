@@ -1193,9 +1193,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         // caller passed to `spawnGvproxy` doesn't match what `ps`
         // reports for the running pid.
         gvproxyExe:
-          gvPid !== undefined && gvPid > 0
-            ? (readProcessIdentity(gvPid)?.exeBase ?? gvExe)
-            : gvExe,
+          gvPid !== undefined && gvPid > 0 ? (readProcessIdentity(gvPid)?.exeBase ?? gvExe) : gvExe,
         portForward: portForward.length > 0 ? portForward : undefined,
         memoryCeilingMib,
         statsPath: statsFilePath,

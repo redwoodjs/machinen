@@ -302,10 +302,12 @@ function pinIsStale(heldPid: number): boolean {
   if (!entry) {
     return true;
   }
-  return validatePid(heldPid, {
-    vmmExe: entry.vmmExe,
-    startedAt: entry.startedAt,
-  }) !== "alive";
+  return (
+    validatePid(heldPid, {
+      vmmExe: entry.vmmExe,
+      startedAt: entry.startedAt,
+    }) !== "alive"
+  );
 }
 
 /**
