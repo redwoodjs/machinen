@@ -759,8 +759,15 @@ fi  # B0 rootfs gate
 # REPORT_GRACE seconds for the guest's page-reporting kthread to fire,
 # remeasure. A working balloon brings RSS back down (within tolerance);
 # without it, the post-spike RSS stays at the high-water mark.
+#
+# Currently SKIPPED: VIRTIO_BALLOON_F_REPORTING is intentionally off
+# in `balloon.zig` (mmap-based reclaim races with in-use guest RAM
+# and corrupts the page cache — see the comment on `Backend.features`).
+# Re-enable this test when a safe reclaim path lands.
 if [[ "$ROOTFS_SUPPORTS_VSOCK_EXEC" -eq 0 ]]; then
   echo "B1: skipped (rootfs lacks vsock-exec)"
+elif true; then
+  echo "B1: skipped (VIRTIO_BALLOON_F_REPORTING disabled — see balloon.zig)"
 else
 echo "B1: spike-and-idle reclaim — RSS drops after free-page-reporting fires"
 B1_NAME="balloon-smoke-$$"
@@ -854,6 +861,45 @@ pass "balloon reclaim: ${B1_RECLAIMED_DROP} MiB returned to host (spike ${B1_SPI
 cleanup_b1
 trap 'rm -rf "$FIXTURE"' EXIT
 fi  # B1 rootfs gate
+
+# ---- B2: VIRTIO_BALLOON_F_REPORTING stays disabled ----
+# Regression guard for the balloon-mmap-reclaim corruption (the reason
+# B1 is currently skipped). The fix lives in `Backend.features()` in
+# `packages/microvm/src/balloon.zig` — REPORTING (bit 5) is off so the
+# guest never queues reporting chains, eliminating the race that
+# zeroed in-use guest pages.
+#
+# Why a feature-bit check instead of a "page cache stays intact under
+# load" probe: the corruption is timing-sensitive and didn't reliably
+# reproduce in 60s of synthetic memory churn — the original repro
+# needed a long-lived workload (HTTP server + 30k requests) and even
+# then took most of a minute to surface. A behavioral smoke test that
+# only flags 80% of regressions is worse than a deterministic guard
+# on the feature bit, which catches the only way the bug can come
+# back: someone re-advertising REPORTING without fixing the reclaim
+# path. The Zig unit test in balloon.zig pins the same invariant from
+# the host side; this one pins it from the guest's POV after MMIO
+# negotiation actually happens.
+if [[ "$ROOTFS_SUPPORTS_VSOCK_EXEC" -eq 0 ]]; then
+  echo "B2: skipped (rootfs lacks vsock-exec)"
+else
+echo "B2: guest sees REPORTING bit unset on the balloon device"
+B2_LOG="$FIXTURE/b2.log"
+# /sys/bus/virtio/devices/virtio4/features is a 64-char ASCII bitmap
+# of the *negotiated* feature bits — char i = '1' iff bit i is set.
+# We read indices 5 (REPORTING) and 32 (VERSION_1) and assert the
+# expected pattern. virtio4 is the balloon slot per #263 phase B
+# (B0 above checks the device-id binding).
+run_timeout 60 node "$CLI" boot -- /bin/sh -c \
+  'F=$(cat /sys/bus/virtio/devices/virtio4/features); echo "REPORTING=$(echo "$F" | cut -c6)"; echo "VERSION_1=$(echo "$F" | cut -c33)"' \
+  >"$B2_LOG" 2>&1 || true
+if grep -q "^REPORTING=0" "$B2_LOG" && grep -q "^VERSION_1=1" "$B2_LOG"; then
+  pass "guest negotiated VERSION_1 with REPORTING off"
+else
+  tail -50 "$B2_LOG" >&2
+  fail "B2 — expected REPORTING=0 and VERSION_1=1 in negotiated features"
+fi
+fi  # B2 rootfs gate
 
 # ----------------------------------------------------------------
 # Phase-1 base-rootfs contract tests — verify #77 step 1 plumbing.

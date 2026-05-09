@@ -11,13 +11,16 @@
 //!
 //! ## Mode
 //!
-//! We negotiate `VIRTIO_BALLOON_F_REPORTING` (bit 5) — the modern
-//! free-page-reporting variant added in Linux 5.7 (2020). With this
-//! feature the guest *continuously* reports free runs on a dedicated
-//! queue (queue 2, after inflate/deflate which are always present),
-//! without the inflate/deflate ceremony of the classic balloon. We
-//! never ask the guest to inflate, so `num_pages` in config space
-//! stays 0; the inflate/deflate queue handlers are minimal acks.
+//! Currently we advertise `VIRTIO_F_VERSION_1` only — no
+//! `VIRTIO_BALLOON_F_REPORTING`, no inflate/deflate driver. The
+//! guest's virtio-balloon driver instantiates with the always-present
+//! inflate + deflate queues; both queue handlers are minimal acks
+//! since `num_pages` stays 0 and we never ask the guest to inflate.
+//! The reporting handler is implemented (see `handleReporting`) but
+//! unreachable while bit 5 is off — kept so reintroducing reporting
+//! is a one-line change once we have a reclaim path that doesn't
+//! corrupt the guest. See the comment on `Backend.features` for the
+//! corruption story.
 //!
 //! ## Queues (driver order, with REPORTING + no STATS / FREE_PAGE_HINT)
 //!
@@ -131,9 +134,21 @@ pub const Backend = struct {
     /// Pairs with `request_handler` below — adding a feature bit
     /// without a matching queue handler will hang the driver at
     /// `find_vqs`.
+    ///
+    /// We DO NOT advertise `VIRTIO_BALLOON_F_REPORTING`. The reporting
+    /// handler reclaims pages via `mmap(MAP_FIXED|MAP_PRIVATE|MAP_ANONYMOUS)`
+    /// over guest RAM, and that races with the guest's own use of
+    /// reported pages — under load the guest reads zeros from pages
+    /// it still considers in-use, corrupting its own page cache (HTTP
+    /// stress reproduces it as binaries getting `Exec format error`
+    /// while the host-side rootdisk image stays clean). Until we have
+    /// a reclaim path that doesn't have this race, leave the bit off:
+    /// the guest never queues reporting chains, host RSS doesn't shrink
+    /// mid-run, but the VM stops corrupting itself. `handleReporting`
+    /// is kept around so reintroducing the bit is a one-line change.
     pub fn features() u64 {
-        // Bit 5 (REPORTING) + bit 32 (VERSION_1, required for v2 transport).
-        return (@as(u64, 1) << VIRTIO_BALLOON_F_REPORTING) | (@as(u64, 1) << 32);
+        // Bit 32 (VERSION_1, required for v2 transport).
+        return @as(u64, 1) << 32;
     }
 
     /// Wire-format config bytes for `virtio.Device.config`. Stable
@@ -374,10 +389,13 @@ const MAP_ANONYMOUS: c_int = if (builtin.os.tag == .macos) 0x1000 else 0x20;
 
 // --- tests ---
 
-test "Backend.features advertises REPORTING + VERSION_1" {
+test "Backend.features advertises VERSION_1 only (REPORTING off — see header)" {
     const f = Backend.features();
-    try std.testing.expect((f & (@as(u64, 1) << VIRTIO_BALLOON_F_REPORTING)) != 0);
     try std.testing.expect((f & (@as(u64, 1) << 32)) != 0); // VERSION_1
+    // REPORTING is intentionally off — the mmap-based reclaim races
+    // with the guest's use of reported pages and corrupts the page
+    // cache. See the comment on `Backend.features`.
+    try std.testing.expect((f & (@as(u64, 1) << VIRTIO_BALLOON_F_REPORTING)) == 0);
     // We must NOT advertise STATS_VQ or FREE_PAGE_HINT — those add
     // queues we don't implement, and the driver hangs at find_vqs
     // if we offer them.
