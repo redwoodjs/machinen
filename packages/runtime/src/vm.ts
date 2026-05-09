@@ -1178,22 +1178,40 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         forkedFrom: opts.forkedFrom,
         bootLogPath,
         cleanupPaths: cleanupPaths.length > 0 ? cleanupPaths : undefined,
-        // Snapshot what the OS reports for this pid right now, not the
-        // path we asked spawn to run. On Linux those line up after the
-        // shim execvp's the target, but on macOS pdeathsig forks +
-        // stays alive as the parent — `ps` shows "pdeathsig", not the
-        // VMM binary — so storing `binary` here makes validatePid
-        // (used by list() / runGc / claimName via pinIsStale) report
-        // every macOS-spawned VM as `recycled`. Recording the
-        // OS-observed basename keeps the comparison apples-to-apples.
-        vmmExe: readProcessIdentity(childPid)?.exeBase ?? binary,
+        // The pdeathsig shim works differently per platform, and that
+        // changes what `child.pid` actually IS:
+        //   - Linux: shim does `prctl(PR_SET_PDEATHSIG); execvp(target)`
+        //     in-place, so once the kernel runs `execvp` `child.pid`
+        //     is the target binary. /proc/<pid>/exe stabilizes at the
+        //     target's path.
+        //   - macOS: shim forks (parent is the long-lived kqueue
+        //     watcher; the child execvp's the target), so `child.pid`
+        //     is *the watcher* forever, and `ps` reports the shim's
+        //     own argv[0] for that pid.
+        // For the registry's vmmExe field we want whatever the OS
+        // will keep reporting for `child.pid` once everything settles.
+        // On macOS that's the shim ("pdeathsig"), so snapshot it now.
+        // On Linux that's the target — and we deliberately *don't*
+        // snapshot, because there's a race between Node's `spawn()`
+        // returning and the shim's execvp firing where /proc/<pid>/exe
+        // still resolves to the shim path. Storing the snapshot in
+        // that window persists "pdeathsig" and validatePid later sees
+        // "yes" / the real VMM and reports `recycled` forever —
+        // exactly what ate two CI tests when this code first landed.
+        vmmExe:
+          process.platform === "darwin" && vmmPdeathsig
+            ? (readProcessIdentity(childPid)?.exeBase ?? binary)
+            : binary,
         gvproxyPid: gvPid,
-        // Same OS-snapshot rationale as `vmmExe` above: gvproxy is
-        // also pdeathsig-wrapped on macOS, so the on-disk path the
-        // caller passed to `spawnGvproxy` doesn't match what `ps`
-        // reports for the running pid.
+        // Same Linux-vs-macOS shim semantics as `vmmExe` above:
+        // snapshot only when the wrapper persists as `child.pid` (the
+        // macOS watcher case). On Linux the shim's execvp leaves the
+        // target at child.pid and the path stabilizes — snapshotting
+        // would race with execvp.
         gvproxyExe:
-          gvPid !== undefined && gvPid > 0 ? (readProcessIdentity(gvPid)?.exeBase ?? gvExe) : gvExe,
+          process.platform === "darwin" && gvPid !== undefined && gvPid > 0
+            ? (readProcessIdentity(gvPid)?.exeBase ?? gvExe)
+            : gvExe,
         portForward: portForward.length > 0 ? portForward : undefined,
         memoryCeilingMib,
         statsPath: statsFilePath,
