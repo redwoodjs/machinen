@@ -29,6 +29,7 @@ import {
 } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
 import {
@@ -286,13 +287,19 @@ function sha256OfFile(path: string): string {
   return hash.digest("hex");
 }
 
-// Boot/restore wire host stdin straight into the VMM's stdin pipe (the
-// guest serial console). In cooked mode the host kernel's tty driver
-// eats Ctrl-C as SIGINT before the byte reaches the guest, so killing
-// `ping` in the guest tears down the whole VM. Flip stdin to raw so
-// 0x03 / 0x04 / arrows pass through untranslated; the guest's own tty
-// turns Ctrl-C into SIGINT for its foreground process and Ctrl-D into
-// EOF on bash, which exits the shell and shuts the VM down cleanly.
+// Boot/restore wire host stdin into the VMM's stdin pipe (the guest
+// serial console). In cooked mode the host kernel's tty driver eats
+// Ctrl-C as SIGINT before the byte reaches the guest, so killing
+// `ping` in the guest would tear down the whole VM. Flip stdin to raw
+// so 0x03 / arrows pass through untranslated; the guest's own tty
+// turns Ctrl-C into SIGINT for its foreground process.
+//
+// Ctrl-D (0x04) is intercepted on the host side (see pipeStdinToVm)
+// and shuts the VM down cleanly. Raw-mode stdin means the host kernel
+// no longer turns it into EOF for us, and forwarding it to the guest
+// is rarely useful — most workloads don't read stdin, and the workloads
+// that do (interactive shells) already accept Ctrl-D as "log out", which
+// the VM-level shutdown is just a louder version of.
 function rawModeStdinIfTTY(): () => void {
   const stdin = process.stdin;
   if (stdin.isTTY !== true) {
@@ -309,6 +316,61 @@ function rawModeStdinIfTTY(): () => void {
       }
     }
   };
+}
+
+// Pipe host stdin to the VMM's stdin, intercepting Ctrl-D as a host
+// shutdown trigger. Pre-Ctrl-D bytes flow through verbatim; the 0x04
+// byte itself and anything after it in the same chunk are dropped.
+// onCtrlD fires once, on the first Ctrl-D seen.
+//
+// When stdin isn't a TTY (piped/redirected), Ctrl-D doesn't apply —
+// 0x04 in input is just data — so we wire stdin straight through.
+function pipeStdinToVm(vmStdin: NodeJS.WritableStream, onCtrlD: () => void): void {
+  const stdin = process.stdin;
+  if (stdin.isTTY !== true) {
+    stdin.pipe(vmStdin);
+    return;
+  }
+  let fired = false;
+  const intercept = new Transform({
+    transform(chunk: Buffer, _enc, cb) {
+      const idx = chunk.indexOf(0x04);
+      if (idx === -1) {
+        cb(null, chunk);
+        return;
+      }
+      if (idx > 0) {
+        this.push(chunk.subarray(0, idx));
+      }
+      cb();
+      if (!fired) {
+        fired = true;
+        onCtrlD();
+      }
+    },
+  });
+  stdin.pipe(intercept).pipe(vmStdin);
+}
+
+// Print the "press Ctrl-D to stop" hint and schedule a second print
+// `repeatAfterMs` later. The boot/restore output buries the first hint
+// under kernel logs and init checkpoints; reprinting once the scroll
+// settles puts it back where the user is most likely to read it.
+//
+// Returns a cancel function for the pending reprint — call from the
+// finally block so the timer doesn't fire after the VM has already
+// exited.
+function printCtrlDHint(repeatAfterMs = 3000): () => void {
+  if (process.stdin.isTTY !== true) {
+    return () => {};
+  }
+  const msg = "machinen: press Ctrl-D to stop\n";
+  process.stderr.write(msg);
+  const t = setTimeout(() => {
+    process.stderr.write(msg);
+  }, repeatAfterMs);
+  t.unref();
+  return () => clearTimeout(t);
 }
 
 // ------------------------------------------------------------
@@ -505,7 +567,7 @@ async function cmdBoot(args: string[]): Promise<number> {
   vm.stdout.pipe(process.stdout);
   vm.stderr.pipe(process.stderr);
   const restoreStdin = rawModeStdinIfTTY();
-  process.stdin.pipe(vm.stdin);
+  const cancelHintRepeat = printCtrlDHint();
 
   // Propagate SIGINT/SIGTERM to the VMM child. With stdin in raw mode
   // the host kernel no longer turns keyboard Ctrl-C into SIGINT (the
@@ -513,6 +575,9 @@ async function cmdBoot(args: string[]): Promise<number> {
   // is signalled directly — e.g. a supervisor sending SIGTERM to node,
   // or `kill -INT <cli-pid>` from another shell. Without this, the
   // VMM survives as an orphan.
+  //
+  // Ctrl-D from the user's terminal lands in pipeStdinToVm below and
+  // funnels into the same vm.kill() path with SIGTERM exit semantics.
   let forwardedSignal: "SIGINT" | "SIGTERM" | null = null;
   const onSigint = () => {
     forwardedSignal = "SIGINT";
@@ -524,6 +589,12 @@ async function cmdBoot(args: string[]): Promise<number> {
   };
   process.on("SIGINT", onSigint);
   process.on("SIGTERM", onSigterm);
+
+  pipeStdinToVm(vm.stdin, () => {
+    process.stderr.write("\nmachinen: Ctrl-D — stopping VM\n");
+    forwardedSignal = "SIGTERM";
+    void vm.kill();
+  });
 
   try {
     const { code } = await vm.wait();
@@ -537,6 +608,7 @@ async function cmdBoot(args: string[]): Promise<number> {
   } finally {
     process.off("SIGINT", onSigint);
     process.off("SIGTERM", onSigterm);
+    cancelHintRepeat();
     restoreStdin();
   }
 }
@@ -649,7 +721,7 @@ async function cmdRestore(args: string[]): Promise<number> {
   vm.stdout.pipe(process.stdout);
   vm.stderr.pipe(process.stderr);
   const restoreStdin = rawModeStdinIfTTY();
-  process.stdin.pipe(vm.stdin);
+  const cancelHintRepeat = printCtrlDHint();
 
   let forwardedSignal: "SIGINT" | "SIGTERM" | null = null;
   const onSigint = () => {
@@ -662,6 +734,13 @@ async function cmdRestore(args: string[]): Promise<number> {
   };
   process.on("SIGINT", onSigint);
   process.on("SIGTERM", onSigterm);
+
+  pipeStdinToVm(vm.stdin, () => {
+    process.stderr.write("\nmachinen: Ctrl-D — stopping VM\n");
+    forwardedSignal = "SIGTERM";
+    void vm.kill();
+  });
+
   try {
     const { code } = await vm.wait();
     if (forwardedSignal === "SIGINT") {
@@ -674,6 +753,7 @@ async function cmdRestore(args: string[]): Promise<number> {
   } finally {
     process.off("SIGINT", onSigint);
     process.off("SIGTERM", onSigterm);
+    cancelHintRepeat();
     restoreStdin();
   }
 }
@@ -1281,7 +1361,7 @@ async function cmdFork(args: string[]): Promise<number> {
     fork.stdout.pipe(process.stdout);
     fork.stderr.pipe(process.stderr);
     const restoreStdin = rawModeStdinIfTTY();
-    process.stdin.pipe(fork.stdin);
+    const cancelHintRepeat = printCtrlDHint();
     // The source shell printed PS1 to the source's tty before the
     // dump, so the restored shell starts up sitting in read() without
     // redrawing — without this nudge the user has to hit Enter
@@ -1310,6 +1390,12 @@ async function cmdFork(args: string[]): Promise<number> {
     };
     process.on("SIGINT", onSigint);
     process.on("SIGTERM", onSigterm);
+
+    pipeStdinToVm(fork.stdin, () => {
+      process.stderr.write("\nmachinen: Ctrl-D — stopping VM\n");
+      forwardedSignal = "SIGTERM";
+      void fork.kill();
+    });
     try {
       const { code } = await fork.wait();
       if (forwardedSignal === "SIGINT") {
@@ -1322,6 +1408,7 @@ async function cmdFork(args: string[]): Promise<number> {
     } finally {
       process.off("SIGINT", onSigint);
       process.off("SIGTERM", onSigterm);
+      cancelHintRepeat();
       restoreStdin();
     }
   } catch (err) {

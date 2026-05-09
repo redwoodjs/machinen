@@ -68,6 +68,9 @@ rootfs_input_files() {
     "${ASSETS}/poweroff.zig" \
     "${ASSETS}/winsize-agent.zig" \
     "${SCRIPTS}/build-base-assets.sh"
+  # CRIU patches applied during the rootfs build. Sorted for stable
+  # ordering. Empty find output is fine (no patches → no extra lines).
+  find "${ROOT}/packages/microvm/patches" -type f -name "*.patch" 2>/dev/null | LC_ALL=C sort
 }
 
 # Files whose contents are baked into Image-arm64. The kernel itself
