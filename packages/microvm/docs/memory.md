@@ -143,7 +143,7 @@ guest:
 - **Eager (default).** The runtime packs `imgDir/` into a tar
   attached as `/dev/vdb`. The guest's `/sbin/machinen-restore`
   untars into tmpfs and CRIU loads every page up front. Simple,
-  robust, works under `--detach`, doesn't fight free-page-reporting.
+  robust, works under `--detach`.
 - **Lazy (`--lazy` / `restore({ lazy: true })`).** The bundle is
   vsock-FUSE-mounted into the guest and `criu restore --lazy-pages`
   faults workload pages on demand (#266). Keeps host RSS
@@ -153,20 +153,46 @@ guest:
      that. The runtime forces `lazy: false` when `--detach` is set
      to keep that combination usable. A standalone FUSE helper
      that survives supervisor exit is on the roadmap (#150 phase 3).
-  2. The `MADV_FREE_REUSABLE` reclaim path interacts badly with
-     free-page-reporting under lazy: the guest kernel's reporting
-     kthread reads each "free" page to confirm it's free, which is
-     exactly what userfaultfd UFFDIO_COPYs the page back from the
-     bundle for. The runtime sets
-     `MACHINEN_DISABLE_BALLOON_REPORTING=1` for lazy boots to
-     suppress that — at the cost of giving up reclaim on those VMs.
-  3. The promised RSS savings haven't been measurably reproduced on
+  2. The promised RSS savings haven't been measurably reproduced on
      Darwin/HVF for small-heap workloads (tracked separately).
 
 The default flipped to eager because the lazy savings only matter
 when the workload's anon is large enough to be worth deferring, and
-the failure modes (1) + (2) bite anything else. Pass `--lazy` when
-you have a >GiB heap that the restored process will only sample.
+failure mode (1) bites anything else. Pass `--lazy` when you have a
+
+> GiB heap that the restored process will only sample.
+
+### Free-page-reporting under lazy restore (#290)
+
+There used to be a third strike against `lazy`: with
+`VIRTIO_BALLOON_F_REPORTING` enabled, the guest kernel's
+`page_reporting` workqueue would re-report the same physical region
+every 2-second cycle, so `bytes_reported` climbed to many times
+the VM's RAM ceiling and `phys_footprint` crept up indefinitely.
+The original theory ("the reporting kthread reads pages and that
+read fires UFFD") turned out to be wrong on inspection — CRIU's
+`lazy-pages.log` stayed silent in steady state, and the reporting
+kthread doesn't actually read page contents.
+
+The real culprit was in `mm/page_alloc.c::__free_one_page`. When the
+buddy allocator merges a freed page with an adjacent free buddy,
+`__del_page_from_free_list` clears the buddy's `Reported` flag
+(correct for genuine allocations), and the merged block lands on
+the higher-order free list with no `Reported` flag at all — so
+the next reporting cycle picks it up as "unreported" and reports
+the same physical region again. On a typical workload this barely
+shows because freed pages rarely have a Reported buddy. After a
+CRIU lazy restore the workload's PE_LAZY anon range stays as huge
+contiguous free runs, so almost every free triggers a merge with a
+Reported buddy and almost every cycle re-reports.
+
+Fixed by an in-tree kernel patch that refuses to merge with a
+Reported buddy:
+`packages/microvm/patches/kernel/0001-mm-page-reporting-skip-merge-with-reported-buddy.patch`.
+The cycle now terminates after a single warm-up sweep (~22 s on a
+1.5 GiB VM with a 128 MiB workload in the reproducer), and
+`phys_footprint` stays flat afterwards. Reporting is unconditionally
+on; there is no env-var override.
 
 ## Initramfs scan window: a related growth trap
 

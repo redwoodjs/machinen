@@ -3262,14 +3262,12 @@ export interface RestoreOptions extends Omit<BootOptions, "snapshot" | "image" |
    * `/sbin/machinen-restore` untars it into tmpfs, and CRIU does an
    * eager load.
    *
-   * Eager is the default because the lazy path has subtle
-   * interactions with virtio-balloon free-page-reporting (the
-   * guest's reporting kthread reads pages to identify them as free,
-   * which is exactly what UFFDIO_COPY's them back from the bundle —
-   * defeating the lazy promise). The runtime sets
-   * `MACHINEN_DISABLE_BALLOON_REPORTING=1` to suppress that when
-   * `lazy: true` is requested, but for the common case eager is
-   * simpler and faster on small workloads.
+   * Eager is still the default because lazy bundles a host-side FUSE
+   * server that doesn't compose with `--detach` (#150 phase 3). The
+   * historical second blocker — runaway free-page-reporting under
+   * lazy — is fixed in #290 by the in-tree kernel patch that stops
+   * the buddy allocator from clearing the Reported flag during a
+   * merge.
    */
   lazy?: boolean;
 }
@@ -3426,11 +3424,10 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
   //     pagemap-*.img + pages-*.img directly through FUSE; bytes
   //     stream from the host on demand and never materialize in
   //     guest tmpfs. This is the #266 path — it keeps host RSS
-  //     proportional to the touched set, but the path interacts
-  //     subtly with virtio-balloon free-page-reporting (see the
-  //     `MACHINEN_DISABLE_BALLOON_REPORTING` comment below) and
-  //     can't compose with `--detach` until the FUSE server learns
-  //     to hand off (#150 phase 3).
+  //     proportional to the touched set. The historical
+  //     virtio-balloon interaction is fixed in #290 (in-tree kernel
+  //     patch); the remaining gap is `--detach` composition, which
+  //     waits on the FUSE server to learn to hand off (#150 phase 3).
   phases.start("snapshot-pack");
   const restoreEnv: Record<string, string> = {};
   let scratchPath: string;
@@ -3443,16 +3440,16 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
     allocateSparseFile(scratchPath, SNAP_SCRATCH_BYTES);
     restoreEnv.MACHINEN_RESTORE_BUNDLE_LIVE = "1";
     restoreEnv.MACHINEN_RESTORE_LAZY_PAGES = "1";
-    // Suppress virtio-balloon free-page-reporting on lazy-pages
-    // restores. With REPORTING on, the guest kernel's reporting
-    // kthread walks every "free" page in the workload's anon range
-    // — and that walk reads each page to identify it as free, which
-    // is exactly what userfaultfd UFFDIO_COPYs the page back from
-    // the bundle for. The result is the entire workload getting
-    // eagerly faulted in within seconds of restore, which defeats
-    // the whole point of lazy-pages. Fresh boots and eager restores
-    // leave REPORTING on so long-running idle VMs return memory.
-    restoreEnv.MACHINEN_DISABLE_BALLOON_REPORTING = "1";
+    // #290: lazy-restore + virtio-balloon free-page-reporting used to
+    // get into a runaway re-report cycle — the workload's PE_LAZY anon
+    // range stays as huge contiguous free runs in the buddy allocator,
+    // and `__free_one_page`'s buddy merge clears the Reported flag on
+    // every neighbour it merges with, so the next reporting cycle sees
+    // the merged block as unreported and reports the same physical
+    // region again. Fixed in the guest kernel by
+    // `packages/microvm/patches/kernel/0001-mm-page-reporting-skip-merge-with-reported-buddy.patch`,
+    // which refuses to merge a freshly-freed page with a Reported buddy
+    // so the cycle terminates after a single warm-up sweep.
     liveMounts = [
       ...(effectiveLiveMounts ?? []),
       { host: imgDir, guest: "/mnt/snap-src/img", mode: "ro" as const },

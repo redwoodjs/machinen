@@ -90,18 +90,25 @@ if [ -f "$OUT/Image-arm64" ]; then
 else
 echo "==> Building custom arm64 kernel with virtio_* + ext4 + vsock + fuse =y"
 
+KERNEL_PATCHES_DIR="${ROOT}/packages/microvm/patches/kernel"
 if [ -n "${MACHINEN_REMOTE_BUILDER:-}" ]; then
-  # Remote build: rsync the kernel build script over, run it, pull
-  # the Image back. The remote host owns its own kernel-source cache
-  # at $REMOTE_WORKDIR (defaults to ~/.cache/machinen/kernel) so
-  # repeated rebuilds reuse the unpacked source tree.
+  # Remote build: rsync the kernel build script + any kernel patches
+  # over, run it, pull the Image back. The remote host owns its own
+  # kernel-source cache at $REMOTE_WORKDIR (defaults to
+  # ~/.cache/machinen/kernel) so repeated rebuilds reuse the unpacked
+  # source tree (and re-extract on patch-set changes — see
+  # build-kernel-arm64.sh's PATCHES_DIR handling).
   REMOTE_WORKDIR="${MACHINEN_REMOTE_WORKDIR:-\$HOME/.cache/machinen/kernel}"
   echo "    via remote builder: $MACHINEN_REMOTE_BUILDER (workdir=$REMOTE_WORKDIR)"
-  ssh "$MACHINEN_REMOTE_BUILDER" "mkdir -p $REMOTE_WORKDIR"
+  ssh "$MACHINEN_REMOTE_BUILDER" "mkdir -p $REMOTE_WORKDIR/patches"
   rsync -az "${ROOT}/scripts/build-kernel-arm64.sh" \
     "$MACHINEN_REMOTE_BUILDER:$REMOTE_WORKDIR/build-kernel-arm64.sh"
+  if [ -d "$KERNEL_PATCHES_DIR" ]; then
+    rsync -az --delete "${KERNEL_PATCHES_DIR}/" \
+      "$MACHINEN_REMOTE_BUILDER:$REMOTE_WORKDIR/patches/"
+  fi
   ssh "$MACHINEN_REMOTE_BUILDER" \
-    "WORKDIR=$REMOTE_WORKDIR bash $REMOTE_WORKDIR/build-kernel-arm64.sh"
+    "WORKDIR=$REMOTE_WORKDIR PATCHES_DIR=$REMOTE_WORKDIR/patches bash $REMOTE_WORKDIR/build-kernel-arm64.sh"
   rsync -az \
     "$MACHINEN_REMOTE_BUILDER:$REMOTE_WORKDIR/Image-arm64" \
     "$OUT/Image-arm64"
@@ -110,6 +117,7 @@ elif [ "$(uname -m)" = "aarch64" ] || [ "$(uname -m)" = "arm64" ] && [ "$(uname 
   # on the host — no docker overhead, no emulation.
   WORKDIR="${MACHINEN_KERNEL_WORKDIR:-${ROOT}/.kernel-build}" \
   OUT="$OUT/Image-arm64" \
+  PATCHES_DIR="$KERNEL_PATCHES_DIR" \
     bash "${ROOT}/scripts/build-kernel-arm64.sh"
 else
   echo "build-base-assets: cannot build the kernel here." >&2

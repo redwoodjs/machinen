@@ -163,23 +163,13 @@ pub const Backend = struct {
     /// was registered against. `madvise` leaves the VMA intact —
     /// the kernel just drops physical pages — so the race goes away.
     pub fn features() u64 {
-        // Bit 32 (VERSION_1, required for v2 transport).
-        // REPORTING is on by default. The runtime sets
-        // `MACHINEN_DISABLE_BALLOON_REPORTING=1` for snapshot-restore
-        // boots: with REPORTING on the guest kernel's free-page-
-        // reporting kthread walks every page in the workload's anon
-        // range, the kernel reads each page to identify it as free,
-        // and *that read* is what userfaultfd UFFDIO_COPYs the page
-        // back from the bundle for — defeating the whole "lazy
-        // pages" promise of #266. Fresh boots leave it on so
-        // long-running idle VMs return memory to the host.
-        var bits: u64 = (@as(u64, 1) << 32);
-        const disable_env = getenv("MACHINEN_DISABLE_BALLOON_REPORTING");
-        const disabled = if (disable_env) |p| p[0] == '1' else false;
-        if (!disabled) {
-            bits |= (@as(u64, 1) << VIRTIO_BALLOON_F_REPORTING);
-        }
-        return bits;
+        // Bit 32: VERSION_1, required for v2 transport.
+        // Bit VIRTIO_BALLOON_F_REPORTING: free-page-reporting is
+        // unconditionally on. The lazy-restore × reporting cycle that
+        // used to motivate a runtime opt-out is fixed at the kernel
+        // level in #290
+        // (`packages/microvm/patches/kernel/0001-mm-page-reporting-skip-merge-with-reported-buddy.patch`).
+        return (@as(u64, 1) << 32) | (@as(u64, 1) << VIRTIO_BALLOON_F_REPORTING);
     }
 
     /// Wire-format config bytes for `virtio.Device.config`. Stable
@@ -410,8 +400,7 @@ const MADVISE_RECLAIM: c_int = if (builtin.os.tag == .macos) MADV_FREE_REUSABLE 
 
 // --- tests ---
 
-test "Backend.features advertises VERSION_1 + REPORTING by default" {
-    // Tests run without MACHINEN_DISABLE_BALLOON_REPORTING set.
+test "Backend.features advertises VERSION_1 + REPORTING" {
     const f = Backend.features();
     try std.testing.expect((f & (@as(u64, 1) << 32)) != 0); // VERSION_1
     // REPORTING drives the reclaim path — see `handleReporting`.
@@ -421,18 +410,6 @@ test "Backend.features advertises VERSION_1 + REPORTING by default" {
     // if we offer them.
     try std.testing.expect((f & (@as(u64, 1) << VIRTIO_BALLOON_F_STATS_VQ)) == 0);
     try std.testing.expect((f & (@as(u64, 1) << VIRTIO_BALLOON_F_FREE_PAGE_HINT)) == 0);
-}
-
-test "Backend.features drops REPORTING when MACHINEN_DISABLE_BALLOON_REPORTING=1" {
-    const c_setenv = struct {
-        extern "c" fn setenv(name: [*:0]const u8, value: [*:0]const u8, overwrite: c_int) c_int;
-        extern "c" fn unsetenv(name: [*:0]const u8) c_int;
-    };
-    _ = c_setenv.setenv("MACHINEN_DISABLE_BALLOON_REPORTING", "1", 1);
-    defer _ = c_setenv.unsetenv("MACHINEN_DISABLE_BALLOON_REPORTING");
-    const f = Backend.features();
-    try std.testing.expect((f & (@as(u64, 1) << 32)) != 0); // VERSION_1 still on
-    try std.testing.expect((f & (@as(u64, 1) << VIRTIO_BALLOON_F_REPORTING)) == 0);
 }
 
 test "BalloonConfig has the v1.1 layout the driver expects" {
