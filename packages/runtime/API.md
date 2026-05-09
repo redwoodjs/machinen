@@ -2845,7 +2845,7 @@ runtime materialized a squashfs RO lower + ext4 RW upper. Persist
 those host paths so an attach-owned `vm.snapshot()` /
 `vm.fork()` can reflink them into the snapshot bundle exactly
 like the boot-owned handle does — without this, a CLI-side
-`machinen snapshot --name <vm>` produces a bundle missing
+`machinen snapshot <vm>` produces a bundle missing
 `mount-lower.sqfs` / `mount-upper.img` and a later `restore`
 silently boots without the overlay.
 

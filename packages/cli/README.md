@@ -64,16 +64,17 @@ npx machinen boot ./image.tar.gz                 # boot a provisioned image
 npx machinen boot --name worker --detached ./image.tar.gz
                                                   # ... and reach it from another shell:
 npx machinen ls
-npx machinen exec --name worker -- ps aux
-npx machinen attach --name worker
-npx machinen snapshot --name worker --out-dir ./warm
+npx machinen exec worker -- ps aux
+npx machinen attach worker
+npx machinen snapshot worker ./warm
 npx machinen restore ./warm
-npx machinen fork --name worker --new-name worker-b --detach
-npx machinen stop --name worker
+npx machinen fork worker --new-name worker-b --detach
+npx machinen stop worker
 ```
 
-The `<name>` arg in any of those can be swapped for `--pid <pid>` if
-you'd rather identify the VM by host pid.
+After the subcommand, the first positional is the target VM. Pass a
+name for a registered VM, or a host pid (digits-only) to identify it
+by process.
 
 ## Reference
 

@@ -11,7 +11,7 @@ machinen boot     [<image>] [opts] -- <cmd>     Boot a microVM
 machinen restore  <snap-dir> [--name <name>]    Restore a VM from a snapshot bundle
 machinen list     (alias: ls, ps)               List running VMs
 machinen exec     <target> [--tty] -- <cmd>     Run a command in a running VM
-machinen snapshot <target> --out-dir <d> [--keep-alive] [--dry-run]
+machinen snapshot <target> <out-dir> [--keep-alive] [--dry-run]
                                                 CRIU-snapshot a running VM
 machinen fork     <target> [opts]               Clone a running VM into a sibling
 machinen attach   <target> [--shell <c>] [--tail [N]]
@@ -27,7 +27,8 @@ machinen completion <bash|zsh|fish>             Emit shell completion
 machinen --version | -h                          Print version / help
 ```
 
-`<target>` is exactly one of `--name <name>` or `--pid <pid>`.
+`<target>` is the first positional after the subcommand. Pass a name
+(any non-digit string) or a host pid (digits-only).
 
 ## Agent-friendly conventions
 
@@ -102,17 +103,17 @@ line-buffered pipes (good for one-shot commands and piping). Pass
 htop, or anything that wants job control.
 
 ```bash
-machinen exec --name worker -- ps aux
-machinen exec --name worker --tty -- bash -i
+machinen exec worker -- ps aux
+machinen exec worker --tty -- bash -i
 ```
 
 ## `machinen snapshot`
 
 ```
-machinen snapshot <target> --out-dir <dir> [--keep-alive]
+machinen snapshot <target> <out-dir> [--keep-alive]
 ```
 
-CRIU-snapshots a running VM into `<dir>` (`disk.img` + `meta.json`).
+CRIU-snapshots a running VM into `<out-dir>` (`disk.img` + `meta.json`).
 The default freezes-and-exits the source. `--keep-alive` leaves it
 running and closes inherited TCP sockets so two live copies don't race
 on shared connection state.
@@ -173,7 +174,7 @@ machinen repl <target>
 
 Per-line exec REPL: every line is a fresh one-shot `exec`, so `cd`,
 env vars, and shell history do **not** carry over. Useful for piping a
-script of one-liners (`cat cmds.txt | machinen repl --name foo`). For
+script of one-liners (`cat cmds.txt | machinen repl foo`). For
 an actual interactive shell, use `machinen attach`.
 
 ## `machinen stop`

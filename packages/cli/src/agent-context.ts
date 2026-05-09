@@ -5,7 +5,10 @@
 
 import pkg from "../package.json" with { type: "json" };
 
-export const SCHEMA_VERSION = 1 as const;
+// SCHEMA_VERSION 2: introduced `positionals` on CommandSpec along
+// with the <target> positional on exec/snapshot/fork/attach/repl/stop
+// (and snapshot's <out-dir>).
+export const SCHEMA_VERSION = 2 as const;
 
 /** A single CLI flag. `enum` is set when the value must be one of a fixed list. */
 export interface FlagSpec {
@@ -22,6 +25,14 @@ export interface FlagSpec {
   description: string;
 }
 
+/** A positional argument. Order matches the order in the array. */
+export interface PositionalSpec {
+  name: string;
+  /** Required positional? Defaults to true. */
+  required?: boolean;
+  description: string;
+}
+
 export interface CommandSpec {
   name: string;
   /** Other accepted spellings (e.g. `ls` for `list`). */
@@ -32,10 +43,19 @@ export interface CommandSpec {
   jsonOutput: boolean;
   /** Whether this command mutates state. Mutating commands should support --dry-run. */
   mutating?: boolean;
+  /** Positional args, in order. */
+  positionals?: PositionalSpec[];
   flags: FlagSpec[];
   /** Document the JSON envelope shape when `jsonOutput` is true. */
   jsonEnvelope?: string;
 }
+
+// Shared shape for the seven commands that target a running VM:
+// a single positional, digits → pid, otherwise → name.
+const TARGET_POSITIONAL: PositionalSpec = {
+  name: "target",
+  description: "The VM to act on. Pass a registered name or a host pid (digits-only).",
+};
 
 /** The top-level commands of the CLI, keyed by canonical name. */
 export const COMMANDS: CommandSpec[] = [
@@ -145,9 +165,8 @@ export const COMMANDS: CommandSpec[] = [
     name: "exec",
     summary: "Run a command in a running VM.",
     jsonOutput: false,
+    positionals: [TARGET_POSITIONAL],
     flags: [
-      { name: "--name", type: "string", description: "Target VM by name." },
-      { name: "--pid", type: "integer", description: "Target VM by VMM pid." },
       {
         name: "--tty",
         type: "boolean",
@@ -161,10 +180,14 @@ export const COMMANDS: CommandSpec[] = [
     summary: "CRIU-snapshot a running VM.",
     jsonOutput: true,
     mutating: true,
+    positionals: [
+      TARGET_POSITIONAL,
+      {
+        name: "out-dir",
+        description: "Directory to write the snapshot bundle into.",
+      },
+    ],
     flags: [
-      { name: "--name", type: "string", description: "Target VM by name." },
-      { name: "--pid", type: "integer", description: "Target VM by VMM pid." },
-      { name: "--out-dir", type: "string", description: "Directory to write the bundle into." },
       {
         name: "--keep-alive",
         type: "boolean",
@@ -185,9 +208,8 @@ export const COMMANDS: CommandSpec[] = [
     summary: "Clone a running VM into a sibling.",
     jsonOutput: true,
     mutating: true,
+    positionals: [TARGET_POSITIONAL],
     flags: [
-      { name: "--name", type: "string", description: "Target VM by name." },
-      { name: "--pid", type: "integer", description: "Target VM by VMM pid." },
       { name: "--new-name", type: "string", description: "Name for the fork." },
       { name: "--out-dir", type: "string", description: "Keep the snapshot bundle here." },
       {
@@ -243,9 +265,8 @@ export const COMMANDS: CommandSpec[] = [
     name: "attach",
     summary: "Drop into an interactive PTY shell in a running VM.",
     jsonOutput: false,
+    positionals: [TARGET_POSITIONAL],
     flags: [
-      { name: "--name", type: "string", description: "Target VM by name." },
-      { name: "--pid", type: "integer", description: "Target VM by VMM pid." },
       {
         name: "--shell",
         type: "string",
@@ -263,19 +284,16 @@ export const COMMANDS: CommandSpec[] = [
     name: "repl",
     summary: "Per-line exec REPL — each line is a fresh one-shot command.",
     jsonOutput: false,
-    flags: [
-      { name: "--name", type: "string", description: "Target VM by name." },
-      { name: "--pid", type: "integer", description: "Target VM by VMM pid." },
-    ],
+    positionals: [TARGET_POSITIONAL],
+    flags: [],
   },
   {
     name: "stop",
     summary: "Stop a running VM (SIGTERM, SIGKILL after 2s).",
     jsonOutput: true,
     mutating: true,
+    positionals: [TARGET_POSITIONAL],
     flags: [
-      { name: "--name", type: "string", description: "Target VM by name." },
-      { name: "--pid", type: "integer", description: "Target VM by VMM pid." },
       {
         name: "--force",
         type: "boolean",

@@ -26,7 +26,7 @@ then snapshot:
 ```bash
 npx machinen boot --name counter -p 3000:3000 --detached ./counter.tar.gz
 # ... requests come in, the process builds up state ...
-npx machinen snapshot --name counter --out-dir ./counter.snap
+npx machinen snapshot counter ./counter.snap
 ```
 
 `./counter.snap` is a directory holding two files: `disk.img` (the
@@ -79,7 +79,7 @@ from then on they diverge.
 That's what `fork` does:
 
 ```bash
-npx machinen fork --name counter --new-name counter-b --detach
+npx machinen fork counter --new-name counter-b --detach
 ```
 
 The source `counter` is unaffected — briefly frozen during the dump,
@@ -108,7 +108,7 @@ through host networking), or pass new forwards explicitly — both the
 CLI and Node API accept them:
 
 ```bash
-npx machinen fork --name counter --new-name counter-b -p 3001:3000
+npx machinen fork counter --new-name counter-b -p 3001:3000
 ```
 
 ```ts
@@ -136,7 +136,7 @@ from the source — e.g. layer in an additional input dir, set an env
 var that wasn't there before, or hand the fork more RAM:
 
 ```bash
-npx machinen fork --name worker --new-name worker-eval \
+npx machinen fork worker --new-name worker-eval \
   --mount ./eval-fixtures:/mnt/in \
   --env RUN_MODE=eval \
   --memory 8192
@@ -155,7 +155,7 @@ Sometimes you want to snapshot a VM, hand someone the bundle for later
 restore, and keep the source running. Pass `--keep-alive`:
 
 ```bash
-npx machinen snapshot --name counter --out-dir ./counter.snap --keep-alive
+npx machinen snapshot counter ./counter.snap --keep-alive
 ```
 
 Same as fork's snapshot half: the source survives, and inherited TCP

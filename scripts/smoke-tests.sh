@@ -776,9 +776,9 @@ B1_PID=$(boot_bg "$B1_NAME" "$B1_BG_LOG" --memory 2048 -- \
   /bin/sh -c "/exec-agent & sleep 600")
 # B1 runs before the N-series which asserts an empty registry, so
 # cleanup MUST remove the registry entry, not just kill the VMM.
-# `machinen stop --name` does both (SIGTERM + writeEntry remove).
+# `machinen stop <name>` does both (SIGTERM + writeEntry remove).
 cleanup_b1() {
-  cli stop --name "$B1_NAME" >/dev/null 2>&1 || true
+  cli stop "$B1_NAME" >/dev/null 2>&1 || true
   kill -TERM "$B1_PID" 2>/dev/null || true
   wait "$B1_PID" 2>/dev/null || true
 }
@@ -814,7 +814,7 @@ echo "  baseline RSS=${B1_BASELINE} MiB (vmm pid $B1_VMM_PID)"
 # under `sh -c` in the guest — so we pass the command as one
 # already-shell-ready string, no extra `/bin/sh -c` wrapping.
 B1_SPIKE_LOG="$FIXTURE/b1-spike.log"
-if ! cli exec --name "$B1_NAME" -- \
+if ! cli exec "$B1_NAME" -- \
   'dd if=/dev/zero of=/tmp/big bs=1M count=1024 status=none && sync && echo SPIKE_DONE' \
   >"$B1_SPIKE_LOG" 2>&1; then
   cat "$B1_SPIKE_LOG" >&2
@@ -834,7 +834,7 @@ pass "spike added $(( B1_SPIKE - B1_BASELINE )) MiB to host RSS"
 # `page_reporting_period_ms` defaults to 2000; report budget is 16
 # 2-MiB blocks per cycle, so a 1 GiB free-run takes a few cycles to
 # fully drain. 30s is comfortable.
-if ! cli exec --name "$B1_NAME" -- \
+if ! cli exec "$B1_NAME" -- \
   'rm /tmp/big && sync && echo 3 > /proc/sys/vm/drop_caches && echo FREE_DONE' \
   >"$FIXTURE/b1-free.log" 2>&1; then
   cat "$FIXTURE/b1-free.log" >&2
@@ -960,9 +960,9 @@ else
   fail "N2 — 'machinen ls' missing '$N2_NAME'"
 fi
 
-# machinen exec --name <name> -- uname -m should return 0 + aarch64.
+# machinen exec <name> -- uname -m should return 0 + aarch64.
 N2_EXEC_LOG="$FIXTURE/n2-exec.log"
-if cli exec --name "$N2_NAME" -- uname -m >"$N2_EXEC_LOG" 2>&1; then
+if cli exec "$N2_NAME" -- uname -m >"$N2_EXEC_LOG" 2>&1; then
   if grep -qE "aarch64|arm64" "$N2_EXEC_LOG"; then
     pass "'machinen exec $N2_NAME -- uname -m' returned aarch64"
   else
@@ -1024,7 +1024,7 @@ fi
 # in main.zig is what keeps it alive once the parent's stderr pipe
 # breaks).
 N2D_EXEC_LOG="$FIXTURE/n2d-exec.log"
-if cli exec --name "$N2D_NAME" -- uname -m >"$N2D_EXEC_LOG" 2>&1; then
+if cli exec "$N2D_NAME" -- uname -m >"$N2D_EXEC_LOG" 2>&1; then
   if grep -qE "aarch64|arm64" "$N2D_EXEC_LOG"; then
     pass "post-detach 'exec $N2D_NAME -- uname -m' returned aarch64"
   else
@@ -1061,8 +1061,8 @@ N2D_CLEANUP_PATHS=$(node -p "JSON.parse(require('fs').readFileSync('$N2D_META','
 N2D_GVPROXY_PID=$(node -p "JSON.parse(require('fs').readFileSync('$N2D_META','utf8')).gvproxyPid ?? ''" 2>/dev/null || true)
 
 N2S_LOG="$FIXTURE/n2s.log"
-if cli stop --name "$N2D_NAME" >"$N2S_LOG" 2>&1; then
-  pass "machinen stop --name $N2D_NAME exited 0"
+if cli stop "$N2D_NAME" >"$N2S_LOG" 2>&1; then
+  pass "machinen stop $N2D_NAME exited 0"
 else
   cat "$N2S_LOG" >&2
   fail "N2S — machinen stop exited non-zero"
@@ -1105,7 +1105,7 @@ fi
 # Stop is idempotent — calling it again on a missing name should
 # error cleanly, not crash.
 N2S_AGAIN_LOG="$FIXTURE/n2s-again.log"
-if cli stop --name "$N2D_NAME" >"$N2S_AGAIN_LOG" 2>&1; then
+if cli stop "$N2D_NAME" >"$N2S_AGAIN_LOG" 2>&1; then
   cat "$N2S_AGAIN_LOG" >&2
   fail "N2S — second 'stop' on missing name should have failed"
 fi
@@ -1123,7 +1123,7 @@ fi  # N2 rootfs-capability gate
 # ---- N3: machinen attach <unknown> errors cleanly ----
 echo "N3: machinen attach against an unknown name"
 N3_LOG="$FIXTURE/n3.log"
-if cli attach --name "nope-does-not-exist-$$" >"$N3_LOG" 2>&1; then
+if cli attach "nope-does-not-exist-$$" >"$N3_LOG" 2>&1; then
   cat "$N3_LOG" >&2
   fail "N3 — attach to unknown name should have failed"
 fi
@@ -1234,7 +1234,7 @@ fi
 # Snapshot/restore round-trip (#50 M2). Uses the supervisor +
 # /sbin/machinen-dump + /sbin/machinen-restore baked into the rootfs:
 #   1. boot with a scratch /dev/vda + named VM
-#   2. `machinen snapshot --name <n> --out-dir <d>`   (attach-snapshot)
+#   2. `machinen snapshot <n> <d>`                     (attach-snapshot)
 #   3. `machinen restore <d>`                          (criu-ns restore)
 #   4. exec into the restored VM (auto-named <n>/<pid>) to prove the
 #      agent re-spawned
@@ -1269,7 +1269,7 @@ else
 
   # Confirm the supervisor's backgrounded exec-agent is live.
   S1_EXEC_LOG="$FIXTURE/s1-exec.log"
-  if cli exec --name "$S1_NAME" -- uname -m >"$S1_EXEC_LOG" 2>&1 \
+  if cli exec "$S1_NAME" -- uname -m >"$S1_EXEC_LOG" 2>&1 \
      && grep -qE "aarch64|arm64" "$S1_EXEC_LOG"; then
     pass "exec-agent responds on the dump-side VM"
   else
@@ -1281,7 +1281,7 @@ else
   # Snapshot via the attach path. The bundle (img/<criu> + meta.json)
   # lands at $S1_SNAP_DIR; the VM exits as part of the dump.
   S1_DUMP_LOG="$FIXTURE/s1-dump.log"
-  if ! cli snapshot --name "$S1_NAME" --out-dir "$S1_SNAP_DIR" 2>"$S1_DUMP_LOG"; then
+  if ! cli snapshot "$S1_NAME" "$S1_SNAP_DIR" 2>"$S1_DUMP_LOG"; then
     tail -60 "$S1_BG_LOG" >&2
     cat "$S1_DUMP_LOG" >&2
     fail "S1 — 'machinen snapshot' failed"
@@ -1331,7 +1331,7 @@ else
   pass "restored VM auto-named as '$S1_RESTORED_NAME'"
 
   S1_RESTORE_EXEC_LOG="$FIXTURE/s1-restore-exec.log"
-  if cli exec --name "$S1_RESTORED_NAME" -- uname -m >"$S1_RESTORE_EXEC_LOG" 2>&1 \
+  if cli exec "$S1_RESTORED_NAME" -- uname -m >"$S1_RESTORE_EXEC_LOG" 2>&1 \
      && grep -qE "aarch64|arm64" "$S1_RESTORE_EXEC_LOG"; then
     pass "exec-agent responds on the restored VM"
   else
@@ -1414,7 +1414,7 @@ else
 
   # Snapshot to bundle A.
   S2_DUMP_A_LOG="$FIXTURE/s2-dump-a.log"
-  if ! cli snapshot --name "$S2_NAME" --out-dir "$S2_SNAP_A" 2>"$S2_DUMP_A_LOG"; then
+  if ! cli snapshot "$S2_NAME" "$S2_SNAP_A" 2>"$S2_DUMP_A_LOG"; then
     tail -60 "$S2_BG_LOG" >&2
     cat "$S2_DUMP_A_LOG" >&2
     fail "S2 — first 'machinen snapshot' (to A) failed"
@@ -1458,7 +1458,7 @@ else
   # Snapshot the restored VM to bundle B. This is the operation that
   # used to fail with EBUSY on /dev/vdb and 'PID file missing'.
   S2_DUMP_B_LOG="$FIXTURE/s2-dump-b.log"
-  if ! cli snapshot --name "$S2_RESTORED_A" --out-dir "$S2_SNAP_B" 2>"$S2_DUMP_B_LOG"; then
+  if ! cli snapshot "$S2_RESTORED_A" "$S2_SNAP_B" 2>"$S2_DUMP_B_LOG"; then
     tail -80 "$S2_RESTORE_A_LOG" >&2
     cat "$S2_DUMP_B_LOG" >&2
     fail "S2 — chained 'machinen snapshot' (restored → B) failed"
@@ -1509,7 +1509,7 @@ else
   pass "restored bundle B as '$S2_RESTORED_B'"
 
   S2_RESTORE_B_EXEC_LOG="$FIXTURE/s2-restore-b-exec.log"
-  if cli exec --name "$S2_RESTORED_B" -- uname -m >"$S2_RESTORE_B_EXEC_LOG" 2>&1 \
+  if cli exec "$S2_RESTORED_B" -- uname -m >"$S2_RESTORE_B_EXEC_LOG" 2>&1 \
      && grep -qE "aarch64|arm64" "$S2_RESTORE_B_EXEC_LOG"; then
     pass "exec-agent responds on the chain-restored VM (gen 2)"
   else
@@ -1524,7 +1524,7 @@ else
   # deepens, so a depth-3 restore is the canary for whether
   # /sbin/machinen-dump can dump across a sub-NS boundary.
   S2_DUMP_C_LOG="$FIXTURE/s2-dump-c.log"
-  if ! cli snapshot --name "$S2_RESTORED_B" --out-dir "$S2_SNAP_C" 2>"$S2_DUMP_C_LOG"; then
+  if ! cli snapshot "$S2_RESTORED_B" "$S2_SNAP_C" 2>"$S2_DUMP_C_LOG"; then
     tail -80 "$S2_RESTORE_B_LOG" >&2
     cat "$S2_DUMP_C_LOG" >&2
     fail "S2 — gen-3 'machinen snapshot' (restored-B → C) failed"
@@ -1562,7 +1562,7 @@ else
   pass "restored bundle C as '$S2_RESTORED_C'"
 
   S2_RESTORE_C_EXEC_LOG="$FIXTURE/s2-restore-c-exec.log"
-  if cli exec --name "$S2_RESTORED_C" -- uname -m >"$S2_RESTORE_C_EXEC_LOG" 2>&1 \
+  if cli exec "$S2_RESTORED_C" -- uname -m >"$S2_RESTORE_C_EXEC_LOG" 2>&1 \
      && grep -qE "aarch64|arm64" "$S2_RESTORE_C_EXEC_LOG"; then
     pass "exec-agent responds on the gen-3 chain-restored VM"
   else
@@ -1620,7 +1620,7 @@ else
   # under `sh -c` in the guest. To get a real shell redirect inside the
   # guest we have to send `>` as a literal arg (single-quoted on the
   # host so the host bash doesn't interpret it as a redirect).
-  if ! cli exec --name "$S3_NAME" -- echo source '>' /tmp/who; then
+  if ! cli exec "$S3_NAME" -- echo source '>' /tmp/who; then
     tail -60 "$S3_BG_LOG" >&2
     fail "S3 — couldn't seed /tmp/who on source"
   fi
@@ -1629,7 +1629,7 @@ else
   # the standard restore() auto-naming.
   S3_FORK_LOG="$FIXTURE/s3-fork.log"
   S3_FORK_BUNDLE="$FIXTURE/s3-fork-bundle"
-  if ! cli fork --name "$S3_NAME" --out-dir "$S3_FORK_BUNDLE" --detach 2>"$S3_FORK_LOG"; then
+  if ! cli fork "$S3_NAME" --out-dir "$S3_FORK_BUNDLE" --detach 2>"$S3_FORK_LOG"; then
     cat "$S3_FORK_LOG" >&2
     tail -60 "$S3_BG_LOG" >&2
     fail "S3 — 'machinen fork' failed"
@@ -1667,12 +1667,12 @@ else
   # Independence check: write 'fork' on the fork's disk, 'source' is
   # already on the source. Re-read both — neither should see the
   # other's value.
-  if ! cli exec --name "$S3_FORK_NAME" -- echo fork '>' /tmp/who; then
+  if ! cli exec "$S3_FORK_NAME" -- echo fork '>' /tmp/who; then
     tail -60 "$S3_BG_LOG" >&2
     fail "S3 — couldn't write /tmp/who on fork"
   fi
-  S3_SRC_AFTER=$(cli exec --name "$S3_NAME" -- cat /tmp/who 2>/dev/null | tr -d '\r\n')
-  S3_FORK_AFTER=$(cli exec --name "$S3_FORK_NAME" -- cat /tmp/who 2>/dev/null | tr -d '\r\n')
+  S3_SRC_AFTER=$(cli exec "$S3_NAME" -- cat /tmp/who 2>/dev/null | tr -d '\r\n')
+  S3_FORK_AFTER=$(cli exec "$S3_FORK_NAME" -- cat /tmp/who 2>/dev/null | tr -d '\r\n')
   if [[ "$S3_SRC_AFTER" != "source" || "$S3_FORK_AFTER" != "fork" ]]; then
     fail "S3 — disk state crossed between source ('$S3_SRC_AFTER') and fork ('$S3_FORK_AFTER')"
   fi
@@ -1684,7 +1684,7 @@ else
   # hits with destructive snapshots.
   S3_GRAND_LOG="$FIXTURE/s3-fork-of-fork.log"
   S3_GRAND_BUNDLE="$FIXTURE/s3-grand-bundle"
-  if ! cli fork --name "$S3_FORK_NAME" --out-dir "$S3_GRAND_BUNDLE" --detach 2>"$S3_GRAND_LOG"; then
+  if ! cli fork "$S3_FORK_NAME" --out-dir "$S3_GRAND_BUNDLE" --detach 2>"$S3_GRAND_LOG"; then
     cat "$S3_GRAND_LOG" >&2
     tail -60 "$S3_BG_LOG" >&2
     fail "S3 — 'machinen fork' on the fork (gen-2) failed"
@@ -1708,12 +1708,12 @@ else
 
   # Three-way independence: write 'grand' on the grandchild, then
   # check all three /tmp/who files are independent.
-  if ! cli exec --name "$S3_GRAND_NAME" -- echo grand '>' /tmp/who; then
+  if ! cli exec "$S3_GRAND_NAME" -- echo grand '>' /tmp/who; then
     fail "S3 — couldn't write /tmp/who on grand"
   fi
-  S3_FINAL_SRC=$(cli exec --name "$S3_NAME" -- cat /tmp/who 2>/dev/null | tr -d '\r\n')
-  S3_FINAL_FORK=$(cli exec --name "$S3_FORK_NAME" -- cat /tmp/who 2>/dev/null | tr -d '\r\n')
-  S3_FINAL_GRAND=$(cli exec --name "$S3_GRAND_NAME" -- cat /tmp/who 2>/dev/null | tr -d '\r\n')
+  S3_FINAL_SRC=$(cli exec "$S3_NAME" -- cat /tmp/who 2>/dev/null | tr -d '\r\n')
+  S3_FINAL_FORK=$(cli exec "$S3_FORK_NAME" -- cat /tmp/who 2>/dev/null | tr -d '\r\n')
+  S3_FINAL_GRAND=$(cli exec "$S3_GRAND_NAME" -- cat /tmp/who 2>/dev/null | tr -d '\r\n')
   if [[ "$S3_FINAL_SRC" != "source" || "$S3_FINAL_FORK" != "fork" || "$S3_FINAL_GRAND" != "grand" ]]; then
     fail "S3 — three-way independence broken: src='$S3_FINAL_SRC' fork='$S3_FINAL_FORK' grand='$S3_FINAL_GRAND'"
   fi
@@ -1721,8 +1721,8 @@ else
 
   # Tear down the forks (poweroff via vsock). The source goes down
   # with cleanup_s3 below.
-  cli exec --name "$S3_GRAND_NAME" -- /sbin/machinen-poweroff >/dev/null 2>&1 || true
-  cli exec --name "$S3_FORK_NAME" -- /sbin/machinen-poweroff >/dev/null 2>&1 || true
+  cli exec "$S3_GRAND_NAME" -- /sbin/machinen-poweroff >/dev/null 2>&1 || true
+  cli exec "$S3_FORK_NAME" -- /sbin/machinen-poweroff >/dev/null 2>&1 || true
   rm -rf "$S3_GRAND_BUNDLE" "$S3_FORK_BUNDLE" 2>/dev/null || true
   cleanup_s3
   trap 'rm -rf "$FIXTURE"' EXIT
@@ -1767,7 +1767,7 @@ else
   pass "boot --name --snapshot registered '$S4_NAME'"
 
   S4_DUMP_LOG="$FIXTURE/s4-dump.log"
-  if ! cli snapshot --name "$S4_NAME" --out-dir "$S4_SNAP_DIR" 2>"$S4_DUMP_LOG"; then
+  if ! cli snapshot "$S4_NAME" "$S4_SNAP_DIR" 2>"$S4_DUMP_LOG"; then
     tail -60 "$S4_BG_LOG" >&2
     cat "$S4_DUMP_LOG" >&2
     fail "S4 — 'machinen snapshot' failed"
@@ -1810,7 +1810,7 @@ else
   # protocol is broken or FUSE reads fail, the workload hangs on first
   # instruction and exec times out.
   S4_EXEC_LOG="$FIXTURE/s4-exec.log"
-  if cli exec --name "$S4_RESTORED_NAME" -- uname -m >"$S4_EXEC_LOG" 2>&1 \
+  if cli exec "$S4_RESTORED_NAME" -- uname -m >"$S4_EXEC_LOG" 2>&1 \
      && grep -qE "aarch64|arm64" "$S4_EXEC_LOG"; then
     pass "exec-agent responds on the lazy-pages restored VM"
   else
@@ -1903,7 +1903,7 @@ else
 
   # Snapshot — destructive. Parent dies after the dump.
   S5_DUMP_LOG="$FIXTURE/s5-dump.log"
-  if ! cli snapshot --name "$S5_NAME" --out-dir "$S5_SNAP_DIR" 2>"$S5_DUMP_LOG"; then
+  if ! cli snapshot "$S5_NAME" "$S5_SNAP_DIR" 2>"$S5_DUMP_LOG"; then
     tail -60 "$S5_BG_LOG" >&2
     cat "$S5_DUMP_LOG" >&2
     fail "S5 — 'machinen snapshot' failed"
@@ -2034,7 +2034,7 @@ else
   pass "boot with --mount-live registered '$S6_NAME'"
 
   # Verify the source's live mount works: guest write lands on host.
-  if ! cli exec --name "$S6_NAME" -- echo from-source '>' /mnt/share/source.txt; then
+  if ! cli exec "$S6_NAME" -- echo from-source '>' /mnt/share/source.txt; then
     tail -60 "$S6_BG_LOG" >&2
     fail "S6 — couldn't write through live mount on source"
   fi
@@ -2048,7 +2048,7 @@ else
   # Today: preflight unmounts, dump succeeds, meta.liveMounts records
   # the share-A path so restore can re-establish.
   S6_DUMP_LOG="$FIXTURE/s6-dump.log"
-  if ! cli snapshot --name "$S6_NAME" --out-dir "$S6_SNAP_DIR" 2>"$S6_DUMP_LOG"; then
+  if ! cli snapshot "$S6_NAME" "$S6_SNAP_DIR" 2>"$S6_DUMP_LOG"; then
     tail -60 "$S6_BG_LOG" >&2
     cat "$S6_DUMP_LOG" >&2
     fail "S6 — 'machinen snapshot' against --mount-live VM failed"
@@ -2095,7 +2095,7 @@ else
   pass "restored VM auto-named as '$S6_RESTORED'"
 
   S6_READ_LOG="$FIXTURE/s6-read.log"
-  if cli exec --name "$S6_RESTORED" -- cat /mnt/share/source.txt >"$S6_READ_LOG" 2>&1 \
+  if cli exec "$S6_RESTORED" -- cat /mnt/share/source.txt >"$S6_READ_LOG" 2>&1 \
      && grep -q "from-source" "$S6_READ_LOG"; then
     pass "restored VM reads through re-established live mount (host share-A)"
   else
@@ -2138,7 +2138,7 @@ else
   pass "remapped restore registered as '$S6_REMAPPED'"
 
   S6_REMAP_READ_LOG="$FIXTURE/s6-remap-read.log"
-  if cli exec --name "$S6_REMAPPED" -- cat /mnt/share/marker.txt >"$S6_REMAP_READ_LOG" 2>&1 \
+  if cli exec "$S6_REMAPPED" -- cat /mnt/share/marker.txt >"$S6_REMAP_READ_LOG" 2>&1 \
      && grep -q "from-share-b" "$S6_REMAP_READ_LOG"; then
     pass "override --mount-live remapped host dir on restore (share-B visible)"
   else

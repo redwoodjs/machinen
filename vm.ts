@@ -217,7 +217,7 @@ const hostRows = stdoutAny.rows ?? 24;
 
 // #177: ask the VMM to bridge AF_VSOCK port 1974 (winsize agent) to a
 // host UDS. We ALSO wire up port 1978 (exec-agent) so `machinen exec
-// --pid <X>` and `machinen snapshot --pid <X>` work against this VM —
+// <pid>` and `machinen snapshot <pid> <out-dir>` work against this VM —
 // the runtime's registry stores the FIRST entry's UDS as the socket
 // path attach handles use, so put exec first and winsize second.
 // Without this the registered socketPath was the winsize UDS, which
@@ -334,7 +334,7 @@ const DEV_BOOTSTRAP = [
   // AF_VSOCK fd never appears inside the dumpable workload tree.
   // Putting the spawn here used to make the agent a workload descendant,
   // which broke `criu dump` ("BUG! Unknown socket collected (family 40)")
-  // and made `machinen snapshot --pid X` fail on every vm-pick'd VM.
+  // and made `machinen snapshot X <out-dir>` fail on every vm-pick'd VM.
   // CWD stays at /home/dev (set by env above) so snapshot/restore can
   // re-open it on the restored VM. ~/.bashrc.machinen handles the
   // convenience cd into /mnt/workspace for interactive shells — see the

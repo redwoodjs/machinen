@@ -5,6 +5,7 @@ import { formatPorts } from "../format-ports.ts";
 import { parseForkArgs } from "../parse-fork-args.ts";
 import { parseRestoreArgs } from "../parse-restore-args.ts";
 import { parseRunArgs } from "../parse-run-args.ts";
+import { extractTarget } from "../parse-target.ts";
 import { tailLines } from "../tail-lines.ts";
 
 describe("parseRunArgs --env", () => {
@@ -699,5 +700,43 @@ describe("tailLines (machinen attach --tail slicing)", () => {
 
   it("returns the whole content when tail >= line count", () => {
     expect(tailLines("a\nb\n", 99)).toBe("a\nb\n");
+  });
+});
+
+describe("extractTarget", () => {
+  it("treats a non-digit positional as a name", () => {
+    const r = extractTarget(["worker"], "exec");
+    expect(r.target).toEqual({ name: "worker" });
+    expect(r.rest).toEqual([]);
+  });
+
+  it("treats an all-digits positional as a pid", () => {
+    const r = extractTarget(["12345"], "stop");
+    expect(r.target).toEqual({ pid: 12345 });
+  });
+
+  it("accepts path-shaped names (slash-separated)", () => {
+    const r = extractTarget(["a/b/c"], "exec");
+    expect(r.target).toEqual({ name: "a/b/c" });
+  });
+
+  it("returns extra positionals in rest (e.g. snapshot's out-dir)", () => {
+    const r = extractTarget(["worker", "./warm"], "snapshot");
+    expect(r.target).toEqual({ name: "worker" });
+    expect(r.rest).toEqual(["./warm"]);
+  });
+
+  it("rejects no target at all", () => {
+    expect(() => extractTarget([], "exec")).toThrow(/requires a target/);
+  });
+
+  it("rejects unknown flags (legacy --name/--pid no longer recognized)", () => {
+    expect(() => extractTarget(["--name", "worker"], "exec")).toThrow(/unknown argument: --name/);
+    expect(() => extractTarget(["--pid", "1234"], "stop")).toThrow(/unknown argument: --pid/);
+    expect(() => extractTarget(["--bogus"], "exec")).toThrow(/unknown argument: --bogus/);
+  });
+
+  it("throws ParseError so the CLI can format it", () => {
+    expect(() => extractTarget([], "exec")).toThrow(ParseError);
   });
 });

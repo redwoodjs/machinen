@@ -86,7 +86,7 @@ The process is now sitting on host A with `count = 2` in its heap.
 Freeze it, copy the bundle to host B, thaw it:
 
 ```bash
-npx machinen snapshot --name counter --out-dir ./counter.snap
+npx machinen snapshot counter ./counter.snap
 scp ./counter.tar.gz ./counter.snap host-b:
 ssh host-b npx machinen restore ./counter.snap &
 curl host-b:3000                           # { count: 3 }  ← same process
@@ -110,12 +110,12 @@ copy-on-write disk. Both processes diverge from the same instant.
 Pick up from Step 2 above — `counter` is running with `count = 2`:
 
 ```bash
-npx machinen fork --name counter --new-name counter-b --detach
+npx machinen fork counter --new-name counter-b --detach
 
-npx machinen exec --name counter   -- curl -s localhost:3000   # { count: 3 }
-npx machinen exec --name counter-b -- curl -s localhost:3000   # { count: 3 }
-npx machinen exec --name counter-b -- curl -s localhost:3000   # { count: 4 }
-npx machinen exec --name counter   -- curl -s localhost:3000   # { count: 4 }
+npx machinen exec counter   -- curl -s localhost:3000   # { count: 3 }
+npx machinen exec counter-b -- curl -s localhost:3000   # { count: 3 }
+npx machinen exec counter-b -- curl -s localhost:3000   # { count: 4 }
+npx machinen exec counter   -- curl -s localhost:3000   # { count: 4 }
 ```
 
 Both VMs branched from the same `count = 2` heap and now count
@@ -128,10 +128,10 @@ global, only one process can bind each one. Two ways to reach a fork:
 
 ```bash
 # A) exec over vsock — works for any guest port, no host forward needed.
-npx machinen exec --name counter-b -- curl -s localhost:3000
+npx machinen exec counter-b -- curl -s localhost:3000
 
 # B) -p with non-conflicting host ports — forwards on the host.
-npx machinen fork --name counter --new-name counter-b -p 3001:3000 --detach
+npx machinen fork counter --new-name counter-b -p 3001:3000 --detach
 curl localhost:3001                                            # the fork
 curl localhost:3000                                            # still the source
 ```

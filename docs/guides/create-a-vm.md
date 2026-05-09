@@ -78,8 +78,8 @@ Once it's running, you can find it again from any shell:
 
 ```bash
 npx machinen ls                              # see PID, NAME, uptime, port forwards
-npx machinen exec --name worker -- ps aux    # run a one-off command
-npx machinen attach --name worker            # interactive shell with job control
+npx machinen exec worker -- ps aux           # run a one-off command
+npx machinen attach worker                   # interactive shell with job control
 ```
 
 `exec` is for scripted use — pipes are line-buffered, the command runs
@@ -90,7 +90,7 @@ guest process and not the host CLI.
 When you're done:
 
 ```bash
-npx machinen stop --name worker
+npx machinen stop worker
 ```
 
 `stop` SIGTERMs the VMM and waits for it to exit cleanly; it falls back

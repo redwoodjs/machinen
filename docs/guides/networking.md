@@ -91,7 +91,7 @@ the network at all. `machinen exec` runs a command inside a VM over
 vsock — directly into the guest, bypassing TCP entirely:
 
 ```bash
-npx machinen exec --name worker -- curl -s localhost:3000
+npx machinen exec worker -- curl -s localhost:3000
 ```
 
 The guest runs the curl, and `localhost:3000` resolves to the guest's
