@@ -1173,7 +1173,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         statsPath: statsFilePath,
         // #272: persist mount-overlay paths so an attach-owned
         // vm.snapshot()/fork() can reflink the lower+upper into the
-        // bundle. Without this, `machinen snapshot --name <vm>` from
+        // bundle. Without this, `machinen snapshot <vm>` from
         // the CLI produces a bundle that's missing the overlay halves.
         mountDisk: mountDiskPaths
           ? {

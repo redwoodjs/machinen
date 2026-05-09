@@ -6,10 +6,10 @@
 //   machinen boot [opts] -- <cmd>
 //   machinen restore <snap-dir> [--name <name>] [-p <hostPort>:<guestPort>]
 //   machinen ls (alias: ps)
-//   machinen exec ( --name <name> | --pid <pid> ) -- <cmd>
-//   machinen snapshot ( --name <name> | --pid <pid> ) --out-dir <dir>
-//   machinen attach ( --name <name> | --pid <pid> ) [--shell <cmd>]   # PTY shell
-//   machinen repl   ( --name <name> | --pid <pid> )                   # per-line exec
+//   machinen exec <name|pid> -- <cmd>
+//   machinen snapshot <name|pid> <out-dir>
+//   machinen attach <name|pid> [--shell <cmd>]   # PTY shell
+//   machinen repl   <name|pid>                   # per-line exec
 //   machinen install [--version <tag>]
 //   machinen completion <bash|zsh|fish>
 //   machinen --version | -h | --help
@@ -53,6 +53,7 @@ import { formatPorts } from "./format-ports.ts";
 import { parseForkArgs } from "./parse-fork-args.ts";
 import { parseRestoreArgs } from "./parse-restore-args.ts";
 import { parseRunArgs } from "./parse-run-args.ts";
+import { extractTarget, type Target } from "./parse-target.ts";
 import { tailLines } from "./tail-lines.ts";
 
 const debug = debugLib("machinen:cli");
@@ -982,7 +983,7 @@ function describeTarget(target: { name: string } | { pid: number }): string {
 async function cmdExec(args: string[]): Promise<number> {
   // Pull --tty out before the `--` boundary so it isn't passed to the
   // workload. Auto-enable when stdin is a TTY and no --tty was passed
-  // explicitly is *not* what we want — `machinen exec --name foo --
+  // explicitly is *not* what we want — `machinen exec foo --
   // ps aux` from a terminal should still be one-shot pipes, otherwise
   // every output gets line-discipline-translated. Caller opts in.
   let usePty = false;
@@ -996,7 +997,7 @@ async function cmdExec(args: string[]): Promise<number> {
   }
   const dashIdx = filtered.indexOf("--");
   if (dashIdx === -1 || dashIdx === filtered.length - 1) {
-    die("usage: machinen exec ( --name <name> | --pid <pid> ) [--tty] -- <cmd>");
+    die("usage: machinen exec <name|pid> [--tty] -- <cmd>");
   }
   const pre = filtered.slice(0, dashIdx);
   const cmdArgs = filtered.slice(dashIdx + 1);
@@ -1005,7 +1006,7 @@ async function cmdExec(args: string[]): Promise<number> {
   try {
     // Shell out via `sh -c` on the guest so caller can pass piped
     // commands naturally. Users who want raw exec of a single binary
-    // can quote it like `machinen exec --name foo -- /bin/ls`.
+    // can quote it like `machinen exec foo -- /bin/ls`.
     const joined = cmdArgs.join(" ");
     if (usePty) {
       if (!process.stdin.isTTY) {
@@ -1077,35 +1078,54 @@ async function runPtyExec(
 }
 
 async function cmdSnapshot(args: string[]): Promise<number> {
-  // Pull --out-dir / --keep-alive / --json / --dry-run out of the arg
-  // list, then parse the target flags.
+  // Preferred form: `machinen snapshot <target> <out-dir>`.
+  // Legacy: `--out-dir <dir>` (warned, accepted for one release).
+  // We strip --json / --dry-run / --keep-alive / --out-dir first;
+  // anything left feeds extractTarget which pulls the first positional
+  // as the target and returns leftovers as `rest`. The first leftover
+  // (if any) is the out-dir positional.
   const { json, rest: afterJson } = consumeJsonFlag(args);
   const { dryRun, rest: afterDry } = consumeDryRunFlag(afterJson);
-  let outDir: string | undefined;
+  let outDirFromFlag: string | undefined;
   let keepAlive = false;
-  const rest: string[] = [];
+  const remaining: string[] = [];
   for (let i = 0; i < afterDry.length; i++) {
     const a = afterDry[i]!;
     if (a === "--out-dir" || a.startsWith("--out-dir=")) {
-      outDir = a === "--out-dir" ? afterDry[++i] : a.slice("--out-dir=".length);
-      if (!outDir) {
+      const v = a === "--out-dir" ? afterDry[++i] : a.slice("--out-dir=".length);
+      if (!v) {
         die("--out-dir requires a directory path");
       }
+      outDirFromFlag = v;
+      warnLegacyOnce(
+        "snapshot:--out-dir",
+        "machinen snapshot: --out-dir is deprecated; pass the directory as the second positional (e.g. `machinen snapshot <name|pid> <out-dir>`)",
+      );
     } else if (a === "--keep-alive") {
       // Source survives the dump (CRIU --leave-running). Default
       // closes inherited TCP sockets — two live copies sharing the
       // same connection state can't both talk to the peer cleanly.
       keepAlive = true;
     } else {
-      rest.push(a);
+      remaining.push(a);
     }
   }
-  if (!outDir) {
-    die(
-      "usage: machinen snapshot ( --name <name> | --pid <pid> ) --out-dir <dir> [--keep-alive] [--dry-run] [--json]",
-    );
+  const { target, rest: afterTarget } = resolveTarget(remaining, "snapshot");
+  let outDir = outDirFromFlag;
+  if (afterTarget.length > 0) {
+    if (outDir !== undefined) {
+      die(
+        "machinen snapshot: pass the out-dir once — either as a positional or via --out-dir (deprecated), not both",
+      );
+    }
+    if (afterTarget.length > 1) {
+      die(`unknown argument: ${afterTarget[1]}`);
+    }
+    outDir = afterTarget[0];
   }
-  const target = parseTargetFlags(rest, "snapshot");
+  if (!outDir) {
+    die("usage: machinen snapshot <name|pid> <out-dir> [--keep-alive] [--dry-run] [--json]");
+  }
   const resolvedOutDir = resolve(outDir);
   if (dryRun) {
     // Validate target exists + out-dir is creatable (parent must exist
@@ -1436,7 +1456,7 @@ async function cmdRepl(args: string[]): Promise<number> {
   process.stderr.write(
     `each line is a fresh one-shot exec — cd / env vars / history do NOT persist.\n` +
       `for an interactive shell with job control + TUI support, use:\n` +
-      `  machinen attach ${vm.name ? `--name ${vm.name}` : `--pid ${vm.pid}`}\n` +
+      `  machinen attach ${vm.name ?? vm.pid}\n` +
       `Ctrl-D to exit.\n`,
   );
   try {
@@ -1561,42 +1581,56 @@ async function cmdCompletion(args: string[]): Promise<number> {
  * shape returned matches `AttachOptions` so callers can pass it
  * straight to `attach()`.
  */
-function parseTargetFlags(args: string[], cmd: string): { name: string } | { pid: number } {
-  let name: string | undefined;
-  let pid: number | undefined;
-  for (let i = 0; i < args.length; i++) {
-    const a = args[i]!;
-    if (a === "--name" || a.startsWith("--name=")) {
-      const v = a === "--name" ? args[++i] : a.slice("--name=".length);
-      if (!v) {
-        die(`--name requires a value`);
-      }
-      name = v;
-    } else if (a === "--pid" || a.startsWith("--pid=")) {
-      const v = a === "--pid" ? args[++i] : a.slice("--pid=".length);
-      if (!v || !/^[0-9]+$/.test(v)) {
-        die(`--pid requires a numeric value`);
-      }
-      pid = Number(v);
-    } else {
-      die(`unknown argument: ${a}`);
-    }
+/**
+ * Wrap the pure `extractTarget` parser with the CLI's deprecation-
+ * warning + error-formatting glue. Callers either use this directly
+ * (snapshot, which has a second positional <out-dir>) or via the
+ * `parseTargetFlags` shim (everyone else).
+ */
+function resolveTarget(args: string[], cmd: string): { target: Target; rest: string[] } {
+  let parsed;
+  try {
+    parsed = extractTarget(args, cmd);
+  } catch (err) {
+    handleError(err);
   }
-  if (name && pid !== undefined) {
-    die(`machinen ${cmd}: pass --name OR --pid, not both`);
+  for (const flag of parsed.legacyFlags) {
+    warnLegacyTargetFlag(cmd, flag);
   }
-  if (!name && pid === undefined) {
-    die(`machinen ${cmd}: requires --name <name> or --pid <pid>`);
+  return { target: parsed.target, rest: parsed.rest };
+}
+
+const legacyWarned = new Set<string>();
+function warnLegacyOnce(key: string, message: string): void {
+  if (legacyWarned.has(key)) {
+    return;
   }
-  if (name) {
-    return { name };
+  legacyWarned.add(key);
+  process.stderr.write(`${message}\n`);
+}
+function warnLegacyTargetFlag(cmd: string, flag: "--name" | "--pid"): void {
+  warnLegacyOnce(
+    `${cmd}:${flag}`,
+    `machinen ${cmd}: ${flag} is deprecated; pass the target as a positional (e.g. \`machinen ${cmd} <name|pid>\`)`,
+  );
+}
+
+/**
+ * Shim for callers that don't accept extra positionals. Errors on any
+ * leftover args.
+ */
+function parseTargetFlags(args: string[], cmd: string): Target {
+  const { target, rest } = resolveTarget(args, cmd);
+  if (rest.length > 0) {
+    die(`unknown argument: ${rest[0]}`);
   }
-  return { pid: pid! };
+  return target;
 }
 
 // Names live in column 2 of `machinen ls`; pids in column 1. Both
-// are used as completion candidates after `--name`/`--pid` on
-// exec/snapshot/attach/repl.
+// are completion candidates for the first positional on
+// exec/snapshot/fork/attach/repl/stop, and after legacy
+// --name/--pid flags.
 const BASH_COMPLETION = `# machinen bash completion — source this from ~/.bashrc, or:
 #   eval "$(machinen completion bash)"
 _machinen_completion() {
@@ -1623,8 +1657,13 @@ _machinen_completion() {
   esac
   case "\${words[1]}" in
     exec|snapshot|fork|attach|repl|stop)
-      COMPREPLY=( $(compgen -W "--name --pid" -- "\${cur}") )
-      return
+      # First positional after the subcommand is the target.
+      if [[ \${cword} -eq 2 ]]; then
+        local targets
+        targets=$(machinen ls 2>/dev/null | awk 'NR>1{print $1; if ($2!="-") print $2}')
+        COMPREPLY=( $(compgen -W "\${targets}" -- "\${cur}") )
+        return
+      fi
       ;;
     gc)
       COMPREPLY=( $(compgen -W "--dry-run" -- "\${cur}") )
@@ -1660,8 +1699,13 @@ _machinen() {
   esac
   case "\${words[2]}" in
     exec|snapshot|fork|attach|repl|stop)
-      _describe 'flag' '(--name --pid)'
-      return
+      # First positional after the subcommand is the target.
+      if (( CURRENT == 3 )); then
+        local -a targets
+        targets=(\${(f)"$(machinen ls 2>/dev/null | awk 'NR>1{print $1; if ($2!="-") print $2}')"})
+        _describe 'target' targets
+        return
+      fi
       ;;
     gc)
       _describe 'flag' '(--dry-run)'
@@ -1678,6 +1722,10 @@ set -l cmds boot restore install list ls ps exec snapshot fork attach repl gc st
 for bin in machinen mn
   complete -c $bin -f -n 'not __fish_seen_subcommand_from $cmds' -a "$cmds"
   for sub in exec snapshot fork attach repl stop
+    # First positional after the subcommand: complete with VM names + pids.
+    complete -c $bin -f -n "__fish_seen_subcommand_from $sub" \\
+      -a '(machinen ls 2>/dev/null | awk \\'NR>1{print $1; if ($2!="-") print $2}\\')'
+    # Legacy --name/--pid still work; complete after them too.
     complete -c $bin -f -n "__fish_seen_subcommand_from $sub" -l name \\
       -a '(machinen ls 2>/dev/null | awk \\'NR>1 && $2!="-"{print $2}\\')'
     complete -c $bin -f -n "__fish_seen_subcommand_from $sub" -l pid \\
@@ -1758,9 +1806,11 @@ function printHelp(): void {
       `                                                 a structured payload on stdout.\n` +
       `\n` +
       `  Targeting a running VM:\n` +
-      `    --name <name>     |  --pid <pid>             pick exactly one\n` +
+      `    Pass the name or pid as the first positional arg.\n` +
+      `    Digits-only is interpreted as a pid; everything else as a name.\n` +
+      `    (--name/--pid still work for one release with a deprecation warning.)\n` +
       `\n` +
-      `  machinen exec     <target-flag> [--tty] -- <cmd>\n` +
+      `  machinen exec     <name|pid> [--tty] -- <cmd>\n` +
       `                                                 Run a command in a running VM. Pass\n` +
       `                                                 --tty for a real PTY session — needed\n` +
       `                                                 for an interactive shell, vim, htop,\n` +
@@ -1768,15 +1818,15 @@ function printHelp(): void {
       `                                                 Without --tty stdio is line-buffered\n` +
       `                                                 pipes (good for one-shot commands).\n` +
       `                                                 Example:\n` +
-      `                                                   machinen exec <target-flag> --tty -- bash -i\n` +
-      `  machinen snapshot <target-flag> --out-dir <d> [--keep-alive]\n` +
+      `                                                   machinen exec <name|pid> --tty -- bash -i\n` +
+      `  machinen snapshot <name|pid> <out-dir> [--keep-alive]\n` +
       `                                                 CRIU-snapshot a running VM into <d>.\n` +
       `                                                 Default: source VM exits as part of the\n` +
       `                                                 dump. --keep-alive leaves it running\n` +
       `                                                 (and closes inherited TCP sockets to\n` +
       `                                                 avoid two live copies racing on shared\n` +
       `                                                 connection state).\n` +
-      `  machinen fork     <target-flag> [--new-name <n>] [--out-dir <d>] [--tcp-keep] [--detach]\n` +
+      `  machinen fork     <name|pid> [--new-name <n>] [--out-dir <d>] [--tcp-keep] [--detach]\n` +
       `                    [-p ...] [--mount ...] [--mount-live ...] [--env KEY=VALUE]...\n` +
       `                    [--cwd <abs>] [--memory <mib>]\n` +
       `                                                 Snapshot the source live (it keeps\n` +
@@ -1796,12 +1846,12 @@ function printHelp(): void {
       `                                                 --mount-live, --env, --cwd, --memory)\n` +
       `                                                 take effect on the forked sibling, not\n` +
       `                                                 the source.\n` +
-      `  machinen attach   <target-flag> [--shell <c>]  Drop into an interactive PTY shell\n` +
+      `  machinen attach   <name|pid> [--shell <c>]    Drop into an interactive PTY shell\n` +
       `                                                 in the running VM (default \`bash -i\`).\n` +
       `                                                 \`cd\`, env vars, history, job control\n` +
       `                                                 and full-screen TUIs all work. Exit\n` +
       `                                                 the shell (Ctrl-D) to detach.\n` +
-      `  machinen repl     <target-flag>                Per-line exec REPL: each line is a\n` +
+      `  machinen repl     <name|pid>                   Per-line exec REPL: each line is a\n` +
       `                                                 fresh one-shot \`exec\`, no persistent\n` +
       `                                                 state. Useful for piping a script of\n` +
       `                                                 one-liners; for an interactive shell\n` +
@@ -1832,10 +1882,10 @@ function printHelp(): void {
       `Examples:\n` +
       `  machinen boot --name worker -- node server.js\n` +
       `  machinen ls\n` +
-      `  machinen exec --name worker -- ps aux                # one-off command\n` +
-      `  machinen exec --name worker --tty -- bash -i         # interactive shell w/ job control\n` +
-      `  machinen exec --name worker --tty -- vim /etc/passwd # full-screen TUI in a PTY\n` +
-      `  machinen snapshot --name worker --out-dir ./warm\n` +
+      `  machinen exec worker -- ps aux                       # one-off command\n` +
+      `  machinen exec worker --tty -- bash -i                # interactive shell w/ job control\n` +
+      `  machinen exec worker --tty -- vim /etc/passwd        # full-screen TUI in a PTY\n` +
+      `  machinen snapshot worker ./warm                      # CRIU snapshot bundle\n` +
       `  machinen restore ./warm\n` +
       `\n` +
       `Environment:\n` +

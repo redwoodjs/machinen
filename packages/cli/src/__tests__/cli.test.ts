@@ -5,6 +5,7 @@ import { formatPorts } from "../format-ports.ts";
 import { parseForkArgs } from "../parse-fork-args.ts";
 import { parseRestoreArgs } from "../parse-restore-args.ts";
 import { parseRunArgs } from "../parse-run-args.ts";
+import { extractTarget } from "../parse-target.ts";
 import { tailLines } from "../tail-lines.ts";
 
 describe("parseRunArgs --env", () => {
@@ -699,5 +700,98 @@ describe("tailLines (machinen attach --tail slicing)", () => {
 
   it("returns the whole content when tail >= line count", () => {
     expect(tailLines("a\nb\n", 99)).toBe("a\nb\n");
+  });
+});
+
+describe("extractTarget", () => {
+  it("treats a non-digit positional as a name", () => {
+    const r = extractTarget(["worker"], "exec");
+    expect(r.target).toEqual({ name: "worker" });
+    expect(r.rest).toEqual([]);
+    expect(r.legacyFlags).toEqual([]);
+  });
+
+  it("treats an all-digits positional as a pid", () => {
+    const r = extractTarget(["12345"], "stop");
+    expect(r.target).toEqual({ pid: 12345 });
+    expect(r.legacyFlags).toEqual([]);
+  });
+
+  it("accepts path-shaped names (slash-separated)", () => {
+    const r = extractTarget(["a/b/c"], "exec");
+    expect(r.target).toEqual({ name: "a/b/c" });
+  });
+
+  it("returns extra positionals in rest (e.g. snapshot's out-dir)", () => {
+    const r = extractTarget(["worker", "./warm"], "snapshot");
+    expect(r.target).toEqual({ name: "worker" });
+    expect(r.rest).toEqual(["./warm"]);
+  });
+
+  it("flags legacy --name with legacyFlags", () => {
+    const r = extractTarget(["--name", "worker"], "exec");
+    expect(r.target).toEqual({ name: "worker" });
+    expect(r.legacyFlags).toEqual(["--name"]);
+  });
+
+  it("flags legacy --pid with legacyFlags", () => {
+    const r = extractTarget(["--pid", "999"], "stop");
+    expect(r.target).toEqual({ pid: 999 });
+    expect(r.legacyFlags).toEqual(["--pid"]);
+  });
+
+  it("supports --name=<v> form", () => {
+    const r = extractTarget(["--name=worker"], "exec");
+    expect(r.target).toEqual({ name: "worker" });
+    expect(r.legacyFlags).toEqual(["--name"]);
+  });
+
+  it("supports --pid=<v> form", () => {
+    const r = extractTarget(["--pid=42"], "stop");
+    expect(r.target).toEqual({ pid: 42 });
+  });
+
+  it("rejects positional + --name (over-specified)", () => {
+    expect(() => extractTarget(["worker", "--name", "other"], "exec")).toThrow(
+      /pass the target once/,
+    );
+  });
+
+  it("rejects positional + --pid (over-specified)", () => {
+    expect(() => extractTarget(["worker", "--pid", "1"], "exec")).toThrow(/pass the target once/);
+  });
+
+  it("rejects --name + --pid", () => {
+    expect(() => extractTarget(["--name", "x", "--pid", "1"], "exec")).toThrow(
+      /--name OR --pid, not both/,
+    );
+  });
+
+  it("rejects no target at all", () => {
+    expect(() => extractTarget([], "exec")).toThrow(/requires a target/);
+  });
+
+  it("rejects unknown flags", () => {
+    expect(() => extractTarget(["--bogus"], "exec")).toThrow(/unknown argument: --bogus/);
+  });
+
+  it("rejects non-numeric --pid", () => {
+    expect(() => extractTarget(["--pid", "abc"], "exec")).toThrow(/--pid requires a numeric/);
+  });
+
+  it("rejects bare --name with no value", () => {
+    expect(() => extractTarget(["--name"], "exec")).toThrow(/--name requires a value/);
+  });
+
+  it("rejects duplicate --name", () => {
+    expect(() => extractTarget(["--name", "a", "--name", "b"], "exec")).toThrow(/at most once/);
+  });
+
+  it("rejects duplicate --pid", () => {
+    expect(() => extractTarget(["--pid", "1", "--pid", "2"], "exec")).toThrow(/at most once/);
+  });
+
+  it("throws ParseError so the CLI can format it", () => {
+    expect(() => extractTarget([], "exec")).toThrow(ParseError);
   });
 });

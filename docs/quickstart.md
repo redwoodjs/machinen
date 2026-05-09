@@ -74,7 +74,7 @@ file descriptors as a CRIU dump on an ext4 volume; `meta.json` is a small
 manifest.
 
 ```bash
-npx machinen snapshot --name counter --out-dir ./counter.snap
+npx machinen snapshot counter ./counter.snap
 scp -r ./counter.snap host-b:
 ssh host-b npx machinen restore ./counter.snap &
 curl host-b:3000                           # { count: 3 }
