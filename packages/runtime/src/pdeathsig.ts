@@ -7,18 +7,30 @@
 // useful error on the *next* boot, but that's diagnosis — this module
 // closes the loop by making the child actually die with the runtime.
 //
-// Cross-platform via a tiny C shim, ~100 lines, two #ifdef branches:
+// Two modes:
 //
-//   - Linux: `prctl(PR_SET_PDEATHSIG, SIGTERM)` then `execvp` the
-//     target. The kernel sends SIGTERM to the target when its parent
-//     exits. PDEATHSIG is preserved across exec as long as the target
-//     doesn't change UID, which gvproxy doesn't. One process.
+//   1. Default — watch the immediate parent (the process that exec'd
+//      the shim). Used by gvproxy and the VMM today.
+//   2. `--watch-pid <pid>` — watch an explicit, non-parent PID. Used
+//      by the detached live-mount helper (#150 phase 3): the helper
+//      is spawned by the supervisor, but it should die when the *VMM*
+//      dies, not when the supervisor exits.
 //
-//   - macOS: no PDEATHSIG. Fork; the child execs the target; the
-//     parent (the shim, now reparented to PID 1) kqueue-watches the
-//     original parent's PID for NOTE_EXIT and SIGTERMs the target when
-//     it fires. Two processes — the extra ~10 KiB watcher per VM is
-//     a fair price for not orphaning gvproxy.
+// Cross-platform via a tiny C shim, ~200 lines, three branches:
+//
+//   - Linux + default:   `prctl(PR_SET_PDEATHSIG, SIGTERM)` then
+//     `execvp` the target. The kernel sends SIGTERM to the target
+//     when its parent exits. PDEATHSIG is preserved across exec as
+//     long as the target doesn't change UID. One process.
+//   - Linux + watch-pid: fork + exec; parent uses `pidfd_open(2)` +
+//     `poll(2)` to wait for the watched pid's exit. Falls back to a
+//     `kill(pid, 0)` polling loop on pre-5.3 kernels (or where
+//     pidfd_open is denied). Two processes.
+//   - macOS:             no PDEATHSIG, no pidfd. Fork; the child
+//     execs the target; the parent (the shim, now reparented to PID
+//     1) kqueue-watches the watched pid (`getppid()` in default mode,
+//     argv pid in watch-pid mode) for `NOTE_EXIT` and SIGTERMs the
+//     target when it fires. Two processes.
 //
 // We compile the shim on first use into `~/.machinen/pdeathsig/<ver>/
 // pdeathsig` (mirrors `gvproxyCachePath`). If `cc` is missing we log
@@ -41,7 +53,7 @@ const debug = debugLib("machinen:pdeathsig");
  * Bumped whenever the C source below changes in a way that changes
  * behavior. Recompiles instead of silently reusing a stale binary.
  */
-const PDEATHSIG_VERSION = "v2";
+const PDEATHSIG_VERSION = "v3";
 
 let warnedNoCompiler = false;
 // Keyed by the resolved cache path. Two reasons it has to be a map and
@@ -58,8 +70,11 @@ const installInFlight = new Map<string, Promise<string | null>>();
  * verbatim from the same string at compile time.
  */
 const PDEATHSIG_C_SOURCE = `// pdeathsig: tiny exec wrapper that arranges for the target to die
-// when its parent dies. Linux uses PR_SET_PDEATHSIG; macOS uses a
-// kqueue NOTE_EXIT watcher. See packages/runtime/src/pdeathsig.ts.
+// when a watched process dies. See packages/runtime/src/pdeathsig.ts.
+//
+// Modes:
+//   pdeathsig <cmd> [args...]                   - watch immediate parent
+//   pdeathsig --watch-pid <pid> <cmd> [args]    - watch the given pid
 
 #define _GNU_SOURCE
 #include <errno.h>
@@ -68,43 +83,22 @@ const PDEATHSIG_C_SOURCE = `// pdeathsig: tiny exec wrapper that arranges for th
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/wait.h>
 
 #if defined(__linux__)
 #include <sys/prctl.h>
+#include <poll.h>
+#include <sys/syscall.h>
+#include <sys/signalfd.h>
 #elif defined(__APPLE__)
 #include <sys/event.h>
 #include <sys/types.h>
-#include <sys/wait.h>
 #endif
 
-static int run(int argc, char **argv);
+#if defined(__linux__) && !defined(SYS_pidfd_open)
+#define SYS_pidfd_open 434
+#endif
 
-int main(int argc, char **argv) {
-    if (argc < 2) {
-        fprintf(stderr, "pdeathsig: usage: pdeathsig <command> [args...]\\n");
-        return 2;
-    }
-    return run(argc, argv);
-}
-
-#if defined(__linux__)
-static int run(int argc, char **argv) {
-    (void)argc;
-    if (prctl(PR_SET_PDEATHSIG, SIGTERM) == -1) {
-        perror("pdeathsig: prctl");
-        return 127;
-    }
-    // Race: parent may already be gone. PDEATHSIG won't fire because
-    // there's nothing to fire on. Detect via reparenting to PID 1.
-    if (getppid() == 1) {
-        return 0;
-    }
-    execvp(argv[1], &argv[1]);
-    perror("pdeathsig: execvp");
-    return 127;
-}
-
-#elif defined(__APPLE__)
 // Wait up to ~5s for the target to exit after SIGTERM, then escalate.
 static int reap_then_exit(pid_t child, int code) {
     for (int i = 0; i < 50; i++) {
@@ -118,13 +112,151 @@ static int reap_then_exit(pid_t child, int code) {
     return code;
 }
 
-static int run(int argc, char **argv) {
-    (void)argc;
-    pid_t parent_pid = getppid();
-    if (parent_pid == 1) {
+static int parse_pid(const char *s, pid_t *out) {
+    char *end = NULL;
+    errno = 0;
+    long n = strtol(s, &end, 10);
+    if (errno != 0 || end == s || end == NULL || *end != '\\0' ||
+        n <= 0 || n > 0x7fffffff) {
+        return -1;
+    }
+    *out = (pid_t)n;
+    return 0;
+}
+
+#if defined(__linux__)
+
+// Default mode: prctl + execvp. Single process. Parent of pdeathsig
+// becomes the watched pid by definition.
+static int run_default_linux(char **target) {
+    if (prctl(PR_SET_PDEATHSIG, SIGTERM) == -1) {
+        perror("pdeathsig: prctl");
+        return 127;
+    }
+    // Race: parent may already be gone. PDEATHSIG won't fire because
+    // there's nothing to fire on. Detect via reparenting to PID 1.
+    if (getppid() == 1) {
         return 0;
     }
+    execvp(target[0], target);
+    perror("pdeathsig: execvp");
+    return 127;
+}
 
+// Watch-pid mode on Linux: fork + exec; parent watches the explicit
+// pid via pidfd_open + poll. Falls back to a kill(pid,0) polling loop
+// when pidfd_open is unavailable (kernel < 5.3) or returns ENOSYS.
+static int run_watch_pid_linux(pid_t watch_pid, char **target) {
+    sigset_t mask;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGTERM);
+    sigaddset(&mask, SIGINT);
+    sigaddset(&mask, SIGHUP);
+    sigprocmask(SIG_BLOCK, &mask, NULL);
+
+    pid_t child = fork();
+    if (child == -1) {
+        perror("pdeathsig: fork");
+        return 127;
+    }
+    if (child == 0) {
+        sigprocmask(SIG_UNBLOCK, &mask, NULL);
+        execvp(target[0], target);
+        perror("pdeathsig: execvp");
+        _exit(127);
+    }
+
+    int sigfd = signalfd(-1, &mask, SFD_CLOEXEC);
+    if (sigfd == -1) {
+        perror("pdeathsig: signalfd");
+        kill(child, SIGTERM);
+        return reap_then_exit(child, 127);
+    }
+
+    int pidfd = (int)syscall(SYS_pidfd_open, watch_pid, 0);
+    int saved_errno = errno;
+    if (pidfd == -1 && saved_errno == ESRCH) {
+        // Watched pid died between the pre-fork ESRCH check and now.
+        kill(child, SIGTERM);
+        close(sigfd);
+        return reap_then_exit(child, 0);
+    }
+
+    if (pidfd == -1) {
+        // pidfd_open unavailable (ENOSYS) or denied. Polling fallback:
+        // poll signalfd with a 250ms timeout and recheck the watched
+        // pid via kill(pid, 0) on every wake.
+        struct pollfd pfd = { .fd = sigfd, .events = POLLIN, .revents = 0 };
+        for (;;) {
+            int n = poll(&pfd, 1, 250);
+            if (n == -1) {
+                if (errno == EINTR) continue;
+                perror("pdeathsig: poll");
+                kill(child, SIGTERM);
+                close(sigfd);
+                return reap_then_exit(child, 127);
+            }
+            if (n == 1 && (pfd.revents & POLLIN)) {
+                struct signalfd_siginfo si;
+                if (read(sigfd, &si, sizeof si) == sizeof si) {
+                    kill(child, (int)si.ssi_signo);
+                    close(sigfd);
+                    return reap_then_exit(child, 128 + (int)si.ssi_signo);
+                }
+            }
+            if (kill(watch_pid, 0) == -1 && errno == ESRCH) {
+                kill(child, SIGTERM);
+                close(sigfd);
+                return reap_then_exit(child, 0);
+            }
+            int status;
+            pid_t r = waitpid(child, &status, WNOHANG);
+            if (r == child) {
+                close(sigfd);
+                return WIFEXITED(status) ? WEXITSTATUS(status)
+                                         : 128 + WTERMSIG(status);
+            }
+        }
+    }
+
+    // pidfd path: poll signalfd + pidfd; pidfd POLLIN fires on exit.
+    struct pollfd pfds[2] = {
+        { .fd = sigfd,  .events = POLLIN, .revents = 0 },
+        { .fd = pidfd,  .events = POLLIN, .revents = 0 },
+    };
+    for (;;) {
+        int n = poll(pfds, 2, -1);
+        if (n == -1) {
+            if (errno == EINTR) continue;
+            perror("pdeathsig: poll");
+            kill(child, SIGTERM);
+            close(sigfd);
+            close(pidfd);
+            return reap_then_exit(child, 127);
+        }
+        if (pfds[1].revents & POLLIN) {
+            kill(child, SIGTERM);
+            close(sigfd);
+            close(pidfd);
+            return reap_then_exit(child, 0);
+        }
+        if (pfds[0].revents & POLLIN) {
+            struct signalfd_siginfo si;
+            if (read(sigfd, &si, sizeof si) == sizeof si) {
+                kill(child, (int)si.ssi_signo);
+                close(sigfd);
+                close(pidfd);
+                return reap_then_exit(child, 128 + (int)si.ssi_signo);
+            }
+        }
+    }
+}
+
+#elif defined(__APPLE__)
+
+// Shared by default mode (watch_pid = getppid()) and --watch-pid mode
+// (watch_pid from argv). kqueue NOTE_EXIT on the watched pid.
+static int run_watch_pid_macos(pid_t watch_pid, char **target) {
     // Block the signals we'll consume via EVFILT_SIGNAL. Without this
     // the default disposition would kill the guard before kqueue
     // delivers the event, leaving the target alive and orphaned to
@@ -146,7 +278,7 @@ static int run(int argc, char **argv) {
         // clean mask — gvproxy and friends expect to receive SIGTERM
         // normally.
         sigprocmask(SIG_UNBLOCK, &mask, NULL);
-        execvp(argv[1], &argv[1]);
+        execvp(target[0], target);
         perror("pdeathsig: execvp");
         _exit(127);
     }
@@ -159,7 +291,7 @@ static int run(int argc, char **argv) {
     }
 
     struct kevent changes[5];
-    EV_SET(&changes[0], parent_pid, EVFILT_PROC, EV_ADD | EV_ONESHOT,
+    EV_SET(&changes[0], watch_pid, EVFILT_PROC, EV_ADD | EV_ONESHOT,
            NOTE_EXIT, 0, NULL);
     EV_SET(&changes[1], child, EVFILT_PROC, EV_ADD | EV_ONESHOT,
            NOTE_EXIT, 0, NULL);
@@ -172,9 +304,10 @@ static int run(int argc, char **argv) {
         return reap_then_exit(child, 127);
     }
 
-    // Race: parent may have died between getppid() and EV_SET. EVFILT_PROC
-    // on a dead pid silently never fires, so recheck explicitly.
-    if (kill(parent_pid, 0) == -1 && errno == ESRCH) {
+    // Race: watched pid may have died between the pre-fork check and
+    // EV_SET. EVFILT_PROC on a dead pid silently never fires, so
+    // recheck explicitly.
+    if (kill(watch_pid, 0) == -1 && errno == ESRCH) {
         kill(child, SIGTERM);
         return reap_then_exit(child, 0);
     }
@@ -198,7 +331,7 @@ static int run(int argc, char **argv) {
             return reap_then_exit(child, 128 + (int)ev.ident);
         }
         pid_t fired = (pid_t)ev.ident;
-        if (fired == parent_pid) {
+        if (fired == watch_pid) {
             kill(child, SIGTERM);
             return reap_then_exit(child, 0);
         }
@@ -211,13 +344,51 @@ static int run(int argc, char **argv) {
     }
 }
 
+#endif
+
+int main(int argc, char **argv) {
+    pid_t watch_pid = -1;
+    char **target = NULL;
+
+    if (argc >= 4 && strcmp(argv[1], "--watch-pid") == 0) {
+        if (parse_pid(argv[2], &watch_pid) != 0) {
+            fprintf(stderr, "pdeathsig: invalid pid '%s'\\n", argv[2]);
+            return 2;
+        }
+        target = argv + 3;
+    } else if (argc >= 2) {
+        target = argv + 1;
+    } else {
+        fprintf(stderr,
+                "pdeathsig: usage: pdeathsig [--watch-pid <pid>] "
+                "<command> [args...]\\n");
+        return 2;
+    }
+
+#if defined(__linux__)
+    if (watch_pid > 0) {
+        if (kill(watch_pid, 0) == -1 && errno == ESRCH) {
+            return 0;  // already dead; nothing to do
+        }
+        return run_watch_pid_linux(watch_pid, target);
+    }
+    return run_default_linux(target);
+#elif defined(__APPLE__)
+    if (watch_pid <= 0) {
+        watch_pid = getppid();
+        if (watch_pid == 1) {
+            return 0;  // parent already gone; don't run target
+        }
+    } else if (kill(watch_pid, 0) == -1 && errno == ESRCH) {
+        return 0;  // watched pid already gone
+    }
+    return run_watch_pid_macos(watch_pid, target);
 #else
-static int run(int argc, char **argv) {
-    (void)argc; (void)argv;
+    (void)target;
     fprintf(stderr, "pdeathsig: unsupported platform\\n");
     return 127;
-}
 #endif
+}
 `;
 
 /**
@@ -337,17 +508,33 @@ function compilePdeathsig(outPath: string): string {
 }
 
 /**
- * Wrap an argv pair so the resulting spawn dies with its parent.
- * If `pdeathsigBin` is `null` the argv is returned unchanged — caller
+ * Wrap an argv pair so the resulting spawn dies with its parent — or,
+ * with `opts.watchPid`, with the given non-parent process. If
+ * `pdeathsigBin` is `null` the argv is returned unchanged — caller
  * gets the unwrapped behavior (orphan-on-kill -9).
+ *
+ * `opts.watchPid` is for the detached live-mount helper case (#150
+ * phase 3): the helper's immediate parent (the supervisor) exits on
+ * purpose post-detach, but the helper must die when the *VMM* dies.
+ * Pass the VMM's pid here.
  */
 export function wrapWithPdeathsig(
   pdeathsigBin: string | null,
   command: string,
   args: string[],
+  opts: { watchPid?: number } = {},
 ): { command: string; args: string[] } {
   if (!pdeathsigBin) {
     return { command, args };
+  }
+  if (opts.watchPid !== undefined) {
+    if (!Number.isInteger(opts.watchPid) || opts.watchPid <= 0) {
+      throw new Error(`wrapWithPdeathsig: invalid watchPid ${opts.watchPid}`);
+    }
+    return {
+      command: pdeathsigBin,
+      args: ["--watch-pid", String(opts.watchPid), command, ...args],
+    };
   }
   return { command: pdeathsigBin, args: [command, ...args] };
 }

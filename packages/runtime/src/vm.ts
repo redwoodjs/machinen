@@ -70,11 +70,14 @@ import {
   markMountDiskImageClean,
 } from "./mountdisk-img.ts";
 import { VsockExec, type VsockExecOptions, type VsockExecResult } from "./exec.ts";
-import { serveLiveMount, type LiveMountServerHandle } from "./mount-server.ts";
+import {
+  spawnDetachedMountServer,
+  type DetachedMountServerHandle,
+} from "./mount-server-detached.ts";
 import { markPagemapsLazy } from "./lazy-pagemap.ts";
 import type { OnLog } from "./log.ts";
 import { PhaseTimer } from "./phase-timer.ts";
-import { claimName, findEntry, isAlive, removeEntry, writeEntry } from "./registry.ts";
+import { claimName, findEntry, isAlive, patchEntry, removeEntry, writeEntry } from "./registry.ts";
 import { runGc } from "./gc.ts";
 import { readProcessIdentity } from "./pid-validate.ts";
 import type {
@@ -519,31 +522,23 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     opts.mount ? `${opts.mount.host}->${opts.mount.guest}` : "<none>",
   );
   phases.start("asset-resolve");
-  // #150 phase 2: refuse `--detached` with options that keep helpers
-  // alive in the JS supervisor. After detach the supervisor is gone;
-  // any guest call back into one of these (a FUSE op, an artifact-
-  // cache fetch) would land on a dead socket. Phase 3 extracts those
-  // helpers into standalone daemons — until then, the gate is hard.
-  //
-  // PR3 lifted the `portForward` restriction: gvproxy now also
-  // detaches (its pid + socket dir are persisted in the registry so
-  // `machinen stop` reaps them), and `exposePort` runs *before*
-  // detach completes, so the forwards are configured by the time the
-  // parent exits.
+  // #150: refuse `--detached` with options that keep helpers alive in
+  // the JS supervisor. After detach the supervisor is gone; any guest
+  // call back into one of these would land on a dead socket. Phase 3
+  // lifted `liveMounts` (each one now spawns as a detached helper
+  // wrapped through `pdeathsig --watch-pid <vmm>`); `mount` is the
+  // last remaining incompatible case.
   if (opts.detached) {
     const incompatible: string[] = [];
     if (opts.mount) {
       incompatible.push("mount");
-    }
-    if ((opts.liveMounts ?? []).length > 0) {
-      incompatible.push("liveMounts");
     }
     if (incompatible.length > 0) {
       throw new BootError(
         "BOOT_DETACHED_INCOMPATIBLE",
         `boot({ detached: true }) is not yet compatible with: ${incompatible.join(", ")}. ` +
           "Those keep helpers alive in the runtime supervisor — after detach, " +
-          "the helpers die with it. Phase 3 of #150 will lift this restriction.",
+          "the helpers die with it.",
       );
     }
   }
@@ -832,7 +827,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   let gvPid: number | undefined;
   let gvExe: string | undefined;
   let gvSocketDir: string | undefined;
-  const liveMountServers: LiveMountServerHandle[] = [];
+  const liveMountServers: DetachedMountServerHandle[] = [];
   let bundleTempDir: string | undefined;
   // #272: paths to the materialized squashfs lower + per-VM ext4
   // upper for the `--mount` overlay. The lower lives in the host
@@ -892,19 +887,12 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     }
     phases.end("net-services.gvproxy");
 
-    // #78: start one live-share server per resolved mount before the
-    // VMM boots. The guest fuse-agent will dial these UDSes once it's
-    // past /dev/fuse mount; if we started them after the VMM, the
-    // agent would spin in connect-retry for as long as we took.
-    phases.start("net-services.live-mounts");
-    for (const lm of liveMountsResolved) {
-      const handle = await serveLiveMount(lm.udsPath, {
-        rootAbs: lm.host,
-        mode: lm.mode,
-      });
-      liveMountServers.push(handle);
-    }
-    phases.end("net-services.live-mounts");
+    // #78: live-share servers used to spawn here, before the VMM. As
+    // of #150 phase 3 they're standalone helpers wrapped through
+    // pdeathsig --watch-pid, so we need the VMM's pid first. The
+    // helpers spawn after `vmm-spawn` below — the guest's fuse-agent
+    // doesn't dial until userspace is up, so the ~50ms helper-spawn
+    // delay is invisible.
     phases.end("net-services");
 
     // Pack an initramfs whenever the guest needs userspace (image +
@@ -977,9 +965,10 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     }
     phases.end("rootdisk-materialize");
   } catch (err) {
-    for (const server of liveMountServers) {
-      await server.stop().catch(() => {});
-    }
+    // No live-mount helpers yet at this point (they spawn post-VMM,
+    // see #150 phase 3) — only the gv + per-boot disks need rolling
+    // back. The post-VMM mount-server failure path below has its own
+    // inline cleanup that includes SIGKILLing the VMM.
     if (gvStop) {
       gvStop();
     }
@@ -1375,6 +1364,51 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     });
   }
 
+  // #150 phase 3: spawn the live-share mount servers as detached
+  // helpers parented (via pdeathsig --watch-pid) to the VMM. The
+  // helpers survive supervisor exit and die with the VMM. Spawned
+  // here so we have child.pid to watch and the exit hook above is
+  // already registered (it iterates `liveMountServers` for stop).
+  // On failure: SIGKILL the VMM; the exit hook reaps everything
+  // including helpers we did manage to start.
+  if (liveMountsResolved.length > 0) {
+    phases.start("net-services.live-mounts");
+    try {
+      for (const lm of liveMountsResolved) {
+        const lmHandle = await spawnDetachedMountServer({
+          udsPath: lm.udsPath,
+          rootAbs: lm.host,
+          mode: lm.mode,
+          vmmPid: childPid,
+          statsPath: lm.statsPath,
+        });
+        liveMountServers.push(lmHandle);
+      }
+      phases.end("net-services.live-mounts");
+    } catch (err) {
+      try {
+        child.kill("SIGKILL");
+      } catch {}
+      throw err;
+    }
+    // Patch the registry entry with the helper pids+exes now that
+    // they're known. `machinen stop` SIGTERMs them alongside the VMM;
+    // `machinen gc` validates pid+exe to detect recycled pids the
+    // same way it does for the VMM and gvproxy.
+    if (registered) {
+      try {
+        patchEntry(childPid, {
+          liveMountServers: liveMountServers.map((h) => ({ pid: h.pid, exe: h.exe })),
+        });
+      } catch (err) {
+        debug(
+          "registry patch (liveMountServers) failed (best-effort) err=%s",
+          err instanceof Error ? err.message : String(err),
+        );
+      }
+    }
+  }
+
   const handle: VmHandle = {
     pid: childPid,
     name: vmName,
@@ -1604,10 +1638,17 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
             // server. memoryStats's lazy-pages accounting resets to
             // zero, which is correct — restored guests start a new
             // fault stream.
+            //
+            // The respawned helpers watch the same VMM pid as the
+            // originals — even after a CRIU restore the kernel pid
+            // doesn't change.
             for (const lm of liveMountsResolved) {
-              const fresh = await serveLiveMount(lm.udsPath, {
+              const fresh = await spawnDetachedMountServer({
+                udsPath: lm.udsPath,
                 rootAbs: lm.host,
                 mode: lm.mode,
+                vmmPid: childPid,
+                statsPath: lm.statsPath,
               });
               liveMountServers.push(fresh);
             }
@@ -2037,6 +2078,12 @@ interface ResolvedLiveMount {
   guest: string;
   port: number;
   udsPath: string;
+  /**
+   * Per-mount stats file the detached helper writes its
+   * bytesServedOnPagesImg counter to. Lives next to `udsPath` under
+   * `vsockTempDir` so the supervisor's cleanupPaths sweep covers it.
+   */
+  statsPath: string;
   mode: "ro" | "rw";
 }
 
@@ -2069,6 +2116,7 @@ function resolveLiveMounts(
       guest: normalizeMountGuest(m.guest),
       port: LIVE_MOUNT_PORT_BASE + i,
       udsPath: join(udsDir, `live-mount-${i}.sock`),
+      statsPath: join(udsDir, `live-mount-${i}-stats.json`),
       mode: m.mode ?? "rw",
     };
   });

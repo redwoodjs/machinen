@@ -75,6 +75,28 @@ describe("wrapWithPdeathsig", () => {
       args: ["/bin/sleep", "10"],
     });
   });
+
+  it("emits --watch-pid <n> when watchPid is set", () => {
+    expect(
+      wrapWithPdeathsig("/path/to/pdeathsig", "/bin/sleep", ["10"], { watchPid: 4242 }),
+    ).toEqual({
+      command: "/path/to/pdeathsig",
+      args: ["--watch-pid", "4242", "/bin/sleep", "10"],
+    });
+  });
+
+  it("rejects a non-positive watchPid", () => {
+    expect(() => wrapWithPdeathsig("/p", "/bin/sleep", [], { watchPid: 0 })).toThrow();
+    expect(() => wrapWithPdeathsig("/p", "/bin/sleep", [], { watchPid: -1 })).toThrow();
+    expect(() => wrapWithPdeathsig("/p", "/bin/sleep", [], { watchPid: 1.5 })).toThrow();
+  });
+
+  it("watchPid is a no-op when shim is null (caller already opted out)", () => {
+    expect(wrapWithPdeathsig(null, "/bin/sleep", ["10"], { watchPid: 4242 })).toEqual({
+      command: "/bin/sleep",
+      args: ["10"],
+    });
+  });
 });
 
 // Empirical proof: spawn `node -e <parent script>` which itself spawns
@@ -156,6 +178,90 @@ describe("pdeathsig kill -9 survival", () => {
     // also be running `sleep`, so we tolerate non-empty output as long
     // as our specific child PID is gone (asserted above).
     void stragglers;
+  }, 15000);
+
+  // --watch-pid <pid> mode: the wrapped target dies when the *named*
+  // process dies, even if it's not the wrapper's parent. Used by the
+  // detached live-mount helper (#150 phase 3): the helper is spawned
+  // by the supervisor but must die when the VMM dies.
+  it("--watch-pid <n>: target dies when the watched (non-parent) pid is killed", async () => {
+    if (process.platform !== "linux" && process.platform !== "darwin") {
+      return;
+    }
+    const shim = await ensurePdeathsig();
+    if (!shim) {
+      console.warn("pdeathsig shim unavailable; skipping watch-pid test");
+      return;
+    }
+
+    // The "watched" process — a sleep we'll kill explicitly. Stand-in
+    // for the VMM in the real flow.
+    const watched = spawn("/bin/sleep", ["30"], { stdio: "ignore" });
+    await new Promise<void>((resolve, reject) => {
+      watched.once("spawn", () => resolve());
+      watched.once("error", reject);
+    });
+    expect(watched.pid).toBeTypeOf("number");
+
+    // The "target" — a sleep wrapped with --watch-pid pointed at the
+    // watched sleep. Its parent is *this* node process, not the
+    // watched sleep, so plain pdeathsig wouldn't help.
+    const wrapped = spawn(shim, ["--watch-pid", String(watched.pid), "/bin/sleep", "30"], {
+      stdio: "ignore",
+    });
+    await new Promise<void>((resolve, reject) => {
+      wrapped.once("spawn", () => resolve());
+      wrapped.once("error", reject);
+    });
+    expect(wrapped.pid).toBeTypeOf("number");
+    // Both processes are alive immediately after spawn.
+    expect(pidAlive(watched.pid!)).toBe(true);
+    expect(pidAlive(wrapped.pid!)).toBe(true);
+
+    // Kill the watched process. The wrapped target should die.
+    watched.kill("SIGKILL");
+
+    const wrappedGone = await waitFor(() => !pidAlive(wrapped.pid!), 5000);
+    if (!wrappedGone) {
+      // Cleanup so a regression doesn't strand a 30s sleep.
+      try {
+        process.kill(wrapped.pid!, "SIGKILL");
+      } catch {}
+    }
+    expect(wrappedGone).toBe(true);
+  }, 15000);
+
+  // Edge case: caller passes --watch-pid for a pid that's already
+  // dead. The shim should exit 0 without forking the target.
+  it("--watch-pid <n>: exits 0 when the watched pid is already dead", async () => {
+    if (process.platform !== "linux" && process.platform !== "darwin") {
+      return;
+    }
+    const shim = await ensurePdeathsig();
+    if (!shim) {
+      return;
+    }
+
+    // Spawn and immediately reap a sleep so we have a guaranteed-dead pid.
+    const corpse = spawn("/bin/sleep", ["0"], { stdio: "ignore" });
+    const corpsePid = await new Promise<number>((resolve, reject) => {
+      corpse.once("spawn", () => resolve(corpse.pid!));
+      corpse.once("error", reject);
+    });
+    await new Promise<void>((resolve) => corpse.once("exit", () => resolve()));
+    // Wait for the kernel to actually free the pid.
+    await waitFor(() => !pidAlive(corpsePid), 2000);
+
+    // sentinel: target should NOT run. We use an arg that would
+    // be obvious if it did (touching a tempfile etc. would be more
+    // precise but we just assert the exit code).
+    const child = spawn(shim, ["--watch-pid", String(corpsePid), "/bin/sleep", "30"], {
+      stdio: "ignore",
+    });
+    const exitCode = await new Promise<number | null>((resolve) => {
+      child.once("exit", (code) => resolve(code));
+    });
+    expect(exitCode).toBe(0);
   }, 15000);
 
   // Graceful path: child.kill("SIGTERM") on the wrapped spawn must

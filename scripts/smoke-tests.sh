@@ -1143,6 +1143,104 @@ fi
 
 # Already cleaned by `machinen stop`, so cleanup_n2d is a no-op now.
 trap 'rm -rf "$FIXTURE"' EXIT
+
+# ---- N2L: machinen boot --detached --mount-live; helper survives parent
+# exit, serves FUSE post-detach, and `machinen stop` reaps it.
+# Issue #150 phase 3. Re-uses the N2 rootfs-capability gate (same
+# requirement as N2D for vsock-exec, plus fuse-agent for the live
+# relay).
+if grep -q 'fuse-agent$' <<<"$ROOTFS_ENTRIES"; then
+  echo "N2L: machinen boot --detached --mount-live; helper survives detach; stop reaps it"
+  N2L_NAME="smoke-detached-live-$$"
+  N2L_LOG="$FIXTURE/n2l.log"
+  N2L_LOG_DIR="$FIXTURE/n2l-logs"
+  N2L_SRC="$FIXTURE/n2l-live"
+  N2L_MARKER="n2l-marker-$$"
+  mkdir -p "$N2L_SRC" "$N2L_LOG_DIR"
+  # Seed the marker BEFORE boot so the post-detach exec can read it.
+  # (Unlike T3 which writes the marker after boot to prove laziness,
+  # we just need to confirm the helper still serves bytes after the
+  # supervisor exited.)
+  echo "$N2L_MARKER" >"$N2L_SRC/hello.txt"
+
+  n2l_t0=$SECONDS
+  if MACHINEN_DETACHED_LOG_DIR="$N2L_LOG_DIR" cli boot \
+      --name "$N2L_NAME" --detached \
+      --mount-live "$N2L_SRC:/mnt/live:ro" \
+      -- /bin/sh -c "/exec-agent & sleep 120" >"$N2L_LOG" 2>&1; then
+    pass "boot --detached --mount-live returned 0 in $((SECONDS - n2l_t0))s"
+  else
+    cat "$N2L_LOG" >&2
+    fail "N2L — boot --detached --mount-live exited non-zero"
+  fi
+
+  N2L_PID=$(cli ls 2>/dev/null | awk -v n="$N2L_NAME" 'NR>1 && $2==n {print $1}')
+  cleanup_n2l() {
+    [[ -n "${N2L_PID:-}" ]] && kill -TERM "$N2L_PID" 2>/dev/null || true
+  }
+  trap 'cleanup_n2l; rm -rf "$FIXTURE"' EXIT
+  if [[ -z "$N2L_PID" ]]; then
+    cli ls >&2 || true
+    fail "N2L — '$N2L_NAME' missing from 'machinen ls' after detach"
+  fi
+
+  N2L_META="$MACHINEN_REGISTRY_DIR/$N2L_PID/meta.json"
+  N2L_HELPER_PIDS=$(node -p "
+    const e = JSON.parse(require('fs').readFileSync('$N2L_META','utf8'));
+    (e.liveMountServers ?? []).map(s => s.pid).join(' ')
+  " 2>/dev/null || true)
+  if [[ -z "$N2L_HELPER_PIDS" ]]; then
+    cat "$N2L_META" >&2
+    fail "N2L — registry meta has no liveMountServers entry"
+  fi
+  pass "registry recorded mount-server helper pid(s): $N2L_HELPER_PIDS"
+
+  # Each helper should be alive (the supervisor exited but pdeathsig
+  # --watch-pid <vmm> keeps them up).
+  for hp in $N2L_HELPER_PIDS; do
+    if ! kill -0 "$hp" 2>/dev/null; then
+      fail "N2L — helper pid $hp not alive after supervisor exit"
+    fi
+  done
+  pass "all helper pids still alive after supervisor exit"
+
+  # Real-traffic check: post-detach exec into the VM and read the
+  # mounted file. If the helper died (or never started), this
+  # `cat /mnt/live/hello.txt` would surface a FUSE/IO error.
+  N2L_EXEC_LOG="$FIXTURE/n2l-exec.log"
+  if cli exec "$N2L_NAME" -- cat /mnt/live/hello.txt >"$N2L_EXEC_LOG" 2>&1; then
+    if grep -q "$N2L_MARKER" "$N2L_EXEC_LOG"; then
+      pass "post-detach 'cat /mnt/live/hello.txt' returned the seeded marker"
+    else
+      cat "$N2L_EXEC_LOG" >&2
+      fail "N2L — post-detach cat output missing marker"
+    fi
+  else
+    cat "$N2L_EXEC_LOG" >&2
+    fail "N2L — post-detach 'machinen exec ... cat' exited non-zero"
+  fi
+
+  # `machinen stop` should SIGTERM the VMM and the helper(s) cleanly.
+  N2L_STOP_LOG="$FIXTURE/n2l-stop.log"
+  if cli stop "$N2L_NAME" >"$N2L_STOP_LOG" 2>&1; then
+    pass "machinen stop $N2L_NAME exited 0"
+  else
+    cat "$N2L_STOP_LOG" >&2
+    fail "N2L — machinen stop exited non-zero"
+  fi
+
+  # Helpers should now be gone.
+  for hp in $N2L_HELPER_PIDS; do
+    if kill -0 "$hp" 2>/dev/null; then
+      ps -o pid=,comm= -p "$hp" >&2 || true
+      fail "N2L — helper pid $hp still alive after machinen stop"
+    fi
+  done
+  pass "machinen stop reaped all mount-server helper pids"
+
+  trap 'rm -rf "$FIXTURE"' EXIT
+fi  # N2L fuse-agent gate
+
 fi  # N2 rootfs-capability gate
 
 # ---- N3: machinen attach <unknown> errors cleanly ----
