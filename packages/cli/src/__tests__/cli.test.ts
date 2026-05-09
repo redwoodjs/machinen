@@ -708,13 +708,11 @@ describe("extractTarget", () => {
     const r = extractTarget(["worker"], "exec");
     expect(r.target).toEqual({ name: "worker" });
     expect(r.rest).toEqual([]);
-    expect(r.legacyFlags).toEqual([]);
   });
 
   it("treats an all-digits positional as a pid", () => {
     const r = extractTarget(["12345"], "stop");
     expect(r.target).toEqual({ pid: 12345 });
-    expect(r.legacyFlags).toEqual([]);
   });
 
   it("accepts path-shaped names (slash-separated)", () => {
@@ -728,67 +726,14 @@ describe("extractTarget", () => {
     expect(r.rest).toEqual(["./warm"]);
   });
 
-  it("flags legacy --name with legacyFlags", () => {
-    const r = extractTarget(["--name", "worker"], "exec");
-    expect(r.target).toEqual({ name: "worker" });
-    expect(r.legacyFlags).toEqual(["--name"]);
-  });
-
-  it("flags legacy --pid with legacyFlags", () => {
-    const r = extractTarget(["--pid", "999"], "stop");
-    expect(r.target).toEqual({ pid: 999 });
-    expect(r.legacyFlags).toEqual(["--pid"]);
-  });
-
-  it("supports --name=<v> form", () => {
-    const r = extractTarget(["--name=worker"], "exec");
-    expect(r.target).toEqual({ name: "worker" });
-    expect(r.legacyFlags).toEqual(["--name"]);
-  });
-
-  it("supports --pid=<v> form", () => {
-    const r = extractTarget(["--pid=42"], "stop");
-    expect(r.target).toEqual({ pid: 42 });
-  });
-
-  it("rejects positional + --name (over-specified)", () => {
-    expect(() => extractTarget(["worker", "--name", "other"], "exec")).toThrow(
-      /pass the target once/,
-    );
-  });
-
-  it("rejects positional + --pid (over-specified)", () => {
-    expect(() => extractTarget(["worker", "--pid", "1"], "exec")).toThrow(/pass the target once/);
-  });
-
-  it("rejects --name + --pid", () => {
-    expect(() => extractTarget(["--name", "x", "--pid", "1"], "exec")).toThrow(
-      /--name OR --pid, not both/,
-    );
-  });
-
   it("rejects no target at all", () => {
     expect(() => extractTarget([], "exec")).toThrow(/requires a target/);
   });
 
-  it("rejects unknown flags", () => {
+  it("rejects unknown flags (legacy --name/--pid no longer recognized)", () => {
+    expect(() => extractTarget(["--name", "worker"], "exec")).toThrow(/unknown argument: --name/);
+    expect(() => extractTarget(["--pid", "1234"], "stop")).toThrow(/unknown argument: --pid/);
     expect(() => extractTarget(["--bogus"], "exec")).toThrow(/unknown argument: --bogus/);
-  });
-
-  it("rejects non-numeric --pid", () => {
-    expect(() => extractTarget(["--pid", "abc"], "exec")).toThrow(/--pid requires a numeric/);
-  });
-
-  it("rejects bare --name with no value", () => {
-    expect(() => extractTarget(["--name"], "exec")).toThrow(/--name requires a value/);
-  });
-
-  it("rejects duplicate --name", () => {
-    expect(() => extractTarget(["--name", "a", "--name", "b"], "exec")).toThrow(/at most once/);
-  });
-
-  it("rejects duplicate --pid", () => {
-    expect(() => extractTarget(["--pid", "1", "--pid", "2"], "exec")).toThrow(/at most once/);
   });
 
   it("throws ParseError so the CLI can format it", () => {

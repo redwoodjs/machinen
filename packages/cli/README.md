@@ -74,8 +74,7 @@ npx machinen stop worker
 
 After the subcommand, the first positional is the target VM. Pass a
 name for a registered VM, or a host pid (digits-only) to identify it
-by process. (Legacy `--name <n>` / `--pid <p>` flags still work for
-one release with a deprecation warning.)
+by process.
 
 ## Reference
 

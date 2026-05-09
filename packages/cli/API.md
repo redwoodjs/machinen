@@ -28,9 +28,7 @@ machinen --version | -h                          Print version / help
 ```
 
 `<target>` is the first positional after the subcommand. Pass a name
-(any non-digit string) or a host pid (digits-only). The legacy
-`--name <n>` / `--pid <p>` flags still work for one release with a
-deprecation warning.
+(any non-digit string) or a host pid (digits-only).
 
 ## Agent-friendly conventions
 

@@ -5,10 +5,9 @@
 
 import pkg from "../package.json" with { type: "json" };
 
-// SCHEMA_VERSION 2: introduced `positionals` on CommandSpec and the
-// `deprecated` marker on FlagSpec. Adding the positional <target>
-// + <out-dir> shape on exec/snapshot/fork/attach/repl/stop and the
-// matching deprecation of --name/--pid/--out-dir.
+// SCHEMA_VERSION 2: introduced `positionals` on CommandSpec along
+// with the <target> positional on exec/snapshot/fork/attach/repl/stop
+// (and snapshot's <out-dir>).
 export const SCHEMA_VERSION = 2 as const;
 
 /** A single CLI flag. `enum` is set when the value must be one of a fixed list. */
@@ -23,12 +22,6 @@ export interface FlagSpec {
   repeatable?: boolean;
   /** When true, the flag takes a value. Implied by non-boolean type. */
   takesValue?: boolean;
-  /**
-   * Set to a free-text "use X instead" message when the flag is kept
-   * working for one release with a deprecation warning. Agents should
-   * prefer the replacement.
-   */
-  deprecated?: string;
   description: string;
 }
 
@@ -57,26 +50,11 @@ export interface CommandSpec {
   jsonEnvelope?: string;
 }
 
-// Shared shape for the seven commands that target a running VM. The
-// preferred form is a single positional (digits → pid, otherwise →
-// name); --name/--pid still work for one release with a deprecation
-// warning.
+// Shared shape for the seven commands that target a running VM:
+// a single positional, digits → pid, otherwise → name.
 const TARGET_POSITIONAL: PositionalSpec = {
   name: "target",
-  description:
-    "The VM to act on. Pass a registered name or a host pid (digits-only). Mutually exclusive with the deprecated --name/--pid flags.",
-};
-const LEGACY_NAME_FLAG: FlagSpec = {
-  name: "--name",
-  type: "string",
-  deprecated: "Pass the name as the first positional instead.",
-  description: "Target VM by name (deprecated; use the <target> positional).",
-};
-const LEGACY_PID_FLAG: FlagSpec = {
-  name: "--pid",
-  type: "integer",
-  deprecated: "Pass the pid as the first positional instead.",
-  description: "Target VM by VMM pid (deprecated; use the <target> positional).",
+  description: "The VM to act on. Pass a registered name or a host pid (digits-only).",
 };
 
 /** The top-level commands of the CLI, keyed by canonical name. */
@@ -189,8 +167,6 @@ export const COMMANDS: CommandSpec[] = [
     jsonOutput: false,
     positionals: [TARGET_POSITIONAL],
     flags: [
-      LEGACY_NAME_FLAG,
-      LEGACY_PID_FLAG,
       {
         name: "--tty",
         type: "boolean",
@@ -212,15 +188,6 @@ export const COMMANDS: CommandSpec[] = [
       },
     ],
     flags: [
-      LEGACY_NAME_FLAG,
-      LEGACY_PID_FLAG,
-      {
-        name: "--out-dir",
-        type: "string",
-        deprecated: "Pass the directory as the second positional instead.",
-        description:
-          "Directory to write the bundle into (deprecated; use the <out-dir> positional).",
-      },
       {
         name: "--keep-alive",
         type: "boolean",
@@ -243,8 +210,6 @@ export const COMMANDS: CommandSpec[] = [
     mutating: true,
     positionals: [TARGET_POSITIONAL],
     flags: [
-      LEGACY_NAME_FLAG,
-      LEGACY_PID_FLAG,
       { name: "--new-name", type: "string", description: "Name for the fork." },
       { name: "--out-dir", type: "string", description: "Keep the snapshot bundle here." },
       {
@@ -302,8 +267,6 @@ export const COMMANDS: CommandSpec[] = [
     jsonOutput: false,
     positionals: [TARGET_POSITIONAL],
     flags: [
-      LEGACY_NAME_FLAG,
-      LEGACY_PID_FLAG,
       {
         name: "--shell",
         type: "string",
@@ -322,7 +285,7 @@ export const COMMANDS: CommandSpec[] = [
     summary: "Per-line exec REPL — each line is a fresh one-shot command.",
     jsonOutput: false,
     positionals: [TARGET_POSITIONAL],
-    flags: [LEGACY_NAME_FLAG, LEGACY_PID_FLAG],
+    flags: [],
   },
   {
     name: "stop",
@@ -331,8 +294,6 @@ export const COMMANDS: CommandSpec[] = [
     mutating: true,
     positionals: [TARGET_POSITIONAL],
     flags: [
-      LEGACY_NAME_FLAG,
-      LEGACY_PID_FLAG,
       {
         name: "--force",
         type: "boolean",

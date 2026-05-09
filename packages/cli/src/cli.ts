@@ -977,7 +977,7 @@ function lookupEntry(target: { name: string } | { pid: number }): RegistryEntry 
 }
 
 function describeTarget(target: { name: string } | { pid: number }): string {
-  return "name" in target ? `--name ${target.name}` : `--pid ${target.pid}`;
+  return "name" in target ? `name ${target.name}` : `pid ${target.pid}`;
 }
 
 async function cmdExec(args: string[]): Promise<number> {
@@ -1078,30 +1078,15 @@ async function runPtyExec(
 }
 
 async function cmdSnapshot(args: string[]): Promise<number> {
-  // Preferred form: `machinen snapshot <target> <out-dir>`.
-  // Legacy: `--out-dir <dir>` (warned, accepted for one release).
-  // We strip --json / --dry-run / --keep-alive / --out-dir first;
-  // anything left feeds extractTarget which pulls the first positional
-  // as the target and returns leftovers as `rest`. The first leftover
-  // (if any) is the out-dir positional.
+  // Form: `machinen snapshot <target> <out-dir>`. We strip --json /
+  // --dry-run / --keep-alive first; the first two positionals left
+  // are the target and the out-dir.
   const { json, rest: afterJson } = consumeJsonFlag(args);
   const { dryRun, rest: afterDry } = consumeDryRunFlag(afterJson);
-  let outDirFromFlag: string | undefined;
   let keepAlive = false;
   const remaining: string[] = [];
-  for (let i = 0; i < afterDry.length; i++) {
-    const a = afterDry[i]!;
-    if (a === "--out-dir" || a.startsWith("--out-dir=")) {
-      const v = a === "--out-dir" ? afterDry[++i] : a.slice("--out-dir=".length);
-      if (!v) {
-        die("--out-dir requires a directory path");
-      }
-      outDirFromFlag = v;
-      warnLegacyOnce(
-        "snapshot:--out-dir",
-        "machinen snapshot: --out-dir is deprecated; pass the directory as the second positional (e.g. `machinen snapshot <name|pid> <out-dir>`)",
-      );
-    } else if (a === "--keep-alive") {
+  for (const a of afterDry) {
+    if (a === "--keep-alive") {
       // Source survives the dump (CRIU --leave-running). Default
       // closes inherited TCP sockets — two live copies sharing the
       // same connection state can't both talk to the peer cleanly.
@@ -1111,21 +1096,13 @@ async function cmdSnapshot(args: string[]): Promise<number> {
     }
   }
   const { target, rest: afterTarget } = resolveTarget(remaining, "snapshot");
-  let outDir = outDirFromFlag;
-  if (afterTarget.length > 0) {
-    if (outDir !== undefined) {
-      die(
-        "machinen snapshot: pass the out-dir once — either as a positional or via --out-dir (deprecated), not both",
-      );
-    }
-    if (afterTarget.length > 1) {
-      die(`unknown argument: ${afterTarget[1]}`);
-    }
-    outDir = afterTarget[0];
-  }
-  if (!outDir) {
+  if (afterTarget.length === 0) {
     die("usage: machinen snapshot <name|pid> <out-dir> [--keep-alive] [--dry-run] [--json]");
   }
+  if (afterTarget.length > 1) {
+    die(`unknown argument: ${afterTarget[1]}`);
+  }
+  const outDir = afterTarget[0]!;
   const resolvedOutDir = resolve(outDir);
   if (dryRun) {
     // Validate target exists + out-dir is creatable (parent must exist
@@ -1576,43 +1553,17 @@ async function cmdCompletion(args: string[]): Promise<number> {
 }
 
 /**
- * Pull `--name <s>` / `--pid <n>` out of an arg list. Exactly one of
- * the two must be present; reject zero, both, or unknown flags. The
- * shape returned matches `AttachOptions` so callers can pass it
- * straight to `attach()`.
- */
-/**
- * Wrap the pure `extractTarget` parser with the CLI's deprecation-
- * warning + error-formatting glue. Callers either use this directly
- * (snapshot, which has a second positional <out-dir>) or via the
- * `parseTargetFlags` shim (everyone else).
+ * Wrap the pure `extractTarget` parser with the CLI's error
+ * formatting. Callers either use this directly (snapshot, which has a
+ * second positional <out-dir>) or via the `parseTargetFlags` shim
+ * (everyone else).
  */
 function resolveTarget(args: string[], cmd: string): { target: Target; rest: string[] } {
-  let parsed;
   try {
-    parsed = extractTarget(args, cmd);
+    return extractTarget(args, cmd);
   } catch (err) {
     handleError(err);
   }
-  for (const flag of parsed.legacyFlags) {
-    warnLegacyTargetFlag(cmd, flag);
-  }
-  return { target: parsed.target, rest: parsed.rest };
-}
-
-const legacyWarned = new Set<string>();
-function warnLegacyOnce(key: string, message: string): void {
-  if (legacyWarned.has(key)) {
-    return;
-  }
-  legacyWarned.add(key);
-  process.stderr.write(`${message}\n`);
-}
-function warnLegacyTargetFlag(cmd: string, flag: "--name" | "--pid"): void {
-  warnLegacyOnce(
-    `${cmd}:${flag}`,
-    `machinen ${cmd}: ${flag} is deprecated; pass the target as a positional (e.g. \`machinen ${cmd} <name|pid>\`)`,
-  );
 }
 
 /**
@@ -1629,8 +1580,7 @@ function parseTargetFlags(args: string[], cmd: string): Target {
 
 // Names live in column 2 of `machinen ls`; pids in column 1. Both
 // are completion candidates for the first positional on
-// exec/snapshot/fork/attach/repl/stop, and after legacy
-// --name/--pid flags.
+// exec/snapshot/fork/attach/repl/stop.
 const BASH_COMPLETION = `# machinen bash completion — source this from ~/.bashrc, or:
 #   eval "$(machinen completion bash)"
 _machinen_completion() {
@@ -1641,20 +1591,6 @@ _machinen_completion() {
     COMPREPLY=( $(compgen -W "\${cmds}" -- "\${cur}") )
     return
   fi
-  case "\${prev}" in
-    --name)
-      local names
-      names=$(machinen ls 2>/dev/null | awk 'NR>1 && $2!="-"{print $2}')
-      COMPREPLY=( $(compgen -W "\${names}" -- "\${cur}") )
-      return
-      ;;
-    --pid)
-      local pids
-      pids=$(machinen ls 2>/dev/null | awk 'NR>1{print $1}')
-      COMPREPLY=( $(compgen -W "\${pids}" -- "\${cur}") )
-      return
-      ;;
-  esac
   case "\${words[1]}" in
     exec|snapshot|fork|attach|repl|stop)
       # First positional after the subcommand is the target.
@@ -1683,20 +1619,6 @@ _machinen() {
     _describe 'command' cmds
     return
   fi
-  case "\${words[CURRENT-1]}" in
-    --name)
-      local -a names
-      names=(\${(f)"$(machinen ls 2>/dev/null | awk 'NR>1 && $2!="-"{print $2}')"})
-      _describe 'name' names
-      return
-      ;;
-    --pid)
-      local -a pids
-      pids=(\${(f)"$(machinen ls 2>/dev/null | awk 'NR>1{print $1}')"})
-      _describe 'pid' pids
-      return
-      ;;
-  esac
   case "\${words[2]}" in
     exec|snapshot|fork|attach|repl|stop)
       # First positional after the subcommand is the target.
@@ -1725,11 +1647,6 @@ for bin in machinen mn
     # First positional after the subcommand: complete with VM names + pids.
     complete -c $bin -f -n "__fish_seen_subcommand_from $sub" \\
       -a '(machinen ls 2>/dev/null | awk \\'NR>1{print $1; if ($2!="-") print $2}\\')'
-    # Legacy --name/--pid still work; complete after them too.
-    complete -c $bin -f -n "__fish_seen_subcommand_from $sub" -l name \\
-      -a '(machinen ls 2>/dev/null | awk \\'NR>1 && $2!="-"{print $2}\\')'
-    complete -c $bin -f -n "__fish_seen_subcommand_from $sub" -l pid \\
-      -a '(machinen ls 2>/dev/null | awk \\'NR>1{print $1}\\')'
   end
   complete -c $bin -f -n "__fish_seen_subcommand_from gc" -l dry-run
 end
@@ -1808,7 +1725,6 @@ function printHelp(): void {
       `  Targeting a running VM:\n` +
       `    Pass the name or pid as the first positional arg.\n` +
       `    Digits-only is interpreted as a pid; everything else as a name.\n` +
-      `    (--name/--pid still work for one release with a deprecation warning.)\n` +
       `\n` +
       `  machinen exec     <name|pid> [--tty] -- <cmd>\n` +
       `                                                 Run a command in a running VM. Pass\n` +
