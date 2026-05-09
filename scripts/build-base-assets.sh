@@ -219,6 +219,13 @@ chmod +x "${STAGE}/machinen-supervisor.sh" "${STAGE}/machinen-dump.sh" \
          "${STAGE}/machinen-dump-preflight.sh" "${STAGE}/machinen-restore.sh" \
          "${STAGE}/machinen-remount.sh"
 
+# Stage CRIU patches (applied inside the rootfs container against the
+# upstream tarball before `make`). See packages/microvm/patches/criu/.
+# The directory is optional — most builds run without patches.
+if [ -d "${ROOT}/packages/microvm/patches" ]; then
+  cp -r "${ROOT}/packages/microvm/patches" "${STAGE}/patches"
+fi
+
 # ------------------------------------------------------------
 # 4. Rootfs — mmdebstrap minbase + aggressive strip + guest binaries
 # ------------------------------------------------------------
@@ -342,11 +349,29 @@ apt-get install -y --no-install-recommends \
   build-essential pkg-config \
   libprotobuf-dev libprotobuf-c-dev protobuf-c-compiler protobuf-compiler \
   libnl-3-dev libnet-dev libcap-dev libnftables-dev uuid-dev \
-  curl ca-certificates \
+  curl ca-certificates patch \
   > /dev/null
 mkdir -p /tmp/criu-build
 curl -fsSL "https://github.com/checkpoint-restore/criu/archive/refs/tags/${CRIU_TAG}.tar.gz" \
   | tar -xzf - -C /tmp/criu-build --strip-components=1
+# Apply machinen patches (sorted lexically). Each is a unified diff
+# rooted at the criu source tree. See packages/microvm/patches/criu/
+# for descriptions.
+if [ -d /stage/patches/criu ]; then
+  for p in /stage/patches/criu/*.patch; do
+    [ -e "$p" ] || break
+    echo "==> Applying CRIU patch: $(basename "$p")"
+    # patch(1) with a malformed hunk prints an error, applies what
+    # it can, and exits 0 — silently shipping a partially patched
+    # binary. -F0 disables fuzzy matching and --dry-run lets us
+    # validate the whole file before committing changes.
+    if ! patch -d /tmp/criu-build -p1 -F0 --dry-run < "$p"; then
+      echo "patch dry-run failed for $(basename "$p")" >&2
+      exit 1
+    fi
+    patch -d /tmp/criu-build -p1 -F0 < "$p"
+  done
+fi
 make -C /tmp/criu-build -j"$(nproc)" PIE=1 NO_GNUTLS=1 criu > /tmp/criu-build.log 2>&1 || {
   echo "criu build failed; tail of log:"
   tail -60 /tmp/criu-build.log

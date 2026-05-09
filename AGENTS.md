@@ -24,6 +24,14 @@ If any of the three fails, fix the issue and re-run.
 - Package manager is pnpm (pinned via `packageManager` in package.json).
 - The user authenticates via OAuth (`gh auth login`), never API keys.
 
+## arm64 builds
+
+When a step needs to run inside a `linux/arm64` docker image (rootfs,
+kernel, anything compiled in-container), set
+`MACHINEN_REMOTE_BUILDER=friend@100.126.46.90` and let the build
+script delegate over ssh. Native-arm64 there finishes in ~3 min vs.
+~15–20 min under qemu-arm64 emulation locally on an M-series mac.
+
 ## FUSE ops (mount-server)
 
 When you wire up a new FUSE opcode in `packages/runtime/src/mount-server.ts`,
