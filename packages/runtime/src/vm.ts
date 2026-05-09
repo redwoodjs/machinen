@@ -75,6 +75,8 @@ import { markPagemapsLazy } from "./lazy-pagemap.ts";
 import type { OnLog } from "./log.ts";
 import { PhaseTimer } from "./phase-timer.ts";
 import { claimName, findEntry, isAlive, removeEntry, writeEntry } from "./registry.ts";
+import { runGc } from "./gc.ts";
+import { readProcessIdentity } from "./pid-validate.ts";
 import type {
   ForkOptions,
   MemoryStats,
@@ -1110,14 +1112,25 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   const childPid = child.pid ?? -1;
   if (vmName && childPid > 0) {
     if (!claimName(vmName, childPid)) {
-      try {
-        child.kill("SIGKILL");
-      } catch {}
-      throw new RegistryError(
-        "REGISTRY_NAME_IN_USE",
-        `boot: name '${vmName}' is already held by another live VM. ` +
-          `Pick a different --name or kill the existing VM first.`,
-      );
+      // Backstop for the recycled-pid case: claimName already drops
+      // pins whose holder fails the recycling/orphan check, but a
+      // pre-#268 entry without `vmmExe`/`startedAt` falls back to
+      // `kill(pid,0)` and can stay pinned by an unrelated process now
+      // sitting on the recycled pid. `runGc` walks the whole registry
+      // (also cleaning cleanupPaths) and then we retry the claim
+      // once. If a still-live VMM genuinely holds the name, the
+      // retry fails and we throw.
+      runGc();
+      if (!claimName(vmName, childPid)) {
+        try {
+          child.kill("SIGKILL");
+        } catch {}
+        throw new RegistryError(
+          "REGISTRY_NAME_IN_USE",
+          `boot: name '${vmName}' is already held by another live VM. ` +
+            `Pick a different --name or kill the existing VM first.`,
+        );
+      }
     }
   }
   // #150 phase 2: detached VMs record where the boot-console snapshot
@@ -1165,9 +1178,40 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         forkedFrom: opts.forkedFrom,
         bootLogPath,
         cleanupPaths: cleanupPaths.length > 0 ? cleanupPaths : undefined,
-        vmmExe: binary,
+        // The pdeathsig shim works differently per platform, and that
+        // changes what `child.pid` actually IS:
+        //   - Linux: shim does `prctl(PR_SET_PDEATHSIG); execvp(target)`
+        //     in-place, so once the kernel runs `execvp` `child.pid`
+        //     is the target binary. /proc/<pid>/exe stabilizes at the
+        //     target's path.
+        //   - macOS: shim forks (parent is the long-lived kqueue
+        //     watcher; the child execvp's the target), so `child.pid`
+        //     is *the watcher* forever, and `ps` reports the shim's
+        //     own argv[0] for that pid.
+        // For the registry's vmmExe field we want whatever the OS
+        // will keep reporting for `child.pid` once everything settles.
+        // On macOS that's the shim ("pdeathsig"), so snapshot it now.
+        // On Linux that's the target — and we deliberately *don't*
+        // snapshot, because there's a race between Node's `spawn()`
+        // returning and the shim's execvp firing where /proc/<pid>/exe
+        // still resolves to the shim path. Storing the snapshot in
+        // that window persists "pdeathsig" and validatePid later sees
+        // "yes" / the real VMM and reports `recycled` forever —
+        // exactly what ate two CI tests when this code first landed.
+        vmmExe:
+          process.platform === "darwin" && vmmPdeathsig
+            ? (readProcessIdentity(childPid)?.exeBase ?? binary)
+            : binary,
         gvproxyPid: gvPid,
-        gvproxyExe: gvExe,
+        // Same Linux-vs-macOS shim semantics as `vmmExe` above:
+        // snapshot only when the wrapper persists as `child.pid` (the
+        // macOS watcher case). On Linux the shim's execvp leaves the
+        // target at child.pid and the path stabilizes — snapshotting
+        // would race with execvp.
+        gvproxyExe:
+          process.platform === "darwin" && gvPid !== undefined && gvPid > 0
+            ? (readProcessIdentity(gvPid)?.exeBase ?? gvExe)
+            : gvExe,
         portForward: portForward.length > 0 ? portForward : undefined,
         memoryCeilingMib,
         statsPath: statsFilePath,

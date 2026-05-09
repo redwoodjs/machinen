@@ -32,7 +32,11 @@ set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 CLI="$ROOT/packages/cli/dist/cli.js"
-VMM="$ROOT/packages/microvm/zig-out/bin/machinen-vm"
+# Staged location matches what the runtime resolver and mn-dev use.
+# Shares the inputs-sha256 sidecar that check-asset-freshness.sh
+# writes/reads, so a smoke run after an mn-dev session doesn't see a
+# stale "vmm" report and vice versa.
+VMM="$ROOT/packages/vmm-arm64-darwin/bin/machinen-vm"
 ASSETS="$ROOT/release-assets"
 OS=$(uname -s)
 
@@ -74,17 +78,10 @@ fi
 
 # Always rebuild. Zig's incremental cache makes this ~1s on a warm
 # tree, and it guarantees local source edits are actually tested.
+# build-vmm.sh handles zig build + codesign + staging copy + writing
+# the inputs-sha256 sidecar that the freshness check below consumes.
 echo "=== building VMM ==="
-(cd "$ROOT/packages/microvm" && zig build -Doptimize=ReleaseSafe)
-
-# On darwin the VMM needs the hypervisor entitlement or HVF fails
-# with HV_DENIED. Re-sign every time too — cheap, and the entitlement
-# file may have changed out from under us.
-if [[ "$OS" == "Darwin" ]]; then
-  codesign -s - --force \
-    --entitlements "$ROOT/packages/microvm/entitlements.plist" \
-    "$VMM" 2>/dev/null
-fi
+bash "$ROOT/scripts/build-vmm.sh"
 
 if [[ ! -f "$ASSETS/Image-arm64" ]]; then
   echo "=== building base assets (~5 min on first run, cached after) ==="

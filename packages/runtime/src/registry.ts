@@ -35,6 +35,7 @@ import {
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import debugLib from "debug";
+import { validatePid } from "./pid-validate.ts";
 
 const debug = debugLib("machinen:registry");
 
@@ -278,6 +279,38 @@ export function isAlive(pid: number): boolean {
 }
 
 /**
+ * Whether a name pin pointing at `heldPid` should be treated as stale.
+ *
+ * A pin is stale when any of these is true:
+ *   1. heldPid isn't a sane positive integer.
+ *   2. The matching `<pid>/meta.json` is gone — `writeEntry` /
+ *      `removeEntry` always pair the meta dir with the pin, so a pin
+ *      without an entry is by definition orphaned (e.g. a crash
+ *      between writeEntry and registry rollback, or a manual
+ *      `rm -rf ~/.machinen/vms/<pid>`).
+ *   3. `validatePid` says the pid is `dead` or has been `recycled` to
+ *      some other process. This is what `runGc` uses; without it
+ *      `claimName` would happily refuse to free the pin because
+ *      `kill(pid,0)` succeeds for the unrelated process now sitting
+ *      on that pid.
+ */
+function pinIsStale(heldPid: number): boolean {
+  if (!Number.isInteger(heldPid) || heldPid <= 0) {
+    return true;
+  }
+  const entry = readEntry(heldPid);
+  if (!entry) {
+    return true;
+  }
+  return (
+    validatePid(heldPid, {
+      vmmExe: entry.vmmExe,
+      startedAt: entry.startedAt,
+    }) !== "alive"
+  );
+}
+
+/**
  * List every registry entry on disk, including ones whose pid is
  * dead. Side-effect-free: nothing is removed, no pins are pruned.
  *
@@ -338,7 +371,11 @@ export function list(): RegistryEntry[] {
       pruned++;
       continue;
     }
-    if (!isAlive(entry.pid)) {
+    const status = validatePid(entry.pid, {
+      vmmExe: entry.vmmExe,
+      startedAt: entry.startedAt,
+    });
+    if (status !== "alive") {
       removeEntry(entry.pid);
       pruned++;
       continue;
@@ -351,7 +388,9 @@ export function list(): RegistryEntry[] {
 }
 
 /**
- * Walk the names tree, unlink any pin whose pid is dead. Idempotent.
+ * Walk the names tree, unlink any pin that's stale per `pinIsStale`
+ * (dead, recycled, or orphaned with no matching meta), then sweep
+ * empty subdirectories left behind. Idempotent.
  */
 function pruneStaleNamePins(): void {
   const base = namesDir();
@@ -369,12 +408,17 @@ function pruneStaleNamePins(): void {
       } catch {}
       return;
     }
-    if (!Number.isInteger(pid) || pid <= 0 || !isAlive(pid)) {
+    if (pinIsStale(pid)) {
       try {
         unlinkSync(pinAbs);
       } catch {}
     }
   });
+  // Sweep any empty subdirectories left under `names/` — pre-#268
+  // path-shaped pins didn't prune their parents on removal, so old
+  // leftovers can accumulate. rmdir errors on non-empty dirs, so
+  // siblings holding live pins stay intact.
+  sweepEmptyPinDirs(base);
 }
 
 function walkPins(dir: string, onFile: (path: string) => void): void {
@@ -385,6 +429,19 @@ function walkPins(dir: string, onFile: (path: string) => void): void {
     } else if (dirent.isFile()) {
       onFile(full);
     }
+  }
+}
+
+function sweepEmptyPinDirs(dir: string): void {
+  for (const dirent of readdirSync(dir, { withFileTypes: true })) {
+    if (!dirent.isDirectory()) {
+      continue;
+    }
+    const child = join(dir, dirent.name);
+    sweepEmptyPinDirs(child);
+    try {
+      rmdirSync(child);
+    } catch {}
   }
 }
 
@@ -441,19 +498,30 @@ export function claimName(name: string, pid: number): boolean {
           return false;
         }
       }
-      // Pin is a regular file. If the holding pid is dead, drop it and retry.
+      // Pin is a regular file. If the holder fails the recycling /
+      // orphan check, drop the pin (and any orphaned meta dir) and
+      // retry. `kill(pid,0)` alone isn't enough — a recycled pid will
+      // succeed it, leaving the pin pinned forever.
       let heldPid = -1;
       try {
         heldPid = Number(readFileSync(pin, "utf8").trim());
       } catch {}
-      if (heldPid > 0 && isAlive(heldPid)) {
+      if (heldPid > 0 && !pinIsStale(heldPid)) {
         debug("claimName name=%s held by live pid=%d — refusing", name, heldPid);
         return false;
       }
-      debug("claimName name=%s stale pin (heldPid=%d) — unlinking", name, heldPid);
+      debug("claimName name=%s stale pin (heldPid=%d) — reaping", name, heldPid);
       try {
         unlinkSync(pin);
       } catch {}
+      if (heldPid > 0) {
+        // If the meta dir lingered (orphaned writeEntry, or recycled
+        // pid), drop it now — otherwise the next list() would prune
+        // it but we want claimName to leave a clean slate either way.
+        try {
+          rmSync(join(registryRoot(), String(heldPid)), { recursive: true, force: true });
+        } catch {}
+      }
     }
   }
   return false;
@@ -469,7 +537,11 @@ export function findEntry(query: { pid?: number; name?: string }): RegistryEntry
     if (!entry) {
       return undefined;
     }
-    if (!isAlive(entry.pid)) {
+    const status = validatePid(entry.pid, {
+      vmmExe: entry.vmmExe,
+      startedAt: entry.startedAt,
+    });
+    if (status !== "alive") {
       removeEntry(entry.pid);
       return undefined;
     }
@@ -486,7 +558,7 @@ export function findEntry(query: { pid?: number; name?: string }): RegistryEntry
     } catch {
       return undefined;
     }
-    if (!Number.isInteger(pid) || pid <= 0 || !isAlive(pid)) {
+    if (pinIsStale(pid)) {
       try {
         unlinkSync(pin);
       } catch {}
