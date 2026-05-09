@@ -339,7 +339,9 @@ function pipeStdinToVm(vmStdin: NodeJS.WritableStream, onCtrlD: () => void): voi
         cb(null, chunk);
         return;
       }
-      if (idx > 0) this.push(chunk.subarray(0, idx));
+      if (idx > 0) {
+        this.push(chunk.subarray(0, idx));
+      }
       cb();
       if (!fired) {
         fired = true;
