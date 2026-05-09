@@ -30,3 +30,9 @@ counter-snap/
 # Sidecar produced by scripts/build-vmm.sh next to the (also-untracked)
 # locally-built VMM binary at packages/vmm-arm64-darwin/bin/machinen-vm.
 packages/vmm-arm64-darwin/bin/machinen-vm.inputs-sha256
+
+# gvproxy binary staged by scripts/install-gvproxy.sh next to the
+# locally-built VMM for resolveGvproxyBinary()'s sibling lookup. CI
+# stages it into the same path during release; only .gitkeep is tracked.
+packages/vmm-arm64-darwin/bin/gvproxy
+packages/vmm-arm64-linux/bin/gvproxy
