@@ -5233,7 +5233,7 @@ unique under the source's namespace.
 
 > `optional` **lazy?**: `boolean`
 
-Defined in: [vm.ts:3274](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L3274)
+Defined in: [vm.ts:3272](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L3272)
 
 Opt into lazy-pages restore — bundle is vsock-FUSE-mounted into
 the guest read-only and `criu restore --lazy-pages` faults pages
@@ -5242,14 +5242,12 @@ image into a tar on `/dev/vdb`, the guest's
 `/sbin/machinen-restore` untars it into tmpfs, and CRIU does an
 eager load.
 
-Eager is the default because the lazy path has subtle
-interactions with virtio-balloon free-page-reporting (the
-guest's reporting kthread reads pages to identify them as free,
-which is exactly what UFFDIO_COPY's them back from the bundle —
-defeating the lazy promise). The runtime sets
-`MACHINEN_DISABLE_BALLOON_REPORTING=1` to suppress that when
-`lazy: true` is requested, but for the common case eager is
-simpler and faster on small workloads.
+Eager is still the default because lazy bundles a host-side FUSE
+server that doesn't compose with `--detach` (#150 phase 3). The
+historical second blocker — runaway free-page-reporting under
+lazy — is fixed in #290 by the in-tree kernel patch that stops
+the buddy allocator from clearing the Reported flag during a
+merge.
 
 ***
 
@@ -6994,7 +6992,7 @@ end, so no individual cmd line approaches `MAX_ARG_STRLEN`.
 
 > **restore**(`opts`): `Promise`\<[`VmHandle`](#vmhandle)\>
 
-Defined in: [vm.ts:3311](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L3311)
+Defined in: [vm.ts:3309](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L3309)
 
 Restore a microVM from a snapshot bundle produced by
 `vm.snapshot({ outDir })`. Reads the bundle's `meta.json` to
@@ -7050,7 +7048,7 @@ BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN if an entry in
 
 > **measureFirstByte**(`vm`): `Promise`\<`number`\>
 
-Defined in: [vm.ts:3791](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L3791)
+Defined in: [vm.ts:3788](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/vm.ts#L3788)
 
 Time-to-first-output-byte for a boot. Useful for measuring how
 much the snapshot path is (or isn't) buying us.

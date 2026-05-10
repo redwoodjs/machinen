@@ -6,10 +6,13 @@
 # longer has to ship /lib/modules + kmod + libc just to mount /dev/vda.
 #
 # Inputs (env vars):
-#   KVER     — kernel version (default: 6.12.20)
-#   WORKDIR  — host workdir (default: $HOME/.cache/machinen/kernel)
-#   OUT      — final Image-arm64 path (default: $WORKDIR/Image-arm64)
-#   JOBS     — parallel make jobs (default: $(nproc))
+#   KVER         — kernel version (default: 6.12.20)
+#   WORKDIR      — host workdir (default: $HOME/.cache/machinen/kernel)
+#   OUT          — final Image-arm64 path (default: $WORKDIR/Image-arm64)
+#   JOBS         — parallel make jobs (default: $(nproc))
+#   PATCHES_DIR  — optional dir of *.patch files applied with `patch -p1`
+#                  before build. Re-extracts the source tree on patch-set
+#                  change so every build starts from a clean tarball.
 #
 # Output:
 #   $OUT — uncompressed arm64 kernel `Image` (boots the same way the
@@ -45,11 +48,51 @@ if [ ! -f "$TARBALL" ]; then
   mv "$TARBALL.tmp" "$TARBALL"
 fi
 
+# Hash the patch set (if any) so we can re-extract the source tree
+# whenever the patches change. Without this the second build with a
+# different patch set would either skip the new patches (cached source
+# already patched) or fail (`patch` complains about previously-applied
+# hunks). Cheap: a few SHA-256s over a tiny patches dir.
+PATCHES_DIR="${PATCHES_DIR:-}"
+PATCH_HASH=""
+if [ -n "$PATCHES_DIR" ] && [ -d "$PATCHES_DIR" ]; then
+  PATCH_HASH=$(find "$PATCHES_DIR" -maxdepth 1 -name '*.patch' -type f -print0 \
+    | sort -z | xargs -0 sha256sum 2>/dev/null \
+    | sha256sum | cut -d' ' -f1)
+fi
+APPLIED_HASH_FILE="$WORKDIR/$SRC/.machinen-patch-hash"
+
+if [ -d "$SRC" ] && [ -n "$PATCH_HASH" ]; then
+  if [ ! -f "$APPLIED_HASH_FILE" ] || [ "$(cat "$APPLIED_HASH_FILE")" != "$PATCH_HASH" ]; then
+    echo "==> Patch set changed (hash $PATCH_HASH) — re-extracting source tree"
+    rm -rf "$SRC"
+  fi
+fi
+
 if [ ! -d "$SRC" ]; then
   tar -xf "$TARBALL"
 fi
 
 cd "$SRC"
+
+# Apply our kernel patches (if any) before configuring the tree. Each
+# patch is rooted at the kernel source root (-p1). Bail loudly on any
+# patch that doesn't apply cleanly — silent partial application is the
+# kind of bug that turns into a kernel oops three boots later.
+if [ -n "$PATCHES_DIR" ] && [ -d "$PATCHES_DIR" ]; then
+  shopt -s nullglob
+  for p in "$PATCHES_DIR"/*.patch; do
+    echo "==> Applying kernel patch: $(basename "$p")"
+    if ! patch -p1 -F0 --dry-run < "$p" >/dev/null 2>&1; then
+      echo "build-kernel-arm64: patch refused to apply: $p" >&2
+      patch -p1 -F0 --dry-run < "$p" >&2 || true
+      exit 1
+    fi
+    patch -p1 -F0 < "$p"
+  done
+  shopt -u nullglob
+  echo "$PATCH_HASH" > .machinen-patch-hash
+fi
 
 # Start from arm64 defconfig — sane Cortex-A baseline with PSCI, PL011
 # console, GICv3, devtmpfs, sysfs, procfs already enabled.

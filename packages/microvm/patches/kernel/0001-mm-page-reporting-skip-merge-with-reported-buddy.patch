@@ -1,0 +1,87 @@
+From: Machinen <noreply@redwoodjs.com>
+Subject: [PATCH] mm: don't merge with a Reported buddy in __free_one_page()
+
+Free-page-reporting marks pages it has reported to the host (via
+__SetPageReported) so the next reporting cycle can skip them. The
+flag is cleared whenever the page is removed from the free list
+(__del_page_from_free_list -> __ClearPageReported), which is correct
+for genuine allocations: the page is being given to a user, so the
+host's view of "free, reclaimed" is no longer accurate.
+
+But the same clear path runs during a buddy MERGE inside
+__free_one_page: when the page being freed has a free buddy, the
+buddy is removed from the free list (clearing its Reported flag) and
+combined with the page into a higher-order block. The merged block
+is then added to the higher-order free list with no Reported flag,
+even though half of its physical extent has already been reported
+to (and reclaimed by) the host.
+
+Result: the next reporting cycle picks up the merged block as
+"unreported" and reports the same physical region again. The host
+re-receives a report for memory it already reclaimed, a fresh
+madvise(MADV_DONTNEED)/MADV_FREE_REUSABLE re-runs against pages
+that may since have been re-faulted by zero-fault, host RSS no
+longer settles, and the cycle repeats every PAGE_REPORTING_DELAY
+(2s) for as long as the kernel keeps churning small allocations.
+
+The pathology is benign on a typical workload — most of the time
+freed pages don't have a free buddy that's already Reported, so
+the merge isn't blocked and the reporting cycle stabilises within
+a couple of passes. It's pathological under a CRIU lazy-pages
+restore: the workload's PE_LAZY anon range stays as huge
+contiguous free runs (CRIU registered userfaultfd on the VMAs but
+never allocated the underlying physical pages), so almost every
+free has a Reported buddy and almost every merge produces a fresh
+unreported block. We've observed bytes_reported climbing to
+~12 GiB on a 1.5 GiB VM in 30 s, with zero workload activity.
+
+Fix: in __free_one_page, refuse to merge with a buddy that is
+already Reported. The merged block can't be reported atomically
+(only one of the two halves was), and the buddy's Reported state
+is a real signal that the host has already done work for that
+range. Keeping the two halves separate preserves the buddy's
+Reported flag, the page being freed gets reported on the next
+cycle, and the cycle settles.
+
+Cost: a small amount of fragmentation at the boundary between
+allocated-and-freed pages and the still-Reported neighbourhood.
+For the cases that drove this change (VMs idling on a lazy-restored
+heap), the host has already dropped the physical backing of
+Reported pages anyway, so consolidating them into larger contiguous
+blocks does not actually buy contiguous host memory — the next
+allocation that uses the merged block stage-2-faults each
+component page back in independently.
+
+Signed-off-by: Machinen kernel patch <noreply@redwoodjs.com>
+---
+ mm/page_alloc.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -800,6 +800,22 @@ static inline void __free_one_page(struct page *page,
+ 		if (!buddy)
+ 			goto done_merging;
+
++		/*
++		 * Don't merge with a buddy that's already been reported to
++		 * a free-page-reporting device (typically a hypervisor that
++		 * has reclaimed the buddy's host backing via madvise).
++		 * Merging would clear the buddy's Reported flag in
++		 * __del_page_from_free_list and the new larger block would
++		 * land on the higher-order free list unreported, so the
++		 * next reporting cycle would re-report the same physical
++		 * region. On guests with very large idle anon ranges (e.g.
++		 * after CRIU lazy-pages restore) this turns into an endless
++		 * report/reclaim cycle that never settles. Keep the buddy
++		 * isolated; the freshly freed half will be reported on its
++		 * own on the next pass.
++		 */
++		if (page_reported(buddy))
++			goto done_merging;
+ 		if (unlikely(order >= pageblock_order)) {
+ 			/*
+ 			 * We want to prevent merge between freepages on pageblock
+--
+2.43.0

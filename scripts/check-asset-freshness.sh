@@ -68,21 +68,30 @@ rootfs_input_files() {
     "${ASSETS}/poweroff.zig" \
     "${ASSETS}/winsize-agent.zig" \
     "${SCRIPTS}/build-base-assets.sh"
-  # CRIU patches applied during the rootfs build. Sorted for stable
-  # ordering. Empty find output is fine (no patches → no extra lines).
-  find "${ROOT}/packages/microvm/patches" -type f -name "*.patch" 2>/dev/null | LC_ALL=C sort
+  # CRIU patches applied during the rootfs build. Scoped to
+  # patches/criu/ so kernel patches under patches/kernel/ (consumed
+  # by the kernel build, see kernel_input_files) don't accidentally
+  # invalidate the rootfs sidecar. Sorted for stable ordering. Empty
+  # find output is fine (no patches → no extra lines).
+  find "${ROOT}/packages/microvm/patches/criu" -type f -name "*.patch" 2>/dev/null | LC_ALL=C sort
 }
 
 # Files whose contents are baked into Image-arm64. The kernel itself
 # comes from upstream kernel.org pinned by version inside
-# build-kernel-arm64.sh — that single script captures version pin,
-# CONFIG_ overrides, and patch list, so it's the only input we track.
-# virt.dts contributes to virt-arm64.dtb (compiled alongside the
-# kernel) so it's listed here too.
+# build-kernel-arm64.sh — that single script captures version pin and
+# CONFIG_ overrides. Patches in packages/microvm/patches/kernel/ are
+# applied on top by the same script, so changing or adding a patch
+# must also invalidate the sidecar. virt.dts contributes to
+# virt-arm64.dtb (compiled alongside the kernel) so it's listed here
+# too.
 kernel_input_files() {
   printf '%s\n' \
     "${ASSETS}/virt.dts" \
     "${SCRIPTS}/build-kernel-arm64.sh"
+  if [ -d "${ROOT}/packages/microvm/patches/kernel" ]; then
+    find "${ROOT}/packages/microvm/patches/kernel" -maxdepth 1 -type f \
+      -name '*.patch' -print | sort
+  fi
 }
 
 # Files whose contents are baked into
