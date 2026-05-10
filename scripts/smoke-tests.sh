@@ -926,6 +926,152 @@ else
 fi
 fi  # B2 rootfs gate
 
+# ---- B3: page-reporting cycle terminates on a --lazy restored VM (#290) ----
+# Boot memdirty, snapshot, restore --lazy, then watch the VMM's
+# `bytes_reported` counter (cumulative, monotonic). Without the
+# in-tree kernel patch
+# (`packages/microvm/patches/kernel/0001-mm-page-reporting-skip-merge-with-reported-buddy.patch`)
+# the guest kernel's page-reporting workqueue re-reports the same
+# physical pages every 2-second cycle indefinitely, because the
+# buddy allocator clears the Reported flag during merges; on a
+# 1.5 GiB lazy-restored VM we observed `bytes_reported` climbing
+# past 12 GiB before hitting the sample horizon. With the patch
+# the cycle terminates after a single warm-up sweep (~22 s) and
+# `bytes_reported` plateaus.
+#
+# We assert plateau by sampling twice with a 5-cycle (10 s) gap
+# *after* a 30 s settle. A non-terminating cycle would add ~1 GiB
+# per cycle to the second sample; we just assert equality, which
+# trips on any forward motion at all.
+if [[ "$ROOTFS_SUPPORTS_CRIU" -eq 0 || "$ROOTFS_SUPPORTS_SNAPSHOT_HELPERS" -eq 0 \
+      || "$ROOTFS_SUPPORTS_MEMDIRTY" -eq 0 ]]; then
+  echo "B3: skipped (rootfs lacks criu/snapshot/memdirty helpers)"
+else
+echo "B3: lazy-restored VM's page-reporting cycle reaches steady state"
+B3_NAME="lazy-balloon-smoke-$$"
+B3_BG_LOG="$FIXTURE/b3-bg.log"
+B3_SCRATCH="$FIXTURE/b3-scratch.img"
+B3_SNAP_DIR="$FIXTURE/b3-snap"
+B3_RESTORE_LOG="$FIXTURE/b3-restore.log"
+B3_DIRTY_MIB=128
+B3_RAM_MIB=$((B3_DIRTY_MIB + 1024))
+
+truncate -s 4G "$B3_SCRATCH"
+B3_PID=$(boot_bg "$B3_NAME" "$B3_BG_LOG" --memory "$B3_RAM_MIB" --snapshot "$B3_SCRATCH" -- \
+  /sbin/machinen-memdirty "$B3_DIRTY_MIB")
+cleanup_b3() {
+  cli stop "$B3_NAME" >/dev/null 2>&1 || true
+  kill -TERM "$B3_PID" 2>/dev/null || true
+  wait "$B3_PID" 2>/dev/null || true
+}
+trap 'cleanup_b3; rm -rf "$FIXTURE"' EXIT
+
+if ! wait_for_vm "$B3_NAME"; then
+  tail -80 "$B3_BG_LOG" >&2
+  fail "B3 — '$B3_NAME' never appeared in 'machinen ls'"
+fi
+
+deadline=$((SECONDS + 60))
+while (( SECONDS < deadline )); do
+  if grep -q "READY mib=$B3_DIRTY_MIB" "$B3_BG_LOG"; then
+    break
+  fi
+  sleep 1
+done
+if ! grep -q "READY mib=$B3_DIRTY_MIB" "$B3_BG_LOG"; then
+  tail -120 "$B3_BG_LOG" >&2
+  fail "B3 — memdirty never printed READY mib=$B3_DIRTY_MIB"
+fi
+sleep 2
+
+if ! cli snapshot "$B3_NAME" "$B3_SNAP_DIR" 2>"$FIXTURE/b3-dump.log"; then
+  cat "$FIXTURE/b3-dump.log" >&2
+  fail "B3 — 'machinen snapshot' failed"
+fi
+wait "$B3_PID" 2>/dev/null || true
+
+node "$CLI" restore "$B3_SNAP_DIR" --lazy >"$B3_RESTORE_LOG" 2>&1 &
+B3_RESTORE_PID=$!
+cleanup_b3_restore() {
+  kill -TERM "$B3_RESTORE_PID" 2>/dev/null || true
+  wait "$B3_RESTORE_PID" 2>/dev/null || true
+}
+trap 'cleanup_b3; cleanup_b3_restore; rm -rf "$FIXTURE"' EXIT
+
+B3_FORK_NAME=""
+deadline=$((SECONDS + 60))
+while (( SECONDS < deadline )); do
+  cand=$(cli ls 2>/dev/null | awk -v src="$B3_NAME/" 'NR>1 && index($2, src)==1 {print $2; exit}')
+  if [[ -n "$cand" ]]; then
+    B3_FORK_NAME=$cand
+    break
+  fi
+  sleep 1
+done
+if [[ -z "$B3_FORK_NAME" ]]; then
+  tail -200 "$B3_RESTORE_LOG" >&2
+  fail "B3 — restored VM never registered"
+fi
+
+B3_FORK_VMM=$(cli ls 2>/dev/null | awk -v n="$B3_FORK_NAME" 'NR>1 && $2==n {print $1}')
+if [[ -z "$B3_FORK_VMM" ]]; then
+  fail "B3 — couldn't find VMM pid for '$B3_FORK_NAME'"
+fi
+
+# Resolve the restored VMM's stats binary path (registry meta records
+# `statsPath`). The 24-byte file's first u64 LE is `bytes_reported`,
+# which the balloon backend bumps on every reporting cycle. Smoke
+# tests pin MACHINEN_REGISTRY_DIR to the fixture so we don't pollute
+# ~/.machinen — read the meta from there.
+B3_META="$MACHINEN_REGISTRY_DIR/$B3_FORK_VMM/meta.json"
+if [[ ! -f "$B3_META" ]]; then
+  fail "B3 — registry meta not found at $B3_META (vmm=$B3_FORK_VMM)"
+fi
+B3_STATS=$(node -e '
+  process.stdout.write(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).statsPath || "");
+' "$B3_META")
+if [[ -z "$B3_STATS" || ! -f "$B3_STATS" ]]; then
+  fail "B3 — couldn't resolve stats binary for '$B3_FORK_NAME' (vmm=$B3_FORK_VMM)"
+fi
+
+read_b3_reported() {
+  node -e '
+    const buf = require("fs").readFileSync(process.argv[1]);
+    process.stdout.write(String(buf.length >= 8 ? Number(buf.readBigUInt64LE(0)) : 0));
+  ' "$B3_STATS"
+}
+
+# Settle: warm-up sweep finished around t=23 in the issue-290
+# reproducer at this workload size; 30 s is comfortable.
+sleep 30
+B3_REPORTED_A=$(read_b3_reported)
+echo "  bytes_reported after 30s settle = $B3_REPORTED_A"
+
+# A==0 means REPORTING never fired — likely the feature got silently
+# disabled. Catch that explicitly so the equality check below can't
+# trivially pass.
+if (( B3_REPORTED_A == 0 )); then
+  tail -100 "$B3_RESTORE_LOG" >&2
+  fail "B3 — bytes_reported == 0 after 30 s; REPORTING didn't fire (#290 regression?)"
+fi
+
+# Re-sample after 5 reporting cycles (~10 s). A non-terminating
+# cycle would add hundreds of MiB to the value here.
+sleep 10
+B3_REPORTED_B=$(read_b3_reported)
+echo "  bytes_reported after +10s gap   = $B3_REPORTED_B"
+
+if (( B3_REPORTED_B != B3_REPORTED_A )); then
+  tail -100 "$B3_RESTORE_LOG" >&2
+  fail "B3 — bytes_reported still growing on lazy-restored VM ($B3_REPORTED_A → $B3_REPORTED_B); kernel page-reporting cycle isn't terminating (#290 regression?)"
+fi
+pass "lazy-restored VM's bytes_reported plateaued at $B3_REPORTED_A bytes (cycle terminated)"
+
+cleanup_b3_restore
+cleanup_b3
+trap 'rm -rf "$FIXTURE"' EXIT
+fi  # B3 rootfs-capability gate
+
 # ----------------------------------------------------------------
 # Phase-1 base-rootfs contract tests — verify #77 step 1 plumbing.
 # Each asserts one thing scripts/build-base-assets.sh claims to ship.
