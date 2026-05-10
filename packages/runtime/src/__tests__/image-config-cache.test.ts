@@ -26,7 +26,7 @@ import {
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { readImageConfig, warmImageConfigCache } from "../vm.ts";
+import { readImageConfig, warmImageConfigCache } from "../vm/index.ts";
 
 const CACHE_DIR = join(homedir(), ".cache", "machinen", "image-config");
 

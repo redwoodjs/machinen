@@ -109,9 +109,9 @@ export {
   measureFirstByte,
   resolveVmmBinary,
   restore,
-} from "./vm.ts";
-export { warmImageConfigCache } from "./vm.ts";
-export type { AttachOptions, BootOptions, ImageConfig, RestoreOptions } from "./vm.ts";
+} from "./vm/index.ts";
+export { warmImageConfigCache } from "./vm/index.ts";
+export type { AttachOptions, BootOptions, ImageConfig, RestoreOptions } from "./vm/index.ts";
 export {
   checkForkBackpressure,
   DEFAULT_FREE_MEMORY_THRESHOLD,

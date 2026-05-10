@@ -11,7 +11,7 @@ import type {
   VsockExecResult,
 } from "./exec.ts";
 import type { OnLog } from "./log.ts";
-import type { RestoreOptions } from "./vm.ts";
+import type { RestoreOptions } from "./vm/index.ts";
 
 export interface VmHandle {
   /**

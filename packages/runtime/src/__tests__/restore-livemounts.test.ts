@@ -5,7 +5,7 @@
 // passthrough) that don't need a running VM to verify.
 
 import { describe, expect, it } from "vitest";
-import { resolveRestoreLiveMounts } from "../vm.ts";
+import { resolveRestoreLiveMounts } from "../vm/index.ts";
 import { BootError, isMachinenError } from "../errors.ts";
 
 describe("resolveRestoreLiveMounts", () => {

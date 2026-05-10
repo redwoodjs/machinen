@@ -42,7 +42,7 @@ import { VsockExec } from "./exec.ts";
 import type { OnLog } from "./log.ts";
 import { PhaseTimer } from "./phase-timer.ts";
 import { reflinkCopy } from "./reflink.ts";
-import { boot, warmImageConfigCache } from "./vm.ts";
+import { boot, warmImageConfigCache } from "./vm/index.ts";
 import type { VmHandle } from "./vm-handle.ts";
 import { ensureRootfsImage, markRootfsImageClean, resolveMke2fs } from "./rootfs-img.ts";
 

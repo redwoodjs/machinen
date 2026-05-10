@@ -52,8 +52,6 @@ export class Sandboxes {
     this.scrollbackBytes = opts.scrollbackBytes ?? 8 * 1024;
   }
 
-  // Public API — fallow can't trace `new Sandboxes().add(...)` calls.
-  // fallow-ignore-next-line unused-class-member
   add(id: string, vm: VmHandle): void {
     if (this.items.has(id)) {
       throw new SandboxError("SANDBOX_ID_DUPLICATE", `sandbox id already registered: ${id}`);
@@ -205,8 +203,6 @@ export class Supervisor {
   }
 
   /** Run until stopped. Resolves when input ends or stop() is called. */
-  // Public API — fallow can't trace `new Supervisor().run()` calls.
-  // fallow-ignore-next-line unused-class-member
   run(): Promise<void> {
     this.print(this.bannerText());
     return new Promise<void>((done) => {
