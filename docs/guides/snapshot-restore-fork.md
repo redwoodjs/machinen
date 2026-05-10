@@ -44,13 +44,16 @@ To move it:
 
 ```bash
 scp -r ./counter.snap host-b:
-ssh host-b npx machinen restore ./counter.snap
+ssh host-b npx machinen restore ./counter.snap -p 3000:3000
 ```
 
 `restore` takes the bundle directory and boots a VM that resumes from
 that frozen state. The first request to host B picks up exactly where
 the last request to host A left off — same heap, same connection
 state, same counter value.
+
+Port forwards aren't carried in the snapshot, so re-declare them on
+restore — that's why `-p 3000:3000` reappears here.
 
 From Node, the same flow:
 

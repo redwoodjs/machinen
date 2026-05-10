@@ -76,7 +76,7 @@ manifest.
 ```bash
 npx machinen snapshot counter ./counter.snap
 scp -r ./counter.snap host-b:
-ssh host-b npx machinen restore ./counter.snap &
+ssh host-b npx machinen restore ./counter.snap -p 3000:3000 &
 curl host-b:3000                           # { count: 3 }
 ```
 
