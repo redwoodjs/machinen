@@ -187,6 +187,16 @@ pub const parse_env_entries_max: u32 = 256;
 /// .docs/learnings/microvm/allocations.md (#240).
 pub const bridge_initial_poll_cap: usize = 256;
 
+/// Hard cap on concurrent vsock connections (inbound + outbound,
+/// connecting + established). Pre-allocated inline in `Bridge` so
+/// the per-accept and per-dial paths never call the allocator on
+/// the bridge poll thread. 256 fits any realistic machinen use:
+/// each FUSE op or probe is a short-lived stream and the bridge
+/// serialises all conns access under `self.mu`. Overflow returns
+/// `error.BridgeConnsFull`; callers close the fd and either send
+/// RST (guest-initiated dial) or log + drop (host accept).
+pub const bridge_conns_max: usize = 256;
+
 /// Per-packet body cap we use when INJECTING RX packets into the
 /// guest. The Linux virtio-vsock driver posts RX buffers as a
 /// SINGLE flat descriptor (not a chain — contrary to what the
@@ -252,6 +262,7 @@ comptime {
     assert(tx_eagain_stalls_max > 0);
     assert(parse_env_entries_max > 0);
     assert(bridge_initial_poll_cap > 0);
+    assert(bridge_conns_max > 0);
 }
 
 /// Parse a `MACHINEN_VSOCK` value into a `PortMap` list.
@@ -772,6 +783,15 @@ pub const BridgeConfig = struct {
 };
 
 pub const Bridge = struct {
+    /// Used ONLY for boot-time setup (the `Bridge` struct itself, the
+    /// `listeners` / `listener_port_idx` lists populated in `start`,
+    /// and the poll-set scratch slice in `runThread`). Hot-path
+    /// methods (`dispatchGuestPacket`, `handleTxChain`, `drainConnection`,
+    /// `injectRx`, `startConnection`, `closeConnection`) must NOT
+    /// allocate — connections live inline in `conns`, scratch buffers
+    /// are stack-local. A future `.alloc()` call inside one of those
+    /// methods is a regression even if it compiles. See
+    /// .docs/learnings/microvm/allocations.md (#240).
     gpa: std.mem.Allocator,
     cfg: BridgeConfig,
     dev: *virtio.Device,
@@ -784,11 +804,16 @@ pub const Bridge = struct {
 
     /// One listener fd per INBOUND entry in cfg.ports. Index-aligned
     /// with `listener_port_idx` so we can reach back to cfg.ports.
+    /// Grown once in `start()` and never after — these are boot-time
+    /// setup, not hot-path state.
     listeners: std.ArrayList(c_int) = .empty,
     listener_port_idx: std.ArrayList(usize) = .empty,
 
-    /// Active connections.
-    conns: std.ArrayList(Connection) = .empty,
+    /// Active connections. Fixed-capacity inline table — every
+    /// accept / dial path goes through `connsPush`, every close
+    /// through `connsSwapRemove`. No allocator on the hot path.
+    conns: [bridge_conns_max]Connection = undefined,
+    conns_len: usize = 0,
 
     /// Self-pipe so sendPacket wakes the poll loop. Index 0 = read, 1 = write.
     wake: [2]c_int = .{ -1, -1 },
@@ -812,11 +837,38 @@ pub const Bridge = struct {
         for (self.listeners.items) |fd| _ = close(fd);
         self.listeners.deinit(self.gpa);
         self.listener_port_idx.deinit(self.gpa);
-        for (self.conns.items) |c| _ = close(c.uds_fd);
-        self.conns.deinit(self.gpa);
+        for (self.conns[0..self.conns_len]) |c| _ = close(c.uds_fd);
         if (self.wake[0] >= 0) _ = close(self.wake[0]);
         if (self.wake[1] >= 0) _ = close(self.wake[1]);
         self.gpa.destroy(self);
+    }
+
+    /// Push a new connection into the bounded `conns` table. Returns
+    /// the index, or `null` when the table is at `bridge_conns_max`.
+    /// Callers handle full by closing the new fd and either sending
+    /// RST (guest-initiated dial) or logging and dropping it. Must
+    /// be called with `self.mu` held.
+    fn connsPush(self: *Bridge, c: Connection) ?usize {
+        assert(self.conns_len <= bridge_conns_max);
+        if (self.conns_len >= bridge_conns_max) return null;
+        const idx = self.conns_len;
+        self.conns[idx] = c;
+        self.conns_len += 1;
+        return idx;
+    }
+
+    /// Remove the connection at `idx` by swapping in the last entry.
+    /// O(1); does not preserve order, which is fine since callers
+    /// scan the table by `(guest_port, host_port)` not by index.
+    /// Must be called with `self.mu` held.
+    fn connsSwapRemove(self: *Bridge, idx: usize) Connection {
+        assert(idx < self.conns_len);
+        const removed = self.conns[idx];
+        self.conns_len -= 1;
+        if (idx != self.conns_len) {
+            self.conns[idx] = self.conns[self.conns_len];
+        }
+        return removed;
     }
 
     pub fn start(self: *Bridge) !void {
@@ -881,7 +933,7 @@ pub const Bridge = struct {
         while (!self.stop_flag.load(.acquire)) {
             // Build poll set: [wake, listeners..., conns...]
             self.mu.lock();
-            const want = 1 + self.listeners.items.len + self.conns.items.len;
+            const want = 1 + self.listeners.items.len + self.conns_len;
             if (want > scratch.len) {
                 scratch = self.gpa.realloc(scratch, want) catch {
                     self.mu.unlock();
@@ -895,7 +947,7 @@ pub const Bridge = struct {
                 scratch[n] = .{ .fd = fd, .events = POLLIN, .revents = 0 };
                 n += 1;
             }
-            for (self.conns.items) |c| {
+            for (self.conns[0..self.conns_len]) |c| {
                 // Paused connections are waiting on credit from the
                 // peer — no POLLIN; we still want POLLHUP/ERR so we
                 // notice a UDS peer close while paused.
@@ -950,7 +1002,7 @@ pub const Bridge = struct {
                 // conns may have shifted under us — re-look up by fd.
                 const fd = scratch[i].fd;
                 var match: ?usize = null;
-                for (self.conns.items, 0..) |c, k| if (c.uds_fd == fd) {
+                for (self.conns[0..self.conns_len], 0..) |c, k| if (c.uds_fd == fd) {
                     match = k;
                     break;
                 };
@@ -975,8 +1027,8 @@ pub const Bridge = struct {
             // though pending_rx still has bytes to deliver.
             self.mu.lock();
             var k: usize = 0;
-            while (k < self.conns.items.len) : (k += 1) {
-                if (self.conns.items[k].pending_rx_len == 0) continue;
+            while (k < self.conns_len) : (k += 1) {
+                if (self.conns[k].pending_rx_len == 0) continue;
                 self.drainConnection(k) catch |err| {
                     std.debug.print("vsock: pending drainConnection err {s}\n", .{@errorName(err)});
                     self.closeConnection(k);
@@ -1018,12 +1070,13 @@ pub const Bridge = struct {
         const host_port = self.next_host_port;
         self.next_host_port += 1;
         assert(host_port != 0);
-        try self.conns.append(self.gpa, .{
+        const idx = self.connsPush(.{
             .guest_port = guest_port,
             .host_port = host_port,
             .uds_fd = uds_fd,
             .state = .connecting,
-        });
+        }) orelse return error.BridgeConnsFull;
+        assert(idx < self.conns_len);
         // Inject REQUEST into guest RX.
         const hdr = VsockHdr{
             .src_cid = host_cid,
@@ -1040,7 +1093,7 @@ pub const Bridge = struct {
         const ok = self.injectRx(hdr, &[_]u8{});
         if (!ok) {
             std.debug.print("vsock: REQUEST inject failed (guest not ready?) — closing\n", .{});
-            self.closeConnection(self.conns.items.len - 1);
+            self.closeConnection(idx);
         }
     }
 
@@ -1056,8 +1109,8 @@ pub const Bridge = struct {
 
     // Must be called with self.mu held.
     fn drainConnection(self: *Bridge, idx: usize) !void {
-        assert(idx < self.conns.items.len);
-        const c = &self.conns.items[idx];
+        assert(idx < self.conns_len);
+        const c = &self.conns[idx];
         assert(c.uds_fd >= 0);
         if (c.state != .established) return; // wait for RESPONSE first
 
@@ -1151,8 +1204,8 @@ pub const Bridge = struct {
 
     // Must be called with self.mu held.
     fn closeConnection(self: *Bridge, idx: usize) void {
-        assert(idx < self.conns.items.len);
-        const c = self.conns.swapRemove(idx);
+        assert(idx < self.conns_len);
+        const c = self.connsSwapRemove(idx);
         assert(c.uds_fd >= 0);
         _ = close(c.uds_fd);
     }
@@ -1232,7 +1285,7 @@ pub const Bridge = struct {
         assert(body.len <= max_payload);
         // Match by (src_port = guest_port, dst_port = host_port).
         var match: ?usize = null;
-        for (self.conns.items, 0..) |c, k| {
+        for (self.conns[0..self.conns_len], 0..) |c, k| {
             if (c.guest_port == hdr.src_port and c.host_port == hdr.dst_port) {
                 match = k;
                 break;
@@ -1248,18 +1301,19 @@ pub const Bridge = struct {
                     const fd = connectUds(uds_path);
                     if (fd >= 0) {
                         setNonblocking(fd);
-                        self.conns.append(self.gpa, .{
+                        const pushed = self.connsPush(.{
                             .guest_port = hdr.src_port,
                             .host_port = hdr.dst_port,
                             .uds_fd = fd,
                             .state = .established,
                             .peer_buf_alloc = hdr.buf_alloc,
                             .peer_fwd_cnt = hdr.fwd_cnt,
-                        }) catch {
+                        });
+                        if (pushed == null) {
                             _ = close(fd);
                             self.sendRst(hdr);
                             return;
-                        };
+                        }
                         const resp = VsockHdr{
                             .src_cid = host_cid,
                             .dst_cid = self.cfg.guest_cid,
@@ -1282,7 +1336,7 @@ pub const Bridge = struct {
             return;
         }
         const idx = match.?;
-        const c = &self.conns.items[idx];
+        const c = &self.conns[idx];
 
         // Every inbound packet carries peer window + fwd_cnt — pick them
         // up before dispatch so peerRoom() reflects the latest view.
