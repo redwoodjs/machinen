@@ -50,18 +50,40 @@ pub const PthreadMutex = extern struct {
     }
 };
 
+/// Cap on captured DR-write bytes. Tests inspect Result.serial,
+/// runLoop breaks once `captured_len >= cfg.capture_bytes` (default
+/// 256 KiB) so the bound is reached cleanly without allocator
+/// involvement. Production boots run with `capture_enabled = false`,
+/// so this buffer never grows past 0 in production.
+pub const captured_capacity: usize = 256 * 1024;
+
+/// Cap on the RX FIFO. Real PL011 hardware has a 32-byte FIFO; we
+/// give the guest much more headroom so a slow ISR can't drop
+/// pasted-in commands. Bytes that don't fit are dropped at the tail
+/// — same fail-soft policy a real UART uses on FIFO overflow.
+pub const rx_capacity: usize = 4096;
+
 pub const Pl011 = struct {
     base: u64,
     size: u64 = 0x1000,
-    captured: std.ArrayList(u8),
-    rx_buf: std.ArrayList(u8),
+    /// Captured DR-write bytes. Pre-sized; never grows. The vCPU
+    /// hot-path (`write` at offset 0x000) writes one byte per call
+    /// without touching the allocator. NASA Power-of-Ten Rule 3
+    /// (no dynamic alloc after init), see
+    /// .docs/learnings/microvm/allocations.md (#240).
+    captured: [captured_capacity]u8 = undefined,
+    captured_len: usize = 0,
+    /// RX FIFO bytes from host stdin. Pre-sized; pushRx drops at the
+    /// tail when full.
+    rx_buf: [rx_capacity]u8 = undefined,
+    rx_len: usize = 0,
     /// Whether DR-write bytes are appended to `captured`. Test boots
-    /// rely on the captured buffer to assert on guest output; production
-    /// boots discard `Result.serial` immediately (see main.zig — the
-    /// same bytes already live-echo to host stderr from the boot loop's
-    /// PL011 handler). Skipping the append eliminates the per-byte
-    /// ArrayList grow on the production hot path. NASA Power-of-Ten
-    /// Rule 3, see .docs/learnings/microvm/allocations.md (#240).
+    /// rely on the captured buffer to assert on guest output;
+    /// production boots discard `Result.serial` immediately (see
+    /// main.zig — the same bytes already live-echo to host stderr
+    /// from the boot loop's PL011 handler). Skipping the append
+    /// eliminates the per-byte buffer churn on the production hot
+    /// path even though the buffer itself is allocator-free.
     capture_enabled: bool = true,
     // Interrupt mask/status. The kernel's PL011 IRQ handler reads MIS
     // (masked = RIS & IMSC) and clears matching bits via ICR.
@@ -83,25 +105,24 @@ pub const Pl011 = struct {
         assert(@sizeOf(PthreadMutex) >= 64);
         assert(@sizeOf(PthreadMutex) >= PthreadMutex.macos_pad);
         assert(@sizeOf(PthreadMutex) >= PthreadMutex.linux_pad);
+        // Pl011 holds both rings inline. Sanity-check the expected
+        // struct size so a future cap bump catches the stack-pressure
+        // cost explicitly. ~260 KiB sits comfortably on the boot
+        // thread's default ~8 MiB stack.
+        assert(@sizeOf(Pl011) >= captured_capacity + rx_capacity);
+        assert(captured_capacity > 0);
+        assert(rx_capacity > 0);
     }
 
     pub const init: Pl011 = .{
         .base = 0x0900_0000,
-        .captured = .empty,
-        .rx_buf = .empty,
     };
 
     pub fn withBase(base: u64) Pl011 {
         // base 0 collides with the GIC distributor on the arm-virt
         // machine; non-zero is a programmer invariant for every caller.
         assert(base != 0);
-        return .{ .base = base, .captured = .empty, .rx_buf = .empty };
-    }
-
-    pub fn deinit(self: *Pl011, gpa: std.mem.Allocator) void {
-        assert(self.size > 0);
-        self.captured.deinit(gpa);
-        self.rx_buf.deinit(gpa);
+        return .{ .base = base };
     }
 
     pub fn handles(self: *const Pl011, addr: u64) bool {
@@ -119,28 +140,48 @@ pub const Pl011 = struct {
         return (self.ris & self.imsc) != 0;
     }
 
-    pub fn pushRx(self: *Pl011, gpa: std.mem.Allocator, bytes: []const u8) !void {
+    /// Slice over the captured DR-write bytes. The returned slice
+    /// aliases the inline buffer — copy it (e.g. via `gpa.dupe`) if
+    /// you need it to outlive the Pl011.
+    pub fn capturedBytes(self: *const Pl011) []const u8 {
+        assert(self.captured_len <= captured_capacity);
+        return self.captured[0..self.captured_len];
+    }
+
+    /// Drop bytes that don't fit. Real PL011 hardware does the same
+    /// when its 32-byte RX FIFO is full; the kernel's driver expects
+    /// to lose data on overrun rather than block the producer.
+    pub fn pushRx(self: *Pl011, bytes: []const u8) void {
         assert(self.size > 0);
         self.mutex.lock();
         defer self.mutex.unlock();
-        const before = self.rx_buf.items.len;
-        try self.rx_buf.appendSlice(gpa, bytes);
-        assert(self.rx_buf.items.len == before + bytes.len);
-        if (self.rx_buf.items.len > 0) self.ris |= RX_INT;
+        const room = rx_capacity - self.rx_len;
+        const n = @min(room, bytes.len);
+        if (n == 0) return;
+        @memcpy(self.rx_buf[self.rx_len..][0..n], bytes[0..n]);
+        self.rx_len += n;
+        assert(self.rx_len <= rx_capacity);
+        self.ris |= RX_INT;
     }
 
-    pub fn write(self: *Pl011, gpa: std.mem.Allocator, addr: u64, value: u64) !void {
+    pub fn write(self: *Pl011, addr: u64, value: u64) void {
         assert(self.size > 0);
         assert(self.handles(addr));
         self.mutex.lock();
         defer self.mutex.unlock();
         const offset = addr - self.base;
         switch (offset) {
-            0x000 => if (self.capture_enabled) try self.captured.append(gpa, @truncate(value)),
+            0x000 => {
+                if (self.capture_enabled and self.captured_len < captured_capacity) {
+                    self.captured[self.captured_len] = @truncate(value);
+                    self.captured_len += 1;
+                    assert(self.captured_len <= captured_capacity);
+                }
+            },
             0x038 => self.imsc = @truncate(value),
             0x044 => {
                 self.ris &= ~@as(u32, @truncate(value));
-                if (self.rx_buf.items.len > 0) self.ris |= RX_INT;
+                if (self.rx_len > 0) self.ris |= RX_INT;
             },
             else => {},
         }
@@ -154,17 +195,17 @@ pub const Pl011 = struct {
         const offset = addr - self.base;
         switch (offset) {
             0x000 => {
-                if (self.rx_buf.items.len == 0) return 0;
-                const before = self.rx_buf.items.len;
-                const b = self.rx_buf.items[0];
-                std.mem.copyForwards(u8, self.rx_buf.items[0 .. self.rx_buf.items.len - 1], self.rx_buf.items[1..]);
-                self.rx_buf.items.len -= 1;
-                assert(self.rx_buf.items.len + 1 == before);
-                if (self.rx_buf.items.len == 0) self.ris &= ~RX_INT;
+                if (self.rx_len == 0) return 0;
+                const before = self.rx_len;
+                const b = self.rx_buf[0];
+                std.mem.copyForwards(u8, self.rx_buf[0 .. self.rx_len - 1], self.rx_buf[1..self.rx_len]);
+                self.rx_len -= 1;
+                assert(self.rx_len + 1 == before);
+                if (self.rx_len == 0) self.ris &= ~RX_INT;
                 return b;
             },
             0x018 => {
-                const rxfe: u64 = if (self.rx_buf.items.len == 0) (1 << 4) else 0;
+                const rxfe: u64 = if (self.rx_len == 0) (1 << 4) else 0;
                 return 0x80 | rxfe;
             },
             0x038 => return self.imsc,

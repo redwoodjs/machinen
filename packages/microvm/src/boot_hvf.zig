@@ -210,10 +210,9 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // --- run loop -------------------------------------------------
     var uart: hvf.Pl011 = .init;
     // Production boots discard Result.serial unread (main.zig); skip
-    // the per-byte capture allocations in that mode. See
+    // the per-byte capture writes in that mode. See
     // .docs/learnings/microvm/allocations.md (#240).
     uart.capture_enabled = !cfg.unbounded_serial;
-    defer uart.deinit(gpa);
 
     // virtio-net + gvproxy (#82). The Device is the "hardware"; gvproxy
     // (containers/gvisor-tap-vsock) runs out-of-process as a user-mode
@@ -361,7 +360,6 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     var stdin_ctx = StdinThread{
         .uart = &uart,
         .irq = irqs.pl011,
-        .gpa = gpa,
     };
     const stdin_thread = try std.Thread.spawn(.{}, stdinThreadMain, .{&stdin_ctx});
     defer {
@@ -423,7 +421,7 @@ fn runLoop(
             },
             .data_abort_lower_el => {
                 const info = hvf.DataAbort.decode(vcpu.exit.exception);
-                try routeDataAbort(gpa, vcpu, devs, irqs, info);
+                try routeDataAbort(vcpu, devs, irqs, info);
             },
             else => {
                 // Unhandled exception — record and stop.
@@ -435,12 +433,12 @@ fn runLoop(
         // be confident the kernel booted far enough to prove our point.
         // Production boots set `unbounded_serial` so the loop ends only
         // on PSCI SYSTEM_OFF (or max_exits).
-        if (!cfg.unbounded_serial and devs.uart.captured.items.len >= cfg.capture_bytes) break;
+        if (!cfg.unbounded_serial and devs.uart.captured_len >= cfg.capture_bytes) break;
     }
 
     if (exits >= cfg.max_exits) return error.RanTooLong;
 
-    const serial = try gpa.dupe(u8, devs.uart.captured.items);
+    const serial = try gpa.dupe(u8, devs.uart.capturedBytes());
     return .{
         .serial = serial,
         .saw_psci_shutdown = saw_off,
@@ -452,7 +450,6 @@ fn runLoop(
 const StdinThread = struct {
     uart: *hvf.Pl011,
     irq: u32,
-    gpa: std.mem.Allocator,
     stop: std.atomic.Value(bool) = .init(false),
 };
 
@@ -979,14 +976,13 @@ const Devices = struct {
 /// advance PC past the faulting load/store. This is the dispatch table
 /// — the per-device helpers do the actual read/write.
 fn routeDataAbort(
-    gpa: std.mem.Allocator,
     vcpu: hvf.Vcpu,
     devs: *const Devices,
     irqs: IrqMap,
     info: hvf.DataAbort,
 ) !void {
     if (devs.uart.handles(info.ipa)) {
-        try handlePl011Mmio(devs.uart, gpa, vcpu, info, irqs.pl011);
+        try handlePl011Mmio(devs.uart, vcpu, info, irqs.pl011);
     } else if (info.ipa >= 0x0800_0000 and info.ipa < 0x0801_0000) {
         try handleGicDistMmio(vcpu, info);
     } else if (devs.netdev.handles(info.ipa)) {
@@ -1035,7 +1031,6 @@ fn syncPl011Irq(uart: *hvf.Pl011, irq: u32) void {
 /// console output live; every access resyncs the IRQ line.
 fn handlePl011Mmio(
     uart: *hvf.Pl011,
-    gpa: std.mem.Allocator,
     vcpu: hvf.Vcpu,
     info: hvf.DataAbort,
     irq: u32,
@@ -1043,7 +1038,7 @@ fn handlePl011Mmio(
     assert(uart.handles(info.ipa));
     if (info.is_write) {
         const value = try info.readSource(vcpu);
-        try uart.write(gpa, info.ipa, value);
+        uart.write(info.ipa, value);
         if ((info.ipa - uart.base) == 0) {
             const byte: [1]u8 = .{@truncate(value)};
             _ = write(2, &byte, 1);
@@ -1128,7 +1123,7 @@ fn stdinThreadMain(ctx: *StdinThread) void {
             return;
         }
         assert(@as(usize, @intCast(n)) <= buf.len);
-        ctx.uart.pushRx(ctx.gpa, buf[0..@intCast(n)]) catch return;
+        ctx.uart.pushRx(buf[0..@intCast(n)]);
         // Assert the IRQ so the vCPU wakes from WFI and services it.
         hvf.Gic.setSpi(ctx.irq, ctx.uart.irqAsserted()) catch {};
     }

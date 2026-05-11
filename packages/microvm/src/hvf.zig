@@ -829,9 +829,7 @@ test "guest writes bytes to PL011 UART, host captures them" {
     try vcpu.setSysReg(.sctlr_el1, 1 << 12);
     try vcpu.setReg(.pc, guest_base);
 
-    const gpa = std.testing.allocator;
     var uart: Pl011 = .init;
-    defer uart.deinit(gpa);
 
     const max_iters: usize = 32;
     var iters: usize = 0;
@@ -847,7 +845,7 @@ test "guest writes bytes to PL011 UART, host captures them" {
                 if (uart.handles(info.ipa)) {
                     if (info.is_write) {
                         const value = try info.readSource(vcpu);
-                        try uart.write(gpa, info.ipa, value);
+                        uart.write(info.ipa, value);
                     }
                     // (reads not exercised in this test)
                 }
@@ -860,10 +858,10 @@ test "guest writes bytes to PL011 UART, host captures them" {
     }
     try std.testing.expect(iters < max_iters);
 
-    try std.testing.expectEqualStrings("Hi\n", uart.captured.items);
+    try std.testing.expectEqualStrings("Hi\n", uart.capturedBytes());
     std.debug.print(
         "PL011 captured {d} bytes: \"{s}\"",
-        .{ uart.captured.items.len, uart.captured.items },
+        .{ uart.captured_len, uart.capturedBytes() },
     );
 }
 
@@ -878,39 +876,33 @@ test "guest writes bytes to PL011 UART, host captures them" {
 // return the standard PL011 values so the AMBA bus binds.
 
 test "Pl011: pushRx buffers bytes and sets RX_INT in RIS" {
-    const gpa = std.testing.allocator;
     var uart: Pl011 = .init;
-    defer uart.deinit(gpa);
 
-    try uart.pushRx(gpa, "abc");
-    try std.testing.expectEqual(@as(usize, 3), uart.rx_buf.items.len);
+    uart.pushRx("abc");
+    try std.testing.expectEqual(@as(usize, 3), uart.rx_len);
     try std.testing.expect((uart.ris & Pl011.RX_INT) != 0);
 }
 
 test "Pl011: irqAsserted is gated on IMSC" {
-    const gpa = std.testing.allocator;
     var uart: Pl011 = .init;
-    defer uart.deinit(gpa);
 
-    try uart.pushRx(gpa, "x");
+    uart.pushRx("x");
     // RIS has RX_INT set, but the kernel hasn't enabled the mask yet.
     try std.testing.expect(!uart.irqAsserted());
 
     // Kernel enables RX interrupt (IMSC bit 4 = 0x10).
-    try uart.write(gpa, uart.base + 0x038, 0x10);
+    uart.write(uart.base + 0x038, 0x10);
     try std.testing.expect(uart.irqAsserted());
 
     // Kernel masks everything — IRQ line should drop even though bytes remain.
-    try uart.write(gpa, uart.base + 0x038, 0x00);
+    uart.write(uart.base + 0x038, 0x00);
     try std.testing.expect(!uart.irqAsserted());
 }
 
 test "Pl011: ICR clears selected RIS bits, preserves RX_INT while FIFO has bytes" {
-    const gpa = std.testing.allocator;
     var uart: Pl011 = .init;
-    defer uart.deinit(gpa);
 
-    try uart.pushRx(gpa, "y");
+    uart.pushRx("y");
     // Enable + assert: the RT (receive-timeout) bit too, so we can see
     // ICR clear it without clearing RX_INT.
     uart.ris |= (1 << 6); // RT
@@ -919,35 +911,31 @@ test "Pl011: ICR clears selected RIS bits, preserves RX_INT while FIFO has bytes
 
     // Kernel writes ICR=0x50 (RX | RT). RT should clear permanently;
     // RX_INT should re-latch because rx_buf still holds a byte.
-    try uart.write(gpa, uart.base + 0x044, 0x50);
+    uart.write(uart.base + 0x044, 0x50);
     try std.testing.expectEqual(@as(u32, 0x10), uart.ris);
 }
 
 test "Pl011: DR read pops a byte; RX_INT clears when FIFO drains" {
-    const gpa = std.testing.allocator;
     var uart: Pl011 = .init;
-    defer uart.deinit(gpa);
 
-    try uart.pushRx(gpa, "hi");
+    uart.pushRx("hi");
     const a = uart.read(uart.base + 0x000); // DR
     try std.testing.expectEqual(@as(u64, 'h'), a);
     try std.testing.expect((uart.ris & Pl011.RX_INT) != 0); // still one byte left
 
     const b = uart.read(uart.base + 0x000);
     try std.testing.expectEqual(@as(u64, 'i'), b);
-    try std.testing.expectEqual(@as(usize, 0), uart.rx_buf.items.len);
+    try std.testing.expectEqual(@as(usize, 0), uart.rx_len);
     try std.testing.expect((uart.ris & Pl011.RX_INT) == 0); // drained → clear
 }
 
 test "Pl011: FR.RXFE flips with FIFO occupancy" {
-    const gpa = std.testing.allocator;
     var uart: Pl011 = .init;
-    defer uart.deinit(gpa);
 
     // Empty: bit 4 (RXFE) set.
     try std.testing.expect((uart.read(uart.base + 0x018) & (1 << 4)) != 0);
 
-    try uart.pushRx(gpa, "z");
+    uart.pushRx("z");
     // Not empty: RXFE clear.
     try std.testing.expect((uart.read(uart.base + 0x018) & (1 << 4)) == 0);
 
