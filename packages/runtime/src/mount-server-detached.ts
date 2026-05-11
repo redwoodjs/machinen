@@ -313,12 +313,3 @@ function resolveMountServerCommand(): ResolvedCommand {
       `Run pnpm build, or set MACHINEN_MOUNT_SERVER_BIN to an absolute path.`,
   );
 }
-
-// Test-only: drop the resolution cache so a test can repoint
-// MACHINEN_MOUNT_SERVER_BIN between cases.
-export function _resetResolveCache(): void {
-  cachedCommand = null;
-}
-
-// Re-export for callers that only want the path lookup.
-export { resolveMountServerCommand };
