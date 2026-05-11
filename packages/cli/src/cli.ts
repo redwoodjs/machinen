@@ -43,7 +43,7 @@ import {
   runGc,
   validatePid,
 } from "@machinen/runtime";
-import type { RegistryEntry } from "@machinen/runtime";
+import type { LogEvent, RegistryEntry } from "@machinen/runtime";
 import debugLib from "debug";
 
 import pkg from "../package.json" with { type: "json" };
@@ -55,6 +55,14 @@ import { parseForkArgs } from "./parse-fork-args.ts";
 import { parseRestoreArgs } from "./parse-restore-args.ts";
 import { parseRunArgs } from "./parse-run-args.ts";
 import { extractTarget, type Target } from "./parse-target.ts";
+import {
+  formatElapsed,
+  isQuiet,
+  NoiseFilter,
+  printDiagnostics,
+  printHeadline,
+  RingBuffer,
+} from "./quiet.ts";
 import { tailLines } from "./tail-lines.ts";
 
 const debug = debugLib("machinen:cli");
@@ -219,7 +227,13 @@ async function downloadWithChecksum(
 ): Promise<void> {
   const tmp = `${dest}.partial`;
 
-  process.stderr.write(`  fetch ${asset}\n`);
+  // Per-asset progress is useful detail when an operator is
+  // debugging a fetch (slow network, asset name typo) but noise
+  // for everyone else. Suppressed in quiet mode (#286); the caller
+  // prints one headline + "ready in <t>s" instead.
+  if (!isQuiet()) {
+    process.stderr.write(`  fetch ${asset}\n`);
+  }
   await downloadAssetById(asset, tmp, index, token);
 
   const sha = (await fetchAssetText(`${asset}.sha256`, index, token)).trim().split(/\s+/)[0];
@@ -352,10 +366,12 @@ function pipeStdinToVm(vmStdin: NodeJS.WritableStream, onCtrlD: () => void): voi
   stdin.pipe(intercept).pipe(vmStdin);
 }
 
-// Print the "press Ctrl-D to stop" hint and schedule a second print
-// `repeatAfterMs` later. The boot/restore output buries the first hint
-// under kernel logs and init checkpoints; reprinting once the scroll
-// settles puts it back where the user is most likely to read it.
+// Print the "press Ctrl-D to stop" hint. In operator mode
+// (DEBUG=machinen:*) the boot/restore output buries the first hint
+// under kernel logs and init checkpoints; we reprint once the scroll
+// settles to put it back where the user is most likely to read it.
+// In quiet mode (#286) the headline lines are short and stable, so
+// one hint right after them is enough — no reprint, no clutter.
 //
 // Returns a cancel function for the pending reprint — call from the
 // finally block so the timer doesn't fire after the VM has already
@@ -366,6 +382,9 @@ function printCtrlDHint(repeatAfterMs = 3000): () => void {
   }
   const msg = "machinen: press Ctrl-D to stop\n";
   process.stderr.write(msg);
+  if (isQuiet()) {
+    return () => {};
+  }
   const t = setTimeout(() => {
     process.stderr.write(msg);
   }, repeatAfterMs);
@@ -511,6 +530,46 @@ async function cmdBoot(args: string[]): Promise<number> {
   // back to that automatically.
   const cmd = double_dash_args.length > 0 ? ["/usr/bin/env", ...double_dash_args] : undefined;
 
+  // #286: quiet headline UX + diagnostics-on-failure. Buffer the
+  // chatty boot/restore lines (init checkpoints, kernel printk,
+  // machinen-restore.sh mechanics) and only flush them on failure.
+  // Operator mode (DEBUG=machinen:*) bypasses the filter — `onLog`
+  // is unset so vm.stderr stays raw via the runtime's own
+  // vmmDebug.enabled tee, and the CLI's `.pipe(process.stderr)`
+  // below carries the rest. JSON detached output skips headlines
+  // (the caller is scripting against the structured payload).
+  const headlineName = name ?? deriveBootName(imageOverride);
+  const showHeadlines = isQuiet() && !(detached && json);
+  const bootT0 = Date.now();
+  const buffer = new RingBuffer();
+  let filter: NoiseFilter | null = null;
+  if (showHeadlines) {
+    printHeadline(`booting ${headlineName}…`);
+    if (!detached) {
+      filter = new NoiseFilter({
+        buffer,
+        out: process.stderr,
+        onReady: () => {
+          printHeadline("guest ready");
+          printHeadline(`ready in ${formatElapsed(Date.now() - bootT0)}`);
+        },
+      });
+    }
+  }
+  const onLog = filter
+    ? (evt: LogEvent) => {
+        if (evt.source === "guest-console") {
+          filter!.push(evt.chunk);
+        }
+      }
+    : showHeadlines
+      ? (evt: LogEvent) => {
+          if (evt.source === "guest-console") {
+            buffer.push(evt.chunk);
+          }
+        }
+      : undefined;
+
   let vm;
   try {
     vm = await boot({
@@ -530,6 +589,7 @@ async function cmdBoot(args: string[]): Promise<number> {
       guestCwd,
       detached,
       memory,
+      onLog,
       // Interactive CLI: the session lives as long as the guest does.
       // Don't impose the default 60s cap. Detached boots fall back to
       // the runtime's own readiness timeout (60s) so the CLI can't
@@ -537,6 +597,12 @@ async function cmdBoot(args: string[]): Promise<number> {
       timeoutMs: detached ? undefined : null,
     });
   } catch (err) {
+    filter?.flush();
+    if (showHeadlines) {
+      failQuiet(`boot ${headlineName} failed: ${describeError(err)}`, {
+        buffer,
+      });
+    }
     handleError(err);
   }
 
@@ -565,7 +631,14 @@ async function cmdBoot(args: string[]): Promise<number> {
   }
 
   vm.stdout.pipe(process.stdout);
-  vm.stderr.pipe(process.stderr);
+  // Quiet mode: the NoiseFilter already routes vm.stderr (via the
+  // `onLog` hook installed by boot()) into the ring buffer + stderr,
+  // splitting boot noise from workload output. Piping vm.stderr
+  // directly here would double-print every line. Operator mode
+  // (filter === null) keeps the legacy raw passthrough.
+  if (!filter) {
+    vm.stderr.pipe(process.stderr);
+  }
   const restoreStdin = rawModeStdinIfTTY();
   const cancelHintRepeat = printCtrlDHint();
 
@@ -598,11 +671,20 @@ async function cmdBoot(args: string[]): Promise<number> {
 
   try {
     const { code } = await vm.wait();
+    filter?.flush();
     if (forwardedSignal === "SIGINT") {
       return 130;
     }
     if (forwardedSignal === "SIGTERM") {
       return 143;
+    }
+    // Pre-ready non-zero exit: the workload never reached the
+    // readiness boundary, so the buffered boot noise IS the only
+    // post-mortem signal the user has. Flush it under the
+    // diagnostics envelope. Post-ready exits skip the dump — the
+    // workload printed its own error to stderr already.
+    if (filter && !filter.ready && code != null && code !== 0 && !forwardedSignal) {
+      printDiagnostics(`boot ${headlineName} exited ${code} before reaching ready`, { buffer });
     }
     return code ?? 0;
   } finally {
@@ -617,10 +699,25 @@ async function cmdInstall(args: string[]): Promise<number> {
   const { json, rest } = consumeJsonFlag(args);
   const tag = argValue(rest, "--version") ?? RELEASE_TAG;
   const wasComplete = baseAssetsComplete(tag);
+  const t0 = Date.now();
   if (!json) {
-    process.stderr.write(`Installing base assets for ${tag} into ${cacheDirFor(tag)}\n`);
+    process.stderr.write(`installing base assets for ${tag}…\n`);
+    // Only show the cache target in operator mode — the path is
+    // useful to know when you're debugging where downloads landed,
+    // noise otherwise.
+    if (!isQuiet()) {
+      process.stderr.write(`  into ${cacheDirFor(tag)}\n`);
+    }
   }
-  const base = await ensureBaseAssets(tag);
+  let base: string;
+  try {
+    base = await ensureBaseAssets(tag);
+  } catch (err) {
+    if (isQuiet() && !json) {
+      failQuiet(`install ${tag} failed: ${describeError(err)}`);
+    }
+    throw err;
+  }
   if (json) {
     emitJson({
       schema_version: 1,
@@ -628,8 +725,10 @@ async function cmdInstall(args: string[]): Promise<number> {
       base_dir: base,
       fetched: !wasComplete,
     });
+  } else if (wasComplete) {
+    process.stderr.write(`ready: ${base} (cached)\n`);
   } else {
-    process.stderr.write(`Ready: ${base}\n`);
+    process.stderr.write(`ready in ${formatElapsed(Date.now() - t0)}: ${base}\n`);
   }
   return 0;
 }
@@ -697,6 +796,37 @@ async function cmdRestore(args: string[]): Promise<number> {
     }
   }
 
+  // #286: quiet headline UX + diagnostics-on-failure. The restore
+  // path is much chattier than boot — machinen-restore.sh emits the
+  // lazy-pages daemon pid, UDS bind, untar progress, criu's exit
+  // notes — and most of it is noise for end-users. Same buffer +
+  // NoiseFilter shape as cmdBoot; only the verbs differ.
+  const headlineName = name ?? deriveBootName(snapDir);
+  const showHeadlines = isQuiet();
+  const restoreT0 = Date.now();
+  const buffer = new RingBuffer();
+  let filter: NoiseFilter | null = null;
+  if (showHeadlines) {
+    printHeadline(`restoring ${headlineName}…`);
+    // onReady fires on the first non-noise line — typically the
+    // restored workload's first stdout/stderr write. We print the
+    // "restored" headline there so timing is wall-clock honest.
+    filter = new NoiseFilter({
+      buffer,
+      out: process.stderr,
+      onReady: () => {
+        printHeadline(`restored in ${formatElapsed(Date.now() - restoreT0)}`);
+      },
+    });
+  }
+  const onLog = filter
+    ? (evt: LogEvent) => {
+        if (evt.source === "guest-console") {
+          filter!.push(evt.chunk);
+        }
+      }
+    : undefined;
+
   let vm;
   try {
     vm = await restore({
@@ -713,15 +843,26 @@ async function cmdRestore(args: string[]): Promise<number> {
       // host/mode (BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN if no match).
       liveMounts: liveMounts.length > 0 ? liveMounts : undefined,
       timeoutMs: null,
+      onLog,
     });
   } catch (err) {
+    filter?.flush();
+    if (showHeadlines) {
+      failQuiet(`restore ${headlineName} failed: ${describeError(err)}`, {
+        buffer,
+      });
+    }
     handleError(err);
   }
 
-  process.stderr.write(`restored as: ${vm.name ?? "<anonymous>"} (pid ${vm.pid})\n`);
+  if (!showHeadlines) {
+    process.stderr.write(`restored as: ${vm.name ?? "<anonymous>"} (pid ${vm.pid})\n`);
+  }
 
   vm.stdout.pipe(process.stdout);
-  vm.stderr.pipe(process.stderr);
+  if (!filter) {
+    vm.stderr.pipe(process.stderr);
+  }
   const restoreStdin = rawModeStdinIfTTY();
   const cancelHintRepeat = printCtrlDHint();
 
@@ -745,11 +886,15 @@ async function cmdRestore(args: string[]): Promise<number> {
 
   try {
     const { code } = await vm.wait();
+    filter?.flush();
     if (forwardedSignal === "SIGINT") {
       return 130;
     }
     if (forwardedSignal === "SIGTERM") {
       return 143;
+    }
+    if (filter && !filter.ready && code != null && code !== 0 && !forwardedSignal) {
+      printDiagnostics(`restore ${headlineName} exited ${code} before reaching ready`, { buffer });
     }
     return code ?? 0;
   } finally {
@@ -1247,13 +1392,28 @@ async function cmdSnapshot(args: string[]): Promise<number> {
     return 0;
   }
   const vm = await attach(target).catch(handleError);
+  // #286: quiet snapshot UX. Snapshot's onLog stream is the CRIU
+  // dump-side chatter (machinen-dump.sh + criu's per-phase
+  // progress); buffer it under the diagnostics envelope, surface
+  // only the final "snapshot: <dir>" line on success.
+  const snapHeadlineName = vm.name ?? `pid ${vm.pid}`;
+  const showHeadlines = isQuiet() && !json;
+  const buffer = new RingBuffer();
+  if (showHeadlines) {
+    printHeadline(`snapshotting ${snapHeadlineName}…`);
+  }
   try {
     const res = await vm.snapshot({
       outDir: resolvedOutDir,
       leaveRunning: keepAlive,
       tcpClose: keepAlive,
       onLog: (evt) => {
-        if (evt.source !== "phase") {
+        if (evt.source === "phase") {
+          return;
+        }
+        if (showHeadlines) {
+          buffer.push(evt.chunk);
+        } else {
           process.stderr.write(evt.chunk);
         }
       },
@@ -1270,6 +1430,11 @@ async function cmdSnapshot(args: string[]): Promise<number> {
     }
     return 0;
   } catch (err) {
+    if (showHeadlines) {
+      failQuiet(`snapshot ${snapHeadlineName} failed: ${describeError(err)}`, {
+        buffer,
+      });
+    }
     handleError(err);
   } finally {
     await vm.detach();
@@ -1344,28 +1509,78 @@ async function cmdFork(args: string[]): Promise<number> {
   // is responsible for `rm -rf`-ing the printed path.
   const resolvedOutDir = outDir ? resolve(outDir) : mkdtempSync(join(tmpdir(), "machinen-fork-"));
   const vm = await attach(target).catch(handleError);
-  try {
-    const fork = await vm.fork({
-      name: newName,
-      outDir: resolvedOutDir,
-      image: imagePath,
-      kernel: kernelPath,
-      dtb: dtbPath,
-      tcpKeep,
-      lazy,
-      portForward: portForward.length > 0 ? portForward : undefined,
-      mount,
-      liveMounts,
-      env,
-      guestCwd,
-      memory,
-      onLog: (evt) => {
-        if (evt.source !== "phase") {
-          process.stderr.write(evt.chunk);
+  // #286: quiet fork UX. The fork path is snapshot+restore back to
+  // back, so it's the noisiest of the three — both the source-side
+  // CRIU dump chunks and the restore-side guest console land on the
+  // same onLog. Buffer them; on failure dump under the diagnostics
+  // envelope so the user has something to read.
+  const sourceLabel = "name" in target ? target.name : `pid ${target.pid}`;
+  const forkHeadlineName = newName ?? sourceLabel;
+  const showHeadlines = isQuiet() && !(detach && json);
+  const forkT0 = Date.now();
+  const buffer = new RingBuffer();
+  let filter: NoiseFilter | null = null;
+  if (showHeadlines) {
+    printHeadline(`forking ${sourceLabel} → ${forkHeadlineName}…`);
+    if (!detach) {
+      filter = new NoiseFilter({
+        buffer,
+        out: process.stderr,
+        onReady: () => {
+          printHeadline(`fork ready in ${formatElapsed(Date.now() - forkT0)}`);
+        },
+      });
+    }
+  }
+  const onLog = filter
+    ? (evt: LogEvent) => {
+        if (evt.source === "guest-console") {
+          filter!.push(evt.chunk);
         }
-      },
-    });
-    if (!json) {
+      }
+    : showHeadlines
+      ? (evt: LogEvent) => {
+          if (evt.source === "guest-console") {
+            buffer.push(evt.chunk);
+          }
+        }
+      : (evt: LogEvent) => {
+          // Operator mode: legacy live-stream of every non-phase chunk
+          // (the runtime emits phase events too — those are timing
+          // metadata, not console output, so they're filtered out).
+          if (evt.source !== "phase") {
+            process.stderr.write(evt.chunk);
+          }
+        };
+  try {
+    let fork;
+    try {
+      fork = await vm.fork({
+        name: newName,
+        outDir: resolvedOutDir,
+        image: imagePath,
+        kernel: kernelPath,
+        dtb: dtbPath,
+        tcpKeep,
+        lazy,
+        portForward: portForward.length > 0 ? portForward : undefined,
+        mount,
+        liveMounts,
+        env,
+        guestCwd,
+        memory,
+        onLog,
+      });
+    } catch (err) {
+      filter?.flush();
+      if (showHeadlines) {
+        failQuiet(`fork ${forkHeadlineName} failed: ${describeError(err)}`, {
+          buffer,
+        });
+      }
+      throw err;
+    }
+    if (!showHeadlines && !json) {
       process.stderr.write(`forked: ${fork.name ?? "<anonymous>"} (pid ${fork.pid})\n`);
       if (!outDir) {
         process.stderr.write(`bundle: ${resolvedOutDir} (rm -rf when the fork exits)\n`);
@@ -1393,7 +1608,9 @@ async function cmdFork(args: string[]): Promise<number> {
     // as `cmdRestore`. The source VM keeps running in the background,
     // owned by whoever booted it; we never had its console fd.
     fork.stdout.pipe(process.stdout);
-    fork.stderr.pipe(process.stderr);
+    if (!filter) {
+      fork.stderr.pipe(process.stderr);
+    }
     const restoreStdin = rawModeStdinIfTTY();
     const cancelHintRepeat = printCtrlDHint();
     // The source shell printed PS1 to the source's tty before the
@@ -1432,11 +1649,17 @@ async function cmdFork(args: string[]): Promise<number> {
     });
     try {
       const { code } = await fork.wait();
+      filter?.flush();
       if (forwardedSignal === "SIGINT") {
         return 130;
       }
       if (forwardedSignal === "SIGTERM") {
         return 143;
+      }
+      if (filter && !filter.ready && code != null && code !== 0 && !forwardedSignal) {
+        printDiagnostics(`fork ${forkHeadlineName} exited ${code} before reaching ready`, {
+          buffer,
+        });
       }
       return code ?? 0;
     } finally {
@@ -1794,6 +2017,11 @@ function die(msg: string): never {
  * Unified error handler. MachinenError gets a formatted `(CODE): message`
  * + cause chain and an exit(1). Anything else re-throws so Node prints
  * the full stack — those are genuine surprises we want to see.
+ *
+ * In quiet mode (#286) the same line lands inside the caller's
+ * `printDiagnostics()` envelope when the failure has a buffered tail
+ * to dump. Callers route through `failQuiet()` in that case; this
+ * stays the fall-through for everything else.
  */
 function handleError(err: unknown): never {
   if (isMachinenError(err)) {
@@ -1801,6 +2029,49 @@ function handleError(err: unknown): never {
     process.exit(1);
   }
   throw err;
+}
+
+/**
+ * Print a failure summary + diagnostics envelope and exit non-zero.
+ * Used by boot/restore/fork/snapshot/install when a buffered tail of
+ * suppressed output would otherwise be lost. In operator mode
+ * (DEBUG=machinen:*) the envelope is a no-op — the user has already
+ * seen the live stream — but the summary line still prints.
+ */
+function failQuiet(
+  summary: string,
+  opts: { buffer?: RingBuffer | string; tails?: Record<string, string> } = {},
+): never {
+  printDiagnostics(summary, opts);
+  process.exit(1);
+}
+
+function describeError(err: unknown): string {
+  if (isMachinenError(err)) {
+    return formatMachinenError(err);
+  }
+  if (err instanceof Error) {
+    return err.message;
+  }
+  return String(err);
+}
+
+/**
+ * Derive the headline name for a VM when `--name` wasn't passed.
+ * Strips the tarball extensions (`.tar.gz`, `.tgz`, `.tar`) and any
+ * directory components so `./counter.tar.gz` shows as `counter`.
+ * Falls back to `vm` for image-less boots (e.g. `boot -- bash`).
+ */
+function deriveBootName(imageOverride: string | undefined): string {
+  if (!imageOverride) {
+    return "vm";
+  }
+  const base = imageOverride.split("/").pop() ?? imageOverride;
+  return base
+    .replace(/\.tar\.gz$/i, "")
+    .replace(/\.tgz$/i, "")
+    .replace(/\.tar$/i, "")
+    .replace(/\.gz$/i, "");
 }
 
 function printHelp(): void {
