@@ -777,19 +777,19 @@ fn openBlkBackendFromFd(fd: ?c_int, read_only: bool, label: []const u8) ?blk_mod
     // SEEK_END to discover size — same trick `openFile` uses. The
     // file-scope `lseek` extern further down in this file resolves
     // against libc; both squashfs and ext4 images are seekable.
-    const sz = lseek(f, 0, SEEK_END);
-    if (sz <= 0) {
-        std.debug.print("virtio-blk {s} disabled: lseek(fd={d}) returned {d}\n", .{ label, f, sz });
+    const size_bytes = lseek(f, 0, SEEK_END);
+    if (size_bytes <= 0) {
+        std.debug.print("virtio-blk {s} disabled: lseek(fd={d}) returned {d}\n", .{ label, f, size_bytes });
         return null;
     }
-    if (@rem(sz, 512) != 0) {
+    if (@rem(size_bytes, 512) != 0) {
         std.debug.print(
             "virtio-blk {s} disabled: size {d} is not a multiple of 512 (fd={d})\n",
-            .{ label, sz, f },
+            .{ label, size_bytes, f },
         );
         return null;
     }
-    return blk_mod.Backend.initFromFdWithMode(f, @intCast(sz), read_only);
+    return blk_mod.Backend.initFromFdWithMode(f, @intCast(size_bytes), read_only);
 }
 
 /// Wrap a `blk_mod.Backend` as a virtio-mmio device. `backend` must
@@ -1162,22 +1162,22 @@ fn readAll(gpa: std.mem.Allocator, path: []const u8) ![]u8 {
     assert(fd >= 0);
     defer _ = close(fd);
 
-    const size_i = lseek(fd, 0, SEEK_END);
-    if (size_i < 0) return error.SeekFailed;
+    const size_signed = lseek(fd, 0, SEEK_END);
+    if (size_signed < 0) return error.SeekFailed;
     _ = lseek(fd, 0, SEEK_SET);
-    const size: usize = @intCast(size_i);
-    assert(size > 0);
+    const size_bytes: usize = @intCast(size_signed);
+    assert(size_bytes > 0);
 
-    const buf = try gpa.alloc(u8, size);
+    const buf = try gpa.alloc(u8, size_bytes);
     errdefer gpa.free(buf);
 
-    var total: usize = 0;
-    while (total < size) {
-        const n = read(fd, buf[total..].ptr, size - total);
-        if (n <= 0) return error.ShortRead;
-        total += @intCast(n);
+    var total_bytes: usize = 0;
+    while (total_bytes < size_bytes) {
+        const n_bytes = read(fd, buf[total_bytes..].ptr, size_bytes - total_bytes);
+        if (n_bytes <= 0) return error.ShortRead;
+        total_bytes += @intCast(n_bytes);
     }
-    assert(total == size);
+    assert(total_bytes == size_bytes);
     return buf;
 }
 

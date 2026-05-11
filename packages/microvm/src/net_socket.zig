@@ -221,14 +221,14 @@ pub const NetSocket = struct {
         while (!self.stop.load(.acquire)) {
             var prefix: [4]u8 = undefined;
             if (readAll(self.fd, &prefix) != 0) return;
-            const len = std.mem.readInt(u32, &prefix, .big);
-            if (len == 0 or len > buf.len) return;
-            assert(len > 0 and len <= buf.len);
+            const frame_len_bytes = std.mem.readInt(u32, &prefix, .big);
+            if (frame_len_bytes == 0 or frame_len_bytes > buf.len) return;
+            assert(frame_len_bytes > 0 and frame_len_bytes <= buf.len);
 
-            if (readAll(self.fd, buf[0..len]) != 0) return;
+            if (readAll(self.fd, buf[0..frame_len_bytes]) != 0) return;
 
             self.irq_mu.lock();
-            _ = self.netdev.injectRx(buf[0..len]);
+            _ = self.netdev.injectRx(buf[0..frame_len_bytes]);
             if (self.on_rx) |cb| cb(self.on_rx_ctx);
             self.irq_mu.unlock();
         }

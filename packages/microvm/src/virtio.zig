@@ -447,13 +447,13 @@ pub const Device = struct {
                     frame_started = true;
                     if (remaining.len == 0) break;
                 }
-                const chunk: u32 = @intCast(@min(@as(u64, budget), remaining.len));
-                assert(chunk > 0);
-                const dst = self.guestSlice(desc.addr + (desc.len - budget), chunk) orelse return false;
-                @memcpy(dst, remaining[0..chunk]);
-                remaining = remaining[chunk..];
-                budget -= chunk;
-                written += chunk;
+                const chunk_bytes: u32 = @intCast(@min(@as(u64, budget), remaining.len));
+                assert(chunk_bytes > 0);
+                const dst = self.guestSlice(desc.addr + (desc.len - budget), chunk_bytes) orelse return false;
+                @memcpy(dst, remaining[0..chunk_bytes]);
+                remaining = remaining[chunk_bytes..];
+                budget -= chunk_bytes;
+                written += chunk_bytes;
             }
 
             if ((desc.flags & VringDesc.F_NEXT) == 0) break;
@@ -512,10 +512,10 @@ pub const Device = struct {
         while (steps < max_chain_descriptors) : (steps += 1) {
             const desc = self.readDescriptor(q, idx) orelse break;
             if (desc.len > 0 and written < scratch.len) {
-                const take: usize = @min(desc.len, scratch.len - written);
-                if (self.guestSlice(desc.addr, take)) |bytes| {
-                    @memcpy(scratch[written..][0..take], bytes);
-                    written += take;
+                const take_bytes: usize = @min(desc.len, scratch.len - written);
+                if (self.guestSlice(desc.addr, take_bytes)) |bytes| {
+                    @memcpy(scratch[written..][0..take_bytes], bytes);
+                    written += take_bytes;
                 }
             }
             if ((desc.flags & VringDesc.F_NEXT) == 0) break;
