@@ -51,133 +51,177 @@ interface ParsedRunArgs {
   json?: boolean;
 }
 
+interface ParseState {
+  positional: string[];
+  mount?: { host: string; guest: string };
+  liveMounts: Array<{ host: string; guest: string; mode: "ro" | "rw" }>;
+  env: Record<string, string>;
+  portForward: Array<{ hostPort: number; guestPort: number }>;
+  seenHostPorts: Set<number>;
+  snapshot?: string;
+  name?: string;
+  guestCwd?: string;
+  detached: boolean;
+  memory?: number;
+  json: boolean;
+}
+
+type FlagHandler = (state: ParseState, args: string[], i: number, flag: string) => number;
+
+// Flag → handler dispatch table. Order doesn't matter (each entry
+// matches by exact flag or `<flag>=` prefix). One row per logical
+// flag; aliases share a row.
+const FLAG_HANDLERS: ReadonlyArray<readonly [readonly string[], FlagHandler]> = [
+  [["--mount"], handleMountFlag],
+  [["--mount-live"], handleLiveMountFlag],
+  [["--env"], handleEnvFlag],
+  [["-p", "--publish"], handlePortForwardFlag],
+  [["--snapshot"], handleSnapshotFlag],
+  [["--cwd"], handleGuestCwdFlag],
+  [["--name"], handleNameFlag],
+  [["--detached", "--detach"], handleDetachedFlag],
+  [["--json"], handleJsonFlag],
+  [["--memory"], handleMemoryFlag],
+];
+
 export function parseRunArgs(argv: string[]): ParsedRunArgs {
   const idx = argv.indexOf("--");
   const pre = idx === -1 ? argv : argv.slice(0, idx);
   const double_dash_args = idx === -1 ? [] : argv.slice(idx + 1);
 
-  const positional: string[] = [];
-  let mount: { host: string; guest: string } | undefined;
-  const liveMounts: Array<{ host: string; guest: string; mode: "ro" | "rw" }> = [];
-  const env: Record<string, string> = {};
-  const portForward: Array<{ hostPort: number; guestPort: number }> = [];
-  const seenHostPorts = new Set<number>();
-  let snapshot: string | undefined;
-  let name: string | undefined;
-  let guestCwd: string | undefined;
-  let detached = false;
-  let memory: number | undefined;
-  let json = false;
+  const state: ParseState = {
+    positional: [],
+    liveMounts: [],
+    env: {},
+    portForward: [],
+    seenHostPorts: new Set<number>(),
+    detached: false,
+    json: false,
+  };
   for (let i = 0; i < pre.length; i++) {
     const a = pre[i]!;
-    if (a === "--mount" || a.startsWith("--mount=")) {
-      if (mount) {
-        throw new ParseError(
-          "PARSE_FLAG_DUPLICATE",
-          "--mount may be given at most once per invocation",
-        );
-      }
-      const r = consumeMount(a, pre, i);
-      mount = r.value;
-      i = r.next;
-    } else if (a === "--mount-live" || a.startsWith("--mount-live=")) {
-      const r = consumeLiveMount(a, pre, i);
-      liveMounts.push(r.value);
-      i = r.next;
-    } else if (a === "--env" || a.startsWith("--env=")) {
-      const r = consumeEnv(a, pre, i);
-      env[r.key] = r.value;
-      i = r.next;
-    } else if (
-      a === "-p" ||
-      a === "--publish" ||
-      a.startsWith("-p=") ||
-      a.startsWith("--publish=")
-    ) {
-      i = consumePortForward(a, pre, i, seenHostPorts, portForward);
-    } else if (a === "--snapshot" || a.startsWith("--snapshot=")) {
-      if (snapshot) {
-        throw new ParseError(
-          "PARSE_FLAG_DUPLICATE",
-          "--snapshot may be given at most once per invocation",
-        );
-      }
-      const { spec, next } = takeValue(a, pre, i, "a path value");
-      snapshot = spec;
+    const next = dispatchFlag(state, a, pre, i);
+    if (next !== undefined) {
       i = next;
-    } else if (a === "--cwd" || a.startsWith("--cwd=")) {
-      if (guestCwd !== undefined) {
-        throw new ParseError(
-          "PARSE_FLAG_DUPLICATE",
-          "--cwd may be given at most once per invocation",
-        );
-      }
-      const r = consumeGuestCwd(a, pre, i);
-      guestCwd = r.value;
-      i = r.next;
-    } else if (a === "--name" || a.startsWith("--name=")) {
-      if (name) {
-        throw new ParseError(
-          "PARSE_FLAG_DUPLICATE",
-          "--name may be given at most once per invocation",
-        );
-      }
-      const { spec, next } = takeValue(a, pre, i, "a value");
-      name = spec;
-      i = next;
-    } else if (a === "--detached" || a === "--detach") {
-      if (detached) {
-        throw new ParseError(
-          "PARSE_FLAG_DUPLICATE",
-          "--detached may be given at most once per invocation",
-        );
-      }
-      detached = true;
-      // `--detached` is the legacy spelling. Surface a one-line
-      // deprecation note so existing scripts keep working but agents
-      // (and humans) learn the canonical name. Suppressed under
-      // MACHINEN_QUIET_DEPRECATIONS (set by tests) and under VITEST
-      // (parseRunArgs is unit-tested with --detached on every run).
-      if (a === "--detached" && !process.env.MACHINEN_QUIET_DEPRECATIONS && !process.env.VITEST) {
-        process.stderr.write(
-          "machinen: --detached is deprecated; use --detach (same behaviour).\n",
-        );
-      }
-    } else if (a === "--json") {
-      json = true;
-    } else if (a === "--memory" || a.startsWith("--memory=")) {
-      // #263 phase A: decimal MiB, no unit suffix. Same shape as
-      // MACHINEN_MEMORY. The runtime validates the floor; we only
-      // reject syntactically bad values here.
-      if (memory !== undefined) {
-        throw new ParseError(
-          "PARSE_FLAG_DUPLICATE",
-          "--memory may be given at most once per invocation",
-        );
-      }
-      const r = consumeMemory(a, pre, i);
-      memory = r.value;
-      i = r.next;
-    } else if (a.startsWith("-")) {
-      throw new ParseError("PARSE_FLAG_UNKNOWN", `unknown flag: ${a}`);
-    } else {
-      positional.push(a);
+      continue;
     }
+    if (a.startsWith("-")) {
+      throw new ParseError("PARSE_FLAG_UNKNOWN", `unknown flag: ${a}`);
+    }
+    state.positional.push(a);
   }
   return {
-    positional,
+    positional: state.positional,
     double_dash_args,
-    mount,
-    liveMounts: liveMounts.length > 0 ? liveMounts : undefined,
-    env: Object.keys(env).length > 0 ? env : undefined,
-    portForward: portForward.length > 0 ? portForward : undefined,
-    snapshot,
-    name,
-    guestCwd,
-    detached: detached || undefined,
-    memory,
-    json: json || undefined,
+    mount: state.mount,
+    liveMounts: state.liveMounts.length > 0 ? state.liveMounts : undefined,
+    env: Object.keys(state.env).length > 0 ? state.env : undefined,
+    portForward: state.portForward.length > 0 ? state.portForward : undefined,
+    snapshot: state.snapshot,
+    name: state.name,
+    guestCwd: state.guestCwd,
+    detached: state.detached || undefined,
+    memory: state.memory,
+    json: state.json || undefined,
   };
+}
+
+function dispatchFlag(
+  state: ParseState,
+  arg: string,
+  args: string[],
+  i: number,
+): number | undefined {
+  for (const [flags, handler] of FLAG_HANDLERS) {
+    for (const flag of flags) {
+      if (arg === flag || arg.startsWith(`${flag}=`)) {
+        return handler(state, args, i, flag);
+      }
+    }
+  }
+  return undefined;
+}
+
+function assertNotSeen(predicate: boolean, flag: string): void {
+  if (predicate) {
+    throw new ParseError(
+      "PARSE_FLAG_DUPLICATE",
+      `${flag} may be given at most once per invocation`,
+    );
+  }
+}
+
+function handleMountFlag(state: ParseState, args: string[], i: number, flag: string): number {
+  assertNotSeen(state.mount !== undefined, flag);
+  const r = consumeMount(args[i]!, args, i);
+  state.mount = r.value;
+  return r.next;
+}
+
+function handleLiveMountFlag(state: ParseState, args: string[], i: number): number {
+  const r = consumeLiveMount(args[i]!, args, i);
+  state.liveMounts.push(r.value);
+  return r.next;
+}
+
+function handleEnvFlag(state: ParseState, args: string[], i: number): number {
+  const r = consumeEnv(args[i]!, args, i);
+  state.env[r.key] = r.value;
+  return r.next;
+}
+
+function handlePortForwardFlag(state: ParseState, args: string[], i: number): number {
+  return consumePortForward(args[i]!, args, i, state.seenHostPorts, state.portForward);
+}
+
+function handleSnapshotFlag(state: ParseState, args: string[], i: number, flag: string): number {
+  assertNotSeen(state.snapshot !== undefined, flag);
+  const { spec, next } = takeValue(args[i]!, args, i, "a path value");
+  state.snapshot = spec;
+  return next;
+}
+
+function handleGuestCwdFlag(state: ParseState, args: string[], i: number, flag: string): number {
+  assertNotSeen(state.guestCwd !== undefined, flag);
+  const r = consumeGuestCwd(args[i]!, args, i);
+  state.guestCwd = r.value;
+  return r.next;
+}
+
+function handleNameFlag(state: ParseState, args: string[], i: number, flag: string): number {
+  assertNotSeen(state.name !== undefined, flag);
+  const { spec, next } = takeValue(args[i]!, args, i, "a value");
+  state.name = spec;
+  return next;
+}
+
+function handleDetachedFlag(state: ParseState, args: string[], i: number): number {
+  assertNotSeen(state.detached, "--detached");
+  state.detached = true;
+  // `--detached` is the legacy spelling. Surface a one-line
+  // deprecation note so existing scripts keep working but agents
+  // (and humans) learn the canonical name. Suppressed under
+  // MACHINEN_QUIET_DEPRECATIONS (set by tests) and under VITEST
+  // (parseRunArgs is unit-tested with --detached on every run).
+  if (args[i] === "--detached" && !process.env.MACHINEN_QUIET_DEPRECATIONS && !process.env.VITEST) {
+    process.stderr.write("machinen: --detached is deprecated; use --detach (same behaviour).\n");
+  }
+  return i;
+}
+
+function handleJsonFlag(state: ParseState, _args: string[], i: number): number {
+  state.json = true;
+  return i;
+}
+
+function handleMemoryFlag(state: ParseState, args: string[], i: number, flag: string): number {
+  // #263 phase A: decimal MiB, no unit suffix. Same shape as
+  // MACHINEN_MEMORY. The runtime validates the floor; we only
+  // reject syntactically bad values here.
+  assertNotSeen(state.memory !== undefined, flag);
+  const r = consumeMemory(args[i]!, args, i);
+  state.memory = r.value;
+  return r.next;
 }
 
 function parsePort(raw: string, label: string): number {
