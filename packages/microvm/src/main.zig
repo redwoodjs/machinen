@@ -126,6 +126,7 @@ fn envInt(comptime name: [:0]const u8) ?c_int {
         );
         std.process.exit(2);
     }
+    assert(parsed >= 0);
     return parsed;
 }
 
@@ -137,14 +138,20 @@ fn envMemoryMib() ?usize {
     const raw = getenv("MACHINEN_MEMORY") orelse return null;
     const s = std.mem.span(raw);
     if (s.len == 0) return null;
+    assert(s.len > 0);
     const mib = std.fmt.parseInt(u64, s, 10) catch dieMemory(s, "must be a decimal integer");
     if (mib == 0) dieMemory(s, "must be > 0");
+    assert(mib > 0);
     const bytes = std.math.mul(u64, mib, 1024 * 1024) catch dieMemory(s, "value overflows usize");
     if (bytes > std.math.maxInt(usize)) dieMemory(s, "value overflows usize");
+    assert(bytes > 0);
+    assert(bytes <= std.math.maxInt(usize));
     return @intCast(bytes);
 }
 
 fn dieMemory(value: []const u8, why: []const u8) noreturn {
+    assert(value.len > 0);
+    assert(why.len > 0);
     std.debug.print(
         "machinen-microvm: MACHINEN_MEMORY={s} is invalid: {s} (MiB, no unit suffix).\n",
         .{ value, why },

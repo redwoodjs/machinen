@@ -214,6 +214,7 @@ pub const Backend = struct {
             if ((d.flags & virtio.VringDesc.F_NEXT) == 0) break;
             idx = d.next;
         }
+        assert(steps <= virtio.max_chain_descriptors);
         _ = @atomicRmw(u64, &self.counters.bytes_inflated, .Add, bytes_seen, .monotonic);
         dev.queuePushUsed(QUEUE_INFLATE, head, 0);
     }
@@ -253,7 +254,11 @@ pub const Backend = struct {
             return;
         };
         const ram_base = dev.ram_base;
+        // Wrapping add gives a defined value even if `ram_base + len`
+        // overflows u64; assert it didn't, since a wrapped `ram_end`
+        // would silently invert the in-range check below.
         const ram_end = ram_base +% ram_slice.len;
+        assert(ram_end >= ram_base);
 
         // Collect valid in-RAM ranges from the chain; cap at the
         // virtio chain limit (32) — a chain longer than that is
@@ -269,7 +274,17 @@ pub const Backend = struct {
             const d = dev.queueDescriptor(QUEUE_REPORTING, idx) orelse break;
             descs += 1;
             bytes_seen += d.len;
-            if (d.len > 0 and d.addr >= ram_base and d.addr + d.len <= ram_end) {
+            // Overflow-safe in-RAM check. The naive `d.addr + d.len <=
+            // ram_end` wraps when d.addr is near u64 max, which a
+            // hostile or buggy guest could supply on the reporting
+            // queue. Reformulate as `d.len <= ram_end - d.addr` after
+            // confirming `d.addr <= ram_end`, which never wraps.
+            const in_ram = d.len > 0 and
+                d.addr >= ram_base and
+                d.addr <= ram_end and
+                d.len <= ram_end - d.addr;
+            if (in_ram) {
+                assert(n_ranges < ranges.len);
                 ranges[n_ranges] = .{ .addr = d.addr, .len = d.len };
                 n_ranges += 1;
             } else if (debugEnabled()) {
@@ -281,6 +296,9 @@ pub const Backend = struct {
             if ((d.flags & virtio.VringDesc.F_NEXT) == 0) break;
             idx = d.next;
         }
+        assert(steps <= virtio.max_chain_descriptors);
+        assert(n_ranges <= ranges.len);
+        assert(descs <= virtio.max_chain_descriptors);
 
         // Sort by addr so adjacent ranges land next to each other.
         // n_ranges ≤ 32, so insertion sort is fine. The framework
@@ -293,20 +311,28 @@ pub const Backend = struct {
         if (n_ranges > 0) {
             n_merged = 1;
             for (ranges[1..n_ranges]) |r| {
+                assert(n_merged > 0);
                 const tail = &ranges[n_merged - 1];
                 if (tail.addr + tail.len == r.addr) {
                     tail.len += r.len;
                 } else {
+                    assert(n_merged < ranges.len);
                     ranges[n_merged] = r;
                     n_merged += 1;
                 }
             }
         }
+        assert(n_merged <= n_ranges);
         var bytes_freed: u64 = 0;
         for (ranges[0..n_merged]) |r| {
+            // Established by the in_ram check above; re-assert so the
+            // arithmetic below is provably in-bounds.
+            assert(r.addr >= ram_base);
+            assert(r.len <= ram_end - r.addr);
             const offset: usize = @intCast(r.addr - ram_base);
             const host_va_ptr: *anyopaque = @ptrFromInt(@intFromPtr(ram_slice.ptr) + offset);
             const len: usize = @intCast(r.len);
+            assert(offset + len <= ram_slice.len);
             // `madvise` releases the physical pages backing the range
             // without touching the VMA — the HVF/KVM stage-2 mapping
             // registered against this host VA stays valid, so the
@@ -347,6 +373,9 @@ const Range = struct { addr: u64, len: u64 };
 /// Short-circuits if the slice is already sorted — the common case
 /// for free-page-reporting since the kernel walks a sorted free list.
 fn sortByAddr(rs: []Range) void {
+    // Bounded by the reporting handler's collection cap; stays at
+    // O(n²) worst case which is trivial for n ≤ 32.
+    assert(rs.len <= virtio.max_chain_descriptors);
     var i: usize = 1;
     while (i < rs.len) : (i += 1) {
         var j: usize = i;
@@ -368,6 +397,7 @@ fn ackChain(dev: *virtio.Device, q_idx: u32, head: u16) void {
         if ((d.flags & virtio.VringDesc.F_NEXT) == 0) break;
         idx = d.next;
     }
+    assert(steps <= virtio.max_chain_descriptors);
     dev.queuePushUsed(q_idx, head, 0);
 }
 
