@@ -188,7 +188,7 @@ pub const Backend = struct {
 
         // Parse outhdr.
         var status: u8 = VIRTIO_BLK_S_OK;
-        var written: u32 = 0;
+        var bytes_written: u32 = 0;
 
         if (hdr == null or status_desc == null) {
             // Malformed; nothing to write back. Still ack the chain.
@@ -212,15 +212,15 @@ pub const Backend = struct {
                         status = VIRTIO_BLK_S_IOERR;
                         break;
                     };
-                    const n = pread(self.fd, dst.ptr, dst.len, @as(i64, @intCast(sector)) * 512);
-                    if (n < 0) {
+                    const n_bytes = pread(self.fd, dst.ptr, dst.len, @as(i64, @intCast(sector)) * 512);
+                    if (n_bytes < 0) {
                         status = VIRTIO_BLK_S_IOERR;
                         break;
                     }
-                    written += @intCast(n);
+                    bytes_written += @intCast(n_bytes);
                     sector += dst.len / 512;
                 }
-                traceBlk("read", out_hdr.sector, data_count, written);
+                traceBlk("read", out_hdr.sector, data_count, bytes_written);
             },
             .out => {
                 if (self.read_only) {
@@ -231,22 +231,22 @@ pub const Backend = struct {
                     status = VIRTIO_BLK_S_IOERR;
                     traceBlk("write-rejected-ro", out_hdr.sector, data_count, 0);
                 } else {
-                    var total: u32 = 0;
+                    var total_bytes: u32 = 0;
                     var sector = out_hdr.sector;
                     for (data[0..data_count]) |d| {
                         const src = dev.guestBytes(d.addr, d.len) orelse {
                             status = VIRTIO_BLK_S_IOERR;
                             break;
                         };
-                        const n = pwrite(self.fd, src.ptr, src.len, @as(i64, @intCast(sector)) * 512);
-                        if (n < 0) {
+                        const n_bytes = pwrite(self.fd, src.ptr, src.len, @as(i64, @intCast(sector)) * 512);
+                        if (n_bytes < 0) {
                             status = VIRTIO_BLK_S_IOERR;
                             break;
                         }
-                        total += @intCast(n);
+                        total_bytes += @intCast(n_bytes);
                         sector += src.len / 512;
                     }
-                    traceBlk("write", out_hdr.sector, data_count, total);
+                    traceBlk("write", out_hdr.sector, data_count, total_bytes);
                 }
             },
             .flush => {
@@ -301,7 +301,7 @@ pub const Backend = struct {
                     assert(dst.len <= 20);
                     @memset(dst, 0);
                     @memcpy(dst[0..@min(dst.len, id_str.len)], id_str[0..@min(dst.len, id_str.len)]);
-                    written = @intCast(dst.len);
+                    bytes_written = @intCast(dst.len);
                 }
             },
             else => status = VIRTIO_BLK_S_UNSUPP,
@@ -319,7 +319,7 @@ pub const Backend = struct {
 
         // virtio-blk reports used `len` as the number of bytes the
         // DEVICE wrote into the chain (read data + the status byte).
-        dev.queuePushUsed(0, head, written + 1);
+        dev.queuePushUsed(0, head, bytes_written + 1);
     }
 };
 
