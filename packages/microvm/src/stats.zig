@@ -87,6 +87,7 @@ pub const Stats = struct {
     pub fn open(path: [*:0]const u8) !Stats {
         const fd = libc.open(path, O_RDWR | O_CREAT, @as(c_uint, 0o644));
         if (fd < 0) return error.OpenFailed;
+        assert(fd >= 0);
         errdefer _ = libc.close(fd);
         if (libc.ftruncate(fd, @sizeOf(Counters)) != 0) return error.TruncateFailed;
         const raw = libc.mmap(
@@ -99,8 +100,15 @@ pub const Stats = struct {
         );
         // mmap returns (void*) -1 on failure on every Unix.
         if (@intFromPtr(raw) == ~@as(usize, 0)) return error.MmapFailed;
+        assert(@intFromPtr(raw) != 0);
+        // mmap on every Unix we target returns at least page-aligned
+        // memory (4 KiB on Linux, 16 KiB on Darwin), trivially
+        // satisfying Counters' 8-byte alignment requirement. Pair the
+        // @alignCast below with an assert so the contract is explicit.
+        assert(@intFromPtr(raw) % @alignOf(Counters) == 0);
         const region_ptr: [*]align(@alignOf(Counters)) u8 = @ptrCast(@alignCast(raw));
         const region = region_ptr[0..@sizeOf(Counters)];
+        assert(region.len == @sizeOf(Counters));
         return .{
             .counters = @ptrCast(@alignCast(region.ptr)),
             .region = region,
@@ -130,6 +138,7 @@ pub const Stats = struct {
 
     pub fn deinit(self: *Stats) void {
         if (self.region) |r| {
+            assert(r.len == @sizeOf(Counters));
             _ = libc.munmap(r.ptr, r.len);
             self.region = null;
         }
@@ -137,6 +146,8 @@ pub const Stats = struct {
             _ = libc.close(self.fd);
             self.fd = -1;
         }
+        assert(self.region == null);
+        assert(self.fd == -1);
     }
 };
 
@@ -248,6 +259,10 @@ fn samplerLoop(counters: *Counters) void {
 /// tests; the production caller is `samplerLoop` above.
 pub fn samplePhysFootprint() ?u64 {
     if (builtin.os.tag != .macos) return null;
+    // Comptime guard so a future struct-version bump that moved
+    // phys_footprint out of the v4 layout fails to build instead of
+    // silently reading 8 bytes past the rusage buffer.
+    comptime assert(RUSAGE_PHYS_FOOTPRINT_OFFSET + 8 <= RUSAGE_INFO_V4_SIZE);
     var buf: [RUSAGE_INFO_V4_SIZE]u8 align(8) = std.mem.zeroes([RUSAGE_INFO_V4_SIZE]u8);
     const rc = libc.proc_pid_rusage(libc.getpid(), RUSAGE_INFO_V4, &buf);
     if (rc != 0) return null;
