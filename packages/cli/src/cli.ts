@@ -1516,66 +1516,21 @@ async function cmdFork(args: string[]): Promise<number> {
   }
 }
 
+interface AttachOpts {
+  shell: string;
+  tail: number | "all" | undefined;
+  filtered: string[];
+}
+
 async function cmdAttach(args: string[]): Promise<number> {
-  // Pull `--shell` and `--tail` out before the target flags so the
-  // unknown-arg checks in `parseTargetFlags` don't reject them.
-  // `--shell` defaults to `bash -i` — the Debian base rootfs ships
-  // bash, and `-i` gets job control, history, and a prompt.
-  let shell = "/bin/bash -i";
-  let tail: number | "all" | undefined;
-  const filtered: string[] = [];
-  for (let i = 0; i < args.length; i++) {
-    const a = args[i]!;
-    if (a === "--shell" || a.startsWith("--shell=")) {
-      const v = a === "--shell" ? args[++i] : a.slice("--shell=".length);
-      if (!v) {
-        die("--shell requires a value");
-      }
-      shell = v;
-    } else if (a === "--tail" || a.startsWith("--tail=")) {
-      // `--tail` (no value) prints the whole snapshot. `--tail N`
-      // prints the last N lines. The snapshot is capped at ~1 MiB so
-      // even the no-value form is bounded.
-      let v: string | undefined;
-      if (a === "--tail") {
-        const peek = args[i + 1];
-        if (peek && /^[0-9]+$/.test(peek)) {
-          v = peek;
-          i++;
-        }
-      } else {
-        v = a.slice("--tail=".length);
-      }
-      if (v === undefined) {
-        tail = "all";
-      } else {
-        const n = Number(v);
-        if (!Number.isInteger(n) || n < 0) {
-          die(`--tail: expected a non-negative integer, got '${v}'`);
-        }
-        tail = n;
-      }
-    } else {
-      filtered.push(a);
-    }
-  }
+  const { shell, tail, filtered } = parseAttachOpts(args);
   const target = parseTargetFlags(filtered, "attach");
   // #150 phase 2 PR3: --tail dumps the boot-console snapshot before
   // (or instead of) the interactive shell. Look up the registry
   // entry directly — `attach()` only returns a VmHandle, not the
   // entry, and we need `bootLogPath` from the registry.
   if (tail !== undefined) {
-    const entry = lookupEntry(target);
-    if (!entry) {
-      die(`machinen attach: no running VM matched ${describeTarget(target)}`);
-    }
-    if (!entry.bootLogPath) {
-      die(
-        `machinen attach --tail: VM was not booted with --detached, no snapshot exists. ` +
-          `Use 'machinen attach' (no --tail) for live console access.`,
-      );
-    }
-    printBootLogTail(entry.bootLogPath, tail);
+    dumpBootLogTail(target, tail);
   }
   // Resolve the target before the TTY check: a typo in --name should
   // surface "no running VM found", not the TTY error. The TTY error
@@ -1591,6 +1546,73 @@ async function cmdAttach(args: string[]): Promise<number> {
   } finally {
     await vm.detach();
   }
+}
+
+// Pull `--shell` and `--tail` out before the target flags so the
+// unknown-arg checks in `parseTargetFlags` don't reject them.
+// `--shell` defaults to `bash -i` — the Debian base rootfs ships
+// bash, and `-i` gets job control, history, and a prompt.
+function parseAttachOpts(args: string[]): AttachOpts {
+  let shell = "/bin/bash -i";
+  let tail: number | "all" | undefined;
+  const filtered: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i]!;
+    if (a === "--shell" || a.startsWith("--shell=")) {
+      const v = a === "--shell" ? args[++i] : a.slice("--shell=".length);
+      if (!v) {
+        die("--shell requires a value");
+      }
+      shell = v;
+    } else if (a === "--tail" || a.startsWith("--tail=")) {
+      const r = parseTailFlag(a, args, i);
+      tail = r.value;
+      i = r.next;
+    } else {
+      filtered.push(a);
+    }
+  }
+  return { shell, tail, filtered };
+}
+
+// `--tail` (no value) prints the whole snapshot. `--tail N`
+// prints the last N lines. The snapshot is capped at ~1 MiB so
+// even the no-value form is bounded.
+function parseTailFlag(
+  arg: string,
+  args: string[],
+  i: number,
+): { value: number | "all"; next: number } {
+  if (arg.startsWith("--tail=")) {
+    return { value: parseTailValue(arg.slice("--tail=".length)), next: i };
+  }
+  const peek = args[i + 1];
+  if (peek && /^[0-9]+$/.test(peek)) {
+    return { value: parseTailValue(peek), next: i + 1 };
+  }
+  return { value: "all", next: i };
+}
+
+function parseTailValue(v: string): number {
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < 0) {
+    die(`--tail: expected a non-negative integer, got '${v}'`);
+  }
+  return n;
+}
+
+function dumpBootLogTail(target: { name: string } | { pid: number }, tail: number | "all"): void {
+  const entry = lookupEntry(target);
+  if (!entry) {
+    die(`machinen attach: no running VM matched ${describeTarget(target)}`);
+  }
+  if (!entry.bootLogPath) {
+    die(
+      `machinen attach --tail: VM was not booted with --detached, no snapshot exists. ` +
+        `Use 'machinen attach' (no --tail) for live console access.`,
+    );
+  }
+  printBootLogTail(entry.bootLogPath, tail);
 }
 
 function printBootLogTail(path: string, tail: number | "all"): void {
