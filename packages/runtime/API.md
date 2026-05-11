@@ -2348,7 +2348,7 @@ pids that aren't machinen-managed; those fall back to ps.
 
 ### ProvisionOptions
 
-Defined in: [provision.ts:52](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L52)
+Defined in: [provision.ts:55](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L55)
 
 #### Properties
 
@@ -2356,7 +2356,7 @@ Defined in: [provision.ts:52](https://github.com/redwoodjs/machinen/blob/main/pa
 
 > `optional` **base?**: `string`
 
-Defined in: [provision.ts:62](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L62)
+Defined in: [provision.ts:65](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L65)
 
 Path to the base rootfs tarball to start from. Typically the
 `rootfs-debian-arm64.tar.gz` produced by
@@ -2370,7 +2370,7 @@ cache at `~/.machinen/@machinen/runtime@<version>/bases/debian-arm64/`).
 
 > **install**: (`vm`) => `Promise`\<`void`\>
 
-Defined in: [provision.ts:67](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L67)
+Defined in: [provision.ts:70](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L70)
 
 User-supplied provisioning steps. Runs inside the guest via vsock.
 
@@ -2388,7 +2388,7 @@ User-supplied provisioning steps. Runs inside the guest via vsock.
 
 > **out**: `string`
 
-Defined in: [provision.ts:73](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L73)
+Defined in: [provision.ts:76](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L76)
 
 Output path for the resulting rootfs tarball. Will be overwritten.
 Consumed via `boot({ image: out })`.
@@ -2397,7 +2397,7 @@ Consumed via `boot({ image: out })`.
 
 > `optional` **cmd?**: `string`[]
 
-Defined in: [provision.ts:81](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L81)
+Defined in: [provision.ts:84](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L84)
 
 Default cmd baked into the image as `/machinen-config.json`.
 When the image is later booted via `boot({ image })` without a
@@ -2408,7 +2408,7 @@ user-supplied `cmd`, the guest runs this. User-supplied `cmd` on
 
 > `optional` **env?**: `Record`\<`string`, `string`\>
 
-Defined in: [provision.ts:88](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L88)
+Defined in: [provision.ts:91](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L91)
 
 Default guest env baked into the image alongside `cmd`. Merged
 with `boot({ env })` at boot time, with the caller's `env`
@@ -2418,7 +2418,7 @@ overriding on key collision.
 
 > `optional` **binary?**: `string`
 
-Defined in: [provision.ts:94](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L94)
+Defined in: [provision.ts:97](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L97)
 
 Optional VMM binary path. Same lookup rules as `boot()` — if
 omitted, resolves `@machinen/vmm-<arch>-<os>`.
@@ -2427,7 +2427,7 @@ omitted, resolves `@machinen/vmm-<arch>-<os>`.
 
 > `optional` **cwd?**: `string`
 
-Defined in: [provision.ts:97](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L97)
+Defined in: [provision.ts:100](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L100)
 
 Working directory. Defaults to process.cwd().
 
@@ -2435,7 +2435,7 @@ Working directory. Defaults to process.cwd().
 
 > `optional` **scratchDiskSizeBytes?**: `number`
 
-Defined in: [provision.ts:104](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L104)
+Defined in: [provision.ts:107](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L107)
 
 Size of the scratch disk used to ferry the tarball from guest to
 host. Must be larger than the expected post-install rootfs size.
@@ -2445,7 +2445,7 @@ Default: 1 GiB (sparse, so it doesn't actually take that space).
 
 > `optional` **timeoutMs?**: `number`
 
-Defined in: [provision.ts:111](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L111)
+Defined in: [provision.ts:114](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L114)
 
 Wall-clock ceiling for the whole build. If the install hook plus
 the final archive + shutdown doesn't finish in this window, we
@@ -2455,7 +2455,7 @@ SIGKILL the VMM and fail. Default: 10 minutes.
 
 > `optional` **vmmEnv?**: `Record`\<`string`, `string`\>
 
-Defined in: [provision.ts:118](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L118)
+Defined in: [provision.ts:121](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L121)
 
 Extra env passed to the VMM process on the host side. Useful for
 dev overrides like `MACHINEN_BOOT_TEST`. Distinct from `env`,
@@ -2465,7 +2465,7 @@ which bakes guest-workload env into the produced image.
 
 > `optional` **kernel?**: `string`
 
-Defined in: [provision.ts:126](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L126)
+Defined in: [provision.ts:129](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L129)
 
 Path to the guest kernel. Optional — when omitted, `provision()`
 resolves it via `resolveBaseKernel()` (MACHINEN_ASSETS_DIR override,
@@ -2476,7 +2476,7 @@ falling back to the `@machinen/cli` cache). Same semantics as
 
 > `optional` **dtb?**: `string`
 
-Defined in: [provision.ts:132](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L132)
+Defined in: [provision.ts:135](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L135)
 
 Path to the guest DTB. Optional — when omitted, resolved via
 `resolveBaseDtb()` from the same fallback chain as `kernel`.
@@ -2485,7 +2485,7 @@ Path to the guest DTB. Optional — when omitted, resolved via
 
 > `optional` **onLog?**: [`OnLog`](#onlog)
 
-Defined in: [provision.ts:140](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L140)
+Defined in: [provision.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L143)
 
 Streaming log callback — fires for every byte of guest output
 during the build: guest kernel console, every `vm.exec()` call
@@ -2496,7 +2496,7 @@ See `LogEvent.source` to tell them apart. See #83.
 
 ### ProvisionResult
 
-Defined in: [provision.ts:143](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L143)
+Defined in: [provision.ts:146](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L146)
 
 #### Properties
 
@@ -2504,7 +2504,7 @@ Defined in: [provision.ts:143](https://github.com/redwoodjs/machinen/blob/main/p
 
 > **imagePath**: `string`
 
-Defined in: [provision.ts:145](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L145)
+Defined in: [provision.ts:148](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L148)
 
 Absolute path to the output tarball.
 
@@ -2512,7 +2512,7 @@ Absolute path to the output tarball.
 
 > **sizeBytes**: `number`
 
-Defined in: [provision.ts:148](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L148)
+Defined in: [provision.ts:151](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L151)
 
 Size of the output tarball in bytes.
 
@@ -2520,7 +2520,7 @@ Size of the output tarball in bytes.
 
 > **elapsedMs**: `number`
 
-Defined in: [provision.ts:151](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L151)
+Defined in: [provision.ts:154](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L154)
 
 Wall-clock time from build() entry to return.
 
@@ -2965,7 +2965,7 @@ ms epoch when the entry was created.
 
 ### EnsureRootfsImageOptions
 
-Defined in: [rootfs-img.ts:135](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L135)
+Defined in: [rootfs-img.ts:134](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L134)
 
 #### Properties
 
@@ -2973,7 +2973,7 @@ Defined in: [rootfs-img.ts:135](https://github.com/redwoodjs/machinen/blob/main/
 
 > `optional` **cacheDir?**: `string`
 
-Defined in: [rootfs-img.ts:140](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L140)
+Defined in: [rootfs-img.ts:139](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L139)
 
 Override the cache directory. Default: `~/.cache/machinen/rootfs`.
 Useful for tests.
@@ -2982,7 +2982,7 @@ Useful for tests.
 
 > `optional` **force?**: `boolean`
 
-Defined in: [rootfs-img.ts:145](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L145)
+Defined in: [rootfs-img.ts:144](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L144)
 
 Force re-materialization even if a cached image is already present.
 Mostly for debugging the materializer.
@@ -2991,7 +2991,7 @@ Mostly for debugging the materializer.
 
 > `optional` **sizeMultiplier?**: `number`
 
-Defined in: [rootfs-img.ts:155](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L155)
+Defined in: [rootfs-img.ts:154](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L154)
 
 Slack multiplier above the unpacked tarball size when sizing the
 ext4 filesystem. Default: 2.5 — leaves enough room for the guest
@@ -3005,7 +3005,7 @@ to fill the filesystem.
 
 > `optional` **minSizeBytes?**: `number`
 
-Defined in: [rootfs-img.ts:163](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L163)
+Defined in: [rootfs-img.ts:162](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L162)
 
 Minimum image size in bytes. The materializer enforces at least
 this for small rootfs where the multiplier alone would leave
@@ -3017,7 +3017,7 @@ insufficient room for a real workload. Default: 2 GiB — boot-time
 
 > `optional` **sizeBytes?**: `number`
 
-Defined in: [rootfs-img.ts:171](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L171)
+Defined in: [rootfs-img.ts:170](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L170)
 
 Absolute target size in bytes. When set, overrides `sizeMultiplier`
 and `minSizeBytes` entirely — fresh materializations get exactly
@@ -3029,7 +3029,7 @@ For the user-facing `boot({ rootDiskSizeBytes })` knob (#131).
 
 > `optional` **onPhase?**: (`name`, `ms`) => `void`
 
-Defined in: [rootfs-img.ts:179](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L179)
+Defined in: [rootfs-img.ts:178](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L178)
 
 Sub-phase callback for the caller's PhaseTimer (#233 follow-up).
 Fires for each measurable internal step: `sha256`, `e2fsck`,
@@ -6475,7 +6475,7 @@ readonly (`number` \| [`RssTarget`](#rsstarget))[]
 
 > **resolveBaseRootfs**(`explicit?`, `cwd?`): `string`
 
-Defined in: [provision.ts:200](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L200)
+Defined in: [provision.ts:203](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L203)
 
 Resolve the path to the base rootfs tarball, in the same order
 `provision()` itself does:
@@ -6516,7 +6516,7 @@ PROVISION_BASE_NOT_FOUND | PROVISION_ASSETS_DIR_INVALID
 
 > **resolveBaseKernel**(`explicit?`, `cwd?`): `string`
 
-Defined in: [provision.ts:223](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L223)
+Defined in: [provision.ts:226](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L226)
 
 Resolve the path to the guest kernel Image. Same fallback chain as
 `resolveBaseRootfs`: explicit → `MACHINEN_ASSETS_DIR/Image-arm64` →
@@ -6548,7 +6548,7 @@ PROVISION_KERNEL_NOT_FOUND |
 
 > **resolveBaseDtb**(`explicit?`, `cwd?`): `string`
 
-Defined in: [provision.ts:245](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L245)
+Defined in: [provision.ts:248](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L248)
 
 Resolve the path to the guest DTB. Same fallback chain as
 `resolveBaseRootfs`: explicit → `MACHINEN_ASSETS_DIR/virt-arm64.dtb` →
@@ -6579,7 +6579,7 @@ PROVISION_DTB_NOT_FOUND |
 
 > **provision**(`opts`): `Promise`\<[`ProvisionResult`](#provisionresult)\>
 
-Defined in: [provision.ts:325](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L325)
+Defined in: [provision.ts:328](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/provision.ts#L328)
 
 Boot the base rootfs, run the user install hook, and freeze the
 resulting filesystem state to a new tarball at `opts.out`.
@@ -6664,7 +6664,7 @@ effect, so a crashed VMM doesn't leave a stuck record behind.
 
 > **rootfsImgCacheDir**(): `string`
 
-Defined in: [rootfs-img.ts:86](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L86)
+Defined in: [rootfs-img.ts:85](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L85)
 
 Default cache root: `~/.cache/machinen/rootfs`.
 
@@ -6678,7 +6678,7 @@ Default cache root: `~/.cache/machinen/rootfs`.
 
 > **markRootfsImageClean**(`imgPath`): `void`
 
-Defined in: [rootfs-img.ts:106](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L106)
+Defined in: [rootfs-img.ts:105](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L105)
 
 Mark a cached rootfs image as "cleanly released" by writing the
 sentinel that `ensureRootfsImage()` looks for on the next boot.
@@ -6707,7 +6707,7 @@ but never wrong.
 
 > **ensureRootfsImage**(`tarPath`, `opts?`): `string`
 
-Defined in: [rootfs-img.ts:205](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L205)
+Defined in: [rootfs-img.ts:204](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L204)
 
 Resolve `tarPath` to a cached ext4 `.img`, materializing it on first
 call. Returns the absolute path to the cached image.
@@ -6753,17 +6753,15 @@ ROOTFS_IMG_TOOL_MISSING (no e2fsprogs found)
 
 > **resolveMke2fs**(): `string`
 
-Defined in: [rootfs-img.ts:744](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L744)
+Defined in: [rootfs-img.ts:717](https://github.com/redwoodjs/machinen/blob/main/packages/runtime/src/rootfs-img.ts#L717)
 
 Resolve the mke2fs binary path using the same lookup order as
 `ensureRootfsImage` itself: env override → bundled package → PATH →
 Homebrew keg-only. Returns `undefined` when no binary is available
 (callers should treat this as "skip the optimization", not an error).
 
-Exported so `provision()` can prebake an `<out>.img.gz` sibling
-alongside its `<out>.tar.gz` output (#233 follow-up). Without that,
-every fresh `provision()` invalidates the cached `<sha>.img` and the
-next `boot()` pays ~10 s for tar-extract + mke2fs.
+Exported so other tools that need to run mke2fs (e.g. `mountdisk-img`)
+resolve the binary through the same lookup chain.
 
 #### Returns
 
