@@ -153,10 +153,10 @@ fn debugEnabled() bool {
 // DTB patching (initrd-end + memory@ size) lives in `dtb_patch.zig`,
 // shared with boot_kvm.zig. See that file for the FDT walker + tests.
 
-pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
-    // Caller-supplied layout must satisfy the basic geometry the boot
-    // protocol depends on. These are programmer errors at the call
-    // site, not anything the guest can influence.
+/// Caller-supplied layout must satisfy the basic geometry the boot
+/// protocol depends on. These are programmer errors at the call site,
+/// not anything the guest can influence — assert hard.
+fn validateConfig(cfg: Config) void {
     assert(cfg.kernel_path.len > 0);
     assert(cfg.dtb_path.len > 0);
     assert(cfg.ram_size >= 16 * 1024 * 1024);
@@ -167,24 +167,15 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     assert(cfg.dtb_offset < cfg.ram_size);
     assert(cfg.initrd_offset < cfg.ram_size);
     assert(cfg.max_exits > 0);
+}
 
-    var fx = try loadFixtures(gpa, cfg);
-    defer fx.deinit(gpa);
-
-    const ram = try allocateAndPopulateRam(gpa, cfg, fx);
-    defer std.posix.munmap(ram);
-
-    const vm = try hvf.Vm.create();
-    defer vm.destroy();
-
-    // Turn on HVF's in-kernel GIC v3 at the addresses the device tree
-    // advertises (distributor at 0x0800_0000, redistributor at
-    // 0x080A_0000 per a QEMU `virt,gic-version=3` DTB dump). Without
-    // this the kernel has nowhere to register interrupts and the
-    // virtual timer has nothing to deliver to.
+/// Turn on HVF's in-kernel GIC v3 at the addresses the device tree
+/// advertises (distributor at 0x0800_0000, redistributor at
+/// 0x080A_0000 per a QEMU `virt,gic-version=3` DTB dump). Without
+/// this the kernel has nowhere to register interrupts and the virtual
+/// timer has nothing to deliver to.
+fn enableGic() !void {
     try hvf.Gic.enable(.{});
-
-    // Diagnostic: print GIC alignment + size requirements.
     if (debugEnabled()) {
         std.debug.print(
             "GIC dist align=0x{x} size=0x{x}; rdist align=0x{x} size=0x{x} region=0x{x}\n",
@@ -197,6 +188,21 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
             },
         );
     }
+}
+
+pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
+    validateConfig(cfg);
+
+    var fx = try loadFixtures(gpa, cfg);
+    defer fx.deinit(gpa);
+
+    const ram = try allocateAndPopulateRam(gpa, cfg, fx);
+    defer std.posix.munmap(ram);
+
+    const vm = try hvf.Vm.create();
+    defer vm.destroy();
+
+    try enableGic();
 
     // Give the guest full read/write/execute on this region. Stage-2
     // permissions; the guest's own MMU still decides what it does at

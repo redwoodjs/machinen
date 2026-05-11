@@ -132,10 +132,10 @@ pub const Result = struct {
     exits: usize,
 };
 
-pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
-    // Caller-supplied layout must satisfy the basic geometry the boot
-    // protocol depends on. These are programmer errors at the call
-    // site, not anything the guest can influence.
+/// Caller-supplied layout must satisfy the basic geometry the boot
+/// protocol depends on. These are programmer errors at the call site,
+/// not anything the guest can influence — assert hard.
+fn validateConfig(cfg: Config) void {
     assert(cfg.kernel_path.len > 0);
     assert(cfg.dtb_path.len > 0);
     assert(cfg.ram_size >= 16 * 1024 * 1024);
@@ -147,6 +147,10 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     assert(cfg.initrd_offset < cfg.ram_size);
     assert(cfg.gic_dist_addr != cfg.gic_redist_addr);
     assert(cfg.max_exits > 0);
+}
+
+pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
+    validateConfig(cfg);
 
     var fx = try loadFixtures(gpa, cfg);
     defer fx.deinit(gpa);
@@ -761,16 +765,7 @@ fn routeMmio(
         return;
     }
     if (devs.netdev.handles(ev.phys_addr)) {
-        // Same race / serialisation story as vsock below: the RX
-        // thread inside NetSocket sets interrupt_status and asserts
-        // the SPI line under `n.irq_mu`; we take the same mutex so
-        // our snapshot-based setIrq can't override the bridge's.
-        // No-op when `net_inst` is null (no gvproxy backend) — there
-        // is no second thread to race against, and the kernel still
-        // sees a valid virtio-net device with link-down.
-        if (devs.net_inst) |n| n.lockIrq();
-        defer if (devs.net_inst) |n| n.unlockIrq();
-        try handleVirtioMmio(vm, vcpu, devs.netdev, irqs.net, ev);
+        try dispatchNetMmio(vm, vcpu, devs, irqs, ev);
         return;
     }
     if (devs.blk_dev) |d| if (d.handles(ev.phys_addr)) {
@@ -790,21 +785,7 @@ fn routeMmio(
         return;
     };
     if (devs.vsock_dev) |d| if (d.handles(ev.phys_addr)) {
-        // The vCPU side of (RMW interrupt_status + setIrq) must
-        // serialise against the bridge poll thread's same pair.
-        // Without this, the bridge's setIrq(1) — issued the moment
-        // it injects an RX packet — can be overridden by a stale
-        // setIrq(0) we computed before the bridge's RMW and only
-        // got around to syscalling now. Symptom: guest never sees
-        // the CONNECT RESPONSE, fuse-agent's dial wedges, T3/T5/N2
-        // /S* all fail deterministically on KVM. Apple's
-        // hv_gic_set_spi happens to absorb this race; KVM_IRQ_LINE
-        // doesn't, which is why HVF passes smoke and KVM doesn't
-        // until this lock lands. handleTxChain assumes the caller
-        // holds bridge.mu — see its docstring.
-        if (devs.vsock_bridge) |b| b.mu.lock();
-        defer if (devs.vsock_bridge) |b| b.mu.unlock();
-        try handleVirtioMmio(vm, vcpu, d, irqs.vsock, ev);
+        try dispatchVsockMmio(vm, vcpu, devs, d, irqs.vsock, ev);
         return;
     };
     if (devs.balloon_dev) |d| if (d.handles(ev.phys_addr)) {
@@ -816,6 +797,49 @@ fn routeMmio(
     // untouched kvm_run bytes is already zero, but be explicit so a
     // future non-zero lingerer doesn't bite).
     if (ev.is_write == 0) vcpu.writeMmioReadData(0, ev.len);
+}
+
+/// Run a virtio-net MMIO event under `net_inst.irq_mu`. The RX thread
+/// inside NetSocket sets interrupt_status and asserts the SPI line
+/// under `irq_mu`; we take the same mutex so our snapshot-based setIrq
+/// can't override the bridge's. No-op when `net_inst` is null (no
+/// gvproxy backend) — there is no second thread to race against, and
+/// the kernel still sees a valid virtio-net device with link-down.
+fn dispatchNetMmio(
+    vm: *kvm.Vm,
+    vcpu: *kvm.Vcpu,
+    devs: *const Devices,
+    irqs: IrqMap,
+    ev: kvm.MmioExit,
+) !void {
+    if (devs.net_inst) |n| n.lockIrq();
+    defer if (devs.net_inst) |n| n.unlockIrq();
+    try handleVirtioMmio(vm, vcpu, devs.netdev, irqs.net, ev);
+}
+
+/// Run a virtio-vsock MMIO event under `vsock_bridge.mu`. The vCPU
+/// side of (RMW interrupt_status + setIrq) must serialise against the
+/// bridge poll thread's same pair. Without this, the bridge's
+/// setIrq(1) — issued the moment it injects an RX packet — can be
+/// overridden by a stale setIrq(0) we computed before the bridge's
+/// RMW and only got around to syscalling now. Symptom: guest never
+/// sees the CONNECT RESPONSE, fuse-agent's dial wedges, T3/T5/N2/S*
+/// all fail deterministically on KVM. Apple's `hv_gic_set_spi`
+/// happens to absorb this race; `KVM_IRQ_LINE` doesn't, which is why
+/// HVF passes smoke and KVM doesn't until this lock lands.
+/// `handleTxChain` assumes the caller holds `bridge.mu` — see its
+/// docstring.
+fn dispatchVsockMmio(
+    vm: *kvm.Vm,
+    vcpu: *kvm.Vcpu,
+    devs: *const Devices,
+    dev: *virtio.Device,
+    irq: u32,
+    ev: kvm.MmioExit,
+) !void {
+    if (devs.vsock_bridge) |b| b.mu.lock();
+    defer if (devs.vsock_bridge) |b| b.mu.unlock();
+    try handleVirtioMmio(vm, vcpu, dev, irq, ev);
 }
 
 /// Pack the up-to-8 little-endian bytes KVM hands us in `mmio.data`
