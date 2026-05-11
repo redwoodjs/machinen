@@ -343,11 +343,11 @@ export interface BootOptions {
    * the child and is free to exit.
    *
    * Forces `pdeathsig: false` (otherwise the parent's exit kills the
-   * VMM, defeating the purpose). Refused in v1 alongside `liveMounts`,
-   * `mount`, and `portForward`: those all keep helpers in the JS
-   * process that the detached VMM still needs to call back into.
-   * Phase 3 lifts those gates by extracting the helpers into
-   * standalone daemons.
+   * VMM, defeating the purpose). Compatible with every other boot
+   * option: gvproxy + live-mount FUSE servers spawn as detached
+   * daemons wrapped through `pdeathsig --watch-pid <vmm>`, and `mount`
+   * (squashfs+ext4 overlay) is fd-passed to the VMM at spawn so the
+   * supervisor holds no live state afterwards.
    *
    * Cleanup of per-boot reflink disks, bundle dirs, and vsock UDS
    * directories normally happens in the parent's `child.once("exit")`
@@ -396,20 +396,12 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   );
 
   phases.start("asset-resolve");
-  // #150: refuse `--detached` with options that keep helpers alive in
-  // the JS supervisor. After detach the supervisor is gone; any guest
-  // call back into one of these would land on a dead socket. Phase 3
-  // lifted `liveMounts` (each one now spawns as a detached helper
-  // wrapped through `pdeathsig --watch-pid <vmm>`); `mount` is the
-  // last remaining incompatible case.
-  if (opts.detached && opts.mount) {
-    throw new BootError(
-      "BOOT_DETACHED_INCOMPATIBLE",
-      "boot({ detached: true }) is not yet compatible with: mount. " +
-        "Those keep helpers alive in the runtime supervisor — after detach, " +
-        "the helpers die with it.",
-    );
-  }
+  // #150: detached boots are compatible with every boot option. gvproxy
+  // and each live-mount FUSE server spawn as detached daemons wrapped
+  // through `pdeathsig --watch-pid <vmm>`; `mount` (squashfs+ext4) is
+  // fd-passed to the VMM at spawn so the supervisor holds no live state
+  // after that. Per-boot artifacts are tracked in the registry so
+  // `machinen gc` / `machinen stop` reap them after supervisor exit.
   const portForward = opts.portForward ?? [];
   await validatePortForwardOpts(opts, portForward);
 

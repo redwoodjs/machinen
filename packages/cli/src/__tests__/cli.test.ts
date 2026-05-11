@@ -281,10 +281,11 @@ describe("parseRunArgs --detached", () => {
     expect(() => parseRunArgs(["--detached", "--detached"])).toThrow(/at most once/);
   });
 
-  // Compatibility gating (--detached vs. --mount/--mount-live/-p) is
-  // enforced by the runtime's BOOT_DETACHED_INCOMPATIBLE check, not
-  // the parser — the parser is happy to capture both. The runtime
-  // gate is covered in detached.test.ts.
+  // The parser doesn't gate flag combinations — it captures whatever
+  // it sees and lets the runtime apply semantic checks. #150 phase 3
+  // removed the last detach compat gate (mount, liveMounts, and
+  // portForward all coexist with --detached), so there is nothing
+  // for the parser to mirror here.
 });
 
 describe("parseRunArgs --memory (#263 phase A)", () => {

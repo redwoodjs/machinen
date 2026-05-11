@@ -1389,6 +1389,90 @@ if grep -q 'fuse-agent$' <<<"$ROOTFS_ENTRIES"; then
   trap 'rm -rf "$FIXTURE"' EXIT
 fi  # N2L fuse-agent gate
 
+# ---- N2M: machinen boot --detached --mount; overlay survives parent
+# exit, exec reads it post-detach, `machinen stop` reaps the per-VM
+# ext4 upper.
+# Issue #150 phase 3 (M2). Reuses the N2 rootfs-capability gate; no
+# fuse-agent gate needed because --mount is a kernel block device, not
+# FUSE.
+echo "N2M: machinen boot --detached --mount; overlay survives detach; stop reaps the upper"
+N2M_NAME="smoke-detached-mount-$$"
+N2M_LOG="$FIXTURE/n2m.log"
+N2M_LOG_DIR="$FIXTURE/n2m-logs"
+N2M_SRC="$FIXTURE/n2m-src"
+N2M_MARKER="n2m-marker-$$"
+mkdir -p "$N2M_SRC" "$N2M_LOG_DIR"
+echo "$N2M_MARKER" >"$N2M_SRC/hello.txt"
+
+n2m_t0=$SECONDS
+if MACHINEN_DETACHED_LOG_DIR="$N2M_LOG_DIR" cli boot \
+    --name "$N2M_NAME" --detached \
+    --mount "$N2M_SRC:/mnt/m" \
+    -- /bin/sh -c "/exec-agent & sleep 120" >"$N2M_LOG" 2>&1; then
+  pass "boot --detached --mount returned 0 in $((SECONDS - n2m_t0))s"
+else
+  cat "$N2M_LOG" >&2
+  fail "N2M — boot --detached --mount exited non-zero"
+fi
+
+N2M_PID=$(cli ls 2>/dev/null | awk -v n="$N2M_NAME" 'NR>1 && $2==n {print $1}')
+cleanup_n2m() {
+  [[ -n "${N2M_PID:-}" ]] && kill -TERM "$N2M_PID" 2>/dev/null || true
+}
+trap 'cleanup_n2m; rm -rf "$FIXTURE"' EXIT
+if [[ -z "$N2M_PID" ]]; then
+  cli ls >&2 || true
+  fail "N2M — '$N2M_NAME' missing from 'machinen ls' after detach"
+fi
+
+N2M_META="$MACHINEN_REGISTRY_DIR/$N2M_PID/meta.json"
+N2M_UPPER=$(node -p "
+  const e = JSON.parse(require('fs').readFileSync('$N2M_META','utf8'));
+  (e.mountDisk && e.mountDisk.upperPath) || ''
+" 2>/dev/null || true)
+if [[ -z "$N2M_UPPER" ]]; then
+  cat "$N2M_META" >&2
+  fail "N2M — registry meta has no mountDisk.upperPath entry"
+fi
+if [[ ! -f "$N2M_UPPER" ]]; then
+  fail "N2M — per-VM ext4 upper $N2M_UPPER missing on disk before stop"
+fi
+pass "registry recorded mountDisk.upperPath: $N2M_UPPER"
+
+# Real-traffic check: post-detach exec into the VM and read the seeded
+# file through the overlay. The squashfs lower + ext4 upper are kernel
+# block devices fd-passed at spawn, so if anything in the supervisor
+# accidentally held them, this exec would surface EIO.
+N2M_EXEC_LOG="$FIXTURE/n2m-exec.log"
+if cli exec "$N2M_NAME" -- cat /mnt/m/hello.txt >"$N2M_EXEC_LOG" 2>&1; then
+  if grep -q "$N2M_MARKER" "$N2M_EXEC_LOG"; then
+    pass "post-detach 'cat /mnt/m/hello.txt' returned the seeded marker"
+  else
+    cat "$N2M_EXEC_LOG" >&2
+    fail "N2M — post-detach cat output missing marker"
+  fi
+else
+  cat "$N2M_EXEC_LOG" >&2
+  fail "N2M — post-detach 'machinen exec ... cat' exited non-zero"
+fi
+
+# `machinen stop` should SIGTERM the VMM and reap the per-VM upper.
+N2M_STOP_LOG="$FIXTURE/n2m-stop.log"
+if cli stop "$N2M_NAME" >"$N2M_STOP_LOG" 2>&1; then
+  pass "machinen stop $N2M_NAME exited 0"
+else
+  cat "$N2M_STOP_LOG" >&2
+  fail "N2M — machinen stop exited non-zero"
+fi
+
+if [[ -e "$N2M_UPPER" ]]; then
+  ls -la "$N2M_UPPER" >&2 || true
+  fail "N2M — per-VM ext4 upper $N2M_UPPER still on disk after stop"
+fi
+pass "machinen stop reaped the per-VM ext4 upper"
+
+trap 'rm -rf "$FIXTURE"' EXIT
+
 fi  # N2 rootfs-capability gate
 
 # ---- N3: machinen attach <unknown> errors cleanly ----

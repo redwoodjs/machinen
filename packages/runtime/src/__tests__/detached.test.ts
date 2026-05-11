@@ -1,8 +1,11 @@
 // Detached-boot v1 (issue #150 phase 2). Covers:
 //   - boot-console snapshot writer (writeBootSnapshot + path layout)
-//   - the runtime's BOOT_DETACHED_INCOMPATIBLE gate against helpers
-//     that only live in the JS supervisor (mount, liveMounts,
-//     portForward).
+//   - regression guard against re-introducing the helper-compat gate.
+//     Phase 2 PR3 lifted portForward, phase 3 lifted liveMounts (each
+//     spawns as a detached helper under pdeathsig --watch-pid), and
+//     `mount` (squashfs+ext4) was lifted once we verified it holds no
+//     live supervisor state after fd-pass. Every boot option is now
+//     detach-compatible — assert boot() doesn't refuse them.
 //
 // The end-to-end "boot --detached, parent exits, VMM keeps running"
 // flow needs the real VMM binary and lives in the smoke suite —
@@ -12,7 +15,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { boot, BootError, isMachinenError } from "../index.ts";
+import { boot, isMachinenError } from "../index.ts";
 import { bootSnapshotPath, writeBootSnapshot, detachedLogRoot } from "../detached-log.ts";
 
 describe("detached-log helpers", () => {
@@ -59,41 +62,29 @@ describe("detached-log helpers", () => {
   });
 });
 
-describe("boot({ detached }) compatibility gate", () => {
-  // The gate runs before any VMM resolution / spawn, so these tests
-  // need no fixtures and stay pure-JS-fast.
+describe("boot({ detached }) accepts every option", () => {
+  // Regression guard. Each boot() call resolves to a BootError because
+  // the image path is fake — the assertion is only that the failure is
+  // some downstream BootError, never a compat-gate refusal. Runs before
+  // any VMM spawn, so no fixtures needed.
 
-  it("rejects --mount with a clear BOOT_DETACHED_INCOMPATIBLE", async () => {
+  it("does NOT reject --mount (squashfs+ext4 is fd-passed at spawn)", async () => {
     const err = await boot({
       detached: true,
       image: "/tmp/does-not-exist.tar.gz",
       mount: { host: "/tmp", guest: "/mnt/in" },
     }).catch((e) => e);
-    expect(isMachinenError(err, "BOOT_DETACHED_INCOMPATIBLE")).toBe(true);
-    expect(err).toBeInstanceOf(BootError);
-    expect(err.message).toContain("mount");
+    expect(isMachinenError(err)).toBe(true);
+    expect((err as { code: string }).code).not.toMatch(/INCOMPATIBLE/);
   });
 
-  // #150 phase 2 PR3 lifted the portForward gate: gvproxy now also
-  // detaches (its pid + socket dir are persisted in the registry so
-  // `machinen stop` reaps them). `--detached -p` is allowed.
-  //
-  // #150 phase 3 lifted the liveMounts gate: each live-mount now
-  // spawns as a detached helper wrapped through pdeathsig
-  // --watch-pid <vmm>. The helper survives supervisor exit and dies
-  // when the VMM dies. Only `mount` (the squashfs+ext4 overlay)
-  // remains incompatible.
-
-  it("does NOT reject liveMounts (#150 phase 3 lifted the gate)", async () => {
+  it("does NOT reject liveMounts (#150 phase 3 — detached helper)", async () => {
     const err = await boot({
       detached: true,
       image: "/tmp/does-not-exist.tar.gz",
       liveMounts: [{ host: "/tmp", guest: "/mnt/live" }],
     }).catch((e) => e);
-    // The boot will still fail (the image path doesn't exist), but
-    // the failure should not be the gate — assert it's a different
-    // BootError code.
     expect(isMachinenError(err)).toBe(true);
-    expect(isMachinenError(err, "BOOT_DETACHED_INCOMPATIBLE")).toBe(false);
+    expect((err as { code: string }).code).not.toMatch(/INCOMPATIBLE/);
   });
 });
