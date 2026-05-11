@@ -99,10 +99,12 @@ if ! "$ROOT/scripts/check-asset-freshness.sh" --quiet; then
   exit 1
 fi
 
-if [[ ! -f "$CLI" ]]; then
-  echo "=== building @machinen/runtime + @machinen/cli ==="
-  pnpm -F @machinen/runtime -F @machinen/cli build >/dev/null
-fi
+# Always rebuild — without this, a stale `dist/cli.js` from a prior
+# run silently masks source changes, and a "passing" smoke run can
+# actually be exercising the previous PR's code. tsup itself is fast
+# (~1s); the extra cost is negligible next to a single VM boot.
+echo "=== building @machinen/runtime + @machinen/cli ==="
+pnpm -F @machinen/runtime -F @machinen/cli build >/dev/null
 
 # Stage gvproxy next to the locally-built VMM so the runtime's
 # sibling-lookup in resolveGvproxyBinary() finds it. Same script the
