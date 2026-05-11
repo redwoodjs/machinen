@@ -32,7 +32,7 @@ import {
   markRootfsImageClean,
   ProvisionError,
 } from "../index.ts";
-import { _rootfsImgInternal as _internal } from "../rootfs-img.ts";
+import { _rootfsImgInternal as _internal, prebakeRootfsImageFromTree } from "../rootfs-img.ts";
 
 describe("ensureRootfsImage", () => {
   it("throws PROVISION_BASE_NOT_FOUND when the tarball is missing", () => {
@@ -409,40 +409,16 @@ describe("ensureRootfsImage", () => {
     }
   }
 
-  it("siblingPrebakePath strips .tar.gz / .tgz / .tar and falls back to .img.gz", () => {
-    // No on-disk sibling → defaults to the gzipped form.
-    expect(_internal.siblingPrebakePath("/r/rootfs.tar.gz")).toEqual({
-      path: "/r/rootfs.img.gz",
-      gzipped: true,
-    });
-    expect(_internal.siblingPrebakePath("/r/rootfs.tgz")).toEqual({
-      path: "/r/rootfs.img.gz",
-      gzipped: true,
-    });
-    expect(_internal.siblingPrebakePath("/r/rootfs.tar")).toEqual({
-      path: "/r/rootfs.img.gz",
-      gzipped: true,
-    });
+  it("siblingPrebakePath strips .tar.gz / .tgz / .tar and points at .img.gz", () => {
+    // Only the gzipped release-build sibling form is recognized;
+    // provision() writes its prebake into the runtime cache directly.
+    expect(_internal.siblingPrebakePath("/r/rootfs.tar.gz")).toBe("/r/rootfs.img.gz");
+    expect(_internal.siblingPrebakePath("/r/rootfs.tgz")).toBe("/r/rootfs.img.gz");
+    expect(_internal.siblingPrebakePath("/r/rootfs.tar")).toBe("/r/rootfs.img.gz");
     // Non-tarball paths return undefined — no prebake convention exists
     // for them, so the runtime falls through to the materialize path.
     expect(_internal.siblingPrebakePath("/r/rootfs")).toBeUndefined();
     expect(_internal.siblingPrebakePath("/r/rootfs.zip")).toBeUndefined();
-  });
-
-  it("siblingPrebakePath prefers an uncompressed .img sibling when present", () => {
-    const dir = mkdtempSync(join(tmpdir(), "ensure-img-sibling-prefer-"));
-    try {
-      const tarPath = join(dir, "app.tar.gz");
-      const imgPath = join(dir, "app.img");
-      writeFileSync(tarPath, Buffer.from("not actually a tarball"));
-      writeFileSync(imgPath, Buffer.from("not actually an image"));
-      expect(_internal.siblingPrebakePath(tarPath)).toEqual({
-        path: imgPath,
-        gzipped: false,
-      });
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
   });
 
   it("uses a sibling .img.gz to populate the cache and skips mke2fs", () => {
@@ -562,6 +538,71 @@ describe("ensureRootfsImage", () => {
       rmSync(cacheDir, { recursive: true, force: true });
     }
   }, 20_000);
+
+  it("prebakeRootfsImageFromTree leaves an existing cache image untouched", () => {
+    // Don't clobber a `<sha>.img` that a concurrent boot() might have
+    // open via virtio-blk. Renaming over an in-use inode would leave
+    // that boot writing dead bytes while the next boot reads ours.
+    const tarPath = `/tmp/machinen-rootfs-prebake-skip-${process.pid}.tar.gz`;
+    const tmpDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-prebake-skip-tar-"));
+    const cacheDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-prebake-skip-cache-"));
+    writeFileSync(join(tmpDir, "stub"), `prebake-skip-${process.pid}-${Date.now()}`);
+    execSync(`tar -czf ${tarPath} -C ${tmpDir} .`);
+    try {
+      const sha = execSync(`shasum -a 256 ${tarPath}`, { encoding: "utf8" })
+        .trim()
+        .split(/\s+/, 1)[0]!;
+      const imgPath = join(cacheDir, `${sha}.img`);
+      const sentinel = Buffer.from("do not overwrite me");
+      writeFileSync(imgPath, sentinel);
+
+      prebakeRootfsImageFromTree({ tarPath, treeDir: tmpDir, cacheDir });
+
+      // File is byte-identical — no mke2fs ran.
+      expect(readFileSync(imgPath)).toEqual(sentinel);
+    } finally {
+      try {
+        unlinkSync(tarPath);
+      } catch {}
+      rmSync(tmpDir, { recursive: true, force: true });
+      rmSync(cacheDir, { recursive: true, force: true });
+    }
+  });
+
+  it("prebakeRootfsImageFromTree no-ops when no mke2fs is available", () => {
+    // Best-effort contract: missing tooling logs and returns, never
+    // throws. We point MACHINEN_MKE2FS at a non-existent path —
+    // resolveMke2fsEnvOverride() throws ProvisionError in that case,
+    // and prebakeRootfsImageFromTree must swallow it.
+    const tarPath = `/tmp/machinen-rootfs-prebake-nomke-${process.pid}.tar.gz`;
+    const tmpDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-prebake-nomke-tar-"));
+    const cacheDir = mkdtempSync(join(tmpdir(), "machinen-rootfs-prebake-nomke-cache-"));
+    writeFileSync(join(tmpDir, "stub"), `prebake-nomke-${process.pid}-${Date.now()}`);
+    execSync(`tar -czf ${tarPath} -C ${tmpDir} .`);
+    const saved = process.env.MACHINEN_MKE2FS;
+    process.env.MACHINEN_MKE2FS = "/definitely/not/here/mke2fs";
+    try {
+      expect(() =>
+        prebakeRootfsImageFromTree({ tarPath, treeDir: tmpDir, cacheDir }),
+      ).not.toThrow();
+      // No cache file produced.
+      const sha = execSync(`shasum -a 256 ${tarPath}`, { encoding: "utf8" })
+        .trim()
+        .split(/\s+/, 1)[0]!;
+      expect(existsSync(join(cacheDir, `${sha}.img`))).toBe(false);
+    } finally {
+      if (saved === undefined) {
+        delete process.env.MACHINEN_MKE2FS;
+      } else {
+        process.env.MACHINEN_MKE2FS = saved;
+      }
+      try {
+        unlinkSync(tarPath);
+      } catch {}
+      rmSync(tmpDir, { recursive: true, force: true });
+      rmSync(cacheDir, { recursive: true, force: true });
+    }
+  });
 
   it("preserves the sticky bit on /tmp during extract (#262)", () => {
     // BSD tar (the macOS default) applies the host umask when extracting

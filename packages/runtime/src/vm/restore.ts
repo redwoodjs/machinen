@@ -264,12 +264,19 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
     // sparse extension keeps /dev/vdb at SNAP_SCRATCH_BYTES so chained
     // `vm.snapshot()` against this VM has scratch room (its mkfs.ext4
     // happily ignores tar bytes at the front).
+    //
+    // --no-xattrs: on darwin, Gatekeeper auto-tags files extracted by
+    // `machinen snapshot` with `com.apple.provenance`, and bsdtar then
+    // embeds them as `LIBARCHIVE.xattr.*` extended headers — which
+    // GNU tar in the guest warns about once per file ("Ignoring
+    // unknown extended header keyword"). CRIU images don't need
+    // xattrs, so drop them at pack time.
     scratchPath = join(
       tmpdir(),
       `machinen-restore-bundle-${process.pid}-${randomBytes(6).toString("hex")}.tar`,
     );
     try {
-      execFileSync("tar", ["-cf", scratchPath, "-C", imgDir, "."]);
+      execFileSync("tar", ["--no-xattrs", "-cf", scratchPath, "-C", imgDir, "."]);
       const fd = openSync(scratchPath, "r+");
       try {
         const buf = Buffer.alloc(1);

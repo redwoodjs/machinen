@@ -78,7 +78,6 @@ import { arch, homedir, platform } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import debugLib from "debug";
 import { ProvisionError } from "./errors.ts";
-import { reflinkCopy } from "./reflink.ts";
 
 const debug = debugLib("machinen:rootfs-img");
 
@@ -274,30 +273,26 @@ export function ensureRootfsImage(tarPath: string, opts: EnsureRootfsImageOption
     }
   }
 
-  // #223 + #233: prebake fast path. If a sibling `<basename>.img` (or
-  // `<basename>.img.gz`) sits next to the tarball, populate the cache
-  // from it and skip tar+mke2fs. The bytes are an ext4 image; the
-  // cache key (tarball sha) is the same one the materialize path
+  // #223: prebake fast path. If a sibling `<basename>.img.gz` sits
+  // next to the tarball (shipped with release builds), gunzip it
+  // into the cache and skip tar+mke2fs. The bytes are an ext4 image;
+  // the cache key (tarball sha) is the same one the materialize path
   // would write to, so downstream (per-boot reflink, sparse-extend,
-  // .ok marker) is unchanged. The uncompressed form (emitted by
-  // provision()) reflinks in essentially for free; the gzipped form
-  // (shipped with releases) has to gunzip.
+  // .ok marker) is unchanged. Locally `provision()`-built tarballs
+  // skip this branch — provision() writes the cache image directly
+  // via prebakeRootfsImageFromTree() instead of staging a sibling.
   if (!opts.force) {
     const sibling = siblingPrebakePath(tarAbs);
-    if (sibling && existsSync(sibling.path)) {
+    if (sibling && existsSync(sibling)) {
       const prebakeT0 = Date.now();
       const fast = tryPrebakeFromSibling({
-        sibling: sibling.path,
-        gzipped: sibling.gzipped,
+        sibling,
         cacheDir,
         sha,
         imgPath,
         sizeBytes: opts.sizeBytes,
       });
-      opts.onPhase?.(
-        sibling.gzipped ? "gunzip-prebake" : "reflink-prebake",
-        Date.now() - prebakeT0,
-      );
+      opts.onPhase?.("gunzip-prebake", Date.now() - prebakeT0);
       if (fast) {
         return fast;
       }
@@ -592,80 +587,60 @@ function duBytes(path: string): number {
   return statSync(path).size || 0;
 }
 
-// Resolve the prebake sibling next to a tarball. Two forms exist:
-//   * `<basename>.img` — uncompressed, sparse. Emitted by `provision()`
-//     (#233 follow-up): reflinks straight into the cache, near-zero
-//     handoff cost. Use this when both files live on the same APFS /
-//     reflink-capable volume.
-//   * `<basename>.img.gz` — gzipped. Shipped by build-base-assets.sh
-//     for release tarballs where download size matters more than
-//     decompress speed.
-// Prefer the uncompressed form when present; fall back to the gzipped
-// form. Returns undefined when neither suffix matches the input path.
-function siblingPrebakePath(tarAbs: string): { path: string; gzipped: boolean } | undefined {
+// Resolve the prebake sibling next to a tarball. Only one form is
+// supported: `<basename>.img.gz` — gzipped ext4 image, shipped by
+// build-base-assets.sh for release tarballs where download size
+// matters more than decompress speed. Returns undefined when the
+// input path doesn't end in a recognized tarball suffix.
+//
+// `provision()` no longer emits an uncompressed sibling; it writes
+// the prebake straight into the runtime cache via
+// `prebakeRootfsImageFromTree()` instead.
+function siblingPrebakePath(tarAbs: string): string | undefined {
   const m = /^(.*)(\.tar\.gz|\.tgz|\.tar)$/i.exec(tarAbs);
   if (!m) {
     return undefined;
   }
-  const stem = m[1];
-  const uncompressed = `${stem}.img`;
-  if (existsSync(uncompressed)) {
-    return { path: uncompressed, gzipped: false };
-  }
-  return { path: `${stem}.img.gz`, gzipped: true };
+  return `${m[1]}.img.gz`;
 }
 
-// Populate the cache from a prebuilt sibling. Two shapes:
-//   * gzipped=true  — `<base>.img.gz` from a release build. Decompress
-//                     into a staging file with `gunzip -c`.
-//   * gzipped=false — `<base>.img` from `provision()`. Reflink-copy
-//                     directly into the staging file (instant on APFS
-//                     when the sibling and cache live on one volume).
-// Either way we sniff ext4 magic before the atomic rename — a corrupt
-// sibling shouldn't poison the cache. Any failure returns undefined
-// and the caller falls through to the slow materialize path.
+// Populate the cache from a release-built `<base>.img.gz` sibling.
+// Decompresses into a staging file with `gunzip -c`, sniffs ext4
+// magic so a corrupt sibling can't poison the cache, then atomically
+// renames into place. Any failure returns undefined and the caller
+// falls through to the slow materialize path.
 function tryPrebakeFromSibling(args: {
   sibling: string;
-  gzipped: boolean;
   cacheDir: string;
   sha: string;
   imgPath: string;
   sizeBytes?: number;
 }): string | undefined {
-  const { sibling, gzipped, cacheDir, sha, imgPath, sizeBytes } = args;
+  const { sibling, cacheDir, sha, imgPath, sizeBytes } = args;
   const stagingDir = mkdtempSync(join(cacheDir, `${sha.slice(0, 12)}-prebake-`));
   const stagingImg = join(stagingDir, "rootfs.img");
   try {
-    debug("prebake try sibling=%s gzipped=%s sha=%s", sibling, gzipped, sha.slice(0, 12));
-    if (gzipped) {
-      const dstFd = openSync(stagingImg, "w");
-      let gunzipOk = false;
-      try {
-        const r = spawnSync("gunzip", ["-c", sibling], {
-          stdio: ["ignore", dstFd, "pipe"],
-        });
-        gunzipOk = r.status === 0;
-        if (!gunzipOk) {
-          debug(
-            "prebake gunzip failed sibling=%s status=%s stderr=%s",
-            sibling,
-            r.status,
-            r.stderr?.toString().slice(0, 200) ?? "",
-          );
-        }
-      } finally {
-        closeSync(dstFd);
-      }
+    debug("prebake try sibling=%s sha=%s", sibling, sha.slice(0, 12));
+    const dstFd = openSync(stagingImg, "w");
+    let gunzipOk = false;
+    try {
+      const r = spawnSync("gunzip", ["-c", sibling], {
+        stdio: ["ignore", dstFd, "pipe"],
+      });
+      gunzipOk = r.status === 0;
       if (!gunzipOk) {
-        return undefined;
+        debug(
+          "prebake gunzip failed sibling=%s status=%s stderr=%s",
+          sibling,
+          r.status,
+          r.stderr?.toString().slice(0, 200) ?? "",
+        );
       }
-    } else {
-      try {
-        reflinkCopy(sibling, stagingImg);
-      } catch (err) {
-        debug("prebake reflink failed sibling=%s err=%s", sibling, (err as Error).message);
-        return undefined;
-      }
+    } finally {
+      closeSync(dstFd);
+    }
+    if (!gunzipOk) {
+      return undefined;
     }
     // Sniff ext4 magic so a corrupted / wrong-content sibling can't
     // pollute the cache. We don't run e2fsck here — the build
@@ -736,16 +711,101 @@ function allocateSparseFile(path: string, sizeBytes: number): void {
  * Homebrew keg-only. Returns `undefined` when no binary is available
  * (callers should treat this as "skip the optimization", not an error).
  *
- * Exported so `provision()` can prebake an `<out>.img.gz` sibling
- * alongside its `<out>.tar.gz` output (#233 follow-up). Without that,
- * every fresh `provision()` invalidates the cached `<sha>.img` and the
- * next `boot()` pays ~10 s for tar-extract + mke2fs.
+ * Exported so other tools that need to run mke2fs (e.g. `mountdisk-img`)
+ * resolve the binary through the same lookup chain.
  */
 export function resolveMke2fs(): string | undefined {
   const names = ["mke2fs", "mkfs.ext4"];
   return (
     resolveMke2fsEnvOverride() ?? findBundledMke2fs() ?? whichFirst(names) ?? findKegOnlyE2fs(names)
   );
+}
+
+/**
+ * Pre-populate the runtime cache image for `tarPath` from an already-
+ * extracted source `treeDir`, skipping the materialize path on the
+ * next `ensureRootfsImage()` for the same tarball. Called by
+ * `provision()` right after it writes the tarball — re-uses the
+ * staging tree it has on hand so the cost is just one mke2fs pass
+ * (~3 s) instead of tar-extract + mke2fs (~10 s) on first boot.
+ *
+ * Hashes the tarball to derive the cache key, runs mke2fs on
+ * `treeDir` directly into a staging file under the cache, atomically
+ * renames into `<cacheDir>/<sha>.img`, then writes the `.ok` clean-
+ * shutdown marker (the freshly-built fs has never been mounted, so
+ * it's clean by definition).
+ *
+ * Best-effort: no mke2fs binary, mke2fs error, or hash failure is
+ * logged and swallowed; the next boot just pays the cold materialize
+ * cost. Skipped entirely when a usable cache image already exists
+ * for this sha — avoids racing a concurrent `boot()` that has the
+ * file open via virtio-blk.
+ */
+export function prebakeRootfsImageFromTree(args: {
+  tarPath: string;
+  treeDir: string;
+  cacheDir?: string;
+  onPhase?: (name: string, ms: number) => void;
+}): void {
+  const { tarPath, treeDir, onPhase } = args;
+  const cacheDir = args.cacheDir ?? rootfsImgCacheDir();
+
+  try {
+    const mke2fs = resolveMke2fs();
+    if (!mke2fs) {
+      debug("prebake skip: no mke2fs available");
+      return;
+    }
+
+    mkdirSync(cacheDir, { recursive: true });
+    const shaT0 = Date.now();
+    const sha = sha256OfFile(tarPath);
+    onPhase?.("prebake.sha256", Date.now() - shaT0);
+    const imgPath = join(cacheDir, `${sha}.img`);
+    if (existsSync(imgPath)) {
+      // Skip when the cache is already populated — a concurrent boot()
+      // may have the file open via virtio-blk, and renaming over it
+      // would leave that boot writing to a dead inode while the next
+      // boot reads our fresh bytes.
+      debug("prebake skip: cache already populated sha=%s", sha.slice(0, 12));
+      return;
+    }
+
+    const stagingDir = mkdtempSync(join(cacheDir, `${sha.slice(0, 12)}-prebake-tree-`));
+    const stagingImg = join(stagingDir, "rootfs.img");
+    try {
+      const treeBytes = duBytes(treeDir);
+      const sizeBytes = Math.max(2 * 1024 * 1024 * 1024, Math.ceil(treeBytes * 2.5));
+      allocateSparseFile(stagingImg, sizeBytes);
+
+      const blocks = Math.floor(sizeBytes / 4096);
+      const mkT0 = Date.now();
+      const mk = spawnSync(
+        mke2fs,
+        ["-d", treeDir, "-t", "ext4", "-F", "-q", "-b", "4096", stagingImg, String(blocks)],
+        { stdio: ["ignore", "ignore", "pipe"] },
+      );
+      onPhase?.("prebake.mke2fs", Date.now() - mkT0);
+      if (mk.status !== 0) {
+        debug(
+          "prebake mke2fs failed status=%s stderr=%s",
+          mk.status,
+          mk.stderr?.toString().slice(0, 200) ?? "",
+        );
+        return;
+      }
+
+      renameSync(stagingImg, imgPath);
+      markRootfsImageClean(imgPath);
+      debug("prebake emitted cache=%s sizeBytes=%d", imgPath, sizeBytes);
+    } finally {
+      try {
+        rmSync(stagingDir, { recursive: true, force: true });
+      } catch {}
+    }
+  } catch (err) {
+    debug("prebake error err=%s", (err as Error).message);
+  }
 }
 
 // Visible to tests that want to assert without invoking the real
