@@ -21,9 +21,7 @@ scripts/clonefile.o.o
 # Quickstart bake outputs and snapshot bundles. The example sources
 # (bake.ts, counter.mjs) are tracked; everything `node bake.ts` and
 # `mn-dev snapshot` produce is regenerable from those.
-examples/quickstart/counter.tar.gz
-examples/quickstart/counter.img
-examples/quickstart/snapshot-counter/
+examples/quickstart/artifacts/
 examples/quickstart/.claude/
 counter-snap/
 
