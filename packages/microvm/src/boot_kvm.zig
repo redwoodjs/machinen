@@ -176,10 +176,9 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // --- run loop -------------------------------------------------
     var uart = pl011_mod.Pl011.init;
     // Production boots discard Result.serial unread (main.zig); skip
-    // the per-byte capture allocations in that mode. See
+    // the per-byte capture writes in that mode. See
     // .docs/learnings/microvm/allocations.md (#240).
     uart.capture_enabled = !cfg.unbounded_serial;
-    defer uart.deinit(gpa);
 
     const irqs = IrqMap.init();
 
@@ -620,7 +619,7 @@ fn runLoop(
         switch (reason) {
             .mmio => {
                 const ev = vcpu.mmioExit();
-                try routeMmio(gpa, vm, vcpu, devs, irqs, ev);
+                try routeMmio(vm, vcpu, devs, irqs, ev);
             },
             .system_event => {
                 const ev = vcpu.systemEventExit();
@@ -640,18 +639,18 @@ fn runLoop(
                 return error.GuestCrashed;
             },
         }
-        if (!cfg.unbounded_serial and devs.uart.captured.items.len >= cfg.capture_bytes) break;
+        if (!cfg.unbounded_serial and devs.uart.captured_len >= cfg.capture_bytes) break;
     }
 
     if (exits >= cfg.max_exits) {
         std.debug.print(
             "kvm boot: RanTooLong after {d} exits. Captured serial ({d} bytes):\n{s}\n",
-            .{ exits, devs.uart.captured.items.len, devs.uart.captured.items },
+            .{ exits, devs.uart.captured_len, devs.uart.capturedBytes() },
         );
         return error.RanTooLong;
     }
 
-    const serial = try gpa.dupe(u8, devs.uart.captured.items);
+    const serial = try gpa.dupe(u8, devs.uart.capturedBytes());
     return .{ .serial = serial, .saw_psci_shutdown = saw_off, .exits = exits };
 }
 
@@ -702,7 +701,6 @@ const Devices = struct {
 /// PL011 MMIO. Console-byte writes echo to host stderr; every access
 /// resyncs the SPI line based on `irqAsserted()`.
 fn handlePl011Mmio(
-    gpa: std.mem.Allocator,
     vm: *kvm.Vm,
     vcpu: *kvm.Vcpu,
     uart: *pl011_mod.Pl011,
@@ -712,7 +710,7 @@ fn handlePl011Mmio(
     assert(uart.handles(ev.phys_addr));
     if (ev.is_write != 0) {
         const val = mmioReadValue(ev);
-        try uart.write(gpa, ev.phys_addr, val);
+        uart.write(ev.phys_addr, val);
         if ((ev.phys_addr - uart.base) == 0 and ev.len > 0) {
             const byte: [1]u8 = .{ev.data[0]};
             _ = hostWrite(2, &byte, 1);
@@ -747,7 +745,6 @@ fn handleVirtioMmio(
 /// Route an MMIO exit to the device that owns the IPA. Each cross-
 /// thread arm wraps `handleVirtioMmio` in the appropriate mutex.
 fn routeMmio(
-    gpa: std.mem.Allocator,
     vm: *kvm.Vm,
     vcpu: *kvm.Vcpu,
     devs: *const Devices,
@@ -760,7 +757,7 @@ fn routeMmio(
     assert(ev.is_write <= 1);
 
     if (devs.uart.handles(ev.phys_addr)) {
-        try handlePl011Mmio(gpa, vm, vcpu, devs.uart, ev, irqs.pl011);
+        try handlePl011Mmio(vm, vcpu, devs.uart, ev, irqs.pl011);
         return;
     }
     if (devs.netdev.handles(ev.phys_addr)) {
