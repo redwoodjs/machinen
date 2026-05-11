@@ -29,6 +29,29 @@ const FDT_END: u32 = 9;
 const FDT_HEADER_BYTES: usize = 40;
 const FDT_MAGIC: u32 = 0xd00dfeed;
 
+// Defensive ceilings on what the walker will tolerate from a malformed
+// FDT before bailing out. The Devicetree spec doesn't impose either —
+// these are sized to the only DTB we ship (assets/virt.dtb: <8 KiB, max
+// depth ~3, longest name ~16 bytes). Bumping them is safe; the point is
+// that *some* finite cap exists so a corrupted blob can't wedge boot.
+const MAX_FDT_DEPTH: i32 = 64;
+const MAX_NAME_BYTES: usize = 256;
+
+comptime {
+    // Token values are fixed by the Devicetree spec §5.4.1. If any of
+    // these constants drifts, the wire format we walk is no longer FDT
+    // and our hand-rolled parser would silently misread real DTBs.
+    assert(FDT_BEGIN_NODE == 1);
+    assert(FDT_END_NODE == 2);
+    assert(FDT_PROP == 3);
+    assert(FDT_NOP == 4);
+    assert(FDT_END == 9);
+    // We read fields up to dtb[36..40]; the header constant must cover them.
+    assert(FDT_HEADER_BYTES >= 40);
+    assert(MAX_FDT_DEPTH > 0);
+    assert(MAX_NAME_BYTES > 0);
+}
+
 /// Header view of the FDT blob — just enough to walk struct/strings
 /// blocks. All values are big-endian on the wire; this struct holds
 /// them in host-native order after one read.
@@ -38,7 +61,9 @@ const Header = struct {
     size_strings: u32,
 
     fn read(dtb: []const u8) !Header {
+        assert(dtb.len > 0);
         if (dtb.len < FDT_HEADER_BYTES) return error.DtbTooSmall;
+        assert(dtb.len >= FDT_HEADER_BYTES);
         const magic = std.mem.readInt(u32, dtb[0..4], .big);
         if (magic != FDT_MAGIC) return error.DtbBadMagic;
         const h: Header = .{
@@ -49,12 +74,28 @@ const Header = struct {
         if (@as(usize, h.off_strings) + @as(usize, h.size_strings) > dtb.len) return error.DtbOutOfBounds;
         if (h.off_struct > dtb.len) return error.DtbOutOfBounds;
         if (h.size_strings == 0) return error.DtbBadStrings;
+        // Spec §5.2: struct/strings blocks live past the header. A
+        // header that points either offset back inside itself can't
+        // be a real FDT — our walker would read header bytes as tokens.
+        if (h.off_struct < FDT_HEADER_BYTES) return error.DtbBadStruct;
+        if (h.off_strings < FDT_HEADER_BYTES) return error.DtbBadStrings;
+        // Pair the parse-time defenses with assertions so the rest of
+        // the file can rely on them without re-checking.
+        assert(h.off_struct >= FDT_HEADER_BYTES);
+        assert(h.off_struct <= dtb.len);
+        assert(h.off_strings >= FDT_HEADER_BYTES);
+        assert(@as(usize, h.off_strings) + @as(usize, h.size_strings) <= dtb.len);
+        assert(h.size_strings > 0);
         return h;
     }
 
     fn stringOffset(self: Header, dtb: []const u8, needle: []const u8) ?u32 {
+        assert(needle.len > 0);
+        assert(@as(usize, self.off_strings) + @as(usize, self.size_strings) <= dtb.len);
         const strings = dtb[self.off_strings..][0..self.size_strings];
         const pos = std.mem.indexOf(u8, strings, needle) orelse return null;
+        // size_strings is u32, so any in-range position fits in u32.
+        assert(pos < self.size_strings);
         return @intCast(pos);
     }
 };
@@ -71,8 +112,15 @@ pub fn patchInitrdEnd(dtb: []u8, new_end: u32) !void {
     const needle = "linux,initrd-end\x00";
     const name_offset = h.stringOffset(dtb, needle) orelse return error.InitrdEndNotFound;
 
+    // Each loop iteration consumes at least 4 bytes (one token), so
+    // dtb.len/4 is a hard upper bound on iterations. +1 covers the
+    // trailing exit check. Tigerstyle: every loop bounded.
+    const max_iters: usize = (dtb.len / 4) + 1;
+    var iters: usize = 0;
     var i: usize = h.off_struct;
-    while (i + 4 <= dtb.len) {
+    while (i + 4 <= dtb.len) : (iters += 1) {
+        if (iters >= max_iters) return error.DtbTruncated;
+        assert(i + 4 <= dtb.len);
         const tok = std.mem.readInt(u32, dtb[i..][0..4], .big);
         i += 4;
         switch (tok) {
@@ -89,13 +137,17 @@ pub fn patchInitrdEnd(dtb: []u8, new_end: u32) !void {
                     std.mem.writeInt(u32, dtb[i..][0..4], new_end, .big);
                     return;
                 }
+                if (@as(usize, plen) > dtb.len - i) return error.DtbTruncated;
                 i += plen;
                 i = std.mem.alignForward(usize, i, 4);
+                if (i > dtb.len) return error.DtbTruncated;
+                assert(i <= dtb.len);
             },
             FDT_END => return error.InitrdEndNotFound,
             else => return error.DtbBadToken,
         }
     }
+    assert(iters <= max_iters);
     return error.DtbTruncated;
 }
 
@@ -120,17 +172,26 @@ pub fn patchMemorySize(dtb: []u8, size_bytes: u64) !void {
     // Walk the struct block. `depth` counts open BEGIN_NODE tokens;
     // root sits at depth 1, its children at depth 2.
     const ROOT_CHILD_DEPTH: i32 = 2;
+    const max_iters: usize = (dtb.len / 4) + 1;
+    var iters: usize = 0;
     var i: usize = h.off_struct;
     var depth: i32 = 0;
     var in_memory_node: bool = false;
-    while (i + 4 <= dtb.len) {
+    while (i + 4 <= dtb.len) : (iters += 1) {
+        if (iters >= max_iters) return error.DtbTruncated;
+        assert(i + 4 <= dtb.len);
+        assert(depth >= 0);
+        assert(depth < MAX_FDT_DEPTH);
         const tok = std.mem.readInt(u32, dtb[i..][0..4], .big);
         i += 4;
         switch (tok) {
             FDT_BEGIN_NODE => {
+                if (depth >= MAX_FDT_DEPTH) return error.DtbTooDeep;
                 const name_start = i;
                 i = try skipName(dtb, i);
                 depth += 1;
+                assert(depth > 0);
+                assert(depth <= MAX_FDT_DEPTH);
                 if (depth == ROOT_CHILD_DEPTH) {
                     const name = nameSlice(dtb, name_start);
                     in_memory_node = isMemoryNodeName(name);
@@ -143,6 +204,7 @@ pub fn patchMemorySize(dtb: []u8, size_bytes: u64) !void {
                     return error.MemoryRegNotFound;
                 }
                 depth -= 1;
+                assert(depth >= 0);
             },
             FDT_NOP => {},
             FDT_PROP => {
@@ -158,33 +220,53 @@ pub fn patchMemorySize(dtb: []u8, size_bytes: u64) !void {
                     std.mem.writeInt(u64, dtb[i + 8 ..][0..8], size_bytes, .big);
                     return;
                 }
+                if (@as(usize, plen) > dtb.len - i) return error.DtbTruncated;
                 i += plen;
                 i = std.mem.alignForward(usize, i, 4);
+                if (i > dtb.len) return error.DtbTruncated;
+                assert(i <= dtb.len);
             },
             FDT_END => return error.MemoryRegNotFound,
             else => return error.DtbBadToken,
         }
     }
+    assert(iters <= max_iters);
+    assert(depth >= 0);
     return error.DtbTruncated;
 }
 
 fn skipName(dtb: []const u8, start: usize) !usize {
+    assert(start <= dtb.len);
     var i = start;
-    while (i < dtb.len and dtb[i] != 0) : (i += 1) {}
+    while (i < dtb.len and dtb[i] != 0) : (i += 1) {
+        if (i - start >= MAX_NAME_BYTES) return error.DtbBadName;
+    }
     if (i >= dtb.len) return error.DtbTruncated;
+    assert(i < dtb.len);
+    assert(dtb[i] == 0);
     i += 1; // consume null
-    return std.mem.alignForward(usize, i, 4);
+    const aligned = std.mem.alignForward(usize, i, 4);
+    if (aligned > dtb.len) return error.DtbTruncated;
+    assert(aligned >= i);
+    assert(aligned <= dtb.len);
+    return aligned;
 }
 
 fn nameSlice(dtb: []const u8, start: usize) []const u8 {
+    assert(start <= dtb.len);
     var end = start;
+    // Always reached after skipName succeeded, so the name is bounded
+    // by MAX_NAME_BYTES. Asserting it here keeps the helper self-checking.
     while (end < dtb.len and dtb[end] != 0) : (end += 1) {}
+    assert(end >= start);
+    assert(end - start <= MAX_NAME_BYTES);
     return dtb[start..end];
 }
 
 /// True for both bare `memory` and `memory@<unit-address>` (the
 /// canonical name for a real DTS-compiled node).
 fn isMemoryNodeName(name: []const u8) bool {
+    assert(name.len <= MAX_NAME_BYTES);
     if (std.mem.eql(u8, name, "memory")) return true;
     if (std.mem.startsWith(u8, name, "memory@")) return true;
     return false;
@@ -210,6 +292,19 @@ test "patchInitrdEnd round-trips a minimal hand-built DTB" {
 test "patchInitrdEnd rejects bad magic" {
     var bytes = [_]u8{0} ** 40;
     try std.testing.expectError(error.DtbBadMagic, patchInitrdEnd(&bytes, 0));
+}
+
+test "patchInitrdEnd rejects header with off_struct inside header" {
+    // off_struct < FDT_HEADER_BYTES means the struct block would
+    // overlap the header — walking from there would read FDT_MAGIC
+    // bytes as tokens. The defense lives in Header.read.
+    var bytes = [_]u8{0} ** 80;
+    std.mem.writeInt(u32, bytes[0..4], FDT_MAGIC, .big);
+    std.mem.writeInt(u32, bytes[4..8], 80, .big); // totalsize
+    std.mem.writeInt(u32, bytes[8..12], 8, .big); // off_struct (BAD)
+    std.mem.writeInt(u32, bytes[12..16], 40, .big); // off_strings
+    std.mem.writeInt(u32, bytes[32..36], 1, .big); // size_strings
+    try std.testing.expectError(error.DtbBadStruct, patchInitrdEnd(&bytes, 0));
 }
 
 test "patchInitrdEnd reports a missing property" {
