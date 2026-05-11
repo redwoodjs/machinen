@@ -485,20 +485,8 @@ function sweepEmptyPinDirs(dir: string): void {
  */
 export function claimName(name: string, pid: number): boolean {
   const pin = pinPath(name);
-  // Path-shaped names like `<src>/<pid>` (chained restore — #208) need
-  // their parent dir to exist. mkdir is idempotent for directories;
-  // it throws EEXIST when a regular file blocks the parent path —
-  // typical when the source VM is alive and pinned at `<src>` (the
-  // fork case, #216). Treat that as "name unavailable" so callers
-  // can fall back to a non-nested name rather than crash.
-  try {
-    mkdirSync(dirname(pin), { recursive: true });
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "EEXIST") {
-      debug("claimName name=%s parent path is a live pin — refusing", name);
-      return false;
-    }
-    throw err;
+  if (!ensurePinParentDir(pin, name)) {
+    return false;
   }
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
@@ -509,51 +497,86 @@ export function claimName(name: string, pid: number): boolean {
       if ((err as NodeJS.ErrnoException).code !== "EEXIST") {
         throw err;
       }
-      // EEXIST: a file or a directory occupies the pin path. An empty
-      // directory is a leftover from a path-shaped child pin whose
-      // leaf was unlinked (pre-#268 removeEntry didn't prune parents).
-      // A non-empty directory is holding live nested pins — refuse.
-      let isDir = false;
-      try {
-        isDir = statSync(pin).isDirectory();
-      } catch {}
-      if (isDir) {
-        try {
-          rmdirSync(pin);
-          debug("claimName name=%s removed empty stale dir — retrying", name);
-          continue;
-        } catch {
-          debug("claimName name=%s dir holds live nested pins — refusing", name);
-          return false;
-        }
-      }
-      // Pin is a regular file. If the holder fails the recycling /
-      // orphan check, drop the pin (and any orphaned meta dir) and
-      // retry. `kill(pid,0)` alone isn't enough — a recycled pid will
-      // succeed it, leaving the pin pinned forever.
-      let heldPid = -1;
-      try {
-        heldPid = Number(readFileSync(pin, "utf8").trim());
-      } catch {}
-      if (heldPid > 0 && !pinIsStale(heldPid)) {
-        debug("claimName name=%s held by live pid=%d — refusing", name, heldPid);
+      if (reclaimExistingPin(pin, name) === "refuse") {
         return false;
       }
-      debug("claimName name=%s stale pin (heldPid=%d) — reaping", name, heldPid);
-      try {
-        unlinkSync(pin);
-      } catch {}
-      if (heldPid > 0) {
-        // If the meta dir lingered (orphaned writeEntry, or recycled
-        // pid), drop it now — otherwise the next list() would prune
-        // it but we want claimName to leave a clean slate either way.
-        try {
-          rmSync(join(registryRoot(), String(heldPid)), { recursive: true, force: true });
-        } catch {}
-      }
+      // "retry" — loop continues
     }
   }
   return false;
+}
+
+// Path-shaped names like `<src>/<pid>` (chained restore — #208) need
+// their parent dir to exist. mkdir is idempotent for directories;
+// it throws EEXIST when a regular file blocks the parent path —
+// typical when the source VM is alive and pinned at `<src>` (the
+// fork case, #216). Treat that as "name unavailable" so callers
+// can fall back to a non-nested name rather than crash.
+function ensurePinParentDir(pin: string, name: string): boolean {
+  try {
+    mkdirSync(dirname(pin), { recursive: true });
+    return true;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "EEXIST") {
+      debug("claimName name=%s parent path is a live pin — refusing", name);
+      return false;
+    }
+    throw err;
+  }
+}
+
+type ReclaimOutcome = "retry" | "refuse";
+
+// EEXIST landed on the pin path: a file or a directory is in the way.
+// Dispatch to the directory-pin or file-pin reclaim path.
+function reclaimExistingPin(pin: string, name: string): ReclaimOutcome {
+  let isDir = false;
+  try {
+    isDir = statSync(pin).isDirectory();
+  } catch {}
+  return isDir ? reclaimStaleDirPin(pin, name) : reclaimStaleFilePin(pin, name);
+}
+
+// An empty directory is a leftover from a path-shaped child pin whose
+// leaf was unlinked (pre-#268 removeEntry didn't prune parents). A
+// non-empty directory is holding live nested pins — refuse.
+function reclaimStaleDirPin(pin: string, name: string): ReclaimOutcome {
+  try {
+    rmdirSync(pin);
+    debug("claimName name=%s removed empty stale dir — retrying", name);
+    return "retry";
+  } catch {
+    debug("claimName name=%s dir holds live nested pins — refusing", name);
+    return "refuse";
+  }
+}
+
+// Pin is a regular file. If the holder fails the recycling / orphan
+// check, drop the pin (and any orphaned meta dir) and retry.
+// `kill(pid,0)` alone isn't enough — a recycled pid will succeed it,
+// leaving the pin pinned forever.
+function reclaimStaleFilePin(pin: string, name: string): ReclaimOutcome {
+  let heldPid = -1;
+  try {
+    heldPid = Number(readFileSync(pin, "utf8").trim());
+  } catch {}
+  if (heldPid > 0 && !pinIsStale(heldPid)) {
+    debug("claimName name=%s held by live pid=%d — refusing", name, heldPid);
+    return "refuse";
+  }
+  debug("claimName name=%s stale pin (heldPid=%d) — reaping", name, heldPid);
+  try {
+    unlinkSync(pin);
+  } catch {}
+  if (heldPid > 0) {
+    // If the meta dir lingered (orphaned writeEntry, or recycled
+    // pid), drop it now — otherwise the next list() would prune
+    // it but we want claimName to leave a clean slate either way.
+    try {
+      rmSync(join(registryRoot(), String(heldPid)), { recursive: true, force: true });
+    } catch {}
+  }
+  return "retry";
 }
 
 /**

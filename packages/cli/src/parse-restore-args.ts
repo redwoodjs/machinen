@@ -48,69 +48,131 @@ export interface ParsedRestoreArgs {
   liveMounts: Array<{ host: string; guest: string; mode: "ro" | "rw" }>;
 }
 
+interface ParseState {
+  positional: string[];
+  name?: string;
+  image?: string;
+  lazy: boolean;
+  portForward: Array<{ hostPort: number; guestPort: number }>;
+  liveMounts: Array<{ host: string; guest: string; mode: "ro" | "rw" }>;
+  seenLiveGuests: Set<string>;
+  seenHostPorts: Set<number>;
+}
+
+type FlagHandler = (state: ParseState, args: string[], i: number, flag: string) => number;
+
+const FLAG_HANDLERS: ReadonlyArray<readonly [readonly string[], FlagHandler]> = [
+  [["--lazy"], handleLazyFlag],
+  [["--name"], handleNameFlag],
+  [["--image"], handleImageFlag],
+  [["--mount-live"], handleLiveMountFlag],
+  [["-p", "--publish"], handlePortForwardFlag],
+];
+
 export function parseRestoreArgs(argv: string[]): ParsedRestoreArgs {
-  const positional: string[] = [];
-  let name: string | undefined;
-  let image: string | undefined;
-  let lazy = false;
-  const portForward: Array<{ hostPort: number; guestPort: number }> = [];
-  const liveMounts: Array<{ host: string; guest: string; mode: "ro" | "rw" }> = [];
-  const seenLiveGuests = new Set<string>();
-  const seenHostPorts = new Set<number>();
+  const state: ParseState = {
+    positional: [],
+    lazy: false,
+    portForward: [],
+    liveMounts: [],
+    seenLiveGuests: new Set<string>(),
+    seenHostPorts: new Set<number>(),
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
-    if (a === "--lazy") {
-      lazy = true;
-    } else if (a === "--name" || a.startsWith("--name=")) {
-      const v = a === "--name" ? argv[++i] : a.slice("--name=".length);
-      if (!v) {
-        throw new ParseError("PARSE_FLAG_MISSING_VALUE", "--name requires a value");
-      }
-      if (name !== undefined) {
-        throw new ParseError(
-          "PARSE_FLAG_DUPLICATE",
-          "--name may be given at most once per invocation",
-        );
-      }
-      name = v;
-    } else if (a === "--image" || a.startsWith("--image=")) {
-      const v = a === "--image" ? argv[++i] : a.slice("--image=".length);
-      if (!v) {
-        throw new ParseError("PARSE_FLAG_MISSING_VALUE", "--image requires a value");
-      }
-      if (image !== undefined) {
-        throw new ParseError(
-          "PARSE_FLAG_DUPLICATE",
-          "--image may be given at most once per invocation",
-        );
-      }
-      image = v;
-    } else if (a === "--mount-live" || a.startsWith("--mount-live=")) {
-      const { value, next } = consumeLiveMount(a, argv, i);
+    const next = dispatchFlag(state, a, argv, i);
+    if (next !== undefined) {
       i = next;
-      // CLI-side dedup: two overrides for the same guest is a typo,
-      // not a feature. Runtime would still accept the second one
-      // silently (last write wins on Map.set) — fail fast here.
-      if (seenLiveGuests.has(value.guest)) {
-        throw new ParseError(
-          "PARSE_FLAG_DUPLICATE",
-          `--mount-live override for guest=${value.guest} given more than once`,
-        );
-      }
-      seenLiveGuests.add(value.guest);
-      liveMounts.push(value);
-    } else if (
-      a === "-p" ||
-      a === "--publish" ||
-      a.startsWith("-p=") ||
-      a.startsWith("--publish=")
-    ) {
-      i = consumePortForward(a, argv, i, seenHostPorts, portForward);
-    } else if (a.startsWith("-")) {
+      continue;
+    }
+    if (a.startsWith("-")) {
       throw new ParseError("PARSE_FLAG_UNKNOWN", `unknown flag: ${a}`);
-    } else {
-      positional.push(a);
+    }
+    state.positional.push(a);
+  }
+  return {
+    positional: state.positional,
+    name: state.name,
+    image: state.image,
+    portForward: state.portForward,
+    lazy: state.lazy,
+    liveMounts: state.liveMounts,
+  };
+}
+
+function dispatchFlag(
+  state: ParseState,
+  arg: string,
+  args: string[],
+  i: number,
+): number | undefined {
+  for (const [flags, handler] of FLAG_HANDLERS) {
+    for (const flag of flags) {
+      if (arg === flag || arg.startsWith(`${flag}=`)) {
+        return handler(state, args, i, flag);
+      }
     }
   }
-  return { positional, name, image, portForward, lazy, liveMounts };
+  return undefined;
+}
+
+function assertNotSeen(predicate: boolean, flag: string): void {
+  if (predicate) {
+    throw new ParseError(
+      "PARSE_FLAG_DUPLICATE",
+      `${flag} may be given at most once per invocation`,
+    );
+  }
+}
+
+function takeInlineValue(
+  arg: string,
+  args: string[],
+  i: number,
+  flag: string,
+): { v: string; i: number } {
+  const v = arg === flag ? args[i + 1] : arg.slice(`${flag}=`.length);
+  if (!v) {
+    throw new ParseError("PARSE_FLAG_MISSING_VALUE", `${flag} requires a value`);
+  }
+  return { v, i: arg === flag ? i + 1 : i };
+}
+
+function handleLazyFlag(state: ParseState, _args: string[], i: number): number {
+  state.lazy = true;
+  return i;
+}
+
+function handleNameFlag(state: ParseState, args: string[], i: number, flag: string): number {
+  assertNotSeen(state.name !== undefined, flag);
+  const r = takeInlineValue(args[i]!, args, i, flag);
+  state.name = r.v;
+  return r.i;
+}
+
+function handleImageFlag(state: ParseState, args: string[], i: number, flag: string): number {
+  assertNotSeen(state.image !== undefined, flag);
+  const r = takeInlineValue(args[i]!, args, i, flag);
+  state.image = r.v;
+  return r.i;
+}
+
+function handleLiveMountFlag(state: ParseState, args: string[], i: number): number {
+  const { value, next } = consumeLiveMount(args[i]!, args, i);
+  // CLI-side dedup: two overrides for the same guest is a typo,
+  // not a feature. Runtime would still accept the second one
+  // silently (last write wins on Map.set) — fail fast here.
+  if (state.seenLiveGuests.has(value.guest)) {
+    throw new ParseError(
+      "PARSE_FLAG_DUPLICATE",
+      `--mount-live override for guest=${value.guest} given more than once`,
+    );
+  }
+  state.seenLiveGuests.add(value.guest);
+  state.liveMounts.push(value);
+  return next;
+}
+
+function handlePortForwardFlag(state: ParseState, args: string[], i: number): number {
+  return consumePortForward(args[i]!, args, i, state.seenHostPorts, state.portForward);
 }

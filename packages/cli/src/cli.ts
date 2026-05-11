@@ -888,7 +888,100 @@ async function cmdGc(args: string[]): Promise<number> {
 // after 2s, then gc its entry. Resolves `--detached` boots' Ctrl-C
 // problem: the CLI no longer holds the VMM, so a separate `stop`
 // command is the only way to ask for a clean shutdown.
+interface StopOpts {
+  json: boolean;
+  dryRun: boolean;
+  force: boolean;
+  target: { name: string } | { pid: number };
+}
+
+type StopStatus = "stopped" | "would_stop" | "already_dead" | "recycled";
+
 async function cmdStop(args: string[]): Promise<number> {
+  const opts = parseStopOpts(args);
+  const entry = lookupEntry(opts.target);
+  if (!entry) {
+    notifyVmNotFound(opts.json, opts.target);
+    return 1;
+  }
+  const emitStop = (status: StopStatus): void => {
+    if (opts.json) {
+      emitJson({
+        schema_version: 1,
+        pid: entry.pid,
+        name: entry.name ?? null,
+        status,
+        dry_run: opts.dryRun,
+      });
+    }
+  };
+  // Pid-validate before signalling — refuses to kill a recycled pid.
+  const status = validatePid(entry.pid, {
+    vmmExe: entry.vmmExe,
+    startedAt: entry.startedAt,
+  });
+  const earlyExit = handleNonAliveStatus(entry, status, opts, emitStop);
+  if (earlyExit !== undefined) {
+    return earlyExit;
+  }
+  if (opts.dryRun) {
+    if (!opts.json) {
+      const sigLabel = opts.force ? "SIGKILL" : "SIGTERM (escalates to SIGKILL after 2s)";
+      process.stdout.write(`would ${sigLabel} ${describeEntry(entry)}\n`);
+    }
+    emitStop("would_stop");
+    return 0;
+  }
+  const sig: "SIGKILL" | "SIGTERM" = opts.force ? "SIGKILL" : "SIGTERM";
+  const killResult = await killAndMaybeEscalate(entry.pid, sig, opts.force);
+  if (killResult.kind === "error") {
+    notifyKillFailure(opts.json, entry.pid, killResult.error);
+    return 1;
+  }
+  // #150 phase 2 PR3: signal gvproxy too. Detached gvproxy survives
+  // the parent's exit on its own (no pdeathsig); without this it'd
+  // outlive every `machinen stop`, holding host ports and leaking
+  // the qemu/control sockets. Anti-recycling guard mirrors the VMM
+  // path — basename match against the recorded gvproxy binary, so
+  // an unrelated pid that inherited gvproxy's slot weeks later
+  // doesn't get killed. Wait for it to exit so the test/user can
+  // assume "stop returned → process is gone" without a follow-up
+  // poll.
+  if (entry.gvproxyPid && entry.gvproxyExe) {
+    await signalAuxiliary({
+      pid: entry.gvproxyPid,
+      exe: entry.gvproxyExe,
+      sig,
+      force: opts.force,
+      label: "gvproxy",
+    });
+  }
+  // #150 phase 3: signal each detached live-mount helper too. They
+  // die with the VMM via pdeathsig already, but signaling explicitly
+  // lets us wait for clean exit and avoids a window where SIGTERM-on-
+  // VMM races the helper's own pdeathsig-triggered shutdown.
+  // Anti-recycling guard mirrors the gvproxy path.
+  for (const helper of entry.liveMountServers ?? []) {
+    await signalAuxiliary({
+      pid: helper.pid,
+      exe: helper.exe,
+      sig,
+      force: opts.force,
+      label: "mount-server",
+    });
+  }
+  // Final gc to drop the registry entry + cleanupPaths (including the
+  // gvproxy socket dir that PR3 added to the cleanup list).
+  runGc({ pid: entry.pid });
+  if (opts.json) {
+    emitStop("stopped");
+  } else {
+    process.stdout.write(`stopped ${describeEntry(entry)}\n`);
+  }
+  return 0;
+}
+
+function parseStopOpts(args: string[]): StopOpts {
   const { json, rest: afterJson } = consumeJsonFlag(args);
   const { dryRun, rest: afterDry } = consumeDryRunFlag(afterJson);
   let force = false;
@@ -901,164 +994,135 @@ async function cmdStop(args: string[]): Promise<number> {
     }
   }
   const target = parseTargetFlags(rest, "stop");
-  const entry = lookupEntry(target);
-  if (!entry) {
-    if (json) {
-      emitJsonError("VM_NOT_FOUND", `no running VM matched ${describeTarget(target)}`);
-    } else {
-      process.stderr.write(`machinen stop: no running VM matched ${describeTarget(target)}\n`);
-    }
-    return 1;
-  }
-  const emitStop = (status: "stopped" | "would_stop" | "already_dead" | "recycled"): void => {
-    if (json) {
-      emitJson({
-        schema_version: 1,
-        pid: entry.pid,
-        name: entry.name ?? null,
-        status,
-        dry_run: dryRun,
-      });
-    }
-  };
-  // Pid-validate before signalling — refuses to kill a recycled pid.
-  const status = validatePid(entry.pid, {
-    vmmExe: entry.vmmExe,
-    startedAt: entry.startedAt,
-  });
-  if (status === "recycled") {
-    if (!json) {
-      process.stderr.write(
-        `machinen stop: registry entry pid ${entry.pid} is now held by an unrelated process; ` +
-          (dryRun ? "would skip kill and gc.\n" : "skipping kill and running gc.\n"),
-      );
-    }
-    if (!dryRun) {
-      runGc({ pid: entry.pid });
-    }
-    emitStop("recycled");
-    return 0;
-  }
-  if (status === "dead") {
-    if (!json) {
-      process.stderr.write(
-        `machinen stop: pid ${entry.pid} already gone; ` +
-          (dryRun ? "would gc.\n" : "running gc.\n"),
-      );
-    }
-    if (!dryRun) {
-      runGc({ pid: entry.pid });
-    }
-    emitStop("already_dead");
-    return 0;
-  }
-  if (dryRun) {
-    if (!json) {
-      const label = entry.name ? `${entry.name} (pid ${entry.pid})` : `pid ${entry.pid}`;
-      const sigLabel = force ? "SIGKILL" : "SIGTERM (escalates to SIGKILL after 2s)";
-      process.stdout.write(`would ${sigLabel} ${label}\n`);
-    }
-    emitStop("would_stop");
-    return 0;
-  }
-  const sig = force ? "SIGKILL" : "SIGTERM";
-  try {
-    process.kill(entry.pid, sig);
-  } catch (err) {
-    const msg = `failed to signal pid ${entry.pid}: ${err instanceof Error ? err.message : String(err)}`;
-    if (json) {
-      emitJsonError("STOP_KILL_FAILED", msg);
-    } else {
-      process.stderr.write(`machinen stop: ${msg}\n`);
-    }
-    return 1;
-  }
-  if (!force) {
-    await waitForExit(entry.pid, 2_000);
-    try {
-      process.kill(entry.pid, 0);
-      // Still alive — escalate.
-      try {
-        process.kill(entry.pid, "SIGKILL");
-      } catch {}
-    } catch {
-      // Already gone.
-    }
-  }
-  // #150 phase 2 PR3: signal gvproxy too. Detached gvproxy survives
-  // the parent's exit on its own (no pdeathsig); without this it'd
-  // outlive every `machinen stop`, holding host ports and leaking
-  // the qemu/control sockets. Anti-recycling guard mirrors the VMM
-  // path — basename match against the recorded gvproxy binary, so
-  // an unrelated pid that inherited gvproxy's slot weeks later
-  // doesn't get killed. Wait for it to exit so the test/user can
-  // assume "stop returned → process is gone" without a follow-up
-  // poll.
-  if (entry.gvproxyPid && entry.gvproxyExe) {
-    const gvStatus = validatePid(entry.gvproxyPid, { vmmExe: entry.gvproxyExe });
-    if (gvStatus === "alive") {
-      try {
-        process.kill(entry.gvproxyPid, sig);
-      } catch (err) {
-        process.stderr.write(
-          `machinen stop: failed to signal gvproxy pid ${entry.gvproxyPid}: ${err instanceof Error ? err.message : String(err)}\n`,
-        );
-      }
-      if (!force) {
-        await waitForExit(entry.gvproxyPid, 2_000);
-        try {
-          process.kill(entry.gvproxyPid, 0);
-          try {
-            process.kill(entry.gvproxyPid, "SIGKILL");
-          } catch {}
-        } catch {}
-      }
-    } else if (gvStatus === "recycled") {
-      process.stderr.write(
-        `machinen stop: gvproxy pid ${entry.gvproxyPid} now held by an unrelated process; skipping.\n`,
-      );
-    }
-  }
-  // #150 phase 3: signal each detached live-mount helper too. They
-  // die with the VMM via pdeathsig already, but signaling explicitly
-  // lets us wait for clean exit and avoids a window where SIGTERM-on-
-  // VMM races the helper's own pdeathsig-triggered shutdown.
-  // Anti-recycling guard mirrors the gvproxy path.
-  for (const helper of entry.liveMountServers ?? []) {
-    const status = validatePid(helper.pid, { vmmExe: helper.exe });
-    if (status === "alive") {
-      try {
-        process.kill(helper.pid, sig);
-      } catch (err) {
-        process.stderr.write(
-          `machinen stop: failed to signal mount-server pid ${helper.pid}: ${err instanceof Error ? err.message : String(err)}\n`,
-        );
-      }
-      if (!force) {
-        await waitForExit(helper.pid, 2_000);
-        try {
-          process.kill(helper.pid, 0);
-          try {
-            process.kill(helper.pid, "SIGKILL");
-          } catch {}
-        } catch {}
-      }
-    } else if (status === "recycled") {
-      process.stderr.write(
-        `machinen stop: mount-server pid ${helper.pid} now held by an unrelated process; skipping.\n`,
-      );
-    }
-  }
-  // Final gc to drop the registry entry + cleanupPaths (including the
-  // gvproxy socket dir that PR3 added to the cleanup list).
-  runGc({ pid: entry.pid });
+  return { json, dryRun, force, target };
+}
+
+function notifyVmNotFound(json: boolean, target: { name: string } | { pid: number }): void {
   if (json) {
-    emitStop("stopped");
+    emitJsonError("VM_NOT_FOUND", `no running VM matched ${describeTarget(target)}`);
   } else {
-    const label = entry.name ? `${entry.name} (pid ${entry.pid})` : `pid ${entry.pid}`;
-    process.stdout.write(`stopped ${label}\n`);
+    process.stderr.write(`machinen stop: no running VM matched ${describeTarget(target)}\n`);
   }
+}
+
+function describeEntry(entry: RegistryEntry): string {
+  return entry.name ? `${entry.name} (pid ${entry.pid})` : `pid ${entry.pid}`;
+}
+
+// Map "recycled" / "dead" pid statuses to the appropriate exit code
+// and emit the matching message. Returns undefined when status is
+// "alive" (the caller should continue with the actual kill path).
+function handleNonAliveStatus(
+  entry: RegistryEntry,
+  status: "alive" | "dead" | "recycled",
+  opts: StopOpts,
+  emitStop: (status: StopStatus) => void,
+): number | undefined {
+  if (status === "alive") {
+    return undefined;
+  }
+  const isRecycled = status === "recycled";
+  const detail = isRecycled ? "registry entry pid" : "pid";
+  const action = isRecycled
+    ? opts.dryRun
+      ? "would skip kill and gc."
+      : "skipping kill and running gc."
+    : opts.dryRun
+      ? "would gc."
+      : "running gc.";
+  if (!opts.json) {
+    const lead = isRecycled
+      ? `${detail} ${entry.pid} is now held by an unrelated process;`
+      : `${detail} ${entry.pid} already gone;`;
+    process.stderr.write(`machinen stop: ${lead} ${action}\n`);
+  }
+  if (!opts.dryRun) {
+    runGc({ pid: entry.pid });
+  }
+  emitStop(isRecycled ? "recycled" : "already_dead");
   return 0;
+}
+
+type KillResult = { kind: "ok" } | { kind: "error"; error: unknown };
+
+// SIGTERM → 2s wait → SIGKILL escalation. `force: true` skips both
+// the SIGTERM step and the escalation (caller already chose SIGKILL).
+async function killAndMaybeEscalate(
+  pid: number,
+  sig: "SIGTERM" | "SIGKILL",
+  force: boolean,
+): Promise<KillResult> {
+  try {
+    process.kill(pid, sig);
+  } catch (err) {
+    return { kind: "error", error: err };
+  }
+  if (force) {
+    return { kind: "ok" };
+  }
+  await waitForExit(pid, 2_000);
+  try {
+    process.kill(pid, 0);
+    // Still alive — escalate.
+    try {
+      process.kill(pid, "SIGKILL");
+    } catch {}
+  } catch {
+    // Already gone.
+  }
+  return { kind: "ok" };
+}
+
+function notifyKillFailure(json: boolean, pid: number, err: unknown): void {
+  const msg = `failed to signal pid ${pid}: ${err instanceof Error ? err.message : String(err)}`;
+  if (json) {
+    emitJsonError("STOP_KILL_FAILED", msg);
+  } else {
+    process.stderr.write(`machinen stop: ${msg}\n`);
+  }
+}
+
+interface AuxiliarySignalArgs {
+  pid: number;
+  exe: string;
+  sig: "SIGTERM" | "SIGKILL";
+  force: boolean;
+  label: string;
+}
+
+// Signal a non-VMM helper (gvproxy, live-mount server). Pid-validates
+// to refuse killing a recycled pid, signals, optionally waits +
+// escalates. Soft errors (signal failure, recycled-pid skip) go to
+// stderr without propagating — auxiliary failures don't make `stop`
+// itself fail.
+async function signalAuxiliary(args: AuxiliarySignalArgs): Promise<void> {
+  const status = validatePid(args.pid, { vmmExe: args.exe });
+  if (status === "recycled") {
+    process.stderr.write(
+      `machinen stop: ${args.label} pid ${args.pid} now held by an unrelated process; skipping.\n`,
+    );
+    return;
+  }
+  if (status !== "alive") {
+    return;
+  }
+  try {
+    process.kill(args.pid, args.sig);
+  } catch (err) {
+    process.stderr.write(
+      `machinen stop: failed to signal ${args.label} pid ${args.pid}: ${err instanceof Error ? err.message : String(err)}\n`,
+    );
+  }
+  if (args.force) {
+    return;
+  }
+  await waitForExit(args.pid, 2_000);
+  try {
+    process.kill(args.pid, 0);
+    try {
+      process.kill(args.pid, "SIGKILL");
+    } catch {}
+  } catch {}
 }
 
 /**
@@ -1452,66 +1516,21 @@ async function cmdFork(args: string[]): Promise<number> {
   }
 }
 
+interface AttachOpts {
+  shell: string;
+  tail: number | "all" | undefined;
+  filtered: string[];
+}
+
 async function cmdAttach(args: string[]): Promise<number> {
-  // Pull `--shell` and `--tail` out before the target flags so the
-  // unknown-arg checks in `parseTargetFlags` don't reject them.
-  // `--shell` defaults to `bash -i` — the Debian base rootfs ships
-  // bash, and `-i` gets job control, history, and a prompt.
-  let shell = "/bin/bash -i";
-  let tail: number | "all" | undefined;
-  const filtered: string[] = [];
-  for (let i = 0; i < args.length; i++) {
-    const a = args[i]!;
-    if (a === "--shell" || a.startsWith("--shell=")) {
-      const v = a === "--shell" ? args[++i] : a.slice("--shell=".length);
-      if (!v) {
-        die("--shell requires a value");
-      }
-      shell = v;
-    } else if (a === "--tail" || a.startsWith("--tail=")) {
-      // `--tail` (no value) prints the whole snapshot. `--tail N`
-      // prints the last N lines. The snapshot is capped at ~1 MiB so
-      // even the no-value form is bounded.
-      let v: string | undefined;
-      if (a === "--tail") {
-        const peek = args[i + 1];
-        if (peek && /^[0-9]+$/.test(peek)) {
-          v = peek;
-          i++;
-        }
-      } else {
-        v = a.slice("--tail=".length);
-      }
-      if (v === undefined) {
-        tail = "all";
-      } else {
-        const n = Number(v);
-        if (!Number.isInteger(n) || n < 0) {
-          die(`--tail: expected a non-negative integer, got '${v}'`);
-        }
-        tail = n;
-      }
-    } else {
-      filtered.push(a);
-    }
-  }
+  const { shell, tail, filtered } = parseAttachOpts(args);
   const target = parseTargetFlags(filtered, "attach");
   // #150 phase 2 PR3: --tail dumps the boot-console snapshot before
   // (or instead of) the interactive shell. Look up the registry
   // entry directly — `attach()` only returns a VmHandle, not the
   // entry, and we need `bootLogPath` from the registry.
   if (tail !== undefined) {
-    const entry = lookupEntry(target);
-    if (!entry) {
-      die(`machinen attach: no running VM matched ${describeTarget(target)}`);
-    }
-    if (!entry.bootLogPath) {
-      die(
-        `machinen attach --tail: VM was not booted with --detached, no snapshot exists. ` +
-          `Use 'machinen attach' (no --tail) for live console access.`,
-      );
-    }
-    printBootLogTail(entry.bootLogPath, tail);
+    dumpBootLogTail(target, tail);
   }
   // Resolve the target before the TTY check: a typo in --name should
   // surface "no running VM found", not the TTY error. The TTY error
@@ -1527,6 +1546,73 @@ async function cmdAttach(args: string[]): Promise<number> {
   } finally {
     await vm.detach();
   }
+}
+
+// Pull `--shell` and `--tail` out before the target flags so the
+// unknown-arg checks in `parseTargetFlags` don't reject them.
+// `--shell` defaults to `bash -i` — the Debian base rootfs ships
+// bash, and `-i` gets job control, history, and a prompt.
+function parseAttachOpts(args: string[]): AttachOpts {
+  let shell = "/bin/bash -i";
+  let tail: number | "all" | undefined;
+  const filtered: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i]!;
+    if (a === "--shell" || a.startsWith("--shell=")) {
+      const v = a === "--shell" ? args[++i] : a.slice("--shell=".length);
+      if (!v) {
+        die("--shell requires a value");
+      }
+      shell = v;
+    } else if (a === "--tail" || a.startsWith("--tail=")) {
+      const r = parseTailFlag(a, args, i);
+      tail = r.value;
+      i = r.next;
+    } else {
+      filtered.push(a);
+    }
+  }
+  return { shell, tail, filtered };
+}
+
+// `--tail` (no value) prints the whole snapshot. `--tail N`
+// prints the last N lines. The snapshot is capped at ~1 MiB so
+// even the no-value form is bounded.
+function parseTailFlag(
+  arg: string,
+  args: string[],
+  i: number,
+): { value: number | "all"; next: number } {
+  if (arg.startsWith("--tail=")) {
+    return { value: parseTailValue(arg.slice("--tail=".length)), next: i };
+  }
+  const peek = args[i + 1];
+  if (peek && /^[0-9]+$/.test(peek)) {
+    return { value: parseTailValue(peek), next: i + 1 };
+  }
+  return { value: "all", next: i };
+}
+
+function parseTailValue(v: string): number {
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < 0) {
+    die(`--tail: expected a non-negative integer, got '${v}'`);
+  }
+  return n;
+}
+
+function dumpBootLogTail(target: { name: string } | { pid: number }, tail: number | "all"): void {
+  const entry = lookupEntry(target);
+  if (!entry) {
+    die(`machinen attach: no running VM matched ${describeTarget(target)}`);
+  }
+  if (!entry.bootLogPath) {
+    die(
+      `machinen attach --tail: VM was not booted with --detached, no snapshot exists. ` +
+        `Use 'machinen attach' (no --tail) for live console access.`,
+    );
+  }
+  printBootLogTail(entry.bootLogPath, tail);
 }
 
 function printBootLogTail(path: string, tail: number | "all"): void {

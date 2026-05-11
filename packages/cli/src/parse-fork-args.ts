@@ -80,96 +80,57 @@ export interface ParsedForkArgs {
   rest: string[];
 }
 
+interface ParseState {
+  newName?: string;
+  outDir?: string;
+  tcpKeep: boolean;
+  detach: boolean;
+  lazy: boolean;
+  portForward: Array<{ hostPort: number; guestPort: number }>;
+  seenHostPorts: Set<number>;
+  mount?: { host: string; guest: string };
+  liveMounts: Array<{ host: string; guest: string; mode: "ro" | "rw" }>;
+  env: Record<string, string>;
+  guestCwd?: string;
+  memory?: number;
+  rest: string[];
+}
+
+type FlagHandler = (state: ParseState, args: string[], i: number, flag: string) => number;
+
+const FLAG_HANDLERS: ReadonlyArray<readonly [readonly string[], FlagHandler]> = [
+  [["--new-name"], handleNewNameFlag],
+  [["--out-dir"], handleOutDirFlag],
+  [["--tcp-keep"], handleTcpKeepFlag],
+  [["--detach"], handleDetachFlag],
+  [["--lazy"], handleLazyFlag],
+  [["-p", "--publish"], handlePortForwardFlag],
+  [["--mount"], handleMountFlag],
+  [["--mount-live"], handleLiveMountFlag],
+  [["--env"], handleEnvFlag],
+  [["--cwd"], handleCwdFlag],
+  [["--memory"], handleMemoryFlag],
+];
+
 export function parseForkArgs(argv: string[]): ParsedForkArgs {
-  let newName: string | undefined;
-  let outDir: string | undefined;
-  let tcpKeep = false;
-  let detach = false;
-  let lazy = false;
-  const portForward: Array<{ hostPort: number; guestPort: number }> = [];
-  const seenHostPorts = new Set<number>();
-  let mount: { host: string; guest: string } | undefined;
-  const liveMounts: Array<{ host: string; guest: string; mode: "ro" | "rw" }> = [];
-  const env: Record<string, string> = {};
-  let guestCwd: string | undefined;
-  let memory: number | undefined;
-  const rest: string[] = [];
+  const state: ParseState = {
+    tcpKeep: false,
+    detach: false,
+    lazy: false,
+    portForward: [],
+    seenHostPorts: new Set<number>(),
+    liveMounts: [],
+    env: {},
+    rest: [],
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
-    if (a === "--new-name" || a.startsWith("--new-name=")) {
-      if (newName !== undefined) {
-        throw new ParseError(
-          "PARSE_FLAG_DUPLICATE",
-          "--new-name may be given at most once per invocation",
-        );
-      }
-      const { spec, next } = takeValue(a, argv, i, "a value");
-      newName = spec;
+    const next = dispatchFlag(state, a, argv, i);
+    if (next !== undefined) {
       i = next;
-    } else if (a === "--out-dir" || a.startsWith("--out-dir=")) {
-      if (outDir !== undefined) {
-        throw new ParseError(
-          "PARSE_FLAG_DUPLICATE",
-          "--out-dir may be given at most once per invocation",
-        );
-      }
-      const { spec, next } = takeValue(a, argv, i, "a directory path");
-      outDir = spec;
-      i = next;
-    } else if (a === "--tcp-keep") {
-      tcpKeep = true;
-    } else if (a === "--detach") {
-      detach = true;
-    } else if (a === "--lazy") {
-      lazy = true;
-    } else if (
-      a === "-p" ||
-      a === "--publish" ||
-      a.startsWith("-p=") ||
-      a.startsWith("--publish=")
-    ) {
-      i = consumePortForward(a, argv, i, seenHostPorts, portForward);
-    } else if (a === "--mount" || a.startsWith("--mount=")) {
-      if (mount) {
-        throw new ParseError(
-          "PARSE_FLAG_DUPLICATE",
-          "--mount may be given at most once per invocation",
-        );
-      }
-      const r = consumeMount(a, argv, i);
-      mount = r.value;
-      i = r.next;
-    } else if (a === "--mount-live" || a.startsWith("--mount-live=")) {
-      const r = consumeLiveMount(a, argv, i);
-      liveMounts.push(r.value);
-      i = r.next;
-    } else if (a === "--env" || a.startsWith("--env=")) {
-      const r = consumeEnv(a, argv, i);
-      env[r.key] = r.value;
-      i = r.next;
-    } else if (a === "--cwd" || a.startsWith("--cwd=")) {
-      if (guestCwd !== undefined) {
-        throw new ParseError(
-          "PARSE_FLAG_DUPLICATE",
-          "--cwd may be given at most once per invocation",
-        );
-      }
-      const r = consumeGuestCwd(a, argv, i);
-      guestCwd = r.value;
-      i = r.next;
-    } else if (a === "--memory" || a.startsWith("--memory=")) {
-      if (memory !== undefined) {
-        throw new ParseError(
-          "PARSE_FLAG_DUPLICATE",
-          "--memory may be given at most once per invocation",
-        );
-      }
-      const r = consumeMemory(a, argv, i);
-      memory = r.value;
-      i = r.next;
-    } else {
-      rest.push(a);
+      continue;
     }
+    state.rest.push(a);
   }
   // Detach exits the runtime supervisor, taking the host-side FUSE
   // server with it — the in-guest lazy-pages daemon would then block
@@ -177,17 +138,108 @@ export function parseForkArgs(argv: string[]): ParsedForkArgs {
   // usable until the FUSE server gains its own detach handoff
   // (#150 phase 3).
   return {
-    newName,
-    outDir,
-    tcpKeep,
-    detach,
-    lazy: lazy && !detach,
-    portForward,
-    mount,
-    liveMounts: liveMounts.length > 0 ? liveMounts : undefined,
-    env: Object.keys(env).length > 0 ? env : undefined,
-    guestCwd,
-    memory,
-    rest,
+    newName: state.newName,
+    outDir: state.outDir,
+    tcpKeep: state.tcpKeep,
+    detach: state.detach,
+    lazy: state.lazy && !state.detach,
+    portForward: state.portForward,
+    mount: state.mount,
+    liveMounts: state.liveMounts.length > 0 ? state.liveMounts : undefined,
+    env: Object.keys(state.env).length > 0 ? state.env : undefined,
+    guestCwd: state.guestCwd,
+    memory: state.memory,
+    rest: state.rest,
   };
+}
+
+function dispatchFlag(
+  state: ParseState,
+  arg: string,
+  args: string[],
+  i: number,
+): number | undefined {
+  for (const [flags, handler] of FLAG_HANDLERS) {
+    for (const flag of flags) {
+      if (arg === flag || arg.startsWith(`${flag}=`)) {
+        return handler(state, args, i, flag);
+      }
+    }
+  }
+  return undefined;
+}
+
+function assertNotSeen(predicate: boolean, flag: string): void {
+  if (predicate) {
+    throw new ParseError(
+      "PARSE_FLAG_DUPLICATE",
+      `${flag} may be given at most once per invocation`,
+    );
+  }
+}
+
+function handleNewNameFlag(state: ParseState, args: string[], i: number, flag: string): number {
+  assertNotSeen(state.newName !== undefined, flag);
+  const { spec, next } = takeValue(args[i]!, args, i, "a value");
+  state.newName = spec;
+  return next;
+}
+
+function handleOutDirFlag(state: ParseState, args: string[], i: number, flag: string): number {
+  assertNotSeen(state.outDir !== undefined, flag);
+  const { spec, next } = takeValue(args[i]!, args, i, "a directory path");
+  state.outDir = spec;
+  return next;
+}
+
+function handleTcpKeepFlag(state: ParseState, _args: string[], i: number): number {
+  state.tcpKeep = true;
+  return i;
+}
+
+function handleDetachFlag(state: ParseState, _args: string[], i: number): number {
+  state.detach = true;
+  return i;
+}
+
+function handleLazyFlag(state: ParseState, _args: string[], i: number): number {
+  state.lazy = true;
+  return i;
+}
+
+function handlePortForwardFlag(state: ParseState, args: string[], i: number): number {
+  return consumePortForward(args[i]!, args, i, state.seenHostPorts, state.portForward);
+}
+
+function handleMountFlag(state: ParseState, args: string[], i: number, flag: string): number {
+  assertNotSeen(state.mount !== undefined, flag);
+  const r = consumeMount(args[i]!, args, i);
+  state.mount = r.value;
+  return r.next;
+}
+
+function handleLiveMountFlag(state: ParseState, args: string[], i: number): number {
+  const r = consumeLiveMount(args[i]!, args, i);
+  state.liveMounts.push(r.value);
+  return r.next;
+}
+
+function handleEnvFlag(state: ParseState, args: string[], i: number): number {
+  const r = consumeEnv(args[i]!, args, i);
+  state.env[r.key] = r.value;
+  return r.next;
+}
+
+function handleCwdFlag(state: ParseState, args: string[], i: number, flag: string): number {
+  assertNotSeen(state.guestCwd !== undefined, flag);
+  const r = consumeGuestCwd(args[i]!, args, i);
+  state.guestCwd = r.value;
+  return r.next;
+}
+
+function handleMemoryFlag(state: ParseState, args: string[], i: number, flag: string): number {
+  assertNotSeen(state.memory !== undefined, flag);
+  const r = consumeMemory(args[i]!, args, i);
+  state.memory = r.value;
+  return r.next;
 }

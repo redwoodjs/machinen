@@ -217,106 +217,136 @@ export function ensureRootfsImage(tarPath: string, opts: EnsureRootfsImageOption
   const sha = sha256OfFile(tarAbs);
   opts.onPhase?.("sha256", Date.now() - shaT0);
   const imgPath = join(cacheDir, `${sha}.img`);
-  const okPath = okMarkerPath(imgPath);
-  if (!opts.force && existsSync(imgPath)) {
-    debug("cache hit sha=%s img=%s", sha.slice(0, 12), imgPath);
-    // #170: require the clean-shutdown marker. Missing means the
-    // previous VMM was killed mid-write — fsck won't catch torn data
-    // blocks, so treat the image as poisoned and rebuild from the
-    // tarball.
-    //
-    // We deliberately do NOT `unlinkSync(imgPath)` here on the wipe
-    // paths. Concurrent callers (parallel test files, multiple `boot()`
-    // calls) may already hold imgPath as a cache-hit return value and
-    // be about to reflink from it — deleting the file out from under
-    // them races to ENOENT. The renameSync at the end of the materialize
-    // / prebake paths atomically replaces imgPath with fresh bytes, so
-    // the wipe is redundant; falling through is sufficient.
-    if (!existsSync(okPath)) {
-      debug("cache hit but no clean marker, will rematerialize img=%s", imgPath);
-    } else {
-      // Atomically clear the marker BEFORE handing the path off, so
-      // a kill between here and `markRootfsImageClean()` leaves the
-      // image flagged dirty for the next boot.
-      try {
-        unlinkSync(okPath);
-      } catch {}
-      const fsckT0 = Date.now();
-      const usable = cachedImageIsUsable(imgPath);
-      opts.onPhase?.("e2fsck", Date.now() - fsckT0);
-      if (usable) {
-        // #131: if the caller asked for a larger image than what's on
-        // disk (typically because they bumped `rootDiskSizeBytes`, or
-        // because the materializer's defaults grew), sparse-extend the
-        // file in place. The on-disk ext4 fs is still sized to the old
-        // file; /init's tryRootDiskPivot resizes it online via
-        // EXT4_IOC_RESIZE_FS so the guest sees the new capacity.
-        // truncate-up on a sparse file is free; truncate-down would
-        // chop bytes, so we never shrink.
-        if (opts.sizeBytes !== undefined) {
-          const truncT0 = Date.now();
-          try {
-            const cur = statSync(imgPath).size;
-            if (opts.sizeBytes > cur) {
-              truncateSync(imgPath, opts.sizeBytes);
-              debug("cache hit grew img=%s from=%d to=%d", imgPath, cur, opts.sizeBytes);
-            }
-          } catch (err) {
-            debug("cache hit grow failed img=%s err=%s", imgPath, (err as Error).message);
-          }
-          opts.onPhase?.("sparse-extend", Date.now() - truncT0);
-        }
-        return imgPath;
-      }
-      // Unrecoverable. Fall through to materialize a fresh image — same
-      // path a force=true caller would take. renameSync replaces.
-      debug("cache hit unusable, will rematerialize img=%s", imgPath);
-    }
-  }
 
-  // #223 + #233: prebake fast path. If a sibling `<basename>.img` (or
-  // `<basename>.img.gz`) sits next to the tarball, populate the cache
-  // from it and skip tar+mke2fs. The bytes are an ext4 image; the
-  // cache key (tarball sha) is the same one the materialize path
-  // would write to, so downstream (per-boot reflink, sparse-extend,
-  // .ok marker) is unchanged. The uncompressed form (emitted by
-  // provision()) reflinks in essentially for free; the gzipped form
-  // (shipped with releases) has to gunzip.
   if (!opts.force) {
-    const sibling = siblingPrebakePath(tarAbs);
-    if (sibling && existsSync(sibling.path)) {
-      const prebakeT0 = Date.now();
-      const fast = tryPrebakeFromSibling({
-        sibling: sibling.path,
-        gzipped: sibling.gzipped,
-        cacheDir,
-        sha,
-        imgPath,
-        sizeBytes: opts.sizeBytes,
-      });
-      opts.onPhase?.(
-        sibling.gzipped ? "gunzip-prebake" : "reflink-prebake",
-        Date.now() - prebakeT0,
-      );
-      if (fast) {
-        return fast;
-      }
-      // Fall through to materialize on any failure — same outcome
-      // as if the sibling weren't there. Slow but always correct.
+    const reused = tryReuseCachedImage(imgPath, sha, opts);
+    if (reused) {
+      return reused;
+    }
+    const prebaked = tryPrebakeFastPath(tarAbs, cacheDir, sha, imgPath, opts);
+    if (prebaked) {
+      return prebaked;
     }
   }
 
-  // Resolve mke2fs in four steps:
-  //   1. `MACHINEN_MKE2FS` env override — for users pinning a specific
-  //      build (e.g. a debug binary, or a vendored copy outside the
-  //      bundled package). Mirrors `MACHINEN_VMM` / `MACHINEN_GVPROXY`.
-  //   2. The bundled `@machinen/e2fsprogs-<arch>-<os>` package (zero
-  //      user setup, present in normal installs). Each arch package
-  //      declares matching `os` + `cpu` so npm/pnpm only installs the
-  //      one that fits the host.
-  //   3. PATH (for hosts that have e2fsprogs installed system-wide).
-  //   4. Homebrew's keg-only prefix on macOS (#124) — `brew install
-  //      e2fsprogs` deliberately doesn't symlink mke2fs onto PATH.
+  const mke2fs = resolveMke2fsBin();
+  return materializeFromTar(tarAbs, sha, mke2fs, cacheDir, imgPath, opts);
+}
+
+// #170 cache-hit path: require the clean-shutdown marker, then e2fsck
+// the image, then optionally sparse-extend. Returns the image path on
+// reuse, undefined on miss or unrecoverable image (the caller falls
+// through to prebake / materialize).
+//
+// We deliberately do NOT `unlinkSync(imgPath)` here on the wipe
+// paths. Concurrent callers (parallel test files, multiple `boot()`
+// calls) may already hold imgPath as a cache-hit return value and
+// be about to reflink from it — deleting the file out from under
+// them races to ENOENT. The renameSync at the end of the materialize
+// / prebake paths atomically replaces imgPath with fresh bytes, so
+// the wipe is redundant; falling through is sufficient.
+function tryReuseCachedImage(
+  imgPath: string,
+  sha: string,
+  opts: EnsureRootfsImageOptions,
+): string | undefined {
+  if (!existsSync(imgPath)) {
+    return undefined;
+  }
+  debug("cache hit sha=%s img=%s", sha.slice(0, 12), imgPath);
+  const okPath = okMarkerPath(imgPath);
+  if (!existsSync(okPath)) {
+    debug("cache hit but no clean marker, will rematerialize img=%s", imgPath);
+    return undefined;
+  }
+  // Atomically clear the marker BEFORE handing the path off, so
+  // a kill between here and `markRootfsImageClean()` leaves the
+  // image flagged dirty for the next boot.
+  try {
+    unlinkSync(okPath);
+  } catch {}
+  const fsckT0 = Date.now();
+  const usable = cachedImageIsUsable(imgPath);
+  opts.onPhase?.("e2fsck", Date.now() - fsckT0);
+  if (!usable) {
+    debug("cache hit unusable, will rematerialize img=%s", imgPath);
+    return undefined;
+  }
+  growCachedImageIfRequested(imgPath, opts);
+  return imgPath;
+}
+
+// #131: if the caller asked for a larger image than what's on
+// disk (typically because they bumped `rootDiskSizeBytes`, or
+// because the materializer's defaults grew), sparse-extend the
+// file in place. The on-disk ext4 fs is still sized to the old
+// file; /init's tryRootDiskPivot resizes it online via
+// EXT4_IOC_RESIZE_FS so the guest sees the new capacity.
+// truncate-up on a sparse file is free; truncate-down would
+// chop bytes, so we never shrink.
+function growCachedImageIfRequested(imgPath: string, opts: EnsureRootfsImageOptions): void {
+  if (opts.sizeBytes === undefined) {
+    return;
+  }
+  const truncT0 = Date.now();
+  try {
+    const cur = statSync(imgPath).size;
+    if (opts.sizeBytes > cur) {
+      truncateSync(imgPath, opts.sizeBytes);
+      debug("cache hit grew img=%s from=%d to=%d", imgPath, cur, opts.sizeBytes);
+    }
+  } catch (err) {
+    debug("cache hit grow failed img=%s err=%s", imgPath, (err as Error).message);
+  }
+  opts.onPhase?.("sparse-extend", Date.now() - truncT0);
+}
+
+// #223 + #233: prebake fast path. If a sibling `<basename>.img` (or
+// `<basename>.img.gz`) sits next to the tarball, populate the cache
+// from it and skip tar+mke2fs. The bytes are an ext4 image; the
+// cache key (tarball sha) is the same one the materialize path
+// would write to, so downstream (per-boot reflink, sparse-extend,
+// .ok marker) is unchanged. The uncompressed form (emitted by
+// provision()) reflinks in essentially for free; the gzipped form
+// (shipped with releases) has to gunzip. Returns the image path on
+// success; undefined when there's no sibling or the prebake failed
+// (caller falls through to materialize — slow but always correct).
+function tryPrebakeFastPath(
+  tarAbs: string,
+  cacheDir: string,
+  sha: string,
+  imgPath: string,
+  opts: EnsureRootfsImageOptions,
+): string | undefined {
+  const sibling = siblingPrebakePath(tarAbs);
+  if (!sibling || !existsSync(sibling.path)) {
+    return undefined;
+  }
+  const prebakeT0 = Date.now();
+  const fast = tryPrebakeFromSibling({
+    sibling: sibling.path,
+    gzipped: sibling.gzipped,
+    cacheDir,
+    sha,
+    imgPath,
+    sizeBytes: opts.sizeBytes,
+  });
+  opts.onPhase?.(sibling.gzipped ? "gunzip-prebake" : "reflink-prebake", Date.now() - prebakeT0);
+  return fast ?? undefined;
+}
+
+// Resolve mke2fs in four steps:
+//   1. `MACHINEN_MKE2FS` env override — for users pinning a specific
+//      build (e.g. a debug binary, or a vendored copy outside the
+//      bundled package). Mirrors `MACHINEN_VMM` / `MACHINEN_GVPROXY`.
+//   2. The bundled `@machinen/e2fsprogs-<arch>-<os>` package (zero
+//      user setup, present in normal installs). Each arch package
+//      declares matching `os` + `cpu` so npm/pnpm only installs the
+//      one that fits the host.
+//   3. PATH (for hosts that have e2fsprogs installed system-wide).
+//   4. Homebrew's keg-only prefix on macOS (#124) — `brew install
+//      e2fsprogs` deliberately doesn't symlink mke2fs onto PATH.
+function resolveMke2fsBin(): string {
   const names = ["mke2fs", "mkfs.ext4"];
   const mke2fs =
     resolveMke2fsEnvOverride() ??
@@ -339,7 +369,20 @@ export function ensureRootfsImage(tarPath: string, opts: EnsureRootfsImageOption
         "initramfs-as-rootfs path.",
     );
   }
+  return mke2fs;
+}
 
+// Slow path: extract the tarball into a staging tree, size the image,
+// run mke2fs over the tree, atomically rename into the cache. Cleans
+// up the staging dir on any exit.
+function materializeFromTar(
+  tarAbs: string,
+  sha: string,
+  mke2fs: string,
+  cacheDir: string,
+  imgPath: string,
+  opts: EnsureRootfsImageOptions,
+): string {
   const stagingDir = mkdtempSync(join(cacheDir, `${sha.slice(0, 12)}-staging-`));
   const stagingTree = join(stagingDir, "tree");
   const stagingImg = join(stagingDir, "rootfs.img");
