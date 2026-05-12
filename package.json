@@ -21,7 +21,7 @@
     "machinen": "MACHINEN_ASSETS_DIR=${MACHINEN_ASSETS_DIR:-$PWD/release-assets} node packages/cli/dist/cli.js",
     "premn": "pnpm build",
     "mn": "MACHINEN_ASSETS_DIR=${MACHINEN_ASSETS_DIR:-$PWD/release-assets} node packages/cli/dist/cli.js",
-    "build:docs": "typedoc",
+    "build:docs": "typedoc && node scripts/build-api-toc.mjs",
     "dev": "bash scripts/dev.sh",
     "provision": "node provision.ts",
     "provision-test-vm": "node scripts/provision-test-vm.ts",
