@@ -25,7 +25,7 @@ jobs:
     # emulation, which turns a ~15-minute mmdebstrap build into ~5.
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       # Local agent-ci escape hatch. Two cases short-circuit the build:
       #
@@ -64,14 +64,14 @@ jobs:
       - name: Restore cached base assets
         id: cache
         if: steps.prebuilt.outputs.skip != 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: release-assets
           key: base-assets-${{ hashFiles('scripts/build-base-assets.sh', 'scripts/build-kernel-arm64.sh', 'packages/microvm/assets/init.zig', 'packages/microvm/assets/exec-agent.zig', 'packages/microvm/assets/machinen-netup.c', 'packages/microvm/assets/virt.dts') }}
 
       - name: Setup Zig
         if: steps.prebuilt.outputs.skip != 'true' && steps.cache.outputs.cache-hit != 'true'
-        uses: mlugg/setup-zig@v2
+        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
         with:
           version: 0.16.0
 
@@ -92,7 +92,7 @@ jobs:
       # release-assets/ is empty — `if-no-files-found: error` would
       # otherwise fail the job on agent-ci local without prebuilt
       # assets. On real CI the build always populates release-assets/.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: steps.prebuilt.outputs.skip != 'true' || hashFiles('release-assets/Image-arm64') != ''
         with:
           name: base-assets
