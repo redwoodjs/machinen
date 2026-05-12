@@ -196,7 +196,14 @@ jobs:
       # include, so tests must run from the root (not per-package).
       # microvm's `zig build test` is covered by tests.yml; it isn't
       # set up on this runner.
+      #
+      # MACHINEN_REQUIRE_FIXTURES=0 mirrors tests.yml — hosted runners
+      # don't have the built microVM fixtures (test-fixtures/init,
+      # Image, virt.dtb), so the integration tests that need them
+      # skip cleanly rather than ENOENT on first boot().
       - name: Typecheck + test
+        env:
+          MACHINEN_REQUIRE_FIXTURES: "0"
         run: |
           pnpm -r typecheck
           pnpm exec vitest run
