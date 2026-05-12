@@ -25,6 +25,11 @@ examples/quickstart/artifacts/
 examples/quickstart/.claude/
 counter-snap/
 
+# fork-pi bake outputs + snapshot bundles. Same story as quickstart:
+# bake.ts / run.ts are tracked, artifacts/ is regenerable.
+examples/fork-pi/artifacts/
+examples/fork-pi/.claude/
+
 # Sidecar produced by scripts/build-vmm.sh next to the (also-untracked)
 # locally-built VMM binary at packages/vmm-arm64-darwin/bin/machinen-vm.
 packages/vmm-arm64-darwin/bin/machinen-vm.inputs-sha256
