@@ -21,14 +21,13 @@
 //     cmd: ["/bin/sh"],
 //   });
 
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import {
   closeSync,
   existsSync,
   mkdtempSync,
   openSync,
   readFileSync,
-  renameSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -44,7 +43,11 @@ import { PhaseTimer } from "./phase-timer.ts";
 import { reflinkCopy } from "./reflink.ts";
 import { boot, warmImageConfigCache } from "./vm/index.ts";
 import type { VmHandle } from "./vm-handle.ts";
-import { ensureRootfsImage, markRootfsImageClean, resolveMke2fs } from "./rootfs-img.ts";
+import {
+  ensureRootfsImage,
+  markRootfsImageClean,
+  prebakeRootfsImageFromTree,
+} from "./rootfs-img.ts";
 
 const debug = debugLib("machinen:provision");
 const vmmDebug = debugLib("machinen:vmm");
@@ -586,7 +589,7 @@ function allocateSparseFile(path: string, sizeBytes: number): void {
  * across hosts is a nice-to-have we can layer on later if it ever
  * matters (swap in a Node-side tar writer).
  *
- * #233 follow-up: also emits a `<out>.img.gz` prebake sibling. The
+ * #233 follow-up: also prebakes the runtime cache image. The
  * extracted tree is already on disk for re-tar; mke2fs from it costs
  * a few seconds and saves ~10 s on every subsequent `boot()` of this
  * tarball (the cached `<sha>.img` would otherwise miss on every
@@ -629,94 +632,14 @@ function repackDiskTarToGz(
       stdio: ["ignore", "ignore", "inherit"],
     });
     opts.onPhase?.("targz", Date.now() - tarT0);
-    emitPrebakeSibling(extractDir, outAbs, opts.onPhase);
+    prebakeRootfsImageFromTree({
+      tarPath: outAbs,
+      treeDir: extractDir,
+      onPhase: opts.onPhase,
+    });
   } finally {
     try {
       rmSync(extractDir, { recursive: true, force: true });
     } catch {}
   }
-}
-
-/**
- * Build `<outAbs>.img` from the already-extracted rootfs tree so the
- * next `boot()` against `<outAbs>` hits `tryPrebakeFromSibling` and
- * reflinks the file straight into the cache instead of cold-materialize
- * (tar-extract + mke2fs ≈ 10 s on a typical dev rootfs).
- *
- * We emit the uncompressed `.img` form (sparse, ~500 MB on disk for a
- * 2 GiB allocated image with a typical Debian rootfs) rather than the
- * gzipped `.img.gz` form release builds use: the prebake then reflinks
- * from sibling to cache in milliseconds, vs ~2 s for `gunzip`. Build-
- * time gzip would also add ~25 s on a single-threaded host. Disk cost
- * is similar — gzip(.img) and sparse(.img) both land ~500 MB on APFS.
- *
- * Best-effort: any failure (no mke2fs binary, mke2fs error, unexpected
- * outAbs suffix) is logged and swallowed; the tarball alone is still
- * a complete provision output, the next boot just falls back to the
- * slow materialize path.
- */
-function emitPrebakeSibling(
-  treeDir: string,
-  outAbs: string,
-  onPhase?: (name: string, ms: number) => void,
-): void {
-  const mke2fs = resolveMke2fs();
-  if (!mke2fs) {
-    debug("prebake skip: no mke2fs available");
-    return;
-  }
-  const m = /^(.*)(\.tar\.gz|\.tgz|\.tar)$/i.exec(outAbs);
-  if (!m) {
-    debug("prebake skip: outAbs %s lacks a recognized tarball suffix", outAbs);
-    return;
-  }
-  const prebakePath = `${m[1]}.img`;
-  const tmpImg = `${prebakePath}.tmp.${process.pid}`;
-
-  try {
-    const treeBytes = duBytes(treeDir);
-    const sizeBytes = Math.max(2 * 1024 * 1024 * 1024, Math.ceil(treeBytes * 2.5));
-    allocateSparseFile(tmpImg, sizeBytes);
-
-    const blocks = Math.floor(sizeBytes / 4096);
-    const mkT0 = Date.now();
-    const mk = spawnSync(
-      mke2fs,
-      ["-d", treeDir, "-t", "ext4", "-F", "-q", "-b", "4096", tmpImg, String(blocks)],
-      { stdio: ["ignore", "ignore", "pipe"] },
-    );
-    onPhase?.("prebake.mke2fs", Date.now() - mkT0);
-    if (mk.status !== 0) {
-      debug(
-        "prebake mke2fs failed status=%s stderr=%s",
-        mk.status,
-        mk.stderr?.toString().slice(0, 200) ?? "",
-      );
-      return;
-    }
-
-    renameSync(tmpImg, prebakePath);
-    debug("prebake emitted prebake=%s sizeBytes=%d", prebakePath, sizeBytes);
-  } catch (err) {
-    debug("prebake error err=%s", (err as Error).message);
-  } finally {
-    try {
-      rmSync(tmpImg, { force: true });
-    } catch {}
-  }
-}
-
-/**
- * `du -sk <path>` in bytes. Mirrors the helper in rootfs-img.ts;
- * duplicated here to keep that module's surface narrow.
- */
-function duBytes(path: string): number {
-  try {
-    const out = execFileSync("du", ["-sk", path], { encoding: "utf8" }).trim();
-    const kib = parseInt(out.split(/\s+/, 1)[0]!, 10);
-    if (Number.isFinite(kib) && kib > 0) {
-      return kib * 1024;
-    }
-  } catch {}
-  return statSync(path).size || 0;
 }
