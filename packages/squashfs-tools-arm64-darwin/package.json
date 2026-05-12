@@ -1,6 +1,6 @@
 {
   "name": "@machinen/squashfs-tools-arm64-darwin",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Bundled mksquashfs (squashfs-tools) for arm64 darwin. Lets @machinen/runtime build the read-only squashfs lower for `--mount` overlays without a host install.",
   "license": "FSL-1.1-MIT",
   "repository": {
