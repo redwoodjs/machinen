@@ -69,12 +69,6 @@ importers:
         specifier: workspace:*
         version: link:../../packages/runtime
 
-  examples/quickstart:
-    dependencies:
-      '@machinen/runtime':
-        specifier: workspace:*
-        version: link:../../packages/runtime
-
   packages/cli:
     dependencies:
       '@machinen/runtime':
