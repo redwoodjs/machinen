@@ -12,5 +12,11 @@ export default defineConfig({
   dts: true,
   clean: true,
   sourcemap: true,
+  esbuildOptions(options) {
+    // Ship .js.map files for stack-trace resolution but strip
+    // `sourcesContent` so the original TypeScript isn't embedded
+    // in the published package.
+    options.sourcesContent = false;
+  },
   external: ["@homebridge/node-pty-prebuilt-multiarch"],
 });
