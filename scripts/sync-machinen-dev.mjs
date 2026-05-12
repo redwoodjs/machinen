@@ -1,12 +1,19 @@
-// Sync README.md + examples/ from this repo into a checkout of
-// redwoodjs/machinen.dev with the transformations needed to make the
-// content stand alone in the public repo:
+// Sync README.md + docs/ + examples/ + package API references from
+// this repo into a checkout of redwoodjs/machinen.dev with the
+// transformations needed to make the content stand alone in the
+// public repo:
 //
-//   - Top-level README: strip the logo (no docs/logo.svg there), the
-//     "First run fetches… gh auth login" paragraph (assets are public
-//     now), the Documentation section (links to internal-only files),
-//     and the Contributing section. Insert an Examples pointer in
-//     place of the Documentation section. Repoint the FSL link.
+//   - Top-level README: drop the "First run fetches… gh auth login"
+//     paragraph (assets are public now) and the Contributing section
+//     (CONTRIBUTING.md / RELEASING.md aren't in machinen.dev).
+//     Rewrite the Documentation section's `./packages/{cli,runtime}/API.md`
+//     paths to point at the copies under `./docs/api/` and append a
+//     pointer at the runnable examples. Repoint the FSL link.
+//
+//   - docs/ copied verbatim. The README's `<img src="./docs/logo.svg">`
+//     keeps working because the logo travels with it.
+//
+//   - packages/cli/API.md → docs/api/cli.md; same for runtime.
 //
 //   - Per-example package.json: rename `@machinen/example-*` →
 //     `machinen-example-*` (avoids npm-org confusion since these aren't
@@ -44,15 +51,22 @@ if (!dest) {
 let readme = readFileSync("README.md", "utf8");
 const original = readme;
 
-// Strip the logo block.
-readme = readme.replace(/<p align="center">[\s\S]*?<\/p>\s*\n/, "");
-
 // Drop the "First run fetches… gh auth login" paragraph.
 readme = readme.replace(/First run fetches[\s\S]*?gh auth login\s*```\s*\n\s*\n/, "");
 
-// Replace the Documentation section (broken internal links) with an
-// Examples pointer.
-const examplesSection = `## Examples
+// Rewrite the Documentation section: repoint API.md links at
+// `./docs/api/` (where the sync copies them) and append a pointer at
+// the runnable examples so it lives next to the static docs.
+const docsSection = `## Documentation
+
+- [Quickstart](./docs/quickstart.md) — the same three-step walkthrough
+  with more colour
+- [Guides](./docs/) — recipes for creating VMs, snapshots and forks,
+  mounts, and networking
+- [\`@machinen/cli\` reference](./docs/api/cli.md) — every command
+  and flag
+- [\`@machinen/runtime\` reference](./docs/api/runtime.md) — every
+  exported function, type, and error class (typedoc-generated)
 
 Three runnable demos live in [\`examples/\`](./examples):
 
@@ -66,7 +80,7 @@ Three runnable demos live in [\`examples/\`](./examples):
   on edit.
 
 `;
-readme = readme.replace(/## Documentation\s*\n[\s\S]*?(?=## Other ways to boot)/, examplesSection);
+readme = readme.replace(/## Documentation\s*\n[\s\S]*?(?=## Other ways to boot)/, docsSection);
 
 // Drop the Contributing section.
 readme = readme.replace(/## Contributing[\s\S]*?(?=## License)/, "");
@@ -77,9 +91,9 @@ readme = readme.replace(/\[FSL-1\.1-MIT\]\(\.\/LICENSE\)/, "[FSL-1.1-MIT](https:
 // Fail loudly if the source README's shape changed and the regexes
 // silently no-op'd. These markers must not survive the rewrite.
 const forbidden = [
-  "./docs/logo.svg",
   "gh auth login",
-  "## Documentation",
+  "./packages/cli/API.md",
+  "./packages/runtime/API.md",
   "## Contributing",
   "(./LICENSE)",
 ];
@@ -96,6 +110,19 @@ if (readme === original) {
 
 writeFileSync(join(dest, "README.md"), readme);
 
+// ---------- docs + API refs ------------------------------------------
+
+const docsDest = join(dest, "docs");
+rmSync(docsDest, { recursive: true, force: true });
+mkdirSync(join(docsDest, "api"), { recursive: true });
+
+cpSync("docs", docsDest, { recursive: true });
+
+// Typedoc-generated references for the two consumer-facing packages.
+// The README links them as ./docs/api/{cli,runtime}.md.
+cpSync("packages/cli/API.md", join(docsDest, "api", "cli.md"));
+cpSync("packages/runtime/API.md", join(docsDest, "api", "runtime.md"));
+
 // ---------- Examples -------------------------------------------------
 
 const examplesDest = join(dest, "examples");
@@ -109,6 +136,11 @@ const exclude = new Set([
   ".DS_Store",
   ".claude",
   "access.log",
+  // Each private example package gets a patch-bump CHANGELOG.md from
+  // `changeset version` whenever runtime/cli bump. Internal-only noise
+  // — the examples don't publish, so the changelogs don't belong in
+  // the public repo.
+  "CHANGELOG.md",
 ]);
 cpSync("examples", examplesDest, {
   recursive: true,
@@ -149,4 +181,4 @@ for (const entry of readdirSync(examplesDest, { withFileTypes: true })) {
   }
 }
 
-console.log(`Synced README + examples to ${dest}`);
+console.log(`Synced README + docs + examples to ${dest}`);
