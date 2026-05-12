@@ -25,6 +25,7 @@ import { execFileSync } from "node:child_process";
 import {
   closeSync,
   existsSync,
+  mkdirSync,
   mkdtempSync,
   openSync,
   readFileSync,
@@ -34,7 +35,7 @@ import {
   writeSync,
 } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import debugLib from "debug";
 import { ProvisionError } from "./errors.ts";
 import { VsockExec } from "./exec.ts";
@@ -331,6 +332,10 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
   const kernelAbs = resolveBaseKernel(opts.kernel, cwd);
   const dtbAbs = resolveBaseDtb(opts.dtb, cwd);
   const outAbs = resolve(cwd, opts.out);
+  // Ensure the parent dir exists so `out: "./artifacts/rootfs.tar.gz"`
+  // works without the caller having to mkdir it first. mkdtemp / tar
+  // below would otherwise fail with ENOENT on a missing parent.
+  mkdirSync(dirname(outAbs), { recursive: true });
 
   const t0 = Date.now();
   const workDir = mkdtempSync(join(tmpdir(), "machinen-provision-"));
