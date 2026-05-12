@@ -27,6 +27,11 @@ const COMMITTED_API_MD = join(REPO_ROOT, "packages/runtime/API.md");
 // and exits with `Invalid time value` before typedoc ever starts).
 // pnpm's `node_modules/.bin/typedoc` shim has none of that surface.
 const TYPEDOC_BIN = join(REPO_ROOT, "node_modules/.bin/typedoc");
+// Post-processor that injects the task-grouped TOC. `pnpm run
+// build:docs` runs this after typedoc; the drift test does the
+// same so the committed file (which carries the TOC) compares
+// like-for-like.
+const BUILD_TOC_SCRIPT = join(REPO_ROOT, "scripts/build-api-toc.mjs");
 
 // Vitest's default `testTimeout` is 5s. Typedoc cold-start + plugin
 // load is ~1s on a warm `node_modules` but ~10-15s on hosted CI
@@ -67,6 +72,11 @@ describe("API.md drift", () => {
         // but redirect the output so we don't clobber the on-disk
         // committed file mid-test. Reads typedoc.json from REPO_ROOT.
         execFileSync(TYPEDOC_BIN, ["--out", out], {
+          cwd: REPO_ROOT,
+          stdio: ["ignore", "ignore", "pipe"],
+          timeout: TYPEDOC_TIMEOUT_MS,
+        });
+        execFileSync("node", [BUILD_TOC_SCRIPT, join(out, "API.md")], {
           cwd: REPO_ROOT,
           stdio: ["ignore", "ignore", "pipe"],
           timeout: TYPEDOC_TIMEOUT_MS,

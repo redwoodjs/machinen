@@ -19,7 +19,10 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 
-const API_PATH = "packages/runtime/API.md";
+// Optional path arg so the api-md-drift test can point at a tmpdir
+// copy without clobbering the committed file. Defaults to the path
+// `pnpm run build:docs` uses.
+const API_PATH = process.argv[2] ?? "packages/runtime/API.md";
 
 // Categories ordered top-to-bottom in the rendered TOC. Each value is
 // the list of H3 headers (i.e. symbol names) typedoc emits for that
