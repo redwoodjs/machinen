@@ -189,5 +189,5 @@ For now, two practical workarounds:
   scratch disk down via `boot({ snapshot: "<smaller pre-allocated
 file>" })` so the bundle starts smaller.
 
-A `--compact` flag that trims unused blocks at snapshot time is tracked
-in [issue #261](https://github.com/redwoodjs/machinen/issues/261).
+A `--compact` flag that trims unused blocks at snapshot time is on
+the roadmap.

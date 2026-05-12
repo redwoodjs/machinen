@@ -25,12 +25,8 @@ The right VMM binary is pulled automatically via optional dependencies
 (`@machinen/vmm-arm64-darwin` on Apple Silicon Macs, `@machinen/vmm-arm64-linux`
 on arm64 Linux). No system dependencies.
 
-First run fetches the kernel + rootfs from a private GitHub release, so you'll
-need [GitHub CLI](https://cli.github.com/) authenticated:
-
-```bash
-gh auth login
-```
+First run fetches the kernel + rootfs from a Github release on the
+companion repo over plain HTTPS — no auth required.
 
 ## Quickstart
 

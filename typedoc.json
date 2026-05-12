@@ -16,6 +16,6 @@
   "excludeInternal": true,
   "excludeExternals": true,
   "sort": ["source-order"],
-  "gitRevision": "main",
+  "disableSources": true,
   "treatWarningsAsErrors": true
 }

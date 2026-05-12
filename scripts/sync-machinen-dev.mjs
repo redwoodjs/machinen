@@ -51,9 +51,6 @@ if (!dest) {
 let readme = readFileSync("README.md", "utf8");
 const original = readme;
 
-// Drop the "First run fetches… gh auth login" paragraph.
-readme = readme.replace(/First run fetches[\s\S]*?gh auth login\s*```\s*\n\s*\n/, "");
-
 // Rewrite the Documentation section: repoint API.md links at
 // `./docs/api/` (where the sync copies them) and append a pointer at
 // the runnable examples so it lives next to the static docs.
@@ -91,11 +88,13 @@ readme = readme.replace(/\[FSL-1\.1-MIT\]\(\.\/LICENSE\)/, "[FSL-1.1-MIT](https:
 // Fail loudly if the source README's shape changed and the regexes
 // silently no-op'd. These markers must not survive the rewrite.
 const forbidden = [
-  "gh auth login",
   "./packages/cli/API.md",
   "./packages/runtime/API.md",
   "## Contributing",
   "(./LICENSE)",
+  // Defensive — the source repo is private, so any link to
+  // github.com/redwoodjs/machinen/* 404s for the public reader.
+  "github.com/redwoodjs/machinen/",
 ];
 for (const marker of forbidden) {
   if (readme.includes(marker)) {

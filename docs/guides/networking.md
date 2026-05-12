@@ -34,14 +34,13 @@ machinen: installing gvproxy v0.8.6 …
 That's gvproxy being downloaded into `~/.machinen/gvproxy/` for the
 first time. Subsequent boots use the cached binary and start silently.
 
-If gvproxy can't be installed — you're offline, your `gh` token is
-missing or expired, the GitHub release fetch failed for some other
-reason — the runtime falls back gracefully: networking stays disabled
-and `boot()` continues. Your VM still boots and runs; it just can't
-reach the network. `curl` from inside will hang or fail, which is your
-hint that gvproxy didn't come up. Run `gh auth login` and reboot, or
-pre-install gvproxy yourself (see [Custom gvproxy](#custom-gvproxy)
-below).
+If gvproxy can't be installed — you're offline, the Github release
+fetch failed for some other reason — the runtime falls back gracefully:
+networking stays disabled and `boot()` continues. Your VM still boots
+and runs; it just can't reach the network. `curl` from inside will
+hang or fail, which is your hint that gvproxy didn't come up. Re-run
+the boot once you're back online, or pre-install gvproxy yourself
+(see [Custom gvproxy](#custom-gvproxy) below).
 
 ## Reaching into the guest from the host
 
@@ -124,7 +123,7 @@ and `fork --detach -p ...` both work today.
 
 The pinned gvproxy release that ships in `@machinen/vmm-*` is the right
 choice for almost everyone. If you need to override it — local
-development of gvproxy itself, an airgapped install where the GitHub
+development of gvproxy itself, an airgapped install where the Github
 fetch isn't an option, a custom build with extra logging — point at
 your binary with an env var:
 
