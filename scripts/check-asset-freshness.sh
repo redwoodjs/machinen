@@ -71,9 +71,12 @@ rootfs_input_files() {
   # CRIU patches applied during the rootfs build. Scoped to
   # patches/criu/ so kernel patches under patches/kernel/ (consumed
   # by the kernel build, see kernel_input_files) don't accidentally
-  # invalidate the rootfs sidecar. Sorted for stable ordering. Empty
-  # find output is fine (no patches → no extra lines).
-  find "${ROOT}/packages/microvm/patches/criu" -type f -name "*.patch" 2>/dev/null | LC_ALL=C sort
+  # invalidate the rootfs sidecar. Sorted for stable ordering. Guard
+  # on the dir existing — under `set -eo pipefail` an unguarded find
+  # on a missing dir returns 1 and tanks the whole input-hash step.
+  if [ -d "${ROOT}/packages/microvm/patches/criu" ]; then
+    find "${ROOT}/packages/microvm/patches/criu" -type f -name "*.patch" | LC_ALL=C sort
+  fi
 }
 
 # Files whose contents are baked into Image-arm64. The kernel itself
