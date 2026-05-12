@@ -8,7 +8,10 @@ on:
       - "packages/**"
       - "package.json"
       - "pnpm-lock.yaml"
+      - "scripts/**"
       - ".github/workflows/release.yml"
+      - ".github/workflows/_build-base-assets.yml"
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
