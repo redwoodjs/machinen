@@ -8,6 +8,9 @@
     "url": "https://github.com/redwoodjs/machinen.git",
     "directory": "packages/e2fsprogs-arm64-darwin"
   },
+  "bin": {
+    "machinen-mke2fs": "./bin/mke2fs"
+  },
   "files": [
     "bin/",
     "lib/",
