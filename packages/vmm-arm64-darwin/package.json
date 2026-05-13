@@ -1,6 +1,6 @@
 {
   "name": "@machinen/vmm-arm64-darwin",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Machinen VMM binary for arm64 darwin (HVF backend).",
   "license": "FSL-1.1-MIT",
   "repository": {
