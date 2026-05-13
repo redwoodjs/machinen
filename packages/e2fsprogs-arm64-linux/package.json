@@ -1,6 +1,6 @@
 {
   "name": "@machinen/e2fsprogs-arm64-linux",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Bundled static mke2fs (e2fsprogs) for arm64 linux. Lets @machinen/runtime materialize ext4 rootfs images without a host install.",
   "license": "FSL-1.1-MIT",
   "repository": {
