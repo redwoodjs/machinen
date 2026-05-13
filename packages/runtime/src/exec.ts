@@ -55,7 +55,14 @@ export interface VsockExecOptions {
 
 export interface VsockExecResult {
   exitCode: number;
+  /**
+   * Concatenated stdout bytes, decoded as UTF-8. Always `""` when the
+   * caller passed `onStdout` — streaming callers already have the
+   * bytes and a parallel buffered copy would defeat the streaming
+   * (and at multi-GB volumes would crash with ERR_STRING_TOO_LONG).
+   */
   stdout: string;
+  /** Same shape as `stdout` for the stderr channel + `onStderr`. */
   stderr: string;
 }
 
@@ -293,12 +300,27 @@ async function runOnSocket(
           const chunk = buf.subarray(0, take);
           buf = buf.subarray(take);
           awaitingBytes -= take;
+          // Buffer for the resolved-result string field only when no
+          // streaming callback is set. Callers that pass `onStdout` /
+          // `onStderr` already have the bytes — keeping a parallel copy
+          // here costs RAM and, at >~512 MiB cumulative, breaks
+          // `Buffer.concat(...).toString("utf8")` in `finish()` with
+          // ERR_STRING_TOO_LONG (V8's max string length). Streaming
+          // callers see `stdout` / `stderr` come back as empty strings,
+          // which is the contract: opt into the callback, take the
+          // bytes there.
           if (payloadTag === "O") {
-            stdoutBufs.push(chunk);
-            opts.onStdout?.(chunk);
+            if (opts.onStdout) {
+              opts.onStdout(chunk);
+            } else {
+              stdoutBufs.push(chunk);
+            }
           } else if (payloadTag === "E") {
-            stderrBufs.push(chunk);
-            opts.onStderr?.(chunk);
+            if (opts.onStderr) {
+              opts.onStderr(chunk);
+            } else {
+              stderrBufs.push(chunk);
+            }
           }
           if (awaitingBytes === 0) {
             payloadTag = null;
