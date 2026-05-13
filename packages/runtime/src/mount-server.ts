@@ -47,6 +47,7 @@ import {
   DT,
   FALLOC_FL,
   FATTR,
+  F_LCK,
   FUSE_CAP,
   FUSE_IN_HEADER_SIZE,
   FUSE_KERNEL_MINOR_VERSION,
@@ -62,6 +63,7 @@ import {
   buildErrorResponse,
   buildInitOut,
   buildKstatfs,
+  buildLkOut,
   buildLseekOut,
   buildOpenOut,
   buildResponse,
@@ -75,6 +77,7 @@ import {
   readInHeader,
   readInitIn,
   readLinkIn,
+  readLkIn,
   readLseekIn,
   readMkdirIn,
   readOpenIn,
@@ -91,9 +94,11 @@ const log = debug("machinen:mount-server");
 const ERRNO = {
   EPERM: 1,
   ENOENT: 2,
+  EINTR: 4,
   EIO: 5,
   ENXIO: 6,
   EBADF: 9,
+  EAGAIN: 11,
   EACCES: 13,
   EBUSY: 16,
   EEXIST: 17,
@@ -124,8 +129,48 @@ interface InodeEntry {
 
 /** Per-connection file-handle table. One entry per OPEN/OPENDIR. */
 type OpenEntry =
-  | { kind: "file"; fh: FileHandle; lazyPagesContrib: boolean }
+  | {
+      kind: "file";
+      fh: FileHandle;
+      lazyPagesContrib: boolean;
+      /**
+       * Inode this fd was opened on. Recorded so RELEASE can drop
+       * locks on `(nodeid, lock_owner)` per the POSIX rule that
+       * closing a fd releases all locks the process held on the
+       * underlying file via that fd.
+       */
+      nodeid: bigint;
+    }
   | { kind: "dir"; entries: Uint8Array[] };
+
+/**
+ * One held POSIX advisory-lock range. `start`/`end` are inclusive
+ * byte offsets matching the wire `fuse_file_lock` semantics. `pid`
+ * is the guest pid the lock was taken on, reflected back to GETLK
+ * callers so userspace can identify the holder.
+ */
+interface LockRange {
+  start: bigint;
+  end: bigint;
+  type: typeof F_LCK.RDLCK | typeof F_LCK.WRLCK;
+  owner: bigint;
+  pid: number;
+}
+
+/**
+ * A SETLKW call that's parked because a holder is in the way.
+ * `resolve` writes the success reply (or, if the wait is cancelled
+ * by socket close, a no-op). `cancel` is invoked when the connection
+ * drops so we don't strand the kernel waiting on a lock that won't
+ * arrive.
+ */
+interface LockWaiter {
+  nodeid: bigint;
+  request: LockRange;
+  /** Whether this wait was issued as flock vs fcntl. Affects coalescing semantics later. */
+  resolve: () => void;
+  cancel: () => void;
+}
 
 interface LiveMountServerOptions {
   /** Absolute host path that bounds every op. */
@@ -198,6 +243,21 @@ interface ServerState {
    * `LiveMountServerHandle.bytesServedOnPagesImg()`; never decremented.
    */
   bytesServedOnPagesImg: number;
+  /**
+   * In-memory POSIX advisory-lock table (#322). Keyed by nodeid so a
+   * single guest process holding two open fds on the same file shares
+   * one lock view, matching kernel semantics. Host `fcntl` is not used
+   * — the FUSE protocol's `lock_owner` field has no host-side analogue,
+   * so we manage conflicts entirely on this side.
+   */
+  locks: Map<bigint, LockRange[]>;
+  /**
+   * SETLKW callers parked behind a conflicting holder. Walked whenever
+   * a lock is dropped (UNLCK / RELEASE / shutdown); a waiter resolves
+   * the moment its requested range no longer conflicts with anything
+   * in the table.
+   */
+  lockWaiters: LockWaiter[];
 }
 
 function createState(rootAbs: string, mode: "ro" | "rw"): ServerState {
@@ -213,6 +273,8 @@ function createState(rootAbs: string, mode: "ro" | "rw"): ServerState {
     nextHandle: 1n,
     socket: null,
     bytesServedOnPagesImg: 0,
+    locks: new Map(),
+    lockWaiters: [],
   };
 }
 
@@ -231,6 +293,12 @@ async function shutdown(server: Server, state: ServerState): Promise<void> {
     }
   }
   state.handles.clear();
+  // Cancel any parked SETLKW callers so their promises don't leak
+  // setImmediate / pending-resolver state across the test harness.
+  // The FUSE response was already lost when the socket dropped; this
+  // is just internal-bookkeeping cleanup.
+  cancelAllWaiters(state);
+  state.locks.clear();
   await new Promise<void>((done) => server.close(() => done()));
 }
 
@@ -243,6 +311,12 @@ async function handleConnection(sock: Socket, state: ServerState): Promise<void>
   state.socket = sock;
   sock.on("close", () => {
     state.socket = null;
+    // One connection per mount: when it drops, every guest fd is
+    // gone and so is every advisory lock those fds were holding.
+    // Drop the table wholesale and wake any parked SETLKW callers
+    // so their pending promises don't strand listeners.
+    cancelAllWaiters(state);
+    state.locks.clear();
   });
   sock.on("error", (err) => log("socket error: %s", err.message));
   try {
@@ -366,6 +440,12 @@ async function handle(
       return await onLseek(hdr, msg, state);
     case FUSE_OP.COPY_FILE_RANGE:
       return await onCopyFileRange(hdr, msg, state);
+    case FUSE_OP.GETLK:
+      return onGetlk(hdr, msg, state);
+    case FUSE_OP.SETLK:
+      return onSetlk(hdr, msg, state);
+    case FUSE_OP.SETLKW:
+      return await onSetlkw(hdr, msg, state);
     case FUSE_OP.FLUSH:
     case FUSE_OP.ACCESS:
       // Userspace ok-to-ignore ops: reply success with no payload.
@@ -383,12 +463,17 @@ function onInit(hdr: FuseInHeader, msg: Uint8Array): Uint8Array {
   // or the kernel re-INITs with its own major.
   const minor = Math.min(init.minor, FUSE_KERNEL_MINOR_VERSION);
   // Only propagate flags we actively support back to the kernel.
+  // POSIX_LOCKS turns on advisory-lock dispatch (#322) — the kernel
+  // routes fcntl GETLK/SETLK/SETLKW through us instead of falling
+  // back to "no locks available" mode (which silently corrupts
+  // multi-writer SQLite, dpkg lockfiles, etc.).
   const supported =
     FUSE_CAP.ASYNC_READ |
     FUSE_CAP.BIG_WRITES |
     FUSE_CAP.EXPORT_SUPPORT |
     FUSE_CAP.MAX_PAGES |
-    FUSE_CAP.PARALLEL_DIROPS;
+    FUSE_CAP.PARALLEL_DIROPS |
+    FUSE_CAP.POSIX_LOCKS;
   const flags = init.flags & supported;
   const out = buildInitOut({
     major: FUSE_KERNEL_VERSION,
@@ -532,6 +617,7 @@ async function onOpen(hdr: FuseInHeader, msg: Uint8Array, state: ServerState): P
     kind: "file",
     fh,
     lazyPagesContrib: isPagesImgPath(entry.relPath),
+    nodeid: hdr.nodeid,
   });
   return buildResponse(hdr.unique, buildOpenOut({ fh: id, open_flags: 0 }));
 }
@@ -555,10 +641,16 @@ async function onRelease(
   msg: Uint8Array,
   state: ServerState,
 ): Promise<Uint8Array> {
-  const { fh } = readReleaseIn(payloadOf(msg));
-  const entry = state.handles.get(fh);
+  const rel = readReleaseIn(payloadOf(msg));
+  const entry = state.handles.get(rel.fh);
   if (entry && entry.kind === "file") {
-    state.handles.delete(fh);
+    state.handles.delete(rel.fh);
+    // POSIX: closing a fd releases every advisory lock that the
+    // owning process held on the underlying file via that fd. The
+    // FUSE kernel mirrors this by sending the lock_owner on RELEASE.
+    // We drop only that owner's locks on this nodeid, not other
+    // processes' locks on the same file.
+    dropLocksFor(state, entry.nodeid, rel.lock_owner);
     await entry.fh.close().catch(() => {});
   }
   return buildErrorResponse(hdr.unique, 0);
@@ -678,6 +770,7 @@ async function onCreate(
     kind: "file",
     fh,
     lazyPagesContrib: isPagesImgPath(childRel),
+    nodeid: ino,
   });
   return buildResponse(
     hdr.unique,
@@ -1217,6 +1310,290 @@ async function onCopyFileRange(
     }
   }
   return buildResponse(hdr.unique, buildWriteOut({ size: copied }));
+}
+
+// --- POSIX advisory locks (#322) ----------------------------------------
+//
+// We manage advisory locks entirely in this process — host fcntl is not
+// involved. The reason: FUSE identifies a lock owner by the 64-bit
+// `lock_owner` field in fuse_in_header / fuse_lk_in, which has no
+// meaningful host-side analogue. Two open fds in the same guest process
+// holding locks on the same file share one owner; on the host they'd
+// look like one fd holding two locks, which `fcntl` flattens. So we
+// can't pass lock_owner through to host fcntl without subtly wrong
+// semantics. An in-memory table per mount keeps the model exact.
+//
+// Range conventions match the wire `fuse_file_lock`:
+//   - `start` and `end` are inclusive byte offsets.
+//   - `end == 0xffff_ffff_ffff_ffff` means "to end-of-file".
+//   - Two ranges `a` and `b` overlap iff `a.start <= b.end && b.start <= a.end`.
+//   - A read lock conflicts with a write lock; two read locks coexist;
+//     two write locks conflict (regardless of owner — in practice the
+//     same owner re-locks should coalesce, see addLock below).
+
+/**
+ * Build a `LockRange` from the wire `fuse_lk_in.lk` payload, given the
+ * owner token from the same struct and the guest-supplied pid. Returns
+ * `null` if the wire `type` is not a recognised F_LCK value.
+ */
+function rangeFromLkIn(
+  lk: { start: bigint; end: bigint; type: number; pid: number },
+  owner: bigint,
+): LockRange | null {
+  if (lk.type !== F_LCK.RDLCK && lk.type !== F_LCK.WRLCK) {
+    return null;
+  }
+  return { start: lk.start, end: lk.end, type: lk.type, owner, pid: lk.pid };
+}
+
+function rangesOverlap(
+  a: { start: bigint; end: bigint },
+  b: { start: bigint; end: bigint },
+): boolean {
+  return a.start <= b.end && b.start <= a.end;
+}
+
+/**
+ * First lock in `state.locks[nodeid]` whose range overlaps `req` and
+ * whose type makes a real conflict (write-vs-anything, read-vs-write).
+ * Same-owner locks never conflict — the kernel's POSIX lock semantics
+ * let an owner upgrade or shrink its own range freely.
+ */
+function findConflict(state: ServerState, nodeid: bigint, req: LockRange): LockRange | null {
+  const ranges = state.locks.get(nodeid);
+  if (!ranges) {
+    return null;
+  }
+  for (const r of ranges) {
+    if (r.owner === req.owner) {
+      continue;
+    }
+    if (!rangesOverlap(r, req)) {
+      continue;
+    }
+    if (req.type === F_LCK.WRLCK || r.type === F_LCK.WRLCK) {
+      return r;
+    }
+  }
+  return null;
+}
+
+/**
+ * Add `req` to the table, coalescing with any same-owner same-type
+ * range it touches or overlaps. We don't bother splitting on type
+ * upgrades within an owner's set — POSIX permits an owner to "promote"
+ * a read lock to a write lock by re-locking, and the simplest correct
+ * model is to drop any of the owner's existing overlapping ranges and
+ * insert the new one merged with adjacent same-type slots.
+ */
+function addLock(state: ServerState, nodeid: bigint, req: LockRange): void {
+  let ranges = state.locks.get(nodeid);
+  if (!ranges) {
+    ranges = [];
+    state.locks.set(nodeid, ranges);
+  }
+  // Merge with same-owner overlapping ranges of the same type; drop
+  // overlapping ranges of a different type from the same owner (the
+  // new lock supersedes them — e.g. write replacing read).
+  let merged: LockRange = { ...req };
+  const kept: LockRange[] = [];
+  for (const r of ranges) {
+    if (r.owner !== merged.owner || !rangesOverlap(r, merged)) {
+      kept.push(r);
+      continue;
+    }
+    if (r.type === merged.type) {
+      const start = r.start < merged.start ? r.start : merged.start;
+      const end = r.end > merged.end ? r.end : merged.end;
+      merged = { ...merged, start, end };
+    }
+    // Different-type same-owner overlap → drop r; merged wins.
+  }
+  kept.push(merged);
+  state.locks.set(nodeid, kept);
+}
+
+/**
+ * Remove the requested range from `(nodeid, owner)`'s lock set. May
+ * shrink, split, or delete entries as needed so the residual set
+ * exactly excludes `[req.start..req.end]`. Other owners' locks are
+ * untouched.
+ */
+function removeLockRange(
+  state: ServerState,
+  nodeid: bigint,
+  owner: bigint,
+  req: { start: bigint; end: bigint },
+): void {
+  const ranges = state.locks.get(nodeid);
+  if (!ranges) {
+    return;
+  }
+  const out: LockRange[] = [];
+  for (const r of ranges) {
+    if (r.owner !== owner || !rangesOverlap(r, req)) {
+      out.push(r);
+      continue;
+    }
+    // Keep the parts of `r` that lie outside `req`.
+    if (r.start < req.start) {
+      out.push({ ...r, end: req.start - 1n });
+    }
+    if (r.end > req.end) {
+      out.push({ ...r, start: req.end + 1n });
+    }
+  }
+  if (out.length === 0) {
+    state.locks.delete(nodeid);
+  } else {
+    state.locks.set(nodeid, out);
+  }
+}
+
+/**
+ * Drop every lock held by `(nodeid, owner)` and wake any SETLKW
+ * waiters whose conflict was on those ranges. Called from RELEASE
+ * (one fd closed) — connection-close uses the wholesale clear path
+ * in `handleConnection` instead.
+ */
+function dropLocksFor(state: ServerState, nodeid: bigint, owner: bigint): void {
+  const ranges = state.locks.get(nodeid);
+  if (!ranges) {
+    return;
+  }
+  const out = ranges.filter((r) => r.owner !== owner);
+  if (out.length === 0) {
+    state.locks.delete(nodeid);
+  } else {
+    state.locks.set(nodeid, out);
+  }
+  wakeWaiters(state);
+}
+
+/**
+ * Walk the wait list. Any waiter whose request now has no conflict
+ * acquires its lock and resolves; the rest stay parked. We re-walk
+ * from the top after each successful acquisition because a new owner
+ * arriving can shadow the next waiter.
+ */
+function wakeWaiters(state: ServerState): void {
+  // Restart the loop on every successful wake — the new lock might
+  // block someone who was about to be woken next pass.
+  for (;;) {
+    const idx = state.lockWaiters.findIndex(
+      (w) => findConflict(state, w.nodeid, w.request) === null,
+    );
+    if (idx < 0) {
+      return;
+    }
+    const [w] = state.lockWaiters.splice(idx, 1);
+    if (!w) {
+      return;
+    }
+    addLock(state, w.nodeid, w.request);
+    w.resolve();
+  }
+}
+
+function cancelAllWaiters(state: ServerState): void {
+  const waiters = state.lockWaiters;
+  state.lockWaiters = [];
+  for (const w of waiters) {
+    w.cancel();
+  }
+}
+
+function onGetlk(hdr: FuseInHeader, msg: Uint8Array, state: ServerState): Uint8Array {
+  const req = readLkIn(payloadOf(msg));
+  // GETLK is a probe: caller asks "what would block this lock?". Any
+  // type other than RDLCK/WRLCK is malformed.
+  const probe = rangeFromLkIn(req.lk, req.owner);
+  if (!probe) {
+    return buildErrorResponse(hdr.unique, -ERRNO.EINVAL);
+  }
+  const conflict = findConflict(state, hdr.nodeid, probe);
+  if (!conflict) {
+    // No conflict: per POSIX, return l_type = F_UNLCK and leave the
+    // other fields informational. The kernel uses the type field as
+    // the "free or not" signal.
+    return buildResponse(
+      hdr.unique,
+      buildLkOut({ start: req.lk.start, end: req.lk.end, type: F_LCK.UNLCK, pid: 0 }),
+    );
+  }
+  return buildResponse(
+    hdr.unique,
+    buildLkOut({
+      start: conflict.start,
+      end: conflict.end,
+      type: conflict.type,
+      pid: conflict.pid,
+    }),
+  );
+}
+
+function onSetlk(hdr: FuseInHeader, msg: Uint8Array, state: ServerState): Uint8Array {
+  const req = readLkIn(payloadOf(msg));
+  // F_UNLCK takes the early branch — no conflict check, just punch
+  // out the requested range from the owner's set.
+  if (req.lk.type === F_LCK.UNLCK) {
+    removeLockRange(state, hdr.nodeid, req.owner, { start: req.lk.start, end: req.lk.end });
+    wakeWaiters(state);
+    return buildErrorResponse(hdr.unique, 0);
+  }
+  const want = rangeFromLkIn(req.lk, req.owner);
+  if (!want) {
+    return buildErrorResponse(hdr.unique, -ERRNO.EINVAL);
+  }
+  if (findConflict(state, hdr.nodeid, want)) {
+    // Try-lock semantics: SETLK never blocks. Return EAGAIN; the
+    // caller (or the kernel re-issuing as SETLKW) handles the
+    // wait. Linux man page documents EAGAIN here, not EWOULDBLOCK
+    // — they share the value but EAGAIN is the canonical name for
+    // "would block".
+    return buildErrorResponse(hdr.unique, -ERRNO.EAGAIN);
+  }
+  addLock(state, hdr.nodeid, want);
+  return buildErrorResponse(hdr.unique, 0);
+}
+
+async function onSetlkw(
+  hdr: FuseInHeader,
+  msg: Uint8Array,
+  state: ServerState,
+): Promise<Uint8Array> {
+  const req = readLkIn(payloadOf(msg));
+  // F_UNLCK still resolves immediately — SETLKW only blocks on
+  // acquire.
+  if (req.lk.type === F_LCK.UNLCK) {
+    removeLockRange(state, hdr.nodeid, req.owner, { start: req.lk.start, end: req.lk.end });
+    wakeWaiters(state);
+    return buildErrorResponse(hdr.unique, 0);
+  }
+  const want = rangeFromLkIn(req.lk, req.owner);
+  if (!want) {
+    return buildErrorResponse(hdr.unique, -ERRNO.EINVAL);
+  }
+  if (!findConflict(state, hdr.nodeid, want)) {
+    addLock(state, hdr.nodeid, want);
+    return buildErrorResponse(hdr.unique, 0);
+  }
+  // Park the caller. The waiter resolves when a future UNLCK /
+  // RELEASE / connection-close clears the conflict; the cancel path
+  // fires if the connection drops first, so the kernel gets EINTR
+  // (EBADF on the wire is fine — the socket is gone, the reply
+  // never lands anyway). We don't attach a setTimeout because there
+  // is no SETLKW timeout on the wire; cancellation is the only exit
+  // besides successful acquisition.
+  return await new Promise<Uint8Array>((done) => {
+    const waiter: LockWaiter = {
+      nodeid: hdr.nodeid,
+      request: want,
+      resolve: () => done(buildErrorResponse(hdr.unique, 0)),
+      cancel: () => done(buildErrorResponse(hdr.unique, -ERRNO.EINTR)),
+    };
+    state.lockWaiters.push(waiter);
+  });
 }
 
 // --- internal helpers ----------------------------------------------------
