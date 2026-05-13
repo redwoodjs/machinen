@@ -26,9 +26,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  F_LCK,
   FUSE_IN_HEADER_SIZE,
   FUSE_KERNEL_MINOR_VERSION,
   FUSE_KERNEL_VERSION,
+  FUSE_LK_OUT_SIZE,
   FUSE_OP,
   readAttr,
 } from "../mount-fuse-protocol.ts";
@@ -487,9 +489,6 @@ const UNIMPLEMENTED_OPS = [
   { name: "GETXATTR", op: 22 },
   { name: "LISTXATTR", op: 23 },
   { name: "REMOVEXATTR", op: 24 },
-  { name: "GETLK", op: 31 },
-  { name: "SETLK", op: 32 },
-  { name: "SETLKW", op: 33 },
   { name: "READDIRPLUS", op: 44 },
   { name: "RENAME2", op: 45 },
 ] as const;
@@ -1610,6 +1609,521 @@ describe("live mount server — :rw write-through", () => {
   });
 });
 
+// ---------------- POSIX advisory locks (#322) ----------------
+//
+// Per CLAUDE.md FUSE-op rules: happy / error / :ro gate / wedge guard.
+// The lock manager is in-memory on the server side — there's no host
+// fs side-effect to assert. Coverage focuses on the conflict matrix,
+// the wait/wake plumbing, and lifecycle (RELEASE, socket close).
+
+describe("live mount server — POSIX locks (#322): happy paths", () => {
+  it("two read locks from different owners coexist; a write lock from a third → EAGAIN", async () => {
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const fileIno = await openHello(conn);
+      // Owner A read-locks [0..10].
+      const a = await conn.request(FUSE_OP.SETLK, {
+        unique: 10n,
+        nodeid: fileIno,
+        payload: buildLkIn({
+          fh: 1n,
+          owner: 0xa1n,
+          start: 0n,
+          end: 10n,
+          type: F_LCK.RDLCK,
+          pid: 100,
+        }),
+      });
+      expect(a.header.error).toBe(0);
+      // Owner B read-locks [0..10] — overlapping reads coexist.
+      const b = await conn.request(FUSE_OP.SETLK, {
+        unique: 11n,
+        nodeid: fileIno,
+        payload: buildLkIn({
+          fh: 1n,
+          owner: 0xb2n,
+          start: 0n,
+          end: 10n,
+          type: F_LCK.RDLCK,
+          pid: 200,
+        }),
+      });
+      expect(b.header.error).toBe(0);
+      // Owner C tries an exclusive lock — must fail with EAGAIN.
+      const c = await conn.request(FUSE_OP.SETLK, {
+        unique: 12n,
+        nodeid: fileIno,
+        payload: buildLkIn({
+          fh: 1n,
+          owner: 0xc3n,
+          start: 0n,
+          end: 10n,
+          type: F_LCK.WRLCK,
+          pid: 300,
+        }),
+      });
+      expect(c.header.error).toBe(-11); // -EAGAIN
+    });
+  });
+
+  it("F_UNLCK via SETLK drops the range and lets a previously-blocked acquirer succeed", async () => {
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const fileIno = await openHello(conn);
+      // A holds an exclusive lock on [0..100].
+      await conn.request(FUSE_OP.SETLK, {
+        unique: 10n,
+        nodeid: fileIno,
+        payload: buildLkIn({
+          fh: 1n,
+          owner: 0xa1n,
+          start: 0n,
+          end: 100n,
+          type: F_LCK.WRLCK,
+          pid: 100,
+        }),
+      });
+      // B's try-lock fails.
+      const b1 = await conn.request(FUSE_OP.SETLK, {
+        unique: 11n,
+        nodeid: fileIno,
+        payload: buildLkIn({
+          fh: 2n,
+          owner: 0xb2n,
+          start: 0n,
+          end: 100n,
+          type: F_LCK.WRLCK,
+          pid: 200,
+        }),
+      });
+      expect(b1.header.error).toBe(-11);
+      // A unlocks.
+      const u = await conn.request(FUSE_OP.SETLK, {
+        unique: 12n,
+        nodeid: fileIno,
+        payload: buildLkIn({
+          fh: 1n,
+          owner: 0xa1n,
+          start: 0n,
+          end: 100n,
+          type: F_LCK.UNLCK,
+          pid: 100,
+        }),
+      });
+      expect(u.header.error).toBe(0);
+      // B retries — succeeds.
+      const b2 = await conn.request(FUSE_OP.SETLK, {
+        unique: 13n,
+        nodeid: fileIno,
+        payload: buildLkIn({
+          fh: 2n,
+          owner: 0xb2n,
+          start: 0n,
+          end: 100n,
+          type: F_LCK.WRLCK,
+          pid: 200,
+        }),
+      });
+      expect(b2.header.error).toBe(0);
+    });
+  });
+
+  it("SETLKW resolves once the conflicting holder releases", async () => {
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const fileIno = await openHello(conn);
+      // A holds [0..50] WRLCK.
+      await conn.request(FUSE_OP.SETLK, {
+        unique: 10n,
+        nodeid: fileIno,
+        payload: buildLkIn({
+          fh: 1n,
+          owner: 0xa1n,
+          start: 0n,
+          end: 50n,
+          type: F_LCK.WRLCK,
+          pid: 100,
+        }),
+      });
+      // B issues SETLKW — parks. We don't await yet; we need to drop A
+      // first.
+      const bWait = conn.request(FUSE_OP.SETLKW, {
+        unique: 11n,
+        nodeid: fileIno,
+        payload: buildLkIn({
+          fh: 2n,
+          owner: 0xb2n,
+          start: 0n,
+          end: 50n,
+          type: F_LCK.WRLCK,
+          pid: 200,
+        }),
+      });
+      // Yield so the SETLKW request lands and parks before we proceed.
+      await new Promise((r) => setTimeout(r, 25));
+      // A unlocks → B's wait resolves.
+      await conn.request(FUSE_OP.SETLK, {
+        unique: 12n,
+        nodeid: fileIno,
+        payload: buildLkIn({
+          fh: 1n,
+          owner: 0xa1n,
+          start: 0n,
+          end: 50n,
+          type: F_LCK.UNLCK,
+          pid: 100,
+        }),
+      });
+      const b = await raceWithDeadline(bWait, "SETLKW resolves on UNLCK");
+      expect(b.header.error).toBe(0);
+    });
+  });
+
+  it("RELEASE drops the fd's owner's locks on that nodeid", async () => {
+    // Open a real file handle, take a lock through it, RELEASE the
+    // handle, confirm a competing acquirer succeeds.
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const lookup = await conn.request(FUSE_OP.LOOKUP, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: nameBuf("hello.txt"),
+      });
+      const fileIno = bigintFromEntry(lookup.payload);
+      const open = await conn.request(FUSE_OP.OPEN, {
+        unique: 3n,
+        nodeid: fileIno,
+        payload: u32u32(0, 0),
+      });
+      const fh = new DataView(
+        open.payload.buffer,
+        open.payload.byteOffset,
+        open.payload.length,
+      ).getBigUint64(0, true);
+
+      const lk = await conn.request(FUSE_OP.SETLK, {
+        unique: 4n,
+        nodeid: fileIno,
+        payload: buildLkIn({
+          fh,
+          owner: 0xa1n,
+          start: 0n,
+          end: 1024n,
+          type: F_LCK.WRLCK,
+          pid: 100,
+        }),
+      });
+      expect(lk.header.error).toBe(0);
+
+      // Other owner blocked.
+      const blocked = await conn.request(FUSE_OP.SETLK, {
+        unique: 5n,
+        nodeid: fileIno,
+        payload: buildLkIn({
+          fh,
+          owner: 0xb2n,
+          start: 0n,
+          end: 1024n,
+          type: F_LCK.WRLCK,
+          pid: 200,
+        }),
+      });
+      expect(blocked.header.error).toBe(-11);
+
+      // RELEASE the fd with lock_owner=A → A's locks drop.
+      await conn.request(FUSE_OP.RELEASE, {
+        unique: 6n,
+        nodeid: fileIno,
+        payload: buildReleaseInWithOwner({ fh, owner: 0xa1n }),
+      });
+
+      // Now B can acquire.
+      const acquired = await conn.request(FUSE_OP.SETLK, {
+        unique: 7n,
+        nodeid: fileIno,
+        payload: buildLkIn({
+          fh,
+          owner: 0xb2n,
+          start: 0n,
+          end: 1024n,
+          type: F_LCK.WRLCK,
+          pid: 200,
+        }),
+      });
+      expect(acquired.header.error).toBe(0);
+    });
+  });
+
+  it("re-acquiring an already-held same-owner range is a no-op success (coalesce)", async () => {
+    // Same owner can re-lock its own range freely — the kernel does
+    // this when a process closes one fd and acquires through another.
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const fileIno = await openHello(conn);
+      const first = await conn.request(FUSE_OP.SETLK, {
+        unique: 10n,
+        nodeid: fileIno,
+        payload: buildLkIn({
+          fh: 1n,
+          owner: 0xa1n,
+          start: 0n,
+          end: 100n,
+          type: F_LCK.WRLCK,
+          pid: 100,
+        }),
+      });
+      expect(first.header.error).toBe(0);
+      const overlap = await conn.request(FUSE_OP.SETLK, {
+        unique: 11n,
+        nodeid: fileIno,
+        payload: buildLkIn({
+          fh: 1n,
+          owner: 0xa1n,
+          start: 50n,
+          end: 200n,
+          type: F_LCK.WRLCK,
+          pid: 100,
+        }),
+      });
+      expect(overlap.header.error).toBe(0);
+    });
+  });
+});
+
+describe("live mount server — POSIX locks (#322): error paths", () => {
+  it("GETLK reports the conflicting holder's range, type, and pid", async () => {
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const fileIno = await openHello(conn);
+      // A holds [10..20] WRLCK.
+      await conn.request(FUSE_OP.SETLK, {
+        unique: 10n,
+        nodeid: fileIno,
+        payload: buildLkIn({
+          fh: 1n,
+          owner: 0xa1n,
+          start: 10n,
+          end: 20n,
+          type: F_LCK.WRLCK,
+          pid: 4242,
+        }),
+      });
+      // B GETLK probes for a read lock at [0..30] — conflict at A.
+      const probe = await conn.request(FUSE_OP.GETLK, {
+        unique: 11n,
+        nodeid: fileIno,
+        payload: buildLkIn({
+          fh: 2n,
+          owner: 0xb2n,
+          start: 0n,
+          end: 30n,
+          type: F_LCK.RDLCK,
+          pid: 200,
+        }),
+      });
+      expect(probe.header.error).toBe(0);
+      expect(probe.payload.length).toBe(FUSE_LK_OUT_SIZE);
+      const dv = new DataView(probe.payload.buffer, probe.payload.byteOffset, FUSE_LK_OUT_SIZE);
+      expect(dv.getBigUint64(0, true)).toBe(10n); // start
+      expect(dv.getBigUint64(8, true)).toBe(20n); // end
+      expect(dv.getUint32(16, true)).toBe(F_LCK.WRLCK);
+      expect(dv.getUint32(20, true)).toBe(4242); // holder's pid
+    });
+  });
+
+  it("GETLK returns F_UNLCK type when no holder conflicts", async () => {
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const fileIno = await openHello(conn);
+      const probe = await conn.request(FUSE_OP.GETLK, {
+        unique: 10n,
+        nodeid: fileIno,
+        payload: buildLkIn({
+          fh: 1n,
+          owner: 0xa1n,
+          start: 0n,
+          end: 100n,
+          type: F_LCK.WRLCK,
+          pid: 100,
+        }),
+      });
+      expect(probe.header.error).toBe(0);
+      const dv = new DataView(probe.payload.buffer, probe.payload.byteOffset, FUSE_LK_OUT_SIZE);
+      expect(dv.getUint32(16, true)).toBe(F_LCK.UNLCK);
+    });
+  });
+
+  it("SETLK with garbage l_type returns EINVAL", async () => {
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const fileIno = await openHello(conn);
+      const reply = await conn.request(FUSE_OP.SETLK, {
+        unique: 10n,
+        nodeid: fileIno,
+        payload: buildLkIn({
+          fh: 1n,
+          owner: 0xa1n,
+          start: 0n,
+          end: 10n,
+          type: 99 /* not RD/WR/UN */,
+          pid: 100,
+        }),
+      });
+      expect(reply.header.error).toBe(-22); // -EINVAL
+    });
+  });
+
+  it("write-lock conflicts with an existing read lock (different owner)", async () => {
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const fileIno = await openHello(conn);
+      await conn.request(FUSE_OP.SETLK, {
+        unique: 10n,
+        nodeid: fileIno,
+        payload: buildLkIn({
+          fh: 1n,
+          owner: 0xa1n,
+          start: 0n,
+          end: 10n,
+          type: F_LCK.RDLCK,
+          pid: 100,
+        }),
+      });
+      const conflict = await conn.request(FUSE_OP.SETLK, {
+        unique: 11n,
+        nodeid: fileIno,
+        payload: buildLkIn({
+          fh: 2n,
+          owner: 0xb2n,
+          start: 5n,
+          end: 15n,
+          type: F_LCK.WRLCK,
+          pid: 200,
+        }),
+      });
+      expect(conflict.header.error).toBe(-11); // -EAGAIN
+    });
+  });
+});
+
+describe("live mount server — POSIX locks (#322): :ro gate and wedge guard", () => {
+  it("SETLK is allowed on a :ro mount (advisory locks are not writes)", async () => {
+    // Default fixture is :ro. Locks are advisory: they don't mutate
+    // the file, so the EROFS gate doesn't apply. POSIX-conformant
+    // userspace (SQLite, dpkg) needs to take read AND write locks
+    // even when only reading the file structure.
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const fileIno = await openHello(conn);
+      const reply = await raceWithDeadline(
+        conn.request(FUSE_OP.SETLK, {
+          unique: 10n,
+          nodeid: fileIno,
+          payload: buildLkIn({
+            fh: 1n,
+            owner: 0xa1n,
+            start: 0n,
+            end: 10n,
+            type: F_LCK.WRLCK,
+            pid: 100,
+          }),
+        }),
+        "SETLK on :ro",
+      );
+      expect(reply.header.error).toBe(0); // NOT EROFS
+    });
+  });
+
+  it("SETLKW cancels cleanly when the socket drops mid-wait — no orphan timers", async () => {
+    // The wedge class we're catching: a parked SETLKW that's never
+    // released because its connection went away. We must wake the
+    // waiter (so the promise settles) and the table must be empty
+    // afterwards.
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const fileIno = await openHello(conn);
+      // A grabs an exclusive lock.
+      await conn.request(FUSE_OP.SETLK, {
+        unique: 10n,
+        nodeid: fileIno,
+        payload: buildLkIn({
+          fh: 1n,
+          owner: 0xa1n,
+          start: 0n,
+          end: 10n,
+          type: F_LCK.WRLCK,
+          pid: 100,
+        }),
+      });
+      // B SETLKW parks. We don't await — instead we kill the
+      // connection. The pending request promise will never resolve
+      // because the socket is gone, but the server's internal waiter
+      // must be cancelled. We assert that by reconnecting and seeing
+      // a free table.
+      void conn.request(FUSE_OP.SETLKW, {
+        unique: 11n,
+        nodeid: fileIno,
+        payload: buildLkIn({
+          fh: 2n,
+          owner: 0xb2n,
+          start: 0n,
+          end: 10n,
+          type: F_LCK.WRLCK,
+          pid: 200,
+        }),
+      });
+      await new Promise((r) => setTimeout(r, 25));
+      conn.close();
+    });
+    // A fresh connection sees no leftover locks (connection-close
+    // dropped them all). C can acquire what was contested.
+    await new Promise((r) => setTimeout(r, 25));
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const fileIno = await openHello(conn);
+      const c = await raceWithDeadline(
+        conn.request(FUSE_OP.SETLK, {
+          unique: 99n,
+          nodeid: fileIno,
+          payload: buildLkIn({
+            fh: 1n,
+            owner: 0xc3n,
+            start: 0n,
+            end: 10n,
+            type: F_LCK.WRLCK,
+            pid: 300,
+          }),
+        }),
+        "SETLK after connection-drop cleanup",
+      );
+      expect(c.header.error).toBe(0);
+    });
+  });
+
+  it("GETLK replies within deadline (wedge guard)", async () => {
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const fileIno = await openHello(conn);
+      const reply = await raceWithDeadline(
+        conn.request(FUSE_OP.GETLK, {
+          unique: 10n,
+          nodeid: fileIno,
+          payload: buildLkIn({
+            fh: 1n,
+            owner: 0xa1n,
+            start: 0n,
+            end: 10n,
+            type: F_LCK.WRLCK,
+            pid: 100,
+          }),
+        }),
+        "GETLK deadline",
+      );
+      expect(reply.header.error).toBe(0);
+    });
+  });
+});
+
 // ---------------- helpers ----------------
 
 interface TestConnection {
@@ -1728,6 +2242,51 @@ function buildReleaseIn(opts: { fh: bigint }): Uint8Array {
   const dv = new DataView(buf.buffer);
   dv.setBigUint64(0, opts.fh, true);
   return buf;
+}
+
+function buildReleaseInWithOwner(opts: { fh: bigint; owner: bigint }): Uint8Array {
+  // fuse_release_in: u64 fh + u32 flags + u32 release_flags + u64 lock_owner = 24
+  const buf = new Uint8Array(24);
+  const dv = new DataView(buf.buffer);
+  dv.setBigUint64(0, opts.fh, true);
+  dv.setBigUint64(16, opts.owner, true);
+  return buf;
+}
+
+function buildLkIn(opts: {
+  fh: bigint;
+  owner: bigint;
+  start: bigint;
+  end: bigint;
+  type: number;
+  pid: number;
+  flags?: number;
+}): Uint8Array {
+  // fuse_lk_in: u64 fh + u64 owner + fuse_file_lock(24) + u32 lk_flags + u32 padding = 48
+  const buf = new Uint8Array(48);
+  const dv = new DataView(buf.buffer);
+  dv.setBigUint64(0, opts.fh, true);
+  dv.setBigUint64(8, opts.owner, true);
+  dv.setBigUint64(16, opts.start, true);
+  dv.setBigUint64(24, opts.end, true);
+  dv.setUint32(32, opts.type, true);
+  dv.setUint32(36, opts.pid, true);
+  dv.setUint32(40, opts.flags ?? 0, true);
+  return buf;
+}
+
+/**
+ * LOOKUP hello.txt against the default fixture and return its inode.
+ * Most lock tests don't actually OPEN the file — they target the
+ * inode directly, since the FUSE protocol routes lock ops by nodeid.
+ */
+async function openHello(conn: TestConnection): Promise<bigint> {
+  const reply = await conn.request(FUSE_OP.LOOKUP, {
+    unique: 99_001n,
+    nodeid: 1n,
+    payload: nameBuf("hello.txt"),
+  });
+  return bigintFromEntry(reply.payload);
 }
 
 function buildCreateInWithName(opts: { flags: number; mode: number; name: string }): Uint8Array {

@@ -9,14 +9,18 @@
 import { describe, expect, it } from "vitest";
 import {
   DT,
+  F_LCK,
   FUSE_ATTR_OUT_SIZE,
   FUSE_ATTR_SIZE,
   FUSE_CAP,
   FUSE_ENTRY_OUT_SIZE,
+  FUSE_FILE_LOCK_SIZE,
   FUSE_INIT_OUT_SIZE,
   FUSE_IN_HEADER_SIZE,
   FUSE_KERNEL_MINOR_VERSION,
   FUSE_KERNEL_VERSION,
+  FUSE_LK_IN_SIZE,
+  FUSE_LK_OUT_SIZE,
   FUSE_OP,
   FUSE_OUT_HEADER_SIZE,
   buildAttrOut,
@@ -24,6 +28,7 @@ import {
   buildEntryOut,
   buildErrorResponse,
   buildInitOut,
+  buildLkOut,
   buildOpenOut,
   buildResponse,
   payloadOf,
@@ -33,6 +38,7 @@ import {
   readGetattrIn,
   readInHeader,
   readInitIn,
+  readLkIn,
   readOpenIn,
   readReadIn,
   readReleaseIn,
@@ -80,11 +86,66 @@ describe("FUSE protocol — opcodes match Linux 6.1", () => {
     ["OPENDIR", 27],
     ["READDIR", 28],
     ["RELEASEDIR", 29],
+    ["GETLK", 31],
+    ["SETLK", 32],
+    ["SETLKW", 33],
     ["DESTROY", 38],
     ["BATCH_FORGET", 42],
     ["READDIRPLUS", 44],
   ])("%s = %d", (name, value) => {
     expect(FUSE_OP[name as keyof typeof FUSE_OP]).toBe(value);
+  });
+});
+
+describe("FUSE protocol — POSIX lock constants and codecs (#322)", () => {
+  it("F_LCK type values match Linux fcntl.h", () => {
+    expect(F_LCK.RDLCK).toBe(0);
+    expect(F_LCK.WRLCK).toBe(1);
+    expect(F_LCK.UNLCK).toBe(2);
+  });
+
+  it("fuse_file_lock is 24 bytes", () => {
+    expect(FUSE_FILE_LOCK_SIZE).toBe(24);
+  });
+
+  it("fuse_lk_in is 48 bytes", () => {
+    expect(FUSE_LK_IN_SIZE).toBe(48);
+  });
+
+  it("fuse_lk_out is 24 bytes (just the embedded fuse_file_lock)", () => {
+    expect(FUSE_LK_OUT_SIZE).toBe(24);
+  });
+
+  it("readLkIn round-trips a synthetic struct", () => {
+    // Hand-pack a fuse_lk_in: fh=0x1122..., owner=0xaaaa..., lk{
+    //   start=100, end=200, type=WRLCK, pid=4242 }, lk_flags=0.
+    const buf = new Uint8Array(FUSE_LK_IN_SIZE);
+    const dv = new DataView(buf.buffer);
+    dv.setBigUint64(0, 0x1122334455667788n, true); // fh
+    dv.setBigUint64(8, 0xaaaabbbbccccddddn, true); // owner
+    dv.setBigUint64(16, 100n, true); // lk.start
+    dv.setBigUint64(24, 200n, true); // lk.end
+    dv.setUint32(32, F_LCK.WRLCK, true); // lk.type
+    dv.setUint32(36, 4242, true); // lk.pid
+    dv.setUint32(40, 0, true); // lk_flags
+    const got = readLkIn(buf);
+    expect(got.fh).toBe(0x1122334455667788n);
+    expect(got.owner).toBe(0xaaaabbbbccccddddn);
+    expect(got.lk.start).toBe(100n);
+    expect(got.lk.end).toBe(200n);
+    expect(got.lk.type).toBe(F_LCK.WRLCK);
+    expect(got.lk.pid).toBe(4242);
+    expect(got.lk_flags).toBe(0);
+  });
+
+  it("buildLkOut writes the embedded fuse_file_lock at offset 0", () => {
+    const out = buildLkOut({ start: 0n, end: 0xffffffffffffffffn, type: F_LCK.UNLCK, pid: 0 });
+    expect(out.length).toBe(FUSE_LK_OUT_SIZE);
+    const dv = new DataView(out.buffer);
+    expect(dv.getBigUint64(0, true)).toBe(0n);
+    expect(dv.getBigUint64(8, true)).toBe(0xffffffffffffffffn);
+    expect(dv.getUint32(16, true)).toBe(F_LCK.UNLCK);
+    expect(dv.getUint32(20, true)).toBe(0);
   });
 });
 

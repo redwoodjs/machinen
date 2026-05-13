@@ -57,6 +57,9 @@ export const FUSE_OP = {
   READDIR: 28,
   RELEASEDIR: 29,
   FSYNCDIR: 30,
+  GETLK: 31,
+  SETLK: 32,
+  SETLKW: 33,
   ACCESS: 34,
   CREATE: 35,
   INTERRUPT: 36,
@@ -66,6 +69,21 @@ export const FUSE_OP = {
   READDIRPLUS: 44,
   LSEEK: 46,
   COPY_FILE_RANGE: 47,
+} as const;
+
+/**
+ * POSIX advisory-lock types. Wire values match Linux's `linux/fcntl.h`
+ * F_RDLCK / F_WRLCK / F_UNLCK and the `fuse_file_lock.type` field.
+ */
+export const F_LCK = {
+  RDLCK: 0,
+  WRLCK: 1,
+  UNLCK: 2,
+} as const;
+
+/** fuse_lk_in.lk_flags bits. FLOCK marks a flock(2) call rather than fcntl. */
+export const FUSE_LK_FLAGS = {
+  FLOCK: 1 << 0,
 } as const;
 
 /**
@@ -806,6 +824,86 @@ export function readRenameIn(buf: Uint8Array, off = 0): FuseRenameIn {
   return {
     newdir: dv.getBigUint64(0, true),
   };
+}
+
+// --- fuse_lk_in / fuse_lk_out (POSIX advisory locks) --------------------
+
+/**
+ * `fuse_file_lock` (24 bytes): the on-the-wire representation of a
+ * single advisory-lock range.
+ *
+ *   { start: u64, end: u64, type: u32, pid: u32 }
+ *
+ * `start`/`end` are inclusive byte offsets; `end == 0xffff_ffff_ffff_ffff`
+ * means "to end-of-file" (POSIX `l_len == 0`). `type` is one of
+ * `F_LCK.RDLCK / WRLCK / UNLCK`. `pid` is the guest's PID, reflected
+ * back verbatim in GETLK replies so userspace can identify the
+ * conflicting holder.
+ */
+export const FUSE_FILE_LOCK_SIZE = 24;
+
+interface FuseFileLock {
+  start: bigint;
+  end: bigint;
+  type: number;
+  pid: number;
+}
+
+function readFileLock(buf: Uint8Array, offset: number): FuseFileLock {
+  const dv = viewOf(buf, offset, FUSE_FILE_LOCK_SIZE);
+  return {
+    start: dv.getBigUint64(0, true),
+    end: dv.getBigUint64(8, true),
+    type: dv.getUint32(16, true),
+    pid: dv.getUint32(20, true),
+  };
+}
+
+function writeFileLock(buf: Uint8Array, offset: number, lk: FuseFileLock): void {
+  const dv = viewOf(buf, offset, FUSE_FILE_LOCK_SIZE);
+  dv.setBigUint64(0, lk.start, true);
+  dv.setBigUint64(8, lk.end, true);
+  dv.setUint32(16, lk.type, true);
+  dv.setUint32(20, lk.pid, true);
+}
+
+/**
+ * `fuse_lk_in` is 48 bytes: u64 fh, u64 owner, fuse_file_lock (24),
+ * u32 lk_flags, u32 padding. `owner` is opaque to us — the kernel
+ * derives it from the calling process and we just key our lock table
+ * by it. Two open fds in the same process holding locks on the same
+ * file share the same owner.
+ */
+export const FUSE_LK_IN_SIZE = 48;
+
+interface FuseLkIn {
+  fh: bigint;
+  owner: bigint;
+  lk: FuseFileLock;
+  lk_flags: number;
+}
+
+export function readLkIn(buf: Uint8Array, offset = 0): FuseLkIn {
+  const dv = viewOf(buf, offset, FUSE_LK_IN_SIZE);
+  return {
+    fh: dv.getBigUint64(0, true),
+    owner: dv.getBigUint64(8, true),
+    lk: readFileLock(buf, offset + 16),
+    lk_flags: dv.getUint32(40, true),
+    // padding at offset 44
+  };
+}
+
+/**
+ * `fuse_lk_out` is just the embedded `fuse_file_lock` struct. GETLK
+ * replies with the conflicting holder (or type=UNLCK for "no conflict").
+ */
+export const FUSE_LK_OUT_SIZE = FUSE_FILE_LOCK_SIZE;
+
+export function buildLkOut(lk: FuseFileLock): Uint8Array {
+  const buf = new Uint8Array(FUSE_LK_OUT_SIZE);
+  writeFileLock(buf, 0, lk);
+  return buf;
 }
 
 // --- helpers -------------------------------------------------------------
