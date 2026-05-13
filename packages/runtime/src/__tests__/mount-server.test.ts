@@ -8,6 +8,7 @@
 // guest kernel in the loop. The guest smoke test (follow-up commit)
 // exercises the actual mount → read path.
 
+import { execFileSync } from "node:child_process";
 import { connect as netConnect } from "node:net";
 import {
   existsSync,
@@ -485,10 +486,6 @@ describe("live mount server — symlink semantics", () => {
 // in the same change (per AGENTS.md).
 const UNIMPLEMENTED_OPS = [
   { name: "MKNOD", op: 8 },
-  { name: "SETXATTR", op: 21 },
-  { name: "GETXATTR", op: 22 },
-  { name: "LISTXATTR", op: 23 },
-  { name: "REMOVEXATTR", op: 24 },
   { name: "READDIRPLUS", op: 44 },
   { name: "RENAME2", op: 45 },
 ] as const;
@@ -2124,6 +2121,310 @@ describe("live mount server — POSIX locks (#322): :ro gate and wedge guard", (
   });
 });
 
+// ---------------- xattr ops (#321) ----------------
+//
+// The mount-server shells out to `setfattr`/`getfattr` on Linux and
+// `xattr` on darwin. The tests round-trip a `user.machinen.test` attr
+// through a :rw mount and check the wire-reply errno on the documented
+// failure modes — same shape as #322's lock-ops coverage block above.
+//
+// We skip the whole describe if neither tool family is available on
+// PATH so a developer without `attr` installed (`apt install attr`)
+// still gets a green local suite. CI installs `attr` so these run in
+// the pipeline. On darwin `/usr/bin/xattr` ships with the OS.
+
+const HOST_HAS_XATTR_TOOLS = (() => {
+  try {
+    if (process.platform === "darwin") {
+      execFileSync("/usr/bin/xattr", ["--help"], { stdio: "ignore" });
+      return true;
+    }
+    execFileSync("setfattr", ["--version"], { stdio: "ignore" });
+    execFileSync("getfattr", ["--version"], { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+})();
+
+describe.skipIf(!HOST_HAS_XATTR_TOOLS)("live mount server — xattr ops (#321)", () => {
+  let xScratch: string;
+  let xRoot: string;
+  let xUds: string;
+  let xHandle: LiveMountServerHandle | undefined;
+
+  beforeEach(async () => {
+    xScratch = mkdtempSync(join(tmpdir(), "machinen-mount-server-xattr-"));
+    xRoot = join(xScratch, "root");
+    mkdirSync(xRoot);
+    writeFileSync(join(xRoot, "target.txt"), "hello\n");
+    xUds = join(xScratch, "fuse.sock");
+    xHandle = await serveLiveMount(xUds, { rootAbs: xRoot, mode: "rw" });
+  });
+
+  afterEach(async () => {
+    await xHandle?.stop();
+    xHandle = undefined;
+    rmSync(xScratch, { recursive: true, force: true });
+  });
+
+  async function xConn(fn: (c: TestConnection) => Promise<void>): Promise<void> {
+    await withConnectionTo(xUds, fn);
+  }
+
+  /** Look up target.txt under root and return its inode. */
+  async function lookupTarget(conn: TestConnection): Promise<bigint> {
+    const reply = await conn.request(FUSE_OP.LOOKUP, {
+      unique: 7_000n,
+      nodeid: 1n,
+      payload: nameBuf("target.txt"),
+    });
+    expect(reply.header.error).toBe(0);
+    return bigintFromEntry(reply.payload);
+  }
+
+  it("happy path: set → probe → fetch → list → remove → get returns ENODATA", async () => {
+    await xConn(async (conn) => {
+      await doInit(conn);
+      const ino = await lookupTarget(conn);
+
+      const setReply = await raceWithDeadline(
+        conn.request(FUSE_OP.SETXATTR, {
+          unique: 7_001n,
+          nodeid: ino,
+          payload: buildSetxattrIn({ name: "user.machinen.test", value: "hello world", flags: 0 }),
+        }),
+        "SETXATTR",
+      );
+      expect(setReply.header.error).toBe(0);
+
+      // Probe (size=0): expect fuse_getxattr_out carrying the value length.
+      const probe = await raceWithDeadline(
+        conn.request(FUSE_OP.GETXATTR, {
+          unique: 7_002n,
+          nodeid: ino,
+          payload: buildGetxattrInWithName({ size: 0, name: "user.machinen.test" }),
+        }),
+        "GETXATTR probe",
+      );
+      expect(probe.header.error).toBe(0);
+      expect(probe.payload.length).toBe(8);
+      expect(new DataView(probe.payload.buffer, probe.payload.byteOffset, 8).getUint32(0, true)).toBe(
+        "hello world".length,
+      );
+
+      // Fetch (size=N): expect the raw value bytes.
+      const fetch = await raceWithDeadline(
+        conn.request(FUSE_OP.GETXATTR, {
+          unique: 7_003n,
+          nodeid: ino,
+          payload: buildGetxattrInWithName({ size: 64, name: "user.machinen.test" }),
+        }),
+        "GETXATTR fetch",
+      );
+      expect(fetch.header.error).toBe(0);
+      expect(new TextDecoder().decode(fetch.payload)).toBe("hello world");
+
+      // LISTXATTR probe → size header, then fetch → NUL-separated names.
+      const listProbe = await raceWithDeadline(
+        conn.request(FUSE_OP.LISTXATTR, {
+          unique: 7_004n,
+          nodeid: ino,
+          payload: buildGetxattrIn({ size: 0 }),
+        }),
+        "LISTXATTR probe",
+      );
+      expect(listProbe.header.error).toBe(0);
+      const listProbeLen = new DataView(
+        listProbe.payload.buffer,
+        listProbe.payload.byteOffset,
+        8,
+      ).getUint32(0, true);
+      // At least our attribute's NUL-terminated name fits. macOS quietly
+      // stamps `com.apple.provenance` (and on some configs other system
+      // xattrs) on every file the host process touches, so the probe
+      // length is often larger than 19 in practice. The fetch below
+      // asserts our attr is present in the listing — that's the real
+      // contract.
+      expect(listProbeLen).toBeGreaterThanOrEqual("user.machinen.test\0".length);
+
+      const listFetch = await raceWithDeadline(
+        conn.request(FUSE_OP.LISTXATTR, {
+          unique: 7_005n,
+          nodeid: ino,
+          payload: buildGetxattrIn({ size: 256 }),
+        }),
+        "LISTXATTR fetch",
+      );
+      expect(listFetch.header.error).toBe(0);
+      const listed = new TextDecoder()
+        .decode(listFetch.payload)
+        .split("\0")
+        .filter((n) => n.length > 0);
+      expect(listed).toContain("user.machinen.test");
+
+      // Remove and confirm subsequent GETXATTR yields ENODATA.
+      const rm = await raceWithDeadline(
+        conn.request(FUSE_OP.REMOVEXATTR, {
+          unique: 7_006n,
+          nodeid: ino,
+          payload: nameBuf("user.machinen.test"),
+        }),
+        "REMOVEXATTR",
+      );
+      expect(rm.header.error).toBe(0);
+
+      const after = await raceWithDeadline(
+        conn.request(FUSE_OP.GETXATTR, {
+          unique: 7_007n,
+          nodeid: ino,
+          payload: buildGetxattrInWithName({ size: 0, name: "user.machinen.test" }),
+        }),
+        "GETXATTR after remove",
+      );
+      expect(after.header.error).toBe(-61); // -ENODATA
+    });
+  });
+
+  it("GETXATTR on an unset attribute returns -ENODATA", async () => {
+    await xConn(async (conn) => {
+      await doInit(conn);
+      const ino = await lookupTarget(conn);
+      const reply = await raceWithDeadline(
+        conn.request(FUSE_OP.GETXATTR, {
+          unique: 7_010n,
+          nodeid: ino,
+          payload: buildGetxattrInWithName({ size: 0, name: "user.never.set" }),
+        }),
+        "GETXATTR missing",
+      );
+      expect(reply.header.error).toBe(-61); // -ENODATA
+    });
+  });
+
+  it("GETXATTR with a too-small fetch buffer returns -ERANGE", async () => {
+    await xConn(async (conn) => {
+      await doInit(conn);
+      const ino = await lookupTarget(conn);
+      const set = await raceWithDeadline(
+        conn.request(FUSE_OP.SETXATTR, {
+          unique: 7_020n,
+          nodeid: ino,
+          payload: buildSetxattrIn({
+            name: "user.machinen.test",
+            value: "this value is longer than the probe size below",
+            flags: 0,
+          }),
+        }),
+        "SETXATTR",
+      );
+      expect(set.header.error).toBe(0);
+
+      const reply = await raceWithDeadline(
+        conn.request(FUSE_OP.GETXATTR, {
+          unique: 7_021n,
+          nodeid: ino,
+          payload: buildGetxattrInWithName({ size: 4, name: "user.machinen.test" }),
+        }),
+        "GETXATTR ERANGE",
+      );
+      expect(reply.header.error).toBe(-34); // -ERANGE
+    });
+  });
+
+  it(":ro gate: SETXATTR returns -EROFS and never touches the host attr", async () => {
+    // The default top-level fixture is :ro — reuse it instead of
+    // spinning up a third server.
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const lookup = await conn.request(FUSE_OP.LOOKUP, {
+        unique: 7_030n,
+        nodeid: 1n,
+        payload: nameBuf("hello.txt"),
+      });
+      const ino = bigintFromEntry(lookup.payload);
+      const reply = await raceWithDeadline(
+        conn.request(FUSE_OP.SETXATTR, {
+          unique: 7_031n,
+          nodeid: ino,
+          payload: buildSetxattrIn({
+            name: "user.should.not.land",
+            value: "nope",
+            flags: 0,
+          }),
+        }),
+        "SETXATTR on :ro",
+      );
+      expect(reply.header.error).toBe(-30); // -EROFS
+    });
+  });
+
+  it(":ro gate: REMOVEXATTR returns -EROFS", async () => {
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const lookup = await conn.request(FUSE_OP.LOOKUP, {
+        unique: 7_040n,
+        nodeid: 1n,
+        payload: nameBuf("hello.txt"),
+      });
+      const ino = bigintFromEntry(lookup.payload);
+      const reply = await raceWithDeadline(
+        conn.request(FUSE_OP.REMOVEXATTR, {
+          unique: 7_041n,
+          nodeid: ino,
+          payload: nameBuf("user.anything"),
+        }),
+        "REMOVEXATTR on :ro",
+      );
+      expect(reply.header.error).toBe(-30); // -EROFS
+    });
+  });
+
+  it(":ro gate: GETXATTR is allowed (returns -ENODATA on a clean file)", async () => {
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const lookup = await conn.request(FUSE_OP.LOOKUP, {
+        unique: 7_050n,
+        nodeid: 1n,
+        payload: nameBuf("hello.txt"),
+      });
+      const ino = bigintFromEntry(lookup.payload);
+      const reply = await raceWithDeadline(
+        conn.request(FUSE_OP.GETXATTR, {
+          unique: 7_051n,
+          nodeid: ino,
+          payload: buildGetxattrInWithName({ size: 0, name: "user.absent" }),
+        }),
+        "GETXATTR on :ro",
+      );
+      expect(reply.header.error).toBe(-61); // -ENODATA
+    });
+  });
+
+  it(":ro gate: LISTXATTR is allowed and replies within deadline", async () => {
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const lookup = await conn.request(FUSE_OP.LOOKUP, {
+        unique: 7_060n,
+        nodeid: 1n,
+        payload: nameBuf("hello.txt"),
+      });
+      const ino = bigintFromEntry(lookup.payload);
+      const reply = await raceWithDeadline(
+        conn.request(FUSE_OP.LISTXATTR, {
+          unique: 7_061n,
+          nodeid: ino,
+          payload: buildGetxattrIn({ size: 0 }),
+        }),
+        "LISTXATTR on :ro",
+      );
+      // Either zero attrs (size==0 in the probe header) or some set —
+      // either way the call shouldn't EROFS.
+      expect(reply.header.error).toBe(0);
+    });
+  });
+});
+
 // ---------------- helpers ----------------
 
 interface TestConnection {
@@ -2395,6 +2696,39 @@ function buildCopyFileRangeIn(opts: {
   dv.setBigUint64(32, opts.offOut, true);
   dv.setBigUint64(40, opts.len, true);
   dv.setBigUint64(48, opts.flags, true);
+  return buf;
+}
+
+function buildSetxattrIn(opts: { name: string; value: string | Uint8Array; flags: number }): Uint8Array {
+  // fuse_setxattr_in: u32 size, u32 flags. Then NUL-terminated name,
+  // then the raw value bytes (no terminator).
+  const valueBytes =
+    typeof opts.value === "string" ? new TextEncoder().encode(opts.value) : opts.value;
+  const nameBytes = new TextEncoder().encode(opts.name);
+  const buf = new Uint8Array(8 + nameBytes.length + 1 + valueBytes.length);
+  const dv = new DataView(buf.buffer);
+  dv.setUint32(0, valueBytes.length, true);
+  dv.setUint32(4, opts.flags, true);
+  buf.set(nameBytes, 8);
+  // trailing NUL on the name is already zero
+  buf.set(valueBytes, 8 + nameBytes.length + 1);
+  return buf;
+}
+
+function buildGetxattrIn(opts: { size: number }): Uint8Array {
+  // fuse_getxattr_in: u32 size, u32 padding. LISTXATTR uses the same
+  // struct with no name appended.
+  const buf = new Uint8Array(8);
+  new DataView(buf.buffer).setUint32(0, opts.size, true);
+  return buf;
+}
+
+function buildGetxattrInWithName(opts: { size: number; name: string }): Uint8Array {
+  // fuse_getxattr_in followed by a NUL-terminated name (GETXATTR form).
+  const nameBytes = new TextEncoder().encode(opts.name);
+  const buf = new Uint8Array(8 + nameBytes.length + 1);
+  new DataView(buf.buffer).setUint32(0, opts.size, true);
+  buf.set(nameBytes, 8);
   return buf;
 }
 

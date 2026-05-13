@@ -51,6 +51,10 @@ export const FUSE_OP = {
   STATFS: 17,
   RELEASE: 18,
   FSYNC: 20,
+  SETXATTR: 21,
+  GETXATTR: 22,
+  LISTXATTR: 23,
+  REMOVEXATTR: 24,
   FLUSH: 25,
   INIT: 26,
   OPENDIR: 27,
@@ -903,6 +907,74 @@ export const FUSE_LK_OUT_SIZE = FUSE_FILE_LOCK_SIZE;
 export function buildLkOut(lk: FuseFileLock): Uint8Array {
   const buf = new Uint8Array(FUSE_LK_OUT_SIZE);
   writeFileLock(buf, 0, lk);
+  return buf;
+}
+
+// --- xattr ops (#321) ---------------------------------------------------
+
+/**
+ * `fuse_setxattr_in` is 8 bytes: u32 size, u32 flags. The body that
+ * follows is the NUL-terminated attribute name then `size` value bytes
+ * (the value itself is **not** NUL-terminated and may contain NULs).
+ *
+ * `flags` carries Linux's `XATTR_CREATE` (1) / `XATTR_REPLACE` (2)
+ * bits — the caller's `setxattr(2)` 4th argument.
+ */
+export const FUSE_SETXATTR_IN_SIZE = 8;
+
+interface FuseSetxattrIn {
+  size: number;
+  flags: number;
+}
+
+export function readSetxattrIn(buf: Uint8Array, off = 0): FuseSetxattrIn {
+  const dv = viewOf(buf, off, FUSE_SETXATTR_IN_SIZE);
+  return {
+    size: dv.getUint32(0, true),
+    flags: dv.getUint32(4, true),
+  };
+}
+
+/** Linux `XATTR_CREATE` / `XATTR_REPLACE` semantics for SETXATTR.flags. */
+export const XATTR = {
+  CREATE: 1,
+  REPLACE: 2,
+} as const;
+
+/**
+ * `fuse_getxattr_in` is 8 bytes: u32 size, u32 padding. `size == 0` is
+ * the kernel's probe form: reply with `fuse_getxattr_out` carrying the
+ * value's length so the caller can allocate. `size > 0` is the fetch
+ * form: reply with the raw value bytes (no header) when it fits, or
+ * `-ERANGE` when it doesn't.
+ *
+ * LISTXATTR shares the exact same wire layout (the body has no name) —
+ * we reuse this codec for both.
+ */
+export const FUSE_GETXATTR_IN_SIZE = 8;
+
+interface FuseGetxattrIn {
+  size: number;
+}
+
+export function readGetxattrIn(buf: Uint8Array, off = 0): FuseGetxattrIn {
+  const dv = viewOf(buf, off, FUSE_GETXATTR_IN_SIZE);
+  return {
+    size: dv.getUint32(0, true),
+    // padding at offset 4
+  };
+}
+
+/**
+ * `fuse_getxattr_out` — the size-probe reply for GETXATTR / LISTXATTR.
+ * Lives in 8 bytes: u32 size, u32 padding.
+ */
+export const FUSE_GETXATTR_OUT_SIZE = 8;
+
+export function buildGetxattrOut(size: number): Uint8Array {
+  const buf = new Uint8Array(FUSE_GETXATTR_OUT_SIZE);
+  new DataView(buf.buffer).setUint32(0, size, true);
+  // padding at 4
   return buf;
 }
 
