@@ -56,12 +56,16 @@ export const FUSE_OP = {
   OPENDIR: 27,
   READDIR: 28,
   RELEASEDIR: 29,
+  FSYNCDIR: 30,
   ACCESS: 34,
   CREATE: 35,
   INTERRUPT: 36,
   DESTROY: 38,
   BATCH_FORGET: 42,
+  FALLOCATE: 43,
   READDIRPLUS: 44,
+  LSEEK: 46,
+  COPY_FILE_RANGE: 47,
 } as const;
 
 /**
@@ -689,6 +693,103 @@ export function readLinkIn(buf: Uint8Array, off = 0): FuseLinkIn {
   const dv = viewOf(buf, off, FUSE_LINK_IN_SIZE);
   return {
     oldnodeid: dv.getBigUint64(0, true),
+  };
+}
+
+// --- fuse_fallocate_in --------------------------------------------------
+
+const FUSE_FALLOCATE_IN_SIZE = 32;
+
+interface FuseFallocateIn {
+  fh: bigint;
+  offset: bigint;
+  length: bigint;
+  mode: number;
+}
+
+export function readFallocateIn(buf: Uint8Array, off = 0): FuseFallocateIn {
+  const dv = viewOf(buf, off, FUSE_FALLOCATE_IN_SIZE);
+  return {
+    fh: dv.getBigUint64(0, true),
+    offset: dv.getBigUint64(8, true),
+    length: dv.getBigUint64(16, true),
+    mode: dv.getUint32(24, true),
+    // padding at 28
+  };
+}
+
+/** linux/falloc.h FALLOC_FL_* bits we care about. */
+export const FALLOC_FL = {
+  KEEP_SIZE: 0x01,
+  PUNCH_HOLE: 0x02,
+  COLLAPSE_RANGE: 0x08,
+  ZERO_RANGE: 0x10,
+  INSERT_RANGE: 0x20,
+} as const;
+
+// --- fuse_lseek_in / fuse_lseek_out -------------------------------------
+
+const FUSE_LSEEK_IN_SIZE = 24;
+
+interface FuseLseekIn {
+  fh: bigint;
+  offset: bigint;
+  whence: number;
+}
+
+export function readLseekIn(buf: Uint8Array, off = 0): FuseLseekIn {
+  const dv = viewOf(buf, off, FUSE_LSEEK_IN_SIZE);
+  return {
+    fh: dv.getBigUint64(0, true),
+    offset: dv.getBigUint64(8, true),
+    whence: dv.getUint32(16, true),
+    // padding at 20
+  };
+}
+
+interface FuseLseekOut {
+  offset: bigint;
+}
+
+export function buildLseekOut(o: FuseLseekOut): Uint8Array {
+  const buf = new Uint8Array(8);
+  new DataView(buf.buffer).setBigUint64(0, o.offset, true);
+  return buf;
+}
+
+/** POSIX whence values for lseek. SEEK_HOLE / SEEK_DATA are Linux-only. */
+export const SEEK = {
+  SET: 0,
+  CUR: 1,
+  END: 2,
+  DATA: 3,
+  HOLE: 4,
+} as const;
+
+// --- fuse_copy_file_range_in --------------------------------------------
+
+const FUSE_COPY_FILE_RANGE_IN_SIZE = 56;
+
+interface FuseCopyFileRangeIn {
+  fh_in: bigint;
+  off_in: bigint;
+  nodeid_out: bigint;
+  fh_out: bigint;
+  off_out: bigint;
+  len: bigint;
+  flags: bigint;
+}
+
+export function readCopyFileRangeIn(buf: Uint8Array, off = 0): FuseCopyFileRangeIn {
+  const dv = viewOf(buf, off, FUSE_COPY_FILE_RANGE_IN_SIZE);
+  return {
+    fh_in: dv.getBigUint64(0, true),
+    off_in: dv.getBigUint64(8, true),
+    nodeid_out: dv.getBigUint64(16, true),
+    fh_out: dv.getBigUint64(24, true),
+    off_out: dv.getBigUint64(32, true),
+    len: dv.getBigUint64(40, true),
+    flags: dv.getBigUint64(48, true),
   };
 }
 
