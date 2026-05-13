@@ -1,1 +1,5 @@
 bin/machinen-vm
+bin/gvproxy
+guest/init
+guest/fuse-agent
+guest/exec-agent

@@ -196,6 +196,16 @@ install -m 0755 "${STAGE}/init"        "${TEST_FIXTURES}/init"
 install -m 0755 "${STAGE}/exec-agent"  "${TEST_FIXTURES}/exec-agent"
 install -m 0755 "${STAGE}/fuse-agent"  "${TEST_FIXTURES}/fuse-agent"
 
+# Also stage them into release-assets/ so the CI artifact carries them
+# across runner boundaries. release.yml's release job copies these back
+# into packages/microvm/test-fixtures/ before `changeset publish`, so
+# the @machinen/microvm tarball ships them. Without this hop the build
+# step writes the binaries on the build runner only; the release runner
+# never sees them and publishes an empty test-fixtures/. (issue #309)
+install -m 0755 "${STAGE}/init"        "${OUT}/init"
+install -m 0755 "${STAGE}/exec-agent"  "${OUT}/exec-agent"
+install -m 0755 "${STAGE}/fuse-agent"  "${OUT}/fuse-agent"
+
 # ------------------------------------------------------------
 # 3a. fnm — Node version manager
 # ------------------------------------------------------------

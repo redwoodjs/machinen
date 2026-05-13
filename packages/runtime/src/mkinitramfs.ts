@@ -32,6 +32,7 @@
 import { spawnSync } from "node:child_process";
 import {
   cpSync,
+  existsSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
@@ -42,11 +43,14 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
+import { createRequire } from "node:module";
+import { arch as osArch, platform as osPlatform, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import debugLib from "debug";
 import { MkinitramfsError } from "./errors.ts";
+
+const require_ = createRequire(import.meta.url);
 
 const debug = debugLib("machinen:mkinitramfs");
 
@@ -758,32 +762,78 @@ function appendFinalEntries(parts: Buffer[], opts: FinalOptions): void {
   parts.push(newc("TRAILER!!!", 0));
 }
 
-function defaultInitPath(): string {
-  // From packages/runtime/src/ → packages/microvm/test-fixtures/init.
-  // Resolve via import.meta.url so it works under both ESM and tsx-CJS loaders.
+interface VmmGuestPaths {
+  initPath: string;
+  fuseAgentPath: string;
+  execAgentPath: string;
+}
+
+let cachedGuestPaths: VmmGuestPaths | null = null;
+
+/**
+ * Resolve the three guest binaries (init / fuse-agent / exec-agent)
+ * that ride in the host-arch-gated @machinen/vmm-<arch>-<os> package
+ * alongside the host VMM. These ELFs are arm64-linux regardless of
+ * host (they run in-guest); the host runtime reads them as bytes to
+ * pack into the initramfs cpio.
+ *
+ * Falls back to the in-tree microvm/test-fixtures/ layout when the vmm
+ * package can't be resolved OR its guest/ dir is empty — workspace dev
+ * runs the latter shape (the vmm-* package is symlinked but its guest/
+ * is empty; build-base-assets.sh populates microvm/test-fixtures/),
+ * so this fallback keeps `pnpm test` / local boot() working unchanged.
+ */
+function resolveGuestPaths(): VmmGuestPaths {
+  if (cachedGuestPaths) {
+    return cachedGuestPaths;
+  }
+  const pkgName = `@machinen/vmm-${osArch()}-${osPlatform()}`;
+  try {
+    const mod = require_(pkgName) as Partial<VmmGuestPaths>;
+    if (mod.initPath && mod.fuseAgentPath && mod.execAgentPath && existsSync(mod.initPath)) {
+      cachedGuestPaths = {
+        initPath: mod.initPath,
+        fuseAgentPath: mod.fuseAgentPath,
+        execAgentPath: mod.execAgentPath,
+      };
+      return cachedGuestPaths;
+    }
+  } catch {
+    // Fall through to the workspace layout below.
+  }
+  // Workspace fallback: packages/runtime/src/ → packages/microvm/test-fixtures/.
+  // Resolves via import.meta.url so it works under both ESM and the tsx-CJS loader.
   const here = dirname(fileURLToPath(import.meta.url));
-  return join(here, "..", "..", "microvm", "test-fixtures", "init");
+  const fixtures = join(here, "..", "..", "microvm", "test-fixtures");
+  cachedGuestPaths = {
+    initPath: join(fixtures, "init"),
+    fuseAgentPath: join(fixtures, "fuse-agent"),
+    execAgentPath: join(fixtures, "exec-agent"),
+  };
+  return cachedGuestPaths;
+}
+
+function defaultInitPath(): string {
+  return resolveGuestPaths().initPath;
 }
 
 /**
- * Default path to the compiled fuse-agent binary. Sibling of the
- * default /init under packages/microvm/test-fixtures/. Callers can
- * override via `PackBundleOptions.fuseAgentPath`.
+ * Default path to the compiled fuse-agent binary. Resolved from the
+ * host-arch's @machinen/vmm-* package; callers can override via
+ * `PackBundleOptions.fuseAgentPath`.
  */
 export function defaultFuseAgentPath(): string {
-  const here = dirname(fileURLToPath(import.meta.url));
-  return join(here, "..", "..", "microvm", "test-fixtures", "fuse-agent");
+  return resolveGuestPaths().fuseAgentPath;
 }
 
 /**
- * Default path to the compiled /exec-agent binary. Sibling of the
- * default /init. Used by the provision flow's cpio injection to
- * override whatever stale /exec-agent the user's base tarball may
- * have captured from a previous run.
+ * Default path to the compiled /exec-agent binary. Used by the
+ * provision flow's cpio injection to override whatever stale
+ * /exec-agent the user's base tarball may have captured from a
+ * previous run.
  */
 function defaultExecAgentPath(): string {
-  const here = dirname(fileURLToPath(import.meta.url));
-  return join(here, "..", "..", "microvm", "test-fixtures", "exec-agent");
+  return resolveGuestPaths().execAgentPath;
 }
 
 // --- CLI entrypoint -----------------------------------------------
