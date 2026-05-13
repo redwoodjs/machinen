@@ -60,7 +60,12 @@ describe("VsockExec streaming", () => {
     });
 
     expect(res.exitCode).toBe(0);
-    expect(res.stdout).toBe("early\nlate\n");
+    // Streaming-caller contract: when `onStdout` is set the result's
+    // `stdout` field comes back empty — the caller already has every
+    // byte via the callback, and a parallel buffered copy here would
+    // crash with ERR_STRING_TOO_LONG at multi-GB volumes (see
+    // exec-streaming.test.ts).
+    expect(res.stdout).toBe("");
 
     // Two streamed chunks, not one merged one.
     expect(chunks.length).toBe(2);
