@@ -1,6 +1,6 @@
 {
   "name": "@machinen/vmm-arm64-linux",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Machinen VMM binary for arm64 linux (KVM backend).",
   "license": "FSL-1.1-MIT",
   "repository": {
