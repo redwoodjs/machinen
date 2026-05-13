@@ -79,10 +79,20 @@ cd "$SRC"
 # patch is rooted at the kernel source root (-p1). Bail loudly on any
 # patch that doesn't apply cleanly — silent partial application is the
 # kind of bug that turns into a kernel oops three boots later.
+#
+# Re-run idempotency: probe with a reverse-dry-run first. If the
+# reverse patch would apply, the forward patch is already in the
+# tree — skip and move on. The hash check above still handles the
+# *different*-patches case by re-extracting the tree.
 if [ -n "$PATCHES_DIR" ] && [ -d "$PATCHES_DIR" ]; then
   shopt -s nullglob
   for p in "$PATCHES_DIR"/*.patch; do
-    echo "==> Applying kernel patch: $(basename "$p")"
+    name=$(basename "$p")
+    if patch -p1 -F0 -R --dry-run < "$p" >/dev/null 2>&1; then
+      echo "==> Skipping kernel patch (already applied): $name"
+      continue
+    fi
+    echo "==> Applying kernel patch: $name"
     if ! patch -p1 -F0 --dry-run < "$p" >/dev/null 2>&1; then
       echo "build-kernel-arm64: patch refused to apply: $p" >&2
       patch -p1 -F0 --dry-run < "$p" >&2 || true
