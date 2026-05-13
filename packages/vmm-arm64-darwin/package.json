@@ -8,8 +8,13 @@
     "url": "https://github.com/redwoodjs/machinen.git",
     "directory": "packages/vmm-arm64-darwin"
   },
+  "bin": {
+    "machinen-gvproxy": "./bin/gvproxy",
+    "machinen-vm": "./bin/machinen-vm"
+  },
   "files": [
     "bin/",
+    "guest/",
     "index.mjs"
   ],
   "os": [

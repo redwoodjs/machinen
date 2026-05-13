@@ -173,6 +173,9 @@ jobs:
         with:
           name: vmm-arm64-linux
           path: packages/vmm-arm64-linux/bin/
+      # chmod machinen-vm so the working copy stays usable locally; the
+      # `bin` field in each subpackage's package.json is what makes pnpm
+      # pack preserve the +x bit in the published tarball (issue #309).
       - run: chmod +x packages/vmm-arm64-*/bin/machinen-vm
 
       # gvproxy (containers/gvisor-tap-vsock) — bundled next to the VMM
@@ -184,6 +187,40 @@ jobs:
           set -euo pipefail
           scripts/install-gvproxy.sh --os darwin --dest packages/vmm-arm64-darwin/bin
           scripts/install-gvproxy.sh --os linux  --arch arm64 --dest packages/vmm-arm64-linux/bin
+
+      # Stage the three arm64-linux guest ELFs (init, fuse-agent,
+      # exec-agent) into each vmm-arm64-* subpackage's guest/ dir so
+      # they ship in the published tarball. They're host-arch-agnostic
+      # (they run inside the guest), but ride along with the
+      # host-arch-gated vmm-* package since that's what `@machinen/runtime`
+      # already depends on and resolves at boot() time. (issue #309)
+      - name: Download base assets (for guest binaries)
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: base-assets
+          path: release-assets/
+      - name: Stage guest binaries into vmm-arm64-* packages
+        run: |
+          set -euo pipefail
+          for pkg in packages/vmm-arm64-darwin packages/vmm-arm64-linux; do
+            mkdir -p "$pkg/guest"
+            cp release-assets/init        "$pkg/guest/init"
+            cp release-assets/fuse-agent  "$pkg/guest/fuse-agent"
+            cp release-assets/exec-agent  "$pkg/guest/exec-agent"
+          done
+          # Drop from release-assets/ so the public release upload step's
+          # `release-assets/*` glob still ships exactly kernel + dtb +
+          # rootfs (no shape change to the public release). Consumers
+          # get the guest binaries via @machinen/vmm-* on npm.
+          rm release-assets/init release-assets/fuse-agent release-assets/exec-agent
+
+      # Release-time guard against the regression filed as #309: assert
+      # every vmm-arm64-* tarball pnpm would publish has the right
+      # shape — host binaries with +x, all three guest ELFs present.
+      # Runs before the changeset publish so a broken tarball fails the
+      # release loudly instead of silently shipping.
+      - name: Verify vmm-arm64-* package shape
+        run: bash scripts/verify-vmm-packages.sh
 
       # cli typechecks against @machinen/runtime's dist types, so the
       # TS packages need a build before typecheck. Zig isn't available
@@ -227,12 +264,11 @@ jobs:
       # `ensureBaseAssets()` fetches them anonymously from that public URL
       # so consumers don't need a GitHub token (the source repo is private).
       # Tag must match `RELEASE_TAG = runtime-v${VERSION}` in @machinen/cli.
-      - name: Download base assets
-        if: steps.changesets.outputs.published == 'true'
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
-        with:
-          name: base-assets
-          path: release-assets/
+      #
+      # release-assets/ is already populated from the earlier
+      # `Download base assets (for guest binaries)` step, with the three
+      # guest binaries stripped out — so this glob ships exactly kernel
+      # + dtb + rootfs + sha256 sidecars.
       - name: Publish base assets to redwoodjs/machinen.dev
         if: steps.changesets.outputs.published == 'true'
         env:
