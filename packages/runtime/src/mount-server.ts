@@ -18,7 +18,10 @@
 import { createServer, type Server, type Socket } from "node:net";
 import {
   chmod,
+  lchmod,
+  lchown,
   link,
+  lutimes,
   mkdir,
   open as fsOpen,
   lstat,
@@ -42,6 +45,7 @@ import { MountError, isMachinenError } from "./errors.ts";
 import { resolveUnderRoot } from "./mount-resolver.ts";
 import {
   DT,
+  FALLOC_FL,
   FATTR,
   FUSE_CAP,
   FUSE_IN_HEADER_SIZE,
@@ -49,6 +53,7 @@ import {
   FUSE_KERNEL_VERSION,
   FUSE_OP,
   FUSE_WRITE_IN_SIZE,
+  SEEK,
   type FuseInHeader,
   buildAttrOut,
   buildCreateOut,
@@ -57,16 +62,20 @@ import {
   buildErrorResponse,
   buildInitOut,
   buildKstatfs,
+  buildLseekOut,
   buildOpenOut,
   buildResponse,
   buildWriteOut,
   payloadOf,
   readBatchForgetIn,
+  readCopyFileRangeIn,
   readCreateIn,
+  readFallocateIn,
   readForgetIn,
   readInHeader,
   readInitIn,
   readLinkIn,
+  readLseekIn,
   readMkdirIn,
   readOpenIn,
   readReadIn,
@@ -83,6 +92,7 @@ const ERRNO = {
   EPERM: 1,
   ENOENT: 2,
   EIO: 5,
+  ENXIO: 6,
   EBADF: 9,
   EACCES: 13,
   EBUSY: 16,
@@ -93,6 +103,11 @@ const ERRNO = {
   EROFS: 30,
   ENOSYS: 38,
   ENOTEMPTY: 39,
+  // ENOTSUP / EOPNOTSUPP share value 95 on Linux. Some macOS-host
+  // ops (lchmod on filesystems without symlink-mode support, lutimes
+  // on older APFS) throw ENOTSUP; pass it through verbatim so tar
+  // and friends see a soft failure rather than the EIO catch-all.
+  ENOTSUP: 95,
   ESTALE: 116,
 } as const;
 
@@ -343,6 +358,14 @@ async function handle(
       return onReleasedir(hdr, msg, state);
     case FUSE_OP.FSYNC:
       return await onFsync(hdr, msg, state);
+    case FUSE_OP.FSYNCDIR:
+      return await onFsyncdir(hdr, msg, state);
+    case FUSE_OP.FALLOCATE:
+      return await onFallocate(hdr, msg, state);
+    case FUSE_OP.LSEEK:
+      return await onLseek(hdr, msg, state);
+    case FUSE_OP.COPY_FILE_RANGE:
+      return await onCopyFileRange(hdr, msg, state);
     case FUSE_OP.FLUSH:
     case FUSE_OP.ACCESS:
       // Userspace ok-to-ignore ops: reply success with no payload.
@@ -885,8 +908,22 @@ async function onSetattr(
     return buildErrorResponse(hdr.unique, -ERRNO.EROFS);
   }
   const entry = requireInode(state, hdr.nodeid);
-  const abs = await absPathForTraversal(state, entry);
+  // Resolve with absPathForLstat — SETATTR (lutimensat / lchown /
+  // lchmod) targets the inode itself, never a final-component
+  // symlink's target. If we realpath'd the basename here, a dangling
+  // symlink would ENOENT before we even saw the request, which is
+  // how #317 manifests during `tar -x` (symlinks land before their
+  // targets do).
+  const abs = await absPathForLstat(state, entry);
+  const st0 = await lstat(abs);
+  const isSymlink = (st0.mode & 0o170000) === 0o120000;
   if (req.valid & FATTR.SIZE) {
+    if (isSymlink) {
+      // Truncating a symlink is meaningless and POSIX doesn't define
+      // it; Linux returns EINVAL when something asks. Don't silently
+      // chase the link's target.
+      return buildErrorResponse(hdr.unique, -ERRNO.EINVAL);
+    }
     if (req.valid & FATTR.FH) {
       const handle = state.handles.get(req.fh);
       if (!handle || handle.kind !== "file") {
@@ -898,31 +935,72 @@ async function onSetattr(
     }
   }
   if (req.valid & FATTR.MODE) {
-    await chmod(abs, req.mode & 0o7777);
+    const mode = req.mode & 0o7777;
+    if (isSymlink) {
+      // Linux ignores symlink permission bits entirely (the perms on
+      // the link inode are never consulted), but lchmod is a no-op
+      // there rather than an error. macOS supports lchmod on APFS.
+      // Either way we don't want chmod() to follow the link.
+      try {
+        await lchmod(abs, mode);
+      } catch (err) {
+        // Filesystems without symlink-mode support throw ENOTSUP /
+        // EOPNOTSUPP. Swallow — the guest cares about lchown / lutimes
+        // not failing; lchmod-on-symlink is best-effort.
+        if (!isUnsupportedFsErr(err)) {
+          throw err;
+        }
+      }
+    } else {
+      await chmod(abs, mode);
+    }
   }
   if (req.valid & (FATTR.ATIME | FATTR.MTIME | FATTR.ATIME_NOW | FATTR.MTIME_NOW)) {
     // utimes wants seconds-since-epoch as numbers. Use current values
     // for any axis the kernel didn't ask us to change, plus _NOW
     // overrides.
-    const st = await lstat(abs);
     const now = Date.now() / 1000;
     const a =
       req.valid & FATTR.ATIME_NOW
         ? now
         : req.valid & FATTR.ATIME
           ? Number(req.atime) + req.atimensec / 1e9
-          : st.atimeMs / 1000;
+          : st0.atimeMs / 1000;
     const m =
       req.valid & FATTR.MTIME_NOW
         ? now
         : req.valid & FATTR.MTIME
           ? Number(req.mtime) + req.mtimensec / 1e9
-          : st.mtimeMs / 1000;
-    await utimes(abs, a, m);
+          : st0.mtimeMs / 1000;
+    if (isSymlink) {
+      // lutimes operates on the link itself (AT_SYMLINK_NOFOLLOW
+      // semantics). Without this, utimes() follows and may EIO /
+      // ENOENT on a dangling-target symlink mid-tar-extraction (#317).
+      await lutimes(abs, a, m);
+    } else {
+      await utimes(abs, a, m);
+    }
   }
-  // FATTR.UID / FATTR.GID: ignored. The host process is unprivileged
-  // in the typical case; chown would EPERM. The guest sees its own
-  // (uid=0) view via INIT and we don't pretend to enforce it.
+  if (req.valid & (FATTR.UID | FATTR.GID)) {
+    // The host process is typically unprivileged, so a real chown
+    // would EPERM. We don't enforce ownership inside the mount —
+    // the guest sees its own (uid=0) view. But for symlinks we
+    // explicitly call lchown to avoid an unhandled error path; for
+    // regular files we stay silent (current behaviour). Either way,
+    // failures are swallowed: tar treats a non-zero chown as a
+    // warning only when the errno is "soft" (EPERM / ENOSYS /
+    // ENOTSUP), so map anything unexpected to ENOSYS.
+    if (isSymlink) {
+      try {
+        await lchown(abs, req.uid, req.gid);
+      } catch (err) {
+        const code = (err as NodeJS.ErrnoException).code;
+        if (code !== "EPERM" && code !== "ENOSYS" && !isUnsupportedFsErr(err)) {
+          throw err;
+        }
+      }
+    }
+  }
   const st = await lstat(abs);
   return buildResponse(
     hdr.unique,
@@ -932,6 +1010,16 @@ async function onSetattr(
       attr: statToAttr(st, hdr.nodeid),
     }),
   );
+}
+
+/**
+ * True if `err` is a Node fs error whose code is the "this filesystem
+ * doesn't support that op" family — i.e. something the FUSE caller
+ * should treat as a soft failure, not a real I/O problem.
+ */
+function isUnsupportedFsErr(err: unknown): boolean {
+  const code = (err as NodeJS.ErrnoException | null)?.code;
+  return code === "ENOTSUP" || code === "EOPNOTSUPP" || code === "ENOSYS";
 }
 
 async function onFsync(
@@ -955,6 +1043,180 @@ async function onFsync(
   // no-op on a clean fd.
   await handle.fh.sync();
   return buildErrorResponse(hdr.unique, 0);
+}
+
+async function onFsyncdir(
+  hdr: FuseInHeader,
+  msg: Uint8Array,
+  state: ServerState,
+): Promise<Uint8Array> {
+  // fuse_fsync_in (shared with FSYNC): { fh: u64, fsync_flags: u32,
+  // padding: u32 }. The fh is one we minted in OPENDIR — that handle
+  // doesn't hold a host fd (we snapshot the entry list at opendir
+  // time), so we re-open the dir by nodeid and fsync it. fsync on a
+  // dir is a real syscall on Linux/darwin; it forces directory-entry
+  // metadata to durable storage. Like FSYNC, legal on :ro mounts.
+  const body = payloadOf(msg);
+  if (body.length < 8) {
+    return buildErrorResponse(hdr.unique, -ERRNO.EINVAL);
+  }
+  const dv = new DataView(body.buffer, body.byteOffset, body.length);
+  const fh = dv.getBigUint64(0, true);
+  const handle = state.handles.get(fh);
+  if (!handle || handle.kind !== "dir") {
+    return buildErrorResponse(hdr.unique, -ERRNO.EBADF);
+  }
+  const entry = requireInode(state, hdr.nodeid);
+  const abs = await absPathForTraversal(state, entry);
+  // O_RDONLY | O_DIRECTORY isn't portable through Node's fs API, but
+  // opening a dir with plain O_RDONLY works on both Linux and darwin
+  // for fsync purposes (the open succeeds; only read/write would fail).
+  const dirFh = await fsOpen(abs, fsConstants.O_RDONLY);
+  try {
+    await dirFh.sync();
+  } finally {
+    await dirFh.close().catch(() => {});
+  }
+  return buildErrorResponse(hdr.unique, 0);
+}
+
+async function onFallocate(
+  hdr: FuseInHeader,
+  msg: Uint8Array,
+  state: ServerState,
+): Promise<Uint8Array> {
+  // fuse_fallocate_in: { fh, offset, length, mode, padding }
+  if (state.mode === "ro") {
+    return buildErrorResponse(hdr.unique, -ERRNO.EROFS);
+  }
+  const req = readFallocateIn(payloadOf(msg));
+  const handle = state.handles.get(req.fh);
+  if (!handle || handle.kind !== "file") {
+    return buildErrorResponse(hdr.unique, -ERRNO.EBADF);
+  }
+  // We can satisfy mode=0 (preallocate-or-extend) and KEEP_SIZE
+  // (best-effort no-op — the data area reads as zero anyway). Real
+  // posix_fallocate isn't exposed by Node, and the hole-punch /
+  // range-collapse / zero-range / insert-range modes need ext4-class
+  // syscalls we'd have to FFI to. ENOSYS for those tells the guest
+  // to fall back to a userspace write loop.
+  const unsupported =
+    FALLOC_FL.PUNCH_HOLE | FALLOC_FL.COLLAPSE_RANGE | FALLOC_FL.ZERO_RANGE | FALLOC_FL.INSERT_RANGE;
+  if (req.mode & unsupported) {
+    return buildErrorResponse(hdr.unique, -ERRNO.ENOSYS);
+  }
+  if (!(req.mode & FALLOC_FL.KEEP_SIZE)) {
+    // Default mode: ensure the file is at least offset+length bytes.
+    // truncate-up is the portable approximation; on Linux ext4/xfs it
+    // does extend the i_size and reserve no blocks (sparse), which is
+    // the documented POSIX behaviour anyway. Callers that need true
+    // physical allocation get the same as posix_fallocate sees on a
+    // filesystem without fallocate support — a zero-filled write
+    // would be the only way, and it's prohibitively expensive.
+    const target = Number(req.offset + req.length);
+    const st = await handle.fh.stat();
+    if (target > st.size) {
+      await handle.fh.truncate(target);
+    }
+  }
+  // KEEP_SIZE-with-mode=KEEP_SIZE is a hint; no-op success is correct.
+  return buildErrorResponse(hdr.unique, 0);
+}
+
+async function onLseek(
+  hdr: FuseInHeader,
+  msg: Uint8Array,
+  state: ServerState,
+): Promise<Uint8Array> {
+  // fuse_lseek_in: { fh, offset, whence, padding } → fuse_lseek_out:
+  // { offset }. FUSE READ/WRITE are pread/pwrite, so we never keep
+  // per-fd file position state — SEEK_CUR resolves to 0. SEEK_SET
+  // and SEEK_END are trivial; SEEK_HOLE/SEEK_DATA need
+  // filesystem-specific sparse-aware lookups we can't reach from Node.
+  const req = readLseekIn(payloadOf(msg));
+  const handle = state.handles.get(req.fh);
+  if (!handle || handle.kind !== "file") {
+    return buildErrorResponse(hdr.unique, -ERRNO.EBADF);
+  }
+  let resolved: bigint;
+  switch (req.whence) {
+    case SEEK.SET:
+      resolved = req.offset;
+      break;
+    case SEEK.CUR:
+      // No tracked position — kernel callers using SEEK_CUR through
+      // FUSE are exotic; returning the offset they passed in keeps
+      // POSIX semantics consistent enough for the common case of
+      // SEEK_CUR with offset 0 (== "where am I?").
+      resolved = req.offset;
+      break;
+    case SEEK.END: {
+      const st = await handle.fh.stat();
+      resolved = BigInt(st.size) + req.offset;
+      break;
+    }
+    case SEEK.HOLE:
+    case SEEK.DATA:
+      // Linux-only and filesystem-specific. Tell the guest we don't
+      // know — they fall back to treating the whole file as data,
+      // which is always correct (just not sparse-optimal).
+      return buildErrorResponse(hdr.unique, -ERRNO.ENOSYS);
+    default:
+      return buildErrorResponse(hdr.unique, -ERRNO.EINVAL);
+  }
+  if (resolved < 0n) {
+    return buildErrorResponse(hdr.unique, -ERRNO.EINVAL);
+  }
+  return buildResponse(hdr.unique, buildLseekOut({ offset: resolved }));
+}
+
+const COPY_FILE_RANGE_CHUNK = 1 << 20; // 1 MiB
+
+async function onCopyFileRange(
+  hdr: FuseInHeader,
+  msg: Uint8Array,
+  state: ServerState,
+): Promise<Uint8Array> {
+  // fuse_copy_file_range_in: { fh_in, off_in, nodeid_out, fh_out,
+  // off_out, len, flags }. Userspace loop because Node has no
+  // copy_file_range(2) binding — fine, the kernel-side fast path is
+  // only an optimisation, not a correctness requirement.
+  if (state.mode === "ro") {
+    return buildErrorResponse(hdr.unique, -ERRNO.EROFS);
+  }
+  const req = readCopyFileRangeIn(payloadOf(msg));
+  if (req.flags !== 0n) {
+    // The Linux man page reserves the flags field for future use;
+    // any non-zero value today is undefined. Be conservative.
+    return buildErrorResponse(hdr.unique, -ERRNO.EINVAL);
+  }
+  const src = state.handles.get(req.fh_in);
+  const dst = state.handles.get(req.fh_out);
+  if (!src || src.kind !== "file" || !dst || dst.kind !== "file") {
+    return buildErrorResponse(hdr.unique, -ERRNO.EBADF);
+  }
+  let copied = 0;
+  let srcOff = Number(req.off_in);
+  let dstOff = Number(req.off_out);
+  const total = Number(req.len);
+  const buf = Buffer.allocUnsafe(Math.min(total, COPY_FILE_RANGE_CHUNK));
+  while (copied < total) {
+    const want = Math.min(total - copied, buf.length);
+    const { bytesRead } = await src.fh.read(buf, 0, want, srcOff);
+    if (bytesRead === 0) {
+      break; // EOF on src — short copy, return what we got
+    }
+    const { bytesWritten } = await dst.fh.write(buf, 0, bytesRead, dstOff);
+    copied += bytesWritten;
+    srcOff += bytesRead;
+    dstOff += bytesWritten;
+    if (bytesWritten < bytesRead) {
+      // Disk full or similar partial write — stop here; the caller
+      // will see the short count and decide.
+      break;
+    }
+  }
+  return buildResponse(hdr.unique, buildWriteOut({ size: copied }));
 }
 
 // --- internal helpers ----------------------------------------------------
@@ -1180,6 +1442,11 @@ function mapErrorToErrno(err: unknown): number {
   const code = (err as NodeJS.ErrnoException | null)?.code;
   if (!code) {
     return -ERRNO.EIO;
+  }
+  // libuv sometimes surfaces EOPNOTSUPP; Linux defines it as a synonym
+  // of ENOTSUP. Normalise so callers don't need to care.
+  if (code === "EOPNOTSUPP") {
+    return -ERRNO.ENOTSUP;
   }
   const key = code as keyof typeof ERRNO;
   if (key in ERRNO) {

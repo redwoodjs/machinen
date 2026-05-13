@@ -19,6 +19,7 @@ import {
   rmSync,
   statSync,
   symlinkSync,
+  utimesSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -486,15 +487,11 @@ const UNIMPLEMENTED_OPS = [
   { name: "GETXATTR", op: 22 },
   { name: "LISTXATTR", op: 23 },
   { name: "REMOVEXATTR", op: 24 },
-  { name: "FSYNCDIR", op: 30 },
   { name: "GETLK", op: 31 },
   { name: "SETLK", op: 32 },
   { name: "SETLKW", op: 33 },
-  { name: "FALLOCATE", op: 43 },
   { name: "READDIRPLUS", op: 44 },
   { name: "RENAME2", op: 45 },
-  { name: "LSEEK", op: 46 },
-  { name: "COPY_FILE_RANGE", op: 47 },
 ] as const;
 
 // Tight enough to flag a wedge but loose enough not to flake on a busy
@@ -605,6 +602,161 @@ describe("live mount server — defined-op coverage (#165)", () => {
     });
   });
 
+  // ---------------- FSYNCDIR (op 30) ----------------
+  // Per CLAUDE.md: happy / EBADF / :ro-allowed / wedge guard.
+
+  it("FSYNCDIR on an open dir handle returns success", async () => {
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const open = await conn.request(FUSE_OP.OPENDIR, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: u32u32(0, 0),
+      });
+      const fh = new DataView(
+        open.payload.buffer,
+        open.payload.byteOffset,
+        open.payload.length,
+      ).getBigUint64(0, true);
+      // fuse_fsync_in shared layout: u64 fh + u32 fsync_flags + u32 pad
+      const buf = new Uint8Array(16);
+      new DataView(buf.buffer).setBigUint64(0, fh, true);
+      const reply = await raceWithDeadline(
+        conn.request(FUSE_OP.FSYNCDIR, { unique: 3n, nodeid: 1n, payload: buf }),
+        "FSYNCDIR",
+      );
+      expect(reply.header.error).toBe(0);
+    });
+  });
+
+  it("FSYNCDIR with an unknown fh returns EBADF", async () => {
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const buf = new Uint8Array(16);
+      new DataView(buf.buffer).setBigUint64(0, 9_999n, true);
+      const reply = await raceWithDeadline(
+        conn.request(FUSE_OP.FSYNCDIR, { unique: 2n, nodeid: 1n, payload: buf }),
+        "FSYNCDIR bad fh",
+      );
+      expect(reply.header.error).toBe(-9); // -EBADF
+    });
+  });
+
+  // ---------------- LSEEK (op 46) ----------------
+
+  it("LSEEK SEEK_END returns the file size", async () => {
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const lookup = await conn.request(FUSE_OP.LOOKUP, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: nameBuf("hello.txt"),
+      });
+      const ino = bigintFromEntry(lookup.payload);
+      const open = await conn.request(FUSE_OP.OPEN, {
+        unique: 3n,
+        nodeid: ino,
+        payload: u32u32(0, 0),
+      });
+      const fh = new DataView(
+        open.payload.buffer,
+        open.payload.byteOffset,
+        open.payload.length,
+      ).getBigUint64(0, true);
+      const reply = await raceWithDeadline(
+        conn.request(FUSE_OP.LSEEK, {
+          unique: 4n,
+          nodeid: ino,
+          payload: buildLseekIn({ fh, offset: 0n, whence: 2 /* SEEK_END */ }),
+        }),
+        "LSEEK end",
+      );
+      expect(reply.header.error).toBe(0);
+      // fuse_lseek_out: u64 offset
+      const offset = new DataView(reply.payload.buffer, reply.payload.byteOffset, 8).getBigUint64(
+        0,
+        true,
+      );
+      expect(offset).toBe(6n); // "world\n"
+    });
+  });
+
+  it("LSEEK with bogus fh returns EBADF", async () => {
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const reply = await raceWithDeadline(
+        conn.request(FUSE_OP.LSEEK, {
+          unique: 2n,
+          nodeid: 1n,
+          payload: buildLseekIn({ fh: 9_999n, offset: 0n, whence: 0 }),
+        }),
+        "LSEEK bad fh",
+      );
+      expect(reply.header.error).toBe(-9); // -EBADF
+    });
+  });
+
+  it("LSEEK SEEK_HOLE returns ENOSYS (graceful fallback)", async () => {
+    // SEEK_HOLE / SEEK_DATA need sparse-aware filesystem support we
+    // can't reach from Node. Returning ENOSYS — *not* EIO — lets
+    // guest userspace fall back to treating the whole file as data,
+    // which is always correct.
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const lookup = await conn.request(FUSE_OP.LOOKUP, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: nameBuf("hello.txt"),
+      });
+      const ino = bigintFromEntry(lookup.payload);
+      const open = await conn.request(FUSE_OP.OPEN, {
+        unique: 3n,
+        nodeid: ino,
+        payload: u32u32(0, 0),
+      });
+      const fh = new DataView(
+        open.payload.buffer,
+        open.payload.byteOffset,
+        open.payload.length,
+      ).getBigUint64(0, true);
+      const reply = await raceWithDeadline(
+        conn.request(FUSE_OP.LSEEK, {
+          unique: 4n,
+          nodeid: ino,
+          payload: buildLseekIn({ fh, offset: 0n, whence: 4 /* SEEK_HOLE */ }),
+        }),
+        "LSEEK hole",
+      );
+      expect(reply.header.error).toBe(-38); // -ENOSYS
+    });
+  });
+
+  it("FSYNCDIR is allowed in :ro mode (sync is a read-side guarantee)", async () => {
+    // The default fixture is :ro. Sync still has to succeed — it's the
+    // durability flush of already-committed reads/writes, not itself
+    // a write op. Mirrors how onFsync omits the EROFS gate.
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const open = await conn.request(FUSE_OP.OPENDIR, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: u32u32(0, 0),
+      });
+      const fh = new DataView(
+        open.payload.buffer,
+        open.payload.byteOffset,
+        open.payload.length,
+      ).getBigUint64(0, true);
+      const buf = new Uint8Array(16);
+      new DataView(buf.buffer).setBigUint64(0, fh, true);
+      const reply = await raceWithDeadline(
+        conn.request(FUSE_OP.FSYNCDIR, { unique: 3n, nodeid: 1n, payload: buf }),
+        "FSYNCDIR ro",
+      );
+      expect(reply.header.error).toBe(0); // NOT -EROFS
+    });
+  });
+
   it("INTERRUPT yields no reply at all (silent op)", async () => {
     // FUSE_INTERRUPT MUST never be answered — the kernel uses it as a
     // unidirectional signal. If we reply, the kernel mismatches `unique`
@@ -685,6 +837,61 @@ describe("live mount server — :ro mounts reject mutations", () => {
         payload: twoNulStrings("new-link", "target"),
       });
       expect(reply.header.error).toBe(-30);
+    });
+  });
+
+  it("FALLOCATE returns EROFS in :ro mode", async () => {
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const reply = await conn.request(FUSE_OP.FALLOCATE, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: buildFallocateIn({ fh: 1n, offset: 0n, length: 16n, mode: 0 }),
+      });
+      expect(reply.header.error).toBe(-30); // -EROFS
+    });
+  });
+
+  it("COPY_FILE_RANGE returns EROFS in :ro mode", async () => {
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const reply = await conn.request(FUSE_OP.COPY_FILE_RANGE, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: buildCopyFileRangeIn({
+          fhIn: 1n,
+          offIn: 0n,
+          nodeidOut: 1n,
+          fhOut: 1n,
+          offOut: 0n,
+          len: 4n,
+          flags: 0n,
+        }),
+      });
+      expect(reply.header.error).toBe(-30); // -EROFS
+    });
+  });
+
+  it("SETATTR mtime on a symlink returns EROFS in :ro mode (#317)", async () => {
+    // The :ro fixture already has link-inside → "sub". SETATTR on it
+    // must EROFS before we ever touch the host fs.
+    await withConnection(async (conn) => {
+      await doInit(conn);
+      const lookup = await conn.request(FUSE_OP.LOOKUP, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: nameBuf("link-inside"),
+      });
+      const linkIno = bigintFromEntry(lookup.payload);
+      const linkMtimeBefore = lstatSync(join(root, "link-inside")).mtimeMs;
+      const reply = await conn.request(FUSE_OP.SETATTR, {
+        unique: 3n,
+        nodeid: linkIno,
+        payload: buildSetattrIn({ valid: 1 << 5 /* FATTR_MTIME */, mtime: 1_700_000_000n }),
+      });
+      expect(reply.header.error).toBe(-30); // -EROFS
+      // Host link untouched.
+      expect(lstatSync(join(root, "link-inside")).mtimeMs).toBe(linkMtimeBefore);
     });
   });
 
@@ -893,6 +1100,136 @@ describe("live mount server — :rw write-through", () => {
     });
   });
 
+  // ---------------- SETATTR on symlinks (#317) ----------------
+  //
+  // Symptom: `tar -xzf` of any archive with symlinks fails with
+  // "Input/output error" on `lutime` / `lchown` because the server
+  // tries to realpath the symlink's basename (dangling mid-extract)
+  // and uses path-following variants that update the target instead
+  // of the link.
+  //
+  // Per CLAUDE.md FUSE-op rules: happy path, error path, :ro gate,
+  // and a wedge guard (raceWithDeadline) on the mutating operations.
+
+  it("SETATTR FATTR_MTIME on a symlink updates the link, not the target (#317)", async () => {
+    // Symlink → existing.txt. Set the link's mtime; the target's mtime
+    // must stay at its original value (proves we used lutimes, not
+    // utimes which would have followed the link).
+    symlinkSync("existing.txt", join(rwRoot, "link-to-existing"));
+    // Pin the target's mtime to a recognisable epoch so we can detect
+    // accidental writes through the link.
+    const targetMtime = new Date("2020-01-01T00:00:00Z");
+    utimesSync(join(rwRoot, "existing.txt"), targetMtime, targetMtime);
+    const linkMtimeOriginal = lstatSync(join(rwRoot, "link-to-existing")).mtimeMs;
+
+    await rwConn(async (conn) => {
+      await doInit(conn);
+      const lookup = await conn.request(FUSE_OP.LOOKUP, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: nameBuf("link-to-existing"),
+      });
+      const linkIno = bigintFromEntry(lookup.payload);
+      const newMtime = 1_700_000_000n; // 2023-11-14
+      const reply = await raceWithDeadline(
+        conn.request(FUSE_OP.SETATTR, {
+          unique: 3n,
+          nodeid: linkIno,
+          payload: buildSetattrIn({ valid: 1 << 5 /* FATTR_MTIME */, mtime: newMtime }),
+        }),
+        "SETATTR mtime on symlink",
+      );
+      expect(reply.header.error).toBe(0);
+    });
+
+    // Target's mtime is untouched (lutimes didn't follow the link).
+    const targetAfter = statSync(join(rwRoot, "existing.txt"));
+    expect(Math.floor(targetAfter.mtimeMs / 1000)).toBe(targetMtime.getTime() / 1000);
+
+    // Link's own mtime moved (best-effort — some filesystems coarsen
+    // symlink-mtime precision, but the value must have changed off the
+    // pre-test reading).
+    const linkAfter = lstatSync(join(rwRoot, "link-to-existing"));
+    expect(linkAfter.mtimeMs).not.toBe(linkMtimeOriginal);
+  });
+
+  it("SETATTR on a symlink with a dangling target succeeds — no EIO (#317)", async () => {
+    // The tar-extracts-symlinks-first repro: the link points at a
+    // path that doesn't exist yet, then tar lutimes/lchowns it.
+    // Pre-#317, absPathForTraversal would realpath and ENOENT before
+    // the handler even ran — and the surfaced errno was EIO from
+    // libuv on some hosts. Now we use absPathForLstat + lutimes so
+    // the missing target never matters.
+    symlinkSync("does-not-exist-yet.txt", join(rwRoot, "dangling-link"));
+
+    await rwConn(async (conn) => {
+      await doInit(conn);
+      const lookup = await conn.request(FUSE_OP.LOOKUP, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: nameBuf("dangling-link"),
+      });
+      const linkIno = bigintFromEntry(lookup.payload);
+
+      // lutimes on the dangling link
+      const utimeReply = await raceWithDeadline(
+        conn.request(FUSE_OP.SETATTR, {
+          unique: 3n,
+          nodeid: linkIno,
+          payload: buildSetattrIn({
+            valid: (1 << 4) | (1 << 5) /* FATTR_ATIME | FATTR_MTIME */,
+            atime: 1_700_000_000n,
+            mtime: 1_700_000_000n,
+          }),
+        }),
+        "SETATTR utimes on dangling symlink",
+      );
+      expect(utimeReply.header.error).toBe(0);
+
+      // lchown on the dangling link
+      const chownReply = await raceWithDeadline(
+        conn.request(FUSE_OP.SETATTR, {
+          unique: 4n,
+          nodeid: linkIno,
+          payload: buildSetattrIn({
+            valid: (1 << 1) | (1 << 2) /* FATTR_UID | FATTR_GID */,
+            uid: 1001,
+            gid: 1001,
+          }),
+        }),
+        "SETATTR chown on dangling symlink",
+      );
+      expect(chownReply.header.error).toBe(0);
+    });
+  });
+
+  it("SETATTR FATTR_SIZE on a symlink rejects with EINVAL (#317)", async () => {
+    // Truncating a symlink is undefined; never silently chase the
+    // target. The kernel shouldn't issue this for a known S_IFLNK
+    // inode but a malformed userspace request could.
+    symlinkSync("existing.txt", join(rwRoot, "size-target-link"));
+    await rwConn(async (conn) => {
+      await doInit(conn);
+      const lookup = await conn.request(FUSE_OP.LOOKUP, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: nameBuf("size-target-link"),
+      });
+      const linkIno = bigintFromEntry(lookup.payload);
+      const reply = await raceWithDeadline(
+        conn.request(FUSE_OP.SETATTR, {
+          unique: 3n,
+          nodeid: linkIno,
+          payload: buildSetattrIn({ valid: 1 << 3 /* FATTR_SIZE */, size: 0n }),
+        }),
+        "SETATTR size on symlink",
+      );
+      expect(reply.header.error).toBe(-22); // -EINVAL
+      // Target file is unchanged in size — proves we didn't follow.
+      expect(readFileSync(join(rwRoot, "existing.txt"), "utf8")).toBe("old\n");
+    });
+  });
+
   it("SYMLINK creates a symlink with the exact target bytes (#163)", async () => {
     // pnpm install builds node_modules/.pnpm out of relative symlinks
     // like "../../ms@2.1.3/node_modules/ms". Critical: target is
@@ -1020,6 +1357,222 @@ describe("live mount server — :rw write-through", () => {
           name: "../escape.txt",
         }),
       });
+      expect(reply.header.error).toBe(-22); // -EINVAL
+    });
+  });
+
+  // ---------------- FALLOCATE (op 43) ----------------
+
+  it("FALLOCATE mode=0 extends the file to offset+length", async () => {
+    await rwConn(async (conn) => {
+      await doInit(conn);
+      const lookup = await conn.request(FUSE_OP.LOOKUP, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: nameBuf("existing.txt"),
+      });
+      const ino = bigintFromEntry(lookup.payload);
+      const open = await conn.request(FUSE_OP.OPEN, {
+        unique: 3n,
+        nodeid: ino,
+        payload: u32u32(2 /* O_RDWR */, 0),
+      });
+      const fh = new DataView(
+        open.payload.buffer,
+        open.payload.byteOffset,
+        open.payload.length,
+      ).getBigUint64(0, true);
+      const reply = await raceWithDeadline(
+        conn.request(FUSE_OP.FALLOCATE, {
+          unique: 4n,
+          nodeid: ino,
+          payload: buildFallocateIn({ fh, offset: 0n, length: 1024n, mode: 0 }),
+        }),
+        "FALLOCATE extend",
+      );
+      expect(reply.header.error).toBe(0);
+      expect(statSync(join(rwRoot, "existing.txt")).size).toBe(1024);
+    });
+  });
+
+  it("FALLOCATE with PUNCH_HOLE returns ENOSYS (graceful)", async () => {
+    await rwConn(async (conn) => {
+      await doInit(conn);
+      const lookup = await conn.request(FUSE_OP.LOOKUP, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: nameBuf("existing.txt"),
+      });
+      const ino = bigintFromEntry(lookup.payload);
+      const open = await conn.request(FUSE_OP.OPEN, {
+        unique: 3n,
+        nodeid: ino,
+        payload: u32u32(2, 0),
+      });
+      const fh = new DataView(
+        open.payload.buffer,
+        open.payload.byteOffset,
+        open.payload.length,
+      ).getBigUint64(0, true);
+      const reply = await raceWithDeadline(
+        conn.request(FUSE_OP.FALLOCATE, {
+          unique: 4n,
+          nodeid: ino,
+          payload: buildFallocateIn({
+            fh,
+            offset: 0n,
+            length: 16n,
+            mode: 0x01 | 0x02 /* KEEP_SIZE | PUNCH_HOLE */,
+          }),
+        }),
+        "FALLOCATE punch",
+      );
+      expect(reply.header.error).toBe(-38); // -ENOSYS
+    });
+  });
+
+  it("FALLOCATE with bogus fh returns EBADF", async () => {
+    await rwConn(async (conn) => {
+      await doInit(conn);
+      const reply = await raceWithDeadline(
+        conn.request(FUSE_OP.FALLOCATE, {
+          unique: 2n,
+          nodeid: 1n,
+          payload: buildFallocateIn({ fh: 9_999n, offset: 0n, length: 16n, mode: 0 }),
+        }),
+        "FALLOCATE bad fh",
+      );
+      expect(reply.header.error).toBe(-9); // -EBADF
+    });
+  });
+
+  // ---------------- COPY_FILE_RANGE (op 47) ----------------
+
+  it("COPY_FILE_RANGE copies bytes from src fh to dst fh", async () => {
+    await rwConn(async (conn) => {
+      await doInit(conn);
+      // src = existing.txt (content "old\n"). dst = new file
+      // created via CREATE.
+      const srcLookup = await conn.request(FUSE_OP.LOOKUP, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: nameBuf("existing.txt"),
+      });
+      const srcIno = bigintFromEntry(srcLookup.payload);
+      const srcOpen = await conn.request(FUSE_OP.OPEN, {
+        unique: 3n,
+        nodeid: srcIno,
+        payload: u32u32(0, 0),
+      });
+      const srcFh = new DataView(
+        srcOpen.payload.buffer,
+        srcOpen.payload.byteOffset,
+        srcOpen.payload.length,
+      ).getBigUint64(0, true);
+
+      const dstCreate = await conn.request(FUSE_OP.CREATE, {
+        unique: 4n,
+        nodeid: 1n,
+        payload: buildCreateInWithName({ flags: 0o102, mode: 0o644, name: "copied.txt" }),
+      });
+      const dstIno = bigintFromEntry(dstCreate.payload);
+      const dstFh = new DataView(
+        dstCreate.payload.buffer,
+        dstCreate.payload.byteOffset + 128,
+        16,
+      ).getBigUint64(0, true);
+
+      const reply = await raceWithDeadline(
+        conn.request(FUSE_OP.COPY_FILE_RANGE, {
+          unique: 5n,
+          nodeid: srcIno,
+          payload: buildCopyFileRangeIn({
+            fhIn: srcFh,
+            offIn: 0n,
+            nodeidOut: dstIno,
+            fhOut: dstFh,
+            offOut: 0n,
+            len: 4n,
+            flags: 0n,
+          }),
+        }),
+        "COPY_FILE_RANGE",
+      );
+      expect(reply.header.error).toBe(0);
+      // fuse_write_out: u32 size
+      const copied = new DataView(reply.payload.buffer, reply.payload.byteOffset, 4).getUint32(
+        0,
+        true,
+      );
+      expect(copied).toBe(4);
+      // Need to RELEASE the dst fh so the host flushes before we read.
+      await conn.request(FUSE_OP.RELEASE, {
+        unique: 6n,
+        nodeid: dstIno,
+        payload: buildReleaseIn({ fh: dstFh }),
+      });
+      expect(readFileSync(join(rwRoot, "copied.txt"), "utf8")).toBe("old\n");
+    });
+  });
+
+  it("COPY_FILE_RANGE with unknown dst fh returns EBADF", async () => {
+    await rwConn(async (conn) => {
+      await doInit(conn);
+      const lookup = await conn.request(FUSE_OP.LOOKUP, {
+        unique: 2n,
+        nodeid: 1n,
+        payload: nameBuf("existing.txt"),
+      });
+      const ino = bigintFromEntry(lookup.payload);
+      const open = await conn.request(FUSE_OP.OPEN, {
+        unique: 3n,
+        nodeid: ino,
+        payload: u32u32(0, 0),
+      });
+      const fh = new DataView(
+        open.payload.buffer,
+        open.payload.byteOffset,
+        open.payload.length,
+      ).getBigUint64(0, true);
+      const reply = await raceWithDeadline(
+        conn.request(FUSE_OP.COPY_FILE_RANGE, {
+          unique: 4n,
+          nodeid: ino,
+          payload: buildCopyFileRangeIn({
+            fhIn: fh,
+            offIn: 0n,
+            nodeidOut: 1n,
+            fhOut: 9_999n,
+            offOut: 0n,
+            len: 4n,
+            flags: 0n,
+          }),
+        }),
+        "COPY_FILE_RANGE bad fh",
+      );
+      expect(reply.header.error).toBe(-9); // -EBADF
+    });
+  });
+
+  it("COPY_FILE_RANGE with non-zero flags returns EINVAL", async () => {
+    await rwConn(async (conn) => {
+      await doInit(conn);
+      const reply = await raceWithDeadline(
+        conn.request(FUSE_OP.COPY_FILE_RANGE, {
+          unique: 2n,
+          nodeid: 1n,
+          payload: buildCopyFileRangeIn({
+            fhIn: 1n,
+            offIn: 0n,
+            nodeidOut: 1n,
+            fhOut: 1n,
+            offOut: 0n,
+            len: 4n,
+            flags: 1n /* reserved */,
+          }),
+        }),
+        "COPY_FILE_RANGE flags",
+      );
       expect(reply.header.error).toBe(-22); // -EINVAL
     });
   });
@@ -1185,6 +1738,104 @@ function buildCreateInWithName(opts: { flags: number; mode: number; name: string
   dv.setUint32(4, opts.mode, true);
   // umask + open_flags = 0
   buf.set(nameBytes, 16);
+  return buf;
+}
+
+function buildSetattrIn(opts: {
+  valid: number;
+  fh?: bigint;
+  size?: bigint;
+  atime?: bigint;
+  mtime?: bigint;
+  atimensec?: number;
+  mtimensec?: number;
+  mode?: number;
+  uid?: number;
+  gid?: number;
+}): Uint8Array {
+  // fuse_setattr_in layout (88 bytes). Field offsets from
+  // uapi/linux/fuse.h: valid(0), fh(8), size(16), lock_owner(24),
+  // atime(32), mtime(40), ctime(48), atimensec(56), mtimensec(60),
+  // ctimensec(64), mode(68), uid(76), gid(80).
+  const buf = new Uint8Array(88);
+  const dv = new DataView(buf.buffer);
+  dv.setUint32(0, opts.valid, true);
+  if (opts.fh !== undefined) {
+    dv.setBigUint64(8, opts.fh, true);
+  }
+  if (opts.size !== undefined) {
+    dv.setBigUint64(16, opts.size, true);
+  }
+  if (opts.atime !== undefined) {
+    dv.setBigUint64(32, opts.atime, true);
+  }
+  if (opts.mtime !== undefined) {
+    dv.setBigUint64(40, opts.mtime, true);
+  }
+  if (opts.atimensec !== undefined) {
+    dv.setUint32(56, opts.atimensec, true);
+  }
+  if (opts.mtimensec !== undefined) {
+    dv.setUint32(60, opts.mtimensec, true);
+  }
+  if (opts.mode !== undefined) {
+    dv.setUint32(68, opts.mode, true);
+  }
+  if (opts.uid !== undefined) {
+    dv.setUint32(76, opts.uid, true);
+  }
+  if (opts.gid !== undefined) {
+    dv.setUint32(80, opts.gid, true);
+  }
+  return buf;
+}
+
+function buildLseekIn(opts: { fh: bigint; offset: bigint; whence: number }): Uint8Array {
+  // fuse_lseek_in: u64 fh + u64 offset + u32 whence + u32 padding = 24
+  const buf = new Uint8Array(24);
+  const dv = new DataView(buf.buffer);
+  dv.setBigUint64(0, opts.fh, true);
+  dv.setBigUint64(8, opts.offset, true);
+  dv.setUint32(16, opts.whence, true);
+  return buf;
+}
+
+function buildFallocateIn(opts: {
+  fh: bigint;
+  offset: bigint;
+  length: bigint;
+  mode: number;
+}): Uint8Array {
+  // fuse_fallocate_in: u64 fh + u64 offset + u64 length + u32 mode +
+  // u32 padding = 32
+  const buf = new Uint8Array(32);
+  const dv = new DataView(buf.buffer);
+  dv.setBigUint64(0, opts.fh, true);
+  dv.setBigUint64(8, opts.offset, true);
+  dv.setBigUint64(16, opts.length, true);
+  dv.setUint32(24, opts.mode, true);
+  return buf;
+}
+
+function buildCopyFileRangeIn(opts: {
+  fhIn: bigint;
+  offIn: bigint;
+  nodeidOut: bigint;
+  fhOut: bigint;
+  offOut: bigint;
+  len: bigint;
+  flags: bigint;
+}): Uint8Array {
+  // fuse_copy_file_range_in: 7 u64s = 56 bytes
+  const buf = new Uint8Array(56);
+  const dv = new DataView(buf.buffer);
+  dv.setBigUint64(0, opts.fhIn, true);
+  dv.setBigUint64(8, opts.offIn, true);
+  dv.setBigUint64(16, opts.nodeidOut, true);
+  dv.setBigUint64(24, opts.fhOut, true);
+  dv.setBigUint64(32, opts.offOut, true);
+  dv.setBigUint64(40, opts.len, true);
+  dv.setBigUint64(48, opts.flags, true);
   return buf;
 }
 
