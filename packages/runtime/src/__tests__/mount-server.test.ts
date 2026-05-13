@@ -2209,9 +2209,9 @@ describe.skipIf(!HOST_HAS_XATTR_TOOLS)("live mount server — xattr ops (#321)",
       );
       expect(probe.header.error).toBe(0);
       expect(probe.payload.length).toBe(8);
-      expect(new DataView(probe.payload.buffer, probe.payload.byteOffset, 8).getUint32(0, true)).toBe(
-        "hello world".length,
-      );
+      expect(
+        new DataView(probe.payload.buffer, probe.payload.byteOffset, 8).getUint32(0, true),
+      ).toBe("hello world".length);
 
       // Fetch (size=N): expect the raw value bytes.
       const fetch = await raceWithDeadline(
@@ -2699,7 +2699,11 @@ function buildCopyFileRangeIn(opts: {
   return buf;
 }
 
-function buildSetxattrIn(opts: { name: string; value: string | Uint8Array; flags: number }): Uint8Array {
+function buildSetxattrIn(opts: {
+  name: string;
+  value: string | Uint8Array;
+  flags: number;
+}): Uint8Array {
   // fuse_setxattr_in: u32 size, u32 flags. Then NUL-terminated name,
   // then the raw value bytes (no terminator).
   const valueBytes =

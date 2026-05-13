@@ -1362,7 +1362,12 @@ interface XattrError {
 }
 
 function isXattrError(e: unknown): e is XattrError {
-  return typeof e === "object" && e !== null && "errno" in e && typeof (e as XattrError).errno === "number";
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    "errno" in e &&
+    typeof (e as XattrError).errno === "number"
+  );
 }
 
 /**
@@ -1447,11 +1452,7 @@ async function hostXattrExists(absPath: string, name: string): Promise<boolean> 
   return (await hostGetxattr(absPath, name)) !== null;
 }
 
-async function hostSetxattr(
-  absPath: string,
-  name: string,
-  value: Uint8Array,
-): Promise<void> {
+async function hostSetxattr(absPath: string, name: string, value: Uint8Array): Promise<void> {
   try {
     if (IS_DARWIN) {
       // -wx accepts the value as a hex string. Pair with -s to act on
@@ -1464,10 +1465,7 @@ async function hostSetxattr(
     // which is the safe channel for binary data. The base64 alphabet is
     // ASCII so argv passes it through verbatim.
     const b64 = Buffer.from(value.buffer, value.byteOffset, value.length).toString("base64");
-    await execFile(
-      "setfattr",
-      ["--no-dereference", "-n", name, "-v", `0s${b64}`, absPath],
-    );
+    await execFile("setfattr", ["--no-dereference", "-n", name, "-v", `0s${b64}`, absPath]);
   } catch (err) {
     throw xattrErrorFromExec(err);
   }
@@ -1565,10 +1563,10 @@ async function onSetxattr(
   // race against concurrent host-side writers, but inside a single
   // mount the FUSE channel serialises every op so the only window is
   // direct host-fs activity outside the guest's view — acceptable.
-  if ((req.flags & XATTR.CREATE) && (await hostXattrExists(abs, name))) {
+  if (req.flags & XATTR.CREATE && (await hostXattrExists(abs, name))) {
     return buildErrorResponse(hdr.unique, -ERRNO.EEXIST);
   }
-  if ((req.flags & XATTR.REPLACE) && !(await hostXattrExists(abs, name))) {
+  if (req.flags & XATTR.REPLACE && !(await hostXattrExists(abs, name))) {
     return buildErrorResponse(hdr.unique, -ERRNO.ENODATA);
   }
   try {
