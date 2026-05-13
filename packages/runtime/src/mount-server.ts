@@ -16,6 +16,7 @@
 // mount root. See mount-resolver.ts.
 
 import { createServer, type Server, type Socket } from "node:net";
+import { execFile as execFileCb } from "node:child_process";
 import {
   chmod,
   lchmod,
@@ -40,6 +41,7 @@ import type { FileHandle } from "node:fs/promises";
 import { constants as fsConstants } from "node:fs";
 import type { Stats } from "node:fs";
 import { join } from "node:path";
+import { promisify } from "node:util";
 import debug from "debug";
 import { MountError, isMachinenError } from "./errors.ts";
 import { resolveUnderRoot } from "./mount-resolver.ts";
@@ -53,14 +55,17 @@ import {
   FUSE_KERNEL_MINOR_VERSION,
   FUSE_KERNEL_VERSION,
   FUSE_OP,
+  FUSE_SETXATTR_IN_SIZE,
   FUSE_WRITE_IN_SIZE,
   SEEK,
+  XATTR,
   type FuseInHeader,
   buildAttrOut,
   buildCreateOut,
   buildDirent,
   buildEntryOut,
   buildErrorResponse,
+  buildGetxattrOut,
   buildInitOut,
   buildKstatfs,
   buildLkOut,
@@ -74,6 +79,7 @@ import {
   readCreateIn,
   readFallocateIn,
   readForgetIn,
+  readGetxattrIn,
   readInHeader,
   readInitIn,
   readLinkIn,
@@ -85,8 +91,11 @@ import {
   readReleaseIn,
   readRenameIn,
   readSetattrIn,
+  readSetxattrIn,
   readWriteIn,
 } from "./mount-fuse-protocol.ts";
+
+const execFile = promisify(execFileCb);
 
 const log = debug("machinen:mount-server");
 
@@ -105,9 +114,14 @@ const ERRNO = {
   ENOTDIR: 20,
   EISDIR: 21,
   EINVAL: 22,
+  ERANGE: 34,
   EROFS: 30,
   ENOSYS: 38,
   ENOTEMPTY: 39,
+  // "Attribute not found" — Linux errno for getxattr/removexattr on a
+  // name that doesn't exist. macOS calls the same condition ENOATTR
+  // (errno 93) and our shell-out translates it to ENODATA on the wire.
+  ENODATA: 61,
   // ENOTSUP / EOPNOTSUPP share value 95 on Linux. Some macOS-host
   // ops (lchmod on filesystems without symlink-mode support, lutimes
   // on older APFS) throw ENOTSUP; pass it through verbatim so tar
@@ -440,6 +454,14 @@ async function handle(
       return await onLseek(hdr, msg, state);
     case FUSE_OP.COPY_FILE_RANGE:
       return await onCopyFileRange(hdr, msg, state);
+    case FUSE_OP.SETXATTR:
+      return await onSetxattr(hdr, msg, state);
+    case FUSE_OP.GETXATTR:
+      return await onGetxattr(hdr, msg, state);
+    case FUSE_OP.LISTXATTR:
+      return await onListxattr(hdr, msg, state);
+    case FUSE_OP.REMOVEXATTR:
+      return await onRemovexattr(hdr, msg, state);
     case FUSE_OP.GETLK:
       return onGetlk(hdr, msg, state);
     case FUSE_OP.SETLK:
@@ -1310,6 +1332,351 @@ async function onCopyFileRange(
     }
   }
   return buildResponse(hdr.unique, buildWriteOut({ size: copied }));
+}
+
+// --- extended attributes (#321) -----------------------------------------
+//
+// We shell out to `setfattr` / `getfattr` (Linux) or `xattr` (darwin) —
+// one subprocess per call. Per-op spawn cost is ~5–20 ms, which is fine
+// for the workloads the FUSE-over-vsock path was built for (apt installs
+// stamping file capabilities, occasional `setcap`, tar archives with
+// xattrs, infrequent SELinux relabels). It's painful for `rsync -X`'s
+// per-file listxattr / getxattr storm but still correct — a future
+// switch to a native binding can replace these internals without
+// changing the wire-side handlers below.
+//
+// Namespace handling: we pass names through verbatim, no translation.
+// On a Linux host the kernel polices `user.*` (unprivileged) vs
+// `security.*` / `trusted.*` (root-only), so a guest's `setcap` lands
+// as EPERM unless the host happens to be running as root — closer-to-
+// correct degradation than silent loss. On a darwin host there's no
+// namespace concept at all, so every name round-trips cleanly within
+// the mount, only invisible to Linux-specific host tools (`getcap` etc.)
+// which is the documented trade-off in issue #321.
+
+const IS_DARWIN = process.platform === "darwin";
+
+interface XattrError {
+  /** errno to send back on the wire (positive — caller negates). */
+  errno: number;
+}
+
+function isXattrError(e: unknown): e is XattrError {
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    "errno" in e &&
+    typeof (e as XattrError).errno === "number"
+  );
+}
+
+/**
+ * Decode the stderr of a failed `setfattr`/`getfattr`/`xattr` call into
+ * a wire errno. The tool exits 1 for every error class and stuffs the
+ * actual cause into a free-form message, so we pattern-match the
+ * canonical strings each tool prints.
+ *
+ * The default is EIO — anything we don't recognise becomes a hard error
+ * rather than a silent miss, since silently returning ENODATA on an
+ * unrecognised failure would let bugs hide.
+ */
+function decodeXattrStderr(stderr: string): number {
+  // "No such xattr" (darwin), "No such attribute" (Linux getfattr),
+  // "No data available" (Linux setfattr -x on missing attr).
+  if (/no such (xattr|attribute)|no data available/i.test(stderr)) {
+    return ERRNO.ENODATA;
+  }
+  if (/operation not permitted|permission denied/i.test(stderr)) {
+    return ERRNO.EACCES;
+  }
+  if (/not supported|operation not supported/i.test(stderr)) {
+    return ERRNO.ENOTSUP;
+  }
+  if (/file name too long|argument list too long/i.test(stderr)) {
+    return ERRNO.EINVAL;
+  }
+  return ERRNO.EIO;
+}
+
+/**
+ * Map a thrown `execFile` rejection to a wire errno. `code === "ENOENT"`
+ * (Node's spawn-time errno) means the host doesn't have the tool
+ * installed at all — `attr` on a Linux box, `xattr` on darwin (always
+ * present by default). Surface that as ENOTSUP rather than ENODATA so
+ * the guest knows the op didn't no-op silently.
+ */
+function xattrErrorFromExec(err: unknown): XattrError {
+  const e = err as { code?: string | number; stderr?: string | Buffer };
+  if (e.code === "ENOENT") {
+    return { errno: ERRNO.ENOTSUP };
+  }
+  const stderr = typeof e.stderr === "string" ? e.stderr : (e.stderr?.toString("utf8") ?? "");
+  return { errno: decodeXattrStderr(stderr) };
+}
+
+/**
+ * Fetch a single xattr value as a Buffer. Returns `null` when the
+ * attribute is absent — the caller distinguishes "absent → ENODATA"
+ * from "present but empty value → 0-byte Buffer".
+ */
+async function hostGetxattr(absPath: string, name: string): Promise<Buffer | null> {
+  try {
+    if (IS_DARWIN) {
+      // `xattr -p -s -x` prints the value as hex pairs (whitespace
+      // separated, may wrap). -s targets the symlink itself when the
+      // path is a link, mirroring `--no-dereference` on Linux. -x is
+      // mandatory for binary values; the default string-decode would
+      // mangle anything that isn't UTF-8.
+      const { stdout } = await execFile("xattr", ["-p", "-s", "-x", name, absPath], {
+        encoding: "utf8",
+      });
+      return Buffer.from(stdout.replace(/\s+/g, ""), "hex");
+    }
+    const { stdout } = await execFile(
+      "getfattr",
+      ["--no-dereference", "--absolute-names", "--only-values", "-n", name, absPath],
+      { encoding: "buffer" },
+    );
+    return stdout as Buffer;
+  } catch (err) {
+    const xe = xattrErrorFromExec(err);
+    if (xe.errno === ERRNO.ENODATA) {
+      return null;
+    }
+    throw xe;
+  }
+}
+
+/** Whether an xattr already exists. Used to enforce XATTR_CREATE/REPLACE. */
+async function hostXattrExists(absPath: string, name: string): Promise<boolean> {
+  return (await hostGetxattr(absPath, name)) !== null;
+}
+
+async function hostSetxattr(absPath: string, name: string, value: Uint8Array): Promise<void> {
+  try {
+    if (IS_DARWIN) {
+      // -wx accepts the value as a hex string. Pair with -s to act on
+      // the symlink itself.
+      const hex = Buffer.from(value.buffer, value.byteOffset, value.length).toString("hex");
+      await execFile("xattr", ["-w", "-s", "-x", name, hex, absPath]);
+      return;
+    }
+    // setfattr's `-v` recognises `0sBASE64` as a base64-encoded value,
+    // which is the safe channel for binary data. The base64 alphabet is
+    // ASCII so argv passes it through verbatim.
+    const b64 = Buffer.from(value.buffer, value.byteOffset, value.length).toString("base64");
+    await execFile("setfattr", ["--no-dereference", "-n", name, "-v", `0s${b64}`, absPath]);
+  } catch (err) {
+    throw xattrErrorFromExec(err);
+  }
+}
+
+async function hostListxattr(absPath: string): Promise<string[]> {
+  try {
+    if (IS_DARWIN) {
+      // `xattr -s` lists names, one per line. -s = symlink-itself.
+      const { stdout } = await execFile("xattr", ["-s", absPath], { encoding: "utf8" });
+      return stdout.split("\n").filter((n) => n.length > 0);
+    }
+    // getfattr's listing is verbose: a "# file: <path>" comment header,
+    // then one name per line, then a blank line. --match=. is a regex
+    // that matches every name (the default would skip names not in the
+    // `user.*` namespace). --no-dereference targets the link itself.
+    const { stdout } = await execFile(
+      "getfattr",
+      ["--no-dereference", "--absolute-names", "--match=.", absPath],
+      { encoding: "utf8" },
+    );
+    return stdout
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0 && !line.startsWith("#"));
+  } catch (err) {
+    const xe = xattrErrorFromExec(err);
+    // Linux getfattr exits 0 with empty output for "no attrs"; if we
+    // get ENODATA here it means the host considers the file absent.
+    if (xe.errno === ERRNO.ENODATA) {
+      return [];
+    }
+    throw xe;
+  }
+}
+
+async function hostRemovexattr(absPath: string, name: string): Promise<void> {
+  try {
+    if (IS_DARWIN) {
+      await execFile("xattr", ["-d", "-s", name, absPath]);
+      return;
+    }
+    await execFile("setfattr", ["--no-dereference", "-x", name, absPath]);
+  } catch (err) {
+    throw xattrErrorFromExec(err);
+  }
+}
+
+/**
+ * Wire-encoding for a LISTXATTR reply: every name followed by a NUL
+ * byte, concatenated. Matches the kernel's `listxattr(2)` ABI.
+ */
+function packListxattrNames(names: string[]): Uint8Array {
+  const encoded = names.map((n) => Buffer.from(`${n}\0`, "utf8"));
+  const total = encoded.reduce((sum, b) => sum + b.length, 0);
+  const out = new Uint8Array(total);
+  let cursor = 0;
+  for (const b of encoded) {
+    out.set(b, cursor);
+    cursor += b.length;
+  }
+  return out;
+}
+
+async function onSetxattr(
+  hdr: FuseInHeader,
+  msg: Uint8Array,
+  state: ServerState,
+): Promise<Uint8Array> {
+  if (state.mode === "ro") {
+    return buildErrorResponse(hdr.unique, -ERRNO.EROFS);
+  }
+  const body = payloadOf(msg);
+  const req = readSetxattrIn(body);
+  const after = body.subarray(FUSE_SETXATTR_IN_SIZE);
+  // Name is NUL-terminated; the value bytes (length = req.size) follow
+  // immediately after the terminator and are NOT NUL-terminated.
+  const nulAt = after.indexOf(0);
+  if (nulAt < 0) {
+    return buildErrorResponse(hdr.unique, -ERRNO.EINVAL);
+  }
+  const name = new TextDecoder("utf-8", { fatal: false }).decode(after.subarray(0, nulAt));
+  if (name === "" || name.length > 255) {
+    return buildErrorResponse(hdr.unique, -ERRNO.EINVAL);
+  }
+  const valueStart = nulAt + 1;
+  if (valueStart + req.size > after.length) {
+    return buildErrorResponse(hdr.unique, -ERRNO.EINVAL);
+  }
+  const value = after.subarray(valueStart, valueStart + req.size);
+  const entry = requireInode(state, hdr.nodeid);
+  const abs = await absPathForLstat(state, entry);
+  // XATTR_CREATE: fail with EEXIST when the attr already exists.
+  // XATTR_REPLACE: fail with ENODATA when it doesn't. Both pre-checks
+  // race against concurrent host-side writers, but inside a single
+  // mount the FUSE channel serialises every op so the only window is
+  // direct host-fs activity outside the guest's view — acceptable.
+  if (req.flags & XATTR.CREATE && (await hostXattrExists(abs, name))) {
+    return buildErrorResponse(hdr.unique, -ERRNO.EEXIST);
+  }
+  if (req.flags & XATTR.REPLACE && !(await hostXattrExists(abs, name))) {
+    return buildErrorResponse(hdr.unique, -ERRNO.ENODATA);
+  }
+  try {
+    await hostSetxattr(abs, name, value);
+  } catch (err) {
+    if (isXattrError(err)) {
+      return buildErrorResponse(hdr.unique, -err.errno);
+    }
+    throw err;
+  }
+  // SETXATTR reply is the bare success header — no payload.
+  return buildErrorResponse(hdr.unique, 0);
+}
+
+async function onGetxattr(
+  hdr: FuseInHeader,
+  msg: Uint8Array,
+  state: ServerState,
+): Promise<Uint8Array> {
+  const body = payloadOf(msg);
+  const req = readGetxattrIn(body);
+  const after = body.subarray(8);
+  const nulAt = after.indexOf(0);
+  if (nulAt < 0) {
+    return buildErrorResponse(hdr.unique, -ERRNO.EINVAL);
+  }
+  const name = new TextDecoder("utf-8", { fatal: false }).decode(after.subarray(0, nulAt));
+  if (name === "" || name.length > 255) {
+    return buildErrorResponse(hdr.unique, -ERRNO.EINVAL);
+  }
+  const entry = requireInode(state, hdr.nodeid);
+  const abs = await absPathForLstat(state, entry);
+  let value: Buffer | null;
+  try {
+    value = await hostGetxattr(abs, name);
+  } catch (err) {
+    if (isXattrError(err)) {
+      return buildErrorResponse(hdr.unique, -err.errno);
+    }
+    throw err;
+  }
+  if (value === null) {
+    return buildErrorResponse(hdr.unique, -ERRNO.ENODATA);
+  }
+  // Two reply forms. Probe (`size == 0`): caller wants the value's
+  // length so they can size a buffer — reply is `fuse_getxattr_out`.
+  // Fetch (`size > 0`): reply is the raw value bytes when it fits, or
+  // -ERANGE when the caller's buffer is too small.
+  if (req.size === 0) {
+    return buildResponse(hdr.unique, buildGetxattrOut(value.length));
+  }
+  if (value.length > req.size) {
+    return buildErrorResponse(hdr.unique, -ERRNO.ERANGE);
+  }
+  return buildResponse(hdr.unique, new Uint8Array(value.buffer, value.byteOffset, value.length));
+}
+
+async function onListxattr(
+  hdr: FuseInHeader,
+  msg: Uint8Array,
+  state: ServerState,
+): Promise<Uint8Array> {
+  const req = readGetxattrIn(payloadOf(msg));
+  const entry = requireInode(state, hdr.nodeid);
+  const abs = await absPathForLstat(state, entry);
+  let names: string[];
+  try {
+    names = await hostListxattr(abs);
+  } catch (err) {
+    if (isXattrError(err)) {
+      return buildErrorResponse(hdr.unique, -err.errno);
+    }
+    throw err;
+  }
+  const packed = packListxattrNames(names);
+  // Same probe/fetch dance as GETXATTR. The probe reply carries the
+  // packed total length; the fetch reply is the raw NUL-separated
+  // names buffer.
+  if (req.size === 0) {
+    return buildResponse(hdr.unique, buildGetxattrOut(packed.length));
+  }
+  if (packed.length > req.size) {
+    return buildErrorResponse(hdr.unique, -ERRNO.ERANGE);
+  }
+  return buildResponse(hdr.unique, packed);
+}
+
+async function onRemovexattr(
+  hdr: FuseInHeader,
+  msg: Uint8Array,
+  state: ServerState,
+): Promise<Uint8Array> {
+  if (state.mode === "ro") {
+    return buildErrorResponse(hdr.unique, -ERRNO.EROFS);
+  }
+  const name = decodeName(payloadOf(msg));
+  if (name === "" || name.length > 255) {
+    return buildErrorResponse(hdr.unique, -ERRNO.EINVAL);
+  }
+  const entry = requireInode(state, hdr.nodeid);
+  const abs = await absPathForLstat(state, entry);
+  try {
+    await hostRemovexattr(abs, name);
+  } catch (err) {
+    if (isXattrError(err)) {
+      return buildErrorResponse(hdr.unique, -err.errno);
+    }
+    throw err;
+  }
+  return buildErrorResponse(hdr.unique, 0);
 }
 
 // --- POSIX advisory locks (#322) ----------------------------------------
