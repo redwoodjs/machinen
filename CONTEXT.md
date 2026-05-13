@@ -164,13 +164,13 @@ that would otherwise collide.
 
 What a **Snapshot** carries across a **Restore** or **Fork**:
 
-| Travels with the bundle | Stays on the source host |
-|---|---|
-| Process tree (memory, FDs, registers, threads) | Port forwards — caller re-supplies on restore/fork |
-| Open TCP connections (captured by CRIU) | **Live mount** content (the host directory does not follow) |
-| **Mount** overlay contents (squashfs lower + ext4 upper) | gvproxy NAT state |
-| **Live mount** *configuration* (host UDS, guest path, mode) — content does not | |
-| Source **Name** and source **Image** path (in `meta.json`) | |
+| Travels with the bundle                                                        | Stays on the source host                                    |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| Process tree (memory, FDs, registers, threads)                                 | Port forwards — caller re-supplies on restore/fork          |
+| Open TCP connections (captured by CRIU)                                        | **Live mount** content (the host directory does not follow) |
+| **Mount** overlay contents (squashfs lower + ext4 upper)                       | gvproxy NAT state                                           |
+| **Live mount** _configuration_ (host UDS, guest path, mode) — content does not |                                                             |
+| Source **Name** and source **Image** path (in `meta.json`)                     |                                                             |
 
 Invariants:
 
@@ -180,5 +180,5 @@ Invariants:
   TCP sockets) and clears port forwards, because both are global resources
   the source and fork would otherwise race over.
 - **Restore** has two modes — _eager_ (default; tar-on-`/dev/vdb` + `criu
-  restore`) and _lazy_ (`criu restore --lazy-pages` over a vsock-FUSE-mounted
+restore`) and _lazy_ (`criu restore --lazy-pages` over a vsock-FUSE-mounted
   bundle). Lazy does not compose with detached boot; eager stays default.
