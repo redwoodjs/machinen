@@ -215,12 +215,14 @@ jobs:
           rm release-assets/init release-assets/fuse-agent release-assets/exec-agent
 
       # Release-time guard against the regression filed as #309: assert
-      # every vmm-arm64-* tarball pnpm would publish has the right
-      # shape — host binaries with +x, all three guest ELFs present.
-      # Runs before the changeset publish so a broken tarball fails the
-      # release loudly instead of silently shipping.
-      - name: Verify vmm-arm64-* package shape
-        run: bash scripts/verify-vmm-packages.sh
+      # every host-tool tarball pnpm would publish has the right shape —
+      # binaries node spawns (machinen-vm, gvproxy, mke2fs, mksquashfs)
+      # land in the tarball with +x, and every expected non-exec data
+      # file is present too. Runs before the changeset publish so a
+      # broken tarball fails the release loudly instead of silently
+      # shipping.
+      - name: Verify bundled-binary package shape
+        run: bash scripts/verify-bin-packages.sh
 
       # cli typechecks against @machinen/runtime's dist types, so the
       # TS packages need a build before typecheck. Zig isn't available
