@@ -1,5 +1,5 @@
 {
-  "$comment": "Pinned tarball for the mount-server FUSE-over-vsock bench (#329). The bench writes scripts/bench/mount/results/<runId>.json with wall-clock + per-op histograms + a path to the node --perf-basic-prof map. Sha256 is verified before extraction; populate from https://nodejs.org/dist/v24.0.0/SHASUMS256.txt if the placeholder is in place.",
+  "$comment": "Pinned tarball for the live-mount bench (#329, #332). The bench writes scripts/bench/mount/results/<runId>.json with wall-clock vs a docker baseline. Sha256 is verified before extraction; populate from https://nodejs.org/dist/v24.0.0/SHASUMS256.txt if the placeholder is in place.",
   "tarballs": {
     "node-24-linux-arm64": {
       "url": "https://nodejs.org/dist/v24.0.0/node-v24.0.0-linux-arm64.tar.gz",

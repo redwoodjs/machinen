@@ -200,12 +200,12 @@ rm -rf /mnt/snap/img
 mkdir -p /mnt/snap/img
 
 # Preflight: refuse-loud checks that have to clear before CRIU runs.
-# Currently covers (a) raw/ICMP socket fds CRIU 3.17.1 can't dump and
-# (b) live-share FUSE mounts (#273) — both the kind of state that
-# turns a clean dump into a confusing CRIU error mid-run. The script
-# returns non-zero iff any check failed; we tail its stderr and bail.
-# Runs in the current mount NS (sub-NS if we re-execed via nsenter,
-# parent NS otherwise) so the umount step targets the right view.
+# Currently covers raw/ICMP socket fds CRIU 3.17.1 can't dump — the
+# kind of state that turns a clean dump into a confusing CRIU error
+# mid-run. The script returns non-zero iff any check failed; we tail
+# its stderr and bail. (Live-share mounts need no pre-dump teardown
+# since #338 — the in-VMM virtio-fs device serves them, there's no
+# guest-side FUSE connection for CRIU to choke on.)
 if ! /sbin/machinen-dump-preflight "$DUMP_PID" >&2; then
     echo "machinen-dump: preflight failed — aborting before CRIU runs" >&2
     exit 1

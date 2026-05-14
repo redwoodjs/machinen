@@ -75,22 +75,20 @@ terminator, framed stdout/stderr). Ours to redesign; versioned with the
 exec-agent binary.
 
 **Mount channel**:
-The wire a **Live mount** is served over. Two transports, selected by
-`liveMount({ protocol })`:
+The wire a **Live mount** is served over: a FUSE-derived protocol
+carried over a **VMM**-emulated virtio-fs device queue (#332). No
+`mount-server` process, no `/fuse-agent`, no vsock hop — the #329 FUSE
+opcode handlers (the shared `fuse.zig` module) run inside the VMM. The
+VMM wires five virtio-fs device slots, so a **VM** serves up to five
+**Live mount**s (one is consumed internally by a lazy **Restore**).
+DAX-less for now — guest reads/writes still copy through the virtqueue;
+the zero-copy DAX window is a separate track.
 
-- **virtiofs** (#332, **default**): the FUSE-derived protocol carried
-  over a **VMM**-emulated virtio-fs device queue — no `mount-server`
-  process, no `/fuse-agent`, no vsock hop. The #329 FUSE opcode
-  handlers run inside the VMM. At most one per **VM** (one virtio-fs
-  device slot). DAX-less for now — guest reads/writes still copy
-  through the virtqueue; the zero-copy DAX window is a separate track.
-- **fuse**: the wire between the **Runtime**'s detached `mount-server`
-  process and the in-guest `/fuse-agent` byte-pump, one per mount, raw
-  Linux FUSE kernel ABI (`uapi/linux/fuse.h`, protocol 7.31) carried
-  over the **vsock bridge**. Being retired in favour of **virtiofs**.
-
-The FUSE protocol itself is not ours to redesign — the kernel owns it;
-only the framing differs between the two transports.
+The FUSE-over-vsock transport (a detached `mount-server` process plus
+an in-guest `/fuse-agent` byte-pump, raw FUSE ABI over the **vsock
+bridge**) was the original #78 wire; it was removed in #338 once
+virtio-fs proved out. The FUSE protocol itself is not ours to
+redesign — the kernel owns it; only the framing is the VMM's.
 
 **Exec-agent**:
 The Zig binary `/sbin/machinen-exec-agent` inside the guest. Listens on the
@@ -124,10 +122,11 @@ Captured in snapshot bundles and **travels** with the **VM** across hosts.
 A host directory shared into the **VM** as a live FUSE window over the
 **Mount channel** (`--mount-live` flag, `boot({ liveMounts })`). Reads and
 writes flow to and from the host in real time — no copy. `rw` (default)
-or `:ro`. The transport is chosen with `protocol`: `"virtiofs"`
-(default, the in-VMM virtio-fs device, #332) or `"fuse"` (the legacy
-FUSE-over-vsock relay) — see **Mount channel**. Does **not** travel
-with snapshots — the runtime unmounts before snapshot; restore on
+or `:ro`. Served by an in-VMM virtio-fs device (#332) — see **Mount
+channel**; up to five per VM. The in-VMM device is carried across a
+CRIU dump by the **VMM**, so the workload's mount view survives a
+**Snapshot** / **Fork** without an unmount/remount window. The host
+directory itself does **not** travel with snapshots — restore on
 another host needs the live mount re-established against a host
 directory there.
 
@@ -179,13 +178,13 @@ that would otherwise collide.
 
 What a **Snapshot** carries across a **Restore** or **Fork**:
 
-| Travels with the bundle                                                        | Stays on the source host                                    |
-| ------------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| Process tree (memory, FDs, registers, threads)                                 | Port forwards — caller re-supplies on restore/fork          |
-| Open TCP connections (captured by CRIU)                                        | **Live mount** content (the host directory does not follow) |
-| **Mount** overlay contents (squashfs lower + ext4 upper)                       | gvproxy NAT state                                           |
-| **Live mount** _configuration_ (host UDS, guest path, mode) — content does not |                                                             |
-| Source **Name** and source **Image** path (in `meta.json`)                     |                                                             |
+| Travels with the bundle                                                         | Stays on the source host                                    |
+| ------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Process tree (memory, FDs, registers, threads)                                  | Port forwards — caller re-supplies on restore/fork          |
+| Open TCP connections (captured by CRIU)                                         | **Live mount** content (the host directory does not follow) |
+| **Mount** overlay contents (squashfs lower + ext4 upper)                        | gvproxy NAT state                                           |
+| **Live mount** _configuration_ (host path, guest path, mode) — content does not |                                                             |
+| Source **Name** and source **Image** path (in `meta.json`)                      |                                                             |
 
 Invariants:
 
@@ -195,5 +194,6 @@ Invariants:
   TCP sockets) and clears port forwards, because both are global resources
   the source and fork would otherwise race over.
 - **Restore** has two modes — _eager_ (default; tar-on-`/dev/vdb` + `criu
-restore`) and _lazy_ (`criu restore --lazy-pages` over a vsock-FUSE-mounted
-  bundle). Lazy does not compose with detached boot; eager stays default.
+restore`) and _lazy_ (`criu restore --lazy-pages` over a virtio-fs
+  live-mounted bundle). Lazy does not compose with detached boot; eager
+  stays default.

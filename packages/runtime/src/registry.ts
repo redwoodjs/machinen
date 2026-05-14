@@ -134,14 +134,6 @@ export interface RegistryEntry {
    */
   lazyPagesTotal?: number;
   /**
-   * Absolute path under which the lazy-restore FUSE mount serves
-   * `pages-*.img` reads. The mount-server tracks bytes served below
-   * this prefix; `vm.memoryStats()` divides that by 4096 and
-   * subtracts from `lazyPagesTotal` to derive `lazyPagesPending`.
-   * Undefined when the VM wasn't lazy-restored.
-   */
-  lazyPagesMountRoot?: string;
-  /**
    * #272: when the VM was booted with `mount: { host, guest }`, the
    * runtime materialized a squashfs RO lower + ext4 RW upper. Persist
    * those host paths so an attach-owned `vm.snapshot()` /
@@ -160,36 +152,16 @@ export interface RegistryEntry {
    * #273: live-share mounts (`liveMounts: [...]` at boot) the VM was
    * started with. Persisted so an attach-owned `vm.snapshot()` /
    * `vm.fork()` can record the same `meta.liveMounts` block in the
-   * bundle and trigger /sbin/machinen-remount post-dump on
-   * leaveRunning paths. Host UDS paths and vsock ports are NOT
-   * recorded — those are the boot process's private state and aren't
-   * useful to other processes (the owning process keeps the servers
-   * listening through the dump, so attach reconnects without having
-   * to bind anything).
-   *
-   * `protocol` (#332) is persisted per mount so `machinen stop` /
-   * `machinen gc` and the snapshot/restore path know whether a mount
-   * has a detached `mount-server` to reap (`"fuse"`) or is served
-   * in-VMM with nothing host-side to clean up (`"virtiofs"`). Absent
-   * on entries written before #332 — treat as `"fuse"`.
+   * bundle. Since #332 every live mount is served by an in-VMM
+   * virtio-fs device — there's no host-side process to record, reap,
+   * or reconnect to. The per-mount virtio-fs tag isn't recorded
+   * either; it's re-derived from the resolved order on restore.
    */
   liveMounts?: Array<{
     guest: string;
     host: string;
     mode: "ro" | "rw";
-    protocol?: "fuse" | "virtiofs";
   }>;
-  /**
-   * #150 phase 3: pids + exes of the detached mount-server helpers
-   * spawned alongside this VMM, one per live-mount. The helpers die
-   * with the VMM via `pdeathsig --watch-pid` already, but `machinen
-   * stop` SIGTERMs them up-front so the VMM exit hook doesn't race
-   * with the helper's own pdeathsig-driven shutdown, and `machinen
-   * gc` validates pid+exe to detect recycled pids the same way the
-   * VMM and gvproxy entries do. Empty / undefined for VMs booted
-   * without `liveMounts`.
-   */
-  liveMountServers?: Array<{ pid: number; exe: string }>;
   /** ms epoch when the entry was created. */
   startedAt: number;
 }
@@ -236,10 +208,9 @@ export function writeEntry(entry: RegistryEntry): void {
 
 /**
  * Merge a partial entry into the existing one for `pid`. Used when a
- * field becomes known after the initial `writeEntry` — e.g. detached
- * mount-server pids are only known after the helpers have spawned,
- * which (per the registry-claim invariant in vm.ts) has to happen
- * after the initial sync write. No-op if no entry exists.
+ * field becomes known after the initial `writeEntry` — e.g. the
+ * lazy-restore page total, patched in after `restore()` boots the VM.
+ * No-op if no entry exists.
  */
 export function patchEntry(pid: number, patch: Partial<RegistryEntry>): void {
   const existing = readEntry(pid);

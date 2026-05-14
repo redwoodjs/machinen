@@ -56,17 +56,14 @@ export interface ParsedForkArgs {
    */
   mount?: { host: string; guest: string };
   /**
-   * Live-share FUSE mounts (`--mount-live <host>:<guest>[:<mode>]`).
-   * Establishes a fresh vsock FUSE channel on the fork after restore.
-   * The source must NOT have its own live mount active at fork time
-   * (that's caught by the runtime — vsock FUSE channels can't survive
-   * CRIU dump). See #78, #151.
+   * Live-share mounts (`--mount-live <host>:<guest>[:<mode>]`).
+   * Establishes the mount on the fork after restore via an in-VMM
+   * virtio-fs device (#332). See #78, #151.
    */
   liveMounts?: Array<{
     host: string;
     guest: string;
     mode: "ro" | "rw";
-    protocol?: "fuse" | "virtiofs";
   }>;
   /** Env vars exposed to the forked guest workload (`--env KEY=VALUE`). */
   env?: Record<string, string>;
@@ -98,7 +95,6 @@ export function parseForkArgs(argv: string[]): ParsedForkArgs {
     host: string;
     guest: string;
     mode: "ro" | "rw";
-    protocol?: "fuse" | "virtiofs";
   }> = [];
   const env: Record<string, string> = {};
   let guestCwd: string | undefined;

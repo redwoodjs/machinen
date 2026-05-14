@@ -3,8 +3,8 @@
 #
 # Covers (issue #309):
 #   - @machinen/native-arm64-{darwin,linux} — the consolidated host-tool
-#     package: VMM + gvproxy + guest ELFs, mke2fs, mksquashfs, and the
-#     FUSE-over-vsock mount server, all under per-tool subdirs.
+#     package: VMM + gvproxy + guest ELFs, mke2fs, and mksquashfs, all
+#     under per-tool subdirs.
 #
 # What this catches:
 #   1. Host-side binaries (the things node spawns: machinen-vm, gvproxy,
@@ -13,7 +13,7 @@
 #      `bin` field of package.json. Without +x the runtime exits at
 #      spawn (code=127).
 #   2. Files we expect to ship missing entirely — e.g. the vmm packages'
-#      guest/{init,fuse-agent,exec-agent} ELFs.
+#      guest/{init,exec-agent} ELFs.
 #
 # Runs `pnpm pack` against each package (dry-run is not enough — we
 # need the actual tarball to inspect modes), then greps `tar -tvf`
@@ -100,20 +100,17 @@ check_pkg() {
 # --- native-arm64-* ------------------------------------------------------
 # One consolidated package per host arch. Per-tool subdirs:
 #   vmm/bin/{machinen-vm,gvproxy}   host binaries node spawns.
-#   vmm/guest/{init,fuse-agent,exec-agent}  arm64-linux ELFs the runtime
+#   vmm/guest/{init,exec-agent}  arm64-linux ELFs the runtime
 #       reads as data to pack into the initramfs cpio (mode irrelevant).
 #   e2fsprogs/bin/mke2fs, squashfs/bin/mksquashfs  host binaries node spawns.
-#   mount-server/bin/machinen-mount-server  host binary node spawns (#329).
 for os in darwin linux; do
   check_pkg "native-arm64-${os}" \
     vmm/bin/machinen-vm \
     vmm/bin/gvproxy \
     e2fsprogs/bin/mke2fs \
     squashfs/bin/mksquashfs \
-    mount-server/bin/machinen-mount-server \
     --plain \
     vmm/guest/init \
-    vmm/guest/fuse-agent \
     vmm/guest/exec-agent
 done
 

@@ -353,12 +353,6 @@ export interface PackBundleOptions {
   /** Optional path to the compiled /init. Default: ../microvm/test-fixtures/init relative to this file. */
   initPath?: string;
   /**
-   * Optional host path to the compiled fuse-agent binary. When set,
-   * the binary is injected at `/fuse-agent` (mode 0755) inside the
-   * initramfs so /init can fork it per live-share mount. See #78.
-   */
-  fuseAgentPath?: string;
-  /**
    * Optional path to the compiled /exec-agent. Default: same dir as
    * /init under packages/microvm/test-fixtures/. Used to override the
    * stale /exec-agent that may live in a re-provisioned base tarball.
@@ -426,7 +420,6 @@ export function packBundle(opts: PackBundleOptions): void {
     appendFinalEntries(parts, {
       initPath: opts.initPath ?? defaultInitPath(),
       config: patchConfigEnv(readFileSync(cfgPath), opts.env),
-      fuseAgentPath: opts.fuseAgentPath,
       // Always inject the fresh /init AFTER walking the rootfs.
       // `provision()` flows feed the previous run's frozen rootfs back
       // in as `base`, and that capture has /init at root. The walked
@@ -515,8 +508,6 @@ export interface PackTinyBundleOptions {
   mountGuest?: string;
   /** Optional override for the compiled /init. Default: ../microvm/test-fixtures/init relative to this file. */
   initPath?: string;
-  /** Optional path to the compiled fuse-agent; staged at /fuse-agent when set. */
-  fuseAgentPath?: string;
 }
 
 /**
@@ -532,7 +523,6 @@ export interface PackTinyBundleOptions {
  *                                    blk slots 5+6, not in the cpio.
  *   /dev/console                     char node 5,1 — kernel needs it
  *                                    before /init re-opens the console
- *   /fuse-agent                      optional, only when liveMounts
  *   /tmp                             sticky 1777
  *
  * No /lib/modules tree, no kmod, no /modules/*.ko, no Debian userland.
@@ -553,7 +543,6 @@ export function packTinyBundle(opts: PackTinyBundleOptions): void {
   appendFinalEntries(parts, {
     initPath: opts.initPath ?? defaultInitPath(),
     config: patchConfigEnv(readFileSync(cfgPath), opts.env),
-    fuseAgentPath: opts.fuseAgentPath,
     injectInit: true,
     mountGuest: opts.mountGuest,
   });
@@ -655,8 +644,6 @@ interface FinalOptions {
    * updates.
    */
   injectInit: boolean;
-  /** Optional path to fuse-agent; staged at /fuse-agent when provided. */
-  fuseAgentPath?: string;
   /**
    * Optional path to /exec-agent. When set, the binary is appended to
    * the cpio after the rootfs walk so that any stale /exec-agent
@@ -717,19 +704,6 @@ function appendFinalEntries(parts: Buffer[], opts: FinalOptions): void {
       // fail downstream with a clearer error if it's truly absent.
     }
   }
-  if (opts.fuseAgentPath) {
-    // Bake the agent at /fuse-agent so /init can fork it per
-    // liveMount entry. We don't gate on liveMounts being set — paying
-    // ~200KB when unused is cheaper than threading the option all the
-    // way through; the init only spawns it when configured.
-    try {
-      const bytes = readFileSync(opts.fuseAgentPath);
-      parts.push(newc("fuse-agent", 0o100755, { data: bytes }));
-    } catch {
-      // Optional — if missing, liveMount boot will fail later with a
-      // clear error, but non-liveMount paths keep working.
-    }
-  }
   if (opts.config) {
     parts.push(newc("machinen-config.json", 0o100644, { data: opts.config }));
   }
@@ -764,18 +738,17 @@ function appendFinalEntries(parts: Buffer[], opts: FinalOptions): void {
 
 interface VmmGuestPaths {
   initPath: string;
-  fuseAgentPath: string;
   execAgentPath: string;
 }
 
 let cachedGuestPaths: VmmGuestPaths | null = null;
 
 /**
- * Resolve the three guest binaries (init / fuse-agent / exec-agent)
- * that ride in the host-arch-gated @machinen/native-<arch>-<os> package
- * alongside the host VMM. These ELFs are arm64-linux regardless of
- * host (they run in-guest); the host runtime reads them as bytes to
- * pack into the initramfs cpio.
+ * Resolve the guest binaries (init / exec-agent) that ride in the
+ * host-arch-gated @machinen/native-<arch>-<os> package alongside the
+ * host VMM. These ELFs are arm64-linux regardless of host (they run
+ * in-guest); the host runtime reads them as bytes to pack into the
+ * initramfs cpio.
  *
  * Falls back to the in-tree microvm/test-fixtures/ layout when the
  * native package can't be resolved OR its guest/ dir is empty —
@@ -791,10 +764,9 @@ function resolveGuestPaths(): VmmGuestPaths {
   const pkgName = `@machinen/native-${osArch()}-${osPlatform()}`;
   try {
     const mod = require_(pkgName) as Partial<VmmGuestPaths>;
-    if (mod.initPath && mod.fuseAgentPath && mod.execAgentPath && existsSync(mod.initPath)) {
+    if (mod.initPath && mod.execAgentPath && existsSync(mod.initPath)) {
       cachedGuestPaths = {
         initPath: mod.initPath,
-        fuseAgentPath: mod.fuseAgentPath,
         execAgentPath: mod.execAgentPath,
       };
       return cachedGuestPaths;
@@ -808,7 +780,6 @@ function resolveGuestPaths(): VmmGuestPaths {
   const fixtures = join(here, "..", "..", "microvm", "test-fixtures");
   cachedGuestPaths = {
     initPath: join(fixtures, "init"),
-    fuseAgentPath: join(fixtures, "fuse-agent"),
     execAgentPath: join(fixtures, "exec-agent"),
   };
   return cachedGuestPaths;
@@ -816,15 +787,6 @@ function resolveGuestPaths(): VmmGuestPaths {
 
 function defaultInitPath(): string {
   return resolveGuestPaths().initPath;
-}
-
-/**
- * Default path to the compiled fuse-agent binary. Resolved from the
- * host-arch's @machinen/native-* package; callers can override via
- * `PackBundleOptions.fuseAgentPath`.
- */
-export function defaultFuseAgentPath(): string {
-  return resolveGuestPaths().fuseAgentPath;
 }
 
 /**

@@ -49,7 +49,6 @@ export interface ParsedRestoreArgs {
     host: string;
     guest: string;
     mode: "ro" | "rw";
-    protocol?: "fuse" | "virtiofs";
   }>;
 }
 
@@ -63,7 +62,6 @@ export function parseRestoreArgs(argv: string[]): ParsedRestoreArgs {
     host: string;
     guest: string;
     mode: "ro" | "rw";
-    protocol?: "fuse" | "virtiofs";
   }> = [];
   const seenLiveGuests = new Set<string>();
   const seenHostPorts = new Set<number>();

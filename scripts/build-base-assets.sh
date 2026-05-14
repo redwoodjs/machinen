@@ -144,7 +144,7 @@ fi
 #    (all statically linked against musl)
 # ------------------------------------------------------------
 
-echo "==> Building guest binaries (init, exec-agent, fuse-agent, winsize-agent, CRIU helpers, poweroff, net-bench-probe) for aarch64-linux-musl"
+echo "==> Building guest binaries (init, exec-agent, winsize-agent, CRIU helpers, poweroff, net-bench-probe) for aarch64-linux-musl"
 # STAGE has to live inside ROOT, not /tmp, because the mmdebstrap step
 # below runs docker with `-v "$STAGE":/stage:ro`. When build-base-assets
 # itself runs inside a container (agent-ci's local runner, dev shell
@@ -157,19 +157,20 @@ rm -rf "$STAGE"
 mkdir -p "$STAGE"
 trap 'rm -rf "$STAGE"' EXIT
 
-# init + exec-agent + fuse-agent land at /init, /exec-agent, /fuse-agent
-# (machinen-owned root entrypoints). lo-up, no-iou, poweroff are
-# machinen-namespaced helpers needed by any CRIU-based snapshot flow;
-# they go under /sbin with the machinen- prefix alongside machinen-netup.
+# init + exec-agent land at /init, /exec-agent (machinen-owned root
+# entrypoints). lo-up, no-iou, poweroff are machinen-namespaced helpers
+# needed by any CRIU-based snapshot flow; they go under /sbin with the
+# machinen- prefix alongside machinen-netup.
 # net-bench-probe is the #82 gvproxy throughput/latency probe used by
-# the smoke harness. fuse-agent is the guest byte-pump for #78
-# `--mount-live`; /init forks it per liveMount entry.
+# the smoke harness.
 # winsize-agent is the #177 vsock TIOCSWINSZ daemon for dev-VM tty
 # resize forwarding; lives at /sbin/machinen-winsize-agent and is
 # launched by vm.ts's bootstrap (no auto-launch in non-dev paths).
 # memdirty is the #266 RSS-spike workload helper used by the headline
 # lazy-pages smoke test: mmaps N MiB anon, dirties every page, parks.
-for name in init exec-agent fuse-agent winsize-agent lo-up no-iou poweroff net-bench-probe memdirty; do
+# (`--mount-live` needs no guest binary since #338 — the in-VMM
+# virtio-fs device serves it; /init just `mount -t virtiofs`s it.)
+for name in init exec-agent winsize-agent lo-up no-iou poweroff net-bench-probe memdirty; do
   zig build-exe "${ASSETS}/${name}.zig" \
     -target aarch64-linux-musl \
     -O ReleaseSmall \
@@ -194,7 +195,6 @@ TEST_FIXTURES="${ROOT}/packages/microvm/test-fixtures"
 mkdir -p "${TEST_FIXTURES}"
 install -m 0755 "${STAGE}/init"        "${TEST_FIXTURES}/init"
 install -m 0755 "${STAGE}/exec-agent"  "${TEST_FIXTURES}/exec-agent"
-install -m 0755 "${STAGE}/fuse-agent"  "${TEST_FIXTURES}/fuse-agent"
 
 # Also stage them into release-assets/ so the CI artifact carries them
 # across runner boundaries. release.yml's release job copies these back
@@ -204,7 +204,6 @@ install -m 0755 "${STAGE}/fuse-agent"  "${TEST_FIXTURES}/fuse-agent"
 # never sees them and publishes an empty test-fixtures/. (issue #309)
 install -m 0755 "${STAGE}/init"        "${OUT}/init"
 install -m 0755 "${STAGE}/exec-agent"  "${OUT}/exec-agent"
-install -m 0755 "${STAGE}/fuse-agent"  "${OUT}/fuse-agent"
 
 # ------------------------------------------------------------
 # 3a. fnm — Node version manager
@@ -232,10 +231,8 @@ cp "${ASSETS}/machinen-supervisor.sh"      "${STAGE}/machinen-supervisor.sh"
 cp "${ASSETS}/machinen-dump.sh"            "${STAGE}/machinen-dump.sh"
 cp "${ASSETS}/machinen-dump-preflight.sh"  "${STAGE}/machinen-dump-preflight.sh"
 cp "${ASSETS}/machinen-restore.sh"         "${STAGE}/machinen-restore.sh"
-cp "${ASSETS}/machinen-remount.sh"         "${STAGE}/machinen-remount.sh"
 chmod +x "${STAGE}/machinen-supervisor.sh" "${STAGE}/machinen-dump.sh" \
-         "${STAGE}/machinen-dump-preflight.sh" "${STAGE}/machinen-restore.sh" \
-         "${STAGE}/machinen-remount.sh"
+         "${STAGE}/machinen-dump-preflight.sh" "${STAGE}/machinen-restore.sh"
 
 # Stage CRIU patches (applied inside the rootfs container against the
 # upstream tarball before `make`). See packages/microvm/patches/criu/.
@@ -460,7 +457,6 @@ install -m 1777 -d /work/rootfs/tmp
 
 install -m 0755 /stage/init       /work/rootfs/init
 install -m 0755 /stage/exec-agent /work/rootfs/exec-agent
-install -m 0755 /stage/fuse-agent /work/rootfs/fuse-agent
 install -m 0755 -D /stage/machinen-netup    /work/rootfs/sbin/machinen-netup
 install -m 0755 -D /stage/lo-up             /work/rootfs/sbin/machinen-lo-up
 install -m 0755 -D /stage/no-iou            /work/rootfs/sbin/machinen-no-iou
@@ -475,7 +471,6 @@ install -m 0755 -D /stage/machinen-supervisor.sh     /work/rootfs/sbin/machinen-
 install -m 0755 -D /stage/machinen-dump.sh           /work/rootfs/sbin/machinen-dump
 install -m 0755 -D /stage/machinen-dump-preflight.sh /work/rootfs/sbin/machinen-dump-preflight
 install -m 0755 -D /stage/machinen-restore.sh        /work/rootfs/sbin/machinen-restore
-install -m 0755 -D /stage/machinen-remount.sh        /work/rootfs/sbin/machinen-remount
 
 # Deterministic tar + gzip written as a single file to the bind mount.
 tar --sort=name --owner=0 --group=0 --numeric-owner \

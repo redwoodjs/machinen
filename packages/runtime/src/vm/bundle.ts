@@ -13,7 +13,6 @@ import { join, resolve } from "node:path";
 
 import { BootError } from "../errors.ts";
 import {
-  defaultFuseAgentPath,
   packBundle as mkinitramfsPackBundle,
   packTinyBundle as mkinitramfsPackTinyBundle,
 } from "../mkinitramfs.ts";
@@ -28,76 +27,51 @@ import type { SnapshotMeta } from "../vm-handle.ts";
 import { normalizeMountGuest, validateGuestCwd, validateMountGuest } from "./helpers.ts";
 import { readImageConfig } from "./image-config.ts";
 
-/** Fields common to both live-mount transports. */
-interface ResolvedLiveMountBase {
+/**
+ * A caller-provided `liveMounts` entry after validation. Served by an
+ * in-VMM virtio-fs device (#332) — no detached process, no vsock port,
+ * no guest fuse-agent. `tag` is the device's config-space identifier;
+ * `/init` runs `mount -t virtiofs <tag> <guest>`. Threaded from
+ * `boot()` into the initramfs packer so the config and the VMM env
+ * agree on guest paths and per-mount tags.
+ */
+export interface ResolvedLiveMount {
   host: string;
   guest: string;
   mode: "ro" | "rw";
-}
-
-/**
- * A `protocol: "fuse"` live mount (the original #78 transport) after
- * validation, with the vsock port + host UDS + stats path allocated.
- * A detached `mount-server` process serves it; `/init` forks
- * `/fuse-agent` to bridge the guest FUSE driver to the host over
- * vsock. Since #332 this is the explicit-opt-in fallback — virtio-fs
- * is the default — and is slated for removal.
- */
-export interface ResolvedFuseMount extends ResolvedLiveMountBase {
-  protocol: "fuse";
-  port: number;
-  udsPath: string;
-  /**
-   * Per-mount stats file the detached helper writes its
-   * bytesServedOnPagesImg counter to. Lives next to `udsPath` under
-   * `vsockTempDir` so the supervisor's cleanupPaths sweep covers it.
-   */
-  statsPath: string;
-}
-
-/**
- * A `protocol: "virtiofs"` live mount (#332) after validation. Served
- * by the in-VMM virtio-fs device on slot 7 — no detached process, no
- * vsock port, no guest fuse-agent. `tag` is the device's config-space
- * tag; `/init` runs `mount -t virtiofs <tag> <guest>`.
- */
-export interface ResolvedVirtiofsMount extends ResolvedLiveMountBase {
-  protocol: "virtiofs";
   tag: string;
 }
 
 /**
- * A caller-provided `liveMounts` entry after validation. Threaded from
- * `boot()` into the initramfs packer so the config, the VMM env, and
- * the host servers agree on guest paths and per-transport wiring.
+ * The VMM wires this many virtio-fs slots (slots 7..11 — see
+ * `MAX_VIRTIOFS_SLOTS` in boot_hvf.zig / boot_kvm.zig). One
+ * `--mount-live` per slot. Note `restore({ lazy: true })` consumes
+ * one slot internally to serve the page image, so a lazy restore can
+ * carry at most `MAX_LIVE_MOUNTS - 1` user mounts.
  */
-export type ResolvedLiveMount = ResolvedFuseMount | ResolvedVirtiofsMount;
-
-/** Base vsock port for live mounts. Chosen below the exec/file/
- *  secrets/winsize agent band (1975–1978) so it doesn't collide. */
-const LIVE_MOUNT_PORT_BASE = 1970;
+const MAX_LIVE_MOUNTS = 5;
 
 export function resolveLiveMounts(
   mounts: Array<{
     host: string;
     guest: string;
     mode?: "ro" | "rw";
-    protocol?: "fuse" | "virtiofs";
   }>,
   cwd: string | undefined,
-  udsDir: string,
 ): ResolvedLiveMount[] {
-  // Transport resolution (#332):
-  //   - An explicit `protocol` is always honored.
-  //   - An unset `protocol` defaults to virtio-fs — it's the faster
-  //     transport (~1.8× over FUSE-over-vsock on the mount bench) — but
-  //     the VMM wires exactly one virtio-fs slot, so only the *first*
-  //     mount that lands on virtio-fs claims it; any further unset
-  //     mounts fall back to fuse rather than failing.
-  //   - Two *explicit* `protocol: "virtiofs"` mounts is a caller error
-  //     (one slot) and is rejected.
-  // fuse mounts are unbounded — each gets its own vsock port.
-  let virtiofsClaimed = false;
+  // Every live mount is served by an in-VMM virtio-fs device (#332).
+  // The VMM wires MAX_LIVE_MOUNTS slots; a caller asking for more has
+  // nowhere to put the extras, so reject up front. (FUSE-over-vsock,
+  // the old unbounded fallback transport, was removed in #338.)
+  // Note: a `restore({ lazy: true })` appends one internal mount for
+  // the page image, so this cap counts that entry too.
+  if (mounts.length > MAX_LIVE_MOUNTS) {
+    throw new BootError(
+      "BOOT_MOUNT_INVALID",
+      `liveMounts: at most ${MAX_LIVE_MOUNTS} live mounts are supported per VM ` +
+        `(got ${mounts.length}) — the VMM wires ${MAX_LIVE_MOUNTS} virtio-fs slots.`,
+    );
+  }
   return mounts.map((m, i) => {
     validateMountGuest(m.guest);
     const hostAbs = resolve(cwd ?? process.cwd(), m.host);
@@ -113,34 +87,13 @@ export function resolveLiveMounts(
         `liveMounts[${i}] host path must be a directory: ${m.host}`,
       );
     }
-    const base: ResolvedLiveMountBase = {
+    return {
       host: hostAbs,
       guest: normalizeMountGuest(m.guest),
       mode: m.mode ?? "rw",
-    };
-    // Resolve the effective transport. An unset protocol prefers
-    // virtio-fs but yields to fuse once the single slot is taken.
-    const protocol: "fuse" | "virtiofs" = m.protocol ?? (virtiofsClaimed ? "fuse" : "virtiofs");
-    if (protocol === "virtiofs") {
-      if (virtiofsClaimed) {
-        throw new BootError(
-          "BOOT_MOUNT_INVALID",
-          `liveMounts[${i}]: at most one protocol:"virtiofs" mount is supported ` +
-            `per VM — the VMM wires a single virtio-fs slot. Use protocol:"fuse" ` +
-            `for the others.`,
-        );
-      }
-      virtiofsClaimed = true;
       // Tag is the virtio-fs device's config-space identifier and must
       // be ≤ 36 bytes (FsConfig.tag). `machinen-lm<i>` stays well under.
-      return { ...base, protocol: "virtiofs", tag: `machinen-lm${i}` };
-    }
-    return {
-      ...base,
-      protocol: "fuse",
-      port: LIVE_MOUNT_PORT_BASE + i,
-      udsPath: join(udsDir, `live-mount-${i}.sock`),
-      statsPath: join(udsDir, `live-mount-${i}-stats.json`),
+      tag: `machinen-lm${i}`,
     };
   });
 }
@@ -173,13 +126,8 @@ export function buildMachinenConfig(input: {
   }
   if (input.liveMounts.length > 0) {
     // Host paths never cross into the guest's view. /init reads this
-    // and, per entry, either forks fuse-agent against `port` or runs
-    // `mount -t virtiofs` against `tag` (#332).
-    cfg.liveMounts = input.liveMounts.map((lm) =>
-      lm.protocol === "virtiofs"
-        ? { guest: lm.guest, tag: lm.tag }
-        : { guest: lm.guest, port: lm.port },
-    );
+    // and, per entry, runs `mount -t virtiofs <tag> <guest>` (#332).
+    cfg.liveMounts = input.liveMounts.map((lm) => ({ guest: lm.guest, tag: lm.tag }));
   }
   return cfg;
 }
@@ -213,10 +161,7 @@ export function resolveRestoreLiveMounts(
     return overrideList.length > 0 ? overrideList : undefined;
   }
   const recordedByGuest = new Map(recordedList.map((m) => [m.guest, m]));
-  const overridesByGuest = new Map<
-    string,
-    { host: string; guest: string; mode?: "ro" | "rw"; protocol?: "fuse" | "virtiofs" }
-  >();
+  const overridesByGuest = new Map<string, { host: string; guest: string; mode?: "ro" | "rw" }>();
   for (const ov of overrideList) {
     if (!recordedByGuest.has(ov.guest)) {
       const known = recordedList.map((m) => m.guest).join(", ");
@@ -232,18 +177,11 @@ export function resolveRestoreLiveMounts(
     }
     overridesByGuest.set(ov.guest, ov);
   }
-  // `protocol` follows the recorded entry unless the override names a
-  // different one — same precedence as `host` / `mode`.
   return recordedList.map((rec) => {
     const ov = overridesByGuest.get(rec.guest);
     return ov
-      ? {
-          guest: rec.guest,
-          host: ov.host,
-          mode: ov.mode ?? rec.mode,
-          protocol: ov.protocol ?? rec.protocol,
-        }
-      : { guest: rec.guest, host: rec.host, mode: rec.mode, protocol: rec.protocol };
+      ? { guest: rec.guest, host: ov.host, mode: ov.mode ?? rec.mode }
+      : { guest: rec.guest, host: rec.host, mode: rec.mode };
   });
 }
 
@@ -425,9 +363,6 @@ export function synthesizeAndPackBundle(
         // 5+6, attached further down in boot().
         mountGuest: mount?.guest ?? opts._restoreMountDisk?.guest,
         env: effectiveEnv,
-        fuseAgentPath: liveMounts.some((lm) => lm.protocol === "fuse")
-          ? defaultFuseAgentPath()
-          : undefined,
       });
     } else {
       // Legacy fat cpio: explicit `rootDisk: false` opt-out. Drags the
@@ -442,9 +377,6 @@ export function synthesizeAndPackBundle(
         base: baseAbs,
         mount,
         env: effectiveEnv,
-        fuseAgentPath: liveMounts.some((lm) => lm.protocol === "fuse")
-          ? defaultFuseAgentPath()
-          : undefined,
       });
     }
     packerOpts.onPhase?.("cpio-write", Date.now() - packT0);
