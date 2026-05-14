@@ -309,14 +309,14 @@ export interface SnapshotResult {
   snapDir: string;
   /**
    * Absolute path to the CRIU image directory inside the bundle.
-   * Set by the criu engine only; undefined for snaplet bundles.
+   * Set by the criu engine only; undefined for vmstate bundles.
    */
   imgDir?: string;
   /**
-   * Absolute path to the `.snaplet` whole-VM state file inside the
-   * bundle. Set by the snaplet engine only; undefined for criu bundles.
+   * Absolute path to the `.vmstate` whole-VM state file inside the
+   * bundle. Set by the vmstate engine only; undefined for criu bundles.
    */
-  snapletPath?: string;
+  vmstatePath?: string;
   /** Time from `snapshot()` entry to VMM exit, in milliseconds. */
   elapsedMs: number;
   /** Guest console output captured during the dump. */
@@ -330,9 +330,9 @@ export interface SnapshotResult {
 export interface SnapshotMeta {
   /**
    * Which backend wrote this bundle — `"criu"` (process-tree images
-   * under `img/`) or `"snaplet"` (whole-VM `state.snaplet`). `restore()`
+   * under `img/`) or `"vmstate"` (whole-VM `state.vmstate`). `restore()`
    * also auto-detects from the bundle's contents; this field is the
-   * explicit record. Absent on bundles predating the snaplet engine
+   * explicit record. Absent on bundles predating the vmstate engine
    * (treated as `"criu"`).
    */
   engine?: SnapshotEngine;

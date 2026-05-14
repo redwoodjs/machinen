@@ -1,5 +1,5 @@
 // End-to-end test for the snapshot-test CLI (task #16). Encodes
-// .snaplet fixtures in TS (the format is small enough to inline),
+// .vmstate fixtures in TS (the format is small enough to inline),
 // shells out to the binary, asserts exit codes and messages.
 //
 // Skips when packages/microvm/zig-out/bin/snapshot-test isn't built
@@ -14,7 +14,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 const BIN = resolve(import.meta.dirname, "../../../microvm/zig-out/bin/snapshot-test");
 const HAS_BIN = existsSync(BIN);
 
-const MAGIC = Buffer.from("SNAPLET\0");
+const MAGIC = Buffer.from("VMSTATE\0");
 const VERSION = 1;
 const ARCH_AARCH64 = 1;
 const SECTION_TAG = { ram: 1, vcpu: 2, gic_dist: 3, gic_redist: 4, virtio: 5 };
@@ -33,7 +33,7 @@ function encodeHeader(topology: Buffer, sectionCount: number): Buffer {
   return h;
 }
 
-function encodeSnaplet(topology: Buffer, sections: Section[]): Buffer {
+function encodeVmstate(topology: Buffer, sections: Section[]): Buffer {
   const parts: Buffer[] = [encodeHeader(topology, sections.length)];
   for (const s of sections) {
     const hdr = Buffer.alloc(16);
@@ -68,7 +68,7 @@ function run(args: string[]): { code: number; stdout: string; stderr: string } {
 
 let TMP: string;
 beforeAll(() => {
-  TMP = mkdtempSync(join(tmpdir(), "snaplet-test-"));
+  TMP = mkdtempSync(join(tmpdir(), "vmstate-test-"));
 });
 afterAll(() => {
   if (TMP) {
@@ -120,17 +120,17 @@ describe.skipIf(!HAS_BIN)("snapshot-test CLI", () => {
   });
 
   describe("load", () => {
-    it("accepts a valid empty-section .snaplet", () => {
-      const p = write("empty.snaplet", encodeSnaplet(TOPO_A, []));
+    it("accepts a valid empty-section .vmstate", () => {
+      const p = write("empty.vmstate", encodeVmstate(TOPO_A, []));
       const r = run(["load", p]);
       expect(r.code).toBe(0);
       expect(r.stdout).toMatch(/load: ok \(0 sections\)/);
     });
 
-    it("accepts a valid .snaplet with multiple sections", () => {
+    it("accepts a valid .vmstate with multiple sections", () => {
       const p = write(
-        "multi.snaplet",
-        encodeSnaplet(TOPO_A, [
+        "multi.vmstate",
+        encodeVmstate(TOPO_A, [
           { tag: SECTION_TAG.ram, id: 0, payload: Buffer.from("ram-bytes") },
           { tag: SECTION_TAG.gic_dist, id: 0, payload: Buffer.from("gic-bytes") },
         ]),
@@ -141,65 +141,65 @@ describe.skipIf(!HAS_BIN)("snapshot-test CLI", () => {
     });
 
     it("rejects bad magic", () => {
-      const bytes = encodeSnaplet(TOPO_A, []);
+      const bytes = encodeVmstate(TOPO_A, []);
       bytes[0] = "X".charCodeAt(0);
-      const p = write("bad-magic.snaplet", bytes);
+      const p = write("bad-magic.vmstate", bytes);
       const r = run(["load", p]);
       expect(r.code).toBe(1);
       expect(r.stderr).toMatch(/BadMagic/);
     });
 
     it("rejects unsupported version", () => {
-      const bytes = encodeSnaplet(TOPO_A, []);
+      const bytes = encodeVmstate(TOPO_A, []);
       bytes.writeUInt32LE(99, 8); // version at offset 8
-      const p = write("bad-version.snaplet", bytes);
+      const p = write("bad-version.vmstate", bytes);
       const r = run(["load", p]);
       expect(r.code).toBe(1);
       expect(r.stderr).toMatch(/UnsupportedVersion/);
     });
 
     it("rejects unsupported arch", () => {
-      const bytes = encodeSnaplet(TOPO_A, []);
+      const bytes = encodeVmstate(TOPO_A, []);
       bytes.writeUInt32LE(2, 12); // arch at offset 12
-      const p = write("bad-arch.snaplet", bytes);
+      const p = write("bad-arch.vmstate", bytes);
       const r = run(["load", p]);
       expect(r.code).toBe(1);
       expect(r.stderr).toMatch(/UnsupportedArch/);
     });
 
     it("rejects truncated buffer", () => {
-      const p = write("trunc.snaplet", Buffer.from("short"));
+      const p = write("trunc.vmstate", Buffer.from("short"));
       const r = run(["load", p]);
       expect(r.code).toBe(1);
       expect(r.stderr).toMatch(/Truncated/);
     });
 
     it("rejects section overflow", () => {
-      const full = encodeSnaplet(TOPO_A, [
+      const full = encodeVmstate(TOPO_A, [
         { tag: SECTION_TAG.ram, id: 0, payload: Buffer.alloc(100, 0x42) },
       ]);
       // Slice 50 bytes off the payload — section header still claims 100.
-      const p = write("overflow.snaplet", full.subarray(0, full.length - 50));
+      const p = write("overflow.vmstate", full.subarray(0, full.length - 50));
       const r = run(["load", p]);
       expect(r.code).toBe(1);
       expect(r.stderr).toMatch(/SectionOverflow/);
     });
 
     it("accepts matching --expected-topology", () => {
-      const p = write("topo-match.snaplet", encodeSnaplet(TOPO_A, []));
+      const p = write("topo-match.vmstate", encodeVmstate(TOPO_A, []));
       const r = run(["load", p, `--expected-topology=${TOPO_A.toString("hex")}`]);
       expect(r.code).toBe(0);
     });
 
     it("rejects mismatched --expected-topology", () => {
-      const p = write("topo-miss.snaplet", encodeSnaplet(TOPO_A, []));
+      const p = write("topo-miss.vmstate", encodeVmstate(TOPO_A, []));
       const r = run(["load", p, `--expected-topology=${TOPO_B.toString("hex")}`]);
       expect(r.code).toBe(1);
       expect(r.stderr).toMatch(/topology mismatch/);
     });
 
     it("rejects malformed --expected-topology", () => {
-      const p = write("topo-bad-hex.snaplet", encodeSnaplet(TOPO_A, []));
+      const p = write("topo-bad-hex.vmstate", encodeVmstate(TOPO_A, []));
       const r = run(["load", p, "--expected-topology=not-64-hex-chars"]);
       expect(r.code).toBe(2);
     });
@@ -211,29 +211,29 @@ describe.skipIf(!HAS_BIN)("snapshot-test CLI", () => {
     }
 
     it("returns 0 on identical files", () => {
-      const bytes = encodeSnaplet(TOPO_A, [
+      const bytes = encodeVmstate(TOPO_A, [
         vcpu([{ name: "X0", value: Buffer.from([1, 2, 3, 4, 0, 0, 0, 0]) }]),
       ]);
-      const a = write("diff-same-a.snaplet", bytes);
-      const b = write("diff-same-b.snaplet", bytes);
+      const a = write("diff-same-a.vmstate", bytes);
+      const b = write("diff-same-b.vmstate", bytes);
       const r = run(["diff", a, b]);
       expect(r.code).toBe(0);
       expect(r.stderr).toBe("");
     });
 
     it("reports topology_hash mismatch", () => {
-      const a = write("diff-topo-a.snaplet", encodeSnaplet(TOPO_A, []));
-      const b = write("diff-topo-b.snaplet", encodeSnaplet(TOPO_B, []));
+      const a = write("diff-topo-a.vmstate", encodeVmstate(TOPO_A, []));
+      const b = write("diff-topo-b.vmstate", encodeVmstate(TOPO_B, []));
       const r = run(["diff", a, b]);
       expect(r.code).toBe(1);
       expect(r.stderr).toMatch(/topology_hash differs/);
     });
 
     it("reports differing section count", () => {
-      const a = write("diff-secs-a.snaplet", encodeSnaplet(TOPO_A, []));
+      const a = write("diff-secs-a.vmstate", encodeVmstate(TOPO_A, []));
       const b = write(
-        "diff-secs-b.snaplet",
-        encodeSnaplet(TOPO_A, [{ tag: SECTION_TAG.ram, id: 0, payload: Buffer.from("x") }]),
+        "diff-secs-b.vmstate",
+        encodeVmstate(TOPO_A, [{ tag: SECTION_TAG.ram, id: 0, payload: Buffer.from("x") }]),
       );
       const r = run(["diff", a, b]);
       expect(r.code).toBe(1);
@@ -242,12 +242,12 @@ describe.skipIf(!HAS_BIN)("snapshot-test CLI", () => {
 
     it("reports payload bytes differ for non-VCPU sections", () => {
       const a = write(
-        "diff-ram-a.snaplet",
-        encodeSnaplet(TOPO_A, [{ tag: SECTION_TAG.ram, id: 0, payload: Buffer.from("aaa") }]),
+        "diff-ram-a.vmstate",
+        encodeVmstate(TOPO_A, [{ tag: SECTION_TAG.ram, id: 0, payload: Buffer.from("aaa") }]),
       );
       const b = write(
-        "diff-ram-b.snaplet",
-        encodeSnaplet(TOPO_A, [{ tag: SECTION_TAG.ram, id: 0, payload: Buffer.from("bbb") }]),
+        "diff-ram-b.vmstate",
+        encodeVmstate(TOPO_A, [{ tag: SECTION_TAG.ram, id: 0, payload: Buffer.from("bbb") }]),
       );
       const r = run(["diff", a, b]);
       expect(r.code).toBe(1);
@@ -263,8 +263,8 @@ describe.skipIf(!HAS_BIN)("snapshot-test CLI", () => {
       const PMCR_a = Buffer.from([0x41, 0, 0, 0, 0, 0, 0, 0]);
       const PMCR_b = Buffer.from([0x42, 0, 0, 0, 0, 0, 0, 0]);
       const a = write(
-        "diff-vcpu-a.snaplet",
-        encodeSnaplet(TOPO_A, [
+        "diff-vcpu-a.vmstate",
+        encodeVmstate(TOPO_A, [
           vcpu([
             { name: "X0", value: X0_a },
             { name: "PMCR_EL0", value: PMCR_a },
@@ -272,8 +272,8 @@ describe.skipIf(!HAS_BIN)("snapshot-test CLI", () => {
         ]),
       );
       const b = write(
-        "diff-vcpu-b.snaplet",
-        encodeSnaplet(TOPO_A, [
+        "diff-vcpu-b.vmstate",
+        encodeVmstate(TOPO_A, [
           vcpu([
             { name: "X0", value: X0_b },
             { name: "PMCR_EL0", value: PMCR_b },
@@ -291,8 +291,8 @@ describe.skipIf(!HAS_BIN)("snapshot-test CLI", () => {
       const PMCR_a = Buffer.from([0x41, 0, 0, 0, 0, 0, 0, 0]);
       const PMCR_b = Buffer.from([0x42, 0, 0, 0, 0, 0, 0, 0]);
       const a = write(
-        "diff-mask-a.snaplet",
-        encodeSnaplet(TOPO_A, [
+        "diff-mask-a.vmstate",
+        encodeVmstate(TOPO_A, [
           vcpu([
             { name: "X0", value: X0 },
             { name: "PMCR_EL0", value: PMCR_a },
@@ -300,8 +300,8 @@ describe.skipIf(!HAS_BIN)("snapshot-test CLI", () => {
         ]),
       );
       const b = write(
-        "diff-mask-b.snaplet",
-        encodeSnaplet(TOPO_A, [
+        "diff-mask-b.vmstate",
+        encodeVmstate(TOPO_A, [
           vcpu([
             { name: "X0", value: X0 },
             { name: "PMCR_EL0", value: PMCR_b },
@@ -318,8 +318,8 @@ describe.skipIf(!HAS_BIN)("snapshot-test CLI", () => {
       const X0_b = Buffer.from([9, 0, 0, 0, 0, 0, 0, 0]);
       const PMCR = Buffer.from([0x41, 0, 0, 0, 0, 0, 0, 0]);
       const a = write(
-        "diff-partial-a.snaplet",
-        encodeSnaplet(TOPO_A, [
+        "diff-partial-a.vmstate",
+        encodeVmstate(TOPO_A, [
           vcpu([
             { name: "X0", value: X0_a },
             { name: "PMCR_EL0", value: PMCR },
@@ -327,8 +327,8 @@ describe.skipIf(!HAS_BIN)("snapshot-test CLI", () => {
         ]),
       );
       const b = write(
-        "diff-partial-b.snaplet",
-        encodeSnaplet(TOPO_A, [
+        "diff-partial-b.vmstate",
+        encodeVmstate(TOPO_A, [
           vcpu([
             { name: "X0", value: X0_b },
             { name: "PMCR_EL0", value: PMCR },
@@ -343,12 +343,12 @@ describe.skipIf(!HAS_BIN)("snapshot-test CLI", () => {
     it("reports register present in one file but not the other", () => {
       const X0 = Buffer.from([1, 0, 0, 0, 0, 0, 0, 0]);
       const a = write(
-        "diff-missing-a.snaplet",
-        encodeSnaplet(TOPO_A, [vcpu([{ name: "X0", value: X0 }])]),
+        "diff-missing-a.vmstate",
+        encodeVmstate(TOPO_A, [vcpu([{ name: "X0", value: X0 }])]),
       );
       const b = write(
-        "diff-missing-b.snaplet",
-        encodeSnaplet(TOPO_A, [
+        "diff-missing-b.vmstate",
+        encodeVmstate(TOPO_A, [
           vcpu([
             { name: "X0", value: X0 },
             { name: "X1", value: X0 },

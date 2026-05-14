@@ -1,15 +1,15 @@
-//! snapshot-test — CLI surface for the .snaplet snapshot format.
+//! snapshot-test — CLI surface for the .vmstate snapshot format.
 //!
 //! Subcommands:
 //!   dump      stub in #16; wired up in #18/#19/#22+ when each section
 //!             type gets its dumper.
-//!   load      Parse a .snaplet from disk. Validates magic, version,
+//!   load      Parse a .vmstate from disk. Validates magic, version,
 //!             arch, section bounds. With --expected-topology=<hex>,
 //!             also checks the topology_hash. State injection into a
 //!             VMM lands later.
 //!   translate stub in #16; wired up alongside the cross-load tasks
 //!             that need an interchange transform (#10/#14/#20).
-//!   diff      Compare two .snaplet files. With --mask=sysreg=A,B,...
+//!   diff      Compare two .vmstate files. With --mask=sysreg=A,B,...
 //!             ignores those named entries inside any VCPU section.
 //!             Exit 0 on identical (after masking), 1 on real diff,
 //!             2 on usage error.
@@ -22,16 +22,16 @@
 const std = @import("std");
 const microvm = @import("microvm");
 const snapshot = microvm.snapshot;
-const snaplet_zip = microvm.snaplet_zip;
+const vmstate_zip = microvm.vmstate_zip;
 
-/// Read a (possibly gzip-compressed) .snaplet off disk and parse it.
+/// Read a (possibly gzip-compressed) .vmstate off disk and parse it.
 /// Centralises the read + transparent-gunzip + decode the three
 /// file-consuming subcommands share. Caller owns the returned
-/// `Snaplet` and must `deinit()` it.
-fn loadSnapletFile(allocator: std.mem.Allocator, path: []const u8) !snapshot.Snaplet {
+/// `Vmstate` and must `deinit()` it.
+fn loadVmstateFile(allocator: std.mem.Allocator, path: []const u8) !snapshot.Vmstate {
     const raw = try std.Io.Dir.cwd().readFileAlloc(g_io, path, allocator, .limited(1 << 30));
     defer allocator.free(raw);
-    const bytes = try snaplet_zip.decompress(allocator, raw);
+    const bytes = try vmstate_zip.decompress(allocator, raw);
     defer allocator.free(bytes);
     return snapshot.decode(allocator, bytes);
 }
@@ -91,7 +91,7 @@ fn stdout(s: []const u8) !void {
 
 fn printUsage() !void {
     const u =
-        \\snapshot-test — .snaplet snapshot tool
+        \\snapshot-test — .vmstate snapshot tool
         \\
         \\Usage:
         \\  snapshot-test dump --vmm=<kvm|hvf> --config=<path> --halt-at=<expr> --section=<name> [--out=<file>]
@@ -194,7 +194,7 @@ fn dumpVcpuKvmCmd(allocator: std.mem.Allocator) !Exit {
     };
     defer allocator.free(payload);
 
-    // Wrap in a single-section .snaplet with topology hash placeholder.
+    // Wrap in a single-section .vmstate with topology hash placeholder.
     const topology = microvm.topology;
     const topo: topology.Topology = .{
         .ram_base = 0x4000_0000,
@@ -212,7 +212,7 @@ fn dumpVcpuKvmCmd(allocator: std.mem.Allocator) !Exit {
 }
 
 fn runXload(allocator: std.mem.Allocator, it: *std.process.Args.Iterator) !Exit {
-    // xload --vmm=<hvf|kvm> <in.snaplet>
+    // xload --vmm=<hvf|kvm> <in.vmstate>
     // Load the VCPU section into a fresh vCPU of the named backend,
     // then dump back to stdout. Used for task #20 cross-load.
     var vmm: []const u8 = "";
@@ -225,7 +225,7 @@ fn runXload(allocator: std.mem.Allocator, it: *std.process.Args.Iterator) !Exit 
         }
     }
     const path = in_path orelse {
-        try stderr("xload: missing <in.snaplet>\n");
+        try stderr("xload: missing <in.vmstate>\n");
         return .usage;
     };
     if (vmm.len == 0) {
@@ -233,7 +233,7 @@ fn runXload(allocator: std.mem.Allocator, it: *std.process.Args.Iterator) !Exit 
         return .usage;
     }
 
-    var snap = loadSnapletFile(allocator, path) catch |err| {
+    var snap = loadVmstateFile(allocator, path) catch |err| {
         try stderr("xload: cannot load ");
         try stderr(path);
         try stderr(": ");
@@ -453,7 +453,7 @@ fn runLoad(allocator: std.mem.Allocator, it: *std.process.Args.Iterator) !Exit {
         return .usage;
     };
 
-    var snap = loadSnapletFile(allocator, path) catch |err| {
+    var snap = loadVmstateFile(allocator, path) catch |err| {
         try stderr("load: cannot load ");
         try stderr(path);
         try stderr(": ");
@@ -520,16 +520,16 @@ fn runDiff(allocator: std.mem.Allocator, it: *std.process.Args.Iterator) !Exit {
         return .usage;
     };
 
-    var snap_a = readSnaplet(allocator, ap) catch return .fail;
+    var snap_a = readVmstate(allocator, ap) catch return .fail;
     defer snap_a.deinit();
-    var snap_b = readSnaplet(allocator, bp) catch return .fail;
+    var snap_b = readVmstate(allocator, bp) catch return .fail;
     defer snap_b.deinit();
 
-    return diffSnaplets(allocator, &snap_a, &snap_b, mask);
+    return diffVmstates(allocator, &snap_a, &snap_b, mask);
 }
 
-fn readSnaplet(allocator: std.mem.Allocator, path: []const u8) !snapshot.Snaplet {
-    return loadSnapletFile(allocator, path) catch |err| {
+fn readVmstate(allocator: std.mem.Allocator, path: []const u8) !snapshot.Vmstate {
+    return loadVmstateFile(allocator, path) catch |err| {
         try stderr("diff: cannot load ");
         try stderr(path);
         try stderr(": ");
@@ -539,10 +539,10 @@ fn readSnaplet(allocator: std.mem.Allocator, path: []const u8) !snapshot.Snaplet
     };
 }
 
-fn diffSnaplets(
+fn diffVmstates(
     allocator: std.mem.Allocator,
-    a: *snapshot.Snaplet,
-    b: *snapshot.Snaplet,
+    a: *snapshot.Vmstate,
+    b: *snapshot.Vmstate,
     mask: Mask,
 ) !Exit {
     var differs = false;

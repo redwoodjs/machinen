@@ -489,7 +489,7 @@ const cpuif_defaults = [_]struct { enc: u16, value: u64 }{
 };
 
 /// Seed the HVF CPU interface with Linux's known-static GICv3
-/// programming, via hv_gic_set_icc_reg. Fallback for `.snaplet`
+/// programming, via hv_gic_set_icc_reg. Fallback for `.vmstate`
 /// files written before `dumpHvfCpuIf` could capture the real ICC_*
 /// state — a current snapshot carries a real `gic_cpuif` section and
 /// `loadHvfCpuIf` replays that instead, so this only runs when no

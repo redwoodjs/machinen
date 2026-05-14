@@ -476,7 +476,7 @@ pub const State = struct {
 
     /// Serialise the host-side FUSE state — the nodeid→path map and the
     /// open file/dir handle table — into a `fuse_state` payload for the
-    /// snaplet snapshot. `applyState` is the inverse. Deliberately *not*
+    /// vmstate snapshot. `applyState` is the inverse. Deliberately *not*
     /// captured: `root_abs` (supplied fresh at boot), the host fds
     /// (reopened by path on restore — READ/WRITE are stateless
     /// pread/pwrite, so the fd offset doesn't matter), and the
@@ -1790,7 +1790,7 @@ test "validateName rejects path-escape and empty names" {
 
 // --- snapshot (dumpState / applyState) tests ---------------------------
 //
-// The snaplet whole-VM snapshot captures a virtio-fs device's host-side
+// The vmstate whole-VM snapshot captures a virtio-fs device's host-side
 // FUSE state through `State.dumpState` / `applyState`. Per the FUSE-ops
 // rule in CLAUDE.md these cover: the happy path (a handle survives a
 // snapshot round-trip and still does real I/O), the error path (a file
@@ -1848,7 +1848,7 @@ test "dumpState/applyState: a file handle survives a snapshot round-trip" {
     const payload = try src.dumpState(gpa);
     defer gpa.free(payload);
 
-    // A fresh State over the SAME root — a snaplet restore.
+    // A fresh State over the SAME root — a vmstate restore.
     var dst = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), true);
     defer dst.deinit();
     try dst.applyState(payload);

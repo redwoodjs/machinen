@@ -155,7 +155,7 @@ pub const Config = struct {
     // Stop the loop after this many data-abort/HVC exits no matter what.
     max_exits: usize = 5_000_000,
     /// Snapshot integration mirroring boot_kvm.zig's Config. Set
-    /// `restore_path` to load .snaplet bytes at boot before the first
+    /// `restore_path` to load .vmstate bytes at boot before the first
     /// vcpu.run(). Set `snapshot_path` to enable SIGUSR1-triggered
     /// dump during the run loop.
     restore_path: ?[]const u8 = null,
@@ -458,7 +458,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         .balloon_dev = balloon_dev_ptr,
         .virtiofs_devs = virtiofs_dev_ptrs,
     };
-    // Apply restore-from-snaplet before the first vcpu.run() if the
+    // Apply restore-from-vmstate before the first vcpu.run() if the
     // host orchestrator gave us one.
     if (cfg.restore_path) |path| {
         applyRestoreFile(gpa, path, vcpu, ram, cfg, &devs) catch |err| {
@@ -647,13 +647,13 @@ fn writeSnapshotFile(
     const bytes = try snapshot.encode(gpa, topo.hash(), sections.items);
     defer gpa.free(bytes);
     // gzip the whole container — guest RAM is mostly zero pages, so
-    // this routinely shrinks the .snaplet by an order of magnitude.
-    const out = try @import("snaplet_zip.zig").compress(gpa, bytes);
+    // this routinely shrinks the .vmstate by an order of magnitude.
+    const out = try @import("vmstate_zip.zig").compress(gpa, bytes);
     defer gpa.free(out);
     std.debug.print("hvf: snapshot {d} bytes -> {d} compressed\n", .{ bytes.len, out.len });
 
     // Write atomically: dump into `<path>.tmp`, then rename() onto the
-    // final path. The runtime's `performSnapshotSnaplet` polls for the
+    // final path. The runtime's `performSnapshotVmstate` polls for the
     // final path's existence as the "dump complete" signal, so a
     // partially-written file must never be observable there.
     const path_z = try gpa.dupeZ(u8, path);
@@ -710,8 +710,8 @@ fn applyRestoreFile(
         if (rc <= 0) return error.ReadFailed;
         off += @intCast(rc);
     }
-    // gunzip if the file is compressed; a plain .snaplet passes through.
-    const bytes = try @import("snaplet_zip.zig").decompress(gpa, raw);
+    // gunzip if the file is compressed; a plain .vmstate passes through.
+    const bytes = try @import("vmstate_zip.zig").decompress(gpa, raw);
     defer gpa.free(bytes);
 
     var snap = try snapshot.decode(gpa, bytes);
@@ -792,7 +792,7 @@ fn applyRestoreFile(
 
     // If the snapshot carried a real `gic_cpuif` section it was just
     // replayed (the captured ICC_* values are always correct). Only
-    // fall back to seeded Linux defaults for legacy `.snaplet` files
+    // fall back to seeded Linux defaults for legacy `.vmstate` files
     // written before `dumpHvfCpuIf` could capture the CPU interface —
     // without *some* programming the interface stays at reset and the
     // resumed guest never wakes from its idle WFI.
@@ -879,7 +879,7 @@ fn runLoop(
                     std.debug.print("hvf: snapshot write done\n", .{});
                     snapshotted = true;
                     // Clear the flag and RESUME — the snapshot engine
-                    // (`performSnapshotSnaplet`) decides destructiveness
+                    // (`performSnapshotVmstate`) decides destructiveness
                     // itself: a plain `snapshot` powers the source off
                     // afterward, `fork` leaves it running. Keep the
                     // watcher thread alive so a later SIGUSR1 (chained
@@ -1588,7 +1588,7 @@ const Devices = struct {
     /// Collect every present virtio device into `buf`, returning the
     /// populated prefix. Used by snapshot/restore to dump/apply each
     /// device's transport state — virtio-fs slots included, so a
-    /// `--mount-live` VM's queue state round-trips through snaplet.
+    /// `--mount-live` VM's queue state round-trips through vmstate.
     pub fn virtioDevices(self: *const Devices, buf: *[virtio_max]*virtio.Device) []*virtio.Device {
         var n: usize = 0;
         buf[n] = self.netdev;

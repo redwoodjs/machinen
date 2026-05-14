@@ -144,7 +144,7 @@ pub const Config = struct {
     gic_dist_addr: u64 = 0x0800_0000,
     gic_redist_addr: u64 = 0x1000_0000,
     /// Snapshot integration (tasks #32+). On boot, if `restore_path`
-    /// is set, the .snaplet at that path is loaded and applied to the
+    /// is set, the .vmstate at that path is loaded and applied to the
     /// vCPU + RAM before the run loop starts. While running, SIGUSR1
     /// flips an atomic flag that the run loop checks after each exit;
     /// when raised, the vCPU + RAM are dumped to `snapshot_path` and
@@ -379,7 +379,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         .balloon_dev = balloon_dev_ptr,
         .virtiofs_devs = virtiofs_dev_ptrs,
     };
-    // If asked to restore, apply vCPU + RAM from .snaplet before the
+    // If asked to restore, apply vCPU + RAM from .vmstate before the
     // first vcpu.run(). Topology hash mismatch is a hard error: the
     // wrong layout would scramble guest memory.
     if (cfg.restore_path) |path| {
@@ -505,7 +505,7 @@ fn initVcpu(vm: *kvm.Vm, img: KernelImage, cfg: Config) !kvm.Vcpu {
     //
     //  * A fresh boot that may later be *snapshotted* (KVM as source):
     //    we deliberately leave FEAT_PAuth off so the guest kernel
-    //    never signs pointers. That keeps the resulting .snaplet
+    //    never signs pointers. That keeps the resulting .vmstate
     //    portable — a HVF restore can't reconstruct KVM's PAC, and PAC
     //    algorithms aren't compatible across the two hosts.
     //
@@ -861,7 +861,7 @@ fn runLoop(
         if (!cfg.unbounded_serial and devs.uart.captured_len >= cfg.capture_bytes) break;
         // Snapshot trigger: SIGUSR1 set the flag. Write the whole-VM
         // state to cfg.snapshot_path and RESUME — destructiveness is
-        // the snapshot engine's call (`performSnapshotSnaplet` powers
+        // the snapshot engine's call (`performSnapshotVmstate` powers
         // the source off for a plain `snapshot`, leaves it running for
         // `fork`). The SIGUSR1 handler stays installed so a later
         // signal (chained snapshot / fork-the-fork) triggers another.
@@ -1001,13 +1001,13 @@ fn writeSnapshotFile(
     const bytes = try snapshot.encode(gpa, topo.hash(), sections.items);
     defer gpa.free(bytes);
     // gzip the whole container — guest RAM is mostly zero pages, so
-    // this routinely shrinks the .snaplet by an order of magnitude.
-    const out = try @import("snaplet_zip.zig").compress(gpa, bytes);
+    // this routinely shrinks the .vmstate by an order of magnitude.
+    const out = try @import("vmstate_zip.zig").compress(gpa, bytes);
     defer gpa.free(out);
     std.debug.print("kvm: snapshot {d} bytes -> {d} compressed\n", .{ bytes.len, out.len });
 
     // Write atomically: dump into `<path>.tmp`, then rename() onto the
-    // final path. The runtime's `performSnapshotSnaplet` polls for the
+    // final path. The runtime's `performSnapshotVmstate` polls for the
     // final path's existence as the "dump complete" signal, so a
     // partially-written file must never be observable there.
     const path_z = try gpa.dupeZ(u8, path);
@@ -1063,8 +1063,8 @@ fn applyRestoreFile(
         if (rc <= 0) return error.ReadFailed;
         off += @intCast(rc);
     }
-    // gunzip if the file is compressed; a plain .snaplet passes through.
-    const bytes = try @import("snaplet_zip.zig").decompress(gpa, raw);
+    // gunzip if the file is compressed; a plain .vmstate passes through.
+    const bytes = try @import("vmstate_zip.zig").decompress(gpa, raw);
     defer gpa.free(bytes);
 
     var snap = try snapshot.decode(gpa, bytes);
@@ -1259,7 +1259,7 @@ const Devices = struct {
     /// Collect every present virtio device into `buf`, returning the
     /// populated prefix. Used by snapshot/restore to dump/apply each
     /// device's transport state — virtio-fs slots included, so a
-    /// `--mount-live` VM's queue state round-trips through snaplet.
+    /// `--mount-live` VM's queue state round-trips through vmstate.
     pub fn virtioDevices(self: *const Devices, buf: *[virtio_max]*virtio.Device) []*virtio.Device {
         var n: usize = 0;
         buf[n] = self.netdev;

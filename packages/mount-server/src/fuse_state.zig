@@ -1,6 +1,6 @@
 //! Wire codec for a virtio-fs FUSE backend's host-side state.
 //!
-//! The snaplet whole-VM snapshot already round-trips a virtio-fs
+//! The vmstate whole-VM snapshot already round-trips a virtio-fs
 //! device's *transport* state (virtqueues, features — see
 //! `virtio_dump.zig`). But the restored guest kernel also holds an
 //! established FUSE session: cached `nodeid`s from past LOOKUPs and

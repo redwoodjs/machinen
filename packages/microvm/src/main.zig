@@ -65,7 +65,7 @@ pub fn main(init: std.process.Init) !void {
     const mountdisk_upper_fd = envInt("MACHINEN_MOUNTDISK_UPPER_FD");
 
     // Snapshot/restore plumbing — host orchestrator drives via env.
-    // MACHINEN_RESTORE_PATH: load .snaplet at boot before vcpu.run().
+    // MACHINEN_RESTORE_PATH: load .vmstate at boot before vcpu.run().
     // MACHINEN_SNAPSHOT_PATH: dump on SIGUSR1, exit cleanly.
     const restore_path = envOptional("MACHINEN_RESTORE_PATH");
     const snapshot_path = envOptional("MACHINEN_SNAPSHOT_PATH");
@@ -90,7 +90,7 @@ pub fn main(init: std.process.Init) !void {
         const result = try microvm.boot_hvf.boot(gpa, cfg);
         gpa.free(result.serial);
         // Exit 0 on snapshot too — orchestrator distinguishes via the
-        // .snaplet file's existence.
+        // .vmstate file's existence.
         std.process.exit(if (result.saw_psci_shutdown or result.snapshotted) 0 else 1);
     } else {
         const disk_path = envOptional("MACHINEN_DISK");

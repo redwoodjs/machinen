@@ -804,9 +804,9 @@ describe("vm.snapshot", () => {
     //   - criu: the host never sees the in-guest dump exec return →
     //     SNAPSHOT_TIMEOUT, or a no-bundle SNAPSHOT_DUMP_FAILED if
     //     vsock drops faster than the deadline.
-    //   - snaplet: there's no VMM left to signal → the SIGUSR1 send
+    //   - vmstate: there's no VMM left to signal → the SIGUSR1 send
     //     fails with ESRCH ("failed to signal the VMM"), or the state
-    //     file never appears ("did not write its .snaplet").
+    //     file never appears ("did not write its .vmstate").
     // Every one of these is the right "dump never ran" signal; we
     // accept any of them so the test is engine-agnostic.
     const snap = `/tmp/machinen-snap-nook-${process.pid}.img`;
@@ -819,7 +819,7 @@ describe("vm.snapshot", () => {
         timeoutMs: 5_000,
       });
       await expect(vm.snapshot({ outDir, timeoutMs: 2_000 })).rejects.toThrow(
-        /dump exec did not return|dump exec failed|core-\*\.img|failed to signal the VMM|did not write its \.snaplet/,
+        /dump exec did not return|dump exec failed|core-\*\.img|failed to signal the VMM|did not write its \.vmstate/,
       );
     } finally {
       try {

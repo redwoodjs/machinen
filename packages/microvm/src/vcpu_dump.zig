@@ -1,4 +1,4 @@
-//! vCPU dump+load for the .snaplet VCPU section (tasks #18, #19).
+//! vCPU dump+load for the .vmstate VCPU section (tasks #18, #19).
 //!
 //! Reads/writes a backend's vCPU register state via the existing
 //! kvm.zig / hvf.zig wrappers, applies the classification from
@@ -739,7 +739,7 @@ test "single-host HVF RT (vCPU + RAM, no execution)" {
 
 // Single-host KVM round trip across vCPU + RAM (task #32 MVP). Sets
 // up a small RAM region with a known pattern, captures vCPU + RAM
-// into a snaplet-section payload, restores into a fresh vCPU + RAM
+// into a vmstate-section payload, restores into a fresh vCPU + RAM
 // buffer, asserts both match. Doesn't run the guest — that's the
 // "dynamic" full integration test for later, but this proves the
 // dump+load pipeline preserves both register and memory state.

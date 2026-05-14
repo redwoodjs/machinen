@@ -154,12 +154,12 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
     async snapshot(snapshotOpts) {
       // A VM can be snapshotted only if its resolved engine has a
       // backing store recorded in the registry: criu writes its images
-      // onto the guest-side scratch disk, snaplet dumps the whole VM to
+      // onto the guest-side scratch disk, vmstate dumps the whole VM to
       // a host state file. `snapshot: false` records neither.
       const engine = resolveSnapshotEngine();
       if (
         (engine === "criu" && !entry.diskPath) ||
-        (engine === "snaplet" && !entry.snapletPath)
+        (engine === "vmstate" && !entry.vmstatePath)
       ) {
         throw new SnapshotError(
           "SNAPSHOT_NO_DISK",
@@ -175,7 +175,7 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
       const engine = resolveSnapshotEngine();
       if (
         (engine === "criu" && !entry.diskPath) ||
-        (engine === "snaplet" && !entry.snapletPath)
+        (engine === "vmstate" && !entry.vmstatePath)
       ) {
         throw new SnapshotError(
           "SNAPSHOT_NO_DISK",
@@ -202,9 +202,9 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
       // bundle exactly like boot-owned snapshots do.
       mountDisk: entry.mountDisk,
       liveMounts: entry.liveMounts,
-      // Snaplet engine: the VMM's whole-VM state-file path, persisted
-      // at boot. performSnapshotSnaplet SIGUSR1s the VMM and reads it.
-      snapletPath: entry.snapletPath,
+      // Vmstate engine: the VMM's whole-VM state-file path, persisted
+      // at boot. performSnapshotVmstate SIGUSR1s the VMM and reads it.
+      vmstatePath: entry.vmstatePath,
       execRaw: (cmd, execOpts) => handle.execRaw(cmd, execOpts),
       wait: () => handle.wait(),
       kill: () => handle.kill(),

@@ -29,7 +29,7 @@
 # Snapshot / restore / fork (the S-series) live in their own script —
 # scripts/smoke-test-snapshot-restore-fork.sh, invoked via
 # `pnpm smoke-test-snapshot-restore-fork` — so they can run against
-# both snapshot engines (criu, snaplet).
+# both snapshot engines (criu, vmstate).
 
 set -euo pipefail
 

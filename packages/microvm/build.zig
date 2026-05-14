@@ -109,7 +109,7 @@ pub fn build(b: *std.Build) void {
     // by passing `--prefix` or `-p`.
     b.installArtifact(exe);
 
-    // snapshot-test — CLI for the .snaplet snapshot format (task #16).
+    // snapshot-test — CLI for the .vmstate snapshot format (task #16).
     // Lives alongside machinen-vm because future subcommands need the
     // same KVM/HVF state-extraction surface.
     const snap_exe = b.addExecutable(.{

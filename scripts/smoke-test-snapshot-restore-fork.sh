@@ -2,7 +2,7 @@
 # End-to-end snapshot/restore/fork smoke tests for the machinen CLI.
 # Split out of scripts/smoke-tests.sh — this script focuses on the
 # S-series and runs it against BOTH snapshot engines (criu and
-# snaplet), selected via MACHINEN_SNAPSHOT_ENGINE.
+# vmstate), selected via MACHINEN_SNAPSHOT_ENGINE.
 #
 # Local-only — GitHub-hosted runners don't expose nested
 # virtualization, so this can't run in hosted CI.
@@ -15,7 +15,7 @@
 #   - packages/microvm/zig-out/bin/machinen-vm  (~30s on first run)
 #   - release-assets/ (Image, dtb, rootfs tarball)  (~5 min, needs Docker)
 #
-# Tests (run once per engine — criu, then snaplet):
+# Tests (run once per engine — criu, then vmstate):
 #   S1     Boot + snapshot + restore round-trip — #207, #215, #216.
 #   S2     Chained snapshot (3 generations, high PIDs) — #207, #215.
 #   S3     machinen fork — live snapshot + sibling, fork-the-fork — #216.
@@ -27,7 +27,7 @@
 # gated to the criu engine iteration. S6 exercises --mount-live, served
 # since #332/#338 by an in-VMM virtio-fs device, and runs for BOTH
 # engines: CRIU checkpoints that device with the rest of the guest,
-# and the snaplet engine now captures each virtio-fs slot's transport
+# and the vmstate engine now captures each virtio-fs slot's transport
 # state plus its host-side FUSE backend state.
 
 set -euo pipefail
@@ -226,7 +226,7 @@ wait_for_vm() {
 
 # Helper: assert a snapshot bundle has the engine-appropriate shape.
 # criu bundles carry a process-tree checkpoint under `img/core-*.img`;
-# snaplet bundles carry a whole-VM `state.snaplet`. Both always carry
+# vmstate bundles carry a whole-VM `state.vmstate`. Both always carry
 # `meta.json`. `$ENGINE` is set by the per-engine loop below.
 assert_bundle() {
   local dir=$1
@@ -235,12 +235,12 @@ assert_bundle() {
     ls -la "$dir" >&2
     fail "$label — snapshot bundle missing meta.json"
   fi
-  if [[ "$ENGINE" == "snaplet" ]]; then
-    if [[ ! -f "$dir/state.snaplet" ]]; then
+  if [[ "$ENGINE" == "vmstate" ]]; then
+    if [[ ! -f "$dir/state.vmstate" ]]; then
       ls -la "$dir" >&2
-      fail "$label — snaplet bundle missing state.snaplet"
+      fail "$label — vmstate bundle missing state.vmstate"
     fi
-    pass "snaplet bundle has state.snaplet + meta.json"
+    pass "vmstate bundle has state.vmstate + meta.json"
   else
     if [[ ! -d "$dir/img" ]] || ! ls "$dir"/img/core-*.img >/dev/null 2>&1; then
       ls -la "$dir" "$dir/img" >&2 2>/dev/null || true
@@ -252,11 +252,11 @@ assert_bundle() {
 
 # Helper: echo a stable file inside a bundle whose mtime can be probed
 # to prove a later operation didn't mutate the bundle. Engine-specific:
-# criu's core image vs. snaplet's whole-VM state file.
+# criu's core image vs. vmstate's whole-VM state file.
 bundle_probe_file() {
   local dir=$1
-  if [[ "$ENGINE" == "snaplet" ]]; then
-    echo "$dir/state.snaplet"
+  if [[ "$ENGINE" == "vmstate" ]]; then
+    echo "$dir/state.vmstate"
   else
     ls "$dir"/img/core-*.img | head -1
   fi
@@ -300,13 +300,13 @@ vmm_rss_mib() {
 # ----------------------------------------------------------------
 # S-series: snapshot / restore / fork, run once per snapshot engine.
 #
-# Both engines (criu, snaplet) back the same `machinen snapshot` /
+# Both engines (criu, vmstate) back the same `machinen snapshot` /
 # `machinen restore` / `machinen fork` CLI commands; the engine is
 # selected via MACHINEN_SNAPSHOT_ENGINE. The S-series VM names and
 # scratch paths embed $ENGINE so the two iterations in a single
 # process don't collide on the shared $$ (PID) suffix.
 # ----------------------------------------------------------------
-for ENGINE in criu snaplet; do
+for ENGINE in criu vmstate; do
   export MACHINEN_SNAPSHOT_ENGINE="$ENGINE"
   echo "================ engine: $ENGINE ================"
 
@@ -1075,11 +1075,11 @@ for ENGINE in criu snaplet; do
   # ----------------------------------------------------------------
   # S6 runs for BOTH engines. CRIU checkpoints the whole virtio-fs
   # device along with the rest of the guest, so `--mount-live` rides
-  # through the dump untouched. The snaplet engine's snapshot set
+  # through the dump untouched. The vmstate engine's snapshot set
   # (`virtioDevices()`) now includes the virtio-fs slots, and a
   # `.virtiofs_state` section captures each slot's host-side FUSE
   # backend (the nodeid→path map + open handle table) — so a
-  # snaplet-restored VM reconstructs its `--mount-live` windows too.
+  # vmstate-restored VM reconstructs its `--mount-live` windows too.
   if [[ "$ROOTFS_SUPPORTS_VSOCK_EXEC" -eq 0 || "$ROOTFS_SUPPORTS_CRIU" -eq 0 || "$ROOTFS_SUPPORTS_SNAPSHOT_HELPERS" -eq 0 ]]; then
     echo "S6: skipped (rootfs lacks vsock/criu/snapshot helpers)"
   else
