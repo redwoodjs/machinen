@@ -16,10 +16,11 @@
     "machinen-vm": "./vmm/bin/machinen-vm"
   },
   "files": [
-    "vmm/",
-    "e2fsprogs/",
-    "squashfs/",
-    "mount-server/",
+    "vmm/bin/",
+    "vmm/guest/",
+    "e2fsprogs/bin/",
+    "squashfs/bin/",
+    "mount-server/bin/",
     "index.mjs"
   ],
   "os": [
