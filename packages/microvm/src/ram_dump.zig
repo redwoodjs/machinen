@@ -1,21 +1,45 @@
 //! RAM section codec for .snaplet (task #26).
 //!
+//! Guest RAM is sized at host/2 (autoSizeMemoryMib) — routinely 8–16
+//! GiB — but an idle guest has only a few hundred MiB of non-zero
+//! pages. The v1 codec stored RAM raw: it SHA256'd, memcpy'd, and
+//! (via snaplet_zip) gzipped the *entire* multi-GiB image, zero pages
+//! included. That ran ~70 s with the vCPU paused, long enough to trip
+//! RCU stalls in the resumed guest.
+//!
+//! This codec is sparse: it scans RAM in 4 KiB pages and stores only
+//! the non-zero ones, as a list of contiguous extents. Zero pages are
+//! implicit — the loader zero-fills the destination first. A typical
+//! snapshot shrinks from "all of RAM" to a few hundred MiB, which
+//! cuts the paused-vCPU window by more than an order of magnitude.
+//!
 //! Payload layout (little-endian):
 //!
 //!   header (48 bytes, fixed)
 //!     ram_base u64        — guest IPA of the first byte
-//!     ram_size u64        — bytes (must match the header length)
-//!     sha256[32]          — SHA256 of the *raw* RAM bytes
-//!   ram_bytes[ram_size]   — raw, page-aligned. Compression is a
-//!                            future extension; for v1 we store raw.
+//!     ram_size u64        — total guest RAM size in bytes
+//!     sha256[32]          — SHA256 of the extent stream below
+//!   extent stream (repeats to end of payload)
+//!     offset u64          — byte offset into guest RAM
+//!     length u64          — extent byte length
+//!     bytes[length]       — the non-zero bytes at that offset
 //!
-//! Loader recomputes the SHA256 over the trailing bytes and refuses
-//! if they don't match. RAM is the bulk of the snapshot; a silent
-//! flip here would scramble the restore.
+//! The SHA256 covers the extent stream, not the reconstructed RAM:
+//! zero pages carry no bytes worth integrity-checking, and hashing
+//! only what we store keeps encode cost proportional to the snapshot,
+//! not to the (mostly empty) address space.
 
 const std = @import("std");
 
 pub const HEADER_SIZE: usize = 48;
+
+/// Zero-page scan granularity. 4 KiB is the finest guest page size on
+/// arm64, so a guest free page is always caught regardless of whether
+/// the guest kernel runs a 4 KiB or 16 KiB granule.
+const PAGE: usize = 4096;
+
+/// Per-extent prefix: offset u64 + length u64.
+const EXTENT_HEADER_SIZE: usize = 16;
 
 pub const RamHeader = extern struct {
     ram_base: u64,
@@ -35,104 +59,234 @@ pub const DecodeError = error{
     HashMismatch,
 };
 
-/// Build a RAM section payload from a host-side buffer. Caller owns
-/// the returned bytes.
+/// True if every byte of `buf` is zero. Word-wise so the multi-GiB
+/// scan stays a fraction of a second instead of a per-byte crawl.
+fn isZero(buf: []const u8) bool {
+    var i: usize = 0;
+    while (i + 8 <= buf.len) : (i += 8) {
+        if (std.mem.readInt(u64, buf[i..][0..8], .little) != 0) return false;
+    }
+    while (i < buf.len) : (i += 1) {
+        if (buf[i] != 0) return false;
+    }
+    return true;
+}
+
+/// The next run of non-zero 4 KiB pages at or after `from`, or null
+/// when the rest of `ram` is all zero. `end` is clamped to `ram.len`
+/// so a non-page-aligned tail still encodes.
+fn nextExtent(ram: []const u8, from: usize) ?struct { start: usize, end: usize } {
+    var i = from;
+    while (i < ram.len) {
+        const pe = @min(i + PAGE, ram.len);
+        if (!isZero(ram[i..pe])) break;
+        i = pe;
+    }
+    if (i >= ram.len) return null;
+    const start = i;
+    while (i < ram.len) {
+        const pe = @min(i + PAGE, ram.len);
+        if (isZero(ram[i..pe])) break;
+        i = pe;
+    }
+    return .{ .start = start, .end = i };
+}
+
+/// Build a sparse RAM section payload from a host-side buffer. Caller
+/// owns the returned bytes.
 pub fn encode(allocator: std.mem.Allocator, ram_base: u64, ram: []const u8) ![]u8 {
     // Tiger-style preconditions: RAM is non-empty and base is page
     // aligned. Empty RAM dumps are a likely sign of caller error.
     std.debug.assert(ram.len > 0);
-    std.debug.assert(ram_base % 4096 == 0);
+    std.debug.assert(ram_base % PAGE == 0);
+
+    // Pass 1: measure the extent stream so we can allocate once.
+    var body_len: usize = 0;
+    {
+        var cursor: usize = 0;
+        while (nextExtent(ram, cursor)) |e| {
+            body_len += EXTENT_HEADER_SIZE + (e.end - e.start);
+            cursor = e.end;
+        }
+    }
+
+    const out = try allocator.alloc(u8, HEADER_SIZE + body_len);
+    errdefer allocator.free(out);
+
+    // Pass 2: write each extent into the body.
+    var w: usize = HEADER_SIZE;
+    {
+        var cursor: usize = 0;
+        while (nextExtent(ram, cursor)) |e| {
+            const ext_len = e.end - e.start;
+            std.mem.writeInt(u64, out[w..][0..8], e.start, .little);
+            w += 8;
+            std.mem.writeInt(u64, out[w..][0..8], ext_len, .little);
+            w += 8;
+            @memcpy(out[w..][0..ext_len], ram[e.start..e.end]);
+            w += ext_len;
+            cursor = e.end;
+        }
+    }
+    std.debug.assert(w == out.len);
 
     var sha = std.crypto.hash.sha2.Sha256.init(.{});
-    sha.update(ram);
+    sha.update(out[HEADER_SIZE..]);
     var digest: [32]u8 = undefined;
     sha.final(&digest);
 
-    const out = try allocator.alloc(u8, HEADER_SIZE + ram.len);
     const hdr: RamHeader = .{
         .ram_base = ram_base,
         .ram_size = ram.len,
         .sha256 = digest,
     };
     @memcpy(out[0..HEADER_SIZE], std.mem.asBytes(&hdr));
-    @memcpy(out[HEADER_SIZE..], ram);
     return out;
 }
 
-/// Parse + verify a RAM payload. Returns slices into `payload`.
-/// Caller keeps `payload` alive.
-pub const Decoded = struct {
+/// Metadata recovered from a payload — the bytes themselves are
+/// reconstructed straight into the caller's destination buffer.
+pub const DecodedMeta = struct {
     ram_base: u64,
-    ram: []const u8,
-    sha256: [32]u8,
+    ram_size: u64,
 };
 
-pub fn decode(payload: []const u8) DecodeError!Decoded {
+/// Parse + verify a sparse RAM payload and reconstruct it into `dest`.
+/// `dest` must be at least `ram_size` bytes; the leading `ram_size`
+/// bytes are zero-filled and then the stored extents are laid down on
+/// top. The SHA256 over the extent stream is checked first — a flipped
+/// bit fails loudly here instead of scrambling the restored guest.
+pub fn decodeInto(payload: []const u8, dest: []u8) DecodeError!DecodedMeta {
     if (payload.len < HEADER_SIZE) return error.Truncated;
     var hdr: RamHeader = undefined;
     @memcpy(std.mem.asBytes(&hdr), payload[0..HEADER_SIZE]);
 
-    if (hdr.ram_size != payload.len - HEADER_SIZE) return error.SizeMismatch;
-    const ram = payload[HEADER_SIZE..];
+    const body = payload[HEADER_SIZE..];
 
     var sha = std.crypto.hash.sha2.Sha256.init(.{});
-    sha.update(ram);
+    sha.update(body);
     var digest: [32]u8 = undefined;
     sha.final(&digest);
     if (!std.mem.eql(u8, &digest, &hdr.sha256)) return error.HashMismatch;
 
-    return .{
-        .ram_base = hdr.ram_base,
-        .ram = ram,
-        .sha256 = hdr.sha256,
-    };
+    const ram_size = std.math.cast(usize, hdr.ram_size) orelse return error.SizeMismatch;
+    if (ram_size > dest.len) return error.SizeMismatch;
+
+    @memset(dest[0..ram_size], 0);
+
+    var c: usize = 0;
+    while (c < body.len) {
+        if (body.len - c < EXTENT_HEADER_SIZE) return error.Truncated;
+        const off64 = std.mem.readInt(u64, body[c..][0..8], .little);
+        const len64 = std.mem.readInt(u64, body[c..][8..16], .little);
+        c += EXTENT_HEADER_SIZE;
+
+        const off = std.math.cast(usize, off64) orelse return error.SizeMismatch;
+        const len = std.math.cast(usize, len64) orelse return error.SizeMismatch;
+        if (len > body.len - c) return error.Truncated;
+        // Every extent must land inside the declared RAM size.
+        if (off > ram_size or len > ram_size - off) return error.SizeMismatch;
+
+        @memcpy(dest[off..][0..len], body[c..][0..len]);
+        c += len;
+    }
+
+    return .{ .ram_base = hdr.ram_base, .ram_size = hdr.ram_size };
 }
 
 // --- tests ---
 
-test "encode/decode round-trip on small RAM" {
+test "encode/decode round-trip reconstructs a sparse buffer" {
     const a = std.testing.allocator;
-    const ram = "hello world, this is some RAM bytes" ** 16;
+    const ram = try a.alloc(u8, 4 * PAGE);
+    defer a.free(ram);
+    @memset(ram, 0);
+    // Two non-zero regions separated by a zero page.
+    @memset(ram[0..PAGE], 0xAB);
+    ram[PAGE * 3 + 7] = 0x42;
+
     const payload = try encode(a, 0x4000_0000, ram);
     defer a.free(payload);
+    // Only the two non-zero pages plus their extent headers are stored.
+    try std.testing.expect(payload.len < HEADER_SIZE + 3 * PAGE);
 
-    const dec = try decode(payload);
-    try std.testing.expectEqual(@as(u64, 0x4000_0000), dec.ram_base);
-    try std.testing.expectEqualSlices(u8, ram, dec.ram);
+    const dest = try a.alloc(u8, 4 * PAGE);
+    defer a.free(dest);
+    @memset(dest, 0xFF); // poison — decodeInto must zero-fill first.
+
+    const meta = try decodeInto(payload, dest);
+    try std.testing.expectEqual(@as(u64, 0x4000_0000), meta.ram_base);
+    try std.testing.expectEqual(@as(u64, 4 * PAGE), meta.ram_size);
+    try std.testing.expectEqualSlices(u8, ram, dest);
 }
 
-test "decode rejects truncated buffer" {
-    try std.testing.expectError(error.Truncated, decode("short"));
-}
-
-test "decode rejects size mismatch" {
+test "encode/decode round-trip on an all-zero buffer" {
     const a = std.testing.allocator;
-    const ram = "hello";
+    const ram = try a.alloc(u8, 8 * PAGE);
+    defer a.free(ram);
+    @memset(ram, 0);
+
     const payload = try encode(a, 0, ram);
     defer a.free(payload);
-    // Truncate one byte; size in header still claims 5.
-    try std.testing.expectError(error.SizeMismatch, decode(payload[0 .. payload.len - 1]));
+    // Nothing to store — payload is the bare header.
+    try std.testing.expectEqual(HEADER_SIZE, payload.len);
+
+    const dest = try a.alloc(u8, 8 * PAGE);
+    defer a.free(dest);
+    @memset(dest, 0xFF);
+    _ = try decodeInto(payload, dest);
+    try std.testing.expectEqualSlices(u8, ram, dest);
 }
 
-test "decode rejects flipped bit in RAM" {
+test "encode/decode handles a non-page-aligned tail" {
     const a = std.testing.allocator;
-    const ram = "the answer is forty two";
+    const ram = try a.alloc(u8, PAGE + 100);
+    defer a.free(ram);
+    @memset(ram, 0);
+    ram[PAGE + 50] = 0x99; // non-zero byte in the short tail
+
     const payload = try encode(a, 0, ram);
     defer a.free(payload);
-    // Mutate one byte in the RAM region — must NOT use a const
-    // pointer.
+
+    const dest = try a.alloc(u8, PAGE + 100);
+    defer a.free(dest);
+    _ = try decodeInto(payload, dest);
+    try std.testing.expectEqualSlices(u8, ram, dest);
+}
+
+test "decodeInto rejects a truncated header" {
+    var dest: [PAGE]u8 = undefined;
+    try std.testing.expectError(error.Truncated, decodeInto("short", &dest));
+}
+
+test "decodeInto rejects a dest smaller than ram_size" {
+    const a = std.testing.allocator;
+    const ram = try a.alloc(u8, 4 * PAGE);
+    defer a.free(ram);
+    @memset(ram, 0);
+    @memset(ram[0..PAGE], 1);
+
+    const payload = try encode(a, 0, ram);
+    defer a.free(payload);
+
+    var dest: [2 * PAGE]u8 = undefined;
+    try std.testing.expectError(error.SizeMismatch, decodeInto(payload, &dest));
+}
+
+test "decodeInto rejects a flipped bit in an extent" {
+    const a = std.testing.allocator;
+    const ram = try a.alloc(u8, 2 * PAGE);
+    defer a.free(ram);
+    @memset(ram, 0);
+    @memset(ram[0..PAGE], 0x5A);
+
+    const payload = try encode(a, 0, ram);
+    defer a.free(payload);
     const mut = try a.dupe(u8, payload);
     defer a.free(mut);
-    mut[HEADER_SIZE + 4] ^= 0x01;
-    try std.testing.expectError(error.HashMismatch, decode(mut));
-}
+    // Flip a byte inside the stored extent (past header + extent prefix).
+    mut[HEADER_SIZE + EXTENT_HEADER_SIZE + 3] ^= 0x01;
 
-test "encode produces a fixed header size regardless of RAM length" {
-    const a = std.testing.allocator;
-    const small = try encode(a, 0, "x");
-    defer a.free(small);
-    const large = try encode(a, 0, "x" ** 1024);
-    defer a.free(large);
-    try std.testing.expectEqual(@as(usize, HEADER_SIZE + 1), small.len);
-    try std.testing.expectEqual(@as(usize, HEADER_SIZE + 1024), large.len);
+    var dest: [2 * PAGE]u8 = undefined;
+    try std.testing.expectError(error.HashMismatch, decodeInto(mut, &dest));
 }

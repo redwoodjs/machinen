@@ -719,9 +719,9 @@ fn applyRestoreFile(
         switch (s.tag) {
             .vcpu => try vcpu_dump.loadHvf(gpa, vcpu.handle, s.payload),
             .ram => {
-                const d = try ram_dump.decode(s.payload);
-                if (d.ram.len > ram.len) return error.RamTooLarge;
-                @memcpy(ram[0..d.ram.len], d.ram);
+                // Reconstructs straight into the live guest RAM: zero
+                // pages are implicit, stored extents land on top.
+                _ = try ram_dump.decodeInto(s.payload, ram);
             },
             .gic_dist => gic_state.loadHvfDist(gpa, s.payload) catch |err| {
                 std.debug.print("hvf boot: gic_dist restore failed: {s}\n", .{@errorName(err)});

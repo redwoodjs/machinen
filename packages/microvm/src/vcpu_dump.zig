@@ -699,8 +699,7 @@ test "single-host HVF RT (vCPU + RAM, no execution)" {
     @memset(ram_b, 0);
 
     try loadHvf(a, vcpu_b.handle, cpu_payload);
-    const decoded = try ram_dump.decode(ram_payload);
-    @memcpy(ram_b, decoded.ram);
+    _ = try ram_dump.decodeInto(ram_payload, ram_b);
     try vm_b.map(ram_b, RAM_BASE, hvf.MapFlags.rwx);
     defer vm_b.unmap(RAM_BASE, RAM_LEN) catch {};
 
@@ -771,10 +770,9 @@ test "single-host KVM RT (vCPU + RAM, no execution)" {
     @memset(ram_b, 0);
 
     try loadKvm(a, vcpu_b.fd, cpu_payload);
-    const decoded = try ram_dump.decode(ram_payload);
+    const decoded = try ram_dump.decodeInto(ram_payload, ram_b);
     try std.testing.expectEqual(@as(u64, RAM_BASE), decoded.ram_base);
-    try std.testing.expectEqual(RAM_LEN, decoded.ram.len);
-    @memcpy(ram_b, decoded.ram);
+    try std.testing.expectEqual(@as(u64, RAM_LEN), decoded.ram_size);
 
     // Verify side B matches side A.
     try std.testing.expectEqualSlices(u8, ram_a, ram_b);

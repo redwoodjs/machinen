@@ -1097,9 +1097,9 @@ fn applyRestoreFile(
         switch (s.tag) {
             .vcpu => try vcpu_dump.loadKvm(gpa, vcpu.fd, s.payload),
             .ram => {
-                const d = try ram_dump.decode(s.payload);
-                if (d.ram.len > ram.len) return error.RamTooLarge;
-                @memcpy(ram[0..d.ram.len], d.ram);
+                // Reconstructs straight into the live guest RAM: zero
+                // pages are implicit, stored extents land on top.
+                _ = try ram_dump.decodeInto(s.payload, ram);
             },
             .gic_dist => if (apply_gic) try gic_state.loadKvmDist(gpa, gic_fd, s.payload),
             .gic_redist => if (apply_gic) try gic_state.loadKvmRedist(gpa, gic_fd, mpidr, s.payload),
