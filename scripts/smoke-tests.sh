@@ -924,6 +924,14 @@ if ! cli exec "$B1_NAME" -- \
   cat "$B1_SPIKE_LOG" >&2
   fail "B1 — spike workload failed"
 fi
+# `vmm_phys_footprint_mib` reads the VMM's stats file, which the
+# in-VMM sampler thread refreshes every ~500 ms (see stats.zig). The
+# 1 GiB spike itself finishes in well under that, so reading the
+# stats file the instant `cli exec` returns can catch a sample taken
+# mid-spike — the footprint is real, the *sample* just hasn't landed
+# yet. Wait two sampler intervals so the post-spike high-water mark
+# is guaranteed to be in the file before we read it.
+sleep 2
 B1_SPIKE=$(vmm_phys_footprint_mib "$B1_VMM_PID")
 echo "  post-spike RSS=${B1_SPIKE} MiB"
 
