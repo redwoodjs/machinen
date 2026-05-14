@@ -125,6 +125,37 @@ extern "c" fn pread(fd: c_int, buf: [*]u8, nbyte: usize, offset: i64) isize;
 extern "c" fn mkdir(path: [*:0]const u8, mode: c_int) c_int;
 extern "c" fn symlink(target: [*:0]const u8, linkpath: [*:0]const u8) c_int;
 extern "c" fn rmdir(path: [*:0]const u8) c_int;
+const DirPtr = *opaque {};
+extern "c" fn opendir(path: [*:0]const u8) ?DirPtr;
+extern "c" fn closedir(dir: DirPtr) c_int;
+
+// `readdir` returns a libc-owned `struct dirent` pointer or null at
+// end-of-stream. The struct layout differs between darwin and linux,
+// but for our purposes we only need the type byte and the NUL-
+// terminated name. Both platforms place `d_type` (u8) somewhere in
+// the front and `d_name` starts at a known offset — darwin has a
+// `__darwin_ino64_t` (u64) ino, u64 seekoff, u16 reclen, u16 namlen,
+// u8 type, then char d_name[1024]; linux has u64 ino, i64 off, u16
+// reclen, u8 type, then char d_name[256]. We crawl just the `type`
+// (offset 20 darwin, 18 linux) and `name` (offset 21 darwin, 19
+// linux). The crawl is read-only on libc-owned memory.
+const DirentDarwin = extern struct {
+    d_ino: u64,
+    d_seekoff: u64,
+    d_reclen: u16,
+    d_namlen: u16,
+    d_type: u8,
+    d_name: [1024]u8,
+};
+const DirentLinux = extern struct {
+    d_ino: u64,
+    d_off: i64,
+    d_reclen: u16,
+    d_type: u8,
+    d_name: [256]u8,
+};
+const Dirent = if (builtin.os.tag == .macos) DirentDarwin else DirentLinux;
+extern "c" fn readdir(dir: DirPtr) ?*Dirent;
 
 // Host open flags we actually use. Values are stable across darwin and
 // linux for the standard set we care about.
@@ -348,12 +379,22 @@ const InodeEntry = struct {
 
 const NLOOKUP_PINNED: u64 = std.math.maxInt(u64);
 
-const OpenKind = enum { file };
+const OpenKind = enum { file, dir };
 
+// One open file handle (OPEN/CREATE) or open directory (OPENDIR). A
+// `file` entry holds a host fd; a `dir` entry holds the directory's
+// children pre-packed as individual `fuse_dirent` buffers, snapshotted
+// at OPENDIR time (the JS server did the same — a guest that adds a
+// file mid-listing won't see it until it re-opens the dir, which
+// matches kernel readdir semantics closely enough).
 const OpenEntry = struct {
     kind: OpenKind,
-    fd: c_int,
-    nodeid: u64,
+    fd: c_int = -1,
+    nodeid: u64 = 0,
+    /// Owned by `gpa`; freed on RELEASEDIR and in State.deinit. Each
+    /// element is one packed `fuse_dirent` (24-byte header + padded
+    /// name). `dir` kind only; null for `file`.
+    dir_entries: ?[][]u8 = null,
 };
 
 const OpStat = struct {
@@ -412,7 +453,7 @@ const State = struct {
         self.inodes.deinit();
 
         var hit = self.handles.iterator();
-        while (hit.next()) |e| _ = close(e.value_ptr.fd);
+        while (hit.next()) |e| freeHandle(self, e.value_ptr);
         self.handles.deinit();
 
         self.op_stats.deinit();
@@ -420,6 +461,24 @@ const State = struct {
         if (self.stats_path) |p| self.gpa.free(p);
     }
 };
+
+/// Release a handle's owned resources — close the fd for a `file`,
+/// free the packed-dirent slices for a `dir`. Idempotent enough: a
+/// double-free can't happen because callers `remove()` from the map
+/// right after.
+fn freeHandle(state: *State, e: *OpenEntry) void {
+    switch (e.kind) {
+        .file => {
+            if (e.fd >= 0) _ = close(e.fd);
+        },
+        .dir => {
+            if (e.dir_entries) |entries| {
+                for (entries) |buf| state.gpa.free(buf);
+                state.gpa.free(entries);
+            }
+        },
+    }
+}
 
 // --- CLI args -----------------------------------------------------------
 
@@ -674,6 +733,9 @@ fn dispatch(state: *State, msg: []const u8) !void {
             .RELEASE => break :blk try onRelease(state, hdr, msg),
             .OPEN => break :blk try onOpen(state, hdr, msg),
             .READ => break :blk try onRead(state, hdr, msg),
+            .OPENDIR => break :blk try onOpendir(state, hdr),
+            .READDIR => break :blk try onReaddir(state, hdr, msg),
+            .RELEASEDIR => break :blk try onReleasedir(state, hdr, msg),
             .MKDIR => break :blk try onMkdir(state, hdr, msg),
             .UNLINK => break :blk try onUnlink(state, hdr, msg),
             .RMDIR => break :blk try onRmdir(state, hdr, msg),
@@ -1206,17 +1268,170 @@ fn onStatfs(state: *State, hdr: InHeader) ![]u8 {
     return try buildReply(state, hdr.unique, &payload);
 }
 
-// --- RELEASE ------------------------------------------------------------
+// --- RELEASE / RELEASEDIR -----------------------------------------------
 
 fn onRelease(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
     const body = msg[FUSE_IN_HEADER_SIZE..];
     if (body.len < FUSE_RELEASE_IN_SIZE) return try buildErrorReply(state, hdr.unique, -E.INVAL);
     const fh = std.mem.readInt(u64, body[0..8], .little);
-    if (state.handles.get(fh)) |handle| {
-        _ = close(handle.fd);
+    if (state.handles.getPtr(fh)) |handle| {
+        freeHandle(state, handle);
         _ = state.handles.remove(fh);
     }
     return try buildErrorReply(state, hdr.unique, 0);
+}
+
+// fuse_release_in is the same wire shape RELEASEDIR uses — fh is the
+// first u64. Free the snapshotted dirent buffers.
+fn onReleasedir(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
+    const body = msg[FUSE_IN_HEADER_SIZE..];
+    if (body.len < 8) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    const fh = std.mem.readInt(u64, body[0..8], .little);
+    if (state.handles.getPtr(fh)) |handle| {
+        freeHandle(state, handle);
+        _ = state.handles.remove(fh);
+    }
+    return try buildErrorReply(state, hdr.unique, 0);
+}
+
+// --- OPENDIR / READDIR --------------------------------------------------
+
+// DT_* dirent type bytes (POSIX dirent.h; identical on darwin + linux
+// for the values we emit).
+const DT_UNKNOWN: u32 = 0;
+const DT_FIFO: u32 = 1;
+const DT_CHR: u32 = 2;
+const DT_DIR: u32 = 4;
+const DT_BLK: u32 = 6;
+const DT_REG: u32 = 8;
+const DT_LNK: u32 = 10;
+const DT_SOCK: u32 = 12;
+
+// S_IFMT type bits → DT_* dirent type.
+fn modeToDT(mode: u32) u32 {
+    return switch (mode & 0o170000) {
+        0o040000 => DT_DIR,
+        0o100000 => DT_REG,
+        0o120000 => DT_LNK,
+        0o020000 => DT_CHR,
+        0o060000 => DT_BLK,
+        0o010000 => DT_FIFO,
+        0o140000 => DT_SOCK,
+        else => DT_UNKNOWN,
+    };
+}
+
+// Pack one `fuse_dirent`: 24-byte header (ino, off, namelen, type) +
+// the name, zero-padded to an 8-byte boundary. Caller owns the result.
+fn buildDirent(gpa: std.mem.Allocator, ino: u64, off: u64, dtype: u32, name: []const u8) ![]u8 {
+    const padded_name = (name.len + 7) & ~@as(usize, 7);
+    const buf = try gpa.alloc(u8, 24 + padded_name);
+    @memset(buf, 0);
+    std.mem.writeInt(u64, buf[0..8], ino, .little);
+    std.mem.writeInt(u64, buf[8..16], off, .little);
+    std.mem.writeInt(u32, buf[16..20], @intCast(name.len), .little);
+    std.mem.writeInt(u32, buf[20..24], dtype, .little);
+    @memcpy(buf[24 .. 24 + name.len], name);
+    return buf;
+}
+
+fn onOpendir(state: *State, hdr: InHeader) ![]u8 {
+    const entry = requireInode(state, hdr.nodeid) orelse
+        return try buildErrorReply(state, hdr.unique, -E.STALE);
+
+    var path_buf: [4096]u8 = undefined;
+    const abs = buildAbsPath(state, entry.rel_path, &path_buf) catch
+        return try buildErrorReply(state, hdr.unique, -E.INVAL);
+
+    var abs_z: [4097]u8 = undefined;
+    if (abs.len >= abs_z.len) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    @memcpy(abs_z[0..abs.len], abs);
+    abs_z[abs.len] = 0;
+
+    const dir = opendir(@ptrCast(&abs_z)) orelse
+        return try buildErrorReply(state, hdr.unique, mapFsError(errnoToZigError(errno())));
+    defer _ = closedir(dir);
+
+    // Pack every child into its own fuse_dirent buffer. The dir entry
+    // count is unbounded in principle; an ArrayList keeps the common
+    // case (a few hundred entries) cheap and the pathological case
+    // correct.
+    var entries: std.ArrayList([]u8) = .empty;
+    errdefer {
+        for (entries.items) |b| state.gpa.free(b);
+        entries.deinit(state.gpa);
+    }
+
+    while (readdir(dir)) |de| {
+        const name = std.mem.sliceTo(&de.d_name, 0);
+        // `.` and `..` aren't sent over FUSE readdir — the kernel
+        // synthesizes them. Skip to match kernel behavior.
+        if (std.mem.eql(u8, name, ".") or std.mem.eql(u8, name, "..")) continue;
+
+        // `off` is 1-based index of the *next* entry — the kernel
+        // passes it back as READ offset to resume mid-listing.
+        const off: u64 = entries.items.len + 1;
+        // d_type is usually populated; when the fs returns DT_UNKNOWN,
+        // lstat the child to get a real type. Cheap — only on the
+        // unknown path, and most fs's fill d_type.
+        var dtype: u32 = de.d_type;
+        if (dtype == DT_UNKNOWN) {
+            var child_buf: [4096]u8 = undefined;
+            const child_rel = joinRel(state.gpa, entry.rel_path, name) catch continue;
+            defer state.gpa.free(child_rel);
+            const child_abs = buildAbsPath(state, child_rel, &child_buf) catch continue;
+            var st = std.mem.zeroes(Stat);
+            if (hostLstat(child_abs, &st)) |_| {
+                dtype = modeToDT(st.mode);
+            } else |_| {}
+        }
+        const packed_de = try buildDirent(state.gpa, off, off, dtype, name);
+        try entries.append(state.gpa, packed_de);
+    }
+
+    const owned = try entries.toOwnedSlice(state.gpa);
+    const id = state.next_handle;
+    state.next_handle += 1;
+    try state.handles.put(id, .{ .kind = .dir, .dir_entries = owned });
+
+    var payload: [16]u8 = @splat(0);
+    std.mem.writeInt(u64, payload[0..8], id, .little); // fh
+    std.mem.writeInt(u32, payload[8..12], 0, .little); // open_flags
+    return try buildReply(state, hdr.unique, &payload);
+}
+
+fn onReaddir(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
+    const body = msg[FUSE_IN_HEADER_SIZE..];
+    if (body.len < 32) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    const fh = std.mem.readInt(u64, body[0..8], .little);
+    const offset = std.mem.readInt(u64, body[8..16], .little);
+    const size = std.mem.readInt(u32, body[16..20], .little);
+
+    const handle = state.handles.get(fh) orelse
+        return try buildErrorReply(state, hdr.unique, -E.BADF);
+    if (handle.kind != .dir) return try buildErrorReply(state, hdr.unique, -E.BADF);
+    const entries = handle.dir_entries orelse
+        return try buildErrorReply(state, hdr.unique, -E.BADF);
+
+    // Fill the reply with as many whole dirents as fit in `size`,
+    // starting at `offset` (1-based "off" the kernel echoed back from
+    // a prior READDIR). offset 0 means "from the top".
+    const start: usize = @intCast(offset);
+    var total: usize = 0;
+    var i: usize = start;
+    while (i < entries.len) : (i += 1) {
+        if (total + entries[i].len > size) break;
+        total += entries[i].len;
+    }
+    const reply = try state.gpa.alloc(u8, FUSE_OUT_HEADER_SIZE + total);
+    writeOutHeader(reply[0..FUSE_OUT_HEADER_SIZE], total, 0, hdr.unique);
+    var cursor: usize = FUSE_OUT_HEADER_SIZE;
+    var j: usize = start;
+    while (j < i) : (j += 1) {
+        @memcpy(reply[cursor..][0..entries[j].len], entries[j]);
+        cursor += entries[j].len;
+    }
+    return reply;
 }
 
 // --- host fs ops --------------------------------------------------------
