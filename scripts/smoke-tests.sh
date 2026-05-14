@@ -19,6 +19,7 @@
 #   T2     --mount exposes a host directory readable inside the guest.
 #   T3     --mount-live :ro streams a host file in lazily — #78.
 #   T3v/T5v --mount-live over the virtio-fs transport — #332.
+#   T9f/T9v filesystem-op battery over a live mount, both transports.
 #   T4     --env propagates into the guest process env — #89.
 #   T5     --mount-live (default :rw) guest writes land on the host — #151, #156.
 #   P1-P3  Base-rootfs contract (criu, virtio modules, poweroff) — #77.
@@ -416,6 +417,92 @@ else
   echo "  host file: $(ls -la "$T5V_SRC" 2>&1)" >&2
   fail "T5v marker ($T5V_MARKER) not found in $T5V_SRC/from-guest.txt"
 fi
+
+# ---- T9f / T9v: filesystem-operations coverage over a live mount ----
+#
+# T3/T3v/T5/T5v each prove a live mount carries a single read or a
+# single write. This exercises the rest of the filesystem surface the
+# #329 FUSE handlers implement — directories, nested paths, readdir,
+# unlink, rmdir, symlink creation, and a multi-frame large file — and
+# runs the *same* battery against both transports, so virtio-fs
+# coverage stays comparable to FUSE-over-vsock.
+#
+# Deliberately left out, because the #329 handlers don't implement
+# them (ENOSYS) regardless of transport — separate follow-ups, not
+# #332 scope:
+#   - append (`>>` / O_APPEND): a guest append fails with EIO on this
+#     path; pinning down whether that's host-side or a guest-kernel
+#     FUSE writeback-cache interaction needs its own investigation.
+#   - reading *through* a symlink (READLINK): `ln -s` itself works
+#     (SYMLINK), so the link is created and checked on the host, but
+#     `cat`-ing it would hit ENOSYS.
+#   - rename (RENAME), chmod (SETATTR is a stat-only stub).
+fs_ops_smoke() {
+  local proto="$1"
+  local label="T9${proto:0:1}" # T9f / T9v
+  echo "$label: filesystem operations over a --mount-live ($proto) mount"
+
+  # fuse needs the in-guest byte-pump in the rootfs; virtio-fs doesn't.
+  if [[ "$proto" == "fuse" ]] && ! grep -q 'fuse-agent$' <<<"$ROOTFS_ENTRIES"; then
+    echo "  skip: fuse-agent not in $ROOTFS_TAR — rebuild base assets"
+    return
+  fi
+
+  local marker="fs-ops-${proto}-$$"
+  local src="$FIXTURE/fs-ops-$proto"
+  local log="$FIXTURE/fs-ops-$proto.log"
+  mkdir -p "$src"
+  local fs_fail
+  fs_fail() {
+    tail -80 "$log" >&2 || true
+    ls -laR "$src" 2>&1 | head -40 >&2 || true
+    fail "$1"
+  }
+
+  # One guest script: a battery of filesystem ops under /mnt/fs, a
+  # read-back, then a unique marker. `set -e` aborts on the first
+  # failure, so a missing marker means something in the battery broke.
+  # `\$(...)` is escaped so the *guest* shell evaluates it.
+  # `seq 1 50000` is ~288 KiB — a deliberately multi-frame payload. The
+  # guest both writes it and reads it straight back, so the descriptor-
+  # chain gather (write) and scatter (read) are each exercised past the
+  # one-page boundary.
+  run_timeout 90 node "$CLI" boot \
+    --mount-live "$src:/mnt/fs:rw:$proto" \
+    -- /bin/sh -c "
+      set -e
+      mkdir -p /mnt/fs/d/nested
+      echo nested-content > /mnt/fs/d/nested/a.txt
+      seq 1 50000 > /mnt/fs/big.txt
+      echo bigread: \$(wc -l < /mnt/fs/big.txt | tr -d ' ')
+      echo doomed > /mnt/fs/doomed.txt && rm /mnt/fs/doomed.txt
+      mkdir /mnt/fs/emptydir && rmdir /mnt/fs/emptydir
+      ln -s d/nested/a.txt /mnt/fs/link.txt
+      echo readback: \$(cat /mnt/fs/d/nested/a.txt)
+      echo readdir: \$(ls /mnt/fs/d/nested | tr '\n' ' ')
+      sync
+      echo $marker
+    " >"$log" 2>&1 || true
+
+  # Guest side: the battery ran to completion, a file round-tripped,
+  # and the large file read back at full length (multi-frame scatter).
+  grep -q "$marker" "$log" || fs_fail "$label: guest battery didn't reach the marker ($marker)"
+  grep -q "readback: nested-content" "$log" || fs_fail "$label: file read-back wrong"
+  grep -q "bigread: 50000" "$log" || fs_fail "$label: large file read back short (multi-frame scatter)"
+
+  # Host side: every mutating op landed on the host directory.
+  [[ "$(cat "$src/d/nested/a.txt" 2>/dev/null)" == "nested-content" ]] ||
+    fs_fail "$label: nested file missing/wrong on host"
+  [[ "$(wc -l <"$src/big.txt" 2>/dev/null | tr -d ' ')" == "50000" ]] ||
+    fs_fail "$label: big.txt wrong line count on host (multi-frame write)"
+  [[ ! -e "$src/doomed.txt" ]] || fs_fail "$label: unlink didn't remove doomed.txt on host"
+  [[ ! -e "$src/emptydir" ]] || fs_fail "$label: rmdir didn't remove emptydir on host"
+  [[ -L "$src/link.txt" ]] || fs_fail "$label: symlink not present on host"
+  pass "fs ops (mkdir/write/nested/readdir/unlink/rmdir/symlink/large file) over $proto"
+}
+
+fs_ops_smoke fuse
+fs_ops_smoke virtiofs
 
 # ---- T4: --env propagates into the guest process env (#89) ----
 echo "T4: machinen boot --env FOO=bar -- sh -c 'echo FOO=\$FOO'"

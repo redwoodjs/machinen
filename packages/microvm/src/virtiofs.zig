@@ -67,6 +67,26 @@ comptime {
     assert(@offsetOf(FsConfig, "num_request_queues") == 36);
 }
 
+/// Per-request descriptor-chain cap — the wedge guard for a guest that
+/// points `next` in a cycle. virtio-fs needs a *much* larger bound
+/// than `virtio.max_chain_descriptors` (32): that constant is sized
+/// for net / blk / vsock, whose chains are ≤ 4, but virtio-fs scatters
+/// a single 128 KiB FUSE READ/WRITE payload across one descriptor per
+/// 4 KiB guest page — 32+ descriptors for the data alone, plus the
+/// header and the reply window. Capping at 32 silently truncated
+/// large writes (the data tail *and* the writable reply descriptor
+/// fell off the end). 256 is the hard ceiling regardless: a split-ring
+/// chain can't exceed the queue size, and `queue_num_max` is 256.
+const MAX_CHAIN_DESCRIPTORS: u32 = 256;
+
+comptime {
+    // A chain physically can't be longer than the virtqueue, and the
+    // gather buffer must hold every readable descriptor's bytes — at
+    // 4 KiB per page, MAX_FUSE_MESSAGE / 4096 pages is the readable
+    // worst case, comfortably under MAX_CHAIN_DESCRIPTORS.
+    assert(MAX_CHAIN_DESCRIPTORS >= fuse.MAX_FUSE_MESSAGE / 4096 + 4);
+}
+
 /// One virtio-fs backend == one live mount. Owns the shared FUSE
 /// handler state and a fixed request-gather buffer. Pinned for the
 /// VM's lifetime once `init` returns — `virtio.Device.request_ctx`
@@ -134,7 +154,7 @@ pub const Device = struct {
         // writable descriptors are the reply window — remember them so
         // we can scatter the reply back after dispatch.
         var req_len: usize = 0;
-        var writable: [virtio.max_chain_descriptors]virtio.VringDesc = undefined;
+        var writable: [MAX_CHAIN_DESCRIPTORS]virtio.VringDesc = undefined;
         var writable_count: usize = 0;
 
         var idx: u16 = head;
@@ -142,8 +162,10 @@ pub const Device = struct {
         // #238-style wedge guard: a guest that points `next` in a cycle
         // would otherwise spin the VMM thread. Truncating an over-long
         // chain is fail-soft — the dispatch below sees a short request
-        // and replies EINVAL, or the reply scatter drops bytes.
-        while (steps < virtio.max_chain_descriptors) : (steps += 1) {
+        // and replies EINVAL, or the reply scatter drops bytes. The cap
+        // is `MAX_CHAIN_DESCRIPTORS`, sized for virtio-fs's page-per-
+        // descriptor large I/O (see the constant's doc comment).
+        while (steps < MAX_CHAIN_DESCRIPTORS) : (steps += 1) {
             const d = dev.queueDescriptor(q_idx, idx) orelse break;
             if ((d.flags & virtio.VringDesc.F_WRITE) != 0) {
                 if (writable_count < writable.len) {
@@ -159,7 +181,7 @@ pub const Device = struct {
             if ((d.flags & virtio.VringDesc.F_NEXT) == 0) break;
             idx = d.next;
         }
-        assert(steps <= virtio.max_chain_descriptors);
+        assert(steps <= MAX_CHAIN_DESCRIPTORS);
         assert(req_len <= self.req_buf.len);
         assert(writable_count <= writable.len);
 
@@ -539,4 +561,101 @@ test "handleRequest: a self-cycling descriptor chain is capped, not hung" {
     const elem = testReadUsed(&ram, q);
     try testing.expectEqual(@as(u32, 0), elem.id);
     try testing.expectEqual(@as(u32, 0), elem.len);
+}
+
+test "handleRequest: a large WRITE spanning >32 descriptors is fully gathered" {
+    // Regression for the #332 cap bug: a 128 KiB+ FUSE WRITE arrives as
+    // one descriptor per 4 KiB guest page, so the chain runs well past
+    // the old 32-descriptor cap. Capping there truncated the payload
+    // (and dropped the writable reply descriptor) — large writes over
+    // a virtio-fs live mount silently corrupted. T9v in smoke-tests.sh
+    // is the end-to-end guard; this is the fast in-`zig build test` one.
+    const gpa = testing.allocator;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    var fsdev = try Device.init(gpa, "machinen0", try testTmpRootAbs(gpa, &tmp), true);
+    defer fsdev.deinit();
+
+    // CREATE the target file and capture its handle. fuse_create_in
+    // (16) + name; the reply is entry_out(128) + open_out(16), fh at
+    // payload offset 128.
+    var create_body: [16 + 8]u8 = @splat(0);
+    std.mem.writeInt(u32, create_body[0..4], 2, .little); // Linux O_RDWR
+    std.mem.writeInt(u32, create_body[4..8], 0o644, .little);
+    @memcpy(create_body[16..][0.."big.bin".len], "big.bin");
+    const create = testRunOp(&fsdev, 35, 1, 1, &create_body);
+    try testing.expectEqual(@as(i32, 0), create.err());
+    const fh = std.mem.readInt(u64, create.payload()[128..136], .little);
+
+    // Build a WRITE whose payload is fragmented one 4 KiB page per
+    // descriptor — 40 pages = 160 KiB, well past the old 32-desc cap.
+    // Chain: [in_header + fuse_write_in] -> 40 data descs -> [reply].
+    const page: usize = 4096;
+    const pages: usize = 40;
+    const payload_len: usize = page * pages;
+    var ram: [512 * 1024]u8 = @splat(0);
+    var dev = virtio.Device{
+        .base = 0x0A00_0000,
+        .id = .virtio_fs,
+        .ram = &ram,
+        .ram_base = 0,
+        .request_handler = &Device.handleRequest,
+        .request_ctx = @ptrCast(&fsdev),
+    };
+    const q = testSetupRing(64);
+    dev.queues[1] = q;
+
+    const hdr_off: u64 = 0x4000;
+    const data_off: u64 = 0x6000;
+    const reply_off: u64 = 0x60000;
+    // fuse_in_header (40 bytes).
+    std.mem.writeInt(u32, ram[hdr_off..][0..4], @intCast(fuse.FUSE_IN_HEADER_SIZE + 40 + payload_len), .little);
+    std.mem.writeInt(u32, ram[hdr_off + 4 ..][0..4], 16, .little); // opcode WRITE
+    std.mem.writeInt(u64, ram[hdr_off + 8 ..][0..8], 77, .little); // unique
+    std.mem.writeInt(u64, ram[hdr_off + 16 ..][0..8], 1, .little); // nodeid
+    // fuse_write_in (40 bytes): fh(8) offset(8) size(4) ...
+    std.mem.writeInt(u64, ram[hdr_off + 40 ..][0..8], fh, .little);
+    std.mem.writeInt(u64, ram[hdr_off + 48 ..][0..8], 0, .little); // offset
+    std.mem.writeInt(u32, ram[hdr_off + 56 ..][0..4], @intCast(payload_len), .little); // size
+    // payload — a deterministic byte pattern.
+    for (0..payload_len) |i| ram[data_off + i] = @intCast(i & 0xff);
+
+    // desc 0: the 80-byte header (in-header + fuse_write_in).
+    testPutDesc(&ram, 0, .{
+        .addr = hdr_off,
+        .len = @intCast(fuse.FUSE_IN_HEADER_SIZE + 40),
+        .flags = virtio.VringDesc.F_NEXT,
+        .next = 1,
+    });
+    // descs 1..pages: one 4 KiB data page each.
+    var i: usize = 0;
+    while (i < pages) : (i += 1) {
+        testPutDesc(&ram, 1 + i, .{
+            .addr = data_off + i * page,
+            .len = page,
+            .flags = virtio.VringDesc.F_NEXT,
+            .next = @intCast(2 + i),
+        });
+    }
+    // final desc: the writable reply window.
+    testPutDesc(&ram, 1 + pages, .{
+        .addr = reply_off,
+        .len = 256,
+        .flags = virtio.VringDesc.F_WRITE,
+        .next = 0,
+    });
+    testPostAvail(&ram, q, 0);
+
+    dev.notify(1);
+
+    // The reply is fuse_write_out, and its `size` must equal the full
+    // payload — proof the gather walked every descriptor, not just 32.
+    const elem = testReadUsed(&ram, q);
+    try testing.expectEqual(@as(u32, fuse.FUSE_OUT_HEADER_SIZE + 8), elem.len);
+    const reply = ram[reply_off..][0..@as(usize, elem.len)];
+    try testing.expectEqual(@as(i32, 0), std.mem.readInt(i32, reply[4..8], .little));
+    try testing.expectEqual(
+        @as(u32, @intCast(payload_len)),
+        std.mem.readInt(u32, reply[fuse.FUSE_OUT_HEADER_SIZE..][0..4], .little),
+    );
 }
