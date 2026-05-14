@@ -17,6 +17,12 @@ scripts/clonefile
 scripts/clonefile.o
 scripts/clonefile.o.o
 .zig-cache/
+zig-out/
+
+# Sidecars produced by scripts/build-mount-server.sh next to the (also-
+# untracked) locally-built mount-server binaries (#329).
+packages/mount-server-arm64-darwin/bin/machinen-mount-server.inputs-sha256
+packages/mount-server-arm64-linux/bin/machinen-mount-server.inputs-sha256
 
 # Quickstart bake outputs and snapshot bundles. The example sources
 # (bake.ts, counter.mjs) are tracked; everything `node bake.ts` and

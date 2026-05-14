@@ -1,12 +1,10 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  // mount-server-bin is the standalone entry the supervisor spawns as
-  // a detached helper (#150 phase 3). Built alongside the library so
-  // dist/mount-server-bin.js sits next to dist/index.js and can be
-  // resolved via new URL("./mount-server-bin.js", import.meta.url)
-  // from compiled call sites.
-  entry: ["src/index.ts", "src/mount-server-bin.ts"],
+  // The live-mount server moved to a Zig binary (#329) shipped as
+  // `@machinen/mount-server-arm64-{darwin,linux}`. The TS-side runtime
+  // only resolves and spawns it; nothing here builds a JS server bin.
+  entry: ["src/index.ts"],
   format: ["esm"],
   target: "node20",
   dts: true,

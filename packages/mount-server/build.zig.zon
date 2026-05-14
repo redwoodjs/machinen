@@ -1,0 +1,12 @@
+.{
+    .name = .mount_server,
+    .version = "0.0.0",
+    .fingerprint = 0x9cedaffc5795ac00, // Changing this has security and trust implications.
+    .minimum_zig_version = "0.16.0",
+    .dependencies = .{},
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}

@@ -464,8 +464,8 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     for (const lm of liveMountsResolved) {
       // `out:` — the guest fuse-agent connects to (cid=2, port=lm.port);
       // when the VMM sees the REQUEST it dials the host's UDS where
-      // serveLiveMount is listening. Using `in:` here would have the
-      // VMM also listen on the UDS (clobbering serveLiveMount), and
+      // the mount-server is listening. Using `in:` here would have the
+      // VMM also listen on the UDS (clobbering the mount-server), and
       // since fuse-agent doesn't initiate, nothing would ever bridge.
       env.MACHINEN_VSOCK = `${env.MACHINEN_VSOCK},out:${lm.port}:${lm.udsPath}`;
     }
@@ -867,7 +867,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   // `snapshot()` and `fork()` paths. Threads the live-share mount
   // config + lifecycle hooks through to performSnapshot so it can:
   //   - record `liveMounts` in the bundle's meta.json,
-  //   - tear down the host-side `serveLiveMount` instances after the
+  //   - tear down the host-side mount-server instances after the
   //     dump completes (the guest's preflight already unmounted),
   //   - respawn fresh ones on the same UDSes for `leaveRunning` so
   //     `/sbin/machinen-remount` reconnects to clean state.
