@@ -101,6 +101,9 @@ const KVM_REG_ARM_CORE: u64 = 0x0010_0000;
 const KVM_REG_ARM64_SYSREG: u64 = 0x0013_0000;
 
 fn kvmIdForCore(reg: CoreReg) u64 {
+    // The register ID packs `offset / 4`; a non-4-aligned offset
+    // would silently truncate and address the wrong register.
+    std.debug.assert(reg.offset % 4 == 0);
     const size_bits: u64 = switch (reg.size) {
         .u32_ => KVM_REG_SIZE_U32,
         .u64_ => KVM_REG_SIZE_U64,
@@ -119,6 +122,7 @@ fn kvmIdForSysreg(encoding: u16) u64 {
 /// Recognizes both the named table (from hv_sys_reg_t) and the
 /// generic `S<op0>_<op1>_C<CRn>_C<CRm>_<op2>` form.
 pub fn encodingForName(name: []const u8) ?u16 {
+    std.debug.assert(name.len > 0);
     for (sysreg_names.table) |e| {
         if (std.mem.eql(u8, e.name, name)) return e.encoding;
     }
@@ -151,6 +155,10 @@ fn parseSynthName(name: []const u8) ?u16 {
 /// the synthetic generic form. The returned slice for synth names
 /// points into `buf` (caller-owned).
 pub fn nameForEncoding(encoding: u16, buf: []u8) []const u8 {
+    // Longest synthetic form is "S3_7_C15_C15_7" (14 bytes); the
+    // bufPrint below relies on `buf` having room for it, which is
+    // why its failure path can be `unreachable`.
+    std.debug.assert(buf.len >= 16);
     for (sysreg_names.table) |e| {
         if (e.encoding == encoding) return e.name;
     }
@@ -159,7 +167,9 @@ pub fn nameForEncoding(encoding: u16, buf: []u8) []const u8 {
     const crn: u8 = @intCast((encoding >> 7) & 0xf);
     const crm: u8 = @intCast((encoding >> 3) & 0xf);
     const op2: u8 = @intCast(encoding & 0x7);
-    return std.fmt.bufPrint(buf, "S{d}_{d}_C{d}_C{d}_{d}", .{ op0, op1, crn, crm, op2 }) catch unreachable;
+    const out = std.fmt.bufPrint(buf, "S{d}_{d}_C{d}_C{d}_{d}", .{ op0, op1, crn, crm, op2 }) catch unreachable;
+    std.debug.assert(out.len > 0);
+    return out;
 }
 
 // -- KVM ioctl glue (Linux-only) ----------------------------------
@@ -178,11 +188,17 @@ const kvm_one_reg = extern struct {
 };
 
 fn kvmGet(vcpu_fd: c_int, id: u64, buf: []u8) !void {
+    // KVM writes the register width into `buf`; a zero-length target
+    // is always a caller bug.
+    std.debug.assert(buf.len > 0);
     const r: kvm_one_reg = .{ .id = id, .addr = @intFromPtr(buf.ptr) };
     if (C.ioctl(vcpu_fd, KVM_GET_ONE_REG, &r) < 0) return error.KvmGetOneRegFailed;
 }
 
 fn kvmSet(vcpu_fd: c_int, id: u64, buf: []const u8) !void {
+    // KVM reads the register width from `buf`; a zero-length source
+    // is always a caller bug.
+    std.debug.assert(buf.len > 0);
     const r: kvm_one_reg = .{ .id = id, .addr = @intFromPtr(buf.ptr) };
     if (C.ioctl(vcpu_fd, KVM_SET_ONE_REG, &r) < 0) return error.KvmSetOneRegFailed;
 }
@@ -252,7 +268,10 @@ pub fn dumpKvm(allocator: std.mem.Allocator, vcpu_fd: c_int) ![]u8 {
         try entries.append(allocator, .{ .name = e.name, .value = buf });
     }
 
-    return snapshot.encodeVcpuPayload(allocator, entries.items);
+    const out = try snapshot.encodeVcpuPayload(allocator, entries.items);
+    // The codec always emits at least the entry_count header word.
+    std.debug.assert(out.len >= 4);
+    return out;
 }
 
 // -- HVF dump / load ----------------------------------------------
@@ -310,7 +329,10 @@ pub fn dumpHvf(allocator: std.mem.Allocator, vcpu_handle: u64) ![]u8 {
         try entries.append(allocator, .{ .name = e.name, .value = buf });
     }
 
-    return snapshot.encodeVcpuPayload(allocator, entries.items);
+    const out = try snapshot.encodeVcpuPayload(allocator, entries.items);
+    // The codec always emits at least the entry_count header word.
+    std.debug.assert(out.len >= 4);
+    return out;
 }
 
 pub fn loadHvf(allocator: std.mem.Allocator, vcpu_handle: u64, payload: []const u8) !void {
@@ -389,6 +411,9 @@ pub fn loadKvm(allocator: std.mem.Allocator, vcpu_fd: c_int, payload: []const u8
     var fail_buf: [1024]u8 = undefined;
     var fail_len: usize = 0;
     for (entries) |e| {
+        // Invariant: the failed-name scratch never overflows — every
+        // append goes through bufPrint into the remaining tail.
+        std.debug.assert(fail_len <= fail_buf.len);
         var ok = true;
         var handled = false;
         // First try core reg.

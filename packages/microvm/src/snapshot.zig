@@ -160,6 +160,8 @@ pub fn decode(allocator: std.mem.Allocator, bytes: []const u8) ParseError!Snaple
 
     var off: usize = HEADER_SIZE;
     for (sections) |*s| {
+        // Invariant: prior iterations never advanced past the buffer.
+        std.debug.assert(off <= bytes.len);
         if (off + 16 > bytes.len) return error.Truncated;
         const tag_raw = std.mem.readInt(u32, bytes[off..][0..4], .little);
         const id = std.mem.readInt(u32, bytes[off + 4 ..][0..4], .little);
@@ -170,6 +172,8 @@ pub fn decode(allocator: std.mem.Allocator, bytes: []const u8) ParseError!Snaple
         off += len;
         s.* = .{ .tag = @enumFromInt(tag_raw), .id = id, .payload = payload };
     }
+    // Postcondition: parsing never read past the input buffer.
+    std.debug.assert(off <= bytes.len);
 
     return .{ .header = hdr, .sections = sections, .arena = arena };
 }
@@ -225,6 +229,8 @@ pub fn decodeVcpuPayload(allocator: std.mem.Allocator, payload: []const u8) Vcpu
 
     var off: usize = 4;
     for (entries) |*e| {
+        // Invariant: prior iterations never advanced past the buffer.
+        std.debug.assert(off <= payload.len);
         if (off + 1 > payload.len) return error.Truncated;
         const name_len = payload[off];
         off += 1;
@@ -238,6 +244,8 @@ pub fn decodeVcpuPayload(allocator: std.mem.Allocator, payload: []const u8) Vcpu
         off += value_len;
         e.* = .{ .name = name, .value = value };
     }
+    // Postcondition: parsing never read past the input buffer.
+    std.debug.assert(off <= payload.len);
     return entries;
 }
 

@@ -76,6 +76,7 @@ fn isZero(buf: []const u8) bool {
 /// when the rest of `ram` is all zero. `end` is clamped to `ram.len`
 /// so a non-page-aligned tail still encodes.
 fn nextExtent(ram: []const u8, from: usize) ?struct { start: usize, end: usize } {
+    std.debug.assert(from <= ram.len);
     var i = from;
     while (i < ram.len) {
         const pe = @min(i + PAGE, ram.len);
@@ -89,6 +90,9 @@ fn nextExtent(ram: []const u8, from: usize) ?struct { start: usize, end: usize }
         if (isZero(ram[i..pe])) break;
         i = pe;
     }
+    // A returned extent is non-empty, stays within bounds, and never
+    // starts behind the caller's cursor.
+    std.debug.assert(start >= from and start < i and i <= ram.len);
     return .{ .start = start, .end = i };
 }
 
@@ -176,6 +180,9 @@ pub fn decodeInto(payload: []const u8, dest: []u8) DecodeError!DecodedMeta {
 
     var c: usize = 0;
     while (c < body.len) {
+        // Loop invariant: the cursor only ever advances and never
+        // runs past the body it is parsing.
+        std.debug.assert(c <= body.len);
         if (body.len - c < EXTENT_HEADER_SIZE) return error.Truncated;
         const off64 = std.mem.readInt(u64, body[c..][0..8], .little);
         const len64 = std.mem.readInt(u64, body[c..][8..16], .little);
@@ -186,10 +193,15 @@ pub fn decodeInto(payload: []const u8, dest: []u8) DecodeError!DecodedMeta {
         if (len > body.len - c) return error.Truncated;
         // Every extent must land inside the declared RAM size.
         if (off > ram_size or len > ram_size - off) return error.SizeMismatch;
+        // The bounds checks above establish this; assert it so the
+        // memcpy can never be the thing that corrupts guest RAM.
+        std.debug.assert(off + len <= ram_size and ram_size <= dest.len);
 
         @memcpy(dest[off..][0..len], body[c..][0..len]);
         c += len;
     }
+    // A well-formed payload is consumed exactly — no trailing bytes.
+    std.debug.assert(c == body.len);
 
     return .{ .ram_base = hdr.ram_base, .ram_size = hdr.ram_size };
 }
