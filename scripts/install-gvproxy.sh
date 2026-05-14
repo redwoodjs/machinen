@@ -2,8 +2,9 @@
 # Download gvproxy (containers/gvisor-tap-vsock) into a destination dir.
 #
 # Used by both:
-#   - .github/workflows/release.yml (stages into packages/vmm-<arch>-<os>/bin/
-#     so the published npm packages carry it)
+#   - .github/workflows/release.yml (stages into
+#     packages/native-<arch>-<os>/vmm/bin/ so the published npm package
+#     carries it)
 #   - scripts/smoke-tests.sh + dev bootstrap (stages next to the
 #     locally-built VMM so `resolveGvproxyBinary()`'s sibling lookup
 #     finds it during dev)

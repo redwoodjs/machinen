@@ -2,9 +2,9 @@
 # Verify each host-tool binary package would publish a usable tarball.
 #
 # Covers (issue #309):
-#   - @machinen/vmm-arm64-{darwin,linux}            host binaries + guest ELFs
-#   - @machinen/e2fsprogs-arm64-{darwin,linux}      mke2fs
-#   - @machinen/squashfs-tools-arm64-{darwin,linux} mksquashfs
+#   - @machinen/native-arm64-{darwin,linux} — the consolidated host-tool
+#     package: VMM + gvproxy + guest ELFs, mke2fs, mksquashfs, and the
+#     FUSE-over-vsock mount server, all under per-tool subdirs.
 #
 # What this catches:
 #   1. Host-side binaries (the things node spawns: machinen-vm, gvproxy,
@@ -97,27 +97,25 @@ check_pkg() {
   rm -f "$tarball"
 }
 
-# --- vmm-arm64-* ---------------------------------------------------------
-# bin/machinen-vm + bin/gvproxy: host binaries node spawns.
-# guest/{init,fuse-agent,exec-agent}: arm64-linux ELFs the runtime reads as
-# data to pack into the initramfs cpio (mode irrelevant on host).
+# --- native-arm64-* ------------------------------------------------------
+# One consolidated package per host arch. Per-tool subdirs:
+#   vmm/bin/{machinen-vm,gvproxy}   host binaries node spawns.
+#   vmm/guest/{init,fuse-agent,exec-agent}  arm64-linux ELFs the runtime
+#       reads as data to pack into the initramfs cpio (mode irrelevant).
+#   e2fsprogs/bin/mke2fs, squashfs/bin/mksquashfs  host binaries node spawns.
+#   mount-server/bin/machinen-mount-server  host binary node spawns (#329).
 for os in darwin linux; do
-  check_pkg "vmm-arm64-${os}" \
-    bin/machinen-vm \
-    bin/gvproxy \
+  check_pkg "native-arm64-${os}" \
+    vmm/bin/machinen-vm \
+    vmm/bin/gvproxy \
+    e2fsprogs/bin/mke2fs \
+    squashfs/bin/mksquashfs \
+    mount-server/bin/machinen-mount-server \
     --plain \
-    guest/init \
-    guest/fuse-agent \
-    guest/exec-agent
+    vmm/guest/init \
+    vmm/guest/fuse-agent \
+    vmm/guest/exec-agent
 done
-
-# --- e2fsprogs-arm64-* ---------------------------------------------------
-check_pkg "e2fsprogs-arm64-darwin" bin/mke2fs
-check_pkg "e2fsprogs-arm64-linux"  bin/mke2fs
-
-# --- squashfs-tools-arm64-* ----------------------------------------------
-check_pkg "squashfs-tools-arm64-darwin" bin/mksquashfs
-check_pkg "squashfs-tools-arm64-linux"  bin/mksquashfs
 
 if [ "$failed" -ne 0 ]; then
   echo "==> verify-bin-packages: FAIL"

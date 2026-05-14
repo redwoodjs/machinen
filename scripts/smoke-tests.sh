@@ -36,7 +36,7 @@ CLI="$ROOT/packages/cli/dist/cli.js"
 # Shares the inputs-sha256 sidecar that check-asset-freshness.sh
 # writes/reads, so a smoke run after an mn-dev session doesn't see a
 # stale "vmm" report and vice versa.
-VMM="$ROOT/packages/vmm-arm64-darwin/bin/machinen-vm"
+VMM="$ROOT/packages/native-arm64-darwin/vmm/bin/machinen-vm"
 ASSETS="$ROOT/release-assets"
 OS=$(uname -s)
 

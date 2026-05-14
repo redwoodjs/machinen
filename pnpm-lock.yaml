@@ -88,24 +88,20 @@ importers:
         specifier: ^8.3.5
         version: 8.5.1(postcss@8.5.9)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3)
     optionalDependencies:
-      '@machinen/vmm-arm64-darwin':
+      '@machinen/native-arm64-darwin':
         specifier: workspace:*
-        version: link:../vmm-arm64-darwin
-      '@machinen/vmm-arm64-linux':
+        version: link:../native-arm64-darwin
+      '@machinen/native-arm64-linux':
         specifier: workspace:*
-        version: link:../vmm-arm64-linux
-
-  packages/e2fsprogs-arm64-darwin: {}
-
-  packages/e2fsprogs-arm64-linux: {}
+        version: link:../native-arm64-linux
 
   packages/microvm: {}
 
   packages/mount-server: {}
 
-  packages/mount-server-arm64-darwin: {}
+  packages/native-arm64-darwin: {}
 
-  packages/mount-server-arm64-linux: {}
+  packages/native-arm64-linux: {}
 
   packages/runtime:
     dependencies:
@@ -126,38 +122,12 @@ importers:
         specifier: ^8.3.5
         version: 8.5.1(postcss@8.5.9)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3)
     optionalDependencies:
-      '@machinen/e2fsprogs-arm64-darwin':
+      '@machinen/native-arm64-darwin':
         specifier: workspace:*
-        version: link:../e2fsprogs-arm64-darwin
-      '@machinen/e2fsprogs-arm64-linux':
+        version: link:../native-arm64-darwin
+      '@machinen/native-arm64-linux':
         specifier: workspace:*
-        version: link:../e2fsprogs-arm64-linux
-      '@machinen/mount-server-arm64-darwin':
-        specifier: workspace:*
-        version: link:../mount-server-arm64-darwin
-      '@machinen/mount-server-arm64-linux':
-        specifier: workspace:*
-        version: link:../mount-server-arm64-linux
-      '@machinen/squashfs-tools-arm64-darwin':
-        specifier: workspace:*
-        version: link:../squashfs-tools-arm64-darwin
-      '@machinen/squashfs-tools-arm64-linux':
-        specifier: workspace:*
-        version: link:../squashfs-tools-arm64-linux
-      '@machinen/vmm-arm64-darwin':
-        specifier: workspace:*
-        version: link:../vmm-arm64-darwin
-      '@machinen/vmm-arm64-linux':
-        specifier: workspace:*
-        version: link:../vmm-arm64-linux
-
-  packages/squashfs-tools-arm64-darwin: {}
-
-  packages/squashfs-tools-arm64-linux: {}
-
-  packages/vmm-arm64-darwin: {}
-
-  packages/vmm-arm64-linux: {}
+        version: link:../native-arm64-linux
 
 packages:
 

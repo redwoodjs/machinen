@@ -1,0 +1,33 @@
+{
+  "name": "@machinen/native-arm64-linux",
+  "version": "0.2.0",
+  "description": "Machinen host-side native binaries for arm64 linux — VMM (KVM) + gvproxy + guest ELFs, mke2fs, mksquashfs, and the FUSE-over-vsock mount server. Consolidates what used to be four per-tool packages.",
+  "license": "FSL-1.1-MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/redwoodjs/machinen.git",
+    "directory": "packages/native-arm64-linux"
+  },
+  "bin": {
+    "machinen-gvproxy": "./vmm/bin/gvproxy",
+    "machinen-mke2fs": "./e2fsprogs/bin/mke2fs",
+    "machinen-mksquashfs": "./squashfs/bin/mksquashfs",
+    "machinen-mount-server": "./mount-server/bin/machinen-mount-server",
+    "machinen-vm": "./vmm/bin/machinen-vm"
+  },
+  "files": [
+    "vmm/",
+    "e2fsprogs/",
+    "squashfs/",
+    "mount-server/",
+    "index.mjs"
+  ],
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "type": "module",
+  "main": "./index.mjs"
+}

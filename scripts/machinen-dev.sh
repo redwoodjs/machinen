@@ -26,7 +26,7 @@ pnpm -F @machinen/runtime -F @machinen/cli build
 # A missing or unsigned VMM is a terminal state for `boot` (ENOENT or
 # HV_DENIED), and rebuilding is cheap (zig incremental, ~1s warm), so
 # treat both as auto-recoverable instead of aborting the dev loop.
-VMM="$ROOT/packages/vmm-arm64-darwin/bin/machinen-vm"
+VMM="$ROOT/packages/native-arm64-darwin/vmm/bin/machinen-vm"
 if [[ ! -x "$VMM" ]] \
    || ! codesign -d --entitlements - "$VMM" 2>/dev/null \
         | grep -q "com.apple.security.hypervisor"; then

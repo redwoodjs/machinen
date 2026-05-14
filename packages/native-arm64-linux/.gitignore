@@ -1,0 +1,14 @@
+# VMM + gvproxy + guest ELFs: CI stages these during publish; locally
+# `scripts/build-vmm.sh` + `scripts/install-gvproxy.sh` + the base-asset
+# build produce them. Absent in the repo so `git status` stays clean.
+vmm/bin/machinen-vm
+vmm/bin/machinen-vm.inputs-sha256
+vmm/bin/gvproxy
+vmm/guest/init
+vmm/guest/fuse-agent
+vmm/guest/exec-agent
+
+# mount-server (#329): locally built by scripts/build-mount-server.sh,
+# CI-staged on publish.
+mount-server/bin/machinen-mount-server
+mount-server/bin/machinen-mount-server.inputs-sha256
