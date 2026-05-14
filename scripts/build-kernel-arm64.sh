@@ -150,17 +150,18 @@ make ARCH=arm64 defconfig >/dev/null
 # IPv4, and a missing module here can hang the restore loop. Force =y
 # to match the rest of the boot-path drivers.
 #
-# FUSE — guest side of `--mount-live` (#78). Builtin so liveMounts work
-# without /init having to finit_module fuse first.
+# FUSE — VIRTIO_FS is built on the kernel's FUSE layer, so FUSE_FS
+# must be builtin too. Builtin so /init can mount virtio-fs without
+# having to finit_module first.
 #
-# VIRTIO_FS — #332 replaces the FUSE-over-vsock live-mount transport
-# with an in-VMM virtio-fs device. The guest mounts it with
-# `mount -t virtiofs <tag> <path>`; the driver speaks a FUSE-derived
-# protocol over a virtqueue (no vsock framing, no guest fuse-agent).
-# Builtin so /init can mount it directly. Depends on FUSE_FS, already
-# enabled above. DAX is a separate, later track (Linux/KVM only) — the
-# base virtio-fs path needs no shared-memory window, so nothing else
-# here changes.
+# VIRTIO_FS — the live-mount transport (#332). The guest mounts a
+# `--mount-live` share with `mount -t virtiofs <tag> <path>`; the
+# driver speaks a FUSE-derived protocol over a virtqueue served by an
+# in-VMM device. #338 removed the older FUSE-over-vsock transport, so
+# this is the only `--mount-live` path. Builtin so /init can mount it
+# directly. Depends on FUSE_FS, already enabled above. DAX is a
+# separate, later track (Linux/KVM only) — the base virtio-fs path
+# needs no shared-memory window, so nothing else here changes.
 #
 # SQUASHFS / SQUASHFS_ZSTD / OVERLAY_FS — `--mount` payload now rides
 # in a squashfs (RO lower) + ext4 (RW upper) overlay, two virtio-blk

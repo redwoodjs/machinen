@@ -9,20 +9,17 @@ interface ParsedRunArgs {
   double_dash_args: string[];
   mount?: { host: string; guest: string };
   /**
-   * Live-share mounts (`--mount-live <host>:<guest>[:<mode>][:<protocol>]`).
-   * Each entry stays connected to the host filesystem for the VM's
-   * life; guest reads stream in on demand. `mode` is `rw` (default,
-   * write-through) or `ro` for read-only. `protocol` is `virtiofs`
-   * (the default — the in-VMM virtio-fs transport, #332) or `fuse`
-   * (FUSE-over-vsock). Only one mount can use `virtiofs` per VM, so an
-   * unset protocol on a second mount falls back to `fuse`. See #78,
-   * #151, #332.
+   * Live-share mounts (`--mount-live <host>:<guest>[:<mode>]`). Each
+   * entry stays connected to the host filesystem for the VM's life;
+   * guest reads stream in on demand. `mode` is `rw` (default,
+   * write-through) or `ro` for read-only. Served by an in-VMM
+   * virtio-fs device (#332); the FUSE-over-vsock transport and its
+   * `:<protocol>` modifier were removed in #338. See #78, #151, #332.
    */
   liveMounts?: Array<{
     host: string;
     guest: string;
     mode: "ro" | "rw";
-    protocol?: "fuse" | "virtiofs";
   }>;
   env?: Record<string, string>;
   portForward?: Array<{ hostPort: number; guestPort: number }>;
@@ -288,42 +285,31 @@ export function consumeLiveMount(
   args: string[],
   i: number,
 ): {
-  value: { host: string; guest: string; mode: "ro" | "rw"; protocol?: "fuse" | "virtiofs" };
+  value: { host: string; guest: string; mode: "ro" | "rw" };
   next: number;
 } {
   const { spec, next } = takeValue(flag, args, i, "a <host-dir>:<guest-path> value");
-  // Format: `<host>:<guest>[:<mode>][:<protocol>]`. The two trailing
-  // modifiers are each optional and order-independent — a token is a
-  // mode if it's `ro`/`rw`, a protocol if it's `fuse`/`virtiofs`. A
-  // guest path containing a colon is rejected — same trade-off as
-  // `--mount`.
+  // Format: `<host>:<guest>[:<mode>]`. The trailing `<mode>` modifier
+  // is optional — `ro` or `rw`. A guest path containing a colon is
+  // rejected — same trade-off as `--mount`.
   const parts = spec.split(":");
-  if (parts.length < 2 || parts.length > 4 || !parts[0] || !parts[1]) {
+  if (parts.length < 2 || parts.length > 3 || !parts[0] || !parts[1]) {
     throw new ParseError(
       "PARSE_FLAG_MALFORMED",
-      `--mount-live: expected <host-dir>:<guest-path>[:<mode>][:<protocol>], got '${spec}'`,
+      `--mount-live: expected <host-dir>:<guest-path>[:<mode>], got '${spec}'`,
     );
   }
   let mode: "ro" | "rw" | undefined;
-  let protocol: "fuse" | "virtiofs" | undefined;
   for (const tok of parts.slice(2)) {
     if (tok === "ro" || tok === "rw") {
       if (mode !== undefined) {
         throw new ParseError("PARSE_FLAG_MALFORMED", `--mount-live: mode given twice in '${spec}'`);
       }
       mode = tok;
-    } else if (tok === "fuse" || tok === "virtiofs") {
-      if (protocol !== undefined) {
-        throw new ParseError(
-          "PARSE_FLAG_MALFORMED",
-          `--mount-live: protocol given twice in '${spec}'`,
-        );
-      }
-      protocol = tok;
     } else {
       throw new ParseError(
         "PARSE_FLAG_MALFORMED",
-        `--mount-live: trailing modifier must be 'ro'/'rw' or 'fuse'/'virtiofs', got '${tok}'`,
+        `--mount-live: trailing modifier must be 'ro' or 'rw', got '${tok}'`,
       );
     }
   }
@@ -332,7 +318,6 @@ export function consumeLiveMount(
       host: parts[0]!,
       guest: parts[1]!,
       mode: mode ?? "rw",
-      ...(protocol !== undefined ? { protocol } : {}),
     },
     next,
   };

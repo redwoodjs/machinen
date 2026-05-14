@@ -53,13 +53,11 @@ OUT="${ROOT}/release-assets"
 rootfs_input_files() {
   printf '%s\n' \
     "${ASSETS}/exec-agent.zig" \
-    "${ASSETS}/fuse-agent.zig" \
     "${ASSETS}/init.zig" \
     "${ASSETS}/lo-up.zig" \
     "${ASSETS}/machinen-dump-preflight.sh" \
     "${ASSETS}/machinen-dump.sh" \
     "${ASSETS}/machinen-netup.c" \
-    "${ASSETS}/machinen-remount.sh" \
     "${ASSETS}/machinen-restore.sh" \
     "${ASSETS}/machinen-supervisor.sh" \
     "${ASSETS}/memdirty.zig" \
@@ -120,18 +118,6 @@ vmm_input_files() {
     "${SCRIPTS}/build-vmm.sh"
 }
 
-# Files whose contents are baked into
-# packages/native-arm64-darwin/mount-server/bin/machinen-mount-server (#329).
-# Mirrors vmm_input_files: every .zig under src/, plus the build graph
-# and the build script itself so a flag change invalidates the sidecar.
-mount_server_input_files() {
-  find "${ROOT}/packages/mount-server/src" -type f -name '*.zig' -print | sort
-  printf '%s\n' \
-    "${ROOT}/packages/mount-server/build.zig" \
-    "${ROOT}/packages/mount-server/build.zig.zon" \
-    "${SCRIPTS}/build-mount-server.sh"
-}
-
 # Read filenames on stdin (one per line, in stable order from the
 # *_input_files producers above), `cat` the bytes through a single
 # sha256 stream. Concatenating the files (rather than per-file digest +
@@ -188,14 +174,6 @@ vmm_dest_path() {
   printf '%s' "${ROOT}/packages/native-arm64-darwin/vmm/bin/machinen-vm"
 }
 
-mount_server_dest_path() {
-  printf '%s' "${ROOT}/packages/native-arm64-darwin/mount-server/bin/machinen-mount-server"
-}
-
-mount_server_linux_dest_path() {
-  printf '%s' "${ROOT}/packages/native-arm64-linux/mount-server/bin/machinen-mount-server"
-}
-
 main() {
   local quiet=false
   case "${1:-}" in
@@ -203,7 +181,7 @@ main() {
     --what-stale) what_stale; return 0 ;;
   esac
 
-  local rootfs_rc=0 kernel_rc=0 vmm_rc=0 mount_server_rc=0 mount_server_linux_rc=0
+  local rootfs_rc=0 kernel_rc=0 vmm_rc=0
 
   # Each artifact has its own existence guard so a missing one gives a
   # soft skip (covered elsewhere — smoke-tests.sh and mn-dev handle
@@ -229,30 +207,9 @@ main() {
     echo "asset-freshness: VMM not staged at ${vmm#${ROOT}/}, skipping vmm check"
   fi
 
-  local mount_server
-  mount_server=$(mount_server_dest_path)
-  if [[ -f "$mount_server" ]]; then
-    verify_sidecar "mount-server (darwin-arm64)" "${mount_server}.inputs-sha256" \
-      mount_server_input_files "bash scripts/build-mount-server.sh" \
-      || mount_server_rc=$?
-  elif ! $quiet; then
-    echo "asset-freshness: mount-server (darwin-arm64) not staged at ${mount_server#${ROOT}/}, skipping check"
-  fi
-
-  local mount_server_linux
-  mount_server_linux=$(mount_server_linux_dest_path)
-  if [[ -f "$mount_server_linux" ]]; then
-    verify_sidecar "mount-server (linux-arm64)" "${mount_server_linux}.inputs-sha256" \
-      mount_server_input_files "bash scripts/build-mount-server.sh" \
-      || mount_server_linux_rc=$?
-  elif ! $quiet; then
-    echo "asset-freshness: mount-server (linux-arm64) not staged at ${mount_server_linux#${ROOT}/}, skipping check"
-  fi
-
   # Stale (rc=1) is a hard failure. Missing sidecar (rc=2) is soft —
   # warn but pass, so older checkouts can still run smoke-tests.
-  if (( rootfs_rc == 1 )) || (( kernel_rc == 1 )) || (( vmm_rc == 1 )) ||
-     (( mount_server_rc == 1 )) || (( mount_server_linux_rc == 1 )); then
+  if (( rootfs_rc == 1 )) || (( kernel_rc == 1 )) || (( vmm_rc == 1 )); then
     return 1
   fi
   if ! $quiet; then
@@ -290,26 +247,6 @@ what_stale() {
       vmm_input_files "bash scripts/build-vmm.sh" \
       >/dev/null 2>&1 || rc=$?
     (( rc == 1 )) && echo vmm
-  fi
-
-  local mount_server
-  mount_server=$(mount_server_dest_path)
-  if [[ -f "$mount_server" ]]; then
-    rc=0
-    verify_sidecar "mount-server (darwin-arm64)" "${mount_server}.inputs-sha256" \
-      mount_server_input_files "bash scripts/build-mount-server.sh" \
-      >/dev/null 2>&1 || rc=$?
-    (( rc == 1 )) && echo mount-server
-  fi
-
-  local mount_server_linux
-  mount_server_linux=$(mount_server_linux_dest_path)
-  if [[ -f "$mount_server_linux" ]]; then
-    rc=0
-    verify_sidecar "mount-server (linux-arm64)" "${mount_server_linux}.inputs-sha256" \
-      mount_server_input_files "bash scripts/build-mount-server.sh" \
-      >/dev/null 2>&1 || rc=$?
-    (( rc == 1 )) && echo mount-server
   fi
   return 0
 }

@@ -135,28 +135,21 @@ describe("parseRunArgs --mount-live", () => {
 
   it("rejects an unknown trailing modifier", () => {
     expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:xx"])).toThrow(
-      /trailing modifier must be 'ro'\/'rw' or 'fuse'\/'virtiofs'/,
+      /trailing modifier must be 'ro' or 'rw'/,
     );
   });
 
   it("rejects a spec with too many colons", () => {
-    expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:rw:fuse:extra"])).toThrow(
-      /expected <host-dir>:<guest-path>\[:<mode>\]\[:<protocol>\]/,
+    expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:rw:extra"])).toThrow(
+      /expected <host-dir>:<guest-path>\[:<mode>\]/,
     );
   });
 
-  it("parses the virtiofs protocol modifier", () => {
-    const parsed = parseRunArgs(["--mount-live", "./src:/mnt/src:ro:virtiofs"]);
-    expect(parsed.liveMounts).toEqual([
-      { host: "./src", guest: "/mnt/src", mode: "ro", protocol: "virtiofs" },
-    ]);
-  });
-
-  it("accepts a protocol modifier without an explicit mode", () => {
-    const parsed = parseRunArgs(["--mount-live", "./src:/mnt/src:virtiofs"]);
-    expect(parsed.liveMounts).toEqual([
-      { host: "./src", guest: "/mnt/src", mode: "rw", protocol: "virtiofs" },
-    ]);
+  it("rejects the removed :<protocol> modifier", () => {
+    // #338 dropped the FUSE-over-vsock transport and its protocol knob.
+    expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:ro:virtiofs"])).toThrow(
+      /expected <host-dir>:<guest-path>\[:<mode>\]/,
+    );
   });
 });
 
@@ -479,7 +472,7 @@ describe("parseForkArgs", () => {
 
   it("rejects an invalid --mount-live modifier", () => {
     expect(() => parseForkArgs(["--mount-live", "h:/m/x:bogus"])).toThrow(
-      /trailing modifier must be 'ro'\/'rw' or 'fuse'\/'virtiofs'/,
+      /trailing modifier must be 'ro' or 'rw'/,
     );
   });
 

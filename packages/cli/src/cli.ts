@@ -1078,36 +1078,6 @@ async function cmdStop(args: string[]): Promise<number> {
       );
     }
   }
-  // #150 phase 3: signal each detached live-mount helper too. They
-  // die with the VMM via pdeathsig already, but signaling explicitly
-  // lets us wait for clean exit and avoids a window where SIGTERM-on-
-  // VMM races the helper's own pdeathsig-triggered shutdown.
-  // Anti-recycling guard mirrors the gvproxy path.
-  for (const helper of entry.liveMountServers ?? []) {
-    const status = validatePid(helper.pid, { vmmExe: helper.exe });
-    if (status === "alive") {
-      try {
-        process.kill(helper.pid, sig);
-      } catch (err) {
-        process.stderr.write(
-          `machinen stop: failed to signal mount-server pid ${helper.pid}: ${err instanceof Error ? err.message : String(err)}\n`,
-        );
-      }
-      if (!force) {
-        await waitForExit(helper.pid, 2_000);
-        try {
-          process.kill(helper.pid, 0);
-          try {
-            process.kill(helper.pid, "SIGKILL");
-          } catch {}
-        } catch {}
-      }
-    } else if (status === "recycled") {
-      process.stderr.write(
-        `machinen stop: mount-server pid ${helper.pid} now held by an unrelated process; skipping.\n`,
-      );
-    }
-  }
   // Final gc to drop the registry entry + cleanupPaths (including the
   // gvproxy socket dir that PR3 added to the cleanup list).
   runGc({ pid: entry.pid });

@@ -311,8 +311,8 @@ describe("packBundle mount", () => {
     }
     // Cap the cpio at 1 MiB. The issue's test plan asks for < 5 MB; we
     // come in well under that today (~130 KB without /init, ~250 KB
-    // with). 1 MiB leaves room for /fuse-agent or a small mount payload
-    // before this test starts complaining.
+    // with). 1 MiB leaves room for a small mount payload before this
+    // test starts complaining.
     const size = statSync(out).size;
     expect(size).toBeLessThan(1024 * 1024);
   });

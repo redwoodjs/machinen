@@ -1,10 +1,11 @@
 //! Transport-agnostic FUSE protocol handlers for machinen live mounts.
 //!
-//! Extracted from the FUSE-over-vsock mount server (#329) so the same
-//! opcode handlers can serve two transports (#332):
-//!   - `main.zig` — the standalone vsock/UDS mount-server process.
-//!   - `packages/microvm/src/virtiofs.zig` — the in-VMM virtio-fs
-//!     device, which speaks a FUSE-derived protocol over a virtqueue.
+//! Extracted from the #329 mount server (#332) so the opcode handlers
+//! are framing-independent. The sole consumer is
+//! `packages/microvm/src/virtiofs.zig` — the in-VMM virtio-fs device,
+//! which speaks a FUSE-derived protocol over a virtqueue. (#338
+//! removed the standalone vsock/UDS `mount-server` process that was
+//! the other consumer.)
 //!
 //! Everything here is framing-independent. `dispatch()` takes one
 //! decoded FUSE request frame (in-header + payload, contiguous) and

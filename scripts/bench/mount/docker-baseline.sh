@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Docker reference number for the FUSE-over-vsock mount-server bench
-# (#329). Same tarball, same host, extracted into a fresh volume on
+# Docker reference number for the live-mount bench (#329, #332). Same
+# tarball, same host, extracted into a fresh volume on
 # arm64v8/debian:12 — what we want machinen + live-mount to converge
 # toward.
 #

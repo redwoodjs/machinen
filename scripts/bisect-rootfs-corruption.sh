@@ -58,7 +58,7 @@ rootdisk_for() {
 # Hash the same curated set inside the guest at each generation.
 # We use cat | md5sum so a broken md5sum surfaces as a hash of empty
 # input ("d41d..."), not a script abort.
-HASH_CMD='for f in /etc/passwd /etc/hostname /etc/debian_version /etc/os-release /usr/bin/dd /usr/bin/cat /usr/bin/ls /usr/bin/sh /usr/bin/tail /usr/bin/head /usr/bin/df /usr/bin/du /usr/bin/sync /usr/bin/wc /usr/bin/od /usr/bin/stat /sbin/machinen-dump /sbin/machinen-restore /init /exec-agent /fuse-agent; do if [ -e "$f" ]; then h=$(cat "$f" 2>/dev/null | md5sum 2>/dev/null | cut -d" " -f1); s=$(stat -c %s "$f" 2>/dev/null || echo "?"); else h="<missing>"; s="-"; fi; printf "%s %10s %s\n" "$h" "$s" "$f"; done'
+HASH_CMD='for f in /etc/passwd /etc/hostname /etc/debian_version /etc/os-release /usr/bin/dd /usr/bin/cat /usr/bin/ls /usr/bin/sh /usr/bin/tail /usr/bin/head /usr/bin/df /usr/bin/du /usr/bin/sync /usr/bin/wc /usr/bin/od /usr/bin/stat /sbin/machinen-dump /sbin/machinen-restore /init /exec-agent; do if [ -e "$f" ]; then h=$(cat "$f" 2>/dev/null | md5sum 2>/dev/null | cut -d" " -f1); s=$(stat -c %s "$f" 2>/dev/null || echo "?"); else h="<missing>"; s="-"; fi; printf "%s %10s %s\n" "$h" "$s" "$f"; done'
 
 # Capture all the per-generation diagnostics into one file and tee a
 # short summary to stdout.
