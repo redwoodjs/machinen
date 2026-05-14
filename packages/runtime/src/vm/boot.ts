@@ -846,10 +846,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       // to a host state file. `snapshot: false` provisions neither, so
       // the guard fires for whichever engine is in effect.
       const engine = resolveSnapshotEngine();
-      if (
-        (engine === "criu" && !diskAbs) ||
-        (engine === "vmstate" && !vmstateStatePath)
-      ) {
+      if ((engine === "criu" && !diskAbs) || (engine === "vmstate" && !vmstateStatePath)) {
         throw new SnapshotError(
           "SNAPSHOT_NO_DISK",
           "vm.snapshot: this VM was booted with `snapshot: false` (no scratch " +
@@ -862,10 +859,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
 
     async fork(forkOpts) {
       const engine = resolveSnapshotEngine();
-      if (
-        (engine === "criu" && !diskAbs) ||
-        (engine === "vmstate" && !vmstateStatePath)
-      ) {
+      if ((engine === "criu" && !diskAbs) || (engine === "vmstate" && !vmstateStatePath)) {
         throw new SnapshotError(
           "SNAPSHOT_NO_DISK",
           "vm.fork: source VM has no scratch disk (booted with `snapshot: false`). " +

@@ -157,10 +157,7 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
       // onto the guest-side scratch disk, vmstate dumps the whole VM to
       // a host state file. `snapshot: false` records neither.
       const engine = resolveSnapshotEngine();
-      if (
-        (engine === "criu" && !entry.diskPath) ||
-        (engine === "vmstate" && !entry.vmstatePath)
-      ) {
+      if ((engine === "criu" && !entry.diskPath) || (engine === "vmstate" && !entry.vmstatePath)) {
         throw new SnapshotError(
           "SNAPSHOT_NO_DISK",
           "vm.snapshot: this VM was booted with `snapshot: false` (no scratch " +
@@ -173,10 +170,7 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
 
     async fork(forkOpts) {
       const engine = resolveSnapshotEngine();
-      if (
-        (engine === "criu" && !entry.diskPath) ||
-        (engine === "vmstate" && !entry.vmstatePath)
-      ) {
+      if ((engine === "criu" && !entry.diskPath) || (engine === "vmstate" && !entry.vmstatePath)) {
         throw new SnapshotError(
           "SNAPSHOT_NO_DISK",
           "vm.fork: source VM has no scratch disk (booted with `snapshot: false`).",
