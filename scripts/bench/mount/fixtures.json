@@ -1,0 +1,11 @@
+{
+  "$comment": "Pinned tarball for the mount-server FUSE-over-vsock bench (#329). The bench writes scripts/bench/mount/results/<runId>.json with wall-clock + per-op histograms + a path to the node --perf-basic-prof map. Sha256 is verified before extraction; populate from https://nodejs.org/dist/v24.0.0/SHASUMS256.txt if the placeholder is in place.",
+  "tarballs": {
+    "node-24-linux-arm64": {
+      "url": "https://nodejs.org/dist/v24.0.0/node-v24.0.0-linux-arm64.tar.gz",
+      "sha256": "4104136ddd3d2f167d799f1b21bac72ccf500d80c24be849195f831df6371b83",
+      "extractsToDir": "node-v24.0.0-linux-arm64",
+      "$notes": "node-v24.0.0-linux-arm64 tarball expands to ~20k files / ~50MB. Exact fileCount and bytes are written into the run JSON by bench/mount.ts."
+    }
+  }
+}

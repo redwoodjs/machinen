@@ -1,51 +1,76 @@
-// Spawn the live-share mount server as a detached helper process so
-// the runtime supervisor can exit cleanly while the helper keeps
-// serving FUSE traffic for the still-running VMM (#150 phase 3).
+// Spawn the Zig-native live-mount server (#329) as a detached helper
+// process so the runtime supervisor can exit cleanly while the helper
+// keeps serving FUSE traffic for the still-running VMM (#150 phase 3).
 //
 // Process model:
 //
 //   supervisor (this) ─────[spawn]────▶ pdeathsig (--watch-pid VMM)
 //                                            │ fork+exec
 //                                            ▼
-//                                       node mount-server-bin.js
+//                                       machinen-mount-server (Zig)
 //
 // pdeathsig watches the VMM pid (not the supervisor — the supervisor
-// exits on purpose). When the VMM dies the watcher SIGTERMs the node
-// helper; the helper closes its FUSE listener, flushes its stats
-// file, and exits.
+// exits on purpose). When the VMM dies the watcher SIGTERMs the helper;
+// the helper closes its FUSE listener, flushes its stats file, and exits.
 //
-// Returned handle is shaped like the in-process `LiveMountServerHandle`
-// so vm.ts can keep a single array; adds `pid` and `exe` so the
-// registry can persist enough to reap the helper from a different
-// process (`machinen stop`, `machinen gc`).
+// Returned handle is shaped to be a drop-in for the previous in-process
+// JS server's handle — same methods, plus `pid` and `exe` so the registry
+// can persist enough to reap the helper from a different process
+// (`machinen stop`, `machinen gc`).
 
 import { spawn as nodeSpawn, type ChildProcess } from "node:child_process";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import debugLib from "debug";
 import { MountError } from "./errors.ts";
-import type { LiveMountServerHandle } from "./mount-server.ts";
 import { ensurePdeathsig, wrapWithPdeathsig } from "./pdeathsig.ts";
 
 const debug = debugLib("machinen:mount-server-detached");
 
 /**
- * Extension of the in-process handle that adds the helper's pid and
- * the resolved bin path. Both feed the registry so `machinen stop`
- * and `machinen gc` can reap from a different process after detach.
+ * Per-FUSE-op latency snapshot, surfaced by the helper's `--stats`
+ * file when `MACHINEN_MOUNT_SERVER_PROFILE=1` (#329 baseline).
+ *
+ * Times are nanoseconds; `count` and `sumNs` are populated. The Zig
+ * server reports `p50Ns` / `p99Ns` as `0` in PR1 — percentile ring is
+ * a follow-up. The shape is preserved so dashboards / readers don't
+ * break when the fields start being populated.
  */
-export interface DetachedMountServerHandle extends LiveMountServerHandle {
+export interface OpHistogram {
+  count: number;
+  sumNs: number;
+  p50Ns: number;
+  p99Ns: number;
+}
+
+/**
+ * Public handle returned by `spawnDetachedMountServer`. Shape preserved
+ * from the previous in-process JS implementation so call sites in
+ * vm/boot.ts don't change.
+ */
+export interface DetachedMountServerHandle {
+  /** Stop the helper; idempotent. */
+  stop(): Promise<void>;
   /**
-   * The wrapped pid the kernel reports for the spawn. On Linux this
-   * is the node helper itself (pdeathsig prctl+execvp's it in place).
-   * On macOS this is the pdeathsig watcher (which forks the helper);
-   * either way SIGTERMing this pid takes the whole subtree down.
+   * Bytes served from any `pages-*.img` file under this mount since
+   * startup (#274). Used by `vm.memoryStats()` to approximate the
+   * lazy-restore page-fault progress.
+   */
+  bytesServedOnPagesImg(): number;
+  /**
+   * Per-op latency snapshot (#329 baseline). Returns an empty object
+   * unless the server was started with `MACHINEN_MOUNT_SERVER_PROFILE=1`.
+   */
+  opStats(): Record<string, OpHistogram>;
+  /**
+   * The pid the kernel reports for the spawn. SIGTERMing this pid
+   * takes the whole subtree (pdeathsig wrapper + helper) down.
    */
   pid: number;
   /**
-   * Resolved bin path (the dist js or src ts run via tsx). Persisted
-   * in the registry so a recycled-pid check can validate that the
-   * process at `pid` is still our helper.
+   * Resolved bin path (the Zig artifact). Persisted in the registry so
+   * a recycled-pid check can validate that the process at `pid` is
+   * still our helper.
    */
   exe: string;
 }
@@ -153,6 +178,7 @@ function makeHandle(
     pid,
     exe,
     bytesServedOnPagesImg: () => readBytesServed(opts.statsPath),
+    opStats: () => readOpStats(opts.statsPath),
     stop: async () => {
       if (stopped) {
         return;
@@ -178,22 +204,44 @@ function makeHandle(
 }
 
 function readBytesServed(statsPath: string): number {
+  const snap = readStatsSnapshot(statsPath);
+  return typeof snap?.bytesServedOnPagesImg === "number" ? snap.bytesServedOnPagesImg : 0;
+}
+
+function readOpStats(statsPath: string): Record<string, OpHistogram> {
+  const snap = readStatsSnapshot(statsPath);
+  // Field is optional in the schema — absent means profile mode was off,
+  // present-but-empty means profile mode was on with no traffic yet.
+  if (
+    snap &&
+    typeof snap === "object" &&
+    "ops" in snap &&
+    snap.ops &&
+    typeof snap.ops === "object"
+  ) {
+    return snap.ops as Record<string, OpHistogram>;
+  }
+  return {};
+}
+
+/**
+ * Read + parse the helper's stats file. Returns `null` if the file is
+ * missing, JSON-malformed, or caught mid-rename. Both accessor helpers
+ * derive from this — accepting two file reads when both are queried is
+ * fine for a bench (querying happens once at shutdown).
+ */
+function readStatsSnapshot(statsPath: string): Record<string, unknown> | null {
   try {
     const raw = readFileSync(statsPath, "utf8");
     const parsed = JSON.parse(raw) as unknown;
-    if (
-      parsed &&
-      typeof parsed === "object" &&
-      "bytesServedOnPagesImg" in parsed &&
-      typeof (parsed as { bytesServedOnPagesImg: unknown }).bytesServedOnPagesImg === "number"
-    ) {
-      return (parsed as { bytesServedOnPagesImg: number }).bytesServedOnPagesImg;
+    if (parsed && typeof parsed === "object") {
+      return parsed as Record<string, unknown>;
     }
-    return 0;
+    return null;
   } catch {
     // Helper not yet started, was killed -9, or wrote a torn snapshot
-    // we caught mid-rename. Either way: zero is the right floor.
-    return 0;
+    // we caught mid-rename. Zero/empty is the right floor for callers.
+    return null;
   }
 }
 
@@ -263,14 +311,17 @@ interface ResolvedCommand {
 let cachedCommand: ResolvedCommand | null = null;
 
 /**
- * Locate the standalone mount-server bin. Production: dist sibling
- * built by tsup. Dev/test: source .ts file run via `node --import tsx`
- * (Node 20.6+'s loader-hook flag — tsx is a workspace devDependency).
+ * Locate the Zig mount-server binary for the current host. Looks at
+ * `@machinen/mount-server-arm64-{darwin,linux}` sibling packages —
+ * whichever is staged on disk wins, with the per-host package.json
+ * `os`/`cpu` filters keeping the wrong-arch one unstaged on npm
+ * installs.
+ *
  * Override with `MACHINEN_MOUNT_SERVER_BIN=/abs/path` when neither
  * fits (custom builds, packaged runtimes elsewhere).
  *
- * Resolution is cached after the first call — `import.meta.url` and
- * the dist/src layout don't change at runtime.
+ * Cached after the first call — `import.meta.url` and the sibling
+ * package layout don't change at runtime.
  */
 function resolveMountServerCommand(): ResolvedCommand {
   if (cachedCommand) {
@@ -284,32 +335,51 @@ function resolveMountServerCommand(): ResolvedCommand {
         `MACHINEN_MOUNT_SERVER_BIN=${override} does not exist`,
       );
     }
-    // Honor whatever the override points at — if it ends in .ts we
-    // still need tsx, otherwise plain node. The shape mirrors the
-    // dist/src branches below.
-    cachedCommand = override.endsWith(".ts")
-      ? { command: process.execPath, args: ["--import", "tsx", override] }
-      : { command: process.execPath, args: [override] };
+    cachedCommand = { command: override, args: [] };
     return cachedCommand;
   }
-
-  const distUrl = new URL("./mount-server-bin.js", import.meta.url);
-  const distPath = fileURLToPath(distUrl);
-  if (existsSync(distPath)) {
-    cachedCommand = { command: process.execPath, args: [distPath] };
+  const zigBin = resolveZigBinary();
+  if (zigBin) {
+    cachedCommand = { command: zigBin, args: [] };
     return cachedCommand;
   }
-
-  const srcUrl = new URL("./mount-server-bin.ts", import.meta.url);
-  const srcPath = fileURLToPath(srcUrl);
-  if (existsSync(srcPath)) {
-    cachedCommand = { command: process.execPath, args: ["--import", "tsx", srcPath] };
-    return cachedCommand;
-  }
-
   throw new MountError(
     "MOUNT_SERVER_BIN_MISSING",
-    `mount-server bin not found at ${distPath} or ${srcPath}. ` +
-      `Run pnpm build, or set MACHINEN_MOUNT_SERVER_BIN to an absolute path.`,
+    "machinen-mount-server binary not found. Expected " +
+      "`@machinen/mount-server-arm64-darwin` or " +
+      "`@machinen/mount-server-arm64-linux` to be installed alongside " +
+      "`@machinen/runtime`. Run `bash scripts/build-mount-server.sh` " +
+      "from the repo root, or set MACHINEN_MOUNT_SERVER_BIN.",
   );
+}
+
+/**
+ * Resolve the Zig binary path for the current host. Returns `null` if
+ * the appropriate per-arch sibling package isn't installed or its
+ * binary hasn't been staged yet.
+ *
+ * Lookup is path-based (not `import("@machinen/...")`) because the
+ * per-arch packages are gated by `os` + `cpu` keys in their
+ * package.json — pnpm/npm won't install the wrong-host one, so an
+ * `import` of the missing sibling would throw at module-load time on
+ * the hosts where it's not present.
+ */
+function resolveZigBinary(): string | null {
+  const pkg =
+    process.platform === "darwin"
+      ? "mount-server-arm64-darwin"
+      : process.platform === "linux"
+        ? "mount-server-arm64-linux"
+        : null;
+  if (!pkg) {
+    return null;
+  }
+  try {
+    const binPath = fileURLToPath(
+      new URL(`../../${pkg}/bin/machinen-mount-server`, import.meta.url),
+    );
+    return existsSync(binPath) ? binPath : null;
+  } catch {
+    return null;
+  }
 }

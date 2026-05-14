@@ -67,8 +67,8 @@ export interface SnapshotContext {
   liveMounts?: ReadonlyArray<{ host: string; guest: string; mode: "ro" | "rw" }>;
   /**
    * #273: tear down the host-side mount-server instances (the
-   * `LiveMountServerHandle` from `serveLiveMount`). Called once
-   * after the dump completes successfully — the guest's preflight
+   * `DetachedMountServerHandle`s from `spawnDetachedMountServer`).
+   * Called once after the dump completes successfully — the guest's preflight
    * already unmounted, so the servers are idle. Boot-handle ctxes
    * pass a closure that stops the boot scope's `liveMountServers`
    * array; attach-handle ctxes leave this undefined because the
@@ -78,8 +78,8 @@ export interface SnapshotContext {
    */
   stopLiveMountServers?: () => Promise<void>;
   /**
-   * #273: respawn fresh `serveLiveMount` instances on the same UDS
-   * paths the original servers listened on, so the guest's
+   * #273: respawn fresh mount-server instances on the same UDS paths
+   * the original servers listened on, so the guest's
    * `/sbin/machinen-remount` reconnects to a clean inode/handle
    * table. Boot-handle only — attach can't bind UDSes the boot
    * process owns. Only invoked on `leaveRunning: true`. When

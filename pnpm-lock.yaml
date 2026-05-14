@@ -101,6 +101,12 @@ importers:
 
   packages/microvm: {}
 
+  packages/mount-server: {}
+
+  packages/mount-server-arm64-darwin: {}
+
+  packages/mount-server-arm64-linux: {}
+
   packages/runtime:
     dependencies:
       '@homebridge/node-pty-prebuilt-multiarch':
@@ -126,6 +132,12 @@ importers:
       '@machinen/e2fsprogs-arm64-linux':
         specifier: workspace:*
         version: link:../e2fsprogs-arm64-linux
+      '@machinen/mount-server-arm64-darwin':
+        specifier: workspace:*
+        version: link:../mount-server-arm64-darwin
+      '@machinen/mount-server-arm64-linux':
+        specifier: workspace:*
+        version: link:../mount-server-arm64-linux
       '@machinen/squashfs-tools-arm64-darwin':
         specifier: workspace:*
         version: link:../squashfs-tools-arm64-darwin

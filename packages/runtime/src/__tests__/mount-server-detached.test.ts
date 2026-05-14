@@ -15,8 +15,33 @@ import { spawn as nodeSpawn } from "node:child_process";
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { spawnDetachedMountServer } from "../mount-server-detached.ts";
+
+// The mount-server is a Zig binary shipped as
+// `@machinen/mount-server-arm64-{darwin,linux}` (#329). Each per-arch
+// package is `os`/`cpu`-gated so pnpm only installs the one matching
+// the host. On CI runners whose arch isn't a supported machinen host
+// (x64 linux today), the install legitimately leaves no binary on
+// disk — the test skips the same way fixtures-missing skips boot.test
+// rather than failing. Local dev on darwin-arm64 or linux-arm64 always
+// has the binary because pnpm install + scripts/build-mount-server.sh
+// produces it.
+const MOUNT_SERVER_BIN_PRESENT: boolean = (() => {
+  const candidates = [
+    "../../../mount-server-arm64-darwin/bin/machinen-mount-server",
+    "../../../mount-server-arm64-linux/bin/machinen-mount-server",
+  ];
+  for (const rel of candidates) {
+    try {
+      if (existsSync(fileURLToPath(new URL(rel, import.meta.url)))) {
+        return true;
+      }
+    } catch {}
+  }
+  return false;
+})();
 
 let tmp: string;
 
@@ -54,7 +79,7 @@ async function waitFor(
   return false;
 }
 
-describe("spawnDetachedMountServer", () => {
+describe.skipIf(!MOUNT_SERVER_BIN_PRESENT)("spawnDetachedMountServer", () => {
   it("rejects an invalid vmmPid", async () => {
     await expect(
       spawnDetachedMountServer({

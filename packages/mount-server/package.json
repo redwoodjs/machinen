@@ -1,0 +1,16 @@
+{
+  "name": "@machinen/mount-server",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Zig-native FUSE-over-vsock live-mount server for machinen (#329). Source-only workspace package; the published artifact is @machinen/mount-server-arm64-{darwin,linux}.",
+  "license": "FSL-1.1-MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/redwoodjs/machinen.git",
+    "directory": "packages/mount-server"
+  },
+  "scripts": {
+    "build": "zig build",
+    "test": "zig build test"
+  }
+}

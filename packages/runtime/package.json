@@ -36,6 +36,8 @@
   "optionalDependencies": {
     "@machinen/e2fsprogs-arm64-darwin": "workspace:*",
     "@machinen/e2fsprogs-arm64-linux": "workspace:*",
+    "@machinen/mount-server-arm64-darwin": "workspace:*",
+    "@machinen/mount-server-arm64-linux": "workspace:*",
     "@machinen/squashfs-tools-arm64-darwin": "workspace:*",
     "@machinen/squashfs-tools-arm64-linux": "workspace:*",
     "@machinen/vmm-arm64-darwin": "workspace:*",
