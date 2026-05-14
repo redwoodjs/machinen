@@ -45,7 +45,12 @@ export interface ParsedRestoreArgs {
    * existing mount, it doesn't add new ones. The runtime emits
    * BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN for any unmatched entry.
    */
-  liveMounts: Array<{ host: string; guest: string; mode: "ro" | "rw" }>;
+  liveMounts: Array<{
+    host: string;
+    guest: string;
+    mode: "ro" | "rw";
+    protocol?: "fuse" | "virtiofs";
+  }>;
 }
 
 export function parseRestoreArgs(argv: string[]): ParsedRestoreArgs {
@@ -54,7 +59,12 @@ export function parseRestoreArgs(argv: string[]): ParsedRestoreArgs {
   let image: string | undefined;
   let lazy = false;
   const portForward: Array<{ hostPort: number; guestPort: number }> = [];
-  const liveMounts: Array<{ host: string; guest: string; mode: "ro" | "rw" }> = [];
+  const liveMounts: Array<{
+    host: string;
+    guest: string;
+    mode: "ro" | "rw";
+    protocol?: "fuse" | "virtiofs";
+  }> = [];
   const seenLiveGuests = new Set<string>();
   const seenHostPorts = new Set<number>();
   for (let i = 0; i < argv.length; i++) {

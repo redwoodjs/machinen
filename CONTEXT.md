@@ -75,10 +75,22 @@ terminator, framed stdout/stderr). Ours to redesign; versioned with the
 exec-agent binary.
 
 **Mount channel**:
-The wire between the **Runtime**'s `mount-server` and the in-guest FUSE
-byte-pump daemon, one per `--mount-live` mount. Speaks raw Linux FUSE kernel
-ABI (`uapi/linux/fuse.h`, protocol 7.31) over vsock. Not ours to redesign —
-the kernel owns this wire.
+The wire a **Live mount** is served over. Two transports, selected by
+`liveMount({ protocol })`:
+
+- **virtiofs** (#332, **default**): the FUSE-derived protocol carried
+  over a **VMM**-emulated virtio-fs device queue — no `mount-server`
+  process, no `/fuse-agent`, no vsock hop. The #329 FUSE opcode
+  handlers run inside the VMM. At most one per **VM** (one virtio-fs
+  device slot). DAX-less for now — guest reads/writes still copy
+  through the virtqueue; the zero-copy DAX window is a separate track.
+- **fuse**: the wire between the **Runtime**'s detached `mount-server`
+  process and the in-guest `/fuse-agent` byte-pump, one per mount, raw
+  Linux FUSE kernel ABI (`uapi/linux/fuse.h`, protocol 7.31) carried
+  over the **vsock bridge**. Being retired in favour of **virtiofs**.
+
+The FUSE protocol itself is not ours to redesign — the kernel owns it;
+only the framing differs between the two transports.
 
 **Exec-agent**:
 The Zig binary `/sbin/machinen-exec-agent` inside the guest. Listens on the
@@ -111,10 +123,13 @@ Captured in snapshot bundles and **travels** with the **VM** across hosts.
 **Live mount**:
 A host directory shared into the **VM** as a live FUSE window over the
 **Mount channel** (`--mount-live` flag, `boot({ liveMounts })`). Reads and
-writes flow to and from the host in real time over vsock — no copy.
-`rw` (default) or `:ro`. Does **not** travel with snapshots — the runtime
-unmounts before snapshot; restore on another host needs the live mount
-re-established against a host directory there.
+writes flow to and from the host in real time — no copy. `rw` (default)
+or `:ro`. The transport is chosen with `protocol`: `"virtiofs"`
+(default, the in-VMM virtio-fs device, #332) or `"fuse"` (the legacy
+FUSE-over-vsock relay) — see **Mount channel**. Does **not** travel
+with snapshots — the runtime unmounts before snapshot; restore on
+another host needs the live mount re-established against a host
+directory there.
 
 **`writeFile`**:
 One-shot push of a single file from host code into the guest filesystem,

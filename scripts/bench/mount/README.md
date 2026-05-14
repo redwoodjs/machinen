@@ -1,6 +1,9 @@
-# mount-server FUSE-over-vsock bench (#329)
+# live-mount bench (#329, #332)
 
-Baseline-measures the current JS mount-server before any Zig port.
+Times a `tar -xzf` inside a machinen VM through a `--mount-live` mount,
+against the same extract under docker. Started as the #329 baseline
+(JS mount-server → Zig port); `--protocol` (#332) now also measures the
+in-VMM virtio-fs transport against the same docker baseline.
 
 ## What it measures
 
@@ -31,15 +34,24 @@ curl -s https://nodejs.org/dist/v24.0.0/SHASUMS256.txt \
   | awk '/linux-arm64.tar.xz$/ {print $1}'
 
 # 2. Run the bench. Downloads + caches the tarball on first run.
-pnpm tsx scripts/bench/mount.ts
+pnpm tsx scripts/bench/mount.ts                       # fuse transport
+pnpm tsx scripts/bench/mount.ts --protocol virtiofs   # virtio-fs transport (#332)
 
 # 3. Inspect the result.
 cat scripts/bench/mount/results/<runId>.json
 ```
 
+`--protocol` (#332) selects the **Live mount** transport for the
+measured `/mnt/out` write side: `fuse` (default, FUSE-over-vsock) or
+`virtiofs` (the in-VMM virtio-fs device). The headline `wallMs` is
+transport-agnostic, so the two runs compare directly against the same
+docker baseline. The `virtiofs` run has no `mountServer` op histogram —
+the in-VMM device writes no stats file — so `wallMs` carries the
+comparison there.
+
 The bench drives the docker baseline by shelling out to
 `docker-baseline.sh`, so a docker daemon needs to be reachable. Skip
-the docker side with `--no-docker` to get just the JS-server number.
+the docker side with `--no-docker` to get just the mount-side number.
 
 ## Reading the result
 
@@ -104,6 +116,40 @@ The remaining ~2× to docker is on the FUSE-over-vsock wire (vsock RTT,
 kernel FUSE driver overhead, guest fuse-agent byte-pump). That's a
 separate "shrink the wire" track — see #332 for the virtio-fs follow-up
 which would beat docker outright.
+
+## Results (#332): virtio-fs vs FUSE-over-vsock
+
+`pnpm tsx scripts/bench/mount.ts --protocol {fuse,virtiofs}`, three runs
+each, darwin/arm64, node-24 tarball. Means below.
+
+| metric                 | fuse (vsock) | virtiofs (in-VMM) | speedup |
+| ---------------------- | ------------ | ----------------- | ------- |
+| wall-clock tar-extract | 4.52s        | 2.52s             | 1.80×   |
+| docker baseline same   | 2.07s        | 1.97s             | —       |
+| ratio transport/docker | 2.19×        | 1.28×             | —       |
+
+virtio-fs (run-to-run spread 2.50–2.53s — notably steadier than fuse's
+4.36–4.69s) is **1.8× faster than FUSE-over-vsock** and closes the
+docker gap from 2.19× to 1.28×. Replacing the wire — per-request vsock
+RTT, the guest `/fuse-agent` byte-pump, single-stream framing — with a
+virtqueue is the whole win; the FUSE opcode handlers are byte-identical
+across both transports (the shared `fuse.zig` module, #329 + #332).
+
+It does **not** land at-or-below docker on this host. The #332 issue
+scopes that bar to Linux/KVM, where docker pays a kernel-fs overhead
+virtio-fs sidesteps and DAX gives the guest a zero-copy window into
+host page cache. This bench is darwin/HVF and DAX-less — `hv_vm_map`
+has no straightforward shared-memory analogue to KVM's — so 1.28× is
+the expected DAX-less ceiling here, not a regression against the goal.
+
+**`protocol` now defaults to `"virtiofs"`.** The 1.8× wire win holds
+on every run, so an unset protocol takes the fast path — only the
+first mount per VM, since there's one virtio-fs slot; further unset
+mounts fall back to `"fuse"`. `--mount-live …:fuse` /
+`liveMount({ protocol: "fuse" })` still selects the old transport.
+The at-or-below-docker bar is a Linux/KVM+DAX goal and a non-blocker
+for the default flip — FUSE-over-vsock is on track for full removal
+(#338). See `docs/adr/0002-…`.
 
 ## PR description template
 

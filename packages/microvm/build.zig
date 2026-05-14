@@ -51,6 +51,16 @@ pub fn build(b: *std.Build) void {
         mod.linkFramework("Hypervisor", .{});
     }
 
+    // #332: the in-VMM virtio-fs device (`src/virtiofs.zig`) reuses the
+    // #329 FUSE opcode handlers from `@machinen/mount-server` rather
+    // than reimplementing them. Pull in that package's "fuse" module
+    // so `@import("fuse")` resolves inside the microvm module.
+    const mount_server_dep = b.dependency("mount_server", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    mod.addImport("fuse", mount_server_dep.module("fuse"));
+
     // Here we define an executable. An executable needs to have a root module
     // which needs to expose a `main` function. While we could add a main function
     // to the module defined above, it's sometimes preferable to split business

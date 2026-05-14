@@ -64,7 +64,12 @@ export interface SnapshotContext {
    * from `liveMountsResolved`, attach from the registry. Undefined
    * / empty for VMs booted without `liveMounts`.
    */
-  liveMounts?: ReadonlyArray<{ host: string; guest: string; mode: "ro" | "rw" }>;
+  liveMounts?: ReadonlyArray<{
+    host: string;
+    guest: string;
+    mode: "ro" | "rw";
+    protocol?: "fuse" | "virtiofs";
+  }>;
   /**
    * #273: tear down the host-side mount-server instances (the
    * `DetachedMountServerHandle`s from `spawnDetachedMountServer`).
@@ -586,7 +591,12 @@ function writeSnapshotMeta(
     // carried a resolved list (boot-handle path).
     liveMounts:
       ctx.liveMounts && ctx.liveMounts.length > 0
-        ? ctx.liveMounts.map(({ guest, host, mode }) => ({ guest, host, mode }))
+        ? ctx.liveMounts.map(({ guest, host, mode, protocol }) => ({
+            guest,
+            host,
+            mode,
+            protocol,
+          }))
         : undefined,
   };
   writeFileSync(join(snapDir, "meta.json"), JSON.stringify(meta));

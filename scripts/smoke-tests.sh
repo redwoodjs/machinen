@@ -18,6 +18,8 @@
 #   T1     Base-only boot — `echo hello-world` reaches the host console.
 #   T2     --mount exposes a host directory readable inside the guest.
 #   T3     --mount-live :ro streams a host file in lazily — #78.
+#   T3v/T5v --mount-live over the virtio-fs transport — #332.
+#   T9f/T9v filesystem-op battery over a live mount, both transports.
 #   T4     --env propagates into the guest process env — #89.
 #   T5     --mount-live (default :rw) guest writes land on the host — #151, #156.
 #   P1-P3  Base-rootfs contract (criu, virtio modules, poweroff) — #77.
@@ -256,9 +258,14 @@ expect_cli_error \
   boot --mount-live "$EMPTY_DIR:/etc/passwd" -- true
 
 expect_cli_error \
-  "V8: --mount-live rejects an unknown mode" \
-  "mode must be 'ro' or 'rw'" \
+  "V8: --mount-live rejects an unknown trailing modifier" \
+  "trailing modifier must be" \
   boot --mount-live "$EMPTY_DIR:/mnt/x:xx" -- true
+
+expect_cli_error \
+  "V9: --mount-live rejects an unknown protocol token" \
+  "trailing modifier must be" \
+  boot --mount-live "$EMPTY_DIR:/mnt/x:rw:nfs" -- true
 
 # ----------------------------------------------------------------
 # Boot tests — need HVF/KVM. Slow.
@@ -302,6 +309,10 @@ fi
 # via the vsock FUSE server, NOT be baked into the boot cpio. We
 # write the marker after the VM starts to prove that.
 #
+# Pinned to `:fuse` explicitly: since #332 an unset protocol defaults
+# to virtio-fs, and T3v already covers that path — T3/T5 stay the
+# FUSE-over-vsock liveness checks for as long as that transport ships.
+#
 # Skips if the rootfs tarball doesn't ship the fuse-agent userspace
 # relay — the kernel always has FUSE built in (`=y`, see
 # build-kernel-arm64.sh), so the previous `fuse.ko` gate would skip
@@ -325,7 +336,7 @@ else
   # Explicit `:ro` since the default is `:rw` (#156); this test
   # intentionally exercises the read-only path.
   run_timeout 60 node "$CLI" boot \
-    --mount-live "$T3_SRC:/mnt/live:ro" \
+    --mount-live "$T3_SRC:/mnt/live:ro:fuse" \
     -- /bin/sh -c 'sleep 4 && cat /mnt/live/hello.txt' \
     >"$T3_LOG" 2>&1 || true
   wait "$SEEDER" 2>/dev/null || true
@@ -339,11 +350,13 @@ fi
 
 # ---- T5: --mount-live :rw writes from inside the guest land on the host (#151) ----
 #
-# Boots with `--mount-live <dir>:/mnt/live` (default :rw post-#156),
-# has the guest echo a marker into a file under that mount, then
-# asserts the file appears on the host filesystem with the right
+# Boots with `--mount-live <dir>:/mnt/live:fuse` — mode left unset so
+# the default-`:rw` (#156) path is still exercised, protocol pinned to
+# `:fuse` so this stays the FUSE-over-vsock write-through check (T5v
+# covers virtio-fs). The guest echoes a marker into a file under that
+# mount; we assert the file appears on the host with the right
 # contents AFTER the VM exits. Same fuse-agent gate as T3.
-echo "T5: machinen boot --mount-live (default :rw) — guest write reaches the host"
+echo "T5: machinen boot --mount-live (default :rw, :fuse) — guest write reaches the host"
 if ! grep -q 'fuse-agent$' <<<"$ROOTFS_ENTRIES"; then
   echo "  skip: fuse-agent not in $ROOTFS_TAR — rebuild base assets"
 else
@@ -352,7 +365,7 @@ else
   T5_LOG="$FIXTURE/t5.log"
   mkdir -p "$T5_SRC"
   run_timeout 60 node "$CLI" boot \
-    --mount-live "$T5_SRC:/mnt/live" \
+    --mount-live "$T5_SRC:/mnt/live:fuse" \
     -- /bin/sh -c "echo $T5_MARKER >/mnt/live/from-guest.txt && sync" \
     >"$T5_LOG" 2>&1 || true
   if [[ -f "$T5_SRC/from-guest.txt" ]] && grep -q "$T5_MARKER" "$T5_SRC/from-guest.txt"; then
@@ -363,6 +376,139 @@ else
     fail "T5 marker ($T5_MARKER) not found in $T5_SRC/from-guest.txt"
   fi
 fi
+
+# ---- T3v: --mount-live :ro over the virtio-fs transport (#332) ----
+#
+# Same contract as T3 (host file written after boot streams into the
+# guest) but `protocol=virtiofs`: the in-VMM virtio-fs device serves
+# it, no fuse-agent, no vsock. Needs a guest kernel with
+# CONFIG_VIRTIO_FS — every machinen-built kernel has it; a stale
+# Image without it surfaces here as a missing marker.
+echo "T3v: machinen boot --mount-live ./fixture:/mnt/live:ro:virtiofs -- cat /mnt/live/hello.txt"
+T3V_MARKER="virtiofs-ro-marker-$$"
+T3V_SRC="$FIXTURE/virtiofs-ro-src"
+T3V_LOG="$FIXTURE/t3v.log"
+mkdir -p "$T3V_SRC"
+(
+  sleep 3
+  echo "$T3V_MARKER" >"$T3V_SRC/hello.txt"
+) &
+T3V_SEEDER=$!
+run_timeout 60 node "$CLI" boot \
+  --mount-live "$T3V_SRC:/mnt/live:ro:virtiofs" \
+  -- /bin/sh -c 'sleep 4 && cat /mnt/live/hello.txt' \
+  >"$T3V_LOG" 2>&1 || true
+wait "$T3V_SEEDER" 2>/dev/null || true
+if grep -q "$T3V_MARKER" "$T3V_LOG"; then
+  pass "virtio-fs live-mount streamed a file written after boot"
+else
+  tail -80 "$T3V_LOG" >&2
+  fail "T3v marker ($T3V_MARKER) not found — virtio-fs live mount didn't stream through"
+fi
+
+# ---- T5v: --mount-live :rw over virtio-fs — guest write reaches host (#332) ----
+echo "T5v: machinen boot --mount-live (:rw:virtiofs) — guest write reaches the host"
+T5V_MARKER="virtiofs-rw-marker-$$"
+T5V_SRC="$FIXTURE/virtiofs-rw-src"
+T5V_LOG="$FIXTURE/t5v.log"
+mkdir -p "$T5V_SRC"
+run_timeout 60 node "$CLI" boot \
+  --mount-live "$T5V_SRC:/mnt/live:rw:virtiofs" \
+  -- /bin/sh -c "echo $T5V_MARKER >/mnt/live/from-guest.txt && sync" \
+  >"$T5V_LOG" 2>&1 || true
+if [[ -f "$T5V_SRC/from-guest.txt" ]] && grep -q "$T5V_MARKER" "$T5V_SRC/from-guest.txt"; then
+  pass "guest write through :rw virtio-fs live-mount visible on the host"
+else
+  tail -80 "$T5V_LOG" >&2
+  echo "  host file: $(ls -la "$T5V_SRC" 2>&1)" >&2
+  fail "T5v marker ($T5V_MARKER) not found in $T5V_SRC/from-guest.txt"
+fi
+
+# ---- T9f / T9v: filesystem-operations coverage over a live mount ----
+#
+# T3/T3v/T5/T5v each prove a live mount carries a single read or a
+# single write. This exercises the rest of the filesystem surface the
+# #329 FUSE handlers implement — directories, nested paths, readdir,
+# unlink, rmdir, symlink creation, and a multi-frame large file — and
+# runs the *same* battery against both transports, so virtio-fs
+# coverage stays comparable to FUSE-over-vsock.
+#
+# Deliberately left out, because the #329 handlers don't implement
+# them (ENOSYS) regardless of transport — separate follow-ups, not
+# #332 scope:
+#   - append (`>>` / O_APPEND): a guest append fails with EIO on this
+#     path; pinning down whether that's host-side or a guest-kernel
+#     FUSE writeback-cache interaction needs its own investigation.
+#   - reading *through* a symlink (READLINK): `ln -s` itself works
+#     (SYMLINK), so the link is created and checked on the host, but
+#     `cat`-ing it would hit ENOSYS.
+#   - rename (RENAME), chmod (SETATTR is a stat-only stub).
+fs_ops_smoke() {
+  local proto="$1"
+  local label="T9${proto:0:1}" # T9f / T9v
+  echo "$label: filesystem operations over a --mount-live ($proto) mount"
+
+  # fuse needs the in-guest byte-pump in the rootfs; virtio-fs doesn't.
+  if [[ "$proto" == "fuse" ]] && ! grep -q 'fuse-agent$' <<<"$ROOTFS_ENTRIES"; then
+    echo "  skip: fuse-agent not in $ROOTFS_TAR — rebuild base assets"
+    return
+  fi
+
+  local marker="fs-ops-${proto}-$$"
+  local src="$FIXTURE/fs-ops-$proto"
+  local log="$FIXTURE/fs-ops-$proto.log"
+  mkdir -p "$src"
+  local fs_fail
+  fs_fail() {
+    tail -80 "$log" >&2 || true
+    ls -laR "$src" 2>&1 | head -40 >&2 || true
+    fail "$1"
+  }
+
+  # One guest script: a battery of filesystem ops under /mnt/fs, a
+  # read-back, then a unique marker. `set -e` aborts on the first
+  # failure, so a missing marker means something in the battery broke.
+  # `\$(...)` is escaped so the *guest* shell evaluates it.
+  # `seq 1 50000` is ~288 KiB — a deliberately multi-frame payload. The
+  # guest both writes it and reads it straight back, so the descriptor-
+  # chain gather (write) and scatter (read) are each exercised past the
+  # one-page boundary.
+  run_timeout 90 node "$CLI" boot \
+    --mount-live "$src:/mnt/fs:rw:$proto" \
+    -- /bin/sh -c "
+      set -e
+      mkdir -p /mnt/fs/d/nested
+      echo nested-content > /mnt/fs/d/nested/a.txt
+      seq 1 50000 > /mnt/fs/big.txt
+      echo bigread: \$(wc -l < /mnt/fs/big.txt | tr -d ' ')
+      echo doomed > /mnt/fs/doomed.txt && rm /mnt/fs/doomed.txt
+      mkdir /mnt/fs/emptydir && rmdir /mnt/fs/emptydir
+      ln -s d/nested/a.txt /mnt/fs/link.txt
+      echo readback: \$(cat /mnt/fs/d/nested/a.txt)
+      echo readdir: \$(ls /mnt/fs/d/nested | tr '\n' ' ')
+      sync
+      echo $marker
+    " >"$log" 2>&1 || true
+
+  # Guest side: the battery ran to completion, a file round-tripped,
+  # and the large file read back at full length (multi-frame scatter).
+  grep -q "$marker" "$log" || fs_fail "$label: guest battery didn't reach the marker ($marker)"
+  grep -q "readback: nested-content" "$log" || fs_fail "$label: file read-back wrong"
+  grep -q "bigread: 50000" "$log" || fs_fail "$label: large file read back short (multi-frame scatter)"
+
+  # Host side: every mutating op landed on the host directory.
+  [[ "$(cat "$src/d/nested/a.txt" 2>/dev/null)" == "nested-content" ]] ||
+    fs_fail "$label: nested file missing/wrong on host"
+  [[ "$(wc -l <"$src/big.txt" 2>/dev/null | tr -d ' ')" == "50000" ]] ||
+    fs_fail "$label: big.txt wrong line count on host (multi-frame write)"
+  [[ ! -e "$src/doomed.txt" ]] || fs_fail "$label: unlink didn't remove doomed.txt on host"
+  [[ ! -e "$src/emptydir" ]] || fs_fail "$label: rmdir didn't remove emptydir on host"
+  [[ -L "$src/link.txt" ]] || fs_fail "$label: symlink not present on host"
+  pass "fs ops (mkdir/write/nested/readdir/unlink/rmdir/symlink/large file) over $proto"
+}
+
+fs_ops_smoke fuse
+fs_ops_smoke virtiofs
 
 # ---- T4: --env propagates into the guest process env (#89) ----
 echo "T4: machinen boot --env FOO=bar -- sh -c 'echo FOO=\$FOO'"
@@ -1296,7 +1442,9 @@ trap 'rm -rf "$FIXTURE"' EXIT
 # exit, serves FUSE post-detach, and `machinen stop` reaps it.
 # Issue #150 phase 3. Re-uses the N2 rootfs-capability gate (same
 # requirement as N2D for vsock-exec, plus fuse-agent for the live
-# relay).
+# relay). Pinned to `:fuse` — this test is specifically about the
+# detached `mount-server` helper's lifecycle; virtio-fs (now the
+# default) has no such host process to survive or reap.
 if grep -q 'fuse-agent$' <<<"$ROOTFS_ENTRIES"; then
   echo "N2L: machinen boot --detached --mount-live; helper survives detach; stop reaps it"
   N2L_NAME="smoke-detached-live-$$"
@@ -1314,7 +1462,7 @@ if grep -q 'fuse-agent$' <<<"$ROOTFS_ENTRIES"; then
   n2l_t0=$SECONDS
   if MACHINEN_DETACHED_LOG_DIR="$N2L_LOG_DIR" cli boot \
       --name "$N2L_NAME" --detached \
-      --mount-live "$N2L_SRC:/mnt/live:ro" \
+      --mount-live "$N2L_SRC:/mnt/live:ro:fuse" \
       -- /bin/sh -c "/exec-agent & sleep 120" >"$N2L_LOG" 2>&1; then
     pass "boot --detached --mount-live returned 0 in $((SECONDS - n2l_t0))s"
   else
@@ -2345,6 +2493,11 @@ fi  # S5 rootfs-capability gate
 # unmount before dump, remount after, record `meta.liveMounts` so the
 # restored VM re-establishes a fresh window on the recorded host path.
 #
+# Pinned to `:fuse` — this test is about the fuse transport's CRIU
+# interaction (the dump-preflight umount + machinen-remount re-fork).
+# virtio-fs (now the default) rides through CRIU differently, with no
+# host helper to stop and respawn; that path wants its own test.
+#
 # This test exercises the full round-trip:
 #   1. Boot with --mount-live <host>:/mnt/share, write a guest file
 #      that lands on the host (verifies the source's mount works).
@@ -2384,7 +2537,7 @@ else
 
   S6_PID=$(boot_bg "$S6_NAME" "$S6_BG_LOG" \
     --snapshot "$S6_SCRATCH" \
-    --mount-live "$S6_SHARE_A:/mnt/share" \
+    --mount-live "$S6_SHARE_A:/mnt/share:fuse" \
     -- /bin/sh -c 'while :; do sleep 1; done')
   cleanup_s6() {
     kill -TERM "$S6_PID" 2>/dev/null || true
@@ -2477,7 +2630,7 @@ else
   # the restored guest, proving the override knob actually swapped
   # the underlying directory.
   node "$CLI" restore "$S6_SNAP_DIR" \
-    --mount-live "$S6_SHARE_B:/mnt/share" \
+    --mount-live "$S6_SHARE_B:/mnt/share:fuse" \
     >"$S6_RESTORE_REMAP_LOG" 2>&1 &
   S6_REMAP_PID=$!
   cleanup_s6_remap() {

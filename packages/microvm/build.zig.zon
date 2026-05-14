@@ -32,6 +32,11 @@
     // Once all dependencies are fetched, `zig build` no longer requires
     // internet connectivity.
     .dependencies = .{
+        // #332: the transport-agnostic FUSE handlers live in
+        // `@machinen/mount-server` (`src/fuse.zig`, exported as the
+        // "fuse" module). The in-VMM virtio-fs device reuses them
+        // verbatim. Monorepo sibling — a `path` dep needs no hash.
+        .mount_server = .{ .path = "../mount-server" },
         // See `zig fetch --save <url>` for a command-line interface for adding dependencies.
         //.example = .{
         //    // When updating this field to a new URL, be sure to delete the corresponding

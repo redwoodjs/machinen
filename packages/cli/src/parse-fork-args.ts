@@ -62,7 +62,12 @@ export interface ParsedForkArgs {
    * (that's caught by the runtime — vsock FUSE channels can't survive
    * CRIU dump). See #78, #151.
    */
-  liveMounts?: Array<{ host: string; guest: string; mode: "ro" | "rw" }>;
+  liveMounts?: Array<{
+    host: string;
+    guest: string;
+    mode: "ro" | "rw";
+    protocol?: "fuse" | "virtiofs";
+  }>;
   /** Env vars exposed to the forked guest workload (`--env KEY=VALUE`). */
   env?: Record<string, string>;
   /**
@@ -89,7 +94,12 @@ export function parseForkArgs(argv: string[]): ParsedForkArgs {
   const portForward: Array<{ hostPort: number; guestPort: number }> = [];
   const seenHostPorts = new Set<number>();
   let mount: { host: string; guest: string } | undefined;
-  const liveMounts: Array<{ host: string; guest: string; mode: "ro" | "rw" }> = [];
+  const liveMounts: Array<{
+    host: string;
+    guest: string;
+    mode: "ro" | "rw";
+    protocol?: "fuse" | "virtiofs";
+  }> = [];
   const env: Record<string, string> = {};
   let guestCwd: string | undefined;
   let memory: number | undefined;

@@ -5,10 +5,10 @@
 // What stays in is what the guest kernel + our VMM actually touch:
 //   * the GIC v3 (interrupt controller — required)
 //   * PL011 UART at 0x9000000 (console)
-//   * seven virtio-mmio slots at 0x0a000000+i*0x200:
+//   * eight virtio-mmio slots at 0x0a000000+i*0x200:
 //       0=net, 1=blk (rootdisk), 2=vsock, 3=blk2 (scratch),
 //       4=balloon, 5=blk3 (mount lower / squashfs RO),
-//       6=blk4 (mount upper / ext4 RW)
+//       6=blk4 (mount upper / ext4 RW), 7=virtio-fs (#332 live mount)
 //   * CPU, timer, psci, apb-pclk
 //
 // Slot 1 (blk) and slot 3 (blk2) carry the two virtio-blk devices:
@@ -112,6 +112,19 @@
 		dma-coherent;
 		interrupts = <0x00 0x16 0x01>;
 		reg = <0x00 0xa000c00 0x00 0x200>;
+		compatible = "virtio,mmio";
+	};
+
+	// #332: slot 7 carries the virtio-fs device for `--mount-live`.
+	// The in-VMM device serves a host directory over a FUSE-derived
+	// virtqueue protocol; /init mounts it with `mount -t virtiofs
+	// <tag> <guest>`. Replaces the FUSE-over-vsock transport — no
+	// vsock framing, no guest fuse-agent byte-pump. Empty when the
+	// runtime didn't request a live mount.
+	virtio_mmio@a000e00 {
+		dma-coherent;
+		interrupts = <0x00 0x17 0x01>;
+		reg = <0x00 0xa000e00 0x00 0x200>;
 		compatible = "virtio,mmio";
 	};
 

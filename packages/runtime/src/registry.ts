@@ -157,17 +157,28 @@ export interface RegistryEntry {
     upperPath: string;
   };
   /**
-   * #273: live-share FUSE mounts (`liveMounts: [...]` at boot) the
-   * VM was started with. Persisted so an attach-owned `vm.snapshot()`
-   * / `vm.fork()` can record the same `meta.liveMounts` block in the
+   * #273: live-share mounts (`liveMounts: [...]` at boot) the VM was
+   * started with. Persisted so an attach-owned `vm.snapshot()` /
+   * `vm.fork()` can record the same `meta.liveMounts` block in the
    * bundle and trigger /sbin/machinen-remount post-dump on
    * leaveRunning paths. Host UDS paths and vsock ports are NOT
    * recorded — those are the boot process's private state and aren't
    * useful to other processes (the owning process keeps the servers
    * listening through the dump, so attach reconnects without having
    * to bind anything).
+   *
+   * `protocol` (#332) is persisted per mount so `machinen stop` /
+   * `machinen gc` and the snapshot/restore path know whether a mount
+   * has a detached `mount-server` to reap (`"fuse"`) or is served
+   * in-VMM with nothing host-side to clean up (`"virtiofs"`). Absent
+   * on entries written before #332 — treat as `"fuse"`.
    */
-  liveMounts?: Array<{ guest: string; host: string; mode: "ro" | "rw" }>;
+  liveMounts?: Array<{
+    guest: string;
+    host: string;
+    mode: "ro" | "rw";
+    protocol?: "fuse" | "virtiofs";
+  }>;
   /**
    * #150 phase 3: pids + exes of the detached mount-server helpers
    * spawned alongside this VMM, one per live-mount. The helpers die
