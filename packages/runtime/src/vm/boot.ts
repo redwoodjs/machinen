@@ -462,15 +462,18 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   const { statsFilePath, statsTempDir } = setupStatsFile(env, vsockTempDir);
 
   // Snaplet engine wiring. Every VM booted under
-  // MACHINEN_SNAPSHOT_ENGINE=snaplet gets a per-VM whole-VM state
-  // file the VMM dumps to on SIGUSR1 — `performSnapshotSnaplet`
-  // (driven by `machinen snapshot` / `fork`) signals the VMM and
-  // picks the file up. Restore is the mirror: `restore()` hands the
-  // bundle's `state.snaplet` down via `_snapletRestorePath`, which we
-  // forward to the VMM as MACHINEN_RESTORE_PATH so it loads that
-  // whole-VM state before the first vCPU run.
+  // MACHINEN_SNAPSHOT_ENGINE=snaplet — except those that opt out with
+  // `snapshot: false` — gets a per-VM whole-VM state file the VMM
+  // dumps to on SIGUSR1 — `performSnapshotSnaplet` (driven by
+  // `machinen snapshot` / `fork`) signals the VMM and picks the file
+  // up. Restore is the mirror: `restore()` hands the bundle's
+  // `state.snaplet` down via `_snapletRestorePath`, which we forward
+  // to the VMM as MACHINEN_RESTORE_PATH so it loads that whole-VM
+  // state before the first vCPU run. `snapshot: false` skips the
+  // wiring entirely so the VMM never installs the SIGUSR1 handler —
+  // the VM is genuinely un-snapshottable, the same as under criu.
   let snapletStatePath: string | undefined;
-  if (resolveSnapshotEngine() === "snaplet") {
+  if (resolveSnapshotEngine() === "snaplet" && opts.snapshot !== false) {
     if (!vsockTempDir) {
       vsockTempDir = mkdtempSync(join(tmpdir(), "machinen-vsock-"));
     }
@@ -837,10 +840,16 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     },
 
     async snapshot(snapshotOpts) {
-      // The criu engine writes its images onto the scratch disk; the
-      // snaplet engine dumps the whole VM to a host file and needs no
-      // guest-side scratch.
-      if (resolveSnapshotEngine() === "criu" && !diskAbs) {
+      // A VM can be snapshotted only if its resolved engine has a
+      // backing store: the criu engine writes its images onto the
+      // guest-side scratch disk; the snaplet engine dumps the whole VM
+      // to a host state file. `snapshot: false` provisions neither, so
+      // the guard fires for whichever engine is in effect.
+      const engine = resolveSnapshotEngine();
+      if (
+        (engine === "criu" && !diskAbs) ||
+        (engine === "snaplet" && !snapletStatePath)
+      ) {
         throw new SnapshotError(
           "SNAPSHOT_NO_DISK",
           "vm.snapshot: this VM was booted with `snapshot: false` (no scratch " +
@@ -852,7 +861,11 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     },
 
     async fork(forkOpts) {
-      if (resolveSnapshotEngine() === "criu" && !diskAbs) {
+      const engine = resolveSnapshotEngine();
+      if (
+        (engine === "criu" && !diskAbs) ||
+        (engine === "snaplet" && !snapletStatePath)
+      ) {
         throw new SnapshotError(
           "SNAPSHOT_NO_DISK",
           "vm.fork: source VM has no scratch disk (booted with `snapshot: false`). " +

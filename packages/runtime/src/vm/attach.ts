@@ -152,9 +152,15 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
     },
 
     async snapshot(snapshotOpts) {
-      // criu writes its images onto the scratch disk; snaplet dumps
-      // the whole VM to a host file and needs no guest-side scratch.
-      if (resolveSnapshotEngine() === "criu" && !entry.diskPath) {
+      // A VM can be snapshotted only if its resolved engine has a
+      // backing store recorded in the registry: criu writes its images
+      // onto the guest-side scratch disk, snaplet dumps the whole VM to
+      // a host state file. `snapshot: false` records neither.
+      const engine = resolveSnapshotEngine();
+      if (
+        (engine === "criu" && !entry.diskPath) ||
+        (engine === "snaplet" && !entry.snapletPath)
+      ) {
         throw new SnapshotError(
           "SNAPSHOT_NO_DISK",
           "vm.snapshot: this VM was booted with `snapshot: false` (no scratch " +
@@ -166,7 +172,11 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
     },
 
     async fork(forkOpts) {
-      if (resolveSnapshotEngine() === "criu" && !entry.diskPath) {
+      const engine = resolveSnapshotEngine();
+      if (
+        (engine === "criu" && !entry.diskPath) ||
+        (engine === "snaplet" && !entry.snapletPath)
+      ) {
         throw new SnapshotError(
           "SNAPSHOT_NO_DISK",
           "vm.fork: source VM has no scratch disk (booted with `snapshot: false`).",

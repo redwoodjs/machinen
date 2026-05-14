@@ -132,10 +132,11 @@ interface DumpExtractResult {
  * requiring console access.
  */
 /**
- * Engine dispatcher. The CRIU backend (`performSnapshotCriu`) is the
- * default; `MACHINEN_SNAPSHOT_ENGINE=snaplet` selects the whole-VM
- * `.snaplet` backend (`performSnapshotSnaplet`). The CLI's `snapshot`
- * command is unchanged — the env var is the only switch.
+ * Engine dispatcher. The snaplet backend (`performSnapshotSnaplet`) —
+ * a whole-VM `.snaplet` snapshot — is the default;
+ * `MACHINEN_SNAPSHOT_ENGINE=criu` selects the process-tree backend
+ * (`performSnapshotCriu`). The CLI's `snapshot` command is unchanged —
+ * the env var is the only switch.
  */
 export async function performSnapshot(
   ctx: SnapshotContext,
