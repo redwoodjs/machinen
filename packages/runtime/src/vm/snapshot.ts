@@ -11,7 +11,15 @@
 // Restore: `boot({ snapshot: <snapshot-path> })` on the next boot.
 
 import { type ChildProcessWithoutNullStreams, spawn as nodeSpawn } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { join, resolve } from "node:path";
 import debugLib from "debug";
 
@@ -21,8 +29,10 @@ import type { OnLog } from "../log.ts";
 import { PhaseTimer } from "../phase-timer.ts";
 import { reflinkCopy } from "../reflink.ts";
 import type { SnapshotMeta, SnapshotOptions, SnapshotResult } from "../vm-handle.ts";
+import { resolveSnapshotEngine, SNAPLET_FILE } from "./snapshot-engine.ts";
 
 const debugSnapshot = debugLib("machinen:snapshot");
+const debugSnaplet = debugLib("machinen:snaplet");
 
 /**
  * Injection surface for `performSnapshot`. The boot-owned handle and
@@ -71,6 +81,16 @@ export interface SnapshotContext {
     guest: string;
     mode: "ro" | "rw";
   }>;
+  /**
+   * Snaplet engine only: absolute path the VMM was told to write its
+   * `.snaplet` state file to (the `MACHINEN_SNAPSHOT_PATH` it booted
+   * with). `performSnapshotSnaplet` sends SIGUSR1 to `pid` and waits
+   * for this file. Undefined when the VM wasn't booted snapshot-
+   * capable (the env var wasn't set), in which case a snaplet-engine
+   * snapshot fails with a clear "boot it with the snaplet engine"
+   * message.
+   */
+  snapletPath?: string;
   execRaw: (cmd: string, opts?: VsockExecOptions) => Promise<VsockExecResult>;
   wait: () => Promise<{ code: number | null; signal: NodeJS.Signals | null }>;
   kill: () => Promise<void>;
@@ -111,7 +131,23 @@ interface DumpExtractResult {
  * stream — the kill-timer boundary is the same signal without
  * requiring console access.
  */
+/**
+ * Engine dispatcher. The CRIU backend (`performSnapshotCriu`) is the
+ * default; `MACHINEN_SNAPSHOT_ENGINE=snaplet` selects the whole-VM
+ * `.snaplet` backend (`performSnapshotSnaplet`). The CLI's `snapshot`
+ * command is unchanged — the env var is the only switch.
+ */
 export async function performSnapshot(
+  ctx: SnapshotContext,
+  opts: SnapshotOptions,
+): Promise<SnapshotResult> {
+  if (resolveSnapshotEngine() === "snaplet") {
+    return performSnapshotSnaplet(ctx, opts);
+  }
+  return performSnapshotCriu(ctx, opts);
+}
+
+async function performSnapshotCriu(
   ctx: SnapshotContext,
   opts: SnapshotOptions,
 ): Promise<SnapshotResult> {
@@ -175,18 +211,18 @@ export async function performSnapshot(
 
   phases.end("validation");
   phases.start("finalize");
-  writeSnapshotMeta(ctx, snapDir, mountDiskMeta);
+  writeSnapshotMeta(ctx, snapDir, mountDiskMeta, "criu");
   phases.end("finalize");
 
   debugSnapshot("snapshot done snapDir=%s imgEntries=%d", snapDir, imgEntries.length);
   phases.flush(debugSnapshot, "snapshot");
-  return { snapDir, imgDir, elapsedMs, consoleLog };
+  return { engine: "criu", snapDir, imgDir, elapsedMs, consoleLog };
 }
 
-// Validate / prepare the bundle directory. We refuse to overwrite an
-// existing populated directory so a previous snapshot can't disappear
-// under a typo'd outDir.
-function prepareBundleDir(outDir: string): { snapDir: string; imgDir: string } {
+// Validate / prepare the bundle root directory. We refuse to
+// overwrite an existing populated directory so a previous snapshot
+// can't disappear under a typo'd outDir. Shared by both engines.
+function prepareBundleRootDir(outDir: string): string {
   const snapDir = resolve(outDir);
   if (existsSync(snapDir)) {
     if (!statSync(snapDir).isDirectory()) {
@@ -204,6 +240,12 @@ function prepareBundleDir(outDir: string): { snapDir: string; imgDir: string } {
   } else {
     mkdirSync(snapDir, { recursive: true });
   }
+  return snapDir;
+}
+
+// CRIU bundle: the root dir plus an `img/` subdir for the CRIU images.
+function prepareBundleDir(outDir: string): { snapDir: string; imgDir: string } {
+  const snapDir = prepareBundleRootDir(outDir);
   const imgDir = join(snapDir, "img");
   mkdirSync(imgDir, { recursive: true });
   return { snapDir, imgDir };
@@ -475,8 +517,10 @@ function writeSnapshotMeta(
   ctx: SnapshotContext,
   snapDir: string,
   mountDiskMeta: SnapshotMeta["mountDisk"] | undefined,
+  engine: SnapshotMeta["engine"],
 ): void {
   const meta: SnapshotMeta = {
+    engine,
     sourceName: ctx.sourceName,
     sourceImage: ctx.sourceImage,
     snappedAt: Date.now(),
@@ -510,4 +554,160 @@ function formatDumpOutcomeHint(outcome: DumpOutcome | undefined): string {
     return `\nDump exec exited ${outcome.exitCode} (workload kept running).`;
   }
   return "";
+}
+
+// =============================================================
+// Snaplet engine — whole-VM snapshot
+// =============================================================
+
+/**
+ * Whole-VM snapshot via the `.snaplet` engine. The source VM was
+ * booted with `MACHINEN_SNAPSHOT_PATH` set (boot.ts does this when the
+ * engine is snaplet), so its VMM carries a SIGUSR1 handler that dumps
+ * vCPU + RAM + GIC + virtio device state to that path and then
+ * resumes the guest. Steps:
+ *   1. clear any stale state file at `ctx.snapletPath`,
+ *   2. SIGUSR1 the VMM pid,
+ *   3. wait for the file to (re)appear — the VMM writes it atomically
+ *      (tmp + rename), so existence == a complete dump,
+ *   4. copy it into the bundle as `state.snaplet`,
+ *   5. reflink any `--mount` overlay into the bundle (same as CRIU),
+ *   6. write `meta.json` (with `engine: "snaplet"`),
+ *   7. destructive snapshot (`!leaveRunning`) → power the source off;
+ *      fork (`leaveRunning`) leaves it running (the VMM already
+ *      resumed the guest after the dump).
+ *
+ * Destructiveness is the runtime's call, mirroring the CRIU path's
+ * `--leave-running` + host-poweroff split — the VMM itself always
+ * resumes after writing.
+ */
+async function performSnapshotSnaplet(
+  ctx: SnapshotContext,
+  opts: SnapshotOptions,
+): Promise<SnapshotResult> {
+  const t0 = Date.now();
+  const deadlineMs = opts.timeoutMs ?? 90_000;
+  const leaveRunning = opts.leaveRunning === true;
+
+  if (!ctx.snapletPath) {
+    throw new SnapshotError(
+      "SNAPSHOT_NO_DISK",
+      "vm.snapshot: this VM was not booted with the snaplet engine.\n" +
+        "  Set MACHINEN_SNAPSHOT_ENGINE=snaplet before `machinen boot` so the\n" +
+        "  VMM installs the SIGUSR1 whole-VM dump handler.",
+    );
+  }
+  const snapDir = prepareBundleRootDir(opts.outDir);
+  debugSnaplet(
+    "snaplet snapshot start pid=%d snapDir=%s snapletPath=%s leaveRunning=%s",
+    ctx.pid,
+    snapDir,
+    ctx.snapletPath,
+    leaveRunning,
+  );
+
+  // The VMM writes its state file atomically (tmp + rename). Clear any
+  // stale file first so "the file exists again" is an unambiguous
+  // done signal.
+  try {
+    unlinkSync(ctx.snapletPath);
+  } catch {
+    // ENOENT — nothing to clear, which is the common case.
+  }
+
+  // Best-effort guest sync so a `--mount` overlay reflinked below
+  // reflects the guest's recent writes (mirrors the CRIU path).
+  try {
+    await ctx.execRaw("sync; sync /mnt 2>/dev/null; true", {
+      connectTimeoutMs: Math.min(deadlineMs, 5_000),
+      execTimeoutMs: 10_000,
+    });
+  } catch (err) {
+    debugSnaplet(
+      "pre-snapshot sync failed (continuing): %s",
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  // Trigger the dump. SIGUSR1 → the VMM's handler dumps the whole VM
+  // to ctx.snapletPath and resumes the guest. Works for boot- and
+  // attach-owned handles alike — it's just a signal to the VMM pid.
+  try {
+    process.kill(ctx.pid, "SIGUSR1");
+  } catch (err) {
+    throw new SnapshotError(
+      "SNAPSHOT_DUMP_FAILED",
+      `vm.snapshot: failed to signal the VMM (pid ${ctx.pid}): ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+      { cause: err },
+    );
+  }
+
+  await waitForSnapletFile(ctx.snapletPath, deadlineMs);
+
+  // Copy the state file into the bundle — an independent copy so the
+  // source VM can be snapshotted again (overwriting ctx.snapletPath)
+  // without disturbing this bundle.
+  const bundleStatePath = join(snapDir, SNAPLET_FILE);
+  try {
+    copyFileSync(ctx.snapletPath, bundleStatePath);
+  } catch (err) {
+    throw new SnapshotError(
+      "SNAPSHOT_DUMP_FAILED",
+      `vm.snapshot: failed to copy the .snaplet into the bundle: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+      { cause: err },
+    );
+  }
+
+  // Reflink a `--mount` overlay into the bundle, same as the CRIU path.
+  const mountDiskMeta = await reflinkMountOverlay(ctx, snapDir, deadlineMs);
+
+  writeSnapshotMeta(ctx, snapDir, mountDiskMeta, "snaplet");
+
+  // Destructive snapshot: bring the source down — its state is fully
+  // captured in the bundle. Fork (leaveRunning) leaves it running.
+  if (!leaveRunning) {
+    await powerOffSourceVm(ctx, deadlineMs);
+  }
+
+  const elapsedMs = Date.now() - t0;
+  const stateBytes = statSync(bundleStatePath).size;
+  debugSnaplet(
+    "snaplet snapshot done snapDir=%s stateBytes=%d elapsedMs=%d",
+    snapDir,
+    stateBytes,
+    elapsedMs,
+  );
+  return {
+    engine: "snaplet",
+    snapDir,
+    snapletPath: bundleStatePath,
+    elapsedMs,
+    consoleLog: await ctx.errorOutput(),
+  };
+}
+
+// Poll for the VMM's atomically-written `.snaplet` to (re)appear. The
+// VMM writes `<path>.tmp` then rename()s it onto `<path>`, so the file
+// existing with a non-zero size means the dump is complete.
+async function waitForSnapletFile(path: string, deadlineMs: number): Promise<void> {
+  const deadline = Date.now() + deadlineMs;
+  while (Date.now() < deadline) {
+    try {
+      if (statSync(path).size > 0) {
+        return;
+      }
+    } catch {
+      // ENOENT — not written yet.
+    }
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  throw new SnapshotError(
+    "SNAPSHOT_TIMEOUT",
+    `vm.snapshot: the VMM did not write its .snaplet within ${deadlineMs}ms (${path}).\n` +
+      `  The VM may not have been booted with MACHINEN_SNAPSHOT_ENGINE=snaplet.`,
+  );
 }

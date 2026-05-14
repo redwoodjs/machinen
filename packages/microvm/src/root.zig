@@ -34,6 +34,17 @@ pub const vsock = @import("vsock.zig"); // pure Zig virtio-vsock bridge
 pub const balloon = @import("balloon.zig"); // pure Zig virtio-balloon backend
 pub const pl011 = @import("pl011.zig"); // pure Zig PL011 UART (shared HVF/KVM)
 pub const dtb_patch = @import("dtb_patch.zig"); // FDT memory/initrd patcher
+pub const snapshot = @import("snapshot.zig"); // .snaplet format codec
+pub const snaplet_zip = @import("snaplet_zip.zig"); // .snaplet gzip transport
+pub const topology = @import("topology.zig"); // IPA layout fingerprint
+pub const sysreg_names = @import("sysreg_names.zig"); // name<->encoding table
+pub const sysreg_classify = @import("sysreg_classify.zig"); // portability decisions
+pub const vcpu_dump = @import("vcpu_dump.zig"); // vCPU dump/load (KVM + HVF)
+pub const ram_dump = @import("ram_dump.zig"); // RAM section codec
+pub const pl011_dump = @import("pl011_dump.zig"); // PL011 UART snapshot
+pub const gic_dump = @import("gic_dump.zig"); // GICv3 distributor/redistributor codec
+pub const gic_state = @import("gic_state.zig"); // GICv3 register dump/load (KVM + HVF)
+pub const virtio_dump = @import("virtio_dump.zig"); // virtio device codec (blk/net/vsock/balloon)
 
 pub const Backend = enum { hvf, kvm, none };
 
@@ -100,4 +111,14 @@ test {
     _ = @import("balloon.zig");
     _ = @import("pl011.zig");
     _ = @import("dtb_patch.zig");
+    _ = @import("snapshot.zig");
+    _ = @import("snaplet_zip.zig");
+    _ = @import("topology.zig");
+    _ = @import("sysreg_classify.zig");
+    _ = @import("vcpu_dump.zig");
+    _ = @import("ram_dump.zig");
+    _ = @import("pl011_dump.zig");
+    _ = @import("gic_dump.zig");
+    _ = @import("gic_state.zig");
+    _ = @import("virtio_dump.zig");
 }

@@ -64,6 +64,12 @@ pub fn main(init: std.process.Init) !void {
     const mountdisk_lower_fd = envInt("MACHINEN_MOUNTDISK_LOWER_FD");
     const mountdisk_upper_fd = envInt("MACHINEN_MOUNTDISK_UPPER_FD");
 
+    // Snapshot/restore plumbing — host orchestrator drives via env.
+    // MACHINEN_RESTORE_PATH: load .snaplet at boot before vcpu.run().
+    // MACHINEN_SNAPSHOT_PATH: dump on SIGUSR1, exit cleanly.
+    const restore_path = envOptional("MACHINEN_RESTORE_PATH");
+    const snapshot_path = envOptional("MACHINEN_SNAPSHOT_PATH");
+
     if (builtin.os.tag == .macos) {
         const disk_path = envOptional("MACHINEN_DISK");
         const rootdisk_path = envOptional("MACHINEN_ROOTDISK");
@@ -77,11 +83,15 @@ pub fn main(init: std.process.Init) !void {
             .mountdisk_upper_fd = mountdisk_upper_fd,
             .unbounded_serial = true,
             .max_exits = std.math.maxInt(usize),
+            .restore_path = restore_path,
+            .snapshot_path = snapshot_path,
         };
         if (ram_size_override) |bytes| cfg.ram_size = bytes;
         const result = try microvm.boot_hvf.boot(gpa, cfg);
         gpa.free(result.serial);
-        std.process.exit(if (result.saw_psci_shutdown) 0 else 1);
+        // Exit 0 on snapshot too — orchestrator distinguishes via the
+        // .snaplet file's existence.
+        std.process.exit(if (result.saw_psci_shutdown or result.snapshotted) 0 else 1);
     } else {
         const disk_path = envOptional("MACHINEN_DISK");
         const rootdisk_path = envOptional("MACHINEN_ROOTDISK");
@@ -95,11 +105,13 @@ pub fn main(init: std.process.Init) !void {
             .mountdisk_upper_fd = mountdisk_upper_fd,
             .unbounded_serial = true,
             .max_exits = std.math.maxInt(usize),
+            .restore_path = restore_path,
+            .snapshot_path = snapshot_path,
         };
         if (ram_size_override) |bytes| cfg.ram_size = bytes;
         const result = try microvm.boot_kvm.boot(gpa, cfg);
         gpa.free(result.serial);
-        std.process.exit(if (result.saw_psci_shutdown) 0 else 1);
+        std.process.exit(if (result.saw_psci_shutdown or result.snapshotted) 0 else 1);
     }
 }
 

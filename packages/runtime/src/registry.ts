@@ -55,6 +55,14 @@ export interface RegistryEntry {
    */
   diskPath?: string;
   /**
+   * Snaplet engine only: absolute path the VMM writes its `.snaplet`
+   * whole-VM state file to (the `MACHINEN_SNAPSHOT_PATH` it booted
+   * with). Persisted so an attach-owned `vm.snapshot()` / `vm.fork()`
+   * can SIGUSR1 the VMM and pick the state file up. Undefined for VMs
+   * booted without the snaplet engine.
+   */
+  snapletPath?: string;
+  /**
    * Absolute path to the snapshot directory this VM was forked from
    * (set by `restore({ snapDir })`). Visible in `ls`; informational.
    */

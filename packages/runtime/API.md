@@ -35,6 +35,7 @@
 - [`SnapshotOptions`](#snapshotoptions)
 - [`SnapshotResult`](#snapshotresult)
 - [`SnapshotMeta`](#snapshotmeta)
+- [`SnapshotEngine`](#snapshotengine)
 - [`bootSnapshotPath`](#bootsnapshotpath)
 - [`writeBootSnapshot`](#writebootsnapshot)
 - [`detachedLogRoot`](#detachedlogroot)
@@ -2407,6 +2408,16 @@ Host-side path of the scratch disk attached to the guest. Used by
 `attach().snapshot()` so an attach-owned handle can find the
 guest-side scratch disk that backs the in-VM dump.
 
+##### snapletPath?
+
+> `optional` **snapletPath?**: `string`
+
+Snaplet engine only: absolute path the VMM writes its `.snaplet`
+whole-VM state file to (the `MACHINEN_SNAPSHOT_PATH` it booted
+with). Persisted so an attach-owned `vm.snapshot()` / `vm.fork()`
+can SIGUSR1 the VMM and pick the state file up. Undefined for VMs
+booted without the snaplet engine.
+
 ##### forkedFrom?
 
 > `optional` **forkedFrom?**: `string`
@@ -3146,17 +3157,31 @@ Default: false (preserve TCP — current snapshot/restore behavior).
 
 #### Properties
 
+##### engine
+
+> **engine**: [`SnapshotEngine`](#snapshotengine)
+
+Which backend produced the bundle.
+
 ##### snapDir
 
 > **snapDir**: `string`
 
 Absolute path to the snapshot bundle directory.
 
-##### imgDir
+##### imgDir?
 
-> **imgDir**: `string`
+> `optional` **imgDir?**: `string`
 
 Absolute path to the CRIU image directory inside the bundle.
+Set by the criu engine only; undefined for snaplet bundles.
+
+##### snapletPath?
+
+> `optional` **snapletPath?**: `string`
+
+Absolute path to the `.snaplet` whole-VM state file inside the
+bundle. Set by the snaplet engine only; undefined for criu bundles.
 
 ##### elapsedMs
 
@@ -3178,6 +3203,16 @@ On-disk shape of the bundle's `meta.json`. Read by `restore()`
 to reconstruct the source VM's name when registering the fork.
 
 #### Properties
+
+##### engine?
+
+> `optional` **engine?**: [`SnapshotEngine`](#snapshotengine)
+
+Which backend wrote this bundle — `"criu"` (process-tree images
+under `img/`) or `"snaplet"` (whole-VM `state.snaplet`). `restore()`
+also auto-detects from the bundle's contents; this field is the
+explicit record. Absent on bundles predating the snaplet engine
+(treated as `"criu"`).
 
 ##### sourceName?
 
@@ -4671,6 +4706,12 @@ tarball-producing tool can pre-populate the lookup cache.
 ##### cwd?
 
 > `optional` **cwd?**: `string`
+
+***
+
+### SnapshotEngine
+
+> **SnapshotEngine** = `"criu"` \| `"snaplet"`
 
 ## Variables
 

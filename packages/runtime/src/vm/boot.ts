@@ -59,6 +59,7 @@ import {
   validateMemoryMib,
 } from "./helpers.ts";
 import { performSnapshot, type SnapshotContext } from "./snapshot.ts";
+import { resolveSnapshotEngine, SNAPLET_FILE } from "./snapshot-engine.ts";
 
 const debug = debugLib("machinen:boot");
 const vmmDebug = debugLib("machinen:vmm");
@@ -224,6 +225,16 @@ export interface BootOptions {
     lowerPath: string;
     upperPath: string;
   };
+  /**
+   * Snaplet engine restore: absolute path to the bundle's
+   * `state.snaplet`. Set by `restore()` when it detects a snaplet
+   * bundle. `boot()` forwards it to the VMM as `MACHINEN_RESTORE_PATH`
+   * — the VMM loads that whole-VM state before the first vCPU run, so
+   * the guest resumes mid-execution instead of cold-booting.
+   *
+   * @internal
+   */
+  _snapletRestorePath?: string;
   /**
    * Host directories exposed to the guest as live-share mounts (#78,
    * #332). Unlike `mount` (copy-once into the boot rootfs), these stay
@@ -447,8 +458,28 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   }
   validateKernelDtb(opts, env);
 
-  const { vsockUdsPath, vsockTempDir } = setupVsockBridge(env);
+  let { vsockUdsPath, vsockTempDir } = setupVsockBridge(env);
   const { statsFilePath, statsTempDir } = setupStatsFile(env, vsockTempDir);
+
+  // Snaplet engine wiring. Every VM booted under
+  // MACHINEN_SNAPSHOT_ENGINE=snaplet gets a per-VM whole-VM state
+  // file the VMM dumps to on SIGUSR1 — `performSnapshotSnaplet`
+  // (driven by `machinen snapshot` / `fork`) signals the VMM and
+  // picks the file up. Restore is the mirror: `restore()` hands the
+  // bundle's `state.snaplet` down via `_snapletRestorePath`, which we
+  // forward to the VMM as MACHINEN_RESTORE_PATH so it loads that
+  // whole-VM state before the first vCPU run.
+  let snapletStatePath: string | undefined;
+  if (resolveSnapshotEngine() === "snaplet") {
+    if (!vsockTempDir) {
+      vsockTempDir = mkdtempSync(join(tmpdir(), "machinen-vsock-"));
+    }
+    snapletStatePath = join(vsockTempDir, SNAPLET_FILE);
+    env.MACHINEN_SNAPSHOT_PATH = snapletStatePath;
+  }
+  if (opts._snapletRestorePath) {
+    env.MACHINEN_RESTORE_PATH = opts._snapletRestorePath;
+  }
 
   // #78 / #332: resolve live-share mounts. We compute these here so the
   // per-mount tag can be baked into machinen-config.json at pack time —
@@ -654,6 +685,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
           statsFilePath,
           mountDiskPaths,
           liveMountsResolved,
+          snapletStatePath,
         })
       : false;
 
@@ -805,7 +837,10 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     },
 
     async snapshot(snapshotOpts) {
-      if (!diskAbs) {
+      // The criu engine writes its images onto the scratch disk; the
+      // snaplet engine dumps the whole VM to a host file and needs no
+      // guest-side scratch.
+      if (resolveSnapshotEngine() === "criu" && !diskAbs) {
         throw new SnapshotError(
           "SNAPSHOT_NO_DISK",
           "vm.snapshot: this VM was booted with `snapshot: false` (no scratch " +
@@ -817,7 +852,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     },
 
     async fork(forkOpts) {
-      if (!diskAbs) {
+      if (resolveSnapshotEngine() === "criu" && !diskAbs) {
         throw new SnapshotError(
           "SNAPSHOT_NO_DISK",
           "vm.fork: source VM has no scratch disk (booted with `snapshot: false`). " +
@@ -856,6 +891,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
           }
         : undefined,
       liveMounts: liveMountsForCtx,
+      snapletPath: snapletStatePath,
       execRaw: (cmd, execOpts) => handle.execRaw(cmd, execOpts),
       wait: () => handle.wait(),
       kill: () => handle.kill(),
@@ -1366,6 +1402,7 @@ interface RegisterArgs {
   statsFilePath: string | undefined;
   mountDiskPaths: MountDiskPaths | undefined;
   liveMountsResolved: ResolvedLiveMount[];
+  snapletStatePath: string | undefined;
 }
 
 // Write the registry entry. Returns true on success; registry-write
@@ -1415,6 +1452,10 @@ function registerInRegistry(args: RegisterArgs): boolean {
       portForward: args.portForward.length > 0 ? args.portForward : undefined,
       memoryCeilingMib: args.memoryCeilingMib,
       statsPath: args.statsFilePath,
+      // Snaplet engine: persist the VMM's whole-VM state-file path so
+      // an attach-owned `vm.snapshot()` / `vm.fork()` can SIGUSR1 the
+      // VMM and pick the .snaplet up. Undefined for criu-engine VMs.
+      snapletPath: args.snapletStatePath,
       // #272: persist mount-overlay paths so an attach-owned
       // vm.snapshot()/fork() can reflink the lower+upper into the
       // bundle. Without this, `machinen snapshot <vm>` from

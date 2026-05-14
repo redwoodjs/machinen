@@ -153,6 +153,12 @@ pub const KVM_DEV_ARM_VGIC_CTRL_INIT: u64 = 0;
 
 // arm64 VCPU_INIT feature bits.
 pub const KVM_ARM_VCPU_PSCI_0_2: u32 = 2;
+// Pointer authentication — must be requested as a pair. HVF gives the
+// guest active FEAT_PAuth, so a HVF-sourced snapshot's RAM holds
+// signed pointers; the KVM vCPU must also implement FEAT_PAuth (with
+// the snapshot's keys restored) or those pointers can't be used.
+pub const KVM_ARM_VCPU_PTRAUTH_ADDRESS: u32 = 5;
+pub const KVM_ARM_VCPU_PTRAUTH_GENERIC: u32 = 6;
 
 // KVM_IRQ_LINE encoding (arm64).
 pub const KVM_ARM_IRQ_TYPE_SHIFT: u5 = 24;
@@ -434,6 +440,8 @@ fn errno() c_int {
 
 const O_RDWR: c_int = 0o2;
 const O_CLOEXEC: c_int = 0o2000000;
+// errno value for a syscall interrupted by a signal (Linux generic).
+const EINTR: c_int = 4;
 const PROT_READ: c_int = 0x1;
 const PROT_WRITE: c_int = 0x2;
 const MAP_SHARED: c_int = 0x01;
@@ -719,6 +727,11 @@ pub const Vcpu = struct {
         // the mmap is a kernel bug we can't safely indirect through.
         assert(self.run_size >= 0x20 + @sizeOf(SystemEventExit));
         if (ioctl(self.fd, KVM_RUN, @as(c_ulong, 0)) != 0) {
+            // A signal (e.g. the SIGUSR1 snapshot trigger) interrupts
+            // KVM_RUN with EINTR. Surface it as a benign .intr exit so
+            // the run loop can act on the pending signal rather than
+            // aborting the whole boot with error.KvmRunFailed.
+            if (errno() == EINTR) return .intr;
             return error.KvmRunFailed;
         }
         // exit_reason lives at offset 8 in kvm_run:

@@ -1,0 +1,7 @@
+# Deterministic snapshot-harness reference hashes.
+# Generated on Darwin arm64.
+# Both HVF and KVM must produce these; divergence is a foundational
+# bug, not a snapshot bug.
+10000=52e5e409cf0bfc76eb1b0d2c4ba4366afd7ec10e3620bc7751782f2ddecea19f
+1000000=2a5e8b87894fc2d1be46c40ce8f95745cc6a4821d3b1be93e4fba5205c757c40
+10000000=6b4ab10d92373474a97d10639e667f6b734af012f9be29997f1befd1c7166199

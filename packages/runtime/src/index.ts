@@ -98,6 +98,7 @@ export type {
   VmHandle,
   WriteFileOptions,
 } from "./vm-handle.ts";
+export type { SnapshotEngine } from "./vm/snapshot-engine.ts";
 export {
   _internal,
   attach,

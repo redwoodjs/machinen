@@ -26,6 +26,7 @@ import { PhaseTimer } from "../phase-timer.ts";
 import { claimName, findEntry, writeEntry } from "../registry.ts";
 import { boot, type BootOptions } from "./boot.ts";
 import { resolveRestoreLiveMounts } from "./bundle.ts";
+import { SNAPLET_FILE } from "./snapshot-engine.ts";
 import type { SnapshotMeta, VmHandle } from "../vm-handle.ts";
 import {
   allocateSparseFile,
@@ -116,6 +117,15 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
   // wall-clock until the restored guest is responsive over vsock).
   const phases = new PhaseTimer();
   const snapDir = resolve(opts.snapDir);
+
+  // Auto-detect the engine from the bundle's contents: a
+  // `state.snaplet` file means the snaplet (whole-VM) engine produced
+  // it. A bundle always restores under the engine that wrote it,
+  // regardless of the MACHINEN_SNAPSHOT_ENGINE env var.
+  if (existsSync(join(snapDir, SNAPLET_FILE))) {
+    return restoreSnaplet(opts, snapDir);
+  }
+
   const imgDir = join(snapDir, "img");
   const metaPath = join(snapDir, "meta.json");
   if (!existsSync(imgDir) || !statSync(imgDir).isDirectory()) {
@@ -146,43 +156,7 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
   // meta.json). Without a usable image, criu's file-backed VMA
   // restore has nothing to reopen and PID 1 panics — so we throw
   // here with a message the user can act on instead.
-  let resolvedImage: string | undefined;
-  if (opts.image) {
-    resolvedImage = resolve(opts.cwd ?? process.cwd(), opts.image);
-    if (!existsSync(resolvedImage)) {
-      throw new BootError("BOOT_IMAGE_NOT_FOUND", `restore: image not found: ${resolvedImage}`);
-    }
-  } else if (meta.sourceImage && existsSync(meta.sourceImage)) {
-    resolvedImage = meta.sourceImage;
-    debugRestore("using meta.sourceImage path=%s", resolvedImage);
-  } else if (meta.sourceImage) {
-    // The bundle remembers a path, but it's gone on this host (e.g.
-    // restored on a different machine, or the tarball was deleted).
-    // Surface it so the user can scp it over or pass --image.
-    throw new BootError(
-      "BOOT_IMAGE_NOT_FOUND",
-      `restore: source image not found at ${meta.sourceImage}\n` +
-        `  The snapshot was taken with this rootfs tarball, and CRIU needs\n` +
-        `  it to reopen the process's file-backed memory mappings (e.g.\n` +
-        `  /usr/bin/node, libc, etc).\n` +
-        `  • copy the tarball to that path on this host, OR\n` +
-        `  • pass an explicit override via the runtime's restore({ image })\n` +
-        `    or the CLI's \`machinen restore --image <tarball>\`.`,
-    );
-  } else {
-    // No --image, and the bundle's meta.json has no sourceImage (an
-    // old bundle predating this field, or one written without the
-    // source's image path). Without something to mount as /, criu
-    // can't reopen file-backed VMAs. Tell the user up front.
-    throw new BootError(
-      "BOOT_IMAGE_NOT_FOUND",
-      `restore: no rootfs image available for this bundle.\n` +
-        `  The snapshot's meta.json doesn't record a source image (likely\n` +
-        `  predates the field). Pass the same tarball you booted the\n` +
-        `  source VM with via the runtime's restore({ image }) or the\n` +
-        `  CLI's \`machinen restore --image <tarball>\`.`,
-    );
-  }
+  const resolvedImage = resolveRestoreImage(opts, meta);
 
   // Lazy-pages mode (#266, opt-in via `lazy: true`): mark every
   // PE_PRESENT pagemap entry that lives in an anon-private VMA with
@@ -344,27 +318,7 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
   }
   phases.end("boot");
 
-  if (!opts.name && meta.sourceName) {
-    // Default auto-name nests under the source: `<src>/<pid>`.
-    // claimName refuses (returns false) when `<src>` exists as a live
-    // pin file blocking the parent dir — the fork case (#216), where
-    // the source VM is still running. In that case fall back to a
-    // flat sibling name `<src>~<pid>` so the fork still gets a
-    // meaningful auto-id in `machinen ls`.
-    const candidates = [`${meta.sourceName}/${vm.pid}`, `${meta.sourceName}~${vm.pid}`];
-    for (const candidate of candidates) {
-      if (claimName(candidate, vm.pid)) {
-        // Promote the registry entry to carry the auto-name.
-        const cur = findEntry({ pid: vm.pid });
-        if (cur) {
-          writeEntry({ ...cur, name: candidate });
-        }
-        // Mutate the handle so `vm.name` reflects the resolved name.
-        (vm as { name?: string }).name = candidate;
-        break;
-      }
-    }
-  }
+  autoNameRestoredFork(vm, opts, meta);
 
   // #274: persist lazy-restore bookkeeping so `vm.memoryStats()` can
   // report `lazyPagesTotal` without re-reading the bundle. Boot-owned
@@ -395,5 +349,132 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
     phases.end("criu-restore-probe");
     phases.flush(debugRestore, "restore");
   });
+  return vm;
+}
+
+// Resolve the rootfs image for a restore: caller's `opts.image` wins,
+// else the path the source booted from (recorded in meta.json). Both
+// engines need a base rootfs — criu reopens file-backed VMAs against
+// it; the snaplet engine materializes the restored guest's /dev/vda
+// from it. Shared by the criu and snaplet restore paths.
+function resolveRestoreImage(opts: RestoreOptions, meta: SnapshotMeta): string {
+  if (opts.image) {
+    const resolved = resolve(opts.cwd ?? process.cwd(), opts.image);
+    if (!existsSync(resolved)) {
+      throw new BootError("BOOT_IMAGE_NOT_FOUND", `restore: image not found: ${resolved}`);
+    }
+    return resolved;
+  }
+  if (meta.sourceImage && existsSync(meta.sourceImage)) {
+    debugRestore("using meta.sourceImage path=%s", meta.sourceImage);
+    return meta.sourceImage;
+  }
+  if (meta.sourceImage) {
+    // The bundle remembers a path, but it's gone on this host (e.g.
+    // restored on a different machine, or the tarball was deleted).
+    throw new BootError(
+      "BOOT_IMAGE_NOT_FOUND",
+      `restore: source image not found at ${meta.sourceImage}\n` +
+        `  The snapshot was taken with this rootfs tarball, and the restore\n` +
+        `  needs it as the guest's base rootfs.\n` +
+        `  • copy the tarball to that path on this host, OR\n` +
+        `  • pass an explicit override via the runtime's restore({ image })\n` +
+        `    or the CLI's \`machinen restore --image <tarball>\`.`,
+    );
+  }
+  throw new BootError(
+    "BOOT_IMAGE_NOT_FOUND",
+    `restore: no rootfs image available for this bundle.\n` +
+      `  The snapshot's meta.json doesn't record a source image (likely\n` +
+      `  predates the field). Pass the same tarball you booted the\n` +
+      `  source VM with via the runtime's restore({ image }) or the\n` +
+      `  CLI's \`machinen restore --image <tarball>\`.`,
+  );
+}
+
+// Default auto-name for a restored VM nests under the source:
+// `<src>/<pid>`. claimName refuses (returns false) when `<src>` is
+// still a live pin file — the fork case (#216), where the source VM
+// is running — so we fall back to a flat sibling `<src>~<pid>`.
+// Shared by the criu and snaplet restore paths.
+function autoNameRestoredFork(vm: VmHandle, opts: RestoreOptions, meta: SnapshotMeta): void {
+  if (opts.name || !meta.sourceName) {
+    return;
+  }
+  const candidates = [`${meta.sourceName}/${vm.pid}`, `${meta.sourceName}~${vm.pid}`];
+  for (const candidate of candidates) {
+    if (claimName(candidate, vm.pid)) {
+      const cur = findEntry({ pid: vm.pid });
+      if (cur) {
+        writeEntry({ ...cur, name: candidate });
+      }
+      (vm as { name?: string }).name = candidate;
+      break;
+    }
+  }
+}
+
+/**
+ * Restore a snaplet (whole-VM) bundle: `<snapDir>/state.snaplet` plus
+ * `meta.json`. Unlike the CRIU path there's no scratch tar and no
+ * guest-side restore agent — `boot()` hands the state file to the VMM
+ * via `_snapletRestorePath` (→ `MACHINEN_RESTORE_PATH`), and the VMM
+ * loads vCPU + RAM + GIC + virtio device state before the first vCPU
+ * run, so the guest resumes mid-execution.
+ *
+ * The rootfs image and any `--mount` overlay are re-attached exactly
+ * like the CRIU path — the snaplet captures VM state, not disks, so a
+ * fresh /dev/vda is materialized from the same image (the disk-write
+ * caveat is identical to CRIU's).
+ */
+async function restoreSnaplet(opts: RestoreOptions, snapDir: string): Promise<VmHandle> {
+  const statePath = join(snapDir, SNAPLET_FILE);
+  const metaPath = join(snapDir, "meta.json");
+
+  let meta: SnapshotMeta = { snappedAt: 0 };
+  if (existsSync(metaPath)) {
+    try {
+      meta = JSON.parse(readFileSync(metaPath, "utf8")) as SnapshotMeta;
+    } catch {
+      // Corrupt / partial meta.json — fall through with an anonymous
+      // source name. The restore still boots; it just won't get a
+      // memorable auto-name.
+    }
+  }
+
+  const resolvedImage = resolveRestoreImage(opts, meta);
+  const effectiveLiveMounts = resolveRestoreLiveMounts(meta.liveMounts, opts.liveMounts);
+
+  // Re-attach a `--mount` overlay recorded in the bundle (same shape
+  // and per-fork reflink semantics as the CRIU path).
+  let restoreMountDisk: BootOptions["_restoreMountDisk"];
+  if (meta.mountDisk) {
+    const lowerAbs = join(snapDir, meta.mountDisk.lower);
+    const upperAbs = join(snapDir, meta.mountDisk.upper);
+    if (!existsSync(lowerAbs) || !existsSync(upperAbs)) {
+      throw new BootError(
+        "BOOT_SNAPSHOT_NOT_FOUND",
+        `restore: bundle's mount overlay is missing one of:\n  ${lowerAbs}\n  ${upperAbs}`,
+      );
+    }
+    restoreMountDisk = { guest: meta.mountDisk.guest, lowerPath: lowerAbs, upperPath: upperAbs };
+  }
+
+  debugRestore("snaplet restore snapDir=%s state=%s image=%s", snapDir, statePath, resolvedImage);
+
+  const vm = await boot({
+    ...opts,
+    image: resolvedImage,
+    forkedFrom: snapDir,
+    name: opts.name,
+    liveMounts: effectiveLiveMounts,
+    _restoreMountDisk: restoreMountDisk,
+    _snapletRestorePath: statePath,
+  });
+
+  autoNameRestoredFork(vm, opts, meta);
+  // The restored guest's kernel hostname is whatever the source had;
+  // re-stamp it with this VM's identity. Fire-and-forget over vsock.
+  void setGuestHostname(vm, buildGuestHostname(vm.pid, vm.name)).catch(() => {});
   return vm;
 }
