@@ -191,20 +191,17 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
   // Bundle delivery split by mode:
   //   - eager (default): pack `imgDir/` into a tar archive attached
   //     as /dev/vdb. The guest's machinen-restore.sh untars into
-  //     tmpfs and CRIU does an eager load. Simple, robust, no FUSE
-  //     vsock channel to keep alive — and on the workloads we
-  //     actually ship for (small JS heaps, short-lived MicroVMs)
-  //     the workload faults every page within the first second
-  //     anyway, so the lazy save is moot.
-  //   - lazy (opt-in via `lazy: true`): vsock-FUSE-mount `imgDir/`
-  //     read-only at /mnt/snap-src/img. CRIU restore reads
-  //     pagemap-*.img + pages-*.img directly through FUSE; bytes
-  //     stream from the host on demand and never materialize in
+  //     tmpfs and CRIU does an eager load. Simple, robust — and on the
+  //     workloads we actually ship for (small JS heaps, short-lived
+  //     MicroVMs) the workload faults every page within the first
+  //     second anyway, so the lazy save is moot.
+  //   - lazy (opt-in via `lazy: true`): live-mount `imgDir/` read-only
+  //     at /mnt/snap-src/img via an in-VMM virtio-fs device (#332). CRIU
+  //     restore reads pagemap-*.img + pages-*.img directly through it;
+  //     bytes stream from the host on demand and never materialize in
   //     guest tmpfs. This is the #266 path — it keeps host RSS
-  //     proportional to the touched set. The historical
-  //     virtio-balloon interaction is fixed in #290 (in-tree kernel
-  //     patch); the remaining gap is `--detach` composition, which
-  //     waits on the FUSE server to learn to hand off (#150 phase 3).
+  //     proportional to the touched set. The historical virtio-balloon
+  //     interaction is fixed in #290 (in-tree kernel patch).
   phases.start("snapshot-pack");
   const restoreEnv: Record<string, string> = {};
   let scratchPath: string;
@@ -324,17 +321,14 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
   autoNameRestoredFork(vm, opts, meta);
 
   // #274: persist lazy-restore bookkeeping so `vm.memoryStats()` can
-  // approximate `lazyPagesPending` without re-reading the bundle.
-  // Boot-owned handles read this back through the registry on every
-  // call; attach handles read it for the same reason but can't
-  // observe the FUSE counter half (no in-process mount-server).
+  // report `lazyPagesTotal` without re-reading the bundle. Boot-owned
+  // and attach handles both read this back through the registry.
   if (lazyPagesTotal !== undefined) {
     const cur = findEntry({ pid: vm.pid });
     if (cur) {
       writeEntry({
         ...cur,
         lazyPagesTotal,
-        lazyPagesMountRoot: imgDir,
       });
     }
   }

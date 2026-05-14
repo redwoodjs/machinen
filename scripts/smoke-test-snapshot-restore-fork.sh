@@ -21,13 +21,13 @@
 #   S3     machinen fork — live snapshot + sibling, fork-the-fork — #216.
 #   S4     Lazy-pages restore round-trip — #266. criu-only.
 #   S5     Headline RSS: fork RSS ≪ dirty parent RSS — #266. criu-only.
-#   S6     Snapshot/restore/fork composes with --mount-live — #273. criu-only.
+#   S6     Snapshot/restore/fork composes with --mount-live — #273, #338. criu-only.
 #
-# S4 and S5 exercise lazy-pages restore, a criu-only feature. S6's
-# --mount-live FUSE relay needs CRIU's unmount-before-dump preflight —
-# the snaplet engine's whole-VM freeze captures the relay mid-connection
-# and `fuse-agent` exits on the dead channel rather than reconnecting.
-# All three are gated to the criu engine iteration.
+# S4 and S5 exercise lazy-pages restore, a criu-only feature. S6
+# exercises --mount-live, served since #332/#338 by an in-VMM virtio-fs
+# device; CRIU checkpoints that device with the rest of the guest, but
+# the snaplet engine's snapshot set doesn't cover the virtio-fs slots
+# yet. All three are gated to the criu engine iteration.
 
 set -euo pipefail
 
@@ -1048,19 +1048,20 @@ for ENGINE in criu snaplet; do
   fi  # S4/S5 criu-only gate
 
   # ----------------------------------------------------------------
-  # S6: snapshot + restore + fork composes with --mount-live (#273).
+  # S6: snapshot + restore + fork composes with --mount-live (#273, #338).
   #
   # Pre-#273 the runtime refused snapshot/fork on VMs with active live-
-  # share mounts (vsock FUSE channels can't ride through CRIU). The fix:
-  # unmount before dump, remount after, record `meta.liveMounts` so the
-  # restored VM re-establishes a fresh window on the recorded host path.
+  # share mounts. Since #332/#338 the live mount is served by an in-VMM
+  # virtio-fs device the VMM carries across the CRIU dump — no
+  # unmount/remount window. The runtime records `meta.liveMounts` so the
+  # restored VM re-establishes the same window on the recorded host path.
   #
   # This test exercises the full round-trip:
   #   1. Boot with --mount-live <host>:/mnt/share, write a guest file
   #      that lands on the host (verifies the source's mount works).
-  #   2. Snapshot — runtime drives /sbin/machinen-dump-preflight which
-  #      umounts, then CRIU dumps (cleanly), then meta.json gets the
-  #      liveMounts block. Source is killed (default destructive path).
+  #   2. Snapshot — CRIU dumps cleanly with the virtio-fs device live,
+  #      then meta.json gets the liveMounts block. Source is killed
+  #      (default destructive path).
   #   3. Restore — meta.liveMounts re-establishes the window on the
   #      same host dir; the previously-written file is still readable
   #      from inside the restored guest.
@@ -1071,22 +1072,19 @@ for ENGINE in criu snaplet; do
   #      independent guest — both can write to the same host dir
   #      (concurrent-writer semantics are the user's to manage).
   # ----------------------------------------------------------------
-  # S6 is criu-only for now. The CRIU snapshot path runs a guest-side
-  # `unmount_live_mounts` preflight before the dump, so it checkpoints a
-  # clean FUSE state and the restored guest re-forks `fuse-agent` fresh.
-  # The snaplet engine takes a whole-VM freeze with the FUSE relay still
-  # connected; on restore that vsock channel is dead and `fuse-agent`
-  # exits on EOF rather than reconnecting. Composing `--mount-live` with
-  # the snaplet engine needs the same unmount→freeze→remount
-  # choreography CRIU has — tracked as a follow-up.
+  # S6 is criu-only for now. CRIU checkpoints the whole virtio-fs device
+  # along with the rest of the guest, so `--mount-live` rides through the
+  # dump untouched. The snaplet engine's snapshot set (`virtioDevices()`)
+  # covers net + block + vsock + balloon but not the virtio-fs slots, so
+  # a snaplet-restored VM wouldn't have its `--mount-live` windows
+  # reconstructed. Adding the virtio-fs slots to the snaplet snapshot set
+  # is tracked as a follow-up.
   if [[ "$ENGINE" != "criu" ]]; then
-    echo "S6: skipped (snaplet engine — --mount-live choreography is a follow-up)"
+    echo "S6: skipped (snaplet engine — virtio-fs slots aren't in the snapshot set yet)"
   elif [[ "$ROOTFS_SUPPORTS_VSOCK_EXEC" -eq 0 || "$ROOTFS_SUPPORTS_CRIU" -eq 0 || "$ROOTFS_SUPPORTS_SNAPSHOT_HELPERS" -eq 0 ]]; then
     echo "S6: skipped (rootfs lacks vsock/criu/snapshot helpers)"
-  elif ! grep -q 'fuse-agent$' <<<"$ROOTFS_ENTRIES"; then
-    echo "S6: skipped (rootfs lacks fuse-agent — rebuild base assets)"
   else
-    echo "S6: snapshot + restore + fork compose with --mount-live (#273)"
+    echo "S6: snapshot + restore + fork compose with --mount-live (#273, #338)"
     S6_NAME="livemount-smoke-$ENGINE-$$"
     S6_BG_LOG="$FIXTURE/s6-bg-$ENGINE.log"
     S6_SCRATCH="$FIXTURE/s6-scratch-$ENGINE.img"
@@ -1129,9 +1127,9 @@ for ENGINE in criu snaplet; do
     fi
     pass "source's guest write through live mount visible on host"
 
-    # Snapshot. Pre-#273 this would have thrown SNAPSHOT_LIVE_MOUNT_ACTIVE.
-    # Today: preflight unmounts, dump succeeds, meta.liveMounts records
-    # the share-A path so restore can re-establish.
+    # Snapshot. The virtio-fs device stays live through the CRIU dump;
+    # meta.liveMounts records the share-A path so restore can
+    # re-establish the window on the same host dir.
     S6_DUMP_LOG="$FIXTURE/s6-dump-$ENGINE.log"
     if ! cli snapshot "$S6_NAME" "$S6_SNAP_DIR" 2>"$S6_DUMP_LOG"; then
       tail -60 "$S6_BG_LOG" >&2

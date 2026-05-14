@@ -127,34 +127,6 @@ jobs:
           if-no-files-found: error
 
   # ------------------------------------------------------------
-  # mount-server — Zig FUSE-over-vsock host server (#329). One Zig
-  # source, cross-compiled to both host arches from a single runner
-  # (Zig cross-compiles trivially), so one job produces both artifacts.
-  # ------------------------------------------------------------
-
-  build-mount-server:
-    needs: [gate]
-    if: needs.gate.outputs.skip != 'true'
-    runs-on: ubuntu-24.04-arm
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
-        with:
-          version: 0.16.0
-      - name: Build mount-server (both host arches)
-        run: bash scripts/build-mount-server.sh
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: mount-server-arm64-darwin
-          path: packages/native-arm64-darwin/mount-server/bin/machinen-mount-server
-          if-no-files-found: error
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: mount-server-arm64-linux
-          path: packages/native-arm64-linux/mount-server/bin/machinen-mount-server
-          if-no-files-found: error
-
-  # ------------------------------------------------------------
   # Base assets — Linux kernel + dtb + Debian rootfs tarball.
   # Uploaded to the GH Release by the publish job (see below).
   # ------------------------------------------------------------
@@ -170,8 +142,7 @@ jobs:
   # ------------------------------------------------------------
 
   release:
-    needs:
-      [gate, build-vmm-darwin-arm64, build-vmm-arm64-linux, build-mount-server, build-base-assets]
+    needs: [gate, build-vmm-darwin-arm64, build-vmm-arm64-linux, build-base-assets]
     if: needs.gate.outputs.skip != 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -208,20 +179,6 @@ jobs:
       # pack preserve the +x bit in the published tarball (issue #309).
       - run: chmod +x packages/native-arm64-*/vmm/bin/machinen-vm
 
-      # Stage the Zig mount-server binaries (#329) into each package's
-      # mount-server/bin/. Cross-compiled from one source — see
-      # scripts/build-mount-server.sh — so a single build job covers
-      # both host arches.
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
-        with:
-          name: mount-server-arm64-darwin
-          path: packages/native-arm64-darwin/mount-server/bin/
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
-        with:
-          name: mount-server-arm64-linux
-          path: packages/native-arm64-linux/mount-server/bin/
-      - run: chmod +x packages/native-arm64-*/mount-server/bin/machinen-mount-server
-
       # gvproxy (containers/gvisor-tap-vsock) — bundled next to the VMM
       # so `@machinen/runtime` can auto-spawn it for virtio-net without
       # a separate install step for consumers. Pinned in the shared
@@ -232,13 +189,12 @@ jobs:
           scripts/install-gvproxy.sh --os darwin --dest packages/native-arm64-darwin/vmm/bin
           scripts/install-gvproxy.sh --os linux  --arch arm64 --dest packages/native-arm64-linux/vmm/bin
 
-      # Stage the three arm64-linux guest ELFs (init, fuse-agent,
-      # exec-agent) into each native-arm64-* package's vmm/guest/ dir so
-      # they ship in the published tarball. They're host-arch-agnostic
-      # (they run inside the guest), but ride along with the
-      # host-arch-gated native-* package since that's what
-      # `@machinen/runtime` already depends on and resolves at boot()
-      # time. (issue #309)
+      # Stage the arm64-linux guest ELFs (init, exec-agent) into each
+      # native-arm64-* package's vmm/guest/ dir so they ship in the
+      # published tarball. They're host-arch-agnostic (they run inside
+      # the guest), but ride along with the host-arch-gated native-*
+      # package since that's what `@machinen/runtime` already depends on
+      # and resolves at boot() time. (issue #309)
       - name: Download base assets (for guest binaries)
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
@@ -250,14 +206,13 @@ jobs:
           for pkg in packages/native-arm64-darwin packages/native-arm64-linux; do
             mkdir -p "$pkg/vmm/guest"
             cp release-assets/init        "$pkg/vmm/guest/init"
-            cp release-assets/fuse-agent  "$pkg/vmm/guest/fuse-agent"
             cp release-assets/exec-agent  "$pkg/vmm/guest/exec-agent"
           done
           # Drop from release-assets/ so the public release upload step's
           # `release-assets/*` glob still ships exactly kernel + dtb +
           # rootfs (no shape change to the public release). Consumers
           # get the guest binaries via @machinen/native-* on npm.
-          rm release-assets/init release-assets/fuse-agent release-assets/exec-agent
+          rm release-assets/init release-assets/exec-agent
 
       # Release-time guard against the regression filed as #309: assert
       # every host-tool tarball pnpm would publish has the right shape —

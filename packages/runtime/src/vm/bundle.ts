@@ -13,7 +13,6 @@ import { join, resolve } from "node:path";
 
 import { BootError } from "../errors.ts";
 import {
-  defaultFuseAgentPath,
   packBundle as mkinitramfsPackBundle,
   packTinyBundle as mkinitramfsPackTinyBundle,
 } from "../mkinitramfs.ts";
@@ -29,34 +28,50 @@ import { normalizeMountGuest, validateGuestCwd, validateMountGuest } from "./hel
 import { readImageConfig } from "./image-config.ts";
 
 /**
- * A caller-provided `liveMounts` entry after validation, with the
- * vsock port + host UDS path allocated. Threaded from `boot()` into
- * the initramfs packer so the config and the host servers agree on
- * ports and guest paths.
+ * A caller-provided `liveMounts` entry after validation. Served by an
+ * in-VMM virtio-fs device (#332) — no detached process, no vsock port,
+ * no guest fuse-agent. `tag` is the device's config-space identifier;
+ * `/init` runs `mount -t virtiofs <tag> <guest>`. Threaded from
+ * `boot()` into the initramfs packer so the config and the VMM env
+ * agree on guest paths and per-mount tags.
  */
 export interface ResolvedLiveMount {
   host: string;
   guest: string;
-  port: number;
-  udsPath: string;
-  /**
-   * Per-mount stats file the detached helper writes its
-   * bytesServedOnPagesImg counter to. Lives next to `udsPath` under
-   * `vsockTempDir` so the supervisor's cleanupPaths sweep covers it.
-   */
-  statsPath: string;
   mode: "ro" | "rw";
+  tag: string;
 }
 
-/** Base vsock port for live mounts. Chosen below the exec/file/
- *  secrets/winsize agent band (1975–1978) so it doesn't collide. */
-const LIVE_MOUNT_PORT_BASE = 1970;
+/**
+ * The VMM wires this many virtio-fs slots (slots 7..11 — see
+ * `MAX_VIRTIOFS_SLOTS` in boot_hvf.zig / boot_kvm.zig). One
+ * `--mount-live` per slot. Note `restore({ lazy: true })` consumes
+ * one slot internally to serve the page image, so a lazy restore can
+ * carry at most `MAX_LIVE_MOUNTS - 1` user mounts.
+ */
+const MAX_LIVE_MOUNTS = 5;
 
 export function resolveLiveMounts(
-  mounts: Array<{ host: string; guest: string; mode?: "ro" | "rw" }>,
+  mounts: Array<{
+    host: string;
+    guest: string;
+    mode?: "ro" | "rw";
+  }>,
   cwd: string | undefined,
-  udsDir: string,
 ): ResolvedLiveMount[] {
+  // Every live mount is served by an in-VMM virtio-fs device (#332).
+  // The VMM wires MAX_LIVE_MOUNTS slots; a caller asking for more has
+  // nowhere to put the extras, so reject up front. (FUSE-over-vsock,
+  // the old unbounded fallback transport, was removed in #338.)
+  // Note: a `restore({ lazy: true })` appends one internal mount for
+  // the page image, so this cap counts that entry too.
+  if (mounts.length > MAX_LIVE_MOUNTS) {
+    throw new BootError(
+      "BOOT_MOUNT_INVALID",
+      `liveMounts: at most ${MAX_LIVE_MOUNTS} live mounts are supported per VM ` +
+        `(got ${mounts.length}) — the VMM wires ${MAX_LIVE_MOUNTS} virtio-fs slots.`,
+    );
+  }
   return mounts.map((m, i) => {
     validateMountGuest(m.guest);
     const hostAbs = resolve(cwd ?? process.cwd(), m.host);
@@ -75,10 +90,10 @@ export function resolveLiveMounts(
     return {
       host: hostAbs,
       guest: normalizeMountGuest(m.guest),
-      port: LIVE_MOUNT_PORT_BASE + i,
-      udsPath: join(udsDir, `live-mount-${i}.sock`),
-      statsPath: join(udsDir, `live-mount-${i}-stats.json`),
       mode: m.mode ?? "rw",
+      // Tag is the virtio-fs device's config-space identifier and must
+      // be ≤ 36 bytes (FsConfig.tag). `machinen-lm<i>` stays well under.
+      tag: `machinen-lm${i}`,
     };
   });
 }
@@ -110,10 +125,9 @@ export function buildMachinenConfig(input: {
     cfg.cwd = effectiveCwd;
   }
   if (input.liveMounts.length > 0) {
-    // Only the guest/port pairs get written — host paths never cross
-    // into the guest's view. /init reads this and forks fuse-agent
-    // per entry.
-    cfg.liveMounts = input.liveMounts.map(({ guest, port }) => ({ guest, port }));
+    // Host paths never cross into the guest's view. /init reads this
+    // and, per entry, runs `mount -t virtiofs <tag> <guest>` (#332).
+    cfg.liveMounts = input.liveMounts.map((lm) => ({ guest: lm.guest, tag: lm.tag }));
   }
   return cfg;
 }
@@ -359,7 +373,6 @@ export function synthesizeAndPackBundle(
         // 5+6, attached further down in boot().
         mountGuest: mount?.guest ?? opts._restoreMountDisk?.guest,
         env: effectiveEnv,
-        fuseAgentPath: liveMounts.length > 0 ? defaultFuseAgentPath() : undefined,
       });
     } else {
       // Legacy fat cpio: explicit `rootDisk: false` opt-out. Drags the
@@ -374,7 +387,6 @@ export function synthesizeAndPackBundle(
         base: baseAbs,
         mount,
         env: effectiveEnv,
-        fuseAgentPath: liveMounts.length > 0 ? defaultFuseAgentPath() : undefined,
       });
     }
     packerOpts.onPhase?.("cpio-write", Date.now() - packT0);

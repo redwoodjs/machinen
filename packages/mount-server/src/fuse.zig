@@ -1,25 +1,33 @@
-//! Zig-native host-side FUSE-over-vsock mount server (#329). Drop-in
-//! replacement for `@machinen/runtime/dist/mount-server-bin.js` when
-//! the runtime is launched with `MACHINEN_MOUNT_SERVER_IMPL=zig`.
+//! Transport-agnostic FUSE protocol handlers for machinen live mounts.
 //!
-//! Process model: single-threaded blocking. The VMM's vsock bridge
-//! routes the guest FUSE port to a host UDS we listen on; one
-//! connection at a time (the guest only opens one). Frames are
-//! length-prefixed FUSE messages (u32 LE covering header+payload, same
-//! as `/dev/fuse` returns).
+//! Extracted from the #329 mount server (#332) so the opcode handlers
+//! are framing-independent. The sole consumer is
+//! `packages/microvm/src/virtiofs.zig` — the in-VMM virtio-fs device,
+//! which speaks a FUSE-derived protocol over a virtqueue. (#338
+//! removed the standalone vsock/UDS `mount-server` process that was
+//! the other consumer.)
 //!
-//! PR1 scope (per #329 acceptance plan):
+//! Everything here is framing-independent. `dispatch()` takes one
+//! decoded FUSE request frame (in-header + payload, contiguous) and
+//! returns one reply frame (out-header + payload) or null for the
+//! no-reply ops (FORGET, INTERRUPT). The caller owns frame I/O —
+//! reading requests off its transport, writing replies back, and
+//! freeing the returned buffer with `state.gpa`.
+//!
+//! Handler scope (per #329 acceptance plan):
 //!   - INIT handshake (negotiates 7.31)
 //!   - LOOKUP, GETATTR, CREATE, WRITE, RELEASE (the hot ops the JS
 //!     baseline bench identified as 88.3% of handler time)
 //!   - FORGET / BATCH_FORGET (inode bookkeeping)
 //!   - DESTROY / INTERRUPT / FLUSH / ACCESS — minimal correct stubs
+//!   - OPEN/READ, OPENDIR/READDIR/RELEASEDIR, MKDIR, UNLINK, RMDIR,
+//!     SYMLINK, SETATTR, STATFS
 //!   - Everything else → ENOSYS, same as the JS server does today
 //!
-//! Path containment is lexical for PR1: names must not contain `/`,
-//! `.`, `..`, or NUL. Realpath-based symlink-escape protection is a
-//! follow-up — the tar-extract bench workload creates regular files
-//! only, so deferring is safe for the perf measurement.
+//! Path containment is lexical: names must not contain `/`, `.`, `..`,
+//! or NUL. Realpath-based symlink-escape protection is a follow-up —
+//! the tar-extract bench workload creates regular files only, so
+//! deferring is safe for the perf measurement.
 
 const std = @import("std");
 const builtin = @import("builtin");
@@ -27,28 +35,13 @@ const assert = std.debug.assert;
 
 // --- libc externs -------------------------------------------------------
 
-const AF_UNIX: c_int = 1;
-const SOCK_STREAM: c_int = 1;
-const SHUT_RDWR: c_int = 2;
+// EINTR — retried by pwriteAll / the stats-file write on a short host write.
 const EINTR: c_int = 4;
 
-extern "c" fn socket(domain: c_int, typ: c_int, protocol: c_int) c_int;
-const c_bind = @extern(
-    *const fn (fd: c_int, addr: *const anyopaque, addrlen: u32) callconv(.c) c_int,
-    .{ .name = "bind" },
-);
-extern "c" fn listen(fd: c_int, backlog: c_int) c_int;
-const c_accept = @extern(
-    *const fn (fd: c_int, addr: ?*anyopaque, addrlen: ?*u32) callconv(.c) c_int,
-    .{ .name = "accept" },
-);
 extern "c" fn close(fd: c_int) c_int;
-extern "c" fn shutdown(fd: c_int, how: c_int) c_int;
-extern "c" fn read(fd: c_int, buf: [*]u8, count: usize) isize;
 extern "c" fn write(fd: c_int, buf: [*]const u8, count: usize) isize;
 extern "c" fn unlink(path: [*:0]const u8) c_int;
 extern "c" fn rename(old: [*:0]const u8, new: [*:0]const u8) c_int;
-extern "c" fn getenv(name: [*:0]const u8) ?[*:0]const u8;
 extern "c" fn __error() *c_int;
 extern "c" fn __errno_location() *c_int;
 
@@ -182,22 +175,13 @@ fn errno() c_int {
     return if (builtin.os.tag == .macos) __error().* else __errno_location().*;
 }
 
-const sockaddr_un = if (builtin.os.tag == .macos) extern struct {
-    sun_len: u8,
-    sun_family: u8,
-    sun_path: [104]u8,
-} else extern struct {
-    sun_family: u16,
-    sun_path: [108]u8,
-};
-
 // --- FUSE protocol constants (uapi/linux/fuse.h, protocol 7.31) ---------
 
 const FUSE_KERNEL_VERSION: u32 = 7;
 const FUSE_KERNEL_MINOR_VERSION: u32 = 31;
 
-const FUSE_IN_HEADER_SIZE: usize = 40;
-const FUSE_OUT_HEADER_SIZE: usize = 16;
+pub const FUSE_IN_HEADER_SIZE: usize = 40;
+pub const FUSE_OUT_HEADER_SIZE: usize = 16;
 const FUSE_ATTR_SIZE: usize = 88;
 const FUSE_ENTRY_OUT_SIZE: usize = 40 + FUSE_ATTR_SIZE; // 128
 const FUSE_ATTR_OUT_SIZE: usize = 16 + FUSE_ATTR_SIZE; // 104
@@ -307,11 +291,11 @@ const LINUX_O_APPEND: u32 = 0o2000;
 // listing that can OOM the host.
 const MAX_DIRENTS: usize = 64 * 1024;
 
-// Largest FUSE message we read off the wire in one frame: the 40-byte
+// Largest FUSE message a transport hands us in one frame: the 40-byte
 // in-header + a 128 KiB max_write payload + the create_in struct +
-// a name, rounded up. `serveConnection`'s read buffer is sized to
-// this and rejects any framed length above it.
-const MAX_FUSE_MESSAGE: usize = 256 * 1024;
+// a name, rounded up. Each transport's read buffer is sized to this
+// and rejects any framed length above it.
+pub const MAX_FUSE_MESSAGE: usize = 256 * 1024;
 
 // --- wire codecs --------------------------------------------------------
 
@@ -418,13 +402,14 @@ const OpStat = struct {
     sum_ns: u64 = 0,
 };
 
-const State = struct {
+/// All handler state for one live mount. Transport-agnostic: it knows
+/// nothing about the socket / virtqueue the request frames arrive on.
+/// The owning transport (`main.zig`, `virtiofs.zig`) constructs it,
+/// pumps frames through `dispatch`, and tears it down.
+pub const State = struct {
     gpa: std.mem.Allocator,
     root_abs: []u8,
     mode_rw: bool,
-
-    listen_fd: c_int = -1,
-    conn_fd: c_int = -1,
 
     inodes: std.AutoHashMap(u64, InodeEntry),
     next_inode: u64 = 2,
@@ -446,7 +431,7 @@ const State = struct {
     last_stats_publish_ns: u64 = 0,
     ops_since_last_publish: u32 = 0,
 
-    fn init(gpa: std.mem.Allocator, root_abs: []u8, mode_rw: bool) !State {
+    pub fn init(gpa: std.mem.Allocator, root_abs: []u8, mode_rw: bool) !State {
         var inodes = std.AutoHashMap(u64, InodeEntry).init(gpa);
         // Root pinned at nodeid=1 with empty rel_path.
         try inodes.put(1, .{
@@ -463,7 +448,7 @@ const State = struct {
         };
     }
 
-    fn deinit(self: *State) void {
+    pub fn deinit(self: *State) void {
         var it = self.inodes.iterator();
         while (it.next()) |e| self.gpa.free(e.value_ptr.rel_path);
         self.inodes.deinit();
@@ -501,140 +486,12 @@ fn freeHandle(state: *State, e: *OpenEntry) void {
     }
 }
 
-// --- CLI args -----------------------------------------------------------
+// --- stats-file I/O -----------------------------------------------------
 
-const Args = struct {
-    uds: []u8,
-    root: []u8,
-    mode_rw: bool,
-    stats: []u8,
-};
-
-fn parseArgs(gpa: std.mem.Allocator, init_args: std.process.Args) !Args {
-    var it = std.process.Args.Iterator.init(init_args);
-    _ = it.next(); // skip argv[0]
-
-    var uds: ?[]u8 = null;
-    var root: ?[]u8 = null;
-    var mode_s: ?[]u8 = null;
-    var stats: ?[]u8 = null;
-
-    errdefer {
-        if (uds) |x| gpa.free(x);
-        if (root) |x| gpa.free(x);
-        if (mode_s) |x| gpa.free(x);
-        if (stats) |x| gpa.free(x);
-    }
-
-    while (it.next()) |flag| {
-        const value = it.next() orelse return error.MissingFlagValue;
-        if (std.mem.eql(u8, flag, "--uds")) {
-            uds = try gpa.dupe(u8, value);
-        } else if (std.mem.eql(u8, flag, "--root")) {
-            root = try gpa.dupe(u8, value);
-        } else if (std.mem.eql(u8, flag, "--mode")) {
-            mode_s = try gpa.dupe(u8, value);
-        } else if (std.mem.eql(u8, flag, "--stats")) {
-            stats = try gpa.dupe(u8, value);
-        } else {
-            std.debug.print("unknown flag: {s}\n", .{flag});
-            return error.UnknownFlag;
-        }
-    }
-
-    const uds_v = uds orelse return error.MissingUds;
-    const root_v = root orelse return error.MissingRoot;
-    const mode_v = mode_s orelse return error.MissingMode;
-    const stats_v = stats orelse return error.MissingStats;
-
-    const mode_rw = if (std.mem.eql(u8, mode_v, "rw"))
-        true
-    else if (std.mem.eql(u8, mode_v, "ro"))
-        false
-    else
-        return error.InvalidMode;
-    gpa.free(mode_v);
-
-    return .{
-        .uds = uds_v,
-        .root = root_v,
-        .mode_rw = mode_rw,
-        .stats = stats_v,
-    };
-}
-
-// --- UDS bind/accept ----------------------------------------------------
-
-fn bindAndListen(uds_path: []const u8) !c_int {
-    if (uds_path.len >= @sizeOf(@TypeOf(@as(sockaddr_un, undefined).sun_path))) {
-        return error.UdsPathTooLong;
-    }
-
-    const fd = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (fd < 0) return error.SocketCreateFailed;
-    errdefer _ = close(fd);
-
-    // Stale UDS from a previous run (or a crashed prior server) would
-    // make bind() return EADDRINUSE. Best-effort unlink first; ignored
-    // if the file doesn't exist. The caller (the runtime) already gave
-    // us a fresh mkdtemp path so this is defensive.
-    var path_z: [108]u8 = @splat(0);
-    @memcpy(path_z[0..uds_path.len], uds_path);
-    _ = unlink(@ptrCast(&path_z));
-
-    var addr: sockaddr_un = if (builtin.os.tag == .macos)
-        .{ .sun_len = 0, .sun_family = AF_UNIX, .sun_path = @splat(0) }
-    else
-        .{ .sun_family = AF_UNIX, .sun_path = @splat(0) };
-    @memcpy(addr.sun_path[0..uds_path.len], uds_path);
-    const addrlen: u32 = @intCast(2 + uds_path.len + 1);
-    if (builtin.os.tag == .macos) addr.sun_len = @intCast(addrlen);
-
-    if (c_bind(fd, @ptrCast(&addr), addrlen) < 0) {
-        std.debug.print("bind {s} failed: errno {}\n", .{ uds_path, errno() });
-        return error.BindFailed;
-    }
-    if (listen(fd, 1) < 0) return error.ListenFailed;
-    return fd;
-}
-
-fn acceptOne(listen_fd: c_int) !c_int {
-    while (true) {
-        const fd = c_accept(listen_fd, null, null);
-        if (fd >= 0) return fd;
-        if (errno() == EINTR) {
-            if (shutdown_requested.load(.acquire)) return error.Shutdown;
-            continue;
-        }
-        return error.AcceptFailed;
-    }
-}
-
-// --- frame I/O ----------------------------------------------------------
-
-/// Read exactly `data.len` bytes from `fd`, returning .closed on EOF
-/// and .eintr_shutdown if a shutdown was requested during EINTR.
-const ReadResult = enum { ok, closed, eintr_shutdown };
-
-fn readExact(fd: c_int, data: []u8) ReadResult {
-    var total: usize = 0;
-    while (total < data.len) {
-        const n = read(fd, data[total..].ptr, data.len - total);
-        if (n > 0) {
-            total += @intCast(n);
-            continue;
-        }
-        if (n == 0) return .closed;
-        if (errno() == EINTR) {
-            if (shutdown_requested.load(.acquire)) return .eintr_shutdown;
-            continue;
-        }
-        return .closed;
-    }
-    return .ok;
-}
-
-fn writeAll(fd: c_int, data: []const u8) bool {
+/// Write exactly `data.len` bytes to `fd`. Used only by
+/// `writeStatsAtomic` for the small stats JSON — the request/reply
+/// frame I/O lives in the owning transport, not here.
+fn writeFileAll(fd: c_int, data: []const u8) bool {
     var total: usize = 0;
     while (total < data.len) {
         const n = write(fd, data[total..].ptr, data.len - total);
@@ -727,14 +584,19 @@ fn joinRel(gpa: std.mem.Allocator, parent_rel: []const u8, name: []const u8) ![]
 
 // --- dispatch -----------------------------------------------------------
 
-var shutdown_requested = std.atomic.Value(bool).init(false);
-
-fn dispatch(state: *State, msg: []const u8) !void {
-    // Precondition established by serveConnection: it rejects any
-    // framed length below FUSE_IN_HEADER_SIZE before calling us, so
-    // every handler can slice msg[FUSE_IN_HEADER_SIZE..] freely.
+/// Handle one decoded FUSE request frame and return its reply frame.
+///
+/// `msg` is the contiguous request — in-header + payload — exactly as
+/// the transport read it. The returned slice is the reply — out-header
+/// + payload — allocated with `state.gpa`; the caller writes it to its
+/// transport and frees it. `null` means "no reply" (FORGET, INTERRUPT):
+/// the FUSE protocol forbids a reply for those opcodes.
+///
+/// Precondition: `msg.len >= FUSE_IN_HEADER_SIZE`. Every transport
+/// rejects a short frame before calling here, so each handler can
+/// slice `msg[FUSE_IN_HEADER_SIZE..]` freely.
+pub fn dispatch(state: *State, msg: []const u8) !?[]const u8 {
     assert(msg.len >= FUSE_IN_HEADER_SIZE);
-    assert(state.conn_fd >= 0);
 
     const hdr = readInHeader(msg);
     const start_ns: u64 = if (state.profile_enabled) nowNs() else 0;
@@ -799,10 +661,7 @@ fn dispatch(state: *State, msg: []const u8) !void {
         }
     }
 
-    if (reply_opt) |reply| {
-        if (!writeAll(state.conn_fd, reply)) return error.WriteFailed;
-        state.gpa.free(reply);
-    }
+    return reply_opt;
 }
 
 // --- response builders --------------------------------------------------
@@ -1594,45 +1453,9 @@ fn decodeName(body: []const u8) []const u8 {
     return body[0..nul];
 }
 
-// --- frame loop ---------------------------------------------------------
-
-fn serveConnection(state: *State) !void {
-    assert(state.conn_fd >= 0);
-    // One fixed-size read buffer per connection — no per-message
-    // allocation on the read path. MAX_FUSE_MESSAGE covers the
-    // negotiated 128 KiB max_write plus header + struct + name.
-    var buf: [MAX_FUSE_MESSAGE]u8 = undefined;
-
-    // Termination bound: `shutdown_requested` (set by the signal
-    // handler) or a closed/EOF socket. Per-iteration work is bounded —
-    // one frame, ≤ buf.len bytes, two readExact calls each capped on
-    // EINTR, one dispatch.
-    while (!shutdown_requested.load(.acquire)) {
-        var len_bytes: [4]u8 = undefined;
-        switch (readExact(state.conn_fd, &len_bytes)) {
-            .ok => {},
-            .closed => return,
-            .eintr_shutdown => return,
-        }
-        const len = std.mem.readInt(u32, &len_bytes, .little);
-        if (len < FUSE_IN_HEADER_SIZE) return error.MalformedFrame;
-        if (len > buf.len) return error.FrameTooLarge;
-        // Established by the two guards above — every dispatch sees a
-        // frame that's at least a header and at most the read buffer.
-        assert(len >= FUSE_IN_HEADER_SIZE and len <= buf.len);
-        @memcpy(buf[0..4], &len_bytes);
-        switch (readExact(state.conn_fd, buf[4..len])) {
-            .ok => {},
-            .closed => return,
-            .eintr_shutdown => return,
-        }
-        try dispatch(state, buf[0..len]);
-    }
-}
-
 // --- stats file ---------------------------------------------------------
 
-fn writeStatsAtomic(state: *State) void {
+pub fn writeStatsAtomic(state: *State) void {
     const stats_path = state.stats_path orelse return;
 
     // Build the JSON in one heap buffer. Stats files are small (<10 KiB
@@ -1685,7 +1508,7 @@ fn writeStatsAtomic(state: *State) void {
 
     const fd = open(@ptrCast(&tmp_z), O_WRONLY | O_CREAT | O_TRUNC, @as(c_int, 0o644));
     if (fd < 0) return;
-    _ = writeAll(fd, body_items);
+    _ = writeFileAll(fd, body_items);
     _ = close(fd);
 
     var dst_z: [4097]u8 = undefined;
@@ -1736,104 +1559,114 @@ fn opName(code: u32) []const u8 {
     };
 }
 
-// --- signal handling ----------------------------------------------------
+// --- tests --------------------------------------------------------------
+//
+// Transport-agnostic handler tests. They drive `dispatch` directly with
+// hand-built request frames — no socket, no virtqueue — which is the
+// whole point of the #332 extraction: the same assertions cover both
+// the vsock `main.zig` and the in-VMM `virtiofs.zig` transports.
 
-fn signalHandler(_: std.c.SIG) callconv(.c) void {
-    shutdown_requested.store(true, .release);
+const testing = std.testing;
+
+/// Build a contiguous FUSE request frame — 40-byte in-header + body —
+/// exactly as a transport would hand it to `dispatch`. Caller owns the
+/// returned slice.
+fn testBuildFrame(
+    gpa: std.mem.Allocator,
+    opcode: u32,
+    unique: u64,
+    nodeid: u64,
+    body: []const u8,
+) ![]u8 {
+    const frame = try gpa.alloc(u8, FUSE_IN_HEADER_SIZE + body.len);
+    @memset(frame, 0);
+    std.mem.writeInt(u32, frame[0..4], @intCast(frame.len), .little);
+    std.mem.writeInt(u32, frame[4..8], opcode, .little);
+    std.mem.writeInt(u64, frame[8..16], unique, .little);
+    std.mem.writeInt(u64, frame[16..24], nodeid, .little);
+    @memcpy(frame[FUSE_IN_HEADER_SIZE..], body);
+    return frame;
 }
 
-fn installSignalHandlers() !void {
-    var act: std.posix.Sigaction = .{
-        .handler = .{ .handler = signalHandler },
-        .mask = std.posix.sigemptyset(),
-        .flags = 0,
-    };
-    std.posix.sigaction(std.posix.SIG.TERM, &act, null);
-    std.posix.sigaction(std.posix.SIG.INT, &act, null);
-    std.posix.sigaction(std.posix.SIG.HUP, &act, null);
-    // Drop SIGPIPE — write() on a closed peer should return EPIPE,
-    // not kill us.
-    var ign: std.posix.Sigaction = .{
-        .handler = .{ .handler = std.posix.SIG.IGN },
-        .mask = std.posix.sigemptyset(),
-        .flags = 0,
-    };
-    std.posix.sigaction(std.posix.SIG.PIPE, &ign, null);
+/// A `State` over a root path that never gets touched — every test
+/// here exercises a control-flow branch (negotiation, ENOSYS, the
+/// `:ro` gate, no-reply ops) that returns before any host fs syscall.
+fn testState(gpa: std.mem.Allocator, mode_rw: bool) !State {
+    return State.init(gpa, try gpa.dupe(u8, "/nonexistent-machinen-test-root"), mode_rw);
 }
 
-// --- main ---------------------------------------------------------------
-
-pub fn main(init: std.process.Init) !void {
-    // c_allocator (libc malloc/free) over page_allocator: tar bench
-    // performs ~30k tiny FUSE replies (16-byte ENOSYS, 8-byte WRITE
-    // ack, 104-byte attr_out). page_allocator mmaps a fresh 16 KiB
-    // page per alloc and munmaps on free — that alone was ~1.5 ms per
-    // reply during PR1 bring-up, killing the speedup. malloc's free
-    // list is sub-µs for these sizes.
-    const gpa = std.heap.c_allocator;
-
-    const args = try parseArgs(gpa, init.minimal.args);
-
-    try installSignalHandlers();
-
-    var state = try State.init(gpa, args.root, args.mode_rw);
+test "dispatch: INIT negotiates protocol 7.31" {
+    const gpa = testing.allocator;
+    var state = try testState(gpa, true);
     defer state.deinit();
-    state.stats_path = args.stats;
-    state.profile_enabled = isProfileEnabled();
 
-    // The Args struct's `uds` is borrowed by `bindAndListen` (lifetime
-    // ends after listen()) but the State doesn't keep a copy. We need
-    // to remember it for cleanup on shutdown, though.
-    const uds_path_owned = args.uds;
-    defer gpa.free(uds_path_owned);
+    var body: [16]u8 = @splat(0);
+    std.mem.writeInt(u32, body[0..4], 7, .little); // major
+    std.mem.writeInt(u32, body[4..8], 36, .little); // minor — guest offers newer
+    const frame = try testBuildFrame(gpa, @intFromEnum(Op.INIT), 42, 0, &body);
+    defer gpa.free(frame);
 
-    state.listen_fd = try bindAndListen(uds_path_owned);
-    defer {
-        _ = close(state.listen_fd);
-        var uds_z: [108]u8 = @splat(0);
-        if (uds_path_owned.len < uds_z.len) {
-            @memcpy(uds_z[0..uds_path_owned.len], uds_path_owned);
-            _ = unlink(@ptrCast(&uds_z));
-        }
-    }
+    const reply = (try dispatch(&state, frame)) orelse return error.ExpectedReply;
+    defer gpa.free(reply);
 
-    // Publish an initial stats file so a reader landing before the
-    // first FUSE op sees valid JSON.
-    writeStatsAtomic(&state);
-
-    // Accept one connection. Loop is defensive: if the connection
-    // drops mid-bench we'll accept the next one rather than exit.
-    while (!shutdown_requested.load(.acquire)) {
-        const conn = acceptOne(state.listen_fd) catch |e| switch (e) {
-            error.Shutdown => break,
-            else => return e,
-        };
-        state.conn_fd = conn;
-        serveConnection(&state) catch |e| {
-            std.debug.print("connection error: {}\n", .{e});
-        };
-        _ = close(state.conn_fd);
-        state.conn_fd = -1;
-    }
-
-    // One final flush before exit so the bench picks up the closing
-    // counters.
-    writeStatsAtomic(&state);
-
-    // Remove the stats file last — supervisor will rm the parent dir
-    // anyway but the JS server does this explicit unlink and the bench
-    // relies on it not finding stale files between runs.
-    if (state.stats_path) |p| {
-        var z: [4097]u8 = undefined;
-        if (p.len < z.len) {
-            @memcpy(z[0..p.len], p);
-            z[p.len] = 0;
-            _ = unlink(@ptrCast(&z));
-        }
-    }
+    try testing.expectEqual(FUSE_OUT_HEADER_SIZE + FUSE_INIT_OUT_SIZE, reply.len);
+    try testing.expectEqual(@as(i32, 0), std.mem.readInt(i32, reply[4..8], .little));
+    try testing.expectEqual(@as(u64, 42), std.mem.readInt(u64, reply[8..16], .little));
+    const out = reply[FUSE_OUT_HEADER_SIZE..];
+    try testing.expectEqual(FUSE_KERNEL_VERSION, std.mem.readInt(u32, out[0..4], .little));
+    // out_minor clamps to min(guest 36, ours 31).
+    try testing.expectEqual(FUSE_KERNEL_MINOR_VERSION, std.mem.readInt(u32, out[4..8], .little));
 }
 
-fn isProfileEnabled() bool {
-    const v = getenv("MACHINEN_MOUNT_SERVER_PROFILE") orelse return false;
-    return std.mem.eql(u8, std.mem.span(v), "1");
+test "dispatch: unknown opcode returns ENOSYS" {
+    const gpa = testing.allocator;
+    var state = try testState(gpa, true);
+    defer state.deinit();
+
+    const frame = try testBuildFrame(gpa, 9999, 7, 1, &.{});
+    defer gpa.free(frame);
+
+    const reply = (try dispatch(&state, frame)) orelse return error.ExpectedReply;
+    defer gpa.free(reply);
+
+    try testing.expectEqual(@as(usize, FUSE_OUT_HEADER_SIZE), reply.len);
+    try testing.expectEqual(@as(i32, -E.NOSYS), std.mem.readInt(i32, reply[4..8], .little));
+}
+
+test "dispatch: CREATE on a :ro mount returns EROFS" {
+    const gpa = testing.allocator;
+    var state = try testState(gpa, false); // read-only
+    defer state.deinit();
+
+    const frame = try testBuildFrame(gpa, @intFromEnum(Op.CREATE), 9, 1, &.{});
+    defer gpa.free(frame);
+
+    const reply = (try dispatch(&state, frame)) orelse return error.ExpectedReply;
+    defer gpa.free(reply);
+
+    try testing.expectEqual(@as(i32, -E.ROFS), std.mem.readInt(i32, reply[4..8], .little));
+}
+
+test "dispatch: FORGET and INTERRUPT produce no reply" {
+    const gpa = testing.allocator;
+    var state = try testState(gpa, true);
+    defer state.deinit();
+
+    const forget_body: [8]u8 = @splat(0);
+    const forget = try testBuildFrame(gpa, @intFromEnum(Op.FORGET), 1, 1, &forget_body);
+    defer gpa.free(forget);
+    try testing.expect((try dispatch(&state, forget)) == null);
+
+    const interrupt = try testBuildFrame(gpa, @intFromEnum(Op.INTERRUPT), 2, 0, &.{});
+    defer gpa.free(interrupt);
+    try testing.expect((try dispatch(&state, interrupt)) == null);
+}
+
+test "validateName rejects path-escape and empty names" {
+    try testing.expectError(error.InvalidName, validateName(""));
+    try testing.expectError(error.InvalidName, validateName("."));
+    try testing.expectError(error.InvalidName, validateName(".."));
+    try testing.expectError(error.InvalidName, validateName("a/b"));
+    try testing.expectError(error.InvalidName, validateName("a\x00b"));
+    try validateName("normal-file.txt");
 }

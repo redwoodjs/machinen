@@ -9,12 +9,18 @@ interface ParsedRunArgs {
   double_dash_args: string[];
   mount?: { host: string; guest: string };
   /**
-   * Live-share FUSE mounts (`--mount-live <host>:<guest>[:<mode>]`).
-   * Each entry stays connected to the host filesystem for the VM's
-   * life; guest reads stream in on demand. `mode` is `rw` (default,
-   * write-through) or `ro` for read-only. See #78, #151.
+   * Live-share mounts (`--mount-live <host>:<guest>[:<mode>]`). Each
+   * entry stays connected to the host filesystem for the VM's life;
+   * guest reads stream in on demand. `mode` is `rw` (default,
+   * write-through) or `ro` for read-only. Served by an in-VMM
+   * virtio-fs device (#332); the FUSE-over-vsock transport and its
+   * `:<protocol>` modifier were removed in #338. See #78, #151, #332.
    */
-  liveMounts?: Array<{ host: string; guest: string; mode: "ro" | "rw" }>;
+  liveMounts?: Array<{
+    host: string;
+    guest: string;
+    mode: "ro" | "rw";
+  }>;
   env?: Record<string, string>;
   portForward?: Array<{ hostPort: number; guestPort: number }>;
   /** Snapshot image to restore from (`--snapshot <path>`). */
@@ -278,10 +284,14 @@ export function consumeLiveMount(
   flag: string,
   args: string[],
   i: number,
-): { value: { host: string; guest: string; mode: "ro" | "rw" }; next: number } {
+): {
+  value: { host: string; guest: string; mode: "ro" | "rw" };
+  next: number;
+} {
   const { spec, next } = takeValue(flag, args, i, "a <host-dir>:<guest-path> value");
-  // Format: `<host>:<guest>[:<mode>]`. A guest path containing a colon
-  // is rejected — same trade-off as `--mount`.
+  // Format: `<host>:<guest>[:<mode>]`. The trailing `<mode>` modifier
+  // is optional — `ro` or `rw`. A guest path containing a colon is
+  // rejected — same trade-off as `--mount`.
   const parts = spec.split(":");
   if (parts.length < 2 || parts.length > 3 || !parts[0] || !parts[1]) {
     throw new ParseError(
@@ -289,18 +299,25 @@ export function consumeLiveMount(
       `--mount-live: expected <host-dir>:<guest-path>[:<mode>], got '${spec}'`,
     );
   }
-  const modeRaw = parts[2];
-  if (modeRaw !== undefined && modeRaw !== "ro" && modeRaw !== "rw") {
-    throw new ParseError(
-      "PARSE_FLAG_MALFORMED",
-      `--mount-live: mode must be 'ro' or 'rw', got '${modeRaw}'`,
-    );
+  let mode: "ro" | "rw" | undefined;
+  for (const tok of parts.slice(2)) {
+    if (tok === "ro" || tok === "rw") {
+      if (mode !== undefined) {
+        throw new ParseError("PARSE_FLAG_MALFORMED", `--mount-live: mode given twice in '${spec}'`);
+      }
+      mode = tok;
+    } else {
+      throw new ParseError(
+        "PARSE_FLAG_MALFORMED",
+        `--mount-live: trailing modifier must be 'ro' or 'rw', got '${tok}'`,
+      );
+    }
   }
   return {
     value: {
       host: parts[0]!,
       guest: parts[1]!,
-      mode: (modeRaw as "ro" | "rw" | undefined) ?? "rw",
+      mode: mode ?? "rw",
     },
     next,
   };

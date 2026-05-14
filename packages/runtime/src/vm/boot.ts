@@ -34,16 +34,12 @@ import {
   warnGvproxyMissing,
 } from "../gvproxy.ts";
 import type { OnLog } from "../log.ts";
-import {
-  spawnDetachedMountServer,
-  type DetachedMountServerHandle,
-} from "../mount-server-detached.ts";
 import { ensurePdeathsig, wrapWithPdeathsig } from "../pdeathsig.ts";
 import { PhaseTimer } from "../phase-timer.ts";
 import { readProcessIdentity } from "../pid-validate.ts";
 import { readHostRssBytes } from "../proc-rss.ts";
 import { reflinkCopy } from "../reflink.ts";
-import { claimName, findEntry, patchEntry, removeEntry, writeEntry } from "../registry.ts";
+import { claimName, findEntry, removeEntry, writeEntry } from "../registry.ts";
 import { ensureRootfsImage, markRootfsImageClean } from "../rootfs-img.ts";
 import { resolveLiveMounts, type ResolvedLiveMount, synthesizeAndPackBundle } from "./bundle.ts";
 import { performFork } from "./fork.ts";
@@ -240,34 +236,35 @@ export interface BootOptions {
    */
   _snapletRestorePath?: string;
   /**
-   * Host directories exposed to the guest as live-share FUSE mounts
-   * (#78). Unlike `mount` (copy-once into the boot rootfs), these stay
-   * connected to the host: the guest reads on demand via a vsock FUSE
-   * relay, and nothing is copied at boot. `mode` defaults to `"rw"` —
-   * guest writes land on the host (#151, #156). Set `"ro"` for a
-   * one-way share (host caches, untrusted guests).
+   * Host directories exposed to the guest as live-share mounts (#78,
+   * #332). Unlike `mount` (copy-once into the boot rootfs), these stay
+   * connected to the host: the guest reads on demand and nothing is
+   * copied at boot. `mode` defaults to `"rw"` — guest writes land on
+   * the host (#151, #156). Set `"ro"` for a one-way share (host
+   * caches, untrusted guests).
    *
    * Each guest path must live under `/mnt/` (same rule as `mount`).
-   * Repeatable; each entry gets its own vsock port.
+   * Repeatable up to 4 entries per VM — each is served by its own
+   * in-VMM virtio-fs device (the VMM wires 4 virtio-fs slots). The
+   * FUSE opcode handlers run inside the VMM and the guest mounts each
+   * share directly with `mount -t virtiofs` — no agent process, no
+   * vsock hop. Requires a guest kernel with `CONFIG_VIRTIO_FS` — every
+   * machinen-built kernel has it. (The older FUSE-over-vsock transport
+   * and its `protocol` knob were removed in #338.)
    *
    * Snapshot / restore / fork (#273): liveMount has no guest-side
    * state worth checkpointing — reads come from the host on demand,
-   * writes (in `"rw"`) land on the host immediately. The runtime
-   * unmounts each mount before CRIU dumps, then re-establishes a
-   * fresh window on the other side: for `vm.snapshot({ leaveRunning:
-   * true })` and `vm.fork()` the source's workload sees `/mnt/<guest>/`
-   * disappear for the dump duration (typically seconds, scales with
-   * memory size) before reappearing under fresh server state. Open
-   * fds across that window see EBADF on next syscall — same shape
-   * as "don't snapshot during a database write." Workloads that
-   * quiesce before snapshot are unaffected.
+   * writes (in `"rw"`) land on the host immediately. The in-VMM
+   * virtio-fs device persists across the CRIU dump, so the workload's
+   * view of `/mnt/<guest>/` survives `vm.snapshot({ leaveRunning:
+   * true })` and `vm.fork()` without an unmount/remount window.
    *
    * Concurrent writes from multiple forks against the same host
    * directory are no different from any other shared filesystem —
-   * the runtime re-establishes the window per-VM but doesn't
-   * coordinate writes between siblings. If two forks need
-   * non-overlapping write surfaces, point each at a distinct
-   * `host` path or use `mount` (copy-once, per-VM upper).
+   * each VM gets its own device but the runtime doesn't coordinate
+   * writes between siblings. If two forks need non-overlapping write
+   * surfaces, point each at a distinct `host` path or use `mount`
+   * (copy-once, per-VM upper).
    *
    * Restore on a host where the recorded `host` path doesn't exist:
    * fails loudly via `BOOT_MOUNT_HOST_NOT_FOUND`. Pass
@@ -280,7 +277,11 @@ export interface BootOptions {
    * no such runtime channel and is strictly safer — prefer it for
    * inputs you don't need write-through on.
    */
-  liveMounts?: Array<{ host: string; guest: string; mode?: "ro" | "rw" }>;
+  liveMounts?: Array<{
+    host: string;
+    guest: string;
+    mode?: "ro" | "rw";
+  }>;
   /**
    * Host -> guest TCP port forwards installed via gvproxy's control
    * API. Each entry maps `hostPort` on the host (bound to `hostAddr`,
@@ -480,26 +481,18 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     env.MACHINEN_RESTORE_PATH = opts._snapletRestorePath;
   }
 
-  // #78: resolve live-share mounts. Each gets a fresh vsock port (base
-  // 1970, the band below the exec/file/secrets/winsize agents) and a
-  // UDS per mount so the VMM's MACHINEN_VSOCK spec can include one
-  // entry per mount. We compute these here so the port↔guest pairs can
-  // be baked into machinen-config.json at pack time — the guest's
-  // /init reads the same pairs and forks the FUSE agent per entry.
+  // #78 / #332: resolve live-share mounts. We compute these here so the
+  // per-mount tag can be baked into machinen-config.json at pack time —
+  // the guest's /init reads the same entries. Each mount is served by
+  // an in-VMM virtio-fs device (slots 7..10); MACHINEN_VIRTIOFS_<i>
+  // carries `<tag>:<mode>:<host_path>` for slot i. No vsock port, no
+  // detached server, no guest fuse-agent (all removed in #338).
   let liveMountsResolved: ResolvedLiveMount[] = [];
   if ((opts.liveMounts ?? []).length > 0) {
-    if (!vsockTempDir) {
-      vsockTempDir = mkdtempSync(join(tmpdir(), "machinen-vsock-"));
-    }
-    liveMountsResolved = resolveLiveMounts(opts.liveMounts!, opts.cwd, vsockTempDir);
-    for (const lm of liveMountsResolved) {
-      // `out:` — the guest fuse-agent connects to (cid=2, port=lm.port);
-      // when the VMM sees the REQUEST it dials the host's UDS where
-      // the mount-server is listening. Using `in:` here would have the
-      // VMM also listen on the UDS (clobbering the mount-server), and
-      // since fuse-agent doesn't initiate, nothing would ever bridge.
-      env.MACHINEN_VSOCK = `${env.MACHINEN_VSOCK},out:${lm.port}:${lm.udsPath}`;
-    }
+    liveMountsResolved = resolveLiveMounts(opts.liveMounts!, opts.cwd);
+    liveMountsResolved.forEach((lm, i) => {
+      env[`MACHINEN_VIRTIOFS_${i}`] = `${lm.tag}:${lm.mode}:${lm.host}`;
+    });
   }
 
   // gvproxy + host→guest port forwards (#87) are set up before the
@@ -511,7 +504,6 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   let gvPid: number | undefined;
   let gvExe: string | undefined;
   let gvSocketDir: string | undefined;
-  const liveMountServers: DetachedMountServerHandle[] = [];
   let bundleTempDir: string | undefined;
   // #272: paths to the materialized squashfs lower + per-VM ext4
   // upper for the `--mount` overlay. The lower lives in the host
@@ -542,12 +534,10 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     gvExe = gv.gvExe;
     gvSocketDir = gv.gvSocketDir;
     phases.end("net-services.gvproxy");
-    // #78: live-share servers used to spawn here, before the VMM. As
-    // of #150 phase 3 they're standalone helpers wrapped through
-    // pdeathsig --watch-pid, so we need the VMM's pid first. The
-    // helpers spawn after `vmm-spawn` below — the guest's fuse-agent
-    // doesn't dial until userspace is up, so the ~50ms helper-spawn
-    // delay is invisible.
+    // #338: live-share mounts are served by in-VMM virtio-fs devices —
+    // there's no host-side server process to spawn. The runtime just
+    // bakes the per-mount tags into machinen-config.json + the
+    // MACHINEN_VIRTIOFS_<i> env; the VMM wires the devices itself.
     phases.end("net-services");
 
     // Pack an initramfs whenever the guest needs userspace (image +
@@ -582,10 +572,10 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     }
     phases.end("rootdisk-materialize");
   } catch (err) {
-    // No live-mount helpers yet at this point (they spawn post-VMM,
-    // see #150 phase 3) — only the gv + per-boot disks need rolling
-    // back. The post-VMM mount-server failure path below has its own
-    // inline cleanup that includes SIGKILLing the VMM.
+    // Only the gv + per-boot disks need rolling back here — live-share
+    // mounts are wired by the VMM itself, with no host-side process.
+    // The post-VMM failure path below has its own inline cleanup that
+    // includes SIGKILLing the VMM.
     rollbackPreSpawn({
       gvStop,
       bundleTempDir,
@@ -710,7 +700,6 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     vsockTempDir,
     statsTempDir,
     gvStop,
-    liveMountServers,
     registered,
   });
 
@@ -752,25 +741,6 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   const detachedBootChunks: Buffer[] = [];
   if (opts.detached) {
     installDetachedBootCapture(child, detachedBootChunks);
-  }
-
-  // #150 phase 3: spawn the live-share mount servers as detached
-  // helpers parented (via pdeathsig --watch-pid) to the VMM. The
-  // helpers survive supervisor exit and die with the VMM. Spawned
-  // here so we have child.pid to watch and the exit hook above is
-  // already registered (it iterates `liveMountServers` for stop).
-  // On failure: SIGKILL the VMM; the exit hook reaps everything
-  // including helpers we did manage to start.
-  if (liveMountsResolved.length > 0) {
-    phases.start("net-services.live-mounts");
-    await spawnLiveMountServersForBoot({
-      liveMountsResolved,
-      childPid,
-      child,
-      registered,
-      liveMountServers,
-    });
-    phases.end("net-services.live-mounts");
   }
 
   const handle: VmHandle = {
@@ -858,16 +828,11 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       // handle was constructed before that patch.
       const cur = findEntry({ pid: childPid });
       const lazyTotal = cur?.lazyPagesTotal ?? 0;
-      let bytesServed = 0;
-      for (const server of liveMountServers) {
-        bytesServed += server.bytesServedOnPagesImg();
-      }
-      const pagesServed = Math.floor(bytesServed / 4096);
       return {
         ceilingMib: memoryCeilingMib ?? null,
         hostRssBytes: readHostRssBytes(childPid, statsFilePath),
         balloonInflatedBytes: balloon?.bytesReported ?? 0,
-        lazyPagesPending: Math.max(0, lazyTotal - pagesServed),
+        lazyPagesPending: lazyTotal,
       };
     },
 
@@ -900,15 +865,10 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
 
   // #273: shared snapshot-context builder for the boot-owned
   // `snapshot()` and `fork()` paths. Threads the live-share mount
-  // config + lifecycle hooks through to performSnapshot so it can:
-  //   - record `liveMounts` in the bundle's meta.json,
-  //   - tear down the host-side mount-server instances after the
-  //     dump completes (the guest's preflight already unmounted),
-  //   - respawn fresh ones on the same UDSes for `leaveRunning` so
-  //     `/sbin/machinen-remount` reconnects to clean state.
-  // For attach-handle snapshots, the registry doesn't carry the
-  // resolved config so a parallel ctx omits these fields — see
-  // attach()'s snapshot() implementation below.
+  // config through to performSnapshot so it can record `liveMounts`
+  // in the bundle's meta.json. Since #338 the in-VMM virtio-fs device
+  // is carried across the CRIU dump by the VMM itself, so there are no
+  // host-side mount-server instances to stop/respawn.
   function buildBootSnapshotContext(): SnapshotContext {
     const liveMountsForCtx =
       liveMountsResolved.length > 0
@@ -932,40 +892,6 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         : undefined,
       liveMounts: liveMountsForCtx,
       snapletPath: snapletStatePath,
-      stopLiveMountServers: liveMountsForCtx
-        ? async () => {
-            // Stop in place, then clear the array so the boot exit
-            // hook doesn't double-stop. Idempotent stops are safe but
-            // the array is also the source of truth for memoryStats's
-            // bytesServedOnPagesImg sum — stale handles would skew that.
-            await Promise.all(liveMountServers.map((s) => s.stop().catch(() => {})));
-            liveMountServers.length = 0;
-          }
-        : undefined,
-      respawnLiveMountServers: liveMountsForCtx
-        ? async () => {
-            // Fresh inode + handle tables. Same UDS path so the
-            // guest's re-fork'd fuse-agent (started via vsock-exec
-            // of /sbin/machinen-remount) reconnects to a listening
-            // server. memoryStats's lazy-pages accounting resets to
-            // zero, which is correct — restored guests start a new
-            // fault stream.
-            //
-            // The respawned helpers watch the same VMM pid as the
-            // originals — even after a CRIU restore the kernel pid
-            // doesn't change.
-            for (const lm of liveMountsResolved) {
-              const fresh = await spawnDetachedMountServer({
-                udsPath: lm.udsPath,
-                rootAbs: lm.host,
-                mode: lm.mode,
-                vmmPid: childPid,
-                statsPath: lm.statsPath,
-              });
-              liveMountServers.push(fresh);
-            }
-          }
-        : undefined,
       execRaw: (cmd, execOpts) => handle.execRaw(cmd, execOpts),
       wait: () => handle.wait(),
       kill: () => handle.kill(),
@@ -1542,15 +1468,16 @@ function registerInRegistry(args: RegisterArgs): boolean {
           }
         : undefined,
       // #273: persist live-share mount config so an attach-owned
-      // snapshot/fork can write the same `meta.liveMounts` block
-      // and trigger /sbin/machinen-remount post-dump on
-      // leaveRunning paths. Host UDS / vsock port aren't carried —
-      // those are this process's private state and the attach side
-      // doesn't need them (the source's servers stay listening
-      // through the dump and the re-fork'd fuse-agent reconnects).
+      // snapshot/fork can write the same `meta.liveMounts` block. The
+      // per-mount virtio-fs tag isn't carried — it's re-derived from
+      // the resolved order on restore.
       liveMounts:
         args.liveMountsResolved.length > 0
-          ? args.liveMountsResolved.map(({ guest, host, mode }) => ({ guest, host, mode }))
+          ? args.liveMountsResolved.map(({ guest, host, mode }) => ({
+              guest,
+              host,
+              mode,
+            }))
           : undefined,
       startedAt: Date.now(),
     });
@@ -1576,14 +1503,13 @@ interface ExitCleanupState {
   vsockTempDir: string | undefined;
   statsTempDir: string | undefined;
   gvStop: (() => void) | undefined;
-  liveMountServers: DetachedMountServerHandle[];
   registered: boolean;
 }
 
 // On VMM exit, reap every per-boot artifact:
 //   - reflink copies (#121, #272) so guest writes don't persist;
 //   - bundle/vsock/stats temp dirs;
-//   - gvproxy + live-mount server children;
+//   - the gvproxy child;
 //   - the registry entry.
 // All best-effort: a clean exit, signal exit, and kernel panic all
 // land here, and the cached `<sha>.img` template is kept clean inline
@@ -1613,9 +1539,6 @@ function installVmExitCleanup(state: ExitCleanupState): void {
     }
     if (state.gvStop) {
       state.gvStop();
-    }
-    for (const server of state.liveMountServers) {
-      void server.stop().catch(() => {});
     }
     if (state.registered) {
       removeEntry(state.childPid);
@@ -1656,52 +1579,6 @@ function installDetachedBootCapture(child: ChildProcessWithoutNullStreams, sink:
       bytes -= sink.shift()!.length;
     }
   });
-}
-
-// Spawn one detached mount-server helper per resolved live-mount,
-// then patch the registry entry with their pids+exes. On any spawn
-// failure: SIGKILL the VMM; the exit hook reaps everything (including
-// the helpers we did manage to start) via `liveMountServers`.
-async function spawnLiveMountServersForBoot(args: {
-  liveMountsResolved: ResolvedLiveMount[];
-  childPid: number;
-  child: ChildProcessWithoutNullStreams;
-  registered: boolean;
-  liveMountServers: DetachedMountServerHandle[];
-}): Promise<void> {
-  try {
-    for (const lm of args.liveMountsResolved) {
-      const lmHandle = await spawnDetachedMountServer({
-        udsPath: lm.udsPath,
-        rootAbs: lm.host,
-        mode: lm.mode,
-        vmmPid: args.childPid,
-        statsPath: lm.statsPath,
-      });
-      args.liveMountServers.push(lmHandle);
-    }
-  } catch (err) {
-    try {
-      args.child.kill("SIGKILL");
-    } catch {}
-    throw err;
-  }
-  if (!args.registered) {
-    return;
-  }
-  // `machinen stop` SIGTERMs the helpers alongside the VMM;
-  // `machinen gc` validates pid+exe to detect recycled pids the
-  // same way it does for the VMM and gvproxy.
-  try {
-    patchEntry(args.childPid, {
-      liveMountServers: args.liveMountServers.map((h) => ({ pid: h.pid, exe: h.exe })),
-    });
-  } catch (err) {
-    debug(
-      "registry patch (liveMountServers) failed (best-effort) err=%s",
-      err instanceof Error ? err.message : String(err),
-    );
-  }
 }
 
 // #150 phase 2: detached mode blocks until the guest produces its

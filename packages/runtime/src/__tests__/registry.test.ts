@@ -132,23 +132,25 @@ describe("registry primitives", () => {
   });
 
   it("patchEntry merges a partial update without losing fields", () => {
-    writeEntry(entryForSelf("with-helpers"));
+    writeEntry(entryForSelf("with-mount-disk"));
     patchEntry(process.pid, {
-      liveMountServers: [
-        { pid: 4242, exe: "/usr/local/bin/node" },
-        { pid: 4243, exe: "/usr/local/bin/pdeathsig" },
-      ],
+      mountDisk: {
+        guest: "/mnt/work",
+        lowerPath: "/cache/lower.sqfs",
+        upperPath: "/tmp/upper.img",
+      },
     });
     const got = readEntry(process.pid);
-    expect(got?.name).toBe("with-helpers");
-    expect(got?.liveMountServers).toEqual([
-      { pid: 4242, exe: "/usr/local/bin/node" },
-      { pid: 4243, exe: "/usr/local/bin/pdeathsig" },
-    ]);
+    expect(got?.name).toBe("with-mount-disk");
+    expect(got?.mountDisk).toEqual({
+      guest: "/mnt/work",
+      lowerPath: "/cache/lower.sqfs",
+      upperPath: "/tmp/upper.img",
+    });
   });
 
   it("patchEntry is a no-op when the entry doesn't exist", () => {
-    expect(() => patchEntry(999_999_999, { liveMountServers: [] })).not.toThrow();
+    expect(() => patchEntry(999_999_999, { lazyPagesTotal: 0 })).not.toThrow();
     expect(readEntry(999_999_999)).toBeUndefined();
   });
 

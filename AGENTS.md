@@ -32,19 +32,22 @@ kernel, anything compiled in-container), set
 script delegate over ssh. Native-arm64 there finishes in ~3 min vs.
 ~15–20 min under qemu-arm64 emulation locally on an M-series mac.
 
-## FUSE ops (mount-server)
+## FUSE ops (live mounts)
 
-When you wire up a new FUSE opcode in `packages/runtime/src/mount-server.ts`,
-add its tests in the same change to `mount-server.test.ts`:
+The transport-agnostic FUSE opcode handlers live in
+`packages/mount-server/src/fuse.zig`. The in-VMM virtio-fs device
+(`packages/microvm/src/virtiofs.zig`) is the sole consumer — there is
+no standalone mount-server process anymore (#338).
+
+When you wire up a new FUSE opcode in `fuse.zig`, add its tests in the
+same change. `fuse.zig` has dispatch-level tests; `virtiofs.zig` has
+end-to-end tests that drive the op through a fake virtqueue against a
+real host directory. Cover:
 
 1. **Happy path** — the op succeeds and the host fs reflects the change.
 2. **Error path** — the op returns the right errno (`ENOENT`, `EEXIST`,
    `EBADF`, etc.) for the expected failure modes.
 3. **`:ro` gate** — if the op is mutating, assert it returns `EROFS` on a
    read-only mount and never touches the host fs.
-4. **Wedge guard** — wrap the call in `raceWithDeadline()` so a hang
-   becomes a fast test failure instead of a stuck CI run.
-
-If you remove an op from the dispatch (intentionally going back to
-`ENOSYS`), move it into the `UNIMPLEMENTED_OPS` table at the top of the
-test file so its `ENOSYS`-within-deadline assertion stays in CI.
+4. **Wedge guard** — a malformed / over-long descriptor chain must be
+   acked fail-soft, never hang the VMM thread.

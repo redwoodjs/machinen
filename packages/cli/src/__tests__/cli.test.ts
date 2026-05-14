@@ -133,14 +133,21 @@ describe("parseRunArgs --mount-live", () => {
     expect(parsed.liveMounts).toEqual([{ host: "./src", guest: "/mnt/src", mode: "rw" }]);
   });
 
-  it("rejects an unknown mode", () => {
+  it("rejects an unknown trailing modifier", () => {
     expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:xx"])).toThrow(
-      /mode must be 'ro' or 'rw'/,
+      /trailing modifier must be 'ro' or 'rw'/,
     );
   });
 
   it("rejects a spec with too many colons", () => {
     expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:rw:extra"])).toThrow(
+      /expected <host-dir>:<guest-path>\[:<mode>\]/,
+    );
+  });
+
+  it("rejects the removed :<protocol> modifier", () => {
+    // #338 dropped the FUSE-over-vsock transport and its protocol knob.
+    expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:ro:virtiofs"])).toThrow(
       /expected <host-dir>:<guest-path>\[:<mode>\]/,
     );
   });
@@ -463,9 +470,9 @@ describe("parseForkArgs", () => {
     expect(parsed.liveMounts).toHaveLength(2);
   });
 
-  it("rejects an invalid --mount-live mode", () => {
+  it("rejects an invalid --mount-live modifier", () => {
     expect(() => parseForkArgs(["--mount-live", "h:/m/x:bogus"])).toThrow(
-      /mode must be 'ro' or 'rw'/,
+      /trailing modifier must be 'ro' or 'rw'/,
     );
   });
 

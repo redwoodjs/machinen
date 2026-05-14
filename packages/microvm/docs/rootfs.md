@@ -59,10 +59,6 @@ boot, `/init` looks for the following paths:
   present, `/init` seeds `CLOCK_REALTIME` from it so TLS and `apt`
   date checks work before NTP. Written by `mkinitramfs.ts` from the
   host's wall clock.
-- `/fuse-agent` — required iff `liveMounts` is set in the config.
-  Forked once per mount entry to back the guest-side FUSE mount. The
-  cpio copy wins over any version baked into the rootdisk (the pivot
-  overwrites `/fuse-agent` after chroot).
 - `/mnt/<guest>/...` — overlay payload for `mount: { host, guest }`.
   Carried across the rootdisk pivot via a best-effort recursive copy.
 
@@ -85,12 +81,12 @@ boot, `/init` looks for the following paths:
 Parsed by `loadConfig` in `assets/init.zig`. JSON object with the
 following keys:
 
-| Key          | Type                                 | Required | Notes                                                                                                                                                                                 |
-| ------------ | ------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `cmd`        | `string[]`                           | yes      | Argv for `execve`. Must be non-empty; `cmd[0]` is also the path.                                                                                                                      |
-| `env`        | `{ [k: string]: string }`            | no       | Each entry becomes a `KEY=VALUE` envp slot. If `TERM` isn't set, `/init` injects `TERM=linux`.                                                                                        |
-| `cwd`        | `string`                             | no       | `chdir`'d before `execve`.                                                                                                                                                            |
-| `liveMounts` | `[{ guest: string, port: integer }]` | no       | One FUSE mount per entry. `port` must fit in u32. `/init` forks `/fuse-agent <port> <guest>` and waits up to 5s for the mount to appear in `/proc/self/mounts` before exec'ing `cmd`. |
+| Key          | Type                               | Required | Notes                                                                                                                                                                                                                                                                        |
+| ------------ | ---------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cmd`        | `string[]`                         | yes      | Argv for `execve`. Must be non-empty; `cmd[0]` is also the path.                                                                                                                                                                                                             |
+| `env`        | `{ [k: string]: string }`          | no       | Each entry becomes a `KEY=VALUE` envp slot. If `TERM` isn't set, `/init` injects `TERM=linux`.                                                                                                                                                                               |
+| `cwd`        | `string`                           | no       | `chdir`'d before `execve`.                                                                                                                                                                                                                                                   |
+| `liveMounts` | `[{ guest: string, tag: string }]` | no       | One live mount per entry, served by an in-VMM virtio-fs device (#332). `tag` matches the device's config-space tag. `/init` runs `mount -t virtiofs <tag> <guest>` and waits up to 5s for the mount to appear in `/proc/self/mounts` before exec'ing `cmd`. Up to 5 entries. |
 
 Validation errors abort the boot via PSCI `SYSTEM_OFF` after logging
 to `/dev/kmsg` and the console. Unknown keys are ignored.

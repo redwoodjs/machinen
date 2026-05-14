@@ -273,7 +273,7 @@ const installSteps = async (vm: VmHandle) => {
 
   // #177 dev-VM tty resize agent. Overwrite even if /sbin/machinen-winsize-agent
   // already exists in the base rootfs, so the freshest local build wins
-  // (mirrors the /fuse-agent + /init refresh idiom in init.zig).
+  // (mirrors the /init refresh idiom in init.zig).
   if (winsizeAgentBin) {
     await bench("winsize agent", () =>
       vm.writeFile("/sbin/machinen-winsize-agent", winsizeAgentBin, {

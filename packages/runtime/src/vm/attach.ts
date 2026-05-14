@@ -178,14 +178,9 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
 
   // #273: snapshot ctx for the attach surface. Mirrors the boot-handle
   // builder but reads liveMount config from the registry (which the
-  // boot process persisted) and intentionally leaves the
-  // stop/respawnLiveMountServers callbacks undefined — the detached
-  // mount-server helpers belong to the OWNING process, so this
-  // process can't bind their UDSes. performSnapshot's choreography
-  // tolerates the gap: kill snapshots clean up via the owning
-  // process's exit hook; leaveRunning paths still exec
-  // /sbin/machinen-remount, and the re-fork'd fuse-agent dials the
-  // owning process's still-listening UDS.
+  // boot process persisted). Since #332 every live mount is served by
+  // an in-VMM virtio-fs device carried across the CRIU dump by the
+  // VMM, so there's nothing host-side for either handle to manage.
   function buildAttachSnapshotContext(): SnapshotContext {
     return {
       pid: entry.pid,

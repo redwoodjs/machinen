@@ -17,9 +17,10 @@
 #   V5-V8  --mount-live validation, including :ro / :rw modes — #78, #151.
 #   T1     Base-only boot — `echo hello-world` reaches the host console.
 #   T2     --mount exposes a host directory readable inside the guest.
-#   T3     --mount-live :ro streams a host file in lazily — #78.
+#   T3v    --mount-live :ro streams a host file in over virtio-fs — #332.
+#   T5v    --mount-live :rw guest writes land on the host over virtio-fs — #332.
+#   T9v    filesystem-op battery over a virtio-fs live mount — #332.
 #   T4     --env propagates into the guest process env — #89.
-#   T5     --mount-live (default :rw) guest writes land on the host — #151, #156.
 #   P1-P3  Base-rootfs contract (criu, virtio modules, poweroff) — #77.
 #   N1-N5  New #93 CLI surface: ls, exec, attach-unknown, completion,
 #          plus image-carries-cmd default.
@@ -258,9 +259,14 @@ expect_cli_error \
   boot --mount-live "$EMPTY_DIR:/etc/passwd" -- true
 
 expect_cli_error \
-  "V8: --mount-live rejects an unknown mode" \
-  "mode must be 'ro' or 'rw'" \
+  "V8: --mount-live rejects an unknown trailing modifier" \
+  "trailing modifier must be" \
   boot --mount-live "$EMPTY_DIR:/mnt/x:xx" -- true
+
+expect_cli_error \
+  "V9: --mount-live rejects a spec with too many colons" \
+  "expected <host-dir>:<guest-path>" \
+  boot --mount-live "$EMPTY_DIR:/mnt/x:rw:extra" -- true
 
 # ----------------------------------------------------------------
 # Boot tests — need HVF/KVM. Slow.
@@ -298,73 +304,139 @@ else
   fail "T2 marker ($T2_MARKER) not found in guest output"
 fi
 
-# ---- T3: --mount-live streams a file through the FUSE relay (#78) ----
+# ---- T3v: --mount-live :ro streams a file through virtio-fs (#332) ----
 #
 # Unlike T2 (copy-once), the host file must land in the guest lazily
-# via the vsock FUSE server, NOT be baked into the boot cpio. We
-# write the marker after the VM starts to prove that.
+# via the in-VMM virtio-fs device, NOT be baked into the boot cpio. We
+# write the marker after the VM starts to prove that. Needs a guest
+# kernel with CONFIG_VIRTIO_FS — every machinen-built kernel has it; a
+# stale Image without it surfaces here as a missing marker.
 #
-# Skips if the rootfs tarball doesn't ship the fuse-agent userspace
-# relay — the kernel always has FUSE built in (`=y`, see
-# build-kernel-arm64.sh), so the previous `fuse.ko` gate would skip
-# forever. Stale tarballs from before #78 won't have fuse-agent.
-echo "T3: machinen boot --mount-live ./fixture:/mnt/live:ro -- cat /mnt/live/hello.txt"
-if ! grep -q 'fuse-agent$' <<<"$ROOTFS_ENTRIES"; then
-  echo "  skip: fuse-agent not in $ROOTFS_TAR — rebuild base assets"
+# #338 removed the FUSE-over-vsock transport, so this is the only
+# `--mount-live` streaming path.
+echo "T3v: machinen boot --mount-live ./fixture:/mnt/live:ro -- cat /mnt/live/hello.txt"
+T3V_MARKER="virtiofs-ro-marker-$$"
+T3V_SRC="$FIXTURE/virtiofs-ro-src"
+T3V_LOG="$FIXTURE/t3v.log"
+mkdir -p "$T3V_SRC"
+# Seed the marker file AFTER the VM is already running to prove the
+# read streamed in (copy-once would have cached an empty dir at boot).
+(
+  sleep 3
+  echo "$T3V_MARKER" >"$T3V_SRC/hello.txt"
+) &
+T3V_SEEDER=$!
+# Explicit `:ro` since the default is `:rw` (#156); this test
+# intentionally exercises the read-only path.
+run_timeout 60 node "$CLI" boot \
+  --mount-live "$T3V_SRC:/mnt/live:ro" \
+  -- /bin/sh -c 'sleep 4 && cat /mnt/live/hello.txt' \
+  >"$T3V_LOG" 2>&1 || true
+wait "$T3V_SEEDER" 2>/dev/null || true
+if grep -q "$T3V_MARKER" "$T3V_LOG"; then
+  pass "virtio-fs live-mount streamed a file written after boot"
 else
-  T3_MARKER="livemount-marker-$$"
-  T3_SRC="$FIXTURE/live-src"
-  T3_LOG="$FIXTURE/t3.log"
-  mkdir -p "$T3_SRC"
-  # Seed the marker file AFTER the VM is already running to prove the
-  # read streamed in through vsock (copy-once would have cached an
-  # empty dir at boot).
-  (
-    sleep 3
-    echo "$T3_MARKER" >"$T3_SRC/hello.txt"
-  ) &
-  SEEDER=$!
-  # Explicit `:ro` since the default is `:rw` (#156); this test
-  # intentionally exercises the read-only path.
-  run_timeout 60 node "$CLI" boot \
-    --mount-live "$T3_SRC:/mnt/live:ro" \
-    -- /bin/sh -c 'sleep 4 && cat /mnt/live/hello.txt' \
-    >"$T3_LOG" 2>&1 || true
-  wait "$SEEDER" 2>/dev/null || true
-  if grep -q "$T3_MARKER" "$T3_LOG"; then
-    pass "live-mount streamed a file written after boot"
-  else
-    tail -80 "$T3_LOG" >&2
-    fail "T3 marker ($T3_MARKER) not found — live mount didn't stream through"
-  fi
+  tail -80 "$T3V_LOG" >&2
+  fail "T3v marker ($T3V_MARKER) not found — virtio-fs live mount didn't stream through"
 fi
 
-# ---- T5: --mount-live :rw writes from inside the guest land on the host (#151) ----
+# ---- T5v: --mount-live :rw over virtio-fs — guest write reaches host (#151, #332) ----
 #
-# Boots with `--mount-live <dir>:/mnt/live` (default :rw post-#156),
-# has the guest echo a marker into a file under that mount, then
-# asserts the file appears on the host filesystem with the right
-# contents AFTER the VM exits. Same fuse-agent gate as T3.
-echo "T5: machinen boot --mount-live (default :rw) — guest write reaches the host"
-if ! grep -q 'fuse-agent$' <<<"$ROOTFS_ENTRIES"; then
-  echo "  skip: fuse-agent not in $ROOTFS_TAR — rebuild base assets"
+# Mode left unset so the default-`:rw` (#156) path is exercised. The
+# guest echoes a marker into a file under the mount; we assert it
+# appears on the host with the right contents after the VM exits.
+echo "T5v: machinen boot --mount-live (default :rw) — guest write reaches the host"
+T5V_MARKER="virtiofs-rw-marker-$$"
+T5V_SRC="$FIXTURE/virtiofs-rw-src"
+T5V_LOG="$FIXTURE/t5v.log"
+mkdir -p "$T5V_SRC"
+run_timeout 60 node "$CLI" boot \
+  --mount-live "$T5V_SRC:/mnt/live:rw" \
+  -- /bin/sh -c "echo $T5V_MARKER >/mnt/live/from-guest.txt && sync" \
+  >"$T5V_LOG" 2>&1 || true
+if [[ -f "$T5V_SRC/from-guest.txt" ]] && grep -q "$T5V_MARKER" "$T5V_SRC/from-guest.txt"; then
+  pass "guest write through :rw virtio-fs live-mount visible on the host"
 else
-  T5_MARKER="livemount-rw-marker-$$"
-  T5_SRC="$FIXTURE/live-rw"
-  T5_LOG="$FIXTURE/t5.log"
-  mkdir -p "$T5_SRC"
-  run_timeout 60 node "$CLI" boot \
-    --mount-live "$T5_SRC:/mnt/live" \
-    -- /bin/sh -c "echo $T5_MARKER >/mnt/live/from-guest.txt && sync" \
-    >"$T5_LOG" 2>&1 || true
-  if [[ -f "$T5_SRC/from-guest.txt" ]] && grep -q "$T5_MARKER" "$T5_SRC/from-guest.txt"; then
-    pass "guest write through default-rw live-mount visible on the host"
-  else
-    tail -80 "$T5_LOG" >&2
-    echo "  host file: $(ls -la "$T5_SRC" 2>&1)" >&2
-    fail "T5 marker ($T5_MARKER) not found in $T5_SRC/from-guest.txt"
-  fi
+  tail -80 "$T5V_LOG" >&2
+  echo "  host file: $(ls -la "$T5V_SRC" 2>&1)" >&2
+  fail "T5v marker ($T5V_MARKER) not found in $T5V_SRC/from-guest.txt"
 fi
+
+# ---- T9v: filesystem-operations coverage over a virtio-fs live mount ----
+#
+# T3v/T5v each prove a live mount carries a single read or a single
+# write. This exercises the rest of the filesystem surface the #329
+# FUSE handlers implement — directories, nested paths, readdir, unlink,
+# rmdir, symlink creation, and a multi-frame large file — over the
+# in-VMM virtio-fs transport (#332, the only transport since #338).
+#
+# Deliberately left out, because the #329 handlers don't implement
+# them (ENOSYS):
+#   - append (`>>` / O_APPEND): a guest append fails with EIO on this
+#     path; pinning down whether that's host-side or a guest-kernel
+#     FUSE writeback-cache interaction needs its own investigation.
+#   - reading *through* a symlink (READLINK): `ln -s` itself works
+#     (SYMLINK), so the link is created and checked on the host, but
+#     `cat`-ing it would hit ENOSYS.
+#   - rename (RENAME), chmod (SETATTR is a stat-only stub).
+fs_ops_smoke() {
+  local label="T9v"
+  echo "$label: filesystem operations over a --mount-live (virtio-fs) mount"
+
+  local marker="fs-ops-$$"
+  local src="$FIXTURE/fs-ops"
+  local log="$FIXTURE/fs-ops.log"
+  mkdir -p "$src"
+  local fs_fail
+  fs_fail() {
+    tail -80 "$log" >&2 || true
+    ls -laR "$src" 2>&1 | head -40 >&2 || true
+    fail "$1"
+  }
+
+  # One guest script: a battery of filesystem ops under /mnt/fs, a
+  # read-back, then a unique marker. `set -e` aborts on the first
+  # failure, so a missing marker means something in the battery broke.
+  # `\$(...)` is escaped so the *guest* shell evaluates it.
+  # `seq 1 50000` is ~288 KiB — a deliberately multi-frame payload. The
+  # guest both writes it and reads it straight back, so the descriptor-
+  # chain gather (write) and scatter (read) are each exercised past the
+  # one-page boundary.
+  run_timeout 90 node "$CLI" boot \
+    --mount-live "$src:/mnt/fs:rw" \
+    -- /bin/sh -c "
+      set -e
+      mkdir -p /mnt/fs/d/nested
+      echo nested-content > /mnt/fs/d/nested/a.txt
+      seq 1 50000 > /mnt/fs/big.txt
+      echo bigread: \$(wc -l < /mnt/fs/big.txt | tr -d ' ')
+      echo doomed > /mnt/fs/doomed.txt && rm /mnt/fs/doomed.txt
+      mkdir /mnt/fs/emptydir && rmdir /mnt/fs/emptydir
+      ln -s d/nested/a.txt /mnt/fs/link.txt
+      echo readback: \$(cat /mnt/fs/d/nested/a.txt)
+      echo readdir: \$(ls /mnt/fs/d/nested | tr '\n' ' ')
+      sync
+      echo $marker
+    " >"$log" 2>&1 || true
+
+  # Guest side: the battery ran to completion, a file round-tripped,
+  # and the large file read back at full length (multi-frame scatter).
+  grep -q "$marker" "$log" || fs_fail "$label: guest battery didn't reach the marker ($marker)"
+  grep -q "readback: nested-content" "$log" || fs_fail "$label: file read-back wrong"
+  grep -q "bigread: 50000" "$log" || fs_fail "$label: large file read back short (multi-frame scatter)"
+
+  # Host side: every mutating op landed on the host directory.
+  [[ "$(cat "$src/d/nested/a.txt" 2>/dev/null)" == "nested-content" ]] ||
+    fs_fail "$label: nested file missing/wrong on host"
+  [[ "$(wc -l <"$src/big.txt" 2>/dev/null | tr -d ' ')" == "50000" ]] ||
+    fs_fail "$label: big.txt wrong line count on host (multi-frame write)"
+  [[ ! -e "$src/doomed.txt" ]] || fs_fail "$label: unlink didn't remove doomed.txt on host"
+  [[ ! -e "$src/emptydir" ]] || fs_fail "$label: rmdir didn't remove emptydir on host"
+  [[ -L "$src/link.txt" ]] || fs_fail "$label: symlink not present on host"
+  pass "fs ops (mkdir/write/nested/readdir/unlink/rmdir/symlink/large file) over virtio-fs"
+}
+
+fs_ops_smoke
 
 # ---- T4: --env propagates into the guest process env (#89) ----
 echo "T4: machinen boot --env FOO=bar -- sh -c 'echo FOO=\$FOO'"
@@ -1294,109 +1366,74 @@ fi
 # Already cleaned by `machinen stop`, so cleanup_n2d is a no-op now.
 trap 'rm -rf "$FIXTURE"' EXIT
 
-# ---- N2L: machinen boot --detached --mount-live; helper survives parent
-# exit, serves FUSE post-detach, and `machinen stop` reaps it.
-# Issue #150 phase 3. Re-uses the N2 rootfs-capability gate (same
-# requirement as N2D for vsock-exec, plus fuse-agent for the live
-# relay).
-if grep -q 'fuse-agent$' <<<"$ROOTFS_ENTRIES"; then
-  echo "N2L: machinen boot --detached --mount-live; helper survives detach; stop reaps it"
-  N2L_NAME="smoke-detached-live-$$"
-  N2L_LOG="$FIXTURE/n2l.log"
-  N2L_LOG_DIR="$FIXTURE/n2l-logs"
-  N2L_SRC="$FIXTURE/n2l-live"
-  N2L_MARKER="n2l-marker-$$"
-  mkdir -p "$N2L_SRC" "$N2L_LOG_DIR"
-  # Seed the marker BEFORE boot so the post-detach exec can read it.
-  # (Unlike T3 which writes the marker after boot to prove laziness,
-  # we just need to confirm the helper still serves bytes after the
-  # supervisor exited.)
-  echo "$N2L_MARKER" >"$N2L_SRC/hello.txt"
+# ---- N2L: machinen boot --detached --mount-live composes; the live
+# mount still serves bytes post-detach, and `machinen stop` reaps the
+# VM cleanly. Issue #150 phase 3 / #338. The live mount is served by an
+# in-VMM virtio-fs device that lives with the VMM, so `--detached`
+# carries it across the supervisor exit with no separate helper process.
+echo "N2L: machinen boot --detached --mount-live composes; exec reads it; stop reaps"
+N2L_NAME="smoke-detached-live-$$"
+N2L_LOG="$FIXTURE/n2l.log"
+N2L_LOG_DIR="$FIXTURE/n2l-logs"
+N2L_SRC="$FIXTURE/n2l-live"
+N2L_MARKER="n2l-marker-$$"
+mkdir -p "$N2L_SRC" "$N2L_LOG_DIR"
+# Seed the marker BEFORE boot so the post-detach exec can read it.
+echo "$N2L_MARKER" >"$N2L_SRC/hello.txt"
 
-  n2l_t0=$SECONDS
-  if MACHINEN_DETACHED_LOG_DIR="$N2L_LOG_DIR" cli boot \
-      --name "$N2L_NAME" --detached \
-      --mount-live "$N2L_SRC:/mnt/live:ro" \
-      -- /bin/sh -c "/exec-agent & sleep 120" >"$N2L_LOG" 2>&1; then
-    pass "boot --detached --mount-live returned 0 in $((SECONDS - n2l_t0))s"
-  else
-    cat "$N2L_LOG" >&2
-    fail "N2L — boot --detached --mount-live exited non-zero"
-  fi
+n2l_t0=$SECONDS
+if MACHINEN_DETACHED_LOG_DIR="$N2L_LOG_DIR" cli boot \
+    --name "$N2L_NAME" --detached \
+    --mount-live "$N2L_SRC:/mnt/live:ro" \
+    -- /bin/sh -c "/exec-agent & sleep 120" >"$N2L_LOG" 2>&1; then
+  pass "boot --detached --mount-live returned 0 in $((SECONDS - n2l_t0))s"
+else
+  cat "$N2L_LOG" >&2
+  fail "N2L — boot --detached --mount-live exited non-zero"
+fi
 
-  N2L_PID=$(cli ls 2>/dev/null | awk -v n="$N2L_NAME" 'NR>1 && $2==n {print $1}')
-  cleanup_n2l() {
-    [[ -n "${N2L_PID:-}" ]] && kill -TERM "$N2L_PID" 2>/dev/null || true
-  }
-  trap 'cleanup_n2l; rm -rf "$FIXTURE"' EXIT
-  if [[ -z "$N2L_PID" ]]; then
-    cli ls >&2 || true
-    fail "N2L — '$N2L_NAME' missing from 'machinen ls' after detach"
-  fi
+N2L_PID=$(cli ls 2>/dev/null | awk -v n="$N2L_NAME" 'NR>1 && $2==n {print $1}')
+cleanup_n2l() {
+  [[ -n "${N2L_PID:-}" ]] && kill -TERM "$N2L_PID" 2>/dev/null || true
+}
+trap 'cleanup_n2l; rm -rf "$FIXTURE"' EXIT
+if [[ -z "$N2L_PID" ]]; then
+  cli ls >&2 || true
+  fail "N2L — '$N2L_NAME' missing from 'machinen ls' after detach"
+fi
+pass "detached --mount-live VM registered as '$N2L_NAME' (pid $N2L_PID)"
 
-  N2L_META="$MACHINEN_REGISTRY_DIR/$N2L_PID/meta.json"
-  N2L_HELPER_PIDS=$(node -p "
-    const e = JSON.parse(require('fs').readFileSync('$N2L_META','utf8'));
-    (e.liveMountServers ?? []).map(s => s.pid).join(' ')
-  " 2>/dev/null || true)
-  if [[ -z "$N2L_HELPER_PIDS" ]]; then
-    cat "$N2L_META" >&2
-    fail "N2L — registry meta has no liveMountServers entry"
-  fi
-  pass "registry recorded mount-server helper pid(s): $N2L_HELPER_PIDS"
-
-  # Each helper should be alive (the supervisor exited but pdeathsig
-  # --watch-pid <vmm> keeps them up).
-  for hp in $N2L_HELPER_PIDS; do
-    if ! kill -0 "$hp" 2>/dev/null; then
-      fail "N2L — helper pid $hp not alive after supervisor exit"
-    fi
-  done
-  pass "all helper pids still alive after supervisor exit"
-
-  # Real-traffic check: post-detach exec into the VM and read the
-  # mounted file. If the helper died (or never started), this
-  # `cat /mnt/live/hello.txt` would surface a FUSE/IO error.
-  N2L_EXEC_LOG="$FIXTURE/n2l-exec.log"
-  if cli exec "$N2L_NAME" -- cat /mnt/live/hello.txt >"$N2L_EXEC_LOG" 2>&1; then
-    if grep -q "$N2L_MARKER" "$N2L_EXEC_LOG"; then
-      pass "post-detach 'cat /mnt/live/hello.txt' returned the seeded marker"
-    else
-      cat "$N2L_EXEC_LOG" >&2
-      fail "N2L — post-detach cat output missing marker"
-    fi
+# Real-traffic check: post-detach exec into the VM and read the
+# mounted file. If the virtio-fs device didn't survive the detach,
+# this `cat /mnt/live/hello.txt` would surface an I/O error.
+N2L_EXEC_LOG="$FIXTURE/n2l-exec.log"
+if cli exec "$N2L_NAME" -- cat /mnt/live/hello.txt >"$N2L_EXEC_LOG" 2>&1; then
+  if grep -q "$N2L_MARKER" "$N2L_EXEC_LOG"; then
+    pass "post-detach 'cat /mnt/live/hello.txt' returned the seeded marker"
   else
     cat "$N2L_EXEC_LOG" >&2
-    fail "N2L — post-detach 'machinen exec ... cat' exited non-zero"
+    fail "N2L — post-detach cat output missing marker"
   fi
+else
+  cat "$N2L_EXEC_LOG" >&2
+  fail "N2L — post-detach 'machinen exec ... cat' exited non-zero"
+fi
 
-  # `machinen stop` should SIGTERM the VMM and the helper(s) cleanly.
-  N2L_STOP_LOG="$FIXTURE/n2l-stop.log"
-  if cli stop "$N2L_NAME" >"$N2L_STOP_LOG" 2>&1; then
-    pass "machinen stop $N2L_NAME exited 0"
-  else
-    cat "$N2L_STOP_LOG" >&2
-    fail "N2L — machinen stop exited non-zero"
-  fi
+# `machinen stop` should SIGTERM the VMM cleanly.
+N2L_STOP_LOG="$FIXTURE/n2l-stop.log"
+if cli stop "$N2L_NAME" >"$N2L_STOP_LOG" 2>&1; then
+  pass "machinen stop $N2L_NAME exited 0"
+else
+  cat "$N2L_STOP_LOG" >&2
+  fail "N2L — machinen stop exited non-zero"
+fi
 
-  # Helpers should now be gone.
-  for hp in $N2L_HELPER_PIDS; do
-    if kill -0 "$hp" 2>/dev/null; then
-      ps -o pid=,comm= -p "$hp" >&2 || true
-      fail "N2L — helper pid $hp still alive after machinen stop"
-    fi
-  done
-  pass "machinen stop reaped all mount-server helper pids"
-
-  trap 'rm -rf "$FIXTURE"' EXIT
-fi  # N2L fuse-agent gate
+trap 'rm -rf "$FIXTURE"' EXIT
 
 # ---- N2M: machinen boot --detached --mount; overlay survives parent
 # exit, exec reads it post-detach, `machinen stop` reaps the per-VM
 # ext4 upper.
-# Issue #150 phase 3 (M2). Reuses the N2 rootfs-capability gate; no
-# fuse-agent gate needed because --mount is a kernel block device, not
-# FUSE.
+# Issue #150 phase 3 (M2). Reuses the N2 rootfs-capability gate.
 echo "N2M: machinen boot --detached --mount; overlay survives detach; stop reaps the upper"
 N2M_NAME="smoke-detached-mount-$$"
 N2M_LOG="$FIXTURE/n2m.log"

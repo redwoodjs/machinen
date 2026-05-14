@@ -1,16 +1,12 @@
-// Provision a small purpose-built rootfs for the FUSE workload tests
-// (#165 layer 2). Kept separate from `pnpm provision` so the dev VM
-// stays minimal — these tools (rsync, sqlite3) are only relevant when
-// driving real workloads against the live mount.
+// Provision a small purpose-built rootfs for the live-mount workload
+// tests (#165 layer 2). Kept separate from `pnpm provision` so the dev
+// VM stays minimal — these tools (rsync, sqlite3) are only relevant
+// when driving real workloads against the live mount.
 //
 //   pnpm provision-test-vm           # incremental — runs only when the install hook changes
 //   pnpm provision-test-vm --force   # ignore the stamp, full rebuild
 //
 // Output: ~/.cache/machinen/<repo>/test-vm.tar.gz
-//
-// Consumed by packages/runtime/src/__tests__/mount-server-workloads.test.ts
-// — the test file's `runIf` gate flips to true once this lands. Without
-// it, the workload tests skip locally with an instructive message.
 
 import type { VmHandle } from "@machinen/runtime";
 import { execFileSync } from "node:child_process";

@@ -67,36 +67,20 @@ export interface SnapshotContext {
     upperPath: string;
   };
   /**
-   * #273: live-share FUSE mounts the source VM has active. Threaded
-   * into the bundle's `meta.json` so `restore()` can re-establish
-   * the same window (or apply per-guest overrides on a different
-   * host). Both boot- and attach-handle ctxes populate this — boot
-   * from `liveMountsResolved`, attach from the registry. Undefined
-   * / empty for VMs booted without `liveMounts`.
+   * #273: live-share mounts the source VM has active. Threaded into
+   * the bundle's `meta.json` so `restore()` can re-establish the same
+   * window (or apply per-guest overrides on a different host). Both
+   * boot- and attach-handle ctxes populate this — boot from
+   * `liveMountsResolved`, attach from the registry. Undefined / empty
+   * for VMs booted without `liveMounts`. Since #332 each is served by
+   * an in-VMM virtio-fs device that the VMM carries across the CRIU
+   * dump, so there's nothing host-side to stop or respawn.
    */
-  liveMounts?: ReadonlyArray<{ host: string; guest: string; mode: "ro" | "rw" }>;
-  /**
-   * #273: tear down the host-side mount-server instances (the
-   * `DetachedMountServerHandle`s from `spawnDetachedMountServer`).
-   * Called once after the dump completes successfully — the guest's preflight
-   * already unmounted, so the servers are idle. Boot-handle ctxes
-   * pass a closure that stops the boot scope's `liveMountServers`
-   * array; attach-handle ctxes leave this undefined because the
-   * servers belong to another (owning) process — they keep
-   * listening through the dump and the guest's remount reconnects
-   * to them. Skipped silently when undefined.
-   */
-  stopLiveMountServers?: () => Promise<void>;
-  /**
-   * #273: respawn fresh mount-server instances on the same UDS paths
-   * the original servers listened on, so the guest's
-   * `/sbin/machinen-remount` reconnects to a clean inode/handle
-   * table. Boot-handle only — attach can't bind UDSes the boot
-   * process owns. Only invoked on `leaveRunning: true`. When
-   * undefined and leaveRunning is set, the remount still runs but
-   * targets whatever server the owning process has up.
-   */
-  respawnLiveMountServers?: () => Promise<void>;
+  liveMounts?: ReadonlyArray<{
+    host: string;
+    guest: string;
+    mode: "ro" | "rw";
+  }>;
   /**
    * Snaplet engine only: absolute path the VMM was told to write its
    * `.snaplet` state file to (the `MACHINEN_SNAPSHOT_PATH` it booted
@@ -218,7 +202,6 @@ async function performSnapshotCriu(
   validateDumpResult(dumpRes, imgEntries, consoleLog, deadlineMs);
 
   const mountDiskMeta = await reflinkMountOverlay(ctx, snapDir, deadlineMs);
-  await manageLiveMountServers(ctx, leaveRunning, deadlineMs, onLog);
 
   if (!leaveRunning) {
     phases.start("poweroff");
@@ -489,88 +472,6 @@ async function reflinkMountOverlay(
   };
 }
 
-// #273: live-share FUSE mount choreography. The guest's preflight
-// already unmounted before CRIU ran (machinen-dump-preflight.sh's
-// `unmount_live_mounts`), so the FUSE state CRIU sees is clean.
-// What's left to do here is host-side hygiene + (for leaveRunning)
-// putting the workload's mount view back together:
-//
-//   - Stop owned servers via ctx.stopLiveMountServers if present.
-//     Boot-handle: closures over the boot scope's array; clears it
-//     so the exit hook doesn't double-stop. Attach-handle: undefined
-//     (the servers live in the owning process and stay listening
-//     through the dump, which is what lets the remount-from-attach
-//     case work without cross-process server handoff).
-//   - leaveRunning + boot-handle: respawn fresh servers on the same
-//     UDSes for clean inode/handle tables.
-//   - leaveRunning + any handle: exec /sbin/machinen-remount in the
-//     guest. It re-forks fuse-agent and waits for /mnt/<guest>/ to
-//     reappear in /proc/self/mounts. For attach-handle the new
-//     fuse-agent dials the owning process's still-listening UDS;
-//     for boot-handle it dials the freshly-respawned server.
-//
-// Skipped silently when ctx.liveMounts is unset (no live mounts on
-// this VM, or a code path that can't surface the config).
-async function manageLiveMountServers(
-  ctx: SnapshotContext,
-  leaveRunning: boolean,
-  deadlineMs: number,
-  onLog: OnLog | undefined,
-): Promise<void> {
-  if (!ctx.liveMounts || ctx.liveMounts.length === 0) {
-    return;
-  }
-  if (ctx.stopLiveMountServers) {
-    try {
-      await ctx.stopLiveMountServers();
-    } catch (err) {
-      debugSnapshot(
-        "stopLiveMountServers failed (continuing): %s",
-        err instanceof Error ? err.message : String(err),
-      );
-    }
-  }
-  if (!leaveRunning) {
-    return;
-  }
-  if (ctx.respawnLiveMountServers) {
-    try {
-      await ctx.respawnLiveMountServers();
-    } catch (err) {
-      // Fail loudly — leaveRunning workloads expect their FS view
-      // back. Without the respawn the remount would hang on
-      // connect-retry.
-      throw new SnapshotError(
-        "SNAPSHOT_DUMP_FAILED",
-        `vm.snapshot: failed to respawn live-mount servers post-dump: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-        { cause: err },
-      );
-    }
-  }
-  // Tell the guest to re-fork fuse-agent. Reads
-  // /etc/machinen-livemounts (written by /init's bringUpLiveMounts)
-  // and waits for each mount to reappear in /proc/self/mounts.
-  try {
-    await ctx.execRaw("/sbin/machinen-remount", {
-      connectTimeoutMs: Math.min(deadlineMs, 5_000),
-      execTimeoutMs: 15_000,
-      onStderr: onLog
-        ? (chunk) => onLog({ source: "exec-stderr", cmd: "/sbin/machinen-remount", chunk })
-        : undefined,
-    });
-  } catch (err) {
-    throw new SnapshotError(
-      "SNAPSHOT_DUMP_FAILED",
-      `vm.snapshot: post-dump remount in guest failed: ${
-        err instanceof Error ? err.message : String(err)
-      }`,
-      { cause: err },
-    );
-  }
-}
-
 // Destructive snapshot: the source VM is still alive (we always
 // pass --leave-running internally). Bring it down via a clean
 // poweroff so callers see the same "VM is gone after snapshot"
@@ -630,7 +531,11 @@ function writeSnapshotMeta(
     // carried a resolved list (boot-handle path).
     liveMounts:
       ctx.liveMounts && ctx.liveMounts.length > 0
-        ? ctx.liveMounts.map(({ guest, host, mode }) => ({ guest, host, mode }))
+        ? ctx.liveMounts.map(({ guest, host, mode }) => ({
+            guest,
+            host,
+            mode,
+          }))
         : undefined,
   };
   writeFileSync(join(snapDir, "meta.json"), JSON.stringify(meta));

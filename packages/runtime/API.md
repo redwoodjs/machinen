@@ -1779,14 +1779,6 @@ fnmatch patterns matched against each rootfs-relative path.
 
 Optional path to the compiled /init. Default: ../microvm/test-fixtures/init relative to this file.
 
-##### fuseAgentPath?
-
-> `optional` **fuseAgentPath?**: `string`
-
-Optional host path to the compiled fuse-agent binary. When set,
-the binary is injected at `/fuse-agent` (mode 0755) inside the
-initramfs so /init can fork it per live-share mount. See #78.
-
 ##### execAgentPath?
 
 > `optional` **execAgentPath?**: `string`
@@ -1834,12 +1826,6 @@ not in the cpio. Must be an absolute path under `/mnt/`.
 > `optional` **initPath?**: `string`
 
 Optional override for the compiled /init. Default: ../microvm/test-fixtures/init relative to this file.
-
-##### fuseAgentPath?
-
-> `optional` **fuseAgentPath?**: `string`
-
-Optional path to the compiled fuse-agent; staged at /fuse-agent when set.
 
 ***
 
@@ -2543,16 +2529,6 @@ the VM was restored. Set on restore-derived entries, undefined
 for plain boots and eager restores. Surfaced via
 `vm.memoryStats().lazyPagesPending`.
 
-##### lazyPagesMountRoot?
-
-> `optional` **lazyPagesMountRoot?**: `string`
-
-Absolute path under which the lazy-restore FUSE mount serves
-`pages-*.img` reads. The mount-server tracks bytes served below
-this prefix; `vm.memoryStats()` divides that by 4096 and
-subtracts from `lazyPagesTotal` to derive `lazyPagesPending`.
-Undefined when the VM wasn't lazy-restored.
-
 ##### mountDisk?
 
 > `optional` **mountDisk?**: `object`
@@ -2582,15 +2558,13 @@ silently boots without the overlay.
 
 > `optional` **liveMounts?**: `object`[]
 
-#273: live-share FUSE mounts (`liveMounts: [...]` at boot) the
-VM was started with. Persisted so an attach-owned `vm.snapshot()`
-/ `vm.fork()` can record the same `meta.liveMounts` block in the
-bundle and trigger /sbin/machinen-remount post-dump on
-leaveRunning paths. Host UDS paths and vsock ports are NOT
-recorded — those are the boot process's private state and aren't
-useful to other processes (the owning process keeps the servers
-listening through the dump, so attach reconnects without having
-to bind anything).
+#273: live-share mounts (`liveMounts: [...]` at boot) the VM was
+started with. Persisted so an attach-owned `vm.snapshot()` /
+`vm.fork()` can record the same `meta.liveMounts` block in the
+bundle. Since #332 every live mount is served by an in-VMM
+virtio-fs device — there's no host-side process to record, reap,
+or reconnect to. The per-mount virtio-fs tag isn't recorded
+either; it's re-derived from the resolved order on restore.
 
 ###### guest
 
@@ -2603,27 +2577,6 @@ to bind anything).
 ###### mode
 
 > **mode**: `"ro"` \| `"rw"`
-
-##### liveMountServers?
-
-> `optional` **liveMountServers?**: `object`[]
-
-#150 phase 3: pids + exes of the detached mount-server helpers
-spawned alongside this VMM, one per live-mount. The helpers die
-with the VMM via `pdeathsig --watch-pid` already, but `machinen
-stop` SIGTERMs them up-front so the VMM exit hook doesn't race
-with the helper's own pdeathsig-driven shutdown, and `machinen
-gc` validates pid+exe to detect recycled pids the same way the
-VMM and gvproxy entries do. Empty / undefined for VMs booted
-without `liveMounts`.
-
-###### pid
-
-> **pid**: `number`
-
-###### exe
-
-> **exe**: `string`
 
 ##### startedAt
 
@@ -3312,20 +3265,20 @@ consulting the host source dir.
 
 > `optional` **liveMounts?**: `object`[]
 
-#273: live-share FUSE mounts (`liveMounts: [...]` at boot) the
-source VM had at snapshot time. Unlike `mountDisk`, no bytes are
-captured — `host` is the path on the host that was being live-
-shared, recorded so `restore()` can re-establish the same window
-on the restoring host. Each entry is the resolved config from the
+#273: live-share mounts (`liveMounts: [...]` at boot) the source
+VM had at snapshot time. Unlike `mountDisk`, no bytes are captured
+— `host` is the path on the host that was being live-shared,
+recorded so `restore()` can re-establish the same window on the
+restoring host. Each entry is the resolved config from the
 source's `resolveLiveMounts()`:
-  - `guest`: absolute guest path the FUSE mount lands at.
+  - `guest`: absolute guest path the mount lands at.
   - `host`:  absolute host path that was being shared.
   - `mode`:  `"ro"` or `"rw"`, the share's write semantics.
 
 Restore policy: the bundle's recorded mounts are re-established
 verbatim by default. Pass `restore({ liveMounts })` to override
-per-guest `host`/`mode` — each override entry's `guest` must
-match a recorded entry, else BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN.
+per-guest `host`/`mode` — each override entry's `guest` must match
+a recorded entry, else BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN.
 Cross-host bundles where a recorded `host` doesn't exist on the
 restoring host fail loudly via the boot-time existence check —
 users remap with the override knob.
@@ -3637,34 +3590,35 @@ Must be a positive multiple of 4096. Default 4 GiB.
 
 > `optional` **liveMounts?**: `object`[]
 
-Host directories exposed to the guest as live-share FUSE mounts
-(#78). Unlike `mount` (copy-once into the boot rootfs), these stay
-connected to the host: the guest reads on demand via a vsock FUSE
-relay, and nothing is copied at boot. `mode` defaults to `"rw"` —
-guest writes land on the host (#151, #156). Set `"ro"` for a
-one-way share (host caches, untrusted guests).
+Host directories exposed to the guest as live-share mounts (#78,
+#332). Unlike `mount` (copy-once into the boot rootfs), these stay
+connected to the host: the guest reads on demand and nothing is
+copied at boot. `mode` defaults to `"rw"` — guest writes land on
+the host (#151, #156). Set `"ro"` for a one-way share (host
+caches, untrusted guests).
 
 Each guest path must live under `/mnt/` (same rule as `mount`).
-Repeatable; each entry gets its own vsock port.
+Repeatable up to 4 entries per VM — each is served by its own
+in-VMM virtio-fs device (the VMM wires 4 virtio-fs slots). The
+FUSE opcode handlers run inside the VMM and the guest mounts each
+share directly with `mount -t virtiofs` — no agent process, no
+vsock hop. Requires a guest kernel with `CONFIG_VIRTIO_FS` — every
+machinen-built kernel has it. (The older FUSE-over-vsock transport
+and its `protocol` knob were removed in #338.)
 
 Snapshot / restore / fork (#273): liveMount has no guest-side
 state worth checkpointing — reads come from the host on demand,
-writes (in `"rw"`) land on the host immediately. The runtime
-unmounts each mount before CRIU dumps, then re-establishes a
-fresh window on the other side: for `vm.snapshot({ leaveRunning:
-true })` and `vm.fork()` the source's workload sees `/mnt/<guest>/`
-disappear for the dump duration (typically seconds, scales with
-memory size) before reappearing under fresh server state. Open
-fds across that window see EBADF on next syscall — same shape
-as "don't snapshot during a database write." Workloads that
-quiesce before snapshot are unaffected.
+writes (in `"rw"`) land on the host immediately. The in-VMM
+virtio-fs device persists across the CRIU dump, so the workload's
+view of `/mnt/<guest>/` survives `vm.snapshot({ leaveRunning:
+true })` and `vm.fork()` without an unmount/remount window.
 
 Concurrent writes from multiple forks against the same host
 directory are no different from any other shared filesystem —
-the runtime re-establishes the window per-VM but doesn't
-coordinate writes between siblings. If two forks need
-non-overlapping write surfaces, point each at a distinct
-`host` path or use `mount` (copy-once, per-VM upper).
+each VM gets its own device but the runtime doesn't coordinate
+writes between siblings. If two forks need non-overlapping write
+surfaces, point each at a distinct `host` path or use `mount`
+(copy-once, per-VM upper).
 
 Restore on a host where the recorded `host` path doesn't exist:
 fails loudly via `BOOT_MOUNT_HOST_NOT_FOUND`. Pass
@@ -4048,34 +4002,35 @@ Must be a positive multiple of 4096. Default 4 GiB.
 
 > `optional` **liveMounts?**: `object`[]
 
-Host directories exposed to the guest as live-share FUSE mounts
-(#78). Unlike `mount` (copy-once into the boot rootfs), these stay
-connected to the host: the guest reads on demand via a vsock FUSE
-relay, and nothing is copied at boot. `mode` defaults to `"rw"` —
-guest writes land on the host (#151, #156). Set `"ro"` for a
-one-way share (host caches, untrusted guests).
+Host directories exposed to the guest as live-share mounts (#78,
+#332). Unlike `mount` (copy-once into the boot rootfs), these stay
+connected to the host: the guest reads on demand and nothing is
+copied at boot. `mode` defaults to `"rw"` — guest writes land on
+the host (#151, #156). Set `"ro"` for a one-way share (host
+caches, untrusted guests).
 
 Each guest path must live under `/mnt/` (same rule as `mount`).
-Repeatable; each entry gets its own vsock port.
+Repeatable up to 4 entries per VM — each is served by its own
+in-VMM virtio-fs device (the VMM wires 4 virtio-fs slots). The
+FUSE opcode handlers run inside the VMM and the guest mounts each
+share directly with `mount -t virtiofs` — no agent process, no
+vsock hop. Requires a guest kernel with `CONFIG_VIRTIO_FS` — every
+machinen-built kernel has it. (The older FUSE-over-vsock transport
+and its `protocol` knob were removed in #338.)
 
 Snapshot / restore / fork (#273): liveMount has no guest-side
 state worth checkpointing — reads come from the host on demand,
-writes (in `"rw"`) land on the host immediately. The runtime
-unmounts each mount before CRIU dumps, then re-establishes a
-fresh window on the other side: for `vm.snapshot({ leaveRunning:
-true })` and `vm.fork()` the source's workload sees `/mnt/<guest>/`
-disappear for the dump duration (typically seconds, scales with
-memory size) before reappearing under fresh server state. Open
-fds across that window see EBADF on next syscall — same shape
-as "don't snapshot during a database write." Workloads that
-quiesce before snapshot are unaffected.
+writes (in `"rw"`) land on the host immediately. The in-VMM
+virtio-fs device persists across the CRIU dump, so the workload's
+view of `/mnt/<guest>/` survives `vm.snapshot({ leaveRunning:
+true })` and `vm.fork()` without an unmount/remount window.
 
 Concurrent writes from multiple forks against the same host
 directory are no different from any other shared filesystem —
-the runtime re-establishes the window per-VM but doesn't
-coordinate writes between siblings. If two forks need
-non-overlapping write surfaces, point each at a distinct
-`host` path or use `mount` (copy-once, per-VM upper).
+each VM gets its own device but the runtime doesn't coordinate
+writes between siblings. If two forks need non-overlapping write
+surfaces, point each at a distinct `host` path or use `mount`
+(copy-once, per-VM upper).
 
 Restore on a host where the recorded `host` path doesn't exist:
 fails loudly via `BOOT_MOUNT_HOST_NOT_FOUND`. Pass
@@ -4394,34 +4349,35 @@ Must be a positive multiple of 4096. Default 4 GiB.
 
 > `optional` **liveMounts?**: `object`[]
 
-Host directories exposed to the guest as live-share FUSE mounts
-(#78). Unlike `mount` (copy-once into the boot rootfs), these stay
-connected to the host: the guest reads on demand via a vsock FUSE
-relay, and nothing is copied at boot. `mode` defaults to `"rw"` —
-guest writes land on the host (#151, #156). Set `"ro"` for a
-one-way share (host caches, untrusted guests).
+Host directories exposed to the guest as live-share mounts (#78,
+#332). Unlike `mount` (copy-once into the boot rootfs), these stay
+connected to the host: the guest reads on demand and nothing is
+copied at boot. `mode` defaults to `"rw"` — guest writes land on
+the host (#151, #156). Set `"ro"` for a one-way share (host
+caches, untrusted guests).
 
 Each guest path must live under `/mnt/` (same rule as `mount`).
-Repeatable; each entry gets its own vsock port.
+Repeatable up to 4 entries per VM — each is served by its own
+in-VMM virtio-fs device (the VMM wires 4 virtio-fs slots). The
+FUSE opcode handlers run inside the VMM and the guest mounts each
+share directly with `mount -t virtiofs` — no agent process, no
+vsock hop. Requires a guest kernel with `CONFIG_VIRTIO_FS` — every
+machinen-built kernel has it. (The older FUSE-over-vsock transport
+and its `protocol` knob were removed in #338.)
 
 Snapshot / restore / fork (#273): liveMount has no guest-side
 state worth checkpointing — reads come from the host on demand,
-writes (in `"rw"`) land on the host immediately. The runtime
-unmounts each mount before CRIU dumps, then re-establishes a
-fresh window on the other side: for `vm.snapshot({ leaveRunning:
-true })` and `vm.fork()` the source's workload sees `/mnt/<guest>/`
-disappear for the dump duration (typically seconds, scales with
-memory size) before reappearing under fresh server state. Open
-fds across that window see EBADF on next syscall — same shape
-as "don't snapshot during a database write." Workloads that
-quiesce before snapshot are unaffected.
+writes (in `"rw"`) land on the host immediately. The in-VMM
+virtio-fs device persists across the CRIU dump, so the workload's
+view of `/mnt/<guest>/` survives `vm.snapshot({ leaveRunning:
+true })` and `vm.fork()` without an unmount/remount window.
 
 Concurrent writes from multiple forks against the same host
 directory are no different from any other shared filesystem —
-the runtime re-establishes the window per-VM but doesn't
-coordinate writes between siblings. If two forks need
-non-overlapping write surfaces, point each at a distinct
-`host` path or use `mount` (copy-once, per-VM upper).
+each VM gets its own device but the runtime doesn't coordinate
+writes between siblings. If two forks need non-overlapping write
+surfaces, point each at a distinct `host` path or use `mount`
+(copy-once, per-VM upper).
 
 Restore on a host where the recorded `host` path doesn't exist:
 fails loudly via `BOOT_MOUNT_HOST_NOT_FOUND`. Pass
@@ -4942,14 +4898,6 @@ tarball-producing tool can pre-populate the lookup cache.
 ##### MOUNT\_PATH\_ESCAPE
 
 > `readonly` **MOUNT\_PATH\_ESCAPE**: `"MOUNT_PATH_ESCAPE"` = `"MOUNT_PATH_ESCAPE"`
-
-##### MOUNT\_SERVER\_BIN\_MISSING
-
-> `readonly` **MOUNT\_SERVER\_BIN\_MISSING**: `"MOUNT_SERVER_BIN_MISSING"` = `"MOUNT_SERVER_BIN_MISSING"`
-
-##### MOUNT\_SERVER\_SPAWN\_FAILED
-
-> `readonly` **MOUNT\_SERVER\_SPAWN\_FAILED**: `"MOUNT_SERVER_SPAWN_FAILED"` = `"MOUNT_SERVER_SPAWN_FAILED"`
 
 ##### SECRETS\_VALUE\_INVALID
 
@@ -5517,7 +5465,6 @@ Layout:
                                    blk slots 5+6, not in the cpio.
   /dev/console                     char node 5,1 — kernel needs it
                                    before /init re-opens the console
-  /fuse-agent                      optional, only when liveMounts
   /tmp                             sticky 1777
 
 No /lib/modules tree, no kmod, no /modules/*.ko, no Debian userland.

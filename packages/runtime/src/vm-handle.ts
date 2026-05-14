@@ -364,25 +364,29 @@ export interface SnapshotMeta {
     upper: string;
   };
   /**
-   * #273: live-share FUSE mounts (`liveMounts: [...]` at boot) the
-   * source VM had at snapshot time. Unlike `mountDisk`, no bytes are
-   * captured — `host` is the path on the host that was being live-
-   * shared, recorded so `restore()` can re-establish the same window
-   * on the restoring host. Each entry is the resolved config from the
+   * #273: live-share mounts (`liveMounts: [...]` at boot) the source
+   * VM had at snapshot time. Unlike `mountDisk`, no bytes are captured
+   * — `host` is the path on the host that was being live-shared,
+   * recorded so `restore()` can re-establish the same window on the
+   * restoring host. Each entry is the resolved config from the
    * source's `resolveLiveMounts()`:
-   *   - `guest`: absolute guest path the FUSE mount lands at.
+   *   - `guest`: absolute guest path the mount lands at.
    *   - `host`:  absolute host path that was being shared.
    *   - `mode`:  `"ro"` or `"rw"`, the share's write semantics.
    *
    * Restore policy: the bundle's recorded mounts are re-established
    * verbatim by default. Pass `restore({ liveMounts })` to override
-   * per-guest `host`/`mode` — each override entry's `guest` must
-   * match a recorded entry, else BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN.
+   * per-guest `host`/`mode` — each override entry's `guest` must match
+   * a recorded entry, else BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN.
    * Cross-host bundles where a recorded `host` doesn't exist on the
    * restoring host fail loudly via the boot-time existence check —
    * users remap with the override knob.
    */
-  liveMounts?: Array<{ guest: string; host: string; mode: "ro" | "rw" }>;
+  liveMounts?: Array<{
+    guest: string;
+    host: string;
+    mode: "ro" | "rw";
+  }>;
 }
 
 /**
