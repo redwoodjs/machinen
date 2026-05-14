@@ -18,6 +18,7 @@
 #   T1     Base-only boot — `echo hello-world` reaches the host console.
 #   T2     --mount exposes a host directory readable inside the guest.
 #   T3     --mount-live :ro streams a host file in lazily — #78.
+#   T3v/T5v --mount-live over the virtio-fs transport — #332.
 #   T4     --env propagates into the guest process env — #89.
 #   T5     --mount-live (default :rw) guest writes land on the host — #151, #156.
 #   P1-P3  Base-rootfs contract (criu, virtio modules, poweroff) — #77.
@@ -256,9 +257,14 @@ expect_cli_error \
   boot --mount-live "$EMPTY_DIR:/etc/passwd" -- true
 
 expect_cli_error \
-  "V8: --mount-live rejects an unknown mode" \
-  "mode must be 'ro' or 'rw'" \
+  "V8: --mount-live rejects an unknown trailing modifier" \
+  "trailing modifier must be" \
   boot --mount-live "$EMPTY_DIR:/mnt/x:xx" -- true
+
+expect_cli_error \
+  "V9: --mount-live rejects an unknown protocol token" \
+  "trailing modifier must be" \
+  boot --mount-live "$EMPTY_DIR:/mnt/x:rw:nfs" -- true
 
 # ----------------------------------------------------------------
 # Boot tests — need HVF/KVM. Slow.
@@ -362,6 +368,53 @@ else
     echo "  host file: $(ls -la "$T5_SRC" 2>&1)" >&2
     fail "T5 marker ($T5_MARKER) not found in $T5_SRC/from-guest.txt"
   fi
+fi
+
+# ---- T3v: --mount-live :ro over the virtio-fs transport (#332) ----
+#
+# Same contract as T3 (host file written after boot streams into the
+# guest) but `protocol=virtiofs`: the in-VMM virtio-fs device serves
+# it, no fuse-agent, no vsock. Needs a guest kernel with
+# CONFIG_VIRTIO_FS — every machinen-built kernel has it; a stale
+# Image without it surfaces here as a missing marker.
+echo "T3v: machinen boot --mount-live ./fixture:/mnt/live:ro:virtiofs -- cat /mnt/live/hello.txt"
+T3V_MARKER="virtiofs-ro-marker-$$"
+T3V_SRC="$FIXTURE/virtiofs-ro-src"
+T3V_LOG="$FIXTURE/t3v.log"
+mkdir -p "$T3V_SRC"
+(
+  sleep 3
+  echo "$T3V_MARKER" >"$T3V_SRC/hello.txt"
+) &
+T3V_SEEDER=$!
+run_timeout 60 node "$CLI" boot \
+  --mount-live "$T3V_SRC:/mnt/live:ro:virtiofs" \
+  -- /bin/sh -c 'sleep 4 && cat /mnt/live/hello.txt' \
+  >"$T3V_LOG" 2>&1 || true
+wait "$T3V_SEEDER" 2>/dev/null || true
+if grep -q "$T3V_MARKER" "$T3V_LOG"; then
+  pass "virtio-fs live-mount streamed a file written after boot"
+else
+  tail -80 "$T3V_LOG" >&2
+  fail "T3v marker ($T3V_MARKER) not found — virtio-fs live mount didn't stream through"
+fi
+
+# ---- T5v: --mount-live :rw over virtio-fs — guest write reaches host (#332) ----
+echo "T5v: machinen boot --mount-live (:rw:virtiofs) — guest write reaches the host"
+T5V_MARKER="virtiofs-rw-marker-$$"
+T5V_SRC="$FIXTURE/virtiofs-rw-src"
+T5V_LOG="$FIXTURE/t5v.log"
+mkdir -p "$T5V_SRC"
+run_timeout 60 node "$CLI" boot \
+  --mount-live "$T5V_SRC:/mnt/live:rw:virtiofs" \
+  -- /bin/sh -c "echo $T5V_MARKER >/mnt/live/from-guest.txt && sync" \
+  >"$T5V_LOG" 2>&1 || true
+if [[ -f "$T5V_SRC/from-guest.txt" ]] && grep -q "$T5V_MARKER" "$T5V_SRC/from-guest.txt"; then
+  pass "guest write through :rw virtio-fs live-mount visible on the host"
+else
+  tail -80 "$T5V_LOG" >&2
+  echo "  host file: $(ls -la "$T5V_SRC" 2>&1)" >&2
+  fail "T5v marker ($T5V_MARKER) not found in $T5V_SRC/from-guest.txt"
 fi
 
 # ---- T4: --env propagates into the guest process env (#89) ----

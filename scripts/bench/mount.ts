@@ -63,18 +63,37 @@ const FALLBACK_BASE = join(homedir(), ".machinen", "runtime-v0.0.0", "bases", "d
 interface CliArgs {
   noDocker: boolean;
   fixtureKey: string;
+  // #332: which live-mount transport to bench. "fuse" is the
+  // FUSE-over-vsock mount-server; "virtiofs" is the in-VMM virtio-fs
+  // device. The headline `wallMs` is transport-agnostic, so the two
+  // runs are directly comparable against the same docker baseline.
+  protocol: "fuse" | "virtiofs";
 }
 
 function parseArgs(): CliArgs {
-  const out: CliArgs = { noDocker: false, fixtureKey: "node-24-linux-arm64" };
+  const out: CliArgs = {
+    noDocker: false,
+    fixtureKey: "node-24-linux-arm64",
+    protocol: "fuse",
+  };
   for (let i = 2; i < process.argv.length; i++) {
     const a = process.argv[i]!;
     if (a === "--no-docker") {
       out.noDocker = true;
     } else if (a === "--fixture") {
       out.fixtureKey = process.argv[++i] ?? "";
+    } else if (a === "--protocol") {
+      const v = process.argv[++i];
+      if (v !== "fuse" && v !== "virtiofs") {
+        console.error(`bench-mount: --protocol must be 'fuse' or 'virtiofs', got '${v}'`);
+        process.exit(2);
+      }
+      out.protocol = v;
     } else if (a === "-h" || a === "--help") {
-      console.log("usage: tsx scripts/bench/mount.ts [--no-docker] [--fixture <key>]");
+      console.log(
+        "usage: tsx scripts/bench/mount.ts [--no-docker] [--fixture <key>] " +
+          "[--protocol fuse|virtiofs]",
+      );
       process.exit(0);
     } else {
       console.error(`bench-mount: unknown arg ${a}`);
@@ -199,18 +218,28 @@ interface RunResult {
   runId: string;
   host: HostInfo;
   fixtures: { tarball: string; tarballBytes: number };
+  // #332: the live-mount transport the measured `/mnt/out` write side
+  // used for this run.
+  protocol: "fuse" | "virtiofs";
   workload: string;
   wallMs: number;
   docker: { wallMs: number } | null;
+  // The vsock mount-server's op histogram + idle gap. `null` for the
+  // virtio-fs path: the in-VMM device writes no stats file, and the
+  // headline `wallMs` is the number the README's acceptance bar reads.
   mountServer: {
     bytesServedOnPagesImg: number;
     ops: Record<string, OpHistogramShape>;
     idleMs: number;
     perfMap: string | null;
-  };
+  } | null;
 }
 
-async function runJsServerBench(tarballPath: string, fixtureKey: string): Promise<RunResult> {
+async function runJsServerBench(
+  tarballPath: string,
+  fixtureKey: string,
+  protocol: "fuse" | "virtiofs",
+): Promise<RunResult> {
   // Dynamically import the runtime so any DEBUG knobs we set here land
   // before `debug` snapshots them at module import time.
   process.env.MACHINEN_MOUNT_SERVER_PROFILE = "1";
@@ -248,7 +277,7 @@ async function runJsServerBench(tarballPath: string, fixtureKey: string): Promis
   const tarballHostDir = dirname(tarballPath);
 
   const runId = new Date().toISOString().replace(/[:.]/g, "-");
-  console.error(`bench-mount: runId=${runId}`);
+  console.error(`bench-mount: runId=${runId} protocol=${protocol}`);
   console.error(`bench-mount: scratch=${scratch}`);
 
   const t0 = Date.now();
@@ -257,9 +286,13 @@ async function runJsServerBench(tarballPath: string, fixtureKey: string): Promis
     kernel,
     dtb,
     cmd: ["/bin/sh", "-c", "while :; do sleep 1; done"],
+    // The measured write side (`/mnt/out`) carries the transport under
+    // test. The tarball source (`/mnt/in`) stays on fuse — it's a
+    // read-only convenience mount, not part of the measurement, and
+    // the VMM wires only one virtio-fs slot.
     liveMounts: [
-      { host: scratch, guest: "/mnt/out", mode: "rw" },
-      { host: tarballHostDir, guest: "/mnt/in", mode: "ro" },
+      { host: scratch, guest: "/mnt/out", mode: "rw", protocol },
+      { host: tarballHostDir, guest: "/mnt/in", mode: "ro", protocol: "fuse" },
     ],
     timeoutMs: 120_000,
   });
@@ -290,28 +323,33 @@ async function runJsServerBench(tarballPath: string, fixtureKey: string): Promis
     // `live-mount-*-stats.json` we own. A proper VmHandle accessor
     // would be cleaner — left as a follow-up when the bench shape is
     // settled.
-    const opsSnap = readOpStatsFromTempDirs();
-
-    const idleMs = wallMs - Math.floor(opsSnap.sumNs / 1e6);
-
-    // Pull /tmp/perf-<pid>.map if --perf-basic-prof produced one. The
-    // mount-server-bin pid is in the registry under liveMounts; we
-    // grab it before the VM stops.
-    const perfMap = grabPerfMap(opsSnap.mountServerPid, runId);
+    //
+    // #332: only the fuse transport has a stats file. The virtio-fs
+    // device runs in-VMM and writes none — `mountServer` is null for
+    // that run, and the headline `wallMs` carries the comparison.
+    let mountServer: RunResult["mountServer"] = null;
+    if (protocol === "fuse") {
+      const opsSnap = readOpStatsFromTempDirs();
+      mountServer = {
+        bytesServedOnPagesImg: opsSnap.bytesServedOnPagesImg,
+        ops: opsSnap.ops,
+        idleMs: wallMs - Math.floor(opsSnap.sumNs / 1e6),
+        // Pull /tmp/perf-<pid>.map if --perf-basic-prof produced one.
+        // The mount-server-bin pid is in the registry under
+        // liveMounts; grab it before the VM stops.
+        perfMap: grabPerfMap(opsSnap.mountServerPid, runId),
+      };
+    }
 
     result = {
       runId,
       host: hostInfo(),
       fixtures: { tarball: fixtureKey, tarballBytes },
+      protocol,
       workload: tarCmd,
       wallMs,
       docker: null,
-      mountServer: {
-        bytesServedOnPagesImg: opsSnap.bytesServedOnPagesImg,
-        ops: opsSnap.ops,
-        idleMs,
-        perfMap,
-      },
+      mountServer,
     };
   } finally {
     await vm.kill().catch(() => {});
@@ -483,33 +521,38 @@ function writeResult(result: RunResult): string {
 function printTable(result: RunResult): void {
   const docker = result.docker ? result.docker.wallMs : null;
   const ratio = docker ? (result.wallMs / docker).toFixed(2) : "n/a";
-  const handlerSumNs = Object.values(result.mountServer.ops).reduce((s, h) => s + h.sumNs, 0);
-  const handlerFractionPct = ((handlerSumNs / 1e6 / result.wallMs) * 100).toFixed(1);
-  const top = ["WRITE", "CREATE", "GETATTR", "LOOKUP", "RELEASE"];
   console.log("");
-  console.log(`run: ${result.runId}`);
+  console.log(`run: ${result.runId}   protocol: ${result.protocol}`);
   console.log(`host: ${result.host.os}/${result.host.arch} ${result.host.hostname}`);
   console.log("");
-  console.log("metric                   mount-server");
   console.log(`wall-clock tar-extract   ${(result.wallMs / 1000).toFixed(2)}s`);
   console.log(
     `docker baseline same     ${docker ? (docker / 1000).toFixed(2) + "s" : "(skipped)"}`,
   );
-  console.log(`ratio JS / docker        ${ratio}×`);
-  console.log(`handler-time fraction    ${handlerFractionPct}%`);
-  console.log(`idleMs                   ${result.mountServer.idleMs}ms`);
-  for (const op of top) {
-    const h = result.mountServer.ops[op];
-    if (!h) {
-      continue;
+  console.log(`ratio ${result.protocol.padEnd(8)} / docker  ${ratio}×`);
+  if (result.mountServer) {
+    const handlerSumNs = Object.values(result.mountServer.ops).reduce((s, h) => s + h.sumNs, 0);
+    const handlerFractionPct = ((handlerSumNs / 1e6 / result.wallMs) * 100).toFixed(1);
+    console.log(`handler-time fraction    ${handlerFractionPct}%`);
+    console.log(`idleMs                   ${result.mountServer.idleMs}ms`);
+    const top = ["WRITE", "CREATE", "GETATTR", "LOOKUP", "RELEASE"];
+    for (const op of top) {
+      const h = result.mountServer.ops[op];
+      if (!h) {
+        continue;
+      }
+      console.log(
+        `p50 ${op.padEnd(8)}            ${(h.p50Ns / 1000).toFixed(1)}µs   p99 ${(h.p99Ns / 1000).toFixed(1)}µs   n=${h.count}`,
+      );
     }
-    console.log(
-      `p50 ${op.padEnd(8)}            ${(h.p50Ns / 1000).toFixed(1)}µs   p99 ${(h.p99Ns / 1000).toFixed(1)}µs   n=${h.count}`,
-    );
+  } else {
+    // virtio-fs: the in-VMM device writes no stats file, so there's no
+    // handler histogram — `wallMs` vs docker is the comparison.
+    console.log(`handler stats            (n/a — in-VMM virtio-fs device)`);
   }
   console.log("");
   console.log(`result JSON:  scripts/bench/mount/results/${result.runId}.json`);
-  if (result.mountServer.perfMap) {
+  if (result.mountServer?.perfMap) {
     console.log(`perf map:     ${result.mountServer.perfMap}`);
   }
 }
@@ -519,7 +562,7 @@ async function main(): Promise<void> {
   const entry = loadFixture(args.fixtureKey);
   const tarballPath = await downloadAndVerify(entry);
 
-  const result = await runJsServerBench(tarballPath, args.fixtureKey);
+  const result = await runJsServerBench(tarballPath, args.fixtureKey, args.protocol);
 
   if (!args.noDocker) {
     const dock = runDockerBaseline(tarballPath);

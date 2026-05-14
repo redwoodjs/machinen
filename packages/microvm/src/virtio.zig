@@ -53,6 +53,7 @@ pub const DeviceId = enum(u32) {
     rng = 4,
     balloon = 5,
     vsock = 19,
+    virtio_fs = 26, // #332: in-VMM virtio-fs live-mount transport
     _,
 };
 

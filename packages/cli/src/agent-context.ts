@@ -79,7 +79,7 @@ export const COMMANDS: CommandSpec[] = [
         name: "--mount-live",
         type: "string",
         repeatable: true,
-        description: "Live-share host dir over FUSE. Spec: <host>:<guest>[:rw|ro].",
+        description: "Live-share host dir. Spec: <host>:<guest>[:rw|ro][:fuse|virtiofs].",
       },
       {
         name: "--env",

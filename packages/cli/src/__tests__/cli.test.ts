@@ -133,16 +133,30 @@ describe("parseRunArgs --mount-live", () => {
     expect(parsed.liveMounts).toEqual([{ host: "./src", guest: "/mnt/src", mode: "rw" }]);
   });
 
-  it("rejects an unknown mode", () => {
+  it("rejects an unknown trailing modifier", () => {
     expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:xx"])).toThrow(
-      /mode must be 'ro' or 'rw'/,
+      /trailing modifier must be 'ro'\/'rw' or 'fuse'\/'virtiofs'/,
     );
   });
 
   it("rejects a spec with too many colons", () => {
-    expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:rw:extra"])).toThrow(
-      /expected <host-dir>:<guest-path>\[:<mode>\]/,
+    expect(() => parseRunArgs(["--mount-live", "./src:/mnt/src:rw:fuse:extra"])).toThrow(
+      /expected <host-dir>:<guest-path>\[:<mode>\]\[:<protocol>\]/,
     );
+  });
+
+  it("parses the virtiofs protocol modifier", () => {
+    const parsed = parseRunArgs(["--mount-live", "./src:/mnt/src:ro:virtiofs"]);
+    expect(parsed.liveMounts).toEqual([
+      { host: "./src", guest: "/mnt/src", mode: "ro", protocol: "virtiofs" },
+    ]);
+  });
+
+  it("accepts a protocol modifier without an explicit mode", () => {
+    const parsed = parseRunArgs(["--mount-live", "./src:/mnt/src:virtiofs"]);
+    expect(parsed.liveMounts).toEqual([
+      { host: "./src", guest: "/mnt/src", mode: "rw", protocol: "virtiofs" },
+    ]);
   });
 });
 
@@ -463,9 +477,9 @@ describe("parseForkArgs", () => {
     expect(parsed.liveMounts).toHaveLength(2);
   });
 
-  it("rejects an invalid --mount-live mode", () => {
+  it("rejects an invalid --mount-live modifier", () => {
     expect(() => parseForkArgs(["--mount-live", "h:/m/x:bogus"])).toThrow(
-      /mode must be 'ro' or 'rw'/,
+      /trailing modifier must be 'ro'\/'rw' or 'fuse'\/'virtiofs'/,
     );
   });
 

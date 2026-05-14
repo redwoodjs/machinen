@@ -355,15 +355,24 @@ export interface SnapshotMeta {
    *   - `host`:  absolute host path that was being shared.
    *   - `mode`:  `"ro"` or `"rw"`, the share's write semantics.
    *
+   *   - `protocol`: `"fuse"` or `"virtiofs"` (#332) — the transport
+   *     the source used; re-established with the same transport on
+   *     restore. Absent on pre-#332 bundles — treated as `"fuse"`.
+   *
    * Restore policy: the bundle's recorded mounts are re-established
    * verbatim by default. Pass `restore({ liveMounts })` to override
-   * per-guest `host`/`mode` — each override entry's `guest` must
-   * match a recorded entry, else BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN.
+   * per-guest `host`/`mode`/`protocol` — each override entry's `guest`
+   * must match a recorded entry, else BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN.
    * Cross-host bundles where a recorded `host` doesn't exist on the
    * restoring host fail loudly via the boot-time existence check —
    * users remap with the override knob.
    */
-  liveMounts?: Array<{ guest: string; host: string; mode: "ro" | "rw" }>;
+  liveMounts?: Array<{
+    guest: string;
+    host: string;
+    mode: "ro" | "rw";
+    protocol?: "fuse" | "virtiofs";
+  }>;
 }
 
 /**

@@ -237,7 +237,18 @@ export interface BootOptions {
    * one-way share (host caches, untrusted guests).
    *
    * Each guest path must live under `/mnt/` (same rule as `mount`).
-   * Repeatable; each entry gets its own vsock port.
+   * Repeatable; each `protocol: "fuse"` entry gets its own vsock port.
+   *
+   * `protocol` (#332) selects the transport:
+   *   - `"fuse"` (default) — FUSE-over-vsock: a detached `mount-server`
+   *     process on the host, a `/fuse-agent` byte-pump in the guest.
+   *   - `"virtiofs"` — the in-VMM virtio-fs device: the FUSE handlers
+   *     run inside the VMM, the guest mounts it directly with no agent
+   *     and no vsock hop. Faster, but the VMM wires a single virtio-fs
+   *     slot, so at most one `"virtiofs"` entry per VM (mix freely with
+   *     `"fuse"` entries). Requires a guest kernel with
+   *     `CONFIG_VIRTIO_FS` — every machinen-built kernel has it; the
+   *     default stays `"fuse"` until the perf bench flips it.
    *
    * Snapshot / restore / fork (#273): liveMount has no guest-side
    * state worth checkpointing — reads come from the host on demand,
@@ -269,7 +280,12 @@ export interface BootOptions {
    * no such runtime channel and is strictly safer — prefer it for
    * inputs you don't need write-through on.
    */
-  liveMounts?: Array<{ host: string; guest: string; mode?: "ro" | "rw" }>;
+  liveMounts?: Array<{
+    host: string;
+    guest: string;
+    mode?: "ro" | "rw";
+    protocol?: "fuse" | "virtiofs";
+  }>;
   /**
    * Host -> guest TCP port forwards installed via gvproxy's control
    * API. Each entry maps `hostPort` on the host (bound to `hostAddr`,
@@ -449,12 +465,15 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   let { vsockUdsPath, vsockTempDir } = setupVsockBridge(env);
   const { statsFilePath, statsTempDir } = setupStatsFile(env, vsockTempDir);
 
-  // #78: resolve live-share mounts. Each gets a fresh vsock port (base
-  // 1970, the band below the exec/file/secrets/winsize agents) and a
-  // UDS per mount so the VMM's MACHINEN_VSOCK spec can include one
-  // entry per mount. We compute these here so the port↔guest pairs can
-  // be baked into machinen-config.json at pack time — the guest's
-  // /init reads the same pairs and forks the FUSE agent per entry.
+  // #78 / #332: resolve live-share mounts. We compute these here so the
+  // per-transport wiring can be baked into machinen-config.json at pack
+  // time — the guest's /init reads the same entries.
+  //   - `protocol: "fuse"`  → a fresh vsock port (base 1970, below the
+  //     exec/file/secrets/winsize agent band) + a host UDS; the VMM's
+  //     MACHINEN_VSOCK spec gets one `out:` entry per mount.
+  //   - `protocol: "virtiofs"` → the in-VMM virtio-fs device on slot 7;
+  //     MACHINEN_VIRTIOFS carries `<tag>:<mode>:<host_path>`. No vsock
+  //     port, no detached server, no guest fuse-agent.
   let liveMountsResolved: ResolvedLiveMount[] = [];
   if ((opts.liveMounts ?? []).length > 0) {
     if (!vsockTempDir) {
@@ -462,6 +481,12 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     }
     liveMountsResolved = resolveLiveMounts(opts.liveMounts!, opts.cwd, vsockTempDir);
     for (const lm of liveMountsResolved) {
+      if (lm.protocol === "virtiofs") {
+        // `resolveLiveMounts` enforces at most one virtiofs entry, so a
+        // plain assignment (not append) is correct here.
+        env.MACHINEN_VIRTIOFS = `${lm.tag}:${lm.mode}:${lm.host}`;
+        continue;
+      }
       // `out:` — the guest fuse-agent connects to (cid=2, port=lm.port);
       // when the VMM sees the REQUEST it dials the host's UDS where
       // the mount-server is listening. Using `in:` here would have the
@@ -881,6 +906,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
             host: lm.host,
             guest: lm.guest,
             mode: lm.mode,
+            protocol: lm.protocol,
           }))
         : undefined;
     return {
@@ -918,7 +944,14 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
             // The respawned helpers watch the same VMM pid as the
             // originals — even after a CRIU restore the kernel pid
             // doesn't change.
+            //
+            // virtio-fs mounts have no host process to respawn — the
+            // in-VMM device is carried by the VMM across the dump, so
+            // they're skipped here.
             for (const lm of liveMountsResolved) {
+              if (lm.protocol !== "fuse") {
+                continue;
+              }
               const fresh = await spawnDetachedMountServer({
                 udsPath: lm.udsPath,
                 rootAbs: lm.host,
@@ -1509,7 +1542,12 @@ function registerInRegistry(args: RegisterArgs): boolean {
       // through the dump and the re-fork'd fuse-agent reconnects).
       liveMounts:
         args.liveMountsResolved.length > 0
-          ? args.liveMountsResolved.map(({ guest, host, mode }) => ({ guest, host, mode }))
+          ? args.liveMountsResolved.map(({ guest, host, mode, protocol }) => ({
+              guest,
+              host,
+              mode,
+              protocol,
+            }))
           : undefined,
       startedAt: Date.now(),
     });
@@ -1630,6 +1668,11 @@ async function spawnLiveMountServersForBoot(args: {
 }): Promise<void> {
   try {
     for (const lm of args.liveMountsResolved) {
+      // virtio-fs mounts are served by the in-VMM device — there is no
+      // detached host process to spawn or reap.
+      if (lm.protocol !== "fuse") {
+        continue;
+      }
       const lmHandle = await spawnDetachedMountServer({
         udsPath: lm.udsPath,
         rootAbs: lm.host,

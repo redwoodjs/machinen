@@ -283,10 +283,19 @@ fn dupZ(arena: std.mem.Allocator, s: []const u8) ![*:0]const u8 {
     return @ptrCast(buf.ptr);
 }
 
+const LiveMountKind = enum { fuse, virtiofs };
+
+// One `--mount-live` share. `fuse` entries fork /fuse-agent against a
+// vsock `port` (#78). `virtiofs` entries are mounted directly by /init
+// with `mount -t virtiofs <tag>` — the in-VMM virtio-fs device serves
+// them (#332), so there's no agent process and no vsock hop.
 const LiveMount = struct {
-    port: u32,
+    kind: LiveMountKind,
     guest_z: [*:0]const u8,
     guest: []const u8,
+    port: u32 = 0, // fuse only
+    tag: []const u8 = "", // virtiofs only
+    tag_z: [*:0]const u8 = "", // virtiofs only — NUL-terminated for mount(2)
 };
 
 const Config = struct {
@@ -357,7 +366,10 @@ fn loadConfig(arena: std.mem.Allocator) !Config {
         cwd_z = try dupZ(arena, cwd_val.string);
     }
 
-    // liveMounts — optional array of {guest: string, port: int}.
+    // liveMounts — optional array. Each entry is `{guest: string}` plus
+    // exactly one transport selector:
+    //   * `port: int`    → FUSE-over-vsock; /init forks /fuse-agent (#78)
+    //   * `tag: string`  → virtio-fs; /init runs `mount -t virtiofs` (#332)
     var live_mounts: []LiveMount = &.{};
     if (obj.get("liveMounts")) |lm_val| {
         if (lm_val != .array) return error.LiveMountsNotArray;
@@ -368,14 +380,33 @@ fn loadConfig(arena: std.mem.Allocator) !Config {
             const eobj = entry.object;
             const guest_val = eobj.get("guest") orelse return error.LiveMountMissingGuest;
             if (guest_val != .string) return error.LiveMountGuestNotString;
-            const port_val = eobj.get("port") orelse return error.LiveMountMissingPort;
-            if (port_val != .integer) return error.LiveMountPortNotInteger;
-            if (port_val.integer < 0 or port_val.integer > 0xFFFFFFFF) return error.LiveMountPortOutOfRange;
-            buf[i] = .{
-                .port = @intCast(port_val.integer),
-                .guest = guest_val.string,
-                .guest_z = try dupZ(arena, guest_val.string),
-            };
+            const guest_z = try dupZ(arena, guest_val.string);
+
+            if (eobj.get("tag")) |tag_val| {
+                // virtio-fs entry — the tag matches the in-VMM device's
+                // config-space tag. Port and tag are mutually exclusive.
+                if (tag_val != .string) return error.LiveMountTagNotString;
+                if (tag_val.string.len == 0) return error.LiveMountTagEmpty;
+                buf[i] = .{
+                    .kind = .virtiofs,
+                    .guest = guest_val.string,
+                    .guest_z = guest_z,
+                    .tag = tag_val.string,
+                    .tag_z = try dupZ(arena, tag_val.string),
+                };
+            } else if (eobj.get("port")) |port_val| {
+                // FUSE-over-vsock entry — the legacy transport.
+                if (port_val != .integer) return error.LiveMountPortNotInteger;
+                if (port_val.integer < 0 or port_val.integer > 0xFFFFFFFF) return error.LiveMountPortOutOfRange;
+                buf[i] = .{
+                    .kind = .fuse,
+                    .guest = guest_val.string,
+                    .guest_z = guest_z,
+                    .port = @intCast(port_val.integer),
+                };
+            } else {
+                return error.LiveMountMissingTransport;
+            }
         }
         live_mounts = buf;
     }
@@ -410,13 +441,35 @@ fn bringUpLiveMounts(mounts: []LiveMount, arena: std.mem.Allocator) void {
     writeLiveMountsList(mounts);
     if (mounts.len == 0) return;
     for (mounts) |lm| {
-        startFuseAgent(lm.port, lm.guest_z, arena) catch {
-            logLine("init: failed to fork fuse-agent");
-            continue;
-        };
+        switch (lm.kind) {
+            .fuse => startFuseAgent(lm.port, lm.guest_z, arena) catch {
+                logLine("init: failed to fork fuse-agent");
+                continue;
+            },
+            // virtio-fs is mounted directly — the in-VMM device (#332)
+            // is already live, no agent to fork. mkdir the guest path
+            // first; a lean on-disk rootfs may not carry it.
+            .virtiofs => {
+                mkdirParents(lm.guest);
+                if (mount(lm.tag_z, lm.guest_z, "virtiofs", 0, null) != 0) {
+                    var buf: [256]u8 = undefined;
+                    const msg = std.fmt.bufPrint(
+                        &buf,
+                        "init: virtiofs mount {s} (tag {s}) failed",
+                        .{ lm.guest, lm.tag },
+                    ) catch "init: virtiofs mount failed";
+                    logLine(msg);
+                    continue;
+                }
+            },
+        }
     }
     for (mounts) |lm| {
-        if (!waitForFuseMount(lm.guest, 5_000)) {
+        const want_fstype: []const u8 = switch (lm.kind) {
+            .fuse => "fuse",
+            .virtiofs => "virtiofs",
+        };
+        if (!waitForLiveMount(lm.guest, want_fstype, 5_000)) {
             var buf: [256]u8 = undefined;
             const msg = std.fmt.bufPrint(
                 &buf,
@@ -429,12 +482,19 @@ fn bringUpLiveMounts(mounts: []LiveMount, arena: std.mem.Allocator) void {
 }
 
 /// Write `/etc/machinen-livemounts` — TSV `<port>\t<guest>\n` per
-/// entry. Read by /sbin/machinen-dump-preflight and
+/// FUSE-over-vsock entry. Read by /sbin/machinen-dump-preflight and
 /// /sbin/machinen-remount (#273). /etc is created if missing (tiny
 /// cpio-only rootfs paths don't always carry it). Failures are
 /// logged and ignored — a missing sidecar surfaces as a snapshot
 /// preflight failure later, which is the same shape as any other
 /// pre-dump misconfiguration.
+///
+/// #332: virtio-fs entries are deliberately skipped. The TSV's only
+/// consumers re-fork /fuse-agent against a `<port>`, which a virtio-fs
+/// mount has neither of — the in-VMM device, not a guest agent, serves
+/// it. Snapshot/restore of a virtio-fs live mount is re-established
+/// from the host-side registry instead (a separate track); writing a
+/// portless line here would just make the shell parsers choke.
 fn writeLiveMountsList(mounts: []LiveMount) void {
     mkdirIgnore("/etc");
     // O_WRONLY | O_CREAT | O_TRUNC = 1 | 64 | 512 on Linux/musl —
@@ -448,6 +508,7 @@ fn writeLiveMountsList(mounts: []LiveMount) void {
     defer _ = close(fd);
     var buf: [512]u8 = undefined;
     for (mounts) |lm| {
+        if (lm.kind != .fuse) continue;
         const line = std.fmt.bufPrint(&buf, "{d}\t{s}\n", .{ lm.port, lm.guest }) catch continue;
         var off: usize = 0;
         while (off < line.len) {
@@ -474,27 +535,32 @@ fn startFuseAgent(port: u32, guest_z: [*:0]const u8, arena: std.mem.Allocator) !
     // parent: keep going
 }
 
-/// Wait for `guest` to report itself as a fuse-typed filesystem. We
-/// open /proc/self/mounts and match lines starting with `fuse <guest>`
-/// since statfs() on AArch64 musl requires a struct we'd have to
-/// redeclare, while /proc parsing needs no extra bindings.
-fn waitForFuseMount(guest: []const u8, timeout_ms: i64) bool {
+/// Wait for `guest` to show up in /proc/self/mounts as a
+/// `want_fstype`-typed filesystem. We parse /proc rather than statfs()
+/// because statfs() on AArch64 musl needs a struct we'd have to
+/// redeclare, while /proc parsing needs no extra bindings. Used for
+/// both transports: `want_fstype` is "fuse" for the fuse-agent path
+/// and "virtiofs" for the in-VMM virtio-fs device (#332).
+fn waitForLiveMount(guest: []const u8, want_fstype: []const u8, timeout_ms: i64) bool {
     const deadline_ms = nowMs() + timeout_ms;
     while (nowMs() < deadline_ms) {
-        if (fuseMountPresent(guest)) return true;
+        if (liveMountPresent(guest, want_fstype)) return true;
         sleepMs(25);
     }
     return false;
 }
 
-fn fuseMountPresent(guest: []const u8) bool {
-    // /proc/self/mounts is mountinfo-like: `<src> <target> <fstype> ...`
-    // fuse-agent issues mount(src="fuse", target=guest, fstype="fuse"),
-    // so we look for "fuse <guest> fuse".
+fn liveMountPresent(guest: []const u8, want_fstype: []const u8) bool {
+    // /proc/self/mounts is fstab-like: `<src> <target> <fstype> ...`.
+    //   fuse-agent issues mount(src="fuse",  target=guest, fstype="fuse")
+    //   /init      issues mount(src=<tag>,   target=guest, fstype="virtiofs")
+    // so we check the 2nd field (target) and 3rd field (fstype). The
+    // src field varies (a virtio-fs tag, unlike fuse's fixed "fuse"),
+    // so a leading-token match no longer works — tokenize instead.
     const fd = open("/proc/self/mounts", O_RDONLY);
     if (fd < 0) return false;
     defer _ = close(fd);
-    var buf: [4096]u8 = undefined;
+    var buf: [8192]u8 = undefined;
     const bufPtr: [*]u8 = &buf;
     var scanned: usize = 0;
     while (scanned < buf.len) {
@@ -503,19 +569,18 @@ fn fuseMountPresent(guest: []const u8) bool {
         scanned += @intCast(n);
     }
     const text = buf[0..scanned];
-    // Pick through lines; trivial split.
     var i: usize = 0;
     while (i < text.len) {
         const eol = std.mem.indexOfScalarPos(u8, text, i, '\n') orelse text.len;
         const line = text[i..eol];
         i = eol + 1;
-        // Expect "fuse <target> fuse ..." — leading token "fuse ".
-        if (!std.mem.startsWith(u8, line, "fuse ")) continue;
-        const after_src = line[5..];
-        if (after_src.len < guest.len + 1) continue;
-        if (!std.mem.startsWith(u8, after_src, guest)) continue;
-        if (after_src[guest.len] != ' ') continue;
-        return true;
+        var it = std.mem.tokenizeScalar(u8, line, ' ');
+        _ = it.next() orelse continue; // src — varies, ignored
+        const target = it.next() orelse continue;
+        const fstype = it.next() orelse continue;
+        if (std.mem.eql(u8, target, guest) and std.mem.eql(u8, fstype, want_fstype)) {
+            return true;
+        }
     }
     return false;
 }

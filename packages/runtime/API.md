@@ -2571,15 +2571,21 @@ silently boots without the overlay.
 
 > `optional` **liveMounts?**: `object`[]
 
-#273: live-share FUSE mounts (`liveMounts: [...]` at boot) the
-VM was started with. Persisted so an attach-owned `vm.snapshot()`
-/ `vm.fork()` can record the same `meta.liveMounts` block in the
+#273: live-share mounts (`liveMounts: [...]` at boot) the VM was
+started with. Persisted so an attach-owned `vm.snapshot()` /
+`vm.fork()` can record the same `meta.liveMounts` block in the
 bundle and trigger /sbin/machinen-remount post-dump on
 leaveRunning paths. Host UDS paths and vsock ports are NOT
 recorded — those are the boot process's private state and aren't
 useful to other processes (the owning process keeps the servers
 listening through the dump, so attach reconnects without having
 to bind anything).
+
+`protocol` (#332) is persisted per mount so `machinen stop` /
+`machinen gc` and the snapshot/restore path know whether a mount
+has a detached `mount-server` to reap (`"fuse"`) or is served
+in-VMM with nothing host-side to clean up (`"virtiofs"`). Absent
+on entries written before #332 — treat as `"fuse"`.
 
 ###### guest
 
@@ -2592,6 +2598,10 @@ to bind anything).
 ###### mode
 
 > **mode**: `"ro"` \| `"rw"`
+
+###### protocol?
+
+> `optional` **protocol?**: `"fuse"` \| `"virtiofs"`
 
 ##### liveMountServers?
 
@@ -3287,10 +3297,14 @@ source's `resolveLiveMounts()`:
   - `host`:  absolute host path that was being shared.
   - `mode`:  `"ro"` or `"rw"`, the share's write semantics.
 
+  - `protocol`: `"fuse"` or `"virtiofs"` (#332) — the transport
+    the source used; re-established with the same transport on
+    restore. Absent on pre-#332 bundles — treated as `"fuse"`.
+
 Restore policy: the bundle's recorded mounts are re-established
 verbatim by default. Pass `restore({ liveMounts })` to override
-per-guest `host`/`mode` — each override entry's `guest` must
-match a recorded entry, else BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN.
+per-guest `host`/`mode`/`protocol` — each override entry's `guest`
+must match a recorded entry, else BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN.
 Cross-host bundles where a recorded `host` doesn't exist on the
 restoring host fail loudly via the boot-time existence check —
 users remap with the override knob.
@@ -3306,6 +3320,10 @@ users remap with the override knob.
 ###### mode
 
 > **mode**: `"ro"` \| `"rw"`
+
+###### protocol?
+
+> `optional` **protocol?**: `"fuse"` \| `"virtiofs"`
 
 ***
 
@@ -3610,7 +3628,18 @@ guest writes land on the host (#151, #156). Set `"ro"` for a
 one-way share (host caches, untrusted guests).
 
 Each guest path must live under `/mnt/` (same rule as `mount`).
-Repeatable; each entry gets its own vsock port.
+Repeatable; each `protocol: "fuse"` entry gets its own vsock port.
+
+`protocol` (#332) selects the transport:
+  - `"fuse"` (default) — FUSE-over-vsock: a detached `mount-server`
+    process on the host, a `/fuse-agent` byte-pump in the guest.
+  - `"virtiofs"` — the in-VMM virtio-fs device: the FUSE handlers
+    run inside the VMM, the guest mounts it directly with no agent
+    and no vsock hop. Faster, but the VMM wires a single virtio-fs
+    slot, so at most one `"virtiofs"` entry per VM (mix freely with
+    `"fuse"` entries). Requires a guest kernel with
+    `CONFIG_VIRTIO_FS` — every machinen-built kernel has it; the
+    default stays `"fuse"` until the perf bench flips it.
 
 Snapshot / restore / fork (#273): liveMount has no guest-side
 state worth checkpointing — reads come from the host on demand,
@@ -3653,6 +3682,10 @@ inputs you don't need write-through on.
 ###### mode?
 
 > `optional` **mode?**: `"ro"` \| `"rw"`
+
+###### protocol?
+
+> `optional` **protocol?**: `"fuse"` \| `"virtiofs"`
 
 ###### Inherited from
 
@@ -4021,7 +4054,18 @@ guest writes land on the host (#151, #156). Set `"ro"` for a
 one-way share (host caches, untrusted guests).
 
 Each guest path must live under `/mnt/` (same rule as `mount`).
-Repeatable; each entry gets its own vsock port.
+Repeatable; each `protocol: "fuse"` entry gets its own vsock port.
+
+`protocol` (#332) selects the transport:
+  - `"fuse"` (default) — FUSE-over-vsock: a detached `mount-server`
+    process on the host, a `/fuse-agent` byte-pump in the guest.
+  - `"virtiofs"` — the in-VMM virtio-fs device: the FUSE handlers
+    run inside the VMM, the guest mounts it directly with no agent
+    and no vsock hop. Faster, but the VMM wires a single virtio-fs
+    slot, so at most one `"virtiofs"` entry per VM (mix freely with
+    `"fuse"` entries). Requires a guest kernel with
+    `CONFIG_VIRTIO_FS` — every machinen-built kernel has it; the
+    default stays `"fuse"` until the perf bench flips it.
 
 Snapshot / restore / fork (#273): liveMount has no guest-side
 state worth checkpointing — reads come from the host on demand,
@@ -4064,6 +4108,10 @@ inputs you don't need write-through on.
 ###### mode?
 
 > `optional` **mode?**: `"ro"` \| `"rw"`
+
+###### protocol?
+
+> `optional` **protocol?**: `"fuse"` \| `"virtiofs"`
 
 ##### portForward?
 
@@ -4367,7 +4415,18 @@ guest writes land on the host (#151, #156). Set `"ro"` for a
 one-way share (host caches, untrusted guests).
 
 Each guest path must live under `/mnt/` (same rule as `mount`).
-Repeatable; each entry gets its own vsock port.
+Repeatable; each `protocol: "fuse"` entry gets its own vsock port.
+
+`protocol` (#332) selects the transport:
+  - `"fuse"` (default) — FUSE-over-vsock: a detached `mount-server`
+    process on the host, a `/fuse-agent` byte-pump in the guest.
+  - `"virtiofs"` — the in-VMM virtio-fs device: the FUSE handlers
+    run inside the VMM, the guest mounts it directly with no agent
+    and no vsock hop. Faster, but the VMM wires a single virtio-fs
+    slot, so at most one `"virtiofs"` entry per VM (mix freely with
+    `"fuse"` entries). Requires a guest kernel with
+    `CONFIG_VIRTIO_FS` — every machinen-built kernel has it; the
+    default stays `"fuse"` until the perf bench flips it.
 
 Snapshot / restore / fork (#273): liveMount has no guest-side
 state worth checkpointing — reads come from the host on demand,
@@ -4410,6 +4469,10 @@ inputs you don't need write-through on.
 ###### mode?
 
 > `optional` **mode?**: `"ro"` \| `"rw"`
+
+###### protocol?
+
+> `optional` **protocol?**: `"fuse"` \| `"virtiofs"`
 
 ###### Inherited from
 

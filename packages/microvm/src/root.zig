@@ -29,6 +29,7 @@ pub const kvm = if (builtin.os.tag == .linux) @import("kvm.zig") else struct {};
 pub const boot_kvm = if (builtin.os.tag == .linux) @import("boot_kvm.zig") else struct {};
 pub const virtio = @import("virtio.zig"); // pure Zig, builds everywhere
 pub const blk = @import("blk.zig"); // pure Zig virtio-blk backend
+pub const virtiofs = @import("virtiofs.zig"); // pure Zig virtio-fs backend (#332)
 pub const vsock = @import("vsock.zig"); // pure Zig virtio-vsock bridge
 pub const balloon = @import("balloon.zig"); // pure Zig virtio-balloon backend
 pub const pl011 = @import("pl011.zig"); // pure Zig PL011 UART (shared HVF/KVM)
@@ -94,6 +95,7 @@ test {
         _ = @import("boot_kvm.zig");
     }
     _ = @import("virtio.zig");
+    _ = @import("virtiofs.zig");
     _ = @import("vsock.zig");
     _ = @import("balloon.zig");
     _ = @import("pl011.zig");

@@ -234,7 +234,9 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
   phases.start("snapshot-pack");
   const restoreEnv: Record<string, string> = {};
   let scratchPath: string;
-  let liveMounts: Array<{ host: string; guest: string; mode?: "ro" | "rw" }> | undefined;
+  let liveMounts:
+    | Array<{ host: string; guest: string; mode?: "ro" | "rw"; protocol?: "fuse" | "virtiofs" }>
+    | undefined;
   if (lazyPages) {
     scratchPath = join(
       tmpdir(),

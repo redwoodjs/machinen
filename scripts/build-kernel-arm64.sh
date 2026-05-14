@@ -153,6 +153,15 @@ make ARCH=arm64 defconfig >/dev/null
 # FUSE — guest side of `--mount-live` (#78). Builtin so liveMounts work
 # without /init having to finit_module fuse first.
 #
+# VIRTIO_FS — #332 replaces the FUSE-over-vsock live-mount transport
+# with an in-VMM virtio-fs device. The guest mounts it with
+# `mount -t virtiofs <tag> <path>`; the driver speaks a FUSE-derived
+# protocol over a virtqueue (no vsock framing, no guest fuse-agent).
+# Builtin so /init can mount it directly. Depends on FUSE_FS, already
+# enabled above. DAX is a separate, later track (Linux/KVM only) — the
+# base virtio-fs path needs no shared-memory window, so nothing else
+# here changes.
+#
 # SQUASHFS / SQUASHFS_ZSTD / OVERLAY_FS — `--mount` payload now rides
 # in a squashfs (RO lower) + ext4 (RW upper) overlay, two virtio-blk
 # slots (#272). Without these the guest can't mount the lower or layer
@@ -179,7 +188,7 @@ make ARCH=arm64 defconfig >/dev/null
   --enable USERFAULTFD \
   --enable IPV6 \
   --enable LIBCRC32C \
-  --enable FUSE_FS \
+  --enable FUSE_FS --enable VIRTIO_FS \
   --enable SQUASHFS --enable SQUASHFS_ZSTD --enable OVERLAY_FS \
   --enable IKCONFIG --enable IKCONFIG_PROC \
   --enable CHECKPOINT_RESTORE --enable KCMP \
@@ -205,6 +214,7 @@ required=(
   IPV6
   VIRTIO_BALLOON PAGE_REPORTING
   SQUASHFS SQUASHFS_ZSTD OVERLAY_FS
+  FUSE_FS VIRTIO_FS
 )
 for c in "${required[@]}"; do
   if ! grep -q "^CONFIG_${c}=y" .config; then

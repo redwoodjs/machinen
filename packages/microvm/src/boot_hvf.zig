@@ -29,18 +29,20 @@ const virtio = @import("virtio.zig");
 const net_mod = @import("net_socket.zig");
 const blk_mod = @import("blk.zig");
 const vsock_mod = @import("vsock.zig");
+const virtiofs_mod = @import("virtiofs.zig");
 const balloon_mod = @import("balloon.zig");
 const stats_mod = @import("stats.zig");
 const dtb_patch = @import("dtb_patch.zig");
 
 // Guest-physical bases. Each virtio-MMIO device lives in a 0x200
 // window. The DTS has 32 slots at 0x0A000000 + i*0x200; we wire up
-// the first seven.
+// the first eight.
 //
 // Slot 0 = net, slot 1 = blk (rootdisk), slot 2 = vsock,
 // slot 3 = blk2 (scratch / CRIU disk), slot 4 = balloon,
 // slot 5 = blk3 (mount lower / squashfs RO),
-// slot 6 = blk4 (mount upper / ext4 RW).
+// slot 6 = blk4 (mount upper / ext4 RW),
+// slot 7 = virtio-fs (#332 live mount).
 //
 // When all four blk slots are populated the kernel sees them in DTB
 // order, so slot 1 = /dev/vda (rootfs), slot 3 = /dev/vdb (scratch),
@@ -61,6 +63,8 @@ const virtio_blk3_base: u64 = 0x0A00_0A00;
 const virtio_blk3_size: u64 = 0x200;
 const virtio_blk4_base: u64 = 0x0A00_0C00;
 const virtio_blk4_size: u64 = 0x200;
+const virtio_virtiofs_base: u64 = 0x0A00_0E00;
+const virtio_virtiofs_size: u64 = 0x200;
 
 comptime {
     // virtio-mmio slot layout — must stay byte-identical to virt.dts
@@ -79,6 +83,8 @@ comptime {
     assert(virtio_blk3_base == virtio_balloon_base + virtio_balloon_size);
     assert(virtio_blk4_size == 0x200);
     assert(virtio_blk4_base == virtio_blk3_base + virtio_blk3_size);
+    assert(virtio_virtiofs_size == 0x200);
+    assert(virtio_virtiofs_base == virtio_blk4_base + virtio_blk4_size);
 }
 
 pub const Error = error{
@@ -319,6 +325,22 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         null;
     const vsock_dev_ptr: ?*virtio.Device = if (vsock_dev_opt) |_| &vsock_dev_opt.? else null;
 
+    // virtio-fs slot 7 (#332). Off by default; set MACHINEN_VIRTIOFS to
+    // enable a single `--mount-live` over the virtio-fs transport
+    // instead of FUSE-over-vsock. The backend runs in-VMM — the FUSE
+    // opcode handlers are the #329 Zig handlers, reused verbatim — so
+    // there's no separate mount-server process and no guest fuse-agent.
+    // Request handling is synchronous on the vCPU thread (the device's
+    // `request_handler` drains on each guest kick), so unlike vsock no
+    // host poll thread is needed.
+    var virtiofs_backend_opt: ?virtiofs_mod.Device = parseVirtiofsEnv();
+    defer if (virtiofs_backend_opt) |*b| b.deinit();
+    var virtiofs_dev_opt: ?virtio.Device = if (virtiofs_backend_opt) |*b|
+        makeVirtioFsDevice(ram, cfg, b)
+    else
+        null;
+    const virtiofs_dev_ptr: ?*virtio.Device = if (virtiofs_dev_opt) |_| &virtiofs_dev_opt.? else null;
+
     // Connect to gvproxy if a socket path was provided.
     const net_inst: ?*net_mod.NetSocket = connectGvproxy(gpa, &netdev);
     defer if (net_inst) |n| n.destroy();
@@ -383,6 +405,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         .vsock_dev = vsock_dev_ptr,
         .vsock_bridge = vsock_bridge_opt,
         .balloon_dev = balloon_dev_ptr,
+        .virtiofs_dev = virtiofs_dev_ptr,
     };
     return try runLoop(gpa, cfg, vcpu, &devs, irqs);
 }
@@ -717,14 +740,15 @@ const IrqMap = struct {
     balloon: u32,
     blk3: u32,
     blk4: u32,
+    virtiofs: u32,
 };
 
 fn assignIrqs() !IrqMap {
     const spi = try hvf.Gic.spiRange();
     // SPIs start at 32 on ARM GIC; HVF must report at least the device
-    // IDs we wire up (1, 16, 17, 18, 19, 20, 21, 22) past spi.base.
+    // IDs we wire up (1, 16..23) past spi.base.
     assert(spi.base >= 32);
-    assert(spi.count >= 23);
+    assert(spi.count >= 24);
     return .{
         .pl011 = spi.base + 1,
         .net = spi.base + 16,
@@ -734,6 +758,7 @@ fn assignIrqs() !IrqMap {
         .balloon = spi.base + 20,
         .blk3 = spi.base + 21,
         .blk4 = spi.base + 22,
+        .virtiofs = spi.base + 23,
     };
 }
 
@@ -881,6 +906,84 @@ fn makeVsockDevice(ram: []u8, cfg: Config, cid_ptr: *const u64) virtio.Device {
     };
 }
 
+/// Parse `MACHINEN_VIRTIOFS` into a virtio-fs backend (#332). Syntax:
+///
+///   MACHINEN_VIRTIOFS=<tag>:<mode>:<host_abs_path>
+///
+/// `<mode>` is `ro` or `rw`; `<host_abs_path>` is everything after the
+/// second colon, so a path may itself contain colons. Empty/missing
+/// env returns null; a malformed value logs and returns null so a typo
+/// can't prevent boot — same warn-and-continue policy as the other
+/// device parsers here.
+///
+/// The returned backend owns a `fuse.State` allocated from
+/// `std.heap.c_allocator`: the #329 handlers issue ~tens-of-thousands
+/// of tiny replies per bench and the page allocator's per-alloc
+/// mmap/munmap dominated wall-clock during that bring-up. The backend
+/// outlives boot() in the caller's frame; `deinit` frees the state.
+fn parseVirtiofsEnv() ?virtiofs_mod.Device {
+    const raw = getenv("MACHINEN_VIRTIOFS") orelse return null;
+    const s = std.mem.span(raw);
+    if (s.len == 0) return null;
+
+    const c1 = std.mem.indexOfScalar(u8, s, ':') orelse {
+        std.debug.print("virtio-fs: MACHINEN_VIRTIOFS missing ':<mode>:<path>'; ignoring\n", .{});
+        return null;
+    };
+    const tag = s[0..c1];
+    const rest = s[c1 + 1 ..];
+    const c2 = std.mem.indexOfScalar(u8, rest, ':') orelse {
+        std.debug.print("virtio-fs: MACHINEN_VIRTIOFS missing ':<path>'; ignoring\n", .{});
+        return null;
+    };
+    const mode = rest[0..c2];
+    const host_path = rest[c2 + 1 ..];
+
+    if (tag.len == 0 or tag.len > 36) {
+        std.debug.print("virtio-fs: tag must be 1..36 bytes; ignoring\n", .{});
+        return null;
+    }
+    if (host_path.len == 0 or host_path[0] != '/') {
+        std.debug.print("virtio-fs: host path must be absolute; ignoring\n", .{});
+        return null;
+    }
+    const mode_rw = if (std.mem.eql(u8, mode, "rw"))
+        true
+    else if (std.mem.eql(u8, mode, "ro"))
+        false
+    else {
+        std.debug.print("virtio-fs: mode must be 'ro' or 'rw'; ignoring\n", .{});
+        return null;
+    };
+
+    const gpa = std.heap.c_allocator;
+    const root_abs = gpa.dupe(u8, host_path) catch return null;
+    const dev = virtiofs_mod.Device.init(gpa, tag, root_abs, mode_rw) catch |err| {
+        gpa.free(root_abs);
+        std.debug.print("virtio-fs: backend init failed: {s}\n", .{@errorName(err)});
+        return null;
+    };
+    std.debug.print("virtio-fs: {s} {s} <- {s}\n", .{ tag, mode, host_path });
+    return dev;
+}
+
+/// Wrap a `virtiofs.Device` backend as a virtio-mmio device on slot 7.
+/// `backend` must outlive the returned device — `config` and
+/// `request_ctx` are pointers into it.
+fn makeVirtioFsDevice(ram: []u8, cfg: Config, backend: *virtiofs_mod.Device) virtio.Device {
+    return .{
+        .base = virtio_virtiofs_base,
+        .size = virtio_virtiofs_size,
+        .id = .virtio_fs,
+        .features = (1 << 32), // VIRTIO_F_VERSION_1
+        .config = backend.configBytes(),
+        .ram = ram,
+        .ram_base = cfg.ram_base,
+        .request_handler = &virtiofs_mod.Device.handleRequest,
+        .request_ctx = @ptrCast(backend),
+    };
+}
+
 /// Dial gvproxy if `MACHINEN_NET_SOCKET` is set; null on missing env
 /// or any connect failure (the rest of the VMM still runs without
 /// network).
@@ -976,6 +1079,7 @@ const Devices = struct {
     vsock_dev: ?*virtio.Device,
     vsock_bridge: ?*vsock_mod.Bridge,
     balloon_dev: ?*virtio.Device,
+    virtiofs_dev: ?*virtio.Device,
 };
 
 /// Route a data-abort MMIO fault to the device that owns the IPA, then
@@ -1015,6 +1119,12 @@ fn routeDataAbort(
         try handleVirtioMmio(devs.vsock_dev.?, irqs.vsock, vcpu, info);
     } else if (devs.balloon_dev != null and devs.balloon_dev.?.handles(info.ipa)) {
         try handleVirtioMmio(devs.balloon_dev.?, irqs.balloon, vcpu, info);
+    } else if (devs.virtiofs_dev != null and devs.virtiofs_dev.?.handles(info.ipa)) {
+        // virtio-fs request handling is synchronous on this thread —
+        // `handleVirtioMmio` → `dev.write` → `notify` drains the chain
+        // through `virtiofs.Device.handleRequest` inline. No bridge
+        // lock to take (unlike vsock): there's no host poll thread.
+        try handleVirtioMmio(devs.virtiofs_dev.?, irqs.virtiofs, vcpu, info);
     } else if (info.ipa >= 0x1000_0000 and info.ipa < 0x1200_0000) {
         try handleGicRdistMmio(vcpu, info);
     } else {
