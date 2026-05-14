@@ -297,6 +297,22 @@ const LINUX_O_RDWR: u32 = 2;
 const LINUX_O_TRUNC: u32 = 0o1000;
 const LINUX_O_APPEND: u32 = 0o2000;
 
+// Hard upper bound on entries snapshotted per OPENDIR. Tiger Style:
+// every loop gets a static ceiling — the readdir() loop would
+// otherwise grow `dir_entries` without limit on a pathological
+// directory. 64 Ki entries × (24-byte header + padded name) is a few
+// MiB worst case; no real workload (a node tarball, a git tree) puts
+// that many children in one directory. A directory that exceeds the
+// cap yields a truncated listing — bounded memory beats a correct
+// listing that can OOM the host.
+const MAX_DIRENTS: usize = 64 * 1024;
+
+// Largest FUSE message we read off the wire in one frame: the 40-byte
+// in-header + a 128 KiB max_write payload + the create_in struct +
+// a name, rounded up. `serveConnection`'s read buffer is sized to
+// this and rejects any framed length above it.
+const MAX_FUSE_MESSAGE: usize = 256 * 1024;
+
 // --- wire codecs --------------------------------------------------------
 
 const InHeader = struct {
@@ -469,9 +485,14 @@ const State = struct {
 fn freeHandle(state: *State, e: *OpenEntry) void {
     switch (e.kind) {
         .file => {
+            // A `.file` handle never carries dir entries — the two
+            // kinds are mutually exclusive by construction (onOpen /
+            // onCreate set fd, onOpendir sets dir_entries).
+            assert(e.dir_entries == null);
             if (e.fd >= 0) _ = close(e.fd);
         },
         .dir => {
+            assert(e.fd == -1);
             if (e.dir_entries) |entries| {
                 for (entries) |buf| state.gpa.free(buf);
                 state.gpa.free(entries);
@@ -709,6 +730,12 @@ fn joinRel(gpa: std.mem.Allocator, parent_rel: []const u8, name: []const u8) ![]
 var shutdown_requested = std.atomic.Value(bool).init(false);
 
 fn dispatch(state: *State, msg: []const u8) !void {
+    // Precondition established by serveConnection: it rejects any
+    // framed length below FUSE_IN_HEADER_SIZE before calling us, so
+    // every handler can slice msg[FUSE_IN_HEADER_SIZE..] freely.
+    assert(msg.len >= FUSE_IN_HEADER_SIZE);
+    assert(state.conn_fd >= 0);
+
     const hdr = readInHeader(msg);
     const start_ns: u64 = if (state.profile_enabled) nowNs() else 0;
 
@@ -781,12 +808,20 @@ fn dispatch(state: *State, msg: []const u8) !void {
 // --- response builders --------------------------------------------------
 
 fn buildErrorReply(state: *State, unique: u64, err: i32) ![]u8 {
+    // FUSE convention: a negative errno, or 0 for a success-with-no-
+    // payload ack. A positive errno would corrupt the kernel's view.
+    assert(err <= 0);
     const buf = try state.gpa.alloc(u8, FUSE_OUT_HEADER_SIZE);
     writeOutHeader(buf, 0, err, unique);
     return buf;
 }
 
 fn buildReply(state: *State, unique: u64, payload: []const u8) ![]u8 {
+    // The whole reply (header + payload) rides one FUSE frame whose
+    // length is a u32; in practice nothing we build approaches that,
+    // but assert it so a future op that returns a huge payload trips
+    // here instead of silently truncating in writeOutHeader's @intCast.
+    assert(FUSE_OUT_HEADER_SIZE + payload.len <= std.math.maxInt(u32));
     const buf = try state.gpa.alloc(u8, FUSE_OUT_HEADER_SIZE + payload.len);
     writeOutHeader(buf, payload.len, 0, unique);
     @memcpy(buf[FUSE_OUT_HEADER_SIZE..], payload);
@@ -1352,21 +1387,27 @@ fn onOpendir(state: *State, hdr: InHeader) ![]u8 {
         return try buildErrorReply(state, hdr.unique, mapFsError(errnoToZigError(errno())));
     defer _ = closedir(dir);
 
-    // Pack every child into its own fuse_dirent buffer. The dir entry
-    // count is unbounded in principle; an ArrayList keeps the common
-    // case (a few hundred entries) cheap and the pathological case
-    // correct.
+    // Pack every child into its own fuse_dirent buffer. An ArrayList
+    // keeps the common case (a few hundred entries) cheap; the
+    // MAX_DIRENTS ceiling below bounds the pathological case.
     var entries: std.ArrayList([]u8) = .empty;
     errdefer {
         for (entries.items) |b| state.gpa.free(b);
         entries.deinit(state.gpa);
     }
 
+    // Bounded loop: at most MAX_DIRENTS iterations append an entry.
+    // `readdir` returning null (end of stream) is the usual exit; the
+    // cap is the safety valve for a pathologically large directory.
     while (readdir(dir)) |de| {
+        assert(entries.items.len <= MAX_DIRENTS);
+        if (entries.items.len == MAX_DIRENTS) break;
+
         const name = std.mem.sliceTo(&de.d_name, 0);
         // `.` and `..` aren't sent over FUSE readdir — the kernel
         // synthesizes them. Skip to match kernel behavior.
         if (std.mem.eql(u8, name, ".") or std.mem.eql(u8, name, "..")) continue;
+        assert(name.len > 0);
 
         // `off` is 1-based index of the *next* entry — the kernel
         // passes it back as READ offset to resume mid-listing.
@@ -1431,6 +1472,11 @@ fn onReaddir(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
         @memcpy(reply[cursor..][0..entries[j].len], entries[j]);
         cursor += entries[j].len;
     }
+    // Postcondition: the two passes agree — the bytes packed here
+    // exactly fill the buffer the first pass sized. A mismatch means
+    // a dirent length changed between passes (impossible here, the
+    // slice is immutable) or an off-by-one in either loop.
+    assert(cursor == reply.len);
     return reply;
 }
 
@@ -1551,11 +1597,16 @@ fn decodeName(body: []const u8) []const u8 {
 // --- frame loop ---------------------------------------------------------
 
 fn serveConnection(state: *State) !void {
-    // Reuse one growable buffer per connection. FUSE max message is
-    // header + max_write payload + create_in body + name. 256 KiB
-    // comfortably covers 128 KiB writes (the negotiated max_write).
-    var buf: [256 * 1024]u8 = undefined;
+    assert(state.conn_fd >= 0);
+    // One fixed-size read buffer per connection — no per-message
+    // allocation on the read path. MAX_FUSE_MESSAGE covers the
+    // negotiated 128 KiB max_write plus header + struct + name.
+    var buf: [MAX_FUSE_MESSAGE]u8 = undefined;
 
+    // Termination bound: `shutdown_requested` (set by the signal
+    // handler) or a closed/EOF socket. Per-iteration work is bounded —
+    // one frame, ≤ buf.len bytes, two readExact calls each capped on
+    // EINTR, one dispatch.
     while (!shutdown_requested.load(.acquire)) {
         var len_bytes: [4]u8 = undefined;
         switch (readExact(state.conn_fd, &len_bytes)) {
@@ -1566,6 +1617,9 @@ fn serveConnection(state: *State) !void {
         const len = std.mem.readInt(u32, &len_bytes, .little);
         if (len < FUSE_IN_HEADER_SIZE) return error.MalformedFrame;
         if (len > buf.len) return error.FrameTooLarge;
+        // Established by the two guards above — every dispatch sees a
+        // frame that's at least a header and at most the read buffer.
+        assert(len >= FUSE_IN_HEADER_SIZE and len <= buf.len);
         @memcpy(buf[0..4], &len_bytes);
         switch (readExact(state.conn_fd, buf[4..len])) {
             .ok => {},

@@ -25,8 +25,14 @@ build_one() {
   local dest_pkg="$2"
   local label="$3"
 
-  echo "==> building mount-server ($label, zig ReleaseFast)"
-  ( cd "$PKG" && zig build -Dtarget="$zig_target" -Doptimize=ReleaseFast )
+  # ReleaseSafe, not ReleaseFast: keeps `assert()` and Zig's safety
+  # checks (bounds, overflow, etc.) live in the shipped binary —
+  # matches @machinen/microvm's build and the Tiger Style "safety in
+  # production" default. The mount server is syscall-bound (handler
+  # time is ~14% of wall on the #329 bench), so the safety-check
+  # overhead is lost in the noise.
+  echo "==> building mount-server ($label, zig ReleaseSafe)"
+  ( cd "$PKG" && zig build -Dtarget="$zig_target" -Doptimize=ReleaseSafe )
 
   local dest_dir="$ROOT/packages/$dest_pkg/mount-server/bin"
   local dest="$dest_dir/machinen-mount-server"
