@@ -19,11 +19,6 @@ scripts/clonefile.o.o
 .zig-cache/
 zig-out/
 
-# Sidecars produced by scripts/build-mount-server.sh next to the (also-
-# untracked) locally-built mount-server binaries (#329).
-packages/mount-server-arm64-darwin/bin/machinen-mount-server.inputs-sha256
-packages/mount-server-arm64-linux/bin/machinen-mount-server.inputs-sha256
-
 # Quickstart bake outputs and snapshot bundles. The example sources
 # (bake.ts, counter.mjs) are tracked; everything `node bake.ts` and
 # `mn-dev snapshot` produce is regenerable from those.
@@ -36,12 +31,7 @@ counter-snap/
 examples/fork-pi/artifacts/
 examples/fork-pi/.claude/
 
-# Sidecar produced by scripts/build-vmm.sh next to the (also-untracked)
-# locally-built VMM binary at packages/vmm-arm64-darwin/bin/machinen-vm.
-packages/vmm-arm64-darwin/bin/machinen-vm.inputs-sha256
-
-# gvproxy binary staged by scripts/install-gvproxy.sh next to the
-# locally-built VMM for resolveGvproxyBinary()'s sibling lookup. CI
-# stages it into the same path during release; only .gitkeep is tracked.
-packages/vmm-arm64-darwin/bin/gvproxy
-packages/vmm-arm64-linux/bin/gvproxy
+# Locally-built / CI-staged native binaries live inside the consolidated
+# @machinen/native-arm64-{darwin,linux} packages. Each package's own
+# .gitignore lists the staged binaries + sidecars; nothing extra needed
+# at the repo root.

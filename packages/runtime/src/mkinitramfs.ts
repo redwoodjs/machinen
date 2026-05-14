@@ -772,22 +772,23 @@ let cachedGuestPaths: VmmGuestPaths | null = null;
 
 /**
  * Resolve the three guest binaries (init / fuse-agent / exec-agent)
- * that ride in the host-arch-gated @machinen/vmm-<arch>-<os> package
+ * that ride in the host-arch-gated @machinen/native-<arch>-<os> package
  * alongside the host VMM. These ELFs are arm64-linux regardless of
  * host (they run in-guest); the host runtime reads them as bytes to
  * pack into the initramfs cpio.
  *
- * Falls back to the in-tree microvm/test-fixtures/ layout when the vmm
- * package can't be resolved OR its guest/ dir is empty — workspace dev
- * runs the latter shape (the vmm-* package is symlinked but its guest/
- * is empty; build-base-assets.sh populates microvm/test-fixtures/),
- * so this fallback keeps `pnpm test` / local boot() working unchanged.
+ * Falls back to the in-tree microvm/test-fixtures/ layout when the
+ * native package can't be resolved OR its guest/ dir is empty —
+ * workspace dev runs the latter shape (the native-* package is
+ * symlinked but its vmm/guest/ is empty; build-base-assets.sh
+ * populates microvm/test-fixtures/), so this fallback keeps
+ * `pnpm test` / local boot() working unchanged.
  */
 function resolveGuestPaths(): VmmGuestPaths {
   if (cachedGuestPaths) {
     return cachedGuestPaths;
   }
-  const pkgName = `@machinen/vmm-${osArch()}-${osPlatform()}`;
+  const pkgName = `@machinen/native-${osArch()}-${osPlatform()}`;
   try {
     const mod = require_(pkgName) as Partial<VmmGuestPaths>;
     if (mod.initPath && mod.fuseAgentPath && mod.execAgentPath && existsSync(mod.initPath)) {
@@ -819,7 +820,7 @@ function defaultInitPath(): string {
 
 /**
  * Default path to the compiled fuse-agent binary. Resolved from the
- * host-arch's @machinen/vmm-* package; callers can override via
+ * host-arch's @machinen/native-* package; callers can override via
  * `PackBundleOptions.fuseAgentPath`.
  */
 export function defaultFuseAgentPath(): string {

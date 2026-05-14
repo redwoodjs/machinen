@@ -2,7 +2,7 @@
   "name": "@machinen/mount-server",
   "version": "0.0.0",
   "private": true,
-  "description": "Zig-native FUSE-over-vsock live-mount server for machinen (#329). Source-only workspace package; the published artifact is @machinen/mount-server-arm64-{darwin,linux}.",
+  "description": "Zig-native FUSE-over-vsock live-mount server for machinen (#329). Source-only workspace package; the built binary ships inside @machinen/native-arm64-{darwin,linux}.",
   "license": "FSL-1.1-MIT",
   "repository": {
     "type": "git",

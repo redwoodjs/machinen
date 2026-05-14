@@ -13,5 +13,5 @@ export default defineConfig({
     options.sourcesContent = false;
   },
   banner: { js: "#!/usr/bin/env node" },
-  external: ["@machinen/runtime", "@machinen/vmm-arm64-darwin", "@machinen/vmm-arm64-linux"],
+  external: ["@machinen/runtime", "@machinen/native-arm64-darwin", "@machinen/native-arm64-linux"],
 });
