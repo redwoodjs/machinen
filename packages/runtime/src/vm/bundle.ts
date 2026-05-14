@@ -36,10 +36,12 @@ interface ResolvedLiveMountBase {
 }
 
 /**
- * A `protocol: "fuse"` live mount (the #78 default) after validation,
- * with the vsock port + host UDS + stats path allocated. A detached
- * `mount-server` process serves it; `/init` forks `/fuse-agent` to
- * bridge the guest FUSE driver to the host over vsock.
+ * A `protocol: "fuse"` live mount (the original #78 transport) after
+ * validation, with the vsock port + host UDS + stats path allocated.
+ * A detached `mount-server` process serves it; `/init` forks
+ * `/fuse-agent` to bridge the guest FUSE driver to the host over
+ * vsock. Since #332 this is the explicit-opt-in fallback — virtio-fs
+ * is the default — and is slated for removal.
  */
 export interface ResolvedFuseMount extends ResolvedLiveMountBase {
   protocol: "fuse";
@@ -85,10 +87,17 @@ export function resolveLiveMounts(
   cwd: string | undefined,
   udsDir: string,
 ): ResolvedLiveMount[] {
-  // The VMM wires exactly one virtio-fs slot (slot 7), so at most one
-  // `protocol: "virtiofs"` mount can be served per VM. fuse mounts are
-  // unbounded — each gets its own vsock port.
-  let virtiofsCount = 0;
+  // Transport resolution (#332):
+  //   - An explicit `protocol` is always honored.
+  //   - An unset `protocol` defaults to virtio-fs — it's the faster
+  //     transport (~1.8× over FUSE-over-vsock on the mount bench) — but
+  //     the VMM wires exactly one virtio-fs slot, so only the *first*
+  //     mount that lands on virtio-fs claims it; any further unset
+  //     mounts fall back to fuse rather than failing.
+  //   - Two *explicit* `protocol: "virtiofs"` mounts is a caller error
+  //     (one slot) and is rejected.
+  // fuse mounts are unbounded — each gets its own vsock port.
+  let virtiofsClaimed = false;
   return mounts.map((m, i) => {
     validateMountGuest(m.guest);
     const hostAbs = resolve(cwd ?? process.cwd(), m.host);
@@ -109,8 +118,11 @@ export function resolveLiveMounts(
       guest: normalizeMountGuest(m.guest),
       mode: m.mode ?? "rw",
     };
-    if ((m.protocol ?? "fuse") === "virtiofs") {
-      if (++virtiofsCount > 1) {
+    // Resolve the effective transport. An unset protocol prefers
+    // virtio-fs but yields to fuse once the single slot is taken.
+    const protocol: "fuse" | "virtiofs" = m.protocol ?? (virtiofsClaimed ? "fuse" : "virtiofs");
+    if (protocol === "virtiofs") {
+      if (virtiofsClaimed) {
         throw new BootError(
           "BOOT_MOUNT_INVALID",
           `liveMounts[${i}]: at most one protocol:"virtiofs" mount is supported ` +
@@ -118,6 +130,7 @@ export function resolveLiveMounts(
             `for the others.`,
         );
       }
+      virtiofsClaimed = true;
       // Tag is the virtio-fs device's config-space identifier and must
       // be ≤ 36 bytes (FsConfig.tag). `machinen-lm<i>` stays well under.
       return { ...base, protocol: "virtiofs", tag: `machinen-lm${i}` };

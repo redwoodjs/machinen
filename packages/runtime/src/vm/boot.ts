@@ -240,15 +240,19 @@ export interface BootOptions {
    * Repeatable; each `protocol: "fuse"` entry gets its own vsock port.
    *
    * `protocol` (#332) selects the transport:
-   *   - `"fuse"` (default) — FUSE-over-vsock: a detached `mount-server`
-   *     process on the host, a `/fuse-agent` byte-pump in the guest.
    *   - `"virtiofs"` — the in-VMM virtio-fs device: the FUSE handlers
    *     run inside the VMM, the guest mounts it directly with no agent
-   *     and no vsock hop. Faster, but the VMM wires a single virtio-fs
-   *     slot, so at most one `"virtiofs"` entry per VM (mix freely with
-   *     `"fuse"` entries). Requires a guest kernel with
-   *     `CONFIG_VIRTIO_FS` — every machinen-built kernel has it; the
-   *     default stays `"fuse"` until the perf bench flips it.
+   *     and no vsock hop (~1.8× faster than fuse on the mount bench).
+   *     The VMM wires a single virtio-fs slot, so at most one
+   *     `"virtiofs"` entry per VM. Requires a guest kernel with
+   *     `CONFIG_VIRTIO_FS` — every machinen-built kernel has it.
+   *   - `"fuse"` — FUSE-over-vsock: a detached `mount-server` process
+   *     on the host, a `/fuse-agent` byte-pump in the guest.
+   *
+   * When `protocol` is unset it defaults to `"virtiofs"`, except that
+   * only the first such mount claims the single virtio-fs slot — any
+   * further unset mounts fall back to `"fuse"`. So a lone live mount
+   * gets the fast path for free, and multi-mount callers keep working.
    *
    * Snapshot / restore / fork (#273): liveMount has no guest-side
    * state worth checkpointing — reads come from the host on demand,

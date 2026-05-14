@@ -309,6 +309,10 @@ fi
 # via the vsock FUSE server, NOT be baked into the boot cpio. We
 # write the marker after the VM starts to prove that.
 #
+# Pinned to `:fuse` explicitly: since #332 an unset protocol defaults
+# to virtio-fs, and T3v already covers that path — T3/T5 stay the
+# FUSE-over-vsock liveness checks for as long as that transport ships.
+#
 # Skips if the rootfs tarball doesn't ship the fuse-agent userspace
 # relay — the kernel always has FUSE built in (`=y`, see
 # build-kernel-arm64.sh), so the previous `fuse.ko` gate would skip
@@ -332,7 +336,7 @@ else
   # Explicit `:ro` since the default is `:rw` (#156); this test
   # intentionally exercises the read-only path.
   run_timeout 60 node "$CLI" boot \
-    --mount-live "$T3_SRC:/mnt/live:ro" \
+    --mount-live "$T3_SRC:/mnt/live:ro:fuse" \
     -- /bin/sh -c 'sleep 4 && cat /mnt/live/hello.txt' \
     >"$T3_LOG" 2>&1 || true
   wait "$SEEDER" 2>/dev/null || true
@@ -346,11 +350,13 @@ fi
 
 # ---- T5: --mount-live :rw writes from inside the guest land on the host (#151) ----
 #
-# Boots with `--mount-live <dir>:/mnt/live` (default :rw post-#156),
-# has the guest echo a marker into a file under that mount, then
-# asserts the file appears on the host filesystem with the right
+# Boots with `--mount-live <dir>:/mnt/live:fuse` — mode left unset so
+# the default-`:rw` (#156) path is still exercised, protocol pinned to
+# `:fuse` so this stays the FUSE-over-vsock write-through check (T5v
+# covers virtio-fs). The guest echoes a marker into a file under that
+# mount; we assert the file appears on the host with the right
 # contents AFTER the VM exits. Same fuse-agent gate as T3.
-echo "T5: machinen boot --mount-live (default :rw) — guest write reaches the host"
+echo "T5: machinen boot --mount-live (default :rw, :fuse) — guest write reaches the host"
 if ! grep -q 'fuse-agent$' <<<"$ROOTFS_ENTRIES"; then
   echo "  skip: fuse-agent not in $ROOTFS_TAR — rebuild base assets"
 else
@@ -359,7 +365,7 @@ else
   T5_LOG="$FIXTURE/t5.log"
   mkdir -p "$T5_SRC"
   run_timeout 60 node "$CLI" boot \
-    --mount-live "$T5_SRC:/mnt/live" \
+    --mount-live "$T5_SRC:/mnt/live:fuse" \
     -- /bin/sh -c "echo $T5_MARKER >/mnt/live/from-guest.txt && sync" \
     >"$T5_LOG" 2>&1 || true
   if [[ -f "$T5_SRC/from-guest.txt" ]] && grep -q "$T5_MARKER" "$T5_SRC/from-guest.txt"; then
@@ -1436,7 +1442,9 @@ trap 'rm -rf "$FIXTURE"' EXIT
 # exit, serves FUSE post-detach, and `machinen stop` reaps it.
 # Issue #150 phase 3. Re-uses the N2 rootfs-capability gate (same
 # requirement as N2D for vsock-exec, plus fuse-agent for the live
-# relay).
+# relay). Pinned to `:fuse` — this test is specifically about the
+# detached `mount-server` helper's lifecycle; virtio-fs (now the
+# default) has no such host process to survive or reap.
 if grep -q 'fuse-agent$' <<<"$ROOTFS_ENTRIES"; then
   echo "N2L: machinen boot --detached --mount-live; helper survives detach; stop reaps it"
   N2L_NAME="smoke-detached-live-$$"
@@ -1454,7 +1462,7 @@ if grep -q 'fuse-agent$' <<<"$ROOTFS_ENTRIES"; then
   n2l_t0=$SECONDS
   if MACHINEN_DETACHED_LOG_DIR="$N2L_LOG_DIR" cli boot \
       --name "$N2L_NAME" --detached \
-      --mount-live "$N2L_SRC:/mnt/live:ro" \
+      --mount-live "$N2L_SRC:/mnt/live:ro:fuse" \
       -- /bin/sh -c "/exec-agent & sleep 120" >"$N2L_LOG" 2>&1; then
     pass "boot --detached --mount-live returned 0 in $((SECONDS - n2l_t0))s"
   else
@@ -2485,6 +2493,11 @@ fi  # S5 rootfs-capability gate
 # unmount before dump, remount after, record `meta.liveMounts` so the
 # restored VM re-establishes a fresh window on the recorded host path.
 #
+# Pinned to `:fuse` — this test is about the fuse transport's CRIU
+# interaction (the dump-preflight umount + machinen-remount re-fork).
+# virtio-fs (now the default) rides through CRIU differently, with no
+# host helper to stop and respawn; that path wants its own test.
+#
 # This test exercises the full round-trip:
 #   1. Boot with --mount-live <host>:/mnt/share, write a guest file
 #      that lands on the host (verifies the source's mount works).
@@ -2524,7 +2537,7 @@ else
 
   S6_PID=$(boot_bg "$S6_NAME" "$S6_BG_LOG" \
     --snapshot "$S6_SCRATCH" \
-    --mount-live "$S6_SHARE_A:/mnt/share" \
+    --mount-live "$S6_SHARE_A:/mnt/share:fuse" \
     -- /bin/sh -c 'while :; do sleep 1; done')
   cleanup_s6() {
     kill -TERM "$S6_PID" 2>/dev/null || true
@@ -2617,7 +2630,7 @@ else
   # the restored guest, proving the override knob actually swapped
   # the underlying directory.
   node "$CLI" restore "$S6_SNAP_DIR" \
-    --mount-live "$S6_SHARE_B:/mnt/share" \
+    --mount-live "$S6_SHARE_B:/mnt/share:fuse" \
     >"$S6_RESTORE_REMAP_LOG" 2>&1 &
   S6_REMAP_PID=$!
   cleanup_s6_remap() {

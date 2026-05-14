@@ -12,9 +12,11 @@ interface ParsedRunArgs {
    * Live-share mounts (`--mount-live <host>:<guest>[:<mode>][:<protocol>]`).
    * Each entry stays connected to the host filesystem for the VM's
    * life; guest reads stream in on demand. `mode` is `rw` (default,
-   * write-through) or `ro` for read-only. `protocol` is `fuse`
-   * (default) or `virtiofs` — the in-VMM virtio-fs transport (#332),
-   * at most one per VM. See #78, #151, #332.
+   * write-through) or `ro` for read-only. `protocol` is `virtiofs`
+   * (the default — the in-VMM virtio-fs transport, #332) or `fuse`
+   * (FUSE-over-vsock). Only one mount can use `virtiofs` per VM, so an
+   * unset protocol on a second mount falls back to `fuse`. See #78,
+   * #151, #332.
    */
   liveMounts?: Array<{
     host: string;

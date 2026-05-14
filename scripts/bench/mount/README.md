@@ -142,11 +142,14 @@ host page cache. This bench is darwin/HVF and DAX-less — `hv_vm_map`
 has no straightforward shared-memory analogue to KVM's — so 1.28× is
 the expected DAX-less ceiling here, not a regression against the goal.
 
-**Default stays `protocol: "fuse"`.** virtio-fs is opt-in
-(`--mount-live …:virtiofs`, `liveMount({ protocol: "virtiofs" })`)
-until either the Linux/KVM+DAX numbers clear the at-or-below-docker bar
-or the darwin path is judged good enough on the 1.8× wire win alone.
-See `docs/adr/0002-…`.
+**`protocol` now defaults to `"virtiofs"`.** The 1.8× wire win holds
+on every run, so an unset protocol takes the fast path — only the
+first mount per VM, since there's one virtio-fs slot; further unset
+mounts fall back to `"fuse"`. `--mount-live …:fuse` /
+`liveMount({ protocol: "fuse" })` still selects the old transport.
+The at-or-below-docker bar is a Linux/KVM+DAX goal and a non-blocker
+for the default flip — FUSE-over-vsock is on track for full removal
+(#338). See `docs/adr/0002-…`.
 
 ## PR description template
 
