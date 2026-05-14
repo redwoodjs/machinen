@@ -134,12 +134,20 @@ pub const Config = struct {
     unbounded_serial: bool = false,
     // Stop the loop after this many data-abort/HVC exits no matter what.
     max_exits: usize = 5_000_000,
+    /// Snapshot integration mirroring boot_kvm.zig's Config. Set
+    /// `restore_path` to load .snaplet bytes at boot before the first
+    /// vcpu.run(). Set `snapshot_path` to enable SIGUSR1-triggered
+    /// dump during the run loop.
+    restore_path: ?[]const u8 = null,
+    snapshot_path: ?[]const u8 = null,
 };
 
 pub const Result = struct {
     serial: []u8, // owned, free with allocator
     saw_psci_shutdown: bool,
     exits: usize,
+    /// True iff the run loop exited via SIGUSR1-triggered snapshot.
+    snapshotted: bool = false,
 };
 
 /// Noisy diagnostics — GIC layout, per-TX-frame classifier, etc. —
@@ -192,6 +200,28 @@ fn enableGic() !void {
 
 pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     validateConfig(cfg);
+
+    // Install the SIGUSR1 snapshot handler FIRST — before the
+    // multi-second fixture load + device bring-up. Until the handler
+    // exists, SIGUSR1's default disposition terminates the VMM, so a
+    // runtime that signals as soon as the registry entry appears
+    // (right after spawn) would otherwise race the boot and kill us.
+    // The watcher thread still starts later (it needs the vCPU
+    // handle); a SIGUSR1 in the gap just sets the atomic flag, which
+    // the watcher picks up the moment it comes up.
+    if (cfg.snapshot_path != null) installSnapshotSignal();
+
+    // Topology fingerprint — matches the KVM side (task #25). GIC
+    // addresses on HVF are baked into hvf.Gic defaults (no Config
+    // field today); if they ever drift from KVM the hash will too.
+    const topo: @import("topology.zig").Topology = .{
+        .ram_base = cfg.ram_base,
+        .ram_size = cfg.ram_size,
+        .gic_dist_base = 0x0800_0000,
+        .gic_redist_base = 0x1000_0000,
+    };
+    const topo_hex = topo.hashHex();
+    std.debug.print("topology: {s}\n", .{topo_hex});
 
     var fx = try loadFixtures(gpa, cfg);
     defer fx.deinit(gpa);
@@ -384,7 +414,363 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         .vsock_bridge = vsock_bridge_opt,
         .balloon_dev = balloon_dev_ptr,
     };
-    return try runLoop(gpa, cfg, vcpu, &devs, irqs);
+    // Apply restore-from-snaplet before the first vcpu.run() if the
+    // host orchestrator gave us one.
+    if (cfg.restore_path) |path| {
+        applyRestoreFile(gpa, path, vcpu, ram, cfg, &devs) catch |err| {
+            std.debug.print("hvf boot: restore from {s} failed: {s}\n", .{ path, @errorName(err) });
+            return err;
+        };
+        std.debug.print("hvf boot: restored from {s}\n", .{path});
+    }
+    if (cfg.snapshot_path != null) {
+        std.debug.print("hvf boot: starting snapshot watcher (vcpu={d})\n", .{vcpu.handle});
+        startSnapshotWatcher(vcpu.handle);
+    }
+
+    return try runLoop(gpa, cfg, vcpu, &devs, irqs, ram);
+}
+
+// SIGUSR1 atomic + watcher-thread plumbing. macOS HVF doesn't return
+// from hv_vcpu_run on signal, so the signal handler alone isn't
+// enough: we spawn a watcher pthread that polls the atomic and calls
+// hv_vcpus_exit() to force the vCPU out of its run when set. The run
+// loop then sees the flag on its next iteration and dumps.
+var snapshot_requested_hvf: std.atomic.Value(bool) = std.atomic.Value(bool).init(false);
+var snapshot_watcher_running: std.atomic.Value(bool) = std.atomic.Value(bool).init(false);
+var snapshot_watcher_vcpu: u64 = 0;
+
+extern "c" fn hv_vcpus_exit(vcpus: *const u64, count: u32) c_int;
+
+fn sigusr1HandlerHvf(sig: c_int) callconv(.c) void {
+    _ = sig;
+    snapshot_requested_hvf.store(true, .seq_cst);
+    // async-signal-safe diagnostic: write() is on the safe list.
+    const c = struct {
+        extern "c" fn write(fd: c_int, buf: *const anyopaque, count: usize) isize;
+    };
+    const msg = "hvf: SIGUSR1 received, requesting snapshot\n";
+    _ = c.write(2, msg.ptr, msg.len);
+}
+
+fn installSnapshotSignal() void {
+    const c = struct {
+        extern "c" fn signal(sig: c_int, handler: usize) usize;
+    };
+    const SIGUSR1: c_int = 30; // macOS SIGUSR1; differs from Linux (10)
+    _ = c.signal(SIGUSR1, @intFromPtr(&sigusr1HandlerHvf));
+}
+
+fn snapshotWatcherThread(arg: ?*anyopaque) callconv(.c) ?*anyopaque {
+    _ = arg;
+    std.debug.print("hvf watcher: thread started, vcpu={d}\n", .{snapshot_watcher_vcpu});
+    const c = struct {
+        extern "c" fn usleep(usec: u32) c_int;
+    };
+    var fired = false;
+    while (snapshot_watcher_running.load(.seq_cst)) {
+        if (snapshot_requested_hvf.load(.seq_cst)) {
+            const vcpu_id = snapshot_watcher_vcpu;
+            const rc = hv_vcpus_exit(&vcpu_id, 1);
+            if (!fired) {
+                std.debug.print("hvf watcher: hv_vcpus_exit({d}) rc={d}\n", .{ vcpu_id, rc });
+                fired = true;
+            }
+        }
+        _ = c.usleep(2_000);
+    }
+    std.debug.print("hvf watcher: exiting\n", .{});
+    return null;
+}
+
+fn startSnapshotWatcher(vcpu_handle: u64) void {
+    snapshot_watcher_vcpu = vcpu_handle;
+    snapshot_watcher_running.store(true, .seq_cst);
+    const c = struct {
+        // pthread_t is opaque on macOS (struct _opaque_pthread_t *),
+        // size_t on Linux. Use ?*anyopaque to be portable.
+        extern "c" fn pthread_create(
+            thread: *?*anyopaque,
+            attr: ?*anyopaque,
+            start_routine: *const fn (?*anyopaque) callconv(.c) ?*anyopaque,
+            arg: ?*anyopaque,
+        ) c_int;
+        extern "c" fn pthread_detach(thread: ?*anyopaque) c_int;
+    };
+    var tid: ?*anyopaque = null;
+    const rc = c.pthread_create(&tid, null, &snapshotWatcherThread, null);
+    if (rc != 0) {
+        std.debug.print("hvf boot: pthread_create failed: {d}\n", .{rc});
+        return;
+    }
+    _ = c.pthread_detach(tid);
+}
+
+const snap_c = struct {
+    extern "c" fn open(path: [*:0]const u8, flags: c_int, mode: c_int) c_int;
+    extern "c" fn close(fd: c_int) c_int;
+    extern "c" fn write(fd: c_int, buf: *const anyopaque, count: usize) isize;
+    extern "c" fn read(fd: c_int, buf: *anyopaque, count: usize) isize;
+    extern "c" fn lseek(fd: c_int, offset: i64, whence: c_int) i64;
+    extern "c" fn chmod(path: [*:0]const u8, mode: c_int) c_int;
+    extern "c" fn rename(old: [*:0]const u8, new: [*:0]const u8) c_int;
+};
+
+const SNAP_O_RDONLY: c_int = 0;
+const SNAP_O_WRONLY: c_int = 1;
+const SNAP_O_CREAT: c_int = 0x200; // macOS
+const SNAP_O_TRUNC: c_int = 0x400;
+const SNAP_SEEK_END: c_int = 2;
+const SNAP_SEEK_SET: c_int = 0;
+
+fn writeSnapshotFile(
+    gpa: std.mem.Allocator,
+    path: []const u8,
+    vcpu: hvf.Vcpu,
+    ram: []const u8,
+    cfg: Config,
+    devs: *const Devices,
+) !void {
+    const snapshot = @import("snapshot.zig");
+    const vcpu_dump = @import("vcpu_dump.zig");
+    const ram_dump = @import("ram_dump.zig");
+    const gic_state = @import("gic_state.zig");
+    const virtio_dump = @import("virtio_dump.zig");
+    const topology = @import("topology.zig");
+
+    const vcpu_payload = try vcpu_dump.dumpHvf(gpa, vcpu.handle);
+    defer gpa.free(vcpu_payload);
+    const ram_payload = try ram_dump.encode(gpa, cfg.ram_base, ram);
+    defer gpa.free(ram_payload);
+    // GICv3 distributor + per-vCPU redistributor state. Without these
+    // a cross-VMM restore lands the guest on a fresh GIC: interrupts
+    // the kernel thinks are enabled (the vtimer PPI especially) are
+    // silently disabled, and the resumed guest never makes progress.
+    const gic_dist_payload = try gic_state.dumpHvfDist(gpa);
+    defer gpa.free(gic_dist_payload);
+    const gic_redist_payload = try gic_state.dumpHvfRedist(gpa, vcpu.handle);
+    defer gpa.free(gic_redist_payload);
+    // CPU interface (ICC_*) — captured via hv_gic_get_icc_reg. This
+    // gates whether interrupts the distributor marks pending actually
+    // reach the resumed vCPU; without a real capture the restored
+    // interface sits at reset (IGRPEN1=0, PMR=0) and the guest never
+    // wakes from its idle WFI.
+    const gic_cpuif_payload = try gic_state.dumpHvfCpuIf(gpa, vcpu.handle);
+    defer gpa.free(gic_cpuif_payload);
+
+    const topo: topology.Topology = .{
+        .ram_base = cfg.ram_base,
+        .ram_size = cfg.ram_size,
+        .gic_dist_base = 0x0800_0000,
+        .gic_redist_base = 0x1000_0000,
+    };
+
+    // One `.virtio` section per present device — the section `id` is
+    // the device's MMIO base so restore can match it back. Without
+    // this the resumed guest's in-RAM virtio drivers point at a
+    // freshly-reset device (queues unconfigured) and every notify is
+    // dropped — the exec-agent's vsock goes silent.
+    var vbufs: [Devices.virtio_max]*virtio.Device = undefined;
+    const vdevs = devs.virtioDevices(&vbufs);
+    var varena = std.heap.ArenaAllocator.init(gpa);
+    defer varena.deinit();
+
+    var sections = std.ArrayList(snapshot.Section).empty;
+    defer sections.deinit(gpa);
+    try sections.append(gpa, .{ .tag = .vcpu, .id = 0, .payload = vcpu_payload });
+    try sections.append(gpa, .{ .tag = .ram, .id = 0, .payload = ram_payload });
+    try sections.append(gpa, .{ .tag = .gic_dist, .id = 0, .payload = gic_dist_payload });
+    try sections.append(gpa, .{ .tag = .gic_redist, .id = 0, .payload = gic_redist_payload });
+    try sections.append(gpa, .{ .tag = .gic_cpuif, .id = 0, .payload = gic_cpuif_payload });
+    for (vdevs) |d| {
+        const vp = try virtio_dump.dumpDevice(varena.allocator(), d);
+        try sections.append(gpa, .{ .tag = .virtio, .id = @truncate(d.base), .payload = vp });
+    }
+
+    const bytes = try snapshot.encode(gpa, topo.hash(), sections.items);
+    defer gpa.free(bytes);
+    // gzip the whole container — guest RAM is mostly zero pages, so
+    // this routinely shrinks the .snaplet by an order of magnitude.
+    const out = try @import("snaplet_zip.zig").compress(gpa, bytes);
+    defer gpa.free(out);
+    std.debug.print("hvf: snapshot {d} bytes -> {d} compressed\n", .{ bytes.len, out.len });
+
+    // Write atomically: dump into `<path>.tmp`, then rename() onto the
+    // final path. The runtime's `performSnapshotSnaplet` polls for the
+    // final path's existence as the "dump complete" signal, so a
+    // partially-written file must never be observable there.
+    const path_z = try gpa.dupeZ(u8, path);
+    defer gpa.free(path_z);
+    const tmp_z = try std.fmt.allocPrintSentinel(gpa, "{s}.tmp", .{path}, 0);
+    defer gpa.free(tmp_z);
+    const fd = snap_c.open(tmp_z, SNAP_O_WRONLY | SNAP_O_CREAT | SNAP_O_TRUNC, 0o644);
+    if (fd < 0) return error.OpenFailed;
+    {
+        defer _ = snap_c.close(fd);
+        var off: usize = 0;
+        while (off < out.len) {
+            const rc = snap_c.write(fd, out.ptr + off, out.len - off);
+            if (rc <= 0) return error.WriteFailed;
+            off += @intCast(rc);
+        }
+    }
+    // open()'s variadic mode arg doesn't reliably stick on macOS;
+    // post-chmod is the safe path.
+    _ = snap_c.chmod(tmp_z, 0o644);
+    if (snap_c.rename(tmp_z, path_z) != 0) return error.WriteFailed;
+}
+
+fn applyRestoreFile(
+    gpa: std.mem.Allocator,
+    path: []const u8,
+    vcpu: hvf.Vcpu,
+    ram: []u8,
+    cfg: Config,
+    devs: *const Devices,
+) !void {
+    _ = cfg;
+    const snapshot = @import("snapshot.zig");
+    const vcpu_dump = @import("vcpu_dump.zig");
+    const ram_dump = @import("ram_dump.zig");
+    const gic_state = @import("gic_state.zig");
+    const virtio_dump = @import("virtio_dump.zig");
+
+    const path_z = try gpa.dupeZ(u8, path);
+    defer gpa.free(path_z);
+    const fd = snap_c.open(path_z, SNAP_O_RDONLY, 0);
+    if (fd < 0) return error.OpenFailed;
+    defer _ = snap_c.close(fd);
+
+    const size = snap_c.lseek(fd, 0, SNAP_SEEK_END);
+    if (size <= 0) return error.EmptyFile;
+    _ = snap_c.lseek(fd, 0, SNAP_SEEK_SET);
+
+    const raw = try gpa.alloc(u8, @intCast(size));
+    defer gpa.free(raw);
+    var off: usize = 0;
+    while (off < raw.len) {
+        const rc = snap_c.read(fd, raw.ptr + off, raw.len - off);
+        if (rc <= 0) return error.ReadFailed;
+        off += @intCast(rc);
+    }
+    // gunzip if the file is compressed; a plain .snaplet passes through.
+    const bytes = try @import("snaplet_zip.zig").decompress(gpa, raw);
+    defer gpa.free(bytes);
+
+    var snap = try snapshot.decode(gpa, bytes);
+    defer snap.deinit();
+
+    // A resumed normal VM needs interrupts: the vtimer PPI to drive
+    // the scheduler, the virtio SPIs to wake blocked drivers (the
+    // exec-agent's vsock). So the GIC distributor + redistributor
+    // state IS applied (HVF's hv_gic_* API round-trips those), and
+    // `applyHvfCpuIfDefaults` below seeds the CPU interface HVF can't
+    // capture. This only works paired with the vtimer-offset fixup at
+    // the end — re-enabling the GIC without fixing the counter jump
+    // just trades a quiescent guest for a tick-catch-up storm.
+    var vbufs: [Devices.virtio_max]*virtio.Device = undefined;
+    const vdevs = devs.virtioDevices(&vbufs);
+    var gic_cpuif_applied = false;
+    for (snap.sections) |s| {
+        switch (s.tag) {
+            .vcpu => try vcpu_dump.loadHvf(gpa, vcpu.handle, s.payload),
+            .ram => {
+                const d = try ram_dump.decode(s.payload);
+                if (d.ram.len > ram.len) return error.RamTooLarge;
+                @memcpy(ram[0..d.ram.len], d.ram);
+            },
+            .gic_dist => gic_state.loadHvfDist(gpa, s.payload) catch |err| {
+                std.debug.print("hvf boot: gic_dist restore failed: {s}\n", .{@errorName(err)});
+            },
+            .gic_redist => gic_state.loadHvfRedist(gpa, vcpu.handle, s.payload) catch |err| {
+                std.debug.print("hvf boot: gic_redist restore failed: {s}\n", .{@errorName(err)});
+            },
+            .gic_cpuif => {
+                if (s.payload.len > 4) {
+                    gic_state.loadHvfCpuIf(gpa, vcpu.handle, s.payload) catch |err| {
+                        std.debug.print("hvf boot: gic_cpuif restore failed: {s}\n", .{@errorName(err)});
+                    };
+                    gic_cpuif_applied = true;
+                }
+            },
+            // Restore each virtio device's transport state onto the
+            // matching freshly-created device (matched by MMIO base,
+            // which the snapshot stored in the section `id`). Without
+            // this the resumed guest's drivers can't reach their
+            // devices — the exec-agent's vsock never reconnects.
+            .virtio => {
+                for (vdevs) |d| {
+                    if (@as(u32, @truncate(d.base)) == s.id) {
+                        virtio_dump.applyDevice(gpa, d, s.payload) catch |err| {
+                            std.debug.print(
+                                "hvf boot: virtio restore for base 0x{x} failed: {s}\n",
+                                .{ d.base, @errorName(err) },
+                            );
+                        };
+                        break;
+                    }
+                }
+            },
+            else => {},
+        }
+    }
+
+    // If the snapshot carried a real `gic_cpuif` section it was just
+    // replayed (the captured ICC_* values are always correct). Only
+    // fall back to seeded Linux defaults for legacy `.snaplet` files
+    // written before `dumpHvfCpuIf` could capture the CPU interface —
+    // without *some* programming the interface stays at reset and the
+    // resumed guest never wakes from its idle WFI.
+    if (!gic_cpuif_applied) gic_state.applyHvfCpuIfDefaults(vcpu.handle);
+
+    // Virtual-timer fixup. loadHvf restored CNTV_CVAL_EL0 — an absolute
+    // point on the guest's virtual-counter timeline — but a fresh HVF
+    // vCPU's virtual counter runs off the host's physical counter,
+    // unrelated to where the snapshotted guest's CNTVCT was. The guest
+    // kernel's timekeeping, RCU, and scheduler all key off CNTVCT; a
+    // wild discontinuity sends the resumed guest straight into a fault
+    // loop. Shift the vtimer offset so CNTVCT lands back on the
+    // restored comparator — the timer reads as "about to fire", the
+    // guest takes one clean tick, then resumes normal cadence.
+    {
+        const tc = struct {
+            extern "c" fn hv_vcpu_get_vtimer_offset(vcpu: u64, offset: *u64) c_int;
+            extern "c" fn hv_vcpu_set_vtimer_offset(vcpu: u64, offset: u64) c_int;
+            extern "c" fn hv_vcpu_get_sys_reg(vcpu: u64, reg: u32, value: *u64) c_int;
+            extern "c" fn mach_absolute_time() u64;
+        };
+        const CNTPCT_EL0: u32 = 0xDF01; // S3_3_C14_C0_1
+        const CNTV_CVAL_EL0: u32 = 0xDF1A; // S3_3_C14_C3_2
+        var cval: u64 = 0;
+        var cntpct_reg: u64 = 0;
+        var cur_off: u64 = 0;
+        const r1 = tc.hv_vcpu_get_sys_reg(vcpu.handle, CNTV_CVAL_EL0, &cval);
+        const rp = tc.hv_vcpu_get_sys_reg(vcpu.handle, CNTPCT_EL0, &cntpct_reg);
+        const r3 = tc.hv_vcpu_get_vtimer_offset(vcpu.handle, &cur_off);
+        // CNTVCT_EL0 can't be read via hv_vcpu_get_sys_reg, and a fresh
+        // vCPU's vtimer offset is 0, so CNTPCT == CNTVCT == the host's
+        // physical counter. On Apple Silicon mach_absolute_time() runs
+        // off that same 24 MHz timebase — use the register read if HVF
+        // honours it, else fall back to mach_absolute_time().
+        const mach = tc.mach_absolute_time();
+        const cntpct: u64 = if (rp == 0 and cntpct_reg != 0) cntpct_reg else mach;
+        std.debug.print(
+            "hvf boot: timer fixup cval=0x{x}(r{d}) cntpct_reg=0x{x}(r{d}) mach=0x{x} off=0x{x}(r{d})\n",
+            .{ cval, r1, cntpct_reg, rp, mach, cur_off, r3 },
+        );
+        if (r1 == 0 and r3 == 0 and cval != 0) {
+            // Want CNTVCT == cval. CNTVCT = CNTPCT - offset, so
+            // offset = CNTPCT - cval (wrapping; CNTVOFF is a raw 64-bit
+            // register and a guest "ahead" of the host counter just
+            // means a large unsigned offset).
+            const new_off = cntpct -% cval;
+            const r4 = tc.hv_vcpu_set_vtimer_offset(vcpu.handle, new_off);
+            std.debug.print(
+                "hvf boot: timer fixup offset 0x{x} -> 0x{x} (r{d})\n",
+                .{ cur_off, new_off, r4 },
+            );
+        }
+    }
 }
 
 /// Drive the vCPU until PSCI SYSTEM_OFF, an unhandled exception, the
@@ -397,11 +783,37 @@ fn runLoop(
     vcpu: hvf.Vcpu,
     devs: *const Devices,
     irqs: IrqMap,
+    ram: []u8,
 ) !Result {
     var exits: usize = 0;
     var saw_off = false;
+    var snapshotted = false;
     while (exits < cfg.max_exits) : (exits += 1) {
         try vcpu.run();
+
+        // Async exit from hv_vcpus_exit (watcher thread, snapshot
+        // trigger). Don't treat as a guest fault; check the flag and
+        // either dump or resume.
+        if (vcpu.exit.reason == .canceled) {
+            if (snapshot_requested_hvf.load(.seq_cst)) {
+                if (cfg.snapshot_path) |path| {
+                    std.debug.print("hvf: writing snapshot to {s}\n", .{path});
+                    writeSnapshotFile(gpa, path, vcpu, ram, cfg, devs) catch |err| {
+                        std.debug.print("hvf boot: snapshot write failed: {s}\n", .{@errorName(err)});
+                    };
+                    std.debug.print("hvf: snapshot write done\n", .{});
+                    snapshotted = true;
+                    // Clear the flag and RESUME — the snapshot engine
+                    // (`performSnapshotSnaplet`) decides destructiveness
+                    // itself: a plain `snapshot` powers the source off
+                    // afterward, `fork` leaves it running. Keep the
+                    // watcher thread alive so a later SIGUSR1 (chained
+                    // snapshot / fork-the-fork) triggers another dump.
+                    snapshot_requested_hvf.store(false, .seq_cst);
+                }
+            }
+            continue;
+        }
 
         // Virtual timer expired while the vCPU was running. Re-mask so
         // we don't immediately re-fire on the next run; the kernel
@@ -440,6 +852,19 @@ fn runLoop(
         // Production boots set `unbounded_serial` so the loop ends only
         // on PSCI SYSTEM_OFF (or max_exits).
         if (!cfg.unbounded_serial and devs.uart.captured_len >= cfg.capture_bytes) break;
+
+        // Snapshot trigger fallback — for the rare case the watcher's
+        // hv_vcpus_exit() landed as a plain exception exit rather than
+        // `.canceled`. Same write-and-resume contract as above.
+        if (snapshot_requested_hvf.load(.seq_cst)) {
+            if (cfg.snapshot_path) |path| {
+                writeSnapshotFile(gpa, path, vcpu, ram, cfg, devs) catch |err| {
+                    std.debug.print("hvf boot: snapshot write failed: {s}\n", .{@errorName(err)});
+                };
+                snapshotted = true;
+                snapshot_requested_hvf.store(false, .seq_cst);
+            }
+        }
     }
 
     if (exits >= cfg.max_exits) return error.RanTooLong;
@@ -449,6 +874,7 @@ fn runLoop(
         .serial = serial,
         .saw_psci_shutdown = saw_off,
         .exits = exits,
+        .snapshotted = snapshotted,
     };
 }
 
@@ -976,6 +1402,28 @@ const Devices = struct {
     vsock_dev: ?*virtio.Device,
     vsock_bridge: ?*vsock_mod.Bridge,
     balloon_dev: ?*virtio.Device,
+
+    /// Upper bound on virtio devices: net + 4 blk slots + vsock + balloon.
+    pub const virtio_max = 7;
+
+    /// Collect every present virtio device into `buf`, returning the
+    /// populated prefix. Used by snapshot/restore to dump/apply each
+    /// device's transport state.
+    pub fn virtioDevices(self: *const Devices, buf: *[virtio_max]*virtio.Device) []*virtio.Device {
+        var n: usize = 0;
+        buf[n] = self.netdev;
+        n += 1;
+        for ([_]?*virtio.Device{
+            self.blk_dev, self.blk2_dev, self.blk3_dev, self.blk4_dev,
+            self.vsock_dev, self.balloon_dev,
+        }) |maybe| {
+            if (maybe) |d| {
+                buf[n] = d;
+                n += 1;
+            }
+        }
+        return buf[0..n];
+    }
 };
 
 /// Route a data-abort MMIO fault to the device that owns the IPA, then

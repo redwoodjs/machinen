@@ -12,6 +12,7 @@ import { performFork } from "./fork.ts";
 import type { MemoryStats, VmHandle } from "../vm-handle.ts";
 import { buildWriteFileCmds, teeOnLog } from "./helpers.ts";
 import { performSnapshot, type SnapshotContext } from "./snapshot.ts";
+import { resolveSnapshotEngine } from "./snapshot-engine.ts";
 
 const debugAttach = debugLib("machinen:attach");
 
@@ -151,7 +152,9 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
     },
 
     async snapshot(snapshotOpts) {
-      if (!entry.diskPath) {
+      // criu writes its images onto the scratch disk; snaplet dumps
+      // the whole VM to a host file and needs no guest-side scratch.
+      if (resolveSnapshotEngine() === "criu" && !entry.diskPath) {
         throw new SnapshotError(
           "SNAPSHOT_NO_DISK",
           "vm.snapshot: this VM was booted with `snapshot: false` (no scratch " +
@@ -163,7 +166,7 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
     },
 
     async fork(forkOpts) {
-      if (!entry.diskPath) {
+      if (resolveSnapshotEngine() === "criu" && !entry.diskPath) {
         throw new SnapshotError(
           "SNAPSHOT_NO_DISK",
           "vm.fork: source VM has no scratch disk (booted with `snapshot: false`).",
@@ -194,6 +197,9 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
       // bundle exactly like boot-owned snapshots do.
       mountDisk: entry.mountDisk,
       liveMounts: entry.liveMounts,
+      // Snaplet engine: the VMM's whole-VM state-file path, persisted
+      // at boot. performSnapshotSnaplet SIGUSR1s the VMM and reads it.
+      snapletPath: entry.snapletPath,
       execRaw: (cmd, execOpts) => handle.execRaw(cmd, execOpts),
       wait: () => handle.wait(),
       kill: () => handle.kill(),

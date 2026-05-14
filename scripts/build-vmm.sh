@@ -27,19 +27,25 @@ OS=$(uname -s)
 echo "==> building VMM (zig ReleaseSafe)"
 ( cd "$PKG" && zig build -Doptimize=ReleaseSafe )
 
-# HVF needs the hypervisor entitlement on darwin or `boot` fails with
-# HV_DENIED. Re-sign every build because entitlements.plist may have
-# changed and codesign is fast.
-if [[ "$OS" == "Darwin" ]]; then
-  echo "==> codesigning with HVF entitlement"
-  codesign -s - --force \
-    --entitlements "$PKG/entitlements.plist" \
-    "$PKG/zig-out/bin/machinen-vm"
-fi
-
 echo "==> staging into $DEST"
 mkdir -p "$DEST_DIR"
 cp "$PKG/zig-out/bin/machinen-vm" "$DEST"
+
+# HVF needs the hypervisor entitlement on darwin or `boot` fails with
+# HV_DENIED. Sign the STAGED copy in-place (not the source): `cp` tags
+# the destination with a fresh `com.apple.provenance` xattr, and an
+# ad-hoc-signed binary carrying that xattr + the hypervisor entitlement
+# gets SIGKILL'd by AppleMobileFileIntegrity at exec. Clearing the
+# xattr and re-signing the copy itself sidesteps that. Re-sign every
+# build because entitlements.plist may have changed and codesign is
+# fast.
+if [[ "$OS" == "Darwin" ]]; then
+  echo "==> codesigning staged binary with HVF entitlement"
+  xattr -c "$DEST"
+  codesign -s - --force \
+    --entitlements "$PKG/entitlements.plist" \
+    "$DEST"
+fi
 
 # Sidecar consumed by scripts/check-asset-freshness.sh. Source the
 # checker so the input list (`vmm_input_files`) lives in one place —

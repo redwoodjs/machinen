@@ -30,6 +30,7 @@
     "repro-192": "node scripts/repro-issue-192.ts",
     "machinen-dev": "bash scripts/machinen-dev.sh",
     "smoke-tests": "bash scripts/smoke-tests.sh",
+    "smoke-test-snapshot-restore-fork": "bash scripts/smoke-test-snapshot-restore-fork.sh",
     "bench-net": "bash scripts/bench-net.sh",
     "bench-boot": "tsx scripts/bench-boot.ts"
   },

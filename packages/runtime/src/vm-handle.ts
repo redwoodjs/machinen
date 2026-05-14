@@ -11,6 +11,7 @@ import type {
   VsockExecResult,
 } from "./exec.ts";
 import type { OnLog } from "./log.ts";
+import type { SnapshotEngine } from "./vm/snapshot-engine.ts";
 import type { RestoreOptions } from "./vm/index.ts";
 
 export interface VmHandle {
@@ -302,10 +303,20 @@ export interface SnapshotOptions {
 }
 
 export interface SnapshotResult {
+  /** Which backend produced the bundle. */
+  engine: SnapshotEngine;
   /** Absolute path to the snapshot bundle directory. */
   snapDir: string;
-  /** Absolute path to the CRIU image directory inside the bundle. */
-  imgDir: string;
+  /**
+   * Absolute path to the CRIU image directory inside the bundle.
+   * Set by the criu engine only; undefined for snaplet bundles.
+   */
+  imgDir?: string;
+  /**
+   * Absolute path to the `.snaplet` whole-VM state file inside the
+   * bundle. Set by the snaplet engine only; undefined for criu bundles.
+   */
+  snapletPath?: string;
   /** Time from `snapshot()` entry to VMM exit, in milliseconds. */
   elapsedMs: number;
   /** Guest console output captured during the dump. */
@@ -317,6 +328,14 @@ export interface SnapshotResult {
  * to reconstruct the source VM's name when registering the fork.
  */
 export interface SnapshotMeta {
+  /**
+   * Which backend wrote this bundle — `"criu"` (process-tree images
+   * under `img/`) or `"snaplet"` (whole-VM `state.snaplet`). `restore()`
+   * also auto-detects from the bundle's contents; this field is the
+   * explicit record. Absent on bundles predating the snaplet engine
+   * (treated as `"criu"`).
+   */
+  engine?: SnapshotEngine;
   /** Name passed to `boot({ name })` when the source VM was started. */
   sourceName?: string;
   /**

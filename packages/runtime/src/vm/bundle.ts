@@ -249,6 +249,16 @@ export function synthesizeAndPackBundle(
     // `snapshot: undefined`) is empty, so synthesizing here would feed
     // CRIU a bundle-less file and fail.
     effectiveCmd = ["/sbin/machinen-restore"];
+  } else if (opts._snapletRestorePath) {
+    // Snaplet restore: the VMM overwrites guest RAM with the bundle's
+    // whole-VM `.snaplet` state before the first vCPU run, so /init
+    // never executes and the cmd is moot — but the VMM still needs a
+    // valid initramfs (MACHINEN_INITRD is required). Give it a
+    // harmless placeholder that's guaranteed present in the rootfs
+    // and, like the criu restore helper, takes precedence over the
+    // image's baked-in cmd (which would otherwise launch a fresh
+    // workload instead of resuming the snapshotted one).
+    effectiveCmd = ["/sbin/machinen-poweroff"];
   } else if (imageConfig?.cmd) {
     effectiveCmd = imageConfig.cmd;
   }

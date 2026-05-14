@@ -53,7 +53,7 @@ const debug = debugLib("machinen:pdeathsig");
  * Bumped whenever the C source below changes in a way that changes
  * behavior. Recompiles instead of silently reusing a stale binary.
  */
-const PDEATHSIG_VERSION = "v3";
+const PDEATHSIG_VERSION = "v4";
 
 let warnedNoCompiler = false;
 // Keyed by the resolved cache path. Two reasons it has to be a map and
@@ -261,11 +261,19 @@ static int run_watch_pid_macos(pid_t watch_pid, char **target) {
     // the default disposition would kill the guard before kqueue
     // delivers the event, leaving the target alive and orphaned to
     // PID 1 — defeating the whole point of the shim.
+    //
+    // SIGUSR1 is included for the snaplet snapshot trigger: the
+    // runtime signals the wrapped VMM's pid, which on macOS is *this*
+    // shim (the watch loop forks). Blocking + kqueue-ing it lets us
+    // forward it to the VMM instead of dying by the default
+    // disposition. The child unblocks the whole mask before execvp,
+    // so the VMM's own SIGUSR1 handler still fires.
     sigset_t mask;
     sigemptyset(&mask);
     sigaddset(&mask, SIGTERM);
     sigaddset(&mask, SIGINT);
     sigaddset(&mask, SIGHUP);
+    sigaddset(&mask, SIGUSR1);
     sigprocmask(SIG_BLOCK, &mask, NULL);
 
     pid_t child = fork();
@@ -290,7 +298,7 @@ static int run_watch_pid_macos(pid_t watch_pid, char **target) {
         return reap_then_exit(child, 127);
     }
 
-    struct kevent changes[5];
+    struct kevent changes[6];
     EV_SET(&changes[0], watch_pid, EVFILT_PROC, EV_ADD | EV_ONESHOT,
            NOTE_EXIT, 0, NULL);
     EV_SET(&changes[1], child, EVFILT_PROC, EV_ADD | EV_ONESHOT,
@@ -298,7 +306,8 @@ static int run_watch_pid_macos(pid_t watch_pid, char **target) {
     EV_SET(&changes[2], SIGTERM, EVFILT_SIGNAL, EV_ADD, 0, 0, NULL);
     EV_SET(&changes[3], SIGINT,  EVFILT_SIGNAL, EV_ADD, 0, 0, NULL);
     EV_SET(&changes[4], SIGHUP,  EVFILT_SIGNAL, EV_ADD, 0, 0, NULL);
-    if (kevent(kq, changes, 5, NULL, 0, NULL) == -1) {
+    EV_SET(&changes[5], SIGUSR1, EVFILT_SIGNAL, EV_ADD, 0, 0, NULL);
+    if (kevent(kq, changes, 6, NULL, 0, NULL) == -1) {
         perror("pdeathsig: kevent register");
         kill(child, SIGTERM);
         return reap_then_exit(child, 127);
@@ -323,6 +332,13 @@ static int run_watch_pid_macos(pid_t watch_pid, char **target) {
         }
         if (n == 0) continue;
         if (ev.filter == EVFILT_SIGNAL) {
+            if ((int)ev.ident == SIGUSR1) {
+                // Snaplet snapshot trigger. Forward to the VMM and
+                // keep watching — the VMM dumps its whole-VM state
+                // and resumes the guest; it is NOT a shutdown signal.
+                kill(child, SIGUSR1);
+                continue;
+            }
             // Runtime is signaling us (typical: child.kill('SIGTERM')
             // from the Node side, or Ctrl-C). Forward to the target
             // and reap. Keep the original signal so callers that look

@@ -124,12 +124,23 @@ pub const Config = struct {
     // 0x10000000 (128 KiB × nr_vcpus — just one for us).
     gic_dist_addr: u64 = 0x0800_0000,
     gic_redist_addr: u64 = 0x1000_0000,
+    /// Snapshot integration (tasks #32+). On boot, if `restore_path`
+    /// is set, the .snaplet at that path is loaded and applied to the
+    /// vCPU + RAM before the run loop starts. While running, SIGUSR1
+    /// flips an atomic flag that the run loop checks after each exit;
+    /// when raised, the vCPU + RAM are dumped to `snapshot_path` and
+    /// the loop exits cleanly with `Result.snapshotted = true`.
+    restore_path: ?[]const u8 = null,
+    snapshot_path: ?[]const u8 = null,
 };
 
 pub const Result = struct {
     serial: []u8,
     saw_psci_shutdown: bool,
     exits: usize,
+    /// True iff the run loop exited via SIGUSR1-triggered snapshot
+    /// (state has been written to cfg.snapshot_path).
+    snapshotted: bool = false,
 };
 
 /// Caller-supplied layout must satisfy the basic geometry the boot
@@ -151,6 +162,22 @@ fn validateConfig(cfg: Config) void {
 
 pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     validateConfig(cfg);
+
+    // Topology fingerprint — printed on stderr so snapshot tooling can
+    // capture the live guest's IPA layout. Tests assert this matches
+    // across HVF/KVM boots of the same config (task #25).
+    const topo: @import("topology.zig").Topology = .{
+        .ram_base = cfg.ram_base,
+        .ram_size = cfg.ram_size,
+        .gic_dist_base = cfg.gic_dist_addr,
+        .gic_redist_base = cfg.gic_redist_addr,
+    };
+    const topo_hex = topo.hashHex();
+    std.debug.print("topology: {s}\n", .{topo_hex});
+
+    // Install SIGUSR1 handler so the host can request a mid-flight
+    // snapshot. Idempotent (signal() is fine to call before boot).
+    if (cfg.snapshot_path != null) installSnapshotSignal();
 
     var fx = try loadFixtures(gpa, cfg);
     defer fx.deinit(gpa);
@@ -309,7 +336,17 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         .vsock_bridge = vsock_bridge_opt,
         .balloon_dev = balloon_dev_ptr,
     };
-    return try runLoop(gpa, cfg, &vm, &vcpu, &devs, irqs);
+    // If asked to restore, apply vCPU + RAM from .snaplet before the
+    // first vcpu.run(). Topology hash mismatch is a hard error: the
+    // wrong layout would scramble guest memory.
+    if (cfg.restore_path) |path| {
+        applyRestoreFile(gpa, path, &vcpu, ram, cfg, gic.fd, &devs) catch |err| {
+            std.debug.print("kvm boot: restore from {s} failed: {s}\n", .{ path, @errorName(err) });
+            return err;
+        };
+        std.debug.print("kvm boot: restored from {s}\n", .{path});
+    }
+    return try runLoop(gpa, cfg, &vm, &vcpu, &devs, irqs, ram, gic.fd);
 }
 
 /// Kernel + DTB bytes loaded off disk plus the parsed kernel header.
@@ -413,7 +450,41 @@ fn initVcpu(vm: *kvm.Vm, img: KernelImage, cfg: Config) !kvm.Vcpu {
 
     var init = try vm.preferredTarget();
     init.features[0] |= (@as(u32, 1) << @as(u5, @intCast(kvm.KVM_ARM_VCPU_PSCI_0_2)));
-    try vcpu.init(init);
+    // Pointer-auth is enabled on the KVM vCPU ONLY when this boot is a
+    // restore. The reasoning is asymmetric:
+    //
+    //  * Restoring a HVF-sourced snapshot: HVF gave that guest active
+    //    FEAT_PAuth (its kernel set SCTLR.EnIA), so RAM holds signed
+    //    return addresses. The KVM vCPU must also implement FEAT_PAuth
+    //    (with the snapshot's APIAKEY*/APDAKEY*/APGAKEY* restored) or
+    //    AUTIASP runs as a NOP, never strips the PAC bits, and the
+    //    first `ret` jumps into a mangled address.
+    //
+    //  * A fresh boot that may later be *snapshotted* (KVM as source):
+    //    we deliberately leave FEAT_PAuth off so the guest kernel
+    //    never signs pointers. That keeps the resulting .snaplet
+    //    portable — a HVF restore can't reconstruct KVM's PAC, and PAC
+    //    algorithms aren't compatible across the two hosts.
+    //
+    // The residual cross-VMM hazard (authenticating a foreign-signed
+    // pointer, FPAC) is sidestepped by never programming the GIC CPU
+    // interface on a cross-VMM restore: with no delivered interrupts
+    // the guest never context-switches, so __switch_to — the kernel's
+    // PAC-auth hot spot — never runs.
+    if (cfg.restore_path != null) {
+        // PTRAUTH_ADDRESS and PTRAUTH_GENERIC must be requested as a
+        // pair; if the host KVM lacks the capability VCPU_INIT fails
+        // and we fall back to a plain init.
+        var init_pac = init;
+        init_pac.features[0] |= (@as(u32, 1) << @as(u5, @intCast(kvm.KVM_ARM_VCPU_PTRAUTH_ADDRESS)));
+        init_pac.features[0] |= (@as(u32, 1) << @as(u5, @intCast(kvm.KVM_ARM_VCPU_PTRAUTH_GENERIC)));
+        vcpu.init(init_pac) catch {
+            std.debug.print("kvm boot: pointer-auth unavailable; init without it\n", .{});
+            try vcpu.init(init);
+        };
+    } else {
+        try vcpu.init(init);
+    }
 
     const dtb_phys = cfg.ram_base + cfg.dtb_offset;
     const entry_phys = cfg.ram_base + img.text_offset;
@@ -605,9 +676,28 @@ fn startVsockBridge(
     return bridge;
 }
 
+/// SIGUSR1 atomic — set by the signal handler, polled by the run
+/// loop after every vCPU exit. File-static because signal handlers
+/// can't take closures; one VMM per process means there's at most
+/// one boot loop reading this.
+var snapshot_requested: std.atomic.Value(bool) = std.atomic.Value(bool).init(false);
+
+fn sigusr1Handler(sig: c_int) callconv(.c) void {
+    _ = sig;
+    snapshot_requested.store(true, .seq_cst);
+}
+
+fn installSnapshotSignal() void {
+    const c = struct {
+        extern "c" fn signal(sig: c_int, handler: usize) usize;
+    };
+    const SIGUSR1: c_int = 10;
+    _ = c.signal(SIGUSR1, @intFromPtr(&sigusr1Handler));
+}
+
 /// Drive the vCPU until PSCI SYSTEM_OFF, an unhandled exit, the
-/// configured serial-capture threshold, or `max_exits`. Owns the
-/// `exits` / `saw_off` accounting and the final Result.
+/// configured serial-capture threshold, `max_exits`, or a
+/// SIGUSR1-triggered snapshot.
 fn runLoop(
     gpa: std.mem.Allocator,
     cfg: Config,
@@ -615,9 +705,12 @@ fn runLoop(
     vcpu: *kvm.Vcpu,
     devs: *const Devices,
     irqs: IrqMap,
+    ram: []u8,
+    gic_fd: c_int,
 ) !Result {
     var exits: usize = 0;
     var saw_off = false;
+    var snapshotted = false;
     while (exits < cfg.max_exits) : (exits += 1) {
         const reason = try vcpu.run();
         switch (reason) {
@@ -644,6 +737,21 @@ fn runLoop(
             },
         }
         if (!cfg.unbounded_serial and devs.uart.captured_len >= cfg.capture_bytes) break;
+        // Snapshot trigger: SIGUSR1 set the flag. Write the whole-VM
+        // state to cfg.snapshot_path and RESUME — destructiveness is
+        // the snapshot engine's call (`performSnapshotSnaplet` powers
+        // the source off for a plain `snapshot`, leaves it running for
+        // `fork`). The SIGUSR1 handler stays installed so a later
+        // signal (chained snapshot / fork-the-fork) triggers another.
+        if (snapshot_requested.load(.seq_cst)) {
+            if (cfg.snapshot_path) |path| {
+                writeSnapshotFile(gpa, path, vcpu, ram, cfg, gic_fd, devs) catch |err| {
+                    std.debug.print("kvm boot: snapshot write failed: {s}\n", .{@errorName(err)});
+                };
+                snapshotted = true;
+                snapshot_requested.store(false, .seq_cst);
+            }
+        }
     }
 
     if (exits >= cfg.max_exits) {
@@ -655,7 +763,286 @@ fn runLoop(
     }
 
     const serial = try gpa.dupe(u8, devs.uart.capturedBytes());
-    return .{ .serial = serial, .saw_psci_shutdown = saw_off, .exits = exits };
+    return .{
+        .serial = serial,
+        .saw_psci_shutdown = saw_off,
+        .exits = exits,
+        .snapshotted = snapshotted,
+    };
+}
+
+const snap_c = struct {
+    extern "c" fn open(path: [*:0]const u8, flags: c_int, mode: c_int) c_int;
+    extern "c" fn close(fd: c_int) c_int;
+    extern "c" fn write(fd: c_int, buf: *const anyopaque, count: usize) isize;
+    extern "c" fn read(fd: c_int, buf: *anyopaque, count: usize) isize;
+    extern "c" fn lseek(fd: c_int, offset: i64, whence: c_int) i64;
+    extern "c" fn chmod(path: [*:0]const u8, mode: c_int) c_int;
+    extern "c" fn rename(old: [*:0]const u8, new: [*:0]const u8) c_int;
+};
+
+// O_RDONLY=0, O_WRONLY=1, O_RDWR=2, O_CREAT=64 (Linux) / 0x200 (macOS)
+// O_TRUNC=512 (Linux) / 0x400 (macOS). We bake target-specific flags
+// at comptime instead of dragging libc headers in.
+const O_RDONLY: c_int = 0;
+const O_WRONLY: c_int = 1;
+const O_CREAT: c_int = if (@import("builtin").os.tag == .macos) 0x200 else 64;
+const O_TRUNC: c_int = if (@import("builtin").os.tag == .macos) 0x400 else 512;
+const SEEK_END: c_int = 2;
+const SEEK_SET: c_int = 0;
+
+/// KVM register ID for a 64-bit AArch64 system register, given its
+/// 16-bit op0/op1/CRn/CRm/op2 encoding.
+/// REG_ARM64 | SIZE_U64 | ARM64_SYSREG(0x0013_0000) | encoding.
+fn kvmSysregId(enc: u16) u64 {
+    return 0x6030_0000_0013_0000 | @as(u64, enc);
+}
+
+/// KVM register ID for MPIDR_EL1 (op0=3,op1=0,CRn=0,CRm=0,op2=5).
+const KVM_REG_MPIDR_EL1: u64 = 0x6030_0000_0013_C005;
+
+fn kvmVcpuMpidr(vcpu: *kvm.Vcpu) u64 {
+    return vcpu.getReg(KVM_REG_MPIDR_EL1) catch 0;
+}
+
+fn writeSnapshotFile(
+    gpa: std.mem.Allocator,
+    path: []const u8,
+    vcpu: *kvm.Vcpu,
+    ram: []const u8,
+    cfg: Config,
+    gic_fd: c_int,
+    devs: *const Devices,
+) !void {
+    const snapshot = @import("snapshot.zig");
+    const vcpu_dump = @import("vcpu_dump.zig");
+    const ram_dump = @import("ram_dump.zig");
+    const gic_state = @import("gic_state.zig");
+    const virtio_dump = @import("virtio_dump.zig");
+    const topology = @import("topology.zig");
+
+    const vcpu_payload = try vcpu_dump.dumpKvm(gpa, vcpu.fd);
+    defer gpa.free(vcpu_payload);
+    const ram_payload = try ram_dump.encode(gpa, cfg.ram_base, ram);
+    defer gpa.free(ram_payload);
+    // GICv3 distributor + per-vCPU redistributor + CPU interface —
+    // see the matching block in boot_hvf.zig for why a cross-VMM
+    // restore can't resume without it.
+    const mpidr = kvmVcpuMpidr(vcpu);
+    const gic_dist_payload = try gic_state.dumpKvmDist(gpa, gic_fd);
+    defer gpa.free(gic_dist_payload);
+    const gic_redist_payload = try gic_state.dumpKvmRedist(gpa, gic_fd, mpidr);
+    defer gpa.free(gic_redist_payload);
+    const gic_cpuif_payload = try gic_state.dumpKvmCpuIf(gpa, gic_fd, mpidr);
+    defer gpa.free(gic_cpuif_payload);
+
+    const topo: topology.Topology = .{
+        .ram_base = cfg.ram_base,
+        .ram_size = cfg.ram_size,
+        .gic_dist_base = cfg.gic_dist_addr,
+        .gic_redist_base = cfg.gic_redist_addr,
+    };
+
+    // One `.virtio` section per present device (section `id` = the
+    // device's MMIO base). See boot_hvf.zig's matching block for why
+    // a restored guest's virtio drivers need this.
+    var vbufs: [Devices.virtio_max]*virtio.Device = undefined;
+    const vdevs = devs.virtioDevices(&vbufs);
+    var varena = std.heap.ArenaAllocator.init(gpa);
+    defer varena.deinit();
+
+    var sections = std.ArrayList(snapshot.Section).empty;
+    defer sections.deinit(gpa);
+    try sections.append(gpa, .{ .tag = .vcpu, .id = 0, .payload = vcpu_payload });
+    try sections.append(gpa, .{ .tag = .ram, .id = 0, .payload = ram_payload });
+    try sections.append(gpa, .{ .tag = .gic_dist, .id = 0, .payload = gic_dist_payload });
+    try sections.append(gpa, .{ .tag = .gic_redist, .id = 0, .payload = gic_redist_payload });
+    try sections.append(gpa, .{ .tag = .gic_cpuif, .id = 0, .payload = gic_cpuif_payload });
+    for (vdevs) |d| {
+        const vp = try virtio_dump.dumpDevice(varena.allocator(), d);
+        try sections.append(gpa, .{ .tag = .virtio, .id = @truncate(d.base), .payload = vp });
+    }
+
+    const bytes = try snapshot.encode(gpa, topo.hash(), sections.items);
+    defer gpa.free(bytes);
+    // gzip the whole container — guest RAM is mostly zero pages, so
+    // this routinely shrinks the .snaplet by an order of magnitude.
+    const out = try @import("snaplet_zip.zig").compress(gpa, bytes);
+    defer gpa.free(out);
+    std.debug.print("kvm: snapshot {d} bytes -> {d} compressed\n", .{ bytes.len, out.len });
+
+    // Write atomically: dump into `<path>.tmp`, then rename() onto the
+    // final path. The runtime's `performSnapshotSnaplet` polls for the
+    // final path's existence as the "dump complete" signal, so a
+    // partially-written file must never be observable there.
+    const path_z = try gpa.dupeZ(u8, path);
+    defer gpa.free(path_z);
+    const tmp_z = try std.fmt.allocPrintSentinel(gpa, "{s}.tmp", .{path}, 0);
+    defer gpa.free(tmp_z);
+    const fd = snap_c.open(tmp_z, O_WRONLY | O_CREAT | O_TRUNC, 0o644);
+    if (fd < 0) return error.OpenFailed;
+    {
+        defer _ = snap_c.close(fd);
+        var off: usize = 0;
+        while (off < out.len) {
+            const rc = snap_c.write(fd, out.ptr + off, out.len - off);
+            if (rc <= 0) return error.WriteFailed;
+            off += @intCast(rc);
+        }
+    }
+    _ = snap_c.chmod(tmp_z, 0o644);
+    if (snap_c.rename(tmp_z, path_z) != 0) return error.WriteFailed;
+}
+
+fn applyRestoreFile(
+    gpa: std.mem.Allocator,
+    path: []const u8,
+    vcpu: *kvm.Vcpu,
+    ram: []u8,
+    cfg: Config,
+    gic_fd: c_int,
+    devs: *const Devices,
+) !void {
+    const snapshot = @import("snapshot.zig");
+    const vcpu_dump = @import("vcpu_dump.zig");
+    const ram_dump = @import("ram_dump.zig");
+    const gic_state = @import("gic_state.zig");
+    const virtio_dump = @import("virtio_dump.zig");
+    const topology = @import("topology.zig");
+
+    const path_z = try gpa.dupeZ(u8, path);
+    defer gpa.free(path_z);
+    const fd = snap_c.open(path_z, O_RDONLY, 0);
+    if (fd < 0) return error.OpenFailed;
+    defer _ = snap_c.close(fd);
+
+    const size = snap_c.lseek(fd, 0, SEEK_END);
+    if (size <= 0) return error.EmptyFile;
+    _ = snap_c.lseek(fd, 0, SEEK_SET);
+
+    const raw = try gpa.alloc(u8, @intCast(size));
+    defer gpa.free(raw);
+    var off: usize = 0;
+    while (off < raw.len) {
+        const rc = snap_c.read(fd, raw.ptr + off, raw.len - off);
+        if (rc <= 0) return error.ReadFailed;
+        off += @intCast(rc);
+    }
+    // gunzip if the file is compressed; a plain .snaplet passes through.
+    const bytes = try @import("snaplet_zip.zig").decompress(gpa, raw);
+    defer gpa.free(bytes);
+
+    var snap = try snapshot.decode(gpa, bytes);
+    defer snap.deinit();
+
+    const topo: topology.Topology = .{
+        .ram_base = cfg.ram_base,
+        .ram_size = cfg.ram_size,
+        .gic_dist_base = cfg.gic_dist_addr,
+        .gic_redist_base = cfg.gic_redist_addr,
+    };
+    if (!std.mem.eql(u8, &topo.hash(), &snap.header.topology_hash)) {
+        return error.TopologyMismatch;
+    }
+
+    const mpidr = kvmVcpuMpidr(vcpu);
+
+    // GIC state is only applied when the snapshot carries a *complete*
+    // picture: distributor + redistributor + a populated CPU-interface
+    // (ICC_*) section. That is only ever true for a KVM-sourced
+    // snapshot — HVF's hv_sys_reg_t doesn't expose ICC_*, so a
+    // HVF-sourced snapshot's gic_cpuif section is empty.
+    //
+    // Applying the distributor/redistributor *without* a consistent
+    // CPU interface is actively harmful: enabled+pending interrupts in
+    // the (re)distributor with a mismatched CPU interface send the
+    // vtimer PPI into a permanent storm that pins the vCPU at 100%
+    // with zero forward progress. So for a HVF-sourced snapshot we
+    // skip the GIC sections entirely and let the destination's clean
+    // reset GIC stand — the resumed guest runs without delivered
+    // interrupts, which is correct for the deterministic compute
+    // harness and an honest reflection of the HVF API limitation.
+    var apply_gic = false;
+    for (snap.sections) |s| {
+        // An empty gic_cpuif payload is exactly the 4-byte entry count.
+        if (s.tag == .gic_cpuif and s.payload.len > 4) apply_gic = true;
+    }
+
+    var vbufs: [Devices.virtio_max]*virtio.Device = undefined;
+    const vdevs = devs.virtioDevices(&vbufs);
+    var cpuif_applied: usize = 0;
+    for (snap.sections) |s| {
+        switch (s.tag) {
+            .vcpu => try vcpu_dump.loadKvm(gpa, vcpu.fd, s.payload),
+            .ram => {
+                const d = try ram_dump.decode(s.payload);
+                if (d.ram.len > ram.len) return error.RamTooLarge;
+                @memcpy(ram[0..d.ram.len], d.ram);
+            },
+            .gic_dist => if (apply_gic) try gic_state.loadKvmDist(gpa, gic_fd, s.payload),
+            .gic_redist => if (apply_gic) try gic_state.loadKvmRedist(gpa, gic_fd, mpidr, s.payload),
+            .gic_cpuif => if (apply_gic) {
+                cpuif_applied = gic_state.loadKvmCpuIf(gpa, gic_fd, mpidr, s.payload) catch 0;
+            },
+            // Restore each virtio device's transport state onto the
+            // matching freshly-created device (matched by MMIO base,
+            // stored in the section `id`).
+            .virtio => {
+                for (vdevs) |d| {
+                    if (@as(u32, @truncate(d.base)) == s.id) {
+                        virtio_dump.applyDevice(gpa, d, s.payload) catch |err| {
+                            std.debug.print(
+                                "kvm boot: virtio restore for base 0x{x} failed: {s}\n",
+                                .{ d.base, @errorName(err) },
+                            );
+                        };
+                        break;
+                    }
+                }
+            },
+            else => {},
+        }
+    }
+    std.debug.print(
+        "kvm boot: GIC sections {s} (cpuif entries present={})\n",
+        .{ if (apply_gic) "applied" else "skipped (HVF-sourced)", apply_gic },
+    );
+
+    // Virtual-timer fixup. The dump tags the guest comparator as
+    // "CNTV_CVAL_EL0", whose sysreg encoding (S3_3_C14_C3_2 = 0xDF1A)
+    // is bit-identical to KVM_REG_ARM_TIMER_CNT — so loadKvm above
+    // actually wrote it into the guest's virtual *counter*, not the
+    // comparator. KVM's separate KVM_REG_ARM_TIMER_CVAL carries the
+    // *other* colliding encoding (S3_3_C14_C0_2 = 0xDF02, nominally
+    // CNTVCT_EL0), and nothing in the dump touches it — so the real
+    // comparator keeps KVM's reset value. Once the GIC CPU interface
+    // is live (it now is), a stale comparator means CNTVCT >= CNTV_CVAL
+    // holds forever and the vtimer PPI storms, pinning the vCPU at
+    // 100% with zero forward progress. Mirror what loadKvm parked in
+    // the counter into the comparator so CNTVCT and CNTV_CVAL line up:
+    // one clean tick on resume, then normal cadence.
+    const KVM_REG_ARM_TIMER_CNT = kvmSysregId(0xDF1A);
+    const KVM_REG_ARM_TIMER_CVAL = kvmSysregId(0xDF02);
+    const guest_cval = vcpu.getReg(KVM_REG_ARM_TIMER_CNT) catch 0;
+    if (guest_cval != 0) {
+        vcpu.setReg(KVM_REG_ARM_TIMER_CVAL, guest_cval) catch |err| {
+            std.debug.print("kvm boot: timer comparator fixup failed: {s}\n", .{@errorName(err)});
+        };
+    }
+
+    // Restore diagnostics — the cheapest signal for a guest that
+    // won't resume. PC/PSTATE should match the snapshot's EL/PC; a
+    // zeroed TTBR or cleared SCTLR.M means the MMU sysregs didn't
+    // stick and EL0 will instruction-abort on the first fetch.
+    const pc = vcpu.getReg(kvm.REG_PC) catch 0;
+    const pstate = vcpu.getReg(kvm.REG_PSTATE) catch 0;
+    const sctlr = vcpu.getReg(kvmSysregId(0xC080)) catch 0;
+    const ttbr0 = vcpu.getReg(kvmSysregId(0xC100)) catch 0;
+    const ttbr1 = vcpu.getReg(kvmSysregId(0xC101)) catch 0;
+    std.debug.print(
+        "kvm boot: restore readback PC=0x{x} PSTATE=0x{x} SCTLR_EL1=0x{x} TTBR0=0x{x} TTBR1=0x{x} cpuif_regs={d} timer_cval=0x{x}\n",
+        .{ pc, pstate, sctlr, ttbr0, ttbr1, cpuif_applied, guest_cval },
+    );
 }
 
 /// SPI ids encoded for KVM_IRQ_LINE (with KVM_ARM_IRQ_TYPE_SPI in
@@ -700,6 +1087,28 @@ const Devices = struct {
     vsock_dev: ?*virtio.Device,
     vsock_bridge: ?*vsock_mod.Bridge,
     balloon_dev: ?*virtio.Device,
+
+    /// Upper bound on virtio devices: net + 4 blk slots + vsock + balloon.
+    pub const virtio_max = 7;
+
+    /// Collect every present virtio device into `buf`, returning the
+    /// populated prefix. Used by snapshot/restore to dump/apply each
+    /// device's transport state.
+    pub fn virtioDevices(self: *const Devices, buf: *[virtio_max]*virtio.Device) []*virtio.Device {
+        var n: usize = 0;
+        buf[n] = self.netdev;
+        n += 1;
+        for ([_]?*virtio.Device{
+            self.blk_dev, self.blk2_dev, self.blk3_dev, self.blk4_dev,
+            self.vsock_dev, self.balloon_dev,
+        }) |maybe| {
+            if (maybe) |d| {
+                buf[n] = d;
+                n += 1;
+            }
+        }
+        return buf[0..n];
+    }
 };
 
 /// PL011 MMIO. Console-byte writes echo to host stderr; every access

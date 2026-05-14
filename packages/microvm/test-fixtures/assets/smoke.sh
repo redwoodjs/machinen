@@ -43,10 +43,12 @@ done
 strip_tty() { sed -E $'s/\x1b\\[[0-9;]*[a-zA-Z]//g; s/\r$//'; }
 
 # Build once, find the binary that contains the boot test.
+# grep -aq treats binary files as text and avoids the pipefail+SIGPIPE
+# flake that a `strings | grep -q` pipe trips on large binaries.
 build_and_find_bin() {
     zig build test >/dev/null 2>&1 || true
     for f in $(ls -t .zig-cache/o/*/test 2>/dev/null); do
-        if strings "$f" 2>/dev/null | grep -q MACHINEN_BOOT_TEST; then
+        if LC_ALL=C grep -aq MACHINEN_BOOT_TEST "$f" 2>/dev/null; then
             echo "$f"
             return 0
         fi
@@ -1024,6 +1026,72 @@ PY
         || fail 'vsock bridge did not log outbound mapping'
 }
 
+smoke_snapshot_harness() {
+    echo "--- snapshot-harness ---"
+    local log=/tmp/microvm-smoke-snapshot-harness.log
+    local goldens=$FIXTURES/snapshot/harness/goldens.txt
+
+    # Build the harness on demand (same pattern as net-bench-probe).
+    local src=$FIXTURES/../assets/snapshot-harness.zig
+    local bin=$ROOTFS/snapshot-harness
+    if [[ ! -x "$bin" || "$src" -nt "$bin" ]]; then
+        zig build-exe "$src" \
+            -target aarch64-linux-musl -static -O ReleaseSmall \
+            -lc -femit-bin="$bin" >/dev/null 2>&1 || { fail "harness build failed"; return; }
+        rm -f "$bin.o"
+    fi
+
+    repack_with "write_config /snapshot-harness"
+    # 10M SHA256 iters in-guest is a few seconds of compute on top of
+    # boot/teardown; 60s timeout has plenty of slack.
+    run_vmm 'printf ""' 60 "$log"
+
+    # Extract the three checkpoint hashes we treat as goldens. Other
+    # 100k-interval lines exist; we only pin these three.
+    extract_hash() {
+        sed -nE "s/^snapshot-harness: iter=$1 hash=([0-9a-f]{64})\$/\\1/p" "${log}.clean" | tail -1
+    }
+    local got_10k got_1m got_10m
+    got_10k=$(extract_hash 10000)
+    got_1m=$(extract_hash 1000000)
+    got_10m=$(extract_hash 10000000)
+
+    if [[ -z "$got_10k" || -z "$got_1m" || -z "$got_10m" ]]; then
+        fail "snapshot-harness: missing checkpoint lines (10k='$got_10k' 1m='$got_1m' 10m='$got_10m'); see ${log}.clean"
+        return
+    fi
+    pass 'snapshot-harness: produced all three checkpoint lines'
+
+    # First run on a host with no goldens: write what we got so the
+    # operator can inspect + commit. Subsequent runs verify against
+    # the committed file. Diverging across HVF/KVM means we have a
+    # determinism problem in pure-CPU compute, which must be fixed
+    # before any snapshot work begins.
+    if [[ ! -f "$goldens" ]]; then
+        mkdir -p "$(dirname "$goldens")"
+        cat > "$goldens" <<EOF
+# Deterministic snapshot-harness reference hashes.
+# Generated on $(uname -s) $(uname -m).
+# Both HVF and KVM must produce these; divergence is a foundational
+# bug, not a snapshot bug.
+10000=$got_10k
+1000000=$got_1m
+10000000=$got_10m
+EOF
+        echo "  wrote $goldens (review and commit)"
+        return
+    fi
+
+    local exp_10k exp_1m exp_10m
+    exp_10k=$(awk -F= '/^10000=/{print $2}' "$goldens")
+    exp_1m=$(awk -F=  '/^1000000=/{print $2}' "$goldens")
+    exp_10m=$(awk -F= '/^10000000=/{print $2}' "$goldens")
+
+    [[ "$got_10k" == "$exp_10k" ]] && pass "iter=10000 hash matches golden"    || fail "iter=10000 mismatch (got=$got_10k exp=$exp_10k)"
+    [[ "$got_1m"  == "$exp_1m"  ]] && pass "iter=1000000 hash matches golden"  || fail "iter=1000000 mismatch (got=$got_1m exp=$exp_1m)"
+    [[ "$got_10m" == "$exp_10m" ]] && pass "iter=10000000 hash matches golden" || fail "iter=10000000 mismatch (got=$got_10m exp=$exp_10m)"
+}
+
 case "$MODE" in
     repl)       smoke_repl ;;
     criu)       smoke_criu ;;
@@ -1039,7 +1107,8 @@ case "$MODE" in
     files)             smoke_files ;;
     cc-session-vsock)  smoke_cc_session_vsock ;;
     node-http)         smoke_node_http ;;
-    all)               smoke_repl; smoke_criu; smoke_net; smoke_net_bench; smoke_blk; smoke_cc; smoke_spawn; smoke_vsock; smoke_vsock_out; smoke_winsize; smoke_files; smoke_node_http; smoke_cc_session; smoke_cc_session_vsock ;;
+    snapshot-harness)  smoke_snapshot_harness ;;
+    all)               smoke_repl; smoke_criu; smoke_net; smoke_net_bench; smoke_blk; smoke_cc; smoke_spawn; smoke_vsock; smoke_vsock_out; smoke_winsize; smoke_files; smoke_node_http; smoke_cc_session; smoke_cc_session_vsock; smoke_snapshot_harness ;;
     *) echo "unknown mode: $MODE" >&2; exit 2 ;;
 esac
 

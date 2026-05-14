@@ -99,6 +99,37 @@ pub fn build(b: *std.Build) void {
     // by passing `--prefix` or `-p`.
     b.installArtifact(exe);
 
+    // snapshot-test — CLI for the .snaplet snapshot format (task #16).
+    // Lives alongside machinen-vm because future subcommands need the
+    // same KVM/HVF state-extraction surface.
+    const snap_exe = b.addExecutable(.{
+        .name = "snapshot-test",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/snapshot_cli.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "microvm", .module = mod },
+            },
+        }),
+    });
+    b.installArtifact(snap_exe);
+
+    // sysreg-probe — enumerate every reachable arm64 sysreg on the
+    // current VMM backend (task #17). HVF on macOS, KVM on Linux.
+    const sysreg_exe = b.addExecutable(.{
+        .name = "sysreg-probe",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/sysreg_probe.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "microvm", .module = mod },
+            },
+        }),
+    });
+    b.installArtifact(sysreg_exe);
+
     // This creates a top level step. Top level steps have a name and can be
     // invoked by name when running `zig build` (e.g. `zig build run`).
     // This will evaluate the `run` step rather than the default step.
@@ -163,6 +194,17 @@ pub fn build(b: *std.Build) void {
 
         const sign_exe = signWithHvfEntitlement(b, exe);
         run_cmd.step.dependOn(&sign_exe.step);
+
+        // snapshot-test will eventually need the HVF entitlement (when
+        // dump/load wire up — tasks #19/#22+); sign now for forward-compat.
+        // Wire the sign step into the install step so `zig build` actually
+        // runs it (returning the step without dependOn would orphan it).
+        const sign_snap = signWithHvfEntitlement(b, snap_exe);
+        b.getInstallStep().dependOn(&sign_snap.step);
+
+        // sysreg-probe creates an HVF vCPU — needs the entitlement.
+        const sign_sysreg = signWithHvfEntitlement(b, sysreg_exe);
+        b.getInstallStep().dependOn(&sign_sysreg.step);
     }
 
     // A top level step for running all tests. dependOn can be called multiple

@@ -58,6 +58,7 @@ const TOC = {
     "SnapshotOptions",
     "SnapshotResult",
     "SnapshotMeta",
+    "SnapshotEngine",
     "bootSnapshotPath",
     "writeBootSnapshot",
     "detachedLogRoot",
