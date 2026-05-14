@@ -10,13 +10,15 @@
 //! expects the old configuration — the device can't find the queues
 //! and every notify is dropped.
 //!
-//! One codec covers blk / net / vsock / balloon — virtio 1.x devices
-//! share the same transport state shape, and the `device` discriminant
-//! records which DeviceId the payload belongs to so restore can
-//! validate it lands on the matching device.
+//! One codec covers blk / net / vsock / balloon / virtio-fs — virtio
+//! 1.x devices share the same transport state shape, and the `device`
+//! discriminant records which DeviceId the payload belongs to so
+//! restore can validate it lands on the matching device. virtio-fs
+//! transport state is just its hiprio + request queues; the FUSE
+//! backend's host-side state is captured separately (see fuse_state.zig).
 //!
 //! Header (32 bytes):
-//!   device u32           — DeviceId (net=1, blk=2, console=3, balloon=5, vsock=19)
+//!   device u32           — DeviceId (net=1, blk=2, console=3, balloon=5, vsock=19, virtio_fs=26)
 //!   queue_count u32      — number of QueueState records that follow
 //!   driver_features u64  — features the guest driver accepted
 //!   status u32           — virtio device-status byte (packed Status @bitCast)
@@ -35,6 +37,7 @@ pub const DEVICE_BLK: u32 = 2;
 pub const DEVICE_CONSOLE: u32 = 3;
 pub const DEVICE_BALLOON: u32 = 5;
 pub const DEVICE_VSOCK: u32 = 19;
+pub const DEVICE_VIRTIO_FS: u32 = 26;
 
 pub const HEADER_SIZE: usize = 32;
 pub const QUEUE_ENTRY_SIZE: usize = 40;
@@ -82,7 +85,7 @@ pub const Snapshot = struct {
 fn knownDevice(device: u32) bool {
     return device == DEVICE_NET or device == DEVICE_BLK or
         device == DEVICE_CONSOLE or device == DEVICE_BALLOON or
-        device == DEVICE_VSOCK;
+        device == DEVICE_VSOCK or device == DEVICE_VIRTIO_FS;
 }
 
 pub fn encode(
@@ -253,6 +256,30 @@ test "dumpDevice/applyDevice round-trip a live device's transport state" {
     try std.testing.expectEqual(src.queues[0].desc_addr, dst.queues[0].desc_addr);
     try std.testing.expectEqual(src.queues[0].last_avail_idx, dst.queues[0].last_avail_idx);
     try std.testing.expectEqual(src.queues[1].driver_addr, dst.queues[1].driver_addr);
+}
+
+test "dumpDevice/applyDevice round-trip a virtio-fs device's transport state" {
+    // virtio-fs (device id 26) rides the same transport codec — its
+    // hiprio queue (0) and request queue (1) are plain virtio queues.
+    const a = std.testing.allocator;
+    var src: virtio.Device = .{ .base = 0x0a00_0e00, .id = .virtio_fs };
+    src.driver_features = 0x1_0000_0000;
+    src.status = @bitCast(@as(u32, 0x0f));
+    src.queue_sel = 1;
+    src.interrupt_status = 0x1;
+    src.queues[0] = .{ .num = 256, .ready = 1, .desc_addr = 0x5000_0000, .driver_addr = 0x5000_1000, .device_addr = 0x5000_2000, .last_avail_idx = 3 };
+    src.queues[1] = .{ .num = 256, .ready = 1, .desc_addr = 0x5001_0000, .driver_addr = 0x5001_1000, .device_addr = 0x5001_2000, .last_avail_idx = 71 };
+
+    const payload = try dumpDevice(a, &src);
+    defer a.free(payload);
+    try std.testing.expectEqual(DEVICE_VIRTIO_FS, std.mem.readInt(u32, payload[0..4], .little));
+
+    var dst: virtio.Device = .{ .base = 0x0a00_0e00, .id = .virtio_fs };
+    try applyDevice(a, &dst, payload);
+    try std.testing.expectEqual(src.driver_features, dst.driver_features);
+    try std.testing.expectEqual(src.queue_sel, dst.queue_sel);
+    try std.testing.expectEqual(src.queues[1].desc_addr, dst.queues[1].desc_addr);
+    try std.testing.expectEqual(src.queues[1].last_avail_idx, dst.queues[1].last_avail_idx);
 }
 
 test "applyDevice rejects a payload from a different device type" {

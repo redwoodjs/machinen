@@ -21,13 +21,14 @@
 #   S3     machinen fork — live snapshot + sibling, fork-the-fork — #216.
 #   S4     Lazy-pages restore round-trip — #266. criu-only.
 #   S5     Headline RSS: fork RSS ≪ dirty parent RSS — #266. criu-only.
-#   S6     Snapshot/restore/fork composes with --mount-live — #273, #338. criu-only.
+#   S6     Snapshot/restore/fork composes with --mount-live — #273, #338.
 #
-# S4 and S5 exercise lazy-pages restore, a criu-only feature. S6
-# exercises --mount-live, served since #332/#338 by an in-VMM virtio-fs
-# device; CRIU checkpoints that device with the rest of the guest, but
-# the snaplet engine's snapshot set doesn't cover the virtio-fs slots
-# yet. All three are gated to the criu engine iteration.
+# S4 and S5 exercise lazy-pages restore, a criu-only feature, and are
+# gated to the criu engine iteration. S6 exercises --mount-live, served
+# since #332/#338 by an in-VMM virtio-fs device, and runs for BOTH
+# engines: CRIU checkpoints that device with the rest of the guest,
+# and the snaplet engine now captures each virtio-fs slot's transport
+# state plus its host-side FUSE backend state.
 
 set -euo pipefail
 
@@ -1072,16 +1073,14 @@ for ENGINE in criu snaplet; do
   #      independent guest — both can write to the same host dir
   #      (concurrent-writer semantics are the user's to manage).
   # ----------------------------------------------------------------
-  # S6 is criu-only for now. CRIU checkpoints the whole virtio-fs device
-  # along with the rest of the guest, so `--mount-live` rides through the
-  # dump untouched. The snaplet engine's snapshot set (`virtioDevices()`)
-  # covers net + block + vsock + balloon but not the virtio-fs slots, so
-  # a snaplet-restored VM wouldn't have its `--mount-live` windows
-  # reconstructed. Adding the virtio-fs slots to the snaplet snapshot set
-  # is tracked as a follow-up.
-  if [[ "$ENGINE" != "criu" ]]; then
-    echo "S6: skipped (snaplet engine — virtio-fs slots aren't in the snapshot set yet)"
-  elif [[ "$ROOTFS_SUPPORTS_VSOCK_EXEC" -eq 0 || "$ROOTFS_SUPPORTS_CRIU" -eq 0 || "$ROOTFS_SUPPORTS_SNAPSHOT_HELPERS" -eq 0 ]]; then
+  # S6 runs for BOTH engines. CRIU checkpoints the whole virtio-fs
+  # device along with the rest of the guest, so `--mount-live` rides
+  # through the dump untouched. The snaplet engine's snapshot set
+  # (`virtioDevices()`) now includes the virtio-fs slots, and a
+  # `.virtiofs_state` section captures each slot's host-side FUSE
+  # backend (the nodeid→path map + open handle table) — so a
+  # snaplet-restored VM reconstructs its `--mount-live` windows too.
+  if [[ "$ROOTFS_SUPPORTS_VSOCK_EXEC" -eq 0 || "$ROOTFS_SUPPORTS_CRIU" -eq 0 || "$ROOTFS_SUPPORTS_SNAPSHOT_HELPERS" -eq 0 ]]; then
     echo "S6: skipped (rootfs lacks vsock/criu/snapshot helpers)"
   else
     echo "S6: snapshot + restore + fork compose with --mount-live (#273, #338)"

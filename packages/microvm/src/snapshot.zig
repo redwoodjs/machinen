@@ -51,6 +51,11 @@ pub const SectionTag = enum(u32) {
     /// is a name-tagged register dump (encodeVcpuPayload), keeping it
     /// portable across backends the same way the VCPU section is.
     gic_cpuif = 6,
+    /// Host-side FUSE backend state for one virtio-fs `--mount-live`
+    /// device — the nodeid→path map and open file/dir handles. The
+    /// section `id` is the virtio-fs device's MMIO base (same keying
+    /// as `.virtio`). Payload schema: fuse_state.zig.
+    virtiofs_state = 7,
     _,
 };
 

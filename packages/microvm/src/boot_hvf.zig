@@ -630,6 +630,19 @@ fn writeSnapshotFile(
         const vp = try virtio_dump.dumpDevice(varena.allocator(), d);
         try sections.append(gpa, .{ .tag = .virtio, .id = @truncate(d.base), .payload = vp });
     }
+    // virtio-fs FUSE backend state — the nodeid→path map and the open
+    // handle table. The `.virtio` loop above captured each virtio-fs
+    // device's transport (queue) state; this captures the host-side
+    // FUSE session so the restored guest's cached nodeids and open fds
+    // keep resolving instead of hitting a fresh, empty backend. Keyed
+    // by MMIO base, same as `.virtio`. The backend is recovered from
+    // `request_ctx` — the same pointer `handleRequest` casts per request.
+    for (vdevs) |d| {
+        if (d.id != .virtio_fs) continue;
+        const backend: *virtiofs_mod.Device = @ptrCast(@alignCast(d.request_ctx.?));
+        const fp = try backend.state.dumpState(varena.allocator());
+        try sections.append(gpa, .{ .tag = .virtiofs_state, .id = @truncate(d.base), .payload = fp });
+    }
 
     const bytes = try snapshot.encode(gpa, topo.hash(), sections.items);
     defer gpa.free(bytes);
@@ -753,6 +766,24 @@ fn applyRestoreFile(
                         };
                         break;
                     }
+                }
+            },
+            // Restore the virtio-fs FUSE backend state onto the matching
+            // freshly-booted device (matched by MMIO base in `s.id`).
+            // A decode failure is logged and skipped — the mount falls
+            // back to an empty backend rather than wedging the boot.
+            .virtiofs_state => {
+                for (vdevs) |d| {
+                    if (d.id != .virtio_fs) continue;
+                    if (@as(u32, @truncate(d.base)) != s.id) continue;
+                    const backend: *virtiofs_mod.Device = @ptrCast(@alignCast(d.request_ctx.?));
+                    backend.state.applyState(s.payload) catch |err| {
+                        std.debug.print(
+                            "hvf boot: virtio-fs state restore for base 0x{x} failed: {s}\n",
+                            .{ d.base, @errorName(err) },
+                        );
+                    };
+                    break;
                 }
             },
             else => {},
@@ -1550,18 +1581,20 @@ const Devices = struct {
     /// `--mount-live` wasn't requested.
     virtiofs_devs: [MAX_VIRTIOFS_SLOTS]?*virtio.Device,
 
-    /// Upper bound on virtio devices: net + 4 blk slots + vsock + balloon.
-    pub const virtio_max = 7;
+    /// Upper bound on virtio devices: net + 4 blk slots + vsock +
+    /// balloon + every virtio-fs `--mount-live` slot.
+    pub const virtio_max = 7 + MAX_VIRTIOFS_SLOTS;
 
     /// Collect every present virtio device into `buf`, returning the
     /// populated prefix. Used by snapshot/restore to dump/apply each
-    /// device's transport state.
+    /// device's transport state — virtio-fs slots included, so a
+    /// `--mount-live` VM's queue state round-trips through snaplet.
     pub fn virtioDevices(self: *const Devices, buf: *[virtio_max]*virtio.Device) []*virtio.Device {
         var n: usize = 0;
         buf[n] = self.netdev;
         n += 1;
         for ([_]?*virtio.Device{
-            self.blk_dev, self.blk2_dev, self.blk3_dev, self.blk4_dev,
+            self.blk_dev,   self.blk2_dev,    self.blk3_dev, self.blk4_dev,
             self.vsock_dev, self.balloon_dev,
         }) |maybe| {
             if (maybe) |d| {
@@ -1569,6 +1602,13 @@ const Devices = struct {
                 n += 1;
             }
         }
+        for (self.virtiofs_devs) |maybe| {
+            if (maybe) |d| {
+                buf[n] = d;
+                n += 1;
+            }
+        }
+        assert(n <= virtio_max);
         return buf[0..n];
     }
 };
