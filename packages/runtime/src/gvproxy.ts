@@ -47,7 +47,8 @@ const debug = debugLib("machinen:gvproxy");
 /**
  * Pinned gvproxy version — matches `scripts/install-gvproxy.sh`. Bump
  * in lockstep with that script so the release path (bundled in
- * `@machinen/vmm-*`) and the dev auto-install path stay aligned.
+ * `@machinen/native-*` under `vmm/bin/`) and the dev auto-install path
+ * stay aligned.
  */
 const GVPROXY_VERSION = "v0.8.6";
 

@@ -82,9 +82,9 @@ jobs:
       - name: Stage VMM for the runtime to find
         if: steps.gate.outputs.skip != 'true'
         run: |
-          mkdir -p packages/vmm-arm64-linux/bin
-          cp packages/microvm/zig-out/bin/machinen-vm packages/vmm-arm64-linux/bin/machinen-vm
-          cp packages/microvm/zig-out/bin/gvproxy packages/vmm-arm64-linux/bin/gvproxy
+          mkdir -p packages/native-arm64-linux/vmm/bin
+          cp packages/microvm/zig-out/bin/machinen-vm packages/native-arm64-linux/vmm/bin/machinen-vm
+          cp packages/microvm/zig-out/bin/gvproxy packages/native-arm64-linux/vmm/bin/gvproxy
 
       - if: steps.gate.outputs.skip != 'true'
         run: pnpm install --frozen-lockfile

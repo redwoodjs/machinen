@@ -98,7 +98,7 @@ kernel_input_files() {
 }
 
 # Files whose contents are baked into
-# packages/vmm-arm64-darwin/bin/machinen-vm. We `find` every .zig
+# packages/native-arm64-darwin/vmm/bin/machinen-vm. We `find` every .zig
 # under packages/microvm/src so a newly added source file
 # automatically invalidates the sidecar — listing them explicitly (as
 # rootfs_input_files does for assets/) would silently miss new files
@@ -121,7 +121,7 @@ vmm_input_files() {
 }
 
 # Files whose contents are baked into
-# packages/mount-server-arm64-darwin/bin/machinen-mount-server (#329).
+# packages/native-arm64-darwin/mount-server/bin/machinen-mount-server (#329).
 # Mirrors vmm_input_files: every .zig under src/, plus the build graph
 # and the build script itself so a flag change invalidates the sidecar.
 mount_server_input_files() {
@@ -185,15 +185,15 @@ verify_sidecar() {
 # travels with the artifact (matches the rootfs/kernel pattern under
 # release-assets/).
 vmm_dest_path() {
-  printf '%s' "${ROOT}/packages/vmm-arm64-darwin/bin/machinen-vm"
+  printf '%s' "${ROOT}/packages/native-arm64-darwin/vmm/bin/machinen-vm"
 }
 
 mount_server_dest_path() {
-  printf '%s' "${ROOT}/packages/mount-server-arm64-darwin/bin/machinen-mount-server"
+  printf '%s' "${ROOT}/packages/native-arm64-darwin/mount-server/bin/machinen-mount-server"
 }
 
 mount_server_linux_dest_path() {
-  printf '%s' "${ROOT}/packages/mount-server-arm64-linux/bin/machinen-mount-server"
+  printf '%s' "${ROOT}/packages/native-arm64-linux/mount-server/bin/machinen-mount-server"
 }
 
 main() {

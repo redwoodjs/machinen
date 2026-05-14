@@ -19,7 +19,7 @@ set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 PKG="$ROOT/packages/microvm"
-DEST_DIR="$ROOT/packages/vmm-arm64-darwin/bin"
+DEST_DIR="$ROOT/packages/native-arm64-darwin/vmm/bin"
 DEST="$DEST_DIR/machinen-vm"
 SIDECAR="$DEST.inputs-sha256"
 OS=$(uname -s)

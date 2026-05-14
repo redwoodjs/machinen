@@ -67,7 +67,7 @@ import {
 } from "node:fs";
 import { createRequire } from "node:module";
 import { arch, homedir, platform, tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import debugLib from "debug";
 import { BootError, ProvisionError } from "./errors.ts";
 import { resolveMke2fs } from "./rootfs-img.ts";
@@ -381,12 +381,11 @@ function resolveMksquashfsEnvOverride(): string | undefined {
 const require_ = createRequire(import.meta.url);
 
 function findBundledMksquashfs(): string | undefined {
-  const pkg = `@machinen/squashfs-tools-${arch()}-${platform()}`;
+  const pkg = `@machinen/native-${arch()}-${platform()}`;
   try {
-    const pkgJson = require_.resolve(`${pkg}/package.json`);
-    const candidate = join(dirname(pkgJson), "bin", "mksquashfs");
-    if (existsSync(candidate)) {
-      return candidate;
+    const mod = require_(pkg) as { mksquashfs?: string };
+    if (mod.mksquashfs && existsSync(mod.mksquashfs)) {
+      return mod.mksquashfs;
     }
   } catch {
     // Optional dep not installed for this arch+os.

@@ -6,8 +6,8 @@
 # runs from any host (no remote builder needed).
 #
 # Targets:
-#   - aarch64-macos  → packages/mount-server-arm64-darwin/bin/
-#   - aarch64-linux-gnu → packages/mount-server-arm64-linux/bin/
+#   - aarch64-macos     → packages/native-arm64-darwin/mount-server/bin/
+#   - aarch64-linux-gnu → packages/native-arm64-linux/mount-server/bin/
 #
 # Each gets an inputs-sha256 sidecar that check-asset-freshness.sh
 # consumes.
@@ -28,7 +28,7 @@ build_one() {
   echo "==> building mount-server ($label, zig ReleaseFast)"
   ( cd "$PKG" && zig build -Dtarget="$zig_target" -Doptimize=ReleaseFast )
 
-  local dest_dir="$ROOT/packages/$dest_pkg/bin"
+  local dest_dir="$ROOT/packages/$dest_pkg/mount-server/bin"
   local dest="$dest_dir/machinen-mount-server"
   local sidecar="$dest.inputs-sha256"
 
@@ -43,7 +43,7 @@ build_one() {
 # shellcheck source=./check-asset-freshness.sh
 source "$ROOT/scripts/check-asset-freshness.sh"
 
-build_one "aarch64-macos"     "mount-server-arm64-darwin" "darwin-arm64"
-build_one "aarch64-linux-gnu" "mount-server-arm64-linux"  "linux-arm64"
+build_one "aarch64-macos"     "native-arm64-darwin" "darwin-arm64"
+build_one "aarch64-linux-gnu" "native-arm64-linux"  "linux-arm64"
 
 echo "==> Done."

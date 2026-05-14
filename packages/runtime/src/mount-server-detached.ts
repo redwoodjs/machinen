@@ -20,7 +20,7 @@
 
 import { spawn as nodeSpawn, type ChildProcess } from "node:child_process";
 import { existsSync, readFileSync, rmSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 import debugLib from "debug";
 import { MountError } from "./errors.ts";
 import { ensurePdeathsig, wrapWithPdeathsig } from "./pdeathsig.ts";
@@ -310,18 +310,19 @@ interface ResolvedCommand {
 
 let cachedCommand: ResolvedCommand | null = null;
 
+let cachedRequire: NodeRequire | null = null;
+
 /**
- * Locate the Zig mount-server binary for the current host. Looks at
- * `@machinen/mount-server-arm64-{darwin,linux}` sibling packages —
- * whichever is staged on disk wins, with the per-host package.json
- * `os`/`cpu` filters keeping the wrong-arch one unstaged on npm
- * installs.
+ * Locate the Zig mount-server binary for the current host via the
+ * consolidated `@machinen/native-<arch>-<os>` package's `mountServer`
+ * export. npm/pnpm install only the package whose `os` + `cpu` match
+ * the host, so a successful resolve means the binary is on disk.
  *
  * Override with `MACHINEN_MOUNT_SERVER_BIN=/abs/path` when neither
  * fits (custom builds, packaged runtimes elsewhere).
  *
- * Cached after the first call — `import.meta.url` and the sibling
- * package layout don't change at runtime.
+ * Cached after the first call — the package layout doesn't change at
+ * runtime.
  */
 function resolveMountServerCommand(): ResolvedCommand {
   if (cachedCommand) {
@@ -343,43 +344,32 @@ function resolveMountServerCommand(): ResolvedCommand {
     cachedCommand = { command: zigBin, args: [] };
     return cachedCommand;
   }
+  const pkg = `@machinen/native-${process.arch}-${process.platform}`;
   throw new MountError(
     "MOUNT_SERVER_BIN_MISSING",
-    "machinen-mount-server binary not found. Expected " +
-      "`@machinen/mount-server-arm64-darwin` or " +
-      "`@machinen/mount-server-arm64-linux` to be installed alongside " +
-      "`@machinen/runtime`. Run `bash scripts/build-mount-server.sh` " +
-      "from the repo root, or set MACHINEN_MOUNT_SERVER_BIN.",
+    `machinen-mount-server binary not found. Expected \`${pkg}\` to be ` +
+      "installed alongside `@machinen/runtime` with its mount-server " +
+      "binary staged. Run `bash scripts/build-mount-server.sh` from the " +
+      "repo root, or set MACHINEN_MOUNT_SERVER_BIN.",
   );
 }
 
 /**
- * Resolve the Zig binary path for the current host. Returns `null` if
- * the appropriate per-arch sibling package isn't installed or its
- * binary hasn't been staged yet.
- *
- * Lookup is path-based (not `import("@machinen/...")`) because the
- * per-arch packages are gated by `os` + `cpu` keys in their
- * package.json — pnpm/npm won't install the wrong-host one, so an
- * `import` of the missing sibling would throw at module-load time on
- * the hosts where it's not present.
+ * Resolve the mount-server binary from `@machinen/native-<arch>-<os>`.
+ * Returns `null` if that package isn't installed for this host or its
+ * binary hasn't been staged yet — callers treat that as a hard error.
  */
 function resolveZigBinary(): string | null {
-  const pkg =
-    process.platform === "darwin"
-      ? "mount-server-arm64-darwin"
-      : process.platform === "linux"
-        ? "mount-server-arm64-linux"
-        : null;
-  if (!pkg) {
-    return null;
-  }
+  const pkg = `@machinen/native-${process.arch}-${process.platform}`;
   try {
-    const binPath = fileURLToPath(
-      new URL(`../../${pkg}/bin/machinen-mount-server`, import.meta.url),
-    );
-    return existsSync(binPath) ? binPath : null;
+    cachedRequire ??= createRequire(import.meta.url);
+    const mod = cachedRequire(pkg) as { mountServer?: string };
+    if (mod.mountServer && existsSync(mod.mountServer)) {
+      return mod.mountServer;
+    }
+    return null;
   } catch {
+    // Optional dep not installed for this arch+os.
     return null;
   }
 }

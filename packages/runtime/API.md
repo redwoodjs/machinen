@@ -2180,7 +2180,7 @@ overriding on key collision.
 > `optional` **binary?**: `string`
 
 Optional VMM binary path. Same lookup rules as `boot()` — if
-omitted, resolves `@machinen/vmm-<arch>-<os>`.
+omitted, resolves `@machinen/native-<arch>-<os>`.
 
 ##### cwd?
 
@@ -6150,9 +6150,12 @@ much the snapshot path is (or isn't) buying us.
 
 Locate the VMM binary using the same lookup order as `@machinen/cli`:
   1. `MACHINEN_VMM` env var (dev-mode override)
-  2. `require.resolve("@machinen/vmm-<arch>-<os>")` → `binary` export
+  2. `require.resolve("@machinen/native-<arch>-<os>")` → `binary` export
 
-Callers can pass an explicit `binary` to `boot()` to bypass this.
+`@machinen/native-arm64-{darwin,linux}` is the consolidated host-tool
+package — it carries the VMM, gvproxy, guest ELFs, mke2fs,
+mksquashfs, and the mount server. Callers can pass an explicit
+`binary` to `boot()` to bypass this.
 
 #### Returns
 

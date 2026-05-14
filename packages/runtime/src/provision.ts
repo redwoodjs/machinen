@@ -93,7 +93,7 @@ export interface ProvisionOptions {
 
   /**
    * Optional VMM binary path. Same lookup rules as `boot()` — if
-   * omitted, resolves `@machinen/vmm-<arch>-<os>`.
+   * omitted, resolves `@machinen/native-<arch>-<os>`.
    */
   binary?: string;
 

@@ -75,7 +75,7 @@ import {
 } from "node:fs";
 import { createRequire } from "node:module";
 import { arch, homedir, platform } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import debugLib from "debug";
 import { ProvisionError } from "./errors.ts";
 
@@ -553,19 +553,19 @@ function resolveMke2fsEnvOverride(): string | undefined {
   );
 }
 
-// Look for `@machinen/e2fsprogs-<arch>-<os>`, our optional per-arch
-// binary package. npm/pnpm install only the package whose `os` + `cpu`
-// match the host, so a successful resolve means the binary is on disk
-// and runnable here. Avoids the host-install dance for every user.
+// Look up `mke2fs` from `@machinen/native-<arch>-<os>`, the consolidated
+// host-tool package. npm/pnpm install only the package whose `os` +
+// `cpu` match the host, so a successful resolve of its `mke2fs` export
+// means the binary is on disk and runnable here. Avoids the
+// host-install dance for every user.
 const require_ = createRequire(import.meta.url);
 
 function findBundledMke2fs(): string | undefined {
-  const pkg = `@machinen/e2fsprogs-${arch()}-${platform()}`;
+  const pkg = `@machinen/native-${arch()}-${platform()}`;
   try {
-    const pkgJson = require_.resolve(`${pkg}/package.json`);
-    const candidate = join(dirname(pkgJson), "bin", "mke2fs");
-    if (existsSync(candidate)) {
-      return candidate;
+    const mod = require_(pkg) as { mke2fs?: string };
+    if (mod.mke2fs && existsSync(mod.mke2fs)) {
+      return mod.mke2fs;
     }
   } catch {
     // Optional dep not installed for this arch+os — fall through.

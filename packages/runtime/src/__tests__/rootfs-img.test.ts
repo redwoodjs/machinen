@@ -146,18 +146,18 @@ describe("ensureRootfsImage", () => {
     }
   });
 
-  it("findBundledMke2fs resolves @machinen/e2fsprogs-<arch>-<os> when installed", () => {
-    // Bundled binary packages are declared as optionalDependencies of
-    // @machinen/runtime and gated by `os` + `cpu` in their package.json,
-    // so they're present on every developer host that matches an arch
-    // we ship. If this test runs on an unsupported host, skip — there's
-    // nothing to assert.
+  it("findBundledMke2fs resolves mke2fs from @machinen/native-<arch>-<os> when installed", () => {
+    // mke2fs ships inside the consolidated @machinen/native-<arch>-<os>
+    // package, declared as an optionalDependency of @machinen/runtime
+    // and gated by `os` + `cpu`, so it's present on every developer
+    // host that matches an arch we ship. If this test runs on an
+    // unsupported host, skip — there's nothing to assert.
     const found = _internal.findBundledMke2fs();
     if (!found) {
       // Unsupported arch+os; no bundled package on disk.
       return;
     }
-    expect(found).toMatch(/e2fsprogs-[^/]+\/bin\/mke2fs$/);
+    expect(found).toMatch(/native-[^/]+\/e2fsprogs\/bin\/mke2fs$/);
     expect(existsSync(found)).toBe(true);
   });
 
