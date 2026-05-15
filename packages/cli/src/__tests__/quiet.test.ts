@@ -62,6 +62,8 @@ describe("isBootNoiseLine", () => {
   const noiseSamples = [
     "[    0.123456] Booting Linux on physical CPU 0x0",
     "[ 1234.567] EXT4-fs (vda): mounted",
+    "=== machinen /init: reading /machinen-config.json ===",
+    "\r\r=== machinen /init: reading /machinen-config.json ===",
     "init: machinen-netup exited non-zero — network may not be up",
     "checkpoint: post-tryRootDiskPivot",
     "checkpoint: post-bringUpNetwork",
@@ -70,6 +72,10 @@ describe("isBootNoiseLine", () => {
     "machinen-supervisor: spawning workload",
     "machinen-dump: criu exit=0",
     "machinen-netup: gvproxy ready",
+    "topology: 31750dad25ded0f50100a9340063397ae73868c1ddf9b5996e89049b007a5cbd",
+    "vsock: in 1978 <-> /tmp/machinen/exec.sock",
+    "hvf boot: starting snapshot watcher (vcpu=0)",
+    "hvf watcher: thread started, vcpu=0",
   ];
 
   it.each(noiseSamples)("classifies %s as boot noise", (line) => {
@@ -81,6 +87,7 @@ describe("isBootNoiseLine", () => {
     "Listening on http://localhost:3000",
     "node:fs:1234 fs.readFile()",
     "Error: ENOENT: no such file or directory",
+    "[    0.123456] reboot: Power down",
     "",
     "    indented log line",
   ];
@@ -133,6 +140,43 @@ describe("NoiseFilter", () => {
     expect(outBytes).toBe("hello\n");
   });
 
+  it("passes an interactive prompt through even without a newline", () => {
+    const buffer = new RingBuffer();
+    const out = new PassThrough();
+    let outBytes = "";
+    out.on("data", (chunk: Buffer) => {
+      outBytes += chunk.toString();
+    });
+    const onReady = vi.fn();
+
+    const f = new NoiseFilter({ buffer, out, onReady });
+    f.push(Buffer.from("supervisor: starting cmd=/usr/bin/env bash -i\n"));
+    f.push(Buffer.from("\x1b[?2004hroot@worker-pid-1234:/# "));
+
+    expect(buffer.toString()).toContain("supervisor: starting");
+    expect(outBytes).toBe("\x1b[?2004hroot@worker-pid-1234:/# ");
+    expect(onReady).toHaveBeenCalledTimes(1);
+    expect(f.ready).toBe(true);
+  });
+
+  it("streams post-ready echo bytes without waiting for a newline", () => {
+    const buffer = new RingBuffer();
+    const out = new PassThrough();
+    let outBytes = "";
+    out.on("data", (chunk: Buffer) => {
+      outBytes += chunk.toString();
+    });
+
+    const f = new NoiseFilter({ buffer, out });
+    f.push(Buffer.from("\x1b[?2004hroot@worker-pid-1234:/# "));
+    f.push(Buffer.from("e"));
+    f.push(Buffer.from("c"));
+    f.push(Buffer.from("ho"));
+
+    expect(outBytes).toBe("\x1b[?2004hroot@worker-pid-1234:/# echo");
+    expect(buffer.toString()).toContain("echo");
+  });
+
   it("flush() drains a trailing residual line as noise pre-ready", () => {
     const buffer = new RingBuffer();
     const out = new PassThrough();
@@ -149,13 +193,13 @@ describe("NoiseFilter", () => {
     expect(outBytes).toBe("");
   });
 
-  it("blank pre-ready lines stay buffered and don't flip the gate", () => {
+  it("blank/control-only pre-ready lines stay buffered and don't flip the gate", () => {
     const buffer = new RingBuffer();
     const out = new PassThrough();
     const onReady = vi.fn();
 
     const f = new NoiseFilter({ buffer, out, onReady });
-    f.push(Buffer.from("checkpoint: x\n\n\n"));
+    f.push(Buffer.from("checkpoint: x\n\n\r\r\n"));
     expect(onReady).not.toHaveBeenCalled();
     expect(f.ready).toBe(false);
   });

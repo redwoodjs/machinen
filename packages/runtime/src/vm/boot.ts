@@ -517,15 +517,18 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   let perBootRootDisk: string | undefined;
   const mergedGuestEnv: Record<string, string> = { ...opts.env };
 
-  // Surface the VM name in the guest so an interactive shell prompt
-  // (\h in bash's default Debian PS1) tells the user which VM they're
-  // attached to. machinen-supervisor.sh consumes this and calls
-  // sethostname() before spawning the workload. We don't have the host
-  // VMM pid yet — that's only known after spawn — so the name-less case
-  // simply doesn't set a hostname; users who want a labelled prompt
-  // pass --name.
+  // Surface the VM name in the guest as an early fallback so an
+  // interactive shell prompt (\h in bash's default Debian PS1) can tell
+  // the user which VM they're attached to. The final prompt label must
+  // also include the host VMM pid, which isn't known until after spawn;
+  // when vsock-exec is available, machinen-supervisor.sh waits briefly
+  // before starting the workload while the host-side setGuestHostname()
+  // below installs `<name>-pid-<host_pid>` (or `vm-pid-<host_pid>`).
   if (opts.name && !mergedGuestEnv.MACHINEN_VM_NAME) {
     mergedGuestEnv.MACHINEN_VM_NAME = opts.name;
+  }
+  if (vsockUdsPath && !mergedGuestEnv.MACHINEN_VM_HOSTNAME_WAIT) {
+    mergedGuestEnv.MACHINEN_VM_HOSTNAME_WAIT = "1";
   }
 
   try {

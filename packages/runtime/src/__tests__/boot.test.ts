@@ -23,6 +23,7 @@ import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { BootError, ExecError, buildMachinenConfig, measureFirstByte, boot } from "../index.ts";
 import { ensurePdeathsig } from "../pdeathsig.ts";
+import { buildGuestHostname } from "../vm/helpers.ts";
 
 const microvmRoot = resolve(import.meta.dirname, "../../../microvm");
 
@@ -598,6 +599,18 @@ describe("mount option", () => {
         unlinkSync(fakeImage);
       } catch {}
     }
+  });
+});
+
+describe("guest hostname labels", () => {
+  it("include the host VMM pid for named and nameless VMs", () => {
+    expect(buildGuestHostname(1234, "worker")).toBe("worker-pid-1234");
+    expect(buildGuestHostname(1234)).toBe("vm-pid-1234");
+  });
+
+  it("sanitizes VM names before adding the pid suffix", () => {
+    expect(buildGuestHostname(99, "src/name~fork")).toBe("src-name-fork-pid-99");
+    expect(buildGuestHostname(99, "///")).toBe("vm-pid-99");
   });
 });
 

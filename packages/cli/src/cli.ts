@@ -28,7 +28,7 @@ import {
 } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { Transform } from "node:stream";
+import { PassThrough, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
 import {
@@ -457,12 +457,14 @@ async function cmdBoot(args: string[]): Promise<number> {
   const bootT0 = Date.now();
   const buffer = new RingBuffer();
   let filter: NoiseFilter | null = null;
+  let filterOut: PassThrough | null = null;
   if (showHeadlines) {
     printHeadline(`booting ${headlineName}…`);
     if (!detached) {
+      filterOut = new PassThrough();
       filter = new NoiseFilter({
         buffer,
-        out: process.stderr,
+        out: filterOut,
         onReady: () => {
           printHeadline("guest ready");
           printHeadline(`ready in ${formatElapsed(Date.now() - bootT0)}`);
@@ -582,6 +584,12 @@ async function cmdBoot(args: string[]): Promise<number> {
     forwardedSignal = "SIGTERM";
     void vm.kill();
   });
+  // In quiet mode, don't display the workload's first prompt until
+  // stdin is in raw mode and piped to the VM. Bash prompts are partial
+  // (no trailing LF); showing them during boot made the terminal look
+  // ready while host stdin was still canonical, so typed characters
+  // appeared only after Enter and early input could be lost.
+  filterOut?.pipe(process.stderr);
 
   try {
     const { code } = await vm.wait();

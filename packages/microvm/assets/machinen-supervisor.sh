@@ -49,14 +49,27 @@ if [ -x /sbin/machinen-winsize-agent ]; then
     WINSIZE_PID=$!
 fi
 
-# Label the guest with the VM's name so an interactive shell prompt
-# (\h in bash's default Debian PS1) shows which VM is attached. The
-# runtime injects MACHINEN_VM_NAME via machinen-config.json when the
-# caller passed --name; nameless boots leave the hostname unchanged.
-# `hostname` here is a no-op if the binary is missing or the value
-# fails validation — we never want a prompt cosmetic to break boot.
+# Label the guest so an interactive shell prompt (\h in bash's default
+# Debian PS1) shows which VM is attached. MACHINEN_VM_NAME is only an
+# early fallback: the runtime does not know the host VMM pid until after
+# spawn, so the host later sets the final `<name>-pid-<host_pid>` (or
+# `vm-pid-<host_pid>`) over exec-agent. When requested, wait briefly for
+# that final hostname before starting the workload; otherwise bash may
+# cache the kernel's initial `(none)` and keep showing it until the user
+# starts a new shell.
 if [ -n "${MACHINEN_VM_NAME:-}" ]; then
     hostname "$MACHINEN_VM_NAME" 2>/dev/null || true
+fi
+if [ "${MACHINEN_VM_HOSTNAME_WAIT:-}" = "1" ]; then
+    i=0
+    while [ "$i" -lt 100 ]; do
+        h=$(hostname 2>/dev/null || true)
+        case "$h" in
+            *-pid-[0-9]*|vm-pid-[0-9]*) break ;;
+        esac
+        i=$((i + 1))
+        sleep 0.05 2>/dev/null || break
+    done
 fi
 
 mkdir -p /run 2>/dev/null || true
