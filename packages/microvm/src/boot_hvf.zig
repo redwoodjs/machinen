@@ -646,14 +646,11 @@ fn writeSnapshotFile(
 
     const bytes = try snapshot.encode(gpa, topo.hash(), sections.items);
     defer gpa.free(bytes);
-    const vmstate_zip = @import("vmstate_zip.zig");
-    const compression = vmstate_zip.writeCompression();
-    const out: []const u8 = switch (compression) {
-        .none => bytes,
-        .gzip => try vmstate_zip.compress(gpa, bytes),
-    };
-    defer if (compression == .gzip) gpa.free(@constCast(out));
-    std.debug.print("hvf: snapshot {d} bytes -> {d} {s}\n", .{ bytes.len, out.len, @tagName(compression) });
+    // gzip the whole container — guest RAM is mostly zero pages, so
+    // this routinely shrinks the .vmstate by an order of magnitude.
+    const out = try @import("vmstate_zip.zig").compress(gpa, bytes);
+    defer gpa.free(out);
+    std.debug.print("hvf: snapshot {d} bytes -> {d} compressed\n", .{ bytes.len, out.len });
 
     // Write atomically: dump into `<path>.tmp`, then rename() onto the
     // final path. The runtime's `performSnapshotVmstate` polls for the
@@ -694,7 +691,6 @@ fn applyRestoreFile(
     const ram_dump = @import("ram_dump.zig");
     const gic_state = @import("gic_state.zig");
     const virtio_dump = @import("virtio_dump.zig");
-    const vmstate_timing = @import("vmstate_timing.zig");
 
     const path_z = try gpa.dupeZ(u8, path);
     defer gpa.free(path_z);
@@ -708,24 +704,18 @@ fn applyRestoreFile(
 
     const raw = try gpa.alloc(u8, @intCast(size));
     defer gpa.free(raw);
-    var timing = vmstate_timing.RestoreTimer.start("hvf", raw.len, ram.len);
-
     var off: usize = 0;
     while (off < raw.len) {
         const rc = snap_c.read(fd, raw.ptr + off, raw.len - off);
         if (rc <= 0) return error.ReadFailed;
         off += @intCast(rc);
     }
-    timing.mark("read-file");
+    // gunzip if the file is compressed; a plain .vmstate passes through.
+    const bytes = try @import("vmstate_zip.zig").decompress(gpa, raw);
+    defer gpa.free(bytes);
 
-    // gunzip if the file is compressed; a plain .vmstate borrows `raw`.
-    const decoded = try @import("vmstate_zip.zig").decompressMaybeOwned(gpa, raw);
-    defer decoded.deinit(gpa);
-    timing.mark("decompress");
-
-    var snap = try snapshot.decode(gpa, decoded.bytes);
+    var snap = try snapshot.decode(gpa, bytes);
     defer snap.deinit();
-    timing.mark("container-decode");
 
     // A resumed normal VM needs interrupts: the vtimer PPI to drive
     // the scheduler, the virtio SPIs to wake blocked drivers (the
@@ -739,13 +729,12 @@ fn applyRestoreFile(
     const vdevs = devs.virtioDevices(&vbufs);
     var gic_cpuif_applied = false;
     for (snap.sections) |s| {
-        const section_t0 = timing.sectionStart();
         switch (s.tag) {
             .vcpu => try vcpu_dump.loadHvf(gpa, vcpu.handle, s.payload),
             .ram => {
                 // Reconstructs straight into the live guest RAM: zero
                 // pages are implicit, stored extents land on top.
-                _ = try ram_dump.decodeIntoZeroed(s.payload, ram);
+                _ = try ram_dump.decodeInto(s.payload, ram);
             },
             .gic_dist => gic_state.loadHvfDist(gpa, s.payload) catch |err| {
                 std.debug.print("hvf boot: gic_dist restore failed: {s}\n", .{@errorName(err)});
@@ -799,9 +788,7 @@ fn applyRestoreFile(
             },
             else => {},
         }
-        timing.section(s.tag, s.id, s.payload.len, section_t0);
     }
-    timing.mark("apply-sections");
 
     // If the snapshot carried a real `gic_cpuif` section it was just
     // replayed (the captured ICC_* values are always correct). Only
@@ -810,7 +797,6 @@ fn applyRestoreFile(
     // without *some* programming the interface stays at reset and the
     // resumed guest never wakes from its idle WFI.
     if (!gic_cpuif_applied) gic_state.applyHvfCpuIfDefaults(vcpu.handle);
-    timing.mark("gic-cpuif-fallback");
 
     // Virtual-timer fixup. loadHvf restored CNTV_CVAL_EL0 — an absolute
     // point on the guest's virtual-counter timeline — but a fresh HVF
@@ -860,8 +846,6 @@ fn applyRestoreFile(
             );
         }
     }
-    timing.mark("timer-fixup");
-    timing.done();
 }
 
 /// Drive the vCPU until PSCI SYSTEM_OFF, an unhandled exception, the
@@ -1133,13 +1117,6 @@ fn allocateAndPopulateRam(
     errdefer std.posix.munmap(ram);
     assert(ram.len == cfg.ram_size);
     assert(@intFromPtr(ram.ptr) % hvf.page_size == 0);
-
-    if (cfg.restore_path != null) {
-        // Restore snapshots cover guest RAM themselves. Leave the fresh
-        // anonymous mmap untouched so sparse RAM restore can rely on
-        // demand-zero pages instead of clearing the full RAM ceiling.
-        return ram;
-    }
 
     @memcpy(ram[fx.img.text_offset..][0..fx.kernel.len], fx.kernel);
     @memcpy(ram[cfg.dtb_offset..][0..fx.dtb.len], fx.dtb);

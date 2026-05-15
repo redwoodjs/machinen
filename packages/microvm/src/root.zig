@@ -36,7 +36,6 @@ pub const pl011 = @import("pl011.zig"); // pure Zig PL011 UART (shared HVF/KVM)
 pub const dtb_patch = @import("dtb_patch.zig"); // FDT memory/initrd patcher
 pub const snapshot = @import("snapshot.zig"); // .vmstate format codec
 pub const vmstate_zip = @import("vmstate_zip.zig"); // .vmstate gzip transport
-pub const vmstate_timing = @import("vmstate_timing.zig"); // .vmstate restore timing logs
 pub const topology = @import("topology.zig"); // IPA layout fingerprint
 pub const sysreg_names = @import("sysreg_names.zig"); // name<->encoding table
 pub const sysreg_classify = @import("sysreg_classify.zig"); // portability decisions
@@ -114,7 +113,6 @@ test {
     _ = @import("dtb_patch.zig");
     _ = @import("snapshot.zig");
     _ = @import("vmstate_zip.zig");
-    _ = @import("vmstate_timing.zig");
     _ = @import("topology.zig");
     _ = @import("sysreg_classify.zig");
     _ = @import("vcpu_dump.zig");
