@@ -1,4 +1,4 @@
-# @machinen/native-arm64-darwin
+# @machinen/mount-server
 
 ## 0.3.0
 
