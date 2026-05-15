@@ -174,6 +174,7 @@ const restored = await restore({ snapDir: "./counter.snap" });
 
 - [Quickstart](./docs/quickstart.md) — the same three-step walkthrough
   with more colour
+- [Hand off a running VM](./docs/guides/handoff.md) — snapshot → transfer → restore
 - [Guides](./docs/) — recipes for creating VMs, snapshots and forks,
   mounts, and networking
 - [`@machinen/cli` reference](./packages/cli/API.md) — every command
