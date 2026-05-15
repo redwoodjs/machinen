@@ -564,9 +564,9 @@ function formatDumpOutcomeHint(outcome: DumpOutcome | undefined): string {
 /**
  * Whole-VM snapshot via the `.vmstate` engine. The source VM was
  * booted with `MACHINEN_SNAPSHOT_PATH` set (boot.ts does this when the
- * engine is vmstate), so its VMM carries a SIGUSR1 handler that dumps
- * vCPU + RAM + GIC + virtio device state to that path and then
- * resumes the guest. Steps:
+ * engine is vmstate), so its VMM carries a SIGUSR1 handler that
+ * captures vCPU + RAM + GIC + virtio device state, resumes the guest,
+ * then compresses/writes that immutable capture asynchronously. Steps:
  *   1. clear any stale state file at `ctx.vmstatePath`,
  *   2. SIGUSR1 the VMM pid,
  *   3. wait for the file to (re)appear — the VMM writes it atomically
@@ -576,11 +576,12 @@ function formatDumpOutcomeHint(outcome: DumpOutcome | undefined): string {
  *   6. write `meta.json` (with `engine: "vmstate"`),
  *   7. destructive snapshot (`!leaveRunning`) → power the source off;
  *      fork (`leaveRunning`) leaves it running (the VMM already
- *      resumed the guest after the dump).
+ *      resumed the guest after capturing state).
  *
  * Destructiveness is the runtime's call, mirroring the CRIU path's
  * `--leave-running` + host-poweroff split — the VMM itself always
- * resumes after writing.
+ * resumes after capture, while the `.vmstate` writer finishes in the
+ * background.
  */
 async function performSnapshotVmstate(
   ctx: SnapshotContext,
@@ -630,9 +631,10 @@ async function performSnapshotVmstate(
     );
   }
 
-  // Trigger the dump. SIGUSR1 → the VMM's handler dumps the whole VM
-  // to ctx.vmstatePath and resumes the guest. Works for boot- and
-  // attach-owned handles alike — it's just a signal to the VMM pid.
+  // Trigger the dump. SIGUSR1 → the VMM captures whole-VM state,
+  // resumes the guest, then writes ctx.vmstatePath from a background
+  // writer. Works for boot- and attach-owned handles alike — it's just
+  // a signal to the VMM pid.
   try {
     process.kill(ctx.pid, "SIGUSR1");
   } catch (err) {

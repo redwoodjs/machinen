@@ -33,6 +33,7 @@ const virtiofs_mod = @import("virtiofs.zig");
 const balloon_mod = @import("balloon.zig");
 const stats_mod = @import("stats.zig");
 const dtb_patch = @import("dtb_patch.zig");
+const vmstate_writer = @import("vmstate_writer.zig");
 
 // Guest-physical bases. Each virtio-MMIO device lives in a 0x200
 // window. The DTS has slots at 0x0A000000 + i*0x200; we wire up the
@@ -157,7 +158,8 @@ pub const Config = struct {
     /// Snapshot integration mirroring boot_kvm.zig's Config. Set
     /// `restore_path` to load .vmstate bytes at boot before the first
     /// vcpu.run(). Set `snapshot_path` to enable SIGUSR1-triggered
-    /// dump during the run loop.
+    /// capture during the run loop; compression/write continue on a
+    /// background thread while the guest resumes.
     restore_path: ?[]const u8 = null,
     snapshot_path: ?[]const u8 = null,
 };
@@ -166,7 +168,7 @@ pub const Result = struct {
     serial: []u8, // owned, free with allocator
     saw_psci_shutdown: bool,
     exits: usize,
-    /// True iff the run loop exited via SIGUSR1-triggered snapshot.
+    /// True iff a SIGUSR1-triggered snapshot was accepted.
     snapshotted: bool = false,
 };
 
@@ -553,54 +555,28 @@ fn startSnapshotWatcher(vcpu_handle: u64) void {
 const snap_c = struct {
     extern "c" fn open(path: [*:0]const u8, flags: c_int, mode: c_int) c_int;
     extern "c" fn close(fd: c_int) c_int;
-    extern "c" fn write(fd: c_int, buf: *const anyopaque, count: usize) isize;
     extern "c" fn read(fd: c_int, buf: *anyopaque, count: usize) isize;
     extern "c" fn lseek(fd: c_int, offset: i64, whence: c_int) i64;
-    extern "c" fn chmod(path: [*:0]const u8, mode: c_int) c_int;
-    extern "c" fn rename(old: [*:0]const u8, new: [*:0]const u8) c_int;
 };
 
 const SNAP_O_RDONLY: c_int = 0;
-const SNAP_O_WRONLY: c_int = 1;
-const SNAP_O_CREAT: c_int = 0x200; // macOS
-const SNAP_O_TRUNC: c_int = 0x400;
 const SNAP_SEEK_END: c_int = 2;
 const SNAP_SEEK_SET: c_int = 0;
 
-fn writeSnapshotFile(
+fn captureSnapshotJob(
     gpa: std.mem.Allocator,
     path: []const u8,
     vcpu: hvf.Vcpu,
     ram: []const u8,
     cfg: Config,
     devs: *const Devices,
-) !void {
+) !*vmstate_writer.Job {
     const snapshot = @import("snapshot.zig");
     const vcpu_dump = @import("vcpu_dump.zig");
     const ram_dump = @import("ram_dump.zig");
     const gic_state = @import("gic_state.zig");
     const virtio_dump = @import("virtio_dump.zig");
     const topology = @import("topology.zig");
-
-    const vcpu_payload = try vcpu_dump.dumpHvf(gpa, vcpu.handle);
-    defer gpa.free(vcpu_payload);
-    const ram_payload = try ram_dump.encode(gpa, cfg.ram_base, ram);
-    defer gpa.free(ram_payload);
-    // GICv3 distributor + per-vCPU redistributor state. Without these
-    // a cross-VMM restore lands the guest on a fresh GIC: interrupts
-    // the kernel thinks are enabled (the vtimer PPI especially) are
-    // silently disabled, and the resumed guest never makes progress.
-    const gic_dist_payload = try gic_state.dumpHvfDist(gpa);
-    defer gpa.free(gic_dist_payload);
-    const gic_redist_payload = try gic_state.dumpHvfRedist(gpa, vcpu.handle);
-    defer gpa.free(gic_redist_payload);
-    // CPU interface (ICC_*) — captured via hv_gic_get_icc_reg. This
-    // gates whether interrupts the distributor marks pending actually
-    // reach the resumed vCPU; without a real capture the restored
-    // interface sits at reset (IGRPEN1=0, PMR=0) and the guest never
-    // wakes from its idle WFI.
-    const gic_cpuif_payload = try gic_state.dumpHvfCpuIf(gpa, vcpu.handle);
-    defer gpa.free(gic_cpuif_payload);
 
     const topo: topology.Topology = .{
         .ram_base = cfg.ram_base,
@@ -609,6 +585,25 @@ fn writeSnapshotFile(
         .gic_redist_base = 0x1000_0000,
     };
 
+    const job = try vmstate_writer.Job.create(gpa, "hvf", path, topo.hash());
+    errdefer job.destroy();
+    const a = job.arenaAllocator();
+
+    const vcpu_payload = try vcpu_dump.dumpHvf(a, vcpu.handle);
+    const ram_payload = try ram_dump.encode(a, cfg.ram_base, ram);
+    // GICv3 distributor + per-vCPU redistributor state. Without these
+    // a cross-VMM restore lands the guest on a fresh GIC: interrupts
+    // the kernel thinks are enabled (the vtimer PPI especially) are
+    // silently disabled, and the resumed guest never makes progress.
+    const gic_dist_payload = try gic_state.dumpHvfDist(a);
+    const gic_redist_payload = try gic_state.dumpHvfRedist(a, vcpu.handle);
+    // CPU interface (ICC_*) — captured via hv_gic_get_icc_reg. This
+    // gates whether interrupts the distributor marks pending actually
+    // reach the resumed vCPU; without a real capture the restored
+    // interface sits at reset (IGRPEN1=0, PMR=0) and the guest never
+    // wakes from its idle WFI.
+    const gic_cpuif_payload = try gic_state.dumpHvfCpuIf(a, vcpu.handle);
+
     // One `.virtio` section per present device — the section `id` is
     // the device's MMIO base so restore can match it back. Without
     // this the resumed guest's in-RAM virtio drivers point at a
@@ -616,19 +611,16 @@ fn writeSnapshotFile(
     // dropped — the exec-agent's vsock goes silent.
     var vbufs: [Devices.virtio_max]*virtio.Device = undefined;
     const vdevs = devs.virtioDevices(&vbufs);
-    var varena = std.heap.ArenaAllocator.init(gpa);
-    defer varena.deinit();
 
     var sections = std.ArrayList(snapshot.Section).empty;
-    defer sections.deinit(gpa);
-    try sections.append(gpa, .{ .tag = .vcpu, .id = 0, .payload = vcpu_payload });
-    try sections.append(gpa, .{ .tag = .ram, .id = 0, .payload = ram_payload });
-    try sections.append(gpa, .{ .tag = .gic_dist, .id = 0, .payload = gic_dist_payload });
-    try sections.append(gpa, .{ .tag = .gic_redist, .id = 0, .payload = gic_redist_payload });
-    try sections.append(gpa, .{ .tag = .gic_cpuif, .id = 0, .payload = gic_cpuif_payload });
+    try sections.append(a, .{ .tag = .vcpu, .id = 0, .payload = vcpu_payload });
+    try sections.append(a, .{ .tag = .ram, .id = 0, .payload = ram_payload });
+    try sections.append(a, .{ .tag = .gic_dist, .id = 0, .payload = gic_dist_payload });
+    try sections.append(a, .{ .tag = .gic_redist, .id = 0, .payload = gic_redist_payload });
+    try sections.append(a, .{ .tag = .gic_cpuif, .id = 0, .payload = gic_cpuif_payload });
     for (vdevs) |d| {
-        const vp = try virtio_dump.dumpDevice(varena.allocator(), d);
-        try sections.append(gpa, .{ .tag = .virtio, .id = @truncate(d.base), .payload = vp });
+        const vp = try virtio_dump.dumpDevice(a, d);
+        try sections.append(a, .{ .tag = .virtio, .id = @truncate(d.base), .payload = vp });
     }
     // virtio-fs FUSE backend state — the nodeid→path map and the open
     // handle table. The `.virtio` loop above captured each virtio-fs
@@ -640,41 +632,11 @@ fn writeSnapshotFile(
     for (vdevs) |d| {
         if (d.id != .virtio_fs) continue;
         const backend: *virtiofs_mod.Device = @ptrCast(@alignCast(d.request_ctx.?));
-        const fp = try backend.state.dumpState(varena.allocator());
-        try sections.append(gpa, .{ .tag = .virtiofs_state, .id = @truncate(d.base), .payload = fp });
+        const fp = try backend.state.dumpState(a);
+        try sections.append(a, .{ .tag = .virtiofs_state, .id = @truncate(d.base), .payload = fp });
     }
-
-    const bytes = try snapshot.encode(gpa, topo.hash(), sections.items);
-    defer gpa.free(bytes);
-    // gzip the whole container — guest RAM is mostly zero pages, so
-    // this routinely shrinks the .vmstate by an order of magnitude.
-    const out = try @import("vmstate_zip.zig").compress(gpa, bytes);
-    defer gpa.free(out);
-    std.debug.print("hvf: snapshot {d} bytes -> {d} compressed\n", .{ bytes.len, out.len });
-
-    // Write atomically: dump into `<path>.tmp`, then rename() onto the
-    // final path. The runtime's `performSnapshotVmstate` polls for the
-    // final path's existence as the "dump complete" signal, so a
-    // partially-written file must never be observable there.
-    const path_z = try gpa.dupeZ(u8, path);
-    defer gpa.free(path_z);
-    const tmp_z = try std.fmt.allocPrintSentinel(gpa, "{s}.tmp", .{path}, 0);
-    defer gpa.free(tmp_z);
-    const fd = snap_c.open(tmp_z, SNAP_O_WRONLY | SNAP_O_CREAT | SNAP_O_TRUNC, 0o644);
-    if (fd < 0) return error.OpenFailed;
-    {
-        defer _ = snap_c.close(fd);
-        var off: usize = 0;
-        while (off < out.len) {
-            const rc = snap_c.write(fd, out.ptr + off, out.len - off);
-            if (rc <= 0) return error.WriteFailed;
-            off += @intCast(rc);
-        }
-    }
-    // open()'s variadic mode arg doesn't reliably stick on macOS;
-    // post-chmod is the safe path.
-    _ = snap_c.chmod(tmp_z, 0o644);
-    if (snap_c.rename(tmp_z, path_z) != 0) return error.WriteFailed;
+    job.sections = try sections.toOwnedSlice(a);
+    return job;
 }
 
 fn applyRestoreFile(
@@ -863,27 +825,26 @@ fn runLoop(
     var exits: usize = 0;
     var saw_off = false;
     var snapshotted = false;
+    var snapshot_writer_state: vmstate_writer.Writer = .{};
+    defer snapshot_writer_state.wait();
     while (exits < cfg.max_exits) : (exits += 1) {
         try vcpu.run();
 
         // Async exit from hv_vcpus_exit (watcher thread, snapshot
         // trigger). Don't treat as a guest fault; check the flag and
-        // either dump or resume.
+        // either capture a snapshot or resume.
         if (vcpu.exit.reason == .canceled) {
             if (snapshot_requested_hvf.load(.seq_cst)) {
                 if (cfg.snapshot_path) |path| {
-                    std.debug.print("hvf: writing snapshot to {s}\n", .{path});
-                    writeSnapshotFile(gpa, path, vcpu, ram, cfg, devs) catch |err| {
-                        std.debug.print("hvf boot: snapshot write failed: {s}\n", .{@errorName(err)});
-                    };
-                    std.debug.print("hvf: snapshot write done\n", .{});
-                    snapshotted = true;
+                    if (queueSnapshotWrite(&snapshot_writer_state, gpa, path, vcpu, ram, cfg, devs)) {
+                        snapshotted = true;
+                    }
                     // Clear the flag and RESUME — the snapshot engine
                     // (`performSnapshotVmstate`) decides destructiveness
                     // itself: a plain `snapshot` powers the source off
                     // afterward, `fork` leaves it running. Keep the
                     // watcher thread alive so a later SIGUSR1 (chained
-                    // snapshot / fork-the-fork) triggers another dump.
+                    // snapshot / fork-the-fork) triggers another capture.
                     snapshot_requested_hvf.store(false, .seq_cst);
                 }
             }
@@ -930,13 +891,12 @@ fn runLoop(
 
         // Snapshot trigger fallback — for the rare case the watcher's
         // hv_vcpus_exit() landed as a plain exception exit rather than
-        // `.canceled`. Same write-and-resume contract as above.
+        // `.canceled`. Same capture-and-resume contract as above.
         if (snapshot_requested_hvf.load(.seq_cst)) {
             if (cfg.snapshot_path) |path| {
-                writeSnapshotFile(gpa, path, vcpu, ram, cfg, devs) catch |err| {
-                    std.debug.print("hvf boot: snapshot write failed: {s}\n", .{@errorName(err)});
-                };
-                snapshotted = true;
+                if (queueSnapshotWrite(&snapshot_writer_state, gpa, path, vcpu, ram, cfg, devs)) {
+                    snapshotted = true;
+                }
                 snapshot_requested_hvf.store(false, .seq_cst);
             }
         }
@@ -951,6 +911,40 @@ fn runLoop(
         .exits = exits,
         .snapshotted = snapshotted,
     };
+}
+
+fn queueSnapshotWrite(
+    writer: *vmstate_writer.Writer,
+    gpa: std.mem.Allocator,
+    path: []const u8,
+    vcpu: hvf.Vcpu,
+    ram: []const u8,
+    cfg: Config,
+    devs: *const Devices,
+) bool {
+    if (writer.busy()) {
+        std.debug.print("hvf: snapshot requested while previous write is still in flight\n", .{});
+        return false;
+    }
+
+    std.debug.print("hvf: writing snapshot to {s}\n", .{path});
+    const job = captureSnapshotJob(gpa, path, vcpu, ram, cfg, devs) catch |err| {
+        std.debug.print("hvf boot: snapshot capture failed: {s}\n", .{@errorName(err)});
+        return false;
+    };
+    writer.start(job) catch |err| {
+        std.debug.print(
+            "hvf: snapshot async writer spawn failed: {s}; writing synchronously\n",
+            .{@errorName(err)},
+        );
+        vmstate_writer.writeAndDestroy(job) catch |write_err| {
+            std.debug.print("hvf boot: snapshot write failed: {s}\n", .{@errorName(write_err)});
+            return false;
+        };
+        return true;
+    };
+    std.debug.print("hvf: snapshot capture done; async write started\n", .{});
+    return true;
 }
 
 // Context shared between the vCPU thread and the stdin-reader thread.
