@@ -88,6 +88,34 @@ jobs:
         if: steps.prebuilt.outputs.skip != 'true' && steps.cache.outputs.cache-hit != 'true'
         run: ./scripts/build-base-assets.sh
 
+      # Guard the artifact boundary: whether release-assets/ came from a
+      # fresh build, a cache restore, or a developer-provided prebuild, every
+      # payload must match the sidecar we are about to hand to release.yml.
+      # This catches the stale-sidecar shape from redwoodjs/machinen.dev#9
+      # before any public upload can happen.
+      - name: Verify base asset checksums
+        if: steps.prebuilt.outputs.skip != 'true' || hashFiles('release-assets/Image-arm64') != ''
+        run: |
+          set -euo pipefail
+          cd release-assets
+          assets=(
+            Image-arm64
+            virt-arm64.dtb
+            rootfs-debian-arm64.tar.gz
+            rootfs-debian-arm64.img.gz
+          )
+          for asset in "${assets[@]}"; do
+            if [ ! -f "$asset" ]; then
+              echo "missing release asset: release-assets/$asset" >&2
+              exit 1
+            fi
+            if [ ! -f "$asset.sha256" ]; then
+              echo "missing checksum sidecar: release-assets/$asset.sha256" >&2
+              exit 1
+            fi
+            shasum -a 256 -c "$asset.sha256"
+          done
+
       # Skip the upload when the build was short-circuited and
       # release-assets/ is empty — `if-no-files-found: error` would
       # otherwise fail the job on agent-ci local without prebuilt
