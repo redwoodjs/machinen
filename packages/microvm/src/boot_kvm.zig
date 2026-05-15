@@ -452,6 +452,13 @@ fn allocateAndPopulateRam(
     assert(ram.len == cfg.ram_size);
     assert(@intFromPtr(ram.ptr) % 4096 == 0);
 
+    if (cfg.restore_path != null) {
+        // Restore snapshots cover guest RAM themselves. Leave the fresh
+        // anonymous mmap untouched so sparse RAM restore can rely on
+        // demand-zero pages instead of clearing the full RAM ceiling.
+        return ram;
+    }
+
     @memcpy(ram[fx.img.text_offset..][0..fx.kernel.len], fx.kernel);
     @memcpy(ram[cfg.dtb_offset..][0..fx.dtb.len], fx.dtb);
 
@@ -1041,6 +1048,7 @@ fn applyRestoreFile(
     const gic_state = @import("gic_state.zig");
     const virtio_dump = @import("virtio_dump.zig");
     const topology = @import("topology.zig");
+    const vmstate_timing = @import("vmstate_timing.zig");
 
     const path_z = try gpa.dupeZ(u8, path);
     defer gpa.free(path_z);
@@ -1054,18 +1062,24 @@ fn applyRestoreFile(
 
     const raw = try gpa.alloc(u8, @intCast(size));
     defer gpa.free(raw);
+    var timing = vmstate_timing.RestoreTimer.start("kvm", raw.len, ram.len);
+
     var off: usize = 0;
     while (off < raw.len) {
         const rc = snap_c.read(fd, raw.ptr + off, raw.len - off);
         if (rc <= 0) return error.ReadFailed;
         off += @intCast(rc);
     }
-    // gunzip if the file is compressed; a plain .vmstate passes through.
-    const bytes = try @import("vmstate_zip.zig").decompress(gpa, raw);
-    defer gpa.free(bytes);
+    timing.mark("read-file");
 
-    var snap = try snapshot.decode(gpa, bytes);
+    // gunzip if the file is compressed; a plain .vmstate borrows `raw`.
+    const decoded = try @import("vmstate_zip.zig").decompressMaybeOwned(gpa, raw);
+    defer decoded.deinit(gpa);
+    timing.mark("decompress");
+
+    var snap = try snapshot.decode(gpa, decoded.bytes);
     defer snap.deinit();
+    timing.mark("container-decode");
 
     const topo: topology.Topology = .{
         .ram_base = cfg.ram_base,
@@ -1076,6 +1090,7 @@ fn applyRestoreFile(
     if (!std.mem.eql(u8, &topo.hash(), &snap.header.topology_hash)) {
         return error.TopologyMismatch;
     }
+    timing.mark("topology-check");
 
     const mpidr = kvmVcpuMpidr(vcpu);
 
@@ -1099,17 +1114,19 @@ fn applyRestoreFile(
         // An empty gic_cpuif payload is exactly the 4-byte entry count.
         if (s.tag == .gic_cpuif and s.payload.len > 4) apply_gic = true;
     }
+    timing.mark("gic-scan");
 
     var vbufs: [Devices.virtio_max]*virtio.Device = undefined;
     const vdevs = devs.virtioDevices(&vbufs);
     var cpuif_applied: usize = 0;
     for (snap.sections) |s| {
+        const section_t0 = timing.sectionStart();
         switch (s.tag) {
             .vcpu => try vcpu_dump.loadKvm(gpa, vcpu.fd, s.payload),
             .ram => {
                 // Reconstructs straight into the live guest RAM: zero
                 // pages are implicit, stored extents land on top.
-                _ = try ram_dump.decodeInto(s.payload, ram);
+                _ = try ram_dump.decodeIntoZeroed(s.payload, ram);
             },
             .gic_dist => if (apply_gic) try gic_state.loadKvmDist(gpa, gic_fd, s.payload),
             .gic_redist => if (apply_gic) try gic_state.loadKvmRedist(gpa, gic_fd, mpidr, s.payload),
@@ -1152,7 +1169,9 @@ fn applyRestoreFile(
             },
             else => {},
         }
+        timing.section(s.tag, s.id, s.payload.len, section_t0);
     }
+    timing.mark("apply-sections");
     std.debug.print(
         "kvm boot: GIC sections {s} (cpuif entries present={})\n",
         .{ if (apply_gic) "applied" else "skipped (HVF-sourced)", apply_gic },
@@ -1179,6 +1198,7 @@ fn applyRestoreFile(
             std.debug.print("kvm boot: timer comparator fixup failed: {s}\n", .{@errorName(err)});
         };
     }
+    timing.mark("timer-fixup");
 
     // Restore diagnostics — the cheapest signal for a guest that
     // won't resume. PC/PSTATE should match the snapshot's EL/PC; a
@@ -1193,6 +1213,8 @@ fn applyRestoreFile(
         "kvm boot: restore readback PC=0x{x} PSTATE=0x{x} SCTLR_EL1=0x{x} TTBR0=0x{x} TTBR1=0x{x} cpuif_regs={d} timer_cval=0x{x}\n",
         .{ pc, pstate, sctlr, ttbr0, ttbr1, cpuif_applied, guest_cval },
     );
+    timing.mark("diagnostics");
+    timing.done();
 }
 
 /// SPI ids encoded for KVM_IRQ_LINE (with KVM_ARM_IRQ_TYPE_SPI in

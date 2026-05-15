@@ -161,6 +161,21 @@ pub const DecodedMeta = struct {
 /// top. The SHA256 over the extent stream is checked first — a flipped
 /// bit fails loudly here instead of scrambling the restored guest.
 pub fn decodeInto(payload: []const u8, dest: []u8) DecodeError!DecodedMeta {
+    return decodeIntoMode(payload, dest, .zero_dest_first);
+}
+
+/// Same sparse-RAM decoder, but assumes the leading `ram_size` bytes of
+/// `dest` are already zero. This is for the VMM restore path: guest RAM
+/// is a fresh anonymous mmap, so the kernel provides zero pages lazily.
+/// Avoiding an eager `@memset` keeps restore proportional to the saved
+/// extents instead of the configured guest RAM ceiling.
+pub fn decodeIntoZeroed(payload: []const u8, dest: []u8) DecodeError!DecodedMeta {
+    return decodeIntoMode(payload, dest, .dest_already_zero);
+}
+
+const DecodeMode = enum { zero_dest_first, dest_already_zero };
+
+fn decodeIntoMode(payload: []const u8, dest: []u8, mode: DecodeMode) DecodeError!DecodedMeta {
     if (payload.len < HEADER_SIZE) return error.Truncated;
     var hdr: RamHeader = undefined;
     @memcpy(std.mem.asBytes(&hdr), payload[0..HEADER_SIZE]);
@@ -176,7 +191,9 @@ pub fn decodeInto(payload: []const u8, dest: []u8) DecodeError!DecodedMeta {
     const ram_size = std.math.cast(usize, hdr.ram_size) orelse return error.SizeMismatch;
     if (ram_size > dest.len) return error.SizeMismatch;
 
-    @memset(dest[0..ram_size], 0);
+    if (mode == .zero_dest_first) {
+        @memset(dest[0..ram_size], 0);
+    }
 
     var c: usize = 0;
     while (c < body.len) {
@@ -248,6 +265,31 @@ test "encode/decode round-trip on an all-zero buffer" {
     @memset(dest, 0xFF);
     _ = try decodeInto(payload, dest);
     try std.testing.expectEqualSlices(u8, ram, dest);
+}
+
+test "decodeIntoZeroed reconstructs without clearing implicit zero pages" {
+    const a = std.testing.allocator;
+    const ram = try a.alloc(u8, 4 * PAGE);
+    defer a.free(ram);
+    @memset(ram, 0);
+    @memset(ram[PAGE..][0..PAGE], 0x7E);
+
+    const payload = try encode(a, 0, ram);
+    defer a.free(payload);
+
+    const zeroed = try a.alloc(u8, 4 * PAGE);
+    defer a.free(zeroed);
+    @memset(zeroed, 0);
+    _ = try decodeIntoZeroed(payload, zeroed);
+    try std.testing.expectEqualSlices(u8, ram, zeroed);
+
+    const poisoned = try a.alloc(u8, 4 * PAGE);
+    defer a.free(poisoned);
+    @memset(poisoned, 0xA5);
+    _ = try decodeIntoZeroed(payload, poisoned);
+    try std.testing.expectEqualSlices(u8, ram[PAGE..][0..PAGE], poisoned[PAGE..][0..PAGE]);
+    // Precondition is real: omitted pages are not cleared by this fast path.
+    try std.testing.expectEqual(@as(u8, 0xA5), poisoned[0]);
 }
 
 test "encode/decode handles a non-page-aligned tail" {

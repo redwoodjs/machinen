@@ -1,22 +1,49 @@
-//! gzip transport wrapping for .vmstate files.
+//! Transport wrapping for .vmstate files.
 //!
-//! The snapshot codec (snapshot.zig) stays oblivious to compression —
-//! this module just shrinks the bytes on the way to disk and restores
-//! them on the way back. A guest's RAM section is mostly zero pages,
-//! so gzip routinely takes a ~540 MiB .vmstate down by an order of
-//! magnitude.
+//! The snapshot codec (snapshot.zig) stays oblivious to compression.
+//! This module can gzip bytes for storage, and it can read both gzip
+//! and plain .vmstate files. New snapshots default to plain bytes so
+//! restore doesn't spend hundreds of milliseconds inflating the whole
+//! container before the first vCPU run; set
+//! `MACHINEN_VMSTATE_COMPRESSION=gzip` to opt back into the smaller
+//! historical transport.
 //!
-//! Backward compatible: `decompress` sniffs the gzip magic and passes
-//! a plain (already-uncompressed) .vmstate straight through, so files
-//! written before compression landed still load.
+//! Backward compatible: readers sniff the gzip magic and pass a plain
+//! (already-uncompressed) .vmstate straight through, so old and new
+//! files both load.
 
 const std = @import("std");
 const flate = std.compress.flate;
 
 const assert = std.debug.assert;
 
+const libc = struct {
+    extern "c" fn getenv(name: [*:0]const u8) ?[*:0]const u8;
+};
+
 /// gzip magic — the first two bytes of every gzip member.
 pub const gzip_magic = [2]u8{ 0x1f, 0x8b };
+
+/// On-disk transport used for newly-written snapshots.
+pub const Compression = enum { none, gzip };
+
+pub fn writeCompression() Compression {
+    const raw = libc.getenv("MACHINEN_VMSTATE_COMPRESSION") orelse return .none;
+    return parseCompression(std.mem.span(raw)) orelse .none;
+}
+
+pub fn parseCompression(raw: []const u8) ?Compression {
+    const v = std.mem.trim(u8, raw, " \t\r\n");
+    if (std.ascii.eqlIgnoreCase(v, "gzip") or
+        std.ascii.eqlIgnoreCase(v, "gz") or
+        std.ascii.eqlIgnoreCase(v, "true") or
+        std.mem.eql(u8, v, "1")) return .gzip;
+    if (std.ascii.eqlIgnoreCase(v, "none") or
+        std.ascii.eqlIgnoreCase(v, "plain") or
+        std.ascii.eqlIgnoreCase(v, "false") or
+        std.mem.eql(u8, v, "0")) return .none;
+    return null;
+}
 
 /// gzip-compress `input`. Caller owns the returned bytes.
 pub fn compress(gpa: std.mem.Allocator, input: []const u8) ![]u8 {
@@ -47,12 +74,23 @@ pub fn compress(gpa: std.mem.Allocator, input: []const u8) ![]u8 {
     return out;
 }
 
-/// Inverse of `compress`. A buffer that doesn't start with the gzip
-/// magic is assumed to be a plain .vmstate and returned as an owned
-/// copy unchanged. Caller owns the returned bytes either way.
-pub fn decompress(gpa: std.mem.Allocator, input: []const u8) ![]u8 {
+/// Decompression result that may borrow the caller's input when the
+/// file is already plain. Call `deinit` once done.
+pub const Decompressed = struct {
+    bytes: []const u8,
+    owned: bool,
+
+    pub fn deinit(self: Decompressed, gpa: std.mem.Allocator) void {
+        if (self.owned) gpa.free(@constCast(self.bytes));
+    }
+};
+
+/// Inverse of `compress`, optimized for restore: gzip input is inflated
+/// into an owned buffer; plain input is returned as a borrowed slice so
+/// restore avoids an extra full-container copy.
+pub fn decompressMaybeOwned(gpa: std.mem.Allocator, input: []const u8) !Decompressed {
     if (input.len < 2 or !std.mem.eql(u8, input[0..2], &gzip_magic)) {
-        return gpa.dupe(u8, input);
+        return .{ .bytes = input, .owned = false };
     }
     var in: std.Io.Reader = .fixed(input);
     var aw: std.Io.Writer.Allocating = .init(gpa);
@@ -60,7 +98,16 @@ pub fn decompress(gpa: std.mem.Allocator, input: []const u8) ![]u8 {
 
     var dc: flate.Decompress = .init(&in, .gzip, &.{});
     _ = try dc.reader.streamRemaining(&aw.writer);
-    return aw.toOwnedSlice();
+    return .{ .bytes = try aw.toOwnedSlice(), .owned = true };
+}
+
+/// Inverse of `compress`. A buffer that doesn't start with the gzip
+/// magic is assumed to be a plain .vmstate and returned as an owned
+/// copy unchanged. Caller owns the returned bytes either way.
+pub fn decompress(gpa: std.mem.Allocator, input: []const u8) ![]u8 {
+    const decoded = try decompressMaybeOwned(gpa, input);
+    if (decoded.owned) return @constCast(decoded.bytes);
+    return gpa.dupe(u8, decoded.bytes);
 }
 
 // -- tests --------------------------------------------------------
@@ -102,6 +149,32 @@ test "decompress passes a non-gzip buffer through unchanged" {
     const back = try decompress(a, plain);
     defer a.free(back);
     try std.testing.expectEqualSlices(u8, plain, back);
+}
+
+test "decompressMaybeOwned borrows plain buffers and owns gzip buffers" {
+    const a = std.testing.allocator;
+    var plain = [_]u8{ 'V', 'M', 'S', 'T', 'A', 'T', 'E', 0 };
+    const plain_back = try decompressMaybeOwned(a, &plain);
+    defer plain_back.deinit(a);
+    try std.testing.expect(!plain_back.owned);
+    try std.testing.expectEqual(@intFromPtr(plain[0..].ptr), @intFromPtr(plain_back.bytes.ptr));
+
+    const zipped = try compress(a, &plain);
+    defer a.free(zipped);
+    const zipped_back = try decompressMaybeOwned(a, zipped);
+    defer zipped_back.deinit(a);
+    try std.testing.expect(zipped_back.owned);
+    try std.testing.expectEqualSlices(u8, &plain, zipped_back.bytes);
+}
+
+test "parseCompression accepts documented values" {
+    try std.testing.expectEqual(Compression.none, parseCompression("none").?);
+    try std.testing.expectEqual(Compression.none, parseCompression("plain").?);
+    try std.testing.expectEqual(Compression.none, parseCompression("0").?);
+    try std.testing.expectEqual(Compression.gzip, parseCompression("gzip").?);
+    try std.testing.expectEqual(Compression.gzip, parseCompression("GZ").?);
+    try std.testing.expectEqual(Compression.gzip, parseCompression("1").?);
+    try std.testing.expect(parseCompression("surprise") == null);
 }
 
 test "decompress handles an empty/short buffer as plain" {
