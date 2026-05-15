@@ -265,30 +265,19 @@ jobs:
       # to a Release on the public `redwoodjs/machinen.dev` repo. The CLI's
       # `ensureBaseAssets()` fetches them anonymously from that public URL
       # so consumers don't need a GitHub token (the source repo is private).
-      # Tag must match `RELEASE_TAG = runtime-v${VERSION}` in @machinen/cli.
       #
-      # release-assets/ is already populated from the earlier
-      # `Download base assets (for guest binaries)` step, with the three
-      # guest binaries stripped out — so this glob ships exactly kernel
-      # + dtb + rootfs + sha256 sidecars.
-      - name: Publish base assets to redwoodjs/machinen.dev
+      # The Node script is also the manual release path (`gh auth login`, then
+      # run it locally): it rewrites .sha256 sidecars from the exact payload
+      # bytes, uploads only the public base assets, and fetches everything back
+      # through the public URLs as a release-health gate. This prevents the
+      # stale-sidecar shape that broke runtime-v0.3.3 (redwoodjs/machinen.dev#9).
+      - name: Publish and verify base assets to redwoodjs/machinen.dev
         if: steps.changesets.outputs.published == 'true'
         env:
           GH_TOKEN: ${{ secrets.MACHINEN_DEV_PUBLISH_TOKEN }}
-        run: |
-          set -euo pipefail
-          VERSION=$(node -p "require('./packages/runtime/package.json').version")
-          TAG="runtime-v${VERSION}"
-          # Create-if-missing then always upload with --clobber so retries
-          # of the same release pick up rebuilt assets cleanly.
-          gh release create "$TAG" \
-            --repo redwoodjs/machinen.dev \
-            --title "$TAG" \
-            --notes "Base assets for @machinen/runtime@${VERSION}." \
-            2>/dev/null || true
-          gh release upload "$TAG" \
-            --repo redwoodjs/machinen.dev \
-            release-assets/* --clobber
+          MACHINEN_RELEASE_VERIFY_TRIES: "6"
+          MACHINEN_RELEASE_VERIFY_SLEEP: "10"
+        run: node scripts/release-base-assets.mjs publish
 
       # Mirror README + examples into the public machinen.dev repo so the
       # landing-page content tracks the source repo. scripts/sync-machinen-dev.mjs
