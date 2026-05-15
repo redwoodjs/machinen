@@ -124,17 +124,47 @@ export class RingBuffer {
 // passes through to the user immediately.
 const NOISE_PREFIXES: ReadonlyArray<RegExp> = [
   /^\[\s*\d+\.\d+\]/, // kernel printk: "[    0.123456] ..."
+  /^=== machinen \/init:/,
   /^init:/,
   /^checkpoint:/,
   /^mountdisk:/,
   /^machinen-restore:/,
   /^machinen-supervisor:/,
+  /^supervisor:/,
   /^machinen-dump:/,
   /^machinen-netup:/,
+  /^topology:/,
+  /^vsock:/,
+  /^(?:hvf|kvm)(?: [^:]+)?:/,
 ];
 
 export function isBootNoiseLine(line: string): boolean {
-  return NOISE_PREFIXES.some((re) => re.test(line));
+  const visible = stripAnsiControl(line).trimStart();
+  if (visible.includes("reboot: Power down")) {
+    return false;
+  }
+  return NOISE_PREFIXES.some((re) => re.test(visible));
+}
+
+const ESC = String.fromCharCode(27);
+const CR = String.fromCharCode(13);
+const CSI_RE = new RegExp(`${ESC}\\[[0-?]*[ -/]*[@-~]`, "g");
+
+function stripAnsiControl(text: string): string {
+  return text.replace(CSI_RE, "").split(CR).join("");
+}
+
+function isLikelyInteractivePrompt(text: string): boolean {
+  // Bash prompts are intentionally not newline-terminated. In quiet
+  // mode, waiting for LF means the user sees only the final boot-noise
+  // line (`supervisor: starting ...`) until they press Enter, at which
+  // point the prompt finally flushes. Detect the common Debian/root
+  // prompt shape (`root@host:/#`, `dev@host:/path$`) and pass it
+  // through immediately while still keeping arbitrary partial boot
+  // noise line-buffered. Readline may prefix the prompt with ANSI CSI
+  // controls such as bracketed-paste enable (`\x1b[?2004h`), so match
+  // against the visible text but pass the original bytes through.
+  return /^[^\s@]+@[^\s:]+:[^\n\r]*[#$] ?$/.test(stripAnsiControl(text));
 }
 
 export interface NoiseFilterOpts {
@@ -151,14 +181,16 @@ export interface NoiseFilterOpts {
 }
 
 /**
- * Line-buffered filter over guest-console chunks. Each complete
- * line (LF-terminated, or the residual on flush) is classified as
- * boot noise (→ buffer) or workload output (→ stderr). The first
- * workload line flips the gate and triggers `onReady`.
+ * Pre-ready line-buffered filter over guest-console chunks. Each
+ * complete line (LF-terminated, or the residual on flush) is
+ * classified as boot noise (→ buffer) or workload output (→ stderr).
+ * The first workload line flips the gate and triggers `onReady`; after
+ * that, bytes pass through immediately so interactive echo is not held
+ * until Enter.
  *
- * Chunks may split lines mid-byte; the filter holds the residual
- * until the next chunk completes it. Call `.flush()` once on VM
- * exit to drain any trailing partial line — guest output that
+ * Chunks may split lines mid-byte before readiness; the filter holds
+ * the residual until the next chunk completes it. Call `.flush()` once
+ * on VM exit to drain any trailing partial line — guest output that
  * ended without a newline (rare but real for early panics).
  */
 export class NoiseFilter {
@@ -168,9 +200,20 @@ export class NoiseFilter {
   constructor(private readonly opts: NoiseFilterOpts) {}
 
   push(chunk: Buffer): void {
-    const combined = this.residual + chunk.toString("utf8");
+    const text = chunk.toString("utf8");
+    if (this.readyFired) {
+      this.passThrough(text);
+      return;
+    }
+
+    const combined = this.residual + text;
     const nlIdx = combined.lastIndexOf("\n");
     if (nlIdx === -1) {
+      if (isLikelyInteractivePrompt(combined)) {
+        this.residual = "";
+        this.routeLine(combined, "");
+        return;
+      }
       this.residual = combined;
       return;
     }
@@ -178,6 +221,11 @@ export class NoiseFilter {
     this.residual = combined.slice(nlIdx + 1);
     for (const line of splitLines(complete)) {
       this.routeLine(line, "\n");
+    }
+    if (this.readyFired && this.residual.length > 0) {
+      const tail = this.residual;
+      this.residual = "";
+      this.passThrough(tail);
     }
   }
 
@@ -202,11 +250,12 @@ export class NoiseFilter {
       this.opts.buffer.push(line + terminator);
       return;
     }
-    // First non-noise line flips the gate. Empty lines pre-ready
-    // (a stray blank line in init.zig output) stay buffered so we
-    // don't fire ready on whitespace.
+    // First non-noise line flips the gate. Empty / control-only lines
+    // pre-ready (a stray blank line in init.zig output, or CR padding
+    // from the serial console) stay buffered so we don't fire ready on
+    // whitespace.
     if (!this.readyFired) {
-      if (line.length === 0) {
+      if (stripAnsiControl(line).trim().length === 0) {
         this.opts.buffer.push(line + terminator);
         return;
       }
@@ -220,8 +269,12 @@ export class NoiseFilter {
     // Post-ready: pass through AND keep buffering (rolling tail)
     // so a workload that crashes minutes in still has context
     // for the failure dump.
-    this.opts.out.write(line + terminator);
-    this.opts.buffer.push(line + terminator);
+    this.passThrough(line + terminator);
+  }
+
+  private passThrough(text: string): void {
+    this.opts.out.write(text);
+    this.opts.buffer.push(text);
   }
 
   get ready(): boolean {
