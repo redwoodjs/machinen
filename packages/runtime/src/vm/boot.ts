@@ -63,8 +63,6 @@ import { resolveSnapshotEngine, VMSTATE_FILE } from "./snapshot-engine.ts";
 
 const debug = debugLib("machinen:boot");
 const vmmDebug = debugLib("machinen:vmm");
-const vmstateDebug = debugLib("machinen:vmstate");
-const restoreDebug = debugLib("machinen:restore");
 
 export interface BootOptions {
   /**
@@ -484,9 +482,6 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   }
   if (opts._vmstateRestorePath) {
     env.MACHINEN_RESTORE_PATH = opts._vmstateRestorePath;
-    if ((vmstateDebug.enabled || restoreDebug.enabled) && !env.MACHINEN_VMSTATE_TIMING) {
-      env.MACHINEN_VMSTATE_TIMING = "1";
-    }
   }
 
   // #78 / #332: resolve live-share mounts. We compute these here so the
@@ -741,7 +736,6 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       process.stderr.write(chunk);
     });
   }
-  installVmstateTimingRelay(child);
   installFlushPhases(child, phases, onLog);
 
   // #150 phase 2: in-flight ring buffer of stderr captured *only* for
@@ -1567,33 +1561,6 @@ function installVmExitCleanup(state: ExitCleanupState): void {
 // exactly once — `phases.end` is a no-op the second time around. Also
 // emits a `phase` LogEvent so callers can fold the breakdown into
 // their own UI without parsing debug strings.
-function installVmstateTimingRelay(child: ChildProcessWithoutNullStreams): void {
-  if (!vmstateDebug.enabled && !restoreDebug.enabled) {
-    return;
-  }
-  const timingDebug = vmstateDebug.enabled ? vmstateDebug : restoreDebug;
-  let carry = "";
-  const flushLine = (line: string) => {
-    if (line.startsWith("vmstate restore timing ")) {
-      timingDebug("%s", line);
-    }
-  };
-  child.stderr.on("data", (chunk: Buffer) => {
-    const text = carry + chunk.toString("utf8");
-    const lines = text.split("\n");
-    carry = lines.pop() ?? "";
-    for (const line of lines) {
-      flushLine(line);
-    }
-  });
-  child.once("exit", () => {
-    if (carry) {
-      flushLine(carry);
-      carry = "";
-    }
-  });
-}
-
 function installFlushPhases(
   child: ChildProcessWithoutNullStreams,
   phases: PhaseTimer,
