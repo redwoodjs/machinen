@@ -1,5 +1,13 @@
 # @machinen/mount-server
 
+## 0.3.1
+
+### Patch Changes
+
+- Fix virtio-fs live mounts writing to existing files.
+
+  Writable opens now keep a read-capable host fd so Linux writeback-cache READ-fill requests on `O_WRONLY` handles do not surface as `EIO`. `SETATTR` now applies size truncation, and `RENAME` is implemented so `mv`/overwrite workflows work inside `--mount-live`.
+
 ## 0.3.0
 
 ### Minor Changes

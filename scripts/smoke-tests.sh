@@ -370,15 +370,10 @@ fi
 # rmdir, symlink creation, and a multi-frame large file — over the
 # in-VMM virtio-fs transport (#332, the only transport since #338).
 #
-# Deliberately left out, because the #329 handlers don't implement
-# them (ENOSYS):
-#   - append (`>>` / O_APPEND): a guest append fails with EIO on this
-#     path; pinning down whether that's host-side or a guest-kernel
-#     FUSE writeback-cache interaction needs its own investigation.
-#   - reading *through* a symlink (READLINK): `ln -s` itself works
-#     (SYMLINK), so the link is created and checked on the host, but
-#     `cat`-ing it would hit ENOSYS.
-#   - rename (RENAME), chmod (SETATTR is a stat-only stub).
+# Deliberately left out, because the #329 handlers don't implement it
+# yet (ENOSYS): reading *through* a symlink (READLINK). `ln -s` itself
+# works (SYMLINK), so the link is created and checked on the host, but
+# `cat`-ing it would hit ENOSYS.
 fs_ops_smoke() {
   local label="T9v"
   echo "$label: filesystem operations over a --mount-live (virtio-fs) mount"
@@ -387,6 +382,11 @@ fs_ops_smoke() {
   local src="$FIXTURE/fs-ops"
   local log="$FIXTURE/fs-ops.log"
   mkdir -p "$src"
+  printf 'old-data\n' >"$src/existing.txt"
+  printf 'append-base\n' >"$src/append.txt"
+  printf 'copy-target-old\n' >"$src/copy-target.txt"
+  printf 'rename-target-old\n' >"$src/rename-dst.txt"
+  printf 'truncate-me\n' >"$src/truncate.txt"
   local fs_fail
   fs_fail() {
     tail -80 "$log" >&2 || true
@@ -410,6 +410,12 @@ fs_ops_smoke() {
       echo nested-content > /mnt/fs/d/nested/a.txt
       seq 1 50000 > /mnt/fs/big.txt
       echo bigread: \$(wc -l < /mnt/fs/big.txt | tr -d ' ')
+      echo overwritten > /mnt/fs/existing.txt
+      echo appended >> /mnt/fs/append.txt
+      cp /mnt/fs/d/nested/a.txt /mnt/fs/copy-target.txt
+      echo renamed-source > /mnt/fs/rename-src.txt
+      mv /mnt/fs/rename-src.txt /mnt/fs/rename-dst.txt
+      : > /mnt/fs/truncate.txt
       echo doomed > /mnt/fs/doomed.txt && rm /mnt/fs/doomed.txt
       mkdir /mnt/fs/emptydir && rmdir /mnt/fs/emptydir
       ln -s d/nested/a.txt /mnt/fs/link.txt
@@ -430,10 +436,20 @@ fs_ops_smoke() {
     fs_fail "$label: nested file missing/wrong on host"
   [[ "$(wc -l <"$src/big.txt" 2>/dev/null | tr -d ' ')" == "50000" ]] ||
     fs_fail "$label: big.txt wrong line count on host (multi-frame write)"
+  [[ "$(cat "$src/existing.txt" 2>/dev/null)" == "overwritten" ]] ||
+    fs_fail "$label: overwrite of existing file failed on host"
+  [[ "$(cat "$src/append.txt" 2>/dev/null)" == $'append-base\nappended' ]] ||
+    fs_fail "$label: append to existing file failed on host"
+  [[ "$(cat "$src/copy-target.txt" 2>/dev/null)" == "nested-content" ]] ||
+    fs_fail "$label: cp over existing file failed on host"
+  [[ "$(cat "$src/rename-dst.txt" 2>/dev/null)" == "renamed-source" ]] ||
+    fs_fail "$label: rename over existing file failed on host"
+  [[ ! -e "$src/rename-src.txt" ]] || fs_fail "$label: rename source still present on host"
+  [[ ! -s "$src/truncate.txt" ]] || fs_fail "$label: truncate of existing file failed on host"
   [[ ! -e "$src/doomed.txt" ]] || fs_fail "$label: unlink didn't remove doomed.txt on host"
   [[ ! -e "$src/emptydir" ]] || fs_fail "$label: rmdir didn't remove emptydir on host"
   [[ -L "$src/link.txt" ]] || fs_fail "$label: symlink not present on host"
-  pass "fs ops (mkdir/write/nested/readdir/unlink/rmdir/symlink/large file) over virtio-fs"
+  pass "fs ops (mkdir/write/overwrite/append/cp/rename/readdir/unlink/rmdir/symlink/large file) over virtio-fs"
 }
 
 fs_ops_smoke

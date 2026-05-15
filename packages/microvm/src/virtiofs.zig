@@ -503,6 +503,81 @@ test "handleRequest: GETATTR on the root inode stats the host directory" {
     try testing.expectEqual(@as(u32, 0o040000), mode & 0o170000);
 }
 
+test "handleRequest: O_WRONLY open of an existing file supports READ fill and WRITE" {
+    const gpa = testing.allocator;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "existing.txt", .data = "old-data" });
+    var fsdev = try Device.init(gpa, "machinen0", try testTmpRootAbs(gpa, &tmp), true);
+    defer fsdev.deinit();
+
+    const lookup = testRunOp(&fsdev, 1, 1, 1, "existing.txt\x00");
+    try testing.expectEqual(@as(i32, 0), lookup.err());
+    const nodeid = std.mem.readInt(u64, lookup.payload()[0..8], .little);
+
+    var open_body: [8]u8 = @splat(0);
+    std.mem.writeInt(u32, open_body[0..4], 1 | 0o1000, .little); // O_WRONLY | O_TRUNC
+    const open = testRunOp(&fsdev, 14, 2, nodeid, &open_body);
+    try testing.expectEqual(@as(i32, 0), open.err());
+    const fh = std.mem.readInt(u64, open.payload()[0..8], .little);
+
+    var read_body: [32]u8 = @splat(0);
+    std.mem.writeInt(u64, read_body[0..8], fh, .little);
+    std.mem.writeInt(u32, read_body[16..20], 16, .little);
+    const read = testRunOp(&fsdev, 15, 3, nodeid, &read_body);
+    try testing.expectEqual(@as(i32, 0), read.err());
+
+    var write_body: [40 + 3]u8 = @splat(0);
+    std.mem.writeInt(u64, write_body[0..8], fh, .little);
+    std.mem.writeInt(u32, write_body[16..20], 3, .little);
+    @memcpy(write_body[40..], "new");
+    const write_reply = testRunOp(&fsdev, 16, 4, nodeid, &write_body);
+    try testing.expectEqual(@as(i32, 0), write_reply.err());
+    try testing.expectEqual(@as(u32, 3), std.mem.readInt(u32, write_reply.payload()[0..4], .little));
+
+    const got = try tmp.dir.readFileAlloc(std.testing.io, "existing.txt", gpa, .limited(1024));
+    defer gpa.free(got);
+    try testing.expectEqualStrings("new", got);
+}
+
+test "handleRequest: RENAME replaces an existing file and :ro/malformed paths fail soft" {
+    const gpa = testing.allocator;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "src.txt", .data = "source" });
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "dst.txt", .data = "dest" });
+    var fsdev = try Device.init(gpa, "machinen0", try testTmpRootAbs(gpa, &tmp), true);
+    defer fsdev.deinit();
+
+    var rename_body: [8 + 16]u8 = @splat(0);
+    std.mem.writeInt(u64, rename_body[0..8], 1, .little); // newdir = root
+    @memcpy(rename_body[8..][0.."src.txt".len], "src.txt");
+    @memcpy(rename_body[8 + "src.txt".len + 1 ..][0.."dst.txt".len], "dst.txt");
+    const rename_len = 8 + "src.txt".len + 1 + "dst.txt".len + 1;
+    const renamed = testRunOp(&fsdev, 12, 1, 1, rename_body[0..rename_len]);
+    try testing.expectEqual(@as(i32, 0), renamed.err());
+    try testing.expectError(error.FileNotFound, tmp.dir.access(std.testing.io, "src.txt", .{}));
+    const got = try tmp.dir.readFileAlloc(std.testing.io, "dst.txt", gpa, .limited(1024));
+    defer gpa.free(got);
+    try testing.expectEqualStrings("source", got);
+
+    var missing_body: [8 + 16]u8 = @splat(0);
+    std.mem.writeInt(u64, missing_body[0..8], 1, .little);
+    @memcpy(missing_body[8..][0.."missing".len], "missing");
+    @memcpy(missing_body[8 + "missing".len + 1 ..][0.."other".len], "other");
+    const missing_len = 8 + "missing".len + 1 + "other".len + 1;
+    const missing = testRunOp(&fsdev, 12, 2, 1, missing_body[0..missing_len]);
+    try testing.expectEqual(@as(i32, -2), missing.err()); // -ENOENT
+
+    var ro = try Device.init(gpa, "machinen1", try testTmpRootAbs(gpa, &tmp), false);
+    defer ro.deinit();
+    const blocked = testRunOp(&ro, 12, 3, 1, rename_body[0..rename_len]);
+    try testing.expectEqual(@as(i32, -30), blocked.err()); // -EROFS
+
+    const malformed = testRunOp(&fsdev, 12, 4, 1, "short");
+    try testing.expectEqual(@as(i32, -22), malformed.err()); // -EINVAL, not a wedge
+}
+
 test "handleRequest: LOOKUP of a missing name returns ENOENT" {
     const gpa = testing.allocator;
     var tmp = std.testing.tmpDir(.{});
