@@ -125,10 +125,12 @@ pub fn writeAndDestroy(job: *Job) !void {
 fn write(job: *Job) !void {
     const allocator = job.arena.allocator();
     const bytes = try snapshot.encode(allocator, job.topology_hash, job.sections);
-    // gzip the whole container — guest RAM is mostly zero pages, so
-    // this routinely shrinks the .vmstate by an order of magnitude.
-    const out = try vmstate_zip.compress(allocator, bytes);
-    std.debug.print("{s}: snapshot {d} bytes -> {d} compressed\n", .{ job.label, bytes.len, out.len });
+    const compression = vmstate_zip.writeCompression();
+    const out: []const u8 = switch (compression) {
+        .none => bytes,
+        .gzip => try vmstate_zip.compress(allocator, bytes),
+    };
+    std.debug.print("{s}: snapshot {d} bytes -> {d} {s}\n", .{ job.label, bytes.len, out.len, @tagName(compression) });
     try writeAtomic(allocator, job.path, out);
     std.debug.print("{s}: snapshot write done\n", .{job.label});
 }
@@ -176,7 +178,7 @@ fn testTmpPath(gpa: std.mem.Allocator, tmp: *const std.testing.TmpDir, name: []c
     return std.fs.path.join(gpa, &.{ cwd, ".zig-cache", "tmp", &tmp.sub_path, name });
 }
 
-test "Writer writes a complete gzip-compressed vmstate asynchronously" {
+test "Writer writes a complete vmstate asynchronously" {
     const gpa = std.testing.allocator;
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
