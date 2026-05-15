@@ -800,11 +800,15 @@ describe("vm.snapshot", () => {
 
   it("throws when the guest exits without producing a dump", async () => {
     // /usr/bin/true exits immediately, so the VMM comes down cleanly
-    // before the in-guest dump script has any chance to run. The host
-    // never sees the dump exec return on its own → SNAPSHOT_TIMEOUT
-    // (or, if vsock comes down faster than the deadline, a no-bundle
-    // SNAPSHOT_DUMP_FAILED). Either is the right "dump never ran"
-    // signal; we accept both.
+    // before any dump can run. The exact error depends on the engine:
+    //   - criu: the host never sees the in-guest dump exec return →
+    //     SNAPSHOT_TIMEOUT, or a no-bundle SNAPSHOT_DUMP_FAILED if
+    //     vsock drops faster than the deadline.
+    //   - vmstate: there's no VMM left to signal → the SIGUSR1 send
+    //     fails with ESRCH ("failed to signal the VMM"), or the state
+    //     file never appears ("did not write its .vmstate").
+    // Every one of these is the right "dump never ran" signal; we
+    // accept any of them so the test is engine-agnostic.
     const snap = `/tmp/machinen-snap-nook-${process.pid}.img`;
     const outDir = `/tmp/machinen-snap-nook-out-${process.pid}`;
     writeFileSync(snap, Buffer.alloc(1024));
@@ -815,7 +819,7 @@ describe("vm.snapshot", () => {
         timeoutMs: 5_000,
       });
       await expect(vm.snapshot({ outDir, timeoutMs: 2_000 })).rejects.toThrow(
-        /dump exec did not return|dump exec failed|core-\*\.img/,
+        /dump exec did not return|dump exec failed|core-\*\.img|failed to signal the VMM|did not write its \.vmstate/,
       );
     } finally {
       try {

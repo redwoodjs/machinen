@@ -35,3 +35,8 @@ examples/fork-pi/.claude/
 # @machinen/native-arm64-{darwin,linux} packages. Each package's own
 # .gitignore lists the staged binaries + sidecars; nothing extra needed
 # at the repo root.
+
+# build-vmm.sh / packaging staging dirs — VMM + gvproxy binaries only,
+# no package source. Pure build output, never committed.
+packages/vmm-arm64-darwin/
+packages/vmm-arm64-linux/

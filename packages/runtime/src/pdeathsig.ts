@@ -262,7 +262,7 @@ static int run_watch_pid_macos(pid_t watch_pid, char **target) {
     // delivers the event, leaving the target alive and orphaned to
     // PID 1 — defeating the whole point of the shim.
     //
-    // SIGUSR1 is included for the snaplet snapshot trigger: the
+    // SIGUSR1 is included for the vmstate snapshot trigger: the
     // runtime signals the wrapped VMM's pid, which on macOS is *this*
     // shim (the watch loop forks). Blocking + kqueue-ing it lets us
     // forward it to the VMM instead of dying by the default
@@ -333,7 +333,7 @@ static int run_watch_pid_macos(pid_t watch_pid, char **target) {
         if (n == 0) continue;
         if (ev.filter == EVFILT_SIGNAL) {
             if ((int)ev.ident == SIGUSR1) {
-                // Snaplet snapshot trigger. Forward to the VMM and
+                // Vmstate snapshot trigger. Forward to the VMM and
                 // keep watching — the VMM dumps its whole-VM state
                 // and resumes the guest; it is NOT a shutdown signal.
                 kill(child, SIGUSR1);

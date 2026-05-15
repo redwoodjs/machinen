@@ -1,13 +1,13 @@
-//! gzip transport wrapping for .snaplet files.
+//! gzip transport wrapping for .vmstate files.
 //!
 //! The snapshot codec (snapshot.zig) stays oblivious to compression —
 //! this module just shrinks the bytes on the way to disk and restores
 //! them on the way back. A guest's RAM section is mostly zero pages,
-//! so gzip routinely takes a ~540 MiB .snaplet down by an order of
+//! so gzip routinely takes a ~540 MiB .vmstate down by an order of
 //! magnitude.
 //!
 //! Backward compatible: `decompress` sniffs the gzip magic and passes
-//! a plain (already-uncompressed) .snaplet straight through, so files
+//! a plain (already-uncompressed) .vmstate straight through, so files
 //! written before compression landed still load.
 
 const std = @import("std");
@@ -35,7 +35,7 @@ pub fn compress(gpa: std.mem.Allocator, input: []const u8) ![]u8 {
     // 512 MiB container ran tens of seconds and tripped RCU stalls in
     // the resumed guest. Guest RAM is mostly zero pages, which LZ77
     // collapses to almost nothing at any level, so level 1 keeps the
-    // .snaplet nearly as small while cutting the pause dramatically.
+    // .vmstate nearly as small while cutting the pause dramatically.
     var comp = try flate.Compress.init(&aw.writer, window, .gzip, .level_1);
     try comp.writer.writeAll(input);
     try comp.finish();
@@ -48,7 +48,7 @@ pub fn compress(gpa: std.mem.Allocator, input: []const u8) ![]u8 {
 }
 
 /// Inverse of `compress`. A buffer that doesn't start with the gzip
-/// magic is assumed to be a plain .snaplet and returned as an owned
+/// magic is assumed to be a plain .vmstate and returned as an owned
 /// copy unchanged. Caller owns the returned bytes either way.
 pub fn decompress(gpa: std.mem.Allocator, input: []const u8) ![]u8 {
     if (input.len < 2 or !std.mem.eql(u8, input[0..2], &gzip_magic)) {
@@ -98,7 +98,7 @@ test "compress shrinks a mostly-zero buffer hard" {
 
 test "decompress passes a non-gzip buffer through unchanged" {
     const a = std.testing.allocator;
-    const plain = "SNAPLET\x00 not actually compressed";
+    const plain = "VMSTATE\x00 not actually compressed";
     const back = try decompress(a, plain);
     defer a.free(back);
     try std.testing.expectEqualSlices(u8, plain, back);

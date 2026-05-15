@@ -26,7 +26,7 @@ import { PhaseTimer } from "../phase-timer.ts";
 import { claimName, findEntry, writeEntry } from "../registry.ts";
 import { boot, type BootOptions } from "./boot.ts";
 import { resolveRestoreLiveMounts } from "./bundle.ts";
-import { SNAPLET_FILE } from "./snapshot-engine.ts";
+import { VMSTATE_FILE } from "./snapshot-engine.ts";
 import type { SnapshotMeta, VmHandle } from "../vm-handle.ts";
 import {
   allocateSparseFile,
@@ -119,11 +119,11 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
   const snapDir = resolve(opts.snapDir);
 
   // Auto-detect the engine from the bundle's contents: a
-  // `state.snaplet` file means the snaplet (whole-VM) engine produced
+  // `state.vmstate` file means the vmstate (whole-VM) engine produced
   // it. A bundle always restores under the engine that wrote it,
   // regardless of the MACHINEN_SNAPSHOT_ENGINE env var.
-  if (existsSync(join(snapDir, SNAPLET_FILE))) {
-    return restoreSnaplet(opts, snapDir);
+  if (existsSync(join(snapDir, VMSTATE_FILE))) {
+    return restoreVmstate(opts, snapDir);
   }
 
   const imgDir = join(snapDir, "img");
@@ -355,8 +355,8 @@ export async function restore(opts: RestoreOptions): Promise<VmHandle> {
 // Resolve the rootfs image for a restore: caller's `opts.image` wins,
 // else the path the source booted from (recorded in meta.json). Both
 // engines need a base rootfs — criu reopens file-backed VMAs against
-// it; the snaplet engine materializes the restored guest's /dev/vda
-// from it. Shared by the criu and snaplet restore paths.
+// it; the vmstate engine materializes the restored guest's /dev/vda
+// from it. Shared by the criu and vmstate restore paths.
 function resolveRestoreImage(opts: RestoreOptions, meta: SnapshotMeta): string {
   if (opts.image) {
     const resolved = resolve(opts.cwd ?? process.cwd(), opts.image);
@@ -396,7 +396,7 @@ function resolveRestoreImage(opts: RestoreOptions, meta: SnapshotMeta): string {
 // `<src>/<pid>`. claimName refuses (returns false) when `<src>` is
 // still a live pin file — the fork case (#216), where the source VM
 // is running — so we fall back to a flat sibling `<src>~<pid>`.
-// Shared by the criu and snaplet restore paths.
+// Shared by the criu and vmstate restore paths.
 function autoNameRestoredFork(vm: VmHandle, opts: RestoreOptions, meta: SnapshotMeta): void {
   if (opts.name || !meta.sourceName) {
     return;
@@ -415,20 +415,20 @@ function autoNameRestoredFork(vm: VmHandle, opts: RestoreOptions, meta: Snapshot
 }
 
 /**
- * Restore a snaplet (whole-VM) bundle: `<snapDir>/state.snaplet` plus
+ * Restore a vmstate (whole-VM) bundle: `<snapDir>/state.vmstate` plus
  * `meta.json`. Unlike the CRIU path there's no scratch tar and no
  * guest-side restore agent — `boot()` hands the state file to the VMM
- * via `_snapletRestorePath` (→ `MACHINEN_RESTORE_PATH`), and the VMM
+ * via `_vmstateRestorePath` (→ `MACHINEN_RESTORE_PATH`), and the VMM
  * loads vCPU + RAM + GIC + virtio device state before the first vCPU
  * run, so the guest resumes mid-execution.
  *
  * The rootfs image and any `--mount` overlay are re-attached exactly
- * like the CRIU path — the snaplet captures VM state, not disks, so a
+ * like the CRIU path — the vmstate captures VM state, not disks, so a
  * fresh /dev/vda is materialized from the same image (the disk-write
  * caveat is identical to CRIU's).
  */
-async function restoreSnaplet(opts: RestoreOptions, snapDir: string): Promise<VmHandle> {
-  const statePath = join(snapDir, SNAPLET_FILE);
+async function restoreVmstate(opts: RestoreOptions, snapDir: string): Promise<VmHandle> {
+  const statePath = join(snapDir, VMSTATE_FILE);
   const metaPath = join(snapDir, "meta.json");
 
   let meta: SnapshotMeta = { snappedAt: 0 };
@@ -460,7 +460,7 @@ async function restoreSnaplet(opts: RestoreOptions, snapDir: string): Promise<Vm
     restoreMountDisk = { guest: meta.mountDisk.guest, lowerPath: lowerAbs, upperPath: upperAbs };
   }
 
-  debugRestore("snaplet restore snapDir=%s state=%s image=%s", snapDir, statePath, resolvedImage);
+  debugRestore("vmstate restore snapDir=%s state=%s image=%s", snapDir, statePath, resolvedImage);
 
   const vm = await boot({
     ...opts,
@@ -469,7 +469,7 @@ async function restoreSnaplet(opts: RestoreOptions, snapDir: string): Promise<Vm
     name: opts.name,
     liveMounts: effectiveLiveMounts,
     _restoreMountDisk: restoreMountDisk,
-    _snapletRestorePath: statePath,
+    _vmstateRestorePath: statePath,
   });
 
   autoNameRestoredFork(vm, opts, meta);

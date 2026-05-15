@@ -18,7 +18,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 const BIN = resolve(import.meta.dirname, "../../../microvm/zig-out/bin/snapshot-test");
 const KVM_FIXTURE = resolve(
   import.meta.dirname,
-  "../../../microvm/test-fixtures/snapshot/vcpu-kvm-fresh.snaplet",
+  "../../../microvm/test-fixtures/snapshot/vcpu-kvm-fresh.vmstate",
 );
 
 const READY = platform() === "darwin" && existsSync(BIN) && existsSync(KVM_FIXTURE);
@@ -35,7 +35,7 @@ afterAll(() => {
 
 describe.skipIf(!READY)("vCPU cross-load (KVM dump -> HVF load -> HVF dump)", () => {
   it("preserves values for every register present on both backends", () => {
-    const out = join(TMP, "xload-hvf.snaplet");
+    const out = join(TMP, "xload-hvf.vmstate");
     const xload = spawnSync(BIN, ["xload", "--vmm=hvf", KVM_FIXTURE], {
       encoding: "buffer",
     });

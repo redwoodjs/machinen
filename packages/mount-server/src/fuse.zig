@@ -32,6 +32,14 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const assert = std.debug.assert;
+const fuse_state = @import("fuse_state.zig");
+
+test {
+    // Pull `fuse_state.zig`'s tests into `zig build test` — it's only
+    // referenced through `State.dumpState` / `applyState`, which the
+    // test runner wouldn't otherwise walk into.
+    _ = fuse_state;
+}
 
 // --- libc externs -------------------------------------------------------
 
@@ -391,6 +399,10 @@ const OpenEntry = struct {
     kind: OpenKind,
     fd: c_int = -1,
     nodeid: u64 = 0,
+    /// Linux open flags the guest passed to OPEN/CREATE, kept so a
+    /// snapshot restore can reopen the host fd with the same access
+    /// mode (see `State.applyState`). 0 for `dir` handles.
+    open_flags: u32 = 0,
     /// Owned by `gpa`; freed on RELEASEDIR and in State.deinit. Each
     /// element is one packed `fuse_dirent` (24-byte header + padded
     /// name). `dir` kind only; null for `file`.
@@ -460,6 +472,103 @@ pub const State = struct {
         self.op_stats.deinit();
         self.gpa.free(self.root_abs);
         if (self.stats_path) |p| self.gpa.free(p);
+    }
+
+    /// Serialise the host-side FUSE state — the nodeid→path map and the
+    /// open file/dir handle table — into a `fuse_state` payload for the
+    /// vmstate snapshot. `applyState` is the inverse. Deliberately *not*
+    /// captured: `root_abs` (supplied fresh at boot), the host fds
+    /// (reopened by path on restore — READ/WRITE are stateless
+    /// pread/pwrite, so the fd offset doesn't matter), and the
+    /// profiling/stats fields (re-initialised at boot).
+    pub fn dumpState(self: *State, gpa: std.mem.Allocator) ![]u8 {
+        var b = fuse_state.Builder.init(gpa, self.mode_rw, self.next_inode, self.next_handle);
+        errdefer b.deinit();
+
+        var it = self.inodes.iterator();
+        while (it.next()) |e| {
+            try b.addInode(e.key_ptr.*, e.value_ptr.nlookup, e.value_ptr.rel_path);
+        }
+        var hit = self.handles.iterator();
+        while (hit.next()) |e| {
+            const h = e.value_ptr;
+            switch (h.kind) {
+                .file => try b.addFileHandle(e.key_ptr.*, h.nodeid, h.open_flags),
+                .dir => try b.addDirHandle(e.key_ptr.*, h.nodeid, h.dir_entries orelse &.{}),
+            }
+        }
+        assert(b.inode_count == self.inodes.count());
+        assert(b.handle_count == self.handles.count());
+
+        const out = try b.finish();
+        b.deinit();
+        return out;
+    }
+
+    /// Restore host-side FUSE state captured by `dumpState`, replacing
+    /// the fresh-boot maps in place. A malformed payload is rejected by
+    /// `fuse_state.decode` *before* any live state is touched. File
+    /// handles are reopened by resolving nodeid → rel_path against the
+    /// current mount root; a reopen that fails (file removed on the
+    /// host since the snapshot) degrades to fd = -1, so the next op on
+    /// that handle returns EBADF — fail-soft, never a wedge.
+    pub fn applyState(self: *State, payload: []const u8) !void {
+        var d = try fuse_state.decode(self.gpa, payload);
+        defer d.deinit();
+
+        // The fresh boot pre-seeded nodeid=1; drop every seeded entry
+        // before laying the snapshot down, or the restored root record
+        // double-allocates and the seed leaks.
+        var it = self.inodes.iterator();
+        while (it.next()) |e| self.gpa.free(e.value_ptr.rel_path);
+        self.inodes.clearRetainingCapacity();
+
+        var hit = self.handles.iterator();
+        while (hit.next()) |e| freeHandle(self, e.value_ptr);
+        self.handles.clearRetainingCapacity();
+
+        self.mode_rw = d.mode_rw;
+        self.next_inode = d.next_inode;
+        self.next_handle = d.next_handle;
+
+        for (d.inodes) |rec| {
+            const dup = try self.gpa.dupe(u8, rec.path);
+            try self.inodes.put(rec.nodeid, .{ .rel_path = dup, .nlookup = rec.nlookup });
+        }
+        for (d.handles) |rec| {
+            switch (rec.kind) {
+                .file => try self.handles.put(rec.handle_id, .{
+                    .kind = .file,
+                    .fd = self.reopenHandle(rec.nodeid, rec.open_flags),
+                    .nodeid = rec.nodeid,
+                    .open_flags = rec.open_flags,
+                }),
+                .dir => {
+                    const owned = try self.gpa.alloc([]u8, rec.dir_entries.len);
+                    for (owned, rec.dir_entries) |*dst, src| dst.* = try self.gpa.dupe(u8, src);
+                    try self.handles.put(rec.handle_id, .{
+                        .kind = .dir,
+                        .fd = -1,
+                        .nodeid = rec.nodeid,
+                        .dir_entries = owned,
+                    });
+                },
+            }
+        }
+    }
+
+    /// Reopen a host fd for a restored file handle. Resolves the
+    /// handle's nodeid back to a path under the *current* mount root.
+    /// O_TRUNC is masked off (it would wipe the file we're restoring),
+    /// and a `:ro` mount is forced down to O_RDONLY. A missing nodeid,
+    /// an unresolvable path, or a failed open all yield -1.
+    fn reopenHandle(self: *State, nodeid: u64, open_flags: u32) c_int {
+        const entry = self.inodes.getPtr(nodeid) orelse return -1;
+        var path_buf: [4096]u8 = undefined;
+        const abs = buildAbsPath(self, entry.rel_path, &path_buf) catch return -1;
+        var flags = open_flags & ~LINUX_O_TRUNC;
+        if (!self.mode_rw) flags &= ~@as(u32, 0o3); // force O_RDONLY
+        return openHost(abs, linuxOpenToHost(flags), 0) catch -1;
     }
 };
 
@@ -845,7 +954,7 @@ fn onCreate(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
 
     const id = state.next_handle;
     state.next_handle += 1;
-    try state.handles.put(id, .{ .kind = .file, .fd = fd, .nodeid = ino });
+    try state.handles.put(id, .{ .kind = .file, .fd = fd, .nodeid = ino, .open_flags = flags });
 
     // CREATE reply: entry_out (128) + open_out (16).
     var payload: [FUSE_ENTRY_OUT_SIZE + 16]u8 = @splat(0);
@@ -882,6 +991,10 @@ fn onWrite(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
     const handle = state.handles.get(fh) orelse
         return try buildErrorReply(state, hdr.unique, -E.BADF);
     if (handle.kind != .file) return try buildErrorReply(state, hdr.unique, -E.BADF);
+    // fd < 0 means a snapshot restore couldn't reopen this handle's
+    // backing file (it was removed on the host since the snapshot).
+    // An invalid descriptor is EBADF — fail-soft, never a wedge.
+    if (handle.fd < 0) return try buildErrorReply(state, hdr.unique, -E.BADF);
 
     const written = pwriteAll(handle.fd, data, offset) catch |e|
         return try buildErrorReply(state, hdr.unique, mapFsError(e));
@@ -916,7 +1029,7 @@ fn onOpen(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
 
     const id = state.next_handle;
     state.next_handle += 1;
-    try state.handles.put(id, .{ .kind = .file, .fd = fd, .nodeid = hdr.nodeid });
+    try state.handles.put(id, .{ .kind = .file, .fd = fd, .nodeid = hdr.nodeid, .open_flags = flags });
 
     var payload: [16]u8 = @splat(0);
     std.mem.writeInt(u64, payload[0..8], id, .little); // fh
@@ -937,6 +1050,10 @@ fn onRead(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
     const handle = state.handles.get(fh) orelse
         return try buildErrorReply(state, hdr.unique, -E.BADF);
     if (handle.kind != .file) return try buildErrorReply(state, hdr.unique, -E.BADF);
+    // fd < 0 means a snapshot restore couldn't reopen this handle's
+    // backing file (it was removed on the host since the snapshot).
+    // An invalid descriptor is EBADF — fail-soft, never a wedge.
+    if (handle.fd < 0) return try buildErrorReply(state, hdr.unique, -E.BADF);
 
     const buf = try state.gpa.alloc(u8, FUSE_OUT_HEADER_SIZE + size);
     errdefer state.gpa.free(buf);
@@ -1669,4 +1786,204 @@ test "validateName rejects path-escape and empty names" {
     try testing.expectError(error.InvalidName, validateName("a/b"));
     try testing.expectError(error.InvalidName, validateName("a\x00b"));
     try validateName("normal-file.txt");
+}
+
+// --- snapshot (dumpState / applyState) tests ---------------------------
+//
+// The vmstate whole-VM snapshot captures a virtio-fs device's host-side
+// FUSE state through `State.dumpState` / `applyState`. Per the FUSE-ops
+// rule in CLAUDE.md these cover: the happy path (a handle survives a
+// snapshot round-trip and still does real I/O), the error path (a file
+// removed since the snapshot restores fail-soft), the `:ro` gate, and
+// the wedge guard (a malformed payload is rejected, not panicked on).
+
+/// Absolute path of a `std.testing.tmpDir` — the dumpState/applyState
+/// tests need a real root the reopened fds can resolve against. Heap-
+/// allocated; the caller hands it to `State.init`, which takes ownership.
+fn testTmpRootAbs(gpa: std.mem.Allocator, tmp: *const std.testing.TmpDir) ![]u8 {
+    const cwd = try std.process.currentPathAlloc(std.testing.io, gpa);
+    defer gpa.free(cwd);
+    return std.fs.path.join(gpa, &.{ cwd, ".zig-cache", "tmp", &tmp.sub_path });
+}
+
+/// CREATE `name` under the root inode; returns its (nodeid, fh).
+fn testCreate(state: *State, name: []const u8) !struct { nodeid: u64, fh: u64 } {
+    var body: [16 + 96]u8 = @splat(0);
+    std.mem.writeInt(u32, body[0..4], LINUX_O_RDWR, .little);
+    std.mem.writeInt(u32, body[4..8], 0o644, .little);
+    @memcpy(body[16..][0..name.len], name);
+    const frame = try testBuildFrame(state.gpa, @intFromEnum(Op.CREATE), 1, 1, body[0 .. 16 + name.len]);
+    defer state.gpa.free(frame);
+    const r = (try dispatch(state, frame)) orelse return error.ExpectedReply;
+    defer state.gpa.free(r);
+    if (std.mem.readInt(i32, r[4..8], .little) != 0) return error.CreateFailed;
+    return .{
+        .nodeid = std.mem.readInt(u64, r[FUSE_OUT_HEADER_SIZE..][0..8], .little),
+        .fh = std.mem.readInt(u64, r[FUSE_OUT_HEADER_SIZE + 128 ..][0..8], .little),
+    };
+}
+
+test "dumpState/applyState: a file handle survives a snapshot round-trip" {
+    const gpa = testing.allocator;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    var src = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), true);
+    defer src.deinit();
+    const h = try testCreate(&src, "doc.txt");
+
+    // WRITE "snapshot-me" through the handle, onto the real host file.
+    {
+        var body: [FUSE_WRITE_IN_SIZE + 11]u8 = @splat(0);
+        std.mem.writeInt(u64, body[0..8], h.fh, .little);
+        std.mem.writeInt(u32, body[16..20], 11, .little);
+        @memcpy(body[FUSE_WRITE_IN_SIZE..], "snapshot-me");
+        const frame = try testBuildFrame(gpa, @intFromEnum(Op.WRITE), 2, h.nodeid, &body);
+        defer gpa.free(frame);
+        const r = (try dispatch(&src, frame)) orelse return error.ExpectedReply;
+        defer gpa.free(r);
+        try testing.expectEqual(@as(i32, 0), std.mem.readInt(i32, r[4..8], .little));
+    }
+
+    const payload = try src.dumpState(gpa);
+    defer gpa.free(payload);
+
+    // A fresh State over the SAME root — a vmstate restore.
+    var dst = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), true);
+    defer dst.deinit();
+    try dst.applyState(payload);
+    try testing.expectEqual(src.next_inode, dst.next_inode);
+    try testing.expectEqual(src.next_handle, dst.next_handle);
+
+    // READ through the restored handle — its fd was reopened from
+    // scratch by path, but the bytes written before the snapshot are
+    // still served.
+    var rbody: [32]u8 = @splat(0);
+    std.mem.writeInt(u64, rbody[0..8], h.fh, .little);
+    std.mem.writeInt(u32, rbody[16..20], 64, .little);
+    const frame = try testBuildFrame(gpa, @intFromEnum(Op.READ), 3, h.nodeid, &rbody);
+    defer gpa.free(frame);
+    const r = (try dispatch(&dst, frame)) orelse return error.ExpectedReply;
+    defer gpa.free(r);
+    try testing.expectEqual(@as(i32, 0), std.mem.readInt(i32, r[4..8], .little));
+    try testing.expectEqualStrings("snapshot-me", r[FUSE_OUT_HEADER_SIZE..]);
+}
+
+test "applyState: a file removed since the snapshot restores fail-soft to EBADF" {
+    const gpa = testing.allocator;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    var src = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), true);
+    defer src.deinit();
+    const h = try testCreate(&src, "gone.txt");
+    const payload = try src.dumpState(gpa);
+    defer gpa.free(payload);
+
+    // The file vanishes on the host before the restore.
+    try tmp.dir.deleteFile(std.testing.io, "gone.txt");
+
+    var dst = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), true);
+    defer dst.deinit();
+    try dst.applyState(payload); // must not error — the reopen fails soft
+
+    // The handle still exists, but its fd is -1; READ returns EBADF
+    // instead of wedging.
+    var rbody: [32]u8 = @splat(0);
+    std.mem.writeInt(u64, rbody[0..8], h.fh, .little);
+    std.mem.writeInt(u32, rbody[16..20], 16, .little);
+    const frame = try testBuildFrame(gpa, @intFromEnum(Op.READ), 1, h.nodeid, &rbody);
+    defer gpa.free(frame);
+    const r = (try dispatch(&dst, frame)) orelse return error.ExpectedReply;
+    defer gpa.free(r);
+    try testing.expectEqual(@as(i32, -E.BADF), std.mem.readInt(i32, r[4..8], .little));
+}
+
+test "dumpState/applyState: a :ro mount round-trips and stays read-only" {
+    const gpa = testing.allocator;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    // Seed "data.txt" on the host via a throwaway rw state.
+    {
+        var rw = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), true);
+        defer rw.deinit();
+        const h = try testCreate(&rw, "data.txt");
+        var wbody: [FUSE_WRITE_IN_SIZE + 4]u8 = @splat(0);
+        std.mem.writeInt(u64, wbody[0..8], h.fh, .little);
+        std.mem.writeInt(u32, wbody[16..20], 4, .little);
+        @memcpy(wbody[FUSE_WRITE_IN_SIZE..], "ABCD");
+        const wf = try testBuildFrame(gpa, @intFromEnum(Op.WRITE), 1, h.nodeid, &wbody);
+        defer gpa.free(wf);
+        gpa.free((try dispatch(&rw, wf)).?);
+    }
+
+    // A :ro mount LOOKUPs + OPENs it read-only.
+    var src = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), false);
+    defer src.deinit();
+    {
+        const lf = try testBuildFrame(gpa, @intFromEnum(Op.LOOKUP), 1, 1, "data.txt\x00");
+        defer gpa.free(lf);
+        gpa.free((try dispatch(&src, lf)).?);
+    }
+    var obody: [8]u8 = @splat(0);
+    std.mem.writeInt(u32, obody[0..4], LINUX_O_RDONLY, .little);
+    const of = try testBuildFrame(gpa, @intFromEnum(Op.OPEN), 2, 2, &obody); // nodeid 2 = data.txt
+    defer gpa.free(of);
+    const orep = (try dispatch(&src, of)) orelse return error.ExpectedReply;
+    const fh = std.mem.readInt(u64, orep[FUSE_OUT_HEADER_SIZE..][0..8], .little);
+    gpa.free(orep);
+
+    const payload = try src.dumpState(gpa);
+    defer gpa.free(payload);
+
+    // Restore onto a State the boot path created as rw — `applyState`
+    // must override `mode_rw` with the snapshot's `:ro`.
+    var dst = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), true);
+    defer dst.deinit();
+    try dst.applyState(payload);
+    try testing.expectEqual(false, dst.mode_rw);
+
+    // READ through the restored handle works — the fd was reopened
+    // O_RDONLY.
+    var rbody: [32]u8 = @splat(0);
+    std.mem.writeInt(u64, rbody[0..8], fh, .little);
+    std.mem.writeInt(u32, rbody[16..20], 8, .little);
+    const rf = try testBuildFrame(gpa, @intFromEnum(Op.READ), 3, 2, &rbody);
+    defer gpa.free(rf);
+    const rr = (try dispatch(&dst, rf)) orelse return error.ExpectedReply;
+    defer gpa.free(rr);
+    try testing.expectEqual(@as(i32, 0), std.mem.readInt(i32, rr[4..8], .little));
+    try testing.expectEqualStrings("ABCD", rr[FUSE_OUT_HEADER_SIZE..]);
+
+    // WRITE is still rejected — the `:ro` gate fires on `mode_rw`.
+    var wbody: [FUSE_WRITE_IN_SIZE + 1]u8 = @splat(0);
+    std.mem.writeInt(u64, wbody[0..8], fh, .little);
+    std.mem.writeInt(u32, wbody[16..20], 1, .little);
+    const wf = try testBuildFrame(gpa, @intFromEnum(Op.WRITE), 4, 2, &wbody);
+    defer gpa.free(wf);
+    const wr = (try dispatch(&dst, wf)) orelse return error.ExpectedReply;
+    defer gpa.free(wr);
+    try testing.expectEqual(@as(i32, -E.ROFS), std.mem.readInt(i32, wr[4..8], .little));
+}
+
+test "applyState: a malformed payload is rejected, leaving the State usable" {
+    const gpa = testing.allocator;
+    var state = try testState(gpa, true);
+    defer state.deinit();
+
+    // Truncated and bad-magic payloads must come back as errors — and
+    // `applyState` returns before touching the live maps, so a wedged
+    // VMM thread is impossible.
+    try testing.expectError(error.Truncated, state.applyState("xx"));
+    var bad: [fuse_state.HEADER_SIZE]u8 = @splat(0);
+    try testing.expectError(error.BadMagic, state.applyState(&bad));
+
+    // The State is still intact afterwards: dumpState still succeeds
+    // and the root inode is still seeded.
+    const ok = try state.dumpState(gpa);
+    defer gpa.free(ok);
+    var d = try fuse_state.decode(gpa, ok);
+    defer d.deinit();
+    try testing.expectEqual(@as(usize, 1), d.inodes.len);
 }

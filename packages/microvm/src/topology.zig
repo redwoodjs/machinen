@@ -1,7 +1,7 @@
 //! Topology fingerprint — SHA256 of the guest IPA layout.
 //!
 //! Both HVF and KVM boot paths compute the same hash from the same
-//! fields. The hash lives in the .snaplet header (task #16) and is
+//! fields. The hash lives in the .vmstate header (task #16) and is
 //! re-validated on load: if the live guest's topology hash doesn't
 //! match the snapshot's, restore fails before touching any state.
 //!
@@ -17,7 +17,7 @@
 //!   - virtio_mmio_count (u32)
 //!
 //! Order matters; bumping the format requires re-hashing existing
-//! .snaplet files. Add fields at the *end* if you must.
+//! .vmstate files. Add fields at the *end* if you must.
 
 const std = @import("std");
 

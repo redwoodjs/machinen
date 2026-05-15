@@ -29,10 +29,10 @@ import type { OnLog } from "../log.ts";
 import { PhaseTimer } from "../phase-timer.ts";
 import { reflinkCopy } from "../reflink.ts";
 import type { SnapshotMeta, SnapshotOptions, SnapshotResult } from "../vm-handle.ts";
-import { resolveSnapshotEngine, SNAPLET_FILE } from "./snapshot-engine.ts";
+import { resolveSnapshotEngine, VMSTATE_FILE } from "./snapshot-engine.ts";
 
 const debugSnapshot = debugLib("machinen:snapshot");
-const debugSnaplet = debugLib("machinen:snaplet");
+const debugVmstate = debugLib("machinen:vmstate");
 
 /**
  * Injection surface for `performSnapshot`. The boot-owned handle and
@@ -82,15 +82,15 @@ export interface SnapshotContext {
     mode: "ro" | "rw";
   }>;
   /**
-   * Snaplet engine only: absolute path the VMM was told to write its
-   * `.snaplet` state file to (the `MACHINEN_SNAPSHOT_PATH` it booted
-   * with). `performSnapshotSnaplet` sends SIGUSR1 to `pid` and waits
+   * Vmstate engine only: absolute path the VMM was told to write its
+   * `.vmstate` state file to (the `MACHINEN_SNAPSHOT_PATH` it booted
+   * with). `performSnapshotVmstate` sends SIGUSR1 to `pid` and waits
    * for this file. Undefined when the VM wasn't booted snapshot-
-   * capable (the env var wasn't set), in which case a snaplet-engine
-   * snapshot fails with a clear "boot it with the snaplet engine"
+   * capable (the env var wasn't set), in which case a vmstate-engine
+   * snapshot fails with a clear "boot it with the vmstate engine"
    * message.
    */
-  snapletPath?: string;
+  vmstatePath?: string;
   execRaw: (cmd: string, opts?: VsockExecOptions) => Promise<VsockExecResult>;
   wait: () => Promise<{ code: number | null; signal: NodeJS.Signals | null }>;
   kill: () => Promise<void>;
@@ -132,17 +132,18 @@ interface DumpExtractResult {
  * requiring console access.
  */
 /**
- * Engine dispatcher. The CRIU backend (`performSnapshotCriu`) is the
- * default; `MACHINEN_SNAPSHOT_ENGINE=snaplet` selects the whole-VM
- * `.snaplet` backend (`performSnapshotSnaplet`). The CLI's `snapshot`
- * command is unchanged — the env var is the only switch.
+ * Engine dispatcher. The vmstate backend (`performSnapshotVmstate`) —
+ * a whole-VM `.vmstate` snapshot — is the default;
+ * `MACHINEN_SNAPSHOT_ENGINE=criu` selects the process-tree backend
+ * (`performSnapshotCriu`). The CLI's `snapshot` command is unchanged —
+ * the env var is the only switch.
  */
 export async function performSnapshot(
   ctx: SnapshotContext,
   opts: SnapshotOptions,
 ): Promise<SnapshotResult> {
-  if (resolveSnapshotEngine() === "snaplet") {
-    return performSnapshotSnaplet(ctx, opts);
+  if (resolveSnapshotEngine() === "vmstate") {
+    return performSnapshotVmstate(ctx, opts);
   }
   return performSnapshotCriu(ctx, opts);
 }
@@ -557,22 +558,22 @@ function formatDumpOutcomeHint(outcome: DumpOutcome | undefined): string {
 }
 
 // =============================================================
-// Snaplet engine — whole-VM snapshot
+// Vmstate engine — whole-VM snapshot
 // =============================================================
 
 /**
- * Whole-VM snapshot via the `.snaplet` engine. The source VM was
+ * Whole-VM snapshot via the `.vmstate` engine. The source VM was
  * booted with `MACHINEN_SNAPSHOT_PATH` set (boot.ts does this when the
- * engine is snaplet), so its VMM carries a SIGUSR1 handler that dumps
+ * engine is vmstate), so its VMM carries a SIGUSR1 handler that dumps
  * vCPU + RAM + GIC + virtio device state to that path and then
  * resumes the guest. Steps:
- *   1. clear any stale state file at `ctx.snapletPath`,
+ *   1. clear any stale state file at `ctx.vmstatePath`,
  *   2. SIGUSR1 the VMM pid,
  *   3. wait for the file to (re)appear — the VMM writes it atomically
  *      (tmp + rename), so existence == a complete dump,
- *   4. copy it into the bundle as `state.snaplet`,
+ *   4. copy it into the bundle as `state.vmstate`,
  *   5. reflink any `--mount` overlay into the bundle (same as CRIU),
- *   6. write `meta.json` (with `engine: "snaplet"`),
+ *   6. write `meta.json` (with `engine: "vmstate"`),
  *   7. destructive snapshot (`!leaveRunning`) → power the source off;
  *      fork (`leaveRunning`) leaves it running (the VMM already
  *      resumed the guest after the dump).
@@ -581,7 +582,7 @@ function formatDumpOutcomeHint(outcome: DumpOutcome | undefined): string {
  * `--leave-running` + host-poweroff split — the VMM itself always
  * resumes after writing.
  */
-async function performSnapshotSnaplet(
+async function performSnapshotVmstate(
   ctx: SnapshotContext,
   opts: SnapshotOptions,
 ): Promise<SnapshotResult> {
@@ -589,20 +590,20 @@ async function performSnapshotSnaplet(
   const deadlineMs = opts.timeoutMs ?? 90_000;
   const leaveRunning = opts.leaveRunning === true;
 
-  if (!ctx.snapletPath) {
+  if (!ctx.vmstatePath) {
     throw new SnapshotError(
       "SNAPSHOT_NO_DISK",
-      "vm.snapshot: this VM was not booted with the snaplet engine.\n" +
-        "  Set MACHINEN_SNAPSHOT_ENGINE=snaplet before `machinen boot` so the\n" +
+      "vm.snapshot: this VM was not booted with the vmstate engine.\n" +
+        "  Set MACHINEN_SNAPSHOT_ENGINE=vmstate before `machinen boot` so the\n" +
         "  VMM installs the SIGUSR1 whole-VM dump handler.",
     );
   }
   const snapDir = prepareBundleRootDir(opts.outDir);
-  debugSnaplet(
-    "snaplet snapshot start pid=%d snapDir=%s snapletPath=%s leaveRunning=%s",
+  debugVmstate(
+    "vmstate snapshot start pid=%d snapDir=%s vmstatePath=%s leaveRunning=%s",
     ctx.pid,
     snapDir,
-    ctx.snapletPath,
+    ctx.vmstatePath,
     leaveRunning,
   );
 
@@ -610,7 +611,7 @@ async function performSnapshotSnaplet(
   // stale file first so "the file exists again" is an unambiguous
   // done signal.
   try {
-    unlinkSync(ctx.snapletPath);
+    unlinkSync(ctx.vmstatePath);
   } catch {
     // ENOENT — nothing to clear, which is the common case.
   }
@@ -623,14 +624,14 @@ async function performSnapshotSnaplet(
       execTimeoutMs: 10_000,
     });
   } catch (err) {
-    debugSnaplet(
+    debugVmstate(
       "pre-snapshot sync failed (continuing): %s",
       err instanceof Error ? err.message : String(err),
     );
   }
 
   // Trigger the dump. SIGUSR1 → the VMM's handler dumps the whole VM
-  // to ctx.snapletPath and resumes the guest. Works for boot- and
+  // to ctx.vmstatePath and resumes the guest. Works for boot- and
   // attach-owned handles alike — it's just a signal to the VMM pid.
   try {
     process.kill(ctx.pid, "SIGUSR1");
@@ -644,18 +645,18 @@ async function performSnapshotSnaplet(
     );
   }
 
-  await waitForSnapletFile(ctx.snapletPath, deadlineMs);
+  await waitForVmstateFile(ctx.vmstatePath, deadlineMs);
 
   // Copy the state file into the bundle — an independent copy so the
-  // source VM can be snapshotted again (overwriting ctx.snapletPath)
+  // source VM can be snapshotted again (overwriting ctx.vmstatePath)
   // without disturbing this bundle.
-  const bundleStatePath = join(snapDir, SNAPLET_FILE);
+  const bundleStatePath = join(snapDir, VMSTATE_FILE);
   try {
-    copyFileSync(ctx.snapletPath, bundleStatePath);
+    copyFileSync(ctx.vmstatePath, bundleStatePath);
   } catch (err) {
     throw new SnapshotError(
       "SNAPSHOT_DUMP_FAILED",
-      `vm.snapshot: failed to copy the .snaplet into the bundle: ${
+      `vm.snapshot: failed to copy the .vmstate into the bundle: ${
         err instanceof Error ? err.message : String(err)
       }`,
       { cause: err },
@@ -665,7 +666,7 @@ async function performSnapshotSnaplet(
   // Reflink a `--mount` overlay into the bundle, same as the CRIU path.
   const mountDiskMeta = await reflinkMountOverlay(ctx, snapDir, deadlineMs);
 
-  writeSnapshotMeta(ctx, snapDir, mountDiskMeta, "snaplet");
+  writeSnapshotMeta(ctx, snapDir, mountDiskMeta, "vmstate");
 
   // Destructive snapshot: bring the source down — its state is fully
   // captured in the bundle. Fork (leaveRunning) leaves it running.
@@ -675,25 +676,25 @@ async function performSnapshotSnaplet(
 
   const elapsedMs = Date.now() - t0;
   const stateBytes = statSync(bundleStatePath).size;
-  debugSnaplet(
-    "snaplet snapshot done snapDir=%s stateBytes=%d elapsedMs=%d",
+  debugVmstate(
+    "vmstate snapshot done snapDir=%s stateBytes=%d elapsedMs=%d",
     snapDir,
     stateBytes,
     elapsedMs,
   );
   return {
-    engine: "snaplet",
+    engine: "vmstate",
     snapDir,
-    snapletPath: bundleStatePath,
+    vmstatePath: bundleStatePath,
     elapsedMs,
     consoleLog: await ctx.errorOutput(),
   };
 }
 
-// Poll for the VMM's atomically-written `.snaplet` to (re)appear. The
+// Poll for the VMM's atomically-written `.vmstate` to (re)appear. The
 // VMM writes `<path>.tmp` then rename()s it onto `<path>`, so the file
 // existing with a non-zero size means the dump is complete.
-async function waitForSnapletFile(path: string, deadlineMs: number): Promise<void> {
+async function waitForVmstateFile(path: string, deadlineMs: number): Promise<void> {
   const deadline = Date.now() + deadlineMs;
   while (Date.now() < deadline) {
     try {
@@ -707,7 +708,7 @@ async function waitForSnapletFile(path: string, deadlineMs: number): Promise<voi
   }
   throw new SnapshotError(
     "SNAPSHOT_TIMEOUT",
-    `vm.snapshot: the VMM did not write its .snaplet within ${deadlineMs}ms (${path}).\n` +
-      `  The VM may not have been booted with MACHINEN_SNAPSHOT_ENGINE=snaplet.`,
+    `vm.snapshot: the VMM did not write its .vmstate within ${deadlineMs}ms (${path}).\n` +
+      `  The VM may not have been booted with MACHINEN_SNAPSHOT_ENGINE=vmstate.`,
   );
 }

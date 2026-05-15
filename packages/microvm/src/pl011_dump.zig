@@ -1,4 +1,4 @@
-//! PL011 UART snapshot codec for the .snaplet `virtio` section
+//! PL011 UART snapshot codec for the .vmstate `virtio` section
 //! placeholder (task #27). PL011 isn't virtio but we reuse the same
 //! section-id convention — id 0 reserved for "the UART".
 //!

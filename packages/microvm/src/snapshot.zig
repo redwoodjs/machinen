@@ -1,9 +1,9 @@
-//! .snaplet file format — versioned, self-describing snapshot container.
+//! .vmstate file format — versioned, self-describing snapshot container.
 //!
 //! Layout (little-endian everywhere):
 //!
 //!   Header (64 bytes, fixed)
-//!     magic[8]            = "SNAPLET\0"
+//!     magic[8]            = "VMSTATE\0"
 //!     version u32          = 1
 //!     arch u32             = 1 (aarch64; future-proofed)
 //!     section_count u32
@@ -36,7 +36,7 @@
 
 const std = @import("std");
 
-pub const MAGIC: [8]u8 = .{ 'S', 'N', 'A', 'P', 'L', 'E', 'T', 0 };
+pub const MAGIC: [8]u8 = .{ 'V', 'M', 'S', 'T', 'A', 'T', 'E', 0 };
 pub const VERSION: u32 = 1;
 pub const ARCH_AARCH64: u32 = 1;
 pub const HEADER_SIZE: usize = 64;
@@ -51,6 +51,11 @@ pub const SectionTag = enum(u32) {
     /// is a name-tagged register dump (encodeVcpuPayload), keeping it
     /// portable across backends the same way the VCPU section is.
     gic_cpuif = 6,
+    /// Host-side FUSE backend state for one virtio-fs `--mount-live`
+    /// device — the nodeid→path map and open file/dir handles. The
+    /// section `id` is the virtio-fs device's MMIO base (same keying
+    /// as `.virtio`). Payload schema: fuse_state.zig.
+    virtiofs_state = 7,
     _,
 };
 
@@ -87,12 +92,12 @@ pub const ParseError = error{
 
 pub const TopologyMismatch = error{TopologyMismatch};
 
-pub const Snaplet = struct {
+pub const Vmstate = struct {
     header: Header,
     sections: []Section,
     arena: std.heap.ArenaAllocator,
 
-    pub fn deinit(self: *Snaplet) void {
+    pub fn deinit(self: *Vmstate) void {
         self.arena.deinit();
     }
 };
@@ -140,9 +145,9 @@ pub fn encode(
     return buf;
 }
 
-/// Parse a .snaplet buffer. Allocates section metadata + payload copies
+/// Parse a .vmstate buffer. Allocates section metadata + payload copies
 /// in an arena owned by the returned struct.
-pub fn decode(allocator: std.mem.Allocator, bytes: []const u8) ParseError!Snaplet {
+pub fn decode(allocator: std.mem.Allocator, bytes: []const u8) ParseError!Vmstate {
     if (bytes.len < HEADER_SIZE) return error.Truncated;
 
     var hdr: Header = undefined;

@@ -1,9 +1,9 @@
-//! RAM section codec for .snaplet (task #26).
+//! RAM section codec for .vmstate (task #26).
 //!
 //! Guest RAM is sized at host/2 (autoSizeMemoryMib) — routinely 8–16
 //! GiB — but an idle guest has only a few hundred MiB of non-zero
 //! pages. The v1 codec stored RAM raw: it SHA256'd, memcpy'd, and
-//! (via snaplet_zip) gzipped the *entire* multi-GiB image, zero pages
+//! (via vmstate_zip) gzipped the *entire* multi-GiB image, zero pages
 //! included. That ran ~70 s with the vCPU paused, long enough to trip
 //! RCU stalls in the resumed guest.
 //!

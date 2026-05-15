@@ -44,8 +44,8 @@ function countValueDiffs(out: { stdout: string; stderr: string }): number {
 
 describe.skipIf(!READY)("cross-host vCPU round trip", () => {
   it("Mac -> Linux -> Mac is bit-exact under classifier mask", { timeout: 60_000 }, () => {
-    const macOrig = join(TMP, "mac-orig.snaplet");
-    const macBack = join(TMP, "mac-back.snaplet");
+    const macOrig = join(TMP, "mac-orig.vmstate");
+    const macBack = join(TMP, "mac-back.vmstate");
 
     // Step 1: dump fresh HVF vCPU on Mac.
     let r = sh("sh", ["-c", `${BIN} dump --vmm=hvf --section=vcpu > ${macOrig}`]);
@@ -54,19 +54,19 @@ describe.skipIf(!READY)("cross-host vCPU round trip", () => {
     } // skip if HVF entitlement missing
 
     // Step 2: ship to Linux, xload via KVM, ship back.
-    const linuxRoundtripped = join(TMP, "linux-rt.snaplet");
-    r = sh("scp", [macOrig, `${REMOTE}:/tmp/cross-rt-mac-orig.snaplet`]);
+    const linuxRoundtripped = join(TMP, "linux-rt.vmstate");
+    r = sh("scp", [macOrig, `${REMOTE}:/tmp/cross-rt-mac-orig.vmstate`]);
     if (r.code !== 0) {
       throw new Error(`scp to Linux failed: ${r.stderr}`);
     }
     r = sh("ssh", [
       REMOTE,
-      "/tmp/snapshot-test xload --vmm=kvm /tmp/cross-rt-mac-orig.snaplet > /tmp/cross-rt-linux-rt.snaplet",
+      "/tmp/snapshot-test xload --vmm=kvm /tmp/cross-rt-mac-orig.vmstate > /tmp/cross-rt-linux-rt.vmstate",
     ]);
     if (r.code !== 0) {
       throw new Error(`xload on Linux failed: ${r.stderr}`);
     }
-    r = sh("scp", [`${REMOTE}:/tmp/cross-rt-linux-rt.snaplet`, linuxRoundtripped]);
+    r = sh("scp", [`${REMOTE}:/tmp/cross-rt-linux-rt.vmstate`, linuxRoundtripped]);
     if (r.code !== 0) {
       throw new Error(`scp from Linux failed: ${r.stderr}`);
     }
@@ -91,29 +91,29 @@ describe.skipIf(!READY)("cross-host vCPU round trip", () => {
   });
 
   it("Linux -> Mac -> Linux is bit-exact under classifier mask", { timeout: 60_000 }, () => {
-    const linuxOrig = join(TMP, "linux-orig.snaplet");
-    const linuxBack = join(TMP, "linux-back.snaplet");
+    const linuxOrig = join(TMP, "linux-orig.vmstate");
+    const linuxBack = join(TMP, "linux-back.vmstate");
 
     // Step 1: dump fresh KVM vCPU on Linux.
     let r = sh("ssh", [
       REMOTE,
-      "/tmp/snapshot-test dump --vmm=kvm --section=vcpu > /tmp/cross-rt-linux-orig.snaplet",
+      "/tmp/snapshot-test dump --vmm=kvm --section=vcpu > /tmp/cross-rt-linux-orig.vmstate",
     ]);
     if (r.code !== 0) {
       throw new Error(`dump on Linux failed: ${r.stderr}`);
     }
-    r = sh("scp", [`${REMOTE}:/tmp/cross-rt-linux-orig.snaplet`, linuxOrig]);
+    r = sh("scp", [`${REMOTE}:/tmp/cross-rt-linux-orig.vmstate`, linuxOrig]);
     if (r.code !== 0) {
       throw new Error(`scp from Linux failed: ${r.stderr}`);
     }
 
     // Step 2: xload on Mac (HVF), ship back.
-    const macRoundtripped = join(TMP, "mac-rt.snaplet");
+    const macRoundtripped = join(TMP, "mac-rt.vmstate");
     r = sh("sh", ["-c", `${BIN} xload --vmm=hvf ${linuxOrig} > ${macRoundtripped}`]);
     if (r.code !== 0) {
       throw new Error(`xload on Mac failed: ${r.stderr}`);
     }
-    r = sh("scp", [macRoundtripped, `${REMOTE}:/tmp/cross-rt-mac-rt.snaplet`]);
+    r = sh("scp", [macRoundtripped, `${REMOTE}:/tmp/cross-rt-mac-rt.vmstate`]);
     if (r.code !== 0) {
       throw new Error(`scp to Linux failed: ${r.stderr}`);
     }
@@ -121,12 +121,12 @@ describe.skipIf(!READY)("cross-host vCPU round trip", () => {
     // Step 3: load on Linux into a fresh KVM vCPU, dump back.
     r = sh("ssh", [
       REMOTE,
-      "/tmp/snapshot-test xload --vmm=kvm /tmp/cross-rt-mac-rt.snaplet > /tmp/cross-rt-linux-back.snaplet",
+      "/tmp/snapshot-test xload --vmm=kvm /tmp/cross-rt-mac-rt.vmstate > /tmp/cross-rt-linux-back.vmstate",
     ]);
     if (r.code !== 0) {
       throw new Error(`xload on Linux failed: ${r.stderr}`);
     }
-    r = sh("scp", [`${REMOTE}:/tmp/cross-rt-linux-back.snaplet`, linuxBack]);
+    r = sh("scp", [`${REMOTE}:/tmp/cross-rt-linux-back.vmstate`, linuxBack]);
     if (r.code !== 0) {
       throw new Error(`scp from Linux failed: ${r.stderr}`);
     }
