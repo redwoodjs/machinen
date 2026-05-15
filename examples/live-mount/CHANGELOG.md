@@ -1,5 +1,12 @@
 # @machinen/example-live-mount
 
+## 0.0.7
+
+### Patch Changes
+
+- Updated dependencies
+  - @machinen/runtime@0.3.2
+
 ## 0.0.6
 
 ### Patch Changes

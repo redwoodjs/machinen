@@ -540,6 +540,38 @@ test "handleRequest: O_WRONLY open of an existing file supports READ fill and WR
     try testing.expectEqualStrings("new", got);
 }
 
+test "handleRequest: RMDIR removes empty dirs and maps ENOTEMPTY/:ro/malformed failures" {
+    const gpa = testing.allocator;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.createDir(std.testing.io, "empty", .default_dir);
+    try tmp.dir.createDir(std.testing.io, "nonempty", .default_dir);
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "nonempty/child.txt", .data = "x" });
+    try tmp.dir.createDir(std.testing.io, "blocked", .default_dir);
+    var fsdev = try Device.init(gpa, "machinen0", try testTmpRootAbs(gpa, &tmp), true);
+    defer fsdev.deinit();
+
+    const removed = testRunOp(&fsdev, 11, 1, 1, "empty\x00");
+    try testing.expectEqual(@as(i32, 0), removed.err());
+    try testing.expectError(error.FileNotFound, tmp.dir.access(std.testing.io, "empty", .{}));
+
+    const nonempty = testRunOp(&fsdev, 11, 2, 1, "nonempty\x00");
+    try testing.expectEqual(@as(i32, -39), nonempty.err()); // -ENOTEMPTY, not -EIO
+    try tmp.dir.access(std.testing.io, "nonempty/child.txt", .{});
+
+    const missing = testRunOp(&fsdev, 11, 3, 1, "missing\x00");
+    try testing.expectEqual(@as(i32, -2), missing.err()); // -ENOENT
+
+    var ro = try Device.init(gpa, "machinen1", try testTmpRootAbs(gpa, &tmp), false);
+    defer ro.deinit();
+    const blocked = testRunOp(&ro, 11, 4, 1, "blocked\x00");
+    try testing.expectEqual(@as(i32, -30), blocked.err()); // -EROFS
+    try tmp.dir.access(std.testing.io, "blocked", .{});
+
+    const malformed = testRunOp(&fsdev, 11, 5, 1, "bad/name\x00");
+    try testing.expectEqual(@as(i32, -22), malformed.err()); // -EINVAL, not a wedge
+}
+
 test "handleRequest: RENAME replaces an existing file and :ro/malformed paths fail soft" {
     const gpa = testing.allocator;
     var tmp = std.testing.tmpDir(.{});

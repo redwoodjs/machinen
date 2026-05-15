@@ -367,7 +367,8 @@ fi
 # T3v/T5v each prove a live mount carries a single read or a single
 # write. This exercises the rest of the filesystem surface the #329
 # FUSE handlers implement — directories, nested paths, readdir, unlink,
-# rmdir, symlink creation, and a multi-frame large file — over the
+# empty rmdir, non-empty rmdir errno mapping, recursive rm, symlink
+# creation, and a multi-frame large file — over the
 # in-VMM virtio-fs transport (#332, the only transport since #338).
 #
 # Deliberately left out, because the #329 handlers don't implement it
@@ -418,6 +419,15 @@ fs_ops_smoke() {
       : > /mnt/fs/truncate.txt
       echo doomed > /mnt/fs/doomed.txt && rm /mnt/fs/doomed.txt
       mkdir /mnt/fs/emptydir && rmdir /mnt/fs/emptydir
+      mkdir /mnt/fs/nonempty
+      echo kept > /mnt/fs/nonempty/file.txt
+      if rmdir /mnt/fs/nonempty 2>/tmp/rmdir-nonempty.err; then
+        echo nonempty-rmdir-unexpected-success
+        exit 1
+      fi
+      cat /tmp/rmdir-nonempty.err
+      grep -q 'Directory not empty' /tmp/rmdir-nonempty.err
+      rm -rf /mnt/fs/nonempty
       ln -s d/nested/a.txt /mnt/fs/link.txt
       echo readback: \$(cat /mnt/fs/d/nested/a.txt)
       echo readdir: \$(ls /mnt/fs/d/nested | tr '\n' ' ')
@@ -448,8 +458,9 @@ fs_ops_smoke() {
   [[ ! -s "$src/truncate.txt" ]] || fs_fail "$label: truncate of existing file failed on host"
   [[ ! -e "$src/doomed.txt" ]] || fs_fail "$label: unlink didn't remove doomed.txt on host"
   [[ ! -e "$src/emptydir" ]] || fs_fail "$label: rmdir didn't remove emptydir on host"
+  [[ ! -e "$src/nonempty" ]] || fs_fail "$label: rm -rf didn't remove nonempty on host"
   [[ -L "$src/link.txt" ]] || fs_fail "$label: symlink not present on host"
-  pass "fs ops (mkdir/write/overwrite/append/cp/rename/readdir/unlink/rmdir/symlink/large file) over virtio-fs"
+  pass "fs ops (mkdir/write/overwrite/append/cp/rename/readdir/unlink/rmdir/rm-rf/symlink/large file) over virtio-fs"
 }
 
 fs_ops_smoke

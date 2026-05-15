@@ -45,6 +45,9 @@ test {
 
 // EINTR — retried by pwriteAll / the stats-file write on a short host write.
 const EINTR: c_int = 4;
+// Host errno values that differ across the two platforms we ship on.
+// FUSE replies must still use Linux errno numbers on the wire.
+const HOST_ENOTEMPTY: c_int = if (builtin.os.tag == .macos) 66 else 39;
 
 extern "c" fn close(fd: c_int) c_int;
 extern "c" fn write(fd: c_int, buf: [*]const u8, count: usize) isize;
@@ -271,6 +274,7 @@ const E = struct {
     const IO: i32 = 5;
     const BADF: i32 = 9;
     const ACCES: i32 = 13;
+    const BUSY: i32 = 16;
     const EXIST: i32 = 17;
     const NOTDIR: i32 = 20;
     const ISDIR: i32 = 21;
@@ -1603,12 +1607,14 @@ fn errnoToZigError(e: c_int) anyerror {
     return switch (e) {
         2 => error.FileNotFound,
         13 => error.AccessDenied,
+        16 => error.Busy,
         17 => error.PathAlreadyExists,
         21 => error.IsDir,
         20 => error.NotDir,
         22 => error.InvalidArg,
         28 => error.NoSpaceLeft,
         1 => error.PermissionDenied,
+        HOST_ENOTEMPTY => error.DirNotEmpty,
         else => error.Unexpected,
     };
 }
@@ -1617,12 +1623,14 @@ fn mapFsError(e: anyerror) i32 {
     return switch (e) {
         error.FileNotFound => -E.NOENT,
         error.AccessDenied => -E.ACCES,
+        error.Busy => -E.BUSY,
         error.PathAlreadyExists => -E.EXIST,
         error.IsDir => -E.ISDIR,
         error.NotDir => -E.NOTDIR,
         error.InvalidArg => -E.INVAL,
         error.NoSpaceLeft => -E.NOSPC,
         error.PermissionDenied => -E.PERM,
+        error.DirNotEmpty => -E.NOTEMPTY,
         error.PathTooLong => -E.INVAL,
         else => -E.IO,
     };
@@ -2041,6 +2049,54 @@ test "dispatch: SETATTR FATTR_SIZE truncates an existing file and honors :ro" {
     const still = try tmp.dir.readFileAlloc(std.testing.io, "truncate.txt", gpa, .limited(1024));
     defer gpa.free(still);
     try testing.expectEqualStrings("ab", still);
+}
+
+test "dispatch: RMDIR removes empty dirs, maps ENOTEMPTY, and respects :ro" {
+    const gpa = testing.allocator;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.createDir(std.testing.io, "empty", .default_dir);
+    try tmp.dir.createDir(std.testing.io, "nonempty", .default_dir);
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "nonempty/child.txt", .data = "x" });
+    try tmp.dir.createDir(std.testing.io, "blocked", .default_dir);
+
+    var state = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), true);
+    defer state.deinit();
+
+    const ok = try testBuildFrame(gpa, @intFromEnum(Op.RMDIR), 1, 1, "empty\x00");
+    defer gpa.free(ok);
+    const okr = (try dispatch(&state, ok)) orelse return error.ExpectedReply;
+    defer gpa.free(okr);
+    try testing.expectEqual(@as(i32, 0), std.mem.readInt(i32, okr[4..8], .little));
+    try testing.expectError(error.FileNotFound, tmp.dir.access(std.testing.io, "empty", .{}));
+
+    const nonempty = try testBuildFrame(gpa, @intFromEnum(Op.RMDIR), 2, 1, "nonempty\x00");
+    defer gpa.free(nonempty);
+    const ner = (try dispatch(&state, nonempty)) orelse return error.ExpectedReply;
+    defer gpa.free(ner);
+    try testing.expectEqual(@as(i32, -E.NOTEMPTY), std.mem.readInt(i32, ner[4..8], .little));
+    try tmp.dir.access(std.testing.io, "nonempty/child.txt", .{});
+
+    const missing = try testBuildFrame(gpa, @intFromEnum(Op.RMDIR), 3, 1, "missing\x00");
+    defer gpa.free(missing);
+    const mr = (try dispatch(&state, missing)) orelse return error.ExpectedReply;
+    defer gpa.free(mr);
+    try testing.expectEqual(@as(i32, -E.NOENT), std.mem.readInt(i32, mr[4..8], .little));
+
+    var ro = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), false);
+    defer ro.deinit();
+    const rof = try testBuildFrame(gpa, @intFromEnum(Op.RMDIR), 4, 1, "blocked\x00");
+    defer gpa.free(rof);
+    const ror = (try dispatch(&ro, rof)) orelse return error.ExpectedReply;
+    defer gpa.free(ror);
+    try testing.expectEqual(@as(i32, -E.ROFS), std.mem.readInt(i32, ror[4..8], .little));
+    try tmp.dir.access(std.testing.io, "blocked", .{});
+
+    const bad = try testBuildFrame(gpa, @intFromEnum(Op.RMDIR), 5, 1, "bad/name\x00");
+    defer gpa.free(bad);
+    const br = (try dispatch(&state, bad)) orelse return error.ExpectedReply;
+    defer gpa.free(br);
+    try testing.expectEqual(@as(i32, -E.INVAL), std.mem.readInt(i32, br[4..8], .little));
 }
 
 test "dispatch: RENAME replaces an existing file, reports errors, and respects :ro" {

@@ -1,5 +1,11 @@
 # @machinen/native-arm64-linux
 
+## 0.3.2
+
+### Patch Changes
+
+- Fix virtio-fs `rmdir` on non-empty directories to return `ENOTEMPTY` instead of surfacing as guest `EIO`, and add directory-removal coverage for live mounts.
+
 ## 0.3.1
 
 ### Patch Changes
