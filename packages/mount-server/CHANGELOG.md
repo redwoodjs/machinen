@@ -1,5 +1,11 @@
 # @machinen/mount-server
 
+## 0.3.3
+
+### Patch Changes
+
+- Implement virtio-fs symlink resolution (`READLINK`), hardlinks (`LINK`), and executable mode changes so live mounts support `readlink`/`realpath`, pnpm-style hardlinks, and `chmod +x` scripts.
+
 ## 0.3.2
 
 ### Patch Changes

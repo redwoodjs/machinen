@@ -1,5 +1,11 @@
 # @machinen/native-arm64-linux
 
+## 0.3.3
+
+### Patch Changes
+
+- Complete the next live-mount compatibility slice by implementing virtio-fs `READLINK` and `LINK`, applying executable mode changes from `SETATTR`, and adding smoke coverage for symlink resolution, hardlinks, and `chmod +x` execution.
+
 ## 0.3.2
 
 ### Patch Changes

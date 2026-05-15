@@ -540,6 +540,118 @@ test "handleRequest: O_WRONLY open of an existing file supports READ fill and WR
     try testing.expectEqualStrings("new", got);
 }
 
+test "handleRequest: READLINK returns symlink targets and errors through virtio-fs" {
+    const gpa = testing.allocator;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "target.txt", .data = "target-data" });
+    try tmp.dir.symLink(std.testing.io, "target.txt", "link.txt", .{});
+    var fsdev = try Device.init(gpa, "machinen0", try testTmpRootAbs(gpa, &tmp), true);
+    defer fsdev.deinit();
+
+    const lookup = testRunOp(&fsdev, 1, 1, 1, "link.txt\x00");
+    try testing.expectEqual(@as(i32, 0), lookup.err());
+    const link_nodeid = std.mem.readInt(u64, lookup.payload()[0..8], .little);
+
+    const readlink = testRunOp(&fsdev, 5, 2, link_nodeid, &.{});
+    try testing.expectEqual(@as(i32, 0), readlink.err());
+    try testing.expectEqualStrings("target.txt", readlink.payload());
+
+    const regular_lookup = testRunOp(&fsdev, 1, 3, 1, "target.txt\x00");
+    try testing.expectEqual(@as(i32, 0), regular_lookup.err());
+    const regular_nodeid = std.mem.readInt(u64, regular_lookup.payload()[0..8], .little);
+    const nonlink = testRunOp(&fsdev, 5, 4, regular_nodeid, &.{});
+    try testing.expectEqual(@as(i32, -22), nonlink.err()); // -EINVAL
+
+    const stale = testRunOp(&fsdev, 5, 5, 9999, &.{});
+    try testing.expectEqual(@as(i32, -116), stale.err()); // -ESTALE
+}
+
+test "handleRequest: LINK creates hardlinks and maps :ro/malformed failures" {
+    const gpa = testing.allocator;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "a.txt", .data = "hard" });
+    var fsdev = try Device.init(gpa, "machinen0", try testTmpRootAbs(gpa, &tmp), true);
+    defer fsdev.deinit();
+
+    const lookup = testRunOp(&fsdev, 1, 1, 1, "a.txt\x00");
+    try testing.expectEqual(@as(i32, 0), lookup.err());
+    const oldnodeid = std.mem.readInt(u64, lookup.payload()[0..8], .little);
+
+    var body: [8 + 6]u8 = @splat(0);
+    std.mem.writeInt(u64, body[0..8], oldnodeid, .little);
+    @memcpy(body[8..][0.."b.txt".len], "b.txt");
+    const linked = testRunOp(&fsdev, 13, 2, 1, body[0 .. 8 + "b.txt".len + 1]);
+    try testing.expectEqual(@as(i32, 0), linked.err());
+    try testing.expectEqual(oldnodeid, std.mem.readInt(u64, linked.payload()[0..8], .little));
+
+    const st = try tmp.dir.statFile(std.testing.io, "a.txt", .{});
+    try testing.expect(st.nlink >= 2);
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "a.txt", .data = "updated" });
+    const got = try tmp.dir.readFileAlloc(std.testing.io, "b.txt", gpa, .limited(1024));
+    defer gpa.free(got);
+    try testing.expectEqualStrings("updated", got);
+    try tmp.dir.deleteFile(std.testing.io, "a.txt");
+    const after_unlink = try tmp.dir.readFileAlloc(std.testing.io, "b.txt", gpa, .limited(1024));
+    defer gpa.free(after_unlink);
+    try testing.expectEqualStrings("updated", after_unlink);
+
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "a.txt", .data = "again" });
+    const rel_lookup = testRunOp(&fsdev, 1, 3, 1, "a.txt\x00");
+    try testing.expectEqual(@as(i32, 0), rel_lookup.err());
+    std.mem.writeInt(u64, body[0..8], std.mem.readInt(u64, rel_lookup.payload()[0..8], .little), .little);
+    const exists = testRunOp(&fsdev, 13, 4, 1, body[0 .. 8 + "b.txt".len + 1]);
+    try testing.expectEqual(@as(i32, -17), exists.err()); // -EEXIST
+
+    var ro = try Device.init(gpa, "machinen1", try testTmpRootAbs(gpa, &tmp), false);
+    defer ro.deinit();
+    const ro_lookup = testRunOp(&ro, 1, 5, 1, "a.txt\x00");
+    try testing.expectEqual(@as(i32, 0), ro_lookup.err());
+    var ro_body: [8 + 9]u8 = @splat(0);
+    std.mem.writeInt(u64, ro_body[0..8], std.mem.readInt(u64, ro_lookup.payload()[0..8], .little), .little);
+    @memcpy(ro_body[8..][0.."ro-b.txt".len], "ro-b.txt");
+    const blocked = testRunOp(&ro, 13, 6, 1, ro_body[0 .. 8 + "ro-b.txt".len + 1]);
+    try testing.expectEqual(@as(i32, -30), blocked.err()); // -EROFS
+    try testing.expectError(error.FileNotFound, tmp.dir.access(std.testing.io, "ro-b.txt", .{}));
+
+    const malformed = testRunOp(&fsdev, 13, 7, 1, "short");
+    try testing.expectEqual(@as(i32, -22), malformed.err()); // -EINVAL, not a wedge
+}
+
+test "handleRequest: SETATTR FATTR_MODE makes chmod executable on the host" {
+    const gpa = testing.allocator;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "script.sh", .data = "#!/bin/sh\necho hi\n" });
+    var fsdev = try Device.init(gpa, "machinen0", try testTmpRootAbs(gpa, &tmp), true);
+    defer fsdev.deinit();
+
+    const lookup = testRunOp(&fsdev, 1, 1, 1, "script.sh\x00");
+    try testing.expectEqual(@as(i32, 0), lookup.err());
+    const nodeid = std.mem.readInt(u64, lookup.payload()[0..8], .little);
+
+    var body: [88]u8 = @splat(0);
+    std.mem.writeInt(u32, body[0..4], 1, .little); // FATTR_MODE
+    std.mem.writeInt(u32, body[68..72], 0o755, .little);
+    const chmodded = testRunOp(&fsdev, 4, 2, nodeid, &body);
+    try testing.expectEqual(@as(i32, 0), chmodded.err());
+    const mode = std.mem.readInt(u32, chmodded.payload()[16 + 60 ..][0..4], .little);
+    try testing.expectEqual(@as(u32, 0o755), mode & 0o777);
+
+    const st = try tmp.dir.statFile(std.testing.io, "script.sh", .{});
+    try testing.expectEqual(@as(u32, 0o755), @as(u32, @intCast(st.permissions.toMode())) & 0o777);
+
+    var ro = try Device.init(gpa, "machinen1", try testTmpRootAbs(gpa, &tmp), false);
+    defer ro.deinit();
+    const ro_lookup = testRunOp(&ro, 1, 3, 1, "script.sh\x00");
+    try testing.expectEqual(@as(i32, 0), ro_lookup.err());
+    const ro_nodeid = std.mem.readInt(u64, ro_lookup.payload()[0..8], .little);
+    std.mem.writeInt(u32, body[68..72], 0o600, .little);
+    const blocked = testRunOp(&ro, 4, 4, ro_nodeid, &body);
+    try testing.expectEqual(@as(i32, -30), blocked.err()); // -EROFS
+}
+
 test "handleRequest: RMDIR removes empty dirs and maps ENOTEMPTY/:ro/malformed failures" {
     const gpa = testing.allocator;
     var tmp = std.testing.tmpDir(.{});

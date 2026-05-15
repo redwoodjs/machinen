@@ -1,6 +1,6 @@
 {
   "name": "@machinen/mount-server",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "private": true,
   "description": "Transport-agnostic Zig FUSE opcode handlers for machinen live mounts (#329, #332). Source-only workspace package; the `fuse` module is imported by @machinen/microvm's in-VMM virtio-fs device. The FUSE-over-vsock transport was removed in #338.",
   "license": "FSL-1.1-MIT",

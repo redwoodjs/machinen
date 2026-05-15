@@ -368,13 +368,9 @@ fi
 # write. This exercises the rest of the filesystem surface the #329
 # FUSE handlers implement — directories, nested paths, readdir, unlink,
 # empty rmdir, non-empty rmdir errno mapping, recursive rm, symlink
-# creation, and a multi-frame large file — over the
-# in-VMM virtio-fs transport (#332, the only transport since #338).
-#
-# Deliberately left out, because the #329 handlers don't implement it
-# yet (ENOSYS): reading *through* a symlink (READLINK). `ln -s` itself
-# works (SYMLINK), so the link is created and checked on the host, but
-# `cat`-ing it would hit ENOSYS.
+# create/read/follow, hardlink create/use, chmod +x/exec, and a
+# multi-frame large file — over the in-VMM virtio-fs transport (#332,
+# the only transport since #338).
 fs_ops_smoke() {
   local label="T9v"
   echo "$label: filesystem operations over a --mount-live (virtio-fs) mount"
@@ -429,6 +425,19 @@ fs_ops_smoke() {
       grep -q 'Directory not empty' /tmp/rmdir-nonempty.err
       rm -rf /mnt/fs/nonempty
       ln -s d/nested/a.txt /mnt/fs/link.txt
+      echo linktarget: \$(readlink /mnt/fs/link.txt)
+      echo linkcat: \$(cat /mnt/fs/link.txt)
+      ls -la /mnt/fs/link.txt | grep -q -- '-> d/nested/a.txt'
+      echo hard > /mnt/fs/hard-a.txt
+      ln /mnt/fs/hard-a.txt /mnt/fs/hard-b.txt
+      test \$(stat -c '%h' /mnt/fs/hard-a.txt) = 2
+      echo hard-updated > /mnt/fs/hard-a.txt
+      echo hardread: \$(cat /mnt/fs/hard-b.txt)
+      rm /mnt/fs/hard-a.txt
+      echo hardafterunlink: \$(cat /mnt/fs/hard-b.txt)
+      printf '#!/bin/sh\necho live-exec\n' > /mnt/fs/run.sh
+      chmod +x /mnt/fs/run.sh
+      echo execread: \$(/mnt/fs/run.sh)
       echo readback: \$(cat /mnt/fs/d/nested/a.txt)
       echo readdir: \$(ls /mnt/fs/d/nested | tr '\n' ' ')
       sync
@@ -439,6 +448,11 @@ fs_ops_smoke() {
   # and the large file read back at full length (multi-frame scatter).
   grep -q "$marker" "$log" || fs_fail "$label: guest battery didn't reach the marker ($marker)"
   grep -q "readback: nested-content" "$log" || fs_fail "$label: file read-back wrong"
+  grep -q "linktarget: d/nested/a.txt" "$log" || fs_fail "$label: readlink returned wrong target"
+  grep -q "linkcat: nested-content" "$log" || fs_fail "$label: symlink follow failed"
+  grep -q "hardread: hard-updated" "$log" || fs_fail "$label: hardlink read didn't see updated bytes"
+  grep -q "hardafterunlink: hard-updated" "$log" || fs_fail "$label: hardlink didn't survive unlink of peer"
+  grep -q "execread: live-exec" "$log" || fs_fail "$label: chmod +x script did not execute"
   grep -q "bigread: 50000" "$log" || fs_fail "$label: large file read back short (multi-frame scatter)"
 
   # Host side: every mutating op landed on the host directory.
@@ -460,7 +474,11 @@ fs_ops_smoke() {
   [[ ! -e "$src/emptydir" ]] || fs_fail "$label: rmdir didn't remove emptydir on host"
   [[ ! -e "$src/nonempty" ]] || fs_fail "$label: rm -rf didn't remove nonempty on host"
   [[ -L "$src/link.txt" ]] || fs_fail "$label: symlink not present on host"
-  pass "fs ops (mkdir/write/overwrite/append/cp/rename/readdir/unlink/rmdir/rm-rf/symlink/large file) over virtio-fs"
+  [[ ! -e "$src/hard-a.txt" ]] || fs_fail "$label: hardlink peer unlink left hard-a.txt on host"
+  [[ "$(cat "$src/hard-b.txt" 2>/dev/null)" == "hard-updated" ]] ||
+    fs_fail "$label: hardlink surviving peer has wrong host bytes"
+  [[ -x "$src/run.sh" ]] || fs_fail "$label: chmod +x did not set host executable bit"
+  pass "fs ops (mkdir/write/overwrite/append/cp/rename/readdir/unlink/rmdir/rm-rf/symlink/hardlink/chmod-exec/large file) over virtio-fs"
 }
 
 fs_ops_smoke
