@@ -873,10 +873,16 @@ fn runLoop(
             continue;
         }
 
-        if (vcpu.exit.reason != .exception) return error.GuestCrashed;
+        if (vcpu.exit.reason != .exception) {
+            logUnhandledExit(vcpu, "non-exception exit");
+            return error.GuestCrashed;
+        }
         const ec = hvf.ExceptionClass.fromSyndrome(vcpu.exit.exception.syndrome);
 
         switch (ec) {
+            .trapped_wfx => {
+                try handleWaitTrap(vcpu);
+            },
             .hvc_aarch64 => {
                 switch (try handlePsci(vcpu)) {
                     .shutdown => {
@@ -886,12 +892,18 @@ fn runLoop(
                     .handled => {},
                 }
             },
+            .system_register => {
+                if (!try handleSystemRegisterTrap(vcpu)) {
+                    logUnhandledException(vcpu, ec, "unsupported system-register trap");
+                    break;
+                }
+            },
             .data_abort_lower_el => {
                 const info = hvf.DataAbort.decode(vcpu.exit.exception);
                 try routeDataAbort(vcpu, devs, irqs, info);
             },
             else => {
-                // Unhandled exception — record and stop.
+                logUnhandledException(vcpu, ec, "unhandled exception class");
                 break;
             },
         }
@@ -924,6 +936,140 @@ fn runLoop(
         .exits = exits,
         .snapshotted = snapshotted,
     };
+}
+
+/// macOS 26/Tahoe can surface trapped WFI/WFE as a normal exception
+/// instead of blocking inside hv_vcpu_run(). Emulate the architected
+/// wait instruction by stepping over it and yielding briefly; pending
+/// GIC/timer state is then observed on the next vCPU entry.
+fn handleWaitTrap(vcpu: hvf.Vcpu) !void {
+    const trap = hvf.WaitTrap.decode(vcpu.exit.exception);
+    const pc = try vcpu.getReg(.pc);
+    try vcpu.setReg(.pc, pc + 4);
+
+    // WFI should park until an interrupt, while WFE is only a hint.
+    // HVF does not expose a portable "pending interrupt" poll here,
+    // so use a tiny sleep to avoid a hot idle spin while keeping exec /
+    // network wakeups responsive.
+    switch (trap.instruction) {
+        .wfi => sleepMicros(250),
+        .wfe => sleepMicros(10),
+    }
+}
+
+/// Forward a trapped MRS/MSR to HVF's register accessors. Tahoe may
+/// choose to expose system-register traps that older macOS releases
+/// handled internally; if HVF recognizes the register, emulating it
+/// here keeps the Linux boot moving without hard-coding guest values.
+fn handleSystemRegisterTrap(vcpu: hvf.Vcpu) !bool {
+    const trap = hvf.SysRegTrap.decode(vcpu.exit.exception);
+    if (trap.is_read) {
+        const value = readTrappedSysReg(vcpu, trap.encoding) catch |err| switch (err) {
+            error.BadArgument, error.Denied, error.Unsupported => return false,
+            else => return err,
+        };
+        try trap.writeTarget(vcpu, value);
+    } else {
+        const value = try trap.readSource(vcpu);
+        writeTrappedSysReg(vcpu, trap.encoding, value) catch |err| switch (err) {
+            error.BadArgument, error.Denied, error.Unsupported => return false,
+            else => return err,
+        };
+    }
+
+    const pc = try vcpu.getReg(.pc);
+    try vcpu.setReg(.pc, pc + 4);
+    return true;
+}
+
+fn readTrappedSysReg(vcpu: hvf.Vcpu, encoding: u16) hvf.Error!u64 {
+    if (hvf.Gic.isIccReg(encoding)) {
+        return hvf.Gic.readIcc(vcpu, encoding) catch |err| switch (err) {
+            error.BadArgument, error.Unsupported => return vcpu.getRawSysReg(encoding),
+            else => return err,
+        };
+    }
+    return vcpu.getRawSysReg(encoding) catch |err| switch (err) {
+        // Guest hardware-debug state is not virtualized. Linux only
+        // clears/probes these while booting; read-as-zero keeps that
+        // init path moving on M4/Tahoe slots missing from Apple's SDK.
+        error.BadArgument, error.Denied, error.Unsupported => if (hvf.isDebugSysReg(encoding)) 0 else return err,
+        else => return err,
+    };
+}
+
+fn writeTrappedSysReg(vcpu: hvf.Vcpu, encoding: u16, value: u64) hvf.Error!void {
+    if (hvf.Gic.isIccReg(encoding)) {
+        hvf.Gic.writeIcc(vcpu, encoding, value) catch |err| switch (err) {
+            error.BadArgument, error.Unsupported => return vcpu.setRawSysReg(encoding, value),
+            else => return err,
+        };
+        return;
+    }
+    vcpu.setRawSysReg(encoding, value) catch |err| switch (err) {
+        // Same debug-register policy as reads, plus a broader early-boot
+        // hardening rule: unsupported zero-writes are clears of optional
+        // state, so drop them instead of killing the VM. The Tahoe report
+        // that drove this was `msr DBGBVR19_EL1, xzr` (encoding 0x809c).
+        error.BadArgument, error.Denied, error.Unsupported => if (hvf.shouldIgnoreUnsupportedSysRegWrite(encoding, value)) return else return err,
+        else => return err,
+    };
+}
+
+fn logUnhandledExit(vcpu: hvf.Vcpu, why: []const u8) void {
+    const pc = vcpu.getReg(.pc) catch 0;
+    std.debug.print(
+        "hvf boot: {s}: reason={d} syndrome=0x{x} far=0x{x} ipa=0x{x} pc=0x{x}\n",
+        .{
+            why,
+            @intFromEnum(vcpu.exit.reason),
+            vcpu.exit.exception.syndrome,
+            vcpu.exit.exception.virtual_address,
+            vcpu.exit.exception.physical_address,
+            pc,
+        },
+    );
+    logReportHint();
+}
+
+fn logUnhandledException(vcpu: hvf.Vcpu, ec: hvf.ExceptionClass, why: []const u8) void {
+    const pc = vcpu.getReg(.pc) catch 0;
+    const trap = if (ec == .system_register) hvf.SysRegTrap.decode(vcpu.exit.exception) else null;
+    if (trap) |t| {
+        std.debug.print(
+            "hvf boot: {s}: ec=0x{x} syndrome=0x{x} sysreg=0x{x} {s} rt={d} pc=0x{x}\n",
+            .{
+                why,
+                @intFromEnum(ec),
+                vcpu.exit.exception.syndrome,
+                t.encoding,
+                if (t.is_read) "read" else "write",
+                t.rt,
+                pc,
+            },
+        );
+        logReportHint();
+        return;
+    }
+    std.debug.print(
+        "hvf boot: {s}: ec=0x{x} syndrome=0x{x} far=0x{x} ipa=0x{x} pc=0x{x}\n",
+        .{
+            why,
+            @intFromEnum(ec),
+            vcpu.exit.exception.syndrome,
+            vcpu.exit.exception.virtual_address,
+            vcpu.exit.exception.physical_address,
+            pc,
+        },
+    );
+    logReportHint();
+}
+
+fn logReportHint() void {
+    std.debug.print(
+        "hvf boot: please report this diagnostic at https://github.com/redwoodjs/machinen.dev/issues/new\n",
+        .{},
+    );
 }
 
 fn queueSnapshotWrite(
@@ -1816,7 +1962,12 @@ extern "c" fn read(fd: c_int, buf: [*]u8, count: usize) isize;
 extern "c" fn write(fd: c_int, buf: [*]const u8, count: usize) isize;
 extern "c" fn lseek(fd: c_int, offset: i64, whence: c_int) i64;
 extern "c" fn access(path: [*:0]const u8, mode: c_int) c_int;
+extern "c" fn usleep(useconds: c_uint) c_int;
 extern "c" fn getenv(name: [*:0]const u8) ?[*:0]const u8;
+
+fn sleepMicros(useconds: c_uint) void {
+    _ = usleep(useconds);
+}
 
 fn readAll(gpa: std.mem.Allocator, path: []const u8) ![]u8 {
     assert(path.len > 0);
