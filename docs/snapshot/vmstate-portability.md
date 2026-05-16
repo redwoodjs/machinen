@@ -8,8 +8,9 @@ contract before the first vCPU run.
 Current policy:
 
 - New vmstate bundles record restore invariants in `meta.json`:
-  source backend (`hvf`/`kvm`), topology hash, memory size, guest PAuth
-  state, and the exact root block image identity.
+  source backend (`hvf`/`kvm`), topology hash, guest RAM ceiling
+  (the memory layout, not current host usage), guest PAuth state, and
+  the exact root block image identity.
 - The exact root block image is copied into the bundle as
   `rootdisk.img`. Restore reflink-clones it into a per-VM temp file so
   the restored guest never mutates the bundle in place.

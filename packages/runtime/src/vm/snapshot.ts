@@ -64,8 +64,8 @@ export interface SnapshotContext {
   rootDiskPath?: string;
   /** Whether the source intentionally had no root block device. */
   rootDiskMode?: "block" | "none";
-  /** Guest RAM ceiling in MiB, when resolved by the runtime. */
-  memoryMib?: number;
+  /** Guest RAM ceiling/layout in MiB, when resolved by the runtime. */
+  memoryCeilingMib?: number;
   /** Explicit kernel path used by the source boot, when known. */
   kernelPath?: string;
   /** Explicit DTB path used by the source boot, when known. */
@@ -724,7 +724,7 @@ function buildVmstateMeta(
   return {
     sourceBackend: currentVmstateBackend(),
     topologyHash: facts.topologyHash,
-    memoryMib: ctx.memoryMib,
+    memoryCeilingMib: ctx.memoryCeilingMib,
     guestPauth: {
       active: facts.guestPauthActive,
       sctlrEl1: facts.sctlrEl1,

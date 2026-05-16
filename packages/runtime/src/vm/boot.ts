@@ -316,12 +316,13 @@ export interface BootOptions {
   dtb?: string;
   /**
    * Guest RAM ceiling, in MiB (decimal integer; no unit suffixes). The
-   * VMM reads this as `MACHINEN_MEMORY` (#263 phase A). Defaults to
-   * `min(host_ram_mib / 2, 16384)` with a floor of 512 — sized for
-   * typical dev workloads while leaving the host responsive. The
-   * ceiling is approximately free until the guest touches a page (see
-   * `packages/microvm/docs/memory.md`), so over-provisioning costs
-   * little until phase B's balloon lands and lets it actually shrink.
+   * VMM reads this as `MACHINEN_MEMORY` (#263 phase A). This is the
+   * guest's memory layout limit, not the host memory used right now.
+   * Defaults to `min(host_ram_mib / 2, 4096)` with a floor of 512 — a
+   * modest ceiling for typical dev workloads. The ceiling is
+   * approximately free until the guest touches a page (see
+   * `packages/microvm/docs/memory.md`), but a bigger ceiling still
+   * increases guest metadata and the possible high-water mark.
    *
    * This is documented as a debug knob — most workloads should never
    * need to set it.
@@ -918,7 +919,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       sourceImage: sourceImageAbs,
       rootDiskPath: rootDiskPathForRegistry,
       rootDiskMode: rootDiskModeForRegistry,
-      memoryMib: memoryCeilingMib,
+      memoryCeilingMib: memoryCeilingMib,
       kernelPath: env.MACHINEN_KERNEL,
       dtbPath: env.MACHINEN_DTB,
       diskPath: diskAbs!,

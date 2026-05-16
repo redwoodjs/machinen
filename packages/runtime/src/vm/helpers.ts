@@ -37,24 +37,23 @@ export function allocateSparseFile(path: string, sizeBytes: number): void {
   }
 }
 
-// #263 phase A: pick the guest RAM ceiling (in MiB). Half of host RAM
-// is generous enough for typical dev workloads while leaving the host
-// responsive; the 16 GiB cap stops a 128 GiB workstation from handing
-// out a ceiling that would dwarf the actual working set. The 512 MiB
-// floor matches the `cfg.ram_size >= 16 MiB` assert in boot_*.zig with
-// room to boot Debian + a small workload on memory-constrained hosts.
+// #263 phase A: pick the guest RAM ceiling (in MiB). This is a VM
+// layout limit, not the host memory the VM is using right now. Keep
+// the default modest: 4 GiB is enough for the normal dev loop, while
+// smaller hosts still get at most half their RAM before the 512 MiB
+// floor kicks in. Callers that need more can pass `memory` explicitly.
 //
 // The ceiling is approximately free until touched (see
-// `packages/microvm/docs/memory.md`). Phase B's balloon will let the
-// host reclaim pages the guest has freed; until then, raising the
-// ceiling makes the high-water mark worse, so default conservatively.
+// `packages/microvm/docs/memory.md`), but raising it still increases
+// guest metadata and the possible high-water mark, so the default
+// should not scale with large developer machines.
 const MEMORY_FLOOR_MIB = 512;
-const MEMORY_CAP_MIB = 16384;
+const MEMORY_DEFAULT_CEILING_MIB = 4096;
 
 export function autoSizeMemoryMib(hostBytes: number = totalmem()): number {
   const hostMib = Math.floor(hostBytes / (1024 * 1024));
-  const half = Math.floor(hostMib / 2);
-  return Math.max(MEMORY_FLOOR_MIB, Math.min(half, MEMORY_CAP_MIB));
+  const hostAwareCeiling = Math.floor(hostMib / 2);
+  return Math.max(MEMORY_FLOOR_MIB, Math.min(hostAwareCeiling, MEMORY_DEFAULT_CEILING_MIB));
 }
 
 export function validateMemoryMib(mib: number): number {

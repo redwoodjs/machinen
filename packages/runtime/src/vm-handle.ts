@@ -343,8 +343,8 @@ export interface VmstateSnapshotMeta {
   sourceBackend?: VmstateBackend;
   /** Topology hash from the .vmstate header (guest IPA/GIC/RAM layout). */
   topologyHash?: string;
-  /** Guest RAM ceiling the source VM booted with. */
-  memoryMib?: number;
+  /** Guest RAM ceiling/layout the source VM booted with; not current host memory use. */
+  memoryCeilingMib?: number;
   /** Pointer-auth state inferred from SCTLR_EL1 at snapshot time. */
   guestPauth?: {
     active?: boolean;

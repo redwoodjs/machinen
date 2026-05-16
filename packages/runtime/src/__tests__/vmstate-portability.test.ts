@@ -136,7 +136,7 @@ describe("vmstate portability metadata", () => {
     );
   });
 
-  it("refuses a vmstate restore with a different requested memory size", async () => {
+  it("refuses a vmstate restore with a different requested guest RAM ceiling", async () => {
     const target = currentVmstateBackend();
     const { dir, image } = writeBundle(
       "bad-memory",
@@ -146,7 +146,7 @@ describe("vmstate portability metadata", () => {
         vmstate: {
           sourceBackend: target,
           topologyHash: TOPO.toString("hex"),
-          memoryMib: 2048,
+          memoryCeilingMib: 2048,
           guestPauth: { active: false, sctlrEl1: "0x0" },
           rootDisk: { mode: "none" },
         },
@@ -155,7 +155,7 @@ describe("vmstate portability metadata", () => {
     );
 
     await expect(restore({ snapDir: dir, image, binary: "/bin/sh", memory: 1024 })).rejects.toThrow(
-      /vmstate memory mismatch/,
+      /guest RAM layout mismatch/,
     );
   });
 

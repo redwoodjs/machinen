@@ -426,7 +426,7 @@ function autoNameRestoredFork(vm: VmHandle, opts: RestoreOptions, meta: Snapshot
 }
 
 interface VmstateRestorePlan {
-  memory?: number;
+  memoryCeiling?: number;
   rootDisk?: BootOptions["rootDisk"];
   rootDiskRestorePath?: string;
 }
@@ -452,7 +452,7 @@ function planVmstateRestore(
   validateVmstateBackendAndPauth(vmstate, facts);
   validateVmstateArtifacts(opts, vmstate);
   return {
-    memory: resolveVmstateMemory(opts, vmstate),
+    memoryCeiling: resolveVmstateMemoryCeiling(opts, vmstate),
     ...resolveVmstateRootDisk(opts, vmstate, snapDir),
   };
 }
@@ -513,11 +513,11 @@ function validateVmstateArtifacts(opts: RestoreOptions, vmstate: VmstateSnapshot
   }
 }
 
-function resolveVmstateMemory(
+function resolveVmstateMemoryCeiling(
   opts: RestoreOptions,
   vmstate: VmstateSnapshotMeta,
 ): number | undefined {
-  const expected = vmstate.memoryMib;
+  const expected = vmstate.memoryCeilingMib;
   if (expected === undefined) {
     return undefined;
   }
@@ -527,9 +527,10 @@ function resolveVmstateMemory(
   if (requested !== undefined && requested !== expected) {
     throw new BootError(
       "BOOT_VMSTATE_UNSUPPORTED",
-      `restore: vmstate memory mismatch.\n` +
-        `  snapshot: ${expected} MiB\n` +
-        `  restore:  ${requested} MiB\n` +
+      `restore: vmstate guest RAM layout mismatch.\n` +
+        `  snapshot ceiling: ${expected} MiB\n` +
+        `  restore ceiling:  ${requested} MiB\n` +
+        "  This is the VM's address layout, not current host memory use.\n" +
         "  Whole-VM restore requires the same RAM topology.",
     );
   }
@@ -660,7 +661,7 @@ async function restoreVmstate(opts: RestoreOptions, snapDir: string): Promise<Vm
     forkedFrom: snapDir,
     name: opts.name,
     liveMounts: effectiveLiveMounts,
-    memory: vmstatePlan.memory ?? opts.memory,
+    memory: vmstatePlan.memoryCeiling ?? opts.memory,
     rootDisk: vmstatePlan.rootDisk ?? opts.rootDisk,
     _restoreMountDisk: restoreMountDisk,
     _vmstateRestorePath: statePath,
