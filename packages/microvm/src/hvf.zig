@@ -114,7 +114,9 @@ comptime {
     assert(@intFromEnum(Reg.cpsr) == 34);
 
     // ExceptionClass: top 6 bits of ESR_EL2.
+    assert(@intFromEnum(ExceptionClass.trapped_wfx) == 0x01);
     assert(@intFromEnum(ExceptionClass.hvc_aarch64) == 0x16);
+    assert(@intFromEnum(ExceptionClass.system_register) == 0x18);
     assert(@intFromEnum(ExceptionClass.data_abort_lower_el) == 0x24);
     assert(@intFromEnum(ExceptionClass.brk_aarch64) == 0x3C);
 
@@ -194,6 +196,7 @@ pub const ExitReason = enum(u32) {
     exception = 1,
     vtimer_activated = 2,
     unknown = 3,
+    _,
 };
 
 /// hv_vcpu_exit_exception_t
@@ -234,6 +237,8 @@ extern "c" fn hv_gic_get_distributor_reg(reg: u32, value: *u64) c.hv_return_t;
 extern "c" fn hv_gic_set_distributor_reg(reg: u32, value: u64) c.hv_return_t;
 extern "c" fn hv_gic_get_redistributor_reg(vcpu: u64, reg: u32, value: *u64) c.hv_return_t;
 extern "c" fn hv_gic_set_redistributor_reg(vcpu: u64, reg: u32, value: u64) c.hv_return_t;
+extern "c" fn hv_gic_get_icc_reg(vcpu: u64, reg: u32, value: *u64) c.hv_return_t;
+extern "c" fn hv_gic_set_icc_reg(vcpu: u64, reg: u32, value: u64) c.hv_return_t;
 extern "c" fn hv_gic_set_spi(intid: u32, level: bool) c.hv_return_t;
 extern "c" fn hv_gic_get_spi_interrupt_range(base: *u32, count: *u32) c.hv_return_t;
 
@@ -324,6 +329,39 @@ pub const Gic = struct {
         _ = hv_gic_set_redistributor_reg(vcpu.handle, offset, value);
     }
 
+    /// True when `encoding` is one of the ICC CPU-interface registers
+    /// Apple exposes through hv_gic_{get,set}_icc_reg. Values are the
+    /// standard arm64 op0/op1/CRn/CRm/op2 packing used by hv_sys_reg_t.
+    pub fn isIccReg(encoding: u16) bool {
+        return switch (encoding) {
+            0xC230, // ICC_PMR_EL1
+            0xC643, // ICC_BPR0_EL1
+            0xC644, // ICC_AP0R0_EL1
+            0xC648, // ICC_AP1R0_EL1
+            0xC65B, // ICC_RPR_EL1
+            0xC663, // ICC_BPR1_EL1
+            0xC664, // ICC_CTLR_EL1
+            0xC665, // ICC_SRE_EL1
+            0xC666, // ICC_IGRPEN0_EL1
+            0xC667, // ICC_IGRPEN1_EL1
+            0xE64D, // ICC_SRE_EL2
+            => true,
+            else => false,
+        };
+    }
+
+    pub fn readIcc(vcpu: Vcpu, encoding: u16) Error!u64 {
+        assert(isIccReg(encoding));
+        var v: u64 = 0;
+        try check(hv_gic_get_icc_reg(vcpu.handle, encoding, &v));
+        return v;
+    }
+
+    pub fn writeIcc(vcpu: Vcpu, encoding: u16, value: u64) Error!void {
+        assert(isIccReg(encoding));
+        try check(hv_gic_set_icc_reg(vcpu.handle, encoding, value));
+    }
+
     /// Set the level (asserted/deasserted) of a shared peripheral
     /// interrupt. `intid` is the GIC-absolute id (SPIs start at 32
     /// on ARM GIC; the DTS number is 0-based within SPIs, so for a
@@ -393,6 +431,16 @@ pub const Vcpu = struct {
         return value;
     }
 
+    pub fn setRawSysReg(self: Vcpu, encoding: u16, value: u64) Error!void {
+        try check(hv_vcpu_set_sys_reg(self.handle, encoding, value));
+    }
+
+    pub fn getRawSysReg(self: Vcpu, encoding: u16) Error!u64 {
+        var value: u64 = 0;
+        try check(hv_vcpu_get_sys_reg(self.handle, encoding, &value));
+        return value;
+    }
+
     pub fn run(self: Vcpu) Error!void {
         try check(hv_vcpu_run(self.handle));
     }
@@ -411,13 +459,84 @@ pub const Vcpu = struct {
 /// exit via HVC (trapped directly to EL2) rather than BRK (which stays
 /// at EL1 and needs a vector table set up).
 pub const ExceptionClass = enum(u6) {
+    trapped_wfx = 0x01,
     hvc_aarch64 = 0x16,
+    system_register = 0x18,
     data_abort_lower_el = 0x24,
     brk_aarch64 = 0x3C,
     _,
 
     pub fn fromSyndrome(syndrome: u64) ExceptionClass {
         return @enumFromInt(@as(u6, @truncate(syndrome >> 26)));
+    }
+};
+
+/// Decoded trapped WFI/WFE info. Valid when ExceptionClass ==
+/// .trapped_wfx. ISS bit 0 is TI: 0 = WFI, 1 = WFE.
+pub const WaitTrap = struct {
+    instruction: enum { wfi, wfe },
+
+    pub fn decode(ex: ExitException) WaitTrap {
+        return .{ .instruction = if ((ex.syndrome & 1) == 0) .wfi else .wfe };
+    }
+};
+
+/// Decoded AArch64 system-register trap. Valid when ExceptionClass ==
+/// .system_register for MRS/MSR traps. `encoding` is the same 16-bit
+/// op0/op1/CRn/CRm/op2 packing HVF and KVM use everywhere else.
+pub fn isDebugSysReg(encoding: u16) bool {
+    // AArch64 debug register bank (DBGBVR/DBGBCR/DBGWVR/DBGWCR,
+    // MDSCR/MDCCINT, and future breakpoint/watchpoint slots). Apple
+    // SDKs currently name only slots 0..15, but M4/Tahoe can expose
+    // more slots to Linux and trap writes such as DBGBVR19_EL1
+    // (S2_0_C1_C3_4 = 0x809c). We do not virtualize guest hardware
+    // debug state, so unsupported debug regs are safe to read-as-zero
+    // and ignore-on-write.
+    return encoding >= 0x8000 and encoding <= 0x80ff;
+}
+
+pub fn shouldIgnoreUnsupportedSysRegWrite(encoding: u16, value: u64) bool {
+    // Linux commonly clears optional CPU state by writing xzr / 0.
+    // If a future Apple CPU exposes a new optional register before
+    // HVF exposes it, dropping that zero-write is safer than killing
+    // the VM during early boot. Non-zero writes still fail unless the
+    // register class is explicitly RAZ/WI-safe (debug regs above).
+    return value == 0 or isDebugSysReg(encoding);
+}
+
+pub const SysRegTrap = struct {
+    is_read: bool, // true = MRS (sysreg -> Rt), false = MSR (Rt -> sysreg)
+    rt: u5,
+    encoding: u16,
+
+    pub fn decode(ex: ExitException) SysRegTrap {
+        const iss: u32 = @truncate(ex.syndrome);
+        const op0: u16 = @truncate((iss >> 20) & 0b11);
+        const op1: u16 = @truncate((iss >> 14) & 0b111);
+        const crn: u16 = @truncate((iss >> 10) & 0b1111);
+        const crm: u16 = @truncate((iss >> 1) & 0b1111);
+        const op2: u16 = @truncate((iss >> 17) & 0b111);
+        return .{
+            .is_read = (iss & 1) != 0,
+            .rt = @truncate((iss >> 5) & 0b11111),
+            .encoding = (op0 << 14) | (op1 << 11) | (crn << 7) | (crm << 3) | op2,
+        };
+    }
+
+    pub fn readSource(self: SysRegTrap, vcpu: Vcpu) Error!u64 {
+        assert(!self.is_read);
+        assert(self.rt <= 31);
+        if (self.rt == 31) return 0; // XZR
+        const reg: Reg = @enumFromInt(@as(u32, self.rt));
+        return vcpu.getReg(reg);
+    }
+
+    pub fn writeTarget(self: SysRegTrap, vcpu: Vcpu, value: u64) Error!void {
+        assert(self.is_read);
+        assert(self.rt <= 31);
+        if (self.rt == 31) return; // XZR
+        const reg: Reg = @enumFromInt(@as(u32, self.rt));
+        try vcpu.setReg(reg, value);
     }
 };
 
@@ -536,6 +655,49 @@ pub const Psci = struct {
 // Tests
 // =============================================================
 
+test "decode WFI/WFE traps" {
+    const wfi: ExitException = .{
+        .syndrome = (@as(u64, @intFromEnum(ExceptionClass.trapped_wfx)) << 26),
+        .virtual_address = 0,
+        .physical_address = 0,
+    };
+    try std.testing.expectEqual(.wfi, WaitTrap.decode(wfi).instruction);
+
+    const wfe: ExitException = .{
+        .syndrome = (@as(u64, @intFromEnum(ExceptionClass.trapped_wfx)) << 26) | 1,
+        .virtual_address = 0,
+        .physical_address = 0,
+    };
+    try std.testing.expectEqual(.wfe, WaitTrap.decode(wfe).instruction);
+}
+
+test "decode system register traps to HVF encoding" {
+    // ICC_SRE_EL1 = S3_0_C12_C12_5 = 0xC665 in HVF/KVM encoding.
+    const iss: u64 = (@as(u64, 3) << 20) | (@as(u64, 0) << 14) | (@as(u64, 12) << 10) |
+        (@as(u64, 12) << 1) | (@as(u64, 5) << 17) | (@as(u64, 2) << 5) | 1;
+    const ex: ExitException = .{
+        .syndrome = (@as(u64, @intFromEnum(ExceptionClass.system_register)) << 26) | iss,
+        .virtual_address = 0,
+        .physical_address = 0,
+    };
+    const trap = SysRegTrap.decode(ex);
+    try std.testing.expect(trap.is_read);
+    try std.testing.expectEqual(@as(u5, 2), trap.rt);
+    try std.testing.expectEqual(@as(u16, 0xC665), trap.encoding);
+}
+
+test "debug sysreg classifier includes Tahoe/M4 high breakpoint slots" {
+    try std.testing.expect(isDebugSysReg(0x8004)); // DBGBVR0_EL1
+    try std.testing.expect(isDebugSysReg(0x809c)); // DBGBVR19_EL1 on M4/Tahoe
+    try std.testing.expect(!isDebugSysReg(0xC665)); // ICC_SRE_EL1
+}
+
+test "unsupported sysreg write policy ignores zero writes" {
+    try std.testing.expect(shouldIgnoreUnsupportedSysRegWrite(0x809c, 0x1234)); // debug reg
+    try std.testing.expect(shouldIgnoreUnsupportedSysRegWrite(0xD123, 0)); // clear unknown optional state
+    try std.testing.expect(!shouldIgnoreUnsupportedSysRegWrite(0xD123, 1)); // non-zero unknown state
+}
+
 test "hv_vm_create and destroy" {
     const vm = Vm.create() catch |err| switch (err) {
         error.Denied => {
@@ -579,7 +741,7 @@ test "map a page, run hvc #0, observe exception exit" {
     // traps directly to EL2 (HVF), so the host sees a clean exit with
     // EC=0x16. BRK would stay at EL1 and require a vector table.
     const hvc0_instr: u32 = 0xD4000002;
-    @as(*align(4) u32, @alignCast(@ptrCast(host_mem.ptr))).* = hvc0_instr;
+    @as(*align(4) u32, @ptrCast(@alignCast(host_mem.ptr))).* = hvc0_instr;
 
     // Map at a typical arm64 RAM base address.
     const guest_base: u64 = 0x40000000;
