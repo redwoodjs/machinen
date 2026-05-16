@@ -13,8 +13,9 @@ A quick decision sketch before the details:
   `--mount`. The data rides into the VM at boot and the guest sees a
   copy.
 - **A directory you want the guest and host to share live**, with
-  changes flowing in either direction? `--mount-live`. It's a FUSE
-  pass-through — no copy, just a vsock pipe back to the host.
+  changes flowing in either direction? `--mount-live`. It's a
+  FUSE-style filesystem served by the VMM over virtio-fs — no copy,
+  just live access to the host directory.
 
 ## A workspace you're actively editing — `--mount-live`
 
@@ -29,9 +30,9 @@ npx machinen boot --mount-live ./workspace:/mnt/workspace -- bash
 ```
 
 In the guest, `/mnt/workspace` is your host's `./workspace` directory.
-Reads stream over vsock on demand — nothing was copied at boot, so the
-mount is essentially free even if the workspace is huge. Writes land
-back on the host immediately. If the guest builds a binary into
+Reads stream through virtio-fs on demand — nothing was copied at boot,
+so the mount is essentially free even if the workspace is huge. Writes
+land back on the host immediately. If the guest builds a binary into
 `./workspace/dist/`, you'll see it in your editor.
 
 Default mode is read-write. If you want to share something the guest
@@ -43,7 +44,7 @@ npx machinen boot --mount-live ./fixtures:/mnt/fixtures:ro -- ./run-tests.sh
 ```
 
 You can pass `--mount-live` multiple times for separate shares; each
-one gets its own vsock port:
+one gets its own virtio-fs device slot:
 
 ```bash
 npx machinen boot \
@@ -51,6 +52,12 @@ npx machinen boot \
   --mount-live ./fixtures:/mnt/fixtures:ro \
   -- bash
 ```
+
+Common filesystem operations work through the live mount: read, write,
+append, truncate, rename, symlink, hardlink, `chmod +x`, and large file
+reads or writes. The same behavior is tested on macOS/HVF and
+Linux/KVM, so a workspace should behave the same whether the VM runs on
+your laptop or on a Linux builder.
 
 A security note worth being aware of: a `rw` live mount is a
 persistent channel from inside the guest back to the host filesystem,

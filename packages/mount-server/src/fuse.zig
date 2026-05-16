@@ -107,7 +107,7 @@ const StatDarwin = extern struct {
     qspare: [2]i64,
 };
 
-const StatLinux = extern struct {
+const StatLinuxX64 = extern struct {
     dev: u64,
     ino: u64,
     nlink: u64,
@@ -123,6 +123,34 @@ const StatLinux = extern struct {
     mtim: timespec_c,
     ctim: timespec_c,
     _spare: [3]i64,
+};
+
+// glibc's aarch64 `struct stat` is not the same as x86_64's: `mode`
+// and 32-bit `nlink` precede uid/gid, with padding around rdev/blksize.
+// The VMM's linux package ships for arm64, so using the x86_64 layout
+// here corrupts attrs and can panic on GETATTR under KVM.
+const StatLinuxAarch64 = extern struct {
+    dev: u64,
+    ino: u64,
+    mode: u32,
+    nlink: u32,
+    uid: u32,
+    gid: u32,
+    rdev: u64,
+    _pad1: u64,
+    size: i64,
+    blksize: i32,
+    _pad2: i32,
+    blocks: i64,
+    atim: timespec_c,
+    mtim: timespec_c,
+    ctim: timespec_c,
+    _spare: [2]u32,
+};
+
+const StatLinux = switch (builtin.cpu.arch) {
+    .aarch64 => StatLinuxAarch64,
+    else => StatLinuxX64,
 };
 
 const Stat = if (builtin.os.tag == .macos) StatDarwin else StatLinux;
@@ -1775,7 +1803,11 @@ fn linuxOpenToHost(linux_flags: u32) c_int {
     else
         O_RDONLY;
     if (linux_flags & LINUX_O_TRUNC != 0) host |= O_TRUNC;
-    if (linux_flags & LINUX_O_APPEND != 0) host |= O_APPEND;
+    // Do not mirror O_APPEND to the host fd. FUSE WRITE requests carry
+    // explicit offsets, and with WRITEBACK_CACHE the guest may send a
+    // whole rewritten page at offset 0 for `>> file`. Linux makes
+    // pwrite(2) append anyway on an O_APPEND fd, which duplicates the
+    // old bytes. Honor the guest-supplied offset instead.
     return host;
 }
 
@@ -2066,6 +2098,31 @@ fn testTmpRootAbs(gpa: std.mem.Allocator, tmp: *const std.testing.TmpDir) ![]u8 
     return std.fs.path.join(gpa, &.{ cwd, ".zig-cache", "tmp", &tmp.sub_path });
 }
 
+test "dispatch: GETATTR returns sane attrs for the host stat layout" {
+    const gpa = testing.allocator;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    var state = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), true);
+    defer state.deinit();
+
+    const frame = try testBuildFrame(gpa, @intFromEnum(Op.GETATTR), 9, 1, &.{});
+    defer gpa.free(frame);
+    const r = (try dispatch(&state, frame)) orelse return error.ExpectedReply;
+    defer gpa.free(r);
+
+    try testing.expectEqual(@as(i32, 0), std.mem.readInt(i32, r[4..8], .little));
+    try testing.expectEqual(@as(usize, FUSE_OUT_HEADER_SIZE + FUSE_ATTR_OUT_SIZE), r.len);
+
+    const attr = r[FUSE_OUT_HEADER_SIZE + 16 ..];
+    const mode = std.mem.readInt(u32, attr[60..64], .little);
+    const nlink = std.mem.readInt(u32, attr[64..68], .little);
+    const blksize = std.mem.readInt(u32, attr[80..84], .little);
+    try testing.expectEqual(@as(u32, 0o040000), mode & 0o170000);
+    try testing.expect(nlink > 0);
+    try testing.expect(blksize > 0);
+}
+
 /// CREATE `name` under the root inode; returns its (nodeid, fh).
 fn testCreate(state: *State, name: []const u8) !struct { nodeid: u64, fh: u64 } {
     var body: [16 + 96]u8 = @splat(0);
@@ -2140,6 +2197,38 @@ test "dispatch: OPEN O_WRONLY handles writeback-cache read fill then WRITE exist
     const got = try tmp.dir.readFileAlloc(std.testing.io, "existing.txt", gpa, .limited(1024));
     defer gpa.free(got);
     try testing.expectEqualStrings("new", got);
+}
+
+test "dispatch: O_APPEND writes honor guest offsets, not host append mode" {
+    const gpa = testing.allocator;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "append.txt", .data = "append-base\n" });
+
+    var state = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), true);
+    defer state.deinit();
+    const nodeid = try testLookup(&state, "append.txt");
+    const fh = try testOpen(&state, nodeid, LINUX_O_WRONLY | LINUX_O_APPEND);
+
+    // With WRITEBACK_CACHE, the guest can satisfy `echo x >> file` by
+    // sending the rewritten page at offset 0. If the host fd also has
+    // O_APPEND, Linux pwrite(2) appends this whole page and duplicates
+    // the old bytes. The FUSE offset is authoritative.
+    const data = "append-base\nappended\n";
+    var wbody: [FUSE_WRITE_IN_SIZE + data.len]u8 = @splat(0);
+    std.mem.writeInt(u64, wbody[0..8], fh, .little);
+    std.mem.writeInt(u64, wbody[8..16], 0, .little);
+    std.mem.writeInt(u32, wbody[16..20], data.len, .little);
+    @memcpy(wbody[FUSE_WRITE_IN_SIZE..], data);
+    const wf = try testBuildFrame(gpa, @intFromEnum(Op.WRITE), 3, nodeid, &wbody);
+    defer gpa.free(wf);
+    const wr = (try dispatch(&state, wf)) orelse return error.ExpectedReply;
+    defer gpa.free(wr);
+    try testing.expectEqual(@as(i32, 0), std.mem.readInt(i32, wr[4..8], .little));
+
+    const got = try tmp.dir.readFileAlloc(std.testing.io, "append.txt", gpa, .limited(1024));
+    defer gpa.free(got);
+    try testing.expectEqualStrings(data, got);
 }
 
 test "dispatch: SETATTR FATTR_SIZE truncates an existing file and honors :ro" {
