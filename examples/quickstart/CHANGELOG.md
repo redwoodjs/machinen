@@ -1,5 +1,11 @@
 # @machinen/example-quickstart
 
+## 0.0.9
+
+### Patch Changes
+
+- @machinen/runtime@0.3.4
+
 ## 0.0.8
 
 ### Patch Changes
