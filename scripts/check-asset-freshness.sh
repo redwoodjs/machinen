@@ -97,12 +97,12 @@ kernel_input_files() {
 
 # Files whose contents are baked into
 # packages/native-arm64-darwin/vmm/bin/machinen-vm. We `find` every .zig
-# under packages/microvm/src so a newly added source file
-# automatically invalidates the sidecar — listing them explicitly (as
-# rootfs_input_files does for assets/) would silently miss new files
-# and give us back the exact bug this checker is supposed to prevent.
-# Sort for stable order across find implementations (BSD find on
-# darwin doesn't sort by default).
+# under packages/microvm/src and the in-VMM virtio-fs FUSE handlers under
+# packages/mount-server/src so a newly added source file automatically
+# invalidates the sidecar — listing them explicitly (as rootfs_input_files
+# does for assets/) would silently miss new files and give us back the
+# exact bug this checker is supposed to prevent. Sort for stable order
+# across find implementations (BSD find on darwin doesn't sort by default).
 #
 # Also pulled in:
 #   - build.zig + build.zig.zon: build graph + dep pins.
@@ -111,6 +111,7 @@ kernel_input_files() {
 #     invalidate the sidecar even when no .zig source moved.
 vmm_input_files() {
   find "${ROOT}/packages/microvm/src" -type f -name '*.zig' -print | sort
+  find "${ROOT}/packages/mount-server/src" -type f -name '*.zig' -print | sort
   printf '%s\n' \
     "${ROOT}/packages/microvm/build.zig" \
     "${ROOT}/packages/microvm/build.zig.zon" \
