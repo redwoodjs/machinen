@@ -209,7 +209,7 @@ const hvf_extern = struct {
     extern "c" fn hv_vcpu_get_reg(vcpu: u64, reg: u32, value: *u64) i32;
     extern "c" fn hv_vcpu_set_reg(vcpu: u64, reg: u32, value: u64) i32;
     extern "c" fn hv_vcpu_get_simd_fp_reg(vcpu: u64, reg: u32, value: *u128) i32;
-    extern "c" fn hv_vcpu_set_simd_fp_reg(vcpu: u64, reg: u32, value: *const u128) i32;
+    extern "c" fn hv_vcpu_set_simd_fp_reg(vcpu: u64, reg: u32, value: u128) i32;
     extern "c" fn hv_vcpu_get_sys_reg(vcpu: u64, reg: u32, value: *u64) i32;
     extern "c" fn hv_vcpu_set_sys_reg(vcpu: u64, reg: u32, value: u64) i32;
 };
@@ -362,7 +362,7 @@ pub fn loadHvf(allocator: std.mem.Allocator, vcpu_handle: u64, payload: []const 
             if (idx > 31) continue;
             if (e.value.len != 16) continue;
             const v = std.mem.readInt(u128, e.value[0..16], .little);
-            _ = hvf_extern.hv_vcpu_set_simd_fp_reg(vcpu_handle, idx, &v);
+            _ = hvf_extern.hv_vcpu_set_simd_fp_reg(vcpu_handle, idx, v);
             continue;
         }
         applyHvfNamed(vcpu_handle, e) catch {};

@@ -5,8 +5,9 @@
 //   - "vmstate" — the default. Whole-VM snapshot at the VMM layer
 //                (vCPU + RAM + GIC + virtio device state) in a
 //                hypervisor-agnostic wire format. The only path that
-//                can move a live guest across VMMs (HVF<->KVM).
-//                Bundle layout: `<dir>/state.vmstate`.
+//                can move a live guest across VMMs (HVF<->KVM) when
+//                invariants match. Bundle layout:
+//                `<dir>/state.vmstate` + `<dir>/rootdisk.img`.
 //   - "criu"   — checkpoints the guest *process tree* from inside the
 //                guest via CRIU. Same-host, Linux-process-level.
 //                Bundle layout: `<dir>/img/core-*.img`.
@@ -22,6 +23,9 @@ export type SnapshotEngine = "criu" | "vmstate";
 
 /** Basename of the whole-VM state file inside a vmstate bundle. */
 export const VMSTATE_FILE = "state.vmstate";
+
+/** Exact root block device bytes paired with a vmstate bundle. */
+export const VMSTATE_ROOTDISK_FILE = "rootdisk.img";
 
 /**
  * Resolve the snapshot engine from `MACHINEN_SNAPSHOT_ENGINE`.

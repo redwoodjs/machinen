@@ -238,6 +238,14 @@ export interface BootOptions {
    */
   _vmstateRestorePath?: string;
   /**
+   * Vmstate restore: exact root block image from the snapshot bundle.
+   * `boot()` reflink-clones this into a per-VM temp file before
+   * attaching it so the restored guest cannot mutate the bundle.
+   *
+   * @internal
+   */
+  _rootDiskRestorePath?: string;
+  /**
    * Host directories exposed to the guest as live-share mounts (#78,
    * #332). Unlike `mount` (copy-once into the boot rootfs), these stay
    * connected to the host: the guest reads on demand and nothing is
@@ -451,7 +459,9 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   // Resolution + materialization happens later, alongside packBundle,
   // so per-arg validation (mount paths, liveMount, baked-cmd) fires
   // before we spend time hashing the tarball.
-  const wantsRootDisk = opts.rootDisk !== false && (opts.rootDisk !== undefined || !!opts.image);
+  const wantsRootDisk =
+    opts.rootDisk !== false &&
+    (opts._rootDiskRestorePath !== undefined || opts.rootDisk !== undefined || !!opts.image);
   if (wantsRootDisk && typeof opts.rootDisk !== "string" && !opts.image) {
     throw new BootError(
       "BOOT_CMD_WITHOUT_IMAGE",
@@ -657,6 +667,12 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   // ctx so the bundle's meta.json points at the same absolute path the
   // source booted from. Cheap (just a path resolve), so unconditional.
   const sourceImageAbs = opts.image ? resolve(opts.cwd ?? process.cwd(), opts.image) : undefined;
+  const rootDiskPathForRegistry =
+    perBootRootDisk ??
+    (typeof opts.rootDisk === "string"
+      ? resolve(opts.cwd ?? process.cwd(), opts.rootDisk)
+      : undefined);
+  const rootDiskModeForRegistry = rootDiskPathForRegistry ? "block" : "none";
   const childPid = child.pid ?? -1;
   if (vmName && childPid > 0) {
     claimNameOrThrow(vmName, childPid, child);
@@ -683,6 +699,8 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
           vmName,
           vsockUdsPath,
           sourceImageAbs,
+          rootDiskPath: rootDiskPathForRegistry,
+          rootDiskMode: rootDiskModeForRegistry,
           diskAbs,
           forkedFrom: opts.forkedFrom,
           bootLogPath,
@@ -898,6 +916,11 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
       pid: childPid,
       sourceName: vmName,
       sourceImage: sourceImageAbs,
+      rootDiskPath: rootDiskPathForRegistry,
+      rootDiskMode: rootDiskModeForRegistry,
+      memoryMib: memoryCeilingMib,
+      kernelPath: env.MACHINEN_KERNEL,
+      dtbPath: env.MACHINEN_DTB,
       diskPath: diskAbs!,
       mountDisk: mountDiskPaths
         ? {
@@ -1233,6 +1256,24 @@ function materializeRootdisk(
   env: Record<string, string>,
   phases: PhaseTimer,
 ): string | undefined {
+  if (opts._rootDiskRestorePath) {
+    const rootDiskAbs = resolve(opts.cwd ?? process.cwd(), opts._rootDiskRestorePath);
+    if (!existsSync(rootDiskAbs)) {
+      throw new BootError(
+        "BOOT_SNAPSHOT_NOT_FOUND",
+        `restore: vmstate rootdisk image not found: ${rootDiskAbs}`,
+      );
+    }
+    const perBoot = join(
+      tmpdir(),
+      `machinen-rootdisk-restore-${process.pid}-${randomBytes(6).toString("hex")}.img`,
+    );
+    const reflinkT0 = Date.now();
+    reflinkCopy(rootDiskAbs, perBoot);
+    phases.mark("rootdisk-materialize.restore-reflink", Date.now() - reflinkT0);
+    env.MACHINEN_ROOTDISK = perBoot;
+    return perBoot;
+  }
   if (typeof opts.rootDisk === "string") {
     const rootDiskAbs = resolve(opts.cwd ?? process.cwd(), opts.rootDisk);
     if (!existsSync(rootDiskAbs)) {
@@ -1405,6 +1446,8 @@ interface RegisterArgs {
   vmName: string | undefined;
   vsockUdsPath: string;
   sourceImageAbs: string | undefined;
+  rootDiskPath: string | undefined;
+  rootDiskMode: "block" | "none";
   diskAbs: string | undefined;
   forkedFrom: string | undefined;
   bootLogPath: string | undefined;
@@ -1431,6 +1474,8 @@ function registerInRegistry(args: RegisterArgs): boolean {
       name: args.vmName,
       socketPath: args.vsockUdsPath,
       imagePath: args.sourceImageAbs,
+      rootDiskPath: args.rootDiskPath,
+      rootDiskMode: args.rootDiskMode,
       diskPath: args.diskAbs,
       forkedFrom: args.forkedFrom,
       bootLogPath: args.bootLogPath,

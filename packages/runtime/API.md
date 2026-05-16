@@ -34,7 +34,10 @@
 - [`ForkOptions`](#forkoptions)
 - [`SnapshotOptions`](#snapshotoptions)
 - [`SnapshotResult`](#snapshotresult)
+- [`SnapshotFileIdentity`](#snapshotfileidentity)
 - [`SnapshotMeta`](#snapshotmeta)
+- [`VmstateBackend`](#vmstatebackend)
+- [`VmstateSnapshotMeta`](#vmstatesnapshotmeta)
 - [`SnapshotEngine`](#snapshotengine)
 - [`bootSnapshotPath`](#bootsnapshotpath)
 - [`writeBootSnapshot`](#writebootsnapshot)
@@ -2400,6 +2403,20 @@ Host-side vsock UDS the exec-agent is reachable on.
 
 Path to the image the VM was booted from (diagnostic only).
 
+##### rootDiskPath?
+
+> `optional` **rootDiskPath?**: `string`
+
+Host-side path of the root block device currently attached as
+`/dev/vda`. Vmstate snapshots need the exact bytes because the
+whole-VM state captures RAM/device/vCPU state, not disk blocks.
+
+##### rootDiskMode?
+
+> `optional` **rootDiskMode?**: `"block"` \| `"none"`
+
+Whether the VM intentionally booted without a root block device.
+
 ##### diskPath?
 
 > `optional` **diskPath?**: `string`
@@ -3197,10 +3214,87 @@ Guest console output captured during the dump.
 
 ***
 
-### SnapshotMeta
+### SnapshotFileIdentity
 
-On-disk shape of the bundle's `meta.json`. Read by `restore()`
-to reconstruct the source VM's name when registering the fork.
+#### Properties
+
+##### path?
+
+> `optional` **path?**: `string`
+
+Absolute source path when known on the snapshotting host.
+
+##### sizeBytes
+
+> **sizeBytes**: `number`
+
+Logical file size in bytes.
+
+##### sha256
+
+> **sha256**: `string`
+
+SHA-256 over the logical file bytes.
+
+***
+
+### VmstateSnapshotMeta
+
+#### Properties
+
+##### sourceBackend?
+
+> `optional` **sourceBackend?**: [`VmstateBackend`](#vmstatebackend)
+
+VMM backend that wrote `state.vmstate`.
+
+##### topologyHash?
+
+> `optional` **topologyHash?**: `string`
+
+Topology hash from the .vmstate header (guest IPA/GIC/RAM layout).
+
+##### memoryMib?
+
+> `optional` **memoryMib?**: `number`
+
+Guest RAM ceiling the source VM booted with.
+
+##### guestPauth?
+
+> `optional` **guestPauth?**: `object`
+
+Pointer-auth state inferred from SCTLR_EL1 at snapshot time.
+
+###### active?
+
+> `optional` **active?**: `boolean`
+
+###### sctlrEl1?
+
+> `optional` **sctlrEl1?**: `string`
+
+##### rootDisk?
+
+> `optional` **rootDisk?**: `object` & [`SnapshotFileIdentity`](#snapshotfileidentity) \| \{ `mode`: `"none"`; \}
+
+Exact root block image needed by the resumed guest, or explicit absence.
+
+##### kernel?
+
+> `optional` **kernel?**: [`SnapshotFileIdentity`](#snapshotfileidentity)
+
+Kernel image identity when the source boot used an explicit kernel.
+
+##### dtb?
+
+> `optional` **dtb?**: [`SnapshotFileIdentity`](#snapshotfileidentity)
+
+DTB identity when the source boot used an explicit DTB.
+
+***
+
+### SnapshotMeta
 
 #### Properties
 
@@ -3236,6 +3330,12 @@ explicit `image` override.
 > **snappedAt**: `number`
 
 ms epoch when `vm.snapshot()` returned.
+
+##### vmstate?
+
+> `optional` **vmstate?**: [`VmstateSnapshotMeta`](#vmstatesnapshotmeta)
+
+Whole-VM `.vmstate` restore invariants. Present on new vmstate bundles.
 
 ##### mountDisk?
 
@@ -3492,7 +3592,7 @@ running the user cmd. Materialization needs `mke2fs` (or
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`rootDisk`](#rootdisk-1)
+[`BootOptions`](#bootoptions).[`rootDisk`](#rootdisk-2)
 
 ##### rootDiskSizeBytes?
 
@@ -3686,7 +3786,7 @@ Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`.
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`kernel`](#kernel-2)
+[`BootOptions`](#bootoptions).[`kernel`](#kernel-3)
 
 ##### dtb?
 
@@ -3696,7 +3796,7 @@ Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`.
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`dtb`](#dtb-2)
+[`BootOptions`](#bootoptions).[`dtb`](#dtb-3)
 
 ##### memory?
 
@@ -4251,7 +4351,7 @@ running the user cmd. Materialization needs `mke2fs` (or
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`rootDisk`](#rootdisk-1)
+[`BootOptions`](#bootoptions).[`rootDisk`](#rootdisk-2)
 
 ##### rootDiskSizeBytes?
 
@@ -4469,7 +4569,7 @@ Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`.
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`kernel`](#kernel-2)
+[`BootOptions`](#bootoptions).[`kernel`](#kernel-3)
 
 ##### dtb?
 
@@ -4479,7 +4579,7 @@ Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`.
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`dtb`](#dtb-2)
+[`BootOptions`](#bootoptions).[`dtb`](#dtb-3)
 
 ##### memory?
 
@@ -4683,6 +4783,15 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ***
 
+### VmstateBackend
+
+> **VmstateBackend** = `"hvf"` \| `"kvm"` \| `"unknown"`
+
+On-disk shape of the bundle's `meta.json`. Read by `restore()`
+to reconstruct the source VM's name when registering the fork.
+
+***
+
 ### ImageConfig
 
 > **ImageConfig** = `object`
@@ -4806,6 +4915,10 @@ tarball-producing tool can pre-populate the lookup cache.
 ##### BOOT\_MEMORY\_INVALID
 
 > `readonly` **BOOT\_MEMORY\_INVALID**: `"BOOT_MEMORY_INVALID"` = `"BOOT_MEMORY_INVALID"`
+
+##### BOOT\_VMSTATE\_UNSUPPORTED
+
+> `readonly` **BOOT\_VMSTATE\_UNSUPPORTED**: `"BOOT_VMSTATE_UNSUPPORTED"` = `"BOOT_VMSTATE_UNSUPPORTED"`
 
 ##### FORK\_MEMORY\_BACKPRESSURE
 

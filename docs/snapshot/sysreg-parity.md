@@ -5,6 +5,9 @@ vCPU dump+load translators (tasks #18, #19): for every system
 register reachable on either VMM backend, can we treat its bytes as
 portable state, or does it need special handling?
 
+Runtime restore policy for whole-VM bundles lives in
+[`vmstate-portability.md`](./vmstate-portability.md).
+
 ## Coverage (captured 2026-05-14, macOS 15.5 / Linux 6.x on Apple
 
 Silicon and Ampere arm64)

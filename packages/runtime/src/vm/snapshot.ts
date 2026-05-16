@@ -28,8 +28,14 @@ import type { VsockExecOptions, VsockExecResult } from "../exec.ts";
 import type { OnLog } from "../log.ts";
 import { PhaseTimer } from "../phase-timer.ts";
 import { reflinkCopy } from "../reflink.ts";
-import type { SnapshotMeta, SnapshotOptions, SnapshotResult } from "../vm-handle.ts";
-import { resolveSnapshotEngine, VMSTATE_FILE } from "./snapshot-engine.ts";
+import type {
+  SnapshotMeta,
+  SnapshotOptions,
+  SnapshotResult,
+  VmstateSnapshotMeta,
+} from "../vm-handle.ts";
+import { resolveSnapshotEngine, VMSTATE_FILE, VMSTATE_ROOTDISK_FILE } from "./snapshot-engine.ts";
+import { currentVmstateBackend, fileIdentity, readVmstateFacts } from "./vmstate-metadata.ts";
 
 const debugSnapshot = debugLib("machinen:snapshot");
 const debugVmstate = debugLib("machinen:vmstate");
@@ -52,8 +58,18 @@ export interface SnapshotContext {
    * registry entry that pre-dates `imagePath` tracking.
    */
   sourceImage?: string;
-  /** Host file backing /dev/vda — what we copy into the bundle on success. */
+  /** Host file backing the scratch disk (`/dev/vdb`) for CRIU snapshots. */
   diskPath: string;
+  /** Host file backing `/dev/vda`; vmstate bundles copy this exact image. */
+  rootDiskPath?: string;
+  /** Whether the source intentionally had no root block device. */
+  rootDiskMode?: "block" | "none";
+  /** Guest RAM ceiling in MiB, when resolved by the runtime. */
+  memoryMib?: number;
+  /** Explicit kernel path used by the source boot, when known. */
+  kernelPath?: string;
+  /** Explicit DTB path used by the source boot, when known. */
+  dtbPath?: string;
   /**
    * #272: when the source VM was booted with `mount: { host, guest }`,
    * the runtime materialized a squashfs lower + ext4 upper. We need
@@ -519,12 +535,14 @@ function writeSnapshotMeta(
   snapDir: string,
   mountDiskMeta: SnapshotMeta["mountDisk"] | undefined,
   engine: SnapshotMeta["engine"],
+  vmstateMeta?: VmstateSnapshotMeta,
 ): void {
   const meta: SnapshotMeta = {
     engine,
     sourceName: ctx.sourceName,
     sourceImage: ctx.sourceImage,
     snappedAt: Date.now(),
+    vmstate: vmstateMeta,
     mountDisk: mountDiskMeta,
     // #273: bytes are NOT in the bundle — `host` is a path on the
     // snapshotting host that the restoring host has to resolve (or
@@ -572,9 +590,10 @@ function formatDumpOutcomeHint(outcome: DumpOutcome | undefined): string {
  *   3. wait for the file to (re)appear — the VMM writes it atomically
  *      (tmp + rename), so existence == a complete dump,
  *   4. copy it into the bundle as `state.vmstate`,
- *   5. reflink any `--mount` overlay into the bundle (same as CRIU),
- *   6. write `meta.json` (with `engine: "vmstate"`),
- *   7. destructive snapshot (`!leaveRunning`) → power the source off;
+ *   5. copy the exact root block image as `rootdisk.img`,
+ *   6. reflink any `--mount` overlay into the bundle (same as CRIU),
+ *   7. write `meta.json` (with `engine: "vmstate"` + invariants),
+ *   8. destructive snapshot (`!leaveRunning`) → power the source off;
  *      fork (`leaveRunning`) leaves it running (the VMM already
  *      resumed the guest after capturing state).
  *
@@ -665,10 +684,12 @@ async function performSnapshotVmstate(
     );
   }
 
+  const vmstateMeta = buildVmstateMeta(ctx, bundleStatePath, snapDir);
+
   // Reflink a `--mount` overlay into the bundle, same as the CRIU path.
   const mountDiskMeta = await reflinkMountOverlay(ctx, snapDir, deadlineMs);
 
-  writeSnapshotMeta(ctx, snapDir, mountDiskMeta, "vmstate");
+  writeSnapshotMeta(ctx, snapDir, mountDiskMeta, "vmstate", vmstateMeta);
 
   // Destructive snapshot: bring the source down — its state is fully
   // captured in the bundle. Fork (leaveRunning) leaves it running.
@@ -690,6 +711,64 @@ async function performSnapshotVmstate(
     vmstatePath: bundleStatePath,
     elapsedMs,
     consoleLog: await ctx.errorOutput(),
+  };
+}
+
+function buildVmstateMeta(
+  ctx: SnapshotContext,
+  statePath: string,
+  snapDir: string,
+): VmstateSnapshotMeta {
+  const facts = readVmstateFacts(statePath);
+  const rootDisk = copyVmstateRootDisk(ctx, snapDir);
+  return {
+    sourceBackend: currentVmstateBackend(),
+    topologyHash: facts.topologyHash,
+    memoryMib: ctx.memoryMib,
+    guestPauth: {
+      active: facts.guestPauthActive,
+      sctlrEl1: facts.sctlrEl1,
+    },
+    rootDisk,
+    kernel: ctx.kernelPath ? fileIdentity(ctx.kernelPath) : undefined,
+    dtb: ctx.dtbPath ? fileIdentity(ctx.dtbPath) : undefined,
+  };
+}
+
+function copyVmstateRootDisk(
+  ctx: SnapshotContext,
+  snapDir: string,
+): VmstateSnapshotMeta["rootDisk"] {
+  if (ctx.rootDiskMode === "none") {
+    return { mode: "none" };
+  }
+  if (!ctx.rootDiskPath) {
+    throw new SnapshotError(
+      "SNAPSHOT_DUMP_FAILED",
+      "vm.snapshot: cannot record vmstate rootdisk identity for this VM.\n" +
+        "  Reboot it with the current runtime so the registry records /dev/vda,\n" +
+        "  or boot with rootDisk:false if the guest intentionally has no root block device.",
+    );
+  }
+  const dest = join(snapDir, VMSTATE_ROOTDISK_FILE);
+  try {
+    reflinkCopy(ctx.rootDiskPath, dest);
+  } catch (err) {
+    throw new SnapshotError(
+      "SNAPSHOT_DUMP_FAILED",
+      `vm.snapshot: failed to copy rootdisk into vmstate bundle: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+      { cause: err },
+    );
+  }
+  const identity = fileIdentity(dest);
+  return {
+    mode: "block",
+    file: VMSTATE_ROOTDISK_FILE,
+    path: ctx.rootDiskPath,
+    sizeBytes: identity.sizeBytes,
+    sha256: identity.sha256,
   };
 }
 

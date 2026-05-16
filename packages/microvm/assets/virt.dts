@@ -221,7 +221,7 @@
 	};
 
 	chosen {
-		bootargs = "earlycon=pl011,mmio32,0x9000000 console=ttyAMA0 panic=1 loglevel=3 quiet";
+		bootargs = "earlycon=pl011,mmio32,0x9000000 console=ttyAMA0 panic=1 loglevel=3 quiet arm64.nopauth";
 		linux,initrd-start = <0x44000000>;
 		// End of the initrd reserved region. The kernel scans the whole
 		// window looking for concatenated cpio archives; leaving this
