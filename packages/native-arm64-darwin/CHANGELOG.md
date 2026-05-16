@@ -1,5 +1,11 @@
 # @machinen/native-arm64-darwin
 
+## 0.3.4
+
+### Patch Changes
+
+- 710ada8: Fix HVF boots on macOS 26 Tahoe by handling trapped wait instructions and system-register accesses, including M4 debug registers that Apple's current SDK does not expose.
+
 ## 0.3.3
 
 ### Patch Changes
