@@ -92,10 +92,13 @@ export type { MachinenErrorOptions } from "./errors.ts";
 export type {
   ForkOptions,
   MemoryStats,
+  SnapshotFileIdentity,
   SnapshotMeta,
   SnapshotOptions,
   SnapshotResult,
   VmHandle,
+  VmstateBackend,
+  VmstateSnapshotMeta,
   WriteFileOptions,
 } from "./vm-handle.ts";
 export type { SnapshotEngine } from "./vm/snapshot-engine.ts";

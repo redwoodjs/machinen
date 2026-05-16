@@ -647,12 +647,12 @@ fn applyRestoreFile(
     cfg: Config,
     devs: *const Devices,
 ) !void {
-    _ = cfg;
     const snapshot = @import("snapshot.zig");
     const vcpu_dump = @import("vcpu_dump.zig");
     const ram_dump = @import("ram_dump.zig");
     const gic_state = @import("gic_state.zig");
     const virtio_dump = @import("virtio_dump.zig");
+    const topology = @import("topology.zig");
     const vmstate_timing = @import("vmstate_timing.zig");
 
     const path_z = try gpa.dupeZ(u8, path);
@@ -685,6 +685,17 @@ fn applyRestoreFile(
     var snap = try snapshot.decode(gpa, decoded.bytes);
     defer snap.deinit();
     timing.mark("container-decode");
+
+    const topo: topology.Topology = .{
+        .ram_base = cfg.ram_base,
+        .ram_size = cfg.ram_size,
+        .gic_dist_base = 0x0800_0000,
+        .gic_redist_base = 0x1000_0000,
+    };
+    if (!std.mem.eql(u8, &topo.hash(), &snap.header.topology_hash)) {
+        return error.TopologyMismatch;
+    }
+    timing.mark("topology-check");
 
     // A resumed normal VM needs interrupts: the vtimer PPI to drive
     // the scheduler, the virtio SPIs to wake blocked drivers (the

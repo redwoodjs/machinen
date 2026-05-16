@@ -720,16 +720,16 @@ run_timeout 60 node "$CLI" boot -- /bin/sh -c \
   'cat /proc/meminfo | grep ^MemTotal' \
   >"$M1_LOG" 2>&1 || true
 M1_MIB=$(mem_total_mib "$M1_LOG")
-# Auto-size policy: min(host_ram/2, 16384) MiB, floor 512. So the
-# guest can land anywhere in [400, 17000] MiB once the kernel takes
+# Auto-size policy: min(host_ram/2, 4096) MiB, floor 512. So the
+# guest can land anywhere in [400, 5000] MiB once the kernel takes
 # its cut. A value below 400 means the patch silently fell back to
-# the DTB's hardcoded 4 GiB or smaller; above 17000 means the cap
-# isn't enforced.
-if (( M1_MIB >= 400 && M1_MIB <= 17000 )); then
+# too small a VM; above 5000 means the default started scaling with
+# large developer machines again.
+if (( M1_MIB >= 400 && M1_MIB <= 5000 )); then
   pass "default MemTotal ${M1_MIB} MiB lands in the auto-size band"
 else
   cat "$M1_LOG" >&2
-  fail "M1 — MemTotal ${M1_MIB} MiB outside the expected auto-size band [400..17000]"
+  fail "M1 — MemTotal ${M1_MIB} MiB outside the expected auto-size band [400..5000]"
 fi
 
 # ---- M2: --memory 1024 — guest sees ~1 GiB ----

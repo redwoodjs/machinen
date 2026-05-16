@@ -82,13 +82,21 @@ export function validatePid(
   if (expected.vmmExe) {
     const expectedBase = basename(expected.vmmExe);
     if (observed.exeBase !== expectedBase) {
-      return "recycled";
+      // Linux pdeathsig execs the target in-place, but a registry read
+      // immediately after spawn can observe the tiny wrapper in the
+      // pre-exec window. Treat that as alive when the start time still
+      // matches; a later read will see the real target basename.
+      if (
+        platform() !== "linux" ||
+        observed.exeBase !== "pdeathsig" ||
+        !startTimesMatch(expected.startedAt, observed.startedAtMs)
+      ) {
+        return "recycled";
+      }
     }
   }
-  if (expected.startedAt !== undefined && observed.startedAtMs !== undefined) {
-    if (Math.abs(observed.startedAtMs - expected.startedAt) > STARTTIME_SKEW_MS) {
-      return "recycled";
-    }
+  if (!startTimesMatch(expected.startedAt, observed.startedAtMs)) {
+    return "recycled";
   }
   return "alive";
 }
@@ -111,6 +119,13 @@ export function readProcessIdentity(pid: number): ProcessIdentity | undefined {
     return readLinuxIdentity(pid);
   }
   return readPsIdentity(pid);
+}
+
+function startTimesMatch(expected: number | undefined, observed: number | undefined): boolean {
+  if (expected === undefined || observed === undefined) {
+    return true;
+  }
+  return Math.abs(observed - expected) <= STARTTIME_SKEW_MS;
 }
 
 function readLinuxIdentity(pid: number): ProcessIdentity | undefined {

@@ -27,7 +27,18 @@ import { claimName, findEntry, writeEntry } from "../registry.ts";
 import { boot, type BootOptions } from "./boot.ts";
 import { resolveRestoreLiveMounts } from "./bundle.ts";
 import { VMSTATE_FILE } from "./snapshot-engine.ts";
-import type { SnapshotMeta, VmHandle } from "../vm-handle.ts";
+import type {
+  SnapshotFileIdentity,
+  SnapshotMeta,
+  VmHandle,
+  VmstateSnapshotMeta,
+} from "../vm-handle.ts";
+import {
+  currentVmstateBackend,
+  fileIdentity,
+  readVmstateFacts,
+  type VmstateFacts,
+} from "./vmstate-metadata.ts";
 import {
   allocateSparseFile,
   buildGuestHostname,
@@ -414,6 +425,186 @@ function autoNameRestoredFork(vm: VmHandle, opts: RestoreOptions, meta: Snapshot
   }
 }
 
+interface VmstateRestorePlan {
+  memoryCeiling?: number;
+  rootDisk?: BootOptions["rootDisk"];
+  rootDiskRestorePath?: string;
+}
+
+function planVmstateRestore(
+  opts: RestoreOptions,
+  meta: SnapshotMeta,
+  snapDir: string,
+  statePath: string,
+): VmstateRestorePlan {
+  const facts = readVmstateFactsOrBootError(statePath);
+  const vmstate = meta.vmstate;
+  if (!vmstate) {
+    throw new BootError(
+      "BOOT_VMSTATE_UNSUPPORTED",
+      "restore: vmstate bundle predates restore invariants.\n" +
+        "  Refusing to boot because old bundles do not record the source VMM,\n" +
+        "  guest PAuth policy, memory topology, or exact rootdisk bytes.\n" +
+        "  Recreate the snapshot with a current machinen build.",
+    );
+  }
+  validateVmstateTopology(vmstate, facts);
+  validateVmstateBackendAndPauth(vmstate, facts);
+  validateVmstateArtifacts(opts, vmstate);
+  return {
+    memoryCeiling: resolveVmstateMemoryCeiling(opts, vmstate),
+    ...resolveVmstateRootDisk(opts, vmstate, snapDir),
+  };
+}
+
+function readVmstateFactsOrBootError(statePath: string): VmstateFacts {
+  try {
+    return readVmstateFacts(statePath);
+  } catch (err) {
+    throw new BootError(
+      "BOOT_SNAPSHOT_NOT_FOUND",
+      `restore: failed to read vmstate header from ${statePath}: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+      { cause: err },
+    );
+  }
+}
+
+function validateVmstateTopology(vmstate: VmstateSnapshotMeta, facts: VmstateFacts): void {
+  if (vmstate.topologyHash && vmstate.topologyHash !== facts.topologyHash) {
+    throw new BootError(
+      "BOOT_VMSTATE_UNSUPPORTED",
+      `restore: vmstate topology metadata does not match state.vmstate.\n` +
+        `  meta:  ${vmstate.topologyHash}\n` +
+        `  state: ${facts.topologyHash}`,
+    );
+  }
+}
+
+function validateVmstateBackendAndPauth(vmstate: VmstateSnapshotMeta, facts: VmstateFacts): void {
+  const source = vmstate.sourceBackend ?? "unknown";
+  const target = currentVmstateBackend();
+  const crossVmm = source !== "unknown" && target !== "unknown" && source !== target;
+  if (!crossVmm) {
+    return;
+  }
+
+  const pauthActive = facts.guestPauthActive ?? vmstate.guestPauth?.active;
+  if (pauthActive !== false) {
+    throw new BootError(
+      "BOOT_VMSTATE_UNSUPPORTED",
+      `restore: unsupported cross-VMM vmstate restore (${source} → ${target}).\n` +
+        `  The snapshot has guest pointer authentication ${
+          pauthActive === true ? "enabled" : "in an unknown state"
+        } (SCTLR_EL1=${facts.sctlrEl1 ?? vmstate.guestPauth?.sctlrEl1 ?? "unknown"}).\n` +
+        "  Recreate the source guest with PAuth disabled (the default machinen\n" +
+        "  DTB includes `arm64.nopauth`) before moving vmstate across HVF/KVM.",
+    );
+  }
+}
+
+function validateVmstateArtifacts(opts: RestoreOptions, vmstate: VmstateSnapshotMeta): void {
+  if (opts.kernel && vmstate.kernel) {
+    validateIdentity("kernel", resolve(opts.cwd ?? process.cwd(), opts.kernel), vmstate.kernel);
+  }
+  if (opts.dtb && vmstate.dtb) {
+    validateIdentity("dtb", resolve(opts.cwd ?? process.cwd(), opts.dtb), vmstate.dtb);
+  }
+}
+
+function resolveVmstateMemoryCeiling(
+  opts: RestoreOptions,
+  vmstate: VmstateSnapshotMeta,
+): number | undefined {
+  const expected = vmstate.memoryCeilingMib;
+  if (expected === undefined) {
+    return undefined;
+  }
+  const envMemory = opts.vmmEnv?.MACHINEN_MEMORY ?? process.env.MACHINEN_MEMORY;
+  const envMib = envMemory !== undefined ? Number(envMemory) : undefined;
+  const requested = opts.memory ?? envMib;
+  if (requested !== undefined && requested !== expected) {
+    throw new BootError(
+      "BOOT_VMSTATE_UNSUPPORTED",
+      `restore: vmstate guest RAM layout mismatch.\n` +
+        `  snapshot ceiling: ${expected} MiB\n` +
+        `  restore ceiling:  ${requested} MiB\n` +
+        "  This is the VM's address layout, not current host memory use.\n" +
+        "  Whole-VM restore requires the same RAM topology.",
+    );
+  }
+  return opts.memory === undefined && envMib === undefined ? expected : undefined;
+}
+
+function resolveVmstateRootDisk(
+  opts: RestoreOptions,
+  vmstate: VmstateSnapshotMeta,
+  snapDir: string,
+): Pick<VmstateRestorePlan, "rootDisk" | "rootDiskRestorePath"> {
+  const recorded = vmstate.rootDisk;
+  if (!recorded) {
+    if (opts.rootDisk !== undefined) {
+      return { rootDisk: opts.rootDisk };
+    }
+    throw new BootError(
+      "BOOT_VMSTATE_UNSUPPORTED",
+      "restore: vmstate bundle has no rootdisk invariant.\n" +
+        "  A whole-VM snapshot resumes with file-backed VMAs and block-device\n" +
+        "  queues that depend on the exact /dev/vda bytes. Recreate the\n" +
+        "  snapshot so the bundle includes rootdisk.img, or pass an explicit\n" +
+        "  restore({ rootDisk: <exact-image> }) to opt into caller-managed bytes.",
+    );
+  }
+  if (recorded.mode === "none") {
+    if (typeof opts.rootDisk === "string") {
+      throw new BootError(
+        "BOOT_VMSTATE_UNSUPPORTED",
+        "restore: snapshot was taken without a root block device, but restore passed rootDisk.",
+      );
+    }
+    return { rootDisk: false };
+  }
+
+  if (opts.rootDisk === false) {
+    throw new BootError(
+      "BOOT_VMSTATE_UNSUPPORTED",
+      "restore: snapshot requires an exact root block device, but restore passed rootDisk:false.",
+    );
+  }
+  if (typeof opts.rootDisk === "string") {
+    const explicit = resolve(opts.cwd ?? process.cwd(), opts.rootDisk);
+    validateIdentity("rootdisk", explicit, recorded);
+    return { rootDisk: explicit };
+  }
+
+  const bundled = join(snapDir, recorded.file);
+  if (!existsSync(bundled)) {
+    throw new BootError(
+      "BOOT_SNAPSHOT_NOT_FOUND",
+      `restore: vmstate bundle is missing rootdisk image: ${bundled}`,
+    );
+  }
+  validateIdentity("rootdisk", bundled, recorded);
+  return { rootDiskRestorePath: bundled };
+}
+
+function validateIdentity(label: string, path: string, expected: SnapshotFileIdentity): void {
+  if (!existsSync(path)) {
+    throw new BootError("BOOT_SNAPSHOT_NOT_FOUND", `restore: ${label} not found: ${path}`);
+  }
+  const actual = fileIdentity(path);
+  if (actual.sizeBytes !== expected.sizeBytes || actual.sha256 !== expected.sha256) {
+    throw new BootError(
+      "BOOT_VMSTATE_UNSUPPORTED",
+      `restore: ${label} identity mismatch.\n` +
+        `  expected: size=${expected.sizeBytes} sha256=${expected.sha256}\n` +
+        `  actual:   size=${actual.sizeBytes} sha256=${actual.sha256}\n` +
+        "  vmstate restore requires byte-identical artifacts.",
+    );
+  }
+}
+
 /**
  * Restore a vmstate (whole-VM) bundle: `<snapDir>/state.vmstate` plus
  * `meta.json`. Unlike the CRIU path there's no scratch tar and no
@@ -422,10 +613,11 @@ function autoNameRestoredFork(vm: VmHandle, opts: RestoreOptions, meta: Snapshot
  * loads vCPU + RAM + GIC + virtio device state before the first vCPU
  * run, so the guest resumes mid-execution.
  *
- * The rootfs image and any `--mount` overlay are re-attached exactly
- * like the CRIU path — the vmstate captures VM state, not disks, so a
- * fresh /dev/vda is materialized from the same image (the disk-write
- * caveat is identical to CRIU's).
+ * The rootfs tarball is still used to build the tiny initramfs around
+ * the restored guest, but `/dev/vda` comes from the bundle's exact
+ * `rootdisk.img` (or from an explicit caller-managed `rootDisk`). A
+ * vmstate captures RAM/device/vCPU state, not block-device bytes, so
+ * rematerializing a tarball into a fresh ext4 image is not safe.
  */
 async function restoreVmstate(opts: RestoreOptions, snapDir: string): Promise<VmHandle> {
   const statePath = join(snapDir, VMSTATE_FILE);
@@ -443,6 +635,7 @@ async function restoreVmstate(opts: RestoreOptions, snapDir: string): Promise<Vm
   }
 
   const resolvedImage = resolveRestoreImage(opts, meta);
+  const vmstatePlan = planVmstateRestore(opts, meta, snapDir, statePath);
   const effectiveLiveMounts = resolveRestoreLiveMounts(meta.liveMounts, opts.liveMounts);
 
   // Re-attach a `--mount` overlay recorded in the bundle (same shape
@@ -468,8 +661,11 @@ async function restoreVmstate(opts: RestoreOptions, snapDir: string): Promise<Vm
     forkedFrom: snapDir,
     name: opts.name,
     liveMounts: effectiveLiveMounts,
+    memory: vmstatePlan.memoryCeiling ?? opts.memory,
+    rootDisk: vmstatePlan.rootDisk ?? opts.rootDisk,
     _restoreMountDisk: restoreMountDisk,
     _vmstateRestorePath: statePath,
+    _rootDiskRestorePath: vmstatePlan.rootDiskRestorePath,
   });
 
   autoNameRestoredFork(vm, opts, meta);

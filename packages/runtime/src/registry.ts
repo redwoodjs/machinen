@@ -49,6 +49,14 @@ export interface RegistryEntry {
   /** Path to the image the VM was booted from (diagnostic only). */
   imagePath?: string;
   /**
+   * Host-side path of the root block device currently attached as
+   * `/dev/vda`. Vmstate snapshots need the exact bytes because the
+   * whole-VM state captures RAM/device/vCPU state, not disk blocks.
+   */
+  rootDiskPath?: string;
+  /** Whether the VM intentionally booted without a root block device. */
+  rootDiskMode?: "block" | "none";
+  /**
    * Host-side path of the scratch disk attached to the guest. Used by
    * `attach().snapshot()` so an attach-owned handle can find the
    * guest-side scratch disk that backs the in-VM dump.

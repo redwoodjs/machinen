@@ -327,6 +327,37 @@ export interface SnapshotResult {
  * On-disk shape of the bundle's `meta.json`. Read by `restore()`
  * to reconstruct the source VM's name when registering the fork.
  */
+export type VmstateBackend = "hvf" | "kvm" | "unknown";
+
+export interface SnapshotFileIdentity {
+  /** Absolute source path when known on the snapshotting host. */
+  path?: string;
+  /** Logical file size in bytes. */
+  sizeBytes: number;
+  /** SHA-256 over the logical file bytes. */
+  sha256: string;
+}
+
+export interface VmstateSnapshotMeta {
+  /** VMM backend that wrote `state.vmstate`. */
+  sourceBackend?: VmstateBackend;
+  /** Topology hash from the .vmstate header (guest IPA/GIC/RAM layout). */
+  topologyHash?: string;
+  /** Guest RAM ceiling/layout the source VM booted with; not current host memory use. */
+  memoryCeilingMib?: number;
+  /** Pointer-auth state inferred from SCTLR_EL1 at snapshot time. */
+  guestPauth?: {
+    active?: boolean;
+    sctlrEl1?: string;
+  };
+  /** Exact root block image needed by the resumed guest, or explicit absence. */
+  rootDisk?: ({ mode: "block"; file: string } & SnapshotFileIdentity) | { mode: "none" };
+  /** Kernel image identity when the source boot used an explicit kernel. */
+  kernel?: SnapshotFileIdentity;
+  /** DTB identity when the source boot used an explicit DTB. */
+  dtb?: SnapshotFileIdentity;
+}
+
 export interface SnapshotMeta {
   /**
    * Which backend wrote this bundle — `"criu"` (process-tree images
@@ -349,6 +380,8 @@ export interface SnapshotMeta {
   sourceImage?: string;
   /** ms epoch when `vm.snapshot()` returned. */
   snappedAt: number;
+  /** Whole-VM `.vmstate` restore invariants. Present on new vmstate bundles. */
+  vmstate?: VmstateSnapshotMeta;
   /**
    * #272: when the source VM was booted with `mount: { host, guest }`,
    * the snapshot bundle includes both halves of the overlay so a

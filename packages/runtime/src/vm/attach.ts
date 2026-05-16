@@ -190,6 +190,9 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
       pid: entry.pid,
       sourceName: entry.name,
       sourceImage: entry.imagePath,
+      rootDiskPath: entry.rootDiskPath,
+      rootDiskMode: entry.rootDiskMode,
+      memoryCeilingMib: entry.memoryCeilingMib,
       diskPath: entry.diskPath!,
       // #272: re-hydrate mount-overlay paths from the registry so
       // attach-owned snapshots reflink the lower+upper into the

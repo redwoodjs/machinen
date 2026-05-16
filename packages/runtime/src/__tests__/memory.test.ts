@@ -9,21 +9,22 @@ import { _internal, autoSizeMemoryMib, BootError } from "../index.ts";
 const { validateMemoryMib } = _internal;
 
 describe("autoSizeMemoryMib", () => {
-  it("halves host memory for typical desktops", () => {
-    // 32 GiB host -> 16 GiB ceiling (also pinned at the cap).
-    expect(autoSizeMemoryMib(32 * 1024 * 1024 * 1024)).toBe(16384);
-    // 16 GiB host -> 8 GiB.
-    expect(autoSizeMemoryMib(16 * 1024 * 1024 * 1024)).toBe(8192);
-    // 8 GiB host -> 4 GiB (matches the legacy hardcoded value).
+  it("uses a modest 4 GiB ceiling for normal desktops", () => {
+    // This is a guest RAM ceiling, not current host memory use. Do not
+    // scale it up just because the developer has a large machine.
+    expect(autoSizeMemoryMib(32 * 1024 * 1024 * 1024)).toBe(4096);
+    expect(autoSizeMemoryMib(16 * 1024 * 1024 * 1024)).toBe(4096);
     expect(autoSizeMemoryMib(8 * 1024 * 1024 * 1024)).toBe(4096);
   });
 
-  it("caps at 16 GiB even on huge hosts", () => {
-    // A 256 GiB workstation shouldn't hand out a 128 GiB ceiling —
-    // the cap protects the snapshot/fork story until phase B's
-    // balloon lets memory actually shrink again.
-    expect(autoSizeMemoryMib(256 * 1024 * 1024 * 1024)).toBe(16384);
-    expect(autoSizeMemoryMib(1024 * 1024 * 1024 * 1024)).toBe(16384);
+  it("uses half the host on smaller machines", () => {
+    expect(autoSizeMemoryMib(6 * 1024 * 1024 * 1024)).toBe(3072);
+    expect(autoSizeMemoryMib(4 * 1024 * 1024 * 1024)).toBe(2048);
+  });
+
+  it("stays capped at 4 GiB even on huge hosts", () => {
+    expect(autoSizeMemoryMib(256 * 1024 * 1024 * 1024)).toBe(4096);
+    expect(autoSizeMemoryMib(1024 * 1024 * 1024 * 1024)).toBe(4096);
   });
 
   it("respects the 512 MiB floor on tiny hosts", () => {
