@@ -48,6 +48,7 @@ pub const pl011_dump = @import("pl011_dump.zig"); // PL011 UART snapshot
 pub const gic_dump = @import("gic_dump.zig"); // GICv3 distributor/redistributor codec
 pub const gic_state = @import("gic_state.zig"); // GICv3 register dump/load (KVM + HVF)
 pub const virtio_dump = @import("virtio_dump.zig"); // virtio device codec (blk/net/vsock/balloon)
+pub const nested_poweroff = @import("nested_poweroff.zig"); // nested-guest serial shutdown marker
 
 pub const Backend = enum { hvf, kvm, none };
 
@@ -119,6 +120,7 @@ test {
     _ = @import("vmstate_writer.zig");
     _ = @import("vmstate_timing.zig");
     _ = @import("topology.zig");
+    _ = @import("nested_poweroff.zig");
     _ = @import("sysreg_classify.zig");
     _ = @import("vcpu_dump.zig");
     _ = @import("ram_dump.zig");

@@ -171,6 +171,10 @@
 	intc@8000000 {
 		phandle = <0x8002>;
 		reg = <0x00 0x8000000 0x00 0x10000 0x00 0x10000000 0x00 0x2000000>;
+		// VGIC maintenance PPI (INTID 25 / PPI 9). Needed when EL2 is
+		// exposed to the guest so its in-guest KVM can receive virtual
+		// interrupt maintenance events.
+		interrupts = <0x01 0x09 0x04>;
 		#redistributor-regions = <0x01>;
 		compatible = "arm,gic-v3";
 		ranges;
@@ -221,7 +225,7 @@
 	};
 
 	chosen {
-		bootargs = "earlycon=pl011,mmio32,0x9000000 console=ttyAMA0 panic=1 loglevel=3 quiet arm64.nopauth";
+		bootargs = "earlycon=pl011,mmio32,0x9000000 console=ttyAMA0 panic=1 loglevel=3 quiet arm64.nopauth arm64.nosve arm64.nosme";
 		linux,initrd-start = <0x44000000>;
 		// End of the initrd reserved region. The kernel scans the whole
 		// window looking for concatenated cpio archives; leaving this

@@ -167,7 +167,7 @@ function isLikelyInteractivePrompt(text: string): boolean {
   return /^[^\s@]+@[^\s:]+:[^\n\r]*[#$] ?$/.test(stripAnsiControl(text));
 }
 
-export interface NoiseFilterOpts {
+interface NoiseFilterOpts {
   /** Sink for boot-noise lines. */
   buffer: RingBuffer;
   /** Stream to write pass-through (workload) lines to. */
@@ -313,7 +313,7 @@ export function formatElapsed(ms: number): string {
 
 const ESCAPE_HINT = "run with DEBUG=machinen:* for live output\n";
 
-export interface DiagnosticsOpts {
+interface DiagnosticsOpts {
   /** Suppressed boot/restore output. Skip when there's nothing to dump. */
   buffer?: RingBuffer | string;
   /**

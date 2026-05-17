@@ -21,8 +21,14 @@ import { createServer, type Server } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { BootError, ExecError, buildMachinenConfig, measureFirstByte, boot } from "../index.ts";
+import { BootError, ExecError, boot, buildMachinenConfig, measureFirstByte } from "../index.ts";
+import {
+  applyNestedVirtualizationEnv,
+  preflightNestedVirtualization,
+  probeNestedVirtualization,
+} from "../nested-virt.ts";
 import { ensurePdeathsig } from "../pdeathsig.ts";
+import { performSnapshot } from "../vm/snapshot.ts";
 import { buildGuestHostname } from "../vm/helpers.ts";
 
 const microvmRoot = resolve(import.meta.dirname, "../../../microvm");
@@ -228,6 +234,80 @@ describe("boot", () => {
     // parsing applies the level filter.
     expect(stderr).toContain("Linux version");
   }, 30_000);
+});
+
+describe("nested virtualization option", () => {
+  type ProbeHost = NonNullable<Parameters<typeof probeNestedVirtualization>[0]>;
+  const fakeHost = (overrides: Partial<ProbeHost>): ProbeHost => ({
+    platform: "linux" as NodeJS.Platform,
+    arch: "arm64" as NodeJS.Architecture,
+    existsSync: (path: string) => path === "/dev/kvm",
+    readText: () => "Y\n",
+    execFileSync: () => "",
+    ...overrides,
+  });
+
+  it("sets MACHINEN_NESTED=1 when requested", () => {
+    const env: Record<string, string> = { MACHINEN_NESTED: "0" };
+    applyNestedVirtualizationEnv(true, env);
+    expect(env.MACHINEN_NESTED).toBe("1");
+  });
+
+  it("leaves MACHINEN_NESTED alone when not requested", () => {
+    const env: Record<string, string> = {};
+    applyNestedVirtualizationEnv(undefined, env);
+    expect(env.MACHINEN_NESTED).toBeUndefined();
+  });
+
+  it("accepts Linux arm64 when /dev/kvm exists", () => {
+    expect(probeNestedVirtualization(fakeHost({})).supported).toBe(true);
+  });
+
+  it("rejects Linux hosts without /dev/kvm", () => {
+    const result = probeNestedVirtualization(fakeHost({ existsSync: () => false }));
+    expect(result.supported).toBe(false);
+    expect(result.reason).toContain("/dev/kvm");
+  });
+
+  it("rejects disabled Linux nested toggles when present", () => {
+    const result = probeNestedVirtualization(
+      fakeHost({
+        existsSync: (path) => path === "/dev/kvm" || path === "/sys/module/kvm/parameters/nested",
+        readText: () => "N\n",
+      }),
+    );
+    expect(result.supported).toBe(false);
+    expect(result.reason).toContain("nested");
+  });
+
+  it("rejects macOS M1/M2 even when Hypervisor.framework is present", () => {
+    const result = probeNestedVirtualization(
+      fakeHost({
+        platform: "darwin",
+        existsSync: () => false,
+        execFileSync: (_file, args) => {
+          if (args.includes("kern.hv_support")) {
+            return "1\n";
+          }
+          if (args.includes("machdep.cpu.brand_string")) {
+            return "Apple M2 Max\n";
+          }
+          if (args.includes("-productVersion")) {
+            return "15.0\n";
+          }
+          return "";
+        },
+      }),
+    );
+    expect(result.supported).toBe(false);
+    expect(result.reason).toContain("M2");
+  });
+
+  it("throws BOOT_NESTED_VIRT_UNSUPPORTED on failed preflight", () => {
+    expect(() =>
+      preflightNestedVirtualization(fakeHost({ arch: "x64" as NodeJS.Architecture })),
+    ).toThrow(/BOOT_NESTED_VIRT_UNSUPPORTED|nested virtualization/);
+  });
 });
 
 describe("snapshot option", () => {
@@ -788,6 +868,24 @@ describe("liveMounts option", () => {
 });
 
 describe("vm.snapshot", () => {
+  it("refuses provider-level snapshots of nested-enabled VMs", async () => {
+    await expect(
+      performSnapshot(
+        {
+          pid: process.pid,
+          diskPath: "/tmp/unused-disk.img",
+          nested: true,
+          execRaw: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
+          wait: async () => ({ code: 0, signal: null }),
+          kill: async () => {},
+          teeGuestConsole: undefined,
+          errorOutput: async () => "",
+        },
+        { outDir: "/tmp/unused-nested-snap" },
+      ),
+    ).rejects.toMatchObject({ code: "BOOT_VMSTATE_UNSUPPORTED" });
+  });
+
   it("throws when the VM was spawned with snapshot: false", async () => {
     const vm = await boot({ binary: "/usr/bin/yes", snapshot: false, timeoutMs: 5_000 });
     try {

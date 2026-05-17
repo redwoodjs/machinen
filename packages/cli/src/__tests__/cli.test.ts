@@ -219,6 +219,26 @@ describe("parseRunArgs --snapshot", () => {
   });
 });
 
+describe("parseRunArgs --nested", () => {
+  it("captures --nested as a boolean", () => {
+    const parsed = parseRunArgs(["--nested", "--", "/bin/true"]);
+    expect(parsed.nested).toBe(true);
+  });
+
+  it("leaves nested unset when the flag is absent", () => {
+    const parsed = parseRunArgs(["./bundle"]);
+    expect(parsed.nested).toBeUndefined();
+  });
+
+  it("rejects duplicate --nested", () => {
+    expect(() => parseRunArgs(["--nested", "--nested"])).toThrow(/at most once/);
+  });
+
+  it("rejects --nested=<value>", () => {
+    expect(() => parseRunArgs(["--nested=1"])).toThrow(/does not take a value/);
+  });
+});
+
 describe("parseRunArgs --name", () => {
   it("captures the name", () => {
     const parsed = parseRunArgs(["--name", "worker", "--", "/bin/true"]);

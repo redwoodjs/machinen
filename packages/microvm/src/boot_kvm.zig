@@ -45,6 +45,7 @@ const dtb_patch = @import("dtb_patch.zig");
 const balloon_mod = @import("balloon.zig");
 const stats_mod = @import("stats.zig");
 const vmstate_writer = @import("vmstate_writer.zig");
+const nested_poweroff = @import("nested_poweroff.zig");
 
 // Guest-physical bases. Same MMIO layout as HVF (see boot_hvf.zig
 // for the slot layout doc) so the shared `virt.dts` works for both
@@ -107,6 +108,7 @@ pub const Error = error{
     DtbTooLarge,
     GuestCrashed,
     RanTooLong,
+    NestedVirtUnsupported,
 } || kvm.KvmError;
 
 pub const Config = struct {
@@ -154,6 +156,9 @@ pub const Config = struct {
     /// the guest resumes.
     restore_path: ?[]const u8 = null,
     snapshot_path: ?[]const u8 = null,
+    /// Expose EL2 to the guest so it can run its own KVM VMs.
+    /// Requires host KVM_CAP_ARM_EL2 and KVM_ARM_VCPU_HAS_EL2.
+    nested: bool = false,
 };
 
 pub const Result = struct {
@@ -209,6 +214,11 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // --- KVM bring-up --------------------------------------------
     var k = try kvm.Kvm.open_();
     defer k.close_();
+
+    if (cfg.nested and !k.armEl2Supported()) {
+        std.debug.print("kvm boot: nested virtualization requested but KVM_CAP_ARM_EL2 is unavailable\n", .{});
+        return error.NestedVirtUnsupported;
+    }
 
     var vm = try k.createVm();
     defer vm.destroy();
@@ -374,6 +384,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         virtiofs_dev_ptrs[i] = if (virtiofs_devs[i]) |_| &virtiofs_devs[i].? else null;
     }
 
+    var nested_poweroff_detector: nested_poweroff.Detector = .{};
     const devs = Devices{
         .uart = &uart,
         .netdev = &netdev,
@@ -386,6 +397,8 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         .vsock_dev = vsock_dev_ptr_run,
         .vsock_bridge = vsock_bridge_opt,
         .balloon_dev = balloon_dev_ptr,
+        .nested = cfg.nested,
+        .nested_poweroff = &nested_poweroff_detector,
         .virtiofs_devs = virtiofs_dev_ptrs,
     };
     // If asked to restore, apply vCPU + RAM from .vmstate before the
@@ -498,6 +511,26 @@ fn allocateAndPopulateRam(
     return ram;
 }
 
+const PSTATE_DAIF_MASKED: u64 = 0x3c0;
+const PSTATE_EL2H: u64 = 0x9;
+const HCR_EL2_RW: u64 = @as(u64, 1) << 31;
+const CNTHCTL_EL2_EL1PCTEN: u64 = @as(u64, 1) << 0;
+const CNTHCTL_EL2_EL1PCEN: u64 = @as(u64, 1) << 1;
+const SYS_HCR_EL2: u16 = 0xe088;
+const SYS_CNTHCTL_EL2: u16 = 0xe708;
+const SYS_CNTVOFF_EL2: u16 = 0xe703;
+
+fn initNestedEl2State(vcpu: *kvm.Vcpu) !void {
+    // Linux should enter at EL2 when we expose nested virtualization.
+    // Give it the standard arm64 boot state: EL2h with interrupts
+    // masked, AArch64 EL1 selected, and EL1 access to the physical
+    // counter/timer enabled. KVM owns the rest of the EL2 reset state.
+    try vcpu.setReg(kvm.REG_PSTATE, PSTATE_DAIF_MASKED | PSTATE_EL2H);
+    try vcpu.setReg(kvmSysregId(SYS_HCR_EL2), HCR_EL2_RW);
+    try vcpu.setReg(kvmSysregId(SYS_CNTHCTL_EL2), CNTHCTL_EL2_EL1PCTEN | CNTHCTL_EL2_EL1PCEN);
+    try vcpu.setReg(kvmSysregId(SYS_CNTVOFF_EL2), 0);
+}
+
 /// Bring up the vCPU: enable PSCI 0.2 in the init features (so KVM
 /// handles HVC #0 in-kernel and surfaces SYSTEM_OFF as
 /// KVM_EXIT_SYSTEM_EVENT), then point X0 at the DTB and PC at the
@@ -509,6 +542,9 @@ fn initVcpu(vm: *kvm.Vm, img: KernelImage, cfg: Config) !kvm.Vcpu {
 
     var init = try vm.preferredTarget();
     init.features[0] |= (@as(u32, 1) << @as(u5, @intCast(kvm.KVM_ARM_VCPU_PSCI_0_2)));
+    if (cfg.nested) {
+        init.features[0] |= (@as(u32, 1) << @as(u5, @intCast(kvm.KVM_ARM_VCPU_HAS_EL2)));
+    }
     // Pointer-auth is enabled on the KVM vCPU ONLY when this boot is a
     // restore. The reasoning is asymmetric:
     //
@@ -539,10 +575,26 @@ fn initVcpu(vm: *kvm.Vm, img: KernelImage, cfg: Config) !kvm.Vcpu {
         init_pac.features[0] |= (@as(u32, 1) << @as(u5, @intCast(kvm.KVM_ARM_VCPU_PTRAUTH_GENERIC)));
         vcpu.init(init_pac) catch {
             std.debug.print("kvm boot: pointer-auth unavailable; init without it\n", .{});
-            try vcpu.init(init);
+            vcpu.init(init) catch |err| {
+                if (cfg.nested) {
+                    std.debug.print("kvm boot: nested virtualization requested but VCPU_HAS_EL2 init failed: {s}\n", .{@errorName(err)});
+                    return error.NestedVirtUnsupported;
+                }
+                return err;
+            };
         };
     } else {
-        try vcpu.init(init);
+        vcpu.init(init) catch |err| {
+            if (cfg.nested) {
+                std.debug.print("kvm boot: nested virtualization requested but VCPU_HAS_EL2 init failed: {s}\n", .{@errorName(err)});
+                return error.NestedVirtUnsupported;
+            }
+            return err;
+        };
+    }
+
+    if (cfg.nested) {
+        try initNestedEl2State(&vcpu);
     }
 
     const dtb_phys = cfg.ram_base + cfg.dtb_offset;
@@ -904,6 +956,10 @@ fn runLoop(
                 std.debug.print("kvm: unhandled exit reason {d}\n", .{@intFromEnum(reason)});
                 return error.GuestCrashed;
             },
+        }
+        if (devs.nested_poweroff.seen) {
+            saw_off = true;
+            break;
         }
         if (!cfg.unbounded_serial and devs.uart.captured_len >= cfg.capture_bytes) break;
         // Snapshot trigger: SIGUSR1 set the flag. Capture whole-VM
@@ -1336,6 +1392,8 @@ const Devices = struct {
     vsock_dev: ?*virtio.Device,
     vsock_bridge: ?*vsock_mod.Bridge,
     balloon_dev: ?*virtio.Device,
+    nested: bool,
+    nested_poweroff: *nested_poweroff.Detector,
 
     /// One entry per virtio-fs slot (7..10); null when that slot's
     /// `--mount-live` wasn't requested.
@@ -1394,6 +1452,8 @@ fn handlePl011Mmio(
     uart: *pl011_mod.Pl011,
     ev: kvm.MmioExit,
     irq: u32,
+    nested: bool,
+    poweroff: *nested_poweroff.Detector,
 ) !void {
     assert(uart.handles(ev.phys_addr));
     if (ev.is_write != 0) {
@@ -1402,6 +1462,7 @@ fn handlePl011Mmio(
         if ((ev.phys_addr - uart.base) == 0 and ev.len > 0) {
             const byte: [1]u8 = .{ev.data[0]};
             _ = hostWrite(2, &byte, 1);
+            if (nested) poweroff.observe(byte[0]);
         }
     } else {
         vcpu.writeMmioReadData(uart.read(ev.phys_addr), ev.len);
@@ -1445,7 +1506,7 @@ fn routeMmio(
     assert(ev.is_write <= 1);
 
     if (devs.uart.handles(ev.phys_addr)) {
-        try handlePl011Mmio(vm, vcpu, devs.uart, ev, irqs.pl011);
+        try handlePl011Mmio(vm, vcpu, devs.uart, ev, irqs.pl011, devs.nested, devs.nested_poweroff);
         return;
     }
     if (devs.netdev.handles(ev.phys_addr)) {

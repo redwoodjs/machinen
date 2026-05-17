@@ -116,6 +116,13 @@ export interface SnapshotContext {
   };
   /** Persist the next parent pointer after a successful vmstate checkpoint. */
   updateVmstateChain?: (next: { parentDir: string; sequence: number }) => void;
+  /**
+   * True when the source VM exposed EL2 to its guest. Provider-level
+   * snapshots of this L1 are refused until nested KVM/HVF state capture
+   * is audited, so we never write a bundle that looks valid but cannot
+   * safely restore.
+   */
+  nested?: boolean;
   execRaw: (cmd: string, opts?: VsockExecOptions) => Promise<VsockExecResult>;
   wait: () => Promise<{ code: number | null; signal: NodeJS.Signals | null }>;
   kill: () => Promise<void>;
@@ -167,6 +174,14 @@ export async function performSnapshot(
   ctx: SnapshotContext,
   opts: SnapshotOptions,
 ): Promise<SnapshotResult> {
+  if (ctx.nested) {
+    throw new SnapshotError(
+      "BOOT_VMSTATE_UNSUPPORTED",
+      "vm.snapshot: provider-level snapshots of nested-enabled VMs are not supported yet.\n" +
+        "  The guest may be using EL2 / /dev/kvm state that machinen does not yet capture safely.\n" +
+        "  Snapshot/fork VMs created inside this guest from the nested machinen runtime instead.",
+    );
+  }
   if (resolveSnapshotEngine() === "vmstate") {
     return performSnapshotVmstate(ctx, opts);
   }
@@ -648,12 +663,20 @@ async function performSnapshotVmstate(
   }
 
   // Best-effort guest sync so a `--mount` overlay reflinked below
-  // reflects the guest's recent writes (mirrors the CRIU path).
+  // reflects the guest's recent writes (mirrors the CRIU path). Drop
+  // clean page cache before incremental vmstate capture: virtio-blk
+  // DMA fills cache pages without tripping the CPU-write dirty tracker,
+  // so keeping those clean pages in RAM can make a later RAM delta
+  // restore stale cache over an otherwise-correct rootdisk delta.
   try {
-    await ctx.execRaw("sync; sync /mnt 2>/dev/null; true", {
-      connectTimeoutMs: Math.min(deadlineMs, 5_000),
-      execTimeoutMs: 10_000,
-    });
+    await ctx.execRaw(
+      "sync; sync /mnt 2>/dev/null; " +
+        "if [ -w /proc/sys/vm/drop_caches ]; then echo 3 > /proc/sys/vm/drop_caches; fi; true",
+      {
+        connectTimeoutMs: Math.min(deadlineMs, 5_000),
+        execTimeoutMs: 10_000,
+      },
+    );
   } catch (err) {
     debugVmstate(
       "pre-snapshot sync failed (continuing): %s",

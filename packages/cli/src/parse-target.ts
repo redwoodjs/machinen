@@ -11,7 +11,7 @@ import { ParseError } from "@machinen/runtime";
 
 export type Target = { name: string } | { pid: number };
 
-export interface ExtractedTarget {
+interface ExtractedTarget {
   target: Target;
   /** Args we didn't consume — extra positionals or flags the caller handles. */
   rest: string[];

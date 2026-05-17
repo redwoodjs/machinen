@@ -55,7 +55,7 @@ const VMA_LAZY_INELIGIBLE = VMA_AREA_VSYSCALL | VMA_AREA_VDSO | VMA_AREA_VVAR;
 const PAGEMAP_RE = /^pagemap-(\d+)\.img$/;
 const MM_RE = /^mm-(\d+)\.img$/;
 
-export interface MarkPagemapsLazyResult {
+interface MarkPagemapsLazyResult {
   /** Number of pagemap-*.img files modified on disk. */
   filesRewritten: number;
   /** Number of PE_PRESENT entries that gained PE_LAZY. */

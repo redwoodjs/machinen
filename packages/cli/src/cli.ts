@@ -377,6 +377,7 @@ async function cmdBoot(args: string[]): Promise<number> {
     env,
     portForward,
     snapshot,
+    nested,
     name,
     guestCwd,
     detached,
@@ -392,7 +393,7 @@ async function cmdBoot(args: string[]): Promise<number> {
       "usage: machinen boot [<image>] [--snapshot <path>] [--name <name>] " +
         "[--cwd <abs-path>] " +
         "[--mount ...] [--mount-live ...] [--env KEY=VALUE]... [--detached] " +
-        "[--memory <mib>] [-- <cmd> [args...]]",
+        "[--nested] [--memory <mib>] [-- <cmd> [args...]]",
     );
   }
   const imageOverride = positional[0];
@@ -501,6 +502,7 @@ async function cmdBoot(args: string[]): Promise<number> {
       liveMounts,
       portForward,
       snapshot,
+      nested,
       name,
       guestCwd,
       detached,
@@ -1986,6 +1988,8 @@ function printHelp(): void {
       `    --env KEY=VALUE                              Set an env var inside the guest.\n` +
       `    --cwd <abs-path>                             Start the guest cmd in this directory\n` +
       `                                                 (must be absolute).\n` +
+      `    --nested                                     Expose arm64 EL2 / /dev/kvm to the guest\n` +
+      `                                                 when the host supports it.\n` +
       `    -p <hostPort>:<guestPort>                    Forward host:hostPort → guest:guestPort.\n` +
       `\n` +
       `  machinen restore <snap-dir> [--image <tar.gz>] [--name <name>] [-p ...]\n` +

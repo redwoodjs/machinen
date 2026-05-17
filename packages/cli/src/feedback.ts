@@ -12,7 +12,7 @@ export function feedbackPath(): string {
   return process.env.MACHINEN_FEEDBACK_PATH ?? DEFAULT_PATH;
 }
 
-export interface FeedbackEntry {
+interface FeedbackEntry {
   timestamp: string;
   cli_version: string;
   text: string;
@@ -42,7 +42,7 @@ export function readFeedback(path: string = feedbackPath()): FeedbackEntry[] {
   return entries;
 }
 
-export interface UpstreamPostResult {
+interface UpstreamPostResult {
   attempted: boolean;
   status: number | null;
   error: string | null;

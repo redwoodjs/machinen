@@ -6,7 +6,7 @@ import { ParseError } from "@machinen/runtime";
 
 import { consumeLiveMount, consumePortForward } from "./parse-run-args.ts";
 
-export interface ParsedRestoreArgs {
+interface ParsedRestoreArgs {
   /**
    * Positional args (the snapshot bundle directory). The CLI enforces
    * exactly one — kept as an array here to match the parseRunArgs

@@ -1647,21 +1647,22 @@ else
   fail "P1 — criu --version did not print a Version: line"
 fi
 
-# ---- P2: virtio_blk + vsock visible to userspace at boot ----
+# ---- P2: virtio_blk + vsock + in-guest KVM config visible at boot ----
 # Drivers are now compiled into the kernel (#119), so /proc/modules is
 # empty. Instead, prove they're live: /sys/class/block/vda exists once
 # virtio_blk has bound, and /proc/net/protocols lists AF_VSOCK once
-# vsock + virtio_vsock are linked in.
-echo "P2: machinen boot -- /sys/class/block/vda + AF_VSOCK in /proc/net/protocols"
+# vsock + virtio_vsock are linked in. Also assert CONFIG_KVM=y so a
+# nested-enabled L1 can expose /dev/kvm without loading modules (#271).
+echo "P2: machinen boot -- virtio_blk + AF_VSOCK + CONFIG_KVM"
 P2_LOG="$FIXTURE/p2.log"
 run_timeout 60 node "$CLI" boot -- /bin/sh -c \
-  'ls -d /sys/class/block/vda 2>/dev/null && grep -E "^AF_VSOCK " /proc/net/protocols' \
+  'ls -d /sys/class/block/vda 2>/dev/null && grep -E "^AF_VSOCK " /proc/net/protocols && gzip -dc /proc/config.gz | grep -E "^CONFIG_KVM=y"' \
   >"$P2_LOG" 2>&1 || true
-if grep -q "/sys/class/block/vda" "$P2_LOG" && grep -qE "^AF_VSOCK " "$P2_LOG"; then
-  pass "kernel has virtio_blk + vsock built in (/dev/vda + AF_VSOCK live)"
+if grep -q "/sys/class/block/vda" "$P2_LOG" && grep -qE "^AF_VSOCK " "$P2_LOG" && grep -q "^CONFIG_KVM=y" "$P2_LOG"; then
+  pass "kernel has virtio_blk + vsock + KVM built in (/dev/vda, AF_VSOCK, CONFIG_KVM=y)"
 else
   tail -50 "$P2_LOG" >&2
-  fail "P2 — expected /sys/class/block/vda and AF_VSOCK in /proc/net/protocols"
+  fail "P2 — expected /sys/class/block/vda, AF_VSOCK, and CONFIG_KVM=y"
 fi
 
 # ---- P3: machinen-poweroff triggers PSCI SYSTEM_OFF, VMM exits cleanly ----

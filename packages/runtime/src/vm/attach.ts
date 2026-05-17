@@ -220,6 +220,7 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
             writeEntry(entry);
           }
         : undefined,
+      nested: entry.nested,
       execRaw: (cmd, execOpts) => handle.execRaw(cmd, execOpts),
       wait: () => handle.wait(),
       kill: () => handle.kill(),

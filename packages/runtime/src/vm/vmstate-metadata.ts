@@ -1,20 +1,13 @@
 import { createHash } from "node:crypto";
 import { openSync, readFileSync, readSync, statSync, closeSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
-
-export type VmstateBackend = "hvf" | "kvm" | "unknown";
+import type { SnapshotFileIdentity as FileIdentity, VmstateBackend } from "../vm-handle.ts";
 
 export interface VmstateFacts {
   topologyHash: string;
   sectionCount: number;
   guestPauthActive?: boolean;
   sctlrEl1?: string;
-}
-
-export interface FileIdentity {
-  path?: string;
-  sizeBytes: number;
-  sha256: string;
 }
 
 const VMSTATE_MAGIC = Buffer.from([0x56, 0x4d, 0x53, 0x54, 0x41, 0x54, 0x45, 0x00]);
@@ -97,7 +90,7 @@ export function fileIdentity(path: string): FileIdentity {
   };
 }
 
-export function sha256File(path: string): string {
+function sha256File(path: string): string {
   const h = createHash("sha256");
   const fd = openSync(path, "r");
   try {

@@ -56,10 +56,59 @@ fn check(ret: c.hv_return_t) Error!void {
     };
 }
 
+// `dlsym(RTLD_DEFAULT, ...)` handle. Darwin defines RTLD_DEFAULT as
+// `(void *)-2`; spelling it this way avoids depending on dlfcn.h.
+const RTLD_DEFAULT: ?*anyopaque = @ptrFromInt(std.math.maxInt(usize) - 1);
+
+const HvVmConfigCreateFn = *const fn () callconv(.c) c.hv_vm_config_t;
+const HvVmConfigGetEl2SupportedFn = *const fn (*bool) callconv(.c) c.hv_return_t;
+const HvVmConfigSetEl2EnabledFn = *const fn (c.hv_vm_config_t, bool) callconv(.c) c.hv_return_t;
+
+fn hvfSym(comptime T: type, comptime name: [:0]const u8) ?T {
+    const ptr = dlsym(RTLD_DEFAULT, name.ptr) orelse return null;
+    return @ptrCast(@alignCast(ptr));
+}
+
+fn vmConfigCreate() ?HvVmConfigCreateFn {
+    return hvfSym(HvVmConfigCreateFn, "hv_vm_config_create");
+}
+
+fn vmConfigGetEl2Supported() ?HvVmConfigGetEl2SupportedFn {
+    return hvfSym(HvVmConfigGetEl2SupportedFn, "hv_vm_config_get_el2_supported");
+}
+
+fn vmConfigSetEl2Enabled() ?HvVmConfigSetEl2EnabledFn {
+    return hvfSym(HvVmConfigSetEl2EnabledFn, "hv_vm_config_set_el2_enabled");
+}
+
+/// Authoritative HVF probe for nested EL2 support. Uses dlsym so this
+/// binary still launches on macOS releases whose Hypervisor.framework
+/// lacks the macOS 15 hv_vm_config_* entry points.
+pub fn nestedSupported() bool {
+    const get_el2 = vmConfigGetEl2Supported() orelse return false;
+    var supported = false;
+    check(get_el2(&supported)) catch return false;
+    return supported;
+}
+
 /// Process-wide VM context. HVF currently supports one VM per process.
 pub const Vm = struct {
     pub fn create() Error!Vm {
         try check(c.hv_vm_create(null));
+        return .{};
+    }
+
+    pub fn createNested() Error!Vm {
+        const create_config = vmConfigCreate() orelse return error.Unsupported;
+        const get_el2 = vmConfigGetEl2Supported() orelse return error.Unsupported;
+        const set_el2 = vmConfigSetEl2Enabled() orelse return error.Unsupported;
+        const config = create_config() orelse return error.NoResources;
+        defer os_release(config);
+        var supported = false;
+        try check(get_el2(&supported));
+        if (!supported) return error.Unsupported;
+        try check(set_el2(config, true));
+        try check(c.hv_vm_create(config));
         return .{};
     }
 
@@ -124,6 +173,7 @@ comptime {
     // ExceptionClass: top 6 bits of ESR_EL2.
     assert(@intFromEnum(ExceptionClass.trapped_wfx) == 0x01);
     assert(@intFromEnum(ExceptionClass.hvc_aarch64) == 0x16);
+    assert(@intFromEnum(ExceptionClass.smc_aarch64) == 0x17);
     assert(@intFromEnum(ExceptionClass.system_register) == 0x18);
     assert(@intFromEnum(ExceptionClass.data_abort_lower_el) == 0x24);
     assert(@intFromEnum(ExceptionClass.brk_aarch64) == 0x3C);
@@ -220,6 +270,8 @@ pub const VcpuExit = extern struct {
     exception: ExitException,
 };
 
+extern "c" fn dlsym(handle: ?*anyopaque, symbol: [*:0]const u8) ?*anyopaque;
+extern "c" fn os_release(object: ?*anyopaque) void;
 extern "c" fn hv_vcpu_create(vcpu: *u64, exit: **VcpuExit, config: ?*anyopaque) c.hv_return_t;
 extern "c" fn hv_vcpu_destroy(vcpu: u64) c.hv_return_t;
 extern "c" fn hv_vcpu_run(vcpu: u64) c.hv_return_t;
@@ -401,6 +453,10 @@ pub const SysReg = enum(u32) {
     // later `hv_gic_*_redistributor_reg` calls return HV_DENIED.
     mpidr_el1 = 0xC005,
     sctlr_el1 = 0xC080,
+    sctlr_el2 = 0xE080,
+    hcr_el2 = 0xE088,
+    cnthctl_el2 = 0xE708,
+    cntvoff_el2 = 0xE703,
 };
 
 /// arm64 vCPU wrapper. Must be created from the thread that will run it.
@@ -469,6 +525,7 @@ pub const Vcpu = struct {
 pub const ExceptionClass = enum(u6) {
     trapped_wfx = 0x01,
     hvc_aarch64 = 0x16,
+    smc_aarch64 = 0x17,
     system_register = 0x18,
     data_abort_lower_el = 0x24,
     brk_aarch64 = 0x3C,
@@ -623,9 +680,9 @@ pub const KernelImage = struct {
 // PSCI — the one kernel-to-hypervisor call we have to understand
 // =============================================================
 
-/// PSCI function IDs the kernel uses via HVC #0. IDs per PSCI v1.1 spec
-/// (ARM DEN 0022). Top bit of the ID distinguishes SMC32 (0x8-) from
-/// SMC64 (0xC-). We handle the ones a Linux boot actually touches.
+/// PSCI function IDs the kernel uses via HVC/SMC #0. IDs per PSCI v1.1
+/// spec (ARM DEN 0022). Top bit of the ID distinguishes SMC32 (0x8-)
+/// from SMC64 (0xC-). We handle the ones a Linux boot actually touches.
 pub const Psci = struct {
     pub const Function = enum(u32) {
         version = 0x84000000,
