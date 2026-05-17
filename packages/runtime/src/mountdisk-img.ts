@@ -454,47 +454,104 @@ export function treeManifestHash(root: string): string {
   return h.digest("hex");
 }
 
+type ManifestStats = import("node:fs").Stats & { mtimeNs?: bigint };
+
 function walkForManifest(root: string, rel: string, out: string[]): void {
   const here = rel ? join(root, rel) : root;
-  let entries: string[];
-  try {
-    entries = readdirSync(here).sort();
-  } catch {
+  const entries = readManifestDir(here);
+  if (!entries) {
     return;
   }
   for (const name of entries) {
-    const childRel = rel ? `${rel}/${name}` : name;
-    const childAbs = join(here, name);
-    let st;
-    try {
-      st = lstatSync(childAbs);
-    } catch {
-      continue;
-    }
-    const mode = (st.mode & 0o7777).toString(8);
-    // mtimeMs is a non-integer float on some platforms; mtimeNs is a
-    // bigint when bigint=true and unset otherwise. Either way, we
-    // need a stable string. Floor to ms when nanoseconds aren't
-    // available — same precision Node 18+ exposes anyway.
-    const mtimeNs = String(st.mtimeNs ?? BigInt(Math.floor(st.mtimeMs)) * BigInt(1_000_000));
-    if (st.isSymbolicLink()) {
-      let target = "";
-      try {
-        target = readlinkSync(childAbs);
-      } catch {}
-      out.push(`${childRel}\0L\0${mode}\0${target.length}\0${mtimeNs}\0${target}`);
-    } else if (st.isDirectory()) {
-      out.push(`${childRel}\0D\0${mode}\0\0${mtimeNs}\0`);
-      walkForManifest(root, childRel, out);
-    } else if (st.isFile()) {
-      const sha = sha256OfFile(childAbs);
-      out.push(`${childRel}\0F\0${mode}\0${st.size}\0${mtimeNs}\0${sha}`);
-    } else {
-      // sockets, pipes, device nodes — squashfs would refuse those
-      // on a regular host fs anyway. Hash a placeholder so the key
-      // changes when they appear/disappear.
-      out.push(`${childRel}\0?\0${mode}\0\0${mtimeNs}\0`);
-    }
+    appendManifestChild(root, rel, here, name, out);
+  }
+}
+
+function appendManifestChild(
+  root: string,
+  rel: string,
+  parentAbs: string,
+  name: string,
+  out: string[],
+): void {
+  const childRel = rel ? `${rel}/${name}` : name;
+  const childAbs = join(parentAbs, name);
+  const st = tryManifestLstat(childAbs);
+  if (!st) {
+    return;
+  }
+  out.push(manifestLineForStats(childRel, childAbs, st));
+  walkManifestDirectoryIfNeeded(root, childRel, st, out);
+}
+
+function manifestLineForStats(childRel: string, childAbs: string, st: ManifestStats): string {
+  const mode = (st.mode & 0o7777).toString(8);
+  const mtimeNs = manifestMtimeNs(st);
+  if (st.isSymbolicLink()) {
+    return symlinkManifestLine(childRel, childAbs, mode, mtimeNs);
+  }
+  if (st.isDirectory()) {
+    return `${childRel}\0D\0${mode}\0\0${mtimeNs}\0`;
+  }
+  if (st.isFile()) {
+    return `${childRel}\0F\0${mode}\0${st.size}\0${mtimeNs}\0${sha256OfFile(childAbs)}`;
+  }
+  // sockets, pipes, device nodes — squashfs would refuse those on a
+  // regular host fs anyway. Hash a placeholder so the key changes when
+  // they appear/disappear.
+  return `${childRel}\0?\0${mode}\0\0${mtimeNs}\0`;
+}
+
+function symlinkManifestLine(
+  childRel: string,
+  childAbs: string,
+  mode: string,
+  mtimeNs: string,
+): string {
+  const target = tryReadlink(childAbs);
+  return `${childRel}\0L\0${mode}\0${target.length}\0${mtimeNs}\0${target}`;
+}
+
+function manifestMtimeNs(st: ManifestStats): string {
+  // mtimeMs is a non-integer float on some platforms; mtimeNs is a
+  // bigint when bigint=true and unset otherwise. Either way, we need a
+  // stable string. Floor to ms when nanoseconds aren't available — same
+  // precision Node 18+ exposes anyway.
+  return String(st.mtimeNs ?? BigInt(Math.floor(st.mtimeMs)) * BigInt(1_000_000));
+}
+
+function walkManifestDirectoryIfNeeded(
+  root: string,
+  childRel: string,
+  st: ManifestStats,
+  out: string[],
+): void {
+  if (st.isDirectory()) {
+    walkForManifest(root, childRel, out);
+  }
+}
+
+function readManifestDir(here: string): string[] | undefined {
+  try {
+    return readdirSync(here).sort();
+  } catch {
+    return undefined;
+  }
+}
+
+function tryManifestLstat(childAbs: string): ManifestStats | undefined {
+  try {
+    return lstatSync(childAbs);
+  } catch {
+    return undefined;
+  }
+}
+
+function tryReadlink(childAbs: string): string {
+  try {
+    return readlinkSync(childAbs);
+  } catch {
+    return "";
   }
 }
 

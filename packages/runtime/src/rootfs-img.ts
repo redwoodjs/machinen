@@ -178,6 +178,20 @@ export interface EnsureRootfsImageOptions {
   onPhase?: (name: string, ms: number) => void;
 }
 
+interface RootfsCachePaths {
+  tarAbs: string;
+  cacheDir: string;
+  sha: string;
+  imgPath: string;
+  okPath: string;
+}
+
+interface RootfsStagingPaths {
+  stagingDir: string;
+  stagingTree: string;
+  stagingImg: string;
+}
+
 /**
  * Resolve `tarPath` to a cached ext4 `.img`, materializing it on first
  * call. Returns the absolute path to the cached image.
@@ -202,6 +216,18 @@ export interface EnsureRootfsImageOptions {
  *   PROVISION_INSTALL_HOOK_FAILED (tar / mke2fs failed)
  */
 export function ensureRootfsImage(tarPath: string, opts: EnsureRootfsImageOptions = {}): string {
+  const paths = resolveRootfsCachePaths(tarPath, opts);
+  return (
+    tryReusableCachedRootfs(paths, opts) ??
+    tryPrebakedRootfs(paths, opts) ??
+    materializeRootfsFromTar(paths, opts, resolveMke2fsOrThrow())
+  );
+}
+
+function resolveRootfsCachePaths(
+  tarPath: string,
+  opts: EnsureRootfsImageOptions,
+): RootfsCachePaths {
   const tarAbs = resolve(tarPath);
   if (!existsSync(tarAbs)) {
     throw new ProvisionError(
@@ -216,188 +242,192 @@ export function ensureRootfsImage(tarPath: string, opts: EnsureRootfsImageOption
   const sha = sha256OfFile(tarAbs);
   opts.onPhase?.("sha256", Date.now() - shaT0);
   const imgPath = join(cacheDir, `${sha}.img`);
-  const okPath = okMarkerPath(imgPath);
-  if (!opts.force && existsSync(imgPath)) {
-    debug("cache hit sha=%s img=%s", sha.slice(0, 12), imgPath);
-    // #170: require the clean-shutdown marker. Missing means the
-    // previous VMM was killed mid-write — fsck won't catch torn data
-    // blocks, so treat the image as poisoned and rebuild from the
-    // tarball.
-    //
-    // We deliberately do NOT `unlinkSync(imgPath)` here on the wipe
-    // paths. Concurrent callers (parallel test files, multiple `boot()`
-    // calls) may already hold imgPath as a cache-hit return value and
-    // be about to reflink from it — deleting the file out from under
-    // them races to ENOENT. The renameSync at the end of the materialize
-    // / prebake paths atomically replaces imgPath with fresh bytes, so
-    // the wipe is redundant; falling through is sufficient.
-    if (!existsSync(okPath)) {
-      debug("cache hit but no clean marker, will rematerialize img=%s", imgPath);
-    } else {
-      // Atomically clear the marker BEFORE handing the path off, so
-      // a kill between here and `markRootfsImageClean()` leaves the
-      // image flagged dirty for the next boot.
-      try {
-        unlinkSync(okPath);
-      } catch {}
-      const fsckT0 = Date.now();
-      const usable = cachedImageIsUsable(imgPath);
-      opts.onPhase?.("e2fsck", Date.now() - fsckT0);
-      if (usable) {
-        // #131: if the caller asked for a larger image than what's on
-        // disk (typically because they bumped `rootDiskSizeBytes`, or
-        // because the materializer's defaults grew), sparse-extend the
-        // file in place. The on-disk ext4 fs is still sized to the old
-        // file; /init's tryRootDiskPivot resizes it online via
-        // EXT4_IOC_RESIZE_FS so the guest sees the new capacity.
-        // truncate-up on a sparse file is free; truncate-down would
-        // chop bytes, so we never shrink.
-        if (opts.sizeBytes !== undefined) {
-          const truncT0 = Date.now();
-          try {
-            const cur = statSync(imgPath).size;
-            if (opts.sizeBytes > cur) {
-              truncateSync(imgPath, opts.sizeBytes);
-              debug("cache hit grew img=%s from=%d to=%d", imgPath, cur, opts.sizeBytes);
-            }
-          } catch (err) {
-            debug("cache hit grow failed img=%s err=%s", imgPath, (err as Error).message);
-          }
-          opts.onPhase?.("sparse-extend", Date.now() - truncT0);
-        }
-        return imgPath;
-      }
-      // Unrecoverable. Fall through to materialize a fresh image — same
-      // path a force=true caller would take. renameSync replaces.
-      debug("cache hit unusable, will rematerialize img=%s", imgPath);
-    }
-  }
+  return { tarAbs, cacheDir, sha, imgPath, okPath: okMarkerPath(imgPath) };
+}
 
-  // #223: prebake fast path. If a sibling `<basename>.img.gz` sits
-  // next to the tarball (shipped with release builds), gunzip it
-  // into the cache and skip tar+mke2fs. The bytes are an ext4 image;
-  // the cache key (tarball sha) is the same one the materialize path
-  // would write to, so downstream (per-boot reflink, sparse-extend,
-  // .ok marker) is unchanged. Locally `provision()`-built tarballs
-  // skip this branch — provision() writes the cache image directly
-  // via prebakeRootfsImageFromTree() instead of staging a sibling.
-  if (!opts.force) {
-    const sibling = siblingPrebakePath(tarAbs);
-    if (sibling && existsSync(sibling)) {
-      const prebakeT0 = Date.now();
-      const fast = tryPrebakeFromSibling({
-        sibling,
-        cacheDir,
-        sha,
-        imgPath,
-        sizeBytes: opts.sizeBytes,
-      });
-      opts.onPhase?.("gunzip-prebake", Date.now() - prebakeT0);
-      if (fast) {
-        return fast;
-      }
-      // Fall through to materialize on any failure — same outcome
-      // as if the sibling weren't there. Slow but always correct.
-    }
+function tryReusableCachedRootfs(
+  paths: RootfsCachePaths,
+  opts: EnsureRootfsImageOptions,
+): string | undefined {
+  if (opts.force || !existsSync(paths.imgPath)) {
+    return undefined;
   }
-
-  // Resolve mke2fs in four steps:
-  //   1. `MACHINEN_MKE2FS` env override — for users pinning a specific
-  //      build (e.g. a debug binary, or a vendored copy outside the
-  //      bundled package). Mirrors `MACHINEN_VMM` / `MACHINEN_GVPROXY`.
-  //   2. The bundled `@machinen/e2fsprogs-<arch>-<os>` package (zero
-  //      user setup, present in normal installs). Each arch package
-  //      declares matching `os` + `cpu` so npm/pnpm only installs the
-  //      one that fits the host.
-  //   3. PATH (for hosts that have e2fsprogs installed system-wide).
-  //   4. Homebrew's keg-only prefix on macOS (#124) — `brew install
-  //      e2fsprogs` deliberately doesn't symlink mke2fs onto PATH.
-  const names = ["mke2fs", "mkfs.ext4"];
-  const mke2fs =
-    resolveMke2fsEnvOverride() ??
-    findBundledMke2fs() ??
-    whichFirst(names) ??
-    findKegOnlyE2fs(names);
-  if (!mke2fs) {
-    throw new ProvisionError(
-      "ROOTFS_IMG_TOOL_MISSING",
-      "ensureRootfsImage: no e2fsprogs binary found (no bundled package " +
-        "for this platform; looked for mke2fs / mkfs.ext4 on PATH and in " +
-        "Homebrew's keg-only prefix). Install it:\n" +
-        "  • macOS:  brew install e2fsprogs\n" +
-        "            (e2fsprogs is keg-only on Homebrew; machinen also " +
-        "probes /opt/homebrew/opt/e2fsprogs/sbin and " +
-        "/usr/local/opt/e2fsprogs/sbin automatically)\n" +
-        "  • Linux:  apt-get install -y e2fsprogs (or your distro's package)\n" +
-        "  • or set MACHINEN_MKE2FS=/abs/path/to/mke2fs to point at a vendored copy\n" +
-        "  • or skip virtio-blk root and let boot() use the legacy " +
-        "initramfs-as-rootfs path.",
-    );
+  debug("cache hit sha=%s img=%s", paths.sha.slice(0, 12), paths.imgPath);
+  if (!cachedImageHasCleanMarker(paths)) {
+    return undefined;
   }
+  markCachedImageInUse(paths.okPath);
+  if (!fsckCachedRootfs(paths.imgPath, opts)) {
+    debug("cache hit unusable, will rematerialize img=%s", paths.imgPath);
+    return undefined;
+  }
+  growCachedRootfsIfRequested(paths.imgPath, opts);
+  return paths.imgPath;
+}
 
-  const stagingDir = mkdtempSync(join(cacheDir, `${sha.slice(0, 12)}-staging-`));
-  const stagingTree = join(stagingDir, "tree");
-  const stagingImg = join(stagingDir, "rootfs.img");
-  mkdirSync(stagingTree, { recursive: true });
+function cachedImageHasCleanMarker(paths: RootfsCachePaths): boolean {
+  if (existsSync(paths.okPath)) {
+    return true;
+  }
+  debug("cache hit but no clean marker, will rematerialize img=%s", paths.imgPath);
+  return false;
+}
+
+function markCachedImageInUse(okPath: string): void {
+  // Atomically clear the marker BEFORE handing the path off, so a kill
+  // before markRootfsImageClean() leaves the image flagged dirty.
   try {
-    debug("materialize sha=%s tar=%s", sha.slice(0, 12), tarAbs);
+    unlinkSync(okPath);
+  } catch {}
+}
 
-    // 1. Extract the tarball into the staging directory. tar handles
-    //    both gzip and plain.
-    const extractT0 = Date.now();
-    extractTarball(tarAbs, stagingTree);
-    opts.onPhase?.("tar-extract", Date.now() - extractT0);
+function fsckCachedRootfs(imgPath: string, opts: EnsureRootfsImageOptions): boolean {
+  const fsckT0 = Date.now();
+  const usable = cachedImageIsUsable(imgPath);
+  opts.onPhase?.("e2fsck", Date.now() - fsckT0);
+  return usable;
+}
 
-    // 2. Size the image. Three-way:
-    //    - sizeBytes wins outright when the caller passes it (the
-    //      user-facing rootDiskSizeBytes override; #131).
-    //    - Otherwise, max(minSizeBytes, treeBytes * sizeMultiplier).
-    //    Sparse files cost nothing on disk until written, so over-
-    //    provisioning the upper bound here is essentially free; the
-    //    guest's online ext4 grow (in /init) makes any extra capacity
-    //    visible without a rematerialize.
-    const treeBytes = duBytes(stagingTree);
-    const multiplier = opts.sizeMultiplier ?? 2.5;
-    const minBytes = opts.minSizeBytes ?? 2 * 1024 * 1024 * 1024;
-    const sizeBytes = opts.sizeBytes ?? Math.max(minBytes, Math.ceil(treeBytes * multiplier));
-    debug(
-      "size tree=%d size=%d multiplier=%s explicit=%s",
-      treeBytes,
-      sizeBytes,
-      multiplier,
-      opts.sizeBytes !== undefined,
-    );
-    allocateSparseFile(stagingImg, sizeBytes);
-
-    // 3. mke2fs -d <tree> -t ext4 -F <img> <size-in-blocks>. The 4-KiB
-    //    block size matches the kernel's default page size on arm64
-    //    so reads are page-cache-aligned.
-    const blocks = Math.floor(sizeBytes / 4096);
-    const mkT0 = Date.now();
-    const mk = spawnSync(
-      mke2fs,
-      ["-d", stagingTree, "-t", "ext4", "-F", "-q", "-b", "4096", stagingImg, String(blocks)],
-      { stdio: ["ignore", "ignore", "pipe"] },
-    );
-    opts.onPhase?.("mke2fs", Date.now() - mkT0);
-    if (mk.status !== 0) {
-      throw new ProvisionError(
-        "PROVISION_INSTALL_HOOK_FAILED",
-        `ensureRootfsImage: ${mke2fs} failed (code ${mk.status}): ${mk.stderr?.toString() ?? ""}`,
-      );
+function growCachedRootfsIfRequested(imgPath: string, opts: EnsureRootfsImageOptions): void {
+  if (opts.sizeBytes === undefined) {
+    return;
+  }
+  const truncT0 = Date.now();
+  try {
+    const cur = statSync(imgPath).size;
+    if (opts.sizeBytes > cur) {
+      truncateSync(imgPath, opts.sizeBytes);
+      debug("cache hit grew img=%s from=%d to=%d", imgPath, cur, opts.sizeBytes);
     }
+  } catch (err) {
+    debug("cache hit grow failed img=%s err=%s", imgPath, (err as Error).message);
+  }
+  opts.onPhase?.("sparse-extend", Date.now() - truncT0);
+}
 
-    // 4. Atomic rename into the cache. Concurrent materializers can
-    //    race here; the second `rename` clobbers the first, but both
-    //    files have identical content (same sha), so it doesn't
-    //    matter who wins.
-    renameSync(stagingImg, imgPath);
-    debug("materialize done sha=%s img=%s sizeBytes=%d", sha.slice(0, 12), imgPath, sizeBytes);
-    return imgPath;
+function tryPrebakedRootfs(
+  paths: RootfsCachePaths,
+  opts: EnsureRootfsImageOptions,
+): string | undefined {
+  if (opts.force) {
+    return undefined;
+  }
+  const sibling = siblingPrebakePath(paths.tarAbs);
+  if (!sibling || !existsSync(sibling)) {
+    return undefined;
+  }
+  const prebakeT0 = Date.now();
+  const fast = tryPrebakeFromSibling({
+    sibling,
+    cacheDir: paths.cacheDir,
+    sha: paths.sha,
+    imgPath: paths.imgPath,
+    sizeBytes: opts.sizeBytes,
+  });
+  opts.onPhase?.("gunzip-prebake", Date.now() - prebakeT0);
+  return fast;
+}
+
+function resolveMke2fsOrThrow(): string {
+  const mke2fs = resolveMke2fs();
+  if (mke2fs) {
+    return mke2fs;
+  }
+  throw new ProvisionError(
+    "ROOTFS_IMG_TOOL_MISSING",
+    "ensureRootfsImage: no e2fsprogs binary found (no bundled package " +
+      "for this platform; looked for mke2fs / mkfs.ext4 on PATH and in " +
+      "Homebrew's keg-only prefix). Install it:\n" +
+      "  • macOS:  brew install e2fsprogs\n" +
+      "            (e2fsprogs is keg-only on Homebrew; machinen also " +
+      "probes /opt/homebrew/opt/e2fsprogs/sbin and " +
+      "/usr/local/opt/e2fsprogs/sbin automatically)\n" +
+      "  • Linux:  apt-get install -y e2fsprogs (or your distro's package)\n" +
+      "  • or set MACHINEN_MKE2FS=/abs/path/to/mke2fs to point at a vendored copy\n" +
+      "  • or skip virtio-blk root and let boot() use the legacy " +
+      "initramfs-as-rootfs path.",
+  );
+}
+
+function materializeRootfsFromTar(
+  paths: RootfsCachePaths,
+  opts: EnsureRootfsImageOptions,
+  mke2fs: string,
+): string {
+  const staging = createRootfsStaging(paths);
+  try {
+    debug("materialize sha=%s tar=%s", paths.sha.slice(0, 12), paths.tarAbs);
+    extractRootfsTarball(paths.tarAbs, staging.stagingTree, opts);
+    const sizeBytes = sizeRootfsImage(staging.stagingTree, opts);
+    allocateSparseFile(staging.stagingImg, sizeBytes);
+    runMke2fs(mke2fs, staging.stagingTree, staging.stagingImg, sizeBytes, opts);
+    renameSync(staging.stagingImg, paths.imgPath);
+    debug(
+      "materialize done sha=%s img=%s sizeBytes=%d",
+      paths.sha.slice(0, 12),
+      paths.imgPath,
+      sizeBytes,
+    );
+    return paths.imgPath;
   } finally {
     try {
-      rmSync(stagingDir, { recursive: true, force: true });
+      rmSync(staging.stagingDir, { recursive: true, force: true });
     } catch {}
+  }
+}
+
+function createRootfsStaging(paths: RootfsCachePaths): RootfsStagingPaths {
+  const stagingDir = mkdtempSync(join(paths.cacheDir, `${paths.sha.slice(0, 12)}-staging-`));
+  const stagingTree = join(stagingDir, "tree");
+  mkdirSync(stagingTree, { recursive: true });
+  return { stagingDir, stagingTree, stagingImg: join(stagingDir, "rootfs.img") };
+}
+
+function extractRootfsTarball(
+  tarAbs: string,
+  stagingTree: string,
+  opts: EnsureRootfsImageOptions,
+): void {
+  const extractT0 = Date.now();
+  extractTarball(tarAbs, stagingTree);
+  opts.onPhase?.("tar-extract", Date.now() - extractT0);
+}
+
+function sizeRootfsImage(stagingTree: string, opts: EnsureRootfsImageOptions): number {
+  const treeBytes = duBytes(stagingTree);
+  const multiplier = opts.sizeMultiplier ?? 2.5;
+  const minBytes = opts.minSizeBytes ?? 2 * 1024 * 1024 * 1024;
+  const sizeBytes = opts.sizeBytes ?? Math.max(minBytes, Math.ceil(treeBytes * multiplier));
+  debug(
+    "size tree=%d size=%d multiplier=%s explicit=%s",
+    treeBytes,
+    sizeBytes,
+    multiplier,
+    opts.sizeBytes !== undefined,
+  );
+  return sizeBytes;
+}
+
+function runMke2fs(
+  mke2fs: string,
+  stagingTree: string,
+  stagingImg: string,
+  sizeBytes: number,
+  opts: EnsureRootfsImageOptions,
+): void {
+  const blocks = Math.floor(sizeBytes / 4096);
+  const mkT0 = Date.now();
+  const mk = spawnSync(
+    mke2fs,
+    ["-d", stagingTree, "-t", "ext4", "-F", "-q", "-b", "4096", stagingImg, String(blocks)],
+    { stdio: ["ignore", "ignore", "pipe"] },
+  );
+  opts.onPhase?.("mke2fs", Date.now() - mkT0);
+  if (mk.status !== 0) {
+    throw new ProvisionError(
+      "PROVISION_INSTALL_HOOK_FAILED",
+      `ensureRootfsImage: ${mke2fs} failed (code ${mk.status}): ${mk.stderr?.toString() ?? ""}`,
+    );
   }
 }
 

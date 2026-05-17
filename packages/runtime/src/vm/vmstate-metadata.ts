@@ -3,8 +3,7 @@ import { openSync, readFileSync, readSync, statSync, closeSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import type { SnapshotFileIdentity as FileIdentity, VmstateBackend } from "../vm-handle.ts";
 
-export type { VmstateBackend } from "../vm-handle.ts";
-export type VmstateGuestArch = "arm64" | "amd64" | "unknown";
+type VmstateGuestArch = "arm64" | "amd64" | "unknown";
 
 export interface VmstateFacts {
   arch: VmstateGuestArch;

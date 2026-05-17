@@ -48,7 +48,7 @@ import { claimName, findEntry, removeEntry, writeEntry } from "../registry.ts";
 import { ensureRootfsImage, markRootfsImageClean } from "../rootfs-img.ts";
 import { resolveLiveMounts, type ResolvedLiveMount, synthesizeAndPackBundle } from "./bundle.ts";
 import { performForkWithRestore } from "./fork-core.ts";
-import type { MemoryStats, VmHandle } from "../vm-handle.ts";
+import type { VmHandle } from "../vm-handle.ts";
 import {
   allocateSparseFile,
   autoSizeMemoryMib,
@@ -436,328 +436,31 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     opts.mount ? `${opts.mount.host}->${opts.mount.guest}` : "<none>",
   );
 
-  phases.start("asset-resolve");
-  // #150: detached boots are compatible with every boot option. gvproxy
-  // and each live-mount FUSE server spawn as detached daemons wrapped
-  // through `pdeathsig --watch-pid <vmm>`; `mount` (squashfs+ext4) is
-  // fd-passed to the VMM at spawn so the supervisor holds no live state
-  // after that. Per-boot artifacts are tracked in the registry so
-  // `machinen gc` / `machinen stop` reap them after supervisor exit.
-  const portForward = opts.portForward ?? [];
-  await validatePortForwardOpts(opts, portForward);
-
-  const binaryInput = opts.binary ?? resolveVmmBinary();
-  const binary = resolve(opts.cwd ?? process.cwd(), binaryInput);
-  if (!existsSync(binary)) {
-    throw new BootError("BOOT_VMM_MISSING", `VMM binary not found at ${binary}`);
-  }
-  // `cmd` requires an image to run against. `image` alone is allowed
-  // — the image may carry a baked-in default cmd (see
-  // `provision({ cmd })`); if it doesn't and the user didn't pass
-  // one, `synthesizeAndPackBundle` errors with a clear message.
-  if (opts.cmd && !opts.image) {
-    throw new BootError("BOOT_CMD_WITHOUT_IMAGE", "boot: `image` is required when `cmd` is set.");
-  }
-  phases.end("asset-resolve");
-
-  const env: Record<string, string> = {
-    ...(process.env as Record<string, string>),
-    ...opts.vmmEnv,
-  };
-  configureNestedVirtualization(opts, binary, env);
-  const memoryCeilingMib = setMemoryCeiling(opts, env);
-
-  phases.start("disk-prep");
-  const { diskAbs, perBootSnapDisk } = prepareScratchDisk(opts, env);
-  phases.end("disk-prep");
-
-  // #114: rootdisk-by-default. Boot mounts the rootfs from a
-  // virtio-blk device (/dev/vda) instead of inflating the whole tree
-  // into a RAM-backed tmpfs at boot. The user passes `rootDisk: false`
-  // to opt back into the legacy cpio-as-rootfs path (rare — mostly for
-  // tests that need to assert the initramfs path explicitly).
-  // Resolution + materialization happens later, alongside packBundle,
-  // so per-arg validation (mount paths, liveMount, baked-cmd) fires
-  // before we spend time hashing the tarball.
-  const wantsRootDisk =
-    opts.rootDisk !== false &&
-    (opts._rootDiskRestorePath !== undefined || opts.rootDisk !== undefined || !!opts.image);
-  if (wantsRootDisk && typeof opts.rootDisk !== "string" && !opts.image) {
-    throw new BootError(
-      "BOOT_CMD_WITHOUT_IMAGE",
-      "boot: rootDisk: true requires an `image` (the .tar.gz to materialize).",
-    );
-  }
-  validateKernelDtb(opts, env);
-
-  let { vsockUdsPath, vsockTempDir } = setupVsockBridge(env);
-  const { statsFilePath, statsTempDir } = setupStatsFile(env, vsockTempDir);
-
-  // Vmstate engine wiring. Every VM booted under
-  // MACHINEN_SNAPSHOT_ENGINE=vmstate — except those that opt out with
-  // `snapshot: false` — gets a per-VM whole-VM state file the VMM
-  // dumps to on SIGUSR1 — `performSnapshotVmstate` (driven by
-  // `machinen snapshot` / `fork`) signals the VMM and picks the file
-  // up. Restore is the mirror: `restore()` hands the bundle's
-  // `state.vmstate` down via `_vmstateRestorePath`, which we forward
-  // to the VMM as MACHINEN_RESTORE_PATH so it loads that whole-VM
-  // state before the first vCPU run. `snapshot: false` skips the
-  // wiring entirely so the VMM never installs the SIGUSR1 handler —
-  // the VM is genuinely un-snapshottable, the same as under criu.
-  let vmstateStatePath: string | undefined;
-  const vmstateChainId = randomBytes(16).toString("hex");
-  let vmstateCheckpointParent = opts._vmstateRestorePath ? opts.forkedFrom : undefined;
-  let vmstateCheckpointSequence = 0;
-  if (resolveSnapshotEngine() === "vmstate" && opts.snapshot !== false) {
-    if (!vsockTempDir) {
-      vsockTempDir = mkdtempSync(join(tmpdir(), "machinen-vsock-"));
-    }
-    vmstateStatePath = join(vsockTempDir, VMSTATE_FILE);
-    env.MACHINEN_SNAPSHOT_PATH = vmstateStatePath;
-  }
-  if (opts._vmstateRestorePath) {
-    env.MACHINEN_RESTORE_PATH = opts._vmstateRestorePath;
-    if ((vmstateDebug.enabled || restoreDebug.enabled) && !env.MACHINEN_VMSTATE_TIMING) {
-      env.MACHINEN_VMSTATE_TIMING = "1";
-    }
-  }
-
-  // #78 / #332: resolve live-share mounts. We compute these here so the
-  // per-mount tag can be baked into machinen-config.json at pack time —
-  // the guest's /init reads the same entries. Each mount is served by
-  // an in-VMM virtio-fs device (slots 7..10); MACHINEN_VIRTIOFS_<i>
-  // carries `<tag>:<mode>:<host_path>` for slot i. No vsock port, no
-  // detached server, no guest fuse-agent (all removed in #338).
-  let liveMountsResolved: ResolvedLiveMount[] = [];
-  if ((opts.liveMounts ?? []).length > 0) {
-    liveMountsResolved = resolveLiveMounts(opts.liveMounts!, opts.cwd);
-    liveMountsResolved.forEach((lm, i) => {
-      env[`MACHINEN_VIRTIOFS_${i}`] = `${lm.tag}:${lm.mode}:${lm.host}`;
-    });
-  }
-
-  // gvproxy + host→guest port forwards (#87) are set up before the
-  // VMM boots so packBundle sees a populated MACHINEN_NET_SOCKET. If
-  // anything downstream throws (packBundle validation, exposePort
-  // failure, nodeSpawn failure), the outer catch shuts gvproxy back
-  // down — otherwise a failed boot would leave orphans behind.
-  let gvStop: (() => void) | undefined;
-  let gvPid: number | undefined;
-  let gvExe: string | undefined;
-  let gvSocketDir: string | undefined;
-  let bundleTempDir: string | undefined;
-  // #272: paths to the materialized squashfs lower + per-VM ext4
-  // upper for the `--mount` overlay. The lower lives in the host
-  // cache and survives this boot; the upper is per-VM and gets
-  // unlinked on VM exit unless a snapshot reflinks it first.
-  let mountDiskPaths: MountDiskPaths | undefined;
-  let perBootMountUpper: string | undefined;
-  let perBootRootDisk: string | undefined;
-  const mergedGuestEnv: Record<string, string> = { ...opts.env };
-
-  // Surface the VM name in the guest as an early fallback so an
-  // interactive shell prompt (\h in bash's default Debian PS1) can tell
-  // the user which VM they're attached to. The final prompt label must
-  // also include the host VMM pid, which isn't known until after spawn;
-  // when vsock-exec is available, machinen-supervisor.sh waits briefly
-  // before starting the workload while the host-side setGuestHostname()
-  // below installs `<name>-pid-<host_pid>` (or `vm-pid-<host_pid>`).
-  if (opts.name && !mergedGuestEnv.MACHINEN_VM_NAME) {
-    mergedGuestEnv.MACHINEN_VM_NAME = opts.name;
-  }
-  if (vsockUdsPath && !mergedGuestEnv.MACHINEN_VM_HOSTNAME_WAIT) {
-    mergedGuestEnv.MACHINEN_VM_HOSTNAME_WAIT = "1";
-  }
-
-  try {
-    phases.start("net-services");
-    phases.start("net-services.gvproxy");
-    const gv = await bringUpGvproxy(opts, binary, env, portForward);
-    gvStop = gv.gvStop;
-    gvPid = gv.gvPid;
-    gvExe = gv.gvExe;
-    gvSocketDir = gv.gvSocketDir;
-    phases.end("net-services.gvproxy");
-    // #338: live-share mounts are served by in-VMM virtio-fs devices —
-    // there's no host-side server process to spawn. The runtime just
-    // bakes the per-mount tags into machinen-config.json + the
-    // MACHINEN_VIRTIOFS_<i> env; the VMM wires the devices itself.
-    phases.end("net-services");
-
-    // Pack an initramfs whenever the guest needs userspace (image +
-    // cmd + snapshot-only restore all need /init + synthesized
-    // machinen-config.json). Test-mode zig boots fall through with no
-    // INITRD env set — the VMM uses its own fixture initramfs.
-    if (opts.image || opts.cmd || opts.snapshot) {
-      phases.start("initramfs-pack");
-      const packed = synthesizeAndPackBundle(opts, mergedGuestEnv, liveMountsResolved, {
-        useTiny: wantsRootDisk,
-        env,
-        mountDiskUpperSizeBytes: opts.mountDiskUpperSizeBytes,
-        onPhase: (name, ms) => phases.mark(`initramfs-pack.${name}`, ms),
-      });
-      bundleTempDir = packed.tempDir;
-      env.MACHINEN_INITRD = packed.cpioPath;
-      // #272: stash the materialized squashfs lower / ext4 upper so
-      // the spawn block can openSync + fd-pass them. The per-VM upper
-      // gets unlinked on VM exit alongside the per-boot rootdisk
-      // reflink; the lower stays in the host cache.
-      mountDiskPaths = packed.mountDisk;
-      const packMs = phases.end("initramfs-pack");
-      debug("initramfs packed cpio=%s elapsed=%dms", packed.cpioPath, packMs ?? -1);
-    }
-
-    // #114: rootDisk materialization. After all input validation has
-    // passed (so a bad mount path or missing image fails before we
-    // hash a multi-GB tarball). On a cache hit this is a few ms.
-    phases.start("rootdisk-materialize");
-    if (wantsRootDisk) {
-      perBootRootDisk = materializeRootdisk(opts, env, phases);
-    }
-    phases.end("rootdisk-materialize");
-  } catch (err) {
-    // Only the gv + per-boot disks need rolling back here — live-share
-    // mounts are wired by the VMM itself, with no host-side process.
-    // The post-VMM failure path below has its own inline cleanup that
-    // includes SIGKILLing the VMM.
-    rollbackPreSpawn({
-      gvStop,
-      bundleTempDir,
-      vsockTempDir,
-      perBootRootDisk,
-      perBootSnapDisk,
-      perBootMountUpper,
-    });
-    throw err;
-  }
-
-  // Wrap through the parent-death shim so the VMM dies with the
-  // runtime instead of orphaning to PID 1 holding the rootdisk fd and
-  // ~1.7 GiB RSS (#200). Mirrors `spawnGvproxy`. Falls through to a
-  // direct spawn if the shim is unavailable (no `cc`, opted-out,
-  // unsupported platform).
-  //
-  // Detached mode (#150) explicitly wants the orphan: the parent CLI
-  // exits while the VMM keeps running. Force pdeathsig off, ignoring
-  // any caller value, since both `pdeathsig: true` and the default
-  // `undefined` would otherwise SIGTERM the VMM the moment the parent
-  // exits.
-  phases.start("vmm-spawn");
-  const vmmPdeathsig = opts.detached || opts.pdeathsig === false ? null : await ensurePdeathsig();
-  const wrappedVmm = wrapWithPdeathsig(vmmPdeathsig, binary, opts.args ?? []);
-  const stdio: Array<"pipe" | number> = ["pipe", "pipe", "pipe"];
-  const mountDiskFds = mountDiskPaths ? openMountDiskFds(mountDiskPaths, env, stdio) : undefined;
-  if (mountDiskPaths) {
-    perBootMountUpper = mountDiskPaths.upperPath;
-  }
-  const child = nodeSpawn(wrappedVmm.command, wrappedVmm.args, {
-    cwd: opts.cwd,
+  const plan = await prepareBootPlan(opts, phases);
+  const {
     env,
-    stdio,
-  }) as ChildProcessWithoutNullStreams;
-  // The child has dup'd both fds; close our copies in the parent so
-  // the file isn't held open beyond what the child needs. Closing
-  // here is safe — the child has its own dup'd fd via posix_spawn /
-  // libuv's fd inheritance.
-  if (mountDiskFds) {
-    closeFds(mountDiskFds.lowerFd, mountDiskFds.upperFd);
-  }
-  phases.end("vmm-spawn");
-  // first-guest-byte starts ticking from VMM-spawn — that's the point
-  // after which any console output is real guest progress.
-  phases.start("first-guest-byte");
-  debug(
-    "VMM spawned pid=%d binary=%s wrapped=%s elapsedSinceEntry=%dms",
-    child.pid ?? -1,
-    binary,
-    vmmPdeathsig ? "yes" : "no",
-    Date.now() - bootT0,
-  );
+    memoryCeilingMib,
+    diskAbs,
+    vsockUdsPath,
+    statsFilePath,
+    vmstate,
+    liveMountsResolved,
+  } = plan;
 
-  // #98: register the running VM so another process can attach. The
-  // entry is keyed by pid (kernel-unique while alive); optional name
-  // lets `attach({ name })` look it up by something memorable.
-  //
-  // INVARIANT (#150 phase 2): name claim + registry write must
-  // complete synchronously before any `await` — in particular,
-  // before the readiness gate further down can call `handle.detach()`
-  // and unref the child. Detaching a name-conflict losers' child
-  // means the SIGKILL above wouldn't reach an orphaned-to-PID-1 VMM.
-  // Today the structure enforces this (no awaits between here and
-  // the gate); don't reorder.
-  const vmName = opts.name;
-  // Resolved once: shared by the registry entry and any future snapshot
-  // ctx so the bundle's meta.json points at the same absolute path the
-  // source booted from. Cheap (just a path resolve), so unconditional.
-  const sourceImageAbs = opts.image ? resolve(opts.cwd ?? process.cwd(), opts.image) : undefined;
-  const rootDiskPathForRegistry =
-    perBootRootDisk ??
-    (typeof opts.rootDisk === "string"
-      ? resolve(opts.cwd ?? process.cwd(), opts.rootDisk)
-      : undefined);
-  const rootDiskModeForRegistry = rootDiskPathForRegistry ? "block" : "none";
-  const childPid = child.pid ?? -1;
-  if (vmName && childPid > 0) {
-    claimNameOrThrow(vmName, childPid, child);
-  }
-  // #150 phase 2: detached VMs record where the boot-console snapshot
-  // will land so `attach` / `ls` / `gc` can find it later.
-  const bootLogPath = opts.detached && childPid > 0 ? bootSnapshotPath(childPid) : undefined;
-  // #150 phase 2 PR2: persist per-boot artifacts in the registry so
-  // `machinen gc` / `machinen stop` can clean them up after the
-  // parent has exited.
-  const cleanupPaths = collectCleanupPaths({
-    perBootRootDisk,
-    perBootSnapDisk,
-    perBootMountUpper,
-    bundleTempDir,
-    vsockTempDir,
-    statsTempDir,
-    gvSocketDir,
-  });
-  const registered =
-    childPid > 0 && vsockUdsPath
-      ? registerInRegistry({
-          childPid,
-          vmName,
-          vsockUdsPath,
-          sourceImageAbs,
-          rootDiskPath: rootDiskPathForRegistry,
-          rootDiskMode: rootDiskModeForRegistry,
-          diskAbs,
-          forkedFrom: opts.forkedFrom,
-          bootLogPath,
-          cleanupPaths,
-          binary,
-          vmmPdeathsig,
-          gvPid,
-          gvExe,
-          portForward,
-          memoryCeilingMib,
-          statsFilePath,
-          mountDiskPaths,
-          liveMountsResolved,
-          vmstateStatePath,
-          vmstateChainId: vmstateStatePath ? vmstateChainId : undefined,
-          vmstateCheckpointParent: vmstateStatePath ? vmstateCheckpointParent : undefined,
-          vmstateCheckpointSequence: vmstateStatePath ? vmstateCheckpointSequence : undefined,
-          nested: opts.nested,
-        })
-      : false;
+  const resources = await prepareBootResources(opts, plan, phases);
+  const { mountDiskPaths } = resources;
 
-  installVmExitCleanup({
-    child,
+  const spawned = await spawnBootVmm({ opts, plan, resources, phases, bootT0 });
+  const child = spawned.child;
+  const registry = registerSpawnedBoot({ opts, plan, resources, spawned, bootT0 });
+  const {
     childPid,
-    bootT0,
-    perBootRootDisk,
-    perBootSnapDisk,
-    perBootMountUpper,
-    bundleTempDir,
-    vsockTempDir,
-    statsTempDir,
-    gvStop,
-    registered,
-  });
+    vmName,
+    sourceImageAbs,
+    rootDiskPath: rootDiskPathForRegistry,
+    rootDiskMode: rootDiskModeForRegistry,
+    bootLogPath,
+  } = registry;
 
   const timeoutMs = opts.timeoutMs === undefined ? 60_000 : opts.timeoutMs;
 
@@ -800,204 +503,35 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     installDetachedBootCapture(child, detachedBootChunks);
   }
 
-  const handle: VmHandle = {
-    pid: childPid,
-    name: vmName,
-    stdin: child.stdin,
-    stdout: child.stdout,
-    stderr: child.stderr,
-    wait: makeWait(child, timeoutMs),
-    kill: makeKill(child),
-    output: () => outputCollector,
-    errorOutput: () => errorCollector,
-
-    async detach() {
-      // Drop the locally-booted process's hold without killing it:
-      // unref stdio and unregister from the registry. The VMM keeps
-      // running; `attach({ name | id })` from another process can
-      // pick it back up via the vsock UDS, which is *not* cleaned up
-      // on detach (only on VMM exit).
-      child.stdin.end();
-      child.unref();
-      // Intentionally leave the registry entry in place — detach means
-      // "someone else will attach," not "this VM is gone."
-    },
-
-    async exec(cmd, execOpts) {
-      if (!vsockUdsPath) {
-        throw new ExecError(
-          "EXEC_VSOCK_UNAVAILABLE",
-          "vm.exec: no vsock UDS available — MACHINEN_VSOCK was set to an " +
-            "unrecognized spec. Expected `in:<port>:<uds-path>`.",
-        );
-      }
-      const res = await VsockExec.run(vsockUdsPath, cmd, teeOnLog(cmd, execOpts, onLog));
-      if (res.exitCode !== 0) {
-        throw new ExecError(
-          "EXEC_NONZERO_EXIT",
-          `vm.exec failed (code ${res.exitCode}): ${cmd}\nstderr:\n${res.stderr}`,
-        );
-      }
-      return res;
-    },
-
-    execRaw(cmd, execOpts) {
-      if (!vsockUdsPath) {
-        return Promise.reject(
-          new ExecError(
-            "EXEC_VSOCK_UNAVAILABLE",
-            "vm.execRaw: no vsock UDS available — MACHINEN_VSOCK was set to " +
-              "an unrecognized spec. Expected `in:<port>:<uds-path>`.",
-          ),
-        );
-      }
-      return VsockExec.run(vsockUdsPath, cmd, teeOnLog(cmd, execOpts, onLog));
-    },
-
-    execPty(cmd, ptyOpts) {
-      if (!vsockUdsPath) {
-        // Synchronous-handle API can't reject like execRaw — surface
-        // a handle whose `result` is already a rejected promise.
-        const err = new ExecError(
-          "EXEC_VSOCK_UNAVAILABLE",
-          "vm.execPty: no vsock UDS available — MACHINEN_VSOCK was set to " +
-            "an unrecognized spec. Expected `in:<port>:<uds-path>`.",
-        );
-        return {
-          result: Promise.reject(err),
-          resize: () => {},
-          cancel: () => {},
-        };
-      }
-      return VsockExec.startPty(vsockUdsPath, cmd, ptyOpts);
-    },
-
-    async writeFile(guestPath, contents, writeOpts) {
-      for (const cmd of buildWriteFileCmds(guestPath, contents, writeOpts)) {
-        await this.exec(cmd);
-      }
-    },
-
-    async memoryStats(): Promise<MemoryStats> {
-      const balloon = statsFilePath ? readBalloonStats(statsFilePath) : null;
-      // Re-read the registry for lazy bookkeeping — restore() patches
-      // the entry with `lazyPagesTotal` after boot returns, and the
-      // handle was constructed before that patch.
-      const cur = findEntry({ pid: childPid });
-      const lazyTotal = cur?.lazyPagesTotal ?? 0;
-      return {
-        ceilingMib: memoryCeilingMib ?? null,
-        hostRssBytes: readHostRssBytes(childPid, statsFilePath),
-        balloonInflatedBytes: balloon?.bytesReported ?? 0,
-        lazyPagesPending: lazyTotal,
-      };
-    },
-
-    async snapshot(snapshotOpts) {
-      // A VM can be snapshotted only if its resolved engine has a
-      // backing store: the criu engine writes its images onto the
-      // guest-side scratch disk; the vmstate engine dumps the whole VM
-      // to a host state file. `snapshot: false` provisions neither, so
-      // the guard fires for whichever engine is in effect.
-      const engine = resolveSnapshotEngine();
-      if ((engine === "criu" && !diskAbs) || (engine === "vmstate" && !vmstateStatePath)) {
-        throw new SnapshotError(
-          "SNAPSHOT_NO_DISK",
-          "vm.snapshot: this VM was booted with `snapshot: false` (no scratch " +
-            "disk attached). Re-boot without that flag — the runtime will " +
-            "auto-allocate a sparse scratch — or pass `snapshot: '<path>'`.",
-        );
-      }
-      return performSnapshot(buildBootSnapshotContext(), snapshotOpts);
-    },
-
-    async fork(forkOpts) {
-      const engine = resolveSnapshotEngine();
-      if ((engine === "criu" && !diskAbs) || (engine === "vmstate" && !vmstateStatePath)) {
-        throw new SnapshotError(
-          "SNAPSHOT_NO_DISK",
-          "vm.fork: source VM has no scratch disk (booted with `snapshot: false`). " +
-            "Re-boot the source without that flag so it can be snapshotted.",
-        );
-      }
-      return performForkWithRestore(
-        buildBootSnapshotContext(),
-        forkOpts ?? {},
-        async (restoreOpts) => {
-          const runtimeEntryPath = runtimeEntryImportPath();
-          const { restore } = await import(runtimeEntryPath);
-          return restore(restoreOpts);
-        },
-      );
-    },
-  };
-
-  // #273: shared snapshot-context builder for the boot-owned
-  // `snapshot()` and `fork()` paths. Threads the live-share mount
-  // config through to performSnapshot so it can record `liveMounts`
-  // in the bundle's meta.json. Since #338 the in-VMM virtio-fs device
-  // is carried across the CRIU dump by the VMM itself, so there are no
-  // host-side mount-server instances to stop/respawn.
-  function buildBootSnapshotContext(): SnapshotContext {
-    const liveMountsForCtx =
-      liveMountsResolved.length > 0
-        ? liveMountsResolved.map((lm) => ({
-            host: lm.host,
-            guest: lm.guest,
-            mode: lm.mode,
-          }))
-        : undefined;
-    return {
-      pid: childPid,
-      sourceName: vmName,
-      sourceImage: sourceImageAbs,
+  const handle = createBootVmHandle({
+    child,
+    childPid,
+    vmName,
+    timeoutMs,
+    outputCollector,
+    errorCollector,
+    vsockUdsPath,
+    onLog,
+    statsFilePath,
+    memoryCeilingMib,
+    diskAbs,
+    vmstateStatePath: vmstate.statePath,
+    snapshot: {
+      child,
+      childPid,
+      vmName,
+      sourceImageAbs,
       rootDiskPath: rootDiskPathForRegistry,
       rootDiskMode: rootDiskModeForRegistry,
-      memoryCeilingMib: memoryCeilingMib,
-      kernelPath: env.MACHINEN_KERNEL,
-      dtbPath: env.MACHINEN_DTB,
-      diskPath: diskAbs!,
-      mountDisk: mountDiskPaths
-        ? {
-            guest: mountDiskPaths.guest,
-            lowerPath: mountDiskPaths.lowerPath,
-            upperPath: mountDiskPaths.upperPath,
-          }
-        : undefined,
-      liveMounts: liveMountsForCtx,
-      vmstatePath: vmstateStatePath,
-      vmstateChain: vmstateStatePath
-        ? {
-            chainId: vmstateChainId,
-            parentDir: vmstateCheckpointParent,
-            sequence: vmstateCheckpointSequence,
-          }
-        : undefined,
-      updateVmstateChain: vmstateStatePath
-        ? ({ parentDir, sequence }) => {
-            vmstateCheckpointParent = parentDir;
-            vmstateCheckpointSequence = sequence;
-            const cur = findEntry({ pid: childPid });
-            if (cur) {
-              writeEntry({
-                ...cur,
-                vmstateChainId,
-                vmstateCheckpointParent,
-                vmstateCheckpointSequence,
-              });
-            }
-          }
-        : undefined,
+      memoryCeilingMib,
+      env,
+      diskAbs,
+      mountDiskPaths,
+      liveMountsResolved,
       nested: opts.nested,
-      execRaw: (cmd, execOpts) => handle.execRaw(cmd, execOpts),
-      wait: () => handle.wait(),
-      kill: () => handle.kill(),
-      teeGuestConsole: (onChunk) => {
-        child.stderr.on("data", onChunk);
-      },
-      errorOutput: () => handle.errorOutput(),
-    };
-  }
+      vmstate,
+    },
+  });
 
   // Set a per-VM kernel hostname so `\h` prompts and other
   // hostname-aware tooling can tell VMs apart. Fire-and-forget
@@ -1027,6 +561,526 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
 // Helpers
 // =============================================================
 
+interface BootPlan {
+  portForward: NonNullable<BootOptions["portForward"]>;
+  binary: string;
+  env: Record<string, string>;
+  memoryCeilingMib: number | undefined;
+  diskAbs: string | undefined;
+  perBootSnapDisk: string | undefined;
+  wantsRootDisk: boolean;
+  vsockUdsPath: string | undefined;
+  vsockTempDir: string | undefined;
+  statsFilePath: string | undefined;
+  statsTempDir: string | undefined;
+  vmstate: BootVmstateRuntime;
+  liveMountsResolved: ResolvedLiveMount[];
+  mergedGuestEnv: Record<string, string>;
+}
+
+interface BootResources {
+  gvStop: (() => void) | undefined;
+  gvPid: number | undefined;
+  gvExe: string | undefined;
+  gvSocketDir: string | undefined;
+  bundleTempDir: string | undefined;
+  mountDiskPaths: MountDiskPaths | undefined;
+  perBootRootDisk: string | undefined;
+}
+
+async function prepareBootResources(
+  opts: BootOptions,
+  plan: BootPlan,
+  phases: PhaseTimer,
+): Promise<BootResources> {
+  let resources: BootResources = emptyBootResources();
+  try {
+    resources = {
+      ...resources,
+      ...(await setupBootNetServices(opts, plan, phases)),
+      ...packBootInitramfsIfNeeded(opts, plan, phases),
+    };
+    resources.perBootRootDisk = materializeRootdiskIfNeeded(opts, plan, phases);
+    return resources;
+  } catch (err) {
+    rollbackPreSpawn({
+      gvStop: resources.gvStop,
+      bundleTempDir: resources.bundleTempDir,
+      vsockTempDir: plan.vsockTempDir,
+      perBootRootDisk: resources.perBootRootDisk,
+      perBootSnapDisk: plan.perBootSnapDisk,
+      perBootMountUpper: undefined,
+    });
+    throw err;
+  }
+}
+
+function emptyBootResources(): BootResources {
+  return {
+    gvStop: undefined,
+    gvPid: undefined,
+    gvExe: undefined,
+    gvSocketDir: undefined,
+    bundleTempDir: undefined,
+    mountDiskPaths: undefined,
+    perBootRootDisk: undefined,
+  };
+}
+
+async function setupBootNetServices(
+  opts: BootOptions,
+  plan: BootPlan,
+  phases: PhaseTimer,
+): Promise<Pick<BootResources, "gvStop" | "gvPid" | "gvExe" | "gvSocketDir">> {
+  phases.start("net-services");
+  phases.start("net-services.gvproxy");
+  const gv = await bringUpGvproxy(opts, plan.binary, plan.env, plan.portForward);
+  phases.end("net-services.gvproxy");
+  phases.end("net-services");
+  return gv;
+}
+
+function packBootInitramfsIfNeeded(
+  opts: BootOptions,
+  plan: BootPlan,
+  phases: PhaseTimer,
+): Pick<BootResources, "bundleTempDir" | "mountDiskPaths"> {
+  if (!bootNeedsInitramfs(opts)) {
+    return { bundleTempDir: undefined, mountDiskPaths: undefined };
+  }
+  phases.start("initramfs-pack");
+  const packed = synthesizeAndPackBundle(opts, plan.mergedGuestEnv, plan.liveMountsResolved, {
+    useTiny: plan.wantsRootDisk,
+    env: plan.env,
+    mountDiskUpperSizeBytes: opts.mountDiskUpperSizeBytes,
+    onPhase: (name, ms) => phases.mark(`initramfs-pack.${name}`, ms),
+  });
+  plan.env.MACHINEN_INITRD = packed.cpioPath;
+  const packMs = phases.end("initramfs-pack");
+  debug("initramfs packed cpio=%s elapsed=%dms", packed.cpioPath, packMs ?? -1);
+  return { bundleTempDir: packed.tempDir, mountDiskPaths: packed.mountDisk };
+}
+
+function bootNeedsInitramfs(opts: BootOptions): boolean {
+  return Boolean(opts.image || opts.cmd || opts.snapshot);
+}
+
+function materializeRootdiskIfNeeded(
+  opts: BootOptions,
+  plan: BootPlan,
+  phases: PhaseTimer,
+): string | undefined {
+  phases.start("rootdisk-materialize");
+  const perBootRootDisk = plan.wantsRootDisk
+    ? materializeRootdisk(opts, plan.env, phases)
+    : undefined;
+  phases.end("rootdisk-materialize");
+  return perBootRootDisk;
+}
+
+interface SpawnBootArgs {
+  opts: BootOptions;
+  plan: BootPlan;
+  resources: BootResources;
+  phases: PhaseTimer;
+  bootT0: number;
+}
+
+interface SpawnedBootVmm {
+  child: ChildProcessWithoutNullStreams;
+  vmmPdeathsig: string | null;
+  perBootMountUpper: string | undefined;
+}
+
+async function spawnBootVmm(args: SpawnBootArgs): Promise<SpawnedBootVmm> {
+  args.phases.start("vmm-spawn");
+  const vmmPdeathsig = await resolveVmmPdeathsig(args.opts);
+  const wrappedVmm = wrapWithPdeathsig(vmmPdeathsig, args.plan.binary, args.opts.args ?? []);
+  const stdio: Array<"pipe" | number> = ["pipe", "pipe", "pipe"];
+  const mountDiskFds = maybeOpenMountDiskFds(args.resources.mountDiskPaths, args.plan.env, stdio);
+  const child = nodeSpawn(wrappedVmm.command, wrappedVmm.args, {
+    cwd: args.opts.cwd,
+    env: args.plan.env,
+    stdio,
+  }) as ChildProcessWithoutNullStreams;
+  closeMountDiskFds(mountDiskFds);
+  args.phases.end("vmm-spawn");
+  args.phases.start("first-guest-byte");
+  logVmmSpawn(child, args.plan.binary, vmmPdeathsig, args.bootT0);
+  return { child, vmmPdeathsig, perBootMountUpper: args.resources.mountDiskPaths?.upperPath };
+}
+
+async function resolveVmmPdeathsig(opts: BootOptions): Promise<string | null> {
+  if (opts.detached || opts.pdeathsig === false) {
+    return null;
+  }
+  return ensurePdeathsig();
+}
+
+function maybeOpenMountDiskFds(
+  mountDiskPaths: MountDiskPaths | undefined,
+  env: Record<string, string>,
+  stdio: Array<"pipe" | number>,
+): { lowerFd: number; upperFd: number } | undefined {
+  return mountDiskPaths ? openMountDiskFds(mountDiskPaths, env, stdio) : undefined;
+}
+
+function closeMountDiskFds(fds: { lowerFd: number; upperFd: number } | undefined): void {
+  if (fds) {
+    closeFds(fds.lowerFd, fds.upperFd);
+  }
+}
+
+function logVmmSpawn(
+  child: ChildProcessWithoutNullStreams,
+  binary: string,
+  vmmPdeathsig: string | null,
+  bootT0: number,
+): void {
+  debug(
+    "VMM spawned pid=%d binary=%s wrapped=%s elapsedSinceEntry=%dms",
+    child.pid ?? -1,
+    binary,
+    vmmPdeathsig ? "yes" : "no",
+    Date.now() - bootT0,
+  );
+}
+
+interface BootRegistryState {
+  childPid: number;
+  vmName: string | undefined;
+  sourceImageAbs: string | undefined;
+  rootDiskPath: string | undefined;
+  rootDiskMode: "block" | "none";
+  bootLogPath: string | undefined;
+}
+
+function registerSpawnedBoot(args: {
+  opts: BootOptions;
+  plan: BootPlan;
+  resources: BootResources;
+  spawned: SpawnedBootVmm;
+  bootT0: number;
+}): BootRegistryState {
+  const state = buildBootRegistryState(args.opts, args.resources, args.spawned);
+  claimBootNameIfNeeded(state, args.spawned.child);
+  const registered = writeBootRegistryIfPossible(args, state);
+  installBootExitCleanup(args, state, registered);
+  return state;
+}
+
+function buildBootRegistryState(
+  opts: BootOptions,
+  resources: BootResources,
+  spawned: SpawnedBootVmm,
+): BootRegistryState {
+  const childPid = spawned.child.pid ?? -1;
+  const rootDiskPath = registryRootDiskPath(opts, resources.perBootRootDisk);
+  return {
+    childPid,
+    vmName: opts.name,
+    sourceImageAbs: registrySourceImage(opts),
+    rootDiskPath,
+    rootDiskMode: rootDiskPath ? "block" : "none",
+    bootLogPath: registryBootLogPath(opts, childPid),
+  };
+}
+
+function registrySourceImage(opts: BootOptions): string | undefined {
+  return opts.image ? resolve(opts.cwd ?? process.cwd(), opts.image) : undefined;
+}
+
+function registryRootDiskPath(
+  opts: BootOptions,
+  perBootRootDisk: string | undefined,
+): string | undefined {
+  if (perBootRootDisk) {
+    return perBootRootDisk;
+  }
+  return typeof opts.rootDisk === "string"
+    ? resolve(opts.cwd ?? process.cwd(), opts.rootDisk)
+    : undefined;
+}
+
+function registryBootLogPath(opts: BootOptions, childPid: number): string | undefined {
+  return opts.detached && childPid > 0 ? bootSnapshotPath(childPid) : undefined;
+}
+
+function claimBootNameIfNeeded(
+  state: BootRegistryState,
+  child: ChildProcessWithoutNullStreams,
+): void {
+  if (state.vmName && state.childPid > 0) {
+    claimNameOrThrow(state.vmName, state.childPid, child);
+  }
+}
+
+function writeBootRegistryIfPossible(
+  args: {
+    opts: BootOptions;
+    plan: BootPlan;
+    resources: BootResources;
+    spawned: SpawnedBootVmm;
+  },
+  state: BootRegistryState,
+): boolean {
+  if (state.childPid <= 0 || !args.plan.vsockUdsPath) {
+    return false;
+  }
+  return registerInRegistry(buildRegisterArgs(args, state));
+}
+
+function buildRegisterArgs(
+  args: {
+    opts: BootOptions;
+    plan: BootPlan;
+    resources: BootResources;
+    spawned: SpawnedBootVmm;
+  },
+  state: BootRegistryState,
+): RegisterArgs {
+  return {
+    childPid: state.childPid,
+    vmName: state.vmName,
+    vsockUdsPath: args.plan.vsockUdsPath!,
+    sourceImageAbs: state.sourceImageAbs,
+    rootDiskPath: state.rootDiskPath,
+    rootDiskMode: state.rootDiskMode,
+    diskAbs: args.plan.diskAbs,
+    forkedFrom: args.opts.forkedFrom,
+    bootLogPath: state.bootLogPath,
+    cleanupPaths: cleanupPathsForBoot(args.plan, args.resources, args.spawned),
+    binary: args.plan.binary,
+    vmmPdeathsig: args.spawned.vmmPdeathsig,
+    gvPid: args.resources.gvPid,
+    gvExe: args.resources.gvExe,
+    portForward: args.plan.portForward,
+    memoryCeilingMib: args.plan.memoryCeilingMib,
+    statsFilePath: args.plan.statsFilePath,
+    mountDiskPaths: args.resources.mountDiskPaths,
+    liveMountsResolved: args.plan.liveMountsResolved,
+    vmstateStatePath: args.plan.vmstate.statePath,
+    vmstateChainId: vmstateValue(args.plan.vmstate, args.plan.vmstate.chainId),
+    vmstateCheckpointParent: vmstateValue(args.plan.vmstate, args.plan.vmstate.checkpointParent),
+    vmstateCheckpointSequence: vmstateValue(
+      args.plan.vmstate,
+      args.plan.vmstate.checkpointSequence,
+    ),
+    nested: args.opts.nested,
+  };
+}
+
+function vmstateValue<T>(vmstate: BootVmstateRuntime, value: T): T | undefined {
+  return vmstate.statePath ? value : undefined;
+}
+
+function cleanupPathsForBoot(
+  plan: BootPlan,
+  resources: BootResources,
+  spawned: SpawnedBootVmm,
+): string[] {
+  return collectCleanupPaths({
+    perBootRootDisk: resources.perBootRootDisk,
+    perBootSnapDisk: plan.perBootSnapDisk,
+    perBootMountUpper: spawned.perBootMountUpper,
+    bundleTempDir: resources.bundleTempDir,
+    vsockTempDir: plan.vsockTempDir,
+    statsTempDir: plan.statsTempDir,
+    gvSocketDir: resources.gvSocketDir,
+  });
+}
+
+function installBootExitCleanup(
+  args: {
+    plan: BootPlan;
+    resources: BootResources;
+    spawned: SpawnedBootVmm;
+    bootT0: number;
+  },
+  state: BootRegistryState,
+  registered: boolean,
+): void {
+  installVmExitCleanup({
+    child: args.spawned.child,
+    childPid: state.childPid,
+    bootT0: args.bootT0,
+    perBootRootDisk: args.resources.perBootRootDisk,
+    perBootSnapDisk: args.plan.perBootSnapDisk,
+    perBootMountUpper: args.spawned.perBootMountUpper,
+    bundleTempDir: args.resources.bundleTempDir,
+    vsockTempDir: args.plan.vsockTempDir,
+    statsTempDir: args.plan.statsTempDir,
+    gvStop: args.resources.gvStop,
+    registered,
+  });
+}
+
+async function prepareBootPlan(opts: BootOptions, phases: PhaseTimer): Promise<BootPlan> {
+  const assets = await resolveBootAssets(opts, phases);
+  const env = buildVmmEnv(opts);
+  configureNestedVirtualization(opts, assets.binary, env);
+  const memoryCeilingMib = setMemoryCeiling(opts, env);
+  const scratch = prepareBootScratchDisk(opts, env, phases);
+  const wantsRootDisk = wantsRootDiskBoot(opts);
+  validateRootDiskRequest(opts, wantsRootDisk);
+  validateKernelDtb(opts, env);
+  const vsock = setupVsockBridge(env);
+  const stats = setupStatsFile(env, vsock.vsockTempDir);
+  const vmstateSetup = setupVmstateBoot(opts, env, vsock.vsockTempDir);
+  const liveMountsResolved = setupLiveMountEnv(opts, env);
+  return {
+    ...assets,
+    env,
+    memoryCeilingMib,
+    ...scratch,
+    wantsRootDisk,
+    vsockUdsPath: vsock.vsockUdsPath,
+    vsockTempDir: vmstateSetup.vsockTempDir,
+    ...stats,
+    vmstate: vmstateSetup.vmstate,
+    liveMountsResolved,
+    mergedGuestEnv: buildMergedGuestEnv(opts, vsock.vsockUdsPath),
+  };
+}
+
+async function resolveBootAssets(
+  opts: BootOptions,
+  phases: PhaseTimer,
+): Promise<Pick<BootPlan, "portForward" | "binary">> {
+  phases.start("asset-resolve");
+  const portForward = opts.portForward ?? [];
+  await validatePortForwardOpts(opts, portForward);
+  const binary = resolveBootBinary(opts);
+  validateBootCommandPair(opts);
+  phases.end("asset-resolve");
+  return { portForward, binary };
+}
+
+function resolveBootBinary(opts: BootOptions): string {
+  const binaryInput = opts.binary ?? resolveVmmBinary();
+  const binary = resolve(opts.cwd ?? process.cwd(), binaryInput);
+  if (!existsSync(binary)) {
+    throw new BootError("BOOT_VMM_MISSING", `VMM binary not found at ${binary}`);
+  }
+  return binary;
+}
+
+function validateBootCommandPair(opts: BootOptions): void {
+  if (opts.cmd && !opts.image) {
+    throw new BootError("BOOT_CMD_WITHOUT_IMAGE", "boot: `image` is required when `cmd` is set.");
+  }
+}
+
+function buildVmmEnv(opts: BootOptions): Record<string, string> {
+  return {
+    ...(process.env as Record<string, string>),
+    ...opts.vmmEnv,
+  };
+}
+
+function prepareBootScratchDisk(
+  opts: BootOptions,
+  env: Record<string, string>,
+  phases: PhaseTimer,
+): Pick<BootPlan, "diskAbs" | "perBootSnapDisk"> {
+  phases.start("disk-prep");
+  const scratch = prepareScratchDisk(opts, env);
+  phases.end("disk-prep");
+  return scratch;
+}
+
+function wantsRootDiskBoot(opts: BootOptions): boolean {
+  return (
+    opts.rootDisk !== false &&
+    (opts._rootDiskRestorePath !== undefined || opts.rootDisk !== undefined || !!opts.image)
+  );
+}
+
+function validateRootDiskRequest(opts: BootOptions, wantsRootDisk: boolean): void {
+  if (wantsRootDisk && typeof opts.rootDisk !== "string" && !opts.image) {
+    throw new BootError(
+      "BOOT_CMD_WITHOUT_IMAGE",
+      "boot: rootDisk: true requires an `image` (the .tar.gz to materialize).",
+    );
+  }
+}
+
+function setupVmstateBoot(
+  opts: BootOptions,
+  env: Record<string, string>,
+  inputVsockTempDir: string | undefined,
+): { vmstate: BootVmstateRuntime; vsockTempDir: string | undefined } {
+  let vsockTempDir = inputVsockTempDir;
+  const vmstate: BootVmstateRuntime = {
+    statePath: undefined,
+    chainId: randomBytes(16).toString("hex"),
+    checkpointParent: opts._vmstateRestorePath ? opts.forkedFrom : undefined,
+    checkpointSequence: 0,
+  };
+  if (resolveSnapshotEngine() === "vmstate" && opts.snapshot !== false) {
+    vsockTempDir = ensureVsockTempDir(vsockTempDir);
+    vmstate.statePath = join(vsockTempDir, VMSTATE_FILE);
+    env.MACHINEN_SNAPSHOT_PATH = vmstate.statePath;
+  }
+  configureVmstateRestoreEnv(opts, env);
+  return { vmstate, vsockTempDir };
+}
+
+function ensureVsockTempDir(vsockTempDir: string | undefined): string {
+  return vsockTempDir ?? mkdtempSync(join(tmpdir(), "machinen-vsock-"));
+}
+
+function configureVmstateRestoreEnv(opts: BootOptions, env: Record<string, string>): void {
+  if (!opts._vmstateRestorePath) {
+    return;
+  }
+  env.MACHINEN_RESTORE_PATH = opts._vmstateRestorePath;
+  if (shouldEnableVmstateTiming(env)) {
+    env.MACHINEN_VMSTATE_TIMING = "1";
+  }
+}
+
+function shouldEnableVmstateTiming(env: Record<string, string>): boolean {
+  return (vmstateDebug.enabled || restoreDebug.enabled) && !env.MACHINEN_VMSTATE_TIMING;
+}
+
+function setupLiveMountEnv(opts: BootOptions, env: Record<string, string>): ResolvedLiveMount[] {
+  const liveMounts = opts.liveMounts ?? [];
+  if (liveMounts.length === 0) {
+    return [];
+  }
+  const resolved = resolveLiveMounts(liveMounts, opts.cwd);
+  resolved.forEach((lm, i) => {
+    env[`MACHINEN_VIRTIOFS_${i}`] = `${lm.tag}:${lm.mode}:${lm.host}`;
+  });
+  return resolved;
+}
+
+function buildMergedGuestEnv(
+  opts: BootOptions,
+  vsockUdsPath: string | undefined,
+): Record<string, string> {
+  const mergedGuestEnv: Record<string, string> = { ...opts.env };
+  applyGuestNameFallback(opts, mergedGuestEnv);
+  applyHostnameWait(vsockUdsPath, mergedGuestEnv);
+  return mergedGuestEnv;
+}
+
+function applyGuestNameFallback(opts: BootOptions, mergedGuestEnv: Record<string, string>): void {
+  if (opts.name && !mergedGuestEnv.MACHINEN_VM_NAME) {
+    mergedGuestEnv.MACHINEN_VM_NAME = opts.name;
+  }
+}
+
+function applyHostnameWait(
+  vsockUdsPath: string | undefined,
+  mergedGuestEnv: Record<string, string>,
+): void {
+  if (vsockUdsPath && !mergedGuestEnv.MACHINEN_VM_HOSTNAME_WAIT) {
+    mergedGuestEnv.MACHINEN_VM_HOSTNAME_WAIT = "1";
+  }
+}
+
 // Validate portForward up front — before resolving the binary or
 // touching the filesystem — so caller-input errors surface with a
 // clear message. The env-dependent "pre-set MACHINEN_NET_SOCKET"
@@ -1038,6 +1092,12 @@ async function validatePortForwardOpts(
   if (portForward.length === 0) {
     return;
   }
+  rejectPresetNetSocket(opts);
+  validatePortForwardShape(portForward);
+  await validatePortForwardAvailability(portForward);
+}
+
+function rejectPresetNetSocket(opts: BootOptions): void {
   const preSetNetSock =
     (opts.vmmEnv && opts.vmmEnv.MACHINEN_NET_SOCKET) || process.env.MACHINEN_NET_SOCKET;
   if (preSetNetSock) {
@@ -1048,53 +1108,80 @@ async function validatePortForwardOpts(
         "against your gvproxy's control API.",
     );
   }
+}
+
+function validatePortForwardShape(portForward: NonNullable<BootOptions["portForward"]>): void {
   const seen = new Set<number>();
-  for (const m of portForward) {
-    for (const [label, port] of [
-      ["hostPort", m.hostPort],
-      ["guestPort", m.guestPort],
-    ] as const) {
-      if (!Number.isInteger(port) || port < 1 || port > 65535) {
-        throw new BootError(
-          "BOOT_PORT_FORWARD_INVALID",
-          `portForward: ${label} must be an integer in 1..65535 (got ${port})`,
-        );
-      }
-    }
-    if (seen.has(m.hostPort)) {
+  for (const mapping of portForward) {
+    validatePortMappingNumbers(mapping);
+    rejectDuplicateHostPort(mapping.hostPort, seen);
+  }
+}
+
+function validatePortMappingNumbers(
+  mapping: NonNullable<BootOptions["portForward"]>[number],
+): void {
+  for (const [label, port] of portMappingPorts(mapping)) {
+    if (!validTcpPort(port)) {
       throw new BootError(
-        "BOOT_PORT_FORWARD_CONFLICT",
-        `portForward: duplicate hostPort ${m.hostPort}`,
+        "BOOT_PORT_FORWARD_INVALID",
+        `portForward: ${label} must be an integer in 1..65535 (got ${port})`,
       );
     }
-    seen.add(m.hostPort);
   }
-  // Pre-flight bind probe per requested host port. Without this,
-  // gvproxy's control API surfaces `address already in use` as an
-  // opaque GVPROXY_EXPOSE_FAILED 500 *after* we've spawned it. The
-  // common cause is an orphaned gvproxy from a prior `kill -9` of
-  // the runtime — the kernel reparents it to PID 1 and it keeps
-  // holding the host port. Surface the orphan hypothesis directly
-  // so the user knows what to clean up. See #115.
-  for (const m of portForward) {
-    const host = m.hostAddr ?? "127.0.0.1";
-    const errno = await probeHostPortFree(host, m.hostPort);
-    if (!errno) {
-      continue;
-    }
-    // Best-effort: name the offending PID and flag whether it's
-    // machinen-owned. lsof failures are non-fatal — fall back to the
-    // generic orphan-gvproxy hypothesis so the message still helps.
-    const holder = await describePortHolder(m.hostPort).catch(() => null);
-    const detail = holder
-      ? `${holder}.`
-      : "Common cause: an orphaned gvproxy from a prior `kill -9` of the VMM. " +
-        "Try `pkill -f gvproxy` to clear it, or pick a different host port.";
+}
+
+function portMappingPorts(
+  mapping: NonNullable<BootOptions["portForward"]>[number],
+): Array<readonly ["hostPort" | "guestPort", number]> {
+  return [
+    ["hostPort", mapping.hostPort],
+    ["guestPort", mapping.guestPort],
+  ];
+}
+
+function validTcpPort(port: number): boolean {
+  return Number.isInteger(port) && port >= 1 && port <= 65535;
+}
+
+function rejectDuplicateHostPort(hostPort: number, seen: Set<number>): void {
+  if (seen.has(hostPort)) {
     throw new BootError(
-      "BOOT_PORT_FORWARD_IN_USE",
-      `portForward: host port ${host}:${m.hostPort} is already in use (${errno}). ${detail}`,
+      "BOOT_PORT_FORWARD_CONFLICT",
+      `portForward: duplicate hostPort ${hostPort}`,
     );
   }
+  seen.add(hostPort);
+}
+
+async function validatePortForwardAvailability(
+  portForward: NonNullable<BootOptions["portForward"]>,
+): Promise<void> {
+  for (const mapping of portForward) {
+    await validateHostPortFree(mapping);
+  }
+}
+
+async function validateHostPortFree(
+  mapping: NonNullable<BootOptions["portForward"]>[number],
+): Promise<void> {
+  const host = mapping.hostAddr ?? "127.0.0.1";
+  const errno = await probeHostPortFree(host, mapping.hostPort);
+  if (!errno) {
+    return;
+  }
+  throw new BootError(
+    "BOOT_PORT_FORWARD_IN_USE",
+    `portForward: host port ${host}:${mapping.hostPort} is already in use (${errno}). ${await portHolderDetail(mapping.hostPort)}`,
+  );
+}
+
+async function portHolderDetail(hostPort: number): Promise<string> {
+  const holder = await describePortHolder(hostPort).catch(() => null);
+  return holder
+    ? `${holder}.`
+    : "Common cause: an orphaned gvproxy from a prior `kill -9` of the VMM. " +
+        "Try `pkill -f gvproxy` to clear it, or pick a different host port.";
 }
 
 // #263 phase A: forward the guest RAM ceiling so the VMM doesn't
@@ -1557,85 +1644,7 @@ interface RegisterArgs {
 // boot-and-use still works fine).
 function registerInRegistry(args: RegisterArgs): boolean {
   try {
-    writeEntry({
-      pid: args.childPid,
-      name: args.vmName,
-      socketPath: args.vsockUdsPath,
-      imagePath: args.sourceImageAbs,
-      rootDiskPath: args.rootDiskPath,
-      rootDiskMode: args.rootDiskMode,
-      diskPath: args.diskAbs,
-      forkedFrom: args.forkedFrom,
-      bootLogPath: args.bootLogPath,
-      cleanupPaths: args.cleanupPaths.length > 0 ? args.cleanupPaths : undefined,
-      // The pdeathsig shim works differently per platform, and that
-      // changes what `child.pid` actually IS:
-      //   - Linux: shim does `prctl(PR_SET_PDEATHSIG); execvp(target)`
-      //     in-place, so once the kernel runs `execvp` `child.pid`
-      //     is the target binary. /proc/<pid>/exe stabilizes at the
-      //     target's path.
-      //   - macOS: shim forks (parent is the long-lived kqueue
-      //     watcher; the child execvp's the target), so `child.pid`
-      //     is *the watcher* forever, and `ps` reports the shim's
-      //     own argv[0] for that pid.
-      // For the registry's vmmExe field we want whatever the OS
-      // will keep reporting for `child.pid` once everything settles.
-      // On macOS that's the shim ("pdeathsig"), so snapshot it now.
-      // On Linux that's the target — and we deliberately *don't*
-      // snapshot, because there's a race between Node's `spawn()`
-      // returning and the shim's execvp firing where /proc/<pid>/exe
-      // still resolves to the shim path. Storing the snapshot in
-      // that window persists "pdeathsig" and validatePid later sees
-      // "yes" / the real VMM and reports `recycled` forever —
-      // exactly what ate two CI tests when this code first landed.
-      vmmExe:
-        process.platform === "darwin" && args.vmmPdeathsig
-          ? (readProcessIdentity(args.childPid)?.exeBase ?? args.binary)
-          : args.binary,
-      gvproxyPid: args.gvPid,
-      // Same Linux-vs-macOS shim semantics as `vmmExe` above.
-      gvproxyExe:
-        process.platform === "darwin" && args.gvPid !== undefined && args.gvPid > 0
-          ? (readProcessIdentity(args.gvPid)?.exeBase ?? args.gvExe)
-          : args.gvExe,
-      portForward: args.portForward.length > 0 ? args.portForward : undefined,
-      memoryCeilingMib: args.memoryCeilingMib,
-      statsPath: args.statsFilePath,
-      // Vmstate engine: persist the VMM's whole-VM state-file path so
-      // an attach-owned `vm.snapshot()` / `vm.fork()` can SIGUSR1 the
-      // VMM and pick the .vmstate up. Undefined for criu-engine VMs.
-      vmstatePath: args.vmstateStatePath,
-      vmstateChainId: args.vmstateChainId,
-      vmstateCheckpointParent: args.vmstateCheckpointParent,
-      vmstateCheckpointSequence: args.vmstateCheckpointSequence,
-      // #271: record nested-EL2 opt-in so attach-owned snapshots can
-      // apply the same provider-level safety gate as boot-owned ones.
-      nested: args.nested || undefined,
-      // #272: persist mount-overlay paths so an attach-owned
-      // vm.snapshot()/fork() can reflink the lower+upper into the
-      // bundle. Without this, `machinen snapshot <vm>` from
-      // the CLI produces a bundle that's missing the overlay halves.
-      mountDisk: args.mountDiskPaths
-        ? {
-            guest: args.mountDiskPaths.guest,
-            lowerPath: args.mountDiskPaths.lowerPath,
-            upperPath: args.mountDiskPaths.upperPath,
-          }
-        : undefined,
-      // #273: persist live-share mount config so an attach-owned
-      // snapshot/fork can write the same `meta.liveMounts` block. The
-      // per-mount virtio-fs tag isn't carried — it's re-derived from
-      // the resolved order on restore.
-      liveMounts:
-        args.liveMountsResolved.length > 0
-          ? args.liveMountsResolved.map(({ guest, host, mode }) => ({
-              guest,
-              host,
-              mode,
-            }))
-          : undefined,
-      startedAt: Date.now(),
-    });
+    writeEntry(buildRegistryEntry(args));
     debug("registered pid=%d name=%s", args.childPid, args.vmName ?? "<unset>");
     return true;
   } catch (err) {
@@ -1645,6 +1654,77 @@ function registerInRegistry(args: RegisterArgs): boolean {
     );
     return false;
   }
+}
+
+function buildRegistryEntry(args: RegisterArgs) {
+  return {
+    pid: args.childPid,
+    name: args.vmName,
+    socketPath: args.vsockUdsPath,
+    imagePath: args.sourceImageAbs,
+    rootDiskPath: args.rootDiskPath,
+    rootDiskMode: args.rootDiskMode,
+    diskPath: args.diskAbs,
+    forkedFrom: args.forkedFrom,
+    bootLogPath: args.bootLogPath,
+    cleanupPaths: nonEmptyList(args.cleanupPaths),
+    vmmExe: registryVmmExe(args),
+    gvproxyPid: args.gvPid,
+    gvproxyExe: registryGvproxyExe(args),
+    portForward: nonEmptyList(args.portForward),
+    memoryCeilingMib: args.memoryCeilingMib,
+    statsPath: args.statsFilePath,
+    vmstatePath: args.vmstateStatePath,
+    vmstateChainId: args.vmstateChainId,
+    vmstateCheckpointParent: args.vmstateCheckpointParent,
+    vmstateCheckpointSequence: args.vmstateCheckpointSequence,
+    nested: args.nested || undefined,
+    mountDisk: registryMountDisk(args.mountDiskPaths),
+    liveMounts: registryLiveMounts(args.liveMountsResolved),
+    startedAt: Date.now(),
+  };
+}
+
+function nonEmptyList<T>(items: T[]): T[] | undefined {
+  return items.length > 0 ? items : undefined;
+}
+
+function registryVmmExe(args: RegisterArgs): string {
+  // The pdeathsig shim works differently per platform. On macOS child.pid
+  // is the watcher, so snapshot its identity now; on Linux the shim execs in
+  // place, so deferring avoids recording the shim during the exec race.
+  if (process.platform === "darwin" && args.vmmPdeathsig) {
+    return readProcessIdentity(args.childPid)?.exeBase ?? args.binary;
+  }
+  return args.binary;
+}
+
+function registryGvproxyExe(args: RegisterArgs): string | undefined {
+  if (process.platform === "darwin" && args.gvPid !== undefined && args.gvPid > 0) {
+    return readProcessIdentity(args.gvPid)?.exeBase ?? args.gvExe;
+  }
+  return args.gvExe;
+}
+
+function registryMountDisk(mountDiskPaths: MountDiskPaths | undefined) {
+  if (!mountDiskPaths) {
+    return undefined;
+  }
+  return {
+    guest: mountDiskPaths.guest,
+    lowerPath: mountDiskPaths.lowerPath,
+    upperPath: mountDiskPaths.upperPath,
+  };
+}
+
+function registryLiveMounts(liveMountsResolved: ResolvedLiveMount[]) {
+  return nonEmptyList(
+    liveMountsResolved.map(({ guest, host, mode }) => ({
+      guest,
+      host,
+      mode,
+    })),
+  );
 }
 
 interface ExitCleanupState {
@@ -1761,6 +1841,308 @@ function installDetachedBootCapture(child: ChildProcessWithoutNullStreams, sink:
       bytes -= sink.shift()!.length;
     }
   });
+}
+
+interface BootHandleArgs {
+  child: ChildProcessWithoutNullStreams;
+  childPid: number;
+  vmName: string | undefined;
+  timeoutMs: number | null;
+  outputCollector: Promise<string>;
+  errorCollector: Promise<string>;
+  vsockUdsPath: string | undefined;
+  onLog: OnLog | undefined;
+  statsFilePath: string | undefined;
+  memoryCeilingMib: number | undefined;
+  diskAbs: string | undefined;
+  vmstateStatePath: string | undefined;
+  snapshot: BootSnapshotContextArgs;
+}
+
+interface BootSnapshotContextArgs {
+  child: ChildProcessWithoutNullStreams;
+  childPid: number;
+  vmName: string | undefined;
+  sourceImageAbs: string | undefined;
+  rootDiskPath: string | undefined;
+  rootDiskMode: "block" | "none";
+  memoryCeilingMib: number | undefined;
+  env: Record<string, string>;
+  diskAbs: string | undefined;
+  mountDiskPaths: MountDiskPaths | undefined;
+  liveMountsResolved: ResolvedLiveMount[];
+  nested: boolean | undefined;
+  vmstate: BootVmstateRuntime;
+}
+
+interface BootVmstateRuntime {
+  statePath: string | undefined;
+  chainId: string;
+  checkpointParent: string | undefined;
+  checkpointSequence: number;
+}
+
+function createBootVmHandle(args: BootHandleArgs): VmHandle {
+  let handle: VmHandle;
+  handle = {
+    pid: args.childPid,
+    name: args.vmName,
+    stdin: args.child.stdin,
+    stdout: args.child.stdout,
+    stderr: args.child.stderr,
+    wait: makeWait(args.child, args.timeoutMs),
+    kill: makeKill(args.child),
+    detach: makeDetach(args.child),
+    output: () => args.outputCollector,
+    errorOutput: () => args.errorCollector,
+    exec: makeExec(args.vsockUdsPath, args.onLog),
+    execRaw: makeExecRaw(args.vsockUdsPath, args.onLog),
+    execPty: makeExecPty(args.vsockUdsPath),
+    writeFile: makeWriteFile(() => handle),
+    memoryStats: makeMemoryStats(args.childPid, args.statsFilePath, args.memoryCeilingMib),
+    snapshot: makeSnapshot(args, () => buildBootSnapshotContext(args.snapshot, handle)),
+    fork: makeFork(args, () => buildBootSnapshotContext(args.snapshot, handle)),
+  };
+  return handle;
+}
+
+function makeDetach(child: ChildProcessWithoutNullStreams): VmHandle["detach"] {
+  return async () => {
+    child.stdin.end();
+    child.unref();
+  };
+}
+
+function makeExec(vsockUdsPath: string | undefined, onLog: OnLog | undefined): VmHandle["exec"] {
+  return async (cmd, execOpts) => {
+    const udsPath = requireVsockPath(vsockUdsPath, "exec");
+    const res = await VsockExec.run(udsPath, cmd, teeOnLog(cmd, execOpts, onLog));
+    if (res.exitCode !== 0) {
+      throw new ExecError(
+        "EXEC_NONZERO_EXIT",
+        `vm.exec failed (code ${res.exitCode}): ${cmd}\nstderr:\n${res.stderr}`,
+      );
+    }
+    return res;
+  };
+}
+
+function makeExecRaw(
+  vsockUdsPath: string | undefined,
+  onLog: OnLog | undefined,
+): VmHandle["execRaw"] {
+  return (cmd, execOpts) => {
+    if (!vsockUdsPath) {
+      return Promise.reject(missingVsockError("execRaw"));
+    }
+    return VsockExec.run(vsockUdsPath, cmd, teeOnLog(cmd, execOpts, onLog));
+  };
+}
+
+function makeExecPty(vsockUdsPath: string | undefined): VmHandle["execPty"] {
+  return (cmd, ptyOpts) => {
+    if (!vsockUdsPath) {
+      return rejectedPtyHandle(missingVsockError("execPty"));
+    }
+    return VsockExec.startPty(vsockUdsPath, cmd, ptyOpts);
+  };
+}
+
+function rejectedPtyHandle(err: Error): ReturnType<VmHandle["execPty"]> {
+  return {
+    result: Promise.reject(err),
+    resize: () => {},
+    cancel: () => {},
+  };
+}
+
+function requireVsockPath(vsockUdsPath: string | undefined, method: string): string {
+  if (!vsockUdsPath) {
+    throw missingVsockError(method);
+  }
+  return vsockUdsPath;
+}
+
+function missingVsockError(method: string): ExecError {
+  return new ExecError(
+    "EXEC_VSOCK_UNAVAILABLE",
+    `vm.${method}: no vsock UDS available — MACHINEN_VSOCK was set to an ` +
+      "unrecognized spec. Expected `in:<port>:<uds-path>`.",
+  );
+}
+
+function makeWriteFile(getHandle: () => VmHandle): VmHandle["writeFile"] {
+  return async (guestPath, contents, writeOpts) => {
+    for (const cmd of buildWriteFileCmds(guestPath, contents, writeOpts)) {
+      await getHandle().exec(cmd);
+    }
+  };
+}
+
+function makeMemoryStats(
+  childPid: number,
+  statsFilePath: string | undefined,
+  memoryCeilingMib: number | undefined,
+): VmHandle["memoryStats"] {
+  return async () => {
+    const balloon = statsFilePath ? readBalloonStats(statsFilePath) : null;
+    const lazyTotal = findEntry({ pid: childPid })?.lazyPagesTotal ?? 0;
+    return {
+      ceilingMib: memoryCeilingMib ?? null,
+      hostRssBytes: readHostRssBytes(childPid, statsFilePath),
+      balloonInflatedBytes: balloon?.bytesReported ?? 0,
+      lazyPagesPending: lazyTotal,
+    };
+  };
+}
+
+function makeSnapshot(
+  args: BootHandleArgs,
+  snapshotContext: () => SnapshotContext,
+): VmHandle["snapshot"] {
+  return async (snapshotOpts) => {
+    ensureSnapshotBacking(args.diskAbs, args.vmstateStatePath, "snapshot");
+    return performSnapshot(snapshotContext(), snapshotOpts);
+  };
+}
+
+function makeFork(args: BootHandleArgs, snapshotContext: () => SnapshotContext): VmHandle["fork"] {
+  return async (forkOpts) => {
+    ensureSnapshotBacking(args.diskAbs, args.vmstateStatePath, "fork");
+    return performForkWithRestore(snapshotContext(), forkOpts ?? {}, restoreForFork);
+  };
+}
+
+async function restoreForFork(
+  restoreOpts: Parameters<typeof performForkWithRestore>[2] extends (
+    opts: infer T,
+  ) => Promise<VmHandle>
+    ? T
+    : never,
+): Promise<VmHandle> {
+  const runtimeEntryPath = runtimeEntryImportPath();
+  const { restore } = await import(runtimeEntryPath);
+  return restore(restoreOpts);
+}
+
+function ensureSnapshotBacking(
+  diskAbs: string | undefined,
+  vmstateStatePath: string | undefined,
+  action: "snapshot" | "fork",
+): void {
+  const engine = resolveSnapshotEngine();
+  if (engine === "criu" && !diskAbs) {
+    throw noSnapshotBackingError(action);
+  }
+  if (engine === "vmstate" && !vmstateStatePath) {
+    throw noSnapshotBackingError(action);
+  }
+}
+
+function noSnapshotBackingError(action: "snapshot" | "fork"): SnapshotError {
+  return new SnapshotError("SNAPSHOT_NO_DISK", NO_SNAPSHOT_BACKING_MESSAGES[action]);
+}
+
+const NO_SNAPSHOT_BACKING_MESSAGES = {
+  snapshot:
+    "vm.snapshot: this VM was booted with `snapshot: false` (no scratch " +
+    "disk attached). Re-boot without that flag — the runtime will " +
+    "auto-allocate a sparse scratch — or pass `snapshot: '<path>'`.",
+  fork:
+    "vm.fork: source VM has no scratch disk (booted with `snapshot: false`). " +
+    "Re-boot the source without that flag so it can be snapshotted.",
+} as const;
+
+function buildBootSnapshotContext(
+  args: BootSnapshotContextArgs,
+  handle: VmHandle,
+): SnapshotContext {
+  return {
+    pid: args.childPid,
+    sourceName: args.vmName,
+    sourceImage: args.sourceImageAbs,
+    rootDiskPath: args.rootDiskPath,
+    rootDiskMode: args.rootDiskMode,
+    memoryCeilingMib: args.memoryCeilingMib,
+    kernelPath: args.env.MACHINEN_KERNEL,
+    dtbPath: args.env.MACHINEN_DTB,
+    diskPath: args.diskAbs!,
+    mountDisk: snapshotMountDisk(args.mountDiskPaths),
+    liveMounts: snapshotLiveMounts(args.liveMountsResolved),
+    vmstatePath: args.vmstate.statePath,
+    vmstateChain: snapshotVmstateChain(args.vmstate),
+    updateVmstateChain: snapshotVmstateUpdater(args.vmstate, args.childPid),
+    nested: args.nested,
+    execRaw: (cmd, execOpts) => handle.execRaw(cmd, execOpts),
+    wait: () => handle.wait(),
+    kill: () => handle.kill(),
+    teeGuestConsole: (onChunk) => {
+      args.child.stderr.on("data", onChunk);
+    },
+    errorOutput: () => handle.errorOutput(),
+  };
+}
+
+function snapshotMountDisk(mountDiskPaths: MountDiskPaths | undefined) {
+  if (!mountDiskPaths) {
+    return undefined;
+  }
+  return {
+    guest: mountDiskPaths.guest,
+    lowerPath: mountDiskPaths.lowerPath,
+    upperPath: mountDiskPaths.upperPath,
+  };
+}
+
+function snapshotLiveMounts(liveMountsResolved: ResolvedLiveMount[]) {
+  return nonEmptyList(
+    liveMountsResolved.map((lm) => ({
+      host: lm.host,
+      guest: lm.guest,
+      mode: lm.mode,
+    })),
+  );
+}
+
+function snapshotVmstateChain(vmstate: BootVmstateRuntime): SnapshotContext["vmstateChain"] {
+  if (!vmstate.statePath) {
+    return undefined;
+  }
+  return {
+    chainId: vmstate.chainId,
+    parentDir: vmstate.checkpointParent,
+    sequence: vmstate.checkpointSequence,
+  };
+}
+
+function snapshotVmstateUpdater(
+  vmstate: BootVmstateRuntime,
+  childPid: number,
+): SnapshotContext["updateVmstateChain"] {
+  if (!vmstate.statePath) {
+    return undefined;
+  }
+  return ({ parentDir, sequence }) =>
+    updateVmstateChainState(vmstate, childPid, parentDir, sequence);
+}
+
+function updateVmstateChainState(
+  vmstate: BootVmstateRuntime,
+  childPid: number,
+  parentDir: string | undefined,
+  sequence: number,
+): void {
+  vmstate.checkpointParent = parentDir;
+  vmstate.checkpointSequence = sequence;
+  const cur = findEntry({ pid: childPid });
+  if (cur) {
+    writeEntry({
+      ...cur,
+      vmstateChainId: vmstate.chainId,
+      vmstateCheckpointParent: vmstate.checkpointParent,
+      vmstateCheckpointSequence: vmstate.checkpointSequence,
+    });
+  }
 }
 
 // #150 phase 2: detached mode blocks until the guest produces its

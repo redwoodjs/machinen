@@ -410,58 +410,111 @@ async function runDumpAndExtractTar(
 // failure mode, leaving the happy path to fall through. `imgEntries`
 // is read once by the parent so the same listing can be reused for
 // the post-success log line.
+interface DumpValidationContext {
+  res: DumpExtractResult;
+  imgEntries: string[];
+  dumpHint: string;
+  tail: string;
+  deadlineMs: number;
+}
+
 function validateDumpResult(
   res: DumpExtractResult,
   imgEntries: string[],
   consoleLog: string,
   deadlineMs: number,
 ): void {
-  const dumpHint = formatDumpOutcomeHint(res.dumpOutcome);
-  const tail = consoleLog ? `\nConsole tail:\n${consoleLog.slice(-2000)}` : "";
+  const ctx = createDumpValidationContext(res, imgEntries, consoleLog, deadlineMs);
+  assertDumpNotTimedOut(ctx);
+  assertDumpOutcomePresent(ctx);
+  assertDumpSucceeded(ctx);
+  assertTarExtracted(ctx);
+  assertBundleHasCoreImage(ctx);
+}
 
-  if (res.timedOut) {
-    // Source VM is still up (--leave-running). Don't kill it — caller
-    // can retry or kill manually. We just report the failure.
-    throw new SnapshotError(
-      "SNAPSHOT_TIMEOUT",
-      `vm.snapshot: dump exec did not return within ${deadlineMs}ms — dump likely failed.` +
-        dumpHint +
-        tail,
-    );
+function createDumpValidationContext(
+  res: DumpExtractResult,
+  imgEntries: string[],
+  consoleLog: string,
+  deadlineMs: number,
+): DumpValidationContext {
+  return {
+    res,
+    imgEntries,
+    deadlineMs,
+    dumpHint: formatDumpOutcomeHint(res.dumpOutcome),
+    tail: consoleLog ? `\nConsole tail:\n${consoleLog.slice(-2000)}` : "",
+  };
+}
+
+function assertDumpNotTimedOut(ctx: DumpValidationContext): void {
+  if (!ctx.res.timedOut) {
+    return;
   }
-  if (!res.dumpOutcome) {
-    throw new SnapshotError(
-      "SNAPSHOT_DUMP_FAILED",
-      "vm.snapshot: dump exec produced no outcome — dispatch raced the timeout.",
-    );
+  // Source VM is still up (--leave-running). Don't kill it — caller
+  // can retry or kill manually. We just report the failure.
+  throw new SnapshotError(
+    "SNAPSHOT_TIMEOUT",
+    `vm.snapshot: dump exec did not return within ${ctx.deadlineMs}ms — dump likely failed.` +
+      ctx.dumpHint +
+      ctx.tail,
+  );
+}
+
+function assertDumpOutcomePresent(ctx: DumpValidationContext): void {
+  if (ctx.res.dumpOutcome) {
+    return;
   }
-  if (res.dumpOutcome.kind === "rejected" || res.dumpOutcome.exitCode !== 0) {
-    throw new SnapshotError(
-      "SNAPSHOT_DUMP_FAILED",
-      "vm.snapshot: dump exec failed." + dumpHint + tail,
-    );
+  throw new SnapshotError(
+    "SNAPSHOT_DUMP_FAILED",
+    "vm.snapshot: dump exec produced no outcome — dispatch raced the timeout.",
+  );
+}
+
+function assertDumpSucceeded(ctx: DumpValidationContext): void {
+  if (ctx.res.dumpOutcome?.kind !== "rejected" && ctx.res.dumpOutcome?.exitCode === 0) {
+    return;
   }
-  if (res.tarSpawnError || res.tarResult.code !== 0) {
-    const tarErr = res.tarSpawnError
-      ? `\nHost tar spawn failed: ${res.tarSpawnError.message}`
-      : `\nHost tar exited code=${res.tarResult.code} signal=${res.tarResult.signal}.${
-          res.tarStderr ? ` stderr:\n${res.tarStderr.slice(-1000)}` : ""
-        }`;
-    throw new SnapshotError(
-      "SNAPSHOT_DUMP_FAILED",
-      "vm.snapshot: failed to extract bundle on the host." + tarErr + tail,
-    );
+  throw new SnapshotError(
+    "SNAPSHOT_DUMP_FAILED",
+    "vm.snapshot: dump exec failed." + ctx.dumpHint + ctx.tail,
+  );
+}
+
+function assertTarExtracted(ctx: DumpValidationContext): void {
+  if (!ctx.res.tarSpawnError && ctx.res.tarResult.code === 0) {
+    return;
   }
+  throw new SnapshotError(
+    "SNAPSHOT_DUMP_FAILED",
+    "vm.snapshot: failed to extract bundle on the host." + formatTarError(ctx.res) + ctx.tail,
+  );
+}
+
+function formatTarError(res: DumpExtractResult): string {
+  return res.tarSpawnError
+    ? `\nHost tar spawn failed: ${res.tarSpawnError.message}`
+    : `\nHost tar exited code=${res.tarResult.code} signal=${res.tarResult.signal}.${tarStderrSuffix(res)}`;
+}
+
+function tarStderrSuffix(res: DumpExtractResult): string {
+  return res.tarStderr ? ` stderr:\n${res.tarStderr.slice(-1000)}` : "";
+}
+
+function assertBundleHasCoreImage(ctx: DumpValidationContext): void {
   // Sanity-check the materialized bundle: we expect at least one
   // core-*.img (CRIU produces one per task). An empty img/ means the
   // dump script ran but didn't actually dump anything (e.g. caller
   // pointed dumpCmd at /usr/bin/true).
-  if (!imgEntries.some((name) => /^core-\d+\.img$/.test(name))) {
-    throw new SnapshotError(
-      "SNAPSHOT_DUMP_FAILED",
-      `vm.snapshot: bundle has no core-*.img — the dump script likely never ran.` + dumpHint + tail,
-    );
+  if (ctx.imgEntries.some((name) => /^core-\d+\.img$/.test(name))) {
+    return;
   }
+  throw new SnapshotError(
+    "SNAPSHOT_DUMP_FAILED",
+    `vm.snapshot: bundle has no core-*.img — the dump script likely never ran.` +
+      ctx.dumpHint +
+      ctx.tail,
+  );
 }
 
 // #272: reflink the `--mount` overlay's lower + upper into the
@@ -635,12 +688,15 @@ async function performSnapshotVmstate(
 ): Promise<SnapshotResult> {
   const t0 = Date.now();
   const deadlineMs = opts.timeoutMs ?? 90_000;
-  // Vmstate snapshots are now incremental checkpoints. A checkpoint is
-  // non-destructive by definition: the source VM resumes after the VMM
-  // captures the paused state, and future checkpoints in the same VM
-  // chain delta against this bundle.
-  const leaveRunning = true;
+  assertVmstateSnapshotEnabled(ctx);
+  const snapDir = prepareBundleRootDir(opts.outDir);
+  logVmstateSnapshotStart(ctx, snapDir);
+  clearVmstateStateFile(ctx.vmstatePath!);
+  await syncGuestForVmstateSnapshot(ctx, deadlineMs);
+  return captureVmstateSnapshotBundle(ctx, snapDir, deadlineMs, t0);
+}
 
+function assertVmstateSnapshotEnabled(ctx: SnapshotContext): void {
   if (!ctx.vmstatePath) {
     throw new SnapshotError(
       "SNAPSHOT_NO_DISK",
@@ -649,119 +705,133 @@ async function performSnapshotVmstate(
         "  VMM installs the SIGUSR1 whole-VM dump handler.",
     );
   }
-  const snapDir = prepareBundleRootDir(opts.outDir);
+}
+
+function logVmstateSnapshotStart(ctx: SnapshotContext, snapDir: string): void {
   debugVmstate(
     "vmstate snapshot start pid=%d snapDir=%s vmstatePath=%s leaveRunning=%s",
     ctx.pid,
     snapDir,
     ctx.vmstatePath,
-    leaveRunning,
+    true,
   );
+}
 
-  // The VMM writes its state file atomically (tmp + rename). Clear any
-  // stale file first so "the file exists again" is an unambiguous
-  // done signal.
+function clearVmstateStateFile(vmstatePath: string): void {
   try {
-    unlinkSync(ctx.vmstatePath);
+    unlinkSync(vmstatePath);
   } catch {
     // ENOENT — nothing to clear, which is the common case.
   }
+}
 
-  // Best-effort guest sync so a `--mount` overlay reflinked below
-  // reflects the guest's recent writes (mirrors the CRIU path). Drop
-  // clean page cache before incremental vmstate capture: virtio-blk
-  // DMA fills cache pages without tripping the CPU-write dirty tracker,
-  // so keeping those clean pages in RAM can make a later RAM delta
-  // restore stale cache over an otherwise-correct rootdisk delta.
+async function syncGuestForVmstateSnapshot(
+  ctx: SnapshotContext,
+  deadlineMs: number,
+): Promise<void> {
   try {
-    await ctx.execRaw(
-      "sync; sync /mnt 2>/dev/null; " +
-        "if [ -w /proc/sys/vm/drop_caches ]; then echo 3 > /proc/sys/vm/drop_caches; fi; true",
-      {
-        connectTimeoutMs: Math.min(deadlineMs, 5_000),
-        execTimeoutMs: 10_000,
-      },
-    );
+    await ctx.execRaw(VMSTATE_PRE_SNAPSHOT_SYNC, {
+      connectTimeoutMs: Math.min(deadlineMs, 5_000),
+      execTimeoutMs: 10_000,
+    });
   } catch (err) {
     debugVmstate(
       "pre-snapshot sync failed (continuing): %s",
       err instanceof Error ? err.message : String(err),
     );
   }
+}
 
-  // Trigger the dump. SIGUSR1 → the VMM captures whole-VM state,
-  // queues ctx.vmstatePath from a background writer, and then waits
-  // paused until this runtime sends SIGUSR2. Keeping the vCPU stopped
-  // while we copy sidecars makes the rootdisk and mount overlay match
-  // the captured CPU/RAM point even though vmstate checkpoints are
-  // non-destructive.
+const VMSTATE_PRE_SNAPSHOT_SYNC =
+  "sync; sync /mnt 2>/dev/null; " +
+  "if [ -w /proc/sys/vm/drop_caches ]; then echo 3 > /proc/sys/vm/drop_caches; fi; true";
+
+async function captureVmstateSnapshotBundle(
+  ctx: SnapshotContext,
+  snapDir: string,
+  deadlineMs: number,
+  t0: number,
+): Promise<SnapshotResult> {
+  return withPausedVmstateSource(ctx, async () => {
+    await waitForVmstateFile(ctx.vmstatePath!, deadlineMs);
+    const bundleStatePath = copyVmstateStateIntoBundle(ctx.vmstatePath!, snapDir);
+    const nextSequence = (ctx.vmstateChain?.sequence ?? 0) + 1;
+    const vmstateMeta = buildVmstateMeta(
+      ctx,
+      bundleStatePath,
+      snapDir,
+      ctx.vmstateChain?.parentDir,
+      nextSequence,
+    );
+    const mountDiskMeta = await reflinkMountOverlay(ctx, snapDir, deadlineMs);
+    writeSnapshotMeta(ctx, snapDir, mountDiskMeta, "vmstate", vmstateMeta);
+    ctx.updateVmstateChain?.({ parentDir: snapDir, sequence: nextSequence });
+    return vmstateSnapshotResult(snapDir, bundleStatePath, t0);
+  });
+}
+
+async function withPausedVmstateSource<T>(
+  ctx: SnapshotContext,
+  body: () => Promise<T>,
+): Promise<T> {
   let signaled = false;
   try {
-    try {
-      process.kill(ctx.pid, "SIGUSR1");
-      signaled = true;
-    } catch (err) {
-      throw new SnapshotError(
-        "SNAPSHOT_DUMP_FAILED",
-        `vm.snapshot: failed to signal the VMM (pid ${ctx.pid}): ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-        { cause: err },
-      );
-    }
-
-    await waitForVmstateFile(ctx.vmstatePath, deadlineMs);
-
-    // Copy the state file into the bundle — an independent copy so the
-    // source VM can be snapshotted again (overwriting ctx.vmstatePath)
-    // without disturbing this bundle.
-    const bundleStatePath = join(snapDir, VMSTATE_FILE);
-    try {
-      copyFileSync(ctx.vmstatePath, bundleStatePath);
-    } catch (err) {
-      throw new SnapshotError(
-        "SNAPSHOT_DUMP_FAILED",
-        `vm.snapshot: failed to copy the .vmstate into the bundle: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-        { cause: err },
-      );
-    }
-
-    const parentDir = ctx.vmstateChain?.parentDir;
-    const nextSequence = (ctx.vmstateChain?.sequence ?? 0) + 1;
-    const vmstateMeta = buildVmstateMeta(ctx, bundleStatePath, snapDir, parentDir, nextSequence);
-
-    // Reflink a `--mount` overlay into the bundle, same as the CRIU path.
-    const mountDiskMeta = await reflinkMountOverlay(ctx, snapDir, deadlineMs);
-
-    writeSnapshotMeta(ctx, snapDir, mountDiskMeta, "vmstate", vmstateMeta);
-
-    ctx.updateVmstateChain?.({ parentDir: snapDir, sequence: nextSequence });
-
-    const elapsedMs = Date.now() - t0;
-    const stateBytes = statSync(bundleStatePath).size;
-    debugVmstate(
-      "vmstate snapshot done snapDir=%s stateBytes=%d elapsedMs=%d",
-      snapDir,
-      stateBytes,
-      elapsedMs,
-    );
-    return {
-      engine: "vmstate",
-      snapDir,
-      vmstatePath: bundleStatePath,
-      elapsedMs,
-      // Vmstate checkpoints are non-destructive, so a boot-owned VMM's
-      // stderr stream stays open. Do not await ctx.errorOutput() here;
-      // attach-owned snapshots couldn't see it anyway.
-      consoleLog: "",
-    };
+    signalVmstateSnapshot(ctx.pid);
+    signaled = true;
+    return await body();
   } finally {
     if (signaled) {
       resumeVmstateSource(ctx.pid);
     }
   }
+}
+
+function signalVmstateSnapshot(pid: number): void {
+  try {
+    process.kill(pid, "SIGUSR1");
+  } catch (err) {
+    throw new SnapshotError(
+      "SNAPSHOT_DUMP_FAILED",
+      `vm.snapshot: failed to signal the VMM (pid ${pid}): ${err instanceof Error ? err.message : String(err)}`,
+      { cause: err },
+    );
+  }
+}
+
+function copyVmstateStateIntoBundle(vmstatePath: string, snapDir: string): string {
+  const bundleStatePath = join(snapDir, VMSTATE_FILE);
+  try {
+    copyFileSync(vmstatePath, bundleStatePath);
+    return bundleStatePath;
+  } catch (err) {
+    throw new SnapshotError(
+      "SNAPSHOT_DUMP_FAILED",
+      `vm.snapshot: failed to copy the .vmstate into the bundle: ${err instanceof Error ? err.message : String(err)}`,
+      { cause: err },
+    );
+  }
+}
+
+function vmstateSnapshotResult(
+  snapDir: string,
+  bundleStatePath: string,
+  t0: number,
+): SnapshotResult {
+  const elapsedMs = Date.now() - t0;
+  const stateBytes = statSync(bundleStatePath).size;
+  debugVmstate(
+    "vmstate snapshot done snapDir=%s stateBytes=%d elapsedMs=%d",
+    snapDir,
+    stateBytes,
+    elapsedMs,
+  );
+  return {
+    engine: "vmstate",
+    snapDir,
+    vmstatePath: bundleStatePath,
+    elapsedMs,
+    consoleLog: "",
+  };
 }
 
 function resumeVmstateSource(pid: number): void {
@@ -776,6 +846,13 @@ function resumeVmstateSource(pid: number): void {
   }
 }
 
+interface VmstateSectionFlags {
+  hasRamDelta: boolean;
+  hasRootdiskDelta: boolean;
+}
+
+type VmstateFactsForSnapshot = ReturnType<typeof readVmstateFacts>;
+
 function buildVmstateMeta(
   ctx: SnapshotContext,
   statePath: string,
@@ -784,30 +861,80 @@ function buildVmstateMeta(
   sequence: number,
 ): VmstateSnapshotMeta {
   const facts = readVmstateFacts(statePath);
-  const tags = vmstateSectionTags(statePath);
-  const hasRamDelta = tags.includes(VMSTATE_SECTION.ramDelta);
-  const hasRootdiskDelta = tags.includes(VMSTATE_SECTION.rootdiskDelta);
-  const rootDisk = copyVmstateRootDisk(ctx, snapDir, parentDir !== undefined && hasRootdiskDelta);
+  const flags = readVmstateSectionFlags(statePath);
   return {
     sourceBackend: currentVmstateBackend(),
-    guestArch: facts.arch ?? currentVmstateGuestArch(),
+    guestArch: vmstateGuestArch(facts),
     topologyHash: facts.topologyHash,
     memoryCeilingMib: ctx.memoryCeilingMib,
-    guestPauth: {
-      active: facts.guestPauthActive,
-      sctlrEl1: facts.sctlrEl1,
-    },
-    rootDisk,
-    kernel: ctx.kernelPath ? fileIdentity(ctx.kernelPath) : undefined,
-    dtb: ctx.dtbPath ? fileIdentity(ctx.dtbPath) : undefined,
-    checkpoint: {
-      chainId: ctx.vmstateChain?.chainId ?? `pid-${ctx.pid}`,
-      sequence,
-      parent: relativeCheckpointParent(snapDir, parentDir),
-      ram: hasRamDelta ? "delta" : "full",
-      rootDisk: ctx.rootDiskMode === "none" ? "none" : hasRootdiskDelta ? "delta" : "full",
-    },
+    guestPauth: vmstateGuestPauth(facts),
+    rootDisk: copyVmstateRootDisk(ctx, snapDir, shouldCopyRootdiskDeltaOnly(parentDir, flags)),
+    kernel: optionalFileIdentity(ctx.kernelPath),
+    dtb: optionalFileIdentity(ctx.dtbPath),
+    checkpoint: buildVmstateCheckpoint(ctx, snapDir, parentDir, sequence, flags),
   };
+}
+
+function readVmstateSectionFlags(statePath: string): VmstateSectionFlags {
+  const tags = vmstateSectionTags(statePath);
+  return {
+    hasRamDelta: tags.includes(VMSTATE_SECTION.ramDelta),
+    hasRootdiskDelta: tags.includes(VMSTATE_SECTION.rootdiskDelta),
+  };
+}
+
+function vmstateGuestArch(facts: VmstateFactsForSnapshot): VmstateSnapshotMeta["guestArch"] {
+  return facts.arch ?? currentVmstateGuestArch();
+}
+
+function vmstateGuestPauth(facts: VmstateFactsForSnapshot): VmstateSnapshotMeta["guestPauth"] {
+  return {
+    active: facts.guestPauthActive,
+    sctlrEl1: facts.sctlrEl1,
+  };
+}
+
+function optionalFileIdentity(
+  path: string | undefined,
+): ReturnType<typeof fileIdentity> | undefined {
+  return path ? fileIdentity(path) : undefined;
+}
+
+function shouldCopyRootdiskDeltaOnly(
+  parentDir: string | undefined,
+  flags: VmstateSectionFlags,
+): boolean {
+  return parentDir !== undefined && flags.hasRootdiskDelta;
+}
+
+function buildVmstateCheckpoint(
+  ctx: SnapshotContext,
+  snapDir: string,
+  parentDir: string | undefined,
+  sequence: number,
+  flags: VmstateSectionFlags,
+): VmstateSnapshotMeta["checkpoint"] {
+  return {
+    chainId: vmstateChainId(ctx),
+    sequence,
+    parent: relativeCheckpointParent(snapDir, parentDir),
+    ram: flags.hasRamDelta ? "delta" : "full",
+    rootDisk: checkpointRootDiskMode(ctx, flags),
+  };
+}
+
+function vmstateChainId(ctx: SnapshotContext): string {
+  return ctx.vmstateChain?.chainId ?? `pid-${ctx.pid}`;
+}
+
+function checkpointRootDiskMode(
+  ctx: SnapshotContext,
+  flags: VmstateSectionFlags,
+): VmstateSnapshotMeta["checkpoint"]["rootDisk"] {
+  if (ctx.rootDiskMode === "none") {
+    return "none";
+  }
+  return flags.hasRootdiskDelta ? "delta" : "full";
 }
 
 function copyVmstateRootDisk(

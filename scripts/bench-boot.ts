@@ -84,43 +84,129 @@ interface Args {
   warmOnly: boolean;
 }
 
+type BenchOption = "n" | "mode" | "coldOnly" | "warmOnly" | "help";
+
+type BenchOptionHandler = (out: Args, value: string | undefined) => void;
+
+const BENCH_VALUE_OPTIONS = new Map<string, BenchOption>([
+  ["--n", "n"],
+  ["-n", "n"],
+  ["--mode", "mode"],
+]);
+const BENCH_BARE_OPTIONS = new Map<string, BenchOption>([
+  ["--cold-only", "coldOnly"],
+  ["--warm-only", "warmOnly"],
+  ["-h", "help"],
+  ["--help", "help"],
+]);
+const BENCH_OPTION_HANDLERS: Record<BenchOption, BenchOptionHandler> = {
+  n: (out, value) => (out.n = Number.parseInt(value ?? "", 10)),
+  mode: (out, value) => (out.mode = value as Mode),
+  coldOnly: (out) => (out.coldOnly = true),
+  warmOnly: (out) => (out.warmOnly = true),
+  help: () => printUsageAndExit(0),
+};
+
 function parseArgs(): Args {
-  const argv = process.argv.slice(2);
   const out: Args = { n: 5, mode: "boot", coldOnly: false, warmOnly: false };
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i]!;
-    if (a === "--n" || a === "-n") {
-      out.n = Number.parseInt(argv[++i] ?? "", 10);
-    } else if (a.startsWith("--n=")) {
-      out.n = Number.parseInt(a.slice(4), 10);
-    } else if (a === "--mode") {
-      out.mode = argv[++i] as Mode;
-    } else if (a.startsWith("--mode=")) {
-      out.mode = a.slice(7) as Mode;
-    } else if (a === "--cold-only") {
-      out.coldOnly = true;
-    } else if (a === "--warm-only") {
-      out.warmOnly = true;
-    } else if (a === "-h" || a === "--help") {
-      printUsageAndExit(0);
-    } else {
-      console.error(`bench-boot: unknown arg ${a}`);
-      printUsageAndExit(2);
-    }
-  }
-  if (!Number.isInteger(out.n) || out.n < 1) {
-    console.error(`bench-boot: --n must be a positive integer (got ${out.n})`);
-    process.exit(2);
-  }
-  if (out.mode !== "boot" && out.mode !== "restore") {
-    console.error(`bench-boot: --mode must be 'boot' or 'restore' (got ${out.mode})`);
-    process.exit(2);
-  }
-  if (out.coldOnly && out.warmOnly) {
-    console.error("bench-boot: --cold-only and --warm-only are mutually exclusive");
-    process.exit(2);
-  }
+  parseBenchOptions(process.argv.slice(2), out);
+  validateBenchArgs(out);
   return out;
+}
+
+function parseBenchOptions(argv: string[], out: Args): void {
+  for (let i = 0; i < argv.length; i++) {
+    const parsed = splitBenchOption(argv[i]!);
+    const valueOption = BENCH_VALUE_OPTIONS.get(parsed.key);
+    if (valueOption) {
+      const { value, nextIndex } = benchOptionValue(argv, i, parsed);
+      BENCH_OPTION_HANDLERS[valueOption](out, value);
+      i = nextIndex;
+      continue;
+    }
+    if (runBareBenchOption(out, parsed)) {
+      continue;
+    }
+    rejectBenchArg(argv[i]!);
+  }
+}
+
+function splitBenchOption(arg: string): { key: string; hasInlineValue: boolean; value?: string } {
+  const eq = arg.indexOf("=");
+  if (eq === -1) {
+    return { key: arg, hasInlineValue: false };
+  }
+  return { key: arg.slice(0, eq), hasInlineValue: true, value: arg.slice(eq + 1) };
+}
+
+function benchOptionValue(
+  argv: string[],
+  index: number,
+  parsed: { hasInlineValue: boolean; value?: string },
+): { value: string | undefined; nextIndex: number } {
+  if (parsed.hasInlineValue) {
+    return { value: parsed.value, nextIndex: index };
+  }
+  return { value: argv[index + 1], nextIndex: index + 1 };
+}
+
+function runBareBenchOption(out: Args, parsed: { key: string; hasInlineValue: boolean }): boolean {
+  if (parsed.hasInlineValue) {
+    return false;
+  }
+  const option = BENCH_BARE_OPTIONS.get(parsed.key);
+  if (!option) {
+    return false;
+  }
+  BENCH_OPTION_HANDLERS[option](out, undefined);
+  return true;
+}
+
+function rejectBenchArg(arg: string): never {
+  console.error(`bench-boot: unknown arg ${arg}`);
+  printUsageAndExit(2);
+}
+
+function validateBenchArgs(out: Args): void {
+  validateBenchN(out.n);
+  validateBenchMode(out.mode);
+  validateBenchTemperatureFlags(out);
+}
+
+function validateBenchN(n: number): void {
+  if (!Number.isInteger(n)) {
+    rejectBenchN(n);
+  }
+  if (n < 1) {
+    rejectBenchN(n);
+  }
+}
+
+function rejectBenchN(n: number): never {
+  console.error(`bench-boot: --n must be a positive integer (got ${n})`);
+  process.exit(2);
+}
+
+function validateBenchMode(mode: Mode): void {
+  if (mode === "boot") {
+    return;
+  }
+  if (mode === "restore") {
+    return;
+  }
+  console.error(`bench-boot: --mode must be 'boot' or 'restore' (got ${mode})`);
+  process.exit(2);
+}
+
+function validateBenchTemperatureFlags(out: Args): void {
+  if (!out.coldOnly) {
+    return;
+  }
+  if (!out.warmOnly) {
+    return;
+  }
+  console.error("bench-boot: --cold-only and --warm-only are mutually exclusive");
+  process.exit(2);
 }
 
 function printUsageAndExit(code: number): never {
@@ -157,37 +243,71 @@ interface PhaseLine {
  * shape mismatches (e.g. partial line caught mid-flush).
  */
 function parsePhaseLine(line: string): PhaseLine | null {
+  const tail = phaseLineTail(line);
+  if (tail === undefined) {
+    return null;
+  }
+  return parsePhaseTokens(tail.split(/\s+/));
+}
+
+function phaseLineTail(line: string): string | undefined {
   const idx = line.indexOf("phases ");
   if (idx < 0) {
-    return null;
+    return undefined;
   }
-  const tail = line.slice(idx + "phases ".length).trim();
-  const tokens = tail.split(/\s+/);
-  let kind = "";
-  let total = -1;
-  const phases = new Map<string, number>();
-  for (const t of tokens) {
-    const eq = t.indexOf("=");
-    if (eq < 0) {
+  return line.slice(idx + "phases ".length).trim();
+}
+
+function parsePhaseTokens(tokens: string[]): PhaseLine | null {
+  const state: PhaseLine = { kind: "", total: -1, phases: new Map<string, number>() };
+  for (const token of tokens) {
+    const pair = splitPhaseToken(token);
+    if (!pair) {
       return null;
     }
-    const k = t.slice(0, eq);
-    const v = t.slice(eq + 1);
-    if (k === "kind") {
-      kind = v;
-    } else if (k === "total") {
-      total = Number.parseInt(v, 10);
-    } else {
-      const n = Number.parseInt(v, 10);
-      if (Number.isFinite(n)) {
-        phases.set(k, n);
-      }
-    }
+    applyPhaseToken(state, pair.key, pair.value);
   }
-  if (!kind || total < 0) {
+  if (!phaseLineComplete(state)) {
     return null;
   }
-  return { kind, total, phases };
+  return state;
+}
+
+function splitPhaseToken(token: string): { key: string; value: string } | undefined {
+  const eq = token.indexOf("=");
+  if (eq < 0) {
+    return undefined;
+  }
+  return { key: token.slice(0, eq), value: token.slice(eq + 1) };
+}
+
+function applyPhaseToken(state: PhaseLine, key: string, value: string): void {
+  if (key === "kind") {
+    state.kind = value;
+    return;
+  }
+  if (key === "total") {
+    state.total = Number.parseInt(value, 10);
+    return;
+  }
+  setNumericPhase(state, key, value);
+}
+
+function setNumericPhase(state: PhaseLine, key: string, value: string): void {
+  const n = Number.parseInt(value, 10);
+  if (Number.isFinite(n)) {
+    state.phases.set(key, n);
+  }
+}
+
+function phaseLineComplete(state: PhaseLine): boolean {
+  if (!state.kind) {
+    return false;
+  }
+  if (state.total < 0) {
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -281,15 +401,28 @@ async function runOneRestore(snapDir: string, label: string): Promise<PhaseLine[
   } finally {
     (process.stderr as { write: typeof orig }).write = orig;
   }
-  const captured = lines.join("");
+  return bootOrRestorePhaseLines(lines.join(""));
+}
+
+function bootOrRestorePhaseLines(captured: string): PhaseLine[] {
   const found: PhaseLine[] = [];
-  for (const ln of captured.split("\n")) {
-    const parsed = parsePhaseLine(ln);
-    if (parsed && (parsed.kind === "boot" || parsed.kind === "restore")) {
-      found.push(parsed);
-    }
+  for (const line of captured.split("\n")) {
+    appendBootOrRestorePhase(found, parsePhaseLine(line));
   }
   return found;
+}
+
+function appendBootOrRestorePhase(found: PhaseLine[], parsed: PhaseLine | null): void {
+  if (!parsed) {
+    return;
+  }
+  if (parsed.kind === "boot") {
+    found.push(parsed);
+    return;
+  }
+  if (parsed.kind === "restore") {
+    found.push(parsed);
+  }
 }
 
 async function takeSnapshot(): Promise<string> {
@@ -341,10 +474,18 @@ interface Stats {
 function stats(samples: number[]): Stats {
   const sorted = [...samples].sort((a, b) => a - b);
   const n = sorted.length;
-  const med = sorted[Math.floor(n / 2)] ?? 0;
-  const p95 = sorted[Math.min(n - 1, Math.floor(n * 0.95))] ?? 0;
+  const med = sampleAt(sorted, Math.floor(n / 2));
+  const p95 = sampleAt(sorted, Math.min(n - 1, Math.floor(n * 0.95)));
   const sum = sorted.reduce((s, x) => s + x, 0);
-  return { n, min: sorted[0] ?? 0, med, p95, max: sorted[n - 1] ?? 0, sum };
+  return { n, min: sampleAt(sorted, 0), med, p95, max: sampleAt(sorted, n - 1), sum };
+}
+
+function sampleAt(samples: number[], index: number): number {
+  const value = samples[index];
+  if (value === undefined) {
+    return 0;
+  }
+  return value;
 }
 
 function aggregate(label: string, runs: PhaseLine[]): void {
@@ -352,114 +493,202 @@ function aggregate(label: string, runs: PhaseLine[]): void {
     console.log(`\n=== ${label} (no runs) ===`);
     return;
   }
+  printAggregateHeader(label, runs.length);
+  printAggregateRows(phaseKeys(runs), runs);
+}
+
+function phaseKeys(runs: PhaseLine[]): string[] {
   // Union of phase keys, in first-run order so the table reads as a timeline.
   const keys: string[] = ["total"];
   const seen = new Set<string>(["total"]);
-  for (const r of runs) {
-    for (const k of r.phases.keys()) {
-      if (!seen.has(k)) {
-        seen.add(k);
-        keys.push(k);
-      }
+  for (const run of runs) {
+    appendNewPhaseKeys(keys, seen, run);
+  }
+  return keys;
+}
+
+function appendNewPhaseKeys(keys: string[], seen: Set<string>, run: PhaseLine): void {
+  for (const key of run.phases.keys()) {
+    if (!seen.has(key)) {
+      seen.add(key);
+      keys.push(key);
     }
   }
-  console.log(`\n=== ${label} (n=${runs.length}) ===`);
+}
+
+function printAggregateHeader(label: string, count: number): void {
+  console.log(`\n=== ${label} (n=${count}) ===`);
   console.log(`  ${"phase".padEnd(28)}  min   med   p95   max  (ms)`);
-  for (const k of keys) {
-    const samples: number[] = [];
-    for (const r of runs) {
-      const v = k === "total" ? r.total : r.phases.get(k);
-      if (typeof v === "number") {
-        samples.push(v);
-      }
-    }
+}
+
+function printAggregateRows(keys: string[], runs: PhaseLine[]): void {
+  for (const key of keys) {
+    const samples = samplesForPhase(key, runs);
     if (samples.length === 0) {
       continue;
     }
-    const s = stats(samples);
-    console.log(
-      `  ${k.padEnd(28)}  ${String(s.min).padStart(4)}  ${String(s.med).padStart(4)}  ${String(s.p95).padStart(4)}  ${String(s.max).padStart(4)}`,
-    );
+    printAggregateRow(key, stats(samples));
   }
+}
+
+function samplesForPhase(key: string, runs: PhaseLine[]): number[] {
+  const samples: number[] = [];
+  for (const run of runs) {
+    const value = phaseValue(run, key);
+    if (typeof value === "number") {
+      samples.push(value);
+    }
+  }
+  return samples;
+}
+
+function phaseValue(run: PhaseLine, key: string): number | undefined {
+  if (key === "total") {
+    return run.total;
+  }
+  return run.phases.get(key);
+}
+
+function printAggregateRow(key: string, row: Stats): void {
+  console.log(
+    `  ${key.padEnd(28)}  ${String(row.min).padStart(4)}  ${String(row.med).padStart(4)}  ${String(row.p95).padStart(4)}  ${String(row.max).padStart(4)}`,
+  );
 }
 
 async function main(): Promise<void> {
   const args = parseArgs();
   requireAssets();
-
   if (args.mode === "boot") {
-    const cold: PhaseLine[] = [];
-    const warm: PhaseLine[] = [];
-    if (!args.warmOnly) {
-      for (let i = 0; i < args.n; i++) {
-        clearRootfsImgCache();
-        cold.push(await runOneBoot(`cold-${i + 1}`));
-      }
-    }
-    if (!args.coldOnly) {
-      // Warm = cache populated. Run one priming boot first if we just
-      // wiped it (cold pass), then N measured warm runs.
-      if (!args.warmOnly) {
-        // The last cold pass already populated the cache; that's our prime.
-      } else {
-        // Prime explicitly so the first warm run isn't accidentally cold.
-        await runOneBoot("warm-prime");
-      }
-      for (let i = 0; i < args.n; i++) {
-        warm.push(await runOneBoot(`warm-${i + 1}`));
-      }
-    }
-    if (cold.length) {
-      aggregate("BOOT (cold)", cold);
-    }
-    if (warm.length) {
-      aggregate("BOOT (warm)", warm);
-    }
+    await runBootBench(args);
     return;
   }
+  await runRestoreBench(args);
+}
 
-  // Restore mode.
+async function runBootBench(args: Args): Promise<void> {
+  const cold = await collectColdBootRuns(args);
+  const warm = await collectWarmBootRuns(args);
+  aggregateIfAny("BOOT (cold)", cold);
+  aggregateIfAny("BOOT (warm)", warm);
+}
+
+async function collectColdBootRuns(args: Args): Promise<PhaseLine[]> {
+  const cold: PhaseLine[] = [];
+  if (!shouldRunCold(args)) {
+    return cold;
+  }
+  for (let i = 0; i < args.n; i++) {
+    clearRootfsImgCache();
+    cold.push(await runOneBoot(`cold-${i + 1}`));
+  }
+  return cold;
+}
+
+async function collectWarmBootRuns(args: Args): Promise<PhaseLine[]> {
+  const warm: PhaseLine[] = [];
+  if (!shouldRunWarm(args)) {
+    return warm;
+  }
+  await primeWarmBootIfNeeded(args);
+  for (let i = 0; i < args.n; i++) {
+    warm.push(await runOneBoot(`warm-${i + 1}`));
+  }
+  return warm;
+}
+
+async function primeWarmBootIfNeeded(args: Args): Promise<void> {
+  // Warm = cache populated. If the cold pass ran, its last boot is our
+  // prime. In --warm-only mode, prime explicitly so the first measured
+  // warm run isn't accidentally cold.
+  if (!args.warmOnly) {
+    return;
+  }
+  await runOneBoot("warm-prime");
+}
+
+async function runRestoreBench(args: Args): Promise<void> {
   let snapDir: string | undefined;
   try {
-    snapDir = await takeSnapshot();
-    if (!existsSync(join(snapDir, "disk.img"))) {
-      throw new Error(`takeSnapshot did not produce ${snapDir}/disk.img`);
-    }
-    const cold: PhaseLine[] = [];
-    const warm: PhaseLine[] = [];
-    const collect = (out: PhaseLine[], lines: PhaseLine[]) => {
-      const r = lines.find((l) => l.kind === "restore");
-      if (r) {
-        out.push(r);
-      }
-    };
-    if (!args.warmOnly) {
-      for (let i = 0; i < args.n; i++) {
-        clearRootfsImgCache();
-        collect(cold, await runOneRestore(snapDir, `cold-${i + 1}`));
-      }
-    }
-    if (!args.coldOnly) {
-      if (args.warmOnly) {
-        await runOneRestore(snapDir, "warm-prime");
-      }
-      for (let i = 0; i < args.n; i++) {
-        collect(warm, await runOneRestore(snapDir, `warm-${i + 1}`));
-      }
-    }
-    if (cold.length) {
-      aggregate("RESTORE (cold)", cold);
-    }
-    if (warm.length) {
-      aggregate("RESTORE (warm)", warm);
-    }
+    snapDir = await prepareRestoreSnapshot();
+    const cold = await collectColdRestoreRuns(args, snapDir);
+    const warm = await collectWarmRestoreRuns(args, snapDir);
+    aggregateIfAny("RESTORE (cold)", cold);
+    aggregateIfAny("RESTORE (warm)", warm);
   } finally {
-    if (snapDir && existsSync(snapDir)) {
-      try {
-        rmSync(snapDir, { recursive: true, force: true });
-      } catch {}
-    }
+    cleanupSnapshotDir(snapDir);
   }
+}
+
+async function prepareRestoreSnapshot(): Promise<string> {
+  const snapDir = await takeSnapshot();
+  if (!existsSync(join(snapDir, "disk.img"))) {
+    throw new Error(`takeSnapshot did not produce ${snapDir}/disk.img`);
+  }
+  return snapDir;
+}
+
+async function collectColdRestoreRuns(args: Args, snapDir: string): Promise<PhaseLine[]> {
+  const cold: PhaseLine[] = [];
+  if (!shouldRunCold(args)) {
+    return cold;
+  }
+  for (let i = 0; i < args.n; i++) {
+    clearRootfsImgCache();
+    collectRestorePhase(cold, await runOneRestore(snapDir, `cold-${i + 1}`));
+  }
+  return cold;
+}
+
+async function collectWarmRestoreRuns(args: Args, snapDir: string): Promise<PhaseLine[]> {
+  const warm: PhaseLine[] = [];
+  if (!shouldRunWarm(args)) {
+    return warm;
+  }
+  await primeWarmRestoreIfNeeded(args, snapDir);
+  for (let i = 0; i < args.n; i++) {
+    collectRestorePhase(warm, await runOneRestore(snapDir, `warm-${i + 1}`));
+  }
+  return warm;
+}
+
+async function primeWarmRestoreIfNeeded(args: Args, snapDir: string): Promise<void> {
+  if (!args.warmOnly) {
+    return;
+  }
+  await runOneRestore(snapDir, "warm-prime");
+}
+
+function shouldRunCold(args: Args): boolean {
+  return !args.warmOnly;
+}
+
+function shouldRunWarm(args: Args): boolean {
+  return !args.coldOnly;
+}
+
+function collectRestorePhase(out: PhaseLine[], lines: PhaseLine[]): void {
+  const restore = lines.find((line) => line.kind === "restore");
+  if (restore) {
+    out.push(restore);
+  }
+}
+
+function aggregateIfAny(label: string, runs: PhaseLine[]): void {
+  if (runs.length) {
+    aggregate(label, runs);
+  }
+}
+
+function cleanupSnapshotDir(snapDir: string | undefined): void {
+  if (!snapDir) {
+    return;
+  }
+  if (!existsSync(snapDir)) {
+    return;
+  }
+  try {
+    rmSync(snapDir, { recursive: true, force: true });
+  } catch {}
 }
 
 main().then(

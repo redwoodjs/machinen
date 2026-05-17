@@ -10,6 +10,7 @@
 //   REPRO_FUSE   "0" to skip the live mount             (default on)
 
 import { boot } from "@machinen/runtime";
+import type { LogEvent } from "@machinen/runtime";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -42,6 +43,48 @@ const inner = fuse
     ].join("\n")
   : `echo "[guest${idx}] booted"\nsleep ${watchSec}\necho done`;
 
+interface ParsedHit {
+  descId: number;
+  uptime?: number;
+}
+
+function handleBootLog(evt: LogEvent): void {
+  if (evt.source !== "guest-console") {
+    return;
+  }
+  appendConsoleTail(evt.chunk);
+  recordHitIfNeeded();
+}
+
+function appendConsoleTail(chunk: Buffer): void {
+  tail = (tail + chunk.toString("utf8")).slice(-65536);
+}
+
+function recordHitIfNeeded(): void {
+  if (hit) {
+    return;
+  }
+  const parsed = parseHit(tail);
+  if (!parsed) {
+    return;
+  }
+  hit = true;
+  descId = parsed.descId;
+  uptime = parsed.uptime;
+}
+
+function parseHit(text: string): ParsedHit | undefined {
+  const match = HIT_RE.exec(text);
+  if (!match) {
+    return undefined;
+  }
+  const uptimeMatch = UPTIME_RE.exec(text);
+  return {
+    descId: Number(match[1]),
+    uptime: uptimeMatch ? Number(uptimeMatch[1]) : undefined,
+  };
+}
+
 const t0 = Date.now();
 const vm = await boot({
   image,
@@ -50,23 +93,7 @@ const vm = await boot({
   liveMounts: fuse ? [{ host: REPO_ROOT, guest: "/mnt/workspace", mode: "ro" }] : undefined,
   cmd: ["/bin/bash", "-lc", inner],
   timeoutMs: null,
-  onLog: (evt) => {
-    if (evt.source !== "guest-console") {
-      return;
-    }
-    tail = (tail + evt.chunk.toString("utf8")).slice(-65536);
-    if (!hit) {
-      const m = HIT_RE.exec(tail);
-      if (m) {
-        hit = true;
-        descId = Number(m[1]);
-        const um = UPTIME_RE.exec(tail);
-        if (um) {
-          uptime = Number(um[1]);
-        }
-      }
-    }
-  },
+  onLog: handleBootLog,
 });
 
 const bootMs = Date.now() - t0;

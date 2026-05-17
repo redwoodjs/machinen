@@ -352,21 +352,56 @@ function findLatestRootdiskBaseIndex(chain: Array<{ meta: SnapshotMeta }>): numb
   return -1;
 }
 
+interface RootdiskDeltaPayload {
+  diskSize: number;
+  body: Buffer;
+}
+
+interface RootdiskDeltaExtent {
+  extentOff: number;
+  len: number;
+  dataOff: number;
+}
+
 function applyRootdiskDelta(fd: number, destPath: string, payload: Buffer): void {
+  const delta = parseRootdiskDeltaPayload(destPath, payload);
+  applyRootdiskDeltaExtents(fd, delta);
+}
+
+function parseRootdiskDeltaPayload(destPath: string, payload: Buffer): RootdiskDeltaPayload {
+  assertRootdiskDeltaHeader(payload);
+  const diskSize = readRootdiskDeltaDiskSize(payload);
+  assertRootdiskDeltaBlockSize(payload.readUInt32LE(8));
+  assertRootdiskDeltaSizeMatches(destPath, diskSize);
+  const body = payload.subarray(ROOTDISK_DELTA_HEADER_SIZE);
+  assertRootdiskDeltaHash(payload, body);
+  return { diskSize, body };
+}
+
+function assertRootdiskDeltaHeader(payload: Buffer): void {
   if (payload.length < ROOTDISK_DELTA_HEADER_SIZE) {
     throw new BootError("BOOT_VMSTATE_UNSUPPORTED", "restore: truncated rootdisk delta header");
   }
+}
+
+function readRootdiskDeltaDiskSize(payload: Buffer): number {
   const diskSize = Number(payload.readBigUInt64LE(0));
-  const blockSize = payload.readUInt32LE(8);
   if (!Number.isSafeInteger(diskSize) || diskSize < 0) {
     throw new BootError("BOOT_VMSTATE_UNSUPPORTED", "restore: invalid rootdisk delta size");
   }
+  return diskSize;
+}
+
+function assertRootdiskDeltaBlockSize(blockSize: number): void {
   if (blockSize !== ROOTDISK_DELTA_BLOCK_SIZE) {
     throw new BootError(
       "BOOT_VMSTATE_UNSUPPORTED",
       `restore: unsupported rootdisk delta block size ${blockSize}`,
     );
   }
+}
+
+function assertRootdiskDeltaSizeMatches(destPath: string, diskSize: number): void {
   const actualSize = statSync(destPath).size;
   if (actualSize !== diskSize) {
     throw new BootError(
@@ -374,34 +409,65 @@ function applyRootdiskDelta(fd: number, destPath: string, payload: Buffer): void
       `restore: rootdisk delta size mismatch (base=${actualSize}, delta=${diskSize})`,
     );
   }
-  const body = payload.subarray(ROOTDISK_DELTA_HEADER_SIZE);
+}
+
+function assertRootdiskDeltaHash(payload: Buffer, body: Buffer): void {
   const expected = payload.subarray(16, 48).toString("hex");
   const actual = createHash("sha256").update(body).digest("hex");
   if (actual !== expected) {
     throw new BootError("BOOT_VMSTATE_UNSUPPORTED", "restore: rootdisk delta hash mismatch");
   }
+}
 
+function applyRootdiskDeltaExtents(fd: number, delta: RootdiskDeltaPayload): void {
   let off = 0;
-  while (off < body.length) {
-    if (body.length - off < 16) {
-      throw new BootError("BOOT_VMSTATE_UNSUPPORTED", "restore: truncated rootdisk delta extent");
-    }
-    const extentOff = Number(body.readBigUInt64LE(off));
-    const len = Number(body.readBigUInt64LE(off + 8));
-    off += 16;
-    if (
-      !Number.isSafeInteger(extentOff) ||
-      !Number.isSafeInteger(len) ||
-      extentOff < 0 ||
-      len < 0 ||
-      len > diskSize - extentOff ||
-      len > body.length - off
-    ) {
-      throw new BootError("BOOT_VMSTATE_UNSUPPORTED", "restore: invalid rootdisk delta extent");
-    }
-    writeAllAt(fd, body.subarray(off, off + len), extentOff);
-    off += len;
+  while (off < delta.body.length) {
+    const extent = readRootdiskDeltaExtent(delta, off);
+    writeAllAt(
+      fd,
+      delta.body.subarray(extent.dataOff, extent.dataOff + extent.len),
+      extent.extentOff,
+    );
+    off = extent.dataOff + extent.len;
   }
+}
+
+function readRootdiskDeltaExtent(delta: RootdiskDeltaPayload, off: number): RootdiskDeltaExtent {
+  assertRootdiskDeltaExtentHeader(delta.body, off);
+  const extentOff = Number(delta.body.readBigUInt64LE(off));
+  const len = Number(delta.body.readBigUInt64LE(off + 8));
+  const dataOff = off + 16;
+  assertRootdiskDeltaExtentValid(delta, { extentOff, len, dataOff });
+  return { extentOff, len, dataOff };
+}
+
+function assertRootdiskDeltaExtentHeader(body: Buffer, off: number): void {
+  if (body.length - off < 16) {
+    throw new BootError("BOOT_VMSTATE_UNSUPPORTED", "restore: truncated rootdisk delta extent");
+  }
+}
+
+function assertRootdiskDeltaExtentValid(
+  delta: RootdiskDeltaPayload,
+  extent: RootdiskDeltaExtent,
+): void {
+  if (!rootdiskDeltaExtentIsValid(delta, extent)) {
+    throw new BootError("BOOT_VMSTATE_UNSUPPORTED", "restore: invalid rootdisk delta extent");
+  }
+}
+
+function rootdiskDeltaExtentIsValid(
+  delta: RootdiskDeltaPayload,
+  extent: RootdiskDeltaExtent,
+): boolean {
+  return (
+    Number.isSafeInteger(extent.extentOff) &&
+    Number.isSafeInteger(extent.len) &&
+    extent.extentOff >= 0 &&
+    extent.len >= 0 &&
+    extent.len <= delta.diskSize - extent.extentOff &&
+    extent.len <= delta.body.length - extent.dataOff
+  );
 }
 
 function writeAllAt(fd: number, bytes: Buffer, position: number): void {

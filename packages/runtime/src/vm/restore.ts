@@ -127,245 +127,258 @@ export interface RestoreOptions extends Omit<BootOptions, "snapshot" | "image" |
  *   bundle's `meta.liveMounts`.
  */
 export async function restore(opts: RestoreOptions): Promise<VmHandle> {
-  // #221: per-phase timeline for restore. Boot's own phases get logged
-  // separately under DEBUG=machinen:boot — restore tracks the parts
-  // that are restore-specific (meta-read, the boot rollup, and the
-  // wall-clock until the restored guest is responsive over vsock).
-  const phases = new PhaseTimer();
   const snapDir = resolve(opts.snapDir);
-
-  // Auto-detect the engine from the bundle's contents: a
-  // `state.vmstate` file means the vmstate (whole-VM) engine produced
-  // it. A bundle always restores under the engine that wrote it,
-  // regardless of the MACHINEN_SNAPSHOT_ENGINE env var.
   if (existsSync(join(snapDir, VMSTATE_FILE))) {
     return restoreVmstate(opts, snapDir);
   }
+  return restoreCriu(opts, snapDir);
+}
 
+async function restoreCriu(opts: RestoreOptions, snapDir: string): Promise<VmHandle> {
+  const phases = new PhaseTimer();
+  const imgDir = validateCriuSnapshotBundle(snapDir);
+  const meta = readSnapshotMetaWithPhase(join(snapDir, "meta.json"), phases);
+  const resolvedImage = resolveRestoreImage(opts, meta);
+  const lazy = prepareLazyPages(opts, imgDir, phases);
+  const effectiveLiveMounts = resolveRestoreLiveMounts(meta.liveMounts, opts.liveMounts);
+  const delivery = prepareCriuBundleDelivery(lazy.enabled, imgDir, effectiveLiveMounts, phases);
+  const vm = await bootCriuRestore({
+    opts,
+    snapDir,
+    resolvedImage,
+    delivery,
+    restoreMountDisk: resolveRestoreMountDisk(snapDir, meta),
+    phases,
+  });
+  finalizeCriuRestore(vm, opts, meta, phases, lazy.pagesTotal);
+  return vm;
+}
+
+function validateCriuSnapshotBundle(snapDir: string): string {
   const imgDir = join(snapDir, "img");
-  const metaPath = join(snapDir, "meta.json");
   if (!existsSync(imgDir) || !statSync(imgDir).isDirectory()) {
     throw new BootError("BOOT_SNAPSHOT_NOT_FOUND", `restore: ${imgDir} not found`);
   }
-  const imgEntries = readdirSync(imgDir);
-  if (!imgEntries.some((name) => /^core-\d+\.img$/.test(name))) {
+  if (!readdirSync(imgDir).some(isCoreImageName)) {
     throw new BootError(
       "BOOT_SNAPSHOT_NOT_FOUND",
       `restore: ${imgDir} has no core-*.img — is this a snapshot bundle?`,
     );
   }
+  return imgDir;
+}
+
+function isCoreImageName(name: string): boolean {
+  return /^core-\d+\.img$/.test(name);
+}
+
+function readSnapshotMetaWithPhase(metaPath: string, phases: PhaseTimer): SnapshotMeta {
   phases.start("snapshot-meta-read");
-  let meta: SnapshotMeta = { snappedAt: 0 };
-  if (existsSync(metaPath)) {
-    try {
-      meta = JSON.parse(readFileSync(metaPath, "utf8")) as SnapshotMeta;
-    } catch {
-      // Bundle predates metadata or got corrupted; fall through with
-      // an anonymous source name. The fork still boots; it just won't
-      // have a memorable auto-name.
-    }
-  }
+  const meta = readSnapshotMeta(metaPath);
   phases.end("snapshot-meta-read");
+  return meta;
+}
 
-  // Resolve the rootfs image: caller's `opts.image` wins; otherwise
-  // fall back to the path the source booted from (recorded in
-  // meta.json). Without a usable image, criu's file-backed VMA
-  // restore has nothing to reopen and PID 1 panics — so we throw
-  // here with a message the user can act on instead.
-  const resolvedImage = resolveRestoreImage(opts, meta);
-
-  // Lazy-pages mode (#266, opt-in via `lazy: true`): mark every
-  // PE_PRESENT pagemap entry that lives in an anon-private VMA with
-  // PE_LAZY in place on the host before boot, so
-  // `criu restore --lazy-pages` actually registers UFFD on those
-  // entries instead of loading them eagerly. Dumps are taken without
-  // `--lazy-pages` (machinen-dump.sh keeps the dump path simple);
-  // without this rewrite the lazy-pages daemon would see no lazy
-  // entries and load the whole image up front. Idempotent. See
-  // packages/runtime/src/lazy-pagemap.ts.
-  const lazyPages = opts.lazy === true;
-  let lazyPagesTotal: number | undefined;
-  if (lazyPages) {
-    phases.start("snapshot-mark-lazy");
-    const marked = markPagemapsLazy(imgDir);
-    lazyPagesTotal = marked.entriesFlagged + marked.entriesAlreadyLazy;
-    debug(
-      "lazy-pages mark: files=%d entriesFlagged=%d alreadyLazy=%d",
-      marked.filesRewritten,
-      marked.entriesFlagged,
-      marked.entriesAlreadyLazy,
-    );
-    phases.end("snapshot-mark-lazy");
+function readSnapshotMeta(metaPath: string): SnapshotMeta {
+  if (!existsSync(metaPath)) {
+    return { snappedAt: 0 };
   }
+  try {
+    return JSON.parse(readFileSync(metaPath, "utf8")) as SnapshotMeta;
+  } catch {
+    // Bundle predates metadata or got corrupted; fall through with an
+    // anonymous source name. The fork still boots.
+    return { snappedAt: 0 };
+  }
+}
 
-  // #273: live-share FUSE mounts the source had at snapshot time.
-  // Re-establish them on the restored VM so the workload's view of
-  // /mnt/<guest>/ comes back intact. opts.liveMounts is an override
-  // map keyed by `guest` (see resolveRestoreLiveMounts).
-  const effectiveLiveMounts = resolveRestoreLiveMounts(meta.liveMounts, opts.liveMounts);
+function prepareLazyPages(
+  opts: RestoreOptions,
+  imgDir: string,
+  phases: PhaseTimer,
+): { enabled: boolean; pagesTotal: number | undefined } {
+  if (opts.lazy !== true) {
+    return { enabled: false, pagesTotal: undefined };
+  }
+  phases.start("snapshot-mark-lazy");
+  const marked = markPagemapsLazy(imgDir);
+  debug(
+    "lazy-pages mark: files=%d entriesFlagged=%d alreadyLazy=%d",
+    marked.filesRewritten,
+    marked.entriesFlagged,
+    marked.entriesAlreadyLazy,
+  );
+  phases.end("snapshot-mark-lazy");
+  return { enabled: true, pagesTotal: marked.entriesFlagged + marked.entriesAlreadyLazy };
+}
 
-  // Bundle delivery split by mode:
-  //   - eager (default): pack `imgDir/` into a tar archive attached
-  //     as /dev/vdb. The guest's machinen-restore.sh untars into
-  //     tmpfs and CRIU does an eager load. Simple, robust — and on the
-  //     workloads we actually ship for (small JS heaps, short-lived
-  //     MicroVMs) the workload faults every page within the first
-  //     second anyway, so the lazy save is moot.
-  //   - lazy (opt-in via `lazy: true`): live-mount `imgDir/` read-only
-  //     at /mnt/snap-src/img via an in-VMM virtio-fs device (#332). CRIU
-  //     restore reads pagemap-*.img + pages-*.img directly through it;
-  //     bytes stream from the host on demand and never materialize in
-  //     guest tmpfs. This is the #266 path — it keeps host RSS
-  //     proportional to the touched set. The historical virtio-balloon
-  //     interaction is fixed in #290 (in-tree kernel patch).
+interface CriuDeliveryPlan {
+  scratchPath: string;
+  restoreEnv: Record<string, string>;
+  liveMounts: BootOptions["liveMounts"];
+}
+
+function prepareCriuBundleDelivery(
+  lazyPages: boolean,
+  imgDir: string,
+  effectiveLiveMounts: BootOptions["liveMounts"],
+  phases: PhaseTimer,
+): CriuDeliveryPlan {
   phases.start("snapshot-pack");
-  const restoreEnv: Record<string, string> = {};
-  let scratchPath: string;
-  let liveMounts: Array<{ host: string; guest: string; mode?: "ro" | "rw" }> | undefined;
-  if (lazyPages) {
-    scratchPath = join(
-      tmpdir(),
-      `machinen-restore-scratch-${process.pid}-${randomBytes(6).toString("hex")}.img`,
-    );
-    allocateSparseFile(scratchPath, SNAP_SCRATCH_BYTES);
-    restoreEnv.MACHINEN_RESTORE_BUNDLE_LIVE = "1";
-    restoreEnv.MACHINEN_RESTORE_LAZY_PAGES = "1";
-    // #290: lazy-restore + virtio-balloon free-page-reporting used to
-    // get into a runaway re-report cycle — the workload's PE_LAZY anon
-    // range stays as huge contiguous free runs in the buddy allocator,
-    // and `__free_one_page`'s buddy merge clears the Reported flag on
-    // every neighbour it merges with, so the next reporting cycle sees
-    // the merged block as unreported and reports the same physical
-    // region again. Fixed in the guest kernel by
-    // `packages/microvm/patches/kernel/0001-mm-page-reporting-skip-merge-with-reported-buddy.patch`,
-    // which refuses to merge a freshly-freed page with a Reported buddy
-    // so the cycle terminates after a single warm-up sweep.
-    liveMounts = [
+  try {
+    return lazyPages
+      ? prepareLazyCriuDelivery(imgDir, effectiveLiveMounts)
+      : prepareEagerCriuDelivery(imgDir, effectiveLiveMounts);
+  } finally {
+    phases.end("snapshot-pack");
+  }
+}
+
+function prepareLazyCriuDelivery(
+  imgDir: string,
+  effectiveLiveMounts: BootOptions["liveMounts"],
+): CriuDeliveryPlan {
+  const scratchPath = join(
+    tmpdir(),
+    `machinen-restore-scratch-${process.pid}-${randomBytes(6).toString("hex")}.img`,
+  );
+  allocateSparseFile(scratchPath, SNAP_SCRATCH_BYTES);
+  return {
+    scratchPath,
+    restoreEnv: {
+      MACHINEN_RESTORE_BUNDLE_LIVE: "1",
+      MACHINEN_RESTORE_LAZY_PAGES: "1",
+    },
+    liveMounts: [
       ...(effectiveLiveMounts ?? []),
       { host: imgDir, guest: "/mnt/snap-src/img", mode: "ro" as const },
-    ];
-  } else {
-    // Pack the bundle into a tar so machinen-restore.sh can untar it
-    // off /dev/vdb. tar is `bsdtar` on darwin and `gnu tar` on linux;
-    // both produce archives the guest's `tar -xmf` reads. The trailing
-    // sparse extension keeps /dev/vdb at SNAP_SCRATCH_BYTES so chained
-    // `vm.snapshot()` against this VM has scratch room (its mkfs.ext4
-    // happily ignores tar bytes at the front).
-    //
-    // --no-xattrs: on darwin, Gatekeeper auto-tags files extracted by
-    // `machinen snapshot` with `com.apple.provenance`, and bsdtar then
-    // embeds them as `LIBARCHIVE.xattr.*` extended headers — which
-    // GNU tar in the guest warns about once per file ("Ignoring
-    // unknown extended header keyword"). CRIU images don't need
-    // xattrs, so drop them at pack time.
-    scratchPath = join(
-      tmpdir(),
-      `machinen-restore-bundle-${process.pid}-${randomBytes(6).toString("hex")}.tar`,
-    );
-    try {
-      execFileSync("tar", ["--no-xattrs", "-cf", scratchPath, "-C", imgDir, "."]);
-      const fd = openSync(scratchPath, "r+");
-      try {
-        const buf = Buffer.alloc(1);
-        writeSync(fd, buf, 0, 1, SNAP_SCRATCH_BYTES - 1);
-      } finally {
-        closeSync(fd);
-      }
-    } catch (err) {
-      try {
-        unlinkSync(scratchPath);
-      } catch {}
-      throw new BootError(
-        "BOOT_SNAPSHOT_NOT_FOUND",
-        `restore: failed to pack bundle from ${imgDir}: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-      );
-    }
-    liveMounts = effectiveLiveMounts;
-  }
-  phases.end("snapshot-pack");
+    ],
+  };
+}
 
-  // #272: when the snapshot bundle includes a `--mount` overlay,
-  // hand the lower/upper paths through to boot() so it can fd-pass
-  // them to the VMM without re-running mksquashfs on the host source
-  // dir. Each fork reflinks the upper into a per-VM file so guest
-  // writes accumulate per-fork, not in the bundle.
-  let restoreMountDisk: BootOptions["_restoreMountDisk"];
-  if (meta.mountDisk) {
-    const lowerAbs = join(snapDir, meta.mountDisk.lower);
-    const upperAbs = join(snapDir, meta.mountDisk.upper);
-    if (!existsSync(lowerAbs) || !existsSync(upperAbs)) {
-      throw new BootError(
-        "BOOT_SNAPSHOT_NOT_FOUND",
-        `restore: bundle's mount overlay is missing one of:\n  ${lowerAbs}\n  ${upperAbs}`,
-      );
-    }
-    restoreMountDisk = {
-      guest: meta.mountDisk.guest,
-      lowerPath: lowerAbs,
-      upperPath: upperAbs,
-    };
-  }
+function prepareEagerCriuDelivery(
+  imgDir: string,
+  effectiveLiveMounts: BootOptions["liveMounts"],
+): CriuDeliveryPlan {
+  return {
+    scratchPath: packEagerRestoreBundle(imgDir),
+    restoreEnv: {},
+    liveMounts: effectiveLiveMounts,
+  };
+}
 
-  // boot() doesn't know the pid until after the VMM is spawned, so
-  // we can't pass `<sourceName>/<pid>` up front. Boot anonymous,
-  // then claim the auto-name and patch the registry entry below.
-  phases.start("boot");
-  let vm: VmHandle;
+function packEagerRestoreBundle(imgDir: string): string {
+  const scratchPath = join(
+    tmpdir(),
+    `machinen-restore-bundle-${process.pid}-${randomBytes(6).toString("hex")}.tar`,
+  );
   try {
-    vm = await boot({
-      ...opts,
-      image: resolvedImage,
-      snapshot: scratchPath,
-      forkedFrom: snapDir,
-      name: opts.name,
-      liveMounts,
-      env: { ...opts.env, ...restoreEnv },
-      _restoreMountDisk: restoreMountDisk,
-    });
-  } finally {
-    // boot() reflink-clones the source into a per-boot path before
-    // attaching, so the source scratch/tar isn't needed after boot
-    // returns. Clean up regardless of success.
+    execFileSync("tar", ["--no-xattrs", "-cf", scratchPath, "-C", imgDir, "."]);
+    extendRestoreBundleTar(scratchPath);
+    return scratchPath;
+  } catch (err) {
     try {
       unlinkSync(scratchPath);
     } catch {}
+    throw new BootError(
+      "BOOT_SNAPSHOT_NOT_FOUND",
+      `restore: failed to pack bundle from ${imgDir}: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
-  phases.end("boot");
+}
 
+function extendRestoreBundleTar(scratchPath: string): void {
+  const fd = openSync(scratchPath, "r+");
+  try {
+    const buf = Buffer.alloc(1);
+    writeSync(fd, buf, 0, 1, SNAP_SCRATCH_BYTES - 1);
+  } finally {
+    closeSync(fd);
+  }
+}
+
+function resolveRestoreMountDisk(
+  snapDir: string,
+  meta: SnapshotMeta,
+): BootOptions["_restoreMountDisk"] {
+  if (!meta.mountDisk) {
+    return undefined;
+  }
+  const lowerAbs = join(snapDir, meta.mountDisk.lower);
+  const upperAbs = join(snapDir, meta.mountDisk.upper);
+  if (!existsSync(lowerAbs) || !existsSync(upperAbs)) {
+    throw new BootError(
+      "BOOT_SNAPSHOT_NOT_FOUND",
+      `restore: bundle's mount overlay is missing one of:\n  ${lowerAbs}\n  ${upperAbs}`,
+    );
+  }
+  return {
+    guest: meta.mountDisk.guest,
+    lowerPath: lowerAbs,
+    upperPath: upperAbs,
+  };
+}
+
+async function bootCriuRestore(args: {
+  opts: RestoreOptions;
+  snapDir: string;
+  resolvedImage: string;
+  delivery: CriuDeliveryPlan;
+  restoreMountDisk: BootOptions["_restoreMountDisk"];
+  phases: PhaseTimer;
+}): Promise<VmHandle> {
+  args.phases.start("boot");
+  try {
+    const vm = await boot({
+      ...args.opts,
+      image: args.resolvedImage,
+      snapshot: args.delivery.scratchPath,
+      forkedFrom: args.snapDir,
+      name: args.opts.name,
+      liveMounts: args.delivery.liveMounts,
+      env: { ...args.opts.env, ...args.delivery.restoreEnv },
+      _restoreMountDisk: args.restoreMountDisk,
+    });
+    args.phases.end("boot");
+    return vm;
+  } finally {
+    try {
+      unlinkSync(args.delivery.scratchPath);
+    } catch {}
+  }
+}
+
+function finalizeCriuRestore(
+  vm: VmHandle,
+  opts: RestoreOptions,
+  meta: SnapshotMeta,
+  phases: PhaseTimer,
+  lazyPagesTotal: number | undefined,
+): void {
   autoNameRestoredFork(vm, opts, meta);
+  persistLazyPagesTotal(vm, lazyPagesTotal);
+  probeRestoredGuestHostname(vm, phases);
+}
 
-  // #274: persist lazy-restore bookkeeping so `vm.memoryStats()` can
-  // report `lazyPagesTotal` without re-reading the bundle. Boot-owned
-  // and attach handles both read this back through the registry.
-  if (lazyPagesTotal !== undefined) {
-    const cur = findEntry({ pid: vm.pid });
-    if (cur) {
-      writeEntry({
-        ...cur,
-        lazyPagesTotal,
-      });
-    }
+function persistLazyPagesTotal(vm: VmHandle, lazyPagesTotal: number | undefined): void {
+  if (lazyPagesTotal === undefined) {
+    return;
   }
+  const cur = findEntry({ pid: vm.pid });
+  if (cur) {
+    writeEntry({
+      ...cur,
+      lazyPagesTotal,
+    });
+  }
+}
 
-  // CRIU restores the dumped UTS namespace, which means the hostname
-  // is whatever the source VM had — not the new VM's identity. Fire
-  // `hostname <label>` over vsock (fire-and-forget) so the guest's
-  // kernel hostname uniquely identifies this VM, with the host VMM
-  // pid as the disambiguator. See buildGuestHostname for the format.
-  //
-  // #221: piggy-back on the same vsock round-trip to time how long
-  // CRIU restore + supervisor takes to become responsive. Anything
-  // that lets the hostname call return is a usable proxy for "guest
-  // ready". We don't await it — boot() already happened, this just
-  // closes the timing line in the background.
+function probeRestoredGuestHostname(vm: VmHandle, phases: PhaseTimer): void {
   phases.start("criu-restore-probe");
   void setGuestHostname(vm, buildGuestHostname(vm.pid, vm.name)).finally(() => {
     phases.end("criu-restore-probe");
     phases.flush(debugRestore, "restore");
   });
-  return vm;
 }
 
 // Resolve the rootfs image for a restore: caller's `opts.image` wins,
@@ -513,23 +526,70 @@ function validateVmstateGuestArch(vmstate: VmstateSnapshotMeta, facts: VmstateFa
 function validateVmstateBackendAndPauth(vmstate: VmstateSnapshotMeta, facts: VmstateFacts): void {
   const source = vmstate.sourceBackend ?? "unknown";
   const target = currentVmstateBackend();
-  const crossVmm = source !== "unknown" && target !== "unknown" && source !== target;
-  if (!crossVmm) {
+  if (!isCrossVmmRestore(source, target)) {
     return;
   }
 
-  const pauthActive = facts.guestPauthActive ?? vmstate.guestPauth?.active;
-  if (pauthActive !== false) {
-    throw new BootError(
-      "BOOT_VMSTATE_UNSUPPORTED",
-      `restore: unsupported cross-VMM vmstate restore (${source} → ${target}).\n` +
-        `  The snapshot has guest pointer authentication ${
-          pauthActive === true ? "enabled" : "in an unknown state"
-        } (SCTLR_EL1=${facts.sctlrEl1 ?? vmstate.guestPauth?.sctlrEl1 ?? "unknown"}).\n` +
-        "  Recreate the source guest with PAuth disabled (the default machinen\n" +
-        "  DTB includes `arm64.nopauth`) before moving vmstate across HVF/KVM.",
-    );
+  const pauthActive = vmstatePauthActive(vmstate, facts);
+  if (pauthActive === false) {
+    return;
   }
+  throw unsupportedCrossVmmPauthError(source, target, pauthActive, vmstate, facts);
+}
+
+function isCrossVmmRestore(source: string, target: string): boolean {
+  if (source === "unknown") {
+    return false;
+  }
+  if (target === "unknown") {
+    return false;
+  }
+  return source !== target;
+}
+
+function vmstatePauthActive(
+  vmstate: VmstateSnapshotMeta,
+  facts: VmstateFacts,
+): boolean | undefined {
+  if (facts.guestPauthActive !== undefined) {
+    return facts.guestPauthActive;
+  }
+  return vmstate.guestPauth?.active;
+}
+
+function unsupportedCrossVmmPauthError(
+  source: string,
+  target: string,
+  pauthActive: boolean | undefined,
+  vmstate: VmstateSnapshotMeta,
+  facts: VmstateFacts,
+): BootError {
+  return new BootError(
+    "BOOT_VMSTATE_UNSUPPORTED",
+    `restore: unsupported cross-VMM vmstate restore (${source} → ${target}).\n` +
+      `  The snapshot has guest pointer authentication ${pauthStateLabel(
+        pauthActive,
+      )} (SCTLR_EL1=${pauthSctlrLabel(vmstate, facts)}).\n` +
+      "  Recreate the source guest with PAuth disabled (the default machinen\n" +
+      "  DTB includes `arm64.nopauth`) before moving vmstate across HVF/KVM.",
+  );
+}
+
+function pauthStateLabel(pauthActive: boolean | undefined): string {
+  if (pauthActive === true) {
+    return "enabled";
+  }
+  return "in an unknown state";
+}
+
+function pauthSctlrLabel(vmstate: VmstateSnapshotMeta, facts: VmstateFacts): string {
+  if (facts.sctlrEl1 !== undefined) {
+    return facts.sctlrEl1;
+  }
+  if (vmstate.guestPauth?.sctlrEl1 !== undefined) {
+    return vmstate.guestPauth.sctlrEl1;
+  }
+  return "unknown";
 }
 
 function validateVmstateArtifacts(opts: RestoreOptions, vmstate: VmstateSnapshotMeta): void {
@@ -549,20 +609,69 @@ function resolveVmstateMemoryCeiling(
   if (expected === undefined) {
     return undefined;
   }
-  const envMemory = opts.vmmEnv?.MACHINEN_MEMORY ?? process.env.MACHINEN_MEMORY;
-  const envMib = envMemory !== undefined ? Number(envMemory) : undefined;
-  const requested = opts.memory ?? envMib;
-  if (requested !== undefined && requested !== expected) {
-    throw new BootError(
-      "BOOT_VMSTATE_UNSUPPORTED",
-      `restore: vmstate guest RAM layout mismatch.\n` +
-        `  snapshot ceiling: ${expected} MiB\n` +
-        `  restore ceiling:  ${requested} MiB\n` +
-        "  This is the VM's address layout, not current host memory use.\n" +
-        "  Whole-VM restore requires the same RAM topology.",
-    );
+  const envMib = restoreEnvMemoryMib(opts);
+  const requested = requestedRestoreMemory(opts, envMib);
+  validateVmstateMemoryCeiling(expected, requested);
+  if (shouldApplySnapshotMemoryCeiling(opts, envMib)) {
+    return expected;
   }
-  return opts.memory === undefined && envMib === undefined ? expected : undefined;
+  return undefined;
+}
+
+function restoreEnvMemoryMib(opts: RestoreOptions): number | undefined {
+  const envMemory = restoreEnvMemory(opts);
+  if (envMemory === undefined) {
+    return undefined;
+  }
+  return Number(envMemory);
+}
+
+function restoreEnvMemory(opts: RestoreOptions): string | undefined {
+  const fromOpts = opts.vmmEnv?.MACHINEN_MEMORY;
+  if (fromOpts !== undefined) {
+    return fromOpts;
+  }
+  return process.env.MACHINEN_MEMORY;
+}
+
+function requestedRestoreMemory(
+  opts: RestoreOptions,
+  envMib: number | undefined,
+): number | undefined {
+  if (opts.memory !== undefined) {
+    return opts.memory;
+  }
+  return envMib;
+}
+
+function validateVmstateMemoryCeiling(expected: number, requested: number | undefined): void {
+  if (requested === undefined) {
+    return;
+  }
+  if (requested === expected) {
+    return;
+  }
+  throw new BootError(
+    "BOOT_VMSTATE_UNSUPPORTED",
+    `restore: vmstate guest RAM layout mismatch.\n` +
+      `  snapshot ceiling: ${expected} MiB\n` +
+      `  restore ceiling:  ${requested} MiB\n` +
+      "  This is the VM's address layout, not current host memory use.\n" +
+      "  Whole-VM restore requires the same RAM topology.",
+  );
+}
+
+function shouldApplySnapshotMemoryCeiling(
+  opts: RestoreOptions,
+  envMib: number | undefined,
+): boolean {
+  if (opts.memory !== undefined) {
+    return false;
+  }
+  if (envMib !== undefined) {
+    return false;
+  }
+  return true;
 }
 
 function resolveVmstateRootDisk(
@@ -572,17 +681,7 @@ function resolveVmstateRootDisk(
 ): Pick<VmstateRestorePlan, "rootDisk" | "rootDiskRestorePath"> {
   const recorded = vmstate.rootDisk;
   if (!recorded) {
-    if (opts.rootDisk !== undefined) {
-      return { rootDisk: opts.rootDisk };
-    }
-    throw new BootError(
-      "BOOT_VMSTATE_UNSUPPORTED",
-      "restore: vmstate bundle has no rootdisk invariant.\n" +
-        "  A whole-VM snapshot resumes with file-backed VMAs and block-device\n" +
-        "  queues that depend on the exact /dev/vda bytes. Recreate the\n" +
-        "  snapshot so the bundle includes rootdisk.img, or pass an explicit\n" +
-        "  restore({ rootDisk: <exact-image> }) to opt into caller-managed bytes.",
-    );
+    return resolveMissingVmstateRootDisk(opts);
   }
   if (recorded.mode === "delta") {
     throw new BootError(
@@ -591,15 +690,49 @@ function resolveVmstateRootDisk(
     );
   }
   if (recorded.mode === "none") {
-    if (typeof opts.rootDisk === "string") {
-      throw new BootError(
-        "BOOT_VMSTATE_UNSUPPORTED",
-        "restore: snapshot was taken without a root block device, but restore passed rootDisk.",
-      );
-    }
-    return { rootDisk: false };
+    return resolveNoneVmstateRootDisk(opts);
   }
+  return resolveFileVmstateRootDisk(opts, snapDir, recorded);
+}
 
+function resolveMissingVmstateRootDisk(
+  opts: RestoreOptions,
+): Pick<VmstateRestorePlan, "rootDisk" | "rootDiskRestorePath"> {
+  if (opts.rootDisk !== undefined) {
+    return { rootDisk: opts.rootDisk };
+  }
+  throw new BootError(
+    "BOOT_VMSTATE_UNSUPPORTED",
+    "restore: vmstate bundle has no rootdisk invariant.\n" +
+      "  A whole-VM snapshot resumes with file-backed VMAs and block-device\n" +
+      "  queues that depend on the exact /dev/vda bytes. Recreate the\n" +
+      "  snapshot so the bundle includes rootdisk.img, or pass an explicit\n" +
+      "  restore({ rootDisk: <exact-image> }) to opt into caller-managed bytes.",
+  );
+}
+
+function resolveNoneVmstateRootDisk(
+  opts: RestoreOptions,
+): Pick<VmstateRestorePlan, "rootDisk" | "rootDiskRestorePath"> {
+  if (typeof opts.rootDisk === "string") {
+    throw new BootError(
+      "BOOT_VMSTATE_UNSUPPORTED",
+      "restore: snapshot was taken without a root block device, but restore passed rootDisk.",
+    );
+  }
+  return { rootDisk: false };
+}
+
+type VmstateRootDiskBlock = Extract<
+  NonNullable<VmstateSnapshotMeta["rootDisk"]>,
+  { mode: "block" }
+>;
+
+function resolveFileVmstateRootDisk(
+  opts: RestoreOptions,
+  snapDir: string,
+  recorded: VmstateRootDiskBlock,
+): Pick<VmstateRestorePlan, "rootDisk" | "rootDiskRestorePath"> {
   if (opts.rootDisk === false) {
     throw new BootError(
       "BOOT_VMSTATE_UNSUPPORTED",
@@ -695,77 +828,93 @@ function shellQuote(s: string): string {
  * rematerializing a tarball into a fresh ext4 image is not safe.
  */
 async function restoreVmstate(opts: RestoreOptions, snapDir: string): Promise<VmHandle> {
-  let statePath = join(snapDir, VMSTATE_FILE);
-  let effectiveSnapDir = snapDir;
-  let materializedTempDir: string | undefined;
-  const metaPath = join(snapDir, "meta.json");
-
-  let meta: SnapshotMeta = { snappedAt: 0 };
-  if (existsSync(metaPath)) {
-    try {
-      meta = JSON.parse(readFileSync(metaPath, "utf8")) as SnapshotMeta;
-    } catch {
-      // Corrupt / partial meta.json — fall through with an anonymous
-      // source name. The restore still boots; it just won't get a
-      // memorable auto-name.
-    }
-  }
-
+  let prepared = initialVmstateRestoreBundle(snapDir);
   let vm: VmHandle;
   try {
-    if (meta.vmstate?.checkpoint?.parent) {
-      const materialized = materializeVmstateChain(snapDir, meta);
-      materializedTempDir = materialized.tempDir;
-      effectiveSnapDir = materialized.snapDir;
-      statePath = materialized.statePath;
-      meta = materialized.meta;
-    }
-
-    const resolvedImage = resolveRestoreImage(opts, meta);
-    const vmstatePlan = planVmstateRestore(opts, meta, effectiveSnapDir, statePath);
-    const effectiveLiveMounts = resolveRestoreLiveMounts(meta.liveMounts, opts.liveMounts);
-
-    // Re-attach a `--mount` overlay recorded in the bundle (same shape
-    // and per-fork reflink semantics as the CRIU path).
-    let restoreMountDisk: BootOptions["_restoreMountDisk"];
-    if (meta.mountDisk) {
-      const lowerAbs = join(snapDir, meta.mountDisk.lower);
-      const upperAbs = join(snapDir, meta.mountDisk.upper);
-      if (!existsSync(lowerAbs) || !existsSync(upperAbs)) {
-        throw new BootError(
-          "BOOT_SNAPSHOT_NOT_FOUND",
-          `restore: bundle's mount overlay is missing one of:\n  ${lowerAbs}\n  ${upperAbs}`,
-        );
-      }
-      restoreMountDisk = { guest: meta.mountDisk.guest, lowerPath: lowerAbs, upperPath: upperAbs };
-    }
-
-    debugRestore("vmstate restore snapDir=%s state=%s image=%s", snapDir, statePath, resolvedImage);
-
-    vm = await boot({
-      ...opts,
-      image: resolvedImage,
-      forkedFrom: snapDir,
-      name: opts.name,
-      liveMounts: effectiveLiveMounts,
-      memory: vmstatePlan.memoryCeiling ?? opts.memory,
-      rootDisk: vmstatePlan.rootDisk ?? opts.rootDisk,
-      _restoreMountDisk: restoreMountDisk,
-      _vmstateRestorePath: statePath,
-      _rootDiskRestorePath: vmstatePlan.rootDiskRestorePath,
-    });
+    prepared = materializeVmstateRestoreChainIfNeeded(snapDir, prepared);
+    vm = await bootVmstateRestore(opts, snapDir, prepared);
     await reseedVmstateGuestEntropy(vm);
   } finally {
-    if (materializedTempDir) {
-      try {
-        rmSync(materializedTempDir, { recursive: true, force: true });
-      } catch {}
-    }
+    cleanupMaterializedVmstate(prepared.materializedTempDir);
   }
 
-  autoNameRestoredFork(vm, opts, meta);
-  // The restored guest's kernel hostname is whatever the source had;
-  // re-stamp it with this VM's identity. Fire-and-forget over vsock.
-  void setGuestHostname(vm, buildGuestHostname(vm.pid, vm.name)).catch(() => {});
+  autoNameRestoredFork(vm, opts, prepared.meta);
+  restampRestoredHostname(vm);
   return vm;
+}
+
+interface PreparedVmstateRestoreBundle {
+  statePath: string;
+  effectiveSnapDir: string;
+  materializedTempDir: string | undefined;
+  meta: SnapshotMeta;
+}
+
+function initialVmstateRestoreBundle(snapDir: string): PreparedVmstateRestoreBundle {
+  return {
+    statePath: join(snapDir, VMSTATE_FILE),
+    effectiveSnapDir: snapDir,
+    materializedTempDir: undefined,
+    meta: readSnapshotMeta(join(snapDir, "meta.json")),
+  };
+}
+
+function materializeVmstateRestoreChainIfNeeded(
+  snapDir: string,
+  prepared: PreparedVmstateRestoreBundle,
+): PreparedVmstateRestoreBundle {
+  if (!prepared.meta.vmstate?.checkpoint?.parent) {
+    return prepared;
+  }
+  const materialized = materializeVmstateChain(snapDir, prepared.meta);
+  return {
+    statePath: materialized.statePath,
+    effectiveSnapDir: materialized.snapDir,
+    materializedTempDir: materialized.tempDir,
+    meta: materialized.meta,
+  };
+}
+
+async function bootVmstateRestore(
+  opts: RestoreOptions,
+  snapDir: string,
+  prepared: PreparedVmstateRestoreBundle,
+): Promise<VmHandle> {
+  const resolvedImage = resolveRestoreImage(opts, prepared.meta);
+  const vmstatePlan = planVmstateRestore(
+    opts,
+    prepared.meta,
+    prepared.effectiveSnapDir,
+    prepared.statePath,
+  );
+  debugRestore(
+    "vmstate restore snapDir=%s state=%s image=%s",
+    snapDir,
+    prepared.statePath,
+    resolvedImage,
+  );
+  return boot({
+    ...opts,
+    image: resolvedImage,
+    forkedFrom: snapDir,
+    name: opts.name,
+    liveMounts: resolveRestoreLiveMounts(prepared.meta.liveMounts, opts.liveMounts),
+    memory: vmstatePlan.memoryCeiling ?? opts.memory,
+    rootDisk: vmstatePlan.rootDisk ?? opts.rootDisk,
+    _restoreMountDisk: resolveRestoreMountDisk(snapDir, prepared.meta),
+    _vmstateRestorePath: prepared.statePath,
+    _rootDiskRestorePath: vmstatePlan.rootDiskRestorePath,
+  });
+}
+
+function cleanupMaterializedVmstate(materializedTempDir: string | undefined): void {
+  if (materializedTempDir) {
+    try {
+      rmSync(materializedTempDir, { recursive: true, force: true });
+    } catch {}
+  }
+}
+
+function restampRestoredHostname(vm: VmHandle): void {
+  void setGuestHostname(vm, buildGuestHostname(vm.pid, vm.name)).catch(() => {});
 }

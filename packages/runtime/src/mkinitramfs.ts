@@ -78,58 +78,95 @@ const DEFAULT_WORKSPACE_EXCLUDES = new Set<string>([
 
 // --- newc cpio encoder ---------------------------------------------
 
-/** Emit one newc cpio entry as a Buffer. */
-function newc(
-  name: string,
-  mode: number,
-  opts: {
-    uid?: number;
-    gid?: number;
-    nlink?: number;
-    mtime?: number;
-    rmajor?: number;
-    rminor?: number;
-    data?: Buffer;
-  } = {},
-): Buffer {
-  const uid = opts.uid ?? 0;
-  const gid = opts.gid ?? 0;
-  const nlink = opts.nlink ?? 1;
-  const mtime = opts.mtime ?? 0;
-  const rmajor = opts.rmajor ?? 0;
-  const rminor = opts.rminor ?? 0;
-  const data = opts.data ?? Buffer.alloc(0);
+interface NewcOptions {
+  uid?: number;
+  gid?: number;
+  nlink?: number;
+  mtime?: number;
+  rmajor?: number;
+  rminor?: number;
+  data?: Buffer;
+}
 
-  const nameBytes = Buffer.concat([Buffer.from(name, "utf8"), Buffer.from([0])]);
-  const fields = [
+interface NormalizedNewcOptions {
+  uid: number;
+  gid: number;
+  nlink: number;
+  mtime: number;
+  rmajor: number;
+  rminor: number;
+  data: Buffer;
+}
+
+/** Emit one newc cpio entry as a Buffer. */
+function newc(name: string, mode: number, opts: NewcOptions = {}): Buffer {
+  const normalized = normalizeNewcOptions(opts);
+  const nameBytes = newcNameBytes(name);
+  const header = Buffer.from(newcHeader(mode, normalized, nameBytes.length), "ascii");
+  return newcEntryBuffer(header, nameBytes, normalized.data);
+}
+
+function normalizeNewcOptions(opts: NewcOptions): NormalizedNewcOptions {
+  return {
+    uid: opts.uid ?? 0,
+    gid: opts.gid ?? 0,
+    nlink: opts.nlink ?? 1,
+    mtime: opts.mtime ?? 0,
+    rmajor: opts.rmajor ?? 0,
+    rminor: opts.rminor ?? 0,
+    data: opts.data ?? Buffer.alloc(0),
+  };
+}
+
+function newcNameBytes(name: string): Buffer {
+  return Buffer.concat([Buffer.from(name, "utf8"), Buffer.from([0])]);
+}
+
+function newcHeader(mode: number, opts: NormalizedNewcOptions, nameSize: number): string {
+  return "070701" + newcFields(mode, opts, nameSize).map(newcHexField).join("");
+}
+
+function newcFields(mode: number, opts: NormalizedNewcOptions, nameSize: number): number[] {
+  return [
     0,
     mode,
-    uid,
-    gid,
-    nlink,
-    mtime,
-    data.length,
+    opts.uid,
+    opts.gid,
+    opts.nlink,
+    opts.mtime,
+    opts.data.length,
     0, // devmajor
     0, // devminor
-    rmajor,
-    rminor,
-    nameBytes.length,
+    opts.rmajor,
+    opts.rminor,
+    nameSize,
     0, // check
   ];
-  let hdr = "070701";
-  for (const v of fields) {
-    hdr += v.toString(16).padStart(8, "0");
-  }
+}
 
-  let out = Buffer.concat([Buffer.from(hdr, "ascii"), nameBytes]);
-  while (out.length % 4 !== 0) {
-    out = Buffer.concat([out, Buffer.from([0])]);
-  }
-  out = Buffer.concat([out, data]);
-  while (out.length % 4 !== 0) {
-    out = Buffer.concat([out, Buffer.from([0])]);
-  }
-  return out;
+function newcHexField(value: number): string {
+  return value.toString(16).padStart(8, "0");
+}
+
+function newcEntryBuffer(header: Buffer, nameBytes: Buffer, data: Buffer): Buffer {
+  return Buffer.concat([
+    padNewcPart(Buffer.concat([header, nameBytes])),
+    data,
+    newcPadding(data.length),
+  ]);
+}
+
+function padNewcPart(buf: Buffer): Buffer {
+  const padding = newcPadding(buf.length);
+  return padding.length === 0 ? buf : Buffer.concat([buf, padding]);
+}
+
+function newcPadding(length: number): Buffer {
+  return Buffer.alloc(newcPaddingLength(length));
+}
+
+function newcPaddingLength(length: number): number {
+  return (4 - (length % 4)) % 4;
 }
 
 // --- excludes ------------------------------------------------------
@@ -152,46 +189,74 @@ function fnmatchCase(name: string, pat: string): boolean {
   return fnmatchRegex(pat).test(name);
 }
 
+interface FnmatchToken {
+  source: string;
+  nextIndex: number;
+}
+
+const SIMPLE_FNMATCH_TOKENS: Record<string, string> = {
+  "*": ".*",
+  "?": ".",
+};
+
 function fnmatchRegex(pat: string): RegExp {
   let re = "^";
-  let i = 0;
-  while (i < pat.length) {
-    const c = pat[i]!;
-    if (c === "*") {
-      re += ".*";
-    } else if (c === "?") {
-      re += ".";
-    } else if (c === "[") {
-      let j = i + 1;
-      if (pat[j] === "!") {
-        j++;
-      }
-      if (pat[j] === "]") {
-        j++;
-      }
-      while (j < pat.length && pat[j] !== "]") {
-        j++;
-      }
-      if (j >= pat.length) {
-        re += "\\[";
-      } else {
-        let cls = pat.slice(i, j + 1);
-        if (cls.startsWith("[!")) {
-          cls = "[^" + cls.slice(2);
-        }
-        re += cls;
-        i = j;
-      }
-    } else if (/[\\^$.+()|{}]/.test(c)) {
-      re += "\\" + c;
-    } else {
-      re += c;
-    }
-    i++;
+  for (let i = 0; i < pat.length; i++) {
+    const token = translateFnmatchToken(pat, i);
+    re += token.source;
+    i = token.nextIndex;
   }
-  re += "$";
-  return new RegExp(re);
+  return new RegExp(re + "$");
 }
+
+function translateFnmatchToken(pat: string, index: number): FnmatchToken {
+  const c = pat[index]!;
+  const simple = SIMPLE_FNMATCH_TOKENS[c];
+  if (simple !== undefined) {
+    return { source: simple, nextIndex: index };
+  }
+  if (c === "[") {
+    return translateFnmatchClass(pat, index);
+  }
+  return { source: regexLiteral(c), nextIndex: index };
+}
+
+function translateFnmatchClass(pat: string, index: number): FnmatchToken {
+  const end = findFnmatchClassEnd(pat, index);
+  if (end === -1) {
+    return { source: "\\[", nextIndex: index };
+  }
+  return { source: normalizeFnmatchClass(pat.slice(index, end + 1)), nextIndex: end };
+}
+
+function findFnmatchClassEnd(pat: string, index: number): number {
+  let j = fnmatchClassBodyStart(pat, index);
+  while (j < pat.length && pat[j] !== "]") {
+    j++;
+  }
+  return j >= pat.length ? -1 : j;
+}
+
+function fnmatchClassBodyStart(pat: string, index: number): number {
+  let j = index + 1;
+  if (pat[j] === "!") {
+    j++;
+  }
+  if (pat[j] === "]") {
+    j++;
+  }
+  return j;
+}
+
+function normalizeFnmatchClass(cls: string): string {
+  return cls.startsWith("[!") ? "[^" + cls.slice(2) : cls;
+}
+
+function regexLiteral(c: string): string {
+  return REGEX_SPECIAL_CHARS.test(c) ? "\\" + c : c;
+}
+
+const REGEX_SPECIAL_CHARS = /[\\^$.+()|{}]/;
 
 // --- filesystem walk ----------------------------------------------
 
@@ -220,6 +285,8 @@ function* entriesFromRootfs(
   yield* walkRootfs(root, "", excludes, counts);
 }
 
+type FsStats = import("node:fs").Stats;
+
 function* walkRootfs(
   root: string,
   rel: string,
@@ -227,47 +294,79 @@ function* walkRootfs(
   counts: WalkCounts,
 ): Generator<Buffer> {
   const full = rel ? join(root, rel) : root;
-  let entries: string[];
-  try {
-    entries = readdirSync(full).sort();
-  } catch {
+  const entries = readSortedDir(full);
+  if (!entries) {
     return;
   }
 
   for (const name of entries) {
-    const childRel = rel ? join(rel, name) : name;
-    const childFull = join(full, name);
-
-    if (excludes.some((pat) => fnmatchCase(childRel, pat))) {
-      try {
-        const st = lstatSync(childFull);
-        if (st.isFile()) {
-          counts.files += 1;
-          counts.bytes += st.size;
-        }
-      } catch {}
-      continue;
-    }
-
-    let st;
-    try {
-      st = lstatSync(childFull);
-    } catch {
-      continue;
-    }
-    const m = st.mode;
-
-    if (st.isSymbolicLink()) {
-      const target = readlinkSync(childFull);
-      yield newc(childRel, 0o120000 | (m & 0o7777), { data: Buffer.from(target, "utf8") });
-    } else if (st.isDirectory()) {
-      yield newc(childRel, 0o40000 | (m & 0o7777));
-      yield* walkRootfs(root, childRel, excludes, counts);
-    } else if (st.isFile()) {
-      yield newc(childRel, 0o100000 | (m & 0o7777), { data: readFileSync(childFull) });
-    }
-    // Device/fifo/socket nodes are skipped — added by hand below.
+    yield* walkRootfsChild(root, rel, full, name, excludes, counts);
   }
+}
+
+function* walkRootfsChild(
+  root: string,
+  rel: string,
+  parentFull: string,
+  name: string,
+  excludes: string[],
+  counts: WalkCounts,
+): Generator<Buffer> {
+  const childRel = rel ? join(rel, name) : name;
+  const childFull = join(parentFull, name);
+  if (isExcludedRootfsEntry(childRel, childFull, excludes, counts)) {
+    return;
+  }
+  const st = tryLstat(childFull);
+  if (!st) {
+    return;
+  }
+  yield* rootfsEntryFromStats(root, childRel, childFull, st, excludes, counts);
+}
+
+function isExcludedRootfsEntry(
+  childRel: string,
+  childFull: string,
+  excludes: string[],
+  counts: WalkCounts,
+): boolean {
+  if (!excludes.some((pat) => fnmatchCase(childRel, pat))) {
+    return false;
+  }
+  countExcludedRootfsFile(childFull, counts);
+  return true;
+}
+
+function countExcludedRootfsFile(childFull: string, counts: WalkCounts): void {
+  const st = tryLstat(childFull);
+  if (st?.isFile()) {
+    counts.files += 1;
+    counts.bytes += st.size;
+  }
+}
+
+function* rootfsEntryFromStats(
+  root: string,
+  childRel: string,
+  childFull: string,
+  st: FsStats,
+  excludes: string[],
+  counts: WalkCounts,
+): Generator<Buffer> {
+  const mode = st.mode & 0o7777;
+  if (st.isSymbolicLink()) {
+    yield newc(childRel, 0o120000 | mode, { data: Buffer.from(readlinkSync(childFull), "utf8") });
+    return;
+  }
+  if (st.isDirectory()) {
+    yield newc(childRel, 0o40000 | mode);
+    yield* walkRootfs(root, childRel, excludes, counts);
+    return;
+  }
+  if (st.isFile()) {
+    yield newc(childRel, 0o100000 | mode, { data: readFileSync(childFull) });
+  }
+  // Device/fifo/socket nodes are skipped — added by hand below.
 }
 
 function* workspaceEntries(
@@ -288,40 +387,86 @@ function* walkWorkspace(
   counts: WalkCounts,
 ): Generator<Buffer> {
   const full = rel ? join(root, rel) : root;
-  let entries: string[];
-  try {
-    entries = readdirSync(full).sort();
-  } catch {
+  const entries = readSortedDir(full);
+  if (!entries) {
     return;
   }
 
   for (const name of entries) {
-    if (excludes.has(name)) {
-      continue;
-    }
-    const childRel = rel ? join(rel, name) : name;
-    const childFull = join(full, name);
-    const arcName = `${mountpoint}/${childRel}`;
+    yield* walkWorkspaceChild(root, rel, full, name, mountpoint, excludes, counts);
+  }
+}
 
-    let st;
-    try {
-      st = lstatSync(childFull);
-    } catch {
-      continue;
-    }
-    const m = st.mode;
+function* walkWorkspaceChild(
+  root: string,
+  rel: string,
+  parentFull: string,
+  name: string,
+  mountpoint: string,
+  excludes: Set<string>,
+  counts: WalkCounts,
+): Generator<Buffer> {
+  if (excludes.has(name)) {
+    return;
+  }
+  const childRel = rel ? join(rel, name) : name;
+  const childFull = join(parentFull, name);
+  const st = tryLstat(childFull);
+  if (!st) {
+    return;
+  }
+  yield* workspaceEntryFromStats(root, childRel, childFull, mountpoint, st, excludes, counts);
+}
 
-    if (st.isSymbolicLink()) {
-      const target = readlinkSync(childFull);
-      yield newc(arcName, 0o120000 | (m & 0o7777), { data: Buffer.from(target, "utf8") });
-    } else if (st.isDirectory()) {
-      yield newc(arcName, 0o40000 | (m & 0o7777));
-      yield* walkWorkspace(root, childRel, mountpoint, excludes, counts);
-    } else if (st.isFile()) {
-      const data = readFileSync(childFull);
-      counts.bytes += data.length;
-      yield newc(arcName, 0o100000 | (m & 0o7777), { data });
-    }
+function* workspaceEntryFromStats(
+  root: string,
+  childRel: string,
+  childFull: string,
+  mountpoint: string,
+  st: FsStats,
+  excludes: Set<string>,
+  counts: WalkCounts,
+): Generator<Buffer> {
+  const arcName = `${mountpoint}/${childRel}`;
+  const mode = st.mode & 0o7777;
+  if (st.isSymbolicLink()) {
+    yield newc(arcName, 0o120000 | mode, { data: Buffer.from(readlinkSync(childFull), "utf8") });
+    return;
+  }
+  if (st.isDirectory()) {
+    yield newc(arcName, 0o40000 | mode);
+    yield* walkWorkspace(root, childRel, mountpoint, excludes, counts);
+    return;
+  }
+  if (st.isFile()) {
+    yield* workspaceFileEntry(arcName, childFull, mode, counts);
+  }
+}
+
+function* workspaceFileEntry(
+  arcName: string,
+  childFull: string,
+  mode: number,
+  counts: WalkCounts,
+): Generator<Buffer> {
+  const data = readFileSync(childFull);
+  counts.bytes += data.length;
+  yield newc(arcName, 0o100000 | mode, { data });
+}
+
+function readSortedDir(full: string): string[] | undefined {
+  try {
+    return readdirSync(full).sort();
+  } catch {
+    return undefined;
+  }
+}
+
+function tryLstat(path: string): FsStats | undefined {
+  try {
+    return lstatSync(path);
+  } catch {
+    return undefined;
   }
 }
 
@@ -360,8 +505,28 @@ export interface PackBundleOptions {
   execAgentPath?: string;
 }
 
+interface PackBundlePaths {
+  rootfsDir: string;
+  cfgPath: string;
+}
+
+interface PackBundleSource {
+  packSrc: string;
+  mergeTmp?: string;
+}
+
 export function packBundle(opts: PackBundleOptions): void {
   const t0 = Date.now();
+  const paths = validatePackBundleInputs(opts);
+  const source = preparePackBundleSource(opts, paths.rootfsDir);
+  try {
+    writePackedBundle(opts, paths.cfgPath, source.packSrc, t0);
+  } finally {
+    cleanupMergedPackSource(source.mergeTmp);
+  }
+}
+
+function validatePackBundleInputs(opts: PackBundleOptions): PackBundlePaths {
   const rootfsDir = join(opts.bundle, "rootfs");
   const cfgPath = join(opts.bundle, "machinen-config.json");
   if (!statSync(rootfsDir).isDirectory()) {
@@ -370,8 +535,19 @@ export function packBundle(opts: PackBundleOptions): void {
   if (!statSync(cfgPath).isFile()) {
     throw new MkinitramfsError("MKINITRAMFS_BUNDLE_INVALID", `--bundle: missing ${cfgPath}`);
   }
+  return { rootfsDir, cfgPath };
+}
 
+function preparePackBundleSource(opts: PackBundleOptions, rootfsDir: string): PackBundleSource {
   const needsMerge = Boolean(opts.base) || Boolean(opts.mount);
+  debugPackBundleStart(opts, needsMerge);
+  if (!needsMerge) {
+    return { packSrc: rootfsDir };
+  }
+  return prepareMergedPackSource(opts, rootfsDir);
+}
+
+function debugPackBundleStart(opts: PackBundleOptions, needsMerge: boolean): void {
   debug(
     "packBundle bundle=%s out=%s base=%s mount=%s needsMerge=%s",
     opts.bundle,
@@ -380,76 +556,82 @@ export function packBundle(opts: PackBundleOptions): void {
     opts.mount ? `${opts.mount.host}->${opts.mount.guest}` : "<none>",
     needsMerge,
   );
+}
 
-  let packSrc = rootfsDir;
-  let mergeTmp: string | undefined;
-  if (needsMerge) {
-    mergeTmp = mkdtempSync(join(tmpdir(), "machinen-mkinitramfs-"));
-    if (opts.base) {
-      const extractT0 = Date.now();
-      const res = spawnSync("tar", ["-xzf", opts.base, "-C", mergeTmp]);
-      if (res.status !== 0) {
-        rmSync(mergeTmp, { recursive: true, force: true });
-        throw new MkinitramfsError(
-          "MKINITRAMFS_BASE_EXTRACT_FAILED",
-          `tar -xzf ${opts.base} failed: ${res.stderr?.toString() ?? ""}`,
-        );
-      }
-      debug("base extracted elapsed=%dms", Date.now() - extractT0);
-    }
-    if (opts.mount) {
-      overlayMount(mergeTmp, opts.mount.host, opts.mount.guest);
-    }
-    // Overlay the bundle's rootfs/ on top. Node's cp with recursive
-    // preserves symlinks via `verbatimSymlinks`; `force: true` mirrors
-    // shutil.copytree's dirs_exist_ok + overwrite semantics.
-    cpSync(rootfsDir, mergeTmp, {
-      recursive: true,
-      force: true,
-      verbatimSymlinks: true,
-    });
-    packSrc = mergeTmp;
-  }
-
+function prepareMergedPackSource(opts: PackBundleOptions, rootfsDir: string): PackBundleSource {
+  const mergeTmp = mkdtempSync(join(tmpdir(), "machinen-mkinitramfs-"));
   try {
-    const counts: WalkCounts = { files: 0, bytes: 0 };
-    const parts: Buffer[] = [];
-    for (const e of entriesFromRootfs(packSrc, opts.excludes ?? [], counts)) {
-      parts.push(e);
-    }
-    appendFinalEntries(parts, {
-      initPath: opts.initPath ?? defaultInitPath(),
-      config: patchConfigEnv(readFileSync(cfgPath), opts.env),
-      // Always inject the fresh /init AFTER walking the rootfs.
-      // `provision()` flows feed the previous run's frozen rootfs back
-      // in as `base`, and that capture has /init at root. The walked
-      // copy is whatever was captured the last time provision ran;
-      // injecting machinen's current /init here means the cpio carries
-      // duplicate /init entries with the latest one last — Linux's
-      // initramfs unpacker resolves duplicates by overwriting earlier
-      // entries with later ones, so the fresh /init wins. Without
-      // this, fixes that land in init.zig (e.g. the /run tmpfs mount
-      // from #146) silently regress on every provision-cached image.
-      injectInit: true,
-      // Same dedup trick for /exec-agent: the user's frozen rootfs
-      // captures whatever /exec-agent was running at provision time,
-      // and that gets re-walked back into the cpio on the next round.
-      // Inject the fresh one so changes to exec-agent.zig (env
-      // defaults like HOME=/root, new opcodes) actually reach the
-      // running binary.
-      execAgentPath: opts.execAgentPath ?? defaultExecAgentPath(),
-    });
-    writeFileSync(opts.out, Buffer.concat(parts));
-    debug(
-      "packBundle done files=%d bytes=%d elapsed=%dms",
-      counts.files,
-      counts.bytes,
-      Date.now() - t0,
+    extractBaseIfPresent(opts, mergeTmp);
+    overlayMountIfPresent(opts, mergeTmp);
+    copyBundleRootfs(rootfsDir, mergeTmp);
+    return { packSrc: mergeTmp, mergeTmp };
+  } catch (err) {
+    cleanupMergedPackSource(mergeTmp);
+    throw err;
+  }
+}
+
+function extractBaseIfPresent(opts: PackBundleOptions, mergeTmp: string): void {
+  if (opts.base) {
+    extractBaseRootfs(opts.base, mergeTmp);
+  }
+}
+
+function extractBaseRootfs(base: string, mergeTmp: string): void {
+  const extractT0 = Date.now();
+  const res = spawnSync("tar", ["-xzf", base, "-C", mergeTmp]);
+  if (res.status !== 0) {
+    throw new MkinitramfsError(
+      "MKINITRAMFS_BASE_EXTRACT_FAILED",
+      `tar -xzf ${base} failed: ${res.stderr?.toString() ?? ""}`,
     );
-  } finally {
-    if (mergeTmp) {
-      rmSync(mergeTmp, { recursive: true, force: true });
-    }
+  }
+  debug("base extracted elapsed=%dms", Date.now() - extractT0);
+}
+
+function overlayMountIfPresent(opts: PackBundleOptions, mergeTmp: string): void {
+  if (opts.mount) {
+    overlayMount(mergeTmp, opts.mount.host, opts.mount.guest);
+  }
+}
+
+function copyBundleRootfs(rootfsDir: string, mergeTmp: string): void {
+  cpSync(rootfsDir, mergeTmp, {
+    recursive: true,
+    force: true,
+    verbatimSymlinks: true,
+  });
+}
+
+function writePackedBundle(
+  opts: PackBundleOptions,
+  cfgPath: string,
+  packSrc: string,
+  t0: number,
+): void {
+  const counts: WalkCounts = { files: 0, bytes: 0 };
+  const parts: Buffer[] = [];
+  for (const e of entriesFromRootfs(packSrc, opts.excludes ?? [], counts)) {
+    parts.push(e);
+  }
+  appendFinalEntries(parts, {
+    initPath: opts.initPath ?? defaultInitPath(),
+    config: patchConfigEnv(readFileSync(cfgPath), opts.env),
+    injectInit: true,
+    execAgentPath: opts.execAgentPath ?? defaultExecAgentPath(),
+  });
+  writeFileSync(opts.out, Buffer.concat(parts));
+  debug(
+    "packBundle done files=%d bytes=%d elapsed=%dms",
+    counts.files,
+    counts.bytes,
+    Date.now() - t0,
+  );
+}
+
+function cleanupMergedPackSource(mergeTmp: string | undefined): void {
+  if (mergeTmp) {
+    rmSync(mergeTmp, { recursive: true, force: true });
   }
 }
 
@@ -662,51 +844,78 @@ interface FinalOptions {
 }
 
 function appendFinalEntries(parts: Buffer[], opts: FinalOptions): void {
-  if (opts.injectInit) {
-    let initBytes: Buffer | null = null;
-    try {
-      initBytes = readFileSync(opts.initPath);
-    } catch (err) {
-      // packTinyBundle / packBundle both rely on /init mounting
-      // /dev/vda — without it the kernel falls through to
-      // prepare_namespace() with no `root=` and panics with
-      // "Can't open blockdev". A silent skip here turned a missing
-      // fixture into an opaque kernel panic, so fail loudly.
-      //
-      // Tests that don't actually boot a real VMM (binary: "/bin/sh"
-      // and friends) opt out via MACHINEN_REQUIRE_FIXTURES=0 — the
-      // same flag the integration suites use to skip when fixtures
-      // are absent. Hosted CI sets it; local dev with `pretest`
-      // doesn't, so this still fires for anyone whose worktree is
-      // missing the build-base-assets.sh artifacts.
-      if (process.env.MACHINEN_REQUIRE_FIXTURES !== "0") {
-        throw new MkinitramfsError(
-          "MKINITRAMFS_INIT_MISSING",
-          `mkinitramfs: /init binary not readable at ${opts.initPath} (${err instanceof Error ? err.message : String(err)}). ` +
-            `Build it with scripts/build-base-assets.sh, or pass initPath to point at a custom one.`,
-          { cause: err },
-        );
-      }
-    }
-    if (initBytes !== null) {
-      parts.push(newc("init", 0o100755, { data: initBytes }));
-    }
+  appendInitIfRequested(parts, opts);
+  appendExecAgentIfPresent(parts, opts.execAgentPath);
+  appendConfigIfPresent(parts, opts.config);
+  appendBootEpoch(parts);
+  appendMountGuestIfPresent(parts, opts.mountGuest);
+  appendFixedDeviceEntries(parts);
+  parts.push(newc("TRAILER!!!", 0));
+}
+
+function appendInitIfRequested(parts: Buffer[], opts: FinalOptions): void {
+  if (!opts.injectInit) {
+    return;
   }
-  if (opts.execAgentPath) {
-    try {
-      const bytes = readFileSync(opts.execAgentPath);
-      parts.push(newc("exec-agent", 0o100755, { data: bytes }));
-    } catch {
-      // Optional — if the build hasn't produced one yet (fresh
-      // checkout, first run before build-base-assets.sh), boots that
-      // didn't need exec-agent (no vm.exec, no provision) keep
-      // working. The provision flow itself depends on it and will
-      // fail downstream with a clearer error if it's truly absent.
+  const initBytes = readInitBytes(opts.initPath);
+  if (initBytes) {
+    parts.push(newc("init", 0o100755, { data: initBytes }));
+  }
+}
+
+function readInitBytes(initPath: string): Buffer | undefined {
+  try {
+    return readFileSync(initPath);
+  } catch (err) {
+    if (process.env.MACHINEN_REQUIRE_FIXTURES === "0") {
+      return undefined;
     }
+    throw missingInitError(initPath, err);
   }
-  if (opts.config) {
-    parts.push(newc("machinen-config.json", 0o100644, { data: opts.config }));
+}
+
+function missingInitError(initPath: string, err: unknown): MkinitramfsError {
+  // packTinyBundle / packBundle both rely on /init mounting /dev/vda —
+  // without it the kernel falls through to prepare_namespace() with no
+  // `root=` and panics with "Can't open blockdev". A silent skip here
+  // turned a missing fixture into an opaque kernel panic, so fail loudly.
+  //
+  // Tests that don't actually boot a real VMM (binary: "/bin/sh" and
+  // friends) opt out via MACHINEN_REQUIRE_FIXTURES=0 — the same flag the
+  // integration suites use to skip when fixtures are absent. Hosted CI
+  // sets it; local dev with `pretest` doesn't, so this still fires for
+  // anyone whose worktree is missing the build-base-assets.sh artifacts.
+  return new MkinitramfsError(
+    "MKINITRAMFS_INIT_MISSING",
+    `mkinitramfs: /init binary not readable at ${initPath} (${mkinitramfsErrorMessage(err)}). ` +
+      `Build it with scripts/build-base-assets.sh, or pass initPath to point at a custom one.`,
+    { cause: err },
+  );
+}
+
+function appendExecAgentIfPresent(parts: Buffer[], execAgentPath: string | undefined): void {
+  if (!execAgentPath) {
+    return;
   }
+  try {
+    const bytes = readFileSync(execAgentPath);
+    parts.push(newc("exec-agent", 0o100755, { data: bytes }));
+  } catch {
+    // Optional — if the build hasn't produced one yet (fresh checkout,
+    // first run before build-base-assets.sh), boots that didn't need
+    // exec-agent (no vm.exec, no provision) keep working. The provision
+    // flow itself depends on it and will fail downstream with a clearer
+    // error if it's truly absent.
+  }
+}
+
+function appendConfigIfPresent(parts: Buffer[], config: Buffer | undefined): void {
+  if (config) {
+    parts.push(newc("machinen-config.json", 0o100644, { data: config }));
+  }
+}
+
+function appendBootEpoch(parts: Buffer[]): void {
   // Bake the host's current epoch so /init can set the guest clock.
   // Without this the guest boots at 1970-01-01 and TLS + apt Release
   // date validation break.
@@ -716,16 +925,23 @@ function appendFinalEntries(parts: Buffer[], opts: FinalOptions): void {
       data: Buffer.from(String(Math.floor(Date.now() / 1000)), "ascii"),
     }),
   );
+}
+
+function appendMountGuestIfPresent(parts: Buffer[], mountGuest: string | undefined): void {
+  if (!mountGuest) {
+    return;
+  }
   // #272: tell /init which guest path to mount the `--mount` overlay
   // at. The actual squashfs+ext4 payload rides on virtio-blk slots 5
   // and 6 — only the target path lives in the cpio.
-  if (opts.mountGuest) {
-    parts.push(
-      newc("etc/machinen-mountdisk-guest", 0o100644, {
-        data: Buffer.from(opts.mountGuest + "\n", "ascii"),
-      }),
-    );
-  }
+  parts.push(
+    newc("etc/machinen-mountdisk-guest", 0o100644, {
+      data: Buffer.from(mountGuest + "\n", "ascii"),
+    }),
+  );
+}
+
+function appendFixedDeviceEntries(parts: Buffer[]): void {
   parts.push(newc("dev", 0o40755));
   parts.push(newc("dev/console", 0o20600, { rmajor: 5, rminor: 1 }));
   // Force /tmp to the canonical sticky-world-writable (1777). The base
@@ -733,7 +949,10 @@ function appendFinalEntries(parts: Buffer[], opts: FinalOptions): void {
   // when extracting as non-root, so apt (which drops privs to _apt for
   // downloads) fails with "Couldn't create temporary file".
   parts.push(newc("tmp", 0o41777));
-  parts.push(newc("TRAILER!!!", 0));
+}
+
+function mkinitramfsErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
 interface VmmGuestPaths {
@@ -808,85 +1027,137 @@ function defaultExecAgentPath(): string {
  */
 export function cli(argv: string[]): void {
   if (argv[0] === "--workspace") {
-    const src = argv[1];
-    if (!src) {
-      die("--workspace requires <dir>");
-    }
-    let out: string | undefined;
-    const extraEx = new Set<string>();
-    let maxMb = 500;
-    let i = 2;
-    while (i < argv.length) {
-      const flag = argv[i];
-      if (flag === "--out") {
-        out = argv[i + 1];
-        i += 2;
-      } else if (flag === "--exclude") {
-        extraEx.add(argv[i + 1]!);
-        i += 2;
-      } else if (flag === "--max-mb") {
-        maxMb = parseInt(argv[i + 1]!, 10);
-        i += 2;
-      } else {
-        die(`unknown flag: ${flag}`);
-      }
-    }
-    if (!out) {
-      die("--workspace requires --out <path>");
-    }
-    process.stderr.write(`packing workspace: ${src} -> ${out}\n`);
-    const excludes = new Set<string>([...DEFAULT_WORKSPACE_EXCLUDES, ...extraEx]);
-    packWorkspace({ workspace: src!, out: out!, excludes, maxMb });
-    const st = statSync(out!);
-    process.stderr.write(`wrote ${out} (${st.size} bytes)\n`);
+    runWorkspaceCli(argv);
     return;
   }
 
-  // Parse shared flags.
+  const flags = parseSharedCliFlags(argv);
+  if (flags.args[0] === "--bundle") {
+    runBundleCli(flags);
+    return;
+  }
+  if (flags.args[0] === "--rootfs") {
+    runRootfsCli(flags);
+    return;
+  }
+  runMinimalCli(flags);
+}
+
+interface SharedCliFlags {
+  args: string[];
+  outOverride: string | undefined;
+  configFlag: string | undefined;
+  excludes: string[];
+  baseFlag: string | undefined;
+}
+
+function runWorkspaceCli(argv: string[]): void {
+  const opts = parseWorkspaceCli(argv);
+  process.stderr.write(`packing workspace: ${opts.src} -> ${opts.out}\n`);
+  const excludes = new Set<string>([...DEFAULT_WORKSPACE_EXCLUDES, ...opts.extraEx]);
+  packWorkspace({ workspace: opts.src, out: opts.out, excludes, maxMb: opts.maxMb });
+  reportWrote(opts.out, process.stderr);
+}
+
+function parseWorkspaceCli(argv: string[]): {
+  src: string;
+  out: string;
+  extraEx: Set<string>;
+  maxMb: number;
+} {
+  const src = argv[1];
+  if (!src) {
+    die("--workspace requires <dir>");
+  }
+  const opts = parseWorkspaceCliFlags(argv.slice(2));
+  if (!opts.out) {
+    die("--workspace requires --out <path>");
+  }
+  return { src, out: opts.out, extraEx: opts.extraEx, maxMb: opts.maxMb };
+}
+
+function parseWorkspaceCliFlags(args: string[]): {
+  out: string | undefined;
+  extraEx: Set<string>;
+  maxMb: number;
+} {
+  let out: string | undefined;
+  const extraEx = new Set<string>();
+  let maxMb = 500;
+  for (let i = 0; i < args.length; ) {
+    const parsed = parseWorkspaceCliFlag(args, i, { out, extraEx, maxMb });
+    out = parsed.out;
+    maxMb = parsed.maxMb;
+    i = parsed.next;
+  }
+  return { out, extraEx, maxMb };
+}
+
+function parseWorkspaceCliFlag(
+  args: string[],
+  i: number,
+  state: { out: string | undefined; extraEx: Set<string>; maxMb: number },
+): { out: string | undefined; extraEx: Set<string>; maxMb: number; next: number } {
+  const flag = args[i];
+  if (flag === "--out") {
+    return { ...state, out: args[i + 1], next: i + 2 };
+  }
+  if (flag === "--exclude") {
+    state.extraEx.add(args[i + 1]!);
+    return { ...state, next: i + 2 };
+  }
+  if (flag === "--max-mb") {
+    return { ...state, maxMb: parseInt(args[i + 1]!, 10), next: i + 2 };
+  }
+  die(`unknown flag: ${flag}`);
+}
+
+function parseSharedCliFlags(argv: string[]): SharedCliFlags {
   const args = [...argv];
   const outOverride = takeFlag(args, "--out");
   const configFlag = takeFlag(args, "--config");
   const excludeFromFlag = takeFlag(args, "--exclude-from");
   const baseFlag = takeFlag(args, "--base");
+  return {
+    args,
+    outOverride,
+    configFlag,
+    excludes: excludeFromFlag ? loadExcludes(excludeFromFlag) : [],
+    baseFlag,
+  };
+}
 
-  const excludes = excludeFromFlag ? loadExcludes(excludeFromFlag) : [];
-
-  if (args[0] === "--bundle") {
-    const bundle = args[1];
-    if (!bundle) {
-      die("--bundle requires <dir>");
-    }
-    const out = outOverride ?? defaultOut();
-    process.stdout.write(`packing bundle: ${bundle}\n`);
-    packBundle({ bundle: bundle!, out, base: baseFlag, excludes });
-    const st = statSync(out);
-    process.stdout.write(`wrote ${out} (${st.size} bytes)\n`);
-    return;
+function runBundleCli(flags: SharedCliFlags): void {
+  const bundle = flags.args[1];
+  if (!bundle) {
+    die("--bundle requires <dir>");
   }
+  const out = flags.outOverride ?? defaultOut();
+  process.stdout.write(`packing bundle: ${bundle}\n`);
+  packBundle({ bundle, out, base: flags.baseFlag, excludes: flags.excludes });
+  reportWrote(out, process.stdout);
+}
 
-  if (args[0] === "--rootfs") {
-    const rootfs = args[1];
-    if (!rootfs) {
-      die("--rootfs requires <dir>");
-    }
-    const out = outOverride ?? defaultOut();
-    process.stdout.write(`packing rootfs: ${rootfs}\n`);
-    packRootfs({
-      rootfs: rootfs!,
-      out,
-      config: configFlag,
-      excludes,
-    });
-    const st = statSync(out);
-    process.stdout.write(`wrote ${out} (${st.size} bytes)\n`);
-    return;
+function runRootfsCli(flags: SharedCliFlags): void {
+  const rootfs = flags.args[1];
+  if (!rootfs) {
+    die("--rootfs requires <dir>");
   }
+  const out = flags.outOverride ?? defaultOut();
+  process.stdout.write(`packing rootfs: ${rootfs}\n`);
+  packRootfs({ rootfs, out, config: flags.configFlag, excludes: flags.excludes });
+  reportWrote(out, process.stdout);
+}
 
-  // Minimal mode.
-  const out = outOverride ?? defaultOut();
-  packMinimal({ out, config: configFlag });
+function runMinimalCli(flags: SharedCliFlags): void {
+  const out = flags.outOverride ?? defaultOut();
+  packMinimal({ out, config: flags.configFlag });
+  reportWrote(out, process.stdout);
+}
+
+function reportWrote(out: string, stream: NodeJS.WritableStream): void {
   const st = statSync(out);
-  process.stdout.write(`wrote ${out} (${st.size} bytes)\n`);
+  stream.write(`wrote ${out} (${st.size} bytes)\n`);
 }
 
 function takeFlag(args: string[], flag: string): string | undefined {

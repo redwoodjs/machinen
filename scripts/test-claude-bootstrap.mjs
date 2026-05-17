@@ -84,134 +84,284 @@ const BOOTSTRAP = [
 ].join("\n");
 
 // --- Run a bootstrap scenario in an isolated $HOME --------------------
-function run({ name, preexisting, useLoginShell, accountEnv }) {
+function run(scenario) {
+  const { name, preexisting } = scenario;
   const home = mkdtempSync(join(tmpdir(), "claude-bootstrap-test-"));
   try {
-    if (preexisting !== undefined) {
-      writeFileSync(join(home, ".claude.json"), preexisting);
-    }
+    writePreexistingAccount(home, preexisting);
     const slice = readHostSlice();
-    const args = useLoginShell ? ["-lc", BOOTSTRAP] : ["-c", BOOTSTRAP];
-    const env = {
-      ...process.env,
-      HOME: home,
-      MACHINEN_CLAUDE_CREDENTIALS: '{"fake":"creds"}',
-    };
-    // accountEnv: undefined → use real slice; null → leave var unset; "" → empty string
-    if (accountEnv === undefined) {
-      env.MACHINEN_CLAUDE_ACCOUNT_JSON = slice;
-    } else if (accountEnv !== null) {
-      env.MACHINEN_CLAUDE_ACCOUNT_JSON = accountEnv;
-    }
-    const result = spawnSync("bash", args, { env, encoding: "utf8" });
-    const credsPath = join(home, ".claude", ".credentials.json");
-    const acctPath = join(home, ".claude.json");
+    const result = runBootstrapScenario(home, scenario, slice);
+    const paths = scenarioPaths(home);
+    const fail = makeFailReporter(name, result, paths.acctPath);
 
-    const fail = (msg) => {
-      console.error(`  FAIL [${name}]: ${msg}`);
-      console.error(`    exit=${result.status}`);
-      console.error(`    stdout=${JSON.stringify(result.stdout)}`);
-      console.error(`    stderr=${JSON.stringify(result.stderr)}`);
-      if (existsSync(acctPath)) {
-        console.error(`    .claude.json=${readFileSync(acctPath, "utf8").slice(0, 200)}`);
-      }
-      process.exitCode = 1;
-    };
-
-    if (result.status !== 0) {
-      return fail(`bash exit ${result.status}`);
-    }
-    if (result.stderr.trim()) {
-      return fail(`unexpected stderr: ${result.stderr}`);
-    }
-    if (!existsSync(credsPath)) {
-      return fail("credentials file not written");
-    }
-    if (readFileSync(credsPath, "utf8") !== '{"fake":"creds"}') {
-      return fail("credentials content wrong");
-    }
-    // Alias: ~/.bashrc.machinen written; ~/.bashrc sources it; calling
-    // `claude` from `bash -i` injects IS_SANDBOX=1 +
-    // --dangerously-skip-permissions and forwards user args. Verified
-    // for every scenario, regardless of account-env state.
-    const bashrcMachinen = join(home, ".bashrc.machinen");
-    if (!existsSync(bashrcMachinen)) {
-      return fail("~/.bashrc.machinen not written");
-    }
-    const bashrc = join(home, ".bashrc");
-    if (!existsSync(bashrc) || !readFileSync(bashrc, "utf8").includes(".bashrc.machinen")) {
-      return fail("~/.bashrc not sourcing ~/.bashrc.machinen");
-    }
-    const fakeBin = join(home, "fakebin");
-    const fakeClaude = join(fakeBin, "claude");
-    mkdirSync(fakeBin, { recursive: true });
-    writeFileSync(
-      fakeClaude,
-      '#!/bin/sh\nprintf \'IS_SANDBOX=%s\\n\' "$IS_SANDBOX"\nfor a in "$@"; do printf \'arg=%s\\n\' "$a"; done\n',
-    );
-    chmodSync(fakeClaude, 0o755);
-    const aliasCheck = spawnSync("bash", ["-ic", "claude one two"], {
-      env: { ...process.env, HOME: home, PATH: `${fakeBin}:${process.env.PATH}` },
-      encoding: "utf8",
-    });
-    const aliasOut = aliasCheck.stdout;
-    if (!aliasOut.includes("IS_SANDBOX=1")) {
-      return fail(`alias didn't set IS_SANDBOX=1; stdout=${aliasOut}`);
-    }
-    if (!aliasOut.includes("arg=--dangerously-skip-permissions")) {
-      return fail(`alias didn't pass --dangerously-skip-permissions; stdout=${aliasOut}`);
-    }
-    if (!aliasOut.includes("arg=one") || !aliasOut.includes("arg=two")) {
-      return fail(`alias didn't forward user args; stdout=${aliasOut}`);
-    }
-    const haveAccountEnv = accountEnv !== null && accountEnv !== "";
-    if (!haveAccountEnv && preexisting === undefined) {
-      // No account env, no prior file. Bootstrap should have left
-      // .claude.json absent — credentials still go through.
-      if (existsSync(acctPath)) {
-        return fail(".claude.json should not exist when account env is missing");
-      }
-      console.log(`  PASS [${name}]`);
+    if (!assertBootstrapBasics(result, paths, fail)) {
       return;
     }
-    if (!existsSync(acctPath)) {
-      return fail(".claude.json not written");
+    if (!assertClaudeAlias(home, fail)) {
+      return;
     }
-    let parsed;
-    try {
-      parsed = JSON.parse(readFileSync(acctPath, "utf8"));
-    } catch (e) {
-      return fail(`.claude.json invalid JSON: ${e.message}`);
-    }
-    const expected = haveAccountEnv ? JSON.parse(slice) : {};
-    if (haveAccountEnv) {
-      for (const k of Object.keys(expected)) {
-        if (JSON.stringify(parsed[k]) !== JSON.stringify(expected[k])) {
-          return fail(`key ${k} not present/equal in merged .claude.json`);
-        }
-      }
-    }
-    if (preexisting) {
-      let pre;
-      try {
-        pre = JSON.parse(preexisting);
-      } catch {
-        pre = null;
-      }
-      if (pre && typeof pre === "object") {
-        for (const k of Object.keys(pre)) {
-          if (k in expected) {
-            continue;
-          }
-          if (JSON.stringify(parsed[k]) !== JSON.stringify(pre[k])) {
-            return fail(`pre-existing key ${k} clobbered`);
-          }
-        }
-      }
+    if (!assertAccountJson(scenario, paths.acctPath, slice, fail)) {
+      return;
     }
     console.log(`  PASS [${name}]`);
   } finally {
     rmSync(home, { recursive: true, force: true });
+  }
+}
+
+function writePreexistingAccount(home, preexisting) {
+  if (preexisting !== undefined) {
+    writeFileSync(join(home, ".claude.json"), preexisting);
+  }
+}
+
+function runBootstrapScenario(home, scenario, slice) {
+  const args = scenario.useLoginShell ? ["-lc", BOOTSTRAP] : ["-c", BOOTSTRAP];
+  const env = bootstrapEnv(home, scenario.accountEnv, slice);
+  return spawnSync("bash", args, { env, encoding: "utf8" });
+}
+
+function bootstrapEnv(home, accountEnv, slice) {
+  const env = {
+    ...process.env,
+    HOME: home,
+    MACHINEN_CLAUDE_CREDENTIALS: '{"fake":"creds"}',
+  };
+  // accountEnv: undefined → use real slice; null → leave var unset; "" → empty string
+  if (accountEnv === undefined) {
+    env.MACHINEN_CLAUDE_ACCOUNT_JSON = slice;
+  } else if (accountEnv !== null) {
+    env.MACHINEN_CLAUDE_ACCOUNT_JSON = accountEnv;
+  }
+  return env;
+}
+
+function scenarioPaths(home) {
+  return {
+    credsPath: join(home, ".claude", ".credentials.json"),
+    acctPath: join(home, ".claude.json"),
+    bashrcMachinen: join(home, ".bashrc.machinen"),
+    bashrc: join(home, ".bashrc"),
+  };
+}
+
+function makeFailReporter(name, result, acctPath) {
+  return (msg) => {
+    console.error(`  FAIL [${name}]: ${msg}`);
+    console.error(`    exit=${result.status}`);
+    console.error(`    stdout=${JSON.stringify(result.stdout)}`);
+    console.error(`    stderr=${JSON.stringify(result.stderr)}`);
+    if (existsSync(acctPath)) {
+      console.error(`    .claude.json=${readFileSync(acctPath, "utf8").slice(0, 200)}`);
+    }
+    process.exitCode = 1;
+    return false;
+  };
+}
+
+function assertBootstrapBasics(result, paths, fail) {
+  for (const check of basicBootstrapChecks(result, paths)) {
+    const message = check();
+    if (message) {
+      return fail(message);
+    }
+  }
+  return true;
+}
+
+function basicBootstrapChecks(result, paths) {
+  return [
+    () => nonzeroExitMessage(result),
+    () => unexpectedStderrMessage(result),
+    () => missingFileMessage(paths.credsPath, "credentials file not written"),
+    () => wrongCredentialsMessage(paths.credsPath),
+    () => missingFileMessage(paths.bashrcMachinen, "~/.bashrc.machinen not written"),
+    () =>
+      bashrcSourcesMachinen(paths.bashrc) ? null : "~/.bashrc not sourcing ~/.bashrc.machinen",
+  ];
+}
+
+function nonzeroExitMessage(result) {
+  return result.status === 0 ? null : `bash exit ${result.status}`;
+}
+
+function unexpectedStderrMessage(result) {
+  return result.stderr.trim() ? `unexpected stderr: ${result.stderr}` : null;
+}
+
+function missingFileMessage(path, message) {
+  return existsSync(path) ? null : message;
+}
+
+function wrongCredentialsMessage(credsPath) {
+  return readFileSync(credsPath, "utf8") === '{"fake":"creds"}'
+    ? null
+    : "credentials content wrong";
+}
+
+function bashrcSourcesMachinen(bashrc) {
+  return existsSync(bashrc) && readFileSync(bashrc, "utf8").includes(".bashrc.machinen");
+}
+
+function assertClaudeAlias(home, fail) {
+  const fakeBin = join(home, "fakebin");
+  const fakeClaude = join(fakeBin, "claude");
+  mkdirSync(fakeBin, { recursive: true });
+  writeFakeClaude(fakeClaude);
+  const aliasOut = runAliasCheck(home, fakeBin).stdout;
+  const message = aliasFailureMessage(aliasOut);
+  return message ? fail(message) : true;
+}
+
+function aliasFailureMessage(aliasOut) {
+  for (const check of aliasChecks(aliasOut)) {
+    const message = check();
+    if (message) {
+      return message;
+    }
+  }
+  return null;
+}
+
+function aliasChecks(aliasOut) {
+  return [
+    () =>
+      aliasOut.includes("IS_SANDBOX=1")
+        ? null
+        : `alias didn't set IS_SANDBOX=1; stdout=${aliasOut}`,
+    () =>
+      aliasOut.includes("arg=--dangerously-skip-permissions")
+        ? null
+        : `alias didn't pass --dangerously-skip-permissions; stdout=${aliasOut}`,
+    () =>
+      aliasOut.includes("arg=one") && aliasOut.includes("arg=two")
+        ? null
+        : `alias didn't forward user args; stdout=${aliasOut}`,
+  ];
+}
+
+function writeFakeClaude(fakeClaude) {
+  writeFileSync(
+    fakeClaude,
+    '#!/bin/sh\nprintf \'IS_SANDBOX=%s\\n\' "$IS_SANDBOX"\nfor a in "$@"; do printf \'arg=%s\\n\' "$a"; done\n',
+  );
+  chmodSync(fakeClaude, 0o755);
+}
+
+function runAliasCheck(home, fakeBin) {
+  return spawnSync("bash", ["-ic", "claude one two"], {
+    env: { ...process.env, HOME: home, PATH: `${fakeBin}:${process.env.PATH}` },
+    encoding: "utf8",
+  });
+}
+
+function assertAccountJson(scenario, acctPath, slice, fail) {
+  const haveAccountEnv = hasAccountEnv(scenario.accountEnv);
+  if (shouldLeaveAccountAbsent(scenario, haveAccountEnv)) {
+    return assertNoAccountFile(acctPath, fail);
+  }
+  const parsed = readRequiredAccountFile(acctPath, fail);
+  if (!parsed) {
+    return false;
+  }
+  return assertParsedAccountJson(
+    parsed,
+    expectedAccountSlice(haveAccountEnv, slice),
+    scenario,
+    fail,
+  );
+}
+
+function hasAccountEnv(accountEnv) {
+  return accountEnv !== null && accountEnv !== "";
+}
+
+function shouldLeaveAccountAbsent(scenario, haveAccountEnv) {
+  return !haveAccountEnv && scenario.preexisting === undefined;
+}
+
+function readRequiredAccountFile(acctPath, fail) {
+  if (!existsSync(acctPath)) {
+    return fail(".claude.json not written") && null;
+  }
+  return parseAccountFile(acctPath, fail);
+}
+
+function expectedAccountSlice(haveAccountEnv, slice) {
+  return haveAccountEnv ? JSON.parse(slice) : {};
+}
+
+function assertParsedAccountJson(parsed, expected, scenario, fail) {
+  if (!assertExpectedAccountKeys(parsed, expected, hasAccountEnv(scenario.accountEnv), fail)) {
+    return false;
+  }
+  return assertPreexistingKeysPreserved(parsed, expected, scenario.preexisting, fail);
+}
+
+function assertNoAccountFile(acctPath, fail) {
+  if (existsSync(acctPath)) {
+    return fail(".claude.json should not exist when account env is missing");
+  }
+  return true;
+}
+
+function parseAccountFile(acctPath, fail) {
+  try {
+    return JSON.parse(readFileSync(acctPath, "utf8"));
+  } catch (e) {
+    return fail(`.claude.json invalid JSON: ${e.message}`) && null;
+  }
+}
+
+function assertExpectedAccountKeys(parsed, expected, haveAccountEnv, fail) {
+  if (!haveAccountEnv) {
+    return true;
+  }
+  for (const k of Object.keys(expected)) {
+    if (JSON.stringify(parsed[k]) !== JSON.stringify(expected[k])) {
+      return fail(`key ${k} not present/equal in merged .claude.json`);
+    }
+  }
+  return true;
+}
+
+function assertPreexistingKeysPreserved(parsed, expected, preexisting, fail) {
+  const pre = parsePreexistingAccount(preexisting);
+  if (!isObjectRecord(pre)) {
+    return true;
+  }
+  return assertPreservedKeys(parsed, expected, pre, fail);
+}
+
+function isObjectRecord(value) {
+  return Boolean(value) && typeof value === "object";
+}
+
+function assertPreservedKeys(parsed, expected, pre, fail) {
+  for (const k of Object.keys(pre)) {
+    if (shouldCheckPreexistingKey(k, expected) && !sameJson(parsed[k], pre[k])) {
+      return fail(`pre-existing key ${k} clobbered`);
+    }
+  }
+  return true;
+}
+
+function shouldCheckPreexistingKey(key, expected) {
+  return !(key in expected);
+}
+
+function sameJson(a, b) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function parsePreexistingAccount(preexisting) {
+  if (!preexisting) {
+    return null;
+  }
+  try {
+    return JSON.parse(preexisting);
+  } catch {
+    return null;
   }
 }
 

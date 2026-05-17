@@ -84,24 +84,38 @@ const savedSnapDir = join(workDir, "saved");
  */
 function printer(api: string) {
   const buffers = new Map<string, string>();
-  return (evt: LogEvent) => {
-    if (evt.source === "phase") {
-      process.stderr.write(`[${api}][phase ${evt.kind}] total=${evt.totalMs}ms\n`);
-      return;
+  return (evt: LogEvent) => printLogEvent(api, buffers, evt);
+}
+
+function printLogEvent(api: string, buffers: Map<string, string>, evt: LogEvent): void {
+  if (evt.source === "phase") {
+    process.stderr.write(`[${api}][phase ${evt.kind}] total=${evt.totalMs}ms\n`);
+    return;
+  }
+  printChunkLogEvent(api, buffers, evt);
+}
+
+function printChunkLogEvent(
+  api: string,
+  buffers: Map<string, string>,
+  evt: Extract<LogEvent, { source: "guest-console" | "exec-stdout" | "exec-stderr" }>,
+): void {
+  const prefix = evt.cmd ? `[${api}][${evt.source} ${evt.cmd}]` : `[${api}][${evt.source}]`;
+  const key = `${evt.source}|${evt.cmd ?? ""}`;
+  const pending = (buffers.get(key) ?? "") + evt.chunk.toString("utf8");
+  buffers.set(key, flushCompleteLines(prefix, pending));
+}
+
+function flushCompleteLines(prefix: string, pendingInput: string): string {
+  let pending = pendingInput;
+  for (;;) {
+    const nl = pending.indexOf("\n");
+    if (nl === -1) {
+      return pending;
     }
-    const prefix = evt.cmd ? `[${api}][${evt.source} ${evt.cmd}]` : `[${api}][${evt.source}]`;
-    const key = `${evt.source}|${evt.cmd ?? ""}`;
-    let pending = (buffers.get(key) ?? "") + evt.chunk.toString("utf8");
-    for (;;) {
-      const nl = pending.indexOf("\n");
-      if (nl === -1) {
-        break;
-      }
-      process.stdout.write(`${prefix} ${pending.slice(0, nl)}\n`);
-      pending = pending.slice(nl + 1);
-    }
-    buffers.set(key, pending);
-  };
+    process.stdout.write(`${prefix} ${pending.slice(0, nl)}\n`);
+    pending = pending.slice(nl + 1);
+  }
 }
 
 // The Zig test binary gates actual boot behavior on MACHINEN_BOOT_TEST.
