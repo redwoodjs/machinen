@@ -977,7 +977,7 @@ fn run_loop(
             if (cfg.snapshot_path) |path| {
                 snapshot_resume_requested.store(false, .seq_cst);
                 var dirty_bits: ?[]u64 = null;
-                const page_count = ram.len / ram_dump.PAGE;
+                const page_count = @divExact(ram.len, ram_dump.PAGE);
                 if (cfg.snapshot_path != null) {
                     dirty_bits = vm.get_dirty_log(gpa, 0, page_count) catch |err| blk: {
                         std.debug.print("kvm: dirty-log read failed: {s}; writing a full RAM section\n", .{@errorName(err)});

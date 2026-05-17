@@ -136,7 +136,7 @@ test "compress shrinks a mostly-zero buffer hard" {
 
     const zipped = try compress(a, buf);
     defer a.free(zipped);
-    try std.testing.expect(zipped.len < buf.len / 20);
+    try std.testing.expect(zipped.len < @divFloor(buf.len, 20));
 
     const back = try decompress(a, zipped);
     defer a.free(back);

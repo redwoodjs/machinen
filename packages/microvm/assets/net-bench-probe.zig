@@ -145,8 +145,8 @@ pub fn main(init: std.process.Init.Minimal) u8 {
     const sec_ns: i64 = (ts_end.tv_sec - ts_start.tv_sec) * std.time.ns_per_s;
     const nsec_delta: i64 = ts_end.tv_nsec - ts_start.tv_nsec;
     const elapsed_ns: u64 = @intCast(sec_ns + nsec_delta);
-    const total_ms = elapsed_ns / std.time.ns_per_ms;
-    const us_per_ping = (elapsed_ns / std.time.ns_per_us) / pings;
+    const total_ms = @divFloor(elapsed_ns, std.time.ns_per_ms);
+    const us_per_ping = @divFloor(@divFloor(elapsed_ns, std.time.ns_per_us), pings);
 
     std.debug.print(
         "net-bench: pings={d} total_ms={d} us_per_ping={d}\n",

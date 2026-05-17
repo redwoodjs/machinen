@@ -1389,7 +1389,7 @@ pub const Bridge = struct {
                 // gets at least a handful of updates across a full
                 // window but we don't stuff the RX queue on small
                 // trickles.
-                const threshold: u32 = advertised_buf_alloc / 2;
+                const threshold: u32 = @divExact(advertised_buf_alloc, 2);
                 if ((c.fwd_cnt -% c.last_credit_fwd_cnt) >= threshold) {
                     self.send_credit_update(c);
                 }

@@ -915,8 +915,8 @@ const RamDirtyTracker = struct {
     active: bool = false,
 
     fn init(allocator: std.mem.Allocator, vm: hvf.Vm, cfg: Config) !RamDirtyTracker {
-        const page_count = cfg.ram_size / ram_dump.PAGE;
-        const word_count = (page_count + 63) / 64;
+        const page_count = @divExact(cfg.ram_size, ram_dump.PAGE);
+        const word_count = @divFloor(page_count + 63, 64);
         const bits = try allocator.alloc(u64, word_count);
         @memset(bits, 0);
         return .{ .allocator = allocator, .vm = vm, .ram_base = cfg.ram_base, .ram_size = cfg.ram_size, .bits = bits };
@@ -938,14 +938,14 @@ const RamDirtyTracker = struct {
         if (info.ipa < self.ram_base) return false;
         const rel = info.ipa - self.ram_base;
         if (rel >= self.ram_size) return false;
-        const hv_page_rel = (rel / hvf.page_size) * hvf.page_size;
+        const hv_page_rel = @divFloor(rel, hvf.page_size) * hvf.page_size;
         const hv_page_ipa = self.ram_base + hv_page_rel;
-        const first_page = hv_page_rel / ram_dump.PAGE;
-        const subpages = hvf.page_size / ram_dump.PAGE;
+        const first_page = @divExact(hv_page_rel, @as(u64, ram_dump.PAGE));
+        const subpages = @divExact(hvf.page_size, ram_dump.PAGE);
         for (0..subpages) |i| {
             const page = first_page + i;
             if (page * ram_dump.PAGE >= self.ram_size) break;
-            const word = page / 64;
+            const word = @divFloor(page, 64);
             const bit: u6 = @intCast(page % 64);
             if (word < self.bits.len) self.bits[word] |= @as(u64, 1) << bit;
         }

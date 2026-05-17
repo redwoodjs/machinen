@@ -13,6 +13,11 @@ pub const BLOCK: usize = 4096;
 pub const HEADER_SIZE: usize = 56;
 const EXTENT_HEADER_SIZE: usize = 16;
 
+fn div_ceil_u64(numerator: u64, denominator: u64) u64 {
+    std.debug.assert(denominator > 0);
+    return if (numerator == 0) 0 else @divFloor(numerator - 1, denominator) + 1;
+}
+
 pub const Header = extern struct {
     disk_size: u64,
     block_size: u32,
@@ -28,7 +33,7 @@ pub const Header = extern struct {
 };
 
 fn bit_set(bits: []const u64, block_idx: usize) bool {
-    const word = block_idx / 64;
+    const word = @divFloor(block_idx, 64);
     if (word >= bits.len) return false;
     const bit: u6 = @intCast(block_idx % 64);
     return (bits[word] & (@as(u64, 1) << bit)) != 0;
@@ -36,8 +41,8 @@ fn bit_set(bits: []const u64, block_idx: usize) bool {
 
 fn next_dirty_extent(disk_size: u64, bits: []const u64, from: u64) ?struct { start: u64, end: u64 } {
     std.debug.assert(from <= disk_size);
-    const block_count = if (disk_size == 0) 0 else 1 + ((disk_size - 1) / BLOCK);
-    var block = from / BLOCK;
+    const block_count = div_ceil_u64(disk_size, @as(u64, BLOCK));
+    var block = @divFloor(from, @as(u64, BLOCK));
     while (block < block_count and !bit_set(bits, @intCast(block))) : (block += 1) {}
     if (block >= block_count) return null;
     const start_block = block;

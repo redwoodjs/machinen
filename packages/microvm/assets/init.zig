@@ -552,7 +552,7 @@ fn grow_rootdisk_fs(mount_point: [*:0]const u8) void {
         return;
     }
     // 4 KiB blocks — matches the materializer's `mke2fs -b 4096`.
-    const new_blocks: u64 = dev_bytes / 4096;
+    const new_blocks: u64 = @divFloor(dev_bytes, 4096);
     if (new_blocks == 0) return;
 
     // Open the mount point read-only — EXT4_IOC_RESIZE_FS only needs
@@ -927,7 +927,7 @@ fn grow_mount_disk_upper_fs(mount_point: [*:0]const u8, dev: [*:0]const u8) void
 
     var dev_bytes: u64 = 0;
     if (ioctl(dev_fd, BLKGETSIZE64, &dev_bytes) != 0) return;
-    const new_blocks: u64 = dev_bytes / 4096;
+    const new_blocks: u64 = @divFloor(dev_bytes, 4096);
     if (new_blocks == 0) return;
 
     const mount_fd = open(mount_point, O_RDONLY);

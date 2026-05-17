@@ -115,7 +115,7 @@ pub fn patch_initrd_end(dtb: []u8, new_end: u32) !void {
     // Each loop iteration consumes at least 4 bytes (one token), so
     // dtb.len/4 is a hard upper bound on iterations. +1 covers the
     // trailing exit check. Tigerstyle: every loop bounded.
-    const max_iters: usize = (dtb.len / 4) + 1;
+    const max_iters: usize = @divFloor(dtb.len, 4) + 1;
     var iters: usize = 0;
     var i: usize = h.off_struct;
     while (i + 4 <= dtb.len) : (iters += 1) {
@@ -172,7 +172,7 @@ pub fn patch_memory_size(dtb: []u8, size_bytes: u64) !void {
     // Walk the struct block. `depth` counts open BEGIN_NODE tokens;
     // root sits at depth 1, its children at depth 2.
     const ROOT_CHILD_DEPTH: i32 = 2;
-    const max_iters: usize = (dtb.len / 4) + 1;
+    const max_iters: usize = @divFloor(dtb.len, 4) + 1;
     var iters: usize = 0;
     var i: usize = h.off_struct;
     var depth: i32 = 0;

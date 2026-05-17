@@ -60,6 +60,11 @@ pub const VIRTIO_BLK_S_OK: u8 = 0;
 pub const VIRTIO_BLK_S_IOERR: u8 = 1;
 pub const VIRTIO_BLK_S_UNSUPP: u8 = 2;
 
+fn div_ceil_u64(numerator: u64, denominator: u64) u64 {
+    assert(denominator > 0);
+    return if (numerator == 0) 0 else @divFloor(numerator - 1, denominator) + 1;
+}
+
 pub const DirtyTracker = struct {
     allocator: std.mem.Allocator,
     disk_size: u64,
@@ -67,8 +72,8 @@ pub const DirtyTracker = struct {
 
     pub fn init(allocator: std.mem.Allocator, disk_size: u64) !DirtyTracker {
         assert(disk_size > 0);
-        const block_count = 1 + ((disk_size - 1) / rootdisk_delta.BLOCK);
-        const word_count: usize = @intCast((block_count + 63) / 64);
+        const block_count = div_ceil_u64(disk_size, @as(u64, rootdisk_delta.BLOCK));
+        const word_count: usize = @intCast(div_ceil_u64(block_count, 64));
         const bits = try allocator.alloc(u64, word_count);
         @memset(bits, 0);
         return .{ .allocator = allocator, .disk_size = disk_size, .bits = bits };
@@ -86,10 +91,10 @@ pub const DirtyTracker = struct {
     pub fn mark(self: *DirtyTracker, offset: u64, len: u64) void {
         if (len == 0 or offset >= self.disk_size) return;
         const end = if (len > self.disk_size - offset) self.disk_size else offset + len;
-        var block = offset / rootdisk_delta.BLOCK;
-        const end_block = (end + rootdisk_delta.BLOCK - 1) / rootdisk_delta.BLOCK;
+        var block = @divFloor(offset, @as(u64, rootdisk_delta.BLOCK));
+        const end_block = div_ceil_u64(end, @as(u64, rootdisk_delta.BLOCK));
         while (block < end_block) : (block += 1) {
-            const word: usize = @intCast(block / 64);
+            const word: usize = @intCast(@divFloor(block, 64));
             const bit: u6 = @intCast(block % 64);
             if (word < self.bits.len) self.bits[word] |= @as(u64, 1) << bit;
         }
@@ -172,7 +177,7 @@ pub const Backend = struct {
         // length is rounded to 4 KiB) and ext4 images use a 4 KiB
         // block size — both cleanly divisible by 512.
         assert(size_bytes % 512 == 0);
-        const sectors = size_bytes / 512;
+        const sectors = @divExact(size_bytes, 512);
         assert(sectors * 512 == size_bytes);
         assert(sectors > 0);
         return .{
@@ -279,7 +284,7 @@ pub const Backend = struct {
                         break;
                     }
                     bytes_written += @intCast(n_bytes);
-                    sector += dst.len / 512;
+                    sector += @divFloor(dst.len, 512);
                 }
                 trace_blk("read", out_hdr.sector, data_count, bytes_written);
             },
@@ -307,7 +312,7 @@ pub const Backend = struct {
                         }
                         self.mark_dirty_bytes(byte_off, @intCast(n_bytes));
                         total_bytes += @intCast(n_bytes);
-                        sector += src.len / 512;
+                        sector += @divFloor(src.len, 512);
                     }
                     trace_blk("write", out_hdr.sector, data_count, total_bytes);
                 }
@@ -327,7 +332,7 @@ pub const Backend = struct {
                     // not support PUNCH_HOLE on regular files) — discard
                     // is an optimisation, not a correctness primitive.
                     for (data[0..data_count]) |d| {
-                        const seg_count: usize = d.len / @sizeOf(BlkDiscardSeg);
+                        const seg_count: usize = @divFloor(d.len, @sizeOf(BlkDiscardSeg));
                         if (seg_count == 0) continue;
                         const bytes = dev.guest_bytes(d.addr, seg_count * @sizeOf(BlkDiscardSeg)) orelse {
                             status = VIRTIO_BLK_S_IOERR;

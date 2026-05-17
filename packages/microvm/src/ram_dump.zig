@@ -171,7 +171,7 @@ pub fn encode(allocator: std.mem.Allocator, ram_base: u64, ram: []const u8) ![]u
 }
 
 fn dirty_bit_set(bits: []const u64, page_idx: usize) bool {
-    const word = page_idx / 64;
+    const word = @divFloor(page_idx, 64);
     if (word >= bits.len) return false;
     const bit: u6 = @intCast(page_idx % 64);
     return (bits[word] & (@as(u64, 1) << bit)) != 0;
@@ -179,8 +179,8 @@ fn dirty_bit_set(bits: []const u64, page_idx: usize) bool {
 
 fn next_dirty_extent(ram_len: usize, dirty_bits: []const u64, from: usize) ?struct { start: usize, end: usize } {
     std.debug.assert(from <= ram_len);
-    var page = from / PAGE;
-    const page_count = if (ram_len == 0) 0 else 1 + ((ram_len - 1) / PAGE);
+    var page = @divFloor(from, PAGE);
+    const page_count = if (ram_len == 0) 0 else 1 + @divFloor(ram_len - 1, PAGE);
     while (page < page_count and !dirty_bit_set(dirty_bits, page)) : (page += 1) {}
     if (page >= page_count) return null;
     const start_page = page;

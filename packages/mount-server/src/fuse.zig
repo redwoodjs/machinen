@@ -832,6 +832,11 @@ pub fn dispatch(state: *State, msg: []const u8) !?[]const u8 {
 
 // --- response builders --------------------------------------------------
 
+// Runtime allocation policy: each FUSE handler returns one owned reply
+// frame and the virtio-fs transport frees it after writing the used
+// descriptor. Reply sizes depend on guest-provided names, directory
+// listings, and read lengths, so per-reply allocation is intentional;
+// the TigerStyle guardrail tracks this debt so it cannot grow quietly.
 fn build_error_reply(state: *State, unique: u64, err: i32) ![]u8 {
     // FUSE convention: a negative errno, or 0 for a success-with-no-
     // payload ack. A positive errno would corrupt the kernel's view.

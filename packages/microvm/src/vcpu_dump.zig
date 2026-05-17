@@ -109,7 +109,7 @@ fn kvm_id_for_core(reg: CoreReg) u64 {
         .u64_ => KVM_REG_SIZE_U64,
         .u128_ => KVM_REG_SIZE_U128,
     };
-    return KVM_REG_ARM64 | KVM_REG_ARM_CORE | size_bits | (reg.offset / 4);
+    return KVM_REG_ARM64 | KVM_REG_ARM_CORE | size_bits | @divExact(reg.offset, 4);
 }
 
 fn kvm_id_for_sysreg(encoding: u16) u64 {
