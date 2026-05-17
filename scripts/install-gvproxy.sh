@@ -13,10 +13,10 @@
 # prod and dev stay lockstep — bump here and both paths pick it up.
 #
 # Usage:
-#   scripts/install-gvproxy.sh --dest <dir> [--os darwin|linux] [--arch arm64]
+#   scripts/install-gvproxy.sh --dest <dir> [--os darwin|linux] [--arch arm64|amd64]
 #
-# Defaults: --os from uname -s, --arch arm64. If the binary already
-# exists and is executable in --dest, this is a no-op.
+# Defaults: --os/--arch from uname. If the binary already exists and is
+# executable in --dest, this is a no-op.
 
 set -euo pipefail
 
@@ -24,7 +24,7 @@ GVPROXY_VERSION="v0.8.6"
 
 dest=""
 os=""
-arch="arm64"
+arch=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --dest) dest="$2"; shift 2 ;;
@@ -50,6 +50,18 @@ if [[ -z "$os" ]]; then
     *)      echo "install-gvproxy: unsupported OS: $(uname -s)" >&2; exit 1 ;;
   esac
 fi
+if [[ -z "$arch" ]]; then
+  case "$(uname -m)" in
+    arm64|aarch64) arch="arm64" ;;
+    x86_64|amd64) arch="amd64" ;;
+    *) echo "install-gvproxy: unsupported arch: $(uname -m)" >&2; exit 1 ;;
+  esac
+fi
+case "$arch" in
+  arm64|aarch64) arch="arm64" ;;
+  amd64|x86_64|x64) arch="amd64" ;;
+  *) echo "install-gvproxy: unsupported --arch: $arch" >&2; exit 1 ;;
+esac
 
 # The upstream releases use "gvproxy-darwin" (universal binary) and
 # "gvproxy-linux-<arch>". Keep this mapping aligned with whatever

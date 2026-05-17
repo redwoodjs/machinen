@@ -78,9 +78,9 @@ export function validateMemoryMib(mib: number): number {
  *   1. `MACHINEN_VMM` env var (dev-mode override)
  *   2. `require.resolve("@machinen/native-<arch>-<os>")` → `binary` export
  *
- * `@machinen/native-arm64-{darwin,linux}` is the consolidated host-tool
- * package — it carries the VMM, gvproxy, guest ELFs, mke2fs,
- * mksquashfs, and the mount server. Callers can pass an explicit
+ * `@machinen/native-{arm64-darwin,arm64-linux,x64-linux}` is the
+ * consolidated host-tool package — it carries the VMM, gvproxy,
+ * guest ELFs, mke2fs, and mksquashfs. Callers can pass an explicit
  * `binary` to `boot()` to bypass this.
  *
  * @throws {BootError} BOOT_VMM_MISSING | BOOT_VMM_PACKAGE_BROKEN

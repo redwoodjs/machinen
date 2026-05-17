@@ -26,7 +26,7 @@ import {
   symlinkSync,
   unlinkSync,
 } from "node:fs";
-import { homedir, tmpdir } from "node:os";
+import { arch as osArch, homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { PassThrough, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -86,54 +86,85 @@ function cacheDirFor(tag: string): string {
   return join(CACHE_ROOT, tag);
 }
 
-function baseDirFor(tag: string, distro = "debian", cpu = "arm64"): string {
+type GuestCpu = "arm64" | "amd64";
+
+type BaseAssetSpec = {
+  cpu: GuestCpu;
+  kernelAsset: string;
+  dtbAsset?: string;
+  rootfsAsset: string;
+};
+
+function guestCpu(): GuestCpu {
+  const override = process.env.MACHINEN_GUEST_ARCH;
+  if (override === "arm64" || override === "amd64") {
+    return override;
+  }
+  return osArch() === "x64" ? "amd64" : "arm64";
+}
+
+function baseAssetSpec(): BaseAssetSpec {
+  return guestCpu() === "amd64"
+    ? {
+        cpu: "amd64",
+        kernelAsset: "bzImage-x86_64",
+        rootfsAsset: "rootfs-debian-amd64.tar.gz",
+      }
+    : {
+        cpu: "arm64",
+        kernelAsset: "Image-arm64",
+        dtbAsset: "virt-arm64.dtb",
+        rootfsAsset: "rootfs-debian-arm64.tar.gz",
+      };
+}
+
+function baseDirFor(tag: string, distro = "debian", cpu = guestCpu()): string {
   return join(cacheDirFor(tag), "bases", `${distro}-${cpu}`);
 }
 
 function baseAssetsComplete(tag: string): boolean {
-  const base = baseDirFor(tag);
+  const spec = baseAssetSpec();
+  const base = baseDirFor(tag, "debian", spec.cpu);
   return (
     existsSync(join(base, "Image")) &&
-    existsSync(join(base, "virt.dtb")) &&
+    (!spec.dtbAsset || existsSync(join(base, "virt.dtb"))) &&
     existsSync(join(base, "rootfs.tar.gz"))
   );
 }
-
-// Names match what `./scripts/build-base-assets.sh` produces under
-// `release-assets/` — the same files that get uploaded to the GH
-// Release and downloaded by `ensureBaseAssets`.
-const ASSETS_DIR_FILES = ["Image-arm64", "virt-arm64.dtb", "rootfs-debian-arm64.tar.gz"];
 
 function validateAssetsDir(dir: string): void {
   const abs = resolve(dir);
   if (!existsSync(abs)) {
     die(`MACHINEN_ASSETS_DIR=${dir} does not exist`);
   }
-  const missing = ASSETS_DIR_FILES.filter((f) => !existsSync(join(abs, f)));
+  const spec = baseAssetSpec();
+  const required = [spec.kernelAsset, spec.rootfsAsset, ...(spec.dtbAsset ? [spec.dtbAsset] : [])];
+  const missing = required.filter((f) => !existsSync(join(abs, f)));
   if (missing.length > 0) {
     die(
-      `MACHINEN_ASSETS_DIR=${dir} is missing: ${missing.join(", ")}\n` +
+      `MACHINEN_ASSETS_DIR=${dir} is missing for ${spec.cpu}: ${missing.join(", ")}\n` +
         `  Produce them with ./scripts/build-base-assets.sh (outputs to ./release-assets/).`,
     );
   }
 }
 
 async function ensureBaseAssets(tag: string): Promise<string> {
-  const base = baseDirFor(tag);
+  const spec = baseAssetSpec();
+  const base = baseDirFor(tag, "debian", spec.cpu);
   const kernel = join(base, "Image");
-  const dtb = join(base, "virt.dtb");
+  const dtb = spec.dtbAsset ? join(base, "virt.dtb") : undefined;
   const tarball = join(base, "rootfs.tar.gz");
 
-  if (existsSync(kernel) && existsSync(dtb) && existsSync(tarball)) {
+  if (existsSync(kernel) && (!dtb || existsSync(dtb)) && existsSync(tarball)) {
     return base;
   }
 
   mkdirSync(base, { recursive: true });
 
   const assets = [
-    { name: "Image-arm64", dest: kernel },
-    { name: "virt-arm64.dtb", dest: dtb },
-    { name: "rootfs-debian-arm64.tar.gz", dest: tarball },
+    { name: spec.kernelAsset, dest: kernel },
+    ...(spec.dtbAsset && dtb ? [{ name: spec.dtbAsset, dest: dtb }] : []),
+    { name: spec.rootfsAsset, dest: tarball },
   ];
 
   await Promise.all(assets.map((a) => downloadWithChecksum(a.name, a.dest, tag)));
@@ -419,13 +450,15 @@ async function cmdBoot(args: string[]): Promise<number> {
   // `assets` array). When the caller passes an image positional, it
   // replaces the default base rootfs; kernel + DTB still come from
   // the cache.
-  const baseDir = assetsOverride ? resolve(assetsOverride) : baseDirFor(RELEASE_TAG);
-  const kernelPath = join(baseDir, assetsOverride ? "Image-arm64" : "Image");
-  const dtbPath = join(baseDir, assetsOverride ? "virt-arm64.dtb" : "virt.dtb");
-  const defaultImagePath = join(
-    baseDir,
-    assetsOverride ? "rootfs-debian-arm64.tar.gz" : "rootfs.tar.gz",
-  );
+  const spec = baseAssetSpec();
+  const baseDir = assetsOverride
+    ? resolve(assetsOverride)
+    : baseDirFor(RELEASE_TAG, "debian", spec.cpu);
+  const kernelPath = join(baseDir, assetsOverride ? spec.kernelAsset : "Image");
+  const dtbPath = spec.dtbAsset
+    ? join(baseDir, assetsOverride ? spec.dtbAsset : "virt.dtb")
+    : undefined;
+  const defaultImagePath = join(baseDir, assetsOverride ? spec.rootfsAsset : "rootfs.tar.gz");
   const imagePath = imageOverride ? resolve(imageOverride) : defaultImagePath;
   debug(
     "boot baseDir=%s kernel=%s dtb=%s image=%s snapshot=%s name=%s",
@@ -708,9 +741,14 @@ async function cmdRestore(args: string[]): Promise<number> {
     process.stderr.write(`machinen: fetching base assets for ${RELEASE_TAG} (first run)\n`);
     await ensureBaseAssets(RELEASE_TAG);
   }
-  const baseDir = assetsOverride ? resolve(assetsOverride) : baseDirFor(RELEASE_TAG);
-  const kernelPath = join(baseDir, assetsOverride ? "Image-arm64" : "Image");
-  const dtbPath = join(baseDir, assetsOverride ? "virt-arm64.dtb" : "virt.dtb");
+  const spec = baseAssetSpec();
+  const baseDir = assetsOverride
+    ? resolve(assetsOverride)
+    : baseDirFor(RELEASE_TAG, "debian", spec.cpu);
+  const kernelPath = join(baseDir, assetsOverride ? spec.kernelAsset : "Image");
+  const dtbPath = spec.dtbAsset
+    ? join(baseDir, assetsOverride ? spec.dtbAsset : "virt.dtb")
+    : undefined;
 
   let imagePath: string | undefined;
   if (imageOverride) {
@@ -1390,10 +1428,15 @@ async function cmdFork(args: string[]): Promise<number> {
     process.stderr.write(`machinen: fetching base assets for ${RELEASE_TAG} (first run)\n`);
     await ensureBaseAssets(RELEASE_TAG);
   }
-  const baseDir = assetsOverride ? resolve(assetsOverride) : baseDirFor(RELEASE_TAG);
-  const kernelPath = join(baseDir, assetsOverride ? "Image-arm64" : "Image");
-  const dtbPath = join(baseDir, assetsOverride ? "virt-arm64.dtb" : "virt.dtb");
-  const imagePath = join(baseDir, assetsOverride ? "rootfs-debian-arm64.tar.gz" : "rootfs.tar.gz");
+  const spec = baseAssetSpec();
+  const baseDir = assetsOverride
+    ? resolve(assetsOverride)
+    : baseDirFor(RELEASE_TAG, "debian", spec.cpu);
+  const kernelPath = join(baseDir, assetsOverride ? spec.kernelAsset : "Image");
+  const dtbPath = spec.dtbAsset
+    ? join(baseDir, assetsOverride ? spec.dtbAsset : "virt.dtb")
+    : undefined;
+  const imagePath = join(baseDir, assetsOverride ? spec.rootfsAsset : "rootfs.tar.gz");
 
   // The runtime's ephemeral-bundle cleanup hangs off `fork.wait()`,
   // which the CLI can't await — `cmdFork` returns as soon as the
@@ -2095,11 +2138,12 @@ function printHelp(): void {
       `  MACHINEN_VMM                             Override the VMM binary path (dev)\n` +
       `  MACHINEN_ASSETS_DIR                      Use base assets from this directory\n` +
       `                                           instead of the cache / GH Releases\n` +
+      `  MACHINEN_GUEST_ARCH                      Guest asset arch: arm64 or amd64\n` +
       `  MACHINEN_REGISTRY_DIR                    Override registry location (default\n` +
       `                                           ~/.machinen/vms)\n` +
       `\n` +
       `Cache:\n` +
-      `  ~/.machinen/<tag>/bases/debian-arm64/\n`,
+      `  ~/.machinen/<tag>/bases/debian-arm64/ or debian-amd64/\n`,
   );
 }
 

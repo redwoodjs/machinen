@@ -12,12 +12,20 @@ const SECTION_TAG = { vcpu: 2 };
 const TOPO = Buffer.alloc(32, 0xa5);
 
 let TMP: string;
+let originalGuestArch: string | undefined;
 
 beforeAll(() => {
   TMP = mkdtempSync(join(tmpdir(), "vmstate-portability-"));
+  originalGuestArch = process.env.MACHINEN_GUEST_ARCH;
+  process.env.MACHINEN_GUEST_ARCH = "arm64";
 });
 
 afterAll(() => {
+  if (originalGuestArch === undefined) {
+    delete process.env.MACHINEN_GUEST_ARCH;
+  } else {
+    process.env.MACHINEN_GUEST_ARCH = originalGuestArch;
+  }
   if (TMP) {
     rmSync(TMP, { recursive: true, force: true });
   }
@@ -75,6 +83,7 @@ describe("vmstate portability metadata", () => {
     writeFileSync(active, encodeVmstate(1n << 31n));
 
     expect(readVmstateFacts(inactive)).toMatchObject({
+      arch: "arm64",
       topologyHash: TOPO.toString("hex"),
       guestPauthActive: false,
     });
@@ -86,6 +95,39 @@ describe("vmstate portability metadata", () => {
     await expect(restore({ snapDir: dir, image, binary: "/bin/sh" })).rejects.toThrow(
       /predates restore invariants/,
     );
+  });
+
+  it("refuses cross-guest-architecture vmstate restore", async () => {
+    const original = process.env.MACHINEN_GUEST_ARCH;
+    process.env.MACHINEN_GUEST_ARCH = "amd64";
+    try {
+      const target = currentVmstateBackend();
+      const { dir, image } = writeBundle(
+        "bad-guest-arch",
+        {
+          engine: "vmstate",
+          snappedAt: 1,
+          vmstate: {
+            sourceBackend: target,
+            guestArch: "arm64",
+            topologyHash: TOPO.toString("hex"),
+            guestPauth: { active: false, sctlrEl1: "0x0" },
+            rootDisk: { mode: "none" },
+          },
+        },
+        0n,
+      );
+
+      await expect(restore({ snapDir: dir, image, binary: "/bin/sh" })).rejects.toThrow(
+        /guest architecture mismatch/,
+      );
+    } finally {
+      if (original === undefined) {
+        delete process.env.MACHINEN_GUEST_ARCH;
+      } else {
+        process.env.MACHINEN_GUEST_ARCH = original;
+      }
+    }
   });
 
   it("refuses cross-VMM restore when guest PAuth is active", async () => {

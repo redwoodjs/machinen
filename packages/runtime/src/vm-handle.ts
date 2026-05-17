@@ -322,6 +322,8 @@ export interface SnapshotFileIdentity {
 export interface VmstateSnapshotMeta {
   /** VMM backend that wrote `state.vmstate`. */
   sourceBackend?: VmstateBackend;
+  /** Guest CPU architecture captured in `state.vmstate`; restore must match. */
+  guestArch?: "arm64" | "amd64" | "unknown";
   /** Topology hash from the .vmstate header (guest IPA/GIC/RAM layout). */
   topologyHash?: string;
   /** Guest RAM ceiling/layout the source VM booted with; not current host memory use. */

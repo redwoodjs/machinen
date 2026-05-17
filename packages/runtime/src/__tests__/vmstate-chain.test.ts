@@ -7,6 +7,7 @@ import type { SnapshotMeta } from "../vm-handle.ts";
 import {
   materializeVmstateChain,
   readVmstate,
+  VMSTATE_ARCH,
   VMSTATE_SECTION,
   writeVmstate,
 } from "../vm/vmstate-chain.ts";
@@ -118,6 +119,73 @@ describe("vmstate checkpoint chain materialization", () => {
         Buffer.concat([Buffer.alloc(4096, 0x11), newBlock]),
       );
       expect(materialized.meta.vmstate?.rootDisk?.mode).toBe("block");
+    } finally {
+      rmSync(materialized.tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("preserves x86_64 arch and x86 device sections when flattening RAM deltas", () => {
+    const base = join(TMP, "x86-base");
+    const child = join(TMP, "x86-child");
+    rmSync(base, { recursive: true, force: true });
+    rmSync(child, { recursive: true, force: true });
+    mkdirSync(base, { recursive: true });
+    mkdirSync(child, { recursive: true });
+
+    writeVmstate(join(base, "state.vmstate"), {
+      arch: VMSTATE_ARCH.x86_64,
+      topologyHash: TOPO,
+      sections: [{ tag: VMSTATE_SECTION.ram, id: 0, payload: Buffer.from("base-ram") }],
+    });
+    const baseMeta: SnapshotMeta = {
+      engine: "vmstate",
+      sourceImage: join(TMP, "rootfs.tar.gz"),
+      snappedAt: 1,
+      vmstate: {
+        rootDisk: { mode: "none" },
+        checkpoint: { chainId: "x86-chain", sequence: 1, ram: "full", rootDisk: "none" },
+      },
+    };
+    writeMeta(base, baseMeta);
+
+    writeVmstate(join(child, "state.vmstate"), {
+      arch: VMSTATE_ARCH.x86_64,
+      topologyHash: TOPO,
+      sections: [
+        { tag: VMSTATE_SECTION.ramDelta, id: 0, payload: Buffer.from("child-ram-delta") },
+        { tag: VMSTATE_SECTION.vcpu, id: 0, payload: Buffer.from("child-vcpu") },
+        { tag: VMSTATE_SECTION.x86Irqchip, id: 2, payload: Buffer.from("ioapic") },
+        { tag: VMSTATE_SECTION.x86Pit, id: 0, payload: Buffer.from("pit") },
+      ],
+    });
+    const childMeta: SnapshotMeta = {
+      ...baseMeta,
+      snappedAt: 2,
+      vmstate: {
+        ...baseMeta.vmstate,
+        checkpoint: {
+          chainId: "x86-chain",
+          sequence: 2,
+          parent: "../x86-base",
+          ram: "delta",
+          rootDisk: "none",
+        },
+      },
+    };
+    writeMeta(child, childMeta);
+
+    const materialized = materializeVmstateChain(child, childMeta);
+    try {
+      const flat = readVmstate(materialized.statePath);
+      expect(flat.arch).toBe(VMSTATE_ARCH.x86_64);
+      expect(flat.sections.map((s) => s.tag)).toEqual([
+        VMSTATE_SECTION.ram,
+        VMSTATE_SECTION.ramDelta,
+        VMSTATE_SECTION.vcpu,
+        VMSTATE_SECTION.x86Irqchip,
+        VMSTATE_SECTION.x86Pit,
+      ]);
+      expect(materialized.meta.vmstate?.rootDisk?.mode).toBe("none");
     } finally {
       rmSync(materialized.tempDir, { recursive: true, force: true });
     }

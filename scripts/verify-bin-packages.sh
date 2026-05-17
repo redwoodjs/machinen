@@ -2,9 +2,9 @@
 # Verify each host-tool binary package would publish a usable tarball.
 #
 # Covers (issue #309):
-#   - @machinen/native-arm64-{darwin,linux} — the consolidated host-tool
-#     package: VMM + gvproxy + guest ELFs, mke2fs, and mksquashfs, all
-#     under per-tool subdirs.
+#   - @machinen/native-arm64-{darwin,linux} and @machinen/native-x64-linux
+#     — the consolidated host-tool packages: VMM + gvproxy + guest ELFs,
+#     mke2fs, and mksquashfs, all under per-tool subdirs.
 #
 # What this catches:
 #   1. Host-side binaries (the things node spawns: machinen-vm, gvproxy,
@@ -97,14 +97,14 @@ check_pkg() {
   rm -f "$tarball"
 }
 
-# --- native-arm64-* ------------------------------------------------------
+# --- native-* ------------------------------------------------------------
 # One consolidated package per host arch. Per-tool subdirs:
 #   vmm/bin/{machinen-vm,gvproxy}   host binaries node spawns.
-#   vmm/guest/{init,exec-agent}  arm64-linux ELFs the runtime
+#   vmm/guest/{init,exec-agent}  guest-arch Linux ELFs the runtime
 #       reads as data to pack into the initramfs cpio (mode irrelevant).
 #   e2fsprogs/bin/mke2fs, squashfs/bin/mksquashfs  host binaries node spawns.
-for os in darwin linux; do
-  check_pkg "native-arm64-${os}" \
+for pkg in native-arm64-darwin native-arm64-linux native-x64-linux; do
+  check_pkg "$pkg" \
     vmm/bin/machinen-vm \
     vmm/bin/gvproxy \
     e2fsprogs/bin/mke2fs \

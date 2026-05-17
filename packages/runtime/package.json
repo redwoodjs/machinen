@@ -35,6 +35,7 @@
   },
   "optionalDependencies": {
     "@machinen/native-arm64-darwin": "workspace:*",
-    "@machinen/native-arm64-linux": "workspace:*"
+    "@machinen/native-arm64-linux": "workspace:*",
+    "@machinen/native-x64-linux": "workspace:*"
   }
 }

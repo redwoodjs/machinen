@@ -126,6 +126,25 @@ jobs:
             packages/microvm/zig-out/bin/machinen-vm
           if-no-files-found: error
 
+  build-vmm-x64-linux:
+    needs: [gate]
+    if: needs.gate.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: 0.16.0
+      - name: Build VMM (linux-x64, native)
+        working-directory: packages/microvm
+        run: zig build -Doptimize=ReleaseSafe
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: vmm-x64-linux
+          path: |
+            packages/microvm/zig-out/bin/machinen-vm
+          if-no-files-found: error
+
   # ------------------------------------------------------------
   # Base assets — Linux kernel + dtb + Debian rootfs tarball.
   # Uploaded to the GH Release by the publish job (see below).
@@ -142,7 +161,8 @@ jobs:
   # ------------------------------------------------------------
 
   release:
-    needs: [gate, build-vmm-darwin-arm64, build-vmm-arm64-linux, build-base-assets]
+    needs:
+      [gate, build-vmm-darwin-arm64, build-vmm-arm64-linux, build-vmm-x64-linux, build-base-assets]
     if: needs.gate.outputs.skip != 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -174,10 +194,14 @@ jobs:
         with:
           name: vmm-arm64-linux
           path: packages/native-arm64-linux/vmm/bin/
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: vmm-x64-linux
+          path: packages/native-x64-linux/vmm/bin/
       # chmod machinen-vm so the working copy stays usable locally; the
       # `bin` field in each package's package.json is what makes pnpm
       # pack preserve the +x bit in the published tarball (issue #309).
-      - run: chmod +x packages/native-arm64-*/vmm/bin/machinen-vm
+      - run: chmod +x packages/native-{arm64-darwin,arm64-linux,x64-linux}/vmm/bin/machinen-vm
 
       # gvproxy (containers/gvisor-tap-vsock) — bundled next to the VMM
       # so `@machinen/runtime` can auto-spawn it for virtio-net without
@@ -188,31 +212,41 @@ jobs:
           set -euo pipefail
           scripts/install-gvproxy.sh --os darwin --dest packages/native-arm64-darwin/vmm/bin
           scripts/install-gvproxy.sh --os linux  --arch arm64 --dest packages/native-arm64-linux/vmm/bin
+          scripts/install-gvproxy.sh --os linux  --arch amd64 --dest packages/native-x64-linux/vmm/bin
 
-      # Stage the arm64-linux guest ELFs (init, exec-agent) into each
-      # native-arm64-* package's vmm/guest/ dir so they ship in the
-      # published tarball. They're host-arch-agnostic (they run inside
-      # the guest), but ride along with the host-arch-gated native-*
-      # package since that's what `@machinen/runtime` already depends on
-      # and resolves at boot() time. (issue #309)
-      - name: Download base assets (for guest binaries)
+      # Stage guest ELFs (init, exec-agent) into each native package's
+      # vmm/guest/ dir so they ship in the published tarball. The
+      # binaries are guest-arch specific: native-arm64-* carries arm64
+      # guest ELFs; native-x64-linux carries amd64 guest ELFs.
+      - name: Download arm64 base assets (for guest binaries)
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: base-assets
-          path: release-assets/
-      - name: Stage guest binaries into native-arm64-* packages
+          name: base-assets-arm64
+          path: release-assets-arm64/
+      - name: Download amd64 base assets (for guest binaries)
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: base-assets-amd64
+          path: release-assets-amd64/
+      - name: Stage guest binaries into native packages and merge public assets
         run: |
           set -euo pipefail
           for pkg in packages/native-arm64-darwin packages/native-arm64-linux; do
             mkdir -p "$pkg/vmm/guest"
-            cp release-assets/init        "$pkg/vmm/guest/init"
-            cp release-assets/exec-agent  "$pkg/vmm/guest/exec-agent"
+            cp release-assets-arm64/init        "$pkg/vmm/guest/init"
+            cp release-assets-arm64/exec-agent  "$pkg/vmm/guest/exec-agent"
           done
-          # Drop from release-assets/ so the public release upload step's
-          # `release-assets/*` glob still ships exactly kernel + dtb +
-          # rootfs (no shape change to the public release). Consumers
-          # get the guest binaries via @machinen/native-* on npm.
-          rm release-assets/init release-assets/exec-agent
+          mkdir -p packages/native-x64-linux/vmm/guest
+          cp release-assets-amd64/init        packages/native-x64-linux/vmm/guest/init
+          cp release-assets-amd64/exec-agent  packages/native-x64-linux/vmm/guest/exec-agent
+
+          rm -rf release-assets
+          mkdir -p release-assets
+          for src in release-assets-arm64 release-assets-amd64; do
+            find "$src" -maxdepth 1 -type f \
+              ! -name init ! -name exec-agent \
+              -exec cp {} release-assets/ \;
+          done
 
       # Release-time guard against the regression filed as #309: assert
       # every host-tool tarball pnpm would publish has the right shape —
