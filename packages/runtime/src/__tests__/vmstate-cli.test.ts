@@ -160,7 +160,7 @@ describe.skipIf(!HAS_BIN)("snapshot-test CLI", () => {
 
     it("rejects unsupported arch", () => {
       const bytes = encodeVmstate(TOPO_A, []);
-      bytes.writeUInt32LE(2, 12); // arch at offset 12
+      bytes.writeUInt32LE(99, 12); // arch at offset 12
       const p = write("bad-arch.vmstate", bytes);
       const r = run(["load", p]);
       expect(r.code).toBe(1);

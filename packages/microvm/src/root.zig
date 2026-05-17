@@ -27,12 +27,14 @@ pub const boot_hvf = if (builtin.os.tag == .macos) @import("boot_hvf.zig") else 
 pub const net_socket = if (builtin.os.tag == .macos) @import("net_socket.zig") else struct {};
 pub const kvm = if (builtin.os.tag == .linux) @import("kvm.zig") else struct {};
 pub const boot_kvm = if (builtin.os.tag == .linux) @import("boot_kvm.zig") else struct {};
+pub const boot_kvm_x86_64 = if (builtin.os.tag == .linux) @import("boot_kvm_x86_64.zig") else struct {};
 pub const virtio = @import("virtio.zig"); // pure Zig, builds everywhere
 pub const blk = @import("blk.zig"); // pure Zig virtio-blk backend
 pub const virtiofs = @import("virtiofs.zig"); // pure Zig virtio-fs backend (#332)
 pub const vsock = @import("vsock.zig"); // pure Zig virtio-vsock bridge
 pub const balloon = @import("balloon.zig"); // pure Zig virtio-balloon backend
 pub const pl011 = @import("pl011.zig"); // pure Zig PL011 UART (shared HVF/KVM)
+pub const uart8250 = @import("uart8250.zig"); // pure Zig 8250 UART (x86_64 KVM)
 pub const dtb_patch = @import("dtb_patch.zig"); // FDT memory/initrd patcher
 pub const snapshot = @import("snapshot.zig"); // .vmstate format codec
 pub const vmstate_zip = @import("vmstate_zip.zig"); // .vmstate gzip transport
@@ -108,12 +110,14 @@ test {
     if (builtin.os.tag == .linux) {
         _ = @import("kvm.zig");
         _ = @import("boot_kvm.zig");
+        _ = @import("boot_kvm_x86_64.zig");
     }
     _ = @import("virtio.zig");
     _ = @import("virtiofs.zig");
     _ = @import("vsock.zig");
     _ = @import("balloon.zig");
     _ = @import("pl011.zig");
+    _ = @import("uart8250.zig");
     _ = @import("dtb_patch.zig");
     _ = @import("snapshot.zig");
     _ = @import("vmstate_zip.zig");

@@ -274,6 +274,317 @@ pub fn dumpKvm(allocator: std.mem.Allocator, vcpu_fd: c_int) ![]u8 {
     return out;
 }
 
+// -- x86_64 KVM dump / load ---------------------------------------
+
+const KVM_GET_REGS_X86: c_ulong = 0x8090_AE81;
+const KVM_SET_REGS_X86: c_ulong = 0x4090_AE82;
+const KVM_GET_SREGS_X86: c_ulong = 0x8138_AE83;
+const KVM_SET_SREGS_X86: c_ulong = 0x4138_AE84;
+const KVM_GET_MSRS_X86: c_ulong = 0xC008_AE88;
+const KVM_SET_MSRS_X86: c_ulong = 0x4008_AE89;
+const KVM_GET_FPU_X86: c_ulong = 0x81A0_AE8C;
+const KVM_SET_FPU_X86: c_ulong = 0x41A0_AE8D;
+const KVM_GET_LAPIC_X86: c_ulong = 0x8400_AE8E;
+const KVM_SET_LAPIC_X86: c_ulong = 0x4400_AE8F;
+const KVM_GET_MP_STATE_X86: c_ulong = 0x8004_AE98;
+const KVM_SET_MP_STATE_X86: c_ulong = 0x4004_AE99;
+const KVM_GET_VCPU_EVENTS_X86: c_ulong = 0x8040_AE9F;
+const KVM_SET_VCPU_EVENTS_X86: c_ulong = 0x4040_AEA0;
+const KVM_GET_DEBUGREGS_X86: c_ulong = 0x8080_AEA1;
+const KVM_SET_DEBUGREGS_X86: c_ulong = 0x4080_AEA2;
+const KVM_GET_XSAVE_X86: c_ulong = 0x9000_AEA4;
+const KVM_SET_XSAVE_X86: c_ulong = 0x5000_AEA5;
+const KVM_GET_XCRS_X86: c_ulong = 0x8188_AEA6;
+const KVM_SET_XCRS_X86: c_ulong = 0x4188_AEA7;
+
+const X86Regs = extern struct {
+    rax: u64,
+    rbx: u64,
+    rcx: u64,
+    rdx: u64,
+    rsi: u64,
+    rdi: u64,
+    rsp: u64,
+    rbp: u64,
+    r8: u64,
+    r9: u64,
+    r10: u64,
+    r11: u64,
+    r12: u64,
+    r13: u64,
+    r14: u64,
+    r15: u64,
+    rip: u64,
+    rflags: u64,
+};
+
+const X86Segment = extern struct {
+    base: u64,
+    limit: u32,
+    selector: u16,
+    seg_type: u8,
+    present: u8,
+    dpl: u8,
+    db: u8,
+    s: u8,
+    l: u8,
+    g: u8,
+    avl: u8,
+    unusable: u8,
+    padding: u8,
+};
+
+const X86Dtable = extern struct {
+    base: u64,
+    limit: u16,
+    padding: [3]u16,
+};
+
+const X86Sregs = extern struct {
+    cs: X86Segment,
+    ds: X86Segment,
+    es: X86Segment,
+    fs: X86Segment,
+    gs: X86Segment,
+    ss: X86Segment,
+    tr: X86Segment,
+    ldt: X86Segment,
+    gdt: X86Dtable,
+    idt: X86Dtable,
+    cr0: u64,
+    cr2: u64,
+    cr3: u64,
+    cr4: u64,
+    cr8: u64,
+    efer: u64,
+    apic_base: u64,
+    interrupt_bitmap: [4]u64,
+};
+
+const X86Fpu = extern struct {
+    fpr: [8][16]u8,
+    fcw: u16,
+    fsw: u16,
+    ftwx: u8,
+    pad1: u8,
+    last_opcode: u16,
+    last_ip: u64,
+    last_dp: u64,
+    xmm: [16][16]u8,
+    mxcsr: u32,
+    pad2: u32,
+};
+
+const X86LapicState = extern struct { regs: [1024]u8 };
+const X86MpState = extern struct { mp_state: u32 };
+const X86VcpuEvents = extern struct { bytes: [64]u8 };
+const X86DebugRegs = extern struct { bytes: [128]u8 };
+const X86Xsave = extern struct { region: [1024]u32 };
+const X86Xcr = extern struct { xcr: u32, reserved: u32, value: u64 };
+const X86Xcrs = extern struct { nr_xcrs: u32, flags: u32, xcrs: [16]X86Xcr, padding: [16]u64 };
+const X86MsrEntry = extern struct { index: u32, reserved: u32 = 0, data: u64 = 0 };
+const x86_msr_capacity: usize = 16;
+const X86Msrs = extern struct {
+    nmsrs: u32,
+    pad: u32 = 0,
+    entries: [x86_msr_capacity]X86MsrEntry = @splat(std.mem.zeroes(X86MsrEntry)),
+};
+const x86_msr_indices = [_]u32{
+    0x0000_0010, // IA32_TIME_STAMP_COUNTER
+    0x0000_0174, // IA32_SYSENTER_CS
+    0x0000_0175, // IA32_SYSENTER_ESP
+    0x0000_0176, // IA32_SYSENTER_EIP
+    0x0000_0277, // IA32_PAT
+    0xC000_0080, // EFER (also in sregs; harmlessly redundant)
+    0xC000_0081, // STAR
+    0xC000_0082, // LSTAR
+    0xC000_0083, // CSTAR
+    0xC000_0084, // SYSCALL_MASK
+    0xC000_0100, // FS_BASE
+    0xC000_0101, // GS_BASE
+    0xC000_0102, // KERNEL_GS_BASE
+    0xC000_0103, // TSC_AUX (last: absent on some hosts)
+};
+
+comptime {
+    std.debug.assert(@sizeOf(X86Regs) == 144);
+    std.debug.assert(@sizeOf(X86Segment) == 24);
+    std.debug.assert(@sizeOf(X86Dtable) == 16);
+    std.debug.assert(@sizeOf(X86Sregs) == 312);
+    std.debug.assert(@sizeOf(X86Fpu) == 416);
+    std.debug.assert(@sizeOf(X86LapicState) == 1024);
+    std.debug.assert(@sizeOf(X86MpState) == 4);
+    std.debug.assert(@sizeOf(X86VcpuEvents) == 64);
+    std.debug.assert(@sizeOf(X86DebugRegs) == 128);
+    std.debug.assert(@sizeOf(X86Xsave) == 4096);
+    std.debug.assert(@sizeOf(X86Xcrs) == 392);
+    std.debug.assert(@sizeOf(X86MsrEntry) == 16);
+    std.debug.assert(@sizeOf(X86Msrs) == 8 + x86_msr_capacity * 16);
+}
+
+fn appendOwnedBytes(
+    outer: std.mem.Allocator,
+    arena: std.mem.Allocator,
+    entries: *std.ArrayList(snapshot.VcpuEntry),
+    name: []const u8,
+    bytes: []const u8,
+) !void {
+    const dup = try arena.dupe(u8, bytes);
+    try entries.append(outer, .{ .name = name, .value = dup });
+}
+
+fn appendX86Struct(
+    comptime T: type,
+    outer: std.mem.Allocator,
+    arena: std.mem.Allocator,
+    entries: *std.ArrayList(snapshot.VcpuEntry),
+    vcpu_fd: c_int,
+    request: c_ulong,
+    name: []const u8,
+) !void {
+    var value: T = undefined;
+    if (C.ioctl(vcpu_fd, request, &value) != 0) return error.KvmGetX86StateFailed;
+    try appendOwnedBytes(outer, arena, entries, name, std.mem.asBytes(&value));
+}
+
+fn appendX86StructOptional(
+    comptime T: type,
+    outer: std.mem.Allocator,
+    arena: std.mem.Allocator,
+    entries: *std.ArrayList(snapshot.VcpuEntry),
+    vcpu_fd: c_int,
+    request: c_ulong,
+    name: []const u8,
+) !void {
+    appendX86Struct(T, outer, arena, entries, vcpu_fd, request, name) catch |err| {
+        if (err == error.KvmGetX86StateFailed) return;
+        return err;
+    };
+}
+
+fn appendX86Msrs(
+    outer: std.mem.Allocator,
+    arena: std.mem.Allocator,
+    entries: *std.ArrayList(snapshot.VcpuEntry),
+    vcpu_fd: c_int,
+) !void {
+    var msrs = X86Msrs{ .nmsrs = x86_msr_indices.len };
+    for (x86_msr_indices, 0..) |idx, i| msrs.entries[i].index = idx;
+    const rc = C.ioctl(vcpu_fd, KVM_GET_MSRS_X86, &msrs);
+    if (rc < 0) return;
+    msrs.nmsrs = @intCast(rc);
+    const byte_len: usize = 8 + @as(usize, @intCast(rc)) * @sizeOf(X86MsrEntry);
+    try appendOwnedBytes(outer, arena, entries, "X86_MSRS", std.mem.asBytes(&msrs)[0..byte_len]);
+}
+
+/// Dump an x86_64 KVM vCPU into the same name-tagged VCPU payload
+/// container used by arm64. Values whose KVM capabilities are optional
+/// (debug regs, XSAVE/XCRS, some MSRs) are omitted if the host rejects
+/// the ioctl; core execution state is required.
+pub fn dumpKvmX86(allocator: std.mem.Allocator, vcpu_fd: c_int) ![]u8 {
+    if (builtin.os.tag != .linux) return error.WrongHost;
+
+    var entries = std.ArrayList(snapshot.VcpuEntry).empty;
+    defer entries.deinit(allocator);
+
+    var arena = std.heap.ArenaAllocator.init(allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+
+    try appendX86Struct(X86Sregs, allocator, a, &entries, vcpu_fd, KVM_GET_SREGS_X86, "X86_SREGS");
+    try appendX86Struct(X86Regs, allocator, a, &entries, vcpu_fd, KVM_GET_REGS_X86, "X86_REGS");
+    try appendX86Struct(X86Fpu, allocator, a, &entries, vcpu_fd, KVM_GET_FPU_X86, "X86_FPU");
+    try appendX86Struct(X86LapicState, allocator, a, &entries, vcpu_fd, KVM_GET_LAPIC_X86, "X86_LAPIC");
+    try appendX86Struct(X86MpState, allocator, a, &entries, vcpu_fd, KVM_GET_MP_STATE_X86, "X86_MP_STATE");
+    try appendX86Struct(X86VcpuEvents, allocator, a, &entries, vcpu_fd, KVM_GET_VCPU_EVENTS_X86, "X86_VCPU_EVENTS");
+    try appendX86Msrs(allocator, a, &entries, vcpu_fd);
+    try appendX86StructOptional(X86DebugRegs, allocator, a, &entries, vcpu_fd, KVM_GET_DEBUGREGS_X86, "X86_DEBUGREGS");
+    try appendX86StructOptional(X86Xcrs, allocator, a, &entries, vcpu_fd, KVM_GET_XCRS_X86, "X86_XCRS");
+    try appendX86StructOptional(X86Xsave, allocator, a, &entries, vcpu_fd, KVM_GET_XSAVE_X86, "X86_XSAVE");
+
+    return try snapshot.encodeVcpuPayload(allocator, entries.items);
+}
+
+fn findEntry(entries: []const snapshot.VcpuEntry, name: []const u8) ?[]const u8 {
+    for (entries) |e| {
+        if (std.mem.eql(u8, e.name, name)) return e.value;
+    }
+    return null;
+}
+
+fn setX86Bytes(vcpu_fd: c_int, request: c_ulong, value: []const u8, comptime T: type) !void {
+    if (value.len != @sizeOf(T)) return error.BadX86State;
+    var tmp: T = undefined;
+    @memcpy(std.mem.asBytes(&tmp), value);
+    if (C.ioctl(vcpu_fd, request, &tmp) != 0) return error.KvmSetX86StateFailed;
+}
+
+fn setX86Msrs(vcpu_fd: c_int, value: []const u8) !void {
+    if (value.len < 8) return error.BadX86State;
+    const n = std.mem.readInt(u32, value[0..4], .little);
+    if (n > x86_msr_capacity) return error.BadX86State;
+    const need = 8 + @as(usize, n) * @sizeOf(X86MsrEntry);
+    if (value.len != need) return error.BadX86State;
+    var msrs = X86Msrs{ .nmsrs = n };
+    @memcpy(std.mem.asBytes(&msrs)[0..need], value);
+    const rc = C.ioctl(vcpu_fd, KVM_SET_MSRS_X86, &msrs);
+    if (rc < 0 or @as(u32, @intCast(rc)) != n) return error.KvmSetX86StateFailed;
+}
+
+fn setIfPresent(
+    entries: []const snapshot.VcpuEntry,
+    vcpu_fd: c_int,
+    name: []const u8,
+    request: c_ulong,
+    comptime T: type,
+    applied: *usize,
+    failed: *usize,
+) void {
+    if (findEntry(entries, name)) |value| {
+        setX86Bytes(vcpu_fd, request, value, T) catch {
+            failed.* += 1;
+            return;
+        };
+        applied.* += 1;
+    }
+}
+
+/// Load an x86_64 KVM vCPU payload produced by dumpKvmX86. Unknown
+/// entries are ignored so future snapshots can carry more state.
+pub fn loadKvmX86(allocator: std.mem.Allocator, vcpu_fd: c_int, payload: []const u8) !void {
+    if (builtin.os.tag != .linux) return error.WrongHost;
+    const entries = try snapshot.decodeVcpuPayload(allocator, payload);
+    defer allocator.free(entries);
+
+    var applied: usize = 0;
+    var failed: usize = 0;
+    setIfPresent(entries, vcpu_fd, "X86_SREGS", KVM_SET_SREGS_X86, X86Sregs, &applied, &failed);
+    if (findEntry(entries, "X86_MSRS")) |value| {
+        setX86Msrs(vcpu_fd, value) catch {
+            failed += 1;
+            return error.KvmSetX86StateFailed;
+        };
+        applied += 1;
+    }
+    setIfPresent(entries, vcpu_fd, "X86_FPU", KVM_SET_FPU_X86, X86Fpu, &applied, &failed);
+    setIfPresent(entries, vcpu_fd, "X86_XCRS", KVM_SET_XCRS_X86, X86Xcrs, &applied, &failed);
+    setIfPresent(entries, vcpu_fd, "X86_XSAVE", KVM_SET_XSAVE_X86, X86Xsave, &applied, &failed);
+    setIfPresent(entries, vcpu_fd, "X86_LAPIC", KVM_SET_LAPIC_X86, X86LapicState, &applied, &failed);
+    setIfPresent(entries, vcpu_fd, "X86_MP_STATE", KVM_SET_MP_STATE_X86, X86MpState, &applied, &failed);
+    setIfPresent(entries, vcpu_fd, "X86_VCPU_EVENTS", KVM_SET_VCPU_EVENTS_X86, X86VcpuEvents, &applied, &failed);
+    setIfPresent(entries, vcpu_fd, "X86_DEBUGREGS", KVM_SET_DEBUGREGS_X86, X86DebugRegs, &applied, &failed);
+    // General-purpose regs last: if RIP/RSP resume immediately after
+    // KVM_RUN, the descriptor tables, MSRs, xstate, LAPIC, and pending
+    // event window have already been installed.
+    setIfPresent(entries, vcpu_fd, "X86_REGS", KVM_SET_REGS_X86, X86Regs, &applied, &failed);
+
+    std.debug.print(
+        "vcpu_dump.loadKvmX86: {d} applied, {d} failed ({d} entries)\n",
+        .{ applied, failed, entries.len },
+    );
+    if (failed != 0) return error.KvmSetX86StateFailed;
+}
+
 // -- HVF dump / load ----------------------------------------------
 
 pub fn dumpHvf(allocator: std.mem.Allocator, vcpu_handle: u64) ![]u8 {
@@ -578,7 +889,7 @@ test "dump/load round-trip on HVF" {
 }
 
 test "dump/load round-trip on KVM" {
-    if (builtin.os.tag != .linux) return error.SkipZigTest;
+    if (builtin.os.tag != .linux or builtin.cpu.arch != .aarch64) return error.SkipZigTest;
 
     const kvm = @import("kvm.zig");
 
@@ -744,7 +1055,7 @@ test "single-host HVF RT (vCPU + RAM, no execution)" {
 // "dynamic" full integration test for later, but this proves the
 // dump+load pipeline preserves both register and memory state.
 test "single-host KVM RT (vCPU + RAM, no execution)" {
-    if (builtin.os.tag != .linux) return error.SkipZigTest;
+    if (builtin.os.tag != .linux or builtin.cpu.arch != .aarch64) return error.SkipZigTest;
     const kvm = @import("kvm.zig");
     const ram_dump = @import("ram_dump.zig");
 

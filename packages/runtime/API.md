@@ -2118,12 +2118,13 @@ pids that aren't machinen-managed; those fall back to ps.
 > `optional` **base?**: `string`
 
 Path to the base rootfs tarball to start from. Typically the
-`rootfs-debian-arm64.tar.gz` produced by
-`scripts/build-base-assets.sh` or shipped in a machinen release.
+arch-specific rootfs tarball produced by `scripts/build-base-assets.sh`
+(`rootfs-debian-arm64.tar.gz` or `rootfs-debian-amd64.tar.gz`) or
+shipped in a machinen release.
 
 Optional — when omitted, `provision()` resolves it via `resolveBaseRootfs()`
 (MACHINEN_ASSETS_DIR env override, falling back to the `@machinen/cli`
-cache at `~/.machinen/@machinen/runtime@<version>/bases/debian-arm64/`).
+cache for the selected guest arch).
 
 ##### install
 
@@ -3254,6 +3255,12 @@ SHA-256 over the logical file bytes.
 > `optional` **sourceBackend?**: [`VmstateBackend`](#vmstatebackend)
 
 VMM backend that wrote `state.vmstate`.
+
+##### guestArch?
+
+> `optional` **guestArch?**: `"amd64"` \| `"arm64"` \| `"unknown"`
+
+Guest CPU architecture captured in `state.vmstate`; restore must match.
 
 ##### topologyHash?
 
@@ -5987,11 +5994,11 @@ Resolve the path to the base rootfs tarball, in the same order
 
   1. `explicit` — the caller-supplied path (resolved against `cwd`).
   2. `MACHINEN_ASSETS_DIR` env var — points at a directory laid out like
-     `scripts/build-base-assets.sh`'s output (contains
-     `rootfs-debian-arm64.tar.gz`). Same convention `@machinen/cli`
-     honors for local/dev builds.
+     `scripts/build-base-assets.sh`'s output (contains the selected
+     arch's rootfs tarball). Same convention `@machinen/cli` honors for
+     local/dev builds.
   3. `@machinen/cli`'s on-disk cache at
-     `~/.machinen/@machinen/runtime@<version>/bases/debian-arm64/rootfs.tar.gz`.
+     `~/.machinen/@machinen/runtime@<version>/bases/debian-<arch>/rootfs.tar.gz`.
      Populated by running `machinen` once against the installed runtime.
 
 Throws `ProvisionError` with guidance if none of those turn up a file.
@@ -6021,8 +6028,8 @@ PROVISION_BASE_NOT_FOUND | PROVISION_ASSETS_DIR_INVALID
 
 > **resolveBaseKernel**(`explicit?`, `cwd?`): `string`
 
-Resolve the path to the guest kernel Image. Same fallback chain as
-`resolveBaseRootfs`: explicit → `MACHINEN_ASSETS_DIR/Image-arm64` →
+Resolve the path to the guest kernel image. Same fallback chain as
+`resolveBaseRootfs`: explicit → `MACHINEN_ASSETS_DIR/<arch kernel>` →
 `@machinen/cli` cache at `<base>/Image`. Exported for callers that
 want to pre-check or wire the path into `boot()`.
 
@@ -6051,7 +6058,8 @@ PROVISION_KERNEL_NOT_FOUND |
 
 > **resolveBaseDtb**(`explicit?`, `cwd?`): `string`
 
-Resolve the path to the guest DTB. Same fallback chain as
+Resolve the path to the guest DTB. amd64 guests do not use a DTB unless
+the caller passes one explicitly. arm64 follows the same fallback chain as
 `resolveBaseRootfs`: explicit → `MACHINEN_ASSETS_DIR/virt-arm64.dtb` →
 `@machinen/cli` cache at `<base>/virt.dtb`.
 
@@ -6356,9 +6364,9 @@ Locate the VMM binary using the same lookup order as `@machinen/cli`:
   1. `MACHINEN_VMM` env var (dev-mode override)
   2. `require.resolve("@machinen/native-<arch>-<os>")` → `binary` export
 
-`@machinen/native-arm64-{darwin,linux}` is the consolidated host-tool
-package — it carries the VMM, gvproxy, guest ELFs, mke2fs,
-mksquashfs, and the mount server. Callers can pass an explicit
+`@machinen/native-{arm64-darwin,arm64-linux,x64-linux}` is the
+consolidated host-tool package — it carries the VMM, gvproxy,
+guest ELFs, mke2fs, and mksquashfs. Callers can pass an explicit
 `binary` to `boot()` to bypass this.
 
 #### Returns

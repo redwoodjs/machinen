@@ -27,10 +27,15 @@ const PAYLOAD_ASSETS = [
   "virt-arm64.dtb",
   "rootfs-debian-arm64.tar.gz",
   "rootfs-debian-arm64.img.gz",
+  "bzImage-x86_64",
+  "rootfs-debian-amd64.tar.gz",
+  "rootfs-debian-amd64.img.gz",
 ];
 const OPTIONAL_UPLOAD_ASSETS = [
   "Image-arm64.inputs-sha256",
   "rootfs-debian-arm64.tar.gz.inputs-sha256",
+  "bzImage-x86_64.inputs-sha256",
+  "rootfs-debian-amd64.tar.gz.inputs-sha256",
 ];
 
 function usage(exitCode = 2) {

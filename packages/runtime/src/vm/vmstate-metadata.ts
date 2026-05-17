@@ -3,7 +3,11 @@ import { openSync, readFileSync, readSync, statSync, closeSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import type { SnapshotFileIdentity as FileIdentity, VmstateBackend } from "../vm-handle.ts";
 
+export type { VmstateBackend } from "../vm-handle.ts";
+export type VmstateGuestArch = "arm64" | "amd64" | "unknown";
+
 export interface VmstateFacts {
+  arch: VmstateGuestArch;
   topologyHash: string;
   sectionCount: number;
   guestPauthActive?: boolean;
@@ -13,6 +17,8 @@ export interface VmstateFacts {
 const VMSTATE_MAGIC = Buffer.from([0x56, 0x4d, 0x53, 0x54, 0x41, 0x54, 0x45, 0x00]);
 const VMSTATE_HEADER_SIZE = 64;
 const SECTION_TAG_VCPU = 2;
+const VMSTATE_ARCH_AARCH64 = 1;
+const VMSTATE_ARCH_X86_64 = 2;
 
 // SCTLR_EL1 pointer-auth enable bits. If any is set, the guest may
 // have signed code/data pointers in RAM and a cross-VMM restore is not
@@ -23,12 +29,39 @@ const SCTLR_ENDA = 1n << 27n;
 const SCTLR_ENDB = 1n << 13n;
 const SCTLR_PAUTH_MASK = SCTLR_ENIA | SCTLR_ENIB | SCTLR_ENDA | SCTLR_ENDB;
 
+function vmstateArchName(arch: number): VmstateGuestArch {
+  if (arch === VMSTATE_ARCH_AARCH64) {
+    return "arm64";
+  }
+  if (arch === VMSTATE_ARCH_X86_64) {
+    return "amd64";
+  }
+  return "unknown";
+}
+
 export function currentVmstateBackend(): VmstateBackend {
   if (process.platform === "darwin") {
     return "hvf";
   }
   if (process.platform === "linux") {
     return "kvm";
+  }
+  return "unknown";
+}
+
+export function currentVmstateGuestArch(): VmstateGuestArch {
+  const override = process.env.MACHINEN_GUEST_ARCH;
+  if (override === "arm64" || override === "aarch64") {
+    return "arm64";
+  }
+  if (override === "amd64" || override === "x86_64" || override === "x64") {
+    return "amd64";
+  }
+  if (process.arch === "arm64") {
+    return "arm64";
+  }
+  if (process.arch === "x64") {
+    return "amd64";
   }
   return "unknown";
 }
@@ -46,9 +79,10 @@ export function readVmstateFacts(path: string): VmstateFacts {
   if (version !== 1) {
     throw new Error(`vmstate: unsupported version ${version}`);
   }
-  const arch = bytes.readUInt32LE(12);
-  if (arch !== 1) {
-    throw new Error(`vmstate: unsupported arch ${arch}`);
+  const archId = bytes.readUInt32LE(12);
+  const arch = vmstateArchName(archId);
+  if (arch === "unknown") {
+    throw new Error(`vmstate: unsupported arch ${archId}`);
   }
 
   const sectionCount = bytes.readUInt32LE(16);
@@ -79,7 +113,7 @@ export function readVmstateFacts(path: string): VmstateFacts {
     }
   }
 
-  return { topologyHash, sectionCount, guestPauthActive, sctlrEl1 };
+  return { arch, topologyHash, sectionCount, guestPauthActive, sctlrEl1 };
 }
 
 export function fileIdentity(path: string): FileIdentity {

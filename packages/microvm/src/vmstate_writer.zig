@@ -17,6 +17,7 @@ pub const Job = struct {
     arena: std.heap.ArenaAllocator,
     label: []const u8,
     path: []const u8,
+    arch: u32,
     topology_hash: [32]u8,
     sections: []const snapshot.Section,
 
@@ -31,12 +32,23 @@ pub const Job = struct {
         path: []const u8,
         topology_hash: [32]u8,
     ) !*Job {
+        return createWithArch(allocator, label, path, snapshot.ARCH_AARCH64, topology_hash);
+    }
+
+    pub fn createWithArch(
+        allocator: std.mem.Allocator,
+        label: []const u8,
+        path: []const u8,
+        arch: u32,
+        topology_hash: [32]u8,
+    ) !*Job {
         const job = try allocator.create(Job);
         job.* = .{
             .allocator = allocator,
             .arena = std.heap.ArenaAllocator.init(allocator),
             .label = label,
             .path = undefined,
+            .arch = arch,
             .topology_hash = topology_hash,
             .sections = &.{},
         };
@@ -124,7 +136,7 @@ pub fn writeAndDestroy(job: *Job) !void {
 
 fn write(job: *Job) !void {
     const allocator = job.arena.allocator();
-    const bytes = try snapshot.encode(allocator, job.topology_hash, job.sections);
+    const bytes = try snapshot.encodeWithArch(allocator, job.arch, job.topology_hash, job.sections);
     const compression = vmstate_zip.writeCompression();
     const out: []const u8 = switch (compression) {
         .none => bytes,

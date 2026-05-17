@@ -15,7 +15,7 @@ const assert = std.debug.assert;
 
 comptime {
     if (builtin.os.tag != .macos and builtin.os.tag != .linux) {
-        @compileError("machinen-microvm only supports macOS (HVF) and arm64 Linux (KVM)");
+        @compileError("machinen-microvm only supports macOS (HVF) and Linux (KVM)");
     }
 }
 
@@ -45,7 +45,7 @@ pub fn main(init: std.process.Init) !void {
     }
 
     const kernel_path = envRequired("MACHINEN_KERNEL");
-    const dtb_path = envRequired("MACHINEN_DTB");
+    const dtb_path = envOptional("MACHINEN_DTB");
     const initrd_path = envRequired("MACHINEN_INITRD");
     // #263 phase A: optional ceiling override. Runtime auto-sizes and
     // forwards a value; direct invocations get the boot_*.zig default.
@@ -80,9 +80,10 @@ pub fn main(init: std.process.Init) !void {
     if (builtin.os.tag == .macos) {
         const disk_path = envOptional("MACHINEN_DISK");
         const rootdisk_path = envOptional("MACHINEN_ROOTDISK");
+        const hvf_dtb_path = dtb_path orelse envRequired("MACHINEN_DTB");
         var cfg: microvm.boot_hvf.Config = .{
             .kernel_path = kernel_path,
-            .dtb_path = dtb_path,
+            .dtb_path = hvf_dtb_path,
             .initrd_path = initrd_path,
             .rootdisk_path = rootdisk_path,
             .disk_path = disk_path,
@@ -103,24 +104,48 @@ pub fn main(init: std.process.Init) !void {
     } else {
         const disk_path = envOptional("MACHINEN_DISK");
         const rootdisk_path = envOptional("MACHINEN_ROOTDISK");
-        var cfg: microvm.boot_kvm.Config = .{
-            .kernel_path = kernel_path,
-            .dtb_path = dtb_path,
-            .initrd_path = initrd_path,
-            .rootdisk_path = rootdisk_path,
-            .disk_path = disk_path,
-            .mountdisk_lower_fd = mountdisk_lower_fd,
-            .mountdisk_upper_fd = mountdisk_upper_fd,
-            .unbounded_serial = true,
-            .max_exits = std.math.maxInt(usize),
-            .restore_path = restore_path,
-            .snapshot_path = snapshot_path,
-            .nested = nested,
-        };
-        if (ram_size_override) |bytes| cfg.ram_size = bytes;
-        const result = try microvm.boot_kvm.boot(gpa, cfg);
-        gpa.free(result.serial);
-        std.process.exit(if (result.saw_psci_shutdown or result.snapshotted) 0 else 1);
+        if (builtin.cpu.arch == .x86_64) {
+            if (nested) {
+                std.debug.print("machinen-microvm: nested virtualization unsupported on x86_64 hosts\n", .{});
+                std.process.exit(2);
+            }
+            var cfg: microvm.boot_kvm_x86_64.Config = .{
+                .kernel_path = kernel_path,
+                .initrd_path = initrd_path,
+                .rootdisk_path = rootdisk_path,
+                .disk_path = disk_path,
+                .mountdisk_lower_fd = mountdisk_lower_fd,
+                .mountdisk_upper_fd = mountdisk_upper_fd,
+                .unbounded_serial = true,
+                .max_exits = std.math.maxInt(usize),
+                .restore_path = restore_path,
+                .snapshot_path = snapshot_path,
+            };
+            if (ram_size_override) |bytes| cfg.ram_size = bytes;
+            const result = try microvm.boot_kvm_x86_64.boot(gpa, cfg);
+            gpa.free(result.serial);
+            std.process.exit(if (result.saw_psci_shutdown or result.snapshotted) 0 else 1);
+        } else {
+            const arm_dtb_path = dtb_path orelse envRequired("MACHINEN_DTB");
+            var cfg: microvm.boot_kvm.Config = .{
+                .kernel_path = kernel_path,
+                .dtb_path = arm_dtb_path,
+                .initrd_path = initrd_path,
+                .rootdisk_path = rootdisk_path,
+                .disk_path = disk_path,
+                .mountdisk_lower_fd = mountdisk_lower_fd,
+                .mountdisk_upper_fd = mountdisk_upper_fd,
+                .unbounded_serial = true,
+                .max_exits = std.math.maxInt(usize),
+                .restore_path = restore_path,
+                .snapshot_path = snapshot_path,
+                .nested = nested,
+            };
+            if (ram_size_override) |bytes| cfg.ram_size = bytes;
+            const result = try microvm.boot_kvm.boot(gpa, cfg);
+            gpa.free(result.serial);
+            std.process.exit(if (result.saw_psci_shutdown or result.snapshotted) 0 else 1);
+        }
     }
 }
 
@@ -133,6 +158,10 @@ fn probeNestedSupport() noreturn {
         std.debug.print("machinen-microvm: nested virtualization unsupported: Hypervisor.framework EL2 support is unavailable\n", .{});
         std.process.exit(2);
     } else {
+        if (builtin.cpu.arch == .x86_64) {
+            std.debug.print("machinen-microvm: nested virtualization unsupported: x86_64 hosts are not supported\n", .{});
+            std.process.exit(2);
+        }
         var k = microvm.kvm.Kvm.open_() catch |err| {
             std.debug.print("machinen-microvm: nested virtualization unsupported: /dev/kvm probe failed: {s}\n", .{@errorName(err)});
             std.process.exit(2);

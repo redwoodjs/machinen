@@ -30,6 +30,13 @@ export const VMSTATE_SECTION = {
   virtiofsState: 7,
   ramDelta: 8,
   rootdiskDelta: 9,
+  x86Irqchip: 10,
+  x86Pit: 11,
+} as const;
+
+export const VMSTATE_ARCH = {
+  aarch64: 1,
+  x86_64: 2,
 } as const;
 
 const MAGIC = Buffer.from("VMSTATE\0");
@@ -45,6 +52,7 @@ interface VmstateSection {
 }
 
 interface DecodedVmstate {
+  arch?: number;
   topologyHash: Buffer;
   sections: VmstateSection[];
 }
@@ -70,7 +78,7 @@ export function readVmstate(path: string): DecodedVmstate {
     throw new Error(`vmstate: unsupported version ${version}`);
   }
   const arch = bytes.readUInt32LE(12);
-  if (arch !== 1) {
+  if (arch !== VMSTATE_ARCH.aarch64 && arch !== VMSTATE_ARCH.x86_64) {
     throw new Error(`vmstate: unsupported arch ${arch}`);
   }
   const sectionCount = bytes.readUInt32LE(16);
@@ -91,7 +99,7 @@ export function readVmstate(path: string): DecodedVmstate {
     sections.push({ tag, id, payload: Buffer.from(bytes.subarray(off, off + len)) });
     off += len;
   }
-  return { topologyHash, sections };
+  return { arch, topologyHash, sections };
 }
 
 export function writeVmstate(path: string, vmstate: DecodedVmstate): void {
@@ -102,7 +110,7 @@ export function writeVmstate(path: string, vmstate: DecodedVmstate): void {
   const out = Buffer.alloc(total);
   MAGIC.copy(out, 0);
   out.writeUInt32LE(1, 8);
-  out.writeUInt32LE(1, 12);
+  out.writeUInt32LE(vmstate.arch ?? VMSTATE_ARCH.aarch64, 12);
   out.writeUInt32LE(vmstate.sections.length, 16);
   vmstate.topologyHash.copy(out, 24);
   let off = HEADER_SIZE;
@@ -266,6 +274,7 @@ function combineVmstateRam(
       s.tag !== VMSTATE_SECTION.rootdiskDelta,
   );
   return {
+    arch: target.state.arch,
     topologyHash: target.state.topologyHash,
     sections: [...ramSections, ...targetNonRam],
   };

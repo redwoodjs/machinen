@@ -19,10 +19,20 @@ set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 PKG="$ROOT/packages/microvm"
-DEST_DIR="$ROOT/packages/native-arm64-darwin/vmm/bin"
+OS=$(uname -s)
+ARCH=$(uname -m)
+case "$OS:$ARCH" in
+  Darwin:arm64) PKG_ARCH="arm64"; PKG_OS="darwin" ;;
+  Linux:aarch64|Linux:arm64) PKG_ARCH="arm64"; PKG_OS="linux" ;;
+  Linux:x86_64|Linux:amd64) PKG_ARCH="x64"; PKG_OS="linux" ;;
+  *)
+    echo "unsupported host for VMM package staging: $OS/$ARCH" >&2
+    exit 1
+    ;;
+esac
+DEST_DIR="$ROOT/packages/native-${PKG_ARCH}-${PKG_OS}/vmm/bin"
 DEST="$DEST_DIR/machinen-vm"
 SIDECAR="$DEST.inputs-sha256"
-OS=$(uname -s)
 
 echo "==> building VMM (zig ReleaseSafe)"
 ( cd "$PKG" && zig build -Doptimize=ReleaseSafe )

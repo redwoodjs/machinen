@@ -6,7 +6,7 @@
 //! match the snapshot's, restore fails before touching any state.
 //!
 //! Hashed fields, in order, little-endian:
-//!   - arch (u32, always 1 = aarch64)
+//!   - arch (u32; 1 = aarch64, 2 = x86_64)
 //!   - ram_base (u64)
 //!   - ram_size (u64)
 //!   - gic_dist_base (u64)
@@ -22,6 +22,7 @@
 const std = @import("std");
 
 pub const ARCH_AARCH64: u32 = 1;
+pub const ARCH_X86_64: u32 = 2;
 
 /// Fixed by virt.dts. Update if/when the device tree moves.
 pub const UART_BASE: u64 = 0x0900_0000;
@@ -44,11 +45,13 @@ pub const Topology = struct {
         // Tiger-style preconditions on layout invariants. Page
         // alignment + non-zero RAM are necessary for the boot path
         // to map the region cleanly.
-        std.debug.assert(self.arch == ARCH_AARCH64);
+        std.debug.assert(self.arch == ARCH_AARCH64 or self.arch == ARCH_X86_64);
         std.debug.assert(self.ram_size > 0);
         std.debug.assert(self.ram_base % 4096 == 0);
         std.debug.assert(self.ram_size % 4096 == 0);
-        std.debug.assert(self.gic_dist_base != self.gic_redist_base);
+        if (self.arch == ARCH_AARCH64) {
+            std.debug.assert(self.gic_dist_base != self.gic_redist_base);
+        }
         std.debug.assert(self.virtio_mmio_count > 0);
 
         var h = std.crypto.hash.sha2.Sha256.init(.{});
@@ -101,6 +104,19 @@ test "hash is deterministic for the same input" {
     };
     const t2 = t1;
     try std.testing.expectEqual(t1.hash(), t2.hash());
+}
+
+test "hash supports x86_64 topology" {
+    const t: Topology = .{
+        .arch = ARCH_X86_64,
+        .ram_base = 0,
+        .ram_size = 4 * 1024 * 1024 * 1024,
+        .gic_dist_base = 0,
+        .gic_redist_base = 0,
+        .virtio_mmio_count = 12,
+    };
+    const h = t.hash();
+    try std.testing.expect(!std.mem.allEqual(u8, &h, 0));
 }
 
 test "hash diverges when ram_size changes" {

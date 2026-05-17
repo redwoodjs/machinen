@@ -81,8 +81,14 @@ mkdir -p /run 2>/dev/null || true
 # snapshot` and any restore both fail kerndat init. Universal fix: make
 # the supervisor responsible for the directory's existence so any
 # rootfs the runtime boots gets a usable /tmp before the workload runs.
-mkdir -p /tmp /var/tmp 2>/dev/null || true
+mkdir -p /tmp /var/tmp /dev 2>/dev/null || true
 chmod 1777 /tmp /var/tmp 2>/dev/null || true
+# Rootdisk pivots can leave us with the rootfs' empty /dev instead of
+# the initramfs devtmpfs. Mount it here so /dev/kmsg, /dev/console, and
+# the serial tty exist before we wire workload stdio.
+if [ ! -c /dev/kmsg ]; then
+    mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
+fi
 
 # `--session` is the legacy "run under setsid" toggle from when CRIU
 # dumps required it but interactive boots didn't. Both modes now go
@@ -92,9 +98,24 @@ if [ "${1:-}" = "--session" ]; then
     shift
 fi
 
-# Tell the user what we're about to run. Goes to /dev/ttyAMA0 alongside
-# the kernel's init checkpoints so it shows up in the boot stream.
-printf 'supervisor: starting cmd=%s\n' "$*" > /dev/ttyAMA0
+# Tell the user what we're about to run. Goes to the real serial tty
+# alongside the kernel's init checkpoints so it shows up in the boot
+# stream. Pick the tty from the kernel cmdline, not from device-node
+# existence: arm64 kernels can expose an unused /dev/ttyS0 too, but
+# their console is PL011 /dev/ttyAMA0.
+MACHINEN_TTY=/dev/console
+ACTIVE_CONSOLES=$(cat /sys/class/tty/console/active 2>/dev/null || true)
+case " $ACTIVE_CONSOLES " in
+    *" ttyAMA0 "*) MACHINEN_TTY=/dev/ttyAMA0 ;;
+esac
+if [ ! -c "$MACHINEN_TTY" ]; then
+    MACHINEN_TTY=/dev/console
+fi
+if [ "$MACHINEN_TTY" = "/dev/console" ]; then
+    printf '<2>supervisor: starting cmd=%s\n' "$*" > /dev/kmsg 2>/dev/null || true
+else
+    printf 'supervisor: starting cmd=%s\n' "$*" > "$MACHINEN_TTY"
+fi
 
 # /sbin/machinen-no-iou: seccomp-bpf shim that returns ENOSYS for the
 # io_uring_setup/_enter/_register triple. Wraps every workload because
@@ -109,7 +130,7 @@ printf 'supervisor: starting cmd=%s\n' "$*" > /dev/ttyAMA0
 # covered. Cost on workloads that never call io_uring: a couple of
 # BPF compare instructions per syscall — unmeasurable.
 #
-# Run the workload under `setsid -c -w` with stdio bound to /dev/ttyAMA0:
+# Run the workload under `setsid -c -w` with stdio bound to the real serial tty:
 #
 #   - `setsid` puts the workload in a brand-new session as leader.
 #     The session leader IS the dump tree's root, so CRIU has the
@@ -120,21 +141,20 @@ printf 'supervisor: starting cmd=%s\n' "$*" > /dev/ttyAMA0
 #     PG — `/bin/sh -i` reads return EIO (orphaned pgrp), it prints
 #     the prompt once and exits, the supervisor's `wait` returns, and
 #     machinen-poweroff fires before the user types anything.
-#   - We bind to **/dev/ttyAMA0** (the real PL011 tty), not
-#     /dev/console (the kernel's virtual console proxy). CRIU can't
-#     reliably round-trip the foreground-PG state on /dev/console:
-#     a forked VM ended up with `tpgid=-1` so VINTR/VSUSP fired in
-#     the kernel but went nowhere — Ctrl-C/Ctrl-Z became no-ops in
-#     the restored shell. /dev/ttyAMA0 is a regular tty inode that
-#     CRIU restores cleanly.
+#   - We bind to the real serial tty, not /dev/console (the kernel's
+#     virtual console proxy). CRIU can't reliably round-trip the
+#     foreground-PG state on /dev/console: a forked VM ended up with
+#     `tpgid=-1` so VINTR/VSUSP fired in the kernel but went nowhere —
+#     Ctrl-C/Ctrl-Z became no-ops in the restored shell. The real serial
+#     tty is a regular tty inode that CRIU restores cleanly.
 #   - `-w` makes setsid(1) `wait` for the workload after the fork
 #     it has to perform when invoked from a process-group leader (we
 #     are one, courtesy of `&`). Without `-w`, the parent setsid
 #     forks, exits immediately, and `wait "$!"` returns before the
 #     workload starts — orphaning it under PID 1 and dropping the
 #     trap target.
-#   - Explicit </dev/ttyAMA0 redirect ensures fd 0 is a tty when
-#     setsid runs (`-c` reads ctty from stdin).
+#   - Explicit serial-tty redirect ensures fd 0 is a tty when setsid
+#     runs (`-c` reads ctty from stdin).
 #
 # The inner `sh -c` writes /run/machinen-workload.pid using its own
 # $$ — which, because it then `exec`s the no-iou shim (which then
@@ -144,10 +164,24 @@ printf 'supervisor: starting cmd=%s\n' "$*" > /dev/ttyAMA0
 # supervisor with $!) is essential: $! points at the parent setsid,
 # which has already exited. Wrong pid = CRIU dumps a dead pid and
 # bails with exit 32.
-/usr/bin/setsid -c -w sh -c \
-    'printf "%s" "$$" > /run/machinen-workload.pid; exec /sbin/machinen-no-iou "$@"' \
-    inner "$@" </dev/ttyAMA0 >/dev/ttyAMA0 2>/dev/ttyAMA0 &
-PID=$!
+if [ "$MACHINEN_TTY" = "/dev/console" ]; then
+    # /dev/console is not a real tty inode, so TIOCSCTTY (`setsid -c`)
+    # fails on x86 until we grow a discoverable COM1 device. For this
+    # fallback, run without a controlling tty and mirror workload output
+    # through /dev/kmsg so the VMM's serial-console stream still carries
+    # non-interactive command output.
+    /usr/bin/setsid -w sh -c \
+        'printf "%s" "$$" > /run/machinen-workload.pid; exec /sbin/machinen-no-iou "$@"' \
+        inner "$@" </dev/null 2>&1 | while IFS= read -r line || [ -n "$line" ]; do
+            printf '<2>%s\n' "$line" > /dev/kmsg 2>/dev/null || true
+        done &
+    PID=$!
+else
+    /usr/bin/setsid -c -w sh -c \
+        'printf "%s" "$$" > /run/machinen-workload.pid; exec /sbin/machinen-no-iou "$@"' \
+        inner "$@" <"$MACHINEN_TTY" >"$MACHINEN_TTY" 2>"$MACHINEN_TTY" &
+    PID=$!
+fi
 
 # Propagate SIGTERM / SIGINT to the workload so host-side vm.kill()
 # and Ctrl-C from the console signal the right process. Read the pid

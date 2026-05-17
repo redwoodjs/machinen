@@ -14,6 +14,7 @@
 //! Companion of `../docs/rootfs.md`.
 
 const std = @import("std");
+const builtin = @import("builtin");
 
 // --- libc bindings (same idiom as src/blk.zig — std.posix / std.fs
 //     are in flux in Zig 0.16). We compile with -lc so these resolve
@@ -54,8 +55,11 @@ extern "c" fn readdir(dirp: *anyopaque) ?*Dirent;
 extern "c" fn readlink(path: [*:0]const u8, buf: [*]u8, bufsize: usize) isize;
 extern "c" fn symlink(target: [*:0]const u8, linkpath: [*:0]const u8) c_int;
 extern "c" fn ioctl(fd: c_int, req: c_ulong, arg: *anyopaque) c_int;
+extern "c" fn reboot(cmd: c_int) c_int;
+extern "c" fn sync() void;
 
 const CLOCK_REALTIME: c_int = 0;
+const LINUX_REBOOT_CMD_POWER_OFF: c_int = @bitCast(@as(u32, 0x4321fedc));
 
 const timespec = extern struct { tv_sec: i64, tv_nsec: i64 };
 
@@ -173,6 +177,7 @@ fn sleepMs(ms: i64) void {
 // host's stdin is forwarded through to the guest where nothing reads
 // it, so the user has to pgrep+kill the VMM by hand. See issue #135.
 fn psciSystemOff() noreturn {
+    if (comptime builtin.cpu.arch != .aarch64) unreachable;
     while (true) {
         asm volatile ("hvc #0"
             :
@@ -185,13 +190,27 @@ fn psciSystemOff() noreturn {
     }
 }
 
+fn linuxPowerOff() noreturn {
+    sync();
+    _ = reboot(LINUX_REBOOT_CMD_POWER_OFF);
+    while (true) sleepMs(60_000);
+}
+
+fn machinenPowerOff() noreturn {
+    if (comptime builtin.cpu.arch == .aarch64) {
+        psciSystemOff();
+    } else {
+        linuxPowerOff();
+    }
+}
+
 fn die(msg: []const u8) noreturn {
     logLine(msg);
-    // Give the kernel printk + pl011 TX FIFO a beat to drain so the
-    // failure message reaches the host before SYSTEM_OFF tears the
-    // VM down. 100ms is overkill for a virtual UART but cheap.
+    // Give the kernel printk + UART TX path a beat to drain so the
+    // failure message reaches the host before poweroff tears the VM
+    // down. 100ms is overkill for a virtual UART but cheap.
     sleepMs(100);
-    psciSystemOff();
+    machinenPowerOff();
 }
 
 fn mountIgnore(src: [*:0]const u8, dst: [*:0]const u8, fstype: [*:0]const u8) void {
@@ -247,6 +266,8 @@ fn bringUpNetwork() void {
 fn waitForConsole() c_int {
     var i: u32 = 0;
     while (i < 100) : (i += 1) {
+        const fd_ttyS0 = open("/dev/ttyS0", O_RDWR);
+        if (fd_ttyS0 >= 0) return fd_ttyS0;
         const fd = open("/dev/ttyAMA0", O_RDWR);
         if (fd >= 0) return fd;
         const fd2 = open("/dev/console", O_RDWR);
@@ -1035,6 +1056,7 @@ pub fn main() noreturn {
         _ = dup2(console, 0);
         _ = dup2(console, 1);
         _ = dup2(console, 2);
+        if (console > 2) _ = close(console);
     }
 
     writeStr(1, "\n=== machinen /init: reading /machinen-config.json ===\n");

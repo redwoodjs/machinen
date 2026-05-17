@@ -5,7 +5,7 @@
 //!   Header (64 bytes, fixed)
 //!     magic[8]            = "VMSTATE\0"
 //!     version u32          = 1
-//!     arch u32             = 1 (aarch64; future-proofed)
+//!     arch u32             = 1 (aarch64) or 2 (x86_64)
 //!     section_count u32
 //!     reserved u32         = 0
 //!     topology_hash[32]    = SHA256 of the guest IPA layout
@@ -39,6 +39,7 @@ const std = @import("std");
 pub const MAGIC: [8]u8 = .{ 'V', 'M', 'S', 'T', 'A', 'T', 'E', 0 };
 pub const VERSION: u32 = 1;
 pub const ARCH_AARCH64: u32 = 1;
+pub const ARCH_X86_64: u32 = 2;
 pub const HEADER_SIZE: usize = 64;
 
 pub const SectionTag = enum(u32) {
@@ -62,6 +63,11 @@ pub const SectionTag = enum(u32) {
     /// Incremental rootdisk overlay against this checkpoint's parent.
     /// Payload schema: rootdisk_delta.zig.
     rootdisk_delta = 9,
+    /// x86 in-kernel interrupt-controller state. Section `id` is the
+    /// KVM irqchip id: 0=master PIC, 1=slave PIC, 2=IOAPIC.
+    x86_irqchip = 10,
+    /// x86 in-kernel PIT state (`struct kvm_pit_state2`).
+    x86_pit = 11,
     _,
 };
 
@@ -117,7 +123,17 @@ pub fn encode(
     topology_hash: [32]u8,
     sections: []const Section,
 ) ![]u8 {
+    return encodeWithArch(allocator, ARCH_AARCH64, topology_hash, sections);
+}
+
+pub fn encodeWithArch(
+    allocator: std.mem.Allocator,
+    arch: u32,
+    topology_hash: [32]u8,
+    sections: []const Section,
+) ![]u8 {
     // Tiger-style preconditions.
+    std.debug.assert(arch == ARCH_AARCH64 or arch == ARCH_X86_64);
     std.debug.assert(sections.len <= std.math.maxInt(u32));
 
     var total: usize = HEADER_SIZE;
@@ -132,7 +148,7 @@ pub fn encode(
     const hdr: Header = .{
         .magic = MAGIC,
         .version = VERSION,
-        .arch = ARCH_AARCH64,
+        .arch = arch,
         .section_count = @intCast(sections.len),
         .topology_hash = topology_hash,
     };
@@ -161,7 +177,7 @@ pub fn decode(allocator: std.mem.Allocator, bytes: []const u8) ParseError!Vmstat
 
     if (!std.mem.eql(u8, &hdr.magic, &MAGIC)) return error.BadMagic;
     if (hdr.version != VERSION) return error.UnsupportedVersion;
-    if (hdr.arch != ARCH_AARCH64) return error.UnsupportedArch;
+    if (hdr.arch != ARCH_AARCH64 and hdr.arch != ARCH_X86_64) return error.UnsupportedArch;
 
     var arena = std.heap.ArenaAllocator.init(allocator);
     errdefer arena.deinit();
@@ -282,6 +298,19 @@ test "encode/decode round-trip with no sections" {
     try std.testing.expectEqual(ARCH_AARCH64, snap.header.arch);
     try std.testing.expectEqualSlices(u8, &topo, &snap.header.topology_hash);
     try std.testing.expectEqual(@as(usize, 0), snap.sections.len);
+}
+
+test "encode/decode round-trip with x86_64 arch" {
+    const allocator = std.testing.allocator;
+    const topo: [32]u8 = @splat(0xcd);
+
+    const bytes = try encodeWithArch(allocator, ARCH_X86_64, topo, &.{});
+    defer allocator.free(bytes);
+
+    var snap = try decode(allocator, bytes);
+    defer snap.deinit();
+    try std.testing.expectEqual(ARCH_X86_64, snap.header.arch);
+    try std.testing.expectEqualSlices(u8, &topo, &snap.header.topology_hash);
 }
 
 test "encode/decode round-trip with multiple sections" {

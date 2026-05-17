@@ -8,8 +8,8 @@
 # How it works:
 #   - At build time, scripts/build-base-assets.sh hashes the input
 #     files and writes the digest to a sidecar:
-#       release-assets/rootfs-debian-arm64.tar.gz.inputs-sha256
-#       release-assets/Image-arm64.inputs-sha256
+#       release-assets/rootfs-debian-<arch>.tar.gz.inputs-sha256
+#       release-assets/<kernel-asset>.inputs-sha256
 #   - At check time (this script), the same input files are hashed
 #     and compared against the sidecar. A mismatch means the source
 #     has moved on since the binary was built.
@@ -42,7 +42,39 @@ ASSETS="${ROOT}/packages/microvm/assets"
 SCRIPTS="${ROOT}/scripts"
 OUT="${ROOT}/release-assets"
 
-# Files whose contents are baked into rootfs-debian-arm64.tar.gz.
+# Guest-asset arch. Mirrors scripts/build-base-assets.sh / CLI defaulting:
+# x64 Linux hosts build/use amd64 guests; everything else defaults to arm64
+# unless MACHINEN_GUEST_ARCH overrides it.
+guest_arch() {
+  local arch="${MACHINEN_GUEST_ARCH:-${GUEST_ARCH:-}}"
+  if [[ -z "$arch" ]]; then
+    case "$(uname -m)" in
+      x86_64|amd64) arch="amd64" ;;
+      *) arch="arm64" ;;
+    esac
+  fi
+  case "$arch" in
+    arm64|aarch64) printf '%s' "arm64" ;;
+    amd64|x86_64|x64) printf '%s' "amd64" ;;
+    *) echo "asset-freshness: MACHINEN_GUEST_ARCH must be arm64 or amd64 (got $arch)" >&2; return 1 ;;
+  esac
+}
+
+rootfs_asset_name() {
+  case "$(guest_arch)" in
+    arm64) printf '%s' "rootfs-debian-arm64.tar.gz" ;;
+    amd64) printf '%s' "rootfs-debian-amd64.tar.gz" ;;
+  esac
+}
+
+kernel_asset_name() {
+  case "$(guest_arch)" in
+    arm64) printf '%s' "Image-arm64" ;;
+    amd64) printf '%s' "bzImage-x86_64" ;;
+  esac
+}
+
+# Files whose contents are baked into rootfs-debian-<arch>.tar.gz.
 # - The .zig sources are compiled to /init, /exec-agent, /sbin/...
 #   inside the rootfs.
 # - The .sh scripts are copied verbatim under /sbin.
@@ -77,18 +109,25 @@ rootfs_input_files() {
   fi
 }
 
-# Files whose contents are baked into Image-arm64. The kernel itself
-# comes from upstream kernel.org pinned by version inside
-# build-kernel-arm64.sh — that single script captures version pin and
+# Files whose contents are baked into the guest kernel. The kernel
+# itself comes from upstream kernel.org pinned by version inside the
+# arch-specific build script; that script captures version pin and
 # CONFIG_ overrides. Patches in packages/microvm/patches/kernel/ are
 # applied on top by the same script, so changing or adding a patch
 # must also invalidate the sidecar. virt.dts contributes to
-# virt-arm64.dtb (compiled alongside the kernel) so it's listed here
-# too.
+# virt-arm64.dtb for arm64 only, so amd64 excludes it.
 kernel_input_files() {
-  printf '%s\n' \
-    "${ASSETS}/virt.dts" \
-    "${SCRIPTS}/build-kernel-arm64.sh"
+  case "$(guest_arch)" in
+    arm64)
+      printf '%s\n' \
+        "${ASSETS}/virt.dts" \
+        "${SCRIPTS}/build-kernel-arm64.sh"
+      ;;
+    amd64)
+      printf '%s\n' \
+        "${SCRIPTS}/build-kernel-x86_64.sh"
+      ;;
+  esac
   if [ -d "${ROOT}/packages/microvm/patches/kernel" ]; then
     find "${ROOT}/packages/microvm/patches/kernel" -maxdepth 1 -type f \
       -name '*.patch' -print | sort
@@ -172,7 +211,16 @@ verify_sidecar() {
 # travels with the artifact (matches the rootfs/kernel pattern under
 # release-assets/).
 vmm_dest_path() {
-  printf '%s' "${ROOT}/packages/native-arm64-darwin/vmm/bin/machinen-vm"
+  local os arch pkg_arch pkg_os
+  os=$(uname -s)
+  arch=$(uname -m)
+  case "$os:$arch" in
+    Darwin:arm64) pkg_arch="arm64"; pkg_os="darwin" ;;
+    Linux:aarch64|Linux:arm64) pkg_arch="arm64"; pkg_os="linux" ;;
+    Linux:x86_64|Linux:amd64) pkg_arch="x64"; pkg_os="linux" ;;
+    *) pkg_arch="arm64"; pkg_os="darwin" ;;
+  esac
+  printf '%s' "${ROOT}/packages/native-${pkg_arch}-${pkg_os}/vmm/bin/machinen-vm"
 }
 
 main() {
@@ -188,11 +236,11 @@ main() {
   # soft skip (covered elsewhere — smoke-tests.sh and mn-dev handle
   # first builds), without hiding staleness in the others.
   if [[ -d "$OUT" ]]; then
-    verify_sidecar "rootfs" "${OUT}/rootfs-debian-arm64.tar.gz.inputs-sha256" \
-      rootfs_input_files "bash scripts/build-base-assets.sh" \
+    verify_sidecar "rootfs" "${OUT}/$(rootfs_asset_name).inputs-sha256" \
+      rootfs_input_files "MACHINEN_GUEST_ARCH=$(guest_arch) bash scripts/build-base-assets.sh" \
       || rootfs_rc=$?
-    verify_sidecar "kernel" "${OUT}/Image-arm64.inputs-sha256" \
-      kernel_input_files "bash scripts/build-base-assets.sh" \
+    verify_sidecar "kernel" "${OUT}/$(kernel_asset_name).inputs-sha256" \
+      kernel_input_files "MACHINEN_GUEST_ARCH=$(guest_arch) bash scripts/build-base-assets.sh" \
       || kernel_rc=$?
   elif ! $quiet; then
     echo "asset-freshness: ${OUT##*/} not present, skipping rootfs/kernel check"
@@ -228,14 +276,14 @@ what_stale() {
   local rc
   if [[ -d "$OUT" ]]; then
     rc=0
-    verify_sidecar "rootfs" "${OUT}/rootfs-debian-arm64.tar.gz.inputs-sha256" \
-      rootfs_input_files "bash scripts/build-base-assets.sh" \
+    verify_sidecar "rootfs" "${OUT}/$(rootfs_asset_name).inputs-sha256" \
+      rootfs_input_files "MACHINEN_GUEST_ARCH=$(guest_arch) bash scripts/build-base-assets.sh" \
       >/dev/null 2>&1 || rc=$?
     (( rc == 1 )) && echo rootfs
 
     rc=0
-    verify_sidecar "kernel" "${OUT}/Image-arm64.inputs-sha256" \
-      kernel_input_files "bash scripts/build-base-assets.sh" \
+    verify_sidecar "kernel" "${OUT}/$(kernel_asset_name).inputs-sha256" \
+      kernel_input_files "MACHINEN_GUEST_ARCH=$(guest_arch) bash scripts/build-base-assets.sh" \
       >/dev/null 2>&1 || rc=$?
     (( rc == 1 )) && echo kernel
   fi

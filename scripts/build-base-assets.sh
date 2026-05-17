@@ -56,6 +56,41 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 ASSETS="${ROOT}/packages/microvm/assets"
 OUT="${ROOT}/release-assets"
+GUEST_ARCH="${MACHINEN_GUEST_ARCH:-}"
+if [ -z "$GUEST_ARCH" ]; then
+  case "$(uname -m)" in
+    x86_64|amd64) GUEST_ARCH="amd64" ;;
+    *) GUEST_ARCH="arm64" ;;
+  esac
+fi
+case "$GUEST_ARCH" in
+  arm64)
+    KERNEL_ASSET="Image-arm64"
+    DTB_ASSET="virt-arm64.dtb"
+    ROOTFS_TAR="rootfs-debian-arm64.tar.gz"
+    ROOTFS_IMG="rootfs-debian-arm64.img.gz"
+    ZIG_GUEST_TARGET="aarch64-linux-musl"
+    DOCKER_PLATFORM="linux/arm64"
+    DEBIAN_ARCH="arm64"
+    FNM_ASSET="fnm-arm64.zip"
+    FNM_SHA256="69feda9455931c26c84be9f95f5e6f69e8b64686e68069fab7cfc34756cd2944"
+    ;;
+  amd64)
+    KERNEL_ASSET="bzImage-x86_64"
+    DTB_ASSET=""
+    ROOTFS_TAR="rootfs-debian-amd64.tar.gz"
+    ROOTFS_IMG="rootfs-debian-amd64.img.gz"
+    ZIG_GUEST_TARGET="x86_64-linux-musl"
+    DOCKER_PLATFORM="linux/amd64"
+    DEBIAN_ARCH="amd64"
+    FNM_ASSET="fnm-linux.zip"
+    FNM_SHA256="b69e5c9a05c1e17e4a7de9a17df14ba430d049f2591af791a6f850a170296069"
+    ;;
+  *)
+    echo "MACHINEN_GUEST_ARCH must be arm64 or amd64 (got $GUEST_ARCH)" >&2
+    exit 1
+    ;;
+esac
 # Per-tarball materialized ext4 images live here, keyed by sha256 of
 # the source rootfs-debian-arm64.tar.gz. A fresh build always produces
 # a new sha (mtimes / content shift), so old .img files are unreferenced
@@ -67,76 +102,70 @@ mkdir -p "$OUT"
 # Preserve any pre-staged kernel/dtb (darwin dev workflow); wipe
 # everything else so a stale rootfs.tar.gz can't get picked up.
 find "$OUT" -mindepth 1 -maxdepth 1 \
-  ! -name 'Image-arm64' ! -name 'virt-arm64.dtb' ! -name '*.sha256' \
+  ! -name "$KERNEL_ASSET" ${DTB_ASSET:+! -name "$DTB_ASSET"} ! -name '*.sha256' \
   -exec rm -f {} +
 rm -rf "${ROOTFS_IMG_CACHE:?}"/*.img "${ROOTFS_IMG_CACHE:?}"/*-staging-* \
        "${ROOTFS_IMG_CACHE:?}"/*-prebake-* 2>/dev/null || true
 
 # ------------------------------------------------------------
-# 1. Kernel — custom upstream arm64 build with built-in drivers (#119)
+# 1. Kernel — custom upstream build with built-in drivers (#119/#362)
 # ------------------------------------------------------------
-# The Debian cloud kernel ships virtio_*, ext4, etc. as modules, which
-# forced the cpio to drag /lib/modules + kmod + libc into RAM at every
-# boot just to load them. Building our own kernel with CONFIG_*=y for
-# those drivers shrinks the cpio to ~500 KB.
-#
-# Delegated to scripts/build-kernel-arm64.sh — runs natively on arm64
-# (CI uses ubuntu-24.04-arm; for darwin dev set MACHINEN_REMOTE_BUILDER
-# to ssh into a native arm64 box). qemu-emulated kernel builds work
-# but take hours, so we hard-fail rather than silently sandbag.
 
-if [ -f "$OUT/Image-arm64" ]; then
-  echo "==> Reusing existing kernel: $OUT/Image-arm64 ($(stat -f %z "$OUT/Image-arm64" 2>/dev/null || stat -c %s "$OUT/Image-arm64") bytes)"
+if [ -f "$OUT/$KERNEL_ASSET" ]; then
+  echo "==> Reusing existing kernel: $OUT/$KERNEL_ASSET ($(stat -f %z "$OUT/$KERNEL_ASSET" 2>/dev/null || stat -c %s "$OUT/$KERNEL_ASSET") bytes)"
 else
-echo "==> Building custom arm64 kernel with virtio_* + ext4 + vsock + fuse =y"
-
-KERNEL_PATCHES_DIR="${ROOT}/packages/microvm/patches/kernel"
-if [ -n "${MACHINEN_REMOTE_BUILDER:-}" ]; then
-  # Remote build: rsync the kernel build script + any kernel patches
-  # over, run it, pull the Image back. The remote host owns its own
-  # kernel-source cache at $REMOTE_WORKDIR (defaults to
-  # ~/.cache/machinen/kernel) so repeated rebuilds reuse the unpacked
-  # source tree (and re-extract on patch-set changes — see
-  # build-kernel-arm64.sh's PATCHES_DIR handling).
-  REMOTE_WORKDIR="${MACHINEN_REMOTE_WORKDIR:-\$HOME/.cache/machinen/kernel}"
-  echo "    via remote builder: $MACHINEN_REMOTE_BUILDER (workdir=$REMOTE_WORKDIR)"
-  ssh "$MACHINEN_REMOTE_BUILDER" "mkdir -p $REMOTE_WORKDIR/patches"
-  rsync -az "${ROOT}/scripts/build-kernel-arm64.sh" \
-    "$MACHINEN_REMOTE_BUILDER:$REMOTE_WORKDIR/build-kernel-arm64.sh"
-  if [ -d "$KERNEL_PATCHES_DIR" ]; then
-    rsync -az --delete "${KERNEL_PATCHES_DIR}/" \
-      "$MACHINEN_REMOTE_BUILDER:$REMOTE_WORKDIR/patches/"
+  echo "==> Building custom $GUEST_ARCH kernel with virtio_* + ext4 + vsock + fuse =y"
+  KERNEL_PATCHES_DIR="${ROOT}/packages/microvm/patches/kernel"
+  if [ "$GUEST_ARCH" = "arm64" ]; then
+    if [ -n "${MACHINEN_REMOTE_BUILDER:-}" ]; then
+      REMOTE_WORKDIR="${MACHINEN_REMOTE_WORKDIR:-\$HOME/.cache/machinen/kernel}"
+      echo "    via remote builder: $MACHINEN_REMOTE_BUILDER (workdir=$REMOTE_WORKDIR)"
+      ssh "$MACHINEN_REMOTE_BUILDER" "mkdir -p $REMOTE_WORKDIR/patches"
+      rsync -az "${ROOT}/scripts/build-kernel-arm64.sh" \
+        "$MACHINEN_REMOTE_BUILDER:$REMOTE_WORKDIR/build-kernel-arm64.sh"
+      if [ -d "$KERNEL_PATCHES_DIR" ]; then
+        rsync -az --delete "${KERNEL_PATCHES_DIR}/" \
+          "$MACHINEN_REMOTE_BUILDER:$REMOTE_WORKDIR/patches/"
+      fi
+      ssh "$MACHINEN_REMOTE_BUILDER" \
+        "WORKDIR=$REMOTE_WORKDIR PATCHES_DIR=$REMOTE_WORKDIR/patches bash $REMOTE_WORKDIR/build-kernel-arm64.sh"
+      rsync -az \
+        "$MACHINEN_REMOTE_BUILDER:$REMOTE_WORKDIR/Image-arm64" \
+        "$OUT/$KERNEL_ASSET"
+    elif { [ "$(uname -m)" = "aarch64" ] || [ "$(uname -m)" = "arm64" ]; } && [ "$(uname -s)" = "Linux" ]; then
+      WORKDIR="${MACHINEN_KERNEL_WORKDIR:-${ROOT}/.kernel-build}" \
+      OUT="$OUT/$KERNEL_ASSET" \
+      PATCHES_DIR="$KERNEL_PATCHES_DIR" \
+        bash "${ROOT}/scripts/build-kernel-arm64.sh"
+    else
+      echo "build-base-assets: cannot build the arm64 kernel here." >&2
+      echo "  Set MACHINEN_REMOTE_BUILDER=user@host (an arm64 ssh target)," >&2
+      echo "  or run this script on native arm64 Linux." >&2
+      exit 1
+    fi
+  else
+    if [ "$(uname -s)" != "Linux" ] || { [ "$(uname -m)" != "x86_64" ] && [ "$(uname -m)" != "amd64" ]; }; then
+      echo "build-base-assets: amd64 kernel build needs native x86_64 Linux." >&2
+      exit 1
+    fi
+    WORKDIR="${MACHINEN_KERNEL_WORKDIR:-${ROOT}/.kernel-build-x86_64}" \
+    OUT="$OUT/$KERNEL_ASSET" \
+    PATCHES_DIR="$KERNEL_PATCHES_DIR" \
+      bash "${ROOT}/scripts/build-kernel-x86_64.sh"
   fi
-  ssh "$MACHINEN_REMOTE_BUILDER" \
-    "WORKDIR=$REMOTE_WORKDIR PATCHES_DIR=$REMOTE_WORKDIR/patches bash $REMOTE_WORKDIR/build-kernel-arm64.sh"
-  rsync -az \
-    "$MACHINEN_REMOTE_BUILDER:$REMOTE_WORKDIR/Image-arm64" \
-    "$OUT/Image-arm64"
-elif [ "$(uname -m)" = "aarch64" ] || [ "$(uname -m)" = "arm64" ] && [ "$(uname -s)" = "Linux" ]; then
-  # Native arm64 Linux (CI's ubuntu-24.04-arm runner). Build directly
-  # on the host — no docker overhead, no emulation.
-  WORKDIR="${MACHINEN_KERNEL_WORKDIR:-${ROOT}/.kernel-build}" \
-  OUT="$OUT/Image-arm64" \
-  PATCHES_DIR="$KERNEL_PATCHES_DIR" \
-    bash "${ROOT}/scripts/build-kernel-arm64.sh"
-else
-  echo "build-base-assets: cannot build the kernel here." >&2
-  echo "  Native build needs an arm64 Linux host." >&2
-  echo "  Set MACHINEN_REMOTE_BUILDER=user@host (an arm64 ssh target) to" >&2
-  echo "  delegate the build, or run this script on ubuntu-24.04-arm." >&2
-  exit 1
 fi
-fi  # close the "Reuse existing kernel" guard
 
 # ------------------------------------------------------------
-# 2. Device tree blob
+# 2. Device tree blob (arm64 only)
 # ------------------------------------------------------------
 
-if [ -f "$OUT/virt-arm64.dtb" ]; then
-  echo "==> Reusing existing dtb: $OUT/virt-arm64.dtb"
-else
-  echo "==> Compiling virt.dts -> virt-arm64.dtb"
-  dtc -I dts -O dtb "${ASSETS}/virt.dts" -o "${OUT}/virt-arm64.dtb"
+if [ -n "$DTB_ASSET" ]; then
+  if [ -f "$OUT/$DTB_ASSET" ]; then
+    echo "==> Reusing existing dtb: $OUT/$DTB_ASSET"
+  else
+    echo "==> Compiling virt.dts -> $DTB_ASSET"
+    dtc -I dts -O dtb "${ASSETS}/virt.dts" -o "$OUT/$DTB_ASSET"
+  fi
 fi
 
 # ------------------------------------------------------------
@@ -144,7 +173,7 @@ fi
 #    (all statically linked against musl)
 # ------------------------------------------------------------
 
-echo "==> Building guest binaries (init, exec-agent, winsize-agent, CRIU helpers, poweroff, net-bench-probe) for aarch64-linux-musl"
+echo "==> Building guest binaries (init, exec-agent, winsize-agent, CRIU helpers, poweroff, net-bench-probe) for ${ZIG_GUEST_TARGET}"
 # STAGE has to live inside ROOT, not /tmp, because the mmdebstrap step
 # below runs docker with `-v "$STAGE":/stage:ro`. When build-base-assets
 # itself runs inside a container (agent-ci's local runner, dev shell
@@ -172,7 +201,7 @@ trap 'rm -rf "$STAGE"' EXIT
 # virtio-fs device serves it; /init just `mount -t virtiofs`s it.)
 for name in init exec-agent winsize-agent lo-up no-iou poweroff net-bench-probe memdirty; do
   zig build-exe "${ASSETS}/${name}.zig" \
-    -target aarch64-linux-musl \
+    -target "${ZIG_GUEST_TARGET}" \
     -O ReleaseSmall \
     -lc \
     -femit-bin="${STAGE}/${name}"
@@ -180,7 +209,7 @@ for name in init exec-agent winsize-agent lo-up no-iou poweroff net-bench-probe 
 done
 
 zig cc "${ASSETS}/machinen-netup.c" \
-  -target aarch64-linux-musl \
+  -target "${ZIG_GUEST_TARGET}" \
   -static \
   -Os \
   -o "${STAGE}/machinen-netup"
@@ -215,10 +244,9 @@ install -m 0755 "${STAGE}/exec-agent"  "${OUT}/exec-agent"
 # straight to nodejs.org unless the caller redirects via
 # FNM_NODE_DIST_MIRROR in `boot({ env })`.
 
-echo "==> Downloading fnm (static arm64 binary)"
+echo "==> Downloading fnm (static ${GUEST_ARCH} binary)"
 FNM_VERSION="1.38.1"
-FNM_SHA256="69feda9455931c26c84be9f95f5e6f69e8b64686e68069fab7cfc34756cd2944"
-FNM_URL="https://github.com/Schniz/fnm/releases/download/v${FNM_VERSION}/fnm-arm64.zip"
+FNM_URL="https://github.com/Schniz/fnm/releases/download/v${FNM_VERSION}/${FNM_ASSET}"
 curl -fsSL -o "${STAGE}/fnm.zip" "$FNM_URL"
 echo "${FNM_SHA256}  ${STAGE}/fnm.zip" | shasum -a 256 -c -
 unzip -q -o "${STAGE}/fnm.zip" -d "${STAGE}"
@@ -257,9 +285,12 @@ fi
 # --setup-hook: pre-seeds dpkg path-excludes BEFORE essential package
 #   install, so man/doc/info are never unpacked to begin with.
 
-echo "==> Building minimal Debian arm64 rootfs via mmdebstrap"
+echo "==> Building minimal Debian ${DEBIAN_ARCH} rootfs via mmdebstrap"
 
-docker run --rm -i --privileged --platform linux/arm64 \
+docker run --rm -i --privileged --platform "${DOCKER_PLATFORM}" \
+  -e DEBIAN_ARCH="${DEBIAN_ARCH}" \
+  -e ROOTFS_TAR="${ROOTFS_TAR}" \
+  -e ROOTFS_IMG="${ROOTFS_IMG}" \
   -v "${STAGE}":/stage:ro \
   -v "$OUT":/out \
   debian:bookworm-slim bash -s <<'CONTAINER_SCRIPT'
@@ -324,7 +355,7 @@ chmod +x /tmp/setup-hook.sh
 #   ping sockets (sysctl is enabled in cloud kernels).
 mmdebstrap \
   --variant=minbase \
-  --architectures=arm64 \
+  --architectures="${DEBIAN_ARCH}" \
   --include=criu,e2fsprogs,iputils-ping \
   --setup-hook=/tmp/setup-hook.sh \
   bookworm /work/rootfs
@@ -476,7 +507,7 @@ install -m 0755 -D /stage/machinen-restore.sh        /work/rootfs/sbin/machinen-
 tar --sort=name --owner=0 --group=0 --numeric-owner \
   --mtime="2020-01-01 00:00Z" \
   -C /work/rootfs -cf - . |
-gzip -n > /out/rootfs-debian-arm64.tar.gz
+gzip -n > "/out/${ROOTFS_TAR}"
 
 # ----------------------------------------------------------------
 # #223: prebake the ext4 `.img` next to the tarball so cold boots
@@ -504,7 +535,7 @@ BLOCKS=$(( SIZE_BYTES / 4096 ))
 echo "==> Prebaking rootfs ext4 image: ${SIZE_BYTES} bytes (${BLOCKS} x 4 KiB blocks)"
 truncate -s "$SIZE_BYTES" /tmp/rootfs.img
 mke2fs -d /work/rootfs -t ext4 -F -q -b 4096 /tmp/rootfs.img "$BLOCKS"
-gzip -n -c /tmp/rootfs.img > /out/rootfs-debian-arm64.img.gz
+gzip -n -c /tmp/rootfs.img > "/out/${ROOTFS_IMG}"
 rm -f /tmp/rootfs.img
 CONTAINER_SCRIPT
 
@@ -514,7 +545,7 @@ CONTAINER_SCRIPT
 
 echo "==> Writing sha256 sidecars"
 cd "$OUT"
-for f in Image-arm64 virt-arm64.dtb rootfs-debian-arm64.tar.gz rootfs-debian-arm64.img.gz; do
+for f in "$KERNEL_ASSET" ${DTB_ASSET:+"$DTB_ASSET"} "$ROOTFS_TAR" "$ROOTFS_IMG"; do
   shasum -a 256 "$f" > "${f}.sha256"
 done
 
@@ -525,8 +556,8 @@ done
 echo "==> Writing input-hash sidecars"
 # shellcheck source=./check-asset-freshness.sh
 source "${ROOT}/scripts/check-asset-freshness.sh"
-rootfs_input_files | compute_sha > "${OUT}/rootfs-debian-arm64.tar.gz.inputs-sha256"
-kernel_input_files | compute_sha > "${OUT}/Image-arm64.inputs-sha256"
+rootfs_input_files | compute_sha > "${OUT}/${ROOTFS_TAR}.inputs-sha256"
+kernel_input_files | compute_sha > "${OUT}/${KERNEL_ASSET}.inputs-sha256"
 
 ls -lh "$OUT"
 
@@ -542,12 +573,16 @@ ls -lh "$OUT"
 # ------------------------------------------------------------
 echo "==> Refreshing local cache"
 RUNTIME_VERSION=$(node -p "require('${ROOT}/packages/runtime/package.json').version")
-CACHE_DIR="${HOME}/.machinen/runtime-v${RUNTIME_VERSION}/bases/debian-arm64"
+CACHE_DIR="${HOME}/.machinen/runtime-v${RUNTIME_VERSION}/bases/debian-${GUEST_ARCH}"
 mkdir -p "$CACHE_DIR"
-cp "${OUT}/rootfs-debian-arm64.tar.gz" "${CACHE_DIR}/rootfs.tar.gz"
-cp "${OUT}/rootfs-debian-arm64.img.gz" "${CACHE_DIR}/rootfs.img.gz"
-cp "${OUT}/Image-arm64"                "${CACHE_DIR}/Image"
-cp "${OUT}/virt-arm64.dtb"             "${CACHE_DIR}/virt.dtb"
+cp "${OUT}/${ROOTFS_TAR}" "${CACHE_DIR}/rootfs.tar.gz"
+cp "${OUT}/${ROOTFS_IMG}" "${CACHE_DIR}/rootfs.img.gz"
+cp "${OUT}/${KERNEL_ASSET}" "${CACHE_DIR}/Image"
+if [ -n "$DTB_ASSET" ]; then
+  cp "${OUT}/${DTB_ASSET}" "${CACHE_DIR}/virt.dtb"
+else
+  rm -f "${CACHE_DIR}/virt.dtb"
+fi
 echo "    refreshed: $CACHE_DIR"
 
 echo "==> Done."
