@@ -36,7 +36,12 @@ import type {
 } from "../vm-handle.ts";
 import { resolveSnapshotEngine, VMSTATE_FILE, VMSTATE_ROOTDISK_FILE } from "./snapshot-engine.ts";
 import { relativeCheckpointParent, VMSTATE_SECTION, vmstateSectionTags } from "./vmstate-chain.ts";
-import { currentVmstateBackend, fileIdentity, readVmstateFacts } from "./vmstate-metadata.ts";
+import {
+  currentVmstateBackend,
+  currentVmstateGuestArch,
+  fileIdentity,
+  readVmstateFacts,
+} from "./vmstate-metadata.ts";
 
 const debugSnapshot = debugLib("machinen:snapshot");
 const debugVmstate = debugLib("machinen:vmstate");
@@ -785,6 +790,7 @@ function buildVmstateMeta(
   const rootDisk = copyVmstateRootDisk(ctx, snapDir, parentDir !== undefined && hasRootdiskDelta);
   return {
     sourceBackend: currentVmstateBackend(),
+    guestArch: facts.arch ?? currentVmstateGuestArch(),
     topologyHash: facts.topologyHash,
     memoryCeilingMib: ctx.memoryCeilingMib,
     guestPauth: {

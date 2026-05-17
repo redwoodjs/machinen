@@ -569,8 +569,10 @@ pub const Device = struct {
         // when virtio_ring's detach_buf_split finds desc_state[N]
         // empty. See #192.
         const flags = std.mem.readInt(u16, bytes[0..2], .little);
-        const idx_ptr: *const u16 = @ptrCast(@alignCast(bytes[2..4]));
-        const idx = @atomicLoad(u16, idx_ptr, .acquire);
+        const idx = if ((@intFromPtr(bytes.ptr + 2) % @alignOf(u16)) == 0) blk: {
+            const idx_ptr: *const u16 = @ptrCast(@alignCast(bytes[2..4]));
+            break :blk @atomicLoad(u16, idx_ptr, .acquire);
+        } else std.mem.readInt(u16, bytes[2..4], .little);
         return .{ .flags = flags, .idx = idx };
     }
 
@@ -607,8 +609,13 @@ pub const Device = struct {
         // the ring[idx] write above is visible. Mirror of the avail
         // fix in readAvailHeader. Leave used.flags alone — it's at
         // offset 0 and untouched here.
-        const idx_ptr: *u16 = @ptrCast(@alignCast(used_bytes[2..4]));
-        @atomicStore(u16, idx_ptr, header.idx +% 1, .release);
+        const next_idx = header.idx +% 1;
+        if ((@intFromPtr(used_bytes.ptr + 2) % @alignOf(u16)) == 0) {
+            const idx_ptr: *u16 = @ptrCast(@alignCast(used_bytes[2..4]));
+            @atomicStore(u16, idx_ptr, next_idx, .release);
+        } else {
+            std.mem.writeInt(u16, used_bytes[2..4], next_idx, .little);
+        }
     }
 };
 

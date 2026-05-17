@@ -1,0 +1,36 @@
+{
+  "name": "@machinen/native-x64-linux",
+  "version": "0.3.4",
+  "description": "Machinen host-side native binaries for x64 linux — VMM (KVM) + gvproxy + guest ELFs, mke2fs, and mksquashfs.",
+  "license": "FSL-1.1-MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/redwoodjs/machinen.git",
+    "directory": "packages/native-x64-linux"
+  },
+  "bin": {
+    "machinen-gvproxy": "./vmm/bin/gvproxy",
+    "machinen-mke2fs": "./e2fsprogs/bin/mke2fs",
+    "machinen-mksquashfs": "./squashfs/bin/mksquashfs",
+    "machinen-vm": "./vmm/bin/machinen-vm"
+  },
+  "files": [
+    "index.mjs",
+    "vmm/bin/",
+    "vmm/guest/",
+    "e2fsprogs/bin/",
+    "squashfs/bin/",
+    "README.md"
+  ],
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "type": "module",
+  "main": "./index.mjs",
+  "exports": {
+    ".": "./index.mjs"
+  }
+}

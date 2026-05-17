@@ -56,6 +56,15 @@ pub const KVM_GET_API_VERSION = io_(KVMIO, 0x00);
 pub const KVM_CREATE_VM = io_(KVMIO, 0x01);
 pub const KVM_CHECK_EXTENSION = io_(KVMIO, 0x03);
 pub const KVM_GET_VCPU_MMAP_SIZE = io_(KVMIO, 0x04);
+pub const KVM_GET_SUPPORTED_CPUID = iowr(KVMIO, 0x05, @sizeOf(Cpuid2Header));
+
+// x86 VM setup helpers. KVM_SET_TSS_ADDR is required before creating an
+// in-kernel irqchip on Intel hosts; KVM_CREATE_PIT2 gives Linux a legacy
+// PIT to calibrate timers against during early boot.
+pub const KVM_SET_TSS_ADDR = io_(KVMIO, 0x47);
+pub const KVM_CREATE_PIT2 = iow(KVMIO, 0x77, @sizeOf(PitConfig));
+pub const KVM_GET_PIT2 = ior(KVMIO, 0x9f, @sizeOf(PitState2));
+pub const KVM_SET_PIT2 = iow(KVMIO, 0xa0, @sizeOf(PitState2));
 
 pub const KVM_CREATE_VCPU = io_(KVMIO, 0x41);
 pub const KVM_GET_DIRTY_LOG = iow(KVMIO, 0x42, @sizeOf(DirtyLog));
@@ -66,7 +75,7 @@ pub const KVM_CLEAR_DIRTY_LOG = iowr(KVMIO, 0xC0, @sizeOf(ClearDirtyLog));
 pub const KVM_CREATE_IRQCHIP = io_(KVMIO, 0x60);
 pub const KVM_IRQ_LINE = iow(KVMIO, 0x61, @sizeOf(IrqLevel));
 pub const KVM_GET_IRQCHIP = iowr(KVMIO, 0x62, @sizeOf(Irqchip));
-pub const KVM_SET_IRQCHIP = iow(KVMIO, 0x63, @sizeOf(Irqchip));
+pub const KVM_SET_IRQCHIP = ior(KVMIO, 0x63, @sizeOf(Irqchip));
 
 pub const KVM_ARM_PREFERRED_TARGET = ior(KVMIO, 0xAF, @sizeOf(VcpuInit));
 pub const KVM_ARM_VCPU_INIT = iow(KVMIO, 0xAE, @sizeOf(VcpuInit));
@@ -80,6 +89,7 @@ pub const KVM_GET_REGS = ior(KVMIO, 0x81, @sizeOf(X86Regs));
 pub const KVM_SET_REGS = iow(KVMIO, 0x82, @sizeOf(X86Regs));
 pub const KVM_GET_SREGS = ior(KVMIO, 0x83, @sizeOf(X86Sregs));
 pub const KVM_SET_SREGS = iow(KVMIO, 0x84, @sizeOf(X86Sregs));
+pub const KVM_SET_CPUID2 = iow(KVMIO, 0x90, @sizeOf(Cpuid2Header));
 
 // VM-scoped device creation (for vgic-v3, vsock, etc.) + per-device
 // attributes. `KVM_CREATE_DEVICE` returns a fd for the device; attr
@@ -136,6 +146,38 @@ pub const Irqchip = extern struct {
     pad: u32,
     chip: [512]u8, // union of chip-specific state; opaque to us
 };
+
+pub const PitConfig = extern struct {
+    flags: u32,
+    pad: [15]u32 = @splat(0),
+};
+
+pub const PitChannelState = extern struct {
+    count: u32,
+    latched_count: u16,
+    count_latched: u8,
+    status_latched: u8,
+    status: u8,
+    read_state: u8,
+    write_state: u8,
+    write_latch: u8,
+    rw_mode: u8,
+    mode: u8,
+    bcd: u8,
+    gate: u8,
+    count_load_time: i64,
+};
+
+pub const PitState2 = extern struct {
+    channels: [3]PitChannelState,
+    flags: u32,
+    reserved: [9]u32,
+};
+
+pub const KVM_PIT_SPEAKER_DUMMY: u32 = 1;
+pub const KVM_IRQCHIP_PIC_MASTER: u32 = 0;
+pub const KVM_IRQCHIP_PIC_SLAVE: u32 = 1;
+pub const KVM_IRQCHIP_IOAPIC: u32 = 2;
 
 // ---------------------------------------------------------------
 // KVM device ioctls (vgic-v3, etc.). `CreateDevice.type` + `flags`
@@ -257,6 +299,30 @@ pub const X86Dtable = extern struct {
     padding: [3]u16,
 };
 
+pub const CpuidEntry2 = extern struct {
+    function: u32,
+    index: u32,
+    flags: u32,
+    eax: u32,
+    ebx: u32,
+    ecx: u32,
+    edx: u32,
+    padding: [3]u32 = @splat(0),
+};
+
+pub const Cpuid2Header = extern struct {
+    nent: u32,
+    padding: u32 = 0,
+};
+
+pub const max_cpuid_entries: usize = 256;
+
+pub const Cpuid2 = extern struct {
+    nent: u32,
+    padding: u32 = 0,
+    entries: [max_cpuid_entries]CpuidEntry2 = @splat(std.mem.zeroes(CpuidEntry2)),
+};
+
 pub const X86Sregs = extern struct {
     cs: X86Segment,
     ds: X86Segment,
@@ -321,6 +387,21 @@ pub const ExitReason = enum(u32) {
     loongarch_iocsr = 32,
     memory_fault = 33,
     _,
+};
+
+pub const IoDirection = enum(u8) {
+    in = 0,
+    out = 1,
+    _,
+};
+
+/// I/O-port exit payload (kvm_run.io).
+pub const IoExit = extern struct {
+    direction: u8,
+    size: u8,
+    port: u16,
+    count: u32,
+    data_offset: u64,
 };
 
 /// MMIO exit payload (kvm_run.mmio).
@@ -407,13 +488,20 @@ comptime {
     assert(@offsetOf(VcpuInit, "target") == 0);
     assert(@offsetOf(VcpuInit, "features") == 4);
 
-    // OneReg / IrqLevel.
+    // OneReg / IrqLevel / PIT config.
     assert(@sizeOf(OneReg) == 16);
     assert(@offsetOf(OneReg, "id") == 0);
     assert(@offsetOf(OneReg, "addr") == 8);
     assert(@sizeOf(IrqLevel) == 8);
     assert(@offsetOf(IrqLevel, "irq") == 0);
     assert(@offsetOf(IrqLevel, "level") == 4);
+    assert(@sizeOf(PitConfig) == 64);
+    assert(@offsetOf(PitConfig, "flags") == 0);
+    assert(@sizeOf(PitChannelState) == 24);
+    assert(@offsetOf(PitChannelState, "count_load_time") == 16);
+    assert(@sizeOf(PitState2) == 112);
+    assert(@offsetOf(PitState2, "flags") == 72);
+    assert(@offsetOf(PitConfig, "pad") == 4);
 
     // CreateDevice / DeviceAttr.
     assert(@sizeOf(CreateDevice) == 12);
@@ -427,12 +515,24 @@ comptime {
     assert(@offsetOf(DeviceAttr, "addr") == 16);
 
     // x86 register banks — sizes are baked into the ioctl numbers.
+    assert(@sizeOf(CpuidEntry2) == 40);
+    assert(@sizeOf(Cpuid2Header) == 8);
+    assert(@offsetOf(CpuidEntry2, "function") == 0);
+    assert(@offsetOf(CpuidEntry2, "eax") == 12);
+    assert(@offsetOf(CpuidEntry2, "padding") == 28);
+    assert(@offsetOf(Cpuid2, "entries") == 8);
     assert(@sizeOf(X86Regs) == 144);
     assert(@sizeOf(X86Segment) == 24);
     assert(@sizeOf(X86Dtable) == 16);
     assert(@sizeOf(X86Sregs) == 312);
 
     // kvm_run union payloads we touch (offsets relative to union base).
+    assert(@sizeOf(IoExit) == 16);
+    assert(@offsetOf(IoExit, "direction") == 0);
+    assert(@offsetOf(IoExit, "size") == 1);
+    assert(@offsetOf(IoExit, "port") == 2);
+    assert(@offsetOf(IoExit, "count") == 4);
+    assert(@offsetOf(IoExit, "data_offset") == 8);
     assert(@sizeOf(MmioExit) == 24);
     assert(@offsetOf(MmioExit, "phys_addr") == 0);
     assert(@offsetOf(MmioExit, "data") == 8);
@@ -488,6 +588,8 @@ pub const KvmError = error{
     KvmGetRegFailed,
     KvmRunFailed,
     KvmCreateIrqchipFailed,
+    KvmCreatePitFailed,
+    KvmSetTssAddrFailed,
     KvmIrqLineFailed,
     KvmMmapRunFailed,
     KvmCheckExtensionFailed,
@@ -539,6 +641,16 @@ pub const Kvm = struct {
 
     pub fn armEl2Supported(self: *Kvm) bool {
         return (self.checkExtension(KVM_CAP_ARM_EL2) catch 0) > 0;
+    }
+
+    pub fn supportedCpuid(self: *Kvm) !Cpuid2 {
+        assert(self.kvm_fd >= 0);
+        var out = Cpuid2{ .nent = max_cpuid_entries };
+        if (ioctl(self.kvm_fd, KVM_GET_SUPPORTED_CPUID, &out) != 0) {
+            return error.Unsupported;
+        }
+        assert(out.nent <= max_cpuid_entries);
+        return out;
     }
 
     pub fn createVm(self: *Kvm) !Vm {
@@ -627,6 +739,33 @@ pub const Vm = struct {
         _ = ioctl(self.fd, KVM_CLEAR_DIRTY_LOG, &clear);
     }
 
+    /// x86 only: set the per-VM TSS address KVM uses for ring transitions.
+    /// Must happen before createIrqchip() on Intel hosts.
+    pub fn setTssAddr(self: *Vm, addr: u64) !void {
+        assert(self.fd >= 0);
+        assert(addr % 4096 == 0);
+        if (ioctl(self.fd, KVM_SET_TSS_ADDR, @as(c_ulong, @intCast(addr))) != 0) {
+            return error.KvmSetTssAddrFailed;
+        }
+    }
+
+    /// x86 only: create the in-kernel PIC + IOAPIC irqchip.
+    pub fn createIrqchip(self: *Vm) !void {
+        assert(self.fd >= 0);
+        if (ioctl(self.fd, KVM_CREATE_IRQCHIP, @as(c_ulong, 0)) != 0) {
+            return error.KvmCreateIrqchipFailed;
+        }
+    }
+
+    /// x86 only: create an in-kernel PIT so early Linux timer calibration works.
+    pub fn createPit2(self: *Vm) !void {
+        assert(self.fd >= 0);
+        var cfg = PitConfig{ .flags = KVM_PIT_SPEAKER_DUMMY };
+        if (ioctl(self.fd, KVM_CREATE_PIT2, &cfg) != 0) {
+            return error.KvmCreatePitFailed;
+        }
+    }
+
     /// Create an in-kernel vgic-v3 and place its distributor +
     /// redistributor MMIO windows at the given guest-physical
     /// addresses. Call BEFORE `createVcpu` — KVM requires it.
@@ -702,6 +841,32 @@ pub const Vm = struct {
         assert(level <= 1);
         var lvl = IrqLevel{ .irq = irq, .level = level };
         if (ioctl(self.fd, KVM_IRQ_LINE, &lvl) != 0) return error.KvmIrqLineFailed;
+    }
+
+    pub fn getIrqchip(self: *Vm, chip_id: u32) !Irqchip {
+        assert(self.fd >= 0);
+        var chip = Irqchip{ .chip_id = chip_id, .pad = 0, .chip = @splat(0) };
+        if (ioctl(self.fd, KVM_GET_IRQCHIP, &chip) != 0) return error.KvmGetRegFailed;
+        return chip;
+    }
+
+    pub fn setIrqchip(self: *Vm, chip: Irqchip) !void {
+        assert(self.fd >= 0);
+        var v = chip;
+        if (ioctl(self.fd, KVM_SET_IRQCHIP, &v) != 0) return error.KvmSetRegFailed;
+    }
+
+    pub fn getPit2(self: *Vm) !PitState2 {
+        assert(self.fd >= 0);
+        var pit: PitState2 = undefined;
+        if (ioctl(self.fd, KVM_GET_PIT2, &pit) != 0) return error.KvmGetRegFailed;
+        return pit;
+    }
+
+    pub fn setPit2(self: *Vm, pit: PitState2) !void {
+        assert(self.fd >= 0);
+        var v = pit;
+        if (ioctl(self.fd, KVM_SET_PIT2, &v) != 0) return error.KvmSetRegFailed;
     }
 
     pub fn createVcpu(self: *Vm, id: u32) !Vcpu {
@@ -823,6 +988,48 @@ pub const Vcpu = struct {
         return @enumFromInt(ptr.*);
     }
 
+    /// Read the I/O-port exit payload. Call only when run() returned .io.
+    pub fn ioExit(self: *Vcpu) IoExit {
+        assert(self.run_size >= 0x20 + @sizeOf(IoExit));
+        const base: [*]u8 = @ptrCast(self.run_page);
+        var out: IoExit = undefined;
+        @memcpy(std.mem.asBytes(&out), base[0x20..][0..@sizeOf(IoExit)]);
+        assert(out.size == 1 or out.size == 2 or out.size == 4);
+        assert(out.count > 0);
+        assert(out.data_offset < self.run_size);
+        return out;
+    }
+
+    /// Read the first scalar attached to a KVM_EXIT_IO OUT payload.
+    pub fn ioDataValue(self: *Vcpu, ev: IoExit) u32 {
+        assert(ev.size == 1 or ev.size == 2 or ev.size == 4);
+        assert(ev.count > 0);
+        assert(ev.data_offset + ev.size <= self.run_size);
+        const base: [*]const u8 = @ptrCast(self.run_page);
+        const data = base[ev.data_offset..][0..ev.size];
+        return switch (ev.size) {
+            1 => data[0],
+            2 => std.mem.readInt(u16, data[0..2], .little),
+            4 => std.mem.readInt(u32, data[0..4], .little),
+            else => unreachable,
+        };
+    }
+
+    /// Fill the first scalar attached to a KVM_EXIT_IO IN payload.
+    pub fn writeIoReadData(self: *Vcpu, ev: IoExit, value: u32) void {
+        assert(ev.size == 1 or ev.size == 2 or ev.size == 4);
+        assert(ev.count > 0);
+        assert(ev.data_offset + ev.size <= self.run_size);
+        const base: [*]u8 = @ptrCast(self.run_page);
+        const data = base[ev.data_offset..][0..ev.size];
+        switch (ev.size) {
+            1 => data[0] = @truncate(value),
+            2 => std.mem.writeInt(u16, data[0..2], @truncate(value), .little),
+            4 => std.mem.writeInt(u32, data[0..4], value, .little),
+            else => unreachable,
+        }
+    }
+
     /// Read the MMIO exit payload. Call only when run() returned
     /// .mmio. The union starts at offset 0x20 inside kvm_run (right
     /// after `apic_base` at 0x18), on builds without the S390
@@ -866,6 +1073,12 @@ pub const Vcpu = struct {
     }
 
     // x86-specific register access. arm64 uses setReg/getReg above.
+
+    pub fn setCpuid2(self: *Vcpu, cpuid: *const Cpuid2) !void {
+        assert(self.fd >= 0);
+        assert(cpuid.nent <= max_cpuid_entries);
+        if (ioctl(self.fd, KVM_SET_CPUID2, cpuid) != 0) return error.Unsupported;
+    }
 
     pub fn getRegsX86(self: *Vcpu) !X86Regs {
         assert(self.fd >= 0);
@@ -914,11 +1127,18 @@ test "KVMIO ioctl numbers match their documented kernel values" {
     try std.testing.expectEqual(@as(u32, 0xAE01), KVM_CREATE_VM);
     try std.testing.expectEqual(@as(u32, 0xAE03), KVM_CHECK_EXTENSION);
     try std.testing.expectEqual(@as(u32, 0xAE04), KVM_GET_VCPU_MMAP_SIZE);
+    try std.testing.expectEqual(@as(u32, 0xC008AE05), KVM_GET_SUPPORTED_CPUID);
+    try std.testing.expectEqual(@as(u32, 0xAE47), KVM_SET_TSS_ADDR);
+    try std.testing.expectEqual(@as(u32, 0x4040AE77), KVM_CREATE_PIT2);
+    try std.testing.expectEqual(@as(u32, 0x8070AE9F), KVM_GET_PIT2);
+    try std.testing.expectEqual(@as(u32, 0x4070AEA0), KVM_SET_PIT2);
     try std.testing.expectEqual(@as(u32, 0xAE41), KVM_CREATE_VCPU);
     try std.testing.expectEqual(@as(u32, 0xAE80), KVM_RUN);
     try std.testing.expectEqual(@as(u32, 0x4020AE46), KVM_SET_USER_MEMORY_REGION);
     try std.testing.expectEqual(@as(u32, 0xAE60), KVM_CREATE_IRQCHIP);
     try std.testing.expectEqual(@as(u32, 0x4008AE61), KVM_IRQ_LINE);
+    try std.testing.expectEqual(@as(u32, 0xC208AE62), KVM_GET_IRQCHIP);
+    try std.testing.expectEqual(@as(u32, 0x8208AE63), KVM_SET_IRQCHIP);
     try std.testing.expectEqual(@as(u32, 0x4020AEAE), KVM_ARM_VCPU_INIT);
     try std.testing.expectEqual(@as(u32, 0x8020AEAF), KVM_ARM_PREFERRED_TARGET);
     try std.testing.expectEqual(@as(u32, 0x4010AEAB), KVM_GET_ONE_REG);
@@ -928,6 +1148,7 @@ test "KVMIO ioctl numbers match their documented kernel values" {
     try std.testing.expectEqual(@as(u32, 0x4090AE82), KVM_SET_REGS);
     try std.testing.expectEqual(@as(u32, 0x8138AE83), KVM_GET_SREGS);
     try std.testing.expectEqual(@as(u32, 0x4138AE84), KVM_SET_SREGS);
+    try std.testing.expectEqual(@as(u32, 0x4008AE90), KVM_SET_CPUID2);
 }
 
 test "struct sizes match what _IOC embeds" {
@@ -937,6 +1158,12 @@ test "struct sizes match what _IOC embeds" {
     try std.testing.expectEqual(@as(usize, 32), @sizeOf(VcpuInit));
     try std.testing.expectEqual(@as(usize, 16), @sizeOf(OneReg));
     try std.testing.expectEqual(@as(usize, 8), @sizeOf(IrqLevel));
+    try std.testing.expectEqual(@as(usize, 64), @sizeOf(PitConfig));
+    try std.testing.expectEqual(@as(usize, 24), @sizeOf(PitChannelState));
+    try std.testing.expectEqual(@as(usize, 112), @sizeOf(PitState2));
+    try std.testing.expectEqual(@as(usize, 16), @sizeOf(IoExit));
+    try std.testing.expectEqual(@as(usize, 40), @sizeOf(CpuidEntry2));
+    try std.testing.expectEqual(@as(usize, 8), @sizeOf(Cpuid2Header));
     // x86 banks.
     try std.testing.expectEqual(@as(usize, 144), @sizeOf(X86Regs));
     try std.testing.expectEqual(@as(usize, 24), @sizeOf(X86Segment));

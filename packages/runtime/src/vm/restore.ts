@@ -37,6 +37,7 @@ import type {
 } from "../vm-handle.ts";
 import {
   currentVmstateBackend,
+  currentVmstateGuestArch,
   fileIdentity,
   readVmstateFacts,
   type VmstateFacts,
@@ -451,6 +452,7 @@ function planVmstateRestore(
     );
   }
   validateVmstateTopology(vmstate, facts);
+  validateVmstateGuestArch(vmstate, facts);
   validateVmstateBackendAndPauth(vmstate, facts);
   validateVmstateArtifacts(opts, vmstate);
   return {
@@ -480,6 +482,28 @@ function validateVmstateTopology(vmstate: VmstateSnapshotMeta, facts: VmstateFac
       `restore: vmstate topology metadata does not match state.vmstate.\n` +
         `  meta:  ${vmstate.topologyHash}\n` +
         `  state: ${facts.topologyHash}`,
+    );
+  }
+}
+
+function validateVmstateGuestArch(vmstate: VmstateSnapshotMeta, facts: VmstateFacts): void {
+  const source = vmstate.guestArch ?? facts.arch ?? "unknown";
+  const target = currentVmstateGuestArch();
+  if (vmstate.guestArch && facts.arch !== "unknown" && vmstate.guestArch !== facts.arch) {
+    throw new BootError(
+      "BOOT_VMSTATE_UNSUPPORTED",
+      `restore: vmstate guest architecture metadata does not match state.vmstate.\n` +
+        `  meta:  ${vmstate.guestArch}\n` +
+        `  state: ${facts.arch}`,
+    );
+  }
+  if (source !== "unknown" && target !== "unknown" && source !== target) {
+    throw new BootError(
+      "BOOT_VMSTATE_UNSUPPORTED",
+      `restore: vmstate guest architecture mismatch.\n` +
+        `  snapshot guest: ${source}\n` +
+        `  restore guest:  ${target}\n` +
+        "  Whole-VM restore is same-architecture only.",
     );
   }
 }

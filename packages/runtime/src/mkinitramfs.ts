@@ -746,9 +746,9 @@ let cachedGuestPaths: VmmGuestPaths | null = null;
 /**
  * Resolve the guest binaries (init / exec-agent) that ride in the
  * host-arch-gated @machinen/native-<arch>-<os> package alongside the
- * host VMM. These ELFs are arm64-linux regardless of host (they run
- * in-guest); the host runtime reads them as bytes to pack into the
- * initramfs cpio.
+ * host VMM. These ELFs match the guest CPU for that host package
+ * (arm64 guests in native-arm64-*, amd64 guests in native-x64-linux);
+ * the host runtime reads them as bytes to pack into the initramfs cpio.
  *
  * Falls back to the in-tree microvm/test-fixtures/ layout when the
  * native package can't be resolved OR its guest/ dir is empty —

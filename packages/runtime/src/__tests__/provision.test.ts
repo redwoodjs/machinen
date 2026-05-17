@@ -12,7 +12,7 @@ import { execSync } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   boot,
   provision,
@@ -58,6 +58,18 @@ function integrationPrereqs(): { binary: string; base: string } | undefined {
 }
 
 describe("provision", () => {
+  const originalGuestArch = process.env.MACHINEN_GUEST_ARCH;
+  beforeEach(() => {
+    process.env.MACHINEN_GUEST_ARCH = "arm64";
+  });
+  afterEach(() => {
+    if (originalGuestArch === undefined) {
+      delete process.env.MACHINEN_GUEST_ARCH;
+    } else {
+      process.env.MACHINEN_GUEST_ARCH = originalGuestArch;
+    }
+  });
+
   it("rejects a missing base rootfs path", async () => {
     await expect(
       provision({

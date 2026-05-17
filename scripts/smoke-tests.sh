@@ -9,7 +9,7 @@
 # isn't already built, then runs the tests.
 #   - @machinen/runtime + @machinen/cli  (fast)
 #   - packages/microvm/zig-out/bin/machinen-vm  (~30s on first run)
-#   - release-assets/ (Image, dtb, rootfs tarball)  (~5 min, needs Docker)
+#   - release-assets/ (kernel, optional dtb, rootfs tarball)  (~5 min, needs Docker)
 #
 # Tests:
 #   V1-V4  Validation paths (no boot): host-missing, host-is-a-file,
@@ -39,18 +39,59 @@ CLI="$ROOT/packages/cli/dist/cli.js"
 # Shares the inputs-sha256 sidecar that check-asset-freshness.sh
 # writes/reads, so a smoke run after an mn-dev session doesn't see a
 # stale "vmm" report and vice versa.
-VMM="$ROOT/packages/native-arm64-darwin/vmm/bin/machinen-vm"
 ASSETS="$ROOT/release-assets"
 OS=$(uname -s)
+HOST_ARCH=$(uname -m)
+case "$OS:$HOST_ARCH" in
+  Darwin:arm64) HOST_NATIVE_PKG="native-arm64-darwin" ;;
+  Linux:aarch64|Linux:arm64) HOST_NATIVE_PKG="native-arm64-linux" ;;
+  Linux:x86_64|Linux:amd64) HOST_NATIVE_PKG="native-x64-linux" ;;
+  *) echo "smoke: unsupported host: $OS/$HOST_ARCH" >&2; exit 1 ;;
+esac
+VMM="$ROOT/packages/$HOST_NATIVE_PKG/vmm/bin/machinen-vm"
+
+GUEST_ARCH="${MACHINEN_GUEST_ARCH:-}"
+if [[ -z "$GUEST_ARCH" ]]; then
+  case "$HOST_ARCH" in
+    x86_64|amd64) GUEST_ARCH="amd64" ;;
+    *) GUEST_ARCH="arm64" ;;
+  esac
+fi
+case "$GUEST_ARCH" in
+  arm64)
+    KERNEL_ASSET="Image-arm64"
+    DTB_ASSET="virt-arm64.dtb"
+    ROOTFS_ASSET="rootfs-debian-arm64.tar.gz"
+    ;;
+  amd64|x86_64|x64)
+    GUEST_ARCH="amd64"
+    KERNEL_ASSET="bzImage-x86_64"
+    DTB_ASSET=""
+    ROOTFS_ASSET="rootfs-debian-amd64.tar.gz"
+    ;;
+  *) echo "smoke: MACHINEN_GUEST_ARCH must be arm64 or amd64 (got $GUEST_ARCH)" >&2; exit 1 ;;
+esac
+case "$GUEST_ARCH" in
+  arm64) GUEST_UNAME_RE="aarch64|arm64"; GUEST_UNAME_LABEL="aarch64" ;;
+  amd64) GUEST_UNAME_RE="x86_64|amd64"; GUEST_UNAME_LABEL="x86_64" ;;
+esac
+
+assets_complete() {
+  [[ -f "$ASSETS/$KERNEL_ASSET" && -f "$ASSETS/$ROOTFS_ASSET" ]] || return 1
+  [[ -z "$DTB_ASSET" || -f "$ASSETS/$DTB_ASSET" ]]
+}
 
 # ----------------------------------------------------------------
 # Prereq checks
 # ----------------------------------------------------------------
 
 missing=()
-for bin in zig docker dtc; do
+for bin in zig; do
   command -v "$bin" >/dev/null || missing+=("$bin")
 done
+if [[ "$GUEST_ARCH" == "arm64" ]]; then
+  command -v dtc >/dev/null || missing+=("dtc")
+fi
 
 # Networking is opt-in via MACHINEN_NET_SOCKET (gvproxy UDS). The
 # smoke tests below don't need it, so we don't gate on gvproxy here.
@@ -67,7 +108,11 @@ fi
 # Docker needs to be running, but only if we still have to build the
 # base assets. A warm repo with release-assets/ already present should
 # not require Docker Desktop at all.
-if [[ ! -f "$ASSETS/Image-arm64" ]]; then
+if ! assets_complete; then
+  if ! command -v docker >/dev/null; then
+    echo "smoke: missing prerequisite: docker (needed to build release-assets/)" >&2
+    exit 1
+  fi
   if ! docker info >/dev/null 2>&1; then
     echo "smoke: Docker is not running (needed to build release-assets/)" >&2
     echo "smoke: start Docker Desktop and re-run" >&2
@@ -86,9 +131,9 @@ fi
 echo "=== building VMM ==="
 bash "$ROOT/scripts/build-vmm.sh"
 
-if [[ ! -f "$ASSETS/Image-arm64" ]]; then
-  echo "=== building base assets (~5 min on first run, cached after) ==="
-  "$ROOT/scripts/build-base-assets.sh"
+if ! assets_complete; then
+  echo "=== building $GUEST_ARCH base assets (~5 min on first run, cached after) ==="
+  MACHINEN_GUEST_ARCH="$GUEST_ARCH" "$ROOT/scripts/build-base-assets.sh"
 fi
 
 # Catch a stale rootfs / kernel before booting. Without this, an
@@ -97,8 +142,8 @@ fi
 # timeout in S1 that looks like a runtime regression. The checker
 # diffs source-file hashes against sidecars baked at build time;
 # missing sidecars (older release-assets/) just warn.
-if ! "$ROOT/scripts/check-asset-freshness.sh" --quiet; then
-  echo "smoke: release-assets/ is stale — rebuild with bash $ROOT/scripts/build-base-assets.sh" >&2
+if ! MACHINEN_GUEST_ARCH="$GUEST_ARCH" "$ROOT/scripts/check-asset-freshness.sh" --quiet; then
+  echo "smoke: release-assets/ is stale — rebuild with MACHINEN_GUEST_ARCH=$GUEST_ARCH bash $ROOT/scripts/build-base-assets.sh" >&2
   exit 1
 fi
 
@@ -117,10 +162,12 @@ pnpm -F @machinen/runtime -F @machinen/cli build >/dev/null
 
 export MACHINEN_VMM="$VMM"
 export MACHINEN_ASSETS_DIR="$ASSETS"
+export MACHINEN_GUEST_ARCH="$GUEST_ARCH"
 
 echo
 echo "smoke: VMM=$MACHINEN_VMM"
 echo "smoke: ASSETS=$MACHINEN_ASSETS_DIR"
+echo "smoke: GUEST_ARCH=$MACHINEN_GUEST_ARCH"
 echo
 
 # Capability probe: N-series (vsock exec) and P/C-series (criu, fnm)
@@ -128,7 +175,7 @@ echo
 # dependent sections with a warning if we're running against a stale
 # (pre-#77) rootfs. Rebuild with ./scripts/build-base-assets.sh to
 # pick them up.
-ROOTFS_TAR="$ASSETS/rootfs-debian-arm64.tar.gz"
+ROOTFS_TAR="$ASSETS/$ROOTFS_ASSET"
 ROOTFS_SUPPORTS_VSOCK_EXEC=1
 ROOTFS_SUPPORTS_CRIU=1
 ROOTFS_SUPPORTS_SNAPSHOT_HELPERS=1
@@ -682,7 +729,7 @@ run_timeout 60 node "$CLI" boot \
   >"$T8_LOG" 2>&1 || true
 # Overlayfs lines are formatted like:
 #   overlay /mnt/t8 overlay rw,relatime,...
-if grep -E '^overlay /mnt/t8 overlay ' "$T8_LOG" >/dev/null; then
+if grep -E '(^|\] )overlay /mnt/t8 overlay ' "$T8_LOG" >/dev/null; then
   pass "/proc/self/mounts shows overlay rooted at the guest path"
 else
   tail -50 "$T8_LOG" >&2
@@ -701,7 +748,7 @@ fi
 # floored). Returns 0 if the line wasn't captured.
 mem_total_mib() {
   local log=$1
-  awk '/^MemTotal:/ { printf("%d\n", $2 / 1024); exit }' "$log" 2>/dev/null || echo 0
+  awk '{ for (i = 1; i <= NF; i++) if ($i == "MemTotal:") { printf("%d\n", $(i + 1) / 1024); exit } }' "$log" 2>/dev/null || echo 0
 }
 
 # ---- M0: --memory rejects bogus values via the parser ----
@@ -755,18 +802,22 @@ fi
 # hardcodes 4 GiB, so without dtb_patch.patchMemorySize the guest
 # would clamp to 4 GiB and this would fail.
 echo "M3: machinen boot --memory 32768"
-M3_LOG="$FIXTURE/m3.log"
-run_timeout 60 node "$CLI" boot --memory 32768 -- /bin/sh -c \
-  'cat /proc/meminfo | grep ^MemTotal' \
-  >"$M3_LOG" 2>&1 || true
-M3_MIB=$(mem_total_mib "$M3_LOG")
-# 32 GiB requested. With lazy commit the host doesn't pay 32 GiB of
-# RSS — only address-space mapping. Tolerate [30 GiB, 32 GiB].
-if (( M3_MIB >= 30000 && M3_MIB <= 32768 )); then
-  pass "--memory 32768 → MemTotal ${M3_MIB} MiB (DTB memory@ size patch effective)"
+if [[ "$GUEST_ARCH" == "amd64" ]]; then
+  echo "  skip: x86_64 KVM hosts used for local smoke may not allow a 32 GiB guest mapping"
 else
-  cat "$M3_LOG" >&2
-  fail "M3 — MemTotal ${M3_MIB} MiB outside the expected --memory 32768 band [30000..32768]"
+  M3_LOG="$FIXTURE/m3.log"
+  run_timeout 60 node "$CLI" boot --memory 32768 -- /bin/sh -c \
+    'cat /proc/meminfo | grep ^MemTotal' \
+    >"$M3_LOG" 2>&1 || true
+  M3_MIB=$(mem_total_mib "$M3_LOG")
+  # 32 GiB requested. With lazy commit the host doesn't pay 32 GiB of
+  # RSS — only address-space mapping. Tolerate [30 GiB, 32 GiB].
+  if (( M3_MIB >= 30000 && M3_MIB <= 32768 )); then
+    pass "--memory 32768 → MemTotal ${M3_MIB} MiB (DTB memory@ size patch effective)"
+  else
+    cat "$M3_LOG" >&2
+    fail "M3 — MemTotal ${M3_MIB} MiB outside the expected --memory 32768 band [30000..32768]"
+  fi
 fi
 
 # ----------------------------------------------------------------
@@ -903,7 +954,7 @@ run_timeout 60 node "$CLI" boot -- /bin/sh -c \
 # to .../drivers/virtio_balloon when our slot 4 device is bound. The
 # guest's virtio_balloon driver is built-in (CONFIG_VIRTIO_BALLOON=y);
 # binding fails only if our feature set is one the driver refuses.
-if grep -q "^DRIVER=virtio_balloon" "$B0_LOG" && grep -q "^DEVICE=0x0005" "$B0_LOG"; then
+if grep -q "DRIVER=virtio_balloon" "$B0_LOG" && grep -q "DEVICE=0x0005" "$B0_LOG"; then
   pass "balloon driver bound to virtio4 (device id 0x0005)"
 else
   tail -50 "$B0_LOG" >&2
@@ -1049,7 +1100,7 @@ B2_LOG="$FIXTURE/b2.log"
 run_timeout 60 node "$CLI" boot -- /bin/sh -c \
   'F=$(cat /sys/bus/virtio/devices/virtio4/features); echo "REPORTING=$(echo "$F" | cut -c6)"; echo "VERSION_1=$(echo "$F" | cut -c33)"' \
   >"$B2_LOG" 2>&1 || true
-if grep -q "^REPORTING=1" "$B2_LOG" && grep -q "^VERSION_1=1" "$B2_LOG"; then
+if grep -q "REPORTING=1" "$B2_LOG" && grep -q "VERSION_1=1" "$B2_LOG"; then
   pass "guest negotiated VERSION_1 + REPORTING"
 else
   tail -50 "$B2_LOG" >&2
@@ -1262,11 +1313,11 @@ else
   fail "N2 — 'machinen ls' missing '$N2_NAME'"
 fi
 
-# machinen exec <name> -- uname -m should return 0 + aarch64.
+# machinen exec <name> -- uname -m should return 0 + the selected guest arch.
 N2_EXEC_LOG="$FIXTURE/n2-exec.log"
 if cli exec "$N2_NAME" -- uname -m >"$N2_EXEC_LOG" 2>&1; then
-  if grep -qE "aarch64|arm64" "$N2_EXEC_LOG"; then
-    pass "'machinen exec $N2_NAME -- uname -m' returned aarch64"
+  if grep -qE "$GUEST_UNAME_RE" "$N2_EXEC_LOG"; then
+    pass "'machinen exec $N2_NAME -- uname -m' returned $GUEST_UNAME_LABEL"
   else
     cat "$N2_EXEC_LOG" >&2
     fail "N2 — exec stdout missing arch marker"
@@ -1327,8 +1378,8 @@ fi
 # breaks).
 N2D_EXEC_LOG="$FIXTURE/n2d-exec.log"
 if cli exec "$N2D_NAME" -- uname -m >"$N2D_EXEC_LOG" 2>&1; then
-  if grep -qE "aarch64|arm64" "$N2D_EXEC_LOG"; then
-    pass "post-detach 'exec $N2D_NAME -- uname -m' returned aarch64"
+  if grep -qE "$GUEST_UNAME_RE" "$N2D_EXEC_LOG"; then
+    pass "post-detach 'exec $N2D_NAME -- uname -m' returned $GUEST_UNAME_LABEL"
   else
     cat "$N2D_EXEC_LOG" >&2
     fail "N2D — post-detach exec stdout missing arch marker"
@@ -1610,7 +1661,7 @@ N5_LOG="$FIXTURE/n5.log"
 # release rootfs, drop in the config, and re-tar — cheaper than
 # running a full provision() during smoke.
 mkdir -p "$N5_STAGE"
-tar -xzf "$ASSETS/rootfs-debian-arm64.tar.gz" -C "$N5_STAGE"
+tar -xzf "$ROOTFS_TAR" -C "$N5_STAGE"
 cat > "$N5_STAGE/machinen-config.json" <<JSON
 { "cmd": ["/bin/echo", "$N5_MARKER"] }
 JSON
@@ -1640,29 +1691,42 @@ fi
 echo "P1: machinen boot -- /usr/sbin/criu --version"
 P1_LOG="$FIXTURE/p1.log"
 run_timeout 60 node "$CLI" boot -- /usr/sbin/criu --version >"$P1_LOG" 2>&1 || true
-if grep -q "^Version:" "$P1_LOG"; then
+if grep -q "Version:" "$P1_LOG"; then
   pass "criu runs inside the base rootfs"
 else
   tail -50 "$P1_LOG" >&2
   fail "P1 — criu --version did not print a Version: line"
 fi
 
-# ---- P2: virtio_blk + vsock + in-guest KVM config visible at boot ----
+# ---- P2: virtio_blk + vsock (+ arm64 nested KVM config) visible at boot ----
 # Drivers are now compiled into the kernel (#119), so /proc/modules is
 # empty. Instead, prove they're live: /sys/class/block/vda exists once
 # virtio_blk has bound, and /proc/net/protocols lists AF_VSOCK once
-# vsock + virtio_vsock are linked in. Also assert CONFIG_KVM=y so a
-# nested-enabled L1 can expose /dev/kvm without loading modules (#271).
-echo "P2: machinen boot -- virtio_blk + AF_VSOCK + CONFIG_KVM"
+# vsock + virtio_vsock are linked in. On arm64, also assert CONFIG_KVM=y
+# so a nested-enabled L1 can expose /dev/kvm without loading modules (#271).
 P2_LOG="$FIXTURE/p2.log"
-run_timeout 60 node "$CLI" boot -- /bin/sh -c \
-  'ls -d /sys/class/block/vda 2>/dev/null && grep -E "^AF_VSOCK " /proc/net/protocols && gzip -dc /proc/config.gz | grep -E "^CONFIG_KVM=y"' \
-  >"$P2_LOG" 2>&1 || true
-if grep -q "/sys/class/block/vda" "$P2_LOG" && grep -qE "^AF_VSOCK " "$P2_LOG" && grep -q "^CONFIG_KVM=y" "$P2_LOG"; then
-  pass "kernel has virtio_blk + vsock + KVM built in (/dev/vda, AF_VSOCK, CONFIG_KVM=y)"
+if [[ "$GUEST_ARCH" == "arm64" ]]; then
+  echo "P2: machinen boot -- virtio_blk + AF_VSOCK + CONFIG_KVM"
+  run_timeout 60 node "$CLI" boot -- /bin/sh -c \
+    'ls -d /sys/class/block/vda 2>/dev/null && grep -E "^AF_VSOCK " /proc/net/protocols && gzip -dc /proc/config.gz | grep -E "^CONFIG_KVM=y"' \
+    >"$P2_LOG" 2>&1 || true
+  if grep -q "/sys/class/block/vda" "$P2_LOG" && grep -qE "(^|\] )AF_VSOCK " "$P2_LOG" && grep -q "^CONFIG_KVM=y" "$P2_LOG"; then
+    pass "kernel has virtio_blk + vsock + KVM built in (/dev/vda, AF_VSOCK, CONFIG_KVM=y)"
+  else
+    tail -50 "$P2_LOG" >&2
+    fail "P2 — expected /sys/class/block/vda, AF_VSOCK, and CONFIG_KVM=y"
+  fi
 else
-  tail -50 "$P2_LOG" >&2
-  fail "P2 — expected /sys/class/block/vda, AF_VSOCK, and CONFIG_KVM=y"
+  echo "P2: machinen boot -- virtio_blk + AF_VSOCK"
+  run_timeout 60 node "$CLI" boot -- /bin/sh -c \
+    'ls -d /sys/class/block/vda 2>/dev/null && grep -E "^AF_VSOCK " /proc/net/protocols' \
+    >"$P2_LOG" 2>&1 || true
+  if grep -q "/sys/class/block/vda" "$P2_LOG" && grep -qE "(^|\] )AF_VSOCK " "$P2_LOG"; then
+    pass "kernel has virtio_blk + vsock built in (/dev/vda + AF_VSOCK live)"
+  else
+    tail -50 "$P2_LOG" >&2
+    fail "P2 — expected /sys/class/block/vda and AF_VSOCK"
+  fi
 fi
 
 # ---- P3: machinen-poweroff triggers PSCI SYSTEM_OFF, VMM exits cleanly ----

@@ -94,6 +94,9 @@ importers:
       '@machinen/native-arm64-linux':
         specifier: workspace:*
         version: link:../native-arm64-linux
+      '@machinen/native-x64-linux':
+        specifier: workspace:*
+        version: link:../native-x64-linux
 
   packages/microvm: {}
 
@@ -102,6 +105,8 @@ importers:
   packages/native-arm64-darwin: {}
 
   packages/native-arm64-linux: {}
+
+  packages/native-x64-linux: {}
 
   packages/runtime:
     dependencies:
@@ -128,6 +133,9 @@ importers:
       '@machinen/native-arm64-linux':
         specifier: workspace:*
         version: link:../native-arm64-linux
+      '@machinen/native-x64-linux':
+        specifier: workspace:*
+        version: link:../native-x64-linux
 
 packages:
 

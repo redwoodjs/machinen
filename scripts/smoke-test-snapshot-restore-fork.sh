@@ -13,7 +13,7 @@
 # isn't already built, then runs the tests.
 #   - @machinen/runtime + @machinen/cli  (fast)
 #   - packages/microvm/zig-out/bin/machinen-vm  (~30s on first run)
-#   - release-assets/ (Image, dtb, rootfs tarball)  (~5 min, needs Docker)
+#   - release-assets/ (kernel, optional dtb, rootfs tarball)  (~5 min, needs Docker)
 #
 # Tests (run once per engine — criu, then vmstate):
 #   S1     Boot + snapshot + restore round-trip — #207, #215, #216.
@@ -38,18 +38,64 @@ CLI="$ROOT/packages/cli/dist/cli.js"
 # Shares the inputs-sha256 sidecar that check-asset-freshness.sh
 # writes/reads, so a smoke run after an mn-dev session doesn't see a
 # stale "vmm" report and vice versa.
-VMM="$ROOT/packages/native-arm64-darwin/vmm/bin/machinen-vm"
 ASSETS="$ROOT/release-assets"
 OS=$(uname -s)
+HOST_ARCH=$(uname -m)
+case "$OS:$HOST_ARCH" in
+  Darwin:arm64) HOST_NATIVE_PKG="native-arm64-darwin" ;;
+  Linux:aarch64|Linux:arm64) HOST_NATIVE_PKG="native-arm64-linux" ;;
+  Linux:x86_64|Linux:amd64) HOST_NATIVE_PKG="native-x64-linux" ;;
+  *) echo "smoke: unsupported host: $OS/$HOST_ARCH" >&2; exit 1 ;;
+esac
+VMM="$ROOT/packages/$HOST_NATIVE_PKG/vmm/bin/machinen-vm"
+
+GUEST_ARCH="${MACHINEN_GUEST_ARCH:-}"
+if [[ -z "$GUEST_ARCH" ]]; then
+  case "$HOST_ARCH" in
+    x86_64|amd64) GUEST_ARCH="amd64" ;;
+    *) GUEST_ARCH="arm64" ;;
+  esac
+fi
+case "$GUEST_ARCH" in
+  arm64)
+    KERNEL_ASSET="Image-arm64"
+    DTB_ASSET="virt-arm64.dtb"
+    ROOTFS_ASSET="rootfs-debian-arm64.tar.gz"
+    SNAPSHOT_ENGINES=(criu vmstate)
+    ;;
+  amd64|x86_64|x64)
+    GUEST_ARCH="amd64"
+    KERNEL_ASSET="bzImage-x86_64"
+    DTB_ASSET=""
+    ROOTFS_ASSET="rootfs-debian-amd64.tar.gz"
+    # x86_64 support targets the default whole-VM vmstate engine. The
+    # legacy in-guest CRIU process-tree backend still has x86 tty/session
+    # edge cases, so don't gate x86 VM snapshot support on it here.
+    SNAPSHOT_ENGINES=(vmstate)
+    ;;
+  *) echo "smoke: MACHINEN_GUEST_ARCH must be arm64 or amd64 (got $GUEST_ARCH)" >&2; exit 1 ;;
+esac
+case "$GUEST_ARCH" in
+  arm64) GUEST_UNAME_RE="aarch64|arm64"; GUEST_UNAME_LABEL="aarch64" ;;
+  amd64) GUEST_UNAME_RE="x86_64|amd64"; GUEST_UNAME_LABEL="x86_64" ;;
+esac
+
+assets_complete() {
+  [[ -f "$ASSETS/$KERNEL_ASSET" && -f "$ASSETS/$ROOTFS_ASSET" ]] || return 1
+  [[ -z "$DTB_ASSET" || -f "$ASSETS/$DTB_ASSET" ]]
+}
 
 # ----------------------------------------------------------------
 # Prereq checks
 # ----------------------------------------------------------------
 
 missing=()
-for bin in zig docker dtc; do
+for bin in zig; do
   command -v "$bin" >/dev/null || missing+=("$bin")
 done
+if [[ "$GUEST_ARCH" == "arm64" ]]; then
+  command -v dtc >/dev/null || missing+=("dtc")
+fi
 
 # Networking is opt-in via MACHINEN_NET_SOCKET (gvproxy UDS). The
 # smoke tests below don't need it, so we don't gate on gvproxy here.
@@ -66,7 +112,11 @@ fi
 # Docker needs to be running, but only if we still have to build the
 # base assets. A warm repo with release-assets/ already present should
 # not require Docker Desktop at all.
-if [[ ! -f "$ASSETS/Image-arm64" ]]; then
+if ! assets_complete; then
+  if ! command -v docker >/dev/null; then
+    echo "smoke: missing prerequisite: docker (needed to build release-assets/)" >&2
+    exit 1
+  fi
   if ! docker info >/dev/null 2>&1; then
     echo "smoke: Docker is not running (needed to build release-assets/)" >&2
     echo "smoke: start Docker Desktop and re-run" >&2
@@ -85,9 +135,9 @@ fi
 echo "=== building VMM ==="
 bash "$ROOT/scripts/build-vmm.sh"
 
-if [[ ! -f "$ASSETS/Image-arm64" ]]; then
-  echo "=== building base assets (~5 min on first run, cached after) ==="
-  "$ROOT/scripts/build-base-assets.sh"
+if ! assets_complete; then
+  echo "=== building $GUEST_ARCH base assets (~5 min on first run, cached after) ==="
+  MACHINEN_GUEST_ARCH="$GUEST_ARCH" "$ROOT/scripts/build-base-assets.sh"
 fi
 
 # Catch a stale rootfs / kernel before booting. Without this, an
@@ -96,8 +146,8 @@ fi
 # timeout in S1 that looks like a runtime regression. The checker
 # diffs source-file hashes against sidecars baked at build time;
 # missing sidecars (older release-assets/) just warn.
-if ! "$ROOT/scripts/check-asset-freshness.sh" --quiet; then
-  echo "smoke: release-assets/ is stale — rebuild with bash $ROOT/scripts/build-base-assets.sh" >&2
+if ! MACHINEN_GUEST_ARCH="$GUEST_ARCH" "$ROOT/scripts/check-asset-freshness.sh" --quiet; then
+  echo "smoke: release-assets/ is stale — rebuild with MACHINEN_GUEST_ARCH=$GUEST_ARCH bash $ROOT/scripts/build-base-assets.sh" >&2
   exit 1
 fi
 
@@ -116,10 +166,12 @@ pnpm -F @machinen/runtime -F @machinen/cli build >/dev/null
 
 export MACHINEN_VMM="$VMM"
 export MACHINEN_ASSETS_DIR="$ASSETS"
+export MACHINEN_GUEST_ARCH="$GUEST_ARCH"
 
 echo
 echo "smoke: VMM=$MACHINEN_VMM"
 echo "smoke: ASSETS=$MACHINEN_ASSETS_DIR"
+echo "smoke: GUEST_ARCH=$MACHINEN_GUEST_ARCH"
 echo
 
 # Capability probe: N-series (vsock exec) and P/C-series (criu, fnm)
@@ -127,7 +179,7 @@ echo
 # dependent sections with a warning if we're running against a stale
 # (pre-#77) rootfs. Rebuild with ./scripts/build-base-assets.sh to
 # pick them up.
-ROOTFS_TAR="$ASSETS/rootfs-debian-arm64.tar.gz"
+ROOTFS_TAR="$ASSETS/$ROOTFS_ASSET"
 ROOTFS_SUPPORTS_VSOCK_EXEC=1
 ROOTFS_SUPPORTS_CRIU=1
 ROOTFS_SUPPORTS_SNAPSHOT_HELPERS=1
@@ -355,7 +407,7 @@ vmm_rss_mib() {
 # scratch paths embed $ENGINE so the two iterations in a single
 # process don't collide on the shared $$ (PID) suffix.
 # ----------------------------------------------------------------
-for ENGINE in criu vmstate; do
+for ENGINE in "${SNAPSHOT_ENGINES[@]}"; do
   export MACHINEN_SNAPSHOT_ENGINE="$ENGINE"
   echo "================ engine: $ENGINE ================"
 
@@ -399,7 +451,7 @@ for ENGINE in criu vmstate; do
     # Confirm the supervisor's backgrounded exec-agent is live.
     S1_EXEC_LOG="$FIXTURE/s1-exec-$ENGINE.log"
     if cli exec "$S1_NAME" -- uname -m >"$S1_EXEC_LOG" 2>&1 \
-       && grep -qE "aarch64|arm64" "$S1_EXEC_LOG"; then
+       && grep -qE "$GUEST_UNAME_RE" "$S1_EXEC_LOG"; then
       pass "exec-agent responds on the dump-side VM"
     else
       cat "$S1_EXEC_LOG" >&2
@@ -451,7 +503,7 @@ for ENGINE in criu vmstate; do
 
     S1_RESTORE_EXEC_LOG="$FIXTURE/s1-restore-exec-$ENGINE.log"
     if cli exec "$S1_RESTORED_NAME" -- uname -m >"$S1_RESTORE_EXEC_LOG" 2>&1 \
-       && grep -qE "aarch64|arm64" "$S1_RESTORE_EXEC_LOG"; then
+       && grep -qE "$GUEST_UNAME_RE" "$S1_RESTORE_EXEC_LOG"; then
       pass "exec-agent responds on the restored VM"
     else
       cat "$S1_RESTORE_EXEC_LOG" >&2
@@ -636,7 +688,7 @@ for ENGINE in criu vmstate; do
 
     S2_RESTORE_B_EXEC_LOG="$FIXTURE/s2-restore-b-exec-$ENGINE.log"
     if cli exec "$S2_RESTORED_B" -- uname -m >"$S2_RESTORE_B_EXEC_LOG" 2>&1 \
-       && grep -qE "aarch64|arm64" "$S2_RESTORE_B_EXEC_LOG"; then
+       && grep -qE "$GUEST_UNAME_RE" "$S2_RESTORE_B_EXEC_LOG"; then
       pass "exec-agent responds on the chain-restored VM (gen 2)"
     else
       cat "$S2_RESTORE_B_EXEC_LOG" >&2
@@ -692,7 +744,7 @@ for ENGINE in criu vmstate; do
 
     S2_RESTORE_C_EXEC_LOG="$FIXTURE/s2-restore-c-exec-$ENGINE.log"
     if cli exec "$S2_RESTORED_C" -- uname -m >"$S2_RESTORE_C_EXEC_LOG" 2>&1 \
-       && grep -qE "aarch64|arm64" "$S2_RESTORE_C_EXEC_LOG"; then
+       && grep -qE "$GUEST_UNAME_RE" "$S2_RESTORE_C_EXEC_LOG"; then
       pass "exec-agent responds on the gen-3 chain-restored VM"
     else
       cat "$S2_RESTORE_C_EXEC_LOG" >&2
@@ -943,7 +995,7 @@ for ENGINE in criu vmstate; do
       # instruction and exec times out.
       S4_EXEC_LOG="$FIXTURE/s4-exec-$ENGINE.log"
       if cli exec "$S4_RESTORED_NAME" -- uname -m >"$S4_EXEC_LOG" 2>&1 \
-         && grep -qE "aarch64|arm64" "$S4_EXEC_LOG"; then
+         && grep -qE "$GUEST_UNAME_RE" "$S4_EXEC_LOG"; then
         pass "exec-agent responds on the lazy-pages restored VM"
       else
         cat "$S4_EXEC_LOG" >&2
