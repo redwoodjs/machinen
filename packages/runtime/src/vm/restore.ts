@@ -51,6 +51,8 @@ import {
 const debug = debugLib("machinen:boot");
 const debugRestore = debugLib("machinen:restore");
 
+const VMSTATE_RESEED_MARKER = "/run/machinen-vmstate-reseed";
+
 export interface RestoreOptions extends Omit<BootOptions, "snapshot" | "image" | "cmd" | "name"> {
   /**
    * Snapshot bundle directory produced by `vm.snapshot()`.
@@ -614,6 +616,47 @@ function validateIdentity(label: string, path: string, expected: SnapshotFileIde
 }
 
 /**
+ * Whole-VM snapshots include the guest kernel's CSPRNG state. Without a
+ * restore-time mix-in, two restores from the same bundle can hand out the same
+ * post-restore secrets. Mix host entropy into the guest's input pool before
+ * returning the restored handle, and leave a non-secret marker for smoke tests
+ * and operators to confirm the reseed path ran.
+ */
+async function reseedVmstateGuestEntropy(vm: VmHandle): Promise<void> {
+  const seedHex = randomBytes(64).toString("hex");
+  const marker = `vmstate reseeded ${new Date().toISOString()}\n`;
+  const cmd = [
+    "mkdir -p /run",
+    "test -x /sbin/machinen-vmstate-reseed",
+    `/sbin/machinen-vmstate-reseed ${shellQuote(seedHex)}`,
+    `printf %s ${shellQuote(marker)} > ${shellQuote(VMSTATE_RESEED_MARKER)}`,
+    `chmod 0600 ${shellQuote(VMSTATE_RESEED_MARKER)}`,
+  ].join(" && ");
+  const res = await vm
+    .execRaw(cmd, { connectTimeoutMs: 30_000, execTimeoutMs: 10_000 })
+    .catch((err: unknown) => {
+      throw new BootError(
+        "BOOT_VMSTATE_RESEED_FAILED",
+        `restore: failed to inject vmstate restore entropy before handing the VM to the caller.\n` +
+          `  The restored guest may otherwise reuse CSPRNG state from the snapshot.`,
+        { cause: err },
+      );
+    });
+  if (res.exitCode !== 0) {
+    throw new BootError(
+      "BOOT_VMSTATE_RESEED_FAILED",
+      `restore: vmstate entropy reseed command failed (exit ${res.exitCode}).\n` +
+        `stderr:\n${res.stderr}`,
+    );
+  }
+  debugRestore("vmstate restore entropy reseeded marker=%s", VMSTATE_RESEED_MARKER);
+}
+
+function shellQuote(s: string): string {
+  return `'${s.replace(/'/g, "'\\''")}'`;
+}
+
+/**
  * Restore a vmstate (whole-VM) bundle: `<snapDir>/state.vmstate` plus
  * `meta.json`. Unlike the CRIU path there's no scratch tar and no
  * guest-side restore agent — `boot()` hands the state file to the VMM
@@ -687,6 +730,7 @@ async function restoreVmstate(opts: RestoreOptions, snapDir: string): Promise<Vm
       _vmstateRestorePath: statePath,
       _rootDiskRestorePath: vmstatePlan.rootDiskRestorePath,
     });
+    await reseedVmstateGuestEntropy(vm);
   } finally {
     if (materializedTempDir) {
       try {

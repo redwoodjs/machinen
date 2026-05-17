@@ -64,6 +64,7 @@ rootfs_input_files() {
     "${ASSETS}/net-bench-probe.zig" \
     "${ASSETS}/no-iou.zig" \
     "${ASSETS}/poweroff.zig" \
+    "${ASSETS}/vmstate-reseed.c" \
     "${ASSETS}/winsize-agent.zig" \
     "${SCRIPTS}/build-base-assets.sh"
   # CRIU patches applied during the rootfs build. Scoped to
