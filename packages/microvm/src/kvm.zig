@@ -157,6 +157,17 @@ pub const DeviceAttr = extern struct {
 
 pub const KVM_DEV_TYPE_ARM_VGIC_V3: u32 = 7;
 
+// VM type helper for arm64 IPA sizing. Passing 0 to KVM_CREATE_VM keeps
+// the kernel default; KVM_VM_TYPE_ARM_IPA_SIZE(n) requests n IPA bits.
+pub const KVM_VM_TYPE_ARM_IPA_SIZE_MASK: u64 = 0xff;
+pub fn KVM_VM_TYPE_ARM_IPA_SIZE(bits: u64) u64 {
+    return bits & KVM_VM_TYPE_ARM_IPA_SIZE_MASK;
+}
+
+// KVM_CHECK_EXTENSION capabilities used by the optional nested-EL2 path.
+pub const KVM_CAP_ARM_VM_IPA_SIZE: c_ulong = 165;
+pub const KVM_CAP_ARM_EL2: c_ulong = 240;
+
 // vgic-v3 attribute groups.
 pub const KVM_DEV_ARM_VGIC_GRP_ADDR: u32 = 0;
 pub const KVM_DEV_ARM_VGIC_GRP_CTRL: u32 = 4;
@@ -170,6 +181,7 @@ pub const KVM_DEV_ARM_VGIC_CTRL_INIT: u64 = 0;
 
 // arm64 VCPU_INIT feature bits.
 pub const KVM_ARM_VCPU_PSCI_0_2: u32 = 2;
+pub const KVM_ARM_VCPU_HAS_EL2: u32 = 7;
 // Pointer authentication — must be requested as a pair. HVF gives the
 // guest active FEAT_PAuth, so a HVF-sourced snapshot's RAM holds
 // signed pointers; the KVM vCPU must also implement FEAT_PAuth (with
@@ -478,6 +490,7 @@ pub const KvmError = error{
     KvmCreateIrqchipFailed,
     KvmIrqLineFailed,
     KvmMmapRunFailed,
+    KvmCheckExtensionFailed,
     Unsupported,
 };
 
@@ -517,10 +530,25 @@ pub const Kvm = struct {
         _ = close(self.kvm_fd);
     }
 
+    pub fn checkExtension(self: *Kvm, cap: c_ulong) !c_int {
+        assert(self.kvm_fd >= 0);
+        const r = ioctl(self.kvm_fd, KVM_CHECK_EXTENSION, cap);
+        if (r < 0) return error.KvmCheckExtensionFailed;
+        return r;
+    }
+
+    pub fn armEl2Supported(self: *Kvm) bool {
+        return (self.checkExtension(KVM_CAP_ARM_EL2) catch 0) > 0;
+    }
+
     pub fn createVm(self: *Kvm) !Vm {
+        return self.createVmWithType(0);
+    }
+
+    pub fn createVmWithType(self: *Kvm, vm_type: c_ulong) !Vm {
         assert(self.kvm_fd >= 0);
         assert(self.vcpu_mmap_size >= 4096);
-        const fd = ioctl(self.kvm_fd, KVM_CREATE_VM, @as(c_ulong, 0));
+        const fd = ioctl(self.kvm_fd, KVM_CREATE_VM, vm_type);
         if (fd < 0) return error.KvmCreateVmFailed;
         assert(fd != self.kvm_fd);
         return .{ .fd = fd, .parent = self };
@@ -870,6 +898,15 @@ pub const Vcpu = struct {
 // Tests — layout + ioctl-number constants.
 // =============================================================
 
+test "KVM arm64 nested constants match uapi" {
+    try std.testing.expectEqual(@as(c_ulong, 165), KVM_CAP_ARM_VM_IPA_SIZE);
+    try std.testing.expectEqual(@as(c_ulong, 240), KVM_CAP_ARM_EL2);
+    try std.testing.expectEqual(@as(u32, 7), KVM_ARM_VCPU_HAS_EL2);
+    try std.testing.expectEqual(@as(u64, 0), KVM_VM_TYPE_ARM_IPA_SIZE(0));
+    try std.testing.expectEqual(@as(u64, 40), KVM_VM_TYPE_ARM_IPA_SIZE(40));
+    try std.testing.expectEqual(@as(u64, 0xff), KVM_VM_TYPE_ARM_IPA_SIZE(0x1ff));
+}
+
 test "KVMIO ioctl numbers match their documented kernel values" {
     // Values grabbed from <linux/kvm.h> on arm64. If any of these
     // trip, our _IOC macros or our struct sizes drifted.
@@ -939,9 +976,9 @@ test "KVM arch-agnostic: open, API v12, create VM, check capability" {
     defer vm.destroy();
 
     // KVM_CAP_USER_MEMORY = 3 — present on every modern kernel; makes
-    // sure the vm fd responds to CHECK_EXTENSION.
+    // sure CHECK_EXTENSION is wired through the wrapper.
     const cap_user_memory: c_ulong = 3;
-    const has_user_memory = ioctl(kvm.kvm_fd, KVM_CHECK_EXTENSION, cap_user_memory);
+    const has_user_memory = try kvm.checkExtension(cap_user_memory);
     try std.testing.expect(has_user_memory >= 1);
 }
 

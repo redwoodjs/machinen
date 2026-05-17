@@ -101,7 +101,7 @@ export function validatePid(
   return "alive";
 }
 
-export interface ProcessIdentity {
+interface ProcessIdentity {
   exeBase: string;
   startedAtMs?: number;
 }

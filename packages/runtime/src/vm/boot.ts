@@ -34,6 +34,11 @@ import {
   warnGvproxyMissing,
 } from "../gvproxy.ts";
 import type { OnLog } from "../log.ts";
+import {
+  applyNestedVirtualizationEnv,
+  preflightNestedVirtualization,
+  probeVmmNestedVirtualization,
+} from "../nested-virt.ts";
 import { ensurePdeathsig, wrapWithPdeathsig } from "../pdeathsig.ts";
 import { PhaseTimer } from "../phase-timer.ts";
 import { readProcessIdentity } from "../pid-validate.ts";
@@ -42,7 +47,7 @@ import { reflinkCopy } from "../reflink.ts";
 import { claimName, findEntry, removeEntry, writeEntry } from "../registry.ts";
 import { ensureRootfsImage, markRootfsImageClean } from "../rootfs-img.ts";
 import { resolveLiveMounts, type ResolvedLiveMount, synthesizeAndPackBundle } from "./bundle.ts";
-import { performFork } from "./fork.ts";
+import { performForkWithRestore } from "./fork-core.ts";
 import type { MemoryStats, VmHandle } from "../vm-handle.ts";
 import {
   allocateSparseFile,
@@ -315,6 +320,19 @@ export interface BootOptions {
   /** Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`. */
   dtb?: string;
   /**
+   * Opt in to exposing arm64 EL2 / `/dev/kvm` to the guest so the
+   * workload can start its own VMs. This is intentionally off by
+   * default: it requires Linux/arm64 KVM with nested EL2 support, or
+   * macOS 15+ on M3/M4-class Apple Silicon, and provider-level
+   * snapshots of a nested-enabled VM are refused until EL2 vmstate
+   * capture is audited.
+   *
+   * When set, the runtime does a best-effort host preflight and passes
+   * `MACHINEN_NESTED=1` to the VMM. The VMM's backend probe is still
+   * authoritative.
+   */
+  nested?: boolean;
+  /**
    * Guest RAM ceiling, in MiB (decimal integer; no unit suffixes). The
    * VMM reads this as `MACHINEN_MEMORY` (#263 phase A). This is the
    * guest's memory layout limit, not the host memory used right now.
@@ -446,6 +464,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
     ...(process.env as Record<string, string>),
     ...opts.vmmEnv,
   };
+  configureNestedVirtualization(opts, binary, env);
   const memoryCeilingMib = setMemoryCeiling(opts, env);
 
   phases.start("disk-prep");
@@ -722,6 +741,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
           vmstateChainId: vmstateStatePath ? vmstateChainId : undefined,
           vmstateCheckpointParent: vmstateStatePath ? vmstateCheckpointParent : undefined,
           vmstateCheckpointSequence: vmstateStatePath ? vmstateCheckpointSequence : undefined,
+          nested: opts.nested,
         })
       : false;
 
@@ -900,7 +920,15 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
             "Re-boot the source without that flag so it can be snapshotted.",
         );
       }
-      return performFork(buildBootSnapshotContext(), forkOpts ?? {});
+      return performForkWithRestore(
+        buildBootSnapshotContext(),
+        forkOpts ?? {},
+        async (restoreOpts) => {
+          const runtimeEntryPath = runtimeEntryImportPath();
+          const { restore } = await import(runtimeEntryPath);
+          return restore(restoreOpts);
+        },
+      );
     },
   };
 
@@ -960,6 +988,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
             }
           }
         : undefined,
+      nested: opts.nested,
       execRaw: (cmd, execOpts) => handle.execRaw(cmd, execOpts),
       wait: () => handle.wait(),
       kill: () => handle.kill(),
@@ -1075,6 +1104,32 @@ async function validatePortForwardOpts(
 // persisted on the registry entry; undefined when caller pre-set
 // MACHINEN_MEMORY (the runtime didn't pick the number, so it can't
 // honestly report it).
+function configureNestedVirtualization(
+  opts: BootOptions,
+  binary: string,
+  env: Record<string, string>,
+): void {
+  if (opts.nested) {
+    preflightNestedVirtualization();
+    probeVmmNestedVirtualization(binary, opts.cwd, env);
+  }
+  applyNestedVirtualizationEnv(opts.nested, env);
+}
+
+// `boot()` owns the returned handle, including `vm.fork()`, but `restore()`
+// itself calls back into `boot()`. Load the runtime entry lazily so the static
+// graph stays acyclic while source runs (`../index.ts`) and bundled dist runs
+// (`./index.js`) both resolve to the public restore export.
+function runtimeEntryImportPath(): string {
+  if (import.meta.url.endsWith("/vm/boot.ts")) {
+    return "../index.ts";
+  }
+  if (import.meta.url.endsWith("/vm/boot.js")) {
+    return "../index.js";
+  }
+  return "./index.js";
+}
+
 function setMemoryCeiling(opts: BootOptions, env: Record<string, string>): number | undefined {
   if (env.MACHINEN_MEMORY !== undefined) {
     return undefined;
@@ -1494,6 +1549,7 @@ interface RegisterArgs {
   vmstateChainId: string | undefined;
   vmstateCheckpointParent: string | undefined;
   vmstateCheckpointSequence: number | undefined;
+  nested: boolean | undefined;
 }
 
 // Write the registry entry. Returns true on success; registry-write
@@ -1552,6 +1608,9 @@ function registerInRegistry(args: RegisterArgs): boolean {
       vmstateChainId: args.vmstateChainId,
       vmstateCheckpointParent: args.vmstateCheckpointParent,
       vmstateCheckpointSequence: args.vmstateCheckpointSequence,
+      // #271: record nested-EL2 opt-in so attach-owned snapshots can
+      // apply the same provider-level safety gate as boot-owned ones.
+      nested: args.nested || undefined,
       // #272: persist mount-overlay paths so an attach-owned
       // vm.snapshot()/fork() can reflink the lower+upper into the
       // bundle. Without this, `machinen snapshot <vm>` from

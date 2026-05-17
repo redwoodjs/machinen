@@ -11,7 +11,7 @@ import pkg from "../package.json" with { type: "json" };
 export const SCHEMA_VERSION = 2 as const;
 
 /** A single CLI flag. `enum` is set when the value must be one of a fixed list. */
-export interface FlagSpec {
+interface FlagSpec {
   name: string;
   type: "boolean" | "string" | "integer" | "enum";
   /** When `type === "enum"`, the valid set. */
@@ -26,14 +26,14 @@ export interface FlagSpec {
 }
 
 /** A positional argument. Order matches the order in the array. */
-export interface PositionalSpec {
+interface PositionalSpec {
   name: string;
   /** Required positional? Defaults to true. */
   required?: boolean;
   description: string;
 }
 
-export interface CommandSpec {
+interface CommandSpec {
   name: string;
   /** Other accepted spellings (e.g. `ls` for `list`). */
   aliases?: string[];
@@ -79,7 +79,7 @@ export const COMMANDS: CommandSpec[] = [
         name: "--mount-live",
         type: "string",
         repeatable: true,
-        description: "Live-share host dir. Spec: <host>:<guest>[:rw|ro][:fuse|virtiofs].",
+        description: "Live-share host dir over virtio-fs. Spec: <host>:<guest>[:rw|ro].",
       },
       {
         name: "--env",
@@ -106,6 +106,11 @@ export const COMMANDS: CommandSpec[] = [
         description: "Detach the VMM from the CLI on first-guest-byte readiness.",
       },
       { name: "--memory", type: "integer", description: "Guest RAM ceiling in MiB (debug knob)." },
+      {
+        name: "--nested",
+        type: "boolean",
+        description: "Expose arm64 EL2 / /dev/kvm to the guest when the host supports it.",
+      },
       {
         name: "--json",
         type: "boolean",
@@ -386,7 +391,7 @@ export const EXIT_CODES = {
   signalled_sigterm: 143,
 } as const;
 
-export interface AgentContext {
+interface AgentContext {
   schema_version: typeof SCHEMA_VERSION;
   cli_version: string;
   commands: CommandSpec[];

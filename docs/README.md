@@ -12,3 +12,5 @@ Then dive deeper:
   running process, branching futures from one heap
 - [Mount files into a VM](./guides/mount-files.md) — `--mount`, `--mount-live`, `vm.writeFile`
 - [Networking](./guides/networking.md) — port forwards and outbound traffic via gvproxy
+- [Nested virtualization](./guides/nested-virtualization.md) — opt-in `/dev/kvm` inside a VM
+- [Run Firecracker inside machinen](./guides/firecracker.md) — boot an aarch64 L2 microVM with nested KVM

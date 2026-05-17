@@ -35,6 +35,7 @@ const balloon_mod = @import("balloon.zig");
 const stats_mod = @import("stats.zig");
 const dtb_patch = @import("dtb_patch.zig");
 const vmstate_writer = @import("vmstate_writer.zig");
+const nested_poweroff = @import("nested_poweroff.zig");
 
 // Guest-physical bases. Each virtio-MMIO device lives in a 0x200
 // window. The DTS has slots at 0x0A000000 + i*0x200; we wire up the
@@ -109,6 +110,7 @@ pub const Error = error{
     DtbTooLarge,
     GuestCrashed,
     RanTooLong,
+    NestedVirtUnsupported,
 };
 
 pub const Config = struct {
@@ -163,6 +165,9 @@ pub const Config = struct {
     /// background thread while the guest resumes.
     restore_path: ?[]const u8 = null,
     snapshot_path: ?[]const u8 = null,
+    /// Expose EL2 to the guest via Hypervisor.framework's macOS 15+
+    /// hv_vm_config API so the guest can run its own VMs.
+    nested: bool = false,
 };
 
 pub const Result = struct {
@@ -252,7 +257,12 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     const ram = try allocateAndPopulateRam(gpa, cfg, fx);
     defer std.posix.munmap(ram);
 
-    const vm = try hvf.Vm.create();
+    const vm = if (cfg.nested) nested_vm: {
+        break :nested_vm hvf.Vm.createNested() catch |err| {
+            std.debug.print("hvf boot: nested virtualization requested but EL2 is unavailable: {s}\n", .{@errorName(err)});
+            return error.NestedVirtUnsupported;
+        };
+    } else try hvf.Vm.create();
     defer vm.destroy();
 
     try enableGic();
@@ -454,6 +464,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         stdin_thread.detach();
     }
 
+    var nested_poweroff_detector: nested_poweroff.Detector = .{};
     const devs = Devices{
         .uart = &uart,
         .netdev = &netdev,
@@ -465,6 +476,8 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         .vsock_dev = vsock_dev_ptr,
         .vsock_bridge = vsock_bridge_opt,
         .balloon_dev = balloon_dev_ptr,
+        .nested = cfg.nested,
+        .nested_poweroff = &nested_poweroff_detector,
         .virtiofs_devs = virtiofs_dev_ptrs,
     };
     // Apply restore-from-vmstate before the first vcpu.run() if the
@@ -1010,7 +1023,7 @@ fn runLoop(
             .trapped_wfx => {
                 try handleWaitTrap(vcpu);
             },
-            .hvc_aarch64 => {
+            .hvc_aarch64, .smc_aarch64 => {
                 switch (try handlePsci(vcpu)) {
                     .shutdown => {
                         saw_off = true;
@@ -1035,6 +1048,11 @@ fn runLoop(
                 logUnhandledException(vcpu, ec, "unhandled exception class");
                 break;
             },
+        }
+
+        if (devs.nested_poweroff.seen) {
+            saw_off = true;
+            break;
         }
 
         // Test-mode stop condition: we've seen enough serial output to
@@ -1486,10 +1504,23 @@ fn initVcpu(img: hvf.KernelImage, cfg: Config) !hvf.Vcpu {
         }
     }
 
-    // EL1h, all interrupts masked.
-    try vcpu.setReg(.cpsr, 0x3C5);
-    // MMU off (kernel turns it on itself); I-bit for executable fetches.
-    try vcpu.setSysReg(.sctlr_el1, 1 << 12);
+    if (cfg.nested) {
+        // EL2h, all interrupts masked. When EL2 is exposed, Linux must
+        // enter at EL2 so it can own the guest hypervisor state and
+        // later provide /dev/kvm to workloads inside the VM.
+        try vcpu.setReg(.cpsr, 0x3C9);
+        // HCR_EL2.RW=1 selects AArch64 for EL1. CNTHCTL bits allow EL1
+        // to read the physical counter/timer as required by the arm64
+        // boot protocol. Keep the virtual offset at zero.
+        try vcpu.setSysReg(.hcr_el2, @as(u64, 1) << 31);
+        try vcpu.setSysReg(.cnthctl_el2, 0x3);
+        try vcpu.setSysReg(.cntvoff_el2, 0);
+    } else {
+        // EL1h, all interrupts masked.
+        try vcpu.setReg(.cpsr, 0x3C5);
+        // MMU off (kernel turns it on itself); I-bit for executable fetches.
+        try vcpu.setSysReg(.sctlr_el1, 1 << 12);
+    }
 
     // arm64 Linux boot protocol: X0 = physical address of DTB.
     const dtb_phys = cfg.ram_base + cfg.dtb_offset;
@@ -1833,7 +1864,7 @@ fn startVsockBridge(
 /// the guest; SYSTEM_OFF / SYSTEM_RESET ask the run loop to stop.
 const PsciOutcome = enum { handled, shutdown };
 
-/// Decode and respond to a PSCI HVC. Returns `.shutdown` only on
+/// Decode and respond to a PSCI HVC/SMC. Returns `.shutdown` only on
 /// SYSTEM_OFF / SYSTEM_RESET; all other cases are answered in-place.
 fn handlePsci(vcpu: hvf.Vcpu) !PsciOutcome {
     const f = try hvf.Psci.decode(vcpu) orelse return .handled;
@@ -1878,6 +1909,8 @@ const Devices = struct {
     vsock_dev: ?*virtio.Device,
     vsock_bridge: ?*vsock_mod.Bridge,
     balloon_dev: ?*virtio.Device,
+    nested: bool,
+    nested_poweroff: *nested_poweroff.Detector,
 
     /// One entry per virtio-fs slot (7..10); null when that slot's
     /// `--mount-live` wasn't requested.
@@ -1938,7 +1971,7 @@ fn routeDataAbort(
     info: hvf.DataAbort,
 ) !void {
     if (devs.uart.handles(info.ipa)) {
-        try handlePl011Mmio(devs.uart, vcpu, info, irqs.pl011);
+        try handlePl011Mmio(devs.uart, vcpu, info, irqs.pl011, devs.nested, devs.nested_poweroff);
     } else if (info.ipa >= 0x0800_0000 and info.ipa < 0x0801_0000) {
         try handleGicDistMmio(vcpu, info);
     } else if (devs.netdev.handles(info.ipa)) {
@@ -1996,6 +2029,8 @@ fn handlePl011Mmio(
     vcpu: hvf.Vcpu,
     info: hvf.DataAbort,
     irq: u32,
+    nested: bool,
+    poweroff: *nested_poweroff.Detector,
 ) !void {
     assert(uart.handles(info.ipa));
     if (info.is_write) {
@@ -2004,6 +2039,7 @@ fn handlePl011Mmio(
         if ((info.ipa - uart.base) == 0) {
             const byte: [1]u8 = .{@truncate(value)};
             _ = write(2, &byte, 1);
+            if (nested) poweroff.observe(byte[0]);
         }
     } else {
         const v = uart.read(info.ipa);

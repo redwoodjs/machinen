@@ -20,7 +20,7 @@ import {
   takeValue,
 } from "./parse-run-args.ts";
 
-export interface ParsedForkArgs {
+interface ParsedForkArgs {
   /** Optional name for the fork (`--new-name <n>`). */
   newName?: string;
   /** Where to write the snapshot bundle (`--out-dir <d>`). */

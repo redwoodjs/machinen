@@ -5,12 +5,19 @@
     "scripts/*.mjs",
     "packages/runtime/src/bin/*.ts",
     "packages/microvm/test-fixtures/assets/*.{js,ts,mjs}",
-    "examples/**/rootfs/**/*.{js,mjs,ts}"
+    "examples/**/rootfs/**/*.{js,mjs,ts}",
+    "examples/firecracker-nested/run.ts",
+    "examples/live-mount/shared/server.mjs",
+    "examples/quickstart/counter.mjs"
   ],
   "ignoreDependencies": [
     "@homebridge/node-pty-prebuilt-multiarch",
     "@nkzw/oxlint-config",
     "@redwoodjs/agent-ci",
     "typedoc-plugin-markdown"
-  ]
+  ],
+  "audit": {
+    "healthBaseline": "fallow-baselines/audit-health.json",
+    "dupesBaseline": "fallow-baselines/audit-dupes.json"
+  }
 }

@@ -163,6 +163,11 @@ make ARCH=arm64 defconfig >/dev/null
 # separate, later track (Linux/KVM only) — the base virtio-fs path
 # needs no shared-memory window, so nothing else here changes.
 #
+# VIRTUALIZATION / KVM — `boot({ nested: true })` exposes EL2 to this
+# guest, and the guest kernel needs arm64 KVM built in so `/dev/kvm`
+# appears without loading modules. On hosts without nested EL2 this is
+# inert; the VMM refuses the nested boot before the guest starts.
+#
 # SQUASHFS / SQUASHFS_ZSTD / OVERLAY_FS — `--mount` payload now rides
 # in a squashfs (RO lower) + ext4 (RW upper) overlay, two virtio-blk
 # slots (#272). Without these the guest can't mount the lower or layer
@@ -190,6 +195,7 @@ make ARCH=arm64 defconfig >/dev/null
   --enable IPV6 \
   --enable LIBCRC32C \
   --enable FUSE_FS --enable VIRTIO_FS \
+  --enable VIRTUALIZATION --enable KVM \
   --enable SQUASHFS --enable SQUASHFS_ZSTD --enable OVERLAY_FS \
   --enable IKCONFIG --enable IKCONFIG_PROC \
   --enable CHECKPOINT_RESTORE --enable KCMP \
@@ -216,6 +222,7 @@ required=(
   VIRTIO_BALLOON PAGE_REPORTING
   SQUASHFS SQUASHFS_ZSTD OVERLAY_FS
   FUSE_FS VIRTIO_FS
+  VIRTUALIZATION KVM
 )
 for c in "${required[@]}"; do
   if ! grep -q "^CONFIG_${c}=y" .config; then

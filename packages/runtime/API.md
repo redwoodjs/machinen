@@ -2453,6 +2453,14 @@ Absolute bundle path the next vmstate checkpoint should parent to.
 
 Per-chain checkpoint sequence already written by this VM.
 
+##### nested?
+
+> `optional` **nested?**: `boolean`
+
+Whether the VM was booted with nested virtualization enabled
+(`boot({ nested: true })`). Provider-level snapshots are refused
+while EL2 vmstate capture/restore is still being audited.
+
 ##### forkedFrom?
 
 > `optional` **forkedFrom?**: `string`
@@ -3833,6 +3841,25 @@ Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`.
 
 [`BootOptions`](#bootoptions).[`dtb`](#dtb-3)
 
+##### nested?
+
+> `optional` **nested?**: `boolean`
+
+Opt in to exposing arm64 EL2 / `/dev/kvm` to the guest so the
+workload can start its own VMs. This is intentionally off by
+default: it requires Linux/arm64 KVM with nested EL2 support, or
+macOS 15+ on M3/M4-class Apple Silicon, and provider-level
+snapshots of a nested-enabled VM are refused until EL2 vmstate
+capture is audited.
+
+When set, the runtime does a best-effort host preflight and passes
+`MACHINEN_NESTED=1` to the VMM. The VMM's backend probe is still
+authoritative.
+
+###### Inherited from
+
+[`BootOptions`](#bootoptions).[`nested`](#nested-2)
+
 ##### memory?
 
 > `optional` **memory?**: `number`
@@ -4242,6 +4269,21 @@ Path to the guest kernel Image. Forwarded as `MACHINEN_KERNEL`.
 
 Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`.
 
+##### nested?
+
+> `optional` **nested?**: `boolean`
+
+Opt in to exposing arm64 EL2 / `/dev/kvm` to the guest so the
+workload can start its own VMs. This is intentionally off by
+default: it requires Linux/arm64 KVM with nested EL2 support, or
+macOS 15+ on M3/M4-class Apple Silicon, and provider-level
+snapshots of a nested-enabled VM are refused until EL2 vmstate
+capture is audited.
+
+When set, the runtime does a best-effort host preflight and passes
+`MACHINEN_NESTED=1` to the VMM. The VMM's backend probe is still
+authoritative.
+
 ##### memory?
 
 > `optional` **memory?**: `number`
@@ -4618,6 +4660,25 @@ Path to the guest device-tree blob. Forwarded as `MACHINEN_DTB`.
 
 [`BootOptions`](#bootoptions).[`dtb`](#dtb-3)
 
+##### nested?
+
+> `optional` **nested?**: `boolean`
+
+Opt in to exposing arm64 EL2 / `/dev/kvm` to the guest so the
+workload can start its own VMs. This is intentionally off by
+default: it requires Linux/arm64 KVM with nested EL2 support, or
+macOS 15+ on M3/M4-class Apple Silicon, and provider-level
+snapshots of a nested-enabled VM are refused until EL2 vmstate
+capture is audited.
+
+When set, the runtime does a best-effort host preflight and passes
+`MACHINEN_NESTED=1` to the VMM. The VMM's backend probe is still
+authoritative.
+
+###### Inherited from
+
+[`BootOptions`](#bootoptions).[`nested`](#nested-2)
+
 ##### memory?
 
 > `optional` **memory?**: `number`
@@ -4953,6 +5014,10 @@ tarball-producing tool can pre-populate the lookup cache.
 ##### BOOT\_MEMORY\_INVALID
 
 > `readonly` **BOOT\_MEMORY\_INVALID**: `"BOOT_MEMORY_INVALID"` = `"BOOT_MEMORY_INVALID"`
+
+##### BOOT\_NESTED\_VIRT\_UNSUPPORTED
+
+> `readonly` **BOOT\_NESTED\_VIRT\_UNSUPPORTED**: `"BOOT_NESTED_VIRT_UNSUPPORTED"` = `"BOOT_NESTED_VIRT_UNSUPPORTED"`
 
 ##### BOOT\_VMSTATE\_UNSUPPORTED
 

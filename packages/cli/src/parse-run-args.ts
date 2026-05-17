@@ -25,6 +25,8 @@ interface ParsedRunArgs {
   portForward?: Array<{ hostPort: number; guestPort: number }>;
   /** Snapshot image to restore from (`--snapshot <path>`). */
   snapshot?: string;
+  /** Expose arm64 EL2 / `/dev/kvm` to the guest (`--nested`). */
+  nested?: boolean;
   /** Optional VM name registered for `attach` (`--name <name>`). */
   name?: string;
   /**
@@ -69,6 +71,7 @@ export function parseRunArgs(argv: string[]): ParsedRunArgs {
   const portForward: Array<{ hostPort: number; guestPort: number }> = [];
   const seenHostPorts = new Set<number>();
   let snapshot: string | undefined;
+  let nested = false;
   let name: string | undefined;
   let guestCwd: string | undefined;
   let detached = false;
@@ -111,6 +114,16 @@ export function parseRunArgs(argv: string[]): ParsedRunArgs {
       const { spec, next } = takeValue(a, pre, i, "a path value");
       snapshot = spec;
       i = next;
+    } else if (a === "--nested") {
+      if (nested) {
+        throw new ParseError(
+          "PARSE_FLAG_DUPLICATE",
+          "--nested may be given at most once per invocation",
+        );
+      }
+      nested = true;
+    } else if (a.startsWith("--nested=")) {
+      throw new ParseError("PARSE_FLAG_MALFORMED", "--nested does not take a value");
     } else if (a === "--cwd" || a.startsWith("--cwd=")) {
       if (guestCwd !== undefined) {
         throw new ParseError(
@@ -178,6 +191,7 @@ export function parseRunArgs(argv: string[]): ParsedRunArgs {
     env: Object.keys(env).length > 0 ? env : undefined,
     portForward: portForward.length > 0 ? portForward : undefined,
     snapshot,
+    nested: nested || undefined,
     name,
     guestCwd,
     detached: detached || undefined,

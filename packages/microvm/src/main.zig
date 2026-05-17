@@ -40,12 +40,19 @@ pub fn main(init: std.process.Init) !void {
 
     const gpa = std.heap.page_allocator;
 
+    if (envBool("MACHINEN_NESTED_PROBE")) {
+        probeNestedSupport();
+    }
+
     const kernel_path = envRequired("MACHINEN_KERNEL");
     const dtb_path = envRequired("MACHINEN_DTB");
     const initrd_path = envRequired("MACHINEN_INITRD");
     // #263 phase A: optional ceiling override. Runtime auto-sizes and
     // forwards a value; direct invocations get the boot_*.zig default.
     const ram_size_override = envMemoryMib();
+    // #271: explicit opt-in to expose EL2 / nested virtualization to
+    // the guest. The runtime sets this from boot({ nested: true }).
+    const nested = envBool("MACHINEN_NESTED");
 
     // Guest console is live-echoed to stderr from inside the boot loop
     // (boot_hvf.zig's PL011 DR-write handler). The result.serial buffer is
@@ -85,6 +92,7 @@ pub fn main(init: std.process.Init) !void {
             .max_exits = std.math.maxInt(usize),
             .restore_path = restore_path,
             .snapshot_path = snapshot_path,
+            .nested = nested,
         };
         if (ram_size_override) |bytes| cfg.ram_size = bytes;
         const result = try microvm.boot_hvf.boot(gpa, cfg);
@@ -107,12 +115,56 @@ pub fn main(init: std.process.Init) !void {
             .max_exits = std.math.maxInt(usize),
             .restore_path = restore_path,
             .snapshot_path = snapshot_path,
+            .nested = nested,
         };
         if (ram_size_override) |bytes| cfg.ram_size = bytes;
         const result = try microvm.boot_kvm.boot(gpa, cfg);
         gpa.free(result.serial);
         std.process.exit(if (result.saw_psci_shutdown or result.snapshotted) 0 else 1);
     }
+}
+
+fn probeNestedSupport() noreturn {
+    if (builtin.os.tag == .macos) {
+        if (microvm.hvf.nestedSupported()) {
+            std.debug.print("machinen-microvm: nested virtualization supported\n", .{});
+            std.process.exit(0);
+        }
+        std.debug.print("machinen-microvm: nested virtualization unsupported: Hypervisor.framework EL2 support is unavailable\n", .{});
+        std.process.exit(2);
+    } else {
+        var k = microvm.kvm.Kvm.open_() catch |err| {
+            std.debug.print("machinen-microvm: nested virtualization unsupported: /dev/kvm probe failed: {s}\n", .{@errorName(err)});
+            std.process.exit(2);
+        };
+        defer k.close_();
+        if (k.armEl2Supported()) {
+            std.debug.print("machinen-microvm: nested virtualization supported\n", .{});
+            std.process.exit(0);
+        }
+        std.debug.print("machinen-microvm: nested virtualization unsupported: KVM_CAP_ARM_EL2 is unavailable\n", .{});
+        std.process.exit(2);
+    }
+}
+
+fn envBool(comptime name: [:0]const u8) bool {
+    comptime assert(name.len > 0);
+    const raw = getenv(name.ptr) orelse return false;
+    const s = std.mem.span(raw);
+    if (s.len == 0) return false;
+    if (std.ascii.eqlIgnoreCase(s, "1") or
+        std.ascii.eqlIgnoreCase(s, "true") or
+        std.ascii.eqlIgnoreCase(s, "yes") or
+        std.ascii.eqlIgnoreCase(s, "on")) return true;
+    if (std.ascii.eqlIgnoreCase(s, "0") or
+        std.ascii.eqlIgnoreCase(s, "false") or
+        std.ascii.eqlIgnoreCase(s, "no") or
+        std.ascii.eqlIgnoreCase(s, "off")) return false;
+    std.debug.print(
+        "machinen-microvm: {s}={s} is invalid: expected 1/true/yes/on or 0/false/no/off.\n",
+        .{ name, s },
+    );
+    std.process.exit(2);
 }
 
 /// Read an integer from the env. Returns null when the var is unset

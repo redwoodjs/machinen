@@ -77,6 +77,12 @@ export interface RegistryEntry {
   /** Per-chain checkpoint sequence already written by this VM. */
   vmstateCheckpointSequence?: number;
   /**
+   * Whether the VM was booted with nested virtualization enabled
+   * (`boot({ nested: true })`). Provider-level snapshots are refused
+   * while EL2 vmstate capture/restore is still being audited.
+   */
+  nested?: boolean;
+  /**
    * Absolute path to the snapshot directory this VM was forked from
    * (set by `restore({ snapDir })`). Visible in `ls`; informational.
    */

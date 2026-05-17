@@ -38,18 +38,18 @@ const SECTION_HEADER_SIZE = 16;
 const ROOTDISK_DELTA_HEADER_SIZE = 56;
 const ROOTDISK_DELTA_BLOCK_SIZE = 4096;
 
-export interface VmstateSection {
+interface VmstateSection {
   tag: number;
   id: number;
   payload: Buffer;
 }
 
-export interface DecodedVmstate {
+interface DecodedVmstate {
   topologyHash: Buffer;
   sections: VmstateSection[];
 }
 
-export interface MaterializedVmstateChain {
+interface MaterializedVmstateChain {
   tempDir: string;
   snapDir: string;
   statePath: string;
@@ -121,10 +121,6 @@ export function vmstateSectionTags(path: string): number[] {
   return readVmstate(path).sections.map((s) => s.tag);
 }
 
-export function isVmstateCheckpointMeta(meta: SnapshotMeta): boolean {
-  return meta.vmstate?.checkpoint !== undefined;
-}
-
 export function relativeCheckpointParent(
   snapDir: string,
   parentDir: string | undefined,
@@ -136,7 +132,7 @@ export function relativeCheckpointParent(
   return rel === "" ? "." : rel;
 }
 
-export function resolveCheckpointParent(snapDir: string, parent: string): string {
+function resolveCheckpointParent(snapDir: string, parent: string): string {
   return isAbsolute(parent) ? parent : resolve(snapDir, parent);
 }
 
