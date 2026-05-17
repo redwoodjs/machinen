@@ -102,48 +102,31 @@ export interface VmHandle {
   writeFile(guestPath: string, contents: Buffer | string, opts?: WriteFileOptions): Promise<void>;
 
   /**
-   * Freeze this VM with CRIU and write a snapshot bundle into
-   * `opts.outDir`. The bundle is a directory containing:
+   * Write a snapshot bundle into `opts.outDir`.
    *
-   *   <outDir>/img/                ← CRIU image files (pages-*.img,
-   *                                  pagemap-*.img, core-*.img,
-   *                                  dump.log, ...)
-   *   <outDir>/meta.json           ← source name + timestamp +
-   *                                  optional mountDisk pointers
-   *   <outDir>/mount-lower.sqfs    ← squashfs RO lower (only when
-   *                                  the source VM had `mount` set)
-   *   <outDir>/mount-upper.img     ← ext4 RW upper (only when
-   *                                  the source VM had `mount` set)
+   * With the default vmstate engine this is an incremental checkpoint:
+   * the source VM keeps running, the first checkpoint in the VM's
+   * chain carries full sparse RAM + `rootdisk.img`, and later
+   * checkpoints carry RAM/rootdisk delta sections plus full vCPU,
+   * GIC, virtio queue, and virtio-fs backend state. `restore()` walks
+   * parent pointers and materializes a flat vmstate/rootdisk pair
+   * before booting through the normal vmstate restore path.
+   *
+   * With `MACHINEN_SNAPSHOT_ENGINE=criu`, this keeps the historical
+   * process-tree behavior: CRIU image files live under `<outDir>/img/`,
+   * `opts.leaveRunning: true` keeps the source alive, and the default
+   * destructive CRIU snapshot powers the source off after the dump.
    *
    * `mount-lower.sqfs` and `mount-upper.img` are reflinked from the
    * runtime's per-VM materialization (#272), so on APFS / btrfs / xfs
    * the snapshot is essentially free space-wise even for a large
    * mount payload — blocks stay shared until either side writes.
    *
-   * The caller must have booted the VM with a scratch disk (`snapshot:
-   * '<path>'` or default auto-allocation) so the guest had `/dev/vdb`
-   * to dump into; otherwise this throws `SNAPSHOT_NO_DISK`.
+   * `SNAPSHOT_TIMEOUT` if the dump doesn't complete within
+   * `opts.timeoutMs`; `SNAPSHOT_DUMP_FAILED` if the engine reports a
+   * failed/incomplete dump.
    *
-   * Guest contract: the rootfs ships a dump helper callable via
-   * vsock exec — default `/sbin/machinen-dump`, override via
-   * `opts.dumpCmd`. The helper runs `criu dump --leave-running` and
-   * tars the resulting image set out on stdout, which the host
-   * extracts into `<outDir>/img/`. For destructive snapshots (default)
-   * the runtime then issues `/sbin/machinen-poweroff` over vsock to
-   * bring the VMM down; `opts.leaveRunning: true` skips that step
-   * and the source VM keeps running.
-   *
-   * `SNAPSHOT_TIMEOUT` if the dump exec doesn't return within
-   * `opts.timeoutMs`; `SNAPSHOT_DUMP_FAILED` if it returns non-zero
-   * or the streamed bundle is empty.
-   *
-   * Supported on both boot-owned and attach handles — attach uses
-   * the `diskPath` stored in the VM registry entry at boot time.
-   *
-   * By default the VM exits as part of the dump (CRIU kills the
-   * dumped tree on success). Pass `opts.leaveRunning: true` to keep
-   * the source VM alive — the workload resumes from the dump point
-   * and the bundle can be restored into a sibling VM (`vm.fork()`).
+   * Supported on both boot-owned and attach handles.
    */
   snapshot(opts: SnapshotOptions): Promise<SnapshotResult>;
 
@@ -271,8 +254,7 @@ export interface SnapshotOptions {
    */
   dumpCmd?: string;
   /**
-   * Wall-clock ceiling for the dump + shutdown. If the VMM hasn't exited
-   * in this window we SIGKILL it and fail. Default 90s.
+   * Wall-clock ceiling for the dump/checkpoint. Default 90s.
    */
   timeoutMs?: number;
   /**
@@ -282,12 +264,11 @@ export interface SnapshotOptions {
    */
   onLog?: OnLog;
   /**
-   * Pass `--leave-running` to `criu dump` so the source workload
-   * survives the snapshot. The VMM stays up after the dump; success
-   * is signalled by the dump exec returning 0 instead of by VMM exit.
-   * Used by `vm.fork()` (#216).
+   * CRIU engine only: pass `--leave-running` to `criu dump` so the
+   * source workload survives the snapshot. Vmstate checkpoints are
+   * always non-destructive and ignore this flag.
    *
-   * Default: false (current destructive snapshot behavior).
+   * Default under CRIU: false (destructive CRIU snapshot behavior).
    */
   leaveRunning?: boolean;
   /**
@@ -317,7 +298,7 @@ export interface SnapshotResult {
    * bundle. Set by the vmstate engine only; undefined for criu bundles.
    */
   vmstatePath?: string;
-  /** Time from `snapshot()` entry to VMM exit, in milliseconds. */
+  /** Time from `snapshot()` entry to completed bundle, in milliseconds. */
   elapsedMs: number;
   /** Guest console output captured during the dump. */
   consoleLog: string;
@@ -350,12 +331,28 @@ export interface VmstateSnapshotMeta {
     active?: boolean;
     sctlrEl1?: string;
   };
-  /** Exact root block image needed by the resumed guest, or explicit absence. */
-  rootDisk?: ({ mode: "block"; file: string } & SnapshotFileIdentity) | { mode: "none" };
+  /** Exact root block image needed by the resumed guest, a parent-relative delta, or explicit absence. */
+  rootDisk?:
+    | ({ mode: "block"; file: string } & SnapshotFileIdentity)
+    | { mode: "delta" }
+    | { mode: "none" };
   /** Kernel image identity when the source boot used an explicit kernel. */
   kernel?: SnapshotFileIdentity;
   /** DTB identity when the source boot used an explicit DTB. */
   dtb?: SnapshotFileIdentity;
+  /** Incremental checkpoint chain metadata for vmstate snapshots. */
+  checkpoint?: {
+    /** New random chain id for this VM's lifetime. */
+    chainId: string;
+    /** Per-chain checkpoint number, starting at 1. */
+    sequence: number;
+    /** Relative path from this bundle to its parent bundle, absent for a base checkpoint. */
+    parent?: string;
+    /** RAM section shape carried by this bundle. */
+    ram: "full" | "delta";
+    /** Rootdisk section shape carried by this bundle. */
+    rootDisk: "full" | "delta" | "none";
+  };
 }
 
 export interface SnapshotMeta {

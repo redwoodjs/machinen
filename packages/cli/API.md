@@ -12,7 +12,7 @@ machinen restore  <snap-dir> [--name <name>]    Restore a VM from a snapshot bun
 machinen list     (alias: ls, ps)               List running VMs
 machinen exec     <target> [--tty] -- <cmd>     Run a command in a running VM
 machinen snapshot <target> <out-dir> [--keep-alive] [--dry-run]
-                                                CRIU-snapshot a running VM
+                                                Checkpoint a running VM
 machinen fork     <target> [opts]               Clone a running VM into a sibling
 machinen attach   <target> [--shell <c>] [--tail [N]]
                                                 Interactive PTY shell into a VM
@@ -113,10 +113,13 @@ machinen exec worker --tty -- bash -i
 machinen snapshot <target> <out-dir> [--keep-alive]
 ```
 
-CRIU-snapshots a running VM into `<out-dir>` (`disk.img` + `meta.json`).
-The default freezes-and-exits the source. `--keep-alive` leaves it
-running and closes inherited TCP sockets so two live copies don't race
-on shared connection state.
+Checkpoints a running VM into `<out-dir>`. With the default vmstate
+engine this is incremental and non-destructive: the source keeps
+running, and later snapshots from the same VM store RAM/rootdisk deltas
+against the previous checkpoint. CRIU-engine snapshots remain
+non-incremental; there `--keep-alive` leaves the source running and
+closes inherited TCP sockets so two live copies don't race on shared
+connection state.
 
 ## `machinen fork`
 

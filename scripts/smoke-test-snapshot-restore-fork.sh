@@ -224,6 +224,16 @@ wait_for_vm() {
   return 1
 }
 
+# Helper: find the first auto-named restore child for a source name.
+# Destructive CRIU snapshots free the source name path, so restore can
+# claim `<src>/<pid>`. Vmstate checkpoints are non-destructive; while
+# the source pin is live restore falls back to `<src>~<pid>`.
+find_restore_child() {
+  local src=$1
+  cli ls 2>/dev/null | awk -v slash="$src/" -v tilde="$src~" \
+    'NR>1 && (index($2, slash)==1 || index($2, tilde)==1) {print $2; exit}'
+}
+
 # Helper: assert a snapshot bundle has the engine-appropriate shape.
 # criu bundles carry a process-tree checkpoint under `img/core-*.img`;
 # vmstate bundles carry a whole-VM `state.vmstate`. Both always carry
@@ -260,6 +270,45 @@ bundle_probe_file() {
   else
     ls "$dir"/img/core-*.img | head -1
   fi
+}
+
+assert_vmstate_checkpoint_shape() {
+  local dir=$1
+  local label=$2
+  local expected_ram=$3
+  local expected_root=$4
+  local expected_parent=$5
+  if [[ "$ENGINE" != "vmstate" ]]; then
+    return 0
+  fi
+  if ! node - "$dir" "$expected_ram" "$expected_root" "$expected_parent" <<'NODE'
+const fs = require('node:fs');
+const [dir, expectedRam, expectedRoot, expectedParent] = process.argv.slice(2);
+const meta = JSON.parse(fs.readFileSync(`${dir}/meta.json`, 'utf8'));
+const cp = meta.vmstate?.checkpoint;
+if (!cp) throw new Error('missing vmstate.checkpoint metadata');
+if (cp.ram !== expectedRam) throw new Error(`ram shape ${cp.ram} !== ${expectedRam}`);
+if (cp.rootDisk !== expectedRoot) throw new Error(`rootDisk shape ${cp.rootDisk} !== ${expectedRoot}`);
+const hasParent = cp.parent !== undefined;
+if (String(hasParent) !== expectedParent) throw new Error(`parent presence ${hasParent} !== ${expectedParent}`);
+const state = fs.readFileSync(`${dir}/state.vmstate`);
+const count = state.readUInt32LE(16);
+let off = 64;
+const tags = [];
+for (let i = 0; i < count; i++) {
+  tags.push(state.readUInt32LE(off));
+  const len = Number(state.readBigUInt64LE(off + 8));
+  off += 16 + len;
+}
+if (expectedRam === 'full' && !tags.includes(1)) throw new Error('missing full RAM section');
+if (expectedRam === 'delta' && !tags.includes(8)) throw new Error('missing RAM delta section');
+if (expectedRoot === 'full' && !fs.existsSync(`${dir}/rootdisk.img`)) throw new Error('missing full rootdisk.img');
+if (expectedRoot === 'delta' && !tags.includes(9)) throw new Error('missing rootdisk delta section');
+NODE
+  then
+    fail "$label — vmstate checkpoint shape mismatch"
+  fi
+  pass "$label vmstate checkpoint shape is $expected_ram/$expected_root"
 }
 
 # Helper: resolve the actual VMM pid from a registry-recorded pid.
@@ -358,8 +407,9 @@ for ENGINE in criu vmstate; do
       fail "S1 — exec against dump-side VM didn't return arch"
     fi
 
-    # Snapshot via the attach path. The bundle (img/<criu> + meta.json)
-    # lands at $S1_SNAP_DIR; the VM exits as part of the dump.
+    # Snapshot via the attach path. The bundle lands at $S1_SNAP_DIR.
+    # CRIU snapshots are destructive by default; vmstate checkpoints
+    # are non-destructive and keep the source VM running.
     S1_DUMP_LOG="$FIXTURE/s1-dump-$ENGINE.log"
     if ! cli snapshot "$S1_NAME" "$S1_SNAP_DIR" 2>"$S1_DUMP_LOG"; then
       tail -60 "$S1_BG_LOG" >&2
@@ -370,6 +420,7 @@ for ENGINE in criu vmstate; do
     pass "'machinen snapshot' returned 0"
 
     assert_bundle "$S1_SNAP_DIR" "S1"
+    assert_vmstate_checkpoint_shape "$S1_SNAP_DIR" "S1" full full false
 
     # Restore in the background. The auto-name is "<source>/<pid>";
     # find the restored VM by listing names that start with the source.
@@ -384,7 +435,7 @@ for ENGINE in criu vmstate; do
     S1_RESTORED_NAME=""
     deadline=$((SECONDS + 45))
     while (( SECONDS < deadline )); do
-      cand=$(cli ls 2>/dev/null | awk -v src="$S1_NAME/" 'NR>1 && index($2, src)==1 {print $2; exit}')
+      cand=$(find_restore_child "$S1_NAME")
       if [[ -n "$cand" ]]; then
         S1_RESTORED_NAME=$cand
         break
@@ -487,10 +538,15 @@ for ENGINE in criu vmstate; do
       cat "$S2_DUMP_A_LOG" >&2
       fail "S2 — first 'machinen snapshot' (to A) failed"
     fi
+    if [[ "$ENGINE" == "vmstate" ]]; then
+      cli stop "$S2_NAME" >/dev/null 2>&1 || true
+      kill -TERM "$S2_PID" 2>/dev/null || true
+    fi
     wait "$S2_PID" 2>/dev/null || true
     pass "snapshot → bundle A"
 
     assert_bundle "$S2_SNAP_A" "S2 (bundle A)"
+    assert_vmstate_checkpoint_shape "$S2_SNAP_A" "S2 bundle A" full full false
     S2_BUNDLE_A_PROBE=$(bundle_probe_file "$S2_SNAP_A")
     S2_BUNDLE_A_BEFORE=$(stat -c '%Y' "$S2_BUNDLE_A_PROBE" 2>/dev/null \
       || stat -f '%m' "$S2_BUNDLE_A_PROBE")
@@ -507,7 +563,7 @@ for ENGINE in criu vmstate; do
     S2_RESTORED_A=""
     deadline=$((SECONDS + 45))
     while (( SECONDS < deadline )); do
-      cand=$(cli ls 2>/dev/null | awk -v src="$S2_NAME/" 'NR>1 && index($2, src)==1 {print $2; exit}')
+      cand=$(find_restore_child "$S2_NAME")
       if [[ -n "$cand" ]]; then
         S2_RESTORED_A=$cand
         break
@@ -529,10 +585,15 @@ for ENGINE in criu vmstate; do
       cat "$S2_DUMP_B_LOG" >&2
       fail "S2 — chained 'machinen snapshot' (restored → B) failed"
     fi
+    if [[ "$ENGINE" == "vmstate" ]]; then
+      cli stop "$S2_RESTORED_A" >/dev/null 2>&1 || true
+      kill -TERM "$S2_RESTORE_A_PID" 2>/dev/null || true
+    fi
     wait "$S2_RESTORE_A_PID" 2>/dev/null || true
     pass "chained snapshot → bundle B"
 
     assert_bundle "$S2_SNAP_B" "S2 (chained bundle B)"
+    assert_vmstate_checkpoint_shape "$S2_SNAP_B" "S2 bundle B" delta delta true
 
     # Bundle A must NOT have been mutated by the chained dump. Restore
     # tars a temp copy on the host before attaching, so the source
@@ -557,8 +618,9 @@ for ENGINE in criu vmstate; do
     deadline=$((SECONDS + 45))
     while (( SECONDS < deadline )); do
       # The restored-from-B VM's source name is "<S2_RESTORED_A>", so
-      # the auto-name is "<S2_RESTORED_A>/<pid>".
-      cand=$(cli ls 2>/dev/null | awk -v src="$S2_RESTORED_A/" 'NR>1 && index($2, src)==1 {print $2; exit}')
+      # the auto-name is "<S2_RESTORED_A>/<pid>" or, while that source
+      # is still live under vmstate checkpoints, "<S2_RESTORED_A>~<pid>".
+      cand=$(find_restore_child "$S2_RESTORED_A")
       if [[ -n "$cand" ]]; then
         S2_RESTORED_B=$cand
         break
@@ -593,10 +655,15 @@ for ENGINE in criu vmstate; do
       cat "$S2_DUMP_C_LOG" >&2
       fail "S2 — gen-3 'machinen snapshot' (restored-B → C) failed"
     fi
+    if [[ "$ENGINE" == "vmstate" ]]; then
+      cli stop "$S2_RESTORED_B" >/dev/null 2>&1 || true
+      kill -TERM "$S2_RESTORE_B_PID" 2>/dev/null || true
+    fi
     wait "$S2_RESTORE_B_PID" 2>/dev/null || true
     pass "gen-3 chained snapshot → bundle C"
 
     assert_bundle "$S2_SNAP_C" "S2 (gen-3 bundle C)"
+    assert_vmstate_checkpoint_shape "$S2_SNAP_C" "S2 bundle C" delta delta true
 
     node "$CLI" restore "$S2_SNAP_C" >"$S2_RESTORE_C_LOG" 2>&1 &
     S2_RESTORE_C_PID=$!
@@ -609,7 +676,7 @@ for ENGINE in criu vmstate; do
     S2_RESTORED_C=""
     deadline=$((SECONDS + 45))
     while (( SECONDS < deadline )); do
-      cand=$(cli ls 2>/dev/null | awk -v src="$S2_RESTORED_B/" 'NR>1 && index($2, src)==1 {print $2; exit}')
+      cand=$(find_restore_child "$S2_RESTORED_B")
       if [[ -n "$cand" ]]; then
         S2_RESTORED_C=$cand
         break
@@ -700,9 +767,9 @@ for ENGINE in criu vmstate; do
     deadline=$((SECONDS + 30))
     while (( SECONDS < deadline )); do
       # Fork's auto-name is `<src>~<pid>` when source is alive (#216),
-      # falling back from the chained-restore convention `<src>/<pid>`
-      # which collides on the live source's pin file.
-      cand=$(cli ls 2>/dev/null | awk -v src="$S3_NAME~" 'NR>1 && index($2, src)==1 {print $2; exit}')
+      # but vmstate's non-destructive checkpoints can also race the
+      # restore name claim into the chained-restore form `<src>/<pid>`.
+      cand=$(cli ls 2>/dev/null | awk -v src="$S3_NAME" 'NR>1 && (index($2, src "/")==1 || index($2, src "~")==1) {print $2; exit}')
       if [[ -n "$cand" ]]; then
         S3_FORK_NAME=$cand
         break
@@ -754,7 +821,7 @@ for ENGINE in criu vmstate; do
     S3_GRAND_NAME=""
     deadline=$((SECONDS + 30))
     while (( SECONDS < deadline )); do
-      cand=$(cli ls 2>/dev/null | awk -v src="$S3_FORK_NAME~" 'NR>1 && index($2, src)==1 {print $2; exit}')
+      cand=$(cli ls 2>/dev/null | awk -v src="$S3_FORK_NAME" 'NR>1 && (index($2, src "/")==1 || index($2, src "~")==1) {print $2; exit}')
       if [[ -n "$cand" ]]; then
         S3_GRAND_NAME=$cand
         break
@@ -855,7 +922,7 @@ for ENGINE in criu vmstate; do
       S4_RESTORED_NAME=""
       deadline=$((SECONDS + 60))
       while (( SECONDS < deadline )); do
-        cand=$(cli ls 2>/dev/null | awk -v src="$S4_NAME/" 'NR>1 && index($2, src)==1 {print $2; exit}')
+        cand=$(find_restore_child "$S4_NAME")
         if [[ -n "$cand" ]]; then
           S4_RESTORED_NAME=$cand
           break
@@ -994,7 +1061,7 @@ for ENGINE in criu vmstate; do
       S5_FORK_NAME=""
       deadline=$((SECONDS + 90))
       while (( SECONDS < deadline )); do
-        cand=$(cli ls 2>/dev/null | awk -v src="$S5_NAME/" 'NR>1 && index($2, src)==1 {print $2; exit}')
+        cand=$(find_restore_child "$S5_NAME")
         if [[ -n "$cand" ]]; then
           S5_FORK_NAME=$cand
           break
@@ -1162,7 +1229,7 @@ for ENGINE in criu vmstate; do
     S6_RESTORED=""
     deadline=$((SECONDS + 60))
     while (( SECONDS < deadline )); do
-      cand=$(cli ls 2>/dev/null | awk -v src="$S6_NAME/" 'NR>1 && index($2, src)==1 {print $2; exit}')
+      cand=$(find_restore_child "$S6_NAME")
       if [[ -n "$cand" ]]; then
         S6_RESTORED=$cand
         break
@@ -1206,7 +1273,8 @@ for ENGINE in criu vmstate; do
     S6_REMAPPED=""
     deadline=$((SECONDS + 60))
     while (( SECONDS < deadline )); do
-      cand=$(cli ls 2>/dev/null | awk -v src="$S6_NAME/" 'NR>1 && index($2, src)==1 && $2!=src"REPLACED" {print $2; exit}')
+      cand=$(cli ls 2>/dev/null | awk -v slash="$S6_NAME/" -v tilde="$S6_NAME~" -v seen="$S6_RESTORED" \
+        'NR>1 && (index($2, slash)==1 || index($2, tilde)==1) && $2!=seen {print $2; exit}')
       if [[ -n "$cand" && "$cand" != "$S6_RESTORED" ]]; then
         S6_REMAPPED=$cand
         break

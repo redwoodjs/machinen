@@ -2020,12 +2020,11 @@ function printHelp(): void {
       `                                                 Example:\n` +
       `                                                   machinen exec <name|pid> --tty -- bash -i\n` +
       `  machinen snapshot <name|pid> <out-dir> [--keep-alive]\n` +
-      `                                                 CRIU-snapshot a running VM into <d>.\n` +
-      `                                                 Default: source VM exits as part of the\n` +
-      `                                                 dump. --keep-alive leaves it running\n` +
-      `                                                 (and closes inherited TCP sockets to\n` +
-      `                                                 avoid two live copies racing on shared\n` +
-      `                                                 connection state).\n` +
+      `                                                 Checkpoint a running VM into <d>.\n` +
+      `                                                 Default vmstate snapshots are incremental\n` +
+      `                                                 and non-destructive. CRIU snapshots stay\n` +
+      `                                                 non-incremental; --keep-alive leaves them\n` +
+      `                                                 running and closes inherited TCP sockets.\n` +
       `  machinen fork     <name|pid> [--new-name <n>] [--out-dir <d>] [--tcp-keep] [--detach]\n` +
       `                    [-p ...] [--mount ...] [--mount-live ...] [--env KEY=VALUE]...\n` +
       `                    [--cwd <abs>] [--memory <mib>]\n` +

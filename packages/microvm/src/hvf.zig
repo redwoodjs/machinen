@@ -87,6 +87,14 @@ pub const Vm = struct {
         assert(guest_phys % page_size == 0);
         try check(c.hv_vm_unmap(guest_phys, size));
     }
+
+    pub fn protect(_: Vm, guest_phys: u64, size: usize, flags: MapFlags) Error!void {
+        assert(size > 0);
+        assert(size % page_size == 0);
+        assert(guest_phys % page_size == 0);
+        assert(flags.read or flags.write or flags.exec);
+        try check(c.hv_vm_protect(guest_phys, size, flags.bits()));
+    }
 };
 
 pub const page_size = 0x4000; // 16 KiB pages on Apple Silicon arm64

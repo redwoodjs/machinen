@@ -70,6 +70,12 @@ export interface RegistryEntry {
    * booted without the vmstate engine.
    */
   vmstatePath?: string;
+  /** Per-VM incremental checkpoint chain id. New on every fresh boot/restore. */
+  vmstateChainId?: string;
+  /** Absolute bundle path the next vmstate checkpoint should parent to. */
+  vmstateCheckpointParent?: string;
+  /** Per-chain checkpoint sequence already written by this VM. */
+  vmstateCheckpointSequence?: number;
   /**
    * Absolute path to the snapshot directory this VM was forked from
    * (set by `restore({ snapDir })`). Visible in `ls`; informational.

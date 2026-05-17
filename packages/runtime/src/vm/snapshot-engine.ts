@@ -7,7 +7,9 @@
 //                hypervisor-agnostic wire format. The only path that
 //                can move a live guest across VMMs (HVF<->KVM) when
 //                invariants match. Bundle layout:
-//                `<dir>/state.vmstate` + `<dir>/rootdisk.img`.
+//                `<dir>/state.vmstate` + `<dir>/rootdisk.img` for a
+//                base checkpoint; later checkpoints carry RAM/rootdisk
+//                delta sections and parent pointers in meta.json.
 //   - "criu"   — checkpoints the guest *process tree* from inside the
 //                guest via CRIU. Same-host, Linux-process-level.
 //                Bundle layout: `<dir>/img/core-*.img`.

@@ -605,13 +605,15 @@ else
     cleanup_t7
     fail "T7 — couldn't write to /mnt/data from the guest"
   fi
-  # Snapshot. Default destructive — VM exits when the dump finishes,
-  # so we don't need cleanup_t7 afterwards.
+  # Snapshot. Vmstate checkpoints are non-destructive, so explicitly
+  # stop the source after the bundle is written; CRIU snapshots may
+  # already have exited, making cleanup_t7 a no-op.
   if ! node "$CLI" snapshot "$T7_NAME" "$T7_BUNDLE" >>"$T7_BG_LOG" 2>&1; then
     tail -50 "$T7_BG_LOG" >&2
     cleanup_t7
     fail "T7 — machinen snapshot failed"
   fi
+  cleanup_t7
   # Now make the original host source disappear. The bundle's
   # mount-lower.sqfs and mount-upper.img must carry the data forward.
   rm -rf "$T7_HOST"
@@ -1130,7 +1132,7 @@ trap 'cleanup_b3; cleanup_b3_restore; rm -rf "$FIXTURE"' EXIT
 B3_FORK_NAME=""
 deadline=$((SECONDS + 60))
 while (( SECONDS < deadline )); do
-  cand=$(cli ls 2>/dev/null | awk -v src="$B3_NAME/" 'NR>1 && index($2, src)==1 {print $2; exit}')
+  cand=$(cli ls 2>/dev/null | awk -v src="$B3_NAME" 'NR>1 && (index($2, src "/")==1 || index($2, src "~")==1) {print $2; exit}')
   if [[ -n "$cand" ]]; then
     B3_FORK_NAME=$cand
     break

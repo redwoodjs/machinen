@@ -20,6 +20,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const virtio = @import("virtio.zig");
+const rootdisk_delta = @import("rootdisk_delta.zig");
 const assert = std.debug.assert;
 
 comptime {
@@ -58,6 +59,42 @@ pub const BlkDiscardSeg = extern struct {
 pub const VIRTIO_BLK_S_OK: u8 = 0;
 pub const VIRTIO_BLK_S_IOERR: u8 = 1;
 pub const VIRTIO_BLK_S_UNSUPP: u8 = 2;
+
+pub const DirtyTracker = struct {
+    allocator: std.mem.Allocator,
+    disk_size: u64,
+    bits: []u64,
+
+    pub fn init(allocator: std.mem.Allocator, disk_size: u64) !DirtyTracker {
+        assert(disk_size > 0);
+        const block_count = 1 + ((disk_size - 1) / rootdisk_delta.BLOCK);
+        const word_count: usize = @intCast((block_count + 63) / 64);
+        const bits = try allocator.alloc(u64, word_count);
+        @memset(bits, 0);
+        return .{ .allocator = allocator, .disk_size = disk_size, .bits = bits };
+    }
+
+    pub fn deinit(self: *DirtyTracker) void {
+        self.allocator.free(self.bits);
+        self.bits = &.{};
+    }
+
+    pub fn clear(self: *DirtyTracker) void {
+        @memset(self.bits, 0);
+    }
+
+    pub fn mark(self: *DirtyTracker, offset: u64, len: u64) void {
+        if (len == 0 or offset >= self.disk_size) return;
+        const end = if (len > self.disk_size - offset) self.disk_size else offset + len;
+        var block = offset / rootdisk_delta.BLOCK;
+        const end_block = (end + rootdisk_delta.BLOCK - 1) / rootdisk_delta.BLOCK;
+        while (block < end_block) : (block += 1) {
+            const word: usize = @intCast(block / 64);
+            const bit: u6 = @intCast(block % 64);
+            if (word < self.bits.len) self.bits[word] |= @as(u64, 1) << bit;
+        }
+    }
+};
 
 // virtio-blk-specific feature bits worth knowing.
 pub const VIRTIO_BLK_F_SIZE_MAX: u6 = 1;
@@ -111,6 +148,9 @@ pub const Backend = struct {
     /// driver can't corrupt the content-addressed cache file the
     /// runtime hands us read-only.
     read_only: bool = false,
+    /// Dirty-block bitmap for incremental vmstate checkpoints. Enabled
+    /// only for the rootdisk backend; scratch/mount disks leave it null.
+    dirty: ?DirtyTracker = null,
     /// The backing config space. Keep it here so the virtio.Device
     /// can hand out a stable slice reference.
     config: BlkConfig,
@@ -144,8 +184,29 @@ pub const Backend = struct {
     }
 
     pub fn deinit(self: *Backend) void {
+        if (self.dirty) |*d| d.deinit();
         assert(self.fd >= 0);
         _ = close(self.fd);
+    }
+
+    pub fn enableDirtyTracking(self: *Backend, allocator: std.mem.Allocator) !void {
+        if (self.dirty != null) return;
+        self.dirty = try DirtyTracker.init(allocator, self.capacity_sectors * 512);
+    }
+
+    pub fn clearDirty(self: *Backend) void {
+        if (self.dirty) |*d| d.clear();
+    }
+
+    pub fn encodeDirtyDelta(self: *Backend, allocator: std.mem.Allocator) ![]u8 {
+        if (self.dirty) |*d| {
+            return rootdisk_delta.encodeFromFd(allocator, self.fd, d.disk_size, d.bits);
+        }
+        return rootdisk_delta.encodeFromFd(allocator, self.fd, self.capacity_sectors * 512, &.{});
+    }
+
+    fn markDirtyBytes(self: *Backend, offset: u64, len: u64) void {
+        if (self.dirty) |*d| d.mark(offset, len);
     }
 
     /// The request-handler callback to feed `virtio.Device.request_handler`.
@@ -238,11 +299,13 @@ pub const Backend = struct {
                             status = VIRTIO_BLK_S_IOERR;
                             break;
                         };
-                        const n_bytes = pwrite(self.fd, src.ptr, src.len, @as(i64, @intCast(sector)) * 512);
+                        const byte_off = sector * 512;
+                        const n_bytes = pwrite(self.fd, src.ptr, src.len, @as(i64, @intCast(byte_off)));
                         if (n_bytes < 0) {
                             status = VIRTIO_BLK_S_IOERR;
                             break;
                         }
+                        self.markDirtyBytes(byte_off, @intCast(n_bytes));
                         total_bytes += @intCast(n_bytes);
                         sector += src.len / 512;
                     }
@@ -277,6 +340,7 @@ pub const Backend = struct {
                             const offset_bytes: i64 = @as(i64, @intCast(seg.sector)) * 512;
                             const len_bytes: i64 = @as(i64, @intCast(seg.num_sectors)) * 512;
                             if (len_bytes <= 0) continue;
+                            self.markDirtyBytes(@intCast(offset_bytes), @intCast(len_bytes));
                             const rc = punchHole(self.fd, offset_bytes, len_bytes);
                             if (rc != 0) {
                                 // EOPNOTSUPP / EINVAL on hosts that
