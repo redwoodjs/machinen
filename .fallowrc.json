@@ -10,6 +10,12 @@
     "examples/live-mount/shared/server.mjs",
     "examples/quickstart/counter.mjs"
   ],
+  "duplicates": {
+    "ignore": ["**/__tests__/**", "**/*.{test,spec}.{js,jsx,ts,tsx,mjs,cjs}"]
+  },
+  "health": {
+    "ignore": ["**/__tests__/**", "**/*.{test,spec}.{js,jsx,ts,tsx,mjs,cjs}"]
+  },
   "ignoreDependencies": [
     "@homebridge/node-pty-prebuilt-multiarch",
     "@nkzw/oxlint-config",

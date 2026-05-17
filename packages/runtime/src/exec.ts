@@ -231,16 +231,15 @@ async function runOnSocket(
   }
 
   return new Promise<VsockExecResult>((done, fail) => {
-    const stdoutBufs: Buffer[] = [];
-    const stderrBufs: Buffer[] = [];
-    let exitCode: number | null = null;
-
-    // Parser state.
-    let buf: Buffer = Buffer.alloc(0);
-    // When in a payload phase, `awaitingBytes` > 0; otherwise we're
-    // looking for the next header line.
-    let awaitingBytes = 0;
-    let payloadTag: "O" | "E" | null = null;
+    const parser: ExecFrameParserState = {
+      stdoutBufs: [],
+      stderrBufs: [],
+      exitCode: null,
+      buf: Buffer.alloc(0),
+      awaitingBytes: 0,
+      payloadTag: null,
+      opts,
+    };
 
     // `null` (or `Infinity`) disables the wall-clock ceiling — the
     // command lives until it exits on its own or the VM goes away. The
@@ -271,7 +270,7 @@ async function runOnSocket(
       if (timer) {
         clearTimeout(timer);
       }
-      if (exitCode === null) {
+      if (parser.exitCode === null) {
         fail(
           new ExecError(
             "EXEC_AGENT_UNAVAILABLE",
@@ -281,89 +280,17 @@ async function runOnSocket(
         );
       } else {
         done({
-          exitCode,
-          stdout: Buffer.concat(stdoutBufs).toString("utf8"),
-          stderr: Buffer.concat(stderrBufs).toString("utf8"),
+          exitCode: parser.exitCode,
+          stdout: Buffer.concat(parser.stdoutBufs).toString("utf8"),
+          stderr: Buffer.concat(parser.stderrBufs).toString("utf8"),
         });
       }
     };
 
-    const step = () => {
-      // Consume as much of the buffer as we can. Loop until we need
-      // more bytes to make progress.
-      while (true) {
-        if (awaitingBytes > 0) {
-          if (buf.length === 0) {
-            return;
-          }
-          const take = Math.min(awaitingBytes, buf.length);
-          const chunk = buf.subarray(0, take);
-          buf = buf.subarray(take);
-          awaitingBytes -= take;
-          // Buffer for the resolved-result string field only when no
-          // streaming callback is set. Callers that pass `onStdout` /
-          // `onStderr` already have the bytes — keeping a parallel copy
-          // here costs RAM and, at >~512 MiB cumulative, breaks
-          // `Buffer.concat(...).toString("utf8")` in `finish()` with
-          // ERR_STRING_TOO_LONG (V8's max string length). Streaming
-          // callers see `stdout` / `stderr` come back as empty strings,
-          // which is the contract: opt into the callback, take the
-          // bytes there.
-          if (payloadTag === "O") {
-            if (opts.onStdout) {
-              opts.onStdout(chunk);
-            } else {
-              stdoutBufs.push(chunk);
-            }
-          } else if (payloadTag === "E") {
-            if (opts.onStderr) {
-              opts.onStderr(chunk);
-            } else {
-              stderrBufs.push(chunk);
-            }
-          }
-          if (awaitingBytes === 0) {
-            payloadTag = null;
-          }
-          continue;
-        }
-        // Header phase: look for \n.
-        const nl = buf.indexOf(0x0a);
-        if (nl === -1) {
-          return;
-        }
-        const line = buf.subarray(0, nl).toString("ascii");
-        buf = buf.subarray(nl + 1);
-        const [tag, nStr] = line.split(" ");
-        if (tag === "X") {
-          exitCode = Number.parseInt(nStr ?? "0", 10);
-          return;
-        }
-        if (tag !== "O" && tag !== "E") {
-          // Unknown frame tag — treat as protocol error and end.
-          fail(
-            new ExecError("EXEC_PROTOCOL", `VsockExec: unknown frame tag ${JSON.stringify(tag)}`),
-          );
-          socket.destroy();
-          return;
-        }
-        const n = Number.parseInt(nStr ?? "", 10);
-        if (!Number.isFinite(n) || n < 0) {
-          fail(
-            new ExecError("EXEC_PROTOCOL", `VsockExec: bad frame length ${JSON.stringify(nStr)}`),
-          );
-          socket.destroy();
-          return;
-        }
-        awaitingBytes = n;
-        payloadTag = tag;
-      }
-    };
-
     socket.on("data", (data: Buffer) => {
-      buf = buf.length === 0 ? data : Buffer.concat([buf, data]);
+      parser.buf = parser.buf.length === 0 ? data : Buffer.concat([parser.buf, data]);
       try {
-        step();
+        stepExecParser(parser);
       } catch (e) {
         fail(e as Error);
         socket.destroy();
@@ -381,37 +308,187 @@ async function runOnSocket(
   });
 }
 
-async function connectWithRetry(udsPath: string, opts: VsockExecOptions): Promise<Socket> {
-  const totalMs = opts.connectTimeoutMs ?? 30_000;
-  const deadline = Date.now() + totalMs;
-  const retryMs = opts.retryMs ?? 250;
-  let lastErr: Error | null = null;
-  let attempt = 0;
-  while (Date.now() < deadline) {
-    attempt++;
-    try {
-      const s = await connectOnce(udsPath);
-      if (attempt > 1) {
-        debug("connect ok after attempt=%d", attempt);
+type ExecPayloadTag = "O" | "E";
+
+interface ExecFrameParserState {
+  stdoutBufs: Buffer[];
+  stderrBufs: Buffer[];
+  exitCode: number | null;
+  buf: Buffer;
+  awaitingBytes: number;
+  payloadTag: ExecPayloadTag | null;
+  opts: VsockExecOptions;
+}
+
+function stepExecParser(state: ExecFrameParserState): void {
+  while (true) {
+    if (state.awaitingBytes > 0) {
+      if (!consumeExecPayload(state)) {
+        return;
       }
-      return s;
-    } catch (err) {
-      lastErr = err as Error;
-      await new Promise((r) => setTimeout(r, retryMs));
+      continue;
+    }
+    const header = readExecHeader(state);
+    if (!header) {
+      return;
+    }
+    if (header.tag === "X") {
+      state.exitCode = header.exitCode;
+      return;
+    }
+    state.awaitingBytes = header.length;
+    state.payloadTag = header.tag;
+  }
+}
+
+function consumeExecPayload(state: ExecFrameParserState): boolean {
+  if (state.buf.length === 0) {
+    return false;
+  }
+  const take = Math.min(state.awaitingBytes, state.buf.length);
+  const chunk = state.buf.subarray(0, take);
+  state.buf = state.buf.subarray(take);
+  state.awaitingBytes -= take;
+  deliverExecPayload(state, chunk);
+  clearPayloadTagIfComplete(state);
+  return true;
+}
+
+function deliverExecPayload(state: ExecFrameParserState, chunk: Buffer): void {
+  if (state.payloadTag === "O") {
+    pushExecPayload(chunk, state.opts.onStdout, state.stdoutBufs);
+    return;
+  }
+  if (state.payloadTag === "E") {
+    pushExecPayload(chunk, state.opts.onStderr, state.stderrBufs);
+  }
+}
+
+function pushExecPayload(
+  chunk: Buffer,
+  onChunk: ((chunk: Buffer) => void) | undefined,
+  sink: Buffer[],
+): void {
+  if (onChunk) {
+    onChunk(chunk);
+  } else {
+    sink.push(chunk);
+  }
+}
+
+function clearPayloadTagIfComplete(state: ExecFrameParserState): void {
+  if (state.awaitingBytes === 0) {
+    state.payloadTag = null;
+  }
+}
+
+type ExecFrameHeader = { tag: "X"; exitCode: number } | { tag: ExecPayloadTag; length: number };
+
+function readExecHeader(state: ExecFrameParserState): ExecFrameHeader | undefined {
+  const nl = state.buf.indexOf(0x0a);
+  if (nl === -1) {
+    return undefined;
+  }
+  const line = state.buf.subarray(0, nl).toString("ascii");
+  state.buf = state.buf.subarray(nl + 1);
+  return parseExecHeaderLine(line);
+}
+
+function parseExecHeaderLine(line: string): ExecFrameHeader {
+  const [tag, nStr] = line.split(" ");
+  if (tag === "X") {
+    return { tag, exitCode: Number.parseInt(nStr ?? "0", 10) };
+  }
+  if (tag !== "O" && tag !== "E") {
+    throw new ExecError("EXEC_PROTOCOL", `VsockExec: unknown frame tag ${JSON.stringify(tag)}`);
+  }
+  const length = parseExecFrameLength(nStr);
+  return { tag, length };
+}
+
+function parseExecFrameLength(nStr: string | undefined): number {
+  const length = Number.parseInt(nStr ?? "", 10);
+  if (!Number.isFinite(length) || length < 0) {
+    throw new ExecError("EXEC_PROTOCOL", `VsockExec: bad frame length ${JSON.stringify(nStr)}`);
+  }
+  return length;
+}
+
+interface ConnectRetrySettings {
+  totalMs: number;
+  deadline: number;
+  retryMs: number;
+}
+
+interface ConnectRetryState {
+  attempt: number;
+  lastErr: Error | null;
+}
+
+async function connectWithRetry(udsPath: string, opts: VsockExecOptions): Promise<Socket> {
+  const settings = connectRetrySettings(opts);
+  const state: ConnectRetryState = { attempt: 0, lastErr: null };
+  while (Date.now() < settings.deadline) {
+    const socket = await tryConnectAttempt(udsPath, settings.retryMs, state);
+    if (socket) {
+      return socket;
     }
   }
+  throw connectRetryError(udsPath, settings.totalMs, state);
+}
+
+function connectRetrySettings(opts: VsockExecOptions): ConnectRetrySettings {
+  const totalMs = opts.connectTimeoutMs ?? 30_000;
+  return {
+    totalMs,
+    deadline: Date.now() + totalMs,
+    retryMs: opts.retryMs ?? 250,
+  };
+}
+
+async function tryConnectAttempt(
+  udsPath: string,
+  retryMs: number,
+  state: ConnectRetryState,
+): Promise<Socket | null> {
+  state.attempt++;
+  try {
+    const socket = await connectOnce(udsPath);
+    logRetriedConnect(state.attempt);
+    return socket;
+  } catch (err) {
+    state.lastErr = err as Error;
+    await new Promise((resolveSleep) => setTimeout(resolveSleep, retryMs));
+    return null;
+  }
+}
+
+function logRetriedConnect(attempt: number): void {
+  if (attempt > 1) {
+    debug("connect ok after attempt=%d", attempt);
+  }
+}
+
+function connectRetryError(udsPath: string, totalMs: number, state: ConnectRetryState): ExecError {
   debug(
     "connect gave up uds=%s after %dms attempts=%d lastErr=%s",
     udsPath,
     totalMs,
-    attempt,
-    lastErr?.message,
+    state.attempt,
+    state.lastErr?.message,
   );
-  throw new ExecError(
+  return new ExecError(
     "EXEC_AGENT_UNAVAILABLE",
-    `VsockExec: could not reach ${udsPath} within ${totalMs}ms: ${lastErr?.message ?? "no error"}`,
-    { retryable: true, cause: lastErr ?? undefined },
+    `VsockExec: could not reach ${udsPath} within ${totalMs}ms: ${connectRetryMessage(state.lastErr)}`,
+    { retryable: true, cause: state.lastErr ?? undefined },
   );
+}
+
+function connectRetryMessage(lastErr: Error | null): string {
+  if (lastErr === null) {
+    return "no error";
+  }
+  return lastErr.message;
 }
 
 function connectOnce(udsPath: string): Promise<Socket> {
@@ -441,6 +518,106 @@ function endSocket(s: Socket): Promise<void> {
   });
 }
 
+interface PtyParserState {
+  buffer: Buffer;
+  awaitingBytes: number;
+}
+
+interface PtyParserHandlers {
+  stdout: Writable;
+  onExit: (code: number) => void;
+  onError: (err: Error) => void;
+}
+
+type PtyFrameHeader =
+  | { kind: "exit"; code: number }
+  | { kind: "stdout"; bytes: number }
+  | { kind: "error"; error: ExecError };
+
+function createPtyParserState(): PtyParserState {
+  return { buffer: Buffer.alloc(0), awaitingBytes: 0 };
+}
+
+function ingestPtyOutput(state: PtyParserState, data: Buffer, handlers: PtyParserHandlers): void {
+  state.buffer = state.buffer.length === 0 ? data : Buffer.concat([state.buffer, data]);
+  while (consumeNextPtyFrame(state, handlers)) {}
+}
+
+function consumeNextPtyFrame(state: PtyParserState, handlers: PtyParserHandlers): boolean {
+  if (state.awaitingBytes > 0) {
+    return consumePtyPayload(state, handlers.stdout);
+  }
+  const line = takePtyHeaderLine(state);
+  return line === undefined ? false : handlePtyHeaderLine(state, line, handlers);
+}
+
+function consumePtyPayload(state: PtyParserState, stdout: Writable): boolean {
+  if (state.buffer.length === 0) {
+    return false;
+  }
+  const take = Math.min(state.awaitingBytes, state.buffer.length);
+  stdout.write(state.buffer.subarray(0, take));
+  state.buffer = state.buffer.subarray(take);
+  state.awaitingBytes -= take;
+  return true;
+}
+
+function takePtyHeaderLine(state: PtyParserState): string | undefined {
+  const nl = state.buffer.indexOf(0x0a);
+  if (nl === -1) {
+    return undefined;
+  }
+  const line = state.buffer.subarray(0, nl).toString("ascii");
+  state.buffer = state.buffer.subarray(nl + 1);
+  return line;
+}
+
+function handlePtyHeaderLine(
+  state: PtyParserState,
+  line: string,
+  handlers: PtyParserHandlers,
+): boolean {
+  const header = parsePtyHeaderLine(line);
+  if (header.kind === "error") {
+    handlers.onError(header.error);
+    return false;
+  }
+  if (header.kind === "exit") {
+    handlers.onExit(header.code);
+    return false;
+  }
+  state.awaitingBytes = header.bytes;
+  return true;
+}
+
+function parsePtyHeaderLine(line: string): PtyFrameHeader {
+  const [tag, nStr] = line.split(" ");
+  if (tag === "X") {
+    return { kind: "exit", code: Number.parseInt(nStr ?? "0", 10) };
+  }
+  if (tag === "O") {
+    return parsePtyOutputHeader(nStr);
+  }
+  return {
+    kind: "error",
+    error: new ExecError("EXEC_PROTOCOL", `VsockExec.startPty: unknown PTY frame tag ${tag}`),
+  };
+}
+
+function parsePtyOutputHeader(nStr: string | undefined): PtyFrameHeader {
+  const bytes = Number.parseInt(nStr ?? "", 10);
+  if (!Number.isFinite(bytes) || bytes < 0) {
+    return {
+      kind: "error",
+      error: new ExecError(
+        "EXEC_PROTOCOL",
+        `VsockExec.startPty: bad O frame length ${JSON.stringify(nStr)}`,
+      ),
+    };
+  }
+  return { kind: "stdout", bytes };
+}
+
 // Wire `cols`/`rows` + the existing `cmd` into the PTY opcode header,
 // then plug bidirectional pumps onto an already-connected socket. Why
 // a separate helper: keeps `startPty` readable — the public method is
@@ -457,11 +634,7 @@ function startPtyImpl(udsPath: string, cmd: string, opts: VsockExecPtyOptions): 
     rejectResult = rej;
   });
 
-  // O-frame parser state: we may receive partial frames across
-  // socket data events. `awaitingBytes` > 0 means we're inside an
-  // O payload; otherwise we're scanning for the next header line.
-  let parseBuf: Buffer = Buffer.alloc(0);
-  let awaitingBytes = 0;
+  const parser = createPtyParserState();
 
   const reject = (err: Error) => {
     if (settled) {
@@ -491,48 +664,13 @@ function startPtyImpl(udsPath: string, cmd: string, opts: VsockExecPtyOptions): 
   };
 
   const onSocketData = (data: Buffer) => {
-    parseBuf = parseBuf.length === 0 ? data : Buffer.concat([parseBuf, data]);
-    while (true) {
-      if (awaitingBytes > 0) {
-        if (parseBuf.length === 0) {
-          return;
-        }
-        const take = Math.min(awaitingBytes, parseBuf.length);
-        const chunk = parseBuf.subarray(0, take);
-        parseBuf = parseBuf.subarray(take);
-        awaitingBytes -= take;
-        opts.stdout.write(chunk);
-        continue;
-      }
-      const nl = parseBuf.indexOf(0x0a);
-      if (nl === -1) {
-        return;
-      }
-      const line = parseBuf.subarray(0, nl).toString("ascii");
-      parseBuf = parseBuf.subarray(nl + 1);
-      const [tag, nStr] = line.split(" ");
-      if (tag === "X") {
-        exitCode = Number.parseInt(nStr ?? "0", 10);
-        // Agent will close right after; wait for `close` event so we
-        // don't race the rest of the buffered O bytes.
-        return;
-      }
-      if (tag !== "O") {
-        reject(new ExecError("EXEC_PROTOCOL", `VsockExec.startPty: unknown PTY frame tag ${tag}`));
-        return;
-      }
-      const n = Number.parseInt(nStr ?? "", 10);
-      if (!Number.isFinite(n) || n < 0) {
-        reject(
-          new ExecError(
-            "EXEC_PROTOCOL",
-            `VsockExec.startPty: bad O frame length ${JSON.stringify(nStr)}`,
-          ),
-        );
-        return;
-      }
-      awaitingBytes = n;
-    }
+    ingestPtyOutput(parser, data, {
+      stdout: opts.stdout,
+      onExit: (code) => {
+        exitCode = code;
+      },
+      onError: reject,
+    });
   };
 
   const onStdinData = (chunk: Buffer | string) => {

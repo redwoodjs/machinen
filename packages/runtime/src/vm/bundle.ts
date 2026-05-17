@@ -185,290 +185,309 @@ export function resolveRestoreLiveMounts(
   });
 }
 
+type BundleMountDisk = {
+  lowerPath: string;
+  upperPath: string;
+  guest: string;
+  upperSizeBytes: number;
+};
+
+interface BundlePackerOptions {
+  useTiny: boolean;
+  env: Record<string, string>;
+  mountDiskUpperSizeBytes?: number;
+  onPhase?: (name: string, ms: number) => void;
+}
+
+interface SynthesizedBundle {
+  tempDir: string;
+  cpioPath: string;
+  mountDisk?: BundleMountDisk;
+}
+
+interface BundleWorkspace {
+  tempDir: string;
+  cpioPath: string;
+  synthBundleDir: string;
+  cleanup: () => void;
+}
+
+interface BundleImageConfig {
+  cmd?: string[];
+  env?: Record<string, string>;
+  cwd?: string;
+}
+
+interface BundleImageInput {
+  baseAbs: string | undefined;
+  imageConfig: BundleImageConfig | undefined;
+}
+
+interface ResolvedMountInput {
+  host: string;
+  guest: string;
+}
+
 export function synthesizeAndPackBundle(
   opts: BootOptions,
   mergedGuestEnv: Record<string, string>,
   liveMounts: ResolvedLiveMount[],
-  packerOpts: {
-    useTiny: boolean;
-    env: Record<string, string>;
-    mountDiskUpperSizeBytes?: number;
-    onPhase?: (name: string, ms: number) => void;
-  },
-): {
-  tempDir: string;
-  cpioPath: string;
-  mountDisk?: {
-    lowerPath: string;
-    upperPath: string;
-    guest: string;
-    upperSizeBytes: number;
-  };
-} {
+  packerOpts: BundlePackerOptions,
+): SynthesizedBundle {
+  const workspace = createBundleWorkspace();
+  try {
+    validateOptionalGuestCwd(opts);
+    const image = resolveBundleImage(opts, packerOpts);
+    const cmd = wrapBundleCommand(resolveBundleCommand(opts, image.imageConfig), opts);
+    const effectiveEnv = { ...image.imageConfig?.env, ...mergedGuestEnv };
+    writeBundleConfig(workspace, {
+      cmd,
+      env: effectiveEnv,
+      guestCwd: opts.guestCwd,
+      imageCwd: image.imageConfig?.cwd,
+      liveMounts,
+    });
+    const mount = resolveBundleMount(opts);
+    packSynthesizedInitramfs(workspace, image.baseAbs, mount, opts, effectiveEnv, packerOpts);
+    return {
+      tempDir: workspace.tempDir,
+      cpioPath: workspace.cpioPath,
+      mountDisk: materializeBundleMountDisk(opts, mount, packerOpts),
+    };
+  } catch (err) {
+    workspace.cleanup();
+    throw err;
+  }
+}
+
+function createBundleWorkspace(): BundleWorkspace {
   const tempDir = mkdtempSync(join(tmpdir(), "machinen-bundle-"));
-  const cpioPath = join(tempDir, "initramfs.cpio");
-  const synthBundleDir = join(tempDir, "bundle");
-  const cleanup = () => {
-    try {
-      rmSync(tempDir, { recursive: true, force: true });
-    } catch {}
+  return {
+    tempDir,
+    cpioPath: join(tempDir, "initramfs.cpio"),
+    synthBundleDir: join(tempDir, "bundle"),
+    cleanup: () => {
+      try {
+        rmSync(tempDir, { recursive: true, force: true });
+      } catch {}
+    },
   };
+}
 
+function validateOptionalGuestCwd(opts: BootOptions): void {
   if (opts.guestCwd !== undefined) {
-    try {
-      validateGuestCwd(opts.guestCwd);
-    } catch (err) {
-      cleanup();
-      throw err;
-    }
+    validateGuestCwd(opts.guestCwd);
   }
+}
 
-  let baseAbs: string | undefined;
-  let imageConfig: { cmd?: string[]; env?: Record<string, string>; cwd?: string } | undefined;
-  if (opts.image) {
-    baseAbs = resolve(opts.cwd ?? process.cwd(), opts.image);
-    if (!existsSync(baseAbs)) {
-      cleanup();
-      throw new BootError("BOOT_IMAGE_NOT_FOUND", `image tarball not found: ${baseAbs}`);
-    }
-    const cfgT0 = Date.now();
-    imageConfig = readImageConfig(baseAbs);
-    packerOpts.onPhase?.("image-config-read", Date.now() - cfgT0);
+function resolveBundleImage(opts: BootOptions, packerOpts: BundlePackerOptions): BundleImageInput {
+  if (!opts.image) {
+    return { baseAbs: undefined, imageConfig: undefined };
   }
+  const baseAbs = resolve(opts.cwd ?? process.cwd(), opts.image);
+  if (!existsSync(baseAbs)) {
+    throw new BootError("BOOT_IMAGE_NOT_FOUND", `image tarball not found: ${baseAbs}`);
+  }
+  const cfgT0 = Date.now();
+  const imageConfig = readImageConfig(baseAbs);
+  packerOpts.onPhase?.("image-config-read", Date.now() - cfgT0);
+  return { baseAbs, imageConfig };
+}
 
-  // cmd resolution:
-  //   - Snapshot-only restore (`boot({ snapshot })` with no cmd):
-  //     synthesize `["/sbin/machinen-restore"]`. The helper mounts
-  //     /dev/vda, spawns a fresh exec-agent, and runs `criu restore`
-  //     inside `unshare --pid --fork --mount-proc` so the dumped
-  //     workload's PIDs don't collide with the restore-side helpers
-  //     on chained restores (#215). This MUST take precedence over
-  //     the rootfs's baked `imageConfig.cmd` — that field is the
-  //     fresh-boot default; replaying it on restore would launch a
-  //     brand-new workload instead of resuming the dumped one,
-  //     silently dropping all in-memory state.
-  //   - Normal boot: user's cmd wins; fall back to image's baked
-  //     default. Then wrap in /sbin/machinen-supervisor so the
-  //     workload runs as a CRIU-dumpable child of /init and the
-  //     exec-agent stays alive alongside it for vm.exec / vm.snapshot.
-  //     Exception: if the cmd is already `/exec-agent`, skip the
-  //     wrapper — the workload IS the agent (provision() flow).
-  //   - Neither snapshot nor cmd and no image default: error.
-  let effectiveCmd: string[] | undefined;
+function resolveBundleCommand(
+  opts: BootOptions,
+  imageConfig: BundleImageConfig | undefined,
+): string[] {
+  const cmd = explicitOrSyntheticCommand(opts, imageConfig);
+  if (cmd) {
+    return cmd;
+  }
+  throw new BootError(
+    "BOOT_CMD_MISSING",
+    "boot: no cmd to run — pass `cmd` on boot() or bake one into the " +
+      "image via `provision({ cmd })`.",
+  );
+}
+
+function explicitOrSyntheticCommand(
+  opts: BootOptions,
+  imageConfig: BundleImageConfig | undefined,
+): string[] | undefined {
   if (opts.cmd) {
-    effectiveCmd = opts.cmd;
-  } else if (typeof opts.snapshot === "string") {
+    return opts.cmd;
+  }
+  if (typeof opts.snapshot === "string") {
     // Only synthesize the restore helper when the caller explicitly
     // passed a snapshot path. The auto-allocated scratch (default
     // `snapshot: undefined`) is empty, so synthesizing here would feed
     // CRIU a bundle-less file and fail.
-    effectiveCmd = ["/sbin/machinen-restore"];
-  } else if (opts._vmstateRestorePath) {
-    // Vmstate restore: the VMM overwrites guest RAM with the bundle's
-    // whole-VM `.vmstate` state before the first vCPU run, so /init
-    // never executes and the cmd is moot — but the VMM still needs a
-    // valid initramfs (MACHINEN_INITRD is required). Give it a
-    // harmless placeholder that's guaranteed present in the rootfs
-    // and, like the criu restore helper, takes precedence over the
-    // image's baked-in cmd (which would otherwise launch a fresh
-    // workload instead of resuming the snapshotted one).
-    effectiveCmd = ["/sbin/machinen-poweroff"];
-  } else if (imageConfig?.cmd) {
-    effectiveCmd = imageConfig.cmd;
+    return ["/sbin/machinen-restore"];
   }
-  if (!effectiveCmd) {
-    cleanup();
+  if (opts._vmstateRestorePath) {
+    // Vmstate restore: the VMM overwrites guest RAM before /init runs,
+    // but the VMM still needs a valid initramfs path.
+    return ["/sbin/machinen-poweroff"];
+  }
+  return imageConfig?.cmd;
+}
+
+function wrapBundleCommand(cmd: string[], opts: BootOptions): string[] {
+  const cmdHead = cmd[0];
+  if (cmdHead === "/exec-agent" || cmdHead === "/sbin/machinen-restore") {
+    return cmd;
+  }
+  const supervisorArgs = typeof opts.snapshot === "string" ? ["--session"] : [];
+  return ["/sbin/machinen-supervisor", ...supervisorArgs, ...cmd];
+}
+
+function writeBundleConfig(
+  workspace: BundleWorkspace,
+  input: {
+    cmd: string[];
+    env: Record<string, string>;
+    guestCwd?: string;
+    imageCwd?: string;
+    liveMounts: ResolvedLiveMount[];
+  },
+): void {
+  mkdirSync(join(workspace.synthBundleDir, "rootfs"), { recursive: true });
+  const configJson = buildMachinenConfig(input);
+  writeFileSync(join(workspace.synthBundleDir, "machinen-config.json"), JSON.stringify(configJson));
+}
+
+function resolveBundleMount(opts: BootOptions): ResolvedMountInput | undefined {
+  if (!opts.mount) {
+    return undefined;
+  }
+  validateMountGuest(opts.mount.guest);
+  const hostAbs = resolve(opts.cwd ?? process.cwd(), opts.mount.host);
+  if (!existsSync(hostAbs)) {
     throw new BootError(
-      "BOOT_CMD_MISSING",
-      "boot: no cmd to run — pass `cmd` on boot() or bake one into the " +
-        "image via `provision({ cmd })`.",
+      "BOOT_MOUNT_HOST_NOT_FOUND",
+      `mount host path not found: ${opts.mount.host}`,
     );
   }
-
-  // Wrap the cmd in the supervisor unless the caller is booting the
-  // vsock agent directly (provision flow) or the runtime-synthesized
-  // restore helper (which already manages the agent itself).
-  //
-  // `--session` is the legacy "run under setsid" toggle from when CRIU
-  // dumps required it but interactive boots didn't. Both modes now go
-  // through the same `setsid -c -w` path in the supervisor, so the flag
-  // is just consumed for back-compat. Pass it whenever a caller-managed
-  // snapshot path is present — purely cosmetic, mirrors how older
-  // releases logged the boot.
-  const cmdHead = effectiveCmd[0];
-  const isAgentDirect = cmdHead === "/exec-agent";
-  const isRestoreHelper = cmdHead === "/sbin/machinen-restore";
-  const supervisorArgs = typeof opts.snapshot === "string" ? ["--session"] : [];
-  const wrappedCmd =
-    isAgentDirect || isRestoreHelper
-      ? effectiveCmd
-      : ["/sbin/machinen-supervisor", ...supervisorArgs, ...effectiveCmd];
-
-  // env: image defaults overlaid by user + runtime-injected (gvproxy
-  // cache mirror, etc.). User + runtime wins on key collision. Shared
-  // between the synthesized config.json (read by /init) and the
-  // packer's runtime env injection (written into the cpio's
-  // env-overlay file).
-  const effectiveEnv = { ...imageConfig?.env, ...mergedGuestEnv };
-
-  // Synthesize the bundle directory from the effective cmd + env. No
-  // user-authored machinen-config.json; we generate it here and the
-  // caller never sees it.
-  mkdirSync(join(synthBundleDir, "rootfs"), { recursive: true });
-  const configJson = buildMachinenConfig({
-    cmd: wrappedCmd,
-    env: effectiveEnv,
-    guestCwd: opts.guestCwd,
-    imageCwd: imageConfig?.cwd,
-    liveMounts,
-  });
-  writeFileSync(join(synthBundleDir, "machinen-config.json"), JSON.stringify(configJson));
-
-  let mount: { host: string; guest: string } | undefined;
-  if (opts.mount) {
-    try {
-      validateMountGuest(opts.mount.guest);
-    } catch (err) {
-      cleanup();
-      throw err;
-    }
-    const hostAbs = resolve(opts.cwd ?? process.cwd(), opts.mount.host);
-    if (!existsSync(hostAbs)) {
-      cleanup();
-      throw new BootError(
-        "BOOT_MOUNT_HOST_NOT_FOUND",
-        `mount host path not found: ${opts.mount.host}`,
-      );
-    }
-    if (!statSync(hostAbs).isDirectory()) {
-      cleanup();
-      throw new BootError(
-        "BOOT_MOUNT_INVALID",
-        `mount host path must be a directory (got a file): ${opts.mount.host}`,
-      );
-    }
-    mount = { host: hostAbs, guest: normalizeMountGuest(opts.mount.guest) };
+  if (!statSync(hostAbs).isDirectory()) {
+    throw new BootError(
+      "BOOT_MOUNT_INVALID",
+      `mount host path must be a directory (got a file): ${opts.mount.host}`,
+    );
   }
+  return { host: hostAbs, guest: normalizeMountGuest(opts.mount.guest) };
+}
 
+function packSynthesizedInitramfs(
+  workspace: BundleWorkspace,
+  baseAbs: string | undefined,
+  mount: ResolvedMountInput | undefined,
+  opts: BootOptions,
+  effectiveEnv: Record<string, string>,
+  packerOpts: BundlePackerOptions,
+): void {
+  const packT0 = Date.now();
   try {
-    const packT0 = Date.now();
     if (packerOpts.useTiny) {
-      // #119: rootDisk path. The on-disk rootfs is mounted from /dev/vda
-      // by /init; the cpio only ships /init + machinen-config.json +
-      // boot-epoch + /dev/console (~500 KB). The custom kernel
-      // (scripts/build-kernel-arm64.sh) has virtio_*, ext4, vsock,
-      // squashfs, and overlayfs built in, so no /modules/*.ko or
-      // finit_module pass is needed.
-      //
-      // #272: the `--mount` payload no longer rides in the cpio. We
-      // pass `mountGuest` so /init learns the target path; the actual
-      // bytes ride on virtio-blk slots 5+6 (set up further down in
-      // boot()).
-      mkinitramfsPackTinyBundle({
-        bundle: synthBundleDir,
-        out: cpioPath,
-        // The cpio just carries the guest mountpoint string for /init
-        // to read. The actual payload (whether materialized fresh or
-        // sourced from a snapshot bundle) rides on virtio-blk slots
-        // 5+6, attached further down in boot().
-        mountGuest: mount?.guest ?? opts._restoreMountDisk?.guest,
-        env: effectiveEnv,
-      });
+      packTinyInitramfs(workspace, mount, opts, effectiveEnv);
     } else {
-      // Legacy fat cpio: explicit `rootDisk: false` opt-out. Drags the
-      // entire base tarball into RAM, by design — callers that need a
-      // Debian userland in the cpio (no virtio-blk root) land here.
-      // The legacy cpio overlay path is preserved here: this branch
-      // does not get the virtio-blk mount overlay, since the kernel
-      // would have to wait for the rootdisk pivot anyway.
-      mkinitramfsPackBundle({
-        bundle: synthBundleDir,
-        out: cpioPath,
-        base: baseAbs,
-        mount,
-        env: effectiveEnv,
-      });
+      packFatInitramfs(workspace, baseAbs, mount, effectiveEnv);
     }
     packerOpts.onPhase?.("cpio-write", Date.now() - packT0);
   } catch (err) {
-    cleanup();
     const msg = err instanceof Error ? err.message : String(err);
     throw new BootError("BOOT_PACK_FAILED", `mkinitramfs pack failed: ${msg}`, { cause: err });
   }
-  // #272: the rootDisk path also needs the squashfs+ext4 payload
-  // built and fd-passed to the VMM. Two paths:
-  //   - fresh boot with `mount`: materialize a content-addressed
-  //     squashfs lower from the host source dir + a per-VM ext4 upper.
-  //   - restore from a snapshot bundle (`_restoreMountDisk`): reuse
-  //     the bundle's lower as-is (it's already content-addressed and
-  //     immutable), but reflink the bundle's upper into a per-VM
-  //     path so guest writes don't mutate the bundle in-place.
-  //
-  // Materialize here so a missing mksquashfs fails fast at boot rather
-  // than mid-spawn.
-  let mountDisk:
-    | { lowerPath: string; upperPath: string; guest: string; upperSizeBytes: number }
-    | undefined;
-  if (packerOpts.useTiny) {
-    if (opts._restoreMountDisk) {
-      try {
-        const r = opts._restoreMountDisk;
-        if (!existsSync(r.lowerPath)) {
-          throw new BootError(
-            "BOOT_SNAPSHOT_NOT_FOUND",
-            `restore: bundle is missing mount-lower at ${r.lowerPath}`,
-          );
-        }
-        if (!existsSync(r.upperPath)) {
-          throw new BootError(
-            "BOOT_SNAPSHOT_NOT_FOUND",
-            `restore: bundle is missing mount-upper at ${r.upperPath}`,
-          );
-        }
-        // Reflink the upper so writes accumulate per-fork instead of
-        // mutating the bundle. APFS clonefile / Linux FICLONE on
-        // capable fs (free, shared blocks until guest writes); falls
-        // back to a regular copy elsewhere.
-        const perVMUpper = join(
-          tmpdir(),
-          `machinen-mountdisk-upper-${process.pid}-${randomBytes(6).toString("hex")}.img`,
-        );
-        reflinkCopy(r.upperPath, perVMUpper);
-        const upperSize = statSync(perVMUpper).size;
-        mountDisk = {
-          lowerPath: r.lowerPath,
-          upperPath: perVMUpper,
-          guest: r.guest,
-          upperSizeBytes: upperSize,
-        };
-      } catch (err) {
-        cleanup();
-        throw err;
-      }
-    } else if (mount) {
-      try {
-        const lower = ensureMountDiskImage(mount.host, {
-          onPhase: (name, ms) => packerOpts.onPhase?.(`mountdisk.${name}`, ms),
-        });
-        // markMountDiskImageClean is idempotent and safe to call here —
-        // we only READ the cached file; the per-boot boot() flow takes
-        // ownership of the .ok marker via the same lifecycle the
-        // rootdisk uses.
-        const upper = ensureMountDiskUpper({
-          sizeBytes: packerOpts.mountDiskUpperSizeBytes,
-        });
-        mountDisk = {
-          lowerPath: lower.lowerPath,
-          upperPath: upper.upperPath,
-          guest: mount.guest,
-          upperSizeBytes: upper.sizeBytes,
-        };
-        markMountDiskImageClean(lower.lowerPath);
-      } catch (err) {
-        cleanup();
-        throw err;
-      }
-    }
+}
+
+function packTinyInitramfs(
+  workspace: BundleWorkspace,
+  mount: ResolvedMountInput | undefined,
+  opts: BootOptions,
+  effectiveEnv: Record<string, string>,
+): void {
+  mkinitramfsPackTinyBundle({
+    bundle: workspace.synthBundleDir,
+    out: workspace.cpioPath,
+    // The cpio just carries the guest mountpoint string for /init to
+    // read. The actual payload rides on virtio-blk slots 5+6.
+    mountGuest: mount?.guest ?? opts._restoreMountDisk?.guest,
+    env: effectiveEnv,
+  });
+}
+
+function packFatInitramfs(
+  workspace: BundleWorkspace,
+  baseAbs: string | undefined,
+  mount: ResolvedMountInput | undefined,
+  effectiveEnv: Record<string, string>,
+): void {
+  mkinitramfsPackBundle({
+    bundle: workspace.synthBundleDir,
+    out: workspace.cpioPath,
+    base: baseAbs,
+    mount,
+    env: effectiveEnv,
+  });
+}
+
+function materializeBundleMountDisk(
+  opts: BootOptions,
+  mount: ResolvedMountInput | undefined,
+  packerOpts: BundlePackerOptions,
+): BundleMountDisk | undefined {
+  if (!packerOpts.useTiny) {
+    return undefined;
   }
-  return { tempDir, cpioPath, mountDisk };
+  if (opts._restoreMountDisk) {
+    return materializeRestoredMountDisk(opts._restoreMountDisk);
+  }
+  return mount ? materializeFreshMountDisk(mount, packerOpts) : undefined;
+}
+
+function materializeRestoredMountDisk(
+  restoreMount: NonNullable<BootOptions["_restoreMountDisk"]>,
+): BundleMountDisk {
+  if (!existsSync(restoreMount.lowerPath)) {
+    throw new BootError(
+      "BOOT_SNAPSHOT_NOT_FOUND",
+      `restore: bundle is missing mount-lower at ${restoreMount.lowerPath}`,
+    );
+  }
+  if (!existsSync(restoreMount.upperPath)) {
+    throw new BootError(
+      "BOOT_SNAPSHOT_NOT_FOUND",
+      `restore: bundle is missing mount-upper at ${restoreMount.upperPath}`,
+    );
+  }
+  const perVMUpper = join(
+    tmpdir(),
+    `machinen-mountdisk-upper-${process.pid}-${randomBytes(6).toString("hex")}.img`,
+  );
+  reflinkCopy(restoreMount.upperPath, perVMUpper);
+  return {
+    lowerPath: restoreMount.lowerPath,
+    upperPath: perVMUpper,
+    guest: restoreMount.guest,
+    upperSizeBytes: statSync(perVMUpper).size,
+  };
+}
+
+function materializeFreshMountDisk(
+  mount: ResolvedMountInput,
+  packerOpts: BundlePackerOptions,
+): BundleMountDisk {
+  const lower = ensureMountDiskImage(mount.host, {
+    onPhase: (name, ms) => packerOpts.onPhase?.(`mountdisk.${name}`, ms),
+  });
+  // markMountDiskImageClean is idempotent and safe to call here — we
+  // only READ the cached file; the per-boot boot() flow owns lifecycle.
+  const upper = ensureMountDiskUpper({
+    sizeBytes: packerOpts.mountDiskUpperSizeBytes,
+  });
+  markMountDiskImageClean(lower.lowerPath);
+  return {
+    lowerPath: lower.lowerPath,
+    upperPath: upper.upperPath,
+    guest: mount.guest,
+    upperSizeBytes: upper.sizeBytes,
+  };
 }

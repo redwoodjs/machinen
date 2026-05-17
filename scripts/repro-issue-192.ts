@@ -34,6 +34,7 @@
 // Exit codes: 0 ran cleanly (regardless of hit/no-hit). 2 script error.
 
 import { boot } from "@machinen/runtime";
+import type { BootOptions, OnLog, VmHandle } from "@machinen/runtime";
 import { existsSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -53,46 +54,92 @@ interface Args {
   fuse: boolean;
 }
 
+const USAGE =
+  "Usage: node scripts/repro-issue-192.ts [--n N] [--serial] [--watch S] [--image PATH] [--no-fuse]";
+
+interface ParseContext {
+  argv: string[];
+  args: Args;
+  index: number;
+}
+
+type ArgHandler = (ctx: ParseContext) => void;
+
+const ARG_HANDLERS: Record<string, ArgHandler> = {
+  "--n": (ctx) => {
+    ctx.args.n = Number(takeOptionValue(ctx, "--n"));
+  },
+  "--serial": (ctx) => {
+    ctx.args.serial = true;
+  },
+  "--watch": (ctx) => {
+    ctx.args.watchSec = Number(takeOptionValue(ctx, "--watch"));
+  },
+  "--image": (ctx) => {
+    ctx.args.image = takeOptionValue(ctx, "--image");
+  },
+  "--no-fuse": (ctx) => {
+    ctx.args.fuse = false;
+  },
+  "-h": () => printUsageAndExit(),
+  "--help": () => printUsageAndExit(),
+};
+
 function parseArgs(): Args {
-  const argv = process.argv.slice(2);
-  const out: Args = {
+  const ctx: ParseContext = { argv: process.argv.slice(2), args: defaultArgs(), index: 0 };
+  for (; ctx.index < ctx.argv.length; ctx.index++) {
+    applyArg(ctx);
+  }
+  validateArgs(ctx.args);
+  return ctx.args;
+}
+
+function defaultArgs(): Args {
+  return {
     n: 8,
     serial: false,
     watchSec: 90,
     image: DEFAULT_IMAGE,
     fuse: true,
   };
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (a === "--n") {
-      out.n = Number(argv[++i]);
-    } else if (a === "--serial") {
-      out.serial = true;
-    } else if (a === "--watch") {
-      out.watchSec = Number(argv[++i]);
-    } else if (a === "--image") {
-      out.image = argv[++i];
-    } else if (a === "--no-fuse") {
-      out.fuse = false;
-    } else if (a === "-h" || a === "--help") {
-      console.log(
-        "Usage: node scripts/repro-issue-192.ts [--n N] [--serial] [--watch S] [--image PATH] [--no-fuse]",
-      );
-      process.exit(0);
-    } else {
-      console.error(`repro-192: unknown arg: ${a}`);
-      process.exit(2);
-    }
+}
+
+function applyArg(ctx: ParseContext): void {
+  const arg = ctx.argv[ctx.index];
+  const handler = ARG_HANDLERS[arg];
+  if (!handler) {
+    exitArgError(`repro-192: unknown arg: ${arg}`);
   }
-  if (!Number.isFinite(out.n) || out.n < 1) {
-    console.error(`repro-192: --n must be >= 1 (got ${out.n})`);
-    process.exit(2);
+  handler(ctx);
+}
+
+function takeOptionValue(ctx: ParseContext, name: string): string {
+  const value = ctx.argv[++ctx.index];
+  if (value === undefined) {
+    exitArgError(`repro-192: ${name} requires a value`);
   }
-  if (!Number.isFinite(out.watchSec) || out.watchSec < 5) {
-    console.error(`repro-192: --watch must be >= 5 (got ${out.watchSec})`);
-    process.exit(2);
+  return value;
+}
+
+function printUsageAndExit(): never {
+  console.log(USAGE);
+  process.exit(0);
+}
+
+function validateArgs(out: Args): void {
+  assertNumericArg("--n", out.n, 1);
+  assertNumericArg("--watch", out.watchSec, 5);
+}
+
+function assertNumericArg(name: string, value: number, min: number): void {
+  if (!Number.isFinite(value) || value < min) {
+    exitArgError(`repro-192: ${name} must be >= ${min} (got ${value})`);
   }
-  return out;
+}
+
+function exitArgError(message: string): never {
+  console.error(message);
+  process.exit(2);
 }
 
 const args = parseArgs();
@@ -137,148 +184,280 @@ interface Result {
   consoleTail?: string;
 }
 
+interface ConsoleTailBuffer {
+  text: string;
+}
+
+interface ParsedHit {
+  descId: number;
+  guestUptimeAtHit?: number;
+}
+
 async function runOne(index: number): Promise<Result> {
   const result: Result = { index, hit: false };
-  const t0 = Date.now();
-
-  // Inside-guest cmd. With FUSE: poll the live mount to keep vsock
-  // traffic flowing, since the warning correlates with vsock load.
-  // Without FUSE: just sleep — the agent (winsize, exec) on vsock
-  // still does its periodic chatter.
-  const tickSec = 5;
-  const ticks = Math.max(1, Math.ceil(args.watchSec / tickSec));
-  const inner = args.fuse
-    ? [
-        `echo "[guest${index}] booted uptime=$(awk '{print $1}' /proc/uptime)"`,
-        `for i in $(seq 1 ${ticks}); do`,
-        `  find /mnt/workspace -maxdepth 3 -type f >/dev/null 2>&1 || true`,
-        `  sleep ${tickSec}`,
-        `done`,
-        `echo "[guest${index}] done uptime=$(awk '{print $1}' /proc/uptime)"`,
-      ].join("\n")
-    : `echo "[guest${index}] booted"\nsleep ${args.watchSec}\necho "[guest${index}] done"`;
-
-  let tail = "";
-
-  let vm;
-  try {
-    vm = await boot({
-      image: args.image,
-      kernel: KERNEL,
-      dtb: DTB,
-      liveMounts: args.fuse
-        ? [{ host: REPO_ROOT, guest: "/mnt/workspace", mode: "ro" }]
-        : undefined,
-      cmd: ["/bin/bash", "-lc", inner],
-      timeoutMs: null,
-      vmmEnv: { MACHINEN_RAM_BYTES: String(RAM) },
-      onLog: (evt) => {
-        if (evt.source !== "guest-console") {
-          return;
-        }
-        tail = (tail + evt.chunk.toString("utf8")).slice(-65536);
-        if (!result.hit) {
-          const m = HIT_RE.exec(tail);
-          if (m) {
-            result.hit = true;
-            result.descId = Number(m[1]);
-            result.hitAtMs = Date.now() - t0;
-            const um = UPTIME_RE.exec(tail);
-            if (um) {
-              result.guestUptimeAtHit = Number(um[1]);
-            }
-            console.error(
-              `[vm${index}] HIT  desc=${result.descId} uptime=${result.guestUptimeAtHit ?? "?"}s wall=${(result.hitAtMs / 1000).toFixed(1)}s`,
-            );
-          }
-        }
-      },
-    });
-  } catch (err) {
-    result.error = err instanceof Error ? err.message : String(err);
-    console.error(`[vm${index}] BOOT FAILED: ${result.error}`);
+  const startedAt = Date.now();
+  const tail: ConsoleTailBuffer = { text: "" };
+  const vm = await bootReproVm(index, result, startedAt, tail);
+  if (!vm) {
     return result;
   }
+  recordBootSuccess(result, vm, startedAt);
+  await waitForVmWithDeadline(vm, index, result);
+  attachDiagnosticTail(result, tail);
+  return result;
+}
+
+async function bootReproVm(
+  index: number,
+  result: Result,
+  startedAt: number,
+  tail: ConsoleTailBuffer,
+): Promise<VmHandle | undefined> {
+  try {
+    return await boot(buildBootOptions(index, result, startedAt, tail));
+  } catch (err) {
+    result.error = errorMessage(err);
+    console.error(`[vm${index}] BOOT FAILED: ${result.error}`);
+    return undefined;
+  }
+}
+
+function buildBootOptions(
+  index: number,
+  result: Result,
+  startedAt: number,
+  tail: ConsoleTailBuffer,
+): BootOptions {
+  return {
+    image: args.image,
+    kernel: KERNEL,
+    dtb: DTB,
+    liveMounts: liveMountsForRun(),
+    cmd: ["/bin/bash", "-lc", buildInnerCommand(index)],
+    timeoutMs: null,
+    vmmEnv: { MACHINEN_RAM_BYTES: String(RAM) },
+    onLog: createReproLogHandler(index, result, startedAt, tail),
+  };
+}
+
+function liveMountsForRun(): BootOptions["liveMounts"] {
+  return args.fuse ? [{ host: REPO_ROOT, guest: "/mnt/workspace", mode: "ro" }] : undefined;
+}
+
+function buildInnerCommand(index: number): string {
+  return args.fuse ? buildFuseTrafficCommand(index) : buildSleepOnlyCommand(index);
+}
+
+function buildFuseTrafficCommand(index: number): string {
+  const tickSec = 5;
+  const ticks = Math.max(1, Math.ceil(args.watchSec / tickSec));
+  return [
+    `echo "[guest${index}] booted uptime=$(awk '{print $1}' /proc/uptime)"`,
+    `for i in $(seq 1 ${ticks}); do`,
+    `  find /mnt/workspace -maxdepth 3 -type f >/dev/null 2>&1 || true`,
+    `  sleep ${tickSec}`,
+    `done`,
+    `echo "[guest${index}] done uptime=$(awk '{print $1}' /proc/uptime)"`,
+  ].join("\n");
+}
+
+function buildSleepOnlyCommand(index: number): string {
+  return `echo "[guest${index}] booted"\nsleep ${args.watchSec}\necho "[guest${index}] done"`;
+}
+
+function createReproLogHandler(
+  index: number,
+  result: Result,
+  startedAt: number,
+  tail: ConsoleTailBuffer,
+): OnLog {
+  return (evt) => {
+    if (evt.source !== "guest-console") {
+      return;
+    }
+    appendConsoleTail(tail, evt.chunk);
+    recordFirstHit(index, result, startedAt, tail.text);
+  };
+}
+
+function appendConsoleTail(tail: ConsoleTailBuffer, chunk: Buffer): void {
+  tail.text = (tail.text + chunk.toString("utf8")).slice(-65536);
+}
+
+function recordFirstHit(index: number, result: Result, startedAt: number, tail: string): void {
+  if (result.hit) {
+    return;
+  }
+  const hit = parseHit(tail);
+  if (!hit) {
+    return;
+  }
+  result.hit = true;
+  result.descId = hit.descId;
+  result.guestUptimeAtHit = hit.guestUptimeAtHit;
+  result.hitAtMs = Date.now() - startedAt;
+  console.error(
+    `[vm${index}] HIT  desc=${result.descId} uptime=${result.guestUptimeAtHit ?? "?"}s wall=${(result.hitAtMs / 1000).toFixed(1)}s`,
+  );
+}
+
+function parseHit(tail: string): ParsedHit | undefined {
+  const match = HIT_RE.exec(tail);
+  if (!match) {
+    return undefined;
+  }
+  const uptime = UPTIME_RE.exec(tail)?.[1];
+  return {
+    descId: Number(match[1]),
+    guestUptimeAtHit: uptime === undefined ? undefined : Number(uptime),
+  };
+}
+
+function recordBootSuccess(result: Result, vm: VmHandle, startedAt: number): void {
   result.pid = vm.pid;
-  result.bootMs = Date.now() - t0;
-  console.error(`[vm${index}] booted pid=${vm.pid} in ${result.bootMs}ms`);
+  result.bootMs = Date.now() - startedAt;
+  console.error(`[vm${result.index}] booted pid=${vm.pid} in ${result.bootMs}ms`);
+}
 
-  // Hard deadline: cmd should self-terminate after watchSec, and
-  // /init poweroffs after that. Wedged vsock can leave the cmd
-  // hanging even though the warning fired, so kill if it overruns.
-  const deadlineMs = (args.watchSec + 60) * 1000;
-  const killTimer = setTimeout(() => {
-    result.killed = true;
-    console.error(`[vm${index}] deadline exceeded — killing`);
-    vm.kill().catch(() => {});
-  }, deadlineMs);
-
+async function waitForVmWithDeadline(vm: VmHandle, index: number, result: Result): Promise<void> {
+  const killTimer = armDeadline(vm, index, result);
   try {
     const exit = await vm.wait();
     result.exitCode = exit.code;
   } catch (err) {
-    result.error = err instanceof Error ? err.message : String(err);
+    result.error = errorMessage(err);
   } finally {
     clearTimeout(killTimer);
   }
-  // Snapshot the console tail for diagnosis: only useful when something
-  // weird happened (hit, wedge, or boot error). Skip for clean exits to
-  // keep the report compact.
-  if (result.hit || result.killed || result.error) {
-    result.consoleTail = tail;
+}
+
+function armDeadline(vm: VmHandle, index: number, result: Result): ReturnType<typeof setTimeout> {
+  return setTimeout(() => {
+    result.killed = true;
+    console.error(`[vm${index}] deadline exceeded — killing`);
+    vm.kill().catch(() => {});
+  }, deadlineMs());
+}
+
+function deadlineMs(): number {
+  return (args.watchSec + 60) * 1000;
+}
+
+function attachDiagnosticTail(result: Result, tail: ConsoleTailBuffer): void {
+  if (shouldIncludeConsoleTail(result)) {
+    result.consoleTail = tail.text;
   }
-  return result;
+}
+
+function shouldIncludeConsoleTail(result: Result): boolean {
+  return result.hit || Boolean(result.killed) || Boolean(result.error);
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
 async function main(): Promise<void> {
+  printRunHeader();
+  const startedAt = Date.now();
+  const results = await runBatch();
+  printSummary(results, elapsedSeconds(startedAt));
+}
+
+function printRunHeader(): void {
   console.error(
-    `repro-192: n=${args.n} mode=${args.serial ? "serial" : "concurrent"} ` +
+    `repro-192: n=${args.n} mode=${modeLabel()} ` +
       `watch=${args.watchSec}s fuse=${args.fuse} image=${args.image}`,
   );
   console.error(`repro-192: per-vm ram=${(RAM / 1024 ** 3).toFixed(1)} GiB`);
+}
 
-  const t0 = Date.now();
+async function runBatch(): Promise<Result[]> {
+  return args.serial ? runSerialBatch() : runConcurrentBatch();
+}
+
+async function runSerialBatch(): Promise<Result[]> {
   const results: Result[] = [];
-  if (args.serial) {
-    for (let i = 0; i < args.n; i++) {
-      results.push(await runOne(i));
-    }
-  } else {
-    const settled = await Promise.all(Array.from({ length: args.n }, (_, i) => runOne(i)));
-    results.push(...settled);
+  for (let i = 0; i < args.n; i++) {
+    results.push(await runOne(i));
   }
-  const elapsedSec = (Date.now() - t0) / 1000;
+  return results;
+}
 
-  const hits = results.filter((r) => r.hit);
-  const bootFailed = results.filter((r) => r.error && !r.pid);
-  const killed = results.filter((r) => r.killed);
+async function runConcurrentBatch(): Promise<Result[]> {
+  return Promise.all(Array.from({ length: args.n }, (_, i) => runOne(i)));
+}
 
+function elapsedSeconds(startedAt: number): number {
+  return (Date.now() - startedAt) / 1000;
+}
+
+function printSummary(results: Result[], elapsedSec: number): void {
+  const counts = countOutcomes(results);
   console.log("");
   console.log("=== repro-192 summary ===");
+  console.log(`n=${args.n} mode=${modeLabel()} elapsed=${elapsedSec.toFixed(1)}s`);
   console.log(
-    `n=${args.n} mode=${args.serial ? "serial" : "concurrent"} elapsed=${elapsedSec.toFixed(1)}s`,
+    `hits=${counts.hits}/${args.n} (${hitPercent(counts.hits)}%) ` +
+      `wedged=${counts.killed} bootFailed=${counts.bootFailed}`,
   );
-  console.log(
-    `hits=${hits.length}/${args.n} (${((hits.length / args.n) * 100).toFixed(0)}%) ` +
-      `wedged=${killed.length} bootFailed=${bootFailed.length}`,
-  );
-  for (const r of results) {
-    const tag = r.error
-      ? `ERR ${r.error}`
-      : r.hit
-        ? `HIT  desc=${r.descId} uptime=${r.guestUptimeAtHit ?? "?"}s` +
-          (r.killed ? " (wedged past deadline)" : "")
-        : `ok   exit=${r.exitCode}` + (r.killed ? " (wedged past deadline)" : "");
-    console.log(`  vm${r.index}: ${tag}` + (r.bootMs ? `  bootMs=${r.bootMs}` : ""));
-  }
+  printResultLines(results);
+  printConsoleTails(results);
+}
 
-  for (const r of results) {
-    if (r.consoleTail) {
-      console.log("");
-      console.log(`--- vm${r.index} console tail (last ${r.consoleTail.length} bytes) ---`);
-      console.log(r.consoleTail.trimEnd());
-    }
+function countOutcomes(results: Result[]): { hits: number; bootFailed: number; killed: number } {
+  return {
+    hits: results.filter((r) => r.hit).length,
+    bootFailed: results.filter((r) => r.error && !r.pid).length,
+    killed: results.filter((r) => r.killed).length,
+  };
+}
+
+function hitPercent(hits: number): string {
+  return ((hits / args.n) * 100).toFixed(0);
+}
+
+function printResultLines(results: Result[]): void {
+  for (const result of results) {
+    console.log(`  vm${result.index}: ${resultTag(result)}${bootMsSuffix(result)}`);
   }
+}
+
+function resultTag(result: Result): string {
+  if (result.error) {
+    return `ERR ${result.error}`;
+  }
+  if (result.hit) {
+    return `HIT  desc=${result.descId} uptime=${result.guestUptimeAtHit ?? "?"}s${wedgeSuffix(result)}`;
+  }
+  return `ok   exit=${result.exitCode}${wedgeSuffix(result)}`;
+}
+
+function bootMsSuffix(result: Result): string {
+  return result.bootMs ? `  bootMs=${result.bootMs}` : "";
+}
+
+function wedgeSuffix(result: Result): string {
+  return result.killed ? " (wedged past deadline)" : "";
+}
+
+function printConsoleTails(results: Result[]): void {
+  for (const result of results) {
+    printConsoleTail(result);
+  }
+}
+
+function printConsoleTail(result: Result): void {
+  if (!result.consoleTail) {
+    return;
+  }
+  console.log("");
+  console.log(`--- vm${result.index} console tail (last ${result.consoleTail.length} bytes) ---`);
+  console.log(result.consoleTail.trimEnd());
+}
+
+function modeLabel(): string {
+  return args.serial ? "serial" : "concurrent";
 }
 
 main().catch((err) => {

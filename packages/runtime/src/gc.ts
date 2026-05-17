@@ -66,43 +66,13 @@ export function runGc(opts: RunGcOptions = {}): GcResult[] {
 }
 
 function reapEntry(entry: RegistryEntry, status: PidStatus, dryRun: boolean): GcResult {
-  debug(
-    "reap pid=%d name=%s status=%s dryRun=%s",
-    entry.pid,
-    entry.name ?? "<unset>",
-    status,
-    dryRun,
-  );
+  debugReapEntry(entry, status, dryRun);
   const removedPaths: string[] = [];
   const failedPaths: string[] = [];
-  const candidates: string[] = [];
-  if (entry.cleanupPaths) {
-    for (const p of entry.cleanupPaths) {
-      candidates.push(p);
-    }
+  for (const path of cleanupCandidates(entry)) {
+    reapPath(path, dryRun, removedPaths, failedPaths);
   }
-  if (entry.bootLogPath) {
-    candidates.push(entry.bootLogPath);
-  }
-  for (const p of candidates) {
-    if (!existsSync(p)) {
-      // Treat already-gone as success — the goal is that the path
-      // doesn't exist after gc runs.
-      continue;
-    }
-    if (dryRun) {
-      removedPaths.push(p);
-      continue;
-    }
-    if (rmPath(p)) {
-      removedPaths.push(p);
-    } else {
-      failedPaths.push(p);
-    }
-  }
-  if (!dryRun) {
-    removeEntry(entry.pid);
-  }
+  removeRegistryEntry(entry, dryRun);
   return {
     pid: entry.pid,
     name: entry.name,
@@ -111,6 +81,56 @@ function reapEntry(entry: RegistryEntry, status: PidStatus, dryRun: boolean): Gc
     failedPaths,
     registryRemoved: true,
   };
+}
+
+function debugReapEntry(entry: RegistryEntry, status: PidStatus, dryRun: boolean): void {
+  debug(
+    "reap pid=%d name=%s status=%s dryRun=%s",
+    entry.pid,
+    entry.name ?? "<unset>",
+    status,
+    dryRun,
+  );
+}
+
+function cleanupCandidates(entry: RegistryEntry): string[] {
+  const candidates = [...(entry.cleanupPaths ?? [])];
+  if (entry.bootLogPath) {
+    candidates.push(entry.bootLogPath);
+  }
+  return candidates;
+}
+
+function reapPath(
+  path: string,
+  dryRun: boolean,
+  removedPaths: string[],
+  failedPaths: string[],
+): void {
+  if (!existsSync(path)) {
+    // Treat already-gone as success — the goal is that the path
+    // doesn't exist after gc runs.
+    return;
+  }
+  if (dryRun) {
+    removedPaths.push(path);
+    return;
+  }
+  recordRmPath(path, removedPaths, failedPaths);
+}
+
+function recordRmPath(path: string, removedPaths: string[], failedPaths: string[]): void {
+  if (rmPath(path)) {
+    removedPaths.push(path);
+  } else {
+    failedPaths.push(path);
+  }
+}
+
+function removeRegistryEntry(entry: RegistryEntry, dryRun: boolean): void {
+  if (!dryRun) {
+    removeEntry(entry.pid);
+  }
 }
 
 function rmPath(p: string): boolean {

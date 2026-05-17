@@ -340,37 +340,75 @@ export function printDiagnostics(summary: string, opts: DiagnosticsOpts = {}): v
     return;
   }
 
-  const bufStr = typeof opts.buffer === "string" ? opts.buffer : (opts.buffer?.toString() ?? "");
+  const buffer = diagnosticsBuffer(opts.buffer);
   const tails = opts.tails ?? {};
-  const hasBuf = bufStr.trim().length > 0;
-  const hasTails = Object.values(tails).some((t) => t && t.trim().length > 0);
+  printDiagnosticsEnvelope(buffer, tails);
+  printDiagnosticsHint(opts.hint);
+}
 
-  if (hasBuf || hasTails) {
-    process.stderr.write("\n--- diagnostics ---\n");
-    if (hasBuf) {
-      process.stderr.write(bufStr);
-      if (!bufStr.endsWith("\n")) {
-        process.stderr.write("\n");
-      }
-    }
-    for (const [label, content] of Object.entries(tails)) {
-      if (!content || content.trim().length === 0) {
-        continue;
-      }
-      if (hasBuf) {
-        process.stderr.write("\n");
-      }
-      process.stderr.write(`[${label}]\n`);
-      process.stderr.write(content);
-      if (!content.endsWith("\n")) {
-        process.stderr.write("\n");
-      }
-    }
-    process.stderr.write("--------------------\n\n");
+function diagnosticsBuffer(buffer: DiagnosticsOpts["buffer"]): string {
+  if (typeof buffer === "string") {
+    return buffer;
   }
+  if (buffer === undefined) {
+    return "";
+  }
+  return buffer.toString();
+}
 
-  const hint = opts.hint ?? ESCAPE_HINT;
-  if (hint.length > 0) {
-    process.stderr.write(hint);
+function printDiagnosticsEnvelope(buffer: string, tails: Record<string, string>): void {
+  const hasBuffer = hasDiagnosticsContent(buffer);
+  if (!hasBuffer && !hasDiagnosticsTails(tails)) {
+    return;
+  }
+  process.stderr.write("\n--- diagnostics ---\n");
+  printDiagnosticsBuffer(buffer, hasBuffer);
+  printDiagnosticsTails(tails, hasBuffer);
+  process.stderr.write("--------------------\n\n");
+}
+
+function hasDiagnosticsContent(content: string | undefined): boolean {
+  if (!content) {
+    return false;
+  }
+  return content.trim().length > 0;
+}
+
+function hasDiagnosticsTails(tails: Record<string, string>): boolean {
+  return Object.values(tails).some(hasDiagnosticsContent);
+}
+
+function printDiagnosticsBuffer(buffer: string, hasBuffer: boolean): void {
+  if (!hasBuffer) {
+    return;
+  }
+  process.stderr.write(buffer);
+  writeTrailingNewline(buffer);
+}
+
+function printDiagnosticsTails(tails: Record<string, string>, afterBuffer: boolean): void {
+  for (const [label, content] of Object.entries(tails)) {
+    if (!hasDiagnosticsContent(content)) {
+      continue;
+    }
+    if (afterBuffer) {
+      process.stderr.write("\n");
+    }
+    process.stderr.write(`[${label}]\n`);
+    process.stderr.write(content);
+    writeTrailingNewline(content);
+  }
+}
+
+function writeTrailingNewline(content: string): void {
+  if (!content.endsWith("\n")) {
+    process.stderr.write("\n");
+  }
+}
+
+function printDiagnosticsHint(hint: string | undefined): void {
+  const text = hint ?? ESCAPE_HINT;
+  if (text.length > 0) {
+    process.stderr.write(text);
   }
 }

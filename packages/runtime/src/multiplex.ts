@@ -328,40 +328,75 @@ export class Supervisor {
 
   private ingest(chunk: Buffer): void {
     if (this.attachedId) {
-      // Scan for the double-Ctrl-] detach sequence and forward the
-      // rest to the attached sandbox.
-      let start = 0;
-      for (let i = 0; i < chunk.length; i++) {
-        const b = chunk[i]!;
-        if (b === 0x1d /* Ctrl-] */) {
-          if (this.lastGs) {
-            // Second in a row — detach, drop the two bytes, keep the
-            // tail for the next command.
-            const toSend = chunk.subarray(start, i - 1);
-            if (toSend.length > 0) {
-              this.sandboxes.send(this.attachedId, toSend);
-            }
-            this.detach();
-            const remainder = chunk.subarray(i + 1);
-            if (remainder.length > 0) {
-              this.ingest(remainder);
-            }
-            return;
-          }
-          this.lastGs = true;
-        } else {
-          this.lastGs = false;
-        }
-      }
-      this.sandboxes.send(this.attachedId, chunk.subarray(start));
+      this.ingestAttached(chunk);
       return;
     }
+    this.ingestDetached(chunk);
+  }
 
+  private ingestAttached(chunk: Buffer): void {
+    // Scan for the double-Ctrl-] detach sequence and forward the rest
+    // to the attached sandbox.
+    const detachAt = this.findDetachSequence(chunk);
+    if (detachAt === null) {
+      this.sendAttached(chunk);
+      return;
+    }
+    this.sendAttachedIfNonEmpty(chunk.subarray(0, detachAt - 1));
+    this.detach();
+    this.ingestRemainderAfterDetach(chunk, detachAt);
+  }
+
+  private findDetachSequence(chunk: Buffer): number | null {
+    for (let i = 0; i < chunk.length; i++) {
+      if (this.markCtrlRightBracket(chunk[i]! === 0x1d /* Ctrl-] */)) {
+        return i;
+      }
+    }
+    return null;
+  }
+
+  private markCtrlRightBracket(isCtrlRightBracket: boolean): boolean {
+    if (!isCtrlRightBracket) {
+      this.lastGs = false;
+      return false;
+    }
+    if (this.lastGs) {
+      return true;
+    }
+    this.lastGs = true;
+    return false;
+  }
+
+  private ingestRemainderAfterDetach(chunk: Buffer, detachAt: number): void {
+    const remainder = chunk.subarray(detachAt + 1);
+    if (remainder.length > 0) {
+      this.ingest(remainder);
+    }
+  }
+
+  private sendAttachedIfNonEmpty(chunk: Buffer): void {
+    if (chunk.length > 0) {
+      this.sendAttached(chunk);
+    }
+  }
+
+  private sendAttached(chunk: Buffer): void {
+    const id = this.attachedId;
+    if (id) {
+      this.sandboxes.send(id, chunk);
+    }
+  }
+
+  private ingestDetached(chunk: Buffer): void {
     // Detached: buffer lines and parse them as commands.
     for (const line of chunk.toString("utf8").split(/\r?\n/)) {
-      if (!line) {
-        continue;
-      }
+      this.handleDetachedLine(line);
+    }
+  }
+
+  private handleDetachedLine(line: string): void {
+    if (line) {
       this.handleCommand(line);
     }
   }

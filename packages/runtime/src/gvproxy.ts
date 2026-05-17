@@ -60,42 +60,67 @@ let installInFlight: Promise<string | null> | null = null;
  * an absolute path, or `null` if gvproxy isn't available on this host.
  */
 function resolveGvproxyBinary(vmmBinary: string): string | null {
-  const envOverride = process.env.MACHINEN_GVPROXY;
-  if (envOverride) {
-    // Sentinel values — opt out of gvproxy entirely without fabricating
-    // a fake path. Used by the test harness so stub-binary boots don't
-    // pay the auto-install cost.
-    if (isGvproxyDisabledSentinel(envOverride)) {
-      return null;
-    }
-    if (existsSync(envOverride)) {
-      debug("resolved via MACHINEN_GVPROXY=%s", envOverride);
-      return envOverride;
-    }
-    // Explicit override that points at nothing is a user mistake —
-    // surface it rather than silently falling through.
-    throw new GvproxyError(
-      "GVPROXY_NOT_FOUND",
-      `MACHINEN_GVPROXY=${envOverride} is set but that file does not exist.`,
-    );
+  const envOverride = resolveGvproxyEnvOverride();
+  if (envOverride !== undefined) {
+    return envOverride;
   }
+  return resolveGvproxyFromDisk(vmmBinary);
+}
 
+function resolveGvproxyEnvOverride(): string | null | undefined {
+  const envOverride = process.env.MACHINEN_GVPROXY;
+  if (!envOverride) {
+    return undefined;
+  }
+  // Sentinel values — opt out of gvproxy entirely without fabricating
+  // a fake path. Used by the test harness so stub-binary boots don't
+  // pay the auto-install cost.
+  if (isGvproxyDisabledSentinel(envOverride)) {
+    return null;
+  }
+  if (existsSync(envOverride)) {
+    debug("resolved via MACHINEN_GVPROXY=%s", envOverride);
+    return envOverride;
+  }
+  // Explicit override that points at nothing is a user mistake —
+  // surface it rather than silently falling through.
+  throw new GvproxyError(
+    "GVPROXY_NOT_FOUND",
+    `MACHINEN_GVPROXY=${envOverride} is set but that file does not exist.`,
+  );
+}
+
+function resolveGvproxyFromDisk(vmmBinary: string): string | null {
+  const sibling = resolveGvproxySibling(vmmBinary);
+  if (sibling) {
+    return sibling;
+  }
+  const cached = resolveCachedGvproxy();
+  if (cached) {
+    return cached;
+  }
+  return resolveGvproxyFromPath();
+}
+
+function resolveGvproxySibling(vmmBinary: string): string | null {
   const sibling = join(dirname(vmmBinary), "gvproxy");
   if (existsSync(sibling)) {
     debug("resolved via VMM sibling=%s", sibling);
     return sibling;
   }
+  return null;
+}
 
+function resolveCachedGvproxy(): string | null {
   const cached = gvproxyCachePath();
   if (existsSync(cached)) {
     return cached;
   }
+  return null;
+}
 
-  const pathDirs = (process.env.PATH ?? "").split(pathSep);
-  for (const dir of pathDirs) {
-    if (!dir) {
-      continue;
-    }
+function resolveGvproxyFromPath(): string | null {
+  for (const dir of pathDirs()) {
     const candidate = join(dir, "gvproxy");
     if (existsSync(candidate)) {
       debug("resolved via PATH=%s", candidate);
@@ -104,6 +129,10 @@ function resolveGvproxyBinary(vmmBinary: string): string | null {
   }
   debug("not found (env, sibling, PATH all missed)");
   return null;
+}
+
+function pathDirs(): string[] {
+  return (process.env.PATH ?? "").split(pathSep).filter(Boolean);
 }
 
 /**

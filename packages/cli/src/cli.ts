@@ -42,7 +42,7 @@ import {
   runGc,
   validatePid,
 } from "@machinen/runtime";
-import type { LogEvent, RegistryEntry } from "@machinen/runtime";
+import type { LogEvent, RegistryEntry, VmHandle } from "@machinen/runtime";
 import debugLib from "debug";
 
 import pkg from "../package.json" with { type: "json" };
@@ -151,33 +151,56 @@ function validateAssetsDir(dir: string): void {
 async function ensureBaseAssets(tag: string): Promise<string> {
   const spec = baseAssetSpec();
   const base = baseDirFor(tag, "debian", spec.cpu);
-  const kernel = join(base, "Image");
-  const dtb = spec.dtbAsset ? join(base, "virt.dtb") : undefined;
-  const tarball = join(base, "rootfs.tar.gz");
-
-  if (existsSync(kernel) && (!dtb || existsSync(dtb)) && existsSync(tarball)) {
+  if (cachedBaseAssetsReady(base, spec)) {
     return base;
   }
 
   mkdirSync(base, { recursive: true });
+  await downloadBaseAssets(tag, base, spec);
+  replaceCurrentBaseSymlink(tag);
+  return base;
+}
 
-  const assets = [
-    { name: spec.kernelAsset, dest: kernel },
-    ...(spec.dtbAsset && dtb ? [{ name: spec.dtbAsset, dest: dtb }] : []),
-    { name: spec.rootfsAsset, dest: tarball },
-  ];
+function cachedBaseAssetsReady(base: string, spec: BaseAssetSpec): boolean {
+  if (!existsSync(join(base, "Image"))) {
+    return false;
+  }
+  if (spec.dtbAsset && !existsSync(join(base, "virt.dtb"))) {
+    return false;
+  }
+  return existsSync(join(base, "rootfs.tar.gz"));
+}
 
-  await Promise.all(assets.map((a) => downloadWithChecksum(a.name, a.dest, tag)));
+async function downloadBaseAssets(tag: string, base: string, spec: BaseAssetSpec): Promise<void> {
+  await Promise.all(
+    baseAssetDownloads(base, spec).map((a) => downloadWithChecksum(a.name, a.dest, tag)),
+  );
+}
 
+function baseAssetDownloads(
+  base: string,
+  spec: BaseAssetSpec,
+): Array<{ name: string; dest: string }> {
+  const assets = [{ name: spec.kernelAsset, dest: join(base, "Image") }];
+  if (spec.dtbAsset) {
+    assets.push({ name: spec.dtbAsset, dest: join(base, "virt.dtb") });
+  }
+  assets.push({ name: spec.rootfsAsset, dest: join(base, "rootfs.tar.gz") });
+  return assets;
+}
+
+function replaceCurrentBaseSymlink(tag: string): void {
   const current = join(CACHE_ROOT, "current");
   try {
-    if (existsSync(current) || isSymlink(current)) {
-      unlinkSync(current);
-    }
+    unlinkCurrentSymlink(current);
   } catch {}
   symlinkSync(tag, current, "dir");
+}
 
-  return base;
+function unlinkCurrentSymlink(current: string): void {
+  if (existsSync(current) || isSymlink(current)) {
+    unlinkSync(current);
+  }
 }
 
 function isSymlink(p: string): boolean {
@@ -393,49 +416,14 @@ function emitJsonError(code: string, message: string): void {
 // Commands
 // ------------------------------------------------------------
 
-async function cmdBoot(args: string[]): Promise<number> {
-  let parsed;
-  try {
-    parsed = parseRunArgs(args);
-  } catch (err) {
-    handleError(err);
-  }
-  const {
-    positional,
-    double_dash_args,
-    mount,
-    liveMounts,
-    env,
-    portForward,
-    snapshot,
-    nested,
-    name,
-    guestCwd,
-    detached,
-    memory,
-    json,
-  } = parsed;
-  if (json && !detached) {
-    die("boot --json is only meaningful with --detach (attached boots take over stdio).");
-  }
+interface CliBaseAssetPaths {
+  kernelPath: string;
+  dtbPath?: string;
+  defaultImagePath: string;
+  baseDir: string;
+}
 
-  if (positional.length > 1) {
-    die(
-      "usage: machinen boot [<image>] [--snapshot <path>] [--name <name>] " +
-        "[--cwd <abs-path>] " +
-        "[--mount ...] [--mount-live ...] [--env KEY=VALUE]... [--detached] " +
-        "[--nested] [--memory <mib>] [-- <cmd> [args...]]",
-    );
-  }
-  const imageOverride = positional[0];
-
-  // Base assets (kernel + dtb + rootfs) are needed to boot.
-  //
-  // MACHINEN_ASSETS_DIR overrides the cache entirely — used for local
-  // dev against `./scripts/build-base-assets.sh` output, airgapped
-  // installs, and anywhere a GitHub Releases fetch isn't possible.
-  // Otherwise auto-download them on first run so users don't have to
-  // remember `machinen install`.
+async function resolveCliBaseAssets(): Promise<CliBaseAssetPaths> {
   const assetsOverride = process.env.MACHINEN_ASSETS_DIR;
   if (assetsOverride) {
     validateAssetsDir(assetsOverride);
@@ -443,428 +431,631 @@ async function cmdBoot(args: string[]): Promise<number> {
     process.stderr.write(`machinen: fetching base assets for ${RELEASE_TAG} (first run)\n`);
     await ensureBaseAssets(RELEASE_TAG);
   }
+  return cliBaseAssetPaths(assetsOverride);
+}
 
-  // Resolve the kernel, DTB, and base rootfs tarball.
-  // MACHINEN_ASSETS_DIR uses the unrenamed build-base-assets.sh output
-  // names; the cache renames on download (see `ensureBaseAssets`'s
-  // `assets` array). When the caller passes an image positional, it
-  // replaces the default base rootfs; kernel + DTB still come from
-  // the cache.
+function cliBaseAssetPaths(assetsOverride: string | undefined): CliBaseAssetPaths {
   const spec = baseAssetSpec();
-  const baseDir = assetsOverride
-    ? resolve(assetsOverride)
-    : baseDirFor(RELEASE_TAG, "debian", spec.cpu);
-  const kernelPath = join(baseDir, assetsOverride ? spec.kernelAsset : "Image");
-  const dtbPath = spec.dtbAsset
-    ? join(baseDir, assetsOverride ? spec.dtbAsset : "virt.dtb")
-    : undefined;
-  const defaultImagePath = join(baseDir, assetsOverride ? spec.rootfsAsset : "rootfs.tar.gz");
-  const imagePath = imageOverride ? resolve(imageOverride) : defaultImagePath;
+  const baseDir = cliBaseDir(assetsOverride, spec.cpu);
+  return {
+    baseDir,
+    kernelPath: cliKernelPath(baseDir, assetsOverride, spec),
+    dtbPath: cliDtbPath(baseDir, assetsOverride, spec),
+    defaultImagePath: cliRootfsPath(baseDir, assetsOverride, spec),
+  };
+}
+
+function cliBaseDir(assetsOverride: string | undefined, cpu: GuestCpu): string {
+  if (assetsOverride) {
+    return resolve(assetsOverride);
+  }
+  return baseDirFor(RELEASE_TAG, "debian", cpu);
+}
+
+function cliKernelPath(
+  baseDir: string,
+  assetsOverride: string | undefined,
+  spec: BaseAssetSpec,
+): string {
+  return join(baseDir, assetsOverride ? spec.kernelAsset : "Image");
+}
+
+function cliDtbPath(
+  baseDir: string,
+  assetsOverride: string | undefined,
+  spec: BaseAssetSpec,
+): string | undefined {
+  if (!spec.dtbAsset) {
+    return undefined;
+  }
+  return join(baseDir, assetsOverride ? spec.dtbAsset : "virt.dtb");
+}
+
+function cliRootfsPath(
+  baseDir: string,
+  assetsOverride: string | undefined,
+  spec: BaseAssetSpec,
+): string {
+  return join(baseDir, assetsOverride ? spec.rootfsAsset : "rootfs.tar.gz");
+}
+
+function resolveOptionalImageOverride(imageOverride: string | undefined): string | undefined {
+  if (!imageOverride) {
+    return undefined;
+  }
+  const imagePath = resolve(imageOverride);
+  if (!existsSync(imagePath)) {
+    die(`--image: file not found: ${imagePath}`);
+  }
+  return imagePath;
+}
+
+interface QuietRunState {
+  headlineName: string;
+  showHeadlines: boolean;
+  buffer: RingBuffer;
+  filter: NoiseFilter | null;
+  filterOut: PassThrough | null;
+  onLog?: (evt: LogEvent) => void;
+}
+
+interface AttachedSessionOptions {
+  filter: NoiseFilter | null;
+  filterOut?: PassThrough | null;
+  buffer: RingBuffer;
+  preReadyExitSummary: (code: number) => string;
+}
+
+async function runAttachedVmSession(vm: VmHandle, opts: AttachedSessionOptions): Promise<number> {
+  vm.stdout.pipe(process.stdout);
+  if (!opts.filter) {
+    vm.stderr.pipe(process.stderr);
+  }
+  const restoreStdin = rawModeStdinIfTTY();
+  const cancelHintRepeat = printCtrlDHint();
+  const signalState = installVmSignalHandlers(vm);
+
+  pipeStdinToVm(vm.stdin, () => {
+    process.stderr.write("\nmachinen: Ctrl-D — stopping VM\n");
+    signalState.forwardedSignal = "SIGTERM";
+    void vm.kill();
+  });
+  opts.filterOut?.pipe(process.stderr);
+
+  try {
+    return await waitForAttachedVm(vm, opts, signalState);
+  } finally {
+    signalState.remove();
+    cancelHintRepeat();
+    restoreStdin();
+  }
+}
+
+type ForwardedSignal = "SIGINT" | "SIGTERM" | null;
+
+interface VmSignalState {
+  forwardedSignal: ForwardedSignal;
+  remove: () => void;
+}
+
+function installVmSignalHandlers(vm: VmHandle): VmSignalState {
+  const state: VmSignalState = { forwardedSignal: null, remove: () => {} };
+  const onSigint = () => {
+    state.forwardedSignal = "SIGINT";
+    void vm.kill();
+  };
+  const onSigterm = () => {
+    state.forwardedSignal = "SIGTERM";
+    void vm.kill();
+  };
+  process.on("SIGINT", onSigint);
+  process.on("SIGTERM", onSigterm);
+  state.remove = () => {
+    process.off("SIGINT", onSigint);
+    process.off("SIGTERM", onSigterm);
+  };
+  return state;
+}
+
+async function waitForAttachedVm(
+  vm: VmHandle,
+  opts: AttachedSessionOptions,
+  signalState: VmSignalState,
+): Promise<number> {
+  const { code } = await vm.wait();
+  opts.filter?.flush();
+  const signalExitCode = forwardedSignalExitCode(signalState.forwardedSignal);
+  if (signalExitCode !== undefined) {
+    return signalExitCode;
+  }
+  if (shouldPrintPreReadyDiagnostics(opts.filter, code, signalState.forwardedSignal)) {
+    printDiagnostics(opts.preReadyExitSummary(code!), { buffer: opts.buffer });
+  }
+  return code ?? 0;
+}
+
+function forwardedSignalExitCode(signal: ForwardedSignal): number | undefined {
+  if (signal === "SIGINT") {
+    return 130;
+  }
+  if (signal === "SIGTERM") {
+    return 143;
+  }
+  return undefined;
+}
+
+function shouldPrintPreReadyDiagnostics(
+  filter: NoiseFilter | null,
+  code: number | null,
+  forwardedSignal: ForwardedSignal,
+): boolean {
+  if (!filter) {
+    return false;
+  }
+  if (filter.ready || forwardedSignal) {
+    return false;
+  }
+  return isNonZeroExit(code);
+}
+
+function isNonZeroExit(code: number | null): boolean {
+  if (code === null) {
+    return false;
+  }
+  return code !== 0;
+}
+
+type ParsedBootArgs = ReturnType<typeof parseRunArgs>;
+
+async function cmdBoot(args: string[]): Promise<number> {
+  const parsed = parseBootCommandArgs(args);
+  validateBootCommandArgs(parsed);
+
+  const imageOverride = parsed.positional[0];
+  const paths = await resolveCliBaseAssets();
+  const imagePath = imageOverride ? resolve(imageOverride) : paths.defaultImagePath;
+  logBootPlan(paths, imagePath, parsed);
+
+  const quiet = createBootQuietState(parsed, imageOverride);
+  const vm = await startBootVm(parsed, paths, imagePath, bootEnvCommand(parsed), quiet);
+  if (parsed.detached) {
+    reportDetachedBoot(vm, parsed);
+    return 0;
+  }
+  return runBootAttachedSession(vm, quiet);
+}
+
+function parseBootCommandArgs(args: string[]): ParsedBootArgs {
+  try {
+    return parseRunArgs(args);
+  } catch (err) {
+    handleError(err);
+  }
+}
+
+function validateBootCommandArgs(parsed: ParsedBootArgs): void {
+  if (parsed.json && !parsed.detached) {
+    die("boot --json is only meaningful with --detach (attached boots take over stdio).");
+  }
+  if (parsed.positional.length > 1) {
+    die(bootUsage());
+  }
+}
+
+function bootUsage(): string {
+  return (
+    "usage: machinen boot [<image>] [--snapshot <path>] [--name <name>] " +
+    "[--cwd <abs-path>] " +
+    "[--mount ...] [--mount-live ...] [--env KEY=VALUE]... [--detached] " +
+    "[--nested] [--memory <mib>] [-- <cmd> [args...]]"
+  );
+}
+
+function logBootPlan(paths: CliBaseAssetPaths, imagePath: string, parsed: ParsedBootArgs): void {
   debug(
     "boot baseDir=%s kernel=%s dtb=%s image=%s snapshot=%s name=%s",
-    baseDir,
-    kernelPath,
-    dtbPath,
+    paths.baseDir,
+    paths.kernelPath,
+    paths.dtbPath,
     imagePath,
-    snapshot ?? "<none>",
-    name ?? "<unset>",
+    parsed.snapshot ?? "<none>",
+    parsed.name ?? "<unset>",
   );
+}
 
+function bootEnvCommand(parsed: ParsedBootArgs): string[] | undefined {
   // Wrap the user cmd in /usr/bin/env so bare names like `node` or
   // `bash` are PATH-resolved. The guest init uses execve(), which
   // needs an absolute path for argv[0]; /usr/bin/env is the standard
   // shim for this. When the caller passes no `-- cmd`, the image may
   // carry a baked-in default (see `provision({ cmd })`); boot() falls
   // back to that automatically.
-  const cmd = double_dash_args.length > 0 ? ["/usr/bin/env", ...double_dash_args] : undefined;
-
-  // #286: quiet headline UX + diagnostics-on-failure. Buffer the
-  // chatty boot/restore lines (init checkpoints, kernel printk,
-  // machinen-restore.sh mechanics) and only flush them on failure.
-  // Operator mode (DEBUG=machinen:*) bypasses the filter — `onLog`
-  // is unset so vm.stderr stays raw via the runtime's own
-  // vmmDebug.enabled tee, and the CLI's `.pipe(process.stderr)`
-  // below carries the rest. JSON detached output skips headlines
-  // (the caller is scripting against the structured payload).
-  const headlineName = name ?? deriveBootName(imageOverride);
-  const showHeadlines = isQuiet() && !(detached && json);
-  const bootT0 = Date.now();
-  const buffer = new RingBuffer();
-  let filter: NoiseFilter | null = null;
-  let filterOut: PassThrough | null = null;
-  if (showHeadlines) {
-    printHeadline(`booting ${headlineName}…`);
-    if (!detached) {
-      filterOut = new PassThrough();
-      filter = new NoiseFilter({
-        buffer,
-        out: filterOut,
-        onReady: () => {
-          printHeadline("guest ready");
-          printHeadline(`ready in ${formatElapsed(Date.now() - bootT0)}`);
-        },
-      });
-    }
+  if (parsed.double_dash_args.length === 0) {
+    return undefined;
   }
-  const onLog = filter
-    ? (evt: LogEvent) => {
-        if (evt.source === "guest-console") {
-          filter!.push(evt.chunk);
-        }
-      }
-    : showHeadlines
-      ? (evt: LogEvent) => {
-          if (evt.source === "guest-console") {
-            buffer.push(evt.chunk);
-          }
-        }
-      : undefined;
+  return ["/usr/bin/env", ...parsed.double_dash_args];
+}
 
-  let vm;
+function createBootQuietState(
+  parsed: ParsedBootArgs,
+  imageOverride: string | undefined,
+): QuietRunState {
+  const headlineName = parsed.name ?? deriveBootName(imageOverride);
+  const showHeadlines = shouldShowBootHeadlines(parsed);
+  const buffer = new RingBuffer();
+  if (!showHeadlines) {
+    return { headlineName, showHeadlines, buffer, filter: null, filterOut: null };
+  }
+  return createVisibleBootQuietState(parsed, headlineName, showHeadlines, buffer);
+}
+
+function shouldShowBootHeadlines(parsed: ParsedBootArgs): boolean {
+  if (!isQuiet()) {
+    return false;
+  }
+  if (parsed.detached && parsed.json) {
+    return false;
+  }
+  return true;
+}
+
+function createVisibleBootQuietState(
+  parsed: ParsedBootArgs,
+  headlineName: string,
+  showHeadlines: boolean,
+  buffer: RingBuffer,
+): QuietRunState {
+  printHeadline(`booting ${headlineName}…`);
+  if (parsed.detached) {
+    return bootBufferOnlyQuietState(headlineName, showHeadlines, buffer);
+  }
+  return bootFilteredQuietState(headlineName, showHeadlines, buffer, Date.now());
+}
+
+function bootBufferOnlyQuietState(
+  headlineName: string,
+  showHeadlines: boolean,
+  buffer: RingBuffer,
+): QuietRunState {
+  return {
+    headlineName,
+    showHeadlines,
+    buffer,
+    filter: null,
+    filterOut: null,
+    onLog: guestConsoleOnLog((chunk) => buffer.push(chunk)),
+  };
+}
+
+function bootFilteredQuietState(
+  headlineName: string,
+  showHeadlines: boolean,
+  buffer: RingBuffer,
+  bootT0: number,
+): QuietRunState {
+  const filterOut = new PassThrough();
+  const filter = new NoiseFilter({
+    buffer,
+    out: filterOut,
+    onReady: () => {
+      printHeadline("guest ready");
+      printHeadline(`ready in ${formatElapsed(Date.now() - bootT0)}`);
+    },
+  });
+  return {
+    headlineName,
+    showHeadlines,
+    buffer,
+    filter,
+    filterOut,
+    onLog: guestConsoleOnLog((chunk) => filter.push(chunk)),
+  };
+}
+
+function guestConsoleOnLog(push: (chunk: Buffer) => void): (evt: LogEvent) => void {
+  return (evt) => {
+    if (evt.source === "guest-console") {
+      push(evt.chunk);
+    }
+  };
+}
+
+async function startBootVm(
+  parsed: ParsedBootArgs,
+  paths: CliBaseAssetPaths,
+  imagePath: string,
+  cmd: string[] | undefined,
+  quiet: QuietRunState,
+): Promise<VmHandle> {
   try {
-    vm = await boot({
+    return await boot({
       // Always pass the base rootfs so /sbin/machinen-restore and
       // friends are in the initramfs even on a bare `machinen restore
       // <snap>` (no --image, no -- cmd).
       image: imagePath,
       cmd,
-      env,
-      kernel: kernelPath,
-      dtb: dtbPath,
-      mount,
-      liveMounts,
-      portForward,
-      snapshot,
-      nested,
-      name,
-      guestCwd,
-      detached,
-      memory,
-      onLog,
+      env: parsed.env,
+      kernel: paths.kernelPath,
+      dtb: paths.dtbPath,
+      mount: parsed.mount,
+      liveMounts: parsed.liveMounts,
+      portForward: parsed.portForward,
+      snapshot: parsed.snapshot,
+      nested: parsed.nested,
+      name: parsed.name,
+      guestCwd: parsed.guestCwd,
+      detached: parsed.detached,
+      memory: parsed.memory,
+      onLog: quiet.onLog,
       // Interactive CLI: the session lives as long as the guest does.
       // Don't impose the default 60s cap. Detached boots fall back to
       // the runtime's own readiness timeout (60s) so the CLI can't
       // hang forever waiting for first-guest-byte.
-      timeoutMs: detached ? undefined : null,
+      timeoutMs: parsed.detached ? undefined : null,
     });
   } catch (err) {
-    filter?.flush();
-    if (showHeadlines) {
-      failQuiet(`boot ${headlineName} failed: ${describeError(err)}`, {
-        buffer,
-      });
-    }
-    handleError(err);
+    handleBootFailure(err, quiet);
   }
+}
 
+function handleBootFailure(err: unknown, quiet: QuietRunState): never {
+  quiet.filter?.flush();
+  if (quiet.showHeadlines) {
+    failQuiet(`boot ${quiet.headlineName} failed: ${describeError(err)}`, {
+      buffer: quiet.buffer,
+    });
+  }
+  handleError(err);
+}
+
+function reportDetachedBoot(vm: VmHandle, parsed: ParsedBootArgs): void {
   // #150 phase 2: detached boot — VMM is already unrefed inside boot()
   // and the registry entry stays live for `machinen attach`. Print a
   // short hint so users know how to reach the VM and exit cleanly.
-  // Cleanup of per-boot disks/dirs is documented as a known limitation
-  // of PR1; PR2 ships `machinen gc` and `machinen stop`.
-  if (detached) {
-    if (json) {
-      emitJson({
-        schema_version: 1,
-        pid: vm.pid,
-        name: name ?? null,
-        detached: true,
-      });
-    } else {
-      const target = name ?? `pid ${vm.pid}`;
-      process.stderr.write(
-        `machinen: detached (${target}). ` +
-          `Reattach: machinen attach ${name ?? vm.pid}\n` +
-          `Stop: kill ${vm.pid}  (machinen stop ships in PR2)\n`,
-      );
-    }
-    return 0;
+  if (parsed.json) {
+    emitDetachedBootJson(vm, parsed);
+    return;
   }
+  printDetachedBootHint(vm, parsed);
+}
 
-  vm.stdout.pipe(process.stdout);
+function emitDetachedBootJson(vm: VmHandle, parsed: ParsedBootArgs): void {
+  emitJson({ schema_version: 1, pid: vm.pid, name: parsed.name ?? null, detached: true });
+}
+
+function printDetachedBootHint(vm: VmHandle, parsed: ParsedBootArgs): void {
+  const target = parsed.name ?? `pid ${vm.pid}`;
+  process.stderr.write(
+    `machinen: detached (${target}). ` +
+      `Reattach: machinen attach ${parsed.name ?? vm.pid}\n` +
+      `Stop: kill ${vm.pid}  (machinen stop ships in PR2)\n`,
+  );
+}
+
+function runBootAttachedSession(vm: VmHandle, quiet: QuietRunState): Promise<number> {
   // Quiet mode: the NoiseFilter already routes vm.stderr (via the
   // `onLog` hook installed by boot()) into the ring buffer + stderr,
-  // splitting boot noise from workload output. Piping vm.stderr
-  // directly here would double-print every line. Operator mode
+  // splitting boot noise from workload output. Operator mode
   // (filter === null) keeps the legacy raw passthrough.
-  if (!filter) {
-    vm.stderr.pipe(process.stderr);
-  }
-  const restoreStdin = rawModeStdinIfTTY();
-  const cancelHintRepeat = printCtrlDHint();
-
-  // Propagate SIGINT/SIGTERM to the VMM child. With stdin in raw mode
-  // the host kernel no longer turns keyboard Ctrl-C into SIGINT (the
-  // byte goes through to the guest), so this only fires when the CLI
-  // is signalled directly — e.g. a supervisor sending SIGTERM to node,
-  // or `kill -INT <cli-pid>` from another shell. Without this, the
-  // VMM survives as an orphan.
-  //
-  // Ctrl-D from the user's terminal lands in pipeStdinToVm below and
-  // funnels into the same vm.kill() path with SIGTERM exit semantics.
-  let forwardedSignal: "SIGINT" | "SIGTERM" | null = null;
-  const onSigint = () => {
-    forwardedSignal = "SIGINT";
-    void vm.kill();
-  };
-  const onSigterm = () => {
-    forwardedSignal = "SIGTERM";
-    void vm.kill();
-  };
-  process.on("SIGINT", onSigint);
-  process.on("SIGTERM", onSigterm);
-
-  pipeStdinToVm(vm.stdin, () => {
-    process.stderr.write("\nmachinen: Ctrl-D — stopping VM\n");
-    forwardedSignal = "SIGTERM";
-    void vm.kill();
-  });
   // In quiet mode, don't display the workload's first prompt until
-  // stdin is in raw mode and piped to the VM. Bash prompts are partial
-  // (no trailing LF); showing them during boot made the terminal look
-  // ready while host stdin was still canonical, so typed characters
-  // appeared only after Enter and early input could be lost.
-  filterOut?.pipe(process.stderr);
-
-  try {
-    const { code } = await vm.wait();
-    filter?.flush();
-    if (forwardedSignal === "SIGINT") {
-      return 130;
-    }
-    if (forwardedSignal === "SIGTERM") {
-      return 143;
-    }
-    // Pre-ready non-zero exit: the workload never reached the
-    // readiness boundary, so the buffered boot noise IS the only
-    // post-mortem signal the user has. Flush it under the
-    // diagnostics envelope. Post-ready exits skip the dump — the
-    // workload printed its own error to stderr already.
-    if (filter && !filter.ready && code != null && code !== 0 && !forwardedSignal) {
-      printDiagnostics(`boot ${headlineName} exited ${code} before reaching ready`, { buffer });
-    }
-    return code ?? 0;
-  } finally {
-    process.off("SIGINT", onSigint);
-    process.off("SIGTERM", onSigterm);
-    cancelHintRepeat();
-    restoreStdin();
-  }
+  // stdin is in raw mode and piped to the VM.
+  return runAttachedVmSession(vm, {
+    filter: quiet.filter,
+    filterOut: quiet.filterOut,
+    buffer: quiet.buffer,
+    preReadyExitSummary: (code) =>
+      `boot ${quiet.headlineName} exited ${code} before reaching ready`,
+  });
 }
 
 async function cmdInstall(args: string[]): Promise<number> {
-  const { json, rest } = consumeJsonFlag(args);
-  const tag = argValue(rest, "--version") ?? RELEASE_TAG;
-  const wasComplete = baseAssetsComplete(tag);
-  const t0 = Date.now();
-  if (!json) {
-    process.stderr.write(`installing base assets for ${tag}…\n`);
-    // Only show the cache target in operator mode — the path is
-    // useful to know when you're debugging where downloads landed,
-    // noise otherwise.
-    if (!isQuiet()) {
-      process.stderr.write(`  into ${cacheDirFor(tag)}\n`);
-    }
-  }
-  let base: string;
-  try {
-    base = await ensureBaseAssets(tag);
-  } catch (err) {
-    if (isQuiet() && !json) {
-      failQuiet(`install ${tag} failed: ${describeError(err)}`);
-    }
-    throw err;
-  }
-  if (json) {
-    emitJson({
-      schema_version: 1,
-      tag,
-      base_dir: base,
-      fetched: !wasComplete,
-    });
-  } else if (wasComplete) {
-    process.stderr.write(`ready: ${base} (cached)\n`);
-  } else {
-    process.stderr.write(`ready in ${formatElapsed(Date.now() - t0)}: ${base}\n`);
-  }
+  const opts = parseInstallOptions(args);
+  const result = await installBaseAssets(opts);
+  reportInstallResult(opts, result);
   return 0;
 }
 
+interface InstallOptions {
+  json: boolean;
+  tag: string;
+}
+
+interface InstallResult {
+  base: string;
+  wasComplete: boolean;
+  elapsedMs: number;
+}
+
+function parseInstallOptions(args: string[]): InstallOptions {
+  const { json, rest } = consumeJsonFlag(args);
+  return { json, tag: argValue(rest, "--version") ?? RELEASE_TAG };
+}
+
+async function installBaseAssets(opts: InstallOptions): Promise<InstallResult> {
+  const wasComplete = baseAssetsComplete(opts.tag);
+  const t0 = Date.now();
+  printInstallStart(opts);
+  try {
+    const base = await ensureBaseAssets(opts.tag);
+    return { base, wasComplete, elapsedMs: Date.now() - t0 };
+  } catch (err) {
+    reportInstallFailure(opts, err);
+    throw err;
+  }
+}
+
+function printInstallStart(opts: InstallOptions): void {
+  if (opts.json) {
+    return;
+  }
+  process.stderr.write(`installing base assets for ${opts.tag}…\n`);
+  if (!isQuiet()) {
+    process.stderr.write(`  into ${cacheDirFor(opts.tag)}\n`);
+  }
+}
+
+function reportInstallFailure(opts: InstallOptions, err: unknown): void {
+  if (isQuiet() && !opts.json) {
+    failQuiet(`install ${opts.tag} failed: ${describeError(err)}`);
+  }
+}
+
+function reportInstallResult(opts: InstallOptions, result: InstallResult): void {
+  if (opts.json) {
+    emitInstallJson(opts, result);
+    return;
+  }
+  printInstallReady(result);
+}
+
+function emitInstallJson(opts: InstallOptions, result: InstallResult): void {
+  emitJson({
+    schema_version: 1,
+    tag: opts.tag,
+    base_dir: result.base,
+    fetched: !result.wasComplete,
+  });
+}
+
+function printInstallReady(result: InstallResult): void {
+  if (result.wasComplete) {
+    process.stderr.write(`ready: ${result.base} (cached)\n`);
+    return;
+  }
+  process.stderr.write(`ready in ${formatElapsed(result.elapsedMs)}: ${result.base}\n`);
+}
+
+type ParsedRestoreCommandArgs = ReturnType<typeof parseRestoreArgs>;
+
 async function cmdRestore(args: string[]): Promise<number> {
   // `machinen restore <snap-dir> [--image <tarball>] [--name <name>]
-  // [--lazy] [-p <hostPort>:<guestPort>]`. The bundle dir
-  // (produced by `machinen snapshot`) holds img/<criu-images> +
-  // meta.json. The bundle carries CRIU's process images but not the
-  // workload's rootfs, so any process whose memory map references
-  // files outside the base debian rootfs (e.g. /usr/bin/node from a
-  // `provision()`d tarball) needs the same workload tarball passed
-  // here as `--image`. Without it, criu fails its file-backed VMA
-  // restore with "Can't open file <path> on restore: No such file
-  // or directory" and /sbin/machinen-restore exits 1, panicking the
-  // guest kernel ("Attempted to kill init!").
-  //
-  // Restore is eager by default: the runtime packs the CRIU image
-  // as a tar on /dev/vdb, the guest's /sbin/machinen-restore untars
-  // into tmpfs, and CRIU loads everything up front. Pass `--lazy`
-  // to opt into the #266 path — vsock-FUSE-mount the bundle into
-  // the guest and run `criu restore --lazy-pages` so workload pages
-  // flow in only when faulted. Lazy keeps host RSS proportional to
-  // the touched set but doesn't compose with `--detach` and trades
-  // simplicity for a per-page UFFD round-trip cost.
-  let parsed;
+  // [--lazy] [-p <hostPort>:<guestPort>]`. Restore is eager by
+  // default; `--lazy` opts into the #266 vsock-FUSE lazy-pages path.
+  const parsed = parseRestoreCommandArgs(args);
+  validateRestoreCommandArgs(parsed);
+  const snapDir = resolve(parsed.positional[0]!);
+  const paths = await resolveCliBaseAssets();
+  const quiet = createRestoreQuietState(parsed, snapDir);
+  const vm = await startRestoreVm(parsed, snapDir, paths, quiet);
+  reportRestoreSuccess(vm, quiet);
+  return runRestoreAttachedSession(vm, quiet);
+}
+
+function parseRestoreCommandArgs(args: string[]): ParsedRestoreCommandArgs {
   try {
-    parsed = parseRestoreArgs(args);
+    return parseRestoreArgs(args);
   } catch (err) {
     handleError(err);
   }
-  const { positional, name, image: imageOverride, portForward, lazy, liveMounts } = parsed;
-  if (positional.length !== 1) {
-    die(
-      "usage: machinen restore <snap-dir> [--image <tarball>] [--name <name>] " +
-        "[--lazy] [-p <hostPort>:<guestPort>] " +
-        "[--mount-live <host>:<guest>[:<mode>]]",
-    );
-  }
-  const snapDir = resolve(positional[0]!);
+}
 
-  // Kernel + dtb always come from the base assets (the workload tarball
-  // doesn't carry them). The rootfs comes from --image when given, or
-  // falls back to meta.sourceImage inside restore() so the same-host
-  // quickstart works without a flag. The base release rootfs is no
-  // longer a silent default — workloads beyond a bare /bin/sh need
-  // their own tarball, and a confused-by-default restore that panics
-  // the guest kernel was the original bug we shipped this fix for.
-  const assetsOverride = process.env.MACHINEN_ASSETS_DIR;
-  if (assetsOverride) {
-    validateAssetsDir(assetsOverride);
-  } else if (!baseAssetsComplete(RELEASE_TAG)) {
-    process.stderr.write(`machinen: fetching base assets for ${RELEASE_TAG} (first run)\n`);
-    await ensureBaseAssets(RELEASE_TAG);
+function validateRestoreCommandArgs(parsed: ParsedRestoreCommandArgs): void {
+  if (parsed.positional.length !== 1) {
+    die(restoreUsage());
   }
-  const spec = baseAssetSpec();
-  const baseDir = assetsOverride
-    ? resolve(assetsOverride)
-    : baseDirFor(RELEASE_TAG, "debian", spec.cpu);
-  const kernelPath = join(baseDir, assetsOverride ? spec.kernelAsset : "Image");
-  const dtbPath = spec.dtbAsset
-    ? join(baseDir, assetsOverride ? spec.dtbAsset : "virt.dtb")
-    : undefined;
+}
 
-  let imagePath: string | undefined;
-  if (imageOverride) {
-    imagePath = resolve(imageOverride);
-    if (!existsSync(imagePath)) {
-      die(`--image: file not found: ${imagePath}`);
-    }
-  }
+function restoreUsage(): string {
+  return (
+    "usage: machinen restore <snap-dir> [--image <tarball>] [--name <name>] " +
+    "[--lazy] [-p <hostPort>:<guestPort>] " +
+    "[--mount-live <host>:<guest>[:<mode>]]"
+  );
+}
 
-  // #286: quiet headline UX + diagnostics-on-failure. The restore
-  // path is much chattier than boot — machinen-restore.sh emits the
-  // lazy-pages daemon pid, UDS bind, untar progress, criu's exit
-  // notes — and most of it is noise for end-users. Same buffer +
-  // NoiseFilter shape as cmdBoot; only the verbs differ.
-  const headlineName = name ?? deriveBootName(snapDir);
-  const showHeadlines = isQuiet();
-  const restoreT0 = Date.now();
+function createRestoreQuietState(parsed: ParsedRestoreCommandArgs, snapDir: string): QuietRunState {
+  const headlineName = parsed.name ?? deriveBootName(snapDir);
   const buffer = new RingBuffer();
-  let filter: NoiseFilter | null = null;
-  if (showHeadlines) {
-    printHeadline(`restoring ${headlineName}…`);
-    // onReady fires on the first non-noise line — typically the
-    // restored workload's first stdout/stderr write. We print the
-    // "restored" headline there so timing is wall-clock honest.
-    filter = new NoiseFilter({
-      buffer,
-      out: process.stderr,
-      onReady: () => {
-        printHeadline(`restored in ${formatElapsed(Date.now() - restoreT0)}`);
-      },
-    });
+  if (!isQuiet()) {
+    return { headlineName, showHeadlines: false, buffer, filter: null, filterOut: null };
   }
-  const onLog = filter
-    ? (evt: LogEvent) => {
-        if (evt.source === "guest-console") {
-          filter!.push(evt.chunk);
-        }
-      }
-    : undefined;
+  printHeadline(`restoring ${headlineName}…`);
+  return restoreFilteredQuietState(headlineName, buffer, Date.now());
+}
 
-  let vm;
+function restoreFilteredQuietState(
+  headlineName: string,
+  buffer: RingBuffer,
+  restoreT0: number,
+): QuietRunState {
+  // onReady fires on the first non-noise line — typically the
+  // restored workload's first stdout/stderr write. We print the
+  // "restored" headline there so timing is wall-clock honest.
+  const filter = new NoiseFilter({
+    buffer,
+    out: process.stderr,
+    onReady: () => {
+      printHeadline(`restored in ${formatElapsed(Date.now() - restoreT0)}`);
+    },
+  });
+  return {
+    headlineName,
+    showHeadlines: true,
+    buffer,
+    filter,
+    filterOut: null,
+    onLog: guestConsoleOnLog((chunk) => filter.push(chunk)),
+  };
+}
+
+async function startRestoreVm(
+  parsed: ParsedRestoreCommandArgs,
+  snapDir: string,
+  paths: CliBaseAssetPaths,
+  quiet: QuietRunState,
+): Promise<VmHandle> {
   try {
-    vm = await restore({
+    return await restore({
       snapDir,
-      image: imagePath,
-      kernel: kernelPath,
-      dtb: dtbPath,
-      name,
-      lazy,
-      portForward: portForward.length > 0 ? portForward : undefined,
+      image: resolveOptionalImageOverride(parsed.image),
+      kernel: paths.kernelPath,
+      dtb: paths.dtbPath,
+      name: parsed.name,
+      lazy: parsed.lazy,
+      portForward: optionalList(parsed.portForward),
       // #273: per-guest overrides for the bundle's recorded
       // liveMounts. Empty list = use the bundle's recorded mounts
       // verbatim; non-empty entries replace the matching guest's
       // host/mode (BOOT_LIVE_MOUNT_OVERRIDE_UNKNOWN if no match).
-      liveMounts: liveMounts.length > 0 ? liveMounts : undefined,
+      liveMounts: optionalList(parsed.liveMounts),
       timeoutMs: null,
-      onLog,
+      onLog: quiet.onLog,
     });
   } catch (err) {
-    filter?.flush();
-    if (showHeadlines) {
-      failQuiet(`restore ${headlineName} failed: ${describeError(err)}`, {
-        buffer,
-      });
-    }
-    handleError(err);
+    handleRestoreFailure(err, quiet);
   }
+}
 
-  if (!showHeadlines) {
+function optionalList<T>(items: T[]): T[] | undefined {
+  if (items.length === 0) {
+    return undefined;
+  }
+  return items;
+}
+
+function handleRestoreFailure(err: unknown, quiet: QuietRunState): never {
+  quiet.filter?.flush();
+  if (quiet.showHeadlines) {
+    failQuiet(`restore ${quiet.headlineName} failed: ${describeError(err)}`, {
+      buffer: quiet.buffer,
+    });
+  }
+  handleError(err);
+}
+
+function reportRestoreSuccess(vm: VmHandle, quiet: QuietRunState): void {
+  if (!quiet.showHeadlines) {
     process.stderr.write(`restored as: ${vm.name ?? "<anonymous>"} (pid ${vm.pid})\n`);
   }
+}
 
-  vm.stdout.pipe(process.stdout);
-  if (!filter) {
-    vm.stderr.pipe(process.stderr);
-  }
-  const restoreStdin = rawModeStdinIfTTY();
-  const cancelHintRepeat = printCtrlDHint();
-
-  let forwardedSignal: "SIGINT" | "SIGTERM" | null = null;
-  const onSigint = () => {
-    forwardedSignal = "SIGINT";
-    void vm.kill();
-  };
-  const onSigterm = () => {
-    forwardedSignal = "SIGTERM";
-    void vm.kill();
-  };
-  process.on("SIGINT", onSigint);
-  process.on("SIGTERM", onSigterm);
-
-  pipeStdinToVm(vm.stdin, () => {
-    process.stderr.write("\nmachinen: Ctrl-D — stopping VM\n");
-    forwardedSignal = "SIGTERM";
-    void vm.kill();
+function runRestoreAttachedSession(vm: VmHandle, quiet: QuietRunState): Promise<number> {
+  return runAttachedVmSession(vm, {
+    filter: quiet.filter,
+    buffer: quiet.buffer,
+    preReadyExitSummary: (code) =>
+      `restore ${quiet.headlineName} exited ${code} before reaching ready`,
   });
-
-  try {
-    const { code } = await vm.wait();
-    filter?.flush();
-    if (forwardedSignal === "SIGINT") {
-      return 130;
-    }
-    if (forwardedSignal === "SIGTERM") {
-      return 143;
-    }
-    if (filter && !filter.ready && code != null && code !== 0 && !forwardedSignal) {
-      printDiagnostics(`restore ${headlineName} exited ${code} before reaching ready`, { buffer });
-    }
-    return code ?? 0;
-  } finally {
-    process.off("SIGINT", onSigint);
-    process.off("SIGTERM", onSigterm);
-    cancelHintRepeat();
-    restoreStdin();
-  }
 }
 
 async function cmdLs(args: string[]): Promise<number> {
@@ -873,62 +1064,111 @@ async function cmdLs(args: string[]): Promise<number> {
     die(`unknown argument: ${rest[0]}`);
   }
   const entries = list();
-  const rssByPid = readHostRssBytesMulti(
-    entries.map((e) => ({ pid: e.pid, statsPath: e.statsPath })),
-  );
+  const rssByPid = rssByRegistryPid(entries);
   if (json) {
-    emitJson({
-      schema_version: 1,
-      vms: entries.map((e) => ({
-        pid: e.pid,
-        name: e.name ?? null,
-        started_at: e.startedAt,
-        uptime_ms: Date.now() - e.startedAt,
-        memory: {
-          rss_bytes: rssByPid.get(e.pid) ?? null,
-          ceiling_mib: e.memoryCeilingMib ?? null,
-        },
-        ports: e.portForward ?? [],
-        forked_from: e.forkedFrom ?? null,
-      })),
-    });
-    return 0;
+    emitLsJson(entries, rssByPid);
+  } else {
+    printLsTable(entries, rssByPid);
   }
+  return 0;
+}
+
+function rssByRegistryPid(entries: RegistryEntry[]): Map<number, number> {
+  return readHostRssBytesMulti(
+    entries.map((entry) => ({ pid: entry.pid, statsPath: entry.statsPath })),
+  );
+}
+
+function emitLsJson(entries: RegistryEntry[], rssByPid: Map<number, number>): void {
+  emitJson({
+    schema_version: 1,
+    vms: entries.map((entry) => vmJson(entry, rssByPid)),
+  });
+}
+
+function vmJson(entry: RegistryEntry, rssByPid: Map<number, number>): unknown {
+  return {
+    pid: entry.pid,
+    name: nullable(entry.name),
+    started_at: entry.startedAt,
+    uptime_ms: Date.now() - entry.startedAt,
+    memory: vmMemoryJson(entry, rssByPid),
+    ports: portsJson(entry),
+    forked_from: nullable(entry.forkedFrom),
+  };
+}
+
+function portsJson(entry: RegistryEntry): NonNullable<RegistryEntry["portForward"]> {
+  if (entry.portForward === undefined) {
+    return [];
+  }
+  return entry.portForward;
+}
+
+function vmMemoryJson(entry: RegistryEntry, rssByPid: Map<number, number>): unknown {
+  return {
+    rss_bytes: nullable(rssByPid.get(entry.pid)),
+    ceiling_mib: nullable(entry.memoryCeilingMib),
+  };
+}
+
+function nullable<T>(value: T | undefined): T | null {
+  if (value === undefined) {
+    return null;
+  }
+  return value;
+}
+
+function printLsTable(entries: RegistryEntry[], rssByPid: Map<number, number>): void {
   if (entries.length === 0) {
     process.stdout.write("(no running VMs)\n");
-    return 0;
+    return;
   }
-  // Plain tabular output. PID is the runtime handle; NAME is the
-  // optional human label; MEM is `hostRss/ceiling` (#274); PORTS lists
-  // `<hostPort>:<guestPort>` pairs configured at boot/fork
-  // (comma-separated, `-` if none); FORKED-FROM lets you trace
-  // lineage when the VM was created via `machinen restore`.
   const header = ["PID", "NAME", "UP", "MEM", "PORTS", "FORKED-FROM"];
-  const rows = entries.map((e) => [
-    String(e.pid),
-    e.name ?? "-",
-    formatUptime(Date.now() - e.startedAt),
-    formatMem(rssByPid.get(e.pid) ?? null, e.memoryCeilingMib),
-    formatPorts(e.portForward),
-    e.forkedFrom ?? "-",
+  const rows = lsRows(entries, rssByPid);
+  const widths = tableWidths(header, rows);
+  const visible = visibleLsColumns(header, widths);
+  printTable(header, rows, widths, visible);
+}
+
+function lsRows(entries: RegistryEntry[], rssByPid: Map<number, number>): string[][] {
+  return entries.map((entry) => [
+    String(entry.pid),
+    entry.name ?? "-",
+    formatUptime(Date.now() - entry.startedAt),
+    formatMem(rssByPid.get(entry.pid) ?? null, entry.memoryCeilingMib),
+    formatPorts(entry.portForward),
+    entry.forkedFrom ?? "-",
   ]);
-  const widths = header.map((h, i) => Math.max(h.length, ...rows.map((r) => r[i]!.length)));
+}
+
+function tableWidths(header: string[], rows: string[][]): number[] {
+  return header.map((heading, index) =>
+    Math.max(heading.length, ...rows.map((row) => row[index]!.length)),
+  );
+}
+
+function visibleLsColumns(header: string[], widths: number[]): number[] {
   const gap = "  ";
-  const fullWidth = widths.reduce((sum, w) => sum + w, 0) + gap.length * (widths.length - 1);
+  const fullWidth =
+    widths.reduce((sum, width) => sum + width, 0) + gap.length * (widths.length - 1);
   // Hide MEM (column index 3) on terminals that can't fit the full
   // line. Pipes / non-TTY stdout report `process.stdout.columns`
   // undefined — keep the column there so scripts get a stable shape.
   const cols = process.stdout.columns;
   const includeMem = cols === undefined || fullWidth <= cols;
-  const visible = includeMem
-    ? header.map((_, i) => i)
-    : header.map((_, i) => i).filter((i) => i !== 3);
-  const line = (cells: string[]) => visible.map((i) => cells[i]!.padEnd(widths[i]!)).join(gap);
-  process.stdout.write(line(header) + "\n");
+  return includeMem ? header.map((_, i) => i) : header.map((_, i) => i).filter((i) => i !== 3);
+}
+
+function printTable(header: string[], rows: string[][], widths: number[], visible: number[]): void {
+  process.stdout.write(formatTableLine(header, widths, visible) + "\n");
   for (const row of rows) {
-    process.stdout.write(line(row) + "\n");
+    process.stdout.write(formatTableLine(row, widths, visible) + "\n");
   }
-  return 0;
+}
+
+function formatTableLine(cells: string[], widths: number[], visible: number[]): string {
+  return visible.map((index) => cells[index]!.padEnd(widths[index]!)).join("  ");
 }
 
 function formatUptime(ms: number): string {
@@ -953,42 +1193,67 @@ function formatUptime(ms: number): string {
 // exit hook can't run because the parent is gone (issue #150 phase 2
 // PR2).
 async function cmdGc(args: string[]): Promise<number> {
-  const { json, rest: afterJson } = consumeJsonFlag(args);
-  const { dryRun, rest } = consumeDryRunFlag(afterJson);
-  for (const a of rest) {
-    die(`unknown flag: ${a}`);
-  }
+  const { json, dryRun, rest } = parseGcOptions(args);
+  dieOnUnexpectedArgs(rest);
   const results = runGc({ dryRun });
   if (json) {
-    emitJson({
-      schema_version: 1,
-      dry_run: dryRun,
-      results: results.map((r) => ({
-        pid: r.pid,
-        name: r.name ?? null,
-        status: r.status,
-        removed_paths: r.removedPaths,
-        failed_paths: r.failedPaths,
-      })),
-    });
-    return 0;
-  }
-  if (results.length === 0) {
-    process.stdout.write("(nothing to clean up)\n");
-    return 0;
-  }
-  for (const r of results) {
-    const label = r.name ? `${r.name} (pid ${r.pid})` : `pid ${r.pid}`;
-    const verb = dryRun ? "would clean" : "cleaned";
-    process.stdout.write(`${verb} ${label} [${r.status}]: ${r.removedPaths.length} path(s)\n`);
-    for (const p of r.removedPaths) {
-      process.stdout.write(`  ${p}\n`);
-    }
-    for (const p of r.failedPaths) {
-      process.stdout.write(`  failed: ${p}\n`);
-    }
+    emitGcJson(dryRun, results);
+  } else {
+    printGcResults(results, dryRun);
   }
   return 0;
+}
+
+function parseGcOptions(args: string[]): { json: boolean; dryRun: boolean; rest: string[] } {
+  const { json, rest: afterJson } = consumeJsonFlag(args);
+  const { dryRun, rest } = consumeDryRunFlag(afterJson);
+  return { json, dryRun, rest };
+}
+
+function dieOnUnexpectedArgs(args: string[]): void {
+  for (const arg of args) {
+    die(`unknown flag: ${arg}`);
+  }
+}
+
+function emitGcJson(dryRun: boolean, results: ReturnType<typeof runGc>): void {
+  emitJson({
+    schema_version: 1,
+    dry_run: dryRun,
+    results: results.map((r) => ({
+      pid: r.pid,
+      name: r.name ?? null,
+      status: r.status,
+      removed_paths: r.removedPaths,
+      failed_paths: r.failedPaths,
+    })),
+  });
+}
+
+function printGcResults(results: ReturnType<typeof runGc>, dryRun: boolean): void {
+  if (results.length === 0) {
+    process.stdout.write("(nothing to clean up)\n");
+    return;
+  }
+  for (const result of results) {
+    printGcResult(result, dryRun);
+  }
+}
+
+function printGcResult(result: ReturnType<typeof runGc>[number], dryRun: boolean): void {
+  const label = result.name ? `${result.name} (pid ${result.pid})` : `pid ${result.pid}`;
+  const verb = dryRun ? "would clean" : "cleaned";
+  process.stdout.write(
+    `${verb} ${label} [${result.status}]: ${result.removedPaths.length} path(s)\n`,
+  );
+  printIndentedPaths(result.removedPaths, "");
+  printIndentedPaths(result.failedPaths, "failed: ");
+}
+
+function printIndentedPaths(paths: string[], prefix: string): void {
+  for (const path of paths) {
+    process.stdout.write(`  ${prefix}${path}\n`);
+  }
 }
 
 // `machinen stop <name|pid>` — SIGTERM the VMM, escalate to SIGKILL
@@ -996,146 +1261,265 @@ async function cmdGc(args: string[]): Promise<number> {
 // problem: the CLI no longer holds the VMM, so a separate `stop`
 // command is the only way to ask for a clean shutdown.
 async function cmdStop(args: string[]): Promise<number> {
-  const { json, rest: afterJson } = consumeJsonFlag(args);
-  const { dryRun, rest: afterDry } = consumeDryRunFlag(afterJson);
-  let force = false;
-  const rest: string[] = [];
-  for (const a of afterDry) {
-    if (a === "--force" || a === "-9") {
-      force = true;
-    } else {
-      rest.push(a);
-    }
-  }
-  const target = parseTargetFlags(rest, "stop");
-  const entry = lookupEntry(target);
+  const opts = parseStopOptions(args);
+  const entry = lookupEntry(opts.target);
   if (!entry) {
-    if (json) {
-      emitJsonError("VM_NOT_FOUND", `no running VM matched ${describeTarget(target)}`);
-    } else {
-      process.stderr.write(`machinen stop: no running VM matched ${describeTarget(target)}\n`);
-    }
+    reportStopMissingTarget(opts);
     return 1;
   }
-  const emitStop = (status: "stopped" | "would_stop" | "already_dead" | "recycled"): void => {
-    if (json) {
-      emitJson({
-        schema_version: 1,
-        pid: entry.pid,
-        name: entry.name ?? null,
-        status,
-        dry_run: dryRun,
-      });
+  return stopExistingEntry(entry, opts);
+}
+
+async function stopExistingEntry(entry: RegistryEntry, opts: StopOptions): Promise<number> {
+  const status = validateStopEntry(entry);
+  if (await handleInactiveStopEntry(entry, status, opts)) {
+    return 0;
+  }
+  if (opts.dryRun) {
+    reportStopDryRun(entry, opts);
+    return 0;
+  }
+  return stopLiveEntry(entry, opts);
+}
+
+async function stopLiveEntry(entry: RegistryEntry, opts: StopOptions): Promise<number> {
+  const sig = stopSignal(opts.force);
+  if (!signalStopProcess(entry.pid, sig, opts, "STOP_KILL_FAILED")) {
+    return 1;
+  }
+  await escalateIfNeeded(entry.pid, opts.force);
+  await stopGvproxy(entry, sig, opts.force);
+  finishStoppedEntry(entry, opts);
+  return 0;
+}
+
+type StopStatus = "stopped" | "would_stop" | "already_dead" | "recycled";
+
+interface StopOptions {
+  json: boolean;
+  dryRun: boolean;
+  force: boolean;
+  target: Target;
+}
+
+function parseStopOptions(args: string[]): StopOptions {
+  const { json, rest: afterJson } = consumeJsonFlag(args);
+  const { dryRun, rest: afterDry } = consumeDryRunFlag(afterJson);
+  const { force, rest } = consumeForceFlag(afterDry);
+  return { json, dryRun, force, target: parseTargetFlags(rest, "stop") };
+}
+
+function consumeForceFlag(args: string[]): { force: boolean; rest: string[] } {
+  const rest: string[] = [];
+  let force = false;
+  for (const arg of args) {
+    if (arg === "--force" || arg === "-9") {
+      force = true;
+    } else {
+      rest.push(arg);
     }
-  };
+  }
+  return { force, rest };
+}
+
+function reportStopMissingTarget(opts: StopOptions): void {
+  const message = `no running VM matched ${describeTarget(opts.target)}`;
+  if (opts.json) {
+    emitJsonError("VM_NOT_FOUND", message);
+  } else {
+    process.stderr.write(`machinen stop: ${message}\n`);
+  }
+}
+
+function emitStop(entry: RegistryEntry, opts: StopOptions, status: StopStatus): void {
+  if (!opts.json) {
+    return;
+  }
+  emitJson({
+    schema_version: 1,
+    pid: entry.pid,
+    name: entry.name ?? null,
+    status,
+    dry_run: opts.dryRun,
+  });
+}
+
+function validateStopEntry(entry: RegistryEntry) {
   // Pid-validate before signalling — refuses to kill a recycled pid.
-  const status = validatePid(entry.pid, {
+  return validatePid(entry.pid, {
     vmmExe: entry.vmmExe,
     startedAt: entry.startedAt,
   });
+}
+
+async function handleInactiveStopEntry(
+  entry: RegistryEntry,
+  status: ReturnType<typeof validateStopEntry>,
+  opts: StopOptions,
+): Promise<boolean> {
   if (status === "recycled") {
-    if (!json) {
-      process.stderr.write(
-        `machinen stop: registry entry pid ${entry.pid} is now held by an unrelated process; ` +
-          (dryRun ? "would skip kill and gc.\n" : "skipping kill and running gc.\n"),
-      );
-    }
-    if (!dryRun) {
-      runGc({ pid: entry.pid });
-    }
-    emitStop("recycled");
-    return 0;
+    reportRecycledStopEntry(entry, opts);
+    gcStoppedEntry(entry, opts.dryRun);
+    emitStop(entry, opts, "recycled");
+    return true;
   }
   if (status === "dead") {
-    if (!json) {
-      process.stderr.write(
-        `machinen stop: pid ${entry.pid} already gone; ` +
-          (dryRun ? "would gc.\n" : "running gc.\n"),
-      );
-    }
-    if (!dryRun) {
-      runGc({ pid: entry.pid });
-    }
-    emitStop("already_dead");
-    return 0;
+    reportDeadStopEntry(entry, opts);
+    gcStoppedEntry(entry, opts.dryRun);
+    emitStop(entry, opts, "already_dead");
+    return true;
   }
-  if (dryRun) {
-    if (!json) {
-      const label = entry.name ? `${entry.name} (pid ${entry.pid})` : `pid ${entry.pid}`;
-      const sigLabel = force ? "SIGKILL" : "SIGTERM (escalates to SIGKILL after 2s)";
-      process.stdout.write(`would ${sigLabel} ${label}\n`);
-    }
-    emitStop("would_stop");
-    return 0;
+  return false;
+}
+
+function reportRecycledStopEntry(entry: RegistryEntry, opts: StopOptions): void {
+  if (opts.json) {
+    return;
   }
-  const sig = force ? "SIGKILL" : "SIGTERM";
+  process.stderr.write(
+    `machinen stop: registry entry pid ${entry.pid} is now held by an unrelated process; ` +
+      (opts.dryRun ? "would skip kill and gc.\n" : "skipping kill and running gc.\n"),
+  );
+}
+
+function reportDeadStopEntry(entry: RegistryEntry, opts: StopOptions): void {
+  if (opts.json) {
+    return;
+  }
+  process.stderr.write(
+    `machinen stop: pid ${entry.pid} already gone; ` +
+      (opts.dryRun ? "would gc.\n" : "running gc.\n"),
+  );
+}
+
+function gcStoppedEntry(entry: RegistryEntry, dryRun: boolean): void {
+  if (!dryRun) {
+    runGc({ pid: entry.pid });
+  }
+}
+
+function reportStopDryRun(entry: RegistryEntry, opts: StopOptions): void {
+  if (!opts.json) {
+    const sigLabel = opts.force ? "SIGKILL" : "SIGTERM (escalates to SIGKILL after 2s)";
+    process.stdout.write(`would ${sigLabel} ${entryLabel(entry)}\n`);
+  }
+  emitStop(entry, opts, "would_stop");
+}
+
+function stopSignal(force: boolean): NodeJS.Signals {
+  return force ? "SIGKILL" : "SIGTERM";
+}
+
+function signalStopProcess(
+  pid: number,
+  signal: NodeJS.Signals,
+  opts: Pick<StopOptions, "json">,
+  errorCode: string,
+): boolean {
   try {
-    process.kill(entry.pid, sig);
+    process.kill(pid, signal);
+    return true;
   } catch (err) {
-    const msg = `failed to signal pid ${entry.pid}: ${err instanceof Error ? err.message : String(err)}`;
-    if (json) {
-      emitJsonError("STOP_KILL_FAILED", msg);
-    } else {
-      process.stderr.write(`machinen stop: ${msg}\n`);
-    }
-    return 1;
+    reportStopSignalError(pid, err, opts, errorCode);
+    return false;
   }
-  if (!force) {
-    await waitForExit(entry.pid, 2_000);
-    try {
-      process.kill(entry.pid, 0);
-      // Still alive — escalate.
-      try {
-        process.kill(entry.pid, "SIGKILL");
-      } catch {}
-    } catch {
-      // Already gone.
-    }
+}
+
+function reportStopSignalError(
+  pid: number,
+  err: unknown,
+  opts: Pick<StopOptions, "json">,
+  errorCode: string,
+): void {
+  const msg = `failed to signal pid ${pid}: ${describeError(err)}`;
+  if (opts.json) {
+    emitJsonError(errorCode, msg);
+  } else {
+    process.stderr.write(`machinen stop: ${msg}\n`);
   }
+}
+
+async function escalateIfNeeded(pid: number, force: boolean): Promise<void> {
+  if (force) {
+    return;
+  }
+  await waitForExit(pid, 2_000);
+  if (pidIsAlive(pid)) {
+    tryKill(pid, "SIGKILL");
+  }
+}
+
+function pidIsAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function tryKill(pid: number, signal: NodeJS.Signals): void {
+  try {
+    process.kill(pid, signal);
+  } catch {}
+}
+
+async function stopGvproxy(
+  entry: RegistryEntry,
+  signal: NodeJS.Signals,
+  force: boolean,
+): Promise<void> {
   // #150 phase 2 PR3: signal gvproxy too. Detached gvproxy survives
   // the parent's exit on its own (no pdeathsig); without this it'd
   // outlive every `machinen stop`, holding host ports and leaking
   // the qemu/control sockets. Anti-recycling guard mirrors the VMM
-  // path — basename match against the recorded gvproxy binary, so
-  // an unrelated pid that inherited gvproxy's slot weeks later
-  // doesn't get killed. Wait for it to exit so the test/user can
-  // assume "stop returned → process is gone" without a follow-up
-  // poll.
-  if (entry.gvproxyPid && entry.gvproxyExe) {
-    const gvStatus = validatePid(entry.gvproxyPid, { vmmExe: entry.gvproxyExe });
-    if (gvStatus === "alive") {
-      try {
-        process.kill(entry.gvproxyPid, sig);
-      } catch (err) {
-        process.stderr.write(
-          `machinen stop: failed to signal gvproxy pid ${entry.gvproxyPid}: ${err instanceof Error ? err.message : String(err)}\n`,
-        );
-      }
-      if (!force) {
-        await waitForExit(entry.gvproxyPid, 2_000);
-        try {
-          process.kill(entry.gvproxyPid, 0);
-          try {
-            process.kill(entry.gvproxyPid, "SIGKILL");
-          } catch {}
-        } catch {}
-      }
-    } else if (gvStatus === "recycled") {
-      process.stderr.write(
-        `machinen stop: gvproxy pid ${entry.gvproxyPid} now held by an unrelated process; skipping.\n`,
-      );
-    }
+  // path — basename match against the recorded gvproxy binary.
+  if (!entry.gvproxyPid || !entry.gvproxyExe) {
+    return;
   }
+  await handleGvproxyStatus(
+    entry.gvproxyPid,
+    validatePid(entry.gvproxyPid, { vmmExe: entry.gvproxyExe }),
+    signal,
+    force,
+  );
+}
+
+async function handleGvproxyStatus(
+  pid: number,
+  status: ReturnType<typeof validatePid>,
+  signal: NodeJS.Signals,
+  force: boolean,
+): Promise<void> {
+  if (status === "alive") {
+    await signalGvproxy(pid, signal, force);
+  } else if (status === "recycled") {
+    process.stderr.write(
+      `machinen stop: gvproxy pid ${pid} now held by an unrelated process; skipping.\n`,
+    );
+  }
+}
+
+async function signalGvproxy(pid: number, signal: NodeJS.Signals, force: boolean): Promise<void> {
+  if (!signalStopProcess(pid, signal, { json: false }, "STOP_GVPROXY_KILL_FAILED")) {
+    return;
+  }
+  await escalateIfNeeded(pid, force);
+}
+
+function finishStoppedEntry(entry: RegistryEntry, opts: StopOptions): void {
   // Final gc to drop the registry entry + cleanupPaths (including the
   // gvproxy socket dir that PR3 added to the cleanup list).
   runGc({ pid: entry.pid });
-  if (json) {
-    emitStop("stopped");
+  if (opts.json) {
+    emitStop(entry, opts, "stopped");
   } else {
-    const label = entry.name ? `${entry.name} (pid ${entry.pid})` : `pid ${entry.pid}`;
-    process.stdout.write(`stopped ${label}\n`);
+    process.stdout.write(`stopped ${entryLabel(entry)}\n`);
   }
-  return 0;
+}
+
+function entryLabel(entry: RegistryEntry): string {
+  return entry.name ? `${entry.name} (pid ${entry.pid})` : `pid ${entry.pid}`;
 }
 
 /**
@@ -1156,15 +1540,17 @@ async function waitForExit(pid: number, timeoutMs: number): Promise<void> {
 }
 
 function lookupEntry(target: { name: string } | { pid: number }): RegistryEntry | undefined {
-  for (const e of list()) {
-    if ("name" in target && e.name === target.name) {
-      return e;
-    }
-    if ("pid" in target && e.pid === target.pid) {
-      return e;
-    }
+  return list().find((entry) => entryMatchesTarget(entry, target));
+}
+
+function entryMatchesTarget(
+  entry: RegistryEntry,
+  target: { name: string } | { pid: number },
+): boolean {
+  if ("name" in target) {
+    return entry.name === target.name;
   }
-  return undefined;
+  return entry.pid === target.pid;
 }
 
 function describeTarget(target: { name: string } | { pid: number }): string {
@@ -1172,58 +1558,75 @@ function describeTarget(target: { name: string } | { pid: number }): string {
 }
 
 async function cmdExec(args: string[]): Promise<number> {
-  // Pull --tty out before the `--` boundary so it isn't passed to the
-  // workload. Auto-enable when stdin is a TTY and no --tty was passed
-  // explicitly is *not* what we want — `machinen exec foo --
-  // ps aux` from a terminal should still be one-shot pipes, otherwise
-  // every output gets line-discipline-translated. Caller opts in.
-  let usePty = false;
-  const filtered: string[] = [];
-  for (const a of args) {
-    if (a === "--tty" || a === "--pty") {
-      usePty = true;
-    } else {
-      filtered.push(a);
-    }
-  }
-  const dashIdx = filtered.indexOf("--");
-  if (dashIdx === -1 || dashIdx === filtered.length - 1) {
-    die("usage: machinen exec <name|pid> [--tty] -- <cmd>");
-  }
-  const pre = filtered.slice(0, dashIdx);
-  const cmdArgs = filtered.slice(dashIdx + 1);
-  const target = parseTargetFlags(pre, "exec");
-  const vm = await attach(target).catch(handleError);
+  const parsed = parseExecArgs(args);
+  const vm = await attach(parsed.target).catch(handleError);
   try {
-    // Shell out via `sh -c` on the guest so caller can pass piped
-    // commands naturally. Users who want raw exec of a single binary
-    // can quote it like `machinen exec foo -- /bin/ls`.
-    const joined = cmdArgs.join(" ");
-    if (usePty) {
-      if (!process.stdin.isTTY) {
-        die("machinen exec --tty: stdin is not a TTY; pass via terminal or drop --tty");
-      }
-      return await runPtyExec(vm, joined);
-    }
-    const res = await vm.execRaw(joined, {
-      onStdout: (chunk) => process.stdout.write(chunk),
-      onStderr: (chunk) => process.stderr.write(chunk),
-    });
-    return res.exitCode;
+    return await runExecCommand(vm, parsed);
   } finally {
     await vm.detach();
   }
 }
 
-async function runPtyExec(
-  vm: {
-    execPty: (
-      cmd: string,
-      opts: import("@machinen/runtime").VsockExecPtyOptions,
-    ) => import("@machinen/runtime").VsockExecPtyHandle;
-  },
-  cmd: string,
-): Promise<number> {
+interface ParsedExecArgs {
+  target: Target;
+  cmd: string;
+  usePty: boolean;
+}
+
+function parseExecArgs(args: string[]): ParsedExecArgs {
+  const { usePty, filtered } = consumeExecPtyFlag(args);
+  const dashIdx = filtered.indexOf("--");
+  if (dashIdx === -1 || dashIdx === filtered.length - 1) {
+    die("usage: machinen exec <name|pid> [--tty] -- <cmd>");
+  }
+  return {
+    usePty,
+    target: parseTargetFlags(filtered.slice(0, dashIdx), "exec"),
+    cmd: filtered.slice(dashIdx + 1).join(" "),
+  };
+}
+
+function consumeExecPtyFlag(args: string[]): { usePty: boolean; filtered: string[] } {
+  // Pull --tty out before the `--` boundary so it isn't passed to the
+  // workload. Caller opts into line-discipline translation explicitly.
+  const filtered: string[] = [];
+  let usePty = false;
+  for (const arg of args) {
+    if (arg === "--tty" || arg === "--pty") {
+      usePty = true;
+    } else {
+      filtered.push(arg);
+    }
+  }
+  return { usePty, filtered };
+}
+
+async function runExecCommand(vm: VmHandle, parsed: ParsedExecArgs): Promise<number> {
+  if (parsed.usePty) {
+    assertExecPtyTty();
+    return runPtyExec(vm, parsed.cmd);
+  }
+  return runRawExec(vm, parsed.cmd);
+}
+
+function assertExecPtyTty(): void {
+  if (!process.stdin.isTTY) {
+    die("machinen exec --tty: stdin is not a TTY; pass via terminal or drop --tty");
+  }
+}
+
+async function runRawExec(vm: VmHandle, cmd: string): Promise<number> {
+  // Shell out via `sh -c` on the guest so caller can pass piped
+  // commands naturally. Users who want raw exec of a single binary
+  // can quote it like `machinen exec foo -- /bin/ls`.
+  const res = await vm.execRaw(cmd, {
+    onStdout: (chunk) => process.stdout.write(chunk),
+    onStderr: (chunk) => process.stderr.write(chunk),
+  });
+  return res.exitCode;
+}
+
+async function runPtyExec(vm: VmHandle, cmd: string): Promise<number> {
   // PTY mode (#133): bidirectional bytes between this terminal and a
   // guest pseudoterminal. Flip stdin to raw so Ctrl-C, arrows, and
   // function keys reach the guest as untranslated bytes; restore on
@@ -1231,452 +1634,588 @@ async function runPtyExec(
   // Caller is responsible for asserting stdin is a TTY (the right
   // error message depends on whether you got here via `attach` or
   // `exec --tty`).
-  const stdin = process.stdin;
-  const stdout = process.stdout;
-  const initialCols = stdout.columns ?? 80;
-  const initialRows = stdout.rows ?? 24;
-
-  const wasRaw = stdin.isRaw === true;
-  stdin.setRawMode(true);
-  stdin.resume();
-
+  const tty = enterPtyRawMode();
   const handle = vm.execPty(cmd, {
-    cols: initialCols,
-    rows: initialRows,
-    stdin,
-    stdout,
+    cols: tty.cols,
+    rows: tty.rows,
+    stdin: process.stdin,
+    stdout: process.stdout,
   });
-
-  const onResize = () => {
-    handle.resize(stdout.columns ?? initialCols, stdout.rows ?? initialRows);
-  };
-  stdout.on("resize", onResize);
-
+  const onResize = () =>
+    handle.resize(process.stdout.columns ?? tty.cols, process.stdout.rows ?? tty.rows);
+  process.stdout.on("resize", onResize);
   try {
     const { exitCode } = await handle.result;
     return exitCode;
   } finally {
-    stdout.removeListener("resize", onResize);
-    if (!wasRaw) {
-      try {
-        stdin.setRawMode(false);
-      } catch {
-        // Already restored or stream destroyed; ignore.
-      }
-    }
-    // Don't .pause() — the parent process will exit shortly.
+    process.stdout.removeListener("resize", onResize);
+    tty.restore();
+  }
+}
+
+function enterPtyRawMode(): { cols: number; rows: number; restore: () => void } {
+  const wasRaw = process.stdin.isRaw === true;
+  process.stdin.setRawMode(true);
+  process.stdin.resume();
+  return {
+    cols: process.stdout.columns ?? 80,
+    rows: process.stdout.rows ?? 24,
+    restore: () => restorePtyRawMode(wasRaw),
+  };
+}
+
+function restorePtyRawMode(wasRaw: boolean): void {
+  if (wasRaw) {
+    return;
+  }
+  try {
+    process.stdin.setRawMode(false);
+  } catch {
+    // Already restored or stream destroyed; ignore.
   }
 }
 
 async function cmdSnapshot(args: string[]): Promise<number> {
+  const opts = parseSnapshotOptions(args);
+  if (opts.dryRun) {
+    return snapshotDryRun(opts);
+  }
+  return runSnapshot(opts);
+}
+
+interface SnapshotOptionsCli {
+  json: boolean;
+  dryRun: boolean;
+  keepAlive: boolean;
+  target: Target;
+  outDir: string;
+  resolvedOutDir: string;
+}
+
+function parseSnapshotOptions(args: string[]): SnapshotOptionsCli {
   // Form: `machinen snapshot <target> <out-dir>`. We strip --json /
   // --dry-run / --keep-alive first; the first two positionals left
   // are the target and the out-dir.
   const { json, rest: afterJson } = consumeJsonFlag(args);
   const { dryRun, rest: afterDry } = consumeDryRunFlag(afterJson);
+  const { keepAlive, rest } = consumeKeepAliveFlag(afterDry);
+  const { target, rest: afterTarget } = resolveTarget(rest, "snapshot");
+  const outDir = parseSnapshotOutDir(afterTarget);
+  return { json, dryRun, keepAlive, target, outDir, resolvedOutDir: resolve(outDir) };
+}
+
+function consumeKeepAliveFlag(args: string[]): { keepAlive: boolean; rest: string[] } {
+  const rest: string[] = [];
   let keepAlive = false;
-  const remaining: string[] = [];
-  for (const a of afterDry) {
-    if (a === "--keep-alive") {
-      // Source survives the dump (CRIU --leave-running). Default
-      // closes inherited TCP sockets — two live copies sharing the
-      // same connection state can't both talk to the peer cleanly.
+  for (const arg of args) {
+    if (arg === "--keep-alive") {
       keepAlive = true;
     } else {
-      remaining.push(a);
+      rest.push(arg);
     }
   }
-  const { target, rest: afterTarget } = resolveTarget(remaining, "snapshot");
-  if (afterTarget.length === 0) {
+  return { keepAlive, rest };
+}
+
+function parseSnapshotOutDir(args: string[]): string {
+  if (args.length === 0) {
     die("usage: machinen snapshot <name|pid> <out-dir> [--keep-alive] [--dry-run] [--json]");
   }
-  if (afterTarget.length > 1) {
-    die(`unknown argument: ${afterTarget[1]}`);
+  if (args.length > 1) {
+    die(`unknown argument: ${args[1]}`);
   }
-  const outDir = afterTarget[0]!;
-  const resolvedOutDir = resolve(outDir);
-  if (dryRun) {
-    // Validate target exists + out-dir is creatable (parent must exist
-    // and be writable). Don't actually freeze the source.
-    const entry = lookupEntry(target);
-    if (!entry) {
-      const msg = `no running VM matched ${describeTarget(target)}`;
-      if (json) {
-        emitJsonError("VM_NOT_FOUND", msg);
-      } else {
-        process.stderr.write(`machinen snapshot: ${msg}\n`);
-      }
-      return 1;
-    }
-    if (json) {
-      emitJson({
-        schema_version: 1,
-        snap_dir: resolvedOutDir,
-        elapsed_ms: 0,
-        dry_run: true,
-      });
-    } else {
-      const label = entry.name ? `${entry.name} (pid ${entry.pid})` : `pid ${entry.pid}`;
-      process.stdout.write(
-        `would snapshot ${label} → ${resolvedOutDir}` + (keepAlive ? " (--keep-alive)\n" : "\n"),
-      );
-    }
-    return 0;
+  return args[0]!;
+}
+
+function snapshotDryRun(opts: SnapshotOptionsCli): number {
+  // Validate target exists + out-dir is creatable (parent must exist
+  // and be writable). Don't actually freeze the source.
+  const entry = lookupEntry(opts.target);
+  if (!entry) {
+    reportSnapshotMissingTarget(opts);
+    return 1;
   }
-  const vm = await attach(target).catch(handleError);
-  // #286: quiet snapshot UX. Snapshot's onLog stream is the CRIU
-  // dump-side chatter (machinen-dump.sh + criu's per-phase
-  // progress); buffer it under the diagnostics envelope, surface
-  // only the final "snapshot: <dir>" line on success.
-  const snapHeadlineName = vm.name ?? `pid ${vm.pid}`;
-  const showHeadlines = isQuiet() && !json;
-  const buffer = new RingBuffer();
-  if (showHeadlines) {
-    printHeadline(`snapshotting ${snapHeadlineName}…`);
+  reportSnapshotDryRun(entry, opts);
+  return 0;
+}
+
+function reportSnapshotMissingTarget(opts: SnapshotOptionsCli): void {
+  const msg = `no running VM matched ${describeTarget(opts.target)}`;
+  if (opts.json) {
+    emitJsonError("VM_NOT_FOUND", msg);
+  } else {
+    process.stderr.write(`machinen snapshot: ${msg}\n`);
   }
+}
+
+function reportSnapshotDryRun(entry: RegistryEntry, opts: SnapshotOptionsCli): void {
+  if (opts.json) {
+    emitSnapshotJson(opts.resolvedOutDir, 0, true);
+    return;
+  }
+  const suffix = opts.keepAlive ? " (--keep-alive)\n" : "\n";
+  process.stdout.write(`would snapshot ${entryLabel(entry)} → ${opts.resolvedOutDir}${suffix}`);
+}
+
+async function runSnapshot(opts: SnapshotOptionsCli): Promise<number> {
+  const vm = await attach(opts.target).catch(handleError);
+  const quiet = createSnapshotQuietState(vm, opts);
   try {
     const res = await vm.snapshot({
-      outDir: resolvedOutDir,
-      leaveRunning: keepAlive,
-      tcpClose: keepAlive,
-      onLog: (evt) => {
-        if (evt.source === "phase") {
-          return;
-        }
-        if (showHeadlines) {
-          buffer.push(evt.chunk);
-        } else {
-          process.stderr.write(evt.chunk);
-        }
-      },
+      outDir: opts.resolvedOutDir,
+      leaveRunning: opts.keepAlive,
+      tcpClose: opts.keepAlive,
+      onLog: snapshotOnLog(quiet),
     });
-    if (json) {
-      emitJson({
-        schema_version: 1,
-        snap_dir: res.snapDir,
-        elapsed_ms: res.elapsedMs,
-        dry_run: false,
-      });
-    } else {
-      process.stdout.write(`snapshot: ${res.snapDir} (${res.elapsedMs}ms)\n`);
-    }
+    reportSnapshotSuccess(res.snapDir, res.elapsedMs, opts);
     return 0;
   } catch (err) {
-    if (showHeadlines) {
-      failQuiet(`snapshot ${snapHeadlineName} failed: ${describeError(err)}`, {
-        buffer,
-      });
+    handleSnapshotFailure(err, quiet);
+  } finally {
+    await vm.detach();
+  }
+}
+
+function createSnapshotQuietState(vm: VmHandle, opts: SnapshotOptionsCli): QuietRunState {
+  // #286: quiet snapshot UX. Snapshot's onLog stream is the CRIU
+  // dump-side chatter (machinen-dump.sh + criu's per-phase progress).
+  const headlineName = vm.name ?? `pid ${vm.pid}`;
+  const showHeadlines = isQuiet() && !opts.json;
+  const buffer = new RingBuffer();
+  if (showHeadlines) {
+    printHeadline(`snapshotting ${headlineName}…`);
+  }
+  return { headlineName, showHeadlines, buffer, filter: null, filterOut: null };
+}
+
+function snapshotOnLog(quiet: QuietRunState): (evt: LogEvent) => void {
+  return (evt) => {
+    if (evt.source === "phase") {
+      return;
     }
+    if (quiet.showHeadlines) {
+      quiet.buffer.push(evt.chunk);
+    } else {
+      process.stderr.write(evt.chunk);
+    }
+  };
+}
+
+function reportSnapshotSuccess(snapDir: string, elapsedMs: number, opts: SnapshotOptionsCli): void {
+  if (opts.json) {
+    emitSnapshotJson(snapDir, elapsedMs, false);
+    return;
+  }
+  process.stdout.write(`snapshot: ${snapDir} (${elapsedMs}ms)\n`);
+}
+
+function emitSnapshotJson(snapDir: string, elapsedMs: number, dryRun: boolean): void {
+  emitJson({ schema_version: 1, snap_dir: snapDir, elapsed_ms: elapsedMs, dry_run: dryRun });
+}
+
+function handleSnapshotFailure(err: unknown, quiet: QuietRunState): never {
+  if (quiet.showHeadlines) {
+    failQuiet(`snapshot ${quiet.headlineName} failed: ${describeError(err)}`, {
+      buffer: quiet.buffer,
+    });
+  }
+  handleError(err);
+}
+
+type ParsedForkCommandArgs = ReturnType<typeof parseForkArgs>;
+
+async function cmdFork(args: string[]): Promise<number> {
+  const opts = await prepareForkCommand(args);
+  const vm = await attach(opts.target).catch(handleError);
+  try {
+    const fork = await startForkVm(vm, opts);
+    reportForkStarted(fork, opts);
+    if (opts.parsed.detach) {
+      return detachFork(fork, opts);
+    }
+    return runForkAttachedSession(fork, opts.quiet);
+  } catch (err) {
     handleError(err);
   } finally {
     await vm.detach();
   }
 }
 
-async function cmdFork(args: string[]): Promise<number> {
-  // `machinen fork ( --name <src> | --pid <pid> ) [--new-name <dst>]
-  //                [--out-dir <dir>] [--tcp-keep] [--detach]
-  //                [-p ...] [--mount ...] [--mount-live ...]
-  //                [--env KEY=VALUE]... [--cwd <abs>] [--memory <mib>]`.
-  //
-  // Snapshots the source live (--leave-running), restores into a
-  // sibling, and by default attaches the fork's console to host
-  // stdio so the user lands inside the new VM (same shape as
-  // `machinen restore`). `--detach` keeps the fire-and-forget shape
-  // (CI / scripted workflows): print identity, hand off, return.
-  // Source keeps running either way.
-  //
-  // The boot-shaped flags (`--mount`, `--mount-live`, `--env`, `--cwd`,
-  // `--memory`) take effect on the *forked* sibling, not the source.
-  // Fork = snapshot + restore, so anything you can pass to `boot` /
-  // `restore` works here too.
-  // --json is a top-level convention; pull it out before the fork
-  // parser so it doesn't end up in `rest` and trip parseTargetFlags.
-  const { json, rest: forkArgs } = consumeJsonFlag(args);
-  let parsed;
+interface ForkCommandOptions {
+  json: boolean;
+  target: Target;
+  parsed: ParsedForkCommandArgs;
+  paths: CliBaseAssetPaths;
+  resolvedOutDir: string;
+  quiet: QuietRunState;
+}
+
+async function prepareForkCommand(args: string[]): Promise<ForkCommandOptions> {
+  const { json, rest } = consumeJsonFlag(args);
+  const parsed = parseForkCommandArgs(rest);
+  const target = parseTargetFlags(parsed.rest, "fork");
+  validateForkCommand(json, parsed);
+  const paths = await resolveCliBaseAssets();
+  const resolvedOutDir = resolveForkOutDir(parsed.outDir);
+  return {
+    json,
+    target,
+    parsed,
+    paths,
+    resolvedOutDir,
+    quiet: createForkQuietState(json, parsed, target),
+  };
+}
+
+function parseForkCommandArgs(args: string[]): ParsedForkCommandArgs {
   try {
-    parsed = parseForkArgs(forkArgs);
+    return parseForkArgs(args);
   } catch (err) {
     handleError(err);
   }
-  const {
-    newName,
-    outDir,
-    tcpKeep,
-    detach,
-    lazy,
-    portForward,
-    mount,
-    liveMounts,
-    env,
-    guestCwd,
-    memory,
-    rest,
-  } = parsed;
-  const target = parseTargetFlags(rest, "fork");
-  if (json && !detach) {
+}
+
+function validateForkCommand(json: boolean, parsed: ParsedForkCommandArgs): void {
+  if (json && !parsed.detach) {
     die("fork --json is only meaningful with --detach (attached forks take over stdio).");
   }
+}
 
-  // The fork is a fresh restore boot, so it needs the same base
-  // assets `cmdRestore` resolves (kernel + dtb + rootfs in the
-  // initramfs for /sbin/machinen-restore + criu).
-  const assetsOverride = process.env.MACHINEN_ASSETS_DIR;
-  if (assetsOverride) {
-    validateAssetsDir(assetsOverride);
-  } else if (!baseAssetsComplete(RELEASE_TAG)) {
-    process.stderr.write(`machinen: fetching base assets for ${RELEASE_TAG} (first run)\n`);
-    await ensureBaseAssets(RELEASE_TAG);
-  }
-  const spec = baseAssetSpec();
-  const baseDir = assetsOverride
-    ? resolve(assetsOverride)
-    : baseDirFor(RELEASE_TAG, "debian", spec.cpu);
-  const kernelPath = join(baseDir, assetsOverride ? spec.kernelAsset : "Image");
-  const dtbPath = spec.dtbAsset
-    ? join(baseDir, assetsOverride ? spec.dtbAsset : "virt.dtb")
-    : undefined;
-  const imagePath = join(baseDir, assetsOverride ? spec.rootfsAsset : "rootfs.tar.gz");
-
+function resolveForkOutDir(outDir: string | undefined): string {
   // The runtime's ephemeral-bundle cleanup hangs off `fork.wait()`,
   // which the CLI can't await — `cmdFork` returns as soon as the
   // fork is registered. So the CLI always materializes an explicit
   // outDir (caller-supplied or a temp dir we print) and skips the
-  // runtime's ephemeral mode. When --out-dir was omitted the user
-  // is responsible for `rm -rf`-ing the printed path.
-  const resolvedOutDir = outDir ? resolve(outDir) : mkdtempSync(join(tmpdir(), "machinen-fork-"));
-  const vm = await attach(target).catch(handleError);
-  // #286: quiet fork UX. The fork path is snapshot+restore back to
-  // back, so it's the noisiest of the three — both the source-side
-  // CRIU dump chunks and the restore-side guest console land on the
-  // same onLog. Buffer them; on failure dump under the diagnostics
-  // envelope so the user has something to read.
-  const sourceLabel = "name" in target ? target.name : `pid ${target.pid}`;
-  const forkHeadlineName = newName ?? sourceLabel;
-  const showHeadlines = isQuiet() && !(detach && json);
-  const forkT0 = Date.now();
-  const buffer = new RingBuffer();
-  let filter: NoiseFilter | null = null;
-  if (showHeadlines) {
-    printHeadline(`forking ${sourceLabel} → ${forkHeadlineName}…`);
-    if (!detach) {
-      filter = new NoiseFilter({
-        buffer,
-        out: process.stderr,
-        onReady: () => {
-          printHeadline(`fork ready in ${formatElapsed(Date.now() - forkT0)}`);
-        },
-      });
-    }
+  // runtime's ephemeral mode.
+  if (outDir) {
+    return resolve(outDir);
   }
-  const onLog = filter
-    ? (evt: LogEvent) => {
-        if (evt.source === "guest-console") {
-          filter!.push(evt.chunk);
-        }
-      }
-    : showHeadlines
-      ? (evt: LogEvent) => {
-          if (evt.source === "guest-console") {
-            buffer.push(evt.chunk);
-          }
-        }
-      : (evt: LogEvent) => {
-          // Operator mode: legacy live-stream of every non-phase chunk
-          // (the runtime emits phase events too — those are timing
-          // metadata, not console output, so they're filtered out).
-          if (evt.source !== "phase") {
-            process.stderr.write(evt.chunk);
-          }
-        };
+  return mkdtempSync(join(tmpdir(), "machinen-fork-"));
+}
+
+function createForkQuietState(
+  json: boolean,
+  parsed: ParsedForkCommandArgs,
+  target: Target,
+): QuietRunState {
+  const sourceLabel = describeForkSource(target);
+  const headlineName = parsed.newName ?? sourceLabel;
+  const buffer = new RingBuffer();
+  if (!shouldShowForkHeadlines(json, parsed)) {
+    return forkOperatorQuietState(headlineName, buffer);
+  }
+  return createVisibleForkQuietState(parsed, sourceLabel, headlineName, buffer);
+}
+
+function shouldShowForkHeadlines(json: boolean, parsed: ParsedForkCommandArgs): boolean {
+  if (!isQuiet()) {
+    return false;
+  }
+  if (parsed.detach && json) {
+    return false;
+  }
+  return true;
+}
+
+function createVisibleForkQuietState(
+  parsed: ParsedForkCommandArgs,
+  sourceLabel: string,
+  headlineName: string,
+  buffer: RingBuffer,
+): QuietRunState {
+  printHeadline(`forking ${sourceLabel} → ${headlineName}…`);
+  if (parsed.detach) {
+    return bootBufferOnlyQuietState(headlineName, true, buffer);
+  }
+  return forkFilteredQuietState(headlineName, true, buffer, Date.now());
+}
+
+function describeForkSource(target: Target): string {
+  return "name" in target ? target.name : `pid ${target.pid}`;
+}
+
+function forkOperatorQuietState(headlineName: string, buffer: RingBuffer): QuietRunState {
+  return {
+    headlineName,
+    showHeadlines: false,
+    buffer,
+    filter: null,
+    filterOut: null,
+    onLog: operatorForkOnLog,
+  };
+}
+
+function operatorForkOnLog(evt: LogEvent): void {
+  // Operator mode: legacy live-stream of every non-phase chunk (the
+  // runtime emits phase events too — those are timing metadata, not
+  // console output, so they're filtered out).
+  if (evt.source !== "phase") {
+    process.stderr.write(evt.chunk);
+  }
+}
+
+function forkFilteredQuietState(
+  headlineName: string,
+  showHeadlines: boolean,
+  buffer: RingBuffer,
+  forkT0: number,
+): QuietRunState {
+  const filter = new NoiseFilter({
+    buffer,
+    out: process.stderr,
+    onReady: () => {
+      printHeadline(`fork ready in ${formatElapsed(Date.now() - forkT0)}`);
+    },
+  });
+  return {
+    headlineName,
+    showHeadlines,
+    buffer,
+    filter,
+    filterOut: null,
+    onLog: guestConsoleOnLog((chunk) => filter.push(chunk)),
+  };
+}
+
+async function startForkVm(vm: VmHandle, opts: ForkCommandOptions): Promise<VmHandle> {
   try {
-    let fork;
-    try {
-      fork = await vm.fork({
-        name: newName,
-        outDir: resolvedOutDir,
-        image: imagePath,
-        kernel: kernelPath,
-        dtb: dtbPath,
-        tcpKeep,
-        lazy,
-        portForward: portForward.length > 0 ? portForward : undefined,
-        mount,
-        liveMounts,
-        env,
-        guestCwd,
-        memory,
-        onLog,
-      });
-    } catch (err) {
-      filter?.flush();
-      if (showHeadlines) {
-        failQuiet(`fork ${forkHeadlineName} failed: ${describeError(err)}`, {
-          buffer,
-        });
-      }
-      throw err;
-    }
-    if (!showHeadlines && !json) {
-      process.stderr.write(`forked: ${fork.name ?? "<anonymous>"} (pid ${fork.pid})\n`);
-      if (!outDir) {
-        process.stderr.write(`bundle: ${resolvedOutDir} (rm -rf when the fork exits)\n`);
-      }
-    }
-    if (detach) {
-      // Fire-and-forget: hand the fork off to its own VMM process
-      // (boot was spawned with pdeathsig=false so it survives this
-      // CLI exit) and return.
-      await fork.detach();
-      if (json) {
-        emitJson({
-          schema_version: 1,
-          pid: fork.pid,
-          name: fork.name ?? null,
-          source: "name" in target ? target.name : `pid ${target.pid}`,
-          bundle_dir: resolvedOutDir,
-          ephemeral: !outDir,
-        });
-      }
-      return 0;
-    }
-
-    // Drop the user into the fork's interactive console — same shape
-    // as `cmdRestore`. The source VM keeps running in the background,
-    // owned by whoever booted it; we never had its console fd.
-    fork.stdout.pipe(process.stdout);
-    if (!filter) {
-      fork.stderr.pipe(process.stderr);
-    }
-    const restoreStdin = rawModeStdinIfTTY();
-    const cancelHintRepeat = printCtrlDHint();
-    // The source shell printed PS1 to the source's tty before the
-    // dump, so the restored shell starts up sitting in read() without
-    // redrawing — without this nudge the user has to hit Enter
-    // themselves to see anything past `machinen-restore: starting…`.
-    // The CR makes bash treat it as an empty Enter and reprints the
-    // prompt. Wait ~1.5s before sending: at `vm.fork()`-resolve the
-    // VMM's just spawned and the kernel is still booting; bytes sent
-    // earlier get dropped before bash starts reading from the tty.
-    const promptNudge = setTimeout(() => {
-      try {
-        fork.stdin.write("\r");
-      } catch {
-        // fork already exited / pipe closed — nothing to nudge.
-      }
-    }, 1500);
-    promptNudge.unref();
-
-    let forwardedSignal: "SIGINT" | "SIGTERM" | null = null;
-    const onSigint = () => {
-      forwardedSignal = "SIGINT";
-      void fork.kill();
-    };
-    const onSigterm = () => {
-      forwardedSignal = "SIGTERM";
-      void fork.kill();
-    };
-    process.on("SIGINT", onSigint);
-    process.on("SIGTERM", onSigterm);
-
-    pipeStdinToVm(fork.stdin, () => {
-      process.stderr.write("\nmachinen: Ctrl-D — stopping VM\n");
-      forwardedSignal = "SIGTERM";
-      void fork.kill();
+    return await vm.fork({
+      name: opts.parsed.newName,
+      outDir: opts.resolvedOutDir,
+      image: opts.paths.defaultImagePath,
+      kernel: opts.paths.kernelPath,
+      dtb: opts.paths.dtbPath,
+      tcpKeep: opts.parsed.tcpKeep,
+      lazy: opts.parsed.lazy,
+      portForward: optionalList(opts.parsed.portForward),
+      mount: opts.parsed.mount,
+      liveMounts: opts.parsed.liveMounts,
+      env: opts.parsed.env,
+      guestCwd: opts.parsed.guestCwd,
+      memory: opts.parsed.memory,
+      onLog: opts.quiet.onLog,
     });
-    try {
-      const { code } = await fork.wait();
-      filter?.flush();
-      if (forwardedSignal === "SIGINT") {
-        return 130;
-      }
-      if (forwardedSignal === "SIGTERM") {
-        return 143;
-      }
-      if (filter && !filter.ready && code != null && code !== 0 && !forwardedSignal) {
-        printDiagnostics(`fork ${forkHeadlineName} exited ${code} before reaching ready`, {
-          buffer,
-        });
-      }
-      return code ?? 0;
-    } finally {
-      process.off("SIGINT", onSigint);
-      process.off("SIGTERM", onSigterm);
-      cancelHintRepeat();
-      restoreStdin();
-    }
   } catch (err) {
-    handleError(err);
+    handleForkFailure(err, opts.quiet);
+  }
+}
+
+function handleForkFailure(err: unknown, quiet: QuietRunState): never {
+  quiet.filter?.flush();
+  if (quiet.showHeadlines) {
+    failQuiet(`fork ${quiet.headlineName} failed: ${describeError(err)}`, {
+      buffer: quiet.buffer,
+    });
+  }
+  handleError(err);
+}
+
+function reportForkStarted(fork: VmHandle, opts: ForkCommandOptions): void {
+  if (!shouldPrintForkStarted(opts)) {
+    return;
+  }
+  process.stderr.write(`forked: ${fork.name ?? "<anonymous>"} (pid ${fork.pid})\n`);
+  printForkBundleHint(opts);
+}
+
+function shouldPrintForkStarted(opts: ForkCommandOptions): boolean {
+  if (opts.quiet.showHeadlines) {
+    return false;
+  }
+  return !opts.json;
+}
+
+function printForkBundleHint(opts: ForkCommandOptions): void {
+  if (!opts.parsed.outDir) {
+    process.stderr.write(`bundle: ${opts.resolvedOutDir} (rm -rf when the fork exits)\n`);
+  }
+}
+
+async function detachFork(fork: VmHandle, opts: ForkCommandOptions): Promise<number> {
+  // Fire-and-forget: hand the fork off to its own VMM process
+  // (boot was spawned with pdeathsig=false so it survives this CLI exit) and return.
+  await fork.detach();
+  if (opts.json) {
+    emitJson({
+      schema_version: 1,
+      pid: fork.pid,
+      name: fork.name ?? null,
+      source: describeForkSource(opts.target),
+      bundle_dir: opts.resolvedOutDir,
+      ephemeral: !opts.parsed.outDir,
+    });
+  }
+  return 0;
+}
+
+async function runForkAttachedSession(fork: VmHandle, quiet: QuietRunState): Promise<number> {
+  const cancelPromptNudge = scheduleForkPromptNudge(fork);
+  try {
+    return await runAttachedVmSession(fork, {
+      filter: quiet.filter,
+      buffer: quiet.buffer,
+      preReadyExitSummary: (code) =>
+        `fork ${quiet.headlineName} exited ${code} before reaching ready`,
+    });
   } finally {
-    await vm.detach();
+    cancelPromptNudge();
+  }
+}
+
+function scheduleForkPromptNudge(fork: VmHandle): () => void {
+  // The source shell printed PS1 to the source's tty before the dump,
+  // so the restored shell starts up sitting in read() without redrawing.
+  const promptNudge = setTimeout(() => tryWriteForkPromptNudge(fork), 1500);
+  promptNudge.unref();
+  return () => clearTimeout(promptNudge);
+}
+
+function tryWriteForkPromptNudge(fork: VmHandle): void {
+  try {
+    fork.stdin.write("\r");
+  } catch {
+    // fork already exited / pipe closed — nothing to nudge.
   }
 }
 
 async function cmdAttach(args: string[]): Promise<number> {
-  // Pull `--shell` and `--tail` out before the target flags so the
-  // unknown-arg checks in `parseTargetFlags` don't reject them.
-  // `--shell` defaults to `bash -i` — the Debian base rootfs ships
-  // bash, and `-i` gets job control, history, and a prompt.
-  let shell = "/bin/bash -i";
-  let tail: number | "all" | undefined;
-  const filtered: string[] = [];
-  for (let i = 0; i < args.length; i++) {
-    const a = args[i]!;
-    if (a === "--shell" || a.startsWith("--shell=")) {
-      const v = a === "--shell" ? args[++i] : a.slice("--shell=".length);
-      if (!v) {
-        die("--shell requires a value");
-      }
-      shell = v;
-    } else if (a === "--tail" || a.startsWith("--tail=")) {
-      // `--tail` (no value) prints the whole snapshot. `--tail N`
-      // prints the last N lines. The snapshot is capped at ~1 MiB so
-      // even the no-value form is bounded.
-      let v: string | undefined;
-      if (a === "--tail") {
-        const peek = args[i + 1];
-        if (peek && /^[0-9]+$/.test(peek)) {
-          v = peek;
-          i++;
-        }
-      } else {
-        v = a.slice("--tail=".length);
-      }
-      if (v === undefined) {
-        tail = "all";
-      } else {
-        const n = Number(v);
-        if (!Number.isInteger(n) || n < 0) {
-          die(`--tail: expected a non-negative integer, got '${v}'`);
-        }
-        tail = n;
-      }
-    } else {
-      filtered.push(a);
-    }
-  }
-  const target = parseTargetFlags(filtered, "attach");
-  // #150 phase 2 PR3: --tail dumps the boot-console snapshot before
-  // (or instead of) the interactive shell. Look up the registry
-  // entry directly — `attach()` only returns a VmHandle, not the
-  // entry, and we need `bootLogPath` from the registry.
-  if (tail !== undefined) {
-    const entry = lookupEntry(target);
-    if (!entry) {
-      die(`machinen attach: no running VM matched ${describeTarget(target)}`);
-    }
-    if (!entry.bootLogPath) {
-      die(
-        `machinen attach --tail: VM was not booted with --detached, no snapshot exists. ` +
-          `Use 'machinen attach' (no --tail) for live console access.`,
-      );
-    }
-    printBootLogTail(entry.bootLogPath, tail);
-  }
+  const opts = parseAttachOptions(args);
+  printAttachTailIfRequested(opts);
   // Resolve the target before the TTY check: a typo in --name should
   // surface "no running VM found", not the TTY error. The TTY error
   // is only useful once we know the VM exists.
-  const vm = await attach(target).catch(handleError);
+  const vm = await attach(opts.target).catch(handleError);
+  return runAttachedPty(vm, opts.shell);
+}
+
+interface AttachOptionsCli {
+  shell: string;
+  tail?: number | "all";
+  target: Target;
+}
+
+function parseAttachOptions(args: string[]): AttachOptionsCli {
+  const state = {
+    shell: "/bin/bash -i",
+    tail: undefined as number | "all" | undefined,
+    rest: [] as string[],
+  };
+  for (let i = 0; i < args.length; i++) {
+    i = consumeAttachArg(args, i, state);
+  }
+  return { shell: state.shell, tail: state.tail, target: parseTargetFlags(state.rest, "attach") };
+}
+
+type AttachArgHandler = (
+  args: string[],
+  index: number,
+  arg: string,
+  state: { shell: string; tail?: number | "all"; rest: string[] },
+) => number;
+
+function consumeAttachArg(
+  args: string[],
+  index: number,
+  state: { shell: string; tail?: number | "all"; rest: string[] },
+): number {
+  const arg = args[index]!;
+  const handler = attachArgHandler(arg);
+  if (handler) {
+    return handler(args, index, arg, state);
+  }
+  state.rest.push(arg);
+  return index;
+}
+
+const ATTACH_ARG_HANDLERS: Array<[(arg: string) => boolean, AttachArgHandler]> = [
+  [(arg) => arg === "--shell" || arg.startsWith("--shell="), consumeAttachShell],
+  [(arg) => arg === "--tail" || arg.startsWith("--tail="), consumeAttachTail],
+];
+
+function attachArgHandler(arg: string): AttachArgHandler | undefined {
+  return ATTACH_ARG_HANDLERS.find(([matches]) => matches(arg))?.[1];
+}
+
+function consumeAttachShell(
+  args: string[],
+  index: number,
+  arg: string,
+  state: { shell: string },
+): number {
+  const value = arg === "--shell" ? args[index + 1] : arg.slice("--shell=".length);
+  if (!value) {
+    die("--shell requires a value");
+  }
+  state.shell = value;
+  return arg === "--shell" ? index + 1 : index;
+}
+
+function consumeAttachTail(
+  args: string[],
+  index: number,
+  arg: string,
+  state: { tail?: number | "all" },
+): number {
+  const { value, nextIndex } = attachTailValue(args, index, arg);
+  state.tail = parseAttachTail(value);
+  return nextIndex;
+}
+
+function attachTailValue(
+  args: string[],
+  index: number,
+  arg: string,
+): { value: string | undefined; nextIndex: number } {
+  if (arg !== "--tail") {
+    return { value: arg.slice("--tail=".length), nextIndex: index };
+  }
+  const peek = args[index + 1];
+  if (peek && /^[0-9]+$/.test(peek)) {
+    return { value: peek, nextIndex: index + 1 };
+  }
+  return { value: undefined, nextIndex: index };
+}
+
+function parseAttachTail(value: string | undefined): number | "all" {
+  // `--tail` (no value) prints the whole snapshot. `--tail N`
+  // prints the last N lines. The snapshot is capped at ~1 MiB so
+  // even the no-value form is bounded.
+  if (value === undefined) {
+    return "all";
+  }
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 0) {
+    die(`--tail: expected a non-negative integer, got '${value}'`);
+  }
+  return n;
+}
+
+function printAttachTailIfRequested(opts: AttachOptionsCli): void {
+  // #150 phase 2 PR3: --tail dumps the boot-console snapshot before
+  // (or instead of) the interactive shell. Look up the registry entry
+  // directly — `attach()` only returns a VmHandle, not the registry row.
+  if (opts.tail === undefined) {
+    return;
+  }
+  const entry = lookupAttachTailEntry(opts.target);
+  printBootLogTail(entry.bootLogPath!, opts.tail);
+}
+
+function lookupAttachTailEntry(target: Target): RegistryEntry {
+  const entry = lookupEntry(target);
+  if (!entry) {
+    die(`machinen attach: no running VM matched ${describeTarget(target)}`);
+  }
+  if (!entry.bootLogPath) {
+    die(
+      `machinen attach --tail: VM was not booted with --detached, no snapshot exists. ` +
+        `Use 'machinen attach' (no --tail) for live console access.`,
+    );
+  }
+  return entry;
+}
+
+async function runAttachedPty(vm: VmHandle, shell: string): Promise<number> {
   if (!process.stdin.isTTY) {
     await vm.detach();
     die("machinen attach: stdin is not a TTY (pipe scripts via `machinen repl` instead)");
@@ -1710,6 +2249,16 @@ async function cmdRepl(args: string[]): Promise<number> {
   // For an actual interactive shell, use `machinen attach`.
   const target = parseTargetFlags(args, "repl");
   const vm = await attach(target).catch(handleError);
+  printReplIntro(vm);
+  try {
+    await runReplLoop(vm);
+    return 0;
+  } finally {
+    await vm.detach();
+  }
+}
+
+function printReplIntro(vm: VmHandle): void {
   process.stderr.write(`repl: ${vm.name ?? `pid ${vm.pid}`}\n`);
   process.stderr.write(
     `each line is a fresh one-shot exec — cd / env vars / history do NOT persist.\n` +
@@ -1717,22 +2266,24 @@ async function cmdRepl(args: string[]): Promise<number> {
       `  machinen attach ${vm.name ?? vm.pid}\n` +
       `Ctrl-D to exit.\n`,
   );
-  try {
-    const { createInterface } = await import("node:readline");
-    const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: false });
-    for await (const line of rl) {
-      if (line.length === 0) {
-        continue;
-      }
-      await vm.execRaw(line, {
-        onStdout: (chunk) => process.stdout.write(chunk),
-        onStderr: (chunk) => process.stderr.write(chunk),
-      });
-    }
-    return 0;
-  } finally {
-    await vm.detach();
+}
+
+async function runReplLoop(vm: VmHandle): Promise<void> {
+  const { createInterface } = await import("node:readline");
+  const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: false });
+  for await (const line of rl) {
+    await runReplLine(vm, line);
   }
+}
+
+async function runReplLine(vm: VmHandle, line: string): Promise<void> {
+  if (line.length === 0) {
+    return;
+  }
+  await vm.execRaw(line, {
+    onStdout: (chunk) => process.stdout.write(chunk),
+    onStderr: (chunk) => process.stderr.write(chunk),
+  });
 }
 
 async function cmdAgentContext(args: string[]): Promise<number> {
@@ -1753,84 +2304,120 @@ async function cmdFeedback(args: string[]): Promise<number> {
   //   machinen feedback "<text>"        — append a JSONL entry
   //   machinen feedback --list          — print recent entries
   // --json on either form returns a structured envelope.
-  const { json, rest: afterJson } = consumeJsonFlag(args);
-  let listMode = false;
-  const positional: string[] = [];
-  for (const a of afterJson) {
-    if (a === "--list") {
-      listMode = true;
-    } else if (a.startsWith("--")) {
-      die(`unknown argument: ${a}`);
-    } else {
-      positional.push(a);
-    }
+  const opts = parseFeedbackOptions(args);
+  if (opts.listMode) {
+    return listFeedback(opts);
   }
-  if (listMode) {
-    if (positional.length > 0) {
-      die("machinen feedback --list takes no positional arguments");
-    }
-    const entries = readFeedback();
-    if (json) {
-      emitJson({ schema_version: 1, entries });
-      return 0;
-    }
-    if (entries.length === 0) {
-      process.stdout.write("(no feedback recorded)\n");
-      return 0;
-    }
-    for (const e of entries) {
-      process.stdout.write(`${e.timestamp}  ${e.text}\n`);
-    }
+  return recordFeedback(opts);
+}
+
+interface FeedbackOptions {
+  json: boolean;
+  listMode: boolean;
+  positional: string[];
+}
+
+function parseFeedbackOptions(args: string[]): FeedbackOptions {
+  const { json, rest } = consumeJsonFlag(args);
+  const opts: FeedbackOptions = { json, listMode: false, positional: [] };
+  for (const arg of rest) {
+    consumeFeedbackArg(opts, arg);
+  }
+  return opts;
+}
+
+function consumeFeedbackArg(opts: FeedbackOptions, arg: string): void {
+  if (arg === "--list") {
+    opts.listMode = true;
+    return;
+  }
+  if (arg.startsWith("--")) {
+    die(`unknown argument: ${arg}`);
+  }
+  opts.positional.push(arg);
+}
+
+function listFeedback(opts: FeedbackOptions): number {
+  if (opts.positional.length > 0) {
+    die("machinen feedback --list takes no positional arguments");
+  }
+  const entries = readFeedback();
+  if (opts.json) {
+    emitJson({ schema_version: 1, entries });
     return 0;
   }
-  if (positional.length === 0) {
+  printFeedbackEntries(entries);
+  return 0;
+}
+
+function printFeedbackEntries(entries: ReturnType<typeof readFeedback>): void {
+  if (entries.length === 0) {
+    process.stdout.write("(no feedback recorded)\n");
+    return;
+  }
+  for (const entry of entries) {
+    process.stdout.write(`${entry.timestamp}  ${entry.text}\n`);
+  }
+}
+
+async function recordFeedback(opts: FeedbackOptions): Promise<number> {
+  if (opts.positional.length === 0) {
     die('usage: machinen feedback "<text>" | machinen feedback --list');
   }
-  const text = positional.join(" ");
   const path = feedbackPath();
-  const entry = {
+  const entry = newFeedbackEntry(opts.positional.join(" "));
+  appendFeedback(entry, path);
+  const upstream = await postUpstream(entry);
+  reportFeedbackRecorded(opts, path, upstream);
+  return 0;
+}
+
+function newFeedbackEntry(text: string): Parameters<typeof appendFeedback>[0] {
+  return {
     timestamp: new Date().toISOString(),
     cli_version: VERSION,
     text,
   };
-  appendFeedback(entry, path);
-  const upstream = await postUpstream(entry);
-  if (json) {
-    emitJson({
-      schema_version: 1,
-      recorded: true,
-      path,
-      upstream_status: upstream.status,
-    });
-    return 0;
+}
+
+function reportFeedbackRecorded(
+  opts: FeedbackOptions,
+  path: string,
+  upstream: Awaited<ReturnType<typeof postUpstream>>,
+): void {
+  if (opts.json) {
+    emitJson({ schema_version: 1, recorded: true, path, upstream_status: upstream.status });
+    return;
   }
+  process.stdout.write(feedbackRecordedMessage(upstream));
+}
+
+function feedbackRecordedMessage(upstream: Awaited<ReturnType<typeof postUpstream>>): string {
   if (upstream.attempted && upstream.status !== null) {
-    process.stdout.write(
-      `feedback recorded locally and sent upstream (status: ${upstream.status})\n`,
-    );
-  } else if (upstream.attempted) {
-    process.stdout.write(`feedback recorded locally; upstream POST failed: ${upstream.error}\n`);
-  } else {
-    process.stdout.write("feedback recorded locally (1 entry)\n");
+    return `feedback recorded locally and sent upstream (status: ${upstream.status})\n`;
   }
-  return 0;
+  if (upstream.attempted) {
+    return `feedback recorded locally; upstream POST failed: ${upstream.error}\n`;
+  }
+  return "feedback recorded locally (1 entry)\n";
 }
 
 async function cmdCompletion(args: string[]): Promise<number> {
   const shell = args[0] ?? "bash";
-  if (shell === "bash") {
-    process.stdout.write(BASH_COMPLETION);
-    return 0;
+  const completion = completionForShell(shell);
+  if (completion === undefined) {
+    die(`unsupported shell: ${shell} (expected bash | zsh | fish)`);
   }
-  if (shell === "zsh") {
-    process.stdout.write(ZSH_COMPLETION);
-    return 0;
-  }
-  if (shell === "fish") {
-    process.stdout.write(FISH_COMPLETION);
-    return 0;
-  }
-  die(`unsupported shell: ${shell} (expected bash | zsh | fish)`);
+  process.stdout.write(completion);
+  return 0;
+}
+
+function completionForShell(shell: string): string | undefined {
+  return new Map([
+    ["bash", BASH_COMPLETION],
+    ["zsh", ZSH_COMPLETION],
+    ["fish", FISH_COMPLETION],
+  ]).get(shell);
 }
 
 /**
@@ -2151,53 +2738,90 @@ function printHelp(): void {
 // Entry
 // ------------------------------------------------------------
 
+type CommandHandler = (args: string[]) => number | Promise<number>;
+
+const COMMAND_HANDLERS = new Map<string, CommandHandler>([
+  ["boot", cmdBoot],
+  ["restore", cmdRestore],
+  ["install", cmdInstall],
+  ["list", cmdLs],
+  ["ls", cmdLs],
+  ["ps", cmdLs],
+  ["exec", cmdExec],
+  ["snapshot", cmdSnapshot],
+  ["fork", cmdFork],
+  ["attach", cmdAttach],
+  ["repl", cmdRepl],
+  ["completion", cmdCompletion],
+  ["gc", cmdGc],
+  ["stop", cmdStop],
+  ["feedback", cmdFeedback],
+  ["agent-context", cmdAgentContext],
+]);
+
 async function main(): Promise<number> {
   const [sub, ...rest] = process.argv.slice(2);
-  debug("dispatch sub=%s argc=%d", sub ?? "<empty>", rest.length);
+  debug("dispatch sub=%s argc=%d", commandLabel(sub), rest.length);
 
-  if (!sub || sub === "-h" || sub === "--help") {
-    printHelp();
-    return sub ? 0 : 1;
+  const topLevelCode = maybeHandleTopLevelCommand(sub);
+  if (topLevelCode !== undefined) {
+    return topLevelCode;
   }
-  if (sub === "--version" || sub === "-v") {
-    process.stdout.write(`${VERSION}\n`);
+  return dispatchSubcommand(sub!, rest);
+}
+
+function commandLabel(sub: string | undefined): string {
+  if (sub === undefined) {
+    return "<empty>";
+  }
+  return sub;
+}
+
+function maybeHandleTopLevelCommand(sub: string | undefined): number | undefined {
+  const helpCode = maybePrintTopLevelHelp(sub);
+  if (helpCode !== undefined) {
+    return helpCode;
+  }
+  return maybePrintVersion(sub);
+}
+
+function dispatchSubcommand(sub: string, rest: string[]): number | Promise<number> {
+  const handler = COMMAND_HANDLERS.get(sub);
+  if (handler) {
+    return handler(rest);
+  }
+  die(`unknown command: ${sub}\nRun 'machinen --help' for usage.`);
+}
+
+function maybePrintTopLevelHelp(sub: string | undefined): number | undefined {
+  if (!sub) {
+    printHelp();
+    return 1;
+  }
+  if (sub === "-h") {
+    printHelp();
     return 0;
   }
-
-  switch (sub) {
-    case "boot":
-      return cmdBoot(rest);
-    case "restore":
-      return cmdRestore(rest);
-    case "install":
-      return cmdInstall(rest);
-    case "list":
-    case "ls":
-    case "ps":
-      return cmdLs(rest);
-    case "exec":
-      return cmdExec(rest);
-    case "snapshot":
-      return cmdSnapshot(rest);
-    case "fork":
-      return cmdFork(rest);
-    case "attach":
-      return cmdAttach(rest);
-    case "repl":
-      return cmdRepl(rest);
-    case "completion":
-      return cmdCompletion(rest);
-    case "gc":
-      return cmdGc(rest);
-    case "stop":
-      return cmdStop(rest);
-    case "feedback":
-      return cmdFeedback(rest);
-    case "agent-context":
-      return cmdAgentContext(rest);
-    default:
-      die(`unknown command: ${sub}\nRun 'machinen --help' for usage.`);
+  if (sub === "--help") {
+    printHelp();
+    return 0;
   }
+  return undefined;
+}
+
+function maybePrintVersion(sub: string | undefined): number | undefined {
+  if (sub === "--version") {
+    return printVersion();
+  }
+  if (sub === "-v") {
+    return printVersion();
+  }
+  return undefined;
+}
+
+function printVersion(): number {
+  process.stdout.write(`${VERSION}\n`);
+  return 0;
 }
 
 main().then(

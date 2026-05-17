@@ -67,83 +67,159 @@ Environment mirrors the options for manual use:
   process.exit(exitCode);
 }
 
+const RELEASE_COMMANDS = new Set(["publish", "verify", "checksums"]);
+const RELEASE_VALUE_OPTIONS = new Map([
+  ["--tag", (opts, value) => (opts.tag = value)],
+  ["--repo", (opts, value) => (opts.repo = value)],
+  ["--assets-dir", setAssetsDirOption],
+  ["--base-url", (opts, value) => (opts.baseUrl = value)],
+  ["--asset", (opts, value) => opts.assets.push(value)],
+  ["--tries", (opts, value) => (opts.tries = Number(value))],
+  ["--sleep", (opts, value) => (opts.sleepSeconds = Number(value))],
+]);
+const RELEASE_BARE_OPTIONS = new Map([["--dry-run", (opts) => (opts.dryRun = true)]]);
+
 function parseArgs(argv) {
-  const command = argv.shift();
-  if (!command || command === "-h" || command === "--help") {
-    usage(command ? 0 : 2);
+  const command = argv[0];
+  const helpExitCode = releaseHelpExitCode(command);
+  if (helpExitCode !== undefined) {
+    usage(helpExitCode);
   }
-  if (!["publish", "verify", "checksums"].includes(command)) {
+  if (!RELEASE_COMMANDS.has(command)) {
     usage(2);
   }
 
+  const opts = defaultReleaseOptions(command);
+  parseReleaseOptions(argv.slice(1), opts);
+  finalizeReleaseOptions(opts);
+  return opts;
+}
+
+function releaseHelpExitCode(command) {
+  if (!command) {
+    return 2;
+  }
+  if (command === "-h") {
+    return 0;
+  }
+  if (command === "--help") {
+    return 0;
+  }
+  return undefined;
+}
+
+function defaultReleaseOptions(command) {
   const envAssetsDir = process.env.MACHINEN_RELEASE_ASSETS_DIR;
-  const opts = {
+  return {
     command,
     repo: DEFAULT_REPO,
-    assetsDir: envAssetsDir ?? DEFAULT_ASSETS_DIR,
-    compareLocal: command !== "verify" || Boolean(envAssetsDir),
+    assetsDir: releaseAssetsDir(envAssetsDir),
+    compareLocal: shouldCompareLocalAssets(command, envAssetsDir),
     baseUrl: process.env.MACHINEN_RELEASE_ASSETS_BASE_URL,
     assets: [],
     tries: Number(process.env.MACHINEN_RELEASE_VERIFY_TRIES ?? 6),
     sleepSeconds: Number(process.env.MACHINEN_RELEASE_VERIFY_SLEEP ?? 10),
     dryRun: false,
   };
+}
 
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i];
-    const next = () => {
-      const value = argv[++i];
-      if (!value) {
-        usage(2);
-      }
-      return value;
-    };
-    if (arg === "--tag") {
-      opts.tag = next();
-    } else if (arg?.startsWith("--tag=")) {
-      opts.tag = arg.slice("--tag=".length);
-    } else if (arg === "--repo") {
-      opts.repo = next();
-    } else if (arg?.startsWith("--repo=")) {
-      opts.repo = arg.slice("--repo=".length);
-    } else if (arg === "--assets-dir") {
-      opts.assetsDir = next();
-      opts.compareLocal = true;
-    } else if (arg?.startsWith("--assets-dir=")) {
-      opts.assetsDir = arg.slice("--assets-dir=".length);
-      opts.compareLocal = true;
-    } else if (arg === "--base-url") {
-      opts.baseUrl = next();
-    } else if (arg?.startsWith("--base-url=")) {
-      opts.baseUrl = arg.slice("--base-url=".length);
-    } else if (arg === "--asset") {
-      opts.assets.push(next());
-    } else if (arg?.startsWith("--asset=")) {
-      opts.assets.push(arg.slice("--asset=".length));
-    } else if (arg === "--tries") {
-      opts.tries = Number(next());
-    } else if (arg?.startsWith("--tries=")) {
-      opts.tries = Number(arg.slice("--tries=".length));
-    } else if (arg === "--sleep") {
-      opts.sleepSeconds = Number(next());
-    } else if (arg?.startsWith("--sleep=")) {
-      opts.sleepSeconds = Number(arg.slice("--sleep=".length));
-    } else if (arg === "--dry-run") {
-      opts.dryRun = true;
-    } else {
-      usage(2);
+function releaseAssetsDir(envAssetsDir) {
+  if (envAssetsDir) {
+    return envAssetsDir;
+  }
+  return DEFAULT_ASSETS_DIR;
+}
+
+function shouldCompareLocalAssets(command, envAssetsDir) {
+  if (command !== "verify") {
+    return true;
+  }
+  return Boolean(envAssetsDir);
+}
+
+function parseReleaseOptions(args, opts) {
+  for (let i = 0; i < args.length; i++) {
+    const parsed = splitReleaseOption(args[i]);
+    const valueHandler = RELEASE_VALUE_OPTIONS.get(parsed.key);
+    if (valueHandler) {
+      const { value, nextIndex } = releaseOptionValue(args, i, parsed);
+      valueHandler(opts, value);
+      i = nextIndex;
+      continue;
     }
+    if (runBareReleaseOption(opts, parsed)) {
+      continue;
+    }
+    usage(2);
   }
+}
 
+function runBareReleaseOption(opts, parsed) {
+  if (parsed.hasInlineValue) {
+    return false;
+  }
+  const handler = RELEASE_BARE_OPTIONS.get(parsed.key);
+  if (!handler) {
+    return false;
+  }
+  handler(opts);
+  return true;
+}
+
+function splitReleaseOption(arg) {
+  const eq = arg?.indexOf("=") ?? -1;
+  if (eq === -1) {
+    return { key: arg, hasInlineValue: false, value: undefined };
+  }
+  return { key: arg.slice(0, eq), hasInlineValue: true, value: arg.slice(eq + 1) };
+}
+
+function releaseOptionValue(args, index, parsed) {
+  if (parsed.hasInlineValue) {
+    return { value: parsed.value, nextIndex: index };
+  }
+  const value = args[index + 1];
+  if (!value) {
+    usage(2);
+  }
+  return { value, nextIndex: index + 1 };
+}
+
+function setAssetsDirOption(opts, value) {
+  opts.assetsDir = value;
+  opts.compareLocal = true;
+}
+
+function finalizeReleaseOptions(opts) {
   opts.assetsDir = resolve(opts.assetsDir);
-  opts.assets = opts.assets.length > 0 ? opts.assets : [...PAYLOAD_ASSETS];
-  if (!Number.isInteger(opts.tries) || opts.tries < 1) {
-    throw new Error("--tries must be a positive integer");
+  opts.assets = releaseAssetsList(opts.assets);
+  assertPositiveInteger(opts.tries, "--tries must be a positive integer");
+  assertNonNegativeNumber(opts.sleepSeconds, "--sleep must be a non-negative number");
+}
+
+function releaseAssetsList(assets) {
+  if (assets.length > 0) {
+    return assets;
   }
-  if (!Number.isFinite(opts.sleepSeconds) || opts.sleepSeconds < 0) {
-    throw new Error("--sleep must be a non-negative number");
+  return [...PAYLOAD_ASSETS];
+}
+
+function assertPositiveInteger(value, message) {
+  if (!Number.isInteger(value)) {
+    throw new Error(message);
   }
-  return opts;
+  if (value < 1) {
+    throw new Error(message);
+  }
+}
+
+function assertNonNegativeNumber(value, message) {
+  if (!Number.isFinite(value)) {
+    throw new Error(message);
+  }
+  if (value < 0) {
+    throw new Error(message);
+  }
 }
 
 async function defaultTag() {
@@ -254,76 +330,127 @@ async function verifyPublishedOnce({ baseUrl, assets, assetsDir, compareLocal })
   const tmp = await mkdtemp(join(tmpdir(), "machinen-release-assets-"));
   try {
     for (const asset of assets) {
-      console.log(`verify ${asset}`);
-      const sidecarUrl = assetUrl(baseUrl, `${asset}.sha256`);
-      const payloadUrl = assetUrl(baseUrl, asset);
-      const remoteExpected = parseSidecar(await fetchText(sidecarUrl), sidecarUrl);
-
-      let expected = remoteExpected;
-      if (compareLocal) {
-        const localSidecar = join(assetsDir, `${asset}.sha256`);
-        const localExpected = parseSidecar(await readFile(localSidecar, "utf8"), localSidecar);
-        const localGot = await localPayloadSha(assetsDir, asset);
-        if (localGot !== localExpected) {
-          throw new Error(
-            `local checksum sidecar mismatch for ${asset}: expected ${localExpected}, got ${localGot}`,
-          );
-        }
-        if (remoteExpected !== localExpected) {
-          throw new Error(
-            `published checksum sidecar mismatch for ${asset}: expected ${localExpected}, got ${remoteExpected}`,
-          );
-        }
-        expected = localExpected;
-      }
-
-      const downloaded = join(tmp, asset.replace(/[/:]/g, "_"));
-      await downloadToFile(payloadUrl, downloaded);
-      const got = await sha256File(downloaded);
-      if (got !== expected) {
-        throw new Error(`checksum mismatch for ${asset}: expected ${expected}, got ${got}`);
-      }
-      console.log(`  ok ${asset} ${got}`);
+      await verifyPublishedAsset({ baseUrl, assetsDir, compareLocal, tmp, asset });
     }
   } finally {
     await rm(tmp, { recursive: true, force: true });
   }
 }
 
+async function verifyPublishedAsset({ baseUrl, assetsDir, compareLocal, tmp, asset }) {
+  console.log(`verify ${asset}`);
+  const sidecarUrl = assetUrl(baseUrl, `${asset}.sha256`);
+  const payloadUrl = assetUrl(baseUrl, asset);
+  const remoteExpected = parseSidecar(await fetchText(sidecarUrl), sidecarUrl);
+  const expected = await expectedPublishedChecksum({
+    assetsDir,
+    asset,
+    compareLocal,
+    remoteExpected,
+  });
+  const downloaded = join(tmp, asset.replace(/[/:]/g, "_"));
+
+  await downloadToFile(payloadUrl, downloaded);
+  const got = await sha256File(downloaded);
+  assertChecksumMatch(got, expected, `checksum mismatch for ${asset}`);
+  console.log(`  ok ${asset} ${got}`);
+}
+
+async function expectedPublishedChecksum({ assetsDir, asset, compareLocal, remoteExpected }) {
+  if (!compareLocal) {
+    return remoteExpected;
+  }
+  const localExpected = await verifiedLocalChecksum(assetsDir, asset);
+  assertChecksumMatch(
+    remoteExpected,
+    localExpected,
+    `published checksum sidecar mismatch for ${asset}`,
+  );
+  return localExpected;
+}
+
+async function verifiedLocalChecksum(assetsDir, asset) {
+  const localSidecar = join(assetsDir, `${asset}.sha256`);
+  const localExpected = parseSidecar(await readFile(localSidecar, "utf8"), localSidecar);
+  const localGot = await localPayloadSha(assetsDir, asset);
+  assertChecksumMatch(localGot, localExpected, `local checksum sidecar mismatch for ${asset}`);
+  return localExpected;
+}
+
+function assertChecksumMatch(actual, expected, label) {
+  if (actual !== expected) {
+    throw new Error(`${label}: expected ${expected}, got ${actual}`);
+  }
+}
+
 async function verifyPublished(opts) {
   let lastError;
   for (let attempt = 1; attempt <= opts.tries; attempt++) {
-    try {
-      await verifyPublishedOnce(opts);
-      console.log(`release-assets: verified ${opts.assets.length} asset(s) for ${opts.tag}`);
+    const result = await verifyPublishedAttempt(opts, attempt);
+    if (result.ok) {
       return;
-    } catch (err) {
-      lastError = err;
-      if (attempt < opts.tries) {
-        console.error(
-          `release-assets: verification attempt ${attempt}/${opts.tries} failed: ${err.message}`,
-        );
-        await new Promise((resolveSleep) =>
-          setTimeout(resolveSleep, Math.round(opts.sleepSeconds * 1000)),
-        );
-      }
     }
+    lastError = result.error;
   }
   throw new Error(
     `release-assets: verification failed after ${opts.tries} attempt(s): ${lastError?.message}`,
   );
 }
 
+async function verifyPublishedAttempt(opts, attempt) {
+  try {
+    await verifyPublishedOnce(opts);
+    console.log(`release-assets: verified ${opts.assets.length} asset(s) for ${opts.tag}`);
+    return { ok: true };
+  } catch (err) {
+    await delayVerificationRetry(opts, attempt, err);
+    return { ok: false, error: err };
+  }
+}
+
+async function delayVerificationRetry(opts, attempt, err) {
+  if (attempt >= opts.tries) {
+    return;
+  }
+  console.error(
+    `release-assets: verification attempt ${attempt}/${opts.tries} failed: ${err.message}`,
+  );
+  await new Promise((resolveSleep) =>
+    setTimeout(resolveSleep, Math.round(opts.sleepSeconds * 1000)),
+  );
+}
+
 function runGh(args, { allowFailure = false } = {}) {
   const result = spawnSync("gh", args, {
     cwd: REPO_ROOT,
-    stdio: allowFailure ? "ignore" : "inherit",
+    stdio: ghStdio(allowFailure),
     env: process.env,
   });
-  if (!allowFailure && result.status !== 0) {
-    throw new Error(`gh ${args.join(" ")} failed with exit code ${result.status}`);
+  assertGhSuccess(args, allowFailure, result.status);
+  return exitStatus(result.status);
+}
+
+function ghStdio(allowFailure) {
+  if (allowFailure) {
+    return "ignore";
   }
-  return result.status ?? 1;
+  return "inherit";
+}
+
+function assertGhSuccess(args, allowFailure, status) {
+  if (allowFailure) {
+    return;
+  }
+  if (status !== 0) {
+    throw new Error(`gh ${args.join(" ")} failed with exit code ${status}`);
+  }
+}
+
+function exitStatus(status) {
+  if (status === null) {
+    return 1;
+  }
+  return status;
 }
 
 async function uploadList(assetsDir, assets) {
@@ -371,18 +498,29 @@ async function publish(opts) {
   await verifyPublished(opts);
 }
 
+const RELEASE_COMMAND_RUNNERS = new Map([
+  ["checksums", runChecksumsCommand],
+  ["verify", verifyPublished],
+  ["publish", publish],
+]);
+
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
-  opts.tag ??= await defaultTag();
-  opts.baseUrl ??= releaseBaseUrl(opts.repo, opts.tag);
+  await fillReleaseDefaults(opts);
+  await RELEASE_COMMAND_RUNNERS.get(opts.command)(opts);
+}
 
-  if (opts.command === "checksums") {
-    await rewriteChecksums(opts.assetsDir, opts.assets);
-  } else if (opts.command === "verify") {
-    await verifyPublished(opts);
-  } else {
-    await publish(opts);
+async function fillReleaseDefaults(opts) {
+  if (opts.tag === undefined) {
+    opts.tag = await defaultTag();
   }
+  if (opts.baseUrl === undefined) {
+    opts.baseUrl = releaseBaseUrl(opts.repo, opts.tag);
+  }
+}
+
+async function runChecksumsCommand(opts) {
+  await rewriteChecksums(opts.assetsDir, opts.assets);
 }
 
 main().catch((err) => {

@@ -67,43 +67,65 @@ export function readHostRssBytes(pid: number, statsPath?: string): number | null
 export function readHostRssBytesMulti(
   targets: ReadonlyArray<RssTarget | number>,
 ): Map<number, number> {
-  const out = new Map<number, number>();
-  if (targets.length === 0) {
-    return out;
+  const normalised = normaliseRssTargets(targets);
+  if (normalised.length === 0) {
+    return new Map<number, number>();
   }
-  const normalised: RssTarget[] = targets.map((t) => (typeof t === "number" ? { pid: t } : t));
   if (osPlatform() === "linux") {
-    for (const { pid } of normalised) {
-      const v = readVmRssLinux(pid);
-      if (v !== null) {
-        out.set(pid, v);
-      }
-    }
-    return out;
+    return readHostRssBytesLinuxMulti(normalised);
   }
   if (osPlatform() === "darwin") {
-    // Per-VM phys_footprint from the stats file is free (one
-    // readFileSync per VM, ~µs). Anything that doesn't have a
-    // statsPath, or whose stats file hasn't been written to yet,
-    // falls through to a single bulk `ps` call.
-    const fallbackPids: number[] = [];
-    for (const { pid, statsPath } of normalised) {
-      const fromStats = readPhysFootprintFromStats(statsPath);
-      if (fromStats !== null) {
-        out.set(pid, fromStats);
-      } else {
-        fallbackPids.push(pid);
-      }
+    return readHostRssBytesDarwinMulti(normalised);
+  }
+  return new Map<number, number>();
+}
+
+function normaliseRssTargets(targets: ReadonlyArray<RssTarget | number>): RssTarget[] {
+  return targets.map((target) => (typeof target === "number" ? { pid: target } : target));
+}
+
+function readHostRssBytesLinuxMulti(targets: RssTarget[]): Map<number, number> {
+  const out = new Map<number, number>();
+  for (const { pid } of targets) {
+    const value = readVmRssLinux(pid);
+    if (value !== null) {
+      out.set(pid, value);
     }
-    if (fallbackPids.length > 0) {
-      const psResults = readPsRssDarwin(fallbackPids);
-      for (const [pid, rss] of psResults) {
-        out.set(pid, rss);
-      }
-    }
-    return out;
   }
   return out;
+}
+
+function readHostRssBytesDarwinMulti(targets: RssTarget[]): Map<number, number> {
+  // Per-VM phys_footprint from the stats file is free (one
+  // readFileSync per VM, ~µs). Anything that doesn't have a
+  // statsPath, or whose stats file hasn't been written to yet,
+  // falls through to a single bulk `ps` call.
+  const out = new Map<number, number>();
+  const fallbackPids = collectDarwinRssFromStats(targets, out);
+  appendDarwinPsFallback(out, fallbackPids);
+  return out;
+}
+
+function collectDarwinRssFromStats(targets: RssTarget[], out: Map<number, number>): number[] {
+  const fallbackPids: number[] = [];
+  for (const { pid, statsPath } of targets) {
+    const fromStats = readPhysFootprintFromStats(statsPath);
+    if (fromStats !== null) {
+      out.set(pid, fromStats);
+    } else {
+      fallbackPids.push(pid);
+    }
+  }
+  return fallbackPids;
+}
+
+function appendDarwinPsFallback(out: Map<number, number>, fallbackPids: number[]): void {
+  if (fallbackPids.length === 0) {
+    return;
+  }
+  for (const [pid, rss] of readPsRssDarwin(fallbackPids)) {
+    out.set(pid, rss);
+  }
 }
 
 function readVmRssLinux(pid: number): number | null {

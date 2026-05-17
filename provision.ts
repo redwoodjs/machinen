@@ -96,27 +96,69 @@ async function bench<T>(label: string, fn: () => T | Promise<T>): Promise<T> {
 }
 
 function renderPhaseBlock(evt: import("@machinen/runtime").PhaseLogEvent): void {
-  const total = evt.totalMs;
-  const names = [...evt.phases.keys()];
-  const labelW = Math.max(22, ...names.map((n) => n.length + (n.includes(".") ? 2 : 0)));
-  console.log(`\nprovision: === runtime phases (${evt.kind}, total ${fmtMs(total)}) ===`);
-  let topSum = 0;
+  const labelW = runtimePhaseLabelWidth(evt, 22);
+  console.log(`\nprovision: === runtime phases (${evt.kind}, total ${fmtMs(evt.totalMs)}) ===`);
+  renderRuntimePhaseRows(evt, labelW);
+  renderRuntimeUnattributedPhase(evt, labelW);
+}
+
+function runtimePhaseLabelWidth(
+  evt: import("@machinen/runtime").PhaseLogEvent,
+  min: number,
+): number {
+  const widths = [...evt.phases.keys()].map(
+    (name) => name.length + runtimeSubPhaseIndent(name).length,
+  );
+  return Math.max(min, ...widths);
+}
+
+function renderRuntimePhaseRows(
+  evt: import("@machinen/runtime").PhaseLogEvent,
+  labelW: number,
+): void {
   for (const [name, ms] of evt.phases) {
-    const isSub = name.includes(".");
-    if (!isSub) {
-      topSum += ms;
-    }
-    const display = isSub ? `  ${name}` : name;
-    const pct = total > 0 ? ((ms / total) * 100).toFixed(0).padStart(3) : "  -";
-    console.log(`provision:   ${display.padEnd(labelW)} ${fmtMs(ms).padStart(8)}  ${pct}%`);
+    logRuntimePhaseRow(runtimePhaseDisplayName(name), ms, evt.totalMs, labelW);
   }
-  const other = Math.max(0, total - topSum);
-  if (other > 0 && total > 0) {
-    const pct = ((other / total) * 100).toFixed(0).padStart(3);
-    console.log(
-      `provision:   ${"(unattributed)".padEnd(labelW)} ${fmtMs(other).padStart(8)}  ${pct}%`,
-    );
+}
+
+function renderRuntimeUnattributedPhase(
+  evt: import("@machinen/runtime").PhaseLogEvent,
+  labelW: number,
+): void {
+  const other = Math.max(0, evt.totalMs - runtimeTopLevelPhaseSum(evt));
+  if (other > 0 && evt.totalMs > 0) {
+    logRuntimePhaseRow("(unattributed)", other, evt.totalMs, labelW);
   }
+}
+
+function runtimeTopLevelPhaseSum(evt: import("@machinen/runtime").PhaseLogEvent): number {
+  let sum = 0;
+  for (const [name, ms] of evt.phases) {
+    sum += isRuntimeSubPhase(name) ? 0 : ms;
+  }
+  return sum;
+}
+
+function logRuntimePhaseRow(label: string, ms: number, total: number, labelW: number): void {
+  console.log(
+    `provision:   ${label.padEnd(labelW)} ${fmtMs(ms).padStart(8)}  ${runtimePhasePercent(ms, total)}%`,
+  );
+}
+
+function runtimePhaseDisplayName(name: string): string {
+  return `${runtimeSubPhaseIndent(name)}${name}`;
+}
+
+function runtimeSubPhaseIndent(name: string): string {
+  return isRuntimeSubPhase(name) ? "  " : "";
+}
+
+function isRuntimeSubPhase(name: string): boolean {
+  return name.includes(".");
+}
+
+function runtimePhasePercent(ms: number, total: number): string {
+  return total > 0 ? ((ms / total) * 100).toFixed(0).padStart(3) : "  -";
 }
 
 const ASSETS = process.env.MACHINEN_ASSETS_DIR ?? resolve(MAIN_REPO, "release-assets");
@@ -321,6 +363,20 @@ console.log(`provision: base=${base === OUT ? "./app.tar.gz (incremental)" : bas
 
 // --- run ------------------------------------------------------------------
 
+const PROVISION_LOG_STREAMS = {
+  "exec-stdout": process.stdout,
+  "guest-console": process.stdout,
+  "exec-stderr": process.stderr,
+} as const;
+
+function handleProvisionLog(evt: import("@machinen/runtime").LogEvent): void {
+  if (evt.source === "phase") {
+    runtimePhases.push(evt);
+    return;
+  }
+  PROVISION_LOG_STREAMS[evt.source].write(evt.chunk);
+}
+
 const provisionStart = performance.now();
 const result = await provision({
   base,
@@ -343,15 +399,7 @@ const result = await provision({
     PS1: "(machinen) # ",
   },
 
-  onLog: (evt) => {
-    if (evt.source === "exec-stdout" || evt.source === "guest-console") {
-      process.stdout.write(evt.chunk);
-    } else if (evt.source === "exec-stderr") {
-      process.stderr.write(evt.chunk);
-    } else if (evt.source === "phase") {
-      runtimePhases.push(evt);
-    }
-  },
+  onLog: handleProvisionLog,
 
   timeoutMs: 30 * 60_000,
   install: installSteps,

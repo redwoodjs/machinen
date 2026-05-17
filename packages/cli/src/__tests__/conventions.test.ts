@@ -184,12 +184,14 @@ describe("flag conventions", () => {
 describe("schema vs implementation", () => {
   it("dispatch in cli.ts handles every documented command", () => {
     // Naive but catches drift: if we add a command to the schema, we
-    // must also wire it into the switch statement in main(). The
-    // statement string `case "<name>":` is stable enough to grep.
+    // must also wire it into main()'s dispatch table. Keep the legacy
+    // switch marker too so the test still guides future rewrites.
     for (const cmd of COMMANDS) {
       const candidates = [cmd.name, ...(cmd.aliases ?? [])];
-      const hit = candidates.some((n) => CLI_SRC.includes(`case "${n}":`));
-      expect(hit, `cli.ts has no dispatch case for "${cmd.name}" or its aliases`).toBe(true);
+      const hit = candidates.some(
+        (n) => CLI_SRC.includes(`case "${n}":`) || CLI_SRC.includes(`["${n}",`),
+      );
+      expect(hit, `cli.ts has no dispatch entry for "${cmd.name}" or its aliases`).toBe(true);
     }
   });
 });

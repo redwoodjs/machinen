@@ -493,16 +493,29 @@ function sweepEmptyPinDirs(dir: string): void {
  * but Node's `writeFileSync(..., { flag: "wx" })` is the equivalent
  * and works on every platform we ship.
  */
+type ClaimAttempt = "claimed" | "retry" | "refuse";
+
 export function claimName(name: string, pid: number): boolean {
   const pin = pinPath(name);
-  // Path-shaped names like `<src>/<pid>` (chained restore — #208) need
-  // their parent dir to exist. mkdir is idempotent for directories;
-  // it throws EEXIST when a regular file blocks the parent path —
-  // typical when the source VM is alive and pinned at `<src>` (the
-  // fork case, #216). Treat that as "name unavailable" so callers
-  // can fall back to a non-nested name rather than crash.
+  if (!ensurePinParent(name, pin)) {
+    return false;
+  }
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const result = claimPinOnce(name, pid, pin, attempt);
+    if (result === "claimed") {
+      return true;
+    }
+    if (result === "refuse") {
+      return false;
+    }
+  }
+  return false;
+}
+
+function ensurePinParent(name: string, pin: string): boolean {
   try {
     mkdirSync(dirname(pin), { recursive: true });
+    return true;
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "EEXIST") {
       debug("claimName name=%s parent path is a live pin — refusing", name);
@@ -510,60 +523,75 @@ export function claimName(name: string, pid: number): boolean {
     }
     throw err;
   }
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      writeFileSync(pin, String(pid), { flag: "wx" });
-      debug("claimName name=%s pid=%d (attempt=%d)", name, pid, attempt);
-      return true;
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== "EEXIST") {
-        throw err;
-      }
-      // EEXIST: a file or a directory occupies the pin path. An empty
-      // directory is a leftover from a path-shaped child pin whose
-      // leaf was unlinked (pre-#268 removeEntry didn't prune parents).
-      // A non-empty directory is holding live nested pins — refuse.
-      let isDir = false;
-      try {
-        isDir = statSync(pin).isDirectory();
-      } catch {}
-      if (isDir) {
-        try {
-          rmdirSync(pin);
-          debug("claimName name=%s removed empty stale dir — retrying", name);
-          continue;
-        } catch {
-          debug("claimName name=%s dir holds live nested pins — refusing", name);
-          return false;
-        }
-      }
-      // Pin is a regular file. If the holder fails the recycling /
-      // orphan check, drop the pin (and any orphaned meta dir) and
-      // retry. `kill(pid,0)` alone isn't enough — a recycled pid will
-      // succeed it, leaving the pin pinned forever.
-      let heldPid = -1;
-      try {
-        heldPid = Number(readFileSync(pin, "utf8").trim());
-      } catch {}
-      if (heldPid > 0 && !pinIsStale(heldPid)) {
-        debug("claimName name=%s held by live pid=%d — refusing", name, heldPid);
-        return false;
-      }
-      debug("claimName name=%s stale pin (heldPid=%d) — reaping", name, heldPid);
-      try {
-        unlinkSync(pin);
-      } catch {}
-      if (heldPid > 0) {
-        // If the meta dir lingered (orphaned writeEntry, or recycled
-        // pid), drop it now — otherwise the next list() would prune
-        // it but we want claimName to leave a clean slate either way.
-        try {
-          rmSync(join(registryRoot(), String(heldPid)), { recursive: true, force: true });
-        } catch {}
-      }
+}
+
+function claimPinOnce(name: string, pid: number, pin: string, attempt: number): ClaimAttempt {
+  try {
+    writeFileSync(pin, String(pid), { flag: "wx" });
+    debug("claimName name=%s pid=%d (attempt=%d)", name, pid, attempt);
+    return "claimed";
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "EEXIST") {
+      throw err;
     }
+    return handleExistingPin(name, pin);
   }
-  return false;
+}
+
+function handleExistingPin(name: string, pin: string): ClaimAttempt {
+  if (pinPathIsDirectory(pin)) {
+    return handleDirectoryPin(name, pin);
+  }
+  return handleFilePin(name, pin);
+}
+
+function pinPathIsDirectory(pin: string): boolean {
+  try {
+    return statSync(pin).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+function handleDirectoryPin(name: string, pin: string): ClaimAttempt {
+  try {
+    rmdirSync(pin);
+    debug("claimName name=%s removed empty stale dir — retrying", name);
+    return "retry";
+  } catch {
+    debug("claimName name=%s dir holds live nested pins — refusing", name);
+    return "refuse";
+  }
+}
+
+function handleFilePin(name: string, pin: string): ClaimAttempt {
+  const heldPid = readPinPid(pin);
+  if (heldPid > 0 && !pinIsStale(heldPid)) {
+    debug("claimName name=%s held by live pid=%d — refusing", name, heldPid);
+    return "refuse";
+  }
+  debug("claimName name=%s stale pin (heldPid=%d) — reaping", name, heldPid);
+  reapStalePin(pin, heldPid);
+  return "retry";
+}
+
+function readPinPid(pin: string): number {
+  try {
+    return Number(readFileSync(pin, "utf8").trim());
+  } catch {
+    return -1;
+  }
+}
+
+function reapStalePin(pin: string, heldPid: number): void {
+  try {
+    unlinkSync(pin);
+  } catch {}
+  if (heldPid > 0) {
+    try {
+      rmSync(join(registryRoot(), String(heldPid)), { recursive: true, force: true });
+    } catch {}
+  }
 }
 
 /**

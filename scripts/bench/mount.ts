@@ -59,26 +59,64 @@ interface CliArgs {
   fixtureKey: string;
 }
 
+interface ParseContext {
+  args: CliArgs;
+  index: number;
+}
+
+type BenchArgHandler = (ctx: ParseContext) => void;
+
+const BENCH_ARG_HANDLERS: Record<string, BenchArgHandler> = {
+  "--no-docker": (ctx) => {
+    ctx.args.noDocker = true;
+  },
+  "--fixture": (ctx) => {
+    ctx.args.fixtureKey = takeBenchArgValue(ctx, "--fixture");
+  },
+  "-h": () => printBenchUsageAndExit(),
+  "--help": () => printBenchUsageAndExit(),
+};
+
 function parseArgs(): CliArgs {
-  const out: CliArgs = {
+  const ctx: ParseContext = { args: defaultCliArgs(), index: 2 };
+  for (; ctx.index < process.argv.length; ctx.index++) {
+    applyBenchArg(ctx);
+  }
+  return ctx.args;
+}
+
+function defaultCliArgs(): CliArgs {
+  return {
     noDocker: false,
     fixtureKey: "node-24-linux-arm64",
   };
-  for (let i = 2; i < process.argv.length; i++) {
-    const a = process.argv[i]!;
-    if (a === "--no-docker") {
-      out.noDocker = true;
-    } else if (a === "--fixture") {
-      out.fixtureKey = process.argv[++i] ?? "";
-    } else if (a === "-h" || a === "--help") {
-      console.log("usage: tsx scripts/bench/mount.ts [--no-docker] [--fixture <key>]");
-      process.exit(0);
-    } else {
-      console.error(`bench-mount: unknown arg ${a}`);
-      process.exit(2);
-    }
+}
+
+function applyBenchArg(ctx: ParseContext): void {
+  const arg = process.argv[ctx.index]!;
+  const handler = BENCH_ARG_HANDLERS[arg];
+  if (!handler) {
+    exitBenchArgError(`bench-mount: unknown arg ${arg}`);
   }
-  return out;
+  handler(ctx);
+}
+
+function takeBenchArgValue(ctx: ParseContext, name: string): string {
+  const value = process.argv[++ctx.index];
+  if (!value) {
+    exitBenchArgError(`bench-mount: ${name} requires a value`);
+  }
+  return value;
+}
+
+function printBenchUsageAndExit(): never {
+  console.log("usage: tsx scripts/bench/mount.ts [--no-docker] [--fixture <key>]");
+  process.exit(0);
+}
+
+function exitBenchArgError(message: string): never {
+  console.error(message);
+  process.exit(2);
 }
 
 interface FixtureEntry {
@@ -109,30 +147,53 @@ function loadFixture(key: string): FixtureEntry {
 async function downloadAndVerify(entry: FixtureEntry): Promise<string> {
   mkdirSync(TARBALL_CACHE, { recursive: true });
   const tarballPath = join(TARBALL_CACHE, basename(entry.url));
-  if (existsSync(tarballPath)) {
-    const got = sha256File(tarballPath);
-    if (got === entry.sha256) {
-      return tarballPath;
-    }
-    console.error(
-      `bench-mount: cached tarball has wrong sha256 (got ${got}, want ${entry.sha256}). Re-downloading.`,
-    );
-    rmSync(tarballPath);
+  if (useValidCachedTarball(tarballPath, entry)) {
+    return tarballPath;
   }
+  await downloadTarball(entry, tarballPath);
+  return tarballPath;
+}
+
+function useValidCachedTarball(tarballPath: string, entry: FixtureEntry): boolean {
+  if (!existsSync(tarballPath)) {
+    return false;
+  }
+  const got = sha256File(tarballPath);
+  if (got === entry.sha256) {
+    return true;
+  }
+  console.error(
+    `bench-mount: cached tarball has wrong sha256 (got ${got}, want ${entry.sha256}). Re-downloading.`,
+  );
+  rmSync(tarballPath);
+  return false;
+}
+
+async function downloadTarball(entry: FixtureEntry, tarballPath: string): Promise<void> {
   console.error(`bench-mount: downloading ${entry.url} → ${tarballPath}`);
   const res = await fetch(entry.url);
+  assertDownloadResponse(res);
+  const tmp = `${tarballPath}.tmp.${process.pid}`;
+  await pipeline(Readable.fromWeb(res.body as never), createWriteStream(tmp));
+  verifyDownloadedTarball(tmp, entry);
+  renameSync(tmp, tarballPath);
+}
+
+function assertDownloadResponse(
+  res: Response,
+): asserts res is Response & { body: NonNullable<Response["body"]> } {
   if (!res.ok || !res.body) {
     throw new Error(`download failed: ${res.status} ${res.statusText}`);
   }
-  const tmp = `${tarballPath}.tmp.${process.pid}`;
-  await pipeline(Readable.fromWeb(res.body as never), createWriteStream(tmp));
+}
+
+function verifyDownloadedTarball(tmp: string, entry: FixtureEntry): void {
   const got = sha256File(tmp);
-  if (got !== entry.sha256) {
-    rmSync(tmp);
-    throw new Error(`sha256 mismatch for ${entry.url}: got ${got}, want ${entry.sha256}`);
+  if (got === entry.sha256) {
+    return;
   }
-  renameSync(tmp, tarballPath);
-  return tarballPath;
+  rmSync(tmp);
+  throw new Error(`sha256 mismatch for ${entry.url}: got ${got}, want ${entry.sha256}`);
 }
 
 function sha256File(path: string): string {
@@ -194,49 +255,103 @@ interface RunResult {
   docker: { wallMs: number } | null;
 }
 
+type RuntimeBoot = (typeof import("@machinen/runtime"))["boot"];
+type BenchVmHandle = Awaited<ReturnType<RuntimeBoot>>;
+
+interface BenchVmInputs {
+  kernel: string;
+  dtb: string;
+  image: string;
+}
+
+interface MountBenchWorkload {
+  tarballName: string;
+  tarballBytes: number;
+  tarballHostDir: string;
+  tarCmd: string;
+}
+
 async function runMountBench(tarballPath: string, fixtureKey: string): Promise<RunResult> {
   const { boot } = await import("@machinen/runtime");
+  const inputs = resolveBenchVmInputs();
+  const scratch = createScratchDir();
+  const workload = buildMountBenchWorkload(tarballPath);
+  const runId = createRunId();
+  logRunStart(runId, scratch);
 
-  const kernel = pickFirstExisting([join(ASSETS, "Image-arm64"), join(FALLBACK_BASE, "Image")]);
-  const dtb = pickFirstExisting([join(ASSETS, "virt-arm64.dtb"), join(FALLBACK_BASE, "virt.dtb")]);
-  const image = pickFirstExisting([
-    join(ASSETS, "rootfs-debian-arm64.tar.gz"),
-    join(FALLBACK_BASE, "rootfs.tar.gz"),
-  ]);
-  for (const p of [kernel, dtb, image]) {
-    if (!existsSync(p)) {
-      console.error(
-        `bench-mount: missing fixture ${p}. Run scripts/build-base-assets.sh + pnpm provision.`,
-      );
-      process.exit(2);
-    }
+  const vm = await bootMountBenchVm(boot, inputs, scratch, workload.tarballHostDir);
+  try {
+    const wallMs = await runTarWorkload(vm, workload.tarCmd);
+    return buildRunResult(runId, fixtureKey, workload, wallMs);
+  } finally {
+    await cleanupMountBenchRun(vm, scratch);
   }
+}
 
-  // Per-run host scratch — the guest writes through to this directory
-  // over the live-mount channel. Removed after the bench so repeated
-  // runs don't accumulate.
+function resolveBenchVmInputs(): BenchVmInputs {
+  const inputs = {
+    kernel: pickFirstExisting([join(ASSETS, "Image-arm64"), join(FALLBACK_BASE, "Image")]),
+    dtb: pickFirstExisting([join(ASSETS, "virt-arm64.dtb"), join(FALLBACK_BASE, "virt.dtb")]),
+    image: pickFirstExisting([
+      join(ASSETS, "rootfs-debian-arm64.tar.gz"),
+      join(FALLBACK_BASE, "rootfs.tar.gz"),
+    ]),
+  };
+  ensureBenchFixtures([inputs.kernel, inputs.dtb, inputs.image]);
+  return inputs;
+}
+
+function ensureBenchFixtures(paths: string[]): void {
+  for (const path of paths) {
+    ensureBenchFixture(path);
+  }
+}
+
+function ensureBenchFixture(path: string): void {
+  if (!existsSync(path)) {
+    console.error(
+      `bench-mount: missing fixture ${path}. Run scripts/build-base-assets.sh + pnpm provision.`,
+    );
+    process.exit(2);
+  }
+}
+
+function createScratchDir(): string {
   const scratch = join(tmpdir(), `machinen-bench-mount-${process.pid}-${Date.now()}`);
   mkdirSync(scratch, { recursive: true });
+  return scratch;
+}
 
+function buildMountBenchWorkload(tarballPath: string): MountBenchWorkload {
   const tarballName = basename(tarballPath);
-  const tarballBytes = readFileSync(tarballPath).length;
+  return {
+    tarballName,
+    tarballBytes: readFileSync(tarballPath).length,
+    tarballHostDir: dirname(tarballPath),
+    tarCmd: `cd /mnt/out && tar -xzf /mnt/in/${tarballName}`,
+  };
+}
 
-  // The exec-agent reads the tarball from a path inside the guest. Two
-  // ways to get it there: copy via writeFile (we'd pay the same channel
-  // cost we're benching), or mount the host directory holding the
-  // tarball as a separate read-only live-mount. The latter is cleaner —
-  // the write-side mount is the one being measured.
-  const tarballHostDir = dirname(tarballPath);
+function createRunId(): string {
+  return new Date().toISOString().replace(/[:.]/g, "-");
+}
 
-  const runId = new Date().toISOString().replace(/[:.]/g, "-");
+function logRunStart(runId: string, scratch: string): void {
   console.error(`bench-mount: runId=${runId}`);
   console.error(`bench-mount: scratch=${scratch}`);
+}
 
+async function bootMountBenchVm(
+  boot: RuntimeBoot,
+  inputs: BenchVmInputs,
+  scratch: string,
+  tarballHostDir: string,
+): Promise<BenchVmHandle> {
   const t0 = Date.now();
   const vm = await boot({
-    image,
-    kernel,
-    dtb,
+    image: inputs.image,
+    kernel: inputs.kernel,
+    dtb: inputs.dtb,
     cmd: ["/bin/sh", "-c", "while :; do sleep 1; done"],
     // `/mnt/out` is the measured write side; `/mnt/in` is a read-only
     // convenience mount carrying the tarball source. Both ride in-VMM
@@ -248,40 +363,47 @@ async function runMountBench(tarballPath: string, fixtureKey: string): Promise<R
     timeoutMs: 120_000,
   });
   console.error(`bench-mount: VM booted (${Date.now() - t0}ms)`);
+  return vm;
+}
 
-  let result: RunResult;
-  try {
-    // Time the actual workload: shell out to tar inside the guest. The
-    // `time` line goes to stderr; we read wall via host hrtime because
-    // it's the user-visible number we promised in the README.
-    const tarCmd = `cd /mnt/out && tar -xzf /mnt/in/${tarballName}`;
-    const ts = Date.now();
-    const tarRes = await vm.execRaw(tarCmd, { execTimeoutMs: 300_000 });
-    const wallMs = Date.now() - ts;
-    if (tarRes.exitCode !== 0) {
-      throw new Error(
-        `tar exited ${tarRes.exitCode}\nstdout: ${tarRes.stdout}\nstderr: ${tarRes.stderr}`,
-      );
-    }
-    console.error(`bench-mount: tar finished in ${wallMs}ms`);
-
-    result = {
-      runId,
-      host: hostInfo(),
-      fixtures: { tarball: fixtureKey, tarballBytes },
-      workload: tarCmd,
-      wallMs,
-      docker: null,
-    };
-  } finally {
-    await vm.kill().catch(() => {});
-    await vm.wait().catch(() => undefined);
-    try {
-      rmSync(scratch, { recursive: true, force: true });
-    } catch {}
+async function runTarWorkload(vm: BenchVmHandle, tarCmd: string): Promise<number> {
+  // Time the actual workload: shell out to tar inside the guest. The
+  // `time` line goes to stderr; we read wall via host hrtime because
+  // it's the user-visible number we promised in the README.
+  const ts = Date.now();
+  const tarRes = await vm.execRaw(tarCmd, { execTimeoutMs: 300_000 });
+  const wallMs = Date.now() - ts;
+  if (tarRes.exitCode !== 0) {
+    throw new Error(
+      `tar exited ${tarRes.exitCode}\nstdout: ${tarRes.stdout}\nstderr: ${tarRes.stderr}`,
+    );
   }
+  console.error(`bench-mount: tar finished in ${wallMs}ms`);
+  return wallMs;
+}
 
-  return result;
+function buildRunResult(
+  runId: string,
+  fixtureKey: string,
+  workload: MountBenchWorkload,
+  wallMs: number,
+): RunResult {
+  return {
+    runId,
+    host: hostInfo(),
+    fixtures: { tarball: fixtureKey, tarballBytes: workload.tarballBytes },
+    workload: workload.tarCmd,
+    wallMs,
+    docker: null,
+  };
+}
+
+async function cleanupMountBenchRun(vm: BenchVmHandle, scratch: string): Promise<void> {
+  await vm.kill().catch(() => {});
+  await vm.wait().catch(() => undefined);
+  try {
+    rmSync(scratch, { recursive: true, force: true });
+  } catch {}
 }
 
 function writeResult(result: RunResult): string {

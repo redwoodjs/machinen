@@ -355,6 +355,26 @@ function cliCachedBaseDir(): string {
   return join(homedir(), ".machinen", `runtime-v${version}`, "bases", `debian-${spec.cpu}`);
 }
 
+interface ProvisionContext {
+  cwd: string;
+  baseAbs: string;
+  kernelAbs: string;
+  dtbAbs: string | undefined;
+  outAbs: string;
+  t0: number;
+  workDir: string;
+  diskPath: string;
+  rootDiskPath: string;
+  udsPath: string;
+  phases: PhaseTimer;
+}
+
+interface ProvisionStderrTail {
+  tail: () => string;
+}
+
+const PROVISION_STDERR_TAIL_MAX = 128 * 1024;
+
 /**
  * Boot the base rootfs, run the user install hook, and freeze the
  * resulting filesystem state to a new tarball at `opts.out`.
@@ -366,227 +386,242 @@ function cliCachedBaseDir(): string {
  * @throws {BootError} see `boot()` — propagated from the inner boot
  */
 export async function provision(opts: ProvisionOptions): Promise<ProvisionResult> {
+  const ctx = createProvisionContext(opts);
+  try {
+    prepareProvisionDisks(opts, ctx);
+    const vm = await bootProvisionVm(opts, ctx);
+    await runProvisionVmWorkload(opts, ctx, vm);
+    repackProvisionOutput(opts, ctx);
+    return finishProvision(opts, ctx);
+  } finally {
+    cleanupProvisionWorkDir(ctx.workDir);
+  }
+}
+
+function createProvisionContext(opts: ProvisionOptions): ProvisionContext {
   const cwd = opts.cwd ?? process.cwd();
   const baseAbs = resolveBaseRootfs(opts.base, cwd);
   const kernelAbs = resolveBaseKernel(opts.kernel, cwd);
   const dtbAbs = resolveBaseDtb(opts.dtb, cwd);
   const outAbs = resolve(cwd, opts.out);
-  // Ensure the parent dir exists so `out: "./artifacts/rootfs.tar.gz"`
-  // works without the caller having to mkdir it first. mkdtemp / tar
-  // below would otherwise fail with ENOENT on a missing parent.
   mkdirSync(dirname(outAbs), { recursive: true });
 
-  const t0 = Date.now();
   const workDir = mkdtempSync(join(tmpdir(), "machinen-provision-"));
-  const diskPath = join(workDir, "scratch.img");
-  const rootDiskPath = join(workDir, "rootfs.img");
-  const udsPath = join(workDir, "exec.sock");
+  const ctx = {
+    cwd,
+    baseAbs,
+    kernelAbs,
+    dtbAbs,
+    outAbs,
+    t0: Date.now(),
+    workDir,
+    diskPath: join(workDir, "scratch.img"),
+    rootDiskPath: join(workDir, "rootfs.img"),
+    udsPath: join(workDir, "exec.sock"),
+    phases: new PhaseTimer(),
+  };
   debug("provision start base=%s out=%s workDir=%s", baseAbs, outAbs, workDir);
+  return ctx;
+}
 
-  // #233: per-phase wall-clock timeline emitted as a `PhaseLogEvent`
-  // via opts.onLog (and as a debug one-liner under DEBUG=machinen:provision).
-  // Mirrors boot()'s instrumentation so host scripts can show callers
-  // where provision wall time actually goes — install hooks rarely
-  // dominate; the inner boot, tar, and repack do.
-  const phases = new PhaseTimer();
+function prepareProvisionDisks(opts: ProvisionOptions, ctx: ProvisionContext): void {
+  allocateProvisionScratch(opts, ctx);
+  cloneProvisionRootDisk(ctx);
+}
 
+function allocateProvisionScratch(opts: ProvisionOptions, ctx: ProvisionContext): void {
+  const scratchBytes = opts.scratchDiskSizeBytes ?? 1024 * 1024 * 1024;
+  allocateSparseFile(ctx.diskPath, scratchBytes);
+  debug("scratch disk allocated path=%s sizeBytes=%d", ctx.diskPath, scratchBytes);
+}
+
+function cloneProvisionRootDisk(ctx: ProvisionContext): void {
+  ctx.phases.start("rootdisk-prep");
+  const cachedImg = ensureRootfsImage(ctx.baseAbs, {
+    onPhase: (name, ms) => ctx.phases.mark(`rootdisk-prep.${name}`, ms),
+  });
+  const reflinkT0 = Date.now();
+  reflinkCopy(cachedImg, ctx.rootDiskPath);
+  ctx.phases.mark("rootdisk-prep.reflink", Date.now() - reflinkT0);
+  debug("rootdisk cloned src=%s dst=%s", cachedImg, ctx.rootDiskPath);
+  markRootfsImageClean(cachedImg);
+  ctx.phases.end("rootdisk-prep");
+}
+
+async function bootProvisionVm(opts: ProvisionOptions, ctx: ProvisionContext): Promise<VmHandle> {
+  ctx.phases.start("boot");
+  const vm = await boot({
+    binary: opts.binary,
+    cwd: opts.cwd,
+    vmmEnv: {
+      ...opts.vmmEnv,
+      MACHINEN_VSOCK: `in:1978:${ctx.udsPath}`,
+    },
+    kernel: ctx.kernelAbs,
+    ...(ctx.dtbAbs ? { dtb: ctx.dtbAbs } : {}),
+    image: ctx.baseAbs,
+    cmd: ["/exec-agent"],
+    env: { PATH: "/usr/local/bin:/usr/bin:/bin:/sbin" },
+    snapshot: ctx.diskPath,
+    rootDisk: ctx.rootDiskPath,
+    timeoutMs: null,
+    onLog: opts.onLog,
+  });
+  ctx.phases.end("boot");
+  return vm;
+}
+
+async function runProvisionVmWorkload(
+  opts: ProvisionOptions,
+  ctx: ProvisionContext,
+  vm: VmHandle,
+): Promise<void> {
+  const deadlineMs = opts.timeoutMs ?? 10 * 60 * 1000;
+  const killTimer = setTimeout(() => void vm.kill(), deadlineMs);
+  killTimer.unref();
+  const stderrTail = captureProvisionStderrTail(vm);
   try {
-    // Allocate the scratch disk sparsely. The guest tars its filesystem
-    // into this block device; the host then repacks the raw tar stream
-    // into the output tarball.
-    const scratchBytes = opts.scratchDiskSizeBytes ?? 1024 * 1024 * 1024;
-    allocateSparseFile(diskPath, scratchBytes);
-    debug("scratch disk allocated path=%s sizeBytes=%d", diskPath, scratchBytes);
-
-    // Materialize the base tarball into an ext4 image and COW-clone it
-    // into the workDir. The install hook mutates this throwaway copy, so
-    // the persistent ~/.cache/machinen/rootfs/<sha>.img cache stays
-    // pristine for normal `boot({ image })` callers that share the same
-    // base. reflinkCopy → APFS clonefile / Linux FICLONE on reflink-
-    // capable fs (free); falls back to a regular copy elsewhere
-    // (one-time cost, sparse).
-    phases.start("rootdisk-prep");
-    const cachedImg = ensureRootfsImage(baseAbs, {
-      onPhase: (name, ms) => phases.mark(`rootdisk-prep.${name}`, ms),
-    });
-    const reflinkT0 = Date.now();
-    reflinkCopy(cachedImg, rootDiskPath);
-    phases.mark("rootdisk-prep.reflink", Date.now() - reflinkT0);
-    debug("rootdisk cloned src=%s dst=%s", cachedImg, rootDiskPath);
-    // The cached `<sha>.img` was only READ here — the FICLONE / copy
-    // landed in workDir, and the upcoming boot() targets that copy via
-    // `rootDisk: rootDiskPath`. Restore the clean-shutdown marker the
-    // cache entry semantics expect (#170): without this the next
-    // provision() with the same base would see a missing `.ok` and
-    // wastefully rematerialize a known-good image.
-    markRootfsImageClean(cachedImg);
-    phases.end("rootdisk-prep");
-
-    // Boot the VMM with the base rootfs on /dev/vda (mounted ext4) and
-    // the exec-agent as the cmd. The scratch disk lands on /dev/vdb,
-    // ready for the post-install tar dump. We set MACHINEN_VSOCK
-    // explicitly via `vmmEnv` so the UDS path lives under workDir
-    // (predictable cleanup) rather than boot()'s auto-allocated tmp dir.
-    phases.start("boot");
-    const vm = await boot({
-      binary: opts.binary,
-      cwd: opts.cwd,
-      vmmEnv: {
-        ...opts.vmmEnv,
-        MACHINEN_VSOCK: `in:1978:${udsPath}`,
-      },
-      kernel: kernelAbs,
-      ...(dtbAbs ? { dtb: dtbAbs } : {}),
-      image: baseAbs,
-      cmd: ["/exec-agent"],
-      env: { PATH: "/usr/local/bin:/usr/bin:/bin:/sbin" },
-      snapshot: diskPath,
-      rootDisk: rootDiskPath,
-      // We drive the guest to exit via /sbin/machinen-poweroff at the
-      // end; wait() has its own ceiling below.
-      timeoutMs: null,
-      // Forward guest console + install-hook exec output to the caller.
-      // Internal tar / poweroff execs are forwarded explicitly below.
-      onLog: opts.onLog,
-    });
-    phases.end("boot");
-
-    const deadlineMs = opts.timeoutMs ?? 10 * 60 * 1000;
-    const killTimer = setTimeout(() => void vm.kill(), deadlineMs);
-    killTimer.unref();
-
-    // Buffer stderr so a timed-out VsockExec can surface the VMM's
-    // actual complaint instead of a bare ENOENT on the UDS. Keep up to
-    // 128 KB so we catch kernel boot output + vsock bridge messages,
-    // not just the zig unit-test tail.
-    const tailBuf: Buffer[] = [];
-    let tailBytes = 0;
-    const TAIL_MAX = 128 * 1024;
-    vm.stderr.on("data", (chunk: Buffer) => {
-      tailBuf.push(chunk);
-      tailBytes += chunk.length;
-      while (tailBytes > TAIL_MAX && tailBuf.length > 1) {
-        tailBytes -= tailBuf[0]!.length;
-        tailBuf.shift();
-      }
-      if (vmmDebug.enabled) {
-        process.stderr.write(chunk);
-      }
-    });
-    const stderrTail = () => Buffer.concat(tailBuf).slice(-TAIL_MAX).toString("utf8");
-
-    try {
-      // Hand control to the install hook. The spawned VM already has
-      // exec()/execRaw() hooked up to the vsock UDS we set via env, so
-      // the hook uses the same VmHandle shape as any other caller.
-      const installT0 = Date.now();
-      debug("install hook entry");
-      phases.start("install");
-      try {
-        await opts.install(vm);
-      } catch (err) {
-        const tail = stderrTail();
-        const msg = err instanceof Error ? err.message : String(err);
-        debug("install hook failed err=%s tailBytes=%d", msg, tail.length);
-        throw new ProvisionError(
-          "PROVISION_INSTALL_HOOK_FAILED",
-          `install hook failed: ${msg}\n--- VMM stderr (last 8 KB) ---\n${tail}`,
-          { cause: err },
-        );
-      }
-      phases.end("install");
-      debug("install hook done elapsed=%dms", Date.now() - installT0);
-
-      // Post-install: archive / to /dev/vdb (the scratch disk), then
-      // tell the guest to power off cleanly (PSCI SYSTEM_OFF via
-      // /sbin/machinen-poweroff). A failed tar here means our scratch
-      // disk was too small; surface that specifically.
-      debug("tar / -> /dev/vdb starting");
-      const tarT0 = Date.now();
-      phases.start("tar-to-disk");
-      const tar = await VsockExec.run(udsPath, TAR_TO_DISK_CMD, {
-        execTimeoutMs: deadlineMs,
-        ...tapExecForLog(TAR_TO_DISK_CMD, opts.onLog),
-      });
-      phases.end("tar-to-disk");
-      debug("tar / -> /dev/vdb done exit=%d elapsed=%dms", tar.exitCode, Date.now() - tarT0);
-      if (tar.exitCode !== 0) {
-        throw new ProvisionError(
-          "PROVISION_DISK_TOO_SMALL",
-          `tar / to /dev/vdb failed (code ${tar.exitCode}) — scratch disk may be too small.\n` +
-            `Bump scratchDiskSizeBytes. stderr:\n${tar.stderr}`,
-        );
-      }
-
-      // Poweroff. /sbin/machinen-poweroff syncs, calls reboot(POWER_OFF),
-      // and the VMM exits on PSCI SYSTEM_OFF. The connection can fail in
-      // several equivalent ways (ECONNRESET mid-transaction, "agent
-      // closed before X frame", or a fast-retry hitting ECONNREFUSED
-      // after the VMM has already exited) — all are fine; vm.wait()
-      // below is the real success signal. Short connect timeout so
-      // we don't burn 30s retrying a bridge that's already gone.
-      debug("requesting guest poweroff");
-      phases.start("poweroff-wait");
-      await VsockExec.run(udsPath, "/sbin/machinen-poweroff", {
-        connectTimeoutMs: 2_000,
-        ...tapExecForLog("/sbin/machinen-poweroff", opts.onLog),
-      }).catch(() => {});
-
-      // Surface progress without requiring DEBUG. The kernel's last
-      // visible line is `reboot: Power down`, after which there's a
-      // 30–90 s gap of silent host-side CPU. See #162.
-      console.error("provision: waiting for guest exit…");
-      await vm.wait();
-      phases.end("poweroff-wait");
-      debug("guest exited");
-    } finally {
-      clearTimeout(killTimer);
-      if (vm.pid > 0) {
-        await vm.kill().catch(() => {});
-      }
-    }
-
-    // Scratch disk now holds a raw tar stream (padded with zeros up to
-    // the scratch size). Repack it as a gzipped tarball at `out`, which
-    // trims trailing zeros and normalizes compression.
-    debug("repack disk tar -> %s starting", outAbs);
-    const repackT0 = Date.now();
-    phases.start("repack-targz");
-    repackDiskTarToGz(diskPath, outAbs, {
-      cmd: opts.cmd,
-      env: opts.env,
-      onPhase: (name, ms) => phases.mark(`repack-targz.${name}`, ms),
-    });
-    phases.end("repack-targz");
-    debug("repack done elapsed=%dms", Date.now() - repackT0);
-
-    const sizeBytes = statSync(outAbs).size;
-    // Warm boot()'s image-config cache (#233 follow-up): we know the
-    // exact bytes that landed in the tarball's machinen-config.json,
-    // so the next boot() can skip the ~1 s `tar -xzOf` decompress.
-    warmImageConfigCache(
-      outAbs,
-      opts.cmd || opts.env
-        ? {
-            ...(opts.cmd ? { cmd: opts.cmd } : {}),
-            ...(opts.env ? { env: opts.env } : {}),
-          }
-        : null,
-    );
-    const elapsedMs = Date.now() - t0;
-    debug("provision complete sizeBytes=%d totalElapsed=%dms", sizeBytes, elapsedMs);
-    phases.flush(debug, "provision", elapsedMs);
-    opts.onLog?.(phases.toEvent("provision", elapsedMs));
-    return {
-      imagePath: outAbs,
-      sizeBytes,
-      elapsedMs,
-    };
+    await runInstallHook(opts, ctx, vm, stderrTail);
+    await tarProvisionRootfsToDisk(opts, ctx, deadlineMs);
+    await poweroffProvisionGuest(opts, ctx, vm);
   } finally {
-    try {
-      rmSync(workDir, { recursive: true, force: true });
-    } catch {}
+    clearTimeout(killTimer);
+    await killProvisionVm(vm);
   }
+}
+
+function captureProvisionStderrTail(vm: VmHandle): ProvisionStderrTail {
+  const tailBuf: Buffer[] = [];
+  let tailBytes = 0;
+  vm.stderr.on("data", (chunk: Buffer) => {
+    tailBuf.push(chunk);
+    tailBytes += chunk.length;
+    while (tailBytes > PROVISION_STDERR_TAIL_MAX && tailBuf.length > 1) {
+      tailBytes -= tailBuf[0]!.length;
+      tailBuf.shift();
+    }
+    if (vmmDebug.enabled) {
+      process.stderr.write(chunk);
+    }
+  });
+  return {
+    tail: () => Buffer.concat(tailBuf).slice(-PROVISION_STDERR_TAIL_MAX).toString("utf8"),
+  };
+}
+
+async function runInstallHook(
+  opts: ProvisionOptions,
+  ctx: ProvisionContext,
+  vm: VmHandle,
+  stderrTail: ProvisionStderrTail,
+): Promise<void> {
+  const installT0 = Date.now();
+  debug("install hook entry");
+  ctx.phases.start("install");
+  try {
+    await opts.install(vm);
+  } catch (err) {
+    throw installHookError(err, stderrTail.tail());
+  }
+  ctx.phases.end("install");
+  debug("install hook done elapsed=%dms", Date.now() - installT0);
+}
+
+function installHookError(err: unknown, tail: string): ProvisionError {
+  const msg = err instanceof Error ? err.message : String(err);
+  debug("install hook failed err=%s tailBytes=%d", msg, tail.length);
+  return new ProvisionError(
+    "PROVISION_INSTALL_HOOK_FAILED",
+    `install hook failed: ${msg}\n--- VMM stderr (last 8 KB) ---\n${tail}`,
+    { cause: err },
+  );
+}
+
+async function tarProvisionRootfsToDisk(
+  opts: ProvisionOptions,
+  ctx: ProvisionContext,
+  deadlineMs: number,
+): Promise<void> {
+  debug("tar / -> /dev/vdb starting");
+  const tarT0 = Date.now();
+  ctx.phases.start("tar-to-disk");
+  const tar = await VsockExec.run(ctx.udsPath, TAR_TO_DISK_CMD, {
+    execTimeoutMs: deadlineMs,
+    ...tapExecForLog(TAR_TO_DISK_CMD, opts.onLog),
+  });
+  ctx.phases.end("tar-to-disk");
+  debug("tar / -> /dev/vdb done exit=%d elapsed=%dms", tar.exitCode, Date.now() - tarT0);
+  if (tar.exitCode !== 0) {
+    throw new ProvisionError(
+      "PROVISION_DISK_TOO_SMALL",
+      `tar / to /dev/vdb failed (code ${tar.exitCode}) — scratch disk may be too small.\n` +
+        `Bump scratchDiskSizeBytes. stderr:\n${tar.stderr}`,
+    );
+  }
+}
+
+async function poweroffProvisionGuest(
+  opts: ProvisionOptions,
+  ctx: ProvisionContext,
+  vm: VmHandle,
+): Promise<void> {
+  debug("requesting guest poweroff");
+  ctx.phases.start("poweroff-wait");
+  await VsockExec.run(ctx.udsPath, "/sbin/machinen-poweroff", {
+    connectTimeoutMs: 2_000,
+    ...tapExecForLog("/sbin/machinen-poweroff", opts.onLog),
+  }).catch(() => {});
+  console.error("provision: waiting for guest exit…");
+  await vm.wait();
+  ctx.phases.end("poweroff-wait");
+  debug("guest exited");
+}
+
+async function killProvisionVm(vm: VmHandle): Promise<void> {
+  if (vm.pid > 0) {
+    await vm.kill().catch(() => {});
+  }
+}
+
+function repackProvisionOutput(opts: ProvisionOptions, ctx: ProvisionContext): void {
+  debug("repack disk tar -> %s starting", ctx.outAbs);
+  const repackT0 = Date.now();
+  ctx.phases.start("repack-targz");
+  repackDiskTarToGz(ctx.diskPath, ctx.outAbs, {
+    cmd: opts.cmd,
+    env: opts.env,
+    onPhase: (name, ms) => ctx.phases.mark(`repack-targz.${name}`, ms),
+  });
+  ctx.phases.end("repack-targz");
+  debug("repack done elapsed=%dms", Date.now() - repackT0);
+}
+
+function finishProvision(opts: ProvisionOptions, ctx: ProvisionContext): ProvisionResult {
+  const sizeBytes = statSync(ctx.outAbs).size;
+  warmImageConfigCache(ctx.outAbs, provisionImageConfig(opts));
+  const elapsedMs = Date.now() - ctx.t0;
+  debug("provision complete sizeBytes=%d totalElapsed=%dms", sizeBytes, elapsedMs);
+  ctx.phases.flush(debug, "provision", elapsedMs);
+  opts.onLog?.(ctx.phases.toEvent("provision", elapsedMs));
+  return { imagePath: ctx.outAbs, sizeBytes, elapsedMs };
+}
+
+function provisionImageConfig(
+  opts: ProvisionOptions,
+): { cmd?: string[]; env?: Record<string, string> } | null {
+  if (!opts.cmd && !opts.env) {
+    return null;
+  }
+  return {
+    ...(opts.cmd ? { cmd: opts.cmd } : {}),
+    ...(opts.env ? { env: opts.env } : {}),
+  };
+}
+
+function cleanupProvisionWorkDir(workDir: string): void {
+  try {
+    rmSync(workDir, { recursive: true, force: true });
+  } catch {}
 }
 
 /**

@@ -94,29 +94,61 @@ async function bench<T>(label: string, fn: () => T | Promise<T>): Promise<T> {
 }
 
 function renderPhaseBlock(evt: import("@machinen/runtime").PhaseLogEvent): void {
-  const total = evt.totalMs;
-  const names = [...evt.phases.keys()];
-  const labelW = Math.max(20, ...names.map((n) => n.length + (n.includes(".") ? 2 : 0)));
-  process.stderr.write(`[machinen] === ${evt.kind} phases (total ${fmtMs(total)}) ===\n`);
-  let topSum = 0;
+  const labelW = phaseLabelWidth(evt, 20);
+  process.stderr.write(`[machinen] === ${evt.kind} phases (total ${fmtMs(evt.totalMs)}) ===\n`);
+  renderPhaseRows(evt, labelW);
+  renderUnattributedPhase(evt, labelW);
+}
+
+function phaseLabelWidth(evt: import("@machinen/runtime").PhaseLogEvent, min: number): number {
+  const widths = [...evt.phases.keys()].map((name) => name.length + subPhaseIndent(name).length);
+  return Math.max(min, ...widths);
+}
+
+function renderPhaseRows(evt: import("@machinen/runtime").PhaseLogEvent, labelW: number): void {
   for (const [name, ms] of evt.phases) {
-    const isSub = name.includes(".");
-    if (!isSub) {
-      topSum += ms;
-    }
-    const display = isSub ? `  ${name}` : name;
-    const pct = total > 0 ? ((ms / total) * 100).toFixed(0).padStart(3) : "  -";
-    process.stderr.write(
-      `[machinen]   ${display.padEnd(labelW)} ${fmtMs(ms).padStart(8)}  ${pct}%\n`,
-    );
+    writePhaseRow(phaseDisplayName(name), ms, evt.totalMs, labelW);
   }
-  const other = Math.max(0, total - topSum);
-  if (other > 0 && total > 0) {
-    const pct = ((other / total) * 100).toFixed(0).padStart(3);
-    process.stderr.write(
-      `[machinen]   ${"(unattributed)".padEnd(labelW)} ${fmtMs(other).padStart(8)}  ${pct}%\n`,
-    );
+}
+
+function renderUnattributedPhase(
+  evt: import("@machinen/runtime").PhaseLogEvent,
+  labelW: number,
+): void {
+  const other = Math.max(0, evt.totalMs - topLevelPhaseSum(evt));
+  if (other > 0 && evt.totalMs > 0) {
+    writePhaseRow("(unattributed)", other, evt.totalMs, labelW);
   }
+}
+
+function topLevelPhaseSum(evt: import("@machinen/runtime").PhaseLogEvent): number {
+  let sum = 0;
+  for (const [name, ms] of evt.phases) {
+    sum += isSubPhase(name) ? 0 : ms;
+  }
+  return sum;
+}
+
+function writePhaseRow(label: string, ms: number, total: number, labelW: number): void {
+  process.stderr.write(
+    `[machinen]   ${label.padEnd(labelW)} ${fmtMs(ms).padStart(8)}  ${phasePercent(ms, total)}%\n`,
+  );
+}
+
+function phaseDisplayName(name: string): string {
+  return `${subPhaseIndent(name)}${name}`;
+}
+
+function subPhaseIndent(name: string): string {
+  return isSubPhase(name) ? "  " : "";
+}
+
+function isSubPhase(name: string): boolean {
+  return name.includes(".");
+}
+
+function phasePercent(ms: number, total: number): string {
+  return total > 0 ? ((ms / total) * 100).toFixed(0).padStart(3) : "  -";
 }
 
 const ASSETS = process.env.MACHINEN_ASSETS_DIR ?? resolve(MAIN_REPO, "release-assets");

@@ -228,7 +228,38 @@ interface RewriteResult {
  * fits inside one of the ranges get PE_LAZY OR'd in. Pass an empty
  * array to leave the pagemap untouched. Exported for tests.
  */
+interface PagemapMessage {
+  msg: Buffer;
+  isFirst: boolean;
+}
+
+interface PagemapRewriteState {
+  out: Buffer[];
+  changed: boolean;
+  entriesFlagged: number;
+  entriesAlreadyLazy: number;
+}
+
 export function rewritePagemap(input: Buffer, lazyRanges: VmaRange[] = []): RewriteResult {
+  validatePagemapHeader(input);
+  const state: PagemapRewriteState = {
+    out: [input.subarray(0, 8)],
+    changed: false,
+    entriesFlagged: 0,
+    entriesAlreadyLazy: 0,
+  };
+  for (const message of pagemapMessages(input)) {
+    appendRewrittenPagemapMessage(state, message, lazyRanges);
+  }
+  return {
+    out: Buffer.concat(state.out),
+    changed: state.changed,
+    entriesFlagged: state.entriesFlagged,
+    entriesAlreadyLazy: state.entriesAlreadyLazy,
+  };
+}
+
+function validatePagemapHeader(input: Buffer): void {
   if (input.length < 8) {
     throw new Error("pagemap: file too short for magic header");
   }
@@ -238,46 +269,64 @@ export function rewritePagemap(input: Buffer, lazyRanges: VmaRange[] = []): Rewr
   if (input.readUInt32LE(4) !== PAGEMAP_MAGIC) {
     throw new Error(`pagemap: bad pagemap magic 0x${input.readUInt32LE(4).toString(16)}`);
   }
+}
 
-  const out: Buffer[] = [input.subarray(0, 8)];
+function* pagemapMessages(input: Buffer): Generator<PagemapMessage> {
   let pos = 8;
-  let entriesFlagged = 0;
-  let entriesAlreadyLazy = 0;
-  let changed = false;
-  let isFirstMessage = true;
-
+  let isFirst = true;
   while (pos < input.length) {
-    if (pos + 4 > input.length) {
-      throw new Error("pagemap: truncated size prefix");
-    }
-    const size = input.readUInt32LE(pos);
-    pos += 4;
-    if (pos + size > input.length) {
-      throw new Error("pagemap: truncated message body");
-    }
-    const msg = input.subarray(pos, pos + size);
-    pos += size;
-
-    let outMsg: Buffer = msg;
-    if (!isFirstMessage) {
-      const result = rewriteEntry(msg, lazyRanges);
-      if (result.alreadyLazy) {
-        entriesAlreadyLazy++;
-      }
-      if (result.changed) {
-        outMsg = result.out;
-        entriesFlagged++;
-        changed = true;
-      }
-    }
-    isFirstMessage = false;
-
-    const sizeBuf = Buffer.alloc(4);
-    sizeBuf.writeUInt32LE(outMsg.length, 0);
-    out.push(sizeBuf, outMsg);
+    const read = readPagemapMessage(input, pos);
+    yield { msg: read.msg, isFirst };
+    pos = read.next;
+    isFirst = false;
   }
+}
 
-  return { out: Buffer.concat(out), changed, entriesFlagged, entriesAlreadyLazy };
+function readPagemapMessage(input: Buffer, pos: number): { msg: Buffer; next: number } {
+  if (pos + 4 > input.length) {
+    throw new Error("pagemap: truncated size prefix");
+  }
+  const size = input.readUInt32LE(pos);
+  const msgStart = pos + 4;
+  const next = msgStart + size;
+  if (next > input.length) {
+    throw new Error("pagemap: truncated message body");
+  }
+  return { msg: input.subarray(msgStart, next), next };
+}
+
+function appendRewrittenPagemapMessage(
+  state: PagemapRewriteState,
+  message: PagemapMessage,
+  lazyRanges: VmaRange[],
+): void {
+  const outMsg = message.isFirst
+    ? message.msg
+    : rewritePagemapEntryMessage(state, message.msg, lazyRanges);
+  appendPagemapMessage(state.out, outMsg);
+}
+
+function rewritePagemapEntryMessage(
+  state: PagemapRewriteState,
+  msg: Buffer,
+  lazyRanges: VmaRange[],
+): Buffer {
+  const result = rewriteEntry(msg, lazyRanges);
+  if (result.alreadyLazy) {
+    state.entriesAlreadyLazy++;
+  }
+  if (result.changed) {
+    state.entriesFlagged++;
+    state.changed = true;
+    return result.out;
+  }
+  return msg;
+}
+
+function appendPagemapMessage(out: Buffer[], msg: Buffer): void {
+  const sizeBuf = Buffer.alloc(4);
+  sizeBuf.writeUInt32LE(msg.length, 0);
+  out.push(sizeBuf, msg);
 }
 
 interface EntryRewriteResult {
@@ -286,67 +335,106 @@ interface EntryRewriteResult {
   alreadyLazy: boolean;
 }
 
+interface PagemapEntryFields {
+  flagsValPos: number;
+  flagsValLen: number;
+  flags: number;
+  vaddr: bigint | null;
+  nrPages: bigint | null;
+  compatNrPages: bigint | null;
+}
+
 function rewriteEntry(msg: Buffer, lazyRanges: VmaRange[]): EntryRewriteResult {
-  // Walk the entry's protobuf fields. We need: vaddr (1), nr_pages (5),
-  // compat_nr_pages (2) as fallback, flags (4). nr_pages * 4096 sets
-  // the byte length of this entry's range.
+  const fields = parsePagemapEntryFields(msg);
+  if (entryIsAlreadyLazy(fields)) {
+    return unchangedEntry(msg, true);
+  }
+  if (!entryShouldBecomeLazy(fields, lazyRanges)) {
+    return unchangedEntry(msg, false);
+  }
+  return rewriteEntryFlags(msg, fields);
+}
+
+function parsePagemapEntryFields(msg: Buffer): PagemapEntryFields {
+  const fields: PagemapEntryFields = {
+    flagsValPos: -1,
+    flagsValLen: 0,
+    flags: 0,
+    vaddr: null,
+    nrPages: null,
+    compatNrPages: null,
+  };
   let pos = 0;
-  let flagsValPos = -1;
-  let flagsValLen = 0;
-  let flags = 0;
-  let vaddr: bigint | null = null;
-  let nrPages: bigint | null = null;
-  let compatNrPages: bigint | null = null;
-
   while (pos < msg.length) {
-    const t = readVarint(msg, pos);
-    const wireType = Number(t.value & 0x7n);
-    const field = Number(t.value >> 3n);
-    pos = t.next;
+    pos = readPagemapEntryField(msg, pos, fields);
+  }
+  return fields;
+}
 
-    if (wireType !== 0) {
-      pos = skipField(msg, pos, wireType);
-      continue;
-    }
-    const fStart = pos;
-    const v = readVarint(msg, pos);
-    pos = v.next;
-    if (field === 1) {
-      vaddr = v.value;
-    } else if (field === 2) {
-      compatNrPages = v.value;
-    } else if (field === 4) {
-      flagsValPos = fStart;
-      flagsValLen = v.next - fStart;
-      flags = Number(v.value);
-    } else if (field === 5) {
-      nrPages = v.value;
-    }
+function readPagemapEntryField(msg: Buffer, pos: number, fields: PagemapEntryFields): number {
+  const tag = readVarint(msg, pos);
+  const wireType = Number(tag.value & 0x7n);
+  const field = Number(tag.value >> 3n);
+  if (wireType !== 0) {
+    return skipField(msg, tag.next, wireType);
   }
+  const valueStart = tag.next;
+  const value = readVarint(msg, valueStart);
+  applyPagemapEntryField(fields, field, value.value, valueStart, value.next);
+  return value.next;
+}
 
-  const isPresent = (flags & PE_PRESENT) !== 0;
-  const isLazy = (flags & PE_LAZY) !== 0;
-  if (!isPresent) {
-    return { out: msg, changed: false, alreadyLazy: false };
+function applyPagemapEntryField(
+  fields: PagemapEntryFields,
+  field: number,
+  value: bigint,
+  valueStart: number,
+  valueNext: number,
+): void {
+  if (field === 1) {
+    fields.vaddr = value;
+  } else if (field === 2) {
+    fields.compatNrPages = value;
+  } else if (field === 4) {
+    fields.flagsValPos = valueStart;
+    fields.flagsValLen = valueNext - valueStart;
+    fields.flags = Number(value);
+  } else if (field === 5) {
+    fields.nrPages = value;
   }
-  if (isLazy) {
-    return { out: msg, changed: false, alreadyLazy: true };
-  }
-  if (vaddr === null) {
-    return { out: msg, changed: false, alreadyLazy: false };
-  }
-  const pages = nrPages ?? compatNrPages ?? 0n;
-  const len = pages * 4096n;
-  if (lazyRanges.length === 0 || !vaddrInLazyRange(vaddr, len, lazyRanges)) {
-    return { out: msg, changed: false, alreadyLazy: false };
-  }
+}
 
-  const newFlags = flags | PE_LAZY;
+function entryIsAlreadyLazy(fields: PagemapEntryFields): boolean {
+  return (fields.flags & PE_LAZY) !== 0;
+}
+
+function entryShouldBecomeLazy(fields: PagemapEntryFields, lazyRanges: VmaRange[]): boolean {
+  if (!entryIsPresentWithAddress(fields)) {
+    return false;
+  }
+  const len = entryPageCount(fields) * 4096n;
+  return lazyRanges.length > 0 && vaddrInLazyRange(fields.vaddr!, len, lazyRanges);
+}
+
+function entryIsPresentWithAddress(fields: PagemapEntryFields): boolean {
+  return (fields.flags & PE_PRESENT) !== 0 && fields.vaddr !== null;
+}
+
+function entryPageCount(fields: PagemapEntryFields): bigint {
+  return fields.nrPages ?? fields.compatNrPages ?? 0n;
+}
+
+function unchangedEntry(msg: Buffer, alreadyLazy: boolean): EntryRewriteResult {
+  return { out: msg, changed: false, alreadyLazy };
+}
+
+function rewriteEntryFlags(msg: Buffer, fields: PagemapEntryFields): EntryRewriteResult {
+  const newFlags = fields.flags | PE_LAZY;
   const newFlagsBytes = Buffer.from(encodeVarint(newFlags));
   const out = Buffer.concat([
-    msg.subarray(0, flagsValPos),
+    msg.subarray(0, fields.flagsValPos),
     newFlagsBytes,
-    msg.subarray(flagsValPos + flagsValLen),
+    msg.subarray(fields.flagsValPos + fields.flagsValLen),
   ]);
   return { out, changed: true, alreadyLazy: false };
 }
