@@ -214,6 +214,12 @@ zig cc "${ASSETS}/machinen-netup.c" \
   -Os \
   -o "${STAGE}/machinen-netup"
 
+zig cc "${ASSETS}/vmstate-reseed.c" \
+  -target aarch64-linux-musl \
+  -static \
+  -Os \
+  -o "${STAGE}/vmstate-reseed"
+
 # Refresh the in-tree /init that mkinitramfs.packTinyBundle() reads via
 # defaultInitPath() (packages/runtime/src/mkinitramfs.ts). Without this,
 # every user-facing boot() ships the binary that was checked in last,
@@ -489,6 +495,7 @@ install -m 1777 -d /work/rootfs/tmp
 install -m 0755 /stage/init       /work/rootfs/init
 install -m 0755 /stage/exec-agent /work/rootfs/exec-agent
 install -m 0755 -D /stage/machinen-netup    /work/rootfs/sbin/machinen-netup
+install -m 0755 -D /stage/vmstate-reseed    /work/rootfs/sbin/machinen-vmstate-reseed
 install -m 0755 -D /stage/lo-up             /work/rootfs/sbin/machinen-lo-up
 install -m 0755 -D /stage/no-iou            /work/rootfs/sbin/machinen-no-iou
 install -m 0755 -D /stage/poweroff          /work/rootfs/sbin/machinen-poweroff

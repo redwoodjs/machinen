@@ -18,6 +18,29 @@ way first: same arch only. arm64 to arm64 works (laptop to Graviton).
 arm64 to x86 does not — the snapshot includes machine-code register
 state, and that doesn't translate.
 
+## Vmstate restore contract
+
+The default snapshot engine is `vmstate`: a whole-VM checkpoint made of
+`state.vmstate`, `rootdisk.img`, and `meta.json`. Its restore contract is:
+
+- **Timers:** guest `CLOCK_MONOTONIC` must not rewind and should not include
+  host downtime while the VM was stopped. Pending `nanosleep` and `timerfd`
+  deadlines should resume with their remaining guest time, not fire
+  immediately because the host slept.
+- **Entropy:** restore mixes fresh host randomness into the guest CSPRNG before
+  `restore()` returns and writes `/run/machinen-vmstate-reseed` as a
+  non-secret diagnostic marker. Two restores or forks from the same bundle
+  must not generate the same `/dev/urandom` or `getrandom(2)` stream.
+- **Sockets:** listeners can be restored, but host port forwards are never
+  inherited. Re-declare forwards with `-p` / `portForward`. Established
+  host-side TCP streams from the source VM must fail cleanly in the restored
+  VM rather than silently sharing the source's live connection. In-guest Unix
+  sockets are VM-internal state and should continue to work.
+
+The focused smoke repros live under `scripts/smoke/vmstate/` and can be run
+with `pnpm smoke-vmstate` or by area (`pnpm smoke-vmstate-timers`,
+`pnpm smoke-vmstate-entropy`, `pnpm smoke-vmstate-sockets`).
+
 ## Moving a process between machines
 
 Boot the workload, let it accumulate whatever in-memory state matters,
@@ -29,16 +52,22 @@ npx machinen boot --name counter -p 3000:3000 --detached ./counter.tar.gz
 npx machinen snapshot counter ./counter.snap
 ```
 
-`./counter.snap` is a directory holding two files: `disk.img` (the
-process state, stored as CRIU images on an ext4 volume) and `meta.json`
-(a small manifest with the source name and a timestamp). It's a
-self-contained bundle — copy the whole directory and you've copied the
-snapshot.
+`./counter.snap` is a directory holding `state.vmstate` (CPU, RAM, and
+device state), `rootdisk.img` (the exact root block-device bytes), and
+`meta.json` (restore invariants and source metadata). It's a self-contained
+bundle — copy the whole directory and you've copied the snapshot.
 
-By default `snapshot` is destructive: the source VM exits as part of
-the dump. CRIU kills the workload tree once it has the images, and the
-VM shuts down cleanly. This is what you want for a _handoff_ — the
-process should only be running in one place at a time.
+Vmstate snapshots are non-destructive checkpoints: the source VM resumes after
+the bundle is written. For a true _handoff_ where the process should only run
+in one place at a time, stop the source after the snapshot succeeds:
+
+```bash
+npx machinen stop counter
+```
+
+If you opt into the legacy CRIU engine with `MACHINEN_SNAPSHOT_ENGINE=criu`,
+`machinen snapshot` is destructive unless you pass `--keep-alive`, and the
+bundle stores CRIU images under `img/` instead.
 
 To move it:
 
@@ -97,11 +126,11 @@ There are two pieces of inherited state where the defaults are
 deliberately _unsafe_ if you don't think about them:
 
 **TCP connections.** The source had open sockets to clients; both VMs
-can't hold the same connection without racing on sequence numbers.
-`fork` defaults to dropping inherited connections in the fork — your
-process sees `ECONNRESET` on first I/O. The source keeps them. Pass
-`--tcp-keep` only if you genuinely want both copies talking on the
-same connection (rare; usually means a load test or a CRIU experiment).
+can't safely hold the same host-side connection. Under vmstate, restored
+copies should see old established TCP streams close or error within a bounded
+time; the source keeps its live stream. Open fresh connections after restore.
+`--tcp-keep` is a CRIU-only experiment for cases where you deliberately want
+to preserve inherited TCP repair state.
 
 **Host port forwards.** A port like `:3000` is global on the host —
 only one process can bind it. The source already does. So `fork`
@@ -145,33 +174,32 @@ npx machinen fork worker --new-name worker-eval \
   --memory 8192
 ```
 
-Live mounts (`--mount-live`) on a fork establish a _fresh_ vsock FUSE
-channel on the sibling. The source must not have its own live mount
-active at fork time — vsock FUSE channels can't survive a CRIU dump,
-which is why `vm.fork` rejects sources with live mounts. Tear down the
-source's live mount, fork, and re-attach a new one if you need
-write-through on both copies.
+Live mounts (`--mount-live`) on a fork establish a _fresh_ virtio-fs
+window on the sibling. The bundle records each live mount's guest path,
+host path, and mode, so restore can reconnect the same window or accept a
+per-guest override.
 
 ## When you need the source to survive the snapshot
 
-Sometimes you want to snapshot a VM, hand someone the bundle for later
-restore, and keep the source running. Pass `--keep-alive`:
+With the default vmstate engine, the source always survives the snapshot.
+`--keep-alive` is mainly for the CRIU engine, where a plain snapshot powers the
+source off after the dump:
 
 ```bash
-npx machinen snapshot counter ./counter.snap --keep-alive
+MACHINEN_SNAPSHOT_ENGINE=criu npx machinen snapshot counter ./counter.snap --keep-alive
 ```
 
-Same as fork's snapshot half: the source survives, and inherited TCP
-sockets get closed in the bundle so a future restore won't fight the
-source over connection state.
+Same as fork's snapshot half: the source survives. Do not rely on established
+host-side TCP streams in the restored VM; open fresh connections or fresh port
+forwards after restore.
 
 ## Snapshot bundles are bigger than they look
 
-The `disk.img` inside a bundle is the entire scratch disk that was
-attached at boot time — by default ~8 GiB sparse. The CRIU images
-themselves are usually small (proportional to your process's heap), but
-the surrounding ext4 volume can grow if the workload wrote a lot during
-its run.
+Vmstate bundles include `rootdisk.img` plus one or more `.vmstate` checkpoint
+files. The rootdisk is sparse, and incremental checkpoints after the first can
+store RAM and rootdisk deltas, but a workload that dirties a lot of memory or
+disk can still produce a large bundle. CRIU bundles are different: they store
+process images under `img/` alongside `meta.json`.
 
 For now, two practical workarounds:
 

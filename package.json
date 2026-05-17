@@ -31,6 +31,10 @@
     "machinen-dev": "bash scripts/machinen-dev.sh",
     "smoke-tests": "bash scripts/smoke-tests.sh",
     "smoke-test-snapshot-restore-fork": "bash scripts/smoke-test-snapshot-restore-fork.sh",
+    "smoke-vmstate": "bash scripts/smoke/vmstate/all.sh",
+    "smoke-vmstate-timers": "bash scripts/smoke/vmstate/timers.sh",
+    "smoke-vmstate-entropy": "bash scripts/smoke/vmstate/entropy.sh",
+    "smoke-vmstate-sockets": "bash scripts/smoke/vmstate/sockets.sh",
     "bench-net": "bash scripts/bench-net.sh",
     "bench-boot": "tsx scripts/bench-boot.ts"
   },
