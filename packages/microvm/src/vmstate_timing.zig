@@ -26,7 +26,7 @@ pub const RestoreTimer = struct {
 
     pub fn start(backend: []const u8, file_bytes: usize, ram_bytes: usize) RestoreTimer {
         const e = enabled();
-        const now = if (e) nowUs() else 0;
+        const now = if (e) now_us() else 0;
         if (e) {
             std.debug.print(
                 "vmstate restore timing backend={s} event=start file_bytes={d} ram_bytes={d}\n",
@@ -38,7 +38,7 @@ pub const RestoreTimer = struct {
 
     pub fn mark(self: *RestoreTimer, phase: []const u8) void {
         if (!self.enabled) return;
-        const now = nowUs();
+        const now = now_us();
         std.debug.print(
             "vmstate restore timing backend={s} phase={s} delta_ms={d} total_ms={d}\n",
             .{ self.backend, phase, ms(now - self.last_us), ms(now - self.start_us) },
@@ -46,9 +46,9 @@ pub const RestoreTimer = struct {
         self.last_us = now;
     }
 
-    pub fn sectionStart(self: *const RestoreTimer) i128 {
+    pub fn section_start(self: *const RestoreTimer) i128 {
         if (!self.enabled) return 0;
-        return nowUs();
+        return now_us();
     }
 
     pub fn section(
@@ -59,16 +59,16 @@ pub const RestoreTimer = struct {
         section_start_us: i128,
     ) void {
         if (!self.enabled) return;
-        const now = nowUs();
+        const now = now_us();
         std.debug.print(
             "vmstate restore timing backend={s} section={s} id={d} bytes={d} ms={d} total_ms={d}\n",
-            .{ self.backend, tagName(tag), id, payload_bytes, ms(now - section_start_us), ms(now - self.start_us) },
+            .{ self.backend, tag_name(tag), id, payload_bytes, ms(now - section_start_us), ms(now - self.start_us) },
         );
     }
 
     pub fn done(self: *RestoreTimer) void {
         if (!self.enabled) return;
-        const now = nowUs();
+        const now = now_us();
         std.debug.print(
             "vmstate restore timing backend={s} event=done total_ms={d}\n",
             .{ self.backend, ms(now - self.start_us) },
@@ -81,10 +81,10 @@ fn enabled() bool {
     if (libc.getenv("MACHINEN_VMSTATE_TIMING") != null) return true;
     if (libc.getenv("MACHINEN_DEBUG") != null) return true;
     const debug_raw = libc.getenv("DEBUG") orelse return false;
-    return debugSpecEnablesTiming(std.mem.span(debug_raw));
+    return debug_spec_enables_timing(std.mem.span(debug_raw));
 }
 
-pub fn debugSpecEnablesTiming(spec: []const u8) bool {
+pub fn debug_spec_enables_timing(spec: []const u8) bool {
     var vmstate = false;
     var restore = false;
 
@@ -95,14 +95,14 @@ pub fn debugSpecEnablesTiming(spec: []const u8) bool {
         const token = if (negated) raw_token[1..] else raw_token;
         if (token.len == 0) continue;
 
-        if (debugTokenMatches(token, "machinen:vmstate")) vmstate = !negated;
-        if (debugTokenMatches(token, "machinen:restore")) restore = !negated;
+        if (debug_token_matches(token, "machinen:vmstate")) vmstate = !negated;
+        if (debug_token_matches(token, "machinen:restore")) restore = !negated;
     }
 
     return vmstate or restore;
 }
 
-fn debugTokenMatches(token: []const u8, namespace: []const u8) bool {
+fn debug_token_matches(token: []const u8, namespace: []const u8) bool {
     if (std.mem.eql(u8, token, "*")) return true;
     if (std.mem.endsWith(u8, token, "*")) {
         return std.mem.startsWith(u8, namespace, token[0 .. token.len - 1]);
@@ -110,7 +110,7 @@ fn debugTokenMatches(token: []const u8, namespace: []const u8) bool {
     return std.mem.eql(u8, token, namespace);
 }
 
-fn tagName(tag: snapshot.SectionTag) []const u8 {
+fn tag_name(tag: snapshot.SectionTag) []const u8 {
     return switch (tag) {
         .ram => "ram",
         .vcpu => "vcpu",
@@ -123,7 +123,7 @@ fn tagName(tag: snapshot.SectionTag) []const u8 {
     };
 }
 
-fn nowUs() i128 {
+fn now_us() i128 {
     var tv: std.c.timeval = undefined;
     _ = std.c.gettimeofday(&tv, null);
     return @as(i128, tv.sec) * 1_000_000 + @as(i128, tv.usec);
@@ -136,10 +136,10 @@ fn ms(us: i128) i128 {
 // -- tests --------------------------------------------------------
 
 test "DEBUG spec enables vmstate restore timing" {
-    try std.testing.expect(debugSpecEnablesTiming("machinen:vmstate"));
-    try std.testing.expect(debugSpecEnablesTiming("machinen:restore"));
-    try std.testing.expect(debugSpecEnablesTiming("machinen:*"));
-    try std.testing.expect(debugSpecEnablesTiming("*,other"));
-    try std.testing.expect(!debugSpecEnablesTiming("machinen:boot"));
-    try std.testing.expect(!debugSpecEnablesTiming("machinen:*,-machinen:vmstate,-machinen:restore"));
+    try std.testing.expect(debug_spec_enables_timing("machinen:vmstate"));
+    try std.testing.expect(debug_spec_enables_timing("machinen:restore"));
+    try std.testing.expect(debug_spec_enables_timing("machinen:*"));
+    try std.testing.expect(debug_spec_enables_timing("*,other"));
+    try std.testing.expect(!debug_spec_enables_timing("machinen:boot"));
+    try std.testing.expect(!debug_spec_enables_timing("machinen:*,-machinen:vmstate,-machinen:restore"));
 }

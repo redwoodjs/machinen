@@ -68,12 +68,12 @@ const SockaddrVm = extern struct {
 const VMADDR_CID_ANY: u32 = 0xFFFF_FFFF;
 const PORT: u32 = 1974;
 
-fn logLine(msg: []const u8) void {
+fn log_line(msg: []const u8) void {
     _ = write(1, msg.ptr, msg.len);
     _ = write(1, "\n", 1);
 }
 
-fn sleepMs(ms: i64) void {
+fn sleep_ms(ms: i64) void {
     var ts: timespec = .{
         .tv_sec = @divTrunc(ms, 1000),
         .tv_nsec = @mod(ms, 1000) * 1_000_000,
@@ -81,7 +81,7 @@ fn sleepMs(ms: i64) void {
     _ = nanosleep(&ts, null);
 }
 
-fn writeAll(fd: c_int, buf: []const u8) bool {
+fn write_all(fd: c_int, buf: []const u8) bool {
     var off: usize = 0;
     while (off < buf.len) {
         const n = write(fd, buf.ptr + off, buf.len - off);
@@ -91,7 +91,7 @@ fn writeAll(fd: c_int, buf: []const u8) bool {
     return true;
 }
 
-fn setWinsize(fd: c_int, cols: u16, rows: u16) bool {
+fn set_winsize(fd: c_int, cols: u16, rows: u16) bool {
     const ws: Winsize = .{
         .ws_row = rows,
         .ws_col = cols,
@@ -101,20 +101,20 @@ fn setWinsize(fd: c_int, cols: u16, rows: u16) bool {
     return ioctl(fd, TIOCSWINSZ, &ws) == 0;
 }
 
-fn applyTo(path_z: [*:0]const u8, cols: u16, rows: u16) bool {
+fn apply_to(path_z: [*:0]const u8, cols: u16, rows: u16) bool {
     const fd = open(path_z, O_RDWR | O_NOCTTY);
     if (fd < 0) return false;
     defer _ = close(fd);
-    return setWinsize(fd, cols, rows);
+    return set_winsize(fd, cols, rows);
 }
 
 fn apply(cols: u16, rows: u16) void {
     var applied_any = false;
     for ([_][*:0]const u8{ "/dev/console", "/dev/ttyAMA0", "/dev/tty0" }) |path| {
-        if (applyTo(path, cols, rows)) {
+        if (apply_to(path, cols, rows)) {
             var msg_buf: [128]u8 = undefined;
             const msg = std.fmt.bufPrint(&msg_buf, "applied: {d} {d} -> {s}", .{ cols, rows, path }) catch continue;
-            logLine(msg);
+            log_line(msg);
             applied_any = true;
         }
     }
@@ -124,7 +124,7 @@ fn apply(cols: u16, rows: u16) void {
         if (!applied_any) {
             var msg_buf: [64]u8 = undefined;
             const msg = std.fmt.bufPrint(&msg_buf, "applied: {d} {d} -> (no ttys)", .{ cols, rows }) catch "applied: (no ttys)";
-            logLine(msg);
+            log_line(msg);
         }
         return;
     };
@@ -158,12 +158,12 @@ fn apply(cols: u16, rows: u16) void {
 
             const fd = open(link.ptr, O_RDWR | O_NOCTTY);
             if (fd < 0) continue;
-            const ok = setWinsize(fd, cols, rows);
+            const ok = set_winsize(fd, cols, rows);
             _ = close(fd);
             if (ok) {
                 var msg_buf: [512]u8 = undefined;
                 const msg = std.fmt.bufPrint(&msg_buf, "applied: {d} {d} -> {s}->{s}", .{ cols, rows, link, target }) catch continue;
-                logLine(msg);
+                log_line(msg);
                 applied_any = true;
             }
         }
@@ -172,16 +172,16 @@ fn apply(cols: u16, rows: u16) void {
     if (!applied_any) {
         var msg_buf: [64]u8 = undefined;
         const msg = std.fmt.bufPrint(&msg_buf, "applied: {d} {d} -> (no ttys)", .{ cols, rows }) catch "applied: (no ttys)";
-        logLine(msg);
+        log_line(msg);
     }
 }
 
-fn bindWithRetry() c_int {
+fn bind_with_retry() c_int {
     var attempt: u32 = 0;
     while (attempt < 10) : (attempt += 1) {
         const srv = socket(AF_VSOCK, SOCK_STREAM, 0);
         if (srv < 0) {
-            sleepMs(500);
+            sleep_ms(500);
             continue;
         }
         var addr: SockaddrVm = .{
@@ -197,33 +197,33 @@ fn bindWithRetry() c_int {
         _ = close(srv);
         var msg_buf: [64]u8 = undefined;
         const msg = std.fmt.bufPrint(&msg_buf, "winsize-agent: bind retry ({d})", .{attempt + 1}) catch "winsize-agent: bind retry";
-        logLine(msg);
-        sleepMs(500);
+        log_line(msg);
+        sleep_ms(500);
     }
     return -1;
 }
 
 pub fn main() !void {
-    const srv = bindWithRetry();
+    const srv = bind_with_retry();
     if (srv < 0) {
-        logLine("winsize-agent: could not bind AF_VSOCK, giving up");
+        log_line("winsize-agent: could not bind AF_VSOCK, giving up");
         return error.BindFailed;
     }
     if (listen(srv, 1) < 0) {
-        logLine("winsize-agent: listen() failed");
+        log_line("winsize-agent: listen() failed");
         return error.ListenFailed;
     }
-    logLine("winsize-agent: listening on vsock port 1974");
+    log_line("winsize-agent: listening on vsock port 1974");
 
     var buf: [4096]u8 = undefined;
     while (true) {
         const conn = accept(srv, null, null);
         if (conn < 0) {
-            logLine("winsize-agent: accept failed");
-            sleepMs(200);
+            log_line("winsize-agent: accept failed");
+            sleep_ms(200);
             continue;
         }
-        logLine("winsize-agent: accepted");
+        log_line("winsize-agent: accepted");
 
         var line_buf: [256]u8 = undefined;
         var line_len: usize = 0;
@@ -239,21 +239,21 @@ pub fn main() !void {
                     const sp = std.mem.indexOfScalar(u8, line, ' ') orelse {
                         var msg_buf: [128]u8 = undefined;
                         const msg = std.fmt.bufPrint(&msg_buf, "winsize-agent: bad line {s}", .{line}) catch "winsize-agent: bad line";
-                        logLine(msg);
+                        log_line(msg);
                         continue;
                     };
                     const cols = std.fmt.parseInt(u16, line[0..sp], 10) catch {
-                        logLine("winsize-agent: bad cols");
+                        log_line("winsize-agent: bad cols");
                         continue;
                     };
                     const rows = std.fmt.parseInt(u16, line[sp + 1 ..], 10) catch {
-                        logLine("winsize-agent: bad rows");
+                        log_line("winsize-agent: bad rows");
                         continue;
                     };
                     apply(cols, rows);
                     var ack_buf: [64]u8 = undefined;
                     const ack = std.fmt.bufPrint(&ack_buf, "ok {d} {d}\n", .{ cols, rows }) catch "ok\n";
-                    _ = writeAll(conn, ack);
+                    _ = write_all(conn, ack);
                 } else if (line_len < line_buf.len) {
                     line_buf[line_len] = c;
                     line_len += 1;
@@ -261,6 +261,6 @@ pub fn main() !void {
             }
         }
         _ = close(conn);
-        logLine("winsize-agent: conn closed");
+        log_line("winsize-agent: conn closed");
     }
 }

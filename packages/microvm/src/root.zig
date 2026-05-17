@@ -56,7 +56,7 @@ pub const Backend = enum { hvf, kvm, none };
 
 /// Pick the host's available backend. HVF on macOS, KVM on Linux,
 /// none on anything else.
-pub fn detectBackend() Backend {
+pub fn detect_backend() Backend {
     return switch (builtin.os.tag) {
         .macos => .hvf,
         .linux => .kvm,
@@ -69,7 +69,7 @@ pub fn detectBackend() Backend {
 /// real resource (HVF framework presence, /dev/kvm readability).
 /// Returns false if the backend exists in principle but can't be
 /// opened — e.g. /dev/kvm permissions, or no virtualization enabled.
-pub fn backendAvailable() bool {
+pub fn backend_available() bool {
     return switch (comptime builtin.os.tag) {
         .macos => true, // HVF availability is checked when hv_vm_create runs
         .linux => blk: {
@@ -86,7 +86,7 @@ pub fn backendAvailable() bool {
 }
 
 test "detectBackend matches build target" {
-    const b = detectBackend();
+    const b = detect_backend();
     switch (builtin.os.tag) {
         .macos => try std.testing.expectEqual(Backend.hvf, b),
         .linux => try std.testing.expectEqual(Backend.kvm, b),
@@ -98,7 +98,7 @@ test "backendAvailable is a bool that corresponds to the OS" {
     // On macOS we always return true; on Linux it depends on
     // /dev/kvm; on other hosts it's false. We can only assert the
     // type round-trip; the runtime value depends on the runner.
-    try std.testing.expect(@TypeOf(backendAvailable()) == bool);
+    try std.testing.expect(@TypeOf(backend_available()) == bool);
 }
 
 // Pull in backend-specific test blocks so `zig build test` discovers them.

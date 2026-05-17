@@ -35,7 +35,7 @@ pub const Uart8250 = struct {
 
     pub const init: Uart8250 = .{ .base = 0x0900_0000 };
 
-    pub fn withBase(base: u64) Uart8250 {
+    pub fn with_base(base: u64) Uart8250 {
         assert(base != 0);
         return .{ .base = base };
     }
@@ -45,17 +45,17 @@ pub const Uart8250 = struct {
         return addr >= self.base and addr < self.base + self.size;
     }
 
-    pub fn irqAsserted(self: *Uart8250) bool {
+    pub fn irq_asserted(self: *Uart8250) bool {
         _ = self;
         return false;
     }
 
-    pub fn capturedBytes(self: *const Uart8250) []const u8 {
+    pub fn captured_bytes(self: *const Uart8250) []const u8 {
         assert(self.captured_len <= captured_capacity);
         return self.captured[0..self.captured_len];
     }
 
-    pub fn pushRx(self: *Uart8250, bytes: []const u8) void {
+    pub fn push_rx(self: *Uart8250, bytes: []const u8) void {
         self.mutex.lock();
         defer self.mutex.unlock();
         const room = rx_capacity - self.rx_len;
@@ -126,6 +126,6 @@ test "uart8250 captures THR writes" {
     var uart = Uart8250.init;
     uart.write(uart.base, 'O');
     uart.write(uart.base, 'K');
-    try std.testing.expectEqualStrings("OK", uart.capturedBytes());
+    try std.testing.expectEqualStrings("OK", uart.captured_bytes());
     try std.testing.expectEqual(@as(u64, 0x60), uart.read(uart.base + 5) & 0x60);
 }

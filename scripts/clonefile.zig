@@ -14,7 +14,7 @@ extern "c" fn clonefile(src: [*:0]const u8, dst: [*:0]const u8, flags: u32) c_in
 extern "c" fn write(fd: c_int, buf: [*]const u8, n: usize) isize;
 extern "c" fn __error() *c_int;
 
-fn errOut(msg: []const u8, rc: u8) u8 {
+fn err_out(msg: []const u8, rc: u8) u8 {
     _ = write(2, msg.ptr, msg.len);
     return rc;
 }
@@ -22,9 +22,9 @@ fn errOut(msg: []const u8, rc: u8) u8 {
 pub fn main(init: std.process.Init.Minimal) u8 {
     var it = init.args.iterate();
     _ = it.next(); // argv[0]
-    const src = it.next() orelse return errOut("usage: clonefile <src> <dst>\n", 2);
-    const dst = it.next() orelse return errOut("usage: clonefile <src> <dst>\n", 2);
-    if (it.next() != null) return errOut("usage: clonefile <src> <dst>\n", 2);
+    const src = it.next() orelse return err_out("usage: clonefile <src> <dst>\n", 2);
+    const dst = it.next() orelse return err_out("usage: clonefile <src> <dst>\n", 2);
+    if (it.next() != null) return err_out("usage: clonefile <src> <dst>\n", 2);
 
     if (clonefile(src.ptr, dst.ptr, 0) != 0) {
         const e = __error().*;

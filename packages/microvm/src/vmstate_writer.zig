@@ -32,10 +32,10 @@ pub const Job = struct {
         path: []const u8,
         topology_hash: [32]u8,
     ) !*Job {
-        return createWithArch(allocator, label, path, snapshot.ARCH_AARCH64, topology_hash);
+        return create_with_arch(allocator, label, path, snapshot.ARCH_AARCH64, topology_hash);
     }
 
-    pub fn createWithArch(
+    pub fn create_with_arch(
         allocator: std.mem.Allocator,
         label: []const u8,
         path: []const u8,
@@ -60,7 +60,7 @@ pub const Job = struct {
         return job;
     }
 
-    pub fn arenaAllocator(self: *Job) std.mem.Allocator {
+    pub fn arena_allocator(self: *Job) std.mem.Allocator {
         return self.arena.allocator();
     }
 
@@ -80,11 +80,11 @@ pub const Writer = struct {
     /// `job` on success; on error, the caller still owns it and can
     /// fall back to `writeAndDestroy(job)`.
     pub fn start(self: *Writer, job: *Job) StartError!void {
-        self.reapFinished();
+        self.reap_finished();
         if (self.handle != null) return error.SnapshotInFlight;
 
         self.done.store(false, .release);
-        const handle = std.Thread.spawn(.{}, workerMain, .{ job, &self.done }) catch |err| {
+        const handle = std.Thread.spawn(.{}, worker_main, .{ job, &self.done }) catch |err| {
             self.done.store(true, .release);
             return err;
         };
@@ -93,7 +93,7 @@ pub const Writer = struct {
 
     /// Join a completed worker without blocking the vCPU thread. Call
     /// this opportunistically before accepting a new snapshot request.
-    pub fn reapFinished(self: *Writer) void {
+    pub fn reap_finished(self: *Writer) void {
         if (self.handle) |handle| {
             if (self.done.load(.acquire)) {
                 handle.join();
@@ -103,7 +103,7 @@ pub const Writer = struct {
     }
 
     pub fn busy(self: *Writer) bool {
-        self.reapFinished();
+        self.reap_finished();
         return self.handle != null;
     }
 
@@ -118,7 +118,7 @@ pub const Writer = struct {
     }
 };
 
-fn workerMain(job: *Job, done: *std.atomic.Value(bool)) void {
+fn worker_main(job: *Job, done: *std.atomic.Value(bool)) void {
     const label = job.label;
     write(job) catch |err| {
         std.debug.print("{s}: snapshot async write failed: {s}\n", .{ label, @errorName(err) });
@@ -129,21 +129,21 @@ fn workerMain(job: *Job, done: *std.atomic.Value(bool)) void {
 
 /// Synchronous fallback used if the background thread cannot be
 /// spawned. Consumes `job` either way.
-pub fn writeAndDestroy(job: *Job) !void {
+pub fn write_and_destroy(job: *Job) !void {
     defer job.destroy();
     try write(job);
 }
 
 fn write(job: *Job) !void {
     const allocator = job.arena.allocator();
-    const bytes = try snapshot.encodeWithArch(allocator, job.arch, job.topology_hash, job.sections);
-    const compression = vmstate_zip.writeCompression();
+    const bytes = try snapshot.encode_with_arch(allocator, job.arch, job.topology_hash, job.sections);
+    const compression = vmstate_zip.write_compression();
     const out: []const u8 = switch (compression) {
         .none => bytes,
         .gzip => try vmstate_zip.compress(allocator, bytes),
     };
     std.debug.print("{s}: snapshot {d} bytes -> {d} {s}\n", .{ job.label, bytes.len, out.len, @tagName(compression) });
-    try writeAtomic(allocator, job.path, out);
+    try write_atomic(allocator, job.path, out);
     std.debug.print("{s}: snapshot write done\n", .{job.label});
 }
 
@@ -159,7 +159,7 @@ const O_WRONLY: c_int = 1;
 const O_CREAT: c_int = if (builtin.os.tag == .macos) 0x200 else 64;
 const O_TRUNC: c_int = if (builtin.os.tag == .macos) 0x400 else 512;
 
-fn writeAtomic(allocator: std.mem.Allocator, path: []const u8, data: []const u8) !void {
+fn write_atomic(allocator: std.mem.Allocator, path: []const u8, data: []const u8) !void {
     // Write atomically: dump into `<path>.tmp`, then rename() onto the
     // final path. The runtime polls for the final path's existence as
     // the "dump complete" signal, so a partial file must never be
@@ -184,7 +184,7 @@ fn writeAtomic(allocator: std.mem.Allocator, path: []const u8, data: []const u8)
     if (c.rename(tmp_z, path_z) != 0) return error.WriteFailed;
 }
 
-fn testTmpPath(gpa: std.mem.Allocator, tmp: *const std.testing.TmpDir, name: []const u8) ![]u8 {
+fn test_tmp_path(gpa: std.mem.Allocator, tmp: *const std.testing.TmpDir, name: []const u8) ![]u8 {
     const cwd = try std.process.currentPathAlloc(std.testing.io, gpa);
     defer gpa.free(cwd);
     return std.fs.path.join(gpa, &.{ cwd, ".zig-cache", "tmp", &tmp.sub_path, name });
@@ -195,12 +195,12 @@ test "Writer writes a complete vmstate asynchronously" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const path = try testTmpPath(gpa, &tmp, "state.vmstate");
+    const path = try test_tmp_path(gpa, &tmp, "state.vmstate");
     defer gpa.free(path);
 
     const topo: [32]u8 = @splat(0xAB);
     const job = try Job.create(gpa, "test", path, topo);
-    const a = job.arenaAllocator();
+    const a = job.arena_allocator();
     const payload = try a.dupe(u8, "payload");
     var sections = std.ArrayList(snapshot.Section).empty;
     try sections.append(a, .{ .tag = .vcpu, .id = 0, .payload = payload });

@@ -81,7 +81,7 @@ pub const Topology = struct {
         return out;
     }
 
-    pub fn hashHex(self: Topology) [64]u8 {
+    pub fn hash_hex(self: Topology) [64]u8 {
         const bytes = self.hash();
         var hex: [64]u8 = undefined;
         const digits = "0123456789abcdef";
@@ -150,7 +150,7 @@ test "hashHex round-trips through parseHex32" {
         .gic_dist_base = 0x0800_0000,
         .gic_redist_base = 0x1000_0000,
     };
-    const hex = t.hashHex();
+    const hex = t.hash_hex();
     const bytes = t.hash();
     var parsed: [32]u8 = undefined;
     for (0..32) |i| {

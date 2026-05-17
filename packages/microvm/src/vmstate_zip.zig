@@ -27,12 +27,12 @@ pub const gzip_magic = [2]u8{ 0x1f, 0x8b };
 /// On-disk transport used for newly-written snapshots.
 pub const Compression = enum { none, gzip };
 
-pub fn writeCompression() Compression {
+pub fn write_compression() Compression {
     const raw = libc.getenv("MACHINEN_VMSTATE_COMPRESSION") orelse return .none;
-    return parseCompression(std.mem.span(raw)) orelse .none;
+    return parse_compression(std.mem.span(raw)) orelse .none;
 }
 
-pub fn parseCompression(raw: []const u8) ?Compression {
+pub fn parse_compression(raw: []const u8) ?Compression {
     const v = std.mem.trim(u8, raw, " \t\r\n");
     if (std.ascii.eqlIgnoreCase(v, "gzip") or
         std.ascii.eqlIgnoreCase(v, "gz") or
@@ -88,7 +88,7 @@ pub const Decompressed = struct {
 /// Inverse of `compress`, optimized for restore: gzip input is inflated
 /// into an owned buffer; plain input is returned as a borrowed slice so
 /// restore avoids an extra full-container copy.
-pub fn decompressMaybeOwned(gpa: std.mem.Allocator, input: []const u8) !Decompressed {
+pub fn decompress_maybe_owned(gpa: std.mem.Allocator, input: []const u8) !Decompressed {
     if (input.len < 2 or !std.mem.eql(u8, input[0..2], &gzip_magic)) {
         return .{ .bytes = input, .owned = false };
     }
@@ -105,7 +105,7 @@ pub fn decompressMaybeOwned(gpa: std.mem.Allocator, input: []const u8) !Decompre
 /// magic is assumed to be a plain .vmstate and returned as an owned
 /// copy unchanged. Caller owns the returned bytes either way.
 pub fn decompress(gpa: std.mem.Allocator, input: []const u8) ![]u8 {
-    const decoded = try decompressMaybeOwned(gpa, input);
+    const decoded = try decompress_maybe_owned(gpa, input);
     if (decoded.owned) return @constCast(decoded.bytes);
     return gpa.dupe(u8, decoded.bytes);
 }
@@ -154,27 +154,27 @@ test "decompress passes a non-gzip buffer through unchanged" {
 test "decompressMaybeOwned borrows plain buffers and owns gzip buffers" {
     const a = std.testing.allocator;
     var plain = [_]u8{ 'V', 'M', 'S', 'T', 'A', 'T', 'E', 0 };
-    const plain_back = try decompressMaybeOwned(a, &plain);
+    const plain_back = try decompress_maybe_owned(a, &plain);
     defer plain_back.deinit(a);
     try std.testing.expect(!plain_back.owned);
     try std.testing.expectEqual(@intFromPtr(plain[0..].ptr), @intFromPtr(plain_back.bytes.ptr));
 
     const zipped = try compress(a, &plain);
     defer a.free(zipped);
-    const zipped_back = try decompressMaybeOwned(a, zipped);
+    const zipped_back = try decompress_maybe_owned(a, zipped);
     defer zipped_back.deinit(a);
     try std.testing.expect(zipped_back.owned);
     try std.testing.expectEqualSlices(u8, &plain, zipped_back.bytes);
 }
 
 test "parseCompression accepts documented values" {
-    try std.testing.expectEqual(Compression.none, parseCompression("none").?);
-    try std.testing.expectEqual(Compression.none, parseCompression("plain").?);
-    try std.testing.expectEqual(Compression.none, parseCompression("0").?);
-    try std.testing.expectEqual(Compression.gzip, parseCompression("gzip").?);
-    try std.testing.expectEqual(Compression.gzip, parseCompression("GZ").?);
-    try std.testing.expectEqual(Compression.gzip, parseCompression("1").?);
-    try std.testing.expect(parseCompression("surprise") == null);
+    try std.testing.expectEqual(Compression.none, parse_compression("none").?);
+    try std.testing.expectEqual(Compression.none, parse_compression("plain").?);
+    try std.testing.expectEqual(Compression.none, parse_compression("0").?);
+    try std.testing.expectEqual(Compression.gzip, parse_compression("gzip").?);
+    try std.testing.expectEqual(Compression.gzip, parse_compression("GZ").?);
+    try std.testing.expectEqual(Compression.gzip, parse_compression("1").?);
+    try std.testing.expect(parse_compression("surprise") == null);
 }
 
 test "decompress handles an empty/short buffer as plain" {

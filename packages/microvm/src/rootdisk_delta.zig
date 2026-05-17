@@ -27,28 +27,28 @@ pub const Header = extern struct {
     }
 };
 
-fn bitSet(bits: []const u64, block_idx: usize) bool {
+fn bit_set(bits: []const u64, block_idx: usize) bool {
     const word = block_idx / 64;
     if (word >= bits.len) return false;
     const bit: u6 = @intCast(block_idx % 64);
     return (bits[word] & (@as(u64, 1) << bit)) != 0;
 }
 
-fn nextDirtyExtent(disk_size: u64, bits: []const u64, from: u64) ?struct { start: u64, end: u64 } {
+fn next_dirty_extent(disk_size: u64, bits: []const u64, from: u64) ?struct { start: u64, end: u64 } {
     std.debug.assert(from <= disk_size);
     const block_count = if (disk_size == 0) 0 else 1 + ((disk_size - 1) / BLOCK);
     var block = from / BLOCK;
-    while (block < block_count and !bitSet(bits, @intCast(block))) : (block += 1) {}
+    while (block < block_count and !bit_set(bits, @intCast(block))) : (block += 1) {}
     if (block >= block_count) return null;
     const start_block = block;
-    while (block < block_count and bitSet(bits, @intCast(block))) : (block += 1) {}
+    while (block < block_count and bit_set(bits, @intCast(block))) : (block += 1) {}
     const start = start_block * BLOCK;
     const end = @min(block * BLOCK, disk_size);
     std.debug.assert(start < end and end <= disk_size);
     return .{ .start = start, .end = end };
 }
 
-pub fn encodeFromFd(
+pub fn encode_from_fd(
     allocator: std.mem.Allocator,
     fd: c_int,
     disk_size: u64,
@@ -60,7 +60,7 @@ pub fn encodeFromFd(
     var body_len: usize = 0;
     {
         var cursor: u64 = 0;
-        while (nextDirtyExtent(disk_size, dirty_bits, cursor)) |e| {
+        while (next_dirty_extent(disk_size, dirty_bits, cursor)) |e| {
             body_len += EXTENT_HEADER_SIZE + @as(usize, @intCast(e.end - e.start));
             cursor = e.end;
         }
@@ -72,13 +72,13 @@ pub fn encodeFromFd(
     var w: usize = HEADER_SIZE;
     {
         var cursor: u64 = 0;
-        while (nextDirtyExtent(disk_size, dirty_bits, cursor)) |e| {
+        while (next_dirty_extent(disk_size, dirty_bits, cursor)) |e| {
             const len: usize = @intCast(e.end - e.start);
             std.mem.writeInt(u64, out[w..][0..8], e.start, .little);
             w += 8;
             std.mem.writeInt(u64, out[w..][0..8], len, .little);
             w += 8;
-            try preadAll(fd, out[w..][0..len], e.start);
+            try pread_all(fd, out[w..][0..len], e.start);
             w += len;
             cursor = e.end;
         }
@@ -95,7 +95,7 @@ pub fn encodeFromFd(
     return out;
 }
 
-fn preadAll(fd: c_int, dst: []u8, offset: u64) !void {
+fn pread_all(fd: c_int, dst: []u8, offset: u64) !void {
     var done: usize = 0;
     while (done < dst.len) {
         const rc = pread(fd, dst[done..].ptr, dst.len - done, @as(i64, @intCast(offset + done)));
@@ -121,7 +121,7 @@ test "encodeFromFd stores contiguous dirty block extents" {
 
     var bits = [_]u64{0};
     bits[0] |= (@as(u64, 1) << 1) | (@as(u64, 1) << 2);
-    const payload = try encodeFromFd(a, file.handle, 4 * BLOCK, &bits);
+    const payload = try encode_from_fd(a, file.handle, 4 * BLOCK, &bits);
     defer a.free(payload);
 
     try std.testing.expectEqual(HEADER_SIZE + EXTENT_HEADER_SIZE + 2 * BLOCK, payload.len);

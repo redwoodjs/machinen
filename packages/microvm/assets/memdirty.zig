@@ -32,7 +32,7 @@ extern "c" fn mmap(addr: ?*anyopaque, len: usize, prot: c_int, flags: c_int, fd:
 extern "c" fn pause() c_int;
 extern "c" fn write(fd: c_int, buf: [*]const u8, n: usize) isize;
 
-fn writeAll(fd: c_int, buf: []const u8) void {
+fn write_all(fd: c_int, buf: []const u8) void {
     var off: usize = 0;
     while (off < buf.len) {
         const n = write(fd, buf.ptr + off, buf.len - off);
@@ -42,8 +42,8 @@ fn writeAll(fd: c_int, buf: []const u8) void {
 }
 
 fn die(msg: []const u8) noreturn {
-    writeAll(2, msg);
-    writeAll(2, "\n");
+    write_all(2, msg);
+    write_all(2, "\n");
     std.process.exit(1);
 }
 
@@ -78,7 +78,7 @@ pub fn main(init: std.process.Init) !void {
     // Stdout marker for the host-side smoke test to wait on.
     var buf: [64]u8 = undefined;
     const line = std.fmt.bufPrint(&buf, "READY mib={d}\n", .{mib}) catch unreachable;
-    writeAll(1, line);
+    write_all(1, line);
 
     // Park forever — caller signals exit via SIGTERM (machinen
     // snapshot/restore tear-down). Loop guards against EINTR.

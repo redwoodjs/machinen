@@ -155,15 +155,15 @@ pub const Backend = struct {
     /// can hand out a stable slice reference.
     config: BlkConfig,
 
-    pub fn initFromFd(fd: c_int, size_bytes: u64) Backend {
-        return initFromFdWithMode(fd, size_bytes, false);
+    pub fn init_from_fd(fd: c_int, size_bytes: u64) Backend {
+        return init_from_fd_with_mode(fd, size_bytes, false);
     }
 
     /// Same as `initFromFd` but lets callers pin the backend as
     /// read-only — used for the squashfs lower in #272 where the
     /// host opens the cache file `O_RDONLY` and must reject any
     /// guest write rather than letting `pwrite` ENOSPC the host.
-    pub fn initFromFdWithMode(fd: c_int, size_bytes: u64, read_only: bool) Backend {
+    pub fn init_from_fd_with_mode(fd: c_int, size_bytes: u64, read_only: bool) Backend {
         assert(fd >= 0);
         assert(size_bytes > 0);
         // virtio-blk capacity is in 512-byte sectors; a non-multiple
@@ -189,28 +189,28 @@ pub const Backend = struct {
         _ = close(self.fd);
     }
 
-    pub fn enableDirtyTracking(self: *Backend, allocator: std.mem.Allocator) !void {
+    pub fn enable_dirty_tracking(self: *Backend, allocator: std.mem.Allocator) !void {
         if (self.dirty != null) return;
         self.dirty = try DirtyTracker.init(allocator, self.capacity_sectors * 512);
     }
 
-    pub fn clearDirty(self: *Backend) void {
+    pub fn clear_dirty(self: *Backend) void {
         if (self.dirty) |*d| d.clear();
     }
 
-    pub fn encodeDirtyDelta(self: *Backend, allocator: std.mem.Allocator) ![]u8 {
+    pub fn encode_dirty_delta(self: *Backend, allocator: std.mem.Allocator) ![]u8 {
         if (self.dirty) |*d| {
-            return rootdisk_delta.encodeFromFd(allocator, self.fd, d.disk_size, d.bits);
+            return rootdisk_delta.encode_from_fd(allocator, self.fd, d.disk_size, d.bits);
         }
-        return rootdisk_delta.encodeFromFd(allocator, self.fd, self.capacity_sectors * 512, &.{});
+        return rootdisk_delta.encode_from_fd(allocator, self.fd, self.capacity_sectors * 512, &.{});
     }
 
-    fn markDirtyBytes(self: *Backend, offset: u64, len: u64) void {
+    fn mark_dirty_bytes(self: *Backend, offset: u64, len: u64) void {
         if (self.dirty) |*d| d.mark(offset, len);
     }
 
     /// The request-handler callback to feed `virtio.Device.request_handler`.
-    pub fn handleRequest(ctx: ?*anyopaque, dev: *virtio.Device, q_idx: u32, head: u16) void {
+    pub fn handle_request(ctx: ?*anyopaque, dev: *virtio.Device, q_idx: u32, head: u16) void {
         assert(ctx != null);
         _ = q_idx; // virtio-blk has just one queue (0)
         const self: *Backend = @ptrCast(@alignCast(ctx.?));
@@ -228,7 +228,7 @@ pub const Backend = struct {
         // 32 is a guest-input bound, not a programmer invariant; an evil/buggy guest can ring
         // a longer chain and we silently break, which is the right policy here.
         while (steps < 32) : (steps += 1) {
-            const d = dev.queueDescriptor(0, idx) orelse break;
+            const d = dev.queue_descriptor(0, idx) orelse break;
             if (hdr == null) {
                 hdr = d;
             } else if ((d.flags & virtio.VringDesc.F_NEXT) == 0 and d.len == 1) {
@@ -253,11 +253,11 @@ pub const Backend = struct {
 
         if (hdr == null or status_desc == null) {
             // Malformed; nothing to write back. Still ack the chain.
-            dev.queuePushUsed(0, head, 0);
+            dev.queue_push_used(0, head, 0);
             return;
         }
-        const hdr_bytes = dev.guestBytes(hdr.?.addr, @sizeOf(BlkOutHdr)) orelse {
-            dev.queuePushUsed(0, head, 0);
+        const hdr_bytes = dev.guest_bytes(hdr.?.addr, @sizeOf(BlkOutHdr)) orelse {
+            dev.queue_push_used(0, head, 0);
             return;
         };
         // Pair with the comptime layout assertion: every byte we copy lines up with a field.
@@ -269,7 +269,7 @@ pub const Backend = struct {
             .in => {
                 var sector = out_hdr.sector;
                 for (data[0..data_count]) |d| {
-                    const dst = dev.guestBytes(d.addr, d.len) orelse {
+                    const dst = dev.guest_bytes(d.addr, d.len) orelse {
                         status = VIRTIO_BLK_S_IOERR;
                         break;
                     };
@@ -281,7 +281,7 @@ pub const Backend = struct {
                     bytes_written += @intCast(n_bytes);
                     sector += dst.len / 512;
                 }
-                traceBlk("read", out_hdr.sector, data_count, bytes_written);
+                trace_blk("read", out_hdr.sector, data_count, bytes_written);
             },
             .out => {
                 if (self.read_only) {
@@ -290,12 +290,12 @@ pub const Backend = struct {
                     // a misbehaving one would silently get its bytes
                     // discarded by us — surface the error instead.
                     status = VIRTIO_BLK_S_IOERR;
-                    traceBlk("write-rejected-ro", out_hdr.sector, data_count, 0);
+                    trace_blk("write-rejected-ro", out_hdr.sector, data_count, 0);
                 } else {
                     var total_bytes: u32 = 0;
                     var sector = out_hdr.sector;
                     for (data[0..data_count]) |d| {
-                        const src = dev.guestBytes(d.addr, d.len) orelse {
+                        const src = dev.guest_bytes(d.addr, d.len) orelse {
                             status = VIRTIO_BLK_S_IOERR;
                             break;
                         };
@@ -305,11 +305,11 @@ pub const Backend = struct {
                             status = VIRTIO_BLK_S_IOERR;
                             break;
                         }
-                        self.markDirtyBytes(byte_off, @intCast(n_bytes));
+                        self.mark_dirty_bytes(byte_off, @intCast(n_bytes));
                         total_bytes += @intCast(n_bytes);
                         sector += src.len / 512;
                     }
-                    traceBlk("write", out_hdr.sector, data_count, total_bytes);
+                    trace_blk("write", out_hdr.sector, data_count, total_bytes);
                 }
             },
             .flush => {
@@ -329,7 +329,7 @@ pub const Backend = struct {
                     for (data[0..data_count]) |d| {
                         const seg_count: usize = d.len / @sizeOf(BlkDiscardSeg);
                         if (seg_count == 0) continue;
-                        const bytes = dev.guestBytes(d.addr, seg_count * @sizeOf(BlkDiscardSeg)) orelse {
+                        const bytes = dev.guest_bytes(d.addr, seg_count * @sizeOf(BlkDiscardSeg)) orelse {
                             status = VIRTIO_BLK_S_IOERR;
                             break;
                         };
@@ -340,17 +340,17 @@ pub const Backend = struct {
                             const offset_bytes: i64 = @as(i64, @intCast(seg.sector)) * 512;
                             const len_bytes: i64 = @as(i64, @intCast(seg.num_sectors)) * 512;
                             if (len_bytes <= 0) continue;
-                            self.markDirtyBytes(@intCast(offset_bytes), @intCast(len_bytes));
-                            const rc = punchHole(self.fd, offset_bytes, len_bytes);
+                            self.mark_dirty_bytes(@intCast(offset_bytes), @intCast(len_bytes));
+                            const rc = punch_hole(self.fd, offset_bytes, len_bytes);
                             if (rc != 0) {
                                 // EOPNOTSUPP / EINVAL on hosts that
                                 // don't support hole-punching — log
                                 // once at debug level so it's diagnosable.
-                                traceBlk("discard-fallback", seg.sector, seg.num_sectors, 0);
+                                trace_blk("discard-fallback", seg.sector, seg.num_sectors, 0);
                             }
                         }
                     }
-                    traceBlk("discard", out_hdr.sector, data_count, 0);
+                    trace_blk("discard", out_hdr.sector, data_count, 0);
                 }
             },
             .get_id => {
@@ -358,7 +358,7 @@ pub const Backend = struct {
                 if (data_count >= 1) {
                     const id_str: []const u8 = "machinen-vda" ++ ("\x00" ** 8);
                     assert(id_str.len == 20);
-                    const dst = dev.guestBytes(data[0].addr, @min(data[0].len, 20)) orelse {
+                    const dst = dev.guest_bytes(data[0].addr, @min(data[0].len, 20)) orelse {
                         status = VIRTIO_BLK_S_IOERR;
                         return;
                     };
@@ -376,18 +376,18 @@ pub const Backend = struct {
             status == VIRTIO_BLK_S_UNSUPP);
 
         // Write the status byte the device owes the guest.
-        if (dev.guestBytes(status_desc.?.addr, 1)) |st| {
+        if (dev.guest_bytes(status_desc.?.addr, 1)) |st| {
             assert(st.len == 1);
             st[0] = status;
         }
 
         // virtio-blk reports used `len` as the number of bytes the
         // DEVICE wrote into the chain (read data + the status byte).
-        dev.queuePushUsed(0, head, bytes_written + 1);
+        dev.queue_push_used(0, head, bytes_written + 1);
     }
 };
 
-fn traceBlk(kind: []const u8, sector: u64, segs: usize, bytes: u32) void {
+fn trace_blk(kind: []const u8, sector: u64, segs: usize, bytes: u32) void {
     assert(kind.len > 0);
     assert(kind.len < 16);
     // Per-request tracing is great for bring-up but useless at volume
@@ -421,7 +421,7 @@ extern "c" fn write(fd: c_int, buf: [*]const u8, count: usize) isize;
 // correctness, and HVF is dev-only anyway.
 const has_fallocate = builtin.os.tag == .linux;
 extern "c" fn fallocate(fd: c_int, mode: c_int, offset: i64, len: i64) c_int;
-fn punchHole(fd: c_int, offset: i64, len: i64) c_int {
+fn punch_hole(fd: c_int, offset: i64, len: i64) c_int {
     if (!has_fallocate) return -1;
     return fallocate(fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, offset, len);
 }
@@ -438,15 +438,15 @@ pub const FALLOC_FL_PUNCH_HOLE: c_int = 0x02;
 
 /// Convenience: open a host file read-write and wrap it as a Backend.
 /// Returns `FileNotFound` / `IoError` on obvious failures.
-pub fn openFile(path: []const u8) !Backend {
-    return openFileWithMode(path, false);
+pub fn open_file(path: []const u8) !Backend {
+    return open_file_with_mode(path, false);
 }
 
 /// Same as `openFile` but lets callers pin the host fd (and the
 /// resulting Backend) to read-only — used for paths backing the
 /// squashfs lower in #272 where guest writes would corrupt the
 /// content-addressed cache file.
-pub fn openFileWithMode(path: []const u8, read_only: bool) !Backend {
+pub fn open_file_with_mode(path: []const u8, read_only: bool) !Backend {
     assert(path.len > 0);
     var buf: [4096]u8 = undefined;
     if (path.len >= buf.len) return error.NameTooLong;
@@ -463,5 +463,5 @@ pub fn openFileWithMode(path: []const u8, read_only: bool) !Backend {
         return error.IoError;
     }
     assert(size > 0);
-    return Backend.initFromFdWithMode(fd, @intCast(size), read_only);
+    return Backend.init_from_fd_with_mode(fd, @intCast(size), read_only);
 }

@@ -89,7 +89,7 @@ const Header = struct {
         return h;
     }
 
-    fn stringOffset(self: Header, dtb: []const u8, needle: []const u8) ?u32 {
+    fn string_offset(self: Header, dtb: []const u8, needle: []const u8) ?u32 {
         assert(needle.len > 0);
         assert(@as(usize, self.off_strings) + @as(usize, self.size_strings) <= dtb.len);
         const strings = dtb[self.off_strings..][0..self.size_strings];
@@ -106,11 +106,11 @@ const Header = struct {
 /// scans the whole window for cpio / compressed archives. Patching the
 /// end pointer to match the actual cpio length stops the kernel from
 /// burning wall-clock walking dead tail.
-pub fn patchInitrdEnd(dtb: []u8, new_end: u32) !void {
+pub fn patch_initrd_end(dtb: []u8, new_end: u32) !void {
     assert(dtb.len > 0);
     const h = try Header.read(dtb);
     const needle = "linux,initrd-end\x00";
-    const name_offset = h.stringOffset(dtb, needle) orelse return error.InitrdEndNotFound;
+    const name_offset = h.string_offset(dtb, needle) orelse return error.InitrdEndNotFound;
 
     // Each loop iteration consumes at least 4 bytes (one token), so
     // dtb.len/4 is a hard upper bound on iterations. +1 covers the
@@ -124,7 +124,7 @@ pub fn patchInitrdEnd(dtb: []u8, new_end: u32) !void {
         const tok = std.mem.readInt(u32, dtb[i..][0..4], .big);
         i += 4;
         switch (tok) {
-            FDT_BEGIN_NODE => i = try skipName(dtb, i),
+            FDT_BEGIN_NODE => i = try skip_name(dtb, i),
             FDT_END_NODE, FDT_NOP => {},
             FDT_PROP => {
                 if (i + 8 > dtb.len) return error.DtbTruncated;
@@ -163,11 +163,11 @@ pub fn patchInitrdEnd(dtb: []u8, new_end: u32) !void {
 /// "child of root" means depth == 2 in the BEGIN_NODE/END_NODE
 /// counter. `reserved-memory`'s inner `memory@...` entries live at
 /// depth 3 and are correctly skipped.
-pub fn patchMemorySize(dtb: []u8, size_bytes: u64) !void {
+pub fn patch_memory_size(dtb: []u8, size_bytes: u64) !void {
     assert(dtb.len > 0);
     if (size_bytes == 0) return error.MemorySizeZero;
     const h = try Header.read(dtb);
-    const reg_offset = h.stringOffset(dtb, "reg\x00") orelse return error.RegPropNotFound;
+    const reg_offset = h.string_offset(dtb, "reg\x00") orelse return error.RegPropNotFound;
 
     // Walk the struct block. `depth` counts open BEGIN_NODE tokens;
     // root sits at depth 1, its children at depth 2.
@@ -188,13 +188,13 @@ pub fn patchMemorySize(dtb: []u8, size_bytes: u64) !void {
             FDT_BEGIN_NODE => {
                 if (depth >= MAX_FDT_DEPTH) return error.DtbTooDeep;
                 const name_start = i;
-                i = try skipName(dtb, i);
+                i = try skip_name(dtb, i);
                 depth += 1;
                 assert(depth > 0);
                 assert(depth <= MAX_FDT_DEPTH);
                 if (depth == ROOT_CHILD_DEPTH) {
-                    const name = nameSlice(dtb, name_start);
-                    in_memory_node = isMemoryNodeName(name);
+                    const name = name_slice(dtb, name_start);
+                    in_memory_node = is_memory_node_name(name);
                 }
             },
             FDT_END_NODE => {
@@ -235,7 +235,7 @@ pub fn patchMemorySize(dtb: []u8, size_bytes: u64) !void {
     return error.DtbTruncated;
 }
 
-fn skipName(dtb: []const u8, start: usize) !usize {
+fn skip_name(dtb: []const u8, start: usize) !usize {
     assert(start <= dtb.len);
     var i = start;
     while (i < dtb.len and dtb[i] != 0) : (i += 1) {
@@ -252,7 +252,7 @@ fn skipName(dtb: []const u8, start: usize) !usize {
     return aligned;
 }
 
-fn nameSlice(dtb: []const u8, start: usize) []const u8 {
+fn name_slice(dtb: []const u8, start: usize) []const u8 {
     assert(start <= dtb.len);
     var end = start;
     // Always reached after skipName succeeded, so the name is bounded
@@ -265,7 +265,7 @@ fn nameSlice(dtb: []const u8, start: usize) []const u8 {
 
 /// True for both bare `memory` and `memory@<unit-address>` (the
 /// canonical name for a real DTS-compiled node).
-fn isMemoryNodeName(name: []const u8) bool {
+fn is_memory_node_name(name: []const u8) bool {
     assert(name.len <= MAX_NAME_BYTES);
     if (std.mem.eql(u8, name, "memory")) return true;
     if (std.mem.startsWith(u8, name, "memory@")) return true;
@@ -275,8 +275,8 @@ fn isMemoryNodeName(name: []const u8) bool {
 // --- tests ---
 
 test "patchInitrdEnd round-trips a minimal hand-built DTB" {
-    var buf = minimalSinglePropDtb("linux,initrd-end\x00", 4, &[_]u8{ 0xaa, 0xbb, 0xcc, 0xdd });
-    try patchInitrdEnd(buf.bytes(), 0x12345678);
+    var buf = minimal_single_prop_dtb("linux,initrd-end\x00", 4, &[_]u8{ 0xaa, 0xbb, 0xcc, 0xdd });
+    try patch_initrd_end(buf.bytes(), 0x12345678);
     // Layout from `minimalSinglePropDtb` (offset relative to struct_off):
     //   0..4   BEGIN_NODE
     //   4..8   empty name + pad
@@ -291,7 +291,7 @@ test "patchInitrdEnd round-trips a minimal hand-built DTB" {
 
 test "patchInitrdEnd rejects bad magic" {
     var bytes = [_]u8{0} ** 40;
-    try std.testing.expectError(error.DtbBadMagic, patchInitrdEnd(&bytes, 0));
+    try std.testing.expectError(error.DtbBadMagic, patch_initrd_end(&bytes, 0));
 }
 
 test "patchInitrdEnd rejects header with off_struct inside header" {
@@ -304,17 +304,17 @@ test "patchInitrdEnd rejects header with off_struct inside header" {
     std.mem.writeInt(u32, bytes[8..12], 8, .big); // off_struct (BAD)
     std.mem.writeInt(u32, bytes[12..16], 40, .big); // off_strings
     std.mem.writeInt(u32, bytes[32..36], 1, .big); // size_strings
-    try std.testing.expectError(error.DtbBadStruct, patchInitrdEnd(&bytes, 0));
+    try std.testing.expectError(error.DtbBadStruct, patch_initrd_end(&bytes, 0));
 }
 
 test "patchInitrdEnd reports a missing property" {
-    var buf = minimalSinglePropDtb("some,other\x00", 4, &[_]u8{ 0, 0, 0, 0 });
-    try std.testing.expectError(error.InitrdEndNotFound, patchInitrdEnd(buf.bytes(), 0x1));
+    var buf = minimal_single_prop_dtb("some,other\x00", 4, &[_]u8{ 0, 0, 0, 0 });
+    try std.testing.expectError(error.InitrdEndNotFound, patch_initrd_end(buf.bytes(), 0x1));
 }
 
 test "patchMemorySize rewrites the reg size cells of memory@..." {
-    var buf = minimalMemoryNodeDtb(0x4000_0000, 0x1_0000_0000);
-    try patchMemorySize(buf.bytes(), 0x4_0000_0000);
+    var buf = minimal_memory_node_dtb(0x4000_0000, 0x1_0000_0000);
+    try patch_memory_size(buf.bytes(), 0x4_0000_0000);
     // reg property data sits 4 bytes (PROP-len) + 4 bytes (PROP-nameoff)
     // past the FDT_PROP token. minimalMemoryNodeDtb places the PROP at
     // a known offset inside the struct block; the helper exposes it.
@@ -326,16 +326,16 @@ test "patchMemorySize rewrites the reg size cells of memory@..." {
 }
 
 test "patchMemorySize refuses size_bytes == 0" {
-    var buf = minimalMemoryNodeDtb(0x4000_0000, 0x1_0000_0000);
-    try std.testing.expectError(error.MemorySizeZero, patchMemorySize(buf.bytes(), 0));
+    var buf = minimal_memory_node_dtb(0x4000_0000, 0x1_0000_0000);
+    try std.testing.expectError(error.MemorySizeZero, patch_memory_size(buf.bytes(), 0));
 }
 
 test "patchMemorySize ignores a depth>1 memory node (e.g. reserved-memory)" {
     // Build a DTB where the only node named "memory" lives at depth 2;
     // depth-1 walk should never enter it, so the patch reports
     // MemoryRegNotFound rather than corrupting an unrelated node.
-    var buf = nestedMemoryNodeDtb();
-    try std.testing.expectError(error.MemoryRegNotFound, patchMemorySize(buf.bytes(), 0x1000));
+    var buf = nested_memory_node_dtb();
+    try std.testing.expectError(error.MemoryRegNotFound, patch_memory_size(buf.bytes(), 0x1000));
 }
 
 // Real-fixture coverage (DTB shape match against `assets/virt.dtb`)
@@ -361,7 +361,7 @@ const FixtureBuf = struct {
 /// strings block (via `name_with_nul`), value is `value` (length
 /// `plen`). Layout is the same minimal shape as the boot_hvf test
 /// fixture, just generalized.
-fn minimalSinglePropDtb(name_with_nul: []const u8, plen: u32, value: []const u8) FixtureBuf {
+fn minimal_single_prop_dtb(name_with_nul: []const u8, plen: u32, value: []const u8) FixtureBuf {
     var fb: FixtureBuf = undefined;
     fb.storage = [_]u8{0} ** 256;
 
@@ -423,7 +423,7 @@ fn minimalSinglePropDtb(name_with_nul: []const u8, plen: u32, value: []const u8)
 /// `memory@40000000` child with one `reg` property (16 bytes;
 /// address+size, 2 cells each). Matches the shape patchMemorySize
 /// expects to walk in `assets/virt.dtb`.
-fn minimalMemoryNodeDtb(addr: u64, size: u64) FixtureBuf {
+fn minimal_memory_node_dtb(addr: u64, size: u64) FixtureBuf {
     var fb: FixtureBuf = undefined;
     fb.storage = [_]u8{0} ** 256;
 
@@ -495,7 +495,7 @@ fn minimalMemoryNodeDtb(addr: u64, size: u64) FixtureBuf {
 /// — i.e. the memory-named node lives at depth 3 (grandchild of root).
 /// patchMemorySize should not touch it; only direct children of root
 /// (depth 2) are valid candidates.
-fn nestedMemoryNodeDtb() FixtureBuf {
+fn nested_memory_node_dtb() FixtureBuf {
     var fb: FixtureBuf = undefined;
     fb.storage = [_]u8{0} ** 256;
 

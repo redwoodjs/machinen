@@ -40,19 +40,19 @@ pub fn main(init: std.process.Init) !void {
 
     const gpa = std.heap.page_allocator;
 
-    if (envBool("MACHINEN_NESTED_PROBE")) {
-        probeNestedSupport();
+    if (env_bool("MACHINEN_NESTED_PROBE")) {
+        probe_nested_support();
     }
 
-    const kernel_path = envRequired("MACHINEN_KERNEL");
-    const dtb_path = envOptional("MACHINEN_DTB");
-    const initrd_path = envRequired("MACHINEN_INITRD");
+    const kernel_path = env_required("MACHINEN_KERNEL");
+    const dtb_path = env_optional("MACHINEN_DTB");
+    const initrd_path = env_required("MACHINEN_INITRD");
     // #263 phase A: optional ceiling override. Runtime auto-sizes and
     // forwards a value; direct invocations get the boot_*.zig default.
-    const ram_size_override = envMemoryMib();
+    const ram_size_override = env_memory_mib();
     // #271: explicit opt-in to expose EL2 / nested virtualization to
     // the guest. The runtime sets this from boot({ nested: true }).
-    const nested = envBool("MACHINEN_NESTED");
+    const nested = env_bool("MACHINEN_NESTED");
 
     // Guest console is live-echoed to stderr from inside the boot loop
     // (boot_hvf.zig's PL011 DR-write handler). The result.serial buffer is
@@ -68,19 +68,19 @@ pub fn main(init: std.process.Init) !void {
     // and passes the inherited fd numbers in the env. The VMM then
     // wraps them as virtio-blk backends without ever consulting the
     // host source dir.
-    const mountdisk_lower_fd = envInt("MACHINEN_MOUNTDISK_LOWER_FD");
-    const mountdisk_upper_fd = envInt("MACHINEN_MOUNTDISK_UPPER_FD");
+    const mountdisk_lower_fd = env_int("MACHINEN_MOUNTDISK_LOWER_FD");
+    const mountdisk_upper_fd = env_int("MACHINEN_MOUNTDISK_UPPER_FD");
 
     // Snapshot/restore plumbing — host orchestrator drives via env.
     // MACHINEN_RESTORE_PATH: load .vmstate at boot before vcpu.run().
     // MACHINEN_SNAPSHOT_PATH: capture on SIGUSR1, write .vmstate, then resume after SIGUSR2.
-    const restore_path = envOptional("MACHINEN_RESTORE_PATH");
-    const snapshot_path = envOptional("MACHINEN_SNAPSHOT_PATH");
+    const restore_path = env_optional("MACHINEN_RESTORE_PATH");
+    const snapshot_path = env_optional("MACHINEN_SNAPSHOT_PATH");
 
     if (builtin.os.tag == .macos) {
-        const disk_path = envOptional("MACHINEN_DISK");
-        const rootdisk_path = envOptional("MACHINEN_ROOTDISK");
-        const hvf_dtb_path = dtb_path orelse envRequired("MACHINEN_DTB");
+        const disk_path = env_optional("MACHINEN_DISK");
+        const rootdisk_path = env_optional("MACHINEN_ROOTDISK");
+        const hvf_dtb_path = dtb_path orelse env_required("MACHINEN_DTB");
         var cfg: microvm.boot_hvf.Config = .{
             .kernel_path = kernel_path,
             .dtb_path = hvf_dtb_path,
@@ -102,8 +102,8 @@ pub fn main(init: std.process.Init) !void {
         // .vmstate file's existence.
         std.process.exit(if (result.saw_psci_shutdown or result.snapshotted) 0 else 1);
     } else {
-        const disk_path = envOptional("MACHINEN_DISK");
-        const rootdisk_path = envOptional("MACHINEN_ROOTDISK");
+        const disk_path = env_optional("MACHINEN_DISK");
+        const rootdisk_path = env_optional("MACHINEN_ROOTDISK");
         if (builtin.cpu.arch == .x86_64) {
             if (nested) {
                 std.debug.print("machinen-microvm: nested virtualization unsupported on x86_64 hosts\n", .{});
@@ -126,7 +126,7 @@ pub fn main(init: std.process.Init) !void {
             gpa.free(result.serial);
             std.process.exit(if (result.saw_psci_shutdown or result.snapshotted) 0 else 1);
         } else {
-            const arm_dtb_path = dtb_path orelse envRequired("MACHINEN_DTB");
+            const arm_dtb_path = dtb_path orelse env_required("MACHINEN_DTB");
             var cfg: microvm.boot_kvm.Config = .{
                 .kernel_path = kernel_path,
                 .dtb_path = arm_dtb_path,
@@ -149,9 +149,9 @@ pub fn main(init: std.process.Init) !void {
     }
 }
 
-fn probeNestedSupport() noreturn {
+fn probe_nested_support() noreturn {
     if (builtin.os.tag == .macos) {
-        if (microvm.hvf.nestedSupported()) {
+        if (microvm.hvf.nested_supported()) {
             std.debug.print("machinen-microvm: nested virtualization supported\n", .{});
             std.process.exit(0);
         }
@@ -167,7 +167,7 @@ fn probeNestedSupport() noreturn {
             std.process.exit(2);
         };
         defer k.close_();
-        if (k.armEl2Supported()) {
+        if (k.arm_el2_supported()) {
             std.debug.print("machinen-microvm: nested virtualization supported\n", .{});
             std.process.exit(0);
         }
@@ -176,7 +176,7 @@ fn probeNestedSupport() noreturn {
     }
 }
 
-fn envBool(comptime name: [:0]const u8) bool {
+fn env_bool(comptime name: [:0]const u8) bool {
     comptime assert(name.len > 0);
     const raw = getenv(name.ptr) orelse return false;
     const s = std.mem.span(raw);
@@ -200,7 +200,7 @@ fn envBool(comptime name: [:0]const u8) bool {
 /// or empty; rejects non-numeric values with a die() rather than
 /// silently treating them as 0 (a fd of 0 is stdin and would mask a
 /// configuration mistake).
-fn envInt(comptime name: [:0]const u8) ?c_int {
+fn env_int(comptime name: [:0]const u8) ?c_int {
     comptime assert(name.len > 0);
     const raw = getenv(name.ptr) orelse return null;
     const s = std.mem.span(raw);
@@ -227,22 +227,22 @@ fn envInt(comptime name: [:0]const u8) ?c_int {
 /// value in bytes, or null if the var is unset / empty. Refuses
 /// anything we can't safely turn into a `usize` byte count: bad
 /// digits, zero, or values that would overflow.
-fn envMemoryMib() ?usize {
+fn env_memory_mib() ?usize {
     const raw = getenv("MACHINEN_MEMORY") orelse return null;
     const s = std.mem.span(raw);
     if (s.len == 0) return null;
     assert(s.len > 0);
-    const mib = std.fmt.parseInt(u64, s, 10) catch dieMemory(s, "must be a decimal integer");
-    if (mib == 0) dieMemory(s, "must be > 0");
+    const mib = std.fmt.parseInt(u64, s, 10) catch die_memory(s, "must be a decimal integer");
+    if (mib == 0) die_memory(s, "must be > 0");
     assert(mib > 0);
-    const bytes = std.math.mul(u64, mib, 1024 * 1024) catch dieMemory(s, "value overflows usize");
-    if (bytes > std.math.maxInt(usize)) dieMemory(s, "value overflows usize");
+    const bytes = std.math.mul(u64, mib, 1024 * 1024) catch die_memory(s, "value overflows usize");
+    if (bytes > std.math.maxInt(usize)) die_memory(s, "value overflows usize");
     assert(bytes > 0);
     assert(bytes <= std.math.maxInt(usize));
     return @intCast(bytes);
 }
 
-fn dieMemory(value: []const u8, why: []const u8) noreturn {
+fn die_memory(value: []const u8, why: []const u8) noreturn {
     assert(value.len > 0);
     assert(why.len > 0);
     std.debug.print(
@@ -252,23 +252,23 @@ fn dieMemory(value: []const u8, why: []const u8) noreturn {
     std.process.exit(2);
 }
 
-fn envRequired(comptime name: [:0]const u8) []const u8 {
+fn env_required(comptime name: [:0]const u8) []const u8 {
     comptime assert(name.len > 0);
-    const raw = getenv(name.ptr) orelse dieUsage(name);
+    const raw = getenv(name.ptr) orelse die_usage(name);
     const s = std.mem.span(raw);
-    if (s.len == 0) dieUsage(name);
+    if (s.len == 0) die_usage(name);
     assert(s.len > 0);
     return s;
 }
 
-fn envOptional(comptime name: [:0]const u8) ?[]const u8 {
+fn env_optional(comptime name: [:0]const u8) ?[]const u8 {
     comptime assert(name.len > 0);
     const raw = getenv(name.ptr) orelse return null;
     const s = std.mem.span(raw);
     return if (s.len == 0) null else s;
 }
 
-fn dieUsage(missing: []const u8) noreturn {
+fn die_usage(missing: []const u8) noreturn {
     assert(missing.len > 0);
     std.debug.print(
         "machinen-microvm: {s} is unset.\n" ++
@@ -280,6 +280,6 @@ fn dieUsage(missing: []const u8) noreturn {
 }
 
 test "backend detection is non-null" {
-    const backend = microvm.detectBackend();
+    const backend = microvm.detect_backend();
     try std.testing.expect(backend != .none);
 }
