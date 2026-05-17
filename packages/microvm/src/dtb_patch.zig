@@ -362,6 +362,9 @@ const FixtureBuf = struct {
 /// `plen`). Layout is the same minimal shape as the boot_hvf test
 /// fixture, just generalized.
 fn minimal_single_prop_dtb(name_with_nul: []const u8, plen: u32, value: []const u8) FixtureBuf {
+    assert(plen <= value.len);
+    assert(name_with_nul.len > 0);
+
     var fb: FixtureBuf = undefined;
     fb.storage = [_]u8{0} ** 256;
 
@@ -377,6 +380,7 @@ fn minimal_single_prop_dtb(name_with_nul: []const u8, plen: u32, value: []const 
     const strings_off: u32 = struct_off + struct_size;
     const strings_size: u32 = @intCast(name_with_nul.len);
     const total: u32 = strings_off + strings_size;
+    assert(total <= fb.storage.len);
 
     // header
     std.mem.writeInt(u32, fb.storage[0..4], FDT_MAGIC, .big);
@@ -424,6 +428,7 @@ fn minimal_single_prop_dtb(name_with_nul: []const u8, plen: u32, value: []const 
 /// address+size, 2 cells each). Matches the shape patchMemorySize
 /// expects to walk in `assets/virt.dtb`.
 fn minimal_memory_node_dtb(addr: u64, size: u64) FixtureBuf {
+    assert(size > 0);
     var fb: FixtureBuf = undefined;
     fb.storage = [_]u8{0} ** 256;
 
@@ -441,6 +446,8 @@ fn minimal_memory_node_dtb(addr: u64, size: u64) FixtureBuf {
     const strings_off: u32 = struct_off + struct_size;
     const strings_size: u32 = @intCast(reg_str.len);
     const total: u32 = strings_off + strings_size;
+    assert(total <= fb.storage.len);
+    assert(node_name.len == 16);
 
     std.mem.writeInt(u32, fb.storage[0..4], FDT_MAGIC, .big);
     std.mem.writeInt(u32, fb.storage[4..8], total, .big);
@@ -515,6 +522,9 @@ fn nested_memory_node_dtb() FixtureBuf {
     const strings_off: u32 = struct_off + struct_size;
     const strings_size: u32 = @intCast(reg_str.len);
     const total: u32 = strings_off + strings_size;
+    assert(total <= fb.storage.len);
+    assert(wrap_name.len == 8);
+    assert(inner_name.len == 16);
 
     std.mem.writeInt(u32, fb.storage[0..4], FDT_MAGIC, .big);
     std.mem.writeInt(u32, fb.storage[4..8], total, .big);

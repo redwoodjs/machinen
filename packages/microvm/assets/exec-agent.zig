@@ -189,6 +189,9 @@ const MAX_EXEC2_CMD: usize = 1 * 1024 * 1024;
 const MAX_PTY_INPUT: usize = 64 * 1024;
 
 fn run_command(client_fd: c_int, cmd: []const u8, alloc: std.mem.Allocator) !void {
+    std.debug.assert(client_fd >= 0);
+    std.debug.assert(cmd.len <= MAX_EXEC2_CMD);
+
     // Make a NUL-terminated copy for the shell.
     const cmd_z = try alloc.dupeZ(u8, cmd);
     defer alloc.free(cmd_z);
@@ -266,6 +269,9 @@ fn run_pty_command(
     rows: u16,
     alloc: std.mem.Allocator,
 ) !void {
+    std.debug.assert(client_fd >= 0);
+    std.debug.assert(cmd.len <= MAX_EXEC2_CMD);
+
     const cmd_z = try alloc.dupeZ(u8, cmd);
     defer alloc.free(cmd_z);
 
@@ -387,6 +393,8 @@ fn run_pty_command(
 }
 
 fn handle_connection(client_fd: c_int, alloc: std.mem.Allocator) void {
+    std.debug.assert(client_fd >= 0);
+
     defer _ = close(client_fd);
     var line_buf: [4096]u8 = undefined;
     const len = read_line(client_fd, &line_buf) orelse {

@@ -411,6 +411,9 @@ fn load_config(arena: std.mem.Allocator) !Config {
         live_mounts = buf;
     }
 
+    std.debug.assert(argv_buf[0] != null);
+    std.debug.assert(envp_buf[env_idx] == null);
+
     return Config{
         .argv = argv,
         .envp = envp,
@@ -601,6 +604,10 @@ fn grow_rootdisk_fs(mount_point: [*:0]const u8) void {
 // chroot(NEWROOT) + chdir("/"). Subsequent code runs against the
 // on-disk rootfs.
 fn try_root_disk_pivot() bool {
+    std.debug.assert(ROOTDISK_DEV.len > 0);
+    std.debug.assert(NEWROOT.len > 0);
+    std.debug.assert(ROOTFS_MARKER.len > 0);
+
     // Wait for the device node. The kernel finishes binding /dev/vda
     // within a few tens of ms after devtmpfs mounts. Cap the wait at
     // 2s in case the device is genuinely missing (no rootDisk attached).
@@ -712,6 +719,8 @@ fn wait_for_path(path: [*:0]const u8, timeout_ms: i64) bool {
 fn bring_up_mount_disk() void {
     // 1. Guest path. Absent → no mount was requested by the runtime.
     const guest = read_guest_mountpoint() orelse return;
+    std.debug.assert(guest.len > 0);
+    std.debug.assert(guest.len < 512);
     klog("checkpoint: mountdisk: guest path read");
 
     // 2. Identify the two virtio-blk devices. squashfs lower first,
@@ -1021,6 +1030,8 @@ fn copy_tree_best(src: [*:0]const u8, dst: [*:0]const u8) void {
 }
 
 pub fn main() noreturn {
+    std.debug.assert(@sizeOf(timespec) >= 16);
+
     // Basic FS mounts. Ignore failures — the kernel might have mounted
     // some already, or we might be in a stripped rootfs.
     mkdir_ignore("/proc");
@@ -1087,6 +1098,8 @@ pub fn main() noreturn {
         const msg = std.fmt.bufPrint(&buf, "init: config error: {s}", .{@errorName(err)}) catch "init: config error";
         die(msg);
     };
+    std.debug.assert(cfg.argv[0] != null);
+    std.debug.assert(std.mem.len(cfg.path) > 0);
     klog("checkpoint: post-loadConfig");
 
     // #272: bring up the `--mount` overlay (squashfs RO + ext4 RW).

@@ -74,6 +74,10 @@ fn trim(s: []const u8) []const u8 {
 }
 
 pub fn main() !void {
+    std.debug.assert(@sizeOf(SockaddrVm) == 16);
+    std.debug.assert(PORT > 0);
+    std.debug.assert(ENV_PATH.len > 0);
+
     const srv = socket(AF_VSOCK, SOCK_STREAM, 0);
     if (srv < 0) {
         log_line("secrets-agent: socket() failed");
@@ -101,6 +105,7 @@ pub fn main() !void {
         log_line("secrets-agent: accept() failed");
         return error.AcceptFailed;
     }
+    std.debug.assert(conn >= 0);
     log_line("secrets-agent: accepted");
 
     const alloc = std.heap.c_allocator;
@@ -147,6 +152,7 @@ pub fn main() !void {
         log_line("secrets-agent: open /etc/machinen.env failed");
         return error.OpenFailed;
     }
+    std.debug.assert(fd >= 0);
     defer _ = close(fd);
 
     for (entries.items) |e| {

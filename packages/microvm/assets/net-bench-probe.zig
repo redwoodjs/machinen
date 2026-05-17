@@ -69,6 +69,10 @@ fn print_err(comptime tag: []const u8, rc: c_int) void {
 }
 
 pub fn main(init: std.process.Init.Minimal) u8 {
+    std.debug.assert(@sizeOf(sockaddr_in) == 16);
+    std.debug.assert(default_port > 0);
+    std.debug.assert(default_pings > 0);
+
     var it = init.args.iterate();
     _ = it.next(); // argv[0]
 
@@ -82,6 +86,8 @@ pub fn main(init: std.process.Init.Minimal) u8 {
         (std.fmt.parseInt(u32, s, 10) catch default_pings)
     else
         default_pings;
+
+    if (pings == 0) return 0;
 
     std.debug.print("=== net-bench: tcp://{s}:{d} ({d} pings) ===\n", .{ host_slice, port, pings });
 

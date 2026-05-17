@@ -6,8 +6,8 @@ import { describe, expect, it } from "vitest";
 const ZIG_STYLE_BUDGET = {
   lineLengthViolations: 233,
   longFunctions: 33,
-  minAssertions: 505,
-  zeroAssertionFunctions: 506,
+  minAssertions: 583,
+  zeroAssertionFunctions: 473,
 };
 
 const zigFiles = spawnSync("git", ["ls-files", "*.zig"], {
