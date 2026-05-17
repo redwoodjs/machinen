@@ -33,7 +33,7 @@ const LINUX_REBOOT_CMD_POWER_OFF: c_int = @bitCast(@as(u32, 0x4321fedc));
 extern "c" fn write(fd: c_int, buf: *const anyopaque, count: usize) isize;
 extern "c" fn reboot(cmd: c_int) c_int;
 
-fn writeAll(fd: c_int, bytes: []const u8) void {
+fn write_all(fd: c_int, bytes: []const u8) void {
     var off: usize = 0;
     while (off < bytes.len) {
         const rc = write(fd, bytes.ptr + off, bytes.len - off);
@@ -42,7 +42,7 @@ fn writeAll(fd: c_int, bytes: []const u8) void {
     }
 }
 
-fn printCheckpoint(iter: u64, hash: *const [32]u8) void {
+fn print_checkpoint(iter: u64, hash: *const [32]u8) void {
     // Format: "snapshot-harness: iter=<n> hash=<64 hex>\n"
     var buf: [128]u8 = undefined;
     var len: usize = 0;
@@ -68,7 +68,7 @@ fn printCheckpoint(iter: u64, hash: *const [32]u8) void {
     }
     buf[len] = '\n';
     len += 1;
-    writeAll(1, buf[0..len]);
+    write_all(1, buf[0..len]);
 }
 
 pub fn main() u8 {
@@ -82,7 +82,7 @@ pub fn main() u8 {
         if (next == EARLY_CHECKPOINT or
             (next >= CHECKPOINT_INTERVAL and next % CHECKPOINT_INTERVAL == 0))
         {
-            printCheckpoint(next, &state);
+            print_checkpoint(next, &state);
         }
     }
     _ = reboot(LINUX_REBOOT_CMD_POWER_OFF);

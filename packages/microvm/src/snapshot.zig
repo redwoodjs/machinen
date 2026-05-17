@@ -123,10 +123,10 @@ pub fn encode(
     topology_hash: [32]u8,
     sections: []const Section,
 ) ![]u8 {
-    return encodeWithArch(allocator, ARCH_AARCH64, topology_hash, sections);
+    return encode_with_arch(allocator, ARCH_AARCH64, topology_hash, sections);
 }
 
-pub fn encodeWithArch(
+pub fn encode_with_arch(
     allocator: std.mem.Allocator,
     arch: u32,
     topology_hash: [32]u8,
@@ -217,7 +217,7 @@ pub const VcpuParseError = error{Truncated} || std.mem.Allocator.Error;
 ///
 /// Bounds: entries.len fits in u32; each name fits in u8 (255 chars);
 /// each value fits in u32 (4 GiB).
-pub fn encodeVcpuPayload(allocator: std.mem.Allocator, entries: []const VcpuEntry) ![]u8 {
+pub fn encode_vcpu_payload(allocator: std.mem.Allocator, entries: []const VcpuEntry) ![]u8 {
     std.debug.assert(entries.len <= std.math.maxInt(u32));
 
     var total: usize = 4; // entry_count
@@ -248,7 +248,7 @@ pub fn encodeVcpuPayload(allocator: std.mem.Allocator, entries: []const VcpuEntr
 
 /// Decode a VCPU payload. Slices point into the input buffer (caller
 /// keeps it alive). No copies.
-pub fn decodeVcpuPayload(allocator: std.mem.Allocator, payload: []const u8) VcpuParseError![]VcpuEntry {
+pub fn decode_vcpu_payload(allocator: std.mem.Allocator, payload: []const u8) VcpuParseError![]VcpuEntry {
     if (payload.len < 4) return error.Truncated;
     const n = std.mem.readInt(u32, payload[0..4], .little);
     const entries = try allocator.alloc(VcpuEntry, n);
@@ -304,7 +304,7 @@ test "encode/decode round-trip with x86_64 arch" {
     const allocator = std.testing.allocator;
     const topo: [32]u8 = @splat(0xcd);
 
-    const bytes = try encodeWithArch(allocator, ARCH_X86_64, topo, &.{});
+    const bytes = try encode_with_arch(allocator, ARCH_X86_64, topo, &.{});
     defer allocator.free(bytes);
 
     var snap = try decode(allocator, bytes);
@@ -398,10 +398,10 @@ test "vcpu payload round-trip" {
         .{ .name = "CNTVOFF_EL2", .value = &[_]u8{ 0x10, 0x20, 0, 0, 0, 0, 0, 0 } },
     };
 
-    const payload = try encodeVcpuPayload(allocator, &entries);
+    const payload = try encode_vcpu_payload(allocator, &entries);
     defer allocator.free(payload);
 
-    const decoded = try decodeVcpuPayload(allocator, payload);
+    const decoded = try decode_vcpu_payload(allocator, payload);
     defer allocator.free(decoded);
 
     try std.testing.expectEqual(@as(usize, 3), decoded.len);
@@ -415,5 +415,5 @@ test "vcpu payload round-trip" {
 
 test "vcpu payload rejects truncated" {
     const allocator = std.testing.allocator;
-    try std.testing.expectError(error.Truncated, decodeVcpuPayload(allocator, &[_]u8{ 1, 0, 0 }));
+    try std.testing.expectError(error.Truncated, decode_vcpu_payload(allocator, &[_]u8{ 1, 0, 0 }));
 }

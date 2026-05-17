@@ -82,7 +82,7 @@ pub const Snapshot = struct {
     queues: []QueueState,
 };
 
-fn knownDevice(device: u32) bool {
+fn known_device(device: u32) bool {
     return device == DEVICE_NET or device == DEVICE_BLK or
         device == DEVICE_CONSOLE or device == DEVICE_BALLOON or
         device == DEVICE_VSOCK or device == DEVICE_VIRTIO_FS;
@@ -99,7 +99,7 @@ pub fn encode(
 ) ![]u8 {
     // Tiger-style: bounded queue count + recognized device id.
     std.debug.assert(queues.len <= std.math.maxInt(u32));
-    std.debug.assert(knownDevice(device));
+    std.debug.assert(known_device(device));
 
     const total = HEADER_SIZE + queues.len * QUEUE_ENTRY_SIZE;
     const out = try allocator.alloc(u8, total);
@@ -126,7 +126,7 @@ pub fn decode(allocator: std.mem.Allocator, bytes: []const u8) DecodeError!Snaps
     if (bytes.len < HEADER_SIZE) return error.Truncated;
     var hdr: Header = undefined;
     @memcpy(std.mem.asBytes(&hdr), bytes[0..HEADER_SIZE]);
-    if (!knownDevice(hdr.device)) return error.BadDevice;
+    if (!known_device(hdr.device)) return error.BadDevice;
 
     const needed = HEADER_SIZE + @as(usize, hdr.queue_count) * QUEUE_ENTRY_SIZE;
     if (needed != bytes.len) return error.Truncated;
@@ -153,7 +153,7 @@ pub fn decode(allocator: std.mem.Allocator, bytes: []const u8) DecodeError!Snaps
 /// `virtio.max_queues` queues are captured (unused ones are zero —
 /// cheap, and keeps restore a straight index-for-index copy). Caller
 /// owns the returned bytes.
-pub fn dumpDevice(allocator: std.mem.Allocator, dev: *const virtio.Device) ![]u8 {
+pub fn dump_device(allocator: std.mem.Allocator, dev: *const virtio.Device) ![]u8 {
     var queues: [virtio.max_queues]QueueState = undefined;
     for (&queues, dev.queues) |*qs, q| {
         qs.* = .{
@@ -182,7 +182,7 @@ pub const ApplyError = DecodeError || error{DeviceMismatch};
 /// `virtio.Device`. The device must already exist with the same
 /// `id`, MMIO base, and `ram`/`ram_base` wiring — this only restores
 /// the driver-programmed transport state on top.
-pub fn applyDevice(allocator: std.mem.Allocator, dev: *virtio.Device, payload: []const u8) ApplyError!void {
+pub fn apply_device(allocator: std.mem.Allocator, dev: *virtio.Device, payload: []const u8) ApplyError!void {
     const snap = try decode(allocator, payload);
     defer allocator.free(snap.queues);
     if (snap.device != @intFromEnum(dev.id)) return error.DeviceMismatch;
@@ -243,11 +243,11 @@ test "dumpDevice/applyDevice round-trip a live device's transport state" {
     src.queues[0] = .{ .num = 256, .ready = 1, .desc_addr = 0x4010_0000, .driver_addr = 0x4010_1000, .device_addr = 0x4010_2000, .last_avail_idx = 42 };
     src.queues[1] = .{ .num = 256, .ready = 1, .desc_addr = 0x4011_0000, .driver_addr = 0x4011_1000, .device_addr = 0x4011_2000, .last_avail_idx = 9 };
 
-    const payload = try dumpDevice(a, &src);
+    const payload = try dump_device(a, &src);
     defer a.free(payload);
 
     var dst: virtio.Device = .{ .base = 0x0a00_0200, .id = .vsock };
-    try applyDevice(a, &dst, payload);
+    try apply_device(a, &dst, payload);
 
     try std.testing.expectEqual(src.driver_features, dst.driver_features);
     try std.testing.expectEqual(@as(u32, @bitCast(src.status)), @as(u32, @bitCast(dst.status)));
@@ -270,12 +270,12 @@ test "dumpDevice/applyDevice round-trip a virtio-fs device's transport state" {
     src.queues[0] = .{ .num = 256, .ready = 1, .desc_addr = 0x5000_0000, .driver_addr = 0x5000_1000, .device_addr = 0x5000_2000, .last_avail_idx = 3 };
     src.queues[1] = .{ .num = 256, .ready = 1, .desc_addr = 0x5001_0000, .driver_addr = 0x5001_1000, .device_addr = 0x5001_2000, .last_avail_idx = 71 };
 
-    const payload = try dumpDevice(a, &src);
+    const payload = try dump_device(a, &src);
     defer a.free(payload);
     try std.testing.expectEqual(DEVICE_VIRTIO_FS, std.mem.readInt(u32, payload[0..4], .little));
 
     var dst: virtio.Device = .{ .base = 0x0a00_0e00, .id = .virtio_fs };
-    try applyDevice(a, &dst, payload);
+    try apply_device(a, &dst, payload);
     try std.testing.expectEqual(src.driver_features, dst.driver_features);
     try std.testing.expectEqual(src.queue_sel, dst.queue_sel);
     try std.testing.expectEqual(src.queues[1].desc_addr, dst.queues[1].desc_addr);
@@ -285,8 +285,8 @@ test "dumpDevice/applyDevice round-trip a virtio-fs device's transport state" {
 test "applyDevice rejects a payload from a different device type" {
     const a = std.testing.allocator;
     var blk: virtio.Device = .{ .base = 0x0a00_0200, .id = .block };
-    const payload = try dumpDevice(a, &blk);
+    const payload = try dump_device(a, &blk);
     defer a.free(payload);
     var net: virtio.Device = .{ .base = 0x0a00_0000, .id = .net };
-    try std.testing.expectError(error.DeviceMismatch, applyDevice(a, &net, payload));
+    try std.testing.expectError(error.DeviceMismatch, apply_device(a, &net, payload));
 }

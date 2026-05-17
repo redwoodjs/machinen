@@ -28,7 +28,7 @@ const vmstate_zip = microvm.vmstate_zip;
 /// Centralises the read + transparent-gunzip + decode the three
 /// file-consuming subcommands share. Caller owns the returned
 /// `Vmstate` and must `deinit()` it.
-fn loadVmstateFile(allocator: std.mem.Allocator, path: []const u8) !snapshot.Vmstate {
+fn load_vmstate_file(allocator: std.mem.Allocator, path: []const u8) !snapshot.Vmstate {
     const raw = try std.Io.Dir.cwd().readFileAlloc(g_io, path, allocator, .limited(1 << 30));
     defer allocator.free(raw);
     const bytes = try vmstate_zip.decompress(allocator, raw);
@@ -49,30 +49,30 @@ pub fn main(init: std.process.Init) !u8 {
     _ = it.next(); // argv[0]
 
     const sub = it.next() orelse {
-        try printUsage();
+        try print_usage();
         return @intFromEnum(Exit.usage);
     };
 
     const allocator = init.gpa;
 
     if (eq(sub, "--help") or eq(sub, "-h") or eq(sub, "help")) {
-        try printUsage();
+        try print_usage();
         return @intFromEnum(Exit.ok);
     } else if (eq(sub, "dump")) {
-        return @intFromEnum(try runDump(allocator, &it));
+        return @intFromEnum(try run_dump(allocator, &it));
     } else if (eq(sub, "load")) {
-        return @intFromEnum(try runLoad(allocator, &it));
+        return @intFromEnum(try run_load(allocator, &it));
     } else if (eq(sub, "translate")) {
-        return @intFromEnum(try runTranslate(allocator, &it));
+        return @intFromEnum(try run_translate(allocator, &it));
     } else if (eq(sub, "diff")) {
-        return @intFromEnum(try runDiff(allocator, &it));
+        return @intFromEnum(try run_diff(allocator, &it));
     } else if (eq(sub, "xload")) {
-        return @intFromEnum(try runXload(allocator, &it));
+        return @intFromEnum(try run_xload(allocator, &it));
     } else {
         try stderr("unknown subcommand: ");
         try stderr(sub);
         try stderr("\n");
-        try printUsage();
+        try print_usage();
         return @intFromEnum(Exit.usage);
     }
 }
@@ -89,7 +89,7 @@ fn stdout(s: []const u8) !void {
     try std.Io.File.stdout().writeStreamingAll(g_io, s);
 }
 
-fn printUsage() !void {
+fn print_usage() !void {
     const u =
         \\snapshot-test — .vmstate snapshot tool
         \\
@@ -108,7 +108,7 @@ fn printUsage() !void {
     try stderr(u);
 }
 
-fn runDump(allocator: std.mem.Allocator, it: *std.process.Args.Iterator) !Exit {
+fn run_dump(allocator: std.mem.Allocator, it: *std.process.Args.Iterator) !Exit {
     var vmm: []const u8 = "";
     var section: []const u8 = "";
     while (it.next()) |arg| {
@@ -128,14 +128,14 @@ fn runDump(allocator: std.mem.Allocator, it: *std.process.Args.Iterator) !Exit {
             try stderr("dump --vmm=kvm only runs on Linux\n");
             return .fail;
         }
-        return try dumpVcpuKvmCmd(allocator);
+        return try dump_vcpu_kvm_cmd(allocator);
     }
     if (eq(section, "vcpu") and eq(vmm, "hvf")) {
         if (builtin.os.tag != .macos) {
             try stderr("dump --vmm=hvf only runs on macOS\n");
             return .fail;
         }
-        return try dumpVcpuHvfCmd(allocator);
+        return try dump_vcpu_hvf_cmd(allocator);
     }
 
     try stderr("dump: --vmm=");
@@ -148,7 +148,7 @@ fn runDump(allocator: std.mem.Allocator, it: *std.process.Args.Iterator) !Exit {
 
 const builtin = @import("builtin");
 
-fn dumpVcpuKvmCmd(allocator: std.mem.Allocator) !Exit {
+fn dump_vcpu_kvm_cmd(allocator: std.mem.Allocator) !Exit {
     if (builtin.os.tag != .linux) return .fail;
     const kvm = microvm.kvm;
     const vcpu_dump = microvm.vcpu_dump;
@@ -159,7 +159,7 @@ fn dumpVcpuKvmCmd(allocator: std.mem.Allocator) !Exit {
     };
     defer k.close_();
 
-    var vm = k.createVm() catch {
+    var vm = k.create_vm() catch {
         try stderr("dump: KVM_CREATE_VM failed\n");
         return .fail;
     };
@@ -176,7 +176,7 @@ fn dumpVcpuKvmCmd(allocator: std.mem.Allocator) !Exit {
         return .fail;
     }
 
-    var vcpu = vm.createVcpu(0) catch {
+    var vcpu = vm.create_vcpu(0) catch {
         try stderr("dump: KVM_CREATE_VCPU failed\n");
         return .fail;
     };
@@ -186,7 +186,7 @@ fn dumpVcpuKvmCmd(allocator: std.mem.Allocator) !Exit {
         return .fail;
     };
 
-    const payload = vcpu_dump.dumpKvm(allocator, vcpu.fd) catch |err| {
+    const payload = vcpu_dump.dump_kvm(allocator, vcpu.fd) catch |err| {
         try stderr("dump: dumpKvm failed: ");
         try stderr(@errorName(err));
         try stderr("\n");
@@ -211,7 +211,7 @@ fn dumpVcpuKvmCmd(allocator: std.mem.Allocator) !Exit {
     return .ok;
 }
 
-fn runXload(allocator: std.mem.Allocator, it: *std.process.Args.Iterator) !Exit {
+fn run_xload(allocator: std.mem.Allocator, it: *std.process.Args.Iterator) !Exit {
     // xload --vmm=<hvf|kvm> <in.vmstate>
     // Load the VCPU section into a fresh vCPU of the named backend,
     // then dump back to stdout. Used for task #20 cross-load.
@@ -233,7 +233,7 @@ fn runXload(allocator: std.mem.Allocator, it: *std.process.Args.Iterator) !Exit 
         return .usage;
     }
 
-    var snap = loadVmstateFile(allocator, path) catch |err| {
+    var snap = load_vmstate_file(allocator, path) catch |err| {
         try stderr("xload: cannot load ");
         try stderr(path);
         try stderr(": ");
@@ -260,19 +260,19 @@ fn runXload(allocator: std.mem.Allocator, it: *std.process.Args.Iterator) !Exit 
             try stderr("xload --vmm=kvm only runs on Linux\n");
             return .fail;
         }
-        return try xloadKvm(allocator, payload);
+        return try xload_kvm(allocator, payload);
     } else if (eq(vmm, "hvf")) {
         if (builtin.os.tag != .macos) {
             try stderr("xload --vmm=hvf only runs on macOS\n");
             return .fail;
         }
-        return try xloadHvf(allocator, payload);
+        return try xload_hvf(allocator, payload);
     }
     try stderr("xload: --vmm must be hvf or kvm\n");
     return .usage;
 }
 
-fn xloadHvf(allocator: std.mem.Allocator, payload: []const u8) !Exit {
+fn xload_hvf(allocator: std.mem.Allocator, payload: []const u8) !Exit {
     if (builtin.os.tag != .macos) return .fail;
     const hvf = microvm.hvf;
     const vcpu_dump = microvm.vcpu_dump;
@@ -288,13 +288,13 @@ fn xloadHvf(allocator: std.mem.Allocator, payload: []const u8) !Exit {
     };
     defer vcpu.destroy();
 
-    vcpu_dump.loadHvf(allocator, vcpu.handle, payload) catch |err| {
+    vcpu_dump.load_hvf(allocator, vcpu.handle, payload) catch |err| {
         try stderr("xload: loadHvf: ");
         try stderr(@errorName(err));
         try stderr("\n");
         return .fail;
     };
-    const out = vcpu_dump.dumpHvf(allocator, vcpu.handle) catch |err| {
+    const out = vcpu_dump.dump_hvf(allocator, vcpu.handle) catch |err| {
         try stderr("xload: dumpHvf: ");
         try stderr(@errorName(err));
         try stderr("\n");
@@ -318,7 +318,7 @@ fn xloadHvf(allocator: std.mem.Allocator, payload: []const u8) !Exit {
     return .ok;
 }
 
-fn xloadKvm(allocator: std.mem.Allocator, payload: []const u8) !Exit {
+fn xload_kvm(allocator: std.mem.Allocator, payload: []const u8) !Exit {
     if (builtin.os.tag != .linux) return .fail;
     const kvm = microvm.kvm;
     const vcpu_dump = microvm.vcpu_dump;
@@ -328,7 +328,7 @@ fn xloadKvm(allocator: std.mem.Allocator, payload: []const u8) !Exit {
         return .fail;
     };
     defer k.close_();
-    var vm = k.createVm() catch {
+    var vm = k.create_vm() catch {
         try stderr("xload: KVM_CREATE_VM failed\n");
         return .fail;
     };
@@ -343,7 +343,7 @@ fn xloadKvm(allocator: std.mem.Allocator, payload: []const u8) !Exit {
         try stderr("xload: KVM_ARM_PREFERRED_TARGET failed\n");
         return .fail;
     }
-    var vcpu = vm.createVcpu(0) catch {
+    var vcpu = vm.create_vcpu(0) catch {
         try stderr("xload: KVM_CREATE_VCPU failed\n");
         return .fail;
     };
@@ -353,13 +353,13 @@ fn xloadKvm(allocator: std.mem.Allocator, payload: []const u8) !Exit {
         return .fail;
     };
 
-    vcpu_dump.loadKvm(allocator, vcpu.fd, payload) catch |err| {
+    vcpu_dump.load_kvm(allocator, vcpu.fd, payload) catch |err| {
         try stderr("xload: loadKvm: ");
         try stderr(@errorName(err));
         try stderr("\n");
         return .fail;
     };
-    const out = vcpu_dump.dumpKvm(allocator, vcpu.fd) catch |err| {
+    const out = vcpu_dump.dump_kvm(allocator, vcpu.fd) catch |err| {
         try stderr("xload: dumpKvm: ");
         try stderr(@errorName(err));
         try stderr("\n");
@@ -383,7 +383,7 @@ fn xloadKvm(allocator: std.mem.Allocator, payload: []const u8) !Exit {
     return .ok;
 }
 
-fn dumpVcpuHvfCmd(allocator: std.mem.Allocator) !Exit {
+fn dump_vcpu_hvf_cmd(allocator: std.mem.Allocator) !Exit {
     if (builtin.os.tag != .macos) return .fail;
     const hvf = microvm.hvf;
     const vcpu_dump = microvm.vcpu_dump;
@@ -399,7 +399,7 @@ fn dumpVcpuHvfCmd(allocator: std.mem.Allocator) !Exit {
     };
     defer vcpu.destroy();
 
-    const payload = vcpu_dump.dumpHvf(allocator, vcpu.handle) catch |err| {
+    const payload = vcpu_dump.dump_hvf(allocator, vcpu.handle) catch |err| {
         try stderr("dump: dumpHvf failed: ");
         try stderr(@errorName(err));
         try stderr("\n");
@@ -423,20 +423,20 @@ fn dumpVcpuHvfCmd(allocator: std.mem.Allocator) !Exit {
     return .ok;
 }
 
-fn runTranslate(allocator: std.mem.Allocator, _: *std.process.Args.Iterator) !Exit {
+fn run_translate(allocator: std.mem.Allocator, _: *std.process.Args.Iterator) !Exit {
     _ = allocator;
     try stderr("translate: not yet wired (lands with #10/#14/#20)\n");
     return .fail;
 }
 
-fn runLoad(allocator: std.mem.Allocator, it: *std.process.Args.Iterator) !Exit {
+fn run_load(allocator: std.mem.Allocator, it: *std.process.Args.Iterator) !Exit {
     var path_opt: ?[]const u8 = null;
     var expected_topo: ?[32]u8 = null;
 
     while (it.next()) |arg| {
         if (std.mem.startsWith(u8, arg, "--expected-topology=")) {
             const hex = arg["--expected-topology=".len..];
-            expected_topo = parseHex32(hex) catch {
+            expected_topo = parse_hex32(hex) catch {
                 try stderr("load: --expected-topology requires 64 hex chars\n");
                 return .usage;
             };
@@ -453,7 +453,7 @@ fn runLoad(allocator: std.mem.Allocator, it: *std.process.Args.Iterator) !Exit {
         return .usage;
     };
 
-    var snap = loadVmstateFile(allocator, path) catch |err| {
+    var snap = load_vmstate_file(allocator, path) catch |err| {
         try stderr("load: cannot load ");
         try stderr(path);
         try stderr(": ");
@@ -467,9 +467,9 @@ fn runLoad(allocator: std.mem.Allocator, it: *std.process.Args.Iterator) !Exit {
         if (!std.mem.eql(u8, &exp, &snap.header.topology_hash)) {
             try stderr("load: topology mismatch\n");
             try stderr("  expected: ");
-            try writeHex(&exp);
+            try write_hex(&exp);
             try stderr("\n  actual:   ");
-            try writeHex(&snap.header.topology_hash);
+            try write_hex(&snap.header.topology_hash);
             try stderr("\n");
             return .fail;
         }
@@ -489,14 +489,14 @@ const Mask = struct {
     names: [][]const u8 = &.{},
 };
 
-fn runDiff(allocator: std.mem.Allocator, it: *std.process.Args.Iterator) !Exit {
+fn run_diff(allocator: std.mem.Allocator, it: *std.process.Args.Iterator) !Exit {
     var a_path: ?[]const u8 = null;
     var b_path: ?[]const u8 = null;
     var mask: Mask = .{};
 
     while (it.next()) |arg| {
         if (std.mem.startsWith(u8, arg, "--mask=")) {
-            mask = parseMask(allocator, arg["--mask=".len..]) catch {
+            mask = parse_mask(allocator, arg["--mask=".len..]) catch {
                 try stderr("diff: malformed --mask (expected <kind>=<n1,n2,...>)\n");
                 return .usage;
             };
@@ -520,16 +520,16 @@ fn runDiff(allocator: std.mem.Allocator, it: *std.process.Args.Iterator) !Exit {
         return .usage;
     };
 
-    var snap_a = readVmstate(allocator, ap) catch return .fail;
+    var snap_a = read_vmstate(allocator, ap) catch return .fail;
     defer snap_a.deinit();
-    var snap_b = readVmstate(allocator, bp) catch return .fail;
+    var snap_b = read_vmstate(allocator, bp) catch return .fail;
     defer snap_b.deinit();
 
-    return diffVmstates(allocator, &snap_a, &snap_b, mask);
+    return diff_vmstates(allocator, &snap_a, &snap_b, mask);
 }
 
-fn readVmstate(allocator: std.mem.Allocator, path: []const u8) !snapshot.Vmstate {
-    return loadVmstateFile(allocator, path) catch |err| {
+fn read_vmstate(allocator: std.mem.Allocator, path: []const u8) !snapshot.Vmstate {
+    return load_vmstate_file(allocator, path) catch |err| {
         try stderr("diff: cannot load ");
         try stderr(path);
         try stderr(": ");
@@ -539,7 +539,7 @@ fn readVmstate(allocator: std.mem.Allocator, path: []const u8) !snapshot.Vmstate
     };
 }
 
-fn diffVmstates(
+fn diff_vmstates(
     allocator: std.mem.Allocator,
     a: *snapshot.Vmstate,
     b: *snapshot.Vmstate,
@@ -548,11 +548,11 @@ fn diffVmstates(
     var differs = false;
 
     if (a.header.version != b.header.version) {
-        try diffMsg("header.version", a.header.version, b.header.version);
+        try diff_msg("header.version", a.header.version, b.header.version);
         differs = true;
     }
     if (a.header.arch != b.header.arch) {
-        try diffMsg("header.arch", a.header.arch, b.header.arch);
+        try diff_msg("header.arch", a.header.arch, b.header.arch);
         differs = true;
     }
     if (!std.mem.eql(u8, &a.header.topology_hash, &b.header.topology_hash)) {
@@ -560,7 +560,7 @@ fn diffVmstates(
         differs = true;
     }
     if (a.sections.len != b.sections.len) {
-        try diffMsg("section_count", a.sections.len, b.sections.len);
+        try diff_msg("section_count", a.sections.len, b.sections.len);
         differs = true;
     }
 
@@ -586,7 +586,7 @@ fn diffVmstates(
             // sysreg mask suppresses named entries; with no mask, every
             // diverging entry is reported by name.
             const names: []const []const u8 = if (eq(mask.kind, "sysreg")) mask.names else &.{};
-            if (try diffVcpuMasked(allocator, idx, sa.payload, sb.payload, names)) {
+            if (try diff_vcpu_masked(allocator, idx, sa.payload, sb.payload, names)) {
                 differs = true;
             }
         } else {
@@ -602,16 +602,16 @@ fn diffVmstates(
     return if (differs) .fail else .ok;
 }
 
-fn diffVcpuMasked(
+fn diff_vcpu_masked(
     allocator: std.mem.Allocator,
     section_idx: usize,
     a_payload: []const u8,
     b_payload: []const u8,
     masked_names: []const []const u8,
 ) !bool {
-    const entries_a = try snapshot.decodeVcpuPayload(allocator, a_payload);
+    const entries_a = try snapshot.decode_vcpu_payload(allocator, a_payload);
     defer allocator.free(entries_a);
-    const entries_b = try snapshot.decodeVcpuPayload(allocator, b_payload);
+    const entries_b = try snapshot.decode_vcpu_payload(allocator, b_payload);
     defer allocator.free(entries_b);
 
     // Auto-mask any reg the classifier flags as .mask or .translate.
@@ -633,7 +633,7 @@ fn diffVcpuMasked(
     @memset(seen_in_b, false);
 
     for (entries_a) |ea| {
-        if (isMasked(ea.name, masked_names)) continue;
+        if (is_masked(ea.name, masked_names)) continue;
         const cls_a = classify(ea.name);
         if (cls_a == .mask or cls_a == .translate) continue;
         const bi = b_index.get(ea.name) orelse {
@@ -653,7 +653,7 @@ fn diffVcpuMasked(
     }
     for (entries_b, 0..) |eb, i| {
         if (seen_in_b[i]) continue;
-        if (isMasked(eb.name, masked_names)) continue;
+        if (is_masked(eb.name, masked_names)) continue;
         const cls_b = classify(eb.name);
         if (cls_b == .mask or cls_b == .translate) continue;
         var buf: [256]u8 = undefined;
@@ -664,12 +664,12 @@ fn diffVcpuMasked(
     return differs;
 }
 
-fn isMasked(name: []const u8, masked_names: []const []const u8) bool {
+fn is_masked(name: []const u8, masked_names: []const []const u8) bool {
     for (masked_names) |m| if (eq(name, m)) return true;
     return false;
 }
 
-fn parseMask(allocator: std.mem.Allocator, s: []const u8) !Mask {
+fn parse_mask(allocator: std.mem.Allocator, s: []const u8) !Mask {
     const eq_idx = std.mem.indexOfScalar(u8, s, '=') orelse return error.MissingEquals;
     const kind = s[0..eq_idx];
     const rest = s[eq_idx + 1 ..];
@@ -692,13 +692,13 @@ fn parseMask(allocator: std.mem.Allocator, s: []const u8) !Mask {
     return .{ .kind = kind, .names = names };
 }
 
-fn diffMsg(label: []const u8, a: anytype, b: anytype) !void {
+fn diff_msg(label: []const u8, a: anytype, b: anytype) !void {
     var buf: [128]u8 = undefined;
     const msg = try std.fmt.bufPrint(&buf, "{s} differs ({any} vs {any})\n", .{ label, a, b });
     try stderr(msg);
 }
 
-fn parseHex32(s: []const u8) ![32]u8 {
+fn parse_hex32(s: []const u8) ![32]u8 {
     if (s.len != 64) return error.InvalidLength;
     var out: [32]u8 = undefined;
     for (0..32) |i| {
@@ -709,7 +709,7 @@ fn parseHex32(s: []const u8) ![32]u8 {
     return out;
 }
 
-fn writeHex(bytes: []const u8) !void {
+fn write_hex(bytes: []const u8) !void {
     const hex = "0123456789abcdef";
     var buf: [128]u8 = undefined;
     var i: usize = 0;

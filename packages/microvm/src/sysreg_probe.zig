@@ -28,8 +28,8 @@ pub fn main(init: std.process.Init) !u8 {
     const allocator = init.gpa;
 
     return switch (builtin.os.tag) {
-        .macos => try probeHvf(allocator),
-        .linux => try probeKvm(allocator),
+        .macos => try probe_hvf(allocator),
+        .linux => try probe_kvm(allocator),
         else => {
             try stderr("sysreg-probe: unsupported host\n");
             return 2;
@@ -47,7 +47,7 @@ fn stderr(s: []const u8) !void {
 // -----------------------------------------------------------------
 // HVF probe (macOS)
 
-fn probeHvf(_: std.mem.Allocator) !u8 {
+fn probe_hvf(_: std.mem.Allocator) !u8 {
     if (builtin.os.tag != .macos) unreachable;
     const hvf = microvm.hvf;
     var vm = try hvf.Vm.create();
@@ -69,11 +69,11 @@ fn probeHvf(_: std.mem.Allocator) !u8 {
         var value: u64 = 0;
         const rc = c.hv_vcpu_get_sys_reg(vcpu.handle, entry.encoding, &value);
         var line_buf: [256]u8 = undefined;
-        const line = try formatProbeLine(&line_buf, entry.encoding, entry.name, rc, value);
+        const line = try format_probe_line(&line_buf, entry.encoding, entry.name, rc, value);
         try lines.append(std.heap.page_allocator, try std.heap.page_allocator.dupe(u8, line));
     }
 
-    std.mem.sort([]u8, lines.items, {}, lessThanLine);
+    std.mem.sort([]u8, lines.items, {}, less_than_line);
     for (lines.items) |l| {
         try stdout(l);
         try stdout("\n");
@@ -82,7 +82,7 @@ fn probeHvf(_: std.mem.Allocator) !u8 {
     return 0;
 }
 
-fn formatProbeLine(buf: []u8, encoding: u16, name: []const u8, rc: i32, value: u64) ![]u8 {
+fn format_probe_line(buf: []u8, encoding: u16, name: []const u8, rc: i32, value: u64) ![]u8 {
     // HVF return codes (hv_return_t in hv_error.h):
     //   HV_SUCCESS      = 0
     //   HV_ERROR        = 0xfae94001
@@ -107,7 +107,7 @@ fn formatProbeLine(buf: []u8, encoding: u16, name: []const u8, rc: i32, value: u
     return std.fmt.bufPrint(buf, "0x{x:04}\t{s}\t{s}", .{ encoding, name, status });
 }
 
-fn lessThanLine(_: void, a: []const u8, b: []const u8) bool {
+fn less_than_line(_: void, a: []const u8, b: []const u8) bool {
     return std.mem.lessThan(u8, a, b);
 }
 
@@ -173,7 +173,7 @@ const KVM_REG_SIZE_U64: u64 = 0x0030_0000_0000_0000;
 const KVM_REG_ARM64_SYSREG: u64 = 0x0013_0000;
 const KVM_REG_ARM64_SYSREG_ENC_MASK: u64 = 0xffff;
 
-fn probeKvm(allocator: std.mem.Allocator) !u8 {
+fn probe_kvm(allocator: std.mem.Allocator) !u8 {
     if (builtin.os.tag != .linux) unreachable;
 
     const c = struct {
@@ -274,7 +274,7 @@ fn probeKvm(allocator: std.mem.Allocator) !u8 {
         try lines.append(std.heap.page_allocator, try std.heap.page_allocator.dupe(u8, line));
     }
 
-    std.mem.sort([]u8, lines.items, {}, lessThanLine);
+    std.mem.sort([]u8, lines.items, {}, less_than_line);
     for (lines.items) |l| {
         try stdout(l);
         try stdout("\n");

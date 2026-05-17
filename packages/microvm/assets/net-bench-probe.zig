@@ -64,7 +64,7 @@ extern "c" fn inet_pton(af: c_int, src: [*:0]const u8, dst: *anyopaque) c_int;
 extern "c" fn clock_gettime(clk_id: c_int, tp: *timespec) c_int;
 extern "c" fn htons(host: u16) u16;
 
-fn printErr(comptime tag: []const u8, rc: c_int) void {
+fn print_err(comptime tag: []const u8, rc: c_int) void {
     std.debug.print("net-bench: error={s} rc={d}\n", .{ tag, rc });
 }
 
@@ -97,7 +97,7 @@ pub fn main(init: std.process.Init.Minimal) u8 {
 
     const fd = socket(AF_INET, SOCK_STREAM, 0);
     if (fd < 0) {
-        printErr("socket", fd);
+        print_err("socket", fd);
         return 0;
     }
     defer _ = close(fd);
@@ -106,12 +106,12 @@ pub fn main(init: std.process.Init.Minimal) u8 {
     // so any Nagle batching would inflate the numbers.
     const one: c_int = 1;
     if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, @sizeOf(c_int)) < 0) {
-        printErr("setsockopt_nodelay", -1);
+        print_err("setsockopt_nodelay", -1);
         return 0;
     }
 
     if (connect(fd, &addr, @sizeOf(sockaddr_in)) < 0) {
-        printErr("connect", -1);
+        print_err("connect", -1);
         return 0;
     }
 
@@ -122,7 +122,7 @@ pub fn main(init: std.process.Init.Minimal) u8 {
     while (i < pings) : (i += 1) {
         const snt = write(fd, "x", 1);
         if (snt != 1) {
-            printErr("write", @intCast(snt));
+            print_err("write", @intCast(snt));
             return 0;
         }
         var buf: [1]u8 = undefined;

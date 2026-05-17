@@ -65,19 +65,19 @@ const VMADDR_CID_ANY: u32 = 0xFFFF_FFFF;
 const PORT: u32 = 1976;
 const CHUNK = 64 * 1024;
 
-fn logLine(msg: []const u8) void {
+fn log_line(msg: []const u8) void {
     _ = write(1, msg.ptr, msg.len);
     _ = write(1, "\n", 1);
 }
 
-fn waitExitStatus(pid: pid_t) c_int {
+fn wait_exit_status(pid: pid_t) c_int {
     var status: c_int = 0;
     _ = waitpid(pid, &status, 0);
     if ((status & 0x7f) == 0) return (status >> 8) & 0xff;
     return 128 + (status & 0x7f);
 }
 
-fn readLine(fd: c_int, out: []u8) ?usize {
+fn read_line(fd: c_int, out: []u8) ?usize {
     var i: usize = 0;
     while (i < out.len) {
         const n = read(fd, out.ptr + i, 1);
@@ -91,7 +91,7 @@ fn readLine(fd: c_int, out: []u8) ?usize {
 // Recursive mkdir — mimics Python's os.makedirs(..., exist_ok=True). Caller
 // passes a mutable path buffer that we scribble over; original bytes are
 // restored after each intermediate mkdir.
-fn mkdirP(path: []u8) void {
+fn mkdir_p(path: []u8) void {
     if (path.len == 0) return;
     var i: usize = 1;
     while (i <= path.len) : (i += 1) {
@@ -107,7 +107,7 @@ fn mkdirP(path: []u8) void {
 // Fork+exec with pipe for either stdin (is_writer=true) or stdout
 // (is_writer=false). Returns (pid, pipe_fd) where pipe_fd is the
 // parent's end of the pipe.
-fn spawnTar(
+fn spawn_tar(
     is_writer: bool,
     path_z: [*:0]const u8,
 ) struct { pid: pid_t, fd: c_int } {
@@ -150,8 +150,8 @@ fn spawnTar(
     return .{ .pid = pid, .fd = parent_fd };
 }
 
-fn doPush(client_fd: c_int, path_z: [*:0]const u8) void {
-    const spawned = spawnTar(true, path_z);
+fn do_push(client_fd: c_int, path_z: [*:0]const u8) void {
+    const spawned = spawn_tar(true, path_z);
     var total: usize = 0;
     var buf: [CHUNK]u8 = undefined;
     while (true) {
@@ -167,21 +167,21 @@ fn doPush(client_fd: c_int, path_z: [*:0]const u8) void {
         total += slice.len;
     }
     _ = close(spawned.fd);
-    const rc = waitExitStatus(spawned.pid);
+    const rc = wait_exit_status(spawned.pid);
     var msg_buf: [256]u8 = undefined;
     if (rc == 0) {
         const msg = std.fmt.bufPrint(&msg_buf, "file-agent: PUSH -> {s} OK ({d} bytes)", .{ path_z, total }) catch "file-agent: PUSH OK";
-        logLine(msg);
+        log_line(msg);
     } else {
         const msg = std.fmt.bufPrint(&msg_buf, "file-agent: PUSH -> {s} tar failed rc={d}", .{ path_z, rc }) catch "file-agent: PUSH failed";
-        logLine(msg);
+        log_line(msg);
     }
 }
 
-fn doPull(client_fd: c_int, path_z: [*:0]const u8) void {
+fn do_pull(client_fd: c_int, path_z: [*:0]const u8) void {
     // Python does `os.path.exists` first; we skip that and let tar fail with
     // its own stderr — same observable outcome.
-    const spawned = spawnTar(false, path_z);
+    const spawned = spawn_tar(false, path_z);
     var buf: [CHUNK]u8 = undefined;
     while (true) {
         const n = read(spawned.fd, &buf, buf.len);
@@ -195,29 +195,29 @@ fn doPull(client_fd: c_int, path_z: [*:0]const u8) void {
         }
     }
     _ = close(spawned.fd);
-    const rc = waitExitStatus(spawned.pid);
+    const rc = wait_exit_status(spawned.pid);
     _ = shutdown(client_fd, SHUT_WR);
     var msg_buf: [256]u8 = undefined;
     const msg = std.fmt.bufPrint(&msg_buf, "file-agent: PULL <- {s} rc={d}", .{ path_z, rc }) catch "file-agent: PULL done";
-    logLine(msg);
+    log_line(msg);
 }
 
-fn handleConnection(client_fd: c_int, alloc: std.mem.Allocator) void {
+fn handle_connection(client_fd: c_int, alloc: std.mem.Allocator) void {
     defer _ = close(client_fd);
     var line_buf: [4096]u8 = undefined;
-    const len = readLine(client_fd, &line_buf) orelse {
-        logLine("file-agent: bad header, dropping");
+    const len = read_line(client_fd, &line_buf) orelse {
+        log_line("file-agent: bad header, dropping");
         return;
     };
     const line = line_buf[0..len];
     const sp = std.mem.indexOfScalar(u8, line, ' ') orelse {
-        logLine("file-agent: malformed command");
+        log_line("file-agent: malformed command");
         return;
     };
     const op = line[0..sp];
     const path = line[sp + 1 ..];
     const path_z = alloc.dupeZ(u8, path) catch {
-        logLine("file-agent: alloc failed");
+        log_line("file-agent: alloc failed");
         return;
     };
     defer alloc.free(path_z);
@@ -225,18 +225,18 @@ fn handleConnection(client_fd: c_int, alloc: std.mem.Allocator) void {
     if (std.mem.eql(u8, op, "PUSH")) {
         // Ensure dest dir exists.
         const path_mut = alloc.dupe(u8, path) catch {
-            logLine("file-agent: alloc failed");
+            log_line("file-agent: alloc failed");
             return;
         };
         defer alloc.free(path_mut);
-        mkdirP(path_mut);
-        doPush(client_fd, path_z.ptr);
+        mkdir_p(path_mut);
+        do_push(client_fd, path_z.ptr);
     } else if (std.mem.eql(u8, op, "PULL")) {
-        doPull(client_fd, path_z.ptr);
+        do_pull(client_fd, path_z.ptr);
     } else {
         var msg_buf: [128]u8 = undefined;
         const msg = std.fmt.bufPrint(&msg_buf, "file-agent: unknown op {s}", .{op}) catch "file-agent: unknown op";
-        logLine(msg);
+        log_line(msg);
     }
 }
 
@@ -246,7 +246,7 @@ pub fn main() !void {
 
     const srv = socket(AF_VSOCK, SOCK_STREAM, 0);
     if (srv < 0) {
-        logLine("file-agent: socket() failed");
+        log_line("file-agent: socket() failed");
         return error.SocketFailed;
     }
     var addr: SockaddrVm = .{
@@ -257,22 +257,22 @@ pub fn main() !void {
         .svm_zero = .{ 0, 0, 0, 0 },
     };
     if (bind(srv, @ptrCast(&addr), @sizeOf(SockaddrVm)) < 0) {
-        logLine("file-agent: bind() failed");
+        log_line("file-agent: bind() failed");
         return error.BindFailed;
     }
     if (listen(srv, 4) < 0) {
-        logLine("file-agent: listen() failed");
+        log_line("file-agent: listen() failed");
         return error.ListenFailed;
     }
-    logLine("file-agent: listening on vsock port 1976");
+    log_line("file-agent: listening on vsock port 1976");
 
     while (true) {
         const client = accept(srv, null, null);
         if (client < 0) {
-            logLine("file-agent: accept error");
+            log_line("file-agent: accept error");
             continue;
         }
-        logLine("file-agent: accepted");
-        handleConnection(client, alloc);
+        log_line("file-agent: accepted");
+        handle_connection(client, alloc);
     }
 }

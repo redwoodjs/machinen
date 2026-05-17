@@ -31,7 +31,7 @@ extern "c" fn open(path: [*:0]const u8, flags: c_int, ...) c_int;
 extern "c" fn close(fd: c_int) c_int;
 extern "c" fn write(fd: c_int, buf: [*]const u8, count: usize) isize;
 
-fn writeConsole(bytes: []const u8) void {
+fn write_console(bytes: []const u8) void {
     const fd = open("/dev/console", O_WRONLY, @as(c_int, 0));
     if (fd >= 0) {
         _ = write(fd, bytes.ptr, bytes.len);
@@ -49,7 +49,7 @@ pub fn main() u8 {
     sync();
 
     if (access("/dev/kvm", F_OK) == 0) {
-        writeConsole(nested_poweroff_marker);
+        write_console(nested_poweroff_marker);
         while (true) {}
     }
 

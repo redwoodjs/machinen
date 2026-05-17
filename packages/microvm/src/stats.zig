@@ -71,7 +71,7 @@ var stub_storage: Counters = .{};
 
 /// Pointer to the process-static stub. Useful for tests that want a
 /// deterministic, isolated counter to read after a fake balloon op.
-pub fn stubCounters() *Counters {
+pub fn stub_counters() *Counters {
     return &stub_storage;
 }
 
@@ -119,20 +119,20 @@ pub const Stats = struct {
     /// Stats backed by the file pointed at by `MACHINEN_STATS_FILE`,
     /// or by the process-static stub when the env var is missing or
     /// the open fails. Never throws — the VMM must boot regardless.
-    pub fn openOrStub() Stats {
-        const env_ptr = libc.getenv("MACHINEN_STATS_FILE") orelse return stubInstance();
+    pub fn open_or_stub() Stats {
+        const env_ptr = libc.getenv("MACHINEN_STATS_FILE") orelse return stub_instance();
         return open(env_ptr) catch |err| {
-            if (debugEnabled()) {
+            if (debug_enabled()) {
                 std.debug.print("stats: open '{s}' failed ({s}); using stub\n", .{
                     std.mem.span(env_ptr),
                     @errorName(err),
                 });
             }
-            return stubInstance();
+            return stub_instance();
         };
     }
 
-    fn stubInstance() Stats {
+    fn stub_instance() Stats {
         return .{ .counters = &stub_storage };
     }
 
@@ -151,7 +151,7 @@ pub const Stats = struct {
     }
 };
 
-fn debugEnabled() bool {
+fn debug_enabled() bool {
     return libc.getenv("MACHINEN_DEBUG") != null;
 }
 
@@ -225,14 +225,14 @@ const RUSAGE_PHYS_FOOTPRINT_OFFSET: usize = 72;
 /// joinable — the VMM exits via `std.process.exit` once boot
 /// returns, so there's no cleanup window where the sampler could
 /// race with `Stats.deinit()`.
-pub fn startPhysFootprintSampler(counters: *Counters) void {
+pub fn start_phys_footprint_sampler(counters: *Counters) void {
     if (builtin.os.tag != .macos) return;
     const handle = std.Thread.spawn(
         .{},
-        samplerLoop,
+        sampler_loop,
         .{counters},
     ) catch |err| {
-        if (debugEnabled()) {
+        if (debug_enabled()) {
             std.debug.print("stats: sampler spawn failed: {s}\n", .{@errorName(err)});
         }
         return;
@@ -240,10 +240,10 @@ pub fn startPhysFootprintSampler(counters: *Counters) void {
     handle.detach();
 }
 
-fn samplerLoop(counters: *Counters) void {
+fn sampler_loop(counters: *Counters) void {
     const half_second = libc.timespec{ .tv_sec = 0, .tv_nsec = 500 * 1_000_000 };
     while (true) {
-        if (samplePhysFootprint()) |bytes| {
+        if (sample_phys_footprint()) |bytes| {
             @atomicStore(u64, &counters.host_phys_footprint, bytes, .monotonic);
         }
         // libc nanosleep — std.Thread.sleep was removed in Zig 0.16
@@ -257,7 +257,7 @@ fn samplerLoop(counters: *Counters) void {
 /// One synchronous sample. Returns null on non-Darwin or on syscall
 /// failure (pid gone, kernel out of memory, etc.). Exposed for
 /// tests; the production caller is `samplerLoop` above.
-pub fn samplePhysFootprint() ?u64 {
+pub fn sample_phys_footprint() ?u64 {
     if (builtin.os.tag != .macos) return null;
     // Comptime guard so a future struct-version bump that moved
     // phys_footprint out of the v4 layout fails to build instead of
@@ -294,13 +294,13 @@ test "Counters layout matches the host wire format" {
 
 test "samplePhysFootprint returns a positive value on Darwin" {
     if (builtin.os.tag != .macos) return error.SkipZigTest;
-    const v = samplePhysFootprint() orelse return error.UnexpectedNull;
+    const v = sample_phys_footprint() orelse return error.UnexpectedNull;
     try std.testing.expect(v > 0);
 }
 
 test "stubCounters returns the same address every call" {
-    const a = stubCounters();
-    const b = stubCounters();
+    const a = stub_counters();
+    const b = stub_counters();
     try std.testing.expectEqual(a, b);
 }
 

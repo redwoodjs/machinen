@@ -25,9 +25,9 @@ pub const Class = enum {
 pub fn classify(name: []const u8) Class {
     // --- skip: invariant / host-determined ---
     // Identity / discovery
-    if (startsWith(name, "ID_AA64") or startsWith(name, "ID_DFR") or
-        startsWith(name, "ID_ISAR") or startsWith(name, "ID_MMFR") or
-        startsWith(name, "ID_PFR") or startsWith(name, "ID_AFR"))
+    if (starts_with(name, "ID_AA64") or starts_with(name, "ID_DFR") or
+        starts_with(name, "ID_ISAR") or starts_with(name, "ID_MMFR") or
+        starts_with(name, "ID_PFR") or starts_with(name, "ID_AFR"))
         return .skip;
     if (eq(name, "MIDR_EL1") or eq(name, "REVIDR_EL1") or
         eq(name, "MPIDR_EL1") or eq(name, "AIDR_EL1") or
@@ -37,14 +37,14 @@ pub fn classify(name: []const u8) Class {
     if (eq(name, "ACTLR_EL1") or eq(name, "ACTLR_EL2"))
         return .skip;
     // Apple proprietary
-    if (startsWith(name, "S3_1_C15_")) return .skip;
+    if (starts_with(name, "S3_1_C15_")) return .skip;
     // Cache topology — host-determined
     if (eq(name, "CCSIDR_EL1") or eq(name, "CCSIDR2_EL1") or
         eq(name, "CSSELR_EL1") or eq(name, "CLIDR_EL1") or
         eq(name, "CTR_EL0") or eq(name, "DCZID_EL0"))
         return .skip;
     // FP feature ID — host caps
-    if (startsWith(name, "MVFR")) return .skip;
+    if (starts_with(name, "MVFR")) return .skip;
     // RNG — host RNG, no state
     if (eq(name, "RNDR") or eq(name, "RNDRRS")) return .skip;
     // SME ID — host feature; mismatch must refuse snapshot
@@ -69,12 +69,12 @@ pub fn classify(name: []const u8) Class {
     // PMU counters
     if (eq(name, "PMCCNTR_EL0") or eq(name, "PMCCFILTR_EL0"))
         return .mask;
-    if (startsWith(name, "PMEVCNTR") or startsWith(name, "PMEVTYPER"))
+    if (starts_with(name, "PMEVCNTR") or starts_with(name, "PMEVTYPER"))
         return .mask;
     if (eq(name, "PMCR_EL0")) return .mask; // E bit + counter clears
     // Debug — mask until task #29 forces portable
-    if (startsWith(name, "DBGBVR") or startsWith(name, "DBGBCR") or
-        startsWith(name, "DBGWVR") or startsWith(name, "DBGWCR"))
+    if (starts_with(name, "DBGBVR") or starts_with(name, "DBGBCR") or
+        starts_with(name, "DBGWVR") or starts_with(name, "DBGWCR"))
         return .mask;
     if (eq(name, "MDSCR_EL1") or eq(name, "OSDTRRX_EL1") or
         eq(name, "OSDTRTX_EL1") or eq(name, "OSLAR_EL1") or
@@ -96,7 +96,7 @@ fn eq(a: []const u8, b: []const u8) bool {
     return std.mem.eql(u8, a, b);
 }
 
-fn startsWith(s: []const u8, prefix: []const u8) bool {
+fn starts_with(s: []const u8, prefix: []const u8) bool {
     return std.mem.startsWith(u8, s, prefix);
 }
 

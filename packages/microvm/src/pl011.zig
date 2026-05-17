@@ -29,9 +29,9 @@ pub const PthreadMutex = extern struct {
     // zero-init the whole thing and let pthread handle it. macOS
     // has a sentinel magic it requires, which we write into the
     // first 8 bytes.
-    _bytes: [64]u8 align(8) = if (builtin.os.tag == .macos) macosInit() else @splat(0),
+    _bytes: [64]u8 align(8) = if (builtin.os.tag == .macos) macos_init() else @splat(0),
 
-    fn macosInit() [64]u8 {
+    fn macos_init() [64]u8 {
         var out: [64]u8 = @splat(0);
         // sig = 0x32AAABA7 (PTHREAD_MUTEX_INITIALIZER's magic).
         const sig: u64 = 0x32AAABA7;
@@ -118,7 +118,7 @@ pub const Pl011 = struct {
         .base = 0x0900_0000,
     };
 
-    pub fn withBase(base: u64) Pl011 {
+    pub fn with_base(base: u64) Pl011 {
         // base 0 collides with the GIC distributor on the arm-virt
         // machine; non-zero is a programmer invariant for every caller.
         assert(base != 0);
@@ -133,7 +133,7 @@ pub const Pl011 = struct {
     }
 
     /// IRQ line should be asserted iff there's any masked interrupt pending.
-    pub fn irqAsserted(self: *Pl011) bool {
+    pub fn irq_asserted(self: *Pl011) bool {
         assert(self.size > 0);
         self.mutex.lock();
         defer self.mutex.unlock();
@@ -143,7 +143,7 @@ pub const Pl011 = struct {
     /// Slice over the captured DR-write bytes. The returned slice
     /// aliases the inline buffer — copy it (e.g. via `gpa.dupe`) if
     /// you need it to outlive the Pl011.
-    pub fn capturedBytes(self: *const Pl011) []const u8 {
+    pub fn captured_bytes(self: *const Pl011) []const u8 {
         assert(self.captured_len <= captured_capacity);
         return self.captured[0..self.captured_len];
     }
@@ -151,7 +151,7 @@ pub const Pl011 = struct {
     /// Drop bytes that don't fit. Real PL011 hardware does the same
     /// when its 32-byte RX FIFO is full; the kernel's driver expects
     /// to lose data on overrun rather than block the producer.
-    pub fn pushRx(self: *Pl011, bytes: []const u8) void {
+    pub fn push_rx(self: *Pl011, bytes: []const u8) void {
         assert(self.size > 0);
         self.mutex.lock();
         defer self.mutex.unlock();

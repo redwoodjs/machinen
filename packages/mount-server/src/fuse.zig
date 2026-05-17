@@ -204,13 +204,13 @@ const O_CREAT: c_int = if (builtin.os.tag == .macos) 0x0200 else 0o100;
 const O_TRUNC: c_int = if (builtin.os.tag == .macos) 0x0400 else 0o1000;
 const O_APPEND: c_int = if (builtin.os.tag == .macos) 0x0008 else 0o2000;
 
-fn nowNs() u64 {
+fn now_ns() u64 {
     var ts: timespec_c = .{ .tv_sec = 0, .tv_nsec = 0 };
     _ = clock_gettime(CLOCK_MONOTONIC, &ts);
     return @as(u64, @intCast(ts.tv_sec)) * 1_000_000_000 + @as(u64, @intCast(ts.tv_nsec));
 }
 
-fn nowMs() i64 {
+fn now_ms() i64 {
     var ts: timespec_c = .{ .tv_sec = 0, .tv_nsec = 0 };
     _ = clock_gettime(CLOCK_REALTIME, &ts);
     return @as(i64, ts.tv_sec) * 1000 + @divFloor(@as(i64, ts.tv_nsec), 1_000_000);
@@ -369,7 +369,7 @@ const InHeader = struct {
     pid: u32,
 };
 
-fn readInHeader(buf: []const u8) InHeader {
+fn read_in_header(buf: []const u8) InHeader {
     assert(buf.len >= FUSE_IN_HEADER_SIZE);
     return .{
         .len = std.mem.readInt(u32, buf[0..4], .little),
@@ -383,7 +383,7 @@ fn readInHeader(buf: []const u8) InHeader {
     };
 }
 
-fn writeOutHeader(dst: []u8, payload_len: usize, err: i32, unique: u64) void {
+fn write_out_header(dst: []u8, payload_len: usize, err: i32, unique: u64) void {
     assert(dst.len >= FUSE_OUT_HEADER_SIZE);
     const total: u32 = @intCast(FUSE_OUT_HEADER_SIZE + payload_len);
     std.mem.writeInt(u32, dst[0..4], total, .little);
@@ -410,7 +410,7 @@ const Attr = struct {
     flags: u32,
 };
 
-fn writeAttr(dst: []u8, a: Attr) void {
+fn write_attr(dst: []u8, a: Attr) void {
     assert(dst.len >= FUSE_ATTR_SIZE);
     std.mem.writeInt(u64, dst[0..8], a.ino, .little);
     std.mem.writeInt(u64, dst[8..16], a.size, .little);
@@ -518,7 +518,7 @@ pub const State = struct {
         self.inodes.deinit();
 
         var hit = self.handles.iterator();
-        while (hit.next()) |e| freeHandle(self, e.value_ptr);
+        while (hit.next()) |e| free_handle(self, e.value_ptr);
         self.handles.deinit();
 
         self.op_stats.deinit();
@@ -533,20 +533,20 @@ pub const State = struct {
     /// (reopened by path on restore — READ/WRITE are stateless
     /// pread/pwrite, so the fd offset doesn't matter), and the
     /// profiling/stats fields (re-initialised at boot).
-    pub fn dumpState(self: *State, gpa: std.mem.Allocator) ![]u8 {
+    pub fn dump_state(self: *State, gpa: std.mem.Allocator) ![]u8 {
         var b = fuse_state.Builder.init(gpa, self.mode_rw, self.next_inode, self.next_handle);
         errdefer b.deinit();
 
         var it = self.inodes.iterator();
         while (it.next()) |e| {
-            try b.addInode(e.key_ptr.*, e.value_ptr.nlookup, e.value_ptr.rel_path);
+            try b.add_inode(e.key_ptr.*, e.value_ptr.nlookup, e.value_ptr.rel_path);
         }
         var hit = self.handles.iterator();
         while (hit.next()) |e| {
             const h = e.value_ptr;
             switch (h.kind) {
-                .file => try b.addFileHandle(e.key_ptr.*, h.nodeid, h.open_flags),
-                .dir => try b.addDirHandle(e.key_ptr.*, h.nodeid, h.dir_entries orelse &.{}),
+                .file => try b.add_file_handle(e.key_ptr.*, h.nodeid, h.open_flags),
+                .dir => try b.add_dir_handle(e.key_ptr.*, h.nodeid, h.dir_entries orelse &.{}),
             }
         }
         assert(b.inode_count == self.inodes.count());
@@ -564,7 +564,7 @@ pub const State = struct {
     /// current mount root; a reopen that fails (file removed on the
     /// host since the snapshot) degrades to fd = -1, so the next op on
     /// that handle returns EBADF — fail-soft, never a wedge.
-    pub fn applyState(self: *State, payload: []const u8) !void {
+    pub fn apply_state(self: *State, payload: []const u8) !void {
         var d = try fuse_state.decode(self.gpa, payload);
         defer d.deinit();
 
@@ -576,7 +576,7 @@ pub const State = struct {
         self.inodes.clearRetainingCapacity();
 
         var hit = self.handles.iterator();
-        while (hit.next()) |e| freeHandle(self, e.value_ptr);
+        while (hit.next()) |e| free_handle(self, e.value_ptr);
         self.handles.clearRetainingCapacity();
 
         self.mode_rw = d.mode_rw;
@@ -591,7 +591,7 @@ pub const State = struct {
             switch (rec.kind) {
                 .file => try self.handles.put(rec.handle_id, .{
                     .kind = .file,
-                    .fd = self.reopenHandle(rec.nodeid, rec.open_flags),
+                    .fd = self.reopen_handle(rec.nodeid, rec.open_flags),
                     .nodeid = rec.nodeid,
                     .open_flags = rec.open_flags,
                 }),
@@ -614,13 +614,13 @@ pub const State = struct {
     /// O_TRUNC is masked off (it would wipe the file we're restoring),
     /// and a `:ro` mount is forced down to O_RDONLY. A missing nodeid,
     /// an unresolvable path, or a failed open all yield -1.
-    fn reopenHandle(self: *State, nodeid: u64, open_flags: u32) c_int {
+    fn reopen_handle(self: *State, nodeid: u64, open_flags: u32) c_int {
         const entry = self.inodes.getPtr(nodeid) orelse return -1;
         var path_buf: [4096]u8 = undefined;
-        const abs = buildAbsPath(self, entry.rel_path, &path_buf) catch return -1;
+        const abs = build_abs_path(self, entry.rel_path, &path_buf) catch return -1;
         var flags = open_flags & ~LINUX_O_TRUNC;
         if (!self.mode_rw) flags &= ~@as(u32, 0o3); // force O_RDONLY
-        return openHost(abs, linuxOpenToHost(flags), 0) catch -1;
+        return open_host(abs, linux_open_to_host(flags), 0) catch -1;
     }
 };
 
@@ -628,7 +628,7 @@ pub const State = struct {
 /// free the packed-dirent slices for a `dir`. Idempotent enough: a
 /// double-free can't happen because callers `remove()` from the map
 /// right after.
-fn freeHandle(state: *State, e: *OpenEntry) void {
+fn free_handle(state: *State, e: *OpenEntry) void {
     switch (e.kind) {
         .file => {
             // A `.file` handle never carries dir entries — the two
@@ -652,7 +652,7 @@ fn freeHandle(state: *State, e: *OpenEntry) void {
 /// Write exactly `data.len` bytes to `fd`. Used only by
 /// `writeStatsAtomic` for the small stats JSON — the request/reply
 /// frame I/O lives in the owning transport, not here.
-fn writeFileAll(fd: c_int, data: []const u8) bool {
+fn write_file_all(fd: c_int, data: []const u8) bool {
     var total: usize = 0;
     while (total < data.len) {
         const n = write(fd, data[total..].ptr, data.len - total);
@@ -668,11 +668,11 @@ fn writeFileAll(fd: c_int, data: []const u8) bool {
 
 // --- inode bookkeeping --------------------------------------------------
 
-fn requireInode(state: *State, ino: u64) ?*const InodeEntry {
+fn require_inode(state: *State, ino: u64) ?*const InodeEntry {
     return state.inodes.getPtr(ino);
 }
 
-fn bindInode(state: *State, rel_path: []const u8) !u64 {
+fn bind_inode(state: *State, rel_path: []const u8) !u64 {
     // Reuse an existing entry so nlookup accumulates correctly.
     var it = state.inodes.iterator();
     while (it.next()) |e| {
@@ -690,7 +690,7 @@ fn bindInode(state: *State, rel_path: []const u8) !u64 {
     return ino;
 }
 
-fn decrefInode(state: *State, ino: u64, n: u64) void {
+fn decref_inode(state: *State, ino: u64, n: u64) void {
     const e = state.inodes.getPtr(ino) orelse return;
     if (e.nlookup == NLOOKUP_PINNED) return; // root pinned
     if (n >= e.nlookup) {
@@ -711,7 +711,7 @@ fn decrefInode(state: *State, ino: u64, n: u64) void {
 /// POSIX path with no `..`, `.`, leading `/`, or NUL bytes — every
 /// site that puts a path into the inode table goes through
 /// `validateName` first.
-fn buildAbsPath(state: *State, rel_path: []const u8, out: []u8) ![]u8 {
+fn build_abs_path(state: *State, rel_path: []const u8, out: []u8) ![]u8 {
     if (rel_path.len == 0) {
         if (state.root_abs.len > out.len) return error.PathTooLong;
         @memcpy(out[0..state.root_abs.len], state.root_abs);
@@ -725,7 +725,7 @@ fn buildAbsPath(state: *State, rel_path: []const u8, out: []u8) ![]u8 {
     return out[0..need];
 }
 
-fn validateName(name: []const u8) !void {
+fn validate_name(name: []const u8) !void {
     if (name.len == 0) return error.InvalidName;
     if (std.mem.eql(u8, name, ".")) return error.InvalidName;
     if (std.mem.eql(u8, name, "..")) return error.InvalidName;
@@ -734,7 +734,7 @@ fn validateName(name: []const u8) !void {
     }
 }
 
-fn joinRel(gpa: std.mem.Allocator, parent_rel: []const u8, name: []const u8) ![]u8 {
+fn join_rel(gpa: std.mem.Allocator, parent_rel: []const u8, name: []const u8) ![]u8 {
     if (parent_rel.len == 0) return try gpa.dupe(u8, name);
     var buf = try gpa.alloc(u8, parent_rel.len + 1 + name.len);
     @memcpy(buf[0..parent_rel.len], parent_rel);
@@ -759,53 +759,53 @@ fn joinRel(gpa: std.mem.Allocator, parent_rel: []const u8, name: []const u8) ![]
 pub fn dispatch(state: *State, msg: []const u8) !?[]const u8 {
     assert(msg.len >= FUSE_IN_HEADER_SIZE);
 
-    const hdr = readInHeader(msg);
-    const start_ns: u64 = if (state.profile_enabled) nowNs() else 0;
+    const hdr = read_in_header(msg);
+    const start_ns: u64 = if (state.profile_enabled) now_ns() else 0;
 
     const op_e: Op = @enumFromInt(hdr.opcode);
     const reply_opt: ?[]const u8 = blk: {
         switch (op_e) {
-            .INIT => break :blk try onInit(state, hdr, msg),
-            .DESTROY => break :blk try buildErrorReply(state, hdr.unique, 0),
+            .INIT => break :blk try on_init(state, hdr, msg),
+            .DESTROY => break :blk try build_error_reply(state, hdr.unique, 0),
             .INTERRUPT => break :blk null, // no reply ever
             .FORGET => {
-                onForget(state, hdr, msg);
+                on_forget(state, hdr, msg);
                 break :blk null;
             },
             .BATCH_FORGET => {
-                onBatchForget(state, msg);
+                on_batch_forget(state, msg);
                 break :blk null;
             },
-            .LOOKUP => break :blk try onLookup(state, hdr, msg),
-            .GETATTR => break :blk try onGetattr(state, hdr),
-            .READLINK => break :blk try onReadlink(state, hdr),
-            .CREATE => break :blk try onCreate(state, hdr, msg),
-            .WRITE => break :blk try onWrite(state, hdr, msg),
-            .RELEASE => break :blk try onRelease(state, hdr, msg),
-            .OPEN => break :blk try onOpen(state, hdr, msg),
-            .READ => break :blk try onRead(state, hdr, msg),
-            .OPENDIR => break :blk try onOpendir(state, hdr),
-            .READDIR => break :blk try onReaddir(state, hdr, msg),
-            .RELEASEDIR => break :blk try onReleasedir(state, hdr, msg),
-            .MKDIR => break :blk try onMkdir(state, hdr, msg),
-            .UNLINK => break :blk try onUnlink(state, hdr, msg),
-            .RMDIR => break :blk try onRmdir(state, hdr, msg),
-            .RENAME => break :blk try onRename(state, hdr, msg),
-            .LINK => break :blk try onLink(state, hdr, msg),
-            .SYMLINK => break :blk try onSymlink(state, hdr, msg),
-            .SETATTR => break :blk try onSetattr(state, hdr, msg),
-            .STATFS => break :blk try onStatfs(state, hdr),
+            .LOOKUP => break :blk try on_lookup(state, hdr, msg),
+            .GETATTR => break :blk try on_getattr(state, hdr),
+            .READLINK => break :blk try on_readlink(state, hdr),
+            .CREATE => break :blk try on_create(state, hdr, msg),
+            .WRITE => break :blk try on_write(state, hdr, msg),
+            .RELEASE => break :blk try on_release(state, hdr, msg),
+            .OPEN => break :blk try on_open(state, hdr, msg),
+            .READ => break :blk try on_read(state, hdr, msg),
+            .OPENDIR => break :blk try on_opendir(state, hdr),
+            .READDIR => break :blk try on_readdir(state, hdr, msg),
+            .RELEASEDIR => break :blk try on_releasedir(state, hdr, msg),
+            .MKDIR => break :blk try on_mkdir(state, hdr, msg),
+            .UNLINK => break :blk try on_unlink(state, hdr, msg),
+            .RMDIR => break :blk try on_rmdir(state, hdr, msg),
+            .RENAME => break :blk try on_rename(state, hdr, msg),
+            .LINK => break :blk try on_link(state, hdr, msg),
+            .SYMLINK => break :blk try on_symlink(state, hdr, msg),
+            .SETATTR => break :blk try on_setattr(state, hdr, msg),
+            .STATFS => break :blk try on_statfs(state, hdr),
             // Soft-success: the guest can ask, we just say "ok". tar
             // calls FSYNC after writing each file; the host fs already
             // ack'd the write so this is durable enough for the bench.
             // FLUSH/ACCESS/FSYNCDIR are likewise userspace-OK-to-ignore.
-            .FSYNC, .FSYNCDIR, .FLUSH, .ACCESS => break :blk try buildErrorReply(state, hdr.unique, 0),
-            else => break :blk try buildErrorReply(state, hdr.unique, -E.NOSYS),
+            .FSYNC, .FSYNCDIR, .FLUSH, .ACCESS => break :blk try build_error_reply(state, hdr.unique, 0),
+            else => break :blk try build_error_reply(state, hdr.unique, -E.NOSYS),
         }
     };
 
     if (state.profile_enabled) {
-        const end_ns = nowNs();
+        const end_ns = now_ns();
         const gop = try state.op_stats.getOrPut(hdr.opcode);
         if (!gop.found_existing) gop.value_ptr.* = .{};
         gop.value_ptr.count += 1;
@@ -819,7 +819,7 @@ pub fn dispatch(state: *State, msg: []const u8) !?[]const u8 {
         if (state.ops_since_last_publish >= 256 and
             end_ns -% state.last_stats_publish_ns > 250 * std.time.ns_per_ms)
         {
-            writeStatsAtomic(state);
+            write_stats_atomic(state);
             state.last_stats_publish_ns = end_ns;
             state.ops_since_last_publish = 0;
         }
@@ -830,32 +830,32 @@ pub fn dispatch(state: *State, msg: []const u8) !?[]const u8 {
 
 // --- response builders --------------------------------------------------
 
-fn buildErrorReply(state: *State, unique: u64, err: i32) ![]u8 {
+fn build_error_reply(state: *State, unique: u64, err: i32) ![]u8 {
     // FUSE convention: a negative errno, or 0 for a success-with-no-
     // payload ack. A positive errno would corrupt the kernel's view.
     assert(err <= 0);
     const buf = try state.gpa.alloc(u8, FUSE_OUT_HEADER_SIZE);
-    writeOutHeader(buf, 0, err, unique);
+    write_out_header(buf, 0, err, unique);
     return buf;
 }
 
-fn buildReply(state: *State, unique: u64, payload: []const u8) ![]u8 {
+fn build_reply(state: *State, unique: u64, payload: []const u8) ![]u8 {
     // The whole reply (header + payload) rides one FUSE frame whose
     // length is a u32; in practice nothing we build approaches that,
     // but assert it so a future op that returns a huge payload trips
     // here instead of silently truncating in writeOutHeader's @intCast.
     assert(FUSE_OUT_HEADER_SIZE + payload.len <= std.math.maxInt(u32));
     const buf = try state.gpa.alloc(u8, FUSE_OUT_HEADER_SIZE + payload.len);
-    writeOutHeader(buf, payload.len, 0, unique);
+    write_out_header(buf, payload.len, 0, unique);
     @memcpy(buf[FUSE_OUT_HEADER_SIZE..], payload);
     return buf;
 }
 
 // --- INIT ---------------------------------------------------------------
 
-fn onInit(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
+fn on_init(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
     const body = msg[FUSE_IN_HEADER_SIZE..];
-    if (body.len < 8) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    if (body.len < 8) return try build_error_reply(state, hdr.unique, -E.INVAL);
 
     const major = std.mem.readInt(u32, body[0..4], .little);
     const minor = std.mem.readInt(u32, body[4..8], .little);
@@ -885,19 +885,19 @@ fn onInit(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
     std.mem.writeInt(u16, payload[30..32], 0, .little); // map_alignment
     std.mem.writeInt(u32, payload[32..36], 0, .little); // flags2
     // unused[7] already zero
-    return try buildReply(state, hdr.unique, &payload);
+    return try build_reply(state, hdr.unique, &payload);
 }
 
 // --- FORGET / BATCH_FORGET ----------------------------------------------
 
-fn onForget(state: *State, hdr: InHeader, msg: []const u8) void {
+fn on_forget(state: *State, hdr: InHeader, msg: []const u8) void {
     const body = msg[FUSE_IN_HEADER_SIZE..];
     if (body.len < 8) return;
     const nlookup = std.mem.readInt(u64, body[0..8], .little);
-    decrefInode(state, hdr.nodeid, nlookup);
+    decref_inode(state, hdr.nodeid, nlookup);
 }
 
-fn onBatchForget(state: *State, msg: []const u8) void {
+fn on_batch_forget(state: *State, msg: []const u8) void {
     const body = msg[FUSE_IN_HEADER_SIZE..];
     if (body.len < 8) return;
     const count = std.mem.readInt(u32, body[0..4], .little);
@@ -907,33 +907,33 @@ fn onBatchForget(state: *State, msg: []const u8) void {
         if (off + 16 > body.len) return;
         const nodeid = std.mem.readInt(u64, body[off..][0..8], .little);
         const nlookup = std.mem.readInt(u64, body[off + 8 ..][0..8], .little);
-        decrefInode(state, nodeid, nlookup);
+        decref_inode(state, nodeid, nlookup);
     }
 }
 
 // --- LOOKUP -------------------------------------------------------------
 
-fn onLookup(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
+fn on_lookup(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
     const body = msg[FUSE_IN_HEADER_SIZE..];
-    const name = decodeName(body);
-    validateName(name) catch return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    const name = decode_name(body);
+    validate_name(name) catch return try build_error_reply(state, hdr.unique, -E.INVAL);
 
-    const parent = requireInode(state, hdr.nodeid) orelse
-        return try buildErrorReply(state, hdr.unique, -E.STALE);
+    const parent = require_inode(state, hdr.nodeid) orelse
+        return try build_error_reply(state, hdr.unique, -E.STALE);
 
     // Compose the child's rel path off the parent's rel path. Parent
     // rel path was validated when its inode was bound.
-    const child_rel = try joinRel(state.gpa, parent.rel_path, name);
+    const child_rel = try join_rel(state.gpa, parent.rel_path, name);
     defer state.gpa.free(child_rel);
 
     var path_buf: [4096]u8 = undefined;
-    const abs = buildAbsPath(state, child_rel, &path_buf) catch
-        return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    const abs = build_abs_path(state, child_rel, &path_buf) catch
+        return try build_error_reply(state, hdr.unique, -E.INVAL);
 
     var st = std.mem.zeroes(Stat);
-    hostLstat(abs, &st) catch |e| return try buildErrorReply(state, hdr.unique, mapFsError(e));
+    host_lstat(abs, &st) catch |e| return try build_error_reply(state, hdr.unique, map_fs_error(e));
 
-    const ino = try bindInode(state, child_rel);
+    const ino = try bind_inode(state, child_rel);
 
     var payload: [FUSE_ENTRY_OUT_SIZE]u8 = @splat(0);
     std.mem.writeInt(u64, payload[0..8], ino, .little);
@@ -942,59 +942,59 @@ fn onLookup(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
     std.mem.writeInt(u64, payload[24..32], 0, .little); // attr_valid — force fresh GETATTR after mutations
     std.mem.writeInt(u32, payload[32..36], 0, .little); // entry_valid_nsec
     std.mem.writeInt(u32, payload[36..40], 0, .little); // attr_valid_nsec
-    writeAttr(payload[40..128], statToAttr(st, ino));
-    return try buildReply(state, hdr.unique, &payload);
+    write_attr(payload[40..128], stat_to_attr(st, ino));
+    return try build_reply(state, hdr.unique, &payload);
 }
 
 // --- GETATTR / READLINK -------------------------------------------------
 
-fn onGetattr(state: *State, hdr: InHeader) ![]u8 {
-    const entry = requireInode(state, hdr.nodeid) orelse
-        return try buildErrorReply(state, hdr.unique, -E.STALE);
+fn on_getattr(state: *State, hdr: InHeader) ![]u8 {
+    const entry = require_inode(state, hdr.nodeid) orelse
+        return try build_error_reply(state, hdr.unique, -E.STALE);
 
     var path_buf: [4096]u8 = undefined;
-    const abs = buildAbsPath(state, entry.rel_path, &path_buf) catch
-        return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    const abs = build_abs_path(state, entry.rel_path, &path_buf) catch
+        return try build_error_reply(state, hdr.unique, -E.INVAL);
 
     var st = std.mem.zeroes(Stat);
-    hostLstat(abs, &st) catch |e| return try buildErrorReply(state, hdr.unique, mapFsError(e));
+    host_lstat(abs, &st) catch |e| return try build_error_reply(state, hdr.unique, map_fs_error(e));
 
     var payload: [FUSE_ATTR_OUT_SIZE]u8 = @splat(0);
     std.mem.writeInt(u64, payload[0..8], 0, .little); // attr_valid — host attrs may change through aliases
     std.mem.writeInt(u32, payload[8..12], 0, .little); // attr_valid_nsec
     // dummy at offset 12
-    writeAttr(payload[16..104], statToAttr(st, hdr.nodeid));
-    return try buildReply(state, hdr.unique, &payload);
+    write_attr(payload[16..104], stat_to_attr(st, hdr.nodeid));
+    return try build_reply(state, hdr.unique, &payload);
 }
 
-fn onReadlink(state: *State, hdr: InHeader) ![]u8 {
-    const entry = requireInode(state, hdr.nodeid) orelse
-        return try buildErrorReply(state, hdr.unique, -E.STALE);
+fn on_readlink(state: *State, hdr: InHeader) ![]u8 {
+    const entry = require_inode(state, hdr.nodeid) orelse
+        return try build_error_reply(state, hdr.unique, -E.STALE);
 
     var path_buf: [4096]u8 = undefined;
-    const abs = buildAbsPath(state, entry.rel_path, &path_buf) catch
-        return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    const abs = build_abs_path(state, entry.rel_path, &path_buf) catch
+        return try build_error_reply(state, hdr.unique, -E.INVAL);
 
     var path_z: [4097]u8 = undefined;
-    if (abs.len >= path_z.len) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    if (abs.len >= path_z.len) return try build_error_reply(state, hdr.unique, -E.INVAL);
     @memcpy(path_z[0..abs.len], abs);
     path_z[abs.len] = 0;
 
     var target: [4096]u8 = undefined;
     const n = readlink(@ptrCast(&path_z), target[0..].ptr, target.len);
     if (n < 0) {
-        return try buildErrorReply(state, hdr.unique, mapFsError(errnoToZigError(errno())));
+        return try build_error_reply(state, hdr.unique, map_fs_error(errno_to_zig_error(errno())));
     }
-    return try buildReply(state, hdr.unique, target[0..@intCast(n)]);
+    return try build_reply(state, hdr.unique, target[0..@intCast(n)]);
 }
 
 // --- CREATE -------------------------------------------------------------
 
-fn onCreate(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
-    if (!state.mode_rw) return try buildErrorReply(state, hdr.unique, -E.ROFS);
+fn on_create(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
+    if (!state.mode_rw) return try build_error_reply(state, hdr.unique, -E.ROFS);
 
     const body = msg[FUSE_IN_HEADER_SIZE..];
-    if (body.len < FUSE_CREATE_IN_SIZE) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    if (body.len < FUSE_CREATE_IN_SIZE) return try build_error_reply(state, hdr.unique, -E.INVAL);
 
     const flags = std.mem.readInt(u32, body[0..4], .little);
     const mode = std.mem.readInt(u32, body[4..8], .little);
@@ -1002,30 +1002,30 @@ fn onCreate(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
     // currently (the kernel pre-applies umask before sending us
     // CREATE since we don't advertise FUSE_DONT_MASK).
 
-    const name = decodeName(body[FUSE_CREATE_IN_SIZE..]);
-    validateName(name) catch return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    const name = decode_name(body[FUSE_CREATE_IN_SIZE..]);
+    validate_name(name) catch return try build_error_reply(state, hdr.unique, -E.INVAL);
 
-    const parent = requireInode(state, hdr.nodeid) orelse
-        return try buildErrorReply(state, hdr.unique, -E.STALE);
+    const parent = require_inode(state, hdr.nodeid) orelse
+        return try build_error_reply(state, hdr.unique, -E.STALE);
 
-    const child_rel = try joinRel(state.gpa, parent.rel_path, name);
+    const child_rel = try join_rel(state.gpa, parent.rel_path, name);
     errdefer state.gpa.free(child_rel);
 
     var path_buf: [4096]u8 = undefined;
-    const abs = buildAbsPath(state, child_rel, &path_buf) catch
-        return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    const abs = build_abs_path(state, child_rel, &path_buf) catch
+        return try build_error_reply(state, hdr.unique, -E.INVAL);
 
-    const host_flags = linuxOpenToHost(flags) | O_CREAT;
-    const fd = openHost(abs, host_flags, @intCast(mode & 0o7777)) catch |e|
-        return try buildErrorReply(state, hdr.unique, mapFsError(e));
+    const host_flags = linux_open_to_host(flags) | O_CREAT;
+    const fd = open_host(abs, host_flags, @intCast(mode & 0o7777)) catch |e|
+        return try build_error_reply(state, hdr.unique, map_fs_error(e));
 
     var st = std.mem.zeroes(Stat);
-    hostFstat(fd, &st) catch |e| {
+    host_fstat(fd, &st) catch |e| {
         _ = close(fd);
-        return try buildErrorReply(state, hdr.unique, mapFsError(e));
+        return try build_error_reply(state, hdr.unique, map_fs_error(e));
     };
 
-    const ino = try bindInode(state, child_rel);
+    const ino = try bind_inode(state, child_rel);
     state.gpa.free(child_rel); // bindInode took its own copy
 
     const id = state.next_handle;
@@ -1040,20 +1040,20 @@ fn onCreate(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
     std.mem.writeInt(u64, payload[24..32], 0, .little); // attr_valid — force fresh GETATTR after mutations
     std.mem.writeInt(u32, payload[32..36], 0, .little); // entry_valid_nsec
     std.mem.writeInt(u32, payload[36..40], 0, .little); // attr_valid_nsec
-    writeAttr(payload[40..128], statToAttr(st, ino));
+    write_attr(payload[40..128], stat_to_attr(st, ino));
     std.mem.writeInt(u64, payload[128..136], id, .little); // fh
     std.mem.writeInt(u32, payload[136..140], 0, .little); // open_flags
     // padding at 140
-    return try buildReply(state, hdr.unique, &payload);
+    return try build_reply(state, hdr.unique, &payload);
 }
 
 // --- WRITE --------------------------------------------------------------
 
-fn onWrite(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
-    if (!state.mode_rw) return try buildErrorReply(state, hdr.unique, -E.ROFS);
+fn on_write(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
+    if (!state.mode_rw) return try build_error_reply(state, hdr.unique, -E.ROFS);
 
     const body = msg[FUSE_IN_HEADER_SIZE..];
-    if (body.len < FUSE_WRITE_IN_SIZE) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    if (body.len < FUSE_WRITE_IN_SIZE) return try build_error_reply(state, hdr.unique, -E.INVAL);
 
     const fh = std.mem.readInt(u64, body[0..8], .little);
     const offset = std.mem.readInt(u64, body[8..16], .little);
@@ -1061,47 +1061,47 @@ fn onWrite(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
     // write_flags at 20, lock_owner at 24, flags at 32
 
     const data_start = FUSE_WRITE_IN_SIZE;
-    if (data_start + size > body.len) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    if (data_start + size > body.len) return try build_error_reply(state, hdr.unique, -E.INVAL);
     const data = body[data_start..][0..size];
 
     const handle = state.handles.get(fh) orelse
-        return try buildErrorReply(state, hdr.unique, -E.BADF);
-    if (handle.kind != .file) return try buildErrorReply(state, hdr.unique, -E.BADF);
+        return try build_error_reply(state, hdr.unique, -E.BADF);
+    if (handle.kind != .file) return try build_error_reply(state, hdr.unique, -E.BADF);
     // fd < 0 means a snapshot restore couldn't reopen this handle's
     // backing file (it was removed on the host since the snapshot).
     // An invalid descriptor is EBADF — fail-soft, never a wedge.
-    if (handle.fd < 0) return try buildErrorReply(state, hdr.unique, -E.BADF);
+    if (handle.fd < 0) return try build_error_reply(state, hdr.unique, -E.BADF);
 
-    const written = pwriteAll(handle.fd, data, offset) catch |e|
-        return try buildErrorReply(state, hdr.unique, mapFsError(e));
+    const written = pwrite_all(handle.fd, data, offset) catch |e|
+        return try build_error_reply(state, hdr.unique, map_fs_error(e));
 
     var payload: [8]u8 = @splat(0);
     std.mem.writeInt(u32, payload[0..4], @intCast(written), .little);
     // padding at 4
-    return try buildReply(state, hdr.unique, &payload);
+    return try build_reply(state, hdr.unique, &payload);
 }
 
 // --- OPEN ---------------------------------------------------------------
 
-fn onOpen(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
+fn on_open(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
     const body = msg[FUSE_IN_HEADER_SIZE..];
-    if (body.len < 8) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    if (body.len < 8) return try build_error_reply(state, hdr.unique, -E.INVAL);
     const flags = std.mem.readInt(u32, body[0..4], .little);
 
     const access = flags & 0o3;
     if ((access == LINUX_O_WRONLY or access == LINUX_O_RDWR) and !state.mode_rw) {
-        return try buildErrorReply(state, hdr.unique, -E.ROFS);
+        return try build_error_reply(state, hdr.unique, -E.ROFS);
     }
 
-    const entry = requireInode(state, hdr.nodeid) orelse
-        return try buildErrorReply(state, hdr.unique, -E.STALE);
+    const entry = require_inode(state, hdr.nodeid) orelse
+        return try build_error_reply(state, hdr.unique, -E.STALE);
 
     var path_buf: [4096]u8 = undefined;
-    const abs = buildAbsPath(state, entry.rel_path, &path_buf) catch
-        return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    const abs = build_abs_path(state, entry.rel_path, &path_buf) catch
+        return try build_error_reply(state, hdr.unique, -E.INVAL);
 
-    const fd = openHost(abs, linuxOpenToHost(flags), 0) catch |e|
-        return try buildErrorReply(state, hdr.unique, mapFsError(e));
+    const fd = open_host(abs, linux_open_to_host(flags), 0) catch |e|
+        return try build_error_reply(state, hdr.unique, map_fs_error(e));
 
     const id = state.next_handle;
     state.next_handle += 1;
@@ -1111,35 +1111,35 @@ fn onOpen(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
     std.mem.writeInt(u64, payload[0..8], id, .little); // fh
     std.mem.writeInt(u32, payload[8..12], 0, .little); // open_flags
     // padding at 12
-    return try buildReply(state, hdr.unique, &payload);
+    return try build_reply(state, hdr.unique, &payload);
 }
 
 // --- READ ---------------------------------------------------------------
 
-fn onRead(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
+fn on_read(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
     const body = msg[FUSE_IN_HEADER_SIZE..];
-    if (body.len < 32) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    if (body.len < 32) return try build_error_reply(state, hdr.unique, -E.INVAL);
     const fh = std.mem.readInt(u64, body[0..8], .little);
     const offset = std.mem.readInt(u64, body[8..16], .little);
     const size = std.mem.readInt(u32, body[16..20], .little);
 
     const handle = state.handles.get(fh) orelse
-        return try buildErrorReply(state, hdr.unique, -E.BADF);
-    if (handle.kind != .file) return try buildErrorReply(state, hdr.unique, -E.BADF);
+        return try build_error_reply(state, hdr.unique, -E.BADF);
+    if (handle.kind != .file) return try build_error_reply(state, hdr.unique, -E.BADF);
     // fd < 0 means a snapshot restore couldn't reopen this handle's
     // backing file (it was removed on the host since the snapshot).
     // An invalid descriptor is EBADF — fail-soft, never a wedge.
-    if (handle.fd < 0) return try buildErrorReply(state, hdr.unique, -E.BADF);
+    if (handle.fd < 0) return try build_error_reply(state, hdr.unique, -E.BADF);
 
     const buf = try state.gpa.alloc(u8, FUSE_OUT_HEADER_SIZE + size);
     errdefer state.gpa.free(buf);
     const n = pread(handle.fd, buf[FUSE_OUT_HEADER_SIZE..].ptr, size, @intCast(offset));
     if (n < 0) {
         state.gpa.free(buf);
-        return try buildErrorReply(state, hdr.unique, mapFsError(errnoToZigError(errno())));
+        return try build_error_reply(state, hdr.unique, map_fs_error(errno_to_zig_error(errno())));
     }
     const got: usize = @intCast(n);
-    writeOutHeader(buf[0..FUSE_OUT_HEADER_SIZE], got, 0, hdr.unique);
+    write_out_header(buf[0..FUSE_OUT_HEADER_SIZE], got, 0, hdr.unique);
     // Resize the over-allocated buffer down to (header + got). Use a
     // shrinkAndFree so a partial read doesn't ship trailing garbage.
     return state.gpa.realloc(buf, FUSE_OUT_HEADER_SIZE + got) catch {
@@ -1152,39 +1152,39 @@ fn onRead(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
 
 // --- MKDIR --------------------------------------------------------------
 
-fn onMkdir(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
-    if (!state.mode_rw) return try buildErrorReply(state, hdr.unique, -E.ROFS);
+fn on_mkdir(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
+    if (!state.mode_rw) return try build_error_reply(state, hdr.unique, -E.ROFS);
 
     const body = msg[FUSE_IN_HEADER_SIZE..];
-    if (body.len < 8) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    if (body.len < 8) return try build_error_reply(state, hdr.unique, -E.INVAL);
     const mode = std.mem.readInt(u32, body[0..4], .little);
     // umask at offset 4
 
-    const name = decodeName(body[8..]);
-    validateName(name) catch return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    const name = decode_name(body[8..]);
+    validate_name(name) catch return try build_error_reply(state, hdr.unique, -E.INVAL);
 
-    const parent = requireInode(state, hdr.nodeid) orelse
-        return try buildErrorReply(state, hdr.unique, -E.STALE);
+    const parent = require_inode(state, hdr.nodeid) orelse
+        return try build_error_reply(state, hdr.unique, -E.STALE);
 
-    const child_rel = try joinRel(state.gpa, parent.rel_path, name);
+    const child_rel = try join_rel(state.gpa, parent.rel_path, name);
     errdefer state.gpa.free(child_rel);
 
     var path_buf: [4096]u8 = undefined;
-    const abs = buildAbsPath(state, child_rel, &path_buf) catch
-        return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    const abs = build_abs_path(state, child_rel, &path_buf) catch
+        return try build_error_reply(state, hdr.unique, -E.INVAL);
 
     var path_z: [4097]u8 = undefined;
-    if (abs.len >= path_z.len) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    if (abs.len >= path_z.len) return try build_error_reply(state, hdr.unique, -E.INVAL);
     @memcpy(path_z[0..abs.len], abs);
     path_z[abs.len] = 0;
     if (mkdir(@ptrCast(&path_z), @intCast(mode & 0o7777)) != 0) {
-        return try buildErrorReply(state, hdr.unique, mapFsError(errnoToZigError(errno())));
+        return try build_error_reply(state, hdr.unique, map_fs_error(errno_to_zig_error(errno())));
     }
 
     var st = std.mem.zeroes(Stat);
-    hostLstat(abs, &st) catch |e| return try buildErrorReply(state, hdr.unique, mapFsError(e));
+    host_lstat(abs, &st) catch |e| return try build_error_reply(state, hdr.unique, map_fs_error(e));
 
-    const ino = try bindInode(state, child_rel);
+    const ino = try bind_inode(state, child_rel);
     state.gpa.free(child_rel);
 
     var payload: [FUSE_ENTRY_OUT_SIZE]u8 = @splat(0);
@@ -1194,92 +1194,92 @@ fn onMkdir(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
     std.mem.writeInt(u64, payload[24..32], 0, .little);
     std.mem.writeInt(u32, payload[32..36], 0, .little);
     std.mem.writeInt(u32, payload[36..40], 0, .little);
-    writeAttr(payload[40..128], statToAttr(st, ino));
-    return try buildReply(state, hdr.unique, &payload);
+    write_attr(payload[40..128], stat_to_attr(st, ino));
+    return try build_reply(state, hdr.unique, &payload);
 }
 
 // --- UNLINK / RMDIR / LINK / RENAME / SYMLINK ---------------------------
 
-fn unlinkOrRmdir(
+fn unlink_or_rmdir(
     state: *State,
     hdr: InHeader,
     msg: []const u8,
     is_rmdir: bool,
 ) ![]u8 {
-    if (!state.mode_rw) return try buildErrorReply(state, hdr.unique, -E.ROFS);
+    if (!state.mode_rw) return try build_error_reply(state, hdr.unique, -E.ROFS);
     const body = msg[FUSE_IN_HEADER_SIZE..];
-    const name = decodeName(body);
-    validateName(name) catch return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    const name = decode_name(body);
+    validate_name(name) catch return try build_error_reply(state, hdr.unique, -E.INVAL);
 
-    const parent = requireInode(state, hdr.nodeid) orelse
-        return try buildErrorReply(state, hdr.unique, -E.STALE);
+    const parent = require_inode(state, hdr.nodeid) orelse
+        return try build_error_reply(state, hdr.unique, -E.STALE);
 
-    const child_rel = try joinRel(state.gpa, parent.rel_path, name);
+    const child_rel = try join_rel(state.gpa, parent.rel_path, name);
     defer state.gpa.free(child_rel);
 
     var path_buf: [4096]u8 = undefined;
-    const abs = buildAbsPath(state, child_rel, &path_buf) catch
-        return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    const abs = build_abs_path(state, child_rel, &path_buf) catch
+        return try build_error_reply(state, hdr.unique, -E.INVAL);
 
     var path_z: [4097]u8 = undefined;
-    if (abs.len >= path_z.len) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    if (abs.len >= path_z.len) return try build_error_reply(state, hdr.unique, -E.INVAL);
     @memcpy(path_z[0..abs.len], abs);
     path_z[abs.len] = 0;
 
     const rc = if (is_rmdir) rmdir(@ptrCast(&path_z)) else unlink(@ptrCast(&path_z));
     if (rc != 0) {
-        return try buildErrorReply(state, hdr.unique, mapFsError(errnoToZigError(errno())));
+        return try build_error_reply(state, hdr.unique, map_fs_error(errno_to_zig_error(errno())));
     }
-    return try buildErrorReply(state, hdr.unique, 0);
+    return try build_error_reply(state, hdr.unique, 0);
 }
 
-fn onUnlink(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
-    return unlinkOrRmdir(state, hdr, msg, false);
+fn on_unlink(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
+    return unlink_or_rmdir(state, hdr, msg, false);
 }
 
-fn onRmdir(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
-    return unlinkOrRmdir(state, hdr, msg, true);
+fn on_rmdir(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
+    return unlink_or_rmdir(state, hdr, msg, true);
 }
 
-fn onLink(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
-    if (!state.mode_rw) return try buildErrorReply(state, hdr.unique, -E.ROFS);
+fn on_link(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
+    if (!state.mode_rw) return try build_error_reply(state, hdr.unique, -E.ROFS);
 
     const body = msg[FUSE_IN_HEADER_SIZE..];
-    if (body.len < 8) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    if (body.len < 8) return try build_error_reply(state, hdr.unique, -E.INVAL);
     const oldnodeid = std.mem.readInt(u64, body[0..8], .little);
-    const name = decodeName(body[8..]);
-    validateName(name) catch return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    const name = decode_name(body[8..]);
+    validate_name(name) catch return try build_error_reply(state, hdr.unique, -E.INVAL);
 
-    const old_entry = requireInode(state, oldnodeid) orelse
-        return try buildErrorReply(state, hdr.unique, -E.STALE);
-    const new_parent = requireInode(state, hdr.nodeid) orelse
-        return try buildErrorReply(state, hdr.unique, -E.STALE);
+    const old_entry = require_inode(state, oldnodeid) orelse
+        return try build_error_reply(state, hdr.unique, -E.STALE);
+    const new_parent = require_inode(state, hdr.nodeid) orelse
+        return try build_error_reply(state, hdr.unique, -E.STALE);
 
-    const new_rel = try joinRel(state.gpa, new_parent.rel_path, name);
+    const new_rel = try join_rel(state.gpa, new_parent.rel_path, name);
     defer state.gpa.free(new_rel);
 
     var old_path_buf: [4096]u8 = undefined;
-    const old_abs = buildAbsPath(state, old_entry.rel_path, &old_path_buf) catch
-        return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    const old_abs = build_abs_path(state, old_entry.rel_path, &old_path_buf) catch
+        return try build_error_reply(state, hdr.unique, -E.INVAL);
     var new_path_buf: [4096]u8 = undefined;
-    const new_abs = buildAbsPath(state, new_rel, &new_path_buf) catch
-        return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    const new_abs = build_abs_path(state, new_rel, &new_path_buf) catch
+        return try build_error_reply(state, hdr.unique, -E.INVAL);
 
     var old_z: [4097]u8 = undefined;
-    if (old_abs.len >= old_z.len) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    if (old_abs.len >= old_z.len) return try build_error_reply(state, hdr.unique, -E.INVAL);
     @memcpy(old_z[0..old_abs.len], old_abs);
     old_z[old_abs.len] = 0;
     var new_z: [4097]u8 = undefined;
-    if (new_abs.len >= new_z.len) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    if (new_abs.len >= new_z.len) return try build_error_reply(state, hdr.unique, -E.INVAL);
     @memcpy(new_z[0..new_abs.len], new_abs);
     new_z[new_abs.len] = 0;
 
     if (link(@ptrCast(&old_z), @ptrCast(&new_z)) != 0) {
-        return try buildErrorReply(state, hdr.unique, mapFsError(errnoToZigError(errno())));
+        return try build_error_reply(state, hdr.unique, map_fs_error(errno_to_zig_error(errno())));
     }
 
     var st = std.mem.zeroes(Stat);
-    hostLstat(new_abs, &st) catch |e| return try buildErrorReply(state, hdr.unique, mapFsError(e));
+    host_lstat(new_abs, &st) catch |e| return try build_error_reply(state, hdr.unique, map_fs_error(e));
 
     // FUSE hardlinks must point at the same nodeid so the guest sees
     // shared size/nlink updates through either path. Our inode table is
@@ -1294,7 +1294,7 @@ fn onLink(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
         if (entry.nlookup != NLOOKUP_PINNED) entry.nlookup += 1;
     } else {
         state.gpa.free(replacement);
-        return try buildErrorReply(state, hdr.unique, -E.STALE);
+        return try build_error_reply(state, hdr.unique, -E.STALE);
     }
     const ino = oldnodeid;
 
@@ -1305,109 +1305,109 @@ fn onLink(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
     std.mem.writeInt(u64, payload[24..32], 0, .little);
     std.mem.writeInt(u32, payload[32..36], 0, .little);
     std.mem.writeInt(u32, payload[36..40], 0, .little);
-    writeAttr(payload[40..128], statToAttr(st, ino));
-    return try buildReply(state, hdr.unique, &payload);
+    write_attr(payload[40..128], stat_to_attr(st, ino));
+    return try build_reply(state, hdr.unique, &payload);
 }
 
-fn onRename(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
-    if (!state.mode_rw) return try buildErrorReply(state, hdr.unique, -E.ROFS);
+fn on_rename(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
+    if (!state.mode_rw) return try build_error_reply(state, hdr.unique, -E.ROFS);
 
     const body = msg[FUSE_IN_HEADER_SIZE..];
-    if (body.len < 8) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    if (body.len < 8) return try build_error_reply(state, hdr.unique, -E.INVAL);
     const newdir = std.mem.readInt(u64, body[0..8], .little);
     const names = body[8..];
     const old_nul = std.mem.indexOfScalar(u8, names, 0) orelse
-        return try buildErrorReply(state, hdr.unique, -E.INVAL);
+        return try build_error_reply(state, hdr.unique, -E.INVAL);
     const old_name = names[0..old_nul];
-    validateName(old_name) catch return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    validate_name(old_name) catch return try build_error_reply(state, hdr.unique, -E.INVAL);
 
     const rest = names[old_nul + 1 ..];
     const new_nul = std.mem.indexOfScalar(u8, rest, 0) orelse rest.len;
     const new_name = rest[0..new_nul];
-    validateName(new_name) catch return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    validate_name(new_name) catch return try build_error_reply(state, hdr.unique, -E.INVAL);
 
-    const old_parent = requireInode(state, hdr.nodeid) orelse
-        return try buildErrorReply(state, hdr.unique, -E.STALE);
-    const new_parent = requireInode(state, newdir) orelse
-        return try buildErrorReply(state, hdr.unique, -E.STALE);
+    const old_parent = require_inode(state, hdr.nodeid) orelse
+        return try build_error_reply(state, hdr.unique, -E.STALE);
+    const new_parent = require_inode(state, newdir) orelse
+        return try build_error_reply(state, hdr.unique, -E.STALE);
 
-    const old_rel = try joinRel(state.gpa, old_parent.rel_path, old_name);
+    const old_rel = try join_rel(state.gpa, old_parent.rel_path, old_name);
     defer state.gpa.free(old_rel);
-    const new_rel = try joinRel(state.gpa, new_parent.rel_path, new_name);
+    const new_rel = try join_rel(state.gpa, new_parent.rel_path, new_name);
     defer state.gpa.free(new_rel);
 
     var old_path_buf: [4096]u8 = undefined;
-    const old_abs = buildAbsPath(state, old_rel, &old_path_buf) catch
-        return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    const old_abs = build_abs_path(state, old_rel, &old_path_buf) catch
+        return try build_error_reply(state, hdr.unique, -E.INVAL);
     var new_path_buf: [4096]u8 = undefined;
-    const new_abs = buildAbsPath(state, new_rel, &new_path_buf) catch
-        return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    const new_abs = build_abs_path(state, new_rel, &new_path_buf) catch
+        return try build_error_reply(state, hdr.unique, -E.INVAL);
 
     var old_z: [4097]u8 = undefined;
-    if (old_abs.len >= old_z.len) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    if (old_abs.len >= old_z.len) return try build_error_reply(state, hdr.unique, -E.INVAL);
     @memcpy(old_z[0..old_abs.len], old_abs);
     old_z[old_abs.len] = 0;
     var new_z: [4097]u8 = undefined;
-    if (new_abs.len >= new_z.len) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    if (new_abs.len >= new_z.len) return try build_error_reply(state, hdr.unique, -E.INVAL);
     @memcpy(new_z[0..new_abs.len], new_abs);
     new_z[new_abs.len] = 0;
 
     if (rename(@ptrCast(&old_z), @ptrCast(&new_z)) != 0) {
-        return try buildErrorReply(state, hdr.unique, mapFsError(errnoToZigError(errno())));
+        return try build_error_reply(state, hdr.unique, map_fs_error(errno_to_zig_error(errno())));
     }
 
     // Keep any already-bound source inode usable after a successful
     // rename. Destination dentries are left path-bound; if the guest
     // had looked one up before replacement, that nodeid still resolves
     // the destination path, which now contains the renamed bytes.
-    updateBoundInodesAfterRename(state, old_rel, new_rel) catch return try buildErrorReply(state, hdr.unique, -E.IO);
-    return try buildErrorReply(state, hdr.unique, 0);
+    update_bound_inodes_after_rename(state, old_rel, new_rel) catch return try build_error_reply(state, hdr.unique, -E.IO);
+    return try build_error_reply(state, hdr.unique, 0);
 }
 
-fn onSymlink(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
-    if (!state.mode_rw) return try buildErrorReply(state, hdr.unique, -E.ROFS);
+fn on_symlink(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
+    if (!state.mode_rw) return try build_error_reply(state, hdr.unique, -E.ROFS);
 
     // Wire format: two NUL-terminated strings, name then target. No
     // fixed-size struct prefix.
     const body = msg[FUSE_IN_HEADER_SIZE..];
     const first_nul = std.mem.indexOfScalar(u8, body, 0) orelse
-        return try buildErrorReply(state, hdr.unique, -E.INVAL);
+        return try build_error_reply(state, hdr.unique, -E.INVAL);
     const name = body[0..first_nul];
-    validateName(name) catch return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    validate_name(name) catch return try build_error_reply(state, hdr.unique, -E.INVAL);
 
     const rest = body[first_nul + 1 ..];
     const target_end = std.mem.indexOfScalar(u8, rest, 0) orelse rest.len;
     const target = rest[0..target_end];
-    if (target.len == 0) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    if (target.len == 0) return try build_error_reply(state, hdr.unique, -E.INVAL);
 
-    const parent = requireInode(state, hdr.nodeid) orelse
-        return try buildErrorReply(state, hdr.unique, -E.STALE);
+    const parent = require_inode(state, hdr.nodeid) orelse
+        return try build_error_reply(state, hdr.unique, -E.STALE);
 
-    const child_rel = try joinRel(state.gpa, parent.rel_path, name);
+    const child_rel = try join_rel(state.gpa, parent.rel_path, name);
     errdefer state.gpa.free(child_rel);
 
     var path_buf: [4096]u8 = undefined;
-    const abs = buildAbsPath(state, child_rel, &path_buf) catch
-        return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    const abs = build_abs_path(state, child_rel, &path_buf) catch
+        return try build_error_reply(state, hdr.unique, -E.INVAL);
 
     var link_z: [4097]u8 = undefined;
-    if (abs.len >= link_z.len) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    if (abs.len >= link_z.len) return try build_error_reply(state, hdr.unique, -E.INVAL);
     @memcpy(link_z[0..abs.len], abs);
     link_z[abs.len] = 0;
 
     var tgt_z: [4097]u8 = undefined;
-    if (target.len >= tgt_z.len) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    if (target.len >= tgt_z.len) return try build_error_reply(state, hdr.unique, -E.INVAL);
     @memcpy(tgt_z[0..target.len], target);
     tgt_z[target.len] = 0;
 
     if (symlink(@ptrCast(&tgt_z), @ptrCast(&link_z)) != 0) {
-        return try buildErrorReply(state, hdr.unique, mapFsError(errnoToZigError(errno())));
+        return try build_error_reply(state, hdr.unique, map_fs_error(errno_to_zig_error(errno())));
     }
 
     var st = std.mem.zeroes(Stat);
-    hostLstat(abs, &st) catch |e| return try buildErrorReply(state, hdr.unique, mapFsError(e));
+    host_lstat(abs, &st) catch |e| return try build_error_reply(state, hdr.unique, map_fs_error(e));
 
-    const ino = try bindInode(state, child_rel);
+    const ino = try bind_inode(state, child_rel);
     state.gpa.free(child_rel);
 
     var payload: [FUSE_ENTRY_OUT_SIZE]u8 = @splat(0);
@@ -1417,8 +1417,8 @@ fn onSymlink(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
     std.mem.writeInt(u64, payload[24..32], 0, .little);
     std.mem.writeInt(u32, payload[32..36], 0, .little);
     std.mem.writeInt(u32, payload[36..40], 0, .little);
-    writeAttr(payload[40..128], statToAttr(st, ino));
-    return try buildReply(state, hdr.unique, &payload);
+    write_attr(payload[40..128], stat_to_attr(st, ino));
+    return try build_reply(state, hdr.unique, &payload);
 }
 
 // --- SETATTR ------------------------------------------------------------
@@ -1430,9 +1430,9 @@ fn onSymlink(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
 // still acknowledged without a host syscall; the guest kernel caches
 // them well enough for today's workloads, and we can harden them when
 // a real caller needs host-visible persistence.
-fn onSetattr(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
+fn on_setattr(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
     const body = msg[FUSE_IN_HEADER_SIZE..];
-    if (body.len < 8) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    if (body.len < 8) return try build_error_reply(state, hdr.unique, -E.INVAL);
     const valid = std.mem.readInt(u32, body[0..4], .little);
 
     // FATTR bits 0..8 (MODE / UID / GID / SIZE / ATIME / MTIME / FH /
@@ -1442,43 +1442,43 @@ fn onSetattr(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
     const mutating_mask: u32 = FATTR_MODE | FATTR_UID | FATTR_GID | FATTR_SIZE |
         FATTR_ATIME | FATTR_MTIME | FATTR_ATIME_NOW | FATTR_MTIME_NOW;
     if (!state.mode_rw and (valid & mutating_mask) != 0) {
-        return try buildErrorReply(state, hdr.unique, -E.ROFS);
+        return try build_error_reply(state, hdr.unique, -E.ROFS);
     }
 
-    const entry = requireInode(state, hdr.nodeid) orelse
-        return try buildErrorReply(state, hdr.unique, -E.STALE);
+    const entry = require_inode(state, hdr.nodeid) orelse
+        return try build_error_reply(state, hdr.unique, -E.STALE);
 
     var path_buf: [4096]u8 = undefined;
-    const abs = buildAbsPath(state, entry.rel_path, &path_buf) catch
-        return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    const abs = build_abs_path(state, entry.rel_path, &path_buf) catch
+        return try build_error_reply(state, hdr.unique, -E.INVAL);
 
     if ((valid & FATTR_SIZE) != 0) {
-        if (body.len < 24) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+        if (body.len < 24) return try build_error_reply(state, hdr.unique, -E.INVAL);
         const size = std.mem.readInt(u64, body[16..24], .little);
         if (size > @as(u64, @intCast(std.math.maxInt(i64)))) {
-            return try buildErrorReply(state, hdr.unique, -E.INVAL);
+            return try build_error_reply(state, hdr.unique, -E.INVAL);
         }
 
         var truncated = false;
         if ((valid & FATTR_FH) != 0) {
             const fh = std.mem.readInt(u64, body[8..16], .little);
             if (state.handles.get(fh)) |handle| {
-                if (handle.kind != .file or handle.fd < 0) return try buildErrorReply(state, hdr.unique, -E.BADF);
+                if (handle.kind != .file or handle.fd < 0) return try build_error_reply(state, hdr.unique, -E.BADF);
                 if (ftruncate(handle.fd, @intCast(size)) != 0) {
-                    return try buildErrorReply(state, hdr.unique, mapFsError(errnoToZigError(errno())));
+                    return try build_error_reply(state, hdr.unique, map_fs_error(errno_to_zig_error(errno())));
                 }
                 truncated = true;
             } else {
-                return try buildErrorReply(state, hdr.unique, -E.BADF);
+                return try build_error_reply(state, hdr.unique, -E.BADF);
             }
         }
         if (!truncated) {
             var path_z: [4097]u8 = undefined;
-            if (abs.len >= path_z.len) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+            if (abs.len >= path_z.len) return try build_error_reply(state, hdr.unique, -E.INVAL);
             @memcpy(path_z[0..abs.len], abs);
             path_z[abs.len] = 0;
             if (truncate(@ptrCast(&path_z), @intCast(size)) != 0) {
-                return try buildErrorReply(state, hdr.unique, mapFsError(errnoToZigError(errno())));
+                return try build_error_reply(state, hdr.unique, map_fs_error(errno_to_zig_error(errno())));
             }
         }
     }
@@ -1487,46 +1487,46 @@ fn onSetattr(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
         // fuse_setattr_in.mode sits at byte 68. Only permission/sticky
         // bits are accepted by chmod/fchmod; the file-type bits come
         // back from the host lstat below.
-        if (body.len < 72) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+        if (body.len < 72) return try build_error_reply(state, hdr.unique, -E.INVAL);
         const mode = std.mem.readInt(u32, body[68..72], .little) & 0o7777;
 
         var chmodded = false;
         if ((valid & FATTR_FH) != 0) {
             const fh = std.mem.readInt(u64, body[8..16], .little);
             if (state.handles.get(fh)) |handle| {
-                if (handle.kind != .file or handle.fd < 0) return try buildErrorReply(state, hdr.unique, -E.BADF);
+                if (handle.kind != .file or handle.fd < 0) return try build_error_reply(state, hdr.unique, -E.BADF);
                 if (fchmod(handle.fd, @intCast(mode)) != 0) {
-                    return try buildErrorReply(state, hdr.unique, mapFsError(errnoToZigError(errno())));
+                    return try build_error_reply(state, hdr.unique, map_fs_error(errno_to_zig_error(errno())));
                 }
                 chmodded = true;
             } else {
-                return try buildErrorReply(state, hdr.unique, -E.BADF);
+                return try build_error_reply(state, hdr.unique, -E.BADF);
             }
         }
         if (!chmodded) {
             var path_z: [4097]u8 = undefined;
-            if (abs.len >= path_z.len) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+            if (abs.len >= path_z.len) return try build_error_reply(state, hdr.unique, -E.INVAL);
             @memcpy(path_z[0..abs.len], abs);
             path_z[abs.len] = 0;
             if (chmod(@ptrCast(&path_z), @intCast(mode)) != 0) {
-                return try buildErrorReply(state, hdr.unique, mapFsError(errnoToZigError(errno())));
+                return try build_error_reply(state, hdr.unique, map_fs_error(errno_to_zig_error(errno())));
             }
         }
     }
 
     var st = std.mem.zeroes(Stat);
-    hostLstat(abs, &st) catch |e| return try buildErrorReply(state, hdr.unique, mapFsError(e));
+    host_lstat(abs, &st) catch |e| return try build_error_reply(state, hdr.unique, map_fs_error(e));
 
     var payload: [FUSE_ATTR_OUT_SIZE]u8 = @splat(0);
     std.mem.writeInt(u64, payload[0..8], 1, .little);
     std.mem.writeInt(u32, payload[8..12], 0, .little);
-    writeAttr(payload[16..104], statToAttr(st, hdr.nodeid));
-    return try buildReply(state, hdr.unique, &payload);
+    write_attr(payload[16..104], stat_to_attr(st, hdr.nodeid));
+    return try build_reply(state, hdr.unique, &payload);
 }
 
 // --- STATFS -------------------------------------------------------------
 
-fn onStatfs(state: *State, hdr: InHeader) ![]u8 {
+fn on_statfs(state: *State, hdr: InHeader) ![]u8 {
     // Plausible defaults — exactness isn't required for correctness;
     // tar / df / etc. just want non-zero free space.
     var payload: [80]u8 = @splat(0);
@@ -1538,33 +1538,33 @@ fn onStatfs(state: *State, hdr: InHeader) ![]u8 {
     std.mem.writeInt(u32, payload[40..44], 4096, .little); // bsize
     std.mem.writeInt(u32, payload[44..48], 255, .little); // namelen
     std.mem.writeInt(u32, payload[48..52], 4096, .little); // frsize
-    return try buildReply(state, hdr.unique, &payload);
+    return try build_reply(state, hdr.unique, &payload);
 }
 
 // --- RELEASE / RELEASEDIR -----------------------------------------------
 
-fn onRelease(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
+fn on_release(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
     const body = msg[FUSE_IN_HEADER_SIZE..];
-    if (body.len < FUSE_RELEASE_IN_SIZE) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    if (body.len < FUSE_RELEASE_IN_SIZE) return try build_error_reply(state, hdr.unique, -E.INVAL);
     const fh = std.mem.readInt(u64, body[0..8], .little);
     if (state.handles.getPtr(fh)) |handle| {
-        freeHandle(state, handle);
+        free_handle(state, handle);
         _ = state.handles.remove(fh);
     }
-    return try buildErrorReply(state, hdr.unique, 0);
+    return try build_error_reply(state, hdr.unique, 0);
 }
 
 // fuse_release_in is the same wire shape RELEASEDIR uses — fh is the
 // first u64. Free the snapshotted dirent buffers.
-fn onReleasedir(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
+fn on_releasedir(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
     const body = msg[FUSE_IN_HEADER_SIZE..];
-    if (body.len < 8) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    if (body.len < 8) return try build_error_reply(state, hdr.unique, -E.INVAL);
     const fh = std.mem.readInt(u64, body[0..8], .little);
     if (state.handles.getPtr(fh)) |handle| {
-        freeHandle(state, handle);
+        free_handle(state, handle);
         _ = state.handles.remove(fh);
     }
-    return try buildErrorReply(state, hdr.unique, 0);
+    return try build_error_reply(state, hdr.unique, 0);
 }
 
 // --- OPENDIR / READDIR --------------------------------------------------
@@ -1581,7 +1581,7 @@ const DT_LNK: u32 = 10;
 const DT_SOCK: u32 = 12;
 
 // S_IFMT type bits → DT_* dirent type.
-fn modeToDT(mode: u32) u32 {
+fn mode_to_dt(mode: u32) u32 {
     return switch (mode & 0o170000) {
         0o040000 => DT_DIR,
         0o100000 => DT_REG,
@@ -1596,7 +1596,7 @@ fn modeToDT(mode: u32) u32 {
 
 // Pack one `fuse_dirent`: 24-byte header (ino, off, namelen, type) +
 // the name, zero-padded to an 8-byte boundary. Caller owns the result.
-fn buildDirent(gpa: std.mem.Allocator, ino: u64, off: u64, dtype: u32, name: []const u8) ![]u8 {
+fn build_dirent(gpa: std.mem.Allocator, ino: u64, off: u64, dtype: u32, name: []const u8) ![]u8 {
     const padded_name = (name.len + 7) & ~@as(usize, 7);
     const buf = try gpa.alloc(u8, 24 + padded_name);
     @memset(buf, 0);
@@ -1608,21 +1608,21 @@ fn buildDirent(gpa: std.mem.Allocator, ino: u64, off: u64, dtype: u32, name: []c
     return buf;
 }
 
-fn onOpendir(state: *State, hdr: InHeader) ![]u8 {
-    const entry = requireInode(state, hdr.nodeid) orelse
-        return try buildErrorReply(state, hdr.unique, -E.STALE);
+fn on_opendir(state: *State, hdr: InHeader) ![]u8 {
+    const entry = require_inode(state, hdr.nodeid) orelse
+        return try build_error_reply(state, hdr.unique, -E.STALE);
 
     var path_buf: [4096]u8 = undefined;
-    const abs = buildAbsPath(state, entry.rel_path, &path_buf) catch
-        return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    const abs = build_abs_path(state, entry.rel_path, &path_buf) catch
+        return try build_error_reply(state, hdr.unique, -E.INVAL);
 
     var abs_z: [4097]u8 = undefined;
-    if (abs.len >= abs_z.len) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    if (abs.len >= abs_z.len) return try build_error_reply(state, hdr.unique, -E.INVAL);
     @memcpy(abs_z[0..abs.len], abs);
     abs_z[abs.len] = 0;
 
     const dir = opendir(@ptrCast(&abs_z)) orelse
-        return try buildErrorReply(state, hdr.unique, mapFsError(errnoToZigError(errno())));
+        return try build_error_reply(state, hdr.unique, map_fs_error(errno_to_zig_error(errno())));
     defer _ = closedir(dir);
 
     // Pack every child into its own fuse_dirent buffer. An ArrayList
@@ -1656,15 +1656,15 @@ fn onOpendir(state: *State, hdr: InHeader) ![]u8 {
         var dtype: u32 = de.d_type;
         if (dtype == DT_UNKNOWN) {
             var child_buf: [4096]u8 = undefined;
-            const child_rel = joinRel(state.gpa, entry.rel_path, name) catch continue;
+            const child_rel = join_rel(state.gpa, entry.rel_path, name) catch continue;
             defer state.gpa.free(child_rel);
-            const child_abs = buildAbsPath(state, child_rel, &child_buf) catch continue;
+            const child_abs = build_abs_path(state, child_rel, &child_buf) catch continue;
             var st = std.mem.zeroes(Stat);
-            if (hostLstat(child_abs, &st)) |_| {
-                dtype = modeToDT(st.mode);
+            if (host_lstat(child_abs, &st)) |_| {
+                dtype = mode_to_dt(st.mode);
             } else |_| {}
         }
-        const packed_de = try buildDirent(state.gpa, off, off, dtype, name);
+        const packed_de = try build_dirent(state.gpa, off, off, dtype, name);
         try entries.append(state.gpa, packed_de);
     }
 
@@ -1676,21 +1676,21 @@ fn onOpendir(state: *State, hdr: InHeader) ![]u8 {
     var payload: [16]u8 = @splat(0);
     std.mem.writeInt(u64, payload[0..8], id, .little); // fh
     std.mem.writeInt(u32, payload[8..12], 0, .little); // open_flags
-    return try buildReply(state, hdr.unique, &payload);
+    return try build_reply(state, hdr.unique, &payload);
 }
 
-fn onReaddir(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
+fn on_readdir(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
     const body = msg[FUSE_IN_HEADER_SIZE..];
-    if (body.len < 32) return try buildErrorReply(state, hdr.unique, -E.INVAL);
+    if (body.len < 32) return try build_error_reply(state, hdr.unique, -E.INVAL);
     const fh = std.mem.readInt(u64, body[0..8], .little);
     const offset = std.mem.readInt(u64, body[8..16], .little);
     const size = std.mem.readInt(u32, body[16..20], .little);
 
     const handle = state.handles.get(fh) orelse
-        return try buildErrorReply(state, hdr.unique, -E.BADF);
-    if (handle.kind != .dir) return try buildErrorReply(state, hdr.unique, -E.BADF);
+        return try build_error_reply(state, hdr.unique, -E.BADF);
+    if (handle.kind != .dir) return try build_error_reply(state, hdr.unique, -E.BADF);
     const entries = handle.dir_entries orelse
-        return try buildErrorReply(state, hdr.unique, -E.BADF);
+        return try build_error_reply(state, hdr.unique, -E.BADF);
 
     // Fill the reply with as many whole dirents as fit in `size`,
     // starting at `offset` (1-based "off" the kernel echoed back from
@@ -1703,7 +1703,7 @@ fn onReaddir(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
         total += entries[i].len;
     }
     const reply = try state.gpa.alloc(u8, FUSE_OUT_HEADER_SIZE + total);
-    writeOutHeader(reply[0..FUSE_OUT_HEADER_SIZE], total, 0, hdr.unique);
+    write_out_header(reply[0..FUSE_OUT_HEADER_SIZE], total, 0, hdr.unique);
     var cursor: usize = FUSE_OUT_HEADER_SIZE;
     var j: usize = start;
     while (j < i) : (j += 1) {
@@ -1720,31 +1720,31 @@ fn onReaddir(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
 
 // --- host fs ops --------------------------------------------------------
 
-fn hostLstat(path: []const u8, out: *Stat) !void {
+fn host_lstat(path: []const u8, out: *Stat) !void {
     var path_z: [4097]u8 = undefined;
     if (path.len >= path_z.len) return error.PathTooLong;
     @memcpy(path_z[0..path.len], path);
     path_z[path.len] = 0;
     if (fstatat(AT_FDCWD, @ptrCast(&path_z), out, AT_SYMLINK_NOFOLLOW) != 0) {
-        return errnoToZigError(errno());
+        return errno_to_zig_error(errno());
     }
 }
 
-fn hostFstat(fd: c_int, out: *Stat) !void {
-    if (fstat(fd, out) != 0) return errnoToZigError(errno());
+fn host_fstat(fd: c_int, out: *Stat) !void {
+    if (fstat(fd, out) != 0) return errno_to_zig_error(errno());
 }
 
-fn openHost(path: []const u8, flags: c_int, mode: c_int) !c_int {
+fn open_host(path: []const u8, flags: c_int, mode: c_int) !c_int {
     var path_z: [4097]u8 = undefined;
     if (path.len >= path_z.len) return error.PathTooLong;
     @memcpy(path_z[0..path.len], path);
     path_z[path.len] = 0;
     const fd = open(@ptrCast(&path_z), flags, mode);
-    if (fd < 0) return errnoToZigError(errno());
+    if (fd < 0) return errno_to_zig_error(errno());
     return fd;
 }
 
-fn pwriteAll(fd: c_int, data: []const u8, offset: u64) !usize {
+fn pwrite_all(fd: c_int, data: []const u8, offset: u64) !usize {
     var total: usize = 0;
     while (total < data.len) {
         const n = pwrite(fd, data[total..].ptr, data.len - total, @intCast(offset + total));
@@ -1754,12 +1754,12 @@ fn pwriteAll(fd: c_int, data: []const u8, offset: u64) !usize {
         }
         if (n == 0) break;
         if (errno() == EINTR) continue;
-        return errnoToZigError(errno());
+        return errno_to_zig_error(errno());
     }
     return total;
 }
 
-fn errnoToZigError(e: c_int) anyerror {
+fn errno_to_zig_error(e: c_int) anyerror {
     return switch (e) {
         2 => error.FileNotFound,
         13 => error.AccessDenied,
@@ -1775,7 +1775,7 @@ fn errnoToZigError(e: c_int) anyerror {
     };
 }
 
-fn mapFsError(e: anyerror) i32 {
+fn map_fs_error(e: anyerror) i32 {
     return switch (e) {
         error.FileNotFound => -E.NOENT,
         error.AccessDenied => -E.ACCES,
@@ -1792,7 +1792,7 @@ fn mapFsError(e: anyerror) i32 {
     };
 }
 
-fn linuxOpenToHost(linux_flags: u32) c_int {
+fn linux_open_to_host(linux_flags: u32) c_int {
     const access = linux_flags & 0o3;
     // With FUSE_CAP_WRITEBACK_CACHE the guest kernel may issue READs on
     // a handle the process opened O_WRONLY, to fill a page before a
@@ -1811,7 +1811,7 @@ fn linuxOpenToHost(linux_flags: u32) c_int {
     return host;
 }
 
-fn updateBoundInodesAfterRename(state: *State, old_rel: []const u8, new_rel: []const u8) !void {
+fn update_bound_inodes_after_rename(state: *State, old_rel: []const u8, new_rel: []const u8) !void {
     var it = state.inodes.iterator();
     while (it.next()) |e| {
         const rel = e.value_ptr.rel_path;
@@ -1831,7 +1831,7 @@ fn updateBoundInodesAfterRename(state: *State, old_rel: []const u8, new_rel: []c
     }
 }
 
-fn statToAttr(st: Stat, ino: u64) Attr {
+fn stat_to_attr(st: Stat, ino: u64) Attr {
     const atime_ts = if (builtin.os.tag == .macos) st.atimespec else st.atim;
     const mtime_ts = if (builtin.os.tag == .macos) st.mtimespec else st.mtim;
     const ctime_ts = if (builtin.os.tag == .macos) st.ctimespec else st.ctim;
@@ -1857,14 +1857,14 @@ fn statToAttr(st: Stat, ino: u64) Attr {
 
 // --- name decoding ------------------------------------------------------
 
-fn decodeName(body: []const u8) []const u8 {
+fn decode_name(body: []const u8) []const u8 {
     const nul = std.mem.indexOfScalar(u8, body, 0) orelse body.len;
     return body[0..nul];
 }
 
 // --- stats file ---------------------------------------------------------
 
-pub fn writeStatsAtomic(state: *State) void {
+pub fn write_stats_atomic(state: *State) void {
     const stats_path = state.stats_path orelse return;
 
     // Build the JSON in one heap buffer. Stats files are small (<10 KiB
@@ -1876,7 +1876,7 @@ pub fn writeStatsAtomic(state: *State) void {
 
     var slice = std.fmt.bufPrint(body_buf[cur..], "{{\"bytesServedOnPagesImg\":{d},\"updatedAtMs\":{d}", .{
         state.bytes_served_on_pages_img,
-        nowMs(),
+        now_ms(),
     }) catch return;
     cur += slice.len;
 
@@ -1892,7 +1892,7 @@ pub fn writeStatsAtomic(state: *State) void {
             }
             first = false;
             slice = std.fmt.bufPrint(body_buf[cur..], "\"{s}\":{{\"count\":{d},\"sumNs\":{d},\"p50Ns\":0,\"p99Ns\":0}}", .{
-                opName(e.key_ptr.*),
+                op_name(e.key_ptr.*),
                 e.value_ptr.count,
                 e.value_ptr.sum_ns,
             }) catch return;
@@ -1917,7 +1917,7 @@ pub fn writeStatsAtomic(state: *State) void {
 
     const fd = open(@ptrCast(&tmp_z), O_WRONLY | O_CREAT | O_TRUNC, @as(c_int, 0o644));
     if (fd < 0) return;
-    _ = writeFileAll(fd, body_items);
+    _ = write_file_all(fd, body_items);
     _ = close(fd);
 
     var dst_z: [4097]u8 = undefined;
@@ -1927,7 +1927,7 @@ pub fn writeStatsAtomic(state: *State) void {
     _ = rename(@ptrCast(&tmp_z), @ptrCast(&dst_z));
 }
 
-fn opName(code: u32) []const u8 {
+fn op_name(code: u32) []const u8 {
     return switch (@as(Op, @enumFromInt(code))) {
         .LOOKUP => "LOOKUP",
         .FORGET => "FORGET",
@@ -1980,7 +1980,7 @@ const testing = std.testing;
 /// Build a contiguous FUSE request frame — 40-byte in-header + body —
 /// exactly as a transport would hand it to `dispatch`. Caller owns the
 /// returned slice.
-fn testBuildFrame(
+fn test_build_frame(
     gpa: std.mem.Allocator,
     opcode: u32,
     unique: u64,
@@ -2000,19 +2000,19 @@ fn testBuildFrame(
 /// A `State` over a root path that never gets touched — every test
 /// here exercises a control-flow branch (negotiation, ENOSYS, the
 /// `:ro` gate, no-reply ops) that returns before any host fs syscall.
-fn testState(gpa: std.mem.Allocator, mode_rw: bool) !State {
+fn test_state(gpa: std.mem.Allocator, mode_rw: bool) !State {
     return State.init(gpa, try gpa.dupe(u8, "/nonexistent-machinen-test-root"), mode_rw);
 }
 
 test "dispatch: INIT negotiates protocol 7.31" {
     const gpa = testing.allocator;
-    var state = try testState(gpa, true);
+    var state = try test_state(gpa, true);
     defer state.deinit();
 
     var body: [16]u8 = @splat(0);
     std.mem.writeInt(u32, body[0..4], 7, .little); // major
     std.mem.writeInt(u32, body[4..8], 36, .little); // minor — guest offers newer
-    const frame = try testBuildFrame(gpa, @intFromEnum(Op.INIT), 42, 0, &body);
+    const frame = try test_build_frame(gpa, @intFromEnum(Op.INIT), 42, 0, &body);
     defer gpa.free(frame);
 
     const reply = (try dispatch(&state, frame)) orelse return error.ExpectedReply;
@@ -2029,10 +2029,10 @@ test "dispatch: INIT negotiates protocol 7.31" {
 
 test "dispatch: unknown opcode returns ENOSYS" {
     const gpa = testing.allocator;
-    var state = try testState(gpa, true);
+    var state = try test_state(gpa, true);
     defer state.deinit();
 
-    const frame = try testBuildFrame(gpa, 9999, 7, 1, &.{});
+    const frame = try test_build_frame(gpa, 9999, 7, 1, &.{});
     defer gpa.free(frame);
 
     const reply = (try dispatch(&state, frame)) orelse return error.ExpectedReply;
@@ -2044,10 +2044,10 @@ test "dispatch: unknown opcode returns ENOSYS" {
 
 test "dispatch: CREATE on a :ro mount returns EROFS" {
     const gpa = testing.allocator;
-    var state = try testState(gpa, false); // read-only
+    var state = try test_state(gpa, false); // read-only
     defer state.deinit();
 
-    const frame = try testBuildFrame(gpa, @intFromEnum(Op.CREATE), 9, 1, &.{});
+    const frame = try test_build_frame(gpa, @intFromEnum(Op.CREATE), 9, 1, &.{});
     defer gpa.free(frame);
 
     const reply = (try dispatch(&state, frame)) orelse return error.ExpectedReply;
@@ -2058,26 +2058,26 @@ test "dispatch: CREATE on a :ro mount returns EROFS" {
 
 test "dispatch: FORGET and INTERRUPT produce no reply" {
     const gpa = testing.allocator;
-    var state = try testState(gpa, true);
+    var state = try test_state(gpa, true);
     defer state.deinit();
 
     const forget_body: [8]u8 = @splat(0);
-    const forget = try testBuildFrame(gpa, @intFromEnum(Op.FORGET), 1, 1, &forget_body);
+    const forget = try test_build_frame(gpa, @intFromEnum(Op.FORGET), 1, 1, &forget_body);
     defer gpa.free(forget);
     try testing.expect((try dispatch(&state, forget)) == null);
 
-    const interrupt = try testBuildFrame(gpa, @intFromEnum(Op.INTERRUPT), 2, 0, &.{});
+    const interrupt = try test_build_frame(gpa, @intFromEnum(Op.INTERRUPT), 2, 0, &.{});
     defer gpa.free(interrupt);
     try testing.expect((try dispatch(&state, interrupt)) == null);
 }
 
 test "validateName rejects path-escape and empty names" {
-    try testing.expectError(error.InvalidName, validateName(""));
-    try testing.expectError(error.InvalidName, validateName("."));
-    try testing.expectError(error.InvalidName, validateName(".."));
-    try testing.expectError(error.InvalidName, validateName("a/b"));
-    try testing.expectError(error.InvalidName, validateName("a\x00b"));
-    try validateName("normal-file.txt");
+    try testing.expectError(error.InvalidName, validate_name(""));
+    try testing.expectError(error.InvalidName, validate_name("."));
+    try testing.expectError(error.InvalidName, validate_name(".."));
+    try testing.expectError(error.InvalidName, validate_name("a/b"));
+    try testing.expectError(error.InvalidName, validate_name("a\x00b"));
+    try validate_name("normal-file.txt");
 }
 
 // --- snapshot (dumpState / applyState) tests ---------------------------
@@ -2092,7 +2092,7 @@ test "validateName rejects path-escape and empty names" {
 /// Absolute path of a `std.testing.tmpDir` — the dumpState/applyState
 /// tests need a real root the reopened fds can resolve against. Heap-
 /// allocated; the caller hands it to `State.init`, which takes ownership.
-fn testTmpRootAbs(gpa: std.mem.Allocator, tmp: *const std.testing.TmpDir) ![]u8 {
+fn test_tmp_root_abs(gpa: std.mem.Allocator, tmp: *const std.testing.TmpDir) ![]u8 {
     const cwd = try std.process.currentPathAlloc(std.testing.io, gpa);
     defer gpa.free(cwd);
     return std.fs.path.join(gpa, &.{ cwd, ".zig-cache", "tmp", &tmp.sub_path });
@@ -2103,10 +2103,10 @@ test "dispatch: GETATTR returns sane attrs for the host stat layout" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    var state = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), true);
+    var state = try State.init(gpa, try test_tmp_root_abs(gpa, &tmp), true);
     defer state.deinit();
 
-    const frame = try testBuildFrame(gpa, @intFromEnum(Op.GETATTR), 9, 1, &.{});
+    const frame = try test_build_frame(gpa, @intFromEnum(Op.GETATTR), 9, 1, &.{});
     defer gpa.free(frame);
     const r = (try dispatch(&state, frame)) orelse return error.ExpectedReply;
     defer gpa.free(r);
@@ -2124,12 +2124,12 @@ test "dispatch: GETATTR returns sane attrs for the host stat layout" {
 }
 
 /// CREATE `name` under the root inode; returns its (nodeid, fh).
-fn testCreate(state: *State, name: []const u8) !struct { nodeid: u64, fh: u64 } {
+fn test_create(state: *State, name: []const u8) !struct { nodeid: u64, fh: u64 } {
     var body: [16 + 96]u8 = @splat(0);
     std.mem.writeInt(u32, body[0..4], LINUX_O_RDWR, .little);
     std.mem.writeInt(u32, body[4..8], 0o644, .little);
     @memcpy(body[16..][0..name.len], name);
-    const frame = try testBuildFrame(state.gpa, @intFromEnum(Op.CREATE), 1, 1, body[0 .. 16 + name.len]);
+    const frame = try test_build_frame(state.gpa, @intFromEnum(Op.CREATE), 1, 1, body[0 .. 16 + name.len]);
     defer state.gpa.free(frame);
     const r = (try dispatch(state, frame)) orelse return error.ExpectedReply;
     defer state.gpa.free(r);
@@ -2140,10 +2140,10 @@ fn testCreate(state: *State, name: []const u8) !struct { nodeid: u64, fh: u64 } 
     };
 }
 
-fn testLookup(state: *State, name: []const u8) !u64 {
+fn test_lookup(state: *State, name: []const u8) !u64 {
     var body: [128]u8 = @splat(0);
     @memcpy(body[0..name.len], name);
-    const frame = try testBuildFrame(state.gpa, @intFromEnum(Op.LOOKUP), 1, 1, body[0 .. name.len + 1]);
+    const frame = try test_build_frame(state.gpa, @intFromEnum(Op.LOOKUP), 1, 1, body[0 .. name.len + 1]);
     defer state.gpa.free(frame);
     const r = (try dispatch(state, frame)) orelse return error.ExpectedReply;
     defer state.gpa.free(r);
@@ -2151,10 +2151,10 @@ fn testLookup(state: *State, name: []const u8) !u64 {
     return std.mem.readInt(u64, r[FUSE_OUT_HEADER_SIZE..][0..8], .little);
 }
 
-fn testOpen(state: *State, nodeid: u64, flags: u32) !u64 {
+fn test_open(state: *State, nodeid: u64, flags: u32) !u64 {
     var body: [8]u8 = @splat(0);
     std.mem.writeInt(u32, body[0..4], flags, .little);
-    const frame = try testBuildFrame(state.gpa, @intFromEnum(Op.OPEN), 1, nodeid, &body);
+    const frame = try test_build_frame(state.gpa, @intFromEnum(Op.OPEN), 1, nodeid, &body);
     defer state.gpa.free(frame);
     const r = (try dispatch(state, frame)) orelse return error.ExpectedReply;
     defer state.gpa.free(r);
@@ -2168,17 +2168,17 @@ test "dispatch: OPEN O_WRONLY handles writeback-cache read fill then WRITE exist
     defer tmp.cleanup();
     try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "existing.txt", .data = "old-data" });
 
-    var state = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), true);
+    var state = try State.init(gpa, try test_tmp_root_abs(gpa, &tmp), true);
     defer state.deinit();
-    const nodeid = try testLookup(&state, "existing.txt");
-    const fh = try testOpen(&state, nodeid, LINUX_O_WRONLY | LINUX_O_TRUNC);
+    const nodeid = try test_lookup(&state, "existing.txt");
+    const fh = try test_open(&state, nodeid, LINUX_O_WRONLY | LINUX_O_TRUNC);
 
     // The guest kernel may issue this READ on an O_WRONLY handle when
     // WRITEBACK_CACHE is negotiated. It must not turn into EBADF/EIO.
     var rbody: [32]u8 = @splat(0);
     std.mem.writeInt(u64, rbody[0..8], fh, .little);
     std.mem.writeInt(u32, rbody[16..20], 16, .little);
-    const rf = try testBuildFrame(gpa, @intFromEnum(Op.READ), 2, nodeid, &rbody);
+    const rf = try test_build_frame(gpa, @intFromEnum(Op.READ), 2, nodeid, &rbody);
     defer gpa.free(rf);
     const rr = (try dispatch(&state, rf)) orelse return error.ExpectedReply;
     defer gpa.free(rr);
@@ -2188,7 +2188,7 @@ test "dispatch: OPEN O_WRONLY handles writeback-cache read fill then WRITE exist
     std.mem.writeInt(u64, wbody[0..8], fh, .little);
     std.mem.writeInt(u32, wbody[16..20], 3, .little);
     @memcpy(wbody[FUSE_WRITE_IN_SIZE..], "new");
-    const wf = try testBuildFrame(gpa, @intFromEnum(Op.WRITE), 3, nodeid, &wbody);
+    const wf = try test_build_frame(gpa, @intFromEnum(Op.WRITE), 3, nodeid, &wbody);
     defer gpa.free(wf);
     const wr = (try dispatch(&state, wf)) orelse return error.ExpectedReply;
     defer gpa.free(wr);
@@ -2205,10 +2205,10 @@ test "dispatch: O_APPEND writes honor guest offsets, not host append mode" {
     defer tmp.cleanup();
     try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "append.txt", .data = "append-base\n" });
 
-    var state = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), true);
+    var state = try State.init(gpa, try test_tmp_root_abs(gpa, &tmp), true);
     defer state.deinit();
-    const nodeid = try testLookup(&state, "append.txt");
-    const fh = try testOpen(&state, nodeid, LINUX_O_WRONLY | LINUX_O_APPEND);
+    const nodeid = try test_lookup(&state, "append.txt");
+    const fh = try test_open(&state, nodeid, LINUX_O_WRONLY | LINUX_O_APPEND);
 
     // With WRITEBACK_CACHE, the guest can satisfy `echo x >> file` by
     // sending the rewritten page at offset 0. If the host fd also has
@@ -2220,7 +2220,7 @@ test "dispatch: O_APPEND writes honor guest offsets, not host append mode" {
     std.mem.writeInt(u64, wbody[8..16], 0, .little);
     std.mem.writeInt(u32, wbody[16..20], data.len, .little);
     @memcpy(wbody[FUSE_WRITE_IN_SIZE..], data);
-    const wf = try testBuildFrame(gpa, @intFromEnum(Op.WRITE), 3, nodeid, &wbody);
+    const wf = try test_build_frame(gpa, @intFromEnum(Op.WRITE), 3, nodeid, &wbody);
     defer gpa.free(wf);
     const wr = (try dispatch(&state, wf)) orelse return error.ExpectedReply;
     defer gpa.free(wr);
@@ -2237,13 +2237,13 @@ test "dispatch: SETATTR FATTR_SIZE truncates an existing file and honors :ro" {
     defer tmp.cleanup();
     try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "truncate.txt", .data = "abcdef" });
 
-    var rw = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), true);
+    var rw = try State.init(gpa, try test_tmp_root_abs(gpa, &tmp), true);
     defer rw.deinit();
-    const nodeid = try testLookup(&rw, "truncate.txt");
+    const nodeid = try test_lookup(&rw, "truncate.txt");
     var body: [24]u8 = @splat(0);
     std.mem.writeInt(u32, body[0..4], FATTR_SIZE, .little);
     std.mem.writeInt(u64, body[16..24], 2, .little);
-    const sf = try testBuildFrame(gpa, @intFromEnum(Op.SETATTR), 1, nodeid, &body);
+    const sf = try test_build_frame(gpa, @intFromEnum(Op.SETATTR), 1, nodeid, &body);
     defer gpa.free(sf);
     const sr = (try dispatch(&rw, sf)) orelse return error.ExpectedReply;
     defer gpa.free(sr);
@@ -2253,11 +2253,11 @@ test "dispatch: SETATTR FATTR_SIZE truncates an existing file and honors :ro" {
     defer gpa.free(got);
     try testing.expectEqualStrings("ab", got);
 
-    var ro = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), false);
+    var ro = try State.init(gpa, try test_tmp_root_abs(gpa, &tmp), false);
     defer ro.deinit();
-    const ro_nodeid = try testLookup(&ro, "truncate.txt");
+    const ro_nodeid = try test_lookup(&ro, "truncate.txt");
     std.mem.writeInt(u64, body[16..24], 1, .little);
-    const rof = try testBuildFrame(gpa, @intFromEnum(Op.SETATTR), 2, ro_nodeid, &body);
+    const rof = try test_build_frame(gpa, @intFromEnum(Op.SETATTR), 2, ro_nodeid, &body);
     defer gpa.free(rof);
     const ror = (try dispatch(&ro, rof)) orelse return error.ExpectedReply;
     defer gpa.free(ror);
@@ -2275,25 +2275,25 @@ test "dispatch: READLINK returns symlink targets and reports errors" {
     try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "target.txt", .data = "target-data" });
     try tmp.dir.symLink(std.testing.io, "target.txt", "link.txt", .{});
 
-    var state = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), true);
+    var state = try State.init(gpa, try test_tmp_root_abs(gpa, &tmp), true);
     defer state.deinit();
 
-    const link_nodeid = try testLookup(&state, "link.txt");
-    const rf = try testBuildFrame(gpa, @intFromEnum(Op.READLINK), 1, link_nodeid, &.{});
+    const link_nodeid = try test_lookup(&state, "link.txt");
+    const rf = try test_build_frame(gpa, @intFromEnum(Op.READLINK), 1, link_nodeid, &.{});
     defer gpa.free(rf);
     const rr = (try dispatch(&state, rf)) orelse return error.ExpectedReply;
     defer gpa.free(rr);
     try testing.expectEqual(@as(i32, 0), std.mem.readInt(i32, rr[4..8], .little));
     try testing.expectEqualStrings("target.txt", rr[FUSE_OUT_HEADER_SIZE..]);
 
-    const regular_nodeid = try testLookup(&state, "target.txt");
-    const nonlink = try testBuildFrame(gpa, @intFromEnum(Op.READLINK), 2, regular_nodeid, &.{});
+    const regular_nodeid = try test_lookup(&state, "target.txt");
+    const nonlink = try test_build_frame(gpa, @intFromEnum(Op.READLINK), 2, regular_nodeid, &.{});
     defer gpa.free(nonlink);
     const nr = (try dispatch(&state, nonlink)) orelse return error.ExpectedReply;
     defer gpa.free(nr);
     try testing.expectEqual(@as(i32, -E.INVAL), std.mem.readInt(i32, nr[4..8], .little));
 
-    const stale = try testBuildFrame(gpa, @intFromEnum(Op.READLINK), 3, 9999, &.{});
+    const stale = try test_build_frame(gpa, @intFromEnum(Op.READLINK), 3, 9999, &.{});
     defer gpa.free(stale);
     const sr = (try dispatch(&state, stale)) orelse return error.ExpectedReply;
     defer gpa.free(sr);
@@ -2306,14 +2306,14 @@ test "dispatch: LINK creates hardlinks, reports errors, and respects :ro" {
     defer tmp.cleanup();
     try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "a.txt", .data = "hard" });
 
-    var state = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), true);
+    var state = try State.init(gpa, try test_tmp_root_abs(gpa, &tmp), true);
     defer state.deinit();
-    const oldnodeid = try testLookup(&state, "a.txt");
+    const oldnodeid = try test_lookup(&state, "a.txt");
 
     var body: [8 + 6]u8 = @splat(0);
     std.mem.writeInt(u64, body[0..8], oldnodeid, .little);
     @memcpy(body[8..][0.."b.txt".len], "b.txt");
-    const lf = try testBuildFrame(gpa, @intFromEnum(Op.LINK), 1, 1, body[0 .. 8 + "b.txt".len + 1]);
+    const lf = try test_build_frame(gpa, @intFromEnum(Op.LINK), 1, 1, body[0 .. 8 + "b.txt".len + 1]);
     defer gpa.free(lf);
     const lr = (try dispatch(&state, lf)) orelse return error.ExpectedReply;
     defer gpa.free(lr);
@@ -2322,7 +2322,7 @@ test "dispatch: LINK creates hardlinks, reports errors, and respects :ro" {
 
     var st = std.mem.zeroes(Stat);
     var a_path_buf: [4096]u8 = undefined;
-    try hostLstat(try buildAbsPath(&state, "a.txt", &a_path_buf), &st);
+    try host_lstat(try build_abs_path(&state, "a.txt", &a_path_buf), &st);
     try testing.expect(st.nlink >= 2);
     try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "a.txt", .data = "updated" });
     const got = try tmp.dir.readFileAlloc(std.testing.io, "b.txt", gpa, .limited(1024));
@@ -2335,28 +2335,28 @@ test "dispatch: LINK creates hardlinks, reports errors, and respects :ro" {
 
     // Reusing the same destination name reports EEXIST and leaves it alone.
     try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "a.txt", .data = "again" });
-    const new_oldnodeid = try testLookup(&state, "a.txt");
+    const new_oldnodeid = try test_lookup(&state, "a.txt");
     std.mem.writeInt(u64, body[0..8], new_oldnodeid, .little);
-    const exists = try testBuildFrame(gpa, @intFromEnum(Op.LINK), 2, 1, body[0 .. 8 + "b.txt".len + 1]);
+    const exists = try test_build_frame(gpa, @intFromEnum(Op.LINK), 2, 1, body[0 .. 8 + "b.txt".len + 1]);
     defer gpa.free(exists);
     const er = (try dispatch(&state, exists)) orelse return error.ExpectedReply;
     defer gpa.free(er);
     try testing.expectEqual(@as(i32, -E.EXIST), std.mem.readInt(i32, er[4..8], .little));
 
-    var ro = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), false);
+    var ro = try State.init(gpa, try test_tmp_root_abs(gpa, &tmp), false);
     defer ro.deinit();
-    const ro_oldnodeid = try testLookup(&ro, "a.txt");
+    const ro_oldnodeid = try test_lookup(&ro, "a.txt");
     var ro_body: [8 + 9]u8 = @splat(0);
     std.mem.writeInt(u64, ro_body[0..8], ro_oldnodeid, .little);
     @memcpy(ro_body[8..][0.."ro-b.txt".len], "ro-b.txt");
-    const rof = try testBuildFrame(gpa, @intFromEnum(Op.LINK), 3, 1, ro_body[0 .. 8 + "ro-b.txt".len + 1]);
+    const rof = try test_build_frame(gpa, @intFromEnum(Op.LINK), 3, 1, ro_body[0 .. 8 + "ro-b.txt".len + 1]);
     defer gpa.free(rof);
     const ror = (try dispatch(&ro, rof)) orelse return error.ExpectedReply;
     defer gpa.free(ror);
     try testing.expectEqual(@as(i32, -E.ROFS), std.mem.readInt(i32, ror[4..8], .little));
     try testing.expectError(error.FileNotFound, tmp.dir.access(std.testing.io, "ro-b.txt", .{}));
 
-    const bad = try testBuildFrame(gpa, @intFromEnum(Op.LINK), 4, 1, "short");
+    const bad = try test_build_frame(gpa, @intFromEnum(Op.LINK), 4, 1, "short");
     defer gpa.free(bad);
     const br = (try dispatch(&state, bad)) orelse return error.ExpectedReply;
     defer gpa.free(br);
@@ -2369,13 +2369,13 @@ test "dispatch: SETATTR FATTR_MODE applies chmod and honors :ro" {
     defer tmp.cleanup();
     try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "script.sh", .data = "#!/bin/sh\necho hi\n" });
 
-    var rw = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), true);
+    var rw = try State.init(gpa, try test_tmp_root_abs(gpa, &tmp), true);
     defer rw.deinit();
-    const nodeid = try testLookup(&rw, "script.sh");
+    const nodeid = try test_lookup(&rw, "script.sh");
     var body: [88]u8 = @splat(0);
     std.mem.writeInt(u32, body[0..4], FATTR_MODE, .little);
     std.mem.writeInt(u32, body[68..72], 0o755, .little);
-    const sf = try testBuildFrame(gpa, @intFromEnum(Op.SETATTR), 1, nodeid, &body);
+    const sf = try test_build_frame(gpa, @intFromEnum(Op.SETATTR), 1, nodeid, &body);
     defer gpa.free(sf);
     const sr = (try dispatch(&rw, sf)) orelse return error.ExpectedReply;
     defer gpa.free(sr);
@@ -2384,14 +2384,14 @@ test "dispatch: SETATTR FATTR_MODE applies chmod and honors :ro" {
 
     var st = std.mem.zeroes(Stat);
     var script_path_buf: [4096]u8 = undefined;
-    try hostLstat(try buildAbsPath(&rw, "script.sh", &script_path_buf), &st);
+    try host_lstat(try build_abs_path(&rw, "script.sh", &script_path_buf), &st);
     try testing.expectEqual(@as(u32, 0o755), st.mode & 0o777);
 
-    var ro = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), false);
+    var ro = try State.init(gpa, try test_tmp_root_abs(gpa, &tmp), false);
     defer ro.deinit();
-    const ro_nodeid = try testLookup(&ro, "script.sh");
+    const ro_nodeid = try test_lookup(&ro, "script.sh");
     std.mem.writeInt(u32, body[68..72], 0o600, .little);
-    const rof = try testBuildFrame(gpa, @intFromEnum(Op.SETATTR), 2, ro_nodeid, &body);
+    const rof = try test_build_frame(gpa, @intFromEnum(Op.SETATTR), 2, ro_nodeid, &body);
     defer gpa.free(rof);
     const ror = (try dispatch(&ro, rof)) orelse return error.ExpectedReply;
     defer gpa.free(ror);
@@ -2399,12 +2399,12 @@ test "dispatch: SETATTR FATTR_MODE applies chmod and honors :ro" {
 
     var still = std.mem.zeroes(Stat);
     var still_path_buf: [4096]u8 = undefined;
-    try hostLstat(try buildAbsPath(&rw, "script.sh", &still_path_buf), &still);
+    try host_lstat(try build_abs_path(&rw, "script.sh", &still_path_buf), &still);
     try testing.expectEqual(@as(u32, 0o755), still.mode & 0o777);
 
     var short_body: [8]u8 = @splat(0);
     std.mem.writeInt(u32, short_body[0..4], FATTR_MODE, .little);
-    const bad = try testBuildFrame(gpa, @intFromEnum(Op.SETATTR), 3, nodeid, &short_body);
+    const bad = try test_build_frame(gpa, @intFromEnum(Op.SETATTR), 3, nodeid, &short_body);
     defer gpa.free(bad);
     const br = (try dispatch(&rw, bad)) orelse return error.ExpectedReply;
     defer gpa.free(br);
@@ -2420,39 +2420,39 @@ test "dispatch: RMDIR removes empty dirs, maps ENOTEMPTY, and respects :ro" {
     try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "nonempty/child.txt", .data = "x" });
     try tmp.dir.createDir(std.testing.io, "blocked", .default_dir);
 
-    var state = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), true);
+    var state = try State.init(gpa, try test_tmp_root_abs(gpa, &tmp), true);
     defer state.deinit();
 
-    const ok = try testBuildFrame(gpa, @intFromEnum(Op.RMDIR), 1, 1, "empty\x00");
+    const ok = try test_build_frame(gpa, @intFromEnum(Op.RMDIR), 1, 1, "empty\x00");
     defer gpa.free(ok);
     const okr = (try dispatch(&state, ok)) orelse return error.ExpectedReply;
     defer gpa.free(okr);
     try testing.expectEqual(@as(i32, 0), std.mem.readInt(i32, okr[4..8], .little));
     try testing.expectError(error.FileNotFound, tmp.dir.access(std.testing.io, "empty", .{}));
 
-    const nonempty = try testBuildFrame(gpa, @intFromEnum(Op.RMDIR), 2, 1, "nonempty\x00");
+    const nonempty = try test_build_frame(gpa, @intFromEnum(Op.RMDIR), 2, 1, "nonempty\x00");
     defer gpa.free(nonempty);
     const ner = (try dispatch(&state, nonempty)) orelse return error.ExpectedReply;
     defer gpa.free(ner);
     try testing.expectEqual(@as(i32, -E.NOTEMPTY), std.mem.readInt(i32, ner[4..8], .little));
     try tmp.dir.access(std.testing.io, "nonempty/child.txt", .{});
 
-    const missing = try testBuildFrame(gpa, @intFromEnum(Op.RMDIR), 3, 1, "missing\x00");
+    const missing = try test_build_frame(gpa, @intFromEnum(Op.RMDIR), 3, 1, "missing\x00");
     defer gpa.free(missing);
     const mr = (try dispatch(&state, missing)) orelse return error.ExpectedReply;
     defer gpa.free(mr);
     try testing.expectEqual(@as(i32, -E.NOENT), std.mem.readInt(i32, mr[4..8], .little));
 
-    var ro = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), false);
+    var ro = try State.init(gpa, try test_tmp_root_abs(gpa, &tmp), false);
     defer ro.deinit();
-    const rof = try testBuildFrame(gpa, @intFromEnum(Op.RMDIR), 4, 1, "blocked\x00");
+    const rof = try test_build_frame(gpa, @intFromEnum(Op.RMDIR), 4, 1, "blocked\x00");
     defer gpa.free(rof);
     const ror = (try dispatch(&ro, rof)) orelse return error.ExpectedReply;
     defer gpa.free(ror);
     try testing.expectEqual(@as(i32, -E.ROFS), std.mem.readInt(i32, ror[4..8], .little));
     try tmp.dir.access(std.testing.io, "blocked", .{});
 
-    const bad = try testBuildFrame(gpa, @intFromEnum(Op.RMDIR), 5, 1, "bad/name\x00");
+    const bad = try test_build_frame(gpa, @intFromEnum(Op.RMDIR), 5, 1, "bad/name\x00");
     defer gpa.free(bad);
     const br = (try dispatch(&state, bad)) orelse return error.ExpectedReply;
     defer gpa.free(br);
@@ -2466,13 +2466,13 @@ test "dispatch: RENAME replaces an existing file, reports errors, and respects :
     try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "src.txt", .data = "source" });
     try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "dst.txt", .data = "dest" });
 
-    var state = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), true);
+    var state = try State.init(gpa, try test_tmp_root_abs(gpa, &tmp), true);
     defer state.deinit();
     var body: [8 + 8 + 8]u8 = @splat(0);
     std.mem.writeInt(u64, body[0..8], 1, .little); // newdir = root
     @memcpy(body[8..][0.."src.txt".len], "src.txt");
     @memcpy(body[8 + "src.txt".len + 1 ..][0.."dst.txt".len], "dst.txt");
-    const rf = try testBuildFrame(gpa, @intFromEnum(Op.RENAME), 1, 1, body[0 .. 8 + "src.txt".len + 1 + "dst.txt".len + 1]);
+    const rf = try test_build_frame(gpa, @intFromEnum(Op.RENAME), 1, 1, body[0 .. 8 + "src.txt".len + 1 + "dst.txt".len + 1]);
     defer gpa.free(rf);
     const rr = (try dispatch(&state, rf)) orelse return error.ExpectedReply;
     defer gpa.free(rr);
@@ -2486,21 +2486,21 @@ test "dispatch: RENAME replaces an existing file, reports errors, and respects :
     std.mem.writeInt(u64, missing_body[0..8], 1, .little);
     @memcpy(missing_body[8..][0.."missing".len], "missing");
     @memcpy(missing_body[8 + "missing".len + 1 ..][0.."other".len], "other");
-    const mf = try testBuildFrame(gpa, @intFromEnum(Op.RENAME), 2, 1, missing_body[0 .. 8 + "missing".len + 1 + "other".len + 1]);
+    const mf = try test_build_frame(gpa, @intFromEnum(Op.RENAME), 2, 1, missing_body[0 .. 8 + "missing".len + 1 + "other".len + 1]);
     defer gpa.free(mf);
     const mr = (try dispatch(&state, mf)) orelse return error.ExpectedReply;
     defer gpa.free(mr);
     try testing.expectEqual(@as(i32, -E.NOENT), std.mem.readInt(i32, mr[4..8], .little));
 
-    var ro = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), false);
+    var ro = try State.init(gpa, try test_tmp_root_abs(gpa, &tmp), false);
     defer ro.deinit();
-    const rof = try testBuildFrame(gpa, @intFromEnum(Op.RENAME), 3, 1, body[0 .. 8 + "src.txt".len + 1 + "dst.txt".len + 1]);
+    const rof = try test_build_frame(gpa, @intFromEnum(Op.RENAME), 3, 1, body[0 .. 8 + "src.txt".len + 1 + "dst.txt".len + 1]);
     defer gpa.free(rof);
     const ror = (try dispatch(&ro, rof)) orelse return error.ExpectedReply;
     defer gpa.free(ror);
     try testing.expectEqual(@as(i32, -E.ROFS), std.mem.readInt(i32, ror[4..8], .little));
 
-    const bad = try testBuildFrame(gpa, @intFromEnum(Op.RENAME), 4, 1, "short");
+    const bad = try test_build_frame(gpa, @intFromEnum(Op.RENAME), 4, 1, "short");
     defer gpa.free(bad);
     const br = (try dispatch(&state, bad)) orelse return error.ExpectedReply;
     defer gpa.free(br);
@@ -2512,9 +2512,9 @@ test "dumpState/applyState: a file handle survives a snapshot round-trip" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    var src = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), true);
+    var src = try State.init(gpa, try test_tmp_root_abs(gpa, &tmp), true);
     defer src.deinit();
-    const h = try testCreate(&src, "doc.txt");
+    const h = try test_create(&src, "doc.txt");
 
     // WRITE "snapshot-me" through the handle, onto the real host file.
     {
@@ -2522,20 +2522,20 @@ test "dumpState/applyState: a file handle survives a snapshot round-trip" {
         std.mem.writeInt(u64, body[0..8], h.fh, .little);
         std.mem.writeInt(u32, body[16..20], 11, .little);
         @memcpy(body[FUSE_WRITE_IN_SIZE..], "snapshot-me");
-        const frame = try testBuildFrame(gpa, @intFromEnum(Op.WRITE), 2, h.nodeid, &body);
+        const frame = try test_build_frame(gpa, @intFromEnum(Op.WRITE), 2, h.nodeid, &body);
         defer gpa.free(frame);
         const r = (try dispatch(&src, frame)) orelse return error.ExpectedReply;
         defer gpa.free(r);
         try testing.expectEqual(@as(i32, 0), std.mem.readInt(i32, r[4..8], .little));
     }
 
-    const payload = try src.dumpState(gpa);
+    const payload = try src.dump_state(gpa);
     defer gpa.free(payload);
 
     // A fresh State over the SAME root — a vmstate restore.
-    var dst = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), true);
+    var dst = try State.init(gpa, try test_tmp_root_abs(gpa, &tmp), true);
     defer dst.deinit();
-    try dst.applyState(payload);
+    try dst.apply_state(payload);
     try testing.expectEqual(src.next_inode, dst.next_inode);
     try testing.expectEqual(src.next_handle, dst.next_handle);
 
@@ -2545,7 +2545,7 @@ test "dumpState/applyState: a file handle survives a snapshot round-trip" {
     var rbody: [32]u8 = @splat(0);
     std.mem.writeInt(u64, rbody[0..8], h.fh, .little);
     std.mem.writeInt(u32, rbody[16..20], 64, .little);
-    const frame = try testBuildFrame(gpa, @intFromEnum(Op.READ), 3, h.nodeid, &rbody);
+    const frame = try test_build_frame(gpa, @intFromEnum(Op.READ), 3, h.nodeid, &rbody);
     defer gpa.free(frame);
     const r = (try dispatch(&dst, frame)) orelse return error.ExpectedReply;
     defer gpa.free(r);
@@ -2558,25 +2558,25 @@ test "applyState: a file removed since the snapshot restores fail-soft to EBADF"
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    var src = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), true);
+    var src = try State.init(gpa, try test_tmp_root_abs(gpa, &tmp), true);
     defer src.deinit();
-    const h = try testCreate(&src, "gone.txt");
-    const payload = try src.dumpState(gpa);
+    const h = try test_create(&src, "gone.txt");
+    const payload = try src.dump_state(gpa);
     defer gpa.free(payload);
 
     // The file vanishes on the host before the restore.
     try tmp.dir.deleteFile(std.testing.io, "gone.txt");
 
-    var dst = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), true);
+    var dst = try State.init(gpa, try test_tmp_root_abs(gpa, &tmp), true);
     defer dst.deinit();
-    try dst.applyState(payload); // must not error — the reopen fails soft
+    try dst.apply_state(payload); // must not error — the reopen fails soft
 
     // The handle still exists, but its fd is -1; READ returns EBADF
     // instead of wedging.
     var rbody: [32]u8 = @splat(0);
     std.mem.writeInt(u64, rbody[0..8], h.fh, .little);
     std.mem.writeInt(u32, rbody[16..20], 16, .little);
-    const frame = try testBuildFrame(gpa, @intFromEnum(Op.READ), 1, h.nodeid, &rbody);
+    const frame = try test_build_frame(gpa, @intFromEnum(Op.READ), 1, h.nodeid, &rbody);
     defer gpa.free(frame);
     const r = (try dispatch(&dst, frame)) orelse return error.ExpectedReply;
     defer gpa.free(r);
@@ -2590,42 +2590,42 @@ test "dumpState/applyState: a :ro mount round-trips and stays read-only" {
 
     // Seed "data.txt" on the host via a throwaway rw state.
     {
-        var rw = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), true);
+        var rw = try State.init(gpa, try test_tmp_root_abs(gpa, &tmp), true);
         defer rw.deinit();
-        const h = try testCreate(&rw, "data.txt");
+        const h = try test_create(&rw, "data.txt");
         var wbody: [FUSE_WRITE_IN_SIZE + 4]u8 = @splat(0);
         std.mem.writeInt(u64, wbody[0..8], h.fh, .little);
         std.mem.writeInt(u32, wbody[16..20], 4, .little);
         @memcpy(wbody[FUSE_WRITE_IN_SIZE..], "ABCD");
-        const wf = try testBuildFrame(gpa, @intFromEnum(Op.WRITE), 1, h.nodeid, &wbody);
+        const wf = try test_build_frame(gpa, @intFromEnum(Op.WRITE), 1, h.nodeid, &wbody);
         defer gpa.free(wf);
         gpa.free((try dispatch(&rw, wf)).?);
     }
 
     // A :ro mount LOOKUPs + OPENs it read-only.
-    var src = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), false);
+    var src = try State.init(gpa, try test_tmp_root_abs(gpa, &tmp), false);
     defer src.deinit();
     {
-        const lf = try testBuildFrame(gpa, @intFromEnum(Op.LOOKUP), 1, 1, "data.txt\x00");
+        const lf = try test_build_frame(gpa, @intFromEnum(Op.LOOKUP), 1, 1, "data.txt\x00");
         defer gpa.free(lf);
         gpa.free((try dispatch(&src, lf)).?);
     }
     var obody: [8]u8 = @splat(0);
     std.mem.writeInt(u32, obody[0..4], LINUX_O_RDONLY, .little);
-    const of = try testBuildFrame(gpa, @intFromEnum(Op.OPEN), 2, 2, &obody); // nodeid 2 = data.txt
+    const of = try test_build_frame(gpa, @intFromEnum(Op.OPEN), 2, 2, &obody); // nodeid 2 = data.txt
     defer gpa.free(of);
     const orep = (try dispatch(&src, of)) orelse return error.ExpectedReply;
     const fh = std.mem.readInt(u64, orep[FUSE_OUT_HEADER_SIZE..][0..8], .little);
     gpa.free(orep);
 
-    const payload = try src.dumpState(gpa);
+    const payload = try src.dump_state(gpa);
     defer gpa.free(payload);
 
     // Restore onto a State the boot path created as rw — `applyState`
     // must override `mode_rw` with the snapshot's `:ro`.
-    var dst = try State.init(gpa, try testTmpRootAbs(gpa, &tmp), true);
+    var dst = try State.init(gpa, try test_tmp_root_abs(gpa, &tmp), true);
     defer dst.deinit();
-    try dst.applyState(payload);
+    try dst.apply_state(payload);
     try testing.expectEqual(false, dst.mode_rw);
 
     // READ through the restored handle works — the fd was reopened
@@ -2633,7 +2633,7 @@ test "dumpState/applyState: a :ro mount round-trips and stays read-only" {
     var rbody: [32]u8 = @splat(0);
     std.mem.writeInt(u64, rbody[0..8], fh, .little);
     std.mem.writeInt(u32, rbody[16..20], 8, .little);
-    const rf = try testBuildFrame(gpa, @intFromEnum(Op.READ), 3, 2, &rbody);
+    const rf = try test_build_frame(gpa, @intFromEnum(Op.READ), 3, 2, &rbody);
     defer gpa.free(rf);
     const rr = (try dispatch(&dst, rf)) orelse return error.ExpectedReply;
     defer gpa.free(rr);
@@ -2644,7 +2644,7 @@ test "dumpState/applyState: a :ro mount round-trips and stays read-only" {
     var wbody: [FUSE_WRITE_IN_SIZE + 1]u8 = @splat(0);
     std.mem.writeInt(u64, wbody[0..8], fh, .little);
     std.mem.writeInt(u32, wbody[16..20], 1, .little);
-    const wf = try testBuildFrame(gpa, @intFromEnum(Op.WRITE), 4, 2, &wbody);
+    const wf = try test_build_frame(gpa, @intFromEnum(Op.WRITE), 4, 2, &wbody);
     defer gpa.free(wf);
     const wr = (try dispatch(&dst, wf)) orelse return error.ExpectedReply;
     defer gpa.free(wr);
@@ -2653,19 +2653,19 @@ test "dumpState/applyState: a :ro mount round-trips and stays read-only" {
 
 test "applyState: a malformed payload is rejected, leaving the State usable" {
     const gpa = testing.allocator;
-    var state = try testState(gpa, true);
+    var state = try test_state(gpa, true);
     defer state.deinit();
 
     // Truncated and bad-magic payloads must come back as errors — and
     // `applyState` returns before touching the live maps, so a wedged
     // VMM thread is impossible.
-    try testing.expectError(error.Truncated, state.applyState("xx"));
+    try testing.expectError(error.Truncated, state.apply_state("xx"));
     var bad: [fuse_state.HEADER_SIZE]u8 = @splat(0);
-    try testing.expectError(error.BadMagic, state.applyState(&bad));
+    try testing.expectError(error.BadMagic, state.apply_state(&bad));
 
     // The State is still intact afterwards: dumpState still succeeds
     // and the root inode is still seeded.
-    const ok = try state.dumpState(gpa);
+    const ok = try state.dump_state(gpa);
     defer gpa.free(ok);
     var d = try fuse_state.decode(gpa, ok);
     defer d.deinit();

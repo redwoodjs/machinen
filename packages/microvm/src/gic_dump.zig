@@ -33,7 +33,7 @@ pub const Header = extern struct {
     _reserved: u32 = 0,
 };
 
-pub const DecodeError = error{Truncated, BadKind, BadLength};
+pub const DecodeError = error{ Truncated, BadKind, BadLength };
 
 pub fn encode(allocator: std.mem.Allocator, kind: u32, id: u32, payload: []const u8) ![]u8 {
     // Tiger-style preconditions.

@@ -44,12 +44,12 @@ const VMADDR_CID_ANY: u32 = 0xFFFF_FFFF;
 const PORT: u32 = 1975;
 const ENV_PATH = "/etc/machinen.env";
 
-fn logLine(s: []const u8) void {
+fn log_line(s: []const u8) void {
     _ = write(1, s.ptr, s.len);
     _ = write(1, "\n", 1);
 }
 
-fn writeAll(fd: c_int, buf: []const u8) bool {
+fn write_all(fd: c_int, buf: []const u8) bool {
     var off: usize = 0;
     while (off < buf.len) {
         const n = write(fd, buf.ptr + off, buf.len - off);
@@ -59,7 +59,7 @@ fn writeAll(fd: c_int, buf: []const u8) bool {
     return true;
 }
 
-fn isIdentifier(s: []const u8) bool {
+fn is_identifier(s: []const u8) bool {
     if (s.len == 0) return false;
     const first = s[0];
     if (!(std.ascii.isAlphabetic(first) or first == '_')) return false;
@@ -76,7 +76,7 @@ fn trim(s: []const u8) []const u8 {
 pub fn main() !void {
     const srv = socket(AF_VSOCK, SOCK_STREAM, 0);
     if (srv < 0) {
-        logLine("secrets-agent: socket() failed");
+        log_line("secrets-agent: socket() failed");
         return error.SocketFailed;
     }
     var addr: SockaddrVm = .{
@@ -87,21 +87,21 @@ pub fn main() !void {
         .svm_zero = .{ 0, 0, 0, 0 },
     };
     if (bind(srv, @ptrCast(&addr), @sizeOf(SockaddrVm)) < 0) {
-        logLine("secrets-agent: bind() failed");
+        log_line("secrets-agent: bind() failed");
         return error.BindFailed;
     }
     if (listen(srv, 1) < 0) {
-        logLine("secrets-agent: listen() failed");
+        log_line("secrets-agent: listen() failed");
         return error.ListenFailed;
     }
-    logLine("secrets-agent: listening on vsock port 1975");
+    log_line("secrets-agent: listening on vsock port 1975");
 
     const conn = accept(srv, null, null);
     if (conn < 0) {
-        logLine("secrets-agent: accept() failed");
+        log_line("secrets-agent: accept() failed");
         return error.AcceptFailed;
     }
-    logLine("secrets-agent: accepted");
+    log_line("secrets-agent: accepted");
 
     const alloc = std.heap.c_allocator;
     var raw: std.ArrayList(u8) = .empty;
@@ -129,10 +129,10 @@ pub fn main() !void {
         const eq = std.mem.indexOfScalar(u8, line, '=') orelse continue;
         const key = trim(line[0..eq]);
         const val = trim(line[eq + 1 ..]);
-        if (!isIdentifier(key)) {
+        if (!is_identifier(key)) {
             var msg_buf: [256]u8 = undefined;
             const msg = std.fmt.bufPrint(&msg_buf, "secrets-agent: skip non-identifier key {s}", .{key}) catch "secrets-agent: skip non-identifier key";
-            logLine(msg);
+            log_line(msg);
             continue;
         }
         const kv = try std.fmt.allocPrint(alloc, "{s}={s}", .{ key, val });
@@ -144,14 +144,14 @@ pub fn main() !void {
 
     const fd = open(ENV_PATH, O_WRONLY | O_CREAT | O_TRUNC, @as(c_uint, 0o600));
     if (fd < 0) {
-        logLine("secrets-agent: open /etc/machinen.env failed");
+        log_line("secrets-agent: open /etc/machinen.env failed");
         return error.OpenFailed;
     }
     defer _ = close(fd);
 
     for (entries.items) |e| {
-        if (!writeAll(fd, e) or !writeAll(fd, "\n")) {
-            logLine("secrets-agent: write failed");
+        if (!write_all(fd, e) or !write_all(fd, "\n")) {
+            log_line("secrets-agent: write failed");
             return error.WriteFailed;
         }
     }
@@ -159,5 +159,5 @@ pub fn main() !void {
 
     var msg_buf: [128]u8 = undefined;
     const msg = std.fmt.bufPrint(&msg_buf, "secrets-agent: wrote {d} entries to {s}", .{ entries.items.len, ENV_PATH }) catch "secrets-agent: wrote entries";
-    logLine(msg);
+    log_line(msg);
 }

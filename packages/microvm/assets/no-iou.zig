@@ -60,7 +60,7 @@ extern "c" fn execvp(file: [*:0]const u8, argv: [*:null]const ?[*:0]const u8) c_
 extern "c" fn perror(s: [*:0]const u8) void;
 extern "c" fn write(fd: c_int, buf: [*]const u8, count: usize) isize;
 
-fn writeStr(fd: c_int, s: []const u8) void {
+fn write_str(fd: c_int, s: []const u8) void {
     _ = write(fd, s.ptr, s.len);
 }
 
@@ -70,7 +70,7 @@ pub fn main(init: std.process.Init.Minimal) u8 {
     // lifetime, which is all execvp needs.
     const argv = init.args.vector;
     if (argv.len < 2) {
-        writeStr(2, "usage: machinen-no-iou CMD [ARGS...]\n");
+        write_str(2, "usage: machinen-no-iou CMD [ARGS...]\n");
         return 2;
     }
 
@@ -106,7 +106,7 @@ pub fn main(init: std.process.Init.Minimal) u8 {
     // guarantees argv[argc] == NULL), so a small stack array is enough.
     var child_argv: [256]?[*:0]const u8 = undefined;
     if (argv.len > child_argv.len) {
-        writeStr(2, "machinen-no-iou: argv too long\n");
+        write_str(2, "machinen-no-iou: argv too long\n");
         return 6;
     }
     for (argv[1..], 0..) |a, i| child_argv[i] = a;

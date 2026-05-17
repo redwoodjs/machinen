@@ -171,7 +171,7 @@ pub const NetSocket = struct {
 
         const self = try gpa.create(NetSocket);
         self.* = .{ .fd = fd, .netdev = netdev, .gpa = gpa };
-        self.rx_thread = try std.Thread.spawn(.{}, rxLoop, .{self});
+        self.rx_thread = try std.Thread.spawn(.{}, rx_loop, .{self});
         return self;
     }
 
@@ -201,11 +201,11 @@ pub const NetSocket = struct {
         // the prefix fails, skip the payload; the stream is now broken
         // but serialized senders won't interleave mid-frame.
 
-        if (writeAll(self.fd, &prefix) != 0) return;
-        _ = writeAll(self.fd, frame);
+        if (write_all(self.fd, &prefix) != 0) return;
+        _ = write_all(self.fd, frame);
     }
 
-    fn rxLoop(self: *NetSocket) void {
+    fn rx_loop(self: *NetSocket) void {
         assert(self.fd >= 0);
         // One buffer for the whole thread. MTU is 1500 on the gvproxy
         // tap; 16 KiB is plenty of headroom for a future jumbo config.
@@ -220,15 +220,15 @@ pub const NetSocket = struct {
         // and the kernel buffer keeps them ordered while we drain.
         while (!self.stop.load(.acquire)) {
             var prefix: [4]u8 = undefined;
-            if (readAll(self.fd, &prefix) != 0) return;
+            if (read_all(self.fd, &prefix) != 0) return;
             const frame_len_bytes = std.mem.readInt(u32, &prefix, .big);
             if (frame_len_bytes == 0 or frame_len_bytes > buf.len) return;
             assert(frame_len_bytes > 0 and frame_len_bytes <= buf.len);
 
-            if (readAll(self.fd, buf[0..frame_len_bytes]) != 0) return;
+            if (read_all(self.fd, buf[0..frame_len_bytes]) != 0) return;
 
             self.irq_mu.lock();
-            _ = self.netdev.injectRx(buf[0..frame_len_bytes]);
+            _ = self.netdev.inject_rx(buf[0..frame_len_bytes]);
             if (self.on_rx) |cb| cb(self.on_rx_ctx);
             self.irq_mu.unlock();
         }
@@ -236,17 +236,17 @@ pub const NetSocket = struct {
 
     /// Take/release `irq_mu` for the vCPU's net-MMIO handler. See
     /// the field doc above for why.
-    pub fn lockIrq(self: *NetSocket) void {
+    pub fn lock_irq(self: *NetSocket) void {
         self.irq_mu.lock();
     }
-    pub fn unlockIrq(self: *NetSocket) void {
+    pub fn unlock_irq(self: *NetSocket) void {
         self.irq_mu.unlock();
     }
 };
 
 // ---- helpers -------------------------------------------------------
 
-fn writeAll(fd: c_int, data: []const u8) c_int {
+fn write_all(fd: c_int, data: []const u8) c_int {
     assert(fd >= 0);
     assert(data.len > 0);
     var remaining = data;
@@ -271,7 +271,7 @@ fn writeAll(fd: c_int, data: []const u8) c_int {
     return 0;
 }
 
-fn readAll(fd: c_int, into: []u8) c_int {
+fn read_all(fd: c_int, into: []u8) c_int {
     assert(fd >= 0);
     assert(into.len > 0);
     var remaining = into;

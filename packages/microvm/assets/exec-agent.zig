@@ -108,17 +108,17 @@ const VMADDR_CID_ANY: u32 = 0xFFFF_FFFF;
 const PORT: u32 = 1978;
 const CHUNK = 32 * 1024;
 
-fn logErr(s: []const u8) void {
+fn log_err(s: []const u8) void {
     _ = write(2, s.ptr, s.len);
     _ = write(2, "\n", 1);
 }
 
-fn logLine(msg: []const u8) void {
+fn log_line(msg: []const u8) void {
     _ = write(1, msg.ptr, msg.len);
     _ = write(1, "\n", 1);
 }
 
-fn waitExitStatus(pid: pid_t) c_int {
+fn wait_exit_status(pid: pid_t) c_int {
     var status: c_int = 0;
     _ = waitpid(pid, &status, 0);
     // WIFEXITED / WEXITSTATUS.
@@ -129,7 +129,7 @@ fn waitExitStatus(pid: pid_t) c_int {
     return 128 + (status & 0x7f);
 }
 
-fn writeAll(fd: c_int, buf: []const u8) bool {
+fn write_all(fd: c_int, buf: []const u8) bool {
     var off: usize = 0;
     while (off < buf.len) {
         const n = write(fd, buf.ptr + off, buf.len - off);
@@ -139,25 +139,25 @@ fn writeAll(fd: c_int, buf: []const u8) bool {
     return true;
 }
 
-fn sendFrame(fd: c_int, tag: u8, payload: []const u8) bool {
+fn send_frame(fd: c_int, tag: u8, payload: []const u8) bool {
     var hdr_buf: [32]u8 = undefined;
     const hdr = std.fmt.bufPrint(&hdr_buf, "{c} {d}\n", .{ tag, payload.len }) catch return false;
-    if (!writeAll(fd, hdr)) return false;
-    if (payload.len > 0 and !writeAll(fd, payload)) return false;
+    if (!write_all(fd, hdr)) return false;
+    if (payload.len > 0 and !write_all(fd, payload)) return false;
     return true;
 }
 
-fn pumpToFrame(client_fd: c_int, src_fd: c_int, tag: u8) void {
+fn pump_to_frame(client_fd: c_int, src_fd: c_int, tag: u8) void {
     var buf: [CHUNK]u8 = undefined;
     while (true) {
         const n = read(src_fd, &buf, buf.len);
         if (n <= 0) return;
         const chunk: []const u8 = buf[0..@intCast(n)];
-        if (!sendFrame(client_fd, tag, chunk)) return;
+        if (!send_frame(client_fd, tag, chunk)) return;
     }
 }
 
-fn readLine(fd: c_int, out: []u8) ?usize {
+fn read_line(fd: c_int, out: []u8) ?usize {
     var i: usize = 0;
     while (i < out.len) {
         const n = read(fd, out.ptr + i, 1);
@@ -168,7 +168,7 @@ fn readLine(fd: c_int, out: []u8) ?usize {
     return null;
 }
 
-fn readExact(fd: c_int, out: []u8) bool {
+fn read_exact(fd: c_int, out: []u8) bool {
     var off: usize = 0;
     while (off < out.len) {
         const n = read(fd, out.ptr + off, out.len - off);
@@ -188,7 +188,7 @@ const MAX_EXEC2_CMD: usize = 1 * 1024 * 1024;
 // client can't make us alloc unbounded.
 const MAX_PTY_INPUT: usize = 64 * 1024;
 
-fn runCommand(client_fd: c_int, cmd: []const u8, alloc: std.mem.Allocator) !void {
+fn run_command(client_fd: c_int, cmd: []const u8, alloc: std.mem.Allocator) !void {
     // Make a NUL-terminated copy for the shell.
     const cmd_z = try alloc.dupeZ(u8, cmd);
     defer alloc.free(cmd_z);
@@ -236,15 +236,15 @@ fn runCommand(client_fd: c_int, cmd: []const u8, alloc: std.mem.Allocator) !void
     // A more faithful implementation would use poll(2) across both
     // fds; this is fine for install commands where interleaving
     // cadence doesn't matter much.
-    pumpToFrame(client_fd, out_pipe[0], 'O');
-    pumpToFrame(client_fd, err_pipe[0], 'E');
+    pump_to_frame(client_fd, out_pipe[0], 'O');
+    pump_to_frame(client_fd, err_pipe[0], 'E');
     _ = close(out_pipe[0]);
     _ = close(err_pipe[0]);
 
-    const code = waitExitStatus(pid);
+    const code = wait_exit_status(pid);
     var tail_buf: [32]u8 = undefined;
     const tail = std.fmt.bufPrint(&tail_buf, "X {d}\n", .{code}) catch "X 1\n";
-    _ = writeAll(client_fd, tail);
+    _ = write_all(client_fd, tail);
     _ = shutdown(client_fd, SHUT_WR);
 }
 
@@ -259,7 +259,7 @@ fn runCommand(client_fd: c_int, cmd: []const u8, alloc: std.mem.Allocator) !void
 // Closing the master fd at the end sends SIGHUP to the workload's
 // session leader, so the child terminates cleanly even when the host
 // disconnects mid-session.
-fn runPtyCommand(
+fn run_pty_command(
     client_fd: c_int,
     cmd: []const u8,
     cols: u16,
@@ -324,7 +324,7 @@ fn runPtyCommand(
             var out_buf: [CHUNK]u8 = undefined;
             const r = read(master_fd, &out_buf, out_buf.len);
             if (r > 0) {
-                if (!sendFrame(client_fd, 'O', out_buf[0..@intCast(r)])) break :pump;
+                if (!send_frame(client_fd, 'O', out_buf[0..@intCast(r)])) break :pump;
             } else {
                 // EOF on master = the slave was fully closed by the
                 // child (and any descendants that inherited it).
@@ -338,18 +338,18 @@ fn runPtyCommand(
 
         if ((fds[1].revents & POLLIN) != 0) {
             var header: [256]u8 = undefined;
-            const hlen = readLine(client_fd, &header) orelse break :pump;
+            const hlen = read_line(client_fd, &header) orelse break :pump;
             const line = header[0..hlen];
             if (line.len >= 2 and std.mem.startsWith(u8, line, "I ")) {
                 const ilen = std.fmt.parseInt(usize, line[2..], 10) catch break :pump;
                 if (ilen > MAX_PTY_INPUT) {
-                    logErr("exec-agent: PTY I frame too large");
+                    log_err("exec-agent: PTY I frame too large");
                     break :pump;
                 }
                 if (ilen > 0) {
                     var ibuf: [MAX_PTY_INPUT]u8 = undefined;
-                    if (!readExact(client_fd, ibuf[0..ilen])) break :pump;
-                    if (!writeAll(master_fd, ibuf[0..ilen])) break :pump;
+                    if (!read_exact(client_fd, ibuf[0..ilen])) break :pump;
+                    if (!write_all(master_fd, ibuf[0..ilen])) break :pump;
                 }
             } else if (line.len >= 2 and std.mem.startsWith(u8, line, "R ")) {
                 var it = std.mem.tokenizeScalar(u8, line[2..], ' ');
@@ -367,7 +367,7 @@ fn runPtyCommand(
             } else {
                 // Unknown frame on a PTY connection — bail rather than
                 // get out of sync.
-                logErr("exec-agent: PTY unknown frame");
+                log_err("exec-agent: PTY unknown frame");
                 break :pump;
             }
         }
@@ -379,18 +379,18 @@ fn runPtyCommand(
     }
 
     _ = close(master_fd);
-    const code = waitExitStatus(pid);
+    const code = wait_exit_status(pid);
     var tail_buf: [32]u8 = undefined;
     const tail = std.fmt.bufPrint(&tail_buf, "X {d}\n", .{code}) catch "X 1\n";
-    _ = writeAll(client_fd, tail);
+    _ = write_all(client_fd, tail);
     _ = shutdown(client_fd, SHUT_WR);
 }
 
-fn handleConnection(client_fd: c_int, alloc: std.mem.Allocator) void {
+fn handle_connection(client_fd: c_int, alloc: std.mem.Allocator) void {
     defer _ = close(client_fd);
     var line_buf: [4096]u8 = undefined;
-    const len = readLine(client_fd, &line_buf) orelse {
-        logErr("exec-agent: bad header");
+    const len = read_line(client_fd, &line_buf) orelse {
+        log_err("exec-agent: bad header");
         return;
     };
     const line = line_buf[0..len];
@@ -402,46 +402,46 @@ fn handleConnection(client_fd: c_int, alloc: std.mem.Allocator) void {
     if (std.mem.startsWith(u8, line, "PTY ")) {
         var it = std.mem.tokenizeScalar(u8, line[4..], ' ');
         const cols_str = it.next() orelse {
-            logErr("exec-agent: PTY missing cols");
+            log_err("exec-agent: PTY missing cols");
             return;
         };
         const rows_str = it.next() orelse {
-            logErr("exec-agent: PTY missing rows");
+            log_err("exec-agent: PTY missing rows");
             return;
         };
         const len_str = it.next() orelse {
-            logErr("exec-agent: PTY missing cmd-bytes");
+            log_err("exec-agent: PTY missing cmd-bytes");
             return;
         };
         const cols = std.fmt.parseInt(u16, cols_str, 10) catch {
-            logErr("exec-agent: PTY bad cols");
+            log_err("exec-agent: PTY bad cols");
             return;
         };
         const rows = std.fmt.parseInt(u16, rows_str, 10) catch {
-            logErr("exec-agent: PTY bad rows");
+            log_err("exec-agent: PTY bad rows");
             return;
         };
         const cmd_len = std.fmt.parseInt(usize, len_str, 10) catch {
-            logErr("exec-agent: PTY bad length");
+            log_err("exec-agent: PTY bad length");
             return;
         };
         if (cmd_len > MAX_EXEC2_CMD) {
-            logErr("exec-agent: PTY cmd too large");
+            log_err("exec-agent: PTY cmd too large");
             return;
         }
         const cmd_buf = alloc.alloc(u8, cmd_len) catch {
-            logErr("exec-agent: PTY alloc failed");
+            log_err("exec-agent: PTY alloc failed");
             return;
         };
         defer alloc.free(cmd_buf);
-        if (cmd_len > 0 and !readExact(client_fd, cmd_buf)) {
-            logErr("exec-agent: PTY short read");
+        if (cmd_len > 0 and !read_exact(client_fd, cmd_buf)) {
+            log_err("exec-agent: PTY short read");
             return;
         }
-        runPtyCommand(client_fd, cmd_buf, cols, rows, alloc) catch |err| {
+        run_pty_command(client_fd, cmd_buf, cols, rows, alloc) catch |err| {
             var msg_buf: [128]u8 = undefined;
             const msg = std.fmt.bufPrint(&msg_buf, "exec-agent: pty error: {s}", .{@errorName(err)}) catch "exec-agent: pty error";
-            logErr(msg);
+            log_err(msg);
         };
         return;
     }
@@ -450,40 +450,40 @@ fn handleConnection(client_fd: c_int, alloc: std.mem.Allocator) void {
     if (std.mem.startsWith(u8, line, "EXEC2 ")) {
         const len_str = line[6..];
         const cmd_len = std.fmt.parseInt(usize, len_str, 10) catch {
-            logErr("exec-agent: EXEC2 bad length");
+            log_err("exec-agent: EXEC2 bad length");
             return;
         };
         if (cmd_len > MAX_EXEC2_CMD) {
-            logErr("exec-agent: EXEC2 cmd too large");
+            log_err("exec-agent: EXEC2 cmd too large");
             return;
         }
         const cmd_buf = alloc.alloc(u8, cmd_len) catch {
-            logErr("exec-agent: EXEC2 alloc failed");
+            log_err("exec-agent: EXEC2 alloc failed");
             return;
         };
         defer alloc.free(cmd_buf);
-        if (cmd_len > 0 and !readExact(client_fd, cmd_buf)) {
-            logErr("exec-agent: EXEC2 short read");
+        if (cmd_len > 0 and !read_exact(client_fd, cmd_buf)) {
+            log_err("exec-agent: EXEC2 short read");
             return;
         }
-        runCommand(client_fd, cmd_buf, alloc) catch |err| {
+        run_command(client_fd, cmd_buf, alloc) catch |err| {
             var msg_buf: [128]u8 = undefined;
             const msg = std.fmt.bufPrint(&msg_buf, "exec-agent: run error: {s}", .{@errorName(err)}) catch "exec-agent: run error";
-            logErr(msg);
+            log_err(msg);
         };
         return;
     }
 
     // EXEC <cmd>\n — legacy single-line opcode.
     if (line.len < 5 or !std.mem.startsWith(u8, line, "EXEC ")) {
-        logErr("exec-agent: unknown op");
+        log_err("exec-agent: unknown op");
         return;
     }
     const cmd = line[5..];
-    runCommand(client_fd, cmd, alloc) catch |err| {
+    run_command(client_fd, cmd, alloc) catch |err| {
         var msg_buf: [128]u8 = undefined;
         const msg = std.fmt.bufPrint(&msg_buf, "exec-agent: run error: {s}", .{@errorName(err)}) catch "exec-agent: run error";
-        logErr(msg);
+        log_err(msg);
     };
 }
 
@@ -497,7 +497,7 @@ pub fn main() !void {
 
     const srv = socket(AF_VSOCK, SOCK_STREAM, 0);
     if (srv < 0) {
-        logErr("exec-agent: socket() failed");
+        log_err("exec-agent: socket() failed");
         return error.SocketFailed;
     }
     var addr: SockaddrVm = .{
@@ -508,21 +508,21 @@ pub fn main() !void {
         .svm_zero = .{ 0, 0, 0, 0 },
     };
     if (bind(srv, @ptrCast(&addr), @sizeOf(SockaddrVm)) < 0) {
-        logErr("exec-agent: bind() failed");
+        log_err("exec-agent: bind() failed");
         return error.BindFailed;
     }
     if (listen(srv, 4) < 0) {
-        logErr("exec-agent: listen() failed");
+        log_err("exec-agent: listen() failed");
         return error.ListenFailed;
     }
-    logLine("exec-agent: listening on vsock port 1978");
+    log_line("exec-agent: listening on vsock port 1978");
 
     while (true) {
         const client = accept(srv, null, null);
         if (client < 0) {
-            logErr("exec-agent: accept() failed; continuing");
+            log_err("exec-agent: accept() failed; continuing");
             continue;
         }
-        handleConnection(client, alloc);
+        handle_connection(client, alloc);
     }
 }

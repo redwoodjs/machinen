@@ -39,7 +39,7 @@ const CoreReg = struct {
     size: enum { u32_, u64_, u128_ },
 };
 
-pub const core_regs: []const CoreReg = &generateCoreRegs();
+pub const core_regs: []const CoreReg = &generate_core_regs();
 
 // X0..X30 + PC + PSTATE + SP_EL0 + SP_EL1 + ELR_EL1 + SPSR_EL1 +
 // V0..V31 + FPSR + FPCR.
@@ -52,7 +52,7 @@ pub const core_regs: []const CoreReg = &generateCoreRegs();
 // this core-reg offset. Routing them through the sysreg path on KVM
 // (the pre-#37 bug) returned ENOENT, leaving SP_EL0 garbage and the
 // resumed guest fault-looping on its first stack access.
-fn generateCoreRegs() [71]CoreReg {
+fn generate_core_regs() [71]CoreReg {
     @setEvalBranchQuota(20000);
     var out: [71]CoreReg = undefined;
     var idx: usize = 0;
@@ -100,7 +100,7 @@ const KVM_REG_SIZE_U128: u64 = 0x0040_0000_0000_0000;
 const KVM_REG_ARM_CORE: u64 = 0x0010_0000;
 const KVM_REG_ARM64_SYSREG: u64 = 0x0013_0000;
 
-fn kvmIdForCore(reg: CoreReg) u64 {
+fn kvm_id_for_core(reg: CoreReg) u64 {
     // The register ID packs `offset / 4`; a non-4-aligned offset
     // would silently truncate and address the wrong register.
     std.debug.assert(reg.offset % 4 == 0);
@@ -112,7 +112,7 @@ fn kvmIdForCore(reg: CoreReg) u64 {
     return KVM_REG_ARM64 | KVM_REG_ARM_CORE | size_bits | (reg.offset / 4);
 }
 
-fn kvmIdForSysreg(encoding: u16) u64 {
+fn kvm_id_for_sysreg(encoding: u16) u64 {
     return KVM_REG_ARM64 | KVM_REG_SIZE_U64 | KVM_REG_ARM64_SYSREG | encoding;
 }
 
@@ -121,18 +121,18 @@ fn kvmIdForSysreg(encoding: u16) u64 {
 /// Look up the 16-bit op0/op1/CRn/CRm/op2 encoding for a sysreg name.
 /// Recognizes both the named table (from hv_sys_reg_t) and the
 /// generic `S<op0>_<op1>_C<CRn>_C<CRm>_<op2>` form.
-pub fn encodingForName(name: []const u8) ?u16 {
+pub fn encoding_for_name(name: []const u8) ?u16 {
     std.debug.assert(name.len > 0);
     for (sysreg_names.table) |e| {
         if (std.mem.eql(u8, e.name, name)) return e.encoding;
     }
     if (std.mem.startsWith(u8, name, "S")) {
-        return parseSynthName(name);
+        return parse_synth_name(name);
     }
     return null;
 }
 
-fn parseSynthName(name: []const u8) ?u16 {
+fn parse_synth_name(name: []const u8) ?u16 {
     // Format: S<op0>_<op1>_C<CRn>_C<CRm>_<op2>
     var it = std.mem.tokenizeScalar(u8, name, '_');
     const s_tok = it.next() orelse return null;
@@ -154,7 +154,7 @@ fn parseSynthName(name: []const u8) ?u16 {
 /// Inverse: encoding → name. Returns the table name if present, else
 /// the synthetic generic form. The returned slice for synth names
 /// points into `buf` (caller-owned).
-pub fn nameForEncoding(encoding: u16, buf: []u8) []const u8 {
+pub fn name_for_encoding(encoding: u16, buf: []u8) []const u8 {
     // Longest synthetic form is "S3_7_C15_C15_7" (14 bytes); the
     // bufPrint below relies on `buf` having room for it, which is
     // why its failure path can be `unreachable`.
@@ -187,7 +187,7 @@ const kvm_one_reg = extern struct {
     addr: u64,
 };
 
-fn kvmGet(vcpu_fd: c_int, id: u64, buf: []u8) !void {
+fn kvm_get(vcpu_fd: c_int, id: u64, buf: []u8) !void {
     // KVM writes the register width into `buf`; a zero-length target
     // is always a caller bug.
     std.debug.assert(buf.len > 0);
@@ -195,7 +195,7 @@ fn kvmGet(vcpu_fd: c_int, id: u64, buf: []u8) !void {
     if (C.ioctl(vcpu_fd, KVM_GET_ONE_REG, &r) < 0) return error.KvmGetOneRegFailed;
 }
 
-fn kvmSet(vcpu_fd: c_int, id: u64, buf: []const u8) !void {
+fn kvm_set(vcpu_fd: c_int, id: u64, buf: []const u8) !void {
     // KVM reads the register width from `buf`; a zero-length source
     // is always a caller bug.
     std.debug.assert(buf.len > 0);
@@ -228,7 +228,7 @@ const HV_REG_CPSR: u32 = 34; // canonical name "PSTATE"
 /// Dump every dumpable register from `vcpu_fd` into a fresh
 /// name-tagged VCPU payload. Skip-classified regs are omitted.
 /// Caller owns the returned bytes.
-pub fn dumpKvm(allocator: std.mem.Allocator, vcpu_fd: c_int) ![]u8 {
+pub fn dump_kvm(allocator: std.mem.Allocator, vcpu_fd: c_int) ![]u8 {
     if (builtin.os.tag != .linux) return error.WrongHost;
 
     var entries = std.ArrayList(snapshot.VcpuEntry).empty;
@@ -249,7 +249,7 @@ pub fn dumpKvm(allocator: std.mem.Allocator, vcpu_fd: c_int) ![]u8 {
         // Some core slots (e.g. SPSR_ABT/UND/IRQ/FIQ) aren't exposed
         // by every KVM version; treat ENOENT as "drop the entry"
         // rather than abort the whole dump.
-        kvmGet(vcpu_fd, kvmIdForCore(reg), buf) catch |err| {
+        kvm_get(vcpu_fd, kvm_id_for_core(reg), buf) catch |err| {
             if (err == error.KvmGetOneRegFailed) continue;
             return err;
         };
@@ -259,7 +259,7 @@ pub fn dumpKvm(allocator: std.mem.Allocator, vcpu_fd: c_int) ![]u8 {
     for (sysreg_names.table) |e| {
         if (sysreg_classify.classify(e.name) == .skip) continue;
         const buf = try a.alloc(u8, 8);
-        kvmGet(vcpu_fd, kvmIdForSysreg(e.encoding), buf) catch |err| {
+        kvm_get(vcpu_fd, kvm_id_for_sysreg(e.encoding), buf) catch |err| {
             // KVM may not expose every reg Apple's enum lists (e.g.
             // SME on hosts without it). That's fine; drop the entry.
             if (err == error.KvmGetOneRegFailed) continue;
@@ -268,7 +268,7 @@ pub fn dumpKvm(allocator: std.mem.Allocator, vcpu_fd: c_int) ![]u8 {
         try entries.append(allocator, .{ .name = e.name, .value = buf });
     }
 
-    const out = try snapshot.encodeVcpuPayload(allocator, entries.items);
+    const out = try snapshot.encode_vcpu_payload(allocator, entries.items);
     // The codec always emits at least the entry_count header word.
     std.debug.assert(out.len >= 4);
     return out;
@@ -422,7 +422,7 @@ comptime {
     std.debug.assert(@sizeOf(X86Msrs) == 8 + x86_msr_capacity * 16);
 }
 
-fn appendOwnedBytes(
+fn append_owned_bytes(
     outer: std.mem.Allocator,
     arena: std.mem.Allocator,
     entries: *std.ArrayList(snapshot.VcpuEntry),
@@ -433,7 +433,7 @@ fn appendOwnedBytes(
     try entries.append(outer, .{ .name = name, .value = dup });
 }
 
-fn appendX86Struct(
+fn append_x86_struct(
     comptime T: type,
     outer: std.mem.Allocator,
     arena: std.mem.Allocator,
@@ -444,10 +444,10 @@ fn appendX86Struct(
 ) !void {
     var value: T = undefined;
     if (C.ioctl(vcpu_fd, request, &value) != 0) return error.KvmGetX86StateFailed;
-    try appendOwnedBytes(outer, arena, entries, name, std.mem.asBytes(&value));
+    try append_owned_bytes(outer, arena, entries, name, std.mem.asBytes(&value));
 }
 
-fn appendX86StructOptional(
+fn append_x86_struct_optional(
     comptime T: type,
     outer: std.mem.Allocator,
     arena: std.mem.Allocator,
@@ -456,13 +456,13 @@ fn appendX86StructOptional(
     request: c_ulong,
     name: []const u8,
 ) !void {
-    appendX86Struct(T, outer, arena, entries, vcpu_fd, request, name) catch |err| {
+    append_x86_struct(T, outer, arena, entries, vcpu_fd, request, name) catch |err| {
         if (err == error.KvmGetX86StateFailed) return;
         return err;
     };
 }
 
-fn appendX86Msrs(
+fn append_x86_msrs(
     outer: std.mem.Allocator,
     arena: std.mem.Allocator,
     entries: *std.ArrayList(snapshot.VcpuEntry),
@@ -474,14 +474,14 @@ fn appendX86Msrs(
     if (rc < 0) return;
     msrs.nmsrs = @intCast(rc);
     const byte_len: usize = 8 + @as(usize, @intCast(rc)) * @sizeOf(X86MsrEntry);
-    try appendOwnedBytes(outer, arena, entries, "X86_MSRS", std.mem.asBytes(&msrs)[0..byte_len]);
+    try append_owned_bytes(outer, arena, entries, "X86_MSRS", std.mem.asBytes(&msrs)[0..byte_len]);
 }
 
 /// Dump an x86_64 KVM vCPU into the same name-tagged VCPU payload
 /// container used by arm64. Values whose KVM capabilities are optional
 /// (debug regs, XSAVE/XCRS, some MSRs) are omitted if the host rejects
 /// the ioctl; core execution state is required.
-pub fn dumpKvmX86(allocator: std.mem.Allocator, vcpu_fd: c_int) ![]u8 {
+pub fn dump_kvm_x86(allocator: std.mem.Allocator, vcpu_fd: c_int) ![]u8 {
     if (builtin.os.tag != .linux) return error.WrongHost;
 
     var entries = std.ArrayList(snapshot.VcpuEntry).empty;
@@ -491,35 +491,35 @@ pub fn dumpKvmX86(allocator: std.mem.Allocator, vcpu_fd: c_int) ![]u8 {
     defer arena.deinit();
     const a = arena.allocator();
 
-    try appendX86Struct(X86Sregs, allocator, a, &entries, vcpu_fd, KVM_GET_SREGS_X86, "X86_SREGS");
-    try appendX86Struct(X86Regs, allocator, a, &entries, vcpu_fd, KVM_GET_REGS_X86, "X86_REGS");
-    try appendX86Struct(X86Fpu, allocator, a, &entries, vcpu_fd, KVM_GET_FPU_X86, "X86_FPU");
-    try appendX86Struct(X86LapicState, allocator, a, &entries, vcpu_fd, KVM_GET_LAPIC_X86, "X86_LAPIC");
-    try appendX86Struct(X86MpState, allocator, a, &entries, vcpu_fd, KVM_GET_MP_STATE_X86, "X86_MP_STATE");
-    try appendX86Struct(X86VcpuEvents, allocator, a, &entries, vcpu_fd, KVM_GET_VCPU_EVENTS_X86, "X86_VCPU_EVENTS");
-    try appendX86Msrs(allocator, a, &entries, vcpu_fd);
-    try appendX86StructOptional(X86DebugRegs, allocator, a, &entries, vcpu_fd, KVM_GET_DEBUGREGS_X86, "X86_DEBUGREGS");
-    try appendX86StructOptional(X86Xcrs, allocator, a, &entries, vcpu_fd, KVM_GET_XCRS_X86, "X86_XCRS");
-    try appendX86StructOptional(X86Xsave, allocator, a, &entries, vcpu_fd, KVM_GET_XSAVE_X86, "X86_XSAVE");
+    try append_x86_struct(X86Sregs, allocator, a, &entries, vcpu_fd, KVM_GET_SREGS_X86, "X86_SREGS");
+    try append_x86_struct(X86Regs, allocator, a, &entries, vcpu_fd, KVM_GET_REGS_X86, "X86_REGS");
+    try append_x86_struct(X86Fpu, allocator, a, &entries, vcpu_fd, KVM_GET_FPU_X86, "X86_FPU");
+    try append_x86_struct(X86LapicState, allocator, a, &entries, vcpu_fd, KVM_GET_LAPIC_X86, "X86_LAPIC");
+    try append_x86_struct(X86MpState, allocator, a, &entries, vcpu_fd, KVM_GET_MP_STATE_X86, "X86_MP_STATE");
+    try append_x86_struct(X86VcpuEvents, allocator, a, &entries, vcpu_fd, KVM_GET_VCPU_EVENTS_X86, "X86_VCPU_EVENTS");
+    try append_x86_msrs(allocator, a, &entries, vcpu_fd);
+    try append_x86_struct_optional(X86DebugRegs, allocator, a, &entries, vcpu_fd, KVM_GET_DEBUGREGS_X86, "X86_DEBUGREGS");
+    try append_x86_struct_optional(X86Xcrs, allocator, a, &entries, vcpu_fd, KVM_GET_XCRS_X86, "X86_XCRS");
+    try append_x86_struct_optional(X86Xsave, allocator, a, &entries, vcpu_fd, KVM_GET_XSAVE_X86, "X86_XSAVE");
 
-    return try snapshot.encodeVcpuPayload(allocator, entries.items);
+    return try snapshot.encode_vcpu_payload(allocator, entries.items);
 }
 
-fn findEntry(entries: []const snapshot.VcpuEntry, name: []const u8) ?[]const u8 {
+fn find_entry(entries: []const snapshot.VcpuEntry, name: []const u8) ?[]const u8 {
     for (entries) |e| {
         if (std.mem.eql(u8, e.name, name)) return e.value;
     }
     return null;
 }
 
-fn setX86Bytes(vcpu_fd: c_int, request: c_ulong, value: []const u8, comptime T: type) !void {
+fn set_x86_bytes(vcpu_fd: c_int, request: c_ulong, value: []const u8, comptime T: type) !void {
     if (value.len != @sizeOf(T)) return error.BadX86State;
     var tmp: T = undefined;
     @memcpy(std.mem.asBytes(&tmp), value);
     if (C.ioctl(vcpu_fd, request, &tmp) != 0) return error.KvmSetX86StateFailed;
 }
 
-fn setX86Msrs(vcpu_fd: c_int, value: []const u8) !void {
+fn set_x86_msrs(vcpu_fd: c_int, value: []const u8) !void {
     if (value.len < 8) return error.BadX86State;
     const n = std.mem.readInt(u32, value[0..4], .little);
     if (n > x86_msr_capacity) return error.BadX86State;
@@ -531,7 +531,7 @@ fn setX86Msrs(vcpu_fd: c_int, value: []const u8) !void {
     if (rc < 0 or @as(u32, @intCast(rc)) != n) return error.KvmSetX86StateFailed;
 }
 
-fn setIfPresent(
+fn set_if_present(
     entries: []const snapshot.VcpuEntry,
     vcpu_fd: c_int,
     name: []const u8,
@@ -540,8 +540,8 @@ fn setIfPresent(
     applied: *usize,
     failed: *usize,
 ) void {
-    if (findEntry(entries, name)) |value| {
-        setX86Bytes(vcpu_fd, request, value, T) catch {
+    if (find_entry(entries, name)) |value| {
+        set_x86_bytes(vcpu_fd, request, value, T) catch {
             failed.* += 1;
             return;
         };
@@ -551,32 +551,32 @@ fn setIfPresent(
 
 /// Load an x86_64 KVM vCPU payload produced by dumpKvmX86. Unknown
 /// entries are ignored so future snapshots can carry more state.
-pub fn loadKvmX86(allocator: std.mem.Allocator, vcpu_fd: c_int, payload: []const u8) !void {
+pub fn load_kvm_x86(allocator: std.mem.Allocator, vcpu_fd: c_int, payload: []const u8) !void {
     if (builtin.os.tag != .linux) return error.WrongHost;
-    const entries = try snapshot.decodeVcpuPayload(allocator, payload);
+    const entries = try snapshot.decode_vcpu_payload(allocator, payload);
     defer allocator.free(entries);
 
     var applied: usize = 0;
     var failed: usize = 0;
-    setIfPresent(entries, vcpu_fd, "X86_SREGS", KVM_SET_SREGS_X86, X86Sregs, &applied, &failed);
-    if (findEntry(entries, "X86_MSRS")) |value| {
-        setX86Msrs(vcpu_fd, value) catch {
+    set_if_present(entries, vcpu_fd, "X86_SREGS", KVM_SET_SREGS_X86, X86Sregs, &applied, &failed);
+    if (find_entry(entries, "X86_MSRS")) |value| {
+        set_x86_msrs(vcpu_fd, value) catch {
             failed += 1;
             return error.KvmSetX86StateFailed;
         };
         applied += 1;
     }
-    setIfPresent(entries, vcpu_fd, "X86_FPU", KVM_SET_FPU_X86, X86Fpu, &applied, &failed);
-    setIfPresent(entries, vcpu_fd, "X86_XCRS", KVM_SET_XCRS_X86, X86Xcrs, &applied, &failed);
-    setIfPresent(entries, vcpu_fd, "X86_XSAVE", KVM_SET_XSAVE_X86, X86Xsave, &applied, &failed);
-    setIfPresent(entries, vcpu_fd, "X86_LAPIC", KVM_SET_LAPIC_X86, X86LapicState, &applied, &failed);
-    setIfPresent(entries, vcpu_fd, "X86_MP_STATE", KVM_SET_MP_STATE_X86, X86MpState, &applied, &failed);
-    setIfPresent(entries, vcpu_fd, "X86_VCPU_EVENTS", KVM_SET_VCPU_EVENTS_X86, X86VcpuEvents, &applied, &failed);
-    setIfPresent(entries, vcpu_fd, "X86_DEBUGREGS", KVM_SET_DEBUGREGS_X86, X86DebugRegs, &applied, &failed);
+    set_if_present(entries, vcpu_fd, "X86_FPU", KVM_SET_FPU_X86, X86Fpu, &applied, &failed);
+    set_if_present(entries, vcpu_fd, "X86_XCRS", KVM_SET_XCRS_X86, X86Xcrs, &applied, &failed);
+    set_if_present(entries, vcpu_fd, "X86_XSAVE", KVM_SET_XSAVE_X86, X86Xsave, &applied, &failed);
+    set_if_present(entries, vcpu_fd, "X86_LAPIC", KVM_SET_LAPIC_X86, X86LapicState, &applied, &failed);
+    set_if_present(entries, vcpu_fd, "X86_MP_STATE", KVM_SET_MP_STATE_X86, X86MpState, &applied, &failed);
+    set_if_present(entries, vcpu_fd, "X86_VCPU_EVENTS", KVM_SET_VCPU_EVENTS_X86, X86VcpuEvents, &applied, &failed);
+    set_if_present(entries, vcpu_fd, "X86_DEBUGREGS", KVM_SET_DEBUGREGS_X86, X86DebugRegs, &applied, &failed);
     // General-purpose regs last: if RIP/RSP resume immediately after
     // KVM_RUN, the descriptor tables, MSRs, xstate, LAPIC, and pending
     // event window have already been installed.
-    setIfPresent(entries, vcpu_fd, "X86_REGS", KVM_SET_REGS_X86, X86Regs, &applied, &failed);
+    set_if_present(entries, vcpu_fd, "X86_REGS", KVM_SET_REGS_X86, X86Regs, &applied, &failed);
 
     std.debug.print(
         "vcpu_dump.loadKvmX86: {d} applied, {d} failed ({d} entries)\n",
@@ -587,7 +587,7 @@ pub fn loadKvmX86(allocator: std.mem.Allocator, vcpu_fd: c_int, payload: []const
 
 // -- HVF dump / load ----------------------------------------------
 
-pub fn dumpHvf(allocator: std.mem.Allocator, vcpu_handle: u64) ![]u8 {
+pub fn dump_hvf(allocator: std.mem.Allocator, vcpu_handle: u64) ![]u8 {
     if (builtin.os.tag != .macos) return error.WrongHost;
 
     var entries = std.ArrayList(snapshot.VcpuEntry).empty;
@@ -640,22 +640,22 @@ pub fn dumpHvf(allocator: std.mem.Allocator, vcpu_handle: u64) ![]u8 {
         try entries.append(allocator, .{ .name = e.name, .value = buf });
     }
 
-    const out = try snapshot.encodeVcpuPayload(allocator, entries.items);
+    const out = try snapshot.encode_vcpu_payload(allocator, entries.items);
     // The codec always emits at least the entry_count header word.
     std.debug.assert(out.len >= 4);
     return out;
 }
 
-pub fn loadHvf(allocator: std.mem.Allocator, vcpu_handle: u64, payload: []const u8) !void {
+pub fn load_hvf(allocator: std.mem.Allocator, vcpu_handle: u64, payload: []const u8) !void {
     if (builtin.os.tag != .macos) return error.WrongHost;
-    const entries = try snapshot.decodeVcpuPayload(allocator, payload);
+    const entries = try snapshot.decode_vcpu_payload(allocator, payload);
     defer allocator.free(entries);
 
     for (entries) |e| {
         // X<n>?
         if (e.name.len >= 2 and e.name[0] == 'X') {
             const idx = std.fmt.parseInt(u32, e.name[1..], 10) catch {
-                applyHvfNamed(vcpu_handle, e) catch {};
+                apply_hvf_named(vcpu_handle, e) catch {};
                 continue;
             };
             if (idx > 30) continue;
@@ -667,7 +667,7 @@ pub fn loadHvf(allocator: std.mem.Allocator, vcpu_handle: u64, payload: []const 
         // V<n>?
         if (e.name.len >= 2 and e.name[0] == 'V') {
             const idx = std.fmt.parseInt(u32, e.name[1..], 10) catch {
-                applyHvfNamed(vcpu_handle, e) catch {};
+                apply_hvf_named(vcpu_handle, e) catch {};
                 continue;
             };
             if (idx > 31) continue;
@@ -676,11 +676,11 @@ pub fn loadHvf(allocator: std.mem.Allocator, vcpu_handle: u64, payload: []const 
             _ = hvf_extern.hv_vcpu_set_simd_fp_reg(vcpu_handle, idx, v);
             continue;
         }
-        applyHvfNamed(vcpu_handle, e) catch {};
+        apply_hvf_named(vcpu_handle, e) catch {};
     }
 }
 
-fn applyHvfNamed(vcpu_handle: u64, e: snapshot.VcpuEntry) !void {
+fn apply_hvf_named(vcpu_handle: u64, e: snapshot.VcpuEntry) !void {
     if (std.mem.eql(u8, e.name, "PC")) {
         if (e.value.len != 8) return;
         const v = std.mem.readInt(u64, e.value[0..8], .little);
@@ -697,7 +697,7 @@ fn applyHvfNamed(vcpu_handle: u64, e: snapshot.VcpuEntry) !void {
         if (e.value.len != 4) return;
         const v = @as(u64, std.mem.readInt(u32, e.value[0..4], .little));
         _ = hvf_extern.hv_vcpu_set_reg(vcpu_handle, HV_REG_FPSR, v);
-    } else if (encodingForName(e.name)) |enc| {
+    } else if (encoding_for_name(e.name)) |enc| {
         if (e.value.len != 8) return;
         const v = std.mem.readInt(u64, e.value[0..8], .little);
         _ = hvf_extern.hv_vcpu_set_sys_reg(vcpu_handle, enc, v);
@@ -707,9 +707,9 @@ fn applyHvfNamed(vcpu_handle: u64, e: snapshot.VcpuEntry) !void {
 /// Load every reg in `payload` into `vcpu_fd`. Unknown names are
 /// silently dropped (a future dump format may carry more regs than
 /// the current load path understands; that's not an error).
-pub fn loadKvm(allocator: std.mem.Allocator, vcpu_fd: c_int, payload: []const u8) !void {
+pub fn load_kvm(allocator: std.mem.Allocator, vcpu_fd: c_int, payload: []const u8) !void {
     if (builtin.os.tag != .linux) return error.WrongHost;
-    const entries = try snapshot.decodeVcpuPayload(allocator, payload);
+    const entries = try snapshot.decode_vcpu_payload(allocator, payload);
     defer allocator.free(entries);
 
     // Restore diagnostics — a high `failed` count, and especially
@@ -731,15 +731,15 @@ pub fn loadKvm(allocator: std.mem.Allocator, vcpu_fd: c_int, payload: []const u8
         for (core_regs) |c| {
             if (std.mem.eql(u8, c.name, e.name)) {
                 handled = true;
-                ok = if (kvmSet(vcpu_fd, kvmIdForCore(c), e.value)) true else |_| false;
+                ok = if (kvm_set(vcpu_fd, kvm_id_for_core(c), e.value)) true else |_| false;
                 break;
             }
         }
         if (!handled) {
             // Else sysreg by name.
-            if (encodingForName(e.name)) |enc| {
+            if (encoding_for_name(e.name)) |enc| {
                 handled = true;
-                ok = if (kvmSet(vcpu_fd, kvmIdForSysreg(enc), e.value)) true else |_| false;
+                ok = if (kvm_set(vcpu_fd, kvm_id_for_sysreg(enc), e.value)) true else |_| false;
             }
         }
         if (!handled) {
@@ -766,28 +766,28 @@ pub fn loadKvm(allocator: std.mem.Allocator, vcpu_fd: c_int, payload: []const u8
 // -- tests --------------------------------------------------------
 
 test "encodingForName resolves known names" {
-    try std.testing.expectEqual(@as(?u16, 0x8012), encodingForName("MDSCR_EL1"));
-    try std.testing.expectEqual(@as(?u16, 0xc080), encodingForName("SCTLR_EL1"));
+    try std.testing.expectEqual(@as(?u16, 0x8012), encoding_for_name("MDSCR_EL1"));
+    try std.testing.expectEqual(@as(?u16, 0xc080), encoding_for_name("SCTLR_EL1"));
 }
 
 test "encodingForName parses synthetic names" {
     // S3_0_C0_C0_6 = (3<<14)|(0<<11)|(0<<7)|(0<<3)|6 = 0xC006
-    try std.testing.expectEqual(@as(?u16, 0xC006), encodingForName("S3_0_C0_C0_6"));
+    try std.testing.expectEqual(@as(?u16, 0xC006), encoding_for_name("S3_0_C0_C0_6"));
     // S2_4_C0_C7_0 = (2<<14)|(4<<11)|(0<<7)|(7<<3)|0 = 0xA038
-    try std.testing.expectEqual(@as(?u16, 0xA038), encodingForName("S2_4_C0_C7_0"));
+    try std.testing.expectEqual(@as(?u16, 0xA038), encoding_for_name("S2_4_C0_C7_0"));
 }
 
 test "encodingForName rejects malformed synthetic names" {
-    try std.testing.expectEqual(@as(?u16, null), encodingForName("S5_0_C0_C0_0")); // op0 > 3
-    try std.testing.expectEqual(@as(?u16, null), encodingForName("S3_X_C0_C0_0")); // bad int
-    try std.testing.expectEqual(@as(?u16, null), encodingForName("noprefix"));
+    try std.testing.expectEqual(@as(?u16, null), encoding_for_name("S5_0_C0_C0_0")); // op0 > 3
+    try std.testing.expectEqual(@as(?u16, null), encoding_for_name("S3_X_C0_C0_0")); // bad int
+    try std.testing.expectEqual(@as(?u16, null), encoding_for_name("noprefix"));
 }
 
 test "nameForEncoding round-trips" {
     var buf: [32]u8 = undefined;
-    try std.testing.expectEqualStrings("MDSCR_EL1", nameForEncoding(0x8012, &buf));
-    try std.testing.expectEqualStrings("SCTLR_EL1", nameForEncoding(0xc080, &buf));
-    try std.testing.expectEqualStrings("S3_0_C0_C0_6", nameForEncoding(0xc006, &buf));
+    try std.testing.expectEqualStrings("MDSCR_EL1", name_for_encoding(0x8012, &buf));
+    try std.testing.expectEqualStrings("SCTLR_EL1", name_for_encoding(0xc080, &buf));
+    try std.testing.expectEqualStrings("S3_0_C0_C0_6", name_for_encoding(0xc006, &buf));
 }
 
 test "core reg generation produces the right set" {
@@ -811,17 +811,17 @@ test "core reg generation produces the right set" {
 
 test "kvmIdForCore matches known constants" {
     // X0: KVM_REG_ARM64 | ARM_CORE | SIZE_U64 | (0/4) = 0x6030_0000_0010_0000
-    const x0 = kvmIdForCore(core_regs[0]);
+    const x0 = kvm_id_for_core(core_regs[0]);
     try std.testing.expectEqual(@as(u64, 0x6030_0000_0010_0000), x0);
     // PC is index 31 (31 X regs, then PC).
     try std.testing.expectEqualStrings("PC", core_regs[31].name);
-    const pc = kvmIdForCore(core_regs[31]);
+    const pc = kvm_id_for_core(core_regs[31]);
     try std.testing.expectEqual(@as(u64, 0x6030_0000_0010_0040), pc);
 }
 
 test "kvmIdForSysreg matches expected layout" {
     // PMCR_EL0 encoding 0xdce0: id = 0x6030_0000_0013_dce0
-    const id = kvmIdForSysreg(0xdce0);
+    const id = kvm_id_for_sysreg(0xdce0);
     try std.testing.expectEqual(@as(u64, 0x6030_0000_0013_dce0), id);
 }
 
@@ -841,7 +841,7 @@ test "dump/load round-trip on HVF" {
     _ = hvf_extern.hv_vcpu_set_reg(vcpu_a.handle, HV_REG_X0, 0xDEAD_BEEF_CAFE_BABE);
     _ = hvf_extern.hv_vcpu_set_reg(vcpu_a.handle, HV_REG_PC, 0x4000_0000);
     _ = hvf_extern.hv_vcpu_set_reg(vcpu_a.handle, HV_REG_CPSR, 0x3C5);
-    const dump_a = try dumpHvf(a, vcpu_a.handle);
+    const dump_a = try dump_hvf(a, vcpu_a.handle);
     defer a.free(dump_a);
     vcpu_a.destroy();
     vm_a.destroy();
@@ -851,14 +851,14 @@ test "dump/load round-trip on HVF" {
     defer vm_b.destroy();
     var vcpu_b = try hvf.Vcpu.create();
     defer vcpu_b.destroy();
-    try loadHvf(a, vcpu_b.handle, dump_a);
-    const dump_b = try dumpHvf(a, vcpu_b.handle);
+    try load_hvf(a, vcpu_b.handle, dump_a);
+    const dump_b = try dump_hvf(a, vcpu_b.handle);
     defer a.free(dump_b);
 
     // Compare under classification.
-    const entries_a = try snapshot.decodeVcpuPayload(a, dump_a);
+    const entries_a = try snapshot.decode_vcpu_payload(a, dump_a);
     defer a.free(entries_a);
-    const entries_b = try snapshot.decodeVcpuPayload(a, dump_b);
+    const entries_b = try snapshot.decode_vcpu_payload(a, dump_b);
     defer a.free(entries_b);
 
     var b_index = std.StringHashMap([]const u8).init(a);
@@ -900,7 +900,7 @@ test "dump/load round-trip on KVM" {
     // target. Returns vcpu_fd via the kvm.Vcpu wrapper.
     const makeVcpu = struct {
         fn run(k_: *kvm.Kvm) !struct { vm: kvm.Vm, vcpu: kvm.Vcpu } {
-            var vm = try k_.createVm();
+            var vm = try k_.create_vm();
             errdefer vm.destroy();
             var pref: kvm.VcpuInit = std.mem.zeroes(kvm.VcpuInit);
             const c = struct {
@@ -909,7 +909,7 @@ test "dump/load round-trip on KVM" {
             const PREF_TARGET: c_ulong = (2 << 30) | (@sizeOf(kvm.VcpuInit) << 16) |
                 (@as(c_ulong, 0xae) << 8) | 0xaf;
             if (c.ioctl(vm.fd, PREF_TARGET, &pref) < 0) return error.PreferredTargetFailed;
-            var vcpu = try vm.createVcpu(0);
+            var vcpu = try vm.create_vcpu(0);
             errdefer vcpu.destroy();
             try vcpu.init(pref);
             return .{ .vm = vm, .vcpu = vcpu };
@@ -922,26 +922,26 @@ test "dump/load round-trip on KVM" {
     var pair_a = try makeVcpu(&k);
     defer pair_a.vcpu.destroy();
     defer pair_a.vm.destroy();
-    try pair_a.vcpu.setReg(kvmIdForCore(core_regs[0]), 0xDEAD_BEEF_CAFE_BABE); // X0
-    try pair_a.vcpu.setReg(kvmIdForCore(core_regs[31]), 0x4000_0000); // PC
-    try pair_a.vcpu.setReg(kvmIdForCore(core_regs[32]), 0x3C5); // PSTATE
-    const dump_a = try dumpKvm(a, pair_a.vcpu.fd);
+    try pair_a.vcpu.set_reg(kvm_id_for_core(core_regs[0]), 0xDEAD_BEEF_CAFE_BABE); // X0
+    try pair_a.vcpu.set_reg(kvm_id_for_core(core_regs[31]), 0x4000_0000); // PC
+    try pair_a.vcpu.set_reg(kvm_id_for_core(core_regs[32]), 0x3C5); // PSTATE
+    const dump_a = try dump_kvm(a, pair_a.vcpu.fd);
     defer a.free(dump_a);
 
     // Second vCPU: fresh init, load dump_a, then dump again.
     var pair_b = try makeVcpu(&k);
     defer pair_b.vcpu.destroy();
     defer pair_b.vm.destroy();
-    try loadKvm(a, pair_b.vcpu.fd, dump_a);
-    const dump_b = try dumpKvm(a, pair_b.vcpu.fd);
+    try load_kvm(a, pair_b.vcpu.fd, dump_a);
+    const dump_b = try dump_kvm(a, pair_b.vcpu.fd);
     defer a.free(dump_b);
 
     // Compare under the classification: entries that classify as
     // .mask may differ (PMU counters, debug regs); .skip never
     // appears in either dump; .portable / .translate must match.
-    const entries_a = try snapshot.decodeVcpuPayload(a, dump_a);
+    const entries_a = try snapshot.decode_vcpu_payload(a, dump_a);
     defer a.free(entries_a);
-    const entries_b = try snapshot.decodeVcpuPayload(a, dump_b);
+    const entries_b = try snapshot.decode_vcpu_payload(a, dump_b);
     defer a.free(entries_b);
 
     // Build a name -> value lookup for b.
@@ -1007,7 +1007,7 @@ test "single-host HVF RT (vCPU + RAM, no execution)" {
     _ = hvf_extern.hv_vcpu_set_reg(vcpu_a.handle, HV_REG_X0, 0xCAFE_F00D_1234_5678);
     _ = hvf_extern.hv_vcpu_set_reg(vcpu_a.handle, HV_REG_X0 + 1, 0x0001_0002_0003_0004);
 
-    const cpu_payload = try dumpHvf(a, vcpu_a.handle);
+    const cpu_payload = try dump_hvf(a, vcpu_a.handle);
     defer a.free(cpu_payload);
     const ram_payload = try ram_dump.encode(a, RAM_BASE, ram_a);
     defer a.free(ram_payload);
@@ -1034,8 +1034,8 @@ test "single-host HVF RT (vCPU + RAM, no execution)" {
     const ram_b: []align(hvf.page_size) u8 = @alignCast(ram_b_raw);
     @memset(ram_b, 0);
 
-    try loadHvf(a, vcpu_b.handle, cpu_payload);
-    _ = try ram_dump.decodeInto(ram_payload, ram_b);
+    try load_hvf(a, vcpu_b.handle, cpu_payload);
+    _ = try ram_dump.decode_into(ram_payload, ram_b);
     try vm_b.map(ram_b, RAM_BASE, hvf.MapFlags.rwx);
     defer vm_b.unmap(RAM_BASE, RAM_LEN) catch {};
 
@@ -1068,7 +1068,7 @@ test "single-host KVM RT (vCPU + RAM, no execution)" {
 
     // Side A: VM + vCPU with known register values; RAM filled with a
     // pattern.
-    var vm_a = try k.createVm();
+    var vm_a = try k.create_vm();
     defer vm_a.destroy();
     var pref: kvm.VcpuInit = std.mem.zeroes(kvm.VcpuInit);
     const c = struct {
@@ -1077,27 +1077,27 @@ test "single-host KVM RT (vCPU + RAM, no execution)" {
     const PREF_TARGET: c_ulong = (2 << 30) | (@sizeOf(kvm.VcpuInit) << 16) |
         (@as(c_ulong, 0xae) << 8) | 0xaf;
     if (c.ioctl(vm_a.fd, PREF_TARGET, &pref) < 0) return error.PrefTargetFailed;
-    var vcpu_a = try vm_a.createVcpu(0);
+    var vcpu_a = try vm_a.create_vcpu(0);
     defer vcpu_a.destroy();
     try vcpu_a.init(pref);
 
-    try vcpu_a.setReg(kvmIdForCore(core_regs[0]), 0xCAFE_F00D_1234_5678);
-    try vcpu_a.setReg(kvmIdForCore(core_regs[1]), 0x0001_0002_0003_0004);
+    try vcpu_a.set_reg(kvm_id_for_core(core_regs[0]), 0xCAFE_F00D_1234_5678);
+    try vcpu_a.set_reg(kvm_id_for_core(core_regs[1]), 0x0001_0002_0003_0004);
 
     const ram_a = try a.alloc(u8, RAM_LEN);
     defer a.free(ram_a);
     for (ram_a, 0..) |*b, i| b.* = @intCast(i & 0xff);
 
-    const cpu_payload = try dumpKvm(a, vcpu_a.fd);
+    const cpu_payload = try dump_kvm(a, vcpu_a.fd);
     defer a.free(cpu_payload);
     const ram_payload = try ram_dump.encode(a, RAM_BASE, ram_a);
     defer a.free(ram_payload);
 
     // Side B: fresh VM + vCPU, fresh RAM (zeroed).
-    var vm_b = try k.createVm();
+    var vm_b = try k.create_vm();
     defer vm_b.destroy();
     if (c.ioctl(vm_b.fd, PREF_TARGET, &pref) < 0) return error.PrefTargetFailed;
-    var vcpu_b = try vm_b.createVcpu(0);
+    var vcpu_b = try vm_b.create_vcpu(0);
     defer vcpu_b.destroy();
     try vcpu_b.init(pref);
 
@@ -1105,15 +1105,15 @@ test "single-host KVM RT (vCPU + RAM, no execution)" {
     defer a.free(ram_b);
     @memset(ram_b, 0);
 
-    try loadKvm(a, vcpu_b.fd, cpu_payload);
-    const decoded = try ram_dump.decodeInto(ram_payload, ram_b);
+    try load_kvm(a, vcpu_b.fd, cpu_payload);
+    const decoded = try ram_dump.decode_into(ram_payload, ram_b);
     try std.testing.expectEqual(@as(u64, RAM_BASE), decoded.ram_base);
     try std.testing.expectEqual(@as(u64, RAM_LEN), decoded.ram_size);
 
     // Verify side B matches side A.
     try std.testing.expectEqualSlices(u8, ram_a, ram_b);
-    const x0 = try vcpu_b.getReg(kvmIdForCore(core_regs[0]));
+    const x0 = try vcpu_b.get_reg(kvm_id_for_core(core_regs[0]));
     try std.testing.expectEqual(@as(u64, 0xCAFE_F00D_1234_5678), x0);
-    const x1 = try vcpu_b.getReg(kvmIdForCore(core_regs[1]));
+    const x1 = try vcpu_b.get_reg(kvm_id_for_core(core_regs[1]));
     try std.testing.expectEqual(@as(u64, 0x0001_0002_0003_0004), x1);
 }

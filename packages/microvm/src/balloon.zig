@@ -138,13 +138,13 @@ pub const Backend = struct {
     /// Default constructor — uses the process-static stub. Convenient
     /// for unit tests and dev runs that don't need host-side stats.
     pub fn init() Backend {
-        return .{ .counters = stats_mod.stubCounters() };
+        return .{ .counters = stats_mod.stub_counters() };
     }
 
     /// Construct a backend whose counters live at the caller-supplied
     /// pointer. Used by the boot wiring to redirect updates into the
     /// mmap'd stats region.
-    pub fn initWithCounters(counters: *stats_mod.Counters) Backend {
+    pub fn init_with_counters(counters: *stats_mod.Counters) Backend {
         return .{ .counters = counters };
     }
 
@@ -174,24 +174,24 @@ pub const Backend = struct {
 
     /// Wire-format config bytes for `virtio.Device.config`. Stable
     /// pointer for the lifetime of `*Backend`.
-    pub fn configBytes(self: *const Backend) []const u8 {
+    pub fn config_bytes(self: *const Backend) []const u8 {
         return std.mem.asBytes(&self.config);
     }
 
     /// Dispatch entry point. Plug into `virtio.Device.request_handler`.
     /// Switches on `q_idx` and hands off to the per-queue handler.
-    pub fn handleRequest(ctx: ?*anyopaque, dev: *virtio.Device, q_idx: u32, head: u16) void {
+    pub fn handle_request(ctx: ?*anyopaque, dev: *virtio.Device, q_idx: u32, head: u16) void {
         assert(ctx != null);
         const self: *Backend = @ptrCast(@alignCast(ctx.?));
         switch (q_idx) {
-            QUEUE_INFLATE => self.handleInflate(dev, head),
-            QUEUE_DEFLATE => self.handleDeflate(dev, head),
-            QUEUE_REPORTING => self.handleReporting(dev, head),
+            QUEUE_INFLATE => self.handle_inflate(dev, head),
+            QUEUE_DEFLATE => self.handle_deflate(dev, head),
+            QUEUE_REPORTING => self.handle_reporting(dev, head),
             else => {
                 // Unknown queue — fold into "ack the chain so the
                 // driver doesn't stall." Treats stats/free-page-hint
                 // as no-ops since we didn't negotiate them.
-                ackChain(dev, q_idx, head);
+                ack_chain(dev, q_idx, head);
             },
         }
     }
@@ -202,12 +202,12 @@ pub const Backend = struct {
     /// guest never sends anything here. Account for completeness and
     /// ack so a buggy driver doesn't wedge on a ring that never
     /// drains.
-    fn handleInflate(self: *Backend, dev: *virtio.Device, head: u16) void {
+    fn handle_inflate(self: *Backend, dev: *virtio.Device, head: u16) void {
         var bytes_seen: u64 = 0;
         var idx: u16 = head;
         var steps: u32 = 0;
         while (steps < virtio.max_chain_descriptors) : (steps += 1) {
-            const d = dev.queueDescriptor(QUEUE_INFLATE, idx) orelse break;
+            const d = dev.queue_descriptor(QUEUE_INFLATE, idx) orelse break;
             // Each descriptor is a u32 array; len is bytes; one page
             // == one u32. We don't actually act on these.
             bytes_seen += @as(u64, d.len) / 4 * 4096;
@@ -216,15 +216,15 @@ pub const Backend = struct {
         }
         assert(steps <= virtio.max_chain_descriptors);
         _ = @atomicRmw(u64, &self.counters.bytes_inflated, .Add, bytes_seen, .monotonic);
-        dev.queuePushUsed(QUEUE_INFLATE, head, 0);
+        dev.queue_push_used(QUEUE_INFLATE, head, 0);
     }
 
     /// Deflate-queue chain. Same story as inflate but in reverse:
     /// driver giving pages back. We don't track "balloon contents"
     /// so this is a pure ack.
-    fn handleDeflate(self: *Backend, dev: *virtio.Device, head: u16) void {
+    fn handle_deflate(self: *Backend, dev: *virtio.Device, head: u16) void {
         _ = self;
-        ackChain(dev, QUEUE_DEFLATE, head);
+        ack_chain(dev, QUEUE_DEFLATE, head);
     }
 
     /// Reporting-queue chain. Each descriptor describes a contiguous
@@ -248,9 +248,9 @@ pub const Backend = struct {
     /// kernel's reporting framework only reports each page once, so
     /// "drop the chain to skip a cycle" loses reclaim opportunities
     /// permanently). Deferred to a follow-up. See #263 phase E.
-    fn handleReporting(self: *Backend, dev: *virtio.Device, head: u16) void {
+    fn handle_reporting(self: *Backend, dev: *virtio.Device, head: u16) void {
         const ram_slice = dev.ram orelse {
-            ackChain(dev, QUEUE_REPORTING, head);
+            ack_chain(dev, QUEUE_REPORTING, head);
             return;
         };
         const ram_base = dev.ram_base;
@@ -271,7 +271,7 @@ pub const Backend = struct {
         var idx: u16 = head;
         var steps: u32 = 0;
         while (steps < virtio.max_chain_descriptors) : (steps += 1) {
-            const d = dev.queueDescriptor(QUEUE_REPORTING, idx) orelse break;
+            const d = dev.queue_descriptor(QUEUE_REPORTING, idx) orelse break;
             descs += 1;
             bytes_seen += d.len;
             // Overflow-safe in-RAM check. The naive `d.addr + d.len <=
@@ -287,7 +287,7 @@ pub const Backend = struct {
                 assert(n_ranges < ranges.len);
                 ranges[n_ranges] = .{ .addr = d.addr, .len = d.len };
                 n_ranges += 1;
-            } else if (debugEnabled()) {
+            } else if (debug_enabled()) {
                 std.debug.print(
                     "balloon: report out of RAM range addr=0x{x} len={d} ram=[0x{x},0x{x})\n",
                     .{ d.addr, d.len, ram_base, ram_end },
@@ -304,7 +304,7 @@ pub const Backend = struct {
         // n_ranges ≤ 32, so insertion sort is fine. The framework
         // walks a sorted free list so chains usually arrive ordered;
         // sortByAddr short-circuits in that case.
-        sortByAddr(ranges[0..n_ranges]);
+        sort_by_addr(ranges[0..n_ranges]);
 
         // Coalesce adjacent ranges in place, then issue mmaps.
         var n_merged: usize = 0;
@@ -344,7 +344,7 @@ pub const Backend = struct {
             const rc = madvise(host_va_ptr, len, MADVISE_RECLAIM);
             if (rc == 0) {
                 bytes_freed += r.len;
-            } else if (debugEnabled()) {
+            } else if (debug_enabled()) {
                 std.debug.print(
                     "balloon: madvise reclaim failed addr=0x{x} len={d} rc={d}\n",
                     .{ r.addr, r.len, rc },
@@ -352,14 +352,14 @@ pub const Backend = struct {
             }
         }
 
-        if (debugEnabled() and descs > 0) {
+        if (debug_enabled() and descs > 0) {
             std.debug.print(
                 "balloon: reporting chain head={d} descs={d}->merged={d} seen={d} freed={d}\n",
                 .{ head, descs, n_merged, bytes_seen, bytes_freed },
             );
         }
         _ = @atomicRmw(u64, &self.counters.bytes_reported, .Add, bytes_freed, .monotonic);
-        dev.queuePushUsed(QUEUE_REPORTING, head, 0);
+        dev.queue_push_used(QUEUE_REPORTING, head, 0);
     }
 };
 
@@ -372,7 +372,7 @@ const Range = struct { addr: u64, len: u64 };
 /// chain limit (32 today), so the O(n²) worst case is trivial.
 /// Short-circuits if the slice is already sorted — the common case
 /// for free-page-reporting since the kernel walks a sorted free list.
-fn sortByAddr(rs: []Range) void {
+fn sort_by_addr(rs: []Range) void {
     // Bounded by the reporting handler's collection cap; stays at
     // O(n²) worst case which is trivial for n ≤ 32.
     assert(rs.len <= virtio.max_chain_descriptors);
@@ -389,21 +389,21 @@ fn sortByAddr(rs: []Range) void {
 
 /// Walk a chain to the end, then push it back on the used ring with
 /// zero bytes written. Used for queues whose state we don't track.
-fn ackChain(dev: *virtio.Device, q_idx: u32, head: u16) void {
+fn ack_chain(dev: *virtio.Device, q_idx: u32, head: u16) void {
     var idx: u16 = head;
     var steps: u32 = 0;
     while (steps < virtio.max_chain_descriptors) : (steps += 1) {
-        const d = dev.queueDescriptor(q_idx, idx) orelse break;
+        const d = dev.queue_descriptor(q_idx, idx) orelse break;
         if ((d.flags & virtio.VringDesc.F_NEXT) == 0) break;
         idx = d.next;
     }
     assert(steps <= virtio.max_chain_descriptors);
-    dev.queuePushUsed(q_idx, head, 0);
+    dev.queue_push_used(q_idx, head, 0);
 }
 
 /// Gate noisy diagnostics on `MACHINEN_DEBUG=1` so production runs
 /// stay quiet. Mirrors `boot_hvf.zig`'s `debugEnabled` helper.
-fn debugEnabled() bool {
+fn debug_enabled() bool {
     return getenv("MACHINEN_DEBUG") != null;
 }
 
@@ -454,7 +454,7 @@ test "BalloonConfig has the v1.1 layout the driver expects" {
 
 test "Backend.init starts with zero accounting" {
     var counters: stats_mod.Counters = .{};
-    const b: Backend = .initWithCounters(&counters);
+    const b: Backend = .init_with_counters(&counters);
     try std.testing.expectEqual(
         @as(u64, 0),
         @atomicLoad(u64, &b.counters.bytes_reported, .monotonic),
@@ -472,7 +472,7 @@ test "sortByAddr orders ranges and short-circuits sorted input" {
         .{ .addr = 0x200, .len = 0x10 },
         .{ .addr = 0x040, .len = 0x10 },
     };
-    sortByAddr(&rs);
+    sort_by_addr(&rs);
     try std.testing.expectEqual(@as(u64, 0x040), rs[0].addr);
     try std.testing.expectEqual(@as(u64, 0x080), rs[1].addr);
     try std.testing.expectEqual(@as(u64, 0x100), rs[2].addr);
@@ -488,7 +488,7 @@ test "coalescing merges adjacent ranges" {
         .{ .addr = 0x40800000, .len = 0x400000 },
         .{ .addr = 0x41000000, .len = 0x400000 }, // 4 MiB gap
     };
-    sortByAddr(&ranges);
+    sort_by_addr(&ranges);
     var n_merged: usize = 1;
     for (ranges[1..]) |r| {
         const tail = &ranges[n_merged - 1];

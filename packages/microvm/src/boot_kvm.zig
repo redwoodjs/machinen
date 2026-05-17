@@ -172,7 +172,7 @@ pub const Result = struct {
 /// Caller-supplied layout must satisfy the basic geometry the boot
 /// protocol depends on. These are programmer errors at the call site,
 /// not anything the guest can influence — assert hard.
-fn validateConfig(cfg: Config) void {
+fn validate_config(cfg: Config) void {
     assert(cfg.kernel_path.len > 0);
     assert(cfg.dtb_path.len > 0);
     assert(cfg.ram_size >= 16 * 1024 * 1024);
@@ -187,7 +187,7 @@ fn validateConfig(cfg: Config) void {
 }
 
 pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
-    validateConfig(cfg);
+    validate_config(cfg);
 
     // Topology fingerprint — printed on stderr so snapshot tooling can
     // capture the live guest's IPA layout. Tests assert this matches
@@ -198,39 +198,39 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         .gic_dist_base = cfg.gic_dist_addr,
         .gic_redist_base = cfg.gic_redist_addr,
     };
-    const topo_hex = topo.hashHex();
+    const topo_hex = topo.hash_hex();
     std.debug.print("topology: {s}\n", .{topo_hex});
 
     // Install SIGUSR1 handler so the host can request a mid-flight
     // snapshot. Idempotent (signal() is fine to call before boot).
-    if (cfg.snapshot_path != null) installSnapshotSignal();
+    if (cfg.snapshot_path != null) install_snapshot_signal();
 
-    var fx = try loadFixtures(gpa, cfg);
+    var fx = try load_fixtures(gpa, cfg);
     defer fx.deinit(gpa);
 
-    const ram = try allocateAndPopulateRam(gpa, cfg, fx);
+    const ram = try allocate_and_populate_ram(gpa, cfg, fx);
     defer std.posix.munmap(ram);
 
     // --- KVM bring-up --------------------------------------------
     var k = try kvm.Kvm.open_();
     defer k.close_();
 
-    if (cfg.nested and !k.armEl2Supported()) {
+    if (cfg.nested and !k.arm_el2_supported()) {
         std.debug.print("kvm boot: nested virtualization requested but KVM_CAP_ARM_EL2 is unavailable\n", .{});
         return error.NestedVirtUnsupported;
     }
 
-    var vm = try k.createVm();
+    var vm = try k.create_vm();
     defer vm.destroy();
 
     const ram_flags: u32 = if (cfg.snapshot_path != null) kvm.KVM_MEM_LOG_DIRTY_PAGES else 0;
-    try vm.mapMemoryWithFlags(0, cfg.ram_base, ram, ram_flags);
+    try vm.map_memory_with_flags(0, cfg.ram_base, ram, ram_flags);
 
     // vGIC BEFORE vCPU creation (KVM requires it).
-    var gic = try vm.createGicV3(cfg.gic_dist_addr, cfg.gic_redist_addr);
+    var gic = try vm.create_gic_v3(cfg.gic_dist_addr, cfg.gic_redist_addr);
     defer gic.destroy();
 
-    var vcpu = try initVcpu(&vm, fx.img, cfg);
+    var vcpu = try init_vcpu(&vm, fx.img, cfg);
     defer vcpu.destroy();
 
     // vGIC finalize happens AFTER vcpus exist.
@@ -254,41 +254,41 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     const slot1_path: ?[]const u8 = cfg.rootdisk_path orelse cfg.disk_path;
     const slot3_path: ?[]const u8 = if (cfg.rootdisk_path != null) cfg.disk_path else null;
 
-    var blk_backend_opt: ?blk_mod.Backend = openBlkBackend(slot1_path, "slot 1");
+    var blk_backend_opt: ?blk_mod.Backend = open_blk_backend(slot1_path, "slot 1");
     defer if (blk_backend_opt) |*b| b.deinit();
     if (cfg.rootdisk_path != null and cfg.snapshot_path != null) {
-        if (blk_backend_opt) |*b| b.enableDirtyTracking(gpa) catch |err| {
+        if (blk_backend_opt) |*b| b.enable_dirty_tracking(gpa) catch |err| {
             std.debug.print("blk: rootdisk dirty tracking disabled: {s}\n", .{@errorName(err)});
         };
     }
     var blkdev_opt: ?virtio.Device = if (blk_backend_opt) |*b|
-        makeBlkDevice(virtio_blk_base, virtio_blk_size, ram, cfg, b)
+        make_blk_device(virtio_blk_base, virtio_blk_size, ram, cfg, b)
     else
         null;
     const blkdev_ptr: ?*virtio.Device = if (blkdev_opt) |_| &blkdev_opt.? else null;
 
-    var blk2_backend_opt: ?blk_mod.Backend = openBlkBackend(slot3_path, "slot 3");
+    var blk2_backend_opt: ?blk_mod.Backend = open_blk_backend(slot3_path, "slot 3");
     defer if (blk2_backend_opt) |*b| b.deinit();
     var blk2dev_opt: ?virtio.Device = if (blk2_backend_opt) |*b|
-        makeBlkDevice(virtio_blk2_base, virtio_blk2_size, ram, cfg, b)
+        make_blk_device(virtio_blk2_base, virtio_blk2_size, ram, cfg, b)
     else
         null;
     const blk2dev_ptr: ?*virtio.Device = if (blk2dev_opt) |_| &blk2dev_opt.? else null;
 
     // virtio-blk slot 5 — squashfs RO lower for `--mount` (#272).
-    var blk3_backend_opt: ?blk_mod.Backend = openBlkBackendFromFd(cfg.mountdisk_lower_fd, true, "slot 5 (mount lower)");
+    var blk3_backend_opt: ?blk_mod.Backend = open_blk_backend_from_fd(cfg.mountdisk_lower_fd, true, "slot 5 (mount lower)");
     defer if (blk3_backend_opt) |*b| b.deinit();
     var blk3dev_opt: ?virtio.Device = if (blk3_backend_opt) |*b|
-        makeBlkDevice(virtio_blk3_base, virtio_blk3_size, ram, cfg, b)
+        make_blk_device(virtio_blk3_base, virtio_blk3_size, ram, cfg, b)
     else
         null;
     const blk3dev_ptr: ?*virtio.Device = if (blk3dev_opt) |_| &blk3dev_opt.? else null;
 
     // virtio-blk slot 6 — ext4 RW upper for `--mount` overlay (#272).
-    var blk4_backend_opt: ?blk_mod.Backend = openBlkBackendFromFd(cfg.mountdisk_upper_fd, false, "slot 6 (mount upper)");
+    var blk4_backend_opt: ?blk_mod.Backend = open_blk_backend_from_fd(cfg.mountdisk_upper_fd, false, "slot 6 (mount upper)");
     defer if (blk4_backend_opt) |*b| b.deinit();
     var blk4dev_opt: ?virtio.Device = if (blk4_backend_opt) |*b|
-        makeBlkDeviceWithDiscard(virtio_blk4_base, virtio_blk4_size, ram, cfg, b)
+        make_blk_device_with_discard(virtio_blk4_base, virtio_blk4_size, ram, cfg, b)
     else
         null;
     const blk4dev_ptr: ?*virtio.Device = if (blk4dev_opt) |_| &blk4dev_opt.? else null;
@@ -300,8 +300,8 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // RX/TX go nowhere, so eth0 stays link-down. That matches the
     // pre-#197 behaviour where the slot returned zeros.
     const virtio_mac = [_]u8{ 0x02, 0xDE, 0xAD, 0xBE, 0xEF, 0x01 };
-    var netdev = makeNetDevice(ram, cfg, &virtio_mac);
-    const net_inst: ?*net_mod.NetSocket = connectGvproxy(gpa, &netdev);
+    var netdev = make_net_device(ram, cfg, &virtio_mac);
+    const net_inst: ?*net_mod.NetSocket = connect_gvproxy(gpa, &netdev);
     defer if (net_inst) |n| n.destroy();
     var net_irq_ctx = NetIrqCtx{ .vm = &vm, .irq = irqs.net };
     if (net_inst) |n| {
@@ -309,14 +309,14 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         // → gvproxy. The kernel's notify() drains the TX avail queue
         // and calls tx_handler per frame (with the 12-byte virtio-net
         // header already stripped by virtio.zig::walkAndEmit).
-        netdev.tx_handler = &onNetTx;
+        netdev.tx_handler = &on_net_tx;
         netdev.tx_ctx = @ptrCast(n);
         // RX: NetSocket's rxLoop calls on_rx after each injectRx,
         // both under `n.irq_mu`. routeMmio takes the same mutex
         // around the net arm, so the (RMW + setIrq) pairs serialise
         // across the two threads — without this, the RX thread's
         // setIrq(1) can be overridden by a stale vCPU setIrq(0).
-        n.on_rx = &onNetIrq;
+        n.on_rx = &on_net_irq;
         n.on_rx_ctx = @ptrCast(&net_irq_ctx);
     }
 
@@ -325,9 +325,9 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // env grammar as HVF (see boot_hvf.zig for the syntax doc) — parsed
     // ports are gpa-allocated and leak for the VMM's life.
     const vsock_cid_storage: u64 = vsock_mod.default_guest_cid;
-    const vsock_ports = parseVsockEnv(gpa);
+    const vsock_ports = parse_vsock_env(gpa);
     var vsock_dev_opt: ?virtio.Device = if (vsock_ports.len > 0)
-        makeVsockDevice(ram, cfg, &vsock_cid_storage)
+        make_vsock_device(ram, cfg, &vsock_cid_storage)
     else
         null;
     const vsock_dev_ptr: ?*virtio.Device = if (vsock_dev_opt) |_| &vsock_dev_opt.? else null;
@@ -335,7 +335,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     var vsock_irq_ctx = VsockIrqCtx{ .vm = &vm, .irq = irqs.vsock };
     var vsock_bridge_opt: ?*vsock_mod.Bridge = null;
     if (vsock_dev_ptr) |d| {
-        vsock_bridge_opt = startVsockBridge(gpa, d, vsock_ports, &vsock_irq_ctx);
+        vsock_bridge_opt = start_vsock_bridge(gpa, d, vsock_ports, &vsock_irq_ctx);
         if (vsock_bridge_opt == null) vsock_dev_opt = null;
     }
     defer if (vsock_bridge_opt) |b| b.destroy();
@@ -351,14 +351,14 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // #274: redirect accounting into the shared stats file pointed
     // at by MACHINEN_STATS_FILE; falls back to a process-static stub
     // when missing.
-    var stats_inst = stats_mod.Stats.openOrStub();
+    var stats_inst = stats_mod.Stats.open_or_stub();
     defer stats_inst.deinit();
     // No-op on Linux — runtime reads `/proc/<pid>/status:VmRSS`,
     // which is exact and reflects `MADV_DONTNEED` reclaim. See
     // `stats.zig` for the Darwin rationale.
-    stats_mod.startPhysFootprintSampler(stats_inst.counters);
-    var balloon_backend = balloon_mod.Backend.initWithCounters(stats_inst.counters);
-    var balloon_dev = makeBalloonDevice(ram, cfg, &balloon_backend);
+    stats_mod.start_phys_footprint_sampler(stats_inst.counters);
+    var balloon_backend = balloon_mod.Backend.init_with_counters(stats_inst.counters);
+    var balloon_dev = make_balloon_device(ram, cfg, &balloon_backend);
     const balloon_dev_ptr: ?*virtio.Device = &balloon_dev;
 
     // virtio-fs slots 7..10 (#332, #338). Off by default; set
@@ -368,14 +368,14 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // the vCPU thread (the device drains on each guest kick), so unlike
     // vsock no host poll thread is needed. Same env grammar as HVF (see
     // boot_hvf.zig's parser).
-    var virtiofs_backends: [MAX_VIRTIOFS_SLOTS]?virtiofs_mod.Device = parseVirtiofsEnv();
+    var virtiofs_backends: [MAX_VIRTIOFS_SLOTS]?virtiofs_mod.Device = parse_virtiofs_env();
     defer for (&virtiofs_backends) |*b| {
         if (b.*) |*d| d.deinit();
     };
     var virtiofs_devs: [MAX_VIRTIOFS_SLOTS]?virtio.Device = undefined;
     for (0..MAX_VIRTIOFS_SLOTS) |i| {
         virtiofs_devs[i] = if (virtiofs_backends[i]) |*b|
-            makeVirtioFsDevice(virtio_virtiofs_bases[i], ram, cfg, b)
+            make_virtio_fs_device(virtio_virtiofs_bases[i], ram, cfg, b)
         else
             null;
     }
@@ -405,13 +405,13 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     // first vcpu.run(). Topology hash mismatch is a hard error: the
     // wrong layout would scramble guest memory.
     if (cfg.restore_path) |path| {
-        applyRestoreFile(gpa, path, &vcpu, ram, cfg, gic.fd, &devs) catch |err| {
+        apply_restore_file(gpa, path, &vcpu, ram, cfg, gic.fd, &devs) catch |err| {
             std.debug.print("kvm boot: restore from {s} failed: {s}\n", .{ path, @errorName(err) });
             return err;
         };
         std.debug.print("kvm boot: restored from {s}\n", .{path});
     }
-    return try runLoop(gpa, cfg, &vm, &vcpu, &devs, irqs, ram, gic.fd);
+    return try run_loop(gpa, cfg, &vm, &vcpu, &devs, irqs, ram, gic.fd);
 }
 
 /// Kernel + DTB bytes loaded off disk plus the parsed kernel header.
@@ -431,15 +431,15 @@ const LoadedFixtures = struct {
 /// Read kernel + DTB off disk, parse the kernel header, and validate
 /// they fit in the configured guest RAM. `error.FixtureMissing` is
 /// surfaced so callers can `expectError` it cleanly.
-fn loadFixtures(gpa: std.mem.Allocator, cfg: Config) !LoadedFixtures {
-    const kernel = readAll(gpa, cfg.kernel_path) catch |err| {
+fn load_fixtures(gpa: std.mem.Allocator, cfg: Config) !LoadedFixtures {
+    const kernel = read_all(gpa, cfg.kernel_path) catch |err| {
         if (err == error.FileNotFound) return error.FixtureMissing;
         return err;
     };
     errdefer gpa.free(kernel);
     assert(kernel.len > 0);
 
-    const dtb = readAll(gpa, cfg.dtb_path) catch |err| {
+    const dtb = read_all(gpa, cfg.dtb_path) catch |err| {
         if (err == error.FileNotFound) return error.FixtureMissing;
         return err;
     };
@@ -456,7 +456,7 @@ fn loadFixtures(gpa: std.mem.Allocator, cfg: Config) !LoadedFixtures {
 /// Allocate the host-backed slab the guest sees as its RAM, then copy
 /// kernel + DTB + (optional) initramfs into it. Returns the mapped
 /// slice; caller owns the munmap.
-fn allocateAndPopulateRam(
+fn allocate_and_populate_ram(
     gpa: std.mem.Allocator,
     cfg: Config,
     fx: LoadedFixtures,
@@ -486,7 +486,7 @@ fn allocateAndPopulateRam(
     // #263 phase A: rewrite the DTB's `memory@<base>` reg-size cells
     // to match cfg.ram_size. Without this the shipped DTB caps the
     // guest at the DTS-declared 4 GiB regardless of cfg.ram_size.
-    dtb_patch.patchMemorySize(ram[cfg.dtb_offset..][0..fx.dtb.len], cfg.ram_size) catch |err| {
+    dtb_patch.patch_memory_size(ram[cfg.dtb_offset..][0..fx.dtb.len], cfg.ram_size) catch |err| {
         std.debug.print(
             "warn: patchMemorySize failed ({s}); guest will see the DTB-declared ceiling, not cfg.ram_size={d}\n",
             .{ @errorName(err), cfg.ram_size },
@@ -494,7 +494,7 @@ fn allocateAndPopulateRam(
     };
 
     if (cfg.initrd_path) |initrd_path| {
-        const initrd = readAll(gpa, initrd_path) catch |err| {
+        const initrd = read_all(gpa, initrd_path) catch |err| {
             if (err == error.OpenFailed) return error.FixtureMissing;
             return err;
         };
@@ -506,7 +506,7 @@ fn allocateAndPopulateRam(
         // walking dead tail. Failures here only cost startup latency,
         // so log only with MACHINEN_DEBUG set (the kernel still boots).
         const initrd_end_abs: u32 = @intCast(cfg.ram_base + cfg.initrd_offset + initrd.len);
-        dtb_patch.patchInitrdEnd(ram[cfg.dtb_offset..][0..fx.dtb.len], initrd_end_abs) catch {};
+        dtb_patch.patch_initrd_end(ram[cfg.dtb_offset..][0..fx.dtb.len], initrd_end_abs) catch {};
     }
     return ram;
 }
@@ -520,15 +520,15 @@ const SYS_HCR_EL2: u16 = 0xe088;
 const SYS_CNTHCTL_EL2: u16 = 0xe708;
 const SYS_CNTVOFF_EL2: u16 = 0xe703;
 
-fn initNestedEl2State(vcpu: *kvm.Vcpu) !void {
+fn init_nested_el2_state(vcpu: *kvm.Vcpu) !void {
     // Linux should enter at EL2 when we expose nested virtualization.
     // Give it the standard arm64 boot state: EL2h with interrupts
     // masked, AArch64 EL1 selected, and EL1 access to the physical
     // counter/timer enabled. KVM owns the rest of the EL2 reset state.
-    try vcpu.setReg(kvm.REG_PSTATE, PSTATE_DAIF_MASKED | PSTATE_EL2H);
-    try vcpu.setReg(kvmSysregId(SYS_HCR_EL2), HCR_EL2_RW);
-    try vcpu.setReg(kvmSysregId(SYS_CNTHCTL_EL2), CNTHCTL_EL2_EL1PCTEN | CNTHCTL_EL2_EL1PCEN);
-    try vcpu.setReg(kvmSysregId(SYS_CNTVOFF_EL2), 0);
+    try vcpu.set_reg(kvm.REG_PSTATE, PSTATE_DAIF_MASKED | PSTATE_EL2H);
+    try vcpu.set_reg(kvm_sysreg_id(SYS_HCR_EL2), HCR_EL2_RW);
+    try vcpu.set_reg(kvm_sysreg_id(SYS_CNTHCTL_EL2), CNTHCTL_EL2_EL1PCTEN | CNTHCTL_EL2_EL1PCEN);
+    try vcpu.set_reg(kvm_sysreg_id(SYS_CNTVOFF_EL2), 0);
 }
 
 /// Bring up the vCPU: enable PSCI 0.2 in the init features (so KVM
@@ -536,11 +536,11 @@ fn initNestedEl2State(vcpu: *kvm.Vcpu) !void {
 /// KVM_EXIT_SYSTEM_EVENT), then point X0 at the DTB and PC at the
 /// kernel entry per the arm64 Linux boot protocol. Caller owns the
 /// destroy.
-fn initVcpu(vm: *kvm.Vm, img: KernelImage, cfg: Config) !kvm.Vcpu {
-    var vcpu = try vm.createVcpu(0);
+fn init_vcpu(vm: *kvm.Vm, img: KernelImage, cfg: Config) !kvm.Vcpu {
+    var vcpu = try vm.create_vcpu(0);
     errdefer vcpu.destroy();
 
-    var init = try vm.preferredTarget();
+    var init = try vm.preferred_target();
     init.features[0] |= (@as(u32, 1) << @as(u5, @intCast(kvm.KVM_ARM_VCPU_PSCI_0_2)));
     if (cfg.nested) {
         init.features[0] |= (@as(u32, 1) << @as(u5, @intCast(kvm.KVM_ARM_VCPU_HAS_EL2)));
@@ -594,7 +594,7 @@ fn initVcpu(vm: *kvm.Vm, img: KernelImage, cfg: Config) !kvm.Vcpu {
     }
 
     if (cfg.nested) {
-        try initNestedEl2State(&vcpu);
+        try init_nested_el2_state(&vcpu);
     }
 
     const dtb_phys = cfg.ram_base + cfg.dtb_offset;
@@ -602,11 +602,11 @@ fn initVcpu(vm: *kvm.Vm, img: KernelImage, cfg: Config) !kvm.Vcpu {
     assert(dtb_phys >= cfg.ram_base);
     assert(entry_phys >= cfg.ram_base);
     assert(entry_phys < cfg.ram_base + cfg.ram_size);
-    try vcpu.setReg(kvm.REG_X0, dtb_phys);
-    try vcpu.setReg(kvm.REG_X1, 0);
-    try vcpu.setReg(kvm.REG_X2, 0);
-    try vcpu.setReg(kvm.REG_X3, 0);
-    try vcpu.setReg(kvm.REG_PC, entry_phys);
+    try vcpu.set_reg(kvm.REG_X0, dtb_phys);
+    try vcpu.set_reg(kvm.REG_X1, 0);
+    try vcpu.set_reg(kvm.REG_X2, 0);
+    try vcpu.set_reg(kvm.REG_X3, 0);
+    try vcpu.set_reg(kvm.REG_PC, entry_phys);
 
     return vcpu;
 }
@@ -614,7 +614,7 @@ fn initVcpu(vm: *kvm.Vm, img: KernelImage, cfg: Config) !kvm.Vcpu {
 /// Build the virtio-net device. virtio-net sits in slot 0 with a
 /// stable MAC the runtime hands the gvproxy DHCP server. tx_handler /
 /// tx_ctx are wired later, after the gvproxy connect.
-fn makeNetDevice(ram: []u8, cfg: Config, mac: *const [6]u8) virtio.Device {
+fn make_net_device(ram: []u8, cfg: Config, mac: *const [6]u8) virtio.Device {
     return .{
         .base = virtio_net_base,
         .size = virtio_net_size,
@@ -629,9 +629,9 @@ fn makeNetDevice(ram: []u8, cfg: Config, mac: *const [6]u8) virtio.Device {
 
 /// Open a host file as a virtio-blk backend. Returns null when the
 /// caller didn't ask for this slot, or when the file open failed.
-fn openBlkBackend(path: ?[]const u8, label: []const u8) ?blk_mod.Backend {
+fn open_blk_backend(path: ?[]const u8, label: []const u8) ?blk_mod.Backend {
     const p = path orelse return null;
-    return blk_mod.openFile(p) catch |err| {
+    return blk_mod.open_file(p) catch |err| {
         std.debug.print("virtio-blk {s} disabled: {s} ({s})\n", .{ label, @errorName(err), p });
         return null;
     };
@@ -639,7 +639,7 @@ fn openBlkBackend(path: ?[]const u8, label: []const u8) ?blk_mod.Backend {
 
 /// Wrap a runtime-passed fd as a virtio-blk backend (#272). Mirror
 /// of boot_hvf.zig's matching helper — see that file for the design.
-fn openBlkBackendFromFd(fd: ?c_int, read_only: bool, label: []const u8) ?blk_mod.Backend {
+fn open_blk_backend_from_fd(fd: ?c_int, read_only: bool, label: []const u8) ?blk_mod.Backend {
     const f = fd orelse return null;
     if (f < 0) return null;
     const size_bytes = lseek(f, 0, 2);
@@ -654,13 +654,13 @@ fn openBlkBackendFromFd(fd: ?c_int, read_only: bool, label: []const u8) ?blk_mod
         );
         return null;
     }
-    return blk_mod.Backend.initFromFdWithMode(f, @intCast(size_bytes), read_only);
+    return blk_mod.Backend.init_from_fd_with_mode(f, @intCast(size_bytes), read_only);
 }
 
 /// Wrap a `blk_mod.Backend` as a virtio-mmio device. `backend` must
 /// outlive the returned device — the device's `config` and
 /// `request_ctx` are pointers into it.
-fn makeBlkDevice(base: u64, size: u64, ram: []u8, cfg: Config, backend: *blk_mod.Backend) virtio.Device {
+fn make_blk_device(base: u64, size: u64, ram: []u8, cfg: Config, backend: *blk_mod.Backend) virtio.Device {
     return .{
         .base = base,
         .size = size,
@@ -669,14 +669,14 @@ fn makeBlkDevice(base: u64, size: u64, ram: []u8, cfg: Config, backend: *blk_mod
         .config = std.mem.asBytes(&backend.config),
         .ram = ram,
         .ram_base = cfg.ram_base,
-        .request_handler = &blk_mod.Backend.handleRequest,
+        .request_handler = &blk_mod.Backend.handle_request,
         .request_ctx = @ptrCast(backend),
     };
 }
 
 /// Variant of `makeBlkDevice` that advertises VIRTIO_BLK_F_DISCARD
 /// in the feature bits (#272). Mirror of boot_hvf.zig's helper.
-fn makeBlkDeviceWithDiscard(base: u64, size: u64, ram: []u8, cfg: Config, backend: *blk_mod.Backend) virtio.Device {
+fn make_blk_device_with_discard(base: u64, size: u64, ram: []u8, cfg: Config, backend: *blk_mod.Backend) virtio.Device {
     return .{
         .base = base,
         .size = size,
@@ -685,7 +685,7 @@ fn makeBlkDeviceWithDiscard(base: u64, size: u64, ram: []u8, cfg: Config, backen
         .config = std.mem.asBytes(&backend.config),
         .ram = ram,
         .ram_base = cfg.ram_base,
-        .request_handler = &blk_mod.Backend.handleRequest,
+        .request_handler = &blk_mod.Backend.handle_request,
         .request_ctx = @ptrCast(backend),
     };
 }
@@ -694,11 +694,11 @@ fn makeBlkDeviceWithDiscard(base: u64, size: u64, ram: []u8, cfg: Config, backen
 /// an empty slice; parse errors log and return empty so a typo in the
 /// env doesn't prevent boot. Returned slice + path strings allocated
 /// from `gpa`.
-fn parseVsockEnv(gpa: std.mem.Allocator) []vsock_mod.PortMap {
+fn parse_vsock_env(gpa: std.mem.Allocator) []vsock_mod.PortMap {
     const raw = getenv("MACHINEN_VSOCK") orelse return &.{};
     const s = std.mem.span(raw);
     if (s.len == 0) return &.{};
-    return vsock_mod.parseEnv(gpa, s) catch |err| {
+    return vsock_mod.parse_env(gpa, s) catch |err| {
         std.debug.print("vsock: MACHINEN_VSOCK parse failed ({s}); ignoring\n", .{@errorName(err)});
         return &.{};
     };
@@ -706,7 +706,7 @@ fn parseVsockEnv(gpa: std.mem.Allocator) []vsock_mod.PortMap {
 
 /// Build the virtio-vsock device. `cid_ptr` must outlive the device —
 /// the config field is a pointer into it.
-fn makeVsockDevice(ram: []u8, cfg: Config, cid_ptr: *const u64) virtio.Device {
+fn make_vsock_device(ram: []u8, cfg: Config, cid_ptr: *const u64) virtio.Device {
     return .{
         .base = virtio_vsock_base,
         .size = virtio_vsock_size,
@@ -715,7 +715,7 @@ fn makeVsockDevice(ram: []u8, cfg: Config, cid_ptr: *const u64) virtio.Device {
         .config = std.mem.asBytes(cid_ptr),
         .ram = ram,
         .ram_base = cfg.ram_base,
-        .request_handler = &vsock_mod.Bridge.handleTxChain,
+        .request_handler = &vsock_mod.Bridge.handle_tx_chain,
         .request_ctx = null,
         // Queues 0 (RX) and 2 (event) are driver-posts-empty-buffers
         // queues — host fills them on demand, not on every kick.
@@ -728,19 +728,19 @@ fn makeVsockDevice(ram: []u8, cfg: Config, cid_ptr: *const u64) virtio.Device {
 /// `<tag>:<mode>:<host_path>` grammar, the numbered-env rationale, and
 /// the c_allocator rationale. A missing slot is null; a malformed value
 /// is left null (warn-and-continue).
-fn parseVirtiofsEnv() [MAX_VIRTIOFS_SLOTS]?virtiofs_mod.Device {
+fn parse_virtiofs_env() [MAX_VIRTIOFS_SLOTS]?virtiofs_mod.Device {
     var out: [MAX_VIRTIOFS_SLOTS]?virtiofs_mod.Device = @splat(null);
     for (0..MAX_VIRTIOFS_SLOTS) |i| {
         var name_buf: [32]u8 = undefined;
         const name = std.fmt.bufPrintZ(&name_buf, "MACHINEN_VIRTIOFS_{d}", .{i}) catch continue;
-        out[i] = parseOneVirtiofsEnv(name);
+        out[i] = parse_one_virtiofs_env(name);
     }
     return out;
 }
 
 /// Parse a single `MACHINEN_VIRTIOFS_<i>` env var into a backend, or
 /// null if unset / malformed. See `parseVirtiofsEnv`.
-fn parseOneVirtiofsEnv(name: [*:0]const u8) ?virtiofs_mod.Device {
+fn parse_one_virtiofs_env(name: [*:0]const u8) ?virtiofs_mod.Device {
     const raw = getenv(name) orelse return null;
     const s = std.mem.span(raw);
     if (s.len == 0) return null;
@@ -788,16 +788,16 @@ fn parseOneVirtiofsEnv(name: [*:0]const u8) ?virtiofs_mod.Device {
 
 /// Wrap a `virtiofs.Device` backend as a virtio-mmio device on the
 /// given slot `base`. `backend` must outlive the returned device.
-fn makeVirtioFsDevice(base: u64, ram: []u8, cfg: Config, backend: *virtiofs_mod.Device) virtio.Device {
+fn make_virtio_fs_device(base: u64, ram: []u8, cfg: Config, backend: *virtiofs_mod.Device) virtio.Device {
     return .{
         .base = base,
         .size = virtio_virtiofs_size,
         .id = .virtio_fs,
         .features = (1 << 32), // VIRTIO_F_VERSION_1
-        .config = backend.configBytes(),
+        .config = backend.config_bytes(),
         .ram = ram,
         .ram_base = cfg.ram_base,
-        .request_handler = &virtiofs_mod.Device.handleRequest,
+        .request_handler = &virtiofs_mod.Device.handle_request,
         .request_ctx = @ptrCast(backend),
     };
 }
@@ -805,16 +805,16 @@ fn makeVirtioFsDevice(base: u64, ram: []u8, cfg: Config, backend: *virtiofs_mod.
 /// Build the virtio-balloon device. `backend` must outlive the
 /// returned Device — config + request_ctx are pointers into it.
 /// #263 phase B: continuous free-page reporting.
-fn makeBalloonDevice(ram: []u8, cfg: Config, backend: *balloon_mod.Backend) virtio.Device {
+fn make_balloon_device(ram: []u8, cfg: Config, backend: *balloon_mod.Backend) virtio.Device {
     return .{
         .base = virtio_balloon_base,
         .size = virtio_balloon_size,
         .id = .balloon,
         .features = balloon_mod.Backend.features(),
-        .config = backend.configBytes(),
+        .config = backend.config_bytes(),
         .ram = ram,
         .ram_base = cfg.ram_base,
-        .request_handler = &balloon_mod.Backend.handleRequest,
+        .request_handler = &balloon_mod.Backend.handle_request,
         .request_ctx = @ptrCast(backend),
     };
 }
@@ -822,7 +822,7 @@ fn makeBalloonDevice(ram: []u8, cfg: Config, backend: *balloon_mod.Backend) virt
 /// Dial gvproxy if `MACHINEN_NET_SOCKET` is set; null on missing env
 /// or any connect failure (the rest of the VMM still runs without
 /// network).
-fn connectGvproxy(gpa: std.mem.Allocator, netdev: *virtio.Device) ?*net_mod.NetSocket {
+fn connect_gvproxy(gpa: std.mem.Allocator, netdev: *virtio.Device) ?*net_mod.NetSocket {
     const env = getenv("MACHINEN_NET_SOCKET") orelse return null;
     const path = std.mem.span(env);
     if (path.len == 0) return null;
@@ -836,7 +836,7 @@ fn connectGvproxy(gpa: std.mem.Allocator, netdev: *virtio.Device) ?*net_mod.NetS
 /// device, start the poll thread, and log the active port mappings.
 /// Returns null on any failure (and clears `dev` so callers know the
 /// device is no longer live).
-fn startVsockBridge(
+fn start_vsock_bridge(
     gpa: std.mem.Allocator,
     dev: *virtio.Device,
     ports: []const vsock_mod.PortMap,
@@ -844,7 +844,7 @@ fn startVsockBridge(
 ) ?*vsock_mod.Bridge {
     const bridge = vsock_mod.Bridge.create(gpa, dev, .{
         .ports = ports,
-        .raise_irq = &onVsockIrq,
+        .raise_irq = &on_vsock_irq,
         .raise_irq_ctx = @ptrCast(irq_ctx),
     }) catch |err| {
         std.debug.print("vsock: bridge create failed: {s}\n", .{@errorName(err)});
@@ -874,27 +874,27 @@ fn startVsockBridge(
 var snapshot_requested: std.atomic.Value(bool) = std.atomic.Value(bool).init(false);
 var snapshot_resume_requested: std.atomic.Value(bool) = std.atomic.Value(bool).init(false);
 
-fn sigusr1Handler(sig: c_int) callconv(.c) void {
+fn sigusr1_handler(sig: c_int) callconv(.c) void {
     _ = sig;
     snapshot_requested.store(true, .seq_cst);
 }
 
-fn sigusr2Handler(sig: c_int) callconv(.c) void {
+fn sigusr2_handler(sig: c_int) callconv(.c) void {
     _ = sig;
     snapshot_resume_requested.store(true, .seq_cst);
 }
 
-fn installSnapshotSignal() void {
+fn install_snapshot_signal() void {
     const c = struct {
         extern "c" fn signal(sig: c_int, handler: usize) usize;
     };
     const SIGUSR1: c_int = 10;
     const SIGUSR2: c_int = 12;
-    _ = c.signal(SIGUSR1, @intFromPtr(&sigusr1Handler));
-    _ = c.signal(SIGUSR2, @intFromPtr(&sigusr2Handler));
+    _ = c.signal(SIGUSR1, @intFromPtr(&sigusr1_handler));
+    _ = c.signal(SIGUSR2, @intFromPtr(&sigusr2_handler));
 }
 
-fn waitForSnapshotResume() void {
+fn wait_for_snapshot_resume() void {
     const c = struct {
         extern "c" fn usleep(usec: u32) c_int;
     };
@@ -916,7 +916,7 @@ fn waitForSnapshotResume() void {
 /// Drive the vCPU until PSCI SYSTEM_OFF, an unhandled exit, the
 /// configured serial-capture threshold, `max_exits`, or a
 /// SIGUSR1-triggered snapshot.
-fn runLoop(
+fn run_loop(
     gpa: std.mem.Allocator,
     cfg: Config,
     vm: *kvm.Vm,
@@ -936,11 +936,11 @@ fn runLoop(
         const reason = try vcpu.run();
         switch (reason) {
             .mmio => {
-                const ev = vcpu.mmioExit();
-                try routeMmio(vm, vcpu, devs, irqs, ev);
+                const ev = vcpu.mmio_exit();
+                try route_mmio(vm, vcpu, devs, irqs, ev);
             },
             .system_event => {
-                const ev = vcpu.systemEventExit();
+                const ev = vcpu.system_event_exit();
                 const typ: kvm.SystemEventType = @enumFromInt(ev.type);
                 if (typ == .shutdown or typ == .reset) {
                     saw_off = true;
@@ -974,20 +974,20 @@ fn runLoop(
                 var dirty_bits: ?[]u64 = null;
                 const page_count = ram.len / ram_dump.PAGE;
                 if (cfg.snapshot_path != null) {
-                    dirty_bits = vm.getDirtyLog(gpa, 0, page_count) catch |err| blk: {
+                    dirty_bits = vm.get_dirty_log(gpa, 0, page_count) catch |err| blk: {
                         std.debug.print("kvm: dirty-log read failed: {s}; writing a full RAM section\n", .{@errorName(err)});
                         break :blk null;
                     };
                 }
                 defer if (dirty_bits) |bits| gpa.free(bits);
                 const full_ram = !checkpoint_delta_mode or dirty_bits == null;
-                if (queueSnapshotWrite(&snapshot_writer_state, gpa, path, vcpu, ram, cfg, gic_fd, devs, full_ram, dirty_bits)) {
+                if (queue_snapshot_write(&snapshot_writer_state, gpa, path, vcpu, ram, cfg, gic_fd, devs, full_ram, dirty_bits)) {
                     snapshotted = true;
                     checkpoint_delta_mode = true;
-                    if (dirty_bits) |bits| vm.clearDirtyLog(0, bits, page_count);
-                    if (devs.root_blk) |b| b.clearDirty();
+                    if (dirty_bits) |bits| vm.clear_dirty_log(0, bits, page_count);
+                    if (devs.root_blk) |b| b.clear_dirty();
                     snapshot_requested.store(false, .seq_cst);
-                    waitForSnapshotResume();
+                    wait_for_snapshot_resume();
                 } else {
                     snapshot_requested.store(false, .seq_cst);
                 }
@@ -998,12 +998,12 @@ fn runLoop(
     if (exits >= cfg.max_exits) {
         std.debug.print(
             "kvm boot: RanTooLong after {d} exits. Captured serial ({d} bytes):\n{s}\n",
-            .{ exits, devs.uart.captured_len, devs.uart.capturedBytes() },
+            .{ exits, devs.uart.captured_len, devs.uart.captured_bytes() },
         );
         return error.RanTooLong;
     }
 
-    const serial = try gpa.dupe(u8, devs.uart.capturedBytes());
+    const serial = try gpa.dupe(u8, devs.uart.captured_bytes());
     return .{
         .serial = serial,
         .saw_psci_shutdown = saw_off,
@@ -1012,7 +1012,7 @@ fn runLoop(
     };
 }
 
-fn queueSnapshotWrite(
+fn queue_snapshot_write(
     writer: *vmstate_writer.Writer,
     gpa: std.mem.Allocator,
     path: []const u8,
@@ -1030,7 +1030,7 @@ fn queueSnapshotWrite(
     }
 
     std.debug.print("kvm: writing snapshot to {s}\n", .{path});
-    const job = captureSnapshotJob(gpa, path, vcpu, ram, cfg, gic_fd, devs, full_ram, dirty_bits) catch |err| {
+    const job = capture_snapshot_job(gpa, path, vcpu, ram, cfg, gic_fd, devs, full_ram, dirty_bits) catch |err| {
         std.debug.print("kvm boot: snapshot capture failed: {s}\n", .{@errorName(err)});
         return false;
     };
@@ -1039,7 +1039,7 @@ fn queueSnapshotWrite(
             "kvm: snapshot async writer spawn failed: {s}; writing synchronously\n",
             .{@errorName(err)},
         );
-        vmstate_writer.writeAndDestroy(job) catch |write_err| {
+        vmstate_writer.write_and_destroy(job) catch |write_err| {
             std.debug.print("kvm boot: snapshot write failed: {s}\n", .{@errorName(write_err)});
             return false;
         };
@@ -1063,18 +1063,18 @@ const SEEK_SET: c_int = 0;
 /// KVM register ID for a 64-bit AArch64 system register, given its
 /// 16-bit op0/op1/CRn/CRm/op2 encoding.
 /// REG_ARM64 | SIZE_U64 | ARM64_SYSREG(0x0013_0000) | encoding.
-fn kvmSysregId(enc: u16) u64 {
+fn kvm_sysreg_id(enc: u16) u64 {
     return 0x6030_0000_0013_0000 | @as(u64, enc);
 }
 
 /// KVM register ID for MPIDR_EL1 (op0=3,op1=0,CRn=0,CRm=0,op2=5).
 const KVM_REG_MPIDR_EL1: u64 = 0x6030_0000_0013_C005;
 
-fn kvmVcpuMpidr(vcpu: *kvm.Vcpu) u64 {
-    return vcpu.getReg(KVM_REG_MPIDR_EL1) catch 0;
+fn kvm_vcpu_mpidr(vcpu: *kvm.Vcpu) u64 {
+    return vcpu.get_reg(KVM_REG_MPIDR_EL1) catch 0;
 }
 
-fn captureSnapshotJob(
+fn capture_snapshot_job(
     gpa: std.mem.Allocator,
     path: []const u8,
     vcpu: *kvm.Vcpu,
@@ -1100,26 +1100,26 @@ fn captureSnapshotJob(
 
     const job = try vmstate_writer.Job.create(gpa, "kvm", path, topo.hash());
     errdefer job.destroy();
-    const a = job.arenaAllocator();
+    const a = job.arena_allocator();
 
-    const vcpu_payload = try vcpu_dump.dumpKvm(a, vcpu.fd);
+    const vcpu_payload = try vcpu_dump.dump_kvm(a, vcpu.fd);
     const ram_payload = if (full_ram)
         try ram_dump.encode(a, cfg.ram_base, ram)
     else
-        try ram_dump.encodeDelta(a, cfg.ram_base, ram, dirty_bits.?);
+        try ram_dump.encode_delta(a, cfg.ram_base, ram, dirty_bits.?);
     // GICv3 distributor + per-vCPU redistributor + CPU interface —
     // see the matching block in boot_hvf.zig for why a cross-VMM
     // restore can't resume without it.
-    const mpidr = kvmVcpuMpidr(vcpu);
-    const gic_dist_payload = try gic_state.dumpKvmDist(a, gic_fd);
-    const gic_redist_payload = try gic_state.dumpKvmRedist(a, gic_fd, mpidr);
-    const gic_cpuif_payload = try gic_state.dumpKvmCpuIf(a, gic_fd, mpidr);
+    const mpidr = kvm_vcpu_mpidr(vcpu);
+    const gic_dist_payload = try gic_state.dump_kvm_dist(a, gic_fd);
+    const gic_redist_payload = try gic_state.dump_kvm_redist(a, gic_fd, mpidr);
+    const gic_cpuif_payload = try gic_state.dump_kvm_cpu_if(a, gic_fd, mpidr);
 
     // One `.virtio` section per present device (section `id` = the
     // device's MMIO base). See boot_hvf.zig's matching block for why
     // a restored guest's virtio drivers need this.
     var vbufs: [Devices.virtio_max]*virtio.Device = undefined;
-    const vdevs = devs.virtioDevices(&vbufs);
+    const vdevs = devs.virtio_devices(&vbufs);
 
     var sections = std.ArrayList(snapshot.Section).empty;
     try sections.append(a, .{ .tag = .vcpu, .id = 0, .payload = vcpu_payload });
@@ -1128,7 +1128,7 @@ fn captureSnapshotJob(
     try sections.append(a, .{ .tag = .gic_redist, .id = 0, .payload = gic_redist_payload });
     try sections.append(a, .{ .tag = .gic_cpuif, .id = 0, .payload = gic_cpuif_payload });
     for (vdevs) |d| {
-        const vp = try virtio_dump.dumpDevice(a, d);
+        const vp = try virtio_dump.dump_device(a, d);
         try sections.append(a, .{ .tag = .virtio, .id = @truncate(d.base), .payload = vp });
     }
     // virtio-fs FUSE backend state — the nodeid→path map and the open
@@ -1141,12 +1141,12 @@ fn captureSnapshotJob(
     for (vdevs) |d| {
         if (d.id != .virtio_fs) continue;
         const backend: *virtiofs_mod.Device = @ptrCast(@alignCast(d.request_ctx.?));
-        const fp = try backend.state.dumpState(a);
+        const fp = try backend.state.dump_state(a);
         try sections.append(a, .{ .tag = .virtiofs_state, .id = @truncate(d.base), .payload = fp });
     }
     if (!full_ram) {
         if (devs.root_blk) |b| {
-            const dp = try b.encodeDirtyDelta(a);
+            const dp = try b.encode_dirty_delta(a);
             try sections.append(a, .{ .tag = .rootdisk_delta, .id = 0, .payload = dp });
         }
     }
@@ -1154,7 +1154,7 @@ fn captureSnapshotJob(
     return job;
 }
 
-fn applyRestoreFile(
+fn apply_restore_file(
     gpa: std.mem.Allocator,
     path: []const u8,
     vcpu: *kvm.Vcpu,
@@ -1193,7 +1193,7 @@ fn applyRestoreFile(
     timing.mark("read-file");
 
     // gunzip if the file is compressed; a plain .vmstate borrows `raw`.
-    const decoded = try @import("vmstate_zip.zig").decompressMaybeOwned(gpa, raw);
+    const decoded = try @import("vmstate_zip.zig").decompress_maybe_owned(gpa, raw);
     defer decoded.deinit(gpa);
     timing.mark("decompress");
 
@@ -1212,7 +1212,7 @@ fn applyRestoreFile(
     }
     timing.mark("topology-check");
 
-    const mpidr = kvmVcpuMpidr(vcpu);
+    const mpidr = kvm_vcpu_mpidr(vcpu);
 
     // GIC state is only applied when the snapshot carries a *complete*
     // picture: distributor + redistributor + a populated CPU-interface
@@ -1237,26 +1237,26 @@ fn applyRestoreFile(
     timing.mark("gic-scan");
 
     var vbufs: [Devices.virtio_max]*virtio.Device = undefined;
-    const vdevs = devs.virtioDevices(&vbufs);
+    const vdevs = devs.virtio_devices(&vbufs);
     var cpuif_applied: usize = 0;
     for (snap.sections) |s| {
-        const section_t0 = timing.sectionStart();
+        const section_t0 = timing.section_start();
         switch (s.tag) {
-            .vcpu => try vcpu_dump.loadKvm(gpa, vcpu.fd, s.payload),
+            .vcpu => try vcpu_dump.load_kvm(gpa, vcpu.fd, s.payload),
             .ram => {
                 // Reconstructs straight into the live guest RAM: zero
                 // pages are implicit, stored extents land on top.
-                _ = try ram_dump.decodeIntoZeroed(s.payload, ram);
+                _ = try ram_dump.decode_into_zeroed(s.payload, ram);
             },
             .ram_delta => {
                 // Overlay a checkpoint delta onto the RAM reconstructed
                 // from its parent section(s).
-                _ = try ram_dump.decodeDeltaInto(s.payload, ram);
+                _ = try ram_dump.decode_delta_into(s.payload, ram);
             },
-            .gic_dist => if (apply_gic) try gic_state.loadKvmDist(gpa, gic_fd, s.payload),
-            .gic_redist => if (apply_gic) try gic_state.loadKvmRedist(gpa, gic_fd, mpidr, s.payload),
+            .gic_dist => if (apply_gic) try gic_state.load_kvm_dist(gpa, gic_fd, s.payload),
+            .gic_redist => if (apply_gic) try gic_state.load_kvm_redist(gpa, gic_fd, mpidr, s.payload),
             .gic_cpuif => if (apply_gic) {
-                cpuif_applied = gic_state.loadKvmCpuIf(gpa, gic_fd, mpidr, s.payload) catch 0;
+                cpuif_applied = gic_state.load_kvm_cpu_if(gpa, gic_fd, mpidr, s.payload) catch 0;
             },
             // Restore each virtio device's transport state onto the
             // matching freshly-created device (matched by MMIO base,
@@ -1264,7 +1264,7 @@ fn applyRestoreFile(
             .virtio => {
                 for (vdevs) |d| {
                     if (@as(u32, @truncate(d.base)) == s.id) {
-                        virtio_dump.applyDevice(gpa, d, s.payload) catch |err| {
+                        virtio_dump.apply_device(gpa, d, s.payload) catch |err| {
                             std.debug.print(
                                 "kvm boot: virtio restore for base 0x{x} failed: {s}\n",
                                 .{ d.base, @errorName(err) },
@@ -1283,7 +1283,7 @@ fn applyRestoreFile(
                     if (d.id != .virtio_fs) continue;
                     if (@as(u32, @truncate(d.base)) != s.id) continue;
                     const backend: *virtiofs_mod.Device = @ptrCast(@alignCast(d.request_ctx.?));
-                    backend.state.applyState(s.payload) catch |err| {
+                    backend.state.apply_state(s.payload) catch |err| {
                         std.debug.print(
                             "kvm boot: virtio-fs state restore for base 0x{x} failed: {s}\n",
                             .{ d.base, @errorName(err) },
@@ -1315,11 +1315,11 @@ fn applyRestoreFile(
     // 100% with zero forward progress. Mirror what loadKvm parked in
     // the counter into the comparator so CNTVCT and CNTV_CVAL line up:
     // one clean tick on resume, then normal cadence.
-    const KVM_REG_ARM_TIMER_CNT = kvmSysregId(0xDF1A);
-    const KVM_REG_ARM_TIMER_CVAL = kvmSysregId(0xDF02);
-    const guest_cval = vcpu.getReg(KVM_REG_ARM_TIMER_CNT) catch 0;
+    const KVM_REG_ARM_TIMER_CNT = kvm_sysreg_id(0xDF1A);
+    const KVM_REG_ARM_TIMER_CVAL = kvm_sysreg_id(0xDF02);
+    const guest_cval = vcpu.get_reg(KVM_REG_ARM_TIMER_CNT) catch 0;
     if (guest_cval != 0) {
-        vcpu.setReg(KVM_REG_ARM_TIMER_CVAL, guest_cval) catch |err| {
+        vcpu.set_reg(KVM_REG_ARM_TIMER_CVAL, guest_cval) catch |err| {
             std.debug.print("kvm boot: timer comparator fixup failed: {s}\n", .{@errorName(err)});
         };
     }
@@ -1329,11 +1329,11 @@ fn applyRestoreFile(
     // won't resume. PC/PSTATE should match the snapshot's EL/PC; a
     // zeroed TTBR or cleared SCTLR.M means the MMU sysregs didn't
     // stick and EL0 will instruction-abort on the first fetch.
-    const pc = vcpu.getReg(kvm.REG_PC) catch 0;
-    const pstate = vcpu.getReg(kvm.REG_PSTATE) catch 0;
-    const sctlr = vcpu.getReg(kvmSysregId(0xC080)) catch 0;
-    const ttbr0 = vcpu.getReg(kvmSysregId(0xC100)) catch 0;
-    const ttbr1 = vcpu.getReg(kvmSysregId(0xC101)) catch 0;
+    const pc = vcpu.get_reg(kvm.REG_PC) catch 0;
+    const pstate = vcpu.get_reg(kvm.REG_PSTATE) catch 0;
+    const sctlr = vcpu.get_reg(kvm_sysreg_id(0xC080)) catch 0;
+    const ttbr0 = vcpu.get_reg(kvm_sysreg_id(0xC100)) catch 0;
+    const ttbr1 = vcpu.get_reg(kvm_sysreg_id(0xC101)) catch 0;
     std.debug.print(
         "kvm boot: restore readback PC=0x{x} PSTATE=0x{x} SCTLR_EL1=0x{x} TTBR0=0x{x} TTBR1=0x{x} cpuif_regs={d} timer_cval=0x{x}\n",
         .{ pc, pstate, sctlr, ttbr0, ttbr1, cpuif_applied, guest_cval },
@@ -1360,17 +1360,17 @@ const IrqMap = struct {
     fn init() IrqMap {
         var virtiofs_irqs: [MAX_VIRTIOFS_SLOTS]u32 = undefined;
         for (0..MAX_VIRTIOFS_SLOTS) |i| {
-            virtiofs_irqs[i] = kvm.irqSpi(23 + @as(u32, @intCast(i)));
+            virtiofs_irqs[i] = kvm.irq_spi(23 + @as(u32, @intCast(i)));
         }
         return .{
-            .pl011 = kvm.irqSpi(1),
-            .net = kvm.irqSpi(16),
-            .blk = kvm.irqSpi(17),
-            .vsock = kvm.irqSpi(18),
-            .blk2 = kvm.irqSpi(19),
-            .balloon = kvm.irqSpi(20),
-            .blk3 = kvm.irqSpi(21),
-            .blk4 = kvm.irqSpi(22),
+            .pl011 = kvm.irq_spi(1),
+            .net = kvm.irq_spi(16),
+            .blk = kvm.irq_spi(17),
+            .vsock = kvm.irq_spi(18),
+            .blk2 = kvm.irq_spi(19),
+            .balloon = kvm.irq_spi(20),
+            .blk3 = kvm.irq_spi(21),
+            .blk4 = kvm.irq_spi(22),
             .virtiofs = virtiofs_irqs,
         };
     }
@@ -1407,7 +1407,7 @@ const Devices = struct {
     /// populated prefix. Used by snapshot/restore to dump/apply each
     /// device's transport state — virtio-fs slots included, so a
     /// `--mount-live` VM's queue state round-trips through vmstate.
-    pub fn virtioDevices(self: *const Devices, buf: *[virtio_max]*virtio.Device) []*virtio.Device {
+    pub fn virtio_devices(self: *const Devices, buf: *[virtio_max]*virtio.Device) []*virtio.Device {
         var n: usize = 0;
         buf[n] = self.netdev;
         n += 1;
@@ -1435,7 +1435,7 @@ const Devices = struct {
 const VirtiofsMatch = struct { dev: *virtio.Device, irq: u32 };
 
 /// Find the virtio-fs slot (if any) whose MMIO window owns `phys_addr`.
-fn virtiofsMatch(devs: *const Devices, irqs: IrqMap, phys_addr: u64) ?VirtiofsMatch {
+fn virtiofs_match(devs: *const Devices, irqs: IrqMap, phys_addr: u64) ?VirtiofsMatch {
     for (devs.virtiofs_devs, irqs.virtiofs) |dev_opt, irq| {
         if (dev_opt) |d| {
             if (d.handles(phys_addr)) return .{ .dev = d, .irq = irq };
@@ -1446,7 +1446,7 @@ fn virtiofsMatch(devs: *const Devices, irqs: IrqMap, phys_addr: u64) ?VirtiofsMa
 
 /// PL011 MMIO. Console-byte writes echo to host stderr; every access
 /// resyncs the SPI line based on `irqAsserted()`.
-fn handlePl011Mmio(
+fn handle_pl011_mmio(
     vm: *kvm.Vm,
     vcpu: *kvm.Vcpu,
     uart: *pl011_mod.Pl011,
@@ -1457,24 +1457,24 @@ fn handlePl011Mmio(
 ) !void {
     assert(uart.handles(ev.phys_addr));
     if (ev.is_write != 0) {
-        const val = mmioReadValue(ev);
+        const val = mmio_read_value(ev);
         uart.write(ev.phys_addr, val);
         if ((ev.phys_addr - uart.base) == 0 and ev.len > 0) {
             const byte: [1]u8 = .{ev.data[0]};
-            _ = hostWrite(2, &byte, 1);
+            _ = host_write(2, &byte, 1);
             if (nested) poweroff.observe(byte[0]);
         }
     } else {
-        vcpu.writeMmioReadData(uart.read(ev.phys_addr), ev.len);
+        vcpu.write_mmio_read_data(uart.read(ev.phys_addr), ev.len);
     }
-    vm.setIrq(irq, if (uart.irqAsserted()) 1 else 0) catch {};
+    vm.set_irq(irq, if (uart.irq_asserted()) 1 else 0) catch {};
 }
 
 /// virtio-MMIO read/write + raise/lower the SPI based on the device's
 /// post-access interrupt_status. Shared shape across net / blk / blk2 /
 /// vsock; the callers that need cross-thread serialisation take the
 /// appropriate mutex around this call.
-fn handleVirtioMmio(
+fn handle_virtio_mmio(
     vm: *kvm.Vm,
     vcpu: *kvm.Vcpu,
     dev: *virtio.Device,
@@ -1484,16 +1484,16 @@ fn handleVirtioMmio(
     assert(dev.handles(ev.phys_addr));
     assert(irq >> kvm.KVM_ARM_IRQ_TYPE_SHIFT == kvm.KVM_ARM_IRQ_TYPE_SPI);
     if (ev.is_write != 0) {
-        dev.write(ev.phys_addr, mmioReadValue(ev));
+        dev.write(ev.phys_addr, mmio_read_value(ev));
     } else {
-        vcpu.writeMmioReadData(dev.read(ev.phys_addr), ev.len);
+        vcpu.write_mmio_read_data(dev.read(ev.phys_addr), ev.len);
     }
-    vm.setIrq(irq, if (@atomicLoad(u32, &dev.interrupt_status, .acquire) != 0) 1 else 0) catch {};
+    vm.set_irq(irq, if (@atomicLoad(u32, &dev.interrupt_status, .acquire) != 0) 1 else 0) catch {};
 }
 
 /// Route an MMIO exit to the device that owns the IPA. Each cross-
 /// thread arm wraps `handleVirtioMmio` in the appropriate mutex.
-fn routeMmio(
+fn route_mmio(
     vm: *kvm.Vm,
     vcpu: *kvm.Vcpu,
     devs: *const Devices,
@@ -1506,50 +1506,50 @@ fn routeMmio(
     assert(ev.is_write <= 1);
 
     if (devs.uart.handles(ev.phys_addr)) {
-        try handlePl011Mmio(vm, vcpu, devs.uart, ev, irqs.pl011, devs.nested, devs.nested_poweroff);
+        try handle_pl011_mmio(vm, vcpu, devs.uart, ev, irqs.pl011, devs.nested, devs.nested_poweroff);
         return;
     }
     if (devs.netdev.handles(ev.phys_addr)) {
-        try dispatchNetMmio(vm, vcpu, devs, irqs, ev);
+        try dispatch_net_mmio(vm, vcpu, devs, irqs, ev);
         return;
     }
     if (devs.blk_dev) |d| if (d.handles(ev.phys_addr)) {
-        try handleVirtioMmio(vm, vcpu, d, irqs.blk, ev);
+        try handle_virtio_mmio(vm, vcpu, d, irqs.blk, ev);
         return;
     };
     if (devs.blk2_dev) |d| if (d.handles(ev.phys_addr)) {
-        try handleVirtioMmio(vm, vcpu, d, irqs.blk2, ev);
+        try handle_virtio_mmio(vm, vcpu, d, irqs.blk2, ev);
         return;
     };
     if (devs.blk3_dev) |d| if (d.handles(ev.phys_addr)) {
-        try handleVirtioMmio(vm, vcpu, d, irqs.blk3, ev);
+        try handle_virtio_mmio(vm, vcpu, d, irqs.blk3, ev);
         return;
     };
     if (devs.blk4_dev) |d| if (d.handles(ev.phys_addr)) {
-        try handleVirtioMmio(vm, vcpu, d, irqs.blk4, ev);
+        try handle_virtio_mmio(vm, vcpu, d, irqs.blk4, ev);
         return;
     };
     if (devs.vsock_dev) |d| if (d.handles(ev.phys_addr)) {
-        try dispatchVsockMmio(vm, vcpu, devs, d, irqs.vsock, ev);
+        try dispatch_vsock_mmio(vm, vcpu, devs, d, irqs.vsock, ev);
         return;
     };
     if (devs.balloon_dev) |d| if (d.handles(ev.phys_addr)) {
-        try handleVirtioMmio(vm, vcpu, d, irqs.balloon, ev);
+        try handle_virtio_mmio(vm, vcpu, d, irqs.balloon, ev);
         return;
     };
-    if (virtiofsMatch(devs, irqs, ev.phys_addr)) |m| {
+    if (virtiofs_match(devs, irqs, ev.phys_addr)) |m| {
         // virtio-fs request handling is synchronous on the vCPU thread
         // (`handleVirtioMmio` → `dev.write` → `notify` drains the chain
         // inline through `virtiofs.Device.handleRequest`). No second
         // thread, so no mutex to take — unlike net / vsock.
-        try handleVirtioMmio(vm, vcpu, m.dev, m.irq, ev);
+        try handle_virtio_mmio(vm, vcpu, m.dev, m.irq, ev);
         return;
     }
     // Other MMIO (DTB-described regions we haven't hooked up) — for
     // reads, hand back zeros (the writeMmioReadData default on
     // untouched kvm_run bytes is already zero, but be explicit so a
     // future non-zero lingerer doesn't bite).
-    if (ev.is_write == 0) vcpu.writeMmioReadData(0, ev.len);
+    if (ev.is_write == 0) vcpu.write_mmio_read_data(0, ev.len);
 }
 
 /// Run a virtio-net MMIO event under `net_inst.irq_mu`. The RX thread
@@ -1558,16 +1558,16 @@ fn routeMmio(
 /// can't override the bridge's. No-op when `net_inst` is null (no
 /// gvproxy backend) — there is no second thread to race against, and
 /// the kernel still sees a valid virtio-net device with link-down.
-fn dispatchNetMmio(
+fn dispatch_net_mmio(
     vm: *kvm.Vm,
     vcpu: *kvm.Vcpu,
     devs: *const Devices,
     irqs: IrqMap,
     ev: kvm.MmioExit,
 ) !void {
-    if (devs.net_inst) |n| n.lockIrq();
-    defer if (devs.net_inst) |n| n.unlockIrq();
-    try handleVirtioMmio(vm, vcpu, devs.netdev, irqs.net, ev);
+    if (devs.net_inst) |n| n.lock_irq();
+    defer if (devs.net_inst) |n| n.unlock_irq();
+    try handle_virtio_mmio(vm, vcpu, devs.netdev, irqs.net, ev);
 }
 
 /// Run a virtio-vsock MMIO event under `vsock_bridge.mu`. The vCPU
@@ -1582,7 +1582,7 @@ fn dispatchNetMmio(
 /// HVF passes smoke and KVM doesn't until this lock lands.
 /// `handleTxChain` assumes the caller holds `bridge.mu` — see its
 /// docstring.
-fn dispatchVsockMmio(
+fn dispatch_vsock_mmio(
     vm: *kvm.Vm,
     vcpu: *kvm.Vcpu,
     devs: *const Devices,
@@ -1592,12 +1592,12 @@ fn dispatchVsockMmio(
 ) !void {
     if (devs.vsock_bridge) |b| b.mu.lock();
     defer if (devs.vsock_bridge) |b| b.mu.unlock();
-    try handleVirtioMmio(vm, vcpu, dev, irq, ev);
+    try handle_virtio_mmio(vm, vcpu, dev, irq, ev);
 }
 
 /// Pack the up-to-8 little-endian bytes KVM hands us in `mmio.data`
 /// into a u64 the device handlers expect.
-fn mmioReadValue(ev: kvm.MmioExit) u64 {
+fn mmio_read_value(ev: kvm.MmioExit) u64 {
     assert(ev.len >= 1 and ev.len <= 8);
     var val: u64 = 0;
     const n = @min(@as(usize, ev.len), 8);
@@ -1608,7 +1608,7 @@ fn mmioReadValue(ev: kvm.MmioExit) u64 {
     return val;
 }
 
-fn readAll(gpa: std.mem.Allocator, path: []const u8) ![]u8 {
+fn read_all(gpa: std.mem.Allocator, path: []const u8) ![]u8 {
     assert(path.len > 0);
     var path_buf: [4096]u8 = undefined;
     if (path.len >= path_buf.len) return error.NameTooLong;
@@ -1616,14 +1616,14 @@ fn readAll(gpa: std.mem.Allocator, path: []const u8) ![]u8 {
     path_buf[path.len] = 0;
     const path_z: [*:0]const u8 = @ptrCast(&path_buf);
 
-    const fd = hostOpen(path_z, 0, 0);
+    const fd = host_open(path_z, 0, 0);
     if (fd < 0) return error.OpenFailed;
     assert(fd >= 0);
-    defer _ = hostClose(fd);
+    defer _ = host_close(fd);
 
-    const size_signed = hostLseek(fd, 0, 2);
+    const size_signed = host_lseek(fd, 0, 2);
     if (size_signed < 0) return error.SeekFailed;
-    _ = hostLseek(fd, 0, 0);
+    _ = host_lseek(fd, 0, 0);
     const size_bytes: usize = @intCast(size_signed);
     assert(size_bytes > 0);
 
@@ -1631,7 +1631,7 @@ fn readAll(gpa: std.mem.Allocator, path: []const u8) ![]u8 {
     errdefer gpa.free(buf);
     var total_bytes: usize = 0;
     while (total_bytes < size_bytes) {
-        const n_bytes = hostRead(fd, buf[total_bytes..].ptr, size_bytes - total_bytes);
+        const n_bytes = host_read(fd, buf[total_bytes..].ptr, size_bytes - total_bytes);
         if (n_bytes <= 0) return error.ShortRead;
         total_bytes += @intCast(n_bytes);
     }
@@ -1649,19 +1649,19 @@ extern "c" fn getenv(name: [*:0]const u8) ?[*:0]const u8;
 
 // Rename'd because `read`/`write` collide with std method names in
 // some generic contexts; kept the extern shims unchanged.
-fn hostOpen(path: [*:0]const u8, flags: c_int, mode: c_int) c_int {
+fn host_open(path: [*:0]const u8, flags: c_int, mode: c_int) c_int {
     return open(path, flags, mode);
 }
-fn hostClose(fd: c_int) c_int {
+fn host_close(fd: c_int) c_int {
     return close(fd);
 }
-fn hostRead(fd: c_int, buf: [*]u8, count: usize) isize {
+fn host_read(fd: c_int, buf: [*]u8, count: usize) isize {
     return read(fd, buf, count);
 }
-fn hostWrite(fd: c_int, buf: [*]const u8, count: usize) isize {
+fn host_write(fd: c_int, buf: [*]const u8, count: usize) isize {
     return write(fd, buf, count);
 }
-fn hostLseek(fd: c_int, offset: i64, whence: c_int) i64 {
+fn host_lseek(fd: c_int, offset: i64, whence: c_int) i64 {
     return lseek(fd, offset, whence);
 }
 
@@ -1674,11 +1674,11 @@ pub const VsockIrqCtx = struct {
     irq: u32,
 };
 
-fn onVsockIrq(ctx: ?*anyopaque) void {
+fn on_vsock_irq(ctx: ?*anyopaque) void {
     assert(ctx != null);
     const c: *VsockIrqCtx = @ptrCast(@alignCast(ctx.?));
     assert(c.irq >> kvm.KVM_ARM_IRQ_TYPE_SHIFT == kvm.KVM_ARM_IRQ_TYPE_SPI);
-    c.vm.setIrq(c.irq, 1) catch {};
+    c.vm.set_irq(c.irq, 1) catch {};
 }
 
 /// Same shape as VsockIrqCtx, but for the virtio-net SPI. NetSocket's
@@ -1689,11 +1689,11 @@ pub const NetIrqCtx = struct {
     irq: u32,
 };
 
-fn onNetIrq(ctx: ?*anyopaque) void {
+fn on_net_irq(ctx: ?*anyopaque) void {
     assert(ctx != null);
     const c: *NetIrqCtx = @ptrCast(@alignCast(ctx.?));
     assert(c.irq >> kvm.KVM_ARM_IRQ_TYPE_SHIFT == kvm.KVM_ARM_IRQ_TYPE_SPI);
-    c.vm.setIrq(c.irq, 1) catch {};
+    c.vm.set_irq(c.irq, 1) catch {};
 }
 
 /// Pump a guest-emitted ethernet frame through to gvproxy. Called
@@ -1702,7 +1702,7 @@ fn onNetIrq(ctx: ?*anyopaque) void {
 /// been stripped by `walkAndEmit`, so we just hand the bare ethernet
 /// frame to NetSocket.input which prepends the 4-byte length prefix
 /// and writes to the gvproxy UDS.
-fn onNetTx(ctx: ?*anyopaque, frame: []const u8) void {
+fn on_net_tx(ctx: ?*anyopaque, frame: []const u8) void {
     assert(ctx != null);
     assert(frame.len > 0);
     const n: *net_mod.NetSocket = @ptrCast(@alignCast(ctx.?));
@@ -1746,7 +1746,7 @@ const kernel_fixture = "test-fixtures/Image";
 const dtb_fixture = "test-fixtures/virt.dtb";
 const initrd_fixture = "test-fixtures/initramfs.cpio";
 
-fn fixturesPresent() bool {
+fn fixtures_present() bool {
     inline for (.{ kernel_fixture, dtb_fixture, initrd_fixture }) |p| {
         var buf: [4096]u8 = undefined;
         if (p.len >= buf.len) return false;
@@ -1772,7 +1772,7 @@ test "KVM: boot a real arm64 Linux kernel" {
         std.debug.print("skip: /dev/kvm not readable\n", .{});
         return;
     }
-    if (!fixturesPresent()) {
+    if (!fixtures_present()) {
         std.debug.print(
             "skip: missing {s} or {s} (run scripts/build-base-assets.sh)\n",
             .{ kernel_fixture, dtb_fixture },

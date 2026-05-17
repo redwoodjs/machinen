@@ -121,7 +121,7 @@ const OVERLAY_UPPER_MNT = "/run/.mountdisk-upper";
 const OVERLAY_UPPER_DIR = "/run/.mountdisk-upper/upper";
 const OVERLAY_WORK_DIR = "/run/.mountdisk-upper/work";
 
-fn writeStr(fd: c_int, s: []const u8) void {
+fn write_str(fd: c_int, s: []const u8) void {
     _ = write(fd, s.ptr, s.len);
 }
 
@@ -153,13 +153,13 @@ fn klog(s: []const u8) void {
     _ = write(kmsg_fd, out.ptr, out.len);
 }
 
-fn logLine(s: []const u8) void {
+fn log_line(s: []const u8) void {
     klog(s);
-    writeStr(2, s);
-    writeStr(2, "\n");
+    write_str(2, s);
+    write_str(2, "\n");
 }
 
-fn sleepMs(ms: i64) void {
+fn sleep_ms(ms: i64) void {
     var ts: timespec = .{
         .tv_sec = @divTrunc(ms, 1000),
         .tv_nsec = @mod(ms, 1000) * 1_000_000,
@@ -176,7 +176,7 @@ fn sleepMs(ms: i64) void {
 // nanosleep would keep the VMM running indefinitely — Ctrl-C from the
 // host's stdin is forwarded through to the guest where nothing reads
 // it, so the user has to pgrep+kill the VMM by hand. See issue #135.
-fn psciSystemOff() noreturn {
+fn psci_system_off() noreturn {
     if (comptime builtin.cpu.arch != .aarch64) unreachable;
     while (true) {
         asm volatile ("hvc #0"
@@ -186,45 +186,45 @@ fn psciSystemOff() noreturn {
         // PSCI SYSTEM_OFF is supposed to never return. If it does
         // (older kernel without PSCI? hypervisor refused?), fall
         // through and try again rather than spinning the CPU at 100%.
-        sleepMs(60_000);
+        sleep_ms(60_000);
     }
 }
 
-fn linuxPowerOff() noreturn {
+fn linux_power_off() noreturn {
     sync();
     _ = reboot(LINUX_REBOOT_CMD_POWER_OFF);
-    while (true) sleepMs(60_000);
+    while (true) sleep_ms(60_000);
 }
 
-fn machinenPowerOff() noreturn {
+fn machinen_power_off() noreturn {
     if (comptime builtin.cpu.arch == .aarch64) {
-        psciSystemOff();
+        psci_system_off();
     } else {
-        linuxPowerOff();
+        linux_power_off();
     }
 }
 
 fn die(msg: []const u8) noreturn {
-    logLine(msg);
+    log_line(msg);
     // Give the kernel printk + UART TX path a beat to drain so the
     // failure message reaches the host before poweroff tears the VM
     // down. 100ms is overkill for a virtual UART but cheap.
-    sleepMs(100);
-    machinenPowerOff();
+    sleep_ms(100);
+    machinen_power_off();
 }
 
-fn mountIgnore(src: [*:0]const u8, dst: [*:0]const u8, fstype: [*:0]const u8) void {
+fn mount_ignore(src: [*:0]const u8, dst: [*:0]const u8, fstype: [*:0]const u8) void {
     _ = mount(src, dst, fstype, 0, null);
 }
 
-fn mkdirIgnore(path: [*:0]const u8) void {
+fn mkdir_ignore(path: [*:0]const u8) void {
     _ = mkdir(path, 0o755);
 }
 
 // Set the realtime clock from /etc/machinen-boot-epoch. mkinitramfs.ts
 // bakes the host's wall-clock epoch into the cpio at pack time; without
 // this the guest boots at 1970 and TLS / apt date checks fail.
-fn setBootClock() void {
+fn set_boot_clock() void {
     const fd = open("/etc/machinen-boot-epoch", O_RDONLY);
     if (fd < 0) return;
     defer _ = close(fd);
@@ -245,10 +245,10 @@ fn setBootClock() void {
 // (a static helper shipped in the base rootfs). Best-effort: if the
 // helper is missing or fails, log and continue — the user cmd still
 // runs, just without networking.
-fn bringUpNetwork() void {
+fn bring_up_network() void {
     const pid = fork();
     if (pid < 0) {
-        logLine("init: fork failed — skipping network bring-up");
+        log_line("init: fork failed — skipping network bring-up");
         return;
     }
     if (pid == 0) {
@@ -260,10 +260,10 @@ fn bringUpNetwork() void {
     }
     var status: c_int = 0;
     _ = waitpid(pid, &status, 0);
-    if (status != 0) logLine("init: machinen-netup exited non-zero — network may not be up");
+    if (status != 0) log_line("init: machinen-netup exited non-zero — network may not be up");
 }
 
-fn waitForConsole() c_int {
+fn wait_for_console() c_int {
     var i: u32 = 0;
     while (i < 100) : (i += 1) {
         const fd_ttyS0 = open("/dev/ttyS0", O_RDWR);
@@ -272,12 +272,12 @@ fn waitForConsole() c_int {
         if (fd >= 0) return fd;
         const fd2 = open("/dev/console", O_RDWR);
         if (fd2 >= 0) return fd2;
-        sleepMs(50);
+        sleep_ms(50);
     }
     return -1;
 }
 
-fn readConfigFile(arena: std.mem.Allocator) ![]u8 {
+fn read_config_file(arena: std.mem.Allocator) ![]u8 {
     const fd = open(CONFIG_PATH, O_RDONLY);
     if (fd < 0) return error.ConfigOpenFailed;
     defer _ = close(fd);
@@ -297,7 +297,7 @@ fn readConfigFile(arena: std.mem.Allocator) ![]u8 {
     return buf;
 }
 
-fn dupZ(arena: std.mem.Allocator, s: []const u8) ![*:0]const u8 {
+fn dup_z(arena: std.mem.Allocator, s: []const u8) ![*:0]const u8 {
     const buf = try arena.alloc(u8, s.len + 1);
     @memcpy(buf[0..s.len], s);
     buf[s.len] = 0;
@@ -328,8 +328,8 @@ const Config = struct {
     live_mounts: []LiveMount,
 };
 
-fn loadConfig(arena: std.mem.Allocator) !Config {
-    const data = try readConfigFile(arena);
+fn load_config(arena: std.mem.Allocator) !Config {
+    const data = try read_config_file(arena);
     const parsed = try std.json.parseFromSlice(std.json.Value, arena, data, .{});
     const root = parsed.value;
     if (root != .object) return error.ConfigNotObject;
@@ -344,7 +344,7 @@ fn loadConfig(arena: std.mem.Allocator) !Config {
     const argv_buf = try arena.alloc(?[*:0]const u8, cmd_arr.items.len + 1);
     for (cmd_arr.items, 0..) |item, i| {
         if (item != .string) return error.CmdItemNotString;
-        argv_buf[i] = try dupZ(arena, item.string);
+        argv_buf[i] = try dup_z(arena, item.string);
     }
     argv_buf[cmd_arr.items.len] = null;
     const argv: [*:null]const ?[*:0]const u8 = @ptrCast(argv_buf.ptr);
@@ -364,13 +364,13 @@ fn loadConfig(arena: std.mem.Allocator) !Config {
         while (it.next()) |e| {
             if (e.value_ptr.* != .string) return error.EnvValueNotString;
             const kv = try std.fmt.allocPrint(arena, "{s}={s}", .{ e.key_ptr.*, e.value_ptr.string });
-            envp_buf[env_idx] = try dupZ(arena, kv);
+            envp_buf[env_idx] = try dup_z(arena, kv);
             env_idx += 1;
             if (std.mem.eql(u8, e.key_ptr.*, "TERM")) saw_term = true;
         }
     }
     if (!saw_term) {
-        envp_buf[env_idx] = try dupZ(arena, "TERM=linux");
+        envp_buf[env_idx] = try dup_z(arena, "TERM=linux");
         env_idx += 1;
     }
     envp_buf[env_idx] = null;
@@ -380,7 +380,7 @@ fn loadConfig(arena: std.mem.Allocator) !Config {
     var cwd_z: ?[*:0]const u8 = null;
     if (obj.get("cwd")) |cwd_val| {
         if (cwd_val != .string) return error.CwdNotString;
-        cwd_z = try dupZ(arena, cwd_val.string);
+        cwd_z = try dup_z(arena, cwd_val.string);
     }
 
     // liveMounts — optional array. Each entry is `{guest: string, tag:
@@ -396,7 +396,7 @@ fn loadConfig(arena: std.mem.Allocator) !Config {
             const eobj = entry.object;
             const guest_val = eobj.get("guest") orelse return error.LiveMountMissingGuest;
             if (guest_val != .string) return error.LiveMountGuestNotString;
-            const guest_z = try dupZ(arena, guest_val.string);
+            const guest_z = try dup_z(arena, guest_val.string);
 
             const tag_val = eobj.get("tag") orelse return error.LiveMountMissingTag;
             if (tag_val != .string) return error.LiveMountTagNotString;
@@ -405,7 +405,7 @@ fn loadConfig(arena: std.mem.Allocator) !Config {
                 .guest = guest_val.string,
                 .guest_z = guest_z,
                 .tag = tag_val.string,
-                .tag_z = try dupZ(arena, tag_val.string),
+                .tag_z = try dup_z(arena, tag_val.string),
             };
         }
         live_mounts = buf;
@@ -429,12 +429,12 @@ fn loadConfig(arena: std.mem.Allocator) !Config {
 /// before returning so the user cmd sees it already populated. The
 /// virtio-fs driver is built into the kernel (CONFIG_VIRTIO_FS=y) so no
 /// module load is needed first.
-fn bringUpLiveMounts(mounts: []LiveMount) void {
+fn bring_up_live_mounts(mounts: []LiveMount) void {
     if (mounts.len == 0) return;
     for (mounts) |lm| {
         // mkdir the guest path first — a lean on-disk rootfs may not
         // carry it.
-        mkdirParents(lm.guest);
+        mkdir_parents(lm.guest);
         if (mount(lm.tag_z, lm.guest_z, "virtiofs", 0, null) != 0) {
             var buf: [256]u8 = undefined;
             const msg = std.fmt.bufPrint(
@@ -442,19 +442,19 @@ fn bringUpLiveMounts(mounts: []LiveMount) void {
                 "init: virtiofs mount {s} (tag {s}) failed",
                 .{ lm.guest, lm.tag },
             ) catch "init: virtiofs mount failed";
-            logLine(msg);
+            log_line(msg);
             continue;
         }
     }
     for (mounts) |lm| {
-        if (!waitForLiveMount(lm.guest, 5_000)) {
+        if (!wait_for_live_mount(lm.guest, 5_000)) {
             var buf: [256]u8 = undefined;
             const msg = std.fmt.bufPrint(
                 &buf,
                 "init: live mount {s} never appeared in /proc/self/mounts",
                 .{lm.guest},
             ) catch "init: live mount never appeared";
-            logLine(msg);
+            log_line(msg);
         }
     }
 }
@@ -463,16 +463,16 @@ fn bringUpLiveMounts(mounts: []LiveMount) void {
 /// mount. We parse /proc rather than statfs() because statfs() on
 /// AArch64 musl needs a struct we'd have to redeclare, while /proc
 /// parsing needs no extra bindings.
-fn waitForLiveMount(guest: []const u8, timeout_ms: i64) bool {
-    const deadline_ms = nowMs() + timeout_ms;
-    while (nowMs() < deadline_ms) {
-        if (liveMountPresent(guest)) return true;
-        sleepMs(25);
+fn wait_for_live_mount(guest: []const u8, timeout_ms: i64) bool {
+    const deadline_ms = now_ms() + timeout_ms;
+    while (now_ms() < deadline_ms) {
+        if (live_mount_present(guest)) return true;
+        sleep_ms(25);
     }
     return false;
 }
 
-fn liveMountPresent(guest: []const u8) bool {
+fn live_mount_present(guest: []const u8) bool {
     // /proc/self/mounts is fstab-like: `<src> <target> <fstype> ...`.
     // /init issues mount(src=<tag>, target=guest, fstype="virtiofs"),
     // so we check the 2nd field (target) and 3rd field (fstype). The
@@ -507,7 +507,7 @@ fn liveMountPresent(guest: []const u8) bool {
     return false;
 }
 
-fn nowMs() i64 {
+fn now_ms() i64 {
     // Simple, portable-enough elapsed source. Only used for mount wait
     // timeout; jitter is fine.
     var ts: timespec = .{ .tv_sec = 0, .tv_nsec = 0 };
@@ -528,17 +528,17 @@ fn nowMs() i64 {
 // with the existing capacity than refuse to come up. The current size
 // check via statfs(2) skips the ioctl when the fs already fills the
 // device, which is the steady-state cache-hit case.
-fn growRootdiskFs(mount_point: [*:0]const u8) void {
+fn grow_rootdisk_fs(mount_point: [*:0]const u8) void {
     const dev_fd = open(ROOTDISK_DEV, O_RDONLY);
     if (dev_fd < 0) {
-        logLine("init: rootdisk grow skip: cannot open /dev/vda");
+        log_line("init: rootdisk grow skip: cannot open /dev/vda");
         return;
     }
     defer _ = close(dev_fd);
 
     var dev_bytes: u64 = 0;
     if (ioctl(dev_fd, BLKGETSIZE64, &dev_bytes) != 0) {
-        logLine("init: rootdisk grow skip: BLKGETSIZE64 failed");
+        log_line("init: rootdisk grow skip: BLKGETSIZE64 failed");
         return;
     }
     // 4 KiB blocks — matches the materializer's `mke2fs -b 4096`.
@@ -549,7 +549,7 @@ fn growRootdiskFs(mount_point: [*:0]const u8) void {
     // an fd that points at the filesystem, not write access.
     const mount_fd = open(mount_point, O_RDONLY);
     if (mount_fd < 0) {
-        logLine("init: rootdisk grow skip: cannot open mount point");
+        log_line("init: rootdisk grow skip: cannot open mount point");
         return;
     }
     defer _ = close(mount_fd);
@@ -567,7 +567,7 @@ fn growRootdiskFs(mount_point: [*:0]const u8) void {
             "init: rootdisk grow ioctl rc={d} blocks={d} bytes={d}",
             .{ r, blocks, dev_bytes },
         ) catch "init: rootdisk grow ioctl failed";
-        logLine(msg);
+        log_line(msg);
         return;
     }
     var ok_buf: [96]u8 = undefined;
@@ -576,7 +576,7 @@ fn growRootdiskFs(mount_point: [*:0]const u8) void {
         "init: rootdisk grew to {d} 4K blocks ({d} bytes)",
         .{ blocks, dev_bytes },
     ) catch "init: rootdisk grew";
-    logLine(ok_msg);
+    log_line(ok_msg);
 }
 
 // Try to mount /dev/vda as ext4 and chroot into it. Returns true if the
@@ -600,7 +600,7 @@ fn growRootdiskFs(mount_point: [*:0]const u8) void {
 // freshly-mounted rootfs, moves /proc, /sys, /dev across, then calls
 // chroot(NEWROOT) + chdir("/"). Subsequent code runs against the
 // on-disk rootfs.
-fn tryRootDiskPivot() bool {
+fn try_root_disk_pivot() bool {
     // Wait for the device node. The kernel finishes binding /dev/vda
     // within a few tens of ms after devtmpfs mounts. Cap the wait at
     // 2s in case the device is genuinely missing (no rootDisk attached).
@@ -608,9 +608,9 @@ fn tryRootDiskPivot() bool {
     // vCPU, nanosleep parks the whole guest and the kernel's
     // deferred-probe workqueue can't progress.
     {
-        const deadline_ms = nowMs() + 2_000;
+        const deadline_ms = now_ms() + 2_000;
         var found = false;
-        while (nowMs() < deadline_ms) {
+        while (now_ms() < deadline_ms) {
             if (access(ROOTDISK_DEV, F_OK) == 0) {
                 found = true;
                 break;
@@ -618,33 +618,33 @@ fn tryRootDiskPivot() bool {
             _ = sched_yield();
         }
         if (!found) {
-            logLine("init: rootdisk skip: /dev/vda did not appear");
+            log_line("init: rootdisk skip: /dev/vda did not appear");
             return false;
         }
     }
 
-    mkdirIgnore(NEWROOT);
+    mkdir_ignore(NEWROOT);
     if (mount(ROOTDISK_DEV, NEWROOT, "ext4", 0, null) != 0) {
         // /dev/vda isn't ext4 — assume legacy CRIU scratch mode.
-        logLine("init: rootdisk skip: mount /dev/vda failed");
+        log_line("init: rootdisk skip: mount /dev/vda failed");
         return false;
     }
     if (access(ROOTFS_MARKER, F_OK) != 0) {
         // Mounted, but no machinen rootfs inside — assume CRIU scratch.
-        logLine("init: rootdisk skip: marker /sbin/machinen-supervisor missing");
+        log_line("init: rootdisk skip: marker /sbin/machinen-supervisor missing");
         _ = umount2(NEWROOT, MNT_DETACH);
         return false;
     }
 
     // Online-grow the ext4 fs to fill /dev/vda. See growRootdiskFs.
-    growRootdiskFs(NEWROOT);
+    grow_rootdisk_fs(NEWROOT);
 
     // Hand off /proc, /sys, /dev to the new root via MS_MOVE so the
     // already-mounted filesystems stay live across the chroot. mkdir
     // first in case the on-disk rootfs is too lean to ship them.
-    mkdirIgnore("/newroot/proc");
-    mkdirIgnore("/newroot/sys");
-    mkdirIgnore("/newroot/dev");
+    mkdir_ignore("/newroot/proc");
+    mkdir_ignore("/newroot/sys");
+    mkdir_ignore("/newroot/dev");
     _ = mount("/proc", "/newroot/proc", "", MS_MOVE, null);
     _ = mount("/sys", "/newroot/sys", "", MS_MOVE, null);
     _ = mount("/dev", "/newroot/dev", "", MS_MOVE, null);
@@ -652,12 +652,12 @@ fn tryRootDiskPivot() bool {
     // Carry the per-boot ephemera the cpio packed at root level. The
     // on-disk rootfs is shared across boots and intentionally doesn't
     // bake these in.
-    copyFileBest("/machinen-config.json", "/newroot/machinen-config.json");
-    copyFileBest("/etc/machinen-boot-epoch", "/newroot/etc/machinen-boot-epoch");
+    copy_file_best("/machinen-config.json", "/newroot/machinen-config.json");
+    copy_file_best("/etc/machinen-boot-epoch", "/newroot/etc/machinen-boot-epoch");
     // #272: bringUpMountDisk reads this file from /etc/ post-pivot to
     // learn which guest path the squashfs+ext4 overlay should land at.
     // Without the carry it would stay on the discarded initramfs tmpfs.
-    copyFileBest("/etc/machinen-mountdisk-guest", "/newroot/etc/machinen-mountdisk-guest");
+    copy_file_best("/etc/machinen-mountdisk-guest", "/newroot/etc/machinen-mountdisk-guest");
 
     // #272: the `--mount` payload no longer rides in the cpio. It now
     // lives on /dev/vdc (squashfs RO lower) + /dev/vdd (ext4 RW upper),
@@ -672,17 +672,17 @@ fn tryRootDiskPivot() bool {
     if (chdir("/") != 0) {
         // Same: shouldn't happen post-chroot.
     }
-    writeStr(1, "init: pivoted into /dev/vda rootfs\n");
+    write_str(1, "init: pivoted into /dev/vda rootfs\n");
     return true;
 }
 
 /// Wait up to `timeout_ms` for `path` to exist. Used to bridge the gap
 /// between modprobe and devtmpfs creating the matching device node.
-fn waitForPath(path: [*:0]const u8, timeout_ms: i64) bool {
-    const deadline_ms = nowMs() + timeout_ms;
-    while (nowMs() < deadline_ms) {
+fn wait_for_path(path: [*:0]const u8, timeout_ms: i64) bool {
+    const deadline_ms = now_ms() + timeout_ms;
+    while (now_ms() < deadline_ms) {
         if (access(path, F_OK) == 0) return true;
-        sleepMs(25);
+        sleep_ms(25);
     }
     return false;
 }
@@ -709,21 +709,21 @@ fn waitForPath(path: [*:0]const u8, timeout_ms: i64) bool {
 // fail with a clear ENOENT against /mnt/<guest>/ anyway. The
 // happy-path flow assumes the kernel ships SQUASHFS + OVERLAY_FS
 // (scripts/build-kernel-arm64.sh enforces this).
-fn bringUpMountDisk() void {
+fn bring_up_mount_disk() void {
     // 1. Guest path. Absent → no mount was requested by the runtime.
-    const guest = readGuestMountpoint() orelse return;
+    const guest = read_guest_mountpoint() orelse return;
     klog("checkpoint: mountdisk: guest path read");
 
     // 2. Identify the two virtio-blk devices. squashfs lower first,
     //    ext4 upper second.
     var lower_dev_buf: [64]u8 = undefined;
     var upper_dev_buf: [64]u8 = undefined;
-    const found = identifyMountDiskDevices(&lower_dev_buf, &upper_dev_buf, 5_000) catch {
-        logLine("init: mountdisk: device probe failed");
+    const found = identify_mount_disk_devices(&lower_dev_buf, &upper_dev_buf, 5_000) catch {
+        log_line("init: mountdisk: device probe failed");
         return;
     };
     if (!found) {
-        logLine("init: mountdisk: lower or upper device not found within 5s — skipping");
+        log_line("init: mountdisk: lower or upper device not found within 5s — skipping");
         return;
     }
     const lower_dev_z: [*:0]const u8 = @ptrCast(&lower_dev_buf[0]);
@@ -731,11 +731,11 @@ fn bringUpMountDisk() void {
     klog("checkpoint: mountdisk: devices identified");
 
     // 3. Mount squashfs RO. MS_RDONLY = 1 on Linux/musl.
-    mkdirIgnore(OVERLAY_LOWER_MNT);
+    mkdir_ignore(OVERLAY_LOWER_MNT);
     if (mount(lower_dev_z, OVERLAY_LOWER_MNT, "squashfs", 1, null) != 0) {
         var buf: [256]u8 = undefined;
         const msg = std.fmt.bufPrint(&buf, "init: mountdisk: squashfs mount failed dev={s}", .{std.mem.span(lower_dev_z)}) catch "init: mountdisk: squashfs mount failed";
-        logLine(msg);
+        log_line(msg);
         return;
     }
     klog("checkpoint: mountdisk: lower mounted");
@@ -744,29 +744,29 @@ fn bringUpMountDisk() void {
     //    options string; "discard" tells ext4 to issue VIRTIO_BLK_T_DISCARD
     //    on file deletes so the host backing file releases bytes via
     //    fallocate(PUNCH_HOLE).
-    mkdirIgnore(OVERLAY_UPPER_MNT);
+    mkdir_ignore(OVERLAY_UPPER_MNT);
     const ext4_opts: [*:0]const u8 = "discard";
     if (mount(upper_dev_z, OVERLAY_UPPER_MNT, "ext4", 0, @ptrCast(ext4_opts)) != 0) {
         // First ext4 mount on a freshly-mke2fs'd image sometimes needs
         // a no-options retry on older kernels — try once without
         // `discard` before giving up. Logged either way.
         if (mount(upper_dev_z, OVERLAY_UPPER_MNT, "ext4", 0, null) != 0) {
-            logLine("init: mountdisk: ext4 mount failed");
+            log_line("init: mountdisk: ext4 mount failed");
             _ = umount2(OVERLAY_LOWER_MNT, MNT_DETACH);
             return;
         }
-        logLine("init: mountdisk: ext4 mount succeeded only without `discard`");
+        log_line("init: mountdisk: ext4 mount succeeded only without `discard`");
     }
-    growMountDiskUpperFs(OVERLAY_UPPER_MNT, upper_dev_z);
-    mkdirIgnore(OVERLAY_UPPER_DIR);
-    mkdirIgnore(OVERLAY_WORK_DIR);
+    grow_mount_disk_upper_fs(OVERLAY_UPPER_MNT, upper_dev_z);
+    mkdir_ignore(OVERLAY_UPPER_DIR);
+    mkdir_ignore(OVERLAY_WORK_DIR);
     klog("checkpoint: mountdisk: upper mounted");
 
     // 5. mkdir -p the user's guest path, then layer the overlay on top.
     //    We walk and mkdir each segment by hand because the on-disk
     //    rootfs may not have any of these directories yet (typical:
     //    /mnt exists, /mnt/<sub> doesn't).
-    mkdirParents(guest);
+    mkdir_parents(guest);
 
     // overlayfs options string. lowerdir is the squashfs mount,
     // upperdir lives inside the ext4 mount (so writes survive
@@ -778,7 +778,7 @@ fn bringUpMountDisk() void {
         "lowerdir={s},upperdir={s},workdir={s}",
         .{ OVERLAY_LOWER_MNT, OVERLAY_UPPER_DIR, OVERLAY_WORK_DIR },
     ) catch {
-        logLine("init: mountdisk: overlay opts buffer overrun");
+        log_line("init: mountdisk: overlay opts buffer overrun");
         return;
     };
     var guest_buf: [512]u8 = undefined;
@@ -788,20 +788,20 @@ fn bringUpMountDisk() void {
     if (mount("overlay", guest_z, "overlay", 0, opts.ptr) != 0) {
         var buf: [256]u8 = undefined;
         const msg = std.fmt.bufPrint(&buf, "init: mountdisk: overlay mount failed at {s}", .{guest}) catch "init: mountdisk: overlay mount failed";
-        logLine(msg);
+        log_line(msg);
         return;
     }
     klog("checkpoint: mountdisk: overlay mounted");
 
     var ok_buf: [256]u8 = undefined;
     const ok_msg = std.fmt.bufPrint(&ok_buf, "init: mountdisk overlay live at {s}", .{guest}) catch "init: mountdisk overlay live";
-    logLine(ok_msg);
+    log_line(ok_msg);
 }
 
 /// Read /etc/machinen-mountdisk-guest into a static buffer.
 /// Returns the guest path slice (without trailing whitespace) or
 /// null when the file is absent / empty.
-fn readGuestMountpoint() ?[]const u8 {
+fn read_guest_mountpoint() ?[]const u8 {
     const Static = struct {
         var buf: [512]u8 = undefined;
     };
@@ -835,7 +835,7 @@ fn readGuestMountpoint() ?[]const u8 {
 /// scratch volume; identifying them via the negative list is simpler
 /// than holding a list of "candidate" letters that shifts with which
 /// slots happen to be populated.
-fn identifyMountDiskDevices(
+fn identify_mount_disk_devices(
     lower_buf: *[64]u8,
     upper_buf: *[64]u8,
     timeout_ms: i64,
@@ -846,8 +846,8 @@ fn identifyMountDiskDevices(
     // included as headroom in case future slots shift letters again.
     const candidates = [_][]const u8{ "/dev/vdc", "/dev/vdd", "/dev/vde", "/dev/vdf" };
 
-    const deadline_ms = nowMs() + timeout_ms;
-    while (nowMs() < deadline_ms) {
+    const deadline_ms = now_ms() + timeout_ms;
+    while (now_ms() < deadline_ms) {
         var lower_idx: ?usize = null;
         var upper_idx: ?usize = null;
         for (candidates, 0..) |c, i| {
@@ -894,7 +894,7 @@ fn identifyMountDiskDevices(
             }
         }
 
-        sleepMs(25);
+        sleep_ms(25);
     }
     return false;
 }
@@ -904,7 +904,7 @@ fn identifyMountDiskDevices(
 /// have been extended past the fs size since the last boot.
 /// Failures are logged and ignored: the caller falls back to
 /// whatever capacity the on-disk fs already has.
-fn growMountDiskUpperFs(mount_point: [*:0]const u8, dev: [*:0]const u8) void {
+fn grow_mount_disk_upper_fs(mount_point: [*:0]const u8, dev: [*:0]const u8) void {
     const dev_fd = open(dev, O_RDONLY);
     if (dev_fd < 0) return;
     defer _ = close(dev_fd);
@@ -925,7 +925,7 @@ fn growMountDiskUpperFs(mount_point: [*:0]const u8, dev: [*:0]const u8) void {
 /// mkdir -p for an absolute path. Walks from the root, mkdir-ing
 /// each segment with mode 0755. Existing dirs are tolerated. Used to
 /// stage the user's guest mountpoint before the overlay mount.
-fn mkdirParents(path: []const u8) void {
+fn mkdir_parents(path: []const u8) void {
     if (path.len == 0 or path[0] != '/') return;
     var i: usize = 1;
     while (i <= path.len) : (i += 1) {
@@ -936,7 +936,7 @@ fn mkdirParents(path: []const u8) void {
             @memcpy(seg_buf[0..i], path[0..i]);
             seg_buf[i] = 0;
             const seg_z: [*:0]const u8 = @ptrCast(&seg_buf[0]);
-            mkdirIgnore(seg_z);
+            mkdir_ignore(seg_z);
         }
     }
 }
@@ -944,11 +944,11 @@ fn mkdirParents(path: []const u8) void {
 /// Best-effort `cp src dst`. Used to bring the per-boot config + epoch
 /// files across the pivot. Failures are silent — the boot continues
 /// without them and the caller deals with the consequences.
-fn copyFileBest(src: [*:0]const u8, dst: [*:0]const u8) void {
-    copyFileWithMode(src, dst, 0o644);
+fn copy_file_best(src: [*:0]const u8, dst: [*:0]const u8) void {
+    copy_file_with_mode(src, dst, 0o644);
 }
 
-fn copyFileWithMode(src: [*:0]const u8, dst: [*:0]const u8, mode: c_uint) void {
+fn copy_file_with_mode(src: [*:0]const u8, dst: [*:0]const u8, mode: c_uint) void {
     const in_fd = open(src, O_RDONLY);
     if (in_fd < 0) return;
     defer _ = close(in_fd);
@@ -981,9 +981,9 @@ fn copyFileWithMode(src: [*:0]const u8, dst: [*:0]const u8, mode: c_uint) void {
 // failure does not abort the walk. The caller takes the resulting
 // "best-effort partial" mount as-is, mirroring copyFileBest's policy
 // for the per-boot ephemera the pivot also carries across.
-fn copyTreeBest(src: [*:0]const u8, dst: [*:0]const u8) void {
+fn copy_tree_best(src: [*:0]const u8, dst: [*:0]const u8) void {
     if (access(src, F_OK) != 0) return;
-    mkdirIgnore(dst);
+    mkdir_ignore(dst);
     const dir = opendir(src) orelse return;
     defer _ = closedir(dir);
 
@@ -1005,8 +1005,8 @@ fn copyTreeBest(src: [*:0]const u8, dst: [*:0]const u8) void {
         const dst_path = std.fmt.bufPrintZ(&dst_buf, "{s}/{s}", .{ dst_str, name }) catch continue;
 
         switch (ent.d_type) {
-            DT_DIR => copyTreeBest(src_path.ptr, dst_path.ptr),
-            DT_REG => copyFileBest(src_path.ptr, dst_path.ptr),
+            DT_DIR => copy_tree_best(src_path.ptr, dst_path.ptr),
+            DT_REG => copy_file_best(src_path.ptr, dst_path.ptr),
             DT_LNK => {
                 var tgt_buf: [4096]u8 = undefined;
                 const n = readlink(src_path.ptr, &tgt_buf, tgt_buf.len - 1);
@@ -1023,11 +1023,11 @@ fn copyTreeBest(src: [*:0]const u8, dst: [*:0]const u8) void {
 pub fn main() noreturn {
     // Basic FS mounts. Ignore failures — the kernel might have mounted
     // some already, or we might be in a stripped rootfs.
-    mkdirIgnore("/proc");
-    mkdirIgnore("/sys");
-    mountIgnore("devtmpfs", "/dev", "devtmpfs");
-    mountIgnore("proc", "/proc", "proc");
-    mountIgnore("sysfs", "/sys", "sysfs");
+    mkdir_ignore("/proc");
+    mkdir_ignore("/sys");
+    mount_ignore("devtmpfs", "/dev", "devtmpfs");
+    mount_ignore("proc", "/proc", "proc");
+    mount_ignore("sysfs", "/sys", "sysfs");
     // /dev/pts is the slave-side namespace for pseudoterminals.
     // Without it, anything that allocates a PTY pair via /dev/ptmx
     // (e.g. forkpty(3) in the exec-agent's PTY path — #133, or
@@ -1035,8 +1035,8 @@ pub fn main() noreturn {
     // open the slave node, because the slave name /dev/pts/<n> only
     // resolves once devpts is mounted there. /dev/ptmx itself is
     // already in /dev (devtmpfs creates it).
-    mkdirIgnore("/dev/pts");
-    mountIgnore("devpts", "/dev/pts", "devpts");
+    mkdir_ignore("/dev/pts");
+    mount_ignore("devpts", "/dev/pts", "devpts");
     // Fresh tmpfs on /run, matching the systemd / Debian default.
     // Many maintainer scripts assume /run is a writable tmpfs:
     // adduser/addgroup take a flock on /run/adduser, apt parks lock
@@ -1047,11 +1047,11 @@ pub fn main() noreturn {
     // previous provision, an unexpected symlink, root-not-owning the
     // dir) breaks postinst flows mid-install. tmpfs gives every boot
     // a clean, root-owned, writable /run regardless of what's on disk.
-    mkdirIgnore("/run");
-    mountIgnore("tmpfs", "/run", "tmpfs");
+    mkdir_ignore("/run");
+    mount_ignore("tmpfs", "/run", "tmpfs");
 
     // Wire up the serial console.
-    const console = waitForConsole();
+    const console = wait_for_console();
     if (console >= 0) {
         _ = dup2(console, 0);
         _ = dup2(console, 1);
@@ -1059,7 +1059,7 @@ pub fn main() noreturn {
         if (console > 2) _ = close(console);
     }
 
-    writeStr(1, "\n=== machinen /init: reading /machinen-config.json ===\n");
+    write_str(1, "\n=== machinen /init: reading /machinen-config.json ===\n");
     // Mirror the boot banner to /dev/kmsg so post-pivot debug shows
     // both channels in dmesg / the host stderr echo. See klog() above.
     klog("=== machinen /init: reading /machinen-config.json ===");
@@ -1069,12 +1069,12 @@ pub fn main() noreturn {
     // chroot into it; subsequent setup runs against the on-disk rootfs
     // rather than the cpio-extracted tmpfs. Falls through silently to
     // the legacy path if /dev/vda isn't a rootdisk.
-    const pivoted = tryRootDiskPivot();
+    const pivoted = try_root_disk_pivot();
     klog(if (pivoted) "checkpoint: post-tryRootDiskPivot pivoted=true" else "checkpoint: post-tryRootDiskPivot pivoted=false");
 
-    setBootClock();
+    set_boot_clock();
     klog("checkpoint: post-setBootClock");
-    bringUpNetwork();
+    bring_up_network();
     klog("checkpoint: post-bringUpNetwork");
 
     // Page allocator works on musl via mmap.
@@ -1082,7 +1082,7 @@ pub fn main() noreturn {
     defer arena_state.deinit();
     const arena = arena_state.allocator();
 
-    const cfg = loadConfig(arena) catch |err| {
+    const cfg = load_config(arena) catch |err| {
         var buf: [256]u8 = undefined;
         const msg = std.fmt.bufPrint(&buf, "init: config error: {s}", .{@errorName(err)}) catch "init: config error";
         die(msg);
@@ -1093,17 +1093,17 @@ pub fn main() noreturn {
     // Goes up before live mounts and the user cmd so the user's guest
     // path is populated when their code touches it. No-op when the
     // runtime didn't pass mountdisk fds.
-    bringUpMountDisk();
+    bring_up_mount_disk();
     klog("checkpoint: post-bringUpMountDisk");
 
     // Live-share mounts go up before the user cmd so the mount points
     // are populated when user code touches them. The in-VMM virtio-fs
     // devices serve them — nothing guest-side to keep alive.
-    bringUpLiveMounts(cfg.live_mounts);
+    bring_up_live_mounts(cfg.live_mounts);
     klog("checkpoint: post-bringUpLiveMounts");
 
     if (cfg.cwd_z) |p| {
-        if (chdir(p) < 0) logLine("init: chdir failed; staying in /");
+        if (chdir(p) < 0) log_line("init: chdir failed; staying in /");
     }
 
     {
@@ -1115,7 +1115,7 @@ pub fn main() noreturn {
     // execve only returns on failure. errno is set; report it on the
     // diag channel because the tty path may have eaten the message.
     {
-        const e = errnoValue();
+        const e = errno_value();
         var buf: [256]u8 = undefined;
         const msg = std.fmt.bufPrint(&buf, "init: execve failed errno={d} path={s}", .{ e, std.mem.span(cfg.path) }) catch "init: execve failed";
         die(msg);
@@ -1128,6 +1128,6 @@ pub fn main() noreturn {
 // is missing (rootfs pivot incomplete?), EACCES (13) flags a perms
 // issue, ENOEXEC (8) means the binary is malformed, etc.
 extern "c" fn __errno_location() *c_int;
-fn errnoValue() c_int {
+fn errno_value() c_int {
     return __errno_location().*;
 }

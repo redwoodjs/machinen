@@ -134,7 +134,7 @@ pub const max_payload_bytes: usize = 4 + (dist_regs.len + redist_regs.len) * ENT
 // -- portable payload codec ---------------------------------------
 
 /// Encode an entry list into a section payload. Caller owns the bytes.
-pub fn encodePayload(allocator: std.mem.Allocator, entries: []const Entry) ![]u8 {
+pub fn encode_payload(allocator: std.mem.Allocator, entries: []const Entry) ![]u8 {
     assert(entries.len <= std.math.maxInt(u32));
 
     const total = 4 + entries.len * ENTRY_SIZE;
@@ -156,7 +156,7 @@ pub fn encodePayload(allocator: std.mem.Allocator, entries: []const Entry) ![]u8
 
 /// Decode a section payload back into an entry list. Caller owns the
 /// returned slice.
-pub fn decodePayload(allocator: std.mem.Allocator, payload: []const u8) ![]Entry {
+pub fn decode_payload(allocator: std.mem.Allocator, payload: []const u8) ![]Entry {
     if (payload.len < 4) return error.Truncated;
     const n = std.mem.readInt(u32, payload[0..4], .little);
     if (4 + @as(usize, n) * ENTRY_SIZE != payload.len) return error.Truncated;
@@ -187,7 +187,7 @@ const hvf_gic = struct {
 };
 
 /// Dump the HVF distributor register window into a portable payload.
-pub fn dumpHvfDist(allocator: std.mem.Allocator) ![]u8 {
+pub fn dump_hvf_dist(allocator: std.mem.Allocator) ![]u8 {
     if (builtin.os.tag != .macos) return error.WrongHost;
 
     var list = std.ArrayList(Entry).empty;
@@ -198,15 +198,15 @@ pub fn dumpHvfDist(allocator: std.mem.Allocator) ![]u8 {
         if (hvf_gic.hv_gic_get_distributor_reg(r.offset, &v) != 0) continue;
         try list.append(allocator, .{ .offset = r.offset, .width = r.width, .value = v });
     }
-    return encodePayload(allocator, list.items);
+    return encode_payload(allocator, list.items);
 }
 
 /// Replay a distributor payload onto the HVF GIC. Best-effort: a reg
 /// HVF rejects is skipped rather than aborting the whole restore.
-pub fn loadHvfDist(allocator: std.mem.Allocator, payload: []const u8) !void {
+pub fn load_hvf_dist(allocator: std.mem.Allocator, payload: []const u8) !void {
     if (builtin.os.tag != .macos) return error.WrongHost;
 
-    const entries = try decodePayload(allocator, payload);
+    const entries = try decode_payload(allocator, payload);
     defer allocator.free(entries);
     for (entries) |e| {
         _ = hvf_gic.hv_gic_set_distributor_reg(e.offset, e.value);
@@ -214,7 +214,7 @@ pub fn loadHvfDist(allocator: std.mem.Allocator, payload: []const u8) !void {
 }
 
 /// Dump the HVF redistributor SGI-frame registers for one vCPU.
-pub fn dumpHvfRedist(allocator: std.mem.Allocator, vcpu_handle: u64) ![]u8 {
+pub fn dump_hvf_redist(allocator: std.mem.Allocator, vcpu_handle: u64) ![]u8 {
     if (builtin.os.tag != .macos) return error.WrongHost;
 
     var list = std.ArrayList(Entry).empty;
@@ -225,14 +225,14 @@ pub fn dumpHvfRedist(allocator: std.mem.Allocator, vcpu_handle: u64) ![]u8 {
         if (hvf_gic.hv_gic_get_redistributor_reg(vcpu_handle, r.offset, &v) != 0) continue;
         try list.append(allocator, .{ .offset = r.offset, .width = r.width, .value = v });
     }
-    return encodePayload(allocator, list.items);
+    return encode_payload(allocator, list.items);
 }
 
 /// Replay a redistributor payload onto one HVF vCPU's redistributor.
-pub fn loadHvfRedist(allocator: std.mem.Allocator, vcpu_handle: u64, payload: []const u8) !void {
+pub fn load_hvf_redist(allocator: std.mem.Allocator, vcpu_handle: u64, payload: []const u8) !void {
     if (builtin.os.tag != .macos) return error.WrongHost;
 
-    const entries = try decodePayload(allocator, payload);
+    const entries = try decode_payload(allocator, payload);
     defer allocator.free(entries);
     for (entries) |e| {
         _ = hvf_gic.hv_gic_set_redistributor_reg(vcpu_handle, e.offset, e.value);
@@ -279,7 +279,7 @@ const KVM_GET_DEVICE_ATTR: c_ulong = (1 << 30) | (@as(c_ulong, @sizeOf(KvmDevice
 const KVM_DEV_ARM_VGIC_GRP_DIST_REGS: u32 = 1;
 const KVM_DEV_ARM_VGIC_GRP_REDIST_REGS: u32 = 5;
 
-fn kvmGetReg(gic_fd: c_int, group: u32, attr: u64) Error!u32 {
+fn kvm_get_reg(gic_fd: c_int, group: u32, attr: u64) Error!u32 {
     assert(gic_fd >= 0);
     var val: u32 = 0;
     var da = KvmDeviceAttr{ .flags = 0, .group = group, .attr = attr, .addr = @intFromPtr(&val) };
@@ -287,7 +287,7 @@ fn kvmGetReg(gic_fd: c_int, group: u32, attr: u64) Error!u32 {
     return val;
 }
 
-fn kvmSetReg(gic_fd: c_int, group: u32, attr: u64, val: u32) Error!void {
+fn kvm_set_reg(gic_fd: c_int, group: u32, attr: u64, val: u32) Error!void {
     assert(gic_fd >= 0);
     var v = val;
     var da = KvmDeviceAttr{ .flags = 0, .group = group, .attr = attr, .addr = @intFromPtr(&v) };
@@ -297,13 +297,13 @@ fn kvmSetReg(gic_fd: c_int, group: u32, attr: u64, val: u32) Error!void {
 /// KVM REDIST_REGS keys the redistributor by MPIDR affinity in attr
 /// bits 63:32. Aff0..2 are all our single-vCPU guest ever uses; Aff3
 /// (MPIDR bits 39:32) has no room in the 32-bit field and is dropped.
-fn redistAttr(mpidr: u64, offset: u32) u64 {
+fn redist_attr(mpidr: u64, offset: u32) u64 {
     const aff: u64 = mpidr & 0x00ff_ffff;
     return (aff << 32) | offset;
 }
 
 /// Dump the KVM distributor registers into a portable payload.
-pub fn dumpKvmDist(allocator: std.mem.Allocator, gic_fd: c_int) ![]u8 {
+pub fn dump_kvm_dist(allocator: std.mem.Allocator, gic_fd: c_int) ![]u8 {
     if (builtin.os.tag != .linux) return error.WrongHost;
     assert(gic_fd >= 0);
 
@@ -314,7 +314,7 @@ pub fn dumpKvmDist(allocator: std.mem.Allocator, gic_fd: c_int) ![]u8 {
     var first_errno: c_int = 0;
     var nonzero: usize = 0;
     for (dist_regs) |r| {
-        const v = kvmGetReg(gic_fd, KVM_DEV_ARM_VGIC_GRP_DIST_REGS, r.offset) catch {
+        const v = kvm_get_reg(gic_fd, KVM_DEV_ARM_VGIC_GRP_DIST_REGS, r.offset) catch {
             failed += 1;
             if (first_errno == 0) first_errno = errno();
             continue;
@@ -326,24 +326,24 @@ pub fn dumpKvmDist(allocator: std.mem.Allocator, gic_fd: c_int) ![]u8 {
         "gic_state.dumpKvmDist: {d}/{d} read ({d} non-zero), {d} failed (errno={d})\n",
         .{ list.items.len, dist_regs.len, nonzero, failed, first_errno },
     );
-    return encodePayload(allocator, list.items);
+    return encode_payload(allocator, list.items);
 }
 
 /// Replay a distributor payload onto the KVM GIC. Best-effort per reg.
-pub fn loadKvmDist(allocator: std.mem.Allocator, gic_fd: c_int, payload: []const u8) !void {
+pub fn load_kvm_dist(allocator: std.mem.Allocator, gic_fd: c_int, payload: []const u8) !void {
     if (builtin.os.tag != .linux) return error.WrongHost;
     assert(gic_fd >= 0);
 
-    const entries = try decodePayload(allocator, payload);
+    const entries = try decode_payload(allocator, payload);
     defer allocator.free(entries);
     for (entries) |e| {
-        kvmSetReg(gic_fd, KVM_DEV_ARM_VGIC_GRP_DIST_REGS, e.offset, @truncate(e.value)) catch {};
+        kvm_set_reg(gic_fd, KVM_DEV_ARM_VGIC_GRP_DIST_REGS, e.offset, @truncate(e.value)) catch {};
     }
 }
 
 /// Dump the KVM redistributor SGI-frame registers for one vCPU,
 /// selected by `mpidr` (the vCPU's MPIDR_EL1).
-pub fn dumpKvmRedist(allocator: std.mem.Allocator, gic_fd: c_int, mpidr: u64) ![]u8 {
+pub fn dump_kvm_redist(allocator: std.mem.Allocator, gic_fd: c_int, mpidr: u64) ![]u8 {
     if (builtin.os.tag != .linux) return error.WrongHost;
     assert(gic_fd >= 0);
 
@@ -353,7 +353,7 @@ pub fn dumpKvmRedist(allocator: std.mem.Allocator, gic_fd: c_int, mpidr: u64) ![
     var failed: usize = 0;
     var first_errno: c_int = 0;
     for (redist_regs) |r| {
-        const v = kvmGetReg(gic_fd, KVM_DEV_ARM_VGIC_GRP_REDIST_REGS, redistAttr(mpidr, r.offset)) catch {
+        const v = kvm_get_reg(gic_fd, KVM_DEV_ARM_VGIC_GRP_REDIST_REGS, redist_attr(mpidr, r.offset)) catch {
             failed += 1;
             if (first_errno == 0) first_errno = errno();
             continue;
@@ -364,18 +364,18 @@ pub fn dumpKvmRedist(allocator: std.mem.Allocator, gic_fd: c_int, mpidr: u64) ![
         "gic_state.dumpKvmRedist: {d}/{d} read, {d} failed (mpidr=0x{x} errno={d})\n",
         .{ list.items.len, redist_regs.len, failed, mpidr, first_errno },
     );
-    return encodePayload(allocator, list.items);
+    return encode_payload(allocator, list.items);
 }
 
 /// Replay a redistributor payload onto one KVM vCPU's redistributor.
-pub fn loadKvmRedist(allocator: std.mem.Allocator, gic_fd: c_int, mpidr: u64, payload: []const u8) !void {
+pub fn load_kvm_redist(allocator: std.mem.Allocator, gic_fd: c_int, mpidr: u64, payload: []const u8) !void {
     if (builtin.os.tag != .linux) return error.WrongHost;
     assert(gic_fd >= 0);
 
-    const entries = try decodePayload(allocator, payload);
+    const entries = try decode_payload(allocator, payload);
     defer allocator.free(entries);
     for (entries) |e| {
-        kvmSetReg(gic_fd, KVM_DEV_ARM_VGIC_GRP_REDIST_REGS, redistAttr(mpidr, e.offset), @truncate(e.value)) catch {};
+        kvm_set_reg(gic_fd, KVM_DEV_ARM_VGIC_GRP_REDIST_REGS, redist_attr(mpidr, e.offset), @truncate(e.value)) catch {};
     }
 }
 
@@ -412,7 +412,7 @@ const cpuif_regs = [_]CpuIfReg{
     .{ .name = "ICC_AP0R0_EL1", .enc = 0xC644 },
 };
 
-fn cpuIfRegByName(name: []const u8) ?CpuIfReg {
+fn cpu_if_reg_by_name(name: []const u8) ?CpuIfReg {
     for (cpuif_regs) |r| {
         if (std.mem.eql(u8, r.name, name)) return r;
     }
@@ -438,7 +438,7 @@ const hvf_gic_icc = struct {
 /// Dump the HVF CPU interface into a name-tagged payload via
 /// hv_gic_get_icc_reg. A reg HVF rejects is dropped rather than
 /// aborting the whole dump.
-pub fn dumpHvfCpuIf(allocator: std.mem.Allocator, vcpu_handle: u64) ![]u8 {
+pub fn dump_hvf_cpu_if(allocator: std.mem.Allocator, vcpu_handle: u64) ![]u8 {
     if (builtin.os.tag != .macos) return error.WrongHost;
 
     var entries = std.ArrayList(snapshot.VcpuEntry).empty;
@@ -454,18 +454,18 @@ pub fn dumpHvfCpuIf(allocator: std.mem.Allocator, vcpu_handle: u64) ![]u8 {
         std.mem.writeInt(u64, buf[0..8], v, .little);
         try entries.append(allocator, .{ .name = r.name, .value = buf });
     }
-    return snapshot.encodeVcpuPayload(allocator, entries.items);
+    return snapshot.encode_vcpu_payload(allocator, entries.items);
 }
 
 /// Replay a CPU-interface payload onto an HVF vCPU via
 /// hv_gic_set_icc_reg. Best-effort: a rejected reg is skipped.
-pub fn loadHvfCpuIf(allocator: std.mem.Allocator, vcpu_handle: u64, payload: []const u8) !void {
+pub fn load_hvf_cpu_if(allocator: std.mem.Allocator, vcpu_handle: u64, payload: []const u8) !void {
     if (builtin.os.tag != .macos) return error.WrongHost;
 
-    const entries = try snapshot.decodeVcpuPayload(allocator, payload);
+    const entries = try snapshot.decode_vcpu_payload(allocator, payload);
     defer allocator.free(entries);
     for (entries) |e| {
-        const r = cpuIfRegByName(e.name) orelse continue;
+        const r = cpu_if_reg_by_name(e.name) orelse continue;
         if (e.value.len != 8) continue;
         _ = hvf_gic_icc.hv_gic_set_icc_reg(vcpu_handle, r.enc, std.mem.readInt(u64, e.value[0..8], .little));
     }
@@ -494,14 +494,14 @@ const cpuif_defaults = [_]struct { enc: u16, value: u64 }{
 /// state — a current snapshot carries a real `gic_cpuif` section and
 /// `loadHvfCpuIf` replays that instead, so this only runs when no
 /// section is present.
-pub fn applyHvfCpuIfDefaults(vcpu_handle: u64) void {
+pub fn apply_hvf_cpu_if_defaults(vcpu_handle: u64) void {
     if (builtin.os.tag != .macos) return;
     for (cpuif_defaults) |r| {
         _ = hvf_gic_icc.hv_gic_set_icc_reg(vcpu_handle, r.enc, r.value);
     }
 }
 
-fn kvmGetSysreg(gic_fd: c_int, mpidr: u64, enc: u16) Error!u64 {
+fn kvm_get_sysreg(gic_fd: c_int, mpidr: u64, enc: u16) Error!u64 {
     assert(gic_fd >= 0);
     var val: u64 = 0;
     var da = KvmDeviceAttr{
@@ -514,7 +514,7 @@ fn kvmGetSysreg(gic_fd: c_int, mpidr: u64, enc: u16) Error!u64 {
     return val;
 }
 
-fn kvmSetSysreg(gic_fd: c_int, mpidr: u64, enc: u16, val: u64) Error!void {
+fn kvm_set_sysreg(gic_fd: c_int, mpidr: u64, enc: u16, val: u64) Error!void {
     assert(gic_fd >= 0);
     var v = val;
     var da = KvmDeviceAttr{
@@ -527,7 +527,7 @@ fn kvmSetSysreg(gic_fd: c_int, mpidr: u64, enc: u16, val: u64) Error!void {
 }
 
 /// Dump the KVM CPU interface for one vCPU into a name-tagged payload.
-pub fn dumpKvmCpuIf(allocator: std.mem.Allocator, gic_fd: c_int, mpidr: u64) ![]u8 {
+pub fn dump_kvm_cpu_if(allocator: std.mem.Allocator, gic_fd: c_int, mpidr: u64) ![]u8 {
     if (builtin.os.tag != .linux) return error.WrongHost;
     assert(gic_fd >= 0);
 
@@ -540,7 +540,7 @@ pub fn dumpKvmCpuIf(allocator: std.mem.Allocator, gic_fd: c_int, mpidr: u64) ![]
     var failed: usize = 0;
     var first_errno: c_int = 0;
     for (cpuif_regs) |r| {
-        const v = kvmGetSysreg(gic_fd, mpidr, r.enc) catch {
+        const v = kvm_get_sysreg(gic_fd, mpidr, r.enc) catch {
             failed += 1;
             if (first_errno == 0) first_errno = errno();
             continue;
@@ -553,23 +553,23 @@ pub fn dumpKvmCpuIf(allocator: std.mem.Allocator, gic_fd: c_int, mpidr: u64) ![]
         "gic_state.dumpKvmCpuIf: {d}/{d} read, {d} failed (mpidr=0x{x} errno={d})\n",
         .{ entries.items.len, cpuif_regs.len, failed, mpidr, first_errno },
     );
-    return snapshot.encodeVcpuPayload(allocator, entries.items);
+    return snapshot.encode_vcpu_payload(allocator, entries.items);
 }
 
 /// Replay a CPU-interface payload onto one KVM vCPU. Best-effort per
 /// register. Returns the count actually applied so the caller can
 /// tell a real capture from an empty (HVF-sourced) one.
-pub fn loadKvmCpuIf(allocator: std.mem.Allocator, gic_fd: c_int, mpidr: u64, payload: []const u8) !usize {
+pub fn load_kvm_cpu_if(allocator: std.mem.Allocator, gic_fd: c_int, mpidr: u64, payload: []const u8) !usize {
     if (builtin.os.tag != .linux) return error.WrongHost;
     assert(gic_fd >= 0);
 
-    const entries = try snapshot.decodeVcpuPayload(allocator, payload);
+    const entries = try snapshot.decode_vcpu_payload(allocator, payload);
     defer allocator.free(entries);
     var applied: usize = 0;
     for (entries) |e| {
-        const r = cpuIfRegByName(e.name) orelse continue;
+        const r = cpu_if_reg_by_name(e.name) orelse continue;
         if (e.value.len != 8) continue;
-        kvmSetSysreg(gic_fd, mpidr, r.enc, std.mem.readInt(u64, e.value[0..8], .little)) catch continue;
+        kvm_set_sysreg(gic_fd, mpidr, r.enc, std.mem.readInt(u64, e.value[0..8], .little)) catch continue;
         applied += 1;
     }
     return applied;
@@ -584,10 +584,10 @@ test "payload round-trips an entry list" {
         .{ .offset = 0x0104, .width = 4, .value = 0xdead_beef },
         .{ .offset = 0x6000, .width = 8, .value = 0x1122_3344_5566_7788 },
     };
-    const payload = try encodePayload(a, &entries);
+    const payload = try encode_payload(a, &entries);
     defer a.free(payload);
 
-    const decoded = try decodePayload(a, payload);
+    const decoded = try decode_payload(a, payload);
     defer a.free(decoded);
 
     try std.testing.expectEqual(@as(usize, 3), decoded.len);
@@ -600,22 +600,22 @@ test "payload round-trips an entry list" {
 
 test "payload round-trips an empty list" {
     const a = std.testing.allocator;
-    const payload = try encodePayload(a, &.{});
+    const payload = try encode_payload(a, &.{});
     defer a.free(payload);
     try std.testing.expectEqual(@as(usize, 4), payload.len);
 
-    const decoded = try decodePayload(a, payload);
+    const decoded = try decode_payload(a, payload);
     defer a.free(decoded);
     try std.testing.expectEqual(@as(usize, 0), decoded.len);
 }
 
 test "decode rejects a truncated payload" {
     const a = std.testing.allocator;
-    try std.testing.expectError(error.Truncated, decodePayload(a, &[_]u8{ 1, 0, 0 }));
+    try std.testing.expectError(error.Truncated, decode_payload(a, &[_]u8{ 1, 0, 0 }));
     // count says 2 entries but only one entry's worth of bytes follow.
     var buf: [4 + ENTRY_SIZE]u8 = @splat(0);
     std.mem.writeInt(u32, buf[0..4], 2, .little);
-    try std.testing.expectError(error.Truncated, decodePayload(a, &buf));
+    try std.testing.expectError(error.Truncated, decode_payload(a, &buf));
 }
 
 test "register tables are non-empty and bounded" {
@@ -633,17 +633,17 @@ test "register tables are non-empty and bounded" {
 }
 
 test "redistAttr packs mpidr affinity into bits 63:32" {
-    try std.testing.expectEqual(@as(u64, 0x10100), redistAttr(0, 0x10100));
+    try std.testing.expectEqual(@as(u64, 0x10100), redist_attr(0, 0x10100));
     // Aff3 (MPIDR bits 39:32) is dropped; Aff0..2 survive.
-    try std.testing.expectEqual(@as(u64, 0x0012_3499_0001_0080), redistAttr(0xff00_0012_3499, 0x10080));
+    try std.testing.expectEqual(@as(u64, 0x0012_3499_0001_0080), redist_attr(0xff00_0012_3499, 0x10080));
 }
 
 test "cpuif register table resolves names to ICC encodings" {
-    const grpen1 = cpuIfRegByName("ICC_IGRPEN1_EL1") orelse return error.TestExpectedEqual;
+    const grpen1 = cpu_if_reg_by_name("ICC_IGRPEN1_EL1") orelse return error.TestExpectedEqual;
     try std.testing.expectEqual(@as(u16, 0xC667), grpen1.enc);
-    const pmr = cpuIfRegByName("ICC_PMR_EL1") orelse return error.TestExpectedEqual;
+    const pmr = cpu_if_reg_by_name("ICC_PMR_EL1") orelse return error.TestExpectedEqual;
     try std.testing.expectEqual(@as(u16, 0xC230), pmr.enc);
-    try std.testing.expectEqual(@as(?CpuIfReg, null), cpuIfRegByName("NOT_A_REG"));
+    try std.testing.expectEqual(@as(?CpuIfReg, null), cpu_if_reg_by_name("NOT_A_REG"));
 }
 
 test "cpuif encodings match the hv_gic_icc_reg_t enum values" {
@@ -665,7 +665,7 @@ test "cpuif encodings match the hv_gic_icc_reg_t enum values" {
         .{ .name = "ICC_IGRPEN1_EL1", .enc = 0xc667 },
     };
     for (want) |w| {
-        const r = cpuIfRegByName(w.name) orelse return error.TestExpectedEqual;
+        const r = cpu_if_reg_by_name(w.name) orelse return error.TestExpectedEqual;
         try std.testing.expectEqual(w.enc, r.enc);
     }
 }

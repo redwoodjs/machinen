@@ -64,28 +64,28 @@ const HvVmConfigCreateFn = *const fn () callconv(.c) c.hv_vm_config_t;
 const HvVmConfigGetEl2SupportedFn = *const fn (*bool) callconv(.c) c.hv_return_t;
 const HvVmConfigSetEl2EnabledFn = *const fn (c.hv_vm_config_t, bool) callconv(.c) c.hv_return_t;
 
-fn hvfSym(comptime T: type, comptime name: [:0]const u8) ?T {
+fn hvf_sym(comptime T: type, comptime name: [:0]const u8) ?T {
     const ptr = dlsym(RTLD_DEFAULT, name.ptr) orelse return null;
     return @ptrCast(@alignCast(ptr));
 }
 
-fn vmConfigCreate() ?HvVmConfigCreateFn {
-    return hvfSym(HvVmConfigCreateFn, "hv_vm_config_create");
+fn vm_config_create() ?HvVmConfigCreateFn {
+    return hvf_sym(HvVmConfigCreateFn, "hv_vm_config_create");
 }
 
-fn vmConfigGetEl2Supported() ?HvVmConfigGetEl2SupportedFn {
-    return hvfSym(HvVmConfigGetEl2SupportedFn, "hv_vm_config_get_el2_supported");
+fn vm_config_get_el2_supported() ?HvVmConfigGetEl2SupportedFn {
+    return hvf_sym(HvVmConfigGetEl2SupportedFn, "hv_vm_config_get_el2_supported");
 }
 
-fn vmConfigSetEl2Enabled() ?HvVmConfigSetEl2EnabledFn {
-    return hvfSym(HvVmConfigSetEl2EnabledFn, "hv_vm_config_set_el2_enabled");
+fn vm_config_set_el2_enabled() ?HvVmConfigSetEl2EnabledFn {
+    return hvf_sym(HvVmConfigSetEl2EnabledFn, "hv_vm_config_set_el2_enabled");
 }
 
 /// Authoritative HVF probe for nested EL2 support. Uses dlsym so this
 /// binary still launches on macOS releases whose Hypervisor.framework
 /// lacks the macOS 15 hv_vm_config_* entry points.
-pub fn nestedSupported() bool {
-    const get_el2 = vmConfigGetEl2Supported() orelse return false;
+pub fn nested_supported() bool {
+    const get_el2 = vm_config_get_el2_supported() orelse return false;
     var supported = false;
     check(get_el2(&supported)) catch return false;
     return supported;
@@ -98,10 +98,10 @@ pub const Vm = struct {
         return .{};
     }
 
-    pub fn createNested() Error!Vm {
-        const create_config = vmConfigCreate() orelse return error.Unsupported;
-        const get_el2 = vmConfigGetEl2Supported() orelse return error.Unsupported;
-        const set_el2 = vmConfigSetEl2Enabled() orelse return error.Unsupported;
+    pub fn create_nested() Error!Vm {
+        const create_config = vm_config_create() orelse return error.Unsupported;
+        const get_el2 = vm_config_get_el2_supported() orelse return error.Unsupported;
+        const set_el2 = vm_config_set_el2_enabled() orelse return error.Unsupported;
         const config = create_config() orelse return error.NoResources;
         defer os_release(config);
         var supported = false;
@@ -328,38 +328,38 @@ pub const Gic = struct {
         try check(hv_gic_create(config));
     }
 
-    pub fn distributorAlignment() Error!usize {
+    pub fn distributor_alignment() Error!usize {
         var a: usize = 0;
         try check(hv_gic_get_distributor_base_alignment(&a));
         return a;
     }
 
-    pub fn redistributorAlignment() Error!usize {
+    pub fn redistributor_alignment() Error!usize {
         var a: usize = 0;
         try check(hv_gic_get_redistributor_base_alignment(&a));
         return a;
     }
 
-    pub fn redistributorBase(vcpu: Vcpu) Error!u64 {
+    pub fn redistributor_base(vcpu: Vcpu) Error!u64 {
         var b: u64 = 0;
         try check(hv_gic_get_redistributor_base(vcpu.handle, &b));
         assert(b != 0);
         return b;
     }
 
-    pub fn distributorSize() Error!usize {
+    pub fn distributor_size() Error!usize {
         var s: usize = 0;
         try check(hv_gic_get_distributor_size(&s));
         return s;
     }
 
-    pub fn redistributorSize() Error!usize {
+    pub fn redistributor_size() Error!usize {
         var s: usize = 0;
         try check(hv_gic_get_redistributor_size(&s));
         return s;
     }
 
-    pub fn redistributorRegionSize() Error!usize {
+    pub fn redistributor_region_size() Error!usize {
         var s: usize = 0;
         try check(hv_gic_get_redistributor_region_size(&s));
         return s;
@@ -369,30 +369,30 @@ pub const Gic = struct {
     /// Returns 0 if HVF doesn't recognize the offset — common for
     /// reserved or vendor-specific areas; matches GIC "read as zero"
     /// semantics.
-    pub fn readDistributor(offset: u32) u64 {
+    pub fn read_distributor(offset: u32) u64 {
         var v: u64 = 0;
         _ = hv_gic_get_distributor_reg(offset, &v);
         return v;
     }
 
-    pub fn writeDistributor(offset: u32, value: u64) void {
+    pub fn write_distributor(offset: u32, value: u64) void {
         _ = hv_gic_set_distributor_reg(offset, value);
     }
 
-    pub fn readRedistributor(vcpu: Vcpu, offset: u32) u64 {
+    pub fn read_redistributor(vcpu: Vcpu, offset: u32) u64 {
         var v: u64 = 0;
         _ = hv_gic_get_redistributor_reg(vcpu.handle, offset, &v);
         return v;
     }
 
-    pub fn writeRedistributor(vcpu: Vcpu, offset: u32, value: u64) void {
+    pub fn write_redistributor(vcpu: Vcpu, offset: u32, value: u64) void {
         _ = hv_gic_set_redistributor_reg(vcpu.handle, offset, value);
     }
 
     /// True when `encoding` is one of the ICC CPU-interface registers
     /// Apple exposes through hv_gic_{get,set}_icc_reg. Values are the
     /// standard arm64 op0/op1/CRn/CRm/op2 packing used by hv_sys_reg_t.
-    pub fn isIccReg(encoding: u16) bool {
+    pub fn is_icc_reg(encoding: u16) bool {
         return switch (encoding) {
             0xC230, // ICC_PMR_EL1
             0xC643, // ICC_BPR0_EL1
@@ -410,15 +410,15 @@ pub const Gic = struct {
         };
     }
 
-    pub fn readIcc(vcpu: Vcpu, encoding: u16) Error!u64 {
-        assert(isIccReg(encoding));
+    pub fn read_icc(vcpu: Vcpu, encoding: u16) Error!u64 {
+        assert(is_icc_reg(encoding));
         var v: u64 = 0;
         try check(hv_gic_get_icc_reg(vcpu.handle, encoding, &v));
         return v;
     }
 
-    pub fn writeIcc(vcpu: Vcpu, encoding: u16, value: u64) Error!void {
-        assert(isIccReg(encoding));
+    pub fn write_icc(vcpu: Vcpu, encoding: u16, value: u64) Error!void {
+        assert(is_icc_reg(encoding));
         try check(hv_gic_set_icc_reg(vcpu.handle, encoding, value));
     }
 
@@ -426,7 +426,7 @@ pub const Gic = struct {
     /// interrupt. `intid` is the GIC-absolute id (SPIs start at 32
     /// on ARM GIC; the DTS number is 0-based within SPIs, so for a
     /// device that says `interrupts = <0 1 4>` call with intid = 33).
-    pub fn setSpi(intid: u32, level: bool) Error!void {
+    pub fn set_spi(intid: u32, level: bool) Error!void {
         // SPIs start at 32 on ARM GIC; values below that hit SGI/PPI
         // ranges and silently drop on hv_gic_set_spi.
         assert(intid >= 32);
@@ -436,7 +436,7 @@ pub const Gic = struct {
     }
 
     /// Returns (base_intid, count) — the absolute GIC ID range of SPIs.
-    pub fn spiRange() Error!struct { base: u32, count: u32 } {
+    pub fn spi_range() Error!struct { base: u32, count: u32 } {
         var base: u32 = 0;
         var count: u32 = 0;
         try check(hv_gic_get_spi_interrupt_range(&base, &count));
@@ -475,31 +475,31 @@ pub const Vcpu = struct {
         _ = hv_vcpu_destroy(self.handle);
     }
 
-    pub fn setReg(self: Vcpu, reg: Reg, value: u64) Error!void {
+    pub fn set_reg(self: Vcpu, reg: Reg, value: u64) Error!void {
         try check(hv_vcpu_set_reg(self.handle, @intFromEnum(reg), value));
     }
 
-    pub fn getReg(self: Vcpu, reg: Reg) Error!u64 {
+    pub fn get_reg(self: Vcpu, reg: Reg) Error!u64 {
         var value: u64 = 0;
         try check(hv_vcpu_get_reg(self.handle, @intFromEnum(reg), &value));
         return value;
     }
 
-    pub fn setSysReg(self: Vcpu, reg: SysReg, value: u64) Error!void {
+    pub fn set_sys_reg(self: Vcpu, reg: SysReg, value: u64) Error!void {
         try check(hv_vcpu_set_sys_reg(self.handle, @intFromEnum(reg), value));
     }
 
-    pub fn getSysReg(self: Vcpu, reg: SysReg) Error!u64 {
+    pub fn get_sys_reg(self: Vcpu, reg: SysReg) Error!u64 {
         var value: u64 = 0;
         try check(hv_vcpu_get_sys_reg(self.handle, @intFromEnum(reg), &value));
         return value;
     }
 
-    pub fn setRawSysReg(self: Vcpu, encoding: u16, value: u64) Error!void {
+    pub fn set_raw_sys_reg(self: Vcpu, encoding: u16, value: u64) Error!void {
         try check(hv_vcpu_set_sys_reg(self.handle, encoding, value));
     }
 
-    pub fn getRawSysReg(self: Vcpu, encoding: u16) Error!u64 {
+    pub fn get_raw_sys_reg(self: Vcpu, encoding: u16) Error!u64 {
         var value: u64 = 0;
         try check(hv_vcpu_get_sys_reg(self.handle, encoding, &value));
         return value;
@@ -513,7 +513,7 @@ pub const Vcpu = struct {
     /// it (true) to let the guest run with the timer disabled; unmask
     /// (false) before running so an expired timer triggers a
     /// vtimer_activated exit.
-    pub fn setVtimerMask(self: Vcpu, masked: bool) Error!void {
+    pub fn set_vtimer_mask(self: Vcpu, masked: bool) Error!void {
         try check(hv_vcpu_set_vtimer_mask(self.handle, masked));
     }
 };
@@ -531,7 +531,7 @@ pub const ExceptionClass = enum(u6) {
     brk_aarch64 = 0x3C,
     _,
 
-    pub fn fromSyndrome(syndrome: u64) ExceptionClass {
+    pub fn from_syndrome(syndrome: u64) ExceptionClass {
         return @enumFromInt(@as(u6, @truncate(syndrome >> 26)));
     }
 };
@@ -549,7 +549,7 @@ pub const WaitTrap = struct {
 /// Decoded AArch64 system-register trap. Valid when ExceptionClass ==
 /// .system_register for MRS/MSR traps. `encoding` is the same 16-bit
 /// op0/op1/CRn/CRm/op2 packing HVF and KVM use everywhere else.
-pub fn isDebugSysReg(encoding: u16) bool {
+pub fn is_debug_sys_reg(encoding: u16) bool {
     // AArch64 debug register bank (DBGBVR/DBGBCR/DBGWVR/DBGWCR,
     // MDSCR/MDCCINT, and future breakpoint/watchpoint slots). Apple
     // SDKs currently name only slots 0..15, but M4/Tahoe can expose
@@ -560,13 +560,13 @@ pub fn isDebugSysReg(encoding: u16) bool {
     return encoding >= 0x8000 and encoding <= 0x80ff;
 }
 
-pub fn shouldIgnoreUnsupportedSysRegWrite(encoding: u16, value: u64) bool {
+pub fn should_ignore_unsupported_sys_reg_write(encoding: u16, value: u64) bool {
     // Linux commonly clears optional CPU state by writing xzr / 0.
     // If a future Apple CPU exposes a new optional register before
     // HVF exposes it, dropping that zero-write is safer than killing
     // the VM during early boot. Non-zero writes still fail unless the
     // register class is explicitly RAZ/WI-safe (debug regs above).
-    return value == 0 or isDebugSysReg(encoding);
+    return value == 0 or is_debug_sys_reg(encoding);
 }
 
 pub const SysRegTrap = struct {
@@ -588,20 +588,20 @@ pub const SysRegTrap = struct {
         };
     }
 
-    pub fn readSource(self: SysRegTrap, vcpu: Vcpu) Error!u64 {
+    pub fn read_source(self: SysRegTrap, vcpu: Vcpu) Error!u64 {
         assert(!self.is_read);
         assert(self.rt <= 31);
         if (self.rt == 31) return 0; // XZR
         const reg: Reg = @enumFromInt(@as(u32, self.rt));
-        return vcpu.getReg(reg);
+        return vcpu.get_reg(reg);
     }
 
-    pub fn writeTarget(self: SysRegTrap, vcpu: Vcpu, value: u64) Error!void {
+    pub fn write_target(self: SysRegTrap, vcpu: Vcpu, value: u64) Error!void {
         assert(self.is_read);
         assert(self.rt <= 31);
         if (self.rt == 31) return; // XZR
         const reg: Reg = @enumFromInt(@as(u32, self.rt));
-        try vcpu.setReg(reg, value);
+        try vcpu.set_reg(reg, value);
     }
 };
 
@@ -629,14 +629,14 @@ pub const DataAbort = struct {
 
     /// Read the guest register holding the value the guest was storing.
     /// XZR reads as 0. Out-of-range is a bug.
-    pub fn readSource(self: DataAbort, vcpu: Vcpu) Error!u64 {
+    pub fn read_source(self: DataAbort, vcpu: Vcpu) Error!u64 {
         // Only meaningful when the syndrome decoded a load/store
         // operand; otherwise srt is whatever bits happened to land.
         assert(self.isv);
         assert(self.srt <= 31);
         if (self.srt == 31) return 0; // XZR
         const reg: Reg = @enumFromInt(@as(u32, self.srt));
-        return vcpu.getReg(reg);
+        return vcpu.get_reg(reg);
     }
 };
 
@@ -699,7 +699,7 @@ pub const Psci = struct {
     /// When the vCPU exits with EC=HVC, the requested function ID
     /// is in X0. Returns null if it isn't a PSCI-shaped HVC.
     pub fn decode(vcpu: Vcpu) Error!?Function {
-        const x0 = try vcpu.getReg(.x0);
+        const x0 = try vcpu.get_reg(.x0);
         const f: Function = @enumFromInt(@as(u32, @truncate(x0)));
         return switch (f) {
             .version,
@@ -752,15 +752,15 @@ test "decode system register traps to HVF encoding" {
 }
 
 test "debug sysreg classifier includes Tahoe/M4 high breakpoint slots" {
-    try std.testing.expect(isDebugSysReg(0x8004)); // DBGBVR0_EL1
-    try std.testing.expect(isDebugSysReg(0x809c)); // DBGBVR19_EL1 on M4/Tahoe
-    try std.testing.expect(!isDebugSysReg(0xC665)); // ICC_SRE_EL1
+    try std.testing.expect(is_debug_sys_reg(0x8004)); // DBGBVR0_EL1
+    try std.testing.expect(is_debug_sys_reg(0x809c)); // DBGBVR19_EL1 on M4/Tahoe
+    try std.testing.expect(!is_debug_sys_reg(0xC665)); // ICC_SRE_EL1
 }
 
 test "unsupported sysreg write policy ignores zero writes" {
-    try std.testing.expect(shouldIgnoreUnsupportedSysRegWrite(0x809c, 0x1234)); // debug reg
-    try std.testing.expect(shouldIgnoreUnsupportedSysRegWrite(0xD123, 0)); // clear unknown optional state
-    try std.testing.expect(!shouldIgnoreUnsupportedSysRegWrite(0xD123, 1)); // non-zero unknown state
+    try std.testing.expect(should_ignore_unsupported_sys_reg_write(0x809c, 0x1234)); // debug reg
+    try std.testing.expect(should_ignore_unsupported_sys_reg_write(0xD123, 0)); // clear unknown optional state
+    try std.testing.expect(!should_ignore_unsupported_sys_reg_write(0xD123, 1)); // non-zero unknown state
 }
 
 test "hv_vm_create and destroy" {
@@ -821,7 +821,7 @@ test "map a page, run hvc #0, observe exception exit" {
     // HVF's default CPSR on arm64 starts the vCPU at EL0, so an
     // instruction fetch at guest_base would fault (IA from lower EL,
     // EC=0x20) before reaching our BRK.
-    try vcpu.setReg(.cpsr, 0x3C5);
+    try vcpu.set_reg(.cpsr, 0x3C5);
 
     // Configure SCTLR_EL1:
     //   M (bit 0)  = 0 — MMU disabled, VA = PA
@@ -829,23 +829,23 @@ test "map a page, run hvc #0, observe exception exit" {
     //                    memory type for instruction fetches when the
     //                    MMU is off; otherwise fetches are Device and
     //                    non-executable).
-    try vcpu.setSysReg(.sctlr_el1, 1 << 12);
+    try vcpu.set_sys_reg(.sctlr_el1, 1 << 12);
 
     // Point the vCPU at our instruction.
-    try vcpu.setReg(.pc, guest_base);
+    try vcpu.set_reg(.pc, guest_base);
 
     // Run. The vCPU exits immediately after executing HVC.
     try vcpu.run();
 
     // Expected exit: exception reason, EC=0x16 (HVC), PC advanced by 4.
     try std.testing.expectEqual(ExitReason.exception, vcpu.exit.reason);
-    const ec = ExceptionClass.fromSyndrome(vcpu.exit.exception.syndrome);
+    const ec = ExceptionClass.from_syndrome(vcpu.exit.exception.syndrome);
     try std.testing.expectEqual(ExceptionClass.hvc_aarch64, ec);
-    try std.testing.expectEqual(@as(u64, guest_base + 4), try vcpu.getReg(.pc));
+    try std.testing.expectEqual(@as(u64, guest_base + 4), try vcpu.get_reg(.pc));
 
     std.debug.print(
         "hvc #0 exit: EC=0x{x:0>2} (HVC), pc=0x{x} (advanced past instr)\n",
-        .{ @intFromEnum(ec), try vcpu.getReg(.pc) },
+        .{ @intFromEnum(ec), try vcpu.get_reg(.pc) },
     );
 }
 
@@ -888,9 +888,9 @@ test "run a small program and read register state" {
     const vcpu = try Vcpu.create();
     defer vcpu.destroy();
 
-    try vcpu.setReg(.cpsr, 0x3C5);
-    try vcpu.setSysReg(.sctlr_el1, 1 << 12);
-    try vcpu.setReg(.pc, guest_base);
+    try vcpu.set_reg(.cpsr, 0x3C5);
+    try vcpu.set_sys_reg(.sctlr_el1, 1 << 12);
+    try vcpu.set_reg(.pc, guest_base);
 
     try vcpu.run();
 
@@ -901,15 +901,15 @@ test "run a small program and read register state" {
     try std.testing.expectEqual(ExitReason.exception, vcpu.exit.reason);
     try std.testing.expectEqual(
         ExceptionClass.hvc_aarch64,
-        ExceptionClass.fromSyndrome(vcpu.exit.exception.syndrome),
+        ExceptionClass.from_syndrome(vcpu.exit.exception.syndrome),
     );
-    try std.testing.expectEqual(@as(u64, guest_base + 12), try vcpu.getReg(.pc));
-    try std.testing.expectEqual(@as(u64, 42), try vcpu.getReg(.x0));
-    try std.testing.expectEqual(@as(u64, 99), try vcpu.getReg(.x1));
+    try std.testing.expectEqual(@as(u64, guest_base + 12), try vcpu.get_reg(.pc));
+    try std.testing.expectEqual(@as(u64, 42), try vcpu.get_reg(.x0));
+    try std.testing.expectEqual(@as(u64, 99), try vcpu.get_reg(.x1));
 
     std.debug.print(
         "3-instr program: x0=42 x1=99 pc=0x{x}\n",
-        .{try vcpu.getReg(.pc)},
+        .{try vcpu.get_reg(.pc)},
     );
 }
 
@@ -957,9 +957,9 @@ test "catch guest store to unmapped MMIO address" {
     const vcpu = try Vcpu.create();
     defer vcpu.destroy();
 
-    try vcpu.setReg(.cpsr, 0x3C5);
-    try vcpu.setSysReg(.sctlr_el1, 1 << 12);
-    try vcpu.setReg(.pc, guest_base);
+    try vcpu.set_reg(.cpsr, 0x3C5);
+    try vcpu.set_sys_reg(.sctlr_el1, 1 << 12);
+    try vcpu.set_reg(.pc, guest_base);
 
     // Host run loop: keep running the vCPU; on data aborts, record the
     // write and step past the instruction; on HVC, we're done.
@@ -972,7 +972,7 @@ test "catch guest store to unmapped MMIO address" {
         try vcpu.run();
 
         if (vcpu.exit.reason != .exception) return error.UnexpectedExitReason;
-        const ec = ExceptionClass.fromSyndrome(vcpu.exit.exception.syndrome);
+        const ec = ExceptionClass.from_syndrome(vcpu.exit.exception.syndrome);
 
         switch (ec) {
             .hvc_aarch64 => break, // clean exit
@@ -981,13 +981,13 @@ test "catch guest store to unmapped MMIO address" {
                 try std.testing.expect(info.isv); // syndrome was actually helpful
                 if (info.is_write) {
                     mmio_addr = info.ipa;
-                    mmio_value = try info.readSource(vcpu);
+                    mmio_value = try info.read_source(vcpu);
                     mmio_writes += 1;
                 }
                 // Advance PC past the faulting instruction (all arm64
                 // instructions are 4 bytes) and resume.
-                const faulting_pc = try vcpu.getReg(.pc);
-                try vcpu.setReg(.pc, faulting_pc + 4);
+                const faulting_pc = try vcpu.get_reg(.pc);
+                try vcpu.set_reg(.pc, faulting_pc + 4);
             },
             else => return error.UnexpectedExceptionClass,
         }
@@ -1052,9 +1052,9 @@ test "guest writes bytes to PL011 UART, host captures them" {
     const vcpu = try Vcpu.create();
     defer vcpu.destroy();
 
-    try vcpu.setReg(.cpsr, 0x3C5);
-    try vcpu.setSysReg(.sctlr_el1, 1 << 12);
-    try vcpu.setReg(.pc, guest_base);
+    try vcpu.set_reg(.cpsr, 0x3C5);
+    try vcpu.set_sys_reg(.sctlr_el1, 1 << 12);
+    try vcpu.set_reg(.pc, guest_base);
 
     var uart: Pl011 = .init;
 
@@ -1063,7 +1063,7 @@ test "guest writes bytes to PL011 UART, host captures them" {
     while (iters < max_iters) : (iters += 1) {
         try vcpu.run();
         if (vcpu.exit.reason != .exception) return error.UnexpectedExitReason;
-        const ec = ExceptionClass.fromSyndrome(vcpu.exit.exception.syndrome);
+        const ec = ExceptionClass.from_syndrome(vcpu.exit.exception.syndrome);
 
         switch (ec) {
             .hvc_aarch64 => break,
@@ -1071,24 +1071,24 @@ test "guest writes bytes to PL011 UART, host captures them" {
                 const info = DataAbort.decode(vcpu.exit.exception);
                 if (uart.handles(info.ipa)) {
                     if (info.is_write) {
-                        const value = try info.readSource(vcpu);
+                        const value = try info.read_source(vcpu);
                         uart.write(info.ipa, value);
                     }
                     // (reads not exercised in this test)
                 }
                 // advance past faulting instruction
-                const pc = try vcpu.getReg(.pc);
-                try vcpu.setReg(.pc, pc + 4);
+                const pc = try vcpu.get_reg(.pc);
+                try vcpu.set_reg(.pc, pc + 4);
             },
             else => return error.UnexpectedExceptionClass,
         }
     }
     try std.testing.expect(iters < max_iters);
 
-    try std.testing.expectEqualStrings("Hi\n", uart.capturedBytes());
+    try std.testing.expectEqualStrings("Hi\n", uart.captured_bytes());
     std.debug.print(
         "PL011 captured {d} bytes: \"{s}\"",
-        .{ uart.captured_len, uart.capturedBytes() },
+        .{ uart.captured_len, uart.captured_bytes() },
     );
 }
 
@@ -1105,7 +1105,7 @@ test "guest writes bytes to PL011 UART, host captures them" {
 test "Pl011: pushRx buffers bytes and sets RX_INT in RIS" {
     var uart: Pl011 = .init;
 
-    uart.pushRx("abc");
+    uart.push_rx("abc");
     try std.testing.expectEqual(@as(usize, 3), uart.rx_len);
     try std.testing.expect((uart.ris & Pl011.RX_INT) != 0);
 }
@@ -1113,23 +1113,23 @@ test "Pl011: pushRx buffers bytes and sets RX_INT in RIS" {
 test "Pl011: irqAsserted is gated on IMSC" {
     var uart: Pl011 = .init;
 
-    uart.pushRx("x");
+    uart.push_rx("x");
     // RIS has RX_INT set, but the kernel hasn't enabled the mask yet.
-    try std.testing.expect(!uart.irqAsserted());
+    try std.testing.expect(!uart.irq_asserted());
 
     // Kernel enables RX interrupt (IMSC bit 4 = 0x10).
     uart.write(uart.base + 0x038, 0x10);
-    try std.testing.expect(uart.irqAsserted());
+    try std.testing.expect(uart.irq_asserted());
 
     // Kernel masks everything — IRQ line should drop even though bytes remain.
     uart.write(uart.base + 0x038, 0x00);
-    try std.testing.expect(!uart.irqAsserted());
+    try std.testing.expect(!uart.irq_asserted());
 }
 
 test "Pl011: ICR clears selected RIS bits, preserves RX_INT while FIFO has bytes" {
     var uart: Pl011 = .init;
 
-    uart.pushRx("y");
+    uart.push_rx("y");
     // Enable + assert: the RT (receive-timeout) bit too, so we can see
     // ICR clear it without clearing RX_INT.
     uart.ris |= (1 << 6); // RT
@@ -1145,7 +1145,7 @@ test "Pl011: ICR clears selected RIS bits, preserves RX_INT while FIFO has bytes
 test "Pl011: DR read pops a byte; RX_INT clears when FIFO drains" {
     var uart: Pl011 = .init;
 
-    uart.pushRx("hi");
+    uart.push_rx("hi");
     const a = uart.read(uart.base + 0x000); // DR
     try std.testing.expectEqual(@as(u64, 'h'), a);
     try std.testing.expect((uart.ris & Pl011.RX_INT) != 0); // still one byte left
@@ -1162,7 +1162,7 @@ test "Pl011: FR.RXFE flips with FIFO occupancy" {
     // Empty: bit 4 (RXFE) set.
     try std.testing.expect((uart.read(uart.base + 0x018) & (1 << 4)) != 0);
 
-    uart.pushRx("z");
+    uart.push_rx("z");
     // Not empty: RXFE clear.
     try std.testing.expect((uart.read(uart.base + 0x018) & (1 << 4)) == 0);
 
@@ -1245,16 +1245,16 @@ test "guest makes a PSCI SYSTEM_OFF call, host stops the run loop" {
     const vcpu = try Vcpu.create();
     defer vcpu.destroy();
 
-    try vcpu.setReg(.cpsr, 0x3C5);
-    try vcpu.setSysReg(.sctlr_el1, 1 << 12);
-    try vcpu.setReg(.pc, guest_base);
+    try vcpu.set_reg(.cpsr, 0x3C5);
+    try vcpu.set_sys_reg(.sctlr_el1, 1 << 12);
+    try vcpu.set_reg(.pc, guest_base);
 
     // Run loop: exit on PSCI SYSTEM_OFF.
     var saw_system_off = false;
     while (true) {
         try vcpu.run();
         if (vcpu.exit.reason != .exception) return error.UnexpectedExitReason;
-        const ec = ExceptionClass.fromSyndrome(vcpu.exit.exception.syndrome);
+        const ec = ExceptionClass.from_syndrome(vcpu.exit.exception.syndrome);
         if (ec != .hvc_aarch64) return error.UnexpectedExceptionClass;
 
         if (try Psci.decode(vcpu)) |f| switch (f) {

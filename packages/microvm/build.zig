@@ -196,24 +196,24 @@ pub fn build(b: *std.Build) void {
     // can actually succeed (otherwise HV_DENIED). See
     // .docs/learnings/microvm/hvf.md.
     if (target.result.os.tag == .macos) {
-        const sign_mod_tests = signWithHvfEntitlement(b, mod_tests);
+        const sign_mod_tests = sign_with_hvf_entitlement(b, mod_tests);
         run_mod_tests.step.dependOn(&sign_mod_tests.step);
 
-        const sign_exe_tests = signWithHvfEntitlement(b, exe_tests);
+        const sign_exe_tests = sign_with_hvf_entitlement(b, exe_tests);
         run_exe_tests.step.dependOn(&sign_exe_tests.step);
 
-        const sign_exe = signWithHvfEntitlement(b, exe);
+        const sign_exe = sign_with_hvf_entitlement(b, exe);
         run_cmd.step.dependOn(&sign_exe.step);
 
         // snapshot-test will eventually need the HVF entitlement (when
         // dump/load wire up — tasks #19/#22+); sign now for forward-compat.
         // Wire the sign step into the install step so `zig build` actually
         // runs it (returning the step without dependOn would orphan it).
-        const sign_snap = signWithHvfEntitlement(b, snap_exe);
+        const sign_snap = sign_with_hvf_entitlement(b, snap_exe);
         b.getInstallStep().dependOn(&sign_snap.step);
 
         // sysreg-probe creates an HVF vCPU — needs the entitlement.
-        const sign_sysreg = signWithHvfEntitlement(b, sysreg_exe);
+        const sign_sysreg = sign_with_hvf_entitlement(b, sysreg_exe);
         b.getInstallStep().dependOn(&sign_sysreg.step);
     }
 
@@ -240,7 +240,7 @@ pub fn build(b: *std.Build) void {
 /// Ad-hoc codesigns the compiled artifact with com.apple.security.hypervisor.
 /// macOS-only. Returns a Run step that consumers should depend on before
 /// executing the artifact.
-fn signWithHvfEntitlement(
+fn sign_with_hvf_entitlement(
     b: *std.Build,
     artifact: *std.Build.Step.Compile,
 ) *std.Build.Step.Run {

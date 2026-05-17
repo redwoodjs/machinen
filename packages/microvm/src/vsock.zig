@@ -55,9 +55,9 @@ const assert = std.debug.assert;
 /// place the vCPU thread tries to acquire it, which is what surfaced
 /// the bug as a kernel hang at earlycon.
 const PthreadMutex = extern struct {
-    _bytes: [64]u8 align(8) = if (builtin.os.tag == .macos) macosInit() else @splat(0),
+    _bytes: [64]u8 align(8) = if (builtin.os.tag == .macos) macos_init() else @splat(0),
 
-    fn macosInit() [64]u8 {
+    fn macos_init() [64]u8 {
         var out: [64]u8 = @splat(0);
         // sig = 0x32AAABA7 (macOS PTHREAD_MUTEX_INITIALIZER magic).
         const sig: u64 = 0x32AAABA7;
@@ -276,7 +276,7 @@ comptime {
 ///
 /// The returned slice and the path strings inside it are allocated
 /// with `gpa` and must be freed by the caller (via `freeParsed`).
-pub fn parseEnv(gpa: std.mem.Allocator, raw: []const u8) ![]PortMap {
+pub fn parse_env(gpa: std.mem.Allocator, raw: []const u8) ![]PortMap {
     var list: std.ArrayList(PortMap) = .empty;
     errdefer {
         for (list.items) |pm| gpa.free(pm.uds_path);
@@ -314,7 +314,7 @@ pub fn parseEnv(gpa: std.mem.Allocator, raw: []const u8) ![]PortMap {
     return list.toOwnedSlice(gpa);
 }
 
-pub fn freeParsed(gpa: std.mem.Allocator, parsed: []PortMap) void {
+pub fn free_parsed(gpa: std.mem.Allocator, parsed: []PortMap) void {
     for (parsed) |pm| gpa.free(pm.uds_path);
     gpa.free(parsed);
 }
@@ -394,7 +394,7 @@ test "Op and Type enums survive unknown values via catch-all" {
 ///
 /// Returns `null` if the chain is malformed (too short, header read
 /// went out of guest RAM, etc.).
-pub fn readPacket(
+pub fn read_packet(
     dev: *virtio.Device,
     q_idx: u32,
     head: u16,
@@ -414,11 +414,11 @@ pub fn readPacket(
     // (the same 32-entry policy as blk.zig and virtio's own walks)
     // and silently truncate longer chains.
     while (steps < virtio.max_chain_descriptors) : (steps += 1) {
-        const d = dev.queueDescriptor(q_idx, idx) orelse return null;
+        const d = dev.queue_descriptor(q_idx, idx) orelse return null;
         if (d.len > 0) {
             const take: usize = @min(@as(usize, d.len), scratch.len - written);
             if (take > 0) {
-                const src = dev.guestBytes(d.addr, take) orelse return null;
+                const src = dev.guest_bytes(d.addr, take) orelse return null;
                 @memcpy(scratch[written..][0..take], src);
                 written += take;
             }
@@ -445,7 +445,7 @@ pub fn readPacket(
 /// Lays down hdr.encode() followed by `body`. Returns the number of
 /// bytes written (= header_size + body.len on success), or `null` if
 /// the chain was too short to hold everything.
-pub fn writePacket(
+pub fn write_packet(
     dev: *virtio.Device,
     q_idx: u32,
     head: u16,
@@ -469,7 +469,7 @@ pub fn writePacket(
     // and treat a longer chain as "too short" to fit our packet (return
     // null) — same fail-soft as the chain-too-short branch below.
     while (steps < virtio.max_chain_descriptors) : (steps += 1) {
-        const d = dev.queueDescriptor(q_idx, idx) orelse return null;
+        const d = dev.queue_descriptor(q_idx, idx) orelse return null;
         // RX descriptors must be writable.
         if ((d.flags & virtio.VringDesc.F_WRITE) == 0) return null;
 
@@ -482,7 +482,7 @@ pub fn writePacket(
             const source: []const u8 = if (remaining_hdr.len > 0) remaining_hdr else remaining_body;
             const chunk: u32 = @intCast(@min(@as(u64, budget), source.len));
             assert(chunk > 0);
-            const dst = dev.guestBytes(d.addr + desc_off, chunk) orelse return null;
+            const dst = dev.guest_bytes(d.addr + desc_off, chunk) orelse return null;
             @memcpy(dst, source[0..chunk]);
             if (remaining_hdr.len > 0) {
                 remaining_hdr = remaining_hdr[chunk..];
@@ -551,7 +551,7 @@ test "readPacket reads a single-descriptor TX chain" {
     @memcpy(ram[0..@sizeOf(virtio.VringDesc)], std.mem.asBytes(&desc0));
 
     var scratch: [256]u8 = undefined;
-    const pkt = readPacket(&dev, Q_TX, 0, &scratch) orelse return error.TestFailed;
+    const pkt = read_packet(&dev, Q_TX, 0, &scratch) orelse return error.TestFailed;
     try std.testing.expectEqual(hdr.src_cid, pkt.hdr.src_cid);
     try std.testing.expectEqual(hdr.dst_port, pkt.hdr.dst_port);
     try std.testing.expectEqual(@as(u32, 5), pkt.hdr.len);
@@ -597,7 +597,7 @@ test "writePacket lays down hdr + body into an RX chain" {
         .fwd_cnt = 0,
     };
     const body = [_]u8{ 0xAA, 0xBB, 0xCC };
-    const n = writePacket(&dev, Q_RX, 0, hdr, &body) orelse return error.TestFailed;
+    const n = write_packet(&dev, Q_RX, 0, hdr, &body) orelse return error.TestFailed;
     try std.testing.expectEqual(@as(u32, header_size + 3), n);
 
     // Verify what the guest would see.
@@ -678,7 +678,7 @@ const SockaddrUn = extern struct {
     bytes: [110]u8 align(4) = @splat(0),
 };
 
-fn makeSockaddrUn(path: []const u8) struct { sa: SockaddrUn, len: u32 } {
+fn make_sockaddr_un(path: []const u8) struct { sa: SockaddrUn, len: u32 } {
     assert(path.len > 0);
     // Leave room for sun_len/sun_family + NUL.
     assert(path.len < 100);
@@ -703,19 +703,19 @@ fn makeSockaddrUn(path: []const u8) struct { sa: SockaddrUn, len: u32 } {
     }
 }
 
-fn setNonblocking(fd: c_int) void {
+fn set_nonblocking(fd: c_int) void {
     assert(fd >= 0);
     _ = fcntl(fd, F_SETFL, O_NONBLOCK);
 }
 
 /// Connect (blocking) to a UDS at `path`. Returns the fd on success,
 /// -1 on any failure. Caller sets nonblocking and tracks the fd.
-fn connectUds(path: [:0]const u8) c_int {
+fn connect_uds(path: [:0]const u8) c_int {
     assert(path.len > 0);
     assert(path.len < 100);
     const fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (fd < 0) return -1;
-    const made = makeSockaddrUn(path);
+    const made = make_sockaddr_un(path);
     if (connect(fd, &made.sa, made.len) != 0) {
         _ = close(fd);
         return -1;
@@ -848,7 +848,7 @@ pub const Bridge = struct {
     /// Callers handle full by closing the new fd and either sending
     /// RST (guest-initiated dial) or logging and dropping it. Must
     /// be called with `self.mu` held.
-    fn connsPush(self: *Bridge, c: Connection) ?usize {
+    fn conns_push(self: *Bridge, c: Connection) ?usize {
         assert(self.conns_len <= bridge_conns_max);
         if (self.conns_len >= bridge_conns_max) return null;
         const idx = self.conns_len;
@@ -861,7 +861,7 @@ pub const Bridge = struct {
     /// O(1); does not preserve order, which is fine since callers
     /// scan the table by `(guest_port, host_port)` not by index.
     /// Must be called with `self.mu` held.
-    fn connsSwapRemove(self: *Bridge, idx: usize) Connection {
+    fn conns_swap_remove(self: *Bridge, idx: usize) Connection {
         assert(idx < self.conns_len);
         const removed = self.conns[idx];
         self.conns_len -= 1;
@@ -887,21 +887,21 @@ pub const Bridge = struct {
             errdefer _ = close(fd);
             const yes: c_int = 1;
             _ = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, @sizeOf(c_int));
-            const made = makeSockaddrUn(pm.uds_path);
+            const made = make_sockaddr_un(pm.uds_path);
             if (bind(fd, &made.sa, made.len) != 0) return error.UdsBindFailed;
             if (listen(fd, 8) != 0) return error.UdsListenFailed;
-            setNonblocking(fd);
+            set_nonblocking(fd);
             try self.listeners.append(self.gpa, fd);
             try self.listener_port_idx.append(self.gpa, i);
         }
 
         var pipe_fds: [2]c_int = .{ -1, -1 };
         if (pipe(&pipe_fds) != 0) return error.PipeFailed;
-        setNonblocking(pipe_fds[0]);
-        setNonblocking(pipe_fds[1]);
+        set_nonblocking(pipe_fds[0]);
+        set_nonblocking(pipe_fds[1]);
         self.wake = pipe_fds;
 
-        self.thread = try std.Thread.spawn(.{}, runThread, .{self});
+        self.thread = try std.Thread.spawn(.{}, run_thread, .{self});
     }
 
     pub fn stop(self: *Bridge) !void {
@@ -920,7 +920,7 @@ pub const Bridge = struct {
         }
     }
 
-    fn runThread(self: *Bridge) void {
+    fn run_thread(self: *Bridge) void {
         // Self-pipe must be wired up by start() before this thread spawns.
         assert(self.wake[0] >= 0);
         assert(self.wake[1] >= 0);
@@ -983,8 +983,8 @@ pub const Bridge = struct {
                     const port = self.cfg.ports[port_idx].guest_port;
                     const c = accept(lfd, null, null);
                     if (c >= 0) {
-                        setNonblocking(c);
-                        self.startConnection(c, port) catch |err| {
+                        set_nonblocking(c);
+                        self.start_connection(c, port) catch |err| {
                             std.debug.print("vsock: startConnection failed: {s}\n", .{@errorName(err)});
                             _ = close(c);
                         };
@@ -1008,12 +1008,12 @@ pub const Bridge = struct {
                 };
                 if (match) |k| {
                     if ((events & POLLIN) != 0) {
-                        self.drainConnection(k) catch |err| {
+                        self.drain_connection(k) catch |err| {
                             std.debug.print("vsock: drainConnection err {s}\n", .{@errorName(err)});
-                            self.closeConnection(k);
+                            self.close_connection(k);
                         };
                     } else if ((events & (POLLERR | POLLHUP)) != 0) {
-                        self.closeConnection(k);
+                        self.close_connection(k);
                     }
                 }
                 self.mu.unlock();
@@ -1029,16 +1029,16 @@ pub const Bridge = struct {
             var k: usize = 0;
             while (k < self.conns_len) : (k += 1) {
                 if (self.conns[k].pending_rx_len == 0) continue;
-                self.drainConnection(k) catch |err| {
+                self.drain_connection(k) catch |err| {
                     std.debug.print("vsock: pending drainConnection err {s}\n", .{@errorName(err)});
-                    self.closeConnection(k);
+                    self.close_connection(k);
                 };
             }
             self.mu.unlock();
         }
     }
 
-    fn findOutbound(self: *Bridge, host_port: u32) ?[:0]const u8 {
+    fn find_outbound(self: *Bridge, host_port: u32) ?[:0]const u8 {
         for (self.cfg.ports) |pm| {
             if (pm.direction == .outbound and pm.guest_port == host_port) {
                 return pm.uds_path;
@@ -1047,7 +1047,7 @@ pub const Bridge = struct {
         return null;
     }
 
-    fn sendRst(self: *Bridge, in: VsockHdr) void {
+    fn send_rst(self: *Bridge, in: VsockHdr) void {
         const rst = VsockHdr{
             .src_cid = host_cid,
             .dst_cid = self.cfg.guest_cid,
@@ -1060,17 +1060,17 @@ pub const Bridge = struct {
             .buf_alloc = advertised_buf_alloc,
             .fwd_cnt = 0,
         };
-        _ = self.injectRx(rst, &[_]u8{});
+        _ = self.inject_rx(rst, &[_]u8{});
     }
 
     // Must be called with self.mu held.
-    fn startConnection(self: *Bridge, uds_fd: c_int, guest_port: u32) !void {
+    fn start_connection(self: *Bridge, uds_fd: c_int, guest_port: u32) !void {
         assert(uds_fd >= 0);
         assert(guest_port != 0);
         const host_port = self.next_host_port;
         self.next_host_port += 1;
         assert(host_port != 0);
-        const idx = self.connsPush(.{
+        const idx = self.conns_push(.{
             .guest_port = guest_port,
             .host_port = host_port,
             .uds_fd = uds_fd,
@@ -1090,17 +1090,17 @@ pub const Bridge = struct {
             .buf_alloc = advertised_buf_alloc,
             .fwd_cnt = 0,
         };
-        const ok = self.injectRx(hdr, &[_]u8{});
+        const ok = self.inject_rx(hdr, &[_]u8{});
         if (!ok) {
             std.debug.print("vsock: REQUEST inject failed (guest not ready?) — closing\n", .{});
-            self.closeConnection(idx);
+            self.close_connection(idx);
         }
     }
 
     /// How many more bytes the peer will accept right now. A fresh
     /// stream starts with no window info; treat zero as "send one
     /// and see" so we don't deadlock before the first packet.
-    fn peerRoom(c: *const Connection) u32 {
+    fn peer_room(c: *const Connection) u32 {
         if (c.peer_buf_alloc == 0) return 64 * 1024;
         const inflight = c.bytes_to_peer -% c.peer_fwd_cnt;
         if (inflight >= c.peer_buf_alloc) return 0;
@@ -1108,7 +1108,7 @@ pub const Bridge = struct {
     }
 
     // Must be called with self.mu held.
-    fn drainConnection(self: *Bridge, idx: usize) !void {
+    fn drain_connection(self: *Bridge, idx: usize) !void {
         assert(idx < self.conns_len);
         const c = &self.conns[idx];
         assert(c.uds_fd >= 0);
@@ -1119,7 +1119,7 @@ pub const Bridge = struct {
         // poll loop re-fires often enough that the guest will have
         // refilled the ring by some later iteration.
         if (c.pending_rx_len > 0) {
-            const room = peerRoom(c);
+            const room = peer_room(c);
             if (room == 0) {
                 c.paused = true;
                 return;
@@ -1136,7 +1136,7 @@ pub const Bridge = struct {
                 .buf_alloc = advertised_buf_alloc,
                 .fwd_cnt = c.fwd_cnt,
             };
-            if (!self.injectRx(hdr, c.pending_rx_buf[0..c.pending_rx_len])) {
+            if (!self.inject_rx(hdr, c.pending_rx_buf[0..c.pending_rx_len])) {
                 // Ring is still empty; keep the bytes parked, return,
                 // try again next poll cycle.
                 return;
@@ -1145,7 +1145,7 @@ pub const Bridge = struct {
             c.pending_rx_len = 0;
         }
 
-        const room = peerRoom(c);
+        const room = peer_room(c);
         if (room == 0) {
             c.paused = true;
             return;
@@ -1172,7 +1172,7 @@ pub const Bridge = struct {
                 .buf_alloc = advertised_buf_alloc,
                 .fwd_cnt = c.fwd_cnt,
             };
-            _ = self.injectRx(hdr, &[_]u8{});
+            _ = self.inject_rx(hdr, &[_]u8{});
             c.state = .closing;
             return;
         }
@@ -1190,7 +1190,7 @@ pub const Bridge = struct {
             .buf_alloc = advertised_buf_alloc,
             .fwd_cnt = c.fwd_cnt,
         };
-        if (self.injectRx(hdr, payload)) {
+        if (self.inject_rx(hdr, payload)) {
             c.bytes_to_peer +%= @intCast(payload.len);
             return;
         }
@@ -1203,9 +1203,9 @@ pub const Bridge = struct {
     }
 
     // Must be called with self.mu held.
-    fn closeConnection(self: *Bridge, idx: usize) void {
+    fn close_connection(self: *Bridge, idx: usize) void {
         assert(idx < self.conns_len);
-        const c = self.connsSwapRemove(idx);
+        const c = self.conns_swap_remove(idx);
         assert(c.uds_fd >= 0);
         _ = close(c.uds_fd);
     }
@@ -1214,7 +1214,7 @@ pub const Bridge = struct {
     //
     // Claim the next posted RX descriptor chain, lay down hdr+body,
     // push used, and raise the virtio IRQ.
-    fn injectRx(self: *Bridge, hdr: VsockHdr, body: []const u8) bool {
+    fn inject_rx(self: *Bridge, hdr: VsockHdr, body: []const u8) bool {
         assert(self.dev.size > 0);
         // Body is constructed on the host side; oversized means a
         // bridge-internal bug, not a guest one.
@@ -1228,17 +1228,17 @@ pub const Bridge = struct {
         // Inlining @memcpy here used to skip the barrier and let
         // weakly-ordered cores hoist the ring[idx] read above the
         // avail.idx load. See #192.
-        const avail = self.dev.readAvailHeader(q) orelse return false;
+        const avail = self.dev.read_avail_header(q) orelse return false;
         if (q.last_avail_idx == avail.idx) return false; // no buffer posted
 
         // avail.ring[slot]
         const slot: u32 = @as(u32, q.last_avail_idx) % q.num;
         const ring_off: u64 = q.driver_addr + @sizeOf(virtio.VringAvail) + @as(u64, slot) * @sizeOf(u16);
-        const ring_bytes = self.dev.guestBytes(ring_off, @sizeOf(u16)) orelse return false;
+        const ring_bytes = self.dev.guest_bytes(ring_off, @sizeOf(u16)) orelse return false;
         const head: u16 = std.mem.readInt(u16, ring_bytes[0..2], .little);
 
-        const written = writePacket(self.dev, Q_RX, head, hdr, body) orelse return false;
-        self.dev.queuePushUsed(Q_RX, head, written);
+        const written = write_packet(self.dev, Q_RX, head, hdr, body) orelse return false;
+        self.dev.queue_push_used(Q_RX, head, written);
         q.last_avail_idx +%= 1;
         _ = @atomicRmw(u32, &self.dev.interrupt_status, .Or, virtio.IRQ_USED_BUFFER, .release);
 
@@ -1256,30 +1256,30 @@ pub const Bridge = struct {
     /// mutex around vsock MMIO` doc on `Bridge`. We rely on that
     /// outer lock instead of taking it again here (PthreadMutex isn't
     /// reentrant).
-    pub fn handleTxChain(ctx: ?*anyopaque, dev: *virtio.Device, q_idx: u32, head: u16) void {
+    pub fn handle_tx_chain(ctx: ?*anyopaque, dev: *virtio.Device, q_idx: u32, head: u16) void {
         assert(ctx != null);
         assert(q_idx < virtio.max_queues);
         const self: *Bridge = @ptrCast(@alignCast(ctx.?));
         assert(self.dev == dev);
         if (q_idx != Q_TX) {
             // Event queue or unexpected: ack and move on.
-            dev.queuePushUsed(q_idx, head, 0);
+            dev.queue_push_used(q_idx, head, 0);
             return;
         }
 
         var scratch: [max_payload + header_size]u8 = undefined;
-        const pkt = readPacket(dev, q_idx, head, &scratch) orelse {
-            dev.queuePushUsed(q_idx, head, 0);
+        const pkt = read_packet(dev, q_idx, head, &scratch) orelse {
+            dev.queue_push_used(q_idx, head, 0);
             return;
         };
         const total_len: u32 = @as(u32, @intCast(header_size)) + @as(u32, @intCast(pkt.body.len));
-        dev.queuePushUsed(q_idx, head, total_len);
+        dev.queue_push_used(q_idx, head, total_len);
 
-        self.dispatchGuestPacket(pkt.hdr, pkt.body);
+        self.dispatch_guest_packet(pkt.hdr, pkt.body);
     }
 
     // Must be called with self.mu held.
-    fn dispatchGuestPacket(self: *Bridge, hdr: VsockHdr, body: []const u8) void {
+    fn dispatch_guest_packet(self: *Bridge, hdr: VsockHdr, body: []const u8) void {
         // body is the slice readPacket carved out of its scratch; the
         // caller bounded it to scratch.len = max_payload + header_size.
         assert(body.len <= max_payload);
@@ -1297,11 +1297,11 @@ pub const Bridge = struct {
             // No existing connection. If it's a REQUEST targeting an
             // outbound-mapped host port, dial the UDS and accept.
             if (op == .request) {
-                if (self.findOutbound(hdr.dst_port)) |uds_path| {
-                    const fd = connectUds(uds_path);
+                if (self.find_outbound(hdr.dst_port)) |uds_path| {
+                    const fd = connect_uds(uds_path);
                     if (fd >= 0) {
-                        setNonblocking(fd);
-                        const pushed = self.connsPush(.{
+                        set_nonblocking(fd);
+                        const pushed = self.conns_push(.{
                             .guest_port = hdr.src_port,
                             .host_port = hdr.dst_port,
                             .uds_fd = fd,
@@ -1311,7 +1311,7 @@ pub const Bridge = struct {
                         });
                         if (pushed == null) {
                             _ = close(fd);
-                            self.sendRst(hdr);
+                            self.send_rst(hdr);
                             return;
                         }
                         const resp = VsockHdr{
@@ -1326,13 +1326,13 @@ pub const Bridge = struct {
                             .buf_alloc = advertised_buf_alloc,
                             .fwd_cnt = 0,
                         };
-                        _ = self.injectRx(resp, &[_]u8{});
+                        _ = self.inject_rx(resp, &[_]u8{});
                         return;
                     }
                 }
             }
             // Unknown / unmapped stream → reject with RST.
-            self.sendRst(hdr);
+            self.send_rst(hdr);
             return;
         }
         const idx = match.?;
@@ -1340,10 +1340,10 @@ pub const Bridge = struct {
 
         // Every inbound packet carries peer window + fwd_cnt — pick them
         // up before dispatch so peerRoom() reflects the latest view.
-        const had_room = peerRoom(c) > 0;
+        const had_room = peer_room(c) > 0;
         c.peer_buf_alloc = hdr.buf_alloc;
         c.peer_fwd_cnt = hdr.fwd_cnt;
-        const has_room = peerRoom(c) > 0;
+        const has_room = peer_room(c) > 0;
         // If credit opened up, unpause so the next poll wakes the fd.
         if (c.paused and !had_room and has_room) {
             c.paused = false;
@@ -1391,14 +1391,14 @@ pub const Bridge = struct {
                 // trickles.
                 const threshold: u32 = advertised_buf_alloc / 2;
                 if ((c.fwd_cnt -% c.last_credit_fwd_cnt) >= threshold) {
-                    self.sendCreditUpdate(c);
+                    self.send_credit_update(c);
                 }
             },
             .shutdown, .rst => {
-                self.closeConnection(idx);
+                self.close_connection(idx);
             },
             .credit_request => {
-                self.sendCreditUpdate(c);
+                self.send_credit_update(c);
             },
             .credit_update => {
                 // peer_fwd_cnt already absorbed above.
@@ -1407,7 +1407,7 @@ pub const Bridge = struct {
         }
     }
 
-    fn sendCreditUpdate(self: *Bridge, c: *Connection) void {
+    fn send_credit_update(self: *Bridge, c: *Connection) void {
         assert(c.uds_fd >= 0);
         assert(c.host_port != 0);
         const credit = VsockHdr{
@@ -1422,7 +1422,7 @@ pub const Bridge = struct {
             .buf_alloc = advertised_buf_alloc,
             .fwd_cnt = c.fwd_cnt,
         };
-        if (self.injectRx(credit, &[_]u8{})) {
+        if (self.inject_rx(credit, &[_]u8{})) {
             c.last_credit_fwd_cnt = c.fwd_cnt;
         }
     }
@@ -1430,8 +1430,8 @@ pub const Bridge = struct {
 
 test "parseEnv: legacy single-entry defaults to inbound" {
     const gpa = std.testing.allocator;
-    const parsed = try parseEnv(gpa, "1234:/tmp/a.sock");
-    defer freeParsed(gpa, parsed);
+    const parsed = try parse_env(gpa, "1234:/tmp/a.sock");
+    defer free_parsed(gpa, parsed);
     try std.testing.expectEqual(@as(usize, 1), parsed.len);
     try std.testing.expectEqual(@as(u32, 1234), parsed[0].guest_port);
     try std.testing.expectEqual(Direction.inbound, parsed[0].direction);
@@ -1440,8 +1440,8 @@ test "parseEnv: legacy single-entry defaults to inbound" {
 
 test "parseEnv: in: and out: prefixes" {
     const gpa = std.testing.allocator;
-    const parsed = try parseEnv(gpa, "in:10:/tmp/i.sock,out:20:/tmp/o.sock");
-    defer freeParsed(gpa, parsed);
+    const parsed = try parse_env(gpa, "in:10:/tmp/i.sock,out:20:/tmp/o.sock");
+    defer free_parsed(gpa, parsed);
     try std.testing.expectEqual(@as(usize, 2), parsed.len);
     try std.testing.expectEqual(Direction.inbound, parsed[0].direction);
     try std.testing.expectEqual(@as(u32, 10), parsed[0].guest_port);
@@ -1451,15 +1451,15 @@ test "parseEnv: in: and out: prefixes" {
 
 test "parseEnv: rejects malformed input" {
     const gpa = std.testing.allocator;
-    try std.testing.expectError(error.MissingColon, parseEnv(gpa, "nope"));
-    try std.testing.expectError(error.BadPort, parseEnv(gpa, "abc:/tmp/x.sock"));
-    try std.testing.expectError(error.EmptyPath, parseEnv(gpa, "10:"));
+    try std.testing.expectError(error.MissingColon, parse_env(gpa, "nope"));
+    try std.testing.expectError(error.BadPort, parse_env(gpa, "abc:/tmp/x.sock"));
+    try std.testing.expectError(error.EmptyPath, parse_env(gpa, "10:"));
 }
 
 test "parseEnv: skips empty segments (trailing comma)" {
     const gpa = std.testing.allocator;
-    const parsed = try parseEnv(gpa, "1:/a.sock,,2:/b.sock,");
-    defer freeParsed(gpa, parsed);
+    const parsed = try parse_env(gpa, "1:/a.sock,,2:/b.sock,");
+    defer free_parsed(gpa, parsed);
     try std.testing.expectEqual(@as(usize, 2), parsed.len);
 }
 
@@ -1494,5 +1494,5 @@ test "writePacket fails cleanly when the chain is too short" {
         .buf_alloc = advertised_buf_alloc,
         .fwd_cnt = 0,
     };
-    try std.testing.expectEqual(@as(?u32, null), writePacket(&dev, Q_RX, 0, hdr, &[_]u8{}));
+    try std.testing.expectEqual(@as(?u32, null), write_packet(&dev, Q_RX, 0, hdr, &[_]u8{}));
 }

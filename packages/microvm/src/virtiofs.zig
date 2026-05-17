@@ -132,7 +132,7 @@ pub const Device = struct {
 
     /// The config-space slice for `virtio.Device.config`. Stable for
     /// the backend's lifetime.
-    pub fn configBytes(self: *const Device) []const u8 {
+    pub fn config_bytes(self: *const Device) []const u8 {
         return std.mem.asBytes(&self.config);
     }
 
@@ -144,7 +144,7 @@ pub const Device = struct {
     /// address, or an allocator failure all end in a zero-length used
     /// entry rather than a wedged VMM. This matches `blk.zig`'s policy
     /// — guest-driven input is never trusted to be well-formed.
-    pub fn handleRequest(ctx: ?*anyopaque, dev: *virtio.Device, q_idx: u32, head: u16) void {
+    pub fn handle_request(ctx: ?*anyopaque, dev: *virtio.Device, q_idx: u32, head: u16) void {
         assert(ctx != null);
         const self: *Device = @ptrCast(@alignCast(ctx.?));
         assert(self.state.root_abs.len > 0);
@@ -166,14 +166,14 @@ pub const Device = struct {
         // is `MAX_CHAIN_DESCRIPTORS`, sized for virtio-fs's page-per-
         // descriptor large I/O (see the constant's doc comment).
         while (steps < MAX_CHAIN_DESCRIPTORS) : (steps += 1) {
-            const d = dev.queueDescriptor(q_idx, idx) orelse break;
+            const d = dev.queue_descriptor(q_idx, idx) orelse break;
             if ((d.flags & virtio.VringDesc.F_WRITE) != 0) {
                 if (writable_count < writable.len) {
                     writable[writable_count] = d;
                     writable_count += 1;
                 }
             } else if (d.len > 0) {
-                const src = dev.guestBytes(d.addr, d.len) orelse break;
+                const src = dev.guest_bytes(d.addr, d.len) orelse break;
                 const take: usize = @min(src.len, self.req_buf.len - req_len);
                 @memcpy(self.req_buf[req_len..][0..take], src[0..take]);
                 req_len += take;
@@ -189,7 +189,7 @@ pub const Device = struct {
         // `fuse.dispatch` asserts the precondition. Ack it and move on;
         // a well-formed guest never produces this.
         if (req_len < fuse.FUSE_IN_HEADER_SIZE) {
-            dev.queuePushUsed(q_idx, head, 0);
+            dev.queue_push_used(q_idx, head, 0);
             return;
         }
 
@@ -199,11 +199,11 @@ pub const Device = struct {
         // failure inside a handler — fail-soft ack, same as a malformed
         // chain.
         const reply_opt = fuse.dispatch(&self.state, self.req_buf[0..req_len]) catch {
-            dev.queuePushUsed(q_idx, head, 0);
+            dev.queue_push_used(q_idx, head, 0);
             return;
         };
         const reply = reply_opt orelse {
-            dev.queuePushUsed(q_idx, head, 0);
+            dev.queue_push_used(q_idx, head, 0);
             return;
         };
         defer self.state.gpa.free(reply);
@@ -216,14 +216,14 @@ pub const Device = struct {
         var off: usize = 0;
         for (writable[0..writable_count]) |wd| {
             if (off >= reply.len) break;
-            const dst = dev.guestBytes(wd.addr, wd.len) orelse break;
+            const dst = dev.guest_bytes(wd.addr, wd.len) orelse break;
             const n: usize = @min(dst.len, reply.len - off);
             @memcpy(dst[0..n], reply[off..][0..n]);
             off += n;
             written += @intCast(n);
         }
         assert(off <= reply.len);
-        dev.queuePushUsed(q_idx, head, written);
+        dev.queue_push_used(q_idx, head, written);
     }
 };
 
@@ -236,7 +236,7 @@ const testing = std.testing;
 
 /// Lay out a split-ring (descriptor table, avail, used) back-to-back
 /// at offset 0 of `ram`, returning the configured Queue.
-fn testSetupRing(comptime num: u32) virtio.Queue {
+fn test_setup_ring(comptime num: u32) virtio.Queue {
     return .{
         .num = num,
         .ready = 1,
@@ -247,19 +247,19 @@ fn testSetupRing(comptime num: u32) virtio.Queue {
 }
 
 /// Write descriptor `i` of the table at ram[0].
-fn testPutDesc(ram: []u8, i: usize, d: virtio.VringDesc) void {
+fn test_put_desc(ram: []u8, i: usize, d: virtio.VringDesc) void {
     @memcpy(ram[i * @sizeOf(virtio.VringDesc) ..][0..@sizeOf(virtio.VringDesc)], std.mem.asBytes(&d));
 }
 
 /// Post descriptor `head` on the avail ring (single chain, idx 0).
-fn testPostAvail(ram: []u8, q: virtio.Queue, head: u16) void {
+fn test_post_avail(ram: []u8, q: virtio.Queue, head: u16) void {
     const avail = virtio.VringAvail{ .flags = 0, .idx = 1 };
     @memcpy(ram[q.driver_addr..][0..@sizeOf(virtio.VringAvail)], std.mem.asBytes(&avail));
     std.mem.writeInt(u16, ram[q.driver_addr + @sizeOf(virtio.VringAvail) ..][0..2], head, .little);
 }
 
 /// Read the single used-ring entry the device posted.
-fn testReadUsed(ram: []u8, q: virtio.Queue) virtio.VringUsedElem {
+fn test_read_used(ram: []u8, q: virtio.Queue) virtio.VringUsedElem {
     var elem: virtio.VringUsedElem = undefined;
     const elem_off = q.device_addr + @sizeOf(virtio.VringUsed);
     @memcpy(std.mem.asBytes(&elem), ram[elem_off..][0..@sizeOf(virtio.VringUsedElem)]);
@@ -271,7 +271,7 @@ test "FsConfig carries the mount tag and one request queue" {
     var dev = try Device.init(gpa, "machinen0", try gpa.dupe(u8, "/test-root"), true);
     defer dev.deinit();
 
-    const bytes = dev.configBytes();
+    const bytes = dev.config_bytes();
     try testing.expectEqual(@as(usize, 40), bytes.len);
     try testing.expectEqualStrings("machinen0", bytes[0..9]);
     try testing.expectEqual(@as(u8, 0), bytes[9]); // NUL-padded past the tag
@@ -290,10 +290,10 @@ test "handleRequest: FUSE_INIT round-trips through the virtqueue" {
         .id = .virtio_fs,
         .ram = &ram,
         .ram_base = 0,
-        .request_handler = &Device.handleRequest,
+        .request_handler = &Device.handle_request,
         .request_ctx = @ptrCast(&fsdev),
     };
-    const q = testSetupRing(num);
+    const q = test_setup_ring(num);
     dev.queues[1] = q;
 
     // Build a FUSE_INIT request: 40-byte in-header + 16-byte init body.
@@ -310,15 +310,15 @@ test "handleRequest: FUSE_INIT round-trips through the virtqueue" {
 
     // Descriptor 0: readable request. Descriptor 1: writable reply
     // window (chained off 0).
-    testPutDesc(&ram, 0, .{ .addr = req_off, .len = req.len, .flags = virtio.VringDesc.F_NEXT, .next = 1 });
-    testPutDesc(&ram, 1, .{ .addr = reply_off, .len = 256, .flags = virtio.VringDesc.F_WRITE, .next = 0 });
-    testPostAvail(&ram, q, 0);
+    test_put_desc(&ram, 0, .{ .addr = req_off, .len = req.len, .flags = virtio.VringDesc.F_NEXT, .next = 1 });
+    test_put_desc(&ram, 1, .{ .addr = reply_off, .len = 256, .flags = virtio.VringDesc.F_WRITE, .next = 0 });
+    test_post_avail(&ram, q, 0);
 
     dev.notify(1);
 
     // The used entry records how many bytes the device wrote: a FUSE
     // out-header (16) + the fuse_init_out payload (64) = 80.
-    const elem = testReadUsed(&ram, q);
+    const elem = test_read_used(&ram, q);
     try testing.expectEqual(@as(u32, 0), elem.id);
     try testing.expectEqual(@as(u32, fuse.FUSE_OUT_HEADER_SIZE + 64), elem.len);
 
@@ -344,10 +344,10 @@ test "handleRequest: unknown opcode replies ENOSYS without wedging" {
         .id = .virtio_fs,
         .ram = &ram,
         .ram_base = 0,
-        .request_handler = &Device.handleRequest,
+        .request_handler = &Device.handle_request,
         .request_ctx = @ptrCast(&fsdev),
     };
-    const q = testSetupRing(num);
+    const q = test_setup_ring(num);
     dev.queues[1] = q;
 
     const req_off: u64 = 0x800;
@@ -358,13 +358,13 @@ test "handleRequest: unknown opcode replies ENOSYS without wedging" {
     std.mem.writeInt(u64, req[8..16], 7, .little); // unique
     @memcpy(ram[req_off..][0..req.len], &req);
 
-    testPutDesc(&ram, 0, .{ .addr = req_off, .len = req.len, .flags = virtio.VringDesc.F_NEXT, .next = 1 });
-    testPutDesc(&ram, 1, .{ .addr = reply_off, .len = 256, .flags = virtio.VringDesc.F_WRITE, .next = 0 });
-    testPostAvail(&ram, q, 0);
+    test_put_desc(&ram, 0, .{ .addr = req_off, .len = req.len, .flags = virtio.VringDesc.F_NEXT, .next = 1 });
+    test_put_desc(&ram, 1, .{ .addr = reply_off, .len = 256, .flags = virtio.VringDesc.F_WRITE, .next = 0 });
+    test_post_avail(&ram, q, 0);
 
     dev.notify(1);
 
-    const elem = testReadUsed(&ram, q);
+    const elem = test_read_used(&ram, q);
     try testing.expectEqual(@as(u32, fuse.FUSE_OUT_HEADER_SIZE), elem.len);
     const reply = ram[reply_off..][0..@as(usize, elem.len)];
     // -ENOSYS == -38 in the out-header's error field.
@@ -383,19 +383,19 @@ test "handleRequest: a short frame is acked, not dispatched" {
         .id = .virtio_fs,
         .ram = &ram,
         .ram_base = 0,
-        .request_handler = &Device.handleRequest,
+        .request_handler = &Device.handle_request,
         .request_ctx = @ptrCast(&fsdev),
     };
-    const q = testSetupRing(num);
+    const q = test_setup_ring(num);
     dev.queues[1] = q;
 
     // 8-byte readable descriptor — well under the 40-byte in-header.
-    testPutDesc(&ram, 0, .{ .addr = 0x800, .len = 8, .flags = 0, .next = 0 });
-    testPostAvail(&ram, q, 0);
+    test_put_desc(&ram, 0, .{ .addr = 0x800, .len = 8, .flags = 0, .next = 0 });
+    test_post_avail(&ram, q, 0);
 
     dev.notify(1);
 
-    const elem = testReadUsed(&ram, q);
+    const elem = test_read_used(&ram, q);
     try testing.expectEqual(@as(u32, 0), elem.id);
     try testing.expectEqual(@as(u32, 0), elem.len);
 }
@@ -424,17 +424,17 @@ const TestReply = struct {
 /// Drive one FUSE request through `fsdev`'s virtqueue path and read the
 /// reply back. Builds a 2-descriptor chain (readable request → writable
 /// 4 KiB reply window), kicks the queue, and copies out the used entry.
-fn testRunOp(fsdev: *Device, opcode: u32, unique: u64, nodeid: u64, body: []const u8) TestReply {
+fn test_run_op(fsdev: *Device, opcode: u32, unique: u64, nodeid: u64, body: []const u8) TestReply {
     var ram: [16384]u8 = @splat(0);
     var dev = virtio.Device{
         .base = 0x0A00_0000,
         .id = .virtio_fs,
         .ram = &ram,
         .ram_base = 0,
-        .request_handler = &Device.handleRequest,
+        .request_handler = &Device.handle_request,
         .request_ctx = @ptrCast(fsdev),
     };
-    const q = testSetupRing(8);
+    const q = test_setup_ring(8);
     dev.queues[1] = q;
 
     const req_off: u64 = 0x1000;
@@ -446,13 +446,13 @@ fn testRunOp(fsdev: *Device, opcode: u32, unique: u64, nodeid: u64, body: []cons
     std.mem.writeInt(u64, ram[req_off + 16 ..][0..8], nodeid, .little);
     @memcpy(ram[req_off + fuse.FUSE_IN_HEADER_SIZE ..][0..body.len], body);
 
-    testPutDesc(&ram, 0, .{ .addr = req_off, .len = req_total, .flags = virtio.VringDesc.F_NEXT, .next = 1 });
-    testPutDesc(&ram, 1, .{ .addr = reply_off, .len = 4096, .flags = virtio.VringDesc.F_WRITE, .next = 0 });
-    testPostAvail(&ram, q, 0);
+    test_put_desc(&ram, 0, .{ .addr = req_off, .len = req_total, .flags = virtio.VringDesc.F_NEXT, .next = 1 });
+    test_put_desc(&ram, 1, .{ .addr = reply_off, .len = 4096, .flags = virtio.VringDesc.F_WRITE, .next = 0 });
+    test_post_avail(&ram, q, 0);
 
     dev.notify(1);
 
-    const elem = testReadUsed(&ram, q);
+    const elem = test_read_used(&ram, q);
     var r = TestReply{ .used_len = elem.len };
     const n: usize = @min(elem.len, r.buf.len);
     @memcpy(r.buf[0..n], ram[reply_off..][0..n]);
@@ -463,7 +463,7 @@ fn testRunOp(fsdev: *Device, opcode: u32, unique: u64, nodeid: u64, body: []cons
 /// The #329 FUSE handlers need a real path to stat/open against.
 /// Heap-allocated with `gpa`; the caller hands it to `Device.init`,
 /// which takes ownership and frees it in `deinit`.
-fn testTmpRootAbs(gpa: std.mem.Allocator, tmp: *const std.testing.TmpDir) ![]u8 {
+fn test_tmp_root_abs(gpa: std.mem.Allocator, tmp: *const std.testing.TmpDir) ![]u8 {
     const cwd = try std.process.currentPathAlloc(std.testing.io, gpa);
     defer gpa.free(cwd);
     return std.fs.path.join(gpa, &.{ cwd, ".zig-cache", "tmp", &tmp.sub_path });
@@ -473,7 +473,7 @@ test "handleRequest: CREATE materializes a file on the host fs" {
     const gpa = testing.allocator;
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
-    var fsdev = try Device.init(gpa, "machinen0", try testTmpRootAbs(gpa, &tmp), true);
+    var fsdev = try Device.init(gpa, "machinen0", try test_tmp_root_abs(gpa, &tmp), true);
     defer fsdev.deinit();
 
     // fuse_create_in: flags(4) mode(4) umask(4) open_flags(4) + name.
@@ -482,7 +482,7 @@ test "handleRequest: CREATE materializes a file on the host fs" {
     std.mem.writeInt(u32, body[4..8], 0o644, .little); // mode
     @memcpy(body[16..][0.."created.txt".len], "created.txt");
 
-    const r = testRunOp(&fsdev, 35, 1, 1, &body); // CREATE, parent = root
+    const r = test_run_op(&fsdev, 35, 1, 1, &body); // CREATE, parent = root
     try testing.expectEqual(@as(i32, 0), r.err());
     // The handler ran against the real host fs — the file is there.
     try tmp.dir.access(std.testing.io, "created.txt", .{});
@@ -492,10 +492,10 @@ test "handleRequest: GETATTR on the root inode stats the host directory" {
     const gpa = testing.allocator;
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
-    var fsdev = try Device.init(gpa, "machinen0", try testTmpRootAbs(gpa, &tmp), true);
+    var fsdev = try Device.init(gpa, "machinen0", try test_tmp_root_abs(gpa, &tmp), true);
     defer fsdev.deinit();
 
-    const r = testRunOp(&fsdev, 3, 7, 1, &.{}); // GETATTR, nodeid = root
+    const r = test_run_op(&fsdev, 3, 7, 1, &.{}); // GETATTR, nodeid = root
     try testing.expectEqual(@as(i32, 0), r.err());
     // fuse_attr_out = attr_valid(8) + nsec(4) + dummy(4) + fuse_attr(88);
     // fuse_attr.mode sits 60 bytes into fuse_attr. Root is a directory.
@@ -508,30 +508,30 @@ test "handleRequest: O_WRONLY open of an existing file supports READ fill and WR
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
     try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "existing.txt", .data = "old-data" });
-    var fsdev = try Device.init(gpa, "machinen0", try testTmpRootAbs(gpa, &tmp), true);
+    var fsdev = try Device.init(gpa, "machinen0", try test_tmp_root_abs(gpa, &tmp), true);
     defer fsdev.deinit();
 
-    const lookup = testRunOp(&fsdev, 1, 1, 1, "existing.txt\x00");
+    const lookup = test_run_op(&fsdev, 1, 1, 1, "existing.txt\x00");
     try testing.expectEqual(@as(i32, 0), lookup.err());
     const nodeid = std.mem.readInt(u64, lookup.payload()[0..8], .little);
 
     var open_body: [8]u8 = @splat(0);
     std.mem.writeInt(u32, open_body[0..4], 1 | 0o1000, .little); // O_WRONLY | O_TRUNC
-    const open = testRunOp(&fsdev, 14, 2, nodeid, &open_body);
+    const open = test_run_op(&fsdev, 14, 2, nodeid, &open_body);
     try testing.expectEqual(@as(i32, 0), open.err());
     const fh = std.mem.readInt(u64, open.payload()[0..8], .little);
 
     var read_body: [32]u8 = @splat(0);
     std.mem.writeInt(u64, read_body[0..8], fh, .little);
     std.mem.writeInt(u32, read_body[16..20], 16, .little);
-    const read = testRunOp(&fsdev, 15, 3, nodeid, &read_body);
+    const read = test_run_op(&fsdev, 15, 3, nodeid, &read_body);
     try testing.expectEqual(@as(i32, 0), read.err());
 
     var write_body: [40 + 3]u8 = @splat(0);
     std.mem.writeInt(u64, write_body[0..8], fh, .little);
     std.mem.writeInt(u32, write_body[16..20], 3, .little);
     @memcpy(write_body[40..], "new");
-    const write_reply = testRunOp(&fsdev, 16, 4, nodeid, &write_body);
+    const write_reply = test_run_op(&fsdev, 16, 4, nodeid, &write_body);
     try testing.expectEqual(@as(i32, 0), write_reply.err());
     try testing.expectEqual(@as(u32, 3), std.mem.readInt(u32, write_reply.payload()[0..4], .little));
 
@@ -546,24 +546,24 @@ test "handleRequest: READLINK returns symlink targets and errors through virtio-
     defer tmp.cleanup();
     try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "target.txt", .data = "target-data" });
     try tmp.dir.symLink(std.testing.io, "target.txt", "link.txt", .{});
-    var fsdev = try Device.init(gpa, "machinen0", try testTmpRootAbs(gpa, &tmp), true);
+    var fsdev = try Device.init(gpa, "machinen0", try test_tmp_root_abs(gpa, &tmp), true);
     defer fsdev.deinit();
 
-    const lookup = testRunOp(&fsdev, 1, 1, 1, "link.txt\x00");
+    const lookup = test_run_op(&fsdev, 1, 1, 1, "link.txt\x00");
     try testing.expectEqual(@as(i32, 0), lookup.err());
     const link_nodeid = std.mem.readInt(u64, lookup.payload()[0..8], .little);
 
-    const readlink = testRunOp(&fsdev, 5, 2, link_nodeid, &.{});
+    const readlink = test_run_op(&fsdev, 5, 2, link_nodeid, &.{});
     try testing.expectEqual(@as(i32, 0), readlink.err());
     try testing.expectEqualStrings("target.txt", readlink.payload());
 
-    const regular_lookup = testRunOp(&fsdev, 1, 3, 1, "target.txt\x00");
+    const regular_lookup = test_run_op(&fsdev, 1, 3, 1, "target.txt\x00");
     try testing.expectEqual(@as(i32, 0), regular_lookup.err());
     const regular_nodeid = std.mem.readInt(u64, regular_lookup.payload()[0..8], .little);
-    const nonlink = testRunOp(&fsdev, 5, 4, regular_nodeid, &.{});
+    const nonlink = test_run_op(&fsdev, 5, 4, regular_nodeid, &.{});
     try testing.expectEqual(@as(i32, -22), nonlink.err()); // -EINVAL
 
-    const stale = testRunOp(&fsdev, 5, 5, 9999, &.{});
+    const stale = test_run_op(&fsdev, 5, 5, 9999, &.{});
     try testing.expectEqual(@as(i32, -116), stale.err()); // -ESTALE
 }
 
@@ -572,17 +572,17 @@ test "handleRequest: LINK creates hardlinks and maps :ro/malformed failures" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
     try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "a.txt", .data = "hard" });
-    var fsdev = try Device.init(gpa, "machinen0", try testTmpRootAbs(gpa, &tmp), true);
+    var fsdev = try Device.init(gpa, "machinen0", try test_tmp_root_abs(gpa, &tmp), true);
     defer fsdev.deinit();
 
-    const lookup = testRunOp(&fsdev, 1, 1, 1, "a.txt\x00");
+    const lookup = test_run_op(&fsdev, 1, 1, 1, "a.txt\x00");
     try testing.expectEqual(@as(i32, 0), lookup.err());
     const oldnodeid = std.mem.readInt(u64, lookup.payload()[0..8], .little);
 
     var body: [8 + 6]u8 = @splat(0);
     std.mem.writeInt(u64, body[0..8], oldnodeid, .little);
     @memcpy(body[8..][0.."b.txt".len], "b.txt");
-    const linked = testRunOp(&fsdev, 13, 2, 1, body[0 .. 8 + "b.txt".len + 1]);
+    const linked = test_run_op(&fsdev, 13, 2, 1, body[0 .. 8 + "b.txt".len + 1]);
     try testing.expectEqual(@as(i32, 0), linked.err());
     try testing.expectEqual(oldnodeid, std.mem.readInt(u64, linked.payload()[0..8], .little));
 
@@ -598,24 +598,24 @@ test "handleRequest: LINK creates hardlinks and maps :ro/malformed failures" {
     try testing.expectEqualStrings("updated", after_unlink);
 
     try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "a.txt", .data = "again" });
-    const rel_lookup = testRunOp(&fsdev, 1, 3, 1, "a.txt\x00");
+    const rel_lookup = test_run_op(&fsdev, 1, 3, 1, "a.txt\x00");
     try testing.expectEqual(@as(i32, 0), rel_lookup.err());
     std.mem.writeInt(u64, body[0..8], std.mem.readInt(u64, rel_lookup.payload()[0..8], .little), .little);
-    const exists = testRunOp(&fsdev, 13, 4, 1, body[0 .. 8 + "b.txt".len + 1]);
+    const exists = test_run_op(&fsdev, 13, 4, 1, body[0 .. 8 + "b.txt".len + 1]);
     try testing.expectEqual(@as(i32, -17), exists.err()); // -EEXIST
 
-    var ro = try Device.init(gpa, "machinen1", try testTmpRootAbs(gpa, &tmp), false);
+    var ro = try Device.init(gpa, "machinen1", try test_tmp_root_abs(gpa, &tmp), false);
     defer ro.deinit();
-    const ro_lookup = testRunOp(&ro, 1, 5, 1, "a.txt\x00");
+    const ro_lookup = test_run_op(&ro, 1, 5, 1, "a.txt\x00");
     try testing.expectEqual(@as(i32, 0), ro_lookup.err());
     var ro_body: [8 + 9]u8 = @splat(0);
     std.mem.writeInt(u64, ro_body[0..8], std.mem.readInt(u64, ro_lookup.payload()[0..8], .little), .little);
     @memcpy(ro_body[8..][0.."ro-b.txt".len], "ro-b.txt");
-    const blocked = testRunOp(&ro, 13, 6, 1, ro_body[0 .. 8 + "ro-b.txt".len + 1]);
+    const blocked = test_run_op(&ro, 13, 6, 1, ro_body[0 .. 8 + "ro-b.txt".len + 1]);
     try testing.expectEqual(@as(i32, -30), blocked.err()); // -EROFS
     try testing.expectError(error.FileNotFound, tmp.dir.access(std.testing.io, "ro-b.txt", .{}));
 
-    const malformed = testRunOp(&fsdev, 13, 7, 1, "short");
+    const malformed = test_run_op(&fsdev, 13, 7, 1, "short");
     try testing.expectEqual(@as(i32, -22), malformed.err()); // -EINVAL, not a wedge
 }
 
@@ -624,17 +624,17 @@ test "handleRequest: SETATTR FATTR_MODE makes chmod executable on the host" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
     try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "script.sh", .data = "#!/bin/sh\necho hi\n" });
-    var fsdev = try Device.init(gpa, "machinen0", try testTmpRootAbs(gpa, &tmp), true);
+    var fsdev = try Device.init(gpa, "machinen0", try test_tmp_root_abs(gpa, &tmp), true);
     defer fsdev.deinit();
 
-    const lookup = testRunOp(&fsdev, 1, 1, 1, "script.sh\x00");
+    const lookup = test_run_op(&fsdev, 1, 1, 1, "script.sh\x00");
     try testing.expectEqual(@as(i32, 0), lookup.err());
     const nodeid = std.mem.readInt(u64, lookup.payload()[0..8], .little);
 
     var body: [88]u8 = @splat(0);
     std.mem.writeInt(u32, body[0..4], 1, .little); // FATTR_MODE
     std.mem.writeInt(u32, body[68..72], 0o755, .little);
-    const chmodded = testRunOp(&fsdev, 4, 2, nodeid, &body);
+    const chmodded = test_run_op(&fsdev, 4, 2, nodeid, &body);
     try testing.expectEqual(@as(i32, 0), chmodded.err());
     const mode = std.mem.readInt(u32, chmodded.payload()[16 + 60 ..][0..4], .little);
     try testing.expectEqual(@as(u32, 0o755), mode & 0o777);
@@ -642,13 +642,13 @@ test "handleRequest: SETATTR FATTR_MODE makes chmod executable on the host" {
     const st = try tmp.dir.statFile(std.testing.io, "script.sh", .{});
     try testing.expectEqual(@as(u32, 0o755), @as(u32, @intCast(st.permissions.toMode())) & 0o777);
 
-    var ro = try Device.init(gpa, "machinen1", try testTmpRootAbs(gpa, &tmp), false);
+    var ro = try Device.init(gpa, "machinen1", try test_tmp_root_abs(gpa, &tmp), false);
     defer ro.deinit();
-    const ro_lookup = testRunOp(&ro, 1, 3, 1, "script.sh\x00");
+    const ro_lookup = test_run_op(&ro, 1, 3, 1, "script.sh\x00");
     try testing.expectEqual(@as(i32, 0), ro_lookup.err());
     const ro_nodeid = std.mem.readInt(u64, ro_lookup.payload()[0..8], .little);
     std.mem.writeInt(u32, body[68..72], 0o600, .little);
-    const blocked = testRunOp(&ro, 4, 4, ro_nodeid, &body);
+    const blocked = test_run_op(&ro, 4, 4, ro_nodeid, &body);
     try testing.expectEqual(@as(i32, -30), blocked.err()); // -EROFS
 }
 
@@ -660,27 +660,27 @@ test "handleRequest: RMDIR removes empty dirs and maps ENOTEMPTY/:ro/malformed f
     try tmp.dir.createDir(std.testing.io, "nonempty", .default_dir);
     try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "nonempty/child.txt", .data = "x" });
     try tmp.dir.createDir(std.testing.io, "blocked", .default_dir);
-    var fsdev = try Device.init(gpa, "machinen0", try testTmpRootAbs(gpa, &tmp), true);
+    var fsdev = try Device.init(gpa, "machinen0", try test_tmp_root_abs(gpa, &tmp), true);
     defer fsdev.deinit();
 
-    const removed = testRunOp(&fsdev, 11, 1, 1, "empty\x00");
+    const removed = test_run_op(&fsdev, 11, 1, 1, "empty\x00");
     try testing.expectEqual(@as(i32, 0), removed.err());
     try testing.expectError(error.FileNotFound, tmp.dir.access(std.testing.io, "empty", .{}));
 
-    const nonempty = testRunOp(&fsdev, 11, 2, 1, "nonempty\x00");
+    const nonempty = test_run_op(&fsdev, 11, 2, 1, "nonempty\x00");
     try testing.expectEqual(@as(i32, -39), nonempty.err()); // -ENOTEMPTY, not -EIO
     try tmp.dir.access(std.testing.io, "nonempty/child.txt", .{});
 
-    const missing = testRunOp(&fsdev, 11, 3, 1, "missing\x00");
+    const missing = test_run_op(&fsdev, 11, 3, 1, "missing\x00");
     try testing.expectEqual(@as(i32, -2), missing.err()); // -ENOENT
 
-    var ro = try Device.init(gpa, "machinen1", try testTmpRootAbs(gpa, &tmp), false);
+    var ro = try Device.init(gpa, "machinen1", try test_tmp_root_abs(gpa, &tmp), false);
     defer ro.deinit();
-    const blocked = testRunOp(&ro, 11, 4, 1, "blocked\x00");
+    const blocked = test_run_op(&ro, 11, 4, 1, "blocked\x00");
     try testing.expectEqual(@as(i32, -30), blocked.err()); // -EROFS
     try tmp.dir.access(std.testing.io, "blocked", .{});
 
-    const malformed = testRunOp(&fsdev, 11, 5, 1, "bad/name\x00");
+    const malformed = test_run_op(&fsdev, 11, 5, 1, "bad/name\x00");
     try testing.expectEqual(@as(i32, -22), malformed.err()); // -EINVAL, not a wedge
 }
 
@@ -690,7 +690,7 @@ test "handleRequest: RENAME replaces an existing file and :ro/malformed paths fa
     defer tmp.cleanup();
     try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "src.txt", .data = "source" });
     try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "dst.txt", .data = "dest" });
-    var fsdev = try Device.init(gpa, "machinen0", try testTmpRootAbs(gpa, &tmp), true);
+    var fsdev = try Device.init(gpa, "machinen0", try test_tmp_root_abs(gpa, &tmp), true);
     defer fsdev.deinit();
 
     var rename_body: [8 + 16]u8 = @splat(0);
@@ -698,7 +698,7 @@ test "handleRequest: RENAME replaces an existing file and :ro/malformed paths fa
     @memcpy(rename_body[8..][0.."src.txt".len], "src.txt");
     @memcpy(rename_body[8 + "src.txt".len + 1 ..][0.."dst.txt".len], "dst.txt");
     const rename_len = 8 + "src.txt".len + 1 + "dst.txt".len + 1;
-    const renamed = testRunOp(&fsdev, 12, 1, 1, rename_body[0..rename_len]);
+    const renamed = test_run_op(&fsdev, 12, 1, 1, rename_body[0..rename_len]);
     try testing.expectEqual(@as(i32, 0), renamed.err());
     try testing.expectError(error.FileNotFound, tmp.dir.access(std.testing.io, "src.txt", .{}));
     const got = try tmp.dir.readFileAlloc(std.testing.io, "dst.txt", gpa, .limited(1024));
@@ -710,15 +710,15 @@ test "handleRequest: RENAME replaces an existing file and :ro/malformed paths fa
     @memcpy(missing_body[8..][0.."missing".len], "missing");
     @memcpy(missing_body[8 + "missing".len + 1 ..][0.."other".len], "other");
     const missing_len = 8 + "missing".len + 1 + "other".len + 1;
-    const missing = testRunOp(&fsdev, 12, 2, 1, missing_body[0..missing_len]);
+    const missing = test_run_op(&fsdev, 12, 2, 1, missing_body[0..missing_len]);
     try testing.expectEqual(@as(i32, -2), missing.err()); // -ENOENT
 
-    var ro = try Device.init(gpa, "machinen1", try testTmpRootAbs(gpa, &tmp), false);
+    var ro = try Device.init(gpa, "machinen1", try test_tmp_root_abs(gpa, &tmp), false);
     defer ro.deinit();
-    const blocked = testRunOp(&ro, 12, 3, 1, rename_body[0..rename_len]);
+    const blocked = test_run_op(&ro, 12, 3, 1, rename_body[0..rename_len]);
     try testing.expectEqual(@as(i32, -30), blocked.err()); // -EROFS
 
-    const malformed = testRunOp(&fsdev, 12, 4, 1, "short");
+    const malformed = test_run_op(&fsdev, 12, 4, 1, "short");
     try testing.expectEqual(@as(i32, -22), malformed.err()); // -EINVAL, not a wedge
 }
 
@@ -726,10 +726,10 @@ test "handleRequest: LOOKUP of a missing name returns ENOENT" {
     const gpa = testing.allocator;
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
-    var fsdev = try Device.init(gpa, "machinen0", try testTmpRootAbs(gpa, &tmp), true);
+    var fsdev = try Device.init(gpa, "machinen0", try test_tmp_root_abs(gpa, &tmp), true);
     defer fsdev.deinit();
 
-    const r = testRunOp(&fsdev, 1, 9, 1, "nonexistent\x00"); // LOOKUP under root
+    const r = test_run_op(&fsdev, 1, 9, 1, "nonexistent\x00"); // LOOKUP under root
     try testing.expectEqual(@as(i32, -2), r.err()); // -ENOENT
 }
 
@@ -737,7 +737,7 @@ test "handleRequest: CREATE on a :ro mount returns EROFS and never touches the h
     const gpa = testing.allocator;
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
-    var fsdev = try Device.init(gpa, "machinen0", try testTmpRootAbs(gpa, &tmp), false); // :ro
+    var fsdev = try Device.init(gpa, "machinen0", try test_tmp_root_abs(gpa, &tmp), false); // :ro
     defer fsdev.deinit();
 
     var body: [16 + 12]u8 = @splat(0);
@@ -745,7 +745,7 @@ test "handleRequest: CREATE on a :ro mount returns EROFS and never touches the h
     std.mem.writeInt(u32, body[4..8], 0o644, .little);
     @memcpy(body[16..][0.."blocked.txt".len], "blocked.txt");
 
-    const r = testRunOp(&fsdev, 35, 1, 1, &body); // CREATE
+    const r = test_run_op(&fsdev, 35, 1, 1, &body); // CREATE
     try testing.expectEqual(@as(i32, -30), r.err()); // -EROFS
     // The `:ro` gate fires before any host syscall — nothing was created.
     try testing.expectError(error.FileNotFound, tmp.dir.access(std.testing.io, "blocked.txt", .{}));
@@ -762,22 +762,22 @@ test "handleRequest: a self-cycling descriptor chain is capped, not hung" {
         .id = .virtio_fs,
         .ram = &ram,
         .ram_base = 0,
-        .request_handler = &Device.handleRequest,
+        .request_handler = &Device.handle_request,
         .request_ctx = @ptrCast(&fsdev),
     };
-    const q = testSetupRing(8);
+    const q = test_setup_ring(8);
     dev.queues[1] = q;
 
     // desc 0 points `next` at itself with F_NEXT set — an infinite
     // cycle without the max_chain_descriptors cap. len 0 keeps the
     // gather empty so the capped walk ends in a short-frame ack. The
     // assertion that matters is simply that `notify` *returns*.
-    testPutDesc(&ram, 0, .{ .addr = 0x800, .len = 0, .flags = virtio.VringDesc.F_NEXT, .next = 0 });
-    testPostAvail(&ram, q, 0);
+    test_put_desc(&ram, 0, .{ .addr = 0x800, .len = 0, .flags = virtio.VringDesc.F_NEXT, .next = 0 });
+    test_post_avail(&ram, q, 0);
 
     dev.notify(1);
 
-    const elem = testReadUsed(&ram, q);
+    const elem = test_read_used(&ram, q);
     try testing.expectEqual(@as(u32, 0), elem.id);
     try testing.expectEqual(@as(u32, 0), elem.len);
 }
@@ -792,7 +792,7 @@ test "handleRequest: a large WRITE spanning >32 descriptors is fully gathered" {
     const gpa = testing.allocator;
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
-    var fsdev = try Device.init(gpa, "machinen0", try testTmpRootAbs(gpa, &tmp), true);
+    var fsdev = try Device.init(gpa, "machinen0", try test_tmp_root_abs(gpa, &tmp), true);
     defer fsdev.deinit();
 
     // CREATE the target file and capture its handle. fuse_create_in
@@ -802,7 +802,7 @@ test "handleRequest: a large WRITE spanning >32 descriptors is fully gathered" {
     std.mem.writeInt(u32, create_body[0..4], 2, .little); // Linux O_RDWR
     std.mem.writeInt(u32, create_body[4..8], 0o644, .little);
     @memcpy(create_body[16..][0.."big.bin".len], "big.bin");
-    const create = testRunOp(&fsdev, 35, 1, 1, &create_body);
+    const create = test_run_op(&fsdev, 35, 1, 1, &create_body);
     try testing.expectEqual(@as(i32, 0), create.err());
     const fh = std.mem.readInt(u64, create.payload()[128..136], .little);
 
@@ -818,10 +818,10 @@ test "handleRequest: a large WRITE spanning >32 descriptors is fully gathered" {
         .id = .virtio_fs,
         .ram = &ram,
         .ram_base = 0,
-        .request_handler = &Device.handleRequest,
+        .request_handler = &Device.handle_request,
         .request_ctx = @ptrCast(&fsdev),
     };
-    const q = testSetupRing(64);
+    const q = test_setup_ring(64);
     dev.queues[1] = q;
 
     const hdr_off: u64 = 0x4000;
@@ -840,7 +840,7 @@ test "handleRequest: a large WRITE spanning >32 descriptors is fully gathered" {
     for (0..payload_len) |i| ram[data_off + i] = @intCast(i & 0xff);
 
     // desc 0: the 80-byte header (in-header + fuse_write_in).
-    testPutDesc(&ram, 0, .{
+    test_put_desc(&ram, 0, .{
         .addr = hdr_off,
         .len = @intCast(fuse.FUSE_IN_HEADER_SIZE + 40),
         .flags = virtio.VringDesc.F_NEXT,
@@ -849,7 +849,7 @@ test "handleRequest: a large WRITE spanning >32 descriptors is fully gathered" {
     // descs 1..pages: one 4 KiB data page each.
     var i: usize = 0;
     while (i < pages) : (i += 1) {
-        testPutDesc(&ram, 1 + i, .{
+        test_put_desc(&ram, 1 + i, .{
             .addr = data_off + i * page,
             .len = page,
             .flags = virtio.VringDesc.F_NEXT,
@@ -857,19 +857,19 @@ test "handleRequest: a large WRITE spanning >32 descriptors is fully gathered" {
         });
     }
     // final desc: the writable reply window.
-    testPutDesc(&ram, 1 + pages, .{
+    test_put_desc(&ram, 1 + pages, .{
         .addr = reply_off,
         .len = 256,
         .flags = virtio.VringDesc.F_WRITE,
         .next = 0,
     });
-    testPostAvail(&ram, q, 0);
+    test_post_avail(&ram, q, 0);
 
     dev.notify(1);
 
     // The reply is fuse_write_out, and its `size` must equal the full
     // payload — proof the gather walked every descriptor, not just 32.
-    const elem = testReadUsed(&ram, q);
+    const elem = test_read_used(&ram, q);
     try testing.expectEqual(@as(u32, fuse.FUSE_OUT_HEADER_SIZE + 8), elem.len);
     const reply = ram[reply_off..][0..@as(usize, elem.len)];
     try testing.expectEqual(@as(i32, 0), std.mem.readInt(i32, reply[4..8], .little));

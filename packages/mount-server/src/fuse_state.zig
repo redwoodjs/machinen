@@ -125,7 +125,7 @@ pub const Builder = struct {
         self.handle_body.deinit(self.gpa);
     }
 
-    pub fn addInode(self: *Builder, nodeid: u64, nlookup: u64, rel_path: []const u8) !void {
+    pub fn add_inode(self: *Builder, nodeid: u64, nlookup: u64, rel_path: []const u8) !void {
         assert(rel_path.len <= std.math.maxInt(u32));
         const hdr: InodeRecHeader = .{
             .nodeid = nodeid,
@@ -137,7 +137,7 @@ pub const Builder = struct {
         self.inode_count += 1;
     }
 
-    pub fn addFileHandle(self: *Builder, handle_id: u64, nodeid: u64, open_flags: u32) !void {
+    pub fn add_file_handle(self: *Builder, handle_id: u64, nodeid: u64, open_flags: u32) !void {
         const hdr: HandleRecHeader = .{
             .handle_id = handle_id,
             .nodeid = nodeid,
@@ -149,7 +149,7 @@ pub const Builder = struct {
         self.handle_count += 1;
     }
 
-    pub fn addDirHandle(
+    pub fn add_dir_handle(
         self: *Builder,
         handle_id: u64,
         nodeid: u64,
@@ -316,11 +316,11 @@ test "encode/decode round-trip preserves inodes, handles, dir entries" {
     const gpa = testing.allocator;
     var b = Builder.init(gpa, true, 17, 5);
     defer b.deinit();
-    try b.addInode(1, std.math.maxInt(u64), ""); // root, pinned
-    try b.addInode(2, 3, "src");
-    try b.addInode(7, 1, "src/main.zig");
-    try b.addFileHandle(1, 7, 2); // O_RDWR
-    try b.addDirHandle(2, 2, &.{ "dirent-a", "dirent-bb" });
+    try b.add_inode(1, std.math.maxInt(u64), ""); // root, pinned
+    try b.add_inode(2, 3, "src");
+    try b.add_inode(7, 1, "src/main.zig");
+    try b.add_file_handle(1, 7, 2); // O_RDWR
+    try b.add_dir_handle(2, 2, &.{ "dirent-a", "dirent-bb" });
 
     const payload = try b.finish();
     defer gpa.free(payload);
@@ -362,7 +362,7 @@ test "decode rejects truncated payload" {
 
     var b = Builder.init(gpa, true, 9, 4);
     defer b.deinit();
-    try b.addInode(2, 1, "a-long-enough-path");
+    try b.add_inode(2, 1, "a-long-enough-path");
     const payload = try b.finish();
     defer gpa.free(payload);
     // Lop the tail off the path — the inode header still claims it.
@@ -385,7 +385,7 @@ test "decode rejects an unknown handle kind" {
     const gpa = testing.allocator;
     var b = Builder.init(gpa, true, 2, 2);
     defer b.deinit();
-    try b.addFileHandle(1, 1, 0);
+    try b.add_file_handle(1, 1, 0);
     const payload = try b.finish();
     defer gpa.free(payload);
     // The handle record's `kind` byte sits right after its 16-byte

@@ -83,7 +83,7 @@ pub const RamDeltaHeader = extern struct {
 
 /// True if every byte of `buf` is zero. Word-wise so the multi-GiB
 /// scan stays a fraction of a second instead of a per-byte crawl.
-fn isZero(buf: []const u8) bool {
+fn is_zero(buf: []const u8) bool {
     var i: usize = 0;
     while (i + 8 <= buf.len) : (i += 8) {
         if (std.mem.readInt(u64, buf[i..][0..8], .little) != 0) return false;
@@ -97,19 +97,19 @@ fn isZero(buf: []const u8) bool {
 /// The next run of non-zero 4 KiB pages at or after `from`, or null
 /// when the rest of `ram` is all zero. `end` is clamped to `ram.len`
 /// so a non-page-aligned tail still encodes.
-fn nextExtent(ram: []const u8, from: usize) ?struct { start: usize, end: usize } {
+fn next_extent(ram: []const u8, from: usize) ?struct { start: usize, end: usize } {
     std.debug.assert(from <= ram.len);
     var i = from;
     while (i < ram.len) {
         const pe = @min(i + PAGE, ram.len);
-        if (!isZero(ram[i..pe])) break;
+        if (!is_zero(ram[i..pe])) break;
         i = pe;
     }
     if (i >= ram.len) return null;
     const start = i;
     while (i < ram.len) {
         const pe = @min(i + PAGE, ram.len);
-        if (isZero(ram[i..pe])) break;
+        if (is_zero(ram[i..pe])) break;
         i = pe;
     }
     // A returned extent is non-empty, stays within bounds, and never
@@ -130,7 +130,7 @@ pub fn encode(allocator: std.mem.Allocator, ram_base: u64, ram: []const u8) ![]u
     var body_len: usize = 0;
     {
         var cursor: usize = 0;
-        while (nextExtent(ram, cursor)) |e| {
+        while (next_extent(ram, cursor)) |e| {
             body_len += EXTENT_HEADER_SIZE + (e.end - e.start);
             cursor = e.end;
         }
@@ -143,7 +143,7 @@ pub fn encode(allocator: std.mem.Allocator, ram_base: u64, ram: []const u8) ![]u
     var w: usize = HEADER_SIZE;
     {
         var cursor: usize = 0;
-        while (nextExtent(ram, cursor)) |e| {
+        while (next_extent(ram, cursor)) |e| {
             const ext_len = e.end - e.start;
             std.mem.writeInt(u64, out[w..][0..8], e.start, .little);
             w += 8;
@@ -170,21 +170,21 @@ pub fn encode(allocator: std.mem.Allocator, ram_base: u64, ram: []const u8) ![]u
     return out;
 }
 
-fn dirtyBitSet(bits: []const u64, page_idx: usize) bool {
+fn dirty_bit_set(bits: []const u64, page_idx: usize) bool {
     const word = page_idx / 64;
     if (word >= bits.len) return false;
     const bit: u6 = @intCast(page_idx % 64);
     return (bits[word] & (@as(u64, 1) << bit)) != 0;
 }
 
-fn nextDirtyExtent(ram_len: usize, dirty_bits: []const u64, from: usize) ?struct { start: usize, end: usize } {
+fn next_dirty_extent(ram_len: usize, dirty_bits: []const u64, from: usize) ?struct { start: usize, end: usize } {
     std.debug.assert(from <= ram_len);
     var page = from / PAGE;
     const page_count = if (ram_len == 0) 0 else 1 + ((ram_len - 1) / PAGE);
-    while (page < page_count and !dirtyBitSet(dirty_bits, page)) : (page += 1) {}
+    while (page < page_count and !dirty_bit_set(dirty_bits, page)) : (page += 1) {}
     if (page >= page_count) return null;
     const start_page = page;
-    while (page < page_count and dirtyBitSet(dirty_bits, page)) : (page += 1) {}
+    while (page < page_count and dirty_bit_set(dirty_bits, page)) : (page += 1) {}
     const start = start_page * PAGE;
     const end = @min(page * PAGE, ram_len);
     std.debug.assert(start < end and end <= ram_len);
@@ -195,14 +195,14 @@ fn nextDirtyExtent(ram_len: usize, dirty_bits: []const u64, from: usize) ?struct
 /// destination restore buffer is expected to already contain the
 /// parent checkpoint's RAM; decodeDeltaInto overlays these extents.
 /// Unlike the full sparse encoder, dirty zero pages are stored too.
-pub fn encodeDelta(allocator: std.mem.Allocator, ram_base: u64, ram: []const u8, dirty_bits: []const u64) ![]u8 {
+pub fn encode_delta(allocator: std.mem.Allocator, ram_base: u64, ram: []const u8, dirty_bits: []const u64) ![]u8 {
     std.debug.assert(ram.len > 0);
     std.debug.assert(ram_base % PAGE == 0);
 
     var body_len: usize = 0;
     {
         var cursor: usize = 0;
-        while (nextDirtyExtent(ram.len, dirty_bits, cursor)) |e| {
+        while (next_dirty_extent(ram.len, dirty_bits, cursor)) |e| {
             body_len += EXTENT_HEADER_SIZE + (e.end - e.start);
             cursor = e.end;
         }
@@ -214,7 +214,7 @@ pub fn encodeDelta(allocator: std.mem.Allocator, ram_base: u64, ram: []const u8,
     var w: usize = DELTA_HEADER_SIZE;
     {
         var cursor: usize = 0;
-        while (nextDirtyExtent(ram.len, dirty_bits, cursor)) |e| {
+        while (next_dirty_extent(ram.len, dirty_bits, cursor)) |e| {
             const ext_len = e.end - e.start;
             std.mem.writeInt(u64, out[w..][0..8], e.start, .little);
             w += 8;
@@ -254,8 +254,8 @@ pub const DecodedMeta = struct {
 /// bytes are zero-filled and then the stored extents are laid down on
 /// top. The SHA256 over the extent stream is checked first — a flipped
 /// bit fails loudly here instead of scrambling the restored guest.
-pub fn decodeInto(payload: []const u8, dest: []u8) DecodeError!DecodedMeta {
-    return decodeIntoMode(payload, dest, .zero_dest_first);
+pub fn decode_into(payload: []const u8, dest: []u8) DecodeError!DecodedMeta {
+    return decode_into_mode(payload, dest, .zero_dest_first);
 }
 
 /// Same sparse-RAM decoder, but assumes the leading `ram_size` bytes of
@@ -263,13 +263,13 @@ pub fn decodeInto(payload: []const u8, dest: []u8) DecodeError!DecodedMeta {
 /// is a fresh anonymous mmap, so the kernel provides zero pages lazily.
 /// Avoiding an eager `@memset` keeps restore proportional to the saved
 /// extents instead of the configured guest RAM ceiling.
-pub fn decodeIntoZeroed(payload: []const u8, dest: []u8) DecodeError!DecodedMeta {
-    return decodeIntoMode(payload, dest, .dest_already_zero);
+pub fn decode_into_zeroed(payload: []const u8, dest: []u8) DecodeError!DecodedMeta {
+    return decode_into_mode(payload, dest, .dest_already_zero);
 }
 
 const DecodeMode = enum { zero_dest_first, dest_already_zero };
 
-fn decodeIntoMode(payload: []const u8, dest: []u8, mode: DecodeMode) DecodeError!DecodedMeta {
+fn decode_into_mode(payload: []const u8, dest: []u8, mode: DecodeMode) DecodeError!DecodedMeta {
     if (payload.len < HEADER_SIZE) return error.Truncated;
     var hdr: RamHeader = undefined;
     @memcpy(std.mem.asBytes(&hdr), payload[0..HEADER_SIZE]);
@@ -320,7 +320,7 @@ fn decodeIntoMode(payload: []const u8, dest: []u8, mode: DecodeMode) DecodeError
 /// Apply a RAM-delta payload onto an existing destination buffer.
 /// Unlike decodeInto(), this does not zero-fill first: the caller must
 /// have already reconstructed the parent checkpoint's RAM.
-pub fn decodeDeltaInto(payload: []const u8, dest: []u8) DecodeError!DecodedMeta {
+pub fn decode_delta_into(payload: []const u8, dest: []u8) DecodeError!DecodedMeta {
     if (payload.len < DELTA_HEADER_SIZE) return error.Truncated;
     var hdr: RamDeltaHeader = undefined;
     @memcpy(std.mem.asBytes(&hdr), payload[0..DELTA_HEADER_SIZE]);
@@ -377,7 +377,7 @@ test "encode/decode round-trip reconstructs a sparse buffer" {
     defer a.free(dest);
     @memset(dest, 0xFF); // poison — decodeInto must zero-fill first.
 
-    const meta = try decodeInto(payload, dest);
+    const meta = try decode_into(payload, dest);
     try std.testing.expectEqual(@as(u64, 0x4000_0000), meta.ram_base);
     try std.testing.expectEqual(@as(u64, 4 * PAGE), meta.ram_size);
     try std.testing.expectEqualSlices(u8, ram, dest);
@@ -397,7 +397,7 @@ test "encode/decode round-trip on an all-zero buffer" {
     const dest = try a.alloc(u8, 8 * PAGE);
     defer a.free(dest);
     @memset(dest, 0xFF);
-    _ = try decodeInto(payload, dest);
+    _ = try decode_into(payload, dest);
     try std.testing.expectEqualSlices(u8, ram, dest);
 }
 
@@ -414,12 +414,12 @@ test "RAM delta overlays dirty pages including zeroed pages" {
 
     var bits = [_]u64{0};
     bits[0] |= (@as(u64, 1) << 1) | (@as(u64, 1) << 3);
-    const payload = try encodeDelta(a, 0x4000_0000, child, &bits);
+    const payload = try encode_delta(a, 0x4000_0000, child, &bits);
     defer a.free(payload);
 
     const dest = try a.dupe(u8, parent);
     defer a.free(dest);
-    const meta = try decodeDeltaInto(payload, dest);
+    const meta = try decode_delta_into(payload, dest);
     try std.testing.expectEqual(@as(u64, 0x4000_0000), meta.ram_base);
     try std.testing.expectEqual(@as(u64, 4 * PAGE), meta.ram_size);
     try std.testing.expectEqualSlices(u8, child, dest);
@@ -438,13 +438,13 @@ test "decodeIntoZeroed reconstructs without clearing implicit zero pages" {
     const zeroed = try a.alloc(u8, 4 * PAGE);
     defer a.free(zeroed);
     @memset(zeroed, 0);
-    _ = try decodeIntoZeroed(payload, zeroed);
+    _ = try decode_into_zeroed(payload, zeroed);
     try std.testing.expectEqualSlices(u8, ram, zeroed);
 
     const poisoned = try a.alloc(u8, 4 * PAGE);
     defer a.free(poisoned);
     @memset(poisoned, 0xA5);
-    _ = try decodeIntoZeroed(payload, poisoned);
+    _ = try decode_into_zeroed(payload, poisoned);
     try std.testing.expectEqualSlices(u8, ram[PAGE..][0..PAGE], poisoned[PAGE..][0..PAGE]);
     // Precondition is real: omitted pages are not cleared by this fast path.
     try std.testing.expectEqual(@as(u8, 0xA5), poisoned[0]);
@@ -462,13 +462,13 @@ test "encode/decode handles a non-page-aligned tail" {
 
     const dest = try a.alloc(u8, PAGE + 100);
     defer a.free(dest);
-    _ = try decodeInto(payload, dest);
+    _ = try decode_into(payload, dest);
     try std.testing.expectEqualSlices(u8, ram, dest);
 }
 
 test "decodeInto rejects a truncated header" {
     var dest: [PAGE]u8 = undefined;
-    try std.testing.expectError(error.Truncated, decodeInto("short", &dest));
+    try std.testing.expectError(error.Truncated, decode_into("short", &dest));
 }
 
 test "decodeInto rejects a dest smaller than ram_size" {
@@ -482,7 +482,7 @@ test "decodeInto rejects a dest smaller than ram_size" {
     defer a.free(payload);
 
     var dest: [2 * PAGE]u8 = undefined;
-    try std.testing.expectError(error.SizeMismatch, decodeInto(payload, &dest));
+    try std.testing.expectError(error.SizeMismatch, decode_into(payload, &dest));
 }
 
 test "decodeInto rejects a flipped bit in an extent" {
@@ -500,5 +500,5 @@ test "decodeInto rejects a flipped bit in an extent" {
     mut[HEADER_SIZE + EXTENT_HEADER_SIZE + 3] ^= 0x01;
 
     var dest: [2 * PAGE]u8 = undefined;
-    try std.testing.expectError(error.HashMismatch, decodeInto(mut, &dest));
+    try std.testing.expectError(error.HashMismatch, decode_into(mut, &dest));
 }

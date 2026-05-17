@@ -202,7 +202,7 @@ pub const KVM_DEV_TYPE_ARM_VGIC_V3: u32 = 7;
 // VM type helper for arm64 IPA sizing. Passing 0 to KVM_CREATE_VM keeps
 // the kernel default; KVM_VM_TYPE_ARM_IPA_SIZE(n) requests n IPA bits.
 pub const KVM_VM_TYPE_ARM_IPA_SIZE_MASK: u64 = 0xff;
-pub fn KVM_VM_TYPE_ARM_IPA_SIZE(bits: u64) u64 {
+pub fn kvm_vm_type_arm_ipa_size(bits: u64) u64 {
     return bits & KVM_VM_TYPE_ARM_IPA_SIZE_MASK;
 }
 
@@ -242,7 +242,7 @@ pub const KVM_ARM_IRQ_TYPE_PPI: u32 = 2;
 /// virtio-blk slot 1 = 17). Without the type bits, KVM treats the
 /// call as a legacy CPU-line IRQ (type 0) and silently drops virtio
 /// doorbells, which manifests as guest hangs after QueueNotify.
-pub fn irqSpi(spi_id: u32) u32 {
+pub fn irq_spi(spi_id: u32) u32 {
     // INTID lives in bits 15:0 of the encoded value; anything wider
     // would either collide with the type field or wrap silently.
     assert(spi_id < (1 << 16) - 32);
@@ -443,19 +443,19 @@ pub const REG_SIZE_U64: u64 = 0x0030_0000_0000_0000;
 pub const REG_ARM_CORE: u64 = 0x00_0010_0000;
 
 /// Build an ID for a core register at the given struct offset.
-fn armCoreReg(comptime offset: u64) u64 {
+fn arm_core_reg(comptime offset: u64) u64 {
     // struct user_pt_regs fields on arm64 are u64; offsets are in
     // bytes. Encoding: ARM64 | U64 | REG_ARM_CORE | (offset / 4).
     return REG_ARM64 | REG_SIZE_U64 | REG_ARM_CORE | (offset / 4);
 }
 
-pub const REG_X0 = armCoreReg(0x00);
-pub const REG_X1 = armCoreReg(0x08);
-pub const REG_X2 = armCoreReg(0x10);
-pub const REG_X3 = armCoreReg(0x18);
-pub const REG_SP = armCoreReg(0xF8);
-pub const REG_PC = armCoreReg(0x100);
-pub const REG_PSTATE = armCoreReg(0x108);
+pub const REG_X0 = arm_core_reg(0x00);
+pub const REG_X1 = arm_core_reg(0x08);
+pub const REG_X2 = arm_core_reg(0x10);
+pub const REG_X3 = arm_core_reg(0x18);
+pub const REG_SP = arm_core_reg(0xF8);
+pub const REG_PC = arm_core_reg(0x100);
+pub const REG_PSTATE = arm_core_reg(0x108);
 
 // ---------------------------------------------------------------
 // Layout asserts — KVM ABI is stable; if any of these trip, our
@@ -632,18 +632,18 @@ pub const Kvm = struct {
         _ = close(self.kvm_fd);
     }
 
-    pub fn checkExtension(self: *Kvm, cap: c_ulong) !c_int {
+    pub fn check_extension(self: *Kvm, cap: c_ulong) !c_int {
         assert(self.kvm_fd >= 0);
         const r = ioctl(self.kvm_fd, KVM_CHECK_EXTENSION, cap);
         if (r < 0) return error.KvmCheckExtensionFailed;
         return r;
     }
 
-    pub fn armEl2Supported(self: *Kvm) bool {
-        return (self.checkExtension(KVM_CAP_ARM_EL2) catch 0) > 0;
+    pub fn arm_el2_supported(self: *Kvm) bool {
+        return (self.check_extension(KVM_CAP_ARM_EL2) catch 0) > 0;
     }
 
-    pub fn supportedCpuid(self: *Kvm) !Cpuid2 {
+    pub fn supported_cpuid(self: *Kvm) !Cpuid2 {
         assert(self.kvm_fd >= 0);
         var out = Cpuid2{ .nent = max_cpuid_entries };
         if (ioctl(self.kvm_fd, KVM_GET_SUPPORTED_CPUID, &out) != 0) {
@@ -653,11 +653,11 @@ pub const Kvm = struct {
         return out;
     }
 
-    pub fn createVm(self: *Kvm) !Vm {
-        return self.createVmWithType(0);
+    pub fn create_vm(self: *Kvm) !Vm {
+        return self.create_vm_with_type(0);
     }
 
-    pub fn createVmWithType(self: *Kvm, vm_type: c_ulong) !Vm {
+    pub fn create_vm_with_type(self: *Kvm, vm_type: c_ulong) !Vm {
         assert(self.kvm_fd >= 0);
         assert(self.vcpu_mmap_size >= 4096);
         const fd = ioctl(self.kvm_fd, KVM_CREATE_VM, vm_type);
@@ -677,16 +677,16 @@ pub const Vm = struct {
     }
 
     /// Map `host_buf` into the guest at `guest_phys_addr`.
-    pub fn mapMemory(
+    pub fn map_memory(
         self: *Vm,
         slot: u32,
         guest_phys_addr: u64,
         host_buf: []u8,
     ) !void {
-        return self.mapMemoryWithFlags(slot, guest_phys_addr, host_buf, 0);
+        return self.map_memory_with_flags(slot, guest_phys_addr, host_buf, 0);
     }
 
-    pub fn mapMemoryWithFlags(
+    pub fn map_memory_with_flags(
         self: *Vm,
         slot: u32,
         guest_phys_addr: u64,
@@ -715,7 +715,7 @@ pub const Vm = struct {
         }
     }
 
-    pub fn getDirtyLog(self: *Vm, allocator: std.mem.Allocator, slot: u32, page_count: usize) ![]u64 {
+    pub fn get_dirty_log(self: *Vm, allocator: std.mem.Allocator, slot: u32, page_count: usize) ![]u64 {
         assert(page_count > 0);
         const word_count = (page_count + 63) / 64;
         const bits = try allocator.alloc(u64, word_count);
@@ -726,7 +726,7 @@ pub const Vm = struct {
         return bits;
     }
 
-    pub fn clearDirtyLog(self: *Vm, slot: u32, bits: []const u64, page_count: usize) void {
+    pub fn clear_dirty_log(self: *Vm, slot: u32, bits: []const u64, page_count: usize) void {
         if (bits.len == 0 or page_count == 0) return;
         var clear = ClearDirtyLog{
             .slot = slot,
@@ -741,7 +741,7 @@ pub const Vm = struct {
 
     /// x86 only: set the per-VM TSS address KVM uses for ring transitions.
     /// Must happen before createIrqchip() on Intel hosts.
-    pub fn setTssAddr(self: *Vm, addr: u64) !void {
+    pub fn set_tss_addr(self: *Vm, addr: u64) !void {
         assert(self.fd >= 0);
         assert(addr % 4096 == 0);
         if (ioctl(self.fd, KVM_SET_TSS_ADDR, @as(c_ulong, @intCast(addr))) != 0) {
@@ -750,7 +750,7 @@ pub const Vm = struct {
     }
 
     /// x86 only: create the in-kernel PIC + IOAPIC irqchip.
-    pub fn createIrqchip(self: *Vm) !void {
+    pub fn create_irqchip(self: *Vm) !void {
         assert(self.fd >= 0);
         if (ioctl(self.fd, KVM_CREATE_IRQCHIP, @as(c_ulong, 0)) != 0) {
             return error.KvmCreateIrqchipFailed;
@@ -758,7 +758,7 @@ pub const Vm = struct {
     }
 
     /// x86 only: create an in-kernel PIT so early Linux timer calibration works.
-    pub fn createPit2(self: *Vm) !void {
+    pub fn create_pit2(self: *Vm) !void {
         assert(self.fd >= 0);
         var cfg = PitConfig{ .flags = KVM_PIT_SPEAKER_DUMMY };
         if (ioctl(self.fd, KVM_CREATE_PIT2, &cfg) != 0) {
@@ -770,7 +770,7 @@ pub const Vm = struct {
     /// redistributor MMIO windows at the given guest-physical
     /// addresses. Call BEFORE `createVcpu` — KVM requires it.
     /// Returns a Gic with the device fd owned; destroy() closes it.
-    pub fn createGicV3(
+    pub fn create_gic_v3(
         self: *Vm,
         dist_addr: u64,
         redist_addr: u64,
@@ -833,7 +833,7 @@ pub const Vm = struct {
     /// Use `irqSpi(spi_id)` to encode the type+id correctly. Without
     /// the type bits, KVM treats the call as a CPU-line legacy IRQ
     /// (type 0) which silently drops virtio doorbells.
-    pub fn setIrq(self: *Vm, irq: u32, level: u32) !void {
+    pub fn set_irq(self: *Vm, irq: u32, level: u32) !void {
         assert(self.fd >= 0);
         // KVM_IRQ_LINE level is a boolean (0 = deassert, 1 = assert).
         // Anything else is a programmer bug — the kernel ignores high
@@ -843,33 +843,33 @@ pub const Vm = struct {
         if (ioctl(self.fd, KVM_IRQ_LINE, &lvl) != 0) return error.KvmIrqLineFailed;
     }
 
-    pub fn getIrqchip(self: *Vm, chip_id: u32) !Irqchip {
+    pub fn get_irqchip(self: *Vm, chip_id: u32) !Irqchip {
         assert(self.fd >= 0);
         var chip = Irqchip{ .chip_id = chip_id, .pad = 0, .chip = @splat(0) };
         if (ioctl(self.fd, KVM_GET_IRQCHIP, &chip) != 0) return error.KvmGetRegFailed;
         return chip;
     }
 
-    pub fn setIrqchip(self: *Vm, chip: Irqchip) !void {
+    pub fn set_irqchip(self: *Vm, chip: Irqchip) !void {
         assert(self.fd >= 0);
         var v = chip;
         if (ioctl(self.fd, KVM_SET_IRQCHIP, &v) != 0) return error.KvmSetRegFailed;
     }
 
-    pub fn getPit2(self: *Vm) !PitState2 {
+    pub fn get_pit2(self: *Vm) !PitState2 {
         assert(self.fd >= 0);
         var pit: PitState2 = undefined;
         if (ioctl(self.fd, KVM_GET_PIT2, &pit) != 0) return error.KvmGetRegFailed;
         return pit;
     }
 
-    pub fn setPit2(self: *Vm, pit: PitState2) !void {
+    pub fn set_pit2(self: *Vm, pit: PitState2) !void {
         assert(self.fd >= 0);
         var v = pit;
         if (ioctl(self.fd, KVM_SET_PIT2, &v) != 0) return error.KvmSetRegFailed;
     }
 
-    pub fn createVcpu(self: *Vm, id: u32) !Vcpu {
+    pub fn create_vcpu(self: *Vm, id: u32) !Vcpu {
         assert(self.fd >= 0);
         assert(self.parent.vcpu_mmap_size >= 4096);
         const fd = ioctl(self.fd, KVM_CREATE_VCPU, @as(c_ulong, id));
@@ -883,7 +883,7 @@ pub const Vm = struct {
 
     /// Fill in `out` with the host's preferred CPU target for this
     /// VM's arm64 vCPUs. Caller passes that to Vcpu.init.
-    pub fn preferredTarget(self: *Vm) !VcpuInit {
+    pub fn preferred_target(self: *Vm) !VcpuInit {
         assert(self.fd >= 0);
         var out: VcpuInit = .{ .target = 0, .features = @splat(0) };
         if (ioctl(self.fd, KVM_ARM_PREFERRED_TARGET, &out) != 0) {
@@ -942,7 +942,7 @@ pub const Vcpu = struct {
         }
     }
 
-    pub fn setReg(self: *Vcpu, id: u64, value: u64) !void {
+    pub fn set_reg(self: *Vcpu, id: u64, value: u64) !void {
         assert(self.fd >= 0);
         // Reg id 0 is reserved; KVM rejects with -ENOENT.
         assert(id != 0);
@@ -953,7 +953,7 @@ pub const Vcpu = struct {
         }
     }
 
-    pub fn getReg(self: *Vcpu, id: u64) !u64 {
+    pub fn get_reg(self: *Vcpu, id: u64) !u64 {
         assert(self.fd >= 0);
         assert(id != 0);
         var v: u64 = 0;
@@ -989,7 +989,7 @@ pub const Vcpu = struct {
     }
 
     /// Read the I/O-port exit payload. Call only when run() returned .io.
-    pub fn ioExit(self: *Vcpu) IoExit {
+    pub fn io_exit(self: *Vcpu) IoExit {
         assert(self.run_size >= 0x20 + @sizeOf(IoExit));
         const base: [*]u8 = @ptrCast(self.run_page);
         var out: IoExit = undefined;
@@ -1001,7 +1001,7 @@ pub const Vcpu = struct {
     }
 
     /// Read the first scalar attached to a KVM_EXIT_IO OUT payload.
-    pub fn ioDataValue(self: *Vcpu, ev: IoExit) u32 {
+    pub fn io_data_value(self: *Vcpu, ev: IoExit) u32 {
         assert(ev.size == 1 or ev.size == 2 or ev.size == 4);
         assert(ev.count > 0);
         assert(ev.data_offset + ev.size <= self.run_size);
@@ -1016,7 +1016,7 @@ pub const Vcpu = struct {
     }
 
     /// Fill the first scalar attached to a KVM_EXIT_IO IN payload.
-    pub fn writeIoReadData(self: *Vcpu, ev: IoExit, value: u32) void {
+    pub fn write_io_read_data(self: *Vcpu, ev: IoExit, value: u32) void {
         assert(ev.size == 1 or ev.size == 2 or ev.size == 4);
         assert(ev.count > 0);
         assert(ev.data_offset + ev.size <= self.run_size);
@@ -1034,7 +1034,7 @@ pub const Vcpu = struct {
     /// .mmio. The union starts at offset 0x20 inside kvm_run (right
     /// after `apic_base` at 0x18), on builds without the S390
     /// extension — which matches x86_64 and arm64.
-    pub fn mmioExit(self: *Vcpu) MmioExit {
+    pub fn mmio_exit(self: *Vcpu) MmioExit {
         assert(self.run_size >= 0x20 + @sizeOf(MmioExit));
         const base: [*]u8 = @ptrCast(self.run_page);
         var out: MmioExit = undefined;
@@ -1048,7 +1048,7 @@ pub const Vcpu = struct {
 
     /// Read the SYSTEM_EVENT exit payload. Used for PSCI SHUTDOWN /
     /// RESET. Same struct union as MMIO; offset 0x20 inside kvm_run.
-    pub fn systemEventExit(self: *Vcpu) SystemEventExit {
+    pub fn system_event_exit(self: *Vcpu) SystemEventExit {
         assert(self.run_size >= 0x20 + @sizeOf(SystemEventExit));
         const base: [*]u8 = @ptrCast(self.run_page);
         var out: SystemEventExit = undefined;
@@ -1062,7 +1062,7 @@ pub const Vcpu = struct {
     /// fill `kvm_run.mmio.data[0..len]` with the register contents
     /// before the next `KVM_RUN`. `mmio.data` lives at 0x20 + 8 =
     /// 0x28 in the kvm_run page.
-    pub fn writeMmioReadData(self: *Vcpu, value: u64, len: u32) void {
+    pub fn write_mmio_read_data(self: *Vcpu, value: u64, len: u32) void {
         assert(self.run_size >= 0x28 + 8);
         // mmio.data is 8 bytes; len > 8 would corrupt the next field.
         assert(len <= 8);
@@ -1074,33 +1074,33 @@ pub const Vcpu = struct {
 
     // x86-specific register access. arm64 uses setReg/getReg above.
 
-    pub fn setCpuid2(self: *Vcpu, cpuid: *const Cpuid2) !void {
+    pub fn set_cpuid2(self: *Vcpu, cpuid: *const Cpuid2) !void {
         assert(self.fd >= 0);
         assert(cpuid.nent <= max_cpuid_entries);
         if (ioctl(self.fd, KVM_SET_CPUID2, cpuid) != 0) return error.Unsupported;
     }
 
-    pub fn getRegsX86(self: *Vcpu) !X86Regs {
+    pub fn get_regs_x86(self: *Vcpu) !X86Regs {
         assert(self.fd >= 0);
         var r: X86Regs = undefined;
         if (ioctl(self.fd, KVM_GET_REGS, &r) != 0) return error.KvmGetRegFailed;
         return r;
     }
 
-    pub fn setRegsX86(self: *Vcpu, r: X86Regs) !void {
+    pub fn set_regs_x86(self: *Vcpu, r: X86Regs) !void {
         assert(self.fd >= 0);
         var v = r;
         if (ioctl(self.fd, KVM_SET_REGS, &v) != 0) return error.KvmSetRegFailed;
     }
 
-    pub fn getSregsX86(self: *Vcpu) !X86Sregs {
+    pub fn get_sregs_x86(self: *Vcpu) !X86Sregs {
         assert(self.fd >= 0);
         var s: X86Sregs = undefined;
         if (ioctl(self.fd, KVM_GET_SREGS, &s) != 0) return error.KvmGetRegFailed;
         return s;
     }
 
-    pub fn setSregsX86(self: *Vcpu, s: X86Sregs) !void {
+    pub fn set_sregs_x86(self: *Vcpu, s: X86Sregs) !void {
         assert(self.fd >= 0);
         var v = s;
         if (ioctl(self.fd, KVM_SET_SREGS, &v) != 0) return error.KvmSetRegFailed;
@@ -1115,9 +1115,9 @@ test "KVM arm64 nested constants match uapi" {
     try std.testing.expectEqual(@as(c_ulong, 165), KVM_CAP_ARM_VM_IPA_SIZE);
     try std.testing.expectEqual(@as(c_ulong, 240), KVM_CAP_ARM_EL2);
     try std.testing.expectEqual(@as(u32, 7), KVM_ARM_VCPU_HAS_EL2);
-    try std.testing.expectEqual(@as(u64, 0), KVM_VM_TYPE_ARM_IPA_SIZE(0));
-    try std.testing.expectEqual(@as(u64, 40), KVM_VM_TYPE_ARM_IPA_SIZE(40));
-    try std.testing.expectEqual(@as(u64, 0xff), KVM_VM_TYPE_ARM_IPA_SIZE(0x1ff));
+    try std.testing.expectEqual(@as(u64, 0), kvm_vm_type_arm_ipa_size(0));
+    try std.testing.expectEqual(@as(u64, 40), kvm_vm_type_arm_ipa_size(40));
+    try std.testing.expectEqual(@as(u64, 0xff), kvm_vm_type_arm_ipa_size(0x1ff));
 }
 
 test "KVMIO ioctl numbers match their documented kernel values" {
@@ -1199,13 +1199,13 @@ test "KVM arch-agnostic: open, API v12, create VM, check capability" {
     // vcpu_mmap_size should be at least one page (typical: 4096 or 12288).
     try std.testing.expect(kvm.vcpu_mmap_size >= 4096);
 
-    var vm = try kvm.createVm();
+    var vm = try kvm.create_vm();
     defer vm.destroy();
 
     // KVM_CAP_USER_MEMORY = 3 — present on every modern kernel; makes
     // sure CHECK_EXTENSION is wired through the wrapper.
     const cap_user_memory: c_ulong = 3;
-    const has_user_memory = try kvm.checkExtension(cap_user_memory);
+    const has_user_memory = try kvm.check_extension(cap_user_memory);
     try std.testing.expect(has_user_memory >= 1);
 }
 
@@ -1219,7 +1219,7 @@ test "KVM x86_64 proof-of-life: create VM, map `hlt`, run, expect KVM_EXIT_HLT" 
     };
     defer kvm.close_();
 
-    var vm = try kvm.createVm();
+    var vm = try kvm.create_vm();
     defer vm.destroy();
 
     // One 4 KiB page of anonymous guest RAM.
@@ -1232,25 +1232,25 @@ test "KVM x86_64 proof-of-life: create VM, map `hlt`, run, expect KVM_EXIT_HLT" 
     // Guest instruction: hlt (0xF4). vCPU halts → KVM_EXIT_HLT.
     const guest_phys: u64 = 0x1000;
     page[0] = 0xF4;
-    try vm.mapMemory(0, guest_phys, page[0..page_size]);
+    try vm.map_memory(0, guest_phys, page[0..page_size]);
 
-    var vcpu = try vm.createVcpu(0);
+    var vcpu = try vm.create_vcpu(0);
     defer vcpu.destroy();
 
     // Zero-out CS.base + CS.selector so real-mode execution starts
     // at physical RIP instead of CS*16 + IP. The rest of the default
     // SREGS (GDT/IDT/LDT, other segments) is fine — we never
     // dereference anything but the instruction byte.
-    var sregs = try vcpu.getSregsX86();
+    var sregs = try vcpu.get_sregs_x86();
     sregs.cs.base = 0;
     sregs.cs.selector = 0;
-    try vcpu.setSregsX86(sregs);
+    try vcpu.set_sregs_x86(sregs);
 
     // RIP = guest_phys, RFLAGS = 0x2 (the single mandatory bit).
-    var regs = try vcpu.getRegsX86();
+    var regs = try vcpu.get_regs_x86();
     regs.rip = guest_phys;
     regs.rflags = 0x2;
-    try vcpu.setRegsX86(regs);
+    try vcpu.set_regs_x86(regs);
 
     const reason = try vcpu.run();
     try std.testing.expectEqual(ExitReason.hlt, reason);
@@ -1269,7 +1269,7 @@ test "KVM proof-of-life: create VM, create vCPU, map + run one instr" {
     };
     defer kvm.close_();
 
-    var vm = try kvm.createVm();
+    var vm = try kvm.create_vm();
     defer vm.destroy();
 
     // One 4 KiB page of host memory, anonymous, mmap'd so the kernel
@@ -1292,17 +1292,17 @@ test "KVM proof-of-life: create VM, create vCPU, map + run one instr" {
     page[3] = 0xB9;
 
     const guest_phys: u64 = 0x4000_0000;
-    try vm.mapMemory(0, guest_phys, page[0..page_size]);
+    try vm.map_memory(0, guest_phys, page[0..page_size]);
 
-    const target = try vm.preferredTarget();
+    const target = try vm.preferred_target();
 
-    var vcpu = try vm.createVcpu(0);
+    var vcpu = try vm.create_vcpu(0);
     defer vcpu.destroy();
 
     try vcpu.init(target);
-    try vcpu.setReg(REG_PC, guest_phys);
+    try vcpu.set_reg(REG_PC, guest_phys);
     // Unmapped address — the load will fault and exit with MMIO.
-    try vcpu.setReg(REG_X0, 0xA000_0000);
+    try vcpu.set_reg(REG_X0, 0xA000_0000);
 
     const reason = try vcpu.run();
     std.debug.print("kvm proof-of-life: exit reason = {d}\n", .{@intFromEnum(reason)});
