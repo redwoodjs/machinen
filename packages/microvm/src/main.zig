@@ -66,7 +66,7 @@ pub fn main(init: std.process.Init) !void {
 
     // Snapshot/restore plumbing — host orchestrator drives via env.
     // MACHINEN_RESTORE_PATH: load .vmstate at boot before vcpu.run().
-    // MACHINEN_SNAPSHOT_PATH: capture on SIGUSR1, write .vmstate, then resume.
+    // MACHINEN_SNAPSHOT_PATH: capture on SIGUSR1, write .vmstate, then resume after SIGUSR2.
     const restore_path = envOptional("MACHINEN_RESTORE_PATH");
     const snapshot_path = envOptional("MACHINEN_SNAPSHOT_PATH");
 

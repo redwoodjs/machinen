@@ -43,6 +43,7 @@ pub const sysreg_names = @import("sysreg_names.zig"); // name<->encoding table
 pub const sysreg_classify = @import("sysreg_classify.zig"); // portability decisions
 pub const vcpu_dump = @import("vcpu_dump.zig"); // vCPU dump/load (KVM + HVF)
 pub const ram_dump = @import("ram_dump.zig"); // RAM section codec
+pub const rootdisk_delta = @import("rootdisk_delta.zig"); // rootdisk checkpoint delta codec
 pub const pl011_dump = @import("pl011_dump.zig"); // PL011 UART snapshot
 pub const gic_dump = @import("gic_dump.zig"); // GICv3 distributor/redistributor codec
 pub const gic_state = @import("gic_state.zig"); // GICv3 register dump/load (KVM + HVF)
@@ -121,6 +122,7 @@ test {
     _ = @import("sysreg_classify.zig");
     _ = @import("vcpu_dump.zig");
     _ = @import("ram_dump.zig");
+    _ = @import("rootdisk_delta.zig");
     _ = @import("pl011_dump.zig");
     _ = @import("gic_dump.zig");
     _ = @import("gic_state.zig");

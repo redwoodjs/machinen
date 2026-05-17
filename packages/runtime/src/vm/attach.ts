@@ -7,7 +7,7 @@ import { ExecError, RegistryError, SnapshotError } from "../errors.ts";
 import { VsockExec } from "../exec.ts";
 import type { OnLog } from "../log.ts";
 import { readHostRssBytes } from "../proc-rss.ts";
-import { findEntry, isAlive } from "../registry.ts";
+import { findEntry, isAlive, writeEntry } from "../registry.ts";
 import { performFork } from "./fork.ts";
 import type { MemoryStats, VmHandle } from "../vm-handle.ts";
 import { buildWriteFileCmds, teeOnLog } from "./helpers.ts";
@@ -49,7 +49,7 @@ export interface AttachOptions {
  */
 export async function attach(opts: AttachOptions): Promise<VmHandle> {
   debugAttach("attach lookup pid=%s name=%s", opts.pid ?? "<unset>", opts.name ?? "<unset>");
-  const entry = findEntry(opts);
+  let entry = findEntry(opts);
   if (!entry) {
     const q = opts.pid !== undefined ? `pid ${opts.pid}` : `name ${opts.name}`;
     debugAttach("attach miss for %s", q);
@@ -202,6 +202,24 @@ export async function attach(opts: AttachOptions): Promise<VmHandle> {
       // Vmstate engine: the VMM's whole-VM state-file path, persisted
       // at boot. performSnapshotVmstate SIGUSR1s the VMM and reads it.
       vmstatePath: entry.vmstatePath,
+      vmstateChain: entry.vmstatePath
+        ? {
+            chainId: entry.vmstateChainId ?? `attached-${entry.pid}`,
+            parentDir: entry.vmstateCheckpointParent,
+            sequence: entry.vmstateCheckpointSequence ?? 0,
+          }
+        : undefined,
+      updateVmstateChain: entry.vmstatePath
+        ? ({ parentDir, sequence }) => {
+            entry = {
+              ...entry!,
+              vmstateChainId: entry!.vmstateChainId ?? `attached-${entry!.pid}`,
+              vmstateCheckpointParent: parentDir,
+              vmstateCheckpointSequence: sequence,
+            };
+            writeEntry(entry);
+          }
+        : undefined,
       execRaw: (cmd, execOpts) => handle.execRaw(cmd, execOpts),
       wait: () => handle.wait(),
       kill: () => handle.kill(),

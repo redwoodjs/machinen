@@ -12,6 +12,7 @@ import {
   openSync,
   readdirSync,
   readFileSync,
+  rmSync,
   statSync,
   unlinkSync,
   writeSync,
@@ -27,6 +28,7 @@ import { claimName, findEntry, writeEntry } from "../registry.ts";
 import { boot, type BootOptions } from "./boot.ts";
 import { resolveRestoreLiveMounts } from "./bundle.ts";
 import { VMSTATE_FILE } from "./snapshot-engine.ts";
+import { materializeVmstateChain } from "./vmstate-chain.ts";
 import type {
   SnapshotFileIdentity,
   SnapshotMeta,
@@ -556,6 +558,12 @@ function resolveVmstateRootDisk(
         "  restore({ rootDisk: <exact-image> }) to opt into caller-managed bytes.",
     );
   }
+  if (recorded.mode === "delta") {
+    throw new BootError(
+      "BOOT_VMSTATE_UNSUPPORTED",
+      "restore: vmstate rootdisk delta was not materialized. This is a checkpoint-chain bug.",
+    );
+  }
   if (recorded.mode === "none") {
     if (typeof opts.rootDisk === "string") {
       throw new BootError(
@@ -620,7 +628,9 @@ function validateIdentity(label: string, path: string, expected: SnapshotFileIde
  * rematerializing a tarball into a fresh ext4 image is not safe.
  */
 async function restoreVmstate(opts: RestoreOptions, snapDir: string): Promise<VmHandle> {
-  const statePath = join(snapDir, VMSTATE_FILE);
+  let statePath = join(snapDir, VMSTATE_FILE);
+  let effectiveSnapDir = snapDir;
+  let materializedTempDir: string | undefined;
   const metaPath = join(snapDir, "meta.json");
 
   let meta: SnapshotMeta = { snappedAt: 0 };
@@ -634,39 +644,56 @@ async function restoreVmstate(opts: RestoreOptions, snapDir: string): Promise<Vm
     }
   }
 
-  const resolvedImage = resolveRestoreImage(opts, meta);
-  const vmstatePlan = planVmstateRestore(opts, meta, snapDir, statePath);
-  const effectiveLiveMounts = resolveRestoreLiveMounts(meta.liveMounts, opts.liveMounts);
-
-  // Re-attach a `--mount` overlay recorded in the bundle (same shape
-  // and per-fork reflink semantics as the CRIU path).
-  let restoreMountDisk: BootOptions["_restoreMountDisk"];
-  if (meta.mountDisk) {
-    const lowerAbs = join(snapDir, meta.mountDisk.lower);
-    const upperAbs = join(snapDir, meta.mountDisk.upper);
-    if (!existsSync(lowerAbs) || !existsSync(upperAbs)) {
-      throw new BootError(
-        "BOOT_SNAPSHOT_NOT_FOUND",
-        `restore: bundle's mount overlay is missing one of:\n  ${lowerAbs}\n  ${upperAbs}`,
-      );
+  let vm: VmHandle;
+  try {
+    if (meta.vmstate?.checkpoint?.parent) {
+      const materialized = materializeVmstateChain(snapDir, meta);
+      materializedTempDir = materialized.tempDir;
+      effectiveSnapDir = materialized.snapDir;
+      statePath = materialized.statePath;
+      meta = materialized.meta;
     }
-    restoreMountDisk = { guest: meta.mountDisk.guest, lowerPath: lowerAbs, upperPath: upperAbs };
+
+    const resolvedImage = resolveRestoreImage(opts, meta);
+    const vmstatePlan = planVmstateRestore(opts, meta, effectiveSnapDir, statePath);
+    const effectiveLiveMounts = resolveRestoreLiveMounts(meta.liveMounts, opts.liveMounts);
+
+    // Re-attach a `--mount` overlay recorded in the bundle (same shape
+    // and per-fork reflink semantics as the CRIU path).
+    let restoreMountDisk: BootOptions["_restoreMountDisk"];
+    if (meta.mountDisk) {
+      const lowerAbs = join(snapDir, meta.mountDisk.lower);
+      const upperAbs = join(snapDir, meta.mountDisk.upper);
+      if (!existsSync(lowerAbs) || !existsSync(upperAbs)) {
+        throw new BootError(
+          "BOOT_SNAPSHOT_NOT_FOUND",
+          `restore: bundle's mount overlay is missing one of:\n  ${lowerAbs}\n  ${upperAbs}`,
+        );
+      }
+      restoreMountDisk = { guest: meta.mountDisk.guest, lowerPath: lowerAbs, upperPath: upperAbs };
+    }
+
+    debugRestore("vmstate restore snapDir=%s state=%s image=%s", snapDir, statePath, resolvedImage);
+
+    vm = await boot({
+      ...opts,
+      image: resolvedImage,
+      forkedFrom: snapDir,
+      name: opts.name,
+      liveMounts: effectiveLiveMounts,
+      memory: vmstatePlan.memoryCeiling ?? opts.memory,
+      rootDisk: vmstatePlan.rootDisk ?? opts.rootDisk,
+      _restoreMountDisk: restoreMountDisk,
+      _vmstateRestorePath: statePath,
+      _rootDiskRestorePath: vmstatePlan.rootDiskRestorePath,
+    });
+  } finally {
+    if (materializedTempDir) {
+      try {
+        rmSync(materializedTempDir, { recursive: true, force: true });
+      } catch {}
+    }
   }
-
-  debugRestore("vmstate restore snapDir=%s state=%s image=%s", snapDir, statePath, resolvedImage);
-
-  const vm = await boot({
-    ...opts,
-    image: resolvedImage,
-    forkedFrom: snapDir,
-    name: opts.name,
-    liveMounts: effectiveLiveMounts,
-    memory: vmstatePlan.memoryCeiling ?? opts.memory,
-    rootDisk: vmstatePlan.rootDisk ?? opts.rootDisk,
-    _restoreMountDisk: restoreMountDisk,
-    _vmstateRestorePath: statePath,
-    _rootDiskRestorePath: vmstatePlan.rootDiskRestorePath,
-  });
 
   autoNameRestoredFork(vm, opts, meta);
   // The restored guest's kernel hostname is whatever the source had;

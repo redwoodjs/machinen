@@ -58,9 +58,11 @@ pub const KVM_CHECK_EXTENSION = io_(KVMIO, 0x03);
 pub const KVM_GET_VCPU_MMAP_SIZE = io_(KVMIO, 0x04);
 
 pub const KVM_CREATE_VCPU = io_(KVMIO, 0x41);
+pub const KVM_GET_DIRTY_LOG = iow(KVMIO, 0x42, @sizeOf(DirtyLog));
 pub const KVM_RUN = io_(KVMIO, 0x80);
 
 pub const KVM_SET_USER_MEMORY_REGION = iow(KVMIO, 0x46, @sizeOf(UserspaceMemoryRegion));
+pub const KVM_CLEAR_DIRTY_LOG = iowr(KVMIO, 0xC0, @sizeOf(ClearDirtyLog));
 pub const KVM_CREATE_IRQCHIP = io_(KVMIO, 0x60);
 pub const KVM_IRQ_LINE = iow(KVMIO, 0x61, @sizeOf(IrqLevel));
 pub const KVM_GET_IRQCHIP = iowr(KVMIO, 0x62, @sizeOf(Irqchip));
@@ -91,12 +93,27 @@ pub const KVM_HAS_DEVICE_ATTR = iow(KVMIO, 0xE3, @sizeOf(DeviceAttr));
 // Flat structs — all have a KVM-stable layout across arm64/x86_64
 // but we only build on arm64 for our guest.
 
+pub const KVM_MEM_LOG_DIRTY_PAGES: u32 = 1 << 0;
+
 pub const UserspaceMemoryRegion = extern struct {
     slot: u32,
     flags: u32,
     guest_phys_addr: u64,
     memory_size: u64,
     userspace_addr: u64,
+};
+
+pub const DirtyLog = extern struct {
+    slot: u32,
+    padding1: u32 = 0,
+    dirty_bitmap: u64,
+};
+
+pub const ClearDirtyLog = extern struct {
+    slot: u32,
+    num_pages: u32,
+    first_page: u64,
+    dirty_bitmap: u64,
 };
 
 pub const VcpuInit = extern struct {
@@ -526,6 +543,16 @@ pub const Vm = struct {
         guest_phys_addr: u64,
         host_buf: []u8,
     ) !void {
+        return self.mapMemoryWithFlags(slot, guest_phys_addr, host_buf, 0);
+    }
+
+    pub fn mapMemoryWithFlags(
+        self: *Vm,
+        slot: u32,
+        guest_phys_addr: u64,
+        host_buf: []u8,
+        flags: u32,
+    ) !void {
         assert(self.fd >= 0);
         assert(host_buf.len > 0);
         // KVM requires both the guest-physical address and the host
@@ -538,7 +565,7 @@ pub const Vm = struct {
         assert(host_buf.len % 4096 == 0);
         const r = UserspaceMemoryRegion{
             .slot = slot,
-            .flags = 0,
+            .flags = flags,
             .guest_phys_addr = guest_phys_addr,
             .memory_size = host_buf.len,
             .userspace_addr = @intFromPtr(host_buf.ptr),
@@ -546,6 +573,30 @@ pub const Vm = struct {
         if (ioctl(self.fd, KVM_SET_USER_MEMORY_REGION, &r) != 0) {
             return error.KvmSetMemoryFailed;
         }
+    }
+
+    pub fn getDirtyLog(self: *Vm, allocator: std.mem.Allocator, slot: u32, page_count: usize) ![]u64 {
+        assert(page_count > 0);
+        const word_count = (page_count + 63) / 64;
+        const bits = try allocator.alloc(u64, word_count);
+        errdefer allocator.free(bits);
+        @memset(bits, 0);
+        var log = DirtyLog{ .slot = slot, .dirty_bitmap = @intFromPtr(bits.ptr) };
+        if (ioctl(self.fd, KVM_GET_DIRTY_LOG, &log) != 0) return error.KvmGetDirtyLogFailed;
+        return bits;
+    }
+
+    pub fn clearDirtyLog(self: *Vm, slot: u32, bits: []const u64, page_count: usize) void {
+        if (bits.len == 0 or page_count == 0) return;
+        var clear = ClearDirtyLog{
+            .slot = slot,
+            .num_pages = @intCast(page_count),
+            .first_page = 0,
+            .dirty_bitmap = @intFromPtr(bits.ptr),
+        };
+        // Older kernels either clear on KVM_GET_DIRTY_LOG or lack this
+        // ioctl. Best effort: correctness survives as cumulative deltas.
+        _ = ioctl(self.fd, KVM_CLEAR_DIRTY_LOG, &clear);
     }
 
     /// Create an in-kernel vgic-v3 and place its distributor +

@@ -486,6 +486,9 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   // wiring entirely so the VMM never installs the SIGUSR1 handler —
   // the VM is genuinely un-snapshottable, the same as under criu.
   let vmstateStatePath: string | undefined;
+  const vmstateChainId = randomBytes(16).toString("hex");
+  let vmstateCheckpointParent = opts._vmstateRestorePath ? opts.forkedFrom : undefined;
+  let vmstateCheckpointSequence = 0;
   if (resolveSnapshotEngine() === "vmstate" && opts.snapshot !== false) {
     if (!vsockTempDir) {
       vsockTempDir = mkdtempSync(join(tmpdir(), "machinen-vsock-"));
@@ -716,6 +719,9 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
           mountDiskPaths,
           liveMountsResolved,
           vmstateStatePath,
+          vmstateChainId: vmstateStatePath ? vmstateChainId : undefined,
+          vmstateCheckpointParent: vmstateStatePath ? vmstateCheckpointParent : undefined,
+          vmstateCheckpointSequence: vmstateStatePath ? vmstateCheckpointSequence : undefined,
         })
       : false;
 
@@ -932,6 +938,28 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
         : undefined,
       liveMounts: liveMountsForCtx,
       vmstatePath: vmstateStatePath,
+      vmstateChain: vmstateStatePath
+        ? {
+            chainId: vmstateChainId,
+            parentDir: vmstateCheckpointParent,
+            sequence: vmstateCheckpointSequence,
+          }
+        : undefined,
+      updateVmstateChain: vmstateStatePath
+        ? ({ parentDir, sequence }) => {
+            vmstateCheckpointParent = parentDir;
+            vmstateCheckpointSequence = sequence;
+            const cur = findEntry({ pid: childPid });
+            if (cur) {
+              writeEntry({
+                ...cur,
+                vmstateChainId,
+                vmstateCheckpointParent,
+                vmstateCheckpointSequence,
+              });
+            }
+          }
+        : undefined,
       execRaw: (cmd, execOpts) => handle.execRaw(cmd, execOpts),
       wait: () => handle.wait(),
       kill: () => handle.kill(),
@@ -1463,6 +1491,9 @@ interface RegisterArgs {
   mountDiskPaths: MountDiskPaths | undefined;
   liveMountsResolved: ResolvedLiveMount[];
   vmstateStatePath: string | undefined;
+  vmstateChainId: string | undefined;
+  vmstateCheckpointParent: string | undefined;
+  vmstateCheckpointSequence: number | undefined;
 }
 
 // Write the registry entry. Returns true on success; registry-write
@@ -1518,6 +1549,9 @@ function registerInRegistry(args: RegisterArgs): boolean {
       // an attach-owned `vm.snapshot()` / `vm.fork()` can SIGUSR1 the
       // VMM and pick the .vmstate up. Undefined for criu-engine VMs.
       vmstatePath: args.vmstateStatePath,
+      vmstateChainId: args.vmstateChainId,
+      vmstateCheckpointParent: args.vmstateCheckpointParent,
+      vmstateCheckpointSequence: args.vmstateCheckpointSequence,
       // #272: persist mount-overlay paths so an attach-owned
       // vm.snapshot()/fork() can reflink the lower+upper into the
       // bundle. Without this, `machinen snapshot <vm>` from

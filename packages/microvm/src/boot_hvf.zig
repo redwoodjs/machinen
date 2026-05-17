@@ -28,6 +28,7 @@ const hvf = @import("hvf.zig");
 const virtio = @import("virtio.zig");
 const net_mod = @import("net_socket.zig");
 const blk_mod = @import("blk.zig");
+const ram_dump = @import("ram_dump.zig");
 const vsock_mod = @import("vsock.zig");
 const virtiofs_mod = @import("virtiofs.zig");
 const balloon_mod = @import("balloon.zig");
@@ -296,6 +297,11 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
 
     var blk_backend_opt: ?blk_mod.Backend = openBlkBackend(slot1_path, "slot 1");
     defer if (blk_backend_opt) |*b| b.deinit();
+    if (cfg.rootdisk_path != null and cfg.snapshot_path != null) {
+        if (blk_backend_opt) |*b| b.enableDirtyTracking(gpa) catch |err| {
+            std.debug.print("blk: rootdisk dirty tracking disabled: {s}\n", .{@errorName(err)});
+        };
+    }
     var blkdev_opt: ?virtio.Device = if (blk_backend_opt) |*b|
         makeBlkDevice(virtio_blk_base, virtio_blk_size, ram, cfg, b)
     else
@@ -451,6 +457,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     const devs = Devices{
         .uart = &uart,
         .netdev = &netdev,
+        .root_blk = if (cfg.rootdisk_path != null) (if (blk_backend_opt) |_| &blk_backend_opt.? else null) else null,
         .blk_dev = blkdev_ptr,
         .blk2_dev = blk2dev_ptr,
         .blk3_dev = blk3dev_ptr,
@@ -474,15 +481,19 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
         startSnapshotWatcher(vcpu.handle);
     }
 
-    return try runLoop(gpa, cfg, vcpu, &devs, irqs, ram);
+    return try runLoop(gpa, cfg, vm, vcpu, &devs, irqs, ram);
 }
 
 // SIGUSR1 atomic + watcher-thread plumbing. macOS HVF doesn't return
 // from hv_vcpu_run on signal, so the signal handler alone isn't
 // enough: we spawn a watcher pthread that polls the atomic and calls
 // hv_vcpus_exit() to force the vCPU out of its run when set. The run
-// loop then sees the flag on its next iteration and dumps.
+// loop then sees the flag on its next iteration and dumps. SIGUSR2 is
+// the matching runtime acknowledgment: after it has copied rootdisk /
+// mount-overlay sidecars that must match the captured CPU/RAM point, it
+// lets the paused vCPU resume.
 var snapshot_requested_hvf: std.atomic.Value(bool) = std.atomic.Value(bool).init(false);
+var snapshot_resume_requested_hvf: std.atomic.Value(bool) = std.atomic.Value(bool).init(false);
 var snapshot_watcher_running: std.atomic.Value(bool) = std.atomic.Value(bool).init(false);
 var snapshot_watcher_vcpu: u64 = 0;
 
@@ -499,12 +510,38 @@ fn sigusr1HandlerHvf(sig: c_int) callconv(.c) void {
     _ = c.write(2, msg.ptr, msg.len);
 }
 
+fn sigusr2HandlerHvf(sig: c_int) callconv(.c) void {
+    _ = sig;
+    snapshot_resume_requested_hvf.store(true, .seq_cst);
+}
+
 fn installSnapshotSignal() void {
     const c = struct {
         extern "c" fn signal(sig: c_int, handler: usize) usize;
     };
     const SIGUSR1: c_int = 30; // macOS SIGUSR1; differs from Linux (10)
+    const SIGUSR2: c_int = 31; // macOS SIGUSR2; differs from Linux (12)
     _ = c.signal(SIGUSR1, @intFromPtr(&sigusr1HandlerHvf));
+    _ = c.signal(SIGUSR2, @intFromPtr(&sigusr2HandlerHvf));
+}
+
+fn waitForSnapshotResumeHvf() void {
+    const c = struct {
+        extern "c" fn usleep(usec: u32) c_int;
+    };
+    const poll_us: u32 = 1_000;
+    const timeout_us: u64 = 120 * 1_000_000;
+    var waited_us: u64 = 0;
+    std.debug.print("hvf: snapshot captured; waiting for runtime resume\n", .{});
+    while (!snapshot_resume_requested_hvf.load(.seq_cst) and waited_us < timeout_us) : (waited_us += poll_us) {
+        _ = c.usleep(poll_us);
+    }
+    if (snapshot_resume_requested_hvf.load(.seq_cst)) {
+        snapshot_resume_requested_hvf.store(false, .seq_cst);
+        std.debug.print("hvf: snapshot resume received\n", .{});
+    } else {
+        std.debug.print("hvf: snapshot resume timed out after {d}us; resuming fail-open\n", .{waited_us});
+    }
 }
 
 fn snapshotWatcherThread(arg: ?*anyopaque) callconv(.c) ?*anyopaque {
@@ -570,10 +607,11 @@ fn captureSnapshotJob(
     ram: []const u8,
     cfg: Config,
     devs: *const Devices,
+    full_ram: bool,
+    dirty_bits: ?[]const u64,
 ) !*vmstate_writer.Job {
     const snapshot = @import("snapshot.zig");
     const vcpu_dump = @import("vcpu_dump.zig");
-    const ram_dump = @import("ram_dump.zig");
     const gic_state = @import("gic_state.zig");
     const virtio_dump = @import("virtio_dump.zig");
     const topology = @import("topology.zig");
@@ -590,7 +628,10 @@ fn captureSnapshotJob(
     const a = job.arenaAllocator();
 
     const vcpu_payload = try vcpu_dump.dumpHvf(a, vcpu.handle);
-    const ram_payload = try ram_dump.encode(a, cfg.ram_base, ram);
+    const ram_payload = if (full_ram)
+        try ram_dump.encode(a, cfg.ram_base, ram)
+    else
+        try ram_dump.encodeDelta(a, cfg.ram_base, ram, dirty_bits.?);
     // GICv3 distributor + per-vCPU redistributor state. Without these
     // a cross-VMM restore lands the guest on a fresh GIC: interrupts
     // the kernel thinks are enabled (the vtimer PPI especially) are
@@ -614,7 +655,7 @@ fn captureSnapshotJob(
 
     var sections = std.ArrayList(snapshot.Section).empty;
     try sections.append(a, .{ .tag = .vcpu, .id = 0, .payload = vcpu_payload });
-    try sections.append(a, .{ .tag = .ram, .id = 0, .payload = ram_payload });
+    try sections.append(a, .{ .tag = if (full_ram) .ram else .ram_delta, .id = 0, .payload = ram_payload });
     try sections.append(a, .{ .tag = .gic_dist, .id = 0, .payload = gic_dist_payload });
     try sections.append(a, .{ .tag = .gic_redist, .id = 0, .payload = gic_redist_payload });
     try sections.append(a, .{ .tag = .gic_cpuif, .id = 0, .payload = gic_cpuif_payload });
@@ -635,6 +676,12 @@ fn captureSnapshotJob(
         const fp = try backend.state.dumpState(a);
         try sections.append(a, .{ .tag = .virtiofs_state, .id = @truncate(d.base), .payload = fp });
     }
+    if (!full_ram) {
+        if (devs.root_blk) |b| {
+            const dp = try b.encodeDirtyDelta(a);
+            try sections.append(a, .{ .tag = .rootdisk_delta, .id = 0, .payload = dp });
+        }
+    }
     job.sections = try sections.toOwnedSlice(a);
     return job;
 }
@@ -649,7 +696,6 @@ fn applyRestoreFile(
 ) !void {
     const snapshot = @import("snapshot.zig");
     const vcpu_dump = @import("vcpu_dump.zig");
-    const ram_dump = @import("ram_dump.zig");
     const gic_state = @import("gic_state.zig");
     const virtio_dump = @import("virtio_dump.zig");
     const topology = @import("topology.zig");
@@ -716,6 +762,11 @@ fn applyRestoreFile(
                 // Reconstructs straight into the live guest RAM: zero
                 // pages are implicit, stored extents land on top.
                 _ = try ram_dump.decodeIntoZeroed(s.payload, ram);
+            },
+            .ram_delta => {
+                // Overlay a checkpoint delta onto the RAM reconstructed
+                // from its parent section(s).
+                _ = try ram_dump.decodeDeltaInto(s.payload, ram);
             },
             .gic_dist => gic_state.loadHvfDist(gpa, s.payload) catch |err| {
                 std.debug.print("hvf boot: gic_dist restore failed: {s}\n", .{@errorName(err)});
@@ -834,6 +885,54 @@ fn applyRestoreFile(
     timing.done();
 }
 
+const RamDirtyTracker = struct {
+    allocator: std.mem.Allocator,
+    vm: hvf.Vm,
+    ram_base: u64,
+    ram_size: usize,
+    bits: []u64,
+    active: bool = false,
+
+    fn init(allocator: std.mem.Allocator, vm: hvf.Vm, cfg: Config) !RamDirtyTracker {
+        const page_count = cfg.ram_size / ram_dump.PAGE;
+        const word_count = (page_count + 63) / 64;
+        const bits = try allocator.alloc(u64, word_count);
+        @memset(bits, 0);
+        return .{ .allocator = allocator, .vm = vm, .ram_base = cfg.ram_base, .ram_size = cfg.ram_size, .bits = bits };
+    }
+
+    fn deinit(self: *RamDirtyTracker) void {
+        self.allocator.free(self.bits);
+        self.bits = &.{};
+    }
+
+    fn activateClean(self: *RamDirtyTracker) !void {
+        @memset(self.bits, 0);
+        try self.vm.protect(self.ram_base, self.ram_size, hvf.MapFlags.rx);
+        self.active = true;
+    }
+
+    fn handleWriteFault(self: *RamDirtyTracker, info: hvf.DataAbort) !bool {
+        if (!self.active or !info.is_write) return false;
+        if (info.ipa < self.ram_base) return false;
+        const rel = info.ipa - self.ram_base;
+        if (rel >= self.ram_size) return false;
+        const hv_page_rel = (rel / hvf.page_size) * hvf.page_size;
+        const hv_page_ipa = self.ram_base + hv_page_rel;
+        const first_page = hv_page_rel / ram_dump.PAGE;
+        const subpages = hvf.page_size / ram_dump.PAGE;
+        for (0..subpages) |i| {
+            const page = first_page + i;
+            if (page * ram_dump.PAGE >= self.ram_size) break;
+            const word = page / 64;
+            const bit: u6 = @intCast(page % 64);
+            if (word < self.bits.len) self.bits[word] |= @as(u64, 1) << bit;
+        }
+        try self.vm.protect(hv_page_ipa, hvf.page_size, hvf.MapFlags.rwx);
+        return true;
+    }
+};
+
 /// Drive the vCPU until PSCI SYSTEM_OFF, an unhandled exception, the
 /// configured serial-capture threshold, or `max_exits`. Each exit is
 /// classified and dispatched to the appropriate handler; the loop
@@ -841,6 +940,7 @@ fn applyRestoreFile(
 fn runLoop(
     gpa: std.mem.Allocator,
     cfg: Config,
+    vm: hvf.Vm,
     vcpu: hvf.Vcpu,
     devs: *const Devices,
     irqs: IrqMap,
@@ -849,6 +949,12 @@ fn runLoop(
     var exits: usize = 0;
     var saw_off = false;
     var snapshotted = false;
+    var checkpoint_delta_mode = cfg.restore_path != null;
+    var ram_dirty = try RamDirtyTracker.init(gpa, vm, cfg);
+    defer ram_dirty.deinit();
+    if (checkpoint_delta_mode and cfg.snapshot_path != null) {
+        try ram_dirty.activateClean();
+    }
     var snapshot_writer_state: vmstate_writer.Writer = .{};
     defer snapshot_writer_state.wait();
     while (exits < cfg.max_exits) : (exits += 1) {
@@ -856,20 +962,30 @@ fn runLoop(
 
         // Async exit from hv_vcpus_exit (watcher thread, snapshot
         // trigger). Don't treat as a guest fault; check the flag and
-        // either capture a snapshot or resume.
+        // either capture a snapshot or resume after the runtime sends
+        // SIGUSR2.
         if (vcpu.exit.reason == .canceled) {
             if (snapshot_requested_hvf.load(.seq_cst)) {
                 if (cfg.snapshot_path) |path| {
-                    if (queueSnapshotWrite(&snapshot_writer_state, gpa, path, vcpu, ram, cfg, devs)) {
+                    snapshot_resume_requested_hvf.store(false, .seq_cst);
+                    const full_ram = !checkpoint_delta_mode;
+                    const dirty_bits: ?[]const u64 = if (full_ram) null else ram_dirty.bits;
+                    if (queueSnapshotWrite(&snapshot_writer_state, gpa, path, vcpu, ram, cfg, devs, full_ram, dirty_bits)) {
                         snapshotted = true;
+                        checkpoint_delta_mode = true;
+                        try ram_dirty.activateClean();
+                        if (devs.root_blk) |b| b.clearDirty();
+                        // Clear the flag and wait for the runtime's
+                        // SIGUSR2 before RESUME so sidecar files are
+                        // point-in-time consistent with CPU/RAM. Keep
+                        // the watcher thread alive so a later SIGUSR1
+                        // (chained snapshot / fork-the-fork) triggers
+                        // another capture.
+                        snapshot_requested_hvf.store(false, .seq_cst);
+                        waitForSnapshotResumeHvf();
+                    } else {
+                        snapshot_requested_hvf.store(false, .seq_cst);
                     }
-                    // Clear the flag and RESUME — the snapshot engine
-                    // (`performSnapshotVmstate`) decides destructiveness
-                    // itself: a plain `snapshot` powers the source off
-                    // afterward, `fork` leaves it running. Keep the
-                    // watcher thread alive so a later SIGUSR1 (chained
-                    // snapshot / fork-the-fork) triggers another capture.
-                    snapshot_requested_hvf.store(false, .seq_cst);
                 }
             }
             continue;
@@ -911,7 +1027,9 @@ fn runLoop(
             },
             .data_abort_lower_el => {
                 const info = hvf.DataAbort.decode(vcpu.exit.exception);
-                try routeDataAbort(vcpu, devs, irqs, info);
+                if (!try ram_dirty.handleWriteFault(info)) {
+                    try routeDataAbort(vcpu, devs, irqs, info);
+                }
             },
             else => {
                 logUnhandledException(vcpu, ec, "unhandled exception class");
@@ -927,13 +1045,23 @@ fn runLoop(
 
         // Snapshot trigger fallback — for the rare case the watcher's
         // hv_vcpus_exit() landed as a plain exception exit rather than
-        // `.canceled`. Same capture-and-resume contract as above.
+        // `.canceled`. Same capture-and-SIGUSR2-resume contract as
+        // above.
         if (snapshot_requested_hvf.load(.seq_cst)) {
             if (cfg.snapshot_path) |path| {
-                if (queueSnapshotWrite(&snapshot_writer_state, gpa, path, vcpu, ram, cfg, devs)) {
+                snapshot_resume_requested_hvf.store(false, .seq_cst);
+                const full_ram = !checkpoint_delta_mode;
+                const dirty_bits: ?[]const u64 = if (full_ram) null else ram_dirty.bits;
+                if (queueSnapshotWrite(&snapshot_writer_state, gpa, path, vcpu, ram, cfg, devs, full_ram, dirty_bits)) {
                     snapshotted = true;
+                    checkpoint_delta_mode = true;
+                    try ram_dirty.activateClean();
+                    if (devs.root_blk) |b| b.clearDirty();
+                    snapshot_requested_hvf.store(false, .seq_cst);
+                    waitForSnapshotResumeHvf();
+                } else {
+                    snapshot_requested_hvf.store(false, .seq_cst);
                 }
-                snapshot_requested_hvf.store(false, .seq_cst);
             }
         }
     }
@@ -1091,6 +1219,8 @@ fn queueSnapshotWrite(
     ram: []const u8,
     cfg: Config,
     devs: *const Devices,
+    full_ram: bool,
+    dirty_bits: ?[]const u64,
 ) bool {
     if (writer.busy()) {
         std.debug.print("hvf: snapshot requested while previous write is still in flight\n", .{});
@@ -1098,7 +1228,7 @@ fn queueSnapshotWrite(
     }
 
     std.debug.print("hvf: writing snapshot to {s}\n", .{path});
-    const job = captureSnapshotJob(gpa, path, vcpu, ram, cfg, devs) catch |err| {
+    const job = captureSnapshotJob(gpa, path, vcpu, ram, cfg, devs, full_ram, dirty_bits) catch |err| {
         std.debug.print("hvf boot: snapshot capture failed: {s}\n", .{@errorName(err)});
         return false;
     };
@@ -1740,6 +1870,7 @@ fn handlePsci(vcpu: hvf.Vcpu) !PsciOutcome {
 const Devices = struct {
     uart: *hvf.Pl011,
     netdev: *virtio.Device,
+    root_blk: ?*blk_mod.Backend,
     blk_dev: ?*virtio.Device,
     blk2_dev: ?*virtio.Device,
     blk3_dev: ?*virtio.Device,

@@ -56,6 +56,12 @@ pub const SectionTag = enum(u32) {
     /// section `id` is the virtio-fs device's MMIO base (same keying
     /// as `.virtio`). Payload schema: fuse_state.zig.
     virtiofs_state = 7,
+    /// Incremental RAM overlay against this checkpoint's parent.
+    /// Payload schema: ram_dump.encodeDelta.
+    ram_delta = 8,
+    /// Incremental rootdisk overlay against this checkpoint's parent.
+    /// Payload schema: rootdisk_delta.zig.
+    rootdisk_delta = 9,
     _,
 };
 

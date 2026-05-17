@@ -35,6 +35,7 @@ import type {
   VmstateSnapshotMeta,
 } from "../vm-handle.ts";
 import { resolveSnapshotEngine, VMSTATE_FILE, VMSTATE_ROOTDISK_FILE } from "./snapshot-engine.ts";
+import { relativeCheckpointParent, VMSTATE_SECTION, vmstateSectionTags } from "./vmstate-chain.ts";
 import { currentVmstateBackend, fileIdentity, readVmstateFacts } from "./vmstate-metadata.ts";
 
 const debugSnapshot = debugLib("machinen:snapshot");
@@ -107,6 +108,14 @@ export interface SnapshotContext {
    * message.
    */
   vmstatePath?: string;
+  /** Incremental vmstate checkpoint chain state for this VM. */
+  vmstateChain?: {
+    chainId: string;
+    parentDir?: string;
+    sequence: number;
+  };
+  /** Persist the next parent pointer after a successful vmstate checkpoint. */
+  updateVmstateChain?: (next: { parentDir: string; sequence: number }) => void;
   execRaw: (cmd: string, opts?: VsockExecOptions) => Promise<VsockExecResult>;
   wait: () => Promise<{ code: number | null; signal: NodeJS.Signals | null }>;
   kill: () => Promise<void>;
@@ -583,24 +592,22 @@ function formatDumpOutcomeHint(outcome: DumpOutcome | undefined): string {
  * Whole-VM snapshot via the `.vmstate` engine. The source VM was
  * booted with `MACHINEN_SNAPSHOT_PATH` set (boot.ts does this when the
  * engine is vmstate), so its VMM carries a SIGUSR1 handler that
- * captures vCPU + RAM + GIC + virtio device state, resumes the guest,
- * then compresses/writes that immutable capture asynchronously. Steps:
+ * captures vCPU + RAM + GIC + virtio device state, queues the state
+ * file write, then waits paused for SIGUSR2 from the runtime. Steps:
  *   1. clear any stale state file at `ctx.vmstatePath`,
  *   2. SIGUSR1 the VMM pid,
  *   3. wait for the file to (re)appear — the VMM writes it atomically
  *      (tmp + rename), so existence == a complete dump,
  *   4. copy it into the bundle as `state.vmstate`,
- *   5. copy the exact root block image as `rootdisk.img`,
+ *   5. copy the exact root block image as `rootdisk.img` (or record
+ *      that the vmstate file carries a rootdisk delta),
  *   6. reflink any `--mount` overlay into the bundle (same as CRIU),
  *   7. write `meta.json` (with `engine: "vmstate"` + invariants),
- *   8. destructive snapshot (`!leaveRunning`) → power the source off;
- *      fork (`leaveRunning`) leaves it running (the VMM already
- *      resumed the guest after capturing state).
+ *   8. SIGUSR2 the VMM so the source VM resumes.
  *
- * Destructiveness is the runtime's call, mirroring the CRIU path's
- * `--leave-running` + host-poweroff split — the VMM itself always
- * resumes after capture, while the `.vmstate` writer finishes in the
- * background.
+ * Vmstate snapshots are non-destructive checkpoints. The SIGUSR2
+ * handshake keeps sidecar files point-in-time consistent while still
+ * letting the source continue after the bundle is complete.
  */
 async function performSnapshotVmstate(
   ctx: SnapshotContext,
@@ -608,7 +615,11 @@ async function performSnapshotVmstate(
 ): Promise<SnapshotResult> {
   const t0 = Date.now();
   const deadlineMs = opts.timeoutMs ?? 90_000;
-  const leaveRunning = opts.leaveRunning === true;
+  // Vmstate snapshots are now incremental checkpoints. A checkpoint is
+  // non-destructive by definition: the source VM resumes after the VMM
+  // captures the paused state, and future checkpoints in the same VM
+  // chain delta against this bundle.
+  const leaveRunning = true;
 
   if (!ctx.vmstatePath) {
     throw new SnapshotError(
@@ -651,76 +662,104 @@ async function performSnapshotVmstate(
   }
 
   // Trigger the dump. SIGUSR1 → the VMM captures whole-VM state,
-  // resumes the guest, then writes ctx.vmstatePath from a background
-  // writer. Works for boot- and attach-owned handles alike — it's just
-  // a signal to the VMM pid.
+  // queues ctx.vmstatePath from a background writer, and then waits
+  // paused until this runtime sends SIGUSR2. Keeping the vCPU stopped
+  // while we copy sidecars makes the rootdisk and mount overlay match
+  // the captured CPU/RAM point even though vmstate checkpoints are
+  // non-destructive.
+  let signaled = false;
   try {
-    process.kill(ctx.pid, "SIGUSR1");
+    try {
+      process.kill(ctx.pid, "SIGUSR1");
+      signaled = true;
+    } catch (err) {
+      throw new SnapshotError(
+        "SNAPSHOT_DUMP_FAILED",
+        `vm.snapshot: failed to signal the VMM (pid ${ctx.pid}): ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+        { cause: err },
+      );
+    }
+
+    await waitForVmstateFile(ctx.vmstatePath, deadlineMs);
+
+    // Copy the state file into the bundle — an independent copy so the
+    // source VM can be snapshotted again (overwriting ctx.vmstatePath)
+    // without disturbing this bundle.
+    const bundleStatePath = join(snapDir, VMSTATE_FILE);
+    try {
+      copyFileSync(ctx.vmstatePath, bundleStatePath);
+    } catch (err) {
+      throw new SnapshotError(
+        "SNAPSHOT_DUMP_FAILED",
+        `vm.snapshot: failed to copy the .vmstate into the bundle: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+        { cause: err },
+      );
+    }
+
+    const parentDir = ctx.vmstateChain?.parentDir;
+    const nextSequence = (ctx.vmstateChain?.sequence ?? 0) + 1;
+    const vmstateMeta = buildVmstateMeta(ctx, bundleStatePath, snapDir, parentDir, nextSequence);
+
+    // Reflink a `--mount` overlay into the bundle, same as the CRIU path.
+    const mountDiskMeta = await reflinkMountOverlay(ctx, snapDir, deadlineMs);
+
+    writeSnapshotMeta(ctx, snapDir, mountDiskMeta, "vmstate", vmstateMeta);
+
+    ctx.updateVmstateChain?.({ parentDir: snapDir, sequence: nextSequence });
+
+    const elapsedMs = Date.now() - t0;
+    const stateBytes = statSync(bundleStatePath).size;
+    debugVmstate(
+      "vmstate snapshot done snapDir=%s stateBytes=%d elapsedMs=%d",
+      snapDir,
+      stateBytes,
+      elapsedMs,
+    );
+    return {
+      engine: "vmstate",
+      snapDir,
+      vmstatePath: bundleStatePath,
+      elapsedMs,
+      // Vmstate checkpoints are non-destructive, so a boot-owned VMM's
+      // stderr stream stays open. Do not await ctx.errorOutput() here;
+      // attach-owned snapshots couldn't see it anyway.
+      consoleLog: "",
+    };
+  } finally {
+    if (signaled) {
+      resumeVmstateSource(ctx.pid);
+    }
+  }
+}
+
+function resumeVmstateSource(pid: number): void {
+  try {
+    process.kill(pid, "SIGUSR2");
   } catch (err) {
-    throw new SnapshotError(
-      "SNAPSHOT_DUMP_FAILED",
-      `vm.snapshot: failed to signal the VMM (pid ${ctx.pid}): ${
-        err instanceof Error ? err.message : String(err)
-      }`,
-      { cause: err },
+    debugVmstate(
+      "vmstate snapshot: failed to resume VMM pid=%d after snapshot: %s",
+      pid,
+      err instanceof Error ? err.message : String(err),
     );
   }
-
-  await waitForVmstateFile(ctx.vmstatePath, deadlineMs);
-
-  // Copy the state file into the bundle — an independent copy so the
-  // source VM can be snapshotted again (overwriting ctx.vmstatePath)
-  // without disturbing this bundle.
-  const bundleStatePath = join(snapDir, VMSTATE_FILE);
-  try {
-    copyFileSync(ctx.vmstatePath, bundleStatePath);
-  } catch (err) {
-    throw new SnapshotError(
-      "SNAPSHOT_DUMP_FAILED",
-      `vm.snapshot: failed to copy the .vmstate into the bundle: ${
-        err instanceof Error ? err.message : String(err)
-      }`,
-      { cause: err },
-    );
-  }
-
-  const vmstateMeta = buildVmstateMeta(ctx, bundleStatePath, snapDir);
-
-  // Reflink a `--mount` overlay into the bundle, same as the CRIU path.
-  const mountDiskMeta = await reflinkMountOverlay(ctx, snapDir, deadlineMs);
-
-  writeSnapshotMeta(ctx, snapDir, mountDiskMeta, "vmstate", vmstateMeta);
-
-  // Destructive snapshot: bring the source down — its state is fully
-  // captured in the bundle. Fork (leaveRunning) leaves it running.
-  if (!leaveRunning) {
-    await powerOffSourceVm(ctx, deadlineMs);
-  }
-
-  const elapsedMs = Date.now() - t0;
-  const stateBytes = statSync(bundleStatePath).size;
-  debugVmstate(
-    "vmstate snapshot done snapDir=%s stateBytes=%d elapsedMs=%d",
-    snapDir,
-    stateBytes,
-    elapsedMs,
-  );
-  return {
-    engine: "vmstate",
-    snapDir,
-    vmstatePath: bundleStatePath,
-    elapsedMs,
-    consoleLog: await ctx.errorOutput(),
-  };
 }
 
 function buildVmstateMeta(
   ctx: SnapshotContext,
   statePath: string,
   snapDir: string,
+  parentDir: string | undefined,
+  sequence: number,
 ): VmstateSnapshotMeta {
   const facts = readVmstateFacts(statePath);
-  const rootDisk = copyVmstateRootDisk(ctx, snapDir);
+  const tags = vmstateSectionTags(statePath);
+  const hasRamDelta = tags.includes(VMSTATE_SECTION.ramDelta);
+  const hasRootdiskDelta = tags.includes(VMSTATE_SECTION.rootdiskDelta);
+  const rootDisk = copyVmstateRootDisk(ctx, snapDir, parentDir !== undefined && hasRootdiskDelta);
   return {
     sourceBackend: currentVmstateBackend(),
     topologyHash: facts.topologyHash,
@@ -732,12 +771,20 @@ function buildVmstateMeta(
     rootDisk,
     kernel: ctx.kernelPath ? fileIdentity(ctx.kernelPath) : undefined,
     dtb: ctx.dtbPath ? fileIdentity(ctx.dtbPath) : undefined,
+    checkpoint: {
+      chainId: ctx.vmstateChain?.chainId ?? `pid-${ctx.pid}`,
+      sequence,
+      parent: relativeCheckpointParent(snapDir, parentDir),
+      ram: hasRamDelta ? "delta" : "full",
+      rootDisk: ctx.rootDiskMode === "none" ? "none" : hasRootdiskDelta ? "delta" : "full",
+    },
   };
 }
 
 function copyVmstateRootDisk(
   ctx: SnapshotContext,
   snapDir: string,
+  deltaOnly: boolean,
 ): VmstateSnapshotMeta["rootDisk"] {
   if (ctx.rootDiskMode === "none") {
     return { mode: "none" };
@@ -749,6 +796,9 @@ function copyVmstateRootDisk(
         "  Reboot it with the current runtime so the registry records /dev/vda,\n" +
         "  or boot with rootDisk:false if the guest intentionally has no root block device.",
     );
+  }
+  if (deltaOnly) {
+    return { mode: "delta" };
   }
   const dest = join(snapDir, VMSTATE_ROOTDISK_FILE);
   try {
