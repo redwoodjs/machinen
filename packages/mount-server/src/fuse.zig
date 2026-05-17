@@ -565,6 +565,8 @@ pub const State = struct {
     /// host since the snapshot) degrades to fd = -1, so the next op on
     /// that handle returns EBADF — fail-soft, never a wedge.
     pub fn apply_state(self: *State, payload: []const u8) !void {
+        assert(self.root_abs.len > 0);
+
         var d = try fuse_state.decode(self.gpa, payload);
         defer d.deinit();
 
@@ -991,6 +993,9 @@ fn on_readlink(state: *State, hdr: InHeader) ![]u8 {
 // --- CREATE -------------------------------------------------------------
 
 fn on_create(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
+    assert(hdr.opcode == @intFromEnum(Op.CREATE));
+    assert(msg.len >= FUSE_IN_HEADER_SIZE);
+
     if (!state.mode_rw) return try build_error_reply(state, hdr.unique, -E.ROFS);
 
     const body = msg[FUSE_IN_HEADER_SIZE..];
@@ -1153,6 +1158,9 @@ fn on_read(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
 // --- MKDIR --------------------------------------------------------------
 
 fn on_mkdir(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
+    assert(hdr.opcode == @intFromEnum(Op.MKDIR));
+    assert(msg.len >= FUSE_IN_HEADER_SIZE);
+
     if (!state.mode_rw) return try build_error_reply(state, hdr.unique, -E.ROFS);
 
     const body = msg[FUSE_IN_HEADER_SIZE..];
@@ -1242,6 +1250,9 @@ fn on_rmdir(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
 }
 
 fn on_link(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
+    assert(hdr.opcode == @intFromEnum(Op.LINK));
+    assert(msg.len >= FUSE_IN_HEADER_SIZE);
+
     if (!state.mode_rw) return try build_error_reply(state, hdr.unique, -E.ROFS);
 
     const body = msg[FUSE_IN_HEADER_SIZE..];
@@ -1310,6 +1321,9 @@ fn on_link(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
 }
 
 fn on_rename(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
+    assert(hdr.opcode == @intFromEnum(Op.RENAME));
+    assert(msg.len >= FUSE_IN_HEADER_SIZE);
+
     if (!state.mode_rw) return try build_error_reply(state, hdr.unique, -E.ROFS);
 
     const body = msg[FUSE_IN_HEADER_SIZE..];
@@ -1365,6 +1379,9 @@ fn on_rename(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
 }
 
 fn on_symlink(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
+    assert(hdr.opcode == @intFromEnum(Op.SYMLINK));
+    assert(msg.len >= FUSE_IN_HEADER_SIZE);
+
     if (!state.mode_rw) return try build_error_reply(state, hdr.unique, -E.ROFS);
 
     // Wire format: two NUL-terminated strings, name then target. No
@@ -1431,6 +1448,9 @@ fn on_symlink(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
 // them well enough for today's workloads, and we can harden them when
 // a real caller needs host-visible persistence.
 fn on_setattr(state: *State, hdr: InHeader, msg: []const u8) ![]u8 {
+    assert(hdr.opcode == @intFromEnum(Op.SETATTR));
+    assert(msg.len >= FUSE_IN_HEADER_SIZE);
+
     const body = msg[FUSE_IN_HEADER_SIZE..];
     if (body.len < 8) return try build_error_reply(state, hdr.unique, -E.INVAL);
     const valid = std.mem.readInt(u32, body[0..4], .little);
@@ -1866,6 +1886,8 @@ fn decode_name(body: []const u8) []const u8 {
 
 pub fn write_stats_atomic(state: *State) void {
     const stats_path = state.stats_path orelse return;
+    assert(stats_path.len > 0);
+    assert(state.root_abs.len > 0);
 
     // Build the JSON in one heap buffer. Stats files are small (<10 KiB
     // even with all ~30 opcodes), and a single allocPrint per write

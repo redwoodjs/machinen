@@ -37,12 +37,14 @@ pub const DecodeError = error{ Truncated, BadKind, BadLength };
 
 pub fn encode(allocator: std.mem.Allocator, kind: u32, id: u32, payload: []const u8) ![]u8 {
     // Tiger-style preconditions.
-    std.debug.assert(kind == KIND_DIST or kind == KIND_REDIST or kind == KIND_CPU_SYSREGS);
+    std.debug.assert(kind >= KIND_DIST);
+    std.debug.assert(kind <= KIND_CPU_SYSREGS);
     std.debug.assert(payload.len <= std.math.maxInt(u32));
-    // distributor section uses id = 0; redist/cpu use vcpu index.
-    std.debug.assert(kind != KIND_DIST or id == 0);
+    // Distributor section uses id = 0; redist/cpu use vcpu index.
+    if (kind == KIND_DIST) std.debug.assert(id == 0);
 
     const out = try allocator.alloc(u8, HEADER_SIZE + payload.len);
+    std.debug.assert(out.len == HEADER_SIZE + payload.len);
     const hdr: Header = .{ .kind = kind, .id = id, .length = @intCast(payload.len) };
     @memcpy(out[0..HEADER_SIZE], std.mem.asBytes(&hdr));
     @memcpy(out[HEADER_SIZE..], payload);
@@ -59,9 +61,8 @@ pub fn decode(bytes: []const u8) DecodeError!Decoded {
     if (bytes.len < HEADER_SIZE) return error.Truncated;
     var hdr: Header = undefined;
     @memcpy(std.mem.asBytes(&hdr), bytes[0..HEADER_SIZE]);
-    if (hdr.kind != KIND_DIST and hdr.kind != KIND_REDIST and hdr.kind != KIND_CPU_SYSREGS) {
-        return error.BadKind;
-    }
+    if (hdr.kind < KIND_DIST) return error.BadKind;
+    if (hdr.kind > KIND_CPU_SYSREGS) return error.BadKind;
     if (hdr.length != bytes.len - HEADER_SIZE) return error.BadLength;
     return .{
         .kind = hdr.kind,

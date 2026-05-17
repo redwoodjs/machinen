@@ -188,6 +188,7 @@ fn probe_kvm(allocator: std.mem.Allocator) !u8 {
         try stderr("sysreg-probe: open /dev/kvm failed\n");
         return 1;
     }
+    std.debug.assert(kvm_fd >= 0);
     defer _ = c.close(kvm_fd);
 
     const vm_fd = c.ioctl(kvm_fd, KVM.KVM_CREATE_VM, @as(c_long, 0));
@@ -195,6 +196,7 @@ fn probe_kvm(allocator: std.mem.Allocator) !u8 {
         try stderr("sysreg-probe: KVM_CREATE_VM failed\n");
         return 1;
     }
+    std.debug.assert(vm_fd >= 0);
     defer _ = c.close(vm_fd);
 
     const vcpu_fd = c.ioctl(vm_fd, KVM.KVM_CREATE_VCPU, @as(c_long, 0));
@@ -202,6 +204,7 @@ fn probe_kvm(allocator: std.mem.Allocator) !u8 {
         try stderr("sysreg-probe: KVM_CREATE_VCPU failed\n");
         return 1;
     }
+    std.debug.assert(vcpu_fd >= 0);
     defer _ = c.close(vcpu_fd);
 
     var init: KVM.kvm_vcpu_init = .{ .target = 0, .features = @splat(0) };

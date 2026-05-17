@@ -209,6 +209,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     defer fx.deinit(gpa);
 
     const ram = try allocate_and_populate_ram(gpa, cfg, fx);
+    assert(ram.len == cfg.ram_size);
     defer std.posix.munmap(ram);
 
     // --- KVM bring-up --------------------------------------------
@@ -926,6 +927,10 @@ fn run_loop(
     ram: []u8,
     gic_fd: c_int,
 ) !Result {
+    assert(cfg.max_exits > 0);
+    assert(ram.len == cfg.ram_size);
+    assert(gic_fd >= 0);
+
     var exits: usize = 0;
     var saw_off = false;
     var snapshotted = false;
@@ -1085,6 +1090,11 @@ fn capture_snapshot_job(
     full_ram: bool,
     dirty_bits: ?[]const u64,
 ) !*vmstate_writer.Job {
+    assert(path.len > 0);
+    assert(ram.len == cfg.ram_size);
+    assert(gic_fd >= 0);
+    if (full_ram) assert(dirty_bits == null) else assert(dirty_bits != null);
+
     const snapshot = @import("snapshot.zig");
     const vcpu_dump = @import("vcpu_dump.zig");
     const gic_state = @import("gic_state.zig");
@@ -1163,6 +1173,10 @@ fn apply_restore_file(
     gic_fd: c_int,
     devs: *const Devices,
 ) !void {
+    assert(path.len > 0);
+    assert(ram.len == cfg.ram_size);
+    assert(gic_fd >= 0);
+
     const snapshot = @import("snapshot.zig");
     const vcpu_dump = @import("vcpu_dump.zig");
     const gic_state = @import("gic_state.zig");

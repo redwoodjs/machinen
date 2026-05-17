@@ -134,6 +134,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     defer fx.deinit(gpa);
 
     const ram = try allocate_and_populate_ram(gpa, cfg, fx);
+    assert(ram.len == cfg.ram_size);
     defer std.posix.munmap(ram);
 
     var k = try kvm.Kvm.open_();
@@ -633,6 +634,9 @@ fn run_loop(
     irqs: IrqMap,
     ram: []u8,
 ) !Result {
+    assert(cfg.max_exits > 0);
+    assert(ram.len == cfg.ram_size);
+
     var exits: usize = 0;
     var saw_off = false;
     var snapshotted = false;
@@ -767,6 +771,9 @@ fn capture_snapshot_job(
     cfg: Config,
     devs: *const Devices,
 ) !*vmstate_writer.Job {
+    assert(path.len > 0);
+    assert(ram.len == cfg.ram_size);
+
     const snapshot = @import("snapshot.zig");
     const vcpu_dump = @import("vcpu_dump.zig");
     const ram_dump = @import("ram_dump.zig");
@@ -825,6 +832,9 @@ fn apply_restore_file(
     cfg: Config,
     devs: *const Devices,
 ) !void {
+    assert(path.len > 0);
+    assert(ram.len == cfg.ram_size);
+
     const snapshot = @import("snapshot.zig");
     const vcpu_dump = @import("vcpu_dump.zig");
     const ram_dump = @import("ram_dump.zig");
