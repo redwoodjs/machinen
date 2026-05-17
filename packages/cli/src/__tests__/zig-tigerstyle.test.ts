@@ -6,8 +6,8 @@ import { describe, expect, it } from "vitest";
 const ZIG_STYLE_BUDGET = {
   lineLengthViolations: 233,
   longFunctions: 33,
-  minAssertions: 583,
-  zeroAssertionFunctions: 473,
+  minAssertions: 599,
+  zeroAssertionFunctions: 472,
 };
 
 const zigFiles = spawnSync("git", ["ls-files", "*.zig"], {
@@ -26,6 +26,7 @@ type FunctionMetric = {
   endLine: number;
   lineCount: number;
   assertionCount: number;
+  recursiveCallCount: number;
 };
 
 function sanitizeZigSource(source: string): string {
@@ -125,6 +126,10 @@ function sanitizeZigSource(source: string): string {
   return out.join("");
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function lineNumberAt(source: string, offset: number): number {
   let line = 1;
   for (let index = 0; index < offset; index += 1) {
@@ -180,6 +185,10 @@ function collectFunctionMetrics(): FunctionMetric[] {
       const startLine = lineNumberAt(source, match.index);
       const endLine = lineNumberAt(source, bodyEnd);
       const body = source.slice(bodyStart, bodyEnd + 1);
+      const recursiveCallPattern = new RegExp(
+        `(?<![A-Za-z0-9_.])${escapeRegExp(name)}\\s*\\(`,
+        "g",
+      );
       metrics.push({
         file,
         name,
@@ -188,6 +197,7 @@ function collectFunctionMetrics(): FunctionMetric[] {
         lineCount: endLine - startLine + 1,
         assertionCount: Array.from(body.matchAll(/(?<![A-Za-z0-9_])(?:std\.debug\.)?assert\s*\(/g))
           .length,
+        recursiveCallCount: Array.from(body.matchAll(recursiveCallPattern)).length,
       });
     }
   }
@@ -238,6 +248,17 @@ describe("Zig TigerStyle guardrails", () => {
       longFunctions.length,
       `First long functions:\n${formatExamples(longFunctions)}`,
     ).toBeLessThanOrEqual(ZIG_STYLE_BUDGET.longFunctions);
+  });
+
+  it("does not allow direct recursive Zig functions", () => {
+    const recursiveFunctions = collectFunctionMetrics()
+      .filter((metric) => metric.recursiveCallCount > 0)
+      .map((metric) => `${metric.file}:${metric.startLine} ${metric.name}`);
+
+    expect(
+      recursiveFunctions,
+      `Recursive functions:\n${formatExamples(recursiveFunctions)}`,
+    ).toEqual([]);
   });
 
   it("does not lose assertion coverage", () => {

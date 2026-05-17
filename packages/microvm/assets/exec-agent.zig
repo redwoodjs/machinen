@@ -149,6 +149,8 @@ fn send_frame(fd: c_int, tag: u8, payload: []const u8) bool {
 
 fn pump_to_frame(client_fd: c_int, src_fd: c_int, tag: u8) void {
     var buf: [CHUNK]u8 = undefined;
+    // EOF-bounded pump: the child pipe closes when the command exits;
+    // read errors also stop the best-effort frame stream.
     while (true) {
         const n = read(src_fd, &buf, buf.len);
         if (n <= 0) return;
@@ -525,6 +527,8 @@ pub fn main() !void {
     }
     log_line("exec-agent: listening on vsock port 1978");
 
+    // Intentional daemon loop. `accept` blocks between connections;
+    // the VMM tears the agent down with the guest.
     while (true) {
         const client = accept(srv, null, null);
         if (client < 0) {

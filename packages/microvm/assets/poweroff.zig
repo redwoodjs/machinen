@@ -30,6 +30,7 @@ extern "c" fn access(path: [*:0]const u8, mode: c_int) c_int;
 extern "c" fn open(path: [*:0]const u8, flags: c_int, ...) c_int;
 extern "c" fn close(fd: c_int) c_int;
 extern "c" fn write(fd: c_int, buf: [*]const u8, count: usize) isize;
+extern "c" fn pause() c_int;
 
 fn write_console(bytes: []const u8) void {
     const fd = open("/dev/console", O_WRONLY, @as(c_int, 0));
@@ -50,7 +51,12 @@ pub fn main() u8 {
 
     if (access("/dev/kvm", F_OK) == 0) {
         write_console(nested_poweroff_marker);
-        while (true) {}
+        // Intentional park: the L0 VMM exits after seeing the marker.
+        // If that handoff fails, pause() keeps PID 1 from returning
+        // without burning CPU.
+        while (true) {
+            _ = pause();
+        }
     }
 
     // glibc's reboot(3) wrapper uses only the cmd; musl forwards it to
@@ -59,6 +65,8 @@ pub fn main() u8 {
     _ = reboot(LINUX_REBOOT_CMD_POWER_OFF);
 
     // Shouldn't return on success. If it does, the kernel refused;
-    // loop so /init doesn't exit and panic the machine.
-    while (true) {}
+    // park so /init doesn't exit and panic the machine.
+    while (true) {
+        _ = pause();
+    }
 }

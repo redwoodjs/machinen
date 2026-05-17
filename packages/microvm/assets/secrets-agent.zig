@@ -113,6 +113,8 @@ pub fn main() !void {
     defer raw.deinit(alloc);
 
     var buf: [4096]u8 = undefined;
+    // EOF-bounded read: the host closes the one-shot secrets stream
+    // after sending all KEY=VALUE lines.
     while (true) {
         const n = read(conn, &buf, buf.len);
         if (n <= 0) break;

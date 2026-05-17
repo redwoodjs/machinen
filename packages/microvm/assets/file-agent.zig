@@ -154,6 +154,8 @@ fn do_push(client_fd: c_int, path_z: [*:0]const u8) void {
     const spawned = spawn_tar(true, path_z);
     var total: usize = 0;
     var buf: [CHUNK]u8 = undefined;
+    // EOF-bounded upload: the host closes the request stream when the
+    // tar payload is complete; read errors stop this best-effort copy.
     while (true) {
         const n = read(client_fd, &buf, buf.len);
         if (n <= 0) break;
@@ -183,6 +185,8 @@ fn do_pull(client_fd: c_int, path_z: [*:0]const u8) void {
     // its own stderr — same observable outcome.
     const spawned = spawn_tar(false, path_z);
     var buf: [CHUNK]u8 = undefined;
+    // EOF-bounded download: tar closes stdout at archive end; write
+    // errors stop forwarding to the host.
     while (true) {
         const n = read(spawned.fd, &buf, buf.len);
         if (n <= 0) break;
@@ -266,6 +270,8 @@ pub fn main() !void {
     }
     log_line("file-agent: listening on vsock port 1976");
 
+    // Intentional daemon loop. `accept` blocks between file-transfer
+    // sessions; the guest lifetime bounds the process.
     while (true) {
         const client = accept(srv, null, null);
         if (client < 0) {

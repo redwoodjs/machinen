@@ -178,6 +178,9 @@ fn sleep_ms(ms: i64) void {
 // it, so the user has to pgrep+kill the VMM by hand. See issue #135.
 fn psci_system_off() noreturn {
     if (comptime builtin.cpu.arch != .aarch64) unreachable;
+    // Intentional unbounded retry: PSCI SYSTEM_OFF should not return,
+    // but if the hypervisor refuses it we sleep between attempts so PID
+    // 1 neither exits nor spins.
     while (true) {
         asm volatile ("hvc #0"
             :
@@ -193,7 +196,11 @@ fn psci_system_off() noreturn {
 fn linux_power_off() noreturn {
     sync();
     _ = reboot(LINUX_REBOOT_CMD_POWER_OFF);
-    while (true) sleep_ms(60_000);
+    // Intentional unbounded park after a failed reboot syscall: /init
+    // must not return from PID 1 and panic the guest.
+    while (true) {
+        sleep_ms(60_000);
+    }
 }
 
 fn machinen_power_off() noreturn {
@@ -966,6 +973,8 @@ fn copy_file_with_mode(src: [*:0]const u8, dst: [*:0]const u8, mode: c_uint) voi
     if (out_fd < 0) return;
     defer _ = close(out_fd);
     var buf: [8192]u8 = undefined;
+    // EOF-bounded stream copy. `read` decides the bound; errors and
+    // EOF both stop this best-effort helper.
     while (true) {
         const n = read(in_fd, &buf, buf.len);
         if (n <= 0) return;
@@ -979,51 +988,132 @@ fn copy_file_with_mode(src: [*:0]const u8, dst: [*:0]const u8, mode: c_uint) voi
     }
 }
 
-// Best-effort recursive `cp -a` of the `src` directory into `dst`.
+const COPY_TREE_PATH_MAX: usize = 4096;
+// Explicit stack bound for the best-effort pivot copy below. Real
+// mount payloads are shallow project trees; if a hostile/odd tree is
+// deeper than this we skip the excess subtree instead of recursing or
+// growing unbounded state in PID 1.
+const COPY_TREE_MAX_DEPTH: usize = 32;
+
+const CopyTreeFrame = struct {
+    dir: *anyopaque,
+    src: [COPY_TREE_PATH_MAX]u8,
+    src_len: usize,
+    dst: [COPY_TREE_PATH_MAX]u8,
+    dst_len: usize,
+};
+
+fn copy_tree_path(
+    buf: *[COPY_TREE_PATH_MAX]u8,
+    parent: []const u8,
+    name: []const u8,
+) ?[:0]u8 {
+    std.debug.assert(buf.len == COPY_TREE_PATH_MAX);
+    std.debug.assert(parent.len > 0);
+    std.debug.assert(name.len > 0);
+    return std.fmt.bufPrintZ(buf, "{s}/{s}", .{ parent, name }) catch null;
+}
+
+fn copy_tree_regular(frame: *const CopyTreeFrame, name: []const u8) void {
+    std.debug.assert(frame.src_len > 0);
+    std.debug.assert(frame.dst_len > 0);
+    std.debug.assert(name.len > 0);
+
+    var src_buf: [COPY_TREE_PATH_MAX]u8 = undefined;
+    var dst_buf: [COPY_TREE_PATH_MAX]u8 = undefined;
+    const src_path = copy_tree_path(&src_buf, frame.src[0..frame.src_len], name) orelse return;
+    const dst_path = copy_tree_path(&dst_buf, frame.dst[0..frame.dst_len], name) orelse return;
+    copy_file_best(src_path.ptr, dst_path.ptr);
+}
+
+fn copy_tree_symlink(frame: *const CopyTreeFrame, name: []const u8) void {
+    std.debug.assert(frame.src_len > 0);
+    std.debug.assert(frame.dst_len > 0);
+    std.debug.assert(name.len > 0);
+
+    var src_buf: [COPY_TREE_PATH_MAX]u8 = undefined;
+    var dst_buf: [COPY_TREE_PATH_MAX]u8 = undefined;
+    const src_path = copy_tree_path(&src_buf, frame.src[0..frame.src_len], name) orelse return;
+    const dst_path = copy_tree_path(&dst_buf, frame.dst[0..frame.dst_len], name) orelse return;
+
+    var tgt_buf: [COPY_TREE_PATH_MAX]u8 = undefined;
+    const n = readlink(src_path.ptr, &tgt_buf, tgt_buf.len - 1);
+    if (n <= 0) return;
+    tgt_buf[@intCast(n)] = 0;
+    const tgt_ptr: [*:0]const u8 = @ptrCast(&tgt_buf[0]);
+    _ = symlink(tgt_ptr, dst_path.ptr);
+}
+
+fn copy_tree_push_dir(
+    stack: *[COPY_TREE_MAX_DEPTH]CopyTreeFrame,
+    depth: *usize,
+    frame: *const CopyTreeFrame,
+    name: []const u8,
+) void {
+    std.debug.assert(frame.src_len > 0);
+    std.debug.assert(frame.dst_len > 0);
+    std.debug.assert(name.len > 0);
+    std.debug.assert(depth.* <= COPY_TREE_MAX_DEPTH);
+
+    if (depth.* >= COPY_TREE_MAX_DEPTH) return;
+    const child = &stack[depth.*];
+    const src_path = copy_tree_path(&child.src, frame.src[0..frame.src_len], name) orelse return;
+    const dst_path = copy_tree_path(&child.dst, frame.dst[0..frame.dst_len], name) orelse return;
+    mkdir_ignore(dst_path.ptr);
+    const child_dir = opendir(src_path.ptr) orelse return;
+    child.dir = child_dir;
+    child.src_len = src_path.len;
+    child.dst_len = dst_path.len;
+    depth.* += 1;
+    std.debug.assert(depth.* <= COPY_TREE_MAX_DEPTH);
+}
+
+// Best-effort iterative `cp -a` of the `src` directory into `dst`.
 // Used to bring the `mount: { host, guest }` payload (overlaid into
 // the initramfs at /mnt/<guest>/ by mkinitramfs.ts) across the
 // rootdisk pivot — the chroot to /newroot would otherwise strand it
 // on the discarded initramfs tmpfs. See #125.
 //
 // Failures are silent on a per-entry basis: a missing source dir, a
-// symlink whose target overruns PATH_MAX, or a single-file copy
-// failure does not abort the walk. The caller takes the resulting
-// "best-effort partial" mount as-is, mirroring copyFileBest's policy
-// for the per-boot ephemera the pivot also carries across.
+// symlink whose target overruns PATH_MAX, a tree deeper than
+// COPY_TREE_MAX_DEPTH, or a single-file copy failure does not abort the
+// walk. The caller takes the resulting "best-effort partial" mount
+// as-is, mirroring copyFileBest's policy for the per-boot ephemera the
+// pivot also carries across.
 fn copy_tree_best(src: [*:0]const u8, dst: [*:0]const u8) void {
+    std.debug.assert(COPY_TREE_PATH_MAX == 4096);
+    std.debug.assert(COPY_TREE_MAX_DEPTH > 0);
+
     if (access(src, F_OK) != 0) return;
     mkdir_ignore(dst);
-    const dir = opendir(src) orelse return;
-    defer _ = closedir(dir);
 
-    const src_str = std.mem.span(src);
-    const dst_str = std.mem.span(dst);
+    var stack: [COPY_TREE_MAX_DEPTH]CopyTreeFrame = undefined;
+    var depth: usize = 0;
+    const root = &stack[0];
+    const root_src = std.fmt.bufPrintZ(&root.src, "{s}", .{std.mem.span(src)}) catch return;
+    const root_dst = std.fmt.bufPrintZ(&root.dst, "{s}", .{std.mem.span(dst)}) catch return;
+    const root_dir = opendir(root_src.ptr) orelse return;
+    root.dir = root_dir;
+    root.src_len = root_src.len;
+    root.dst_len = root_dst.len;
+    depth = 1;
 
-    while (readdir(dir)) |ent| {
+    while (depth > 0) {
+        const frame = &stack[depth - 1];
+        const ent = readdir(frame.dir) orelse {
+            _ = closedir(frame.dir);
+            depth -= 1;
+            continue;
+        };
         const name_ptr: [*:0]const u8 = @ptrCast(&ent.d_name);
         const name = std.mem.span(name_ptr);
         if (name.len == 0) continue;
         if (std.mem.eql(u8, name, ".") or std.mem.eql(u8, name, "..")) continue;
 
-        // PATH_MAX on Linux is 4096; cap each path here regardless of
-        // the initial src/dst length. bufPrintZ failure means the
-        // path overruns, which we silently skip.
-        var src_buf: [4096]u8 = undefined;
-        var dst_buf: [4096]u8 = undefined;
-        const src_path = std.fmt.bufPrintZ(&src_buf, "{s}/{s}", .{ src_str, name }) catch continue;
-        const dst_path = std.fmt.bufPrintZ(&dst_buf, "{s}/{s}", .{ dst_str, name }) catch continue;
-
         switch (ent.d_type) {
-            DT_DIR => copy_tree_best(src_path.ptr, dst_path.ptr),
-            DT_REG => copy_file_best(src_path.ptr, dst_path.ptr),
-            DT_LNK => {
-                var tgt_buf: [4096]u8 = undefined;
-                const n = readlink(src_path.ptr, &tgt_buf, tgt_buf.len - 1);
-                if (n <= 0) continue;
-                tgt_buf[@intCast(n)] = 0;
-                const tgt_ptr: [*:0]const u8 = @ptrCast(&tgt_buf[0]);
-                _ = symlink(tgt_ptr, dst_path.ptr);
-            },
+            DT_DIR => copy_tree_push_dir(&stack, &depth, frame, name),
+            DT_REG => copy_tree_regular(frame, name),
+            DT_LNK => copy_tree_symlink(frame, name),
             else => {},
         }
     }

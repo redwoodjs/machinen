@@ -80,8 +80,9 @@ pub fn main(init: std.process.Init) !void {
     const line = std.fmt.bufPrint(&buf, "READY mib={d}\n", .{mib}) catch unreachable;
     write_all(1, line);
 
-    // Park forever — caller signals exit via SIGTERM (machinen
-    // snapshot/restore tear-down). Loop guards against EINTR.
+    // Intentional unbounded park — caller signals exit via SIGTERM
+    // (machinen snapshot/restore tear-down). pause() blocks each
+    // iteration; the loop only guards against EINTR.
     while (true) {
         _ = pause();
     }
