@@ -4,18 +4,18 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const ZIG_STYLE_BUDGET = {
-  lineLengthViolations: 233,
+  lineLengthViolations: 222,
   longFunctions: 33,
-  minAssertions: 599,
+  minAssertions: 607,
   zeroAssertionFunctions: 472,
   plainDivisionOperators: 0,
-  dynamicAllocationMentions: 182,
-  usizeMentions: 474,
-  configByValueParameters: 51,
-  emptyCatchBlocks: 27,
+  dynamicAllocationMentions: 180,
+  usizeMentions: 471,
+  configByValueParameters: 5,
+  emptyCatchBlocks: 0,
   ignoredReturnAssignments: 321,
-  defaultOptionStructs: 5,
-  elseIfBranches: 42,
+  defaultOptionStructs: 0,
+  elseIfBranches: 24,
 };
 
 const zigFiles = spawnSync("git", ["ls-files", "*.zig"], {

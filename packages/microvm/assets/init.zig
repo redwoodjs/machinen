@@ -337,7 +337,14 @@ const Config = struct {
 
 fn load_config(arena: std.mem.Allocator) !Config {
     const data = try read_config_file(arena);
-    const parsed = try std.json.parseFromSlice(std.json.Value, arena, data, .{});
+    const parse_options: std.json.ParseOptions = .{
+        .duplicate_field_behavior = .@"error",
+        .ignore_unknown_fields = false,
+        .max_value_len = data.len,
+        .allocate = .alloc_if_needed,
+        .parse_numbers = true,
+    };
+    const parsed = try std.json.parseFromSlice(std.json.Value, arena, data, parse_options);
     const root = parsed.value;
     if (root != .object) return error.ConfigNotObject;
     const obj = root.object;

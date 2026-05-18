@@ -116,7 +116,7 @@ pub const Result = struct {
     snapshotted: bool = false,
 };
 
-fn validate_config(cfg: Config) void {
+fn validate_config(cfg: *const Config) void {
     assert(cfg.kernel_path.len > 0);
     assert(cfg.ram_base == 0);
     assert(cfg.ram_size >= 512 * 1024 * 1024);
@@ -126,14 +126,21 @@ fn validate_config(cfg: Config) void {
     assert(cfg.max_exits > 0);
 }
 
+fn set_irq_best_effort(vm: *kvm.Vm, irq: u32, level: u32) void {
+    assert(level == 0 or level == 1);
+    vm.set_irq(irq, level) catch |err| {
+        std.debug.print("kvm x86_64: set_irq best-effort failed: {s}\n", .{@errorName(err)});
+    };
+}
+
 pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
-    validate_config(cfg);
+    validate_config(&cfg);
     if (cfg.snapshot_path != null) install_snapshot_signal();
 
-    var fx = try load_fixtures(gpa, cfg);
+    var fx = try load_fixtures(gpa, &cfg);
     defer fx.deinit(gpa);
 
-    const ram = try allocate_and_populate_ram(gpa, cfg, fx);
+    const ram = try allocate_and_populate_ram(gpa, &cfg, fx);
     assert(ram.len == cfg.ram_size);
     defer std.posix.munmap(ram);
 
@@ -146,9 +153,9 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     try vm.set_tss_addr(0xFFFBD000);
     try vm.create_irqchip();
     try vm.create_pit2();
-    try map_guest_ram(&vm, cfg, ram);
+    try map_guest_ram(&vm, &cfg, ram);
 
-    var vcpu = try init_vcpu(&vm, ram, cfg);
+    var vcpu = try init_vcpu(&vm, ram, &cfg);
     defer vcpu.destroy();
 
     var uart = uart8250_mod.Uart8250.with_base(uart_base);
@@ -162,7 +169,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     var blk_backend_opt: ?blk_mod.Backend = open_blk_backend(slot1_path, "slot 1");
     defer if (blk_backend_opt) |*b| b.deinit();
     var blkdev_opt: ?virtio.Device = if (blk_backend_opt) |*b|
-        make_blk_device(virtio_blk_base, virtio_blk_size, ram, cfg, b)
+        make_blk_device(virtio_blk_base, virtio_blk_size, ram, &cfg, b)
     else
         null;
     const blkdev_ptr: ?*virtio.Device = if (blkdev_opt) |_| &blkdev_opt.? else null;
@@ -170,7 +177,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     var blk2_backend_opt: ?blk_mod.Backend = open_blk_backend(slot3_path, "slot 3");
     defer if (blk2_backend_opt) |*b| b.deinit();
     var blk2dev_opt: ?virtio.Device = if (blk2_backend_opt) |*b|
-        make_blk_device(virtio_blk2_base, virtio_blk2_size, ram, cfg, b)
+        make_blk_device(virtio_blk2_base, virtio_blk2_size, ram, &cfg, b)
     else
         null;
     const blk2dev_ptr: ?*virtio.Device = if (blk2dev_opt) |_| &blk2dev_opt.? else null;
@@ -178,7 +185,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     var blk3_backend_opt: ?blk_mod.Backend = open_blk_backend_from_fd(cfg.mountdisk_lower_fd, true, "slot 5 (mount lower)");
     defer if (blk3_backend_opt) |*b| b.deinit();
     var blk3dev_opt: ?virtio.Device = if (blk3_backend_opt) |*b|
-        make_blk_device(virtio_blk3_base, virtio_blk3_size, ram, cfg, b)
+        make_blk_device(virtio_blk3_base, virtio_blk3_size, ram, &cfg, b)
     else
         null;
     const blk3dev_ptr: ?*virtio.Device = if (blk3dev_opt) |_| &blk3dev_opt.? else null;
@@ -186,13 +193,13 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     var blk4_backend_opt: ?blk_mod.Backend = open_blk_backend_from_fd(cfg.mountdisk_upper_fd, false, "slot 6 (mount upper)");
     defer if (blk4_backend_opt) |*b| b.deinit();
     var blk4dev_opt: ?virtio.Device = if (blk4_backend_opt) |*b|
-        make_blk_device_with_discard(virtio_blk4_base, virtio_blk4_size, ram, cfg, b)
+        make_blk_device_with_discard(virtio_blk4_base, virtio_blk4_size, ram, &cfg, b)
     else
         null;
     const blk4dev_ptr: ?*virtio.Device = if (blk4dev_opt) |_| &blk4dev_opt.? else null;
 
     const virtio_mac = [_]u8{ 0x02, 0xDE, 0xAD, 0xBE, 0xEF, 0x01 };
-    var netdev = make_net_device(ram, cfg, &virtio_mac);
+    var netdev = make_net_device(ram, &cfg, &virtio_mac);
     const net_inst: ?*net_mod.NetSocket = connect_gvproxy(gpa, &netdev);
     defer if (net_inst) |n| n.destroy();
     var net_irq_ctx = NetIrqCtx{ .vm = &vm, .irq = irqs.net };
@@ -206,7 +213,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     const vsock_cid_storage: u64 = vsock_mod.default_guest_cid;
     const vsock_ports = parse_vsock_env(gpa);
     var vsock_dev_opt: ?virtio.Device = if (vsock_ports.len > 0)
-        make_vsock_device(ram, cfg, &vsock_cid_storage)
+        make_vsock_device(ram, &cfg, &vsock_cid_storage)
     else
         null;
     const vsock_dev_ptr: ?*virtio.Device = if (vsock_dev_opt) |_| &vsock_dev_opt.? else null;
@@ -224,7 +231,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     defer stats_inst.deinit();
     stats_mod.start_phys_footprint_sampler(stats_inst.counters);
     var balloon_backend = balloon_mod.Backend.init_with_counters(stats_inst.counters);
-    var balloon_dev = make_balloon_device(ram, cfg, &balloon_backend);
+    var balloon_dev = make_balloon_device(ram, &cfg, &balloon_backend);
     const balloon_dev_ptr: ?*virtio.Device = &balloon_dev;
 
     var virtiofs_backends: [MAX_VIRTIOFS_SLOTS]?virtiofs_mod.Device = parse_virtiofs_env();
@@ -234,7 +241,7 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     var virtiofs_devs: [MAX_VIRTIOFS_SLOTS]?virtio.Device = undefined;
     for (0..MAX_VIRTIOFS_SLOTS) |i| {
         virtiofs_devs[i] = if (virtiofs_backends[i]) |*b|
-            make_virtio_fs_device(virtio_virtiofs_bases[i], ram, cfg, b)
+            make_virtio_fs_device(virtio_virtiofs_bases[i], ram, &cfg, b)
         else
             null;
     }
@@ -258,14 +265,14 @@ pub fn boot(gpa: std.mem.Allocator, cfg: Config) !Result {
     };
 
     if (cfg.restore_path) |path| {
-        apply_restore_file(gpa, path, &vm, &vcpu, ram, cfg, &devs) catch |err| {
+        apply_restore_file(gpa, path, &vm, &vcpu, ram, &cfg, &devs) catch |err| {
             std.debug.print("kvm-x86_64 boot: restore from {s} failed: {s}\n", .{ path, @errorName(err) });
             return err;
         };
         std.debug.print("kvm-x86_64 boot: restored from {s}\n", .{path});
     }
 
-    return try run_loop(gpa, cfg, &vm, &vcpu, &devs, irqs, ram);
+    return try run_loop(gpa, &cfg, &vm, &vcpu, &devs, irqs, ram);
 }
 
 const LoadedFixtures = struct {
@@ -277,7 +284,7 @@ const LoadedFixtures = struct {
     }
 };
 
-fn load_fixtures(gpa: std.mem.Allocator, cfg: Config) !LoadedFixtures {
+fn load_fixtures(gpa: std.mem.Allocator, cfg: *const Config) !LoadedFixtures {
     const kernel = read_all(gpa, cfg.kernel_path) catch |err| {
         if (err == error.FileNotFound) return error.FixtureMissing;
         return err;
@@ -312,7 +319,7 @@ const BzImage = struct {
 
 fn allocate_and_populate_ram(
     gpa: std.mem.Allocator,
-    cfg: Config,
+    cfg: *const Config,
     fx: LoadedFixtures,
 ) ![]align(std.heap.page_size_min) u8 {
     const ram = std.posix.mmap(
@@ -371,7 +378,7 @@ fn guest_slice(ram: []u8, phys: u64, len: usize) []u8 {
     return ram[off..][0..len];
 }
 
-fn map_guest_ram(vm: *kvm.Vm, cfg: Config, ram: []u8) !void {
+fn map_guest_ram(vm: *kvm.Vm, cfg: *const Config, ram: []u8) !void {
     assert(cfg.ram_base == 0);
     assert(cfg.ram_size == ram.len);
     assert(cfg.ram_size > virtio_mmio_hole_end);
@@ -385,7 +392,7 @@ fn write_int(buf: []u8, off: usize, comptime T: type, value: T) void {
     std.mem.writeInt(T, buf[off..][0..@sizeOf(T)], value, .little);
 }
 
-fn populate_boot_params(bp: []u8, cfg: Config, img: BzImage) void {
+fn populate_boot_params(bp: []u8, cfg: *const Config, img: BzImage) void {
     assert(bp.len >= 4096);
     _ = img;
     bp[0x210] = 0xFF; // type_of_loader: unknown bootloader
@@ -439,7 +446,7 @@ fn write_gdt(ram: []u8) void {
     write_int(gdt, 24, u64, 0x00CF_9300_0000_FFFF);
 }
 
-fn init_vcpu(vm: *kvm.Vm, ram: []u8, cfg: Config) !kvm.Vcpu {
+fn init_vcpu(vm: *kvm.Vm, ram: []u8, cfg: *const Config) !kvm.Vcpu {
     _ = ram;
     _ = cfg;
     var vcpu = try vm.create_vcpu(0);
@@ -627,7 +634,7 @@ fn write_dsdt(dsdt_buf: []u8) void {
 
 fn run_loop(
     gpa: std.mem.Allocator,
-    cfg: Config,
+    cfg: *const Config,
     vm: *kvm.Vm,
     vcpu: *kvm.Vcpu,
     devs: *const Devices,
@@ -700,7 +707,7 @@ fn queue_snapshot_write(
     vm: *kvm.Vm,
     vcpu: *kvm.Vcpu,
     ram: []const u8,
-    cfg: Config,
+    cfg: *const Config,
     devs: *const Devices,
 ) bool {
     if (writer.busy()) {
@@ -739,7 +746,7 @@ const O_RDONLY: c_int = 0;
 const SEEK_END: c_int = 2;
 const SEEK_SET: c_int = 0;
 
-fn x86_topology(cfg: Config) @import("topology.zig").Topology {
+fn x86_topology(cfg: *const Config) @import("topology.zig").Topology {
     const topology = @import("topology.zig");
     return .{
         .arch = topology.ARCH_X86_64,
@@ -768,7 +775,7 @@ fn capture_snapshot_job(
     vm: *kvm.Vm,
     vcpu: *kvm.Vcpu,
     ram: []const u8,
-    cfg: Config,
+    cfg: *const Config,
     devs: *const Devices,
 ) !*vmstate_writer.Job {
     assert(path.len > 0);
@@ -829,7 +836,7 @@ fn apply_restore_file(
     vm: *kvm.Vm,
     vcpu: *kvm.Vcpu,
     ram: []u8,
-    cfg: Config,
+    cfg: *const Config,
     devs: *const Devices,
 ) !void {
     assert(path.len > 0);
@@ -956,7 +963,7 @@ fn route_io(vcpu: *kvm.Vcpu, devs: *const Devices, ev: kvm.IoExit) bool {
     return false;
 }
 
-fn make_net_device(ram: []u8, cfg: Config, mac: *const [6]u8) virtio.Device {
+fn make_net_device(ram: []u8, cfg: *const Config, mac: *const [6]u8) virtio.Device {
     return .{
         .base = virtio_net_base,
         .size = virtio_net_size,
@@ -1002,7 +1009,13 @@ fn open_blk_backend_from_fd(fd: ?c_int, read_only: bool, label: []const u8) ?blk
 /// Wrap a `blk_mod.Backend` as a virtio-mmio device. `backend` must
 /// outlive the returned device — the device's `config` and
 /// `request_ctx` are pointers into it.
-fn make_blk_device(base: u64, size: u64, ram: []u8, cfg: Config, backend: *blk_mod.Backend) virtio.Device {
+fn make_blk_device(
+    base: u64,
+    size: u64,
+    ram: []u8,
+    cfg: *const Config,
+    backend: *blk_mod.Backend,
+) virtio.Device {
     return .{
         .base = base,
         .size = size,
@@ -1018,7 +1031,13 @@ fn make_blk_device(base: u64, size: u64, ram: []u8, cfg: Config, backend: *blk_m
 
 /// Variant of `makeBlkDevice` that advertises VIRTIO_BLK_F_DISCARD
 /// in the feature bits (#272). Mirror of boot_hvf.zig's helper.
-fn make_blk_device_with_discard(base: u64, size: u64, ram: []u8, cfg: Config, backend: *blk_mod.Backend) virtio.Device {
+fn make_blk_device_with_discard(
+    base: u64,
+    size: u64,
+    ram: []u8,
+    cfg: *const Config,
+    backend: *blk_mod.Backend,
+) virtio.Device {
     return .{
         .base = base,
         .size = size,
@@ -1048,7 +1067,7 @@ fn parse_vsock_env(gpa: std.mem.Allocator) []vsock_mod.PortMap {
 
 /// Build the virtio-vsock device. `cid_ptr` must outlive the device —
 /// the config field is a pointer into it.
-fn make_vsock_device(ram: []u8, cfg: Config, cid_ptr: *const u64) virtio.Device {
+fn make_vsock_device(ram: []u8, cfg: *const Config, cid_ptr: *const u64) virtio.Device {
     return .{
         .base = virtio_vsock_base,
         .size = virtio_vsock_size,
@@ -1130,7 +1149,12 @@ fn parse_one_virtiofs_env(name: [*:0]const u8) ?virtiofs_mod.Device {
 
 /// Wrap a `virtiofs.Device` backend as a virtio-mmio device on the
 /// given slot `base`. `backend` must outlive the returned device.
-fn make_virtio_fs_device(base: u64, ram: []u8, cfg: Config, backend: *virtiofs_mod.Device) virtio.Device {
+fn make_virtio_fs_device(
+    base: u64,
+    ram: []u8,
+    cfg: *const Config,
+    backend: *virtiofs_mod.Device,
+) virtio.Device {
     return .{
         .base = base,
         .size = virtio_virtiofs_size,
@@ -1147,7 +1171,7 @@ fn make_virtio_fs_device(base: u64, ram: []u8, cfg: Config, backend: *virtiofs_m
 /// Build the virtio-balloon device. `backend` must outlive the
 /// returned Device — config + request_ctx are pointers into it.
 /// #263 phase B: continuous free-page reporting.
-fn make_balloon_device(ram: []u8, cfg: Config, backend: *balloon_mod.Backend) virtio.Device {
+fn make_balloon_device(ram: []u8, cfg: *const Config, backend: *balloon_mod.Backend) virtio.Device {
     return .{
         .base = virtio_balloon_base,
         .size = virtio_balloon_size,
@@ -1342,7 +1366,7 @@ fn handle_pl011_mmio(
     } else {
         vcpu.write_mmio_read_data(uart.read(ev.phys_addr), ev.len);
     }
-    vm.set_irq(irq, if (uart.irq_asserted()) 1 else 0) catch {};
+    set_irq_best_effort(vm, irq, if (uart.irq_asserted()) 1 else 0);
 }
 
 /// virtio-MMIO read/write + raise/lower the SPI based on the device's
@@ -1362,7 +1386,8 @@ fn handle_virtio_mmio(
     } else {
         vcpu.write_mmio_read_data(dev.read(ev.phys_addr), ev.len);
     }
-    vm.set_irq(irq, if (@atomicLoad(u32, &dev.interrupt_status, .acquire) != 0) 1 else 0) catch {};
+    const level: u32 = if (@atomicLoad(u32, &dev.interrupt_status, .acquire) != 0) 1 else 0;
+    set_irq_best_effort(vm, irq, level);
 }
 
 /// Route an MMIO exit to the device that owns the IPA. Each cross-
@@ -1551,7 +1576,7 @@ pub const VsockIrqCtx = struct {
 fn on_vsock_irq(ctx: ?*anyopaque) void {
     assert(ctx != null);
     const c: *VsockIrqCtx = @ptrCast(@alignCast(ctx.?));
-    c.vm.set_irq(c.irq, 1) catch {};
+    set_irq_best_effort(c.vm, c.irq, 1);
 }
 
 /// Same shape as VsockIrqCtx, but for the virtio-net SPI. NetSocket's
@@ -1565,7 +1590,7 @@ pub const NetIrqCtx = struct {
 fn on_net_irq(ctx: ?*anyopaque) void {
     assert(ctx != null);
     const c: *NetIrqCtx = @ptrCast(@alignCast(ctx.?));
-    c.vm.set_irq(c.irq, 1) catch {};
+    set_irq_best_effort(c.vm, c.irq, 1);
 }
 
 /// Pump a guest-emitted ethernet frame through to gvproxy. Called

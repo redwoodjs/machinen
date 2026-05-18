@@ -28,6 +28,11 @@ const virtio = @import("virtio.zig");
 const pl011 = @import("pl011.zig"); // for the shared PthreadMutex shim
 const assert = std.debug.assert;
 
+const thread_spawn_config = std.Thread.SpawnConfig{
+    .stack_size = std.Thread.SpawnConfig.default_stack_size,
+    .allocator = null,
+};
+
 comptime {
     // sockaddr_un layout the kernel expects:
     //   macOS: { u8 sun_len; u8 sun_family; char[104] sun_path; } (106B)
@@ -171,7 +176,7 @@ pub const NetSocket = struct {
 
         const self = try gpa.create(NetSocket);
         self.* = .{ .fd = fd, .netdev = netdev, .gpa = gpa };
-        self.rx_thread = try std.Thread.spawn(.{}, rx_loop, .{self});
+        self.rx_thread = try std.Thread.spawn(thread_spawn_config, rx_loop, .{self});
         return self;
     }
 

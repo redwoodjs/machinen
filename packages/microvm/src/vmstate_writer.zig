@@ -12,6 +12,11 @@ const builtin = @import("builtin");
 const snapshot = @import("snapshot.zig");
 const vmstate_zip = @import("vmstate_zip.zig");
 
+const thread_spawn_config = std.Thread.SpawnConfig{
+    .stack_size = std.Thread.SpawnConfig.default_stack_size,
+    .allocator = null,
+};
+
 pub const Job = struct {
     allocator: std.mem.Allocator,
     arena: std.heap.ArenaAllocator,
@@ -84,7 +89,11 @@ pub const Writer = struct {
         if (self.handle != null) return error.SnapshotInFlight;
 
         self.done.store(false, .release);
-        const handle = std.Thread.spawn(.{}, worker_main, .{ job, &self.done }) catch |err| {
+        const handle = std.Thread.spawn(
+            thread_spawn_config,
+            worker_main,
+            .{ job, &self.done },
+        ) catch |err| {
             self.done.store(true, .release);
             return err;
         };

@@ -655,7 +655,9 @@ pub fn load_hvf(allocator: std.mem.Allocator, vcpu_handle: u64, payload: []const
         // X<n>?
         if (e.name.len >= 2 and e.name[0] == 'X') {
             const idx = std.fmt.parseInt(u32, e.name[1..], 10) catch {
-                apply_hvf_named(vcpu_handle, e) catch {};
+                apply_hvf_named(vcpu_handle, e) catch {
+                    // Best-effort cross-host load: skip unknown or unsupported names.
+                };
                 continue;
             };
             if (idx > 30) continue;
@@ -667,7 +669,9 @@ pub fn load_hvf(allocator: std.mem.Allocator, vcpu_handle: u64, payload: []const
         // V<n>?
         if (e.name.len >= 2 and e.name[0] == 'V') {
             const idx = std.fmt.parseInt(u32, e.name[1..], 10) catch {
-                apply_hvf_named(vcpu_handle, e) catch {};
+                apply_hvf_named(vcpu_handle, e) catch {
+                    // Best-effort cross-host load: skip unknown or unsupported names.
+                };
                 continue;
             };
             if (idx > 31) continue;
@@ -676,7 +680,9 @@ pub fn load_hvf(allocator: std.mem.Allocator, vcpu_handle: u64, payload: []const
             _ = hvf_extern.hv_vcpu_set_simd_fp_reg(vcpu_handle, idx, v);
             continue;
         }
-        apply_hvf_named(vcpu_handle, e) catch {};
+        apply_hvf_named(vcpu_handle, e) catch {
+            // Best-effort cross-host load: skip unknown or unsupported names.
+        };
     }
 }
 
@@ -1037,7 +1043,9 @@ test "single-host HVF RT (vCPU + RAM, no execution)" {
     try load_hvf(a, vcpu_b.handle, cpu_payload);
     _ = try ram_dump.decode_into(ram_payload, ram_b);
     try vm_b.map(ram_b, RAM_BASE, hvf.MapFlags.rwx);
-    defer vm_b.unmap(RAM_BASE, RAM_LEN) catch {};
+    defer vm_b.unmap(RAM_BASE, RAM_LEN) catch |err| {
+        std.debug.print("vcpu_dump test: unmap failed: {s}\n", .{@errorName(err)});
+    };
 
     try std.testing.expectEqualSlices(u8, ram_a, ram_b);
     var x0: u64 = 0;

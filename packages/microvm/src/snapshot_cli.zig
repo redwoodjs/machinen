@@ -58,23 +58,18 @@ pub fn main(init: std.process.Init) !u8 {
     if (eq(sub, "--help") or eq(sub, "-h") or eq(sub, "help")) {
         try print_usage();
         return @intFromEnum(Exit.ok);
-    } else if (eq(sub, "dump")) {
-        return @intFromEnum(try run_dump(allocator, &it));
-    } else if (eq(sub, "load")) {
-        return @intFromEnum(try run_load(allocator, &it));
-    } else if (eq(sub, "translate")) {
-        return @intFromEnum(try run_translate(allocator, &it));
-    } else if (eq(sub, "diff")) {
-        return @intFromEnum(try run_diff(allocator, &it));
-    } else if (eq(sub, "xload")) {
-        return @intFromEnum(try run_xload(allocator, &it));
-    } else {
-        try stderr("unknown subcommand: ");
-        try stderr(sub);
-        try stderr("\n");
-        try print_usage();
-        return @intFromEnum(Exit.usage);
     }
+    if (eq(sub, "dump")) return @intFromEnum(try run_dump(allocator, &it));
+    if (eq(sub, "load")) return @intFromEnum(try run_load(allocator, &it));
+    if (eq(sub, "translate")) return @intFromEnum(try run_translate(allocator, &it));
+    if (eq(sub, "diff")) return @intFromEnum(try run_diff(allocator, &it));
+    if (eq(sub, "xload")) return @intFromEnum(try run_xload(allocator, &it));
+
+    try stderr("unknown subcommand: ");
+    try stderr(sub);
+    try stderr("\n");
+    try print_usage();
+    return @intFromEnum(Exit.usage);
 }
 
 fn eq(a: []const u8, b: []const u8) bool {

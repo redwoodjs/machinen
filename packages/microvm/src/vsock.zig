@@ -40,6 +40,11 @@ const builtin = @import("builtin");
 const virtio = @import("virtio.zig");
 const assert = std.debug.assert;
 
+const thread_spawn_config = std.Thread.SpawnConfig{
+    .stack_size = std.Thread.SpawnConfig.default_stack_size,
+    .allocator = null,
+};
+
 /// Platform-sized pthread mutex. Zig 0.16 moved `std.Thread.Mutex`
 /// under `std.Io` (it now requires an Io context), so we bind
 /// pthread directly rather than take on that dependency just for
@@ -833,7 +838,9 @@ pub const Bridge = struct {
     }
 
     pub fn destroy(self: *Bridge) void {
-        self.stop() catch {};
+        self.stop() catch |err| {
+            std.debug.print("vsock: stop during destroy failed: {s}\n", .{@errorName(err)});
+        };
         for (self.listeners.items) |fd| _ = close(fd);
         self.listeners.deinit(self.gpa);
         self.listener_port_idx.deinit(self.gpa);
@@ -901,7 +908,7 @@ pub const Bridge = struct {
         set_nonblocking(pipe_fds[1]);
         self.wake = pipe_fds;
 
-        self.thread = try std.Thread.spawn(.{}, run_thread, .{self});
+        self.thread = try std.Thread.spawn(thread_spawn_config, run_thread, .{self});
     }
 
     pub fn stop(self: *Bridge) !void {
