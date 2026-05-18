@@ -1249,9 +1249,11 @@ test "guest makes a PSCI SYSTEM_OFF call, host stops the run loop" {
     try vcpu.set_sys_reg(.sctlr_el1, 1 << 12);
     try vcpu.set_reg(.pc, guest_base);
 
-    // Run loop: exit on PSCI SYSTEM_OFF.
+    // Run loop: this fixture should take exactly one HVC exit. Keep a
+    // small explicit bound so a bad PSCI decode cannot loop forever.
     var saw_system_off = false;
-    while (true) {
+    var exits: usize = 0;
+    while (exits < 4) : (exits += 1) {
         try vcpu.run();
         if (vcpu.exit.reason != .exception) return error.UnexpectedExitReason;
         const ec = ExceptionClass.from_syndrome(vcpu.exit.exception.syndrome);

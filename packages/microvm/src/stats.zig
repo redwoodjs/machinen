@@ -242,6 +242,8 @@ pub fn start_phys_footprint_sampler(counters: *Counters) void {
 
 fn sampler_loop(counters: *Counters) void {
     const half_second = libc.timespec{ .tv_sec = 0, .tv_nsec = 500 * 1_000_000 };
+    // Intentional daemon loop for the VMM lifetime. Each iteration is
+    // bounded by one synchronous sample plus the sleep below.
     while (true) {
         if (sample_phys_footprint()) |bytes| {
             @atomicStore(u64, &counters.host_phys_footprint, bytes, .monotonic);

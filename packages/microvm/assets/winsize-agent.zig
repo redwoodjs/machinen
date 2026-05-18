@@ -216,6 +216,8 @@ pub fn main() !void {
     log_line("winsize-agent: listening on vsock port 1974");
 
     var buf: [4096]u8 = undefined;
+    // Intentional daemon loop. `accept` blocks between resize streams;
+    // the process exits only when the guest exits.
     while (true) {
         const conn = accept(srv, null, null);
         if (conn < 0) {
@@ -227,6 +229,8 @@ pub fn main() !void {
 
         var line_buf: [256]u8 = undefined;
         var line_len: usize = 0;
+        // EOF-bounded stream parse: the host closes the vsock when the
+        // watched PTY is gone.
         while (true) {
             const n = read(conn, &buf, buf.len);
             if (n <= 0) break;

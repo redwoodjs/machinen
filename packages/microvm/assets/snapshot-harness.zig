@@ -6,8 +6,9 @@
 //!
 //!   snapshot-harness: iter=<n> hash=<64 hex chars>
 //!
-//! No syscalls beyond write(2) and reboot(2). No clock reads, no
-//! rng, no file I/O. SHA256 runs entirely in registers + stack.
+//! No syscalls beyond write(2), reboot(2), and pause(2) if reboot
+//! unexpectedly returns. No clock reads, no rng, no file I/O. SHA256
+//! runs entirely in registers + stack.
 //! That makes the (iter, hash) stream a pure function of the binary,
 //! so any HVF<->KVM divergence here is a foundational determinism
 //! problem, not a snapshot bug.
@@ -32,6 +33,7 @@ const LINUX_REBOOT_CMD_POWER_OFF: c_int = @bitCast(@as(u32, 0x4321fedc));
 
 extern "c" fn write(fd: c_int, buf: *const anyopaque, count: usize) isize;
 extern "c" fn reboot(cmd: c_int) c_int;
+extern "c" fn pause() c_int;
 
 fn write_all(fd: c_int, bytes: []const u8) void {
     var off: usize = 0;
@@ -86,7 +88,9 @@ pub fn main() u8 {
         }
     }
     _ = reboot(LINUX_REBOOT_CMD_POWER_OFF);
-    // reboot shouldn't return on success. If it does, spin so /init
+    // reboot shouldn't return on success. If it does, park so /init
     // doesn't exit (which would panic the guest, not exit the VMM).
-    while (true) {}
+    while (true) {
+        _ = pause();
+    }
 }
