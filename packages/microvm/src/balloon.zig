@@ -210,7 +210,7 @@ pub const Backend = struct {
             const d = dev.queue_descriptor(QUEUE_INFLATE, idx) orelse break;
             // Each descriptor is a u32 array; len is bytes; one page
             // == one u32. We don't actually act on these.
-            bytes_seen += @as(u64, d.len) / 4 * 4096;
+            bytes_seen += @divFloor(@as(u64, d.len), 4) * 4096;
             if ((d.flags & virtio.VringDesc.F_NEXT) == 0) break;
             idx = d.next;
         }

@@ -446,7 +446,7 @@ pub const REG_ARM_CORE: u64 = 0x00_0010_0000;
 fn arm_core_reg(comptime offset: u64) u64 {
     // struct user_pt_regs fields on arm64 are u64; offsets are in
     // bytes. Encoding: ARM64 | U64 | REG_ARM_CORE | (offset / 4).
-    return REG_ARM64 | REG_SIZE_U64 | REG_ARM_CORE | (offset / 4);
+    return REG_ARM64 | REG_SIZE_U64 | REG_ARM_CORE | @divExact(offset, 4);
 }
 
 pub const REG_X0 = arm_core_reg(0x00);
@@ -717,7 +717,7 @@ pub const Vm = struct {
 
     pub fn get_dirty_log(self: *Vm, allocator: std.mem.Allocator, slot: u32, page_count: usize) ![]u64 {
         assert(page_count > 0);
-        const word_count = (page_count + 63) / 64;
+        const word_count = @divFloor(page_count + 63, 64);
         const bits = try allocator.alloc(u64, word_count);
         errdefer allocator.free(bits);
         @memset(bits, 0);

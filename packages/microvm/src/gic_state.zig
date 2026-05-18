@@ -337,7 +337,14 @@ pub fn load_kvm_dist(allocator: std.mem.Allocator, gic_fd: c_int, payload: []con
     const entries = try decode_payload(allocator, payload);
     defer allocator.free(entries);
     for (entries) |e| {
-        kvm_set_reg(gic_fd, KVM_DEV_ARM_VGIC_GRP_DIST_REGS, e.offset, @truncate(e.value)) catch {};
+        kvm_set_reg(
+            gic_fd,
+            KVM_DEV_ARM_VGIC_GRP_DIST_REGS,
+            e.offset,
+            @truncate(e.value),
+        ) catch {
+            // Best-effort replay: host kernels expose slightly different VGIC regs.
+        };
     }
 }
 
@@ -375,7 +382,14 @@ pub fn load_kvm_redist(allocator: std.mem.Allocator, gic_fd: c_int, mpidr: u64, 
     const entries = try decode_payload(allocator, payload);
     defer allocator.free(entries);
     for (entries) |e| {
-        kvm_set_reg(gic_fd, KVM_DEV_ARM_VGIC_GRP_REDIST_REGS, redist_attr(mpidr, e.offset), @truncate(e.value)) catch {};
+        kvm_set_reg(
+            gic_fd,
+            KVM_DEV_ARM_VGIC_GRP_REDIST_REGS,
+            redist_attr(mpidr, e.offset),
+            @truncate(e.value),
+        ) catch {
+            // Best-effort replay: host kernels expose slightly different VGIC regs.
+        };
     }
 }
 

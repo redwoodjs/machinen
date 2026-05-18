@@ -4,10 +4,18 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const ZIG_STYLE_BUDGET = {
-  lineLengthViolations: 233,
+  lineLengthViolations: 222,
   longFunctions: 33,
-  minAssertions: 599,
+  minAssertions: 607,
   zeroAssertionFunctions: 472,
+  plainDivisionOperators: 0,
+  dynamicAllocationMentions: 180,
+  usizeMentions: 471,
+  configByValueParameters: 5,
+  emptyCatchBlocks: 0,
+  ignoredReturnAssignments: 321,
+  defaultOptionStructs: 0,
+  elseIfBranches: 24,
 };
 
 const zigFiles = spawnSync("git", ["ls-files", "*.zig"], {
@@ -205,6 +213,24 @@ function collectFunctionMetrics(): FunctionMetric[] {
   return metrics;
 }
 
+function collectMatches(pattern: RegExp, options?: { sanitized?: boolean }): string[] {
+  const matches: string[] = [];
+  for (const file of zigFiles) {
+    const raw = readFileSync(file, "utf8");
+    const source = options?.sanitized ? sanitizeZigSource(raw) : raw;
+    source.split("\n").forEach((line, index) => {
+      const linePattern = new RegExp(
+        pattern.source,
+        pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`,
+      );
+      for (const match of line.matchAll(linePattern)) {
+        matches.push(`${file}:${index + 1}:${match[0]}`);
+      }
+    });
+  }
+  return matches;
+}
+
 function formatExamples(items: string[]): string {
   return items.slice(0, 10).join("\n");
 }
@@ -248,6 +274,79 @@ describe("Zig TigerStyle guardrails", () => {
       longFunctions.length,
       `First long functions:\n${formatExamples(longFunctions)}`,
     ).toBeLessThanOrEqual(ZIG_STYLE_BUDGET.longFunctions);
+  });
+
+  it("keeps intentional infinite loops documented", () => {
+    const undocumentedLoops: string[] = [];
+    for (const file of zigFiles) {
+      const lines = readFileSync(file, "utf8").split("\n");
+      lines.forEach((line, index) => {
+        if (!/\bwhile\s*\(\s*true\s*\)/.test(line)) {
+          return;
+        }
+        const context = lines.slice(Math.max(0, index - 3), index).join("\n");
+        if (
+          !/(Intentional|EOF-bounded|reboot shouldn't|Shouldn't return|Park forever)/.test(context)
+        ) {
+          undocumentedLoops.push(`${file}:${index + 1}`);
+        }
+      });
+    }
+
+    expect(
+      undocumentedLoops,
+      `Undocumented while(true) loops:\n${formatExamples(undocumentedLoops)}`,
+    ).toEqual([]);
+  });
+
+  it("does not grow remaining TigerStyle debt budgets", () => {
+    const plainDivisions = collectMatches(/(?<![/])\/(?![/=*])/, { sanitized: true });
+    const dynamicAllocations = collectMatches(
+      /\.(?:alloc|allocSentinel|allocPrint|dupe|dupeZ|create|realloc)\s*\(|\bArrayList(?:Unmanaged)?\b/,
+      { sanitized: true },
+    );
+    const usizeMentions = collectMatches(/\busize\b/, { sanitized: true });
+    const configByValue = collectMatches(/\bcfg\s*:\s*Config\b/, { sanitized: true });
+    const emptyCatches = collectMatches(/catch\s*\{\s*\}/, { sanitized: true });
+    const ignoredReturns = collectMatches(/_\s*=/, { sanitized: true });
+    const defaultOptions = collectMatches(
+      /std\.Thread\.spawn\s*\(\s*\.\{\}|std\.json\.parseFromSlice[^\n]*\.\{\}/,
+      { sanitized: true },
+    );
+    const elseIfBranches = collectMatches(/\belse\s+if\b/, { sanitized: true });
+
+    expect(
+      plainDivisions.length,
+      `First plain divisions:\n${formatExamples(plainDivisions)}`,
+    ).toBeLessThanOrEqual(ZIG_STYLE_BUDGET.plainDivisionOperators);
+    expect(
+      dynamicAllocations.length,
+      `First allocation mentions:\n${formatExamples(dynamicAllocations)}`,
+    ).toBeLessThanOrEqual(ZIG_STYLE_BUDGET.dynamicAllocationMentions);
+    expect(
+      usizeMentions.length,
+      `First usize mentions:\n${formatExamples(usizeMentions)}`,
+    ).toBeLessThanOrEqual(ZIG_STYLE_BUDGET.usizeMentions);
+    expect(
+      configByValue.length,
+      `First Config-by-value params:\n${formatExamples(configByValue)}`,
+    ).toBeLessThanOrEqual(ZIG_STYLE_BUDGET.configByValueParameters);
+    expect(
+      emptyCatches.length,
+      `First empty catches:\n${formatExamples(emptyCatches)}`,
+    ).toBeLessThanOrEqual(ZIG_STYLE_BUDGET.emptyCatchBlocks);
+    expect(
+      ignoredReturns.length,
+      `First ignored returns:\n${formatExamples(ignoredReturns)}`,
+    ).toBeLessThanOrEqual(ZIG_STYLE_BUDGET.ignoredReturnAssignments);
+    expect(
+      defaultOptions.length,
+      `First default option structs:\n${formatExamples(defaultOptions)}`,
+    ).toBeLessThanOrEqual(ZIG_STYLE_BUDGET.defaultOptionStructs);
+    expect(
+      elseIfBranches.length,
+      `First else-if branches:\n${formatExamples(elseIfBranches)}`,
+    ).toBeLessThanOrEqual(ZIG_STYLE_BUDGET.elseIfBranches);
   });
 
   it("does not allow direct recursive Zig functions", () => {

@@ -811,7 +811,9 @@ test "map a page, run hvc #0, observe exception exit" {
     // Map at a typical arm64 RAM base address.
     const guest_base: u64 = 0x40000000;
     try vm.map(host_mem, guest_base, MapFlags.rx);
-    defer vm.unmap(guest_base, page_size) catch {};
+    defer vm.unmap(guest_base, page_size) catch |err| {
+        std.debug.print("hvf test: unmap failed: {s}\n", .{@errorName(err)});
+    };
 
     const vcpu = try Vcpu.create();
     defer vcpu.destroy();
@@ -883,7 +885,9 @@ test "run a small program and read register state" {
 
     const guest_base: u64 = 0x40000000;
     try vm.map(host_mem, guest_base, MapFlags.rx);
-    defer vm.unmap(guest_base, page_size) catch {};
+    defer vm.unmap(guest_base, page_size) catch |err| {
+        std.debug.print("hvf test: unmap failed: {s}\n", .{@errorName(err)});
+    };
 
     const vcpu = try Vcpu.create();
     defer vcpu.destroy();
@@ -952,7 +956,9 @@ test "catch guest store to unmapped MMIO address" {
     const guest_base: u64 = 0x40000000;
     const mmio_base: u64 = 0x09000000;
     try vm.map(host_mem, guest_base, MapFlags.rx);
-    defer vm.unmap(guest_base, page_size) catch {};
+    defer vm.unmap(guest_base, page_size) catch |err| {
+        std.debug.print("hvf test: unmap failed: {s}\n", .{@errorName(err)});
+    };
 
     const vcpu = try Vcpu.create();
     defer vcpu.destroy();
@@ -1047,7 +1053,9 @@ test "guest writes bytes to PL011 UART, host captures them" {
 
     const guest_base: u64 = 0x40000000;
     try vm.map(host_mem, guest_base, MapFlags.rx);
-    defer vm.unmap(guest_base, page_size) catch {};
+    defer vm.unmap(guest_base, page_size) catch |err| {
+        std.debug.print("hvf test: unmap failed: {s}\n", .{@errorName(err)});
+    };
 
     const vcpu = try Vcpu.create();
     defer vcpu.destroy();
@@ -1240,7 +1248,9 @@ test "guest makes a PSCI SYSTEM_OFF call, host stops the run loop" {
 
     const guest_base: u64 = 0x40000000;
     try vm.map(host_mem, guest_base, MapFlags.rx);
-    defer vm.unmap(guest_base, page_size) catch {};
+    defer vm.unmap(guest_base, page_size) catch |err| {
+        std.debug.print("hvf test: unmap failed: {s}\n", .{@errorName(err)});
+    };
 
     const vcpu = try Vcpu.create();
     defer vcpu.destroy();

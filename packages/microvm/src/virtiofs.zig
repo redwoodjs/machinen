@@ -84,7 +84,7 @@ comptime {
     // gather buffer must hold every readable descriptor's bytes — at
     // 4 KiB per page, MAX_FUSE_MESSAGE / 4096 pages is the readable
     // worst case, comfortably under MAX_CHAIN_DESCRIPTORS.
-    assert(MAX_CHAIN_DESCRIPTORS >= fuse.MAX_FUSE_MESSAGE / 4096 + 4);
+    assert(MAX_CHAIN_DESCRIPTORS >= @divExact(fuse.MAX_FUSE_MESSAGE, 4096) + 4);
 }
 
 /// One virtio-fs backend == one live mount. Owns the shared FUSE
