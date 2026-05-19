@@ -72,6 +72,7 @@ static uint8_t *machinen_portable_heap_bytes;
 static uint64_t machinen_portable_unknown_root;
 static bool machinen_portable_force_bad_root;
 static bool machinen_portable_force_bad_pointer;
+static bool machinen_portable_force_bad_resource;
 static const char *machinen_portable_resource_file_path;
 
 __attribute__((used, visibility("default"))) const char machinen_portable_metadata[] =
@@ -219,6 +220,28 @@ static void refresh_checkpoint_roots(void) {
   };
 }
 
+static const char *checkpoint_refusal_name(int result) {
+  switch (result) {
+    case MACHINEN_CHECKPOINT_REFUSED_INVALID_ABI:
+      return "checkpoint-invalid-abi";
+    case MACHINEN_CHECKPOINT_REFUSED_INVALID_ROOTS:
+      return "checkpoint-invalid-roots";
+    case MACHINEN_CHECKPOINT_REFUSED_INSIDE_SIGNAL_HANDLER:
+      return "checkpoint-inside-signal-handler";
+    case MACHINEN_CHECKPOINT_REFUSED_INSIDE_SYSCALL:
+      return "checkpoint-inside-syscall";
+    case MACHINEN_CHECKPOINT_REFUSED_UNSUPPORTED_ROOT:
+      return "checkpoint-unsupported-root";
+    case MACHINEN_CHECKPOINT_REFUSED_UNKNOWN_ROOT:
+      return "checkpoint-unknown-root";
+    case MACHINEN_CHECKPOINT_REFUSED_UNKNOWN_POINTER:
+      return "pointer-outside-known-object";
+    case MACHINEN_CHECKPOINT_REFUSED_UNSUPPORTED_FD:
+      return "fd-kind-unsupported";
+  }
+  return "checkpoint-refused";
+}
+
 static bool root_kind_supported(uint32_t kind) {
   switch (kind) {
     case MACHINEN_CHECKPOINT_ROOT_GLOBAL:
@@ -265,6 +288,9 @@ __attribute__((noinline, used, visibility("default"))) int machinen_checkpoint(
   }
   if (!proof_pointers_known()) {
     return MACHINEN_CHECKPOINT_REFUSED_UNKNOWN_POINTER;
+  }
+  if (machinen_portable_force_bad_resource) {
+    return MACHINEN_CHECKPOINT_REFUSED_UNSUPPORTED_FD;
   }
   return MACHINEN_CHECKPOINT_OK;
 }
@@ -348,6 +374,7 @@ static void reset_state(void) {
   machinen_portable_last_checkpoint_result = MACHINEN_CHECKPOINT_OK;
   machinen_portable_force_bad_root = false;
   machinen_portable_force_bad_pointer = false;
+  machinen_portable_force_bad_resource = false;
   if (init_heap_state()) {
     refresh_checkpoint_roots();
   }
@@ -818,6 +845,7 @@ int main(int argc, char **argv) {
   }
   machinen_portable_force_bad_root = has_arg(argc, argv, "--bad-root");
   machinen_portable_force_bad_pointer = has_arg(argc, argv, "--bad-pointer");
+  machinen_portable_force_bad_resource = has_arg(argc, argv, "--bad-resource");
   const char *bundle_dir = arg_value(argc, argv, "--emit-bundle");
   machinen_portable_resource_file_path = arg_value(argc, argv, "--resource-file");
   if (!list_matches_1_2_3(&machinen_portable_app_state)) {
@@ -834,7 +862,8 @@ int main(int argc, char **argv) {
 
   int result = machinen_portable_checkpoint(&machinen_portable_app_state);
   if (result != MACHINEN_CHECKPOINT_OK) {
-    fprintf(stderr, "portable proof: checkpoint refused: %d\n", result);
+    fprintf(stderr, "portable proof: checkpoint refused: %d (%s)\n", result,
+        checkpoint_refusal_name(result));
     return 4;
   }
   if (bundle_dir && emit_bundle(bundle_dir) != 0) {

@@ -55,9 +55,12 @@ The proof ABI requires checkpoint requests to happen at a named cooperative
 safe point, outside signal handlers and outside in-flight syscalls. The bundle
 records the continuation name instead of raw source registers or stack frames.
 Checkpoint refusals use stable diagnostic codes such as
-`checkpoint-inside-syscall`, `checkpoint-inside-signal-handler`,
-`checkpoint-invalid-roots`, `checkpoint-unknown-root`, and
-`pointer-outside-known-object`.
+`thread-count-unsupported`, `thread-inside-syscall`, `signal-handler-active`,
+`mapping-executable-anonymous`, `fd-kind-unsupported`,
+`pointer-outside-known-object`, `target-build-mismatch`,
+`architecture-pair-unsupported`, `checkpoint-inside-syscall`,
+`checkpoint-inside-signal-handler`, `checkpoint-invalid-roots`, and
+`checkpoint-unknown-root`.
 
 The engine selector is opt-in via `MACHINEN_SNAPSHOT_ENGINE=portable`.
 Until the checkpoint implementation lands, snapshot/restore fail with an
