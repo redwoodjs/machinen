@@ -9,6 +9,7 @@
 
 #include <errno.h>
 #include <inttypes.h>
+#include <pthread.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -20,11 +21,14 @@
 #include <unistd.h>
 
 #define PORTABLE_PROOF_ROOT_COUNT 3u
+#define PORTABLE_PROOF_THREAD_COUNT 2u
 #define PORTABLE_PROOF_MAX_ALLOCATIONS 4u
 #define PORTABLE_PROOF_HEAP_CAPACITY 128u
 #define PORTABLE_PROOF_PATH_CAPACITY 512u
 #define PORTABLE_PROOF_CONTINUATION "machinen_portable_checkpoint"
 #define PORTABLE_PROOF_RESTORE_CONTINUATION "machinen_portable_restore_entry"
+#define PORTABLE_PROOF_WORKER_CONTINUATION "machinen_portable_worker_continue"
+#define PORTABLE_PROOF_THREAD_BARRIER "portable-proof-checkpoint"
 #define PORTABLE_PROOF_BUILD_ID "0123456789abcdef"
 
 struct Node {
@@ -43,6 +47,13 @@ struct PortableAllocation {
   uint64_t size_bytes;
   const char *type_name;
   bool live;
+};
+
+struct PortableThreadSemanticState {
+  uint32_t id;
+  uint32_t at_barrier;
+  uint64_t local_counter;
+  const char *continuation_name;
 };
 
 #if defined(__aarch64__)
@@ -65,6 +76,11 @@ __attribute__((used, visibility("default"))) int machinen_portable_last_checkpoi
 static uint8_t machinen_portable_heap[PORTABLE_PROOF_HEAP_CAPACITY];
 static struct PortableAllocation machinen_portable_allocations[PORTABLE_PROOF_MAX_ALLOCATIONS];
 static struct machinen_checkpoint_root machinen_portable_roots[PORTABLE_PROOF_ROOT_COUNT];
+static struct PortableThreadSemanticState machinen_portable_thread_states[PORTABLE_PROOF_THREAD_COUNT];
+static struct machinen_checkpoint_thread machinen_portable_threads[PORTABLE_PROOF_THREAD_COUNT];
+static struct machinen_checkpoint_threads machinen_portable_thread_manifest;
+static pthread_mutex_t machinen_portable_barrier_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t machinen_portable_barrier_cond = PTHREAD_COND_INITIALIZER;
 static uint32_t machinen_portable_allocation_count;
 static uint32_t machinen_portable_heap_offset;
 static uint32_t machinen_portable_next_allocation_id;
@@ -73,6 +89,10 @@ static uint64_t machinen_portable_unknown_root;
 static bool machinen_portable_force_bad_root;
 static bool machinen_portable_force_bad_pointer;
 static bool machinen_portable_force_bad_resource;
+static bool machinen_portable_force_bad_thread;
+static bool machinen_portable_use_threads;
+static uint32_t machinen_portable_barrier_arrived;
+static bool machinen_portable_barrier_complete;
 static const char *machinen_portable_resource_file_path;
 
 __attribute__((used, visibility("default"))) const char machinen_portable_metadata[] =
@@ -85,6 +105,9 @@ __attribute__((used, visibility("default"))) const char machinen_portable_metada
     "\"restore_symbol\":\"machinen_restore_main\","
     "\"restore_bundle_type\":\"machinen_restore_bundle\","
     "\"restore_continuation\":\"machinen_portable_restore_entry\","
+    "\"thread_registration\":\"machinen_register_thread\","
+    "\"thread_barrier\":\"machinen_checkpoint_barrier\","
+    "\"worker_continuation\":\"machinen_portable_worker_continue\","
     "\"allocator\":\"machinen_portable_allocator\","
     "\"state_symbol\":\"machinen_portable_app_state\"}";
 
@@ -149,6 +172,11 @@ static bool root_in_known_global(const struct machinen_checkpoint_root *root) {
       root->size_bytes);
 }
 
+static bool root_in_known_thread_local(const struct machinen_checkpoint_root *root) {
+  return range_contains(machinen_portable_thread_states, sizeof(machinen_portable_thread_states),
+      root->address, root->size_bytes);
+}
+
 static bool root_in_live_allocation(const struct machinen_checkpoint_root *root) {
   for (uint32_t i = 0; i < machinen_portable_allocation_count; i++) {
     const struct PortableAllocation *allocation = &machinen_portable_allocations[i];
@@ -163,7 +191,8 @@ static bool root_in_live_allocation(const struct machinen_checkpoint_root *root)
 }
 
 static bool root_range_known(const struct machinen_checkpoint_root *root) {
-  return root_in_known_global(root) || root_in_live_allocation(root);
+  return root_in_known_global(root) || root_in_known_thread_local(root) ||
+         root_in_live_allocation(root);
 }
 
 static bool pointer_known_or_null(const void *ptr) {
@@ -220,6 +249,43 @@ static void refresh_checkpoint_roots(void) {
   };
 }
 
+static void refresh_thread_manifest(void) {
+  machinen_portable_thread_states[0] = (struct PortableThreadSemanticState){
+      .id = 0,
+      .at_barrier = machinen_portable_barrier_complete ? 1u : 0u,
+      .local_counter = 1000,
+      .continuation_name = PORTABLE_PROOF_CONTINUATION,
+  };
+  machinen_portable_thread_states[1] = (struct PortableThreadSemanticState){
+      .id = 1,
+      .at_barrier = machinen_portable_barrier_complete ? 1u : 0u,
+      .local_counter = 2001,
+      .continuation_name = PORTABLE_PROOF_WORKER_CONTINUATION,
+  };
+  machinen_portable_threads[0] = (struct machinen_checkpoint_thread){
+      .id = 0,
+      .flags = 0,
+      .name = "main",
+      .continuation_name = PORTABLE_PROOF_CONTINUATION,
+      .thread_local_state = &machinen_portable_thread_states[0],
+      .thread_local_state_size_bytes = sizeof(machinen_portable_thread_states[0]),
+  };
+  machinen_portable_threads[1] = (struct machinen_checkpoint_thread){
+      .id = 1,
+      .flags = 0,
+      .name = "worker",
+      .continuation_name = PORTABLE_PROOF_WORKER_CONTINUATION,
+      .thread_local_state = &machinen_portable_thread_states[1],
+      .thread_local_state_size_bytes = sizeof(machinen_portable_thread_states[1]),
+  };
+  machinen_portable_thread_manifest = (struct machinen_checkpoint_threads){
+      .abi_version = MACHINEN_CHECKPOINT_ABI_VERSION,
+      .thread_count = machinen_portable_use_threads ? PORTABLE_PROOF_THREAD_COUNT : 1u,
+      .threads = machinen_portable_threads,
+      .barrier_name = PORTABLE_PROOF_THREAD_BARRIER,
+  };
+}
+
 static const char *checkpoint_refusal_name(int result) {
   switch (result) {
     case MACHINEN_CHECKPOINT_REFUSED_INVALID_ABI:
@@ -238,6 +304,8 @@ static const char *checkpoint_refusal_name(int result) {
       return "pointer-outside-known-object";
     case MACHINEN_CHECKPOINT_REFUSED_UNSUPPORTED_FD:
       return "fd-kind-unsupported";
+    case MACHINEN_CHECKPOINT_REFUSED_NON_COOPERATIVE_THREAD:
+      return "thread-not-at-barrier";
   }
   return "checkpoint-refused";
 }
@@ -274,6 +342,24 @@ __attribute__((noinline, used, visibility("default"))) int machinen_checkpoint(
   if (roots->root_count == 0 || roots->root_count > MACHINEN_CHECKPOINT_MAX_ROOTS) {
     return MACHINEN_CHECKPOINT_REFUSED_INVALID_ROOTS;
   }
+  if (roots->threads) {
+    if (roots->threads->abi_version != MACHINEN_CHECKPOINT_ABI_VERSION ||
+        roots->threads->thread_count == 0 ||
+        roots->threads->thread_count > MACHINEN_CHECKPOINT_MAX_THREADS ||
+        !roots->threads->threads || !roots->threads->barrier_name) {
+      return MACHINEN_CHECKPOINT_REFUSED_INVALID_ROOTS;
+    }
+    for (uint32_t i = 0; i < roots->threads->thread_count; i++) {
+      const struct machinen_checkpoint_thread *thread = &roots->threads->threads[i];
+      if (!thread->name || !thread->continuation_name || !thread->thread_local_state ||
+          thread->thread_local_state_size_bytes == 0) {
+        return MACHINEN_CHECKPOINT_REFUSED_INVALID_ROOTS;
+      }
+    }
+    if (machinen_portable_use_threads && !machinen_portable_barrier_complete) {
+      return MACHINEN_CHECKPOINT_REFUSED_NON_COOPERATIVE_THREAD;
+    }
+  }
   for (uint32_t i = 0; i < roots->root_count; i++) {
     const struct machinen_checkpoint_root *root = &roots->roots[i];
     if (!root->name || !root->address || root->size_bytes == 0) {
@@ -296,11 +382,29 @@ __attribute__((noinline, used, visibility("default"))) int machinen_checkpoint(
 }
 
 static uint32_t build_checkpoint_roots(struct machinen_checkpoint_root *roots, uint32_t capacity) {
-  if (capacity < PORTABLE_PROOF_ROOT_COUNT + 1u) {
+  if (capacity < PORTABLE_PROOF_ROOT_COUNT + PORTABLE_PROOF_THREAD_COUNT + 1u) {
     return 0;
   }
   memcpy(roots, machinen_portable_roots, sizeof(machinen_portable_roots));
   uint32_t count = PORTABLE_PROOF_ROOT_COUNT;
+  if (machinen_portable_use_threads) {
+    roots[count++] = (struct machinen_checkpoint_root){
+        .name = "machinen_portable_thread_main_tls",
+        .address = &machinen_portable_thread_states[0],
+        .size_bytes = sizeof(machinen_portable_thread_states[0]),
+        .kind = MACHINEN_CHECKPOINT_ROOT_THREAD_LOCAL,
+        .flags = 0,
+        .type_name = "struct PortableThreadSemanticState",
+    };
+    roots[count++] = (struct machinen_checkpoint_root){
+        .name = "machinen_portable_thread_worker_tls",
+        .address = &machinen_portable_thread_states[1],
+        .size_bytes = sizeof(machinen_portable_thread_states[1]),
+        .kind = MACHINEN_CHECKPOINT_ROOT_THREAD_LOCAL,
+        .flags = 0,
+        .type_name = "struct PortableThreadSemanticState",
+    };
+  }
   if (machinen_portable_force_bad_root) {
     machinen_portable_unknown_root = 0xfeedfaceu;
     roots[count++] = (struct machinen_checkpoint_root){
@@ -320,8 +424,9 @@ __attribute__((noinline, used, visibility("default"))) int machinen_portable_che
   if (state != &machinen_portable_app_state) {
     return MACHINEN_CHECKPOINT_REFUSED_INVALID_ROOTS;
   }
-  struct machinen_checkpoint_root roots[PORTABLE_PROOF_ROOT_COUNT + 1u];
-  uint32_t root_count = build_checkpoint_roots(roots, PORTABLE_PROOF_ROOT_COUNT + 1u);
+  struct machinen_checkpoint_root roots[PORTABLE_PROOF_ROOT_COUNT + PORTABLE_PROOF_THREAD_COUNT + 1u];
+  uint32_t root_count = build_checkpoint_roots(roots,
+      PORTABLE_PROOF_ROOT_COUNT + PORTABLE_PROOF_THREAD_COUNT + 1u);
   const struct machinen_checkpoint_roots checkpoint_roots = {
       .abi_version = MACHINEN_CHECKPOINT_ABI_VERSION,
       .flags = MACHINEN_CHECKPOINT_FLAG_KNOWN_SAFE_POINT,
@@ -329,6 +434,7 @@ __attribute__((noinline, used, visibility("default"))) int machinen_portable_che
       .roots = roots,
       .root_count = root_count,
       .reserved = 0,
+      .threads = &machinen_portable_thread_manifest,
   };
   machinen_portable_last_checkpoint_result = machinen_checkpoint(&checkpoint_roots);
   __asm__ __volatile__("" ::: "memory");
@@ -375,6 +481,11 @@ static void reset_state(void) {
   machinen_portable_force_bad_root = false;
   machinen_portable_force_bad_pointer = false;
   machinen_portable_force_bad_resource = false;
+  machinen_portable_force_bad_thread = false;
+  machinen_portable_use_threads = false;
+  machinen_portable_barrier_arrived = 0;
+  machinen_portable_barrier_complete = false;
+  refresh_thread_manifest();
   if (init_heap_state()) {
     refresh_checkpoint_roots();
   }
@@ -392,6 +503,104 @@ static bool heap_matches_expected(void) {
       PORTABLE_PROOF_HEAP_BYTES, sizeof(PORTABLE_PROOF_HEAP_BYTES)) == 0;
 }
 
+int machinen_register_thread(uint32_t id, const char *name, const char *continuation_name,
+    uint64_t local_counter) {
+  if (id >= PORTABLE_PROOF_THREAD_COUNT || !name || !continuation_name) {
+    return MACHINEN_CHECKPOINT_REFUSED_INVALID_ROOTS;
+  }
+  machinen_portable_thread_states[id].id = id;
+  machinen_portable_thread_states[id].local_counter = local_counter;
+  machinen_portable_thread_states[id].continuation_name = continuation_name;
+  machinen_portable_threads[id].id = id;
+  machinen_portable_threads[id].name = name;
+  machinen_portable_threads[id].continuation_name = continuation_name;
+  machinen_portable_threads[id].thread_local_state = &machinen_portable_thread_states[id];
+  machinen_portable_threads[id].thread_local_state_size_bytes =
+      sizeof(machinen_portable_thread_states[id]);
+  return MACHINEN_CHECKPOINT_OK;
+}
+
+int machinen_checkpoint_barrier(const char *barrier_name, uint32_t expected_threads, uint32_t id) {
+  if (!barrier_name || strcmp(barrier_name, PORTABLE_PROOF_THREAD_BARRIER) != 0 ||
+      expected_threads != PORTABLE_PROOF_THREAD_COUNT || id >= PORTABLE_PROOF_THREAD_COUNT) {
+    return MACHINEN_CHECKPOINT_REFUSED_INVALID_ROOTS;
+  }
+  if (machinen_portable_force_bad_thread) {
+    return MACHINEN_CHECKPOINT_REFUSED_NON_COOPERATIVE_THREAD;
+  }
+  pthread_mutex_lock(&machinen_portable_barrier_mutex);
+  machinen_portable_thread_states[id].at_barrier = 1;
+  machinen_portable_barrier_arrived++;
+  if (machinen_portable_barrier_arrived == expected_threads) {
+    machinen_portable_barrier_complete = true;
+    pthread_cond_broadcast(&machinen_portable_barrier_cond);
+  }
+  while (!machinen_portable_barrier_complete) {
+    pthread_cond_wait(&machinen_portable_barrier_cond, &machinen_portable_barrier_mutex);
+  }
+  pthread_mutex_unlock(&machinen_portable_barrier_mutex);
+  return MACHINEN_CHECKPOINT_OK;
+}
+
+static void *portable_worker_checkpoint_thread(void *arg) {
+  (void)arg;
+  int result = machinen_register_thread(1, "worker", PORTABLE_PROOF_WORKER_CONTINUATION, 2001);
+  if (result != MACHINEN_CHECKPOINT_OK) {
+    return (void *)(uintptr_t)(uint32_t)result;
+  }
+  result = machinen_checkpoint_barrier(PORTABLE_PROOF_THREAD_BARRIER, PORTABLE_PROOF_THREAD_COUNT, 1);
+  return (void *)(uintptr_t)(uint32_t)result;
+}
+
+static int run_thread_checkpoint_barrier(void) {
+  refresh_thread_manifest();
+  int result = machinen_register_thread(0, "main", PORTABLE_PROOF_CONTINUATION, 1000);
+  if (result != MACHINEN_CHECKPOINT_OK) {
+    return result;
+  }
+  if (machinen_portable_force_bad_thread) {
+    return MACHINEN_CHECKPOINT_REFUSED_NON_COOPERATIVE_THREAD;
+  }
+  pthread_t worker;
+  if (pthread_create(&worker, 0, portable_worker_checkpoint_thread, 0) != 0) {
+    return MACHINEN_CHECKPOINT_REFUSED_NON_COOPERATIVE_THREAD;
+  }
+  result = machinen_checkpoint_barrier(PORTABLE_PROOF_THREAD_BARRIER, PORTABLE_PROOF_THREAD_COUNT, 0);
+  void *worker_result = 0;
+  if (pthread_join(worker, &worker_result) != 0) {
+    return MACHINEN_CHECKPOINT_REFUSED_NON_COOPERATIVE_THREAD;
+  }
+  if (result != MACHINEN_CHECKPOINT_OK) {
+    return result;
+  }
+  result = (int)(uintptr_t)worker_result;
+  refresh_thread_manifest();
+  return result;
+}
+
+static void *portable_worker_restore_thread(void *arg) {
+  (void)arg;
+  machinen_register_thread(1, "worker", PORTABLE_PROOF_WORKER_CONTINUATION, 2001);
+  machinen_portable_thread_states[1].at_barrier = 1;
+  return 0;
+}
+
+static int recreate_threads_for_restore(void) {
+  pthread_t worker;
+  machinen_portable_use_threads = true;
+  refresh_thread_manifest();
+  machinen_register_thread(0, "main", PORTABLE_PROOF_RESTORE_CONTINUATION, 1000);
+  if (pthread_create(&worker, 0, portable_worker_restore_thread, 0) != 0) {
+    return -1;
+  }
+  if (pthread_join(worker, 0) != 0) {
+    return -1;
+  }
+  machinen_portable_barrier_complete = true;
+  refresh_thread_manifest();
+  return 0;
+}
+
 static void print_marker(const char *phase) {
   printf(
       "MACHINEN_PORTABLE_PROOF "
@@ -406,6 +615,9 @@ static void print_marker(const char *phase) {
       "\"root_count\":%u,"
       "\"root_names\":[\"machinen_portable_app_state\",\"machinen_portable_nodes\","
       "\"machinen_portable_heap_bytes\"],"
+      "\"thread_count\":%u,"
+      "\"thread_continuations\":[\"machinen_portable_checkpoint\","
+      "\"machinen_portable_worker_continue\"],"
       "\"allocation_count\":%u,"
       "\"heap_bytes\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u],"
       "\"checkpoint_result\":%d,"
@@ -418,6 +630,7 @@ static void print_marker(const char *phase) {
       (unsigned long long)machinen_portable_nodes[2].value,
       MACHINEN_CHECKPOINT_ABI_VERSION,
       PORTABLE_PROOF_ROOT_COUNT,
+      machinen_portable_use_threads ? PORTABLE_PROOF_THREAD_COUNT : 1u,
       machinen_portable_allocation_count,
       machinen_portable_heap_bytes[0],
       machinen_portable_heap_bytes[1],
@@ -512,9 +725,12 @@ static int write_manifest(const char *dir) {
       "\"restoreEntrypoint\":{\"name\":\"machinen_restore_main\"},"
       "\"process\":{\"argv\":[\"/usr/local/bin/machinen-portable-proof\"],"
       "\"env\":{},\"cwd\":\"/\"},"
-      "\"features\":[\"proof-workload\",\"instrumented-allocator\"],"
+      "\"features\":[%s],"
       "\"unsupported\":{\"vocabularyVersion\":1,\"refusals\":[]}}",
-      PORTABLE_PROOF_ARCH, PORTABLE_PROOF_BUILD_ID);
+      PORTABLE_PROOF_ARCH, PORTABLE_PROOF_BUILD_ID,
+      machinen_portable_use_threads ?
+          "\"proof-workload\",\"instrumented-allocator\",\"cooperative-threads\"" :
+          "\"proof-workload\",\"instrumented-allocator\"");
   return close_bundle_file(file);
 }
 
@@ -540,6 +756,10 @@ static int write_memory(const char *dir) {
     result = write_memory_bytes(file, machinen_portable_heap_bytes,
         sizeof(PORTABLE_PROOF_HEAP_BYTES));
   }
+  if (result == 0 && machinen_portable_use_threads) {
+    result = write_memory_bytes(file, machinen_portable_thread_states,
+        sizeof(machinen_portable_thread_states));
+  }
   if (close_bundle_file(file) != 0) {
     return -1;
   }
@@ -551,6 +771,7 @@ static int write_objects(const char *dir) {
   uint64_t app_offset = 0;
   uint64_t nodes_offset = app_offset + sizeof(machinen_portable_app_state);
   uint64_t heap_offset = nodes_offset + sizeof(machinen_portable_nodes);
+  uint64_t tls_offset = heap_offset + allocation->size_bytes;
   FILE *file = open_bundle_file(dir, "objects.json", "wb");
   if (!file) {
     return -1;
@@ -568,8 +789,7 @@ static int write_objects(const char *dir) {
       "{\"id\":\"heap-1\",\"kind\":\"heap\",\"type\":\"%s\","
       "\"sizeBytes\":%llu,\"sourceAddress\":\"0x%" PRIxPTR "\","
       "\"allocation\":{\"id\":%u,\"sourceAddress\":\"0x%" PRIxPTR "\"},"
-      "\"memory\":{\"offset\":%llu,\"sizeBytes\":%llu}}],"
-      "\"unsupported\":{\"vocabularyVersion\":1,\"refusals\":[]}}",
+      "\"memory\":{\"offset\":%llu,\"sizeBytes\":%llu}}",
       (unsigned long long)sizeof(machinen_portable_app_state),
       (uintptr_t)&machinen_portable_app_state,
       (unsigned long long)app_offset,
@@ -585,6 +805,26 @@ static int write_objects(const char *dir) {
       (uintptr_t)allocation->address,
       (unsigned long long)heap_offset,
       (unsigned long long)allocation->size_bytes);
+  if (machinen_portable_use_threads) {
+    fprintf(file,
+        ",{\"id\":\"tls-main\",\"kind\":\"tls\","
+        "\"type\":\"struct PortableThreadSemanticState\",\"sizeBytes\":%llu,"
+        "\"sourceAddress\":\"0x%" PRIxPTR "\","
+        "\"memory\":{\"offset\":%llu,\"sizeBytes\":%llu}},"
+        "{\"id\":\"tls-worker\",\"kind\":\"tls\","
+        "\"type\":\"struct PortableThreadSemanticState\",\"sizeBytes\":%llu,"
+        "\"sourceAddress\":\"0x%" PRIxPTR "\","
+        "\"memory\":{\"offset\":%llu,\"sizeBytes\":%llu}}",
+        (unsigned long long)sizeof(machinen_portable_thread_states[0]),
+        (uintptr_t)&machinen_portable_thread_states[0],
+        (unsigned long long)tls_offset,
+        (unsigned long long)sizeof(machinen_portable_thread_states[0]),
+        (unsigned long long)sizeof(machinen_portable_thread_states[1]),
+        (uintptr_t)&machinen_portable_thread_states[1],
+        (unsigned long long)(tls_offset + sizeof(machinen_portable_thread_states[0])),
+        (unsigned long long)sizeof(machinen_portable_thread_states[1]));
+  }
+  fprintf(file, "],\"unsupported\":{\"vocabularyVersion\":1,\"refusals\":[]}}");
   return close_bundle_file(file);
 }
 
@@ -667,6 +907,32 @@ static int write_resources(const char *dir) {
   return close_bundle_file(file);
 }
 
+static int write_threads(const char *dir) {
+  if (!machinen_portable_use_threads) {
+    return 0;
+  }
+  FILE *file = open_bundle_file(dir, "threads.json", "wb");
+  if (!file) {
+    return -1;
+  }
+  fprintf(file,
+      "{\"formatVersion\":1,\"barrier\":{"
+      "\"name\":\"%s\",\"participants\":%u,\"state\":\"complete\"},"
+      "\"threads\":["
+      "{\"id\":0,\"name\":\"main\",\"continuation\":\"%s\","
+      "\"localState\":{\"counter\":%llu,\"atBarrier\":true}},"
+      "{\"id\":1,\"name\":\"worker\",\"continuation\":\"%s\","
+      "\"localState\":{\"counter\":%llu,\"atBarrier\":true}}],"
+      "\"unsupported\":{\"vocabularyVersion\":1,\"refusals\":[]}}",
+      PORTABLE_PROOF_THREAD_BARRIER,
+      PORTABLE_PROOF_THREAD_COUNT,
+      machinen_portable_threads[0].continuation_name,
+      (unsigned long long)machinen_portable_thread_states[0].local_counter,
+      machinen_portable_threads[1].continuation_name,
+      (unsigned long long)machinen_portable_thread_states[1].local_counter);
+  return close_bundle_file(file);
+}
+
 static int emit_bundle(const char *dir) {
   char logs_path[PORTABLE_PROOF_PATH_CAPACITY];
   int written = snprintf(logs_path, sizeof(logs_path), "%s/logs", dir);
@@ -680,10 +946,19 @@ static int emit_bundle(const char *dir) {
   if (write_manifest(dir) != 0 || write_memory(dir) != 0 || write_objects(dir) != 0) {
     return -1;
   }
-  if (write_relocations(dir) != 0) {
+  if (write_relocations(dir) != 0 || write_resources(dir) != 0) {
     return -1;
   }
-  return write_resources(dir);
+  return write_threads(dir);
+}
+
+static bool bundle_file_exists(const char *dir, const char *name) {
+  char path[PORTABLE_PROOF_PATH_CAPACITY];
+  int written = snprintf(path, sizeof(path), "%s/%s", dir, name);
+  if (written < 0 || (uint32_t)written >= sizeof(path)) {
+    return false;
+  }
+  return access(path, R_OK) == 0;
 }
 
 static bool bundle_text_contains(const char *dir, const char *name, const char *needle) {
@@ -823,6 +1098,10 @@ static int restore_from_bundle(const char *dir) {
     return -1;
   }
   apply_pointer_relocations();
+  if (bundle_file_exists(dir, "threads.json") && recreate_threads_for_restore() != 0) {
+    fprintf(stderr, "portable proof: thread restore failed\n");
+    return -1;
+  }
   int result = call_restore_entrypoint();
   if (result != MACHINEN_CHECKPOINT_OK) {
     fprintf(stderr, "portable proof: restore refused: %d\n", result);
@@ -846,6 +1125,10 @@ int main(int argc, char **argv) {
   machinen_portable_force_bad_root = has_arg(argc, argv, "--bad-root");
   machinen_portable_force_bad_pointer = has_arg(argc, argv, "--bad-pointer");
   machinen_portable_force_bad_resource = has_arg(argc, argv, "--bad-resource");
+  machinen_portable_force_bad_thread = has_arg(argc, argv, "--thread-missing");
+  machinen_portable_use_threads = has_arg(argc, argv, "--threads") ||
+                                  machinen_portable_force_bad_thread;
+  refresh_thread_manifest();
   const char *bundle_dir = arg_value(argc, argv, "--emit-bundle");
   machinen_portable_resource_file_path = arg_value(argc, argv, "--resource-file");
   if (!list_matches_1_2_3(&machinen_portable_app_state)) {
@@ -860,7 +1143,13 @@ int main(int argc, char **argv) {
     machinen_portable_nodes[1].next = (struct Node *)&machinen_portable_unknown_root;
   }
 
-  int result = machinen_portable_checkpoint(&machinen_portable_app_state);
+  int result = MACHINEN_CHECKPOINT_OK;
+  if (machinen_portable_use_threads) {
+    result = run_thread_checkpoint_barrier();
+  }
+  if (result == MACHINEN_CHECKPOINT_OK) {
+    result = machinen_portable_checkpoint(&machinen_portable_app_state);
+  }
   if (result != MACHINEN_CHECKPOINT_OK) {
     fprintf(stderr, "portable proof: checkpoint refused: %d (%s)\n", result,
         checkpoint_refusal_name(result));

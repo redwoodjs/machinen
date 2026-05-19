@@ -9,6 +9,7 @@ extern "C" {
 
 #define MACHINEN_CHECKPOINT_ABI_VERSION 1u
 #define MACHINEN_CHECKPOINT_MAX_ROOTS 64u
+#define MACHINEN_CHECKPOINT_MAX_THREADS 8u
 
 #define MACHINEN_CHECKPOINT_FLAG_OUTSIDE_SIGNAL_HANDLER (1u << 0)
 #define MACHINEN_CHECKPOINT_FLAG_OUTSIDE_SYSCALL (1u << 1)
@@ -33,6 +34,7 @@ enum machinen_checkpoint_result {
   MACHINEN_CHECKPOINT_REFUSED_UNKNOWN_ROOT = 6,
   MACHINEN_CHECKPOINT_REFUSED_UNKNOWN_POINTER = 7,
   MACHINEN_CHECKPOINT_REFUSED_UNSUPPORTED_FD = 8,
+  MACHINEN_CHECKPOINT_REFUSED_NON_COOPERATIVE_THREAD = 9,
 };
 
 struct machinen_checkpoint_root {
@@ -44,6 +46,22 @@ struct machinen_checkpoint_root {
   const char *type_name;
 };
 
+struct machinen_checkpoint_thread {
+  uint32_t id;
+  uint32_t flags;
+  const char *name;
+  const char *continuation_name;
+  const void *thread_local_state;
+  uint64_t thread_local_state_size_bytes;
+};
+
+struct machinen_checkpoint_threads {
+  uint32_t abi_version;
+  uint32_t thread_count;
+  const struct machinen_checkpoint_thread *threads;
+  const char *barrier_name;
+};
+
 struct machinen_checkpoint_roots {
   uint32_t abi_version;
   uint32_t flags;
@@ -51,6 +69,7 @@ struct machinen_checkpoint_roots {
   const struct machinen_checkpoint_root *roots;
   uint32_t root_count;
   uint32_t reserved;
+  const struct machinen_checkpoint_threads *threads;
 };
 
 struct machinen_restore_object {

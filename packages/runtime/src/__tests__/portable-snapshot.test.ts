@@ -251,6 +251,7 @@ describe("portable snapshot schemas", () => {
   it("accepts the initial stable refusal diagnostics vocabulary", () => {
     const refusalCodes = [
       "thread-count-unsupported",
+      "thread-not-at-barrier",
       "thread-inside-syscall",
       "signal-handler-active",
       "mapping-executable-anonymous",

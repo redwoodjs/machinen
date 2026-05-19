@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -14,6 +14,10 @@ const EXPECTED_HEAP_BYTES = [
   0x4d, 0x61, 0x63, 0x68, 0x69, 0x6e, 0x65, 0x6e, 0x2d, 0x70, 0x72, 0x6f, 0x6f, 0x66, 0x21, 0x00,
 ];
 const VALID_PHASES = ["checkpoint", "restore", "continue"];
+const EXPECTED_THREAD_CONTINUATIONS = [
+  "machinen_portable_checkpoint",
+  "machinen_portable_worker_continue",
+];
 const VALID_ARCHES = ["arm64", "amd64"];
 const EXPECTED_SYMBOLS = {
   checkpoint_symbol: "machinen_checkpoint",
@@ -77,6 +81,13 @@ const FLAG_HANDLERS = new Map([
       return index;
     },
   ],
+  [
+    "--require-threads",
+    (state, index) => {
+      state.opts.requireThreads = true;
+      return index;
+    },
+  ],
   ["--expect-arch", (state, index) => readOptionValue(state, index, "expectArch", "--expect-arch")],
   ["--bundle-dir", (state, index) => readOptionValue(state, index, "bundleDir", "--bundle-dir")],
   [
@@ -130,6 +141,7 @@ export function validatePortableProofEvents(events, opts = {}) {
   validateRequiredPhases(errors, phases, opts);
   validateEventList(errors, events, opts.expectArch);
   validateCrossPhaseState(errors, phases);
+  validateThreadProof(errors, events, opts);
 
   return errors;
 }
@@ -180,6 +192,24 @@ function validateForwardProgress(errors, continues) {
     errors,
     continues.length > 0 && !continues.some((event) => Number(event.counter) > 1000),
     "continue markers never increment counter beyond 1000",
+  );
+}
+
+function validateThreadProof(errors, events, opts) {
+  if (!opts.requireThreads) {
+    return;
+  }
+  const threaded = events.find(
+    (event) => event.thread_count === EXPECTED_THREAD_CONTINUATIONS.length,
+  );
+  if (!threaded) {
+    errors.push("missing two-thread proof marker");
+    return;
+  }
+  pushIf(
+    errors,
+    !sameList(threaded.thread_continuations, EXPECTED_THREAD_CONTINUATIONS),
+    `thread continuations expected ${JSON.stringify(EXPECTED_THREAD_CONTINUATIONS)}, got ${JSON.stringify(threaded.thread_continuations)}`,
   );
 }
 
@@ -287,6 +317,7 @@ function validatePortableProofBundle(dir) {
   validateOptionalBundleObjects(errors, bundle.objects, bundle.memory);
   validateOptionalBundleRelocations(errors, bundle.relocations);
   validateOptionalBundleResources(errors, bundle.resources);
+  validateOptionalBundleThreads(errors, bundle.threads);
   return errors;
 }
 
@@ -295,6 +326,7 @@ function readPortableBundleDocuments(errors, dir) {
     objects: readBundleJson(errors, dir, "objects.json"),
     relocations: readBundleJson(errors, dir, "relocations.json"),
     resources: readBundleJson(errors, dir, "resources.json"),
+    threads: readOptionalBundleJson(errors, dir, "threads.json"),
     memory: readBundleFile(errors, dir, "memory.bin"),
   };
 }
@@ -326,6 +358,13 @@ function readBundleJson(errors, dir, name) {
   }
 }
 
+function readOptionalBundleJson(errors, dir, name) {
+  if (!existsSync(join(dir, name))) {
+    return undefined;
+  }
+  return readBundleJson(errors, dir, name);
+}
+
 function readBundleFile(errors, dir, name) {
   try {
     return readFileSync(join(dir, name));
@@ -341,6 +380,37 @@ function validateBundleObjects(errors, objectsDoc, memory) {
   const heap = objects.find((object) => object.id === "heap-1");
   pushIf(errors, globals.length < 2, "objects.json must capture global roots separately");
   validateHeapBundleObject(errors, heap, memory);
+}
+
+function validateOptionalBundleThreads(errors, threads) {
+  if (threads) {
+    validateBundleThreads(errors, threads);
+  }
+}
+
+function validateBundleThreads(errors, threadsDoc) {
+  const threads = Array.isArray(threadsDoc.threads) ? threadsDoc.threads : [];
+  pushIf(errors, threadsDoc.formatVersion !== 1, "threads.json formatVersion must be 1");
+  pushIf(errors, threads.length !== 2, "threads.json must record two cooperative threads");
+  pushIf(
+    errors,
+    threadsDoc.barrier?.participants !== 2,
+    "threads.json barrier participants must be 2",
+  );
+  pushIf(errors, threadsDoc.barrier?.state !== "complete", "threads.json barrier must be complete");
+  pushIf(
+    errors,
+    !sameList(
+      threads.map((thread) => thread.continuation),
+      EXPECTED_THREAD_CONTINUATIONS,
+    ),
+    "threads.json continuations do not match expected checkpoint continuations",
+  );
+  pushIf(
+    errors,
+    !threads.every((thread) => thread.localState?.atBarrier === true),
+    "threads.json must record every thread at the checkpoint barrier",
+  );
 }
 
 function validateBundleResources(errors, resourcesDoc) {
@@ -459,6 +529,7 @@ function parseArgs(argv) {
     opts: {
       requireRestore: false,
       requireContinue: false,
+      requireThreads: false,
       expectArch: undefined,
       bundleDir: undefined,
     },
@@ -495,7 +566,8 @@ function usage(message) {
 function printUsage() {
   process.stderr.write(
     "usage: node scripts/portable-proof-compare.mjs [--expect-arch arm64|amd64] " +
-      "[--bundle-dir dir] [--require-restore] [--require-continue] <log-file|->\n",
+      "[--bundle-dir dir] [--require-restore] [--require-continue] " +
+      "[--require-threads] <log-file|->\n",
   );
 }
 
