@@ -96,6 +96,7 @@ rootfs_input_files() {
     "${ASSETS}/net-bench-probe.zig" \
     "${ASSETS}/no-iou.zig" \
     "${ASSETS}/poweroff.zig" \
+    "${ASSETS}/portable-proof-workload.c" \
     "${ASSETS}/vmstate-reseed.c" \
     "${ASSETS}/winsize-agent.zig" \
     "${SCRIPTS}/build-base-assets.sh"
