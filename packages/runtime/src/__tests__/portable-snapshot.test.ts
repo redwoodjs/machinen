@@ -78,7 +78,17 @@ function tinyDocs(manifestOverrides: Record<string, unknown> = {}) {
           kind: "global",
           type: "AppState",
           sizeBytes: 16,
+          sourceAddress: "0x1000",
           memory: { offset: 0, sizeBytes: 16 },
+        },
+        {
+          id: "heap-1",
+          kind: "heap",
+          type: "uint8_t[16]",
+          sizeBytes: 16,
+          sourceAddress: "0x2000",
+          allocation: { id: 1, sourceAddress: "0x2000" },
+          memory: { offset: 16, sizeBytes: 16 },
         },
       ],
       unsupported: unsupported(),
@@ -104,7 +114,7 @@ function writeTinyBundle(manifestOverrides: Record<string, unknown> = {}): strin
   writeFileSync(join(dir, "objects.json"), JSON.stringify(docs.objects));
   writeFileSync(join(dir, "relocations.json"), JSON.stringify(docs.relocations));
   writeFileSync(join(dir, "resources.json"), JSON.stringify(docs.resources));
-  writeFileSync(join(dir, "memory.bin"), Buffer.alloc(16));
+  writeFileSync(join(dir, "memory.bin"), Buffer.alloc(32));
   mkdirSync(join(dir, "logs"));
   return dir;
 }
@@ -187,14 +197,27 @@ describe("portable snapshot schemas", () => {
     );
   });
 
+  it("validates allocator metadata for captured heap objects", () => {
+    const docs = tinyDocs();
+    expect(validatePortableSnapshotDocuments(docs)).toEqual([]);
+  });
+
+  it("rejects invalid allocation source addresses", () => {
+    const docs = tinyDocs();
+    docs.objects.objects[1]!.allocation = { id: 1, sourceAddress: "not-hex" };
+    expect(validatePortableSnapshotDocuments(docs)).toContain(
+      "objects.objects[1].allocation.sourceAddress must be a hex address",
+    );
+  });
+
   it("accepts checkpoint refusal codes in the portable diagnostics vocabulary", () => {
     const docs = tinyDocs({
       unsupported: {
         vocabularyVersion: 1,
         refusals: [
           {
-            code: "checkpoint-inside-syscall",
-            message: "checkpoint must happen from a cooperative safe point",
+            code: "checkpoint-unknown-root",
+            message: "checkpoint root must point into globals or live allocations",
           },
         ],
       },

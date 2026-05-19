@@ -7,14 +7,22 @@
 
 #include "portable-checkpoint-abi.h"
 
+#include <errno.h>
+#include <inttypes.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
-#define PORTABLE_PROOF_ROOT_COUNT 2u
+#define PORTABLE_PROOF_ROOT_COUNT 3u
+#define PORTABLE_PROOF_MAX_ALLOCATIONS 4u
+#define PORTABLE_PROOF_HEAP_CAPACITY 128u
+#define PORTABLE_PROOF_PATH_CAPACITY 512u
 #define PORTABLE_PROOF_CONTINUATION "machinen_portable_checkpoint"
 #define PORTABLE_PROOF_RESTORE_CONTINUATION "machinen_portable_restore_entry"
+#define PORTABLE_PROOF_BUILD_ID "0123456789abcdef"
 
 struct Node {
   uint64_t value;
@@ -26,6 +34,14 @@ struct AppState {
   struct Node *list;
 };
 
+struct PortableAllocation {
+  uint32_t id;
+  uint8_t *address;
+  uint64_t size_bytes;
+  const char *type_name;
+  bool live;
+};
+
 #if defined(__aarch64__)
 #define PORTABLE_PROOF_ARCH "arm64"
 #elif defined(__x86_64__)
@@ -34,28 +50,24 @@ struct AppState {
 #define PORTABLE_PROOF_ARCH "unknown"
 #endif
 
+static const uint8_t PORTABLE_PROOF_HEAP_BYTES[16] = {
+    0x4d, 0x61, 0x63, 0x68, 0x69, 0x6e, 0x65, 0x6e,
+    0x2d, 0x70, 0x72, 0x6f, 0x6f, 0x66, 0x21, 0x00,
+};
+
 __attribute__((used, visibility("default"))) struct Node machinen_portable_nodes[3];
 __attribute__((used, visibility("default"))) struct AppState machinen_portable_app_state;
 __attribute__((used, visibility("default"))) int machinen_portable_last_checkpoint_result;
 
-static const struct machinen_checkpoint_root machinen_portable_roots[PORTABLE_PROOF_ROOT_COUNT] = {
-    {
-        .name = "machinen_portable_app_state",
-        .address = &machinen_portable_app_state,
-        .size_bytes = sizeof(machinen_portable_app_state),
-        .kind = MACHINEN_CHECKPOINT_ROOT_GLOBAL,
-        .flags = 0,
-        .type_name = "struct AppState",
-    },
-    {
-        .name = "machinen_portable_nodes",
-        .address = &machinen_portable_nodes,
-        .size_bytes = sizeof(machinen_portable_nodes),
-        .kind = MACHINEN_CHECKPOINT_ROOT_GLOBAL,
-        .flags = 0,
-        .type_name = "struct Node[3]",
-    },
-};
+static uint8_t machinen_portable_heap[PORTABLE_PROOF_HEAP_CAPACITY];
+static struct PortableAllocation machinen_portable_allocations[PORTABLE_PROOF_MAX_ALLOCATIONS];
+static struct machinen_checkpoint_root machinen_portable_roots[PORTABLE_PROOF_ROOT_COUNT];
+static uint32_t machinen_portable_allocation_count;
+static uint32_t machinen_portable_heap_offset;
+static uint32_t machinen_portable_next_allocation_id;
+static uint8_t *machinen_portable_heap_bytes;
+static uint64_t machinen_portable_unknown_root;
+static bool machinen_portable_force_bad_root;
 
 __attribute__((used, visibility("default"))) const char machinen_portable_metadata[] =
     "{\"schema_version\":1,"
@@ -67,7 +79,113 @@ __attribute__((used, visibility("default"))) const char machinen_portable_metada
     "\"restore_symbol\":\"machinen_restore_main\","
     "\"restore_bundle_type\":\"machinen_restore_bundle\","
     "\"restore_continuation\":\"machinen_portable_restore_entry\","
+    "\"allocator\":\"machinen_portable_allocator\","
     "\"state_symbol\":\"machinen_portable_app_state\"}";
+
+static uint32_t align_up_u32(uint32_t value, uint32_t alignment) {
+  return (value + alignment - 1u) & ~(alignment - 1u);
+}
+
+static void reset_allocator(void) {
+  memset(machinen_portable_heap, 0, sizeof(machinen_portable_heap));
+  memset(machinen_portable_allocations, 0, sizeof(machinen_portable_allocations));
+  machinen_portable_allocation_count = 0;
+  machinen_portable_heap_offset = 0;
+  machinen_portable_next_allocation_id = 1;
+  machinen_portable_heap_bytes = 0;
+}
+
+static uint8_t *portable_alloc(uint32_t size_bytes, const char *type_name) {
+  uint32_t offset = align_up_u32(machinen_portable_heap_offset, 8u);
+  if (machinen_portable_allocation_count >= PORTABLE_PROOF_MAX_ALLOCATIONS) {
+    return 0;
+  }
+  if (size_bytes > PORTABLE_PROOF_HEAP_CAPACITY - offset) {
+    return 0;
+  }
+  struct PortableAllocation *allocation =
+      &machinen_portable_allocations[machinen_portable_allocation_count];
+  allocation->id = machinen_portable_next_allocation_id++;
+  allocation->address = &machinen_portable_heap[offset];
+  allocation->size_bytes = size_bytes;
+  allocation->type_name = type_name;
+  allocation->live = true;
+  machinen_portable_allocation_count++;
+  machinen_portable_heap_offset = offset + size_bytes;
+  return allocation->address;
+}
+
+static bool init_heap_state(void) {
+  machinen_portable_heap_bytes = portable_alloc(sizeof(PORTABLE_PROOF_HEAP_BYTES), "uint8_t[16]");
+  if (!machinen_portable_heap_bytes) {
+    return false;
+  }
+  memcpy(machinen_portable_heap_bytes, PORTABLE_PROOF_HEAP_BYTES, sizeof(PORTABLE_PROOF_HEAP_BYTES));
+  return true;
+}
+
+static bool range_contains(const void *base, uint64_t size_bytes, const void *ptr, uint64_t len) {
+  uintptr_t start = (uintptr_t)base;
+  uintptr_t probe = (uintptr_t)ptr;
+  if (size_bytes == 0 || len == 0 || probe < start) {
+    return false;
+  }
+  uint64_t delta = (uint64_t)(probe - start);
+  return delta <= size_bytes && len <= size_bytes - delta;
+}
+
+static bool root_in_known_global(const struct machinen_checkpoint_root *root) {
+  if (range_contains(&machinen_portable_app_state, sizeof(machinen_portable_app_state),
+          root->address, root->size_bytes)) {
+    return true;
+  }
+  return range_contains(&machinen_portable_nodes, sizeof(machinen_portable_nodes), root->address,
+      root->size_bytes);
+}
+
+static bool root_in_live_allocation(const struct machinen_checkpoint_root *root) {
+  for (uint32_t i = 0; i < machinen_portable_allocation_count; i++) {
+    const struct PortableAllocation *allocation = &machinen_portable_allocations[i];
+    if (!allocation->live) {
+      continue;
+    }
+    if (range_contains(allocation->address, allocation->size_bytes, root->address, root->size_bytes)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool root_range_known(const struct machinen_checkpoint_root *root) {
+  return root_in_known_global(root) || root_in_live_allocation(root);
+}
+
+static void refresh_checkpoint_roots(void) {
+  machinen_portable_roots[0] = (struct machinen_checkpoint_root){
+      .name = "machinen_portable_app_state",
+      .address = &machinen_portable_app_state,
+      .size_bytes = sizeof(machinen_portable_app_state),
+      .kind = MACHINEN_CHECKPOINT_ROOT_GLOBAL,
+      .flags = 0,
+      .type_name = "struct AppState",
+  };
+  machinen_portable_roots[1] = (struct machinen_checkpoint_root){
+      .name = "machinen_portable_nodes",
+      .address = &machinen_portable_nodes,
+      .size_bytes = sizeof(machinen_portable_nodes),
+      .kind = MACHINEN_CHECKPOINT_ROOT_GLOBAL,
+      .flags = 0,
+      .type_name = "struct Node[3]",
+  };
+  machinen_portable_roots[2] = (struct machinen_checkpoint_root){
+      .name = "machinen_portable_heap_bytes",
+      .address = machinen_portable_heap_bytes,
+      .size_bytes = sizeof(PORTABLE_PROOF_HEAP_BYTES),
+      .kind = MACHINEN_CHECKPOINT_ROOT_HEAP,
+      .flags = 0,
+      .type_name = "uint8_t[16]",
+  };
+}
 
 static bool root_kind_supported(uint32_t kind) {
   switch (kind) {
@@ -109,8 +227,31 @@ __attribute__((noinline, used, visibility("default"))) int machinen_checkpoint(
     if (!root_kind_supported(root->kind)) {
       return MACHINEN_CHECKPOINT_REFUSED_UNSUPPORTED_ROOT;
     }
+    if (!root_range_known(root)) {
+      return MACHINEN_CHECKPOINT_REFUSED_UNKNOWN_ROOT;
+    }
   }
   return MACHINEN_CHECKPOINT_OK;
+}
+
+static uint32_t build_checkpoint_roots(struct machinen_checkpoint_root *roots, uint32_t capacity) {
+  if (capacity < PORTABLE_PROOF_ROOT_COUNT + 1u) {
+    return 0;
+  }
+  memcpy(roots, machinen_portable_roots, sizeof(machinen_portable_roots));
+  uint32_t count = PORTABLE_PROOF_ROOT_COUNT;
+  if (machinen_portable_force_bad_root) {
+    machinen_portable_unknown_root = 0xfeedfaceu;
+    roots[count++] = (struct machinen_checkpoint_root){
+        .name = "machinen_portable_unknown_root",
+        .address = &machinen_portable_unknown_root,
+        .size_bytes = sizeof(machinen_portable_unknown_root),
+        .kind = MACHINEN_CHECKPOINT_ROOT_GLOBAL,
+        .flags = 0,
+        .type_name = "uint64_t",
+    };
+  }
+  return count;
 }
 
 __attribute__((noinline, used, visibility("default"))) int machinen_portable_checkpoint(
@@ -118,15 +259,17 @@ __attribute__((noinline, used, visibility("default"))) int machinen_portable_che
   if (state != &machinen_portable_app_state) {
     return MACHINEN_CHECKPOINT_REFUSED_INVALID_ROOTS;
   }
-  const struct machinen_checkpoint_roots roots = {
+  struct machinen_checkpoint_root roots[PORTABLE_PROOF_ROOT_COUNT + 1u];
+  uint32_t root_count = build_checkpoint_roots(roots, PORTABLE_PROOF_ROOT_COUNT + 1u);
+  const struct machinen_checkpoint_roots checkpoint_roots = {
       .abi_version = MACHINEN_CHECKPOINT_ABI_VERSION,
       .flags = MACHINEN_CHECKPOINT_FLAG_KNOWN_SAFE_POINT,
       .continuation_name = PORTABLE_PROOF_CONTINUATION,
-      .roots = machinen_portable_roots,
-      .root_count = PORTABLE_PROOF_ROOT_COUNT,
+      .roots = roots,
+      .root_count = root_count,
       .reserved = 0,
   };
-  machinen_portable_last_checkpoint_result = machinen_checkpoint(&roots);
+  machinen_portable_last_checkpoint_result = machinen_checkpoint(&checkpoint_roots);
   __asm__ __volatile__("" ::: "memory");
   return machinen_portable_last_checkpoint_result;
 }
@@ -158,6 +301,7 @@ __attribute__((noinline, used, visibility("default"))) int machinen_restore_main
 }
 
 static void reset_state(void) {
+  reset_allocator();
   machinen_portable_nodes[0].value = 1;
   machinen_portable_nodes[0].next = &machinen_portable_nodes[1];
   machinen_portable_nodes[1].value = 2;
@@ -167,6 +311,10 @@ static void reset_state(void) {
   machinen_portable_app_state.counter = 1000;
   machinen_portable_app_state.list = &machinen_portable_nodes[0];
   machinen_portable_last_checkpoint_result = MACHINEN_CHECKPOINT_OK;
+  machinen_portable_force_bad_root = false;
+  if (init_heap_state()) {
+    refresh_checkpoint_roots();
+  }
 }
 
 static bool list_matches_1_2_3(const struct AppState *state) {
@@ -174,6 +322,11 @@ static bool list_matches_1_2_3(const struct AppState *state) {
   const struct Node *b = a ? a->next : 0;
   const struct Node *c = b ? b->next : 0;
   return a && b && c && !c->next && a->value == 1 && b->value == 2 && c->value == 3;
+}
+
+static bool heap_matches_expected(void) {
+  return machinen_portable_heap_bytes && memcmp(machinen_portable_heap_bytes,
+      PORTABLE_PROOF_HEAP_BYTES, sizeof(PORTABLE_PROOF_HEAP_BYTES)) == 0;
 }
 
 static void print_marker(const char *phase) {
@@ -188,7 +341,10 @@ static void print_marker(const char *phase) {
       "\"restore_continuation\":\"machinen_portable_restore_entry\","
       "\"state_symbol\":\"machinen_portable_app_state\","
       "\"root_count\":%u,"
-      "\"root_names\":[\"machinen_portable_app_state\",\"machinen_portable_nodes\"],"
+      "\"root_names\":[\"machinen_portable_app_state\",\"machinen_portable_nodes\","
+      "\"machinen_portable_heap_bytes\"],"
+      "\"allocation_count\":%u,"
+      "\"heap_bytes\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u],"
       "\"checkpoint_result\":%d,"
       "\"safe_point\":{\"outside_signal_handler\":true,\"outside_syscall\":true}}\n",
       phase,
@@ -199,6 +355,23 @@ static void print_marker(const char *phase) {
       (unsigned long long)machinen_portable_nodes[2].value,
       MACHINEN_CHECKPOINT_ABI_VERSION,
       PORTABLE_PROOF_ROOT_COUNT,
+      machinen_portable_allocation_count,
+      machinen_portable_heap_bytes[0],
+      machinen_portable_heap_bytes[1],
+      machinen_portable_heap_bytes[2],
+      machinen_portable_heap_bytes[3],
+      machinen_portable_heap_bytes[4],
+      machinen_portable_heap_bytes[5],
+      machinen_portable_heap_bytes[6],
+      machinen_portable_heap_bytes[7],
+      machinen_portable_heap_bytes[8],
+      machinen_portable_heap_bytes[9],
+      machinen_portable_heap_bytes[10],
+      machinen_portable_heap_bytes[11],
+      machinen_portable_heap_bytes[12],
+      machinen_portable_heap_bytes[13],
+      machinen_portable_heap_bytes[14],
+      machinen_portable_heap_bytes[15],
       machinen_portable_last_checkpoint_result);
   fflush(stdout);
 }
@@ -212,17 +385,197 @@ static bool has_arg(int argc, char **argv, const char *needle) {
   return false;
 }
 
+static const char *arg_value(int argc, char **argv, const char *needle) {
+  for (int i = 1; i + 1 < argc; i++) {
+    if (strcmp(argv[i], needle) == 0) {
+      return argv[i + 1];
+    }
+  }
+  return 0;
+}
+
+static int ensure_dir(const char *path) {
+  if (mkdir(path, 0777) == 0) {
+    return 0;
+  }
+  if (errno == EEXIST) {
+    return 0;
+  }
+  fprintf(stderr, "portable proof: mkdir failed for %s: %s\n", path, strerror(errno));
+  return -1;
+}
+
+static FILE *open_bundle_file(const char *dir, const char *name, const char *mode) {
+  char path[PORTABLE_PROOF_PATH_CAPACITY];
+  int written = snprintf(path, sizeof(path), "%s/%s", dir, name);
+  if (written < 0 || (uint32_t)written >= sizeof(path)) {
+    fprintf(stderr, "portable proof: bundle path too long for %s\n", name);
+    return 0;
+  }
+  FILE *file = fopen(path, mode);
+  if (!file) {
+    fprintf(stderr, "portable proof: open failed for %s: %s\n", path, strerror(errno));
+  }
+  return file;
+}
+
+static int close_bundle_file(FILE *file) {
+  if (fclose(file) == 0) {
+    return 0;
+  }
+  fprintf(stderr, "portable proof: close failed: %s\n", strerror(errno));
+  return -1;
+}
+
+static int write_manifest(const char *dir) {
+  FILE *file = open_bundle_file(dir, "manifest.json", "wb");
+  if (!file) {
+    return -1;
+  }
+  fprintf(file,
+      "{\"formatVersion\":1,\"sourceGuestArch\":\"%s\","
+      "\"allowedTargetGuestArchs\":[\"arm64\",\"amd64\"],"
+      "\"program\":{\"name\":\"portable-proof\","
+      "\"executable\":\"/usr/local/bin/machinen-portable-proof\","
+      "\"identity\":\"com.redwoodjs.machinen.portable-proof\"},"
+      "\"sourceBuild\":{\"buildId\":\"%s\",\"version\":\"0.1.0\"},"
+      "\"targetBuild\":{\"version\":\"0.1.x\"},"
+      "\"checkpointAbi\":{\"version\":1,"
+      "\"checkpointFunction\":{\"name\":\"machinen_checkpoint\"},"
+      "\"rootsType\":\"machinen_checkpoint_roots\","
+      "\"restoreBundleType\":\"machinen_restore_bundle\","
+      "\"safePoint\":{\"outsideSignalHandlers\":true,\"outsideSyscalls\":true}},"
+      "\"checkpointContinuation\":{\"name\":\"machinen_portable_checkpoint\"},"
+      "\"restoreEntrypoint\":{\"name\":\"machinen_restore_main\"},"
+      "\"process\":{\"argv\":[\"/usr/local/bin/machinen-portable-proof\"],"
+      "\"env\":{},\"cwd\":\"/\"},"
+      "\"features\":[\"proof-workload\",\"instrumented-allocator\"],"
+      "\"unsupported\":{\"vocabularyVersion\":1,\"refusals\":[]}}",
+      PORTABLE_PROOF_ARCH, PORTABLE_PROOF_BUILD_ID);
+  return close_bundle_file(file);
+}
+
+static int write_memory_bytes(FILE *file, const void *ptr, uint64_t size_bytes) {
+  if (fwrite(ptr, 1, (size_t)size_bytes, file) == size_bytes) {
+    return 0;
+  }
+  fprintf(stderr, "portable proof: memory write failed: %s\n", strerror(errno));
+  return -1;
+}
+
+static int write_memory(const char *dir) {
+  FILE *file = open_bundle_file(dir, "memory.bin", "wb");
+  if (!file) {
+    return -1;
+  }
+  int result = write_memory_bytes(file, &machinen_portable_app_state,
+      sizeof(machinen_portable_app_state));
+  if (result == 0) {
+    result = write_memory_bytes(file, machinen_portable_nodes, sizeof(machinen_portable_nodes));
+  }
+  if (result == 0) {
+    result = write_memory_bytes(file, machinen_portable_heap_bytes,
+        sizeof(PORTABLE_PROOF_HEAP_BYTES));
+  }
+  if (close_bundle_file(file) != 0) {
+    return -1;
+  }
+  return result;
+}
+
+static int write_objects(const char *dir) {
+  const struct PortableAllocation *allocation = &machinen_portable_allocations[0];
+  uint64_t app_offset = 0;
+  uint64_t nodes_offset = app_offset + sizeof(machinen_portable_app_state);
+  uint64_t heap_offset = nodes_offset + sizeof(machinen_portable_nodes);
+  FILE *file = open_bundle_file(dir, "objects.json", "wb");
+  if (!file) {
+    return -1;
+  }
+  fprintf(file,
+      "{\"formatVersion\":1,\"objects\":["
+      "{\"id\":\"global-app-state\",\"kind\":\"global\","
+      "\"type\":\"struct AppState\",\"sizeBytes\":%llu,"
+      "\"sourceAddress\":\"0x%" PRIxPTR "\","
+      "\"memory\":{\"offset\":%llu,\"sizeBytes\":%llu}},"
+      "{\"id\":\"global-nodes\",\"kind\":\"global\","
+      "\"type\":\"struct Node[3]\",\"sizeBytes\":%llu,"
+      "\"sourceAddress\":\"0x%" PRIxPTR "\","
+      "\"memory\":{\"offset\":%llu,\"sizeBytes\":%llu}},"
+      "{\"id\":\"heap-1\",\"kind\":\"heap\",\"type\":\"%s\","
+      "\"sizeBytes\":%llu,\"sourceAddress\":\"0x%" PRIxPTR "\","
+      "\"allocation\":{\"id\":%u,\"sourceAddress\":\"0x%" PRIxPTR "\"},"
+      "\"memory\":{\"offset\":%llu,\"sizeBytes\":%llu}}],"
+      "\"unsupported\":{\"vocabularyVersion\":1,\"refusals\":[]}}",
+      (unsigned long long)sizeof(machinen_portable_app_state),
+      (uintptr_t)&machinen_portable_app_state,
+      (unsigned long long)app_offset,
+      (unsigned long long)sizeof(machinen_portable_app_state),
+      (unsigned long long)sizeof(machinen_portable_nodes),
+      (uintptr_t)&machinen_portable_nodes,
+      (unsigned long long)nodes_offset,
+      (unsigned long long)sizeof(machinen_portable_nodes),
+      allocation->type_name,
+      (unsigned long long)allocation->size_bytes,
+      (uintptr_t)allocation->address,
+      allocation->id,
+      (uintptr_t)allocation->address,
+      (unsigned long long)heap_offset,
+      (unsigned long long)allocation->size_bytes);
+  return close_bundle_file(file);
+}
+
+static int write_empty_doc(const char *dir, const char *name, const char *key) {
+  FILE *file = open_bundle_file(dir, name, "wb");
+  if (!file) {
+    return -1;
+  }
+  fprintf(file,
+      "{\"formatVersion\":1,\"%s\":[],"
+      "\"unsupported\":{\"vocabularyVersion\":1,\"refusals\":[]}}",
+      key);
+  return close_bundle_file(file);
+}
+
+static int emit_bundle(const char *dir) {
+  char logs_path[PORTABLE_PROOF_PATH_CAPACITY];
+  int written = snprintf(logs_path, sizeof(logs_path), "%s/logs", dir);
+  if (written < 0 || (uint32_t)written >= sizeof(logs_path)) {
+    fprintf(stderr, "portable proof: logs path too long\n");
+    return -1;
+  }
+  if (ensure_dir(dir) != 0 || ensure_dir(logs_path) != 0) {
+    return -1;
+  }
+  if (write_manifest(dir) != 0 || write_memory(dir) != 0 || write_objects(dir) != 0) {
+    return -1;
+  }
+  if (write_empty_doc(dir, "relocations.json", "relocations") != 0) {
+    return -1;
+  }
+  return write_empty_doc(dir, "resources.json", "resources");
+}
+
 int main(int argc, char **argv) {
   reset_state();
+  machinen_portable_force_bad_root = has_arg(argc, argv, "--bad-root");
+  const char *bundle_dir = arg_value(argc, argv, "--emit-bundle");
   if (!list_matches_1_2_3(&machinen_portable_app_state)) {
     fprintf(stderr, "portable proof: initial state mismatch\n");
     return 2;
+  }
+  if (!heap_matches_expected()) {
+    fprintf(stderr, "portable proof: heap state mismatch\n");
+    return 6;
   }
 
   int result = machinen_portable_checkpoint(&machinen_portable_app_state);
   if (result != MACHINEN_CHECKPOINT_OK) {
     fprintf(stderr, "portable proof: checkpoint refused: %d\n", result);
     return 4;
+  }
+  if (bundle_dir && emit_bundle(bundle_dir) != 0) {
+    return 7;
   }
   print_marker("checkpoint");
 
@@ -244,6 +597,10 @@ int main(int argc, char **argv) {
         !list_matches_1_2_3(&machinen_portable_app_state)) {
       fprintf(stderr, "portable proof: restore state mismatch\n");
       return 3;
+    }
+    if (!heap_matches_expected()) {
+      fprintf(stderr, "portable proof: restored heap state mismatch\n");
+      return 8;
     }
     print_marker("restore");
   }
