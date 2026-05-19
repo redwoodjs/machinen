@@ -1,10 +1,18 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const MARKER = "MACHINEN_PORTABLE_PROOF ";
 const EXPECTED_LIST = [1, 2, 3];
-const EXPECTED_ROOT_NAMES = ["machinen_portable_app_state", "machinen_portable_nodes"];
+const EXPECTED_ROOT_NAMES = [
+  "machinen_portable_app_state",
+  "machinen_portable_nodes",
+  "machinen_portable_heap_bytes",
+];
+const EXPECTED_HEAP_BYTES = [
+  0x4d, 0x61, 0x63, 0x68, 0x69, 0x6e, 0x65, 0x6e, 0x2d, 0x70, 0x72, 0x6f, 0x6f, 0x66, 0x21, 0x00,
+];
 const VALID_PHASES = ["checkpoint", "restore", "continue"];
 const VALID_ARCHES = ["arm64", "amd64"];
 const EXPECTED_SYMBOLS = {
@@ -27,6 +35,13 @@ const ARG_PARSERS = [
     match: (arg) => arg.startsWith("--expect-arch="),
     consume: (state, index, arg) => {
       state.opts.expectArch = arg.slice("--expect-arch=".length);
+      return index;
+    },
+  },
+  {
+    match: (arg) => arg.startsWith("--bundle-dir="),
+    consume: (state, index, arg) => {
+      state.opts.bundleDir = arg.slice("--bundle-dir=".length);
       return index;
     },
   },
@@ -62,17 +77,8 @@ const FLAG_HANDLERS = new Map([
       return index;
     },
   ],
-  [
-    "--expect-arch",
-    (state, index) => {
-      const value = state.argv[index + 1];
-      if (!value) {
-        usage("--expect-arch requires arm64 or amd64");
-      }
-      state.opts.expectArch = value;
-      return index + 1;
-    },
-  ],
+  ["--expect-arch", (state, index) => readOptionValue(state, index, "expectArch", "--expect-arch")],
+  ["--bundle-dir", (state, index) => readOptionValue(state, index, "bundleDir", "--bundle-dir")],
   [
     "--help",
     () => {
@@ -88,6 +94,15 @@ const FLAG_HANDLERS = new Map([
     },
   ],
 ]);
+
+function readOptionValue(state, index, key, flag) {
+  const value = state.argv[index + 1];
+  if (!value) {
+    usage(`${flag} requires a value`);
+  }
+  state.opts[key] = value;
+  return index + 1;
+}
 
 export function parsePortableProofEvents(text) {
   const events = [];
@@ -217,7 +232,17 @@ function validateCheckpointAbiFields(errors, prefix, event) {
     !sameList(event.root_names, EXPECTED_ROOT_NAMES),
     `${prefix}.root_names expected ${JSON.stringify(EXPECTED_ROOT_NAMES)}, got ${JSON.stringify(event.root_names)}`,
   );
+  validateAllocationFields(errors, prefix, event);
   validateSafePoint(errors, prefix, event.safe_point);
+}
+
+function validateAllocationFields(errors, prefix, event) {
+  pushIf(errors, event.allocation_count !== 1, `${prefix}.allocation_count must be 1`);
+  pushIf(
+    errors,
+    !sameList(event.heap_bytes, EXPECTED_HEAP_BYTES),
+    `${prefix}.heap_bytes expected ${JSON.stringify(EXPECTED_HEAP_BYTES)}, got ${JSON.stringify(event.heap_bytes)}`,
+  );
 }
 
 function validateSafePoint(errors, prefix, safePoint) {
@@ -256,6 +281,86 @@ function validateSnapshotState(errors, phase, event, expectedCounter) {
   );
 }
 
+function validatePortableProofBundle(dir) {
+  const errors = [];
+  const objects = readBundleJson(errors, dir, "objects.json");
+  const memory = readBundleFile(errors, dir, "memory.bin");
+  if (objects && memory) {
+    validateBundleObjects(errors, objects, memory);
+  }
+  return errors;
+}
+
+function readBundleJson(errors, dir, name) {
+  try {
+    return JSON.parse(readFileSync(join(dir, name), "utf8"));
+  } catch (err) {
+    errors.push(`${name} is not readable JSON: ${err.message}`);
+    return undefined;
+  }
+}
+
+function readBundleFile(errors, dir, name) {
+  try {
+    return readFileSync(join(dir, name));
+  } catch (err) {
+    errors.push(`${name} is not readable: ${err.message}`);
+    return undefined;
+  }
+}
+
+function validateBundleObjects(errors, objectsDoc, memory) {
+  const objects = Array.isArray(objectsDoc.objects) ? objectsDoc.objects : [];
+  const globals = objects.filter((object) => object.kind === "global");
+  const heap = objects.find((object) => object.id === "heap-1");
+  pushIf(errors, globals.length < 2, "objects.json must capture global roots separately");
+  validateHeapBundleObject(errors, heap, memory);
+}
+
+function validateHeapBundleObject(errors, heap, memory) {
+  if (!heap) {
+    errors.push("objects.json missing heap-1 allocation");
+    return;
+  }
+  pushIf(errors, heap.kind !== "heap", "heap-1 must be a heap object");
+  pushIf(errors, heap.allocation?.id !== 1, "heap-1 allocation.id must be 1");
+  pushIf(
+    errors,
+    !isHexAddress(heap.allocation?.sourceAddress),
+    "heap-1 allocation source address invalid",
+  );
+  validateHeapMemory(errors, heap.memory, memory);
+}
+
+function validateHeapMemory(errors, range, memory) {
+  if (!validMemoryRange(range, memory.length)) {
+    errors.push("heap-1 memory range is invalid");
+    return;
+  }
+  const actual = Array.from(memory.subarray(range.offset, range.offset + range.sizeBytes));
+  pushIf(
+    errors,
+    !sameList(actual, EXPECTED_HEAP_BYTES),
+    `heap-1 bytes expected ${JSON.stringify(EXPECTED_HEAP_BYTES)}, got ${JSON.stringify(actual)}`,
+  );
+}
+
+const MEMORY_RANGE_CHECKS = [
+  (range) => Number.isInteger(range?.offset),
+  (range) => Number.isInteger(range?.sizeBytes),
+  (range) => range.offset >= 0,
+  (range) => range.sizeBytes === EXPECTED_HEAP_BYTES.length,
+  (range, memorySize) => range.offset + range.sizeBytes <= memorySize,
+];
+
+function validMemoryRange(range, memorySize) {
+  return MEMORY_RANGE_CHECKS.every((check) => check(range, memorySize));
+}
+
+function isHexAddress(value) {
+  return typeof value === "string" && /^0x[0-9a-fA-F]+$/.test(value);
+}
+
 function sameList(a, b) {
   return (
     Array.isArray(a) &&
@@ -274,7 +379,12 @@ function pushIf(errors, condition, message) {
 function parseArgs(argv) {
   const state = {
     argv,
-    opts: { requireRestore: false, requireContinue: false, expectArch: undefined },
+    opts: {
+      requireRestore: false,
+      requireContinue: false,
+      expectArch: undefined,
+      bundleDir: undefined,
+    },
     positional: [],
   };
   for (let i = 0; i < argv.length; i++) {
@@ -308,21 +418,42 @@ function usage(message) {
 function printUsage() {
   process.stderr.write(
     "usage: node scripts/portable-proof-compare.mjs [--expect-arch arm64|amd64] " +
-      "[--require-restore] [--require-continue] <log-file|->\n",
+      "[--bundle-dir dir] [--require-restore] [--require-continue] <log-file|->\n",
   );
 }
 
 function main() {
   const opts = parseArgs(process.argv.slice(2));
+  const events = readEvents(opts);
+  const errors = collectValidationErrors(events, opts);
+  exitOnErrors(errors);
+  writeSuccess(events);
+}
+
+function readEvents(opts) {
   const text = opts.path === "-" ? readFileSync(0, "utf8") : readFileSync(opts.path, "utf8");
-  const events = parsePortableProofEvents(text);
+  return parsePortableProofEvents(text);
+}
+
+function collectValidationErrors(events, opts) {
   const errors = validatePortableProofEvents(events, opts);
-  if (errors.length > 0) {
-    for (const error of errors) {
-      process.stderr.write(`portable-proof-compare: ${error}\n`);
-    }
-    process.exit(1);
+  if (opts.bundleDir) {
+    errors.push(...validatePortableProofBundle(opts.bundleDir));
   }
+  return errors;
+}
+
+function exitOnErrors(errors) {
+  if (errors.length === 0) {
+    return;
+  }
+  for (const error of errors) {
+    process.stderr.write(`portable-proof-compare: ${error}\n`);
+  }
+  process.exit(1);
+}
+
+function writeSuccess(events) {
   process.stdout.write(
     JSON.stringify({
       ok: true,
