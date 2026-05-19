@@ -284,9 +284,13 @@ function validateSnapshotState(errors, phase, event, expectedCounter) {
 function validatePortableProofBundle(dir) {
   const errors = [];
   const objects = readBundleJson(errors, dir, "objects.json");
+  const relocations = readBundleJson(errors, dir, "relocations.json");
   const memory = readBundleFile(errors, dir, "memory.bin");
   if (objects && memory) {
     validateBundleObjects(errors, objects, memory);
+  }
+  if (relocations) {
+    validateBundleRelocations(errors, relocations);
   }
   return errors;
 }
@@ -315,6 +319,26 @@ function validateBundleObjects(errors, objectsDoc, memory) {
   const heap = objects.find((object) => object.id === "heap-1");
   pushIf(errors, globals.length < 2, "objects.json must capture global roots separately");
   validateHeapBundleObject(errors, heap, memory);
+}
+
+function validateBundleRelocations(errors, relocationsDoc) {
+  const relocations = Array.isArray(relocationsDoc.relocations) ? relocationsDoc.relocations : [];
+  const pointerRelocations = relocations.filter((relocation) => relocation.kind === "pointer");
+  pushIf(errors, pointerRelocations.length !== 3, "relocations.json must record 3 pointer fields");
+  for (const relocation of pointerRelocations) {
+    validatePointerRelocation(errors, relocation);
+  }
+}
+
+function validatePointerRelocation(errors, relocation) {
+  pushIf(errors, relocation.fromObject === undefined, "pointer relocation missing fromObject");
+  pushIf(errors, relocation.toObject === undefined, "pointer relocation missing toObject");
+  pushIf(errors, !Number.isInteger(relocation.fromOffset), "pointer relocation offset invalid");
+  pushIf(
+    errors,
+    !isHexAddress(relocation.sourcePointer),
+    "pointer relocation source pointer invalid",
+  );
 }
 
 function validateHeapBundleObject(errors, heap, memory) {

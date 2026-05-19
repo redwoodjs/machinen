@@ -34,6 +34,7 @@ const PORTABLE_REFUSAL_CODES = [
   "checkpoint-inside-syscall",
   "checkpoint-unsupported-root",
   "checkpoint-unknown-root",
+  "pointer-outside-known-object",
   "architecture-unsupported",
   "build-id-mismatch",
   "entrypoint-missing",
@@ -132,6 +133,7 @@ interface PortableSnapshotRelocations {
     toObject: string;
     addend?: number;
     kind?: "pointer" | "relative" | "symbol";
+    sourcePointer?: string;
   }>;
   unsupported: PortableUnsupportedVocabulary;
 }
@@ -366,6 +368,7 @@ export const portableSnapshotSchemas = {
             toObject: { type: "string", minLength: 1 },
             addend: { type: "integer" },
             kind: { enum: ["pointer", "relative", "symbol"] },
+            sourcePointer: { type: "string", pattern: "^0x[0-9A-Fa-f]+$" },
           },
         },
       },
@@ -618,24 +621,67 @@ function validateRelocations(
   const objectIds = collectObjectIds(objectsDoc);
   const relocations = expectArray(ctx, "relocations.relocations", doc.relocations);
   if (relocations) {
-    for (let i = 0; i < relocations.length; i++) {
-      const path = `relocations.relocations[${i}]`;
-      const rel = expectRecord(ctx, path, relocations[i]);
-      if (!rel) {
-        continue;
-      }
-      validateObjectRef(ctx, `${path}.fromObject`, rel.fromObject, objectIds);
-      validateNonNegativeInteger(ctx, `${path}.fromOffset`, rel.fromOffset);
-      validateObjectRef(ctx, `${path}.toObject`, rel.toObject, objectIds);
-      if (rel.addend !== undefined) {
-        validateInteger(ctx, `${path}.addend`, rel.addend);
-      }
-      if (rel.kind !== undefined) {
-        validateEnum(ctx, `${path}.kind`, rel.kind, ["pointer", "relative", "symbol"]);
-      }
-    }
+    validateRelocationEntries(ctx, relocations, objectIds);
   }
   validateUnsupported(ctx, "relocations.unsupported", doc.unsupported);
+}
+
+function validateRelocationEntries(
+  ctx: ValidationContext,
+  relocations: unknown[],
+  objectIds: Set<string>,
+): void {
+  for (let i = 0; i < relocations.length; i++) {
+    validateRelocationEntry(ctx, `relocations.relocations[${i}]`, relocations[i], objectIds);
+  }
+}
+
+function validateRelocationEntry(
+  ctx: ValidationContext,
+  path: string,
+  value: unknown,
+  objectIds: Set<string>,
+): void {
+  const rel = expectRecord(ctx, path, value);
+  if (!rel) {
+    return;
+  }
+  validateObjectRef(ctx, `${path}.fromObject`, rel.fromObject, objectIds);
+  validateNonNegativeInteger(ctx, `${path}.fromOffset`, rel.fromOffset);
+  validateObjectRef(ctx, `${path}.toObject`, rel.toObject, objectIds);
+  validateOptionalRelocationAddend(ctx, path, rel.addend);
+  validateOptionalRelocationKind(ctx, path, rel.kind);
+  validateOptionalRelocationSourcePointer(ctx, path, rel.sourcePointer);
+}
+
+function validateOptionalRelocationAddend(
+  ctx: ValidationContext,
+  path: string,
+  value: unknown,
+): void {
+  if (value !== undefined) {
+    validateInteger(ctx, `${path}.addend`, value);
+  }
+}
+
+function validateOptionalRelocationKind(
+  ctx: ValidationContext,
+  path: string,
+  value: unknown,
+): void {
+  if (value !== undefined) {
+    validateEnum(ctx, `${path}.kind`, value, ["pointer", "relative", "symbol"]);
+  }
+}
+
+function validateOptionalRelocationSourcePointer(
+  ctx: ValidationContext,
+  path: string,
+  value: unknown,
+): void {
+  if (value !== undefined) {
+    validateHexAddress(ctx, `${path}.sourcePointer`, value);
+  }
 }
 
 function validateResources(ctx: ValidationContext, resourcesDoc: unknown): void {

@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -68,6 +69,7 @@ static uint32_t machinen_portable_next_allocation_id;
 static uint8_t *machinen_portable_heap_bytes;
 static uint64_t machinen_portable_unknown_root;
 static bool machinen_portable_force_bad_root;
+static bool machinen_portable_force_bad_pointer;
 
 __attribute__((used, visibility("default"))) const char machinen_portable_metadata[] =
     "{\"schema_version\":1,"
@@ -160,6 +162,33 @@ static bool root_range_known(const struct machinen_checkpoint_root *root) {
   return root_in_known_global(root) || root_in_live_allocation(root);
 }
 
+static bool pointer_known_or_null(const void *ptr) {
+  if (!ptr) {
+    return true;
+  }
+  const struct machinen_checkpoint_root pointer_root = {
+      .name = "pointer-field",
+      .address = ptr,
+      .size_bytes = 1,
+      .kind = MACHINEN_CHECKPOINT_ROOT_OPAQUE,
+      .flags = 0,
+      .type_name = "pointer",
+  };
+  return root_range_known(&pointer_root);
+}
+
+static bool proof_pointers_known(void) {
+  if (!pointer_known_or_null(machinen_portable_app_state.list)) {
+    return false;
+  }
+  for (uint32_t i = 0; i < 3; i++) {
+    if (!pointer_known_or_null(machinen_portable_nodes[i].next)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 static void refresh_checkpoint_roots(void) {
   machinen_portable_roots[0] = (struct machinen_checkpoint_root){
       .name = "machinen_portable_app_state",
@@ -230,6 +259,9 @@ __attribute__((noinline, used, visibility("default"))) int machinen_checkpoint(
     if (!root_range_known(root)) {
       return MACHINEN_CHECKPOINT_REFUSED_UNKNOWN_ROOT;
     }
+  }
+  if (!proof_pointers_known()) {
+    return MACHINEN_CHECKPOINT_REFUSED_UNKNOWN_POINTER;
   }
   return MACHINEN_CHECKPOINT_OK;
 }
@@ -312,6 +344,7 @@ static void reset_state(void) {
   machinen_portable_app_state.list = &machinen_portable_nodes[0];
   machinen_portable_last_checkpoint_result = MACHINEN_CHECKPOINT_OK;
   machinen_portable_force_bad_root = false;
+  machinen_portable_force_bad_pointer = false;
   if (init_heap_state()) {
     refresh_checkpoint_roots();
   }
@@ -525,6 +558,37 @@ static int write_objects(const char *dir) {
   return close_bundle_file(file);
 }
 
+static int write_relocations(const char *dir) {
+  FILE *file = open_bundle_file(dir, "relocations.json", "wb");
+  if (!file) {
+    return -1;
+  }
+  uint64_t app_list_offset = offsetof(struct AppState, list);
+  uint64_t node_next_offset = offsetof(struct Node, next);
+  uint64_t node_size = sizeof(struct Node);
+  fprintf(file,
+      "{\"formatVersion\":1,\"relocations\":["
+      "{\"fromObject\":\"global-app-state\",\"fromOffset\":%llu,"
+      "\"toObject\":\"global-nodes\",\"addend\":0,\"kind\":\"pointer\","
+      "\"sourcePointer\":\"0x%" PRIxPTR "\"},"
+      "{\"fromObject\":\"global-nodes\",\"fromOffset\":%llu,"
+      "\"toObject\":\"global-nodes\",\"addend\":%llu,\"kind\":\"pointer\","
+      "\"sourcePointer\":\"0x%" PRIxPTR "\"},"
+      "{\"fromObject\":\"global-nodes\",\"fromOffset\":%llu,"
+      "\"toObject\":\"global-nodes\",\"addend\":%llu,\"kind\":\"pointer\","
+      "\"sourcePointer\":\"0x%" PRIxPTR "\"}],"
+      "\"unsupported\":{\"vocabularyVersion\":1,\"refusals\":[]}}",
+      (unsigned long long)app_list_offset,
+      (uintptr_t)machinen_portable_app_state.list,
+      (unsigned long long)node_next_offset,
+      (unsigned long long)node_size,
+      (uintptr_t)machinen_portable_nodes[0].next,
+      (unsigned long long)(node_size + node_next_offset),
+      (unsigned long long)(2u * node_size),
+      (uintptr_t)machinen_portable_nodes[1].next);
+  return close_bundle_file(file);
+}
+
 static int write_empty_doc(const char *dir, const char *name, const char *key) {
   FILE *file = open_bundle_file(dir, name, "wb");
   if (!file) {
@@ -550,7 +614,7 @@ static int emit_bundle(const char *dir) {
   if (write_manifest(dir) != 0 || write_memory(dir) != 0 || write_objects(dir) != 0) {
     return -1;
   }
-  if (write_empty_doc(dir, "relocations.json", "relocations") != 0) {
+  if (write_relocations(dir) != 0) {
     return -1;
   }
   return write_empty_doc(dir, "resources.json", "resources");
@@ -559,6 +623,7 @@ static int emit_bundle(const char *dir) {
 int main(int argc, char **argv) {
   reset_state();
   machinen_portable_force_bad_root = has_arg(argc, argv, "--bad-root");
+  machinen_portable_force_bad_pointer = has_arg(argc, argv, "--bad-pointer");
   const char *bundle_dir = arg_value(argc, argv, "--emit-bundle");
   if (!list_matches_1_2_3(&machinen_portable_app_state)) {
     fprintf(stderr, "portable proof: initial state mismatch\n");
@@ -567,6 +632,9 @@ int main(int argc, char **argv) {
   if (!heap_matches_expected()) {
     fprintf(stderr, "portable proof: heap state mismatch\n");
     return 6;
+  }
+  if (machinen_portable_force_bad_pointer) {
+    machinen_portable_nodes[1].next = (struct Node *)&machinen_portable_unknown_root;
   }
 
   int result = machinen_portable_checkpoint(&machinen_portable_app_state);

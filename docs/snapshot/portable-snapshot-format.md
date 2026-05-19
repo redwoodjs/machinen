@@ -40,16 +40,19 @@ The TypeScript source of truth for the JSON schemas and validator is
 
 `objects.json` records globals and heap allocations separately. Heap objects may
 include allocator metadata (`allocation.id`, `allocation.sourceAddress`) plus a
-`memory` range pointing at their raw bytes inside `memory.bin`. The first proof
-uses a fixed instrumented allocator and refuses roots outside declared globals or
-live allocations.
+`memory` range pointing at their raw bytes inside `memory.bin`. `relocations.json`
+records pointer fields as source object + offset + source pointer, so restore can
+translate source addresses into target addresses. The first proof uses a fixed
+instrumented allocator and refuses roots or pointer fields outside declared
+globals or live allocations.
 
 The proof ABI requires checkpoint requests to happen at a named cooperative
 safe point, outside signal handlers and outside in-flight syscalls. The bundle
 records the continuation name instead of raw source registers or stack frames.
 Checkpoint refusals use stable diagnostic codes such as
 `checkpoint-inside-syscall`, `checkpoint-inside-signal-handler`,
-`checkpoint-invalid-roots`, and `checkpoint-unknown-root`.
+`checkpoint-invalid-roots`, `checkpoint-unknown-root`, and
+`pointer-outside-known-object`.
 
 The engine selector is opt-in via `MACHINEN_SNAPSHOT_ENGINE=portable`.
 Until the checkpoint implementation lands, snapshot/restore fail with an

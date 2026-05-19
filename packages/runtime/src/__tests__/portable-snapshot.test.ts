@@ -95,7 +95,16 @@ function tinyDocs(manifestOverrides: Record<string, unknown> = {}) {
     },
     relocations: {
       formatVersion: 1,
-      relocations: [],
+      relocations: [
+        {
+          fromObject: "app-state",
+          fromOffset: 8,
+          toObject: "heap-1",
+          addend: 0,
+          kind: "pointer",
+          sourcePointer: "0x2000",
+        },
+      ],
       unsupported: unsupported(),
     },
     resources: {
@@ -210,14 +219,22 @@ describe("portable snapshot schemas", () => {
     );
   });
 
+  it("validates relocation source pointers", () => {
+    const docs = tinyDocs();
+    docs.relocations.relocations[0]!.sourcePointer = "not-hex";
+    expect(validatePortableSnapshotDocuments(docs)).toContain(
+      "relocations.relocations[0].sourcePointer must be a hex address",
+    );
+  });
+
   it("accepts checkpoint refusal codes in the portable diagnostics vocabulary", () => {
     const docs = tinyDocs({
       unsupported: {
         vocabularyVersion: 1,
         refusals: [
           {
-            code: "checkpoint-unknown-root",
-            message: "checkpoint root must point into globals or live allocations",
+            code: "pointer-outside-known-object",
+            message: "pointer field must point into known objects or null",
           },
         ],
       },
