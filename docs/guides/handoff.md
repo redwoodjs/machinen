@@ -27,8 +27,8 @@ These host-local pieces must be supplied again on the target:
 - **Live mounts:** restore keeps the same guest mount paths. If a target
   host path differs, remap only the host side with
   `--mount-live <new-host>:<recorded-guest-path>[:mode]`.
-- **Architecture:** source and target must match, for example arm64 to
-  arm64.
+- **Architecture:** source and target guest architectures must match, for
+  example arm64 to arm64 or amd64 to amd64. Cross-ISA restore is unsupported.
 
 ## Minimal SSH handoff
 
@@ -43,8 +43,10 @@ Move it to `host-b`:
 ```bash
 REMOTE=.machinen/handoffs/counter
 
-# Snapshot stops the source by default. That makes this a true handoff.
+# The default vmstate snapshot is non-destructive, so stop the source after
+# the snapshot succeeds if this should be a true one-active-copy handoff.
 npx machinen snapshot counter ./counter.snap
+npx machinen stop counter
 
 ssh host-b "mkdir -p $REMOTE"
 rsync -aS ./counter.snap/ host-b:$REMOTE/counter.snap/
@@ -60,8 +62,9 @@ ssh host-b \
 Use `rsync -aS` for snapshots so sparse files stay sparse. `scp` is fine
 for small demos, but can make sparse files much larger.
 
-Pass `--keep-alive` to `snapshot` only when the source should keep
-running. That is a copy/fork workflow, not a strict handoff.
+Leaving the source running after `snapshot` is a copy/fork workflow, not a
+strict handoff. Stop it once the bundle is safely written if only one copy
+should be active.
 
 ## Build your own handoff
 

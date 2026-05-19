@@ -28,19 +28,17 @@ If you want a CLI rather than a library, see
 npm i @machinen/runtime
 ```
 
-You also need a VMM binary. The matching one for your host
-(`@machinen/vmm-arm64-darwin` for Apple Silicon Macs,
-`@machinen/vmm-arm64-linux` for arm64 Linux) is pulled in
-automatically as an optional dependency. If you'd rather install it
-explicitly:
+You also need a native package with the VMM and host tools. The matching one
+for your host (`@machinen/native-arm64-darwin`,
+`@machinen/native-arm64-linux`, or `@machinen/native-x64-linux`) is pulled in
+automatically as an optional dependency. If you'd rather install it explicitly:
 
 ```bash
-npm i @machinen/vmm-arm64-darwin    # or @machinen/vmm-arm64-linux
+npm i @machinen/native-arm64-darwin    # or native-arm64-linux / native-x64-linux
 ```
 
-First boot fetches the kernel + base rootfs from a private GitHub
-release, so make sure you've authenticated [GitHub
-CLI](https://cli.github.com/) (`gh auth login`).
+First boot fetches the matching kernel + base rootfs from the public
+companion GitHub release over HTTPS; no `gh auth login` is needed.
 
 ## A taste
 
@@ -48,7 +46,7 @@ CLI](https://cli.github.com/) (`gh auth login`).
 import { boot } from "@machinen/runtime";
 
 const vm = await boot({
-  image: "./rootfs-debian-arm64.tar.gz",
+  image: "./rootfs-debian-arm64.tar.gz", // or rootfs-debian-amd64.tar.gz on x64 Linux
   cmd: ["/bin/sh"],
 });
 

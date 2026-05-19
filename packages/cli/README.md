@@ -43,19 +43,13 @@ npm i -g @machinen/cli        # or globally if you prefer it on PATH
 
 Both `machinen` and the shorter alias `mn` are installed.
 
-The matching VMM binary (`@machinen/vmm-arm64-darwin` or
-`@machinen/vmm-arm64-linux`) is pulled in via optional dependencies.
-Each VMM package also ships a sibling `gvproxy` binary that the
-runtime auto-spawns to provide guest networking — no system packages
-required.
+The matching native package (`@machinen/native-arm64-darwin`,
+`@machinen/native-arm64-linux`, or `@machinen/native-x64-linux`) is pulled in
+via optional dependencies. It ships the VMM plus sibling host tools such as
+`gvproxy`, `mke2fs`, and `mksquashfs`, so no system packages are required.
 
-First boot fetches the kernel + base rootfs from a private GitHub
-release, so make sure you've authenticated [GitHub
-CLI](https://cli.github.com/):
-
-```bash
-gh auth login
-```
+First boot fetches the matching kernel + base rootfs from the public
+companion GitHub release over HTTPS; no GitHub authentication is needed.
 
 ## At a glance
 

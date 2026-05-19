@@ -135,7 +135,7 @@ export const COMMANDS: CommandSpec[] = [
         name: "--lazy",
         type: "boolean",
         description:
-          "Opt into lazy-pages restore (#266) — vsock-FUSE mount the bundle and fault pages on demand. Default is eager.",
+          "Opt into CRIU lazy-pages restore (#266) — virtio-fs mount the bundle and fault pages on demand. Default is eager.",
       },
       {
         name: "-p",
@@ -232,7 +232,7 @@ export const COMMANDS: CommandSpec[] = [
         name: "--lazy",
         type: "boolean",
         description:
-          "Opt into lazy-pages restore (#266); ignored when --detach is set since the FUSE server can't survive supervisor exit.",
+          "Opt into CRIU lazy-pages restore (#266); the CLI currently ignores this when --detach is set.",
       },
       {
         name: "-p",

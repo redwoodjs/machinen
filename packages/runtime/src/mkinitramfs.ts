@@ -477,7 +477,10 @@ export interface PackBundleOptions {
   bundle: string;
   /** Path to the initramfs cpio to write. */
   out: string;
-  /** Optional base rootfs tarball (rootfs-debian-arm64.tar.gz). */
+  /**
+   * Optional arch-specific base rootfs tarball
+   * (`rootfs-debian-arm64.tar.gz` or `rootfs-debian-amd64.tar.gz`).
+   */
   base?: string;
   /**
    * A single host directory copied into the guest between the base

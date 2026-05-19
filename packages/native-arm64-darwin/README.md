@@ -9,10 +9,8 @@ package:
 | `e2fsprogs/` | bundled `mke2fs` + its dylibs                      |
 | `squashfs/`  | bundled `mksquashfs` + its dylibs                  |
 
-This replaces the former per-tool packages
-(`@machinen/vmm-arm64-darwin`, `@machinen/e2fsprogs-arm64-darwin`,
-`@machinen/squashfs-tools-arm64-darwin`) — one install, one
-`optionalDependency`, one `os`/`cpu` gate per host.
+This is the consolidated native optional dependency for this host — one
+install, one `optionalDependency`, one `os`/`cpu` gate.
 
 `index.mjs` exports an absolute path per binary: `binary` (the VMM),
 `gvproxy`, `initPath`, `execAgentPath`, `mke2fs`, `mksquashfs`.

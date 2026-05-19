@@ -1,5 +1,8 @@
 # `.vmstate` portability policy
 
+See also: [`vmstate-specification.md`](./vmstate-specification.md) for the
+binary format and section-level saved state.
+
 `.vmstate` is a whole-VM snapshot: RAM, vCPU state, interrupt/device
 state, and virtio transport state. It is **not** just a process image.
 Restoring it safely requires the restore side to recreate the same VM

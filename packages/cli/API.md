@@ -61,17 +61,17 @@ cache (populated by `machinen install`, or auto-fetched on first use).
   baked-in default cmd (set via `provision({ cmd })`), `-- <cmd>` is
   optional; pass it to override.
 
-| Flag                                            | What it does                                                                                                                                                                                                                                                              |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--name <name>`                                 | Register the VM under a human-friendly name (path-shaped allowed: `a/b/c`)                                                                                                                                                                                                |
-| `--mount <host-dir>:<guest-path>`               | Copy-once host directory into the guest (`/mnt/...`)                                                                                                                                                                                                                      |
-| `--mount-live <host-dir>:<guest-path>[:rw\|ro]` | Live-share via FUSE — guest reads stream in on demand. `rw` (default) or `ro`                                                                                                                                                                                             |
-| `--env KEY=VALUE`                               | Set an env var inside the guest (repeatable)                                                                                                                                                                                                                              |
-| `--cwd <abs-path>`                              | Start the guest cmd in this directory (must be absolute)                                                                                                                                                                                                                  |
-| `-p <hostPort>:<guestPort>`                     | Forward a host TCP port to the guest (repeatable)                                                                                                                                                                                                                         |
-| `--detached`                                    | Detach the VMM from the CLI on first-guest-byte readiness; reattach with `attach`. Composes with `--mount`, `--mount-live`, and `-p`: gvproxy and the live-mount FUSE servers spawn as standalone daemons under `pdeathsig --watch-pid <vmm>` so they outlive the parent. |
-| `--memory <mib>`                                | Guest RAM ceiling, decimal MiB. Debug knob — defaults to `min(host_ram_mib/2, 16384)`, floor 512. See #263                                                                                                                                                                |
-| `--snapshot <path>`                             | Attach `<path>` as `/dev/vda` — scratch disk for a future `vm.snapshot()`                                                                                                                                                                                                 |
+| Flag                                            | What it does                                                                                                                                                                                                        |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--name <name>`                                 | Register the VM under a human-friendly name (path-shaped allowed: `a/b/c`)                                                                                                                                          |
+| `--mount <host-dir>:<guest-path>`               | Copy-once host directory into the guest (`/mnt/...`)                                                                                                                                                                |
+| `--mount-live <host-dir>:<guest-path>[:rw\|ro]` | Live-share via in-VMM virtio-fs — guest reads stream in on demand. `rw` (default) or `ro`                                                                                                                           |
+| `--env KEY=VALUE`                               | Set an env var inside the guest (repeatable)                                                                                                                                                                        |
+| `--cwd <abs-path>`                              | Start the guest cmd in this directory (must be absolute)                                                                                                                                                            |
+| `-p <hostPort>:<guestPort>`                     | Forward a host TCP port to the guest (repeatable)                                                                                                                                                                   |
+| `--detached`                                    | Detach the VMM from the CLI on first-guest-byte readiness; reattach with `attach`. Composes with `--mount`, `--mount-live`, and `-p`; gvproxy is kept alive with the VM, and live mounts are served inside the VMM. |
+| `--memory <mib>`                                | Guest RAM ceiling, decimal MiB. Debug knob — defaults to `min(host_ram_mib/2, 16384)`, floor 512. See #263                                                                                                          |
+| `--snapshot <path>`                             | Attach `<path>` as `/dev/vda` — scratch disk for a future `vm.snapshot()`                                                                                                                                           |
 
 ## `machinen restore`
 
@@ -79,10 +79,10 @@ cache (populated by `machinen install`, or auto-fetched on first use).
 machinen restore <snap-dir> [--name <name>]
 ```
 
-Restores a VM from a snapshot bundle (a directory holding `disk.img` +
-`meta.json` produced by `machinen snapshot`). Anonymous restores
-auto-name as `<source-name>/<pid>` so lineage shows up in `machinen ls`.
-Resolves base assets the same way `boot` does.
+Restores a VM from a snapshot bundle. Vmstate bundles hold `state.vmstate`,
+`rootdisk.img`, and `meta.json`; legacy CRIU bundles hold `img/` plus
+`meta.json`. Anonymous restores auto-name as `<source-name>/<pid>` so lineage
+shows up in `machinen ls`. Resolves base assets the same way `boot` does.
 
 ## `machinen ls` / `ps`
 
@@ -149,7 +149,7 @@ source's rootdisk at dump time.
 | `--detach`                                      | Don't attach the caller's stdio to the fork — return as soon as it's up                                                   |
 | `-p <hostPort>:<guestPort>`                     | Forward a host TCP port into the fork. NOT inherited from the source (host ports are global) — pick a non-conflicting one |
 | `--mount <host-dir>:<guest-path>`               | Overlay an additional copy-once host directory on the fork                                                                |
-| `--mount-live <host-dir>:<guest-path>[:rw\|ro]` | Establish a fresh FUSE live-share on the fork. Source must NOT have its own live mount active (vsock FUSE ≠ CRIU)         |
+| `--mount-live <host-dir>:<guest-path>[:rw\|ro]` | Establish a fresh in-VMM virtio-fs live-share on the fork. Host path can differ from the source                           |
 | `--env KEY=VALUE`                               | Set an env var inside the forked guest (repeatable)                                                                       |
 | `--cwd <abs-path>`                              | Working directory for the guest cmd in the fork (must be absolute)                                                        |
 | `--memory <mib>`                                | Guest RAM ceiling for the fork, decimal MiB. Debug knob                                                                   |
@@ -204,9 +204,9 @@ the parent is gone.
 
 ## `machinen install [--version <tag>]`
 
-Pre-downloads the kernel, device tree, and Debian base rootfs for the
-given release tag (defaults to this CLI's own version) into
-`~/.machinen/<tag>/bases/debian-arm64/`.
+Pre-downloads the matching kernel, optional device tree, and Debian base
+rootfs for the given release tag (defaults to this CLI's own version) into
+`~/.machinen/<tag>/bases/debian-arm64/` or `debian-amd64/`.
 
 ## `machinen completion <shell>`
 
@@ -220,9 +220,10 @@ tab-complete VM names against the live `machinen ls` output.
 | ----------------------- | ----------------------------------------------------------------------- |
 | `MACHINEN_VMM`          | Override the VMM binary path (development)                              |
 | `MACHINEN_ASSETS_DIR`   | Use base assets from this directory instead of the on-disk cache.       |
-|                         | Expected filenames: `Image-arm64`, `virt-arm64.dtb`,                    |
-|                         | `rootfs-debian-arm64.tar.gz` — what `./scripts/build-base-assets.sh`    |
-|                         | produces.                                                               |
+|                         | Expected filenames for arm64: `Image-arm64`, `virt-arm64.dtb`,          |
+|                         | `rootfs-debian-arm64.tar.gz`; for amd64: `bzImage-x86_64`,              |
+|                         | `rootfs-debian-amd64.tar.gz`.                                           |
+| `MACHINEN_GUEST_ARCH`   | Override guest asset arch: `arm64` or `amd64`.                          |
 | `MACHINEN_REGISTRY_DIR` | Override the running-VM registry location (default `~/.machinen/vms/`). |
 
 ## Cache layout
@@ -233,8 +234,11 @@ tab-complete VM names against the live `machinen ls` output.
     bases/
       debian-arm64/
         Image           # arm64 Linux kernel
-        virt.dtb        # device tree
-        rootfs.tar.gz   # Debian base rootfs
+        virt.dtb        # arm64 device tree
+        rootfs.tar.gz   # Debian arm64 base rootfs
+      debian-amd64/
+        Image           # x86_64 bzImage
+        rootfs.tar.gz   # Debian amd64 base rootfs
   current -> <release-tag>   # symlink to the most recent install
   vms/<id>/meta.json         # one entry per running VM (name, pid, socket)
 ```

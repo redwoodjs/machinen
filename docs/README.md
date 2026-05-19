@@ -14,3 +14,8 @@ Then dive deeper:
 - [Networking](./guides/networking.md) — port forwards and outbound traffic via gvproxy
 - [Nested virtualization](./guides/nested-virtualization.md) — opt-in `/dev/kvm` inside a VM
 - [Run Firecracker inside machinen](./guides/firecracker.md) — boot an aarch64 L2 microVM with nested KVM
+
+Snapshot internals:
+
+- [vmstate specification](./snapshot/vmstate-specification.md) — whole-VM snapshot file format and saved state
+- [vmstate portability policy](./snapshot/vmstate-portability.md) — restore invariants and cross-HVF/KVM policy

@@ -1,13 +1,16 @@
 # @machinen/microvm
 
-Zig source for the native arm64 microVM that powers
+Zig source for the native microVM that powers
 [machinen](https://github.com/redwoodjs/machinen).
 
-- **darwin** (Apple Silicon) — uses HVF (`Hypervisor.framework`)
-- **linux** (arm64) — uses KVM
+- **darwin arm64** (Apple Silicon) — uses HVF (`Hypervisor.framework`)
+- **linux arm64** — uses KVM
+- **linux x86_64** — uses KVM
 
-The pre-built binaries ship as [`@machinen/vmm-arm64-darwin`](../vmm-arm64-darwin)
-and [`@machinen/vmm-arm64-linux`](../vmm-arm64-linux). This package is the
+The pre-built binaries ship inside the consolidated native packages:
+[`@machinen/native-arm64-darwin`](../native-arm64-darwin),
+[`@machinen/native-arm64-linux`](../native-arm64-linux), and
+[`@machinen/native-x64-linux`](../native-x64-linux). This package is the
 source if you want to build the VMM yourself.
 
 ## Build
@@ -46,16 +49,16 @@ rootfs.
 
 ## Run
 
-The VMM expects a kernel, device tree, and initramfs — see
-[`docs/rootfs.md`](./docs/rootfs.md) for the contract and
-[`docs/architecture.md`](./docs/architecture.md) for the bigger
-picture. In practice you drive it through `@machinen/runtime`:
+The VMM expects a kernel, an initramfs, and (for arm64 guests) a device tree —
+see [`docs/rootfs.md`](./docs/rootfs.md) for the contract and
+[`docs/architecture.md`](./docs/architecture.md) for the bigger picture. In
+practice you drive it through `@machinen/runtime`:
 
 ```ts
 import { boot } from "@machinen/runtime";
 const vm = await boot({
   binary: "./zig-out/bin/microvm",
-  image: "./rootfs-debian-arm64.tar.gz",
+  image: "./rootfs-debian-arm64.tar.gz", // or rootfs-debian-amd64.tar.gz on x64 Linux
   cmd: ["/bin/sh"],
 });
 ```

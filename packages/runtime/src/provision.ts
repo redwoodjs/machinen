@@ -8,7 +8,7 @@
 // Minimum correct round-trip:
 //
 //   const snap = await provision({
-//     base: "./rootfs-debian-arm64.tar.gz",
+//     base: "./rootfs-debian-arm64.tar.gz", // or rootfs-debian-amd64.tar.gz
 //     install: async vm => {
 //       await vm.exec("apt-get update");
 //       await vm.exec("apt-get install -y --no-install-recommends tree");

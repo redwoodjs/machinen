@@ -477,17 +477,16 @@ export interface ForkOptions extends Omit<RestoreOptions, "snapDir"> {
    */
   onLog?: OnLog;
   /**
-   * Opt into lazy-pages restore for the fork — vsock-FUSE-mounted
-   * bundle + `criu restore --lazy-pages`. Default false: the runtime
-   * packs the CRIU image into a tar on `/dev/vdb` and the guest does
-   * an eager load.
+   * Opt into CRIU lazy-pages restore for the fork — the CRIU image directory
+   * is mounted into the guest read-only via in-VMM virtio-fs and `criu restore
+   * --lazy-pages` faults pages on demand. Default false: the runtime packs the
+   * CRIU image into a tar on `/dev/vdb` and the guest does an eager load.
    *
-   * Lazy keeps fork RSS proportional to the pages the sibling
-   * actually touches, not the full snapshot size. Worth setting when
-   * the source dumped a large heap that the fork will only sample.
-   * Cannot combine with `--detach` (the lazy path needs the host's
-   * FUSE server alive as long as the guest may fault, see #150
-   * phase 3); the runtime falls back to eager in that case.
+   * Lazy keeps fork RSS proportional to the pages the sibling actually
+   * touches, not the full snapshot size. Worth setting when the source dumped
+   * a large heap that the fork will only sample. The CLI currently forces
+   * eager restore for `fork --detach --lazy`; use the runtime API directly if
+   * you need to experiment with that combination.
    */
   lazy?: boolean;
   /**

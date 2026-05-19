@@ -181,9 +181,9 @@ describe("pdeathsig kill -9 survival", () => {
   }, 15000);
 
   // --watch-pid <pid> mode: the wrapped target dies when the *named*
-  // process dies, even if it's not the wrapper's parent. Used by the
-  // detached live-mount helper (#150 phase 3): the helper is spawned
-  // by the supervisor but must die when the VMM dies.
+  // process dies, even if it's not the wrapper's parent. Kept for any
+  // future helper whose immediate parent can exit before the process it
+  // should track.
   it("--watch-pid <n>: target dies when the watched (non-parent) pid is killed", async () => {
     if (process.platform !== "linux" && process.platform !== "darwin") {
       return;

@@ -1,11 +1,10 @@
 // Detached-boot v1 (issue #150 phase 2). Covers:
 //   - boot-console snapshot writer (writeBootSnapshot + path layout)
 //   - regression guard against re-introducing the helper-compat gate.
-//     Phase 2 PR3 lifted portForward, phase 3 lifted liveMounts (each
-//     spawns as a detached helper under pdeathsig --watch-pid), and
-//     `mount` (squashfs+ext4) was lifted once we verified it holds no
-//     live supervisor state after fd-pass. Every boot option is now
-//     detach-compatible — assert boot() doesn't refuse them.
+//     portForward, liveMounts (in-VMM virtio-fs), and `mount`
+//     (squashfs+ext4) all hold no live supervisor state after readiness.
+//     Every boot option is now detach-compatible — assert boot() doesn't
+//     refuse them.
 //
 // The end-to-end "boot --detached, parent exits, VMM keeps running"
 // flow needs the real VMM binary and lives in the smoke suite —
@@ -78,7 +77,7 @@ describe("boot({ detached }) accepts every option", () => {
     expect((err as { code: string }).code).not.toMatch(/INCOMPATIBLE/);
   });
 
-  it("does NOT reject liveMounts (#150 phase 3 — detached helper)", async () => {
+  it("does NOT reject liveMounts (in-VMM virtio-fs)", async () => {
     const err = await boot({
       detached: true,
       image: "/tmp/does-not-exist.tar.gz",
