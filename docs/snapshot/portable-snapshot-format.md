@@ -42,9 +42,12 @@ The TypeScript source of truth for the JSON schemas and validator is
 include allocator metadata (`allocation.id`, `allocation.sourceAddress`) plus a
 `memory` range pointing at their raw bytes inside `memory.bin`. `relocations.json`
 records pointer fields as source object + offset + source pointer, so restore can
-translate source addresses into target addresses. The first proof uses a fixed
-instrumented allocator and refuses roots or pointer fields outside declared
-globals or live allocations.
+translate source addresses into target addresses. The proof restore loader
+(`/usr/local/bin/machinen-portable-restore-proof`) validates the bundle, copies
+raw bytes into the target proof process, applies the known pointer relocations,
+and calls `machinen_restore_main`. The first proof uses a fixed instrumented
+allocator and refuses roots or pointer fields outside declared globals or live
+allocations.
 
 The proof ABI requires checkpoint requests to happen at a named cooperative
 safe point, outside signal handlers and outside in-flight syscalls. The bundle

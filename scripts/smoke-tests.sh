@@ -1700,16 +1700,16 @@ else
 fi
 
 # ---- P4: portable proof workload prints deterministic state markers (#379) ----
-echo "P4: machinen boot -- /usr/local/bin/machinen-portable-proof --restore-proof --emit-bundle"
+echo "P4: machinen boot -- portable proof checkpoint + restore loader"
 P4_LOG="$FIXTURE/p4-portable-proof.log"
 P4_OUT="$FIXTURE/p4-portable-proof-out"
 mkdir -p "$P4_OUT"
 run_timeout 60 node "$CLI" boot \
   --mount-live "$P4_OUT:/mnt/portable-proof" \
-  -- /usr/local/bin/machinen-portable-proof --restore-proof --emit-bundle /mnt/portable-proof/bundle \
+  -- /bin/sh -c '/usr/local/bin/machinen-portable-proof --restore-proof --emit-bundle /mnt/portable-proof/bundle && /usr/local/bin/machinen-portable-restore-proof /mnt/portable-proof/bundle' \
   >"$P4_LOG" 2>&1 || true
 if node "$ROOT/scripts/portable-proof-compare.mjs" --expect-arch "$GUEST_ARCH" --require-restore --require-continue --bundle-dir "$P4_OUT/bundle" "$P4_LOG" >/dev/null; then
-  pass "portable proof workload exposed stable symbols, roots, and heap bytes"
+  pass "portable proof workload emitted a bundle and the restore loader replayed it"
 else
   node "$ROOT/scripts/portable-proof-compare.mjs" --expect-arch "$GUEST_ARCH" --require-restore --require-continue --bundle-dir "$P4_OUT/bundle" "$P4_LOG" >&2 || true
   tail -50 "$P4_LOG" >&2

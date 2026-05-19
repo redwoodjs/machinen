@@ -173,7 +173,7 @@ fi
 #    (all statically linked against musl)
 # ------------------------------------------------------------
 
-echo "==> Building guest binaries (init, exec-agent, winsize-agent, CRIU helpers, poweroff, net-bench-probe, portable proof) for ${ZIG_GUEST_TARGET}"
+echo "==> Building guest binaries (init, exec-agent, winsize-agent, CRIU helpers, poweroff, net-bench-probe, portable proof/loader) for ${ZIG_GUEST_TARGET}"
 # STAGE has to live inside ROOT, not /tmp, because the mmdebstrap step
 # below runs docker with `-v "$STAGE":/stage:ro`. When build-base-assets
 # itself runs inside a container (agent-ci's local runner, dev shell
@@ -271,8 +271,10 @@ cp "${ASSETS}/machinen-supervisor.sh"      "${STAGE}/machinen-supervisor.sh"
 cp "${ASSETS}/machinen-dump.sh"            "${STAGE}/machinen-dump.sh"
 cp "${ASSETS}/machinen-dump-preflight.sh"  "${STAGE}/machinen-dump-preflight.sh"
 cp "${ASSETS}/machinen-restore.sh"         "${STAGE}/machinen-restore.sh"
+cp "${ASSETS}/portable-restore-loader.sh"  "${STAGE}/portable-restore-loader.sh"
 chmod +x "${STAGE}/machinen-supervisor.sh" "${STAGE}/machinen-dump.sh" \
-         "${STAGE}/machinen-dump-preflight.sh" "${STAGE}/machinen-restore.sh"
+         "${STAGE}/machinen-dump-preflight.sh" "${STAGE}/machinen-restore.sh" \
+         "${STAGE}/portable-restore-loader.sh"
 
 # Stage CRIU patches (applied inside the rootfs container against the
 # upstream tarball before `make`). See packages/microvm/patches/criu/.
@@ -507,9 +509,10 @@ install -m 0755 -D /stage/no-iou            /work/rootfs/sbin/machinen-no-iou
 install -m 0755 -D /stage/poweroff          /work/rootfs/sbin/machinen-poweroff
 install -m 0755 -D /stage/net-bench-probe   /work/rootfs/sbin/machinen-net-bench-probe
 install -m 0755 -D /stage/memdirty          /work/rootfs/sbin/machinen-memdirty
-install -m 0755 -D /stage/winsize-agent             /work/rootfs/sbin/machinen-winsize-agent
-install -m 0755 -D /stage/portable-proof-workload    /work/rootfs/usr/local/bin/machinen-portable-proof
-install -m 0755 -D /stage/fnm                       /work/rootfs/usr/local/bin/fnm
+install -m 0755 -D /stage/winsize-agent              /work/rootfs/sbin/machinen-winsize-agent
+install -m 0755 -D /stage/portable-proof-workload     /work/rootfs/usr/local/bin/machinen-portable-proof
+install -m 0755 -D /stage/portable-restore-loader.sh  /work/rootfs/usr/local/bin/machinen-portable-restore-proof
+install -m 0755 -D /stage/fnm                         /work/rootfs/usr/local/bin/fnm
 # Shell-script helpers that drive the snapshot/restore contract. Staged
 # in by the host-side build step alongside the zig binaries.
 install -m 0755 -D /stage/machinen-supervisor.sh     /work/rootfs/sbin/machinen-supervisor
