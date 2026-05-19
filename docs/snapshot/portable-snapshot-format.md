@@ -58,6 +58,9 @@ barrier. `threads.json` records the barrier participants and continuation ids;
 restore recreates target threads at those continuation ids. A thread that does
 not reach the barrier is refused with `thread-not-at-barrier`.
 
+For continuation metadata research and the nested-continuation prototype, see
+[`portable-continuation-metadata.md`](./portable-continuation-metadata.md).
+
 The proof ABI requires checkpoint requests to happen at a named cooperative
 safe point, outside signal handlers and outside in-flight syscalls. The bundle
 records the continuation name instead of raw source registers or stack frames.
