@@ -283,16 +283,38 @@ function validateSnapshotState(errors, phase, event, expectedCounter) {
 
 function validatePortableProofBundle(dir) {
   const errors = [];
-  const objects = readBundleJson(errors, dir, "objects.json");
-  const relocations = readBundleJson(errors, dir, "relocations.json");
-  const memory = readBundleFile(errors, dir, "memory.bin");
+  const bundle = readPortableBundleDocuments(errors, dir);
+  validateOptionalBundleObjects(errors, bundle.objects, bundle.memory);
+  validateOptionalBundleRelocations(errors, bundle.relocations);
+  validateOptionalBundleResources(errors, bundle.resources);
+  return errors;
+}
+
+function readPortableBundleDocuments(errors, dir) {
+  return {
+    objects: readBundleJson(errors, dir, "objects.json"),
+    relocations: readBundleJson(errors, dir, "relocations.json"),
+    resources: readBundleJson(errors, dir, "resources.json"),
+    memory: readBundleFile(errors, dir, "memory.bin"),
+  };
+}
+
+function validateOptionalBundleObjects(errors, objects, memory) {
   if (objects && memory) {
     validateBundleObjects(errors, objects, memory);
   }
+}
+
+function validateOptionalBundleRelocations(errors, relocations) {
   if (relocations) {
     validateBundleRelocations(errors, relocations);
   }
-  return errors;
+}
+
+function validateOptionalBundleResources(errors, resources) {
+  if (resources) {
+    validateBundleResources(errors, resources);
+  }
 }
 
 function readBundleJson(errors, dir, name) {
@@ -319,6 +341,37 @@ function validateBundleObjects(errors, objectsDoc, memory) {
   const heap = objects.find((object) => object.id === "heap-1");
   pushIf(errors, globals.length < 2, "objects.json must capture global roots separately");
   validateHeapBundleObject(errors, heap, memory);
+}
+
+function validateBundleResources(errors, resourcesDoc) {
+  const resources = Array.isArray(resourcesDoc.resources) ? resourcesDoc.resources : [];
+  pushIf(
+    errors,
+    !resources.some((resource) => resource.kind === "argv"),
+    "resources.json missing argv",
+  );
+  pushIf(
+    errors,
+    !resources.some((resource) => resource.kind === "env"),
+    "resources.json missing env",
+  );
+  pushIf(
+    errors,
+    !resources.some((resource) => resource.kind === "cwd"),
+    "resources.json missing cwd",
+  );
+  const file = resources.find((resource) => resource.id === "file-1");
+  if (file) {
+    validateFileResource(errors, file);
+  }
+}
+
+function validateFileResource(errors, file) {
+  pushIf(errors, file.kind !== "file", "file-1 must be a file resource");
+  pushIf(errors, typeof file.path !== "string" || file.path.length === 0, "file-1 path invalid");
+  pushIf(errors, file.fd !== 3, "file-1 fd must be 3");
+  pushIf(errors, !sameList(file.flags, ["read"]), "file-1 flags must be [read]");
+  pushIf(errors, file.offset !== 4, "file-1 offset must be 4");
 }
 
 function validateBundleRelocations(errors, relocationsDoc) {

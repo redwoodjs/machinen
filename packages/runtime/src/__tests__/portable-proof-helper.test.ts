@@ -65,6 +65,7 @@ function writeBundle(heapBytes = EXPECTED_HEAP_BYTES): string {
   const memory = Buffer.concat([Buffer.from([0, 1, 2, 3]), Buffer.from(heapBytes)]);
   writeFileSync(join(dir, "memory.bin"), memory);
   writeFileSync(join(dir, "relocations.json"), JSON.stringify(tinyRelocations()));
+  writeFileSync(join(dir, "resources.json"), JSON.stringify(tinyResources()));
   writeFileSync(
     join(dir, "objects.json"),
     JSON.stringify({
@@ -83,6 +84,27 @@ function writeBundle(heapBytes = EXPECTED_HEAP_BYTES): string {
     }),
   );
   return dir;
+}
+
+function tinyResources() {
+  return {
+    formatVersion: 1,
+    resources: [
+      { id: "argv", kind: "argv", state: "captured", argv: ["portable-proof"] },
+      { id: "env", kind: "env", state: "captured", env: {} },
+      { id: "cwd", kind: "cwd", state: "captured", path: "/" },
+      {
+        id: "file-1",
+        kind: "file",
+        state: "captured",
+        path: "/tmp/proof-resource.txt",
+        fd: 3,
+        flags: ["read"],
+        offset: 4,
+      },
+    ],
+    unsupported: { vocabularyVersion: 1, refusals: [] },
+  };
 }
 
 function tinyRelocations() {
