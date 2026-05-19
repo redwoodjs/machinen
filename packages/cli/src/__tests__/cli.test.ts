@@ -309,10 +309,10 @@ describe("parseRunArgs --detached", () => {
   });
 
   // The parser doesn't gate flag combinations — it captures whatever
-  // it sees and lets the runtime apply semantic checks. #150 phase 3
+  // it sees and lets the runtime apply semantic checks. In-VMM virtio-fs
   // removed the last detach compat gate (mount, liveMounts, and
-  // portForward all coexist with --detached), so there is nothing
-  // for the parser to mirror here.
+  // portForward all coexist with --detached), so there is nothing for
+  // the parser to mirror here.
 });
 
 describe("parseRunArgs --memory (#263 phase A)", () => {

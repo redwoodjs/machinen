@@ -1742,7 +1742,8 @@ Path to the initramfs cpio to write.
 
 > `optional` **base?**: `string`
 
-Optional base rootfs tarball (rootfs-debian-arm64.tar.gz).
+Optional arch-specific base rootfs tarball
+(`rootfs-debian-arm64.tar.gz` or `rootfs-debian-amd64.tar.gz`).
 
 ##### mount?
 
@@ -3552,17 +3553,16 @@ Streaming log callback for the snapshot half. Same shape as
 
 > `optional` **lazy?**: `boolean`
 
-Opt into lazy-pages restore for the fork — vsock-FUSE-mounted
-bundle + `criu restore --lazy-pages`. Default false: the runtime
-packs the CRIU image into a tar on `/dev/vdb` and the guest does
-an eager load.
+Opt into CRIU lazy-pages restore for the fork — the CRIU image directory
+is mounted into the guest read-only via in-VMM virtio-fs and `criu restore
+--lazy-pages` faults pages on demand. Default false: the runtime packs the
+CRIU image into a tar on `/dev/vdb` and the guest does an eager load.
 
-Lazy keeps fork RSS proportional to the pages the sibling
-actually touches, not the full snapshot size. Worth setting when
-the source dumped a large heap that the fork will only sample.
-Cannot combine with `--detach` (the lazy path needs the host's
-FUSE server alive as long as the guest may fault, see #150
-phase 3); the runtime falls back to eager in that case.
+Lazy keeps fork RSS proportional to the pages the sibling actually
+touches, not the full snapshot size. Worth setting when the source dumped
+a large heap that the fork will only sample. The CLI currently forces
+eager restore for `fork --detach --lazy`; use the runtime API directly if
+you need to experiment with that combination.
 
 ###### Overrides
 
@@ -3700,10 +3700,10 @@ without touching the source dir.
 
 Trade-off vs. `liveMount`: `mount` is copy-into-disk-image (no
 runtime channel back to the host source dir, snapshots cleanly,
-but writes don't propagate to the host); `liveMount` is a live
-vsock-FUSE pass-through (writes land on the host, doesn't survive
-snapshot/restore). Pick `mount` for inputs the guest may modify
-but the host shouldn't see; `liveMount` for shared scratch.
+but writes don't propagate to the host); `liveMount` is an in-VMM
+virtio-fs pass-through (writes land on the host and restore/fork
+re-establish the same guest mount topology). Pick `mount` for inputs the
+guest may modify but the host shouldn't see; `liveMount` for shared scratch.
 
 See #64 (original `mount`), #78 (`liveMount`), #114 (rootdisk
 relocation; same shape), #272 (this overlay relocation).
@@ -3748,8 +3748,8 @@ the host (#151, #156). Set `"ro"` for a one-way share (host
 caches, untrusted guests).
 
 Each guest path must live under `/mnt/` (same rule as `mount`).
-Repeatable up to 4 entries per VM — each is served by its own
-in-VMM virtio-fs device (the VMM wires 4 virtio-fs slots). The
+Repeatable up to 5 entries per VM — each is served by its own
+in-VMM virtio-fs device (the VMM wires 5 virtio-fs slots). The
 FUSE opcode handlers run inside the VMM and the guest mounts each
 share directly with `mount -t virtiofs` — no agent process, no
 vsock hop. Requires a guest kernel with `CONFIG_VIRTIO_FS` — every
@@ -3928,16 +3928,15 @@ the child and is free to exit.
 
 Forces `pdeathsig: false` (otherwise the parent's exit kills the
 VMM, defeating the purpose). Compatible with every other boot
-option: gvproxy + live-mount FUSE servers spawn as detached
-daemons wrapped through `pdeathsig --watch-pid <vmm>`, and `mount`
-(squashfs+ext4 overlay) is fd-passed to the VMM at spawn so the
-supervisor holds no live state afterwards.
+option: gvproxy is tracked in the registry, live mounts are served
+by in-VMM virtio-fs devices, and `mount` (squashfs+ext4 overlay)
+is fd-passed to the VMM at spawn so the supervisor holds no live
+state afterwards.
 
 Cleanup of per-boot reflink disks, bundle dirs, and vsock UDS
 directories normally happens in the parent's `child.once("exit")`
-hook. After detach the parent is gone, so those leak until the
-follow-up `machinen gc` / `machinen stop` commands (PR2 of #150)
-land. Use `--detached` only when you understand that trade-off.
+hook. After detach the parent is gone, so those leak until
+`machinen gc` / `machinen stop` reaps them.
 
 Reattach with `attach({ name | pid })` from another process —
 the registry entry stays live, the vsock UDS is still listening.
@@ -4000,7 +3999,8 @@ called `boot()`), so only `exec-stdout` / `exec-stderr` sources fire.
 > `optional` **image?**: `string`
 
 Path to a rootfs tarball to boot from (e.g. the output of
-`provision()`, or `rootfs-debian-arm64.tar.gz` shipped in releases).
+`provision()`, or an arch-specific base rootfs tarball shipped in
+releases: `rootfs-debian-arm64.tar.gz` / `rootfs-debian-amd64.tar.gz`).
 Paired with `cmd` — both required, or neither (test-mode binary
 boots and snapshot-only restores both skip initramfs packing).
 
@@ -4140,10 +4140,10 @@ without touching the source dir.
 
 Trade-off vs. `liveMount`: `mount` is copy-into-disk-image (no
 runtime channel back to the host source dir, snapshots cleanly,
-but writes don't propagate to the host); `liveMount` is a live
-vsock-FUSE pass-through (writes land on the host, doesn't survive
-snapshot/restore). Pick `mount` for inputs the guest may modify
-but the host shouldn't see; `liveMount` for shared scratch.
+but writes don't propagate to the host); `liveMount` is an in-VMM
+virtio-fs pass-through (writes land on the host and restore/fork
+re-establish the same guest mount topology). Pick `mount` for inputs the
+guest may modify but the host shouldn't see; `liveMount` for shared scratch.
 
 See #64 (original `mount`), #78 (`liveMount`), #114 (rootdisk
 relocation; same shape), #272 (this overlay relocation).
@@ -4180,8 +4180,8 @@ the host (#151, #156). Set `"ro"` for a one-way share (host
 caches, untrusted guests).
 
 Each guest path must live under `/mnt/` (same rule as `mount`).
-Repeatable up to 4 entries per VM — each is served by its own
-in-VMM virtio-fs device (the VMM wires 4 virtio-fs slots). The
+Repeatable up to 5 entries per VM — each is served by its own
+in-VMM virtio-fs device (the VMM wires 5 virtio-fs slots). The
 FUSE opcode handlers run inside the VMM and the guest mounts each
 share directly with `mount -t virtiofs` — no agent process, no
 vsock hop. Requires a guest kernel with `CONFIG_VIRTIO_FS` — every
@@ -4357,16 +4357,15 @@ the child and is free to exit.
 
 Forces `pdeathsig: false` (otherwise the parent's exit kills the
 VMM, defeating the purpose). Compatible with every other boot
-option: gvproxy + live-mount FUSE servers spawn as detached
-daemons wrapped through `pdeathsig --watch-pid <vmm>`, and `mount`
-(squashfs+ext4 overlay) is fd-passed to the VMM at spawn so the
-supervisor holds no live state afterwards.
+option: gvproxy is tracked in the registry, live mounts are served
+by in-VMM virtio-fs devices, and `mount` (squashfs+ext4 overlay)
+is fd-passed to the VMM at spawn so the supervisor holds no live
+state afterwards.
 
 Cleanup of per-boot reflink disks, bundle dirs, and vsock UDS
 directories normally happens in the parent's `child.once("exit")`
-hook. After detach the parent is gone, so those leak until the
-follow-up `machinen gc` / `machinen stop` commands (PR2 of #150)
-land. Use `--detached` only when you understand that trade-off.
+hook. After detach the parent is gone, so those leak until
+`machinen gc` / `machinen stop` reaps them.
 
 Reattach with `attach({ name | pid })` from another process —
 the registry entry stays live, the vsock UDS is still listening.
@@ -4495,10 +4494,10 @@ without touching the source dir.
 
 Trade-off vs. `liveMount`: `mount` is copy-into-disk-image (no
 runtime channel back to the host source dir, snapshots cleanly,
-but writes don't propagate to the host); `liveMount` is a live
-vsock-FUSE pass-through (writes land on the host, doesn't survive
-snapshot/restore). Pick `mount` for inputs the guest may modify
-but the host shouldn't see; `liveMount` for shared scratch.
+but writes don't propagate to the host); `liveMount` is an in-VMM
+virtio-fs pass-through (writes land on the host and restore/fork
+re-establish the same guest mount topology). Pick `mount` for inputs the
+guest may modify but the host shouldn't see; `liveMount` for shared scratch.
 
 See #64 (original `mount`), #78 (`liveMount`), #114 (rootdisk
 relocation; same shape), #272 (this overlay relocation).
@@ -4543,8 +4542,8 @@ the host (#151, #156). Set `"ro"` for a one-way share (host
 caches, untrusted guests).
 
 Each guest path must live under `/mnt/` (same rule as `mount`).
-Repeatable up to 4 entries per VM — each is served by its own
-in-VMM virtio-fs device (the VMM wires 4 virtio-fs slots). The
+Repeatable up to 5 entries per VM — each is served by its own
+in-VMM virtio-fs device (the VMM wires 5 virtio-fs slots). The
 FUSE opcode handlers run inside the VMM and the guest mounts each
 share directly with `mount -t virtiofs` — no agent process, no
 vsock hop. Requires a guest kernel with `CONFIG_VIRTIO_FS` — every
@@ -4772,16 +4771,15 @@ the child and is free to exit.
 
 Forces `pdeathsig: false` (otherwise the parent's exit kills the
 VMM, defeating the purpose). Compatible with every other boot
-option: gvproxy + live-mount FUSE servers spawn as detached
-daemons wrapped through `pdeathsig --watch-pid <vmm>`, and `mount`
-(squashfs+ext4 overlay) is fd-passed to the VMM at spawn so the
-supervisor holds no live state afterwards.
+option: gvproxy is tracked in the registry, live mounts are served
+by in-VMM virtio-fs devices, and `mount` (squashfs+ext4 overlay)
+is fd-passed to the VMM at spawn so the supervisor holds no live
+state afterwards.
 
 Cleanup of per-boot reflink disks, bundle dirs, and vsock UDS
 directories normally happens in the parent's `child.once("exit")`
-hook. After detach the parent is gone, so those leak until the
-follow-up `machinen gc` / `machinen stop` commands (PR2 of #150)
-land. Use `--detached` only when you understand that trade-off.
+hook. After detach the parent is gone, so those leak until
+`machinen gc` / `machinen stop` reaps them.
 
 Reattach with `attach({ name | pid })` from another process —
 the registry entry stays live, the vsock UDS is still listening.
@@ -4794,8 +4792,9 @@ the registry entry stays live, the vsock UDS is still listening.
 
 > **snapDir**: `string`
 
-Snapshot bundle directory produced by `vm.snapshot()`.
-Must contain `img/<crius>` and `meta.json`.
+Snapshot bundle directory produced by `vm.snapshot()`. Vmstate bundles
+contain `state.vmstate`, `rootdisk.img`, and `meta.json`; legacy CRIU
+bundles contain `img/<crius>` and `meta.json`.
 
 ##### image?
 
@@ -4819,19 +4818,17 @@ unique under the source's namespace.
 
 > `optional` **lazy?**: `boolean`
 
-Opt into lazy-pages restore — bundle is vsock-FUSE-mounted into
-the guest read-only and `criu restore --lazy-pages` faults pages
-on demand (#266). Default false: the runtime packs the CRIU
-image into a tar on `/dev/vdb`, the guest's
-`/sbin/machinen-restore` untars it into tmpfs, and CRIU does an
-eager load.
+Opt into CRIU lazy-pages restore — the CRIU image directory is mounted
+into the guest read-only via in-VMM virtio-fs and `criu restore
+--lazy-pages` faults pages on demand (#266). Default false: the runtime
+packs the CRIU image into a tar on `/dev/vdb`, the guest's
+`/sbin/machinen-restore` untars it into tmpfs, and CRIU does an eager
+load.
 
-Eager is still the default because lazy bundles a host-side FUSE
-server that doesn't compose with `--detach` (#150 phase 3). The
-historical second blocker — runaway free-page-reporting under
-lazy — is fixed in #290 by the in-tree kernel patch that stops
-the buddy allocator from clearing the Reported flag during a
-merge.
+Eager is still the CRIU default because lazy restore is a specialized
+UFFD path. The historical runaway free-page-reporting blocker under
+lazy is fixed in #290 by the in-tree kernel patch that stops the buddy
+allocator from clearing the Reported flag during a merge.
 
 ***
 

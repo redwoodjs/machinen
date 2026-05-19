@@ -8,8 +8,9 @@ Hand off a running Linux VM between hosts. Freeze it on your laptop, thaw it
 on a server, resume it next week. The program picks up exactly where it left
 off — like waking a laptop from sleep, except on a different computer.
 
-A native arm64 microVM runtime under the hood. Node.js is the first-class
-target; Python, bash, and anything else that boots in a Linux VM works too.
+A native microVM runtime under the hood: arm64 on Apple Silicon/Linux and
+x86_64 on Linux/KVM. Node.js is the first-class target; Python, bash, and
+anything else that boots in a Linux VM works too.
 
 > **Note:** the source code isn't published yet — it'll be available here soon.
 
@@ -23,11 +24,12 @@ Then run the CLI with `npx machinen …` (or the shorter `npx mn …` — both
 names install). Prefer it on your PATH? `npm i -g @machinen/cli` is fine
 too.
 
-The right VMM binary is pulled automatically via optional dependencies
-(`@machinen/vmm-arm64-darwin` on Apple Silicon Macs, `@machinen/vmm-arm64-linux`
-on arm64 Linux). No system dependencies.
+The right native package is pulled automatically via optional dependencies:
+`@machinen/native-arm64-darwin` on Apple Silicon Macs,
+`@machinen/native-arm64-linux` on arm64 Linux, and
+`@machinen/native-x64-linux` on x86_64 Linux. No system dependencies.
 
-First run fetches the kernel + rootfs from a Github release on the
+First run fetches the matching kernel + rootfs from a GitHub release on the
 companion repo over plain HTTPS — no auth required.
 
 ## Quickstart
@@ -90,8 +92,9 @@ ssh host-b npx machinen restore ./counter.snap -p 3000:3000 &
 curl host-b:3000                           # { count: 3 }  ← same process
 ```
 
-Same arch only (arm64 ↔ arm64). Memory, file descriptors, and timers come
-back exactly as they were.
+Same guest architecture only (arm64 ↔ arm64, amd64 ↔ amd64). Cross-ISA
+restore is not supported. Memory, file descriptors, and timers come back
+exactly as they were.
 
 The bundle remembers the absolute path of the rootfs tarball you booted
 from. On the same host that's all you need — `restore` reuses the same

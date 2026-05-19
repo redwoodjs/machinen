@@ -5,8 +5,8 @@ Thanks for hacking on machinen. This doc gets you to the point of running
 
 ## Prerequisites
 
-Today's dev targets are **arm64 macOS** (HVF) and **arm64 Linux** (KVM). x86_64
-dev isn't wired up yet.
+Today's dev targets are **arm64 macOS** (HVF), **arm64 Linux** (KVM), and
+**x86_64 Linux** (KVM). Intel macOS/HVF is not a supported target.
 
 | Tool   | Version                                           | Install                                                           |
 | ------ | ------------------------------------------------- | ----------------------------------------------------------------- |
@@ -40,10 +40,16 @@ zig build -Doptimize=ReleaseSafe
 # 3. (darwin only) codesign with the hypervisor entitlement
 codesign -s - --force --entitlements entitlements.plist zig-out/bin/microvm
 
-# 4. Stage the binary where @machinen/vmm-arm64-<os> expects it
+# 4. Stage the binary where the matching native package expects it
 cd ../..
-mkdir -p packages/vmm-arm64-darwin/bin        # or vmm-arm64-linux/bin
-cp packages/microvm/zig-out/bin/microvm packages/vmm-arm64-darwin/bin/microvm
+case "$(uname -s):$(uname -m)" in
+  Darwin:arm64) pkg=packages/native-arm64-darwin ;;
+  Linux:aarch64|Linux:arm64) pkg=packages/native-arm64-linux ;;
+  Linux:x86_64|Linux:amd64) pkg=packages/native-x64-linux ;;
+  *) echo "unsupported dev host" >&2; exit 1 ;;
+esac
+mkdir -p "$pkg/vmm/bin"
+cp packages/microvm/zig-out/bin/microvm "$pkg/vmm/bin/machinen-vm"
 ```
 
 ## Run the CLI locally
@@ -51,15 +57,20 @@ cp packages/microvm/zig-out/bin/microvm packages/vmm-arm64-darwin/bin/microvm
 One loose end normally handled by the release pipeline you need to cover by
 hand in dev:
 
-- **Base assets.** The CLI wants a kernel, device tree, and rootfs tarball.
-  Ordinarily `machinen boot` fetches them from the GitHub Release that matches
-  the CLI's own version. For an unreleased dev checkout, build them yourself
-  and point the CLI at them with `MACHINEN_ASSETS_DIR`:
+- **Base assets.** The CLI wants a kernel, rootfs tarball, and (for arm64
+  guests) a device tree. Ordinarily `machinen boot` fetches the right guest
+  architecture from the GitHub Release that matches the CLI's own version. For
+  an unreleased dev checkout, build them yourself and point the CLI at them
+  with `MACHINEN_ASSETS_DIR`:
 
   ```bash
   ./scripts/build-base-assets.sh                  # outputs ./release-assets/
   export MACHINEN_ASSETS_DIR=$PWD/release-assets
   ```
+
+  Host architecture picks the guest architecture by default (`arm64` on Apple
+  Silicon/arm64 Linux, `amd64` on x86_64 Linux). Override with
+  `MACHINEN_GUEST_ARCH=arm64` or `MACHINEN_GUEST_ARCH=amd64` when needed.
 
 Then boot a shell in a throwaway VM:
 
@@ -68,16 +79,10 @@ alias machinen="node $PWD/packages/cli/dist/cli.js"
 machinen boot -- /bin/sh
 ```
 
-**Heads up on the current state:** the released VMM binary (`zig build`, i.e.
-`packages/microvm/src/main.zig`) is a scaffold — it prints a banner, detects
-HVF/KVM, and exits. The boot-Linux code path exists but is only reachable via
-`zig build test` + `packages/microvm/test-fixtures/assets/handoff.sh`. Wiring
-`main.zig` up to the real boot code is tracked separately.
-
 ## Tests, lint, format
 
 ```bash
-npx vitest run                      # unit tests (26, run from repo root)
+npx vitest run                      # unit tests (run from repo root)
 pnpm run lint                       # oxlint
 pnpm run format:check               # oxfmt
 npx agent-ci run --all -q -p        # full local CI (mirrors GH Actions)

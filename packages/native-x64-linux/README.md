@@ -9,10 +9,8 @@ package:
 | `e2fsprogs/` | bundled `mke2fs`                                   |
 | `squashfs/`  | bundled `mksquashfs`                               |
 
-This replaces the former per-tool packages
-(`@machinen/vmm-x86_64-linux`, `@machinen/e2fsprogs-x86_64-linux`,
-`@machinen/squashfs-tools-x86_64-linux`) — one install, one
-`optionalDependency`, one `os`/`cpu` gate per host.
+This is the consolidated native optional dependency for this host — one
+install, one `optionalDependency`, one `os`/`cpu` gate.
 
 `index.mjs` exports an absolute path per binary: `binary` (the VMM),
 `gvproxy`, `initPath`, `execAgentPath`, `mke2fs`, `mksquashfs`.

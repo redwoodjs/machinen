@@ -30,13 +30,9 @@ interface ParsedForkArgs {
   /** Hand the fork off and return immediately (`--detach`). */
   detach: boolean;
   /**
-   * `--lazy` — opt into lazy-pages restore for this fork (#266).
-   * Forced off whenever `--detach` is set: the lazy path relies on
-   * a host-side FUSE server that lives in the runtime supervisor
-   * process, and `--detach` exits that process, which would leave
-   * the in-guest `criu lazy-pages` daemon blocked on the now-dead
-   * FUSE channel. Lifting this constraint is #150 phase 3 — until
-   * then, detach implies eager.
+   * `--lazy` — opt into CRIU lazy-pages restore for this fork (#266).
+   * The CLI still forces this off whenever `--detach` is set until
+   * lazy+detach is revalidated end-to-end on the in-VMM virtio-fs path.
    */
   lazy: boolean;
   /**
@@ -188,11 +184,9 @@ function forkFlagFor(arg: string): ForkFlag | undefined {
 }
 
 function finishForkArgs(state: ForkParseState): ParsedForkArgs {
-  // Detach exits the runtime supervisor, taking the host-side FUSE
-  // server with it — the in-guest lazy-pages daemon would then block
-  // on a dead FUSE channel. Force eager (lazy=false) to keep --detach
-  // usable until the FUSE server gains its own detach handoff
-  // (#150 phase 3).
+  // Keep the existing CLI contract: detach implies eager restore.
+  // Lazy now uses in-VMM virtio-fs, but lazy+detach still needs a fresh
+  // end-to-end validation pass before the CLI exposes that combination.
   return {
     newName: state.newName,
     outDir: state.outDir,

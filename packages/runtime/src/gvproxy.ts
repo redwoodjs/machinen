@@ -483,7 +483,7 @@ function isGvproxyDisabledSentinel(value: string): boolean {
 /**
  * Pick the upstream release asset for this host. Mirrors the mapping
  * in `scripts/install-gvproxy.sh` so the release path (bundled in
- * `@machinen/vmm-*` via CI) and the dev auto-install path stay lockstep.
+ * `@machinen/native-*` via CI) and the dev auto-install path stay lockstep.
  */
 function gvproxyAssetName(): string {
   const platform = osPlatform();

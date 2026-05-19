@@ -68,10 +68,10 @@ its heap. That's the state we're about to move.
 
 ## 3. Hand it off to another machine
 
-`machinen snapshot` freezes the running VM into a directory on disk. The
-directory is the whole snapshot: `disk.img` is the workload's memory and
-file descriptors as a CRIU dump on an ext4 volume; `meta.json` is a small
-manifest.
+`machinen snapshot` freezes the running VM into a directory on disk. With the
+default vmstate engine, the directory is the whole snapshot: `state.vmstate`
+holds CPU, RAM, and device state; `rootdisk.img` holds the exact root block
+image bytes; `meta.json` is a small manifest.
 
 ```bash
 npx machinen snapshot counter ./counter.snap
@@ -84,10 +84,10 @@ The third `curl` returns `{ count: 3 }` because it's the same process —
 it just resumed on a different host. Same heap, same TCP listener, same
 counter. The Node runtime never noticed the move.
 
-A constraint to know about: the host architectures have to match. arm64
-to arm64 works (your laptop to a Graviton instance, say). arm64 to x86
-does not — CRIU is replaying actual machine-code register state, and that
-doesn't translate.
+A constraint to know about: the guest architecture has to match. arm64 to
+arm64 works, and amd64 to amd64 works on x86_64 Linux/KVM. arm64 to x86 does
+not — vmstate restores actual machine-code register state, and that doesn't
+translate.
 
 ## Where to go next
 

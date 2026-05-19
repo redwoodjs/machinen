@@ -1,6 +1,6 @@
 // Restore a microVM from a snapshot bundle produced by `vm.snapshot()`.
 // Handles bundle validation, image resolution, lazy-pagemap rewriting,
-// CRIU image delivery (eager tar on /dev/vdb vs. lazy FUSE mount),
+// CRIU image delivery (eager tar on /dev/vdb vs. lazy virtio-fs mount),
 // mount-overlay re-attach, and the post-boot auto-name + hostname
 // patch-up.
 
@@ -56,8 +56,9 @@ const VMSTATE_RESEED_MARKER = "/run/machinen-vmstate-reseed";
 
 export interface RestoreOptions extends Omit<BootOptions, "snapshot" | "image" | "cmd" | "name"> {
   /**
-   * Snapshot bundle directory produced by `vm.snapshot()`.
-   * Must contain `img/<crius>` and `meta.json`.
+   * Snapshot bundle directory produced by `vm.snapshot()`. Vmstate bundles
+   * contain `state.vmstate`, `rootdisk.img`, and `meta.json`; legacy CRIU
+   * bundles contain `img/<crius>` and `meta.json`.
    */
   snapDir: string;
   /**
@@ -75,19 +76,17 @@ export interface RestoreOptions extends Omit<BootOptions, "snapshot" | "image" |
    */
   name?: string;
   /**
-   * Opt into lazy-pages restore — bundle is vsock-FUSE-mounted into
-   * the guest read-only and `criu restore --lazy-pages` faults pages
-   * on demand (#266). Default false: the runtime packs the CRIU
-   * image into a tar on `/dev/vdb`, the guest's
-   * `/sbin/machinen-restore` untars it into tmpfs, and CRIU does an
-   * eager load.
+   * Opt into CRIU lazy-pages restore — the CRIU image directory is mounted
+   * into the guest read-only via in-VMM virtio-fs and `criu restore
+   * --lazy-pages` faults pages on demand (#266). Default false: the runtime
+   * packs the CRIU image into a tar on `/dev/vdb`, the guest's
+   * `/sbin/machinen-restore` untars it into tmpfs, and CRIU does an eager
+   * load.
    *
-   * Eager is still the default because lazy bundles a host-side FUSE
-   * server that doesn't compose with `--detach` (#150 phase 3). The
-   * historical second blocker — runaway free-page-reporting under
-   * lazy — is fixed in #290 by the in-tree kernel patch that stops
-   * the buddy allocator from clearing the Reported flag during a
-   * merge.
+   * Eager is still the CRIU default because lazy restore is a specialized
+   * UFFD path. The historical runaway free-page-reporting blocker under
+   * lazy is fixed in #290 by the in-tree kernel patch that stops the buddy
+   * allocator from clearing the Reported flag during a merge.
    */
   lazy?: boolean;
 }

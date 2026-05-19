@@ -930,7 +930,7 @@ type ParsedRestoreCommandArgs = ReturnType<typeof parseRestoreArgs>;
 async function cmdRestore(args: string[]): Promise<number> {
   // `machinen restore <snap-dir> [--image <tarball>] [--name <name>]
   // [--lazy] [-p <hostPort>:<guestPort>]`. Restore is eager by
-  // default; `--lazy` opts into the #266 vsock-FUSE lazy-pages path.
+  // default; `--lazy` opts into the #266 CRIU lazy-pages path.
   const parsed = parseRestoreCommandArgs(args);
   validateRestoreCommandArgs(parsed);
   const snapDir = resolve(parsed.positional[0]!);

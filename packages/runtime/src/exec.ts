@@ -23,7 +23,8 @@
 //     env: {
 //       MACHINEN_VSOCK: "in:1978:/tmp/machinen-exec.sock",
 //     },
-//     image: "./rootfs-debian-arm64.tar.gz", cmd: ["/sbin/machinen-exec-agent"],
+//     image: "./rootfs-debian-arm64.tar.gz", // or rootfs-debian-amd64.tar.gz
+//     cmd: ["/sbin/machinen-exec-agent"],
 //   });
 //   const res = await VsockExec.run("/tmp/machinen-exec.sock", "apt-get --version");
 //   // res.exitCode, res.stdout, res.stderr

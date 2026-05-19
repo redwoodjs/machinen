@@ -107,23 +107,21 @@ attach` is the right tool — same vsock channel, but with a PTY.
 
 ## Detached boots with mounts and port forwards
 
-`--detached` composes with `--mount`, `--mount-live`, and `-p`. The
-helpers that need to outlive the parent — gvproxy and the live-mount
-FUSE servers — spawn as standalone daemons wrapped through
-`pdeathsig --watch-pid <vmm>`, so they track the VMM's lifetime and
-exit when it does. `--mount` (copy-once squashfs + ext4 overlay) needs
-no runtime relay at all: both files are fd-passed to the VMM at spawn,
-so the supervisor holds no live state afterwards.
+`--detached` composes with `--mount`, `--mount-live`, and `-p`. gvproxy is
+kept alive with the VM and recorded in the registry. Live mounts are served by
+in-VMM virtio-fs devices, so there is no separate live-mount server process to
+keep alive after the CLI exits. `--mount` (copy-once squashfs + ext4 overlay)
+needs no runtime relay either: both files are fd-passed to the VMM at spawn, so
+the supervisor holds no live state afterwards.
 
-Helper pids live in the registry alongside the VMM's, so
-`machinen stop` reaps them on shutdown and `machinen ls` surfaces the
-full set under a single name. `boot --detached -p ...`,
+`machinen stop` reaps the VMM and gvproxy on shutdown, and `machinen ls`
+surfaces the full set under a single name. `boot --detached -p ...`,
 `boot --detached --mount-live ...`, and `fork --detach ...` with any
 combination of these flags all work today.
 
 ## Custom gvproxy
 
-The pinned gvproxy release that ships in `@machinen/vmm-*` is the right
+The pinned gvproxy release that ships in `@machinen/native-*` is the right
 choice for almost everyone. If you need to override it — local
 development of gvproxy itself, an airgapped install where the Github
 fetch isn't an option, a custom build with extra logging — point at

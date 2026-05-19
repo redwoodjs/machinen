@@ -13,10 +13,10 @@ Two patterns get a lot of mileage out of that:
   immediately restore the bundle into a sibling VM. Now you have two
   copies of the same process running side by side.
 
-This guide covers both. There's a constraint worth getting out of the
-way first: same arch only. arm64 to arm64 works (laptop to Graviton).
-arm64 to x86 does not — the snapshot includes machine-code register
-state, and that doesn't translate.
+This guide covers both. There's a constraint worth getting out of the way
+first: same guest architecture only. arm64 to arm64 works, and amd64 to amd64
+works on x86_64 Linux/KVM. arm64 to x86 does not — the snapshot includes
+machine-code register state, and that doesn't translate.
 
 ## Vmstate restore contract
 

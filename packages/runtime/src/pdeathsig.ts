@@ -11,10 +11,9 @@
 //
 //   1. Default — watch the immediate parent (the process that exec'd
 //      the shim). Used by gvproxy and the VMM today.
-//   2. `--watch-pid <pid>` — watch an explicit, non-parent PID. Used
-//      by the detached live-mount helper (#150 phase 3): the helper
-//      is spawned by the supervisor, but it should die when the *VMM*
-//      dies, not when the supervisor exits.
+//   2. `--watch-pid <pid>` — watch an explicit, non-parent PID. Kept
+//      for helpers whose immediate parent may exit before the process
+//      they should track.
 //
 // Cross-platform via a tiny C shim, ~200 lines, three branches:
 //
@@ -531,10 +530,9 @@ function compilePdeathsig(outPath: string): string {
  * `pdeathsigBin` is `null` the argv is returned unchanged — caller
  * gets the unwrapped behavior (orphan-on-kill -9).
  *
- * `opts.watchPid` is for the detached live-mount helper case (#150
- * phase 3): the helper's immediate parent (the supervisor) exits on
- * purpose post-detach, but the helper must die when the *VMM* dies.
- * Pass the VMM's pid here.
+ * `opts.watchPid` is for helpers whose immediate parent exits on purpose
+ * while the helper should live only as long as another process (for example,
+ * the VMM). Pass that watched process pid here.
  */
 export function wrapWithPdeathsig(
   pdeathsigBin: string | null,

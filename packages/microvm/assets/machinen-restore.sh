@@ -53,11 +53,11 @@ if [ -x /sbin/machinen-winsize-agent ]; then
     WINSIZE_PID=$!
 fi
 
-# Bundle delivery (#266 final): the host vsock-FUSE-mounts its bundle
-# `img/` directory at /mnt/snap-src/img read-only and signals us with
-# MACHINEN_RESTORE_BUNDLE_LIVE=1. Reads stream from the host's bundle
-# on demand — no tmpfs duplicate copy. Legacy mode (no env) falls back
-# to untarring /dev/vdb into tmpfs.
+# Bundle delivery (#266 final): the host exposes its bundle `img/`
+# directory at /mnt/snap-src/img read-only via the VMM's virtio-fs live
+# mount and signals us with MACHINEN_RESTORE_BUNDLE_LIVE=1. Reads stream
+# from the host's bundle on demand — no tmpfs duplicate copy. Legacy mode
+# (no env) falls back to untarring /dev/vdb into tmpfs.
 mkdir -p /mnt/snap-src/img
 if [ "${MACHINEN_RESTORE_BUNDLE_LIVE:-0}" = "1" ]; then
     if [ -z "$(ls -A /mnt/snap-src/img 2>/dev/null)" ]; then
@@ -85,7 +85,7 @@ fi
 # Lazy-pages mode (#266): when MACHINEN_RESTORE_LAZY_PAGES=1, run a
 # `criu lazy-pages` daemon alongside `criu restore --lazy-pages`. The
 # daemon reads pagemap-*.img + pages-*.img from /mnt/snap-src/img,
-# which (with MACHINEN_RESTORE_BUNDLE_LIVE=1) is a vsock-FUSE mount of
+# which (with MACHINEN_RESTORE_BUNDLE_LIVE=1) is a virtio-fs mount of
 # the host bundle dir — bytes stream from the host on demand.
 LAZY_FLAGS=""
 LAZY_PAGES_PID=""
@@ -128,7 +128,7 @@ if [ -n "$LAZY_FLAGS" ]; then
     # Spawn the lazy-pages daemon BEFORE criu restore. It opens
     # /tmp/lazy-pages.socket and serves UFFD page faults from
     # pages-*.img in /mnt/snap-src/img — which is the host's bundle
-    # over vsock-FUSE in live-mount mode. The daemon must outlive
+    # over virtio-fs in live-mount mode. The daemon must outlive
     # `criu restore` because UFFD events keep flowing as the workload
     # runs.
     criu lazy-pages \

@@ -74,7 +74,8 @@ const restoreDebug = debugLib("machinen:restore");
 export interface BootOptions {
   /**
    * Path to a rootfs tarball to boot from (e.g. the output of
-   * `provision()`, or `rootfs-debian-arm64.tar.gz` shipped in releases).
+   * `provision()`, or an arch-specific base rootfs tarball shipped in
+   * releases: `rootfs-debian-arm64.tar.gz` / `rootfs-debian-amd64.tar.gz`).
    * Paired with `cmd` — both required, or neither (test-mode binary
    * boots and snapshot-only restores both skip initramfs packing).
    */
@@ -196,10 +197,10 @@ export interface BootOptions {
    *
    * Trade-off vs. `liveMount`: `mount` is copy-into-disk-image (no
    * runtime channel back to the host source dir, snapshots cleanly,
-   * but writes don't propagate to the host); `liveMount` is a live
-   * vsock-FUSE pass-through (writes land on the host, doesn't survive
-   * snapshot/restore). Pick `mount` for inputs the guest may modify
-   * but the host shouldn't see; `liveMount` for shared scratch.
+   * but writes don't propagate to the host); `liveMount` is an in-VMM
+   * virtio-fs pass-through (writes land on the host and restore/fork
+   * re-establish the same guest mount topology). Pick `mount` for inputs the
+   * guest may modify but the host shouldn't see; `liveMount` for shared scratch.
    *
    * See #64 (original `mount`), #78 (`liveMount`), #114 (rootdisk
    * relocation; same shape), #272 (this overlay relocation).
@@ -259,8 +260,8 @@ export interface BootOptions {
    * caches, untrusted guests).
    *
    * Each guest path must live under `/mnt/` (same rule as `mount`).
-   * Repeatable up to 4 entries per VM — each is served by its own
-   * in-VMM virtio-fs device (the VMM wires 4 virtio-fs slots). The
+   * Repeatable up to 5 entries per VM — each is served by its own
+   * in-VMM virtio-fs device (the VMM wires 5 virtio-fs slots). The
    * FUSE opcode handlers run inside the VMM and the guest mounts each
    * share directly with `mount -t virtiofs` — no agent process, no
    * vsock hop. Requires a guest kernel with `CONFIG_VIRTIO_FS` — every
@@ -385,16 +386,15 @@ export interface BootOptions {
    *
    * Forces `pdeathsig: false` (otherwise the parent's exit kills the
    * VMM, defeating the purpose). Compatible with every other boot
-   * option: gvproxy + live-mount FUSE servers spawn as detached
-   * daemons wrapped through `pdeathsig --watch-pid <vmm>`, and `mount`
-   * (squashfs+ext4 overlay) is fd-passed to the VMM at spawn so the
-   * supervisor holds no live state afterwards.
+   * option: gvproxy is tracked in the registry, live mounts are served
+   * by in-VMM virtio-fs devices, and `mount` (squashfs+ext4 overlay)
+   * is fd-passed to the VMM at spawn so the supervisor holds no live
+   * state afterwards.
    *
    * Cleanup of per-boot reflink disks, bundle dirs, and vsock UDS
    * directories normally happens in the parent's `child.once("exit")`
-   * hook. After detach the parent is gone, so those leak until the
-   * follow-up `machinen gc` / `machinen stop` commands (PR2 of #150)
-   * land. Use `--detached` only when you understand that trade-off.
+   * hook. After detach the parent is gone, so those leak until
+   * `machinen gc` / `machinen stop` reaps them.
    *
    * Reattach with `attach({ name | pid })` from another process —
    * the registry entry stays live, the vsock UDS is still listening.
@@ -1486,8 +1486,8 @@ function materializeRootdisk(
 }
 
 // Roll back gvproxy + per-boot disks/dirs after a pre-spawn failure.
-// No live-mount helpers exist yet at this point (they spawn post-VMM
-// in #150 phase 3) — only the gv + per-boot disks need rolling back.
+// Live mounts are in-VMM virtio-fs devices configured through env, so
+// there are no separate live-mount helper processes to roll back.
 function rollbackPreSpawn(state: {
   gvStop: (() => void) | undefined;
   bundleTempDir: string | undefined;

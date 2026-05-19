@@ -11,8 +11,8 @@
 // Phase 1 `collect()` cap, ~1 MiB) to a one-shot file at detach time
 // so a post-mortem on a detached VM's boot still has the kernel
 // console + early-userspace output. Live tailing of a detached VM is
-// out of scope for v1 — Phase 3 either folds logging into Zig with
-// SIGHUP-reopen or routes through a forwarder daemon.
+// separate future logging work (for example, folding log rotation into
+// Zig with SIGHUP-reopen or routing through a forwarder daemon).
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
