@@ -142,9 +142,14 @@ interface PortableSnapshotResources {
   formatVersion: number;
   resources: Array<{
     id: string;
-    kind: "fd" | "file" | "socket" | "timer" | "signal" | "cwd" | "env" | "unknown";
+    kind: "argv" | "fd" | "file" | "socket" | "timer" | "signal" | "cwd" | "env" | "unknown";
     state: "captured" | "refused" | "unsupported";
     path?: string;
+    fd?: number;
+    flags?: string[];
+    offset?: number;
+    argv?: string[];
+    env?: Record<string, string>;
     refusal?: PortableRefusal;
   }>;
   unsupported: PortableUnsupportedVocabulary;
@@ -392,9 +397,16 @@ export const portableSnapshotSchemas = {
           required: ["id", "kind", "state"],
           properties: {
             id: { type: "string", minLength: 1 },
-            kind: { enum: ["fd", "file", "socket", "timer", "signal", "cwd", "env", "unknown"] },
+            kind: {
+              enum: ["argv", "fd", "file", "socket", "timer", "signal", "cwd", "env", "unknown"],
+            },
             state: { enum: ["captured", "refused", "unsupported"] },
             path: { type: "string" },
+            fd: { type: "integer", minimum: 0 },
+            flags: { type: "array", items: { type: "string", minLength: 1 }, uniqueItems: true },
+            offset: { type: "integer", minimum: 0 },
+            argv: { type: "array", items: { type: "string" } },
+            env: { type: "object", additionalProperties: { type: "string" } },
             refusal: REFUSAL_SCHEMA,
           },
         },
@@ -699,26 +711,60 @@ function validateResources(ctx: ValidationContext, resourcesDoc: unknown): void 
         continue;
       }
       validateNonEmptyString(ctx, `${path}.id`, resource.id);
-      validateEnum(ctx, `${path}.kind`, resource.kind, [
-        "fd",
-        "file",
-        "socket",
-        "timer",
-        "signal",
-        "cwd",
-        "env",
-        "unknown",
-      ]);
+      validateEnum(ctx, `${path}.kind`, resource.kind, RESOURCE_KINDS);
       validateEnum(ctx, `${path}.state`, resource.state, ["captured", "refused", "unsupported"]);
-      if (resource.path !== undefined) {
-        validateString(ctx, `${path}.path`, resource.path);
-      }
+      validateOptionalResourcePath(ctx, path, resource.path);
+      validateOptionalResourceFd(ctx, path, resource.fd);
+      validateOptionalResourceFlags(ctx, path, resource.flags);
+      validateOptionalResourceOffset(ctx, path, resource.offset);
+      validateOptionalResourceArgv(ctx, path, resource.argv);
+      validateOptionalResourceEnv(ctx, path, resource.env);
       if (resource.refusal !== undefined) {
         validateRefusal(ctx, `${path}.refusal`, resource.refusal);
       }
     }
   }
   validateUnsupported(ctx, "resources.unsupported", doc.unsupported);
+}
+
+function validateOptionalResourcePath(ctx: ValidationContext, path: string, value: unknown): void {
+  if (value !== undefined) {
+    validateString(ctx, `${path}.path`, value);
+  }
+}
+
+function validateOptionalResourceFd(ctx: ValidationContext, path: string, value: unknown): void {
+  if (value !== undefined) {
+    validateNonNegativeInteger(ctx, `${path}.fd`, value);
+  }
+}
+
+function validateOptionalResourceFlags(ctx: ValidationContext, path: string, value: unknown): void {
+  if (value !== undefined) {
+    validateStringArray(ctx, `${path}.flags`, value, { unique: true });
+  }
+}
+
+function validateOptionalResourceOffset(
+  ctx: ValidationContext,
+  path: string,
+  value: unknown,
+): void {
+  if (value !== undefined) {
+    validateNonNegativeInteger(ctx, `${path}.offset`, value);
+  }
+}
+
+function validateOptionalResourceArgv(ctx: ValidationContext, path: string, value: unknown): void {
+  if (value !== undefined) {
+    validateStringArray(ctx, `${path}.argv`, value);
+  }
+}
+
+function validateOptionalResourceEnv(ctx: ValidationContext, path: string, value: unknown): void {
+  if (value !== undefined) {
+    validateStringRecord(ctx, `${path}.env`, value);
+  }
 }
 
 function validatePortableBundleFiles(ctx: ValidationContext): void {
@@ -1135,6 +1181,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 const OBJECT_KINDS = ["global", "heap", "stack", "thread", "tls", "opaque"] as const;
+const RESOURCE_KINDS = [
+  "argv",
+  "fd",
+  "file",
+  "socket",
+  "timer",
+  "signal",
+  "cwd",
+  "env",
+  "unknown",
+] as const;
 const ADDRESS_RE = /^0x[0-9A-Fa-f]+$/;
 const BUILD_ID_RE = /^[0-9A-Fa-f]{8,128}$/;
 const SYMBOL_RE = /^[A-Za-z_][A-Za-z0-9_.$@-]*$/;

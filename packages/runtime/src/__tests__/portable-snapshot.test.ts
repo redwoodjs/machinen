@@ -109,7 +109,20 @@ function tinyDocs(manifestOverrides: Record<string, unknown> = {}) {
     },
     resources: {
       formatVersion: 1,
-      resources: [],
+      resources: [
+        { id: "argv", kind: "argv", state: "captured", argv: ["portable-proof"] },
+        { id: "env", kind: "env", state: "captured", env: { PORTABLE_PROOF: "1" } },
+        { id: "cwd", kind: "cwd", state: "captured", path: "/" },
+        {
+          id: "file-1",
+          kind: "file",
+          state: "captured",
+          path: "/tmp/proof-resource.txt",
+          fd: 3,
+          flags: ["read"],
+          offset: 4,
+        },
+      ],
       unsupported: unsupported(),
     },
   };
@@ -224,6 +237,14 @@ describe("portable snapshot schemas", () => {
     docs.relocations.relocations[0]!.sourcePointer = "not-hex";
     expect(validatePortableSnapshotDocuments(docs)).toContain(
       "relocations.relocations[0].sourcePointer must be a hex address",
+    );
+  });
+
+  it("validates semantic resource metadata", () => {
+    const docs = tinyDocs();
+    docs.resources.resources[3]!.offset = -1;
+    expect(validatePortableSnapshotDocuments(docs)).toContain(
+      "resources.resources[3].offset must be a non-negative integer",
     );
   });
 

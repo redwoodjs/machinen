@@ -45,9 +45,11 @@ records pointer fields as source object + offset + source pointer, so restore ca
 translate source addresses into target addresses. The proof restore loader
 (`/usr/local/bin/machinen-portable-restore-proof`) validates the bundle, copies
 raw bytes into the target proof process, applies the known pointer relocations,
-and calls `machinen_restore_main`. The first proof uses a fixed instrumented
-allocator and refuses roots or pointer fields outside declared globals or live
-allocations.
+and calls `machinen_restore_main`. `resources.json` records process argv, env,
+cwd, and a basic regular-file resource as path + fd + flags + offset; the loader
+reopens the file and seeks back to the saved offset. The first proof uses a fixed
+instrumented allocator and refuses roots or pointer fields outside declared
+globals or live allocations.
 
 The proof ABI requires checkpoint requests to happen at a named cooperative
 safe point, outside signal handlers and outside in-flight syscalls. The bundle
