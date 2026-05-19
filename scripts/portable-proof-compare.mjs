@@ -18,12 +18,19 @@ const EXPECTED_THREAD_CONTINUATIONS = [
   "machinen_portable_checkpoint",
   "machinen_portable_worker_continue",
 ];
+const EXPECTED_NESTED_THREAD_CONTINUATIONS = [
+  "machinen_portable_nested_checkpoint",
+  "machinen_portable_worker_continue",
+];
 const VALID_ARCHES = ["arm64", "amd64"];
 const EXPECTED_SYMBOLS = {
   checkpoint_symbol: "machinen_checkpoint",
-  checkpoint_continuation: "machinen_portable_checkpoint",
+  checkpoint_continuation: ["machinen_portable_checkpoint", "machinen_portable_nested_checkpoint"],
   restore_symbol: "machinen_restore_main",
-  restore_continuation: "machinen_portable_restore_entry",
+  restore_continuation: [
+    "machinen_portable_restore_entry",
+    "machinen_portable_nested_restore_entry",
+  ],
   state_symbol: "machinen_portable_app_state",
 };
 
@@ -88,6 +95,13 @@ const FLAG_HANDLERS = new Map([
       return index;
     },
   ],
+  [
+    "--require-nested-continuation",
+    (state, index) => {
+      state.opts.requireNestedContinuation = true;
+      return index;
+    },
+  ],
   ["--expect-arch", (state, index) => readOptionValue(state, index, "expectArch", "--expect-arch")],
   ["--bundle-dir", (state, index) => readOptionValue(state, index, "bundleDir", "--bundle-dir")],
   [
@@ -142,6 +156,7 @@ export function validatePortableProofEvents(events, opts = {}) {
   validateEventList(errors, events, opts.expectArch);
   validateCrossPhaseState(errors, phases);
   validateThreadProof(errors, events, opts);
+  validateNestedContinuationProof(errors, events, opts);
 
   return errors;
 }
@@ -206,11 +221,36 @@ function validateThreadProof(errors, events, opts) {
     errors.push("missing two-thread proof marker");
     return;
   }
+  const expected = threaded.nested_continuation
+    ? EXPECTED_NESTED_THREAD_CONTINUATIONS
+    : EXPECTED_THREAD_CONTINUATIONS;
   pushIf(
     errors,
-    !sameList(threaded.thread_continuations, EXPECTED_THREAD_CONTINUATIONS),
-    `thread continuations expected ${JSON.stringify(EXPECTED_THREAD_CONTINUATIONS)}, got ${JSON.stringify(threaded.thread_continuations)}`,
+    !sameList(threaded.thread_continuations, expected),
+    `thread continuations expected ${JSON.stringify(expected)}, got ${JSON.stringify(threaded.thread_continuations)}`,
   );
+}
+
+function validateNestedContinuationProof(errors, events, opts) {
+  if (!opts.requireNestedContinuation) {
+    return;
+  }
+  const nested = events.find((event) => event.nested_continuation === true);
+  if (!nested) {
+    errors.push("missing nested continuation proof marker");
+    return;
+  }
+  pushIf(
+    errors,
+    nested.checkpoint_continuation !== "machinen_portable_nested_checkpoint",
+    "nested checkpoint continuation missing",
+  );
+  pushIf(
+    errors,
+    nested.restore_continuation !== "machinen_portable_nested_restore_entry",
+    "nested restore continuation missing",
+  );
+  pushIf(errors, nested.nested_live_value !== 4242, "nested live value must be 4242");
 }
 
 function firstPhase(events, phase) {
@@ -290,10 +330,11 @@ function validateSafePoint(errors, prefix, safePoint) {
 
 function validateProofSymbols(errors, prefix, event) {
   for (const [field, expected] of Object.entries(EXPECTED_SYMBOLS)) {
+    const expectedValues = Array.isArray(expected) ? expected : [expected];
     pushIf(
       errors,
-      event[field] !== expected,
-      `${prefix}.${field} expected ${expected}, got ${JSON.stringify(event[field])}`,
+      !expectedValues.includes(event[field]),
+      `${prefix}.${field} expected one of ${JSON.stringify(expectedValues)}, got ${JSON.stringify(event[field])}`,
     );
   }
 }
@@ -390,6 +431,12 @@ function validateOptionalBundleThreads(errors, threads) {
 
 function validateBundleThreads(errors, threadsDoc) {
   const threads = Array.isArray(threadsDoc.threads) ? threadsDoc.threads : [];
+  validateThreadDocumentHeader(errors, threadsDoc, threads);
+  validateThreadContinuations(errors, threads);
+  validateThreadBarrierStates(errors, threads);
+}
+
+function validateThreadDocumentHeader(errors, threadsDoc, threads) {
   pushIf(errors, threadsDoc.formatVersion !== 1, "threads.json formatVersion must be 1");
   pushIf(errors, threads.length !== 2, "threads.json must record two cooperative threads");
   pushIf(
@@ -398,14 +445,25 @@ function validateBundleThreads(errors, threadsDoc) {
     "threads.json barrier participants must be 2",
   );
   pushIf(errors, threadsDoc.barrier?.state !== "complete", "threads.json barrier must be complete");
+}
+
+function validateThreadContinuations(errors, threads) {
+  const continuations = threads.map((thread) => thread.continuation);
   pushIf(
     errors,
-    !sameList(
-      threads.map((thread) => thread.continuation),
-      EXPECTED_THREAD_CONTINUATIONS,
-    ),
+    !threadContinuationsMatch(continuations),
     "threads.json continuations do not match expected checkpoint continuations",
   );
+}
+
+function threadContinuationsMatch(continuations) {
+  return (
+    sameList(continuations, EXPECTED_THREAD_CONTINUATIONS) ||
+    sameList(continuations, EXPECTED_NESTED_THREAD_CONTINUATIONS)
+  );
+}
+
+function validateThreadBarrierStates(errors, threads) {
   pushIf(
     errors,
     !threads.every((thread) => thread.localState?.atBarrier === true),
@@ -530,6 +588,7 @@ function parseArgs(argv) {
       requireRestore: false,
       requireContinue: false,
       requireThreads: false,
+      requireNestedContinuation: false,
       expectArch: undefined,
       bundleDir: undefined,
     },
@@ -567,7 +626,7 @@ function printUsage() {
   process.stderr.write(
     "usage: node scripts/portable-proof-compare.mjs [--expect-arch arm64|amd64] " +
       "[--bundle-dir dir] [--require-restore] [--require-continue] " +
-      "[--require-threads] <log-file|->\n",
+      "[--require-threads] [--require-nested-continuation] <log-file|->\n",
   );
 }
 

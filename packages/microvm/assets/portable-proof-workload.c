@@ -26,7 +26,9 @@
 #define PORTABLE_PROOF_HEAP_CAPACITY 128u
 #define PORTABLE_PROOF_PATH_CAPACITY 512u
 #define PORTABLE_PROOF_CONTINUATION "machinen_portable_checkpoint"
+#define PORTABLE_PROOF_NESTED_CONTINUATION "machinen_portable_nested_checkpoint"
 #define PORTABLE_PROOF_RESTORE_CONTINUATION "machinen_portable_restore_entry"
+#define PORTABLE_PROOF_NESTED_RESTORE_CONTINUATION "machinen_portable_nested_restore_entry"
 #define PORTABLE_PROOF_WORKER_CONTINUATION "machinen_portable_worker_continue"
 #define PORTABLE_PROOF_THREAD_BARRIER "portable-proof-checkpoint"
 #define PORTABLE_PROOF_BUILD_ID "0123456789abcdef"
@@ -86,11 +88,13 @@ static uint32_t machinen_portable_heap_offset;
 static uint32_t machinen_portable_next_allocation_id;
 static uint8_t *machinen_portable_heap_bytes;
 static uint64_t machinen_portable_unknown_root;
+static uint64_t machinen_portable_nested_live_value;
 static bool machinen_portable_force_bad_root;
 static bool machinen_portable_force_bad_pointer;
 static bool machinen_portable_force_bad_resource;
 static bool machinen_portable_force_bad_thread;
 static bool machinen_portable_use_threads;
+static bool machinen_portable_nested_continuation;
 static uint32_t machinen_portable_barrier_arrived;
 static bool machinen_portable_barrier_complete;
 static const char *machinen_portable_resource_file_path;
@@ -102,9 +106,11 @@ __attribute__((used, visibility("default"))) const char machinen_portable_metada
     "\"checkpoint_symbol\":\"machinen_checkpoint\","
     "\"checkpoint_roots_type\":\"machinen_checkpoint_roots\","
     "\"checkpoint_continuation\":\"machinen_portable_checkpoint\","
+    "\"nested_checkpoint_continuation\":\"machinen_portable_nested_checkpoint\","
     "\"restore_symbol\":\"machinen_restore_main\","
     "\"restore_bundle_type\":\"machinen_restore_bundle\","
     "\"restore_continuation\":\"machinen_portable_restore_entry\","
+    "\"nested_restore_continuation\":\"machinen_portable_nested_restore_entry\","
     "\"thread_registration\":\"machinen_register_thread\","
     "\"thread_barrier\":\"machinen_checkpoint_barrier\","
     "\"worker_continuation\":\"machinen_portable_worker_continue\","
@@ -168,8 +174,12 @@ static bool root_in_known_global(const struct machinen_checkpoint_root *root) {
           root->address, root->size_bytes)) {
     return true;
   }
-  return range_contains(&machinen_portable_nodes, sizeof(machinen_portable_nodes), root->address,
-      root->size_bytes);
+  if (range_contains(&machinen_portable_nodes, sizeof(machinen_portable_nodes), root->address,
+      root->size_bytes)) {
+    return true;
+  }
+  return range_contains(&machinen_portable_nested_live_value,
+      sizeof(machinen_portable_nested_live_value), root->address, root->size_bytes);
 }
 
 static bool root_in_known_thread_local(const struct machinen_checkpoint_root *root) {
@@ -249,12 +259,22 @@ static void refresh_checkpoint_roots(void) {
   };
 }
 
+static const char *checkpoint_continuation_name(void) {
+  return machinen_portable_nested_continuation ? PORTABLE_PROOF_NESTED_CONTINUATION :
+                                                 PORTABLE_PROOF_CONTINUATION;
+}
+
+static const char *restore_continuation_name(void) {
+  return machinen_portable_nested_continuation ? PORTABLE_PROOF_NESTED_RESTORE_CONTINUATION :
+                                                 PORTABLE_PROOF_RESTORE_CONTINUATION;
+}
+
 static void refresh_thread_manifest(void) {
   machinen_portable_thread_states[0] = (struct PortableThreadSemanticState){
       .id = 0,
       .at_barrier = machinen_portable_barrier_complete ? 1u : 0u,
       .local_counter = 1000,
-      .continuation_name = PORTABLE_PROOF_CONTINUATION,
+      .continuation_name = checkpoint_continuation_name(),
   };
   machinen_portable_thread_states[1] = (struct PortableThreadSemanticState){
       .id = 1,
@@ -266,7 +286,7 @@ static void refresh_thread_manifest(void) {
       .id = 0,
       .flags = 0,
       .name = "main",
-      .continuation_name = PORTABLE_PROOF_CONTINUATION,
+      .continuation_name = checkpoint_continuation_name(),
       .thread_local_state = &machinen_portable_thread_states[0],
       .thread_local_state_size_bytes = sizeof(machinen_portable_thread_states[0]),
   };
@@ -382,7 +402,7 @@ __attribute__((noinline, used, visibility("default"))) int machinen_checkpoint(
 }
 
 static uint32_t build_checkpoint_roots(struct machinen_checkpoint_root *roots, uint32_t capacity) {
-  if (capacity < PORTABLE_PROOF_ROOT_COUNT + PORTABLE_PROOF_THREAD_COUNT + 1u) {
+  if (capacity < PORTABLE_PROOF_ROOT_COUNT + PORTABLE_PROOF_THREAD_COUNT + 2u) {
     return 0;
   }
   memcpy(roots, machinen_portable_roots, sizeof(machinen_portable_roots));
@@ -405,6 +425,16 @@ static uint32_t build_checkpoint_roots(struct machinen_checkpoint_root *roots, u
         .type_name = "struct PortableThreadSemanticState",
     };
   }
+  if (machinen_portable_nested_continuation) {
+    roots[count++] = (struct machinen_checkpoint_root){
+        .name = "machinen_portable_nested_live_value",
+        .address = &machinen_portable_nested_live_value,
+        .size_bytes = sizeof(machinen_portable_nested_live_value),
+        .kind = MACHINEN_CHECKPOINT_ROOT_STACK,
+        .flags = 0,
+        .type_name = "uint64_t",
+    };
+  }
   if (machinen_portable_force_bad_root) {
     machinen_portable_unknown_root = 0xfeedfaceu;
     roots[count++] = (struct machinen_checkpoint_root){
@@ -424,13 +454,13 @@ __attribute__((noinline, used, visibility("default"))) int machinen_portable_che
   if (state != &machinen_portable_app_state) {
     return MACHINEN_CHECKPOINT_REFUSED_INVALID_ROOTS;
   }
-  struct machinen_checkpoint_root roots[PORTABLE_PROOF_ROOT_COUNT + PORTABLE_PROOF_THREAD_COUNT + 1u];
+  struct machinen_checkpoint_root roots[PORTABLE_PROOF_ROOT_COUNT + PORTABLE_PROOF_THREAD_COUNT + 2u];
   uint32_t root_count = build_checkpoint_roots(roots,
-      PORTABLE_PROOF_ROOT_COUNT + PORTABLE_PROOF_THREAD_COUNT + 1u);
+      PORTABLE_PROOF_ROOT_COUNT + PORTABLE_PROOF_THREAD_COUNT + 2u);
   const struct machinen_checkpoint_roots checkpoint_roots = {
       .abi_version = MACHINEN_CHECKPOINT_ABI_VERSION,
       .flags = MACHINEN_CHECKPOINT_FLAG_KNOWN_SAFE_POINT,
-      .continuation_name = PORTABLE_PROOF_CONTINUATION,
+      .continuation_name = checkpoint_continuation_name(),
       .roots = roots,
       .root_count = root_count,
       .reserved = 0,
@@ -450,6 +480,25 @@ __attribute__((noinline, used, visibility("default"))) int machinen_portable_res
   return MACHINEN_CHECKPOINT_OK;
 }
 
+__attribute__((noinline, used, visibility("default"))) int machinen_portable_nested_checkpoint(
+    struct AppState *state) {
+  uint64_t live_value = 4242;
+  machinen_portable_nested_live_value = live_value;
+  machinen_portable_nested_continuation = true;
+  refresh_thread_manifest();
+  return machinen_portable_checkpoint(state);
+}
+
+__attribute__((noinline, used, visibility("default"))) int machinen_portable_nested_restore_entry(
+    struct AppState *state, uint64_t live_value) {
+  if (state != &machinen_portable_app_state || live_value != 4242) {
+    return MACHINEN_CHECKPOINT_REFUSED_INVALID_ROOTS;
+  }
+  machinen_portable_nested_live_value = live_value;
+  __asm__ __volatile__("" ::: "memory");
+  return MACHINEN_CHECKPOINT_OK;
+}
+
 __attribute__((noinline, used, visibility("default"))) int machinen_restore_main(
     const struct machinen_restore_bundle *bundle) {
   if (!bundle) {
@@ -460,6 +509,10 @@ __attribute__((noinline, used, visibility("default"))) int machinen_restore_main
   }
   if (!bundle->continuation_name) {
     return MACHINEN_CHECKPOINT_REFUSED_INVALID_ROOTS;
+  }
+  if (strcmp(bundle->continuation_name, PORTABLE_PROOF_NESTED_RESTORE_CONTINUATION) == 0) {
+    machinen_portable_nested_continuation = true;
+    return machinen_portable_nested_restore_entry(&machinen_portable_app_state, 4242);
   }
   if (strcmp(bundle->continuation_name, PORTABLE_PROOF_RESTORE_CONTINUATION) != 0) {
     return MACHINEN_CHECKPOINT_REFUSED_INVALID_ROOTS;
@@ -478,11 +531,13 @@ static void reset_state(void) {
   machinen_portable_app_state.counter = 1000;
   machinen_portable_app_state.list = &machinen_portable_nodes[0];
   machinen_portable_last_checkpoint_result = MACHINEN_CHECKPOINT_OK;
+  machinen_portable_nested_live_value = 0;
   machinen_portable_force_bad_root = false;
   machinen_portable_force_bad_pointer = false;
   machinen_portable_force_bad_resource = false;
   machinen_portable_force_bad_thread = false;
   machinen_portable_use_threads = false;
+  machinen_portable_nested_continuation = false;
   machinen_portable_barrier_arrived = 0;
   machinen_portable_barrier_complete = false;
   refresh_thread_manifest();
@@ -554,7 +609,7 @@ static void *portable_worker_checkpoint_thread(void *arg) {
 
 static int run_thread_checkpoint_barrier(void) {
   refresh_thread_manifest();
-  int result = machinen_register_thread(0, "main", PORTABLE_PROOF_CONTINUATION, 1000);
+  int result = machinen_register_thread(0, "main", checkpoint_continuation_name(), 1000);
   if (result != MACHINEN_CHECKPOINT_OK) {
     return result;
   }
@@ -589,7 +644,7 @@ static int recreate_threads_for_restore(void) {
   pthread_t worker;
   machinen_portable_use_threads = true;
   refresh_thread_manifest();
-  machinen_register_thread(0, "main", PORTABLE_PROOF_RESTORE_CONTINUATION, 1000);
+  machinen_register_thread(0, "main", restore_continuation_name(), 1000);
   if (pthread_create(&worker, 0, portable_worker_restore_thread, 0) != 0) {
     return -1;
   }
@@ -608,16 +663,18 @@ static void print_marker(const char *phase) {
       "\"counter\":%llu,\"list\":[%llu,%llu,%llu],"
       "\"checkpoint_abi_version\":%u,"
       "\"checkpoint_symbol\":\"machinen_checkpoint\","
-      "\"checkpoint_continuation\":\"machinen_portable_checkpoint\","
+      "\"checkpoint_continuation\":\"%s\","
       "\"restore_symbol\":\"machinen_restore_main\","
-      "\"restore_continuation\":\"machinen_portable_restore_entry\","
+      "\"restore_continuation\":\"%s\","
       "\"state_symbol\":\"machinen_portable_app_state\","
       "\"root_count\":%u,"
       "\"root_names\":[\"machinen_portable_app_state\",\"machinen_portable_nodes\","
       "\"machinen_portable_heap_bytes\"],"
       "\"thread_count\":%u,"
-      "\"thread_continuations\":[\"machinen_portable_checkpoint\","
+      "\"thread_continuations\":[\"%s\","
       "\"machinen_portable_worker_continue\"],"
+      "\"nested_continuation\":%s,"
+      "\"nested_live_value\":%llu,"
       "\"allocation_count\":%u,"
       "\"heap_bytes\":[%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u],"
       "\"checkpoint_result\":%d,"
@@ -629,8 +686,13 @@ static void print_marker(const char *phase) {
       (unsigned long long)machinen_portable_nodes[1].value,
       (unsigned long long)machinen_portable_nodes[2].value,
       MACHINEN_CHECKPOINT_ABI_VERSION,
+      checkpoint_continuation_name(),
+      restore_continuation_name(),
       PORTABLE_PROOF_ROOT_COUNT,
       machinen_portable_use_threads ? PORTABLE_PROOF_THREAD_COUNT : 1u,
+      checkpoint_continuation_name(),
+      machinen_portable_nested_continuation ? "true" : "false",
+      (unsigned long long)machinen_portable_nested_live_value,
       machinen_portable_allocation_count,
       machinen_portable_heap_bytes[0],
       machinen_portable_heap_bytes[1],
@@ -721,16 +783,22 @@ static int write_manifest(const char *dir) {
       "\"rootsType\":\"machinen_checkpoint_roots\","
       "\"restoreBundleType\":\"machinen_restore_bundle\","
       "\"safePoint\":{\"outsideSignalHandlers\":true,\"outsideSyscalls\":true}},"
-      "\"checkpointContinuation\":{\"name\":\"machinen_portable_checkpoint\"},"
+      "\"checkpointContinuation\":{\"name\":\"%s\"},"
       "\"restoreEntrypoint\":{\"name\":\"machinen_restore_main\"},"
       "\"process\":{\"argv\":[\"/usr/local/bin/machinen-portable-proof\"],"
       "\"env\":{},\"cwd\":\"/\"},"
       "\"features\":[%s],"
       "\"unsupported\":{\"vocabularyVersion\":1,\"refusals\":[]}}",
-      PORTABLE_PROOF_ARCH, PORTABLE_PROOF_BUILD_ID,
-      machinen_portable_use_threads ?
-          "\"proof-workload\",\"instrumented-allocator\",\"cooperative-threads\"" :
-          "\"proof-workload\",\"instrumented-allocator\"");
+      PORTABLE_PROOF_ARCH,
+      PORTABLE_PROOF_BUILD_ID,
+      checkpoint_continuation_name(),
+      machinen_portable_nested_continuation && machinen_portable_use_threads ?
+          "\"proof-workload\",\"instrumented-allocator\",\"cooperative-threads\",\"nested-continuation\"" :
+          (machinen_portable_nested_continuation ?
+                  "\"proof-workload\",\"instrumented-allocator\",\"nested-continuation\"" :
+                  (machinen_portable_use_threads ?
+                          "\"proof-workload\",\"instrumented-allocator\",\"cooperative-threads\"" :
+                          "\"proof-workload\",\"instrumented-allocator\"")));
   return close_bundle_file(file);
 }
 
@@ -760,6 +828,10 @@ static int write_memory(const char *dir) {
     result = write_memory_bytes(file, machinen_portable_thread_states,
         sizeof(machinen_portable_thread_states));
   }
+  if (result == 0 && machinen_portable_nested_continuation) {
+    result = write_memory_bytes(file, &machinen_portable_nested_live_value,
+        sizeof(machinen_portable_nested_live_value));
+  }
   if (close_bundle_file(file) != 0) {
     return -1;
   }
@@ -772,6 +844,10 @@ static int write_objects(const char *dir) {
   uint64_t nodes_offset = app_offset + sizeof(machinen_portable_app_state);
   uint64_t heap_offset = nodes_offset + sizeof(machinen_portable_nodes);
   uint64_t tls_offset = heap_offset + allocation->size_bytes;
+  uint64_t nested_offset = tls_offset +
+                           (machinen_portable_use_threads ?
+                                   sizeof(machinen_portable_thread_states) :
+                                   0u);
   FILE *file = open_bundle_file(dir, "objects.json", "wb");
   if (!file) {
     return -1;
@@ -823,6 +899,17 @@ static int write_objects(const char *dir) {
         (uintptr_t)&machinen_portable_thread_states[1],
         (unsigned long long)(tls_offset + sizeof(machinen_portable_thread_states[0])),
         (unsigned long long)sizeof(machinen_portable_thread_states[1]));
+  }
+  if (machinen_portable_nested_continuation) {
+    fprintf(file,
+        ",{\"id\":\"nested-live\",\"kind\":\"stack\","
+        "\"type\":\"uint64_t\",\"sizeBytes\":%llu,"
+        "\"sourceAddress\":\"0x%" PRIxPTR "\","
+        "\"memory\":{\"offset\":%llu,\"sizeBytes\":%llu}}",
+        (unsigned long long)sizeof(machinen_portable_nested_live_value),
+        (uintptr_t)&machinen_portable_nested_live_value,
+        (unsigned long long)nested_offset,
+        (unsigned long long)sizeof(machinen_portable_nested_live_value));
   }
   fprintf(file, "],\"unsupported\":{\"vocabularyVersion\":1,\"refusals\":[]}}");
   return close_bundle_file(file);
@@ -920,7 +1007,8 @@ static int write_threads(const char *dir) {
       "\"name\":\"%s\",\"participants\":%u,\"state\":\"complete\"},"
       "\"threads\":["
       "{\"id\":0,\"name\":\"main\",\"continuation\":\"%s\","
-      "\"localState\":{\"counter\":%llu,\"atBarrier\":true}},"
+      "\"localState\":{\"counter\":%llu,\"atBarrier\":true,"
+      "\"nestedLiveValue\":%llu}},"
       "{\"id\":1,\"name\":\"worker\",\"continuation\":\"%s\","
       "\"localState\":{\"counter\":%llu,\"atBarrier\":true}}],"
       "\"unsupported\":{\"vocabularyVersion\":1,\"refusals\":[]}}",
@@ -928,6 +1016,7 @@ static int write_threads(const char *dir) {
       PORTABLE_PROOF_THREAD_COUNT,
       machinen_portable_threads[0].continuation_name,
       (unsigned long long)machinen_portable_thread_states[0].local_counter,
+      (unsigned long long)machinen_portable_nested_live_value,
       machinen_portable_threads[1].continuation_name,
       (unsigned long long)machinen_portable_thread_states[1].local_counter);
   return close_bundle_file(file);
@@ -1036,6 +1125,13 @@ static int validate_restore_bundle(const char *dir) {
     fprintf(stderr, "portable proof: pointer relocations missing from bundle\n");
     return -1;
   }
+  machinen_portable_nested_continuation =
+      bundle_text_contains(dir, "manifest.json", PORTABLE_PROOF_NESTED_CONTINUATION);
+  if (machinen_portable_nested_continuation &&
+      !bundle_text_contains(dir, "objects.json", "nested-live")) {
+    fprintf(stderr, "portable proof: nested live root missing from bundle\n");
+    return -1;
+  }
   return validate_resource_reopen(dir);
 }
 
@@ -1078,7 +1174,7 @@ static int call_restore_entrypoint(void) {
   const struct machinen_restore_bundle bundle = {
       .abi_version = MACHINEN_CHECKPOINT_ABI_VERSION,
       .flags = 0,
-      .continuation_name = PORTABLE_PROOF_RESTORE_CONTINUATION,
+      .continuation_name = restore_continuation_name(),
       .objects = 0,
       .object_count = 0,
       .reserved = 0,
@@ -1128,6 +1224,7 @@ int main(int argc, char **argv) {
   machinen_portable_force_bad_thread = has_arg(argc, argv, "--thread-missing");
   machinen_portable_use_threads = has_arg(argc, argv, "--threads") ||
                                   machinen_portable_force_bad_thread;
+  machinen_portable_nested_continuation = has_arg(argc, argv, "--nested-continuation");
   refresh_thread_manifest();
   const char *bundle_dir = arg_value(argc, argv, "--emit-bundle");
   machinen_portable_resource_file_path = arg_value(argc, argv, "--resource-file");
@@ -1147,7 +1244,9 @@ int main(int argc, char **argv) {
   if (machinen_portable_use_threads) {
     result = run_thread_checkpoint_barrier();
   }
-  if (result == MACHINEN_CHECKPOINT_OK) {
+  if (result == MACHINEN_CHECKPOINT_OK && machinen_portable_nested_continuation) {
+    result = machinen_portable_nested_checkpoint(&machinen_portable_app_state);
+  } else if (result == MACHINEN_CHECKPOINT_OK) {
     result = machinen_portable_checkpoint(&machinen_portable_app_state);
   }
   if (result != MACHINEN_CHECKPOINT_OK) {
