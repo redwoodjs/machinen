@@ -23,9 +23,19 @@ function marker(phase: string, counter: number, arch = "amd64"): string {
       arch,
       counter,
       list: [1, 2, 3],
-      checkpoint_symbol: "machinen_portable_checkpoint",
-      restore_symbol: "machinen_portable_restore_entry",
+      checkpoint_abi_version: 1,
+      checkpoint_symbol: "machinen_checkpoint",
+      checkpoint_continuation: "machinen_portable_checkpoint",
+      restore_symbol: "machinen_restore_main",
+      restore_continuation: "machinen_portable_restore_entry",
       state_symbol: "machinen_portable_app_state",
+      root_count: 2,
+      root_names: ["machinen_portable_app_state", "machinen_portable_nodes"],
+      checkpoint_result: 0,
+      safe_point: {
+        outside_signal_handler: true,
+        outside_syscall: true,
+      },
     }) +
     "\n"
   );
@@ -39,8 +49,8 @@ function writeLog(contents: string): string {
   return path;
 }
 
-function runHelper(args: string[]) {
-  return spawnSync(process.execPath, [HELPER, ...args], { encoding: "utf8" });
+function runHelper(args: string[], input?: string) {
+  return spawnSync(process.execPath, [HELPER, ...args], { encoding: "utf8", input });
 }
 
 describe("portable proof workload helper", () => {
@@ -59,6 +69,15 @@ describe("portable proof workload helper", () => {
     expect(JSON.parse(res.stdout)).toMatchObject({ ok: true, events: 3 });
   });
 
+  it("accepts stdin when the path is '-'", () => {
+    const res = runHelper(
+      ["--expect-arch", "amd64", "--require-restore", "--require-continue", "-"],
+      marker("checkpoint", 1000) + marker("restore", 1000) + marker("continue", 1001),
+    );
+    expect(res.status).toBe(0);
+    expect(JSON.parse(res.stdout)).toMatchObject({ ok: true, events: 3 });
+  });
+
   it("rejects a restore marker whose state differs from the checkpoint", () => {
     const badRestore =
       "MACHINEN_PORTABLE_PROOF " +
@@ -68,9 +87,19 @@ describe("portable proof workload helper", () => {
         arch: "amd64",
         counter: 999,
         list: [1, 2, 3],
-        checkpoint_symbol: "machinen_portable_checkpoint",
-        restore_symbol: "machinen_portable_restore_entry",
+        checkpoint_abi_version: 1,
+        checkpoint_symbol: "machinen_checkpoint",
+        checkpoint_continuation: "machinen_portable_checkpoint",
+        restore_symbol: "machinen_restore_main",
+        restore_continuation: "machinen_portable_restore_entry",
         state_symbol: "machinen_portable_app_state",
+        root_count: 2,
+        root_names: ["machinen_portable_app_state", "machinen_portable_nodes"],
+        checkpoint_result: 0,
+        safe_point: {
+          outside_signal_handler: true,
+          outside_syscall: true,
+        },
       }) +
       "\n";
     const log = writeLog(marker("checkpoint", 1000) + badRestore);
