@@ -26,12 +26,13 @@ cleanup() { rm -rf "$WORK"; }
 trap cleanup EXIT
 
 mkdir -p "$WORK/work/packages/microvm/assets" "$WORK/work/scripts"
-cc -Wall -Wextra -I "$ROOT/packages/microvm/assets" \
+cc -Wall -Wextra -pthread -I "$ROOT/packages/microvm/assets" \
   "$ROOT/packages/microvm/assets/portable-proof-workload.c" \
   -o "$WORK/portable-proof-arm64"
 
 echo "portable-resource-marker" >"$WORK/resource.txt"
 "$WORK/portable-proof-arm64" \
+  --threads \
   --restore-proof \
   --resource-file "$WORK/resource.txt" \
   --emit-bundle "$WORK/work/bundle" \
@@ -49,7 +50,7 @@ tar --no-xattrs -czf - -C "$WORK/work" . |
 
 ssh "$PROXMOX_SSH" "pct exec '$PROXMOX_CT' -- docker run --rm -i -v /tmp/machinen-portable-cross:/work -w /work '$DOCKER_IMAGE' bash -s" <<'REMOTE'
 set -euo pipefail
-gcc -Wall -Wextra -I packages/microvm/assets \
+gcc -Wall -Wextra -pthread -I packages/microvm/assets \
   packages/microvm/assets/portable-proof-workload.c \
   -o /tmp/machinen-portable-proof-amd64
 # The arm64 source bundle records the host temp path for the regular-file
@@ -70,6 +71,7 @@ cat /work/source.log /tmp/target.log >/tmp/combined.log
 node scripts/portable-proof-compare.mjs \
   --require-restore \
   --require-continue \
+  --require-threads \
   --bundle-dir /work/bundle \
   /tmp/combined.log
 REMOTE

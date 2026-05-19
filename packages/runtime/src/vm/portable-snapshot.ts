@@ -36,6 +36,7 @@ const PORTABLE_REFUSAL_CODES = [
   "checkpoint-unknown-root",
   "pointer-outside-known-object",
   "thread-count-unsupported",
+  "thread-not-at-barrier",
   "thread-inside-syscall",
   "signal-handler-active",
   "mapping-executable-anonymous",

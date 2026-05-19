@@ -223,6 +223,7 @@ zig cc "${ASSETS}/vmstate-reseed.c" \
 zig cc "${ASSETS}/portable-proof-workload.c" \
   -target "${ZIG_GUEST_TARGET}" \
   -static \
+  -pthread \
   -Os \
   -o "${STAGE}/portable-proof-workload"
 
