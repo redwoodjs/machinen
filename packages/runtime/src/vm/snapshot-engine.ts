@@ -13,15 +13,19 @@
 //   - "criu"   — checkpoints the guest *process tree* from inside the
 //                guest via CRIU. Same-host, Linux-process-level.
 //                Bundle layout: `<dir>/img/core-*.img`.
+//   - "portable" — experimental semantic process snapshot format for
+//                  future cross-ISA restore. It is intentionally separate
+//                  from `.vmstate` and CRIU; selecting it currently fails
+//                  with an explicit unsupported-workload error.
 //
 // The engine is selected by the `MACHINEN_SNAPSHOT_ENGINE` env var so
 // the CLI `snapshot` / `restore` / `fork` commands are unchanged — set
-// it to `criu` to drive the process-tree backend instead.
-// `restore` additionally auto-detects the engine from the bundle's
-// contents, so a bundle always restores under the engine that wrote
-// it regardless of the env var.
+// it to `criu` to drive the process-tree backend, or `portable` to try
+// the experimental portable engine. `restore` auto-detects vmstate and
+// CRIU bundles; portable bundles are routed only when explicitly selected
+// so exact-machine restore and semantic process restore stay distinct.
 
-export type SnapshotEngine = "criu" | "vmstate";
+export type SnapshotEngine = "criu" | "vmstate" | "portable";
 
 /** Basename of the whole-VM state file inside a vmstate bundle. */
 export const VMSTATE_FILE = "state.vmstate";
@@ -31,9 +35,10 @@ export const VMSTATE_ROOTDISK_FILE = "rootdisk.img";
 
 /**
  * Resolve the snapshot engine from `MACHINEN_SNAPSHOT_ENGINE`.
- * Unset / empty / "vmstate" → "vmstate"; "criu" → "criu". Any other
- * value is a configuration error and throws — silently falling back
- * to the default would hide a typo'd opt-in.
+ * Unset / empty / "vmstate" → "vmstate"; "criu" → "criu";
+ * "portable" → the experimental semantic engine. Any other value is a
+ * configuration error and throws — silently falling back to the default
+ * would hide a typo'd opt-in.
  */
 export function resolveSnapshotEngine(): SnapshotEngine {
   const raw = process.env.MACHINEN_SNAPSHOT_ENGINE;
@@ -41,10 +46,10 @@ export function resolveSnapshotEngine(): SnapshotEngine {
     return "vmstate";
   }
   const v = raw.trim().toLowerCase();
-  if (v === "criu" || v === "vmstate") {
+  if (v === "criu" || v === "vmstate" || v === "portable") {
     return v;
   }
   throw new Error(
-    `MACHINEN_SNAPSHOT_ENGINE must be "criu" or "vmstate" (got ${JSON.stringify(raw)})`,
+    `MACHINEN_SNAPSHOT_ENGINE must be "criu", "vmstate", or "portable" (got ${JSON.stringify(raw)})`,
   );
 }

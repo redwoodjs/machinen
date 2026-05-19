@@ -2726,6 +2726,9 @@ function printHelp(): void {
       `  MACHINEN_ASSETS_DIR                      Use base assets from this directory\n` +
       `                                           instead of the cache / GH Releases\n` +
       `  MACHINEN_GUEST_ARCH                      Guest asset arch: arm64 or amd64\n` +
+      `  MACHINEN_SNAPSHOT_ENGINE                Snapshot engine: vmstate (default),\n` +
+      `                                           criu, or portable (experimental;\n` +
+      `                                           unsupported workload today)\n` +
       `  MACHINEN_REGISTRY_DIR                    Override registry location (default\n` +
       `                                           ~/.machinen/vms)\n` +
       `\n` +

@@ -173,7 +173,7 @@ fi
 #    (all statically linked against musl)
 # ------------------------------------------------------------
 
-echo "==> Building guest binaries (init, exec-agent, winsize-agent, CRIU helpers, poweroff, net-bench-probe) for ${ZIG_GUEST_TARGET}"
+echo "==> Building guest binaries (init, exec-agent, winsize-agent, CRIU helpers, poweroff, net-bench-probe, portable proof) for ${ZIG_GUEST_TARGET}"
 # STAGE has to live inside ROOT, not /tmp, because the mmdebstrap step
 # below runs docker with `-v "$STAGE":/stage:ro`. When build-base-assets
 # itself runs inside a container (agent-ci's local runner, dev shell
@@ -219,6 +219,12 @@ zig cc "${ASSETS}/vmstate-reseed.c" \
   -static \
   -Os \
   -o "${STAGE}/vmstate-reseed"
+
+zig cc "${ASSETS}/portable-proof-workload.c" \
+  -target "${ZIG_GUEST_TARGET}" \
+  -static \
+  -Os \
+  -o "${STAGE}/portable-proof-workload"
 
 # Refresh the in-tree /init that mkinitramfs.packTinyBundle() reads via
 # defaultInitPath() (packages/runtime/src/mkinitramfs.ts). Without this,
@@ -501,8 +507,9 @@ install -m 0755 -D /stage/no-iou            /work/rootfs/sbin/machinen-no-iou
 install -m 0755 -D /stage/poweroff          /work/rootfs/sbin/machinen-poweroff
 install -m 0755 -D /stage/net-bench-probe   /work/rootfs/sbin/machinen-net-bench-probe
 install -m 0755 -D /stage/memdirty          /work/rootfs/sbin/machinen-memdirty
-install -m 0755 -D /stage/winsize-agent     /work/rootfs/sbin/machinen-winsize-agent
-install -m 0755 -D /stage/fnm               /work/rootfs/usr/local/bin/fnm
+install -m 0755 -D /stage/winsize-agent             /work/rootfs/sbin/machinen-winsize-agent
+install -m 0755 -D /stage/portable-proof-workload    /work/rootfs/usr/local/bin/machinen-portable-proof
+install -m 0755 -D /stage/fnm                       /work/rootfs/usr/local/bin/fnm
 # Shell-script helpers that drive the snapshot/restore contract. Staged
 # in by the host-side build step alongside the zig binaries.
 install -m 0755 -D /stage/machinen-supervisor.sh     /work/rootfs/sbin/machinen-supervisor

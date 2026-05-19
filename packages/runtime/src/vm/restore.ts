@@ -27,7 +27,12 @@ import { PhaseTimer } from "../phase-timer.ts";
 import { claimName, findEntry, writeEntry } from "../registry.ts";
 import { boot, type BootOptions } from "./boot.ts";
 import { resolveRestoreLiveMounts } from "./bundle.ts";
-import { VMSTATE_FILE } from "./snapshot-engine.ts";
+import {
+  isPortableSnapshotBundle,
+  PortableSnapshotValidationError,
+  validatePortableSnapshotBundle,
+} from "./portable-snapshot.ts";
+import { resolveSnapshotEngine, VMSTATE_FILE } from "./snapshot-engine.ts";
 import { materializeVmstateChain } from "./vmstate-chain.ts";
 import type {
   SnapshotFileIdentity,
@@ -128,10 +133,52 @@ export interface RestoreOptions extends Omit<BootOptions, "snapshot" | "image" |
  */
 export async function restore(opts: RestoreOptions): Promise<VmHandle> {
   const snapDir = resolve(opts.snapDir);
+  const selectedEngine = resolveSnapshotEngine();
+  if (selectedEngine === "portable") {
+    return restorePortable(opts, snapDir);
+  }
+  if (isPortableSnapshotBundle(snapDir)) {
+    throw new BootError(
+      "BOOT_PORTABLE_UNSUPPORTED",
+      "restore: portable snapshot bundle requires MACHINEN_SNAPSHOT_ENGINE=portable.\n" +
+        "  Portable restore is experimental and not yet implemented; keeping it\n" +
+        "  opt-in avoids confusing semantic process restore with .vmstate/CRIU.",
+    );
+  }
   if (existsSync(join(snapDir, VMSTATE_FILE))) {
     return restoreVmstate(opts, snapDir);
   }
   return restoreCriu(opts, snapDir);
+}
+
+function restorePortable(opts: RestoreOptions, snapDir: string): Promise<VmHandle> {
+  if (opts.lazy) {
+    throw new BootError(
+      "BOOT_PORTABLE_UNSUPPORTED",
+      "restore: --lazy is a CRIU lazy-pages option and is not supported by the portable engine.",
+    );
+  }
+  let program = "unknown";
+  if (isPortableSnapshotBundle(snapDir)) {
+    try {
+      program = validatePortableSnapshotBundle(snapDir).manifest.program.name;
+    } catch (err) {
+      if (err instanceof PortableSnapshotValidationError) {
+        throw new BootError(
+          "BOOT_PORTABLE_UNSUPPORTED",
+          `restore: invalid portable snapshot bundle.\n${err.message}`,
+          { cause: err },
+        );
+      }
+      throw err;
+    }
+  }
+  throw new BootError(
+    "BOOT_PORTABLE_UNSUPPORTED",
+    `restore: portable snapshot engine is experimental and cannot restore workloads yet (program: ${program}).\n` +
+      "  The bundle format and proof workload exist, but the checkpoint/restore\n" +
+      "  implementation has not landed. Use .vmstate or CRIU for supported restores.",
+  );
 }
 
 async function restoreCriu(opts: RestoreOptions, snapDir: string): Promise<VmHandle> {
