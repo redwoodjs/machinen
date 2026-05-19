@@ -44,8 +44,18 @@ function tinyManifest(overrides: Record<string, unknown> = {}) {
     },
     sourceBuild: { buildId: "0123456789abcdef", version: "0.1.0" },
     targetBuild: { version: "0.1.x" },
+    checkpointAbi: {
+      version: 1,
+      checkpointFunction: { name: "machinen_checkpoint" },
+      rootsType: "machinen_checkpoint_roots",
+      restoreBundleType: "machinen_restore_bundle",
+      safePoint: {
+        outsideSignalHandlers: true,
+        outsideSyscalls: true,
+      },
+    },
     checkpointContinuation: { name: "machinen_portable_checkpoint" },
-    restoreEntrypoint: { name: "machinen_portable_restore_entry" },
+    restoreEntrypoint: { name: "machinen_restore_main" },
     process: {
       argv: ["/usr/local/bin/machinen-portable-proof", "--restore-proof"],
       env: { MACHINEN_PORTABLE_PROOF: "1" },
@@ -157,6 +167,39 @@ describe("portable snapshot schemas", () => {
     expect(() => validatePortableSnapshotBundle(dir)).toThrow(
       /manifest\.restoreEntrypoint\.name must be a valid symbol name/,
     );
+  });
+
+  it("requires the cooperative checkpoint ABI to name the safe point contract", () => {
+    const docs = tinyDocs({
+      checkpointAbi: {
+        version: 1,
+        checkpointFunction: { name: "machinen_checkpoint" },
+        rootsType: "machinen_checkpoint_roots",
+        restoreBundleType: "machinen_restore_bundle",
+        safePoint: {
+          outsideSignalHandlers: true,
+          outsideSyscalls: false,
+        },
+      },
+    });
+    expect(validatePortableSnapshotDocuments(docs)).toContain(
+      "manifest.checkpointAbi.safePoint.outsideSyscalls must be true",
+    );
+  });
+
+  it("accepts checkpoint refusal codes in the portable diagnostics vocabulary", () => {
+    const docs = tinyDocs({
+      unsupported: {
+        vocabularyVersion: 1,
+        refusals: [
+          {
+            code: "checkpoint-inside-syscall",
+            message: "checkpoint must happen from a cooperative safe point",
+          },
+        ],
+      },
+    });
+    expect(validatePortableSnapshotDocuments(docs)).toEqual([]);
   });
 
   it("reports missing target build metadata without reading from disk", () => {

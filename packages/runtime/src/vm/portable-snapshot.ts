@@ -1,9 +1,20 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 
-export const PORTABLE_SNAPSHOT_FORMAT_VERSION = 1;
+const PORTABLE_SNAPSHOT_FORMAT_VERSION = 1;
+const PORTABLE_CHECKPOINT_ABI_VERSION = 1;
 
-export const PORTABLE_SNAPSHOT_FILES = {
+const PORTABLE_CHECKPOINT_ABI = {
+  checkpointFunction: "machinen_checkpoint",
+  rootsType: "machinen_checkpoint_roots",
+  restoreBundleType: "machinen_restore_bundle",
+  safePoint: {
+    outsideSignalHandlers: true,
+    outsideSyscalls: true,
+  },
+} as const;
+
+const PORTABLE_SNAPSHOT_FILES = {
   manifest: "manifest.json",
   memory: "memory.bin",
   objects: "objects.json",
@@ -12,10 +23,16 @@ export const PORTABLE_SNAPSHOT_FILES = {
   logs: "logs",
 } as const;
 
-export const PORTABLE_GUEST_ARCHES = ["arm64", "amd64"] as const;
-export type PortableGuestArch = (typeof PORTABLE_GUEST_ARCHES)[number];
+const PORTABLE_GUEST_ARCHES = ["arm64", "amd64"] as const;
+type PortableGuestArch = (typeof PORTABLE_GUEST_ARCHES)[number];
 
-export const PORTABLE_REFUSAL_CODES = [
+const PORTABLE_REFUSAL_CODES = [
+  "checkpoint-refused",
+  "checkpoint-invalid-abi",
+  "checkpoint-invalid-roots",
+  "checkpoint-inside-signal-handler",
+  "checkpoint-inside-syscall",
+  "checkpoint-unsupported-root",
   "architecture-unsupported",
   "build-id-mismatch",
   "entrypoint-missing",
@@ -26,20 +43,33 @@ export const PORTABLE_REFUSAL_CODES = [
   "resource-unsupported",
   "syscall-unsupported",
 ] as const;
-export type PortableRefusalCode = (typeof PORTABLE_REFUSAL_CODES)[number];
+type PortableRefusalCode = (typeof PORTABLE_REFUSAL_CODES)[number];
 
-export interface PortableRefusal {
+interface PortableRefusal {
   code: PortableRefusalCode;
   message: string;
   detail?: Record<string, unknown>;
 }
 
-export interface PortableUnsupportedVocabulary {
+interface PortableUnsupportedVocabulary {
   vocabularyVersion: number;
   refusals: PortableRefusal[];
 }
 
-export interface PortableSnapshotManifest {
+interface PortableCheckpointAbi {
+  version: number;
+  checkpointFunction: {
+    name: string;
+  };
+  rootsType: "machinen_checkpoint_roots";
+  restoreBundleType: "machinen_restore_bundle";
+  safePoint: {
+    outsideSignalHandlers: true;
+    outsideSyscalls: true;
+  };
+}
+
+interface PortableSnapshotManifest {
   formatVersion: number;
   sourceGuestArch: PortableGuestArch;
   allowedTargetGuestArchs: PortableGuestArch[];
@@ -56,6 +86,7 @@ export interface PortableSnapshotManifest {
     buildId?: string;
     version?: string;
   };
+  checkpointAbi: PortableCheckpointAbi;
   checkpointContinuation: {
     name: string;
   };
@@ -71,7 +102,7 @@ export interface PortableSnapshotManifest {
   unsupported: PortableUnsupportedVocabulary;
 }
 
-export interface PortableSnapshotObjects {
+interface PortableSnapshotObjects {
   formatVersion: number;
   objects: Array<{
     id: string;
@@ -87,7 +118,7 @@ export interface PortableSnapshotObjects {
   unsupported: PortableUnsupportedVocabulary;
 }
 
-export interface PortableSnapshotRelocations {
+interface PortableSnapshotRelocations {
   formatVersion: number;
   relocations: Array<{
     fromObject: string;
@@ -99,7 +130,7 @@ export interface PortableSnapshotRelocations {
   unsupported: PortableUnsupportedVocabulary;
 }
 
-export interface PortableSnapshotResources {
+interface PortableSnapshotResources {
   formatVersion: number;
   resources: Array<{
     id: string;
@@ -111,7 +142,7 @@ export interface PortableSnapshotResources {
   unsupported: PortableUnsupportedVocabulary;
 }
 
-export interface PortableSnapshotDocuments {
+interface PortableSnapshotDocuments {
   rootDir?: string;
   manifest: PortableSnapshotManifest;
   objects: PortableSnapshotObjects;
@@ -119,7 +150,7 @@ export interface PortableSnapshotDocuments {
   resources: PortableSnapshotResources;
 }
 
-export interface PortableSnapshotDocumentInput {
+interface PortableSnapshotDocumentInput {
   rootDir?: string;
   manifest: unknown;
   objects: unknown;
@@ -178,6 +209,7 @@ export const portableSnapshotSchemas = {
       "program",
       "sourceBuild",
       "targetBuild",
+      "checkpointAbi",
       "checkpointContinuation",
       "restoreEntrypoint",
       "process",
@@ -219,6 +251,26 @@ export const portableSnapshotSchemas = {
         properties: {
           buildId: BUILD_ID_SCHEMA,
           version: { type: "string", minLength: 1 },
+        },
+      },
+      checkpointAbi: {
+        type: "object",
+        additionalProperties: false,
+        required: ["version", "checkpointFunction", "rootsType", "restoreBundleType", "safePoint"],
+        properties: {
+          version: { const: PORTABLE_CHECKPOINT_ABI_VERSION },
+          checkpointFunction: SYMBOL_SCHEMA,
+          rootsType: { const: PORTABLE_CHECKPOINT_ABI.rootsType },
+          restoreBundleType: { const: PORTABLE_CHECKPOINT_ABI.restoreBundleType },
+          safePoint: {
+            type: "object",
+            additionalProperties: false,
+            required: ["outsideSignalHandlers", "outsideSyscalls"],
+            properties: {
+              outsideSignalHandlers: { const: true },
+              outsideSyscalls: { const: true },
+            },
+          },
         },
       },
       checkpointContinuation: SYMBOL_SCHEMA,
@@ -419,6 +471,7 @@ function validateManifest(ctx: ValidationContext, manifest: unknown): void {
   validateProgram(ctx, m.program);
   validateSourceBuild(ctx, m.sourceBuild);
   validateTargetBuild(ctx, m.targetBuild);
+  validateCheckpointAbi(ctx, m.checkpointAbi);
   validateSymbolObject(ctx, "manifest.checkpointContinuation", m.checkpointContinuation);
   validateSymbolObject(ctx, "manifest.restoreEntrypoint", m.restoreEntrypoint);
   validateProcess(ctx, m.process);
@@ -434,43 +487,78 @@ function validateObjects(ctx: ValidationContext, objectsDoc: unknown): void {
   validateFormatVersion(ctx, "objects.formatVersion", doc.formatVersion);
   const objects = expectArray(ctx, "objects.objects", doc.objects);
   if (objects) {
-    const ids = new Set<string>();
-    for (let i = 0; i < objects.length; i++) {
-      const path = `objects.objects[${i}]`;
-      const obj = expectRecord(ctx, path, objects[i]);
-      if (!obj) {
-        continue;
-      }
-      validateNonEmptyString(ctx, `${path}.id`, obj.id);
-      if (typeof obj.id === "string") {
-        if (ids.has(obj.id)) {
-          ctx.errors.push(`${path}.id duplicates object id ${JSON.stringify(obj.id)}`);
-        }
-        ids.add(obj.id);
-      }
-      validateEnum(ctx, `${path}.kind`, obj.kind, [
-        "global",
-        "heap",
-        "stack",
-        "thread",
-        "tls",
-        "opaque",
-      ]);
-      if (obj.type !== undefined) {
-        validateNonEmptyString(ctx, `${path}.type`, obj.type);
-      }
-      if (obj.sizeBytes !== undefined) {
-        validateNonNegativeInteger(ctx, `${path}.sizeBytes`, obj.sizeBytes);
-      }
-      if (obj.memory !== undefined) {
-        validateMemoryRange(ctx, `${path}.memory`, obj.memory);
-      }
-      if (obj.unsupported !== undefined) {
-        validateUnsupported(ctx, `${path}.unsupported`, obj.unsupported);
-      }
-    }
+    validateObjectEntries(ctx, objects);
   }
   validateUnsupported(ctx, "objects.unsupported", doc.unsupported);
+}
+
+function validateObjectEntries(ctx: ValidationContext, objects: unknown[]): void {
+  const ids = new Set<string>();
+  for (let i = 0; i < objects.length; i++) {
+    validateObjectEntry(ctx, `objects.objects[${i}]`, objects[i], ids);
+  }
+}
+
+function validateObjectEntry(
+  ctx: ValidationContext,
+  path: string,
+  value: unknown,
+  ids: Set<string>,
+): void {
+  const obj = expectRecord(ctx, path, value);
+  if (!obj) {
+    return;
+  }
+  validateObjectId(ctx, path, obj.id, ids);
+  validateEnum(ctx, `${path}.kind`, obj.kind, OBJECT_KINDS);
+  validateOptionalObjectType(ctx, path, obj.type);
+  validateOptionalObjectSize(ctx, path, obj.sizeBytes);
+  validateOptionalObjectMemory(ctx, path, obj.memory);
+  validateOptionalObjectUnsupported(ctx, path, obj.unsupported);
+}
+
+function validateObjectId(
+  ctx: ValidationContext,
+  path: string,
+  value: unknown,
+  ids: Set<string>,
+): void {
+  validateNonEmptyString(ctx, `${path}.id`, value);
+  if (typeof value !== "string") {
+    return;
+  }
+  if (ids.has(value)) {
+    ctx.errors.push(`${path}.id duplicates object id ${JSON.stringify(value)}`);
+  }
+  ids.add(value);
+}
+
+function validateOptionalObjectType(ctx: ValidationContext, path: string, value: unknown): void {
+  if (value !== undefined) {
+    validateNonEmptyString(ctx, `${path}.type`, value);
+  }
+}
+
+function validateOptionalObjectSize(ctx: ValidationContext, path: string, value: unknown): void {
+  if (value !== undefined) {
+    validateNonNegativeInteger(ctx, `${path}.sizeBytes`, value);
+  }
+}
+
+function validateOptionalObjectMemory(ctx: ValidationContext, path: string, value: unknown): void {
+  if (value !== undefined) {
+    validateMemoryRange(ctx, `${path}.memory`, value);
+  }
+}
+
+function validateOptionalObjectUnsupported(
+  ctx: ValidationContext,
+  path: string,
+  value: unknown,
+): void {
+  if (value !== undefined) {
+    validateUnsupported(ctx, `${path}.unsupported`, value);
+  }
 }
 
 function validateRelocations(
@@ -552,24 +640,27 @@ function validatePortableBundleFiles(ctx: ValidationContext): void {
 }
 
 function validateExistingFile(ctx: ValidationContext, name: string): void {
-  const path = join(ctx.rootDir!, name);
-  if (!existsSync(path)) {
-    ctx.errors.push(`${name} is missing`);
-    return;
-  }
-  if (!statSync(path).isFile()) {
-    ctx.errors.push(`${name} must be a file`);
-  }
+  validateExistingPath(ctx, name, name, "file", (stat) => stat.isFile());
 }
 
 function validateExistingDirectory(ctx: ValidationContext, name: string): void {
+  validateExistingPath(ctx, name, `${name}/`, "directory", (stat) => stat.isDirectory());
+}
+
+function validateExistingPath(
+  ctx: ValidationContext,
+  name: string,
+  label: string,
+  kind: string,
+  matchesKind: (stat: ReturnType<typeof statSync>) => boolean,
+): void {
   const path = join(ctx.rootDir!, name);
   if (!existsSync(path)) {
-    ctx.errors.push(`${name}/ is missing`);
+    ctx.errors.push(`${label} is missing`);
     return;
   }
-  if (!statSync(path).isDirectory()) {
-    ctx.errors.push(`${name}/ must be a directory`);
+  if (!matchesKind(statSync(path))) {
+    ctx.errors.push(`${label} must be a ${kind}`);
   }
 }
 
@@ -643,6 +734,49 @@ function validateTargetBuild(ctx: ValidationContext, value: unknown): void {
   }
 }
 
+function validateCheckpointAbi(ctx: ValidationContext, value: unknown): void {
+  const abi = expectRecord(ctx, "manifest.checkpointAbi", value);
+  if (!abi) {
+    return;
+  }
+  if (abi.version !== PORTABLE_CHECKPOINT_ABI_VERSION) {
+    ctx.errors.push(`manifest.checkpointAbi.version must be ${PORTABLE_CHECKPOINT_ABI_VERSION}`);
+  }
+  validateSymbolObject(ctx, "manifest.checkpointAbi.checkpointFunction", abi.checkpointFunction);
+  const checkpointFunction = isRecord(abi.checkpointFunction)
+    ? abi.checkpointFunction.name
+    : undefined;
+  if (checkpointFunction !== PORTABLE_CHECKPOINT_ABI.checkpointFunction) {
+    ctx.errors.push(
+      `manifest.checkpointAbi.checkpointFunction.name must be ${PORTABLE_CHECKPOINT_ABI.checkpointFunction}`,
+    );
+  }
+  if (abi.rootsType !== PORTABLE_CHECKPOINT_ABI.rootsType) {
+    ctx.errors.push(
+      `manifest.checkpointAbi.rootsType must be ${PORTABLE_CHECKPOINT_ABI.rootsType}`,
+    );
+  }
+  if (abi.restoreBundleType !== PORTABLE_CHECKPOINT_ABI.restoreBundleType) {
+    ctx.errors.push(
+      `manifest.checkpointAbi.restoreBundleType must be ${PORTABLE_CHECKPOINT_ABI.restoreBundleType}`,
+    );
+  }
+  validateCheckpointSafePoint(ctx, abi.safePoint);
+}
+
+function validateCheckpointSafePoint(ctx: ValidationContext, value: unknown): void {
+  const safePoint = expectRecord(ctx, "manifest.checkpointAbi.safePoint", value);
+  if (!safePoint) {
+    return;
+  }
+  if (safePoint.outsideSignalHandlers !== true) {
+    ctx.errors.push("manifest.checkpointAbi.safePoint.outsideSignalHandlers must be true");
+  }
+  if (safePoint.outsideSyscalls !== true) {
+    ctx.errors.push("manifest.checkpointAbi.safePoint.outsideSyscalls must be true");
+  }
+}
+
 function validateBuildId(ctx: ValidationContext, path: string, value: unknown): void {
   if (typeof value !== "string" || !BUILD_ID_RE.test(value)) {
     ctx.errors.push(`${path} must be 8-128 hex characters`);
@@ -686,28 +820,76 @@ function validateStringArray(
   if (!arr) {
     return undefined;
   }
-  if (opts.minItems !== undefined && arr.length < opts.minItems) {
-    ctx.errors.push(`${path} must contain at least ${opts.minItems} item(s)`);
+  validateArrayMinItems(ctx, path, arr, opts.minItems);
+  validateStringArrayItems(ctx, path, arr, opts);
+  return arr.filter((v): v is string => typeof v === "string");
+}
+
+function validateArrayMinItems(
+  ctx: ValidationContext,
+  path: string,
+  arr: unknown[],
+  minItems: number | undefined,
+): void {
+  if (minItems !== undefined && arr.length < minItems) {
+    ctx.errors.push(`${path} must contain at least ${minItems} item(s)`);
   }
+}
+
+function validateStringArrayItems(
+  ctx: ValidationContext,
+  path: string,
+  arr: unknown[],
+  opts: { unique?: boolean; pattern?: RegExp },
+): void {
   const seen = new Set<string>();
   for (let i = 0; i < arr.length; i++) {
-    const item = arr[i];
-    const itemPath = `${path}[${i}]`;
-    if (typeof item !== "string") {
-      ctx.errors.push(`${itemPath} must be a string`);
-      continue;
-    }
-    if (opts.pattern && !opts.pattern.test(item)) {
-      ctx.errors.push(`${itemPath} has invalid shape`);
-    }
-    if (opts.unique) {
-      if (seen.has(item)) {
-        ctx.errors.push(`${path} duplicates ${JSON.stringify(item)}`);
-      }
-      seen.add(item);
-    }
+    validateStringArrayItem(ctx, path, i, arr[i], opts, seen);
   }
-  return arr.filter((v): v is string => typeof v === "string");
+}
+
+function validateStringArrayItem(
+  ctx: ValidationContext,
+  path: string,
+  index: number,
+  value: unknown,
+  opts: { unique?: boolean; pattern?: RegExp },
+  seen: Set<string>,
+): void {
+  const itemPath = `${path}[${index}]`;
+  if (typeof value !== "string") {
+    ctx.errors.push(`${itemPath} must be a string`);
+    return;
+  }
+  validateStringArrayPattern(ctx, itemPath, value, opts.pattern);
+  validateStringArrayUnique(ctx, path, value, opts.unique, seen);
+}
+
+function validateStringArrayPattern(
+  ctx: ValidationContext,
+  path: string,
+  value: string,
+  pattern: RegExp | undefined,
+): void {
+  if (pattern && !pattern.test(value)) {
+    ctx.errors.push(`${path} has invalid shape`);
+  }
+}
+
+function validateStringArrayUnique(
+  ctx: ValidationContext,
+  path: string,
+  value: string,
+  unique: boolean | undefined,
+  seen: Set<string>,
+): void {
+  if (!unique) {
+    return;
+  }
+  if (seen.has(value)) {
+    ctx.errors.push(`${path} duplicates ${JSON.stringify(value)}`);
+  }
+  seen.add(value);
 }
 
 function validateStringRecord(ctx: ValidationContext, path: string, value: unknown): void {
@@ -850,6 +1032,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+const OBJECT_KINDS = ["global", "heap", "stack", "thread", "tls", "opaque"] as const;
 const BUILD_ID_RE = /^[0-9A-Fa-f]{8,128}$/;
 const SYMBOL_RE = /^[A-Za-z_][A-Za-z0-9_.$@-]*$/;
 const FEATURE_RE = /^[a-z0-9][a-z0-9._-]*$/;

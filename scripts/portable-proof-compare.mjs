@@ -4,11 +4,90 @@ import { pathToFileURL } from "node:url";
 
 const MARKER = "MACHINEN_PORTABLE_PROOF ";
 const EXPECTED_LIST = [1, 2, 3];
+const EXPECTED_ROOT_NAMES = ["machinen_portable_app_state", "machinen_portable_nodes"];
+const VALID_PHASES = ["checkpoint", "restore", "continue"];
+const VALID_ARCHES = ["arm64", "amd64"];
 const EXPECTED_SYMBOLS = {
-  checkpoint_symbol: "machinen_portable_checkpoint",
-  restore_symbol: "machinen_portable_restore_entry",
+  checkpoint_symbol: "machinen_checkpoint",
+  checkpoint_continuation: "machinen_portable_checkpoint",
+  restore_symbol: "machinen_restore_main",
+  restore_continuation: "machinen_portable_restore_entry",
   state_symbol: "machinen_portable_app_state",
 };
+
+const ARG_PARSERS = [
+  {
+    match: (arg) => arg === "-",
+    consume: (state, index, arg) => {
+      state.positional.push(arg);
+      return index;
+    },
+  },
+  {
+    match: (arg) => arg.startsWith("--expect-arch="),
+    consume: (state, index, arg) => {
+      state.opts.expectArch = arg.slice("--expect-arch=".length);
+      return index;
+    },
+  },
+  {
+    match: (arg) => FLAG_HANDLERS.has(arg),
+    consume: (state, index, arg) => FLAG_HANDLERS.get(arg)(state, index),
+  },
+  {
+    match: (arg) => arg.startsWith("-"),
+    consume: (_state, _index, arg) => usage(`unknown flag: ${arg}`),
+  },
+  {
+    match: () => true,
+    consume: (state, index, arg) => {
+      state.positional.push(arg);
+      return index;
+    },
+  },
+];
+
+const FLAG_HANDLERS = new Map([
+  [
+    "--require-restore",
+    (state, index) => {
+      state.opts.requireRestore = true;
+      return index;
+    },
+  ],
+  [
+    "--require-continue",
+    (state, index) => {
+      state.opts.requireContinue = true;
+      return index;
+    },
+  ],
+  [
+    "--expect-arch",
+    (state, index) => {
+      const value = state.argv[index + 1];
+      if (!value) {
+        usage("--expect-arch requires arm64 or amd64");
+      }
+      state.opts.expectArch = value;
+      return index + 1;
+    },
+  ],
+  [
+    "--help",
+    () => {
+      printUsage();
+      process.exit(0);
+    },
+  ],
+  [
+    "-h",
+    () => {
+      printUsage();
+      process.exit(0);
+    },
+  ],
+]);
 
 export function parsePortableProofEvents(text) {
   const events = [];
@@ -31,38 +110,62 @@ export function parsePortableProofEvents(text) {
 
 export function validatePortableProofEvents(events, opts = {}) {
   const errors = [];
-  const checkpoint = firstPhase(events, "checkpoint");
-  const restore = firstPhase(events, "restore");
-  const continues = events.filter((event) => event.phase === "continue");
+  const phases = collectPhases(events);
 
-  if (!checkpoint) {
-    errors.push("missing checkpoint marker");
-  }
-  if (opts.requireRestore && !restore) {
-    errors.push("missing restore marker");
-  }
-  if (opts.requireContinue && continues.length === 0) {
-    errors.push("missing continue marker");
-  }
-
-  for (const [i, event] of events.entries()) {
-    validateEventShape(errors, event, i, opts.expectArch);
-  }
-
-  if (checkpoint) {
-    validateSnapshotState(errors, "checkpoint", checkpoint, 1000);
-  }
-  if (restore) {
-    validateSnapshotState(errors, "restore", restore, 1000);
-  }
-  if (checkpoint && restore && !sameList(checkpoint.list, restore.list)) {
-    errors.push("restore list does not match checkpoint list");
-  }
-  if (continues.length > 0 && !continues.some((event) => Number(event.counter) > 1000)) {
-    errors.push("continue markers never increment counter beyond 1000");
-  }
+  validateRequiredPhases(errors, phases, opts);
+  validateEventList(errors, events, opts.expectArch);
+  validateCrossPhaseState(errors, phases);
 
   return errors;
+}
+
+function collectPhases(events) {
+  return {
+    checkpoint: firstPhase(events, "checkpoint"),
+    restore: firstPhase(events, "restore"),
+    continues: events.filter((event) => event.phase === "continue"),
+  };
+}
+
+function validateRequiredPhases(errors, phases, opts) {
+  pushIf(errors, !phases.checkpoint, "missing checkpoint marker");
+  pushIf(errors, opts.requireRestore && !phases.restore, "missing restore marker");
+  pushIf(errors, opts.requireContinue && phases.continues.length === 0, "missing continue marker");
+}
+
+function validateEventList(errors, events, expectArch) {
+  for (const [i, event] of events.entries()) {
+    validateEventShape(errors, event, i, expectArch);
+  }
+}
+
+function validateCrossPhaseState(errors, phases) {
+  validateExpectedPhaseState(errors, "checkpoint", phases.checkpoint);
+  validateExpectedPhaseState(errors, "restore", phases.restore);
+  validateRestoreMatchesCheckpoint(errors, phases.checkpoint, phases.restore);
+  validateForwardProgress(errors, phases.continues);
+}
+
+function validateExpectedPhaseState(errors, phase, event) {
+  if (event) {
+    validateSnapshotState(errors, phase, event, 1000);
+  }
+}
+
+function validateRestoreMatchesCheckpoint(errors, checkpoint, restore) {
+  pushIf(
+    errors,
+    Boolean(checkpoint) && Boolean(restore) && !sameList(checkpoint.list, restore.list),
+    "restore list does not match checkpoint list",
+  );
+}
+
+function validateForwardProgress(errors, continues) {
+  pushIf(
+    errors,
+    continues.length > 0 && !continues.some((event) => Number(event.counter) > 1000),
+    "continue markers never increment counter beyond 1000",
+  );
 }
 
 function firstPhase(events, phase) {
@@ -71,38 +174,86 @@ function firstPhase(events, phase) {
 
 function validateEventShape(errors, event, i, expectArch) {
   const prefix = `event[${i}]`;
-  if (event.schema_version !== 1) {
-    errors.push(`${prefix}.schema_version must be 1`);
-  }
-  if (!["checkpoint", "restore", "continue"].includes(event.phase)) {
-    errors.push(`${prefix}.phase is unknown: ${JSON.stringify(event.phase)}`);
-  }
-  if (!["arm64", "amd64"].includes(event.arch)) {
-    errors.push(`${prefix}.arch must be arm64 or amd64`);
-  }
-  if (expectArch && event.arch !== expectArch) {
-    errors.push(`${prefix}.arch expected ${expectArch}, got ${event.arch}`);
-  }
-  if (!Number.isInteger(event.counter)) {
-    errors.push(`${prefix}.counter must be an integer`);
-  }
-  if (!sameList(event.list, EXPECTED_LIST)) {
-    errors.push(`${prefix}.list expected [1,2,3], got ${JSON.stringify(event.list)}`);
-  }
+  validateBasicEventFields(errors, prefix, event, expectArch);
+  validateCheckpointAbiFields(errors, prefix, event);
+  validateProofSymbols(errors, prefix, event);
+}
+
+function validateBasicEventFields(errors, prefix, event, expectArch) {
+  pushIf(errors, event.schema_version !== 1, `${prefix}.schema_version must be 1`);
+  pushIf(
+    errors,
+    !VALID_PHASES.includes(event.phase),
+    `${prefix}.phase is unknown: ${JSON.stringify(event.phase)}`,
+  );
+  pushIf(errors, !VALID_ARCHES.includes(event.arch), `${prefix}.arch must be arm64 or amd64`);
+  pushIf(
+    errors,
+    Boolean(expectArch) && event.arch !== expectArch,
+    `${prefix}.arch expected ${expectArch}, got ${event.arch}`,
+  );
+  pushIf(errors, !Number.isInteger(event.counter), `${prefix}.counter must be an integer`);
+  pushIf(
+    errors,
+    !sameList(event.list, EXPECTED_LIST),
+    `${prefix}.list expected [1,2,3], got ${JSON.stringify(event.list)}`,
+  );
+}
+
+function validateCheckpointAbiFields(errors, prefix, event) {
+  pushIf(errors, event.checkpoint_abi_version !== 1, `${prefix}.checkpoint_abi_version must be 1`);
+  pushIf(
+    errors,
+    event.checkpoint_result !== 0,
+    `${prefix}.checkpoint_result expected 0, got ${JSON.stringify(event.checkpoint_result)}`,
+  );
+  pushIf(
+    errors,
+    event.root_count !== EXPECTED_ROOT_NAMES.length,
+    `${prefix}.root_count expected ${EXPECTED_ROOT_NAMES.length}, got ${JSON.stringify(event.root_count)}`,
+  );
+  pushIf(
+    errors,
+    !sameList(event.root_names, EXPECTED_ROOT_NAMES),
+    `${prefix}.root_names expected ${JSON.stringify(EXPECTED_ROOT_NAMES)}, got ${JSON.stringify(event.root_names)}`,
+  );
+  validateSafePoint(errors, prefix, event.safe_point);
+}
+
+function validateSafePoint(errors, prefix, safePoint) {
+  pushIf(
+    errors,
+    !safePoint || safePoint.outside_signal_handler !== true,
+    `${prefix}.safe_point.outside_signal_handler must be true`,
+  );
+  pushIf(
+    errors,
+    !safePoint || safePoint.outside_syscall !== true,
+    `${prefix}.safe_point.outside_syscall must be true`,
+  );
+}
+
+function validateProofSymbols(errors, prefix, event) {
   for (const [field, expected] of Object.entries(EXPECTED_SYMBOLS)) {
-    if (event[field] !== expected) {
-      errors.push(`${prefix}.${field} expected ${expected}, got ${JSON.stringify(event[field])}`);
-    }
+    pushIf(
+      errors,
+      event[field] !== expected,
+      `${prefix}.${field} expected ${expected}, got ${JSON.stringify(event[field])}`,
+    );
   }
 }
 
 function validateSnapshotState(errors, phase, event, expectedCounter) {
-  if (event.counter !== expectedCounter) {
-    errors.push(`${phase}.counter expected ${expectedCounter}, got ${event.counter}`);
-  }
-  if (!sameList(event.list, EXPECTED_LIST)) {
-    errors.push(`${phase}.list expected [1,2,3], got ${JSON.stringify(event.list)}`);
-  }
+  pushIf(
+    errors,
+    event.counter !== expectedCounter,
+    `${phase}.counter expected ${expectedCounter}, got ${event.counter}`,
+  );
+  pushIf(
+    errors,
+    !sameList(event.list, EXPECTED_LIST),
+    `${phase}.list expected [1,2,3], got ${JSON.stringify(event.list)}`,
+  );
 }
 
 function sameList(a, b) {
@@ -114,38 +265,38 @@ function sameList(a, b) {
   );
 }
 
+function pushIf(errors, condition, message) {
+  if (condition) {
+    errors.push(message);
+  }
+}
+
 function parseArgs(argv) {
-  const opts = { requireRestore: false, requireContinue: false, expectArch: undefined };
-  const positional = [];
+  const state = {
+    argv,
+    opts: { requireRestore: false, requireContinue: false, expectArch: undefined },
+    positional: [],
+  };
   for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i];
-    if (arg === "--require-restore") {
-      opts.requireRestore = true;
-    } else if (arg === "--require-continue") {
-      opts.requireContinue = true;
-    } else if (arg === "--expect-arch") {
-      opts.expectArch = argv[++i];
-      if (!opts.expectArch) {
-        usage("--expect-arch requires arm64 or amd64");
-      }
-    } else if (arg.startsWith("--expect-arch=")) {
-      opts.expectArch = arg.slice("--expect-arch=".length);
-    } else if (arg === "--help" || arg === "-h") {
-      printUsage();
-      process.exit(0);
-    } else if (arg.startsWith("-")) {
-      usage(`unknown flag: ${arg}`);
-    } else {
-      positional.push(arg);
-    }
+    i = consumeArg(state, i);
   }
-  if (opts.expectArch && !["arm64", "amd64"].includes(opts.expectArch)) {
-    usage(`--expect-arch must be arm64 or amd64 (got ${opts.expectArch})`);
+  validateArgs(state);
+  return { ...state.opts, path: state.positional[0] };
+}
+
+function consumeArg(state, index) {
+  const arg = state.argv[index];
+  const parser = ARG_PARSERS.find((candidate) => candidate.match(arg));
+  return parser.consume(state, index, arg);
+}
+
+function validateArgs(state) {
+  if (state.opts.expectArch && !VALID_ARCHES.includes(state.opts.expectArch)) {
+    usage(`--expect-arch must be arm64 or amd64 (got ${state.opts.expectArch})`);
   }
-  if (positional.length !== 1) {
+  if (state.positional.length !== 1) {
     usage("expected one log file path or '-'");
   }
-  return { ...opts, path: positional[0] };
 }
 
 function usage(message) {
