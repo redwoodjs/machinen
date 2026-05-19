@@ -64,6 +64,7 @@ function writeBundle(heapBytes = EXPECTED_HEAP_BYTES): string {
   mkdirSync(join(dir, "logs"));
   const memory = Buffer.concat([Buffer.from([0, 1, 2, 3]), Buffer.from(heapBytes)]);
   writeFileSync(join(dir, "memory.bin"), memory);
+  writeFileSync(join(dir, "relocations.json"), JSON.stringify(tinyRelocations()));
   writeFileSync(
     join(dir, "objects.json"),
     JSON.stringify({
@@ -82,6 +83,39 @@ function writeBundle(heapBytes = EXPECTED_HEAP_BYTES): string {
     }),
   );
   return dir;
+}
+
+function tinyRelocations() {
+  return {
+    formatVersion: 1,
+    relocations: [
+      {
+        fromObject: "global-app-state",
+        fromOffset: 8,
+        toObject: "global-nodes",
+        addend: 0,
+        kind: "pointer",
+        sourcePointer: "0x1000",
+      },
+      {
+        fromObject: "global-nodes",
+        fromOffset: 8,
+        toObject: "global-nodes",
+        addend: 16,
+        kind: "pointer",
+        sourcePointer: "0x1010",
+      },
+      {
+        fromObject: "global-nodes",
+        fromOffset: 24,
+        toObject: "global-nodes",
+        addend: 32,
+        kind: "pointer",
+        sourcePointer: "0x1020",
+      },
+    ],
+    unsupported: { vocabularyVersion: 1, refusals: [] },
+  };
 }
 
 function runHelper(args: string[], input?: string) {
