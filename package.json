@@ -39,6 +39,7 @@
     "runtime-state-probe": "node scripts/runtime-state-probe.mjs verify",
     "real-target-feasibility": "node scripts/real-target-feasibility.mjs verify",
     "native-process-capture": "node scripts/native-process-capture.mjs verify",
+    "native-restore-loader": "node scripts/native-restore-loader.mjs verify",
     "smoke-test-snapshot-restore-fork": "bash scripts/smoke-test-snapshot-restore-fork.sh",
     "smoke-vmstate": "bash scripts/smoke/vmstate/all.sh",
     "smoke-vmstate-timers": "bash scripts/smoke/vmstate/timers.sh",
