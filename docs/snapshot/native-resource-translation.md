@@ -10,6 +10,9 @@ pnpm native-resource-translate
 ```
 
 The proof creates a regular-file reopen recipe and refuses a brokerless socket.
+The file-resource final-jump proof then consumes a regular-file recipe and proves
+that target-native code can read from the reopened fd after a translated native
+return.
 
 ## Recipes
 
@@ -32,6 +35,8 @@ Each refusal includes the resource id, kind, fd, and path when available.
 
 ## Boundary
 
-This issue defines resource recipes. It does not implement the host broker
-itself. That broker is required before `ping` raw sockets, PTYs, child process
-trees, timers, epoll sets, and futex waiters can resume transparently.
+This issue defines resource recipes. The follow-up file-resource final-jump
+proof applies only regular-file recipes that can be reopened by path on the
+target host. A host broker is still required before `ping` raw sockets, PTYs,
+child process trees, timers, epoll sets, and futex waiters can resume
+transparently.

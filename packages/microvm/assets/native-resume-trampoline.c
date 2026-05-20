@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -49,6 +50,12 @@ struct Options {
   uint64_t expect_return_marker;
   bool has_expect_graph_checksum;
   uint64_t expect_graph_checksum;
+  bool has_expect_resource_checksum;
+  uint64_t expect_resource_checksum;
+  bool has_reopen_fd;
+  int reopen_fd;
+  uint64_t reopen_offset;
+  const char *reopen_path;
 };
 
 static void usage(void) {
@@ -59,7 +66,8 @@ static void usage(void) {
       "--stack-target-start addr --stack-size n --arg0 n --expect-return n "
       "--expect-store-marker n [--expect-initial-word0 n] "
       "[--translated-return addr --expect-return-marker n] "
-      "[--expect-graph-checksum n]\n");
+      "[--expect-graph-checksum n] [--expect-resource-checksum n] "
+      "[--reopen-fd fd --reopen-path path --reopen-offset n]\n");
   exit(2);
 }
 
@@ -174,6 +182,33 @@ static struct Options parse_args(int argc, char **argv) {
       }
       opts.has_expect_graph_checksum = true;
       opts.expect_graph_checksum = parse_u64(argv[i], "expect-graph-checksum");
+    } else if (streq(argv[i], "--expect-resource-checksum")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.has_expect_resource_checksum = true;
+      opts.expect_resource_checksum = parse_u64(argv[i], "expect-resource-checksum");
+    } else if (streq(argv[i], "--reopen-fd")) {
+      if (++i >= argc) {
+        usage();
+      }
+      uint64_t fd = parse_u64(argv[i], "reopen-fd");
+      if (fd > INT_MAX) {
+        fprintf(stderr, "native-resume-trampoline: reopen fd is too large\n");
+        exit(2);
+      }
+      opts.has_reopen_fd = true;
+      opts.reopen_fd = (int)fd;
+    } else if (streq(argv[i], "--reopen-path")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.reopen_path = argv[i];
+    } else if (streq(argv[i], "--reopen-offset")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.reopen_offset = parse_u64(argv[i], "reopen-offset");
     } else {
       usage();
     }
@@ -194,6 +229,10 @@ static struct Options parse_args(int argc, char **argv) {
       (opts.translated_return < opts.text_target_start ||
           opts.translated_return >= opts.text_target_start + opts.text_size)) {
     fprintf(stderr, "native-resume-trampoline: translated return is outside text mapping\n");
+    exit(2);
+  }
+  if (opts.has_reopen_fd != (opts.reopen_path != NULL)) {
+    fprintf(stderr, "native-resume-trampoline: reopen fd requires reopen path\n");
     exit(2);
   }
   return opts;
@@ -351,13 +390,40 @@ static void validate_initial_data(const struct Options *opts, const void *data) 
   }
 }
 
+static void reopen_regular_file_resource(const struct Options *opts) {
+  if (!opts->has_reopen_fd) {
+    return;
+  }
+  int fd = open(opts->reopen_path, O_RDONLY);
+  if (fd < 0) {
+    fprintf(stderr,
+        "native-resume-trampoline: reopen regular file failed for %s: %s\n",
+        opts->reopen_path,
+        strerror(errno));
+    exit(1);
+  }
+  if (fd != opts->reopen_fd) {
+    if (dup2(fd, opts->reopen_fd) < 0) {
+      fprintf(stderr, "native-resume-trampoline: dup2 resource fd failed: %s\n", strerror(errno));
+      close(fd);
+      exit(1);
+    }
+    close(fd);
+  }
+  if (lseek(opts->reopen_fd, (off_t)opts->reopen_offset, SEEK_SET) < 0) {
+    fprintf(stderr, "native-resume-trampoline: seek resource fd failed: %s\n", strerror(errno));
+    exit(1);
+  }
+}
+
 static void validate_resume_result(const struct Options *opts,
     uint64_t result,
     uint64_t stored_rsp,
     uint64_t stored_marker,
     uint64_t return_marker,
     uint64_t observed_return_rsp,
-    uint64_t graph_checksum) {
+    uint64_t graph_checksum,
+    uint64_t resource_checksum) {
   if (result != opts->expect_return) {
     fprintf(stderr,
         "native-resume-trampoline: target code returned 0x%" PRIx64 ", expected 0x%" PRIx64
@@ -412,6 +478,14 @@ static void validate_resume_result(const struct Options *opts,
         opts->expect_graph_checksum);
     exit(1);
   }
+  if (opts->has_expect_resource_checksum && resource_checksum != opts->expect_resource_checksum) {
+    fprintf(stderr,
+        "native-resume-trampoline: target resource checksum was 0x%" PRIx64
+        ", expected 0x%" PRIx64 "\n",
+        resource_checksum,
+        opts->expect_resource_checksum);
+    exit(1);
+  }
 }
 
 int main(int argc, char **argv) {
@@ -437,6 +511,7 @@ int main(int argc, char **argv) {
   void *data = map_segment(fd, opts.data_target_start, opts.data_size, opts.data_offset, "data");
   close(fd);
   validate_initial_data(&opts, data);
+  reopen_regular_file_resource(&opts);
   void *stack = map_fixed(opts.stack_target_start, opts.stack_size, PROT_READ | PROT_WRITE, "stack");
 
   TargetEntry entry = (TargetEntry)(uintptr_t)(opts.text_target_start + opts.entry_offset);
@@ -448,8 +523,15 @@ int main(int argc, char **argv) {
   uint64_t return_marker = ((uint64_t *)data)[2];
   uint64_t observed_return_rsp = ((uint64_t *)data)[3];
   uint64_t graph_checksum = ((uint64_t *)data)[5];
-  validate_resume_result(
-      &opts, result, stored_rsp, stored_marker, return_marker, observed_return_rsp, graph_checksum);
+  uint64_t resource_checksum = ((uint64_t *)data)[6];
+  validate_resume_result(&opts,
+      result,
+      stored_rsp,
+      stored_marker,
+      return_marker,
+      observed_return_rsp,
+      graph_checksum,
+      resource_checksum);
 
   printf(
       "MACHINEN_NATIVE_RESUME_TRAMPOLINE {\"status\":\"jumped\","
@@ -458,7 +540,7 @@ int main(int argc, char **argv) {
       "\"storedMarker\":\"0x%" PRIx64 "\",\"observedRsp\":\"0x%" PRIx64 "\","
       "\"returnAddress\":\"0x%" PRIx64 "\",\"returnMarker\":\"0x%" PRIx64 "\","
       "\"observedReturnRsp\":\"0x%" PRIx64 "\",\"returnedToTranslatedAddress\":%s,"
-      "\"graphChecksum\":\"0x%" PRIx64 "\","
+      "\"graphChecksum\":\"0x%" PRIx64 "\",\"resourceChecksum\":\"0x%" PRIx64 "\","
       "\"stackStart\":\"0x%" PRIx64 "\",\"stackEnd\":\"0x%" PRIx64 "\","
       "\"usedTargetStack\":true}\n",
       opts.text_target_start + opts.entry_offset,
@@ -471,6 +553,7 @@ int main(int argc, char **argv) {
       observed_return_rsp,
       opts.has_translated_return ? "true" : "false",
       graph_checksum,
+      resource_checksum,
       opts.stack_target_start,
       opts.stack_target_start + opts.stack_size);
 
