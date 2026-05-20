@@ -15,6 +15,38 @@ import type {
   RuntimeAdapterValue,
 } from "./runtime-adapter.ts";
 
+export interface NodeRuntimeFileResource {
+  id: string;
+  path: string;
+  flags: string[];
+  offset?: number;
+}
+
+export interface NodeRuntimeNativeHandleRefusal {
+  id: string;
+  kind: RuntimeAdapterResourceKind;
+  code?: RuntimeAdapterRefusal["code"];
+  message: string;
+  detail?: Record<string, unknown>;
+}
+
+export interface CaptureNodeNativeResourcesOptions {
+  argv?: string[];
+  env?: Record<string, string>;
+  cwd?: string;
+  files?: NodeRuntimeFileResource[];
+  includeStdioRefusals?: boolean;
+  nativeHandleRefusals?: NodeRuntimeNativeHandleRefusal[];
+  extraResources?: RuntimeAdapterResource[];
+}
+
+export interface RestoredNodeResourceRecipes {
+  argv?: string[];
+  env?: Record<string, string>;
+  cwd?: string;
+  files: NodeRuntimeFileResource[];
+}
+
 export interface CaptureNodeRuntimeAdapterOptions {
   adapterId?: string;
   adapterVersion?: string;
@@ -26,7 +58,25 @@ export interface CaptureNodeRuntimeAdapterOptions {
     cwd?: string;
   };
   resources?: RuntimeAdapterResource[];
+  files?: NodeRuntimeFileResource[];
+  includeStdioRefusals?: boolean;
+  nativeHandleRefusals?: NodeRuntimeNativeHandleRefusal[];
 }
+
+export const NODE_RUNTIME_NATIVE_RESOURCE_KINDS = [
+  "argv",
+  "env",
+  "cwd",
+  "file",
+  "fd",
+  "socket",
+  "timer",
+  "child-process",
+  "worker",
+  "pty",
+  "fs-watch",
+  "native-handle",
+] as const;
 
 export class NodeRuntimeAdapterUnsupportedError extends Error {
   readonly refusals: RuntimeAdapterRefusal[];
@@ -165,6 +215,59 @@ export function captureNodeRuntimeAdapterDocument(
   return assertRuntimeAdapterDocument(document);
 }
 
+export function captureNodeNativeResources(
+  options: CaptureNodeNativeResourcesOptions = {},
+): RuntimeAdapterResources {
+  const resources: RuntimeAdapterResource[] = [
+    {
+      id: "argv",
+      kind: "argv",
+      state: "captured",
+      recipe: { kind: "argv", detail: { argv: options.argv ?? globalThis.process?.argv ?? [] } },
+    },
+    {
+      id: "env",
+      kind: "env",
+      state: "captured",
+      recipe: { kind: "env", detail: { env: options.env ?? { MACHINEN_RUNTIME_ADAPTER: "1" } } },
+    },
+    {
+      id: "cwd",
+      kind: "cwd",
+      state: "captured",
+      recipe: { kind: "cwd", detail: { cwd: options.cwd ?? globalThis.process?.cwd?.() ?? "/" } },
+    },
+    ...(options.files ?? []).map((file) => fileResource(file)),
+    ...(options.includeStdioRefusals ? stdioRefusals() : []),
+    ...(options.nativeHandleRefusals ?? []).map((handle) => refusedResource(handle)),
+    ...(options.extraResources ?? []),
+  ];
+  return {
+    resources,
+    unsupported: unsupported(
+      resources.flatMap((resource) =>
+        resource.state === "captured" || !resource.refusal ? [] : [resource.refusal],
+      ),
+    ),
+  };
+}
+
+export function restoreNodeCapturedResourceRecipes(
+  resources: RuntimeAdapterResources,
+): RestoredNodeResourceRecipes {
+  const refusals = resources.resources.flatMap((resource) =>
+    resource.state === "captured" || !resource.refusal ? [] : [resource.refusal],
+  );
+  if (refusals.length > 0) {
+    throw new NodeRuntimeAdapterUnsupportedError(refusals);
+  }
+  const restored: RestoredNodeResourceRecipes = { files: [] };
+  for (const resource of resources.resources) {
+    applyCapturedResource(restored, resource);
+  }
+  return restored;
+}
+
 export function restoreNodeRuntimeAdapterRoots(
   document: RuntimeAdapterDocument,
 ): Record<string, unknown> {
@@ -207,44 +310,86 @@ function nodeBuild(build: Partial<RuntimeAdapterBuild> | undefined): RuntimeAdap
 }
 
 function nodeResources(options: CaptureNodeRuntimeAdapterOptions): RuntimeAdapterResources {
-  const defaults: RuntimeAdapterResource[] = [
-    {
-      id: "argv",
-      kind: "argv",
-      state: "captured",
-      recipe: {
-        kind: "argv",
-        detail: { argv: options.process?.argv ?? globalThis.process?.argv ?? [] },
-      },
-    },
-    {
-      id: "env",
-      kind: "env",
-      state: "captured",
-      recipe: {
-        kind: "env",
-        detail: { env: options.process?.env ?? { MACHINEN_RUNTIME_ADAPTER: "1" } },
-      },
-    },
-    {
-      id: "cwd",
-      kind: "cwd",
-      state: "captured",
-      recipe: {
-        kind: "cwd",
-        detail: { cwd: options.process?.cwd ?? globalThis.process?.cwd?.() ?? "/" },
-      },
-    },
-  ];
-  const resources = [...defaults, ...(options.resources ?? [])];
+  return captureNodeNativeResources({
+    argv: options.process?.argv,
+    env: options.process?.env,
+    cwd: options.process?.cwd,
+    files: options.files,
+    includeStdioRefusals: options.includeStdioRefusals,
+    nativeHandleRefusals: options.nativeHandleRefusals,
+    extraResources: options.resources,
+  });
+}
+
+function fileResource(file: NodeRuntimeFileResource): RuntimeAdapterResource {
   return {
-    resources,
-    unsupported: unsupported(
-      resources.flatMap((resource) =>
-        resource.state === "captured" || !resource.refusal ? [] : [resource.refusal],
-      ),
-    ),
+    id: file.id,
+    kind: "file",
+    state: "captured",
+    recipe: {
+      kind: "file",
+      detail: { path: file.path, flags: file.flags, offset: file.offset ?? 0 },
+    },
   };
+}
+
+function stdioRefusals(): RuntimeAdapterResource[] {
+  return [0, 1, 2].map((fd) => ({
+    id: `node:stdio:${fd}`,
+    kind: "fd" as const,
+    state: "refused" as const,
+    refusal: {
+      code: "fd-kind-unsupported" as const,
+      message: `stdio fd ${fd} is a native handle and needs a host capability recipe`,
+      detail: { fd },
+    },
+  }));
+}
+
+function refusedResource(handle: NodeRuntimeNativeHandleRefusal): RuntimeAdapterResource {
+  return {
+    id: handle.id,
+    kind: handle.kind,
+    state: "refused",
+    refusal: {
+      code: handle.code ?? defaultRefusalCode(handle.kind),
+      message: handle.message,
+      detail: handle.detail,
+    },
+  };
+}
+
+function defaultRefusalCode(kind: RuntimeAdapterResourceKind): RuntimeAdapterRefusal["code"] {
+  if (kind === "timer") {
+    return "runtime-heap-unsupported";
+  }
+  if (kind === "fd") {
+    return "fd-kind-unsupported";
+  }
+  return "resource-unsupported";
+}
+
+function applyCapturedResource(
+  restored: RestoredNodeResourceRecipes,
+  resource: RuntimeAdapterResource,
+): void {
+  const detail = resource.recipe?.detail ?? {};
+  if (resource.id === "argv" && Array.isArray(detail.argv)) {
+    restored.argv = detail.argv.filter((item): item is string => typeof item === "string");
+  } else if (resource.id === "env" && isStringRecord(detail.env)) {
+    restored.env = detail.env;
+  } else if (resource.id === "cwd" && typeof detail.cwd === "string") {
+    restored.cwd = detail.cwd;
+  } else if (resource.kind === "file") {
+    restored.files.push({
+      id: resource.id,
+      path: typeof detail.path === "string" ? detail.path : "",
+      flags: Array.isArray(detail.flags)
+        ? detail.flags.filter((item): item is string => typeof item === "string")
+        : [],
+      offset: typeof detail.offset === "number" ? detail.offset : 0,
+    });
+  }
 }
 
 class NodeGraphEncoder {
@@ -584,6 +729,13 @@ function checksumGraphShape(
 
 function unsupported(refusals: RuntimeAdapterRefusal[]): RuntimeAdapterUnsupportedVocabulary {
   return { vocabularyVersion: 1, refusals };
+}
+
+function isStringRecord(value: unknown): value is Record<string, string> {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  return Object.values(value).every((entry) => typeof entry === "string");
 }
 
 function hostArch(): "arm64" | "amd64" {

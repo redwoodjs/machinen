@@ -136,14 +136,21 @@ export {
   validateRuntimeAdapterDocument,
 } from "./runtime-adapter.ts";
 export {
+  NODE_RUNTIME_NATIVE_RESOURCE_KINDS,
   NodeRuntimeAdapterUnsupportedError,
+  captureNodeNativeResources,
   captureNodeRuntimeAdapterDocument,
   collectNodeRuntimeAdapterRefusals,
+  restoreNodeCapturedResourceRecipes,
   restoreNodeRuntimeAdapterRoots,
 } from "./node-runtime-adapter.ts";
 export type {
+  CaptureNodeNativeResourcesOptions,
   CaptureNodeRuntimeAdapterOptions,
   NodeRuntimeAdapterResourceKind,
+  NodeRuntimeFileResource,
+  NodeRuntimeNativeHandleRefusal,
+  RestoredNodeResourceRecipes,
 } from "./node-runtime-adapter.ts";
 export type {
   RuntimeAdapterArch,

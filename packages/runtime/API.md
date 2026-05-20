@@ -130,11 +130,18 @@
 - [`RUNTIME_ADAPTER_BUNDLE_FILE`](#runtime_adapter_bundle_file)
 - [`RuntimeAdapterValidationError`](#runtimeadaptervalidationerror)
 - [`NodeRuntimeAdapterUnsupportedError`](#noderuntimeadapterunsupportederror)
+- [`NODE_RUNTIME_NATIVE_RESOURCE_KINDS`](#node_runtime_native_resource_kinds)
 - [`captureNodeRuntimeAdapterDocument`](#capturenoderuntimeadapterdocument)
 - [`restoreNodeRuntimeAdapterRoots`](#restorenoderuntimeadapterroots)
 - [`collectNodeRuntimeAdapterRefusals`](#collectnoderuntimeadapterrefusals)
+- [`captureNodeNativeResources`](#capturenodenativeresources)
+- [`restoreNodeCapturedResourceRecipes`](#restorenodecapturedresourcerecipes)
 - [`CaptureNodeRuntimeAdapterOptions`](#capturenoderuntimeadapteroptions)
+- [`CaptureNodeNativeResourcesOptions`](#capturenodenativeresourcesoptions)
 - [`NodeRuntimeAdapterResourceKind`](#noderuntimeadapterresourcekind)
+- [`NodeRuntimeFileResource`](#noderuntimefileresource)
+- [`NodeRuntimeNativeHandleRefusal`](#noderuntimenativehandlerefusal)
+- [`RestoredNodeResourceRecipes`](#restorednoderesourcerecipes)
 - [`runtimeAdapterRefusalCodes`](#runtimeadapterrefusalcodes)
 - [`runtimeAdapterSchemas`](#runtimeadapterschemas)
 - [`validateRuntimeAdapterDocument`](#validateruntimeadapterdocument)
@@ -2209,6 +2216,110 @@ by default when `output` is a TTY.
 
 ***
 
+### NodeRuntimeFileResource
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### path
+
+> **path**: `string`
+
+##### flags
+
+> **flags**: `string`[]
+
+##### offset?
+
+> `optional` **offset?**: `number`
+
+***
+
+### NodeRuntimeNativeHandleRefusal
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### kind
+
+> **kind**: [`RuntimeAdapterResourceKind`](#runtimeadapterresourcekind)
+
+##### code?
+
+> `optional` **code?**: `"fd-kind-unsupported"` \| `"target-build-mismatch"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"feature-unsupported"` \| `"object-unsupported"` \| `"resource-unsupported"` \| `"runtime-adapter-missing"` \| `"runtime-heap-unsupported"`
+
+##### message
+
+> **message**: `string`
+
+##### detail?
+
+> `optional` **detail?**: `Record`\<`string`, `unknown`\>
+
+***
+
+### CaptureNodeNativeResourcesOptions
+
+#### Properties
+
+##### argv?
+
+> `optional` **argv?**: `string`[]
+
+##### env?
+
+> `optional` **env?**: `Record`\<`string`, `string`\>
+
+##### cwd?
+
+> `optional` **cwd?**: `string`
+
+##### files?
+
+> `optional` **files?**: [`NodeRuntimeFileResource`](#noderuntimefileresource)[]
+
+##### includeStdioRefusals?
+
+> `optional` **includeStdioRefusals?**: `boolean`
+
+##### nativeHandleRefusals?
+
+> `optional` **nativeHandleRefusals?**: [`NodeRuntimeNativeHandleRefusal`](#noderuntimenativehandlerefusal)[]
+
+##### extraResources?
+
+> `optional` **extraResources?**: [`RuntimeAdapterResource`](#runtimeadapterresource)[]
+
+***
+
+### RestoredNodeResourceRecipes
+
+#### Properties
+
+##### argv?
+
+> `optional` **argv?**: `string`[]
+
+##### env?
+
+> `optional` **env?**: `Record`\<`string`, `string`\>
+
+##### cwd?
+
+> `optional` **cwd?**: `string`
+
+##### files
+
+> **files**: [`NodeRuntimeFileResource`](#noderuntimefileresource)[]
+
+***
+
 ### CaptureNodeRuntimeAdapterOptions
 
 #### Properties
@@ -2248,6 +2359,18 @@ by default when `output` is a TTY.
 ##### resources?
 
 > `optional` **resources?**: [`RuntimeAdapterResource`](#runtimeadapterresource)[]
+
+##### files?
+
+> `optional` **files?**: [`NodeRuntimeFileResource`](#noderuntimefileresource)[]
+
+##### includeStdioRefusals?
+
+> `optional` **includeStdioRefusals?**: `boolean`
+
+##### nativeHandleRefusals?
+
+> `optional` **nativeHandleRefusals?**: [`NodeRuntimeNativeHandleRefusal`](#noderuntimenativehandlerefusal)[]
 
 ***
 
@@ -4365,7 +4488,7 @@ the host-side VMM process.
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`env`](#env-7)
+[`BootOptions`](#bootoptions).[`env`](#env-9)
 
 ##### guestCwd?
 
@@ -4585,7 +4708,7 @@ Working directory for the VMM (for finding fixture files).
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`cwd`](#cwd-4)
+[`BootOptions`](#bootoptions).[`cwd`](#cwd-6)
 
 ##### args?
 
@@ -5159,7 +5282,7 @@ the host-side VMM process.
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`env`](#env-7)
+[`BootOptions`](#bootoptions).[`env`](#env-9)
 
 ##### guestCwd?
 
@@ -5403,7 +5526,7 @@ Working directory for the VMM (for finding fixture files).
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`cwd`](#cwd-4)
+[`BootOptions`](#bootoptions).[`cwd`](#cwd-6)
 
 ##### args?
 
@@ -6224,6 +6347,12 @@ Smoke-test rationale: a host running `pnpm smoke-tests` sees
 five sequential VMs leave it with ~1 GiB free in steady state.
 Anything stricter than this default trips on real-world dev
 loops; anything looser stops being a meaningful gate.
+
+***
+
+### NODE\_RUNTIME\_NATIVE\_RESOURCE\_KINDS
+
+> `const` **NODE\_RUNTIME\_NATIVE\_RESOURCE\_KINDS**: readonly \[`"argv"`, `"env"`, `"cwd"`, `"file"`, `"fd"`, `"socket"`, `"timer"`, `"child-process"`, `"worker"`, `"pty"`, `"fs-watch"`, `"native-handle"`\]
 
 ***
 
@@ -8216,6 +8345,38 @@ available.
 #### Returns
 
 [`RuntimeAdapterDocument`](#runtimeadapterdocument)
+
+***
+
+### captureNodeNativeResources()
+
+> **captureNodeNativeResources**(`options?`): [`RuntimeAdapterResources`](#runtimeadapterresources)
+
+#### Parameters
+
+##### options?
+
+[`CaptureNodeNativeResourcesOptions`](#capturenodenativeresourcesoptions) = `{}`
+
+#### Returns
+
+[`RuntimeAdapterResources`](#runtimeadapterresources)
+
+***
+
+### restoreNodeCapturedResourceRecipes()
+
+> **restoreNodeCapturedResourceRecipes**(`resources`): [`RestoredNodeResourceRecipes`](#restorednoderesourcerecipes)
+
+#### Parameters
+
+##### resources
+
+[`RuntimeAdapterResources`](#runtimeadapterresources)
+
+#### Returns
+
+[`RestoredNodeResourceRecipes`](#restorednoderesourcerecipes)
 
 ***
 
