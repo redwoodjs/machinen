@@ -10,7 +10,8 @@ pnpm native-register-translate
 ```
 
 The proof translates one safe arm64 thread and refuses one unsafe thread stopped
-inside a syscall.
+inside a syscall. The thread-refusal matrix proof expands that boundary across
+syscall restart, signal, alt-stack, rseq, and architecture-pair cases.
 
 ## Safe point contract
 
@@ -20,6 +21,7 @@ A thread can translate only when all of these are true:
 - target architecture is `amd64`;
 - syscall state is `outside-syscall`;
 - no signal frame is active;
+- pending and blocked signal masks are empty or procfs-style zero masks;
 - alternate signal stack state is disabled;
 - rseq state is absent;
 - a target continuation supplies the translated instruction pointer, stack
@@ -37,7 +39,7 @@ Unsafe states refuse with stable codes:
 
 - `active-syscall` for syscall/restart-block states;
 - `signal-frame-active` for active signal trampolines;
-- `signal-state-unsupported` for alt-stack state;
+- `signal-state-unsupported` for non-zero pending/blocked signal masks or alt-stack state;
 - `rseq-state-unsupported` for rseq metadata;
 - `code-location-unknown` when the captured PC has no target continuation;
 - `architecture-pair-unsupported` for anything other than the initial arm64 ->
