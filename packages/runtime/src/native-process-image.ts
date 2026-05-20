@@ -211,6 +211,7 @@ export type NativeProcessResourceKind =
   | "env"
   | "cwd"
   | "exe"
+  | "auxv"
   | "fd"
   | "file"
   | "pipe"
@@ -1357,6 +1358,7 @@ const RESOURCE_KINDS = [
   "env",
   "cwd",
   "exe",
+  "auxv",
   "fd",
   "file",
   "pipe",
