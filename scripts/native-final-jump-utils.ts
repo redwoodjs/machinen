@@ -12,6 +12,7 @@ export const FINAL_JUMP_ENTRY_OFFSET = 128;
 export const FINAL_JUMP_STORE_MARKER = 0x4e454e494843414dn;
 export const FINAL_JUMP_EXPECTED_RETURN = 0x4dn;
 export const FINAL_JUMP_RETURN_MARKER = 0x52455455524e4a50n;
+export const FINAL_JUMP_GRAPH_CHECKSUM = FINAL_JUMP_EXPECTED_RETURN;
 export const FINAL_JUMP_TARGET_TEXT_START = 0x14000000n;
 export const FINAL_JUMP_TARGET_DATA_START = 0x15000000n;
 export const FINAL_JUMP_TARGET_STACK_START = 0x500000000000n;
@@ -88,6 +89,7 @@ export function requireFinalJumpAmd64Registers(
   return targetRegisters;
 }
 
+// fallow-ignore-next-line complexity
 export function jumpIntoFinalTargetNativeCode(options: {
   label: string;
   trampoline: string;
@@ -97,6 +99,8 @@ export function jumpIntoFinalTargetNativeCode(options: {
   expectedInitialDataWord0?: bigint;
   translatedReturnAddress?: bigint;
   expectedReturnMarker?: bigint;
+  dataSizeBytes?: number;
+  expectedGraphChecksum?: bigint;
 }) {
   assert(
     options.targetRegisters.rip === finalJumpHex(FINAL_JUMP_TARGET_ENTRY),
@@ -127,7 +131,7 @@ export function jumpIntoFinalTargetNativeCode(options: {
     "--data-offset",
     String(FINAL_JUMP_PAGE_SIZE),
     "--data-size",
-    String(FINAL_JUMP_PAGE_SIZE),
+    String(options.dataSizeBytes ?? FINAL_JUMP_PAGE_SIZE),
     "--data-target-start",
     finalJumpHex(FINAL_JUMP_TARGET_DATA_START),
     "--stack-target-start",
@@ -150,6 +154,9 @@ export function jumpIntoFinalTargetNativeCode(options: {
       "--expect-return-marker",
       finalJumpHex(options.expectedReturnMarker ?? FINAL_JUMP_RETURN_MARKER),
     );
+  }
+  if (options.expectedGraphChecksum !== undefined) {
+    args.push("--expect-graph-checksum", finalJumpHex(options.expectedGraphChecksum));
   }
 
   const result = spawnSync(options.trampoline, args, {
@@ -207,5 +214,18 @@ export function validateFinalJumpReturnChainResumeEvent(
   assert(
     resumeEvent.returnedToTranslatedAddress === true,
     `${label} did not return through the translated stack slot`,
+  );
+}
+
+export function validateFinalJumpGraphResumeEvent(
+  resumeEvent: { [key: string]: unknown },
+  label: string,
+  translatedReturnAddress: bigint,
+  expectedGraphChecksum = FINAL_JUMP_GRAPH_CHECKSUM,
+) {
+  validateFinalJumpReturnChainResumeEvent(resumeEvent, label, translatedReturnAddress);
+  assert(
+    resumeEvent.graphChecksum === finalJumpHex(expectedGraphChecksum),
+    `${label} did not report the translated graph checksum`,
   );
 }
