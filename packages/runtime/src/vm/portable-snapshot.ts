@@ -1,5 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { RUNTIME_ADAPTER_BUNDLE_FILE, validateRuntimeAdapterDocument } from "../runtime-adapter.ts";
+import type { RuntimeAdapterDocument } from "../runtime-adapter.ts";
 
 const PORTABLE_SNAPSHOT_FORMAT_VERSION = 1;
 const PORTABLE_CHECKPOINT_ABI_VERSION = 1;
@@ -20,6 +22,7 @@ const PORTABLE_SNAPSHOT_FILES = {
   objects: "objects.json",
   relocations: "relocations.json",
   resources: "resources.json",
+  runtimeAdapter: RUNTIME_ADAPTER_BUNDLE_FILE,
   logs: "logs",
 } as const;
 
@@ -172,6 +175,7 @@ interface PortableSnapshotDocuments {
   objects: PortableSnapshotObjects;
   relocations: PortableSnapshotRelocations;
   resources: PortableSnapshotResources;
+  runtimeAdapter?: RuntimeAdapterDocument;
 }
 
 interface PortableSnapshotDocumentInput {
@@ -180,6 +184,7 @@ interface PortableSnapshotDocumentInput {
   objects: unknown;
   relocations: unknown;
   resources: unknown;
+  runtimeAdapter?: unknown;
 }
 
 type JsonSchema = Record<string, unknown>;
@@ -458,12 +463,22 @@ export function validatePortableSnapshotBundle(dir: string): PortableSnapshotDoc
       rootDir,
       PORTABLE_SNAPSHOT_FILES.resources,
     ) as PortableSnapshotResources,
+    runtimeAdapter: readOptionalPortableJson(rootDir, PORTABLE_SNAPSHOT_FILES.runtimeAdapter) as
+      | RuntimeAdapterDocument
+      | undefined,
   };
   const errors = validatePortableSnapshotDocuments(docs, { rootDir });
   if (errors.length > 0) {
     throw new PortableSnapshotValidationError(errors);
   }
   return docs;
+}
+
+function readOptionalPortableJson(rootDir: string, name: string): unknown {
+  if (!existsSync(join(rootDir, name))) {
+    return undefined;
+  }
+  return readPortableJson(rootDir, name);
 }
 
 function readPortableJson(rootDir: string, name: string): unknown {
@@ -489,6 +504,7 @@ export function validatePortableSnapshotDocuments(
   validateObjects(ctx, docs.objects);
   validateRelocations(ctx, docs.relocations, docs.objects);
   validateResources(ctx, docs.resources);
+  validateRuntimeAdapter(ctx, docs.runtimeAdapter, docs.manifest, docs.objects, docs.resources);
   validatePortableBundleFiles(ctx);
   return ctx.errors;
 }
@@ -775,6 +791,99 @@ function validateOptionalResourceArgv(ctx: ValidationContext, path: string, valu
 function validateOptionalResourceEnv(ctx: ValidationContext, path: string, value: unknown): void {
   if (value !== undefined) {
     validateStringRecord(ctx, `${path}.env`, value);
+  }
+}
+
+function validateRuntimeAdapter(
+  ctx: ValidationContext,
+  runtimeAdapter: unknown,
+  manifestDoc: unknown,
+  objectsDoc: unknown,
+  resourcesDoc: unknown,
+): void {
+  if (runtimeAdapter === undefined) {
+    return;
+  }
+  ctx.errors.push(...validateRuntimeAdapterDocument(runtimeAdapter));
+  const adapter = expectRecord(ctx, "runtimeAdapter", runtimeAdapter);
+  if (!adapter) {
+    return;
+  }
+  const mapping = expectRecord(ctx, "runtimeAdapter.bundleMapping", adapter.bundleMapping);
+  if (!mapping) {
+    return;
+  }
+  validateRuntimeAdapterManifestFeatures(ctx, mapping.manifestFeatures, manifestDoc);
+  validateRuntimeAdapterSidecarFiles(ctx, mapping.sidecarFiles);
+  validateRuntimeAdapterObjectMappings(ctx, mapping.objects, objectsDoc);
+  validateRuntimeAdapterResourceMappings(ctx, mapping.resources, resourcesDoc);
+}
+
+function validateRuntimeAdapterManifestFeatures(
+  ctx: ValidationContext,
+  value: unknown,
+  manifestDoc: unknown,
+): void {
+  const features =
+    isRecord(manifestDoc) && Array.isArray(manifestDoc.features) ? manifestDoc.features : [];
+  const mapped = Array.isArray(value) ? value : [];
+  for (const feature of mapped) {
+    if (typeof feature === "string" && !features.includes(feature)) {
+      ctx.errors.push(
+        `runtimeAdapter.bundleMapping.manifestFeatures includes ${JSON.stringify(feature)} but manifest.features does not`,
+      );
+    }
+  }
+}
+
+function validateRuntimeAdapterSidecarFiles(ctx: ValidationContext, value: unknown): void {
+  const files = Array.isArray(value) ? value : [];
+  if (!files.includes(RUNTIME_ADAPTER_BUNDLE_FILE)) {
+    ctx.errors.push(
+      `runtimeAdapter.bundleMapping.sidecarFiles must include ${RUNTIME_ADAPTER_BUNDLE_FILE}`,
+    );
+  }
+}
+
+function validateRuntimeAdapterObjectMappings(
+  ctx: ValidationContext,
+  value: unknown,
+  objectsDoc: unknown,
+): void {
+  const objectIds = collectObjectIds(objectsDoc);
+  const mappings = Array.isArray(value) ? value : [];
+  for (let i = 0; i < mappings.length; i++) {
+    const mapping = mappings[i];
+    if (
+      isRecord(mapping) &&
+      typeof mapping.portableObjectId === "string" &&
+      !objectIds.has(mapping.portableObjectId)
+    ) {
+      ctx.errors.push(
+        `runtimeAdapter.bundleMapping.objects[${i}].portableObjectId references unknown portable object ${JSON.stringify(mapping.portableObjectId)}`,
+      );
+    }
+  }
+}
+
+function validateRuntimeAdapterResourceMappings(
+  ctx: ValidationContext,
+  value: unknown,
+  resourcesDoc: unknown,
+): void {
+  const resourceIds = collectResourceIds(resourcesDoc);
+  const mappings = Array.isArray(value) ? value : [];
+  for (let i = 0; i < mappings.length; i++) {
+    const mapping = mappings[i];
+    if (
+      isRecord(mapping) &&
+      typeof mapping.portableResourceId === "string" &&
+      !resourceIds.has(mapping.portableResourceId)
+    ) {
+      ctx.errors.push(
+        `runtimeAdapter.bundleMapping.resources[${i}].portableResourceId references unknown portable resource ${JSON.stringify(mapping.portableResourceId)}`,
+      );
+    }
   }
 }
 
@@ -1086,6 +1195,19 @@ function collectObjectIds(objectsDoc: unknown): Set<string> {
   for (const obj of objectsDoc.objects) {
     if (isRecord(obj) && typeof obj.id === "string") {
       ids.add(obj.id);
+    }
+  }
+  return ids;
+}
+
+function collectResourceIds(resourcesDoc: unknown): Set<string> {
+  const ids = new Set<string>();
+  if (!isRecord(resourcesDoc) || !Array.isArray(resourcesDoc.resources)) {
+    return ids;
+  }
+  for (const resource of resourcesDoc.resources) {
+    if (isRecord(resource) && typeof resource.id === "string") {
+      ids.add(resource.id);
     }
   }
   return ids;
