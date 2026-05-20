@@ -108,6 +108,11 @@ const TOC = {
     "NativeCodeMapRequest",
     "NativeCodeMapResult",
     "buildNativeCodeMap",
+    "NativeStackFrame",
+    "NativeStackSlot",
+    "NativeStackTranslationRequest",
+    "NativeStackTranslationResult",
+    "translateNativeStack",
   ],
   "Provision base images": [
     "provision",
