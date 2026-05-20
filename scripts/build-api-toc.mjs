@@ -132,6 +132,12 @@ const TOC = {
   "Runtime adapters (experimental)": [
     "RUNTIME_ADAPTER_BUNDLE_FILE",
     "RuntimeAdapterValidationError",
+    "NodeRuntimeAdapterUnsupportedError",
+    "captureNodeRuntimeAdapterDocument",
+    "restoreNodeRuntimeAdapterRoots",
+    "collectNodeRuntimeAdapterRefusals",
+    "CaptureNodeRuntimeAdapterOptions",
+    "NodeRuntimeAdapterResourceKind",
     "runtimeAdapterRefusalCodes",
     "runtimeAdapterSchemas",
     "validateRuntimeAdapterDocument",

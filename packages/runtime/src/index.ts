@@ -135,6 +135,16 @@ export {
   runtimeAdapterSchemas,
   validateRuntimeAdapterDocument,
 } from "./runtime-adapter.ts";
+export {
+  NodeRuntimeAdapterUnsupportedError,
+  captureNodeRuntimeAdapterDocument,
+  collectNodeRuntimeAdapterRefusals,
+  restoreNodeRuntimeAdapterRoots,
+} from "./node-runtime-adapter.ts";
+export type {
+  CaptureNodeRuntimeAdapterOptions,
+  NodeRuntimeAdapterResourceKind,
+} from "./node-runtime-adapter.ts";
 export type {
   RuntimeAdapterArch,
   RuntimeAdapterBuild,

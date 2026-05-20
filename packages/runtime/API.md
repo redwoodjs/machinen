@@ -129,6 +129,12 @@
 
 - [`RUNTIME_ADAPTER_BUNDLE_FILE`](#runtime_adapter_bundle_file)
 - [`RuntimeAdapterValidationError`](#runtimeadaptervalidationerror)
+- [`NodeRuntimeAdapterUnsupportedError`](#noderuntimeadapterunsupportederror)
+- [`captureNodeRuntimeAdapterDocument`](#capturenoderuntimeadapterdocument)
+- [`restoreNodeRuntimeAdapterRoots`](#restorenoderuntimeadapterroots)
+- [`collectNodeRuntimeAdapterRefusals`](#collectnoderuntimeadapterrefusals)
+- [`CaptureNodeRuntimeAdapterOptions`](#capturenoderuntimeadapteroptions)
+- [`NodeRuntimeAdapterResourceKind`](#noderuntimeadapterresourcekind)
 - [`runtimeAdapterRefusalCodes`](#runtimeadapterrefusalcodes)
 - [`runtimeAdapterSchemas`](#runtimeadapterschemas)
 - [`validateRuntimeAdapterDocument`](#validateruntimeadapterdocument)
@@ -1314,6 +1320,40 @@ Attach to `id`. Throws if id doesn't exist.
 
 ***
 
+### NodeRuntimeAdapterUnsupportedError
+
+#### Extends
+
+- `Error`
+
+#### Constructors
+
+##### Constructor
+
+> **new NodeRuntimeAdapterUnsupportedError**(`refusals`): [`NodeRuntimeAdapterUnsupportedError`](#noderuntimeadapterunsupportederror)
+
+###### Parameters
+
+###### refusals
+
+[`RuntimeAdapterRefusal`](#runtimeadapterrefusal)[]
+
+###### Returns
+
+[`NodeRuntimeAdapterUnsupportedError`](#noderuntimeadapterunsupportederror)
+
+###### Overrides
+
+`Error.constructor`
+
+#### Properties
+
+##### refusals
+
+> `readonly` **refusals**: [`RuntimeAdapterRefusal`](#runtimeadapterrefusal)[]
+
+***
+
 ### RuntimeAdapterValidationError
 
 #### Extends
@@ -2166,6 +2206,48 @@ Set to `false` in tests where `input` is a plain PassThrough.
 Forward SIGWINCH on the parent process (terminal resize) to any
 attached sandbox that implements `.resize(cols, rows)`. Enabled
 by default when `output` is a TTY.
+
+***
+
+### CaptureNodeRuntimeAdapterOptions
+
+#### Properties
+
+##### adapterId?
+
+> `optional` **adapterId?**: `string`
+
+##### adapterVersion?
+
+> `optional` **adapterVersion?**: `string`
+
+##### target?
+
+> `optional` **target?**: `Partial`\<[`RuntimeAdapterTarget`](#runtimeadaptertarget)\>
+
+##### build?
+
+> `optional` **build?**: `Partial`\<[`RuntimeAdapterBuild`](#runtimeadapterbuild)\>
+
+##### process?
+
+> `optional` **process?**: `object`
+
+###### argv?
+
+> `optional` **argv?**: `string`[]
+
+###### env?
+
+> `optional` **env?**: `Record`\<`string`, `string`\>
+
+###### cwd?
+
+> `optional` **cwd?**: `string`
+
+##### resources?
+
+> `optional` **resources?**: [`RuntimeAdapterResource`](#runtimeadapterresource)[]
 
 ***
 
@@ -5565,6 +5647,12 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeRuntimeAdapterResourceKind
+
+> **NodeRuntimeAdapterResourceKind** = [`RuntimeAdapterResourceKind`](#runtimeadapterresourcekind)
+
+***
+
 ### PidStatus
 
 > **PidStatus** = `"alive"` \| `"dead"` \| `"recycled"`
@@ -8108,6 +8196,58 @@ available.
 #### Returns
 
 `string`
+
+***
+
+### captureNodeRuntimeAdapterDocument()
+
+> **captureNodeRuntimeAdapterDocument**(`roots`, `options?`): [`RuntimeAdapterDocument`](#runtimeadapterdocument)
+
+#### Parameters
+
+##### roots
+
+`Record`\<`string`, `unknown`\>
+
+##### options?
+
+[`CaptureNodeRuntimeAdapterOptions`](#capturenoderuntimeadapteroptions) = `{}`
+
+#### Returns
+
+[`RuntimeAdapterDocument`](#runtimeadapterdocument)
+
+***
+
+### restoreNodeRuntimeAdapterRoots()
+
+> **restoreNodeRuntimeAdapterRoots**(`document`): `Record`\<`string`, `unknown`\>
+
+#### Parameters
+
+##### document
+
+[`RuntimeAdapterDocument`](#runtimeadapterdocument)
+
+#### Returns
+
+`Record`\<`string`, `unknown`\>
+
+***
+
+### collectNodeRuntimeAdapterRefusals()
+
+> **collectNodeRuntimeAdapterRefusals**(`document`): [`RuntimeAdapterRefusal`](#runtimeadapterrefusal)[]
+
+#### Parameters
+
+##### document
+
+[`RuntimeAdapterDocument`](#runtimeadapterdocument)
+
+#### Returns
+
+[`RuntimeAdapterRefusal`](#runtimeadapterrefusal)[]
 
 ***
 
