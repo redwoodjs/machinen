@@ -12,7 +12,7 @@ import {
 } from "./proof-script-utils.mjs";
 
 const MARKER = "MACHINEN_CONTROLLED_BINARY ";
-const FIXTURES = ["global", "heap", "stack", "resource", "threads", "dwarf"];
+const FIXTURES = ["global", "heap", "stack", "continuation", "resource", "threads", "dwarf"];
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SOURCE = join(REPO_ROOT, "packages/microvm/assets/controlled-binary-corpus.c");
 const CROSS_TARGETS = [
@@ -138,6 +138,15 @@ function validateSummary(summary) {
   );
   assert(stack.caller_counter === 1000, "stack fixture caller counter changed");
   assert(stack.live_local === 5242, "stack fixture live local changed");
+
+  const continuation = requireFixture(events, "continuation");
+  assert(
+    continuation.continuation === "controlled_continuation_point",
+    "continuation fixture id changed",
+  );
+  assert(continuation.seed === 1000, "continuation fixture seed changed");
+  assert(continuation.live_local === 5242, "continuation fixture live local changed");
+  assert(continuation.resume_delta === 77, "continuation fixture resume delta changed");
 
   const resource = requireFixture(events, "resource");
   assert(resource.argc === 5, "resource fixture argc changed");
