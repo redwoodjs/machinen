@@ -115,6 +115,13 @@ export type {
   NativeMemoryTranslationResult,
   NativeMemoryWord,
 } from "./native-memory-translation.ts";
+export { planNativeMappingMaterialization } from "./native-mapping-materialization.ts";
+export type {
+  NativeMappingMaterializationAction,
+  NativeMappingMaterializationRequest,
+  NativeMappingMaterializationResult,
+  NativeMappingMaterializationStep,
+} from "./native-mapping-materialization.ts";
 export { translateNativeRegisterState } from "./native-register-translation.ts";
 export { translateNativeResources } from "./native-resource-translation.ts";
 export type {
