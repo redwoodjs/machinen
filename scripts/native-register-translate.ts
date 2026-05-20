@@ -21,6 +21,7 @@ function main() {
   }
 }
 
+// fallow-ignore-next-line complexity
 function verifyNativeRegisterTranslation() {
   const safeThread = thread("thread:safe");
   const unsafeThread = thread("thread:syscall");

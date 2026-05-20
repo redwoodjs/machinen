@@ -20,6 +20,7 @@ function main() {
   }
 }
 
+// fallow-ignore-next-line complexity
 function verifyNativeMemoryTranslation() {
   const result = translateNativeMemory({
     words: [

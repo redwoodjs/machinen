@@ -1,5 +1,6 @@
 /** Stack-frame and continuation translation for native process images. */
 
+import { normalizeNativeHex } from "./native-hex.ts";
 import type {
   NativeCodeLocationMapping,
   NativeMemoryRelocation,
@@ -56,7 +57,7 @@ function mappedCodeLocations(codeLocations: NativeCodeLocationMapping[]): Map<st
   const mapped = new Map<string, string>();
   for (const location of codeLocations) {
     if (location.state === "mapped" && location.targetAddress) {
-      mapped.set(normalizeHex(location.sourceAddress), location.targetAddress);
+      mapped.set(normalizeNativeHex(location.sourceAddress), location.targetAddress);
     }
   }
   return mapped;
@@ -78,7 +79,7 @@ function translateFrame(
       ],
     };
   }
-  const returnAddress = codeLocations.get(normalizeHex(frame.sourceReturnAddress));
+  const returnAddress = codeLocations.get(normalizeNativeHex(frame.sourceReturnAddress));
   if (!returnAddress) {
     return {
       relocations: [],
@@ -166,8 +167,4 @@ function refusal(
   message: string,
 ): NativeProcessImageRefusal {
   return { code, message };
-}
-
-function normalizeHex(value: string): string {
-  return `0x${BigInt(value).toString(16)}`;
 }
