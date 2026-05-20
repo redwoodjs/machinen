@@ -104,6 +104,10 @@ const TOC = {
     "NativeContinuationTarget",
     "NativeRegisterTranslationResult",
     "translateNativeRegisterState",
+    "NativeCodeSymbol",
+    "NativeCodeMapRequest",
+    "NativeCodeMapResult",
+    "buildNativeCodeMap",
   ],
   "Provision base images": [
     "provision",

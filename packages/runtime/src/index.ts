@@ -102,6 +102,12 @@ export type {
   WriteFileOptions,
 } from "./vm-handle.ts";
 export type { SnapshotEngine } from "./vm/snapshot-engine.ts";
+export { buildNativeCodeMap } from "./native-code-map.ts";
+export type {
+  NativeCodeMapRequest,
+  NativeCodeMapResult,
+  NativeCodeSymbol,
+} from "./native-code-map.ts";
 export { translateNativeRegisterState } from "./native-register-translation.ts";
 export type {
   NativeContinuationTarget,
