@@ -42,6 +42,8 @@ struct Options {
   uint64_t arg0;
   uint64_t expect_return;
   uint64_t expect_store_marker;
+  bool has_expect_initial_word0;
+  uint64_t expect_initial_word0;
 };
 
 static void usage(void) {
@@ -50,7 +52,7 @@ static void usage(void) {
       "--text-offset n --text-size n --text-target-start addr --entry-offset n "
       "--expect-prefix text --data-offset n --data-size n --data-target-start addr "
       "--stack-target-start addr --stack-size n --arg0 n --expect-return n "
-      "--expect-store-marker n\n");
+      "--expect-store-marker n [--expect-initial-word0 n]\n");
   exit(2);
 }
 
@@ -142,6 +144,12 @@ static struct Options parse_args(int argc, char **argv) {
         usage();
       }
       opts.expect_store_marker = parse_u64(argv[i], "expect-store-marker");
+    } else if (streq(argv[i], "--expect-initial-word0")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.has_expect_initial_word0 = true;
+      opts.expect_initial_word0 = parse_u64(argv[i], "expect-initial-word0");
     } else {
       usage();
     }
@@ -267,6 +275,21 @@ static uint64_t run_on_target_stack(
   return ctx.result;
 }
 
+static void validate_initial_data(const struct Options *opts, const void *data) {
+  if (!opts->has_expect_initial_word0) {
+    return;
+  }
+  uint64_t initial_word0 = ((const uint64_t *)data)[0];
+  if (initial_word0 != opts->expect_initial_word0) {
+    fprintf(stderr,
+        "native-resume-trampoline: initial data word0 was 0x%" PRIx64 ", expected 0x%" PRIx64
+        "\n",
+        initial_word0,
+        opts->expect_initial_word0);
+    exit(1);
+  }
+}
+
 static void validate_resume_result(
     const struct Options *opts, uint64_t result, uint64_t stored_rsp, uint64_t stored_marker) {
   if (result != opts->expect_return) {
@@ -319,6 +342,7 @@ int main(int argc, char **argv) {
 
   void *data = map_segment(fd, opts.data_target_start, opts.data_size, opts.data_offset, "data");
   close(fd);
+  validate_initial_data(&opts, data);
   void *stack = map_fixed(opts.stack_target_start, opts.stack_size, PROT_READ | PROT_WRITE, "stack");
 
   TargetEntry entry = (TargetEntry)(uintptr_t)(opts.text_target_start + opts.entry_offset);
