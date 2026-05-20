@@ -49,6 +49,10 @@ export const NATIVE_HEAP_GRAPH_CONTINUATION_SOURCE = join(
   REPO_ROOT,
   "packages/microvm/assets/native-heap-graph-continuation.c",
 );
+export const NATIVE_FILE_RESOURCE_CONTINUATION_SOURCE = join(
+  REPO_ROOT,
+  "packages/microvm/assets/native-file-resource-continuation.c",
+);
 export const CONTROLLED_MARKER = "MACHINEN_CONTROLLED_BINARY ";
 export const NATIVE_PROCESS_IMAGE_BUNDLE_FILES = [
   "native-process.json",
@@ -199,6 +203,18 @@ export function compileNativeHeapGraphContinuation(binDir) {
     nativeTargetBinaryCompileArgs(executable, NATIVE_HEAP_GRAPH_CONTINUATION_SOURCE),
     {
       label: "native heap graph continuation build",
+    },
+  );
+  return executable;
+}
+
+export function compileNativeFileResourceContinuation(binDir) {
+  const executable = join(binDir, "machinen-native-file-resource-continuation");
+  runCommand(
+    "cc",
+    nativeTargetBinaryCompileArgs(executable, NATIVE_FILE_RESOURCE_CONTINUATION_SOURCE),
+    {
+      label: "native file resource continuation build",
     },
   );
   return executable;
