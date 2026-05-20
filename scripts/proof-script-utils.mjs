@@ -73,6 +73,14 @@ export function emitResult(summary, args, workspace, printSummary) {
   printSummary(summary, workspace.temporary && !args.keep);
 }
 
+export function emitSkip(args, label, reason) {
+  if (args.json) {
+    process.stdout.write(`${JSON.stringify({ skipped: true, reason }, null, 2)}\n`);
+    return;
+  }
+  console.log(`${label}: skip — ${reason}`);
+}
+
 export function cleanupWorkspace(workspace, args) {
   if (workspace.temporary && !args.keep) {
     rmSync(workspace.outDir, { recursive: true, force: true });

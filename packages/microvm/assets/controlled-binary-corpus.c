@@ -20,6 +20,7 @@
 #define CONTROLLED_SCHEMA_VERSION 1u
 #define CONTROLLED_LABEL_CAPACITY 32u
 #define CONTROLLED_THREAD_COUNT 2u
+#define CONTROLLED_PATH_CAPACITY 512u
 #define CONTROLLED_RESOURCE_PAYLOAD "machinen-controlled-resource\n"
 #define CONTROLLED_RESOURCE_OFFSET 9u
 
@@ -382,10 +383,113 @@ static int run_threads_fixture(void) {
   return 0;
 }
 
+struct ControlledKnownSymbolRestoreState {
+  uint64_t node_count;
+  uint64_t values[3];
+  uint64_t checksum;
+};
+
+static bool parse_u64_line(const char *line, const char *prefix, uint64_t *out) {
+  size_t prefix_len = strlen(prefix);
+  if (strncmp(line, prefix, prefix_len) != 0) {
+    return false;
+  }
+  errno = 0;
+  char *end = NULL;
+  unsigned long long parsed = strtoull(line + prefix_len, &end, 0);
+  if (errno != 0 || end == line + prefix_len || (*end != '\0' && *end != '\n' && *end != '\r')) {
+    return false;
+  }
+  *out = (uint64_t)parsed;
+  return true;
+}
+
+static int load_known_symbol_restore_state(
+    const char *bundle_dir, struct ControlledKnownSymbolRestoreState *state) {
+  char path[CONTROLLED_PATH_CAPACITY];
+  int written = snprintf(path, sizeof(path), "%s/controlled-state.txt", bundle_dir);
+  if (written < 0 || written >= (int)sizeof(path)) {
+    fprintf(stderr, "machinen-controlled-corpus: restore bundle path too long\n");
+    return 1;
+  }
+
+  FILE *file = fopen(path, "rb");
+  if (!file) {
+    fprintf(stderr, "machinen-controlled-corpus: fopen(%s) failed: %s\n", path, strerror(errno));
+    return 1;
+  }
+
+  char line[128];
+  while (fgets(line, sizeof(line), file)) {
+    if (parse_u64_line(line, "node_count=", &state->node_count) ||
+        parse_u64_line(line, "value0=", &state->values[0]) ||
+        parse_u64_line(line, "value1=", &state->values[1]) ||
+        parse_u64_line(line, "value2=", &state->values[2]) ||
+        parse_u64_line(line, "checksum=", &state->checksum)) {
+      continue;
+    }
+  }
+
+  if (fclose(file) != 0) {
+    fprintf(stderr, "machinen-controlled-corpus: fclose(%s) failed\n", path);
+    return 1;
+  }
+  if (state->node_count != 3) {
+    fprintf(stderr, "machinen-controlled-corpus: expected three restore nodes\n");
+    return 1;
+  }
+  return 0;
+}
+
+static void print_known_symbol_restore_marker(void) {
+  const struct ControlledNode *head = machinen_controlled_heap_state.head;
+  const uint64_t first = head ? head->value : 0;
+  const uint64_t second = head && head->next ? head->next->value : 0;
+  const uint64_t third = head && head->next && head->next->next ? head->next->next->value : 0;
+  printf(CONTROLLED_MARKER
+         "{\"schema_version\":%u,\"fixture\":\"known-symbol-restore\",\"arch\":\"%s\","
+         "\"node_count\":%" PRIu64 ",\"values\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 "],"
+         "\"checksum\":%" PRIu64 ",\"checksum_hex\":\"0x%" PRIx64 "\"}\n",
+      CONTROLLED_SCHEMA_VERSION, CONTROLLED_ARCH, machinen_controlled_heap_state.node_count, first,
+      second, third, machinen_controlled_heap_state.checksum,
+      machinen_controlled_heap_state.checksum);
+  fflush(stdout);
+}
+
+static int run_known_symbol_restore(const char *bundle_dir) {
+  struct ControlledKnownSymbolRestoreState state = {0};
+  if (load_known_symbol_restore_state(bundle_dir, &state) != 0) {
+    return 1;
+  }
+
+  struct ControlledNode *nodes = calloc((size_t)state.node_count, sizeof(struct ControlledNode));
+  if (!nodes) {
+    fprintf(stderr, "machinen-controlled-corpus: restore heap allocation failed\n");
+    return 1;
+  }
+  for (uint64_t i = 0; i < state.node_count; i++) {
+    nodes[i].value = state.values[i];
+    nodes[i].next = i + 1u < state.node_count ? &nodes[i + 1u] : NULL;
+  }
+  machinen_controlled_heap_state.head = &nodes[0];
+  machinen_controlled_heap_state.node_count = state.node_count;
+  machinen_controlled_heap_state.checksum = checksum_nodes(machinen_controlled_heap_state.head);
+
+  if (machinen_controlled_heap_state.checksum != state.checksum) {
+    fprintf(stderr, "machinen-controlled-corpus: restore checksum mismatch\n");
+    free(nodes);
+    return 1;
+  }
+  print_known_symbol_restore_marker();
+  free(nodes);
+  return 0;
+}
+
 static void print_usage(const char *argv0) {
   fprintf(stderr,
       "usage: %s [--fixture all|global|heap|stack|resource|threads] "
-      "[--resource-file path] [--pause-at-observation]\n",
+      "[--resource-file path] [--pause-at-observation] "
+      "[--restore-known-symbol-bundle path]\n",
       argv0);
 }
 
@@ -426,6 +530,7 @@ static int run_all_fixtures(const char *resource_path, int argc) {
 int main(int argc, char **argv) {
   const char *fixture = "all";
   const char *resource_path = "machinen-controlled-resource.txt";
+  const char *restore_bundle_dir = NULL;
 
   for (int i = 1; i < argc; i++) {
     if (streq(argv[i], "--fixture")) {
@@ -442,6 +547,12 @@ int main(int argc, char **argv) {
       resource_path = argv[++i];
     } else if (streq(argv[i], "--pause-at-observation")) {
       g_pause_at_observation = true;
+    } else if (streq(argv[i], "--restore-known-symbol-bundle")) {
+      if (i + 1 >= argc) {
+        print_usage(argv[0]);
+        return 2;
+      }
+      restore_bundle_dir = argv[++i];
     } else if (streq(argv[i], "--help") || streq(argv[i], "-h")) {
       print_usage(argv[0]);
       return 0;
@@ -452,6 +563,9 @@ int main(int argc, char **argv) {
     }
   }
 
+  if (restore_bundle_dir) {
+    return run_known_symbol_restore(restore_bundle_dir);
+  }
   if (streq(fixture, "all")) {
     return run_all_fixtures(resource_path, argc);
   }

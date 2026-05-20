@@ -1,19 +1,25 @@
 #!/usr/bin/env node
-import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { mkdirSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
+import {
+  CAPTURE_SOURCE,
+  CONTROLLED_SOURCE,
+  compileControlledTarget,
+  compileRawCapturer,
+  ensureSourcesExist,
+  hostArch,
+  readJson,
+  readSymbols,
+} from "./controlled-corpus-utils.mjs";
 import {
   assert,
   cleanupWorkspace,
   createWorkspace,
   emitResult,
+  emitSkip,
   parseVerifyArgs,
   runCommand,
 } from "./proof-script-utils.mjs";
-
-const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const CONTROLLED_SOURCE = join(REPO_ROOT, "packages/microvm/assets/controlled-binary-corpus.c");
-const CAPTURE_SOURCE = join(REPO_ROOT, "packages/microvm/assets/raw-process-capture.c");
 const WANTED_SYMBOLS = [
   "machinen_controlled_global_state",
   "machinen_controlled_resource_state",
@@ -30,7 +36,7 @@ const USAGE =
 function main() {
   const args = parseVerifyArgs(process.argv.slice(2), USAGE);
   if (process.platform !== "linux") {
-    emitSkip(args, "raw process capture uses Linux /proc and ptrace");
+    emitSkip(args, "raw-process-capture", "raw process capture uses Linux /proc and ptrace");
     return;
   }
 
@@ -43,83 +49,20 @@ function main() {
 }
 
 function verifyRawCapture(outDir) {
-  ensureSourcesExist();
+  ensureSourcesExist([CONTROLLED_SOURCE, CAPTURE_SOURCE]);
   mkdirSync(outDir, { recursive: true });
   const binDir = join(outDir, "bin");
   mkdirSync(binDir, { recursive: true });
 
   const target = compileControlledTarget(binDir);
   const capturer = compileRawCapturer(binDir);
-  const symbols = readSymbols(target);
+  const symbols = readSymbols(target, WANTED_SYMBOLS);
   const captures = CAPTURE_PLANS.map((plan) =>
     runCapturePlan(plan, { capturer, target, symbols, outDir }),
   );
   const summary = { formatVersion: 1, hostArch: hostArch(), target, capturer, captures };
   validateSummary(summary);
   return summary;
-}
-
-function ensureSourcesExist() {
-  for (const source of [CONTROLLED_SOURCE, CAPTURE_SOURCE]) {
-    if (!existsSync(source)) {
-      throw new Error(`missing source: ${source}`);
-    }
-  }
-}
-
-function compileControlledTarget(binDir) {
-  const executable = join(binDir, "machinen-controlled-corpus");
-  runCommand(
-    "cc",
-    [
-      "-std=c11",
-      "-O0",
-      "-g",
-      "-Wall",
-      "-Wextra",
-      "-Werror",
-      "-fno-pie",
-      "-no-pie",
-      "-pthread",
-      CONTROLLED_SOURCE,
-      "-o",
-      executable,
-    ],
-    { label: "controlled corpus build" },
-  );
-  return executable;
-}
-
-function compileRawCapturer(binDir) {
-  const executable = join(binDir, "machinen-raw-process-capture");
-  runCommand(
-    "cc",
-    ["-std=c11", "-O0", "-g", "-Wall", "-Wextra", "-Werror", CAPTURE_SOURCE, "-o", executable],
-    { label: "raw capturer build" },
-  );
-  return executable;
-}
-
-function readSymbols(target) {
-  const result = runCommand("nm", ["-S", "--defined-only", target], { label: "symbol scan" });
-  const symbols = parseNm(result.stdout);
-  for (const name of WANTED_SYMBOLS) {
-    if (!symbols.has(name)) {
-      throw new Error(`missing target symbol: ${name}`);
-    }
-  }
-  return symbols;
-}
-
-function parseNm(stdout) {
-  const symbols = new Map();
-  for (const line of stdout.split(/\r?\n/)) {
-    const match = /^([0-9a-fA-F]+)\s+([0-9a-fA-F]+)\s+\S\s+(\S+)$/.exec(line.trim());
-    if (match) {
-      symbols.set(match[3], { address: `0x${match[1]}`, sizeBytes: Number.parseInt(match[2], 16) });
-    }
-  }
-  return symbols;
 }
 
 function runCapturePlan(plan, context) {
@@ -286,18 +229,6 @@ function validateThreads(capture) {
   );
 }
 
-function readJson(path) {
-  return JSON.parse(readFileSync(path, "utf8"));
-}
-
-function emitSkip(args, reason) {
-  if (args.json) {
-    process.stdout.write(`${JSON.stringify({ skipped: true, reason }, null, 2)}\n`);
-    return;
-  }
-  console.log(`raw-process-capture: skip — ${reason}`);
-}
-
 function printSummary(summary, temporary) {
   console.log(
     `raw-process-capture: ${summary.hostArch} captured ${summary.captures.length} stopped processes`,
@@ -310,16 +241,6 @@ function printSummary(summary, temporary) {
   if (temporary) {
     console.log("raw-process-capture: temporary artifacts removed; pass --keep to inspect them");
   }
-}
-
-function hostArch() {
-  if (process.arch === "arm64") {
-    return "arm64";
-  }
-  if (process.arch === "x64") {
-    return "amd64";
-  }
-  return process.arch;
 }
 
 main();
