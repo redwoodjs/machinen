@@ -115,6 +115,11 @@ export type {
   NativeMemoryWord,
 } from "./native-memory-translation.ts";
 export { translateNativeRegisterState } from "./native-register-translation.ts";
+export { translateNativeResources } from "./native-resource-translation.ts";
+export type {
+  NativeResourceTranslationRequest,
+  NativeResourceTranslationResult,
+} from "./native-resource-translation.ts";
 export { translateNativeStack } from "./native-stack-translation.ts";
 export type {
   NativeStackFrame,
