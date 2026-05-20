@@ -29,6 +29,10 @@ export const NATIVE_MAPPING_POLICY_TARGET_SOURCE = join(
   REPO_ROOT,
   "packages/microvm/assets/native-mapping-policy-target.c",
 );
+export const NATIVE_MAPPING_MATERIALIZER_SOURCE = join(
+  REPO_ROOT,
+  "packages/microvm/assets/native-mapping-materializer.c",
+);
 export const NATIVE_PIE_SHARED_MAIN_SOURCE = join(
   REPO_ROOT,
   "packages/microvm/assets/native-pie-shared-main.c",
@@ -180,6 +184,26 @@ export function compileNativeMappingPolicyTarget(binDir) {
       executable,
     ],
     { label: "native mapping policy target build" },
+  );
+  return executable;
+}
+
+export function compileNativeMappingMaterializer(binDir) {
+  const executable = join(binDir, "machinen-native-mapping-materializer");
+  runCommand(
+    "cc",
+    [
+      "-std=c11",
+      "-O0",
+      "-g",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      NATIVE_MAPPING_MATERIALIZER_SOURCE,
+      "-o",
+      executable,
+    ],
+    { label: "native mapping materializer build" },
   );
   return executable;
 }
