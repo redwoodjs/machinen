@@ -8,13 +8,19 @@ import {
   bundleFileStats as sharedBundleFileStats,
   compileControlledTarget,
   compileRawCapturer,
+  controlledDwarfStateText,
   controlledPortableManifest,
   ensureSourcesExist,
   hostArch,
+  layoutField,
+  linkedListPointerRelocations,
   loadRawCapture,
   memoryChunkByName,
   memoryChunkBytes,
   parseControlledMarker,
+  readLayoutCString,
+  readLayoutUnsigned,
+  runControlledDwarfCapture,
   unsupportedVocabulary,
   writePortableBundleFiles,
 } from "./controlled-corpus-utils.mjs";
@@ -300,44 +306,18 @@ function summarizeStackProbe(dwarf) {
 }
 
 function runDwarfCapture(context) {
-  const global = context.layouts.global.symbol;
-  const heap = context.layouts.heap.symbol;
-  const heapLayout = context.layouts.heap.layout;
-  const nodeLayout = context.layouts.node.layout;
-  const resourceFile = join(context.captureDir, "resource-file.txt");
-  const followList = [
-    heap.name,
-    field(heapLayout, "head").offset,
-    field(heapLayout, "node_count").offset,
-    nodeLayout.byteSize,
-    field(nodeLayout, "next").offset,
-    DWARF_NODE_PREFIX,
-  ].join(":");
-
-  runCommand(
-    context.capturer,
-    [
-      "--output",
-      context.captureDir,
-      "--symbol",
-      `${global.name}:${global.address}:${global.sizeBytes}`,
-      "--symbol",
-      `${heap.name}:${heap.address}:${heap.sizeBytes}`,
-      "--follow-list",
-      followList,
-      "--",
-      context.target,
-      "--fixture",
-      "dwarf",
-      "--pause-at-observation",
-      "--resource-file",
-      resourceFile,
-    ],
-    {
-      label: "DWARF-guided raw capture",
-      env: { ...process.env, MACHINEN_CONTROLLED_ENV: "1" },
-    },
-  );
+  runControlledDwarfCapture({
+    capturer: context.capturer,
+    target: context.target,
+    captureDir: context.captureDir,
+    globalSymbol: context.layouts.global.symbol,
+    heapSymbol: context.layouts.heap.symbol,
+    heapLayout: context.layouts.heap.layout,
+    nodeLayout: context.layouts.node.layout,
+    nodePrefix: DWARF_NODE_PREFIX,
+    resourceFile: join(context.captureDir, "resource-file.txt"),
+    label: "DWARF-guided raw capture",
+  });
 }
 
 function recoverDwarfState(capture, layouts) {
@@ -348,9 +328,9 @@ function recoverDwarfState(capture, layouts) {
   const heapLayout = layouts.heap.layout;
   const nodeLayout = layouts.node.layout;
 
-  const nodeCount = Number(readUnsigned(heapBytes, field(heapLayout, "node_count")));
-  const checksum = readUnsigned(heapBytes, field(heapLayout, "checksum"));
-  const headPointer = readUnsigned(heapBytes, field(heapLayout, "head"));
+  const nodeCount = Number(readLayoutUnsigned(heapBytes, layoutField(heapLayout, "node_count")));
+  const checksum = readLayoutUnsigned(heapBytes, layoutField(heapLayout, "checksum"));
+  const headPointer = readLayoutUnsigned(heapBytes, layoutField(heapLayout, "head"));
   const nodes = [];
   for (let i = 0; i < nodeCount; i++) {
     const chunk = memoryChunkByName(capture, `${DWARF_NODE_PREFIX}_${i}`);
@@ -358,10 +338,10 @@ function recoverDwarfState(capture, layouts) {
     nodes.push({
       id: `controlled-dwarf-node-${i}`,
       sourceAddress: chunk.sourceAddress,
-      tag: Number(readUnsigned(bytes, field(nodeLayout, "tag"))),
-      color: Number(readUnsigned(bytes, field(nodeLayout, "color"))),
-      value: Number(readUnsigned(bytes, field(nodeLayout, "value"))),
-      nextPointer: hexAddress(readUnsigned(bytes, field(nodeLayout, "next"))),
+      tag: Number(readLayoutUnsigned(bytes, layoutField(nodeLayout, "tag"))),
+      color: Number(readLayoutUnsigned(bytes, layoutField(nodeLayout, "color"))),
+      value: Number(readLayoutUnsigned(bytes, layoutField(nodeLayout, "value"))),
+      nextPointer: hexAddress(readLayoutUnsigned(bytes, layoutField(nodeLayout, "next"))),
       sizeBytes: chunk.sizeBytes,
       memory: { offset: chunk.fileOffset, sizeBytes: chunk.sizeBytes },
     });
@@ -371,16 +351,20 @@ function recoverDwarfState(capture, layouts) {
     global: {
       sourceAddress: globalChunk.sourceAddress,
       sizeBytes: globalChunk.sizeBytes,
-      label: readCString(globalBytes, field(layouts.global.layout, "label")),
-      counter: Number(readUnsigned(globalBytes, field(layouts.global.layout, "counter"))),
-      flags: Number(readUnsigned(globalBytes, field(layouts.global.layout, "flags"))),
-      generation: Number(readUnsigned(globalBytes, field(layouts.global.layout, "generation"))),
+      label: readLayoutCString(globalBytes, layoutField(layouts.global.layout, "label")),
+      counter: Number(
+        readLayoutUnsigned(globalBytes, layoutField(layouts.global.layout, "counter")),
+      ),
+      flags: Number(readLayoutUnsigned(globalBytes, layoutField(layouts.global.layout, "flags"))),
+      generation: Number(
+        readLayoutUnsigned(globalBytes, layoutField(layouts.global.layout, "generation")),
+      ),
       memory: globalChunk,
     },
     heap: {
       sourceAddress: heapChunk.sourceAddress,
       sizeBytes: heapChunk.sizeBytes,
-      version: Number(readUnsigned(heapBytes, field(heapLayout, "version"))),
+      version: Number(readLayoutUnsigned(heapBytes, layoutField(heapLayout, "version"))),
       nodeCount,
       checksum: checksum.toString(10),
       checksumHex: hexAddress(checksum),
@@ -394,43 +378,6 @@ function recoverDwarfState(capture, layouts) {
   };
 }
 
-function field(layout, name) {
-  const member = layout.members.find((candidate) => candidate.name === name);
-  if (!member) {
-    throw new Error(`missing DWARF field ${layout.type}.${name}`);
-  }
-  return member;
-}
-
-const UNSIGNED_READERS = new Map([
-  [1, (bytes, offset) => BigInt(bytes.readUInt8(offset))],
-  [2, (bytes, offset) => BigInt(bytes.readUInt16LE(offset))],
-  [4, (bytes, offset) => BigInt(bytes.readUInt32LE(offset))],
-  [8, (bytes, offset) => bytes.readBigUInt64LE(offset)],
-]);
-
-function readUnsigned(bytes, member) {
-  const offset = member.offset;
-  if (offset + member.sizeBytes > bytes.length) {
-    throw new Error(`field ${member.name} is outside captured bytes`);
-  }
-  const reader = UNSIGNED_READERS.get(member.sizeBytes);
-  if (!reader) {
-    throw new Error(`unsupported unsigned field width for ${member.name}: ${member.sizeBytes}`);
-  }
-  return reader(bytes, offset);
-}
-
-function readCString(bytes, member) {
-  const start = member.offset;
-  const limit = Math.min(bytes.length, start + member.sizeBytes);
-  let end = start;
-  while (end < limit && bytes[end] !== 0) {
-    end++;
-  }
-  return bytes.subarray(start, end).toString("utf8");
-}
-
 function writePortableBundle(context) {
   const memory = buildPortableBundleMemory(context.capture);
   writePortableBundleFiles({
@@ -441,7 +388,7 @@ function writePortableBundle(context) {
     manifest: manifest(context),
     objects: objects(memory.chunks, context),
     relocations: relocations(context),
-    controlledStateText: controlledStateText(context.semanticState),
+    controlledStateText: controlledDwarfStateText(context.semanticState),
     extraDocuments: [{ name: "dwarf-layout.json", value: dwarfLayoutDocument(context) }],
   });
 }
@@ -503,29 +450,18 @@ function nodeObject(byName, node, index, context) {
 }
 
 function relocations(context) {
-  const heapHead = field(context.layouts.heap.layout, "head");
-  const nodeNext = field(context.layouts.node.layout, "next");
-  const relocs = [
-    {
-      fromObject: "controlled-dwarf-heap-state",
-      fromOffset: heapHead.offset,
-      toObject: "controlled-dwarf-node-0",
-      addend: 0,
-      kind: "pointer",
-      sourcePointer: context.semanticState.heap.headPointer,
-    },
-  ];
-  for (let i = 0; i + 1 < context.semanticState.heap.nodes.length; i++) {
-    relocs.push({
-      fromObject: `controlled-dwarf-node-${i}`,
-      fromOffset: nodeNext.offset,
-      toObject: `controlled-dwarf-node-${i + 1}`,
-      addend: 0,
-      kind: "pointer",
-      sourcePointer: context.semanticState.heap.nodes[i].nextPointer,
-    });
-  }
-  return { formatVersion: 1, relocations: relocs, unsupported: unsupportedVocabulary() };
+  return {
+    formatVersion: 1,
+    relocations: linkedListPointerRelocations({
+      heapObject: "controlled-dwarf-heap-state",
+      nodePrefix: "controlled-dwarf-node",
+      heapHeadOffset: layoutField(context.layouts.heap.layout, "head").offset,
+      nodeNextOffset: layoutField(context.layouts.node.layout, "next").offset,
+      nodes: context.semanticState.heap.nodes,
+      headPointer: context.semanticState.heap.headPointer,
+    }),
+    unsupported: unsupportedVocabulary(),
+  };
 }
 
 function dwarfLayoutDocument(context) {
@@ -544,21 +480,6 @@ function dwarfLayoutDocument(context) {
   };
 }
 
-function controlledStateText(semanticState) {
-  const lines = [
-    `global_label=${semanticState.global.label}`,
-    `global_counter=${semanticState.global.counter}`,
-    `global_flags=${semanticState.global.flags}`,
-    `global_generation=${semanticState.global.generation}`,
-    `node_count=${semanticState.heap.nodeCount}`,
-  ];
-  semanticState.heap.values.forEach((value, index) => lines.push(`value${index}=${value}`));
-  semanticState.heap.tags.forEach((value, index) => lines.push(`tag${index}=${value}`));
-  semanticState.heap.colors.forEach((value, index) => lines.push(`color${index}=${value}`));
-  lines.push(`checksum=${semanticState.heap.checksumHex}`, "");
-  return lines.join("\n");
-}
-
 function mapLayouts(source, target) {
   return {
     global: mapLayout(source.global.layout, target.global.layout),
@@ -572,7 +493,7 @@ function mapLayout(source, target) {
     sourceType: source.type,
     targetType: target.type,
     fields: source.members.map((sourceField) => {
-      const targetField = field(target, sourceField.name);
+      const targetField = layoutField(target, sourceField.name);
       return {
         name: sourceField.name,
         sourceOffset: sourceField.offset,

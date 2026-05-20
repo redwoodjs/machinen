@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   copyFileSync,
   existsSync,
@@ -184,6 +185,120 @@ export function controlledResources(capture) {
   };
 }
 
+export function runControlledDwarfCapture(options) {
+  const heapHead = layoutField(options.heapLayout, "head");
+  const heapCount = layoutField(options.heapLayout, "node_count");
+  const nodeNext = layoutField(options.nodeLayout, "next");
+  const args = [
+    "--output",
+    options.captureDir,
+    "--symbol",
+    `${options.globalSymbol.name}:${options.globalSymbol.address}:${options.globalSymbol.sizeBytes}`,
+    "--symbol",
+    `${options.heapSymbol.name}:${options.heapSymbol.address}:${options.heapSymbol.sizeBytes}`,
+    "--follow-list",
+    [
+      options.heapSymbol.name,
+      heapHead.offset,
+      heapCount.offset,
+      options.nodeLayout.byteSize,
+      nodeNext.offset,
+      options.nodePrefix,
+    ].join(":"),
+    "--",
+    options.target,
+    "--fixture",
+    "dwarf",
+    "--pause-at-observation",
+  ];
+  if (options.resourceFile) {
+    args.push("--resource-file", options.resourceFile);
+  }
+  runCommand(options.capturer, args, {
+    label: options.label,
+    env: { ...process.env, MACHINEN_CONTROLLED_ENV: "1" },
+  });
+}
+
+export function layoutField(layout, name) {
+  const fields = layout.fields || layout.members || [];
+  const found = fields.find((candidate) => candidate.name === name);
+  if (!found) {
+    throw new Error(`layout ${layout.type} has no field ${name}`);
+  }
+  return found;
+}
+
+const UNSIGNED_READERS = new Map([
+  [1, (bytes, offset) => BigInt(bytes.readUInt8(offset))],
+  [2, (bytes, offset) => BigInt(bytes.readUInt16LE(offset))],
+  [4, (bytes, offset) => BigInt(bytes.readUInt32LE(offset))],
+  [8, (bytes, offset) => bytes.readBigUInt64LE(offset)],
+]);
+
+export function readLayoutUnsigned(bytes, fieldSpec) {
+  const offset = fieldSpec.offset;
+  if (offset + fieldSpec.sizeBytes > bytes.length) {
+    throw new Error(`field ${fieldSpec.name} is outside captured bytes`);
+  }
+  const reader = UNSIGNED_READERS.get(fieldSpec.sizeBytes);
+  if (!reader) {
+    throw new Error(
+      `unsupported unsigned field width for ${fieldSpec.name}: ${fieldSpec.sizeBytes}`,
+    );
+  }
+  return reader(bytes, offset);
+}
+
+export function readLayoutCString(bytes, fieldSpec) {
+  const start = fieldSpec.offset;
+  const limit = Math.min(bytes.length, start + fieldSpec.sizeBytes);
+  let end = start;
+  while (end < limit && bytes[end] !== 0) {
+    end++;
+  }
+  return bytes.subarray(start, end).toString("utf8");
+}
+
+export function linkedListPointerRelocations(options) {
+  const relocations = [
+    {
+      fromObject: options.heapObject,
+      fromOffset: options.heapHeadOffset,
+      toObject: `${options.nodePrefix}-0`,
+      addend: 0,
+      kind: "pointer",
+      sourcePointer: options.headPointer,
+    },
+  ];
+  for (let index = 0; index + 1 < options.nodes.length; index++) {
+    relocations.push({
+      fromObject: `${options.nodePrefix}-${index}`,
+      fromOffset: options.nodeNextOffset,
+      toObject: `${options.nodePrefix}-${index + 1}`,
+      addend: 0,
+      kind: "pointer",
+      sourcePointer: options.nodes[index].nextPointer,
+    });
+  }
+  return relocations;
+}
+
+export function controlledDwarfStateText(semanticState) {
+  const lines = [
+    `global_label=${semanticState.global.label}`,
+    `global_counter=${semanticState.global.counter}`,
+    `global_flags=${semanticState.global.flags}`,
+    `global_generation=${semanticState.global.generation}`,
+    `node_count=${semanticState.heap.nodeCount}`,
+  ];
+  semanticState.heap.values.forEach((value, index) => lines.push(`value${index}=${value}`));
+  semanticState.heap.tags.forEach((value, index) => lines.push(`tag${index}=${value}`));
+  semanticState.heap.colors.forEach((value, index) => lines.push(`color${index}=${value}`));
+  lines.push(`checksum=${semanticState.heap.checksumHex}`, "");
+  return lines.join("\n");
+}
+
 export function parseControlledMarker(stdout, expectedFixture) {
   const line = stdout.split(/\r?\n/).find((candidate) => candidate.startsWith(CONTROLLED_MARKER));
   if (!line) {
@@ -206,6 +321,10 @@ export function unsupportedVocabulary() {
 
 export function jsonDocument(value) {
   return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+export function sha256File(path) {
+  return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
 export function hostArch() {
