@@ -44,5 +44,6 @@ stack relocation, memory relocation, resource recipes/refusals, a controlled
 native final jump, a captured-process native final jump, a captured jump into a
 matching amd64 target-binary continuation, a translated call-frame return through
 matching amd64 target-binary code, a translated heap/global pointer graph walked
-natively after that return, and first real utility attempts. It still does not
+natively after that return, a captured regular-file fd reopened before
+target-native code reads it, and first real utility attempts. It still does not
 claim generic final instruction-pointer jump for arbitrary optimized binaries.

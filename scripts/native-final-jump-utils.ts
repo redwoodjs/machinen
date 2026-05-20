@@ -13,6 +13,7 @@ export const FINAL_JUMP_STORE_MARKER = 0x4e454e494843414dn;
 export const FINAL_JUMP_EXPECTED_RETURN = 0x4dn;
 export const FINAL_JUMP_RETURN_MARKER = 0x52455455524e4a50n;
 export const FINAL_JUMP_GRAPH_CHECKSUM = FINAL_JUMP_EXPECTED_RETURN;
+export const FINAL_JUMP_RESOURCE_CHECKSUM = FINAL_JUMP_EXPECTED_RETURN;
 export const FINAL_JUMP_TARGET_TEXT_START = 0x14000000n;
 export const FINAL_JUMP_TARGET_DATA_START = 0x15000000n;
 export const FINAL_JUMP_TARGET_STACK_START = 0x500000000000n;
@@ -78,6 +79,12 @@ export function finalJumpBundleMemoryFromTargetText(
   return Buffer.concat([text, data]);
 }
 
+export interface FinalJumpRegularFileResource {
+  fd: number;
+  path: string;
+  offset: number;
+}
+
 export function requireFinalJumpAmd64Registers(
   thread: NativeThreadTranslation | undefined,
   label: string,
@@ -101,6 +108,8 @@ export function jumpIntoFinalTargetNativeCode(options: {
   expectedReturnMarker?: bigint;
   dataSizeBytes?: number;
   expectedGraphChecksum?: bigint;
+  expectedResourceChecksum?: bigint;
+  regularFileResources?: FinalJumpRegularFileResource[];
 }) {
   assert(
     options.targetRegisters.rip === finalJumpHex(FINAL_JUMP_TARGET_ENTRY),
@@ -157,6 +166,14 @@ export function jumpIntoFinalTargetNativeCode(options: {
   }
   if (options.expectedGraphChecksum !== undefined) {
     args.push("--expect-graph-checksum", finalJumpHex(options.expectedGraphChecksum));
+  }
+  if (options.expectedResourceChecksum !== undefined) {
+    args.push("--expect-resource-checksum", finalJumpHex(options.expectedResourceChecksum));
+  }
+  for (const resource of options.regularFileResources ?? []) {
+    args.push("--reopen-fd", String(resource.fd));
+    args.push("--reopen-path", resource.path);
+    args.push("--reopen-offset", String(resource.offset));
   }
 
   const result = spawnSync(options.trampoline, args, {
@@ -227,5 +244,18 @@ export function validateFinalJumpGraphResumeEvent(
   assert(
     resumeEvent.graphChecksum === finalJumpHex(expectedGraphChecksum),
     `${label} did not report the translated graph checksum`,
+  );
+}
+
+export function validateFinalJumpResourceResumeEvent(
+  resumeEvent: { [key: string]: unknown },
+  label: string,
+  translatedReturnAddress: bigint,
+  expectedResourceChecksum = FINAL_JUMP_RESOURCE_CHECKSUM,
+) {
+  validateFinalJumpReturnChainResumeEvent(resumeEvent, label, translatedReturnAddress);
+  assert(
+    resumeEvent.resourceChecksum === finalJumpHex(expectedResourceChecksum),
+    `${label} did not report the reopened resource checksum`,
   );
 }
