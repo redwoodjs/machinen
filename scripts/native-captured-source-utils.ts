@@ -150,6 +150,7 @@ export function capturedStackInput(
   facts: CapturedArm64SourceFacts,
   codeLocations: NativeCodeLocationMapping[],
   frameId: string,
+  sourceReturnAddress = facts.sourcePc,
 ) {
   return {
     stackMapping: facts.stackMapping.id,
@@ -159,7 +160,7 @@ export function capturedStackInput(
       {
         id: frameId,
         sourceSp: finalJumpHex(facts.sourceSp),
-        sourceReturnAddress: finalJumpHex(facts.sourcePc),
+        sourceReturnAddress: finalJumpHex(sourceReturnAddress),
         sizeBytes: 64,
         metadata: "sidecar" as const,
         locals: [

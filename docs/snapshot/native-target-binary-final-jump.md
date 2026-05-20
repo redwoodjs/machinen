@@ -54,7 +54,9 @@ captured-arm64-source-jumped-matching-amd64-target-binary
 ## Boundary
 
 This is still a controlled binary with sidecar metadata for the safe point and
-pointer-bearing slots. It does not claim arbitrary ELF relocation, dynamic loader
+pointer-bearing slots. The call-frame final-jump proof builds on this by also
+translating a source return address and letting native amd64 `ret` consume the
+target stack slot. Neither proof claims arbitrary ELF relocation, dynamic loader
 state, active syscalls, signal frames, TLS reconstruction, or resource broker
 support. Missing target build identity or symbol metadata must remain a precise
 refusal before this can become a general native process resume.
