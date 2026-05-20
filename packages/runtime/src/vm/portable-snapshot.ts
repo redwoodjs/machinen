@@ -52,6 +52,8 @@ const PORTABLE_REFUSAL_CODES = [
   "object-unsupported",
   "relocation-unsupported",
   "resource-unsupported",
+  "runtime-adapter-missing",
+  "runtime-heap-unsupported",
   "syscall-unsupported",
 ] as const;
 type PortableRefusalCode = (typeof PORTABLE_REFUSAL_CODES)[number];
