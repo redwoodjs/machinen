@@ -1,7 +1,8 @@
 # Native final-jump proof
 
 This proof adds the first target-native execution step after the controlled native
-restore pipeline.
+restore pipeline. The follow-up captured-process proof starts from a real
+ptrace/procfs arm64 source bundle instead of a fully synthetic image.
 
 ## Command
 
@@ -33,8 +34,10 @@ called through an arm64 emulator. It runs as native amd64 code on the target hos
 
 This is still a controlled proof. It does not claim arbitrary binary resume.
 The input has sidecar metadata for the continuation, stack frame, pointer-bearing
-register, and pointer-bearing memory word. If those facts are missing in a real
-program, restore must still refuse with the existing precise ambiguity codes.
+register, and pointer-bearing memory word. The captured-process final-jump proof
+keeps those sidecar facts but replaces the synthetic source state with a real
+external Linux process capture. If those facts are missing in a real program,
+restore must still refuse with the existing precise ambiguity codes.
 
 The proof advances the boundary from:
 
