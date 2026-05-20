@@ -81,21 +81,46 @@ struct ThreadArgs {
   uint64_t base_counter;
 };
 
+struct ControlledDwarfGlobalState {
+  char label[CONTROLLED_LABEL_CAPACITY];
+  uint32_t flags;
+  uint16_t generation;
+  uint64_t counter;
+};
+
+struct ControlledDwarfNode {
+  uint32_t tag;
+  uint8_t color;
+  uint64_t value;
+  struct ControlledDwarfNode *next;
+};
+
+struct ControlledDwarfHeapState {
+  uint16_t version;
+  struct ControlledDwarfNode *head;
+  uint64_t checksum;
+  uint64_t node_count;
+};
+
 CONTROLLED_EXPORT struct ControlledGlobalState machinen_controlled_global_state;
 CONTROLLED_EXPORT struct ControlledHeapState machinen_controlled_heap_state;
 CONTROLLED_EXPORT struct ControlledStackObservation machinen_controlled_stack_observation;
 CONTROLLED_EXPORT struct ControlledResourceState machinen_controlled_resource_state;
 CONTROLLED_EXPORT struct ControlledThreadState machinen_controlled_thread_states[CONTROLLED_THREAD_COUNT];
+CONTROLLED_EXPORT struct ControlledDwarfGlobalState machinen_controlled_dwarf_global_state;
+CONTROLLED_EXPORT struct ControlledDwarfHeapState machinen_controlled_dwarf_heap_state;
 
 CONTROLLED_EXPORT const char machinen_controlled_corpus_metadata[] =
     "{\"schema_version\":1,"
     "\"workload\":\"machinen-controlled-binary-corpus\","
-    "\"fixtures\":[\"global\",\"heap\",\"stack\",\"resource\",\"threads\"],"
+    "\"fixtures\":[\"global\",\"heap\",\"stack\",\"resource\",\"threads\",\"dwarf\"],"
     "\"global_symbol\":\"machinen_controlled_global_state\","
     "\"heap_symbol\":\"machinen_controlled_heap_state\","
     "\"stack_symbol\":\"machinen_controlled_stack_observation\","
     "\"resource_symbol\":\"machinen_controlled_resource_state\","
-    "\"threads_symbol\":\"machinen_controlled_thread_states\"}";
+    "\"threads_symbol\":\"machinen_controlled_thread_states\","
+    "\"dwarf_global_symbol\":\"machinen_controlled_dwarf_global_state\","
+    "\"dwarf_heap_symbol\":\"machinen_controlled_dwarf_heap_state\"}";
 
 static bool g_pause_at_observation;
 static pthread_mutex_t g_thread_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -133,6 +158,21 @@ static uint64_t checksum_nodes(const struct ControlledNode *head) {
   uint64_t hash = UINT64_C(1469598103934665603);
   const struct ControlledNode *node = head;
   while (node) {
+    hash ^= node->value;
+    hash *= UINT64_C(1099511628211);
+    node = node->next;
+  }
+  return hash;
+}
+
+static uint64_t checksum_dwarf_nodes(const struct ControlledDwarfNode *head) {
+  uint64_t hash = UINT64_C(1469598103934665603);
+  const struct ControlledDwarfNode *node = head;
+  while (node) {
+    hash ^= node->tag;
+    hash *= UINT64_C(1099511628211);
+    hash ^= node->color;
+    hash *= UINT64_C(1099511628211);
     hash ^= node->value;
     hash *= UINT64_C(1099511628211);
     node = node->next;
@@ -207,6 +247,72 @@ static int run_heap_fixture(void) {
   machinen_controlled_heap_state.head = NULL;
   machinen_controlled_heap_state.node_count = 0;
   machinen_controlled_heap_state.checksum = 0;
+  return 0;
+}
+
+static void print_dwarf_marker(void) {
+  const struct ControlledDwarfNode *head = machinen_controlled_dwarf_heap_state.head;
+  const struct ControlledDwarfNode *second = head ? head->next : NULL;
+  const struct ControlledDwarfNode *third = second ? second->next : NULL;
+  printf(CONTROLLED_MARKER
+         "{\"schema_version\":%u,\"fixture\":\"dwarf\",\"arch\":\"%s\","
+         "\"global\":{\"counter\":%" PRIu64 ",\"flags\":%u,"
+         "\"generation\":%u,\"label\":\"%s\"},"
+         "\"heap\":{\"version\":%u,\"node_count\":%" PRIu64 ","
+         "\"values\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 "],"
+         "\"tags\":[%u,%u,%u],\"colors\":[%u,%u,%u],"
+         "\"checksum\":%" PRIu64 ",\"checksum_hex\":\"0x%" PRIx64 "\"}}\n",
+      CONTROLLED_SCHEMA_VERSION, CONTROLLED_ARCH, machinen_controlled_dwarf_global_state.counter,
+      machinen_controlled_dwarf_global_state.flags,
+      (unsigned)machinen_controlled_dwarf_global_state.generation,
+      machinen_controlled_dwarf_global_state.label,
+      (unsigned)machinen_controlled_dwarf_heap_state.version,
+      machinen_controlled_dwarf_heap_state.node_count, head ? head->value : 0,
+      second ? second->value : 0, third ? third->value : 0, head ? head->tag : 0,
+      second ? second->tag : 0, third ? third->tag : 0, head ? (unsigned)head->color : 0,
+      second ? (unsigned)second->color : 0, third ? (unsigned)third->color : 0,
+      machinen_controlled_dwarf_heap_state.checksum,
+      machinen_controlled_dwarf_heap_state.checksum);
+  fflush(stdout);
+}
+
+static int run_dwarf_fixture(void) {
+  struct ControlledDwarfNode *nodes = calloc(3u, sizeof(struct ControlledDwarfNode));
+  if (!nodes) {
+    fprintf(stderr, "machinen-controlled-corpus: dwarf heap allocation failed\n");
+    return 1;
+  }
+
+  copy_label(machinen_controlled_dwarf_global_state.label, "dwarf-global-layout-v2");
+  machinen_controlled_dwarf_global_state.flags = 0x5a5au;
+  machinen_controlled_dwarf_global_state.generation = 7u;
+  machinen_controlled_dwarf_global_state.counter = 7000u;
+
+  nodes[0].tag = 101u;
+  nodes[0].color = 3u;
+  nodes[0].value = 111u;
+  nodes[0].next = &nodes[1];
+  nodes[1].tag = 102u;
+  nodes[1].color = 5u;
+  nodes[1].value = 222u;
+  nodes[1].next = &nodes[2];
+  nodes[2].tag = 103u;
+  nodes[2].color = 7u;
+  nodes[2].value = 333u;
+  nodes[2].next = NULL;
+
+  machinen_controlled_dwarf_heap_state.version = 2u;
+  machinen_controlled_dwarf_heap_state.head = &nodes[0];
+  machinen_controlled_dwarf_heap_state.node_count = 3u;
+  machinen_controlled_dwarf_heap_state.checksum =
+      checksum_dwarf_nodes(machinen_controlled_dwarf_heap_state.head);
+
+  print_dwarf_marker();
+  maybe_pause_at_observation("dwarf");
+
+  free(nodes);
+  memset(&machinen_controlled_dwarf_global_state, 0, sizeof(machinen_controlled_dwarf_global_state));
+  memset(&machinen_controlled_dwarf_heap_state, 0, sizeof(machinen_controlled_dwarf_heap_state));
   return 0;
 }
 
@@ -389,6 +495,18 @@ struct ControlledKnownSymbolRestoreState {
   uint64_t checksum;
 };
 
+struct ControlledDwarfRestoreState {
+  char label[CONTROLLED_LABEL_CAPACITY];
+  uint64_t counter;
+  uint64_t flags;
+  uint64_t generation;
+  uint64_t node_count;
+  uint64_t values[3];
+  uint64_t tags[3];
+  uint64_t colors[3];
+  uint64_t checksum;
+};
+
 static bool parse_u64_line(const char *line, const char *prefix, uint64_t *out) {
   size_t prefix_len = strlen(prefix);
   if (strncmp(line, prefix, prefix_len) != 0) {
@@ -401,6 +519,20 @@ static bool parse_u64_line(const char *line, const char *prefix, uint64_t *out) 
     return false;
   }
   *out = (uint64_t)parsed;
+  return true;
+}
+
+static bool parse_string_line(const char *line, const char *prefix, char *out, size_t capacity) {
+  size_t prefix_len = strlen(prefix);
+  if (strncmp(line, prefix, prefix_len) != 0) {
+    return false;
+  }
+  size_t len = strcspn(line + prefix_len, "\r\n");
+  if (len >= capacity) {
+    return false;
+  }
+  memcpy(out, line + prefix_len, len);
+  out[len] = '\0';
   return true;
 }
 
@@ -485,11 +617,122 @@ static int run_known_symbol_restore(const char *bundle_dir) {
   return 0;
 }
 
+static int load_dwarf_restore_state(const char *bundle_dir, struct ControlledDwarfRestoreState *state) {
+  char path[CONTROLLED_PATH_CAPACITY];
+  int written = snprintf(path, sizeof(path), "%s/controlled-state.txt", bundle_dir);
+  if (written < 0 || written >= (int)sizeof(path)) {
+    fprintf(stderr, "machinen-controlled-corpus: dwarf restore bundle path too long\n");
+    return 1;
+  }
+
+  FILE *file = fopen(path, "rb");
+  if (!file) {
+    fprintf(stderr, "machinen-controlled-corpus: fopen(%s) failed: %s\n", path, strerror(errno));
+    return 1;
+  }
+
+  char line[128];
+  while (fgets(line, sizeof(line), file)) {
+    if (parse_string_line(line, "global_label=", state->label, sizeof(state->label)) ||
+        parse_u64_line(line, "global_counter=", &state->counter) ||
+        parse_u64_line(line, "global_flags=", &state->flags) ||
+        parse_u64_line(line, "global_generation=", &state->generation) ||
+        parse_u64_line(line, "node_count=", &state->node_count) ||
+        parse_u64_line(line, "value0=", &state->values[0]) ||
+        parse_u64_line(line, "value1=", &state->values[1]) ||
+        parse_u64_line(line, "value2=", &state->values[2]) ||
+        parse_u64_line(line, "tag0=", &state->tags[0]) ||
+        parse_u64_line(line, "tag1=", &state->tags[1]) ||
+        parse_u64_line(line, "tag2=", &state->tags[2]) ||
+        parse_u64_line(line, "color0=", &state->colors[0]) ||
+        parse_u64_line(line, "color1=", &state->colors[1]) ||
+        parse_u64_line(line, "color2=", &state->colors[2]) ||
+        parse_u64_line(line, "checksum=", &state->checksum)) {
+      continue;
+    }
+  }
+
+  if (fclose(file) != 0) {
+    fprintf(stderr, "machinen-controlled-corpus: fclose(%s) failed\n", path);
+    return 1;
+  }
+  if (state->node_count != 3 || state->label[0] == '\0') {
+    fprintf(stderr, "machinen-controlled-corpus: invalid dwarf restore state\n");
+    return 1;
+  }
+  return 0;
+}
+
+static void print_dwarf_restore_marker(void) {
+  const struct ControlledDwarfNode *head = machinen_controlled_dwarf_heap_state.head;
+  const struct ControlledDwarfNode *second = head ? head->next : NULL;
+  const struct ControlledDwarfNode *third = second ? second->next : NULL;
+  printf(CONTROLLED_MARKER
+         "{\"schema_version\":%u,\"fixture\":\"dwarf-restore\",\"arch\":\"%s\","
+         "\"global\":{\"counter\":%" PRIu64 ",\"flags\":%u,"
+         "\"generation\":%u,\"label\":\"%s\"},"
+         "\"heap\":{\"version\":%u,\"node_count\":%" PRIu64 ","
+         "\"values\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 "],"
+         "\"tags\":[%u,%u,%u],\"colors\":[%u,%u,%u],"
+         "\"checksum\":%" PRIu64 ",\"checksum_hex\":\"0x%" PRIx64 "\"}}\n",
+      CONTROLLED_SCHEMA_VERSION, CONTROLLED_ARCH, machinen_controlled_dwarf_global_state.counter,
+      machinen_controlled_dwarf_global_state.flags,
+      (unsigned)machinen_controlled_dwarf_global_state.generation,
+      machinen_controlled_dwarf_global_state.label,
+      (unsigned)machinen_controlled_dwarf_heap_state.version,
+      machinen_controlled_dwarf_heap_state.node_count, head ? head->value : 0,
+      second ? second->value : 0, third ? third->value : 0, head ? head->tag : 0,
+      second ? second->tag : 0, third ? third->tag : 0, head ? (unsigned)head->color : 0,
+      second ? (unsigned)second->color : 0, third ? (unsigned)third->color : 0,
+      machinen_controlled_dwarf_heap_state.checksum,
+      machinen_controlled_dwarf_heap_state.checksum);
+  fflush(stdout);
+}
+
+static int run_dwarf_restore(const char *bundle_dir) {
+  struct ControlledDwarfRestoreState state = {0};
+  if (load_dwarf_restore_state(bundle_dir, &state) != 0) {
+    return 1;
+  }
+
+  copy_label(machinen_controlled_dwarf_global_state.label, state.label);
+  machinen_controlled_dwarf_global_state.counter = state.counter;
+  machinen_controlled_dwarf_global_state.flags = (uint32_t)state.flags;
+  machinen_controlled_dwarf_global_state.generation = (uint16_t)state.generation;
+
+  struct ControlledDwarfNode *nodes = calloc((size_t)state.node_count, sizeof(struct ControlledDwarfNode));
+  if (!nodes) {
+    fprintf(stderr, "machinen-controlled-corpus: dwarf restore heap allocation failed\n");
+    return 1;
+  }
+  for (uint64_t i = 0; i < state.node_count; i++) {
+    nodes[i].tag = (uint32_t)state.tags[i];
+    nodes[i].color = (uint8_t)state.colors[i];
+    nodes[i].value = state.values[i];
+    nodes[i].next = i + 1u < state.node_count ? &nodes[i + 1u] : NULL;
+  }
+
+  machinen_controlled_dwarf_heap_state.version = 2u;
+  machinen_controlled_dwarf_heap_state.head = &nodes[0];
+  machinen_controlled_dwarf_heap_state.node_count = state.node_count;
+  machinen_controlled_dwarf_heap_state.checksum =
+      checksum_dwarf_nodes(machinen_controlled_dwarf_heap_state.head);
+
+  if (machinen_controlled_dwarf_heap_state.checksum != state.checksum) {
+    fprintf(stderr, "machinen-controlled-corpus: dwarf restore checksum mismatch\n");
+    free(nodes);
+    return 1;
+  }
+  print_dwarf_restore_marker();
+  free(nodes);
+  return 0;
+}
+
 static void print_usage(const char *argv0) {
   fprintf(stderr,
-      "usage: %s [--fixture all|global|heap|stack|resource|threads] "
+      "usage: %s [--fixture all|global|heap|stack|resource|threads|dwarf] "
       "[--resource-file path] [--pause-at-observation] "
-      "[--restore-known-symbol-bundle path]\n",
+      "[--restore-known-symbol-bundle path] [--restore-dwarf-bundle path]\n",
       argv0);
 }
 
@@ -507,6 +750,9 @@ static int run_selected_fixture(const char *fixture, const char *resource_path, 
   if (streq(fixture, "stack")) {
     return run_stack_fixture();
   }
+  if (streq(fixture, "dwarf")) {
+    return run_dwarf_fixture();
+  }
   if (streq(fixture, "resource")) {
     return run_resource_fixture(resource_path, argc);
   }
@@ -518,7 +764,7 @@ static int run_selected_fixture(const char *fixture, const char *resource_path, 
 }
 
 static int run_all_fixtures(const char *resource_path, int argc) {
-  const char *fixtures[] = {"global", "heap", "stack", "resource", "threads"};
+  const char *fixtures[] = {"global", "heap", "stack", "resource", "threads", "dwarf"};
   for (uint32_t i = 0; i < sizeof(fixtures) / sizeof(fixtures[0]); i++) {
     if (run_selected_fixture(fixtures[i], resource_path, argc) != 0) {
       return 1;
@@ -531,6 +777,7 @@ int main(int argc, char **argv) {
   const char *fixture = "all";
   const char *resource_path = "machinen-controlled-resource.txt";
   const char *restore_bundle_dir = NULL;
+  const char *dwarf_restore_bundle_dir = NULL;
 
   for (int i = 1; i < argc; i++) {
     if (streq(argv[i], "--fixture")) {
@@ -553,6 +800,12 @@ int main(int argc, char **argv) {
         return 2;
       }
       restore_bundle_dir = argv[++i];
+    } else if (streq(argv[i], "--restore-dwarf-bundle")) {
+      if (i + 1 >= argc) {
+        print_usage(argv[0]);
+        return 2;
+      }
+      dwarf_restore_bundle_dir = argv[++i];
     } else if (streq(argv[i], "--help") || streq(argv[i], "-h")) {
       print_usage(argv[0]);
       return 0;
@@ -565,6 +818,9 @@ int main(int argc, char **argv) {
 
   if (restore_bundle_dir) {
     return run_known_symbol_restore(restore_bundle_dir);
+  }
+  if (dwarf_restore_bundle_dir) {
+    return run_dwarf_restore(dwarf_restore_bundle_dir);
   }
   if (streq(fixture, "all")) {
     return run_all_fixtures(resource_path, argc);

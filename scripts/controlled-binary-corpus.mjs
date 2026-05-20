@@ -12,7 +12,7 @@ import {
 } from "./proof-script-utils.mjs";
 
 const MARKER = "MACHINEN_CONTROLLED_BINARY ";
-const FIXTURES = ["global", "heap", "stack", "resource", "threads"];
+const FIXTURES = ["global", "heap", "stack", "resource", "threads", "dwarf"];
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SOURCE = join(REPO_ROOT, "packages/microvm/assets/controlled-binary-corpus.c");
 const CROSS_TARGETS = [
@@ -162,6 +162,25 @@ function validateSummary(summary) {
   assert(
     threads.threads.every((thread) => thread.at_observation === true),
     "thread fixture missed observation point",
+  );
+
+  const dwarf = requireFixture(events, "dwarf");
+  assert(dwarf.global.label === "dwarf-global-layout-v2", "dwarf global label changed");
+  assert(dwarf.global.counter === 7000, "dwarf global counter changed");
+  assert(dwarf.global.flags === 0x5a5a, "dwarf global flags changed");
+  assert(dwarf.global.generation === 7, "dwarf global generation changed");
+  assert(dwarf.heap.node_count === 3, "dwarf heap node count changed");
+  assert(
+    JSON.stringify(dwarf.heap.values) === JSON.stringify([111, 222, 333]),
+    "dwarf heap values changed",
+  );
+  assert(
+    JSON.stringify(dwarf.heap.tags) === JSON.stringify([101, 102, 103]),
+    "dwarf heap tags changed",
+  );
+  assert(
+    JSON.stringify(dwarf.heap.colors) === JSON.stringify([3, 5, 7]),
+    "dwarf heap colors changed",
   );
 
   const crossArches = summary.crossBuilds.map((build) => build.arch);
