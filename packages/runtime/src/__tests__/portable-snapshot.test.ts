@@ -248,19 +248,41 @@ describe("portable snapshot schemas", () => {
     );
   });
 
-  it("accepts checkpoint refusal codes in the portable diagnostics vocabulary", () => {
+  it("accepts the initial stable refusal diagnostics vocabulary", () => {
+    const refusalCodes = [
+      "thread-count-unsupported",
+      "thread-inside-syscall",
+      "signal-handler-active",
+      "mapping-executable-anonymous",
+      "fd-kind-unsupported",
+      "pointer-outside-known-object",
+      "target-build-mismatch",
+      "architecture-pair-unsupported",
+    ];
     const docs = tinyDocs({
       unsupported: {
         vocabularyVersion: 1,
-        refusals: [
-          {
-            code: "pointer-outside-known-object",
-            message: "pointer field must point into known objects or null",
-          },
-        ],
+        refusals: refusalCodes.map((code) => ({
+          code,
+          message: `refused: ${code}`,
+        })),
       },
     });
     expect(validatePortableSnapshotDocuments(docs)).toEqual([]);
+  });
+
+  it("rejects unknown refusal diagnostics", () => {
+    const docs = tinyDocs({
+      unsupported: {
+        vocabularyVersion: 1,
+        refusals: [{ code: "surprise-refusal", message: "nope" }],
+      },
+    });
+    expect(validatePortableSnapshotDocuments(docs)).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^manifest\.unsupported\.refusals\[0\]\.code must be one of:/),
+      ]),
+    );
   });
 
   it("reports missing target build metadata without reading from disk", () => {
