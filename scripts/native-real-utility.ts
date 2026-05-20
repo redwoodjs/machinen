@@ -5,6 +5,7 @@ import { spawnSync } from "node:child_process";
 import { translateNativeResources } from "../packages/runtime/src/native-resource-translation.ts";
 import {
   NATIVE_CAPTURE_SOURCE,
+  NATIVE_PROCESS_IMAGE_BUNDLE_FILES,
   bundleFileStats,
   compileNativeProcessCapturer,
   ensureSourcesExist,
@@ -21,15 +22,6 @@ import {
 
 const USAGE =
   "usage: tsx scripts/native-real-utility.ts [verify] [--out-dir path] [--json] [--keep]";
-const BUNDLE_FILES = [
-  "native-process.json",
-  "native-mappings.json",
-  "native-threads.json",
-  "native-resources.json",
-  "native-translation.json",
-  "native-memory.bin",
-];
-
 function main() {
   const args = parseVerifyArgs(process.argv.slice(2), USAGE);
   if (process.platform !== "linux") {
@@ -135,7 +127,7 @@ function captureUtility(outDir: string, capturer: string, name: string, command:
       ...new Set(resources.resources.map((resource: { kind: string }) => resource.kind)),
     ],
     resourceRefusals: translatedResources.refusals,
-    bundleFiles: bundleFileStats(bundleDir, BUNDLE_FILES),
+    bundleFiles: bundleFileStats(bundleDir, NATIVE_PROCESS_IMAGE_BUNDLE_FILES),
   };
 }
 
@@ -157,6 +149,7 @@ function skipped(name: string, reason: string) {
   return { name, state: "skipped", reason };
 }
 
+// fallow-ignore-next-line complexity
 function printSummary(summary: ReturnType<typeof verifyRealUtilities>) {
   for (const attempt of summary.attempts) {
     const detail =

@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 import { spawnSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildNativeCodeMap } from "../packages/runtime/src/native-code-map.ts";
 import { translateNativeMemory } from "../packages/runtime/src/native-memory-translation.ts";
@@ -8,9 +8,11 @@ import { translateNativeRegisterState } from "../packages/runtime/src/native-reg
 import { translateNativeResources } from "../packages/runtime/src/native-resource-translation.ts";
 import { translateNativeStack } from "../packages/runtime/src/native-stack-translation.ts";
 import {
+  NATIVE_PROCESS_IMAGE_BUNDLE_FILES,
   NATIVE_RESTORE_LOADER_SOURCE,
   bundleFileStats,
   compileNativeRestoreLoader,
+  createProofBinAndBundleDirs,
   ensureSourcesExist,
   jsonDocument,
 } from "./controlled-corpus-utils.mjs";
@@ -26,15 +28,6 @@ const USAGE =
   "usage: tsx scripts/native-controlled-restore.ts [verify] [--out-dir path] [--json] [--keep]";
 const PAGE_SIZE = 4096;
 const MARKER = "machinen-native-controlled-restore-v1";
-const BUNDLE_FILES = [
-  "native-process.json",
-  "native-mappings.json",
-  "native-threads.json",
-  "native-resources.json",
-  "native-translation.json",
-  "native-memory.bin",
-];
-
 function main() {
   const args = parseVerifyArgs(process.argv.slice(2), USAGE);
   const workspace = createWorkspace(args, "machinen-native-controlled-restore-");
@@ -47,10 +40,7 @@ function main() {
 
 function verifyNativeControlledRestore(outDir: string) {
   ensureSourcesExist([NATIVE_RESTORE_LOADER_SOURCE]);
-  const binDir = join(outDir, "bin");
-  const bundleDir = join(outDir, "bundle");
-  mkdirSync(binDir, { recursive: true });
-  mkdirSync(bundleDir, { recursive: true });
+  const { binDir, bundleDir } = createProofBinAndBundleDirs(outDir);
   const loader = compileNativeRestoreLoader(binDir);
 
   const codeMap = buildNativeCodeMap(codeMapInput());
@@ -77,7 +67,7 @@ function verifyNativeControlledRestore(outDir: string) {
     loaderEvent,
     refusal,
     execution: "materialized-translated-state-without-final-jump",
-    bundleFiles: bundleFileStats(bundleDir, BUNDLE_FILES),
+    bundleFiles: bundleFileStats(bundleDir, NATIVE_PROCESS_IMAGE_BUNDLE_FILES),
   };
 }
 

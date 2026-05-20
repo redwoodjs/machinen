@@ -1,5 +1,6 @@
 /** Register/TLS/syscall-state translation rules for native process images. */
 
+import { normalizeNativeHex } from "./native-hex.ts";
 import type {
   NativeAmd64Registers,
   NativeArm64Registers,
@@ -101,7 +102,7 @@ function translateThreadRegisters(
       refusal: refusal("code-location-unknown", `thread ${thread.id} has no target continuation`),
     };
   }
-  if (normalizeHex(continuation.sourcePc) !== normalizeHex(thread.sourceRegisters.pc)) {
+  if (normalizeNativeHex(continuation.sourcePc) !== normalizeNativeHex(thread.sourceRegisters.pc)) {
     return {
       sourceThreadId: thread.id,
       state: "refused",
@@ -134,6 +135,7 @@ function unsafeThreadState(thread: NativeThreadState): NativeProcessImageRefusal
   return undefined;
 }
 
+// fallow-ignore-next-line complexity
 function arm64ToAmd64(
   source: NativeArm64Registers,
   continuation: NativeContinuationTarget,
@@ -168,8 +170,4 @@ function refusal(
   message: string,
 ): NativeProcessImageRefusal {
   return { code, message };
-}
-
-function normalizeHex(value: string): string {
-  return `0x${BigInt(value).toString(16)}`;
 }
