@@ -116,6 +116,9 @@ export interface VmHandle {
    * process-tree behavior: CRIU image files live under `<outDir>/img/`,
    * `opts.leaveRunning: true` keeps the source alive, and the default
    * destructive CRIU snapshot powers the source off after the dump.
+   * With `MACHINEN_SNAPSHOT_ENGINE=portable`, snapshot currently
+   * refuses with an experimental/unsupported-workload error; the
+   * semantic cross-ISA checkpoint implementation has not landed yet.
    *
    * `mount-lower.sqfs` and `mount-upper.img` are reflinked from the
    * runtime's per-VM materialization (#272), so on APFS / btrfs / xfs
@@ -360,10 +363,12 @@ export interface VmstateSnapshotMeta {
 export interface SnapshotMeta {
   /**
    * Which backend wrote this bundle — `"criu"` (process-tree images
-   * under `img/`) or `"vmstate"` (whole-VM `state.vmstate`). `restore()`
-   * also auto-detects from the bundle's contents; this field is the
-   * explicit record. Absent on bundles predating the vmstate engine
-   * (treated as `"criu"`).
+   * under `img/`), `"vmstate"` (whole-VM `state.vmstate`), or the
+   * experimental `"portable"` semantic format. `restore()` auto-detects
+   * CRIU/vmstate from the bundle's contents; portable remains explicit
+   * opt-in so semantic process restore is not confused with exact VM
+   * restore. Absent on bundles predating the vmstate engine (treated as
+   * `"criu"`).
    */
   engine?: SnapshotEngine;
   /** Name passed to `boot({ name })` when the source VM was started. */

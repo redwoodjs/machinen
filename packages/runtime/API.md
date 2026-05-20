@@ -2948,6 +2948,9 @@ With `MACHINEN_SNAPSHOT_ENGINE=criu`, this keeps the historical
 process-tree behavior: CRIU image files live under `<outDir>/img/`,
 `opts.leaveRunning: true` keeps the source alive, and the default
 destructive CRIU snapshot powers the source off after the dump.
+With `MACHINEN_SNAPSHOT_ENGINE=portable`, snapshot currently
+refuses with an experimental/unsupported-workload error; the
+semantic cross-ISA checkpoint implementation has not landed yet.
 
 `mount-lower.sqfs` and `mount-upper.img` are reflinked from the
 runtime's per-VM materialization (#272), so on APFS / btrfs / xfs
@@ -3354,10 +3357,12 @@ Rootdisk section shape carried by this bundle.
 > `optional` **engine?**: [`SnapshotEngine`](#snapshotengine)
 
 Which backend wrote this bundle — `"criu"` (process-tree images
-under `img/`) or `"vmstate"` (whole-VM `state.vmstate`). `restore()`
-also auto-detects from the bundle's contents; this field is the
-explicit record. Absent on bundles predating the vmstate engine
-(treated as `"criu"`).
+under `img/`), `"vmstate"` (whole-VM `state.vmstate`), or the
+experimental `"portable"` semantic format. `restore()` auto-detects
+CRIU/vmstate from the bundle's contents; portable remains explicit
+opt-in so semantic process restore is not confused with exact VM
+restore. Absent on bundles predating the vmstate engine (treated as
+`"criu"`).
 
 ##### sourceName?
 
@@ -4923,7 +4928,7 @@ tarball-producing tool can pre-populate the lookup cache.
 
 ### SnapshotEngine
 
-> **SnapshotEngine** = `"criu"` \| `"vmstate"`
+> **SnapshotEngine** = `"criu"` \| `"vmstate"` \| `"portable"`
 
 ## Variables
 
@@ -5031,6 +5036,10 @@ tarball-producing tool can pre-populate the lookup cache.
 
 > `readonly` **BOOT\_VMSTATE\_RESEED\_FAILED**: `"BOOT_VMSTATE_RESEED_FAILED"` = `"BOOT_VMSTATE_RESEED_FAILED"`
 
+##### BOOT\_PORTABLE\_UNSUPPORTED
+
+> `readonly` **BOOT\_PORTABLE\_UNSUPPORTED**: `"BOOT_PORTABLE_UNSUPPORTED"` = `"BOOT_PORTABLE_UNSUPPORTED"`
+
 ##### FORK\_MEMORY\_BACKPRESSURE
 
 > `readonly` **FORK\_MEMORY\_BACKPRESSURE**: `"FORK_MEMORY_BACKPRESSURE"` = `"FORK_MEMORY_BACKPRESSURE"`
@@ -5070,6 +5079,10 @@ tarball-producing tool can pre-populate the lookup cache.
 ##### SNAPSHOT\_TIMEOUT
 
 > `readonly` **SNAPSHOT\_TIMEOUT**: `"SNAPSHOT_TIMEOUT"` = `"SNAPSHOT_TIMEOUT"`
+
+##### SNAPSHOT\_PORTABLE\_UNSUPPORTED
+
+> `readonly` **SNAPSHOT\_PORTABLE\_UNSUPPORTED**: `"SNAPSHOT_PORTABLE_UNSUPPORTED"` = `"SNAPSHOT_PORTABLE_UNSUPPORTED"`
 
 ##### PROVISION\_BASE\_NOT\_FOUND
 

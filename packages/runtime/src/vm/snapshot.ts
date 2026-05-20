@@ -172,13 +172,18 @@ interface DumpExtractResult {
  * Engine dispatcher. The vmstate backend (`performSnapshotVmstate`) —
  * a whole-VM `.vmstate` snapshot — is the default;
  * `MACHINEN_SNAPSHOT_ENGINE=criu` selects the process-tree backend
- * (`performSnapshotCriu`). The CLI's `snapshot` command is unchanged —
- * the env var is the only switch.
+ * (`performSnapshotCriu`), and `MACHINEN_SNAPSHOT_ENGINE=portable`
+ * selects the experimental semantic process backend (currently a
+ * deliberate unsupported-workload error).
  */
 export async function performSnapshot(
   ctx: SnapshotContext,
   opts: SnapshotOptions,
 ): Promise<SnapshotResult> {
+  const engine = resolveSnapshotEngine();
+  if (engine === "portable") {
+    return performSnapshotPortable(ctx, opts);
+  }
   if (ctx.nested) {
     throw new SnapshotError(
       "BOOT_VMSTATE_UNSUPPORTED",
@@ -187,10 +192,23 @@ export async function performSnapshot(
         "  Snapshot/fork VMs created inside this guest from the nested machinen runtime instead.",
     );
   }
-  if (resolveSnapshotEngine() === "vmstate") {
+  if (engine === "vmstate") {
     return performSnapshotVmstate(ctx, opts);
   }
   return performSnapshotCriu(ctx, opts);
+}
+
+function performSnapshotPortable(
+  _ctx: SnapshotContext,
+  _opts: SnapshotOptions,
+): Promise<SnapshotResult> {
+  throw new SnapshotError(
+    "SNAPSHOT_PORTABLE_UNSUPPORTED",
+    "vm.snapshot: portable snapshot engine is experimental and has no checkpoint implementation yet.\n" +
+      "  Portable snapshots are semantic process bundles for future cross-ISA restore,\n" +
+      "  separate from .vmstate and CRIU. Use MACHINEN_SNAPSHOT_ENGINE=vmstate\n" +
+      "  or MACHINEN_SNAPSHOT_ENGINE=criu for supported workloads today.",
+  );
 }
 
 async function performSnapshotCriu(
