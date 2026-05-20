@@ -62,6 +62,10 @@ Checkpoint refusals use stable diagnostic codes such as
 `checkpoint-inside-signal-handler`, `checkpoint-invalid-roots`, and
 `checkpoint-unknown-root`.
 
+`pnpm smoke-portable-cross-isa` runs the proof as an arm64 source process,
+ships the bundle to an amd64 Proxmox/Docker target, and verifies restore markers
+plus bundle bytes. It skips if the amd64 target is unavailable.
+
 The engine selector is opt-in via `MACHINEN_SNAPSHOT_ENGINE=portable`.
 Until the checkpoint implementation lands, snapshot/restore fail with an
 explicit experimental/unsupported-workload error.
