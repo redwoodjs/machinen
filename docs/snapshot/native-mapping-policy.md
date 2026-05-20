@@ -30,6 +30,8 @@ A passing run proves:
 ## Boundary
 
 This does not implement target vdso/vvar reconstruction. It only prevents a bad
-restore from copying source kernel pages as normal user memory. Real target
-kernels must supply their own vdso/vvar/special mappings, and any mapping that
-cannot be read through `/proc/<pid>/mem` must remain a precise refusal.
+restore from copying source kernel pages as normal user memory. The follow-up
+[Native mapping materializer](./native-mapping-materializer.md) applies this
+policy to target mappings. Real target kernels must supply their own
+vdso/vvar/special mappings, and any mapping that cannot be read through
+`/proc/<pid>/mem` must remain a precise refusal.
