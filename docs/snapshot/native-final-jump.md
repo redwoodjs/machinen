@@ -4,7 +4,8 @@ This proof adds the first target-native execution step after the controlled nati
 restore pipeline. Follow-up proofs start from a real ptrace/procfs arm64 source
 bundle, replace the synthetic amd64 proof blob with bytes extracted from a
 matching amd64 target binary, prove a native `ret` through a translated target
-stack slot, and carry a small translated heap/global graph through that return.
+stack slot, carry a small translated heap/global graph through that return, and
+reopen a captured regular-file fd before target-native code reads it.
 
 ## Command
 
@@ -43,8 +44,10 @@ compiled amd64 continuation from the matching target binary instead of this tiny
 in-bundle text helper. The call-frame proof then translates a captured return
 address and seeds the target stack so native amd64 `ret` lands in matching target
 code. The heap-graph proof adds multiple translated root/heap pointer edges that
-are walked natively after the return. If those facts are missing in a real
-program, restore must still refuse with the existing precise ambiguity codes.
+are walked natively after the return. The file-resource proof reopens a captured
+regular file from a translated resource recipe before target-native code reads
+from that fd after the return. If those facts are missing in a real program,
+restore must still refuse with the existing precise ambiguity codes.
 
 The proof advances the boundary from:
 
