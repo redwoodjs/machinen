@@ -51,6 +51,7 @@
     "native-target-binary-final-jump": "tsx scripts/native-target-binary-final-jump.ts verify",
     "native-call-frame-final-jump": "tsx scripts/native-call-frame-final-jump.ts verify",
     "native-heap-graph-final-jump": "tsx scripts/native-heap-graph-final-jump.ts verify",
+    "native-file-resource-final-jump": "tsx scripts/native-file-resource-final-jump.ts verify",
     "native-real-utility": "tsx scripts/native-real-utility.ts verify",
     "native-boundary-check": "tsx scripts/native-boundary-check.ts verify",
     "smoke-test-snapshot-restore-fork": "bash scripts/smoke-test-snapshot-restore-fork.sh",
