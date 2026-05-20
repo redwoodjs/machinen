@@ -82,6 +82,7 @@
 - [`NativeContinuationTarget`](#nativecontinuationtarget)
 - [`NativeRegisterTranslationResult`](#nativeregistertranslationresult)
 - [`translateNativeRegisterState`](#translatenativeregisterstate)
+- [`NativeCodeModule`](#nativecodemodule)
 - [`NativeCodeSymbol`](#nativecodesymbol)
 - [`NativeCodeMapRequest`](#nativecodemaprequest)
 - [`NativeCodeMapResult`](#nativecodemapresult)
@@ -2179,6 +2180,44 @@ by default when `output` is a TTY.
 
 ***
 
+### NativeCodeModule
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### logicalName
+
+> **logicalName**: `string`
+
+##### path
+
+> **path**: `string`
+
+##### arch?
+
+> `optional` **arch?**: `"amd64"` \| `"arm64"`
+
+##### kind
+
+> **kind**: `"unknown"` \| `"executable"` \| `"vdso"` \| `"pie-executable"` \| `"shared-object"`
+
+##### buildId
+
+> **buildId**: `string`
+
+##### loadBias
+
+> **loadBias**: `string`
+
+##### textMapping
+
+> **textMapping**: `string`
+
+***
+
 ### NativeCodeSymbol
 
 #### Properties
@@ -2206,6 +2245,14 @@ by default when `output` is a TTY.
 ##### metadata
 
 > **metadata**: `"symbol"` \| `"dwarf"` \| `"sidecar"`
+
+##### moduleId?
+
+> `optional` **moduleId?**: `string`
+
+##### relativeAddress?
+
+> `optional` **relativeAddress?**: `string`
 
 ***
 
@@ -2244,6 +2291,14 @@ by default when `output` is a TTY.
 ###### sourceAddress?
 
 > `optional` **sourceAddress?**: `string`
+
+##### sourceModules?
+
+> `optional` **sourceModules?**: [`NativeCodeModule`](#nativecodemodule)[]
+
+##### targetModules?
+
+> `optional` **targetModules?**: [`NativeCodeModule`](#nativecodemodule)[]
 
 ***
 
