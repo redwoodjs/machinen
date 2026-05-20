@@ -106,6 +106,7 @@ export { buildNativeCodeMap } from "./native-code-map.ts";
 export type {
   NativeCodeMapRequest,
   NativeCodeMapResult,
+  NativeCodeModule,
   NativeCodeSymbol,
 } from "./native-code-map.ts";
 export { translateNativeMemory } from "./native-memory-translation.ts";
