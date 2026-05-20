@@ -102,6 +102,12 @@ export type {
   WriteFileOptions,
 } from "./vm-handle.ts";
 export type { SnapshotEngine } from "./vm/snapshot-engine.ts";
+export { translateNativeRegisterState } from "./native-register-translation.ts";
+export type {
+  NativeContinuationTarget,
+  NativeRegisterTranslationRequest,
+  NativeRegisterTranslationResult,
+} from "./native-register-translation.ts";
 export {
   NATIVE_PROCESS_IMAGE_FILES,
   NATIVE_PROCESS_IMAGE_FORMAT_VERSION,
