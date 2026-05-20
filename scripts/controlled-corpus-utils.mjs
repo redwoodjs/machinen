@@ -33,6 +33,10 @@ export const NATIVE_RESUME_TRAMPOLINE_SOURCE = join(
   REPO_ROOT,
   "packages/microvm/assets/native-resume-trampoline.c",
 );
+export const NATIVE_FINAL_JUMP_SOURCE_TARGET_SOURCE = join(
+  REPO_ROOT,
+  "packages/microvm/assets/native-final-jump-source.c",
+);
 export const CONTROLLED_MARKER = "MACHINEN_CONTROLLED_BINARY ";
 export const NATIVE_PROCESS_IMAGE_BUNDLE_FILES = [
   "native-process.json",
@@ -128,6 +132,26 @@ export function compileNativeCaptureTarget(binDir) {
       executable,
     ],
     { label: "native capture target build" },
+  );
+  return executable;
+}
+
+export function compileNativeFinalJumpSourceTarget(binDir) {
+  const executable = join(binDir, "machinen-native-final-jump-source");
+  runCommand(
+    "cc",
+    [
+      "-std=c11",
+      "-O0",
+      "-g",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      NATIVE_FINAL_JUMP_SOURCE_TARGET_SOURCE,
+      "-o",
+      executable,
+    ],
+    { label: "native final-jump source target build" },
   );
   return executable;
 }
@@ -451,13 +475,21 @@ export function writeNativeProcessImageBundle(bundleDir, documents) {
   writeFileSync(join(bundleDir, "native-translation.json"), jsonDocument(documents.translation));
 }
 
-export function nativeProofBundleDocuments(memory, manifest, mappings, threads, resources, steps) {
+export function nativeProofBundleDocuments(
+  memory,
+  manifest,
+  mappings,
+  threads,
+  resources,
+  steps,
+  resourceRefusals = nativeEmptyRefusals(),
+) {
   return {
     memory,
     manifest,
     mappings,
     threads,
-    resources: nativeResourceDocument(resources),
+    resources: nativeResourceDocument(resources, resourceRefusals),
     translation: nativeTranslationDocument(steps),
   };
 }
