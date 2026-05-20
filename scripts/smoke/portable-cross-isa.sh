@@ -33,6 +33,7 @@ cc -Wall -Wextra -pthread -I "$ROOT/packages/microvm/assets" \
 echo "portable-resource-marker" >"$WORK/resource.txt"
 "$WORK/portable-proof-arm64" \
   --threads \
+  --nested-continuation \
   --restore-proof \
   --resource-file "$WORK/resource.txt" \
   --emit-bundle "$WORK/work/bundle" \
@@ -72,6 +73,7 @@ node scripts/portable-proof-compare.mjs \
   --require-restore \
   --require-continue \
   --require-threads \
+  --require-nested-continuation \
   --bundle-dir /work/bundle \
   /tmp/combined.log
 REMOTE

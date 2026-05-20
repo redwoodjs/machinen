@@ -21,7 +21,7 @@ function marker(
   phase: string,
   counter: number,
   arch = "amd64",
-  opts: { threads?: boolean } = {},
+  opts: { threads?: boolean; nested?: boolean } = {},
 ): string {
   return (
     "MACHINEN_PORTABLE_PROOF " +
@@ -33,9 +33,13 @@ function marker(
       list: [1, 2, 3],
       checkpoint_abi_version: 1,
       checkpoint_symbol: "machinen_checkpoint",
-      checkpoint_continuation: "machinen_portable_checkpoint",
+      checkpoint_continuation: opts.nested
+        ? "machinen_portable_nested_checkpoint"
+        : "machinen_portable_checkpoint",
       restore_symbol: "machinen_restore_main",
-      restore_continuation: "machinen_portable_restore_entry",
+      restore_continuation: opts.nested
+        ? "machinen_portable_nested_restore_entry"
+        : "machinen_portable_restore_entry",
       state_symbol: "machinen_portable_app_state",
       root_count: 3,
       root_names: [
@@ -44,7 +48,12 @@ function marker(
         "machinen_portable_heap_bytes",
       ],
       thread_count: opts.threads ? 2 : 1,
-      thread_continuations: ["machinen_portable_checkpoint", "machinen_portable_worker_continue"],
+      thread_continuations: [
+        opts.nested ? "machinen_portable_nested_checkpoint" : "machinen_portable_checkpoint",
+        "machinen_portable_worker_continue",
+      ],
+      nested_continuation: opts.nested === true,
+      nested_live_value: opts.nested ? 4242 : 0,
       allocation_count: 1,
       heap_bytes: EXPECTED_HEAP_BYTES,
       checkpoint_result: 0,
@@ -222,6 +231,19 @@ describe("portable proof workload helper", () => {
     const res = runHelper(["--require-threads", log]);
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/missing two-thread proof marker/);
+  });
+
+  it("validates nested continuation markers when requested", () => {
+    const log = writeLog(marker("checkpoint", 1000, "amd64", { nested: true }));
+    const res = runHelper(["--require-nested-continuation", log]);
+    expect(res.status).toBe(0);
+  });
+
+  it("rejects a missing nested continuation marker when requested", () => {
+    const log = writeLog(marker("checkpoint", 1000));
+    const res = runHelper(["--require-nested-continuation", log]);
+    expect(res.status).toBe(1);
+    expect(res.stderr).toMatch(/missing nested continuation proof marker/);
   });
 
   it("rejects a proof bundle whose captured heap bytes changed", () => {
