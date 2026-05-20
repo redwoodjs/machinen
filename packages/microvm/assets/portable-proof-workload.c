@@ -13,9 +13,11 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 #define PORTABLE_PROOF_ROOT_COUNT 3u
 #define PORTABLE_PROOF_MAX_ALLOCATIONS 4u
@@ -70,6 +72,7 @@ static uint8_t *machinen_portable_heap_bytes;
 static uint64_t machinen_portable_unknown_root;
 static bool machinen_portable_force_bad_root;
 static bool machinen_portable_force_bad_pointer;
+static const char *machinen_portable_resource_file_path;
 
 __attribute__((used, visibility("default"))) const char machinen_portable_metadata[] =
     "{\"schema_version\":1,"
@@ -589,15 +592,51 @@ static int write_relocations(const char *dir) {
   return close_bundle_file(file);
 }
 
-static int write_empty_doc(const char *dir, const char *name, const char *key) {
-  FILE *file = open_bundle_file(dir, name, "wb");
+static long capture_resource_offset(const char *path) {
+  FILE *file = fopen(path, "rb");
+  if (!file) {
+    fprintf(stderr, "portable proof: resource open failed for %s: %s\n", path, strerror(errno));
+    return -1;
+  }
+  if (fseek(file, 4, SEEK_SET) != 0) {
+    fclose(file);
+    return -1;
+  }
+  long offset = ftell(file);
+  fclose(file);
+  return offset;
+}
+
+static int write_resources(const char *dir) {
+  char cwd[PORTABLE_PROOF_PATH_CAPACITY];
+  if (!getcwd(cwd, sizeof(cwd))) {
+    snprintf(cwd, sizeof(cwd), "/");
+  }
+  long resource_offset = -1;
+  if (machinen_portable_resource_file_path) {
+    resource_offset = capture_resource_offset(machinen_portable_resource_file_path);
+    if (resource_offset < 0) {
+      return -1;
+    }
+  }
+  FILE *file = open_bundle_file(dir, "resources.json", "wb");
   if (!file) {
     return -1;
   }
   fprintf(file,
-      "{\"formatVersion\":1,\"%s\":[],"
-      "\"unsupported\":{\"vocabularyVersion\":1,\"refusals\":[]}}",
-      key);
+      "{\"formatVersion\":1,\"resources\":["
+      "{\"id\":\"argv\",\"kind\":\"argv\",\"state\":\"captured\","
+      "\"argv\":[\"/usr/local/bin/machinen-portable-proof\"]},"
+      "{\"id\":\"env\",\"kind\":\"env\",\"state\":\"captured\",\"env\":{}},"
+      "{\"id\":\"cwd\",\"kind\":\"cwd\",\"state\":\"captured\",\"path\":\"%s\"}",
+      cwd);
+  if (machinen_portable_resource_file_path) {
+    fprintf(file,
+        ",{\"id\":\"file-1\",\"kind\":\"file\",\"state\":\"captured\","
+        "\"path\":\"%s\",\"fd\":3,\"flags\":[\"read\"],\"offset\":%ld}",
+        machinen_portable_resource_file_path, resource_offset);
+  }
+  fprintf(file, "],\"unsupported\":{\"vocabularyVersion\":1,\"refusals\":[]}}");
   return close_bundle_file(file);
 }
 
@@ -617,7 +656,7 @@ static int emit_bundle(const char *dir) {
   if (write_relocations(dir) != 0) {
     return -1;
   }
-  return write_empty_doc(dir, "resources.json", "resources");
+  return write_resources(dir);
 }
 
 static bool bundle_text_contains(const char *dir, const char *name, const char *needle) {
@@ -634,6 +673,54 @@ static bool bundle_text_contains(const char *dir, const char *name, const char *
   return strstr(buf, needle) != 0;
 }
 
+static int copy_json_string(char *out, uint32_t out_len, const char *start) {
+  uint32_t i = 0;
+  while (start[i] && start[i] != '"') {
+    if (i + 1u >= out_len) {
+      return -1;
+    }
+    out[i] = start[i];
+    i++;
+  }
+  out[i] = 0;
+  return start[i] == '"' ? 0 : -1;
+}
+
+static int validate_resource_reopen(const char *dir) {
+  char buf[4096];
+  FILE *file = open_bundle_file(dir, "resources.json", "rb");
+  if (!file) {
+    return -1;
+  }
+  size_t n = fread(buf, 1, sizeof(buf) - 1u, file);
+  buf[n] = 0;
+  if (close_bundle_file(file) != 0) {
+    return -1;
+  }
+  char *resource = strstr(buf, "\"id\":\"file-1\"");
+  if (!resource) {
+    return 0;
+  }
+  char *path_field = strstr(resource, "\"path\":\"");
+  char *offset_field = strstr(resource, "\"offset\":");
+  if (!path_field || !offset_field) {
+    return -1;
+  }
+  char path[PORTABLE_PROOF_PATH_CAPACITY];
+  if (copy_json_string(path, sizeof(path), path_field + strlen("\"path\":\"")) != 0) {
+    return -1;
+  }
+  long offset = strtol(offset_field + strlen("\"offset\":"), 0, 10);
+  FILE *resource_file = fopen(path, "rb");
+  if (!resource_file) {
+    fprintf(stderr, "portable proof: resource reopen failed for %s: %s\n", path, strerror(errno));
+    return -1;
+  }
+  int result = fseek(resource_file, offset, SEEK_SET);
+  fclose(resource_file);
+  return result == 0 ? 0 : -1;
+}
+
 static int validate_restore_bundle(const char *dir) {
   if (!bundle_text_contains(dir, "manifest.json", PORTABLE_PROOF_ARCH)) {
     fprintf(stderr, "portable proof: target architecture is not allowed by manifest\n");
@@ -647,7 +734,7 @@ static int validate_restore_bundle(const char *dir) {
     fprintf(stderr, "portable proof: pointer relocations missing from bundle\n");
     return -1;
   }
-  return 0;
+  return validate_resource_reopen(dir);
 }
 
 static int read_memory_chunk(FILE *file, void *ptr, uint64_t size_bytes) {
@@ -732,6 +819,7 @@ int main(int argc, char **argv) {
   machinen_portable_force_bad_root = has_arg(argc, argv, "--bad-root");
   machinen_portable_force_bad_pointer = has_arg(argc, argv, "--bad-pointer");
   const char *bundle_dir = arg_value(argc, argv, "--emit-bundle");
+  machinen_portable_resource_file_path = arg_value(argc, argv, "--resource-file");
   if (!list_matches_1_2_3(&machinen_portable_app_state)) {
     fprintf(stderr, "portable proof: initial state mismatch\n");
     return 2;
