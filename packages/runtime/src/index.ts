@@ -164,6 +164,13 @@ export type {
   NodeRuntimeNativeHandleRefusal,
   RestoredNodeResourceRecipes,
 } from "./node-runtime-adapter.ts";
+export { captureJsBuildIdentity, verifyJsBuildIdentity } from "./js-build-identity.ts";
+export type {
+  CaptureJsBuildIdentityOptions,
+  JsBuildIdentityFile,
+  JsBuildIdentitySidecar,
+  JsBuildIdentityVerification,
+} from "./js-build-identity.ts";
 export type {
   RuntimeAdapterArch,
   RuntimeAdapterBuild,

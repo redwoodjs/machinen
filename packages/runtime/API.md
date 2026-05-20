@@ -138,6 +138,8 @@
 - [`restoreNodeCapturedResourceRecipes`](#restorenodecapturedresourcerecipes)
 - [`captureNodeAsyncContinuations`](#capturenodeasynccontinuations)
 - [`restoreNodeAsyncContinuations`](#restorenodeasynccontinuations)
+- [`captureJsBuildIdentity`](#capturejsbuildidentity)
+- [`verifyJsBuildIdentity`](#verifyjsbuildidentity)
 - [`CaptureNodeRuntimeAdapterOptions`](#capturenoderuntimeadapteroptions)
 - [`CaptureNodeNativeResourcesOptions`](#capturenodenativeresourcesoptions)
 - [`NodeRuntimeAdapterResourceKind`](#noderuntimeadapterresourcekind)
@@ -150,6 +152,10 @@
 - [`NodeAsyncContinuationState`](#nodeasynccontinuationstate)
 - [`NodeAsyncContinuationHandlers`](#nodeasynccontinuationhandlers)
 - [`RestoredNodeAsyncContinuation`](#restorednodeasynccontinuation)
+- [`CaptureJsBuildIdentityOptions`](#capturejsbuildidentityoptions)
+- [`JsBuildIdentityFile`](#jsbuildidentityfile)
+- [`JsBuildIdentitySidecar`](#jsbuildidentitysidecar)
+- [`JsBuildIdentityVerification`](#jsbuildidentityverification)
 - [`runtimeAdapterRefusalCodes`](#runtimeadapterrefusalcodes)
 - [`runtimeAdapterSchemas`](#runtimeadapterschemas)
 - [`validateRuntimeAdapterDocument`](#validateruntimeadapterdocument)
@@ -1799,6 +1805,76 @@ Pluggable for tests; defaults to [readHostFreeBytes](#readhostfreebytes).
 > `optional` **totalBytes?**: `number`
 
 Pluggable for tests; defaults to [readHostTotalBytes](#readhosttotalbytes).
+
+***
+
+### CaptureJsBuildIdentityOptions
+
+#### Properties
+
+##### rootDir
+
+> **rootDir**: `string`
+
+##### entrypoints
+
+> **entrypoints**: `string`[]
+
+##### packageJsonPath?
+
+> `optional` **packageJsonPath?**: `string`
+
+##### lockfilePath?
+
+> `optional` **lockfilePath?**: `string`
+
+##### artifactPaths?
+
+> `optional` **artifactPaths?**: `string`[]
+
+***
+
+### JsBuildIdentityFile
+
+#### Properties
+
+##### path
+
+> **path**: `string`
+
+##### sha256
+
+> **sha256**: `string`
+
+***
+
+### JsBuildIdentitySidecar
+
+#### Properties
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### kind
+
+> **kind**: `"machinen-js-build-identity"`
+
+##### rootDir
+
+> **rootDir**: `string`
+
+##### entrypoints
+
+> **entrypoints**: `string`[]
+
+##### files
+
+> **files**: [`JsBuildIdentityFile`](#jsbuildidentityfile)[]
+
+##### build
+
+> **build**: [`RuntimeAdapterBuild`](#runtimeadapterbuild)
 
 ***
 
@@ -5880,6 +5956,12 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### JsBuildIdentityVerification
+
+> **JsBuildIdentityVerification** = \{ `accepted`: `true`; `current`: [`JsBuildIdentitySidecar`](#jsbuildidentitysidecar); \} \| \{ `accepted`: `false`; `current`: [`JsBuildIdentitySidecar`](#jsbuildidentitysidecar); `refusal`: [`RuntimeAdapterRefusal`](#runtimeadapterrefusal); \}
+
+***
+
 ### LogEvent
 
 > **LogEvent** = [`ChunkLogEvent`](#chunklogevent) \| [`PhaseLogEvent`](#phaselogevent)
@@ -8222,6 +8304,42 @@ retry policy.
 #### Returns
 
 `Promise`\<`void`\>
+
+***
+
+### captureJsBuildIdentity()
+
+> **captureJsBuildIdentity**(`options`): [`JsBuildIdentitySidecar`](#jsbuildidentitysidecar)
+
+#### Parameters
+
+##### options
+
+[`CaptureJsBuildIdentityOptions`](#capturejsbuildidentityoptions)
+
+#### Returns
+
+[`JsBuildIdentitySidecar`](#jsbuildidentitysidecar)
+
+***
+
+### verifyJsBuildIdentity()
+
+> **verifyJsBuildIdentity**(`expected`, `options`): [`JsBuildIdentityVerification`](#jsbuildidentityverification)
+
+#### Parameters
+
+##### expected
+
+[`JsBuildIdentitySidecar`](#jsbuildidentitysidecar)
+
+##### options
+
+[`CaptureJsBuildIdentityOptions`](#capturejsbuildidentityoptions)
+
+#### Returns
+
+[`JsBuildIdentityVerification`](#jsbuildidentityverification)
 
 ***
 
