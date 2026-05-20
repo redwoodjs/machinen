@@ -29,6 +29,14 @@ export const NATIVE_MAPPING_POLICY_TARGET_SOURCE = join(
   REPO_ROOT,
   "packages/microvm/assets/native-mapping-policy-target.c",
 );
+export const NATIVE_PIE_SHARED_MAIN_SOURCE = join(
+  REPO_ROOT,
+  "packages/microvm/assets/native-pie-shared-main.c",
+);
+export const NATIVE_PIE_SHARED_LIB_SOURCE = join(
+  REPO_ROOT,
+  "packages/microvm/assets/native-pie-shared-lib.c",
+);
 export const NATIVE_RESTORE_LOADER_SOURCE = join(
   REPO_ROOT,
   "packages/microvm/assets/native-restore-loader.c",
@@ -174,6 +182,53 @@ export function compileNativeMappingPolicyTarget(binDir) {
     { label: "native mapping policy target build" },
   );
   return executable;
+}
+
+export function compileNativePieSharedTarget(binDir) {
+  const libraryName = "libmachinen-native-pie-shared.so";
+  const library = join(binDir, libraryName);
+  const executable = join(binDir, "machinen-native-pie-shared-main");
+  runCommand(
+    "cc",
+    [
+      "-std=c11",
+      "-O0",
+      "-g",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-fPIC",
+      "-shared",
+      "-Wl,--build-id=sha1",
+      NATIVE_PIE_SHARED_LIB_SOURCE,
+      "-o",
+      library,
+    ],
+    { label: "native PIE shared library build" },
+  );
+  runCommand(
+    "cc",
+    [
+      "-std=c11",
+      "-O0",
+      "-g",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-fPIE",
+      "-pie",
+      "-Wl,--build-id=sha1",
+      NATIVE_PIE_SHARED_MAIN_SOURCE,
+      "-L",
+      binDir,
+      "-lmachinen-native-pie-shared",
+      "-Wl,-rpath,$ORIGIN",
+      "-o",
+      executable,
+    ],
+    { label: "native PIE shared executable build" },
+  );
+  return { executable, library, libraryName };
 }
 
 export function compileNativeFinalJumpSourceTarget(binDir) {
