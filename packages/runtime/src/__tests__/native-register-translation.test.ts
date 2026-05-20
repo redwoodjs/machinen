@@ -84,15 +84,28 @@ describe("native register translation", () => {
   });
 
   it("refuses active syscall states before register translation", () => {
-    const thread = arm64Thread();
-    thread.syscall = { state: "inside-syscall", number: 64, name: "write" };
+    const inside = arm64Thread("thread:inside");
+    inside.syscall = { state: "inside-syscall", number: 64, name: "write" };
+    const restart = arm64Thread("thread:restart");
+    restart.syscall = { state: "restart-block", number: 219, name: "restart_syscall" };
 
-    const result = translate(thread);
-
-    expect(result.threads[0]).toMatchObject({
-      state: "refused",
-      refusal: { code: "active-syscall", message: expect.stringContaining("inside-syscall") },
+    const result = translateNativeRegisterState({
+      sourceArch: "arm64",
+      targetArch: "amd64",
+      threads: [inside, restart],
+      continuations: {},
     });
+
+    expect(result.threads).toEqual([
+      expect.objectContaining({
+        state: "refused",
+        refusal: { code: "active-syscall", message: expect.stringContaining("inside-syscall") },
+      }),
+      expect.objectContaining({
+        state: "refused",
+        refusal: { code: "active-syscall", message: expect.stringContaining("restart-block") },
+      }),
+    ]);
   });
 
   it("refuses signal frames and alt-stack state", () => {
@@ -110,6 +123,40 @@ describe("native register translation", () => {
 
     expect(result.threads.map((thread) => thread.refusal?.code)).toEqual([
       "signal-frame-active",
+      "signal-state-unsupported",
+    ]);
+  });
+
+  it("allows zero procfs signal masks and refuses non-zero pending or blocked masks", () => {
+    const zero = arm64Thread("thread:zero");
+    zero.signal.blocked = ["0000000000000000"];
+    zero.signal.pending = ["0x0"];
+    const pending = arm64Thread("thread:pending");
+    pending.signal.pending = ["0000000000000002"];
+    const blocked = arm64Thread("thread:blocked");
+    blocked.signal.blocked = ["0x4"];
+
+    const result = translateNativeRegisterState({
+      sourceArch: "arm64",
+      targetArch: "amd64",
+      threads: [zero, pending, blocked],
+      continuations: {
+        "thread:zero": {
+          sourcePc: "0x400120",
+          targetIp: "0x14000120",
+          targetSp: "0x7fffffffe000",
+          targetTls: "0x7ffff7d00000",
+        },
+      },
+    });
+
+    expect(result.threads.map((thread) => thread.state)).toEqual([
+      "translated",
+      "refused",
+      "refused",
+    ]);
+    expect(result.threads.slice(1).map((thread) => thread.refusal?.code)).toEqual([
+      "signal-state-unsupported",
       "signal-state-unsupported",
     ]);
   });
