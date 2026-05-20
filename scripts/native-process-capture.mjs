@@ -1,12 +1,14 @@
 #!/usr/bin/env node
-import { mkdirSync, statSync } from "node:fs";
+import { statSync } from "node:fs";
 import { join } from "node:path";
 import {
   NATIVE_CAPTURE_SOURCE,
   NATIVE_CAPTURE_TARGET_SOURCE,
+  NATIVE_PROCESS_IMAGE_BUNDLE_FILES,
   bundleFileStats,
   compileNativeCaptureTarget,
   compileNativeProcessCapturer,
+  createProofBinAndBundleDirs,
   ensureSourcesExist,
   hostArch,
   readJson,
@@ -23,15 +25,6 @@ import {
 
 const USAGE =
   "usage: node scripts/native-process-capture.mjs [verify] [--out-dir path] [--json] [--keep]";
-const BUNDLE_FILES = [
-  "native-process.json",
-  "native-mappings.json",
-  "native-threads.json",
-  "native-resources.json",
-  "native-translation.json",
-  "native-memory.bin",
-];
-
 function main() {
   const args = parseVerifyArgs(process.argv.slice(2), USAGE);
   if (process.platform !== "linux") {
@@ -49,11 +42,7 @@ function main() {
 
 function verifyNativeProcessCapture(outDir) {
   ensureSourcesExist([NATIVE_CAPTURE_SOURCE, NATIVE_CAPTURE_TARGET_SOURCE]);
-  const binDir = join(outDir, "bin");
-  const bundleDir = join(outDir, "bundle");
-  mkdirSync(binDir, { recursive: true });
-  mkdirSync(bundleDir, { recursive: true });
-
+  const { binDir, bundleDir } = createProofBinAndBundleDirs(outDir);
   const capturer = compileNativeProcessCapturer(binDir);
   const target = compileNativeCaptureTarget(binDir);
   const resourceFile = join(outDir, "native-resource.txt");
@@ -136,7 +125,7 @@ function summarizeBundle(context) {
       : undefined,
     translationThreadStates: context.bundle.translation.threads.map((thread) => thread.state),
     memoryBytes: context.bundle.memoryBytes,
-    bundleFiles: bundleFileStats(context.bundleDir, BUNDLE_FILES),
+    bundleFiles: bundleFileStats(context.bundleDir, NATIVE_PROCESS_IMAGE_BUNDLE_FILES),
   };
 }
 

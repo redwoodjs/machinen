@@ -23,6 +23,7 @@ export function translateNativeResources(
   };
 }
 
+// fallow-ignore-next-line complexity
 function translateResource(
   resource: NativeProcessResource,
   capabilities: Set<string>,

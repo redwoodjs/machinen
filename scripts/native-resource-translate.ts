@@ -20,6 +20,7 @@ function main() {
   }
 }
 
+// fallow-ignore-next-line complexity
 function verifyNativeResourceTranslation() {
   const result = translateNativeResources({
     resources: [
