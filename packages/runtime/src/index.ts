@@ -109,6 +109,13 @@ export type {
   NativeCodeSymbol,
 } from "./native-code-map.ts";
 export { translateNativeRegisterState } from "./native-register-translation.ts";
+export { translateNativeStack } from "./native-stack-translation.ts";
+export type {
+  NativeStackFrame,
+  NativeStackSlot,
+  NativeStackTranslationRequest,
+  NativeStackTranslationResult,
+} from "./native-stack-translation.ts";
 export type {
   NativeContinuationTarget,
   NativeRegisterTranslationRequest,
