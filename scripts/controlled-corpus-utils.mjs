@@ -41,6 +41,10 @@ export const NATIVE_TARGET_BINARY_CONTINUATION_SOURCE = join(
   REPO_ROOT,
   "packages/microvm/assets/native-target-binary-continuation.c",
 );
+export const NATIVE_CALL_FRAME_CONTINUATION_SOURCE = join(
+  REPO_ROOT,
+  "packages/microvm/assets/native-call-frame-continuation.c",
+);
 export const CONTROLLED_MARKER = "MACHINEN_CONTROLLED_BINARY ";
 export const NATIVE_PROCESS_IMAGE_BUNDLE_FILES = [
   "native-process.json",
@@ -164,22 +168,40 @@ export function compileNativeTargetBinaryContinuation(binDir) {
   const executable = join(binDir, "machinen-native-target-binary-continuation");
   runCommand(
     "cc",
-    [
-      "-std=c11",
-      "-O0",
-      "-g",
-      "-Wall",
-      "-Wextra",
-      "-Werror",
-      "-fno-pie",
-      "-no-pie",
-      NATIVE_TARGET_BINARY_CONTINUATION_SOURCE,
-      "-o",
-      executable,
-    ],
-    { label: "native target-binary continuation build" },
+    nativeTargetBinaryCompileArgs(executable, NATIVE_TARGET_BINARY_CONTINUATION_SOURCE),
+    {
+      label: "native target-binary continuation build",
+    },
   );
   return executable;
+}
+
+export function compileNativeCallFrameContinuation(binDir) {
+  const executable = join(binDir, "machinen-native-call-frame-continuation");
+  runCommand(
+    "cc",
+    nativeTargetBinaryCompileArgs(executable, NATIVE_CALL_FRAME_CONTINUATION_SOURCE),
+    {
+      label: "native call-frame continuation build",
+    },
+  );
+  return executable;
+}
+
+function nativeTargetBinaryCompileArgs(executable, source) {
+  return [
+    "-std=c11",
+    "-O0",
+    "-g",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-fno-pie",
+    "-no-pie",
+    source,
+    "-o",
+    executable,
+  ];
 }
 
 export function compileNativeRestoreLoader(binDir) {
