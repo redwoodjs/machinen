@@ -140,6 +140,8 @@
 - [`restoreNodeAsyncContinuations`](#restorenodeasynccontinuations)
 - [`captureJsBuildIdentity`](#capturejsbuildidentity)
 - [`verifyJsBuildIdentity`](#verifyjsbuildidentity)
+- [`probeBunRuntimeAdapter`](#probebunruntimeadapter)
+- [`inspectBunPackagedExecutable`](#inspectbunpackagedexecutable)
 - [`CaptureNodeRuntimeAdapterOptions`](#capturenoderuntimeadapteroptions)
 - [`CaptureNodeNativeResourcesOptions`](#capturenodenativeresourcesoptions)
 - [`NodeRuntimeAdapterResourceKind`](#noderuntimeadapterresourcekind)
@@ -156,6 +158,9 @@
 - [`JsBuildIdentityFile`](#jsbuildidentityfile)
 - [`JsBuildIdentitySidecar`](#jsbuildidentitysidecar)
 - [`JsBuildIdentityVerification`](#jsbuildidentityverification)
+- [`ProbeBunRuntimeAdapterOptions`](#probebunruntimeadapteroptions)
+- [`BunPackagedExecutableIdentity`](#bunpackagedexecutableidentity)
+- [`BunRuntimeAdapterProbe`](#bunruntimeadapterprobe)
 - [`runtimeAdapterRefusalCodes`](#runtimeadapterrefusalcodes)
 - [`runtimeAdapterSchemas`](#runtimeadapterschemas)
 - [`validateRuntimeAdapterDocument`](#validateruntimeadapterdocument)
@@ -1501,6 +1506,34 @@ Darwin-equivalent metric and the runtime reads
 
 ***
 
+### ProbeBunRuntimeAdapterOptions
+
+#### Properties
+
+##### bunCommand?
+
+> `optional` **bunCommand?**: `string`
+
+##### packagedExecutablePath?
+
+> `optional` **packagedExecutablePath?**: `string`
+
+***
+
+### BunPackagedExecutableIdentity
+
+#### Properties
+
+##### path
+
+> **path**: `string`
+
+##### sha256
+
+> **sha256**: `string`
+
+***
+
 ### MachinenErrorOptions
 
 #### Properties
@@ -1915,7 +1948,7 @@ Raw bytes as they arrive — not line-split, not decoded.
 
 ##### kind
 
-> **kind**: `"boot"` \| `"provision"` \| `"snapshot"` \| `"restore"`
+> **kind**: `"restore"` \| `"boot"` \| `"provision"` \| `"snapshot"`
 
 Which runtime entry point produced these phases.
 
@@ -2460,7 +2493,7 @@ by default when `output` is a TTY.
 
 ##### code?
 
-> `optional` **code?**: `"fd-kind-unsupported"` \| `"target-build-mismatch"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"feature-unsupported"` \| `"object-unsupported"` \| `"resource-unsupported"` \| `"runtime-adapter-missing"` \| `"runtime-heap-unsupported"`
+> `optional` **code?**: `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"fd-kind-unsupported"` \| `"feature-unsupported"` \| `"object-unsupported"` \| `"resource-unsupported"` \| `"runtime-adapter-missing"` \| `"runtime-heap-unsupported"` \| `"target-build-mismatch"`
 
 ##### message
 
@@ -3206,7 +3239,7 @@ the breakdown shows up alongside the parent phase.
 
 ##### code
 
-> **code**: `"fd-kind-unsupported"` \| `"target-build-mismatch"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"feature-unsupported"` \| `"object-unsupported"` \| `"resource-unsupported"` \| `"runtime-adapter-missing"` \| `"runtime-heap-unsupported"`
+> **code**: `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"fd-kind-unsupported"` \| `"feature-unsupported"` \| `"object-unsupported"` \| `"resource-unsupported"` \| `"runtime-adapter-missing"` \| `"runtime-heap-unsupported"` \| `"target-build-mismatch"`
 
 ##### message
 
@@ -4357,7 +4390,7 @@ VMM backend that wrote `state.vmstate`.
 
 ##### guestArch?
 
-> `optional` **guestArch?**: `"amd64"` \| `"arm64"` \| `"unknown"`
+> `optional` **guestArch?**: `"arm64"` \| `"amd64"` \| `"unknown"`
 
 Guest CPU architecture captured in `state.vmstate`; restore must match.
 
@@ -5949,6 +5982,12 @@ How long to keep retrying the UDS connect. Default 10s.
 Poll interval in ms while retrying. Default 250.
 
 ## Type Aliases
+
+### BunRuntimeAdapterProbe
+
+> **BunRuntimeAdapterProbe** = \{ `runtime`: `"bun"`; `available`: `true`; `version`: `string`; `semanticGraph`: `"sidecar-required"`; `packagedExecutable?`: [`BunPackagedExecutableIdentity`](#bunpackagedexecutableidentity); `refusal?`: [`RuntimeAdapterRefusal`](#runtimeadapterrefusal); \} \| \{ `runtime`: `"bun"`; `available`: `false`; `refusal`: [`RuntimeAdapterRefusal`](#runtimeadapterrefusal); `packagedExecutable?`: [`BunPackagedExecutableIdentity`](#bunpackagedexecutableidentity); \}
+
+***
 
 ### ErrorCode
 
@@ -8124,6 +8163,38 @@ Read the balloon-stats file at `path`. Returns `null` when:
 #### Returns
 
 [`BalloonCounters`](#ballooncounters)
+
+***
+
+### probeBunRuntimeAdapter()
+
+> **probeBunRuntimeAdapter**(`options?`): [`BunRuntimeAdapterProbe`](#bunruntimeadapterprobe)
+
+#### Parameters
+
+##### options?
+
+[`ProbeBunRuntimeAdapterOptions`](#probebunruntimeadapteroptions) = `{}`
+
+#### Returns
+
+[`BunRuntimeAdapterProbe`](#bunruntimeadapterprobe)
+
+***
+
+### inspectBunPackagedExecutable()
+
+> **inspectBunPackagedExecutable**(`path`): \{ `accepted`: `true`; `identity`: [`BunPackagedExecutableIdentity`](#bunpackagedexecutableidentity); \} \| \{ `accepted`: `false`; `refusal`: [`RuntimeAdapterRefusal`](#runtimeadapterrefusal); \}
+
+#### Parameters
+
+##### path
+
+`string`
+
+#### Returns
+
+\{ `accepted`: `true`; `identity`: [`BunPackagedExecutableIdentity`](#bunpackagedexecutableidentity); \} \| \{ `accepted`: `false`; `refusal`: [`RuntimeAdapterRefusal`](#runtimeadapterrefusal); \}
 
 ***
 

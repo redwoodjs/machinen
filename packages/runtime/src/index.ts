@@ -164,6 +164,12 @@ export type {
   NodeRuntimeNativeHandleRefusal,
   RestoredNodeResourceRecipes,
 } from "./node-runtime-adapter.ts";
+export { inspectBunPackagedExecutable, probeBunRuntimeAdapter } from "./bun-runtime-adapter.ts";
+export type {
+  BunPackagedExecutableIdentity,
+  BunRuntimeAdapterProbe,
+  ProbeBunRuntimeAdapterOptions,
+} from "./bun-runtime-adapter.ts";
 export { captureJsBuildIdentity, verifyJsBuildIdentity } from "./js-build-identity.ts";
 export type {
   CaptureJsBuildIdentityOptions,
