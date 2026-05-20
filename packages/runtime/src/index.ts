@@ -103,6 +103,43 @@ export type {
 } from "./vm-handle.ts";
 export type { SnapshotEngine } from "./vm/snapshot-engine.ts";
 export {
+  NATIVE_PROCESS_IMAGE_FILES,
+  NATIVE_PROCESS_IMAGE_FORMAT_VERSION,
+  NativeProcessImageValidationError,
+  assertNativeProcessImageDocuments,
+  isNativeProcessImageBundle,
+  nativeProcessImageArchitectures,
+  nativeProcessImageRefusalCodes,
+  nativeProcessImageSchemas,
+  validateNativeProcessImageBundle,
+  validateNativeProcessImageDocuments,
+} from "./native-process-image.ts";
+export type {
+  NativeAmd64Registers,
+  NativeArm64Registers,
+  NativeCodeLocationMapping,
+  NativeMemoryMapping,
+  NativeMemoryMappingKind,
+  NativeMemoryRelocation,
+  NativeProcessImageArchitecture,
+  NativeProcessImageDocumentInput,
+  NativeProcessImageDocuments,
+  NativeProcessImageJsonSchema,
+  NativeProcessImageManifest,
+  NativeProcessImageMappings,
+  NativeProcessImageRefusal,
+  NativeProcessImageRefusalCode,
+  NativeProcessImageRefusals,
+  NativeProcessImageResources,
+  NativeProcessImageThreads,
+  NativeProcessImageTranslation,
+  NativeProcessResource,
+  NativeProcessResourceKind,
+  NativeRegisterState,
+  NativeThreadState,
+  NativeThreadTranslation,
+} from "./native-process-image.ts";
+export {
   _internal,
   attach,
   autoSizeMemoryMib,

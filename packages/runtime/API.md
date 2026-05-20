@@ -43,6 +43,42 @@
 - [`writeBootSnapshot`](#writebootsnapshot)
 - [`detachedLogRoot`](#detachedlogroot)
 
+### Native process images
+
+- [`NativeProcessImageValidationError`](#nativeprocessimagevalidationerror)
+- [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
+- [`NativeProcessImageRefusals`](#nativeprocessimagerefusals)
+- [`NativeProcessImageManifest`](#nativeprocessimagemanifest)
+- [`NativeMemoryMapping`](#nativememorymapping)
+- [`NativeProcessImageMappings`](#nativeprocessimagemappings)
+- [`NativeArm64Registers`](#nativearm64registers)
+- [`NativeAmd64Registers`](#nativeamd64registers)
+- [`NativeThreadState`](#nativethreadstate)
+- [`NativeProcessImageThreads`](#nativeprocessimagethreads)
+- [`NativeProcessResource`](#nativeprocessresource)
+- [`NativeProcessImageResources`](#nativeprocessimageresources)
+- [`NativeCodeLocationMapping`](#nativecodelocationmapping)
+- [`NativeThreadTranslation`](#nativethreadtranslation)
+- [`NativeMemoryRelocation`](#nativememoryrelocation)
+- [`NativeProcessImageTranslation`](#nativeprocessimagetranslation)
+- [`NativeProcessImageDocuments`](#nativeprocessimagedocuments)
+- [`NativeProcessImageDocumentInput`](#nativeprocessimagedocumentinput)
+- [`NativeProcessImageArchitecture`](#nativeprocessimagearchitecture)
+- [`NativeProcessImageRefusalCode`](#nativeprocessimagerefusalcode)
+- [`NativeMemoryMappingKind`](#nativememorymappingkind)
+- [`NativeRegisterState`](#nativeregisterstate)
+- [`NativeProcessResourceKind`](#nativeprocessresourcekind)
+- [`NativeProcessImageJsonSchema`](#nativeprocessimagejsonschema)
+- [`NATIVE_PROCESS_IMAGE_FORMAT_VERSION`](#native_process_image_format_version)
+- [`NATIVE_PROCESS_IMAGE_FILES`](#native_process_image_files)
+- [`nativeProcessImageArchitectures`](#nativeprocessimagearchitectures)
+- [`nativeProcessImageRefusalCodes`](#nativeprocessimagerefusalcodes)
+- [`nativeProcessImageSchemas`](#nativeprocessimageschemas)
+- [`isNativeProcessImageBundle`](#isnativeprocessimagebundle)
+- [`validateNativeProcessImageBundle`](#validatenativeprocessimagebundle)
+- [`validateNativeProcessImageDocuments`](#validatenativeprocessimagedocuments)
+- [`assertNativeProcessImageDocuments`](#assertnativeprocessimagedocuments)
+
 ### Provision base images
 
 - [`provision`](#provision)
@@ -1268,6 +1304,40 @@ Attach to `id`. Throws if id doesn't exist.
 
 ***
 
+### NativeProcessImageValidationError
+
+#### Extends
+
+- `Error`
+
+#### Constructors
+
+##### Constructor
+
+> **new NativeProcessImageValidationError**(`errors`): [`NativeProcessImageValidationError`](#nativeprocessimagevalidationerror)
+
+###### Parameters
+
+###### errors
+
+`string`[]
+
+###### Returns
+
+[`NativeProcessImageValidationError`](#nativeprocessimagevalidationerror)
+
+###### Overrides
+
+`Error.constructor`
+
+#### Properties
+
+##### errors
+
+> `readonly` **errors**: `string`[]
+
+***
+
 ### VsockWinsize
 
 #### Methods
@@ -2086,6 +2156,720 @@ Set to `false` in tests where `input` is a plain PassThrough.
 Forward SIGWINCH on the parent process (terminal resize) to any
 attached sandbox that implements `.resize(cols, rows)`. Enabled
 by default when `output` is a TTY.
+
+***
+
+### NativeProcessImageRefusal
+
+#### Properties
+
+##### code
+
+> **code**: `"fd-kind-unsupported"` \| `"target-build-mismatch"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"active-syscall"` \| `"code-location-unknown"` \| `"futex-state-unsupported"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-permission-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"vdso-policy-unsupported"`
+
+##### message
+
+> **message**: `string`
+
+##### detail?
+
+> `optional` **detail?**: `Record`\<`string`, `unknown`\>
+
+***
+
+### NativeProcessImageRefusals
+
+#### Properties
+
+##### vocabularyVersion
+
+> **vocabularyVersion**: `1`
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
+### NativeProcessImageManifest
+
+#### Properties
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### kind
+
+> **kind**: `"machinen.native-process-image"`
+
+##### capture
+
+> **capture**: `object`
+
+###### method
+
+> **method**: `"external-ptrace-procfs"`
+
+###### sourceArch
+
+> **sourceArch**: `"amd64"` \| `"arm64"`
+
+###### pid?
+
+> `optional` **pid?**: `number`
+
+###### capturedAt?
+
+> `optional` **capturedAt?**: `string`
+
+##### target
+
+> **target**: `object`
+
+###### mode
+
+> **mode**: `"native-cross-isa"`
+
+###### arch
+
+> **arch**: `"amd64"` \| `"arm64"`
+
+###### abi
+
+> **abi**: `"linux-user"`
+
+##### process
+
+> **process**: `object`
+
+###### exe
+
+> **exe**: `string`
+
+###### argv
+
+> **argv**: `string`[]
+
+###### env
+
+> **env**: `Record`\<`string`, `string`\>
+
+###### cwd
+
+> **cwd**: `string`
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusals`](#nativeprocessimagerefusals)
+
+***
+
+### NativeMemoryMapping
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### kind
+
+> **kind**: [`NativeMemoryMappingKind`](#nativememorymappingkind)
+
+##### sourceStart
+
+> **sourceStart**: `string`
+
+##### sourceEnd
+
+> **sourceEnd**: `string`
+
+##### sizeBytes
+
+> **sizeBytes**: `number`
+
+##### permissions
+
+> **permissions**: `object`
+
+###### read
+
+> **read**: `boolean`
+
+###### write
+
+> **write**: `boolean`
+
+###### execute
+
+> **execute**: `boolean`
+
+###### private
+
+> **private**: `boolean`
+
+###### shared
+
+> **shared**: `boolean`
+
+##### file?
+
+> `optional` **file?**: `object`
+
+###### path
+
+> **path**: `string`
+
+###### offset
+
+> **offset**: `number`
+
+###### buildId?
+
+> `optional` **buildId?**: `string`
+
+###### sha256?
+
+> `optional` **sha256?**: `string`
+
+##### captured?
+
+> `optional` **captured?**: `object`
+
+###### file
+
+> **file**: `"native-memory.bin"`
+
+###### offset
+
+> **offset**: `number`
+
+###### sizeBytes
+
+> **sizeBytes**: `number`
+
+##### target
+
+> **target**: `object`
+
+###### materialization
+
+> **materialization**: `"refuse"` \| `"translate"` \| `"recreate"` \| `"omit"`
+
+###### targetStart?
+
+> `optional` **targetStart?**: `string`
+
+###### reason?
+
+> `optional` **reason?**: `string`
+
+##### refusal?
+
+> `optional` **refusal?**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
+
+***
+
+### NativeProcessImageMappings
+
+#### Properties
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### mappings
+
+> **mappings**: [`NativeMemoryMapping`](#nativememorymapping)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusals`](#nativeprocessimagerefusals)
+
+***
+
+### NativeArm64Registers
+
+#### Properties
+
+##### arch
+
+> **arch**: `"arm64"`
+
+##### pc
+
+> **pc**: `string`
+
+##### sp
+
+> **sp**: `string`
+
+##### pstate
+
+> **pstate**: `string`
+
+##### x
+
+> **x**: `string`[]
+
+***
+
+### NativeAmd64Registers
+
+#### Properties
+
+##### arch
+
+> **arch**: `"amd64"`
+
+##### rip
+
+> **rip**: `string`
+
+##### rsp
+
+> **rsp**: `string`
+
+##### rflags
+
+> **rflags**: `string`
+
+##### rax
+
+> **rax**: `string`
+
+##### rbx
+
+> **rbx**: `string`
+
+##### rcx
+
+> **rcx**: `string`
+
+##### rdx
+
+> **rdx**: `string`
+
+##### rsi
+
+> **rsi**: `string`
+
+##### rdi
+
+> **rdi**: `string`
+
+##### rbp
+
+> **rbp**: `string`
+
+##### r8
+
+> **r8**: `string`
+
+##### r9
+
+> **r9**: `string`
+
+##### r10
+
+> **r10**: `string`
+
+##### r11
+
+> **r11**: `string`
+
+##### r12
+
+> **r12**: `string`
+
+##### r13
+
+> **r13**: `string`
+
+##### r14
+
+> **r14**: `string`
+
+##### r15
+
+> **r15**: `string`
+
+##### fsBase
+
+> **fsBase**: `string`
+
+##### gsBase
+
+> **gsBase**: `string`
+
+***
+
+### NativeThreadState
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### lwpid?
+
+> `optional` **lwpid?**: `number`
+
+##### state
+
+> **state**: `"stopped"`
+
+##### stopReason
+
+> **stopReason**: `"ptrace-stop"` \| `"signal-delivery-stop"` \| `"group-stop"`
+
+##### stackMapping
+
+> **stackMapping**: `string`
+
+##### sourceRegisters
+
+> **sourceRegisters**: [`NativeRegisterState`](#nativeregisterstate)
+
+##### syscall
+
+> **syscall**: `object`
+
+###### state
+
+> **state**: `"outside-syscall"` \| `"inside-syscall"` \| `"restart-block"`
+
+###### number?
+
+> `optional` **number?**: `number`
+
+###### name?
+
+> `optional` **name?**: `string`
+
+##### signal
+
+> **signal**: `object`
+
+###### blocked
+
+> **blocked**: `string`[]
+
+###### pending
+
+> **pending**: `string`[]
+
+###### activeFrame
+
+> **activeFrame**: `boolean`
+
+###### altStack
+
+> **altStack**: `object`
+
+###### altStack.state
+
+> **state**: `"disabled"` \| `"unsupported"` \| `"enabled"`
+
+###### altStack.sp?
+
+> `optional` **sp?**: `string`
+
+###### altStack.sizeBytes?
+
+> `optional` **sizeBytes?**: `number`
+
+###### altStack.refusal?
+
+> `optional` **refusal?**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
+
+##### tls
+
+> **tls**: `object`
+
+###### threadPointer
+
+> **threadPointer**: `string`
+
+###### rseq
+
+> **rseq**: `object`
+
+###### rseq.state
+
+> **state**: `"captured"` \| `"unsupported"` \| `"absent"`
+
+###### rseq.refusal?
+
+> `optional` **refusal?**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
+
+##### refusal?
+
+> `optional` **refusal?**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
+
+***
+
+### NativeProcessImageThreads
+
+#### Properties
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### threads
+
+> **threads**: [`NativeThreadState`](#nativethreadstate)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusals`](#nativeprocessimagerefusals)
+
+***
+
+### NativeProcessResource
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### kind
+
+> **kind**: [`NativeProcessResourceKind`](#nativeprocessresourcekind)
+
+##### state
+
+> **state**: `"captured"` \| `"refused"` \| `"unsupported"` \| `"recipe"`
+
+##### fd?
+
+> `optional` **fd?**: `number`
+
+##### path?
+
+> `optional` **path?**: `string`
+
+##### flags?
+
+> `optional` **flags?**: `string`[]
+
+##### offset?
+
+> `optional` **offset?**: `number`
+
+##### recipe?
+
+> `optional` **recipe?**: `Record`\<`string`, `unknown`\>
+
+##### refusal?
+
+> `optional` **refusal?**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
+
+***
+
+### NativeProcessImageResources
+
+#### Properties
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### resources
+
+> **resources**: [`NativeProcessResource`](#nativeprocessresource)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusals`](#nativeprocessimagerefusals)
+
+***
+
+### NativeCodeLocationMapping
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### sourceMapping
+
+> **sourceMapping**: `string`
+
+##### sourceAddress
+
+> **sourceAddress**: `string`
+
+##### targetAddress?
+
+> `optional` **targetAddress?**: `string`
+
+##### state
+
+> **state**: `"refused"` \| `"mapped"` \| `"pending"`
+
+##### refusal?
+
+> `optional` **refusal?**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
+
+***
+
+### NativeThreadTranslation
+
+#### Properties
+
+##### sourceThreadId
+
+> **sourceThreadId**: `string`
+
+##### state
+
+> **state**: `"refused"` \| `"pending"` \| `"translated"`
+
+##### targetRegisters?
+
+> `optional` **targetRegisters?**: [`NativeRegisterState`](#nativeregisterstate)
+
+##### refusal?
+
+> `optional` **refusal?**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
+
+***
+
+### NativeMemoryRelocation
+
+#### Properties
+
+##### mapping
+
+> **mapping**: `string`
+
+##### offset
+
+> **offset**: `number`
+
+##### kind
+
+> **kind**: `"pointer"` \| `"code-pointer"` \| `"return-address"` \| `"thread-pointer"`
+
+##### sourceValue
+
+> **sourceValue**: `string`
+
+##### targetValue?
+
+> `optional` **targetValue?**: `string`
+
+##### state
+
+> **state**: `"refused"` \| `"translated"` \| `"ambiguous"`
+
+##### refusal?
+
+> `optional` **refusal?**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
+
+***
+
+### NativeProcessImageTranslation
+
+#### Properties
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### mode
+
+> **mode**: `"native-cross-isa"`
+
+##### sourceArch
+
+> **sourceArch**: `"amd64"` \| `"arm64"`
+
+##### targetArch
+
+> **targetArch**: `"amd64"` \| `"arm64"`
+
+##### codeLocations
+
+> **codeLocations**: [`NativeCodeLocationMapping`](#nativecodelocationmapping)[]
+
+##### threads
+
+> **threads**: [`NativeThreadTranslation`](#nativethreadtranslation)[]
+
+##### memoryRelocations
+
+> **memoryRelocations**: [`NativeMemoryRelocation`](#nativememoryrelocation)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusals`](#nativeprocessimagerefusals)
+
+***
+
+### NativeProcessImageDocuments
+
+#### Properties
+
+##### rootDir?
+
+> `optional` **rootDir?**: `string`
+
+##### manifest
+
+> **manifest**: [`NativeProcessImageManifest`](#nativeprocessimagemanifest)
+
+##### mappings
+
+> **mappings**: [`NativeProcessImageMappings`](#nativeprocessimagemappings)
+
+##### threads
+
+> **threads**: [`NativeProcessImageThreads`](#nativeprocessimagethreads)
+
+##### resources
+
+> **resources**: [`NativeProcessImageResources`](#nativeprocessimageresources)
+
+##### translation
+
+> **translation**: [`NativeProcessImageTranslation`](#nativeprocessimagetranslation)
+
+***
+
+### NativeProcessImageDocumentInput
+
+#### Properties
+
+##### rootDir?
+
+> `optional` **rootDir?**: `string`
+
+##### manifest
+
+> **manifest**: `unknown`
+
+##### mappings
+
+> **mappings**: `unknown`
+
+##### threads
+
+> **threads**: `unknown`
+
+##### resources
+
+> **resources**: `unknown`
+
+##### translation
+
+> **translation**: `unknown`
 
 ***
 
@@ -3890,7 +4674,7 @@ need to set it.
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`memory`](#memory-1)
+[`BootOptions`](#bootoptions).[`memory`](#memory-2)
 
 ##### pdeathsig?
 
@@ -4708,7 +5492,7 @@ need to set it.
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`memory`](#memory-1)
+[`BootOptions`](#bootoptions).[`memory`](#memory-2)
 
 ##### pdeathsig?
 
@@ -4880,6 +5664,42 @@ Poll interval in ms while retrying. Default 250.
 #### Returns
 
 `void`
+
+***
+
+### NativeProcessImageArchitecture
+
+> **NativeProcessImageArchitecture** = *typeof* [`nativeProcessImageArchitectures`](#nativeprocessimagearchitectures)\[`number`\]
+
+***
+
+### NativeProcessImageRefusalCode
+
+> **NativeProcessImageRefusalCode** = *typeof* [`nativeProcessImageRefusalCodes`](#nativeprocessimagerefusalcodes)\[`number`\]
+
+***
+
+### NativeMemoryMappingKind
+
+> **NativeMemoryMappingKind** = `"text"` \| `"data"` \| `"heap"` \| `"stack"` \| `"tls"` \| `"vdso"` \| `"vvar"` \| `"file"` \| `"anonymous"` \| `"shared"` \| `"special"`
+
+***
+
+### NativeRegisterState
+
+> **NativeRegisterState** = [`NativeArm64Registers`](#nativearm64registers) \| [`NativeAmd64Registers`](#nativeamd64registers)
+
+***
+
+### NativeProcessResourceKind
+
+> **NativeProcessResourceKind** = `"argv"` \| `"env"` \| `"cwd"` \| `"exe"` \| `"fd"` \| `"file"` \| `"pipe"` \| `"socket"` \| `"raw-socket"` \| `"pty"` \| `"timer"` \| `"signal"` \| `"namespace"` \| `"credential"` \| `"futex"` \| `"epoll"` \| `"unknown"`
+
+***
+
+### NativeProcessImageJsonSchema
+
+> **NativeProcessImageJsonSchema** = `Record`\<`string`, `unknown`\>
 
 ***
 
@@ -5382,6 +6202,548 @@ Smoke-test rationale: a host running `pnpm smoke-tests` sees
 five sequential VMs leave it with ~1 GiB free in steady state.
 Anything stricter than this default trips on real-world dev
 loops; anything looser stops being a meaningful gate.
+
+***
+
+### NATIVE\_PROCESS\_IMAGE\_FORMAT\_VERSION
+
+> `const` **NATIVE\_PROCESS\_IMAGE\_FORMAT\_VERSION**: `1` = `1`
+
+***
+
+### NATIVE\_PROCESS\_IMAGE\_FILES
+
+> `const` **NATIVE\_PROCESS\_IMAGE\_FILES**: `object`
+
+#### Type Declaration
+
+##### manifest
+
+> `readonly` **manifest**: `"native-process.json"` = `"native-process.json"`
+
+##### mappings
+
+> `readonly` **mappings**: `"native-mappings.json"` = `"native-mappings.json"`
+
+##### threads
+
+> `readonly` **threads**: `"native-threads.json"` = `"native-threads.json"`
+
+##### resources
+
+> `readonly` **resources**: `"native-resources.json"` = `"native-resources.json"`
+
+##### translation
+
+> `readonly` **translation**: `"native-translation.json"` = `"native-translation.json"`
+
+##### memory
+
+> `readonly` **memory**: `"native-memory.bin"` = `"native-memory.bin"`
+
+***
+
+### nativeProcessImageArchitectures
+
+> `const` **nativeProcessImageArchitectures**: readonly \[`"arm64"`, `"amd64"`\]
+
+***
+
+### nativeProcessImageRefusalCodes
+
+> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-permission-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"target-build-mismatch"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"vdso-policy-unsupported"`\]
+
+***
+
+### nativeProcessImageSchemas
+
+> `const` **nativeProcessImageSchemas**: `object`
+
+#### Type Declaration
+
+##### manifest
+
+> `readonly` **manifest**: `object`
+
+###### manifest.$schema
+
+> `readonly` **$schema**: `"https://json-schema.org/draft/2020-12/schema"` = `"https://json-schema.org/draft/2020-12/schema"`
+
+###### manifest.$id
+
+> `readonly` **$id**: `"https://machinen.dev/schemas/native-process-image/manifest.schema.json"` = `"https://machinen.dev/schemas/native-process-image/manifest.schema.json"`
+
+###### manifest.title
+
+> `readonly` **title**: `"Machinen native process image manifest"` = `"Machinen native process image manifest"`
+
+###### manifest.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### manifest.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### manifest.required
+
+> `readonly` **required**: readonly \[`"formatVersion"`, `"kind"`, `"capture"`, `"target"`, `"process"`, `"refusals"`\]
+
+###### manifest.properties
+
+> `readonly` **properties**: `object`
+
+###### manifest.properties.formatVersion
+
+> `readonly` **formatVersion**: `object`
+
+###### manifest.properties.formatVersion.const
+
+> `readonly` **const**: `1` = `NATIVE_PROCESS_IMAGE_FORMAT_VERSION`
+
+###### manifest.properties.kind
+
+> `readonly` **kind**: `object`
+
+###### manifest.properties.kind.const
+
+> `readonly` **const**: `"machinen.native-process-image"` = `"machinen.native-process-image"`
+
+###### manifest.properties.capture
+
+> `readonly` **capture**: `object`
+
+###### manifest.properties.capture.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### manifest.properties.capture.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### manifest.properties.capture.required
+
+> `readonly` **required**: readonly \[`"method"`, `"sourceArch"`\]
+
+###### manifest.properties.capture.properties
+
+> `readonly` **properties**: `object`
+
+###### manifest.properties.capture.properties.method
+
+> `readonly` **method**: `object`
+
+###### manifest.properties.capture.properties.method.const
+
+> `readonly` **const**: `"external-ptrace-procfs"` = `"external-ptrace-procfs"`
+
+###### manifest.properties.capture.properties.sourceArch
+
+> `readonly` **sourceArch**: `object`
+
+###### manifest.properties.capture.properties.sourceArch.enum
+
+> `readonly` **enum**: readonly \[`"arm64"`, `"amd64"`\] = `nativeProcessImageArchitectures`
+
+###### manifest.properties.capture.properties.pid
+
+> `readonly` **pid**: `object`
+
+###### manifest.properties.capture.properties.pid.type
+
+> `readonly` **type**: `"integer"` = `"integer"`
+
+###### manifest.properties.capture.properties.pid.minimum
+
+> `readonly` **minimum**: `1` = `1`
+
+###### manifest.properties.capture.properties.capturedAt
+
+> `readonly` **capturedAt**: `object`
+
+###### manifest.properties.capture.properties.capturedAt.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### manifest.properties.target
+
+> `readonly` **target**: `object`
+
+###### manifest.properties.target.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### manifest.properties.target.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### manifest.properties.target.required
+
+> `readonly` **required**: readonly \[`"mode"`, `"arch"`, `"abi"`\]
+
+###### manifest.properties.target.properties
+
+> `readonly` **properties**: `object`
+
+###### manifest.properties.target.properties.mode
+
+> `readonly` **mode**: `object`
+
+###### manifest.properties.target.properties.mode.const
+
+> `readonly` **const**: `"native-cross-isa"` = `"native-cross-isa"`
+
+###### manifest.properties.target.properties.arch
+
+> `readonly` **arch**: `object`
+
+###### manifest.properties.target.properties.arch.enum
+
+> `readonly` **enum**: readonly \[`"arm64"`, `"amd64"`\] = `nativeProcessImageArchitectures`
+
+###### manifest.properties.target.properties.abi
+
+> `readonly` **abi**: `object`
+
+###### manifest.properties.target.properties.abi.const
+
+> `readonly` **const**: `"linux-user"` = `"linux-user"`
+
+###### manifest.properties.process
+
+> `readonly` **process**: `object`
+
+###### manifest.properties.process.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### manifest.properties.process.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### manifest.properties.process.required
+
+> `readonly` **required**: readonly \[`"exe"`, `"argv"`, `"env"`, `"cwd"`\]
+
+###### manifest.properties.process.properties
+
+> `readonly` **properties**: `object`
+
+###### manifest.properties.process.properties.exe
+
+> `readonly` **exe**: `object`
+
+###### manifest.properties.process.properties.exe.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### manifest.properties.process.properties.exe.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### manifest.properties.process.properties.argv
+
+> `readonly` **argv**: `object`
+
+###### manifest.properties.process.properties.argv.type
+
+> `readonly` **type**: `"array"` = `"array"`
+
+###### manifest.properties.process.properties.argv.items
+
+> `readonly` **items**: `object`
+
+###### manifest.properties.process.properties.argv.items.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### manifest.properties.process.properties.argv.minItems
+
+> `readonly` **minItems**: `1` = `1`
+
+###### manifest.properties.process.properties.env
+
+> `readonly` **env**: `object`
+
+###### manifest.properties.process.properties.env.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### manifest.properties.process.properties.env.additionalProperties
+
+> `readonly` **additionalProperties**: `object`
+
+###### manifest.properties.process.properties.env.additionalProperties.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### manifest.properties.process.properties.cwd
+
+> `readonly` **cwd**: `object`
+
+###### manifest.properties.process.properties.cwd.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### manifest.properties.process.properties.cwd.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### manifest.properties.refusals
+
+> `readonly` **refusals**: [`NativeProcessImageJsonSchema`](#nativeprocessimagejsonschema) = `REFUSALS_SCHEMA`
+
+##### mappings
+
+> `readonly` **mappings**: `object`
+
+###### mappings.$schema
+
+> `readonly` **$schema**: `"https://json-schema.org/draft/2020-12/schema"` = `"https://json-schema.org/draft/2020-12/schema"`
+
+###### mappings.$id
+
+> `readonly` **$id**: `"https://machinen.dev/schemas/native-process-image/mappings.schema.json"` = `"https://machinen.dev/schemas/native-process-image/mappings.schema.json"`
+
+###### mappings.title
+
+> `readonly` **title**: `"Machinen native process image mappings"` = `"Machinen native process image mappings"`
+
+###### mappings.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### mappings.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### mappings.required
+
+> `readonly` **required**: readonly \[`"formatVersion"`, `"mappings"`, `"refusals"`\]
+
+###### mappings.properties
+
+> `readonly` **properties**: `object`
+
+###### mappings.properties.formatVersion
+
+> `readonly` **formatVersion**: `object`
+
+###### mappings.properties.formatVersion.const
+
+> `readonly` **const**: `1` = `NATIVE_PROCESS_IMAGE_FORMAT_VERSION`
+
+###### mappings.properties.mappings
+
+> `readonly` **mappings**: `object`
+
+###### mappings.properties.mappings.type
+
+> `readonly` **type**: `"array"` = `"array"`
+
+###### mappings.properties.refusals
+
+> `readonly` **refusals**: [`NativeProcessImageJsonSchema`](#nativeprocessimagejsonschema) = `REFUSALS_SCHEMA`
+
+##### threads
+
+> `readonly` **threads**: `object`
+
+###### threads.$schema
+
+> `readonly` **$schema**: `"https://json-schema.org/draft/2020-12/schema"` = `"https://json-schema.org/draft/2020-12/schema"`
+
+###### threads.$id
+
+> `readonly` **$id**: `"https://machinen.dev/schemas/native-process-image/threads.schema.json"` = `"https://machinen.dev/schemas/native-process-image/threads.schema.json"`
+
+###### threads.title
+
+> `readonly` **title**: `"Machinen native process image threads"` = `"Machinen native process image threads"`
+
+###### threads.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### threads.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### threads.required
+
+> `readonly` **required**: readonly \[`"formatVersion"`, `"threads"`, `"refusals"`\]
+
+###### threads.properties
+
+> `readonly` **properties**: `object`
+
+###### threads.properties.formatVersion
+
+> `readonly` **formatVersion**: `object`
+
+###### threads.properties.formatVersion.const
+
+> `readonly` **const**: `1` = `NATIVE_PROCESS_IMAGE_FORMAT_VERSION`
+
+###### threads.properties.threads
+
+> `readonly` **threads**: `object`
+
+###### threads.properties.threads.type
+
+> `readonly` **type**: `"array"` = `"array"`
+
+###### threads.properties.threads.minItems
+
+> `readonly` **minItems**: `1` = `1`
+
+###### threads.properties.refusals
+
+> `readonly` **refusals**: [`NativeProcessImageJsonSchema`](#nativeprocessimagejsonschema) = `REFUSALS_SCHEMA`
+
+##### resources
+
+> `readonly` **resources**: `object`
+
+###### resources.$schema
+
+> `readonly` **$schema**: `"https://json-schema.org/draft/2020-12/schema"` = `"https://json-schema.org/draft/2020-12/schema"`
+
+###### resources.$id
+
+> `readonly` **$id**: `"https://machinen.dev/schemas/native-process-image/resources.schema.json"` = `"https://machinen.dev/schemas/native-process-image/resources.schema.json"`
+
+###### resources.title
+
+> `readonly` **title**: `"Machinen native process image resources"` = `"Machinen native process image resources"`
+
+###### resources.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### resources.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### resources.required
+
+> `readonly` **required**: readonly \[`"formatVersion"`, `"resources"`, `"refusals"`\]
+
+###### resources.properties
+
+> `readonly` **properties**: `object`
+
+###### resources.properties.formatVersion
+
+> `readonly` **formatVersion**: `object`
+
+###### resources.properties.formatVersion.const
+
+> `readonly` **const**: `1` = `NATIVE_PROCESS_IMAGE_FORMAT_VERSION`
+
+###### resources.properties.resources
+
+> `readonly` **resources**: `object`
+
+###### resources.properties.resources.type
+
+> `readonly` **type**: `"array"` = `"array"`
+
+###### resources.properties.refusals
+
+> `readonly` **refusals**: [`NativeProcessImageJsonSchema`](#nativeprocessimagejsonschema) = `REFUSALS_SCHEMA`
+
+##### translation
+
+> `readonly` **translation**: `object`
+
+###### translation.$schema
+
+> `readonly` **$schema**: `"https://json-schema.org/draft/2020-12/schema"` = `"https://json-schema.org/draft/2020-12/schema"`
+
+###### translation.$id
+
+> `readonly` **$id**: `"https://machinen.dev/schemas/native-process-image/translation.schema.json"` = `"https://machinen.dev/schemas/native-process-image/translation.schema.json"`
+
+###### translation.title
+
+> `readonly` **title**: `"Machinen native process image translation plan"` = `"Machinen native process image translation plan"`
+
+###### translation.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### translation.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### translation.required
+
+> `readonly` **required**: readonly \[`"formatVersion"`, `"mode"`, `"sourceArch"`, `"targetArch"`, `"codeLocations"`, `"threads"`, `"memoryRelocations"`, `"refusals"`\]
+
+###### translation.properties
+
+> `readonly` **properties**: `object`
+
+###### translation.properties.formatVersion
+
+> `readonly` **formatVersion**: `object`
+
+###### translation.properties.formatVersion.const
+
+> `readonly` **const**: `1` = `NATIVE_PROCESS_IMAGE_FORMAT_VERSION`
+
+###### translation.properties.mode
+
+> `readonly` **mode**: `object`
+
+###### translation.properties.mode.const
+
+> `readonly` **const**: `"native-cross-isa"` = `"native-cross-isa"`
+
+###### translation.properties.sourceArch
+
+> `readonly` **sourceArch**: `object`
+
+###### translation.properties.sourceArch.enum
+
+> `readonly` **enum**: readonly \[`"arm64"`, `"amd64"`\] = `nativeProcessImageArchitectures`
+
+###### translation.properties.targetArch
+
+> `readonly` **targetArch**: `object`
+
+###### translation.properties.targetArch.enum
+
+> `readonly` **enum**: readonly \[`"arm64"`, `"amd64"`\] = `nativeProcessImageArchitectures`
+
+###### translation.properties.codeLocations
+
+> `readonly` **codeLocations**: `object`
+
+###### translation.properties.codeLocations.type
+
+> `readonly` **type**: `"array"` = `"array"`
+
+###### translation.properties.threads
+
+> `readonly` **threads**: `object`
+
+###### translation.properties.threads.type
+
+> `readonly` **type**: `"array"` = `"array"`
+
+###### translation.properties.memoryRelocations
+
+> `readonly` **memoryRelocations**: `object`
+
+###### translation.properties.memoryRelocations.type
+
+> `readonly` **type**: `"array"` = `"array"`
+
+###### translation.properties.refusals
+
+> `readonly` **refusals**: [`NativeProcessImageJsonSchema`](#nativeprocessimagejsonschema) = `REFUSALS_SCHEMA`
 
 ***
 
@@ -5914,6 +7276,82 @@ available.
 #### Returns
 
 `string`
+
+***
+
+### isNativeProcessImageBundle()
+
+> **isNativeProcessImageBundle**(`dir`): `boolean`
+
+#### Parameters
+
+##### dir
+
+`string`
+
+#### Returns
+
+`boolean`
+
+***
+
+### validateNativeProcessImageBundle()
+
+> **validateNativeProcessImageBundle**(`dir`): [`NativeProcessImageDocuments`](#nativeprocessimagedocuments)
+
+#### Parameters
+
+##### dir
+
+`string`
+
+#### Returns
+
+[`NativeProcessImageDocuments`](#nativeprocessimagedocuments)
+
+***
+
+### validateNativeProcessImageDocuments()
+
+> **validateNativeProcessImageDocuments**(`docs`, `opts?`): `string`[]
+
+#### Parameters
+
+##### docs
+
+[`NativeProcessImageDocumentInput`](#nativeprocessimagedocumentinput)
+
+##### opts?
+
+###### rootDir?
+
+`string`
+
+#### Returns
+
+`string`[]
+
+***
+
+### assertNativeProcessImageDocuments()
+
+> **assertNativeProcessImageDocuments**(`docs`, `opts?`): `asserts docs is NativeProcessImageDocuments`
+
+#### Parameters
+
+##### docs
+
+[`NativeProcessImageDocumentInput`](#nativeprocessimagedocumentinput)
+
+##### opts?
+
+###### rootDir?
+
+`string`
+
+#### Returns
+
+`asserts docs is NativeProcessImageDocuments`
 
 ***
 
