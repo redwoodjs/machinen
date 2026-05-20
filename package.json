@@ -41,6 +41,7 @@
     "native-process-capture": "node scripts/native-process-capture.mjs verify",
     "native-restore-loader": "node scripts/native-restore-loader.mjs verify",
     "native-register-translate": "tsx scripts/native-register-translate.ts verify",
+    "native-thread-refusal-matrix": "tsx scripts/native-thread-refusal-matrix.ts verify",
     "native-code-map": "tsx scripts/native-code-map.ts verify",
     "native-stack-translate": "tsx scripts/native-stack-translate.ts verify",
     "native-memory-translate": "tsx scripts/native-memory-translate.ts verify",

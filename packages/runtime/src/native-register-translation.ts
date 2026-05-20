@@ -146,6 +146,12 @@ function unsafeThreadState(thread: NativeThreadState): NativeProcessImageRefusal
   if (thread.signal.activeFrame) {
     return refusal("signal-frame-active", `thread ${thread.id} is inside a signal frame`);
   }
+  if (hasNonZeroSignalMask(thread.signal.pending)) {
+    return refusal("signal-state-unsupported", `thread ${thread.id} has pending signal state`);
+  }
+  if (hasNonZeroSignalMask(thread.signal.blocked)) {
+    return refusal("signal-state-unsupported", `thread ${thread.id} has blocked signal state`);
+  }
   if (thread.signal.altStack.state !== "disabled") {
     return refusal("signal-state-unsupported", `thread ${thread.id} has active alt-stack state`);
   }
@@ -153,6 +159,13 @@ function unsafeThreadState(thread: NativeThreadState): NativeProcessImageRefusal
     return refusal("rseq-state-unsupported", `thread ${thread.id} has rseq state`);
   }
   return undefined;
+}
+
+function hasNonZeroSignalMask(masks: string[]) {
+  return masks.some((mask) => {
+    const normalized = mask.trim().toLowerCase().replace(/^0x/, "");
+    return normalized.length > 0 && !/^0+$/.test(normalized);
+  });
 }
 
 // fallow-ignore-next-line complexity
