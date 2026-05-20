@@ -33,5 +33,6 @@ That is deliberate: this issue proves the translated image can be assembled and
 materialized, but it does not yet jump into a recreated Linux thread context.
 Unknown frame metadata still refuses as `mapping-ambiguous`.
 
-The next step is applying this pipeline to real utilities and cataloguing which
-resources/metadata prevent a final transparent jump.
+The next step is #464's narrow final-jump proof: execute a translated target
+continuation for a controlled image, then keep applying the same boundary checks
+to real utilities.

@@ -54,6 +54,35 @@ describe("native register translation", () => {
     });
   });
 
+  it("applies continuation register overrides after pointer relocation", () => {
+    const thread = arm64Thread();
+    if (thread.sourceRegisters.arch !== "arm64") {
+      throw new Error("test fixture did not create arm64 registers");
+    }
+    thread.sourceRegisters.x[0] = "0x600000";
+
+    const result = translateNativeRegisterState({
+      sourceArch: "arm64",
+      targetArch: "amd64",
+      threads: [thread],
+      continuations: {
+        [thread.id]: {
+          sourcePc: "0x400120",
+          targetIp: "0x14000120",
+          targetSp: "0x7fffffffe000",
+          targetTls: "0x7ffff7d00000",
+          targetRegisterOverrides: { rdi: "0x15000000" },
+        },
+      },
+    });
+
+    expect(result.threads[0]?.targetRegisters).toMatchObject({
+      arch: "amd64",
+      rax: "0x600000",
+      rdi: "0x15000000",
+    });
+  });
+
   it("refuses active syscall states before register translation", () => {
     const thread = arm64Thread();
     thread.syscall = { state: "inside-syscall", number: 64, name: "write" };

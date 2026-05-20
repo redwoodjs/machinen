@@ -40,6 +40,6 @@ each ambiguity class is translated or refused.
 
 The current native track proves format validation, external capture, target
 memory materialization, register safe-point translation, code-location mapping,
-stack relocation, memory relocation, resource recipes/refusals, and first real
-utility attempts. It still does not claim generic final instruction-pointer jump
-for arbitrary optimized binaries.
+stack relocation, memory relocation, resource recipes/refusals, a controlled
+native final jump, and first real utility attempts. It still does not claim
+generic final instruction-pointer jump for arbitrary optimized binaries.
