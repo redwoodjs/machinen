@@ -125,6 +125,52 @@
 - [`OnLog`](#onlog)
 - [`PhaseLogEvent`](#phaselogevent)
 
+### Runtime adapters (experimental)
+
+- [`RUNTIME_ADAPTER_BUNDLE_FILE`](#runtime_adapter_bundle_file)
+- [`RuntimeAdapterValidationError`](#runtimeadaptervalidationerror)
+- [`runtimeAdapterRefusalCodes`](#runtimeadapterrefusalcodes)
+- [`runtimeAdapterSchemas`](#runtimeadapterschemas)
+- [`validateRuntimeAdapterDocument`](#validateruntimeadapterdocument)
+- [`assertRuntimeAdapterDocument`](#assertruntimeadapterdocument)
+- [`RuntimeAdapterDocument`](#runtimeadapterdocument)
+- [`RuntimeAdapterDescriptor`](#runtimeadapterdescriptor)
+- [`RuntimeAdapterEntrypoint`](#runtimeadapterentrypoint)
+- [`RuntimeAdapterEntrypoints`](#runtimeadapterentrypoints)
+- [`RuntimeAdapterTarget`](#runtimeadaptertarget)
+- [`RuntimeAdapterRuntime`](#runtimeadapterruntime)
+- [`RuntimeAdapterSerializerCompatibility`](#runtimeadapterserializercompatibility)
+- [`RuntimeAdapterBuild`](#runtimeadapterbuild)
+- [`RuntimeAdapterBuildIdentity`](#runtimeadapterbuildidentity)
+- [`RuntimeAdapterBuildModule`](#runtimeadapterbuildmodule)
+- [`RuntimeAdapterProcess`](#runtimeadapterprocess)
+- [`RuntimeAdapterGraph`](#runtimeadaptergraph)
+- [`RuntimeAdapterRoot`](#runtimeadapterroot)
+- [`RuntimeAdapterValue`](#runtimeadaptervalue)
+- [`RuntimeAdapterObjectNode`](#runtimeadapterobjectnode)
+- [`RuntimeAdapterMapEntry`](#runtimeadaptermapentry)
+- [`RuntimeAdapterIdentityAssertion`](#runtimeadapteridentityassertion)
+- [`RuntimeAdapterResources`](#runtimeadapterresources)
+- [`RuntimeAdapterResource`](#runtimeadapterresource)
+- [`RuntimeAdapterResourceRecipe`](#runtimeadapterresourcerecipe)
+- [`RuntimeAdapterRestoreContract`](#runtimeadapterrestorecontract)
+- [`RuntimeAdapterBundleMapping`](#runtimeadapterbundlemapping)
+- [`RuntimeAdapterBundleObjectMapping`](#runtimeadapterbundleobjectmapping)
+- [`RuntimeAdapterBundleResourceMapping`](#runtimeadapterbundleresourcemapping)
+- [`RuntimeAdapterUnsupportedVocabulary`](#runtimeadapterunsupportedvocabulary)
+- [`RuntimeAdapterRefusal`](#runtimeadapterrefusal)
+- [`RuntimeAdapterRefusalCode`](#runtimeadapterrefusalcode)
+- [`RuntimeAdapterArch`](#runtimeadapterarch)
+- [`RuntimeAdapterRuntimeName`](#runtimeadapterruntimename)
+- [`RuntimeAdapterTransport`](#runtimeadaptertransport)
+- [`RuntimeAdapterValueKind`](#runtimeadaptervaluekind)
+- [`RuntimeAdapterObjectKind`](#runtimeadapterobjectkind)
+- [`RuntimeAdapterResourceKind`](#runtimeadapterresourcekind)
+- [`RuntimeAdapterResourceState`](#runtimeadapterresourcestate)
+- [`RuntimeAdapterModuleKind`](#runtimeadaptermodulekind)
+- [`RuntimeAdapterMappingRole`](#runtimeadaptermappingrole)
+- [`RuntimeAdapterJsonSchema`](#runtimeadapterjsonschema)
+
 ### Initramfs (advanced)
 
 - [`mkinitramfsBundle`](#mkinitramfsbundle)
@@ -1265,6 +1311,40 @@ Attach to `id`. Throws if id doesn't exist.
 ###### Returns
 
 `void`
+
+***
+
+### RuntimeAdapterValidationError
+
+#### Extends
+
+- `Error`
+
+#### Constructors
+
+##### Constructor
+
+> **new RuntimeAdapterValidationError**(`errors`): [`RuntimeAdapterValidationError`](#runtimeadaptervalidationerror)
+
+###### Parameters
+
+###### errors
+
+`string`[]
+
+###### Returns
+
+[`RuntimeAdapterValidationError`](#runtimeadaptervalidationerror)
+
+###### Overrides
+
+`Error.constructor`
+
+#### Properties
+
+##### errors
+
+> `readonly` **errors**: `string`[]
 
 ***
 
@@ -2707,6 +2787,608 @@ the breakdown shows up alongside the parent phase.
 
 ***
 
+### RuntimeAdapterRefusal
+
+#### Properties
+
+##### code
+
+> **code**: `"fd-kind-unsupported"` \| `"target-build-mismatch"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"feature-unsupported"` \| `"object-unsupported"` \| `"resource-unsupported"` \| `"runtime-adapter-missing"` \| `"runtime-heap-unsupported"`
+
+##### message
+
+> **message**: `string`
+
+##### detail?
+
+> `optional` **detail?**: `Record`\<`string`, `unknown`\>
+
+***
+
+### RuntimeAdapterUnsupportedVocabulary
+
+#### Properties
+
+##### vocabularyVersion
+
+> **vocabularyVersion**: `1`
+
+##### refusals
+
+> **refusals**: [`RuntimeAdapterRefusal`](#runtimeadapterrefusal)[]
+
+***
+
+### RuntimeAdapterEntrypoint
+
+#### Properties
+
+##### command
+
+> **command**: `string`
+
+##### args
+
+> **args**: `string`[]
+
+##### transport
+
+> **transport**: [`RuntimeAdapterTransport`](#runtimeadaptertransport)
+
+##### env?
+
+> `optional` **env?**: `Record`\<`string`, `string`\>
+
+***
+
+### RuntimeAdapterEntrypoints
+
+#### Properties
+
+##### capture
+
+> **capture**: [`RuntimeAdapterEntrypoint`](#runtimeadapterentrypoint)
+
+##### restore
+
+> **restore**: [`RuntimeAdapterEntrypoint`](#runtimeadapterentrypoint)
+
+***
+
+### RuntimeAdapterDescriptor
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### protocolVersion
+
+> **protocolVersion**: `1`
+
+##### runtime
+
+> **runtime**: [`RuntimeAdapterRuntimeName`](#runtimeadapterruntimename)
+
+##### name
+
+> **name**: `string`
+
+##### version?
+
+> `optional` **version?**: `string`
+
+##### features
+
+> **features**: `string`[]
+
+##### entrypoints
+
+> **entrypoints**: [`RuntimeAdapterEntrypoints`](#runtimeadapterentrypoints)
+
+***
+
+### RuntimeAdapterTarget
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### name
+
+> **name**: `string`
+
+##### executable
+
+> **executable**: `string`
+
+##### sourceGuestArch
+
+> **sourceGuestArch**: [`RuntimeAdapterArch`](#runtimeadapterarch)
+
+##### allowedTargetGuestArchs
+
+> **allowedTargetGuestArchs**: [`RuntimeAdapterArch`](#runtimeadapterarch)[]
+
+***
+
+### RuntimeAdapterSerializerCompatibility
+
+#### Properties
+
+##### semanticGraph
+
+> **semanticGraph**: `object`
+
+###### supported
+
+> **supported**: `true`
+
+###### format
+
+> **format**: `"machinen-runtime-adapter-v1"`
+
+##### rawHeap
+
+> **rawHeap**: `object`
+
+###### supported
+
+> **supported**: `false`
+
+###### refusal
+
+> **refusal**: [`RuntimeAdapterRefusal`](#runtimeadapterrefusal)
+
+##### v8Serialize?
+
+> `optional` **v8Serialize?**: `object`
+
+###### supported
+
+> **supported**: `boolean`
+
+###### versionBound
+
+> **versionBound**: `boolean`
+
+###### portable
+
+> **portable**: `false`
+
+###### api?
+
+> `optional` **api?**: `string`
+
+##### structuredClone?
+
+> `optional` **structuredClone?**: `object`
+
+###### supported
+
+> **supported**: `boolean`
+
+###### persistentFormat
+
+> **persistentFormat**: `false`
+
+##### heapSnapshot?
+
+> `optional` **heapSnapshot?**: `object`
+
+###### inspected
+
+> **inspected**: `boolean`
+
+###### restoreSupported
+
+> **restoreSupported**: `false`
+
+###### finding?
+
+> `optional` **finding?**: `string`
+
+***
+
+### RuntimeAdapterRuntime
+
+#### Properties
+
+##### name
+
+> **name**: [`RuntimeAdapterRuntimeName`](#runtimeadapterruntimename)
+
+##### version
+
+> **version**: `string`
+
+##### engine?
+
+> `optional` **engine?**: `object`
+
+###### name
+
+> **name**: `string`
+
+###### version
+
+> **version**: `string`
+
+##### serializerCompatibility
+
+> **serializerCompatibility**: [`RuntimeAdapterSerializerCompatibility`](#runtimeadapterserializercompatibility)
+
+***
+
+### RuntimeAdapterBuildModule
+
+#### Properties
+
+##### specifier
+
+> **specifier**: `string`
+
+##### kind
+
+> **kind**: [`RuntimeAdapterModuleKind`](#runtimeadaptermodulekind)
+
+##### sha256?
+
+> `optional` **sha256?**: `string`
+
+***
+
+### RuntimeAdapterBuildIdentity
+
+#### Properties
+
+##### sourceSha256?
+
+> `optional` **sourceSha256?**: `string`
+
+##### packageSha256?
+
+> `optional` **packageSha256?**: `string`
+
+##### lockfileSha256?
+
+> `optional` **lockfileSha256?**: `string`
+
+##### moduleGraphSha256?
+
+> `optional` **moduleGraphSha256?**: `string`
+
+##### artifactSha256?
+
+> `optional` **artifactSha256?**: `string`
+
+***
+
+### RuntimeAdapterBuild
+
+#### Properties
+
+##### identity
+
+> **identity**: [`RuntimeAdapterBuildIdentity`](#runtimeadapterbuildidentity)
+
+##### modules
+
+> **modules**: [`RuntimeAdapterBuildModule`](#runtimeadapterbuildmodule)[]
+
+***
+
+### RuntimeAdapterProcess
+
+#### Properties
+
+##### argv
+
+> **argv**: `string`[]
+
+##### env
+
+> **env**: `Record`\<`string`, `string`\>
+
+##### cwd
+
+> **cwd**: `string`
+
+***
+
+### RuntimeAdapterRoot
+
+#### Properties
+
+##### name
+
+> **name**: `string`
+
+##### value
+
+> **value**: [`RuntimeAdapterValue`](#runtimeadaptervalue)
+
+***
+
+### RuntimeAdapterMapEntry
+
+#### Properties
+
+##### key
+
+> **key**: [`RuntimeAdapterValue`](#runtimeadaptervalue)
+
+##### value
+
+> **value**: [`RuntimeAdapterValue`](#runtimeadaptervalue)
+
+***
+
+### RuntimeAdapterObjectNode
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### kind
+
+> **kind**: [`RuntimeAdapterObjectKind`](#runtimeadapterobjectkind)
+
+##### type?
+
+> `optional` **type?**: `string`
+
+##### prototype?
+
+> `optional` **prototype?**: `string`
+
+##### properties?
+
+> `optional` **properties?**: `Record`\<`string`, [`RuntimeAdapterValue`](#runtimeadaptervalue)\>
+
+##### elements?
+
+> `optional` **elements?**: [`RuntimeAdapterValue`](#runtimeadaptervalue)[]
+
+##### entries?
+
+> `optional` **entries?**: [`RuntimeAdapterMapEntry`](#runtimeadaptermapentry)[]
+
+##### byteLength?
+
+> `optional` **byteLength?**: `number`
+
+##### refusal?
+
+> `optional` **refusal?**: [`RuntimeAdapterRefusal`](#runtimeadapterrefusal)
+
+***
+
+### RuntimeAdapterIdentityAssertion
+
+#### Properties
+
+##### left
+
+> **left**: `string`
+
+##### right
+
+> **right**: `string`
+
+##### same
+
+> **same**: `boolean`
+
+***
+
+### RuntimeAdapterGraph
+
+#### Properties
+
+##### roots
+
+> **roots**: [`RuntimeAdapterRoot`](#runtimeadapterroot)[]
+
+##### objects
+
+> **objects**: [`RuntimeAdapterObjectNode`](#runtimeadapterobjectnode)[]
+
+##### identityAssertions?
+
+> `optional` **identityAssertions?**: [`RuntimeAdapterIdentityAssertion`](#runtimeadapteridentityassertion)[]
+
+##### checksumHex?
+
+> `optional` **checksumHex?**: `string`
+
+***
+
+### RuntimeAdapterResourceRecipe
+
+#### Properties
+
+##### kind
+
+> **kind**: `string`
+
+##### detail?
+
+> `optional` **detail?**: `Record`\<`string`, `unknown`\>
+
+***
+
+### RuntimeAdapterResource
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### kind
+
+> **kind**: [`RuntimeAdapterResourceKind`](#runtimeadapterresourcekind)
+
+##### state
+
+> **state**: [`RuntimeAdapterResourceState`](#runtimeadapterresourcestate)
+
+##### recipe?
+
+> `optional` **recipe?**: [`RuntimeAdapterResourceRecipe`](#runtimeadapterresourcerecipe)
+
+##### refusal?
+
+> `optional` **refusal?**: [`RuntimeAdapterRefusal`](#runtimeadapterrefusal)
+
+***
+
+### RuntimeAdapterResources
+
+#### Properties
+
+##### resources
+
+> **resources**: [`RuntimeAdapterResource`](#runtimeadapterresource)[]
+
+##### unsupported
+
+> **unsupported**: [`RuntimeAdapterUnsupportedVocabulary`](#runtimeadapterunsupportedvocabulary)
+
+***
+
+### RuntimeAdapterRestoreContract
+
+#### Properties
+
+##### semanticStateSupported
+
+> **semanticStateSupported**: `boolean`
+
+##### liveProcessSupported
+
+> **liveProcessSupported**: `boolean`
+
+##### requiredMetadata
+
+> **requiredMetadata**: `string`[]
+
+##### refusal?
+
+> `optional` **refusal?**: [`RuntimeAdapterRefusal`](#runtimeadapterrefusal)
+
+***
+
+### RuntimeAdapterBundleObjectMapping
+
+#### Properties
+
+##### portableObjectId
+
+> **portableObjectId**: `string`
+
+##### role
+
+> **role**: [`RuntimeAdapterMappingRole`](#runtimeadaptermappingrole)
+
+##### graphObjectIds?
+
+> `optional` **graphObjectIds?**: `string`[]
+
+***
+
+### RuntimeAdapterBundleResourceMapping
+
+#### Properties
+
+##### portableResourceId
+
+> **portableResourceId**: `string`
+
+##### runtimeResourceId
+
+> **runtimeResourceId**: `string`
+
+***
+
+### RuntimeAdapterBundleMapping
+
+#### Properties
+
+##### manifestFeatures
+
+> **manifestFeatures**: `string`[]
+
+##### sidecarFiles
+
+> **sidecarFiles**: `string`[]
+
+##### objects
+
+> **objects**: [`RuntimeAdapterBundleObjectMapping`](#runtimeadapterbundleobjectmapping)[]
+
+##### resources
+
+> **resources**: [`RuntimeAdapterBundleResourceMapping`](#runtimeadapterbundleresourcemapping)[]
+
+***
+
+### RuntimeAdapterDocument
+
+#### Properties
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### adapter
+
+> **adapter**: [`RuntimeAdapterDescriptor`](#runtimeadapterdescriptor)
+
+##### target
+
+> **target**: [`RuntimeAdapterTarget`](#runtimeadaptertarget)
+
+##### runtime
+
+> **runtime**: [`RuntimeAdapterRuntime`](#runtimeadapterruntime)
+
+##### build
+
+> **build**: [`RuntimeAdapterBuild`](#runtimeadapterbuild)
+
+##### process
+
+> **process**: [`RuntimeAdapterProcess`](#runtimeadapterprocess)
+
+##### graph
+
+> **graph**: [`RuntimeAdapterGraph`](#runtimeadaptergraph)
+
+##### resources
+
+> **resources**: [`RuntimeAdapterResources`](#runtimeadapterresources)
+
+##### restore
+
+> **restore**: [`RuntimeAdapterRestoreContract`](#runtimeadapterrestorecontract)
+
+##### bundleMapping
+
+> **bundleMapping**: [`RuntimeAdapterBundleMapping`](#runtimeadapterbundlemapping)
+
+##### unsupported
+
+> **unsupported**: [`RuntimeAdapterUnsupportedVocabulary`](#runtimeadapterunsupportedvocabulary)
+
+***
+
 ### VsockSecretsOptions
 
 #### Properties
@@ -3502,7 +4184,7 @@ kicks in: `<sourceName>/<fork.pid>`.
 
 ###### Overrides
 
-[`RestoreOptions`](#restoreoptions).[`name`](#name-7)
+[`RestoreOptions`](#restoreoptions).[`name`](#name-11)
 
 ##### portForward?
 
@@ -3601,7 +4283,7 @@ the host-side VMM process.
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`env`](#env-5)
+[`BootOptions`](#bootoptions).[`env`](#env-7)
 
 ##### guestCwd?
 
@@ -3821,7 +4503,7 @@ Working directory for the VMM (for finding fixture files).
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`cwd`](#cwd-3)
+[`BootOptions`](#bootoptions).[`cwd`](#cwd-4)
 
 ##### args?
 
@@ -3831,7 +4513,7 @@ Extra argv for the VMM.
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`args`](#args-2)
+[`BootOptions`](#bootoptions).[`args`](#args-3)
 
 ##### kernel?
 
@@ -4395,7 +5077,7 @@ the host-side VMM process.
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`env`](#env-5)
+[`BootOptions`](#bootoptions).[`env`](#env-7)
 
 ##### guestCwd?
 
@@ -4639,7 +5321,7 @@ Working directory for the VMM (for finding fixture files).
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`cwd`](#cwd-3)
+[`BootOptions`](#bootoptions).[`cwd`](#cwd-4)
 
 ##### args?
 
@@ -4649,7 +5331,7 @@ Extra argv for the VMM.
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`args`](#args-2)
+[`BootOptions`](#bootoptions).[`args`](#args-3)
 
 ##### kernel?
 
@@ -4888,6 +5570,78 @@ Poll interval in ms while retrying. Default 250.
 > **PidStatus** = `"alive"` \| `"dead"` \| `"recycled"`
 
 Result of `validatePid` — easy to switch on at the call site.
+
+***
+
+### RuntimeAdapterArch
+
+> **RuntimeAdapterArch** = `"arm64"` \| `"amd64"`
+
+***
+
+### RuntimeAdapterRuntimeName
+
+> **RuntimeAdapterRuntimeName** = `"node"` \| `"bun"` \| `"custom"`
+
+***
+
+### RuntimeAdapterTransport
+
+> **RuntimeAdapterTransport** = `"stdio-json"` \| `"sidecar-json"`
+
+***
+
+### RuntimeAdapterValueKind
+
+> **RuntimeAdapterValueKind** = `"undefined"` \| `"null"` \| `"boolean"` \| `"number"` \| `"bigint"` \| `"string"` \| `"bytes"` \| `"ref"` \| `"array"`
+
+***
+
+### RuntimeAdapterObjectKind
+
+> **RuntimeAdapterObjectKind** = `"object"` \| `"array"` \| `"map"` \| `"set"` \| `"date"` \| `"regexp"` \| `"error"` \| `"array-buffer"` \| `"typed-array"` \| `"opaque"`
+
+***
+
+### RuntimeAdapterResourceKind
+
+> **RuntimeAdapterResourceKind** = `"argv"` \| `"env"` \| `"cwd"` \| `"fd"` \| `"file"` \| `"socket"` \| `"timer"` \| `"signal"` \| `"child-process"` \| `"worker"` \| `"pty"` \| `"fs-watch"` \| `"native-handle"` \| `"unknown"`
+
+***
+
+### RuntimeAdapterResourceState
+
+> **RuntimeAdapterResourceState** = `"captured"` \| `"refused"` \| `"unsupported"`
+
+***
+
+### RuntimeAdapterModuleKind
+
+> **RuntimeAdapterModuleKind** = `"builtin"` \| `"workspace"` \| `"relative"` \| `"external"` \| `"artifact"`
+
+***
+
+### RuntimeAdapterMappingRole
+
+> **RuntimeAdapterMappingRole** = `"runtime-roots"` \| `"runtime-object-graph"` \| `"runtime-resources"` \| `"runtime-metadata"`
+
+***
+
+### RuntimeAdapterRefusalCode
+
+> **RuntimeAdapterRefusalCode** = *typeof* [`runtimeAdapterRefusalCodes`](#runtimeadapterrefusalcodes)\[`number`\]
+
+***
+
+### RuntimeAdapterValue
+
+> **RuntimeAdapterValue** = \{ `kind`: `"undefined"`; \} \| \{ `kind`: `"null"`; \} \| \{ `kind`: `"boolean"`; `value`: `boolean`; \} \| \{ `kind`: `"number"`; `value`: `number`; \} \| \{ `kind`: `"bigint"`; `decimal`: `string`; \} \| \{ `kind`: `"string"`; `value`: `string`; \} \| \{ `kind`: `"bytes"`; `base64`: `string`; `byteLength`: `number`; \} \| \{ `kind`: `"ref"`; `objectId`: `string`; \} \| \{ `kind`: `"array"`; `items`: [`RuntimeAdapterValue`](#runtimeadaptervalue)[]; \}
+
+***
+
+### RuntimeAdapterJsonSchema
+
+> **RuntimeAdapterJsonSchema** = `Record`\<`string`, `unknown`\>
 
 ***
 
@@ -5382,6 +6136,1446 @@ Smoke-test rationale: a host running `pnpm smoke-tests` sees
 five sequential VMs leave it with ~1 GiB free in steady state.
 Anything stricter than this default trips on real-world dev
 loops; anything looser stops being a meaningful gate.
+
+***
+
+### RUNTIME\_ADAPTER\_BUNDLE\_FILE
+
+> `const` **RUNTIME\_ADAPTER\_BUNDLE\_FILE**: `"runtime-adapter.json"` = `"runtime-adapter.json"`
+
+***
+
+### runtimeAdapterRefusalCodes
+
+> `const` **runtimeAdapterRefusalCodes**: readonly \[`"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"fd-kind-unsupported"`, `"feature-unsupported"`, `"object-unsupported"`, `"resource-unsupported"`, `"runtime-adapter-missing"`, `"runtime-heap-unsupported"`, `"target-build-mismatch"`\]
+
+***
+
+### runtimeAdapterSchemas
+
+> `const` **runtimeAdapterSchemas**: `object`
+
+#### Type Declaration
+
+##### document
+
+> `readonly` **document**: `object`
+
+###### document.$schema
+
+> `readonly` **$schema**: `"https://json-schema.org/draft/2020-12/schema"` = `"https://json-schema.org/draft/2020-12/schema"`
+
+###### document.$id
+
+> `readonly` **$id**: `"https://machinen.dev/schemas/runtime-adapter/document.schema.json"` = `"https://machinen.dev/schemas/runtime-adapter/document.schema.json"`
+
+###### document.title
+
+> `readonly` **title**: `"Machinen runtime adapter document"` = `"Machinen runtime adapter document"`
+
+###### document.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### document.required
+
+> `readonly` **required**: readonly \[`"formatVersion"`, `"adapter"`, `"target"`, `"runtime"`, `"build"`, `"process"`, `"graph"`, `"resources"`, `"restore"`, `"bundleMapping"`, `"unsupported"`\]
+
+###### document.properties
+
+> `readonly` **properties**: `object`
+
+###### document.properties.formatVersion
+
+> `readonly` **formatVersion**: `object`
+
+###### document.properties.formatVersion.const
+
+> `readonly` **const**: `1` = `RUNTIME_ADAPTER_FORMAT_VERSION`
+
+###### document.properties.adapter
+
+> `readonly` **adapter**: `object`
+
+###### document.properties.adapter.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.properties.adapter.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### document.properties.adapter.required
+
+> `readonly` **required**: readonly \[`"id"`, `"protocolVersion"`, `"runtime"`, `"name"`, `"features"`, `"entrypoints"`\]
+
+###### document.properties.adapter.properties
+
+> `readonly` **properties**: `object`
+
+###### document.properties.adapter.properties.id
+
+> `readonly` **id**: `object`
+
+###### document.properties.adapter.properties.id.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.properties.adapter.properties.id.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### document.properties.adapter.properties.protocolVersion
+
+> `readonly` **protocolVersion**: `object`
+
+###### document.properties.adapter.properties.protocolVersion.const
+
+> `readonly` **const**: `1` = `RUNTIME_ADAPTER_PROTOCOL_VERSION`
+
+###### document.properties.adapter.properties.runtime
+
+> `readonly` **runtime**: `object`
+
+###### document.properties.adapter.properties.runtime.enum
+
+> `readonly` **enum**: readonly \[`"node"`, `"bun"`, `"custom"`\] = `RUNTIME_ADAPTER_RUNTIME_NAMES`
+
+###### document.properties.adapter.properties.name
+
+> `readonly` **name**: `object`
+
+###### document.properties.adapter.properties.name.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.properties.adapter.properties.name.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### document.properties.adapter.properties.version
+
+> `readonly` **version**: `object`
+
+###### document.properties.adapter.properties.version.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.properties.adapter.properties.version.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### document.properties.adapter.properties.features
+
+> `readonly` **features**: `object`
+
+###### document.properties.adapter.properties.features.type
+
+> `readonly` **type**: `"array"` = `"array"`
+
+###### document.properties.adapter.properties.features.items
+
+> `readonly` **items**: `object`
+
+###### document.properties.adapter.properties.features.items.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.properties.adapter.properties.features.items.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### document.properties.adapter.properties.features.uniqueItems
+
+> `readonly` **uniqueItems**: `true` = `true`
+
+###### document.properties.adapter.properties.entrypoints
+
+> `readonly` **entrypoints**: `object`
+
+###### document.properties.adapter.properties.entrypoints.$ref
+
+> `readonly` **$ref**: `"#/$defs/entrypoints"` = `"#/$defs/entrypoints"`
+
+###### document.properties.target
+
+> `readonly` **target**: `object`
+
+###### document.properties.target.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.properties.target.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### document.properties.target.required
+
+> `readonly` **required**: readonly \[`"id"`, `"name"`, `"executable"`, `"sourceGuestArch"`, `"allowedTargetGuestArchs"`\]
+
+###### document.properties.target.properties
+
+> `readonly` **properties**: `object`
+
+###### document.properties.target.properties.id
+
+> `readonly` **id**: `object`
+
+###### document.properties.target.properties.id.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.properties.target.properties.id.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### document.properties.target.properties.name
+
+> `readonly` **name**: `object`
+
+###### document.properties.target.properties.name.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.properties.target.properties.name.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### document.properties.target.properties.executable
+
+> `readonly` **executable**: `object`
+
+###### document.properties.target.properties.executable.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.properties.target.properties.executable.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### document.properties.target.properties.sourceGuestArch
+
+> `readonly` **sourceGuestArch**: `object`
+
+###### document.properties.target.properties.sourceGuestArch.enum
+
+> `readonly` **enum**: readonly \[`"arm64"`, `"amd64"`\] = `RUNTIME_ADAPTER_ARCHES`
+
+###### document.properties.target.properties.allowedTargetGuestArchs
+
+> `readonly` **allowedTargetGuestArchs**: `object`
+
+###### document.properties.target.properties.allowedTargetGuestArchs.type
+
+> `readonly` **type**: `"array"` = `"array"`
+
+###### document.properties.target.properties.allowedTargetGuestArchs.minItems
+
+> `readonly` **minItems**: `1` = `1`
+
+###### document.properties.target.properties.allowedTargetGuestArchs.uniqueItems
+
+> `readonly` **uniqueItems**: `true` = `true`
+
+###### document.properties.target.properties.allowedTargetGuestArchs.items
+
+> `readonly` **items**: `object`
+
+###### document.properties.target.properties.allowedTargetGuestArchs.items.enum
+
+> `readonly` **enum**: readonly \[`"arm64"`, `"amd64"`\] = `RUNTIME_ADAPTER_ARCHES`
+
+###### document.properties.runtime
+
+> `readonly` **runtime**: `object`
+
+###### document.properties.runtime.$ref
+
+> `readonly` **$ref**: `"#/$defs/runtime"` = `"#/$defs/runtime"`
+
+###### document.properties.build
+
+> `readonly` **build**: `object`
+
+###### document.properties.build.$ref
+
+> `readonly` **$ref**: `"#/$defs/build"` = `"#/$defs/build"`
+
+###### document.properties.process
+
+> `readonly` **process**: `object`
+
+###### document.properties.process.$ref
+
+> `readonly` **$ref**: `"#/$defs/process"` = `"#/$defs/process"`
+
+###### document.properties.graph
+
+> `readonly` **graph**: `object`
+
+###### document.properties.graph.$ref
+
+> `readonly` **$ref**: `"#/$defs/graph"` = `"#/$defs/graph"`
+
+###### document.properties.resources
+
+> `readonly` **resources**: `object`
+
+###### document.properties.resources.$ref
+
+> `readonly` **$ref**: `"#/$defs/resources"` = `"#/$defs/resources"`
+
+###### document.properties.restore
+
+> `readonly` **restore**: `object`
+
+###### document.properties.restore.$ref
+
+> `readonly` **$ref**: `"#/$defs/restore"` = `"#/$defs/restore"`
+
+###### document.properties.bundleMapping
+
+> `readonly` **bundleMapping**: `object`
+
+###### document.properties.bundleMapping.$ref
+
+> `readonly` **$ref**: `"#/$defs/bundleMapping"` = `"#/$defs/bundleMapping"`
+
+###### document.properties.unsupported
+
+> `readonly` **unsupported**: [`RuntimeAdapterJsonSchema`](#runtimeadapterjsonschema) = `UNSUPPORTED_SCHEMA`
+
+###### document.$defs
+
+> `readonly` **$defs**: `object`
+
+###### document.$defs.refusal
+
+> `readonly` **refusal**: [`RuntimeAdapterJsonSchema`](#runtimeadapterjsonschema) = `REFUSAL_SCHEMA`
+
+###### document.$defs.unsupported
+
+> `readonly` **unsupported**: [`RuntimeAdapterJsonSchema`](#runtimeadapterjsonschema) = `UNSUPPORTED_SCHEMA`
+
+###### document.$defs.value
+
+> `readonly` **value**: [`RuntimeAdapterJsonSchema`](#runtimeadapterjsonschema) = `VALUE_SCHEMA`
+
+###### document.$defs.entrypoint
+
+> `readonly` **entrypoint**: `object`
+
+###### document.$defs.entrypoint.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.$defs.entrypoint.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### document.$defs.entrypoint.required
+
+> `readonly` **required**: readonly \[`"command"`, `"args"`, `"transport"`\]
+
+###### document.$defs.entrypoint.properties
+
+> `readonly` **properties**: `object`
+
+###### document.$defs.entrypoint.properties.command
+
+> `readonly` **command**: `object`
+
+###### document.$defs.entrypoint.properties.command.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.$defs.entrypoint.properties.command.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### document.$defs.entrypoint.properties.args
+
+> `readonly` **args**: `object`
+
+###### document.$defs.entrypoint.properties.args.type
+
+> `readonly` **type**: `"array"` = `"array"`
+
+###### document.$defs.entrypoint.properties.args.items
+
+> `readonly` **items**: `object`
+
+###### document.$defs.entrypoint.properties.args.items.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.$defs.entrypoint.properties.transport
+
+> `readonly` **transport**: `object`
+
+###### document.$defs.entrypoint.properties.transport.enum
+
+> `readonly` **enum**: readonly \[`"stdio-json"`, `"sidecar-json"`\] = `RUNTIME_ADAPTER_TRANSPORTS`
+
+###### document.$defs.entrypoint.properties.env
+
+> `readonly` **env**: `object`
+
+###### document.$defs.entrypoint.properties.env.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.$defs.entrypoint.properties.env.additionalProperties
+
+> `readonly` **additionalProperties**: `object`
+
+###### document.$defs.entrypoint.properties.env.additionalProperties.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.$defs.entrypoints
+
+> `readonly` **entrypoints**: `object`
+
+###### document.$defs.entrypoints.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.$defs.entrypoints.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### document.$defs.entrypoints.required
+
+> `readonly` **required**: readonly \[`"capture"`, `"restore"`\]
+
+###### document.$defs.entrypoints.properties
+
+> `readonly` **properties**: `object`
+
+###### document.$defs.entrypoints.properties.capture
+
+> `readonly` **capture**: `object`
+
+###### document.$defs.entrypoints.properties.capture.$ref
+
+> `readonly` **$ref**: `"#/$defs/entrypoint"` = `"#/$defs/entrypoint"`
+
+###### document.$defs.entrypoints.properties.restore
+
+> `readonly` **restore**: `object`
+
+###### document.$defs.entrypoints.properties.restore.$ref
+
+> `readonly` **$ref**: `"#/$defs/entrypoint"` = `"#/$defs/entrypoint"`
+
+###### document.$defs.runtime
+
+> `readonly` **runtime**: `object`
+
+###### document.$defs.runtime.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.$defs.runtime.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### document.$defs.runtime.required
+
+> `readonly` **required**: readonly \[`"name"`, `"version"`, `"serializerCompatibility"`\]
+
+###### document.$defs.runtime.properties
+
+> `readonly` **properties**: `object`
+
+###### document.$defs.runtime.properties.name
+
+> `readonly` **name**: `object`
+
+###### document.$defs.runtime.properties.name.enum
+
+> `readonly` **enum**: readonly \[`"node"`, `"bun"`, `"custom"`\] = `RUNTIME_ADAPTER_RUNTIME_NAMES`
+
+###### document.$defs.runtime.properties.version
+
+> `readonly` **version**: `object`
+
+###### document.$defs.runtime.properties.version.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.$defs.runtime.properties.version.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### document.$defs.runtime.properties.engine
+
+> `readonly` **engine**: `object`
+
+###### document.$defs.runtime.properties.engine.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.$defs.runtime.properties.engine.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### document.$defs.runtime.properties.engine.required
+
+> `readonly` **required**: readonly \[`"name"`, `"version"`\]
+
+###### document.$defs.runtime.properties.engine.properties
+
+> `readonly` **properties**: `object`
+
+###### document.$defs.runtime.properties.engine.properties.name
+
+> `readonly` **name**: `object`
+
+###### document.$defs.runtime.properties.engine.properties.name.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.$defs.runtime.properties.engine.properties.name.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### document.$defs.runtime.properties.engine.properties.version
+
+> `readonly` **version**: `object`
+
+###### document.$defs.runtime.properties.engine.properties.version.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.$defs.runtime.properties.engine.properties.version.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### document.$defs.runtime.properties.serializerCompatibility
+
+> `readonly` **serializerCompatibility**: `object`
+
+###### document.$defs.runtime.properties.serializerCompatibility.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.$defs.runtime.properties.serializerCompatibility.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### document.$defs.runtime.properties.serializerCompatibility.required
+
+> `readonly` **required**: readonly \[`"semanticGraph"`, `"rawHeap"`\]
+
+###### document.$defs.runtime.properties.serializerCompatibility.properties
+
+> `readonly` **properties**: `object`
+
+###### document.$defs.runtime.properties.serializerCompatibility.properties.semanticGraph
+
+> `readonly` **semanticGraph**: `object`
+
+###### document.$defs.runtime.properties.serializerCompatibility.properties.semanticGraph.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.$defs.runtime.properties.serializerCompatibility.properties.semanticGraph.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### document.$defs.runtime.properties.serializerCompatibility.properties.semanticGraph.required
+
+> `readonly` **required**: readonly \[`"supported"`, `"format"`\]
+
+###### document.$defs.runtime.properties.serializerCompatibility.properties.semanticGraph.properties
+
+> `readonly` **properties**: `object`
+
+###### document.$defs.runtime.properties.serializerCompatibility.properties.semanticGraph.properties.supported
+
+> `readonly` **supported**: `object`
+
+###### document.$defs.runtime.properties.serializerCompatibility.properties.semanticGraph.properties.supported.const
+
+> `readonly` **const**: `true` = `true`
+
+###### document.$defs.runtime.properties.serializerCompatibility.properties.semanticGraph.properties.format
+
+> `readonly` **format**: `object`
+
+###### document.$defs.runtime.properties.serializerCompatibility.properties.semanticGraph.properties.format.const
+
+> `readonly` **const**: `"machinen-runtime-adapter-v1"` = `"machinen-runtime-adapter-v1"`
+
+###### document.$defs.runtime.properties.serializerCompatibility.properties.rawHeap
+
+> `readonly` **rawHeap**: `object`
+
+###### document.$defs.runtime.properties.serializerCompatibility.properties.rawHeap.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.$defs.runtime.properties.serializerCompatibility.properties.rawHeap.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### document.$defs.runtime.properties.serializerCompatibility.properties.rawHeap.required
+
+> `readonly` **required**: readonly \[`"supported"`, `"refusal"`\]
+
+###### document.$defs.runtime.properties.serializerCompatibility.properties.rawHeap.properties
+
+> `readonly` **properties**: `object`
+
+###### document.$defs.runtime.properties.serializerCompatibility.properties.rawHeap.properties.supported
+
+> `readonly` **supported**: `object`
+
+###### document.$defs.runtime.properties.serializerCompatibility.properties.rawHeap.properties.supported.const
+
+> `readonly` **const**: `false` = `false`
+
+###### document.$defs.runtime.properties.serializerCompatibility.properties.rawHeap.properties.refusal
+
+> `readonly` **refusal**: [`RuntimeAdapterJsonSchema`](#runtimeadapterjsonschema) = `REFUSAL_SCHEMA`
+
+###### document.$defs.runtime.properties.serializerCompatibility.properties.v8Serialize
+
+> `readonly` **v8Serialize**: `object`
+
+###### document.$defs.runtime.properties.serializerCompatibility.properties.v8Serialize.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.$defs.runtime.properties.serializerCompatibility.properties.structuredClone
+
+> `readonly` **structuredClone**: `object`
+
+###### document.$defs.runtime.properties.serializerCompatibility.properties.structuredClone.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.$defs.runtime.properties.serializerCompatibility.properties.heapSnapshot
+
+> `readonly` **heapSnapshot**: `object`
+
+###### document.$defs.runtime.properties.serializerCompatibility.properties.heapSnapshot.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.$defs.build
+
+> `readonly` **build**: `object`
+
+###### document.$defs.build.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.$defs.build.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### document.$defs.build.required
+
+> `readonly` **required**: readonly \[`"identity"`, `"modules"`\]
+
+###### document.$defs.build.properties
+
+> `readonly` **properties**: `object`
+
+###### document.$defs.build.properties.identity
+
+> `readonly` **identity**: `object`
+
+###### document.$defs.build.properties.identity.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.$defs.build.properties.identity.additionalProperties
+
+> `readonly` **additionalProperties**: `object`
+
+###### document.$defs.build.properties.identity.additionalProperties.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.$defs.build.properties.identity.additionalProperties.pattern
+
+> `readonly` **pattern**: `"^[0-9A-Fa-f]{64}$"` = `"^[0-9A-Fa-f]{64}$"`
+
+###### document.$defs.build.properties.modules
+
+> `readonly` **modules**: `object`
+
+###### document.$defs.build.properties.modules.type
+
+> `readonly` **type**: `"array"` = `"array"`
+
+###### document.$defs.build.properties.modules.items
+
+> `readonly` **items**: `object`
+
+###### document.$defs.build.properties.modules.items.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.$defs.build.properties.modules.items.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### document.$defs.build.properties.modules.items.required
+
+> `readonly` **required**: readonly \[`"specifier"`, `"kind"`\]
+
+###### document.$defs.build.properties.modules.items.properties
+
+> `readonly` **properties**: `object`
+
+###### document.$defs.build.properties.modules.items.properties.specifier
+
+> `readonly` **specifier**: `object`
+
+###### document.$defs.build.properties.modules.items.properties.specifier.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.$defs.build.properties.modules.items.properties.specifier.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### document.$defs.build.properties.modules.items.properties.kind
+
+> `readonly` **kind**: `object`
+
+###### document.$defs.build.properties.modules.items.properties.kind.enum
+
+> `readonly` **enum**: readonly \[`"builtin"`, `"workspace"`, `"relative"`, `"external"`, `"artifact"`\] = `RUNTIME_ADAPTER_MODULE_KINDS`
+
+###### document.$defs.build.properties.modules.items.properties.sha256
+
+> `readonly` **sha256**: `object`
+
+###### document.$defs.build.properties.modules.items.properties.sha256.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.$defs.build.properties.modules.items.properties.sha256.pattern
+
+> `readonly` **pattern**: `"^[0-9A-Fa-f]{64}$"` = `"^[0-9A-Fa-f]{64}$"`
+
+###### document.$defs.process
+
+> `readonly` **process**: `object`
+
+###### document.$defs.process.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.$defs.process.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### document.$defs.process.required
+
+> `readonly` **required**: readonly \[`"argv"`, `"env"`, `"cwd"`\]
+
+###### document.$defs.process.properties
+
+> `readonly` **properties**: `object`
+
+###### document.$defs.process.properties.argv
+
+> `readonly` **argv**: `object`
+
+###### document.$defs.process.properties.argv.type
+
+> `readonly` **type**: `"array"` = `"array"`
+
+###### document.$defs.process.properties.argv.minItems
+
+> `readonly` **minItems**: `1` = `1`
+
+###### document.$defs.process.properties.argv.items
+
+> `readonly` **items**: `object`
+
+###### document.$defs.process.properties.argv.items.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.$defs.process.properties.env
+
+> `readonly` **env**: `object`
+
+###### document.$defs.process.properties.env.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.$defs.process.properties.env.additionalProperties
+
+> `readonly` **additionalProperties**: `object`
+
+###### document.$defs.process.properties.env.additionalProperties.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.$defs.process.properties.cwd
+
+> `readonly` **cwd**: `object`
+
+###### document.$defs.process.properties.cwd.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.$defs.process.properties.cwd.pattern
+
+> `readonly` **pattern**: `"^/"` = `"^/"`
+
+###### document.$defs.graph
+
+> `readonly` **graph**: `object`
+
+###### document.$defs.graph.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.$defs.graph.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### document.$defs.graph.required
+
+> `readonly` **required**: readonly \[`"roots"`, `"objects"`\]
+
+###### document.$defs.graph.properties
+
+> `readonly` **properties**: `object`
+
+###### document.$defs.graph.properties.roots
+
+> `readonly` **roots**: `object`
+
+###### document.$defs.graph.properties.roots.type
+
+> `readonly` **type**: `"array"` = `"array"`
+
+###### document.$defs.graph.properties.roots.items
+
+> `readonly` **items**: `object`
+
+###### document.$defs.graph.properties.roots.items.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.$defs.graph.properties.roots.items.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### document.$defs.graph.properties.roots.items.required
+
+> `readonly` **required**: readonly \[`"name"`, `"value"`\]
+
+###### document.$defs.graph.properties.roots.items.properties
+
+> `readonly` **properties**: `object`
+
+###### document.$defs.graph.properties.roots.items.properties.name
+
+> `readonly` **name**: `object`
+
+###### document.$defs.graph.properties.roots.items.properties.name.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.$defs.graph.properties.roots.items.properties.name.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### document.$defs.graph.properties.roots.items.properties.value
+
+> `readonly` **value**: `object`
+
+###### document.$defs.graph.properties.roots.items.properties.value.$ref
+
+> `readonly` **$ref**: `"#/$defs/value"` = `"#/$defs/value"`
+
+###### document.$defs.graph.properties.objects
+
+> `readonly` **objects**: `object`
+
+###### document.$defs.graph.properties.objects.type
+
+> `readonly` **type**: `"array"` = `"array"`
+
+###### document.$defs.graph.properties.objects.items
+
+> `readonly` **items**: `object`
+
+###### document.$defs.graph.properties.objects.items.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.$defs.graph.properties.objects.items.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### document.$defs.graph.properties.objects.items.required
+
+> `readonly` **required**: readonly \[`"id"`, `"kind"`\]
+
+###### document.$defs.graph.properties.objects.items.properties
+
+> `readonly` **properties**: `object`
+
+###### document.$defs.graph.properties.objects.items.properties.id
+
+> `readonly` **id**: `object`
+
+###### document.$defs.graph.properties.objects.items.properties.id.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.$defs.graph.properties.objects.items.properties.id.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### document.$defs.graph.properties.objects.items.properties.kind
+
+> `readonly` **kind**: `object`
+
+###### document.$defs.graph.properties.objects.items.properties.kind.enum
+
+> `readonly` **enum**: readonly \[`"object"`, `"array"`, `"map"`, `"set"`, `"date"`, `"regexp"`, `"error"`, `"array-buffer"`, `"typed-array"`, `"opaque"`\] = `RUNTIME_ADAPTER_OBJECT_KINDS`
+
+###### document.$defs.graph.properties.objects.items.properties.type
+
+> `readonly` **type**: `object`
+
+###### document.$defs.graph.properties.objects.items.properties.type.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.$defs.graph.properties.objects.items.properties.type.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### document.$defs.graph.properties.objects.items.properties.prototype
+
+> `readonly` **prototype**: `object`
+
+###### document.$defs.graph.properties.objects.items.properties.prototype.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.$defs.graph.properties.objects.items.properties.prototype.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### document.$defs.graph.properties.objects.items.properties.properties
+
+> `readonly` **properties**: `object`
+
+###### document.$defs.graph.properties.objects.items.properties.properties.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.$defs.graph.properties.objects.items.properties.properties.additionalProperties
+
+> `readonly` **additionalProperties**: `object`
+
+###### document.$defs.graph.properties.objects.items.properties.properties.additionalProperties.$ref
+
+> `readonly` **$ref**: `"#/$defs/value"` = `"#/$defs/value"`
+
+###### document.$defs.graph.properties.objects.items.properties.elements
+
+> `readonly` **elements**: `object`
+
+###### document.$defs.graph.properties.objects.items.properties.elements.type
+
+> `readonly` **type**: `"array"` = `"array"`
+
+###### document.$defs.graph.properties.objects.items.properties.elements.items
+
+> `readonly` **items**: `object`
+
+###### document.$defs.graph.properties.objects.items.properties.elements.items.$ref
+
+> `readonly` **$ref**: `"#/$defs/value"` = `"#/$defs/value"`
+
+###### document.$defs.graph.properties.objects.items.properties.entries
+
+> `readonly` **entries**: `object`
+
+###### document.$defs.graph.properties.objects.items.properties.entries.type
+
+> `readonly` **type**: `"array"` = `"array"`
+
+###### document.$defs.graph.properties.objects.items.properties.entries.items
+
+> `readonly` **items**: `object`
+
+###### document.$defs.graph.properties.objects.items.properties.entries.items.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.$defs.graph.properties.objects.items.properties.entries.items.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### document.$defs.graph.properties.objects.items.properties.entries.items.required
+
+> `readonly` **required**: readonly \[..., ...\]
+
+###### document.$defs.graph.properties.objects.items.properties.entries.items.properties
+
+> `readonly` **properties**: `object`
+
+###### document.$defs.graph.properties.objects.items.properties.entries.items.properties.key
+
+> `readonly` **key**: ...
+
+###### document.$defs.graph.properties.objects.items.properties.entries.items.properties.value
+
+> `readonly` **value**: ...
+
+###### document.$defs.graph.properties.objects.items.properties.byteLength
+
+> `readonly` **byteLength**: `object`
+
+###### document.$defs.graph.properties.objects.items.properties.byteLength.type
+
+> `readonly` **type**: `"integer"` = `"integer"`
+
+###### document.$defs.graph.properties.objects.items.properties.byteLength.minimum
+
+> `readonly` **minimum**: `0` = `0`
+
+###### document.$defs.graph.properties.objects.items.properties.refusal
+
+> `readonly` **refusal**: [`RuntimeAdapterJsonSchema`](#runtimeadapterjsonschema) = `REFUSAL_SCHEMA`
+
+###### document.$defs.graph.properties.identityAssertions
+
+> `readonly` **identityAssertions**: `object`
+
+###### document.$defs.graph.properties.identityAssertions.type
+
+> `readonly` **type**: `"array"` = `"array"`
+
+###### document.$defs.graph.properties.identityAssertions.items
+
+> `readonly` **items**: `object`
+
+###### document.$defs.graph.properties.identityAssertions.items.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.$defs.graph.properties.identityAssertions.items.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### document.$defs.graph.properties.identityAssertions.items.required
+
+> `readonly` **required**: readonly \[`"left"`, `"right"`, `"same"`\]
+
+###### document.$defs.graph.properties.identityAssertions.items.properties
+
+> `readonly` **properties**: `object`
+
+###### document.$defs.graph.properties.identityAssertions.items.properties.left
+
+> `readonly` **left**: `object`
+
+###### document.$defs.graph.properties.identityAssertions.items.properties.left.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.$defs.graph.properties.identityAssertions.items.properties.left.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### document.$defs.graph.properties.identityAssertions.items.properties.right
+
+> `readonly` **right**: `object`
+
+###### document.$defs.graph.properties.identityAssertions.items.properties.right.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.$defs.graph.properties.identityAssertions.items.properties.right.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### document.$defs.graph.properties.identityAssertions.items.properties.same
+
+> `readonly` **same**: `object`
+
+###### document.$defs.graph.properties.identityAssertions.items.properties.same.type
+
+> `readonly` **type**: `"boolean"` = `"boolean"`
+
+###### document.$defs.graph.properties.checksumHex
+
+> `readonly` **checksumHex**: `object`
+
+###### document.$defs.graph.properties.checksumHex.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.$defs.graph.properties.checksumHex.pattern
+
+> `readonly` **pattern**: `"^0x[0-9A-Fa-f]+$"` = `"^0x[0-9A-Fa-f]+$"`
+
+###### document.$defs.resources
+
+> `readonly` **resources**: `object`
+
+###### document.$defs.resources.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.$defs.resources.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### document.$defs.resources.required
+
+> `readonly` **required**: readonly \[`"resources"`, `"unsupported"`\]
+
+###### document.$defs.resources.properties
+
+> `readonly` **properties**: `object`
+
+###### document.$defs.resources.properties.resources
+
+> `readonly` **resources**: `object`
+
+###### document.$defs.resources.properties.resources.type
+
+> `readonly` **type**: `"array"` = `"array"`
+
+###### document.$defs.resources.properties.resources.items
+
+> `readonly` **items**: `object`
+
+###### document.$defs.resources.properties.resources.items.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.$defs.resources.properties.resources.items.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### document.$defs.resources.properties.resources.items.required
+
+> `readonly` **required**: readonly \[`"id"`, `"kind"`, `"state"`\]
+
+###### document.$defs.resources.properties.resources.items.properties
+
+> `readonly` **properties**: `object`
+
+###### document.$defs.resources.properties.resources.items.properties.id
+
+> `readonly` **id**: `object`
+
+###### document.$defs.resources.properties.resources.items.properties.id.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.$defs.resources.properties.resources.items.properties.id.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### document.$defs.resources.properties.resources.items.properties.kind
+
+> `readonly` **kind**: `object`
+
+###### document.$defs.resources.properties.resources.items.properties.kind.enum
+
+> `readonly` **enum**: readonly \[`"argv"`, `"env"`, `"cwd"`, `"fd"`, `"file"`, `"socket"`, `"timer"`, `"signal"`, `"child-process"`, `"worker"`, `"pty"`, `"fs-watch"`, `"native-handle"`, `"unknown"`\] = `RUNTIME_ADAPTER_RESOURCE_KINDS`
+
+###### document.$defs.resources.properties.resources.items.properties.state
+
+> `readonly` **state**: `object`
+
+###### document.$defs.resources.properties.resources.items.properties.state.enum
+
+> `readonly` **enum**: readonly \[`"captured"`, `"refused"`, `"unsupported"`\] = `RUNTIME_ADAPTER_RESOURCE_STATES`
+
+###### document.$defs.resources.properties.resources.items.properties.recipe
+
+> `readonly` **recipe**: `object`
+
+###### document.$defs.resources.properties.resources.items.properties.recipe.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.$defs.resources.properties.resources.items.properties.refusal
+
+> `readonly` **refusal**: [`RuntimeAdapterJsonSchema`](#runtimeadapterjsonschema) = `REFUSAL_SCHEMA`
+
+###### document.$defs.resources.properties.unsupported
+
+> `readonly` **unsupported**: [`RuntimeAdapterJsonSchema`](#runtimeadapterjsonschema) = `UNSUPPORTED_SCHEMA`
+
+###### document.$defs.restore
+
+> `readonly` **restore**: `object`
+
+###### document.$defs.restore.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.$defs.restore.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### document.$defs.restore.required
+
+> `readonly` **required**: readonly \[`"semanticStateSupported"`, `"liveProcessSupported"`, `"requiredMetadata"`\]
+
+###### document.$defs.restore.properties
+
+> `readonly` **properties**: `object`
+
+###### document.$defs.restore.properties.semanticStateSupported
+
+> `readonly` **semanticStateSupported**: `object`
+
+###### document.$defs.restore.properties.semanticStateSupported.type
+
+> `readonly` **type**: `"boolean"` = `"boolean"`
+
+###### document.$defs.restore.properties.liveProcessSupported
+
+> `readonly` **liveProcessSupported**: `object`
+
+###### document.$defs.restore.properties.liveProcessSupported.type
+
+> `readonly` **type**: `"boolean"` = `"boolean"`
+
+###### document.$defs.restore.properties.requiredMetadata
+
+> `readonly` **requiredMetadata**: `object`
+
+###### document.$defs.restore.properties.requiredMetadata.type
+
+> `readonly` **type**: `"array"` = `"array"`
+
+###### document.$defs.restore.properties.requiredMetadata.items
+
+> `readonly` **items**: `object`
+
+###### document.$defs.restore.properties.requiredMetadata.items.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.$defs.restore.properties.requiredMetadata.items.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### document.$defs.restore.properties.refusal
+
+> `readonly` **refusal**: [`RuntimeAdapterJsonSchema`](#runtimeadapterjsonschema) = `REFUSAL_SCHEMA`
+
+###### document.$defs.bundleMapping
+
+> `readonly` **bundleMapping**: `object`
+
+###### document.$defs.bundleMapping.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.$defs.bundleMapping.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### document.$defs.bundleMapping.required
+
+> `readonly` **required**: readonly \[`"manifestFeatures"`, `"sidecarFiles"`, `"objects"`, `"resources"`\]
+
+###### document.$defs.bundleMapping.properties
+
+> `readonly` **properties**: `object`
+
+###### document.$defs.bundleMapping.properties.manifestFeatures
+
+> `readonly` **manifestFeatures**: `object`
+
+###### document.$defs.bundleMapping.properties.manifestFeatures.type
+
+> `readonly` **type**: `"array"` = `"array"`
+
+###### document.$defs.bundleMapping.properties.manifestFeatures.items
+
+> `readonly` **items**: `object`
+
+###### document.$defs.bundleMapping.properties.manifestFeatures.items.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.$defs.bundleMapping.properties.manifestFeatures.items.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### document.$defs.bundleMapping.properties.manifestFeatures.uniqueItems
+
+> `readonly` **uniqueItems**: `true` = `true`
+
+###### document.$defs.bundleMapping.properties.sidecarFiles
+
+> `readonly` **sidecarFiles**: `object`
+
+###### document.$defs.bundleMapping.properties.sidecarFiles.type
+
+> `readonly` **type**: `"array"` = `"array"`
+
+###### document.$defs.bundleMapping.properties.sidecarFiles.items
+
+> `readonly` **items**: `object`
+
+###### document.$defs.bundleMapping.properties.sidecarFiles.items.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.$defs.bundleMapping.properties.sidecarFiles.items.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### document.$defs.bundleMapping.properties.sidecarFiles.uniqueItems
+
+> `readonly` **uniqueItems**: `true` = `true`
+
+###### document.$defs.bundleMapping.properties.objects
+
+> `readonly` **objects**: `object`
+
+###### document.$defs.bundleMapping.properties.objects.type
+
+> `readonly` **type**: `"array"` = `"array"`
+
+###### document.$defs.bundleMapping.properties.objects.items
+
+> `readonly` **items**: `object`
+
+###### document.$defs.bundleMapping.properties.objects.items.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.$defs.bundleMapping.properties.objects.items.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### document.$defs.bundleMapping.properties.objects.items.required
+
+> `readonly` **required**: readonly \[`"portableObjectId"`, `"role"`\]
+
+###### document.$defs.bundleMapping.properties.objects.items.properties
+
+> `readonly` **properties**: `object`
+
+###### document.$defs.bundleMapping.properties.objects.items.properties.portableObjectId
+
+> `readonly` **portableObjectId**: `object`
+
+###### document.$defs.bundleMapping.properties.objects.items.properties.portableObjectId.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.$defs.bundleMapping.properties.objects.items.properties.portableObjectId.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### document.$defs.bundleMapping.properties.objects.items.properties.role
+
+> `readonly` **role**: `object`
+
+###### document.$defs.bundleMapping.properties.objects.items.properties.role.enum
+
+> `readonly` **enum**: readonly \[`"runtime-roots"`, `"runtime-object-graph"`, `"runtime-resources"`, `"runtime-metadata"`\] = `RUNTIME_ADAPTER_MAPPING_ROLES`
+
+###### document.$defs.bundleMapping.properties.objects.items.properties.graphObjectIds
+
+> `readonly` **graphObjectIds**: `object`
+
+###### document.$defs.bundleMapping.properties.objects.items.properties.graphObjectIds.type
+
+> `readonly` **type**: `"array"` = `"array"`
+
+###### document.$defs.bundleMapping.properties.objects.items.properties.graphObjectIds.items
+
+> `readonly` **items**: `object`
+
+###### document.$defs.bundleMapping.properties.objects.items.properties.graphObjectIds.items.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.$defs.bundleMapping.properties.objects.items.properties.graphObjectIds.items.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### document.$defs.bundleMapping.properties.objects.items.properties.graphObjectIds.uniqueItems
+
+> `readonly` **uniqueItems**: `true` = `true`
+
+###### document.$defs.bundleMapping.properties.resources
+
+> `readonly` **resources**: `object`
+
+###### document.$defs.bundleMapping.properties.resources.type
+
+> `readonly` **type**: `"array"` = `"array"`
+
+###### document.$defs.bundleMapping.properties.resources.items
+
+> `readonly` **items**: `object`
+
+###### document.$defs.bundleMapping.properties.resources.items.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### document.$defs.bundleMapping.properties.resources.items.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### document.$defs.bundleMapping.properties.resources.items.required
+
+> `readonly` **required**: readonly \[`"portableResourceId"`, `"runtimeResourceId"`\]
+
+###### document.$defs.bundleMapping.properties.resources.items.properties
+
+> `readonly` **properties**: `object`
+
+###### document.$defs.bundleMapping.properties.resources.items.properties.portableResourceId
+
+> `readonly` **portableResourceId**: `object`
+
+###### document.$defs.bundleMapping.properties.resources.items.properties.portableResourceId.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.$defs.bundleMapping.properties.resources.items.properties.portableResourceId.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### document.$defs.bundleMapping.properties.resources.items.properties.runtimeResourceId
+
+> `readonly` **runtimeResourceId**: `object`
+
+###### document.$defs.bundleMapping.properties.resources.items.properties.runtimeResourceId.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### document.$defs.bundleMapping.properties.resources.items.properties.runtimeResourceId.minLength
+
+> `readonly` **minLength**: `1` = `1`
 
 ***
 
@@ -6273,6 +8467,38 @@ resolve the binary through the same lookup chain.
 #### Returns
 
 `string`
+
+***
+
+### validateRuntimeAdapterDocument()
+
+> **validateRuntimeAdapterDocument**(`document`): `string`[]
+
+#### Parameters
+
+##### document
+
+`unknown`
+
+#### Returns
+
+`string`[]
+
+***
+
+### assertRuntimeAdapterDocument()
+
+> **assertRuntimeAdapterDocument**(`document`): [`RuntimeAdapterDocument`](#runtimeadapterdocument)
+
+#### Parameters
+
+##### document
+
+`unknown`
+
+#### Returns
+
+[`RuntimeAdapterDocument`](#runtimeadapterdocument)
 
 ***
 
