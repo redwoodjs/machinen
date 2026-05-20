@@ -11,6 +11,7 @@ export const FINAL_JUMP_STACK_SIZE = 64 * 1024;
 export const FINAL_JUMP_ENTRY_OFFSET = 128;
 export const FINAL_JUMP_STORE_MARKER = 0x4e454e494843414dn;
 export const FINAL_JUMP_EXPECTED_RETURN = 0x4dn;
+export const FINAL_JUMP_RETURN_MARKER = 0x52455455524e4a50n;
 export const FINAL_JUMP_TARGET_TEXT_START = 0x14000000n;
 export const FINAL_JUMP_TARGET_DATA_START = 0x15000000n;
 export const FINAL_JUMP_TARGET_STACK_START = 0x500000000000n;
@@ -94,6 +95,8 @@ export function jumpIntoFinalTargetNativeCode(options: {
   targetRegisters: NativeAmd64Registers;
   textMarker: string;
   expectedInitialDataWord0?: bigint;
+  translatedReturnAddress?: bigint;
+  expectedReturnMarker?: bigint;
 }) {
   assert(
     options.targetRegisters.rip === finalJumpHex(FINAL_JUMP_TARGET_ENTRY),
@@ -141,6 +144,13 @@ export function jumpIntoFinalTargetNativeCode(options: {
   if (options.expectedInitialDataWord0 !== undefined) {
     args.push("--expect-initial-word0", finalJumpHex(options.expectedInitialDataWord0));
   }
+  if (options.translatedReturnAddress !== undefined) {
+    args.push("--translated-return", finalJumpHex(options.translatedReturnAddress));
+    args.push(
+      "--expect-return-marker",
+      finalJumpHex(options.expectedReturnMarker ?? FINAL_JUMP_RETURN_MARKER),
+    );
+  }
 
   const result = spawnSync(options.trampoline, args, {
     encoding: "utf8",
@@ -177,4 +187,25 @@ export function validateFinalJumpResumeEvent(
     `${label} stored the wrong marker`,
   );
   assert(resumeEvent.usedTargetStack === true, `${label} did not use the target stack`);
+}
+
+export function validateFinalJumpReturnChainResumeEvent(
+  resumeEvent: { [key: string]: unknown },
+  label: string,
+  translatedReturnAddress: bigint,
+  expectedReturnMarker = FINAL_JUMP_RETURN_MARKER,
+) {
+  validateFinalJumpResumeEvent(resumeEvent, label);
+  assert(
+    resumeEvent.returnAddress === finalJumpHex(translatedReturnAddress),
+    `${label} used the wrong translated return address`,
+  );
+  assert(
+    resumeEvent.returnMarker === finalJumpHex(expectedReturnMarker),
+    `${label} did not execute the translated return landing`,
+  );
+  assert(
+    resumeEvent.returnedToTranslatedAddress === true,
+    `${label} did not return through the translated stack slot`,
+  );
 }
