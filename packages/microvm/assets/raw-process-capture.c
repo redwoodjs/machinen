@@ -29,6 +29,9 @@
 #define RAW_CAPTURE_MAX_THREADS 64u
 #define RAW_CAPTURE_MAX_ARGV 128u
 #define RAW_CAPTURE_REG_BYTES 1024u
+#define RAW_CAPTURE_CONTROLLED_NODE_SIZE 16u
+#define RAW_CAPTURE_CONTROLLED_HEAP_STATE_SIZE 24u
+#define RAW_CAPTURE_CONTROLLED_MAX_NODES 64u
 
 #if defined(__aarch64__)
 #define RAW_CAPTURE_ARCH "arm64"
@@ -501,6 +504,80 @@ static void write_threads(const struct Options *opts, pid_t child) {
   fclose(output);
 }
 
+static uint64_t read_u64_native(const uint8_t *bytes) {
+  uint64_t value = 0;
+  memcpy(&value, bytes, sizeof(value));
+  return value;
+}
+
+static void read_process_memory(int mem_fd, uint64_t address, uint8_t *buffer, uint64_t size_bytes) {
+  ssize_t got = pread(mem_fd, buffer, (size_t)size_bytes, (off_t)address);
+  if (got < 0 || (uint64_t)got != size_bytes) {
+    fail("failed to read process memory");
+  }
+}
+
+static void append_memory_chunk(FILE *json, FILE *bin, bool *first, uint64_t *file_offset,
+    const char *name, uint64_t source_address, const uint8_t *buffer, uint64_t size_bytes) {
+  if (fwrite(buffer, 1u, (size_t)size_bytes, bin) != size_bytes) {
+    die("write memory.bin");
+  }
+  if (!*first) {
+    fputc(',', json);
+  }
+  *first = false;
+  fputs("{\"name\":", json);
+  json_string(json, name);
+  fprintf(json,
+      ",\"sourceAddress\":\"0x%" PRIx64 "\",\"sizeBytes\":%" PRIu64
+      ",\"fileOffset\":%" PRIu64 "}",
+      source_address, size_bytes, *file_offset);
+  *file_offset += size_bytes;
+}
+
+static void append_controlled_heap_nodes(FILE *json, FILE *bin, bool *first, uint64_t *file_offset,
+    int mem_fd, const uint8_t *heap_state, uint64_t heap_state_size) {
+  if (heap_state_size < RAW_CAPTURE_CONTROLLED_HEAP_STATE_SIZE) {
+    fail("controlled heap state chunk is too small");
+  }
+
+  uint64_t node_address = read_u64_native(heap_state);
+  uint64_t node_count = read_u64_native(heap_state + 8u);
+  if (node_count > RAW_CAPTURE_CONTROLLED_MAX_NODES) {
+    fail("controlled heap node count too large");
+  }
+
+  for (uint64_t i = 0; i < node_count && node_address != 0; i++) {
+    uint8_t node[RAW_CAPTURE_CONTROLLED_NODE_SIZE];
+    char name[64];
+    read_process_memory(mem_fd, node_address, node, sizeof(node));
+    int written = snprintf(name, sizeof(name), "machinen_controlled_node_%" PRIu64, i);
+    if (written < 0 || written >= (int)sizeof(name)) {
+      fail("controlled node name too long");
+    }
+    append_memory_chunk(json, bin, first, file_offset, name, node_address, node, sizeof(node));
+    node_address = read_u64_native(node + 8u);
+  }
+}
+
+static void append_symbol_memory(FILE *json, FILE *bin, bool *first, uint64_t *file_offset,
+    int mem_fd, const struct CaptureSymbol *symbol) {
+  if (symbol->size_bytes > 1024u * 1024u) {
+    fail("symbol capture too large");
+  }
+  uint8_t *buffer = malloc((size_t)symbol->size_bytes);
+  if (!buffer) {
+    die("malloc memory chunk");
+  }
+  read_process_memory(mem_fd, symbol->address, buffer, symbol->size_bytes);
+  append_memory_chunk(json, bin, first, file_offset, symbol->name, symbol->address, buffer,
+      symbol->size_bytes);
+  if (streq(symbol->name, "machinen_controlled_heap_state")) {
+    append_controlled_heap_nodes(json, bin, first, file_offset, mem_fd, buffer, symbol->size_bytes);
+  }
+  free(buffer);
+}
+
 static void write_memory(const struct Options *opts, pid_t child) {
   char mem_path[PATH_MAX];
   proc_path(mem_path, child, "mem");
@@ -518,37 +595,10 @@ static void write_memory(const struct Options *opts, pid_t child) {
   FILE *json = open_output(opts->output_dir, "memory.json");
   fputs("{\"formatVersion\":1,\"chunks\":[", json);
 
+  bool first = true;
   uint64_t file_offset = 0;
   for (uint32_t i = 0; i < opts->symbol_count; i++) {
-    const struct CaptureSymbol *symbol = &opts->symbols[i];
-    if (symbol->size_bytes > 1024u * 1024u) {
-      fail("symbol capture too large");
-    }
-    uint8_t *buffer = malloc((size_t)symbol->size_bytes);
-    if (!buffer) {
-      die("malloc memory chunk");
-    }
-    ssize_t got = pread(mem_fd, buffer, (size_t)symbol->size_bytes, (off_t)symbol->address);
-    if (got < 0 || (uint64_t)got != symbol->size_bytes) {
-      free(buffer);
-      fail("failed to read symbol memory");
-    }
-    if (fwrite(buffer, 1u, (size_t)symbol->size_bytes, bin) != symbol->size_bytes) {
-      free(buffer);
-      die("write memory.bin");
-    }
-
-    if (i != 0) {
-      fputc(',', json);
-    }
-    fputs("{\"name\":", json);
-    json_string(json, symbol->name);
-    fprintf(json,
-        ",\"sourceAddress\":\"0x%" PRIx64 "\",\"sizeBytes\":%" PRIu64
-        ",\"fileOffset\":%" PRIu64 "}",
-        symbol->address, symbol->size_bytes, file_offset);
-    file_offset += symbol->size_bytes;
-    free(buffer);
+    append_symbol_memory(json, bin, &first, &file_offset, mem_fd, &opts->symbols[i]);
   }
 
   fputs("]}\n", json);
