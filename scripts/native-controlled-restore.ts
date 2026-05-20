@@ -1,6 +1,5 @@
 #!/usr/bin/env tsx
 import { spawnSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildNativeCodeMap } from "../packages/runtime/src/native-code-map.ts";
 import { translateNativeMemory } from "../packages/runtime/src/native-memory-translation.ts";
@@ -10,11 +9,14 @@ import { translateNativeStack } from "../packages/runtime/src/native-stack-trans
 import {
   NATIVE_PROCESS_IMAGE_BUNDLE_FILES,
   NATIVE_RESTORE_LOADER_SOURCE,
+  assertNativeProofStepsTranslated,
   bundleFileStats,
   compileNativeRestoreLoader,
   createProofBinAndBundleDirs,
   ensureSourcesExist,
-  jsonDocument,
+  nativeEmptyRefusals,
+  nativeProofBundleDocuments,
+  writeNativeProcessImageBundle,
 } from "./controlled-corpus-utils.mjs";
 import {
   assert,
@@ -48,9 +50,20 @@ function verifyNativeControlledRestore(outDir: string) {
   const stack = translateNativeStack(stackInput(codeMap.codeLocations));
   const memory = translateNativeMemory(memoryInput());
   const resources = translateNativeResources(resourceInput());
-  validateTranslationSteps({ codeMap, registers, stack, memory, resources });
+  const steps = { codeMap, registers, stack, memory, resources };
+  assertNativeProofStepsTranslated(steps, "controlled");
 
-  writeBundle(bundleDir, { codeMap, registers, stack, memory, resources });
+  writeNativeProcessImageBundle(
+    bundleDir,
+    nativeProofBundleDocuments(
+      memoryPage(),
+      manifest(),
+      mappings(),
+      threads(),
+      resources.resources,
+      steps,
+    ),
+  );
   const loaderEvent = materializeTranslatedMemory(loader, bundleDir);
   const refusal = missingMetadataRefusal();
   validateLoaderEvent(loaderEvent);
@@ -196,63 +209,6 @@ function resourceInput() {
   };
 }
 
-function validateTranslationSteps(steps: {
-  codeMap: ReturnType<typeof buildNativeCodeMap>;
-  registers: ReturnType<typeof translateNativeRegisterState>;
-  stack: ReturnType<typeof translateNativeStack>;
-  memory: ReturnType<typeof translateNativeMemory>;
-  resources: ReturnType<typeof translateNativeResources>;
-}) {
-  assert(steps.codeMap.refusals.length === 0, "controlled code map refused unexpectedly");
-  assert(
-    steps.registers.refusals.length === 0,
-    "controlled register translation refused unexpectedly",
-  );
-  assert(steps.stack.refusals.length === 0, "controlled stack translation refused unexpectedly");
-  assert(steps.memory.refusals.length === 0, "controlled memory translation refused unexpectedly");
-  assert(
-    steps.resources.refusals.length === 0,
-    "controlled resource translation refused unexpectedly",
-  );
-}
-
-function writeBundle(
-  bundleDir: string,
-  steps: {
-    codeMap: ReturnType<typeof buildNativeCodeMap>;
-    registers: ReturnType<typeof translateNativeRegisterState>;
-    stack: ReturnType<typeof translateNativeStack>;
-    memory: ReturnType<typeof translateNativeMemory>;
-    resources: ReturnType<typeof translateNativeResources>;
-  },
-) {
-  writeFileSync(join(bundleDir, "native-memory.bin"), memoryPage());
-  writeFileSync(join(bundleDir, "native-process.json"), jsonDocument(manifest()));
-  writeFileSync(join(bundleDir, "native-mappings.json"), jsonDocument(mappings()));
-  writeFileSync(join(bundleDir, "native-threads.json"), jsonDocument(threads()));
-  writeFileSync(
-    join(bundleDir, "native-resources.json"),
-    jsonDocument({
-      formatVersion: 1,
-      resources: steps.resources.resources,
-      refusals: emptyRefusals(),
-    }),
-  );
-  writeFileSync(
-    join(bundleDir, "native-translation.json"),
-    jsonDocument({
-      formatVersion: 1,
-      mode: "native-cross-isa",
-      sourceArch: "arm64",
-      targetArch: "amd64",
-      codeLocations: steps.codeMap.codeLocations,
-      threads: steps.registers.threads,
-      memoryRelocations: [...steps.stack.relocations, ...steps.memory.relocations],
-      refusals: emptyRefusals(),
-    }),
-  );
-}
-
 function manifest() {
   return {
     formatVersion: 1,
@@ -260,7 +216,7 @@ function manifest() {
     capture: { method: "external-ptrace-procfs", sourceArch: "arm64", pid: 450 },
     target: { mode: "native-cross-isa", arch: "amd64", abi: "linux-user" },
     process: { exe: "/controlled/native", argv: ["native-controlled"], env: {}, cwd: "/tmp" },
-    refusals: emptyRefusals(),
+    refusals: nativeEmptyRefusals(),
   };
 }
 
@@ -298,16 +254,12 @@ function mappings() {
         target: { materialization: "translate", targetStart: "0x7fffffffd000" },
       },
     ],
-    refusals: emptyRefusals(),
+    refusals: nativeEmptyRefusals(),
   };
 }
 
 function threads() {
-  return { formatVersion: 1, threads: registerInput().threads, refusals: emptyRefusals() };
-}
-
-function emptyRefusals() {
-  return { vocabularyVersion: 1, refusals: [] };
+  return { formatVersion: 1, threads: registerInput().threads, refusals: nativeEmptyRefusals() };
 }
 
 function memoryPage() {
