@@ -17,6 +17,14 @@ export const CONTROLLED_SOURCE = join(
   "packages/microvm/assets/controlled-binary-corpus.c",
 );
 export const CAPTURE_SOURCE = join(REPO_ROOT, "packages/microvm/assets/raw-process-capture.c");
+export const NATIVE_CAPTURE_SOURCE = join(
+  REPO_ROOT,
+  "packages/microvm/assets/native-process-capture.c",
+);
+export const NATIVE_CAPTURE_TARGET_SOURCE = join(
+  REPO_ROOT,
+  "packages/microvm/assets/native-capture-target.c",
+);
 export const CONTROLLED_MARKER = "MACHINEN_CONTROLLED_BINARY ";
 
 export function ensureSourcesExist(sources) {
@@ -56,6 +64,46 @@ export function compileRawCapturer(binDir) {
     "cc",
     ["-std=c11", "-O0", "-g", "-Wall", "-Wextra", "-Werror", CAPTURE_SOURCE, "-o", executable],
     { label: "raw capturer build" },
+  );
+  return executable;
+}
+
+export function compileNativeProcessCapturer(binDir) {
+  const executable = join(binDir, "machinen-native-process-capture");
+  runCommand(
+    "cc",
+    [
+      "-std=c11",
+      "-O0",
+      "-g",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      NATIVE_CAPTURE_SOURCE,
+      "-o",
+      executable,
+    ],
+    { label: "native process capturer build" },
+  );
+  return executable;
+}
+
+export function compileNativeCaptureTarget(binDir) {
+  const executable = join(binDir, "machinen-native-capture-target");
+  runCommand(
+    "cc",
+    [
+      "-std=c11",
+      "-O0",
+      "-g",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      NATIVE_CAPTURE_TARGET_SOURCE,
+      "-o",
+      executable,
+    ],
+    { label: "native capture target build" },
   );
   return executable;
 }
