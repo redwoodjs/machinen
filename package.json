@@ -46,6 +46,7 @@
     "native-memory-translate": "tsx scripts/native-memory-translate.ts verify",
     "native-resource-translate": "tsx scripts/native-resource-translate.ts verify",
     "native-controlled-restore": "tsx scripts/native-controlled-restore.ts verify",
+    "native-final-jump": "tsx scripts/native-final-jump.ts verify",
     "native-real-utility": "tsx scripts/native-real-utility.ts verify",
     "native-boundary-check": "tsx scripts/native-boundary-check.ts verify",
     "smoke-test-snapshot-restore-fork": "bash scripts/smoke-test-snapshot-restore-fork.sh",
