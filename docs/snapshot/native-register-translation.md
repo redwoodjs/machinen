@@ -26,7 +26,10 @@ A thread can translate only when all of these are true:
   pointer, and TLS base for the thread's captured source PC.
 
 The translator emits an amd64 `targetRegisters` document. It does not copy raw
-arm64 register bytes into the target.
+arm64 register bytes into the target. Continuation metadata may also supply
+`targetRegisterOverrides` for values already translated by pointer metadata,
+such as an arm64 argument register that must become an amd64 pointer to a target
+mapping.
 
 ## Refusals
 
@@ -42,6 +45,7 @@ Unsafe states refuse with stable codes:
 
 ## Boundary
 
-The register translator consumes target continuation addresses. It does not
-compute those addresses itself; #446 owns source-code to target-code mapping,
-and #447 owns stack layout.
+The register translator consumes target continuation addresses and any proven
+register-value overrides. It does not compute those addresses itself; #446 owns
+source-code to target-code mapping, #447 owns stack layout, and #448 owns
+pointer-value classification.
