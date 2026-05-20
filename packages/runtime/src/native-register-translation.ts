@@ -22,6 +22,26 @@ export interface NativeContinuationTarget {
   targetIp: string;
   targetSp: string;
   targetTls: string;
+  targetRegisterOverrides?: Partial<
+    Pick<
+      NativeAmd64Registers,
+      | "rax"
+      | "rbx"
+      | "rcx"
+      | "rdx"
+      | "rsi"
+      | "rdi"
+      | "rbp"
+      | "r8"
+      | "r9"
+      | "r10"
+      | "r11"
+      | "r12"
+      | "r13"
+      | "r14"
+      | "r15"
+    >
+  >;
 }
 
 export interface NativeRegisterTranslationResult {
@@ -140,7 +160,7 @@ function arm64ToAmd64(
   source: NativeArm64Registers,
   continuation: NativeContinuationTarget,
 ): NativeAmd64Registers {
-  return {
+  const translated: NativeAmd64Registers = {
     arch: "amd64",
     rip: continuation.targetIp,
     rsp: continuation.targetSp,
@@ -163,6 +183,7 @@ function arm64ToAmd64(
     fsBase: continuation.targetTls,
     gsBase: "0x0",
   };
+  return { ...translated, ...continuation.targetRegisterOverrides };
 }
 
 function refusal(
