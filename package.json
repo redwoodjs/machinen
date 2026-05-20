@@ -45,6 +45,7 @@
     "native-stack-translate": "tsx scripts/native-stack-translate.ts verify",
     "native-memory-translate": "tsx scripts/native-memory-translate.ts verify",
     "native-resource-translate": "tsx scripts/native-resource-translate.ts verify",
+    "native-controlled-restore": "tsx scripts/native-controlled-restore.ts verify",
     "smoke-test-snapshot-restore-fork": "bash scripts/smoke-test-snapshot-restore-fork.sh",
     "smoke-vmstate": "bash scripts/smoke/vmstate/all.sh",
     "smoke-vmstate-timers": "bash scripts/smoke/vmstate/timers.sh",
