@@ -52,7 +52,9 @@ captured-arm64-source-jumped-target-native-amd64-code
 ## Boundary
 
 This is still a controlled source process. It proves that the final-jump path can
-start from a real external capture, but it does not claim arbitrary native binary
-continuation. The proof depends on sidecar facts for the source PC, the register
-pointer, the stack frame, and the pointer-bearing data word. Missing facts still
-must refuse with the existing ambiguity/resource codes.
+start from a real external capture, but the target continuation is still a tiny
+in-bundle amd64 proof function. The target-binary final-jump proof replaces that
+with compiled bytes from the matching amd64 target binary. Both proofs depend on
+sidecar facts for the source PC, the register pointer, the stack frame, and the
+pointer-bearing data word. Missing facts still must refuse with the existing
+ambiguity/resource codes.
