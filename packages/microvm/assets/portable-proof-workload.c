@@ -620,8 +620,115 @@ static int emit_bundle(const char *dir) {
   return write_empty_doc(dir, "resources.json", "resources");
 }
 
+static bool bundle_text_contains(const char *dir, const char *name, const char *needle) {
+  char buf[4096];
+  FILE *file = open_bundle_file(dir, name, "rb");
+  if (!file) {
+    return false;
+  }
+  size_t n = fread(buf, 1, sizeof(buf) - 1u, file);
+  buf[n] = 0;
+  if (close_bundle_file(file) != 0) {
+    return false;
+  }
+  return strstr(buf, needle) != 0;
+}
+
+static int validate_restore_bundle(const char *dir) {
+  if (!bundle_text_contains(dir, "manifest.json", PORTABLE_PROOF_ARCH)) {
+    fprintf(stderr, "portable proof: target architecture is not allowed by manifest\n");
+    return -1;
+  }
+  if (!bundle_text_contains(dir, "manifest.json", "machinen_restore_main")) {
+    fprintf(stderr, "portable proof: restore entrypoint missing from manifest\n");
+    return -1;
+  }
+  if (!bundle_text_contains(dir, "relocations.json", "sourcePointer")) {
+    fprintf(stderr, "portable proof: pointer relocations missing from bundle\n");
+    return -1;
+  }
+  return 0;
+}
+
+static int read_memory_chunk(FILE *file, void *ptr, uint64_t size_bytes) {
+  if (fread(ptr, 1, (size_t)size_bytes, file) == size_bytes) {
+    return 0;
+  }
+  fprintf(stderr, "portable proof: memory read failed\n");
+  return -1;
+}
+
+static int read_bundle_memory(const char *dir) {
+  FILE *file = open_bundle_file(dir, "memory.bin", "rb");
+  if (!file) {
+    return -1;
+  }
+  int result = read_memory_chunk(file, &machinen_portable_app_state,
+      sizeof(machinen_portable_app_state));
+  if (result == 0) {
+    result = read_memory_chunk(file, machinen_portable_nodes, sizeof(machinen_portable_nodes));
+  }
+  if (result == 0) {
+    result = read_memory_chunk(file, machinen_portable_heap_bytes,
+        sizeof(PORTABLE_PROOF_HEAP_BYTES));
+  }
+  if (close_bundle_file(file) != 0) {
+    return -1;
+  }
+  return result;
+}
+
+static void apply_pointer_relocations(void) {
+  machinen_portable_app_state.list = &machinen_portable_nodes[0];
+  machinen_portable_nodes[0].next = &machinen_portable_nodes[1];
+  machinen_portable_nodes[1].next = &machinen_portable_nodes[2];
+  machinen_portable_nodes[2].next = 0;
+}
+
+static int call_restore_entrypoint(void) {
+  const struct machinen_restore_bundle bundle = {
+      .abi_version = MACHINEN_CHECKPOINT_ABI_VERSION,
+      .flags = 0,
+      .continuation_name = PORTABLE_PROOF_RESTORE_CONTINUATION,
+      .objects = 0,
+      .object_count = 0,
+      .reserved = 0,
+  };
+  return machinen_restore_main(&bundle);
+}
+
+static void print_continue_markers(void) {
+  for (int i = 0; i < 3; i++) {
+    machinen_portable_app_state.counter++;
+    print_marker("continue");
+  }
+}
+
+static int restore_from_bundle(const char *dir) {
+  if (validate_restore_bundle(dir) != 0 || read_bundle_memory(dir) != 0) {
+    return -1;
+  }
+  apply_pointer_relocations();
+  int result = call_restore_entrypoint();
+  if (result != MACHINEN_CHECKPOINT_OK) {
+    fprintf(stderr, "portable proof: restore refused: %d\n", result);
+    return -1;
+  }
+  if (!list_matches_1_2_3(&machinen_portable_app_state) || !heap_matches_expected()) {
+    fprintf(stderr, "portable proof: restored bundle state mismatch\n");
+    return -1;
+  }
+  print_marker("restore");
+  print_continue_markers();
+  return 0;
+}
+
 int main(int argc, char **argv) {
   reset_state();
+  const char *restore_bundle = arg_value(argc, argv, "--restore-bundle");
+  if (restore_bundle) {
+    return restore_from_bundle(restore_bundle) == 0 ? 0 : 9;
+  }
   machinen_portable_force_bad_root = has_arg(argc, argv, "--bad-root");
   machinen_portable_force_bad_pointer = has_arg(argc, argv, "--bad-pointer");
   const char *bundle_dir = arg_value(argc, argv, "--emit-bundle");
@@ -648,15 +755,7 @@ int main(int argc, char **argv) {
   print_marker("checkpoint");
 
   if (has_arg(argc, argv, "--restore-proof")) {
-    const struct machinen_restore_bundle bundle = {
-        .abi_version = MACHINEN_CHECKPOINT_ABI_VERSION,
-        .flags = 0,
-        .continuation_name = PORTABLE_PROOF_RESTORE_CONTINUATION,
-        .objects = 0,
-        .object_count = 0,
-        .reserved = 0,
-    };
-    result = machinen_restore_main(&bundle);
+    result = call_restore_entrypoint();
     if (result != MACHINEN_CHECKPOINT_OK) {
       fprintf(stderr, "portable proof: restore refused: %d\n", result);
       return 5;
@@ -673,10 +772,7 @@ int main(int argc, char **argv) {
     print_marker("restore");
   }
 
-  for (int i = 0; i < 3; i++) {
-    machinen_portable_app_state.counter++;
-    print_marker("continue");
-  }
+  print_continue_markers();
 
   return 0;
 }
