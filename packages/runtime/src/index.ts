@@ -144,6 +144,18 @@ export {
   restoreNodeCapturedResourceRecipes,
   restoreNodeRuntimeAdapterRoots,
 } from "./node-runtime-adapter.ts";
+export {
+  captureNodeAsyncContinuations,
+  restoreNodeAsyncContinuations,
+} from "./node-async-continuation.ts";
+export type {
+  NodeAsyncContinuationHandlers,
+  NodeAsyncContinuationInput,
+  NodeAsyncContinuationKind,
+  NodeAsyncContinuationRecord,
+  NodeAsyncContinuationState,
+  RestoredNodeAsyncContinuation,
+} from "./node-async-continuation.ts";
 export type {
   CaptureNodeNativeResourcesOptions,
   CaptureNodeRuntimeAdapterOptions,

@@ -136,12 +136,20 @@
 - [`collectNodeRuntimeAdapterRefusals`](#collectnoderuntimeadapterrefusals)
 - [`captureNodeNativeResources`](#capturenodenativeresources)
 - [`restoreNodeCapturedResourceRecipes`](#restorenodecapturedresourcerecipes)
+- [`captureNodeAsyncContinuations`](#capturenodeasynccontinuations)
+- [`restoreNodeAsyncContinuations`](#restorenodeasynccontinuations)
 - [`CaptureNodeRuntimeAdapterOptions`](#capturenoderuntimeadapteroptions)
 - [`CaptureNodeNativeResourcesOptions`](#capturenodenativeresourcesoptions)
 - [`NodeRuntimeAdapterResourceKind`](#noderuntimeadapterresourcekind)
 - [`NodeRuntimeFileResource`](#noderuntimefileresource)
 - [`NodeRuntimeNativeHandleRefusal`](#noderuntimenativehandlerefusal)
 - [`RestoredNodeResourceRecipes`](#restorednoderesourcerecipes)
+- [`NodeAsyncContinuationKind`](#nodeasynccontinuationkind)
+- [`NodeAsyncContinuationInput`](#nodeasynccontinuationinput)
+- [`NodeAsyncContinuationRecord`](#nodeasynccontinuationrecord)
+- [`NodeAsyncContinuationState`](#nodeasynccontinuationstate)
+- [`NodeAsyncContinuationHandlers`](#nodeasynccontinuationhandlers)
+- [`RestoredNodeAsyncContinuation`](#restorednodeasynccontinuation)
 - [`runtimeAdapterRefusalCodes`](#runtimeadapterrefusalcodes)
 - [`runtimeAdapterSchemas`](#runtimeadapterschemas)
 - [`validateRuntimeAdapterDocument`](#validateruntimeadapterdocument)
@@ -2213,6 +2221,130 @@ Set to `false` in tests where `input` is a plain PassThrough.
 Forward SIGWINCH on the parent process (terminal resize) to any
 attached sandbox that implements `.resize(cols, rows)`. Enabled
 by default when `output` is a TTY.
+
+***
+
+### NodeAsyncContinuationInput
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### kind
+
+> **kind**: [`NodeAsyncContinuationKind`](#nodeasynccontinuationkind)
+
+##### handlerToken
+
+> **handlerToken**: `string`
+
+##### payload?
+
+> `optional` **payload?**: `unknown`
+
+##### delayMs?
+
+> `optional` **delayMs?**: `number`
+
+##### reason?
+
+> `optional` **reason?**: `string`
+
+***
+
+### NodeAsyncContinuationRecord
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### kind
+
+> **kind**: `"timer"` \| `"promise"`
+
+##### state
+
+> **state**: `"captured"`
+
+##### handlerToken
+
+> **handlerToken**: `string`
+
+##### payloadRoot
+
+> **payloadRoot**: `string`
+
+##### delayMs
+
+> **delayMs**: `number`
+
+***
+
+### NodeAsyncContinuationState
+
+#### Properties
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### runtime
+
+> **runtime**: `object`
+
+###### name
+
+> **name**: `"node"`
+
+###### version
+
+> **version**: `string`
+
+##### strategy
+
+> **strategy**: `"semantic-continuation"`
+
+##### adapterDocument
+
+> **adapterDocument**: [`RuntimeAdapterDocument`](#runtimeadapterdocument)
+
+##### continuations
+
+> **continuations**: [`NodeAsyncContinuationRecord`](#nodeasynccontinuationrecord)[]
+
+##### unsupported
+
+> **unsupported**: `object`
+
+###### vocabularyVersion
+
+> **vocabularyVersion**: `1`
+
+###### refusals
+
+> **refusals**: [`RuntimeAdapterRefusal`](#runtimeadapterrefusal)[]
+
+***
+
+### RestoredNodeAsyncContinuation
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### kind
+
+> **kind**: `"timer"` \| `"promise"`
+
+##### result
+
+> **result**: `unknown`
 
 ***
 
@@ -5770,6 +5902,18 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NodeAsyncContinuationKind
+
+> **NodeAsyncContinuationKind** = `"timer"` \| `"promise"` \| `"native-callback"`
+
+***
+
+### NodeAsyncContinuationHandlers
+
+> **NodeAsyncContinuationHandlers** = `Record`\<`string`, (`payload`) => `unknown`\>
+
+***
+
 ### NodeRuntimeAdapterResourceKind
 
 > **NodeRuntimeAdapterResourceKind** = [`RuntimeAdapterResourceKind`](#runtimeadapterresourcekind)
@@ -8325,6 +8469,42 @@ available.
 #### Returns
 
 `string`
+
+***
+
+### captureNodeAsyncContinuations()
+
+> **captureNodeAsyncContinuations**(`inputs`): [`NodeAsyncContinuationState`](#nodeasynccontinuationstate)
+
+#### Parameters
+
+##### inputs
+
+[`NodeAsyncContinuationInput`](#nodeasynccontinuationinput)[]
+
+#### Returns
+
+[`NodeAsyncContinuationState`](#nodeasynccontinuationstate)
+
+***
+
+### restoreNodeAsyncContinuations()
+
+> **restoreNodeAsyncContinuations**(`state`, `handlers`): `Promise`\<[`RestoredNodeAsyncContinuation`](#restorednodeasynccontinuation)[]\>
+
+#### Parameters
+
+##### state
+
+[`NodeAsyncContinuationState`](#nodeasynccontinuationstate)
+
+##### handlers
+
+[`NodeAsyncContinuationHandlers`](#nodeasynccontinuationhandlers)
+
+#### Returns
+
+`Promise`\<[`RestoredNodeAsyncContinuation`](#restorednodeasynccontinuation)[]\>
 
 ***
 
