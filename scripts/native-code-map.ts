@@ -19,6 +19,7 @@ function main() {
   }
 }
 
+// fallow-ignore-next-line complexity
 function verifyNativeCodeMap() {
   const mapped = buildNativeCodeMap({
     expectedTargetBuildId: "b16b00b5",
