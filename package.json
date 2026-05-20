@@ -47,6 +47,7 @@
     "native-stack-translate": "tsx scripts/native-stack-translate.ts verify",
     "native-memory-translate": "tsx scripts/native-memory-translate.ts verify",
     "native-mapping-policy": "tsx scripts/native-mapping-policy.ts verify",
+    "native-mapping-materializer": "tsx scripts/native-mapping-materializer.ts verify",
     "native-resource-translate": "tsx scripts/native-resource-translate.ts verify",
     "native-controlled-restore": "tsx scripts/native-controlled-restore.ts verify",
     "native-final-jump": "tsx scripts/native-final-jump.ts verify",
