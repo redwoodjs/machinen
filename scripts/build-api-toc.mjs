@@ -104,6 +104,7 @@ const TOC = {
     "NativeContinuationTarget",
     "NativeRegisterTranslationResult",
     "translateNativeRegisterState",
+    "NativeCodeModule",
     "NativeCodeSymbol",
     "NativeCodeMapRequest",
     "NativeCodeMapResult",
