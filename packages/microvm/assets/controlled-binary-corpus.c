@@ -251,11 +251,11 @@ static void print_resource_marker(void) {
   fflush(stdout);
 }
 
-static int write_resource_file(const char *path) {
+static FILE *open_resource_file_at_observation(const char *path) {
   FILE *file = fopen(path, "wb+");
   if (!file) {
     fprintf(stderr, "machinen-controlled-corpus: fopen(%s) failed: %s\n", path, strerror(errno));
-    return 1;
+    return NULL;
   }
 
   const char payload[] = CONTROLLED_RESOURCE_PAYLOAD;
@@ -263,28 +263,23 @@ static int write_resource_file(const char *path) {
   if (fwrite(payload, 1u, payload_len, file) != payload_len) {
     fprintf(stderr, "machinen-controlled-corpus: fwrite(%s) failed\n", path);
     fclose(file);
-    return 1;
+    return NULL;
   }
   if (fflush(file) != 0) {
     fprintf(stderr, "machinen-controlled-corpus: fflush(%s) failed\n", path);
     fclose(file);
-    return 1;
+    return NULL;
   }
   if (fseek(file, (long)CONTROLLED_RESOURCE_OFFSET, SEEK_SET) != 0) {
     fprintf(stderr, "machinen-controlled-corpus: fseek(%s) failed\n", path);
     fclose(file);
-    return 1;
+    return NULL;
   }
 
   machinen_controlled_resource_state.file_bytes = (uint64_t)payload_len;
   machinen_controlled_resource_state.file_offset = CONTROLLED_RESOURCE_OFFSET;
   machinen_controlled_resource_state.checksum = checksum_string(payload);
-
-  if (fclose(file) != 0) {
-    fprintf(stderr, "machinen-controlled-corpus: fclose(%s) failed\n", path);
-    return 1;
-  }
-  return 0;
+  return file;
 }
 
 static int run_resource_fixture(const char *resource_path, int argc) {
@@ -294,12 +289,18 @@ static int run_resource_fixture(const char *resource_path, int argc) {
   machinen_controlled_resource_state.file_offset = 0;
   machinen_controlled_resource_state.checksum = 0;
 
-  if (write_resource_file(resource_path) != 0) {
+  FILE *resource_file = open_resource_file_at_observation(resource_path);
+  if (!resource_file) {
     return 1;
   }
 
   print_resource_marker();
   maybe_pause_at_observation("resource");
+
+  if (fclose(resource_file) != 0) {
+    fprintf(stderr, "machinen-controlled-corpus: fclose(%s) failed\n", resource_path);
+    return 1;
+  }
   return 0;
 }
 
