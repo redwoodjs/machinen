@@ -43,10 +43,15 @@ describe("controlled binary corpus", () => {
       "stack",
       "resource",
       "threads",
+      "dwarf",
     ]);
     expect(summary.native.events.find((event) => event.fixture === "stack")).toMatchObject({
       continuation: "controlled_nested_stack_point",
       live_local: 5242,
+    });
+    expect(summary.native.events.find((event) => event.fixture === "dwarf")).toMatchObject({
+      global: { label: "dwarf-global-layout-v2", counter: 7000 },
+      heap: { values: [111, 222, 333], tags: [101, 102, 103] },
     });
     expect(summary.crossBuilds.map((build) => build.arch)).toEqual(["arm64", "amd64"]);
     expect(summary.crossBuilds.every((build) => build.bytes > 0)).toBe(true);

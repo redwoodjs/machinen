@@ -26,9 +26,11 @@
 #include <unistd.h>
 
 #define RAW_CAPTURE_MAX_SYMBOLS 32u
+#define RAW_CAPTURE_MAX_FOLLOW_LISTS 8u
 #define RAW_CAPTURE_MAX_THREADS 64u
 #define RAW_CAPTURE_MAX_ARGV 128u
 #define RAW_CAPTURE_REG_BYTES 1024u
+#define RAW_CAPTURE_MAX_FOLLOW_NODE_SIZE (1024u * 1024u)
 #define RAW_CAPTURE_CONTROLLED_NODE_SIZE 16u
 #define RAW_CAPTURE_CONTROLLED_HEAP_STATE_SIZE 24u
 #define RAW_CAPTURE_CONTROLLED_MAX_NODES 64u
@@ -47,10 +49,21 @@ struct CaptureSymbol {
   uint64_t size_bytes;
 };
 
+struct FollowList {
+  char root_symbol[128];
+  uint64_t head_offset;
+  uint64_t count_offset;
+  uint64_t node_size;
+  uint64_t next_offset;
+  char chunk_prefix[128];
+};
+
 struct Options {
   const char *output_dir;
   struct CaptureSymbol symbols[RAW_CAPTURE_MAX_SYMBOLS];
   uint32_t symbol_count;
+  struct FollowList follow_lists[RAW_CAPTURE_MAX_FOLLOW_LISTS];
+  uint32_t follow_list_count;
   int command_index;
 };
 
@@ -160,9 +173,66 @@ static void parse_symbol(struct Options *opts, const char *spec) {
   symbol->size_bytes = parse_u64(second + 1, "symbol size");
 }
 
+static char *next_token(char **cursor) {
+  char *token = *cursor;
+  if (!token) {
+    return NULL;
+  }
+  char *separator = strchr(token, ':');
+  if (separator) {
+    *separator = '\0';
+    *cursor = separator + 1;
+  } else {
+    *cursor = NULL;
+  }
+  return token;
+}
+
+static void parse_follow_list(struct Options *opts, const char *spec) {
+  if (opts->follow_list_count >= RAW_CAPTURE_MAX_FOLLOW_LISTS) {
+    fail("too many follow lists");
+  }
+
+  char scratch[512];
+  if (snprintf(scratch, sizeof(scratch), "%s", spec) >= (int)sizeof(scratch)) {
+    fail("follow-list spec too long");
+  }
+
+  char *cursor = scratch;
+  char *root = next_token(&cursor);
+  char *head_offset = next_token(&cursor);
+  char *count_offset = next_token(&cursor);
+  char *node_size = next_token(&cursor);
+  char *next_offset = next_token(&cursor);
+  char *prefix = next_token(&cursor);
+  if (!root || !head_offset || !count_offset || !node_size || !next_offset || !prefix || cursor) {
+    fail("--follow-list must be root-symbol:head-offset:count-offset:node-size:next-offset:chunk-prefix");
+  }
+
+  struct FollowList *follow = &opts->follow_lists[opts->follow_list_count++];
+  if (snprintf(follow->root_symbol, sizeof(follow->root_symbol), "%s", root) >=
+      (int)sizeof(follow->root_symbol)) {
+    fail("follow-list root symbol too long");
+  }
+  follow->head_offset = parse_u64(head_offset, "follow-list head offset");
+  follow->count_offset = parse_u64(count_offset, "follow-list count offset");
+  follow->node_size = parse_u64(node_size, "follow-list node size");
+  follow->next_offset = parse_u64(next_offset, "follow-list next offset");
+  if (follow->node_size == 0 || follow->node_size > RAW_CAPTURE_MAX_FOLLOW_NODE_SIZE) {
+    fail("follow-list node size is out of range");
+  }
+  if (snprintf(follow->chunk_prefix, sizeof(follow->chunk_prefix), "%s", prefix) >=
+      (int)sizeof(follow->chunk_prefix)) {
+    fail("follow-list chunk prefix too long");
+  }
+}
+
 static void usage(const char *argv0) {
   fprintf(stderr,
-      "usage: %s --output dir [--symbol name:address:size ...] -- program [args...]\n", argv0);
+      "usage: %s --output dir [--symbol name:address:size ...] "
+      "[--follow-list root:head-offset:count-offset:node-size:next-offset:prefix ...] "
+      "-- program [args...]\n",
+      argv0);
 }
 
 static struct Options parse_args(int argc, char **argv) {
@@ -180,6 +250,12 @@ static struct Options parse_args(int argc, char **argv) {
         exit(2);
       }
       parse_symbol(&opts, argv[++i]);
+    } else if (streq(argv[i], "--follow-list")) {
+      if (i + 1 >= argc) {
+        usage(argv[0]);
+        exit(2);
+      }
+      parse_follow_list(&opts, argv[++i]);
     } else if (streq(argv[i], "--")) {
       opts.command_index = i + 1;
       break;
@@ -512,8 +588,17 @@ static uint64_t read_u64_native(const uint8_t *bytes) {
 
 static void read_process_memory(int mem_fd, uint64_t address, uint8_t *buffer, uint64_t size_bytes) {
   ssize_t got = pread(mem_fd, buffer, (size_t)size_bytes, (off_t)address);
-  if (got < 0 || (uint64_t)got != size_bytes) {
-    fail("failed to read process memory");
+  if (got < 0) {
+    fprintf(stderr, "machinen-raw-capture: failed to read process memory at 0x%" PRIx64
+                    " (%" PRIu64 " bytes): %s\n",
+        address, size_bytes, strerror(errno));
+    exit(1);
+  }
+  if ((uint64_t)got != size_bytes) {
+    fprintf(stderr, "machinen-raw-capture: short process memory read at 0x%" PRIx64
+                    " (%zd of %" PRIu64 " bytes)\n",
+        address, got, size_bytes);
+    exit(1);
   }
 }
 
@@ -560,8 +645,58 @@ static void append_controlled_heap_nodes(FILE *json, FILE *bin, bool *first, uin
   }
 }
 
+static void require_u64_window(uint64_t offset, uint64_t size, const char *field) {
+  if (offset > size || size - offset < sizeof(uint64_t)) {
+    fprintf(stderr, "machinen-raw-capture: follow-list %s offset is out of range\n", field);
+    exit(1);
+  }
+}
+
+static void append_follow_list_nodes(FILE *json, FILE *bin, bool *first, uint64_t *file_offset,
+    int mem_fd, const struct FollowList *follow, const uint8_t *root, uint64_t root_size) {
+  require_u64_window(follow->head_offset, root_size, "head");
+  require_u64_window(follow->count_offset, root_size, "count");
+  require_u64_window(follow->next_offset, follow->node_size, "next");
+
+  uint64_t node_address = read_u64_native(root + follow->head_offset);
+  uint64_t node_count = read_u64_native(root + follow->count_offset);
+  if (node_count > RAW_CAPTURE_CONTROLLED_MAX_NODES) {
+    fail("follow-list node count too large");
+  }
+
+  uint8_t *node = malloc((size_t)follow->node_size);
+  if (!node) {
+    die("malloc follow-list node");
+  }
+
+  for (uint64_t i = 0; i < node_count && node_address != 0; i++) {
+    char name[192];
+    read_process_memory(mem_fd, node_address, node, follow->node_size);
+    int written = snprintf(name, sizeof(name), "%s_%" PRIu64, follow->chunk_prefix, i);
+    if (written < 0 || written >= (int)sizeof(name)) {
+      fail("follow-list node name too long");
+    }
+    append_memory_chunk(json, bin, first, file_offset, name, node_address, node, follow->node_size);
+    node_address = read_u64_native(node + follow->next_offset);
+  }
+
+  free(node);
+}
+
+static void append_matching_follow_lists(FILE *json, FILE *bin, bool *first, uint64_t *file_offset,
+    int mem_fd, const struct Options *opts, const struct CaptureSymbol *symbol,
+    const uint8_t *buffer) {
+  for (uint32_t i = 0; i < opts->follow_list_count; i++) {
+    const struct FollowList *follow = &opts->follow_lists[i];
+    if (streq(follow->root_symbol, symbol->name)) {
+      append_follow_list_nodes(json, bin, first, file_offset, mem_fd, follow, buffer,
+          symbol->size_bytes);
+    }
+  }
+}
+
 static void append_symbol_memory(FILE *json, FILE *bin, bool *first, uint64_t *file_offset,
-    int mem_fd, const struct CaptureSymbol *symbol) {
+    int mem_fd, const struct Options *opts, const struct CaptureSymbol *symbol) {
   if (symbol->size_bytes > 1024u * 1024u) {
     fail("symbol capture too large");
   }
@@ -575,6 +710,7 @@ static void append_symbol_memory(FILE *json, FILE *bin, bool *first, uint64_t *f
   if (streq(symbol->name, "machinen_controlled_heap_state")) {
     append_controlled_heap_nodes(json, bin, first, file_offset, mem_fd, buffer, symbol->size_bytes);
   }
+  append_matching_follow_lists(json, bin, first, file_offset, mem_fd, opts, symbol, buffer);
   free(buffer);
 }
 
@@ -598,7 +734,7 @@ static void write_memory(const struct Options *opts, pid_t child) {
   bool first = true;
   uint64_t file_offset = 0;
   for (uint32_t i = 0; i < opts->symbol_count; i++) {
-    append_symbol_memory(json, bin, &first, &file_offset, mem_fd, &opts->symbols[i]);
+    append_symbol_memory(json, bin, &first, &file_offset, mem_fd, opts, &opts->symbols[i]);
   }
 
   fputs("]}\n", json);

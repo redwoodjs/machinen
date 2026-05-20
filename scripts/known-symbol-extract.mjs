@@ -1,15 +1,23 @@
 #!/usr/bin/env node
-import { copyFileSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import {
   CAPTURE_SOURCE,
   CONTROLLED_SOURCE,
+  buildPortableBundleMemory,
+  bundleFileStats as sharedBundleFileStats,
   compileControlledTarget,
   compileRawCapturer,
+  controlledPortableManifest,
   ensureSourcesExist,
   hostArch,
-  readJson,
+  loadRawCapture,
+  memoryChunkByName,
+  memoryChunkBytes,
+  parseControlledMarker,
   readSymbols,
+  unsupportedVocabulary,
+  writePortableBundleFiles,
 } from "./controlled-corpus-utils.mjs";
 import {
   assert,
@@ -25,7 +33,6 @@ const USAGE =
   "usage: node scripts/known-symbol-extract.mjs [verify] [--out-dir path] [--json] [--keep]";
 const HEAP_STATE_SYMBOL = "machinen_controlled_heap_state";
 const BUILD_ID = "4174174174174170";
-const MARKER = "MACHINEN_CONTROLLED_BINARY ";
 
 function main() {
   const args = parseVerifyArgs(process.argv.slice(2), USAGE);
@@ -58,7 +65,7 @@ function verifyKnownSymbolExtraction(outDir) {
   const symbols = readSymbols(target, [HEAP_STATE_SYMBOL]);
   runHeapCapture({ capturer, target, symbols, captureDir });
 
-  const capture = loadCapture(captureDir);
+  const capture = loadRawCapture(captureDir);
   const semanticState = recoverHeapGraph(capture);
   writePortableBundle({ bundleDir, captureDir, capture, semanticState, target });
   const restoreEvent = runTargetRestore(target, bundleDir);
@@ -101,26 +108,17 @@ function runHeapCapture(context) {
   );
 }
 
-function loadCapture(captureDir) {
-  return {
-    manifest: readJson(join(captureDir, "manifest.json")),
-    symbols: readJson(join(captureDir, "symbols.json")),
-    memory: readJson(join(captureDir, "memory.json")),
-    memoryBin: readFileSync(join(captureDir, "memory.bin")),
-    targetLog: readFileSync(join(captureDir, "target.log"), "utf8"),
-  };
-}
-
 function recoverHeapGraph(capture) {
-  const heapState = chunkBytes(capture, HEAP_STATE_SYMBOL);
+  const heapStateChunk = memoryChunkByName(capture, HEAP_STATE_SYMBOL);
+  const heapState = memoryChunkBytes(capture, heapStateChunk);
   const nodeCount = Number(heapState.readBigUInt64LE(8));
   const checksum = heapState.readBigUInt64LE(16);
   const headPointer = heapState.readBigUInt64LE(0);
   const nodes = [];
 
   for (let i = 0; i < nodeCount; i++) {
-    const chunk = chunkByName(capture, `machinen_controlled_node_${i}`);
-    const bytes = chunkBytesByDescriptor(capture, chunk);
+    const chunk = memoryChunkByName(capture, `machinen_controlled_node_${i}`);
+    const bytes = memoryChunkBytes(capture, chunk);
     nodes.push({
       id: `controlled-node-${i}`,
       sourceAddress: chunk.sourceAddress,
@@ -139,27 +137,11 @@ function recoverHeapGraph(capture) {
     values: nodes.map((node) => node.value),
     nodes,
     heapState: {
-      sourceAddress: chunkByName(capture, HEAP_STATE_SYMBOL).sourceAddress,
+      sourceAddress: heapStateChunk.sourceAddress,
       sizeBytes: heapState.length,
-      memory: chunkByName(capture, HEAP_STATE_SYMBOL),
+      memory: heapStateChunk,
     },
   };
-}
-
-function chunkByName(capture, name) {
-  const chunk = capture.memory.chunks.find((candidate) => candidate.name === name);
-  if (!chunk) {
-    throw new Error(`missing memory chunk: ${name}`);
-  }
-  return chunk;
-}
-
-function chunkBytes(capture, name) {
-  return chunkBytesByDescriptor(capture, chunkByName(capture, name));
-}
-
-function chunkBytesByDescriptor(capture, chunk) {
-  return capture.memoryBin.subarray(chunk.fileOffset, chunk.fileOffset + chunk.sizeBytes);
 }
 
 function hexAddress(value) {
@@ -167,40 +149,17 @@ function hexAddress(value) {
 }
 
 function writePortableBundle(context) {
-  mkdirSync(context.bundleDir, { recursive: true });
-  mkdirSync(join(context.bundleDir, "logs"), { recursive: true });
-
-  const memory = buildBundleMemory(context.capture);
-  const objects = buildObjects(memory.chunks, context.semanticState);
-  writeFileSync(join(context.bundleDir, "memory.bin"), memory.bytes);
-  writeFileSync(join(context.bundleDir, "manifest.json"), json(manifest(context)));
-  writeFileSync(join(context.bundleDir, "objects.json"), json(objects));
-  writeFileSync(
-    join(context.bundleDir, "relocations.json"),
-    json(relocations(context.semanticState)),
-  );
-  writeFileSync(join(context.bundleDir, "resources.json"), json(resources(context.capture)));
-  writeFileSync(
-    join(context.bundleDir, "controlled-state.txt"),
-    controlledStateText(context.semanticState),
-  );
-  copyFileSync(
-    join(context.captureDir, "target.log"),
-    join(context.bundleDir, "logs/source-target.log"),
-  );
-}
-
-function buildBundleMemory(capture) {
-  const chunks = capture.memory.chunks.map((source) => ({ ...source }));
-  const buffers = [];
-  let offset = 0;
-  for (const chunk of chunks) {
-    const bytes = chunkBytesByDescriptor(capture, chunk);
-    chunk.bundleOffset = offset;
-    buffers.push(bytes);
-    offset += bytes.length;
-  }
-  return { chunks, bytes: Buffer.concat(buffers) };
+  const memory = buildPortableBundleMemory(context.capture);
+  writePortableBundleFiles({
+    bundleDir: context.bundleDir,
+    captureDir: context.captureDir,
+    capture: context.capture,
+    memory,
+    manifest: manifest(context),
+    objects: buildObjects(memory.chunks, context.semanticState),
+    relocations: relocations(context.semanticState),
+    controlledStateText: controlledStateText(context.semanticState),
+  });
 }
 
 function buildObjects(chunks, semanticState) {
@@ -212,7 +171,7 @@ function buildObjects(chunks, semanticState) {
       heapStateObject(heapState),
       ...semanticState.nodes.map((node, index) => nodeObject(byName, node, index)),
     ],
-    unsupported: unsupported(),
+    unsupported: unsupportedVocabulary(),
   };
 }
 
@@ -241,41 +200,22 @@ function nodeObject(byName, node, index) {
 }
 
 function manifest(context) {
-  return {
-    formatVersion: 1,
-    sourceGuestArch: hostArch(),
-    allowedTargetGuestArchs: ["arm64", "amd64"],
-    program: {
-      name: "controlled-binary-corpus",
-      executable: context.target,
-      identity: "com.redwoodjs.machinen.controlled-binary-corpus",
-    },
-    sourceBuild: { buildId: BUILD_ID, version: "known-symbol-proof" },
-    targetBuild: { version: "known-symbol-proof" },
-    checkpointAbi: {
-      version: 1,
-      checkpointFunction: { name: "machinen_checkpoint" },
-      rootsType: "machinen_checkpoint_roots",
-      restoreBundleType: "machinen_restore_bundle",
-      safePoint: { outsideSignalHandlers: true, outsideSyscalls: true },
-    },
-    checkpointContinuation: { name: "machinen_controlled_heap_observation" },
-    restoreEntrypoint: { name: "machinen_controlled_known_symbol_restore" },
-    process: {
-      argv: context.capture.manifest.target.argv,
-      env: { MACHINEN_CONTROLLED_ENV: "1" },
-      cwd: process.cwd(),
-    },
+  return controlledPortableManifest({
+    target: context.target,
+    capture: context.capture,
+    buildId: BUILD_ID,
+    version: "known-symbol-proof",
+    checkpointContinuation: "machinen_controlled_heap_observation",
+    restoreEntrypoint: "machinen_controlled_known_symbol_restore",
     features: ["controlled-binary-corpus", "external-raw-capture", "known-symbol-extraction"],
-    unsupported: unsupported(),
-  };
+  });
 }
 
 function relocations(semanticState) {
   return {
     formatVersion: 1,
     relocations: [heapHeadRelocation(semanticState), ...nodeRelocations(semanticState)],
-    unsupported: unsupported(),
+    unsupported: unsupportedVocabulary(),
   };
 }
 
@@ -305,18 +245,6 @@ function nodeRelocations(semanticState) {
   return relocations;
 }
 
-function resources(capture) {
-  return {
-    formatVersion: 1,
-    resources: [
-      { id: "argv", kind: "argv", state: "captured", argv: capture.manifest.target.argv },
-      { id: "env", kind: "env", state: "captured", env: { MACHINEN_CONTROLLED_ENV: "1" } },
-      { id: "cwd", kind: "cwd", state: "captured", path: process.cwd() },
-    ],
-    unsupported: unsupported(),
-  };
-}
-
 function controlledStateText(semanticState) {
   return [
     `node_count=${semanticState.nodeCount}`,
@@ -328,30 +256,12 @@ function controlledStateText(semanticState) {
   ].join("\n");
 }
 
-function unsupported() {
-  return { vocabularyVersion: 1, refusals: [] };
-}
-
-function json(value) {
-  return `${JSON.stringify(value, null, 2)}\n`;
-}
-
 function runTargetRestore(target, bundleDir) {
   const result = runCommand(target, ["--restore-known-symbol-bundle", bundleDir], {
     label: "known-symbol target restore",
     env: { ...process.env, MACHINEN_CONTROLLED_ENV: "1" },
   });
-  const event = parseMarker(result.stdout);
-  assert(event.fixture === "known-symbol-restore", "target did not emit restore marker");
-  return event;
-}
-
-function parseMarker(stdout) {
-  const line = stdout.split(/\r?\n/).find((candidate) => candidate.startsWith(MARKER));
-  if (!line) {
-    throw new Error("missing controlled binary restore marker");
-  }
-  return JSON.parse(line.slice(MARKER.length));
+  return parseControlledMarker(result.stdout, "known-symbol-restore");
 }
 
 function validateRestore(semanticState, restoreEvent) {
@@ -365,9 +275,13 @@ function validateRestore(semanticState, restoreEvent) {
 }
 
 function bundleFileStats(bundleDir) {
-  return ["manifest.json", "objects.json", "relocations.json", "resources.json", "memory.bin"].map(
-    (name) => ({ name, bytes: statSync(join(bundleDir, name)).size }),
-  );
+  return sharedBundleFileStats(bundleDir, [
+    "manifest.json",
+    "objects.json",
+    "relocations.json",
+    "resources.json",
+    "memory.bin",
+  ]);
 }
 
 function printSummary(summary, temporary) {
