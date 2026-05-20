@@ -35,6 +35,12 @@ jobs:
       # passes in. agent-ci's snapshot checkout puts the workspace
       # somewhere typedoc can't match, so it strips the URLs and the
       # diff is non-empty even on a clean tree. Real CI doesn't hit this.
+      # Do the guard in shell instead of step-level `if:`: agent-ci's
+      # expression evaluator does not resolve `env.X` references.
       - name: Check API.md is up to date
-        if: env.AGENT_CI_LOCAL != 'true'
-        run: git -c core.fileMode=false diff --exit-code -- packages/runtime/API.md
+        run: |
+          if [ "${AGENT_CI_LOCAL:-}" = "true" ]; then
+            echo "AGENT_CI_LOCAL detected — skipping API.md git diff URL check."
+            exit 0
+          fi
+          git -c core.fileMode=false diff --exit-code -- packages/runtime/API.md
