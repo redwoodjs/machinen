@@ -47,6 +47,8 @@ struct Options {
   bool has_translated_return;
   uint64_t translated_return;
   uint64_t expect_return_marker;
+  bool has_expect_graph_checksum;
+  uint64_t expect_graph_checksum;
 };
 
 static void usage(void) {
@@ -56,7 +58,8 @@ static void usage(void) {
       "--expect-prefix text --data-offset n --data-size n --data-target-start addr "
       "--stack-target-start addr --stack-size n --arg0 n --expect-return n "
       "--expect-store-marker n [--expect-initial-word0 n] "
-      "[--translated-return addr --expect-return-marker n]\n");
+      "[--translated-return addr --expect-return-marker n] "
+      "[--expect-graph-checksum n]\n");
   exit(2);
 }
 
@@ -165,6 +168,12 @@ static struct Options parse_args(int argc, char **argv) {
         usage();
       }
       opts.expect_return_marker = parse_u64(argv[i], "expect-return-marker");
+    } else if (streq(argv[i], "--expect-graph-checksum")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.has_expect_graph_checksum = true;
+      opts.expect_graph_checksum = parse_u64(argv[i], "expect-graph-checksum");
     } else {
       usage();
     }
@@ -347,7 +356,8 @@ static void validate_resume_result(const struct Options *opts,
     uint64_t stored_rsp,
     uint64_t stored_marker,
     uint64_t return_marker,
-    uint64_t observed_return_rsp) {
+    uint64_t observed_return_rsp,
+    uint64_t graph_checksum) {
   if (result != opts->expect_return) {
     fprintf(stderr,
         "native-resume-trampoline: target code returned 0x%" PRIx64 ", expected 0x%" PRIx64
@@ -394,6 +404,14 @@ static void validate_resume_result(const struct Options *opts,
         stack_end);
     exit(1);
   }
+  if (opts->has_expect_graph_checksum && graph_checksum != opts->expect_graph_checksum) {
+    fprintf(stderr,
+        "native-resume-trampoline: target graph checksum was 0x%" PRIx64
+        ", expected 0x%" PRIx64 "\n",
+        graph_checksum,
+        opts->expect_graph_checksum);
+    exit(1);
+  }
 }
 
 int main(int argc, char **argv) {
@@ -429,7 +447,9 @@ int main(int argc, char **argv) {
   uint64_t stored_marker = ((uint64_t *)data)[1];
   uint64_t return_marker = ((uint64_t *)data)[2];
   uint64_t observed_return_rsp = ((uint64_t *)data)[3];
-  validate_resume_result(&opts, result, stored_rsp, stored_marker, return_marker, observed_return_rsp);
+  uint64_t graph_checksum = ((uint64_t *)data)[5];
+  validate_resume_result(
+      &opts, result, stored_rsp, stored_marker, return_marker, observed_return_rsp, graph_checksum);
 
   printf(
       "MACHINEN_NATIVE_RESUME_TRAMPOLINE {\"status\":\"jumped\","
@@ -438,6 +458,7 @@ int main(int argc, char **argv) {
       "\"storedMarker\":\"0x%" PRIx64 "\",\"observedRsp\":\"0x%" PRIx64 "\","
       "\"returnAddress\":\"0x%" PRIx64 "\",\"returnMarker\":\"0x%" PRIx64 "\","
       "\"observedReturnRsp\":\"0x%" PRIx64 "\",\"returnedToTranslatedAddress\":%s,"
+      "\"graphChecksum\":\"0x%" PRIx64 "\","
       "\"stackStart\":\"0x%" PRIx64 "\",\"stackEnd\":\"0x%" PRIx64 "\","
       "\"usedTargetStack\":true}\n",
       opts.text_target_start + opts.entry_offset,
@@ -449,6 +470,7 @@ int main(int argc, char **argv) {
       return_marker,
       observed_return_rsp,
       opts.has_translated_return ? "true" : "false",
+      graph_checksum,
       opts.stack_target_start,
       opts.stack_target_start + opts.stack_size);
 
