@@ -29,6 +29,10 @@ export const NATIVE_RESTORE_LOADER_SOURCE = join(
   REPO_ROOT,
   "packages/microvm/assets/native-restore-loader.c",
 );
+export const NATIVE_RESUME_TRAMPOLINE_SOURCE = join(
+  REPO_ROOT,
+  "packages/microvm/assets/native-resume-trampoline.c",
+);
 export const CONTROLLED_MARKER = "MACHINEN_CONTROLLED_BINARY ";
 export const NATIVE_PROCESS_IMAGE_BUNDLE_FILES = [
   "native-process.json",
@@ -144,6 +148,26 @@ export function compileNativeRestoreLoader(binDir) {
       executable,
     ],
     { label: "native restore loader build" },
+  );
+  return executable;
+}
+
+export function compileNativeResumeTrampoline(binDir) {
+  const executable = join(binDir, "machinen-native-resume-trampoline");
+  runCommand(
+    "cc",
+    [
+      "-std=c11",
+      "-O0",
+      "-g",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      NATIVE_RESUME_TRAMPOLINE_SOURCE,
+      "-o",
+      executable,
+    ],
+    { label: "native resume trampoline build" },
   );
   return executable;
 }
@@ -403,8 +427,64 @@ export function bundleFileStats(bundleDir, names) {
   return names.map((name) => ({ name, bytes: statSync(join(bundleDir, name)).size }));
 }
 
-export function unsupportedVocabulary() {
+export function assertNativeProofStepsTranslated(steps, label) {
+  const checks = [
+    ["code map", steps.codeMap],
+    ["register translation", steps.registers],
+    ["stack translation", steps.stack],
+    ["memory translation", steps.memory],
+    ["resource translation", steps.resources],
+  ];
+  for (const [name, result] of checks) {
+    if (result.refusals.length !== 0) {
+      throw new Error(`${label} ${name} refused unexpectedly`);
+    }
+  }
+}
+
+export function writeNativeProcessImageBundle(bundleDir, documents) {
+  writeFileSync(join(bundleDir, "native-memory.bin"), documents.memory);
+  writeFileSync(join(bundleDir, "native-process.json"), jsonDocument(documents.manifest));
+  writeFileSync(join(bundleDir, "native-mappings.json"), jsonDocument(documents.mappings));
+  writeFileSync(join(bundleDir, "native-threads.json"), jsonDocument(documents.threads));
+  writeFileSync(join(bundleDir, "native-resources.json"), jsonDocument(documents.resources));
+  writeFileSync(join(bundleDir, "native-translation.json"), jsonDocument(documents.translation));
+}
+
+export function nativeProofBundleDocuments(memory, manifest, mappings, threads, resources, steps) {
+  return {
+    memory,
+    manifest,
+    mappings,
+    threads,
+    resources: nativeResourceDocument(resources),
+    translation: nativeTranslationDocument(steps),
+  };
+}
+
+export function nativeResourceDocument(resources, refusals = nativeEmptyRefusals()) {
+  return { formatVersion: 1, resources, refusals };
+}
+
+export function nativeTranslationDocument(steps, refusals = nativeEmptyRefusals()) {
+  return {
+    formatVersion: 1,
+    mode: "native-cross-isa",
+    sourceArch: "arm64",
+    targetArch: "amd64",
+    codeLocations: steps.codeMap.codeLocations,
+    threads: steps.registers.threads,
+    memoryRelocations: [...steps.stack.relocations, ...steps.memory.relocations],
+    refusals,
+  };
+}
+
+export function nativeEmptyRefusals() {
   return { vocabularyVersion: 1, refusals: [] };
+}
+
+export function unsupportedVocabulary() {
+  return nativeEmptyRefusals();
 }
 
 export function jsonDocument(value) {
