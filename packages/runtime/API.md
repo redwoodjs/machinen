@@ -91,6 +91,10 @@
 - [`NativeStackTranslationRequest`](#nativestacktranslationrequest)
 - [`NativeStackTranslationResult`](#nativestacktranslationresult)
 - [`translateNativeStack`](#translatenativestack)
+- [`NativeMemoryWord`](#nativememoryword)
+- [`NativeMemoryTranslationRequest`](#nativememorytranslationrequest)
+- [`NativeMemoryTranslationResult`](#nativememorytranslationresult)
+- [`translateNativeMemory`](#translatenativememory)
 
 ### Provision base images
 
@@ -2247,6 +2251,64 @@ by default when `output` is a TTY.
 ##### codeLocations
 
 > **codeLocations**: [`NativeCodeLocationMapping`](#nativecodelocationmapping)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
+### NativeMemoryWord
+
+#### Properties
+
+##### mapping
+
+> **mapping**: `string`
+
+##### offset
+
+> **offset**: `number`
+
+##### sourceValue
+
+> **sourceValue**: `string`
+
+##### classification
+
+> **classification**: `"pointer"` \| `"integer"` \| `"code-pointer"` \| `"thread-pointer"` \| `"ambiguous"`
+
+##### targetValue?
+
+> `optional` **targetValue?**: `string`
+
+##### proof
+
+> **proof**: `"symbol"` \| `"none"` \| `"dwarf"` \| `"sidecar"` \| `"policy"`
+
+***
+
+### NativeMemoryTranslationRequest
+
+#### Properties
+
+##### words
+
+> **words**: [`NativeMemoryWord`](#nativememoryword)[]
+
+***
+
+### NativeMemoryTranslationResult
+
+#### Properties
+
+##### relocations
+
+> **relocations**: [`NativeMemoryRelocation`](#nativememoryrelocation)[]
+
+##### preservedWords
+
+> **preservedWords**: `number`
 
 ##### refusals
 
@@ -7553,6 +7615,22 @@ available.
 #### Returns
 
 [`NativeCodeMapResult`](#nativecodemapresult)
+
+***
+
+### translateNativeMemory()
+
+> **translateNativeMemory**(`request`): [`NativeMemoryTranslationResult`](#nativememorytranslationresult)
+
+#### Parameters
+
+##### request
+
+[`NativeMemoryTranslationRequest`](#nativememorytranslationrequest)
+
+#### Returns
+
+[`NativeMemoryTranslationResult`](#nativememorytranslationresult)
 
 ***
 

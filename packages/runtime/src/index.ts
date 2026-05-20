@@ -108,6 +108,12 @@ export type {
   NativeCodeMapResult,
   NativeCodeSymbol,
 } from "./native-code-map.ts";
+export { translateNativeMemory } from "./native-memory-translation.ts";
+export type {
+  NativeMemoryTranslationRequest,
+  NativeMemoryTranslationResult,
+  NativeMemoryWord,
+} from "./native-memory-translation.ts";
 export { translateNativeRegisterState } from "./native-register-translation.ts";
 export { translateNativeStack } from "./native-stack-translation.ts";
 export type {
