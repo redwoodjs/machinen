@@ -82,6 +82,10 @@
 - [`NativeContinuationTarget`](#nativecontinuationtarget)
 - [`NativeRegisterTranslationResult`](#nativeregistertranslationresult)
 - [`translateNativeRegisterState`](#translatenativeregisterstate)
+- [`NativeCodeSymbol`](#nativecodesymbol)
+- [`NativeCodeMapRequest`](#nativecodemaprequest)
+- [`NativeCodeMapResult`](#nativecodemapresult)
+- [`buildNativeCodeMap`](#buildnativecodemap)
 
 ### Provision base images
 
@@ -2160,6 +2164,88 @@ Set to `false` in tests where `input` is a plain PassThrough.
 Forward SIGWINCH on the parent process (terminal resize) to any
 attached sandbox that implements `.resize(cols, rows)`. Enabled
 by default when `output` is a TTY.
+
+***
+
+### NativeCodeSymbol
+
+#### Properties
+
+##### name
+
+> **name**: `string`
+
+##### mapping
+
+> **mapping**: `string`
+
+##### address
+
+> **address**: `string`
+
+##### sizeBytes?
+
+> `optional` **sizeBytes?**: `number`
+
+##### buildId?
+
+> `optional` **buildId?**: `string`
+
+##### metadata
+
+> **metadata**: `"symbol"` \| `"dwarf"` \| `"sidecar"`
+
+***
+
+### NativeCodeMapRequest
+
+#### Properties
+
+##### expectedTargetBuildId
+
+> **expectedTargetBuildId**: `string`
+
+##### targetBuildId
+
+> **targetBuildId**: `string`
+
+##### sourceSymbols
+
+> **sourceSymbols**: [`NativeCodeSymbol`](#nativecodesymbol)[]
+
+##### targetSymbols
+
+> **targetSymbols**: [`NativeCodeSymbol`](#nativecodesymbol)[]
+
+##### requestedLocations
+
+> **requestedLocations**: `object`[]
+
+###### id
+
+> **id**: `string`
+
+###### symbol
+
+> **symbol**: `string`
+
+###### sourceAddress?
+
+> `optional` **sourceAddress?**: `string`
+
+***
+
+### NativeCodeMapResult
+
+#### Properties
+
+##### codeLocations
+
+> **codeLocations**: [`NativeCodeLocationMapping`](#nativecodelocationmapping)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
 
 ***
 
@@ -4356,7 +4442,7 @@ kicks in: `<sourceName>/<fork.pid>`.
 
 ###### Overrides
 
-[`RestoreOptions`](#restoreoptions).[`name`](#name-7)
+[`RestoreOptions`](#restoreoptions).[`name`](#name-8)
 
 ##### portForward?
 
@@ -7346,6 +7432,22 @@ available.
 #### Returns
 
 `string`
+
+***
+
+### buildNativeCodeMap()
+
+> **buildNativeCodeMap**(`request`): [`NativeCodeMapResult`](#nativecodemapresult)
+
+#### Parameters
+
+##### request
+
+[`NativeCodeMapRequest`](#nativecodemaprequest)
+
+#### Returns
+
+[`NativeCodeMapResult`](#nativecodemapresult)
 
 ***
 
