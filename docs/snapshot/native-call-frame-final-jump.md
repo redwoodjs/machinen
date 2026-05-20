@@ -65,6 +65,8 @@ captured-arm64-source-returned-through-matching-amd64-target-binary-frame
 
 This is still a controlled frame. It uses sidecar metadata for the active PC,
 the return address, the pointer-bearing register, and the pointer-bearing data
-word. It does not claim general unwind recovery, optimized frame handling,
+word. The heap-graph final-jump proof builds on this by translating multiple
+pointer-bearing root/heap words and making the return landing walk that graph
+natively. Neither proof claims general unwind recovery, optimized frame handling,
 dynamic loader relocation, active syscall restore, signal-frame restore, TLS
 reconstruction, or resource broker support.
