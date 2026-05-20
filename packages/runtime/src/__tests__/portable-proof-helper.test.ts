@@ -17,7 +17,12 @@ afterEach(() => {
   }
 });
 
-function marker(phase: string, counter: number, arch = "amd64"): string {
+function marker(
+  phase: string,
+  counter: number,
+  arch = "amd64",
+  opts: { threads?: boolean } = {},
+): string {
   return (
     "MACHINEN_PORTABLE_PROOF " +
     JSON.stringify({
@@ -38,6 +43,8 @@ function marker(phase: string, counter: number, arch = "amd64"): string {
         "machinen_portable_nodes",
         "machinen_portable_heap_bytes",
       ],
+      thread_count: opts.threads ? 2 : 1,
+      thread_continuations: ["machinen_portable_checkpoint", "machinen_portable_worker_continue"],
       allocation_count: 1,
       heap_bytes: EXPECTED_HEAP_BYTES,
       checkpoint_result: 0,
@@ -78,6 +85,33 @@ function writeBundle(heapBytes = EXPECTED_HEAP_BYTES): string {
           kind: "heap",
           allocation: { id: 1, sourceAddress: "0x1234" },
           memory: { offset: 4, sizeBytes: EXPECTED_HEAP_BYTES.length },
+        },
+      ],
+      unsupported: { vocabularyVersion: 1, refusals: [] },
+    }),
+  );
+  return dir;
+}
+
+function writeThreadsBundle(): string {
+  const dir = writeBundle();
+  writeFileSync(
+    join(dir, "threads.json"),
+    JSON.stringify({
+      formatVersion: 1,
+      barrier: { name: "portable-proof-checkpoint", participants: 2, state: "complete" },
+      threads: [
+        {
+          id: 0,
+          name: "main",
+          continuation: "machinen_portable_checkpoint",
+          localState: { counter: 1000, atBarrier: true },
+        },
+        {
+          id: 1,
+          name: "worker",
+          continuation: "machinen_portable_worker_continue",
+          localState: { counter: 2001, atBarrier: true },
         },
       ],
       unsupported: { vocabularyVersion: 1, refusals: [] },
@@ -174,6 +208,20 @@ describe("portable proof workload helper", () => {
     const bundle = writeBundle();
     const res = runHelper(["--bundle-dir", bundle, log]);
     expect(res.status).toBe(0);
+  });
+
+  it("validates cooperative thread metadata when requested", () => {
+    const log = writeLog(marker("checkpoint", 1000, "amd64", { threads: true }));
+    const bundle = writeThreadsBundle();
+    const res = runHelper(["--bundle-dir", bundle, "--require-threads", log]);
+    expect(res.status).toBe(0);
+  });
+
+  it("rejects a missing two-thread proof marker when requested", () => {
+    const log = writeLog(marker("checkpoint", 1000));
+    const res = runHelper(["--require-threads", log]);
+    expect(res.status).toBe(1);
+    expect(res.stderr).toMatch(/missing two-thread proof marker/);
   });
 
   it("rejects a proof bundle whose captured heap bytes changed", () => {
