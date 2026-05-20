@@ -96,6 +96,11 @@
 - [`NativeMemoryTranslationRequest`](#nativememorytranslationrequest)
 - [`NativeMemoryTranslationResult`](#nativememorytranslationresult)
 - [`translateNativeMemory`](#translatenativememory)
+- [`NativeMappingMaterializationAction`](#nativemappingmaterializationaction)
+- [`NativeMappingMaterializationStep`](#nativemappingmaterializationstep)
+- [`NativeMappingMaterializationRequest`](#nativemappingmaterializationrequest)
+- [`NativeMappingMaterializationResult`](#nativemappingmaterializationresult)
+- [`planNativeMappingMaterialization`](#plannativemappingmaterialization)
 - [`NativeResourceTranslationRequest`](#nativeresourcetranslationrequest)
 - [`NativeResourceTranslationResult`](#nativeresourcetranslationresult)
 - [`translateNativeResources`](#translatenativeresources)
@@ -2309,6 +2314,124 @@ by default when `output` is a TTY.
 ##### codeLocations
 
 > **codeLocations**: [`NativeCodeLocationMapping`](#nativecodelocationmapping)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
+### NativeMappingMaterializationStep
+
+#### Properties
+
+##### mapping
+
+> **mapping**: `string`
+
+##### kind
+
+> **kind**: [`NativeMemoryMappingKind`](#nativememorymappingkind)
+
+##### action
+
+> **action**: [`NativeMappingMaterializationAction`](#nativemappingmaterializationaction)
+
+##### targetStart?
+
+> `optional` **targetStart?**: `string`
+
+##### sizeBytes
+
+> **sizeBytes**: `number`
+
+##### permissions
+
+> **permissions**: `object`
+
+###### read
+
+> **read**: `boolean`
+
+###### write
+
+> **write**: `boolean`
+
+###### execute
+
+> **execute**: `boolean`
+
+###### private
+
+> **private**: `boolean`
+
+###### shared
+
+> **shared**: `boolean`
+
+##### targetFile?
+
+> `optional` **targetFile?**: `object`
+
+###### path
+
+> **path**: `string`
+
+###### offset
+
+> **offset**: `number`
+
+###### buildId?
+
+> `optional` **buildId?**: `string`
+
+###### sha256?
+
+> `optional` **sha256?**: `string`
+
+##### sourceBytes?
+
+> `optional` **sourceBytes?**: `object`
+
+###### offset
+
+> **offset**: `number`
+
+###### sizeBytes
+
+> **sizeBytes**: `number`
+
+##### refusal?
+
+> `optional` **refusal?**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
+
+***
+
+### NativeMappingMaterializationRequest
+
+#### Properties
+
+##### mappings
+
+> **mappings**: [`NativeMemoryMapping`](#nativememorymapping)[]
+
+##### memorySizeBytes
+
+> **memorySizeBytes**: `number`
+
+##### targetFileBuildIds?
+
+> `optional` **targetFileBuildIds?**: `Record`\<`string`, `string`\>
+
+***
+
+### NativeMappingMaterializationResult
+
+#### Properties
+
+##### steps
+
+> **steps**: [`NativeMappingMaterializationStep`](#nativemappingmaterializationstep)[]
 
 ##### refusals
 
@@ -6080,6 +6203,12 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativeMappingMaterializationAction
+
+> **NativeMappingMaterializationAction** = `"map-target-file"` \| `"copy-captured-bytes"` \| `"recreate"` \| `"omit"` \| `"refuse"`
+
+***
+
 ### NativeProcessImageArchitecture
 
 > **NativeProcessImageArchitecture** = *typeof* [`nativeProcessImageArchitectures`](#nativeprocessimagearchitectures)\[`number`\]
@@ -7705,6 +7834,22 @@ available.
 #### Returns
 
 [`NativeCodeMapResult`](#nativecodemapresult)
+
+***
+
+### planNativeMappingMaterialization()
+
+> **planNativeMappingMaterialization**(`request`): [`NativeMappingMaterializationResult`](#nativemappingmaterializationresult)
+
+#### Parameters
+
+##### request
+
+[`NativeMappingMaterializationRequest`](#nativemappingmaterializationrequest)
+
+#### Returns
+
+[`NativeMappingMaterializationResult`](#nativemappingmaterializationresult)
 
 ***
 
