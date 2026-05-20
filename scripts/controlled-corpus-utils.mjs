@@ -25,6 +25,10 @@ export const NATIVE_CAPTURE_TARGET_SOURCE = join(
   REPO_ROOT,
   "packages/microvm/assets/native-capture-target.c",
 );
+export const NATIVE_RESTORE_LOADER_SOURCE = join(
+  REPO_ROOT,
+  "packages/microvm/assets/native-restore-loader.c",
+);
 export const CONTROLLED_MARKER = "MACHINEN_CONTROLLED_BINARY ";
 
 export function ensureSourcesExist(sources) {
@@ -104,6 +108,26 @@ export function compileNativeCaptureTarget(binDir) {
       executable,
     ],
     { label: "native capture target build" },
+  );
+  return executable;
+}
+
+export function compileNativeRestoreLoader(binDir) {
+  const executable = join(binDir, "machinen-native-restore-loader");
+  runCommand(
+    "cc",
+    [
+      "-std=c11",
+      "-O0",
+      "-g",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      NATIVE_RESTORE_LOADER_SOURCE,
+      "-o",
+      executable,
+    ],
+    { label: "native restore loader build" },
   );
   return executable;
 }
