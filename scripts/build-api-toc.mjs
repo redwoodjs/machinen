@@ -100,6 +100,10 @@ const TOC = {
     "validateNativeProcessImageBundle",
     "validateNativeProcessImageDocuments",
     "assertNativeProcessImageDocuments",
+    "NativeRegisterTranslationRequest",
+    "NativeContinuationTarget",
+    "NativeRegisterTranslationResult",
+    "translateNativeRegisterState",
   ],
   "Provision base images": [
     "provision",

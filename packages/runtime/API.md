@@ -78,6 +78,10 @@
 - [`validateNativeProcessImageBundle`](#validatenativeprocessimagebundle)
 - [`validateNativeProcessImageDocuments`](#validatenativeprocessimagedocuments)
 - [`assertNativeProcessImageDocuments`](#assertnativeprocessimagedocuments)
+- [`NativeRegisterTranslationRequest`](#nativeregistertranslationrequest)
+- [`NativeContinuationTarget`](#nativecontinuationtarget)
+- [`NativeRegisterTranslationResult`](#nativeregistertranslationresult)
+- [`translateNativeRegisterState`](#translatenativeregisterstate)
 
 ### Provision base images
 
@@ -2870,6 +2874,72 @@ by default when `output` is a TTY.
 ##### translation
 
 > **translation**: `unknown`
+
+***
+
+### NativeRegisterTranslationRequest
+
+#### Properties
+
+##### sourceArch
+
+> **sourceArch**: `"amd64"` \| `"arm64"`
+
+##### targetArch
+
+> **targetArch**: `"amd64"` \| `"arm64"`
+
+##### threads
+
+> **threads**: [`NativeThreadState`](#nativethreadstate)[]
+
+##### continuations
+
+> **continuations**: `Record`\<`string`, [`NativeContinuationTarget`](#nativecontinuationtarget)\>
+
+***
+
+### NativeContinuationTarget
+
+#### Properties
+
+##### sourcePc
+
+> **sourcePc**: `string`
+
+##### targetIp
+
+> **targetIp**: `string`
+
+##### targetSp
+
+> **targetSp**: `string`
+
+##### targetTls
+
+> **targetTls**: `string`
+
+***
+
+### NativeRegisterTranslationResult
+
+#### Properties
+
+##### sourceArch
+
+> **sourceArch**: `"amd64"` \| `"arm64"`
+
+##### targetArch
+
+> **targetArch**: `"amd64"` \| `"arm64"`
+
+##### threads
+
+> **threads**: [`NativeThreadTranslation`](#nativethreadtranslation)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
 
 ***
 
@@ -7352,6 +7422,22 @@ available.
 #### Returns
 
 `asserts docs is NativeProcessImageDocuments`
+
+***
+
+### translateNativeRegisterState()
+
+> **translateNativeRegisterState**(`request`): [`NativeRegisterTranslationResult`](#nativeregistertranslationresult)
+
+#### Parameters
+
+##### request
+
+[`NativeRegisterTranslationRequest`](#nativeregistertranslationrequest)
+
+#### Returns
+
+[`NativeRegisterTranslationResult`](#nativeregistertranslationresult)
 
 ***
 
