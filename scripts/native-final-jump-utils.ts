@@ -54,9 +54,21 @@ export function finalJumpTargetCode() {
 }
 
 export function finalJumpBundleMemory(textMarker: string, initialDataWord0?: bigint) {
+  return finalJumpBundleMemoryFromTargetText(textMarker, finalJumpTargetCode(), initialDataWord0);
+}
+
+export function finalJumpBundleMemoryFromTargetText(
+  textMarker: string,
+  targetText: Buffer,
+  initialDataWord0?: bigint,
+) {
   const text = Buffer.alloc(FINAL_JUMP_PAGE_SIZE);
   text.write(textMarker, 0, "utf8");
-  finalJumpTargetCode().copy(text, FINAL_JUMP_ENTRY_OFFSET);
+  assert(
+    targetText.length <= FINAL_JUMP_PAGE_SIZE - FINAL_JUMP_ENTRY_OFFSET,
+    "target text does not fit in final-jump text page",
+  );
+  targetText.copy(text, FINAL_JUMP_ENTRY_OFFSET);
   const data = Buffer.alloc(FINAL_JUMP_PAGE_SIZE);
   if (initialDataWord0 !== undefined) {
     data.writeBigUInt64LE(initialDataWord0, 0);

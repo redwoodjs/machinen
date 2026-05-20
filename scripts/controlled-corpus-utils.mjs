@@ -37,6 +37,10 @@ export const NATIVE_FINAL_JUMP_SOURCE_TARGET_SOURCE = join(
   REPO_ROOT,
   "packages/microvm/assets/native-final-jump-source.c",
 );
+export const NATIVE_TARGET_BINARY_CONTINUATION_SOURCE = join(
+  REPO_ROOT,
+  "packages/microvm/assets/native-target-binary-continuation.c",
+);
 export const CONTROLLED_MARKER = "MACHINEN_CONTROLLED_BINARY ";
 export const NATIVE_PROCESS_IMAGE_BUNDLE_FILES = [
   "native-process.json",
@@ -152,6 +156,28 @@ export function compileNativeFinalJumpSourceTarget(binDir) {
       executable,
     ],
     { label: "native final-jump source target build" },
+  );
+  return executable;
+}
+
+export function compileNativeTargetBinaryContinuation(binDir) {
+  const executable = join(binDir, "machinen-native-target-binary-continuation");
+  runCommand(
+    "cc",
+    [
+      "-std=c11",
+      "-O0",
+      "-g",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-fno-pie",
+      "-no-pie",
+      NATIVE_TARGET_BINARY_CONTINUATION_SOURCE,
+      "-o",
+      executable,
+    ],
+    { label: "native target-binary continuation build" },
   );
   return executable;
 }
