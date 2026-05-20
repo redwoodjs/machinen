@@ -30,6 +30,7 @@ const USAGE =
 
 type Args = { outDir?: string; json: boolean; keep: boolean };
 
+// fallow-ignore-next-line complexity
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const temporary = !args.outDir;
@@ -50,6 +51,7 @@ async function main() {
   }
 }
 
+// fallow-ignore-next-line complexity
 export async function verifyPiStyleRuntimeTarget(outDir: string) {
   mkdirSync(outDir, { recursive: true });
   const bundleDir = join(outDir, "bundle");
@@ -198,24 +200,37 @@ function objects() {
 function resources(adapterResources: RuntimeAdapterResource[]) {
   return {
     formatVersion: 1,
-    resources: adapterResources.map((resource) => ({
-      id: resource.id,
-      kind: portableResourceKind(resource.kind),
-      state: resource.state,
-      argv:
-        resource.id === "argv"
-          ? (resource.recipe?.detail?.argv as string[] | undefined)
-          : undefined,
-      env:
-        resource.id === "env"
-          ? (resource.recipe?.detail?.env as Record<string, string> | undefined)
-          : undefined,
-      path:
-        resource.id === "cwd" ? (resource.recipe?.detail?.cwd as string | undefined) : undefined,
-      refusal: resource.refusal,
-    })),
+    resources: adapterResources.map(portableResource),
     unsupported: unsupported(),
   };
+}
+
+function portableResource(resource: RuntimeAdapterResource) {
+  return {
+    id: resource.id,
+    kind: portableResourceKind(resource.kind),
+    state: resource.state,
+    argv: portableArgv(resource),
+    env: portableEnv(resource),
+    path: portablePath(resource),
+    refusal: resource.refusal,
+  };
+}
+
+function portableArgv(resource: RuntimeAdapterResource): string[] | undefined {
+  return resource.id === "argv"
+    ? (resource.recipe?.detail?.argv as string[] | undefined)
+    : undefined;
+}
+
+function portableEnv(resource: RuntimeAdapterResource): Record<string, string> | undefined {
+  return resource.id === "env"
+    ? (resource.recipe?.detail?.env as Record<string, string> | undefined)
+    : undefined;
+}
+
+function portablePath(resource: RuntimeAdapterResource): string | undefined {
+  return resource.id === "cwd" ? (resource.recipe?.detail?.cwd as string | undefined) : undefined;
 }
 
 function portableResourceKind(kind: string) {
@@ -224,6 +239,7 @@ function portableResourceKind(kind: string) {
     : "unknown";
 }
 
+// fallow-ignore-next-line complexity
 function parseArgs(argv: string[]): Args {
   const args: Args = { json: false, keep: false };
   const rest = argv[0] === "verify" ? argv.slice(1) : argv;

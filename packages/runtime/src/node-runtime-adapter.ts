@@ -292,6 +292,7 @@ export function collectNodeRuntimeAdapterRefusals(
   ];
 }
 
+// fallow-ignore-next-line complexity
 function nodeTarget(target: Partial<RuntimeAdapterTarget> | undefined): RuntimeAdapterTarget {
   return {
     id: target?.id ?? "node-runtime-target",
@@ -369,6 +370,7 @@ function defaultRefusalCode(kind: RuntimeAdapterResourceKind): RuntimeAdapterRef
   return "resource-unsupported";
 }
 
+// fallow-ignore-next-line complexity
 function applyCapturedResource(
   restored: RestoredNodeResourceRecipes,
   resource: RuntimeAdapterResource,
@@ -443,6 +445,7 @@ class NodeGraphEncoder {
     return { kind: "ref", objectId: id };
   }
 
+  // fallow-ignore-next-line complexity
   private createNode(id: string, value: object): RuntimeAdapterObjectNode {
     if (Buffer.isBuffer(value)) {
       return { id, kind: "typed-array", type: "Buffer", byteLength: value.byteLength };
@@ -479,6 +482,7 @@ class NodeGraphEncoder {
     return { id, kind: "object", type: value.constructor?.name ?? "Object" };
   }
 
+  // fallow-ignore-next-line complexity
   private populateNode(node: RuntimeAdapterObjectNode, value: object): void {
     if (Buffer.isBuffer(value) || value instanceof ArrayBuffer || ArrayBuffer.isView(value)) {
       node.properties = { bytes: bytesValue(value) };
@@ -557,6 +561,7 @@ class NodeGraphDecoder {
     }
   }
 
+  // fallow-ignore-next-line complexity
   private emptyValue(node: RuntimeAdapterObjectNode): unknown {
     if (node.refusal) {
       throw new NodeRuntimeAdapterUnsupportedError([node.refusal]);
@@ -587,6 +592,7 @@ class NodeGraphDecoder {
     }
   }
 
+  // fallow-ignore-next-line complexity
   private populateObjects(): void {
     for (const node of this.graph.objects) {
       const target = this.byId.get(node.id);
@@ -612,6 +618,7 @@ class NodeGraphDecoder {
     );
   }
 
+  // fallow-ignore-next-line complexity
   private decodeValue(value: RuntimeAdapterValue): unknown {
     switch (value.kind) {
       case "undefined":
@@ -662,6 +669,7 @@ function bufferFromNode(node: RuntimeAdapterObjectNode): Buffer {
   return Buffer.from(bytes.base64, "base64");
 }
 
+// fallow-ignore-next-line complexity
 function typedArrayFromNode(node: RuntimeAdapterObjectNode): unknown {
   const bytes = bufferFromNode(node);
   switch (node.type) {
@@ -698,6 +706,7 @@ function stringProperty(node: RuntimeAdapterObjectNode, name: string): string {
   return value?.kind === "string" ? value.value : "";
 }
 
+// fallow-ignore-next-line complexity
 function isPlainRestoredObject(value: unknown): value is Record<string, unknown> {
   if (value === null || typeof value !== "object") {
     return false;

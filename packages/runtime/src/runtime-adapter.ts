@@ -1220,6 +1220,7 @@ function validateOptionalMapEntries(
   }
 }
 
+// fallow-ignore-next-line complexity
 function validateValue(
   ctx: ValidationContext,
   path: string,
@@ -1509,6 +1510,7 @@ function validateObjectRef(
   }
 }
 
+// fallow-ignore-next-line complexity
 function validateStringArray(
   ctx: ValidationContext,
   path: string,

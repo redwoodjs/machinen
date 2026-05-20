@@ -850,20 +850,13 @@ function validateRuntimeAdapterObjectMappings(
   value: unknown,
   objectsDoc: unknown,
 ): void {
-  const objectIds = collectObjectIds(objectsDoc);
-  const mappings = Array.isArray(value) ? value : [];
-  for (let i = 0; i < mappings.length; i++) {
-    const mapping = mappings[i];
-    if (
-      isRecord(mapping) &&
-      typeof mapping.portableObjectId === "string" &&
-      !objectIds.has(mapping.portableObjectId)
-    ) {
-      ctx.errors.push(
-        `runtimeAdapter.bundleMapping.objects[${i}].portableObjectId references unknown portable object ${JSON.stringify(mapping.portableObjectId)}`,
-      );
-    }
-  }
+  validateRuntimeAdapterPortableIdMappings(ctx, {
+    mappings: value,
+    knownIds: collectObjectIds(objectsDoc),
+    path: "runtimeAdapter.bundleMapping.objects",
+    field: "portableObjectId",
+    label: "portable object",
+  });
 }
 
 function validateRuntimeAdapterResourceMappings(
@@ -871,17 +864,32 @@ function validateRuntimeAdapterResourceMappings(
   value: unknown,
   resourcesDoc: unknown,
 ): void {
-  const resourceIds = collectResourceIds(resourcesDoc);
-  const mappings = Array.isArray(value) ? value : [];
+  validateRuntimeAdapterPortableIdMappings(ctx, {
+    mappings: value,
+    knownIds: collectResourceIds(resourcesDoc),
+    path: "runtimeAdapter.bundleMapping.resources",
+    field: "portableResourceId",
+    label: "portable resource",
+  });
+}
+
+function validateRuntimeAdapterPortableIdMappings(
+  ctx: ValidationContext,
+  opts: {
+    mappings: unknown;
+    knownIds: Set<string>;
+    path: string;
+    field: string;
+    label: string;
+  },
+): void {
+  const mappings = Array.isArray(opts.mappings) ? opts.mappings : [];
   for (let i = 0; i < mappings.length; i++) {
     const mapping = mappings[i];
-    if (
-      isRecord(mapping) &&
-      typeof mapping.portableResourceId === "string" &&
-      !resourceIds.has(mapping.portableResourceId)
-    ) {
+    const id = isRecord(mapping) ? mapping[opts.field] : undefined;
+    if (typeof id === "string" && !opts.knownIds.has(id)) {
       ctx.errors.push(
-        `runtimeAdapter.bundleMapping.resources[${i}].portableResourceId references unknown portable resource ${JSON.stringify(mapping.portableResourceId)}`,
+        `${opts.path}[${i}].${opts.field} references unknown ${opts.label} ${JSON.stringify(id)}`,
       );
     }
   }

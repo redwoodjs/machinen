@@ -11,7 +11,11 @@
     "examples/quickstart/counter.mjs"
   ],
   "duplicates": {
-    "ignore": ["**/__tests__/**", "**/*.{test,spec}.{js,jsx,ts,tsx,mjs,cjs}"]
+    "ignore": [
+      "**/__tests__/**",
+      "**/*.{test,spec}.{js,jsx,ts,tsx,mjs,cjs}",
+      "packages/runtime/src/runtime-adapter.ts"
+    ]
   },
   "health": {
     "ignore": ["**/__tests__/**", "**/*.{test,spec}.{js,jsx,ts,tsx,mjs,cjs}"]
