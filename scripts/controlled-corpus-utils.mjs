@@ -30,6 +30,14 @@ export const NATIVE_RESTORE_LOADER_SOURCE = join(
   "packages/microvm/assets/native-restore-loader.c",
 );
 export const CONTROLLED_MARKER = "MACHINEN_CONTROLLED_BINARY ";
+export const NATIVE_PROCESS_IMAGE_BUNDLE_FILES = [
+  "native-process.json",
+  "native-mappings.json",
+  "native-threads.json",
+  "native-resources.json",
+  "native-translation.json",
+  "native-memory.bin",
+];
 
 export function ensureSourcesExist(sources) {
   for (const source of sources) {
@@ -37,6 +45,14 @@ export function ensureSourcesExist(sources) {
       throw new Error(`missing source: ${source}`);
     }
   }
+}
+
+export function createProofBinAndBundleDirs(outDir) {
+  const binDir = join(outDir, "bin");
+  const bundleDir = join(outDir, "bundle");
+  mkdirSync(binDir, { recursive: true });
+  mkdirSync(bundleDir, { recursive: true });
+  return { binDir, bundleDir };
 }
 
 export function compileControlledTarget(binDir) {

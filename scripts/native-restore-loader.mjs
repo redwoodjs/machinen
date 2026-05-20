@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  NATIVE_PROCESS_IMAGE_BUNDLE_FILES,
   NATIVE_RESTORE_LOADER_SOURCE,
   bundleFileStats,
   compileNativeRestoreLoader,
+  createProofBinAndBundleDirs,
   ensureSourcesExist,
   hostArch,
   jsonDocument,
@@ -21,14 +23,6 @@ import {
 
 const USAGE =
   "usage: node scripts/native-restore-loader.mjs [verify] [--out-dir path] [--json] [--keep]";
-const BUNDLE_FILES = [
-  "native-process.json",
-  "native-mappings.json",
-  "native-threads.json",
-  "native-resources.json",
-  "native-translation.json",
-  "native-memory.bin",
-];
 const PAGE_SIZE = 4096;
 const MARKER = "machinen-native-loader-v1";
 
@@ -44,11 +38,7 @@ function main() {
 
 function verifyNativeRestoreLoader(outDir) {
   ensureSourcesExist([NATIVE_RESTORE_LOADER_SOURCE]);
-  const binDir = join(outDir, "bin");
-  const bundleDir = join(outDir, "bundle");
-  mkdirSync(binDir, { recursive: true });
-  mkdirSync(bundleDir, { recursive: true });
-
+  const { binDir, bundleDir } = createProofBinAndBundleDirs(outDir);
   const loader = compileNativeRestoreLoader(binDir);
   const image = syntheticImage();
   writeSyntheticBundle(bundleDir, image);
@@ -64,7 +54,7 @@ function verifyNativeRestoreLoader(outDir) {
     materializedMapping: image.mapping.id,
     restoreEvent,
     missingMemoryRefusal,
-    bundleFiles: bundleFileStats(bundleDir, BUNDLE_FILES),
+    bundleFiles: bundleFileStats(bundleDir, NATIVE_PROCESS_IMAGE_BUNDLE_FILES),
   };
 }
 

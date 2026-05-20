@@ -1,6 +1,6 @@
 import type { NativeProcessImageRefusalCode } from "./native-process-image.ts";
 
-export interface NativeAmbiguityClass {
+interface NativeAmbiguityClass {
   id: string;
   description: string;
   requiredMetadata: string[];
