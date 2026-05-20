@@ -31,6 +31,7 @@
     "machinen-dev": "bash scripts/machinen-dev.sh",
     "smoke-tests": "bash scripts/smoke-tests.sh",
     "controlled-binary-corpus": "node scripts/controlled-binary-corpus.mjs verify",
+    "raw-process-capture": "node scripts/raw-process-capture.mjs verify",
     "smoke-test-snapshot-restore-fork": "bash scripts/smoke-test-snapshot-restore-fork.sh",
     "smoke-vmstate": "bash scripts/smoke/vmstate/all.sh",
     "smoke-vmstate-timers": "bash scripts/smoke/vmstate/timers.sh",

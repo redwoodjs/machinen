@@ -1,9 +1,15 @@
 #!/usr/bin/env node
-import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, statSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  assert,
+  cleanupWorkspace,
+  createWorkspace,
+  emitResult,
+  parseVerifyArgs,
+  runCommand,
+} from "./proof-script-utils.mjs";
 
 const MARKER = "MACHINEN_CONTROLLED_BINARY ";
 const FIXTURES = ["global", "heap", "stack", "resource", "threads"];
@@ -13,93 +19,17 @@ const CROSS_TARGETS = [
   { arch: "arm64", triple: "aarch64-linux-musl", output: "machinen-controlled-corpus-linux-arm64" },
   { arch: "amd64", triple: "x86_64-linux-musl", output: "machinen-controlled-corpus-linux-amd64" },
 ];
+const USAGE =
+  "usage: node scripts/controlled-binary-corpus.mjs [verify] [--out-dir path] [--json] [--keep]";
 
 function main() {
-  const args = parseArgs(process.argv.slice(2));
-  const workspace = createWorkspace(args);
+  const args = parseVerifyArgs(process.argv.slice(2), USAGE);
+  const workspace = createWorkspace(args, "machinen-controlled-corpus-");
 
   try {
-    emitResult(verifyCorpus(workspace.outDir), args, workspace);
+    emitResult(verifyCorpus(workspace.outDir), args, workspace, printSummary);
   } finally {
     cleanupWorkspace(workspace, args);
-  }
-}
-
-const ARG_HANDLERS = [
-  { match: (arg) => arg === "verify", consume: keepIndex },
-  { match: (arg) => arg === "--out-dir", consume: consumeOutDir },
-  { match: (arg) => arg.startsWith("--out-dir="), consume: consumeInlineOutDir },
-  { match: (arg) => arg === "--json", consume: consumeJson },
-  { match: (arg) => arg === "--keep", consume: consumeKeep },
-  { match: (arg) => arg === "--help" || arg === "-h", consume: consumeHelp },
-];
-
-function parseArgs(argv) {
-  const state = { outDir: "", json: false, keep: false };
-  for (let i = 0; i < argv.length; i++) {
-    const handler = ARG_HANDLERS.find((candidate) => candidate.match(argv[i]));
-    if (!handler) {
-      usage(`unknown argument: ${argv[i]}`);
-    }
-    i = handler.consume(state, argv, i);
-  }
-  return state;
-}
-
-function keepIndex(_state, _argv, index) {
-  return index;
-}
-
-function consumeOutDir(state, argv, index) {
-  state.outDir = resolve(requireValue(argv[index + 1], "--out-dir"));
-  return index + 1;
-}
-
-function consumeInlineOutDir(state, argv, index) {
-  state.outDir = resolve(argv[index].slice("--out-dir=".length));
-  return index;
-}
-
-function consumeJson(state, _argv, index) {
-  state.json = true;
-  return index;
-}
-
-function consumeKeep(state, _argv, index) {
-  state.keep = true;
-  return index;
-}
-
-function consumeHelp(_state, _argv, _index) {
-  printUsage();
-  process.exit(0);
-}
-
-function requireValue(value, flag) {
-  if (!value) {
-    usage(`${flag} requires a value`);
-  }
-  return value;
-}
-
-function createWorkspace(args) {
-  if (args.outDir) {
-    return { outDir: args.outDir, temporary: false };
-  }
-  return { outDir: mkdtempSync(join(tmpdir(), "machinen-controlled-corpus-")), temporary: true };
-}
-
-function emitResult(summary, args, workspace) {
-  if (args.json) {
-    process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
-    return;
-  }
-  printSummary(summary, workspace.temporary && !args.keep);
-}
-
-function cleanupWorkspace(workspace, args) {
-  if (workspace.temporary && !args.keep) {
-    rmSync(workspace.outDir, { recursive: true, force: true });
   }
 }
 
@@ -253,44 +183,10 @@ function requireFixture(events, fixture) {
   return event;
 }
 
-function runCommand(command, args, opts = {}) {
-  const result = spawnSync(command, args, {
-    encoding: "utf8",
-    env: opts.env || process.env,
-    maxBuffer: 20 * 1024 * 1024,
-  });
-  assertCommandStarted(result, opts.label || command);
-  assertCommandPassed(result, opts.label || command);
-  return result;
-}
-
-function assertCommandStarted(result, label) {
-  if (result.error) {
-    throw new Error(`${label} failed to start: ${result.error.message}`);
-  }
-}
-
-function assertCommandPassed(result, label) {
-  if (result.status !== 0) {
-    throw new Error(
-      `${label} failed with exit ${result.status}\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`,
-    );
-  }
-}
-
 function ensureCommand(command) {
-  const result = spawnSync(command, ["version"], { encoding: "utf8" });
-  if (result.error || result.status !== 0) {
-    throw new Error(
-      `${command} is required to build the controlled corpus for both guest architectures`,
-    );
-  }
-}
-
-function assert(condition, message) {
-  if (!condition) {
-    throw new Error(message);
-  }
+  runCommand(command, ["version"], {
+    label: `${command} is required to build the controlled corpus for both guest architectures`,
+  });
 }
 
 function printSummary(summary, temporary) {
@@ -307,18 +203,6 @@ function printSummary(summary, temporary) {
       "controlled-binary-corpus: temporary artifacts removed; pass --keep to inspect them",
     );
   }
-}
-
-function usage(message) {
-  console.error(`controlled-binary-corpus: ${message}`);
-  printUsage();
-  process.exit(2);
-}
-
-function printUsage() {
-  console.error(
-    "usage: node scripts/controlled-binary-corpus.mjs [verify] [--out-dir path] [--json] [--keep]",
-  );
 }
 
 main();
