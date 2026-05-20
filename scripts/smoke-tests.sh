@@ -1700,15 +1700,20 @@ else
 fi
 
 # ---- P4: portable proof workload prints deterministic state markers (#379) ----
-echo "P4: machinen boot -- /usr/local/bin/machinen-portable-proof --restore-proof"
+echo "P4: machinen boot -- /usr/local/bin/machinen-portable-proof --restore-proof --emit-bundle"
 P4_LOG="$FIXTURE/p4-portable-proof.log"
-run_timeout 60 node "$CLI" boot -- /usr/local/bin/machinen-portable-proof --restore-proof >"$P4_LOG" 2>&1 || true
-if node "$ROOT/scripts/portable-proof-compare.mjs" --expect-arch "$GUEST_ARCH" --require-restore --require-continue "$P4_LOG" >/dev/null; then
-  pass "portable proof workload exposed stable symbols and deterministic state"
+P4_OUT="$FIXTURE/p4-portable-proof-out"
+mkdir -p "$P4_OUT"
+run_timeout 60 node "$CLI" boot \
+  --mount-live "$P4_OUT:/mnt/portable-proof" \
+  -- /usr/local/bin/machinen-portable-proof --restore-proof --emit-bundle /mnt/portable-proof/bundle \
+  >"$P4_LOG" 2>&1 || true
+if node "$ROOT/scripts/portable-proof-compare.mjs" --expect-arch "$GUEST_ARCH" --require-restore --require-continue --bundle-dir "$P4_OUT/bundle" "$P4_LOG" >/dev/null; then
+  pass "portable proof workload exposed stable symbols, roots, and heap bytes"
 else
-  node "$ROOT/scripts/portable-proof-compare.mjs" --expect-arch "$GUEST_ARCH" --require-restore --require-continue "$P4_LOG" >&2 || true
+  node "$ROOT/scripts/portable-proof-compare.mjs" --expect-arch "$GUEST_ARCH" --require-restore --require-continue --bundle-dir "$P4_OUT/bundle" "$P4_LOG" >&2 || true
   tail -50 "$P4_LOG" >&2
-  fail "P4 — portable proof markers did not validate"
+  fail "P4 — portable proof markers or bundle did not validate"
 fi
 
 # ---- P2: virtio_blk + vsock (+ arm64 nested KVM config) visible at boot ----

@@ -33,6 +33,7 @@ const PORTABLE_REFUSAL_CODES = [
   "checkpoint-inside-signal-handler",
   "checkpoint-inside-syscall",
   "checkpoint-unsupported-root",
+  "checkpoint-unknown-root",
   "architecture-unsupported",
   "build-id-mismatch",
   "entrypoint-missing",
@@ -109,6 +110,11 @@ interface PortableSnapshotObjects {
     kind: "global" | "heap" | "stack" | "thread" | "tls" | "opaque";
     type?: string;
     sizeBytes?: number;
+    sourceAddress?: string;
+    allocation?: {
+      id: number;
+      sourceAddress: string;
+    };
     memory?: {
       offset: number;
       sizeBytes: number;
@@ -313,6 +319,16 @@ export const portableSnapshotSchemas = {
             kind: { enum: ["global", "heap", "stack", "thread", "tls", "opaque"] },
             type: { type: "string", minLength: 1 },
             sizeBytes: { type: "integer", minimum: 0 },
+            sourceAddress: { type: "string", pattern: "^0x[0-9A-Fa-f]+$" },
+            allocation: {
+              type: "object",
+              additionalProperties: false,
+              required: ["id", "sourceAddress"],
+              properties: {
+                id: { type: "integer", minimum: 1 },
+                sourceAddress: { type: "string", pattern: "^0x[0-9A-Fa-f]+$" },
+              },
+            },
             memory: {
               type: "object",
               additionalProperties: false,
@@ -513,6 +529,8 @@ function validateObjectEntry(
   validateEnum(ctx, `${path}.kind`, obj.kind, OBJECT_KINDS);
   validateOptionalObjectType(ctx, path, obj.type);
   validateOptionalObjectSize(ctx, path, obj.sizeBytes);
+  validateOptionalObjectSourceAddress(ctx, path, obj.sourceAddress);
+  validateOptionalObjectAllocation(ctx, path, obj.allocation);
   validateOptionalObjectMemory(ctx, path, obj.memory);
   validateOptionalObjectUnsupported(ctx, path, obj.unsupported);
 }
@@ -543,6 +561,32 @@ function validateOptionalObjectSize(ctx: ValidationContext, path: string, value:
   if (value !== undefined) {
     validateNonNegativeInteger(ctx, `${path}.sizeBytes`, value);
   }
+}
+
+function validateOptionalObjectSourceAddress(
+  ctx: ValidationContext,
+  path: string,
+  value: unknown,
+): void {
+  if (value !== undefined) {
+    validateHexAddress(ctx, `${path}.sourceAddress`, value);
+  }
+}
+
+function validateOptionalObjectAllocation(
+  ctx: ValidationContext,
+  path: string,
+  value: unknown,
+): void {
+  if (value === undefined) {
+    return;
+  }
+  const allocation = expectRecord(ctx, `${path}.allocation`, value);
+  if (!allocation) {
+    return;
+  }
+  validatePositiveInteger(ctx, `${path}.allocation.id`, allocation.id);
+  validateHexAddress(ctx, `${path}.allocation.sourceAddress`, allocation.sourceAddress);
 }
 
 function validateOptionalObjectMemory(ctx: ValidationContext, path: string, value: unknown): void {
@@ -1002,9 +1046,21 @@ function validateInteger(ctx: ValidationContext, path: string, value: unknown): 
   }
 }
 
+function validatePositiveInteger(ctx: ValidationContext, path: string, value: unknown): void {
+  if (!Number.isInteger(value) || Number(value) < 1) {
+    ctx.errors.push(`${path} must be a positive integer`);
+  }
+}
+
 function validateNonNegativeInteger(ctx: ValidationContext, path: string, value: unknown): void {
   if (!Number.isInteger(value) || Number(value) < 0) {
     ctx.errors.push(`${path} must be a non-negative integer`);
+  }
+}
+
+function validateHexAddress(ctx: ValidationContext, path: string, value: unknown): void {
+  if (typeof value !== "string" || !ADDRESS_RE.test(value)) {
+    ctx.errors.push(`${path} must be a hex address`);
   }
 }
 
@@ -1033,6 +1089,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 const OBJECT_KINDS = ["global", "heap", "stack", "thread", "tls", "opaque"] as const;
+const ADDRESS_RE = /^0x[0-9A-Fa-f]+$/;
 const BUILD_ID_RE = /^[0-9A-Fa-f]{8,128}$/;
 const SYMBOL_RE = /^[A-Za-z_][A-Za-z0-9_.$@-]*$/;
 const FEATURE_RE = /^[a-z0-9][a-z0-9._-]*$/;
