@@ -117,6 +117,9 @@ const TOC = {
     "NativeMemoryTranslationRequest",
     "NativeMemoryTranslationResult",
     "translateNativeMemory",
+    "NativeResourceTranslationRequest",
+    "NativeResourceTranslationResult",
+    "translateNativeResources",
   ],
   "Provision base images": [
     "provision",

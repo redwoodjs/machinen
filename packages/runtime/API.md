@@ -95,6 +95,9 @@
 - [`NativeMemoryTranslationRequest`](#nativememorytranslationrequest)
 - [`NativeMemoryTranslationResult`](#nativememorytranslationresult)
 - [`translateNativeMemory`](#translatenativememory)
+- [`NativeResourceTranslationRequest`](#nativeresourcetranslationrequest)
+- [`NativeResourceTranslationResult`](#nativeresourcetranslationresult)
+- [`translateNativeResources`](#translatenativeresources)
 
 ### Provision base images
 
@@ -3089,6 +3092,34 @@ by default when `output` is a TTY.
 ##### threads
 
 > **threads**: [`NativeThreadTranslation`](#nativethreadtranslation)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
+### NativeResourceTranslationRequest
+
+#### Properties
+
+##### resources
+
+> **resources**: [`NativeProcessResource`](#nativeprocessresource)[]
+
+##### hostCapabilities?
+
+> `optional` **hostCapabilities?**: `string`[]
+
+***
+
+### NativeResourceTranslationResult
+
+#### Properties
+
+##### resources
+
+> **resources**: [`NativeProcessResource`](#nativeprocessresource)[]
 
 ##### refusals
 
@@ -7723,6 +7754,22 @@ available.
 #### Returns
 
 [`NativeRegisterTranslationResult`](#nativeregistertranslationresult)
+
+***
+
+### translateNativeResources()
+
+> **translateNativeResources**(`request`): [`NativeResourceTranslationResult`](#nativeresourcetranslationresult)
+
+#### Parameters
+
+##### request
+
+[`NativeResourceTranslationRequest`](#nativeresourcetranslationrequest)
+
+#### Returns
+
+[`NativeResourceTranslationResult`](#nativeresourcetranslationresult)
 
 ***
 
