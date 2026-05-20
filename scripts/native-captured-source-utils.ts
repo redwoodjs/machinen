@@ -275,7 +275,7 @@ export function assertCapturedTranslationSteps(
   assert(steps.memory.refusals.length === 0, `${label} memory refused unexpectedly`);
 }
 
-function mappingContaining(
+export function mappingContaining(
   bundle: NativeProcessImageDocuments,
   address: bigint,
   predicate: (mapping: NativeMemoryMapping) => boolean,
@@ -290,13 +290,13 @@ function mappingContaining(
   return mapping;
 }
 
-function mappingById(bundle: NativeProcessImageDocuments, id: string) {
+export function mappingById(bundle: NativeProcessImageDocuments, id: string) {
   const mapping = bundle.mappings.mappings.find((candidate) => candidate.id === id);
   assert(mapping, `source bundle references missing mapping ${id}`);
   return mapping;
 }
 
-function readCapturedU64(
+export function readCapturedU64(
   bundle: NativeProcessImageDocuments,
   mapping: NativeMemoryMapping,
   sourceAddress: bigint,
