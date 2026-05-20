@@ -43,6 +43,7 @@
     "native-register-translate": "tsx scripts/native-register-translate.ts verify",
     "native-code-map": "tsx scripts/native-code-map.ts verify",
     "native-stack-translate": "tsx scripts/native-stack-translate.ts verify",
+    "native-memory-translate": "tsx scripts/native-memory-translate.ts verify",
     "smoke-test-snapshot-restore-fork": "bash scripts/smoke-test-snapshot-restore-fork.sh",
     "smoke-vmstate": "bash scripts/smoke/vmstate/all.sh",
     "smoke-vmstate-timers": "bash scripts/smoke/vmstate/timers.sh",
