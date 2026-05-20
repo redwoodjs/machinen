@@ -6,13 +6,15 @@ The fixture source is `packages/microvm/assets/controlled-binary-corpus.c`. It i
 
 ## Fixtures
 
-The corpus has five fixtures:
+The corpus has seven fixtures:
 
 1. `global` — scalar global state.
 2. `heap` — a small heap graph with pointer edges.
 3. `stack` — a nested function with a live local value at an observation point.
-4. `resource` — argv/env plus a regular file and saved offset.
-5. `threads` — two pthread workers stopped at known semantic points.
+4. `continuation` — a nested function with a stack-local continuation frame and logical continuation id.
+5. `resource` — argv/env plus a regular file and saved offset.
+6. `threads` — two pthread workers stopped at known semantic points.
+7. `dwarf` — globals and heap nodes with layouts recovered from DWARF metadata.
 
 Each fixture prints one `MACHINEN_CONTROLLED_BINARY` JSON marker. Passing `--pause-at-observation` makes the process raise `SIGSTOP` after a marker, leaving the state live for an external capturer.
 

@@ -61,6 +61,20 @@ struct ControlledStackObservation {
   char continuation[CONTROLLED_LABEL_CAPACITY];
 };
 
+struct ControlledContinuationFrame {
+  uint64_t seed;
+  uint64_t live_local;
+  uint64_t resume_delta;
+  uint64_t checksum;
+  char continuation[CONTROLLED_LABEL_CAPACITY];
+};
+
+struct ControlledContinuationAnchor {
+  struct ControlledContinuationFrame *frame;
+  uint64_t frame_size;
+  char continuation[CONTROLLED_LABEL_CAPACITY];
+};
+
 struct ControlledResourceState {
   uint32_t argc;
   uint32_t env_seen;
@@ -105,6 +119,7 @@ struct ControlledDwarfHeapState {
 CONTROLLED_EXPORT struct ControlledGlobalState machinen_controlled_global_state;
 CONTROLLED_EXPORT struct ControlledHeapState machinen_controlled_heap_state;
 CONTROLLED_EXPORT struct ControlledStackObservation machinen_controlled_stack_observation;
+CONTROLLED_EXPORT struct ControlledContinuationAnchor machinen_controlled_continuation_anchor;
 CONTROLLED_EXPORT struct ControlledResourceState machinen_controlled_resource_state;
 CONTROLLED_EXPORT struct ControlledThreadState machinen_controlled_thread_states[CONTROLLED_THREAD_COUNT];
 CONTROLLED_EXPORT struct ControlledDwarfGlobalState machinen_controlled_dwarf_global_state;
@@ -113,10 +128,11 @@ CONTROLLED_EXPORT struct ControlledDwarfHeapState machinen_controlled_dwarf_heap
 CONTROLLED_EXPORT const char machinen_controlled_corpus_metadata[] =
     "{\"schema_version\":1,"
     "\"workload\":\"machinen-controlled-binary-corpus\","
-    "\"fixtures\":[\"global\",\"heap\",\"stack\",\"resource\",\"threads\",\"dwarf\"],"
+    "\"fixtures\":[\"global\",\"heap\",\"stack\",\"continuation\",\"resource\",\"threads\",\"dwarf\"],"
     "\"global_symbol\":\"machinen_controlled_global_state\","
     "\"heap_symbol\":\"machinen_controlled_heap_state\","
     "\"stack_symbol\":\"machinen_controlled_stack_observation\","
+    "\"continuation_symbol\":\"machinen_controlled_continuation_anchor\","
     "\"resource_symbol\":\"machinen_controlled_resource_state\","
     "\"threads_symbol\":\"machinen_controlled_thread_states\","
     "\"dwarf_global_symbol\":\"machinen_controlled_dwarf_global_state\","
@@ -176,6 +192,22 @@ static uint64_t checksum_dwarf_nodes(const struct ControlledDwarfNode *head) {
     hash ^= node->value;
     hash *= UINT64_C(1099511628211);
     node = node->next;
+  }
+  return hash;
+}
+
+static uint64_t checksum_continuation_values(
+    uint64_t seed, uint64_t live_local, uint64_t resume_delta, const char *continuation) {
+  uint64_t hash = UINT64_C(1469598103934665603);
+  hash ^= seed;
+  hash *= UINT64_C(1099511628211);
+  hash ^= live_local;
+  hash *= UINT64_C(1099511628211);
+  hash ^= resume_delta;
+  hash *= UINT64_C(1099511628211);
+  for (const unsigned char *p = (const unsigned char *)continuation; *p; p++) {
+    hash ^= *p;
+    hash *= UINT64_C(1099511628211);
   }
   return hash;
 }
@@ -346,6 +378,68 @@ static int run_stack_fixture(void) {
   return 0;
 }
 
+static void fill_continuation_frame(
+    struct ControlledContinuationFrame *frame, uint64_t seed, uint64_t resume_delta) {
+  memset(frame, 0, sizeof(*frame));
+  frame->seed = seed;
+  frame->live_local = seed + UINT64_C(4242);
+  frame->resume_delta = resume_delta;
+  copy_label(frame->continuation, "controlled_continuation_point");
+  frame->checksum = checksum_continuation_values(
+      frame->seed, frame->live_local, frame->resume_delta, frame->continuation);
+}
+
+static uint64_t finish_continuation_frame(const struct ControlledContinuationFrame *frame) {
+  uint64_t expected = checksum_continuation_values(
+      frame->seed, frame->live_local, frame->resume_delta, frame->continuation);
+  if (frame->checksum != expected) {
+    return UINT64_MAX;
+  }
+  return frame->live_local + frame->resume_delta;
+}
+
+static void print_continuation_marker(const char *fixture, uint64_t result) {
+  const struct ControlledContinuationFrame *frame = machinen_controlled_continuation_anchor.frame;
+  printf(CONTROLLED_MARKER
+         "{\"schema_version\":%u,\"fixture\":\"%s\",\"arch\":\"%s\","
+         "\"continuation\":\"%s\",\"frame_size\":%" PRIu64 ","
+         "\"seed\":%" PRIu64 ",\"live_local\":%" PRIu64 ","
+         "\"resume_delta\":%" PRIu64 ",\"checksum\":%" PRIu64 ","
+         "\"checksum_hex\":\"0x%" PRIx64 "\",\"result\":%" PRIu64 "}\n",
+      CONTROLLED_SCHEMA_VERSION, fixture, CONTROLLED_ARCH,
+      machinen_controlled_continuation_anchor.continuation,
+      machinen_controlled_continuation_anchor.frame_size, frame ? frame->seed : 0,
+      frame ? frame->live_local : 0, frame ? frame->resume_delta : 0, frame ? frame->checksum : 0,
+      frame ? frame->checksum : 0, result);
+  fflush(stdout);
+}
+
+static uint64_t controlled_continuation_point(uint64_t seed) {
+  struct ControlledContinuationFrame frame;
+  fill_continuation_frame(&frame, seed, 77u);
+  machinen_controlled_continuation_anchor.frame = &frame;
+  machinen_controlled_continuation_anchor.frame_size = sizeof(frame);
+  copy_label(machinen_controlled_continuation_anchor.continuation, frame.continuation);
+
+  print_continuation_marker("continuation", 0);
+  maybe_pause_at_observation("continuation");
+  return finish_continuation_frame(&frame);
+}
+
+static uint64_t controlled_continuation_outer(uint64_t seed) {
+  return controlled_continuation_point(seed);
+}
+
+static int run_continuation_fixture(void) {
+  uint64_t result = controlled_continuation_outer(1000);
+  if (result != 5319u) {
+    fprintf(stderr, "machinen-controlled-corpus: continuation result invariant failed\n");
+    return 1;
+  }
+  memset(&machinen_controlled_continuation_anchor, 0, sizeof(machinen_controlled_continuation_anchor));
+  return 0;
+}
+
 static void print_resource_marker(void) {
   printf(CONTROLLED_MARKER
          "{\"schema_version\":%u,\"fixture\":\"resource\",\"arch\":\"%s\","
@@ -504,6 +598,14 @@ struct ControlledDwarfRestoreState {
   uint64_t values[3];
   uint64_t tags[3];
   uint64_t colors[3];
+  uint64_t checksum;
+};
+
+struct ControlledContinuationRestoreState {
+  char continuation[CONTROLLED_LABEL_CAPACITY];
+  uint64_t seed;
+  uint64_t live_local;
+  uint64_t resume_delta;
   uint64_t checksum;
 };
 
@@ -728,11 +830,88 @@ static int run_dwarf_restore(const char *bundle_dir) {
   return 0;
 }
 
+static int load_continuation_restore_state(
+    const char *bundle_dir, struct ControlledContinuationRestoreState *state) {
+  char path[CONTROLLED_PATH_CAPACITY];
+  int written = snprintf(path, sizeof(path), "%s/controlled-state.txt", bundle_dir);
+  if (written < 0 || written >= (int)sizeof(path)) {
+    fprintf(stderr, "machinen-controlled-corpus: continuation restore bundle path too long\n");
+    return 1;
+  }
+
+  FILE *file = fopen(path, "rb");
+  if (!file) {
+    fprintf(stderr, "machinen-controlled-corpus: fopen(%s) failed: %s\n", path, strerror(errno));
+    return 1;
+  }
+
+  char line[128];
+  while (fgets(line, sizeof(line), file)) {
+    if (parse_string_line(line, "continuation=", state->continuation, sizeof(state->continuation)) ||
+        parse_u64_line(line, "seed=", &state->seed) ||
+        parse_u64_line(line, "live_local=", &state->live_local) ||
+        parse_u64_line(line, "resume_delta=", &state->resume_delta) ||
+        parse_u64_line(line, "checksum=", &state->checksum)) {
+      continue;
+    }
+  }
+
+  if (fclose(file) != 0) {
+    fprintf(stderr, "machinen-controlled-corpus: fclose(%s) failed\n", path);
+    return 1;
+  }
+  if (state->continuation[0] == '\0' || state->live_local == 0) {
+    fprintf(stderr, "machinen-controlled-corpus: invalid continuation restore state\n");
+    return 1;
+  }
+  return 0;
+}
+
+static uint64_t controlled_continuation_restore_trampoline(
+    const struct ControlledContinuationRestoreState *state) {
+  struct ControlledContinuationFrame frame;
+  memset(&frame, 0, sizeof(frame));
+  frame.seed = state->seed;
+  frame.live_local = state->live_local;
+  frame.resume_delta = state->resume_delta;
+  copy_label(frame.continuation, state->continuation);
+  frame.checksum = state->checksum;
+  return finish_continuation_frame(&frame);
+}
+
+static void print_continuation_restore_marker(
+    const struct ControlledContinuationRestoreState *state, uint64_t result) {
+  printf(CONTROLLED_MARKER
+         "{\"schema_version\":%u,\"fixture\":\"continuation-restore\",\"arch\":\"%s\","
+         "\"continuation\":\"%s\",\"seed\":%" PRIu64 ","
+         "\"live_local\":%" PRIu64 ",\"resume_delta\":%" PRIu64 ","
+         "\"checksum\":%" PRIu64 ",\"checksum_hex\":\"0x%" PRIx64 "\","
+         "\"result\":%" PRIu64 ",\"resumed\":true}\n",
+      CONTROLLED_SCHEMA_VERSION, CONTROLLED_ARCH, state->continuation, state->seed,
+      state->live_local, state->resume_delta, state->checksum, state->checksum, result);
+  fflush(stdout);
+}
+
+static int run_continuation_restore(const char *bundle_dir) {
+  struct ControlledContinuationRestoreState state = {0};
+  if (load_continuation_restore_state(bundle_dir, &state) != 0) {
+    return 1;
+  }
+  uint64_t result = controlled_continuation_restore_trampoline(&state);
+  if (result == UINT64_MAX || result != state.live_local + state.resume_delta) {
+    fprintf(stderr, "machinen-controlled-corpus: continuation restore failed\n");
+    return 1;
+  }
+  print_continuation_restore_marker(&state, result);
+  return 0;
+}
+
 static void print_usage(const char *argv0) {
   fprintf(stderr,
       "usage: %s [--fixture all|global|heap|stack|resource|threads|dwarf] "
       "[--resource-file path] [--pause-at-observation] "
-      "[--restore-known-symbol-bundle path] [--restore-dwarf-bundle path]\n",
+      "[--restore-known-symbol-bundle path] [--restore-dwarf-bundle path] "
+      "[--restore-continuation-bundle path]\n",
       argv0);
 }
 
@@ -753,6 +932,9 @@ static int run_selected_fixture(const char *fixture, const char *resource_path, 
   if (streq(fixture, "dwarf")) {
     return run_dwarf_fixture();
   }
+  if (streq(fixture, "continuation")) {
+    return run_continuation_fixture();
+  }
   if (streq(fixture, "resource")) {
     return run_resource_fixture(resource_path, argc);
   }
@@ -764,7 +946,7 @@ static int run_selected_fixture(const char *fixture, const char *resource_path, 
 }
 
 static int run_all_fixtures(const char *resource_path, int argc) {
-  const char *fixtures[] = {"global", "heap", "stack", "resource", "threads", "dwarf"};
+  const char *fixtures[] = {"global", "heap", "stack", "continuation", "resource", "threads", "dwarf"};
   for (uint32_t i = 0; i < sizeof(fixtures) / sizeof(fixtures[0]); i++) {
     if (run_selected_fixture(fixtures[i], resource_path, argc) != 0) {
       return 1;
@@ -778,6 +960,7 @@ int main(int argc, char **argv) {
   const char *resource_path = "machinen-controlled-resource.txt";
   const char *restore_bundle_dir = NULL;
   const char *dwarf_restore_bundle_dir = NULL;
+  const char *continuation_restore_bundle_dir = NULL;
 
   for (int i = 1; i < argc; i++) {
     if (streq(argv[i], "--fixture")) {
@@ -806,6 +989,12 @@ int main(int argc, char **argv) {
         return 2;
       }
       dwarf_restore_bundle_dir = argv[++i];
+    } else if (streq(argv[i], "--restore-continuation-bundle")) {
+      if (i + 1 >= argc) {
+        print_usage(argv[0]);
+        return 2;
+      }
+      continuation_restore_bundle_dir = argv[++i];
     } else if (streq(argv[i], "--help") || streq(argv[i], "-h")) {
       print_usage(argv[0]);
       return 0;
@@ -821,6 +1010,9 @@ int main(int argc, char **argv) {
   }
   if (dwarf_restore_bundle_dir) {
     return run_dwarf_restore(dwarf_restore_bundle_dir);
+  }
+  if (continuation_restore_bundle_dir) {
+    return run_continuation_restore(continuation_restore_bundle_dir);
   }
   if (streq(fixture, "all")) {
     return run_all_fixtures(resource_path, argc);

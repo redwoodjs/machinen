@@ -27,6 +27,7 @@
 
 #define RAW_CAPTURE_MAX_SYMBOLS 32u
 #define RAW_CAPTURE_MAX_FOLLOW_LISTS 8u
+#define RAW_CAPTURE_MAX_FOLLOW_POINTERS 8u
 #define RAW_CAPTURE_MAX_THREADS 64u
 #define RAW_CAPTURE_MAX_ARGV 128u
 #define RAW_CAPTURE_REG_BYTES 1024u
@@ -58,12 +59,21 @@ struct FollowList {
   char chunk_prefix[128];
 };
 
+struct FollowPointer {
+  char root_symbol[128];
+  uint64_t pointer_offset;
+  uint64_t object_size;
+  char chunk_name[128];
+};
+
 struct Options {
   const char *output_dir;
   struct CaptureSymbol symbols[RAW_CAPTURE_MAX_SYMBOLS];
   uint32_t symbol_count;
   struct FollowList follow_lists[RAW_CAPTURE_MAX_FOLLOW_LISTS];
   uint32_t follow_list_count;
+  struct FollowPointer follow_pointers[RAW_CAPTURE_MAX_FOLLOW_POINTERS];
+  uint32_t follow_pointer_count;
   int command_index;
 };
 
@@ -227,10 +237,46 @@ static void parse_follow_list(struct Options *opts, const char *spec) {
   }
 }
 
+static void parse_follow_pointer(struct Options *opts, const char *spec) {
+  if (opts->follow_pointer_count >= RAW_CAPTURE_MAX_FOLLOW_POINTERS) {
+    fail("too many follow pointers");
+  }
+
+  char scratch[512];
+  if (snprintf(scratch, sizeof(scratch), "%s", spec) >= (int)sizeof(scratch)) {
+    fail("follow-pointer spec too long");
+  }
+
+  char *cursor = scratch;
+  char *root = next_token(&cursor);
+  char *pointer_offset = next_token(&cursor);
+  char *object_size = next_token(&cursor);
+  char *chunk_name = next_token(&cursor);
+  if (!root || !pointer_offset || !object_size || !chunk_name || cursor) {
+    fail("--follow-pointer must be root-symbol:pointer-offset:object-size:chunk-name");
+  }
+
+  struct FollowPointer *follow = &opts->follow_pointers[opts->follow_pointer_count++];
+  if (snprintf(follow->root_symbol, sizeof(follow->root_symbol), "%s", root) >=
+      (int)sizeof(follow->root_symbol)) {
+    fail("follow-pointer root symbol too long");
+  }
+  follow->pointer_offset = parse_u64(pointer_offset, "follow-pointer pointer offset");
+  follow->object_size = parse_u64(object_size, "follow-pointer object size");
+  if (follow->object_size == 0 || follow->object_size > RAW_CAPTURE_MAX_FOLLOW_NODE_SIZE) {
+    fail("follow-pointer object size is out of range");
+  }
+  if (snprintf(follow->chunk_name, sizeof(follow->chunk_name), "%s", chunk_name) >=
+      (int)sizeof(follow->chunk_name)) {
+    fail("follow-pointer chunk name too long");
+  }
+}
+
 static void usage(const char *argv0) {
   fprintf(stderr,
       "usage: %s --output dir [--symbol name:address:size ...] "
       "[--follow-list root:head-offset:count-offset:node-size:next-offset:prefix ...] "
+      "[--follow-pointer root:pointer-offset:object-size:chunk-name ...] "
       "-- program [args...]\n",
       argv0);
 }
@@ -256,6 +302,12 @@ static struct Options parse_args(int argc, char **argv) {
         exit(2);
       }
       parse_follow_list(&opts, argv[++i]);
+    } else if (streq(argv[i], "--follow-pointer")) {
+      if (i + 1 >= argc) {
+        usage(argv[0]);
+        exit(2);
+      }
+      parse_follow_pointer(&opts, argv[++i]);
     } else if (streq(argv[i], "--")) {
       opts.command_index = i + 1;
       break;
@@ -695,6 +747,30 @@ static void append_matching_follow_lists(FILE *json, FILE *bin, bool *first, uin
   }
 }
 
+static void append_matching_follow_pointers(FILE *json, FILE *bin, bool *first,
+    uint64_t *file_offset, int mem_fd, const struct Options *opts,
+    const struct CaptureSymbol *symbol, const uint8_t *buffer) {
+  for (uint32_t i = 0; i < opts->follow_pointer_count; i++) {
+    const struct FollowPointer *follow = &opts->follow_pointers[i];
+    if (!streq(follow->root_symbol, symbol->name)) {
+      continue;
+    }
+    require_u64_window(follow->pointer_offset, symbol->size_bytes, "pointer");
+    uint64_t address = read_u64_native(buffer + follow->pointer_offset);
+    if (address == 0) {
+      fail("follow-pointer address is null");
+    }
+    uint8_t *object = malloc((size_t)follow->object_size);
+    if (!object) {
+      die("malloc follow-pointer object");
+    }
+    read_process_memory(mem_fd, address, object, follow->object_size);
+    append_memory_chunk(json, bin, first, file_offset, follow->chunk_name, address, object,
+        follow->object_size);
+    free(object);
+  }
+}
+
 static void append_symbol_memory(FILE *json, FILE *bin, bool *first, uint64_t *file_offset,
     int mem_fd, const struct Options *opts, const struct CaptureSymbol *symbol) {
   if (symbol->size_bytes > 1024u * 1024u) {
@@ -711,6 +787,7 @@ static void append_symbol_memory(FILE *json, FILE *bin, bool *first, uint64_t *f
     append_controlled_heap_nodes(json, bin, first, file_offset, mem_fd, buffer, symbol->size_bytes);
   }
   append_matching_follow_lists(json, bin, first, file_offset, mem_fd, opts, symbol, buffer);
+  append_matching_follow_pointers(json, bin, first, file_offset, mem_fd, opts, symbol, buffer);
   free(buffer);
 }
 
