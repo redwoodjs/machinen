@@ -67,6 +67,8 @@ This is still a controlled frame. It uses sidecar metadata for the active PC,
 the return address, the pointer-bearing register, and the pointer-bearing data
 word. The heap-graph final-jump proof builds on this by translating multiple
 pointer-bearing root/heap words and making the return landing walk that graph
-natively. Neither proof claims general unwind recovery, optimized frame handling,
-dynamic loader relocation, active syscall restore, signal-frame restore, TLS
-reconstruction, or resource broker support.
+natively. The file-resource final-jump proof also builds on this path by
+reopening a captured regular-file fd before target-native code reads from it
+after the return. These proofs do not claim general unwind recovery, optimized
+frame handling, dynamic loader relocation, active syscall restore, signal-frame
+restore, TLS reconstruction, or brokered socket/PTY support.
