@@ -86,6 +86,11 @@
 - [`NativeCodeMapRequest`](#nativecodemaprequest)
 - [`NativeCodeMapResult`](#nativecodemapresult)
 - [`buildNativeCodeMap`](#buildnativecodemap)
+- [`NativeStackFrame`](#nativestackframe)
+- [`NativeStackSlot`](#nativestackslot)
+- [`NativeStackTranslationRequest`](#nativestacktranslationrequest)
+- [`NativeStackTranslationResult`](#nativestacktranslationresult)
+- [`translateNativeStack`](#translatenativestack)
 
 ### Provision base images
 
@@ -3022,6 +3027,106 @@ by default when `output` is a TTY.
 ##### threads
 
 > **threads**: [`NativeThreadTranslation`](#nativethreadtranslation)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
+### NativeStackFrame
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### sourceSp
+
+> **sourceSp**: `string`
+
+##### sourceReturnAddress
+
+> **sourceReturnAddress**: `string`
+
+##### sizeBytes
+
+> **sizeBytes**: `number`
+
+##### metadata
+
+> **metadata**: `"unknown"` \| `"dwarf"` \| `"sidecar"`
+
+##### locals
+
+> **locals**: [`NativeStackSlot`](#nativestackslot)[]
+
+***
+
+### NativeStackSlot
+
+#### Properties
+
+##### offset
+
+> **offset**: `number`
+
+##### kind
+
+> **kind**: `"pointer"` \| `"integer"` \| `"code-pointer"` \| `"ambiguous"`
+
+##### sourceValue
+
+> **sourceValue**: `string`
+
+##### targetValue?
+
+> `optional` **targetValue?**: `string`
+
+***
+
+### NativeStackTranslationRequest
+
+#### Properties
+
+##### stackMapping
+
+> **stackMapping**: `string`
+
+##### targetStackBase
+
+> **targetStackBase**: `string`
+
+##### frames
+
+> **frames**: [`NativeStackFrame`](#nativestackframe)[]
+
+##### codeLocations
+
+> **codeLocations**: [`NativeCodeLocationMapping`](#nativecodelocationmapping)[]
+
+***
+
+### NativeStackTranslationResult
+
+#### Properties
+
+##### stackMapping
+
+> **stackMapping**: `string`
+
+##### targetStackBase
+
+> **targetStackBase**: `string`
+
+##### targetStackSizeBytes
+
+> **targetStackSizeBytes**: `number`
+
+##### relocations
+
+> **relocations**: [`NativeMemoryRelocation`](#nativememoryrelocation)[]
 
 ##### refusals
 
@@ -7540,6 +7645,22 @@ available.
 #### Returns
 
 [`NativeRegisterTranslationResult`](#nativeregistertranslationresult)
+
+***
+
+### translateNativeStack()
+
+> **translateNativeStack**(`request`): [`NativeStackTranslationResult`](#nativestacktranslationresult)
+
+#### Parameters
+
+##### request
+
+[`NativeStackTranslationRequest`](#nativestacktranslationrequest)
+
+#### Returns
+
+[`NativeStackTranslationResult`](#nativestacktranslationresult)
 
 ***
 
