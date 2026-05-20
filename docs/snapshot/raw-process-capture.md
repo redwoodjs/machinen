@@ -14,6 +14,7 @@ The Linux capturer writes an inspectable directory with:
 - `fds.json` — `/proc/<pid>/fd` targets.
 - `symbols.json` — exported symbol addresses passed in by the verifier.
 - `memory.json` and `memory.bin` — raw bytes read from `/proc/<pid>/mem` for those symbols.
+- Optional followed-list chunks — when a verifier supplies a DWARF-derived `--follow-list`, the capturer reads a root pointer/count pair and captures the pointed-to heap nodes by a generic node size and next-pointer offset.
 - `target.log` — the controlled fixture's observation marker and pause log.
 
 ## Verify
