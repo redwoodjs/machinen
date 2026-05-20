@@ -15,6 +15,7 @@ The Linux capturer writes an inspectable directory with:
 - `symbols.json` — exported symbol addresses passed in by the verifier.
 - `memory.json` and `memory.bin` — raw bytes read from `/proc/<pid>/mem` for those symbols.
 - Optional followed-list chunks — when a verifier supplies a DWARF-derived `--follow-list`, the capturer reads a root pointer/count pair and captures the pointed-to heap nodes by a generic node size and next-pointer offset.
+- Optional followed-pointer chunks — when a verifier supplies `--follow-pointer`, the capturer reads one pointer field from a root symbol and captures only that described object. The continuation proof uses this to decode a live stack-local frame without copying a raw stack window.
 - `target.log` — the controlled fixture's observation marker and pause log.
 
 ## Verify

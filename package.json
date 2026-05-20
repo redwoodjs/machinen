@@ -35,6 +35,7 @@
     "known-symbol-extract": "node scripts/known-symbol-extract.mjs verify",
     "dwarf-symbol-extract": "node scripts/dwarf-symbol-extract.mjs verify",
     "sidecar-metadata-extract": "node scripts/sidecar-metadata-extract.mjs verify",
+    "continuation-translate": "node scripts/continuation-translate.mjs verify",
     "smoke-test-snapshot-restore-fork": "bash scripts/smoke-test-snapshot-restore-fork.sh",
     "smoke-vmstate": "bash scripts/smoke/vmstate/all.sh",
     "smoke-vmstate-timers": "bash scripts/smoke/vmstate/timers.sh",

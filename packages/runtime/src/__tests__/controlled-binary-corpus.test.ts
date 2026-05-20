@@ -41,6 +41,7 @@ describe("controlled binary corpus", () => {
       "global",
       "heap",
       "stack",
+      "continuation",
       "resource",
       "threads",
       "dwarf",
@@ -48,6 +49,11 @@ describe("controlled binary corpus", () => {
     expect(summary.native.events.find((event) => event.fixture === "stack")).toMatchObject({
       continuation: "controlled_nested_stack_point",
       live_local: 5242,
+    });
+    expect(summary.native.events.find((event) => event.fixture === "continuation")).toMatchObject({
+      continuation: "controlled_continuation_point",
+      live_local: 5242,
+      resume_delta: 77,
     });
     expect(summary.native.events.find((event) => event.fixture === "dwarf")).toMatchObject({
       global: { label: "dwarf-global-layout-v2", counter: 7000 },
