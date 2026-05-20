@@ -25,6 +25,10 @@ export const NATIVE_CAPTURE_TARGET_SOURCE = join(
   REPO_ROOT,
   "packages/microvm/assets/native-capture-target.c",
 );
+export const NATIVE_MAPPING_POLICY_TARGET_SOURCE = join(
+  REPO_ROOT,
+  "packages/microvm/assets/native-mapping-policy-target.c",
+);
 export const NATIVE_RESTORE_LOADER_SOURCE = join(
   REPO_ROOT,
   "packages/microvm/assets/native-restore-loader.c",
@@ -148,6 +152,26 @@ export function compileNativeCaptureTarget(binDir) {
       executable,
     ],
     { label: "native capture target build" },
+  );
+  return executable;
+}
+
+export function compileNativeMappingPolicyTarget(binDir) {
+  const executable = join(binDir, "machinen-native-mapping-policy-target");
+  runCommand(
+    "cc",
+    [
+      "-std=c11",
+      "-O0",
+      "-g",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      NATIVE_MAPPING_POLICY_TARGET_SOURCE,
+      "-o",
+      executable,
+    ],
+    { label: "native mapping policy target build" },
   );
   return executable;
 }
