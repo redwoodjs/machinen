@@ -69,6 +69,7 @@ export const nativeProcessImageRefusalCodes = [
   "target-resume-fault-timeout",
   "target-resume-fault-unmodeled-memory",
   "target-semantic-continuation-missing",
+  "target-sleep-remaining-time-missing",
   "thread-state-unsupported",
   "tls-state-unsupported",
   "return-slot-unreadable",
@@ -210,6 +211,9 @@ export interface NativeThreadState {
     state: "outside-syscall" | "inside-syscall" | "restart-block";
     number?: number;
     name?: string;
+    arguments?: string[];
+    stackPointer?: string;
+    instructionPointer?: string;
   };
   signal: {
     blocked: string[];
@@ -801,6 +805,26 @@ function validateThreadSyscall(ctx: NativeValidationContext, path: string, value
   nativeEnum(ctx, `${path}.state`, syscall.state, SYSCALL_STATES);
   nativeOptionalNonNegativeInt(ctx, `${path}.number`, syscall.number);
   nativeOptionalString(ctx, `${path}.name`, syscall.name);
+  validateThreadSyscallArguments(ctx, path, syscall.arguments);
+  nativeOptionalHex(ctx, `${path}.stackPointer`, syscall.stackPointer);
+  nativeOptionalHex(ctx, `${path}.instructionPointer`, syscall.instructionPointer);
+}
+
+function validateThreadSyscallArguments(
+  ctx: NativeValidationContext,
+  path: string,
+  value: unknown,
+): void {
+  if (value === undefined) {
+    return;
+  }
+  const args = nativeArray(ctx, `${path}.arguments`, value, { exactItems: 6 });
+  if (!args) {
+    return;
+  }
+  for (const [index, arg] of args.entries()) {
+    nativeHex(ctx, `${path}.arguments[${index}]`, arg);
+  }
 }
 
 function validateThreadSignal(ctx: NativeValidationContext, path: string, value: unknown): void {

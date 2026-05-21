@@ -13,6 +13,31 @@ import type {
 
 const emptyRefusals = { vocabularyVersion: 1 as const, refusals: [] };
 
+function modeledSleepTimerMetadata() {
+  const remainingTime = {
+    state: "modeled" as const,
+    kind: "relative-duration" as const,
+    source: "active-syscall-request-timespec" as const,
+    precision: "requested-duration-upper-bound" as const,
+    seconds: "30",
+    nanoseconds: 0,
+  };
+  return {
+    remainingTime,
+    sleepTimer: {
+      kind: "relative-duration" as const,
+      syscallName: "clock_nanosleep",
+      argumentSource: "registers" as const,
+      clockId: 0,
+      flags: 0,
+      requestPointer: "0x1000",
+      requestedTime: { seconds: "30", nanoseconds: 0 },
+      remainingTime,
+    },
+    policy: "conservative-target-timer-rearm-required" as const,
+  };
+}
+
 function sourceMapping(overrides: Partial<NativeMemoryMapping> = {}): NativeMemoryMapping {
   return {
     id: "mapping:exe-text",
@@ -175,10 +200,7 @@ describe("native real utility code-location map", () => {
       syscallClass: "sleep-timer" as const,
       action: "defer-target-resume" as const,
       syscall: activeThread.syscall,
-      metadata: {
-        remainingTime: "not-captured" as const,
-        policy: "conservative-target-timer-rearm-required" as const,
-      },
+      metadata: modeledSleepTimerMetadata(),
     };
     const result = resolveNativeRealUtilityCodeLocations({
       documents: documents({ activeThread }),
@@ -224,7 +246,7 @@ describe("native real utility code-location map", () => {
       targetAddress: "0x700000002200",
       targetRva: "0x2200",
       strategy: "semantic-sleep-timer-symbol",
-      metadata: { remainingTime: "not-captured" },
+      metadata: { remainingTime: { state: "modeled", seconds: "30", nanoseconds: 0 } },
       semanticContinuation: { symbolName: "clock_nanosleep@@GLIBC_2.17" },
     });
   });
@@ -238,10 +260,7 @@ describe("native real utility code-location map", () => {
       syscallClass: "sleep-timer" as const,
       action: "defer-target-resume" as const,
       syscall: activeThread.syscall,
-      metadata: {
-        remainingTime: "not-captured" as const,
-        policy: "conservative-target-timer-rearm-required" as const,
-      },
+      metadata: modeledSleepTimerMetadata(),
     };
 
     expect(

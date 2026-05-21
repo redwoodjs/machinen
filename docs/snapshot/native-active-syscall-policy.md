@@ -20,20 +20,27 @@ The current classifier reports:
 Known blocking syscall classes refuse with precise codes:
 
 - `blocking-syscall-state-unsupported` for sleep/timer and fd-blocking syscalls;
+- `target-sleep-remaining-time-missing` when explicit sleep deferral is requested
+  but the capture cannot model a relative target timer rearm duration;
 - `syscall-restart-unsupported` for restart state;
 - `active-syscall` for unknown active syscalls.
 
-`syscall-argument-state-unsupported` is reserved for later work that parses
-syscall arguments but still cannot prove a safe target continuation.
+`syscall-argument-state-unsupported` remains reserved for syscall argument cases
+that are parsed but still cannot prove a safe target continuation.
 
 ## Explicit sleep/timer deferral
 
 Issue #512 adds an opt-in `defer-target-resume` policy for sleep/timer syscalls.
-This does not mark the syscall as directly resumable. It records a target-resume
-continuation that must conservatively re-arm a target timer before user code can
-continue. The actual utility proof uses this to move past the `thread-state`
-gate and expose the next blocker without pretending that source kernel state was
-restored.
+This does not mark the syscall as directly resumable. The policy now requires a
+modeled relative sleep request timespec from the live syscall arguments and
+captured memory. When that model exists, it records a target-resume continuation
+with `remainingTime.state: "modeled"` and a conservative
+`requested-duration-upper-bound` rearm duration. When the model is missing, it
+fails closed with `target-sleep-remaining-time-missing`.
+
+The actual utility proof uses this to move past the `thread-state` gate only when
+there is explicit target timer metadata, without pretending that source kernel
+state was restored.
 
 ## Proof
 

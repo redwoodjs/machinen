@@ -242,6 +242,7 @@ function actualUtilityPlanningInputs(
   const memoryBytes = statSync(join(bundleDir, "native-memory.bin")).size;
   const activeSyscalls = classifyNativeActiveSyscalls(bundle.threads.threads, {
     sleepTimerPolicy: sleepTimerPolicy(),
+    documents: bundle,
   });
   const registers = translateNativeRegisterState({
     sourceArch: bundle.manifest.capture.sourceArch,
@@ -1169,6 +1170,7 @@ function threadSyscallSummaries(planned: ReturnType<typeof planCapturedActualUti
     state: thread.syscall.state,
     number: thread.syscall.number,
     name: thread.syscall.name,
+    arguments: thread.syscall.arguments,
   }));
 }
 

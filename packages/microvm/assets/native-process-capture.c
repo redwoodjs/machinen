@@ -73,6 +73,12 @@ struct SyscallInfo {
   bool has_number;
   uint64_t number;
   char name[64];
+  bool has_arguments;
+  uint64_t arguments[6];
+  bool has_stack_pointer;
+  uint64_t stack_pointer;
+  bool has_instruction_pointer;
+  uint64_t instruction_pointer;
 };
 
 static void read_thread_syscall(pid_t tid, struct SyscallInfo *info);
@@ -983,6 +989,24 @@ static void syscall_info_default(struct SyscallInfo *info, const char *state) {
   snprintf(info->name, sizeof(info->name), "unknown");
 }
 
+static bool parse_syscall_word(char **cursor, uint64_t *value) {
+  while (**cursor == ' ' || **cursor == '\t') {
+    (*cursor)++;
+  }
+  if (**cursor == '\0' || **cursor == '\n') {
+    return false;
+  }
+  errno = 0;
+  char *end = NULL;
+  unsigned long long parsed = strtoull(*cursor, &end, 0);
+  if (errno != 0 || end == *cursor) {
+    return false;
+  }
+  *value = (uint64_t)parsed;
+  *cursor = end;
+  return true;
+}
+
 static void read_thread_syscall(pid_t tid, struct SyscallInfo *info) {
   syscall_info_default(info, "outside-syscall");
   char path[PATH_MAX];
@@ -1017,6 +1041,22 @@ static void read_thread_syscall(pid_t tid, struct SyscallInfo *info) {
   snprintf(info->state, sizeof(info->state), "%s",
       syscall_is_restart(number) ? "restart-block" : "inside-syscall");
   snprintf(info->name, sizeof(info->name), "%s", syscall_name(number));
+
+  char *cursor = end;
+  bool has_all_arguments = true;
+  for (size_t i = 0; i < 6; i++) {
+    if (!parse_syscall_word(&cursor, &info->arguments[i])) {
+      has_all_arguments = false;
+      break;
+    }
+  }
+  info->has_arguments = has_all_arguments;
+  if (parse_syscall_word(&cursor, &info->stack_pointer)) {
+    info->has_stack_pointer = true;
+  }
+  if (parse_syscall_word(&cursor, &info->instruction_pointer)) {
+    info->has_instruction_pointer = true;
+  }
 }
 
 static void write_syscall_state(FILE *out, const struct SyscallInfo *syscall) {
@@ -1025,6 +1065,23 @@ static void write_syscall_state(FILE *out, const struct SyscallInfo *syscall) {
   if (syscall->has_number) {
     fprintf(out, ",\"number\":%" PRIu64 ",\"name\":", syscall->number);
     json_string(out, syscall->name);
+  }
+  if (syscall->has_arguments) {
+    fputs(",\"arguments\":[", out);
+    for (size_t i = 0; i < 6; i++) {
+      if (i > 0) {
+        fputc(',', out);
+      }
+      fprintf(out, "\"0x%llx\"", (unsigned long long)syscall->arguments[i]);
+    }
+    fputc(']', out);
+  }
+  if (syscall->has_stack_pointer) {
+    fprintf(out, ",\"stackPointer\":\"0x%llx\"", (unsigned long long)syscall->stack_pointer);
+  }
+  if (syscall->has_instruction_pointer) {
+    fprintf(out, ",\"instructionPointer\":\"0x%llx\"",
+        (unsigned long long)syscall->instruction_pointer);
   }
   fputc('}', out);
 }

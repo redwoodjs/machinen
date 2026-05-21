@@ -12,8 +12,9 @@ raw source virtual addresses as amd64 code.
 For each captured thread:
 
 1. Refuse first if the thread is not `outside-syscall`, unless it carries an
-   explicit deferred sleep/timer continuation. That keeps #492's active-syscall
-   safety gate ahead of target-code work by default.
+   explicit deferred sleep/timer continuation with modeled target timer rearm
+   metadata. That keeps #492's active-syscall safety gate ahead of target-code
+   work by default.
 2. Find the executable source mapping that contains the captured PC.
 3. Build source module identity from the mapping path, kind, source arch,
    build identity, load bias, and text mapping id.
@@ -50,6 +51,9 @@ from target-native module metadata.
   RVA is not executable in that module.
 - `target-semantic-continuation-missing` — a deferred sleep/timer syscall needs
   a semantic amd64 continuation, but the target module has no modeled symbol.
+- `target-sleep-remaining-time-missing` — the active syscall policy was asked to
+  defer a sleep/timer syscall, but it could not model the relative target timer
+  duration from captured syscall state.
 
 ## Proof
 
