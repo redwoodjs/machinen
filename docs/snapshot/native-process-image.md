@@ -57,6 +57,11 @@ first native-translation blockers:
 - `pointer-ambiguous`
 - `resource-kind-unsupported`
 - `target-build-mismatch`
+- `target-build-id-mismatch`
+- `target-module-missing`
+- `target-module-not-executable`
+- `target-code-location-unresolved`
+- `target-code-rva-unmapped`
 
 Unsupported work must emit a precise refusal instead of silently copying source
 state into the target.
