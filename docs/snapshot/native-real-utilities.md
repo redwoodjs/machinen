@@ -73,3 +73,4 @@ See also:
 - [Native real utility final jump](./native-real-utility-final-jump.md)
 - [Native actual real utility continuation](./native-actual-real-utility-continuation.md)
 - [Native active syscall policy](./native-active-syscall-policy.md)
+- [Native sleep syscall continuation policy](./native-sleep-syscall-policy.md)

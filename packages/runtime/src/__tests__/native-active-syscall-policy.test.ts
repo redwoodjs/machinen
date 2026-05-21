@@ -40,6 +40,27 @@ describe("native active syscall classification", () => {
     expect(result.refusals[0]?.detail).toMatchObject({ syscallClass: "sleep-timer" });
   });
 
+  it("can explicitly defer sleep/timer syscalls without marking them directly resumable", () => {
+    const result = classifyNativeActiveSyscalls(
+      [thread({ state: "inside-syscall", number: 115, name: "clock_nanosleep" })],
+      { sleepTimerPolicy: "defer-target-resume" },
+    );
+
+    expect(result.refusals).toEqual([]);
+    expect(result.continuations[0]).toMatchObject({
+      syscallClass: "sleep-timer",
+      action: "defer-target-resume",
+      metadata: {
+        remainingTime: "not-captured",
+        policy: "conservative-target-timer-rearm-required",
+      },
+    });
+    expect(result.classifications[0]).toMatchObject({
+      class: "sleep-timer",
+      resumable: false,
+    });
+  });
+
   it("classifies fd-blocking syscalls separately from sleep timers", () => {
     const result = classifyNativeActiveSyscalls([
       thread({ state: "inside-syscall", number: 63, name: "read" }),

@@ -147,6 +147,9 @@ export type {
   NativeActiveSyscallClass,
   NativeActiveSyscallClassification,
   NativeActiveSyscallClassificationResult,
+  NativeActiveSyscallContinuation,
+  NativeActiveSyscallPolicyOptions,
+  NativeSleepTimerSyscallPolicy,
 } from "./native-active-syscall-policy.ts";
 export type {
   NativeTargetModuleByteMaterialization,

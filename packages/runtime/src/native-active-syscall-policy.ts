@@ -9,6 +9,23 @@ export type NativeActiveSyscallClass =
   | "restart"
   | "unknown-active";
 
+export type NativeSleepTimerSyscallPolicy = "refuse" | "defer-target-resume";
+
+export interface NativeActiveSyscallPolicyOptions {
+  sleepTimerPolicy?: NativeSleepTimerSyscallPolicy;
+}
+
+export interface NativeActiveSyscallContinuation {
+  threadId: string;
+  syscallClass: Extract<NativeActiveSyscallClass, "sleep-timer">;
+  action: "defer-target-resume";
+  syscall: NativeThreadState["syscall"];
+  metadata: {
+    remainingTime: "not-captured";
+    policy: "conservative-target-timer-rearm-required";
+  };
+}
+
 export interface NativeActiveSyscallClassification {
   threadId: string;
   state: NativeThreadState["syscall"]["state"];
@@ -17,11 +34,13 @@ export interface NativeActiveSyscallClassification {
   class: NativeActiveSyscallClass;
   resumable: false;
   refusal?: NativeProcessImageRefusal;
+  continuation?: NativeActiveSyscallContinuation;
 }
 
 export interface NativeActiveSyscallClassificationResult {
   classifications: NativeActiveSyscallClassification[];
   refusals: NativeProcessImageRefusal[];
+  continuations: NativeActiveSyscallContinuation[];
 }
 
 const SLEEP_TIMER_SYSCALLS = new Set(["clock_nanosleep", "nanosleep"]);
@@ -45,18 +64,23 @@ const FD_BLOCKING_SYSCALLS = new Set([
 
 export function classifyNativeActiveSyscalls(
   threads: NativeThreadState[],
+  options: NativeActiveSyscallPolicyOptions = {},
 ): NativeActiveSyscallClassificationResult {
-  const classifications = threads.map(classifyNativeThreadSyscall);
+  const classifications = threads.map((thread) => classifyNativeThreadSyscall(thread, options));
   return {
     classifications,
     refusals: classifications.flatMap((classification) =>
       classification.refusal ? [classification.refusal] : [],
+    ),
+    continuations: classifications.flatMap((classification) =>
+      classification.continuation ? [classification.continuation] : [],
     ),
   };
 }
 
 export function classifyNativeThreadSyscall(
   thread: NativeThreadState,
+  options: NativeActiveSyscallPolicyOptions = {},
 ): NativeActiveSyscallClassification {
   if (thread.syscall.state === "outside-syscall") {
     return baseClassification(thread, "outside-syscall");
@@ -70,6 +94,9 @@ export function classifyNativeThreadSyscall(
   }
   const name = syscallName(thread);
   if (SLEEP_TIMER_SYSCALLS.has(name)) {
+    if (options.sleepTimerPolicy === "defer-target-resume") {
+      return deferredSleepTimerClassification(thread);
+    }
     return refusedClassification(thread, "sleep-timer", {
       code: "blocking-syscall-state-unsupported",
       message: `thread ${thread.id} is blocked in sleep/timer syscall ${name}`,
@@ -114,6 +141,24 @@ function refusedClassification(
   refusal: NativeProcessImageRefusal,
 ): NativeActiveSyscallClassification {
   return { ...baseClassification(thread, syscallClass), refusal };
+}
+
+function deferredSleepTimerClassification(
+  thread: NativeThreadState,
+): NativeActiveSyscallClassification {
+  return {
+    ...baseClassification(thread, "sleep-timer"),
+    continuation: {
+      threadId: thread.id,
+      syscallClass: "sleep-timer",
+      action: "defer-target-resume",
+      syscall: thread.syscall,
+      metadata: {
+        remainingTime: "not-captured",
+        policy: "conservative-target-timer-rearm-required",
+      },
+    },
+  };
 }
 
 function syscallName(thread: NativeThreadState): string {

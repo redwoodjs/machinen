@@ -29,11 +29,16 @@ function verifyNativeActiveSyscallPolicy() {
     thread("thread:restart", { state: "restart-block", number: 128, name: "restart_syscall" }),
     thread("thread:unknown", { state: "inside-syscall", number: 9999, name: "unknown" }),
   ]);
+  const deferred = classifyNativeActiveSyscalls(
+    [thread("thread:sleep", { state: "inside-syscall", number: 115, name: "clock_nanosleep" })],
+    { sleepTimerPolicy: "defer-target-resume" },
+  );
   return {
     formatVersion: 1,
     phase: "native-active-syscall-policy",
     classifications: result.classifications,
     refusals: result.refusals,
+    deferredSleepTimer: deferred,
     execution: "active-native-syscall-blockers-classified-fail-closed",
   };
 }
