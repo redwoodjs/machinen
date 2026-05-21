@@ -109,6 +109,19 @@ export type {
   NativeCodeModule,
   NativeCodeSymbol,
 } from "./native-code-map.ts";
+export {
+  inventoryNativeSourceCodeModules,
+  resolveNativeRealUtilityCodeLocations,
+} from "./native-real-utility-code-map.ts";
+export type {
+  NativeRealUtilityCodeLocationRequest,
+  NativeRealUtilityCodeLocationResult,
+  NativeRealUtilityExecutableRange,
+  NativeRealUtilityModuleExpectation,
+  NativeRealUtilityResolvedLocation,
+  NativeRealUtilitySourceModule,
+  NativeRealUtilityTargetModule,
+} from "./native-real-utility-code-map.ts";
 export { classifyNativeDebugMemoryPointers } from "./native-debug-memory.ts";
 export type {
   NativeDebugAddressTranslation,
