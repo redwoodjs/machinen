@@ -168,6 +168,8 @@ const TOC = {
     "NativeSyntheticTargetCallerFramePlanRequest",
     "NativeSyntheticTargetCallerFramePlanResult",
     "planNativeSyntheticTargetCallerFrame",
+    "NativeTargetResumeExecutionAttempt",
+    "NativeTargetResumeExecutionAttemptStatus",
     "NativeTargetResumeExecutionMode",
     "NativeTargetResumeExecutor",
     "NativeTargetResumeExecutionPlan",

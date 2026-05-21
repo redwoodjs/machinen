@@ -12,7 +12,10 @@ import { planNativeActualRealUtilityContinuationAttempt } from "../packages/runt
 import { materializeNativeTargetModuleBytes } from "../packages/runtime/src/native-target-module-bytes.ts";
 import { planNativeTargetFrameStateMaterialization } from "../packages/runtime/src/native-target-frame-state.ts";
 import { planNativeSyntheticTargetCallerFrame } from "../packages/runtime/src/native-target-caller-frame.ts";
-import { planNativeTargetResumeExecution } from "../packages/runtime/src/native-target-resume-execution.ts";
+import {
+  planNativeTargetResumeExecution,
+  type NativeTargetResumeExecutionAttempt,
+} from "../packages/runtime/src/native-target-resume-execution.ts";
 import {
   matchNativeTargetUnwindFrame,
   parseNativeTargetEhFrameText,
@@ -36,9 +39,11 @@ import {
 import { translateNativeRegisterState } from "../packages/runtime/src/native-register-translation.ts";
 import { translateNativeResources } from "../packages/runtime/src/native-resource-translation.ts";
 import {
+  NATIVE_ACTUAL_RESUME_TRAMPOLINE_SOURCE,
   NATIVE_CAPTURE_SOURCE,
   NATIVE_PROCESS_IMAGE_BUNDLE_FILES,
   bundleFileStats,
+  compileNativeActualResumeTrampoline,
   compileNativeProcessCapturer,
   ensureSourcesExist,
   hostArch,
@@ -70,6 +75,10 @@ const UTILITY_NAME = "sleep";
 const SETTLE_MS = "150";
 const TARGET_BYTE_WINDOW = 32;
 const SOURCE_UNWIND_FILE = "native-source-unwind.json";
+const ACTUAL_RESUME_STACK_SIZE = 64 * 1024;
+const ACTUAL_RESUME_TARGET_STACK_START = 0x500000000000n;
+const ACTUAL_RESUME_TARGET_STACK_POINTER =
+  ACTUAL_RESUME_TARGET_STACK_START + BigInt(ACTUAL_RESUME_STACK_SIZE);
 
 function main() {
   const args = parseVerifyArgs(process.argv.slice(2), USAGE);
@@ -171,6 +180,7 @@ function consumeAmd64ActualUtility(outDir: string, sourceBundleDir: string) {
   });
   assert(planned.bundle.manifest.capture.sourceArch === "arm64", "source bundle must be arm64");
   assert(planned.bundle.manifest.target.arch === "amd64", "source bundle target must be amd64");
+  const resumeAttempt = executeActualTargetResumeAttempt(outDir, planned);
   return actualUtilitySummary({
     phase: "actual-real-utility-target-plan",
     hostArch: "amd64",
@@ -178,6 +188,7 @@ function consumeAmd64ActualUtility(outDir: string, sourceBundleDir: string) {
     targetRoot,
     command: planned.bundle.manifest.process.argv,
     planned,
+    resumeAttempt,
     outDir,
   });
 }
@@ -263,7 +274,10 @@ function actualUtilityPlanningInputs(
   });
   const targetCallerFrame = planNativeSyntheticTargetCallerFrame({
     frameState: targetFrameState,
-    policy: { mode: "abi-neutral-sentinel" },
+    policy: {
+      mode: "abi-neutral-sentinel",
+      stackPointer: finalJumpHex(ACTUAL_RESUME_TARGET_STACK_POINTER),
+    },
   });
   const targetBytes = materializeResolvedTargetBytes(code.resolved, options.targetRoot);
   const targetResumeExecution = planNativeTargetResumeExecution({
@@ -641,6 +655,106 @@ function resolveActualTargetPath(targetRoot: string | undefined, modulePath: str
   return join(targetRoot, isAbsolute(modulePath) ? modulePath.slice(1) : modulePath);
 }
 
+function executeActualTargetResumeAttempt(
+  outDir: string,
+  planned: ReturnType<typeof planCapturedActualUtilityBundle>,
+): NativeTargetResumeExecutionAttempt | undefined {
+  if (planned.plan.state !== "ready" || !planned.targetResumeExecution.plan) {
+    return undefined;
+  }
+  const targetBytes = planned.targetBytes.materialized[0];
+  assert(targetBytes, "ready actual resume plan has no target bytes");
+  ensureSourcesExist([NATIVE_ACTUAL_RESUME_TRAMPOLINE_SOURCE]);
+  const binDir = join(outDir, "bin");
+  mkdirSync(binDir, { recursive: true });
+  const trampoline = compileNativeActualResumeTrampoline(binDir);
+  const result = spawnSync(
+    trampoline,
+    [
+      "--code-file",
+      targetBytes.path,
+      "--file-offset",
+      String(targetBytes.fileOffset),
+      "--code-size",
+      String(targetBytes.sizeBytes),
+      "--target-address",
+      planned.targetResumeExecution.plan.entryAddress,
+      "--stack-target-start",
+      finalJumpHex(ACTUAL_RESUME_TARGET_STACK_START),
+      "--stack-size",
+      String(ACTUAL_RESUME_STACK_SIZE),
+      "--stack-pointer",
+      planned.targetResumeExecution.plan.stackPointer,
+    ],
+    { encoding: "utf8", maxBuffer: 20 * 1024 * 1024 },
+  );
+  assert(
+    result.status === 0,
+    `native actual target resume trampoline failed: ${result.stderr || result.stdout}`,
+  );
+  const line = result.stdout
+    .split(/\r?\n/)
+    .find((candidate) => candidate.startsWith("MACHINEN_ACTUAL_RESUME_TRAMPOLINE "));
+  assert(line, "native actual target resume trampoline did not emit an event");
+  return normalizeActualResumeAttempt(
+    JSON.parse(line.slice("MACHINEN_ACTUAL_RESUME_TRAMPOLINE ".length)),
+  );
+}
+
+function normalizeActualResumeAttempt(
+  event: Record<string, unknown>,
+): NativeTargetResumeExecutionAttempt {
+  assertActualResumeEventInvariants(event);
+  return {
+    status: actualResumeStatus(event.status),
+    targetArch: "amd64",
+    entryAddress: String(event.entry),
+    stackPointer: String(event.stackPointer),
+    targetBytesStart: String(event.targetBytesStart),
+    targetBytesEnd: String(event.targetBytesEnd),
+    targetInstructionPointer: optionalString(event.targetInstructionPointer),
+    signal: optionalString(event.signal),
+    signalNumber: optionalNumber(event.signalNumber),
+    faultAddress: optionalString(event.faultAddress),
+    returnValue: optionalString(event.returnValue),
+    instructionPointerInTargetBytes: true,
+    attemptedResume: true,
+    sourceTextReusedAsTargetCode: false,
+    sourceIsaEmulationUsed: false,
+    sidecarRuntimeUsed: false,
+  };
+}
+
+function assertActualResumeEventInvariants(event: Record<string, unknown>) {
+  assert(event.targetArch === "amd64", "actual target resume event used the wrong architecture");
+  assert(event.attemptedResume === true, "actual target resume event did not attempt resume");
+  assert(
+    event.sourceTextReusedAsTargetCode === false,
+    "actual target resume event reused source text as target code",
+  );
+  assert(
+    event.sourceIsaEmulationUsed === false,
+    "actual target resume event used source ISA emulation",
+  );
+  assert(event.sidecarRuntimeUsed === false, "actual target resume event used a sidecar runtime");
+  assert(
+    event.instructionPointerInTargetBytes === true,
+    "actual target resume event did not enter the target byte window",
+  );
+}
+
+function actualResumeStatus(value: unknown): NativeTargetResumeExecutionAttempt["status"] {
+  return value === "returned" ? "returned" : "faulted";
+}
+
+function optionalString(value: unknown): string | undefined {
+  return value === undefined ? undefined : String(value);
+}
+
+function optionalNumber(value: unknown): number | undefined {
+  return value === undefined ? undefined : Number(value);
+}
+
 function actualUtilitySummary(context: {
   phase: string;
   hostArch: "arm64" | "amd64";
@@ -648,10 +762,12 @@ function actualUtilitySummary(context: {
   targetRoot?: string;
   capturer?: string;
   command: string[];
+  resumeAttempt?: NativeTargetResumeExecutionAttempt;
   outDir?: string;
   planned: ReturnType<typeof planCapturedActualUtilityBundle>;
 }) {
   const { planned } = context;
+  const resumeFields = resumeAttemptSummaryFields(context.resumeAttempt);
   return {
     formatVersion: 1,
     phase: context.phase,
@@ -675,14 +791,14 @@ function actualUtilitySummary(context: {
     sourceUnwindFrames: planned.sourceFrames.length,
     sourceUnwindRules: planned.sourceUnwindRules.length,
     sourceUnwindRefusals: planned.sourceUnwindRefusals,
-    targetUnwindMatches: planned.targetUnwind?.matches.length ?? 0,
-    targetUnwindRefusals: planned.targetUnwind?.refusals ?? [],
+    ...targetUnwindSummaryFields(planned),
     targetFrameStateRequirements: planned.targetFrameState.requirements,
     targetFrameStateMaterialized: planned.targetFrameState.materialized,
     targetFrameStateRefusals: planned.targetFrameState.refusals,
     targetCallerFrame: planned.targetCallerFrame.frame,
     targetCallerFrameRefusals: planned.targetCallerFrame.refusals,
     targetResumeExecution: planned.targetResumeExecution.plan,
+    targetResumeExecutionAttempt: resumeFields.targetResumeExecutionAttempt,
     targetResumeExecutionRefusals: planned.targetResumeExecution.refusals,
     targetModuleByteRefusals: planned.targetBytes.refusals,
     materializedTargetBytes: materializedTargetByteSummaries(planned),
@@ -693,12 +809,28 @@ function actualUtilitySummary(context: {
     plan: planned.plan,
     blockingBoundary: planned.plan.blockingBoundary,
     blockingRefusal: planned.plan.blockingRefusal,
-    attemptedResume: false,
+    attemptedResume: resumeFields.attemptedResume,
+    migrationCompleted: resumeFields.migrationCompleted,
     sourceTextReusedAsTargetCode: false,
     sourceIsaEmulationUsed: false,
     sidecarRuntimeUsed: false,
-    execution: executionForPlan(planned),
+    execution: executionForPlan(planned, context.resumeAttempt),
     bundleFiles: bundleFileStats(context.sourceBundleDir, NATIVE_PROCESS_IMAGE_BUNDLE_FILES),
+  };
+}
+
+function targetUnwindSummaryFields(planned: ReturnType<typeof planCapturedActualUtilityBundle>) {
+  return {
+    targetUnwindMatches: planned.targetUnwind?.matches.length ?? 0,
+    targetUnwindRefusals: planned.targetUnwind?.refusals ?? [],
+  };
+}
+
+function resumeAttemptSummaryFields(resumeAttempt: NativeTargetResumeExecutionAttempt | undefined) {
+  return {
+    targetResumeExecutionAttempt: resumeAttempt,
+    attemptedResume: resumeAttempt?.attemptedResume ?? false,
+    migrationCompleted: false,
   };
 }
 
@@ -779,10 +911,19 @@ function resourceRecipeCount(planned: ReturnType<typeof planCapturedActualUtilit
   return planned.resources.resources.filter((resource) => resource.state === "recipe").length;
 }
 
-function executionForPlan(planned: ReturnType<typeof planCapturedActualUtilityBundle>) {
-  return planned.plan.state === "ready"
-    ? "actual-real-utility-ready-for-target-native-resume"
-    : `actual-real-utility-refused-at-${planned.plan.blockingBoundary}`;
+function executionForPlan(
+  planned: ReturnType<typeof planCapturedActualUtilityBundle>,
+  resumeAttempt: NativeTargetResumeExecutionAttempt | undefined,
+) {
+  if (planned.plan.state !== "ready") {
+    return `actual-real-utility-refused-at-${planned.plan.blockingBoundary}`;
+  }
+  if (resumeAttempt) {
+    return resumeAttempt.status === "returned"
+      ? "actual-real-utility-target-native-resume-returned"
+      : "actual-real-utility-target-native-resume-faulted";
+  }
+  return "actual-real-utility-ready-for-target-native-resume";
 }
 
 function sleepTimerPolicy() {

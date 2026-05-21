@@ -42,8 +42,9 @@ when target unwind is found but unmodeled callee-saved slots remain, or at
 `target-caller-frame` when synthetic caller-owned values exist but no target
 caller frame has been installed, or at `target-resume-execution` when no actual
 native execution path has been planned. When that execution path is planned, the
-actual planner can reach `ready` while still reporting that no resume was
-attempted.
+actual planner can reach `ready`. The actual two-host proof may then run a
+bounded native trampoline and report a separate `targetResumeExecutionAttempt`,
+without treating a fault as completed process migration.
 
 ## Proof
 

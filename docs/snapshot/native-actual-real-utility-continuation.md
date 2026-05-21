@@ -42,12 +42,18 @@ target libc, materialize native libc bytes, discover the source libc frame, matc
 the target `.eh_frame` return contract, materialize caller-owned callee-saved
 slots as synthetic target values, plan a synthetic caller frame, and create a
 target-native resume execution plan. With that explicit plan present, the actual
-planner can reach `ready`, while still reporting `attemptedResume: false` because
-no native jump has executed yet.
+planner can reach `ready`.
 
-That ready state is intentional but not a migration success claim. It proves the
-real capture path has explicit data for every modeled planning gate, without
-granting success for unexecuted native resume.
+On Linux/amd64, the proof now runs a bounded target-native trampoline for that
+ready plan. The trampoline maps the explicit target amd64 bytes and transfers
+control to them on the synthetic target stack. The current actual `/bin/sleep`
+continuation faults after entering target bytes, so the proof reports
+`attemptedResume: true` and `migrationCompleted: false` instead of claiming a
+complete migration.
+
+That ready-plus-attempt state is intentional but not a migration success claim. It
+proves the real capture path has explicit data for every modeled planning gate
+and that the first execution transfer reaches target-native bytes.
 
 ## Non-claims
 

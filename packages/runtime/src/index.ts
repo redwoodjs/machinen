@@ -166,6 +166,8 @@ export type {
   NativeTargetModuleByteMaterializationResult,
 } from "./native-target-module-bytes.ts";
 export type {
+  NativeTargetResumeExecutionAttempt,
+  NativeTargetResumeExecutionAttemptStatus,
   NativeTargetResumeExecutionMode,
   NativeTargetResumeExecutionPlan,
   NativeTargetResumeExecutionPlanRequest,
