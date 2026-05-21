@@ -86,6 +86,11 @@ describe("native actual resume trampoline", () => {
         entry: "0x710000001000",
         signal: "SIGSEGV",
         targetInstructionPointer: "0x710000001000",
+        targetInstructionBytes: "488b00",
+        registers: {
+          rax: "0x0",
+          rsp: "0x52000000fff8",
+        },
         instructionPointerInTargetBytes: true,
         attemptedResume: true,
         sourceTextReusedAsTargetCode: false,

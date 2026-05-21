@@ -121,8 +121,31 @@ static volatile uintptr_t observed_rip = 0;
 static volatile uintptr_t observed_rsp = 0;
 static uint64_t mapped_target_start = 0;
 static uint64_t mapped_target_end = 0;
+static uint8_t *mapped_code_bytes = NULL;
+static uint64_t mapped_code_page_start = 0;
+static uint64_t mapped_code_page_size = 0;
 static uint64_t resume_return_value = 0;
 static uint64_t host_rsp_before_jump __attribute__((used)) = 0;
+
+struct ObservedRegisters {
+  uint64_t rax;
+  uint64_t rbx;
+  uint64_t rcx;
+  uint64_t rdx;
+  uint64_t rsi;
+  uint64_t rdi;
+  uint64_t rbp;
+  uint64_t r8;
+  uint64_t r9;
+  uint64_t r10;
+  uint64_t r11;
+  uint64_t r12;
+  uint64_t r13;
+  uint64_t r14;
+  uint64_t r15;
+};
+
+static struct ObservedRegisters observed_registers = {0};
 
 static long page_size(void) {
   long size = sysconf(_SC_PAGESIZE);
@@ -242,6 +265,21 @@ static void signal_handler(int signum, siginfo_t *info, void *context) {
   observed_fault_address = (uintptr_t)info->si_addr;
   observed_rip = (uintptr_t)uc->uc_mcontext.gregs[REG_RIP];
   observed_rsp = (uintptr_t)uc->uc_mcontext.gregs[REG_RSP];
+  observed_registers.rax = (uint64_t)uc->uc_mcontext.gregs[REG_RAX];
+  observed_registers.rbx = (uint64_t)uc->uc_mcontext.gregs[REG_RBX];
+  observed_registers.rcx = (uint64_t)uc->uc_mcontext.gregs[REG_RCX];
+  observed_registers.rdx = (uint64_t)uc->uc_mcontext.gregs[REG_RDX];
+  observed_registers.rsi = (uint64_t)uc->uc_mcontext.gregs[REG_RSI];
+  observed_registers.rdi = (uint64_t)uc->uc_mcontext.gregs[REG_RDI];
+  observed_registers.rbp = (uint64_t)uc->uc_mcontext.gregs[REG_RBP];
+  observed_registers.r8 = (uint64_t)uc->uc_mcontext.gregs[REG_R8];
+  observed_registers.r9 = (uint64_t)uc->uc_mcontext.gregs[REG_R9];
+  observed_registers.r10 = (uint64_t)uc->uc_mcontext.gregs[REG_R10];
+  observed_registers.r11 = (uint64_t)uc->uc_mcontext.gregs[REG_R11];
+  observed_registers.r12 = (uint64_t)uc->uc_mcontext.gregs[REG_R12];
+  observed_registers.r13 = (uint64_t)uc->uc_mcontext.gregs[REG_R13];
+  observed_registers.r14 = (uint64_t)uc->uc_mcontext.gregs[REG_R14];
+  observed_registers.r15 = (uint64_t)uc->uc_mcontext.gregs[REG_R15];
   siglongjmp(resume_fault_jmp, 1);
 }
 
@@ -317,26 +355,80 @@ static bool rip_inside_target_bytes(uint64_t rip) {
   return rip >= mapped_target_start && rip < mapped_target_end;
 }
 
+static void print_instruction_bytes(uint64_t rip) {
+  printf("\"targetInstructionBytes\":\"");
+  if (mapped_code_bytes != NULL && rip_inside_target_bytes(rip) && rip >= mapped_code_page_start) {
+    uint64_t offset = rip - mapped_code_page_start;
+    if (offset >= mapped_code_page_size) {
+      printf("\"");
+      return;
+    }
+    uint64_t available_in_page = mapped_code_page_size - offset;
+    uint64_t available_in_window = mapped_target_end - rip;
+    uint64_t count =
+        available_in_page < available_in_window ? available_in_page : available_in_window;
+    if (count > 16u) {
+      count = 16u;
+    }
+    for (uint64_t i = 0; i < count; i++) {
+      printf("%02x", mapped_code_bytes[offset + i]);
+    }
+  }
+  printf("\"");
+}
+
+static void print_registers(void) {
+  printf(
+      "\"registers\":{\"rax\":\"0x%" PRIx64 "\",\"rbx\":\"0x%" PRIx64
+      "\",\"rcx\":\"0x%" PRIx64 "\",\"rdx\":\"0x%" PRIx64
+      "\",\"rsi\":\"0x%" PRIx64 "\",\"rdi\":\"0x%" PRIx64
+      "\",\"rbp\":\"0x%" PRIx64 "\",\"rsp\":\"0x%" PRIx64
+      "\",\"r8\":\"0x%" PRIx64 "\",\"r9\":\"0x%" PRIx64
+      "\",\"r10\":\"0x%" PRIx64 "\",\"r11\":\"0x%" PRIx64
+      "\",\"r12\":\"0x%" PRIx64 "\",\"r13\":\"0x%" PRIx64
+      "\",\"r14\":\"0x%" PRIx64 "\",\"r15\":\"0x%" PRIx64 "\"}",
+      observed_registers.rax,
+      observed_registers.rbx,
+      observed_registers.rcx,
+      observed_registers.rdx,
+      observed_registers.rsi,
+      observed_registers.rdi,
+      observed_registers.rbp,
+      (uint64_t)observed_rsp,
+      observed_registers.r8,
+      observed_registers.r9,
+      observed_registers.r10,
+      observed_registers.r11,
+      observed_registers.r12,
+      observed_registers.r13,
+      observed_registers.r14,
+      observed_registers.r15);
+}
+
 static void print_fault_event(const struct Options *opts) {
   uint64_t rip = (uint64_t)observed_rip;
   printf(
-      "MACHINEN_ACTUAL_RESUME_TRAMPOLINE {\"status\":\"faulted\"," 
-      "\"targetArch\":\"amd64\",\"entry\":\"0x%" PRIx64 "\"," 
-      "\"signal\":\"%s\",\"signalNumber\":%d," 
-      "\"faultAddress\":\"0x%" PRIx64 "\"," 
-      "\"targetInstructionPointer\":\"0x%" PRIx64 "\"," 
-      "\"observedRsp\":\"0x%" PRIx64 "\"," 
-      "\"stackPointer\":\"0x%" PRIx64 "\"," 
-      "\"targetBytesStart\":\"0x%" PRIx64 "\"," 
-      "\"targetBytesEnd\":\"0x%" PRIx64 "\"," 
-      "\"instructionPointerInTargetBytes\":%s,"
-      "\"attemptedResume\":true,\"sourceTextReusedAsTargetCode\":false,"
-      "\"sourceIsaEmulationUsed\":false,\"sidecarRuntimeUsed\":false}\n",
+      "MACHINEN_ACTUAL_RESUME_TRAMPOLINE {\"status\":\"faulted\","
+      "\"targetArch\":\"amd64\",\"entry\":\"0x%" PRIx64 "\","
+      "\"signal\":\"%s\",\"signalNumber\":%d,"
+      "\"faultAddress\":\"0x%" PRIx64 "\","
+      "\"targetInstructionPointer\":\"0x%" PRIx64 "\",",
       opts->target_address,
       signal_name(observed_signal),
       observed_signal,
       (uint64_t)observed_fault_address,
-      rip,
+      rip);
+  print_instruction_bytes(rip);
+  printf(",");
+  print_registers();
+  printf(
+      ",\"observedRsp\":\"0x%" PRIx64 "\","
+      "\"stackPointer\":\"0x%" PRIx64 "\","
+      "\"targetBytesStart\":\"0x%" PRIx64 "\","
+      "\"targetBytesEnd\":\"0x%" PRIx64 "\","
+      "\"instructionPointerInTargetBytes\":%s,"
+      "\"attemptedResume\":true,\"sourceTextReusedAsTargetCode\":false,"
+      "\"sourceIsaEmulationUsed\":false,\"sidecarRuntimeUsed\":false}\n",
       (uint64_t)observed_rsp,
       opts->stack_pointer,
       mapped_target_start,
@@ -371,6 +463,9 @@ int main(int argc, char **argv) {
   uint64_t mapped_code_start = 0;
   uint64_t mapped_code_size = 0;
   void *code = map_target_code(&opts, &mapped_code_start, &mapped_code_size);
+  mapped_code_bytes = code;
+  mapped_code_page_start = mapped_code_start;
+  mapped_code_page_size = mapped_code_size;
   void *stack = map_fixed(
       opts.stack_target_start, opts.stack_size, PROT_READ | PROT_WRITE, "target-stack");
 

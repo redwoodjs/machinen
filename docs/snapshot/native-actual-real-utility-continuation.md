@@ -47,13 +47,18 @@ planner can reach `ready`.
 On Linux/amd64, the proof now runs a bounded target-native trampoline for that
 ready plan. The trampoline maps the explicit target amd64 bytes and transfers
 control to them on the synthetic target stack. The current actual `/bin/sleep`
-continuation faults after entering target bytes, so the proof reports
-`attemptedResume: true` and `migrationCompleted: false` instead of claiming a
-complete migration.
+continuation faults after entering target bytes. The proof now classifies that as
+`target-resume-fault-state` with a precise refusal such as
+`target-resume-fault-privileged-instruction`, including the target instruction
+bytes and fault-time amd64 registers.
+
+The summary reports `attemptedResume: true` and `migrationCompleted: false`
+instead of claiming a complete migration.
 
 That ready-plus-attempt state is intentional but not a migration success claim. It
-proves the real capture path has explicit data for every modeled planning gate
-and that the first execution transfer reaches target-native bytes.
+proves the real capture path has explicit data for every modeled planning gate,
+that the first execution transfer reaches target-native bytes, and that the next
+blocker is target execution fault state.
 
 ## Non-claims
 

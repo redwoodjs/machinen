@@ -13,6 +13,7 @@ import { materializeNativeTargetModuleBytes } from "../packages/runtime/src/nati
 import { planNativeTargetFrameStateMaterialization } from "../packages/runtime/src/native-target-frame-state.ts";
 import { planNativeSyntheticTargetCallerFrame } from "../packages/runtime/src/native-target-caller-frame.ts";
 import {
+  classifyNativeTargetResumeExecutionAttempt,
   planNativeTargetResumeExecution,
   type NativeTargetResumeExecutionAttempt,
 } from "../packages/runtime/src/native-target-resume-execution.ts";
@@ -713,6 +714,8 @@ function normalizeActualResumeAttempt(
     targetBytesStart: String(event.targetBytesStart),
     targetBytesEnd: String(event.targetBytesEnd),
     targetInstructionPointer: optionalString(event.targetInstructionPointer),
+    targetInstructionBytes: optionalString(event.targetInstructionBytes),
+    registers: normalizeActualResumeRegisters(event.registers),
     signal: optionalString(event.signal),
     signalNumber: optionalNumber(event.signalNumber),
     faultAddress: optionalString(event.faultAddress),
@@ -755,6 +758,33 @@ function optionalNumber(value: unknown): number | undefined {
   return value === undefined ? undefined : Number(value);
 }
 
+function normalizeActualResumeRegisters(value: unknown) {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+  const registers = value as Record<string, unknown>;
+  return Object.fromEntries(
+    [
+      "rax",
+      "rbx",
+      "rcx",
+      "rdx",
+      "rsi",
+      "rdi",
+      "rbp",
+      "rsp",
+      "r8",
+      "r9",
+      "r10",
+      "r11",
+      "r12",
+      "r13",
+      "r14",
+      "r15",
+    ].flatMap((name) => (registers[name] === undefined ? [] : [[name, String(registers[name])]])),
+  );
+}
+
 function actualUtilitySummary(context: {
   phase: string;
   hostArch: "arm64" | "amd64";
@@ -768,6 +798,10 @@ function actualUtilitySummary(context: {
 }) {
   const { planned } = context;
   const resumeFields = resumeAttemptSummaryFields(context.resumeAttempt);
+  const blockingFields = blockingSummaryFields(
+    planned,
+    resumeFields.targetResumeFaultClassification,
+  );
   return {
     formatVersion: 1,
     phase: context.phase,
@@ -799,6 +833,8 @@ function actualUtilitySummary(context: {
     targetCallerFrameRefusals: planned.targetCallerFrame.refusals,
     targetResumeExecution: planned.targetResumeExecution.plan,
     targetResumeExecutionAttempt: resumeFields.targetResumeExecutionAttempt,
+    targetResumeFaultClassification: resumeFields.targetResumeFaultClassification,
+    targetResumeFaultRefusals: resumeFields.targetResumeFaultRefusals,
     targetResumeExecutionRefusals: planned.targetResumeExecution.refusals,
     targetModuleByteRefusals: planned.targetBytes.refusals,
     materializedTargetBytes: materializedTargetByteSummaries(planned),
@@ -807,14 +843,18 @@ function actualUtilitySummary(context: {
     mappingSteps: planned.mappings.steps.length,
     resourceRecipes: resourceRecipeCount(planned),
     plan: planned.plan,
-    blockingBoundary: planned.plan.blockingBoundary,
-    blockingRefusal: planned.plan.blockingRefusal,
+    blockingBoundary: blockingFields.blockingBoundary,
+    blockingRefusal: blockingFields.blockingRefusal,
     attemptedResume: resumeFields.attemptedResume,
     migrationCompleted: resumeFields.migrationCompleted,
     sourceTextReusedAsTargetCode: false,
     sourceIsaEmulationUsed: false,
     sidecarRuntimeUsed: false,
-    execution: executionForPlan(planned, context.resumeAttempt),
+    execution: executionForPlan(
+      planned,
+      context.resumeAttempt,
+      resumeFields.targetResumeFaultClassification,
+    ),
     bundleFiles: bundleFileStats(context.sourceBundleDir, NATIVE_PROCESS_IMAGE_BUNDLE_FILES),
   };
 }
@@ -827,10 +867,31 @@ function targetUnwindSummaryFields(planned: ReturnType<typeof planCapturedActual
 }
 
 function resumeAttemptSummaryFields(resumeAttempt: NativeTargetResumeExecutionAttempt | undefined) {
+  const fault = classifyNativeTargetResumeExecutionAttempt(resumeAttempt);
   return {
     targetResumeExecutionAttempt: resumeAttempt,
+    targetResumeFaultClassification: fault.classification,
+    targetResumeFaultRefusals: fault.refusals,
     attemptedResume: resumeAttempt?.attemptedResume ?? false,
     migrationCompleted: false,
+  };
+}
+
+function blockingSummaryFields(
+  planned: ReturnType<typeof planCapturedActualUtilityBundle>,
+  faultClassification: ReturnType<
+    typeof classifyNativeTargetResumeExecutionAttempt
+  >["classification"],
+) {
+  if (faultClassification) {
+    return {
+      blockingBoundary: faultClassification.boundary,
+      blockingRefusal: faultClassification.refusal,
+    };
+  }
+  return {
+    blockingBoundary: planned.plan.blockingBoundary,
+    blockingRefusal: planned.plan.blockingRefusal,
   };
 }
 
@@ -914,14 +975,18 @@ function resourceRecipeCount(planned: ReturnType<typeof planCapturedActualUtilit
 function executionForPlan(
   planned: ReturnType<typeof planCapturedActualUtilityBundle>,
   resumeAttempt: NativeTargetResumeExecutionAttempt | undefined,
+  faultClassification: ReturnType<
+    typeof classifyNativeTargetResumeExecutionAttempt
+  >["classification"],
 ) {
   if (planned.plan.state !== "ready") {
     return `actual-real-utility-refused-at-${planned.plan.blockingBoundary}`;
   }
+  if (faultClassification) {
+    return `actual-real-utility-target-native-resume-faulted-at-${faultClassification.boundary}`;
+  }
   if (resumeAttempt) {
-    return resumeAttempt.status === "returned"
-      ? "actual-real-utility-target-native-resume-returned"
-      : "actual-real-utility-target-native-resume-faulted";
+    return "actual-real-utility-target-native-resume-returned";
   }
   return "actual-real-utility-ready-for-target-native-resume";
 }

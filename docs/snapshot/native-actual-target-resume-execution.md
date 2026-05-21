@@ -1,6 +1,6 @@
 # Native actual target resume execution
 
-Issue #534 added the explicit target-native resume execution plan for the actual `/bin/sleep` proof. Issue #536 adds the first bounded execution attempt for that plan.
+Issue #534 added the explicit target-native resume execution plan for the actual `/bin/sleep` proof. Issue #536 added the first bounded execution attempt for that plan. Issue #539 classifies the first target-native fault.
 
 ## Plan gate
 
@@ -20,13 +20,22 @@ On Linux/amd64, the actual proof now runs a short-lived native helper. The helpe
 
 The current `/bin/sleep` continuation is still not a completed migration. The attempt is expected to fault until more libc/kernel continuation state is modeled. A fault is still useful proof: it shows that control reached the target-native amd64 instruction stream without source text reuse, source-ISA emulation, or a Node/Bun sidecar.
 
-The summary reports the attempt separately:
+The summary reports the attempt separately, and also records a `target-resume-fault-state` blocker when the attempt faults:
 
 ```json
 {
+  "blockingBoundary": "target-resume-fault-state",
+  "blockingRefusal": {
+    "code": "target-resume-fault-privileged-instruction"
+  },
   "targetResumeExecutionAttempt": {
     "status": "faulted",
     "targetArch": "amd64",
+    "targetInstructionBytes": "660f6f0c0e...",
+    "registers": {
+      "rip": "0x7001000b6ca0",
+      "rsp": "0x50000000fff8"
+    },
     "instructionPointerInTargetBytes": true,
     "attemptedResume": true
   },
@@ -38,4 +47,4 @@ The summary reports the attempt separately:
 }
 ```
 
-`migrationCompleted: false` is intentional. This proves the first native execution transfer, not full transparent process migration.
+`migrationCompleted: false` is intentional. This proves the first native execution transfer and names the next missing target execution-environment state. It is not full transparent process migration.
