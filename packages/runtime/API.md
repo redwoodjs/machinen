@@ -146,6 +146,12 @@
 - [`NativeSyntheticTargetCallerFramePlanRequest`](#nativesynthetictargetcallerframeplanrequest)
 - [`NativeSyntheticTargetCallerFramePlanResult`](#nativesynthetictargetcallerframeplanresult)
 - [`planNativeSyntheticTargetCallerFrame`](#plannativesynthetictargetcallerframe)
+- [`NativeTargetResumeExecutionMode`](#nativetargetresumeexecutionmode)
+- [`NativeTargetResumeExecutor`](#nativetargetresumeexecutor)
+- [`NativeTargetResumeExecutionPlan`](#nativetargetresumeexecutionplan)
+- [`NativeTargetResumeExecutionPlanRequest`](#nativetargetresumeexecutionplanrequest)
+- [`NativeTargetResumeExecutionPlanResult`](#nativetargetresumeexecutionplanresult)
+- [`planNativeTargetResumeExecution`](#plannativetargetresumeexecution)
 - [`NativeStackFrame`](#nativestackframe)
 - [`NativeStackSlot`](#nativestackslot)
 - [`NativeStackTranslationRequest`](#nativestacktranslationrequest)
@@ -4654,6 +4660,92 @@ by default when `output` is a TTY.
 
 ***
 
+### NativeTargetResumeExecutionPlan
+
+#### Properties
+
+##### mode
+
+> **mode**: `"planned-not-executed"`
+
+##### executor
+
+> **executor**: `"native-resume-trampoline"`
+
+##### targetArch
+
+> **targetArch**: `"amd64"`
+
+##### entryAddress
+
+> **entryAddress**: `string`
+
+##### stackPointer
+
+> **stackPointer**: `string`
+
+##### callerFrameId
+
+> **callerFrameId**: `string`
+
+##### targetModuleByteModules
+
+> **targetModuleByteModules**: `string`[]
+
+##### attemptedResume
+
+> **attemptedResume**: `false`
+
+##### sourceTextReusedAsTargetCode
+
+> **sourceTextReusedAsTargetCode**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### sidecarRuntimeUsed
+
+> **sidecarRuntimeUsed**: `false`
+
+***
+
+### NativeTargetResumeExecutionPlanRequest
+
+#### Properties
+
+##### codeLocations
+
+> **codeLocations**: [`NativeCodeLocationMapping`](#nativecodelocationmapping)[]
+
+##### targetModuleBytes
+
+> **targetModuleBytes**: [`NativeTargetModuleByteMaterialization`](#nativetargetmodulebytematerialization)[]
+
+##### callerFrame?
+
+> `optional` **callerFrame?**: [`NativeSyntheticTargetCallerFrame`](#nativesynthetictargetcallerframe)
+
+***
+
+### NativeTargetResumeExecutionPlanResult
+
+#### Properties
+
+##### state
+
+> **state**: `"refused"` \| `"planned"`
+
+##### plan?
+
+> `optional` **plan?**: [`NativeTargetResumeExecutionPlan`](#nativetargetresumeexecutionplan)
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
 ### NativeTargetUnwindFrameRule
 
 #### Properties
@@ -7910,6 +8002,18 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativeTargetResumeExecutionMode
+
+> **NativeTargetResumeExecutionMode** = `"planned-not-executed"`
+
+***
+
+### NativeTargetResumeExecutor
+
+> **NativeTargetResumeExecutor** = `"native-resume-trampoline"`
+
+***
+
 ### NativeTargetUnwindRegister
 
 > **NativeTargetUnwindRegister** = `"rsp"` \| `"rbp"` \| `"rip"` \| `"rbx"` \| `"r12"` \| `"r13"` \| `"r14"` \| `"r15"`
@@ -9863,6 +9967,22 @@ available.
 #### Returns
 
 [`NativeTargetModuleByteMaterializationResult`](#nativetargetmodulebytematerializationresult)
+
+***
+
+### planNativeTargetResumeExecution()
+
+> **planNativeTargetResumeExecution**(`request`): [`NativeTargetResumeExecutionPlanResult`](#nativetargetresumeexecutionplanresult)
+
+#### Parameters
+
+##### request
+
+[`NativeTargetResumeExecutionPlanRequest`](#nativetargetresumeexecutionplanrequest)
+
+#### Returns
+
+[`NativeTargetResumeExecutionPlanResult`](#nativetargetresumeexecutionplanresult)
 
 ***
 

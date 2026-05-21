@@ -39,16 +39,15 @@ consume the deferred sleep metadata. Without an explicit amd64 target root, the 
 with `target-module-missing` for the active libc frame instead of granting
 success. With a target root and source unwind sidecar, the proof can inventory
 target libc, materialize native libc bytes, discover the source libc frame, match
-the target `.eh_frame` return contract, and then refuse at the later
-`target-frame-state` gate. With an explicit synthetic target-caller policy, it can
-materialize caller-owned callee-saved slots as synthetic target values and plan a
-synthetic caller frame. The actual planner then refuses at
-`target-resume-execution` with `target-resume-execution-unavailable`, while still
-reporting `attemptedResume: false` because no native jump has executed yet.
+the target `.eh_frame` return contract, materialize caller-owned callee-saved
+slots as synthetic target values, plan a synthetic caller frame, and create a
+target-native resume execution plan. With that explicit plan present, the actual
+planner can reach `ready`, while still reporting `attemptedResume: false` because
+no native jump has executed yet.
 
-That refusal is intentional. It proves the real capture path is wired into the
-same fail-closed planner as the final-jump fixture, without granting success for
-unsafe state.
+That ready state is intentional but not a migration success claim. It proves the
+real capture path has explicit data for every modeled planning gate, without
+granting success for unexecuted native resume.
 
 ## Non-claims
 
