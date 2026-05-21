@@ -83,6 +83,9 @@
 - [`NativeRegisterTranslationResult`](#nativeregistertranslationresult)
 - [`translateNativeRegisterState`](#translatenativeregisterstate)
 - [`NativeActiveSyscallClass`](#nativeactivesyscallclass)
+- [`NativeSleepTimerSyscallPolicy`](#nativesleeptimersyscallpolicy)
+- [`NativeActiveSyscallPolicyOptions`](#nativeactivesyscallpolicyoptions)
+- [`NativeActiveSyscallContinuation`](#nativeactivesyscallcontinuation)
 - [`NativeActiveSyscallClassification`](#nativeactivesyscallclassification)
 - [`NativeActiveSyscallClassificationResult`](#nativeactivesyscallclassificationresult)
 - [`classifyNativeThreadSyscall`](#classifynativethreadsyscall)
@@ -2241,6 +2244,62 @@ by default when `output` is a TTY.
 
 ***
 
+### NativeActiveSyscallPolicyOptions
+
+#### Properties
+
+##### sleepTimerPolicy?
+
+> `optional` **sleepTimerPolicy?**: [`NativeSleepTimerSyscallPolicy`](#nativesleeptimersyscallpolicy)
+
+***
+
+### NativeActiveSyscallContinuation
+
+#### Properties
+
+##### threadId
+
+> **threadId**: `string`
+
+##### syscallClass
+
+> **syscallClass**: `"sleep-timer"`
+
+##### action
+
+> **action**: `"defer-target-resume"`
+
+##### syscall
+
+> **syscall**: `object`
+
+###### state
+
+> **state**: `"outside-syscall"` \| `"inside-syscall"` \| `"restart-block"`
+
+###### number?
+
+> `optional` **number?**: `number`
+
+###### name?
+
+> `optional` **name?**: `string`
+
+##### metadata
+
+> **metadata**: `object`
+
+###### remainingTime
+
+> **remainingTime**: `"not-captured"`
+
+###### policy
+
+> **policy**: `"conservative-target-timer-rearm-required"`
+
+***
+
 ### NativeActiveSyscallClassification
 
 #### Properties
@@ -2273,6 +2332,10 @@ by default when `output` is a TTY.
 
 > `optional` **refusal?**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
 
+##### continuation?
+
+> `optional` **continuation?**: [`NativeActiveSyscallContinuation`](#nativeactivesyscallcontinuation)
+
 ***
 
 ### NativeActiveSyscallClassificationResult
@@ -2286,6 +2349,10 @@ by default when `output` is a TTY.
 ##### refusals
 
 > **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+##### continuations
+
+> **continuations**: [`NativeActiveSyscallContinuation`](#nativeactivesyscallcontinuation)[]
 
 ***
 
@@ -7344,6 +7411,12 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativeSleepTimerSyscallPolicy
+
+> **NativeSleepTimerSyscallPolicy** = `"refuse"` \| `"defer-target-resume"`
+
+***
+
 ### NativeActualRealUtilityContinuationBoundary
 
 > **NativeActualRealUtilityContinuationBoundary** = [`NativeRealUtilityContinuationBoundary`](#nativerealutilitycontinuationboundary) \| `"target-module-bytes"`
@@ -9006,13 +9079,17 @@ available.
 
 ### classifyNativeActiveSyscalls()
 
-> **classifyNativeActiveSyscalls**(`threads`): [`NativeActiveSyscallClassificationResult`](#nativeactivesyscallclassificationresult)
+> **classifyNativeActiveSyscalls**(`threads`, `options?`): [`NativeActiveSyscallClassificationResult`](#nativeactivesyscallclassificationresult)
 
 #### Parameters
 
 ##### threads
 
 [`NativeThreadState`](#nativethreadstate)[]
+
+##### options?
+
+[`NativeActiveSyscallPolicyOptions`](#nativeactivesyscallpolicyoptions) = `{}`
 
 #### Returns
 
@@ -9022,13 +9099,17 @@ available.
 
 ### classifyNativeThreadSyscall()
 
-> **classifyNativeThreadSyscall**(`thread`): [`NativeActiveSyscallClassification`](#nativeactivesyscallclassification)
+> **classifyNativeThreadSyscall**(`thread`, `options?`): [`NativeActiveSyscallClassification`](#nativeactivesyscallclassification)
 
 #### Parameters
 
 ##### thread
 
 [`NativeThreadState`](#nativethreadstate)
+
+##### options?
+
+[`NativeActiveSyscallPolicyOptions`](#nativeactivesyscallpolicyoptions) = `{}`
 
 #### Returns
 

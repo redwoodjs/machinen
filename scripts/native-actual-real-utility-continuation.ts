@@ -46,6 +46,7 @@ const USAGE =
 const SOURCE_BUNDLE_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_SOURCE_BUNDLE";
 const TARGET_ROOT_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_TARGET_ROOT";
 const TARGET_MODULE_PATH_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_TARGET_MODULE";
+const SLEEP_SYSCALL_POLICY_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_SLEEP_SYSCALL_POLICY";
 const UTILITY_NAME = "sleep";
 const SETTLE_MS = "150";
 const TARGET_BYTE_WINDOW = 32;
@@ -166,7 +167,9 @@ function planCapturedActualUtilityBundle(
 ) {
   const bundle = validateNativeProcessImageBundle(bundleDir);
   const memoryBytes = statSync(join(bundleDir, "native-memory.bin")).size;
-  const activeSyscalls = classifyNativeActiveSyscalls(bundle.threads.threads);
+  const activeSyscalls = classifyNativeActiveSyscalls(bundle.threads.threads, {
+    sleepTimerPolicy: sleepTimerPolicy(),
+  });
   const registers = translateNativeRegisterState({
     sourceArch: bundle.manifest.capture.sourceArch,
     targetArch: bundle.manifest.target.arch,
@@ -192,8 +195,7 @@ function planCapturedActualUtilityBundle(
   });
   const targetBytes = materializeResolvedTargetBytes(code.resolved, options.targetRoot);
   const plan = planNativeActualRealUtilityContinuationAttempt({
-    threadRefusals:
-      activeSyscalls.refusals.length > 0 ? activeSyscalls.refusals : registers.refusals,
+    threadRefusals: effectiveThreadRefusals({ activeSyscalls, registers }),
     resourceRefusals: resources.refusals,
     mappingRefusals: mappings.refusals,
     codeLocations: code.codeLocations,
@@ -320,6 +322,7 @@ function actualUtilitySummary(context: {
     utility: utilitySummary(context),
     processImageValidated: true,
     actualCapturedUtility: true,
+    activeSyscallPolicy: { sleepTimerPolicy: sleepTimerPolicy() },
     threadSyscalls: threadSyscallSummaries(planned),
     activeSyscallClassifications: planned.activeSyscalls.classifications,
     threadRefusals: effectiveThreadRefusals(planned),
@@ -368,10 +371,16 @@ function threadSyscallSummaries(planned: ReturnType<typeof planCapturedActualUti
   }));
 }
 
-function effectiveThreadRefusals(planned: ReturnType<typeof planCapturedActualUtilityBundle>) {
-  return planned.activeSyscalls.refusals.length > 0
-    ? planned.activeSyscalls.refusals
-    : planned.registers.refusals;
+function effectiveThreadRefusals(
+  planned: Pick<ReturnType<typeof planCapturedActualUtilityBundle>, "activeSyscalls" | "registers">,
+) {
+  if (planned.activeSyscalls.refusals.length > 0) {
+    return planned.activeSyscalls.refusals;
+  }
+  if (planned.activeSyscalls.continuations.length > 0) {
+    return planned.registers.refusals.filter((refusal) => refusal.code !== "active-syscall");
+  }
+  return planned.registers.refusals;
 }
 
 function materializedTargetByteSummaries(
@@ -402,6 +411,12 @@ function executionForPlan(planned: ReturnType<typeof planCapturedActualUtilityBu
   return planned.plan.state === "ready"
     ? "actual-real-utility-ready-for-target-native-resume"
     : `actual-real-utility-refused-at-${planned.plan.blockingBoundary}`;
+}
+
+function sleepTimerPolicy() {
+  return process.env[SLEEP_SYSCALL_POLICY_ENV] === "defer-target-resume"
+    ? "defer-target-resume"
+    : "refuse";
 }
 
 function refusedCapturePlan(stderr: string) {
