@@ -4,6 +4,7 @@ import type {
   NativeCodeLocationMapping,
   NativeProcessImageRefusal,
 } from "./native-process-image.ts";
+import type { NativeTargetFrameStateMaterializationResult } from "./native-target-frame-state.ts";
 import type { NativeTargetUnwindMatchResult } from "./native-target-unwind.ts";
 import type { NativeDiscoveredUnwindFrame } from "./native-unwind-frames.ts";
 
@@ -26,6 +27,7 @@ export interface NativeRealUtilityContinuationRequest {
   sourceFrameRefusals?: NativeProcessImageRefusal[];
   targetUnwind?: NativeTargetUnwindMatchResult;
   targetUnwindMatched?: boolean;
+  targetFrameState?: NativeTargetFrameStateMaterializationResult;
   targetFrameStateMaterialized?: boolean;
 }
 
@@ -140,6 +142,9 @@ function targetUnwindRefusal(
 function targetFrameStateRefusal(
   request: NativeRealUtilityContinuationRequest,
 ): NativeProcessImageRefusal | undefined {
+  if (request.targetFrameState?.refusals[0]) {
+    return request.targetFrameState.refusals[0];
+  }
   if (request.targetFrameStateMaterialized) {
     return undefined;
   }

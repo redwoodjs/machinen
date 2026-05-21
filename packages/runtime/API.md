@@ -131,6 +131,14 @@
 - [`NativeTargetUnwindMatchResult`](#nativetargetunwindmatchresult)
 - [`parseNativeTargetEhFrameText`](#parsenativetargetehframetext)
 - [`matchNativeTargetUnwindFrame`](#matchnativetargetunwindframe)
+- [`NativeTargetFrameStateRegister`](#nativetargetframestateregister)
+- [`NativeTargetFrameStateValueSource`](#nativetargetframestatevaluesource)
+- [`NativeTargetFrameRegisterValue`](#nativetargetframeregistervalue)
+- [`NativeTargetFrameStateRequirement`](#nativetargetframestaterequirement)
+- [`NativeTargetFrameStateMaterialization`](#nativetargetframestatematerialization)
+- [`NativeTargetFrameStateMaterializationRequest`](#nativetargetframestatematerializationrequest)
+- [`NativeTargetFrameStateMaterializationResult`](#nativetargetframestatematerializationresult)
+- [`planNativeTargetFrameStateMaterialization`](#plannativetargetframestatematerialization)
 - [`NativeStackFrame`](#nativestackframe)
 - [`NativeStackSlot`](#nativestackslot)
 - [`NativeStackTranslationRequest`](#nativestacktranslationrequest)
@@ -2442,6 +2450,14 @@ by default when `output` is a TTY.
 
 [`NativeRealUtilityContinuationRequest`](#nativerealutilitycontinuationrequest).[`targetUnwindMatched`](#targetunwindmatched-1)
 
+##### targetFrameState?
+
+> `optional` **targetFrameState?**: [`NativeTargetFrameStateMaterializationResult`](#nativetargetframestatematerializationresult)
+
+###### Inherited from
+
+[`NativeRealUtilityContinuationRequest`](#nativerealutilitycontinuationrequest).[`targetFrameState`](#targetframestate-1)
+
 ##### targetFrameStateMaterialized?
 
 > `optional` **targetFrameStateMaterialized?**: `boolean`
@@ -2963,7 +2979,7 @@ by default when `output` is a TTY.
 
 ##### code
 
-> **code**: `"fd-kind-unsupported"` \| `"target-build-mismatch"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"active-syscall"` \| `"blocking-syscall-state-unsupported"` \| `"code-location-unknown"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-permission-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"syscall-argument-state-unsupported"` \| `"syscall-restart-unsupported"` \| `"target-build-id-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-code-rva-unmapped"` \| `"target-frame-layout-unsupported"` \| `"target-module-bytes-missing"` \| `"target-module-file-missing"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-module-range-unreadable"` \| `"target-return-slot-unsupported"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
+> **code**: `"fd-kind-unsupported"` \| `"target-build-mismatch"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"active-syscall"` \| `"blocking-syscall-state-unsupported"` \| `"code-location-unknown"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-permission-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"syscall-argument-state-unsupported"` \| `"syscall-restart-unsupported"` \| `"target-build-id-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-code-rva-unmapped"` \| `"target-frame-layout-unsupported"` \| `"target-frame-register-value-unavailable"` \| `"target-module-bytes-missing"` \| `"target-module-file-missing"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-module-range-unreadable"` \| `"target-return-slot-unsupported"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
 
 ##### message
 
@@ -4059,6 +4075,10 @@ by default when `output` is a TTY.
 
 > `optional` **targetUnwindMatched?**: `boolean`
 
+##### targetFrameState?
+
+> `optional` **targetFrameState?**: [`NativeTargetFrameStateMaterializationResult`](#nativetargetframestatematerializationresult)
+
 ##### targetFrameStateMaterialized?
 
 > `optional` **targetFrameStateMaterialized?**: `boolean`
@@ -4304,6 +4324,96 @@ by default when `output` is a TTY.
 ##### relocations
 
 > **relocations**: [`NativeMemoryRelocation`](#nativememoryrelocation)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
+### NativeTargetFrameRegisterValue
+
+#### Properties
+
+##### register
+
+> **register**: [`NativeTargetFrameStateRegister`](#nativetargetframestateregister)
+
+##### value
+
+> **value**: `string`
+
+##### source
+
+> **source**: `"target-register"`
+
+***
+
+### NativeTargetFrameStateRequirement
+
+#### Properties
+
+##### sourceFrameId
+
+> **sourceFrameId**: `string`
+
+##### targetAddress
+
+> **targetAddress**: `string`
+
+##### register
+
+> **register**: [`NativeTargetFrameStateRegister`](#nativetargetframestateregister)
+
+##### slot
+
+> **slot**: [`NativeTargetCalleeSavedSlot`](#nativetargetcalleesavedslot)
+
+***
+
+### NativeTargetFrameStateMaterialization
+
+#### Properties
+
+##### requirement
+
+> **requirement**: [`NativeTargetFrameStateRequirement`](#nativetargetframestaterequirement)
+
+##### value
+
+> **value**: `string`
+
+##### valueSource
+
+> **valueSource**: `"target-register"`
+
+***
+
+### NativeTargetFrameStateMaterializationRequest
+
+#### Properties
+
+##### targetUnwind
+
+> **targetUnwind**: [`NativeTargetUnwindMatchResult`](#nativetargetunwindmatchresult)
+
+##### registerValues?
+
+> `optional` **registerValues?**: [`NativeTargetFrameRegisterValue`](#nativetargetframeregistervalue)[]
+
+***
+
+### NativeTargetFrameStateMaterializationResult
+
+#### Properties
+
+##### requirements
+
+> **requirements**: [`NativeTargetFrameStateRequirement`](#nativetargetframestaterequirement)[]
+
+##### materialized
+
+> **materialized**: [`NativeTargetFrameStateMaterialization`](#nativetargetframestatematerialization)[]
 
 ##### refusals
 
@@ -7641,6 +7751,18 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativeTargetFrameStateRegister
+
+> **NativeTargetFrameStateRegister** = `Exclude`\<[`NativeTargetUnwindRegister`](#nativetargetunwindregister), `"rsp"` \| `"rip"`\>
+
+***
+
+### NativeTargetFrameStateValueSource
+
+> **NativeTargetFrameStateValueSource** = `"target-register"`
+
+***
+
 ### NativeTargetUnwindRegister
 
 > **NativeTargetUnwindRegister** = `"rsp"` \| `"rbp"` \| `"rip"` \| `"rbx"` \| `"r12"` \| `"r13"` \| `"r14"` \| `"r15"`
@@ -8213,7 +8335,7 @@ loops; anything looser stops being a meaningful gate.
 
 ### nativeProcessImageRefusalCodes
 
-> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"blocking-syscall-state-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"inherited-stdio-policy-required"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-permission-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"non-stdio-kernel-state-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"stdin-buffer-state-unsupported"`, `"syscall-argument-state-unsupported"`, `"syscall-restart-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-callee-saved-state-unsupported"`, `"target-code-rva-unmapped"`, `"target-frame-layout-unsupported"`, `"target-module-bytes-missing"`, `"target-module-file-missing"`, `"target-module-missing"`, `"target-module-not-executable"`, `"target-module-range-unreadable"`, `"target-return-slot-unsupported"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
+> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"blocking-syscall-state-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"inherited-stdio-policy-required"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-permission-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"non-stdio-kernel-state-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"stdin-buffer-state-unsupported"`, `"syscall-argument-state-unsupported"`, `"syscall-restart-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-callee-saved-state-unsupported"`, `"target-code-rva-unmapped"`, `"target-frame-layout-unsupported"`, `"target-frame-register-value-unavailable"`, `"target-module-bytes-missing"`, `"target-module-file-missing"`, `"target-module-missing"`, `"target-module-not-executable"`, `"target-module-range-unreadable"`, `"target-return-slot-unsupported"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
 
 ***
 
@@ -9546,6 +9668,22 @@ available.
 #### Returns
 
 [`NativeStackTranslationResult`](#nativestacktranslationresult)
+
+***
+
+### planNativeTargetFrameStateMaterialization()
+
+> **planNativeTargetFrameStateMaterialization**(`request`): [`NativeTargetFrameStateMaterializationResult`](#nativetargetframestatematerializationresult)
+
+#### Parameters
+
+##### request
+
+[`NativeTargetFrameStateMaterializationRequest`](#nativetargetframestatematerializationrequest)
+
+#### Returns
+
+[`NativeTargetFrameStateMaterializationResult`](#nativetargetframestatematerializationresult)
 
 ***
 
