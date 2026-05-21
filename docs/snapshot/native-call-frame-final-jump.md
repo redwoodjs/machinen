@@ -65,7 +65,9 @@ captured-arm64-source-returned-through-matching-amd64-target-binary-frame
 
 This is still a controlled frame. It uses sidecar metadata for the active PC,
 the return address, the pointer-bearing register, and the pointer-bearing data
-word. The heap-graph final-jump proof builds on this by translating multiple
+word. The [Native DWARF unwind frame discovery](./native-dwarf-unwind-frames.md)
+proof removes the proof-known return slot for one controlled frame by reading
+real CFI. The heap-graph final-jump proof builds on this by translating multiple
 pointer-bearing root/heap words and making the return landing walk that graph
 natively. The file-resource final-jump proof also builds on this path by
 reopening a captured regular-file fd before target-native code reads from it
