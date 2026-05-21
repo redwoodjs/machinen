@@ -43,17 +43,20 @@ That is the important safety property for this issue: source arm64 text is never
 
 ## Current result
 
-The expected current result is a fail-closed refusal at the first exact boundary, usually:
+The expected current result is a fail-closed refusal at the first exact boundary. For `sleep 30`, that is usually the thread-state boundary:
 
-- `code-location-unknown` when capture, resources, and mappings are clean but no matching amd64 target code map is provided; or
-- an earlier exact boundary such as `kernel-state-unsupported`, `mapping-ambiguous`, or `mapping-unreadable` if the host utility exposes that state.
+- `active-syscall` when the captured thread is blocked in `clock_nanosleep`/`nanosleep` or a restart block;
+- an earlier exact resource/mapping boundary only if the host utility exposes one before syscall refusal;
+- `code-location-unknown` only after thread, resource, and mapping state are all safe and no matching amd64 target code map is provided.
 
-A passing run emits an execution string like:
+A passing run emits:
 
 ```text
-real-arm64-sleep-refused-at-target-code-location
+real-arm64-sleep-refused-at-thread-state
 ```
 
 ## Non-claim
 
 This does **not** claim arbitrary native utility migration yet. It proves the real-utility attempt uses the native process-image validation pipeline and stops at a precise known boundary rather than falling back to source-ISA emulation, sidecars, app hooks, or raw source virtual addresses.
+
+See also: [Native active-syscall refusal proof](./native-syscall-state-refusal.md).
