@@ -5,6 +5,7 @@ import type {
   NativeProcessImageRefusal,
 } from "./native-process-image.ts";
 import type { NativeSyntheticTargetCallerFrame } from "./native-target-caller-frame.ts";
+import type { NativeTargetResumeLandingProvenance } from "./native-target-landing-provenance.ts";
 import type { NativeTargetModuleByteMaterialization } from "./native-target-module-bytes.ts";
 
 export type NativeTargetResumeExecutionMode = "planned-not-executed";
@@ -47,6 +48,10 @@ export interface NativeTargetResumeFaultClassificationResult {
   state: "classified" | "not-faulted" | "unattempted";
   classification?: NativeTargetResumeFaultClassification;
   refusals: NativeProcessImageRefusal[];
+}
+
+export interface NativeTargetResumeFaultClassificationOptions {
+  landingProvenance?: NativeTargetResumeLandingProvenance[];
 }
 
 export interface NativeTargetResumeExecutionAttempt {
@@ -130,6 +135,7 @@ export function planNativeTargetResumeExecution(
 
 export function classifyNativeTargetResumeExecutionAttempt(
   attempt: NativeTargetResumeExecutionAttempt | undefined,
+  options: NativeTargetResumeFaultClassificationOptions = {},
 ): NativeTargetResumeFaultClassificationResult {
   if (!attempt) {
     return { state: "unattempted", refusals: [] };
@@ -137,7 +143,7 @@ export function classifyNativeTargetResumeExecutionAttempt(
   if (attempt.status !== "faulted") {
     return { state: "not-faulted", refusals: [] };
   }
-  const refusal = classifyTargetResumeFaultRefusal(attempt);
+  const refusal = classifyTargetResumeFaultRefusal(attempt, options);
   return {
     state: "classified",
     classification: {
@@ -157,40 +163,113 @@ export function classifyNativeTargetResumeExecutionAttempt(
 
 function classifyTargetResumeFaultRefusal(
   attempt: NativeTargetResumeExecutionAttempt,
+  options: NativeTargetResumeFaultClassificationOptions,
 ): NativeProcessImageRefusal {
-  if (!attempt.instructionPointerInTargetBytes) {
-    return faultRefusal(
-      "target-resume-fault-outside-target-bytes",
-      "target-native resume faulted after leaving the explicit target byte window",
-      attempt,
-    );
+  return (
+    outsideTargetBytesRefusal(attempt) ??
+    timeoutRefusal(attempt) ??
+    invalidLandingRefusal(attempt, options) ??
+    privilegedInstructionRefusal(attempt) ??
+    unmodeledMemoryRefusal(attempt) ??
+    unsupportedSignalRefusal(attempt)
+  );
+}
+
+function outsideTargetBytesRefusal(
+  attempt: NativeTargetResumeExecutionAttempt,
+): NativeProcessImageRefusal | undefined {
+  if (attempt.instructionPointerInTargetBytes) {
+    return undefined;
   }
-  if (attempt.signal === "SIGALRM") {
-    return faultRefusal(
-      "target-resume-fault-timeout",
-      "target-native resume did not return or fault before the bounded execution timer fired",
-      attempt,
-    );
+  return faultRefusal(
+    "target-resume-fault-outside-target-bytes",
+    "target-native resume faulted after leaving the explicit target byte window",
+    attempt,
+  );
+}
+
+function timeoutRefusal(
+  attempt: NativeTargetResumeExecutionAttempt,
+): NativeProcessImageRefusal | undefined {
+  if (attempt.signal !== "SIGALRM") {
+    return undefined;
   }
-  if (startsWithPrivilegedIoInstruction(attempt.targetInstructionBytes)) {
-    return faultRefusal(
-      "target-resume-fault-privileged-instruction",
-      "target-native resume entered an amd64 privileged I/O instruction in the target byte window",
-      attempt,
-    );
+  return faultRefusal(
+    "target-resume-fault-timeout",
+    "target-native resume did not return or fault before the bounded execution timer fired",
+    attempt,
+  );
+}
+
+function invalidLandingRefusal(
+  attempt: NativeTargetResumeExecutionAttempt,
+  options: NativeTargetResumeFaultClassificationOptions,
+): NativeProcessImageRefusal | undefined {
+  const invalidLanding = invalidLandingForAttempt(attempt, options.landingProvenance ?? []);
+  if (!invalidLanding) {
+    return undefined;
   }
-  if (attempt.signal === "SIGSEGV" || attempt.signal === "SIGBUS") {
-    return faultRefusal(
-      "target-resume-fault-unmodeled-memory",
-      `target-native resume faulted on memory address ${attempt.faultAddress ?? "unknown"}`,
-      attempt,
-    );
+  return faultRefusal(
+    "target-resume-fault-invalid-code-landing",
+    `target-native resume entered ${invalidLanding.targetModule.path}+${invalidLanding.targetRelativeAddress}, which is not a valid amd64 instruction boundary`,
+    attempt,
+    { landing: invalidLanding },
+  );
+}
+
+function privilegedInstructionRefusal(
+  attempt: NativeTargetResumeExecutionAttempt,
+): NativeProcessImageRefusal | undefined {
+  if (!startsWithPrivilegedIoInstruction(attempt.targetInstructionBytes)) {
+    return undefined;
   }
+  return faultRefusal(
+    "target-resume-fault-privileged-instruction",
+    "target-native resume entered an amd64 privileged I/O instruction in the target byte window",
+    attempt,
+  );
+}
+
+function unmodeledMemoryRefusal(
+  attempt: NativeTargetResumeExecutionAttempt,
+): NativeProcessImageRefusal | undefined {
+  if (attempt.signal !== "SIGSEGV" && attempt.signal !== "SIGBUS") {
+    return undefined;
+  }
+  return faultRefusal(
+    "target-resume-fault-unmodeled-memory",
+    `target-native resume faulted on memory address ${attempt.faultAddress ?? "unknown"}`,
+    attempt,
+  );
+}
+
+function unsupportedSignalRefusal(
+  attempt: NativeTargetResumeExecutionAttempt,
+): NativeProcessImageRefusal {
   return faultRefusal(
     "target-resume-fault-signal-unsupported",
     `target-native resume faulted with unsupported signal ${attempt.signal ?? "unknown"}`,
     attempt,
   );
+}
+
+function invalidLandingForAttempt(
+  attempt: NativeTargetResumeExecutionAttempt,
+  provenances: NativeTargetResumeLandingProvenance[],
+): NativeTargetResumeLandingProvenance | undefined {
+  const targetIp = attempt.targetInstructionPointer ?? attempt.entryAddress;
+  return provenances.find(
+    (provenance) =>
+      sameHex(provenance.targetAddress, targetIp) &&
+      provenance.instructionBoundary.state === "known-invalid",
+  );
+}
+
+function sameHex(left: string | undefined, right: string | undefined): boolean {
+  if (!left || !right) {
+    return false;
+  }
+  return BigInt(left) === BigInt(right);
 }
 
 function startsWithPrivilegedIoInstruction(bytes: string | undefined): boolean {
@@ -202,6 +281,7 @@ function faultRefusal(
   code: NativeProcessImageRefusal["code"],
   message: string,
   attempt: NativeTargetResumeExecutionAttempt,
+  extraDetail: Record<string, unknown> = {},
 ): NativeProcessImageRefusal {
   return {
     code,
@@ -214,6 +294,7 @@ function faultRefusal(
       targetInstructionBytes: attempt.targetInstructionBytes,
       registers: attempt.registers,
       instructionPointerInTargetBytes: attempt.instructionPointerInTargetBytes,
+      ...extraDetail,
     },
   };
 }

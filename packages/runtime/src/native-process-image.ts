@@ -62,6 +62,7 @@ export const nativeProcessImageRefusalCodes = [
   "target-module-range-unreadable",
   "target-return-slot-unsupported",
   "target-resume-execution-unavailable",
+  "target-resume-fault-invalid-code-landing",
   "target-resume-fault-outside-target-bytes",
   "target-resume-fault-privileged-instruction",
   "target-resume-fault-signal-unsupported",

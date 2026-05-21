@@ -46,7 +46,9 @@ actual planner can reach `ready`. The actual two-host proof may then run a
 bounded native trampoline and report a separate `targetResumeExecutionAttempt`.
 If that attempt faults inside target bytes, the proof reports the later
 `target-resume-fault-state` boundary instead of treating the fault as completed
-process migration.
+process migration. Actual utility summaries also include target landing
+provenance, so a raw cross-ISA offset that is not a valid amd64 instruction
+boundary is reported as `target-resume-fault-invalid-code-landing`.
 
 ## Proof
 

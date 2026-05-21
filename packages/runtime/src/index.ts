@@ -127,6 +127,10 @@ export {
 export { planNativeTargetFrameStateMaterialization } from "./native-target-frame-state.ts";
 export { planNativeSyntheticTargetCallerFrame } from "./native-target-caller-frame.ts";
 export {
+  inspectNativeTargetResumeLanding,
+  nativeTargetResumeLandingRefusals,
+} from "./native-target-landing-provenance.ts";
+export {
   classifyNativeTargetResumeExecutionAttempt,
   planNativeTargetResumeExecution,
 } from "./native-target-resume-execution.ts";
@@ -169,10 +173,22 @@ export type {
   NativeTargetModuleByteMaterializationResult,
 } from "./native-target-module-bytes.ts";
 export type {
+  NativeTargetLandingDisassemblyProvenance,
+  NativeTargetLandingFdeProvenance,
+  NativeTargetLandingInstructionBoundary,
+  NativeTargetLandingInstructionBoundaryState,
+  NativeTargetLandingModuleProvenance,
+  NativeTargetLandingSectionProvenance,
+  NativeTargetLandingSymbolProvenance,
+  NativeTargetResumeLandingInspectionRequest,
+  NativeTargetResumeLandingProvenance,
+} from "./native-target-landing-provenance.ts";
+export type {
   NativeTargetResumeExecutionAttempt,
   NativeTargetResumeExecutionAttemptStatus,
   NativeTargetResumeFaultBoundary,
   NativeTargetResumeFaultClassification,
+  NativeTargetResumeFaultClassificationOptions,
   NativeTargetResumeFaultClassificationResult,
   NativeTargetResumeFaultRegisters,
   NativeTargetResumeExecutionMode,
