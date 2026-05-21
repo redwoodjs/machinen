@@ -227,6 +227,28 @@ describe("native process image format", () => {
     );
   });
 
+  it("validates captured syscall arguments and syscall frame pointers", () => {
+    const image = cloneImage();
+    image.threads.threads[0]!.syscall = {
+      state: "inside-syscall",
+      number: 115,
+      name: "clock_nanosleep",
+      arguments: ["0x0", "0x0", "0x1000", "0x0", "0x0", "0x0"],
+      stackPointer: "0x7ffefffff000",
+      instructionPointer: "0x400120",
+    };
+
+    expect(validateNativeProcessImageDocuments(image)).toEqual([]);
+
+    image.threads.threads[0]!.syscall.arguments = ["0x0", "not-hex"];
+    expect(validateNativeProcessImageDocuments(image)).toEqual(
+      expect.arrayContaining([
+        "threads.threads[0].syscall.arguments must contain exactly 6 item(s)",
+        "threads.threads[0].syscall.arguments[1] must be a hex address",
+      ]),
+    );
+  });
+
   it("rejects threads and code locations that reference missing mappings", () => {
     const image = cloneImage();
     image.threads.threads[0]!.stackMapping = "mapping:missing";

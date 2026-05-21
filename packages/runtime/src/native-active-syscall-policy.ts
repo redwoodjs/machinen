@@ -1,6 +1,14 @@
 /** Active native syscall classification for actual real-utility attempts. */
 
-import type { NativeProcessImageRefusal, NativeThreadState } from "./native-process-image.ts";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import {
+  NATIVE_PROCESS_IMAGE_FILES,
+  type NativeMemoryMapping,
+  type NativeProcessImageDocuments,
+  type NativeProcessImageRefusal,
+  type NativeThreadState,
+} from "./native-process-image.ts";
 
 export type NativeActiveSyscallClass =
   | "outside-syscall"
@@ -13,7 +21,36 @@ export type NativeSleepTimerSyscallPolicy = "refuse" | "defer-target-resume";
 
 export interface NativeActiveSyscallPolicyOptions {
   sleepTimerPolicy?: NativeSleepTimerSyscallPolicy;
+  documents?: NativeProcessImageDocuments;
 }
+
+export interface NativeSleepTimerDuration {
+  seconds: string;
+  nanoseconds: number;
+}
+
+export interface NativeModeledSleepTimerRemainingTime extends NativeSleepTimerDuration {
+  state: "modeled";
+  kind: "relative-duration";
+  source: "active-syscall-request-timespec";
+  precision: "requested-duration-upper-bound";
+}
+
+export interface NativeModeledSleepTimerState {
+  kind: "relative-duration";
+  syscallName: string;
+  argumentSource: "proc-syscall" | "registers";
+  clockId?: number;
+  flags?: number;
+  requestPointer: string;
+  remainderPointer?: string;
+  requestedTime: NativeSleepTimerDuration;
+  remainingTime: NativeModeledSleepTimerRemainingTime;
+}
+
+export type NativeSleepTimerModelResult =
+  | { state: "modeled"; timer: NativeModeledSleepTimerState }
+  | { state: "missing"; refusal: NativeProcessImageRefusal };
 
 export interface NativeActiveSyscallContinuation {
   threadId: string;
@@ -21,7 +58,8 @@ export interface NativeActiveSyscallContinuation {
   action: "defer-target-resume";
   syscall: NativeThreadState["syscall"];
   metadata: {
-    remainingTime: "not-captured";
+    remainingTime: NativeModeledSleepTimerRemainingTime;
+    sleepTimer: NativeModeledSleepTimerState;
     policy: "conservative-target-timer-rearm-required";
   };
 }
@@ -61,6 +99,10 @@ const FD_BLOCKING_SYSCALLS = new Set([
   "sendto",
   "sendmsg",
 ]);
+const TIMER_ABSTIME = 1;
+const TIMESPEC_SIZE_BYTES = 16n;
+const MAX_SIGNED_I64 = 0x7fff_ffff_ffff_ffffn;
+const MAX_NANOSECONDS = 999_999_999n;
 
 export function classifyNativeActiveSyscalls(
   threads: NativeThreadState[],
@@ -95,7 +137,7 @@ export function classifyNativeThreadSyscall(
   const name = syscallName(thread);
   if (SLEEP_TIMER_SYSCALLS.has(name)) {
     if (options.sleepTimerPolicy === "defer-target-resume") {
-      return deferredSleepTimerClassification(thread);
+      return deferredSleepTimerClassification(thread, options);
     }
     return refusedClassification(thread, "sleep-timer", {
       code: "blocking-syscall-state-unsupported",
@@ -119,6 +161,54 @@ export function classifyNativeThreadSyscall(
     message: `thread ${thread.id} is in unclassified active syscall state`,
     detail: detail(thread, "unknown-active"),
   });
+}
+
+export function modelNativeSleepTimerState(
+  thread: NativeThreadState,
+  documents?: NativeProcessImageDocuments,
+): NativeSleepTimerModelResult {
+  const args = sleepTimerArguments(thread);
+  if (!args) {
+    return missingSleepTimer(thread, "syscall arguments were not captured");
+  }
+  if (!documents?.rootDir) {
+    return missingSleepTimer(thread, "captured memory bundle is not available", {
+      argumentSource: args.source,
+    });
+  }
+  const syscall = syscallName(thread);
+  const decoded = decodeSleepTimerArguments(thread, syscall, args);
+  if ("refusal" in decoded) {
+    return decoded;
+  }
+  const timespec = readCapturedTimespec(documents, decoded.requestPointer);
+  if ("refusal" in timespec) {
+    return {
+      state: "missing",
+      refusal: missingSleepTimerRefusal(thread, timespec.reason, decodedSleepDetail(decoded)),
+    };
+  }
+  const remainingTime: NativeModeledSleepTimerRemainingTime = {
+    ...timespec.duration,
+    state: "modeled",
+    kind: "relative-duration",
+    source: "active-syscall-request-timespec",
+    precision: "requested-duration-upper-bound",
+  };
+  return {
+    state: "modeled",
+    timer: {
+      kind: "relative-duration",
+      syscallName: syscall,
+      argumentSource: args.source,
+      clockId: decoded.clockId,
+      flags: decoded.flags,
+      requestPointer: hex(decoded.requestPointer),
+      remainderPointer: decoded.remainderPointer ? hex(decoded.remainderPointer) : undefined,
+      requestedTime: timespec.duration,
+      remainingTime,
+    },
+  };
 }
 
 function baseClassification(
@@ -145,7 +235,12 @@ function refusedClassification(
 
 function deferredSleepTimerClassification(
   thread: NativeThreadState,
+  options: NativeActiveSyscallPolicyOptions,
 ): NativeActiveSyscallClassification {
+  const modeled = modelNativeSleepTimerState(thread, options.documents);
+  if (modeled.state === "missing") {
+    return refusedClassification(thread, "sleep-timer", modeled.refusal);
+  }
   return {
     ...baseClassification(thread, "sleep-timer"),
     continuation: {
@@ -154,10 +249,215 @@ function deferredSleepTimerClassification(
       action: "defer-target-resume",
       syscall: thread.syscall,
       metadata: {
-        remainingTime: "not-captured",
+        remainingTime: modeled.timer.remainingTime,
+        sleepTimer: modeled.timer,
         policy: "conservative-target-timer-rearm-required",
       },
     },
+  };
+}
+
+interface SleepTimerArguments {
+  source: "proc-syscall" | "registers";
+  values: bigint[];
+}
+
+function sleepTimerArguments(thread: NativeThreadState): SleepTimerArguments | undefined {
+  const syscallArgs = parseSyscallArguments(thread.syscall.arguments);
+  if (syscallArgs) {
+    return { source: "proc-syscall", values: syscallArgs };
+  }
+  const registerArgs = registerSyscallArguments(thread);
+  return registerArgs ? { source: "registers", values: registerArgs } : undefined;
+}
+
+function parseSyscallArguments(args: string[] | undefined): bigint[] | undefined {
+  if (!args || args.length < 6) {
+    return undefined;
+  }
+  try {
+    return args.slice(0, 6).map((arg) => BigInt(arg));
+  } catch {
+    return undefined;
+  }
+}
+
+function registerSyscallArguments(thread: NativeThreadState): bigint[] | undefined {
+  const registers = thread.sourceRegisters;
+  if (registers.arch === "arm64") {
+    const args = registers.x.slice(0, 6);
+    return args.length === 6 ? args.map((value) => BigInt(value)) : undefined;
+  }
+  return [
+    registers.rdi,
+    registers.rsi,
+    registers.rdx,
+    registers.r10,
+    registers.r8,
+    registers.r9,
+  ].map((value) => BigInt(value));
+}
+
+type DecodedSleepTimerArguments =
+  | {
+      requestPointer: bigint;
+      remainderPointer?: bigint;
+      clockId?: number;
+      flags?: number;
+    }
+  | { state: "missing"; refusal: NativeProcessImageRefusal };
+
+function decodeSleepTimerArguments(
+  thread: NativeThreadState,
+  syscall: string,
+  args: SleepTimerArguments,
+): DecodedSleepTimerArguments {
+  return syscall === "nanosleep"
+    ? decodeNanosleepArguments(thread, args)
+    : decodeClockNanosleepArguments(thread, args);
+}
+
+function decodeNanosleepArguments(
+  thread: NativeThreadState,
+  args: SleepTimerArguments,
+): DecodedSleepTimerArguments {
+  return decodeRelativeSleepPointers(thread, args.values[0] ?? 0n, args.values[1]);
+}
+
+function decodeClockNanosleepArguments(
+  thread: NativeThreadState,
+  args: SleepTimerArguments,
+): DecodedSleepTimerArguments {
+  const flags = decodeClockNanosleepFlags(thread, args);
+  if ("refusal" in flags) {
+    return flags;
+  }
+  const decoded = decodeRelativeSleepPointers(thread, args.values[2] ?? 0n, args.values[3]);
+  if ("refusal" in decoded) {
+    return decoded;
+  }
+  return { ...decoded, clockId: safeNumber(args.values[0] ?? 0n), flags: flags.value };
+}
+
+function decodeClockNanosleepFlags(
+  thread: NativeThreadState,
+  args: SleepTimerArguments,
+): { value: number } | { state: "missing"; refusal: NativeProcessImageRefusal } {
+  const flags = safeNumber(args.values[1] ?? 0n);
+  if (flags === undefined) {
+    return missingSleepTimer(thread, "clock_nanosleep flags do not fit in a safe integer", {
+      flags: hex(args.values[1] ?? 0n),
+      argumentSource: args.source,
+    });
+  }
+  if ((flags & TIMER_ABSTIME) !== 0) {
+    return missingSleepTimer(thread, "absolute clock_nanosleep deadlines are not modeled yet", {
+      flags,
+      argumentSource: args.source,
+    });
+  }
+  return { value: flags };
+}
+
+function decodeRelativeSleepPointers(
+  thread: NativeThreadState,
+  requestPointer: bigint,
+  remainderPointer: bigint | undefined,
+):
+  | { requestPointer: bigint; remainderPointer?: bigint }
+  | { state: "missing"; refusal: NativeProcessImageRefusal } {
+  if (requestPointer === 0n) {
+    return missingSleepTimer(thread, "sleep request timespec pointer is null");
+  }
+  return { requestPointer, remainderPointer };
+}
+
+function decodedSleepDetail(decoded: {
+  requestPointer: bigint;
+  remainderPointer?: bigint;
+  clockId?: number;
+  flags?: number;
+}): Record<string, unknown> {
+  return {
+    requestPointer: hex(decoded.requestPointer),
+    remainderPointer: decoded.remainderPointer ? hex(decoded.remainderPointer) : undefined,
+    clockId: decoded.clockId,
+    flags: decoded.flags,
+  };
+}
+
+function readCapturedTimespec(
+  documents: NativeProcessImageDocuments,
+  sourceAddress: bigint,
+): { duration: NativeSleepTimerDuration } | { refusal: true; reason: string } {
+  const mapping = mappingContainingRange(documents, sourceAddress, TIMESPEC_SIZE_BYTES);
+  if (!mapping?.captured) {
+    return { refusal: true, reason: "sleep request timespec is not in captured memory" };
+  }
+  const offsetInMapping = sourceAddress - BigInt(mapping.sourceStart);
+  const fileOffset = BigInt(mapping.captured.offset) + offsetInMapping;
+  try {
+    const memory = readFileSync(join(documents.rootDir!, NATIVE_PROCESS_IMAGE_FILES.memory));
+    if (fileOffset + TIMESPEC_SIZE_BYTES > BigInt(memory.length)) {
+      return { refusal: true, reason: "sleep request timespec exceeds native-memory.bin" };
+    }
+    const secondsRaw = memory.readBigUInt64LE(Number(fileOffset));
+    const nanosecondsRaw = memory.readBigUInt64LE(Number(fileOffset + 8n));
+    if (secondsRaw > MAX_SIGNED_I64 || nanosecondsRaw > MAX_NANOSECONDS) {
+      return { refusal: true, reason: "sleep request timespec is outside supported bounds" };
+    }
+    return {
+      duration: {
+        seconds: secondsRaw.toString(10),
+        nanoseconds: Number(nanosecondsRaw),
+      },
+    };
+  } catch (error) {
+    return {
+      refusal: true,
+      reason: error instanceof Error ? error.message : "sleep request timespec could not be read",
+    };
+  }
+}
+
+function mappingContainingRange(
+  documents: NativeProcessImageDocuments,
+  sourceAddress: bigint,
+  sizeBytes: bigint,
+): NativeMemoryMapping | undefined {
+  return documents.mappings.mappings.find(
+    (mapping) =>
+      mapping.permissions.read &&
+      sourceAddress >= BigInt(mapping.sourceStart) &&
+      sourceAddress + sizeBytes <= BigInt(mapping.sourceEnd),
+  );
+}
+
+function safeNumber(value: bigint): number | undefined {
+  return value <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(value) : undefined;
+}
+
+function missingSleepTimer(
+  thread: NativeThreadState,
+  reason: string,
+  extra?: Record<string, unknown>,
+): { state: "missing"; refusal: NativeProcessImageRefusal } {
+  return { state: "missing", refusal: missingSleepTimerRefusal(thread, reason, extra) };
+}
+
+function missingSleepTimerRefusal(
+  thread: NativeThreadState,
+  reason: string,
+  extra?: Record<string, unknown>,
+): NativeProcessImageRefusal {
+  return {
+    code: "target-sleep-remaining-time-missing",
+    message: `thread ${thread.id} sleep/timer syscall remaining time is not modeled`,
+    detail: detail(thread, "sleep-timer", {
+      reason,
+      requiredModel: ["relative sleep request timespec", "target timer rearm duration"],
+      ...extra,
+    }),
   };
 }
 
@@ -176,4 +476,8 @@ function detail(
     syscall: thread.syscall,
     ...extra,
   };
+}
+
+function hex(value: bigint): string {
+  return `0x${value.toString(16)}`;
 }

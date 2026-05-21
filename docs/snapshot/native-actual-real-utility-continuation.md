@@ -33,9 +33,12 @@ text is target code.
 The default real utility is `sleep`, so default policy still refuses at thread
 state when the process is inside `clock_nanosleep`. With the explicit
 `MACHINEN_ACTUAL_REAL_UTILITY_SLEEP_SYSCALL_POLICY=defer-target-resume` policy,
-the proof records a deferred target timer continuation, recreates safe
-`PROT_NONE` guard/protection mappings, and lets the target-code-location gate
-consume the deferred sleep metadata. Without an explicit amd64 target root, the
+the proof records a deferred target timer continuation only after decoding the
+relative sleep request timespec from captured syscall state. The continuation
+metadata reports modeled `remainingTime` with `requested-duration-upper-bound`
+precision. The proof then recreates safe `PROT_NONE` guard/protection mappings
+and lets the target-code-location gate consume the deferred sleep metadata.
+Without an explicit amd64 target root, the
 current proof then refuses precisely with `target-module-missing` for the active
 libc frame instead of granting success. With a target root and source unwind
 sidecar, the proof inventories target libc dynamic symbols and resolves the

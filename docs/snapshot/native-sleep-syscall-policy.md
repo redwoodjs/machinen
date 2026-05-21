@@ -18,14 +18,23 @@ MACHINEN_ACTUAL_REAL_UTILITY_SLEEP_SYSCALL_POLICY=defer-target-resume \
   pnpm native-actual-real-utility-continuation --json
 ```
 
-sleep/timer syscalls are converted into a deferred target-resume continuation.
-This does not resume source kernel state. It records that target resume must be
-delayed by a conservatively re-armed target timer before user code can continue.
+sleep/timer syscalls are converted into a deferred target-resume continuation
+only after the captured syscall arguments and request timespec produce modeled
+sleep state. This does not resume source kernel state. It records that target
+resume must be delayed by a conservatively re-armed target timer before user code
+can continue.
 
-Because the policy is explicit, the proof can move past the `thread-state` gate
-and reveal the next blocker. For the current actual `/bin/sleep` capture, that
-next blocker is expected to be mapping or later continuation metadata, not a
-successful resume.
+The modeled timer state currently covers relative `clock_nanosleep` and
+`nanosleep` requests whose timespec is readable from captured memory. It reports
+`remainingTime.state: "modeled"` with `precision:
+"requested-duration-upper-bound"`. Absolute deadlines, missing syscall
+arguments, unreadable request pointers, or invalid timespec values fail closed
+with `target-sleep-remaining-time-missing`.
+
+Because the policy is explicit and requires modeled timer metadata, the proof can
+move past the `thread-state` gate and reveal the next blocker. For the current
+actual `/bin/sleep` capture, that next blocker is expected to be mapping or later
+continuation metadata, not a successful resume.
 
 ## Non-claims
 

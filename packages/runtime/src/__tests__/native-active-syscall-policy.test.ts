@@ -1,7 +1,19 @@
-import { describe, expect, it } from "vitest";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
 
-import { classifyNativeActiveSyscalls } from "../native-active-syscall-policy.ts";
-import type { NativeThreadState } from "../native-process-image.ts";
+import {
+  classifyNativeActiveSyscalls,
+  modelNativeSleepTimerState,
+} from "../native-active-syscall-policy.ts";
+import {
+  NATIVE_PROCESS_IMAGE_FILES,
+  type NativeProcessImageDocuments,
+  type NativeThreadState,
+} from "../native-process-image.ts";
+
+const tempDirs: string[] = [];
 
 function thread(syscall: NativeThreadState["syscall"]): NativeThreadState {
   return {
@@ -15,6 +27,88 @@ function thread(syscall: NativeThreadState["syscall"]): NativeThreadState {
     tls: { threadPointer: "0x0", rseq: { state: "absent" } },
   };
 }
+
+function arm64SleepThread(
+  syscall: NativeThreadState["syscall"] = {
+    state: "inside-syscall",
+    number: 115,
+    name: "clock_nanosleep",
+  },
+  x: string[] = ["0x0", "0x0", "0x3000", "0x0", "0x0", "0x0"],
+): NativeThreadState {
+  return {
+    ...thread(syscall),
+    sourceRegisters: {
+      arch: "arm64",
+      pc: "0x1000",
+      sp: "0x2000",
+      pstate: "0x0",
+      x: [...x, ...Array.from({ length: 31 - x.length }, () => "0x0")],
+    },
+  };
+}
+
+function documentsWithTimespec(options: {
+  activeThread: NativeThreadState;
+  seconds?: bigint;
+  nanoseconds?: bigint;
+}): NativeProcessImageDocuments {
+  const rootDir = mkdtempSync(join(tmpdir(), "machinen-sleep-timer-state-"));
+  tempDirs.push(rootDir);
+  const memory = Buffer.alloc(4096);
+  memory.writeBigUInt64LE(options.seconds ?? 30n, 0);
+  memory.writeBigUInt64LE(options.nanoseconds ?? 123n, 8);
+  writeFileSync(join(rootDir, NATIVE_PROCESS_IMAGE_FILES.memory), memory);
+  return {
+    rootDir,
+    manifest: {
+      formatVersion: 1,
+      kind: "machinen.native-process-image",
+      capture: { method: "external-ptrace-procfs", sourceArch: "arm64", pid: 4242 },
+      target: { mode: "native-cross-isa", arch: "amd64", abi: "linux-user" },
+      process: { exe: "/bin/sleep", argv: ["sleep", "30"], env: {}, cwd: "/" },
+      refusals: emptyRefusals(),
+    },
+    mappings: {
+      formatVersion: 1,
+      mappings: [
+        {
+          id: "mapping:stack",
+          kind: "stack",
+          sourceStart: "0x3000",
+          sourceEnd: "0x4000",
+          sizeBytes: 4096,
+          permissions: { read: true, write: true, execute: false, private: true, shared: false },
+          captured: { file: NATIVE_PROCESS_IMAGE_FILES.memory, offset: 0, sizeBytes: 4096 },
+          target: { materialization: "translate" },
+        },
+      ],
+      refusals: emptyRefusals(),
+    },
+    threads: { formatVersion: 1, threads: [options.activeThread], refusals: emptyRefusals() },
+    resources: { formatVersion: 1, resources: [], refusals: emptyRefusals() },
+    translation: {
+      formatVersion: 1,
+      mode: "native-cross-isa",
+      sourceArch: "arm64",
+      targetArch: "amd64",
+      codeLocations: [],
+      threads: [],
+      memoryRelocations: [],
+      refusals: emptyRefusals(),
+    },
+  };
+}
+
+function emptyRefusals() {
+  return { vocabularyVersion: 1 as const, refusals: [] };
+}
+
+afterEach(() => {
+  for (const dir of tempDirs.splice(0)) {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 describe("native active syscall classification", () => {
   it("does not refuse threads outside syscalls", () => {
@@ -40,24 +134,100 @@ describe("native active syscall classification", () => {
     expect(result.refusals[0]?.detail).toMatchObject({ syscallClass: "sleep-timer" });
   });
 
-  it("can explicitly defer sleep/timer syscalls without marking them directly resumable", () => {
+  it("refuses deferred sleep/timer syscalls when remaining time is not modeled", () => {
     const result = classifyNativeActiveSyscalls(
       [thread({ state: "inside-syscall", number: 115, name: "clock_nanosleep" })],
       { sleepTimerPolicy: "defer-target-resume" },
     );
+
+    expect(result.continuations).toEqual([]);
+    expect(result.refusals[0]).toMatchObject({
+      code: "target-sleep-remaining-time-missing",
+      detail: { reason: "syscall arguments were not captured" },
+    });
+  });
+
+  it("models relative clock_nanosleep remaining time from captured syscall timespec", () => {
+    const activeThread = arm64SleepThread();
+    const documents = documentsWithTimespec({ activeThread, seconds: 30n, nanoseconds: 456n });
+    const result = classifyNativeActiveSyscalls([activeThread], {
+      sleepTimerPolicy: "defer-target-resume",
+      documents,
+    });
 
     expect(result.refusals).toEqual([]);
     expect(result.continuations[0]).toMatchObject({
       syscallClass: "sleep-timer",
       action: "defer-target-resume",
       metadata: {
-        remainingTime: "not-captured",
+        remainingTime: {
+          state: "modeled",
+          kind: "relative-duration",
+          seconds: "30",
+          nanoseconds: 456,
+          precision: "requested-duration-upper-bound",
+        },
+        sleepTimer: {
+          syscallName: "clock_nanosleep",
+          argumentSource: "registers",
+          clockId: 0,
+          flags: 0,
+          requestPointer: "0x3000",
+        },
         policy: "conservative-target-timer-rearm-required",
       },
     });
     expect(result.classifications[0]).toMatchObject({
       class: "sleep-timer",
       resumable: false,
+    });
+  });
+
+  it("prefers /proc syscall arguments when capture recorded them", () => {
+    const activeThread = arm64SleepThread({
+      state: "inside-syscall",
+      number: 115,
+      name: "clock_nanosleep",
+      arguments: ["0x0", "0x0", "0x3000", "0x0", "0x0", "0x0"],
+    });
+    const documents = documentsWithTimespec({ activeThread });
+
+    expect(modelNativeSleepTimerState(activeThread, documents)).toMatchObject({
+      state: "modeled",
+      timer: { argumentSource: "proc-syscall", requestPointer: "0x3000" },
+    });
+  });
+
+  it("models nanosleep request timespec arguments", () => {
+    const activeThread = arm64SleepThread(
+      { state: "inside-syscall", number: 101, name: "nanosleep" },
+      ["0x3000", "0x0", "0x0", "0x0", "0x0", "0x0"],
+    );
+    const documents = documentsWithTimespec({ activeThread, seconds: 2n, nanoseconds: 10n });
+
+    expect(modelNativeSleepTimerState(activeThread, documents)).toMatchObject({
+      state: "modeled",
+      timer: {
+        syscallName: "nanosleep",
+        requestPointer: "0x3000",
+        remainingTime: { seconds: "2", nanoseconds: 10 },
+      },
+    });
+  });
+
+  it("fails closed for absolute clock_nanosleep until clock domains are modeled", () => {
+    const activeThread = arm64SleepThread(
+      { state: "inside-syscall", number: 115, name: "clock_nanosleep" },
+      ["0x0", "0x1", "0x3000", "0x0", "0x0", "0x0"],
+    );
+    const documents = documentsWithTimespec({ activeThread });
+
+    expect(modelNativeSleepTimerState(activeThread, documents)).toMatchObject({
+      state: "missing",
+      refusal: {
+        code: "target-sleep-remaining-time-missing",
+        detail: { reason: "absolute clock_nanosleep deadlines are not modeled yet" },
+      },
     });
   });
 

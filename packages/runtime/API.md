@@ -85,9 +85,14 @@
 - [`NativeActiveSyscallClass`](#nativeactivesyscallclass)
 - [`NativeSleepTimerSyscallPolicy`](#nativesleeptimersyscallpolicy)
 - [`NativeActiveSyscallPolicyOptions`](#nativeactivesyscallpolicyoptions)
+- [`NativeSleepTimerDuration`](#nativesleeptimerduration)
+- [`NativeModeledSleepTimerRemainingTime`](#nativemodeledsleeptimerremainingtime)
+- [`NativeModeledSleepTimerState`](#nativemodeledsleeptimerstate)
+- [`NativeSleepTimerModelResult`](#nativesleeptimermodelresult)
 - [`NativeActiveSyscallContinuation`](#nativeactivesyscallcontinuation)
 - [`NativeActiveSyscallClassification`](#nativeactivesyscallclassification)
 - [`NativeActiveSyscallClassificationResult`](#nativeactivesyscallclassificationresult)
+- [`modelNativeSleepTimerState`](#modelnativesleeptimerstate)
 - [`classifyNativeThreadSyscall`](#classifynativethreadsyscall)
 - [`classifyNativeActiveSyscalls`](#classifynativeactivesyscalls)
 - [`NativeCodeModule`](#nativecodemodule)
@@ -2302,6 +2307,112 @@ by default when `output` is a TTY.
 
 > `optional` **sleepTimerPolicy?**: [`NativeSleepTimerSyscallPolicy`](#nativesleeptimersyscallpolicy)
 
+##### documents?
+
+> `optional` **documents?**: [`NativeProcessImageDocuments`](#nativeprocessimagedocuments)
+
+***
+
+### NativeSleepTimerDuration
+
+#### Extended by
+
+- [`NativeModeledSleepTimerRemainingTime`](#nativemodeledsleeptimerremainingtime)
+
+#### Properties
+
+##### seconds
+
+> **seconds**: `string`
+
+##### nanoseconds
+
+> **nanoseconds**: `number`
+
+***
+
+### NativeModeledSleepTimerRemainingTime
+
+#### Extends
+
+- [`NativeSleepTimerDuration`](#nativesleeptimerduration)
+
+#### Properties
+
+##### seconds
+
+> **seconds**: `string`
+
+###### Inherited from
+
+[`NativeSleepTimerDuration`](#nativesleeptimerduration).[`seconds`](#seconds)
+
+##### nanoseconds
+
+> **nanoseconds**: `number`
+
+###### Inherited from
+
+[`NativeSleepTimerDuration`](#nativesleeptimerduration).[`nanoseconds`](#nanoseconds)
+
+##### state
+
+> **state**: `"modeled"`
+
+##### kind
+
+> **kind**: `"relative-duration"`
+
+##### source
+
+> **source**: `"active-syscall-request-timespec"`
+
+##### precision
+
+> **precision**: `"requested-duration-upper-bound"`
+
+***
+
+### NativeModeledSleepTimerState
+
+#### Properties
+
+##### kind
+
+> **kind**: `"relative-duration"`
+
+##### syscallName
+
+> **syscallName**: `string`
+
+##### argumentSource
+
+> **argumentSource**: `"proc-syscall"` \| `"registers"`
+
+##### clockId?
+
+> `optional` **clockId?**: `number`
+
+##### flags?
+
+> `optional` **flags?**: `number`
+
+##### requestPointer
+
+> **requestPointer**: `string`
+
+##### remainderPointer?
+
+> `optional` **remainderPointer?**: `string`
+
+##### requestedTime
+
+> **requestedTime**: [`NativeSleepTimerDuration`](#nativesleeptimerduration)
+
+##### remainingTime
+
+> **remainingTime**: [`NativeModeledSleepTimerRemainingTime`](#nativemodeledsleeptimerremainingtime)
+
 ***
 
 ### NativeActiveSyscallContinuation
@@ -2336,13 +2447,29 @@ by default when `output` is a TTY.
 
 > `optional` **name?**: `string`
 
+###### arguments?
+
+> `optional` **arguments?**: `string`[]
+
+###### stackPointer?
+
+> `optional` **stackPointer?**: `string`
+
+###### instructionPointer?
+
+> `optional` **instructionPointer?**: `string`
+
 ##### metadata
 
 > **metadata**: `object`
 
 ###### remainingTime
 
-> **remainingTime**: `"not-captured"`
+> **remainingTime**: [`NativeModeledSleepTimerRemainingTime`](#nativemodeledsleeptimerremainingtime)
+
+###### sleepTimer
+
+> **sleepTimer**: [`NativeModeledSleepTimerState`](#nativemodeledsleeptimerstate)
 
 ###### policy
 
@@ -3031,7 +3158,7 @@ by default when `output` is a TTY.
 
 ##### code
 
-> **code**: `"fd-kind-unsupported"` \| `"target-build-mismatch"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"active-syscall"` \| `"blocking-syscall-state-unsupported"` \| `"code-location-unknown"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-permission-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"syscall-argument-state-unsupported"` \| `"syscall-restart-unsupported"` \| `"target-build-id-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-caller-frame-unavailable"` \| `"target-code-rva-unmapped"` \| `"target-frame-layout-unsupported"` \| `"target-frame-register-value-unavailable"` \| `"target-module-bytes-missing"` \| `"target-module-file-missing"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-module-range-unreadable"` \| `"target-return-slot-unsupported"` \| `"target-resume-execution-unavailable"` \| `"target-resume-fault-invalid-code-landing"` \| `"target-resume-fault-outside-target-bytes"` \| `"target-resume-fault-privileged-instruction"` \| `"target-resume-fault-signal-unsupported"` \| `"target-resume-fault-timeout"` \| `"target-resume-fault-unmodeled-memory"` \| `"target-semantic-continuation-missing"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
+> **code**: `"fd-kind-unsupported"` \| `"target-build-mismatch"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"active-syscall"` \| `"blocking-syscall-state-unsupported"` \| `"code-location-unknown"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-permission-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"syscall-argument-state-unsupported"` \| `"syscall-restart-unsupported"` \| `"target-build-id-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-caller-frame-unavailable"` \| `"target-code-rva-unmapped"` \| `"target-frame-layout-unsupported"` \| `"target-frame-register-value-unavailable"` \| `"target-module-bytes-missing"` \| `"target-module-file-missing"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-module-range-unreadable"` \| `"target-return-slot-unsupported"` \| `"target-resume-execution-unavailable"` \| `"target-resume-fault-invalid-code-landing"` \| `"target-resume-fault-outside-target-bytes"` \| `"target-resume-fault-privileged-instruction"` \| `"target-resume-fault-signal-unsupported"` \| `"target-resume-fault-timeout"` \| `"target-resume-fault-unmodeled-memory"` \| `"target-semantic-continuation-missing"` \| `"target-sleep-remaining-time-missing"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
 
 ##### message
 
@@ -3414,6 +3541,18 @@ by default when `output` is a TTY.
 ###### name?
 
 > `optional` **name?**: `string`
+
+###### arguments?
+
+> `optional` **arguments?**: `string`[]
+
+###### stackPointer?
+
+> `optional` **stackPointer?**: `string`
+
+###### instructionPointer?
+
+> `optional` **instructionPointer?**: `string`
 
 ##### signal
 
@@ -3799,7 +3938,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-1)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-3)
 
 ##### buildId
 
@@ -3907,7 +4046,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-1)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-3)
 
 ##### buildId
 
@@ -4055,13 +4194,29 @@ by default when `output` is a TTY.
 
 > `optional` **name?**: `string`
 
+###### arguments?
+
+> `optional` **arguments?**: `string`[]
+
+###### stackPointer?
+
+> `optional` **stackPointer?**: `string`
+
+###### instructionPointer?
+
+> `optional` **instructionPointer?**: `string`
+
 ##### metadata
 
 > **metadata**: `object`
 
 ###### remainingTime
 
-> **remainingTime**: `"not-captured"`
+> **remainingTime**: [`NativeModeledSleepTimerRemainingTime`](#nativemodeledsleeptimerremainingtime)
+
+###### sleepTimer
+
+> **sleepTimer**: [`NativeModeledSleepTimerState`](#nativemodeledsleeptimerstate)
 
 ###### policy
 
@@ -8541,6 +8696,12 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativeSleepTimerModelResult
+
+> **NativeSleepTimerModelResult** = \{ `state`: `"modeled"`; `timer`: [`NativeModeledSleepTimerState`](#nativemodeledsleeptimerstate); \} \| \{ `state`: `"missing"`; `refusal`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal); \}
+
+***
+
 ### NativeActualRealUtilityContinuationBoundary
 
 > **NativeActualRealUtilityContinuationBoundary** = [`NativeRealUtilityContinuationBoundary`](#nativerealutilitycontinuationboundary) \| `"target-module-bytes"` \| `"target-caller-frame"` \| `"target-resume-execution"`
@@ -9233,7 +9394,7 @@ loops; anything looser stops being a meaningful gate.
 
 ### nativeProcessImageRefusalCodes
 
-> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"blocking-syscall-state-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"inherited-stdio-policy-required"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-permission-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"non-stdio-kernel-state-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"stdin-buffer-state-unsupported"`, `"syscall-argument-state-unsupported"`, `"syscall-restart-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-callee-saved-state-unsupported"`, `"target-caller-frame-unavailable"`, `"target-code-rva-unmapped"`, `"target-frame-layout-unsupported"`, `"target-frame-register-value-unavailable"`, `"target-module-bytes-missing"`, `"target-module-file-missing"`, `"target-module-missing"`, `"target-module-not-executable"`, `"target-module-range-unreadable"`, `"target-return-slot-unsupported"`, `"target-resume-execution-unavailable"`, `"target-resume-fault-invalid-code-landing"`, `"target-resume-fault-outside-target-bytes"`, `"target-resume-fault-privileged-instruction"`, `"target-resume-fault-signal-unsupported"`, `"target-resume-fault-timeout"`, `"target-resume-fault-unmodeled-memory"`, `"target-semantic-continuation-missing"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
+> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"blocking-syscall-state-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"inherited-stdio-policy-required"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-permission-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"non-stdio-kernel-state-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"stdin-buffer-state-unsupported"`, `"syscall-argument-state-unsupported"`, `"syscall-restart-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-callee-saved-state-unsupported"`, `"target-caller-frame-unavailable"`, `"target-code-rva-unmapped"`, `"target-frame-layout-unsupported"`, `"target-frame-register-value-unavailable"`, `"target-module-bytes-missing"`, `"target-module-file-missing"`, `"target-module-missing"`, `"target-module-not-executable"`, `"target-module-range-unreadable"`, `"target-return-slot-unsupported"`, `"target-resume-execution-unavailable"`, `"target-resume-fault-invalid-code-landing"`, `"target-resume-fault-outside-target-bytes"`, `"target-resume-fault-privileged-instruction"`, `"target-resume-fault-signal-unsupported"`, `"target-resume-fault-timeout"`, `"target-resume-fault-unmodeled-memory"`, `"target-semantic-continuation-missing"`, `"target-sleep-remaining-time-missing"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
 
 ***
 
@@ -10298,6 +10459,26 @@ available.
 #### Returns
 
 [`NativeActiveSyscallClassification`](#nativeactivesyscallclassification)
+
+***
+
+### modelNativeSleepTimerState()
+
+> **modelNativeSleepTimerState**(`thread`, `documents?`): [`NativeSleepTimerModelResult`](#nativesleeptimermodelresult)
+
+#### Parameters
+
+##### thread
+
+[`NativeThreadState`](#nativethreadstate)
+
+##### documents?
+
+[`NativeProcessImageDocuments`](#nativeprocessimagedocuments)
+
+#### Returns
+
+[`NativeSleepTimerModelResult`](#nativesleeptimermodelresult)
 
 ***
 

@@ -106,6 +106,7 @@ export { buildNativeCodeMap } from "./native-code-map.ts";
 export {
   classifyNativeActiveSyscalls,
   classifyNativeThreadSyscall,
+  modelNativeSleepTimerState,
 } from "./native-active-syscall-policy.ts";
 export type {
   NativeCodeMapRequest,
@@ -169,6 +170,10 @@ export type {
   NativeActiveSyscallClassificationResult,
   NativeActiveSyscallContinuation,
   NativeActiveSyscallPolicyOptions,
+  NativeModeledSleepTimerRemainingTime,
+  NativeModeledSleepTimerState,
+  NativeSleepTimerDuration,
+  NativeSleepTimerModelResult,
   NativeSleepTimerSyscallPolicy,
 } from "./native-active-syscall-policy.ts";
 export type {
