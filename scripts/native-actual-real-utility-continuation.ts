@@ -1,14 +1,12 @@
 #!/usr/bin/env tsx
-import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, statSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { classifyNativeActiveSyscalls } from "../packages/runtime/src/native-active-syscall-policy.ts";
 import { planNativeMappingMaterialization } from "../packages/runtime/src/native-mapping-materialization.ts";
+import { inventoryNativeActualTargetModules } from "../packages/runtime/src/native-actual-target-module-inventory.ts";
 import {
   inventoryNativeSourceCodeModules,
   resolveNativeRealUtilityCodeLocations,
-  type NativeRealUtilitySourceModule,
-  type NativeRealUtilityTargetModule,
 } from "../packages/runtime/src/native-real-utility-code-map.ts";
 import { planNativeActualRealUtilityContinuationAttempt } from "../packages/runtime/src/native-actual-real-utility-continuation.ts";
 import { materializeNativeTargetModuleBytes } from "../packages/runtime/src/native-target-module-bytes.ts";
@@ -187,7 +185,12 @@ function planCapturedActualUtilityBundle(
     memorySizeBytes: memoryBytes,
   });
   const sourceModules = inventoryNativeSourceCodeModules(bundle);
-  const targetModules = inventoryActualTargetModules(sourceModules, options);
+  const { targetModules } = inventoryNativeActualTargetModules({
+    sourceModules,
+    targetArch: "amd64",
+    targetRoot: options.targetRoot,
+    explicitTargetModulePath: options.explicitTargetModulePath,
+  });
   const code = resolveNativeRealUtilityCodeLocations({
     documents: bundle,
     targetArch: "amd64",
@@ -234,50 +237,6 @@ function threadPc(thread: NativeThreadState): string {
   return thread.sourceRegisters.arch === "arm64"
     ? thread.sourceRegisters.pc
     : thread.sourceRegisters.rip;
-}
-
-function inventoryActualTargetModules(
-  sourceModules: NativeRealUtilitySourceModule[],
-  options: { targetRoot?: string; explicitTargetModulePath?: string },
-): NativeRealUtilityTargetModule[] {
-  if (!options.targetRoot && !options.explicitTargetModulePath) {
-    return [];
-  }
-  return sourceModules.flatMap((source) => targetModuleForSource(source, options) ?? []);
-}
-
-function targetModuleForSource(
-  source: NativeRealUtilitySourceModule,
-  options: { targetRoot?: string; explicitTargetModulePath?: string },
-): NativeRealUtilityTargetModule | undefined {
-  const targetPath = targetPathForSource(source, options.explicitTargetModulePath);
-  const resolved = resolveTargetPath(options.targetRoot, targetPath);
-  if (!existsSync(resolved)) {
-    return undefined;
-  }
-  const bytes = readFileSync(resolved);
-  return {
-    id: `target:${source.id}`,
-    logicalName: basename(targetPath),
-    path: targetPath,
-    arch: "amd64",
-    kind: source.kind,
-    buildId: sha256(bytes),
-    loadBias: "0x0",
-    textMapping: `target:${source.textMapping}`,
-    executable: true,
-    executableRanges: [{ relativeStart: "0x0", relativeEnd: hex(BigInt(bytes.byteLength)) }],
-  };
-}
-
-function targetPathForSource(
-  source: NativeRealUtilitySourceModule,
-  explicitTargetModulePath: string | undefined,
-): string {
-  if (explicitTargetModulePath && source.kind === "pie-executable") {
-    return explicitTargetModulePath;
-  }
-  return source.path;
 }
 
 function materializeResolvedTargetBytes(
@@ -461,21 +420,6 @@ function requireUtility(paths: string[]) {
   const utility = paths.find((path) => existsSync(path));
   assert(utility, `${UTILITY_NAME} utility not found`);
   return utility;
-}
-
-function resolveTargetPath(targetRoot: string | undefined, modulePath: string): string {
-  if (!targetRoot) {
-    return modulePath;
-  }
-  return join(targetRoot, modulePath.startsWith("/") ? modulePath.slice(1) : modulePath);
-}
-
-function sha256(bytes: Uint8Array): string {
-  return createHash("sha256").update(bytes).digest("hex");
-}
-
-function hex(value: bigint): string {
-  return `0x${value.toString(16)}`;
 }
 
 function printSummary(

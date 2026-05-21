@@ -113,6 +113,9 @@
 - [`NativeActualRealUtilityContinuationRequest`](#nativeactualrealutilitycontinuationrequest)
 - [`NativeActualRealUtilityContinuationPlan`](#nativeactualrealutilitycontinuationplan)
 - [`planNativeActualRealUtilityContinuationAttempt`](#plannativeactualrealutilitycontinuationattempt)
+- [`NativeActualTargetModuleInventoryRequest`](#nativeactualtargetmoduleinventoryrequest)
+- [`NativeActualTargetModuleInventoryResult`](#nativeactualtargetmoduleinventoryresult)
+- [`inventoryNativeActualTargetModules`](#inventorynativeactualtargetmodules)
 - [`NativeTargetModuleByteMaterializationRequest`](#nativetargetmodulebytematerializationrequest)
 - [`NativeTargetModuleByteMaterialization`](#nativetargetmodulebytematerialization)
 - [`NativeTargetModuleByteMaterializationResult`](#nativetargetmodulebytematerializationresult)
@@ -2462,6 +2465,42 @@ by default when `output` is a TTY.
 ##### sidecarRuntimeUsed
 
 > **sidecarRuntimeUsed**: `false`
+
+***
+
+### NativeActualTargetModuleInventoryRequest
+
+#### Properties
+
+##### sourceModules
+
+> **sourceModules**: [`NativeRealUtilitySourceModule`](#nativerealutilitysourcemodule)[]
+
+##### targetArch
+
+> **targetArch**: `"amd64"` \| `"arm64"`
+
+##### targetRoot?
+
+> `optional` **targetRoot?**: `string`
+
+##### explicitTargetModulePath?
+
+> `optional` **explicitTargetModulePath?**: `string`
+
+##### loadBiasBase?
+
+> `optional` **loadBiasBase?**: `string`
+
+***
+
+### NativeActualTargetModuleInventoryResult
+
+#### Properties
+
+##### targetModules
+
+> **targetModules**: [`NativeRealUtilityTargetModule`](#nativerealutilitytargetmodule)[]
 
 ***
 
@@ -9193,6 +9232,22 @@ available.
 #### Returns
 
 [`NativeActualRealUtilityContinuationPlan`](#nativeactualrealutilitycontinuationplan)
+
+***
+
+### inventoryNativeActualTargetModules()
+
+> **inventoryNativeActualTargetModules**(`request`): [`NativeActualTargetModuleInventoryResult`](#nativeactualtargetmoduleinventoryresult)
+
+#### Parameters
+
+##### request
+
+[`NativeActualTargetModuleInventoryRequest`](#nativeactualtargetmoduleinventoryrequest)
+
+#### Returns
+
+[`NativeActualTargetModuleInventoryResult`](#nativeactualtargetmoduleinventoryresult)
 
 ***
 
