@@ -1002,10 +1002,30 @@ static const char *fd_kind(const char *target) {
   if (strncmp(target, "anon_inode:[eventpoll]", 22) == 0) {
     return "epoll";
   }
+  if (strncmp(target, "anon_inode:[eventfd]", 20) == 0) {
+    return "eventfd";
+  }
+  if (strncmp(target, "anon_inode:[timerfd]", 20) == 0) {
+    return "timer";
+  }
+  if (strncmp(target, "anon_inode:[signalfd]", 21) == 0) {
+    return "signal";
+  }
   if (target[0] == '/') {
     return "file";
   }
   return "unknown";
+}
+
+static const char *fd_refusal_code(const char *kind) {
+  if (streq(kind, "fd") || streq(kind, "unknown")) {
+    return "fd-kind-unsupported";
+  }
+  if (streq(kind, "pipe") || streq(kind, "socket") || streq(kind, "epoll") ||
+      streq(kind, "eventfd") || streq(kind, "timer") || streq(kind, "signal")) {
+    return "kernel-state-unsupported";
+  }
+  return "resource-kind-unsupported";
 }
 
 static uint64_t fdinfo_value(pid_t pid, const char *fd_name, const char *field) {
@@ -1061,7 +1081,7 @@ static void write_fd_resource(FILE *out, pid_t pid, const char *fd_name, const c
     fputs("}", out);
   } else {
     fputs(",\"refusal\":", out);
-    write_refusal(out, "resource-kind-unsupported", "fd kind needs a resource broker recipe");
+    write_refusal(out, fd_refusal_code(kind), "fd kind needs a resource broker recipe");
   }
   fputc('}', out);
 }
