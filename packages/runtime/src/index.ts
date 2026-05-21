@@ -109,6 +109,16 @@ export type {
   NativeCodeModule,
   NativeCodeSymbol,
 } from "./native-code-map.ts";
+export { classifyNativeDebugMemoryPointers } from "./native-debug-memory.ts";
+export type {
+  NativeDebugAddressTranslation,
+  NativeDebugMemoryField,
+  NativeDebugMemoryFieldClassification,
+  NativeDebugMemoryMetadataSource,
+  NativeDebugMemoryObject,
+  NativeDebugMemoryPointerClassificationRequest,
+  NativeDebugMemoryPointerClassificationResult,
+} from "./native-debug-memory.ts";
 export { translateNativeMemory } from "./native-memory-translation.ts";
 export type {
   NativeMemoryTranslationRequest,
