@@ -15,7 +15,8 @@ The planner checks boundaries in this order:
 5. source unwind discovery from #495;
 6. target unwind/layout match;
 7. target frame-state materialization for actual utilities;
-8. synthetic target-caller frame installation for actual utilities.
+8. synthetic target-caller frame installation for actual utilities;
+9. target-native resume execution for actual utilities.
 
 Only when every gate is modeled can a later implementation perform a final jump.
 The planner itself never jumps. It reports:
@@ -39,7 +40,8 @@ target match is supplied: it refuses at `target-unwind-mismatch` instead of
 jumping. Actual utility planning can also refuse later at `target-frame-state`
 when target unwind is found but unmodeled callee-saved slots remain, or at
 `target-caller-frame` when synthetic caller-owned values exist but no target
-caller frame has been installed.
+caller frame has been installed, or at `target-resume-execution` when no actual
+native execution path has been planned.
 
 ## Proof
 

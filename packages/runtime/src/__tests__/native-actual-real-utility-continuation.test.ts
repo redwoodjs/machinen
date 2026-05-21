@@ -136,11 +136,26 @@ describe("native actual real utility continuation planner", () => {
     });
   });
 
-  it("reports ready only when target bytes and caller frame are explicitly materialized", () => {
+  it("requires a target-native resume execution path after caller frame", () => {
     expect(
       planNativeActualRealUtilityContinuationAttempt({
         ...readyInput(),
         targetCallerFrameMaterialized: true,
+      }),
+    ).toMatchObject({
+      state: "refused",
+      blockingBoundary: "target-resume-execution",
+      blockingRefusal: { code: "target-resume-execution-unavailable" },
+      attemptedResume: false,
+    });
+  });
+
+  it("reports ready only when target bytes, caller frame, and resume execution are planned", () => {
+    expect(
+      planNativeActualRealUtilityContinuationAttempt({
+        ...readyInput(),
+        targetCallerFrameMaterialized: true,
+        targetResumeExecutionPlanned: true,
       }),
     ).toMatchObject({
       state: "ready",

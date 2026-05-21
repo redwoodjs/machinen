@@ -20,7 +20,8 @@ The actual captured path preserves the native-transparent gate order:
 6. target amd64 unwind matching;
 7. target frame/callee-saved state materialization;
 8. target module byte materialization from explicit target inventory/root;
-9. synthetic target-caller frame installation.
+9. synthetic target-caller frame installation;
+10. target-native resume execution path.
 
 The new actual-real-utility planner adds a final `target-module-bytes` gate. If
 all earlier gates pass but no target bytes were explicitly materialized, it
@@ -41,8 +42,9 @@ target libc, materialize native libc bytes, discover the source libc frame, matc
 the target `.eh_frame` return contract, and then refuse at the later
 `target-frame-state` gate. With an explicit synthetic target-caller policy, it can
 materialize caller-owned callee-saved slots as synthetic target values and plan a
-synthetic caller frame. The planner can then reach `ready`, while still reporting
-`attemptedResume: false` because no native jump has executed yet.
+synthetic caller frame. The actual planner then refuses at
+`target-resume-execution` with `target-resume-execution-unavailable`, while still
+reporting `attemptedResume: false` because no native jump has executed yet.
 
 That refusal is intentional. It proves the real capture path is wired into the
 same fail-closed planner as the final-jump fixture, without granting success for
