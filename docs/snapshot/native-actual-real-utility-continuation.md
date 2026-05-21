@@ -50,17 +50,18 @@ libc `.eh_frame`, TLS, GOT, or global state.
 On Linux/amd64, the proof runs a bounded target-native trampoline for that ready
 plan. The trampoline maps the explicit synthetic amd64 bytes and transfers
 control to them on the synthetic target stack. The synthetic continuation issues
-the target-native sleep syscall and returns to the trampoline sentinel. Returning
-from that trampoline is still not target process completion, so the proof keeps
-`migrationCompleted: false`.
+the target-native sleep syscall and then exits the target process with status `0`
+when the syscall returns successfully. That is the first narrow proof state where
+`migrationCompleted` can be `true`.
 
-The summary reports `attemptedResume: true` and `migrationCompleted: false`
-instead of claiming a complete migration.
+The summary reports `attemptedResume: true` and, for the modeled synthetic sleep
+path, `migrationCompleted: true` only after the target process exits with status
+`0`.
 
 That ready-plus-attempt state is intentional but not a migration success claim. It
 proves the real capture path has explicit data for every modeled planning gate,
-that the first execution transfer reaches generated target-native sleep syscall
-bytes, and that the next blocker is target process completion rather than raw RVA
+that the execution transfer reaches generated target-native sleep syscall bytes,
+and that the narrow `/bin/sleep` target process can complete without raw RVA
 equivalence or libc-internal memory state.
 
 ## Non-claims

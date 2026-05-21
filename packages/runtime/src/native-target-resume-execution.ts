@@ -10,7 +10,7 @@ import type { NativeTargetModuleByteMaterialization } from "./native-target-modu
 
 export type NativeTargetResumeExecutionMode = "planned-not-executed";
 export type NativeTargetResumeExecutor = "native-resume-trampoline";
-export type NativeTargetResumeExecutionAttemptStatus = "returned" | "faulted";
+export type NativeTargetResumeExecutionAttemptStatus = "returned" | "faulted" | "exited";
 export type NativeTargetResumeFaultBoundary = "target-resume-fault-state";
 
 export interface NativeTargetResumeFaultRegisters {
@@ -68,6 +68,7 @@ export interface NativeTargetResumeExecutionAttempt {
   signalNumber?: number;
   faultAddress?: string;
   returnValue?: string;
+  exitStatus?: number;
   instructionPointerInTargetBytes: boolean;
   attemptedResume: true;
   sourceTextReusedAsTargetCode: false;

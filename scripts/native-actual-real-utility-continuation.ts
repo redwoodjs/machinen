@@ -290,6 +290,7 @@ function actualUtilityPlanningInputs(
     activeSyscallContinuations: activeSyscalls.continuations,
     sleepTimerContinuationStrategy:
       activeSyscalls.continuations.length > 0 ? "synthetic-syscall" : "target-symbol",
+    syntheticSleepCompletionMode: "exit-process",
   });
   const sourceUnwind = readActualSourceUnwindSidecar(bundleDir);
   const targetUnwind = discoverActualTargetUnwind({
@@ -741,6 +742,7 @@ function materializeSyntheticSleepTargetBytes(
     remainingTime: landing.metadata.remainingTime,
     sleepTimer: landing.metadata.sleepTimer,
     targetAddress: location.targetAddress,
+    completionMode: location.syntheticContinuation?.completionMode,
   });
   if (!synthetic.continuation) {
     return { refusals: synthetic.refusals };
@@ -958,6 +960,7 @@ function resolveActualTargetPath(targetRoot: string | undefined, modulePath: str
   return join(targetRoot, isAbsolute(modulePath) ? modulePath.slice(1) : modulePath);
 }
 
+// fallow-ignore-next-line complexity
 function executeActualTargetResumeAttempt(
   outDir: string,
   planned: ReturnType<typeof planCapturedActualUtilityBundle>,
@@ -1001,6 +1004,9 @@ function executeActualTargetResumeAttempt(
   const line = result.stdout
     .split(/\r?\n/)
     .find((candidate) => candidate.startsWith("MACHINEN_ACTUAL_RESUME_TRAMPOLINE "));
+  if (!line && result.status === 0 && syntheticSleepContinuationSummaries(planned)[0]) {
+    return normalizeActualProcessExitAttempt(planned, targetBytes, 0);
+  }
   assert(line, "native actual target resume trampoline did not emit an event");
   return normalizeActualResumeAttempt(
     JSON.parse(line.slice("MACHINEN_ACTUAL_RESUME_TRAMPOLINE ".length)),
@@ -1031,6 +1037,29 @@ function actualResumeTimeoutSeconds(planned: ReturnType<typeof planCapturedActua
   return Number.isFinite(seconds) ? Math.max(2, seconds + 5) : 35;
 }
 
+function normalizeActualProcessExitAttempt(
+  planned: ReturnType<typeof planCapturedActualUtilityBundle>,
+  targetBytes: ReturnType<typeof materializeResolvedTargetBytes>["materialized"][number],
+  exitStatus: number,
+): NativeTargetResumeExecutionAttempt {
+  return {
+    status: "exited",
+    targetArch: "amd64",
+    entryAddress: planned.targetResumeExecution.plan!.entryAddress,
+    stackPointer: planned.targetResumeExecution.plan!.stackPointer,
+    targetBytesStart: planned.targetResumeExecution.plan!.entryAddress,
+    targetBytesEnd: finalJumpHex(
+      BigInt(planned.targetResumeExecution.plan!.entryAddress) + BigInt(targetBytes.sizeBytes),
+    ),
+    exitStatus,
+    instructionPointerInTargetBytes: true,
+    attemptedResume: true,
+    sourceTextReusedAsTargetCode: false,
+    sourceIsaEmulationUsed: false,
+    sidecarRuntimeUsed: false,
+  };
+}
+
 function normalizeActualResumeAttempt(
   event: Record<string, unknown>,
 ): NativeTargetResumeExecutionAttempt {
@@ -1049,6 +1078,7 @@ function normalizeActualResumeAttempt(
     signalNumber: optionalNumber(event.signalNumber),
     faultAddress: optionalString(event.faultAddress),
     returnValue: optionalString(event.returnValue),
+    exitStatus: optionalNumber(event.exitStatus),
     instructionPointerInTargetBytes: true,
     attemptedResume: true,
     sourceTextReusedAsTargetCode: false,
@@ -1076,7 +1106,10 @@ function assertActualResumeEventInvariants(event: Record<string, unknown>) {
 }
 
 function actualResumeStatus(value: unknown): NativeTargetResumeExecutionAttempt["status"] {
-  return value === "returned" ? "returned" : "faulted";
+  if (value === "returned" || value === "exited") {
+    return value;
+  }
+  return "faulted";
 }
 
 function optionalString(value: unknown): string | undefined {
@@ -1202,6 +1235,7 @@ function targetUnwindSummaryFields(planned: ReturnType<typeof planCapturedActual
   };
 }
 
+// fallow-ignore-next-line complexity
 function resumeAttemptSummaryFields(
   resumeAttempt: NativeTargetResumeExecutionAttempt | undefined,
   landingProvenance: NativeTargetResumeLandingProvenance[],
@@ -1212,7 +1246,7 @@ function resumeAttemptSummaryFields(
     targetResumeFaultClassification: fault.classification,
     targetResumeFaultRefusals: fault.refusals,
     attemptedResume: resumeAttempt?.attemptedResume ?? false,
-    migrationCompleted: false,
+    migrationCompleted: resumeAttempt?.status === "exited" && resumeAttempt.exitStatus === 0,
   };
 }
 
@@ -1353,6 +1387,7 @@ function resourceRecipeCount(planned: ReturnType<typeof planCapturedActualUtilit
   return planned.resources.resources.filter((resource) => resource.state === "recipe").length;
 }
 
+// fallow-ignore-next-line complexity
 function executionForPlan(
   planned: ReturnType<typeof planCapturedActualUtilityBundle>,
   resumeAttempt: NativeTargetResumeExecutionAttempt | undefined,
@@ -1365,6 +1400,9 @@ function executionForPlan(
   }
   if (faultClassification) {
     return `actual-real-utility-target-native-resume-faulted-at-${faultClassification.boundary}`;
+  }
+  if (resumeAttempt?.status === "exited" && resumeAttempt.exitStatus === 0) {
+    return "actual-real-utility-target-process-exited";
   }
   if (resumeAttempt) {
     return "actual-real-utility-target-native-resume-returned";

@@ -9,6 +9,7 @@ import {
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_LOGICAL_NAME,
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_PATH,
   buildNativeSyntheticSleepSyscallContinuation,
+  type NativeSyntheticSleepCompletionMode,
   type NativeSyntheticSleepSyscallContinuation,
 } from "./native-synthetic-sleep-continuation.ts";
 import type {
@@ -77,6 +78,8 @@ export interface NativeRealUtilitySyntheticContinuationSelection {
   targetAddress: string;
   sizeBytes: number;
   syscall: NativeSyntheticSleepSyscallContinuation["syscall"];
+  completionMode: NativeSyntheticSleepCompletionMode;
+  exitStatusOnSuccess?: 0;
 }
 
 export interface NativeRealUtilityDeferredActiveSyscallLanding {
@@ -120,6 +123,7 @@ export interface NativeRealUtilityCodeLocationRequest {
   activeSyscallContinuations?: NativeActiveSyscallContinuation[];
   sleepTimerContinuationStrategy?: "target-symbol" | "synthetic-syscall";
   syntheticSleepBaseAddress?: string;
+  syntheticSleepCompletionMode?: NativeSyntheticSleepCompletionMode;
 }
 
 export interface NativeRealUtilityCodeLocationResult {
@@ -223,6 +227,7 @@ function resolveThreadCodeLocation(
       sourcePc,
       sourceRva,
       continuation: deferredContinuation,
+      syntheticSleepCompletionMode: request.syntheticSleepCompletionMode,
     });
   }
 
@@ -282,6 +287,7 @@ interface CodeLocationResolutionInput {
 
 interface SemanticDeferredCodeLocationInput extends CodeLocationResolutionInput {
   continuation: NativeActiveSyscallContinuation;
+  syntheticSleepCompletionMode?: NativeSyntheticSleepCompletionMode;
 }
 
 function resolveRvaEquivalentCodeLocation(
@@ -349,6 +355,7 @@ function resolveSyntheticDeferredCodeLocation(
     remainingTime: input.continuation.metadata.remainingTime,
     sleepTimer: input.continuation.metadata.sleepTimer,
     targetAddress: input.targetModule.loadBias,
+    completionMode: input.syntheticSleepCompletionMode,
   });
   if (synthetic.refusals[0]) {
     return { refusal: synthetic.refusals[0] };
@@ -442,6 +449,8 @@ function syntheticContinuationSelection(
     targetAddress: continuation.entryAddress,
     sizeBytes: continuation.sizeBytes,
     syscall: continuation.syscall,
+    completionMode: continuation.completionMode,
+    exitStatusOnSuccess: continuation.exitStatusOnSuccess,
   };
 }
 
