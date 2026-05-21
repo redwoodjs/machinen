@@ -113,6 +113,7 @@ export {
   inventoryNativeSourceCodeModules,
   resolveNativeRealUtilityCodeLocations,
 } from "./native-real-utility-code-map.ts";
+export { planNativeRealUtilityContinuationAttempt } from "./native-real-utility-continuation.ts";
 export type {
   NativeRealUtilityCodeLocationRequest,
   NativeRealUtilityCodeLocationResult,
@@ -122,6 +123,11 @@ export type {
   NativeRealUtilitySourceModule,
   NativeRealUtilityTargetModule,
 } from "./native-real-utility-code-map.ts";
+export type {
+  NativeRealUtilityContinuationBoundary,
+  NativeRealUtilityContinuationPlan,
+  NativeRealUtilityContinuationRequest,
+} from "./native-real-utility-continuation.ts";
 export { classifyNativeDebugMemoryPointers } from "./native-debug-memory.ts";
 export type {
   NativeDebugAddressTranslation,
