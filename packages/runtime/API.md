@@ -87,6 +87,15 @@
 - [`NativeCodeMapRequest`](#nativecodemaprequest)
 - [`NativeCodeMapResult`](#nativecodemapresult)
 - [`buildNativeCodeMap`](#buildnativecodemap)
+- [`NativeRealUtilityExecutableRange`](#nativerealutilityexecutablerange)
+- [`NativeRealUtilitySourceModule`](#nativerealutilitysourcemodule)
+- [`NativeRealUtilityTargetModule`](#nativerealutilitytargetmodule)
+- [`NativeRealUtilityModuleExpectation`](#nativerealutilitymoduleexpectation)
+- [`NativeRealUtilityResolvedLocation`](#nativerealutilityresolvedlocation)
+- [`NativeRealUtilityCodeLocationRequest`](#nativerealutilitycodelocationrequest)
+- [`NativeRealUtilityCodeLocationResult`](#nativerealutilitycodelocationresult)
+- [`inventoryNativeSourceCodeModules`](#inventorynativesourcecodemodules)
+- [`resolveNativeRealUtilityCodeLocations`](#resolvenativerealutilitycodelocations)
 - [`NativeStackFrame`](#nativestackframe)
 - [`NativeStackSlot`](#nativestackslot)
 - [`NativeStackTranslationRequest`](#nativestacktranslationrequest)
@@ -2204,6 +2213,11 @@ by default when `output` is a TTY.
 
 ### NativeCodeModule
 
+#### Extended by
+
+- [`NativeRealUtilitySourceModule`](#nativerealutilitysourcemodule)
+- [`NativeRealUtilityTargetModule`](#nativerealutilitytargetmodule)
+
 #### Properties
 
 ##### id
@@ -2638,7 +2652,7 @@ by default when `output` is a TTY.
 
 ##### code
 
-> **code**: `"fd-kind-unsupported"` \| `"target-build-mismatch"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"active-syscall"` \| `"code-location-unknown"` \| `"futex-state-unsupported"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-permission-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"vdso-policy-unsupported"`
+> **code**: `"fd-kind-unsupported"` \| `"target-build-mismatch"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"active-syscall"` \| `"code-location-unknown"` \| `"futex-state-unsupported"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-permission-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"target-build-id-mismatch"` \| `"target-code-location-unresolved"` \| `"target-code-rva-unmapped"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"vdso-policy-unsupported"`
 
 ##### message
 
@@ -3343,6 +3357,292 @@ by default when `output` is a TTY.
 ##### translation
 
 > **translation**: `unknown`
+
+***
+
+### NativeRealUtilityExecutableRange
+
+#### Properties
+
+##### relativeStart
+
+> **relativeStart**: `string`
+
+##### relativeEnd
+
+> **relativeEnd**: `string`
+
+***
+
+### NativeRealUtilitySourceModule
+
+#### Extends
+
+- [`NativeCodeModule`](#nativecodemodule)
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+###### Inherited from
+
+[`NativeCodeModule`](#nativecodemodule).[`id`](#id-1)
+
+##### logicalName
+
+> **logicalName**: `string`
+
+###### Inherited from
+
+[`NativeCodeModule`](#nativecodemodule).[`logicalName`](#logicalname)
+
+##### path
+
+> **path**: `string`
+
+###### Inherited from
+
+[`NativeCodeModule`](#nativecodemodule).[`path`](#path)
+
+##### arch?
+
+> `optional` **arch?**: `"amd64"` \| `"arm64"`
+
+###### Inherited from
+
+[`NativeCodeModule`](#nativecodemodule).[`arch`](#arch)
+
+##### kind
+
+> **kind**: `"unknown"` \| `"executable"` \| `"vdso"` \| `"pie-executable"` \| `"shared-object"`
+
+###### Inherited from
+
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-1)
+
+##### buildId
+
+> **buildId**: `string`
+
+###### Inherited from
+
+[`NativeCodeModule`](#nativecodemodule).[`buildId`](#buildid)
+
+##### loadBias
+
+> **loadBias**: `string`
+
+###### Inherited from
+
+[`NativeCodeModule`](#nativecodemodule).[`loadBias`](#loadbias)
+
+##### textMapping
+
+> **textMapping**: `string`
+
+###### Inherited from
+
+[`NativeCodeModule`](#nativecodemodule).[`textMapping`](#textmapping)
+
+##### sourceStart
+
+> **sourceStart**: `string`
+
+##### sourceEnd
+
+> **sourceEnd**: `string`
+
+***
+
+### NativeRealUtilityTargetModule
+
+#### Extends
+
+- [`NativeCodeModule`](#nativecodemodule)
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+###### Inherited from
+
+[`NativeCodeModule`](#nativecodemodule).[`id`](#id-1)
+
+##### logicalName
+
+> **logicalName**: `string`
+
+###### Inherited from
+
+[`NativeCodeModule`](#nativecodemodule).[`logicalName`](#logicalname)
+
+##### path
+
+> **path**: `string`
+
+###### Inherited from
+
+[`NativeCodeModule`](#nativecodemodule).[`path`](#path)
+
+##### arch?
+
+> `optional` **arch?**: `"amd64"` \| `"arm64"`
+
+###### Inherited from
+
+[`NativeCodeModule`](#nativecodemodule).[`arch`](#arch)
+
+##### kind
+
+> **kind**: `"unknown"` \| `"executable"` \| `"vdso"` \| `"pie-executable"` \| `"shared-object"`
+
+###### Inherited from
+
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-1)
+
+##### buildId
+
+> **buildId**: `string`
+
+###### Inherited from
+
+[`NativeCodeModule`](#nativecodemodule).[`buildId`](#buildid)
+
+##### loadBias
+
+> **loadBias**: `string`
+
+###### Inherited from
+
+[`NativeCodeModule`](#nativecodemodule).[`loadBias`](#loadbias)
+
+##### textMapping
+
+> **textMapping**: `string`
+
+###### Inherited from
+
+[`NativeCodeModule`](#nativecodemodule).[`textMapping`](#textmapping)
+
+##### executable?
+
+> `optional` **executable?**: `boolean`
+
+##### executableRanges?
+
+> `optional` **executableRanges?**: [`NativeRealUtilityExecutableRange`](#nativerealutilityexecutablerange)[]
+
+***
+
+### NativeRealUtilityModuleExpectation
+
+#### Properties
+
+##### sourcePath?
+
+> `optional` **sourcePath?**: `string`
+
+##### sourceLogicalName?
+
+> `optional` **sourceLogicalName?**: `string`
+
+##### targetModuleId?
+
+> `optional` **targetModuleId?**: `string`
+
+##### targetPath?
+
+> `optional` **targetPath?**: `string`
+
+##### expectedTargetBuildId?
+
+> `optional` **expectedTargetBuildId?**: `string`
+
+***
+
+### NativeRealUtilityResolvedLocation
+
+#### Properties
+
+##### threadId
+
+> **threadId**: `string`
+
+##### sourceModule
+
+> **sourceModule**: [`NativeRealUtilitySourceModule`](#nativerealutilitysourcemodule)
+
+##### targetModule
+
+> **targetModule**: [`NativeRealUtilityTargetModule`](#nativerealutilitytargetmodule)
+
+##### sourceRva
+
+> **sourceRva**: `string`
+
+##### targetAddress
+
+> **targetAddress**: `string`
+
+##### codeLocation
+
+> **codeLocation**: [`NativeCodeLocationMapping`](#nativecodelocationmapping)
+
+***
+
+### NativeRealUtilityCodeLocationRequest
+
+#### Properties
+
+##### documents
+
+> **documents**: [`NativeProcessImageDocuments`](#nativeprocessimagedocuments)
+
+##### targetArch
+
+> **targetArch**: `"amd64"` \| `"arm64"`
+
+##### targetModules
+
+> **targetModules**: [`NativeRealUtilityTargetModule`](#nativerealutilitytargetmodule)[]
+
+##### moduleExpectations?
+
+> `optional` **moduleExpectations?**: [`NativeRealUtilityModuleExpectation`](#nativerealutilitymoduleexpectation)[]
+
+##### threadIds?
+
+> `optional` **threadIds?**: `string`[]
+
+***
+
+### NativeRealUtilityCodeLocationResult
+
+#### Properties
+
+##### sourceModules
+
+> **sourceModules**: [`NativeRealUtilitySourceModule`](#nativerealutilitysourcemodule)[]
+
+##### targetModules
+
+> **targetModules**: [`NativeRealUtilityTargetModule`](#nativerealutilitytargetmodule)[]
+
+##### resolved
+
+> **resolved**: [`NativeRealUtilityResolvedLocation`](#nativerealutilityresolvedlocation)[]
+
+##### codeLocations
+
+> **codeLocations**: [`NativeCodeLocationMapping`](#nativecodelocationmapping)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
 
 ***
 
@@ -7094,7 +7394,7 @@ loops; anything looser stops being a meaningful gate.
 
 ### nativeProcessImageRefusalCodes
 
-> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-permission-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"target-build-mismatch"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"vdso-policy-unsupported"`\]
+> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-permission-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-code-rva-unmapped"`, `"target-module-missing"`, `"target-module-not-executable"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"vdso-policy-unsupported"`\]
 
 ***
 
@@ -8259,6 +8559,38 @@ available.
 #### Returns
 
 `asserts docs is NativeProcessImageDocuments`
+
+***
+
+### inventoryNativeSourceCodeModules()
+
+> **inventoryNativeSourceCodeModules**(`documents`): [`NativeRealUtilitySourceModule`](#nativerealutilitysourcemodule)[]
+
+#### Parameters
+
+##### documents
+
+[`NativeProcessImageDocuments`](#nativeprocessimagedocuments)
+
+#### Returns
+
+[`NativeRealUtilitySourceModule`](#nativerealutilitysourcemodule)[]
+
+***
+
+### resolveNativeRealUtilityCodeLocations()
+
+> **resolveNativeRealUtilityCodeLocations**(`request`): [`NativeRealUtilityCodeLocationResult`](#nativerealutilitycodelocationresult)
+
+#### Parameters
+
+##### request
+
+[`NativeRealUtilityCodeLocationRequest`](#nativerealutilitycodelocationrequest)
+
+#### Returns
+
+[`NativeRealUtilityCodeLocationResult`](#nativerealutilitycodelocationresult)
 
 ***
 
