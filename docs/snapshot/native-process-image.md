@@ -62,6 +62,11 @@ first native-translation blockers:
 - `target-module-not-executable`
 - `target-code-location-unresolved`
 - `target-code-rva-unmapped`
+- `unwind-metadata-missing`
+- `unwind-fde-missing`
+- `unwind-rule-unsupported`
+- `return-slot-unreadable`
+- `target-unwind-mismatch`
 
 Unsupported work must emit a precise refusal instead of silently copying source
 state into the target.
