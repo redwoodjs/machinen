@@ -2,6 +2,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
+import { classifyNativeActiveSyscalls } from "../packages/runtime/src/native-active-syscall-policy.ts";
 import { planNativeMappingMaterialization } from "../packages/runtime/src/native-mapping-materialization.ts";
 import {
   inventoryNativeSourceCodeModules,
@@ -165,6 +166,7 @@ function planCapturedActualUtilityBundle(
 ) {
   const bundle = validateNativeProcessImageBundle(bundleDir);
   const memoryBytes = statSync(join(bundleDir, "native-memory.bin")).size;
+  const activeSyscalls = classifyNativeActiveSyscalls(bundle.threads.threads);
   const registers = translateNativeRegisterState({
     sourceArch: bundle.manifest.capture.sourceArch,
     targetArch: bundle.manifest.target.arch,
@@ -190,7 +192,8 @@ function planCapturedActualUtilityBundle(
   });
   const targetBytes = materializeResolvedTargetBytes(code.resolved, options.targetRoot);
   const plan = planNativeActualRealUtilityContinuationAttempt({
-    threadRefusals: registers.refusals,
+    threadRefusals:
+      activeSyscalls.refusals.length > 0 ? activeSyscalls.refusals : registers.refusals,
     resourceRefusals: resources.refusals,
     mappingRefusals: mappings.refusals,
     codeLocations: code.codeLocations,
@@ -201,6 +204,7 @@ function planCapturedActualUtilityBundle(
   return {
     bundle,
     memoryBytes,
+    activeSyscalls,
     registers,
     resources,
     mappings,
@@ -236,28 +240,31 @@ function inventoryActualTargetModules(
   if (!options.targetRoot && !options.explicitTargetModulePath) {
     return [];
   }
-  const modules: NativeRealUtilityTargetModule[] = [];
-  for (const source of sourceModules) {
-    const targetPath = targetPathForSource(source, options.explicitTargetModulePath);
-    const resolved = resolveTargetPath(options.targetRoot, targetPath);
-    if (!existsSync(resolved)) {
-      continue;
-    }
-    const bytes = readFileSync(resolved);
-    modules.push({
-      id: `target:${source.id}`,
-      logicalName: basename(targetPath),
-      path: targetPath,
-      arch: "amd64",
-      kind: source.kind,
-      buildId: sha256(bytes),
-      loadBias: "0x0",
-      textMapping: `target:${source.textMapping}`,
-      executable: true,
-      executableRanges: [{ relativeStart: "0x0", relativeEnd: hex(BigInt(bytes.byteLength)) }],
-    });
+  return sourceModules.flatMap((source) => targetModuleForSource(source, options) ?? []);
+}
+
+function targetModuleForSource(
+  source: NativeRealUtilitySourceModule,
+  options: { targetRoot?: string; explicitTargetModulePath?: string },
+): NativeRealUtilityTargetModule | undefined {
+  const targetPath = targetPathForSource(source, options.explicitTargetModulePath);
+  const resolved = resolveTargetPath(options.targetRoot, targetPath);
+  if (!existsSync(resolved)) {
+    return undefined;
   }
-  return modules;
+  const bytes = readFileSync(resolved);
+  return {
+    id: `target:${source.id}`,
+    logicalName: basename(targetPath),
+    path: targetPath,
+    arch: "amd64",
+    kind: source.kind,
+    buildId: sha256(bytes),
+    loadBias: "0x0",
+    textMapping: `target:${source.textMapping}`,
+    executable: true,
+    executableRanges: [{ relativeStart: "0x0", relativeEnd: hex(BigInt(bytes.byteLength)) }],
+  };
 }
 
 function targetPathForSource(
@@ -310,43 +317,24 @@ function actualUtilitySummary(context: {
     sourceBundleDir: context.sourceBundleDir,
     targetRoot: context.targetRoot,
     capturer: context.capturer,
-    utility: {
-      name: basename(context.command[0] ?? UTILITY_NAME),
-      command: context.command,
-      executable: planned.bundle.manifest.process.exe,
-      pid: planned.bundle.manifest.capture.pid,
-    },
+    utility: utilitySummary(context),
     processImageValidated: true,
     actualCapturedUtility: true,
-    threadSyscalls: planned.bundle.threads.threads.map((thread) => ({
-      id: thread.id,
-      state: thread.syscall.state,
-      number: thread.syscall.number,
-      name: thread.syscall.name,
-    })),
-    threadRefusals: planned.registers.refusals,
+    threadSyscalls: threadSyscallSummaries(planned),
+    activeSyscallClassifications: planned.activeSyscalls.classifications,
+    threadRefusals: effectiveThreadRefusals(planned),
+    registerRefusals: planned.registers.refusals,
     resourceRefusals: planned.resources.refusals,
     mappingRefusals: planned.mappings.refusals,
     codeLocationRefusals: planned.code.refusals,
     sourceUnwindFrames: planned.sourceFrames.length,
     targetUnwindMatches: planned.targetUnwind?.matches.length ?? 0,
     targetModuleByteRefusals: planned.targetBytes.refusals,
-    materializedTargetBytes: planned.targetBytes.materialized.map((bytes) => ({
-      moduleId: bytes.moduleId,
-      relativeStart: bytes.relativeStart,
-      sizeBytes: bytes.sizeBytes,
-      sourceTextReusedAsTargetCode: bytes.sourceTextReusedAsTargetCode,
-    })),
+    materializedTargetBytes: materializedTargetByteSummaries(planned),
     sourceModules: planned.sourceModules.length,
-    targetModules: planned.targetModules.map((module) => ({
-      id: module.id,
-      logicalName: module.logicalName,
-      path: module.path,
-      buildId: module.buildId,
-    })),
+    targetModules: targetModuleSummaries(planned),
     mappingSteps: planned.mappings.steps.length,
-    resourceRecipes: planned.resources.resources.filter((resource) => resource.state === "recipe")
-      .length,
+    resourceRecipes: resourceRecipeCount(planned),
     plan: planned.plan,
     blockingBoundary: planned.plan.blockingBoundary,
     blockingRefusal: planned.plan.blockingRefusal,
@@ -354,12 +342,66 @@ function actualUtilitySummary(context: {
     sourceTextReusedAsTargetCode: false,
     sourceIsaEmulationUsed: false,
     sidecarRuntimeUsed: false,
-    execution:
-      planned.plan.state === "ready"
-        ? "actual-real-utility-ready-for-target-native-resume"
-        : `actual-real-utility-refused-at-${planned.plan.blockingBoundary}`,
+    execution: executionForPlan(planned),
     bundleFiles: bundleFileStats(context.sourceBundleDir, NATIVE_PROCESS_IMAGE_BUNDLE_FILES),
   };
+}
+
+function utilitySummary(context: {
+  command: string[];
+  planned: ReturnType<typeof planCapturedActualUtilityBundle>;
+}) {
+  return {
+    name: basename(context.command[0] ?? UTILITY_NAME),
+    command: context.command,
+    executable: context.planned.bundle.manifest.process.exe,
+    pid: context.planned.bundle.manifest.capture.pid,
+  };
+}
+
+function threadSyscallSummaries(planned: ReturnType<typeof planCapturedActualUtilityBundle>) {
+  return planned.bundle.threads.threads.map((thread) => ({
+    id: thread.id,
+    state: thread.syscall.state,
+    number: thread.syscall.number,
+    name: thread.syscall.name,
+  }));
+}
+
+function effectiveThreadRefusals(planned: ReturnType<typeof planCapturedActualUtilityBundle>) {
+  return planned.activeSyscalls.refusals.length > 0
+    ? planned.activeSyscalls.refusals
+    : planned.registers.refusals;
+}
+
+function materializedTargetByteSummaries(
+  planned: ReturnType<typeof planCapturedActualUtilityBundle>,
+) {
+  return planned.targetBytes.materialized.map((bytes) => ({
+    moduleId: bytes.moduleId,
+    relativeStart: bytes.relativeStart,
+    sizeBytes: bytes.sizeBytes,
+    sourceTextReusedAsTargetCode: bytes.sourceTextReusedAsTargetCode,
+  }));
+}
+
+function targetModuleSummaries(planned: ReturnType<typeof planCapturedActualUtilityBundle>) {
+  return planned.targetModules.map((module) => ({
+    id: module.id,
+    logicalName: module.logicalName,
+    path: module.path,
+    buildId: module.buildId,
+  }));
+}
+
+function resourceRecipeCount(planned: ReturnType<typeof planCapturedActualUtilityBundle>) {
+  return planned.resources.resources.filter((resource) => resource.state === "recipe").length;
+}
+
+function executionForPlan(planned: ReturnType<typeof planCapturedActualUtilityBundle>) {
+  return planned.plan.state === "ready"
+    ? "actual-real-utility-ready-for-target-native-resume"
+    : `actual-real-utility-refused-at-${planned.plan.blockingBoundary}`;
 }
 
 function refusedCapturePlan(stderr: string) {
