@@ -49,6 +49,11 @@ export const nativeProcessImageRefusalCodes = [
   "target-module-not-executable",
   "thread-state-unsupported",
   "tls-state-unsupported",
+  "return-slot-unreadable",
+  "target-unwind-mismatch",
+  "unwind-fde-missing",
+  "unwind-metadata-missing",
+  "unwind-rule-unsupported",
   "vdso-policy-unsupported",
 ] as const;
 export type NativeProcessImageRefusalCode = (typeof nativeProcessImageRefusalCodes)[number];
