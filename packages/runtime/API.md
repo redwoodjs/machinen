@@ -100,6 +100,15 @@
 - [`NativeRealUtilityContinuationRequest`](#nativerealutilitycontinuationrequest)
 - [`NativeRealUtilityContinuationPlan`](#nativerealutilitycontinuationplan)
 - [`planNativeRealUtilityContinuationAttempt`](#plannativerealutilitycontinuationattempt)
+- [`NativeTargetUnwindRegister`](#nativetargetunwindregister)
+- [`NativeTargetUnwindFrameRule`](#nativetargetunwindframerule)
+- [`NativeTargetEhFrameTextParseRequest`](#nativetargetehframetextparserequest)
+- [`NativeTargetEhFrameTextParseResult`](#nativetargetehframetextparseresult)
+- [`NativeTargetUnwindMatchRequest`](#nativetargetunwindmatchrequest)
+- [`NativeTargetUnwindFrameMatch`](#nativetargetunwindframematch)
+- [`NativeTargetUnwindMatchResult`](#nativetargetunwindmatchresult)
+- [`parseNativeTargetEhFrameText`](#parsenativetargetehframetext)
+- [`matchNativeTargetUnwindFrame`](#matchnativetargetunwindframe)
 - [`NativeStackFrame`](#nativestackframe)
 - [`NativeStackSlot`](#nativestackslot)
 - [`NativeStackTranslationRequest`](#nativestacktranslationrequest)
@@ -2660,7 +2669,7 @@ by default when `output` is a TTY.
 
 ##### code
 
-> **code**: `"fd-kind-unsupported"` \| `"target-build-mismatch"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"active-syscall"` \| `"code-location-unknown"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-permission-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"target-build-id-mismatch"` \| `"target-code-location-unresolved"` \| `"target-code-rva-unmapped"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
+> **code**: `"fd-kind-unsupported"` \| `"target-build-mismatch"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"active-syscall"` \| `"code-location-unknown"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-permission-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"target-build-id-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-code-rva-unmapped"` \| `"target-frame-layout-unsupported"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-return-slot-unsupported"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
 
 ##### message
 
@@ -3678,9 +3687,13 @@ by default when `output` is a TTY.
 
 > **sourceFrames**: [`NativeDiscoveredUnwindFrame`](#nativediscoveredunwindframe)[]
 
-##### targetUnwindMatched
+##### targetUnwind?
 
-> **targetUnwindMatched**: `boolean`
+> `optional` **targetUnwind?**: [`NativeTargetUnwindMatchResult`](#nativetargetunwindmatchresult)
+
+##### targetUnwindMatched?
+
+> `optional` **targetUnwindMatched?**: `boolean`
 
 ***
 
@@ -3923,6 +3936,170 @@ by default when `output` is a TTY.
 ##### relocations
 
 > **relocations**: [`NativeMemoryRelocation`](#nativememoryrelocation)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
+### NativeTargetUnwindFrameRule
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### functionName
+
+> **functionName**: `string`
+
+##### mapping
+
+> **mapping**: `string`
+
+##### pcStart
+
+> **pcStart**: `string`
+
+##### pcEnd
+
+> **pcEnd**: `string`
+
+##### metadata
+
+> **metadata**: [`NativeUnwindMetadataKind`](#nativeunwindmetadatakind)
+
+##### cfa
+
+> **cfa**: `object`
+
+###### register
+
+> **register**: `"rsp"` \| `"rbp"`
+
+###### offset
+
+> **offset**: `number`
+
+##### returnAddress
+
+> **returnAddress**: `object`
+
+###### location
+
+> **location**: `"cfa-relative"`
+
+###### offset
+
+> **offset**: `number`
+
+##### calleeSaved?
+
+> `optional` **calleeSaved?**: `object`[]
+
+###### register
+
+> **register**: `"rbx"` \| `"rbp"` \| `"r12"` \| `"r13"` \| `"r14"` \| `"r15"`
+
+###### location
+
+> **location**: `"cfa-relative"` \| `"same-value"`
+
+###### offset?
+
+> `optional` **offset?**: `number`
+
+***
+
+### NativeTargetEhFrameTextParseRequest
+
+#### Properties
+
+##### readelfFrames
+
+> **readelfFrames**: `string`
+
+##### mapping
+
+> **mapping**: `string`
+
+##### functionName
+
+> **functionName**: `string`
+
+##### targetAddress
+
+> **targetAddress**: `string`
+
+***
+
+### NativeTargetEhFrameTextParseResult
+
+#### Properties
+
+##### rules
+
+> **rules**: [`NativeTargetUnwindFrameRule`](#nativetargetunwindframerule)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
+### NativeTargetUnwindMatchRequest
+
+#### Properties
+
+##### sourceFrame
+
+> **sourceFrame**: [`NativeDiscoveredUnwindFrame`](#nativediscoveredunwindframe)
+
+##### targetAddress
+
+> **targetAddress**: `string`
+
+##### targetRules
+
+> **targetRules**: [`NativeTargetUnwindFrameRule`](#nativetargetunwindframerule)[]
+
+***
+
+### NativeTargetUnwindFrameMatch
+
+#### Properties
+
+##### sourceFrameId
+
+> **sourceFrameId**: `string`
+
+##### targetRule
+
+> **targetRule**: [`NativeTargetUnwindFrameRule`](#nativetargetunwindframerule)
+
+##### targetAddress
+
+> **targetAddress**: `string`
+
+##### targetReturnAddressSlotOffset
+
+> **targetReturnAddressSlotOffset**: `number`
+
+##### preservesReturnContract
+
+> **preservesReturnContract**: `true`
+
+***
+
+### NativeTargetUnwindMatchResult
+
+#### Properties
+
+##### matches
+
+> **matches**: [`NativeTargetUnwindFrameMatch`](#nativetargetunwindframematch)[]
 
 ##### refusals
 
@@ -6962,6 +7139,12 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativeTargetUnwindRegister
+
+> **NativeTargetUnwindRegister** = `"rsp"` \| `"rbp"` \| `"rip"` \| `"rbx"` \| `"r12"` \| `"r13"` \| `"r14"` \| `"r15"`
+
+***
+
 ### NativeUnwindMetadataKind
 
 > **NativeUnwindMetadataKind** = `"dwarf"` \| `"eh-frame"`
@@ -7522,7 +7705,7 @@ loops; anything looser stops being a meaningful gate.
 
 ### nativeProcessImageRefusalCodes
 
-> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"inherited-stdio-policy-required"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-permission-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"non-stdio-kernel-state-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"stdin-buffer-state-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-code-rva-unmapped"`, `"target-module-missing"`, `"target-module-not-executable"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
+> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"inherited-stdio-policy-required"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-permission-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"non-stdio-kernel-state-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"stdin-buffer-state-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-callee-saved-state-unsupported"`, `"target-code-rva-unmapped"`, `"target-frame-layout-unsupported"`, `"target-module-missing"`, `"target-module-not-executable"`, `"target-return-slot-unsupported"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
 
 ***
 
@@ -8783,6 +8966,38 @@ available.
 #### Returns
 
 [`NativeStackTranslationResult`](#nativestacktranslationresult)
+
+***
+
+### parseNativeTargetEhFrameText()
+
+> **parseNativeTargetEhFrameText**(`request`): [`NativeTargetEhFrameTextParseResult`](#nativetargetehframetextparseresult)
+
+#### Parameters
+
+##### request
+
+[`NativeTargetEhFrameTextParseRequest`](#nativetargetehframetextparserequest)
+
+#### Returns
+
+[`NativeTargetEhFrameTextParseResult`](#nativetargetehframetextparseresult)
+
+***
+
+### matchNativeTargetUnwindFrame()
+
+> **matchNativeTargetUnwindFrame**(`request`): [`NativeTargetUnwindMatchResult`](#nativetargetunwindmatchresult)
+
+#### Parameters
+
+##### request
+
+[`NativeTargetUnwindMatchRequest`](#nativetargetunwindmatchrequest)
+
+#### Returns
+
+[`NativeTargetUnwindMatchResult`](#nativetargetunwindmatchresult)
 
 ***
 
