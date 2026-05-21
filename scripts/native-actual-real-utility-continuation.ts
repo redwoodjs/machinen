@@ -11,6 +11,7 @@ import {
 import { planNativeActualRealUtilityContinuationAttempt } from "../packages/runtime/src/native-actual-real-utility-continuation.ts";
 import { materializeNativeTargetModuleBytes } from "../packages/runtime/src/native-target-module-bytes.ts";
 import { planNativeTargetFrameStateMaterialization } from "../packages/runtime/src/native-target-frame-state.ts";
+import { planNativeSyntheticTargetCallerFrame } from "../packages/runtime/src/native-target-caller-frame.ts";
 import {
   matchNativeTargetUnwindFrame,
   parseNativeTargetEhFrameText,
@@ -195,7 +196,8 @@ function planCapturedActualUtilityBundle(
     targetUnwind: inputs.targetUnwind,
     targetFrameState: inputs.targetFrameState,
     targetModuleByteRefusals: inputs.targetBytes.refusals,
-    targetCallerFrameRefusals: syntheticTargetCallerFrameRefusals(inputs.targetFrameState),
+    targetCallerFrameRefusals: inputs.targetCallerFrame.refusals,
+    targetCallerFrameMaterialized: inputs.targetCallerFrame.state === "planned",
     targetModuleBytesMaterialized: inputs.targetBytes.materialized.length > 0,
   });
   return {
@@ -256,6 +258,10 @@ function actualUtilityPlanningInputs(
     targetUnwind,
     syntheticTargetCaller: { mode: "abi-neutral-sentinel" },
   });
+  const targetCallerFrame = planNativeSyntheticTargetCallerFrame({
+    frameState: targetFrameState,
+    policy: { mode: "abi-neutral-sentinel" },
+  });
   const targetBytes = materializeResolvedTargetBytes(code.resolved, options.targetRoot);
   return {
     bundle,
@@ -270,6 +276,7 @@ function actualUtilityPlanningInputs(
     sourceUnwind,
     targetUnwind,
     targetFrameState,
+    targetCallerFrame,
     targetBytes,
   };
 }
@@ -664,7 +671,8 @@ function actualUtilitySummary(context: {
     targetFrameStateRequirements: planned.targetFrameState.requirements,
     targetFrameStateMaterialized: planned.targetFrameState.materialized,
     targetFrameStateRefusals: planned.targetFrameState.refusals,
-    targetCallerFrameRefusals: syntheticTargetCallerFrameRefusals(planned.targetFrameState),
+    targetCallerFrame: planned.targetCallerFrame.frame,
+    targetCallerFrameRefusals: planned.targetCallerFrame.refusals,
     targetModuleByteRefusals: planned.targetBytes.refusals,
     materializedTargetBytes: materializedTargetByteSummaries(planned),
     sourceModules: planned.sourceModules.length,
@@ -734,27 +742,6 @@ function deferredActiveSyscallLandingSummaries(
         ]
       : [];
   });
-}
-
-function syntheticTargetCallerFrameRefusals(
-  targetFrameState: ReturnType<typeof planNativeTargetFrameStateMaterialization>,
-): NativeProcessImageRefusal[] {
-  const syntheticValues = targetFrameState.materialized.filter(
-    (state) => state.valueSource === "synthetic-target-caller",
-  );
-  return syntheticValues.length > 0
-    ? [
-        {
-          code: "target-caller-frame-unavailable",
-          message:
-            "synthetic target caller frame has not been materialized for actual real utility resume",
-          detail: {
-            syntheticValues: syntheticValues.length,
-            valueSource: "synthetic-target-caller",
-          },
-        },
-      ]
-    : [];
 }
 
 function materializedTargetByteSummaries(

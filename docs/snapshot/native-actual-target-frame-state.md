@@ -20,4 +20,4 @@ This is more precise than treating the FDE as missing. It says: target unwind wa
 
 ## Non-claims
 
-This does not translate source registers into amd64 callee-saved registers, does not build a real target stack frame, and does not resume `/bin/sleep`. It only moves the proof to the next honest blocker: `target-caller-frame` / `target-caller-frame-unavailable`.
+This does not translate source registers into amd64 callee-saved registers and does not resume `/bin/sleep`. A later synthetic caller-frame plan can group these values, but the proof still does not perform a native jump.

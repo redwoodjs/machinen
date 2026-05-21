@@ -40,9 +40,9 @@ success. With a target root and source unwind sidecar, the proof can inventory
 target libc, materialize native libc bytes, discover the source libc frame, match
 the target `.eh_frame` return contract, and then refuse at the later
 `target-frame-state` gate. With an explicit synthetic target-caller policy, it can
-materialize caller-owned callee-saved slots as synthetic target values, then
-refuse at `target-caller-frame` until the synthetic caller frame itself is
-installed.
+materialize caller-owned callee-saved slots as synthetic target values and plan a
+synthetic caller frame. The planner can then reach `ready`, while still reporting
+`attemptedResume: false` because no native jump has executed yet.
 
 That refusal is intentional. It proves the real capture path is wired into the
 same fail-closed planner as the final-jump fixture, without granting success for

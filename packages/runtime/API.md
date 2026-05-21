@@ -140,6 +140,12 @@
 - [`NativeTargetFrameStateMaterializationRequest`](#nativetargetframestatematerializationrequest)
 - [`NativeTargetFrameStateMaterializationResult`](#nativetargetframestatematerializationresult)
 - [`planNativeTargetFrameStateMaterialization`](#plannativetargetframestatematerialization)
+- [`NativeSyntheticTargetCallerFramePolicy`](#nativesynthetictargetcallerframepolicy)
+- [`NativeSyntheticTargetCallerFrameSlot`](#nativesynthetictargetcallerframeslot)
+- [`NativeSyntheticTargetCallerFrame`](#nativesynthetictargetcallerframe)
+- [`NativeSyntheticTargetCallerFramePlanRequest`](#nativesynthetictargetcallerframeplanrequest)
+- [`NativeSyntheticTargetCallerFramePlanResult`](#nativesynthetictargetcallerframeplanresult)
+- [`planNativeSyntheticTargetCallerFrame`](#plannativesynthetictargetcallerframe)
 - [`NativeStackFrame`](#nativestackframe)
 - [`NativeStackSlot`](#nativestackslot)
 - [`NativeStackTranslationRequest`](#nativestacktranslationrequest)
@@ -4333,6 +4339,112 @@ by default when `output` is a TTY.
 ##### relocations
 
 > **relocations**: [`NativeMemoryRelocation`](#nativememoryrelocation)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
+### NativeSyntheticTargetCallerFramePolicy
+
+#### Properties
+
+##### mode
+
+> **mode**: `"abi-neutral-sentinel"`
+
+##### returnAddress?
+
+> `optional` **returnAddress?**: `string`
+
+##### stackPointer?
+
+> `optional` **stackPointer?**: `string`
+
+***
+
+### NativeSyntheticTargetCallerFrameSlot
+
+#### Properties
+
+##### register
+
+> **register**: [`NativeTargetFrameStateRegister`](#nativetargetframestateregister)
+
+##### offset
+
+> **offset**: `number`
+
+##### value
+
+> **value**: `string`
+
+##### valueSource
+
+> **valueSource**: [`NativeTargetFrameStateValueSource`](#nativetargetframestatevaluesource)
+
+***
+
+### NativeSyntheticTargetCallerFrame
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### stackPointer
+
+> **stackPointer**: `string`
+
+##### returnAddress
+
+> **returnAddress**: `string`
+
+##### slots
+
+> **slots**: [`NativeSyntheticTargetCallerFrameSlot`](#nativesynthetictargetcallerframeslot)[]
+
+##### sourceTextReusedAsTargetCode
+
+> **sourceTextReusedAsTargetCode**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### sidecarRuntimeUsed
+
+> **sidecarRuntimeUsed**: `false`
+
+***
+
+### NativeSyntheticTargetCallerFramePlanRequest
+
+#### Properties
+
+##### frameState
+
+> **frameState**: [`NativeTargetFrameStateMaterializationResult`](#nativetargetframestatematerializationresult)
+
+##### policy?
+
+> `optional` **policy?**: [`NativeSyntheticTargetCallerFramePolicy`](#nativesynthetictargetcallerframepolicy)
+
+***
+
+### NativeSyntheticTargetCallerFramePlanResult
+
+#### Properties
+
+##### state
+
+> **state**: `"refused"` \| `"planned"`
+
+##### frame?
+
+> `optional` **frame?**: [`NativeSyntheticTargetCallerFrame`](#nativesynthetictargetcallerframe)
 
 ##### refusals
 
@@ -9695,6 +9807,22 @@ available.
 #### Returns
 
 [`NativeStackTranslationResult`](#nativestacktranslationresult)
+
+***
+
+### planNativeSyntheticTargetCallerFrame()
+
+> **planNativeSyntheticTargetCallerFrame**(`request`): [`NativeSyntheticTargetCallerFramePlanResult`](#nativesynthetictargetcallerframeplanresult)
+
+#### Parameters
+
+##### request
+
+[`NativeSyntheticTargetCallerFramePlanRequest`](#nativesynthetictargetcallerframeplanrequest)
+
+#### Returns
+
+[`NativeSyntheticTargetCallerFramePlanResult`](#nativesynthetictargetcallerframeplanresult)
 
 ***
 
