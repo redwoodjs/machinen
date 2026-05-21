@@ -148,11 +148,16 @@
 - [`planNativeSyntheticTargetCallerFrame`](#plannativesynthetictargetcallerframe)
 - [`NativeTargetResumeExecutionAttempt`](#nativetargetresumeexecutionattempt)
 - [`NativeTargetResumeExecutionAttemptStatus`](#nativetargetresumeexecutionattemptstatus)
+- [`NativeTargetResumeFaultBoundary`](#nativetargetresumefaultboundary)
+- [`NativeTargetResumeFaultClassification`](#nativetargetresumefaultclassification)
+- [`NativeTargetResumeFaultClassificationResult`](#nativetargetresumefaultclassificationresult)
+- [`NativeTargetResumeFaultRegisters`](#nativetargetresumefaultregisters)
 - [`NativeTargetResumeExecutionMode`](#nativetargetresumeexecutionmode)
 - [`NativeTargetResumeExecutor`](#nativetargetresumeexecutor)
 - [`NativeTargetResumeExecutionPlan`](#nativetargetresumeexecutionplan)
 - [`NativeTargetResumeExecutionPlanRequest`](#nativetargetresumeexecutionplanrequest)
 - [`NativeTargetResumeExecutionPlanResult`](#nativetargetresumeexecutionplanresult)
+- [`classifyNativeTargetResumeExecutionAttempt`](#classifynativetargetresumeexecutionattempt)
 - [`planNativeTargetResumeExecution`](#plannativetargetresumeexecution)
 - [`NativeStackFrame`](#nativestackframe)
 - [`NativeStackSlot`](#nativestackslot)
@@ -3010,7 +3015,7 @@ by default when `output` is a TTY.
 
 ##### code
 
-> **code**: `"fd-kind-unsupported"` \| `"target-build-mismatch"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"active-syscall"` \| `"blocking-syscall-state-unsupported"` \| `"code-location-unknown"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-permission-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"syscall-argument-state-unsupported"` \| `"syscall-restart-unsupported"` \| `"target-build-id-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-caller-frame-unavailable"` \| `"target-code-rva-unmapped"` \| `"target-frame-layout-unsupported"` \| `"target-frame-register-value-unavailable"` \| `"target-module-bytes-missing"` \| `"target-module-file-missing"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-module-range-unreadable"` \| `"target-return-slot-unsupported"` \| `"target-resume-execution-unavailable"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
+> **code**: `"fd-kind-unsupported"` \| `"target-build-mismatch"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"active-syscall"` \| `"blocking-syscall-state-unsupported"` \| `"code-location-unknown"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-permission-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"syscall-argument-state-unsupported"` \| `"syscall-restart-unsupported"` \| `"target-build-id-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-caller-frame-unavailable"` \| `"target-code-rva-unmapped"` \| `"target-frame-layout-unsupported"` \| `"target-frame-register-value-unavailable"` \| `"target-module-bytes-missing"` \| `"target-module-file-missing"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-module-range-unreadable"` \| `"target-return-slot-unsupported"` \| `"target-resume-execution-unavailable"` \| `"target-resume-fault-outside-target-bytes"` \| `"target-resume-fault-privileged-instruction"` \| `"target-resume-fault-signal-unsupported"` \| `"target-resume-fault-timeout"` \| `"target-resume-fault-unmodeled-memory"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
 
 ##### message
 
@@ -4662,6 +4667,136 @@ by default when `output` is a TTY.
 
 ***
 
+### NativeTargetResumeFaultRegisters
+
+#### Properties
+
+##### rax?
+
+> `optional` **rax?**: `string`
+
+##### rbx?
+
+> `optional` **rbx?**: `string`
+
+##### rcx?
+
+> `optional` **rcx?**: `string`
+
+##### rdx?
+
+> `optional` **rdx?**: `string`
+
+##### rsi?
+
+> `optional` **rsi?**: `string`
+
+##### rdi?
+
+> `optional` **rdi?**: `string`
+
+##### rbp?
+
+> `optional` **rbp?**: `string`
+
+##### rsp?
+
+> `optional` **rsp?**: `string`
+
+##### r8?
+
+> `optional` **r8?**: `string`
+
+##### r9?
+
+> `optional` **r9?**: `string`
+
+##### r10?
+
+> `optional` **r10?**: `string`
+
+##### r11?
+
+> `optional` **r11?**: `string`
+
+##### r12?
+
+> `optional` **r12?**: `string`
+
+##### r13?
+
+> `optional` **r13?**: `string`
+
+##### r14?
+
+> `optional` **r14?**: `string`
+
+##### r15?
+
+> `optional` **r15?**: `string`
+
+***
+
+### NativeTargetResumeFaultClassification
+
+#### Properties
+
+##### boundary
+
+> **boundary**: `"target-resume-fault-state"`
+
+##### refusal
+
+> **refusal**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
+
+##### signal?
+
+> `optional` **signal?**: `string`
+
+##### faultAddress?
+
+> `optional` **faultAddress?**: `string`
+
+##### targetInstructionPointer?
+
+> `optional` **targetInstructionPointer?**: `string`
+
+##### targetInstructionBytes?
+
+> `optional` **targetInstructionBytes?**: `string`
+
+##### registers?
+
+> `optional` **registers?**: [`NativeTargetResumeFaultRegisters`](#nativetargetresumefaultregisters)
+
+##### attemptedResume
+
+> **attemptedResume**: `true`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `false`
+
+***
+
+### NativeTargetResumeFaultClassificationResult
+
+#### Properties
+
+##### state
+
+> **state**: `"classified"` \| `"not-faulted"` \| `"unattempted"`
+
+##### classification?
+
+> `optional` **classification?**: [`NativeTargetResumeFaultClassification`](#nativetargetresumefaultclassification)
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
 ### NativeTargetResumeExecutionAttempt
 
 #### Properties
@@ -4693,6 +4828,14 @@ by default when `output` is a TTY.
 ##### targetInstructionPointer?
 
 > `optional` **targetInstructionPointer?**: `string`
+
+##### targetInstructionBytes?
+
+> `optional` **targetInstructionBytes?**: `string`
+
+##### registers?
+
+> `optional` **registers?**: [`NativeTargetResumeFaultRegisters`](#nativetargetresumefaultregisters)
 
 ##### signal?
 
@@ -8092,6 +8235,12 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativeTargetResumeFaultBoundary
+
+> **NativeTargetResumeFaultBoundary** = `"target-resume-fault-state"`
+
+***
+
 ### NativeTargetUnwindRegister
 
 > **NativeTargetUnwindRegister** = `"rsp"` \| `"rbp"` \| `"rip"` \| `"rbx"` \| `"r12"` \| `"r13"` \| `"r14"` \| `"r15"`
@@ -8664,7 +8813,7 @@ loops; anything looser stops being a meaningful gate.
 
 ### nativeProcessImageRefusalCodes
 
-> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"blocking-syscall-state-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"inherited-stdio-policy-required"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-permission-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"non-stdio-kernel-state-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"stdin-buffer-state-unsupported"`, `"syscall-argument-state-unsupported"`, `"syscall-restart-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-callee-saved-state-unsupported"`, `"target-caller-frame-unavailable"`, `"target-code-rva-unmapped"`, `"target-frame-layout-unsupported"`, `"target-frame-register-value-unavailable"`, `"target-module-bytes-missing"`, `"target-module-file-missing"`, `"target-module-missing"`, `"target-module-not-executable"`, `"target-module-range-unreadable"`, `"target-return-slot-unsupported"`, `"target-resume-execution-unavailable"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
+> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"blocking-syscall-state-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"inherited-stdio-policy-required"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-permission-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"non-stdio-kernel-state-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"stdin-buffer-state-unsupported"`, `"syscall-argument-state-unsupported"`, `"syscall-restart-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-callee-saved-state-unsupported"`, `"target-caller-frame-unavailable"`, `"target-code-rva-unmapped"`, `"target-frame-layout-unsupported"`, `"target-frame-register-value-unavailable"`, `"target-module-bytes-missing"`, `"target-module-file-missing"`, `"target-module-missing"`, `"target-module-not-executable"`, `"target-module-range-unreadable"`, `"target-return-slot-unsupported"`, `"target-resume-execution-unavailable"`, `"target-resume-fault-outside-target-bytes"`, `"target-resume-fault-privileged-instruction"`, `"target-resume-fault-signal-unsupported"`, `"target-resume-fault-timeout"`, `"target-resume-fault-unmodeled-memory"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
 
 ***
 
@@ -10061,6 +10210,22 @@ available.
 #### Returns
 
 [`NativeTargetResumeExecutionPlanResult`](#nativetargetresumeexecutionplanresult)
+
+***
+
+### classifyNativeTargetResumeExecutionAttempt()
+
+> **classifyNativeTargetResumeExecutionAttempt**(`attempt`): [`NativeTargetResumeFaultClassificationResult`](#nativetargetresumefaultclassificationresult)
+
+#### Parameters
+
+##### attempt
+
+[`NativeTargetResumeExecutionAttempt`](#nativetargetresumeexecutionattempt)
+
+#### Returns
+
+[`NativeTargetResumeFaultClassificationResult`](#nativetargetresumefaultclassificationresult)
 
 ***
 

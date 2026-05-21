@@ -126,7 +126,10 @@ export {
 } from "./native-target-unwind.ts";
 export { planNativeTargetFrameStateMaterialization } from "./native-target-frame-state.ts";
 export { planNativeSyntheticTargetCallerFrame } from "./native-target-caller-frame.ts";
-export { planNativeTargetResumeExecution } from "./native-target-resume-execution.ts";
+export {
+  classifyNativeTargetResumeExecutionAttempt,
+  planNativeTargetResumeExecution,
+} from "./native-target-resume-execution.ts";
 export { materializeNativeTargetModuleBytes } from "./native-target-module-bytes.ts";
 export type {
   NativeRealUtilityCodeLocationRequest,
@@ -168,6 +171,10 @@ export type {
 export type {
   NativeTargetResumeExecutionAttempt,
   NativeTargetResumeExecutionAttemptStatus,
+  NativeTargetResumeFaultBoundary,
+  NativeTargetResumeFaultClassification,
+  NativeTargetResumeFaultClassificationResult,
+  NativeTargetResumeFaultRegisters,
   NativeTargetResumeExecutionMode,
   NativeTargetResumeExecutionPlan,
   NativeTargetResumeExecutionPlanRequest,

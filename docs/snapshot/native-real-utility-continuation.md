@@ -43,8 +43,10 @@ when target unwind is found but unmodeled callee-saved slots remain, or at
 caller frame has been installed, or at `target-resume-execution` when no actual
 native execution path has been planned. When that execution path is planned, the
 actual planner can reach `ready`. The actual two-host proof may then run a
-bounded native trampoline and report a separate `targetResumeExecutionAttempt`,
-without treating a fault as completed process migration.
+bounded native trampoline and report a separate `targetResumeExecutionAttempt`.
+If that attempt faults inside target bytes, the proof reports the later
+`target-resume-fault-state` boundary instead of treating the fault as completed
+process migration.
 
 ## Proof
 

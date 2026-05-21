@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { planNativeTargetResumeExecution } from "../native-target-resume-execution.ts";
+import {
+  classifyNativeTargetResumeExecutionAttempt,
+  planNativeTargetResumeExecution,
+} from "../native-target-resume-execution.ts";
 import type { NativeCodeLocationMapping } from "../native-process-image.ts";
 import type { NativeSyntheticTargetCallerFrame } from "../native-target-caller-frame.ts";
 import type { NativeTargetModuleByteMaterialization } from "../native-target-module-bytes.ts";
@@ -86,5 +89,79 @@ describe("native target resume execution planning", () => {
         targetModuleBytes: targetBytes,
       }).refusals[0]?.code,
     ).toBe("target-resume-execution-unavailable");
+  });
+
+  it("classifies target-native memory faults with instruction and register evidence", () => {
+    const classified = classifyNativeTargetResumeExecutionAttempt({
+      status: "faulted",
+      targetArch: "amd64",
+      entryAddress: "0x7001000b6ca0",
+      stackPointer: "0x500000010000",
+      targetBytesStart: "0x7001000b6ca0",
+      targetBytesEnd: "0x7001000b6cc0",
+      targetInstructionPointer: "0x7001000b6ca0",
+      targetInstructionBytes: "660f6f0c0e660f73d80c660f73db0c",
+      registers: { rsi: "0x0", rcx: "0x0", rsp: "0x50000000fff8" },
+      signal: "SIGSEGV",
+      signalNumber: 11,
+      faultAddress: "0x0",
+      instructionPointerInTargetBytes: true,
+      attemptedResume: true,
+      sourceTextReusedAsTargetCode: false,
+      sourceIsaEmulationUsed: false,
+      sidecarRuntimeUsed: false,
+    });
+
+    expect(classified.state).toBe("classified");
+    expect(classified.classification).toMatchObject({
+      boundary: "target-resume-fault-state",
+      refusal: { code: "target-resume-fault-unmodeled-memory" },
+      targetInstructionBytes: "660f6f0c0e660f73d80c660f73db0c",
+      registers: { rsi: "0x0", rcx: "0x0" },
+      attemptedResume: true,
+      migrationCompleted: false,
+    });
+  });
+
+  it("classifies privileged target instructions separately", () => {
+    expect(
+      classifyNativeTargetResumeExecutionAttempt({
+        status: "faulted",
+        targetArch: "amd64",
+        entryAddress: "0x7001000b6ca0",
+        stackPointer: "0x500000010000",
+        targetBytesStart: "0x7001000b6ca0",
+        targetBytesEnd: "0x7001000b6cc0",
+        targetInstructionPointer: "0x7001000b6ca0",
+        targetInstructionBytes: "e7064883f03f4129c74181ff00400000",
+        signal: "SIGSEGV",
+        signalNumber: 11,
+        faultAddress: "0x0",
+        instructionPointerInTargetBytes: true,
+        attemptedResume: true,
+        sourceTextReusedAsTargetCode: false,
+        sourceIsaEmulationUsed: false,
+        sidecarRuntimeUsed: false,
+      }).refusals[0]?.code,
+    ).toBe("target-resume-fault-privileged-instruction");
+  });
+
+  it("classifies faults outside the explicit target byte window separately", () => {
+    expect(
+      classifyNativeTargetResumeExecutionAttempt({
+        status: "faulted",
+        targetArch: "amd64",
+        entryAddress: "0x7001000b6ca0",
+        stackPointer: "0x500000010000",
+        targetBytesStart: "0x7001000b6ca0",
+        targetBytesEnd: "0x7001000b6cc0",
+        signal: "SIGILL",
+        instructionPointerInTargetBytes: false,
+        attemptedResume: true,
+        sourceTextReusedAsTargetCode: false,
+        sourceIsaEmulationUsed: false,
+        sidecarRuntimeUsed: false,
+      }).refusals[0]?.code,
+    ).toBe("target-resume-fault-outside-target-bytes");
   });
 });
