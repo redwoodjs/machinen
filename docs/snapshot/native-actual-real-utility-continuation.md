@@ -34,8 +34,9 @@ the proof records a deferred target timer continuation, recreates safe
 `PROT_NONE` guard/protection mappings, and lets the target-code-location gate
 consume the deferred sleep metadata. Without an explicit amd64 target root, the current proof then refuses precisely
 with `target-module-missing` for the active libc frame instead of granting
-success. With a target root, the proof can inventory target libc, materialize
-native libc bytes, and expose the `source-unwind` gate.
+success. With a target root and source unwind sidecar, the proof can inventory
+target libc, materialize native libc bytes, discover the source libc frame, and
+expose the target-unwind gate.
 
 That refusal is intentional. It proves the real capture path is wired into the
 same fail-closed planner as the final-jump fixture, without granting success for

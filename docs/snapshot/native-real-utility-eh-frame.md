@@ -10,11 +10,14 @@ stack-walking tools need it.
 The parser consumes `readelf --debug-dump=frames` output from a real binary or a
 stripped fixture and extracts the FDE covering the captured source PC.
 
-The first modeled arm64 rule is intentionally narrow:
+The first modeled arm64 rules are intentionally narrow:
 
-- CFA is based on `x29` with a constant offset.
+- CFA is based on `x29` or `sp` with a constant offset.
 - saved return address `x30` is at a CFA-relative stack slot.
 - captured stack bytes must include that return-address slot.
+
+For loaded shared objects, callers can provide a load bias so module-relative FDE
+PC ranges are relocated to captured process addresses.
 
 When those rules are present, `discoverNativeUnwindFrames()` produces a
 `NativeStackFrame` with the source SP, CFA, return address, and return-address
