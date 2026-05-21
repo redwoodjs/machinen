@@ -114,6 +114,7 @@ export {
   resolveNativeRealUtilityCodeLocations,
 } from "./native-real-utility-code-map.ts";
 export { planNativeRealUtilityContinuationAttempt } from "./native-real-utility-continuation.ts";
+export { planNativeActualRealUtilityContinuationAttempt } from "./native-actual-real-utility-continuation.ts";
 export {
   matchNativeTargetUnwindFrame,
   parseNativeTargetEhFrameText,
@@ -133,6 +134,11 @@ export type {
   NativeRealUtilityContinuationPlan,
   NativeRealUtilityContinuationRequest,
 } from "./native-real-utility-continuation.ts";
+export type {
+  NativeActualRealUtilityContinuationBoundary,
+  NativeActualRealUtilityContinuationPlan,
+  NativeActualRealUtilityContinuationRequest,
+} from "./native-actual-real-utility-continuation.ts";
 export type {
   NativeTargetModuleByteMaterialization,
   NativeTargetModuleByteMaterializationRequest,
