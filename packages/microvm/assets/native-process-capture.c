@@ -22,6 +22,7 @@
 #include <string.h>
 #include <sys/ptrace.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <sys/wait.h>
@@ -67,10 +68,20 @@ struct NativeArm64Regs {
 };
 #endif
 
+struct SyscallInfo {
+  char state[32];
+  bool has_number;
+  uint64_t number;
+  char name[64];
+};
+
+static void read_thread_syscall(pid_t tid, struct SyscallInfo *info);
+
 struct ThreadCapture {
   pid_t tid;
   bool attached;
   int stop_signal;
+  struct SyscallInfo syscall;
 #if defined(__x86_64__)
   struct user_regs_struct amd64_regs;
 #elif defined(__aarch64__)
@@ -405,6 +416,7 @@ static uint32_t attach_threads(pid_t pid, struct ThreadCapture threads[NATIVE_CA
   }
   for (uint32_t i = 0; i < count; i++) {
     threads[i] = (struct ThreadCapture){.tid = tids[i]};
+    read_thread_syscall(threads[i].tid, &threads[i].syscall);
     attach_thread(&threads[i]);
     capture_registers(&threads[i]);
   }
@@ -869,6 +881,106 @@ static void write_signal_mask(FILE *out, pid_t tid, const char *field) {
   fputs("]", out);
 }
 
+static bool syscall_is_restart(long long number) {
+#ifdef __NR_restart_syscall
+  if (number == __NR_restart_syscall) {
+    return true;
+  }
+#endif
+  return false;
+}
+
+static const char *syscall_name(long long number) {
+#ifdef __NR_restart_syscall
+  if (number == __NR_restart_syscall) {
+    return "restart_syscall";
+  }
+#endif
+#ifdef __NR_clock_nanosleep
+  if (number == __NR_clock_nanosleep) {
+    return "clock_nanosleep";
+  }
+#endif
+#ifdef __NR_nanosleep
+  if (number == __NR_nanosleep) {
+    return "nanosleep";
+  }
+#endif
+#ifdef __NR_ppoll
+  if (number == __NR_ppoll) {
+    return "ppoll";
+  }
+#endif
+#ifdef __NR_pselect6
+  if (number == __NR_pselect6) {
+    return "pselect6";
+  }
+#endif
+#ifdef __NR_read
+  if (number == __NR_read) {
+    return "read";
+  }
+#endif
+#ifdef __NR_write
+  if (number == __NR_write) {
+    return "write";
+  }
+#endif
+  return "unknown";
+}
+
+static void syscall_info_default(struct SyscallInfo *info, const char *state) {
+  memset(info, 0, sizeof(*info));
+  snprintf(info->state, sizeof(info->state), "%s", state);
+  snprintf(info->name, sizeof(info->name), "unknown");
+}
+
+static void read_thread_syscall(pid_t tid, struct SyscallInfo *info) {
+  syscall_info_default(info, "outside-syscall");
+  char path[PATH_MAX];
+  snprintf(path, sizeof(path), "/proc/%ld/syscall", (long)tid);
+  FILE *file = fopen(path, "rb");
+  if (!file) {
+    syscall_info_default(info, "inside-syscall");
+    return;
+  }
+  char line[512];
+  if (!fgets(line, sizeof(line), file)) {
+    fclose(file);
+    syscall_info_default(info, "inside-syscall");
+    return;
+  }
+  fclose(file);
+  if (strncmp(line, "running", 7) == 0) {
+    return;
+  }
+  errno = 0;
+  char *end = NULL;
+  long long number = strtoll(line, &end, 10);
+  if (errno != 0 || end == line) {
+    syscall_info_default(info, "inside-syscall");
+    return;
+  }
+  if (number < 0) {
+    return;
+  }
+  info->has_number = true;
+  info->number = (uint64_t)number;
+  snprintf(info->state, sizeof(info->state), "%s",
+      syscall_is_restart(number) ? "restart-block" : "inside-syscall");
+  snprintf(info->name, sizeof(info->name), "%s", syscall_name(number));
+}
+
+static void write_syscall_state(FILE *out, const struct SyscallInfo *syscall) {
+  fputs("{\"state\":", out);
+  json_string(out, syscall->state);
+  if (syscall->has_number) {
+    fprintf(out, ",\"number\":%" PRIu64 ",\"name\":", syscall->number);
+    json_string(out, syscall->name);
+  }
+  fputc('}', out);
+}
+
 static void write_source_registers(FILE *out, const struct ThreadCapture *thread) {
 #if defined(__x86_64__)
   fputs("{\"arch\":\"amd64\",", out);
@@ -942,7 +1054,9 @@ static void write_thread(const struct ThreadCapture *thread, FILE *out,
   json_string(out, thread_stack_mapping(thread, mappings, mapping_count));
   fputs(",\"sourceRegisters\":", out);
   write_source_registers(out, thread);
-  fputs(",\"syscall\":{\"state\":\"outside-syscall\"},\"signal\":{\"blocked\":", out);
+  fputs(",\"syscall\":", out);
+  write_syscall_state(out, &thread->syscall);
+  fputs(",\"signal\":{\"blocked\":", out);
   write_signal_mask(out, thread->tid, "SigBlk");
   fputs(",\"pending\":", out);
   write_signal_mask(out, thread->tid, "SigPnd");
