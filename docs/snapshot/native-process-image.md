@@ -61,8 +61,10 @@ first native-translation blockers:
 - `non-stdio-kernel-state-unsupported`
 - `target-build-mismatch`
 - `target-build-id-mismatch`
+- `target-module-file-missing`
 - `target-module-missing`
 - `target-module-not-executable`
+- `target-module-range-unreadable`
 - `target-code-location-unresolved`
 - `target-code-rva-unmapped`
 - `unwind-metadata-missing`
