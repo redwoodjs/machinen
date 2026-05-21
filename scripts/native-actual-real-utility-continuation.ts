@@ -12,6 +12,7 @@ import { planNativeActualRealUtilityContinuationAttempt } from "../packages/runt
 import { materializeNativeTargetModuleBytes } from "../packages/runtime/src/native-target-module-bytes.ts";
 import { planNativeTargetFrameStateMaterialization } from "../packages/runtime/src/native-target-frame-state.ts";
 import { planNativeSyntheticTargetCallerFrame } from "../packages/runtime/src/native-target-caller-frame.ts";
+import { planNativeTargetResumeExecution } from "../packages/runtime/src/native-target-resume-execution.ts";
 import {
   matchNativeTargetUnwindFrame,
   parseNativeTargetEhFrameText,
@@ -198,7 +199,8 @@ function planCapturedActualUtilityBundle(
     targetModuleByteRefusals: inputs.targetBytes.refusals,
     targetCallerFrameRefusals: inputs.targetCallerFrame.refusals,
     targetCallerFrameMaterialized: inputs.targetCallerFrame.state === "planned",
-    targetResumeExecutionRefusals: targetResumeExecutionRefusals(inputs.targetCallerFrame.state),
+    targetResumeExecutionRefusals: inputs.targetResumeExecution.refusals,
+    targetResumeExecutionPlanned: inputs.targetResumeExecution.state === "planned",
     targetModuleBytesMaterialized: inputs.targetBytes.materialized.length > 0,
   });
   return {
@@ -264,6 +266,11 @@ function actualUtilityPlanningInputs(
     policy: { mode: "abi-neutral-sentinel" },
   });
   const targetBytes = materializeResolvedTargetBytes(code.resolved, options.targetRoot);
+  const targetResumeExecution = planNativeTargetResumeExecution({
+    codeLocations: code.codeLocations,
+    callerFrame: targetCallerFrame.frame,
+    targetModuleBytes: targetBytes.materialized,
+  });
   return {
     bundle,
     memoryBytes,
@@ -279,6 +286,7 @@ function actualUtilityPlanningInputs(
     targetFrameState,
     targetCallerFrame,
     targetBytes,
+    targetResumeExecution,
   };
 }
 
@@ -674,7 +682,8 @@ function actualUtilitySummary(context: {
     targetFrameStateRefusals: planned.targetFrameState.refusals,
     targetCallerFrame: planned.targetCallerFrame.frame,
     targetCallerFrameRefusals: planned.targetCallerFrame.refusals,
-    targetResumeExecutionRefusals: targetResumeExecutionRefusals(planned.targetCallerFrame.state),
+    targetResumeExecution: planned.targetResumeExecution.plan,
+    targetResumeExecutionRefusals: planned.targetResumeExecution.refusals,
     targetModuleByteRefusals: planned.targetBytes.refusals,
     materializedTargetBytes: materializedTargetByteSummaries(planned),
     sourceModules: planned.sourceModules.length,
@@ -744,20 +753,6 @@ function deferredActiveSyscallLandingSummaries(
         ]
       : [];
   });
-}
-
-function targetResumeExecutionRefusals(
-  targetCallerFrameState: "planned" | "refused",
-): NativeProcessImageRefusal[] {
-  return targetCallerFrameState === "planned"
-    ? [
-        {
-          code: "target-resume-execution-unavailable",
-          message:
-            "target-native resume execution path has not been planned for actual real utility",
-        },
-      ]
-    : [];
 }
 
 function materializedTargetByteSummaries(

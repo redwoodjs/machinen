@@ -81,3 +81,4 @@ See also:
 - [Native actual target unwind discovery](./native-actual-target-unwind.md)
 - [Native actual target frame-state gate](./native-actual-target-frame-state.md)
 - [Native actual synthetic target caller frame](./native-actual-target-caller-frame.md)
+- [Native actual target resume execution plan](./native-actual-target-resume-execution.md)
