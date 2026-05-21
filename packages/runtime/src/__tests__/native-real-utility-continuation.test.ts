@@ -127,6 +127,26 @@ describe("native real utility continuation planner", () => {
     });
   });
 
+  it("moves recorded target callee-saved slots to a later frame-state gate", () => {
+    expect(
+      planNativeRealUtilityContinuationAttempt({
+        ...readyInput(),
+        targetUnwind: {
+          matches: [
+            {
+              ...readyInput().targetUnwind.matches[0],
+              targetCalleeSavedSlots: [{ register: "r15", offset: -16 }],
+            },
+          ],
+          refusals: [],
+        },
+      }),
+    ).toMatchObject({
+      blockingBoundary: "target-frame-state",
+      blockingRefusal: { code: "target-callee-saved-state-unsupported" },
+    });
+  });
+
   it("can report ready without performing the jump", () => {
     expect(planNativeRealUtilityContinuationAttempt(readyInput())).toMatchObject({
       state: "ready",

@@ -13,7 +13,8 @@ The planner checks boundaries in this order:
 3. mapping materialization;
 4. target code-location mapping from #494;
 5. source unwind discovery from #495;
-6. target unwind/layout match.
+6. target unwind/layout match;
+7. target frame-state materialization for actual utilities.
 
 Only when every gate is modeled can a later implementation perform a final jump.
 The planner itself never jumps. It reports:
@@ -34,7 +35,8 @@ Issue #502 adds a separate target unwind matching proof. See
 
 The original connected attempt still documents the fail-closed behavior when no
 target match is supplied: it refuses at `target-unwind-mismatch` instead of
-jumping.
+jumping. Actual utility planning can also refuse later at `target-frame-state`
+when target unwind is found but unmodeled callee-saved slots remain.
 
 ## Proof
 

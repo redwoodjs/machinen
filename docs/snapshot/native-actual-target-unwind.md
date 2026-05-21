@@ -16,8 +16,8 @@ This is still a safety gate, not a resume claim. The matcher only accepts narrow
 - return address stored in a CFA-relative target stack slot;
 - no unmodeled callee-saved target register state.
 
-If actual libc target unwind metadata is present but the frame saves registers that are not modeled yet, planning refuses with `target-callee-saved-state-unsupported` instead of pretending the continuation is safe.
+If actual libc target unwind metadata is present but the frame saves registers that are not modeled yet, the actual path records those slots and lets the later target frame-state gate refuse instead of pretending the continuation is safe.
 
 ## Proof effect
 
-With explicit sleep deferral, an arm64 source bundle, and an amd64 target root, the actual proof advances beyond generic `target-unwind-mismatch` and reports the precise target unwind rule refusal for the libc sleep frame.
+With explicit sleep deferral, an arm64 source bundle, and an amd64 target root, the actual proof advances beyond generic `target-unwind-mismatch` and exposes the target frame-state blocker for the libc sleep frame.

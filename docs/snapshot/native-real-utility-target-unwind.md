@@ -16,6 +16,11 @@ modeled target frame shape is narrow:
 - only the frame pointer (`rbp`) may be described as saved callee state.
 - any other callee-saved register state refuses until modeled.
 
+The strict behavior remains the default. Actual-utility planning may explicitly
+record those callee-saved slots and move the refusal to a later target
+frame-state gate so the proof can distinguish "no target FDE" from "target frame
+state is not materialized yet".
+
 A source frame being discovered is not enough. The target landing must expose a
 compatible return contract so later stack materialization knows where target
 native code will return.

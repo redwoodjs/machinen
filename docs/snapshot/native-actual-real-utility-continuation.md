@@ -18,7 +18,8 @@ The actual captured path preserves the native-transparent gate order:
 4. target module/RVA code-location mapping;
 5. source `.eh_frame` frame discovery;
 6. target amd64 unwind matching;
-7. target module byte materialization from explicit target inventory/root.
+7. target frame/callee-saved state materialization;
+8. target module byte materialization from explicit target inventory/root.
 
 The new actual-real-utility planner adds a final `target-module-bytes` gate. If
 all earlier gates pass but no target bytes were explicitly materialized, it
@@ -35,9 +36,10 @@ the proof records a deferred target timer continuation, recreates safe
 consume the deferred sleep metadata. Without an explicit amd64 target root, the current proof then refuses precisely
 with `target-module-missing` for the active libc frame instead of granting
 success. With a target root and source unwind sidecar, the proof can inventory
-target libc, materialize native libc bytes, discover the source libc frame, and
-attempt target `.eh_frame` matching. Actual libc frames that save unmodeled
-callee registers still refuse precisely at `target-callee-saved-state-unsupported`.
+target libc, materialize native libc bytes, discover the source libc frame, match
+the target `.eh_frame` return contract, and then refuse at the later
+`target-frame-state` gate. Actual libc frames that save unmodeled callee
+registers still refuse precisely with `target-callee-saved-state-unsupported`.
 
 That refusal is intentional. It proves the real capture path is wired into the
 same fail-closed planner as the final-jump fixture, without granting success for

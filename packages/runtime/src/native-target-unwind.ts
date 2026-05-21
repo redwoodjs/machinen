@@ -46,10 +46,18 @@ export interface NativeTargetEhFrameTextParseResult {
   refusals: NativeProcessImageRefusal[];
 }
 
+export type NativeTargetCalleeSavedPolicy = "strict" | "record";
+
 export interface NativeTargetUnwindMatchRequest {
   sourceFrame: NativeDiscoveredUnwindFrame;
   targetAddress: string;
   targetRules: NativeTargetUnwindFrameRule[];
+  calleeSavedPolicy?: NativeTargetCalleeSavedPolicy;
+}
+
+export interface NativeTargetCalleeSavedSlot {
+  register: Exclude<NativeTargetUnwindRegister, "rsp" | "rip">;
+  offset: number;
 }
 
 export interface NativeTargetUnwindFrameMatch {
@@ -57,6 +65,7 @@ export interface NativeTargetUnwindFrameMatch {
   targetRule: NativeTargetUnwindFrameRule;
   targetAddress: string;
   targetReturnAddressSlotOffset: number;
+  targetCalleeSavedSlots?: NativeTargetCalleeSavedSlot[];
   preservesReturnContract: true;
 }
 
@@ -104,7 +113,11 @@ export function matchNativeTargetUnwindFrame(
       `no target unwind rule covers ${request.targetAddress}`,
     );
   }
-  const refusal = validateTargetRule(request.sourceFrame, rule);
+  const refusal = validateTargetRule(
+    request.sourceFrame,
+    rule,
+    request.calleeSavedPolicy ?? "strict",
+  );
   if (refusal) {
     return { matches: [], refusals: [refusal] };
   }
@@ -115,6 +128,7 @@ export function matchNativeTargetUnwindFrame(
         targetRule: rule,
         targetAddress: request.targetAddress,
         targetReturnAddressSlotOffset: rule.returnAddress.offset,
+        targetCalleeSavedSlots: targetCalleeSavedSlots(rule),
         preservesReturnContract: true,
       },
     ],
@@ -125,6 +139,7 @@ export function matchNativeTargetUnwindFrame(
 function validateTargetRule(
   sourceFrame: NativeDiscoveredUnwindFrame,
   rule: NativeTargetUnwindFrameRule,
+  calleeSavedPolicy: NativeTargetCalleeSavedPolicy,
 ): NativeProcessImageRefusal | undefined {
   if (!sourceFrame.returnAddressSlot) {
     return refusal(
@@ -145,13 +160,21 @@ function validateTargetRule(
     );
   }
   const unsupportedSaved = rule.calleeSaved?.find((saved) => saved.register !== "rbp");
-  if (unsupportedSaved) {
+  if (unsupportedSaved && calleeSavedPolicy === "strict") {
     return refusal(
       "target-callee-saved-state-unsupported",
       `target rule ${rule.id} saves ${unsupportedSaved.register}, which is not modeled yet`,
     );
   }
   return undefined;
+}
+
+function targetCalleeSavedSlots(rule: NativeTargetUnwindFrameRule): NativeTargetCalleeSavedSlot[] {
+  return (rule.calleeSaved ?? []).flatMap((saved) =>
+    saved.location === "cfa-relative" && saved.offset !== undefined
+      ? [{ register: saved.register, offset: saved.offset }]
+      : [],
+  );
 }
 
 function targetRuleFromBlock(
