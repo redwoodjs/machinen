@@ -92,6 +92,15 @@
 - [`NativeStackTranslationRequest`](#nativestacktranslationrequest)
 - [`NativeStackTranslationResult`](#nativestacktranslationresult)
 - [`translateNativeStack`](#translatenativestack)
+- [`NativeUnwindFrameRule`](#nativeunwindframerule)
+- [`NativeUnwindStackWord`](#nativeunwindstackword)
+- [`NativeUnwindFrameDiscoveryRequest`](#nativeunwindframediscoveryrequest)
+- [`NativeDiscoveredUnwindFrame`](#nativediscoveredunwindframe)
+- [`NativeUnwindFrameDiscoveryResult`](#nativeunwindframediscoveryresult)
+- [`NativeUnwindMetadataKind`](#nativeunwindmetadatakind)
+- [`NativeUnwindRegister`](#nativeunwindregister)
+- [`discoverNativeUnwindFrames`](#discovernativeunwindframes)
+- [`nativeUnwindReturnAddressSlot`](#nativeunwindreturnaddressslot)
 - [`NativeMemoryWord`](#nativememoryword)
 - [`NativeMemoryTranslationRequest`](#nativememorytranslationrequest)
 - [`NativeMemoryTranslationResult`](#nativememorytranslationresult)
@@ -3409,6 +3418,148 @@ by default when `output` is a TTY.
 
 ***
 
+### NativeUnwindFrameRule
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### functionName
+
+> **functionName**: `string`
+
+##### mapping
+
+> **mapping**: `string`
+
+##### pcStart
+
+> **pcStart**: `string`
+
+##### pcEnd
+
+> **pcEnd**: `string`
+
+##### metadata
+
+> **metadata**: [`NativeUnwindMetadataKind`](#nativeunwindmetadatakind)
+
+##### cfa
+
+> **cfa**: `object`
+
+###### register
+
+> **register**: `"sp"` \| `"x29"`
+
+###### offset
+
+> **offset**: `number`
+
+##### returnAddress
+
+> **returnAddress**: \{ `location`: `"register"`; `register`: `"x30"`; \} \| \{ `location`: `"cfa-relative"`; `offset`: `number`; \}
+
+***
+
+### NativeUnwindStackWord
+
+#### Properties
+
+##### address
+
+> **address**: `string`
+
+##### value
+
+> **value**: `string`
+
+***
+
+### NativeUnwindFrameDiscoveryRequest
+
+#### Properties
+
+##### threadId
+
+> **threadId**: `string`
+
+##### stackMapping
+
+> **stackMapping**: `string`
+
+##### sourceRegisters
+
+> **sourceRegisters**: [`NativeRegisterState`](#nativeregisterstate)
+
+##### rules
+
+> **rules**: [`NativeUnwindFrameRule`](#nativeunwindframerule)[]
+
+##### stackWords
+
+> **stackWords**: [`NativeUnwindStackWord`](#nativeunwindstackword)[]
+
+***
+
+### NativeDiscoveredUnwindFrame
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### functionName
+
+> **functionName**: `string`
+
+##### sourcePc
+
+> **sourcePc**: `string`
+
+##### sourceSp
+
+> **sourceSp**: `string`
+
+##### cfa
+
+> **cfa**: `string`
+
+##### returnAddress
+
+> **returnAddress**: `string`
+
+##### returnAddressSlot?
+
+> `optional` **returnAddressSlot?**: `string`
+
+##### metadata
+
+> **metadata**: [`NativeUnwindMetadataKind`](#nativeunwindmetadatakind)
+
+##### stackFrame
+
+> **stackFrame**: [`NativeStackFrame`](#nativestackframe)
+
+***
+
+### NativeUnwindFrameDiscoveryResult
+
+#### Properties
+
+##### frames
+
+> **frames**: [`NativeDiscoveredUnwindFrame`](#nativediscoveredunwindframe)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
 ### RssTarget
 
 A pid plus the absolute path to its stats file (when available).
@@ -6245,6 +6396,18 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativeUnwindMetadataKind
+
+> **NativeUnwindMetadataKind** = `"dwarf"` \| `"eh-frame"`
+
+***
+
+### NativeUnwindRegister
+
+> **NativeUnwindRegister** = `"sp"` \| `"x29"` \| `"x30"`
+
+***
+
 ### PidStatus
 
 > **PidStatus** = `"alive"` \| `"dead"` \| `"recycled"`
@@ -7990,6 +8153,44 @@ available.
 #### Returns
 
 [`NativeStackTranslationResult`](#nativestacktranslationresult)
+
+***
+
+### discoverNativeUnwindFrames()
+
+> **discoverNativeUnwindFrames**(`request`): [`NativeUnwindFrameDiscoveryResult`](#nativeunwindframediscoveryresult)
+
+#### Parameters
+
+##### request
+
+[`NativeUnwindFrameDiscoveryRequest`](#nativeunwindframediscoveryrequest)
+
+#### Returns
+
+[`NativeUnwindFrameDiscoveryResult`](#nativeunwindframediscoveryresult)
+
+***
+
+### nativeUnwindReturnAddressSlot()
+
+> **nativeUnwindReturnAddressSlot**(`options`): `string`
+
+#### Parameters
+
+##### options
+
+###### rule
+
+[`NativeUnwindFrameRule`](#nativeunwindframerule)
+
+###### sourceRegisters
+
+[`NativeArm64Registers`](#nativearm64registers)
+
+#### Returns
+
+`string`
 
 ***
 
