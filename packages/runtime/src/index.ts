@@ -138,12 +138,16 @@ export { materializeNativeTargetModuleBytes } from "./native-target-module-bytes
 export type {
   NativeRealUtilityCodeLocationRequest,
   NativeRealUtilityCodeLocationResult,
+  NativeRealUtilityContinuationStrategy,
   NativeRealUtilityDeferredActiveSyscallLanding,
   NativeRealUtilityExecutableRange,
   NativeRealUtilityModuleExpectation,
   NativeRealUtilityResolvedLocation,
+  NativeRealUtilitySemanticContinuationSelection,
   NativeRealUtilitySourceModule,
+  NativeRealUtilityTargetContinuationKind,
   NativeRealUtilityTargetModule,
+  NativeRealUtilityTargetSemanticContinuation,
 } from "./native-real-utility-code-map.ts";
 export type {
   NativeRealUtilityContinuationBoundary,

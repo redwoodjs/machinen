@@ -35,7 +35,9 @@ const location: NativeRealUtilityResolvedLocation = {
     executableRanges: [{ relativeStart: "0x0", relativeEnd: "0x200000" }],
   },
   sourceRva: "0xb6ca0",
+  targetRva: "0xb6ca0",
   targetAddress: "0x7001000b6ca0",
+  continuationStrategy: "module-rva-equivalence",
   codeLocation: {
     id: "code:thread:115:pc",
     sourceMapping: "mapping:4",

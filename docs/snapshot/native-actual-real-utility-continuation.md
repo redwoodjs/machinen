@@ -15,7 +15,7 @@ The actual captured path preserves the native-transparent gate order:
 1. thread state, including active syscall detection;
 2. inherited stdio and non-file resource policy;
 3. mapping materialization;
-4. target module/RVA code-location mapping;
+4. target code-location mapping, using semantic sleep/timer continuation symbols when the source thread is blocked in a deferred sleep syscall;
 5. source `.eh_frame` frame discovery;
 6. target amd64 unwind matching;
 7. target frame/callee-saved state materialization;
@@ -35,33 +35,33 @@ state when the process is inside `clock_nanosleep`. With the explicit
 `MACHINEN_ACTUAL_REAL_UTILITY_SLEEP_SYSCALL_POLICY=defer-target-resume` policy,
 the proof records a deferred target timer continuation, recreates safe
 `PROT_NONE` guard/protection mappings, and lets the target-code-location gate
-consume the deferred sleep metadata. Without an explicit amd64 target root, the current proof then refuses precisely
-with `target-module-missing` for the active libc frame instead of granting
-success. With a target root and source unwind sidecar, the proof can inventory
-target libc, materialize native libc bytes, discover the source libc frame, match
-the target `.eh_frame` return contract, materialize caller-owned callee-saved
-slots as synthetic target values, plan a synthetic caller frame, and create a
-target-native resume execution plan. With that explicit plan present, the actual
-planner can reach `ready`.
+consume the deferred sleep metadata. Without an explicit amd64 target root, the
+current proof then refuses precisely with `target-module-missing` for the active
+libc frame instead of granting success. With a target root and source unwind
+sidecar, the proof inventories target libc dynamic symbols and resolves the
+semantic sleep continuation to target-native `clock_nanosleep@@GLIBC_2.17`
+instead of reusing the source RVA. It then materializes native libc bytes,
+discovers the source libc frame, matches the target `.eh_frame` return contract,
+materializes caller-owned callee-saved slots as synthetic target values, plans a
+synthetic caller frame, and creates a target-native resume execution plan. With
+that explicit plan present, the actual planner can reach `ready`.
 
 On Linux/amd64, the proof now runs a bounded target-native trampoline for that
 ready plan. The trampoline maps the explicit target amd64 bytes and transfers
 control to them on the synthetic target stack. The current actual `/bin/sleep`
-continuation faults after entering target bytes. The proof now audits the target
-landing provenance first: target module path/build id, target-relative offset,
-ELF section, nearby symbol/FDE, and objdump lines around the planned entry. For
-the current same-RVA landing, that audit proves the planned address is between
-amd64 instruction boundaries, so the fault is classified at
-`target-resume-fault-state` with
-`target-resume-fault-invalid-code-landing`.
+continuation enters a valid amd64 `clock_nanosleep` instruction boundary. It now
+faults later when target libc reads unmodeled process memory such as libc global
+state. The proof classifies that as `target-resume-fault-state` with
+`target-resume-fault-unmodeled-memory`.
 
 The summary reports `attemptedResume: true` and `migrationCompleted: false`
 instead of claiming a complete migration.
 
 That ready-plus-attempt state is intentional but not a migration success claim. It
 proves the real capture path has explicit data for every modeled planning gate,
-that the first execution transfer reaches target-native bytes, and that the next
-blocker is a semantically invalid target landing rather than a real continuation.
+that the first execution transfer reaches a semantic target-native sleep
+continuation, and that the next blocker is unmodeled target process memory
+rather than raw RVA equivalence.
 
 ## Non-claims
 
