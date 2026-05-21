@@ -18,6 +18,7 @@ interface NativeRealUtilitySummary {
     processImageValidated: boolean;
     blockingBoundary: string;
     blockingRefusal: { code: string };
+    threadSyscalls?: Array<{ state: string; number?: number; name?: string }>;
     attemptedResume: boolean;
     sourceTextReusedAsTargetCode: boolean;
     targetBinarySource?: string;
@@ -57,16 +58,19 @@ describe("native real utility continuation attempt", () => {
         state: "refused",
         dynamicallyLinked: true,
         processImageValidated: true,
+        blockingBoundary: "thread-state",
+        blockingRefusal: { code: "active-syscall" },
         attemptedResume: false,
         sourceTextReusedAsTargetCode: false,
       });
-      expect([
-        "code-location-unknown",
-        "kernel-state-unsupported",
-        "mapping-ambiguous",
-        "mapping-unreadable",
-      ]).toContain(summary.utility.blockingRefusal.code);
-      expect(summary.utility.execution).toContain(`real-arm64-sleep-refused-at-`);
+      expect(summary.utility.threadSyscalls).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            state: expect.stringMatching(/^(inside-syscall|restart-block)$/),
+          }),
+        ]),
+      );
+      expect(summary.utility.execution).toBe("real-arm64-sleep-refused-at-thread-state");
     },
   );
 });
