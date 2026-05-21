@@ -127,6 +127,7 @@ export { materializeNativeTargetModuleBytes } from "./native-target-module-bytes
 export type {
   NativeRealUtilityCodeLocationRequest,
   NativeRealUtilityCodeLocationResult,
+  NativeRealUtilityDeferredActiveSyscallLanding,
   NativeRealUtilityExecutableRange,
   NativeRealUtilityModuleExpectation,
   NativeRealUtilityResolvedLocation,

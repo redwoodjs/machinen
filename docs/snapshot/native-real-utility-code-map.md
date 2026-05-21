@@ -9,8 +9,9 @@ or raw source virtual addresses as amd64 code.
 
 For each captured thread:
 
-1. Refuse first if the thread is not `outside-syscall`. That keeps #492's
-   active-syscall safety gate ahead of target-code work.
+1. Refuse first if the thread is not `outside-syscall`, unless it carries an
+   explicit deferred sleep/timer continuation. That keeps #492's active-syscall
+   safety gate ahead of target-code work by default.
 2. Find the executable source mapping that contains the captured PC.
 3. Build source module identity from the mapping path, kind, source arch,
    build identity, load bias, and text mapping id.
@@ -20,6 +21,8 @@ For each captured thread:
 6. Accept only if the target module is executable, has the expected target build
    id, and maps that RVA as executable target code.
 7. Produce `targetAddress = targetModule.loadBias + sourceRva`.
+8. If the thread was inside a deferred sleep/timer syscall, record a deferred
+   target landing without marking the source syscall resumed.
 
 The proof reports `sourceTextReusedAsTargetCode: false` and does not attempt a
 resume. It only proves that the next native continuation address is selected
@@ -27,7 +30,8 @@ from target-native module metadata.
 
 ## Precise refusals
 
-- `active-syscall` — thread-state safety wins before code mapping.
+- `active-syscall` — thread-state safety wins before code mapping unless an
+  explicit deferred sleep/timer continuation is present.
 - `target-module-missing` — no explicit target module matches the source module.
 - `target-module-not-executable` — the matched target module is not executable
   code.

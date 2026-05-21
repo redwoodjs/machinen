@@ -192,6 +192,7 @@ function planCapturedActualUtilityBundle(
     documents: bundle,
     targetArch: "amd64",
     targetModules,
+    activeSyscallContinuations: activeSyscalls.continuations,
   });
   const targetBytes = materializeResolvedTargetBytes(code.resolved, options.targetRoot);
   const plan = planNativeActualRealUtilityContinuationAttempt({
@@ -330,6 +331,7 @@ function actualUtilitySummary(context: {
     resourceRefusals: planned.resources.refusals,
     mappingRefusals: planned.mappings.refusals,
     codeLocationRefusals: planned.code.refusals,
+    deferredActiveSyscallLandings: deferredActiveSyscallLandingSummaries(planned),
     sourceUnwindFrames: planned.sourceFrames.length,
     targetUnwindMatches: planned.targetUnwind?.matches.length ?? 0,
     targetModuleByteRefusals: planned.targetBytes.refusals,
@@ -381,6 +383,26 @@ function effectiveThreadRefusals(
     return planned.registers.refusals.filter((refusal) => refusal.code !== "active-syscall");
   }
   return planned.registers.refusals;
+}
+
+function deferredActiveSyscallLandingSummaries(
+  planned: ReturnType<typeof planCapturedActualUtilityBundle>,
+) {
+  return planned.code.resolved.flatMap((location) => {
+    const landing = location.deferredActiveSyscallLanding;
+    return landing
+      ? [
+          {
+            threadId: landing.threadId,
+            syscallClass: landing.syscallClass,
+            action: landing.action,
+            sourceAddress: landing.sourceAddress,
+            targetAddress: landing.targetAddress,
+            remainingTime: landing.metadata.remainingTime,
+          },
+        ]
+      : [];
+  });
 }
 
 function materializedTargetByteSummaries(

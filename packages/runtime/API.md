@@ -99,6 +99,7 @@
 - [`NativeRealUtilitySourceModule`](#nativerealutilitysourcemodule)
 - [`NativeRealUtilityTargetModule`](#nativerealutilitytargetmodule)
 - [`NativeRealUtilityModuleExpectation`](#nativerealutilitymoduleexpectation)
+- [`NativeRealUtilityDeferredActiveSyscallLanding`](#nativerealutilitydeferredactivesyscalllanding)
 - [`NativeRealUtilityResolvedLocation`](#nativerealutilityresolvedlocation)
 - [`NativeRealUtilityCodeLocationRequest`](#nativerealutilitycodelocationrequest)
 - [`NativeRealUtilityCodeLocationResult`](#nativerealutilitycodelocationresult)
@@ -3817,6 +3818,60 @@ by default when `output` is a TTY.
 
 ***
 
+### NativeRealUtilityDeferredActiveSyscallLanding
+
+#### Properties
+
+##### threadId
+
+> **threadId**: `string`
+
+##### sourceAddress
+
+> **sourceAddress**: `string`
+
+##### targetAddress
+
+> **targetAddress**: `string`
+
+##### syscallClass
+
+> **syscallClass**: `"sleep-timer"`
+
+##### action
+
+> **action**: `"defer-target-resume"`
+
+##### syscall
+
+> **syscall**: `object`
+
+###### state
+
+> **state**: `"outside-syscall"` \| `"inside-syscall"` \| `"restart-block"`
+
+###### number?
+
+> `optional` **number?**: `number`
+
+###### name?
+
+> `optional` **name?**: `string`
+
+##### metadata
+
+> **metadata**: `object`
+
+###### remainingTime
+
+> **remainingTime**: `"not-captured"`
+
+###### policy
+
+> **policy**: `"conservative-target-timer-rearm-required"`
+
+***
+
 ### NativeRealUtilityResolvedLocation
 
 #### Properties
@@ -3845,6 +3900,10 @@ by default when `output` is a TTY.
 
 > **codeLocation**: [`NativeCodeLocationMapping`](#nativecodelocationmapping)
 
+##### deferredActiveSyscallLanding?
+
+> `optional` **deferredActiveSyscallLanding?**: [`NativeRealUtilityDeferredActiveSyscallLanding`](#nativerealutilitydeferredactivesyscalllanding)
+
 ***
 
 ### NativeRealUtilityCodeLocationRequest
@@ -3870,6 +3929,10 @@ by default when `output` is a TTY.
 ##### threadIds?
 
 > `optional` **threadIds?**: `string`[]
+
+##### activeSyscallContinuations?
+
+> `optional` **activeSyscallContinuations?**: [`NativeActiveSyscallContinuation`](#nativeactivesyscallcontinuation)[]
 
 ***
 

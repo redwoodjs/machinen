@@ -121,6 +121,7 @@ const TOC = {
     "NativeRealUtilitySourceModule",
     "NativeRealUtilityTargetModule",
     "NativeRealUtilityModuleExpectation",
+    "NativeRealUtilityDeferredActiveSyscallLanding",
     "NativeRealUtilityResolvedLocation",
     "NativeRealUtilityCodeLocationRequest",
     "NativeRealUtilityCodeLocationResult",
