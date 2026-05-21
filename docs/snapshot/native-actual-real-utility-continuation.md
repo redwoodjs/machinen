@@ -1,0 +1,54 @@
+# Native actual real utility continuation
+
+Issue #508 moves the continuation planner from a shaped real-utility fixture to
+an actual captured Linux utility path.
+
+The proof script captures an unmodified arm64 Linux utility (`sleep`) when run
+on Linux/arm64. On Linux/amd64 it can consume an arm64 source bundle via
+`MACHINEN_ACTUAL_REAL_UTILITY_SOURCE_BUNDLE` and optionally inspect target files
+under `MACHINEN_ACTUAL_REAL_UTILITY_TARGET_ROOT`.
+
+## Gate order
+
+The actual captured path preserves the native-transparent gate order:
+
+1. thread state, including active syscall detection;
+2. inherited stdio and non-file resource policy;
+3. mapping materialization;
+4. target module/RVA code-location mapping;
+5. source `.eh_frame` frame discovery;
+6. target amd64 unwind matching;
+7. target module byte materialization from explicit target inventory/root.
+
+The new actual-real-utility planner adds a final `target-module-bytes` gate. If
+all earlier gates pass but no target bytes were explicitly materialized, it
+refuses with `target-module-bytes-missing` instead of pretending captured arm64
+text is target code.
+
+## Current result
+
+The default real utility is `sleep`, so the first observed blocker is expected
+to be thread state: the process is usually inside `clock_nanosleep`. The proof
+therefore refuses before resume with `active-syscall`.
+
+That refusal is intentional. It proves the real capture path is wired into the
+same fail-closed planner as the final-jump fixture, without granting success for
+unsafe state.
+
+## Non-claims
+
+This does not yet resume arbitrary `/bin/sleep` or libc state. It does not use:
+
+- source arm64 text as target code;
+- source-ISA emulation;
+- Node/Bun sidecars;
+- application hooks.
+
+## Proof
+
+```bash
+pnpm native-actual-real-utility-continuation --json
+```
+
+On non-Linux hosts, or Linux/amd64 without an arm64 source bundle, the proof
+skips with a clear reason.
