@@ -1,6 +1,8 @@
 /** Real utility module/RVA code-location resolution. */
 
 import { basename } from "node:path";
+import type { NativeActiveSyscallContinuation } from "./native-active-syscall-policy.ts";
+import type { NativeCodeModule } from "./native-code-map.ts";
 import type {
   NativeCodeLocationMapping,
   NativeMemoryMapping,
@@ -10,7 +12,6 @@ import type {
   NativeRegisterState,
   NativeThreadState,
 } from "./native-process-image.ts";
-import type { NativeCodeModule } from "./native-code-map.ts";
 
 export interface NativeRealUtilityExecutableRange {
   relativeStart: string;
@@ -35,6 +36,16 @@ export interface NativeRealUtilityModuleExpectation {
   expectedTargetBuildId?: string;
 }
 
+export interface NativeRealUtilityDeferredActiveSyscallLanding {
+  threadId: string;
+  sourceAddress: string;
+  targetAddress: string;
+  syscallClass: NativeActiveSyscallContinuation["syscallClass"];
+  action: NativeActiveSyscallContinuation["action"];
+  syscall: NativeActiveSyscallContinuation["syscall"];
+  metadata: NativeActiveSyscallContinuation["metadata"];
+}
+
 export interface NativeRealUtilityResolvedLocation {
   threadId: string;
   sourceModule: NativeRealUtilitySourceModule;
@@ -42,6 +53,7 @@ export interface NativeRealUtilityResolvedLocation {
   sourceRva: string;
   targetAddress: string;
   codeLocation: NativeCodeLocationMapping;
+  deferredActiveSyscallLanding?: NativeRealUtilityDeferredActiveSyscallLanding;
 }
 
 export interface NativeRealUtilityCodeLocationRequest {
@@ -50,6 +62,7 @@ export interface NativeRealUtilityCodeLocationRequest {
   targetModules: NativeRealUtilityTargetModule[];
   moduleExpectations?: NativeRealUtilityModuleExpectation[];
   threadIds?: string[];
+  activeSyscallContinuations?: NativeActiveSyscallContinuation[];
 }
 
 export interface NativeRealUtilityCodeLocationResult {
@@ -110,7 +123,11 @@ function resolveThreadCodeLocation(
   sourceModules: NativeRealUtilitySourceModule[],
   thread: NativeThreadState,
 ): NativeRealUtilityResolvedLocation | { refusal: NativeProcessImageRefusal } {
-  if (thread.syscall.state !== "outside-syscall") {
+  const deferredContinuation = deferredContinuationForThread(
+    request.activeSyscallContinuations ?? [],
+    thread,
+  );
+  if (thread.syscall.state !== "outside-syscall" && !deferredContinuation) {
     return {
       refusal: refusal("active-syscall", `thread ${thread.id} is ${thread.syscall.state}`, {
         threadId: thread.id,
@@ -155,6 +172,49 @@ function resolveThreadCodeLocation(
     sourceRva: hex(sourceRva),
     targetAddress: hex(targetAddress),
     codeLocation,
+    deferredActiveSyscallLanding: deferredContinuation
+      ? deferredLanding(thread, deferredContinuation, sourcePc, targetAddress)
+      : undefined,
+  };
+}
+
+function deferredContinuationForThread(
+  continuations: NativeActiveSyscallContinuation[],
+  thread: NativeThreadState,
+): NativeActiveSyscallContinuation | undefined {
+  if (thread.syscall.state === "outside-syscall") {
+    return undefined;
+  }
+  return continuations.find(
+    (continuation) =>
+      continuation.threadId === thread.id &&
+      continuation.action === "defer-target-resume" &&
+      continuation.syscallClass === "sleep-timer" &&
+      sameSyscall(continuation.syscall, thread.syscall),
+  );
+}
+
+function sameSyscall(
+  left: NativeActiveSyscallContinuation["syscall"],
+  right: NativeThreadState["syscall"],
+): boolean {
+  return left.state === right.state && left.number === right.number && left.name === right.name;
+}
+
+function deferredLanding(
+  thread: NativeThreadState,
+  continuation: NativeActiveSyscallContinuation,
+  sourcePc: bigint,
+  targetAddress: bigint,
+): NativeRealUtilityDeferredActiveSyscallLanding {
+  return {
+    threadId: thread.id,
+    sourceAddress: hex(sourcePc),
+    targetAddress: hex(targetAddress),
+    syscallClass: continuation.syscallClass,
+    action: continuation.action,
+    syscall: continuation.syscall,
+    metadata: continuation.metadata,
   };
 }
 
