@@ -34,7 +34,27 @@ function readyInput() {
       },
     ],
     sourceFrames: [frame],
-    targetUnwindMatched: true,
+    targetUnwind: {
+      matches: [
+        {
+          sourceFrameId: frame.id,
+          targetRule: {
+            id: "target:frame",
+            functionName: "real_utility_loop",
+            mapping: "target:mapping:text",
+            pcStart: "0x700000001000",
+            pcEnd: "0x700000001080",
+            metadata: "eh-frame" as const,
+            cfa: { register: "rbp" as const, offset: 16 },
+            returnAddress: { location: "cfa-relative" as const, offset: -8 },
+          },
+          targetAddress: "0x700000001000",
+          targetReturnAddressSlotOffset: -8,
+          preservesReturnContract: true as const,
+        },
+      ],
+      refusals: [],
+    },
   };
 }
 
@@ -91,7 +111,13 @@ describe("native real utility continuation planner", () => {
     });
 
     expect(
-      planNativeRealUtilityContinuationAttempt({ ...readyInput(), targetUnwindMatched: false }),
+      planNativeRealUtilityContinuationAttempt({
+        ...readyInput(),
+        targetUnwind: {
+          matches: [],
+          refusals: [{ code: "target-unwind-mismatch", message: "bad" }],
+        },
+      }),
     ).toMatchObject({
       blockingBoundary: "target-unwind",
       blockingRefusal: { code: "target-unwind-mismatch" },
