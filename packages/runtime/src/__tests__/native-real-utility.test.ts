@@ -10,13 +10,19 @@ const TMP: string[] = [];
 
 interface NativeRealUtilitySummary {
   skipped?: boolean;
-  attempts: Array<{
+  reason?: string;
+  utility: {
     name: string;
-    state: "captured" | "refused" | "skipped";
-    resourceKinds?: string[];
-    resourceRefusals?: Array<{ code: string }>;
-    refusal?: { code: string };
-  }>;
+    state: "refused" | "resumed";
+    dynamicallyLinked?: boolean;
+    processImageValidated: boolean;
+    blockingBoundary: string;
+    blockingRefusal: { code: string };
+    attemptedResume: boolean;
+    sourceTextReusedAsTargetCode: boolean;
+    targetBinarySource?: string;
+    execution: string;
+  };
 }
 
 afterEach(() => {
@@ -25,9 +31,9 @@ afterEach(() => {
   }
 });
 
-describe("native real utility attempts", () => {
+describe("native real utility continuation attempt", () => {
   it.skipIf(process.platform !== "linux")(
-    "captures or precisely refuses real utilities including ping",
+    "captures a real dynamically linked utility and stops at an exact boundary",
     { timeout: 120_000 },
     () => {
       const outDir = mkdtempSync(join(tmpdir(), "native-real-utility-test-"));
@@ -41,23 +47,26 @@ describe("native real utility attempts", () => {
 
       expect(result.status, result.stderr).toBe(0);
       const summary = JSON.parse(result.stdout) as NativeRealUtilitySummary;
-      expect(summary.skipped).not.toBe(true);
-      expect(summary.attempts.map((attempt) => attempt.name)).toEqual(["sleep", "cat", "ping"]);
-      expect(
-        summary.attempts.some(
-          (attempt) => attempt.state === "captured" || attempt.state === "refused",
-        ),
-      ).toBe(true);
-      expect(summary.attempts.find((attempt) => attempt.name === "cat")?.refusal?.code).toBe(
-        "thread-state-unsupported",
-      );
-      const ping = summary.attempts.find((attempt) => attempt.name === "ping");
-      if (ping?.state !== "skipped") {
-        expect([
-          ...(ping?.resourceKinds ?? []),
-          ...(ping?.resourceRefusals ?? []).map((r) => r.code),
-        ]).not.toHaveLength(0);
+      if (summary.skipped) {
+        expect(summary.reason).toMatch(/arm64 Linux source utility|Linux procfs/);
+        return;
       }
+
+      expect(summary.utility).toMatchObject({
+        name: "sleep",
+        state: "refused",
+        dynamicallyLinked: true,
+        processImageValidated: true,
+        attemptedResume: false,
+        sourceTextReusedAsTargetCode: false,
+      });
+      expect([
+        "code-location-unknown",
+        "kernel-state-unsupported",
+        "mapping-ambiguous",
+        "mapping-unreadable",
+      ]).toContain(summary.utility.blockingRefusal.code);
+      expect(summary.utility.execution).toContain(`real-arm64-sleep-refused-at-`);
     },
   );
 });
