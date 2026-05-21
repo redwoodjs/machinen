@@ -96,6 +96,10 @@
 - [`NativeRealUtilityCodeLocationResult`](#nativerealutilitycodelocationresult)
 - [`inventoryNativeSourceCodeModules`](#inventorynativesourcecodemodules)
 - [`resolveNativeRealUtilityCodeLocations`](#resolvenativerealutilitycodelocations)
+- [`NativeRealUtilityContinuationBoundary`](#nativerealutilitycontinuationboundary)
+- [`NativeRealUtilityContinuationRequest`](#nativerealutilitycontinuationrequest)
+- [`NativeRealUtilityContinuationPlan`](#nativerealutilitycontinuationplan)
+- [`planNativeRealUtilityContinuationAttempt`](#plannativerealutilitycontinuationattempt)
 - [`NativeStackFrame`](#nativestackframe)
 - [`NativeStackSlot`](#nativestackslot)
 - [`NativeStackTranslationRequest`](#nativestacktranslationrequest)
@@ -3650,6 +3654,70 @@ by default when `output` is a TTY.
 
 ***
 
+### NativeRealUtilityContinuationRequest
+
+#### Properties
+
+##### threadRefusals?
+
+> `optional` **threadRefusals?**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+##### resourceRefusals?
+
+> `optional` **resourceRefusals?**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+##### mappingRefusals?
+
+> `optional` **mappingRefusals?**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+##### codeLocations
+
+> **codeLocations**: [`NativeCodeLocationMapping`](#nativecodelocationmapping)[]
+
+##### sourceFrames
+
+> **sourceFrames**: [`NativeDiscoveredUnwindFrame`](#nativediscoveredunwindframe)[]
+
+##### targetUnwindMatched
+
+> **targetUnwindMatched**: `boolean`
+
+***
+
+### NativeRealUtilityContinuationPlan
+
+#### Properties
+
+##### state
+
+> **state**: `"ready"` \| `"refused"`
+
+##### blockingBoundary
+
+> **blockingBoundary**: [`NativeRealUtilityContinuationBoundary`](#nativerealutilitycontinuationboundary)
+
+##### blockingRefusal?
+
+> `optional` **blockingRefusal?**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
+
+##### attemptedResume
+
+> **attemptedResume**: `false`
+
+##### sourceTextReusedAsTargetCode
+
+> **sourceTextReusedAsTargetCode**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### sidecarRuntimeUsed
+
+> **sidecarRuntimeUsed**: `false`
+
+***
+
 ### NativeRegisterTranslationRequest
 
 #### Properties
@@ -6888,6 +6956,12 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativeRealUtilityContinuationBoundary
+
+> **NativeRealUtilityContinuationBoundary** = `"thread-state"` \| `"resource-boundary"` \| `"mapping-materialization"` \| `"target-code-location"` \| `"source-unwind"` \| `"target-unwind"` \| `"ready"`
+
+***
+
 ### NativeUnwindMetadataKind
 
 > **NativeUnwindMetadataKind** = `"dwarf"` \| `"eh-frame"`
@@ -8645,6 +8719,22 @@ available.
 #### Returns
 
 [`NativeRealUtilityCodeLocationResult`](#nativerealutilitycodelocationresult)
+
+***
+
+### planNativeRealUtilityContinuationAttempt()
+
+> **planNativeRealUtilityContinuationAttempt**(`request`): [`NativeRealUtilityContinuationPlan`](#nativerealutilitycontinuationplan)
+
+#### Parameters
+
+##### request
+
+[`NativeRealUtilityContinuationRequest`](#nativerealutilitycontinuationrequest)
+
+#### Returns
+
+[`NativeRealUtilityContinuationPlan`](#nativerealutilitycontinuationplan)
 
 ***
 
