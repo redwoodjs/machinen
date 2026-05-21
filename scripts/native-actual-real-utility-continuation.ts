@@ -198,6 +198,7 @@ function planCapturedActualUtilityBundle(
     targetModuleByteRefusals: inputs.targetBytes.refusals,
     targetCallerFrameRefusals: inputs.targetCallerFrame.refusals,
     targetCallerFrameMaterialized: inputs.targetCallerFrame.state === "planned",
+    targetResumeExecutionRefusals: targetResumeExecutionRefusals(inputs.targetCallerFrame.state),
     targetModuleBytesMaterialized: inputs.targetBytes.materialized.length > 0,
   });
   return {
@@ -673,6 +674,7 @@ function actualUtilitySummary(context: {
     targetFrameStateRefusals: planned.targetFrameState.refusals,
     targetCallerFrame: planned.targetCallerFrame.frame,
     targetCallerFrameRefusals: planned.targetCallerFrame.refusals,
+    targetResumeExecutionRefusals: targetResumeExecutionRefusals(planned.targetCallerFrame.state),
     targetModuleByteRefusals: planned.targetBytes.refusals,
     materializedTargetBytes: materializedTargetByteSummaries(planned),
     sourceModules: planned.sourceModules.length,
@@ -742,6 +744,20 @@ function deferredActiveSyscallLandingSummaries(
         ]
       : [];
   });
+}
+
+function targetResumeExecutionRefusals(
+  targetCallerFrameState: "planned" | "refused",
+): NativeProcessImageRefusal[] {
+  return targetCallerFrameState === "planned"
+    ? [
+        {
+          code: "target-resume-execution-unavailable",
+          message:
+            "target-native resume execution path has not been planned for actual real utility",
+        },
+      ]
+    : [];
 }
 
 function materializedTargetByteSummaries(

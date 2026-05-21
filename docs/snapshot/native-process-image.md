@@ -80,6 +80,7 @@ first native-translation blockers:
 - `target-frame-register-value-unavailable`
 - `target-caller-frame-unavailable`
 - `target-return-slot-unsupported`
+- `target-resume-execution-unavailable`
 - `target-callee-saved-state-unsupported`
 
 Unsupported work must emit a precise refusal instead of silently copying source

@@ -12,4 +12,4 @@ The synthetic values are marked as `synthetic-target-caller`. They are not copie
 
 Planning the caller frame is not the same thing as resuming the process. The proof still emits `attemptedResume: false`, `sourceIsaEmulationUsed: false`, and `sidecarRuntimeUsed: false`.
 
-With the caller-frame plan present, the continuation planner can reach its `ready` state. That means the current modeled gates have data. It does not mean a native jump has executed yet.
+With the caller-frame plan present, the continuation planner can move to the final target-resume-execution gate. That means the current modeled data gates have data. It does not mean a native jump has executed yet.

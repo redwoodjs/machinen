@@ -10,13 +10,16 @@ import {
 export type NativeActualRealUtilityContinuationBoundary =
   | NativeRealUtilityContinuationBoundary
   | "target-module-bytes"
-  | "target-caller-frame";
+  | "target-caller-frame"
+  | "target-resume-execution";
 
 export interface NativeActualRealUtilityContinuationRequest extends NativeRealUtilityContinuationRequest {
   targetModuleByteRefusals?: NativeProcessImageRefusal[];
   targetModuleBytesMaterialized?: boolean;
   targetCallerFrameRefusals?: NativeProcessImageRefusal[];
   targetCallerFrameMaterialized?: boolean;
+  targetResumeExecutionRefusals?: NativeProcessImageRefusal[];
+  targetResumeExecutionPlanned?: boolean;
 }
 
 export interface NativeActualRealUtilityContinuationPlan {
@@ -53,6 +56,11 @@ export function planNativeActualRealUtilityContinuationAttempt(
     return refusedPlan("target-caller-frame", callerFrameRefusal);
   }
 
+  const resumeExecutionRefusal = targetResumeExecutionRefusal(request);
+  if (resumeExecutionRefusal) {
+    return refusedPlan("target-resume-execution", resumeExecutionRefusal);
+  }
+
   return {
     state: "ready",
     blockingBoundary: "ready",
@@ -76,6 +84,21 @@ function targetCallerFrameRefusal(
     code: "target-caller-frame-unavailable",
     message:
       "synthetic target caller frame has not been materialized for actual real utility resume",
+  };
+}
+
+function targetResumeExecutionRefusal(
+  request: NativeActualRealUtilityContinuationRequest,
+): NativeProcessImageRefusal | undefined {
+  if (request.targetResumeExecutionRefusals?.[0]) {
+    return request.targetResumeExecutionRefusals[0];
+  }
+  if (request.targetResumeExecutionPlanned) {
+    return undefined;
+  }
+  return {
+    code: "target-resume-execution-unavailable",
+    message: "target-native resume execution path has not been planned for actual real utility",
   };
 }
 
