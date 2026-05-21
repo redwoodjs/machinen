@@ -1,5 +1,5 @@
 #!/usr/bin/env tsx
-import { existsSync, mkdirSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { classifyNativeActiveSyscalls } from "../packages/runtime/src/native-active-syscall-policy.ts";
 import { planNativeMappingMaterialization } from "../packages/runtime/src/native-mapping-materialization.ts";
@@ -11,7 +11,18 @@ import {
 import { planNativeActualRealUtilityContinuationAttempt } from "../packages/runtime/src/native-actual-real-utility-continuation.ts";
 import { materializeNativeTargetModuleBytes } from "../packages/runtime/src/native-target-module-bytes.ts";
 import {
+  discoverNativeUnwindFrames,
+  nativeUnwindReturnAddressSlot,
+  parseNativeEhFrameText,
+  type NativeDiscoveredUnwindFrame,
+  type NativeUnwindFrameRule,
+} from "../packages/runtime/src/native-unwind-frames.ts";
+import {
   validateNativeProcessImageBundle,
+  type NativeArm64Registers,
+  type NativeMemoryMapping,
+  type NativeProcessImageDocuments,
+  type NativeProcessImageRefusal,
   type NativeThreadState,
 } from "../packages/runtime/src/native-process-image.ts";
 import { translateNativeRegisterState } from "../packages/runtime/src/native-register-translation.ts";
@@ -31,12 +42,14 @@ import {
   emitResult,
   emitSkip,
   parseVerifyArgs,
+  runCommand,
 } from "./proof-script-utils.mjs";
 import {
   FINAL_JUMP_TARGET_ENTRY,
   FINAL_JUMP_TARGET_STACK_POINTER,
   finalJumpHex,
 } from "./native-final-jump-utils.ts";
+import { readCapturedU64 } from "./native-captured-source-utils.ts";
 import { spawnSync } from "node:child_process";
 
 const USAGE =
@@ -48,6 +61,7 @@ const SLEEP_SYSCALL_POLICY_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_SLEEP_SYSCALL_POL
 const UTILITY_NAME = "sleep";
 const SETTLE_MS = "150";
 const TARGET_BYTE_WINDOW = 32;
+const SOURCE_UNWIND_FILE = "native-source-unwind.json";
 
 function main() {
   const args = parseVerifyArgs(process.argv.slice(2), USAGE);
@@ -125,6 +139,7 @@ function captureArm64ActualUtility(outDir: string) {
     };
   }
 
+  writeActualSourceUnwindSidecar(bundleDir);
   const planned = planCapturedActualUtilityBundle(bundleDir, { targetRoot: undefined });
   assert(
     planned.bundle.manifest.capture.sourceArch === "arm64",
@@ -163,6 +178,31 @@ function planCapturedActualUtilityBundle(
   bundleDir: string,
   options: { targetRoot?: string; explicitTargetModulePath?: string },
 ) {
+  const inputs = actualUtilityPlanningInputs(bundleDir, options);
+  const plan = planNativeActualRealUtilityContinuationAttempt({
+    threadRefusals: effectiveThreadRefusals(inputs),
+    resourceRefusals: inputs.resources.refusals,
+    mappingRefusals: inputs.mappings.refusals,
+    codeLocations: inputs.code.codeLocations,
+    sourceFrames: inputs.sourceUnwind.frames,
+    sourceFrameRefusals: inputs.sourceUnwind.refusals,
+    targetModuleByteRefusals: inputs.targetBytes.refusals,
+    targetModuleBytesMaterialized: inputs.targetBytes.materialized.length > 0,
+  });
+  return {
+    ...inputs,
+    sourceFrames: inputs.sourceUnwind.frames,
+    sourceUnwindRefusals: inputs.sourceUnwind.refusals,
+    sourceUnwindRules: inputs.sourceUnwind.rules,
+    targetUnwind: undefined,
+    plan,
+  };
+}
+
+function actualUtilityPlanningInputs(
+  bundleDir: string,
+  options: { targetRoot?: string; explicitTargetModulePath?: string },
+) {
   const bundle = validateNativeProcessImageBundle(bundleDir);
   const memoryBytes = statSync(join(bundleDir, "native-memory.bin")).size;
   const activeSyscalls = classifyNativeActiveSyscalls(bundle.threads.threads, {
@@ -197,16 +237,8 @@ function planCapturedActualUtilityBundle(
     targetModules,
     activeSyscallContinuations: activeSyscalls.continuations,
   });
+  const sourceUnwind = readActualSourceUnwindSidecar(bundleDir);
   const targetBytes = materializeResolvedTargetBytes(code.resolved, options.targetRoot);
-  const plan = planNativeActualRealUtilityContinuationAttempt({
-    threadRefusals: effectiveThreadRefusals({ activeSyscalls, registers }),
-    resourceRefusals: resources.refusals,
-    mappingRefusals: mappings.refusals,
-    codeLocations: code.codeLocations,
-    sourceFrames: [],
-    targetModuleByteRefusals: targetBytes.refusals,
-    targetModuleBytesMaterialized: targetBytes.materialized.length > 0,
-  });
   return {
     bundle,
     memoryBytes,
@@ -217,10 +249,8 @@ function planCapturedActualUtilityBundle(
     sourceModules,
     targetModules,
     code,
-    sourceFrames: [],
-    targetUnwind: undefined,
+    sourceUnwind,
     targetBytes,
-    plan,
   };
 }
 
@@ -237,6 +267,226 @@ function threadPc(thread: NativeThreadState): string {
   return thread.sourceRegisters.arch === "arm64"
     ? thread.sourceRegisters.pc
     : thread.sourceRegisters.rip;
+}
+
+interface ActualSourceUnwindSidecar {
+  formatVersion: 1;
+  rules: NativeUnwindFrameRule[];
+  frames: NativeDiscoveredUnwindFrame[];
+  refusals: NativeProcessImageRefusal[];
+}
+
+function writeActualSourceUnwindSidecar(bundleDir: string) {
+  const bundle = validateNativeProcessImageBundle(bundleDir);
+  const sidecar = discoverActualSourceUnwind(bundle);
+  writeFileSync(join(bundleDir, SOURCE_UNWIND_FILE), `${JSON.stringify(sidecar, null, 2)}\n`);
+}
+
+function readActualSourceUnwindSidecar(bundleDir: string): ActualSourceUnwindSidecar {
+  const path = join(bundleDir, SOURCE_UNWIND_FILE);
+  return existsSync(path)
+    ? normalizeActualSourceUnwindSidecar(JSON.parse(readFileSync(path, "utf8")))
+    : emptyActualSourceUnwindSidecar();
+}
+
+function normalizeActualSourceUnwindSidecar(value: unknown): ActualSourceUnwindSidecar {
+  const parsed = value as Partial<ActualSourceUnwindSidecar>;
+  return {
+    formatVersion: 1,
+    rules: parsed.rules ?? [],
+    frames: parsed.frames ?? [],
+    refusals: parsed.refusals ?? [],
+  };
+}
+
+function emptyActualSourceUnwindSidecar(): ActualSourceUnwindSidecar {
+  return { formatVersion: 1, rules: [], frames: [], refusals: [] };
+}
+
+function discoverActualSourceUnwind(
+  bundle: NativeProcessImageDocuments,
+): ActualSourceUnwindSidecar {
+  const rules: NativeUnwindFrameRule[] = [];
+  const frames: NativeDiscoveredUnwindFrame[] = [];
+  const refusals: NativeProcessImageRefusal[] = [];
+
+  for (const thread of bundle.threads.threads) {
+    const discovered = discoverActualThreadSourceUnwind(bundle, thread);
+    rules.push(...discovered.rules);
+    frames.push(...discovered.frames);
+    refusals.push(...discovered.refusals);
+  }
+
+  return { formatVersion: 1, rules, frames, refusals };
+}
+
+function discoverActualThreadSourceUnwind(
+  bundle: NativeProcessImageDocuments,
+  thread: NativeThreadState,
+): Omit<ActualSourceUnwindSidecar, "formatVersion"> {
+  const input = actualThreadUnwindInput(bundle, thread);
+  if ("refusals" in input) {
+    return emptyThreadSourceUnwind(input.refusals);
+  }
+  return sourceUnwindFromParsedRule(
+    bundle,
+    input.thread,
+    parseActualSourceUnwindRule(input.mapping, input.thread),
+  );
+}
+
+function actualThreadUnwindInput(
+  bundle: NativeProcessImageDocuments,
+  thread: NativeThreadState,
+):
+  | {
+      thread: NativeThreadState & { sourceRegisters: NativeArm64Registers };
+      mapping: NativeMemoryMapping & { file: { path: string; offset: number } };
+    }
+  | { refusals: NativeProcessImageRefusal[] } {
+  const arm64Thread = arm64UnwindThread(thread);
+  if ("refusals" in arm64Thread) {
+    return arm64Thread;
+  }
+  const mapping = sourceUnwindMapping(bundle, arm64Thread.thread);
+  return "refusals" in mapping ? mapping : { thread: arm64Thread.thread, mapping: mapping.mapping };
+}
+
+function sourceUnwindFromParsedRule(
+  bundle: NativeProcessImageDocuments,
+  thread: NativeThreadState & { sourceRegisters: NativeArm64Registers },
+  parsed: ReturnType<typeof parseNativeEhFrameText>,
+): Omit<ActualSourceUnwindSidecar, "formatVersion"> {
+  if (parsed.refusals.length > 0) {
+    return emptyThreadSourceUnwind(parsed.refusals);
+  }
+  const rule = parsed.rules[0];
+  if (!rule) {
+    return emptyThreadSourceUnwind([sourceUnwindRefusal("unwind-fde-missing")]);
+  }
+  const discovered = discoverFrameFromActualRule(bundle, thread, rule);
+  return { rules: [rule], frames: discovered.frames, refusals: discovered.refusals };
+}
+
+function emptyThreadSourceUnwind(
+  refusals: NativeProcessImageRefusal[],
+): Omit<ActualSourceUnwindSidecar, "formatVersion"> {
+  return { rules: [], frames: [], refusals };
+}
+
+function arm64UnwindThread(
+  thread: NativeThreadState,
+):
+  | { thread: NativeThreadState & { sourceRegisters: NativeArm64Registers } }
+  | { refusals: NativeProcessImageRefusal[] } {
+  if (thread.sourceRegisters.arch === "arm64") {
+    return { thread: thread as NativeThreadState & { sourceRegisters: NativeArm64Registers } };
+  }
+  return { refusals: [sourceUnwindRefusal("architecture-unsupported")] };
+}
+
+function sourceUnwindMapping(
+  bundle: NativeProcessImageDocuments,
+  thread: NativeThreadState & { sourceRegisters: NativeArm64Registers },
+):
+  | { mapping: NativeMemoryMapping & { file: { path: string; offset: number } } }
+  | {
+      refusals: NativeProcessImageRefusal[];
+    } {
+  const pc = BigInt(thread.sourceRegisters.pc);
+  const mapping = executableMappingForPc(bundle, pc);
+  if (!mapping?.file?.path) {
+    return {
+      refusals: [
+        sourceUnwindRefusal(
+          "unwind-metadata-missing",
+          `thread ${thread.id} pc ${thread.sourceRegisters.pc} has no executable file mapping for .eh_frame discovery`,
+        ),
+      ],
+    };
+  }
+  if (!existsSync(mapping.file.path)) {
+    return {
+      refusals: [
+        sourceUnwindRefusal(
+          "unwind-metadata-missing",
+          `source module is unavailable for .eh_frame discovery: ${mapping.file.path}`,
+        ),
+      ],
+    };
+  }
+  return { mapping: mapping as NativeMemoryMapping & { file: { path: string; offset: number } } };
+}
+
+function parseActualSourceUnwindRule(
+  mapping: NativeMemoryMapping & { file: { path: string; offset: number } },
+  thread: NativeThreadState & { sourceRegisters: NativeArm64Registers },
+) {
+  const loadBias = finalJumpHex(BigInt(mapping.sourceStart) - BigInt(mapping.file.offset));
+  const readelfFrames = runCommand("readelf", ["--debug-dump=frames", mapping.file.path], {
+    label: `actual source .eh_frame scan ${basename(mapping.file.path)}`,
+  }).stdout;
+  return parseNativeEhFrameText({
+    readelfFrames,
+    mapping: mapping.id,
+    functionName: basename(mapping.file.path),
+    pc: thread.sourceRegisters.pc,
+    loadBias,
+  });
+}
+
+function sourceUnwindRefusal(
+  code: NativeProcessImageRefusal["code"],
+  message = "source unwind metadata is unavailable for actual utility frame",
+): NativeProcessImageRefusal {
+  return { code, message };
+}
+
+function discoverFrameFromActualRule(
+  bundle: NativeProcessImageDocuments,
+  thread: NativeThreadState & { sourceRegisters: NativeArm64Registers },
+  rule: NativeUnwindFrameRule,
+) {
+  const returnAddressSlot = nativeUnwindReturnAddressSlot({
+    rule,
+    sourceRegisters: thread.sourceRegisters,
+  });
+  if (!returnAddressSlot) {
+    return {
+      frames: [],
+      refusals: [
+        {
+          code: "unwind-rule-unsupported" as const,
+          message: `source unwind rule ${rule.id} does not expose a return-address slot`,
+        },
+      ],
+    };
+  }
+
+  const stackMapping = mappingById(bundle, thread.stackMapping);
+  const returnAddress = readCapturedU64(bundle, stackMapping, BigInt(returnAddressSlot));
+  return discoverNativeUnwindFrames({
+    threadId: thread.id,
+    stackMapping: thread.stackMapping,
+    sourceRegisters: thread.sourceRegisters,
+    rules: [rule],
+    stackWords: [{ address: returnAddressSlot, value: finalJumpHex(returnAddress) }],
+  });
+}
+
+function executableMappingForPc(bundle: NativeProcessImageDocuments, pc: bigint) {
+  return bundle.mappings.mappings.find(
+    (mapping) =>
+      mapping.permissions.execute &&
+      pc >= BigInt(mapping.sourceStart) &&
+      pc < BigInt(mapping.sourceEnd),
+  );
+}
+
+function mappingById(bundle: NativeProcessImageDocuments, id: string): NativeMemoryMapping {
+  const mapping = bundle.mappings.mappings.find((candidate) => candidate.id === id);
+  assert(mapping, `source bundle references missing mapping ${id}`);
+  return mapping;
 }
 
 function materializeResolvedTargetBytes(
@@ -292,6 +542,8 @@ function actualUtilitySummary(context: {
     codeLocationRefusals: planned.code.refusals,
     deferredActiveSyscallLandings: deferredActiveSyscallLandingSummaries(planned),
     sourceUnwindFrames: planned.sourceFrames.length,
+    sourceUnwindRules: planned.sourceUnwindRules.length,
+    sourceUnwindRefusals: planned.sourceUnwindRefusals,
     targetUnwindMatches: planned.targetUnwind?.matches.length ?? 0,
     targetModuleByteRefusals: planned.targetBytes.refusals,
     materializedTargetBytes: materializedTargetByteSummaries(planned),

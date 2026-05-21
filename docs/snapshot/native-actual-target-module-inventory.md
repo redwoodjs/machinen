@@ -29,7 +29,8 @@ load bias, and an executable RVA range. Source text is never used as target code
 
 With explicit sleep deferral and an amd64 target root, the actual `/bin/sleep`
 proof can move past the previous `target-module-missing` blocker for libc,
-materialize target-native libc bytes, and expose the next `source-unwind` gate.
+materialize target-native libc bytes, and, when source unwind metadata is
+available, expose the next target-unwind gate.
 If no target root is supplied, the proof still fails closed with
 `target-module-missing`.
 

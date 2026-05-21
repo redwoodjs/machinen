@@ -22,6 +22,7 @@ export interface NativeRealUtilityContinuationRequest {
   mappingRefusals?: NativeProcessImageRefusal[];
   codeLocations: NativeCodeLocationMapping[];
   sourceFrames: NativeDiscoveredUnwindFrame[];
+  sourceFrameRefusals?: NativeProcessImageRefusal[];
   targetUnwind?: NativeTargetUnwindMatchResult;
   targetUnwindMatched?: boolean;
 }
@@ -67,6 +68,7 @@ function firstOrderedRefusal(
     firstRefusal("resource-boundary", request.resourceRefusals) ??
     firstRefusal("mapping-materialization", request.mappingRefusals) ??
     codeLocationRefusal(request.codeLocations) ??
+    firstRefusal("source-unwind", request.sourceFrameRefusals) ??
     sourceUnwindRefusal(request.sourceFrames)
   );
 }

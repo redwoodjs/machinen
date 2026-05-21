@@ -2416,6 +2416,14 @@ by default when `output` is a TTY.
 
 [`NativeRealUtilityContinuationRequest`](#nativerealutilitycontinuationrequest).[`sourceFrames`](#sourceframes-1)
 
+##### sourceFrameRefusals?
+
+> `optional` **sourceFrameRefusals?**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+###### Inherited from
+
+[`NativeRealUtilityContinuationRequest`](#nativerealutilitycontinuationrequest).[`sourceFrameRefusals`](#sourceframerefusals-1)
+
 ##### targetUnwind?
 
 > `optional` **targetUnwind?**: [`NativeTargetUnwindMatchResult`](#nativetargetunwindmatchresult)
@@ -4029,6 +4037,10 @@ by default when `output` is a TTY.
 
 > **sourceFrames**: [`NativeDiscoveredUnwindFrame`](#nativediscoveredunwindframe)[]
 
+##### sourceFrameRefusals?
+
+> `optional` **sourceFrameRefusals?**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
 ##### targetUnwind?
 
 > `optional` **targetUnwind?**: [`NativeTargetUnwindMatchResult`](#nativetargetunwindmatchresult)
@@ -4640,6 +4652,10 @@ by default when `output` is a TTY.
 ##### pc
 
 > **pc**: `string`
+
+##### loadBias?
+
+> `optional` **loadBias?**: `string`
 
 ***
 

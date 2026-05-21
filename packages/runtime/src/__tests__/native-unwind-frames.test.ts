@@ -126,6 +126,30 @@ describe("native unwind frame discovery", () => {
     ]);
   });
 
+  it("parses loaded shared-object .eh_frame text with sp CFA rules", () => {
+    const result = parseNativeEhFrameText({
+      readelfFrames: `
+00011130 0000000000000034 00011134 FDE cie=00000000 pc=00000000000b6c60..00000000000b6d0c
+  DW_CFA_advance_loc: 12 to 00000000000b6c6c
+  DW_CFA_def_cfa_offset: 48
+  DW_CFA_offset: r29 (x29) at cfa-48
+  DW_CFA_offset: r30 (x30) at cfa-40
+`,
+      mapping: "mapping:libc-text",
+      functionName: "libc.so.6",
+      pc: "0xec3f389e6ca0",
+      loadBias: "0xec3f38930000",
+    });
+
+    expect(result.refusals).toEqual([]);
+    expect(result.rules[0]).toMatchObject({
+      pcStart: "0xec3f389e6c60",
+      pcEnd: "0xec3f389e6d0c",
+      cfa: { register: "sp", offset: 48 },
+      returnAddress: { location: "cfa-relative", offset: -40 },
+    });
+  });
+
   it("uses precise .eh_frame parse refusals", () => {
     expect(
       parseNativeEhFrameText({

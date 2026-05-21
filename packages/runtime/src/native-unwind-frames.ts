@@ -45,6 +45,7 @@ export interface NativeEhFrameTextParseRequest {
   mapping: string;
   functionName: string;
   pc: string;
+  loadBias?: string;
 }
 
 export interface NativeEhFrameTextParseResult {
@@ -102,8 +103,10 @@ export function parseNativeEhFrameText(
     };
   }
   const pc = BigInt(request.pc);
+  const loadBias = BigInt(request.loadBias ?? "0x0");
+  const metadataPc = pc - loadBias;
   const block = nativeEhFrameTextBlocks(request.readelfFrames).find(
-    (candidate) => pc >= candidate.start && pc < candidate.end,
+    (candidate) => metadataPc >= candidate.start && metadataPc < candidate.end,
   );
   if (!block) {
     return {
@@ -139,50 +142,59 @@ function ehFrameRuleFromBlock(
   request: NativeEhFrameTextParseRequest,
   block: { start: bigint; end: bigint; lines: string[] },
 ): { rule: NativeUnwindFrameRule } | { refusal: NativeProcessImageRefusal } {
-  const cfaOffset = cfaOffsetFromX29(block.lines);
+  const cfa = cfaRuleFromBlock(block.lines);
   const returnAddressOffset = nativeLastCapture(
     block.lines,
     /DW_CFA_offset: r30(?: \([^)]*\))? at cfa([+-]\d+)/,
   );
-  if (!cfaOffset || !returnAddressOffset) {
+  if (!cfa || !returnAddressOffset) {
     return {
       refusal: unwindRefusal(
         "unwind-rule-unsupported",
-        `.eh_frame FDE for ${request.functionName} does not use modeled x29 CFA and cfa-relative x30 rules`,
+        `.eh_frame FDE for ${request.functionName} does not use modeled arm64 CFA and cfa-relative x30 rules`,
       ),
     };
   }
+  const loadBias = BigInt(request.loadBias ?? "0x0");
   return {
     rule: {
-      id: `eh-frame:${request.functionName}:${hex(block.start)}`,
+      id: `eh-frame:${request.functionName}:${hex(block.start + loadBias)}`,
       functionName: request.functionName,
       mapping: request.mapping,
-      pcStart: hex(block.start),
-      pcEnd: hex(block.end),
+      pcStart: hex(block.start + loadBias),
+      pcEnd: hex(block.end + loadBias),
       metadata: "eh-frame",
-      cfa: { register: "x29", offset: Number.parseInt(cfaOffset, 10) },
+      cfa,
       returnAddress: { location: "cfa-relative", offset: Number.parseInt(returnAddressOffset, 10) },
     },
   };
 }
 
-function cfaOffsetFromX29(lines: string[]) {
-  const combined = nativeLastCapture(lines, /DW_CFA_def_cfa: r29(?: \([^)]*\))? ofs:? (\d+)/);
-  if (combined) {
-    return combined;
+function cfaRuleFromBlock(lines: string[]): NativeUnwindFrameRule["cfa"] | undefined {
+  const combinedX29 = nativeLastCapture(lines, /DW_CFA_def_cfa: r29(?: \([^)]*\))? ofs:? (\d+)/);
+  if (combinedX29) {
+    return { register: "x29", offset: Number.parseInt(combinedX29, 10) };
   }
+  const combinedSp = nativeLastCapture(lines, /DW_CFA_def_cfa: r31(?: \([^)]*\))? ofs:? (\d+)/);
+  if (combinedSp) {
+    return { register: "sp", offset: Number.parseInt(combinedSp, 10) };
+  }
+
   let offset: string | undefined;
-  let registerIsX29 = false;
+  let register: "sp" | "x29" = "sp";
   for (const line of lines) {
     const offsetMatch = /DW_CFA_def_cfa_offset: (\d+)/.exec(line);
     if (offsetMatch?.[1]) {
       offset = offsetMatch[1];
     }
     if (/DW_CFA_def_cfa_register: r29(?: \([^)]*\))?/.test(line)) {
-      registerIsX29 = true;
+      register = "x29";
+    }
+    if (/DW_CFA_def_cfa_register: r31(?: \([^)]*\))?/.test(line)) {
+      register = "sp";
     }
   }
-  return registerIsX29 ? offset : undefined;
+  return offset ? { register, offset: Number.parseInt(offset, 10) } : undefined;
 }
 
 function resolveUnwindRule(
