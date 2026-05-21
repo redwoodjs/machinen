@@ -6,16 +6,19 @@ import type {
   NativeModeledSleepTimerState,
 } from "./native-active-syscall-policy.ts";
 
-export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_BUILD_ID = "machinen-synthetic-sleep-syscall-v1";
+export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_BUILD_ID = "machinen-synthetic-sleep-syscall-v2";
 export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_LOGICAL_NAME = "machinen-synthetic-sleep-syscall";
 export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_PATH = "machinen.synthetic://sleep-syscall";
 export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_BASE = "0x700200000000";
+
+export type NativeSyntheticSleepCompletionMode = "return-to-trampoline" | "exit-process";
 
 export interface NativeSyntheticSleepSyscallContinuationRequest {
   threadId: string;
   remainingTime: NativeModeledSleepTimerRemainingTime;
   sleepTimer?: NativeModeledSleepTimerState;
   targetAddress?: string;
+  completionMode?: NativeSyntheticSleepCompletionMode;
 }
 
 export interface NativeSyntheticSleepSyscallContinuation {
@@ -33,6 +36,8 @@ export interface NativeSyntheticSleepSyscallContinuation {
     remainderPointer: "0x0";
   };
   remainingTime: NativeModeledSleepTimerRemainingTime;
+  completionMode: NativeSyntheticSleepCompletionMode;
+  exitStatusOnSuccess?: 0;
   timespecOffset: number;
   sizeBytes: number;
   bytes: Uint8Array;
@@ -47,8 +52,10 @@ export interface NativeSyntheticSleepSyscallContinuationResult {
 }
 
 const CLOCK_NANOSLEEP_SYSCALL_AMD64 = 230;
-const SYNTHETIC_SLEEP_TIMESPEC_OFFSET = 24;
-const SYNTHETIC_SLEEP_CODE_SIZE = 40;
+const RETURNING_SLEEP_TIMESPEC_OFFSET = 24;
+const RETURNING_SLEEP_CODE_SIZE = 40;
+const EXITING_SLEEP_TIMESPEC_OFFSET = 48;
+const EXITING_SLEEP_CODE_SIZE = 64;
 const MAX_SIGNED_I64 = 0x7fff_ffff_ffff_ffffn;
 const MAX_NANOSECONDS = 999_999_999;
 
@@ -59,7 +66,8 @@ export function buildNativeSyntheticSleepSyscallContinuation(
   if (validation) {
     return { refusals: [validation] };
   }
-  const bytes = syntheticClockNanosleepBytes(request.remainingTime);
+  const completionMode = request.completionMode ?? "return-to-trampoline";
+  const bytes = syntheticClockNanosleepBytes(request.remainingTime, completionMode);
   return {
     continuation: {
       kind: "synthetic-sleep-syscall",
@@ -76,7 +84,9 @@ export function buildNativeSyntheticSleepSyscallContinuation(
         remainderPointer: "0x0",
       },
       remainingTime: request.remainingTime,
-      timespecOffset: SYNTHETIC_SLEEP_TIMESPEC_OFFSET,
+      completionMode,
+      exitStatusOnSuccess: completionMode === "exit-process" ? 0 : undefined,
+      timespecOffset: sleepTimespecOffset(completionMode),
       sizeBytes: bytes.byteLength,
       bytes,
       sourceTextReusedAsTargetCode: false,
@@ -103,8 +113,9 @@ function validateRemainingTime(
 
 function syntheticClockNanosleepBytes(
   remainingTime: NativeModeledSleepTimerRemainingTime,
+  completionMode: NativeSyntheticSleepCompletionMode,
 ): Uint8Array {
-  const bytes = new Uint8Array(SYNTHETIC_SLEEP_CODE_SIZE);
+  const bytes = new Uint8Array(sleepCodeSize(completionMode));
   bytes.set(
     [
       0xb8,
@@ -134,11 +145,57 @@ function syntheticClockNanosleepBytes(
     ],
     0,
   );
+  if (completionMode === "exit-process") {
+    bytes.set(exitProcessSuffix(), 21);
+  }
   const ripAfterLea = 16;
-  writeInt32Le(bytes, 12, SYNTHETIC_SLEEP_TIMESPEC_OFFSET - ripAfterLea);
-  writeU64Le(bytes, SYNTHETIC_SLEEP_TIMESPEC_OFFSET, BigInt(remainingTime.seconds));
-  writeU64Le(bytes, SYNTHETIC_SLEEP_TIMESPEC_OFFSET + 8, BigInt(remainingTime.nanoseconds));
+  const timespecOffset = sleepTimespecOffset(completionMode);
+  writeInt32Le(bytes, 12, timespecOffset - ripAfterLea);
+  writeU64Le(bytes, timespecOffset, BigInt(remainingTime.seconds));
+  writeU64Le(bytes, timespecOffset + 8, BigInt(remainingTime.nanoseconds));
   return bytes;
+}
+
+function sleepTimespecOffset(completionMode: NativeSyntheticSleepCompletionMode): number {
+  return completionMode === "exit-process"
+    ? EXITING_SLEEP_TIMESPEC_OFFSET
+    : RETURNING_SLEEP_TIMESPEC_OFFSET;
+}
+
+function sleepCodeSize(completionMode: NativeSyntheticSleepCompletionMode): number {
+  return completionMode === "exit-process" ? EXITING_SLEEP_CODE_SIZE : RETURNING_SLEEP_CODE_SIZE;
+}
+
+function exitProcessSuffix(): number[] {
+  return [
+    0x48,
+    0x85,
+    0xc0, // test rax, rax
+    0x75,
+    0x09, // jne failure exit
+    0xb8,
+    0x3c,
+    0x00,
+    0x00,
+    0x00, // mov eax, 60 (exit)
+    0x31,
+    0xff, // xor edi, edi (status 0)
+    0x0f,
+    0x05, // syscall
+    0xb8,
+    0x3c,
+    0x00,
+    0x00,
+    0x00, // mov eax, 60 (exit)
+    0xbf,
+    0x6f,
+    0x00,
+    0x00,
+    0x00, // mov edi, 111 (unexpected sleep failure)
+    0x0f,
+    0x05, // syscall
+    0x90,
+  ];
 }
 
 function writeInt32Le(bytes: Uint8Array, offset: number, value: number): void {

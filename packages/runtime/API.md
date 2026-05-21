@@ -130,6 +130,7 @@
 - [`NativeTargetModuleByteMaterialization`](#nativetargetmodulebytematerialization)
 - [`NativeTargetModuleByteMaterializationResult`](#nativetargetmodulebytematerializationresult)
 - [`materializeNativeTargetModuleBytes`](#materializenativetargetmodulebytes)
+- [`NativeSyntheticSleepCompletionMode`](#nativesyntheticsleepcompletionmode)
 - [`NativeSyntheticSleepSyscallContinuationRequest`](#nativesyntheticsleepsyscallcontinuationrequest)
 - [`NativeSyntheticSleepSyscallContinuation`](#nativesyntheticsleepsyscallcontinuation)
 - [`NativeSyntheticSleepSyscallContinuationResult`](#nativesyntheticsleepsyscallcontinuationresult)
@@ -4207,6 +4208,14 @@ by default when `output` is a TTY.
 
 > **remainderPointer**: `"0x0"`
 
+##### completionMode
+
+> **completionMode**: [`NativeSyntheticSleepCompletionMode`](#nativesyntheticsleepcompletionmode)
+
+##### exitStatusOnSuccess?
+
+> `optional` **exitStatusOnSuccess?**: `0`
+
 ***
 
 ### NativeRealUtilityDeferredActiveSyscallLanding
@@ -4384,6 +4393,10 @@ by default when `output` is a TTY.
 ##### syntheticSleepBaseAddress?
 
 > `optional` **syntheticSleepBaseAddress?**: `string`
+
+##### syntheticSleepCompletionMode?
+
+> `optional` **syntheticSleepCompletionMode?**: [`NativeSyntheticSleepCompletionMode`](#nativesyntheticsleepcompletionmode)
 
 ***
 
@@ -4729,6 +4742,10 @@ by default when `output` is a TTY.
 
 > `optional` **targetAddress?**: `string`
 
+##### completionMode?
+
+> `optional` **completionMode?**: [`NativeSyntheticSleepCompletionMode`](#nativesyntheticsleepcompletionmode)
+
 ***
 
 ### NativeSyntheticSleepSyscallContinuation
@@ -4786,6 +4803,14 @@ by default when `output` is a TTY.
 ##### remainingTime
 
 > **remainingTime**: [`NativeModeledSleepTimerRemainingTime`](#nativemodeledsleeptimerremainingtime)
+
+##### completionMode
+
+> **completionMode**: [`NativeSyntheticSleepCompletionMode`](#nativesyntheticsleepcompletionmode)
+
+##### exitStatusOnSuccess?
+
+> `optional` **exitStatusOnSuccess?**: `0`
 
 ##### timespecOffset
 
@@ -5614,6 +5639,10 @@ by default when `output` is a TTY.
 ##### returnValue?
 
 > `optional` **returnValue?**: `string`
+
+##### exitStatus?
+
+> `optional` **exitStatus?**: `number`
 
 ##### instructionPointerInTargetBytes
 
@@ -8985,6 +9014,12 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativeSyntheticSleepCompletionMode
+
+> **NativeSyntheticSleepCompletionMode** = `"return-to-trampoline"` \| `"exit-process"`
+
+***
+
 ### NativeTargetFrameStateRegister
 
 > **NativeTargetFrameStateRegister** = `Exclude`\<[`NativeTargetUnwindRegister`](#nativetargetunwindregister), `"rsp"` \| `"rip"`\>
@@ -9017,7 +9052,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NativeTargetResumeExecutionAttemptStatus
 
-> **NativeTargetResumeExecutionAttemptStatus** = `"returned"` \| `"faulted"`
+> **NativeTargetResumeExecutionAttemptStatus** = `"returned"` \| `"faulted"` \| `"exited"`
 
 ***
 
@@ -10097,7 +10132,7 @@ loops; anything looser stops being a meaningful gate.
 
 ### NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_BUILD\_ID
 
-> `const` **NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_BUILD\_ID**: `"machinen-synthetic-sleep-syscall-v1"` = `"machinen-synthetic-sleep-syscall-v1"`
+> `const` **NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_BUILD\_ID**: `"machinen-synthetic-sleep-syscall-v2"` = `"machinen-synthetic-sleep-syscall-v2"`
 
 ***
 

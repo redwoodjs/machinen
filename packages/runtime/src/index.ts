@@ -190,6 +190,7 @@ export type {
   NativeTargetModuleByteMaterializationResult,
 } from "./native-target-module-bytes.ts";
 export type {
+  NativeSyntheticSleepCompletionMode,
   NativeSyntheticSleepSyscallContinuation,
   NativeSyntheticSleepSyscallContinuationRequest,
   NativeSyntheticSleepSyscallContinuationResult,

@@ -19,12 +19,11 @@ The plan records the target architecture, entry address, stack pointer, caller-f
 
 On Linux/amd64, the actual proof now runs a short-lived native helper. The helper maps the explicit target amd64 byte window at the planned target address, installs the synthetic target stack, transfers control to the target bytes, and records what happened.
 
-The current `/bin/sleep` continuation is still not a completed migration. For the
-narrow modeled sleep path, the attempt is expected to return to the bounded
-trampoline after the synthesized target-native `clock_nanosleep` syscall. That
-return is useful proof: it shows that control reached and executed target-native
-amd64 bytes without source text reuse, source-ISA emulation, or a Node/Bun
-sidecar.
+For the narrow modeled `/bin/sleep` path, the synthesized target-native
+`clock_nanosleep` continuation now exits the target process with status `0` after
+the sleep syscall returns successfully. That exit is useful proof: it shows that
+control reached and executed target-native amd64 bytes without source text reuse,
+source-ISA emulation, or a Node/Bun sidecar.
 
 The summary reports the attempt separately and records synthetic target landing
 provenance. For deferred sleep/timer syscalls, the planned entry now comes from a
@@ -41,21 +40,21 @@ synthetic amd64 syscall continuation instead of the source RVA or target libc:
     }
   ],
   "targetResumeExecutionAttempt": {
-    "status": "returned",
+    "status": "exited",
     "targetArch": "amd64",
-    "returnValue": "0x0",
+    "exitStatus": 0,
     "instructionPointerInTargetBytes": true,
     "attemptedResume": true
   },
   "attemptedResume": true,
-  "migrationCompleted": false,
+  "migrationCompleted": true,
   "sourceTextReusedAsTargetCode": false,
   "sourceIsaEmulationUsed": false,
   "sidecarRuntimeUsed": false
 }
 ```
 
-`migrationCompleted: false` is intentional. This proves the first native
-execution transfer reaches generated amd64 sleep syscall bytes and returns from
-the syscall continuation. A later gate owns turning that return into target
-process exit.
+`migrationCompleted: true` is intentionally narrow here. It applies to this
+modeled `/bin/sleep` path only, after the generated amd64 sleep syscall bytes
+exit the target process with status `0`. Other planned, faulted, timed-out, or
+trampoline-return-only attempts still keep `migrationCompleted: false`.

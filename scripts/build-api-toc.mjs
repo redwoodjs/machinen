@@ -152,6 +152,7 @@ const TOC = {
     "NativeTargetModuleByteMaterialization",
     "NativeTargetModuleByteMaterializationResult",
     "materializeNativeTargetModuleBytes",
+    "NativeSyntheticSleepCompletionMode",
     "NativeSyntheticSleepSyscallContinuationRequest",
     "NativeSyntheticSleepSyscallContinuation",
     "NativeSyntheticSleepSyscallContinuationResult",
