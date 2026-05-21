@@ -20,6 +20,12 @@ interface ActualRealUtilitySummary {
   plan?: { state: string; blockingBoundary: string; blockingRefusal?: { code: string } };
   attemptedResume?: boolean;
   migrationCompleted?: boolean;
+  targetResumeLandingProvenance?: Array<{
+    targetAddress: string;
+    targetModule: { path: string; buildId: string };
+    instructionBoundary: { state: string; reason: string };
+  }>;
+  targetResumeLandingRefusals?: Array<{ code: string }>;
   targetResumeExecutionAttempt?: {
     attemptedResume: boolean;
     instructionPointerInTargetBytes: boolean;
@@ -61,6 +67,11 @@ describe("native actual real utility continuation proof script", () => {
       expect(summary.phase).toBe("actual-real-utility-capture");
       expect(summary.actualCapturedUtility).toBe(true);
       expect(summary.processImageValidated).toBe(true);
+      for (const landing of summary.targetResumeLandingProvenance ?? []) {
+        expect(landing.targetAddress).toEqual(expect.any(String));
+        expect(landing.targetModule.path).toEqual(expect.any(String));
+        expect(landing.instructionBoundary.state).toEqual(expect.any(String));
+      }
       expect(summary.attemptedResume).toBe(
         summary.targetResumeExecutionAttempt?.attemptedResume ?? false,
       );

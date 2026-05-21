@@ -13,6 +13,11 @@ import { materializeNativeTargetModuleBytes } from "../packages/runtime/src/nati
 import { planNativeTargetFrameStateMaterialization } from "../packages/runtime/src/native-target-frame-state.ts";
 import { planNativeSyntheticTargetCallerFrame } from "../packages/runtime/src/native-target-caller-frame.ts";
 import {
+  inspectNativeTargetResumeLanding,
+  nativeTargetResumeLandingRefusals,
+  type NativeTargetResumeLandingProvenance,
+} from "../packages/runtime/src/native-target-landing-provenance.ts";
+import {
   classifyNativeTargetResumeExecutionAttempt,
   planNativeTargetResumeExecution,
   type NativeTargetResumeExecutionAttempt,
@@ -281,6 +286,12 @@ function actualUtilityPlanningInputs(
     },
   });
   const targetBytes = materializeResolvedTargetBytes(code.resolved, options.targetRoot);
+  const targetLandingProvenance = inspectActualTargetResumeLandings({
+    resolved: code.resolved,
+    targetBytes: targetBytes.materialized,
+    targetUnwind,
+    targetRoot: options.targetRoot,
+  });
   const targetResumeExecution = planNativeTargetResumeExecution({
     codeLocations: code.codeLocations,
     callerFrame: targetCallerFrame.frame,
@@ -301,6 +312,7 @@ function actualUtilityPlanningInputs(
     targetFrameState,
     targetCallerFrame,
     targetBytes,
+    targetLandingProvenance,
     targetResumeExecution,
   };
 }
@@ -561,6 +573,100 @@ function materializeResolvedTargetBytes(
   return { materialized, refusals };
 }
 
+function inspectActualTargetResumeLandings(options: {
+  resolved: ReturnType<typeof resolveNativeRealUtilityCodeLocations>["resolved"];
+  targetBytes: ReturnType<typeof materializeResolvedTargetBytes>["materialized"];
+  targetUnwind: NativeTargetUnwindMatchResult;
+  targetRoot?: string;
+}): NativeTargetResumeLandingProvenance[] {
+  return options.resolved.map((location) => {
+    const targetPath = resolveActualTargetPath(options.targetRoot, location.targetModule.path);
+    const targetBytes = options.targetBytes.find(
+      (bytes) =>
+        bytes.moduleId === location.targetModule.id && bytes.relativeStart === location.sourceRva,
+    );
+    const fde = options.targetUnwind.matches.find(
+      (match) => match.targetAddress === location.targetAddress,
+    )?.targetRule;
+    const disassemblyRange = actualTargetDisassemblyRange(location, fde);
+    return inspectNativeTargetResumeLanding({
+      location,
+      targetBytes,
+      targetUnwindMatches: options.targetUnwind.matches,
+      readelfSections: targetMetadata(targetPath, ["--sections", "--wide"], "sections"),
+      readelfSymbols: targetMetadata(targetPath, ["--symbols", "--wide"], "symbols"),
+      objdumpDisassembly: targetObjdumpDisassembly(targetPath, disassemblyRange),
+      disassemblyAddressStart: disassemblyRange?.start,
+      disassemblyAddressEnd: disassemblyRange?.end,
+    });
+  });
+}
+
+function actualTargetDisassemblyRange(
+  location: ReturnType<typeof resolveNativeRealUtilityCodeLocations>["resolved"][number],
+  fde: NativeTargetUnwindMatchResult["matches"][number]["targetRule"] | undefined,
+): { start: string; end: string } | undefined {
+  const targetRelative = BigInt(location.targetAddress) - BigInt(location.targetModule.loadBias);
+  const loadBias = BigInt(location.targetModule.loadBias);
+  return {
+    start: finalJumpHex(actualTargetDisassemblyStart(targetRelative, fde, loadBias)),
+    end: finalJumpHex(actualTargetDisassemblyEnd(targetRelative, fde, loadBias)),
+  };
+}
+
+function actualTargetDisassemblyStart(
+  targetRelative: bigint,
+  fde: NativeTargetUnwindMatchResult["matches"][number]["targetRule"] | undefined,
+  loadBias: bigint,
+): bigint {
+  const fdeStart = fde ? BigInt(fde.pcStart) - loadBias : undefined;
+  return fdeStart !== undefined && fdeStart <= targetRelative
+    ? fdeStart
+    : clampFloor(targetRelative - 64n);
+}
+
+// fallow-ignore-next-line complexity
+function actualTargetDisassemblyEnd(
+  targetRelative: bigint,
+  fde: NativeTargetUnwindMatchResult["matches"][number]["targetRule"] | undefined,
+  loadBias: bigint,
+): bigint {
+  const fdeEnd = fde ? BigInt(fde.pcEnd) - loadBias : undefined;
+  const maxEnd = targetRelative + 96n;
+  return fdeEnd !== undefined && fdeEnd > targetRelative && fdeEnd < maxEnd ? fdeEnd : maxEnd;
+}
+
+function targetMetadata(
+  targetPath: string,
+  readelfArgs: string[],
+  label: string,
+): string | undefined {
+  if (!existsSync(targetPath)) {
+    return undefined;
+  }
+  return runCommand("readelf", [...readelfArgs, targetPath], {
+    label: `actual target ${label} ${basename(targetPath)}`,
+  }).stdout;
+}
+
+function targetObjdumpDisassembly(
+  targetPath: string,
+  range: { start: string; end: string } | undefined,
+): string | undefined {
+  if (!existsSync(targetPath) || !range) {
+    return undefined;
+  }
+  return runCommand(
+    "objdump",
+    ["-d", "--start-address", range.start, "--stop-address", range.end, targetPath],
+    { label: `actual target disassembly ${basename(targetPath)}` },
+  ).stdout;
+}
+
+function clampFloor(value: bigint): bigint {
+  return value < 0n ? 0n : value;
+}
+
 function discoverActualTargetUnwind(options: {
   resolved: ReturnType<typeof resolveNativeRealUtilityCodeLocations>["resolved"];
   sourceFrames: NativeDiscoveredUnwindFrame[];
@@ -797,7 +903,10 @@ function actualUtilitySummary(context: {
   planned: ReturnType<typeof planCapturedActualUtilityBundle>;
 }) {
   const { planned } = context;
-  const resumeFields = resumeAttemptSummaryFields(context.resumeAttempt);
+  const resumeFields = resumeAttemptSummaryFields(
+    context.resumeAttempt,
+    planned.targetLandingProvenance,
+  );
   const blockingFields = blockingSummaryFields(
     planned,
     resumeFields.targetResumeFaultClassification,
@@ -832,6 +941,8 @@ function actualUtilitySummary(context: {
     targetCallerFrame: planned.targetCallerFrame.frame,
     targetCallerFrameRefusals: planned.targetCallerFrame.refusals,
     targetResumeExecution: planned.targetResumeExecution.plan,
+    targetResumeLandingProvenance: planned.targetLandingProvenance,
+    targetResumeLandingRefusals: nativeTargetResumeLandingRefusals(planned.targetLandingProvenance),
     targetResumeExecutionAttempt: resumeFields.targetResumeExecutionAttempt,
     targetResumeFaultClassification: resumeFields.targetResumeFaultClassification,
     targetResumeFaultRefusals: resumeFields.targetResumeFaultRefusals,
@@ -866,8 +977,11 @@ function targetUnwindSummaryFields(planned: ReturnType<typeof planCapturedActual
   };
 }
 
-function resumeAttemptSummaryFields(resumeAttempt: NativeTargetResumeExecutionAttempt | undefined) {
-  const fault = classifyNativeTargetResumeExecutionAttempt(resumeAttempt);
+function resumeAttemptSummaryFields(
+  resumeAttempt: NativeTargetResumeExecutionAttempt | undefined,
+  landingProvenance: NativeTargetResumeLandingProvenance[],
+) {
+  const fault = classifyNativeTargetResumeExecutionAttempt(resumeAttempt, { landingProvenance });
   return {
     targetResumeExecutionAttempt: resumeAttempt,
     targetResumeFaultClassification: fault.classification,

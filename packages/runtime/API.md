@@ -120,6 +120,17 @@
 - [`NativeTargetModuleByteMaterialization`](#nativetargetmodulebytematerialization)
 - [`NativeTargetModuleByteMaterializationResult`](#nativetargetmodulebytematerializationresult)
 - [`materializeNativeTargetModuleBytes`](#materializenativetargetmodulebytes)
+- [`NativeTargetLandingModuleProvenance`](#nativetargetlandingmoduleprovenance)
+- [`NativeTargetLandingSectionProvenance`](#nativetargetlandingsectionprovenance)
+- [`NativeTargetLandingSymbolProvenance`](#nativetargetlandingsymbolprovenance)
+- [`NativeTargetLandingFdeProvenance`](#nativetargetlandingfdeprovenance)
+- [`NativeTargetLandingDisassemblyProvenance`](#nativetargetlandingdisassemblyprovenance)
+- [`NativeTargetLandingInstructionBoundary`](#nativetargetlandinginstructionboundary)
+- [`NativeTargetLandingInstructionBoundaryState`](#nativetargetlandinginstructionboundarystate)
+- [`NativeTargetResumeLandingProvenance`](#nativetargetresumelandingprovenance)
+- [`NativeTargetResumeLandingInspectionRequest`](#nativetargetresumelandinginspectionrequest)
+- [`inspectNativeTargetResumeLanding`](#inspectnativetargetresumelanding)
+- [`nativeTargetResumeLandingRefusals`](#nativetargetresumelandingrefusals)
 - [`NativeTargetUnwindRegister`](#nativetargetunwindregister)
 - [`NativeTargetCalleeSavedPolicy`](#nativetargetcalleesavedpolicy)
 - [`NativeTargetCalleeSavedSlot`](#nativetargetcalleesavedslot)
@@ -150,6 +161,7 @@
 - [`NativeTargetResumeExecutionAttemptStatus`](#nativetargetresumeexecutionattemptstatus)
 - [`NativeTargetResumeFaultBoundary`](#nativetargetresumefaultboundary)
 - [`NativeTargetResumeFaultClassification`](#nativetargetresumefaultclassification)
+- [`NativeTargetResumeFaultClassificationOptions`](#nativetargetresumefaultclassificationoptions)
 - [`NativeTargetResumeFaultClassificationResult`](#nativetargetresumefaultclassificationresult)
 - [`NativeTargetResumeFaultRegisters`](#nativetargetresumefaultregisters)
 - [`NativeTargetResumeExecutionMode`](#nativetargetresumeexecutionmode)
@@ -3015,7 +3027,7 @@ by default when `output` is a TTY.
 
 ##### code
 
-> **code**: `"fd-kind-unsupported"` \| `"target-build-mismatch"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"active-syscall"` \| `"blocking-syscall-state-unsupported"` \| `"code-location-unknown"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-permission-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"syscall-argument-state-unsupported"` \| `"syscall-restart-unsupported"` \| `"target-build-id-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-caller-frame-unavailable"` \| `"target-code-rva-unmapped"` \| `"target-frame-layout-unsupported"` \| `"target-frame-register-value-unavailable"` \| `"target-module-bytes-missing"` \| `"target-module-file-missing"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-module-range-unreadable"` \| `"target-return-slot-unsupported"` \| `"target-resume-execution-unavailable"` \| `"target-resume-fault-outside-target-bytes"` \| `"target-resume-fault-privileged-instruction"` \| `"target-resume-fault-signal-unsupported"` \| `"target-resume-fault-timeout"` \| `"target-resume-fault-unmodeled-memory"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
+> **code**: `"fd-kind-unsupported"` \| `"target-build-mismatch"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"active-syscall"` \| `"blocking-syscall-state-unsupported"` \| `"code-location-unknown"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-permission-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"syscall-argument-state-unsupported"` \| `"syscall-restart-unsupported"` \| `"target-build-id-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-caller-frame-unavailable"` \| `"target-code-rva-unmapped"` \| `"target-frame-layout-unsupported"` \| `"target-frame-register-value-unavailable"` \| `"target-module-bytes-missing"` \| `"target-module-file-missing"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-module-range-unreadable"` \| `"target-return-slot-unsupported"` \| `"target-resume-execution-unavailable"` \| `"target-resume-fault-invalid-code-landing"` \| `"target-resume-fault-outside-target-bytes"` \| `"target-resume-fault-privileged-instruction"` \| `"target-resume-fault-signal-unsupported"` \| `"target-resume-fault-timeout"` \| `"target-resume-fault-unmodeled-memory"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
 
 ##### message
 
@@ -4581,6 +4593,282 @@ by default when `output` is a TTY.
 
 ***
 
+### NativeTargetLandingModuleProvenance
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### logicalName
+
+> **logicalName**: `string`
+
+##### path
+
+> **path**: `string`
+
+##### buildId
+
+> **buildId**: `string`
+
+##### loadBias
+
+> **loadBias**: `string`
+
+***
+
+### NativeTargetLandingSectionProvenance
+
+#### Properties
+
+##### name
+
+> **name**: `string`
+
+##### addressStart
+
+> **addressStart**: `string`
+
+##### addressEnd
+
+> **addressEnd**: `string`
+
+##### fileOffsetStart
+
+> **fileOffsetStart**: `string`
+
+##### fileOffsetEnd
+
+> **fileOffsetEnd**: `string`
+
+##### flags
+
+> **flags**: `string`
+
+##### executable
+
+> **executable**: `boolean`
+
+##### match
+
+> **match**: `"address"` \| `"file-offset"`
+
+***
+
+### NativeTargetLandingSymbolProvenance
+
+#### Properties
+
+##### name
+
+> **name**: `string`
+
+##### address
+
+> **address**: `string`
+
+##### offset
+
+> **offset**: `string`
+
+##### sizeBytes?
+
+> `optional` **sizeBytes?**: `number`
+
+##### type
+
+> **type**: `string`
+
+##### binding
+
+> **binding**: `string`
+
+##### containsLanding
+
+> **containsLanding**: `boolean`
+
+***
+
+### NativeTargetLandingFdeProvenance
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### functionName
+
+> **functionName**: `string`
+
+##### pcStart
+
+> **pcStart**: `string`
+
+##### pcEnd
+
+> **pcEnd**: `string`
+
+##### metadata
+
+> **metadata**: [`NativeUnwindMetadataKind`](#nativeunwindmetadatakind)
+
+***
+
+### NativeTargetLandingDisassemblyProvenance
+
+#### Properties
+
+##### tool
+
+> **tool**: `"objdump"`
+
+##### addressStart?
+
+> `optional` **addressStart?**: `string`
+
+##### addressEnd?
+
+> `optional` **addressEnd?**: `string`
+
+##### lines
+
+> **lines**: `string`[]
+
+##### entryLine?
+
+> `optional` **entryLine?**: `string`
+
+##### previousLine?
+
+> `optional` **previousLine?**: `string`
+
+##### nextLine?
+
+> `optional` **nextLine?**: `string`
+
+***
+
+### NativeTargetLandingInstructionBoundary
+
+#### Properties
+
+##### state
+
+> **state**: [`NativeTargetLandingInstructionBoundaryState`](#nativetargetlandinginstructionboundarystate)
+
+##### reason
+
+> **reason**: `string`
+
+***
+
+### NativeTargetResumeLandingProvenance
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### threadId
+
+> **threadId**: `string`
+
+##### sourceAddress
+
+> **sourceAddress**: `string`
+
+##### sourceRva
+
+> **sourceRva**: `string`
+
+##### targetAddress
+
+> **targetAddress**: `string`
+
+##### targetRelativeAddress
+
+> **targetRelativeAddress**: `string`
+
+##### targetFileOffset?
+
+> `optional` **targetFileOffset?**: `number`
+
+##### targetInstructionBytes?
+
+> `optional` **targetInstructionBytes?**: `string`
+
+##### targetModule
+
+> **targetModule**: [`NativeTargetLandingModuleProvenance`](#nativetargetlandingmoduleprovenance)
+
+##### section?
+
+> `optional` **section?**: [`NativeTargetLandingSectionProvenance`](#nativetargetlandingsectionprovenance)
+
+##### symbol?
+
+> `optional` **symbol?**: [`NativeTargetLandingSymbolProvenance`](#nativetargetlandingsymbolprovenance)
+
+##### fde?
+
+> `optional` **fde?**: [`NativeTargetLandingFdeProvenance`](#nativetargetlandingfdeprovenance)
+
+##### disassembly?
+
+> `optional` **disassembly?**: [`NativeTargetLandingDisassemblyProvenance`](#nativetargetlandingdisassemblyprovenance)
+
+##### instructionBoundary
+
+> **instructionBoundary**: [`NativeTargetLandingInstructionBoundary`](#nativetargetlandinginstructionboundary)
+
+##### refusal?
+
+> `optional` **refusal?**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
+
+***
+
+### NativeTargetResumeLandingInspectionRequest
+
+#### Properties
+
+##### location
+
+> **location**: [`NativeRealUtilityResolvedLocation`](#nativerealutilityresolvedlocation)
+
+##### targetBytes?
+
+> `optional` **targetBytes?**: [`NativeTargetModuleByteMaterialization`](#nativetargetmodulebytematerialization)
+
+##### targetUnwindMatches?
+
+> `optional` **targetUnwindMatches?**: [`NativeTargetUnwindFrameMatch`](#nativetargetunwindframematch)[]
+
+##### readelfSections?
+
+> `optional` **readelfSections?**: `string`
+
+##### readelfSymbols?
+
+> `optional` **readelfSymbols?**: `string`
+
+##### objdumpDisassembly?
+
+> `optional` **objdumpDisassembly?**: `string`
+
+##### disassemblyAddressStart?
+
+> `optional` **disassemblyAddressStart?**: `string`
+
+##### disassemblyAddressEnd?
+
+> `optional` **disassemblyAddressEnd?**: `string`
+
+***
+
 ### NativeTargetModuleByteMaterializationRequest
 
 #### Properties
@@ -4794,6 +5082,16 @@ by default when `output` is a TTY.
 ##### refusals
 
 > **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
+### NativeTargetResumeFaultClassificationOptions
+
+#### Properties
+
+##### landingProvenance?
+
+> `optional` **landingProvenance?**: [`NativeTargetResumeLandingProvenance`](#nativetargetresumelandingprovenance)[]
 
 ***
 
@@ -6746,7 +7044,7 @@ kicks in: `<sourceName>/<fork.pid>`.
 
 ###### Overrides
 
-[`RestoreOptions`](#restoreoptions).[`name`](#name-9)
+[`RestoreOptions`](#restoreoptions).[`name`](#name-11)
 
 ##### portForward?
 
@@ -8217,6 +8515,12 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativeTargetLandingInstructionBoundaryState
+
+> **NativeTargetLandingInstructionBoundaryState** = `"known-valid"` \| `"known-invalid"` \| `"unknown"`
+
+***
+
 ### NativeTargetResumeExecutionMode
 
 > **NativeTargetResumeExecutionMode** = `"planned-not-executed"`
@@ -8813,7 +9117,7 @@ loops; anything looser stops being a meaningful gate.
 
 ### nativeProcessImageRefusalCodes
 
-> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"blocking-syscall-state-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"inherited-stdio-policy-required"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-permission-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"non-stdio-kernel-state-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"stdin-buffer-state-unsupported"`, `"syscall-argument-state-unsupported"`, `"syscall-restart-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-callee-saved-state-unsupported"`, `"target-caller-frame-unavailable"`, `"target-code-rva-unmapped"`, `"target-frame-layout-unsupported"`, `"target-frame-register-value-unavailable"`, `"target-module-bytes-missing"`, `"target-module-file-missing"`, `"target-module-missing"`, `"target-module-not-executable"`, `"target-module-range-unreadable"`, `"target-return-slot-unsupported"`, `"target-resume-execution-unavailable"`, `"target-resume-fault-outside-target-bytes"`, `"target-resume-fault-privileged-instruction"`, `"target-resume-fault-signal-unsupported"`, `"target-resume-fault-timeout"`, `"target-resume-fault-unmodeled-memory"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
+> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"blocking-syscall-state-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"inherited-stdio-policy-required"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-permission-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"non-stdio-kernel-state-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"stdin-buffer-state-unsupported"`, `"syscall-argument-state-unsupported"`, `"syscall-restart-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-callee-saved-state-unsupported"`, `"target-caller-frame-unavailable"`, `"target-code-rva-unmapped"`, `"target-frame-layout-unsupported"`, `"target-frame-register-value-unavailable"`, `"target-module-bytes-missing"`, `"target-module-file-missing"`, `"target-module-missing"`, `"target-module-not-executable"`, `"target-module-range-unreadable"`, `"target-return-slot-unsupported"`, `"target-resume-execution-unavailable"`, `"target-resume-fault-invalid-code-landing"`, `"target-resume-fault-outside-target-bytes"`, `"target-resume-fault-privileged-instruction"`, `"target-resume-fault-signal-unsupported"`, `"target-resume-fault-timeout"`, `"target-resume-fault-unmodeled-memory"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
 
 ***
 
@@ -10181,6 +10485,38 @@ available.
 
 ***
 
+### inspectNativeTargetResumeLanding()
+
+> **inspectNativeTargetResumeLanding**(`request`): [`NativeTargetResumeLandingProvenance`](#nativetargetresumelandingprovenance)
+
+#### Parameters
+
+##### request
+
+[`NativeTargetResumeLandingInspectionRequest`](#nativetargetresumelandinginspectionrequest)
+
+#### Returns
+
+[`NativeTargetResumeLandingProvenance`](#nativetargetresumelandingprovenance)
+
+***
+
+### nativeTargetResumeLandingRefusals()
+
+> **nativeTargetResumeLandingRefusals**(`provenances`): [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+#### Parameters
+
+##### provenances
+
+[`NativeTargetResumeLandingProvenance`](#nativetargetresumelandingprovenance)[]
+
+#### Returns
+
+[`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
 ### materializeNativeTargetModuleBytes()
 
 > **materializeNativeTargetModuleBytes**(`request`): [`NativeTargetModuleByteMaterializationResult`](#nativetargetmodulebytematerializationresult)
@@ -10215,13 +10551,17 @@ available.
 
 ### classifyNativeTargetResumeExecutionAttempt()
 
-> **classifyNativeTargetResumeExecutionAttempt**(`attempt`): [`NativeTargetResumeFaultClassificationResult`](#nativetargetresumefaultclassificationresult)
+> **classifyNativeTargetResumeExecutionAttempt**(`attempt`, `options?`): [`NativeTargetResumeFaultClassificationResult`](#nativetargetresumefaultclassificationresult)
 
 #### Parameters
 
 ##### attempt
 
 [`NativeTargetResumeExecutionAttempt`](#nativetargetresumeexecutionattempt)
+
+##### options?
+
+[`NativeTargetResumeFaultClassificationOptions`](#nativetargetresumefaultclassificationoptions) = `{}`
 
 #### Returns
 
