@@ -30,7 +30,9 @@ The attempt runs the stricter native pipeline from the previous proofs:
 4. resource translation/refusal classification;
 5. first target-code boundary check.
 
-The proof intentionally refuses before any target jump unless a matching amd64 target binary/module/RVA map is available. It reports:
+Issue #494 adds a separate code-location proof for outside-syscall real utilities: [Native real utility code-location mapping](./native-real-utility-code-map.md).
+
+The `sleep` proof intentionally refuses before any target jump unless a matching amd64 target binary/module/RVA map is available. It reports:
 
 ```json
 {
@@ -59,4 +61,7 @@ real-arm64-sleep-refused-at-thread-state
 
 This does **not** claim arbitrary native utility migration yet. It proves the real-utility attempt uses the native process-image validation pipeline and stops at a precise known boundary rather than falling back to source-ISA emulation, sidecars, app hooks, or raw source virtual addresses.
 
-See also: [Native active-syscall refusal proof](./native-syscall-state-refusal.md).
+See also:
+
+- [Native active-syscall refusal proof](./native-syscall-state-refusal.md)
+- [Native real utility code-location mapping](./native-real-utility-code-map.md)
