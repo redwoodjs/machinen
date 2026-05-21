@@ -105,6 +105,14 @@
 - [`NativeMemoryTranslationRequest`](#nativememorytranslationrequest)
 - [`NativeMemoryTranslationResult`](#nativememorytranslationresult)
 - [`translateNativeMemory`](#translatenativememory)
+- [`NativeDebugMemoryField`](#nativedebugmemoryfield)
+- [`NativeDebugMemoryObject`](#nativedebugmemoryobject)
+- [`NativeDebugAddressTranslation`](#nativedebugaddresstranslation)
+- [`NativeDebugMemoryPointerClassificationRequest`](#nativedebugmemorypointerclassificationrequest)
+- [`NativeDebugMemoryPointerClassificationResult`](#nativedebugmemorypointerclassificationresult)
+- [`NativeDebugMemoryMetadataSource`](#nativedebugmemorymetadatasource)
+- [`NativeDebugMemoryFieldClassification`](#nativedebugmemoryfieldclassification)
+- [`classifyNativeDebugMemoryPointers`](#classifynativedebugmemorypointers)
 - [`NativeMappingMaterializationAction`](#nativemappingmaterializationaction)
 - [`NativeMappingMaterializationStep`](#nativemappingmaterializationstep)
 - [`NativeMappingMaterializationRequest`](#nativemappingmaterializationrequest)
@@ -2323,6 +2331,124 @@ by default when `output` is a TTY.
 ##### codeLocations
 
 > **codeLocations**: [`NativeCodeLocationMapping`](#nativecodelocationmapping)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
+### NativeDebugMemoryField
+
+#### Properties
+
+##### name
+
+> **name**: `string`
+
+##### offset
+
+> **offset**: `number`
+
+##### sizeBytes
+
+> **sizeBytes**: `number`
+
+##### sourceValue
+
+> **sourceValue**: `string`
+
+##### classification
+
+> **classification**: [`NativeDebugMemoryFieldClassification`](#nativedebugmemoryfieldclassification)
+
+##### metadata
+
+> **metadata**: [`NativeDebugMemoryMetadataSource`](#nativedebugmemorymetadatasource)
+
+***
+
+### NativeDebugMemoryObject
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### mapping
+
+> **mapping**: `string`
+
+##### sourceStart
+
+> **sourceStart**: `string`
+
+##### mappingOffset?
+
+> `optional` **mappingOffset?**: `number`
+
+##### fields
+
+> **fields**: [`NativeDebugMemoryField`](#nativedebugmemoryfield)[]
+
+***
+
+### NativeDebugAddressTranslation
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### sourceStart
+
+> **sourceStart**: `string`
+
+##### sourceEnd
+
+> **sourceEnd**: `string`
+
+##### targetStart
+
+> **targetStart**: `string`
+
+***
+
+### NativeDebugMemoryPointerClassificationRequest
+
+#### Properties
+
+##### objects
+
+> **objects**: [`NativeDebugMemoryObject`](#nativedebugmemoryobject)[]
+
+##### addressTranslations
+
+> **addressTranslations**: [`NativeDebugAddressTranslation`](#nativedebugaddresstranslation)[]
+
+##### codeLocations?
+
+> `optional` **codeLocations?**: [`NativeCodeLocationMapping`](#nativecodelocationmapping)[]
+
+***
+
+### NativeDebugMemoryPointerClassificationResult
+
+#### Properties
+
+##### words
+
+> **words**: [`NativeMemoryWord`](#nativememoryword)[]
+
+##### preservedWords
+
+> **preservedWords**: `number`
+
+##### relocatableWords
+
+> **relocatableWords**: `number`
 
 ##### refusals
 
@@ -4973,7 +5099,7 @@ kicks in: `<sourceName>/<fork.pid>`.
 
 ###### Overrides
 
-[`RestoreOptions`](#restoreoptions).[`name`](#name-8)
+[`RestoreOptions`](#restoreoptions).[`name`](#name-9)
 
 ##### portForward?
 
@@ -6351,6 +6477,18 @@ Poll interval in ms while retrying. Default 250.
 #### Returns
 
 `void`
+
+***
+
+### NativeDebugMemoryMetadataSource
+
+> **NativeDebugMemoryMetadataSource** = `"dwarf"` \| `"symbol"` \| `"none"`
+
+***
+
+### NativeDebugMemoryFieldClassification
+
+> **NativeDebugMemoryFieldClassification** = `"integer"` \| `"pointer"` \| `"code-pointer"` \| `"unknown"`
 
 ***
 
@@ -7997,6 +8135,22 @@ available.
 #### Returns
 
 [`NativeCodeMapResult`](#nativecodemapresult)
+
+***
+
+### classifyNativeDebugMemoryPointers()
+
+> **classifyNativeDebugMemoryPointers**(`request`): [`NativeDebugMemoryPointerClassificationResult`](#nativedebugmemorypointerclassificationresult)
+
+#### Parameters
+
+##### request
+
+[`NativeDebugMemoryPointerClassificationRequest`](#nativedebugmemorypointerclassificationrequest)
+
+#### Returns
+
+[`NativeDebugMemoryPointerClassificationResult`](#nativedebugmemorypointerclassificationresult)
 
 ***
 
