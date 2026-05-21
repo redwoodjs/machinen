@@ -10,6 +10,7 @@ import {
 } from "../packages/runtime/src/native-real-utility-code-map.ts";
 import { planNativeActualRealUtilityContinuationAttempt } from "../packages/runtime/src/native-actual-real-utility-continuation.ts";
 import { materializeNativeTargetModuleBytes } from "../packages/runtime/src/native-target-module-bytes.ts";
+import { planNativeTargetFrameStateMaterialization } from "../packages/runtime/src/native-target-frame-state.ts";
 import {
   matchNativeTargetUnwindFrame,
   parseNativeTargetEhFrameText,
@@ -192,6 +193,7 @@ function planCapturedActualUtilityBundle(
     sourceFrames: inputs.sourceUnwind.frames,
     sourceFrameRefusals: inputs.sourceUnwind.refusals,
     targetUnwind: inputs.targetUnwind,
+    targetFrameState: inputs.targetFrameState,
     targetModuleByteRefusals: inputs.targetBytes.refusals,
     targetModuleBytesMaterialized: inputs.targetBytes.materialized.length > 0,
   });
@@ -249,6 +251,7 @@ function actualUtilityPlanningInputs(
     sourceFrames: sourceUnwind.frames,
     targetRoot: options.targetRoot,
   });
+  const targetFrameState = planNativeTargetFrameStateMaterialization({ targetUnwind });
   const targetBytes = materializeResolvedTargetBytes(code.resolved, options.targetRoot);
   return {
     bundle,
@@ -262,6 +265,7 @@ function actualUtilityPlanningInputs(
     code,
     sourceUnwind,
     targetUnwind,
+    targetFrameState,
     targetBytes,
   };
 }
@@ -653,6 +657,9 @@ function actualUtilitySummary(context: {
     sourceUnwindRefusals: planned.sourceUnwindRefusals,
     targetUnwindMatches: planned.targetUnwind?.matches.length ?? 0,
     targetUnwindRefusals: planned.targetUnwind?.refusals ?? [],
+    targetFrameStateRequirements: planned.targetFrameState.requirements,
+    targetFrameStateMaterialized: planned.targetFrameState.materialized.length,
+    targetFrameStateRefusals: planned.targetFrameState.refusals,
     targetModuleByteRefusals: planned.targetBytes.refusals,
     materializedTargetBytes: materializedTargetByteSummaries(planned),
     sourceModules: planned.sourceModules.length,

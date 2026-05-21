@@ -77,6 +77,7 @@ first native-translation blockers:
 - `return-slot-unreadable`
 - `target-unwind-mismatch`
 - `target-frame-layout-unsupported`
+- `target-frame-register-value-unavailable`
 - `target-return-slot-unsupported`
 - `target-callee-saved-state-unsupported`
 

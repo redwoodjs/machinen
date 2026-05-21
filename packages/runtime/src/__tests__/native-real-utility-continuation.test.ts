@@ -127,6 +127,27 @@ describe("native real utility continuation planner", () => {
     });
   });
 
+  it("reports precise target frame-state planner refusals", () => {
+    expect(
+      planNativeRealUtilityContinuationAttempt({
+        ...readyInput(),
+        targetFrameState: {
+          requirements: [],
+          materialized: [],
+          refusals: [
+            {
+              code: "target-frame-register-value-unavailable",
+              message: "missing r15",
+            },
+          ],
+        },
+      }),
+    ).toMatchObject({
+      blockingBoundary: "target-frame-state",
+      blockingRefusal: { code: "target-frame-register-value-unavailable" },
+    });
+  });
+
   it("moves recorded target callee-saved slots to a later frame-state gate", () => {
     expect(
       planNativeRealUtilityContinuationAttempt({

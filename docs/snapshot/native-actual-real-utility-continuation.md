@@ -38,8 +38,9 @@ with `target-module-missing` for the active libc frame instead of granting
 success. With a target root and source unwind sidecar, the proof can inventory
 target libc, materialize native libc bytes, discover the source libc frame, match
 the target `.eh_frame` return contract, and then refuse at the later
-`target-frame-state` gate. Actual libc frames that save unmodeled callee
-registers still refuse precisely with `target-callee-saved-state-unsupported`.
+`target-frame-state` gate. Actual libc frames that need unmaterialized target
+callee-saved register values now refuse precisely with
+`target-frame-register-value-unavailable`.
 
 That refusal is intentional. It proves the real capture path is wired into the
 same fail-closed planner as the final-jump fixture, without granting success for
