@@ -14,7 +14,10 @@ import {
 } from "../packages/runtime/src/native-real-utility-code-map.ts";
 import { planNativeActualRealUtilityContinuationAttempt } from "../packages/runtime/src/native-actual-real-utility-continuation.ts";
 import { materializeNativeTargetModuleBytes } from "../packages/runtime/src/native-target-module-bytes.ts";
-import { buildNativeSyntheticSleepSyscallContinuation } from "../packages/runtime/src/native-synthetic-sleep-continuation.ts";
+import {
+  NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS,
+  buildNativeSyntheticSleepSyscallContinuation,
+} from "../packages/runtime/src/native-synthetic-sleep-continuation.ts";
 import { planNativeTargetFrameStateMaterialization } from "../packages/runtime/src/native-target-frame-state.ts";
 import { planNativeSyntheticTargetCallerFrame } from "../packages/runtime/src/native-target-caller-frame.ts";
 import {
@@ -997,20 +1000,25 @@ function executeActualTargetResumeAttempt(
     ],
     { encoding: "utf8", maxBuffer: 20 * 1024 * 1024 },
   );
+  const line = result.stdout
+    .split(/\r?\n/)
+    .find((candidate) => candidate.startsWith("MACHINEN_ACTUAL_RESUME_TRAMPOLINE "));
+  const synthetic = syntheticSleepContinuationSummaries(planned)[0];
+  if (!line && synthetic && syntheticExitStatus(result.status)) {
+    return normalizeActualProcessExitAttempt(planned, targetBytes, result.status!);
+  }
   assert(
     result.status === 0,
     `native actual target resume trampoline failed: ${result.stderr || result.stdout}`,
   );
-  const line = result.stdout
-    .split(/\r?\n/)
-    .find((candidate) => candidate.startsWith("MACHINEN_ACTUAL_RESUME_TRAMPOLINE "));
-  if (!line && result.status === 0 && syntheticSleepContinuationSummaries(planned)[0]) {
-    return normalizeActualProcessExitAttempt(planned, targetBytes, 0);
-  }
   assert(line, "native actual target resume trampoline did not emit an event");
   return normalizeActualResumeAttempt(
     JSON.parse(line.slice("MACHINEN_ACTUAL_RESUME_TRAMPOLINE ".length)),
   );
+}
+
+function syntheticExitStatus(status: number | null): boolean {
+  return status === 0 || status === NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS;
 }
 
 function actualResumeCodeFile(

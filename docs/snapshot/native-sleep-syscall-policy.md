@@ -53,6 +53,15 @@ arm64 text, do not emulate the source ISA, and do not use a Node/Bun sidecar.
 The completion proof uses the `exit-process` mode so `migrationCompleted: true`
 is only reported after target process exit.
 
+## EINTR / restart gate
+
+Issue #551 keeps interrupted sleep semantics fail-closed. If the synthetic sleep
+syscall does not return success, the generated code exits with the reserved
+status `111`. The proof classifies that as
+`target-sleep-signal-restart-unsupported` and keeps `migrationCompleted: false`.
+This covers EINTR/restart-like outcomes until signal delivery, remaining time,
+and restart contracts are modeled explicitly.
+
 ## Non-claims
 
 This policy does not model arbitrary blocking syscalls. It does not make fd

@@ -59,6 +59,9 @@ from target-native module metadata.
   duration from captured syscall state.
 - `target-sleep-syscall-continuation-missing` — modeled sleep state exists, but
   the synthetic amd64 syscall continuation cannot be generated safely.
+- `target-sleep-signal-restart-unsupported` — the generated target sleep syscall
+  did not return success, so EINTR/restart behavior must be modeled before the
+  proof can continue.
 
 ## Proof
 

@@ -160,6 +160,7 @@ const TOC = {
     "NATIVE_SYNTHETIC_SLEEP_SYSCALL_LOGICAL_NAME",
     "NATIVE_SYNTHETIC_SLEEP_SYSCALL_PATH",
     "NATIVE_SYNTHETIC_SLEEP_SYSCALL_BASE",
+    "NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS",
     "buildNativeSyntheticSleepSyscallContinuation",
     "NativeTargetLandingModuleProvenance",
     "NativeTargetLandingSectionProvenance",

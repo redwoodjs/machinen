@@ -10,6 +10,7 @@ export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_BUILD_ID = "machinen-synthetic-sleep
 export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_LOGICAL_NAME = "machinen-synthetic-sleep-syscall";
 export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_PATH = "machinen.synthetic://sleep-syscall";
 export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_BASE = "0x700200000000";
+export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS = 111;
 
 export type NativeSyntheticSleepCompletionMode = "return-to-trampoline" | "exit-process";
 
@@ -188,7 +189,7 @@ function exitProcessSuffix(): number[] {
     0x00,
     0x00, // mov eax, 60 (exit)
     0xbf,
-    0x6f,
+    NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS,
     0x00,
     0x00,
     0x00, // mov edi, 111 (unexpected sleep failure)
