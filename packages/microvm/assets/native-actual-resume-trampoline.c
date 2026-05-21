@@ -38,13 +38,14 @@ struct Options {
   uint64_t stack_target_start;
   uint64_t stack_size;
   uint64_t stack_pointer;
+  uint64_t timeout_seconds;
 };
 
 static void usage(void) {
   fprintf(stderr,
       "usage: machinen-native-actual-resume-trampoline --code-file path "
       "--file-offset n --code-size n --target-address addr "
-      "--stack-target-start addr --stack-size n --stack-pointer addr\n");
+      "--timeout-seconds n --stack-target-start addr --stack-size n --stack-pointer addr\n");
   exit(2);
 }
 
@@ -65,6 +66,7 @@ static bool streq(const char *left, const char *right) {
 
 static struct Options parse_args(int argc, char **argv) {
   struct Options opts = {0};
+  opts.timeout_seconds = 1;
   for (int i = 1; i < argc; i++) {
     if (streq(argv[i], "--code-file")) {
       if (++i >= argc) {
@@ -86,6 +88,11 @@ static struct Options parse_args(int argc, char **argv) {
         usage();
       }
       opts.target_address = parse_u64(argv[i], "target-address");
+    } else if (streq(argv[i], "--timeout-seconds")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.timeout_seconds = parse_u64(argv[i], "timeout-seconds");
     } else if (streq(argv[i], "--stack-target-start")) {
       if (++i >= argc) {
         usage();
@@ -470,7 +477,7 @@ int main(int argc, char **argv) {
       opts.stack_target_start, opts.stack_size, PROT_READ | PROT_WRITE, "target-stack");
 
   install_signal_handlers();
-  alarm(1);
+  alarm((unsigned int)opts.timeout_seconds);
   if (sigsetjmp(resume_fault_jmp, 1) == 0) {
     jump_to_target(opts.target_address, opts.stack_pointer - 8u);
     alarm(0);

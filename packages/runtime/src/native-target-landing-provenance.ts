@@ -75,6 +75,7 @@ export interface NativeTargetResumeLandingProvenance {
   targetRelativeAddress: string;
   continuationStrategy: NativeRealUtilityResolvedLocation["continuationStrategy"];
   semanticContinuation?: NativeRealUtilityResolvedLocation["semanticContinuation"];
+  syntheticContinuation?: NativeRealUtilityResolvedLocation["syntheticContinuation"];
   targetFileOffset?: number;
   targetInstructionBytes?: string;
   targetModule: NativeTargetLandingModuleProvenance;
@@ -152,6 +153,7 @@ export function inspectNativeTargetResumeLanding(
     targetRelativeAddress: hex(targetRelativeAddress),
     continuationStrategy: request.location.continuationStrategy,
     semanticContinuation: request.location.semanticContinuation,
+    syntheticContinuation: request.location.syntheticContinuation,
     targetFileOffset: request.targetBytes?.fileOffset,
     targetInstructionBytes: request.targetBytes
       ? bytesHex(request.targetBytes.bytes, 16)

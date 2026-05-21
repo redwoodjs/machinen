@@ -136,6 +136,13 @@ export {
   planNativeTargetResumeExecution,
 } from "./native-target-resume-execution.ts";
 export { materializeNativeTargetModuleBytes } from "./native-target-module-bytes.ts";
+export {
+  NATIVE_SYNTHETIC_SLEEP_SYSCALL_BASE,
+  NATIVE_SYNTHETIC_SLEEP_SYSCALL_BUILD_ID,
+  NATIVE_SYNTHETIC_SLEEP_SYSCALL_LOGICAL_NAME,
+  NATIVE_SYNTHETIC_SLEEP_SYSCALL_PATH,
+  buildNativeSyntheticSleepSyscallContinuation,
+} from "./native-synthetic-sleep-continuation.ts";
 export type {
   NativeRealUtilityCodeLocationRequest,
   NativeRealUtilityCodeLocationResult,
@@ -146,6 +153,7 @@ export type {
   NativeRealUtilityResolvedLocation,
   NativeRealUtilitySemanticContinuationSelection,
   NativeRealUtilitySourceModule,
+  NativeRealUtilitySyntheticContinuationSelection,
   NativeRealUtilityTargetContinuationKind,
   NativeRealUtilityTargetModule,
   NativeRealUtilityTargetSemanticContinuation,
@@ -181,6 +189,11 @@ export type {
   NativeTargetModuleByteMaterializationRequest,
   NativeTargetModuleByteMaterializationResult,
 } from "./native-target-module-bytes.ts";
+export type {
+  NativeSyntheticSleepSyscallContinuation,
+  NativeSyntheticSleepSyscallContinuationRequest,
+  NativeSyntheticSleepSyscallContinuationResult,
+} from "./native-synthetic-sleep-continuation.ts";
 export type {
   NativeTargetLandingDisassemblyProvenance,
   NativeTargetLandingFdeProvenance,

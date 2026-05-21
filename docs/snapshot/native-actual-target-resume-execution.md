@@ -1,14 +1,15 @@
 # Native actual target resume execution
 
-Issue #534 added the explicit target-native resume execution plan for the actual `/bin/sleep` proof. Issue #536 added the first bounded execution attempt for that plan. Issue #539 classifies the first target-native fault. Issue #541 audits the target landing provenance before interpreting that fault. Issue #543 replaces raw same-RVA sleep landings with a semantic amd64 sleep continuation.
+Issue #534 added the explicit target-native resume execution plan for the actual `/bin/sleep` proof. Issue #536 added the first bounded execution attempt for that plan. Issue #539 classifies the first target-native fault. Issue #541 audits the target landing provenance before interpreting that fault. Issue #543 replaces raw same-RVA sleep landings with a semantic amd64 sleep continuation. Issue #547 adds a synthesized amd64 sleep syscall continuation so the proof can avoid real target libc internals for the narrow sleep path.
 
 ## Plan gate
 
 The proof creates a resume execution plan only after these earlier gates have data:
 
 - mapped target-native code location;
-- target-native module bytes from the explicit amd64 target root;
-- target unwind match;
+- target-native module bytes, either from the explicit amd64 target root or from
+  generated synthetic sleep syscall bytes;
+- target unwind match when landing in a real target module;
 - target frame-state materialization;
 - synthetic target caller frame.
 
@@ -18,41 +19,31 @@ The plan records the target architecture, entry address, stack pointer, caller-f
 
 On Linux/amd64, the actual proof now runs a short-lived native helper. The helper maps the explicit target amd64 byte window at the planned target address, installs the synthetic target stack, transfers control to the target bytes, and records what happened.
 
-The current `/bin/sleep` continuation is still not a completed migration. The attempt is expected to fault until more libc/kernel continuation state is modeled. A fault is still useful proof: it shows that control reached the target-native amd64 instruction stream without source text reuse, source-ISA emulation, or a Node/Bun sidecar.
+The current `/bin/sleep` continuation is still not a completed migration. For the
+narrow modeled sleep path, the attempt is expected to return to the bounded
+trampoline after the synthesized target-native `clock_nanosleep` syscall. That
+return is useful proof: it shows that control reached and executed target-native
+amd64 bytes without source text reuse, source-ISA emulation, or a Node/Bun
+sidecar.
 
-The summary reports the attempt separately, records target landing provenance, and records a `target-resume-fault-state` blocker when the attempt faults. For deferred sleep/timer syscalls, the planned entry now comes from the target libc sleep symbol instead of the source RVA:
+The summary reports the attempt separately and records synthetic target landing
+provenance. For deferred sleep/timer syscalls, the planned entry now comes from a
+synthetic amd64 syscall continuation instead of the source RVA or target libc:
 
 ```json
 {
-  "blockingBoundary": "target-resume-fault-state",
-  "blockingRefusal": {
-    "code": "target-resume-fault-unmodeled-memory"
-  },
-  "semanticTargetContinuations": [
+  "syntheticSleepContinuations": [
     {
-      "strategy": "semantic-sleep-timer-symbol",
-      "symbolName": "clock_nanosleep@@GLIBC_2.17",
-      "targetRelativeAddress": "0xcf4e0",
-      "targetAddress": "0x7001000cf4e0"
-    }
-  ],
-  "targetResumeLandingProvenance": [
-    {
-      "sourceRva": "0xb6ca0",
-      "targetRva": "0xcf4e0",
-      "continuationStrategy": "semantic-sleep-timer-symbol",
-      "targetModule": {
-        "path": "/usr/lib/x86_64-linux-gnu/libc.so.6"
-      },
-      "symbol": { "name": "clock_nanosleep@GLIBC_2.2.5", "offset": "0x0" },
-      "instructionBoundary": { "state": "known-valid" }
+      "strategy": "synthetic-sleep-syscall",
+      "targetAddress": "0x700200000000",
+      "syscall": { "name": "clock_nanosleep", "number": 230 },
+      "remainingTime": { "state": "modeled", "seconds": "30" }
     }
   ],
   "targetResumeExecutionAttempt": {
-    "status": "faulted",
+    "status": "returned",
     "targetArch": "amd64",
-    "targetInstructionBytes": "803ddec0100000...",
-    "faultAddress": "0x7001001db5d8",
+    "returnValue": "0x0",
     "instructionPointerInTargetBytes": true,
     "attemptedResume": true
   },
@@ -64,4 +55,7 @@ The summary reports the attempt separately, records target landing provenance, a
 }
 ```
 
-`migrationCompleted: false` is intentional. This now proves the first native execution transfer reaches a semantic amd64 sleep continuation. The current blocker is target process memory/libc state that is not modeled yet, not an invalid same-RVA code landing. It is not full transparent process migration.
+`migrationCompleted: false` is intentional. This proves the first native
+execution transfer reaches generated amd64 sleep syscall bytes and returns from
+the syscall continuation. A later gate owns turning that return into target
+process exit.
