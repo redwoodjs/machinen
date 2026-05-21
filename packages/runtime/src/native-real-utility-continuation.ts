@@ -14,6 +14,7 @@ export type NativeRealUtilityContinuationBoundary =
   | "target-code-location"
   | "source-unwind"
   | "target-unwind"
+  | "target-frame-state"
   | "ready";
 
 export interface NativeRealUtilityContinuationRequest {
@@ -25,6 +26,7 @@ export interface NativeRealUtilityContinuationRequest {
   sourceFrameRefusals?: NativeProcessImageRefusal[];
   targetUnwind?: NativeTargetUnwindMatchResult;
   targetUnwindMatched?: boolean;
+  targetFrameStateMaterialized?: boolean;
 }
 
 export interface NativeRealUtilityContinuationPlan {
@@ -47,6 +49,10 @@ export function planNativeRealUtilityContinuationAttempt(
   const targetUnwind = targetUnwindRefusal(request);
   if (targetUnwind) {
     return refusedPlan("target-unwind", targetUnwind);
+  }
+  const targetFrameState = targetFrameStateRefusal(request);
+  if (targetFrameState) {
+    return refusedPlan("target-frame-state", targetFrameState);
   }
   return {
     state: "ready",
@@ -129,6 +135,25 @@ function targetUnwindRefusal(
     };
   }
   return undefined;
+}
+
+function targetFrameStateRefusal(
+  request: NativeRealUtilityContinuationRequest,
+): NativeProcessImageRefusal | undefined {
+  if (request.targetFrameStateMaterialized) {
+    return undefined;
+  }
+  const unsupportedSlot = request.targetUnwind?.matches
+    .flatMap((match) => match.targetCalleeSavedSlots ?? [])
+    .find((slot) => slot.register !== "rbp");
+  if (!unsupportedSlot) {
+    return undefined;
+  }
+  return {
+    code: "target-callee-saved-state-unsupported",
+    message: `target callee-saved ${unsupportedSlot.register} slot is not materialized yet`,
+    detail: { register: unsupportedSlot.register, offset: unsupportedSlot.offset },
+  };
 }
 
 function refusedPlan(

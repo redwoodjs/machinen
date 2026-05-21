@@ -79,3 +79,4 @@ See also:
 - [Native actual target module inventory](./native-actual-target-module-inventory.md)
 - [Native actual source unwind discovery](./native-actual-source-unwind.md)
 - [Native actual target unwind discovery](./native-actual-target-unwind.md)
+- [Native actual target frame-state gate](./native-actual-target-frame-state.md)

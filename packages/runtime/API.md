@@ -121,6 +121,8 @@
 - [`NativeTargetModuleByteMaterializationResult`](#nativetargetmodulebytematerializationresult)
 - [`materializeNativeTargetModuleBytes`](#materializenativetargetmodulebytes)
 - [`NativeTargetUnwindRegister`](#nativetargetunwindregister)
+- [`NativeTargetCalleeSavedPolicy`](#nativetargetcalleesavedpolicy)
+- [`NativeTargetCalleeSavedSlot`](#nativetargetcalleesavedslot)
 - [`NativeTargetUnwindFrameRule`](#nativetargetunwindframerule)
 - [`NativeTargetEhFrameTextParseRequest`](#nativetargetehframetextparserequest)
 - [`NativeTargetEhFrameTextParseResult`](#nativetargetehframetextparseresult)
@@ -2440,6 +2442,14 @@ by default when `output` is a TTY.
 
 [`NativeRealUtilityContinuationRequest`](#nativerealutilitycontinuationrequest).[`targetUnwindMatched`](#targetunwindmatched-1)
 
+##### targetFrameStateMaterialized?
+
+> `optional` **targetFrameStateMaterialized?**: `boolean`
+
+###### Inherited from
+
+[`NativeRealUtilityContinuationRequest`](#nativerealutilitycontinuationrequest).[`targetFrameStateMaterialized`](#targetframestatematerialized-1)
+
 ***
 
 ### NativeActualRealUtilityContinuationPlan
@@ -4049,6 +4059,10 @@ by default when `output` is a TTY.
 
 > `optional` **targetUnwindMatched?**: `boolean`
 
+##### targetFrameStateMaterialized?
+
+> `optional` **targetFrameStateMaterialized?**: `boolean`
+
 ***
 
 ### NativeRealUtilityContinuationPlan
@@ -4509,6 +4523,24 @@ by default when `output` is a TTY.
 
 > **targetRules**: [`NativeTargetUnwindFrameRule`](#nativetargetunwindframerule)[]
 
+##### calleeSavedPolicy?
+
+> `optional` **calleeSavedPolicy?**: [`NativeTargetCalleeSavedPolicy`](#nativetargetcalleesavedpolicy)
+
+***
+
+### NativeTargetCalleeSavedSlot
+
+#### Properties
+
+##### register
+
+> **register**: `"rbx"` \| `"rbp"` \| `"r12"` \| `"r13"` \| `"r14"` \| `"r15"`
+
+##### offset
+
+> **offset**: `number`
+
 ***
 
 ### NativeTargetUnwindFrameMatch
@@ -4530,6 +4562,10 @@ by default when `output` is a TTY.
 ##### targetReturnAddressSlotOffset
 
 > **targetReturnAddressSlotOffset**: `number`
+
+##### targetCalleeSavedSlots?
+
+> `optional` **targetCalleeSavedSlots?**: [`NativeTargetCalleeSavedSlot`](#nativetargetcalleesavedslot)[]
 
 ##### preservesReturnContract
 
@@ -7601,13 +7637,19 @@ Poll interval in ms while retrying. Default 250.
 
 ### NativeRealUtilityContinuationBoundary
 
-> **NativeRealUtilityContinuationBoundary** = `"thread-state"` \| `"resource-boundary"` \| `"mapping-materialization"` \| `"target-code-location"` \| `"source-unwind"` \| `"target-unwind"` \| `"ready"`
+> **NativeRealUtilityContinuationBoundary** = `"thread-state"` \| `"resource-boundary"` \| `"mapping-materialization"` \| `"target-code-location"` \| `"source-unwind"` \| `"target-unwind"` \| `"target-frame-state"` \| `"ready"`
 
 ***
 
 ### NativeTargetUnwindRegister
 
 > **NativeTargetUnwindRegister** = `"rsp"` \| `"rbp"` \| `"rip"` \| `"rbx"` \| `"r12"` \| `"r13"` \| `"r14"` \| `"r15"`
+
+***
+
+### NativeTargetCalleeSavedPolicy
+
+> **NativeTargetCalleeSavedPolicy** = `"strict"` \| `"record"`
 
 ***
 

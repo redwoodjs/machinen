@@ -163,6 +163,8 @@ export type {
   NativeTargetModuleByteMaterializationResult,
 } from "./native-target-module-bytes.ts";
 export type {
+  NativeTargetCalleeSavedPolicy,
+  NativeTargetCalleeSavedSlot,
   NativeTargetEhFrameTextParseRequest,
   NativeTargetEhFrameTextParseResult,
   NativeTargetUnwindFrameMatch,

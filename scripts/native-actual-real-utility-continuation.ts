@@ -571,6 +571,7 @@ function discoverActualTargetUnwindForLocation(
     sourceFrame,
     targetAddress: location.targetAddress,
     targetRules: parsed.rules,
+    calleeSavedPolicy: "record",
   });
 }
 

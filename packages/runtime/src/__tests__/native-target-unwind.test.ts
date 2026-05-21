@@ -163,4 +163,28 @@ describe("native target unwind matching", () => {
       }).refusals[0]?.code,
     ).toBe("target-callee-saved-state-unsupported");
   });
+
+  it("can record target callee-saved slots for a later frame-state gate", () => {
+    const matched = matchNativeTargetUnwindFrame({
+      sourceFrame,
+      targetAddress: "0x700000001234",
+      targetRules: [
+        {
+          id: "target:record-callee",
+          functionName: "realspin_loop",
+          mapping: "target:mapping:text",
+          pcStart: "0x700000001200",
+          pcEnd: "0x700000001280",
+          metadata: "eh-frame",
+          cfa: { register: "rsp", offset: 56 },
+          returnAddress: { location: "cfa-relative", offset: -8 },
+          calleeSaved: [{ register: "r15", location: "cfa-relative", offset: -16 }],
+        },
+      ],
+      calleeSavedPolicy: "record",
+    });
+
+    expect(matched.refusals).toEqual([]);
+    expect(matched.matches[0]?.targetCalleeSavedSlots).toEqual([{ register: "r15", offset: -16 }]);
+  });
 });

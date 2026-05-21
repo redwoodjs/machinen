@@ -143,6 +143,8 @@ const TOC = {
     "NativeTargetModuleByteMaterializationResult",
     "materializeNativeTargetModuleBytes",
     "NativeTargetUnwindRegister",
+    "NativeTargetCalleeSavedPolicy",
+    "NativeTargetCalleeSavedSlot",
     "NativeTargetUnwindFrameRule",
     "NativeTargetEhFrameTextParseRequest",
     "NativeTargetEhFrameTextParseResult",
