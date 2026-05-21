@@ -61,9 +61,23 @@ function request(): NativeMappingMaterializationRequest {
         target: { materialization: "recreate", targetStart: "0x75000000" },
       }),
       mapping({
-        id: "mapping:unreadable",
+        id: "mapping:guard",
         permissions: { read: false, write: false, execute: false, private: true, shared: false },
-        target: { materialization: "refuse", reason: "unreadable" },
+        target: { materialization: "refuse", reason: "guard page was unreadable at capture" },
+        refusal: { code: "mapping-unreadable", message: "guard mapping has no bytes" },
+      }),
+      mapping({
+        id: "mapping:file-protection",
+        kind: "file",
+        permissions: { read: false, write: false, execute: false, private: true, shared: false },
+        file: { path: "/target/protected-gap.dat", offset: 0 },
+        target: { materialization: "refuse", reason: "file-backed protection mapping" },
+        refusal: { code: "mapping-unreadable", message: "file gap has no current access" },
+      }),
+      mapping({
+        id: "mapping:unreadable-shared",
+        permissions: { read: false, write: false, execute: false, private: false, shared: true },
+        target: { materialization: "refuse", reason: "shared unreadable mapping" },
         refusal: { code: "mapping-unreadable", message: "mapping is unreadable" },
       }),
     ],
@@ -71,10 +85,19 @@ function request(): NativeMappingMaterializationRequest {
 }
 
 describe("native mapping materialization", () => {
-  it("plans target file, captured byte, recreated, and refused mappings", () => {
+  it("plans target file, captured byte, recreated, guard, and refused mappings", () => {
     const result = planNativeMappingMaterialization(request());
 
-    expect(result.refusals).toEqual([expect.objectContaining({ code: "mapping-unreadable" })]);
+    expect(result.refusals).toEqual([
+      expect.objectContaining({
+        code: "mapping-unreadable",
+        detail: expect.objectContaining({
+          mapping: "mapping:unreadable-shared",
+          perms: "---s",
+          path: "",
+        }),
+      }),
+    ]);
     expect(result.steps).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ mapping: "mapping:text", action: "map-target-file" }),
@@ -82,7 +105,17 @@ describe("native mapping materialization", () => {
         expect.objectContaining({ mapping: "mapping:heap", action: "copy-captured-bytes" }),
         expect.objectContaining({ mapping: "mapping:stack", action: "recreate" }),
         expect.objectContaining({ mapping: "mapping:vdso", action: "recreate" }),
-        expect.objectContaining({ mapping: "mapping:unreadable", action: "refuse" }),
+        expect.objectContaining({
+          mapping: "mapping:guard",
+          action: "recreate",
+          targetStart: "0x1000",
+        }),
+        expect.objectContaining({
+          mapping: "mapping:file-protection",
+          action: "recreate",
+          targetStart: "0x1000",
+        }),
+        expect.objectContaining({ mapping: "mapping:unreadable-shared", action: "refuse" }),
       ]),
     );
     expect(

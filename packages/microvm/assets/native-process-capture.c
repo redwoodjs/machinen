@@ -617,6 +617,13 @@ static bool kernel_mapping(const char *kind) {
   return streq(kind, "vdso") || streq(kind, "vvar") || streq(kind, "special");
 }
 
+static bool no_access_protection_mapping(const struct MappingCapture *mapping) {
+  return !mapping->read && !mapping->write && !mapping->execute &&
+         mapping->private_mapping && !mapping->shared_mapping &&
+         (streq(mapping->kind, "anonymous") || streq(mapping->kind, "stack") ||
+             streq(mapping->kind, "file"));
+}
+
 static void set_mapping_refusal(struct MappingCapture *mapping, const char *code,
     const char *message) {
   mapping->has_refusal = true;
@@ -676,7 +683,13 @@ static uint32_t parse_maps(pid_t pid, struct MappingCapture mappings[NATIVE_CAPT
       snprintf(mapping->materialization, sizeof(mapping->materialization), "recreate");
       snprintf(mapping->reason, sizeof(mapping->reason), "kernel mapping is recreated on target");
     } else if (!mapping->read) {
-      set_mapping_refusal(mapping, "mapping-unreadable", "mapping is not readable through /proc/pid/mem");
+      if (no_access_protection_mapping(mapping)) {
+        snprintf(mapping->materialization, sizeof(mapping->materialization), "recreate");
+        snprintf(mapping->reason, sizeof(mapping->reason),
+            "guard/protection mapping is recreated as target PROT_NONE");
+      } else {
+        set_mapping_refusal(mapping, "mapping-unreadable", "mapping is not readable through /proc/pid/mem");
+      }
     } else {
       snprintf(mapping->materialization, sizeof(mapping->materialization), "translate");
     }
@@ -781,6 +794,41 @@ static void write_refusal(FILE *out, const char *code, const char *message) {
   fputc('}', out);
 }
 
+static void mapping_perm_string(const struct MappingCapture *mapping, char perms[5]) {
+  perms[0] = mapping->read ? 'r' : '-';
+  perms[1] = mapping->write ? 'w' : '-';
+  perms[2] = mapping->execute ? 'x' : '-';
+  perms[3] = mapping->shared_mapping ? 's' : mapping->private_mapping ? 'p' : '-';
+  perms[4] = '\0';
+}
+
+static void write_mapping_refusal(FILE *out, const struct MappingCapture *mapping) {
+  char perms[5];
+  mapping_perm_string(mapping, perms);
+  fputs("{\"code\":", out);
+  json_string(out, mapping->refusal_code);
+  fputs(",\"message\":", out);
+  json_string(out, mapping->refusal_message);
+  fputs(",\"detail\":{\"mapping\":", out);
+  json_string(out, mapping->id);
+  fputs(",\"kind\":", out);
+  json_string(out, mapping->kind);
+  fputs(",\"sourceStart\":", out);
+  json_hex_u64(out, mapping->start);
+  fputs(",\"sourceEnd\":", out);
+  json_hex_u64(out, mapping->end);
+  fprintf(out, ",\"sizeBytes\":%" PRIu64, mapping->size_bytes);
+  fputs(",\"perms\":", out);
+  json_string(out, perms);
+  fputs(",\"path\":", out);
+  json_string(out, mapping->path);
+  fprintf(out,
+      ",\"permissions\":{\"read\":%s,\"write\":%s,\"execute\":%s,\"private\":%s,\"shared\":%s}}}",
+      mapping->read ? "true" : "false", mapping->write ? "true" : "false",
+      mapping->execute ? "true" : "false", mapping->private_mapping ? "true" : "false",
+      mapping->shared_mapping ? "true" : "false");
+}
+
 static void write_mapping(const struct MappingCapture *mapping, FILE *out) {
   fputs("{\"id\":", out);
   json_string(out, mapping->id);
@@ -819,7 +867,7 @@ static void write_mapping(const struct MappingCapture *mapping, FILE *out) {
   fputc('}', out);
   if (mapping->has_refusal) {
     fputs(",\"refusal\":", out);
-    write_refusal(out, mapping->refusal_code, mapping->refusal_message);
+    write_mapping_refusal(out, mapping);
   }
   fputc('}', out);
 }
@@ -844,7 +892,7 @@ static void write_mappings(const struct Options *opts,
       fputc(',', out);
     }
     first = false;
-    write_refusal(out, mappings[i].refusal_code, mappings[i].refusal_message);
+    write_mapping_refusal(out, &mappings[i]);
   }
   fputs("]}}\n", out);
   fclose(out);

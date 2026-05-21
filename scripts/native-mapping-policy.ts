@@ -66,11 +66,11 @@ function verifyNativeMappingPolicy(outDir: string) {
 
   const bundle = validateNativeProcessImageBundle(bundleDir);
   const kernelMappings = bundle.mappings.mappings.filter(isKernelRecreatedMapping);
-  const unreadableMappings = bundle.mappings.mappings.filter(isUnreadableRefusal);
+  const guardMappings = bundle.mappings.mappings.filter(isGuardRecreatedMapping);
   assert(kernelMappings.length > 0, "capture did not report kernel recreated mappings");
-  assert(unreadableMappings.length > 0, "capture did not refuse the PROT_NONE mapping");
-  for (const mapping of kernelMappings) {
-    assert(!mapping.captured, `${mapping.id} kernel mapping unexpectedly copied source bytes`);
+  assert(guardMappings.length > 0, "capture did not recreate the PROT_NONE guard mapping");
+  for (const mapping of [...kernelMappings, ...guardMappings]) {
+    assert(!mapping.captured, `${mapping.id} recreated mapping unexpectedly copied source bytes`);
   }
 
   return {
@@ -83,7 +83,7 @@ function verifyNativeMappingPolicy(outDir: string) {
     targetArch: bundle.manifest.target.arch,
     mappingCount: bundle.mappings.mappings.length,
     kernelRecreatedMappings: kernelMappings.map(mappingSummary),
-    unreadableRefusals: unreadableMappings.map(mappingSummary),
+    guardRecreatedMappings: guardMappings.map(mappingSummary),
     mappingRefusals: bundle.mappings.refusals.refusals,
     bundleFiles: bundleFileStats(bundleDir, NATIVE_PROCESS_IMAGE_BUNDLE_FILES),
   };
@@ -96,12 +96,18 @@ function isKernelRecreatedMapping(mapping: NativeMemoryMapping) {
   );
 }
 
-function isUnreadableRefusal(mapping: NativeMemoryMapping) {
-  return (
-    !mapping.permissions.read &&
-    mapping.target.materialization === "refuse" &&
-    mapping.refusal?.code === "mapping-unreadable"
-  );
+function isGuardRecreatedMapping(mapping: NativeMemoryMapping) {
+  return noAccessPrivate(mapping) && mapping.target.materialization === "recreate";
+}
+
+function noAccessPrivate(mapping: NativeMemoryMapping) {
+  return [
+    !mapping.permissions.read,
+    !mapping.permissions.write,
+    !mapping.permissions.execute,
+    mapping.permissions.private,
+    !mapping.permissions.shared,
+  ].every(Boolean);
 }
 
 function mappingSummary(mapping: NativeMemoryMapping) {
@@ -128,7 +134,7 @@ function oppositeArch(arch: string) {
 
 function printSummary(summary: ReturnType<typeof verifyNativeMappingPolicy>) {
   console.log(
-    `native-mapping-policy: mappings=${summary.mappingCount} kernelRecreated=${summary.kernelRecreatedMappings.length} unreadableRefusals=${summary.unreadableRefusals.length}`,
+    `native-mapping-policy: mappings=${summary.mappingCount} kernelRecreated=${summary.kernelRecreatedMappings.length} guardRecreated=${summary.guardRecreatedMappings.length}`,
   );
 }
 

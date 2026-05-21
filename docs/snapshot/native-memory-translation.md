@@ -11,7 +11,7 @@ pnpm native-memory-translate
 
 The proof preserves an integer word, relocates a metadata-proven pointer, and
 refuses an ambiguous pointer-like word. The mapping-policy proof separately
-checks whole mapping decisions for kernel and unreadable mappings.
+checks whole mapping decisions for kernel, guard, and unreadable mappings.
 
 ## Contract
 
@@ -33,5 +33,6 @@ proven its meaning.
 
 The result is a relocation report that later restore stages can apply to
 `native-memory.bin` after target mappings are materialized. Whole mappings still
-have their own policy: kernel mappings are recreated on the target, and unreadable
-source mappings refuse with `mapping-unreadable`.
+have their own policy: kernel and safe guard mappings are recreated on the
+target, while unsafe unreadable source mappings refuse with
+`mapping-unreadable`.

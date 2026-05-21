@@ -71,6 +71,7 @@ describe("native mapping materializer proof", () => {
           expect.objectContaining({ mapping: "mapping:heap", action: "copy-captured-bytes" }),
           expect.objectContaining({ mapping: "mapping:stack", action: "recreate" }),
           expect.objectContaining({ mapping: "mapping:vdso", action: "recreate" }),
+          expect.objectContaining({ mapping: "mapping:guard", action: "recreate" }),
           expect.objectContaining({ mapping: "mapping:unreadable", action: "refuse" }),
         ]),
       );

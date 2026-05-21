@@ -1,9 +1,9 @@
 // Non-cooperative target for native mapping policy capture.
 //
-// The process creates an unreadable anonymous mapping and then spins. The
-// external capturer should refuse that mapping precisely while treating kernel
-// supplied vdso/vvar/special mappings as target-recreated rather than copied
-// source bytes.
+// The process creates an unreadable anonymous guard mapping and then spins.
+// The external capturer should recreate that mapping as target PROT_NONE while
+// treating kernel supplied vdso/vvar/special mappings as target-recreated rather
+// than copied source bytes.
 
 #define _GNU_SOURCE
 

@@ -70,8 +70,11 @@ Every captured thread is listed in `native-translation.json` with state
 
 ## Refusal discipline
 
-Readable mappings that cannot be read through `/proc/<pid>/mem` are emitted with
-`mapping-unreadable`. Mappings that exceed the capture policy are emitted with
-`mapping-ambiguous`. Threads stopped inside a syscall or restart block are later
-refused by register translation with `active-syscall`. Non-regular fd kinds are
-emitted as resource refusals until a broker recipe exists.
+Private no-access guard/protection mappings are emitted as target `recreate`
+mappings and are not copied into `native-memory.bin`. Other mappings that cannot
+be read through `/proc/<pid>/mem` are emitted with `mapping-unreadable` and
+include the mapping kind, range, path, and permission details. Mappings that
+exceed the capture policy are emitted with `mapping-ambiguous`. Threads stopped
+inside a syscall or restart block are later refused by register translation with
+`active-syscall`. Non-regular fd kinds are emitted as resource refusals until a
+broker recipe exists.
