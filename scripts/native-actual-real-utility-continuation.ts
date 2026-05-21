@@ -6,7 +6,11 @@ import { planNativeMappingMaterialization } from "../packages/runtime/src/native
 import { inventoryNativeActualTargetModules } from "../packages/runtime/src/native-actual-target-module-inventory.ts";
 import {
   inventoryNativeSourceCodeModules,
+  nativeSleepTimerSymbolPriority,
+  nativeSymbolBaseName,
   resolveNativeRealUtilityCodeLocations,
+  type NativeRealUtilityTargetModule,
+  type NativeRealUtilityTargetSemanticContinuation,
 } from "../packages/runtime/src/native-real-utility-code-map.ts";
 import { planNativeActualRealUtilityContinuationAttempt } from "../packages/runtime/src/native-actual-real-utility-continuation.ts";
 import { materializeNativeTargetModuleBytes } from "../packages/runtime/src/native-target-module-bytes.ts";
@@ -256,11 +260,16 @@ function actualUtilityPlanningInputs(
     memorySizeBytes: memoryBytes,
   });
   const sourceModules = inventoryNativeSourceCodeModules(bundle);
-  const { targetModules } = inventoryNativeActualTargetModules({
+  const targetInventory = inventoryNativeActualTargetModules({
     sourceModules,
     targetArch: "amd64",
     targetRoot: options.targetRoot,
     explicitTargetModulePath: options.explicitTargetModulePath,
+  });
+  const targetModules = attachActualSemanticTargetContinuations({
+    targetModules: targetInventory.targetModules,
+    targetRoot: options.targetRoot,
+    continuations: activeSyscalls.continuations,
   });
   const code = resolveNativeRealUtilityCodeLocations({
     documents: bundle,
@@ -552,6 +561,138 @@ function mappingById(bundle: NativeProcessImageDocuments, id: string): NativeMem
   return mapping;
 }
 
+function attachActualSemanticTargetContinuations(options: {
+  targetModules: NativeRealUtilityTargetModule[];
+  targetRoot?: string;
+  continuations: ReturnType<typeof classifyNativeActiveSyscalls>["continuations"];
+}): NativeRealUtilityTargetModule[] {
+  if (!options.continuations.some((continuation) => continuation.syscallClass === "sleep-timer")) {
+    return options.targetModules;
+  }
+  return options.targetModules.map((module) => ({
+    ...module,
+    semanticContinuations: uniqueSemanticContinuations([
+      ...(module.semanticContinuations ?? []),
+      ...discoverActualSleepTimerContinuations(module, options),
+    ]),
+  }));
+}
+
+function discoverActualSleepTimerContinuations(
+  module: NativeRealUtilityTargetModule,
+  options: {
+    targetRoot?: string;
+    continuations: ReturnType<typeof classifyNativeActiveSyscalls>["continuations"];
+  },
+): NativeRealUtilityTargetSemanticContinuation[] {
+  const targetPath = resolveActualTargetPath(options.targetRoot, module.path);
+  if (!existsSync(targetPath)) {
+    return [];
+  }
+  const symbols = parseTargetDynamicSymbols(
+    runCommand("readelf", ["--dyn-syms", "--wide", targetPath], {
+      label: `actual target dynamic symbols ${basename(targetPath)}`,
+    }).stdout,
+  );
+  return options.continuations.flatMap((continuation) =>
+    semanticContinuationForSleepSymbol(symbols, continuation.syscall.name),
+  );
+}
+
+function semanticContinuationForSleepSymbol(
+  symbols: TargetDynamicSymbol[],
+  syscallName: string | undefined,
+): NativeRealUtilityTargetSemanticContinuation[] {
+  const symbol = bestSleepTimerSymbol(symbols, syscallName);
+  if (!symbol) {
+    return [];
+  }
+  return [
+    {
+      kind: "sleep-timer",
+      source: "elf-symbol",
+      symbolName: symbol.name,
+      relativeAddress: symbol.relativeAddress,
+      sizeBytes: symbol.sizeBytes,
+    },
+  ];
+}
+
+interface TargetDynamicSymbol {
+  name: string;
+  baseName: string;
+  relativeAddress: string;
+  sizeBytes: number;
+  defaultVersion: boolean;
+}
+
+function parseTargetDynamicSymbols(stdout: string): TargetDynamicSymbol[] {
+  const symbols: TargetDynamicSymbol[] = [];
+  for (const line of stdout.split(/\r?\n/)) {
+    const symbol = parseTargetDynamicSymbol(line);
+    if (symbol) {
+      symbols.push(symbol);
+    }
+  }
+  return symbols;
+}
+
+// fallow-ignore-next-line complexity
+function parseTargetDynamicSymbol(line: string): TargetDynamicSymbol | undefined {
+  const match = /^\s*\d+:\s+([0-9a-fA-F]+)\s+(\d+)\s+FUNC\s+\S+\s+DEFAULT\s+\S+\s+(.+?)\s*$/.exec(
+    line,
+  );
+  if (!match?.[1] || !match[2] || !match[3] || match[1] === "0000000000000000") {
+    return undefined;
+  }
+  return {
+    name: match[3],
+    baseName: nativeSymbolBaseName(match[3]),
+    relativeAddress: `0x${BigInt(`0x${match[1]}`).toString(16)}`,
+    sizeBytes: Number.parseInt(match[2], 10),
+    defaultVersion: match[3].includes("@@"),
+  };
+}
+
+function bestSleepTimerSymbol(
+  symbols: TargetDynamicSymbol[],
+  syscallName: string | undefined,
+): TargetDynamicSymbol | undefined {
+  const priority = nativeSleepTimerSymbolPriority(syscallName);
+  return symbols
+    .filter((symbol) => priority.includes(symbol.baseName))
+    .sort((left, right) => compareSleepTimerSymbols(left, right, priority))[0];
+}
+
+function compareSleepTimerSymbols(
+  left: TargetDynamicSymbol,
+  right: TargetDynamicSymbol,
+  priority: string[],
+): number {
+  const priorityDelta = priority.indexOf(left.baseName) - priority.indexOf(right.baseName);
+  if (priorityDelta !== 0) {
+    return priorityDelta;
+  }
+  if (left.defaultVersion !== right.defaultVersion) {
+    return left.defaultVersion ? -1 : 1;
+  }
+  return left.name.localeCompare(right.name);
+}
+
+function uniqueSemanticContinuations(
+  continuations: NativeRealUtilityTargetSemanticContinuation[],
+): NativeRealUtilityTargetSemanticContinuation[] {
+  const seen = new Set<string>();
+  return continuations.filter((continuation) => {
+    const key = `${continuation.kind}:${continuation.symbolName}:${continuation.relativeAddress}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
 function materializeResolvedTargetBytes(
   resolved: ReturnType<typeof resolveNativeRealUtilityCodeLocations>["resolved"],
   targetRoot: string | undefined,
@@ -562,7 +703,7 @@ function materializeResolvedTargetBytes(
     const bytes = materializeNativeTargetModuleBytes({
       module: location.targetModule,
       targetRoot,
-      relativeStart: location.sourceRva,
+      relativeStart: location.targetRva,
       sizeBytes: TARGET_BYTE_WINDOW,
     });
     if (bytes.materialized) {
@@ -583,7 +724,7 @@ function inspectActualTargetResumeLandings(options: {
     const targetPath = resolveActualTargetPath(options.targetRoot, location.targetModule.path);
     const targetBytes = options.targetBytes.find(
       (bytes) =>
-        bytes.moduleId === location.targetModule.id && bytes.relativeStart === location.sourceRva,
+        bytes.moduleId === location.targetModule.id && bytes.relativeStart === location.targetRva,
     );
     const fde = options.targetUnwind.matches.find(
       (match) => match.targetAddress === location.targetAddress,
@@ -930,6 +1071,7 @@ function actualUtilitySummary(context: {
     resourceRefusals: planned.resources.refusals,
     mappingRefusals: planned.mappings.refusals,
     codeLocationRefusals: planned.code.refusals,
+    semanticTargetContinuations: semanticTargetContinuationSummaries(planned),
     deferredActiveSyscallLandings: deferredActiveSyscallLandingSummaries(planned),
     sourceUnwindFrames: planned.sourceFrames.length,
     sourceUnwindRules: planned.sourceUnwindRules.length,
@@ -1054,12 +1196,33 @@ function deferredActiveSyscallLandingSummaries(
             syscallClass: landing.syscallClass,
             action: landing.action,
             sourceAddress: landing.sourceAddress,
+            sourceRva: landing.sourceRva,
             targetAddress: landing.targetAddress,
+            targetRva: landing.targetRva,
+            strategy: landing.strategy,
+            semanticContinuation: landing.semanticContinuation,
             remainingTime: landing.metadata.remainingTime,
           },
         ]
       : [];
   });
+}
+
+function semanticTargetContinuationSummaries(
+  planned: ReturnType<typeof planCapturedActualUtilityBundle>,
+) {
+  return planned.code.resolved.flatMap((location) =>
+    location.semanticContinuation
+      ? [
+          {
+            threadId: location.threadId,
+            strategy: location.continuationStrategy,
+            targetModuleId: location.targetModule.id,
+            ...location.semanticContinuation,
+          },
+        ]
+      : [],
+  );
 }
 
 function materializedTargetByteSummaries(
@@ -1079,6 +1242,7 @@ function targetModuleSummaries(planned: ReturnType<typeof planCapturedActualUtil
     logicalName: module.logicalName,
     path: module.path,
     buildId: module.buildId,
+    semanticContinuations: module.semanticContinuations ?? [],
   }));
 }
 

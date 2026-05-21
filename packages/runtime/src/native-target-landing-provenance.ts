@@ -70,8 +70,11 @@ export interface NativeTargetResumeLandingProvenance {
   threadId: string;
   sourceAddress: string;
   sourceRva: string;
+  targetRva: string;
   targetAddress: string;
   targetRelativeAddress: string;
+  continuationStrategy: NativeRealUtilityResolvedLocation["continuationStrategy"];
+  semanticContinuation?: NativeRealUtilityResolvedLocation["semanticContinuation"];
   targetFileOffset?: number;
   targetInstructionBytes?: string;
   targetModule: NativeTargetLandingModuleProvenance;
@@ -144,8 +147,11 @@ export function inspectNativeTargetResumeLanding(
     threadId: request.location.threadId,
     sourceAddress: request.location.codeLocation.sourceAddress,
     sourceRva: request.location.sourceRva,
+    targetRva: request.location.targetRva,
     targetAddress: request.location.targetAddress,
     targetRelativeAddress: hex(targetRelativeAddress),
+    continuationStrategy: request.location.continuationStrategy,
+    semanticContinuation: request.location.semanticContinuation,
     targetFileOffset: request.targetBytes?.fileOffset,
     targetInstructionBytes: request.targetBytes
       ? bytesHex(request.targetBytes.bytes, 16)

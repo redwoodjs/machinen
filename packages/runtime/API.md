@@ -99,6 +99,10 @@
 - [`NativeRealUtilitySourceModule`](#nativerealutilitysourcemodule)
 - [`NativeRealUtilityTargetModule`](#nativerealutilitytargetmodule)
 - [`NativeRealUtilityModuleExpectation`](#nativerealutilitymoduleexpectation)
+- [`NativeRealUtilityTargetContinuationKind`](#nativerealutilitytargetcontinuationkind)
+- [`NativeRealUtilityTargetSemanticContinuation`](#nativerealutilitytargetsemanticcontinuation)
+- [`NativeRealUtilityContinuationStrategy`](#nativerealutilitycontinuationstrategy)
+- [`NativeRealUtilitySemanticContinuationSelection`](#nativerealutilitysemanticcontinuationselection)
 - [`NativeRealUtilityDeferredActiveSyscallLanding`](#nativerealutilitydeferredactivesyscalllanding)
 - [`NativeRealUtilityResolvedLocation`](#nativerealutilityresolvedlocation)
 - [`NativeRealUtilityCodeLocationRequest`](#nativerealutilitycodelocationrequest)
@@ -3027,7 +3031,7 @@ by default when `output` is a TTY.
 
 ##### code
 
-> **code**: `"fd-kind-unsupported"` \| `"target-build-mismatch"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"active-syscall"` \| `"blocking-syscall-state-unsupported"` \| `"code-location-unknown"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-permission-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"syscall-argument-state-unsupported"` \| `"syscall-restart-unsupported"` \| `"target-build-id-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-caller-frame-unavailable"` \| `"target-code-rva-unmapped"` \| `"target-frame-layout-unsupported"` \| `"target-frame-register-value-unavailable"` \| `"target-module-bytes-missing"` \| `"target-module-file-missing"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-module-range-unreadable"` \| `"target-return-slot-unsupported"` \| `"target-resume-execution-unavailable"` \| `"target-resume-fault-invalid-code-landing"` \| `"target-resume-fault-outside-target-bytes"` \| `"target-resume-fault-privileged-instruction"` \| `"target-resume-fault-signal-unsupported"` \| `"target-resume-fault-timeout"` \| `"target-resume-fault-unmodeled-memory"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
+> **code**: `"fd-kind-unsupported"` \| `"target-build-mismatch"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"active-syscall"` \| `"blocking-syscall-state-unsupported"` \| `"code-location-unknown"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-permission-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"syscall-argument-state-unsupported"` \| `"syscall-restart-unsupported"` \| `"target-build-id-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-caller-frame-unavailable"` \| `"target-code-rva-unmapped"` \| `"target-frame-layout-unsupported"` \| `"target-frame-register-value-unavailable"` \| `"target-module-bytes-missing"` \| `"target-module-file-missing"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-module-range-unreadable"` \| `"target-return-slot-unsupported"` \| `"target-resume-execution-unavailable"` \| `"target-resume-fault-invalid-code-landing"` \| `"target-resume-fault-outside-target-bytes"` \| `"target-resume-fault-privileged-instruction"` \| `"target-resume-fault-signal-unsupported"` \| `"target-resume-fault-timeout"` \| `"target-resume-fault-unmodeled-memory"` \| `"target-semantic-continuation-missing"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
 
 ##### message
 
@@ -3831,6 +3835,32 @@ by default when `output` is a TTY.
 
 ***
 
+### NativeRealUtilityTargetSemanticContinuation
+
+#### Properties
+
+##### kind
+
+> **kind**: `"sleep-timer"`
+
+##### source
+
+> **source**: `"elf-symbol"`
+
+##### symbolName
+
+> **symbolName**: `string`
+
+##### relativeAddress
+
+> **relativeAddress**: `string`
+
+##### sizeBytes?
+
+> `optional` **sizeBytes?**: `number`
+
+***
+
 ### NativeRealUtilityTargetModule
 
 #### Extends
@@ -3911,6 +3941,10 @@ by default when `output` is a TTY.
 
 > `optional` **executableRanges?**: [`NativeRealUtilityExecutableRange`](#nativerealutilityexecutablerange)[]
 
+##### semanticContinuations?
+
+> `optional` **semanticContinuations?**: [`NativeRealUtilityTargetSemanticContinuation`](#nativerealutilitytargetsemanticcontinuation)[]
+
 ***
 
 ### NativeRealUtilityModuleExpectation
@@ -3939,6 +3973,36 @@ by default when `output` is a TTY.
 
 ***
 
+### NativeRealUtilitySemanticContinuationSelection
+
+#### Properties
+
+##### kind
+
+> **kind**: `"sleep-timer"`
+
+##### source
+
+> **source**: `"elf-symbol"`
+
+##### symbolName
+
+> **symbolName**: `string`
+
+##### targetRelativeAddress
+
+> **targetRelativeAddress**: `string`
+
+##### targetAddress
+
+> **targetAddress**: `string`
+
+##### sizeBytes?
+
+> `optional` **sizeBytes?**: `number`
+
+***
+
 ### NativeRealUtilityDeferredActiveSyscallLanding
 
 #### Properties
@@ -3951,9 +4015,21 @@ by default when `output` is a TTY.
 
 > **sourceAddress**: `string`
 
+##### sourceRva
+
+> **sourceRva**: `string`
+
 ##### targetAddress
 
 > **targetAddress**: `string`
+
+##### targetRva
+
+> **targetRva**: `string`
+
+##### strategy
+
+> **strategy**: `"semantic-sleep-timer-symbol"`
 
 ##### syscallClass
 
@@ -3991,6 +4067,10 @@ by default when `output` is a TTY.
 
 > **policy**: `"conservative-target-timer-rearm-required"`
 
+##### semanticContinuation
+
+> **semanticContinuation**: [`NativeRealUtilitySemanticContinuationSelection`](#nativerealutilitysemanticcontinuationselection)
+
 ***
 
 ### NativeRealUtilityResolvedLocation
@@ -4013,9 +4093,17 @@ by default when `output` is a TTY.
 
 > **sourceRva**: `string`
 
+##### targetRva
+
+> **targetRva**: `string`
+
 ##### targetAddress
 
 > **targetAddress**: `string`
+
+##### continuationStrategy
+
+> **continuationStrategy**: [`NativeRealUtilityContinuationStrategy`](#nativerealutilitycontinuationstrategy)
 
 ##### codeLocation
 
@@ -4024,6 +4112,10 @@ by default when `output` is a TTY.
 ##### deferredActiveSyscallLanding?
 
 > `optional` **deferredActiveSyscallLanding?**: [`NativeRealUtilityDeferredActiveSyscallLanding`](#nativerealutilitydeferredactivesyscalllanding)
+
+##### semanticContinuation?
+
+> `optional` **semanticContinuation?**: [`NativeRealUtilitySemanticContinuationSelection`](#nativerealutilitysemanticcontinuationselection)
 
 ***
 
@@ -4785,6 +4877,10 @@ by default when `output` is a TTY.
 
 > **sourceRva**: `string`
 
+##### targetRva
+
+> **targetRva**: `string`
+
 ##### targetAddress
 
 > **targetAddress**: `string`
@@ -4792,6 +4888,14 @@ by default when `output` is a TTY.
 ##### targetRelativeAddress
 
 > **targetRelativeAddress**: `string`
+
+##### continuationStrategy
+
+> **continuationStrategy**: [`NativeRealUtilityContinuationStrategy`](#nativerealutilitycontinuationstrategy)
+
+##### semanticContinuation?
+
+> `optional` **semanticContinuation?**: [`NativeRealUtilitySemanticContinuationSelection`](#nativerealutilitysemanticcontinuationselection)
 
 ##### targetFileOffset?
 
@@ -8497,6 +8601,18 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativeRealUtilityTargetContinuationKind
+
+> **NativeRealUtilityTargetContinuationKind** = `"sleep-timer"`
+
+***
+
+### NativeRealUtilityContinuationStrategy
+
+> **NativeRealUtilityContinuationStrategy** = `"module-rva-equivalence"` \| `"semantic-sleep-timer-symbol"`
+
+***
+
 ### NativeRealUtilityContinuationBoundary
 
 > **NativeRealUtilityContinuationBoundary** = `"thread-state"` \| `"resource-boundary"` \| `"mapping-materialization"` \| `"target-code-location"` \| `"source-unwind"` \| `"target-unwind"` \| `"target-frame-state"` \| `"ready"`
@@ -9117,7 +9233,7 @@ loops; anything looser stops being a meaningful gate.
 
 ### nativeProcessImageRefusalCodes
 
-> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"blocking-syscall-state-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"inherited-stdio-policy-required"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-permission-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"non-stdio-kernel-state-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"stdin-buffer-state-unsupported"`, `"syscall-argument-state-unsupported"`, `"syscall-restart-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-callee-saved-state-unsupported"`, `"target-caller-frame-unavailable"`, `"target-code-rva-unmapped"`, `"target-frame-layout-unsupported"`, `"target-frame-register-value-unavailable"`, `"target-module-bytes-missing"`, `"target-module-file-missing"`, `"target-module-missing"`, `"target-module-not-executable"`, `"target-module-range-unreadable"`, `"target-return-slot-unsupported"`, `"target-resume-execution-unavailable"`, `"target-resume-fault-invalid-code-landing"`, `"target-resume-fault-outside-target-bytes"`, `"target-resume-fault-privileged-instruction"`, `"target-resume-fault-signal-unsupported"`, `"target-resume-fault-timeout"`, `"target-resume-fault-unmodeled-memory"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
+> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"blocking-syscall-state-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"inherited-stdio-policy-required"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-permission-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"non-stdio-kernel-state-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"stdin-buffer-state-unsupported"`, `"syscall-argument-state-unsupported"`, `"syscall-restart-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-callee-saved-state-unsupported"`, `"target-caller-frame-unavailable"`, `"target-code-rva-unmapped"`, `"target-frame-layout-unsupported"`, `"target-frame-register-value-unavailable"`, `"target-module-bytes-missing"`, `"target-module-file-missing"`, `"target-module-missing"`, `"target-module-not-executable"`, `"target-module-range-unreadable"`, `"target-return-slot-unsupported"`, `"target-resume-execution-unavailable"`, `"target-resume-fault-invalid-code-landing"`, `"target-resume-fault-outside-target-bytes"`, `"target-resume-fault-privileged-instruction"`, `"target-resume-fault-signal-unsupported"`, `"target-resume-fault-timeout"`, `"target-resume-fault-unmodeled-memory"`, `"target-semantic-continuation-missing"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
 
 ***
 

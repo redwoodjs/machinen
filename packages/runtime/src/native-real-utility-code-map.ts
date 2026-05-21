@@ -23,9 +23,20 @@ export interface NativeRealUtilitySourceModule extends NativeCodeModule {
   sourceEnd: string;
 }
 
+export type NativeRealUtilityTargetContinuationKind = "sleep-timer";
+
+export interface NativeRealUtilityTargetSemanticContinuation {
+  kind: NativeRealUtilityTargetContinuationKind;
+  source: "elf-symbol";
+  symbolName: string;
+  relativeAddress: string;
+  sizeBytes?: number;
+}
+
 export interface NativeRealUtilityTargetModule extends NativeCodeModule {
   executable?: boolean;
   executableRanges?: NativeRealUtilityExecutableRange[];
+  semanticContinuations?: NativeRealUtilityTargetSemanticContinuation[];
 }
 
 export interface NativeRealUtilityModuleExpectation {
@@ -36,14 +47,31 @@ export interface NativeRealUtilityModuleExpectation {
   expectedTargetBuildId?: string;
 }
 
+export type NativeRealUtilityContinuationStrategy =
+  | "module-rva-equivalence"
+  | "semantic-sleep-timer-symbol";
+
+export interface NativeRealUtilitySemanticContinuationSelection {
+  kind: NativeRealUtilityTargetContinuationKind;
+  source: NativeRealUtilityTargetSemanticContinuation["source"];
+  symbolName: string;
+  targetRelativeAddress: string;
+  targetAddress: string;
+  sizeBytes?: number;
+}
+
 export interface NativeRealUtilityDeferredActiveSyscallLanding {
   threadId: string;
   sourceAddress: string;
+  sourceRva: string;
   targetAddress: string;
+  targetRva: string;
+  strategy: Extract<NativeRealUtilityContinuationStrategy, "semantic-sleep-timer-symbol">;
   syscallClass: NativeActiveSyscallContinuation["syscallClass"];
   action: NativeActiveSyscallContinuation["action"];
   syscall: NativeActiveSyscallContinuation["syscall"];
   metadata: NativeActiveSyscallContinuation["metadata"];
+  semanticContinuation: NativeRealUtilitySemanticContinuationSelection;
 }
 
 export interface NativeRealUtilityResolvedLocation {
@@ -51,9 +79,12 @@ export interface NativeRealUtilityResolvedLocation {
   sourceModule: NativeRealUtilitySourceModule;
   targetModule: NativeRealUtilityTargetModule;
   sourceRva: string;
+  targetRva: string;
   targetAddress: string;
+  continuationStrategy: NativeRealUtilityContinuationStrategy;
   codeLocation: NativeCodeLocationMapping;
   deferredActiveSyscallLanding?: NativeRealUtilityDeferredActiveSyscallLanding;
+  semanticContinuation?: NativeRealUtilitySemanticContinuationSelection;
 }
 
 export interface NativeRealUtilityCodeLocationRequest {
@@ -153,29 +184,23 @@ function resolveThreadCodeLocation(
     return match;
   }
   const sourceRva = sourcePc - BigInt(sourceModule.loadBias);
-  const rvaRefusal = validateTargetRva(match.targetModule, sourceRva);
-  if (rvaRefusal) {
-    return { refusal: rvaRefusal };
+  if (deferredContinuation) {
+    return resolveSemanticDeferredCodeLocation({
+      thread,
+      sourceModule,
+      targetModule: match.targetModule,
+      sourcePc,
+      sourceRva,
+      continuation: deferredContinuation,
+    });
   }
-  const targetAddress = BigInt(match.targetModule.loadBias) + sourceRva;
-  const codeLocation: NativeCodeLocationMapping = {
-    id: `code:${thread.id}:pc`,
-    sourceMapping: sourceModule.textMapping,
-    sourceAddress: hex(sourcePc),
-    targetAddress: hex(targetAddress),
-    state: "mapped",
-  };
-  return {
-    threadId: thread.id,
+  return resolveRvaEquivalentCodeLocation({
+    thread,
     sourceModule,
     targetModule: match.targetModule,
-    sourceRva: hex(sourceRva),
-    targetAddress: hex(targetAddress),
-    codeLocation,
-    deferredActiveSyscallLanding: deferredContinuation
-      ? deferredLanding(thread, deferredContinuation, sourcePc, targetAddress)
-      : undefined,
-  };
+    sourcePc,
+    sourceRva,
+  });
 }
 
 function deferredContinuationForThread(
@@ -201,20 +226,174 @@ function sameSyscall(
   return left.state === right.state && left.number === right.number && left.name === right.name;
 }
 
-function deferredLanding(
-  thread: NativeThreadState,
-  continuation: NativeActiveSyscallContinuation,
-  sourcePc: bigint,
+interface CodeLocationResolutionInput {
+  thread: NativeThreadState;
+  sourceModule: NativeRealUtilitySourceModule;
+  targetModule: NativeRealUtilityTargetModule;
+  sourcePc: bigint;
+  sourceRva: bigint;
+}
+
+interface SemanticDeferredCodeLocationInput extends CodeLocationResolutionInput {
+  continuation: NativeActiveSyscallContinuation;
+}
+
+function resolveRvaEquivalentCodeLocation(
+  input: CodeLocationResolutionInput,
+): NativeRealUtilityResolvedLocation | { refusal: NativeProcessImageRefusal } {
+  const rvaRefusal = validateTargetRva(input.targetModule, input.sourceRva);
+  if (rvaRefusal) {
+    return { refusal: rvaRefusal };
+  }
+  return resolvedLocation({
+    ...input,
+    targetRva: input.sourceRva,
+    continuationStrategy: "module-rva-equivalence",
+  });
+}
+
+function resolveSemanticDeferredCodeLocation(
+  input: SemanticDeferredCodeLocationInput,
+): NativeRealUtilityResolvedLocation | { refusal: NativeProcessImageRefusal } {
+  const semanticContinuation = semanticSleepTimerContinuation(
+    input.targetModule,
+    input.continuation.syscall.name,
+  );
+  if (!semanticContinuation) {
+    return {
+      refusal: refusal(
+        "target-semantic-continuation-missing",
+        `target module ${input.targetModule.logicalName} has no semantic amd64 sleep/timer continuation`,
+        {
+          threadId: input.thread.id,
+          syscallClass: input.continuation.syscallClass,
+          syscall: input.continuation.syscall,
+          targetModule: moduleDetail(input.targetModule),
+        },
+      ),
+    };
+  }
+  const targetRva = BigInt(semanticContinuation.relativeAddress);
+  const rvaRefusal = validateTargetRva(input.targetModule, targetRva);
+  if (rvaRefusal) {
+    return { refusal: rvaRefusal };
+  }
+  const targetAddress = BigInt(input.targetModule.loadBias) + targetRva;
+  const semanticSelection = semanticContinuationSelection(semanticContinuation, targetAddress);
+  return resolvedLocation({
+    ...input,
+    targetRva,
+    continuationStrategy: "semantic-sleep-timer-symbol",
+    deferredActiveSyscallLanding: deferredLanding(
+      input,
+      targetRva,
+      targetAddress,
+      semanticSelection,
+    ),
+    semanticContinuation: semanticSelection,
+  });
+}
+
+function semanticSleepTimerContinuation(
+  targetModule: NativeRealUtilityTargetModule,
+  syscallName: string | undefined,
+): NativeRealUtilityTargetSemanticContinuation | undefined {
+  const priority = nativeSleepTimerSymbolPriority(syscallName);
+  return targetModule.semanticContinuations
+    ?.filter(
+      (candidate) =>
+        candidate.kind === "sleep-timer" &&
+        priority.includes(nativeSymbolBaseName(candidate.symbolName)),
+    )
+    .sort((left, right) => compareSemanticContinuation(left, right, priority))[0];
+}
+
+function compareSemanticContinuation(
+  left: NativeRealUtilityTargetSemanticContinuation,
+  right: NativeRealUtilityTargetSemanticContinuation,
+  priority: string[],
+): number {
+  const priorityDelta =
+    priority.indexOf(nativeSymbolBaseName(left.symbolName)) -
+    priority.indexOf(nativeSymbolBaseName(right.symbolName));
+  if (priorityDelta !== 0) {
+    return priorityDelta;
+  }
+  return left.symbolName.localeCompare(right.symbolName);
+}
+
+export function nativeSleepTimerSymbolPriority(syscallName: string | undefined): string[] {
+  return syscallName === "nanosleep"
+    ? ["nanosleep", "__nanosleep", "clock_nanosleep", "__clock_nanosleep"]
+    : ["clock_nanosleep", "__clock_nanosleep", "nanosleep", "__nanosleep"];
+}
+
+export function nativeSymbolBaseName(name: string): string {
+  return name.split("@")[0] ?? name;
+}
+
+function semanticContinuationSelection(
+  continuation: NativeRealUtilityTargetSemanticContinuation,
   targetAddress: bigint,
+): NativeRealUtilitySemanticContinuationSelection {
+  return {
+    kind: continuation.kind,
+    source: continuation.source,
+    symbolName: continuation.symbolName,
+    targetRelativeAddress: continuation.relativeAddress,
+    targetAddress: hex(targetAddress),
+    sizeBytes: continuation.sizeBytes,
+  };
+}
+
+function resolvedLocation(
+  input: CodeLocationResolutionInput & {
+    targetRva: bigint;
+    continuationStrategy: NativeRealUtilityContinuationStrategy;
+    deferredActiveSyscallLanding?: NativeRealUtilityDeferredActiveSyscallLanding;
+    semanticContinuation?: NativeRealUtilitySemanticContinuationSelection;
+  },
+): NativeRealUtilityResolvedLocation {
+  const targetAddress = BigInt(input.targetModule.loadBias) + input.targetRva;
+  const codeLocation: NativeCodeLocationMapping = {
+    id: `code:${input.thread.id}:pc`,
+    sourceMapping: input.sourceModule.textMapping,
+    sourceAddress: hex(input.sourcePc),
+    targetAddress: hex(targetAddress),
+    state: "mapped",
+  };
+  return {
+    threadId: input.thread.id,
+    sourceModule: input.sourceModule,
+    targetModule: input.targetModule,
+    sourceRva: hex(input.sourceRva),
+    targetRva: hex(input.targetRva),
+    targetAddress: hex(targetAddress),
+    continuationStrategy: input.continuationStrategy,
+    codeLocation,
+    deferredActiveSyscallLanding: input.deferredActiveSyscallLanding,
+    semanticContinuation: input.semanticContinuation,
+  };
+}
+
+function deferredLanding(
+  input: SemanticDeferredCodeLocationInput,
+  targetRva: bigint,
+  targetAddress: bigint,
+  semanticContinuation: NativeRealUtilitySemanticContinuationSelection,
 ): NativeRealUtilityDeferredActiveSyscallLanding {
   return {
-    threadId: thread.id,
-    sourceAddress: hex(sourcePc),
+    threadId: input.thread.id,
+    sourceAddress: hex(input.sourcePc),
+    sourceRva: hex(input.sourceRva),
     targetAddress: hex(targetAddress),
-    syscallClass: continuation.syscallClass,
-    action: continuation.action,
-    syscall: continuation.syscall,
-    metadata: continuation.metadata,
+    targetRva: hex(targetRva),
+    strategy: "semantic-sleep-timer-symbol",
+    syscallClass: input.continuation.syscallClass,
+    action: input.continuation.action,
+    syscall: input.continuation.syscall,
+    metadata: input.continuation.metadata,
+    semanticContinuation,
   };
 }
 

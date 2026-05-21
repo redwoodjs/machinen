@@ -47,8 +47,9 @@ bounded native trampoline and report a separate `targetResumeExecutionAttempt`.
 If that attempt faults inside target bytes, the proof reports the later
 `target-resume-fault-state` boundary instead of treating the fault as completed
 process migration. Actual utility summaries also include target landing
-provenance, so a raw cross-ISA offset that is not a valid amd64 instruction
-boundary is reported as `target-resume-fault-invalid-code-landing`.
+provenance. Deferred sleep/timer syscalls are resolved through semantic target
+symbols instead of raw source-RVA equivalence; if that semantic landing faults,
+the next blocker is reported from the target fault state.
 
 ## Proof
 

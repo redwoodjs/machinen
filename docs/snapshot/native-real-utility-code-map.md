@@ -1,9 +1,11 @@
 # Native real utility code-location mapping
 
-Issue #494 adds a target-code gate for real Linux utilities. The gate maps a
+Issue #494 adds a target-code gate for real Linux utilities. The default gate maps a
 captured source program counter to target-native code by module identity plus a
-module-relative virtual address (RVA). It never treats captured arm64 text bytes
-or raw source virtual addresses as amd64 code.
+module-relative virtual address (RVA). Issue #543 adds a semantic override for
+deferred sleep/timer syscalls, because an arm64 PC/RVA is not an amd64
+continuation. The code-location gate never treats captured arm64 text bytes or
+raw source virtual addresses as amd64 code.
 
 ## Rule
 
@@ -18,11 +20,16 @@ For each captured thread:
 4. Match an explicit target amd64 module inventory entry by expectation,
    target module id/path, or compatible logical name.
 5. Compute `sourceRva = sourcePc - sourceModule.loadBias`.
-6. Accept only if the target module is executable, has the expected target build
-   id, and maps that RVA as executable target code.
-7. Produce `targetAddress = targetModule.loadBias + sourceRva`.
-8. If the thread was inside a deferred sleep/timer syscall, record a deferred
-   target landing without marking the source syscall resumed.
+6. For ordinary outside-syscall frames, accept only if the target module maps
+   that same RVA as executable target code, then produce
+   `targetAddress = targetModule.loadBias + sourceRva`.
+7. For deferred sleep/timer syscalls, do **not** fall back to same-RVA mapping.
+   Resolve an explicit amd64 sleep/timer continuation from target module
+   metadata, currently the target libc `clock_nanosleep`/`nanosleep` symbol.
+8. If no semantic target continuation exists, refuse with
+   `target-semantic-continuation-missing`.
+9. If the thread was inside a deferred sleep/timer syscall, record the semantic
+   deferred target landing without marking the source syscall resumed.
 
 The proof reports `sourceTextReusedAsTargetCode: false` and does not attempt a
 resume. It only proves that the next native continuation address is selected
@@ -39,8 +46,10 @@ from target-native module metadata.
   target build.
 - `target-code-location-unresolved` — the captured PC is not inside inventoried
   executable source code.
-- `target-code-rva-unmapped` — the target module exists, but the source RVA is
-  not executable in that module.
+- `target-code-rva-unmapped` — the target module exists, but the selected target
+  RVA is not executable in that module.
+- `target-semantic-continuation-missing` — a deferred sleep/timer syscall needs
+  a semantic amd64 continuation, but the target module has no modeled symbol.
 
 ## Proof
 

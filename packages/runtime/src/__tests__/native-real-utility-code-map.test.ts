@@ -139,7 +139,9 @@ describe("native real utility code-location map", () => {
     expect(result.resolved[0]).toMatchObject({
       threadId: "thread:1",
       sourceRva: "0x1234",
+      targetRva: "0x1234",
       targetAddress: "0x700000001234",
+      continuationStrategy: "module-rva-equivalence",
     });
     expect(result.codeLocations[0]).toMatchObject({
       state: "mapped",
@@ -164,7 +166,7 @@ describe("native real utility code-location map", () => {
     expect(result.codeLocations[0]).toMatchObject({ state: "refused" });
   });
 
-  it("maps deferred sleep/timer syscall code locations without marking the syscall resumed", () => {
+  it("maps deferred sleep/timer syscall code locations with semantic target symbols", () => {
     const activeThread = thread({
       syscall: { state: "inside-syscall", number: 230, name: "clock_nanosleep" },
     });
@@ -181,23 +183,75 @@ describe("native real utility code-location map", () => {
     const result = resolveNativeRealUtilityCodeLocations({
       documents: documents({ activeThread }),
       targetArch: "amd64",
-      targetModules: [targetModule()],
+      targetModules: [
+        targetModule({
+          semanticContinuations: [
+            {
+              kind: "sleep-timer",
+              source: "elf-symbol",
+              symbolName: "clock_nanosleep@@GLIBC_2.17",
+              relativeAddress: "0x2200",
+              sizeBytes: 134,
+            },
+          ],
+        }),
+      ],
       activeSyscallContinuations: [continuation],
     });
 
     expect(result.refusals).toEqual([]);
     expect(result.codeLocations[0]).toMatchObject({
       state: "mapped",
-      targetAddress: "0x700000001234",
+      targetAddress: "0x700000002200",
+    });
+    expect(result.resolved[0]).toMatchObject({
+      sourceRva: "0x1234",
+      targetRva: "0x2200",
+      targetAddress: "0x700000002200",
+      continuationStrategy: "semantic-sleep-timer-symbol",
+      semanticContinuation: {
+        kind: "sleep-timer",
+        symbolName: "clock_nanosleep@@GLIBC_2.17",
+        targetRelativeAddress: "0x2200",
+      },
     });
     expect(result.resolved[0]?.deferredActiveSyscallLanding).toMatchObject({
       threadId: activeThread.id,
       syscallClass: "sleep-timer",
       action: "defer-target-resume",
       sourceAddress: "0x401234",
-      targetAddress: "0x700000001234",
+      sourceRva: "0x1234",
+      targetAddress: "0x700000002200",
+      targetRva: "0x2200",
+      strategy: "semantic-sleep-timer-symbol",
       metadata: { remainingTime: "not-captured" },
+      semanticContinuation: { symbolName: "clock_nanosleep@@GLIBC_2.17" },
     });
+  });
+
+  it("refuses deferred sleep/timer code locations without falling back to source RVA", () => {
+    const activeThread = thread({
+      syscall: { state: "inside-syscall", number: 230, name: "clock_nanosleep" },
+    });
+    const continuation = {
+      threadId: activeThread.id,
+      syscallClass: "sleep-timer" as const,
+      action: "defer-target-resume" as const,
+      syscall: activeThread.syscall,
+      metadata: {
+        remainingTime: "not-captured" as const,
+        policy: "conservative-target-timer-rearm-required" as const,
+      },
+    };
+
+    expect(
+      resolveNativeRealUtilityCodeLocations({
+        documents: documents({ activeThread }),
+        targetArch: "amd64",
+        targetModules: [targetModule()],
+        activeSyscallContinuations: [continuation],
+      }).refusals[0]?.code,
+    ).toBe("target-semantic-continuation-missing");
 
     expect(
       resolveNativeRealUtilityCodeLocations({
