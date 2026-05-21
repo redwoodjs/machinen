@@ -21,7 +21,7 @@ describe("native resource translation", () => {
     });
     expect(result.resources.find((resource) => resource.id === "fd:4")).toMatchObject({
       state: "refused",
-      refusal: { code: "resource-kind-unsupported" },
+      refusal: { code: "kernel-state-unsupported" },
     });
     expect(result.resources.find((resource) => resource.id === "fd:5")).toMatchObject({
       state: "refused",
@@ -45,11 +45,23 @@ describe("native resource translation", () => {
     ]);
   });
 
-  it("uses fd-kind-unsupported for generic unknown fd resources", () => {
+  it("uses exact refusal codes for generic and stateful kernel fd resources", () => {
     const result = translateNativeResources({
-      resources: [{ id: "fd:9", kind: "fd", state: "captured", fd: 9 }],
+      resources: [
+        { id: "fd:9", kind: "fd", state: "captured", fd: 9 },
+        { id: "fd:10", kind: "pipe", state: "captured", fd: 10, path: "pipe:[1]" },
+        { id: "fd:11", kind: "eventfd", state: "captured", fd: 11, path: "anon_inode:[eventfd]" },
+        { id: "fd:12", kind: "timer", state: "captured", fd: 12, path: "anon_inode:[timerfd]" },
+        { id: "fd:13", kind: "epoll", state: "captured", fd: 13, path: "anon_inode:[eventpoll]" },
+      ],
     });
 
-    expect(result.refusals[0]).toMatchObject({ code: "fd-kind-unsupported" });
+    expect(result.refusals.map((refusal) => refusal.code)).toEqual([
+      "fd-kind-unsupported",
+      "kernel-state-unsupported",
+      "kernel-state-unsupported",
+      "kernel-state-unsupported",
+      "kernel-state-unsupported",
+    ]);
   });
 });

@@ -77,6 +77,10 @@ export const NATIVE_FILE_RESOURCE_CONTINUATION_SOURCE = join(
   REPO_ROOT,
   "packages/microvm/assets/native-file-resource-continuation.c",
 );
+export const NATIVE_NONFILE_RESOURCE_BOUNDARY_SOURCE = join(
+  REPO_ROOT,
+  "packages/microvm/assets/native-nonfile-resource-boundary.c",
+);
 export const CONTROLLED_MARKER = "MACHINEN_CONTROLLED_BINARY ";
 export const NATIVE_PROCESS_IMAGE_BUNDLE_FILES = [
   "native-process.json",
@@ -350,6 +354,18 @@ export function compileNativeFileResourceContinuation(binDir) {
     nativeTargetBinaryCompileArgs(executable, NATIVE_FILE_RESOURCE_CONTINUATION_SOURCE),
     {
       label: "native file resource continuation build",
+    },
+  );
+  return executable;
+}
+
+export function compileNativeNonfileResourceBoundary(binDir) {
+  const executable = join(binDir, "machinen-native-nonfile-resource-boundary");
+  runCommand(
+    "cc",
+    nativeTargetBinaryCompileArgs(executable, NATIVE_NONFILE_RESOURCE_BOUNDARY_SOURCE),
+    {
+      label: "native non-file resource boundary build",
     },
   );
   return executable;
