@@ -5,8 +5,11 @@ import { join } from "node:path";
 import { planNativeMappingMaterialization } from "../packages/runtime/src/native-mapping-materialization.ts";
 import {
   validateNativeProcessImageBundle,
+  type NativeProcessImageDocuments,
   type NativeProcessImageRefusal,
+  type NativeThreadState,
 } from "../packages/runtime/src/native-process-image.ts";
+import { translateNativeRegisterState } from "../packages/runtime/src/native-register-translation.ts";
 import { translateNativeResources } from "../packages/runtime/src/native-resource-translation.ts";
 import {
   NATIVE_CAPTURE_SOURCE,
@@ -100,13 +103,14 @@ function attemptSleepContinuation(
     "real utility source capture was not arm64",
   );
   assert(bundle.manifest.target.arch === "amd64", "real utility target arch was not amd64");
+  const registers = translateThreadsForBoundary(bundle);
   const resources = translateNativeResources({ resources: bundle.resources.resources });
   const memoryBytes = statSync(join(bundleDir, "native-memory.bin")).size;
   const mappings = planNativeMappingMaterialization({
     mappings: bundle.mappings.mappings,
     memorySizeBytes: memoryBytes,
   });
-  const blocking = firstBlockingBoundary(resources.refusals, mappings.refusals);
+  const blocking = firstBlockingBoundary(registers.refusals, resources.refusals, mappings.refusals);
   const codeBoundary = blocking ?? codeLocationBoundary(bundle.manifest.process.exe);
   return {
     name: UTILITY_NAME,
@@ -117,6 +121,13 @@ function attemptSleepContinuation(
     dynamicallyLinked: dynamicLinking.dynamicallyLinked,
     interpreter: dynamicLinking.interpreter,
     processImageValidated: true,
+    threadSyscalls: bundle.threads.threads.map((thread) => ({
+      id: thread.id,
+      state: thread.syscall.state,
+      number: thread.syscall.number,
+      name: thread.syscall.name,
+    })),
+    threadRefusals: registers.refusals,
     mappingSteps: mappings.steps.length,
     mappingRefusals: mappings.refusals,
     threadCount: bundle.threads.threads.length,
@@ -133,10 +144,35 @@ function attemptSleepContinuation(
   };
 }
 
+function translateThreadsForBoundary(bundle: NativeProcessImageDocuments) {
+  return translateNativeRegisterState({
+    sourceArch: "arm64",
+    targetArch: "amd64",
+    threads: bundle.threads.threads,
+    continuations: Object.fromEntries(
+      bundle.threads.threads.map((thread) => [thread.id, continuationFor(thread)]),
+    ),
+  });
+}
+
+function continuationFor(thread: NativeThreadState) {
+  return {
+    sourcePc: thread.sourceRegisters.arch === "arm64" ? thread.sourceRegisters.pc : "0x0",
+    targetIp: "0x14000120",
+    targetSp: "0x50000000fff0",
+    targetTls: "0x0",
+  };
+}
+
 function firstBlockingBoundary(
+  threadRefusals: NativeProcessImageRefusal[],
   resourceRefusals: NativeProcessImageRefusal[],
   mappingRefusals: NativeProcessImageRefusal[],
 ) {
+  const thread = threadRefusals[0];
+  if (thread) {
+    return { boundary: "thread-state" as const, refusal: thread };
+  }
   const resource = resourceRefusals[0];
   if (resource) {
     return { boundary: "resource-boundary" as const, refusal: resource };
