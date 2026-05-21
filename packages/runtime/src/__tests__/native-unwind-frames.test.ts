@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   discoverNativeUnwindFrames,
   nativeUnwindReturnAddressSlot,
+  parseNativeEhFrameText,
   type NativeUnwindFrameDiscoveryRequest,
   type NativeUnwindFrameRule,
 } from "../native-unwind-frames.ts";
@@ -83,9 +84,7 @@ describe("native unwind frame discovery", () => {
     const result = discoverNativeUnwindFrames(input);
 
     expect(result.frames).toEqual([]);
-    expect(result.refusals).toEqual([
-      expect.objectContaining({ code: "thread-state-unsupported" }),
-    ]);
+    expect(result.refusals).toEqual([expect.objectContaining({ code: "unwind-fde-missing" })]);
   });
 
   it("refuses when the DWARF return-address slot was not captured", () => {
@@ -95,7 +94,64 @@ describe("native unwind frame discovery", () => {
     const result = discoverNativeUnwindFrames(input);
 
     expect(result.frames).toEqual([]);
-    expect(result.refusals).toEqual([expect.objectContaining({ code: "pointer-ambiguous" })]);
+    expect(result.refusals).toEqual([expect.objectContaining({ code: "return-slot-unreadable" })]);
+  });
+
+  it("parses modeled arm64 rules from readelf .eh_frame text", () => {
+    const result = parseNativeEhFrameText({
+      readelfFrames: `
+00000088 0000000000000024 0000001c FDE cie=00000070 pc=0000000000401120..0000000000401180
+  DW_CFA_advance_loc: 4 to 0000000000401124
+  DW_CFA_def_cfa_offset: 16
+  DW_CFA_offset: r29 (x29) at cfa-16
+  DW_CFA_offset: r30 (x30) at cfa-8
+  DW_CFA_advance_loc: 4 to 0000000000401128
+  DW_CFA_def_cfa_register: r29 (x29)
+`,
+      mapping: "mapping:text",
+      functionName: "real_utility_frame",
+      pc: "0x401140",
+    });
+
+    expect(result.refusals).toEqual([]);
+    expect(result.rules).toEqual([
+      expect.objectContaining({
+        functionName: "real_utility_frame",
+        pcStart: "0x401120",
+        pcEnd: "0x401180",
+        metadata: "eh-frame",
+        cfa: { register: "x29", offset: 16 },
+        returnAddress: { location: "cfa-relative", offset: -8 },
+      }),
+    ]);
+  });
+
+  it("uses precise .eh_frame parse refusals", () => {
+    expect(
+      parseNativeEhFrameText({
+        readelfFrames: "",
+        mapping: "mapping:text",
+        functionName: "missing",
+        pc: "0x401140",
+      }).refusals[0]?.code,
+    ).toBe("unwind-metadata-missing");
+    expect(
+      parseNativeEhFrameText({
+        readelfFrames: "FDE cie=00000070 pc=0000000000402000..0000000000402100",
+        mapping: "mapping:text",
+        functionName: "missing",
+        pc: "0x401140",
+      }).refusals[0]?.code,
+    ).toBe("unwind-fde-missing");
+    expect(
+      parseNativeEhFrameText({
+        readelfFrames:
+          "FDE cie=00000070 pc=0000000000401120..0000000000401180\n  DW_CFA_def_cfa: r31 ofs: 16",
+        mapping: "mapping:text",
+        functionName: "unsupported",
+        pc: "0x401140",
+      }).refusals[0]?.code,
+    ).toBe("unwind-rule-unsupported");
   });
 
   it("refuses unsupported source architectures", () => {

@@ -17,6 +17,7 @@ import {
 import {
   discoverNativeUnwindFrames,
   nativeUnwindReturnAddressSlot,
+  parseNativeEhFrameText,
   type NativeDiscoveredUnwindFrame,
   type NativeUnwindFrameRule,
 } from "../packages/runtime/src/native-unwind-frames.ts";
@@ -329,84 +330,23 @@ function dwarfRuleForActiveFunction(
   const symbolStart = BigInt(active.address);
   const symbolEnd = symbolStart + BigInt(active.sizeBytes);
   assert(sourcePc >= symbolStart && sourcePc < symbolEnd, "captured PC is outside active symbol");
-  const cfi = parseEhFrameRule(
-    runCommand("readelf", ["--debug-dump=frames", target], { label: "DWARF CFI scan" }).stdout,
-    symbolStart,
-  );
-  return {
-    id: `fde:${ACTIVE_SYMBOL}`,
-    functionName: ACTIVE_SYMBOL,
+  const parsed = parseNativeEhFrameText({
+    readelfFrames: runCommand("readelf", ["--debug-dump=frames", target], {
+      label: "DWARF CFI scan",
+    }).stdout,
     mapping: facts.textMapping.id,
+    functionName: ACTIVE_SYMBOL,
+    pc: finalJumpHex(symbolStart),
+  });
+  assert(parsed.refusals.length === 0, `FDE refused: ${JSON.stringify(parsed.refusals)}`);
+  const rule = parsed.rules[0];
+  assert(rule, `readelf did not report an FDE for ${ACTIVE_SYMBOL}`);
+  return {
+    ...rule,
+    id: `fde:${ACTIVE_SYMBOL}`,
     pcStart: active.address,
     pcEnd: finalJumpHex(symbolEnd),
-    metadata: "eh-frame",
-    cfa: { register: "x29", offset: cfi.cfaOffset },
-    returnAddress: { location: "cfa-relative", offset: cfi.returnAddressOffset },
   };
-}
-
-function parseEhFrameRule(stdout: string, symbolStart: bigint) {
-  const block = fdeBlocks(stdout).find(
-    (candidate) => symbolStart >= candidate.start && symbolStart < candidate.end,
-  );
-  assert(block, `readelf did not report an FDE for ${ACTIVE_SYMBOL}`);
-  const cfaOffset = cfaOffsetFromX29(block.lines);
-  const returnAddressOffset = lastCapture(
-    block.lines,
-    /DW_CFA_offset: r30(?: \([^)]*\))? at cfa([+-]\d+)/,
-  );
-  assert(cfaOffset, "FDE did not define CFA from x29");
-  assert(returnAddressOffset, "FDE did not define saved x30 relative to CFA");
-  return {
-    cfaOffset: Number.parseInt(cfaOffset, 10),
-    returnAddressOffset: Number.parseInt(returnAddressOffset, 10),
-  };
-}
-
-function fdeBlocks(stdout: string) {
-  const blocks: Array<{ start: bigint; end: bigint; lines: string[] }> = [];
-  let current: { start: bigint; end: bigint; lines: string[] } | undefined;
-  for (const line of stdout.split(/\r?\n/)) {
-    const match = /FDE .* pc=([0-9a-fA-F]+)\.\.([0-9a-fA-F]+)/.exec(line);
-    if (match) {
-      current = { start: BigInt(`0x${match[1]}`), end: BigInt(`0x${match[2]}`), lines: [] };
-      blocks.push(current);
-      continue;
-    }
-    current?.lines.push(line);
-  }
-  return blocks;
-}
-
-// fallow-ignore-next-line complexity
-function cfaOffsetFromX29(lines: string[]) {
-  const combined = lastCapture(lines, /DW_CFA_def_cfa: r29(?: \([^)]*\))? ofs:? (\d+)/);
-  if (combined) {
-    return combined;
-  }
-  let offset: string | undefined;
-  let registerIsX29 = false;
-  for (const line of lines) {
-    const offsetMatch = /DW_CFA_def_cfa_offset: (\d+)/.exec(line);
-    if (offsetMatch?.[1]) {
-      offset = offsetMatch[1];
-    }
-    if (/DW_CFA_def_cfa_register: r29(?: \([^)]*\))?/.test(line)) {
-      registerIsX29 = true;
-    }
-  }
-  return registerIsX29 ? offset : undefined;
-}
-
-function lastCapture(lines: string[], pattern: RegExp) {
-  let captured: string | undefined;
-  for (const line of lines) {
-    const match = pattern.exec(line);
-    if (match?.[1]) {
-      captured = match[1];
-    }
-  }
-  return captured;
 }
 
 function readUnwindMetadata(sourceBundleDir: string): DwarfUnwindMetadata {
