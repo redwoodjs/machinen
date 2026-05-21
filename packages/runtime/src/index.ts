@@ -114,6 +114,10 @@ export {
   resolveNativeRealUtilityCodeLocations,
 } from "./native-real-utility-code-map.ts";
 export { planNativeRealUtilityContinuationAttempt } from "./native-real-utility-continuation.ts";
+export {
+  matchNativeTargetUnwindFrame,
+  parseNativeTargetEhFrameText,
+} from "./native-target-unwind.ts";
 export type {
   NativeRealUtilityCodeLocationRequest,
   NativeRealUtilityCodeLocationResult,
@@ -128,6 +132,15 @@ export type {
   NativeRealUtilityContinuationPlan,
   NativeRealUtilityContinuationRequest,
 } from "./native-real-utility-continuation.ts";
+export type {
+  NativeTargetEhFrameTextParseRequest,
+  NativeTargetEhFrameTextParseResult,
+  NativeTargetUnwindFrameMatch,
+  NativeTargetUnwindFrameRule,
+  NativeTargetUnwindMatchRequest,
+  NativeTargetUnwindMatchResult,
+  NativeTargetUnwindRegister,
+} from "./native-target-unwind.ts";
 export { classifyNativeDebugMemoryPointers } from "./native-debug-memory.ts";
 export type {
   NativeDebugAddressTranslation,
