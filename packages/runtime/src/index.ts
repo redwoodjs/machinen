@@ -135,6 +135,19 @@ export type {
   NativeStackTranslationRequest,
   NativeStackTranslationResult,
 } from "./native-stack-translation.ts";
+export {
+  discoverNativeUnwindFrames,
+  nativeUnwindReturnAddressSlot,
+} from "./native-unwind-frames.ts";
+export type {
+  NativeDiscoveredUnwindFrame,
+  NativeUnwindFrameDiscoveryRequest,
+  NativeUnwindFrameDiscoveryResult,
+  NativeUnwindFrameRule,
+  NativeUnwindMetadataKind,
+  NativeUnwindRegister,
+  NativeUnwindStackWord,
+} from "./native-unwind-frames.ts";
 export type {
   NativeContinuationTarget,
   NativeRegisterTranslationRequest,
