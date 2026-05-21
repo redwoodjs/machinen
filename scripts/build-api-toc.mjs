@@ -155,6 +155,7 @@ const TOC = {
     "matchNativeTargetUnwindFrame",
     "NativeTargetFrameStateRegister",
     "NativeTargetFrameStateValueSource",
+    "NativeSyntheticTargetCallerFrameStatePolicy",
     "NativeTargetFrameRegisterValue",
     "NativeTargetFrameStateRequirement",
     "NativeTargetFrameStateMaterialization",

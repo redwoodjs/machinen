@@ -19,7 +19,8 @@ The actual captured path preserves the native-transparent gate order:
 5. source `.eh_frame` frame discovery;
 6. target amd64 unwind matching;
 7. target frame/callee-saved state materialization;
-8. target module byte materialization from explicit target inventory/root.
+8. target module byte materialization from explicit target inventory/root;
+9. synthetic target-caller frame installation.
 
 The new actual-real-utility planner adds a final `target-module-bytes` gate. If
 all earlier gates pass but no target bytes were explicitly materialized, it
@@ -38,9 +39,10 @@ with `target-module-missing` for the active libc frame instead of granting
 success. With a target root and source unwind sidecar, the proof can inventory
 target libc, materialize native libc bytes, discover the source libc frame, match
 the target `.eh_frame` return contract, and then refuse at the later
-`target-frame-state` gate. Actual libc frames that need unmaterialized target
-callee-saved register values now refuse precisely with
-`target-frame-register-value-unavailable`.
+`target-frame-state` gate. With an explicit synthetic target-caller policy, it can
+materialize caller-owned callee-saved slots as synthetic target values, then
+refuse at `target-caller-frame` until the synthetic caller frame itself is
+installed.
 
 That refusal is intentional. It proves the real capture path is wired into the
 same fail-closed planner as the final-jump fixture, without granting success for

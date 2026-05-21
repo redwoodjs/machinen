@@ -145,7 +145,7 @@ function targetFrameStateRefusal(
   if (request.targetFrameState?.refusals[0]) {
     return request.targetFrameState.refusals[0];
   }
-  if (request.targetFrameStateMaterialized) {
+  if (request.targetFrameStateMaterialized || targetFrameStateComplete(request.targetFrameState)) {
     return undefined;
   }
   const unsupportedSlot = request.targetUnwind?.matches
@@ -159,6 +159,16 @@ function targetFrameStateRefusal(
     message: `target callee-saved ${unsupportedSlot.register} slot is not materialized yet`,
     detail: { register: unsupportedSlot.register, offset: unsupportedSlot.offset },
   };
+}
+
+function targetFrameStateComplete(
+  targetFrameState: NativeTargetFrameStateMaterializationResult | undefined,
+): boolean {
+  return Boolean(
+    targetFrameState &&
+    targetFrameState.requirements.length > 0 &&
+    targetFrameState.materialized.length === targetFrameState.requirements.length,
+  );
 }
 
 function refusedPlan(
