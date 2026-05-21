@@ -61,6 +61,10 @@ export const NATIVE_CALL_FRAME_CONTINUATION_SOURCE = join(
   REPO_ROOT,
   "packages/microvm/assets/native-call-frame-continuation.c",
 );
+export const NATIVE_DWARF_UNWIND_CONTINUATION_SOURCE = join(
+  REPO_ROOT,
+  "packages/microvm/assets/native-dwarf-unwind-continuation.c",
+);
 export const NATIVE_HEAP_GRAPH_CONTINUATION_SOURCE = join(
   REPO_ROOT,
   "packages/microvm/assets/native-heap-graph-continuation.c",
@@ -294,6 +298,18 @@ export function compileNativeCallFrameContinuation(binDir) {
     nativeTargetBinaryCompileArgs(executable, NATIVE_CALL_FRAME_CONTINUATION_SOURCE),
     {
       label: "native call-frame continuation build",
+    },
+  );
+  return executable;
+}
+
+export function compileNativeDwarfUnwindContinuation(binDir) {
+  const executable = join(binDir, "machinen-native-dwarf-unwind-continuation");
+  runCommand(
+    "cc",
+    nativeTargetBinaryCompileArgs(executable, NATIVE_DWARF_UNWIND_CONTINUATION_SOURCE),
+    {
+      label: "native DWARF unwind continuation build",
     },
   );
   return executable;
