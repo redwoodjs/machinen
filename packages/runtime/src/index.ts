@@ -161,9 +161,12 @@ export type {
 export {
   discoverNativeUnwindFrames,
   nativeUnwindReturnAddressSlot,
+  parseNativeEhFrameText,
 } from "./native-unwind-frames.ts";
 export type {
   NativeDiscoveredUnwindFrame,
+  NativeEhFrameTextParseRequest,
+  NativeEhFrameTextParseResult,
   NativeUnwindFrameDiscoveryRequest,
   NativeUnwindFrameDiscoveryResult,
   NativeUnwindFrameRule,

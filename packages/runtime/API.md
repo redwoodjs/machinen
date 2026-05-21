@@ -103,6 +103,8 @@
 - [`translateNativeStack`](#translatenativestack)
 - [`NativeUnwindFrameRule`](#nativeunwindframerule)
 - [`NativeUnwindStackWord`](#nativeunwindstackword)
+- [`NativeEhFrameTextParseRequest`](#nativeehframetextparserequest)
+- [`NativeEhFrameTextParseResult`](#nativeehframetextparseresult)
 - [`NativeUnwindFrameDiscoveryRequest`](#nativeunwindframediscoveryrequest)
 - [`NativeDiscoveredUnwindFrame`](#nativediscoveredunwindframe)
 - [`NativeUnwindFrameDiscoveryResult`](#nativeunwindframediscoveryresult)
@@ -110,6 +112,7 @@
 - [`NativeUnwindRegister`](#nativeunwindregister)
 - [`discoverNativeUnwindFrames`](#discovernativeunwindframes)
 - [`nativeUnwindReturnAddressSlot`](#nativeunwindreturnaddressslot)
+- [`parseNativeEhFrameText`](#parsenativeehframetext)
 - [`NativeMemoryWord`](#nativememoryword)
 - [`NativeMemoryTranslationRequest`](#nativememorytranslationrequest)
 - [`NativeMemoryTranslationResult`](#nativememorytranslationresult)
@@ -2652,7 +2655,7 @@ by default when `output` is a TTY.
 
 ##### code
 
-> **code**: `"fd-kind-unsupported"` \| `"target-build-mismatch"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"active-syscall"` \| `"code-location-unknown"` \| `"futex-state-unsupported"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-permission-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"target-build-id-mismatch"` \| `"target-code-location-unresolved"` \| `"target-code-rva-unmapped"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"vdso-policy-unsupported"`
+> **code**: `"fd-kind-unsupported"` \| `"target-build-mismatch"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"active-syscall"` \| `"code-location-unknown"` \| `"futex-state-unsupported"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-permission-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"target-build-id-mismatch"` \| `"target-code-location-unresolved"` \| `"target-code-rva-unmapped"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
 
 ##### message
 
@@ -3927,6 +3930,42 @@ by default when `output` is a TTY.
 ##### stackWords
 
 > **stackWords**: [`NativeUnwindStackWord`](#nativeunwindstackword)[]
+
+***
+
+### NativeEhFrameTextParseRequest
+
+#### Properties
+
+##### readelfFrames
+
+> **readelfFrames**: `string`
+
+##### mapping
+
+> **mapping**: `string`
+
+##### functionName
+
+> **functionName**: `string`
+
+##### pc
+
+> **pc**: `string`
+
+***
+
+### NativeEhFrameTextParseResult
+
+#### Properties
+
+##### rules
+
+> **rules**: [`NativeUnwindFrameRule`](#nativeunwindframerule)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
 
 ***
 
@@ -7394,7 +7433,7 @@ loops; anything looser stops being a meaningful gate.
 
 ### nativeProcessImageRefusalCodes
 
-> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-permission-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-code-rva-unmapped"`, `"target-module-missing"`, `"target-module-not-executable"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"vdso-policy-unsupported"`\]
+> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-permission-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-code-rva-unmapped"`, `"target-module-missing"`, `"target-module-not-executable"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
 
 ***
 
@@ -8655,6 +8694,22 @@ available.
 #### Returns
 
 [`NativeUnwindFrameDiscoveryResult`](#nativeunwindframediscoveryresult)
+
+***
+
+### parseNativeEhFrameText()
+
+> **parseNativeEhFrameText**(`request`): [`NativeEhFrameTextParseResult`](#nativeehframetextparseresult)
+
+#### Parameters
+
+##### request
+
+[`NativeEhFrameTextParseRequest`](#nativeehframetextparserequest)
+
+#### Returns
+
+[`NativeEhFrameTextParseResult`](#nativeehframetextparseresult)
 
 ***
 
