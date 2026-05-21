@@ -66,3 +66,4 @@ See also:
 - [Native active-syscall refusal proof](./native-syscall-state-refusal.md)
 - [Native real utility code-location mapping](./native-real-utility-code-map.md)
 - [Native real utility `.eh_frame` frame discovery](./native-real-utility-eh-frame.md)
+- [Native real utility inherited stdio policy](./native-real-utility-stdio-policy.md)
