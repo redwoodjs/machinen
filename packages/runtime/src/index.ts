@@ -148,6 +148,7 @@ export type {
 export { translateNativeRegisterState } from "./native-register-translation.ts";
 export { translateNativeResources } from "./native-resource-translation.ts";
 export type {
+  NativeInheritedStdioPolicy,
   NativeResourceTranslationRequest,
   NativeResourceTranslationResult,
 } from "./native-resource-translation.ts";
