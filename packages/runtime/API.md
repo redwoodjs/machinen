@@ -146,6 +146,8 @@
 - [`NativeSyntheticTargetCallerFramePlanRequest`](#nativesynthetictargetcallerframeplanrequest)
 - [`NativeSyntheticTargetCallerFramePlanResult`](#nativesynthetictargetcallerframeplanresult)
 - [`planNativeSyntheticTargetCallerFrame`](#plannativesynthetictargetcallerframe)
+- [`NativeTargetResumeExecutionAttempt`](#nativetargetresumeexecutionattempt)
+- [`NativeTargetResumeExecutionAttemptStatus`](#nativetargetresumeexecutionattemptstatus)
 - [`NativeTargetResumeExecutionMode`](#nativetargetresumeexecutionmode)
 - [`NativeTargetResumeExecutor`](#nativetargetresumeexecutor)
 - [`NativeTargetResumeExecutionPlan`](#nativetargetresumeexecutionplan)
@@ -4660,6 +4662,76 @@ by default when `output` is a TTY.
 
 ***
 
+### NativeTargetResumeExecutionAttempt
+
+#### Properties
+
+##### status
+
+> **status**: [`NativeTargetResumeExecutionAttemptStatus`](#nativetargetresumeexecutionattemptstatus)
+
+##### targetArch
+
+> **targetArch**: `"amd64"`
+
+##### entryAddress
+
+> **entryAddress**: `string`
+
+##### stackPointer
+
+> **stackPointer**: `string`
+
+##### targetBytesStart
+
+> **targetBytesStart**: `string`
+
+##### targetBytesEnd
+
+> **targetBytesEnd**: `string`
+
+##### targetInstructionPointer?
+
+> `optional` **targetInstructionPointer?**: `string`
+
+##### signal?
+
+> `optional` **signal?**: `string`
+
+##### signalNumber?
+
+> `optional` **signalNumber?**: `number`
+
+##### faultAddress?
+
+> `optional` **faultAddress?**: `string`
+
+##### returnValue?
+
+> `optional` **returnValue?**: `string`
+
+##### instructionPointerInTargetBytes
+
+> **instructionPointerInTargetBytes**: `boolean`
+
+##### attemptedResume
+
+> **attemptedResume**: `true`
+
+##### sourceTextReusedAsTargetCode
+
+> **sourceTextReusedAsTargetCode**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### sidecarRuntimeUsed
+
+> **sidecarRuntimeUsed**: `false`
+
+***
+
 ### NativeTargetResumeExecutionPlan
 
 #### Properties
@@ -8011,6 +8083,12 @@ Poll interval in ms while retrying. Default 250.
 ### NativeTargetResumeExecutor
 
 > **NativeTargetResumeExecutor** = `"native-resume-trampoline"`
+
+***
+
+### NativeTargetResumeExecutionAttemptStatus
+
+> **NativeTargetResumeExecutionAttemptStatus** = `"returned"` \| `"faulted"`
 
 ***
 

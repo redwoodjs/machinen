@@ -49,6 +49,10 @@ export const NATIVE_RESUME_TRAMPOLINE_SOURCE = join(
   REPO_ROOT,
   "packages/microvm/assets/native-resume-trampoline.c",
 );
+export const NATIVE_ACTUAL_RESUME_TRAMPOLINE_SOURCE = join(
+  REPO_ROOT,
+  "packages/microvm/assets/native-actual-resume-trampoline.c",
+);
 export const NATIVE_FINAL_JUMP_SOURCE_TARGET_SOURCE = join(
   REPO_ROOT,
   "packages/microvm/assets/native-final-jump-source.c",
@@ -423,6 +427,28 @@ export function compileNativeResumeTrampoline(binDir) {
       executable,
     ],
     { label: "native resume trampoline build" },
+  );
+  return executable;
+}
+
+export function compileNativeActualResumeTrampoline(binDir) {
+  const executable = join(binDir, "machinen-native-actual-resume-trampoline");
+  runCommand(
+    "cc",
+    [
+      "-std=c11",
+      "-O0",
+      "-g",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-fno-pie",
+      "-no-pie",
+      NATIVE_ACTUAL_RESUME_TRAMPOLINE_SOURCE,
+      "-o",
+      executable,
+    ],
+    { label: "native actual resume trampoline build" },
   );
   return executable;
 }

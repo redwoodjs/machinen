@@ -19,6 +19,11 @@ interface ActualRealUtilitySummary {
   blockingRefusal?: { code: string };
   plan?: { state: string; blockingBoundary: string; blockingRefusal?: { code: string } };
   attemptedResume?: boolean;
+  migrationCompleted?: boolean;
+  targetResumeExecutionAttempt?: {
+    attemptedResume: boolean;
+    instructionPointerInTargetBytes: boolean;
+  };
   sourceTextReusedAsTargetCode?: boolean;
   sourceIsaEmulationUsed?: boolean;
   sidecarRuntimeUsed?: boolean;
@@ -56,14 +61,23 @@ describe("native actual real utility continuation proof script", () => {
       expect(summary.phase).toBe("actual-real-utility-capture");
       expect(summary.actualCapturedUtility).toBe(true);
       expect(summary.processImageValidated).toBe(true);
-      expect(summary.attemptedResume).toBe(false);
+      expect(summary.attemptedResume).toBe(
+        summary.targetResumeExecutionAttempt?.attemptedResume ?? false,
+      );
+      expect(summary.migrationCompleted).toBe(false);
       expect(summary.sourceTextReusedAsTargetCode).toBe(false);
       expect(summary.sourceIsaEmulationUsed).toBe(false);
       expect(summary.sidecarRuntimeUsed).toBe(false);
       expect(summary.plan?.state).toBe("refused");
       expect(summary.blockingBoundary).toBe(summary.plan?.blockingBoundary);
       expect(summary.blockingRefusal?.code).toBe(summary.plan?.blockingRefusal?.code);
-      expect(summary.execution).toBe(`actual-real-utility-refused-at-${summary.blockingBoundary}`);
+      if (summary.plan?.state === "refused") {
+        expect(summary.execution).toBe(
+          `actual-real-utility-refused-at-${summary.blockingBoundary}`,
+        );
+      } else {
+        expect(summary.targetResumeExecutionAttempt?.instructionPointerInTargetBytes).toBe(true);
+      }
       expect(summary.threadSyscalls?.length).toBeGreaterThan(0);
     },
   );

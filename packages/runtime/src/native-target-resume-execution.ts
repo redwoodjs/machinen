@@ -9,6 +9,26 @@ import type { NativeTargetModuleByteMaterialization } from "./native-target-modu
 
 export type NativeTargetResumeExecutionMode = "planned-not-executed";
 export type NativeTargetResumeExecutor = "native-resume-trampoline";
+export type NativeTargetResumeExecutionAttemptStatus = "returned" | "faulted";
+
+export interface NativeTargetResumeExecutionAttempt {
+  status: NativeTargetResumeExecutionAttemptStatus;
+  targetArch: "amd64";
+  entryAddress: string;
+  stackPointer: string;
+  targetBytesStart: string;
+  targetBytesEnd: string;
+  targetInstructionPointer?: string;
+  signal?: string;
+  signalNumber?: number;
+  faultAddress?: string;
+  returnValue?: string;
+  instructionPointerInTargetBytes: boolean;
+  attemptedResume: true;
+  sourceTextReusedAsTargetCode: false;
+  sourceIsaEmulationUsed: false;
+  sidecarRuntimeUsed: false;
+}
 
 export interface NativeTargetResumeExecutionPlan {
   mode: NativeTargetResumeExecutionMode;
