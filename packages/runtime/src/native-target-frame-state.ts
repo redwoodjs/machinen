@@ -9,7 +9,12 @@ import type {
 } from "./native-target-unwind.ts";
 
 export type NativeTargetFrameStateRegister = Exclude<NativeTargetUnwindRegister, "rsp" | "rip">;
-export type NativeTargetFrameStateValueSource = "target-register";
+export type NativeTargetFrameStateValueSource = "target-register" | "synthetic-target-caller";
+
+export interface NativeSyntheticTargetCallerFrameStatePolicy {
+  mode: "abi-neutral-sentinel";
+  value?: string;
+}
 
 export interface NativeTargetFrameRegisterValue {
   register: NativeTargetFrameStateRegister;
@@ -33,6 +38,7 @@ export interface NativeTargetFrameStateMaterialization {
 export interface NativeTargetFrameStateMaterializationRequest {
   targetUnwind: NativeTargetUnwindMatchResult;
   registerValues?: NativeTargetFrameRegisterValue[];
+  syntheticTargetCaller?: NativeSyntheticTargetCallerFrameStatePolicy;
 }
 
 export interface NativeTargetFrameStateMaterializationResult {
@@ -51,11 +57,15 @@ export function planNativeTargetFrameStateMaterialization(
 
   for (const requirement of requirements) {
     const value = values.get(requirement.register);
-    if (!value) {
-      refusals.push(missingRegisterValueRefusal(requirement));
+    if (value) {
+      materialized.push({ requirement, value: value.value, valueSource: value.source });
       continue;
     }
-    materialized.push({ requirement, value: value.value, valueSource: value.source });
+    if (request.syntheticTargetCaller) {
+      materialized.push(syntheticCallerMaterialization(requirement, request.syntheticTargetCaller));
+      continue;
+    }
+    refusals.push(missingRegisterValueRefusal(requirement));
   }
 
   return { requirements, materialized, refusals };
@@ -83,6 +93,17 @@ function requirementFromSlot(
 
 function registerValueMap(values: NativeTargetFrameRegisterValue[]) {
   return new Map(values.map((value) => [value.register, value]));
+}
+
+function syntheticCallerMaterialization(
+  requirement: NativeTargetFrameStateRequirement,
+  policy: NativeSyntheticTargetCallerFrameStatePolicy,
+): NativeTargetFrameStateMaterialization {
+  return {
+    requirement,
+    value: policy.value ?? "0x0",
+    valueSource: "synthetic-target-caller",
+  };
 }
 
 function missingRegisterValueRefusal(

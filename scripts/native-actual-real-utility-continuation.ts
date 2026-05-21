@@ -195,6 +195,7 @@ function planCapturedActualUtilityBundle(
     targetUnwind: inputs.targetUnwind,
     targetFrameState: inputs.targetFrameState,
     targetModuleByteRefusals: inputs.targetBytes.refusals,
+    targetCallerFrameRefusals: syntheticTargetCallerFrameRefusals(inputs.targetFrameState),
     targetModuleBytesMaterialized: inputs.targetBytes.materialized.length > 0,
   });
   return {
@@ -251,7 +252,10 @@ function actualUtilityPlanningInputs(
     sourceFrames: sourceUnwind.frames,
     targetRoot: options.targetRoot,
   });
-  const targetFrameState = planNativeTargetFrameStateMaterialization({ targetUnwind });
+  const targetFrameState = planNativeTargetFrameStateMaterialization({
+    targetUnwind,
+    syntheticTargetCaller: { mode: "abi-neutral-sentinel" },
+  });
   const targetBytes = materializeResolvedTargetBytes(code.resolved, options.targetRoot);
   return {
     bundle,
@@ -658,8 +662,9 @@ function actualUtilitySummary(context: {
     targetUnwindMatches: planned.targetUnwind?.matches.length ?? 0,
     targetUnwindRefusals: planned.targetUnwind?.refusals ?? [],
     targetFrameStateRequirements: planned.targetFrameState.requirements,
-    targetFrameStateMaterialized: planned.targetFrameState.materialized.length,
+    targetFrameStateMaterialized: planned.targetFrameState.materialized,
     targetFrameStateRefusals: planned.targetFrameState.refusals,
+    targetCallerFrameRefusals: syntheticTargetCallerFrameRefusals(planned.targetFrameState),
     targetModuleByteRefusals: planned.targetBytes.refusals,
     materializedTargetBytes: materializedTargetByteSummaries(planned),
     sourceModules: planned.sourceModules.length,
@@ -729,6 +734,27 @@ function deferredActiveSyscallLandingSummaries(
         ]
       : [];
   });
+}
+
+function syntheticTargetCallerFrameRefusals(
+  targetFrameState: ReturnType<typeof planNativeTargetFrameStateMaterialization>,
+): NativeProcessImageRefusal[] {
+  const syntheticValues = targetFrameState.materialized.filter(
+    (state) => state.valueSource === "synthetic-target-caller",
+  );
+  return syntheticValues.length > 0
+    ? [
+        {
+          code: "target-caller-frame-unavailable",
+          message:
+            "synthetic target caller frame has not been materialized for actual real utility resume",
+          detail: {
+            syntheticValues: syntheticValues.length,
+            valueSource: "synthetic-target-caller",
+          },
+        },
+      ]
+    : [];
 }
 
 function materializedTargetByteSummaries(

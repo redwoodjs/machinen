@@ -148,6 +148,37 @@ describe("native real utility continuation planner", () => {
     });
   });
 
+  it("accepts complete target frame-state materialization", () => {
+    expect(
+      planNativeRealUtilityContinuationAttempt({
+        ...readyInput(),
+        targetFrameState: {
+          requirements: [
+            {
+              sourceFrameId: frame.id,
+              targetAddress: "0x700000001000",
+              register: "r15",
+              slot: { register: "r15", offset: -16 },
+            },
+          ],
+          materialized: [
+            {
+              requirement: {
+                sourceFrameId: frame.id,
+                targetAddress: "0x700000001000",
+                register: "r15",
+                slot: { register: "r15", offset: -16 },
+              },
+              value: "0x0",
+              valueSource: "synthetic-target-caller",
+            },
+          ],
+          refusals: [],
+        },
+      }),
+    ).toMatchObject({ state: "ready", blockingBoundary: "ready" });
+  });
+
   it("moves recorded target callee-saved slots to a later frame-state gate", () => {
     expect(
       planNativeRealUtilityContinuationAttempt({

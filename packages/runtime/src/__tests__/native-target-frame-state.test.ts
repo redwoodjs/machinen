@@ -44,7 +44,20 @@ describe("native target frame-state materialization", () => {
     });
   });
 
-  it("materializes slots only when explicit target-native values are supplied", () => {
+  it("materializes synthetic target-caller slots only with an explicit policy", () => {
+    const planned = planNativeTargetFrameStateMaterialization({
+      targetUnwind,
+      syntheticTargetCaller: { mode: "abi-neutral-sentinel" },
+    });
+
+    expect(planned.refusals).toEqual([]);
+    expect(planned.materialized).toMatchObject([
+      { requirement: { register: "r15" }, value: "0x0", valueSource: "synthetic-target-caller" },
+      { requirement: { register: "r14" }, value: "0x0", valueSource: "synthetic-target-caller" },
+    ]);
+  });
+
+  it("materializes slots when explicit target-native values are supplied", () => {
     const planned = planNativeTargetFrameStateMaterialization({
       targetUnwind,
       registerValues: [

@@ -9,11 +9,14 @@ import {
 
 export type NativeActualRealUtilityContinuationBoundary =
   | NativeRealUtilityContinuationBoundary
-  | "target-module-bytes";
+  | "target-module-bytes"
+  | "target-caller-frame";
 
 export interface NativeActualRealUtilityContinuationRequest extends NativeRealUtilityContinuationRequest {
   targetModuleByteRefusals?: NativeProcessImageRefusal[];
   targetModuleBytesMaterialized?: boolean;
+  targetCallerFrameRefusals?: NativeProcessImageRefusal[];
+  targetCallerFrameMaterialized?: boolean;
 }
 
 export interface NativeActualRealUtilityContinuationPlan {
@@ -45,6 +48,11 @@ export function planNativeActualRealUtilityContinuationAttempt(
     });
   }
 
+  const callerFrameRefusal = targetCallerFrameRefusal(request);
+  if (callerFrameRefusal) {
+    return refusedPlan("target-caller-frame", callerFrameRefusal);
+  }
+
   return {
     state: "ready",
     blockingBoundary: "ready",
@@ -52,6 +60,22 @@ export function planNativeActualRealUtilityContinuationAttempt(
     sourceTextReusedAsTargetCode: false,
     sourceIsaEmulationUsed: false,
     sidecarRuntimeUsed: false,
+  };
+}
+
+function targetCallerFrameRefusal(
+  request: NativeActualRealUtilityContinuationRequest,
+): NativeProcessImageRefusal | undefined {
+  if (request.targetCallerFrameRefusals?.[0]) {
+    return request.targetCallerFrameRefusals[0];
+  }
+  if (request.targetCallerFrameMaterialized) {
+    return undefined;
+  }
+  return {
+    code: "target-caller-frame-unavailable",
+    message:
+      "synthetic target caller frame has not been materialized for actual real utility resume",
   };
 }
 

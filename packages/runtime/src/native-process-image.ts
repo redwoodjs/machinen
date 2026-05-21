@@ -51,6 +51,7 @@ export const nativeProcessImageRefusalCodes = [
   "target-build-mismatch",
   "target-code-location-unresolved",
   "target-callee-saved-state-unsupported",
+  "target-caller-frame-unavailable",
   "target-code-rva-unmapped",
   "target-frame-layout-unsupported",
   "target-frame-register-value-unavailable",

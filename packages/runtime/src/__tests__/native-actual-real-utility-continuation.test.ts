@@ -128,8 +128,21 @@ describe("native actual real utility continuation planner", () => {
     });
   });
 
-  it("reports ready only when target bytes are explicitly materialized", () => {
+  it("requires a synthetic target caller frame after target bytes", () => {
     expect(planNativeActualRealUtilityContinuationAttempt(readyInput())).toMatchObject({
+      state: "refused",
+      blockingBoundary: "target-caller-frame",
+      blockingRefusal: { code: "target-caller-frame-unavailable" },
+    });
+  });
+
+  it("reports ready only when target bytes and caller frame are explicitly materialized", () => {
+    expect(
+      planNativeActualRealUtilityContinuationAttempt({
+        ...readyInput(),
+        targetCallerFrameMaterialized: true,
+      }),
+    ).toMatchObject({
       state: "ready",
       blockingBoundary: "ready",
       attemptedResume: false,
