@@ -73,10 +73,33 @@ function translateResource(
 }
 
 function resourceRefusal(resource: NativeProcessResource): NativeProcessImageRefusal {
-  const code = resource.kind === "fd" ? "fd-kind-unsupported" : "resource-kind-unsupported";
+  const code = resourceRefusalCode(resource);
   return {
     code,
     message: `resource ${resource.id} (${resource.kind}) needs a host broker recipe before native restore`,
-    detail: { id: resource.id, kind: resource.kind, fd: resource.fd, path: resource.path },
+    detail: {
+      id: resource.id,
+      kind: resource.kind,
+      fd: resource.fd,
+      path: resource.path,
+      boundary: code === "kernel-state-unsupported" ? "kernel-state" : "broker-recipe",
+    },
   };
+}
+
+function resourceRefusalCode(resource: NativeProcessResource): NativeProcessImageRefusal["code"] {
+  if (resource.kind === "fd" || resource.kind === "unknown") {
+    return "fd-kind-unsupported";
+  }
+  if (
+    resource.kind === "pipe" ||
+    resource.kind === "socket" ||
+    resource.kind === "epoll" ||
+    resource.kind === "timer" ||
+    resource.kind === "eventfd" ||
+    resource.kind === "signal"
+  ) {
+    return "kernel-state-unsupported";
+  }
+  return "resource-kind-unsupported";
 }

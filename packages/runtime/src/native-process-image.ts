@@ -219,6 +219,7 @@ export type NativeProcessResourceKind =
   | "raw-socket"
   | "pty"
   | "timer"
+  | "eventfd"
   | "signal"
   | "namespace"
   | "credential"
@@ -1366,6 +1367,7 @@ const RESOURCE_KINDS = [
   "raw-socket",
   "pty",
   "timer",
+  "eventfd",
   "signal",
   "namespace",
   "credential",
