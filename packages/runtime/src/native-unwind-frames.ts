@@ -1,5 +1,6 @@
 /** DWARF/eh-frame based native stack-frame discovery. */
 
+import { nativeEhFrameTextBlocks, nativeLastCapture } from "./native-eh-frame-text.ts";
 import type {
   NativeArm64Registers,
   NativeProcessImageRefusal,
@@ -101,7 +102,7 @@ export function parseNativeEhFrameText(
     };
   }
   const pc = BigInt(request.pc);
-  const block = ehFrameBlocks(request.readelfFrames).find(
+  const block = nativeEhFrameTextBlocks(request.readelfFrames).find(
     (candidate) => pc >= candidate.start && pc < candidate.end,
   );
   if (!block) {
@@ -134,27 +135,12 @@ function ruleForPc(rules: NativeUnwindFrameRule[], pc: bigint): NativeUnwindFram
   return rules.find((rule) => pc >= BigInt(rule.pcStart) && pc < BigInt(rule.pcEnd));
 }
 
-function ehFrameBlocks(stdout: string) {
-  const blocks: Array<{ start: bigint; end: bigint; lines: string[] }> = [];
-  let current: { start: bigint; end: bigint; lines: string[] } | undefined;
-  for (const line of stdout.split(/\r?\n/)) {
-    const match = /FDE .* pc=([0-9a-fA-F]+)\.\.([0-9a-fA-F]+)/.exec(line);
-    if (match?.[1] && match[2]) {
-      current = { start: BigInt(`0x${match[1]}`), end: BigInt(`0x${match[2]}`), lines: [] };
-      blocks.push(current);
-      continue;
-    }
-    current?.lines.push(line);
-  }
-  return blocks;
-}
-
 function ehFrameRuleFromBlock(
   request: NativeEhFrameTextParseRequest,
   block: { start: bigint; end: bigint; lines: string[] },
 ): { rule: NativeUnwindFrameRule } | { refusal: NativeProcessImageRefusal } {
   const cfaOffset = cfaOffsetFromX29(block.lines);
-  const returnAddressOffset = lastCapture(
+  const returnAddressOffset = nativeLastCapture(
     block.lines,
     /DW_CFA_offset: r30(?: \([^)]*\))? at cfa([+-]\d+)/,
   );
@@ -181,7 +167,7 @@ function ehFrameRuleFromBlock(
 }
 
 function cfaOffsetFromX29(lines: string[]) {
-  const combined = lastCapture(lines, /DW_CFA_def_cfa: r29(?: \([^)]*\))? ofs:? (\d+)/);
+  const combined = nativeLastCapture(lines, /DW_CFA_def_cfa: r29(?: \([^)]*\))? ofs:? (\d+)/);
   if (combined) {
     return combined;
   }
@@ -197,17 +183,6 @@ function cfaOffsetFromX29(lines: string[]) {
     }
   }
   return registerIsX29 ? offset : undefined;
-}
-
-function lastCapture(lines: string[], pattern: RegExp) {
-  let captured: string | undefined;
-  for (const line of lines) {
-    const match = pattern.exec(line);
-    if (match?.[1]) {
-      captured = match[1];
-    }
-  }
-  return captured;
 }
 
 function resolveUnwindRule(
