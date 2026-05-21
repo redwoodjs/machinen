@@ -27,18 +27,14 @@ The planner itself never jumps. It reports:
 }
 ```
 
-## Current boundary
+## Target unwind matching
 
-The first connected attempt reaches target-native code-location mapping,
-inherited stdio policy, and source `.eh_frame` frame discovery. It then refuses
-at:
+Issue #502 adds a separate target unwind matching proof. See
+[Native real utility target unwind matching](./native-real-utility-target-unwind.md).
 
-```text
-target-unwind-mismatch
-```
-
-That is intentional. We have not yet proven that the source unwind-derived frame
-matches a target-native amd64 unwind landing for a real utility module.
+The original connected attempt still documents the fail-closed behavior when no
+target match is supplied: it refuses at `target-unwind-mismatch` instead of
+jumping.
 
 ## Proof
 

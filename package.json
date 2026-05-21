@@ -64,6 +64,7 @@
     "native-real-utility-eh-frame": "tsx scripts/native-real-utility-eh-frame.ts verify",
     "native-real-utility-stdio-policy": "tsx scripts/native-real-utility-stdio-policy.ts verify",
     "native-real-utility-continuation": "tsx scripts/native-real-utility-continuation.ts verify",
+    "native-real-utility-target-unwind": "tsx scripts/native-real-utility-target-unwind.ts verify",
     "native-boundary-check": "tsx scripts/native-boundary-check.ts verify",
     "smoke-test-snapshot-restore-fork": "bash scripts/smoke-test-snapshot-restore-fork.sh",
     "smoke-vmstate": "bash scripts/smoke/vmstate/all.sh",
