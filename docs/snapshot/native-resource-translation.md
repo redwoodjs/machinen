@@ -28,8 +28,10 @@ Currently supported recipes:
 Unsupported resources are not silently dropped. They are returned with:
 
 - `fd-kind-unsupported` for unknown generic fd entries;
-- `resource-kind-unsupported` for sockets, pipes, timers, epoll, futexes,
-  namespaces, credentials, and other resources without a broker recipe.
+- `kernel-state-unsupported` for pipes, sockets, epoll, eventfd, timerfd, and
+  signalfd resources whose kernel state is not yet modeled;
+- `resource-kind-unsupported` for resources that need a broker recipe, such as
+  PTYs and raw sockets without an enabled broker capability.
 
 Each refusal includes the resource id, kind, fd, and path when available.
 
@@ -40,3 +42,5 @@ proof applies only regular-file recipes that can be reopened by path on the
 target host. A host broker is still required before `ping` raw sockets, PTYs,
 child process trees, timers, epoll sets, and futex waiters can resume
 transparently.
+
+See also: [Native non-file resource boundary](./native-nonfile-resource-boundary.md).
