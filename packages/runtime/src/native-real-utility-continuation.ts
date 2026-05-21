@@ -1,0 +1,124 @@
+/** Safety-ordered planner for first real utility native continuation attempts. */
+
+import type {
+  NativeCodeLocationMapping,
+  NativeProcessImageRefusal,
+} from "./native-process-image.ts";
+import type { NativeDiscoveredUnwindFrame } from "./native-unwind-frames.ts";
+
+export type NativeRealUtilityContinuationBoundary =
+  | "thread-state"
+  | "resource-boundary"
+  | "mapping-materialization"
+  | "target-code-location"
+  | "source-unwind"
+  | "target-unwind"
+  | "ready";
+
+export interface NativeRealUtilityContinuationRequest {
+  threadRefusals?: NativeProcessImageRefusal[];
+  resourceRefusals?: NativeProcessImageRefusal[];
+  mappingRefusals?: NativeProcessImageRefusal[];
+  codeLocations: NativeCodeLocationMapping[];
+  sourceFrames: NativeDiscoveredUnwindFrame[];
+  targetUnwindMatched: boolean;
+}
+
+export interface NativeRealUtilityContinuationPlan {
+  state: "ready" | "refused";
+  blockingBoundary: NativeRealUtilityContinuationBoundary;
+  blockingRefusal?: NativeProcessImageRefusal;
+  attemptedResume: false;
+  sourceTextReusedAsTargetCode: false;
+  sourceIsaEmulationUsed: false;
+  sidecarRuntimeUsed: false;
+}
+
+export function planNativeRealUtilityContinuationAttempt(
+  request: NativeRealUtilityContinuationRequest,
+): NativeRealUtilityContinuationPlan {
+  const ordered = firstOrderedRefusal(request);
+  if (ordered) {
+    return refusedPlan(ordered.boundary, ordered.refusal);
+  }
+  if (!request.targetUnwindMatched) {
+    return refusedPlan("target-unwind", {
+      code: "target-unwind-mismatch",
+      message: "source .eh_frame frame has not been matched to a target-native unwind landing",
+    });
+  }
+  return {
+    state: "ready",
+    blockingBoundary: "ready",
+    attemptedResume: false,
+    sourceTextReusedAsTargetCode: false,
+    sourceIsaEmulationUsed: false,
+    sidecarRuntimeUsed: false,
+  };
+}
+
+function firstOrderedRefusal(
+  request: NativeRealUtilityContinuationRequest,
+):
+  | { boundary: NativeRealUtilityContinuationBoundary; refusal: NativeProcessImageRefusal }
+  | undefined {
+  return (
+    firstRefusal("thread-state", request.threadRefusals) ??
+    firstRefusal("resource-boundary", request.resourceRefusals) ??
+    firstRefusal("mapping-materialization", request.mappingRefusals) ??
+    codeLocationRefusal(request.codeLocations) ??
+    sourceUnwindRefusal(request.sourceFrames)
+  );
+}
+
+function firstRefusal(
+  boundary: NativeRealUtilityContinuationBoundary,
+  refusals: NativeProcessImageRefusal[] | undefined,
+) {
+  const refusal = refusals?.[0];
+  return refusal ? { boundary, refusal } : undefined;
+}
+
+function codeLocationRefusal(codeLocations: NativeCodeLocationMapping[]) {
+  const missing = codeLocations.find((location) => location.state !== "mapped");
+  if (!missing) {
+    return undefined;
+  }
+  return {
+    boundary: "target-code-location" as const,
+    refusal:
+      missing.refusal ??
+      ({
+        code: "target-code-location-unresolved",
+        message: `code location ${missing.id} did not map to target-native code`,
+      } satisfies NativeProcessImageRefusal),
+  };
+}
+
+function sourceUnwindRefusal(sourceFrames: NativeDiscoveredUnwindFrame[]) {
+  if (sourceFrames.length > 0) {
+    return undefined;
+  }
+  return {
+    boundary: "source-unwind" as const,
+    refusal: {
+      code: "unwind-fde-missing" as const,
+      message: "no source unwind frame is available for real utility continuation",
+    },
+  };
+}
+
+function refusedPlan(
+  boundary: NativeRealUtilityContinuationBoundary,
+  refusal: NativeProcessImageRefusal,
+): NativeRealUtilityContinuationPlan {
+  return {
+    state: "refused",
+    blockingBoundary: boundary,
+    blockingRefusal: refusal,
+    attemptedResume: false,
+    sourceTextReusedAsTargetCode: false,
+    sourceIsaEmulationUsed: false,
+    sidecarRuntimeUsed: false,
+  };
+}
