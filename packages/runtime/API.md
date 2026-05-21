@@ -100,6 +100,10 @@
 - [`NativeRealUtilityContinuationRequest`](#nativerealutilitycontinuationrequest)
 - [`NativeRealUtilityContinuationPlan`](#nativerealutilitycontinuationplan)
 - [`planNativeRealUtilityContinuationAttempt`](#plannativerealutilitycontinuationattempt)
+- [`NativeTargetModuleByteMaterializationRequest`](#nativetargetmodulebytematerializationrequest)
+- [`NativeTargetModuleByteMaterialization`](#nativetargetmodulebytematerialization)
+- [`NativeTargetModuleByteMaterializationResult`](#nativetargetmodulebytematerializationresult)
+- [`materializeNativeTargetModuleBytes`](#materializenativetargetmodulebytes)
 - [`NativeTargetUnwindRegister`](#nativetargetunwindregister)
 - [`NativeTargetUnwindFrameRule`](#nativetargetunwindframerule)
 - [`NativeTargetEhFrameTextParseRequest`](#nativetargetehframetextparserequest)
@@ -2669,7 +2673,7 @@ by default when `output` is a TTY.
 
 ##### code
 
-> **code**: `"fd-kind-unsupported"` \| `"target-build-mismatch"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"active-syscall"` \| `"code-location-unknown"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-permission-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"target-build-id-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-code-rva-unmapped"` \| `"target-frame-layout-unsupported"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-return-slot-unsupported"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
+> **code**: `"fd-kind-unsupported"` \| `"target-build-mismatch"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"active-syscall"` \| `"code-location-unknown"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-permission-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"target-build-id-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-code-rva-unmapped"` \| `"target-frame-layout-unsupported"` \| `"target-module-file-missing"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-module-range-unreadable"` \| `"target-return-slot-unsupported"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
 
 ##### message
 
@@ -3936,6 +3940,92 @@ by default when `output` is a TTY.
 ##### relocations
 
 > **relocations**: [`NativeMemoryRelocation`](#nativememoryrelocation)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
+### NativeTargetModuleByteMaterializationRequest
+
+#### Properties
+
+##### module
+
+> **module**: [`NativeRealUtilityTargetModule`](#nativerealutilitytargetmodule)
+
+##### targetRoot?
+
+> `optional` **targetRoot?**: `string`
+
+##### relativeStart
+
+> **relativeStart**: `string`
+
+##### sizeBytes
+
+> **sizeBytes**: `number`
+
+##### fileOffset?
+
+> `optional` **fileOffset?**: `number`
+
+##### expectedBuildId?
+
+> `optional` **expectedBuildId?**: `string`
+
+***
+
+### NativeTargetModuleByteMaterialization
+
+#### Properties
+
+##### moduleId
+
+> **moduleId**: `string`
+
+##### path
+
+> **path**: `string`
+
+##### buildId
+
+> **buildId**: `string`
+
+##### relativeStart
+
+> **relativeStart**: `string`
+
+##### relativeEnd
+
+> **relativeEnd**: `string`
+
+##### fileOffset
+
+> **fileOffset**: `number`
+
+##### sizeBytes
+
+> **sizeBytes**: `number`
+
+##### bytes
+
+> **bytes**: `Uint8Array`
+
+##### sourceTextReusedAsTargetCode
+
+> **sourceTextReusedAsTargetCode**: `false`
+
+***
+
+### NativeTargetModuleByteMaterializationResult
+
+#### Properties
+
+##### materialized?
+
+> `optional` **materialized?**: [`NativeTargetModuleByteMaterialization`](#nativetargetmodulebytematerialization)
 
 ##### refusals
 
@@ -7705,7 +7795,7 @@ loops; anything looser stops being a meaningful gate.
 
 ### nativeProcessImageRefusalCodes
 
-> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"inherited-stdio-policy-required"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-permission-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"non-stdio-kernel-state-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"stdin-buffer-state-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-callee-saved-state-unsupported"`, `"target-code-rva-unmapped"`, `"target-frame-layout-unsupported"`, `"target-module-missing"`, `"target-module-not-executable"`, `"target-return-slot-unsupported"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
+> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"inherited-stdio-policy-required"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-permission-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"non-stdio-kernel-state-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"stdin-buffer-state-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-callee-saved-state-unsupported"`, `"target-code-rva-unmapped"`, `"target-frame-layout-unsupported"`, `"target-module-file-missing"`, `"target-module-missing"`, `"target-module-not-executable"`, `"target-module-range-unreadable"`, `"target-return-slot-unsupported"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
 
 ***
 
@@ -8966,6 +9056,22 @@ available.
 #### Returns
 
 [`NativeStackTranslationResult`](#nativestacktranslationresult)
+
+***
+
+### materializeNativeTargetModuleBytes()
+
+> **materializeNativeTargetModuleBytes**(`request`): [`NativeTargetModuleByteMaterializationResult`](#nativetargetmodulebytematerializationresult)
+
+#### Parameters
+
+##### request
+
+[`NativeTargetModuleByteMaterializationRequest`](#nativetargetmodulebytematerializationrequest)
+
+#### Returns
+
+[`NativeTargetModuleByteMaterializationResult`](#nativetargetmodulebytematerializationresult)
 
 ***
 
