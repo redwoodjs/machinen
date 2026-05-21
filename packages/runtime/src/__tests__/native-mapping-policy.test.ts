@@ -20,13 +20,12 @@ interface NativeMappingPolicySummary {
     materialization: string;
     capturedBytes: number;
   }>;
-  unreadableRefusals?: Array<{
+  guardRecreatedMappings?: Array<{
     kind: string;
     materialization: string;
-    refusalCode: string;
     capturedBytes: number;
   }>;
-  mappingRefusals?: Array<{ code: string; message: string }>;
+  mappingRefusals?: Array<{ code: string; message: string; detail?: Record<string, unknown> }>;
 }
 
 afterEach(() => {
@@ -37,7 +36,7 @@ afterEach(() => {
 
 describe("native mapping policy", () => {
   it(
-    "recreates kernel mappings and refuses unreadable mappings precisely",
+    "recreates kernel and guard mappings without copying source bytes",
     { timeout: 120_000 },
     () => {
       const outDir = mkdtempSync(join(tmpdir(), "native-mapping-policy-test-"));
@@ -69,18 +68,21 @@ describe("native mapping policy", () => {
           expect.objectContaining({ materialization: "recreate", capturedBytes: 0 }),
         ]),
       );
-      expect(summary.unreadableRefusals).toEqual(
+      expect(summary.guardRecreatedMappings).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            materialization: "refuse",
-            refusalCode: "mapping-unreadable",
+            materialization: "recreate",
             capturedBytes: 0,
           }),
         ]),
       );
-      expect(summary.mappingRefusals).toEqual(
-        expect.arrayContaining([expect.objectContaining({ code: "mapping-unreadable" })]),
-      );
+      expect(
+        summary.mappingRefusals?.every(
+          (refusal) =>
+            refusal.code !== "mapping-unreadable" ||
+            (refusal.detail?.perms && refusal.detail.sourceStart && refusal.detail.sourceEnd),
+        ),
+      ).toBe(true);
 
       const bundle = validateNativeProcessImageBundle(summary.bundleDir!);
       expect(

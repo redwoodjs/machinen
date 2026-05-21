@@ -54,6 +54,10 @@ function planMapping(
   mapping: NativeMemoryMapping,
   request: NativeMappingMaterializationRequest,
 ): NativeMappingMaterializationStep {
+  if (mapping.target.materialization === "refuse") {
+    return refusedPolicyStep(mapping);
+  }
+
   const permissionRefusal = validatePermissions(mapping);
   if (permissionRefusal) {
     return refusedStep(mapping, permissionRefusal);
@@ -66,12 +70,6 @@ function planMapping(
       return recreatedStep(mapping);
     case "omit":
       return baseStep(mapping, "omit");
-    case "refuse":
-      return refusedStep(
-        mapping,
-        mapping.refusal ??
-          refusal("mapping-ambiguous", `${mapping.id} is refused without a reason`),
-      );
   }
 }
 
@@ -104,6 +102,18 @@ function translatedStep(
   };
 }
 
+function refusedPolicyStep(mapping: NativeMemoryMapping): NativeMappingMaterializationStep {
+  const reason =
+    mapping.refusal ?? refusal("mapping-ambiguous", `${mapping.id} is refused without a reason`);
+  if (reason.code === "mapping-unreadable" && isRecreatableNoAccessProtectionMapping(mapping)) {
+    return noAccessProtectionRecreatedStep(mapping);
+  }
+  if (reason.code === "mapping-unreadable") {
+    return refusedStep(mapping, withMappingDetail(mapping, reason));
+  }
+  return refusedStep(mapping, reason);
+}
+
 function recreatedStep(mapping: NativeMemoryMapping): NativeMappingMaterializationStep {
   if (mapping.captured) {
     return refusedStep(
@@ -115,6 +125,15 @@ function recreatedStep(mapping: NativeMemoryMapping): NativeMappingMaterializati
     );
   }
   return baseStep(mapping, "recreate");
+}
+
+function noAccessProtectionRecreatedStep(
+  mapping: NativeMemoryMapping,
+): NativeMappingMaterializationStep {
+  return {
+    ...baseStep(mapping, "recreate"),
+    targetStart: mapping.target.targetStart ?? mapping.sourceStart,
+  };
 }
 
 function baseStep(
@@ -143,6 +162,50 @@ function validatePermissions(mapping: NativeMemoryMapping): NativeProcessImageRe
     return refusal("mapping-permission-unsupported", `${mapping.id} is writable and executable`);
   }
   return undefined;
+}
+
+function isRecreatableNoAccessProtectionMapping(mapping: NativeMemoryMapping): boolean {
+  return (
+    noAccessPrivate(mapping) &&
+    !mapping.captured &&
+    ["anonymous", "stack", "file"].includes(mapping.kind)
+  );
+}
+
+function noAccessPrivate(mapping: NativeMemoryMapping): boolean {
+  return [
+    !mapping.permissions.read,
+    !mapping.permissions.write,
+    !mapping.permissions.execute,
+    mapping.permissions.private,
+    !mapping.permissions.shared,
+  ].every(Boolean);
+}
+
+function withMappingDetail(
+  mapping: NativeMemoryMapping,
+  reason: NativeProcessImageRefusal,
+): NativeProcessImageRefusal {
+  return {
+    ...reason,
+    detail: {
+      ...reason.detail,
+      mapping: mapping.id,
+      kind: mapping.kind,
+      sourceStart: mapping.sourceStart,
+      sourceEnd: mapping.sourceEnd,
+      sizeBytes: mapping.sizeBytes,
+      perms: permissionString(mapping),
+      path: mapping.file?.path ?? "",
+      permissions: mapping.permissions,
+    },
+  };
+}
+
+function permissionString(mapping: NativeMemoryMapping): string {
+  return `${mapping.permissions.read ? "r" : "-"}${mapping.permissions.write ? "w" : "-"}${
+    mapping.permissions.execute ? "x" : "-"
+  }${mapping.permissions.shared ? "s" : mapping.permissions.private ? "p" : "-"}`;
 }
 
 function validateTargetStart(mapping: NativeMemoryMapping): NativeProcessImageRefusal | undefined {

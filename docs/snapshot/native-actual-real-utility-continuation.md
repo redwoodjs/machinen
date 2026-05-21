@@ -27,9 +27,13 @@ text is target code.
 
 ## Current result
 
-The default real utility is `sleep`, so the first observed blocker is expected
-to be thread state: the process is usually inside `clock_nanosleep`. The proof
-therefore refuses before resume with `active-syscall`.
+The default real utility is `sleep`, so default policy still refuses at thread
+state when the process is inside `clock_nanosleep`. With the explicit
+`MACHINEN_ACTUAL_REAL_UTILITY_SLEEP_SYSCALL_POLICY=defer-target-resume` policy,
+the proof records a deferred target timer continuation, recreates safe
+`PROT_NONE` guard/protection mappings, and exposes the next blocker
+(`target-code-location` for the current `/bin/sleep` capture) instead of
+granting success.
 
 That refusal is intentional. It proves the real capture path is wired into the
 same fail-closed planner as the final-jump fixture, without granting success for

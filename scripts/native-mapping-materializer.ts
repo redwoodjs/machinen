@@ -68,10 +68,11 @@ function verifyNativeMappingMaterializer(outDir: string) {
   assertAction(plan, "mapping:heap", "copy-captured-bytes");
   assertAction(plan, "mapping:stack", "recreate");
   assertAction(plan, "mapping:vdso", "recreate");
+  assertAction(plan, "mapping:guard", "recreate");
   assertAction(plan, "mapping:unreadable", "refuse");
   assert(
     plan.refusals.some((refusal) => refusal.code === "mapping-unreadable"),
-    "unreadable mapping refusal was not preserved",
+    "unsafe unreadable mapping refusal was not preserved",
   );
 
   const materializerEvent = runMaterializer(materializer, textFile, memoryFile);
@@ -115,14 +116,24 @@ function mappingPlan(textFile: string, textBuildId: string): NativeMemoryMapping
     recreatedMapping("mapping:stack", "stack", STACK_TARGET_START, PAGE_SIZE * 2),
     recreatedMapping("mapping:vdso", "vdso", RECREATE_TARGET_START, PAGE_SIZE),
     {
-      id: "mapping:unreadable",
+      id: "mapping:guard",
       kind: "anonymous",
       sourceStart: "0x800000",
       sourceEnd: "0x801000",
       sizeBytes: PAGE_SIZE,
       permissions: { read: false, write: false, execute: false, private: true, shared: false },
-      target: { materialization: "refuse", reason: "mapping is not readable" },
-      refusal: { code: "mapping-unreadable", message: "mapping is not readable" },
+      target: { materialization: "refuse", reason: "guard mapping is not readable" },
+      refusal: { code: "mapping-unreadable", message: "guard mapping is not readable" },
+    },
+    {
+      id: "mapping:unreadable",
+      kind: "anonymous",
+      sourceStart: "0xa00000",
+      sourceEnd: "0xa01000",
+      sizeBytes: PAGE_SIZE,
+      permissions: { read: false, write: false, execute: false, private: false, shared: true },
+      target: { materialization: "refuse", reason: "shared mapping is not readable" },
+      refusal: { code: "mapping-unreadable", message: "shared mapping is not readable" },
     },
   ];
 }

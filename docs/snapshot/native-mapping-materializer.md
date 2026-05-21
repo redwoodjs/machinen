@@ -14,8 +14,9 @@ materializes it with `mmap`:
 
 - file-backed executable text comes from a target artifact;
 - anonymous data and heap pages are copied from `native-memory.bin`;
-- stack and kernel-style mappings are recreated without copied source bytes;
-- an unreadable mapping remains refused with `mapping-unreadable`;
+- stack, kernel-style, and no-access guard mappings are recreated without
+  copied source bytes;
+- an unsafe unreadable mapping remains refused with `mapping-unreadable`;
 - final permissions are checked through `/proc/self/maps`.
 
 ## Runtime planner
@@ -25,13 +26,14 @@ loader steps:
 
 - `map-target-file` for executable target-file mappings;
 - `copy-captured-bytes` for safe anonymous/data/heap mappings;
-- `recreate` for target-owned stack/kernel mappings;
+- `recreate` for target-owned stack/kernel mappings and safe guard mappings;
 - `omit` for source-only mappings intentionally dropped;
 - `refuse` for fail-closed mappings.
 
 ## Refusals
 
-- `mapping-unreadable` is preserved from capture for unreadable mappings.
+- `mapping-unreadable` is preserved from capture for unsafe unreadable mappings
+  and includes mapping details when the planner reports it.
 - `mapping-ambiguous` is used for missing target addresses, missing captured
   bytes, invalid byte ranges, or recreated mappings that still carry source
   bytes.

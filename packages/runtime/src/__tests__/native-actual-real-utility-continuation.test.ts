@@ -77,6 +77,30 @@ describe("native actual real utility continuation planner", () => {
     });
   });
 
+  it("exposes target code location after guarded mappings stop refusing", () => {
+    expect(
+      planNativeActualRealUtilityContinuationAttempt({
+        ...readyInput(),
+        codeLocations: [
+          {
+            id: "code:thread:pc",
+            sourceMapping: "mapping:text",
+            sourceAddress: "0x401000",
+            state: "refused",
+            refusal: {
+              code: "active-syscall",
+              message: "thread is still inside a deferred sleep syscall",
+            },
+          },
+        ],
+      }),
+    ).toMatchObject({
+      state: "refused",
+      blockingBoundary: "target-code-location",
+      blockingRefusal: { code: "active-syscall" },
+    });
+  });
+
   it("refuses missing or failed target module bytes only after unwind matching", () => {
     expect(
       planNativeActualRealUtilityContinuationAttempt({
