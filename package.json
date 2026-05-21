@@ -60,6 +60,7 @@
     "native-file-resource-final-jump": "tsx scripts/native-file-resource-final-jump.ts verify",
     "native-nonfile-resource-boundary": "tsx scripts/native-nonfile-resource-boundary.ts verify",
     "native-real-utility": "tsx scripts/native-real-utility.ts verify",
+    "native-active-syscall-policy": "tsx scripts/native-active-syscall-policy.ts verify",
     "native-real-utility-code-map": "tsx scripts/native-real-utility-code-map.ts verify",
     "native-real-utility-eh-frame": "tsx scripts/native-real-utility-eh-frame.ts verify",
     "native-real-utility-stdio-policy": "tsx scripts/native-real-utility-stdio-policy.ts verify",

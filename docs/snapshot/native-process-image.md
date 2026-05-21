@@ -47,6 +47,9 @@ Every document has a refusal vocabulary. Current stable refusal codes cover the
 first native-translation blockers:
 
 - `active-syscall`
+- `blocking-syscall-state-unsupported`
+- `syscall-argument-state-unsupported`
+- `syscall-restart-unsupported`
 - `signal-frame-active`
 - `tls-state-unsupported`
 - `rseq-state-unsupported`

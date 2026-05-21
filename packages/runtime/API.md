@@ -82,6 +82,11 @@
 - [`NativeContinuationTarget`](#nativecontinuationtarget)
 - [`NativeRegisterTranslationResult`](#nativeregistertranslationresult)
 - [`translateNativeRegisterState`](#translatenativeregisterstate)
+- [`NativeActiveSyscallClass`](#nativeactivesyscallclass)
+- [`NativeActiveSyscallClassification`](#nativeactivesyscallclassification)
+- [`NativeActiveSyscallClassificationResult`](#nativeactivesyscallclassificationresult)
+- [`classifyNativeThreadSyscall`](#classifynativethreadsyscall)
+- [`classifyNativeActiveSyscalls`](#classifynativeactivesyscalls)
 - [`NativeCodeModule`](#nativecodemodule)
 - [`NativeCodeSymbol`](#nativecodesymbol)
 - [`NativeCodeMapRequest`](#nativecodemaprequest)
@@ -2236,6 +2241,54 @@ by default when `output` is a TTY.
 
 ***
 
+### NativeActiveSyscallClassification
+
+#### Properties
+
+##### threadId
+
+> **threadId**: `string`
+
+##### state
+
+> **state**: `"outside-syscall"` \| `"inside-syscall"` \| `"restart-block"`
+
+##### syscallNumber?
+
+> `optional` **syscallNumber?**: `number`
+
+##### syscallName?
+
+> `optional` **syscallName?**: `string`
+
+##### class
+
+> **class**: [`NativeActiveSyscallClass`](#nativeactivesyscallclass)
+
+##### resumable
+
+> **resumable**: `false`
+
+##### refusal?
+
+> `optional` **refusal?**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
+
+***
+
+### NativeActiveSyscallClassificationResult
+
+#### Properties
+
+##### classifications
+
+> **classifications**: [`NativeActiveSyscallClassification`](#nativeactivesyscallclassification)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
 ### NativeActualRealUtilityContinuationRequest
 
 #### Extends
@@ -2785,7 +2838,7 @@ by default when `output` is a TTY.
 
 ##### code
 
-> **code**: `"fd-kind-unsupported"` \| `"target-build-mismatch"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"active-syscall"` \| `"code-location-unknown"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-permission-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"target-build-id-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-code-rva-unmapped"` \| `"target-frame-layout-unsupported"` \| `"target-module-bytes-missing"` \| `"target-module-file-missing"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-module-range-unreadable"` \| `"target-return-slot-unsupported"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
+> **code**: `"fd-kind-unsupported"` \| `"target-build-mismatch"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"active-syscall"` \| `"blocking-syscall-state-unsupported"` \| `"code-location-unknown"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-permission-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"syscall-argument-state-unsupported"` \| `"syscall-restart-unsupported"` \| `"target-build-id-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-code-rva-unmapped"` \| `"target-frame-layout-unsupported"` \| `"target-module-bytes-missing"` \| `"target-module-file-missing"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-module-range-unreadable"` \| `"target-return-slot-unsupported"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
 
 ##### message
 
@@ -7285,6 +7338,12 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativeActiveSyscallClass
+
+> **NativeActiveSyscallClass** = `"outside-syscall"` \| `"sleep-timer"` \| `"fd-blocking"` \| `"restart"` \| `"unknown-active"`
+
+***
+
 ### NativeActualRealUtilityContinuationBoundary
 
 > **NativeActualRealUtilityContinuationBoundary** = [`NativeRealUtilityContinuationBoundary`](#nativerealutilitycontinuationboundary) \| `"target-module-bytes"`
@@ -7917,7 +7976,7 @@ loops; anything looser stops being a meaningful gate.
 
 ### nativeProcessImageRefusalCodes
 
-> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"inherited-stdio-policy-required"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-permission-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"non-stdio-kernel-state-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"stdin-buffer-state-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-callee-saved-state-unsupported"`, `"target-code-rva-unmapped"`, `"target-frame-layout-unsupported"`, `"target-module-bytes-missing"`, `"target-module-file-missing"`, `"target-module-missing"`, `"target-module-not-executable"`, `"target-module-range-unreadable"`, `"target-return-slot-unsupported"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
+> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"blocking-syscall-state-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"inherited-stdio-policy-required"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-permission-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"non-stdio-kernel-state-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"stdin-buffer-state-unsupported"`, `"syscall-argument-state-unsupported"`, `"syscall-restart-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-callee-saved-state-unsupported"`, `"target-code-rva-unmapped"`, `"target-frame-layout-unsupported"`, `"target-module-bytes-missing"`, `"target-module-file-missing"`, `"target-module-missing"`, `"target-module-not-executable"`, `"target-module-range-unreadable"`, `"target-return-slot-unsupported"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
 
 ***
 
@@ -8942,6 +9001,38 @@ available.
 #### Returns
 
 `string`
+
+***
+
+### classifyNativeActiveSyscalls()
+
+> **classifyNativeActiveSyscalls**(`threads`): [`NativeActiveSyscallClassificationResult`](#nativeactivesyscallclassificationresult)
+
+#### Parameters
+
+##### threads
+
+[`NativeThreadState`](#nativethreadstate)[]
+
+#### Returns
+
+[`NativeActiveSyscallClassificationResult`](#nativeactivesyscallclassificationresult)
+
+***
+
+### classifyNativeThreadSyscall()
+
+> **classifyNativeThreadSyscall**(`thread`): [`NativeActiveSyscallClassification`](#nativeactivesyscallclassification)
+
+#### Parameters
+
+##### thread
+
+[`NativeThreadState`](#nativethreadstate)
+
+#### Returns
+
+[`NativeActiveSyscallClassification`](#nativeactivesyscallclassification)
 
 ***
 

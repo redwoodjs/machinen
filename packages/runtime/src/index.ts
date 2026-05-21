@@ -103,6 +103,10 @@ export type {
 } from "./vm-handle.ts";
 export type { SnapshotEngine } from "./vm/snapshot-engine.ts";
 export { buildNativeCodeMap } from "./native-code-map.ts";
+export {
+  classifyNativeActiveSyscalls,
+  classifyNativeThreadSyscall,
+} from "./native-active-syscall-policy.ts";
 export type {
   NativeCodeMapRequest,
   NativeCodeMapResult,
@@ -139,6 +143,11 @@ export type {
   NativeActualRealUtilityContinuationPlan,
   NativeActualRealUtilityContinuationRequest,
 } from "./native-actual-real-utility-continuation.ts";
+export type {
+  NativeActiveSyscallClass,
+  NativeActiveSyscallClassification,
+  NativeActiveSyscallClassificationResult,
+} from "./native-active-syscall-policy.ts";
 export type {
   NativeTargetModuleByteMaterialization,
   NativeTargetModuleByteMaterializationRequest,
