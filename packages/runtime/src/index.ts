@@ -118,6 +118,7 @@ export {
   matchNativeTargetUnwindFrame,
   parseNativeTargetEhFrameText,
 } from "./native-target-unwind.ts";
+export { materializeNativeTargetModuleBytes } from "./native-target-module-bytes.ts";
 export type {
   NativeRealUtilityCodeLocationRequest,
   NativeRealUtilityCodeLocationResult,
@@ -132,6 +133,11 @@ export type {
   NativeRealUtilityContinuationPlan,
   NativeRealUtilityContinuationRequest,
 } from "./native-real-utility-continuation.ts";
+export type {
+  NativeTargetModuleByteMaterialization,
+  NativeTargetModuleByteMaterializationRequest,
+  NativeTargetModuleByteMaterializationResult,
+} from "./native-target-module-bytes.ts";
 export type {
   NativeTargetEhFrameTextParseRequest,
   NativeTargetEhFrameTextParseResult,
