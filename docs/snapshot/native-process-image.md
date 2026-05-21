@@ -56,6 +56,9 @@ first native-translation blockers:
 - `code-location-unknown`
 - `pointer-ambiguous`
 - `resource-kind-unsupported`
+- `inherited-stdio-policy-required`
+- `stdin-buffer-state-unsupported`
+- `non-stdio-kernel-state-unsupported`
 - `target-build-mismatch`
 - `target-build-id-mismatch`
 - `target-module-missing`
