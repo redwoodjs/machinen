@@ -60,3 +60,5 @@ for the active arm64 frame and target-native `ret` through the translated return
 address. It does not yet claim support for optimized frameless functions,
 signal frames, syscall restart frames, dynamic-loader unwinding, or arbitrary
 mixed-language stacks.
+
+Next: [Native DWARF pointer classification proof](./native-dwarf-pointer-classification.md).
