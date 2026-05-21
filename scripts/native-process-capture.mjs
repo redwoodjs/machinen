@@ -116,6 +116,7 @@ function summarizeBundle(context) {
     sourceRegisterArchs: context.bundle.threads.threads.map(
       (thread) => thread.sourceRegisters.arch,
     ),
+    syscallStates: context.bundle.threads.threads.map((thread) => thread.syscall.state),
     resourceCount: context.bundle.resources.resources.length,
     resourceKinds: [
       ...new Set(context.bundle.resources.resources.map((resource) => resource.kind)),
@@ -141,6 +142,10 @@ function validateSummary(summary) {
   assert(
     summary.sourceRegisterArchs.every((arch) => arch === summary.hostArch),
     "thread register architecture mismatch",
+  );
+  assert(
+    summary.syscallStates.every((state) => state === "outside-syscall"),
+    "spinning capture target should be outside syscalls",
   );
   assert(summary.resourceKinds.includes("auxv"), "auxv resource was not captured");
   assert(summary.resourceKinds.includes("file"), "file descriptor resource was not captured");
