@@ -80,3 +80,4 @@ See also:
 - [Native actual source unwind discovery](./native-actual-source-unwind.md)
 - [Native actual target unwind discovery](./native-actual-target-unwind.md)
 - [Native actual target frame-state gate](./native-actual-target-frame-state.md)
+- [Native actual synthetic target caller frame](./native-actual-target-caller-frame.md)
