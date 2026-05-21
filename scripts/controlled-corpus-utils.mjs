@@ -65,6 +65,10 @@ export const NATIVE_DWARF_UNWIND_CONTINUATION_SOURCE = join(
   REPO_ROOT,
   "packages/microvm/assets/native-dwarf-unwind-continuation.c",
 );
+export const NATIVE_DEBUG_POINTER_CONTINUATION_SOURCE = join(
+  REPO_ROOT,
+  "packages/microvm/assets/native-debug-pointer-continuation.c",
+);
 export const NATIVE_HEAP_GRAPH_CONTINUATION_SOURCE = join(
   REPO_ROOT,
   "packages/microvm/assets/native-heap-graph-continuation.c",
@@ -310,6 +314,18 @@ export function compileNativeDwarfUnwindContinuation(binDir) {
     nativeTargetBinaryCompileArgs(executable, NATIVE_DWARF_UNWIND_CONTINUATION_SOURCE),
     {
       label: "native DWARF unwind continuation build",
+    },
+  );
+  return executable;
+}
+
+export function compileNativeDebugPointerContinuation(binDir) {
+  const executable = join(binDir, "machinen-native-debug-pointer-continuation");
+  runCommand(
+    "cc",
+    nativeTargetBinaryCompileArgs(executable, NATIVE_DEBUG_POINTER_CONTINUATION_SOURCE),
+    {
+      label: "native debug pointer continuation build",
     },
   );
   return executable;
