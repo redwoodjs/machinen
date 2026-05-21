@@ -45,6 +45,48 @@ describe("native resource translation", () => {
     ]);
   });
 
+  it("applies explicit inherited stdio policy without treating kernel buffers as migrated", () => {
+    const withoutPolicy = translateNativeResources({
+      inheritedStdio: { mode: "require-explicit" },
+      resources: [
+        { id: "fd:1", kind: "pipe", state: "captured", fd: 1, path: "pipe:[stdout]" },
+        { id: "fd:2", kind: "socket", state: "captured", fd: 2, path: "socket:[stderr]" },
+      ],
+    });
+    expect(withoutPolicy.refusals.map((refusal) => refusal.code)).toEqual([
+      "inherited-stdio-policy-required",
+      "inherited-stdio-policy-required",
+    ]);
+
+    const withPolicy = translateNativeResources({
+      inheritedStdio: { mode: "inherit-output" },
+      resources: [
+        { id: "fd:0", kind: "pipe", state: "captured", fd: 0, path: "pipe:[stdin]" },
+        { id: "fd:1", kind: "pipe", state: "captured", fd: 1, path: "pipe:[stdout]" },
+        { id: "fd:2", kind: "socket", state: "captured", fd: 2, path: "socket:[stderr]" },
+        { id: "fd:3", kind: "pipe", state: "captured", fd: 3, path: "pipe:[nonstdio]" },
+        { id: "fd:4", kind: "file", state: "captured", fd: 4, path: "/tmp/data.txt", offset: 5 },
+      ],
+    });
+
+    expect(withPolicy.resources.find((resource) => resource.id === "fd:1")?.recipe).toEqual({
+      inherit: "stdout",
+      fd: 1,
+    });
+    expect(withPolicy.resources.find((resource) => resource.id === "fd:2")?.recipe).toEqual({
+      inherit: "stderr",
+      fd: 2,
+    });
+    expect(withPolicy.resources.find((resource) => resource.id === "fd:4")?.recipe).toMatchObject({
+      reopen: "/tmp/data.txt",
+      offset: 5,
+    });
+    expect(withPolicy.refusals.map((refusal) => refusal.code)).toEqual([
+      "stdin-buffer-state-unsupported",
+      "non-stdio-kernel-state-unsupported",
+    ]);
+  });
+
   it("uses exact refusal codes for generic and stateful kernel fd resources", () => {
     const result = translateNativeResources({
       resources: [
