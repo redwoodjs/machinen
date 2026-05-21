@@ -1,6 +1,6 @@
-# Native real utility attempts
+# Native real utility continuation attempt
 
-Issue #451 applies the native process-image stack to real Linux utilities.
+Issue #485 tries the first native-transparent continuation path against a tiny real Linux utility instead of a controlled fixture.
 
 ## Command
 
@@ -8,32 +8,52 @@ Issue #451 applies the native process-image stack to real Linux utilities.
 pnpm native-real-utility
 ```
 
-On non-Linux hosts the proof skips because it needs `/proc` and `ptrace`.
+On non-Linux hosts the proof skips because it needs `/proc` and `ptrace`. The current proof captures the arm64 source side.
 
-## Candidate ladder
+## Utility chosen
 
-The current ladder attempts:
+The first candidate is the system `sleep` utility:
 
-1. `sleep 30` — long-lived and externally capturable;
-2. `cat <regular-file>` — currently refused because a plain regular-file `cat`
-   exits before an external live capture point;
-3. `ping 127.0.0.1` — attempted when the host has `ping`; any sockets/raw
-   sockets are surfaced as resource recipes/refusals.
+```text
+/bin/sleep 30   or   /usr/bin/sleep 30
+```
 
-## Outcomes
+It is tiny, dynamically linked, long-lived, and has a narrow observable process state. The verifier checks that the selected binary is a dynamically linked ELF by reading its program headers and dynamic section.
 
-Each attempt is either:
+## Pipeline
 
-- `captured`, with mapping/thread/resource counts;
-- `refused`, with a stable refusal code and detail;
-- `skipped`, when the utility is absent.
+The attempt runs the stricter native pipeline from the previous proofs:
 
-`ping` is not declared solved. The proof records the resource kinds and any
-resource-broker refusals so the missing raw-socket/capability/timer/signal work
-is explicit.
+1. external ptrace/procfs process capture;
+2. native process-image validation;
+3. mapping materialization planning;
+4. resource translation/refusal classification;
+5. first target-code boundary check.
 
-## Boundary
+The proof intentionally refuses before any target jump unless a matching amd64 target binary/module/RVA map is available. It reports:
 
-This issue does not claim arbitrary utility continuation. It is a first real
-utility probe that exercises external capture and resource classification beyond
-controlled fixtures.
+```json
+{
+  "sourceTextReusedAsTargetCode": false,
+  "targetBinarySource": "not-provided"
+}
+```
+
+That is the important safety property for this issue: source arm64 text is never treated as target-native amd64 code.
+
+## Current result
+
+The expected current result is a fail-closed refusal at the first exact boundary, usually:
+
+- `code-location-unknown` when capture, resources, and mappings are clean but no matching amd64 target code map is provided; or
+- an earlier exact boundary such as `kernel-state-unsupported`, `mapping-ambiguous`, or `mapping-unreadable` if the host utility exposes that state.
+
+A passing run emits an execution string like:
+
+```text
+real-arm64-sleep-refused-at-target-code-location
+```
+
+## Non-claim
+
+This does **not** claim arbitrary native utility migration yet. It proves the real-utility attempt uses the native process-image validation pipeline and stops at a precise known boundary rather than falling back to source-ISA emulation, sidecars, app hooks, or raw source virtual addresses.
