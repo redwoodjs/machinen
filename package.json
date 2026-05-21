@@ -61,6 +61,7 @@
     "native-nonfile-resource-boundary": "tsx scripts/native-nonfile-resource-boundary.ts verify",
     "native-real-utility": "tsx scripts/native-real-utility.ts verify",
     "native-real-utility-code-map": "tsx scripts/native-real-utility-code-map.ts verify",
+    "native-real-utility-eh-frame": "tsx scripts/native-real-utility-eh-frame.ts verify",
     "native-boundary-check": "tsx scripts/native-boundary-check.ts verify",
     "smoke-test-snapshot-restore-fork": "bash scripts/smoke-test-snapshot-restore-fork.sh",
     "smoke-vmstate": "bash scripts/smoke/vmstate/all.sh",
