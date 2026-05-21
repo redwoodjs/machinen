@@ -36,7 +36,8 @@ consume the deferred sleep metadata. Without an explicit amd64 target root, the 
 with `target-module-missing` for the active libc frame instead of granting
 success. With a target root and source unwind sidecar, the proof can inventory
 target libc, materialize native libc bytes, discover the source libc frame, and
-expose the target-unwind gate.
+attempt target `.eh_frame` matching. Actual libc frames that save unmodeled
+callee registers still refuse precisely at `target-callee-saved-state-unsupported`.
 
 That refusal is intentional. It proves the real capture path is wired into the
 same fail-closed planner as the final-jump fixture, without granting success for

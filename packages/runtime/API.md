@@ -4473,6 +4473,10 @@ by default when `output` is a TTY.
 
 > **targetAddress**: `string`
 
+##### loadBias?
+
+> `optional` **loadBias?**: `string`
+
 ***
 
 ### NativeTargetEhFrameTextParseResult

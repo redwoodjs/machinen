@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { basename, join, resolve } from "node:path";
+import { basename, isAbsolute, join, resolve } from "node:path";
 import { classifyNativeActiveSyscalls } from "../packages/runtime/src/native-active-syscall-policy.ts";
 import { planNativeMappingMaterialization } from "../packages/runtime/src/native-mapping-materialization.ts";
 import { inventoryNativeActualTargetModules } from "../packages/runtime/src/native-actual-target-module-inventory.ts";
@@ -10,6 +10,11 @@ import {
 } from "../packages/runtime/src/native-real-utility-code-map.ts";
 import { planNativeActualRealUtilityContinuationAttempt } from "../packages/runtime/src/native-actual-real-utility-continuation.ts";
 import { materializeNativeTargetModuleBytes } from "../packages/runtime/src/native-target-module-bytes.ts";
+import {
+  matchNativeTargetUnwindFrame,
+  parseNativeTargetEhFrameText,
+  type NativeTargetUnwindMatchResult,
+} from "../packages/runtime/src/native-target-unwind.ts";
 import {
   discoverNativeUnwindFrames,
   nativeUnwindReturnAddressSlot,
@@ -186,6 +191,7 @@ function planCapturedActualUtilityBundle(
     codeLocations: inputs.code.codeLocations,
     sourceFrames: inputs.sourceUnwind.frames,
     sourceFrameRefusals: inputs.sourceUnwind.refusals,
+    targetUnwind: inputs.targetUnwind,
     targetModuleByteRefusals: inputs.targetBytes.refusals,
     targetModuleBytesMaterialized: inputs.targetBytes.materialized.length > 0,
   });
@@ -194,7 +200,7 @@ function planCapturedActualUtilityBundle(
     sourceFrames: inputs.sourceUnwind.frames,
     sourceUnwindRefusals: inputs.sourceUnwind.refusals,
     sourceUnwindRules: inputs.sourceUnwind.rules,
-    targetUnwind: undefined,
+    targetUnwind: inputs.targetUnwind,
     plan,
   };
 }
@@ -238,6 +244,11 @@ function actualUtilityPlanningInputs(
     activeSyscallContinuations: activeSyscalls.continuations,
   });
   const sourceUnwind = readActualSourceUnwindSidecar(bundleDir);
+  const targetUnwind = discoverActualTargetUnwind({
+    resolved: code.resolved,
+    sourceFrames: sourceUnwind.frames,
+    targetRoot: options.targetRoot,
+  });
   const targetBytes = materializeResolvedTargetBytes(code.resolved, options.targetRoot);
   return {
     bundle,
@@ -250,6 +261,7 @@ function actualUtilityPlanningInputs(
     targetModules,
     code,
     sourceUnwind,
+    targetUnwind,
     targetBytes,
   };
 }
@@ -510,6 +522,100 @@ function materializeResolvedTargetBytes(
   return { materialized, refusals };
 }
 
+function discoverActualTargetUnwind(options: {
+  resolved: ReturnType<typeof resolveNativeRealUtilityCodeLocations>["resolved"];
+  sourceFrames: NativeDiscoveredUnwindFrame[];
+  targetRoot?: string;
+}): NativeTargetUnwindMatchResult {
+  const result: NativeTargetUnwindMatchResult = { matches: [], refusals: [] };
+  for (const location of options.resolved) {
+    const matched = discoverActualTargetUnwindForLocation(
+      location,
+      options.sourceFrames,
+      options.targetRoot,
+    );
+    result.matches.push(...matched.matches);
+    result.refusals.push(...matched.refusals);
+  }
+  return result;
+}
+
+function discoverActualTargetUnwindForLocation(
+  location: ReturnType<typeof resolveNativeRealUtilityCodeLocations>["resolved"][number],
+  sourceFrames: NativeDiscoveredUnwindFrame[],
+  targetRoot: string | undefined,
+): NativeTargetUnwindMatchResult {
+  const sourceFrame = sourceFrameForTargetLocation(
+    sourceFrames,
+    location.threadId,
+    location.codeLocation.sourceAddress,
+  );
+  if (!sourceFrame) {
+    return targetUnwindRefused(
+      "target-unwind-mismatch",
+      `no source unwind frame matches target location ${location.codeLocation.id}`,
+    );
+  }
+  const targetPath = resolveActualTargetPath(targetRoot, location.targetModule.path);
+  if (!existsSync(targetPath)) {
+    return targetUnwindRefused(
+      "target-module-file-missing",
+      `target module file is unavailable for .eh_frame discovery: ${location.targetModule.path}`,
+    );
+  }
+  const parsed = parseTargetUnwindForLocation(location, targetPath);
+  if (parsed.refusals.length > 0) {
+    return { matches: [], refusals: parsed.refusals };
+  }
+  return matchNativeTargetUnwindFrame({
+    sourceFrame,
+    targetAddress: location.targetAddress,
+    targetRules: parsed.rules,
+  });
+}
+
+function parseTargetUnwindForLocation(
+  location: ReturnType<typeof resolveNativeRealUtilityCodeLocations>["resolved"][number],
+  targetPath: string,
+) {
+  const readelfFrames = runCommand("readelf", ["--debug-dump=frames", targetPath], {
+    label: `actual target .eh_frame scan ${basename(targetPath)}`,
+  }).stdout;
+  return parseNativeTargetEhFrameText({
+    readelfFrames,
+    mapping: location.targetModule.textMapping,
+    functionName: basename(location.targetModule.path),
+    targetAddress: location.targetAddress,
+    loadBias: location.targetModule.loadBias,
+  });
+}
+
+function sourceFrameForTargetLocation(
+  frames: NativeDiscoveredUnwindFrame[],
+  threadId: string,
+  sourceAddress: string,
+) {
+  return (
+    frames.find(
+      (frame) => frame.id.startsWith(`frame:${threadId}:`) && frame.sourcePc === sourceAddress,
+    ) ?? frames.find((frame) => frame.sourcePc === sourceAddress)
+  );
+}
+
+function targetUnwindRefused(
+  code: NativeProcessImageRefusal["code"],
+  message: string,
+): NativeTargetUnwindMatchResult {
+  return { matches: [], refusals: [{ code, message }] };
+}
+
+function resolveActualTargetPath(targetRoot: string | undefined, modulePath: string): string {
+  if (!targetRoot) {
+    return modulePath;
+  }
+  return join(targetRoot, isAbsolute(modulePath) ? modulePath.slice(1) : modulePath);
+}
+
 function actualUtilitySummary(context: {
   phase: string;
   hostArch: "arm64" | "amd64";
@@ -545,6 +651,7 @@ function actualUtilitySummary(context: {
     sourceUnwindRules: planned.sourceUnwindRules.length,
     sourceUnwindRefusals: planned.sourceUnwindRefusals,
     targetUnwindMatches: planned.targetUnwind?.matches.length ?? 0,
+    targetUnwindRefusals: planned.targetUnwind?.refusals ?? [],
     targetModuleByteRefusals: planned.targetBytes.refusals,
     materializedTargetBytes: materializedTargetByteSummaries(planned),
     sourceModules: planned.sourceModules.length,

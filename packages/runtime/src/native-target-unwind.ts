@@ -1,6 +1,6 @@
 /** Target-native unwind matching for real utility continuation planning. */
 
-import { nativeEhFrameTextBlocks, nativeLastCapture } from "./native-eh-frame-text.ts";
+import { nativeLastCapture } from "./native-eh-frame-text.ts";
 import type { NativeProcessImageRefusal } from "./native-process-image.ts";
 import type {
   NativeDiscoveredUnwindFrame,
@@ -38,6 +38,7 @@ export interface NativeTargetEhFrameTextParseRequest {
   mapping: string;
   functionName: string;
   targetAddress: string;
+  loadBias?: string;
 }
 
 export interface NativeTargetEhFrameTextParseResult {
@@ -71,8 +72,10 @@ export function parseNativeTargetEhFrameText(
     return refusedParse("unwind-metadata-missing", "target readelf did not emit .eh_frame data");
   }
   const targetAddress = BigInt(request.targetAddress);
-  const block = nativeEhFrameTextBlocks(request.readelfFrames).find(
-    (candidate) => targetAddress >= candidate.start && targetAddress < candidate.end,
+  const loadBias = BigInt(request.loadBias ?? "0x0");
+  const metadataAddress = targetAddress - loadBias;
+  const block = targetEhFrameTextBlocks(request.readelfFrames).find(
+    (candidate) => metadataAddress >= candidate.start && metadataAddress < candidate.end,
   );
   if (!block) {
     return refusedParse(
@@ -155,6 +158,7 @@ function targetRuleFromBlock(
   request: NativeTargetEhFrameTextParseRequest,
   block: { start: bigint; end: bigint; lines: string[] },
 ): { rule: NativeTargetUnwindFrameRule } | { refusal: NativeProcessImageRefusal } {
+  const loadBias = BigInt(request.loadBias ?? "0x0");
   const cfa = targetCfa(block.lines);
   const returnAddressOffset = nativeLastCapture(
     block.lines,
@@ -173,19 +177,101 @@ function targetRuleFromBlock(
       ),
     };
   }
+  return { rule: targetRule(request, block, cfa, returnAddressOffset, loadBias) };
+}
+
+function targetRule(
+  request: NativeTargetEhFrameTextParseRequest,
+  block: TargetEhFrameTextBlock,
+  cfa: NativeTargetUnwindFrameRule["cfa"],
+  returnAddressOffset: string,
+  loadBias: bigint,
+): NativeTargetUnwindFrameRule {
   return {
-    rule: {
-      id: `target-eh-frame:${request.functionName}:${hex(block.start)}`,
-      functionName: request.functionName,
-      mapping: request.mapping,
-      pcStart: hex(block.start),
-      pcEnd: hex(block.end),
-      metadata: "eh-frame",
-      cfa,
-      returnAddress: { location: "cfa-relative", offset: Number.parseInt(returnAddressOffset, 10) },
-      calleeSaved: targetCalleeSaved(block.lines),
-    },
+    id: `target-eh-frame:${request.functionName}:${hex(block.start + loadBias)}`,
+    functionName: request.functionName,
+    mapping: request.mapping,
+    pcStart: hex(block.start + loadBias),
+    pcEnd: hex(block.end + loadBias),
+    metadata: "eh-frame",
+    cfa,
+    returnAddress: { location: "cfa-relative", offset: Number.parseInt(returnAddressOffset, 10) },
+    calleeSaved: targetCalleeSaved(block.lines),
   };
+}
+
+interface TargetEhFrameTextBlock {
+  start: bigint;
+  end: bigint;
+  lines: string[];
+}
+
+interface TargetEhFrameTextCursor {
+  cieLines: Map<string, string[]>;
+  blocks: TargetEhFrameTextBlock[];
+  currentCie?: { offset: string; lines: string[] };
+  currentFde?: TargetEhFrameTextBlock;
+}
+
+function targetEhFrameTextBlocks(stdout: string): TargetEhFrameTextBlock[] {
+  const cursor: TargetEhFrameTextCursor = { cieLines: new Map(), blocks: [] };
+  for (const line of stdout.split(/\r?\n/)) {
+    consumeTargetEhFrameLine(cursor, line);
+  }
+  return cursor.blocks;
+}
+
+function consumeTargetEhFrameLine(cursor: TargetEhFrameTextCursor, line: string): void {
+  if (startTargetCie(cursor, line) || startTargetFde(cursor, line)) {
+    return;
+  }
+  if (cursor.currentCie) {
+    cursor.currentCie.lines.push(line);
+    return;
+  }
+  cursor.currentFde?.lines.push(line);
+}
+
+function startTargetCie(cursor: TargetEhFrameTextCursor, line: string): boolean {
+  const cie = /^([0-9a-fA-F]+)\s+[0-9a-fA-F]+\s+[0-9a-fA-F]+\s+CIE\b/.exec(line);
+  if (!cie?.[1]) {
+    return false;
+  }
+  cursor.currentCie = { offset: normalizeFrameOffset(cie[1]), lines: [] };
+  cursor.cieLines.set(cursor.currentCie.offset, cursor.currentCie.lines);
+  cursor.currentFde = undefined;
+  return true;
+}
+
+function startTargetFde(cursor: TargetEhFrameTextCursor, line: string): boolean {
+  const fde = targetFdeHeader(line);
+  if (!fde) {
+    return false;
+  }
+  cursor.currentFde = fdeBlock(cursor, fde);
+  cursor.blocks.push(cursor.currentFde);
+  cursor.currentCie = undefined;
+  return true;
+}
+
+function targetFdeHeader(line: string) {
+  const match =
+    /^(?:[0-9a-fA-F]+\s+[0-9a-fA-F]+\s+[0-9a-fA-F]+\s+)?FDE(?:\s+cie=([0-9a-fA-F]+))?\s+pc=([0-9a-fA-F]+)\.\.([0-9a-fA-F]+)/.exec(
+      line,
+    );
+  return match?.[2] && match[3] ? { cie: match[1], start: match[2], end: match[3] } : undefined;
+}
+
+function fdeBlock(
+  cursor: TargetEhFrameTextCursor,
+  fde: { cie?: string; start: string; end: string },
+): TargetEhFrameTextBlock {
+  const inherited = fde.cie ? (cursor.cieLines.get(normalizeFrameOffset(fde.cie)) ?? []) : [];
+  return { start: BigInt(`0x${fde.start}`), end: BigInt(`0x${fde.end}`), lines: [...inherited] };
+}
+
+function normalizeFrameOffset(offset: string): string {
+  return BigInt(`0x${offset}`).toString(16);
 }
 
 function targetCfa(lines: string[]): NativeTargetUnwindFrameRule["cfa"] | undefined {

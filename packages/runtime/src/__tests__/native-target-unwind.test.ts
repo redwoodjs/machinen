@@ -38,6 +38,17 @@ function targetReadelfFrames() {
 `;
 }
 
+function targetSharedObjectReadelfFrames() {
+  return `
+00000000 0000000000000014 00000000 CIE
+  DW_CFA_def_cfa: r7 (rsp) ofs 8
+  DW_CFA_offset: r16 (rip) at cfa-8
+
+00000018 0000000000000010 0000001c FDE cie=00000000 pc=0000000000001200..0000000000001280
+  DW_CFA_nop
+`;
+}
+
 describe("native target unwind matching", () => {
   it("parses target amd64 .eh_frame text and matches a source frame return contract", () => {
     const parsed = parseNativeTargetEhFrameText({
@@ -68,6 +79,24 @@ describe("native target unwind matching", () => {
       targetAddress: "0x700000001234",
       targetReturnAddressSlotOffset: -8,
       preservesReturnContract: true,
+    });
+  });
+
+  it("relocates shared-object target FDEs by load bias and inherits CIE return slots", () => {
+    const parsed = parseNativeTargetEhFrameText({
+      readelfFrames: targetSharedObjectReadelfFrames(),
+      mapping: "target:mapping:libc",
+      functionName: "libc.so.6",
+      targetAddress: "0x700100001234",
+      loadBias: "0x700100000000",
+    });
+
+    expect(parsed.refusals).toEqual([]);
+    expect(parsed.rules[0]).toMatchObject({
+      pcStart: "0x700100001200",
+      pcEnd: "0x700100001280",
+      cfa: { register: "rsp", offset: 8 },
+      returnAddress: { location: "cfa-relative", offset: -8 },
     });
   });
 

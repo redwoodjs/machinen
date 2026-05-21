@@ -7,7 +7,9 @@ can be considered safe.
 ## Rule
 
 The matcher consumes the target module's `.eh_frame` metadata for the mapped
-target RVA. The first modeled target frame shape is narrow:
+target RVA. Shared-object FDE ranges are matched with the target module load bias,
+and real amd64 CIE return-address slots are inherited by their FDEs. The first
+modeled target frame shape is narrow:
 
 - CFA is based on `rsp` or `rbp` with a constant offset.
 - the target return address is a CFA-relative stack slot, normally `cfa-8`.
