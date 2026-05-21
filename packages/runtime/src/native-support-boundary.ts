@@ -61,11 +61,11 @@ export const nativeAmbiguityClasses: NativeAmbiguityClass[] = [
   {
     id: "kernel-resource",
     description:
-      "fds, sockets, PTYs, timers, epoll, namespaces, credentials, and raw sockets need broker recipes.",
-    requiredMetadata: ["fd table", "resource kind", "host broker capability"],
+      "fds, sockets, PTYs, timers, epoll, namespaces, credentials, and raw sockets need broker recipes or modeled kernel state.",
+    requiredMetadata: ["fd table", "resource kind", "host broker capability", "kernel state"],
     translationRule:
-      "Regular files can reopen/reseek; brokered resources require declared capability.",
-    refusalCode: "resource-kind-unsupported",
+      "Regular files can reopen/reseek; brokered resources require declared capability; kernel-stateful fds fail closed.",
+    refusalCode: "kernel-state-unsupported",
   },
   {
     id: "vdso-vvar-special-mapping",
