@@ -256,6 +256,54 @@ export function translatedCapturedStackMapping(mapping: NativeMemoryMapping) {
   };
 }
 
+export function translatedOmittedSourceTextMapping(mapping: NativeMemoryMapping, reason: string) {
+  return {
+    id: mapping.id,
+    kind: "text" as const,
+    sourceStart: mapping.sourceStart,
+    sourceEnd: mapping.sourceEnd,
+    sizeBytes: mapping.sizeBytes,
+    permissions: { read: true, write: false, execute: true, private: true, shared: false },
+    file: mapping.file,
+    target: { materialization: "omit" as const, reason },
+  };
+}
+
+export function translatedTargetTextMapping(options: {
+  id: string;
+  binary: string;
+  buildId: string;
+  targetStart: bigint;
+  sizeBytes?: number;
+}) {
+  const sizeBytes = options.sizeBytes ?? FINAL_JUMP_PAGE_SIZE;
+  return {
+    id: options.id,
+    kind: "text" as const,
+    sourceStart: finalJumpHex(options.targetStart),
+    sourceEnd: finalJumpHex(options.targetStart + BigInt(sizeBytes)),
+    sizeBytes,
+    permissions: { read: true, write: false, execute: true, private: true, shared: false },
+    file: {
+      path: options.binary,
+      offset: 0,
+      buildId: options.buildId,
+      sha256: options.buildId,
+    },
+    captured: { file: "native-memory.bin" as const, offset: 0, sizeBytes },
+    target: {
+      materialization: "translate" as const,
+      targetStart: finalJumpHex(options.targetStart),
+    },
+  };
+}
+
+export function translatedStackReturnAddress(stack: ReturnType<typeof translateNativeStack>) {
+  const relocation = stack.relocations.find((candidate) => candidate.kind === "return-address");
+  assert(relocation?.targetValue, "stack translation did not produce a target return address");
+  return BigInt(relocation.targetValue);
+}
+
 export function translatedThreads(facts: CapturedArm64SourceFacts) {
   return { formatVersion: 1, threads: [facts.thread], refusals: nativeEmptyRefusals() };
 }
