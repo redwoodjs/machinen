@@ -152,6 +152,7 @@ const TOC = {
     "NativeMappingMaterializationRequest",
     "NativeMappingMaterializationResult",
     "planNativeMappingMaterialization",
+    "NativeInheritedStdioPolicy",
     "NativeResourceTranslationRequest",
     "NativeResourceTranslationResult",
     "translateNativeResources",
