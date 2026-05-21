@@ -42,6 +42,8 @@ The bundle records:
 - memory maps from `/proc/<pid>/maps`;
 - readable mapping bytes from `/proc/<pid>/mem` into `native-memory.bin`;
 - per-thread stopped state and architecture-specific register documents;
+- syscall state from `/proc/<tid>/syscall`, classified as `outside-syscall`,
+  `inside-syscall`, or `restart-block`;
 - signal masks and TLS thread pointer metadata;
 - fd table metadata, regular-file reopen recipes, and resource refusals for
   broker-required fd kinds;
@@ -70,5 +72,6 @@ Every captured thread is listed in `native-translation.json` with state
 
 Readable mappings that cannot be read through `/proc/<pid>/mem` are emitted with
 `mapping-unreadable`. Mappings that exceed the capture policy are emitted with
-`mapping-ambiguous`. Non-regular fd kinds are emitted as resource refusals until
-a broker recipe exists.
+`mapping-ambiguous`. Threads stopped inside a syscall or restart block are later
+refused by register translation with `active-syscall`. Non-regular fd kinds are
+emitted as resource refusals until a broker recipe exists.
