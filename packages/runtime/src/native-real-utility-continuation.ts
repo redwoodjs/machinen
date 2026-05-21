@@ -124,7 +124,11 @@ function targetUnwindRefusal(
   if (request.targetUnwind?.refusals[0]) {
     return request.targetUnwind.refusals[0];
   }
-  if (request.targetUnwind && request.targetUnwind.matches.length === 0) {
+  if (
+    request.targetUnwind &&
+    request.targetUnwind.matches.length === 0 &&
+    !request.targetUnwindMatched
+  ) {
     return {
       code: "target-unwind-mismatch",
       message: "target unwind matching produced no safe frame match",

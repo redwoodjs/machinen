@@ -25,12 +25,15 @@ For each captured thread:
    that same RVA as executable target code, then produce
    `targetAddress = targetModule.loadBias + sourceRva`.
 7. For deferred sleep/timer syscalls, do **not** fall back to same-RVA mapping.
-   Resolve an explicit amd64 sleep/timer continuation from target module
-   metadata, currently the target libc `clock_nanosleep`/`nanosleep` symbol.
-8. If no semantic target continuation exists, refuse with
-   `target-semantic-continuation-missing`.
-9. If the thread was inside a deferred sleep/timer syscall, record the semantic
-   deferred target landing without marking the source syscall resumed.
+   Resolve either an explicit amd64 sleep/timer symbol from target module
+   metadata or the synthetic `synthetic-sleep-syscall` continuation.
+8. If target-symbol mode is requested and no semantic target continuation exists,
+   refuse with `target-semantic-continuation-missing`.
+9. If synthetic mode is requested, create a synthetic amd64 target module at the
+   modeled synthetic entry address and record the generated syscall continuation
+   provenance.
+10. If the thread was inside a deferred sleep/timer syscall, record the deferred
+    target landing without marking the source syscall resumed.
 
 The proof reports `sourceTextReusedAsTargetCode: false` and does not attempt a
 resume. It only proves that the next native continuation address is selected
@@ -54,6 +57,8 @@ from target-native module metadata.
 - `target-sleep-remaining-time-missing` — the active syscall policy was asked to
   defer a sleep/timer syscall, but it could not model the relative target timer
   duration from captured syscall state.
+- `target-sleep-syscall-continuation-missing` — modeled sleep state exists, but
+  the synthetic amd64 syscall continuation cannot be generated safely.
 
 ## Proof
 

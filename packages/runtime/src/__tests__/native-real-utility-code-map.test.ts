@@ -251,6 +251,48 @@ describe("native real utility code-location map", () => {
     });
   });
 
+  it("maps deferred sleep/timer code locations to a synthetic syscall continuation", () => {
+    const activeThread = thread({
+      syscall: { state: "inside-syscall", number: 230, name: "clock_nanosleep" },
+    });
+    const continuation = {
+      threadId: activeThread.id,
+      syscallClass: "sleep-timer" as const,
+      action: "defer-target-resume" as const,
+      syscall: activeThread.syscall,
+      metadata: modeledSleepTimerMetadata(),
+    };
+
+    const result = resolveNativeRealUtilityCodeLocations({
+      documents: documents({ activeThread }),
+      targetArch: "amd64",
+      targetModules: [],
+      activeSyscallContinuations: [continuation],
+      sleepTimerContinuationStrategy: "synthetic-syscall",
+    });
+
+    expect(result.refusals).toEqual([]);
+    expect(result.resolved[0]).toMatchObject({
+      targetRva: "0x0",
+      targetAddress: "0x700200000000",
+      continuationStrategy: "synthetic-sleep-syscall",
+      syntheticContinuation: {
+        source: "synthetic-syscall",
+        symbolName: "machinen_synthetic_clock_nanosleep",
+        syscall: { name: "clock_nanosleep", number: 230 },
+      },
+    });
+    expect(result.targetModules[0]).toMatchObject({
+      id: `target:synthetic-sleep-syscall:${activeThread.id}`,
+      logicalName: "machinen-synthetic-sleep-syscall",
+    });
+    expect(result.resolved[0]?.deferredActiveSyscallLanding).toMatchObject({
+      strategy: "synthetic-sleep-syscall",
+      syntheticContinuation: { source: "synthetic-syscall" },
+      metadata: { remainingTime: { state: "modeled", seconds: "30" } },
+    });
+  });
+
   it("refuses deferred sleep/timer code locations without falling back to source RVA", () => {
     const activeThread = thread({
       syscall: { state: "inside-syscall", number: 230, name: "clock_nanosleep" },

@@ -127,6 +127,16 @@ describe("native real utility continuation planner", () => {
     });
   });
 
+  it("allows explicit synthetic continuations to bypass real target unwind matching", () => {
+    expect(
+      planNativeRealUtilityContinuationAttempt({
+        ...readyInput(),
+        targetUnwind: { matches: [], refusals: [] },
+        targetUnwindMatched: true,
+      }),
+    ).toMatchObject({ state: "ready", blockingBoundary: "ready" });
+  });
+
   it("reports precise target frame-state planner refusals", () => {
     expect(
       planNativeRealUtilityContinuationAttempt({

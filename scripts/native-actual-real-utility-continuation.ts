@@ -14,6 +14,7 @@ import {
 } from "../packages/runtime/src/native-real-utility-code-map.ts";
 import { planNativeActualRealUtilityContinuationAttempt } from "../packages/runtime/src/native-actual-real-utility-continuation.ts";
 import { materializeNativeTargetModuleBytes } from "../packages/runtime/src/native-target-module-bytes.ts";
+import { buildNativeSyntheticSleepSyscallContinuation } from "../packages/runtime/src/native-synthetic-sleep-continuation.ts";
 import { planNativeTargetFrameStateMaterialization } from "../packages/runtime/src/native-target-frame-state.ts";
 import { planNativeSyntheticTargetCallerFrame } from "../packages/runtime/src/native-target-caller-frame.ts";
 import {
@@ -216,6 +217,7 @@ function planCapturedActualUtilityBundle(
     sourceFrames: inputs.sourceUnwind.frames,
     sourceFrameRefusals: inputs.sourceUnwind.refusals,
     targetUnwind: inputs.targetUnwind,
+    targetUnwindMatched: targetUnwindMatched(inputs),
     targetFrameState: inputs.targetFrameState,
     targetModuleByteRefusals: inputs.targetBytes.refusals,
     targetCallerFrameRefusals: inputs.targetCallerFrame.refusals,
@@ -232,6 +234,15 @@ function planCapturedActualUtilityBundle(
     targetUnwind: inputs.targetUnwind,
     plan,
   };
+}
+
+function targetUnwindMatched(inputs: ReturnType<typeof actualUtilityPlanningInputs>): boolean {
+  return (
+    inputs.targetUnwind.matches.length > 0 ||
+    inputs.code.resolved.some(
+      (location) => location.continuationStrategy === "synthetic-sleep-syscall",
+    )
+  );
 }
 
 function actualUtilityPlanningInputs(
@@ -277,6 +288,8 @@ function actualUtilityPlanningInputs(
     targetArch: "amd64",
     targetModules,
     activeSyscallContinuations: activeSyscalls.continuations,
+    sleepTimerContinuationStrategy:
+      activeSyscalls.continuations.length > 0 ? "synthetic-syscall" : "target-symbol",
   });
   const sourceUnwind = readActualSourceUnwindSidecar(bundleDir);
   const targetUnwind = discoverActualTargetUnwind({
@@ -315,7 +328,7 @@ function actualUtilityPlanningInputs(
     resources,
     mappings,
     sourceModules,
-    targetModules,
+    targetModules: code.targetModules,
     code,
     sourceUnwind,
     targetUnwind,
@@ -701,12 +714,15 @@ function materializeResolvedTargetBytes(
   const materialized = [];
   const refusals = [];
   for (const location of resolved) {
-    const bytes = materializeNativeTargetModuleBytes({
-      module: location.targetModule,
-      targetRoot,
-      relativeStart: location.targetRva,
-      sizeBytes: TARGET_BYTE_WINDOW,
-    });
+    const bytes =
+      location.continuationStrategy === "synthetic-sleep-syscall"
+        ? materializeSyntheticSleepTargetBytes(location)
+        : materializeNativeTargetModuleBytes({
+            module: location.targetModule,
+            targetRoot,
+            relativeStart: location.targetRva,
+            sizeBytes: TARGET_BYTE_WINDOW,
+          });
     if (bytes.materialized) {
       materialized.push(bytes.materialized);
     }
@@ -715,18 +731,52 @@ function materializeResolvedTargetBytes(
   return { materialized, refusals };
 }
 
+function materializeSyntheticSleepTargetBytes(
+  location: ReturnType<typeof resolveNativeRealUtilityCodeLocations>["resolved"][number],
+): ReturnType<typeof materializeNativeTargetModuleBytes> {
+  const landing = location.deferredActiveSyscallLanding;
+  assert(landing, "synthetic sleep target bytes require a deferred syscall landing");
+  const synthetic = buildNativeSyntheticSleepSyscallContinuation({
+    threadId: location.threadId,
+    remainingTime: landing.metadata.remainingTime,
+    sleepTimer: landing.metadata.sleepTimer,
+    targetAddress: location.targetAddress,
+  });
+  if (!synthetic.continuation) {
+    return { refusals: synthetic.refusals };
+  }
+  return {
+    materialized: {
+      moduleId: location.targetModule.id,
+      path: location.targetModule.path,
+      buildId: location.targetModule.buildId,
+      relativeStart: "0x0",
+      relativeEnd: finalJumpHex(BigInt(synthetic.continuation.sizeBytes)),
+      fileOffset: 0,
+      sizeBytes: synthetic.continuation.sizeBytes,
+      bytes: synthetic.continuation.bytes,
+      sourceTextReusedAsTargetCode: false,
+    },
+    refusals: [],
+  };
+}
+
 function inspectActualTargetResumeLandings(options: {
   resolved: ReturnType<typeof resolveNativeRealUtilityCodeLocations>["resolved"];
   targetBytes: ReturnType<typeof materializeResolvedTargetBytes>["materialized"];
   targetUnwind: NativeTargetUnwindMatchResult;
   targetRoot?: string;
 }): NativeTargetResumeLandingProvenance[] {
+  // fallow-ignore-next-line complexity
   return options.resolved.map((location) => {
-    const targetPath = resolveActualTargetPath(options.targetRoot, location.targetModule.path);
     const targetBytes = options.targetBytes.find(
       (bytes) =>
         bytes.moduleId === location.targetModule.id && bytes.relativeStart === location.targetRva,
     );
+    if (location.continuationStrategy === "synthetic-sleep-syscall") {
+      return inspectNativeTargetResumeLanding({ location, targetBytes });
+    }
+    const targetPath = resolveActualTargetPath(options.targetRoot, location.targetModule.path);
     const fde = options.targetUnwind.matches.find(
       (match) => match.targetAddress === location.targetAddress,
     )?.targetRule;
@@ -827,11 +877,15 @@ function discoverActualTargetUnwind(options: {
   return result;
 }
 
+// fallow-ignore-next-line complexity
 function discoverActualTargetUnwindForLocation(
   location: ReturnType<typeof resolveNativeRealUtilityCodeLocations>["resolved"][number],
   sourceFrames: NativeDiscoveredUnwindFrame[],
   targetRoot: string | undefined,
 ): NativeTargetUnwindMatchResult {
+  if (location.continuationStrategy === "synthetic-sleep-syscall") {
+    return { matches: [], refusals: [] };
+  }
   const sourceFrame = sourceFrameForTargetLocation(
     sourceFrames,
     location.threadId,
@@ -917,17 +971,20 @@ function executeActualTargetResumeAttempt(
   const binDir = join(outDir, "bin");
   mkdirSync(binDir, { recursive: true });
   const trampoline = compileNativeActualResumeTrampoline(binDir);
+  const codeFile = actualResumeCodeFile(outDir, targetBytes);
   const result = spawnSync(
     trampoline,
     [
       "--code-file",
-      targetBytes.path,
+      codeFile.path,
       "--file-offset",
-      String(targetBytes.fileOffset),
+      String(codeFile.fileOffset),
       "--code-size",
       String(targetBytes.sizeBytes),
       "--target-address",
       planned.targetResumeExecution.plan.entryAddress,
+      "--timeout-seconds",
+      String(actualResumeTimeoutSeconds(planned)),
       "--stack-target-start",
       finalJumpHex(ACTUAL_RESUME_TARGET_STACK_START),
       "--stack-size",
@@ -948,6 +1005,30 @@ function executeActualTargetResumeAttempt(
   return normalizeActualResumeAttempt(
     JSON.parse(line.slice("MACHINEN_ACTUAL_RESUME_TRAMPOLINE ".length)),
   );
+}
+
+function actualResumeCodeFile(
+  outDir: string,
+  targetBytes: ReturnType<typeof materializeResolvedTargetBytes>["materialized"][number],
+): { path: string; fileOffset: number } {
+  if (existsSync(targetBytes.path)) {
+    return { path: targetBytes.path, fileOffset: targetBytes.fileOffset };
+  }
+  const syntheticPath = join(
+    outDir,
+    `${targetBytes.moduleId.replace(/[^a-zA-Z0-9_.-]/g, "-")}.bin`,
+  );
+  writeFileSync(syntheticPath, targetBytes.bytes);
+  return { path: syntheticPath, fileOffset: 0 };
+}
+
+function actualResumeTimeoutSeconds(planned: ReturnType<typeof planCapturedActualUtilityBundle>) {
+  const synthetic = syntheticSleepContinuationSummaries(planned)[0];
+  if (!synthetic) {
+    return 1;
+  }
+  const seconds = Number.parseInt(synthetic.remainingTime.seconds, 10);
+  return Number.isFinite(seconds) ? Math.max(2, seconds + 5) : 35;
 }
 
 function normalizeActualResumeAttempt(
@@ -1073,6 +1154,7 @@ function actualUtilitySummary(context: {
     mappingRefusals: planned.mappings.refusals,
     codeLocationRefusals: planned.code.refusals,
     semanticTargetContinuations: semanticTargetContinuationSummaries(planned),
+    syntheticSleepContinuations: syntheticSleepContinuationSummaries(planned),
     deferredActiveSyscallLandings: deferredActiveSyscallLandingSummaries(planned),
     sourceUnwindFrames: planned.sourceFrames.length,
     sourceUnwindRules: planned.sourceUnwindRules.length,
@@ -1203,6 +1285,7 @@ function deferredActiveSyscallLandingSummaries(
             targetRva: landing.targetRva,
             strategy: landing.strategy,
             semanticContinuation: landing.semanticContinuation,
+            syntheticContinuation: landing.syntheticContinuation,
             remainingTime: landing.metadata.remainingTime,
           },
         ]
@@ -1221,6 +1304,24 @@ function semanticTargetContinuationSummaries(
             strategy: location.continuationStrategy,
             targetModuleId: location.targetModule.id,
             ...location.semanticContinuation,
+          },
+        ]
+      : [],
+  );
+}
+
+function syntheticSleepContinuationSummaries(
+  planned: ReturnType<typeof planCapturedActualUtilityBundle>,
+) {
+  return planned.code.resolved.flatMap((location) =>
+    location.syntheticContinuation
+      ? [
+          {
+            threadId: location.threadId,
+            strategy: location.continuationStrategy,
+            targetModuleId: location.targetModule.id,
+            remainingTime: location.deferredActiveSyscallLanding?.metadata.remainingTime,
+            ...location.syntheticContinuation,
           },
         ]
       : [],
