@@ -70,6 +70,9 @@ first native-translation blockers:
 - `unwind-rule-unsupported`
 - `return-slot-unreadable`
 - `target-unwind-mismatch`
+- `target-frame-layout-unsupported`
+- `target-return-slot-unsupported`
+- `target-callee-saved-state-unsupported`
 
 Unsupported work must emit a precise refusal instead of silently copying source
 state into the target.
