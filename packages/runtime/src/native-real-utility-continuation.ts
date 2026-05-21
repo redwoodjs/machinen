@@ -4,6 +4,7 @@ import type {
   NativeCodeLocationMapping,
   NativeProcessImageRefusal,
 } from "./native-process-image.ts";
+import type { NativeTargetUnwindMatchResult } from "./native-target-unwind.ts";
 import type { NativeDiscoveredUnwindFrame } from "./native-unwind-frames.ts";
 
 export type NativeRealUtilityContinuationBoundary =
@@ -21,7 +22,8 @@ export interface NativeRealUtilityContinuationRequest {
   mappingRefusals?: NativeProcessImageRefusal[];
   codeLocations: NativeCodeLocationMapping[];
   sourceFrames: NativeDiscoveredUnwindFrame[];
-  targetUnwindMatched: boolean;
+  targetUnwind?: NativeTargetUnwindMatchResult;
+  targetUnwindMatched?: boolean;
 }
 
 export interface NativeRealUtilityContinuationPlan {
@@ -41,11 +43,9 @@ export function planNativeRealUtilityContinuationAttempt(
   if (ordered) {
     return refusedPlan(ordered.boundary, ordered.refusal);
   }
-  if (!request.targetUnwindMatched) {
-    return refusedPlan("target-unwind", {
-      code: "target-unwind-mismatch",
-      message: "source .eh_frame frame has not been matched to a target-native unwind landing",
-    });
+  const targetUnwind = targetUnwindRefusal(request);
+  if (targetUnwind) {
+    return refusedPlan("target-unwind", targetUnwind);
   }
   return {
     state: "ready",
@@ -106,6 +106,27 @@ function sourceUnwindRefusal(sourceFrames: NativeDiscoveredUnwindFrame[]) {
       message: "no source unwind frame is available for real utility continuation",
     },
   };
+}
+
+function targetUnwindRefusal(
+  request: NativeRealUtilityContinuationRequest,
+): NativeProcessImageRefusal | undefined {
+  if (request.targetUnwind?.refusals[0]) {
+    return request.targetUnwind.refusals[0];
+  }
+  if (request.targetUnwind && request.targetUnwind.matches.length === 0) {
+    return {
+      code: "target-unwind-mismatch",
+      message: "target unwind matching produced no safe frame match",
+    };
+  }
+  if (!request.targetUnwind && !request.targetUnwindMatched) {
+    return {
+      code: "target-unwind-mismatch",
+      message: "source .eh_frame frame has not been matched to a target-native unwind landing",
+    };
+  }
+  return undefined;
 }
 
 function refusedPlan(
