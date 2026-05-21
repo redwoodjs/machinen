@@ -6,6 +6,7 @@ import type {
 } from "./native-process-image.ts";
 import type { NativeSyntheticTargetCallerFrame } from "./native-target-caller-frame.ts";
 import type { NativeTargetResumeLandingProvenance } from "./native-target-landing-provenance.ts";
+import { NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS } from "./native-synthetic-sleep-continuation.ts";
 import type { NativeTargetModuleByteMaterialization } from "./native-target-module-bytes.ts";
 
 export type NativeTargetResumeExecutionMode = "planned-not-executed";
@@ -141,10 +142,21 @@ export function classifyNativeTargetResumeExecutionAttempt(
   if (!attempt) {
     return { state: "unattempted", refusals: [] };
   }
+  const nonFaultRefusal = classifyNonFaultResumeRefusal(attempt);
+  if (nonFaultRefusal) {
+    return classifiedAttempt(attempt, nonFaultRefusal);
+  }
   if (attempt.status !== "faulted") {
     return { state: "not-faulted", refusals: [] };
   }
   const refusal = classifyTargetResumeFaultRefusal(attempt, options);
+  return classifiedAttempt(attempt, refusal);
+}
+
+function classifiedAttempt(
+  attempt: NativeTargetResumeExecutionAttempt,
+  refusal: NativeProcessImageRefusal,
+): NativeTargetResumeFaultClassificationResult {
   return {
     state: "classified",
     classification: {
@@ -160,6 +172,23 @@ export function classifyNativeTargetResumeExecutionAttempt(
     },
     refusals: [refusal],
   };
+}
+
+function classifyNonFaultResumeRefusal(
+  attempt: NativeTargetResumeExecutionAttempt,
+): NativeProcessImageRefusal | undefined {
+  if (
+    attempt.status === "exited" &&
+    attempt.exitStatus === NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS
+  ) {
+    return faultRefusal(
+      "target-sleep-signal-restart-unsupported",
+      "synthetic target sleep syscall did not complete successfully; EINTR/restart semantics are not modeled",
+      attempt,
+      { exitStatus: attempt.exitStatus },
+    );
+  }
+  return undefined;
 }
 
 function classifyTargetResumeFaultRefusal(
@@ -294,6 +323,7 @@ function faultRefusal(
       targetInstructionPointer: attempt.targetInstructionPointer,
       targetInstructionBytes: attempt.targetInstructionBytes,
       registers: attempt.registers,
+      exitStatus: attempt.exitStatus,
       instructionPointerInTargetBytes: attempt.instructionPointerInTargetBytes,
       ...extraDetail,
     },

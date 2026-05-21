@@ -56,5 +56,7 @@ synthetic amd64 syscall continuation instead of the source RVA or target libc:
 
 `migrationCompleted: true` is intentionally narrow here. It applies to this
 modeled `/bin/sleep` path only, after the generated amd64 sleep syscall bytes
-exit the target process with status `0`. Other planned, faulted, timed-out, or
-trampoline-return-only attempts still keep `migrationCompleted: false`.
+exit the target process with status `0`. Other planned, faulted, timed-out, trampoline-return-only, or interrupted sleep
+attempts still keep `migrationCompleted: false`. A synthetic sleep failure exit
+status of `111` is classified as `target-sleep-signal-restart-unsupported` so
+EINTR/restart behavior never looks like success before it is modeled.

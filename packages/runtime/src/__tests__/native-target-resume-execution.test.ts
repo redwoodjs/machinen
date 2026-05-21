@@ -204,6 +204,29 @@ describe("native target resume execution planning", () => {
     ).toBe("target-resume-fault-privileged-instruction");
   });
 
+  it("classifies synthetic sleep EINTR/restart exits fail-closed", () => {
+    const classified = classifyNativeTargetResumeExecutionAttempt({
+      status: "exited",
+      targetArch: "amd64",
+      entryAddress: "0x700200000000",
+      stackPointer: "0x500000010000",
+      targetBytesStart: "0x700200000000",
+      targetBytesEnd: "0x700200000040",
+      exitStatus: 111,
+      instructionPointerInTargetBytes: true,
+      attemptedResume: true,
+      sourceTextReusedAsTargetCode: false,
+      sourceIsaEmulationUsed: false,
+      sidecarRuntimeUsed: false,
+    });
+
+    expect(classified).toMatchObject({
+      state: "classified",
+      refusals: [{ code: "target-sleep-signal-restart-unsupported" }],
+      classification: { attemptedResume: true, migrationCompleted: false },
+    });
+  });
+
   it("classifies faults outside the explicit target byte window separately", () => {
     expect(
       classifyNativeTargetResumeExecutionAttempt({

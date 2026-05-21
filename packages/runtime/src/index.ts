@@ -141,6 +141,7 @@ export {
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_BUILD_ID,
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_LOGICAL_NAME,
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_PATH,
+  NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS,
   buildNativeSyntheticSleepSyscallContinuation,
 } from "./native-synthetic-sleep-continuation.ts";
 export type {
