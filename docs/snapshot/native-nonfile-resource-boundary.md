@@ -53,3 +53,5 @@ pnpm native-nonfile-resource-boundary
 ```
 
 Other hosts skip honestly because this proof captures the arm64 source side through Linux procfs.
+
+Next: [Native real utility continuation attempt](./native-real-utilities.md).
