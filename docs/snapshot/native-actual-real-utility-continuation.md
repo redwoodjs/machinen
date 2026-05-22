@@ -55,11 +55,13 @@ when the syscall returns successfully. That is the first narrow proof state wher
 `migrationCompleted` can be `true`.
 
 The same proof harness can select `MACHINEN_ACTUAL_REAL_UTILITY_WORKLOAD=ppoll`
-for zero-fd ppoll or `ppoll-pipe` for the one-fd synthetic empty-pipe proof. The
-one-fd mode also requires
-`MACHINEN_ACTUAL_REAL_UTILITY_PPOLL_FD_POLICY=synthetic-empty-pipe`; it installs a
-fresh empty pipe read end at the captured fd before jumping to generated amd64
-`ppoll` bytes.
+for zero-fd ppoll, `ppoll-pipe` for the compiled one-fd synthetic empty-pipe
+fixture, or `perl-ppoll-pipe` for an unmodified packaged `/usr/bin/perl`
+executable using its standard `IO::Poll` module. The one-fd modes also require
+`MACHINEN_ACTUAL_REAL_UTILITY_PPOLL_FD_POLICY=synthetic-empty-pipe`; they install
+a fresh empty pipe read end at the captured fd before jumping to generated amd64
+`ppoll` bytes. The Perl command text is only used to put the source utility into
+the modeled wait. It is not reused as target code.
 
 The summary reports `attemptedResume: true` and, for modeled synthetic syscall
 paths, `migrationCompleted: true` only after the target process exits with status

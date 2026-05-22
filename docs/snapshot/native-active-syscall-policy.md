@@ -58,11 +58,15 @@ The optional `"synthetic-empty-pipe"` fd policy accepts exactly one captured
 - `nfds == 1` and the pollfd array is readable in captured memory;
 - the entry is `POLLIN` with `revents == 0`;
 - the entry's fd maps to a captured pipe resource;
+- fd flags identify a read end, including read-only fds with extra flags such as
+  close-on-exec;
 - the signal mask is still null.
 
 The target recipe creates a fresh empty pipe read end at the same fd and keeps a
 write end open. This preserves a timeout-driven proof without claiming general fd
-readiness migration.
+readiness migration. Missing fd resources, non-pipe resources, write-end fds,
+wrong events, non-empty `revents`, `nfds > 1`, and non-null signal masks all fail
+closed as `target-ppoll-timeout-missing`.
 
 ## Proof
 

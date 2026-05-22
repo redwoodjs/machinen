@@ -106,7 +106,7 @@ Done when:
   specific reason;
 - remaining-time contracts are explicit for each blocking syscall family.
 
-### 6. FD-backed blocking syscalls — in progress
+### 6. FD-backed blocking syscalls — done
 
 Goal: extend the second-family proof from zero fds to one modeled fd/resource.
 The first resource is deliberately narrow: a captured `struct pollfd` with one
@@ -122,10 +122,13 @@ Done when:
 - non-one-fd, non-pipe, non-`POLLIN`, non-empty-`revents`, and signal-mask cases
   keep refusing as `target-ppoll-timeout-missing`.
 
-### 7. Real utility beyond `/bin/sleep`
+### 7. Real utility beyond `/bin/sleep` — in progress
 
 Goal: prove a real unmodified utility whose blocked syscall matches the expanded
-blocking-family model.
+blocking-family model. The first narrow utility is the packaged `/usr/bin/perl`
+executable using its standard `IO::Poll` module to block in one-fd `ppoll` on an
+empty pipe. The command text shapes the source wait only; target execution still
+uses generated amd64 syscall bytes, not source text.
 
 Done when:
 
@@ -133,7 +136,8 @@ Done when:
 - the target continuation runs as amd64 without sidecars or emulation;
 - observable behavior continues or exits successfully according to the modeled
   utility contract;
-- unrelated resources still refuse precisely.
+- missing fd resources, non-pipe fds, pipe write ends, wrong events, non-empty
+  `revents`, `nfds > 1`, and non-null signal masks refuse precisely.
 
 ### 8. Target process memory materialization
 

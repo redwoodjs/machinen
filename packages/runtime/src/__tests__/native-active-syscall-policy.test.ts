@@ -65,6 +65,9 @@ function documentsWithTimespec(options: {
   seconds?: bigint;
   nanoseconds?: bigint;
   pollFd?: { fd: number; events: number; revents: number };
+  pollFdResource?:
+    | "missing"
+    | { kind?: "pipe" | "file" | "socket"; flags?: string[]; path?: string };
 }): NativeProcessImageDocuments {
   const rootDir = mkdtempSync(join(tmpdir(), "machinen-sleep-timer-state-"));
   tempDirs.push(rootDir);
@@ -106,17 +109,19 @@ function documentsWithTimespec(options: {
     threads: { formatVersion: 1, threads: [options.activeThread], refusals: emptyRefusals() },
     resources: {
       formatVersion: 1,
-      resources: options.pollFd
-        ? [
-            {
-              id: `fd:${options.pollFd.fd}`,
-              kind: "pipe",
-              state: "refused",
-              fd: options.pollFd.fd,
-              path: "pipe:[123]",
-            },
-          ]
-        : [],
+      resources:
+        options.pollFd && options.pollFdResource !== "missing"
+          ? [
+              {
+                id: `fd:${options.pollFd.fd}`,
+                kind: options.pollFdResource?.kind ?? "pipe",
+                state: "refused",
+                fd: options.pollFd.fd,
+                path: options.pollFdResource?.path ?? "pipe:[123]",
+                flags: options.pollFdResource?.flags ?? ["octal:0"],
+              },
+            ]
+          : [],
       refusals: emptyRefusals(),
     },
     translation: {
@@ -338,6 +343,71 @@ describe("native active syscall classification", () => {
             },
           ],
         },
+      },
+    });
+  });
+
+  it.each([
+    {
+      name: "missing fd resource",
+      x: ["0x3100", "0x1", "0x3000", "0x0", "0x0", "0x0"],
+      pollFd: { fd: 3, events: 1, revents: 0 },
+      pollFdResource: "missing" as const,
+      reason: "ppoll one-fd proof requires a captured pipe fd",
+    },
+    {
+      name: "non-pipe fd resource",
+      x: ["0x3100", "0x1", "0x3000", "0x0", "0x0", "0x0"],
+      pollFd: { fd: 3, events: 1, revents: 0 },
+      pollFdResource: { kind: "file" as const, path: "/tmp/input" },
+      reason: "ppoll one-fd proof requires a captured pipe fd",
+    },
+    {
+      name: "write-end pipe fd",
+      x: ["0x3100", "0x1", "0x3000", "0x0", "0x0", "0x0"],
+      pollFd: { fd: 3, events: 1, revents: 0 },
+      pollFdResource: { kind: "pipe" as const, flags: ["octal:1"] },
+      reason: "ppoll one-fd proof requires a pipe read end",
+    },
+    {
+      name: "wrong events",
+      x: ["0x3100", "0x1", "0x3000", "0x0", "0x0", "0x0"],
+      pollFd: { fd: 3, events: 4, revents: 0 },
+      reason: "ppoll one-fd proof only models POLLIN with empty revents",
+    },
+    {
+      name: "non-empty revents",
+      x: ["0x3100", "0x1", "0x3000", "0x0", "0x0", "0x0"],
+      pollFd: { fd: 3, events: 1, revents: 1 },
+      reason: "ppoll one-fd proof only models POLLIN with empty revents",
+    },
+    {
+      name: "nfds greater than one",
+      x: ["0x3100", "0x2", "0x3000", "0x0", "0x0", "0x0"],
+      pollFd: { fd: 3, events: 1, revents: 0 },
+      reason: "ppoll synthetic empty-pipe proof supports exactly one fd",
+    },
+    {
+      name: "non-null signal mask",
+      x: ["0x3100", "0x1", "0x3000", "0x4000", "0x8", "0x0"],
+      pollFd: { fd: 3, events: 1, revents: 0 },
+      reason: "ppoll signal masks are not modeled yet",
+    },
+  ])("refuses one-fd ppoll unsafe state: $name", (scenario) => {
+    const activeThread = arm64PpollThread(undefined, scenario.x);
+    const documents = documentsWithTimespec({
+      activeThread,
+      pollFd: scenario.pollFd,
+      pollFdResource: scenario.pollFdResource,
+    });
+
+    expect(
+      modelNativePpollTimeoutState(activeThread, documents, "synthetic-empty-pipe"),
+    ).toMatchObject({
+      state: "missing",
+      refusal: {
+        code: "target-ppoll-timeout-missing",
+        detail: { reason: scenario.reason },
       },
     });
   });
