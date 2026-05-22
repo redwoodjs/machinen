@@ -540,7 +540,7 @@ export async function boot(opts: BootOptions = {}): Promise<VmHandle> {
   // (`(none)` on Linux). Subsequent shells (e.g. via
   // `machinen attach`) read the post-call value. Suppressed when
   // we have no vsock UDS (boot-without-exec-agent paths).
-  if (vsockUdsPath) {
+  if (vsockUdsPath && env.MACHINEN_SKIP_GUEST_HOSTNAME !== "1") {
     void setGuestHostname(handle, buildGuestHostname(handle.pid, handle.name));
   }
 

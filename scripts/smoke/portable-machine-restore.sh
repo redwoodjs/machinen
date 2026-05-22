@@ -7,6 +7,12 @@ AMD64_SSH=${PORTABLE_AMD64_SSH:-root@192.168.0.8}
 TARGET_IMAGE=${PORTABLE_MACHINE_TARGET_VM_IMAGE:-${MACHINEN_TARGET_VM_IMAGE:-}}
 REQUIRE_REMOTES=${PORTABLE_MACHINE_SMOKE_REQUIRE_REMOTES:-0}
 AMD64_REPO=${PORTABLE_AMD64_REPO:-}
+ARM64_NODE=${PORTABLE_ARM64_NODE:-node}
+AMD64_PNPM=${PORTABLE_AMD64_PNPM:-pnpm}
+AMD64_PATH_PREFIX=${PORTABLE_AMD64_PATH_PREFIX:-}
+AMD64_VMM=${PORTABLE_AMD64_VMM:-${MACHINEN_VMM:-}}
+AMD64_KERNEL=${PORTABLE_AMD64_KERNEL:-${MACHINEN_KERNEL:-}}
+AMD64_ASSETS_DIR=${PORTABLE_AMD64_ASSETS_DIR:-${MACHINEN_ASSETS_DIR:-}}
 KEEP=0
 JSON=0
 DRY_RUN=0
@@ -94,6 +100,11 @@ write_summary() {
   "arm64Ssh": "$(json_escape "$ARM64_SSH")",
   "amd64Ssh": "$(json_escape "$AMD64_SSH")",
   "amd64Repo": "$(json_escape "$AMD64_REPO")",
+  "arm64Node": "$(json_escape "$ARM64_NODE")",
+  "amd64Pnpm": "$(json_escape "$AMD64_PNPM")",
+  "amd64Vmm": "$(json_escape "$AMD64_VMM")",
+  "amd64Kernel": "$(json_escape "$AMD64_KERNEL")",
+  "amd64AssetsDir": "$(json_escape "$AMD64_ASSETS_DIR")",
   "remotePortableMachineBundle": "$(json_escape "$REMOTE_PORTABLE_BUNDLE")",
   "remoteTargetCodeFile": "$(json_escape "$REMOTE_TARGET_CODE")",
   "timings": [$joined]
@@ -243,7 +254,7 @@ capture_remote_native_process_bundle() {
     packages/microvm/assets/native-capture-target.c | \
     ssh "$ARM64_SSH" "tar -xzf - -C '$ARM64_REMOTE_WORK/repo'"
   ssh "$ARM64_SSH" \
-    "cd '$ARM64_REMOTE_WORK/repo' && node scripts/native-process-capture.mjs verify --out-dir '$ARM64_REMOTE_WORK/capture' --json --keep > '$ARM64_REMOTE_WORK/capture.json'"
+    "cd '$ARM64_REMOTE_WORK/repo' && '$ARM64_NODE' scripts/native-process-capture.mjs verify --out-dir '$ARM64_REMOTE_WORK/capture' --json --keep > '$ARM64_REMOTE_WORK/capture.json'"
   mkdir -p "$NATIVE_BUNDLE"
   ssh "$ARM64_SSH" "cat '$ARM64_REMOTE_WORK/capture.json'" >"$WORK/arm64-capture.json"
   ssh "$ARM64_SSH" "tar -czf - -C '$ARM64_REMOTE_WORK/capture/bundle' ." | \
@@ -288,8 +299,12 @@ run_target_restore() {
     return 20
   fi
   if [[ $REMOTE_E2E -eq 1 ]]; then
+    local remote_path_assignment="PATH=\$PATH"
+    if [[ -n "$AMD64_PATH_PREFIX" ]]; then
+      remote_path_assignment="PATH='$AMD64_PATH_PREFIX':\$PATH"
+    fi
     if ! ssh "$AMD64_SSH" \
-      "cd '$AMD64_REPO' && pnpm --silent portable-machine-vm-restore-proof -- --bundle-dir '$REMOTE_PORTABLE_BUNDLE' --target-code-file '$REMOTE_TARGET_CODE' --image '$TARGET_IMAGE' --json" \
+      "cd '$AMD64_REPO' && $remote_path_assignment MACHINEN_VMM='$AMD64_VMM' MACHINEN_KERNEL='$AMD64_KERNEL' MACHINEN_ASSETS_DIR='$AMD64_ASSETS_DIR' '$AMD64_PNPM' --silent portable-machine-vm-restore-proof -- --bundle-dir '$REMOTE_PORTABLE_BUNDLE' --target-code-file '$REMOTE_TARGET_CODE' --image '$TARGET_IMAGE' --json" \
       >"$TARGET_LOG" 2>"$WORK/target-restore.stderr"; then
       record_timing "target-boot-restore" "failed" "$start" "remote runner failed"
       return 21

@@ -296,7 +296,7 @@ static uint64_t mapped_target_end = 0;
 static uint8_t *mapped_code_bytes = NULL;
 static uint64_t mapped_code_page_start = 0;
 static uint64_t mapped_code_page_size = 0;
-static uint64_t resume_return_value = 0;
+static volatile uint64_t resume_return_value __attribute__((used)) = 0;
 static uint64_t host_rsp_before_jump __attribute__((used)) = 0;
 
 struct ObservedRegisters {

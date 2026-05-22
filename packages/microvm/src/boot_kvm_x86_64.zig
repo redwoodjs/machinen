@@ -423,7 +423,7 @@ fn write_e820(bp: []u8, idx: usize, addr: u64, size: u64, typ: u32) void {
 }
 
 fn default_cmdline() []const u8 {
-    return "earlycon=uart8250,io,0x3f8,115200n8 console=ttyS0 panic=1 loglevel=3 quiet reboot=k acpi=force pci=off " ++
+    return "earlycon=uart8250,io,0x3f8,115200n8 console=ttyS0 panic=1 loglevel=3 quiet reboot=k noapic acpi=force pci=off " ++
         "virtio_mmio.device=512@0x0a000000:5 " ++
         "virtio_mmio.device=512@0x0a000200:6 " ++
         "virtio_mmio.device=512@0x0a000400:7 " ++
@@ -1618,8 +1618,9 @@ test "x86 bzImage parser rejects non-bzImage" {
     try std.testing.expectError(error.TruncatedSetup, BzImage.parse(bytes[0..1024]));
 }
 
-test "x86 cmdline advertises ttyS0 and virtio-mmio" {
+test "x86 cmdline advertises ttyS0, noapic, and virtio-mmio" {
     const cmd = default_cmdline();
     try std.testing.expect(std.mem.indexOf(u8, cmd, "console=ttyS0") != null);
+    try std.testing.expect(std.mem.indexOf(u8, cmd, "noapic") != null);
     try std.testing.expect(std.mem.indexOf(u8, cmd, "virtio_mmio.device=512@0x0a000200:6") != null);
 }
