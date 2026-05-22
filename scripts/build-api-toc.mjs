@@ -157,6 +157,7 @@ const TOC = {
     "NativeSyntheticContinuationByteEncoding",
     "NativeSyntheticContinuationSyscallAbi",
     "NativeSyntheticContinuationRegisterSetupAbi",
+    "NativeSyntheticContinuationFailureKind",
     "NativeSyntheticContinuationRegister",
     "NativeSyntheticContinuationProvenanceSource",
     "NativeSyntheticSyscallArgumentDescriptor",

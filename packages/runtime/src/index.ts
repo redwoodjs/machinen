@@ -199,6 +199,7 @@ export type {
   NativeSyntheticContinuationByteEncoding,
   NativeSyntheticContinuationByteSource,
   NativeSyntheticContinuationCompletionDescriptor,
+  NativeSyntheticContinuationFailureKind,
   NativeSyntheticContinuationProvenanceSource,
   NativeSyntheticContinuationRegister,
   NativeSyntheticContinuationRegisterSetupAbi,

@@ -42,7 +42,9 @@ The next issues should stay narrow and stacked:
    [Native synthetic continuation descriptor](./native-synthetic-continuation-descriptor.md).
 2. Model interrupted syscall returns before expanding success cases. `EINTR`,
    `ERESTART*`, and signal-delivery states must keep precise fail-closed
-   refusals until restart behavior is modeled.
+   refusals such as `target-synthetic-signal-restart-unsupported` and
+   `target-synthetic-syscall-return-unmodeled` until restart behavior is
+   modeled.
 3. Add one additional blocking syscall family with a captured real utility and a
    synthesized amd64 continuation. Prefer a syscall whose resource model is
    already explicit or can be refused precisely.

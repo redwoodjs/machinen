@@ -8,6 +8,9 @@ export type NativeSyntheticContinuationByteSource =
 export type NativeSyntheticContinuationByteEncoding = "amd64-machine-code";
 export type NativeSyntheticContinuationSyscallAbi = "linux-amd64";
 export type NativeSyntheticContinuationRegisterSetupAbi = "linux-amd64-syscall";
+export type NativeSyntheticContinuationFailureKind =
+  | "signal-restart-unsupported"
+  | "syscall-return-unmodeled";
 export type NativeSyntheticContinuationRegister =
   | "rax"
   | "rdi"
@@ -57,6 +60,8 @@ export interface NativeSyntheticContinuationCompletionDescriptor {
   mode: string;
   successExitStatus?: number;
   failureExitStatus?: number;
+  failureKind?: NativeSyntheticContinuationFailureKind;
+  failureReason?: string;
 }
 
 export interface NativeSyntheticSyscallContinuationDescriptorRequest {

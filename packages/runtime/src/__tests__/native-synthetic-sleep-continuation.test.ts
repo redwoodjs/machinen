@@ -122,10 +122,17 @@ describe("synthetic sleep syscall continuation", () => {
       "7509b83c00000031ff0f05b83c000000bf6f0000000f05",
     );
     expect(new DataView(result.continuation!.bytes.buffer).getBigUint64(48, true)).toBe(0n);
-    expect(result.continuation!.provenance.completion).toEqual({
+    expect(result.continuation!.descriptor.completion).toMatchObject({
       mode: "exit-process",
       successExitStatus: 0,
       failureExitStatus: 111,
+      failureKind: "signal-restart-unsupported",
+    });
+    expect(result.continuation!.provenance.completion).toMatchObject({
+      mode: "exit-process",
+      successExitStatus: 0,
+      failureExitStatus: 111,
+      failureKind: "signal-restart-unsupported",
     });
   });
 

@@ -269,6 +269,11 @@ function syntheticClockNanosleepDescriptor(
         completionMode === "exit-process"
           ? NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS
           : undefined,
+      failureKind: completionMode === "exit-process" ? "signal-restart-unsupported" : undefined,
+      failureReason:
+        completionMode === "exit-process"
+          ? "sleep syscall failure may need EINTR/restart handling, which is not modeled"
+          : undefined,
     },
   });
 }
