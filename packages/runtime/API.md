@@ -78,6 +78,18 @@
 - [`validateNativeProcessImageBundle`](#validatenativeprocessimagebundle)
 - [`validateNativeProcessImageDocuments`](#validatenativeprocessimagedocuments)
 - [`assertNativeProcessImageDocuments`](#assertnativeprocessimagedocuments)
+- [`PortableMachineSnapshotArchitecture`](#portablemachinesnapshotarchitecture)
+- [`PortableMachineSnapshotRefusalCode`](#portablemachinesnapshotrefusalcode)
+- [`PortableMachineSnapshotRefusal`](#portablemachinesnapshotrefusal)
+- [`PortableMachineSnapshotRefusals`](#portablemachinesnapshotrefusals)
+- [`PortableMachineSnapshotManifest`](#portablemachinesnapshotmanifest)
+- [`PORTABLE_MACHINE_SNAPSHOT_FORMAT_VERSION`](#portable_machine_snapshot_format_version)
+- [`portableMachineSnapshotArchitectures`](#portablemachinesnapshotarchitectures)
+- [`portableMachineSnapshotRefusalCodes`](#portablemachinesnapshotrefusalcodes)
+- [`portableMachineSnapshotManifestSchema`](#portablemachinesnapshotmanifestschema)
+- [`PortableMachineSnapshotValidationError`](#portablemachinesnapshotvalidationerror)
+- [`crossIsaVmstateRestoreRefusal`](#crossisavmstaterestorerefusal)
+- [`validatePortableMachineSnapshotManifest`](#validateportablemachinesnapshotmanifest)
 - [`NativeRegisterTranslationRequest`](#nativeregistertranslationrequest)
 - [`NativeContinuationTarget`](#nativecontinuationtarget)
 - [`NativeRegisterTranslationResult`](#nativeregistertranslationresult)
@@ -1549,6 +1561,34 @@ Attach to `id`. Throws if id doesn't exist.
 
 ***
 
+### PortableMachineSnapshotValidationError
+
+#### Extends
+
+- `Error`
+
+#### Constructors
+
+##### Constructor
+
+> **new PortableMachineSnapshotValidationError**(`message`): [`PortableMachineSnapshotValidationError`](#portablemachinesnapshotvalidationerror)
+
+###### Parameters
+
+###### message
+
+`string`
+
+###### Returns
+
+[`PortableMachineSnapshotValidationError`](#portablemachinesnapshotvalidationerror)
+
+###### Overrides
+
+`Error.constructor`
+
+***
+
 ### VsockWinsize
 
 #### Methods
@@ -2925,7 +2965,7 @@ by default when `output` is a TTY.
 
 ##### state
 
-> **state**: `"ready"` \| `"refused"`
+> **state**: `"refused"` \| `"ready"`
 
 ##### blockingBoundary
 
@@ -3920,7 +3960,7 @@ by default when `output` is a TTY.
 
 ##### state
 
-> **state**: `"captured"` \| `"refused"` \| `"unsupported"` \| `"recipe"`
+> **state**: `"refused"` \| `"captured"` \| `"unsupported"` \| `"recipe"`
 
 ##### fd?
 
@@ -4682,7 +4722,7 @@ by default when `output` is a TTY.
 
 ##### state
 
-> **state**: `"ready"` \| `"refused"`
+> **state**: `"refused"` \| `"ready"`
 
 ##### blockingBoundary
 
@@ -7658,6 +7698,124 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 ##### refusals
 
 > **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
+### PortableMachineSnapshotRefusal
+
+#### Properties
+
+##### code
+
+> **code**: `"cross-isa-vmstate-restore-unsupported"` \| `"raw-vcpu-state-unsupported"` \| `"raw-kernel-state-unsupported"` \| `"raw-device-state-unsupported"` \| `"target-isa-vm-restore-loader-missing"` \| `"portable-process-image-missing"`
+
+##### message
+
+> **message**: `string`
+
+##### detail?
+
+> `optional` **detail?**: `Record`\<`string`, `unknown`\>
+
+***
+
+### PortableMachineSnapshotRefusals
+
+#### Properties
+
+##### vocabularyVersion
+
+> **vocabularyVersion**: `1`
+
+##### refusals
+
+> **refusals**: [`PortableMachineSnapshotRefusal`](#portablemachinesnapshotrefusal)[]
+
+***
+
+### PortableMachineSnapshotManifest
+
+#### Properties
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### kind
+
+> **kind**: `"machinen.portable-machine-snapshot"`
+
+##### source
+
+> **source**: `object`
+
+###### guestArch
+
+> **guestArch**: `"amd64"` \| `"arm64"`
+
+###### vmstate
+
+> **vmstate**: `object`
+
+###### vmstate.rawRestore
+
+> **rawRestore**: `"refused"`
+
+###### vmstate.refusalCode
+
+> **refusalCode**: `"cross-isa-vmstate-restore-unsupported"`
+
+###### vmstate.reason
+
+> **reason**: `string`
+
+###### kernelState
+
+> **kernelState**: `"not-translated"`
+
+###### deviceState
+
+> **deviceState**: `"not-translated"`
+
+##### target
+
+> **target**: `object`
+
+###### guestArch
+
+> **guestArch**: `"amd64"` \| `"arm64"`
+
+###### mode
+
+> **mode**: `"target-isa-vm-process-restore"`
+
+###### execution
+
+> **execution**: `"target-native"`
+
+##### payload
+
+> **payload**: `object`
+
+###### nativeProcessImage
+
+> **nativeProcessImage**: `object`
+
+###### nativeProcessImage.kind
+
+> **kind**: `"machinen.native-process-image"`
+
+###### nativeProcessImage.path
+
+> **path**: `string`
+
+###### resourceModel
+
+> **resourceModel**: `"explicit-recipes-only"`
+
+##### refusals
+
+> **refusals**: [`PortableMachineSnapshotRefusals`](#portablemachinesnapshotrefusals)
 
 ***
 
@@ -10745,6 +10903,18 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ***
 
+### PortableMachineSnapshotArchitecture
+
+> **PortableMachineSnapshotArchitecture** = *typeof* [`portableMachineSnapshotArchitectures`](#portablemachinesnapshotarchitectures)\[`number`\]
+
+***
+
+### PortableMachineSnapshotRefusalCode
+
+> **PortableMachineSnapshotRefusalCode** = *typeof* [`portableMachineSnapshotRefusalCodes`](#portablemachinesnapshotrefusalcodes)\[`number`\]
+
+***
+
 ### VmstateBackend
 
 > **VmstateBackend** = `"hvf"` \| `"kvm"` \| `"unknown"`
@@ -10885,6 +11055,10 @@ tarball-producing tool can pre-populate the lookup cache.
 ##### BOOT\_VMSTATE\_UNSUPPORTED
 
 > `readonly` **BOOT\_VMSTATE\_UNSUPPORTED**: `"BOOT_VMSTATE_UNSUPPORTED"` = `"BOOT_VMSTATE_UNSUPPORTED"`
+
+##### BOOT\_VMSTATE\_CROSS\_ISA\_UNSUPPORTED
+
+> `readonly` **BOOT\_VMSTATE\_CROSS\_ISA\_UNSUPPORTED**: `"BOOT_VMSTATE_CROSS_ISA_UNSUPPORTED"` = `"BOOT_VMSTATE_CROSS_ISA_UNSUPPORTED"`
 
 ##### BOOT\_VMSTATE\_RESEED\_FAILED
 
@@ -11856,6 +12030,366 @@ loops; anything looser stops being a meaningful gate.
 ### NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_FAILURE\_EXIT\_STATUS
 
 > `const` **NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_FAILURE\_EXIT\_STATUS**: `111` = `NATIVE_SYNTHETIC_SLEEP_SYSCALL_RESTART_EXIT_STATUS`
+
+***
+
+### PORTABLE\_MACHINE\_SNAPSHOT\_FORMAT\_VERSION
+
+> `const` **PORTABLE\_MACHINE\_SNAPSHOT\_FORMAT\_VERSION**: `1` = `1`
+
+Portable cross-ISA machine snapshot boundary metadata.
+
+***
+
+### portableMachineSnapshotArchitectures
+
+> `const` **portableMachineSnapshotArchitectures**: readonly \[`"arm64"`, `"amd64"`\]
+
+***
+
+### portableMachineSnapshotRefusalCodes
+
+> `const` **portableMachineSnapshotRefusalCodes**: readonly \[`"cross-isa-vmstate-restore-unsupported"`, `"raw-vcpu-state-unsupported"`, `"raw-kernel-state-unsupported"`, `"raw-device-state-unsupported"`, `"target-isa-vm-restore-loader-missing"`, `"portable-process-image-missing"`\]
+
+***
+
+### portableMachineSnapshotManifestSchema
+
+> `const` **portableMachineSnapshotManifestSchema**: `object`
+
+#### Type Declaration
+
+##### $schema
+
+> `readonly` **$schema**: `"https://json-schema.org/draft/2020-12/schema"` = `"https://json-schema.org/draft/2020-12/schema"`
+
+##### $id
+
+> `readonly` **$id**: `"https://machinen.dev/schemas/portable-machine-snapshot/manifest.schema.json"` = `"https://machinen.dev/schemas/portable-machine-snapshot/manifest.schema.json"`
+
+##### title
+
+> `readonly` **title**: `"Machinen portable machine snapshot manifest"` = `"Machinen portable machine snapshot manifest"`
+
+##### type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+##### additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+##### required
+
+> `readonly` **required**: readonly \[`"formatVersion"`, `"kind"`, `"source"`, `"target"`, `"payload"`, `"refusals"`\]
+
+##### properties
+
+> `readonly` **properties**: `object`
+
+###### properties.formatVersion
+
+> `readonly` **formatVersion**: `object`
+
+###### properties.formatVersion.const
+
+> `readonly` **const**: `1` = `PORTABLE_MACHINE_SNAPSHOT_FORMAT_VERSION`
+
+###### properties.kind
+
+> `readonly` **kind**: `object`
+
+###### properties.kind.const
+
+> `readonly` **const**: `"machinen.portable-machine-snapshot"` = `"machinen.portable-machine-snapshot"`
+
+###### properties.source
+
+> `readonly` **source**: `object`
+
+###### properties.source.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### properties.source.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### properties.source.required
+
+> `readonly` **required**: readonly \[`"guestArch"`, `"vmstate"`, `"kernelState"`, `"deviceState"`\]
+
+###### properties.source.properties
+
+> `readonly` **properties**: `object`
+
+###### properties.source.properties.guestArch
+
+> `readonly` **guestArch**: `object`
+
+###### properties.source.properties.guestArch.enum
+
+> `readonly` **enum**: readonly \[`"arm64"`, `"amd64"`\] = `portableMachineSnapshotArchitectures`
+
+###### properties.source.properties.vmstate
+
+> `readonly` **vmstate**: `object`
+
+###### properties.source.properties.vmstate.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### properties.source.properties.vmstate.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### properties.source.properties.vmstate.required
+
+> `readonly` **required**: readonly \[`"rawRestore"`, `"refusalCode"`, `"reason"`\]
+
+###### properties.source.properties.vmstate.properties
+
+> `readonly` **properties**: `object`
+
+###### properties.source.properties.vmstate.properties.rawRestore
+
+> `readonly` **rawRestore**: `object`
+
+###### properties.source.properties.vmstate.properties.rawRestore.const
+
+> `readonly` **const**: `"refused"` = `"refused"`
+
+###### properties.source.properties.vmstate.properties.refusalCode
+
+> `readonly` **refusalCode**: `object`
+
+###### properties.source.properties.vmstate.properties.refusalCode.const
+
+> `readonly` **const**: `"cross-isa-vmstate-restore-unsupported"` = `"cross-isa-vmstate-restore-unsupported"`
+
+###### properties.source.properties.vmstate.properties.reason
+
+> `readonly` **reason**: `object`
+
+###### properties.source.properties.vmstate.properties.reason.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### properties.source.properties.vmstate.properties.reason.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### properties.source.properties.kernelState
+
+> `readonly` **kernelState**: `object`
+
+###### properties.source.properties.kernelState.const
+
+> `readonly` **const**: `"not-translated"` = `"not-translated"`
+
+###### properties.source.properties.deviceState
+
+> `readonly` **deviceState**: `object`
+
+###### properties.source.properties.deviceState.const
+
+> `readonly` **const**: `"not-translated"` = `"not-translated"`
+
+###### properties.target
+
+> `readonly` **target**: `object`
+
+###### properties.target.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### properties.target.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### properties.target.required
+
+> `readonly` **required**: readonly \[`"guestArch"`, `"mode"`, `"execution"`\]
+
+###### properties.target.properties
+
+> `readonly` **properties**: `object`
+
+###### properties.target.properties.guestArch
+
+> `readonly` **guestArch**: `object`
+
+###### properties.target.properties.guestArch.enum
+
+> `readonly` **enum**: readonly \[`"arm64"`, `"amd64"`\] = `portableMachineSnapshotArchitectures`
+
+###### properties.target.properties.mode
+
+> `readonly` **mode**: `object`
+
+###### properties.target.properties.mode.const
+
+> `readonly` **const**: `"target-isa-vm-process-restore"` = `"target-isa-vm-process-restore"`
+
+###### properties.target.properties.execution
+
+> `readonly` **execution**: `object`
+
+###### properties.target.properties.execution.const
+
+> `readonly` **const**: `"target-native"` = `"target-native"`
+
+###### properties.payload
+
+> `readonly` **payload**: `object`
+
+###### properties.payload.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### properties.payload.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### properties.payload.required
+
+> `readonly` **required**: readonly \[`"nativeProcessImage"`, `"resourceModel"`\]
+
+###### properties.payload.properties
+
+> `readonly` **properties**: `object`
+
+###### properties.payload.properties.nativeProcessImage
+
+> `readonly` **nativeProcessImage**: `object`
+
+###### properties.payload.properties.nativeProcessImage.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### properties.payload.properties.nativeProcessImage.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### properties.payload.properties.nativeProcessImage.required
+
+> `readonly` **required**: readonly \[`"kind"`, `"path"`\]
+
+###### properties.payload.properties.nativeProcessImage.properties
+
+> `readonly` **properties**: `object`
+
+###### properties.payload.properties.nativeProcessImage.properties.kind
+
+> `readonly` **kind**: `object`
+
+###### properties.payload.properties.nativeProcessImage.properties.kind.const
+
+> `readonly` **const**: `"machinen.native-process-image"` = `"machinen.native-process-image"`
+
+###### properties.payload.properties.nativeProcessImage.properties.path
+
+> `readonly` **path**: `object`
+
+###### properties.payload.properties.nativeProcessImage.properties.path.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### properties.payload.properties.nativeProcessImage.properties.path.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### properties.payload.properties.resourceModel
+
+> `readonly` **resourceModel**: `object`
+
+###### properties.payload.properties.resourceModel.const
+
+> `readonly` **const**: `"explicit-recipes-only"` = `"explicit-recipes-only"`
+
+###### properties.refusals
+
+> `readonly` **refusals**: `object`
+
+###### properties.refusals.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### properties.refusals.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### properties.refusals.required
+
+> `readonly` **required**: readonly \[`"vocabularyVersion"`, `"refusals"`\]
+
+###### properties.refusals.properties
+
+> `readonly` **properties**: `object`
+
+###### properties.refusals.properties.vocabularyVersion
+
+> `readonly` **vocabularyVersion**: `object`
+
+###### properties.refusals.properties.vocabularyVersion.const
+
+> `readonly` **const**: `1` = `1`
+
+###### properties.refusals.properties.refusals
+
+> `readonly` **refusals**: `object`
+
+###### properties.refusals.properties.refusals.type
+
+> `readonly` **type**: `"array"` = `"array"`
+
+###### properties.refusals.properties.refusals.items
+
+> `readonly` **items**: `object`
+
+###### properties.refusals.properties.refusals.items.type
+
+> `readonly` **type**: `"object"` = `"object"`
+
+###### properties.refusals.properties.refusals.items.additionalProperties
+
+> `readonly` **additionalProperties**: `false` = `false`
+
+###### properties.refusals.properties.refusals.items.required
+
+> `readonly` **required**: readonly \[`"code"`, `"message"`\]
+
+###### properties.refusals.properties.refusals.items.properties
+
+> `readonly` **properties**: `object`
+
+###### properties.refusals.properties.refusals.items.properties.code
+
+> `readonly` **code**: `object`
+
+###### properties.refusals.properties.refusals.items.properties.code.enum
+
+> `readonly` **enum**: readonly \[`"cross-isa-vmstate-restore-unsupported"`, `"raw-vcpu-state-unsupported"`, `"raw-kernel-state-unsupported"`, `"raw-device-state-unsupported"`, `"target-isa-vm-restore-loader-missing"`, `"portable-process-image-missing"`\] = `portableMachineSnapshotRefusalCodes`
+
+###### properties.refusals.properties.refusals.items.properties.message
+
+> `readonly` **message**: `object`
+
+###### properties.refusals.properties.refusals.items.properties.message.type
+
+> `readonly` **type**: `"string"` = `"string"`
+
+###### properties.refusals.properties.refusals.items.properties.message.minLength
+
+> `readonly` **minLength**: `1` = `1`
+
+###### properties.refusals.properties.refusals.items.properties.detail
+
+> `readonly` **detail**: `object`
+
+###### properties.refusals.properties.refusals.items.properties.detail.type
+
+> `readonly` **type**: `"object"` = `"object"`
 
 ***
 
@@ -13113,6 +13647,42 @@ behaviour we had before.
 #### Returns
 
 [`PidStatus`](#pidstatus)
+
+***
+
+### crossIsaVmstateRestoreRefusal()
+
+> **crossIsaVmstateRestoreRefusal**(`sourceArch`, `targetArch`): [`PortableMachineSnapshotRefusal`](#portablemachinesnapshotrefusal)
+
+#### Parameters
+
+##### sourceArch
+
+`string`
+
+##### targetArch
+
+`string`
+
+#### Returns
+
+[`PortableMachineSnapshotRefusal`](#portablemachinesnapshotrefusal)
+
+***
+
+### validatePortableMachineSnapshotManifest()
+
+> **validatePortableMachineSnapshotManifest**(`input`): [`PortableMachineSnapshotManifest`](#portablemachinesnapshotmanifest)
+
+#### Parameters
+
+##### input
+
+`unknown`
+
+#### Returns
+
+[`PortableMachineSnapshotManifest`](#portablemachinesnapshotmanifest)
 
 ***
 

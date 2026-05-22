@@ -118,9 +118,10 @@ describe("vmstate portability metadata", () => {
         0n,
       );
 
-      await expect(restore({ snapDir: dir, image, binary: "/bin/sh" })).rejects.toThrow(
-        /guest architecture mismatch/,
-      );
+      await expect(restore({ snapDir: dir, image, binary: "/bin/sh" })).rejects.toMatchObject({
+        code: "BOOT_VMSTATE_CROSS_ISA_UNSUPPORTED",
+        message: expect.stringContaining("cross-isa-vmstate-restore-unsupported"),
+      });
     } finally {
       if (original === undefined) {
         delete process.env.MACHINEN_GUEST_ARCH;

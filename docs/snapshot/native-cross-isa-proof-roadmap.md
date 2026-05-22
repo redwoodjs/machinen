@@ -14,6 +14,11 @@ The success target remains native-transparent Option B:
 - no captured source text reused as target code
 - unsafe or ambiguous process state fails closed with a precise refusal
 
+For machine-level restore, raw cross-ISA `.vmstate` replay is not a success path:
+source kernel/vCPU/device state is ISA-specific. The portable machine boundary is
+tracked in [Portable machine snapshot boundary](./portable-machine-snapshot.md):
+boot/preload a target-ISA VM, then restore only modeled process/resource state.
+
 ## Current proven point
 
 The current proofs capture live arm64 processes blocked in modeled sleep or
@@ -21,8 +26,8 @@ The current proofs capture live arm64 processes blocked in modeled sleep or
 bytes on an amd64 host. Sleep and zero-fd `ppoll(NULL, 0, &timeout, NULL)` can
 complete by exiting the target process or returning into a controlled
 trampoline. The active proof extends `ppoll` from zero fds to one explicitly
-modeled synthetic empty pipe read end. These are narrow completion proofs, not
-arbitrary process migration.
+modeled synthetic empty pipe read end or empty eventfd. These are narrow
+completion proofs, not arbitrary process or whole-machine migration.
 
 The active frontier is generated target-native blocking syscall continuations.
 Broad libc/TLS/vDSO materialization remains deferred until multiple syscall
