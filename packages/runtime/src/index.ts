@@ -192,9 +192,14 @@ export type {
 } from "./native-target-module-bytes.ts";
 export type {
   NativeSyntheticSleepCompletionMode,
+  NativeSyntheticSleepSyscallArgumentProvenance,
   NativeSyntheticSleepSyscallContinuation,
+  NativeSyntheticSleepSyscallContinuationProvenance,
   NativeSyntheticSleepSyscallContinuationRequest,
   NativeSyntheticSleepSyscallContinuationResult,
+  NativeSyntheticSleepSyscallProvenanceSource,
+  NativeSyntheticSleepSyscallRegisterSetupProvenance,
+  NativeSyntheticSleepSyscallStackSetupProvenance,
 } from "./native-synthetic-sleep-continuation.ts";
 export type {
   NativeTargetLandingDisassemblyProvenance,
