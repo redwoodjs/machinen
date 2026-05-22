@@ -44,7 +44,11 @@ function descriptor(
 describe("target guest restore loader descriptor", () => {
   it("serializes and parses fd table recipes", () => {
     const original = descriptor({
-      continuation: { ...descriptor().continuation, argument0: "0x600000000000" },
+      continuation: {
+        ...descriptor().continuation,
+        argument0: "0x600000000000",
+        stateReportAddress: "0x600000000000",
+      },
       resources: [
         { kind: "close-fd", fd: 0, reason: "missing-captured-fd" },
         { kind: "inherit-stdio", fd: 1, stream: "stdout", closeOnExec: false },
@@ -77,6 +81,8 @@ describe("target guest restore loader descriptor", () => {
       "--target-address",
       "0x700300000000",
       "--argument0",
+      "0x600000000000",
+      "--state-report-address",
       "0x600000000000",
       "--timeout-seconds",
       "5",
@@ -206,6 +212,14 @@ describe("target guest restore loader descriptor", () => {
         }),
       ),
     ).toThrow(/argument0 must be a hex address/);
+
+    expect(() =>
+      validateTargetGuestRestoreDescriptor(
+        descriptor({
+          continuation: { ...descriptor().continuation, stateReportAddress: "600000000000" },
+        }),
+      ),
+    ).toThrow(/stateReportAddress must be a hex address/);
   });
 
   it.skipIf(!HAS_CC)(
@@ -224,7 +238,7 @@ describe("target guest restore loader descriptor", () => {
       const checker = join(outDir, "fd-checker");
       writeFileSync(
         checkerSource,
-        `#include <string.h>\n#include <unistd.h>\n#include <stdio.h>\nint main(int argc, char **argv) {\n  char buf[3] = {0};\n  int saw_cloexec = 0;\n  for (int i = 1; i + 1 < argc; i++) {\n    if (strcmp(argv[i], "--set-cloexec-fd") == 0 && strcmp(argv[i + 1], "7") == 0) saw_cloexec = 1;\n  }\n  if (read(7, buf, 2) != 2) return 41;\n  if (strcmp(buf, "cd") != 0) return 42;\n  if (!saw_cloexec) return 43;\n  printf("fd-check:%s\\n", buf);\n  return 0;\n}\n`,
+        `#include <string.h>\n#include <unistd.h>\n#include <stdio.h>\nint main(int argc, char **argv) {\n  char buf[3] = {0};\n  int saw_cloexec = 0;\n  int saw_state_report = 0;\n  for (int i = 1; i + 1 < argc; i++) {\n    if (strcmp(argv[i], "--set-cloexec-fd") == 0 && strcmp(argv[i + 1], "7") == 0) saw_cloexec = 1;\n    if (strcmp(argv[i], "--state-report-address") == 0 && strcmp(argv[i + 1], "0x600000000000") == 0) saw_state_report = 1;\n  }\n  if (read(7, buf, 2) != 2) return 41;\n  if (strcmp(buf, "cd") != 0) return 42;\n  if (!saw_cloexec) return 43;\n  if (!saw_state_report) return 44;\n  printf("fd-check:%s\\n", buf);\n  return 0;\n}\n`,
       );
       const compileChecker = spawnSync(
         "cc",
@@ -242,6 +256,10 @@ describe("target guest restore loader descriptor", () => {
         descriptorPath,
         serializeTargetGuestRestoreDescriptor(
           descriptor({
+            continuation: {
+              ...descriptor().continuation,
+              stateReportAddress: "0x600000000000",
+            },
             resources: [
               {
                 kind: "reopen-file",

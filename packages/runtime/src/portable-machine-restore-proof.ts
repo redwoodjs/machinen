@@ -21,6 +21,12 @@ export interface PortableMachineVmRestoreProofRequest {
 
 export type PortableMachineTargetVerifierResult = "pending" | "passed" | "failed";
 export type PortableMachineTargetContinuationKind = "generated-verifier" | "real-utility";
+export type PortableMachineTargetStateConsumptionResult = "pending" | "passed" | "failed";
+
+export interface PortableMachineTargetResourceStatus {
+  kind: string;
+  status: "passed" | "failed";
+}
 
 export interface PortableMachineVmRestoreProofPlan {
   phase: "portable-machine-vm-restore-proof";
@@ -42,6 +48,8 @@ export interface PortableMachineVmRestoreProofPlan {
   targetContinuationStatus?: string;
   targetContinuationReturnValue?: string;
   targetModuleBytesSource?: string;
+  targetStateConsumptionResult?: PortableMachineTargetStateConsumptionResult;
+  targetResourceStatuses?: PortableMachineTargetResourceStatus[];
   sourceTextReusedAsTargetCode: false;
   sourceIsaEmulationUsed: false;
   sidecarRuntimeUsed: false;
@@ -55,6 +63,8 @@ export interface PortableMachineVmRestoreTargetResult {
   descriptorGateCompleted?: boolean;
   targetVerifierResult?: PortableMachineTargetVerifierResult;
   actualResumeEvent?: { status?: string; returnValue?: string };
+  targetStateConsumptionResult?: PortableMachineTargetStateConsumptionResult;
+  targetResourceStatuses?: PortableMachineTargetResourceStatus[];
   sourceTextReusedAsTargetCode?: boolean;
   sourceIsaEmulationUsed?: boolean;
   sidecarRuntimeUsed?: boolean;
@@ -170,6 +180,8 @@ export function completePortableMachineVmRestoreProof(
     targetVerifierResult: verifierResult(result, completed),
     targetContinuationStatus: result.actualResumeEvent?.status,
     targetContinuationReturnValue: result.actualResumeEvent?.returnValue,
+    targetStateConsumptionResult: result.targetStateConsumptionResult,
+    targetResourceStatuses: result.targetResourceStatuses,
   };
 }
 
@@ -186,6 +198,8 @@ function targetNativeCompleted(result: PortableMachineVmRestoreTargetResult): bo
     result.migrationCompleted === true,
     result.descriptorGateCompleted === true,
     result.targetVerifierResult === undefined || result.targetVerifierResult === "passed",
+    result.targetStateConsumptionResult === undefined ||
+      result.targetStateConsumptionResult === "passed",
     result.sourceTextReusedAsTargetCode === false,
     result.sourceIsaEmulationUsed === false,
     result.sidecarRuntimeUsed === false,

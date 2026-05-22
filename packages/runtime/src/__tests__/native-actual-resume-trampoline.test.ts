@@ -88,6 +88,45 @@ describe("native actual resume trampoline", () => {
         argument0: "0x600000000000",
       });
 
+      const stateMemory = join(outDir, "state-memory.bin");
+      const memory = Buffer.alloc(4096);
+      memory[0] = 0x4d;
+      writeFileSync(stateMemory, memory);
+      const stateCode = Buffer.from([
+        0x48, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0x48, 0x89, 0x47, 0x08, 0x48, 0xb8, 0, 0, 0, 0, 0, 0, 0,
+        0, 0x48, 0x89, 0x47, 0x10, 0xb8, 0x4d, 0, 0, 0, 0xc3,
+      ]);
+      stateCode.writeBigUInt64LE(0x5354415445434f4en, 2);
+      stateCode.writeBigUInt64LE(0x7fn, 16);
+      const stateCodePath = join(outDir, "state.bin");
+      writeFileSync(stateCodePath, stateCode);
+      expect(
+        runHelper(helper, stateCodePath, stateCode.length, [
+          "--argument0",
+          "0x600000000000",
+          "--state-report-address",
+          "0x600000000000",
+          "--materialize-memory",
+          `${stateMemory}:0:0x600000000000:4096:rw-p`,
+        ]),
+      ).toMatchObject({
+        status: "returned",
+        returnValue: "0x4d",
+        stateConsumption: {
+          status: "passed",
+          memoryByte: "0x4d",
+          resourceMask: "0x7f",
+          resourceStatuses: [
+            { kind: "inherit-stdio", status: "passed" },
+            { kind: "close-fd", status: "passed" },
+            { kind: "reopen-file", status: "passed" },
+            { kind: "synthetic-empty-pipe", status: "passed" },
+            { kind: "synthetic-empty-eventfd", status: "passed" },
+            { kind: "synthetic-timerfd", status: "passed" },
+          ],
+        },
+      });
+
       const faultCode = join(outDir, "fault.bin");
       writeFileSync(faultCode, Buffer.from([0x48, 0x8b, 0x00]));
       expect(runHelper(helper, faultCode, 3)).toMatchObject({

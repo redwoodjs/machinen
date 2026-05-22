@@ -24,6 +24,18 @@ const GUEST_FD_FILE_DEFAULT = "/tmp/machinen-combined-fd.txt";
 const LOADER_PREFIX = "MACHINEN_TARGET_GUEST_RESTORE_LOADER ";
 const ACTUAL_RESUME_PREFIX = "MACHINEN_ACTUAL_RESUME_TRAMPOLINE ";
 
+type StateConsumptionStatus = "passed" | "failed";
+
+interface StateConsumptionResourceStatus {
+  kind: string;
+  status: StateConsumptionStatus;
+}
+
+interface StateConsumptionEvent {
+  status?: StateConsumptionStatus;
+  resourceStatuses?: StateConsumptionResourceStatus[];
+}
+
 interface Args {
   codeFile?: string;
   descriptorFile?: string;
@@ -187,29 +199,54 @@ async function executeTargetVmProof(
   const result = await vm.execRaw(targetLoaderCommand(), {
     execTimeoutMs: (args.timeoutSeconds + 20) * 1000,
   });
-  const descriptorGateCompleted = loaderCompleted(result.stdout);
-  const actualResumeEvent = parseActualResumeEvent(result.stdout);
-  const targetVerifierResult = targetVerifierPassed(
-    args,
-    result.exitCode,
-    descriptorGateCompleted,
-    actualResumeEvent,
-  )
-    ? "passed"
-    : "failed";
+  return targetExecutionSummary(args, result);
+}
+
+function targetExecutionSummary(
+  args: Args,
+  result: { exitCode: number; stdout: string; stderr: string },
+) {
+  const events = targetExecutionEvents(result.stdout);
   return {
     ...targetSummary(args),
-    descriptorGateCompleted,
-    actualResumeEvent,
-    targetVerifierResult,
+    ...events,
+    targetVerifierResult: targetVerifierResult(args, result.exitCode, events),
+    targetStateConsumptionResult: events.stateConsumption?.status,
+    targetResourceStatuses: events.stateConsumption?.resourceStatuses,
     exitCode: result.exitCode,
     stdout: result.stdout,
     stderr: result.stderr,
-    migrationCompleted: result.exitCode === 0 && descriptorGateCompleted,
+    migrationCompleted: result.exitCode === 0 && events.descriptorGateCompleted,
     sourceTextReusedAsTargetCode: false,
     sourceIsaEmulationUsed: false,
     sidecarRuntimeUsed: false,
   };
+}
+
+function targetExecutionEvents(stdout: string) {
+  const descriptorGateCompleted = loaderCompleted(stdout);
+  const actualResumeEvent = parseActualResumeEvent(stdout);
+  return {
+    descriptorGateCompleted,
+    actualResumeEvent,
+    stateConsumption: parseStateConsumption(actualResumeEvent),
+  };
+}
+
+function targetVerifierResult(
+  args: Args,
+  exitCode: number,
+  events: ReturnType<typeof targetExecutionEvents>,
+): "passed" | "failed" {
+  return targetVerifierPassed(
+    args,
+    exitCode,
+    events.descriptorGateCompleted,
+    events.actualResumeEvent,
+    events.stateConsumption,
+  )
+    ? "passed"
+    : "failed";
 }
 
 async function stageTargetGuestInputs(
@@ -300,8 +337,12 @@ function targetVerifierPassed(
   exitCode: number,
   descriptorGateCompleted: boolean,
   actualResumeEvent: Record<string, unknown> | undefined,
+  stateConsumption: StateConsumptionEvent | undefined,
 ): boolean {
   if (!targetProcessCompleted(exitCode, descriptorGateCompleted)) {
+    return false;
+  }
+  if (!targetStateConsumed(stateConsumption)) {
     return false;
   }
   return args.expectReturnValue === undefined
@@ -311,6 +352,25 @@ function targetVerifierPassed(
 
 function targetProcessCompleted(exitCode: number, descriptorGateCompleted: boolean): boolean {
   return descriptorGateCompleted && exitCode === 0;
+}
+
+function targetStateConsumed(stateConsumption: StateConsumptionEvent | undefined): boolean {
+  return stateConsumption === undefined || stateConsumption.status === "passed";
+}
+
+function parseStateConsumption(
+  actualResumeEvent: Record<string, unknown> | undefined,
+): StateConsumptionEvent | undefined {
+  const value = actualResumeEvent?.stateConsumption;
+  return isStateConsumptionEvent(value) ? value : undefined;
+}
+
+function isStateConsumptionEvent(value: unknown): value is StateConsumptionEvent {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const status = (value as { status?: unknown }).status;
+  return status === "passed" || status === "failed";
 }
 
 function actualResumeReturnedExpected(
