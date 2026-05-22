@@ -81,10 +81,10 @@ Done when:
 - success/failure completion snippets are shared;
 - sleep and `ppoll` tests assert the same invariants.
 
-### 4. Continue after a target-native syscall
+### 4. Continue after a target-native syscall — in progress
 
-Goal: prove a generated target-native syscall can return into a modeled target
-continuation instead of exiting the process immediately.
+Goal: prove a generated target-native syscall can return into a controlled
+target-native caller frame instead of exiting the process immediately.
 
 Done when:
 
