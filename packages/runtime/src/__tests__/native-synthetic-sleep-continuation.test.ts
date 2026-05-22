@@ -44,6 +44,21 @@ describe("synthetic sleep syscall continuation", () => {
     );
     expect(new DataView(result.continuation!.bytes.buffer).getBigUint64(24, true)).toBe(2n);
     expect(new DataView(result.continuation!.bytes.buffer).getBigUint64(32, true)).toBe(500n);
+    expect(result.continuation!.descriptor).toMatchObject({
+      kind: "synthetic-syscall-continuation",
+      targetArch: "amd64",
+      entryAddress: NATIVE_SYNTHETIC_SLEEP_SYSCALL_BASE,
+      relativeAddress: "0x0",
+      byteSource: "generated-target-native-amd64-syscall-sequence",
+      generatedTargetBytes: true,
+      sourceTextReusedAsTargetCode: false,
+      sourceIsaEmulationUsed: false,
+      sidecarRuntimeUsed: false,
+      syscall: { abi: "linux-amd64", name: "clock_nanosleep", number: 230 },
+      registerSetup: { abi: "linux-amd64-syscall" },
+      stackSetup: { requiresSourceStackBytes: false },
+      completion: { mode: "return-to-trampoline" },
+    });
     expect(result.continuation!.provenance).toMatchObject({
       byteSource: "generated-target-native-amd64-syscall-sequence",
       byteEncoding: "amd64-machine-code",
@@ -82,6 +97,9 @@ describe("synthetic sleep syscall continuation", () => {
       Buffer.from(result.continuation!.bytes).toString("hex"),
     );
     expect(result.continuation!.provenance.byteSha256).toHaveLength(64);
+    expect(result.continuation!.provenance.byteSha256).toBe(
+      result.continuation!.descriptor.byteSha256,
+    );
   });
 
   it("can generate an exit-process continuation after a successful sleep syscall", () => {

@@ -280,6 +280,11 @@ describe("native real utility code-location map", () => {
         source: "synthetic-syscall",
         symbolName: "machinen_synthetic_clock_nanosleep",
         syscall: { name: "clock_nanosleep", number: 230 },
+        descriptor: {
+          kind: "synthetic-syscall-continuation",
+          syscall: { abi: "linux-amd64", name: "clock_nanosleep", number: 230 },
+          completion: { mode: "return-to-trampoline" },
+        },
         provenance: {
           byteSource: "generated-target-native-amd64-syscall-sequence",
           generatedTargetBytes: true,

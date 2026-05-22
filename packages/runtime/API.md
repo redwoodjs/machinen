@@ -130,9 +130,27 @@
 - [`NativeTargetModuleByteMaterialization`](#nativetargetmodulebytematerialization)
 - [`NativeTargetModuleByteMaterializationResult`](#nativetargetmodulebytematerializationresult)
 - [`materializeNativeTargetModuleBytes`](#materializenativetargetmodulebytes)
+- [`NativeSyntheticContinuationTargetArch`](#nativesyntheticcontinuationtargetarch)
+- [`NativeSyntheticContinuationByteSource`](#nativesyntheticcontinuationbytesource)
+- [`NativeSyntheticContinuationByteEncoding`](#nativesyntheticcontinuationbyteencoding)
+- [`NativeSyntheticContinuationSyscallAbi`](#nativesyntheticcontinuationsyscallabi)
+- [`NativeSyntheticContinuationRegisterSetupAbi`](#nativesyntheticcontinuationregistersetupabi)
+- [`NativeSyntheticContinuationRegister`](#nativesyntheticcontinuationregister)
+- [`NativeSyntheticContinuationProvenanceSource`](#nativesyntheticcontinuationprovenancesource)
+- [`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor)
+- [`NativeSyntheticSyscallDescriptor`](#nativesyntheticsyscalldescriptor)
+- [`NativeSyntheticContinuationRegisterSetupDescriptor`](#nativesyntheticcontinuationregistersetupdescriptor)
+- [`NativeSyntheticContinuationStackSetupDescriptor`](#nativesyntheticcontinuationstacksetupdescriptor)
+- [`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor)
+- [`NativeSyntheticSyscallContinuationDescriptorRequest`](#nativesyntheticsyscallcontinuationdescriptorrequest)
+- [`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor)
+- [`buildNativeSyntheticSyscallContinuationDescriptor`](#buildnativesyntheticsyscallcontinuationdescriptor)
+- [`nativeSyntheticContinuationBytesHex`](#nativesyntheticcontinuationbyteshex)
+- [`nativeSyntheticContinuationBytesSha256`](#nativesyntheticcontinuationbytessha256)
 - [`NativeSyntheticSleepCompletionMode`](#nativesyntheticsleepcompletionmode)
 - [`NativeSyntheticSleepSyscallProvenanceSource`](#nativesyntheticsleepsyscallprovenancesource)
 - [`NativeSyntheticSleepSyscallArgumentProvenance`](#nativesyntheticsleepsyscallargumentprovenance)
+- [`NativeSyntheticSleepSyscallCompletionProvenance`](#nativesyntheticsleepsyscallcompletionprovenance)
 - [`NativeSyntheticSleepSyscallRegisterSetupProvenance`](#nativesyntheticsleepsyscallregistersetupprovenance)
 - [`NativeSyntheticSleepSyscallStackSetupProvenance`](#nativesyntheticsleepsyscallstacksetupprovenance)
 - [`NativeSyntheticSleepSyscallContinuationProvenance`](#nativesyntheticsleepsyscallcontinuationprovenance)
@@ -4222,6 +4240,10 @@ by default when `output` is a TTY.
 
 > `optional` **exitStatusOnSuccess?**: `0`
 
+##### descriptor
+
+> **descriptor**: [`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor)
+
 ##### provenance
 
 > **provenance**: [`NativeSyntheticSleepSyscallContinuationProvenance`](#nativesyntheticsleepsyscallcontinuationprovenance)
@@ -4732,17 +4754,21 @@ by default when `output` is a TTY.
 
 ***
 
-### NativeSyntheticSleepSyscallArgumentProvenance
+### NativeSyntheticSyscallArgumentDescriptor
+
+#### Extended by
+
+- [`NativeSyntheticSleepSyscallArgumentProvenance`](#nativesyntheticsleepsyscallargumentprovenance)
 
 #### Properties
 
 ##### register
 
-> **register**: `"rax"` \| `"rdx"` \| `"rsi"` \| `"rdi"` \| `"r10"`
+> **register**: [`NativeSyntheticContinuationRegister`](#nativesyntheticcontinuationregister)
 
 ##### role
 
-> **role**: `"flags"` \| `"syscall-number"` \| `"clock-id"` \| `"request-timespec-pointer"` \| `"remainder-pointer"`
+> **role**: `string`
 
 ##### value
 
@@ -4750,11 +4776,37 @@ by default when `output` is a TTY.
 
 ##### source
 
-> **source**: [`NativeSyntheticSleepSyscallProvenanceSource`](#nativesyntheticsleepsyscallprovenancesource)
+> **source**: [`NativeSyntheticContinuationProvenanceSource`](#nativesyntheticcontinuationprovenancesource)
 
 ***
 
-### NativeSyntheticSleepSyscallRegisterSetupProvenance
+### NativeSyntheticSyscallDescriptor
+
+#### Properties
+
+##### abi
+
+> **abi**: `"linux-amd64"`
+
+##### name
+
+> **name**: `string`
+
+##### number
+
+> **number**: `number`
+
+##### arguments
+
+> **arguments**: [`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor)[]
+
+***
+
+### NativeSyntheticContinuationRegisterSetupDescriptor
+
+#### Extended by
+
+- [`NativeSyntheticSleepSyscallRegisterSetupProvenance`](#nativesyntheticsleepsyscallregistersetupprovenance)
 
 #### Properties
 
@@ -4764,11 +4816,11 @@ by default when `output` is a TTY.
 
 ##### arguments
 
-> **arguments**: [`NativeSyntheticSleepSyscallArgumentProvenance`](#nativesyntheticsleepsyscallargumentprovenance)[]
+> **arguments**: [`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor)[]
 
 ##### clobberedBySyscall
 
-> **clobberedBySyscall**: \[`"rax"`, `"rcx"`, `"r11"`\]
+> **clobberedBySyscall**: [`NativeSyntheticContinuationRegister`](#nativesyntheticcontinuationregister)[]
 
 ##### notes
 
@@ -4776,31 +4828,119 @@ by default when `output` is a TTY.
 
 ***
 
-### NativeSyntheticSleepSyscallStackSetupProvenance
+### NativeSyntheticContinuationStackSetupDescriptor
+
+#### Extended by
+
+- [`NativeSyntheticSleepSyscallStackSetupProvenance`](#nativesyntheticsleepsyscallstacksetupprovenance)
 
 #### Properties
 
 ##### entryStackPointer
 
-> **entryStackPointer**: `"target-caller-frame-stack-pointer"`
+> **entryStackPointer**: `string`
 
 ##### stackBytesWrittenByContinuation
 
-> **stackBytesWrittenByContinuation**: `0`
+> **stackBytesWrittenByContinuation**: `number`
 
 ##### returnAddress
 
-> **returnAddress**: `"trampoline-sentinel-return-address"` \| `"not-used-exit-process-completion"`
+> **returnAddress**: `string`
 
 ##### requiresSourceStackBytes
 
-> **requiresSourceStackBytes**: `false`
+> **requiresSourceStackBytes**: `boolean`
 
 ***
 
-### NativeSyntheticSleepSyscallContinuationProvenance
+### NativeSyntheticContinuationCompletionDescriptor
+
+#### Extended by
+
+- [`NativeSyntheticSleepSyscallCompletionProvenance`](#nativesyntheticsleepsyscallcompletionprovenance)
 
 #### Properties
+
+##### mode
+
+> **mode**: `string`
+
+##### successExitStatus?
+
+> `optional` **successExitStatus?**: `number`
+
+##### failureExitStatus?
+
+> `optional` **failureExitStatus?**: `number`
+
+***
+
+### NativeSyntheticSyscallContinuationDescriptorRequest
+
+#### Properties
+
+##### targetArch
+
+> **targetArch**: `"amd64"`
+
+##### entryAddress
+
+> **entryAddress**: `string`
+
+##### relativeAddress
+
+> **relativeAddress**: `string`
+
+##### generatorBuildId
+
+> **generatorBuildId**: `string`
+
+##### bytes
+
+> **bytes**: `Uint8Array`
+
+##### syscall
+
+> **syscall**: `Omit`\<[`NativeSyntheticSyscallDescriptor`](#nativesyntheticsyscalldescriptor), `"abi"`\>
+
+##### registerSetup
+
+> **registerSetup**: [`NativeSyntheticContinuationRegisterSetupDescriptor`](#nativesyntheticcontinuationregistersetupdescriptor)
+
+##### stackSetup
+
+> **stackSetup**: [`NativeSyntheticContinuationStackSetupDescriptor`](#nativesyntheticcontinuationstacksetupdescriptor)
+
+##### completion
+
+> **completion**: [`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor)
+
+***
+
+### NativeSyntheticSyscallContinuationDescriptor
+
+#### Extended by
+
+- [`NativeSyntheticSleepSyscallContinuationProvenance`](#nativesyntheticsleepsyscallcontinuationprovenance)
+
+#### Properties
+
+##### kind
+
+> **kind**: `"synthetic-syscall-continuation"`
+
+##### targetArch
+
+> **targetArch**: `"amd64"`
+
+##### entryAddress
+
+> **entryAddress**: `string`
+
+##### relativeAddress
+
+> **relativeAddress**: `string`
 
 ##### byteSource
 
@@ -4808,11 +4948,15 @@ by default when `output` is a TTY.
 
 ##### generatorBuildId
 
-> **generatorBuildId**: `"machinen-synthetic-sleep-syscall-v2"`
+> **generatorBuildId**: `string`
 
 ##### byteEncoding
 
 > **byteEncoding**: `"amd64-machine-code"`
+
+##### sizeBytes
+
+> **sizeBytes**: `number`
 
 ##### bytesHex
 
@@ -4844,7 +4988,315 @@ by default when `output` is a TTY.
 
 ##### syscall
 
-> **syscall**: `object`
+> **syscall**: [`NativeSyntheticSyscallDescriptor`](#nativesyntheticsyscalldescriptor)
+
+##### registerSetup
+
+> **registerSetup**: [`NativeSyntheticContinuationRegisterSetupDescriptor`](#nativesyntheticcontinuationregistersetupdescriptor)
+
+##### stackSetup
+
+> **stackSetup**: [`NativeSyntheticContinuationStackSetupDescriptor`](#nativesyntheticcontinuationstacksetupdescriptor)
+
+##### completion
+
+> **completion**: [`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor)
+
+***
+
+### NativeSyntheticSleepSyscallArgumentProvenance
+
+#### Extends
+
+- [`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor)
+
+#### Properties
+
+##### value
+
+> **value**: `string`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`value`](#value)
+
+##### register
+
+> **register**: `"rax"` \| `"rdx"` \| `"rsi"` \| `"rdi"` \| `"r10"`
+
+###### Overrides
+
+[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`register`](#register)
+
+##### role
+
+> **role**: `"flags"` \| `"syscall-number"` \| `"clock-id"` \| `"request-timespec-pointer"` \| `"remainder-pointer"`
+
+###### Overrides
+
+[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`role`](#role)
+
+##### source
+
+> **source**: [`NativeSyntheticContinuationProvenanceSource`](#nativesyntheticcontinuationprovenancesource)
+
+###### Overrides
+
+[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`source`](#source-6)
+
+***
+
+### NativeSyntheticSleepSyscallRegisterSetupProvenance
+
+#### Extends
+
+- [`NativeSyntheticContinuationRegisterSetupDescriptor`](#nativesyntheticcontinuationregistersetupdescriptor)
+
+#### Properties
+
+##### abi
+
+> **abi**: `"linux-amd64-syscall"`
+
+###### Inherited from
+
+[`NativeSyntheticContinuationRegisterSetupDescriptor`](#nativesyntheticcontinuationregistersetupdescriptor).[`abi`](#abi-1)
+
+##### notes
+
+> **notes**: `string`[]
+
+###### Inherited from
+
+[`NativeSyntheticContinuationRegisterSetupDescriptor`](#nativesyntheticcontinuationregistersetupdescriptor).[`notes`](#notes)
+
+##### arguments
+
+> **arguments**: [`NativeSyntheticSleepSyscallArgumentProvenance`](#nativesyntheticsleepsyscallargumentprovenance)[]
+
+###### Overrides
+
+[`NativeSyntheticContinuationRegisterSetupDescriptor`](#nativesyntheticcontinuationregistersetupdescriptor).[`arguments`](#arguments-1)
+
+##### clobberedBySyscall
+
+> **clobberedBySyscall**: \[`"rax"`, `"rcx"`, `"r11"`\]
+
+###### Overrides
+
+[`NativeSyntheticContinuationRegisterSetupDescriptor`](#nativesyntheticcontinuationregistersetupdescriptor).[`clobberedBySyscall`](#clobberedbysyscall)
+
+***
+
+### NativeSyntheticSleepSyscallStackSetupProvenance
+
+#### Extends
+
+- [`NativeSyntheticContinuationStackSetupDescriptor`](#nativesyntheticcontinuationstacksetupdescriptor)
+
+#### Properties
+
+##### entryStackPointer
+
+> **entryStackPointer**: `"target-caller-frame-stack-pointer"`
+
+###### Overrides
+
+[`NativeSyntheticContinuationStackSetupDescriptor`](#nativesyntheticcontinuationstacksetupdescriptor).[`entryStackPointer`](#entrystackpointer)
+
+##### stackBytesWrittenByContinuation
+
+> **stackBytesWrittenByContinuation**: `0`
+
+###### Overrides
+
+[`NativeSyntheticContinuationStackSetupDescriptor`](#nativesyntheticcontinuationstacksetupdescriptor).[`stackBytesWrittenByContinuation`](#stackbyteswrittenbycontinuation)
+
+##### returnAddress
+
+> **returnAddress**: `"trampoline-sentinel-return-address"` \| `"not-used-exit-process-completion"`
+
+###### Overrides
+
+[`NativeSyntheticContinuationStackSetupDescriptor`](#nativesyntheticcontinuationstacksetupdescriptor).[`returnAddress`](#returnaddress)
+
+##### requiresSourceStackBytes
+
+> **requiresSourceStackBytes**: `false`
+
+###### Overrides
+
+[`NativeSyntheticContinuationStackSetupDescriptor`](#nativesyntheticcontinuationstacksetupdescriptor).[`requiresSourceStackBytes`](#requiressourcestackbytes)
+
+***
+
+### NativeSyntheticSleepSyscallCompletionProvenance
+
+#### Extends
+
+- [`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor)
+
+#### Properties
+
+##### mode
+
+> **mode**: [`NativeSyntheticSleepCompletionMode`](#nativesyntheticsleepcompletionmode)
+
+###### Overrides
+
+[`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor).[`mode`](#mode-2)
+
+##### successExitStatus?
+
+> `optional` **successExitStatus?**: `0`
+
+###### Overrides
+
+[`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor).[`successExitStatus`](#successexitstatus)
+
+##### failureExitStatus?
+
+> `optional` **failureExitStatus?**: `111`
+
+###### Overrides
+
+[`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor).[`failureExitStatus`](#failureexitstatus)
+
+***
+
+### NativeSyntheticSleepSyscallContinuationProvenance
+
+#### Extends
+
+- [`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor)
+
+#### Properties
+
+##### kind
+
+> **kind**: `"synthetic-syscall-continuation"`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-15)
+
+##### targetArch
+
+> **targetArch**: `"amd64"`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`targetArch`](#targetarch-6)
+
+##### entryAddress
+
+> **entryAddress**: `string`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`entryAddress`](#entryaddress-1)
+
+##### relativeAddress
+
+> **relativeAddress**: `string`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`relativeAddress`](#relativeaddress-3)
+
+##### byteSource
+
+> **byteSource**: `"generated-target-native-amd64-syscall-sequence"`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`byteSource`](#bytesource)
+
+##### byteEncoding
+
+> **byteEncoding**: `"amd64-machine-code"`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`byteEncoding`](#byteencoding)
+
+##### sizeBytes
+
+> **sizeBytes**: `number`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sizeBytes`](#sizebytes-10)
+
+##### bytesHex
+
+> **bytesHex**: `string`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`bytesHex`](#byteshex)
+
+##### byteSha256
+
+> **byteSha256**: `string`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`byteSha256`](#bytesha256)
+
+##### generatedTargetBytes
+
+> **generatedTargetBytes**: `true`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`generatedTargetBytes`](#generatedtargetbytes)
+
+##### sourceTextReusedAsTargetCode
+
+> **sourceTextReusedAsTargetCode**: `false`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sourceTextReusedAsTargetCode`](#sourcetextreusedastargetcode-2)
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sourceIsaEmulationUsed`](#sourceisaemulationused-2)
+
+##### sidecarRuntimeUsed
+
+> **sidecarRuntimeUsed**: `false`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sidecarRuntimeUsed`](#sidecarruntimeused-2)
+
+##### syscallAbi
+
+> **syscallAbi**: `"linux-amd64"`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`syscallAbi`](#syscallabi)
+
+##### generatorBuildId
+
+> **generatorBuildId**: `"machinen-synthetic-sleep-syscall-v2"`
+
+###### Overrides
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`generatorBuildId`](#generatorbuildid-1)
+
+##### syscall
+
+> **syscall**: [`NativeSyntheticSyscallDescriptor`](#nativesyntheticsyscalldescriptor) & `object`
+
+###### Type Declaration
 
 ###### name
 
@@ -4857,6 +5309,10 @@ by default when `output` is a TTY.
 ###### arguments
 
 > **arguments**: [`NativeSyntheticSleepSyscallArgumentProvenance`](#nativesyntheticsleepsyscallargumentprovenance)[]
+
+###### Overrides
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`syscall`](#syscall-5)
 
 ##### embeddedData
 
@@ -4894,25 +5350,25 @@ by default when `output` is a TTY.
 
 > **registerSetup**: [`NativeSyntheticSleepSyscallRegisterSetupProvenance`](#nativesyntheticsleepsyscallregistersetupprovenance)
 
+###### Overrides
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`registerSetup`](#registersetup-1)
+
 ##### stackSetup
 
 > **stackSetup**: [`NativeSyntheticSleepSyscallStackSetupProvenance`](#nativesyntheticsleepsyscallstacksetupprovenance)
 
+###### Overrides
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`stackSetup`](#stacksetup-1)
+
 ##### completion
 
-> **completion**: `object`
+> **completion**: [`NativeSyntheticSleepSyscallCompletionProvenance`](#nativesyntheticsleepsyscallcompletionprovenance)
 
-###### mode
+###### Overrides
 
-> **mode**: [`NativeSyntheticSleepCompletionMode`](#nativesyntheticsleepcompletionmode)
-
-###### successExitStatus?
-
-> `optional` **successExitStatus?**: `0`
-
-###### failureExitStatus?
-
-> `optional` **failureExitStatus?**: `111`
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`completion`](#completion-1)
 
 ***
 
@@ -5005,6 +5461,10 @@ by default when `output` is a TTY.
 ##### exitStatusOnSuccess?
 
 > `optional` **exitStatusOnSuccess?**: `0`
+
+##### descriptor
+
+> **descriptor**: [`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor)
 
 ##### provenance
 
@@ -7735,7 +8195,7 @@ kicks in: `<sourceName>/<fork.pid>`.
 
 ###### Overrides
 
-[`RestoreOptions`](#restoreoptions).[`name`](#name-11)
+[`RestoreOptions`](#restoreoptions).[`name`](#name-12)
 
 ##### portForward?
 
@@ -9212,6 +9672,48 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativeSyntheticContinuationTargetArch
+
+> **NativeSyntheticContinuationTargetArch** = `"amd64"`
+
+***
+
+### NativeSyntheticContinuationByteSource
+
+> **NativeSyntheticContinuationByteSource** = `"generated-target-native-amd64-syscall-sequence"`
+
+***
+
+### NativeSyntheticContinuationByteEncoding
+
+> **NativeSyntheticContinuationByteEncoding** = `"amd64-machine-code"`
+
+***
+
+### NativeSyntheticContinuationSyscallAbi
+
+> **NativeSyntheticContinuationSyscallAbi** = `"linux-amd64"`
+
+***
+
+### NativeSyntheticContinuationRegisterSetupAbi
+
+> **NativeSyntheticContinuationRegisterSetupAbi** = `"linux-amd64-syscall"`
+
+***
+
+### NativeSyntheticContinuationRegister
+
+> **NativeSyntheticContinuationRegister** = `"rax"` \| `"rdi"` \| `"rsi"` \| `"rdx"` \| `"r10"` \| `"r8"` \| `"r9"` \| `"rcx"` \| `"r11"`
+
+***
+
+### NativeSyntheticContinuationProvenanceSource
+
+> **NativeSyntheticContinuationProvenanceSource** = `"generated-target-native-amd64-syscall-sequence"` \| `"linux-amd64-syscall-abi"` \| `"modeled-source-sleep-timer"` \| `"target-caller-frame"`
+
+***
+
 ### NativeSyntheticSleepCompletionMode
 
 > **NativeSyntheticSleepCompletionMode** = `"return-to-trampoline"` \| `"exit-process"`
@@ -9220,7 +9722,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NativeSyntheticSleepSyscallProvenanceSource
 
-> **NativeSyntheticSleepSyscallProvenanceSource** = `"generated-target-native-amd64-syscall-sequence"` \| `"linux-amd64-syscall-abi"` \| `"modeled-source-sleep-timer"` \| `"target-caller-frame"`
+> **NativeSyntheticSleepSyscallProvenanceSource** = [`NativeSyntheticContinuationProvenanceSource`](#nativesyntheticcontinuationprovenancesource)
 
 ***
 
@@ -11221,6 +11723,54 @@ available.
 #### Returns
 
 [`NativeStackTranslationResult`](#nativestacktranslationresult)
+
+***
+
+### buildNativeSyntheticSyscallContinuationDescriptor()
+
+> **buildNativeSyntheticSyscallContinuationDescriptor**(`request`): [`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor)
+
+#### Parameters
+
+##### request
+
+[`NativeSyntheticSyscallContinuationDescriptorRequest`](#nativesyntheticsyscallcontinuationdescriptorrequest)
+
+#### Returns
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor)
+
+***
+
+### nativeSyntheticContinuationBytesHex()
+
+> **nativeSyntheticContinuationBytesHex**(`bytes`): `string`
+
+#### Parameters
+
+##### bytes
+
+`Uint8Array`
+
+#### Returns
+
+`string`
+
+***
+
+### nativeSyntheticContinuationBytesSha256()
+
+> **nativeSyntheticContinuationBytesSha256**(`bytes`): `string`
+
+#### Parameters
+
+##### bytes
+
+`Uint8Array`
+
+#### Returns
+
+`string`
 
 ***
 

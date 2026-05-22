@@ -137,6 +137,11 @@ export {
 } from "./native-target-resume-execution.ts";
 export { materializeNativeTargetModuleBytes } from "./native-target-module-bytes.ts";
 export {
+  buildNativeSyntheticSyscallContinuationDescriptor,
+  nativeSyntheticContinuationBytesHex,
+  nativeSyntheticContinuationBytesSha256,
+} from "./native-synthetic-continuation.ts";
+export {
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_BASE,
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_BUILD_ID,
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_LOGICAL_NAME,
@@ -191,8 +196,25 @@ export type {
   NativeTargetModuleByteMaterializationResult,
 } from "./native-target-module-bytes.ts";
 export type {
+  NativeSyntheticContinuationByteEncoding,
+  NativeSyntheticContinuationByteSource,
+  NativeSyntheticContinuationCompletionDescriptor,
+  NativeSyntheticContinuationProvenanceSource,
+  NativeSyntheticContinuationRegister,
+  NativeSyntheticContinuationRegisterSetupAbi,
+  NativeSyntheticContinuationRegisterSetupDescriptor,
+  NativeSyntheticContinuationStackSetupDescriptor,
+  NativeSyntheticContinuationSyscallAbi,
+  NativeSyntheticContinuationTargetArch,
+  NativeSyntheticSyscallArgumentDescriptor,
+  NativeSyntheticSyscallContinuationDescriptor,
+  NativeSyntheticSyscallContinuationDescriptorRequest,
+  NativeSyntheticSyscallDescriptor,
+} from "./native-synthetic-continuation.ts";
+export type {
   NativeSyntheticSleepCompletionMode,
   NativeSyntheticSleepSyscallArgumentProvenance,
+  NativeSyntheticSleepSyscallCompletionProvenance,
   NativeSyntheticSleepSyscallContinuation,
   NativeSyntheticSleepSyscallContinuationProvenance,
   NativeSyntheticSleepSyscallContinuationRequest,

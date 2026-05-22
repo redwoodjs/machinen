@@ -1,7 +1,15 @@
 /** Synthetic target-native sleep syscall continuation generation. */
 
-import { createHash } from "node:crypto";
 import type { NativeProcessImageRefusal } from "./native-process-image.ts";
+import {
+  buildNativeSyntheticSyscallContinuationDescriptor,
+  type NativeSyntheticContinuationCompletionDescriptor,
+  type NativeSyntheticContinuationProvenanceSource,
+  type NativeSyntheticContinuationRegisterSetupDescriptor,
+  type NativeSyntheticContinuationStackSetupDescriptor,
+  type NativeSyntheticSyscallArgumentDescriptor,
+  type NativeSyntheticSyscallContinuationDescriptor,
+} from "./native-synthetic-continuation.ts";
 import type {
   NativeModeledSleepTimerRemainingTime,
   NativeModeledSleepTimerState,
@@ -16,44 +24,35 @@ export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS = 111;
 export type NativeSyntheticSleepCompletionMode = "return-to-trampoline" | "exit-process";
 
 export type NativeSyntheticSleepSyscallProvenanceSource =
-  | "generated-target-native-amd64-syscall-sequence"
-  | "linux-amd64-syscall-abi"
-  | "modeled-source-sleep-timer"
-  | "target-caller-frame";
+  NativeSyntheticContinuationProvenanceSource;
 
-export interface NativeSyntheticSleepSyscallArgumentProvenance {
+export interface NativeSyntheticSleepSyscallArgumentProvenance extends NativeSyntheticSyscallArgumentDescriptor {
   register: "rax" | "rdi" | "rsi" | "rdx" | "r10";
   role: "syscall-number" | "clock-id" | "flags" | "request-timespec-pointer" | "remainder-pointer";
-  value: string;
   source: NativeSyntheticSleepSyscallProvenanceSource;
 }
 
-export interface NativeSyntheticSleepSyscallRegisterSetupProvenance {
-  abi: "linux-amd64-syscall";
+export interface NativeSyntheticSleepSyscallRegisterSetupProvenance extends NativeSyntheticContinuationRegisterSetupDescriptor {
   arguments: NativeSyntheticSleepSyscallArgumentProvenance[];
   clobberedBySyscall: ["rax", "rcx", "r11"];
-  notes: string[];
 }
 
-export interface NativeSyntheticSleepSyscallStackSetupProvenance {
+export interface NativeSyntheticSleepSyscallStackSetupProvenance extends NativeSyntheticContinuationStackSetupDescriptor {
   entryStackPointer: "target-caller-frame-stack-pointer";
   stackBytesWrittenByContinuation: 0;
   returnAddress: "trampoline-sentinel-return-address" | "not-used-exit-process-completion";
   requiresSourceStackBytes: false;
 }
 
-export interface NativeSyntheticSleepSyscallContinuationProvenance {
-  byteSource: "generated-target-native-amd64-syscall-sequence";
+export interface NativeSyntheticSleepSyscallCompletionProvenance extends NativeSyntheticContinuationCompletionDescriptor {
+  mode: NativeSyntheticSleepCompletionMode;
+  successExitStatus?: 0;
+  failureExitStatus?: typeof NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS;
+}
+
+export interface NativeSyntheticSleepSyscallContinuationProvenance extends NativeSyntheticSyscallContinuationDescriptor {
   generatorBuildId: typeof NATIVE_SYNTHETIC_SLEEP_SYSCALL_BUILD_ID;
-  byteEncoding: "amd64-machine-code";
-  bytesHex: string;
-  byteSha256: string;
-  generatedTargetBytes: true;
-  sourceTextReusedAsTargetCode: false;
-  sourceIsaEmulationUsed: false;
-  sidecarRuntimeUsed: false;
-  syscallAbi: "linux-amd64";
-  syscall: {
+  syscall: NativeSyntheticSyscallContinuationDescriptor["syscall"] & {
     name: "clock_nanosleep";
     number: 230;
     arguments: NativeSyntheticSleepSyscallArgumentProvenance[];
@@ -69,11 +68,7 @@ export interface NativeSyntheticSleepSyscallContinuationProvenance {
   };
   registerSetup: NativeSyntheticSleepSyscallRegisterSetupProvenance;
   stackSetup: NativeSyntheticSleepSyscallStackSetupProvenance;
-  completion: {
-    mode: NativeSyntheticSleepCompletionMode;
-    successExitStatus?: 0;
-    failureExitStatus?: typeof NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS;
-  };
+  completion: NativeSyntheticSleepSyscallCompletionProvenance;
 }
 
 export interface NativeSyntheticSleepSyscallContinuationRequest {
@@ -101,6 +96,7 @@ export interface NativeSyntheticSleepSyscallContinuation {
   remainingTime: NativeModeledSleepTimerRemainingTime;
   completionMode: NativeSyntheticSleepCompletionMode;
   exitStatusOnSuccess?: 0;
+  descriptor: NativeSyntheticSyscallContinuationDescriptor;
   provenance: NativeSyntheticSleepSyscallContinuationProvenance;
   timespecOffset: number;
   sizeBytes: number;
@@ -133,12 +129,14 @@ export function buildNativeSyntheticSleepSyscallContinuation(
   const completionMode = request.completionMode ?? "return-to-trampoline";
   const bytes = syntheticClockNanosleepBytes(request.remainingTime, completionMode);
   const timespecOffset = sleepTimespecOffset(completionMode);
+  const entryAddress = request.targetAddress ?? NATIVE_SYNTHETIC_SLEEP_SYSCALL_BASE;
+  const descriptor = syntheticClockNanosleepDescriptor(bytes, entryAddress, completionMode);
   return {
     continuation: {
       kind: "synthetic-sleep-syscall",
       threadId: request.threadId,
       targetArch: "amd64",
-      entryAddress: request.targetAddress ?? NATIVE_SYNTHETIC_SLEEP_SYSCALL_BASE,
+      entryAddress,
       relativeAddress: "0x0",
       syscall: {
         name: "clock_nanosleep",
@@ -151,10 +149,10 @@ export function buildNativeSyntheticSleepSyscallContinuation(
       remainingTime: request.remainingTime,
       completionMode,
       exitStatusOnSuccess: completionMode === "exit-process" ? 0 : undefined,
+      descriptor,
       provenance: syntheticClockNanosleepProvenance(
-        bytes,
+        descriptor,
         request.remainingTime,
-        completionMode,
         timespecOffset,
       ),
       timespecOffset,
@@ -227,37 +225,22 @@ function syntheticClockNanosleepBytes(
   return bytes;
 }
 
-function syntheticClockNanosleepProvenance(
+function syntheticClockNanosleepDescriptor(
   bytes: Uint8Array,
-  remainingTime: NativeModeledSleepTimerRemainingTime,
+  entryAddress: string,
   completionMode: NativeSyntheticSleepCompletionMode,
-  timespecOffset: number,
-): NativeSyntheticSleepSyscallContinuationProvenance {
+): NativeSyntheticSyscallContinuationDescriptor {
   const argumentsProvenance = syscallArgumentsProvenance();
-  return {
-    byteSource: "generated-target-native-amd64-syscall-sequence",
+  return buildNativeSyntheticSyscallContinuationDescriptor({
+    targetArch: "amd64",
+    entryAddress,
+    relativeAddress: "0x0",
     generatorBuildId: NATIVE_SYNTHETIC_SLEEP_SYSCALL_BUILD_ID,
-    byteEncoding: "amd64-machine-code",
-    bytesHex: bytesHex(bytes),
-    byteSha256: bytesSha256(bytes),
-    generatedTargetBytes: true,
-    sourceTextReusedAsTargetCode: false,
-    sourceIsaEmulationUsed: false,
-    sidecarRuntimeUsed: false,
-    syscallAbi: "linux-amd64",
+    bytes,
     syscall: {
       name: "clock_nanosleep",
       number: CLOCK_NANOSLEEP_SYSCALL_AMD64,
       arguments: argumentsProvenance,
-    },
-    embeddedData: {
-      kind: "timespec",
-      offset: timespecOffset,
-      seconds: remainingTime.seconds,
-      nanoseconds: remainingTime.nanoseconds,
-      byteOrder: "little-endian",
-      pointerRegister: "rdx",
-      pointerEncoding: "rip-relative",
     },
     registerSetup: {
       abi: "linux-amd64-syscall",
@@ -287,6 +270,35 @@ function syntheticClockNanosleepProvenance(
           ? NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS
           : undefined,
     },
+  });
+}
+
+function syntheticClockNanosleepProvenance(
+  descriptor: NativeSyntheticSyscallContinuationDescriptor,
+  remainingTime: NativeModeledSleepTimerRemainingTime,
+  timespecOffset: number,
+): NativeSyntheticSleepSyscallContinuationProvenance {
+  return {
+    ...descriptor,
+    generatorBuildId: NATIVE_SYNTHETIC_SLEEP_SYSCALL_BUILD_ID,
+    syscall: {
+      ...descriptor.syscall,
+      name: "clock_nanosleep",
+      number: CLOCK_NANOSLEEP_SYSCALL_AMD64,
+      arguments: descriptor.syscall.arguments as NativeSyntheticSleepSyscallArgumentProvenance[],
+    },
+    embeddedData: {
+      kind: "timespec",
+      offset: timespecOffset,
+      seconds: remainingTime.seconds,
+      nanoseconds: remainingTime.nanoseconds,
+      byteOrder: "little-endian",
+      pointerRegister: "rdx",
+      pointerEncoding: "rip-relative",
+    },
+    registerSetup: descriptor.registerSetup as NativeSyntheticSleepSyscallRegisterSetupProvenance,
+    stackSetup: descriptor.stackSetup as NativeSyntheticSleepSyscallStackSetupProvenance,
+    completion: descriptor.completion as NativeSyntheticSleepSyscallCompletionProvenance,
   };
 }
 
@@ -350,14 +362,6 @@ function exitProcessSuffix(): number[] {
     0x05, // syscall
     0x90,
   ];
-}
-
-function bytesHex(bytes: Uint8Array): string {
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-function bytesSha256(bytes: Uint8Array): string {
-  return createHash("sha256").update(bytes).digest("hex");
 }
 
 function writeInt32Le(bytes: Uint8Array, offset: number, value: number): void {
