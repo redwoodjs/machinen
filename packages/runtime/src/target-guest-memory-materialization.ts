@@ -1,4 +1,8 @@
-import type { NativeMemoryMapping, NativeProcessImageRefusal } from "./native-process-image.ts";
+import {
+  NATIVE_PROCESS_IMAGE_FILES,
+  type NativeMemoryMapping,
+  type NativeProcessImageRefusal,
+} from "./native-process-image.ts";
 
 export type TargetGuestMemoryMaterializationKind = "copy-captured-bytes" | "recreate-guard";
 
@@ -53,8 +57,9 @@ function planMapping(
   mapping: NativeMemoryMapping,
   request: TargetGuestMemoryMaterializationRequest,
 ): { entry?: TargetGuestMemoryMaterializationEntry; refusals: NativeProcessImageRefusal[] } {
-  if (mapping.permissions.execute) {
-    return refused(executableSourceRefusal(mapping));
+  const unsafe = unsafeMappingRefusal(mapping);
+  if (unsafe) {
+    return refused(unsafe);
   }
   if (isGuardMapping(mapping)) {
     return guardEntry(mapping);
@@ -112,6 +117,7 @@ function validateWritableMapping(
 ): NativeProcessImageRefusal[] {
   return [
     missingTargetStartRefusal(mapping),
+    capturedProvenanceRefusal(mapping),
     capturedRangeRefusal(mapping, memorySizeBytes),
   ].filter((refusal) => refusal !== undefined);
 }
@@ -124,17 +130,37 @@ function missingTargetStartRefusal(
     : refusal("mapping-ambiguous", `${mapping.id} has no target start address`);
 }
 
+function capturedProvenanceRefusal(
+  mapping: NativeMemoryMapping,
+): NativeProcessImageRefusal | undefined {
+  const captured = mapping.captured;
+  if (!captured) {
+    return refusal("mapping-provenance-ambiguous", `${mapping.id} has no captured bytes`);
+  }
+  return captured.file === NATIVE_PROCESS_IMAGE_FILES.memory
+    ? undefined
+    : refusal(
+        "mapping-provenance-ambiguous",
+        `${mapping.id} captured bytes must come from ${NATIVE_PROCESS_IMAGE_FILES.memory}`,
+        { mapping: mapping.id, capturedFile: captured.file },
+      );
+}
+
 function capturedRangeRefusal(
   mapping: NativeMemoryMapping,
   memorySizeBytes: number,
 ): NativeProcessImageRefusal | undefined {
   const captured = mapping.captured;
   if (!captured) {
-    return refusal("mapping-ambiguous", `${mapping.id} has no captured bytes`);
+    return undefined;
   }
   const end = captured.offset + captured.sizeBytes;
-  if (captured.sizeBytes !== mapping.sizeBytes || end > memorySizeBytes) {
-    return refusal("mapping-ambiguous", `${mapping.id} captured byte range underlaps mapping`);
+  if (captured.offset < 0 || captured.sizeBytes !== mapping.sizeBytes || end > memorySizeBytes) {
+    return refusal(
+      "mapping-captured-range-unsupported",
+      `${mapping.id} captured byte range does not exactly cover the mapping`,
+      { mapping: mapping.id, offset: captured.offset, sizeBytes: captured.sizeBytes },
+    );
   }
   return undefined;
 }
@@ -162,9 +188,19 @@ function overlapWithNext(
     : [];
 }
 
+function unsafeMappingRefusal(mapping: NativeMemoryMapping): NativeProcessImageRefusal | undefined {
+  if (mapping.permissions.execute) {
+    return executableSourceRefusal(mapping);
+  }
+  if (mapping.permissions.shared) {
+    return sharedMappingRefusal(mapping);
+  }
+  return undefined;
+}
+
 function executableSourceRefusal(mapping: NativeMemoryMapping): NativeProcessImageRefusal {
   return refusal(
-    "target-module-bytes-missing",
+    "mapping-executable-unsupported",
     `${mapping.id} executable source bytes are not target code`,
     {
       mapping: mapping.id,
@@ -172,6 +208,14 @@ function executableSourceRefusal(mapping: NativeMemoryMapping): NativeProcessIma
       sourceEnd: mapping.sourceEnd,
       sourceTextReusedAsTargetCode: false,
     },
+  );
+}
+
+function sharedMappingRefusal(mapping: NativeMemoryMapping): NativeProcessImageRefusal {
+  return refusal(
+    "mapping-shared-unsupported",
+    `${mapping.id} shared mapping requires an explicit shared-resource recipe`,
+    { mapping: mapping.id, sourceStart: mapping.sourceStart, sourceEnd: mapping.sourceEnd },
   );
 }
 

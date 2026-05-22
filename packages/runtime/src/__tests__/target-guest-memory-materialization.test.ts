@@ -83,8 +83,49 @@ describe("target guest memory materialization", () => {
     expect(result.entries).toEqual([]);
     expect(result.refusals).toEqual([
       expect.objectContaining({
-        code: "target-module-bytes-missing",
+        code: "mapping-executable-unsupported",
         detail: expect.objectContaining({ sourceTextReusedAsTargetCode: false }),
+      }),
+    ]);
+  });
+
+  it("refuses shared mappings without an explicit shared-resource recipe", () => {
+    const result = planTargetGuestMemoryMaterialization({
+      mappings: [
+        mapping({
+          permissions: { read: true, write: true, execute: false, private: false, shared: true },
+        }),
+      ],
+      memoryFile: "/tmp/native-memory.bin",
+      memorySizeBytes: 4096,
+    });
+
+    expect(result.entries).toEqual([]);
+    expect(result.refusals).toEqual([
+      expect.objectContaining({ code: "mapping-shared-unsupported" }),
+    ]);
+  });
+
+  it("refuses ambiguous captured-byte provenance", () => {
+    const result = planTargetGuestMemoryMaterialization({
+      mappings: [
+        mapping({
+          captured: {
+            file: "other-memory.bin",
+            offset: 0,
+            sizeBytes: 4096,
+          } as unknown as NativeMemoryMapping["captured"],
+        }),
+      ],
+      memoryFile: "/tmp/native-memory.bin",
+      memorySizeBytes: 4096,
+    });
+
+    expect(result.entries).toEqual([]);
+    expect(result.refusals).toEqual([
+      expect.objectContaining({
+        code: "mapping-provenance-ambiguous",
+        message: expect.stringContaining("native-memory.bin"),
       }),
     ]);
   });
@@ -99,8 +140,8 @@ describe("target guest memory materialization", () => {
     expect(result.entries).toEqual([]);
     expect(result.refusals).toEqual([
       expect.objectContaining({
-        code: "mapping-ambiguous",
-        message: expect.stringContaining("underlaps"),
+        code: "mapping-captured-range-unsupported",
+        message: expect.stringContaining("exactly cover"),
       }),
     ]);
   });

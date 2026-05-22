@@ -19,6 +19,8 @@ export interface PortableMachineVmRestoreProofRequest {
   targetImage?: string;
 }
 
+export type PortableMachineTargetVerifierResult = "pending" | "passed" | "failed";
+
 export interface PortableMachineVmRestoreProofPlan {
   phase: "portable-machine-vm-restore-proof";
   state: PortableMachineVmRestoreProofState;
@@ -31,6 +33,10 @@ export interface PortableMachineVmRestoreProofPlan {
   targetNativeCompletionRequired: true;
   migrationCompleted: boolean;
   descriptorGateCompleted: boolean;
+  descriptorMemoryEntryCount?: number;
+  descriptorFdRecipeCount?: number;
+  descriptorResourceKinds?: string[];
+  targetVerifierResult?: PortableMachineTargetVerifierResult;
   sourceTextReusedAsTargetCode: false;
   sourceIsaEmulationUsed: false;
   sidecarRuntimeUsed: false;
@@ -42,6 +48,7 @@ export interface PortableMachineVmRestoreTargetResult {
   exitCode: number;
   migrationCompleted?: boolean;
   descriptorGateCompleted?: boolean;
+  targetVerifierResult?: PortableMachineTargetVerifierResult;
   sourceTextReusedAsTargetCode?: boolean;
   sourceIsaEmulationUsed?: boolean;
   sidecarRuntimeUsed?: boolean;
@@ -154,7 +161,15 @@ export function completePortableMachineVmRestoreProof(
     state: completed ? "completed" : plan.state,
     migrationCompleted: completed,
     descriptorGateCompleted: result.descriptorGateCompleted === true,
+    targetVerifierResult: verifierResult(result, completed),
   };
+}
+
+function verifierResult(
+  result: PortableMachineVmRestoreTargetResult,
+  completed: boolean,
+): PortableMachineTargetVerifierResult {
+  return result.targetVerifierResult ?? (completed ? "passed" : "failed");
 }
 
 function targetNativeCompleted(result: PortableMachineVmRestoreTargetResult): boolean {
@@ -162,6 +177,7 @@ function targetNativeCompleted(result: PortableMachineVmRestoreTargetResult): bo
     result.exitCode === 0,
     result.migrationCompleted === true,
     result.descriptorGateCompleted === true,
+    result.targetVerifierResult === undefined || result.targetVerifierResult === "passed",
     result.sourceTextReusedAsTargetCode === false,
     result.sourceIsaEmulationUsed === false,
     result.sidecarRuntimeUsed === false,
