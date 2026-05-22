@@ -194,6 +194,7 @@ function targetDescriptor(args: Args, codeSize: number): TargetGuestRestoreDescr
       stackPointer: args.stackPointer,
     },
     resources: resourceRecipes(args),
+    memory: [],
   };
 }
 

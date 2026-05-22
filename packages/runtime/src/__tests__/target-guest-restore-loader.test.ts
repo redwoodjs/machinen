@@ -36,6 +36,7 @@ function descriptor(
       stackPointer: "0x500000010000",
     },
     resources: [],
+    memory: [],
     ...overrides,
   };
 }
@@ -78,6 +79,40 @@ describe("target guest restore loader descriptor", () => {
       "--synthetic-empty-eventfd",
       "5",
     ]);
+  });
+
+  it("serializes memory materialization entries into trampoline args", () => {
+    const parsed = parseTargetGuestRestoreDescriptor(
+      serializeTargetGuestRestoreDescriptor(
+        descriptor({
+          memory: [
+            {
+              kind: "copy-captured-bytes",
+              mapping: "heap",
+              targetStart: "0x600000000000",
+              sizeBytes: 4096,
+              permissions: "rw-p",
+              sourceFile: "/tmp/native-memory.bin",
+              sourceOffset: 8192,
+              provenance: "native-process-image",
+            },
+            {
+              kind: "recreate-guard",
+              mapping: "guard",
+              targetStart: "0x600000001000",
+              sizeBytes: 4096,
+              permissions: "---p",
+              provenance: "guard-protection",
+            },
+          ],
+        }),
+      ),
+    );
+
+    expect(buildNativeActualResumeTrampolineArgs(parsed)).toContain(
+      "/tmp/native-memory.bin:8192:0x600000000000:4096:rw-p",
+    );
+    expect(buildNativeActualResumeTrampolineArgs(parsed)).toContain("0x600000001000:4096");
   });
 
   it("builds the in-guest loader argv", () => {

@@ -21,13 +21,19 @@ stackSize=65536
 stackPointer=0x500000010000
 resource=synthetic-empty-pipe readFd=3 writeFd=4
 resource=synthetic-empty-eventfd fd=5
+memory=copy-captured-bytes mapping=heap targetStart=0x600000000000 sizeBytes=4096 permissions=rw-p sourceFile=/tmp/native-memory.bin sourceOffset=0
+memory=recreate-guard mapping=stack-guard targetStart=0x600000001000 sizeBytes=4096 permissions=---p
 ```
 
-Supported resources are intentionally narrow:
+Supported resources and memory materialization are intentionally narrow:
 
 - `synthetic-empty-pipe` with a modeled read fd and optional write fd;
-- `synthetic-empty-eventfd` with an empty non-semaphore eventfd.
+- `synthetic-empty-eventfd` with an empty non-semaphore eventfd;
+- `copy-captured-bytes` for explicitly safe, non-executable writable mappings;
+- `recreate-guard` for guard / `PROT_NONE` ranges.
 
+Executable source mappings are not copied as target code. They must be replaced
+by generated target-native bytes or a proven target-module materialization path.
 Everything else fails closed with a precise refusal, currently:
 
 - `target-guest-loader-descriptor-invalid`
@@ -35,6 +41,7 @@ Everything else fails closed with a precise refusal, currently:
 - `target-guest-loader-resource-unsupported`
 - `target-guest-loader-invalid-fd`
 - `target-guest-loader-invalid-continuation`
+- `target-guest-loader-memory-unsupported`
 
 The existing target-VM synthetic proof now injects the loader and descriptor into
 the amd64 guest and executes the loader instead of invoking the trampoline

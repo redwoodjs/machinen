@@ -64,8 +64,10 @@ This is still a bundle/contract proof. The target VM synthetic continuation step
 is documented in
 [Target VM synthetic continuation proof](./native-target-vm-synthetic-continuation.md),
 and its in-guest descriptor loader is documented in
-[Target guest restore loader](./target-guest-restore-loader.md); full memory
-materialization and e2e restore are follow-up issues.
+[Target guest restore loader](./target-guest-restore-loader.md). The first memory
+mapping pass is documented in
+[Target guest memory materialization](./target-guest-memory-materialization.md);
+full e2e restore remains a follow-up issue.
 
 ## Raw vmstate refusal
 

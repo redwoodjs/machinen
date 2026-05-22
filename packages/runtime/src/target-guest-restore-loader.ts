@@ -1,3 +1,5 @@
+import type { TargetGuestMemoryMaterializationEntry } from "./target-guest-memory-materialization.ts";
+
 export const TARGET_GUEST_RESTORE_DESCRIPTOR_KIND = "machinen.target-guest-restore";
 
 export type TargetGuestRestoreLoaderRefusalCode =
@@ -5,7 +7,8 @@ export type TargetGuestRestoreLoaderRefusalCode =
   | "target-guest-loader-target-arch-unsupported"
   | "target-guest-loader-resource-unsupported"
   | "target-guest-loader-invalid-fd"
-  | "target-guest-loader-invalid-continuation";
+  | "target-guest-loader-invalid-continuation"
+  | "target-guest-loader-memory-unsupported";
 
 export class TargetGuestRestoreLoaderValidationError extends Error {
   constructor(
@@ -37,6 +40,7 @@ export interface TargetGuestRestoreDescriptor {
   targetArch: "amd64";
   continuation: TargetGuestRestoreContinuationDescriptor;
   resources: TargetGuestRestoreResourceRecipe[];
+  memory: TargetGuestMemoryMaterializationEntry[];
 }
 
 export function serializeTargetGuestRestoreDescriptor(
@@ -56,6 +60,7 @@ export function serializeTargetGuestRestoreDescriptor(
     `stackSize=${continuation.stackSize}`,
     `stackPointer=${continuation.stackPointer}`,
     ...validated.resources.map(serializeResourceRecipe),
+    ...validated.memory.map(serializeMemoryEntry),
     "",
   ].join("\n");
 }
@@ -63,15 +68,18 @@ export function serializeTargetGuestRestoreDescriptor(
 export function parseTargetGuestRestoreDescriptor(text: string): TargetGuestRestoreDescriptor {
   const fields = new Map<string, string>();
   const resources: TargetGuestRestoreResourceRecipe[] = [];
+  const memory: TargetGuestMemoryMaterializationEntry[] = [];
   for (const line of descriptorLines(text)) {
     if (line.startsWith("resource=")) {
       resources.push(parseResourceRecipe(line));
+    } else if (line.startsWith("memory=")) {
+      memory.push(parseMemoryEntry(line));
     } else {
       const [key, value] = splitField(line);
       fields.set(key, value);
     }
   }
-  return validateTargetGuestRestoreDescriptor(fieldsToDescriptor(fields, resources));
+  return validateTargetGuestRestoreDescriptor(fieldsToDescriptor(fields, resources, memory));
 }
 
 export function validateTargetGuestRestoreDescriptor(
@@ -80,7 +88,8 @@ export function validateTargetGuestRestoreDescriptor(
   assertDescriptorHeader(descriptor);
   const continuation = validateContinuation(descriptor.continuation);
   const resources = descriptor.resources.map(validateResourceRecipe);
-  return { ...descriptor, continuation, resources };
+  const memory = descriptor.memory.map(validateMemoryEntry);
+  return { ...descriptor, continuation, resources, memory };
 }
 
 export function buildNativeActualResumeTrampolineArgs(
@@ -106,6 +115,7 @@ export function buildNativeActualResumeTrampolineArgs(
     "--stack-pointer",
     continuation.stackPointer,
     ...validated.resources.flatMap(resourceToTrampolineArgs),
+    ...validated.memory.flatMap(memoryToTrampolineArgs),
   ];
 }
 
@@ -134,6 +144,7 @@ function splitField(line: string): [string, string] {
 function fieldsToDescriptor(
   fields: Map<string, string>,
   resources: TargetGuestRestoreResourceRecipe[],
+  memory: TargetGuestMemoryMaterializationEntry[],
 ): TargetGuestRestoreDescriptor {
   return {
     kind: requiredField(fields, "kind") as typeof TARGET_GUEST_RESTORE_DESCRIPTOR_KIND,
@@ -149,6 +160,7 @@ function fieldsToDescriptor(
       stackPointer: requiredField(fields, "stackPointer"),
     },
     resources,
+    memory,
   };
 }
 
@@ -205,6 +217,54 @@ function requiredResourceField(fields: Map<string, string>, key: string): string
   return fields.get(key) ?? fail("target-guest-loader-descriptor-invalid", `${key} is required`);
 }
 
+function parseMemoryEntry(line: string): TargetGuestMemoryMaterializationEntry {
+  const [head, ...fields] = line.split(/\s+/);
+  const kind = head!.slice("memory=".length);
+  const values = new Map(fields.map(splitField));
+  return memoryFromFields(kind, values);
+}
+
+function memoryFromFields(
+  kind: string,
+  fields: Map<string, string>,
+): TargetGuestMemoryMaterializationEntry {
+  if (kind === "copy-captured-bytes") {
+    return {
+      kind,
+      mapping: requiredMemoryField(fields, "mapping"),
+      targetStart: requiredMemoryField(fields, "targetStart"),
+      sizeBytes: parseMemoryInteger(fields, "sizeBytes"),
+      permissions: requiredMemoryField(fields, "permissions"),
+      sourceFile: requiredMemoryField(fields, "sourceFile"),
+      sourceOffset: parseMemoryInteger(fields, "sourceOffset"),
+      provenance: "native-process-image",
+    };
+  }
+  if (kind === "recreate-guard") {
+    return {
+      kind,
+      mapping: requiredMemoryField(fields, "mapping"),
+      targetStart: requiredMemoryField(fields, "targetStart"),
+      sizeBytes: parseMemoryInteger(fields, "sizeBytes"),
+      permissions: requiredMemoryField(fields, "permissions"),
+      provenance: "guard-protection",
+    };
+  }
+  return fail("target-guest-loader-memory-unsupported", `unsupported memory entry: ${kind}`);
+}
+
+function parseMemoryInteger(fields: Map<string, string>, key: string): number {
+  const parsed = Number(requiredMemoryField(fields, key));
+  if (!Number.isSafeInteger(parsed)) {
+    fail("target-guest-loader-invalid-continuation", `${key} must be an integer`);
+  }
+  return parsed;
+}
+
+function requiredMemoryField(fields: Map<string, string>, key: string): string {
+  return fields.get(key) ?? fail("target-guest-loader-descriptor-invalid", `${key} is required`);
+}
+
 function assertDescriptorHeader(descriptor: TargetGuestRestoreDescriptor): void {
   if (descriptor.kind !== TARGET_GUEST_RESTORE_DESCRIPTOR_KIND) {
     fail("target-guest-loader-descriptor-invalid", "descriptor kind is not supported");
@@ -241,6 +301,24 @@ function validateResourceRecipe(
     return recipe;
   }
   return fail("target-guest-loader-resource-unsupported", "unsupported resource recipe");
+}
+
+function validateMemoryEntry(
+  entry: TargetGuestMemoryMaterializationEntry,
+): TargetGuestMemoryMaterializationEntry {
+  assertHexAddress(entry.targetStart, "targetStart");
+  assertPositive(entry.sizeBytes, "sizeBytes");
+  assertMemoryPermissions(entry.permissions);
+  if (entry.kind === "copy-captured-bytes") {
+    assertNonNegative(entry.sourceOffset, "sourceOffset");
+  }
+  return entry;
+}
+
+function assertMemoryPermissions(permissions: string): void {
+  if (!/^[r-][w-][-x][ps-]$/.test(permissions) || permissions.includes("x")) {
+    fail("target-guest-loader-invalid-continuation", "memory permissions must be non-executable");
+  }
 }
 
 function assertDistinctPipeFds(recipe: { readFd: number; writeFd?: number }): void {
@@ -287,6 +365,14 @@ function serializeResourceRecipe(recipe: TargetGuestRestoreResourceRecipe): stri
   return `resource=synthetic-empty-eventfd fd=${recipe.fd}`;
 }
 
+function serializeMemoryEntry(entry: TargetGuestMemoryMaterializationEntry): string {
+  const base = `mapping=${entry.mapping} targetStart=${entry.targetStart} sizeBytes=${entry.sizeBytes} permissions=${entry.permissions}`;
+  if (entry.kind === "copy-captured-bytes") {
+    return `memory=copy-captured-bytes ${base} sourceFile=${entry.sourceFile} sourceOffset=${entry.sourceOffset}`;
+  }
+  return `memory=recreate-guard ${base}`;
+}
+
 function resourceToTrampolineArgs(recipe: TargetGuestRestoreResourceRecipe): string[] {
   if (recipe.kind === "synthetic-empty-pipe") {
     return pipeResourceArgs(recipe);
@@ -300,6 +386,25 @@ function pipeResourceArgs(recipe: { readFd: number; writeFd?: number }): string[
     args.push("--synthetic-empty-pipe-write-fd", String(recipe.writeFd));
   }
   return args;
+}
+
+function memoryToTrampolineArgs(entry: TargetGuestMemoryMaterializationEntry): string[] {
+  if (entry.kind === "copy-captured-bytes") {
+    return ["--materialize-memory", memorySpec(entry)];
+  }
+  return ["--materialize-guard", `${entry.targetStart}:${entry.sizeBytes}`];
+}
+
+function memorySpec(
+  entry: Extract<TargetGuestMemoryMaterializationEntry, { kind: "copy-captured-bytes" }>,
+): string {
+  return [
+    entry.sourceFile,
+    entry.sourceOffset,
+    entry.targetStart,
+    entry.sizeBytes,
+    entry.permissions,
+  ].join(":");
 }
 
 function fail(code: TargetGuestRestoreLoaderRefusalCode, message: string): never {

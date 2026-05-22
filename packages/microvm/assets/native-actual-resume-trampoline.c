@@ -31,6 +31,21 @@
 #include <ucontext.h>
 #endif
 
+#define MAX_MATERIALIZED_MAPPINGS 32
+
+struct MemoryMaterialization {
+  const char *source_file;
+  uint64_t source_offset;
+  uint64_t target_start;
+  uint64_t size;
+  int prot;
+};
+
+struct GuardMaterialization {
+  uint64_t target_start;
+  uint64_t size;
+};
+
 struct Options {
   const char *code_file;
   uint64_t file_offset;
@@ -43,6 +58,10 @@ struct Options {
   int synthetic_empty_pipe_read_fd;
   int synthetic_empty_pipe_write_fd;
   int synthetic_empty_eventfd;
+  struct MemoryMaterialization materialized_memory[MAX_MATERIALIZED_MAPPINGS];
+  size_t materialized_memory_count;
+  struct GuardMaterialization materialized_guards[MAX_MATERIALIZED_MAPPINGS];
+  size_t materialized_guard_count;
 };
 
 static void usage(void) {
@@ -51,6 +70,8 @@ static void usage(void) {
       "--file-offset n --code-size n --target-address addr "
       "--timeout-seconds n [--synthetic-empty-pipe-read-fd n] "
       "[--synthetic-empty-pipe-write-fd n] [--synthetic-empty-eventfd n] "
+      "[--materialize-memory file:offset:target:size:perms] "
+      "[--materialize-guard target:size] "
       "--stack-target-start addr --stack-size n --stack-pointer addr\n");
   exit(2);
 }
@@ -68,6 +89,66 @@ static uint64_t parse_u64(const char *value, const char *field) {
 
 static bool streq(const char *left, const char *right) {
   return strcmp(left, right) == 0;
+}
+
+static int parse_memory_prot(const char *value) {
+  if (strlen(value) != 4u || value[2] == 'x') {
+    fprintf(stderr, "native-actual-resume-trampoline: materialized memory must be non-executable\n");
+    exit(2);
+  }
+  int prot = 0;
+  if (value[0] == 'r') {
+    prot |= PROT_READ;
+  }
+  if (value[1] == 'w') {
+    prot |= PROT_WRITE;
+  }
+  return prot;
+}
+
+static char *next_spec_field(char **cursor, const char *field) {
+  char *value = strsep(cursor, ":");
+  if (!value || value[0] == '\0') {
+    fprintf(stderr, "native-actual-resume-trampoline: materialized %s is missing\n", field);
+    exit(2);
+  }
+  return value;
+}
+
+static void add_materialized_memory(struct Options *opts, const char *spec) {
+  if (opts->materialized_memory_count >= MAX_MATERIALIZED_MAPPINGS) {
+    fprintf(stderr, "native-actual-resume-trampoline: too many materialized mappings\n");
+    exit(2);
+  }
+  char *copy = strdup(spec);
+  if (!copy) {
+    fprintf(stderr, "native-actual-resume-trampoline: materialized memory allocation failed\n");
+    exit(1);
+  }
+  char *cursor = copy;
+  struct MemoryMaterialization *mapping =
+      &opts->materialized_memory[opts->materialized_memory_count++];
+  mapping->source_file = next_spec_field(&cursor, "source file");
+  mapping->source_offset = parse_u64(next_spec_field(&cursor, "source offset"), "source offset");
+  mapping->target_start = parse_u64(next_spec_field(&cursor, "target start"), "target start");
+  mapping->size = parse_u64(next_spec_field(&cursor, "size"), "size");
+  mapping->prot = parse_memory_prot(next_spec_field(&cursor, "permissions"));
+}
+
+static void add_materialized_guard(struct Options *opts, const char *spec) {
+  if (opts->materialized_guard_count >= MAX_MATERIALIZED_MAPPINGS) {
+    fprintf(stderr, "native-actual-resume-trampoline: too many guard mappings\n");
+    exit(2);
+  }
+  char *copy = strdup(spec);
+  if (!copy) {
+    fprintf(stderr, "native-actual-resume-trampoline: guard allocation failed\n");
+    exit(1);
+  }
+  char *cursor = copy;
+  struct GuardMaterialization *guard = &opts->materialized_guards[opts->materialized_guard_count++];
+  guard->target_start = parse_u64(next_spec_field(&cursor, "guard target start"), "guard target start");
+  guard->size = parse_u64(next_spec_field(&cursor, "guard size"), "guard size");
 }
 
 static struct Options parse_args(int argc, char **argv) {
@@ -132,6 +213,16 @@ static struct Options parse_args(int argc, char **argv) {
         exit(2);
       }
       opts.synthetic_empty_pipe_write_fd = (int)fd;
+    } else if (streq(argv[i], "--materialize-memory")) {
+      if (++i >= argc) {
+        usage();
+      }
+      add_materialized_memory(&opts, argv[i]);
+    } else if (streq(argv[i], "--materialize-guard")) {
+      if (++i >= argc) {
+        usage();
+      }
+      add_materialized_guard(&opts, argv[i]);
     } else if (streq(argv[i], "--stack-target-start")) {
       if (++i >= argc) {
         usage();
@@ -257,6 +348,39 @@ static void *map_fixed(uint64_t target_start, uint64_t size, int prot, const cha
     exit(1);
   }
   return mapped;
+}
+
+static void materialize_memory_mapping(const struct MemoryMaterialization *mapping) {
+  void *mapped = map_fixed(mapping->target_start, mapping->size, PROT_READ | PROT_WRITE, "materialized-memory");
+  int fd = open(mapping->source_file, O_RDONLY);
+  if (fd < 0) {
+    fprintf(stderr,
+        "native-actual-resume-trampoline: open materialized memory failed for %s: %s\n",
+        mapping->source_file,
+        strerror(errno));
+    exit(1);
+  }
+  read_exact(fd, mapped, mapping->size, mapping->source_offset);
+  close(fd);
+  if (mprotect(mapped, (size_t)mapping->size, mapping->prot) != 0) {
+    fprintf(stderr,
+        "native-actual-resume-trampoline: materialized memory mprotect failed: %s\n",
+        strerror(errno));
+    exit(1);
+  }
+}
+
+static void materialize_guard_mapping(const struct GuardMaterialization *guard) {
+  (void)map_fixed(guard->target_start, guard->size, PROT_NONE, "materialized-guard");
+}
+
+static void materialize_descriptor_memory(const struct Options *opts) {
+  for (size_t i = 0; i < opts->materialized_memory_count; i++) {
+    materialize_memory_mapping(&opts->materialized_memory[i]);
+  }
+  for (size_t i = 0; i < opts->materialized_guard_count; i++) {
+    materialize_guard_mapping(&opts->materialized_guards[i]);
+  }
 }
 
 static void *map_target_code(const struct Options *opts, uint64_t *mapped_start, uint64_t *mapped_size) {
@@ -558,6 +682,8 @@ int main(int argc, char **argv) {
   validate_stack_options(&opts);
   mapped_target_start = opts.target_address;
   mapped_target_end = opts.target_address + opts.code_size;
+
+  materialize_descriptor_memory(&opts);
 
   uint64_t mapped_code_start = 0;
   uint64_t mapped_code_size = 0;

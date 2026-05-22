@@ -20,6 +20,7 @@
 #endif
 
 #define LOADER_PREFIX "MACHINEN_TARGET_GUEST_RESTORE_LOADER "
+#define MAX_MATERIALIZED_MAPPINGS 32
 
 struct Options {
   const char *descriptor_path;
@@ -41,6 +42,10 @@ struct Descriptor {
   int pipe_read_fd;
   int pipe_write_fd;
   int event_fd;
+  char memory_specs[MAX_MATERIALIZED_MAPPINGS][PATH_MAX];
+  size_t memory_spec_count;
+  char guard_specs[MAX_MATERIALIZED_MAPPINGS][128];
+  size_t guard_spec_count;
 };
 
 static bool streq(const char *left, const char *right) {
@@ -212,6 +217,72 @@ static void parse_eventfd_resource(struct Descriptor *descriptor, char *fields) 
   descriptor->event_fd = parse_fd(fd);
 }
 
+static const char *required_token(char *scratch, size_t scratch_size, char *fields, const char *name) {
+  snprintf(scratch, scratch_size, "%s", fields);
+  const char *value = find_token_value(scratch, name);
+  if (!value) {
+    refuse("target-guest-loader-descriptor-invalid", "memory field is required");
+  }
+  return value;
+}
+
+static void append_memory_spec(struct Descriptor *descriptor, char *fields) {
+  if (descriptor->memory_spec_count >= MAX_MATERIALIZED_MAPPINGS) {
+    refuse("target-guest-loader-memory-unsupported", "too many memory mappings");
+  }
+  char scratch[4096];
+  const char *source_file = required_token(scratch, sizeof(scratch), fields, "sourceFile");
+  char source_file_copy[PATH_MAX];
+  snprintf(source_file_copy, sizeof(source_file_copy), "%s", source_file);
+  const char *source_offset = required_token(scratch, sizeof(scratch), fields, "sourceOffset");
+  char source_offset_copy[32];
+  snprintf(source_offset_copy, sizeof(source_offset_copy), "%s", source_offset);
+  const char *target_start = required_token(scratch, sizeof(scratch), fields, "targetStart");
+  char target_start_copy[32];
+  snprintf(target_start_copy, sizeof(target_start_copy), "%s", target_start);
+  const char *size = required_token(scratch, sizeof(scratch), fields, "sizeBytes");
+  char size_copy[32];
+  snprintf(size_copy, sizeof(size_copy), "%s", size);
+  const char *permissions = required_token(scratch, sizeof(scratch), fields, "permissions");
+  if (strchr(permissions, 'x')) {
+    refuse("target-guest-loader-invalid-continuation", "memory mappings must be non-executable");
+  }
+  snprintf(descriptor->memory_specs[descriptor->memory_spec_count++],
+      PATH_MAX,
+      "%s:%s:%s:%s:%s",
+      source_file_copy,
+      source_offset_copy,
+      target_start_copy,
+      size_copy,
+      permissions);
+}
+
+static void append_guard_spec(struct Descriptor *descriptor, char *fields) {
+  if (descriptor->guard_spec_count >= MAX_MATERIALIZED_MAPPINGS) {
+    refuse("target-guest-loader-memory-unsupported", "too many guard mappings");
+  }
+  char scratch[4096];
+  const char *target_start = required_token(scratch, sizeof(scratch), fields, "targetStart");
+  char target_start_copy[32];
+  snprintf(target_start_copy, sizeof(target_start_copy), "%s", target_start);
+  const char *size = required_token(scratch, sizeof(scratch), fields, "sizeBytes");
+  snprintf(descriptor->guard_specs[descriptor->guard_spec_count++],
+      sizeof(descriptor->guard_specs[0]),
+      "%s:%s",
+      target_start_copy,
+      size);
+}
+
+static void parse_memory(struct Descriptor *descriptor, char *line) {
+  if (starts_with(line, "memory=copy-captured-bytes")) {
+    append_memory_spec(descriptor, line + strlen("memory=copy-captured-bytes"));
+  } else if (starts_with(line, "memory=recreate-guard")) {
+    append_guard_spec(descriptor, line + strlen("memory=recreate-guard"));
+  } else {
+    refuse("target-guest-loader-memory-unsupported", "memory materialization is not supported");
+  }
+}
+
 static void parse_resource(struct Descriptor *descriptor, char *line) {
   if (starts_with(line, "resource=synthetic-empty-pipe")) {
     parse_pipe_resource(descriptor, line + strlen("resource=synthetic-empty-pipe"));
@@ -239,6 +310,8 @@ static struct Descriptor read_descriptor(const char *path) {
     }
     if (starts_with(line, "resource=")) {
       parse_resource(&descriptor, line);
+    } else if (starts_with(line, "memory=")) {
+      parse_memory(&descriptor, line);
     } else {
       parse_field(&descriptor, line);
     }
@@ -258,8 +331,8 @@ static void validate_descriptor(const struct Descriptor *descriptor) {
   }
 }
 
-static void push_arg(char **argv, size_t *argc, char *value) {
-  argv[*argc] = value;
+static void push_arg(char **argv, size_t *argc, const char *value) {
+  argv[*argc] = (char *)value;
   *argc += 1u;
 }
 
@@ -285,7 +358,7 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   snprintf(pipe_write_fd, sizeof(pipe_write_fd), "%d", descriptor->pipe_write_fd);
   snprintf(event_fd, sizeof(event_fd), "%d", descriptor->event_fd);
 
-  char *child_argv[32];
+  char *child_argv[160];
   size_t child_argc = 0;
   push_arg(child_argv, &child_argc, (char *)opts->trampoline_path);
   push_arg(child_argv, &child_argc, "--code-file");
@@ -315,6 +388,14 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   if (descriptor->event_fd >= 0) {
     push_arg(child_argv, &child_argc, "--synthetic-empty-eventfd");
     push_arg(child_argv, &child_argc, event_fd);
+  }
+  for (size_t i = 0; i < descriptor->memory_spec_count; i++) {
+    push_arg(child_argv, &child_argc, "--materialize-memory");
+    push_arg(child_argv, &child_argc, descriptor->memory_specs[i]);
+  }
+  for (size_t i = 0; i < descriptor->guard_spec_count; i++) {
+    push_arg(child_argv, &child_argc, "--materialize-guard");
+    push_arg(child_argv, &child_argc, descriptor->guard_specs[i]);
   }
   child_argv[child_argc] = NULL;
 

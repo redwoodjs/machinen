@@ -409,6 +409,7 @@ export {
   serializeTargetGuestRestoreDescriptor,
   validateTargetGuestRestoreDescriptor,
 } from "./target-guest-restore-loader.ts";
+export { planTargetGuestMemoryMaterialization } from "./target-guest-memory-materialization.ts";
 export type {
   PortableMachineSnapshotArchitecture,
   PortableMachineSnapshotDocuments,
@@ -423,6 +424,14 @@ export type {
   TargetGuestRestoreLoaderRefusalCode,
   TargetGuestRestoreResourceRecipe,
 } from "./target-guest-restore-loader.ts";
+export type {
+  TargetGuestCopyCapturedBytesEntry,
+  TargetGuestMemoryMaterializationEntry,
+  TargetGuestMemoryMaterializationKind,
+  TargetGuestMemoryMaterializationRequest,
+  TargetGuestMemoryMaterializationResult,
+  TargetGuestRecreateGuardEntry,
+} from "./target-guest-memory-materialization.ts";
 export type {
   NativeAmd64Registers,
   NativeArm64Registers,

@@ -100,10 +100,17 @@
 - [`TargetGuestRestoreResourceRecipe`](#targetguestrestoreresourcerecipe)
 - [`TargetGuestRestoreContinuationDescriptor`](#targetguestrestorecontinuationdescriptor)
 - [`TargetGuestRestoreDescriptor`](#targetguestrestoredescriptor)
+- [`TargetGuestMemoryMaterializationKind`](#targetguestmemorymaterializationkind)
+- [`TargetGuestMemoryMaterializationEntry`](#targetguestmemorymaterializationentry)
+- [`TargetGuestCopyCapturedBytesEntry`](#targetguestcopycapturedbytesentry)
+- [`TargetGuestRecreateGuardEntry`](#targetguestrecreateguardentry)
+- [`TargetGuestMemoryMaterializationRequest`](#targetguestmemorymaterializationrequest)
+- [`TargetGuestMemoryMaterializationResult`](#targetguestmemorymaterializationresult)
 - [`TARGET_GUEST_RESTORE_DESCRIPTOR_KIND`](#target_guest_restore_descriptor_kind)
 - [`serializeTargetGuestRestoreDescriptor`](#serializetargetguestrestoredescriptor)
 - [`parseTargetGuestRestoreDescriptor`](#parsetargetguestrestoredescriptor)
 - [`validateTargetGuestRestoreDescriptor`](#validatetargetguestrestoredescriptor)
+- [`planTargetGuestMemoryMaterialization`](#plantargetguestmemorymaterialization)
 - [`buildNativeActualResumeTrampolineArgs`](#buildnativeactualresumetrampolineargs)
 - [`buildTargetGuestRestoreLoaderArgv`](#buildtargetguestrestoreloaderargv)
 - [`NativeRegisterTranslationRequest`](#nativeregistertranslationrequest)
@@ -8527,6 +8534,162 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### TargetGuestCopyCapturedBytesEntry
+
+#### Extends
+
+- `TargetGuestMemoryMaterializationEntryBase`
+
+#### Properties
+
+##### mapping
+
+> **mapping**: `string`
+
+###### Inherited from
+
+`TargetGuestMemoryMaterializationEntryBase.mapping`
+
+##### targetStart
+
+> **targetStart**: `string`
+
+###### Inherited from
+
+`TargetGuestMemoryMaterializationEntryBase.targetStart`
+
+##### sizeBytes
+
+> **sizeBytes**: `number`
+
+###### Inherited from
+
+`TargetGuestMemoryMaterializationEntryBase.sizeBytes`
+
+##### permissions
+
+> **permissions**: `string`
+
+###### Inherited from
+
+`TargetGuestMemoryMaterializationEntryBase.permissions`
+
+##### kind
+
+> **kind**: `"copy-captured-bytes"`
+
+###### Overrides
+
+`TargetGuestMemoryMaterializationEntryBase.kind`
+
+##### sourceFile
+
+> **sourceFile**: `string`
+
+##### sourceOffset
+
+> **sourceOffset**: `number`
+
+##### provenance
+
+> **provenance**: `"native-process-image"`
+
+###### Overrides
+
+`TargetGuestMemoryMaterializationEntryBase.provenance`
+
+***
+
+### TargetGuestRecreateGuardEntry
+
+#### Extends
+
+- `TargetGuestMemoryMaterializationEntryBase`
+
+#### Properties
+
+##### mapping
+
+> **mapping**: `string`
+
+###### Inherited from
+
+`TargetGuestMemoryMaterializationEntryBase.mapping`
+
+##### targetStart
+
+> **targetStart**: `string`
+
+###### Inherited from
+
+`TargetGuestMemoryMaterializationEntryBase.targetStart`
+
+##### sizeBytes
+
+> **sizeBytes**: `number`
+
+###### Inherited from
+
+`TargetGuestMemoryMaterializationEntryBase.sizeBytes`
+
+##### permissions
+
+> **permissions**: `string`
+
+###### Inherited from
+
+`TargetGuestMemoryMaterializationEntryBase.permissions`
+
+##### kind
+
+> **kind**: `"recreate-guard"`
+
+###### Overrides
+
+`TargetGuestMemoryMaterializationEntryBase.kind`
+
+##### provenance
+
+> **provenance**: `"guard-protection"`
+
+###### Overrides
+
+`TargetGuestMemoryMaterializationEntryBase.provenance`
+
+***
+
+### TargetGuestMemoryMaterializationRequest
+
+#### Properties
+
+##### mappings
+
+> **mappings**: [`NativeMemoryMapping`](#nativememorymapping)[]
+
+##### memorySizeBytes
+
+> **memorySizeBytes**: `number`
+
+##### memoryFile
+
+> **memoryFile**: `string`
+
+***
+
+### TargetGuestMemoryMaterializationResult
+
+#### Properties
+
+##### entries
+
+> **entries**: [`TargetGuestMemoryMaterializationEntry`](#targetguestmemorymaterializationentry)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
 ### TargetGuestRestoreContinuationDescriptor
 
 #### Properties
@@ -8584,6 +8747,10 @@ Poll interval in ms while retrying. Default 250.
 ##### resources
 
 > **resources**: [`TargetGuestRestoreResourceRecipe`](#targetguestrestoreresourcerecipe)[]
+
+##### memory
+
+> **memory**: [`TargetGuestMemoryMaterializationEntry`](#targetguestmemorymaterializationentry)[]
 
 ***
 
@@ -9752,7 +9919,7 @@ need to set it.
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`memory`](#memory-2)
+[`BootOptions`](#bootoptions).[`memory`](#memory-3)
 
 ##### pdeathsig?
 
@@ -10570,7 +10737,7 @@ need to set it.
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`memory`](#memory-2)
+[`BootOptions`](#bootoptions).[`memory`](#memory-3)
 
 ##### pdeathsig?
 
@@ -11047,9 +11214,21 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ***
 
+### TargetGuestMemoryMaterializationKind
+
+> **TargetGuestMemoryMaterializationKind** = `"copy-captured-bytes"` \| `"recreate-guard"`
+
+***
+
+### TargetGuestMemoryMaterializationEntry
+
+> **TargetGuestMemoryMaterializationEntry** = [`TargetGuestCopyCapturedBytesEntry`](#targetguestcopycapturedbytesentry) \| [`TargetGuestRecreateGuardEntry`](#targetguestrecreateguardentry)
+
+***
+
 ### TargetGuestRestoreLoaderRefusalCode
 
-> **TargetGuestRestoreLoaderRefusalCode** = `"target-guest-loader-descriptor-invalid"` \| `"target-guest-loader-target-arch-unsupported"` \| `"target-guest-loader-resource-unsupported"` \| `"target-guest-loader-invalid-fd"` \| `"target-guest-loader-invalid-continuation"`
+> **TargetGuestRestoreLoaderRefusalCode** = `"target-guest-loader-descriptor-invalid"` \| `"target-guest-loader-target-arch-unsupported"` \| `"target-guest-loader-resource-unsupported"` \| `"target-guest-loader-invalid-fd"` \| `"target-guest-loader-invalid-continuation"` \| `"target-guest-loader-memory-unsupported"`
 
 ***
 
@@ -14219,6 +14398,22 @@ resolve the binary through the same lookup chain.
 #### Returns
 
 `string`
+
+***
+
+### planTargetGuestMemoryMaterialization()
+
+> **planTargetGuestMemoryMaterialization**(`request`): [`TargetGuestMemoryMaterializationResult`](#targetguestmemorymaterializationresult)
+
+#### Parameters
+
+##### request
+
+[`TargetGuestMemoryMaterializationRequest`](#targetguestmemorymaterializationrequest)
+
+#### Returns
+
+[`TargetGuestMemoryMaterializationResult`](#targetguestmemorymaterializationresult)
 
 ***
 
