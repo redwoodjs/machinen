@@ -84,15 +84,22 @@
 - [`translateNativeRegisterState`](#translatenativeregisterstate)
 - [`NativeActiveSyscallClass`](#nativeactivesyscallclass)
 - [`NativeSleepTimerSyscallPolicy`](#nativesleeptimersyscallpolicy)
+- [`NativePollTimeoutSyscallPolicy`](#nativepolltimeoutsyscallpolicy)
 - [`NativeActiveSyscallPolicyOptions`](#nativeactivesyscallpolicyoptions)
 - [`NativeSleepTimerDuration`](#nativesleeptimerduration)
 - [`NativeModeledSleepTimerRemainingTime`](#nativemodeledsleeptimerremainingtime)
 - [`NativeModeledSleepTimerState`](#nativemodeledsleeptimerstate)
+- [`NativeModeledPpollTimeoutRemainingTime`](#nativemodeledppolltimeoutremainingtime)
+- [`NativeModeledPpollTimeoutState`](#nativemodeledppolltimeoutstate)
 - [`NativeSleepTimerModelResult`](#nativesleeptimermodelresult)
+- [`NativePpollTimeoutModelResult`](#nativeppolltimeoutmodelresult)
+- [`NativeActiveSleepTimerContinuation`](#nativeactivesleeptimercontinuation)
+- [`NativeActivePpollTimeoutContinuation`](#nativeactiveppolltimeoutcontinuation)
 - [`NativeActiveSyscallContinuation`](#nativeactivesyscallcontinuation)
 - [`NativeActiveSyscallClassification`](#nativeactivesyscallclassification)
 - [`NativeActiveSyscallClassificationResult`](#nativeactivesyscallclassificationresult)
 - [`modelNativeSleepTimerState`](#modelnativesleeptimerstate)
+- [`modelNativePpollTimeoutState`](#modelnativeppolltimeoutstate)
 - [`classifyNativeThreadSyscall`](#classifynativethreadsyscall)
 - [`classifyNativeActiveSyscalls`](#classifynativeactivesyscalls)
 - [`NativeCodeModule`](#nativecodemodule)
@@ -148,10 +155,30 @@
 - [`NativeSyntheticSyscallContinuationDescriptorRequest`](#nativesyntheticsyscallcontinuationdescriptorrequest)
 - [`NativeSyntheticSyscallContinuationDescriptorPayload`](#nativesyntheticsyscallcontinuationdescriptorpayload)
 - [`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor)
+- [`NATIVE_SYNTHETIC_SYSCALL_RESTART_EXIT_STATUS`](#native_synthetic_syscall_restart_exit_status)
+- [`NATIVE_SYNTHETIC_SYSCALL_UNMODELED_RETURN_EXIT_STATUS`](#native_synthetic_syscall_unmodeled_return_exit_status)
 - [`buildNativeSyntheticSyscallContinuationDescriptor`](#buildnativesyntheticsyscallcontinuationdescriptor)
+- [`nativeSyntheticRestartLikeErrnos`](#nativesyntheticrestartlikeerrnos)
+- [`nativeSyntheticSyscallFailureExitBuckets`](#nativesyntheticsyscallfailureexitbuckets)
+- [`nativeSyntheticExitProcessSuffix`](#nativesyntheticexitprocesssuffix)
 - [`nativeSyntheticContinuationBytesHex`](#nativesyntheticcontinuationbyteshex)
 - [`nativeSyntheticContinuationBytesSha256`](#nativesyntheticcontinuationbytessha256)
 - [`nativeSyntheticContinuationDescriptorSha256`](#nativesyntheticcontinuationdescriptorsha256)
+- [`NativeSyntheticPpollCompletionMode`](#nativesyntheticppollcompletionmode)
+- [`NativeSyntheticPpollSyscallProvenanceSource`](#nativesyntheticppollsyscallprovenancesource)
+- [`NativeSyntheticPpollSyscallArgumentProvenance`](#nativesyntheticppollsyscallargumentprovenance)
+- [`NativeSyntheticPpollSyscallCompletionProvenance`](#nativesyntheticppollsyscallcompletionprovenance)
+- [`NativeSyntheticPpollSyscallRegisterSetupProvenance`](#nativesyntheticppollsyscallregistersetupprovenance)
+- [`NativeSyntheticPpollSyscallStackSetupProvenance`](#nativesyntheticppollsyscallstacksetupprovenance)
+- [`NativeSyntheticPpollSyscallContinuationProvenance`](#nativesyntheticppollsyscallcontinuationprovenance)
+- [`NativeSyntheticPpollSyscallContinuationRequest`](#nativesyntheticppollsyscallcontinuationrequest)
+- [`NativeSyntheticPpollSyscallContinuation`](#nativesyntheticppollsyscallcontinuation)
+- [`NativeSyntheticPpollSyscallContinuationResult`](#nativesyntheticppollsyscallcontinuationresult)
+- [`NATIVE_SYNTHETIC_PPOLL_SYSCALL_BUILD_ID`](#native_synthetic_ppoll_syscall_build_id)
+- [`NATIVE_SYNTHETIC_PPOLL_SYSCALL_LOGICAL_NAME`](#native_synthetic_ppoll_syscall_logical_name)
+- [`NATIVE_SYNTHETIC_PPOLL_SYSCALL_PATH`](#native_synthetic_ppoll_syscall_path)
+- [`NATIVE_SYNTHETIC_PPOLL_SYSCALL_BASE`](#native_synthetic_ppoll_syscall_base)
+- [`buildNativeSyntheticPpollSyscallContinuation`](#buildnativesyntheticppollsyscallcontinuation)
 - [`NativeSyntheticSleepCompletionMode`](#nativesyntheticsleepcompletionmode)
 - [`NativeSyntheticSleepSyscallProvenanceSource`](#nativesyntheticsleepsyscallprovenancesource)
 - [`NativeSyntheticSleepSyscallArgumentProvenance`](#nativesyntheticsleepsyscallargumentprovenance)
@@ -2348,6 +2375,10 @@ by default when `output` is a TTY.
 
 > `optional` **sleepTimerPolicy?**: [`NativeSleepTimerSyscallPolicy`](#nativesleeptimersyscallpolicy)
 
+##### pollTimeoutPolicy?
+
+> `optional` **pollTimeoutPolicy?**: [`NativePollTimeoutSyscallPolicy`](#nativepolltimeoutsyscallpolicy)
+
 ##### documents?
 
 > `optional` **documents?**: [`NativeProcessImageDocuments`](#nativeprocessimagedocuments)
@@ -2358,6 +2389,7 @@ by default when `output` is a TTY.
 
 #### Extended by
 
+- [`NativeModeledPpollTimeoutRemainingTime`](#nativemodeledppolltimeoutremainingtime)
 - [`NativeModeledSleepTimerRemainingTime`](#nativemodeledsleeptimerremainingtime)
 
 #### Properties
@@ -2414,6 +2446,48 @@ by default when `output` is a TTY.
 
 ***
 
+### NativeModeledPpollTimeoutRemainingTime
+
+#### Extends
+
+- [`NativeSleepTimerDuration`](#nativesleeptimerduration)
+
+#### Properties
+
+##### seconds
+
+> **seconds**: `string`
+
+###### Inherited from
+
+[`NativeSleepTimerDuration`](#nativesleeptimerduration).[`seconds`](#seconds)
+
+##### nanoseconds
+
+> **nanoseconds**: `number`
+
+###### Inherited from
+
+[`NativeSleepTimerDuration`](#nativesleeptimerduration).[`nanoseconds`](#nanoseconds)
+
+##### state
+
+> **state**: `"modeled"`
+
+##### kind
+
+> **kind**: `"relative-duration"`
+
+##### source
+
+> **source**: `"active-syscall-ppoll-timeout"`
+
+##### precision
+
+> **precision**: `"requested-duration-upper-bound"`
+
+***
+
 ### NativeModeledSleepTimerState
 
 #### Properties
@@ -2456,7 +2530,53 @@ by default when `output` is a TTY.
 
 ***
 
-### NativeActiveSyscallContinuation
+### NativeModeledPpollTimeoutState
+
+#### Properties
+
+##### kind
+
+> **kind**: `"relative-duration"`
+
+##### syscallName
+
+> **syscallName**: `"ppoll"`
+
+##### argumentSource
+
+> **argumentSource**: `"proc-syscall"` \| `"registers"`
+
+##### fdsPointer
+
+> **fdsPointer**: `"0x0"`
+
+##### nfds
+
+> **nfds**: `0`
+
+##### timeoutPointer
+
+> **timeoutPointer**: `string`
+
+##### sigmaskPointer
+
+> **sigmaskPointer**: `"0x0"`
+
+##### sigsetSize?
+
+> `optional` **sigsetSize?**: `string`
+
+##### requestedTime
+
+> **requestedTime**: [`NativeSleepTimerDuration`](#nativesleeptimerduration)
+
+##### remainingTime
+
+> **remainingTime**: [`NativeModeledPpollTimeoutRemainingTime`](#nativemodeledppolltimeoutremainingtime)
+
+***
+
+### NativeActiveSleepTimerContinuation
 
 #### Properties
 
@@ -2515,6 +2635,68 @@ by default when `output` is a TTY.
 ###### policy
 
 > **policy**: `"conservative-target-timer-rearm-required"`
+
+***
+
+### NativeActivePpollTimeoutContinuation
+
+#### Properties
+
+##### threadId
+
+> **threadId**: `string`
+
+##### syscallClass
+
+> **syscallClass**: `"poll-timeout"`
+
+##### action
+
+> **action**: `"defer-target-resume"`
+
+##### syscall
+
+> **syscall**: `object`
+
+###### state
+
+> **state**: `"outside-syscall"` \| `"inside-syscall"` \| `"restart-block"`
+
+###### number?
+
+> `optional` **number?**: `number`
+
+###### name?
+
+> `optional` **name?**: `string`
+
+###### arguments?
+
+> `optional` **arguments?**: `string`[]
+
+###### stackPointer?
+
+> `optional` **stackPointer?**: `string`
+
+###### instructionPointer?
+
+> `optional` **instructionPointer?**: `string`
+
+##### metadata
+
+> **metadata**: `object`
+
+###### remainingTime
+
+> **remainingTime**: [`NativeModeledPpollTimeoutRemainingTime`](#nativemodeledppolltimeoutremainingtime)
+
+###### ppollTimeout
+
+> **ppollTimeout**: [`NativeModeledPpollTimeoutState`](#nativemodeledppolltimeoutstate)
+
+###### policy
+
+> **policy**: `"conservative-target-ppoll-timeout-rearm-required"`
 
 ***
 
@@ -2653,6 +2835,14 @@ by default when `output` is a TTY.
 ###### Inherited from
 
 [`NativeRealUtilityContinuationRequest`](#nativerealutilitycontinuationrequest).[`sourceFrameRefusals`](#sourceframerefusals-1)
+
+##### sourceUnwindRequired?
+
+> `optional` **sourceUnwindRequired?**: `boolean`
+
+###### Inherited from
+
+[`NativeRealUtilityContinuationRequest`](#nativerealutilitycontinuationrequest).[`sourceUnwindRequired`](#sourceunwindrequired-1)
 
 ##### targetUnwind?
 
@@ -3199,7 +3389,7 @@ by default when `output` is a TTY.
 
 ##### code
 
-> **code**: `"fd-kind-unsupported"` \| `"target-build-mismatch"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"active-syscall"` \| `"blocking-syscall-state-unsupported"` \| `"code-location-unknown"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-permission-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"syscall-argument-state-unsupported"` \| `"syscall-restart-unsupported"` \| `"target-build-id-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-caller-frame-unavailable"` \| `"target-code-rva-unmapped"` \| `"target-frame-layout-unsupported"` \| `"target-frame-register-value-unavailable"` \| `"target-module-bytes-missing"` \| `"target-module-file-missing"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-module-range-unreadable"` \| `"target-return-slot-unsupported"` \| `"target-resume-execution-unavailable"` \| `"target-resume-fault-invalid-code-landing"` \| `"target-resume-fault-outside-target-bytes"` \| `"target-resume-fault-privileged-instruction"` \| `"target-resume-fault-signal-unsupported"` \| `"target-resume-fault-timeout"` \| `"target-resume-fault-unmodeled-memory"` \| `"target-semantic-continuation-missing"` \| `"target-sleep-remaining-time-missing"` \| `"target-sleep-signal-restart-unsupported"` \| `"target-sleep-syscall-continuation-missing"` \| `"target-synthetic-signal-restart-unsupported"` \| `"target-synthetic-syscall-return-unmodeled"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
+> **code**: `"fd-kind-unsupported"` \| `"target-build-mismatch"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"active-syscall"` \| `"blocking-syscall-state-unsupported"` \| `"code-location-unknown"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-permission-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"syscall-argument-state-unsupported"` \| `"syscall-restart-unsupported"` \| `"target-build-id-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-caller-frame-unavailable"` \| `"target-code-rva-unmapped"` \| `"target-frame-layout-unsupported"` \| `"target-frame-register-value-unavailable"` \| `"target-module-bytes-missing"` \| `"target-module-file-missing"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-module-range-unreadable"` \| `"target-ppoll-syscall-continuation-missing"` \| `"target-ppoll-timeout-missing"` \| `"target-return-slot-unsupported"` \| `"target-resume-execution-unavailable"` \| `"target-resume-fault-invalid-code-landing"` \| `"target-resume-fault-outside-target-bytes"` \| `"target-resume-fault-privileged-instruction"` \| `"target-resume-fault-signal-unsupported"` \| `"target-resume-fault-timeout"` \| `"target-resume-fault-unmodeled-memory"` \| `"target-semantic-continuation-missing"` \| `"target-sleep-remaining-time-missing"` \| `"target-sleep-signal-restart-unsupported"` \| `"target-sleep-syscall-continuation-missing"` \| `"target-synthetic-signal-restart-unsupported"` \| `"target-synthetic-syscall-return-unmodeled"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
 
 ##### message
 
@@ -3979,7 +4169,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-3)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-5)
 
 ##### buildId
 
@@ -4021,7 +4211,7 @@ by default when `output` is a TTY.
 
 ##### kind
 
-> **kind**: `"sleep-timer"`
+> **kind**: [`NativeRealUtilityTargetContinuationKind`](#nativerealutilitytargetcontinuationkind)
 
 ##### source
 
@@ -4087,7 +4277,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-3)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-5)
 
 ##### buildId
 
@@ -4159,7 +4349,7 @@ by default when `output` is a TTY.
 
 ##### kind
 
-> **kind**: `"sleep-timer"`
+> **kind**: [`NativeRealUtilityTargetContinuationKind`](#nativerealutilitytargetcontinuationkind)
 
 ##### source
 
@@ -4180,80 +4370,6 @@ by default when `output` is a TTY.
 ##### sizeBytes?
 
 > `optional` **sizeBytes?**: `number`
-
-***
-
-### NativeRealUtilitySyntheticContinuationSelection
-
-#### Properties
-
-##### kind
-
-> **kind**: `"sleep-timer"`
-
-##### source
-
-> **source**: `"synthetic-syscall"`
-
-##### symbolName
-
-> **symbolName**: `"machinen_synthetic_clock_nanosleep"`
-
-##### targetRelativeAddress
-
-> **targetRelativeAddress**: `"0x0"`
-
-##### targetAddress
-
-> **targetAddress**: `string`
-
-##### sizeBytes
-
-> **sizeBytes**: `number`
-
-##### syscall
-
-> **syscall**: `object`
-
-###### name
-
-> **name**: `"clock_nanosleep"`
-
-###### number
-
-> **number**: `230`
-
-###### clockId
-
-> **clockId**: `0`
-
-###### flags
-
-> **flags**: `0`
-
-###### requestPointerEncoding
-
-> **requestPointerEncoding**: `"rip-relative-timespec"`
-
-###### remainderPointer
-
-> **remainderPointer**: `"0x0"`
-
-##### completionMode
-
-> **completionMode**: [`NativeSyntheticSleepCompletionMode`](#nativesyntheticsleepcompletionmode)
-
-##### exitStatusOnSuccess?
-
-> `optional` **exitStatusOnSuccess?**: `0`
-
-##### descriptor
-
-> **descriptor**: [`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor)
-
-##### provenance
-
-> **provenance**: [`NativeSyntheticSleepSyscallContinuationProvenance`](#nativesyntheticsleepsyscallcontinuationprovenance)
 
 ***
 
@@ -4283,11 +4399,11 @@ by default when `output` is a TTY.
 
 ##### strategy
 
-> **strategy**: `"synthetic-sleep-syscall"` \| `"semantic-sleep-timer-symbol"`
+> **strategy**: `"synthetic-ppoll-syscall"` \| `"synthetic-sleep-syscall"` \| `"semantic-sleep-timer-symbol"`
 
 ##### syscallClass
 
-> **syscallClass**: `"sleep-timer"`
+> **syscallClass**: `"sleep-timer"` \| `"poll-timeout"`
 
 ##### action
 
@@ -4323,19 +4439,7 @@ by default when `output` is a TTY.
 
 ##### metadata
 
-> **metadata**: `object`
-
-###### remainingTime
-
-> **remainingTime**: [`NativeModeledSleepTimerRemainingTime`](#nativemodeledsleeptimerremainingtime)
-
-###### sleepTimer
-
-> **sleepTimer**: [`NativeModeledSleepTimerState`](#nativemodeledsleeptimerstate)
-
-###### policy
-
-> **policy**: `"conservative-target-timer-rearm-required"`
+> **metadata**: \{ `remainingTime`: [`NativeModeledSleepTimerRemainingTime`](#nativemodeledsleeptimerremainingtime); `sleepTimer`: [`NativeModeledSleepTimerState`](#nativemodeledsleeptimerstate); `policy`: `"conservative-target-timer-rearm-required"`; \} \| \{ `remainingTime`: [`NativeModeledPpollTimeoutRemainingTime`](#nativemodeledppolltimeoutremainingtime); `ppollTimeout`: [`NativeModeledPpollTimeoutState`](#nativemodeledppolltimeoutstate); `policy`: `"conservative-target-ppoll-timeout-rearm-required"`; \}
 
 ##### semanticContinuation?
 
@@ -4429,13 +4533,25 @@ by default when `output` is a TTY.
 
 > `optional` **sleepTimerContinuationStrategy?**: `"synthetic-syscall"` \| `"target-symbol"`
 
+##### pollTimeoutContinuationStrategy?
+
+> `optional` **pollTimeoutContinuationStrategy?**: `"refuse"` \| `"synthetic-syscall"`
+
 ##### syntheticSleepBaseAddress?
 
 > `optional` **syntheticSleepBaseAddress?**: `string`
 
+##### syntheticPpollBaseAddress?
+
+> `optional` **syntheticPpollBaseAddress?**: `string`
+
 ##### syntheticSleepCompletionMode?
 
 > `optional` **syntheticSleepCompletionMode?**: [`NativeSyntheticSleepCompletionMode`](#nativesyntheticsleepcompletionmode)
+
+##### syntheticPpollCompletionMode?
+
+> `optional` **syntheticPpollCompletionMode?**: [`NativeSyntheticPpollCompletionMode`](#nativesyntheticppollcompletionmode)
 
 ***
 
@@ -4496,6 +4612,10 @@ by default when `output` is a TTY.
 ##### sourceFrameRefusals?
 
 > `optional` **sourceFrameRefusals?**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+##### sourceUnwindRequired?
+
+> `optional` **sourceUnwindRequired?**: `boolean`
 
 ##### targetUnwind?
 
@@ -4765,6 +4885,7 @@ by default when `output` is a TTY.
 
 #### Extended by
 
+- [`NativeSyntheticPpollSyscallArgumentProvenance`](#nativesyntheticppollsyscallargumentprovenance)
 - [`NativeSyntheticSleepSyscallArgumentProvenance`](#nativesyntheticsleepsyscallargumentprovenance)
 
 #### Properties
@@ -4813,6 +4934,7 @@ by default when `output` is a TTY.
 
 #### Extended by
 
+- [`NativeSyntheticPpollSyscallRegisterSetupProvenance`](#nativesyntheticppollsyscallregistersetupprovenance)
 - [`NativeSyntheticSleepSyscallRegisterSetupProvenance`](#nativesyntheticsleepsyscallregistersetupprovenance)
 
 #### Properties
@@ -4839,6 +4961,7 @@ by default when `output` is a TTY.
 
 #### Extended by
 
+- [`NativeSyntheticPpollSyscallStackSetupProvenance`](#nativesyntheticppollsyscallstacksetupprovenance)
 - [`NativeSyntheticSleepSyscallStackSetupProvenance`](#nativesyntheticsleepsyscallstacksetupprovenance)
 
 #### Properties
@@ -4923,6 +5046,7 @@ by default when `output` is a TTY.
 
 #### Extended by
 
+- [`NativeSyntheticPpollSyscallCompletionProvenance`](#nativesyntheticppollsyscallcompletionprovenance)
 - [`NativeSyntheticSleepSyscallCompletionProvenance`](#nativesyntheticsleepsyscallcompletionprovenance)
 
 #### Properties
@@ -5005,6 +5129,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 #### Extended by
 
+- [`NativeSyntheticPpollSyscallContinuationProvenance`](#nativesyntheticppollsyscallcontinuationprovenance)
 - [`NativeSyntheticSleepSyscallContinuationProvenance`](#nativesyntheticsleepsyscallcontinuationprovenance)
 
 #### Properties
@@ -5088,6 +5213,550 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 ##### completion
 
 > **completion**: [`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor)
+
+***
+
+### NativeSyntheticPpollSyscallArgumentProvenance
+
+#### Extends
+
+- [`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor)
+
+#### Properties
+
+##### value
+
+> **value**: `string`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`value`](#value)
+
+##### register
+
+> **register**: `"rax"` \| `"rdx"` \| `"rsi"` \| `"rdi"` \| `"r8"` \| `"r10"`
+
+###### Overrides
+
+[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`register`](#register)
+
+##### role
+
+> **role**: `"nfds"` \| `"syscall-number"` \| `"fds-pointer"` \| `"timeout-timespec-pointer"` \| `"sigmask-pointer"` \| `"sigset-size"`
+
+###### Overrides
+
+[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`role`](#role)
+
+##### source
+
+> **source**: [`NativeSyntheticContinuationProvenanceSource`](#nativesyntheticcontinuationprovenancesource)
+
+###### Overrides
+
+[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`source`](#source-6)
+
+***
+
+### NativeSyntheticPpollSyscallRegisterSetupProvenance
+
+#### Extends
+
+- [`NativeSyntheticContinuationRegisterSetupDescriptor`](#nativesyntheticcontinuationregistersetupdescriptor)
+
+#### Properties
+
+##### abi
+
+> **abi**: `"linux-amd64-syscall"`
+
+###### Inherited from
+
+[`NativeSyntheticContinuationRegisterSetupDescriptor`](#nativesyntheticcontinuationregistersetupdescriptor).[`abi`](#abi-1)
+
+##### notes
+
+> **notes**: `string`[]
+
+###### Inherited from
+
+[`NativeSyntheticContinuationRegisterSetupDescriptor`](#nativesyntheticcontinuationregistersetupdescriptor).[`notes`](#notes)
+
+##### arguments
+
+> **arguments**: [`NativeSyntheticPpollSyscallArgumentProvenance`](#nativesyntheticppollsyscallargumentprovenance)[]
+
+###### Overrides
+
+[`NativeSyntheticContinuationRegisterSetupDescriptor`](#nativesyntheticcontinuationregistersetupdescriptor).[`arguments`](#arguments-1)
+
+##### clobberedBySyscall
+
+> **clobberedBySyscall**: \[`"rax"`, `"rcx"`, `"r11"`\]
+
+###### Overrides
+
+[`NativeSyntheticContinuationRegisterSetupDescriptor`](#nativesyntheticcontinuationregistersetupdescriptor).[`clobberedBySyscall`](#clobberedbysyscall)
+
+***
+
+### NativeSyntheticPpollSyscallStackSetupProvenance
+
+#### Extends
+
+- [`NativeSyntheticContinuationStackSetupDescriptor`](#nativesyntheticcontinuationstacksetupdescriptor)
+
+#### Properties
+
+##### entryStackPointer
+
+> **entryStackPointer**: `"target-caller-frame-stack-pointer"`
+
+###### Overrides
+
+[`NativeSyntheticContinuationStackSetupDescriptor`](#nativesyntheticcontinuationstacksetupdescriptor).[`entryStackPointer`](#entrystackpointer)
+
+##### stackBytesWrittenByContinuation
+
+> **stackBytesWrittenByContinuation**: `0`
+
+###### Overrides
+
+[`NativeSyntheticContinuationStackSetupDescriptor`](#nativesyntheticcontinuationstacksetupdescriptor).[`stackBytesWrittenByContinuation`](#stackbyteswrittenbycontinuation)
+
+##### returnAddress
+
+> **returnAddress**: `"not-used-exit-process-completion"` \| `"trampoline-sentinel-return-address"`
+
+###### Overrides
+
+[`NativeSyntheticContinuationStackSetupDescriptor`](#nativesyntheticcontinuationstacksetupdescriptor).[`returnAddress`](#returnaddress)
+
+##### requiresSourceStackBytes
+
+> **requiresSourceStackBytes**: `false`
+
+###### Overrides
+
+[`NativeSyntheticContinuationStackSetupDescriptor`](#nativesyntheticcontinuationstacksetupdescriptor).[`requiresSourceStackBytes`](#requiressourcestackbytes)
+
+***
+
+### NativeSyntheticPpollSyscallCompletionProvenance
+
+#### Extends
+
+- [`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor)
+
+#### Properties
+
+##### failureExitStatus?
+
+> `optional` **failureExitStatus?**: `number`
+
+Legacy single-bucket failure status. Prefer failureExitBuckets for new continuations.
+
+###### Inherited from
+
+[`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor).[`failureExitStatus`](#failureexitstatus)
+
+##### failureKind?
+
+> `optional` **failureKind?**: [`NativeSyntheticContinuationFailureKind`](#nativesyntheticcontinuationfailurekind)
+
+Legacy single-bucket failure kind. Prefer failureExitBuckets for new continuations.
+
+###### Inherited from
+
+[`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor).[`failureKind`](#failurekind-1)
+
+##### failureReason?
+
+> `optional` **failureReason?**: `string`
+
+Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuations.
+
+###### Inherited from
+
+[`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor).[`failureReason`](#failurereason-1)
+
+##### mode
+
+> **mode**: [`NativeSyntheticPpollCompletionMode`](#nativesyntheticppollcompletionmode)
+
+###### Overrides
+
+[`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor).[`mode`](#mode-2)
+
+##### successExitStatus?
+
+> `optional` **successExitStatus?**: `0`
+
+###### Overrides
+
+[`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor).[`successExitStatus`](#successexitstatus)
+
+##### failureExitBuckets?
+
+> `optional` **failureExitBuckets?**: [`NativeSyntheticContinuationFailureExitBucket`](#nativesyntheticcontinuationfailureexitbucket)[]
+
+###### Overrides
+
+[`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor).[`failureExitBuckets`](#failureexitbuckets)
+
+***
+
+### NativeSyntheticPpollSyscallContinuationProvenance
+
+#### Extends
+
+- [`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor)
+
+#### Properties
+
+##### kind
+
+> **kind**: `"synthetic-syscall-continuation"`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-16)
+
+##### targetArch
+
+> **targetArch**: `"amd64"`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`targetArch`](#targetarch-6)
+
+##### entryAddress
+
+> **entryAddress**: `string`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`entryAddress`](#entryaddress-1)
+
+##### relativeAddress
+
+> **relativeAddress**: `string`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`relativeAddress`](#relativeaddress-3)
+
+##### byteSource
+
+> **byteSource**: `"generated-target-native-amd64-syscall-sequence"`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`byteSource`](#bytesource)
+
+##### byteEncoding
+
+> **byteEncoding**: `"amd64-machine-code"`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`byteEncoding`](#byteencoding)
+
+##### sizeBytes
+
+> **sizeBytes**: `number`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sizeBytes`](#sizebytes-9)
+
+##### bytesHex
+
+> **bytesHex**: `string`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`bytesHex`](#byteshex)
+
+##### byteSha256
+
+> **byteSha256**: `string`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`byteSha256`](#bytesha256)
+
+##### descriptorSha256
+
+> **descriptorSha256**: `string`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`descriptorSha256`](#descriptorsha256)
+
+##### generatedTargetBytes
+
+> **generatedTargetBytes**: `true`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`generatedTargetBytes`](#generatedtargetbytes)
+
+##### sourceTextReusedAsTargetCode
+
+> **sourceTextReusedAsTargetCode**: `false`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sourceTextReusedAsTargetCode`](#sourcetextreusedastargetcode-2)
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sourceIsaEmulationUsed`](#sourceisaemulationused-2)
+
+##### sidecarRuntimeUsed
+
+> **sidecarRuntimeUsed**: `false`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sidecarRuntimeUsed`](#sidecarruntimeused-2)
+
+##### syscallAbi
+
+> **syscallAbi**: `"linux-amd64"`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`syscallAbi`](#syscallabi)
+
+##### generatorBuildId
+
+> **generatorBuildId**: `"machinen-synthetic-ppoll-syscall-v1"`
+
+###### Overrides
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`generatorBuildId`](#generatorbuildid-1)
+
+##### syscall
+
+> **syscall**: [`NativeSyntheticSyscallDescriptor`](#nativesyntheticsyscalldescriptor) & `object`
+
+###### Type Declaration
+
+###### name
+
+> **name**: `"ppoll"`
+
+###### number
+
+> **number**: `271`
+
+###### arguments
+
+> **arguments**: [`NativeSyntheticPpollSyscallArgumentProvenance`](#nativesyntheticppollsyscallargumentprovenance)[]
+
+###### Overrides
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`syscall`](#syscall-5)
+
+##### embeddedData
+
+> **embeddedData**: `object`
+
+###### kind
+
+> **kind**: `"timespec"`
+
+###### offset
+
+> **offset**: `number`
+
+###### seconds
+
+> **seconds**: `string`
+
+###### nanoseconds
+
+> **nanoseconds**: `number`
+
+###### byteOrder
+
+> **byteOrder**: `"little-endian"`
+
+###### pointerRegister
+
+> **pointerRegister**: `"rdx"`
+
+###### pointerEncoding
+
+> **pointerEncoding**: `"rip-relative"`
+
+##### registerSetup
+
+> **registerSetup**: [`NativeSyntheticPpollSyscallRegisterSetupProvenance`](#nativesyntheticppollsyscallregistersetupprovenance)
+
+###### Overrides
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`registerSetup`](#registersetup-1)
+
+##### stackSetup
+
+> **stackSetup**: [`NativeSyntheticPpollSyscallStackSetupProvenance`](#nativesyntheticppollsyscallstacksetupprovenance)
+
+###### Overrides
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`stackSetup`](#stacksetup-1)
+
+##### completion
+
+> **completion**: [`NativeSyntheticPpollSyscallCompletionProvenance`](#nativesyntheticppollsyscallcompletionprovenance)
+
+###### Overrides
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`completion`](#completion-1)
+
+***
+
+### NativeSyntheticPpollSyscallContinuationRequest
+
+#### Properties
+
+##### threadId
+
+> **threadId**: `string`
+
+##### remainingTime
+
+> **remainingTime**: [`NativeModeledPpollTimeoutRemainingTime`](#nativemodeledppolltimeoutremainingtime)
+
+##### targetAddress?
+
+> `optional` **targetAddress?**: `string`
+
+##### completionMode?
+
+> `optional` **completionMode?**: [`NativeSyntheticPpollCompletionMode`](#nativesyntheticppollcompletionmode)
+
+***
+
+### NativeSyntheticPpollSyscallContinuation
+
+#### Properties
+
+##### kind
+
+> **kind**: `"synthetic-ppoll-syscall"`
+
+##### threadId
+
+> **threadId**: `string`
+
+##### targetArch
+
+> **targetArch**: `"amd64"`
+
+##### entryAddress
+
+> **entryAddress**: `string`
+
+##### relativeAddress
+
+> **relativeAddress**: `"0x0"`
+
+##### syscall
+
+> **syscall**: `object`
+
+###### name
+
+> **name**: `"ppoll"`
+
+###### number
+
+> **number**: `271`
+
+###### fdsPointer
+
+> **fdsPointer**: `"0x0"`
+
+###### nfds
+
+> **nfds**: `0`
+
+###### timeoutPointerEncoding
+
+> **timeoutPointerEncoding**: `"rip-relative-timespec"`
+
+###### sigmaskPointer
+
+> **sigmaskPointer**: `"0x0"`
+
+###### sigsetSize
+
+> **sigsetSize**: `0`
+
+##### remainingTime
+
+> **remainingTime**: [`NativeModeledPpollTimeoutRemainingTime`](#nativemodeledppolltimeoutremainingtime)
+
+##### completionMode
+
+> **completionMode**: [`NativeSyntheticPpollCompletionMode`](#nativesyntheticppollcompletionmode)
+
+##### exitStatusOnSuccess?
+
+> `optional` **exitStatusOnSuccess?**: `0`
+
+##### descriptor
+
+> **descriptor**: [`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor)
+
+##### provenance
+
+> **provenance**: [`NativeSyntheticPpollSyscallContinuationProvenance`](#nativesyntheticppollsyscallcontinuationprovenance)
+
+##### timespecOffset
+
+> **timespecOffset**: `number`
+
+##### sizeBytes
+
+> **sizeBytes**: `number`
+
+##### bytes
+
+> **bytes**: `Uint8Array`
+
+##### sourceTextReusedAsTargetCode
+
+> **sourceTextReusedAsTargetCode**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### sidecarRuntimeUsed
+
+> **sidecarRuntimeUsed**: `false`
+
+***
+
+### NativeSyntheticPpollSyscallContinuationResult
+
+#### Properties
+
+##### continuation?
+
+> `optional` **continuation?**: [`NativeSyntheticPpollSyscallContinuation`](#nativesyntheticppollsyscallcontinuation)
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
 
 ***
 
@@ -5201,7 +5870,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ##### returnAddress
 
-> **returnAddress**: `"trampoline-sentinel-return-address"` \| `"not-used-exit-process-completion"`
+> **returnAddress**: `"not-used-exit-process-completion"` \| `"trampoline-sentinel-return-address"`
 
 ###### Overrides
 
@@ -5295,7 +5964,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-15)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-16)
 
 ##### targetArch
 
@@ -5343,7 +6012,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sizeBytes`](#sizebytes-10)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sizeBytes`](#sizebytes-9)
 
 ##### bytesHex
 
@@ -9703,7 +10372,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NativeActiveSyscallClass
 
-> **NativeActiveSyscallClass** = `"outside-syscall"` \| `"sleep-timer"` \| `"fd-blocking"` \| `"restart"` \| `"unknown-active"`
+> **NativeActiveSyscallClass** = `"outside-syscall"` \| `"sleep-timer"` \| `"poll-timeout"` \| `"fd-blocking"` \| `"restart"` \| `"unknown-active"`
 
 ***
 
@@ -9713,9 +10382,27 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativePollTimeoutSyscallPolicy
+
+> **NativePollTimeoutSyscallPolicy** = `"refuse"` \| `"defer-target-resume"`
+
+***
+
 ### NativeSleepTimerModelResult
 
 > **NativeSleepTimerModelResult** = \{ `state`: `"modeled"`; `timer`: [`NativeModeledSleepTimerState`](#nativemodeledsleeptimerstate); \} \| \{ `state`: `"missing"`; `refusal`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal); \}
+
+***
+
+### NativePpollTimeoutModelResult
+
+> **NativePpollTimeoutModelResult** = \{ `state`: `"modeled"`; `timeout`: [`NativeModeledPpollTimeoutState`](#nativemodeledppolltimeoutstate); \} \| \{ `state`: `"missing"`; `refusal`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal); \}
+
+***
+
+### NativeActiveSyscallContinuation
+
+> **NativeActiveSyscallContinuation** = [`NativeActiveSleepTimerContinuation`](#nativeactivesleeptimercontinuation) \| [`NativeActivePpollTimeoutContinuation`](#nativeactiveppolltimeoutcontinuation)
 
 ***
 
@@ -9781,13 +10468,19 @@ Poll interval in ms while retrying. Default 250.
 
 ### NativeRealUtilityTargetContinuationKind
 
-> **NativeRealUtilityTargetContinuationKind** = `"sleep-timer"`
+> **NativeRealUtilityTargetContinuationKind** = `"sleep-timer"` \| `"poll-timeout"`
 
 ***
 
 ### NativeRealUtilityContinuationStrategy
 
-> **NativeRealUtilityContinuationStrategy** = `"module-rva-equivalence"` \| `"semantic-sleep-timer-symbol"` \| `"synthetic-sleep-syscall"`
+> **NativeRealUtilityContinuationStrategy** = `"module-rva-equivalence"` \| `"semantic-sleep-timer-symbol"` \| `"synthetic-sleep-syscall"` \| `"synthetic-ppoll-syscall"`
+
+***
+
+### NativeRealUtilitySyntheticContinuationSelection
+
+> **NativeRealUtilitySyntheticContinuationSelection** = \{ `kind`: `"sleep-timer"`; `source`: `"synthetic-syscall"`; `symbolName`: `"machinen_synthetic_clock_nanosleep"`; `targetRelativeAddress`: `"0x0"`; `targetAddress`: `string`; `sizeBytes`: `number`; `syscall`: [`NativeSyntheticSleepSyscallContinuation`](#nativesyntheticsleepsyscallcontinuation)\[`"syscall"`\]; `completionMode`: [`NativeSyntheticSleepCompletionMode`](#nativesyntheticsleepcompletionmode); `exitStatusOnSuccess?`: `0`; `descriptor`: [`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor); `provenance`: [`NativeSyntheticSleepSyscallContinuationProvenance`](#nativesyntheticsleepsyscallcontinuationprovenance); \} \| \{ `kind`: `"poll-timeout"`; `source`: `"synthetic-syscall"`; `symbolName`: `"machinen_synthetic_ppoll"`; `targetRelativeAddress`: `"0x0"`; `targetAddress`: `string`; `sizeBytes`: `number`; `syscall`: [`NativeSyntheticPpollSyscallContinuation`](#nativesyntheticppollsyscallcontinuation)\[`"syscall"`\]; `completionMode`: [`NativeSyntheticPpollCompletionMode`](#nativesyntheticppollcompletionmode); `exitStatusOnSuccess?`: `0`; `descriptor`: [`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor); `provenance`: [`NativeSyntheticPpollSyscallContinuationProvenance`](#nativesyntheticppollsyscallcontinuationprovenance); \}
 
 ***
 
@@ -9847,13 +10540,25 @@ Poll interval in ms while retrying. Default 250.
 
 ### NativeSyntheticContinuationProvenanceSource
 
-> **NativeSyntheticContinuationProvenanceSource** = `"generated-target-native-amd64-syscall-sequence"` \| `"linux-amd64-syscall-abi"` \| `"modeled-source-sleep-timer"` \| `"target-caller-frame"`
+> **NativeSyntheticContinuationProvenanceSource** = `"generated-target-native-amd64-syscall-sequence"` \| `"linux-amd64-syscall-abi"` \| `"modeled-source-sleep-timer"` \| `"modeled-source-ppoll-timeout"` \| `"target-caller-frame"`
 
 ***
 
 ### NativeSyntheticSyscallContinuationDescriptorPayload
 
 > **NativeSyntheticSyscallContinuationDescriptorPayload** = `Omit`\<[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor), `"descriptorSha256"`\>
+
+***
+
+### NativeSyntheticPpollCompletionMode
+
+> **NativeSyntheticPpollCompletionMode** = `"return-to-trampoline"` \| `"exit-process"`
+
+***
+
+### NativeSyntheticPpollSyscallProvenanceSource
+
+> **NativeSyntheticPpollSyscallProvenanceSource** = [`NativeSyntheticContinuationProvenanceSource`](#nativesyntheticcontinuationprovenancesource)
 
 ***
 
@@ -10483,7 +11188,7 @@ loops; anything looser stops being a meaningful gate.
 
 ### nativeProcessImageRefusalCodes
 
-> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"blocking-syscall-state-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"inherited-stdio-policy-required"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-permission-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"non-stdio-kernel-state-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"stdin-buffer-state-unsupported"`, `"syscall-argument-state-unsupported"`, `"syscall-restart-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-callee-saved-state-unsupported"`, `"target-caller-frame-unavailable"`, `"target-code-rva-unmapped"`, `"target-frame-layout-unsupported"`, `"target-frame-register-value-unavailable"`, `"target-module-bytes-missing"`, `"target-module-file-missing"`, `"target-module-missing"`, `"target-module-not-executable"`, `"target-module-range-unreadable"`, `"target-return-slot-unsupported"`, `"target-resume-execution-unavailable"`, `"target-resume-fault-invalid-code-landing"`, `"target-resume-fault-outside-target-bytes"`, `"target-resume-fault-privileged-instruction"`, `"target-resume-fault-signal-unsupported"`, `"target-resume-fault-timeout"`, `"target-resume-fault-unmodeled-memory"`, `"target-semantic-continuation-missing"`, `"target-sleep-remaining-time-missing"`, `"target-sleep-signal-restart-unsupported"`, `"target-sleep-syscall-continuation-missing"`, `"target-synthetic-signal-restart-unsupported"`, `"target-synthetic-syscall-return-unmodeled"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
+> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"blocking-syscall-state-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"inherited-stdio-policy-required"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-permission-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"non-stdio-kernel-state-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"stdin-buffer-state-unsupported"`, `"syscall-argument-state-unsupported"`, `"syscall-restart-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-callee-saved-state-unsupported"`, `"target-caller-frame-unavailable"`, `"target-code-rva-unmapped"`, `"target-frame-layout-unsupported"`, `"target-frame-register-value-unavailable"`, `"target-module-bytes-missing"`, `"target-module-file-missing"`, `"target-module-missing"`, `"target-module-not-executable"`, `"target-module-range-unreadable"`, `"target-ppoll-syscall-continuation-missing"`, `"target-ppoll-timeout-missing"`, `"target-return-slot-unsupported"`, `"target-resume-execution-unavailable"`, `"target-resume-fault-invalid-code-landing"`, `"target-resume-fault-outside-target-bytes"`, `"target-resume-fault-privileged-instruction"`, `"target-resume-fault-signal-unsupported"`, `"target-resume-fault-timeout"`, `"target-resume-fault-unmodeled-memory"`, `"target-semantic-continuation-missing"`, `"target-sleep-remaining-time-missing"`, `"target-sleep-signal-restart-unsupported"`, `"target-sleep-syscall-continuation-missing"`, `"target-synthetic-signal-restart-unsupported"`, `"target-synthetic-syscall-return-unmodeled"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
 
 ***
 
@@ -10979,6 +11684,42 @@ loops; anything looser stops being a meaningful gate.
 
 ***
 
+### NATIVE\_SYNTHETIC\_SYSCALL\_RESTART\_EXIT\_STATUS
+
+> `const` **NATIVE\_SYNTHETIC\_SYSCALL\_RESTART\_EXIT\_STATUS**: `111` = `111`
+
+***
+
+### NATIVE\_SYNTHETIC\_SYSCALL\_UNMODELED\_RETURN\_EXIT\_STATUS
+
+> `const` **NATIVE\_SYNTHETIC\_SYSCALL\_UNMODELED\_RETURN\_EXIT\_STATUS**: `112` = `112`
+
+***
+
+### NATIVE\_SYNTHETIC\_PPOLL\_SYSCALL\_BUILD\_ID
+
+> `const` **NATIVE\_SYNTHETIC\_PPOLL\_SYSCALL\_BUILD\_ID**: `"machinen-synthetic-ppoll-syscall-v1"` = `"machinen-synthetic-ppoll-syscall-v1"`
+
+***
+
+### NATIVE\_SYNTHETIC\_PPOLL\_SYSCALL\_LOGICAL\_NAME
+
+> `const` **NATIVE\_SYNTHETIC\_PPOLL\_SYSCALL\_LOGICAL\_NAME**: `"machinen-synthetic-ppoll-syscall"` = `"machinen-synthetic-ppoll-syscall"`
+
+***
+
+### NATIVE\_SYNTHETIC\_PPOLL\_SYSCALL\_PATH
+
+> `const` **NATIVE\_SYNTHETIC\_PPOLL\_SYSCALL\_PATH**: `"machinen.synthetic://ppoll-syscall"` = `"machinen.synthetic://ppoll-syscall"`
+
+***
+
+### NATIVE\_SYNTHETIC\_PPOLL\_SYSCALL\_BASE
+
+> `const` **NATIVE\_SYNTHETIC\_PPOLL\_SYSCALL\_BASE**: `"0x700300000000"` = `"0x700300000000"`
+
+***
+
 ### NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_BUILD\_ID
 
 > `const` **NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_BUILD\_ID**: `"machinen-synthetic-sleep-syscall-v3"` = `"machinen-synthetic-sleep-syscall-v3"`
@@ -11005,13 +11746,13 @@ loops; anything looser stops being a meaningful gate.
 
 ### NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_RESTART\_EXIT\_STATUS
 
-> `const` **NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_RESTART\_EXIT\_STATUS**: `111` = `111`
+> `const` **NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_RESTART\_EXIT\_STATUS**: `111` = `NATIVE_SYNTHETIC_SYSCALL_RESTART_EXIT_STATUS`
 
 ***
 
 ### NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_UNMODELED\_RETURN\_EXIT\_STATUS
 
-> `const` **NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_UNMODELED\_RETURN\_EXIT\_STATUS**: `112` = `112`
+> `const` **NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_UNMODELED\_RETURN\_EXIT\_STATUS**: `112` = `NATIVE_SYNTHETIC_SYSCALL_UNMODELED_RETURN_EXIT_STATUS`
 
 ***
 
@@ -11593,6 +12334,26 @@ available.
 
 ***
 
+### modelNativePpollTimeoutState()
+
+> **modelNativePpollTimeoutState**(`thread`, `documents?`): [`NativePpollTimeoutModelResult`](#nativeppolltimeoutmodelresult)
+
+#### Parameters
+
+##### thread
+
+[`NativeThreadState`](#nativethreadstate)
+
+##### documents?
+
+[`NativeProcessImageDocuments`](#nativeprocessimagedocuments)
+
+#### Returns
+
+[`NativePpollTimeoutModelResult`](#nativeppolltimeoutmodelresult)
+
+***
+
 ### modelNativeSleepTimerState()
 
 > **modelNativeSleepTimerState**(`thread`, `documents?`): [`NativeSleepTimerModelResult`](#nativesleeptimermodelresult)
@@ -11942,6 +12703,58 @@ available.
 #### Returns
 
 `string`
+
+***
+
+### nativeSyntheticRestartLikeErrnos()
+
+> **nativeSyntheticRestartLikeErrnos**(): `object`[]
+
+#### Returns
+
+`object`[]
+
+***
+
+### nativeSyntheticSyscallFailureExitBuckets()
+
+> **nativeSyntheticSyscallFailureExitBuckets**(`syscallName`): [`NativeSyntheticContinuationFailureExitBucket`](#nativesyntheticcontinuationfailureexitbucket)[]
+
+#### Parameters
+
+##### syscallName
+
+`string`
+
+#### Returns
+
+[`NativeSyntheticContinuationFailureExitBucket`](#nativesyntheticcontinuationfailureexitbucket)[]
+
+***
+
+### nativeSyntheticExitProcessSuffix()
+
+> **nativeSyntheticExitProcessSuffix**(): `number`[]
+
+#### Returns
+
+`number`[]
+
+***
+
+### buildNativeSyntheticPpollSyscallContinuation()
+
+> **buildNativeSyntheticPpollSyscallContinuation**(`request`): [`NativeSyntheticPpollSyscallContinuationResult`](#nativesyntheticppollsyscallcontinuationresult)
+
+#### Parameters
+
+##### request
+
+[`NativeSyntheticPpollSyscallContinuationRequest`](#nativesyntheticppollsyscallcontinuationrequest)
+
+#### Returns
+
+[`NativeSyntheticPpollSyscallContinuationResult`](#nativesyntheticppollsyscallcontinuationresult)
 
 ***
 

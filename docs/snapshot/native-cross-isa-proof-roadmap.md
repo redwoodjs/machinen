@@ -19,7 +19,9 @@ The success target remains native-transparent Option B:
 The current `/bin/sleep` proof captures a live arm64 process blocked in a modeled
 sleep syscall, synthesizes target-native amd64 syscall bytes, runs those bytes on
 an amd64 host, and exits the target process with status `0` after the modeled
-syscall succeeds. That is a narrow completion proof, not arbitrary process
+syscall succeeds. The next narrow proof adds the same generated-byte path for
+`ppoll(NULL, 0, &timeout, NULL)` so a second blocking family shares the descriptor
+and failure telemetry. These are narrow completion proofs, not arbitrary process
 migration.
 
 The active frontier is generated target-native blocking syscall continuations.
@@ -43,7 +45,7 @@ Done when:
   errno bucket, and descriptor hash;
 - `/bin/sleep` still completes through generated amd64 bytes.
 
-### 2. Second blocking syscall family — next
+### 2. Second blocking syscall family — in progress
 
 Goal: prove a second syscall family with the same descriptor and failure gate.
 The preferred first target is `ppoll` with:
@@ -63,6 +65,8 @@ Required refusals:
 - non-zero `nfds` refuses until fd readiness/resource mapping is modeled;
 - non-null signal masks refuse until signal-mask restoration is modeled;
 - missing or unreadable timeout memory refuses precisely;
+- missing ppoll code-location/materialization support refuses as
+  `target-ppoll-syscall-continuation-missing`;
 - restart-like and other negative errno returns keep `migrationCompleted: false`.
 
 ### 3. Generic synthetic syscall builder
@@ -180,6 +184,8 @@ pnpm run typecheck
 NPM_CONFIG_USERCONFIG=/dev/null npx vitest run \
   packages/runtime/src/__tests__/native-synthetic-continuation.test.ts \
   packages/runtime/src/__tests__/native-synthetic-sleep-continuation.test.ts \
+  packages/runtime/src/__tests__/native-synthetic-ppoll-continuation.test.ts \
+  packages/runtime/src/__tests__/native-real-utility-code-map.test.ts \
   packages/runtime/src/__tests__/native-target-resume-execution.test.ts \
   packages/runtime/src/__tests__/native-actual-real-utility-continuation-script.test.ts
 pnpm exec fallow audit --changed-since origin/main

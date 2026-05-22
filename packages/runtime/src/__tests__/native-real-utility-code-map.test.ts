@@ -13,6 +13,32 @@ import type {
 
 const emptyRefusals = { vocabularyVersion: 1 as const, refusals: [] };
 
+function modeledPpollTimeoutMetadata() {
+  const remainingTime = {
+    state: "modeled" as const,
+    kind: "relative-duration" as const,
+    source: "active-syscall-ppoll-timeout" as const,
+    precision: "requested-duration-upper-bound" as const,
+    seconds: "1",
+    nanoseconds: 0,
+  };
+  return {
+    remainingTime,
+    ppollTimeout: {
+      kind: "relative-duration" as const,
+      syscallName: "ppoll" as const,
+      argumentSource: "registers" as const,
+      fdsPointer: "0x0" as const,
+      nfds: 0 as const,
+      timeoutPointer: "0x1000",
+      sigmaskPointer: "0x0" as const,
+      requestedTime: { seconds: "1", nanoseconds: 0 },
+      remainingTime,
+    },
+    policy: "conservative-target-ppoll-timeout-rearm-required" as const,
+  };
+}
+
 function modeledSleepTimerMetadata() {
   const remainingTime = {
     state: "modeled" as const,
@@ -308,6 +334,75 @@ describe("native real utility code-location map", () => {
       syntheticContinuation: { source: "synthetic-syscall" },
       metadata: { remainingTime: { state: "modeled", seconds: "30" } },
     });
+  });
+
+  it("maps deferred zero-fd ppoll code locations to a synthetic syscall continuation", () => {
+    const activeThread = thread({
+      syscall: { state: "inside-syscall", number: 73, name: "ppoll" },
+    });
+    const continuation = {
+      threadId: activeThread.id,
+      syscallClass: "poll-timeout" as const,
+      action: "defer-target-resume" as const,
+      syscall: activeThread.syscall,
+      metadata: modeledPpollTimeoutMetadata(),
+    };
+
+    const result = resolveNativeRealUtilityCodeLocations({
+      documents: documents({ activeThread }),
+      targetArch: "amd64",
+      targetModules: [],
+      activeSyscallContinuations: [continuation],
+      pollTimeoutContinuationStrategy: "synthetic-syscall",
+    });
+
+    expect(result.refusals).toEqual([]);
+    expect(result.resolved[0]).toMatchObject({
+      targetRva: "0x0",
+      targetAddress: "0x700300000000",
+      continuationStrategy: "synthetic-ppoll-syscall",
+      syntheticContinuation: {
+        kind: "poll-timeout",
+        source: "synthetic-syscall",
+        symbolName: "machinen_synthetic_ppoll",
+        syscall: { name: "ppoll", number: 271 },
+        descriptor: {
+          kind: "synthetic-syscall-continuation",
+          syscall: { abi: "linux-amd64", name: "ppoll", number: 271 },
+        },
+      },
+    });
+    expect(result.targetModules[0]).toMatchObject({
+      id: `target:synthetic-ppoll-syscall:${activeThread.id}`,
+      logicalName: "machinen-synthetic-ppoll-syscall",
+    });
+    expect(result.resolved[0]?.deferredActiveSyscallLanding).toMatchObject({
+      strategy: "synthetic-ppoll-syscall",
+      syntheticContinuation: { source: "synthetic-syscall" },
+      metadata: { remainingTime: { state: "modeled", seconds: "1" } },
+    });
+  });
+
+  it("refuses deferred ppoll code locations without an explicit synthetic continuation", () => {
+    const activeThread = thread({
+      syscall: { state: "inside-syscall", number: 73, name: "ppoll" },
+    });
+    const continuation = {
+      threadId: activeThread.id,
+      syscallClass: "poll-timeout" as const,
+      action: "defer-target-resume" as const,
+      syscall: activeThread.syscall,
+      metadata: modeledPpollTimeoutMetadata(),
+    };
+
+    expect(
+      resolveNativeRealUtilityCodeLocations({
+        documents: documents({ activeThread }),
+        targetArch: "amd64",
+        targetModules: [],
+        activeSyscallContinuations: [continuation],
+      }).refusals[0]?.code,
+    ).toBe("target-ppoll-syscall-continuation-missing");
   });
 
   it("refuses deferred sleep/timer code locations without falling back to source RVA", () => {

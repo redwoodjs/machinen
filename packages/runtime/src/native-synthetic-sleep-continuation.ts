@@ -2,7 +2,12 @@
 
 import type { NativeProcessImageRefusal } from "./native-process-image.ts";
 import {
-  buildNativeSyntheticSyscallContinuationDescriptor,
+  NATIVE_SYNTHETIC_SYSCALL_RESTART_EXIT_STATUS,
+  NATIVE_SYNTHETIC_SYSCALL_UNMODELED_RETURN_EXIT_STATUS,
+  buildNativeSyntheticModeledSyscallDescriptor,
+  nativeSyntheticExitProcessSuffix,
+  nativeSyntheticSyscallTimespecProvenance,
+  writeNativeSyntheticRipRelativeTimespec,
   type NativeSyntheticContinuationCompletionDescriptor,
   type NativeSyntheticContinuationFailureExitBucket,
   type NativeSyntheticContinuationProvenanceSource,
@@ -20,8 +25,10 @@ export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_BUILD_ID = "machinen-synthetic-sleep
 export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_LOGICAL_NAME = "machinen-synthetic-sleep-syscall";
 export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_PATH = "machinen.synthetic://sleep-syscall";
 export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_BASE = "0x700200000000";
-export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_RESTART_EXIT_STATUS = 111;
-export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_UNMODELED_RETURN_EXIT_STATUS = 112;
+export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_RESTART_EXIT_STATUS =
+  NATIVE_SYNTHETIC_SYSCALL_RESTART_EXIT_STATUS;
+export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_UNMODELED_RETURN_EXIT_STATUS =
+  NATIVE_SYNTHETIC_SYSCALL_UNMODELED_RETURN_EXIT_STATUS;
 export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS =
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_RESTART_EXIT_STATUS;
 
@@ -220,13 +227,10 @@ function syntheticClockNanosleepBytes(
     0,
   );
   if (completionMode === "exit-process") {
-    bytes.set(exitProcessSuffix(), 21);
+    bytes.set(nativeSyntheticExitProcessSuffix(), 21);
   }
-  const ripAfterLea = 16;
   const timespecOffset = sleepTimespecOffset(completionMode);
-  writeInt32Le(bytes, 12, timespecOffset - ripAfterLea);
-  writeU64Le(bytes, timespecOffset, BigInt(remainingTime.seconds));
-  writeU64Le(bytes, timespecOffset + 8, BigInt(remainingTime.nanoseconds));
+  writeNativeSyntheticRipRelativeTimespec(bytes, timespecOffset, remainingTime);
   return bytes;
 }
 
@@ -235,41 +239,21 @@ function syntheticClockNanosleepDescriptor(
   entryAddress: string,
   completionMode: NativeSyntheticSleepCompletionMode,
 ): NativeSyntheticSyscallContinuationDescriptor {
-  const argumentsProvenance = syscallArgumentsProvenance();
-  return buildNativeSyntheticSyscallContinuationDescriptor({
-    targetArch: "amd64",
+  return buildNativeSyntheticModeledSyscallDescriptor({
     entryAddress,
-    relativeAddress: "0x0",
     generatorBuildId: NATIVE_SYNTHETIC_SLEEP_SYSCALL_BUILD_ID,
     bytes,
-    syscall: {
-      name: "clock_nanosleep",
-      number: CLOCK_NANOSLEEP_SYSCALL_AMD64,
-      arguments: argumentsProvenance,
-    },
-    registerSetup: {
-      abi: "linux-amd64-syscall",
-      arguments: argumentsProvenance,
-      clobberedBySyscall: ["rax", "rcx", "r11"],
-      notes: [
-        "rax carries syscall 230 before clock_nanosleep",
-        "rdi/rsi are zeroed for CLOCK_REALTIME relative sleep",
-        "rdx points at the embedded modeled timespec using RIP-relative addressing",
-        "r10 is zeroed for a NULL remainder pointer",
-      ],
-    },
-    stackSetup: {
-      entryStackPointer: "target-caller-frame-stack-pointer",
-      stackBytesWrittenByContinuation: 0,
-      returnAddress:
-        completionMode === "exit-process"
-          ? "not-used-exit-process-completion"
-          : "trampoline-sentinel-return-address",
-      requiresSourceStackBytes: false,
-    },
-    completion: {
-      mode: completionMode,
-      successExitStatus: completionMode === "exit-process" ? 0 : undefined,
+    syscallName: "clock_nanosleep",
+    syscallNumber: CLOCK_NANOSLEEP_SYSCALL_AMD64,
+    argumentsProvenance: syscallArgumentsProvenance(),
+    registerSetupNotes: [
+      "rax carries syscall 230 before clock_nanosleep",
+      "rdi/rsi are zeroed for CLOCK_REALTIME relative sleep",
+      "rdx points at the embedded modeled timespec using RIP-relative addressing",
+      "r10 is zeroed for a NULL remainder pointer",
+    ],
+    completionMode,
+    completionOverrides: {
       failureExitStatus:
         completionMode === "exit-process"
           ? NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS
@@ -279,8 +263,6 @@ function syntheticClockNanosleepDescriptor(
         completionMode === "exit-process"
           ? "sleep syscall failure may need EINTR/restart handling, which is not modeled"
           : undefined,
-      failureExitBuckets:
-        completionMode === "exit-process" ? syntheticSleepFailureExitBuckets() : undefined,
     },
   });
 }
@@ -290,28 +272,11 @@ function syntheticClockNanosleepProvenance(
   remainingTime: NativeModeledSleepTimerRemainingTime,
   timespecOffset: number,
 ): NativeSyntheticSleepSyscallContinuationProvenance {
-  return {
-    ...descriptor,
-    generatorBuildId: NATIVE_SYNTHETIC_SLEEP_SYSCALL_BUILD_ID,
-    syscall: {
-      ...descriptor.syscall,
-      name: "clock_nanosleep",
-      number: CLOCK_NANOSLEEP_SYSCALL_AMD64,
-      arguments: descriptor.syscall.arguments as NativeSyntheticSleepSyscallArgumentProvenance[],
-    },
-    embeddedData: {
-      kind: "timespec",
-      offset: timespecOffset,
-      seconds: remainingTime.seconds,
-      nanoseconds: remainingTime.nanoseconds,
-      byteOrder: "little-endian",
-      pointerRegister: "rdx",
-      pointerEncoding: "rip-relative",
-    },
-    registerSetup: descriptor.registerSetup as NativeSyntheticSleepSyscallRegisterSetupProvenance,
-    stackSetup: descriptor.stackSetup as NativeSyntheticSleepSyscallStackSetupProvenance,
-    completion: descriptor.completion as NativeSyntheticSleepSyscallCompletionProvenance,
-  };
+  return nativeSyntheticSyscallTimespecProvenance(
+    descriptor,
+    remainingTime,
+    timespecOffset,
+  ) as NativeSyntheticSleepSyscallContinuationProvenance;
 }
 
 function syscallArgumentsProvenance(): NativeSyntheticSleepSyscallArgumentProvenance[] {
@@ -342,138 +307,4 @@ function sleepTimespecOffset(completionMode: NativeSyntheticSleepCompletionMode)
 
 function sleepCodeSize(completionMode: NativeSyntheticSleepCompletionMode): number {
   return completionMode === "exit-process" ? EXITING_SLEEP_CODE_SIZE : RETURNING_SLEEP_CODE_SIZE;
-}
-
-function restartLikeErrnos(): { errno: number; errnoName: string }[] {
-  return [
-    { errno: 4, errnoName: "EINTR" },
-    { errno: 512, errnoName: "ERESTARTSYS" },
-    { errno: 513, errnoName: "ERESTARTNOINTR" },
-    { errno: 514, errnoName: "ERESTARTNOHAND" },
-    { errno: 516, errnoName: "ERESTART_RESTARTBLOCK" },
-  ];
-}
-
-function syntheticSleepFailureExitBuckets(): NativeSyntheticContinuationFailureExitBucket[] {
-  return [
-    {
-      exitStatus: NATIVE_SYNTHETIC_SLEEP_SYSCALL_RESTART_EXIT_STATUS,
-      failureKind: "signal-restart-unsupported",
-      failureReason:
-        "clock_nanosleep returned EINTR or a restart-like errno; signal restart handling is not modeled",
-      syscallReturn: {
-        register: "rax",
-        condition: "restart-like-negative-errno",
-        errnos: restartLikeErrnos(),
-      },
-    },
-    {
-      exitStatus: NATIVE_SYNTHETIC_SLEEP_SYSCALL_UNMODELED_RETURN_EXIT_STATUS,
-      failureKind: "syscall-return-unmodeled",
-      failureReason:
-        "clock_nanosleep returned another negative errno; errno-specific recovery is not modeled",
-      syscallReturn: {
-        register: "rax",
-        condition: "other-negative-errno",
-        errnoRange: { min: 1, max: 4095 },
-        excludedErrnos: restartLikeErrnos(),
-      },
-    },
-  ];
-}
-
-function exitProcessSuffix(): number[] {
-  return [
-    0x48,
-    0x85,
-    0xc0, // test rax, rax
-    0x74,
-    0x28, // je success exit
-    0x48,
-    0x83,
-    0xf8,
-    0xfc, // cmp rax, -EINTR
-    0x74,
-    0x2b, // je restart failure exit
-    0x48,
-    0x3d,
-    0x00,
-    0xfe,
-    0xff,
-    0xff, // cmp rax, -ERESTARTSYS
-    0x74,
-    0x23, // je restart failure exit
-    0x48,
-    0x3d,
-    0xff,
-    0xfd,
-    0xff,
-    0xff, // cmp rax, -ERESTARTNOINTR
-    0x74,
-    0x1b, // je restart failure exit
-    0x48,
-    0x3d,
-    0xfe,
-    0xfd,
-    0xff,
-    0xff, // cmp rax, -ERESTARTNOHAND
-    0x74,
-    0x13, // je restart failure exit
-    0x48,
-    0x3d,
-    0xfc,
-    0xfd,
-    0xff,
-    0xff, // cmp rax, -ERESTART_RESTARTBLOCK
-    0x74,
-    0x0b, // je restart failure exit
-    0xeb,
-    0x15, // jmp unmodeled return failure exit
-    0xb8,
-    0x3c,
-    0x00,
-    0x00,
-    0x00, // mov eax, 60 (exit)
-    0x31,
-    0xff, // xor edi, edi (status 0)
-    0x0f,
-    0x05, // syscall
-    0xb8,
-    0x3c,
-    0x00,
-    0x00,
-    0x00, // mov eax, 60 (exit)
-    0xbf,
-    NATIVE_SYNTHETIC_SLEEP_SYSCALL_RESTART_EXIT_STATUS,
-    0x00,
-    0x00,
-    0x00, // mov edi, 111 (EINTR/restart failure)
-    0x0f,
-    0x05, // syscall
-    0xb8,
-    0x3c,
-    0x00,
-    0x00,
-    0x00, // mov eax, 60 (exit)
-    0xbf,
-    NATIVE_SYNTHETIC_SLEEP_SYSCALL_UNMODELED_RETURN_EXIT_STATUS,
-    0x00,
-    0x00,
-    0x00, // mov edi, 112 (unmodeled negative errno)
-    0x0f,
-    0x05, // syscall
-    0x90,
-    0x90,
-    0x90,
-    0x90,
-    0x90,
-  ];
-}
-
-function writeInt32Le(bytes: Uint8Array, offset: number, value: number): void {
-  new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).setInt32(offset, value, true);
-}
-
-function writeU64Le(bytes: Uint8Array, offset: number, value: bigint): void {
-  new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).setBigUint64(offset, value, true);
 }

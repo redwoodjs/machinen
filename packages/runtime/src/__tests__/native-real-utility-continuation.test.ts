@@ -127,6 +127,19 @@ describe("native real utility continuation planner", () => {
     });
   });
 
+  it("allows exit-process synthetic continuations to bypass source unwind", () => {
+    expect(
+      planNativeRealUtilityContinuationAttempt({
+        ...readyInput(),
+        sourceFrames: [],
+        sourceFrameRefusals: [{ code: "unwind-rule-unsupported", message: "libc syscall" }],
+        sourceUnwindRequired: false,
+        targetUnwind: { matches: [], refusals: [] },
+        targetUnwindMatched: true,
+      }),
+    ).toMatchObject({ state: "ready", blockingBoundary: "ready" });
+  });
+
   it("allows explicit synthetic continuations to bypass real target unwind matching", () => {
     expect(
       planNativeRealUtilityContinuationAttempt({

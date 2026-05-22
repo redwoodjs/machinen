@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   classifyNativeActiveSyscalls,
+  modelNativePpollTimeoutState,
   modelNativeSleepTimerState,
 } from "../native-active-syscall-policy.ts";
 import {
@@ -46,6 +47,17 @@ function arm64SleepThread(
       x: [...x, ...Array.from({ length: 31 - x.length }, () => "0x0")],
     },
   };
+}
+
+function arm64PpollThread(
+  syscall: NativeThreadState["syscall"] = {
+    state: "inside-syscall",
+    number: 73,
+    name: "ppoll",
+  },
+  x: string[] = ["0x0", "0x0", "0x3000", "0x0", "0x0", "0x0"],
+): NativeThreadState {
+  return arm64SleepThread(syscall, x);
 }
 
 function documentsWithTimespec(options: {
@@ -227,6 +239,76 @@ describe("native active syscall classification", () => {
       refusal: {
         code: "target-sleep-remaining-time-missing",
         detail: { reason: "absolute clock_nanosleep deadlines are not modeled yet" },
+      },
+    });
+  });
+
+  it("models zero-fd ppoll timeout state from captured syscall timespec", () => {
+    const activeThread = arm64PpollThread();
+    const documents = documentsWithTimespec({ activeThread, seconds: 1n, nanoseconds: 250n });
+    const result = classifyNativeActiveSyscalls([activeThread], {
+      pollTimeoutPolicy: "defer-target-resume",
+      documents,
+    });
+
+    expect(result.refusals).toEqual([]);
+    expect(result.continuations[0]).toMatchObject({
+      syscallClass: "poll-timeout",
+      action: "defer-target-resume",
+      metadata: {
+        remainingTime: {
+          state: "modeled",
+          kind: "relative-duration",
+          source: "active-syscall-ppoll-timeout",
+          seconds: "1",
+          nanoseconds: 250,
+        },
+        ppollTimeout: {
+          syscallName: "ppoll",
+          fdsPointer: "0x0",
+          nfds: 0,
+          timeoutPointer: "0x3000",
+          sigmaskPointer: "0x0",
+        },
+        policy: "conservative-target-ppoll-timeout-rearm-required",
+      },
+    });
+    expect(result.classifications[0]).toMatchObject({
+      class: "poll-timeout",
+      resumable: false,
+    });
+  });
+
+  it("refuses ppoll variants whose fd or signal-mask contracts are not modeled", () => {
+    const withFds = arm64PpollThread(undefined, ["0x0", "0x1", "0x3000", "0x0", "0x0", "0x0"]);
+    expect(
+      modelNativePpollTimeoutState(withFds, documentsWithTimespec({ activeThread: withFds })),
+    ).toMatchObject({
+      state: "missing",
+      refusal: {
+        code: "target-ppoll-timeout-missing",
+        detail: { reason: "ppoll fd readiness is not modeled yet" },
+      },
+    });
+
+    const withSigmask = arm64PpollThread(undefined, [
+      "0x0",
+      "0x0",
+      "0x3000",
+      "0x4000",
+      "0x8",
+      "0x0",
+    ]);
+    expect(
+      modelNativePpollTimeoutState(
+        withSigmask,
+        documentsWithTimespec({ activeThread: withSigmask }),
+      ),
+    ).toMatchObject({
+      state: "missing",
+      refusal: {
+        code: "target-ppoll-timeout-missing",
+        detail: { reason: "ppoll signal masks are not modeled yet" },
       },
     });
   });

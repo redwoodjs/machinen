@@ -106,6 +106,7 @@ export { buildNativeCodeMap } from "./native-code-map.ts";
 export {
   classifyNativeActiveSyscalls,
   classifyNativeThreadSyscall,
+  modelNativePpollTimeoutState,
   modelNativeSleepTimerState,
 } from "./native-active-syscall-policy.ts";
 export type {
@@ -138,10 +139,22 @@ export {
 export { materializeNativeTargetModuleBytes } from "./native-target-module-bytes.ts";
 export {
   buildNativeSyntheticSyscallContinuationDescriptor,
+  NATIVE_SYNTHETIC_SYSCALL_RESTART_EXIT_STATUS,
+  NATIVE_SYNTHETIC_SYSCALL_UNMODELED_RETURN_EXIT_STATUS,
   nativeSyntheticContinuationBytesHex,
   nativeSyntheticContinuationBytesSha256,
   nativeSyntheticContinuationDescriptorSha256,
+  nativeSyntheticExitProcessSuffix,
+  nativeSyntheticRestartLikeErrnos,
+  nativeSyntheticSyscallFailureExitBuckets,
 } from "./native-synthetic-continuation.ts";
+export {
+  NATIVE_SYNTHETIC_PPOLL_SYSCALL_BASE,
+  NATIVE_SYNTHETIC_PPOLL_SYSCALL_BUILD_ID,
+  NATIVE_SYNTHETIC_PPOLL_SYSCALL_LOGICAL_NAME,
+  NATIVE_SYNTHETIC_PPOLL_SYSCALL_PATH,
+  buildNativeSyntheticPpollSyscallContinuation,
+} from "./native-synthetic-ppoll-continuation.ts";
 export {
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_BASE,
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_BUILD_ID,
@@ -186,9 +199,15 @@ export type {
   NativeActiveSyscallClassification,
   NativeActiveSyscallClassificationResult,
   NativeActiveSyscallContinuation,
+  NativeActivePpollTimeoutContinuation,
   NativeActiveSyscallPolicyOptions,
+  NativeActiveSleepTimerContinuation,
+  NativeModeledPpollTimeoutRemainingTime,
+  NativeModeledPpollTimeoutState,
   NativeModeledSleepTimerRemainingTime,
   NativeModeledSleepTimerState,
+  NativePollTimeoutSyscallPolicy,
+  NativePpollTimeoutModelResult,
   NativeSleepTimerDuration,
   NativeSleepTimerModelResult,
   NativeSleepTimerSyscallPolicy,
@@ -218,6 +237,18 @@ export type {
   NativeSyntheticSyscallContinuationDescriptorRequest,
   NativeSyntheticSyscallDescriptor,
 } from "./native-synthetic-continuation.ts";
+export type {
+  NativeSyntheticPpollCompletionMode,
+  NativeSyntheticPpollSyscallArgumentProvenance,
+  NativeSyntheticPpollSyscallCompletionProvenance,
+  NativeSyntheticPpollSyscallContinuation,
+  NativeSyntheticPpollSyscallContinuationProvenance,
+  NativeSyntheticPpollSyscallContinuationRequest,
+  NativeSyntheticPpollSyscallContinuationResult,
+  NativeSyntheticPpollSyscallProvenanceSource,
+  NativeSyntheticPpollSyscallRegisterSetupProvenance,
+  NativeSyntheticPpollSyscallStackSetupProvenance,
+} from "./native-synthetic-ppoll-continuation.ts";
 export type {
   NativeSyntheticSleepCompletionMode,
   NativeSyntheticSleepSyscallArgumentProvenance,

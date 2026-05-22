@@ -2,6 +2,9 @@
 
 import { createHash } from "node:crypto";
 
+export const NATIVE_SYNTHETIC_SYSCALL_RESTART_EXIT_STATUS = 111;
+export const NATIVE_SYNTHETIC_SYSCALL_UNMODELED_RETURN_EXIT_STATUS = 112;
+
 export type NativeSyntheticContinuationTargetArch = "amd64";
 export type NativeSyntheticContinuationByteSource =
   "generated-target-native-amd64-syscall-sequence";
@@ -31,6 +34,7 @@ export type NativeSyntheticContinuationProvenanceSource =
   | "generated-target-native-amd64-syscall-sequence"
   | "linux-amd64-syscall-abi"
   | "modeled-source-sleep-timer"
+  | "modeled-source-ppoll-timeout"
   | "target-caller-frame";
 
 export interface NativeSyntheticSyscallArgumentDescriptor {
@@ -88,6 +92,16 @@ export interface NativeSyntheticContinuationCompletionDescriptor {
   failureExitBuckets?: NativeSyntheticContinuationFailureExitBucket[];
 }
 
+interface NativeSyntheticTimespecEmbeddedDataDescriptor {
+  kind: "timespec";
+  offset: number;
+  seconds: string;
+  nanoseconds: number;
+  byteOrder: "little-endian";
+  pointerRegister: "rdx";
+  pointerEncoding: "rip-relative";
+}
+
 export interface NativeSyntheticSyscallContinuationDescriptorRequest {
   targetArch: NativeSyntheticContinuationTargetArch;
   entryAddress: string;
@@ -127,6 +141,40 @@ export type NativeSyntheticSyscallContinuationDescriptorPayload = Omit<
   NativeSyntheticSyscallContinuationDescriptor,
   "descriptorSha256"
 >;
+
+export function buildNativeSyntheticModeledSyscallDescriptor(request: {
+  entryAddress: string;
+  generatorBuildId: string;
+  bytes: Uint8Array;
+  syscallName: string;
+  syscallNumber: number;
+  argumentsProvenance: NativeSyntheticSyscallArgumentDescriptor[];
+  registerSetupNotes: string[];
+  completionMode: string;
+  completionOverrides?: Partial<NativeSyntheticContinuationCompletionDescriptor>;
+}): NativeSyntheticSyscallContinuationDescriptor {
+  return buildNativeSyntheticSyscallContinuationDescriptor({
+    targetArch: "amd64",
+    entryAddress: request.entryAddress,
+    relativeAddress: "0x0",
+    generatorBuildId: request.generatorBuildId,
+    bytes: request.bytes,
+    syscall: {
+      name: request.syscallName,
+      number: request.syscallNumber,
+      arguments: request.argumentsProvenance,
+    },
+    registerSetup: nativeSyntheticSyscallRegisterSetup(
+      request.argumentsProvenance,
+      request.registerSetupNotes,
+    ),
+    stackSetup: nativeSyntheticSyscallStackSetup(request.completionMode),
+    completion: {
+      ...nativeSyntheticSyscallCompletion(request.completionMode, request.syscallName),
+      ...request.completionOverrides,
+    },
+  });
+}
 
 export function buildNativeSyntheticSyscallContinuationDescriptor(
   request: NativeSyntheticSyscallContinuationDescriptorRequest,
@@ -173,4 +221,213 @@ export function nativeSyntheticContinuationDescriptorSha256(
   descriptor: NativeSyntheticSyscallContinuationDescriptorPayload,
 ): string {
   return createHash("sha256").update(JSON.stringify(descriptor)).digest("hex");
+}
+
+export function nativeSyntheticRestartLikeErrnos(): { errno: number; errnoName: string }[] {
+  return [
+    { errno: 4, errnoName: "EINTR" },
+    { errno: 512, errnoName: "ERESTARTSYS" },
+    { errno: 513, errnoName: "ERESTARTNOINTR" },
+    { errno: 514, errnoName: "ERESTARTNOHAND" },
+    { errno: 516, errnoName: "ERESTART_RESTARTBLOCK" },
+  ];
+}
+
+export function nativeSyntheticSyscallFailureExitBuckets(
+  syscallName: string,
+): NativeSyntheticContinuationFailureExitBucket[] {
+  return [
+    {
+      exitStatus: NATIVE_SYNTHETIC_SYSCALL_RESTART_EXIT_STATUS,
+      failureKind: "signal-restart-unsupported",
+      failureReason: `${syscallName} returned EINTR or a restart-like errno; signal restart handling is not modeled`,
+      syscallReturn: {
+        register: "rax",
+        condition: "restart-like-negative-errno",
+        errnos: nativeSyntheticRestartLikeErrnos(),
+      },
+    },
+    {
+      exitStatus: NATIVE_SYNTHETIC_SYSCALL_UNMODELED_RETURN_EXIT_STATUS,
+      failureKind: "syscall-return-unmodeled",
+      failureReason: `${syscallName} returned another non-success value; errno-specific recovery is not modeled`,
+      syscallReturn: {
+        register: "rax",
+        condition: "other-negative-errno",
+        errnoRange: { min: 1, max: 4095 },
+        excludedErrnos: nativeSyntheticRestartLikeErrnos(),
+      },
+    },
+  ];
+}
+
+function nativeSyntheticSyscallRegisterSetup(
+  argumentsProvenance: NativeSyntheticSyscallArgumentDescriptor[],
+  notes: string[],
+): NativeSyntheticContinuationRegisterSetupDescriptor {
+  return {
+    abi: "linux-amd64-syscall",
+    arguments: argumentsProvenance,
+    clobberedBySyscall: ["rax", "rcx", "r11"],
+    notes,
+  };
+}
+
+function nativeSyntheticSyscallStackSetup(
+  completionMode: string,
+): NativeSyntheticContinuationStackSetupDescriptor {
+  return {
+    entryStackPointer: "target-caller-frame-stack-pointer",
+    stackBytesWrittenByContinuation: 0,
+    returnAddress:
+      completionMode === "exit-process"
+        ? "not-used-exit-process-completion"
+        : "trampoline-sentinel-return-address",
+    requiresSourceStackBytes: false,
+  };
+}
+
+function nativeSyntheticSyscallCompletion(
+  completionMode: string,
+  syscallName: string,
+): NativeSyntheticContinuationCompletionDescriptor {
+  return {
+    mode: completionMode,
+    successExitStatus: completionMode === "exit-process" ? 0 : undefined,
+    failureExitBuckets:
+      completionMode === "exit-process"
+        ? nativeSyntheticSyscallFailureExitBuckets(syscallName)
+        : undefined,
+  };
+}
+
+function nativeSyntheticTimespecEmbeddedData(
+  offset: number,
+  remainingTime: { seconds: string; nanoseconds: number },
+): NativeSyntheticTimespecEmbeddedDataDescriptor {
+  return {
+    kind: "timespec",
+    offset,
+    seconds: remainingTime.seconds,
+    nanoseconds: remainingTime.nanoseconds,
+    byteOrder: "little-endian",
+    pointerRegister: "rdx",
+    pointerEncoding: "rip-relative",
+  };
+}
+
+export function nativeSyntheticSyscallTimespecProvenance(
+  descriptor: NativeSyntheticSyscallContinuationDescriptor,
+  remainingTime: { seconds: string; nanoseconds: number },
+  timespecOffset: number,
+): NativeSyntheticSyscallContinuationDescriptor & {
+  embeddedData: NativeSyntheticTimespecEmbeddedDataDescriptor;
+} {
+  return {
+    ...descriptor,
+    embeddedData: nativeSyntheticTimespecEmbeddedData(timespecOffset, remainingTime),
+  };
+}
+
+export function writeNativeSyntheticRipRelativeTimespec(
+  bytes: Uint8Array,
+  timespecOffset: number,
+  remainingTime: { seconds: string; nanoseconds: number },
+  options: { displacementOffset: number; ripAfterLea: number } = {
+    displacementOffset: 12,
+    ripAfterLea: 16,
+  },
+): void {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  view.setInt32(options.displacementOffset, timespecOffset - options.ripAfterLea, true);
+  view.setBigUint64(timespecOffset, BigInt(remainingTime.seconds), true);
+  view.setBigUint64(timespecOffset + 8, BigInt(remainingTime.nanoseconds), true);
+}
+
+export function nativeSyntheticExitProcessSuffix(): number[] {
+  return [
+    0x48,
+    0x85,
+    0xc0, // test rax, rax
+    0x74,
+    0x28, // je success exit
+    0x48,
+    0x83,
+    0xf8,
+    0xfc, // cmp rax, -EINTR
+    0x74,
+    0x2b, // je restart failure exit
+    0x48,
+    0x3d,
+    0x00,
+    0xfe,
+    0xff,
+    0xff, // cmp rax, -ERESTARTSYS
+    0x74,
+    0x23, // je restart failure exit
+    0x48,
+    0x3d,
+    0xff,
+    0xfd,
+    0xff,
+    0xff, // cmp rax, -ERESTARTNOINTR
+    0x74,
+    0x1b, // je restart failure exit
+    0x48,
+    0x3d,
+    0xfe,
+    0xfd,
+    0xff,
+    0xff, // cmp rax, -ERESTARTNOHAND
+    0x74,
+    0x13, // je restart failure exit
+    0x48,
+    0x3d,
+    0xfc,
+    0xfd,
+    0xff,
+    0xff, // cmp rax, -ERESTART_RESTARTBLOCK
+    0x74,
+    0x0b, // je restart failure exit
+    0xeb,
+    0x15, // jmp unmodeled return failure exit
+    0xb8,
+    0x3c,
+    0x00,
+    0x00,
+    0x00, // mov eax, 60 (exit)
+    0x31,
+    0xff, // xor edi, edi (status 0)
+    0x0f,
+    0x05, // syscall
+    0xb8,
+    0x3c,
+    0x00,
+    0x00,
+    0x00, // mov eax, 60 (exit)
+    0xbf,
+    NATIVE_SYNTHETIC_SYSCALL_RESTART_EXIT_STATUS,
+    0x00,
+    0x00,
+    0x00, // mov edi, 111 (EINTR/restart failure)
+    0x0f,
+    0x05, // syscall
+    0xb8,
+    0x3c,
+    0x00,
+    0x00,
+    0x00, // mov eax, 60 (exit)
+    0xbf,
+    NATIVE_SYNTHETIC_SYSCALL_UNMODELED_RETURN_EXIT_STATUS,
+    0x00,
+    0x00,
+    0x00, // mov edi, 112 (unmodeled negative errno)
+    0x0f,
+    0x05, // syscall
+    0x90,
+    0x90,
+    0x90,
+    0x90,
+    0x90,
+  ];
 }

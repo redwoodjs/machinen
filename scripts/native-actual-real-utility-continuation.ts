@@ -1,7 +1,11 @@
 #!/usr/bin/env tsx
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, isAbsolute, join, resolve } from "node:path";
-import { classifyNativeActiveSyscalls } from "../packages/runtime/src/native-active-syscall-policy.ts";
+import {
+  classifyNativeActiveSyscalls,
+  type NativeActivePpollTimeoutContinuation,
+  type NativeActiveSleepTimerContinuation,
+} from "../packages/runtime/src/native-active-syscall-policy.ts";
 import { planNativeMappingMaterialization } from "../packages/runtime/src/native-mapping-materialization.ts";
 import { inventoryNativeActualTargetModules } from "../packages/runtime/src/native-actual-target-module-inventory.ts";
 import {
@@ -14,6 +18,7 @@ import {
 } from "../packages/runtime/src/native-real-utility-code-map.ts";
 import { planNativeActualRealUtilityContinuationAttempt } from "../packages/runtime/src/native-actual-real-utility-continuation.ts";
 import { materializeNativeTargetModuleBytes } from "../packages/runtime/src/native-target-module-bytes.ts";
+import { buildNativeSyntheticPpollSyscallContinuation } from "../packages/runtime/src/native-synthetic-ppoll-continuation.ts";
 import {
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS,
   buildNativeSyntheticSleepSyscallContinuation,
@@ -55,9 +60,11 @@ import { translateNativeResources } from "../packages/runtime/src/native-resourc
 import {
   NATIVE_ACTUAL_RESUME_TRAMPOLINE_SOURCE,
   NATIVE_CAPTURE_SOURCE,
+  NATIVE_PPOLL_TIMEOUT_TARGET_SOURCE,
   NATIVE_PROCESS_IMAGE_BUNDLE_FILES,
   bundleFileStats,
   compileNativeActualResumeTrampoline,
+  compileNativePpollTimeoutTarget,
   compileNativeProcessCapturer,
   ensureSourcesExist,
   hostArch,
@@ -85,6 +92,8 @@ const SOURCE_BUNDLE_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_SOURCE_BUNDLE";
 const TARGET_ROOT_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_TARGET_ROOT";
 const TARGET_MODULE_PATH_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_TARGET_MODULE";
 const SLEEP_SYSCALL_POLICY_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_SLEEP_SYSCALL_POLICY";
+const PPOLL_SYSCALL_POLICY_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_PPOLL_SYSCALL_POLICY";
+const WORKLOAD_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_WORKLOAD";
 const UTILITY_NAME = "sleep";
 const SETTLE_MS = "150";
 const TARGET_BYTE_WINDOW = 32;
@@ -136,14 +145,14 @@ function verifyActualRealUtilityContinuation(outDir: string) {
 }
 
 function captureArm64ActualUtility(outDir: string) {
-  ensureSourcesExist([NATIVE_CAPTURE_SOURCE]);
+  const workload = actualUtilityWorkload();
+  ensureSourcesExist(workload.requiredSources);
   const binDir = join(outDir, "bin");
   const bundleDir = join(outDir, "actual-real-utility-source-bundle");
   mkdirSync(binDir, { recursive: true });
   mkdirSync(bundleDir, { recursive: true });
   const capturer = compileNativeProcessCapturer(binDir);
-  const utility = requireUtility(["/bin/sleep", "/usr/bin/sleep"]);
-  const command = [utility, "30"];
+  const command = workload.command(binDir);
   const capture = spawnSync(
     capturer,
     ["--output", bundleDir, "--target-arch", "amd64", "--settle-ms", SETTLE_MS, "--", ...command],
@@ -157,7 +166,7 @@ function captureArm64ActualUtility(outDir: string) {
       targetArch: "amd64",
       sourceBundleDir: bundleDir,
       capturer,
-      utility: { name: UTILITY_NAME, command },
+      utility: { name: workload.name, command },
       processImageValidated: false,
       plan: refusedCapturePlan(capture.stderr.trim()),
       blockingBoundary: "capture" as const,
@@ -184,6 +193,25 @@ function captureArm64ActualUtility(outDir: string) {
     command,
     planned,
   });
+}
+
+function actualUtilityWorkload(): {
+  name: string;
+  requiredSources: string[];
+  command: (binDir: string) => string[];
+} {
+  if (process.env[WORKLOAD_ENV] === "ppoll") {
+    return {
+      name: "ppoll-timeout",
+      requiredSources: [NATIVE_CAPTURE_SOURCE, NATIVE_PPOLL_TIMEOUT_TARGET_SOURCE],
+      command: (binDir) => [compileNativePpollTimeoutTarget(binDir)],
+    };
+  }
+  return {
+    name: UTILITY_NAME,
+    requiredSources: [NATIVE_CAPTURE_SOURCE],
+    command: () => [requireUtility(["/bin/sleep", "/usr/bin/sleep"]), "30"],
+  };
 }
 
 function consumeAmd64ActualUtility(outDir: string, sourceBundleDir: string) {
@@ -219,6 +247,7 @@ function planCapturedActualUtilityBundle(
     codeLocations: inputs.code.codeLocations,
     sourceFrames: inputs.sourceUnwind.frames,
     sourceFrameRefusals: inputs.sourceUnwind.refusals,
+    sourceUnwindRequired: sourceUnwindRequired(inputs),
     targetUnwind: inputs.targetUnwind,
     targetUnwindMatched: targetUnwindMatched(inputs),
     targetFrameState: inputs.targetFrameState,
@@ -240,12 +269,34 @@ function planCapturedActualUtilityBundle(
 }
 
 function targetUnwindMatched(inputs: ReturnType<typeof actualUtilityPlanningInputs>): boolean {
-  return (
-    inputs.targetUnwind.matches.length > 0 ||
-    inputs.code.resolved.some(
-      (location) => location.continuationStrategy === "synthetic-sleep-syscall",
-    )
+  return inputs.targetUnwind.matches.length > 0 || hasExitProcessSyntheticContinuation(inputs);
+}
+
+function sourceUnwindRequired(inputs: ReturnType<typeof actualUtilityPlanningInputs>): boolean {
+  return !hasExitProcessSyntheticContinuation(inputs);
+}
+
+function hasExitProcessSyntheticContinuation(
+  inputs: ReturnType<typeof actualUtilityPlanningInputs>,
+): boolean {
+  return inputs.code.resolved.some(
+    (location) =>
+      isSyntheticSyscallStrategy(location.continuationStrategy) &&
+      location.syntheticContinuation?.completionMode === "exit-process",
   );
+}
+
+function hasActiveContinuation(
+  activeSyscalls: ReturnType<typeof classifyNativeActiveSyscalls>,
+  syscallClass: "sleep-timer" | "poll-timeout",
+): boolean {
+  return activeSyscalls.continuations.some(
+    (continuation) => continuation.syscallClass === syscallClass,
+  );
+}
+
+function isSyntheticSyscallStrategy(strategy: string): boolean {
+  return strategy === "synthetic-sleep-syscall" || strategy === "synthetic-ppoll-syscall";
 }
 
 function actualUtilityPlanningInputs(
@@ -256,6 +307,7 @@ function actualUtilityPlanningInputs(
   const memoryBytes = statSync(join(bundleDir, "native-memory.bin")).size;
   const activeSyscalls = classifyNativeActiveSyscalls(bundle.threads.threads, {
     sleepTimerPolicy: sleepTimerPolicy(),
+    pollTimeoutPolicy: ppollTimeoutPolicy(),
     documents: bundle,
   });
   const registers = translateNativeRegisterState({
@@ -291,9 +343,14 @@ function actualUtilityPlanningInputs(
     targetArch: "amd64",
     targetModules,
     activeSyscallContinuations: activeSyscalls.continuations,
-    sleepTimerContinuationStrategy:
-      activeSyscalls.continuations.length > 0 ? "synthetic-syscall" : "target-symbol",
+    sleepTimerContinuationStrategy: hasActiveContinuation(activeSyscalls, "sleep-timer")
+      ? "synthetic-syscall"
+      : "target-symbol",
+    pollTimeoutContinuationStrategy: hasActiveContinuation(activeSyscalls, "poll-timeout")
+      ? "synthetic-syscall"
+      : "refuse",
     syntheticSleepCompletionMode: "exit-process",
+    syntheticPpollCompletionMode: "exit-process",
   });
   const sourceUnwind = readActualSourceUnwindSidecar(bundleDir);
   const targetUnwind = discoverActualTargetUnwind({
@@ -718,15 +775,14 @@ function materializeResolvedTargetBytes(
   const materialized = [];
   const refusals = [];
   for (const location of resolved) {
-    const bytes =
-      location.continuationStrategy === "synthetic-sleep-syscall"
-        ? materializeSyntheticSleepTargetBytes(location)
-        : materializeNativeTargetModuleBytes({
-            module: location.targetModule,
-            targetRoot,
-            relativeStart: location.targetRva,
-            sizeBytes: TARGET_BYTE_WINDOW,
-          });
+    const bytes = isSyntheticSyscallStrategy(location.continuationStrategy)
+      ? materializeSyntheticSyscallTargetBytes(location)
+      : materializeNativeTargetModuleBytes({
+          module: location.targetModule,
+          targetRoot,
+          relativeStart: location.targetRva,
+          sizeBytes: TARGET_BYTE_WINDOW,
+        });
     if (bytes.materialized) {
       materialized.push(bytes.materialized);
     }
@@ -735,18 +791,57 @@ function materializeResolvedTargetBytes(
   return { materialized, refusals };
 }
 
-function materializeSyntheticSleepTargetBytes(
+function materializeSyntheticSyscallTargetBytes(
   location: ReturnType<typeof resolveNativeRealUtilityCodeLocations>["resolved"][number],
 ): ReturnType<typeof materializeNativeTargetModuleBytes> {
   const landing = location.deferredActiveSyscallLanding;
-  assert(landing, "synthetic sleep target bytes require a deferred syscall landing");
+  assert(landing, "synthetic syscall target bytes require a deferred syscall landing");
+  if (landing.syscallClass === "poll-timeout") {
+    return materializeSyntheticPpollTargetBytes(
+      location,
+      landing.metadata as NativeActivePpollTimeoutContinuation["metadata"],
+    );
+  }
+  return materializeSyntheticSleepTargetBytes(
+    location,
+    landing.metadata as NativeActiveSleepTimerContinuation["metadata"],
+  );
+}
+
+function materializeSyntheticSleepTargetBytes(
+  location: ReturnType<typeof resolveNativeRealUtilityCodeLocations>["resolved"][number],
+  metadata: NativeActiveSleepTimerContinuation["metadata"],
+): ReturnType<typeof materializeNativeTargetModuleBytes> {
   const synthetic = buildNativeSyntheticSleepSyscallContinuation({
     threadId: location.threadId,
-    remainingTime: landing.metadata.remainingTime,
-    sleepTimer: landing.metadata.sleepTimer,
+    remainingTime: metadata.remainingTime,
+    sleepTimer: metadata.sleepTimer,
     targetAddress: location.targetAddress,
     completionMode: location.syntheticContinuation?.completionMode,
   });
+  return materializedSyntheticTargetBytes(location, synthetic);
+}
+
+function materializeSyntheticPpollTargetBytes(
+  location: ReturnType<typeof resolveNativeRealUtilityCodeLocations>["resolved"][number],
+  metadata: NativeActivePpollTimeoutContinuation["metadata"],
+): ReturnType<typeof materializeNativeTargetModuleBytes> {
+  const synthetic = buildNativeSyntheticPpollSyscallContinuation({
+    threadId: location.threadId,
+    remainingTime: metadata.remainingTime,
+    targetAddress: location.targetAddress,
+    completionMode: location.syntheticContinuation?.completionMode,
+  });
+  return materializedSyntheticTargetBytes(location, synthetic);
+}
+
+function materializedSyntheticTargetBytes(
+  location: ReturnType<typeof resolveNativeRealUtilityCodeLocations>["resolved"][number],
+  synthetic: ReturnType<
+    | typeof buildNativeSyntheticSleepSyscallContinuation
+    | typeof buildNativeSyntheticPpollSyscallContinuation
+  >,
+): ReturnType<typeof materializeNativeTargetModuleBytes> {
   if (!synthetic.continuation) {
     return { refusals: synthetic.refusals };
   }
@@ -778,7 +873,7 @@ function inspectActualTargetResumeLandings(options: {
       (bytes) =>
         bytes.moduleId === location.targetModule.id && bytes.relativeStart === location.targetRva,
     );
-    if (location.continuationStrategy === "synthetic-sleep-syscall") {
+    if (isSyntheticSyscallStrategy(location.continuationStrategy)) {
       return inspectNativeTargetResumeLanding({ location, targetBytes });
     }
     const targetPath = resolveActualTargetPath(options.targetRoot, location.targetModule.path);
@@ -888,7 +983,7 @@ function discoverActualTargetUnwindForLocation(
   sourceFrames: NativeDiscoveredUnwindFrame[],
   targetRoot: string | undefined,
 ): NativeTargetUnwindMatchResult {
-  if (location.continuationStrategy === "synthetic-sleep-syscall") {
+  if (isSyntheticSyscallStrategy(location.continuationStrategy)) {
     return { matches: [], refusals: [] };
   }
   const sourceFrame = sourceFrameForTargetLocation(
@@ -1206,7 +1301,10 @@ function actualUtilitySummary(context: {
     utility: utilitySummary(context),
     processImageValidated: true,
     actualCapturedUtility: true,
-    activeSyscallPolicy: { sleepTimerPolicy: sleepTimerPolicy() },
+    activeSyscallPolicy: {
+      sleepTimerPolicy: sleepTimerPolicy(),
+      ppollTimeoutPolicy: ppollTimeoutPolicy(),
+    },
     threadSyscalls: threadSyscallSummaries(planned),
     activeSyscallClassifications: planned.activeSyscalls.classifications,
     threadRefusals: effectiveThreadRefusals(planned),
@@ -1216,6 +1314,7 @@ function actualUtilitySummary(context: {
     codeLocationRefusals: planned.code.refusals,
     semanticTargetContinuations: semanticTargetContinuationSummaries(planned),
     syntheticSleepContinuations: syntheticSleepContinuationSummaries(planned),
+    syntheticSyscallContinuations: syntheticSleepContinuationSummaries(planned),
     deferredActiveSyscallLandings: deferredActiveSyscallLandingSummaries(planned),
     sourceUnwindFrames: planned.sourceFrames.length,
     sourceUnwindRules: planned.sourceUnwindRules.length,
@@ -1440,6 +1539,12 @@ function executionForPlan(
 
 function sleepTimerPolicy() {
   return process.env[SLEEP_SYSCALL_POLICY_ENV] === "defer-target-resume"
+    ? "defer-target-resume"
+    : "refuse";
+}
+
+function ppollTimeoutPolicy() {
+  return process.env[PPOLL_SYSCALL_POLICY_ENV] === "defer-target-resume"
     ? "defer-target-resume"
     : "refuse";
 }
