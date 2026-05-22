@@ -400,6 +400,15 @@ export {
   validatePortableMachineSnapshotBundle,
   validatePortableMachineSnapshotManifest,
 } from "./portable-machine-snapshot.ts";
+export {
+  TARGET_GUEST_RESTORE_DESCRIPTOR_KIND,
+  TargetGuestRestoreLoaderValidationError,
+  buildNativeActualResumeTrampolineArgs,
+  buildTargetGuestRestoreLoaderArgv,
+  parseTargetGuestRestoreDescriptor,
+  serializeTargetGuestRestoreDescriptor,
+  validateTargetGuestRestoreDescriptor,
+} from "./target-guest-restore-loader.ts";
 export type {
   PortableMachineSnapshotArchitecture,
   PortableMachineSnapshotDocuments,
@@ -408,6 +417,12 @@ export type {
   PortableMachineSnapshotRefusalCode,
   PortableMachineSnapshotRefusals,
 } from "./portable-machine-snapshot.ts";
+export type {
+  TargetGuestRestoreContinuationDescriptor,
+  TargetGuestRestoreDescriptor,
+  TargetGuestRestoreLoaderRefusalCode,
+  TargetGuestRestoreResourceRecipe,
+} from "./target-guest-restore-loader.ts";
 export type {
   NativeAmd64Registers,
   NativeArm64Registers,

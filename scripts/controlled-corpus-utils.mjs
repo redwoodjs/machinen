@@ -53,6 +53,10 @@ export const NATIVE_ACTUAL_RESUME_TRAMPOLINE_SOURCE = join(
   REPO_ROOT,
   "packages/microvm/assets/native-actual-resume-trampoline.c",
 );
+export const TARGET_GUEST_RESTORE_LOADER_SOURCE = join(
+  REPO_ROOT,
+  "packages/microvm/assets/target-guest-restore-loader.c",
+);
 export const NATIVE_PPOLL_TIMEOUT_TARGET_SOURCE = join(
   REPO_ROOT,
   "packages/microvm/assets/native-ppoll-timeout-target.c",

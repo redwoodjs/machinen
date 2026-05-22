@@ -95,6 +95,17 @@
 - [`isPortableMachineSnapshotBundle`](#isportablemachinesnapshotbundle)
 - [`validatePortableMachineSnapshotBundle`](#validateportablemachinesnapshotbundle)
 - [`validatePortableMachineSnapshotManifest`](#validateportablemachinesnapshotmanifest)
+- [`TargetGuestRestoreLoaderValidationError`](#targetguestrestoreloadervalidationerror)
+- [`TargetGuestRestoreLoaderRefusalCode`](#targetguestrestoreloaderrefusalcode)
+- [`TargetGuestRestoreResourceRecipe`](#targetguestrestoreresourcerecipe)
+- [`TargetGuestRestoreContinuationDescriptor`](#targetguestrestorecontinuationdescriptor)
+- [`TargetGuestRestoreDescriptor`](#targetguestrestoredescriptor)
+- [`TARGET_GUEST_RESTORE_DESCRIPTOR_KIND`](#target_guest_restore_descriptor_kind)
+- [`serializeTargetGuestRestoreDescriptor`](#serializetargetguestrestoredescriptor)
+- [`parseTargetGuestRestoreDescriptor`](#parsetargetguestrestoredescriptor)
+- [`validateTargetGuestRestoreDescriptor`](#validatetargetguestrestoredescriptor)
+- [`buildNativeActualResumeTrampolineArgs`](#buildnativeactualresumetrampolineargs)
+- [`buildTargetGuestRestoreLoaderArgv`](#buildtargetguestrestoreloaderargv)
 - [`NativeRegisterTranslationRequest`](#nativeregistertranslationrequest)
 - [`NativeContinuationTarget`](#nativecontinuationtarget)
 - [`NativeRegisterTranslationResult`](#nativeregistertranslationresult)
@@ -1591,6 +1602,44 @@ Attach to `id`. Throws if id doesn't exist.
 ###### Overrides
 
 `Error.constructor`
+
+***
+
+### TargetGuestRestoreLoaderValidationError
+
+#### Extends
+
+- `Error`
+
+#### Constructors
+
+##### Constructor
+
+> **new TargetGuestRestoreLoaderValidationError**(`code`, `message`): [`TargetGuestRestoreLoaderValidationError`](#targetguestrestoreloadervalidationerror)
+
+###### Parameters
+
+###### code
+
+[`TargetGuestRestoreLoaderRefusalCode`](#targetguestrestoreloaderrefusalcode)
+
+###### message
+
+`string`
+
+###### Returns
+
+[`TargetGuestRestoreLoaderValidationError`](#targetguestrestoreloadervalidationerror)
+
+###### Overrides
+
+`Error.constructor`
+
+#### Properties
+
+##### code
+
+> `readonly` **code**: [`TargetGuestRestoreLoaderRefusalCode`](#targetguestrestoreloaderrefusalcode)
 
 ***
 
@@ -8478,6 +8527,66 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### TargetGuestRestoreContinuationDescriptor
+
+#### Properties
+
+##### codeFile
+
+> **codeFile**: `string`
+
+##### fileOffset
+
+> **fileOffset**: `number`
+
+##### codeSize
+
+> **codeSize**: `number`
+
+##### targetAddress
+
+> **targetAddress**: `string`
+
+##### timeoutSeconds
+
+> **timeoutSeconds**: `number`
+
+##### stackTargetStart
+
+> **stackTargetStart**: `string`
+
+##### stackSize
+
+> **stackSize**: `number`
+
+##### stackPointer
+
+> **stackPointer**: `string`
+
+***
+
+### TargetGuestRestoreDescriptor
+
+#### Properties
+
+##### kind
+
+> **kind**: `"machinen.target-guest-restore"`
+
+##### targetArch
+
+> **targetArch**: `"amd64"`
+
+##### continuation
+
+> **continuation**: [`TargetGuestRestoreContinuationDescriptor`](#targetguestrestorecontinuationdescriptor)
+
+##### resources
+
+> **resources**: [`TargetGuestRestoreResourceRecipe`](#targetguestrestoreresourcerecipe)[]
+
+***
+
 ### VmHandle
 
 #### Properties
@@ -10938,6 +11047,18 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ***
 
+### TargetGuestRestoreLoaderRefusalCode
+
+> **TargetGuestRestoreLoaderRefusalCode** = `"target-guest-loader-descriptor-invalid"` \| `"target-guest-loader-target-arch-unsupported"` \| `"target-guest-loader-resource-unsupported"` \| `"target-guest-loader-invalid-fd"` \| `"target-guest-loader-invalid-continuation"`
+
+***
+
+### TargetGuestRestoreResourceRecipe
+
+> **TargetGuestRestoreResourceRecipe** = \{ `kind`: `"synthetic-empty-pipe"`; `readFd`: `number`; `writeFd?`: `number`; \} \| \{ `kind`: `"synthetic-empty-eventfd"`; `fd`: `number`; \}
+
+***
+
 ### VmstateBackend
 
 > **VmstateBackend** = `"hvf"` \| `"kvm"` \| `"unknown"`
@@ -12464,6 +12585,12 @@ the guest agent skips entries that don't match.
 ###### Returns
 
 `Promise`\<`void`\>
+
+***
+
+### TARGET\_GUEST\_RESTORE\_DESCRIPTOR\_KIND
+
+> `const` **TARGET\_GUEST\_RESTORE\_DESCRIPTOR\_KIND**: `"machinen.target-guest-restore"` = `"machinen.target-guest-restore"`
 
 ***
 
@@ -14092,6 +14219,90 @@ resolve the binary through the same lookup chain.
 #### Returns
 
 `string`
+
+***
+
+### serializeTargetGuestRestoreDescriptor()
+
+> **serializeTargetGuestRestoreDescriptor**(`descriptor`): `string`
+
+#### Parameters
+
+##### descriptor
+
+[`TargetGuestRestoreDescriptor`](#targetguestrestoredescriptor)
+
+#### Returns
+
+`string`
+
+***
+
+### parseTargetGuestRestoreDescriptor()
+
+> **parseTargetGuestRestoreDescriptor**(`text`): [`TargetGuestRestoreDescriptor`](#targetguestrestoredescriptor)
+
+#### Parameters
+
+##### text
+
+`string`
+
+#### Returns
+
+[`TargetGuestRestoreDescriptor`](#targetguestrestoredescriptor)
+
+***
+
+### validateTargetGuestRestoreDescriptor()
+
+> **validateTargetGuestRestoreDescriptor**(`descriptor`): [`TargetGuestRestoreDescriptor`](#targetguestrestoredescriptor)
+
+#### Parameters
+
+##### descriptor
+
+[`TargetGuestRestoreDescriptor`](#targetguestrestoredescriptor)
+
+#### Returns
+
+[`TargetGuestRestoreDescriptor`](#targetguestrestoredescriptor)
+
+***
+
+### buildNativeActualResumeTrampolineArgs()
+
+> **buildNativeActualResumeTrampolineArgs**(`descriptor`): `string`[]
+
+#### Parameters
+
+##### descriptor
+
+[`TargetGuestRestoreDescriptor`](#targetguestrestoredescriptor)
+
+#### Returns
+
+`string`[]
+
+***
+
+### buildTargetGuestRestoreLoaderArgv()
+
+> **buildTargetGuestRestoreLoaderArgv**(`descriptorPath`, `trampolinePath`): `string`[]
+
+#### Parameters
+
+##### descriptorPath
+
+`string`
+
+##### trampolinePath
+
+`string`
+
+#### Returns
+
+`string`[]
 
 ***
 

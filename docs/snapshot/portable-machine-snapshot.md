@@ -62,8 +62,10 @@ pnpm portable-machine-snapshot -- --native-process-bundle /path/to/native-proces
 
 This is still a bundle/contract proof. The target VM synthetic continuation step
 is documented in
-[Target VM synthetic continuation proof](./native-target-vm-synthetic-continuation.md);
-the full bundle-driven target loader and e2e restore are follow-up issues.
+[Target VM synthetic continuation proof](./native-target-vm-synthetic-continuation.md),
+and its in-guest descriptor loader is documented in
+[Target guest restore loader](./target-guest-restore-loader.md); full memory
+materialization and e2e restore are follow-up issues.
 
 ## Raw vmstate refusal
 

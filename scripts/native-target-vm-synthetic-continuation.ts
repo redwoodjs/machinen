@@ -4,9 +4,21 @@ import { existsSync, mkdtempSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { boot } from "../packages/runtime/src/index.ts";
-import { NATIVE_ACTUAL_RESUME_TRAMPOLINE_SOURCE } from "./controlled-corpus-utils.mjs";
+import {
+  type TargetGuestRestoreDescriptor,
+  type TargetGuestRestoreResourceRecipe,
+  serializeTargetGuestRestoreDescriptor,
+} from "../packages/runtime/src/target-guest-restore-loader.ts";
+import {
+  NATIVE_ACTUAL_RESUME_TRAMPOLINE_SOURCE,
+  TARGET_GUEST_RESTORE_LOADER_SOURCE,
+} from "./controlled-corpus-utils.mjs";
 
 const IMAGE_ENV = "MACHINEN_TARGET_VM_IMAGE";
+const GUEST_TRAMPOLINE = "/tmp/machinen-resume-trampoline";
+const GUEST_LOADER = "/tmp/machinen-target-guest-restore-loader";
+const GUEST_CODE = "/tmp/machinen-target-bytes.bin";
+const GUEST_DESCRIPTOR = "/tmp/machinen-target-guest-restore.desc";
 
 interface Args {
   codeFile?: string;
@@ -70,15 +82,9 @@ function withDefault(value: string | undefined, fallback: string): string {
   return value ?? fallback;
 }
 
-function compileTrampoline(outDir: string): string {
-  const out = join(outDir, "machinen-native-actual-resume-trampoline");
-  execFileSync(
-    "cc",
-    ["-O2", "-Wall", "-Wextra", NATIVE_ACTUAL_RESUME_TRAMPOLINE_SOURCE, "-o", out],
-    {
-      stdio: "pipe",
-    },
-  );
+function compileHelper(outDir: string, source: string, name: string): string {
+  const out = join(outDir, name);
+  execFileSync("cc", ["-O2", "-Wall", "-Wextra", source, "-o", out], { stdio: "pipe" });
   return out;
 }
 
@@ -88,10 +94,19 @@ async function runTargetVmProof(args: Args) {
     return { skipped: true, reason: skip };
   }
   const workspace = mkdtempSync(join(tmpdir(), "machinen-target-vm-synthetic-"));
-  const trampoline = compileTrampoline(workspace);
+  const trampoline = compileHelper(
+    workspace,
+    NATIVE_ACTUAL_RESUME_TRAMPOLINE_SOURCE,
+    "machinen-native-actual-resume-trampoline",
+  );
+  const loader = compileHelper(
+    workspace,
+    TARGET_GUEST_RESTORE_LOADER_SOURCE,
+    "machinen-target-guest-restore-loader",
+  );
   const vm = await bootTargetVm(args.image!);
   try {
-    return await executeTargetVmProof(args, trampoline, vm);
+    return await executeTargetVmProof(args, { trampoline, loader }, vm);
   } finally {
     await killUnlessKept(vm, args.keep);
   }
@@ -125,17 +140,24 @@ async function bootTargetVm(image: string) {
 
 async function executeTargetVmProof(
   args: Args,
-  trampoline: string,
+  helpers: { trampoline: string; loader: string },
   vm: Awaited<ReturnType<typeof boot>>,
 ) {
-  await vm.writeFile("/tmp/machinen-resume-trampoline", readFileSync(trampoline), { mode: 0o755 });
-  await vm.writeFile("/tmp/machinen-target-bytes.bin", readFileSync(args.codeFile!));
-  const result = await vm.execRaw(targetCommand(args, statSync(args.codeFile!).size), {
+  const codeSize = statSync(args.codeFile!).size;
+  await vm.writeFile(GUEST_TRAMPOLINE, readFileSync(helpers.trampoline), { mode: 0o755 });
+  await vm.writeFile(GUEST_LOADER, readFileSync(helpers.loader), { mode: 0o755 });
+  await vm.writeFile(GUEST_CODE, readFileSync(args.codeFile!));
+  await vm.writeFile(
+    GUEST_DESCRIPTOR,
+    serializeTargetGuestRestoreDescriptor(targetDescriptor(args, codeSize)),
+  );
+  const result = await vm.execRaw(targetLoaderCommand(), {
     execTimeoutMs: (args.timeoutSeconds + 20) * 1000,
   });
   return {
     phase: "target-vm-synthetic-continuation",
     targetVmAttempted: true,
+    targetGuestLoaderUsed: true,
     targetArch: "amd64",
     codeFile: resolve(args.codeFile!),
     codeFileBasename: basename(args.codeFile!),
@@ -153,34 +175,50 @@ async function killUnlessKept(vm: Awaited<ReturnType<typeof boot>>, keep: boolea
   await (keep ? Promise.resolve() : vm.kill());
 }
 
-function targetCommand(args: Args, codeSize: number): string {
-  return [
-    "/tmp/machinen-resume-trampoline",
-    "--code-file /tmp/machinen-target-bytes.bin",
-    "--file-offset 0",
-    `--code-size ${codeSize}`,
-    `--target-address ${args.entryAddress}`,
-    `--timeout-seconds ${args.timeoutSeconds}`,
-    `--stack-target-start ${args.stackTargetStart}`,
-    `--stack-size ${args.stackSize}`,
-    `--stack-pointer ${args.stackPointer}`,
-    syntheticFdArgs(args),
-  ]
-    .filter(Boolean)
-    .join(" ");
+function targetLoaderCommand(): string {
+  return `${GUEST_LOADER} --descriptor ${GUEST_DESCRIPTOR} --trampoline ${GUEST_TRAMPOLINE}`;
 }
 
-function syntheticFdArgs(args: Args): string {
-  if (args.syntheticEmptyEventFd) {
-    return `--synthetic-empty-eventfd ${args.syntheticEmptyEventFd}`;
-  }
-  if (!args.syntheticEmptyPipeReadFd) {
-    return "";
-  }
-  const writeFd = args.syntheticEmptyPipeWriteFd
-    ? ` --synthetic-empty-pipe-write-fd ${args.syntheticEmptyPipeWriteFd}`
-    : "";
-  return `--synthetic-empty-pipe-read-fd ${args.syntheticEmptyPipeReadFd}${writeFd}`;
+function targetDescriptor(args: Args, codeSize: number): TargetGuestRestoreDescriptor {
+  return {
+    kind: "machinen.target-guest-restore",
+    targetArch: "amd64",
+    continuation: {
+      codeFile: GUEST_CODE,
+      fileOffset: 0,
+      codeSize,
+      targetAddress: args.entryAddress,
+      timeoutSeconds: args.timeoutSeconds,
+      stackTargetStart: args.stackTargetStart,
+      stackSize: Number(args.stackSize),
+      stackPointer: args.stackPointer,
+    },
+    resources: resourceRecipes(args),
+  };
+}
+
+function resourceRecipes(args: Args): TargetGuestRestoreResourceRecipe[] {
+  return [pipeRecipe(args), eventfdRecipe(args)].filter((recipe) => recipe !== undefined);
+}
+
+function pipeRecipe(args: Args): TargetGuestRestoreResourceRecipe | undefined {
+  return args.syntheticEmptyPipeReadFd
+    ? {
+        kind: "synthetic-empty-pipe",
+        readFd: Number(args.syntheticEmptyPipeReadFd),
+        writeFd: optionalNumber(args.syntheticEmptyPipeWriteFd),
+      }
+    : undefined;
+}
+
+function eventfdRecipe(args: Args): TargetGuestRestoreResourceRecipe | undefined {
+  return args.syntheticEmptyEventFd
+    ? { kind: "synthetic-empty-eventfd", fd: Number(args.syntheticEmptyEventFd) }
+    : undefined;
+}
+
+function optionalNumber(value: string | undefined): number | undefined {
+  return value === undefined ? undefined : Number(value);
 }
 
 const args = parseArgs(process.argv.slice(2));

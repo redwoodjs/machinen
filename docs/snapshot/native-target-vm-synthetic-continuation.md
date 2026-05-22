@@ -4,10 +4,11 @@ Issue #585 moves the synthetic continuation proof boundary from a host process
 trampoline toward an amd64 target VM.
 
 The helper script boots an amd64 Machinen VM on a Linux/amd64 host, copies the
-native resume trampoline plus a generated target-native code blob into the guest,
-and executes the trampoline inside the guest. The trampoline maps the supplied
-amd64 bytes, installs a synthetic stack and optional modeled fd recipe, and jumps
-to the target bytes.
+[target guest restore loader](./target-guest-restore-loader.md), native resume
+trampoline, a generated target-native code blob, and a restore descriptor into
+the guest, then executes the loader inside the guest. The loader validates the
+descriptor before the trampoline maps the supplied amd64 bytes, installs a
+synthetic stack and optional modeled fd recipe, and jumps to the target bytes.
 
 ```bash
 MACHINEN_TARGET_VM_IMAGE=/path/to/rootfs-debian-amd64.tar.gz \
@@ -22,7 +23,8 @@ amd64 guest. The script reports:
 
 - `targetVmAttempted: true` after an amd64 VM was booted and the guest command
   ran;
-- `migrationCompleted: true` only when the in-guest trampoline exits `0`;
+- `targetGuestLoaderUsed: true` after the in-guest descriptor loader is injected;
+- `migrationCompleted: true` only when the in-guest loader/trampoline exits `0`;
 - `sourceTextReusedAsTargetCode: false`;
 - `sourceIsaEmulationUsed: false`;
 - `sidecarRuntimeUsed: false`.
