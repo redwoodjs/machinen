@@ -388,16 +388,21 @@ export {
   validateNativeProcessImageDocuments,
 } from "./native-process-image.ts";
 export {
+  PORTABLE_MACHINE_SNAPSHOT_FILES,
   PORTABLE_MACHINE_SNAPSHOT_FORMAT_VERSION,
   PortableMachineSnapshotValidationError,
+  buildPortableMachineSnapshotManifestFromNativeProcessImage,
   crossIsaVmstateRestoreRefusal,
+  isPortableMachineSnapshotBundle,
   portableMachineSnapshotArchitectures,
   portableMachineSnapshotManifestSchema,
   portableMachineSnapshotRefusalCodes,
+  validatePortableMachineSnapshotBundle,
   validatePortableMachineSnapshotManifest,
 } from "./portable-machine-snapshot.ts";
 export type {
   PortableMachineSnapshotArchitecture,
+  PortableMachineSnapshotDocuments,
   PortableMachineSnapshotManifest,
   PortableMachineSnapshotRefusal,
   PortableMachineSnapshotRefusalCode,

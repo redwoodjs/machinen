@@ -70,6 +70,7 @@
     "native-real-utility-final-jump": "tsx scripts/native-real-utility-final-jump.ts verify",
     "native-actual-real-utility-continuation": "tsx scripts/native-actual-real-utility-continuation.ts verify",
     "native-boundary-check": "tsx scripts/native-boundary-check.ts verify",
+    "portable-machine-snapshot": "tsx scripts/portable-machine-snapshot.ts verify",
     "smoke-test-snapshot-restore-fork": "bash scripts/smoke-test-snapshot-restore-fork.sh",
     "smoke-vmstate": "bash scripts/smoke/vmstate/all.sh",
     "smoke-vmstate-timers": "bash scripts/smoke/vmstate/timers.sh",

@@ -33,6 +33,36 @@ This means the machine snapshot may carry source machine facts, but the success
 path cannot replay source vCPU/kernel/device state. Unsafe or ambiguous state
 must fail before target execution.
 
+## Bundle layout
+
+The first bundle shape is intentionally small:
+
+```text
+portable-machine.json
+native-process/
+  native-process.json
+  native-mappings.json
+  native-threads.json
+  native-resources.json
+  native-translation.json
+  native-memory.bin
+```
+
+`portable-machine.json` is validated with
+`validatePortableMachineSnapshotBundle()`. The embedded native process image is
+validated with the existing native-process-image validator, and its
+`capture.sourceArch` / `target.arch` must match the portable machine manifest.
+Paths are bundle-relative and may not escape the bundle root.
+
+A local wrapper can create this bundle from an existing native process image:
+
+```bash
+pnpm portable-machine-snapshot -- --native-process-bundle /path/to/native-process --out-dir /tmp/portable-machine --json
+```
+
+This is still a bundle/contract proof. The target VM loader and full e2e restore
+are follow-up issues.
+
 ## Raw vmstate refusal
 
 `restore()` now distinguishes raw cross-ISA `.vmstate` attempts with

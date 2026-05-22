@@ -1,6 +1,18 @@
 /** Portable cross-ISA machine snapshot boundary metadata. */
 
+import { existsSync, readFileSync } from "node:fs";
+import { isAbsolute, join, relative, resolve } from "node:path";
+import {
+  validateNativeProcessImageBundle,
+  type NativeProcessImageDocuments,
+} from "./native-process-image.ts";
+
 export const PORTABLE_MACHINE_SNAPSHOT_FORMAT_VERSION = 1;
+
+export const PORTABLE_MACHINE_SNAPSHOT_FILES = {
+  manifest: "portable-machine.json",
+  nativeProcessImage: "native-process",
+} as const;
 
 export const portableMachineSnapshotArchitectures = ["arm64", "amd64"] as const;
 export type PortableMachineSnapshotArchitecture =
@@ -26,6 +38,12 @@ export interface PortableMachineSnapshotRefusal {
 export interface PortableMachineSnapshotRefusals {
   vocabularyVersion: 1;
   refusals: PortableMachineSnapshotRefusal[];
+}
+
+export interface PortableMachineSnapshotDocuments {
+  rootDir?: string;
+  manifest: PortableMachineSnapshotManifest;
+  nativeProcessImage: NativeProcessImageDocuments;
 }
 
 export interface PortableMachineSnapshotManifest {
@@ -141,6 +159,136 @@ export class PortableMachineSnapshotValidationError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "PortableMachineSnapshotValidationError";
+  }
+}
+
+export function isPortableMachineSnapshotBundle(rootDir: string): boolean {
+  return existsSync(join(rootDir, PORTABLE_MACHINE_SNAPSHOT_FILES.manifest));
+}
+
+export function validatePortableMachineSnapshotBundle(
+  rootDir: string,
+): PortableMachineSnapshotDocuments {
+  const resolvedRoot = resolve(rootDir);
+  const manifest = readPortableMachineSnapshotManifest(resolvedRoot);
+  const nativeProcessImage = validateNativeProcessImageBundle(
+    resolvePortableMachineBundlePath(resolvedRoot, manifest.payload.nativeProcessImage.path),
+  );
+  validateNativeProcessImageCompatibility(manifest, nativeProcessImage);
+  return { rootDir: resolvedRoot, manifest, nativeProcessImage };
+}
+
+export function buildPortableMachineSnapshotManifestFromNativeProcessImage(
+  nativeProcessImage: NativeProcessImageDocuments,
+  nativeProcessPath = PORTABLE_MACHINE_SNAPSHOT_FILES.nativeProcessImage,
+): PortableMachineSnapshotManifest {
+  const sourceArch = nativeProcessImage.manifest.capture.sourceArch;
+  const targetArch = nativeProcessImage.manifest.target.arch;
+  return {
+    formatVersion: PORTABLE_MACHINE_SNAPSHOT_FORMAT_VERSION,
+    kind: "machinen.portable-machine-snapshot",
+    source: {
+      guestArch: sourceArch,
+      vmstate: {
+        rawRestore: "refused",
+        refusalCode: "cross-isa-vmstate-restore-unsupported",
+        reason: "raw source kernel/vCPU/device state is not target-ISA VM state",
+      },
+      kernelState: "not-translated",
+      deviceState: "not-translated",
+    },
+    target: {
+      guestArch: targetArch,
+      mode: "target-isa-vm-process-restore",
+      execution: "target-native",
+    },
+    payload: {
+      nativeProcessImage: {
+        kind: "machinen.native-process-image",
+        path: nativeProcessPath,
+      },
+      resourceModel: "explicit-recipes-only",
+    },
+    refusals: {
+      vocabularyVersion: 1,
+      refusals: rawMachineStateRefusals(sourceArch, targetArch),
+    },
+  };
+}
+
+function rawMachineStateRefusals(
+  sourceArch: string,
+  targetArch: string,
+): PortableMachineSnapshotRefusal[] {
+  return [
+    crossIsaVmstateRestoreRefusal(sourceArch, targetArch),
+    rawMachineStateRefusal(
+      "raw-vcpu-state-unsupported",
+      "source vCPU register state is not target-ISA vCPU state",
+      sourceArch,
+      targetArch,
+    ),
+    rawMachineStateRefusal(
+      "raw-kernel-state-unsupported",
+      "source kernel execution state is not replayed on the target ISA",
+      sourceArch,
+      targetArch,
+    ),
+    rawMachineStateRefusal(
+      "raw-device-state-unsupported",
+      "source device model state must be remodeled before target execution",
+      sourceArch,
+      targetArch,
+    ),
+  ];
+}
+
+function rawMachineStateRefusal(
+  code: PortableMachineSnapshotRefusalCode,
+  message: string,
+  sourceArch: string,
+  targetArch: string,
+): PortableMachineSnapshotRefusal {
+  return { code, message, detail: { sourceArch, targetArch } };
+}
+
+function readPortableMachineSnapshotManifest(rootDir: string): PortableMachineSnapshotManifest {
+  const path = join(rootDir, PORTABLE_MACHINE_SNAPSHOT_FILES.manifest);
+  if (!existsSync(path)) {
+    fail(`${PORTABLE_MACHINE_SNAPSHOT_FILES.manifest} is missing`);
+  }
+  try {
+    return validatePortableMachineSnapshotManifest(JSON.parse(readFileSync(path, "utf8")));
+  } catch (error) {
+    if (error instanceof PortableMachineSnapshotValidationError) {
+      throw error;
+    }
+    const reason = error instanceof Error ? error.message : String(error);
+    fail(`${PORTABLE_MACHINE_SNAPSHOT_FILES.manifest} is not valid JSON: ${reason}`);
+  }
+}
+
+function resolvePortableMachineBundlePath(rootDir: string, path: string): string {
+  if (isAbsolute(path)) {
+    fail("manifest.payload.nativeProcessImage.path must be relative to the bundle root");
+  }
+  const resolved = resolve(rootDir, path);
+  const rel = relative(rootDir, resolved);
+  if (rel.startsWith("..") || isAbsolute(rel)) {
+    fail("manifest.payload.nativeProcessImage.path must stay inside the bundle root");
+  }
+  return resolved;
+}
+
+function validateNativeProcessImageCompatibility(
+  manifest: PortableMachineSnapshotManifest,
+  nativeProcessImage: NativeProcessImageDocuments,
+): void {
+  if (nativeProcessImage.manifest.capture.sourceArch !== manifest.source.guestArch) {
+    fail("native process source arch must match portable machine source guest arch");
+  }
+  if (nativeProcessImage.manifest.target.arch !== manifest.target.guestArch) {
+    fail("native process target arch must match portable machine target guest arch");
   }
 }
 

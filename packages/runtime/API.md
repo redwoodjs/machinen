@@ -83,12 +83,17 @@
 - [`PortableMachineSnapshotRefusal`](#portablemachinesnapshotrefusal)
 - [`PortableMachineSnapshotRefusals`](#portablemachinesnapshotrefusals)
 - [`PortableMachineSnapshotManifest`](#portablemachinesnapshotmanifest)
+- [`PortableMachineSnapshotDocuments`](#portablemachinesnapshotdocuments)
 - [`PORTABLE_MACHINE_SNAPSHOT_FORMAT_VERSION`](#portable_machine_snapshot_format_version)
+- [`PORTABLE_MACHINE_SNAPSHOT_FILES`](#portable_machine_snapshot_files)
 - [`portableMachineSnapshotArchitectures`](#portablemachinesnapshotarchitectures)
 - [`portableMachineSnapshotRefusalCodes`](#portablemachinesnapshotrefusalcodes)
 - [`portableMachineSnapshotManifestSchema`](#portablemachinesnapshotmanifestschema)
 - [`PortableMachineSnapshotValidationError`](#portablemachinesnapshotvalidationerror)
 - [`crossIsaVmstateRestoreRefusal`](#crossisavmstaterestorerefusal)
+- [`buildPortableMachineSnapshotManifestFromNativeProcessImage`](#buildportablemachinesnapshotmanifestfromnativeprocessimage)
+- [`isPortableMachineSnapshotBundle`](#isportablemachinesnapshotbundle)
+- [`validatePortableMachineSnapshotBundle`](#validateportablemachinesnapshotbundle)
 - [`validatePortableMachineSnapshotManifest`](#validateportablemachinesnapshotmanifest)
 - [`NativeRegisterTranslationRequest`](#nativeregistertranslationrequest)
 - [`NativeContinuationTarget`](#nativecontinuationtarget)
@@ -3056,7 +3061,7 @@ by default when `output` is a TTY.
 
 ##### kind
 
-> **kind**: `"unknown"` \| `"executable"` \| `"vdso"` \| `"pie-executable"` \| `"shared-object"`
+> **kind**: `"unknown"` \| `"vdso"` \| `"executable"` \| `"pie-executable"` \| `"shared-object"`
 
 ##### buildId
 
@@ -3424,7 +3429,7 @@ by default when `output` is a TTY.
 
 ##### classification
 
-> **classification**: `"pointer"` \| `"integer"` \| `"code-pointer"` \| `"thread-pointer"` \| `"ambiguous"`
+> **classification**: `"pointer"` \| `"code-pointer"` \| `"thread-pointer"` \| `"ambiguous"` \| `"integer"`
 
 ##### targetValue?
 
@@ -3470,7 +3475,7 @@ by default when `output` is a TTY.
 
 ##### code
 
-> **code**: `"fd-kind-unsupported"` \| `"target-build-mismatch"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"active-syscall"` \| `"blocking-syscall-state-unsupported"` \| `"code-location-unknown"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-permission-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"syscall-argument-state-unsupported"` \| `"syscall-restart-unsupported"` \| `"target-build-id-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-caller-frame-unavailable"` \| `"target-code-rva-unmapped"` \| `"target-frame-layout-unsupported"` \| `"target-frame-register-value-unavailable"` \| `"target-module-bytes-missing"` \| `"target-module-file-missing"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-module-range-unreadable"` \| `"target-ppoll-syscall-continuation-missing"` \| `"target-ppoll-timeout-missing"` \| `"target-return-slot-unsupported"` \| `"target-resume-execution-unavailable"` \| `"target-resume-fault-invalid-code-landing"` \| `"target-resume-fault-outside-target-bytes"` \| `"target-resume-fault-privileged-instruction"` \| `"target-resume-fault-signal-unsupported"` \| `"target-resume-fault-timeout"` \| `"target-resume-fault-unmodeled-memory"` \| `"target-semantic-continuation-missing"` \| `"target-sleep-remaining-time-missing"` \| `"target-sleep-signal-restart-unsupported"` \| `"target-sleep-syscall-continuation-missing"` \| `"target-synthetic-signal-restart-unsupported"` \| `"target-synthetic-syscall-return-unmodeled"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
+> **code**: `"active-syscall"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"blocking-syscall-state-unsupported"` \| `"code-location-unknown"` \| `"fd-kind-unsupported"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-permission-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"syscall-argument-state-unsupported"` \| `"syscall-restart-unsupported"` \| `"target-build-id-mismatch"` \| `"target-build-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-caller-frame-unavailable"` \| `"target-code-rva-unmapped"` \| `"target-frame-layout-unsupported"` \| `"target-frame-register-value-unavailable"` \| `"target-module-bytes-missing"` \| `"target-module-file-missing"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-module-range-unreadable"` \| `"target-ppoll-syscall-continuation-missing"` \| `"target-ppoll-timeout-missing"` \| `"target-return-slot-unsupported"` \| `"target-resume-execution-unavailable"` \| `"target-resume-fault-invalid-code-landing"` \| `"target-resume-fault-outside-target-bytes"` \| `"target-resume-fault-privileged-instruction"` \| `"target-resume-fault-signal-unsupported"` \| `"target-resume-fault-timeout"` \| `"target-resume-fault-unmodeled-memory"` \| `"target-semantic-continuation-missing"` \| `"target-sleep-remaining-time-missing"` \| `"target-sleep-signal-restart-unsupported"` \| `"target-sleep-syscall-continuation-missing"` \| `"target-synthetic-signal-restart-unsupported"` \| `"target-synthetic-syscall-return-unmodeled"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
 
 ##### message
 
@@ -3888,7 +3893,7 @@ by default when `output` is a TTY.
 
 ###### altStack.state
 
-> **state**: `"disabled"` \| `"unsupported"` \| `"enabled"`
+> **state**: `"disabled"` \| `"enabled"` \| `"unsupported"`
 
 ###### altStack.sp?
 
@@ -3916,7 +3921,7 @@ by default when `output` is a TTY.
 
 ###### rseq.state
 
-> **state**: `"captured"` \| `"unsupported"` \| `"absent"`
+> **state**: `"unsupported"` \| `"absent"` \| `"captured"`
 
 ###### rseq.refusal?
 
@@ -3960,7 +3965,7 @@ by default when `output` is a TTY.
 
 ##### state
 
-> **state**: `"refused"` \| `"captured"` \| `"unsupported"` \| `"recipe"`
+> **state**: `"unsupported"` \| `"captured"` \| `"recipe"` \| `"refused"`
 
 ##### fd?
 
@@ -4246,7 +4251,7 @@ by default when `output` is a TTY.
 
 ##### kind
 
-> **kind**: `"unknown"` \| `"executable"` \| `"vdso"` \| `"pie-executable"` \| `"shared-object"`
+> **kind**: `"unknown"` \| `"vdso"` \| `"executable"` \| `"pie-executable"` \| `"shared-object"`
 
 ###### Inherited from
 
@@ -4354,7 +4359,7 @@ by default when `output` is a TTY.
 
 ##### kind
 
-> **kind**: `"unknown"` \| `"executable"` \| `"vdso"` \| `"pie-executable"` \| `"shared-object"`
+> **kind**: `"unknown"` \| `"vdso"` \| `"executable"` \| `"pie-executable"` \| `"shared-object"`
 
 ###### Inherited from
 
@@ -4910,7 +4915,7 @@ by default when `output` is a TTY.
 
 ##### kind
 
-> **kind**: `"pointer"` \| `"integer"` \| `"code-pointer"` \| `"ambiguous"`
+> **kind**: `"pointer"` \| `"code-pointer"` \| `"ambiguous"` \| `"integer"`
 
 ##### sourceValue
 
@@ -7730,6 +7735,24 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 ##### refusals
 
 > **refusals**: [`PortableMachineSnapshotRefusal`](#portablemachinesnapshotrefusal)[]
+
+***
+
+### PortableMachineSnapshotDocuments
+
+#### Properties
+
+##### rootDir?
+
+> `optional` **rootDir?**: `string`
+
+##### manifest
+
+> **manifest**: [`PortableMachineSnapshotManifest`](#portablemachinesnapshotmanifest)
+
+##### nativeProcessImage
+
+> **nativeProcessImage**: [`NativeProcessImageDocuments`](#nativeprocessimagedocuments)
 
 ***
 
@@ -12037,7 +12060,21 @@ loops; anything looser stops being a meaningful gate.
 
 > `const` **PORTABLE\_MACHINE\_SNAPSHOT\_FORMAT\_VERSION**: `1` = `1`
 
-Portable cross-ISA machine snapshot boundary metadata.
+***
+
+### PORTABLE\_MACHINE\_SNAPSHOT\_FILES
+
+> `const` **PORTABLE\_MACHINE\_SNAPSHOT\_FILES**: `object`
+
+#### Type Declaration
+
+##### manifest
+
+> `readonly` **manifest**: `"portable-machine.json"` = `"portable-machine.json"`
+
+##### nativeProcessImage
+
+> `readonly` **nativeProcessImage**: `"native-process"` = `"native-process"`
 
 ***
 
@@ -13647,6 +13684,58 @@ behaviour we had before.
 #### Returns
 
 [`PidStatus`](#pidstatus)
+
+***
+
+### isPortableMachineSnapshotBundle()
+
+> **isPortableMachineSnapshotBundle**(`rootDir`): `boolean`
+
+#### Parameters
+
+##### rootDir
+
+`string`
+
+#### Returns
+
+`boolean`
+
+***
+
+### validatePortableMachineSnapshotBundle()
+
+> **validatePortableMachineSnapshotBundle**(`rootDir`): [`PortableMachineSnapshotDocuments`](#portablemachinesnapshotdocuments)
+
+#### Parameters
+
+##### rootDir
+
+`string`
+
+#### Returns
+
+[`PortableMachineSnapshotDocuments`](#portablemachinesnapshotdocuments)
+
+***
+
+### buildPortableMachineSnapshotManifestFromNativeProcessImage()
+
+> **buildPortableMachineSnapshotManifestFromNativeProcessImage**(`nativeProcessImage`, `nativeProcessPath?`): [`PortableMachineSnapshotManifest`](#portablemachinesnapshotmanifest)
+
+#### Parameters
+
+##### nativeProcessImage
+
+[`NativeProcessImageDocuments`](#nativeprocessimagedocuments)
+
+##### nativeProcessPath?
+
+`"native-process"` = `PORTABLE_MACHINE_SNAPSHOT_FILES.nativeProcessImage`
+
+#### Returns
+
+[`PortableMachineSnapshotManifest`](#portablemachinesnapshotmanifest)
 
 ***
 
