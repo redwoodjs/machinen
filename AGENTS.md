@@ -2,20 +2,39 @@
 
 ## Testing
 
-Before completing any work, you MUST run and pass:
+Before completing work, run the smallest validation set that directly covers the
+changed behavior, plus the relevant static checks. Report timing for every
+validation command you claim passed.
 
-1. Unit tests: `npx vitest run`
-2. Workflows: `npx agent-ci run --all -q -p`
-3. Smoke tests: `pnpm smoke-tests` — end-to-end VM boot/exec/snapshot
-   coverage the unit suite can't reach. Treat as a peer of 1 and 2;
-   don't report work done while it's red.
+Default validation for TypeScript/runtime/docs changes:
 
-If any of the three fails, fix the issue and re-run.
+1. Format: `pnpm run format:check`
+2. Lint: `pnpm run lint`
+3. Docs/API when public exports or docs changed: `pnpm run build:docs`
+4. Typecheck: `pnpm run typecheck`
+5. Unit tests: `NPM_CONFIG_USERCONFIG=/dev/null npx vitest run`
+6. Architecture audit for code changes: `pnpm exec fallow audit --changed-since origin/main`
+
+Use targeted tests/proofs when the change is narrow. For example, native
+synthetic syscall work should run the focused Vitest files plus the arm64 capture
+and amd64 target proof, rather than the full VM smoke suite.
+
+Run full smoke tests with
+`MACHINEN_REMOTE_BUILDER=friend@100.126.46.90 pnpm smoke-tests` only when the
+change touches VM lifecycle, VMM, rootfs/base assets, CLI boot/exec/mount,
+snapshot/restore, virtio devices, memory/ballooning, FUSE/live mounts, or when
+the user explicitly asks for broad end-to-end validation. If full smoke tests are
+skipped, state why and list the targeted validation that covers the change.
+
+If any required or chosen validation fails, fix the issue and re-run the failing
+command plus any dependent checks.
 
 ## CI
 
-- Always use `--quiet` (`-q`) when running agent-ci.
-- Check all workflows with: `npx agent-ci run --all -q -p`
+- Do not run Agent CI by default. Run it only when workflow/CI files changed or
+  when the user explicitly asks for it.
+- When running agent-ci, always use `--quiet` (`-q`).
+- Check all workflows with: `NPM_CONFIG_USERCONFIG=/dev/null npx agent-ci run --all -q -p`
 - **Never** pipe agent-ci through `2>&1`, `tail`, or any other pipe. agent-ci does not exit on its own — it stays attached after the run finishes. Run it as a background process and use the `Monitor` tool to stream its output, watching for a **pause event** that signals the run is complete. Only then read results.
 
 ## Code
