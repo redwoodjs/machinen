@@ -1,6 +1,15 @@
 import { existsSync } from "node:fs";
 import { relative, resolve } from "node:path";
+import type { NativeProcessImageRefusal } from "./native-process-image.ts";
+import type { NativeTargetFdTablePlan } from "./native-resource-translation.ts";
 import { validatePortableMachineSnapshotBundle } from "./portable-machine-snapshot.ts";
+import {
+  TARGET_GUEST_RESTORE_DESCRIPTOR_KIND,
+  validateTargetGuestRestoreDescriptor,
+  type TargetGuestRestoreContinuationDescriptor,
+  type TargetGuestRestoreDescriptor,
+} from "./target-guest-restore-loader.ts";
+import type { TargetGuestMemoryMaterializationResult } from "./target-guest-memory-materialization.ts";
 
 export type PortableMachineVmRestoreProofState = "ready" | "skipped" | "refused" | "completed";
 
@@ -34,6 +43,61 @@ export interface PortableMachineVmRestoreTargetResult {
   sourceTextReusedAsTargetCode?: boolean;
   sourceIsaEmulationUsed?: boolean;
   sidecarRuntimeUsed?: boolean;
+}
+
+export interface PortableMachineTargetRestoreDescriptorRequest {
+  continuation: TargetGuestRestoreContinuationDescriptor;
+  fdTable: NativeTargetFdTablePlan;
+  memory: TargetGuestMemoryMaterializationResult;
+}
+
+export type PortableMachineTargetRestoreDescriptorPlan =
+  | {
+      state: "ready";
+      descriptor: TargetGuestRestoreDescriptor;
+      refusals: [];
+      memoryEntryCount: number;
+      fdRecipeCount: number;
+      sourceTextReusedAsTargetCode: false;
+      sourceIsaEmulationUsed: false;
+      sidecarRuntimeUsed: false;
+    }
+  | {
+      state: "refused";
+      refusals: NativeProcessImageRefusal[];
+      memoryEntryCount: number;
+      fdRecipeCount: number;
+      sourceTextReusedAsTargetCode: false;
+      sourceIsaEmulationUsed: false;
+      sidecarRuntimeUsed: false;
+    };
+
+export function planPortableMachineTargetRestoreDescriptor(
+  request: PortableMachineTargetRestoreDescriptorRequest,
+): PortableMachineTargetRestoreDescriptorPlan {
+  const refusals = [...request.fdTable.refusals, ...request.memory.refusals];
+  const base = {
+    memoryEntryCount: request.memory.entries.length,
+    fdRecipeCount: request.fdTable.targetGuestResources.length,
+    sourceTextReusedAsTargetCode: false as const,
+    sourceIsaEmulationUsed: false as const,
+    sidecarRuntimeUsed: false as const,
+  };
+  if (refusals.length > 0) {
+    return { ...base, state: "refused", refusals };
+  }
+  return {
+    ...base,
+    state: "ready",
+    refusals: [],
+    descriptor: validateTargetGuestRestoreDescriptor({
+      kind: TARGET_GUEST_RESTORE_DESCRIPTOR_KIND,
+      targetArch: "amd64",
+      continuation: request.continuation,
+      resources: request.fdTable.targetGuestResources,
+      memory: request.memory.entries,
+    }),
+  };
 }
 
 export function planPortableMachineVmRestoreProof(

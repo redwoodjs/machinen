@@ -7,9 +7,12 @@ arm64 source context -> portable machine snapshot bundle -> amd64 target VM -> t
 ```
 
 The proof harness requires a validated portable machine snapshot bundle and target
-continuation bytes stored inside that bundle. It then boots the amd64 target VM
-through the target-guest loader path. A run is successful only when the target VM
-reports target-native completion with:
+continuation bytes stored inside that bundle. It can now combine target
+continuation metadata, target guest memory materialization entries, and the
+translated fd-table recipes into one target-guest restore descriptor before VM
+execution. Unsafe memory or fd state refuses before descriptor execution. The
+harness then boots the amd64 target VM through the target-guest loader path. A
+run is successful only when the target VM reports target-native completion with:
 
 - `migrationCompleted: true`
 - `sourceTextReusedAsTargetCode: false`
@@ -31,6 +34,12 @@ The harness skips clearly when no amd64 VM image is available. CI should run thi
 profile whenever portable machine bundle layout, target guest loader behavior,
 restore descriptor handling, or target-native continuation execution changes.
 Raw cross-ISA `.vmstate` replay remains a refusal, not a success path.
+
+`planPortableMachineTargetRestoreDescriptor()` is the combined descriptor gate:
+fd-table refusals, executable-source memory, ambiguous mappings, and other unsafe
+materialization blockers are returned as refusals instead of entering the guest.
+Ready descriptors include only generated/target-native continuation bytes,
+explicit fd-table recipes, and safe non-executable memory entries.
 
 ## Smoke profile
 

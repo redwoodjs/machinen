@@ -190,7 +190,21 @@ Likely subproofs:
 TLS, vDSO, and vvar should return here only after syscall-family proofs provide
 comparison points for what must be modeled versus refused.
 
-### 10. Threads, futexes, and rseq
+### 10. Combined descriptor gate — done
+
+Goal: feed continuation bytes, target guest memory materialization entries, and
+fd-table recipes into one restore descriptor, refusing unsafe pieces before guest
+execution.
+
+Done when:
+
+- one descriptor contains the continuation, safe non-executable memory entries,
+  and modeled fd recipes;
+- fd-table refusals and memory refusals prevent descriptor execution;
+- the descriptor preserves no-source-text, no-source-ISA-emulation, and no-sidecar
+  invariants.
+
+### 11. Threads, futexes, and rseq
 
 Goal: move from single-thread proofs to controlled multi-thread restore.
 
@@ -201,7 +215,7 @@ Done when:
 - futex wait/wake and rseq either model their kernel contracts or refuse with
   exact blockers.
 
-### 11. Full transparent restore claim
+### 12. Full transparent restore claim
 
 Goal: claim native cross-ISA live process migration for a constrained class of
 real Linux processes.

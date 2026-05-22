@@ -424,6 +424,7 @@ export {
 export { planTargetGuestMemoryMaterialization } from "./target-guest-memory-materialization.ts";
 export {
   completePortableMachineVmRestoreProof,
+  planPortableMachineTargetRestoreDescriptor,
   planPortableMachineVmRestoreProof,
 } from "./portable-machine-restore-proof.ts";
 export type {
@@ -449,6 +450,8 @@ export type {
   TargetGuestRecreateGuardEntry,
 } from "./target-guest-memory-materialization.ts";
 export type {
+  PortableMachineTargetRestoreDescriptorPlan,
+  PortableMachineTargetRestoreDescriptorRequest,
   PortableMachineVmRestoreProofPlan,
   PortableMachineVmRestoreProofRequest,
   PortableMachineVmRestoreProofState,

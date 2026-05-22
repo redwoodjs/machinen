@@ -106,6 +106,8 @@
 - [`TargetGuestRecreateGuardEntry`](#targetguestrecreateguardentry)
 - [`TargetGuestMemoryMaterializationRequest`](#targetguestmemorymaterializationrequest)
 - [`TargetGuestMemoryMaterializationResult`](#targetguestmemorymaterializationresult)
+- [`PortableMachineTargetRestoreDescriptorRequest`](#portablemachinetargetrestoredescriptorrequest)
+- [`PortableMachineTargetRestoreDescriptorPlan`](#portablemachinetargetrestoredescriptorplan)
 - [`PortableMachineVmRestoreProofState`](#portablemachinevmrestoreproofstate)
 - [`PortableMachineVmRestoreProofRequest`](#portablemachinevmrestoreproofrequest)
 - [`PortableMachineVmRestoreProofPlan`](#portablemachinevmrestoreproofplan)
@@ -115,6 +117,7 @@
 - [`parseTargetGuestRestoreDescriptor`](#parsetargetguestrestoredescriptor)
 - [`validateTargetGuestRestoreDescriptor`](#validatetargetguestrestoredescriptor)
 - [`planTargetGuestMemoryMaterialization`](#plantargetguestmemorymaterialization)
+- [`planPortableMachineTargetRestoreDescriptor`](#planportablemachinetargetrestoredescriptor)
 - [`planPortableMachineVmRestoreProof`](#planportablemachinevmrestoreproof)
 - [`completePortableMachineVmRestoreProof`](#completeportablemachinevmrestoreproof)
 - [`buildNativeActualResumeTrampolineArgs`](#buildnativeactualresumetrampolineargs)
@@ -8120,6 +8123,24 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ***
 
+### PortableMachineTargetRestoreDescriptorRequest
+
+#### Properties
+
+##### continuation
+
+> **continuation**: [`TargetGuestRestoreContinuationDescriptor`](#targetguestrestorecontinuationdescriptor)
+
+##### fdTable
+
+> **fdTable**: [`NativeTargetFdTablePlan`](#nativetargetfdtableplan)
+
+##### memory
+
+> **memory**: [`TargetGuestMemoryMaterializationResult`](#targetguestmemorymaterializationresult)
+
+***
+
 ### PortableMachineSnapshotRefusal
 
 #### Properties
@@ -10277,7 +10298,7 @@ need to set it.
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`memory`](#memory-3)
+[`BootOptions`](#bootoptions).[`memory`](#memory-4)
 
 ##### pdeathsig?
 
@@ -11095,7 +11116,7 @@ need to set it.
 
 ###### Inherited from
 
-[`BootOptions`](#bootoptions).[`memory`](#memory-3)
+[`BootOptions`](#bootoptions).[`memory`](#memory-4)
 
 ##### pdeathsig?
 
@@ -11569,6 +11590,12 @@ Result of `validatePid` — easy to switch on at the call site.
 ### PortableMachineVmRestoreProofState
 
 > **PortableMachineVmRestoreProofState** = `"ready"` \| `"skipped"` \| `"refused"` \| `"completed"`
+
+***
+
+### PortableMachineTargetRestoreDescriptorPlan
+
+> **PortableMachineTargetRestoreDescriptorPlan** = \{ `state`: `"ready"`; `descriptor`: [`TargetGuestRestoreDescriptor`](#targetguestrestoredescriptor); `refusals`: \[\]; `memoryEntryCount`: `number`; `fdRecipeCount`: `number`; `sourceTextReusedAsTargetCode`: `false`; `sourceIsaEmulationUsed`: `false`; `sidecarRuntimeUsed`: `false`; \} \| \{ `state`: `"refused"`; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; `memoryEntryCount`: `number`; `fdRecipeCount`: `number`; `sourceTextReusedAsTargetCode`: `false`; `sourceIsaEmulationUsed`: `false`; `sidecarRuntimeUsed`: `false`; \}
 
 ***
 
@@ -14416,6 +14443,22 @@ behaviour we had before.
 #### Returns
 
 [`PidStatus`](#pidstatus)
+
+***
+
+### planPortableMachineTargetRestoreDescriptor()
+
+> **planPortableMachineTargetRestoreDescriptor**(`request`): [`PortableMachineTargetRestoreDescriptorPlan`](#portablemachinetargetrestoredescriptorplan)
+
+#### Parameters
+
+##### request
+
+[`PortableMachineTargetRestoreDescriptorRequest`](#portablemachinetargetrestoredescriptorrequest)
+
+#### Returns
+
+[`PortableMachineTargetRestoreDescriptorPlan`](#portablemachinetargetrestoredescriptorplan)
 
 ***
 
