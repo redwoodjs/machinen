@@ -2,6 +2,11 @@
 
 import { createHash } from "node:crypto";
 
+import type {
+  NativeProcessImageRefusal,
+  NativeProcessImageRefusalCode,
+} from "./native-process-image.ts";
+
 export const NATIVE_SYNTHETIC_SYSCALL_RESTART_EXIT_STATUS = 111;
 export const NATIVE_SYNTHETIC_SYSCALL_UNMODELED_RETURN_EXIT_STATUS = 112;
 
@@ -92,6 +97,11 @@ export interface NativeSyntheticContinuationCompletionDescriptor {
   failureExitBuckets?: NativeSyntheticContinuationFailureExitBucket[];
 }
 
+interface NativeSyntheticTimespecDuration {
+  seconds: string;
+  nanoseconds: number;
+}
+
 interface NativeSyntheticTimespecEmbeddedDataDescriptor {
   kind: "timespec";
   offset: number;
@@ -100,6 +110,25 @@ interface NativeSyntheticTimespecEmbeddedDataDescriptor {
   byteOrder: "little-endian";
   pointerRegister: "rdx";
   pointerEncoding: "rip-relative";
+}
+
+interface NativeSyntheticTimespecSyscallBytecodeRequest {
+  syscallNumber: number;
+  argumentSetup: number[][];
+  completionMode: string;
+  returningTimespecOffset: number;
+  returningCodeSize: number;
+  exitingTimespecOffset: number;
+  exitingCodeSize: number;
+  remainingTime: NativeSyntheticTimespecDuration;
+}
+
+interface NativeSyntheticTimespecBoundsRefusalRequest {
+  threadId: string;
+  remainingTime: NativeSyntheticTimespecDuration;
+  refusalCode: NativeProcessImageRefusalCode;
+  message: string;
+  detail?: Record<string, unknown>;
 }
 
 export interface NativeSyntheticSyscallContinuationDescriptorRequest {
@@ -223,6 +252,93 @@ export function nativeSyntheticContinuationDescriptorSha256(
   return createHash("sha256").update(JSON.stringify(descriptor)).digest("hex");
 }
 
+export function buildNativeSyntheticTimespecSyscallBytes(
+  request: NativeSyntheticTimespecSyscallBytecodeRequest,
+): Uint8Array {
+  const timespecOffset = nativeSyntheticTimespecOffset(request);
+  const bytes = new Uint8Array(
+    request.completionMode === "exit-process" ? request.exitingCodeSize : request.returningCodeSize,
+  );
+  const prefix = nativeSyntheticAmd64SyscallPrefix({
+    syscallNumber: request.syscallNumber,
+    argumentSetup: request.argumentSetup,
+  });
+  bytes.set(prefix, 0);
+  if (request.completionMode === "exit-process") {
+    const suffix = nativeSyntheticExitProcessSuffix();
+    bytes.set(suffix, prefix.length);
+    bytes.fill(0x90, prefix.length + suffix.length, timespecOffset);
+  } else {
+    bytes.set([0xc3], prefix.length);
+    bytes.fill(0x90, prefix.length + 1, timespecOffset);
+  }
+  writeNativeSyntheticRipRelativeTimespec(bytes, timespecOffset, request.remainingTime);
+  return bytes;
+}
+
+export function nativeSyntheticTimespecOffset(
+  request: Pick<
+    NativeSyntheticTimespecSyscallBytecodeRequest,
+    "completionMode" | "returningTimespecOffset" | "exitingTimespecOffset"
+  >,
+): number {
+  return request.completionMode === "exit-process"
+    ? request.exitingTimespecOffset
+    : request.returningTimespecOffset;
+}
+
+export function nativeSyntheticAmd64SyscallPrefix(request: {
+  syscallNumber: number;
+  argumentSetup: number[][];
+}): number[] {
+  return [
+    ...nativeSyntheticAmd64MovEaxImmediate32(request.syscallNumber),
+    ...request.argumentSetup.flat(),
+    ...nativeSyntheticAmd64SyscallInstruction(),
+  ];
+}
+
+function nativeSyntheticAmd64MovEaxImmediate32(value: number): number[] {
+  return [0xb8, value & 0xff, (value >> 8) & 0xff, (value >> 16) & 0xff, (value >> 24) & 0xff];
+}
+
+export function nativeSyntheticAmd64ZeroRegister32(
+  register: "rdi" | "rsi" | "r10" | "r8",
+): number[] {
+  switch (register) {
+    case "rdi":
+      return [0x31, 0xff];
+    case "rsi":
+      return [0x31, 0xf6];
+    case "r10":
+      return [0x45, 0x31, 0xd2];
+    case "r8":
+      return [0x45, 0x31, 0xc0];
+  }
+}
+
+export function nativeSyntheticAmd64LeaRdxRipRelativePlaceholder(): number[] {
+  return [0x48, 0x8d, 0x15, 0x00, 0x00, 0x00, 0x00];
+}
+
+function nativeSyntheticAmd64SyscallInstruction(): number[] {
+  return [0x0f, 0x05];
+}
+
+export function nativeSyntheticTimespecBoundsRefusal(
+  request: NativeSyntheticTimespecBoundsRefusalRequest,
+): NativeProcessImageRefusal | undefined {
+  const seconds = BigInt(request.remainingTime.seconds);
+  if (seconds <= 0x7fff_ffff_ffff_ffffn && request.remainingTime.nanoseconds <= 999_999_999) {
+    return undefined;
+  }
+  return {
+    code: request.refusalCode,
+    message: request.message,
+    detail: { remainingTime: request.remainingTime, ...request.detail },
+  };
+}
+
 export function nativeSyntheticRestartLikeErrnos(): { errno: number; errnoName: string }[] {
   return [
     { errno: 4, errnoName: "EINTR" },
@@ -329,7 +445,7 @@ export function nativeSyntheticSyscallTimespecProvenance(
   };
 }
 
-export function writeNativeSyntheticRipRelativeTimespec(
+function writeNativeSyntheticRipRelativeTimespec(
   bytes: Uint8Array,
   timespecOffset: number,
   remainingTime: { seconds: string; nanoseconds: number },

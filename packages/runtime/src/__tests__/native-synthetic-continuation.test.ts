@@ -2,9 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildNativeSyntheticSyscallContinuationDescriptor,
+  buildNativeSyntheticTimespecSyscallBytes,
+  nativeSyntheticAmd64LeaRdxRipRelativePlaceholder,
+  nativeSyntheticAmd64SyscallPrefix,
+  nativeSyntheticAmd64ZeroRegister32,
   nativeSyntheticContinuationBytesHex,
   nativeSyntheticContinuationBytesSha256,
   nativeSyntheticContinuationDescriptorSha256,
+  nativeSyntheticTimespecBoundsRefusal,
 } from "../native-synthetic-continuation.ts";
 
 const args = [
@@ -17,6 +22,89 @@ const args = [
 ];
 
 describe("native synthetic continuation descriptor", () => {
+  it("builds shared amd64 syscall prefixes and timespec byte layouts", () => {
+    expect(
+      Buffer.from(
+        nativeSyntheticAmd64SyscallPrefix({
+          syscallNumber: 271,
+          argumentSetup: [
+            nativeSyntheticAmd64ZeroRegister32("rdi"),
+            nativeSyntheticAmd64ZeroRegister32("rsi"),
+            nativeSyntheticAmd64LeaRdxRipRelativePlaceholder(),
+            nativeSyntheticAmd64ZeroRegister32("r10"),
+            nativeSyntheticAmd64ZeroRegister32("r8"),
+          ],
+        }),
+      ).toString("hex"),
+    ).toBe("b80f01000031ff31f6488d15000000004531d24531c00f05");
+
+    const returning = buildNativeSyntheticTimespecSyscallBytes({
+      syscallNumber: 230,
+      argumentSetup: [
+        nativeSyntheticAmd64ZeroRegister32("rdi"),
+        nativeSyntheticAmd64ZeroRegister32("rsi"),
+        nativeSyntheticAmd64LeaRdxRipRelativePlaceholder(),
+        nativeSyntheticAmd64ZeroRegister32("r10"),
+      ],
+      completionMode: "return-to-trampoline",
+      returningTimespecOffset: 24,
+      returningCodeSize: 40,
+      exitingTimespecOffset: 104,
+      exitingCodeSize: 120,
+      remainingTime: { seconds: "2", nanoseconds: 500 },
+    });
+
+    expect(Buffer.from(returning.subarray(0, 24)).toString("hex")).toBe(
+      "b8e600000031ff31f6488d15080000004531d20f05c39090",
+    );
+    expect(new DataView(returning.buffer).getBigUint64(24, true)).toBe(2n);
+
+    const exiting = buildNativeSyntheticTimespecSyscallBytes({
+      syscallNumber: 271,
+      argumentSetup: [
+        nativeSyntheticAmd64ZeroRegister32("rdi"),
+        nativeSyntheticAmd64ZeroRegister32("rsi"),
+        nativeSyntheticAmd64LeaRdxRipRelativePlaceholder(),
+        nativeSyntheticAmd64ZeroRegister32("r10"),
+        nativeSyntheticAmd64ZeroRegister32("r8"),
+      ],
+      completionMode: "exit-process",
+      returningTimespecOffset: 32,
+      returningCodeSize: 48,
+      exitingTimespecOffset: 112,
+      exitingCodeSize: 128,
+      remainingTime: { seconds: "0", nanoseconds: 0 },
+    });
+
+    expect(Buffer.from(exiting.subarray(0, 24)).toString("hex")).toBe(
+      "b80f01000031ff31f6488d15600000004531d24531c00f05",
+    );
+    expect(Buffer.from(exiting.subarray(107, 112)).toString("hex")).toBe("9090909090");
+    expect(new DataView(exiting.buffer).getBigUint64(112, true)).toBe(0n);
+  });
+
+  it("shares amd64 timespec bounds refusals", () => {
+    expect(
+      nativeSyntheticTimespecBoundsRefusal({
+        threadId: "thread:1",
+        remainingTime: { seconds: "1", nanoseconds: 0 },
+        refusalCode: "target-sleep-syscall-continuation-missing",
+        message: "ok",
+      }),
+    ).toBeUndefined();
+    expect(
+      nativeSyntheticTimespecBoundsRefusal({
+        threadId: "thread:1",
+        remainingTime: { seconds: "9223372036854775808", nanoseconds: 0 },
+        refusalCode: "target-sleep-syscall-continuation-missing",
+        message: "too large",
+      }),
+    ).toMatchObject({
+      code: "target-sleep-syscall-continuation-missing",
+      detail: { remainingTime: { seconds: "9223372036854775808" } },
+    });
+  });
+
   it("describes generated amd64 syscall bytes, ABI setup, and completion policy", () => {
     const bytes = new Uint8Array([0xb8, 0x27, 0x00, 0x00, 0x00, 0x0f, 0x05]);
     const descriptor = buildNativeSyntheticSyscallContinuationDescriptor({
