@@ -110,6 +110,8 @@
 - [`PortableMachineTargetRestoreDescriptorPlan`](#portablemachinetargetrestoredescriptorplan)
 - [`PortableMachineVmRestoreProofState`](#portablemachinevmrestoreproofstate)
 - [`PortableMachineTargetContinuationKind`](#portablemachinetargetcontinuationkind)
+- [`PortableMachineTargetResourceStatus`](#portablemachinetargetresourcestatus)
+- [`PortableMachineTargetStateConsumptionResult`](#portablemachinetargetstateconsumptionresult)
 - [`PortableMachineTargetVerifierResult`](#portablemachinetargetverifierresult)
 - [`PortableMachineVmRestoreProofRequest`](#portablemachinevmrestoreproofrequest)
 - [`PortableMachineVmRestoreProofPlan`](#portablemachinevmrestoreproofplan)
@@ -8025,6 +8027,20 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ***
 
+### PortableMachineTargetResourceStatus
+
+#### Properties
+
+##### kind
+
+> **kind**: `string`
+
+##### status
+
+> **status**: `"passed"` \| `"failed"`
+
+***
+
 ### PortableMachineVmRestoreProofPlan
 
 #### Properties
@@ -8105,6 +8121,14 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 > `optional` **targetModuleBytesSource?**: `string`
 
+##### targetStateConsumptionResult?
+
+> `optional` **targetStateConsumptionResult?**: [`PortableMachineTargetStateConsumptionResult`](#portablemachinetargetstateconsumptionresult)
+
+##### targetResourceStatuses?
+
+> `optional` **targetResourceStatuses?**: [`PortableMachineTargetResourceStatus`](#portablemachinetargetresourcestatus)[]
+
 ##### sourceTextReusedAsTargetCode
 
 > **sourceTextReusedAsTargetCode**: `false`
@@ -8166,6 +8190,14 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 ###### returnValue?
 
 > `optional` **returnValue?**: `string`
+
+##### targetStateConsumptionResult?
+
+> `optional` **targetStateConsumptionResult?**: [`PortableMachineTargetStateConsumptionResult`](#portablemachinetargetstateconsumptionresult)
+
+##### targetResourceStatuses?
+
+> `optional` **targetResourceStatuses?**: [`PortableMachineTargetResourceStatus`](#portablemachinetargetresourcestatus)[]
 
 ##### sourceTextReusedAsTargetCode?
 
@@ -9150,6 +9182,10 @@ Poll interval in ms while retrying. Default 250.
 ##### argument0?
 
 > `optional` **argument0?**: `string`
+
+##### stateReportAddress?
+
+> `optional` **stateReportAddress?**: `string`
 
 ##### timeoutSeconds
 
@@ -11664,6 +11700,12 @@ Result of `validatePid` — easy to switch on at the call site.
 ### PortableMachineTargetContinuationKind
 
 > **PortableMachineTargetContinuationKind** = `"generated-verifier"` \| `"real-utility"`
+
+***
+
+### PortableMachineTargetStateConsumptionResult
+
+> **PortableMachineTargetStateConsumptionResult** = `"pending"` \| `"passed"` \| `"failed"`
 
 ***
 

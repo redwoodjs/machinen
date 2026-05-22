@@ -34,6 +34,15 @@
 
 #define MAX_MATERIALIZED_MAPPINGS 32
 #define MAX_CLOEXEC_FDS 64
+#define STATE_CONSUMPTION_MARKER UINT64_C(0x5354415445434f4e)
+#define STATE_CONSUMPTION_MASK UINT64_C(0x7f)
+#define STATE_CHECK_MEMORY UINT64_C(0x01)
+#define STATE_CHECK_STDIO UINT64_C(0x02)
+#define STATE_CHECK_CLOSE_FD UINT64_C(0x04)
+#define STATE_CHECK_REOPEN_FILE UINT64_C(0x08)
+#define STATE_CHECK_PIPE UINT64_C(0x10)
+#define STATE_CHECK_EVENTFD UINT64_C(0x20)
+#define STATE_CHECK_TIMERFD UINT64_C(0x40)
 
 struct MemoryMaterialization {
   const char *source_file;
@@ -55,6 +64,8 @@ struct Options {
   uint64_t target_address;
   bool has_argument0;
   uint64_t argument0;
+  bool has_state_report_address;
+  uint64_t state_report_address;
   uint64_t stack_target_start;
   uint64_t stack_size;
   uint64_t stack_pointer;
@@ -75,8 +86,9 @@ static void usage(void) {
   fprintf(stderr,
       "usage: machinen-native-actual-resume-trampoline --code-file path "
       "--file-offset n --code-size n --target-address addr "
-      "[--argument0 addr] --timeout-seconds n [--synthetic-empty-pipe-read-fd n] "
-      "[--synthetic-empty-pipe-write-fd n] [--synthetic-empty-eventfd n] "
+      "[--argument0 addr] [--state-report-address addr] --timeout-seconds n "
+      "[--synthetic-empty-pipe-read-fd n] [--synthetic-empty-pipe-write-fd n] "
+      "[--synthetic-empty-eventfd n] "
       "[--synthetic-timerfd n] [--set-cloexec-fd n] "
       "[--materialize-memory file:offset:target:size:perms] "
       "[--materialize-guard target:size] "
@@ -206,6 +218,12 @@ static struct Options parse_args(int argc, char **argv) {
       }
       opts.argument0 = parse_u64(argv[i], "argument0");
       opts.has_argument0 = true;
+    } else if (streq(argv[i], "--state-report-address")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.state_report_address = parse_u64(argv[i], "state-report-address");
+      opts.has_state_report_address = true;
     } else if (streq(argv[i], "--timeout-seconds")) {
       if (++i >= argc) {
         usage();
@@ -738,6 +756,73 @@ static void print_fault_event(const struct Options *opts) {
       rip_inside_target_bytes(rip) ? "true" : "false");
 }
 
+static uint64_t read_state_report_u64(uint64_t base, uint64_t offset) {
+  volatile uint64_t *slot = (volatile uint64_t *)(uintptr_t)(base + offset);
+  return *slot;
+}
+
+static uint8_t read_state_report_u8(uint64_t base, uint64_t offset) {
+  volatile uint8_t *slot = (volatile uint8_t *)(uintptr_t)(base + offset);
+  return *slot;
+}
+
+static void print_check_status(const char *kind, uint64_t mask, uint64_t bit) {
+  printf("{\"kind\":\"%s\",\"status\":\"%s\"}",
+      kind,
+      (mask & bit) == bit ? "passed" : "failed");
+}
+
+static void print_state_consumption(const struct Options *opts) {
+  if (!opts->has_state_report_address) {
+    return;
+  }
+  uint64_t base = opts->state_report_address;
+  uint8_t memory_byte = read_state_report_u8(base, 0);
+  uint64_t marker = read_state_report_u64(base, 8);
+  uint64_t mask = read_state_report_u64(base, 16);
+  bool passed = marker == STATE_CONSUMPTION_MARKER && mask == STATE_CONSUMPTION_MASK;
+  printf(
+      ",\"stateConsumption\":{\"status\":\"%s\","
+      "\"reportAddress\":\"0x%" PRIx64 "\","
+      "\"memoryByte\":\"0x%02x\","
+      "\"reportMarker\":\"0x%" PRIx64 "\","
+      "\"resourceMask\":\"0x%" PRIx64 "\","
+      "\"expectedResourceMask\":\"0x%" PRIx64 "\","
+      "\"checks\":[",
+      passed ? "passed" : "failed",
+      base,
+      memory_byte,
+      marker,
+      mask,
+      STATE_CONSUMPTION_MASK);
+  print_check_status("captured-memory", mask, STATE_CHECK_MEMORY);
+  printf(",");
+  print_check_status("inherit-stdio", mask, STATE_CHECK_STDIO);
+  printf(",");
+  print_check_status("close-fd", mask, STATE_CHECK_CLOSE_FD);
+  printf(",");
+  print_check_status("reopen-file", mask, STATE_CHECK_REOPEN_FILE);
+  printf(",");
+  print_check_status("synthetic-empty-pipe", mask, STATE_CHECK_PIPE);
+  printf(",");
+  print_check_status("synthetic-empty-eventfd", mask, STATE_CHECK_EVENTFD);
+  printf(",");
+  print_check_status("synthetic-timerfd", mask, STATE_CHECK_TIMERFD);
+  printf("],\"resourceStatuses\":[");
+  print_check_status("inherit-stdio", mask, STATE_CHECK_STDIO);
+  printf(",");
+  print_check_status("close-fd", mask, STATE_CHECK_CLOSE_FD);
+  printf(",");
+  print_check_status("reopen-file", mask, STATE_CHECK_REOPEN_FILE);
+  printf(",");
+  print_check_status("synthetic-empty-pipe", mask, STATE_CHECK_PIPE);
+  printf(",");
+  print_check_status("synthetic-empty-eventfd", mask, STATE_CHECK_EVENTFD);
+  printf(",");
+  print_check_status("synthetic-timerfd", mask, STATE_CHECK_TIMERFD);
+  printf("]}");
+}
+
 static void print_return_event(const struct Options *opts) {
   printf(
       "MACHINEN_ACTUAL_RESUME_TRAMPOLINE {\"status\":\"returned\"," 
@@ -749,13 +834,15 @@ static void print_return_event(const struct Options *opts) {
       "\"targetBytesEnd\":\"0x%" PRIx64 "\"," 
       "\"instructionPointerInTargetBytes\":true,"
       "\"attemptedResume\":true,\"sourceTextReusedAsTargetCode\":false,"
-      "\"sourceIsaEmulationUsed\":false,\"sidecarRuntimeUsed\":false}\n",
+      "\"sourceIsaEmulationUsed\":false,\"sidecarRuntimeUsed\":false",
       opts->target_address,
       resume_return_value,
       opts->argument0,
       opts->stack_pointer,
       mapped_target_start,
       mapped_target_end);
+  print_state_consumption(opts);
+  printf("}\n");
 }
 
 int main(int argc, char **argv) {

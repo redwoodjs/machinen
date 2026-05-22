@@ -451,8 +451,10 @@ export type {
 } from "./target-guest-memory-materialization.ts";
 export type {
   PortableMachineTargetContinuationKind,
+  PortableMachineTargetResourceStatus,
   PortableMachineTargetRestoreDescriptorPlan,
   PortableMachineTargetRestoreDescriptorRequest,
+  PortableMachineTargetStateConsumptionResult,
   PortableMachineTargetVerifierResult,
   PortableMachineVmRestoreProofPlan,
   PortableMachineVmRestoreProofRequest,

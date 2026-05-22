@@ -16,6 +16,7 @@ fileOffset=0
 codeSize=16
 targetAddress=0x700300000000
 argument0=0x600000000000
+stateReportAddress=0x600000000000
 timeoutSeconds=5
 stackTargetStart=0x500000000000
 stackSize=65536
@@ -65,6 +66,9 @@ Everything else fails closed with a precise refusal, currently:
 The existing target-VM synthetic proof now injects the loader and descriptor into
 the amd64 guest and executes the loader instead of invoking the trampoline
 directly. The descriptor may carry an optional `argument0` target register value
-for real target-native continuation attempts. Completion is credited only when
-the descriptor gate succeeds and the target-native continuation returns/exits in
-the guest with the expected modeled result.
+and an optional `stateReportAddress` for real target-native continuation
+attempts. The state report address lets the trampoline read a small report that
+the continuation writes after consuming restored memory and fd/resource state.
+Completion is credited only when the descriptor gate succeeds and the
+target-native continuation returns/exits in the guest with the expected modeled
+result.

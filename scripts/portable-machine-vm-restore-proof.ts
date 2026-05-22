@@ -21,7 +21,7 @@ import { matchNativeTargetUnwindFrame } from "../packages/runtime/src/native-tar
 import { validatePortableMachineSnapshotBundle } from "../packages/runtime/src/portable-machine-snapshot.ts";
 import { planTargetGuestMemoryMaterialization } from "../packages/runtime/src/target-guest-memory-materialization.ts";
 import { serializeTargetGuestRestoreDescriptor } from "../packages/runtime/src/target-guest-restore-loader.ts";
-import { FINAL_JUMP_EXPECTED_RETURN, finalJumpTargetCode } from "./native-final-jump-utils.ts";
+import { FINAL_JUMP_EXPECTED_RETURN } from "./native-final-jump-utils.ts";
 
 interface Args {
   bundleDir?: string;
@@ -62,6 +62,7 @@ interface PreparedTargetContinuation {
   kind: "generated-verifier" | "real-utility";
   bytes: Buffer;
   argument0?: string;
+  stateReportAddress?: string;
   expectedReturnValue?: string;
   targetModuleBytesSource?: string;
 }
@@ -79,6 +80,14 @@ const PROOF_PIPE_WRITE_FD = 9;
 const PROOF_EVENT_FD = 10;
 const PROOF_TIMER_FD = 11;
 const PROOF_FD_BYTES = Buffer.from("FD");
+const STATE_CONSUMPTION_MARKER = 0x5354415445434f4en;
+const STATE_CHECK_MEMORY = 0x01;
+const STATE_CHECK_STDIO = 0x02;
+const STATE_CHECK_CLOSE_FD = 0x04;
+const STATE_CHECK_REOPEN_FILE = 0x08;
+const STATE_CHECK_PIPE = 0x10;
+const STATE_CHECK_EVENTFD = 0x20;
+const STATE_CHECK_TIMERFD = 0x40;
 
 function usage(): never {
   console.error(
@@ -159,6 +168,8 @@ function planWithDescriptorDetails(
         descriptorResourceKinds: invocation.descriptorResourceKinds,
         targetContinuationKind: invocation.targetContinuationKind,
         targetModuleBytesSource: invocation.targetModuleBytesSource,
+        targetStateConsumptionResult:
+          invocation.targetContinuationKind === "real-utility" ? "pending" : undefined,
         targetVerifierResult: "pending",
       }
     : plan;
@@ -186,7 +197,11 @@ function prepareCombinedDescriptor(
   writeFileSync(context.targetCodeFile, targetContinuation.bytes);
 
   const descriptorPlan = planPortableMachineTargetRestoreDescriptor({
-    continuation: continuationDescriptor(context.targetCodeFile, targetContinuation.argument0),
+    continuation: continuationDescriptor(
+      context.targetCodeFile,
+      targetContinuation.argument0,
+      targetContinuation.stateReportAddress,
+    ),
     fdTable: proofFdTable(),
     memory: proofMemoryPlan(context),
   });
@@ -252,13 +267,18 @@ function proofInputPaths(context: CombinedDescriptorContext): Record<string, str
   };
 }
 
-function continuationDescriptor(targetCodeFile: string, argument0: string | undefined) {
+function continuationDescriptor(
+  targetCodeFile: string,
+  argument0: string | undefined,
+  stateReportAddress: string | undefined,
+) {
   return {
     codeFile: GUEST_CODE,
     fileOffset: 0,
     codeSize: statSync(targetCodeFile).size,
     targetAddress: "0x700300000000",
     argument0,
+    stateReportAddress,
     timeoutSeconds: 5,
     stackTargetStart: "0x500000000000",
     stackSize: 65_536,
@@ -313,22 +333,24 @@ function prepareTargetContinuation(
   mapping: NativeMemoryMapping,
   plan: ReturnType<typeof planPortableMachineVmRestoreProof>,
 ): PreparedTargetContinuation | ReturnType<typeof planPortableMachineVmRestoreProof> {
+  const expectedMemoryByte = firstByte(memoryFile, mapping);
   return args.realUtilityContinuation
-    ? prepareRealUtilityContinuation(targetDir, plan)
+    ? prepareRealUtilityContinuation(targetDir, expectedMemoryByte, plan)
     : {
         kind: "generated-verifier",
-        bytes: combinedProofTargetCode(firstByte(memoryFile, mapping)),
+        bytes: combinedProofTargetCode(expectedMemoryByte),
       };
 }
 
 function prepareRealUtilityContinuation(
   targetDir: string,
+  expectedMemoryByte: number,
   plan: ReturnType<typeof planPortableMachineVmRestoreProof>,
 ) {
   const targetRoot = join(targetDir, "real-utility-root");
   const modulePath = join(targetRoot, "usr/bin/realspin-code");
   mkdirSync(dirname(modulePath), { recursive: true });
-  const moduleBytes = finalJumpTargetCode();
+  const moduleBytes = stateConsumingRealUtilityTargetCode(expectedMemoryByte);
   writeFileSync(modulePath, moduleBytes);
   const module = realUtilityTargetModule(sha256(moduleBytes), moduleBytes.length);
   const materialized = materializeNativeTargetModuleBytes({
@@ -345,6 +367,7 @@ function prepareRealUtilityContinuation(
     kind: "real-utility" as const,
     bytes: Buffer.from(materialized.materialized!.bytes),
     argument0: PROOF_MEMORY_TARGET,
+    stateReportAddress: PROOF_MEMORY_TARGET,
     expectedReturnValue: hex(FINAL_JUMP_EXPECTED_RETURN),
     targetModuleBytesSource: "portable-bundle-target-root",
   };
@@ -548,90 +571,190 @@ function firstByte(memoryFile: string, mapping: NativeMemoryMapping): number {
 }
 
 function combinedProofTargetCode(expectedMemoryByte: number): Buffer {
-  const bytes: number[] = [];
-  const jumps: number[] = [];
-  const push = (...values: number[]) => bytes.push(...values.map((value) => value & 0xff));
-  const pushU32 = (value: number) => push(value, value >> 8, value >> 16, value >> 24);
-  const pushU64 = (value: bigint) => {
-    for (let i = 0n; i < 8n; i++) {
-      push(Number((value >> (8n * i)) & 0xffn));
-    }
-  };
-  const jumpToFail = (condition: number) => {
-    push(0x0f, condition, 0x00, 0x00, 0x00, 0x00);
-    jumps.push(bytes.length - 4);
-  };
-  const jumpIfNotEqual = () => jumpToFail(0x85);
-  const jumpIfSign = () => jumpToFail(0x88);
-  const syscall = (number: number) => {
-    push(0xb8);
-    pushU32(number);
-  };
-  const movFd = (fd: number) => {
-    push(0xbf);
-    pushU32(fd);
-  };
-  const checkFdOpen = (fd: number) => {
-    syscall(72);
-    movFd(fd);
-    push(0xbe);
-    pushU32(1);
-    push(0x31, 0xd2, 0x0f, 0x05, 0x48, 0x85, 0xc0);
-    jumpIfSign();
-  };
-  const checkFdClosed = (fd: number) => {
-    syscall(72);
-    movFd(fd);
-    push(0xbe);
-    pushU32(1);
-    push(0x31, 0xd2, 0x0f, 0x05, 0x83, 0xf8, 0xf7);
-    jumpIfNotEqual();
-  };
-  const readAndCheck = (fd: number, expected: Buffer) => {
-    push(0x48, 0x83, 0xec, 0x10, 0x31, 0xc0);
-    movFd(fd);
-    push(0x48, 0x89, 0xe6, 0xba);
-    pushU32(expected.length);
-    push(0x0f, 0x05, 0x83, 0xf8, expected.length);
-    jumpIfNotEqual();
-    for (const [index, byte] of expected.entries()) {
-      push(0x80, index === 0 ? 0x3c : 0x7c, 0x24);
-      if (index !== 0) {
-        push(index);
-      }
-      push(byte);
-      jumpIfNotEqual();
-    }
-  };
+  return proofStateVerifierTargetCode(expectedMemoryByte, "exit");
+}
 
-  push(0x48, 0xbb);
-  pushU64(BigInt(PROOF_MEMORY_TARGET));
-  push(0x80, 0x3b, expectedMemoryByte);
-  jumpIfNotEqual();
-  checkFdClosed(PROOF_CLOSED_FD);
-  checkFdOpen(PROOF_STDOUT_FD);
-  readAndCheck(PROOF_FILE_FD, PROOF_FD_BYTES);
-  checkFdOpen(PROOF_PIPE_READ_FD);
-  checkFdOpen(PROOF_PIPE_WRITE_FD);
-  checkFdOpen(PROOF_EVENT_FD);
-  checkFdOpen(PROOF_TIMER_FD);
-  syscall(60);
-  push(0x31, 0xff, 0x0f, 0x05);
+function stateConsumingRealUtilityTargetCode(expectedMemoryByte: number): Buffer {
+  return proofStateVerifierTargetCode(expectedMemoryByte, "return");
+}
 
-  const failOffset = bytes.length;
-  syscall(60);
-  push(0xbf);
-  pushU32(42);
-  push(0x0f, 0x05);
+type ProofCompletionMode = "exit" | "return";
 
-  for (const index of jumps) {
-    const relative = failOffset - (index + 4);
-    bytes[index] = relative & 0xff;
-    bytes[index + 1] = (relative >> 8) & 0xff;
-    bytes[index + 2] = (relative >> 16) & 0xff;
-    bytes[index + 3] = (relative >> 24) & 0xff;
+function proofStateVerifierTargetCode(
+  expectedMemoryByte: number,
+  completion: ProofCompletionMode,
+): Buffer {
+  const asm = new Amd64ProofAssembler();
+  if (completion === "return") {
+    asm.preserveRbx();
+    asm.movRbxFromRdi();
+    asm.storeReportWord(16, 0n);
+  } else {
+    asm.movRbxImmediate(BigInt(PROOF_MEMORY_TARGET));
   }
-  return Buffer.from(bytes);
+  asm.checkMemoryByte(expectedMemoryByte);
+  asm.markStateCheck(completion, STATE_CHECK_MEMORY);
+  asm.checkFdClosed(PROOF_CLOSED_FD);
+  asm.markStateCheck(completion, STATE_CHECK_CLOSE_FD);
+  asm.checkFdOpen(PROOF_STDOUT_FD);
+  asm.markStateCheck(completion, STATE_CHECK_STDIO);
+  asm.readAndCheck(PROOF_FILE_FD, PROOF_FD_BYTES);
+  asm.markStateCheck(completion, STATE_CHECK_REOPEN_FILE);
+  asm.checkFdOpen(PROOF_PIPE_READ_FD);
+  asm.checkFdOpen(PROOF_PIPE_WRITE_FD);
+  asm.markStateCheck(completion, STATE_CHECK_PIPE);
+  asm.checkFdOpen(PROOF_EVENT_FD);
+  asm.markStateCheck(completion, STATE_CHECK_EVENTFD);
+  asm.checkFdOpen(PROOF_TIMER_FD);
+  asm.markStateCheck(completion, STATE_CHECK_TIMERFD);
+  asm.completeSuccessfully(completion);
+  return asm.toBuffer(completion);
+}
+
+class Amd64ProofAssembler {
+  private readonly bytes: number[] = [];
+  private readonly jumps: number[] = [];
+
+  preserveRbx(): void {
+    this.push(0x53);
+  }
+
+  movRbxFromRdi(): void {
+    this.push(0x48, 0x89, 0xfb);
+  }
+
+  movRbxImmediate(value: bigint): void {
+    this.push(0x48, 0xbb);
+    this.pushU64(value);
+  }
+
+  checkMemoryByte(expected: number): void {
+    this.push(0x80, 0x3b, expected);
+    this.jumpIfNotEqual();
+  }
+
+  checkFdOpen(fd: number): void {
+    this.fcntlGetFd(fd);
+    this.push(0x48, 0x85, 0xc0);
+    this.jumpIfSign();
+  }
+
+  checkFdClosed(fd: number): void {
+    this.fcntlGetFd(fd);
+    this.push(0x83, 0xf8, 0xf7);
+    this.jumpIfNotEqual();
+  }
+
+  readAndCheck(fd: number, expected: Buffer): void {
+    this.push(0x31, 0xc0);
+    this.movFd(fd);
+    this.push(0x48, 0x8d, 0x73, 0x40, 0xba);
+    this.pushU32(expected.length);
+    this.push(0x0f, 0x05, 0x83, 0xf8, expected.length);
+    this.jumpIfNotEqual();
+    for (const [index, byte] of expected.entries()) {
+      this.push(0x80, 0x7b, 0x40 + index, byte);
+      this.jumpIfNotEqual();
+    }
+  }
+
+  markStateCheck(completion: ProofCompletionMode, bit: number): void {
+    if (completion === "return") {
+      this.push(0x48, 0x83, 0x4b, 0x10, bit);
+    }
+  }
+
+  completeSuccessfully(completion: ProofCompletionMode): void {
+    if (completion === "return") {
+      this.storeReportWord(8, STATE_CONSUMPTION_MARKER);
+      this.push(0xb8);
+      this.pushU32(Number(FINAL_JUMP_EXPECTED_RETURN));
+      this.push(0x5b, 0xc3);
+      return;
+    }
+    this.syscall(60);
+    this.push(0x31, 0xff, 0x0f, 0x05);
+  }
+
+  storeReportWord(offset: number, value: bigint): void {
+    this.push(0x48, 0xb8);
+    this.pushU64(value);
+    this.push(0x48, 0x89, 0x43, offset);
+  }
+
+  toBuffer(completion: ProofCompletionMode): Buffer {
+    const failOffset = this.bytes.length;
+    this.completeWithFailure(completion);
+    this.patchJumps(failOffset);
+    return Buffer.from(this.bytes);
+  }
+
+  private fcntlGetFd(fd: number): void {
+    this.syscall(72);
+    this.movFd(fd);
+    this.push(0xbe);
+    this.pushU32(1);
+    this.push(0x31, 0xd2, 0x0f, 0x05);
+  }
+
+  private completeWithFailure(completion: ProofCompletionMode): void {
+    if (completion === "return") {
+      this.push(0xb8);
+      this.pushU32(42);
+      this.push(0x5b, 0xc3);
+      return;
+    }
+    this.syscall(60);
+    this.movFd(42);
+    this.push(0x0f, 0x05);
+  }
+
+  private syscall(number: number): void {
+    this.push(0xb8);
+    this.pushU32(number);
+  }
+
+  private movFd(fd: number): void {
+    this.push(0xbf);
+    this.pushU32(fd);
+  }
+
+  private jumpIfNotEqual(): void {
+    this.jumpToFail(0x85);
+  }
+
+  private jumpIfSign(): void {
+    this.jumpToFail(0x88);
+  }
+
+  private jumpToFail(condition: number): void {
+    this.push(0x0f, condition, 0x00, 0x00, 0x00, 0x00);
+    this.jumps.push(this.bytes.length - 4);
+  }
+
+  private patchJumps(failOffset: number): void {
+    for (const index of this.jumps) {
+      const relative = failOffset - (index + 4);
+      this.bytes[index] = relative & 0xff;
+      this.bytes[index + 1] = (relative >> 8) & 0xff;
+      this.bytes[index + 2] = (relative >> 16) & 0xff;
+      this.bytes[index + 3] = (relative >> 24) & 0xff;
+    }
+  }
+
+  private push(...values: number[]): void {
+    this.bytes.push(...values.map((value) => value & 0xff));
+  }
+
+  private pushU32(value: number): void {
+    this.push(value, value >> 8, value >> 16, value >> 24);
+  }
+
+  private pushU64(value: bigint): void {
+    for (let i = 0n; i < 8n; i++) {
+      this.push(Number((value >> (8n * i)) & 0xffn));
+    }
+  }
 }
 
 function refusedPlan(

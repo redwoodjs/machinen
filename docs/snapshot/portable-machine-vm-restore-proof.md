@@ -45,8 +45,10 @@ explicit fd-table recipes, and safe non-executable memory entries. The current
 combined proof can still use generated verifier bytes, but the smoke path now
 uses `--real-utility-continuation`: target module bytes are materialized from a
 portable-bundle target root, entered through the amd64 guest loader, and accepted
-only when the in-guest resume event returns the expected value. The descriptor
-still carries the wider fd matrix: closed fd, inherited stdout, reopened file,
+only when the in-guest resume event returns the expected value. The real utility
+now consumes restored state before returning: it checks the materialized captured
+memory byte, validates the descriptor-provided argument/register handoff, and
+exercises the wider fd matrix: closed fd, inherited stdout, reopened file,
 synthetic pipe, eventfd, and timerfd recipes.
 
 ## Smoke profile
@@ -81,7 +83,8 @@ proof with a combined restore descriptor. The continuation is target module byte
 from the bundle's approved target root, not source-ISA text. The JSON summary
 includes `targetRestore.descriptorGateCompleted`, descriptor memory/fd counts,
 resource recipe kinds, `targetRestore.targetContinuationKind`,
-`targetRestore.targetContinuationReturnValue`, and
+`targetRestore.targetContinuationReturnValue`,
+`targetRestore.targetStateConsumptionResult`, per-resource status, and
 `targetRestore.targetVerifierResult`. It reports timing for:
 
 1. preflight / optional remote reachability gates;

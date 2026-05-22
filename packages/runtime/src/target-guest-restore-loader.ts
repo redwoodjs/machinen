@@ -41,6 +41,7 @@ export interface TargetGuestRestoreContinuationDescriptor {
   codeSize: number;
   targetAddress: string;
   argument0?: string;
+  stateReportAddress?: string;
   timeoutSeconds: number;
   stackTargetStart: string;
   stackSize: number;
@@ -68,6 +69,7 @@ export function serializeTargetGuestRestoreDescriptor(
     `codeSize=${continuation.codeSize}`,
     `targetAddress=${continuation.targetAddress}`,
     ...optionalContinuationField("argument0", continuation.argument0),
+    ...optionalContinuationField("stateReportAddress", continuation.stateReportAddress),
     `timeoutSeconds=${continuation.timeoutSeconds}`,
     `stackTargetStart=${continuation.stackTargetStart}`,
     `stackSize=${continuation.stackSize}`,
@@ -121,6 +123,7 @@ export function buildNativeActualResumeTrampolineArgs(
     "--target-address",
     continuation.targetAddress,
     ...optionalArg("--argument0", continuation.argument0),
+    ...optionalArg("--state-report-address", continuation.stateReportAddress),
     "--timeout-seconds",
     String(continuation.timeoutSeconds),
     "--stack-target-start",
@@ -170,6 +173,7 @@ function fieldsToDescriptor(
       codeSize: parseIntegerField(fields, "codeSize"),
       targetAddress: requiredField(fields, "targetAddress"),
       argument0: optionalField(fields, "argument0"),
+      stateReportAddress: optionalField(fields, "stateReportAddress"),
       timeoutSeconds: parseIntegerField(fields, "timeoutSeconds"),
       stackTargetStart: requiredField(fields, "stackTargetStart"),
       stackSize: parseIntegerField(fields, "stackSize"),
@@ -393,6 +397,9 @@ function validateContinuation(
   assertHexAddress(continuation.targetAddress, "targetAddress");
   if (continuation.argument0 !== undefined) {
     assertHexAddress(continuation.argument0, "argument0");
+  }
+  if (continuation.stateReportAddress !== undefined) {
+    assertHexAddress(continuation.stateReportAddress, "stateReportAddress");
   }
   assertHexAddress(continuation.stackTargetStart, "stackTargetStart");
   assertHexAddress(continuation.stackPointer, "stackPointer");

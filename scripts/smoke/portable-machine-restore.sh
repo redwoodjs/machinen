@@ -101,6 +101,8 @@ try {
     targetContinuationStatus: result.targetContinuationStatus ?? '',
     targetContinuationReturnValue: result.targetContinuationReturnValue ?? '',
     targetModuleBytesSource: result.targetModuleBytesSource ?? '',
+    targetStateConsumptionResult: result.targetStateConsumptionResult ?? '',
+    targetResourceStatuses: result.targetResourceStatuses ?? [],
   }));
 } catch {
   process.stdout.write('{}');
