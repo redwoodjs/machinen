@@ -6,6 +6,7 @@ import type {
 } from "./native-process-image.ts";
 import type { NativeSyntheticTargetCallerFrame } from "./native-target-caller-frame.ts";
 import type { NativeTargetResumeLandingProvenance } from "./native-target-landing-provenance.ts";
+import type { NativeSyntheticSyscallContinuationDescriptor } from "./native-synthetic-continuation.ts";
 import { NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS } from "./native-synthetic-sleep-continuation.ts";
 import type { NativeTargetModuleByteMaterialization } from "./native-target-module-bytes.ts";
 
@@ -142,7 +143,7 @@ export function classifyNativeTargetResumeExecutionAttempt(
   if (!attempt) {
     return { state: "unattempted", refusals: [] };
   }
-  const nonFaultRefusal = classifyNonFaultResumeRefusal(attempt);
+  const nonFaultRefusal = classifyNonFaultResumeRefusal(attempt, options);
   if (nonFaultRefusal) {
     return classifiedAttempt(attempt, nonFaultRefusal);
   }
@@ -176,11 +177,19 @@ function classifiedAttempt(
 
 function classifyNonFaultResumeRefusal(
   attempt: NativeTargetResumeExecutionAttempt,
+  options: NativeTargetResumeFaultClassificationOptions,
 ): NativeProcessImageRefusal | undefined {
-  if (
-    attempt.status === "exited" &&
-    attempt.exitStatus === NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS
-  ) {
+  if (attempt.status !== "exited" || attempt.exitStatus === undefined) {
+    return undefined;
+  }
+  const synthetic = syntheticFailureForAttempt(attempt, options.landingProvenance ?? []);
+  if (synthetic) {
+    const refusal = syntheticFailureRefusal(attempt, synthetic);
+    if (refusal) {
+      return refusal;
+    }
+  }
+  if (attempt.exitStatus === NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS) {
     return faultRefusal(
       "target-sleep-signal-restart-unsupported",
       "synthetic target sleep syscall did not complete successfully; EINTR/restart semantics are not modeled",
@@ -189,6 +198,51 @@ function classifyNonFaultResumeRefusal(
     );
   }
   return undefined;
+}
+
+function syntheticFailureForAttempt(
+  attempt: NativeTargetResumeExecutionAttempt,
+  provenances: NativeTargetResumeLandingProvenance[],
+): NativeSyntheticSyscallContinuationDescriptor | undefined {
+  return provenances.find((provenance) => sameHex(provenance.targetAddress, attempt.entryAddress))
+    ?.syntheticContinuation?.descriptor as NativeSyntheticSyscallContinuationDescriptor | undefined;
+}
+
+function syntheticFailureRefusal(
+  attempt: NativeTargetResumeExecutionAttempt,
+  descriptor: NativeSyntheticSyscallContinuationDescriptor,
+): NativeProcessImageRefusal | undefined {
+  if (descriptor.completion.failureExitStatus !== attempt.exitStatus) {
+    return undefined;
+  }
+  const code = syntheticFailureRefusalCode(descriptor);
+  return faultRefusal(code, syntheticFailureMessage(descriptor, attempt), attempt, {
+    syntheticContinuation: {
+      kind: descriptor.kind,
+      entryAddress: descriptor.entryAddress,
+      byteSha256: descriptor.byteSha256,
+      syscall: descriptor.syscall,
+      completion: descriptor.completion,
+    },
+    exitStatus: attempt.exitStatus,
+  });
+}
+
+function syntheticFailureRefusalCode(
+  descriptor: NativeSyntheticSyscallContinuationDescriptor,
+): NativeProcessImageRefusal["code"] {
+  return descriptor.completion.failureKind === "signal-restart-unsupported"
+    ? "target-synthetic-signal-restart-unsupported"
+    : "target-synthetic-syscall-return-unmodeled";
+}
+
+function syntheticFailureMessage(
+  descriptor: NativeSyntheticSyscallContinuationDescriptor,
+  attempt: NativeTargetResumeExecutionAttempt,
+): string {
+  return descriptor.completion.failureKind === "signal-restart-unsupported"
+    ? `synthetic target ${descriptor.syscall.name} syscall exited with status ${attempt.exitStatus}; signal/restart semantics are not modeled`
+    : `synthetic target ${descriptor.syscall.name} syscall exited with status ${attempt.exitStatus}; syscall return semantics are not modeled`;
 }
 
 function classifyTargetResumeFaultRefusal(

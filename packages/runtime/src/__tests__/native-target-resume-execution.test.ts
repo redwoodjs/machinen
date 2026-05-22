@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { buildNativeSyntheticSyscallContinuationDescriptor } from "../native-synthetic-continuation.ts";
 import {
   classifyNativeTargetResumeExecutionAttempt,
   planNativeTargetResumeExecution,
@@ -56,6 +57,48 @@ const invalidLanding: NativeTargetResumeLandingProvenance = {
     message: "entry is inside a decoded instruction",
   },
 };
+
+function syntheticLanding(
+  failureKind: "signal-restart-unsupported" | "syscall-return-unmodeled",
+  failureExitStatus: number,
+): NativeTargetResumeLandingProvenance {
+  const descriptor = buildNativeSyntheticSyscallContinuationDescriptor({
+    targetArch: "amd64",
+    entryAddress: "0x700200000000",
+    relativeAddress: "0x0",
+    generatorBuildId: "test-synthetic-syscall",
+    bytes: new Uint8Array([0x0f, 0x05]),
+    syscall: {
+      name: failureKind === "signal-restart-unsupported" ? "clock_nanosleep" : "ppoll",
+      number: failureKind === "signal-restart-unsupported" ? 230 : 271,
+      arguments: [],
+    },
+    registerSetup: {
+      abi: "linux-amd64-syscall",
+      arguments: [],
+      clobberedBySyscall: ["rax", "rcx", "r11"],
+      notes: [],
+    },
+    stackSetup: {
+      entryStackPointer: "target-caller-frame-stack-pointer",
+      stackBytesWrittenByContinuation: 0,
+      returnAddress: "not-used-exit-process-completion",
+      requiresSourceStackBytes: false,
+    },
+    completion: { mode: "exit-process", failureExitStatus, failureKind },
+  });
+  return {
+    ...invalidLanding,
+    id: `target-resume-landing:synthetic:${failureKind}`,
+    targetRva: "0x0",
+    targetAddress: "0x700200000000",
+    targetRelativeAddress: "0x0",
+    continuationStrategy: "synthetic-sleep-syscall",
+    syntheticContinuation: { descriptor },
+    instructionBoundary: { state: "known-valid", reason: "generated synthetic entry" },
+    refusal: undefined,
+  } as NativeTargetResumeLandingProvenance;
+}
 
 const targetBytes: NativeTargetModuleByteMaterialization[] = [
   {
@@ -204,7 +247,75 @@ describe("native target resume execution planning", () => {
     ).toBe("target-resume-fault-privileged-instruction");
   });
 
-  it("classifies synthetic sleep EINTR/restart exits fail-closed", () => {
+  it("classifies descriptor synthetic restart exits fail-closed through the shared gate", () => {
+    const classified = classifyNativeTargetResumeExecutionAttempt(
+      {
+        status: "exited",
+        targetArch: "amd64",
+        entryAddress: "0x700200000000",
+        stackPointer: "0x500000010000",
+        targetBytesStart: "0x700200000000",
+        targetBytesEnd: "0x700200000040",
+        exitStatus: 111,
+        instructionPointerInTargetBytes: true,
+        attemptedResume: true,
+        sourceTextReusedAsTargetCode: false,
+        sourceIsaEmulationUsed: false,
+        sidecarRuntimeUsed: false,
+      },
+      { landingProvenance: [syntheticLanding("signal-restart-unsupported", 111)] },
+    );
+
+    expect(classified).toMatchObject({
+      state: "classified",
+      refusals: [
+        {
+          code: "target-synthetic-signal-restart-unsupported",
+          detail: {
+            syntheticContinuation: {
+              kind: "synthetic-syscall-continuation",
+              syscall: { name: "clock_nanosleep", number: 230 },
+              completion: { failureExitStatus: 111, failureKind: "signal-restart-unsupported" },
+            },
+          },
+        },
+      ],
+      classification: { attemptedResume: true, migrationCompleted: false },
+    });
+  });
+
+  it("classifies descriptor synthetic syscall returns fail-closed through the shared gate", () => {
+    const classified = classifyNativeTargetResumeExecutionAttempt(
+      {
+        status: "exited",
+        targetArch: "amd64",
+        entryAddress: "0x700200000000",
+        stackPointer: "0x500000010000",
+        targetBytesStart: "0x700200000000",
+        targetBytesEnd: "0x700200000040",
+        exitStatus: 112,
+        instructionPointerInTargetBytes: true,
+        attemptedResume: true,
+        sourceTextReusedAsTargetCode: false,
+        sourceIsaEmulationUsed: false,
+        sidecarRuntimeUsed: false,
+      },
+      { landingProvenance: [syntheticLanding("syscall-return-unmodeled", 112)] },
+    );
+
+    expect(classified).toMatchObject({
+      state: "classified",
+      refusals: [
+        {
+          code: "target-synthetic-syscall-return-unmodeled",
+          detail: { syntheticContinuation: { syscall: { name: "ppoll", number: 271 } } },
+        },
+      ],
+      classification: { attemptedResume: true, migrationCompleted: false },
+    });
+  });
+
+  it("keeps legacy synthetic sleep EINTR/restart exits fail-closed without descriptors", () => {
     const classified = classifyNativeTargetResumeExecutionAttempt({
       status: "exited",
       targetArch: "amd64",

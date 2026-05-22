@@ -41,7 +41,12 @@ describe("native synthetic continuation descriptor", () => {
         returnAddress: "trampoline-sentinel-return-address",
         requiresSourceStackBytes: false,
       },
-      completion: { mode: "return-to-trampoline" },
+      completion: {
+        mode: "return-to-trampoline",
+        failureExitStatus: 112,
+        failureKind: "syscall-return-unmodeled",
+        failureReason: "getpid failure is only a descriptor test",
+      },
     });
 
     expect(descriptor).toMatchObject({
@@ -61,7 +66,11 @@ describe("native synthetic continuation descriptor", () => {
       syscall: { abi: "linux-amd64", name: "getpid", number: 39, arguments: args },
       registerSetup: { abi: "linux-amd64-syscall", arguments: args },
       stackSetup: { requiresSourceStackBytes: false },
-      completion: { mode: "return-to-trampoline" },
+      completion: {
+        mode: "return-to-trampoline",
+        failureExitStatus: 112,
+        failureKind: "syscall-return-unmodeled",
+      },
     });
     expect(descriptor.byteSha256).toBe(nativeSyntheticContinuationBytesSha256(bytes));
     expect(nativeSyntheticContinuationBytesHex(bytes)).toBe("b8270000000f05");

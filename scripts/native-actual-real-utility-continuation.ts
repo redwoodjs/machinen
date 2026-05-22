@@ -1004,7 +1004,7 @@ function executeActualTargetResumeAttempt(
     .split(/\r?\n/)
     .find((candidate) => candidate.startsWith("MACHINEN_ACTUAL_RESUME_TRAMPOLINE "));
   const synthetic = syntheticSleepContinuationSummaries(planned)[0];
-  if (!line && synthetic && syntheticExitStatus(result.status)) {
+  if (!line && synthetic && syntheticExitStatus(result.status, synthetic)) {
     return normalizeActualProcessExitAttempt(planned, targetBytes, result.status!);
   }
   assert(
@@ -1017,8 +1017,15 @@ function executeActualTargetResumeAttempt(
   );
 }
 
-function syntheticExitStatus(status: number | null): boolean {
-  return status === 0 || status === NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS;
+function syntheticExitStatus(
+  status: number | null,
+  synthetic: ReturnType<typeof syntheticSleepContinuationSummaries>[number],
+): boolean {
+  return (
+    status === 0 ||
+    status === synthetic.descriptor?.completion.failureExitStatus ||
+    status === NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS
+  );
 }
 
 function actualResumeCodeFile(

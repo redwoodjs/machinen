@@ -57,10 +57,11 @@ is only reported after target process exit.
 
 Issue #551 keeps interrupted sleep semantics fail-closed. If the synthetic sleep
 syscall does not return success, the generated code exits with the reserved
-status `111`. The proof classifies that as
-`target-sleep-signal-restart-unsupported` and keeps `migrationCompleted: false`.
-This covers EINTR/restart-like outcomes until signal delivery, remaining time,
-and restart contracts are modeled explicitly.
+status `111`. Descriptor-aware proofs classify that as
+`target-synthetic-signal-restart-unsupported`; legacy descriptor-less attempts
+still use `target-sleep-signal-restart-unsupported`. Both paths keep
+`migrationCompleted: false`. This covers EINTR/restart-like outcomes until
+signal delivery, remaining time, and restart contracts are modeled explicitly.
 
 ## Provenance
 
