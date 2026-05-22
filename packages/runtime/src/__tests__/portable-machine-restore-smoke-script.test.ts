@@ -58,4 +58,37 @@ describe("portable machine restore smoke profile", () => {
       true,
     );
   });
+
+  it("accepts remote-e2e dry-run mode without live remotes", () => {
+    const workDir = tempDir();
+    const result = spawnSync(
+      "bash",
+      [SCRIPT, "--json", "--remote-e2e", "--dry-run", "--keep", "--work-dir", workDir],
+      {
+        cwd: REPO_ROOT,
+        encoding: "utf8",
+        timeout: 30_000,
+      },
+    );
+
+    expect(result.status, result.stderr).toBe(0);
+    const summary = JSON.parse(result.stdout);
+    expect(summary).toMatchObject({
+      state: "skipped",
+      skipReason: "dry run",
+      remoteE2e: 1,
+      arm64Ssh: "friend@100.126.46.90",
+      amd64Ssh: "root@192.168.0.8",
+      remotePortableMachineBundle: expect.stringContaining(
+        "/tmp/machinen-portable-machine-restore-amd64-",
+      ),
+    });
+    expect(summary.timings.map((timing: { name: string }) => timing.name)).toEqual([
+      "preflight",
+      "capture",
+      "bundle",
+      "transfer",
+      "target-boot-restore",
+    ]);
+  });
 });

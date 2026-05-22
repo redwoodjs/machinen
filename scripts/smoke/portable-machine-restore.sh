@@ -6,13 +6,20 @@ ARM64_SSH=${PORTABLE_ARM64_SSH:-friend@100.126.46.90}
 AMD64_SSH=${PORTABLE_AMD64_SSH:-root@192.168.0.8}
 TARGET_IMAGE=${PORTABLE_MACHINE_TARGET_VM_IMAGE:-${MACHINEN_TARGET_VM_IMAGE:-}}
 REQUIRE_REMOTES=${PORTABLE_MACHINE_SMOKE_REQUIRE_REMOTES:-0}
+AMD64_REPO=${PORTABLE_AMD64_REPO:-}
 KEEP=0
 JSON=0
 DRY_RUN=0
+REMOTE_E2E=0
 WORK=${PORTABLE_MACHINE_SMOKE_WORK_DIR:-}
+REMOTE_STAMP=${PORTABLE_MACHINE_REMOTE_WORK_STAMP:-$$}
+ARM64_REMOTE_WORK=${PORTABLE_MACHINE_ARM64_WORK_DIR:-/tmp/machinen-portable-machine-restore-arm64-$REMOTE_STAMP}
+AMD64_REMOTE_WORK=${PORTABLE_MACHINE_AMD64_WORK_DIR:-/tmp/machinen-portable-machine-restore-amd64-$REMOTE_STAMP}
+REMOTE_PORTABLE_BUNDLE="$AMD64_REMOTE_WORK/portable-machine"
+REMOTE_TARGET_CODE="$REMOTE_PORTABLE_BUNDLE/target/continuation.bin"
 
 usage() {
-  echo "usage: bash scripts/smoke/portable-machine-restore.sh [--json] [--dry-run] [--keep] [--work-dir path]" >&2
+  echo "usage: bash scripts/smoke/portable-machine-restore.sh [--json] [--dry-run] [--remote-e2e] [--keep] [--work-dir path]" >&2
   exit 2
 }
 
@@ -21,6 +28,7 @@ while (($# > 0)); do
     --) shift ;;
     --json) JSON=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
+    --remote-e2e) REMOTE_E2E=1; shift ;;
     --keep) KEEP=1; shift ;;
     --work-dir)
       shift
@@ -82,6 +90,12 @@ write_summary() {
   "portableMachineBundle": "$(json_escape "$PORTABLE_BUNDLE")",
   "targetCodeFile": "$(json_escape "$TARGET_CODE")",
   "targetImage": "$(json_escape "$TARGET_IMAGE")",
+  "remoteE2e": $REMOTE_E2E,
+  "arm64Ssh": "$(json_escape "$ARM64_SSH")",
+  "amd64Ssh": "$(json_escape "$AMD64_SSH")",
+  "amd64Repo": "$(json_escape "$AMD64_REPO")",
+  "remotePortableMachineBundle": "$(json_escape "$REMOTE_PORTABLE_BUNDLE")",
+  "remoteTargetCodeFile": "$(json_escape "$REMOTE_TARGET_CODE")",
   "timings": [$joined]
 }
 JSON_SUMMARY
@@ -135,7 +149,22 @@ preflight() {
     check_ssh "arm64-remote" "$ARM64_SSH" || return 10
     check_ssh "amd64-remote" "$AMD64_SSH" || return 11
   fi
-  if [[ $DRY_RUN -eq 0 ]]; then
+  if [[ $DRY_RUN -eq 0 && $REMOTE_E2E -eq 1 ]]; then
+    check_ssh "arm64-remote" "$ARM64_SSH" || return 10
+    check_ssh "amd64-remote" "$AMD64_SSH" || return 11
+    if [[ -z "$AMD64_REPO" ]]; then
+      record_timing "preflight" "skipped" "$start" "PORTABLE_AMD64_REPO is required for remote e2e target restore"
+      return 14
+    fi
+    if [[ -z "$TARGET_IMAGE" ]]; then
+      record_timing "preflight" "skipped" "$start" "PORTABLE_MACHINE_TARGET_VM_IMAGE or MACHINEN_TARGET_VM_IMAGE is required"
+      return 12
+    fi
+    if ! ssh "$AMD64_SSH" "test -d '$AMD64_REPO' && test -f '$TARGET_IMAGE'" >/dev/null 2>&1; then
+      record_timing "preflight" "skipped" "$start" "amd64 repo or target image is missing on $AMD64_SSH"
+      return 15
+    fi
+  elif [[ $DRY_RUN -eq 0 ]]; then
     if [[ -z "$TARGET_IMAGE" || ! -f "$TARGET_IMAGE" ]]; then
       record_timing "preflight" "skipped" "$start" "PORTABLE_MACHINE_TARGET_VM_IMAGE or MACHINEN_TARGET_VM_IMAGE is required"
       return 12
@@ -203,6 +232,34 @@ NODE
   record_timing "capture" "ok" "$start" "arm64 native-process bundle synthesized"
 }
 
+capture_remote_native_process_bundle() {
+  local start=$1
+  ssh "$ARM64_SSH" "rm -rf '$ARM64_REMOTE_WORK' && mkdir -p '$ARM64_REMOTE_WORK/repo' '$ARM64_REMOTE_WORK/capture'"
+  tar -czf - -C "$ROOT" \
+    scripts/native-process-capture.mjs \
+    scripts/controlled-corpus-utils.mjs \
+    scripts/proof-script-utils.mjs \
+    packages/microvm/assets/native-process-capture.c \
+    packages/microvm/assets/native-capture-target.c | \
+    ssh "$ARM64_SSH" "tar -xzf - -C '$ARM64_REMOTE_WORK/repo'"
+  ssh "$ARM64_SSH" \
+    "cd '$ARM64_REMOTE_WORK/repo' && node scripts/native-process-capture.mjs verify --out-dir '$ARM64_REMOTE_WORK/capture' --json --keep > '$ARM64_REMOTE_WORK/capture.json'"
+  mkdir -p "$NATIVE_BUNDLE"
+  ssh "$ARM64_SSH" "cat '$ARM64_REMOTE_WORK/capture.json'" >"$WORK/arm64-capture.json"
+  ssh "$ARM64_SSH" "tar -czf - -C '$ARM64_REMOTE_WORK/capture/bundle' ." | \
+    tar -xzf - -C "$NATIVE_BUNDLE"
+  record_timing "capture" "ok" "$start" "remote arm64 native-process bundle captured from $ARM64_SSH"
+}
+
+capture_native_process_bundle() {
+  local start=$1
+  if [[ $REMOTE_E2E -eq 1 && $DRY_RUN -eq 0 ]]; then
+    capture_remote_native_process_bundle "$start"
+  else
+    write_native_process_bundle "$start"
+  fi
+}
+
 create_portable_bundle() {
   local start=$1
   pnpm --silent portable-machine-snapshot -- --native-process-bundle "$NATIVE_BUNDLE" --out-dir "$PORTABLE_BUNDLE" --json >"$WORK/portable-machine-snapshot.json"
@@ -214,10 +271,14 @@ create_portable_bundle() {
 
 transfer_bundle() {
   local start=$1
-  # The current product-shaped proof runs on the target host filesystem. Keep a
-  # separate transfer phase so remote-copy timing can replace this no-op without
-  # changing smoke output shape.
-  record_timing "transfer" "ok" "$start" "bundle local to target VM runner"
+  if [[ $REMOTE_E2E -eq 1 && $DRY_RUN -eq 0 ]]; then
+    ssh "$AMD64_SSH" "rm -rf '$AMD64_REMOTE_WORK' && mkdir -p '$REMOTE_PORTABLE_BUNDLE'"
+    tar -czf - -C "$PORTABLE_BUNDLE" . | \
+      ssh "$AMD64_SSH" "tar -xzf - -C '$REMOTE_PORTABLE_BUNDLE'"
+    record_timing "transfer" "ok" "$start" "portable bundle copied to $AMD64_SSH:$REMOTE_PORTABLE_BUNDLE"
+  else
+    record_timing "transfer" "ok" "$start" "bundle local to target VM runner"
+  fi
 }
 
 run_target_restore() {
@@ -226,7 +287,14 @@ run_target_restore() {
     record_timing "target-boot-restore" "skipped" "$start" "dry run"
     return 20
   fi
-  if ! pnpm --silent portable-machine-vm-restore-proof -- \
+  if [[ $REMOTE_E2E -eq 1 ]]; then
+    if ! ssh "$AMD64_SSH" \
+      "cd '$AMD64_REPO' && pnpm --silent portable-machine-vm-restore-proof -- --bundle-dir '$REMOTE_PORTABLE_BUNDLE' --target-code-file '$REMOTE_TARGET_CODE' --image '$TARGET_IMAGE' --json" \
+      >"$TARGET_LOG" 2>"$WORK/target-restore.stderr"; then
+      record_timing "target-boot-restore" "failed" "$start" "remote runner failed"
+      return 21
+    fi
+  elif ! pnpm --silent portable-machine-vm-restore-proof -- \
     --bundle-dir "$PORTABLE_BUNDLE" \
     --target-code-file "$TARGET_CODE" \
     --image "$TARGET_IMAGE" \
@@ -258,7 +326,7 @@ if [[ $preflight_rc -ne 0 ]]; then
   finish_skip "preflight skipped with code $preflight_rc"
 fi
 
-start=$(now_ms); write_native_process_bundle "$start"
+start=$(now_ms); capture_native_process_bundle "$start"
 start=$(now_ms); create_portable_bundle "$start"
 start=$(now_ms); transfer_bundle "$start"
 start=$(now_ms)
