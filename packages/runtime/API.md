@@ -131,6 +131,11 @@
 - [`NativeTargetModuleByteMaterializationResult`](#nativetargetmodulebytematerializationresult)
 - [`materializeNativeTargetModuleBytes`](#materializenativetargetmodulebytes)
 - [`NativeSyntheticSleepCompletionMode`](#nativesyntheticsleepcompletionmode)
+- [`NativeSyntheticSleepSyscallProvenanceSource`](#nativesyntheticsleepsyscallprovenancesource)
+- [`NativeSyntheticSleepSyscallArgumentProvenance`](#nativesyntheticsleepsyscallargumentprovenance)
+- [`NativeSyntheticSleepSyscallRegisterSetupProvenance`](#nativesyntheticsleepsyscallregistersetupprovenance)
+- [`NativeSyntheticSleepSyscallStackSetupProvenance`](#nativesyntheticsleepsyscallstacksetupprovenance)
+- [`NativeSyntheticSleepSyscallContinuationProvenance`](#nativesyntheticsleepsyscallcontinuationprovenance)
 - [`NativeSyntheticSleepSyscallContinuationRequest`](#nativesyntheticsleepsyscallcontinuationrequest)
 - [`NativeSyntheticSleepSyscallContinuation`](#nativesyntheticsleepsyscallcontinuation)
 - [`NativeSyntheticSleepSyscallContinuationResult`](#nativesyntheticsleepsyscallcontinuationresult)
@@ -4217,6 +4222,10 @@ by default when `output` is a TTY.
 
 > `optional` **exitStatusOnSuccess?**: `0`
 
+##### provenance
+
+> **provenance**: [`NativeSyntheticSleepSyscallContinuationProvenance`](#nativesyntheticsleepsyscallcontinuationprovenance)
+
 ***
 
 ### NativeRealUtilityDeferredActiveSyscallLanding
@@ -4723,6 +4732,190 @@ by default when `output` is a TTY.
 
 ***
 
+### NativeSyntheticSleepSyscallArgumentProvenance
+
+#### Properties
+
+##### register
+
+> **register**: `"rax"` \| `"rdx"` \| `"rsi"` \| `"rdi"` \| `"r10"`
+
+##### role
+
+> **role**: `"flags"` \| `"syscall-number"` \| `"clock-id"` \| `"request-timespec-pointer"` \| `"remainder-pointer"`
+
+##### value
+
+> **value**: `string`
+
+##### source
+
+> **source**: [`NativeSyntheticSleepSyscallProvenanceSource`](#nativesyntheticsleepsyscallprovenancesource)
+
+***
+
+### NativeSyntheticSleepSyscallRegisterSetupProvenance
+
+#### Properties
+
+##### abi
+
+> **abi**: `"linux-amd64-syscall"`
+
+##### arguments
+
+> **arguments**: [`NativeSyntheticSleepSyscallArgumentProvenance`](#nativesyntheticsleepsyscallargumentprovenance)[]
+
+##### clobberedBySyscall
+
+> **clobberedBySyscall**: \[`"rax"`, `"rcx"`, `"r11"`\]
+
+##### notes
+
+> **notes**: `string`[]
+
+***
+
+### NativeSyntheticSleepSyscallStackSetupProvenance
+
+#### Properties
+
+##### entryStackPointer
+
+> **entryStackPointer**: `"target-caller-frame-stack-pointer"`
+
+##### stackBytesWrittenByContinuation
+
+> **stackBytesWrittenByContinuation**: `0`
+
+##### returnAddress
+
+> **returnAddress**: `"trampoline-sentinel-return-address"` \| `"not-used-exit-process-completion"`
+
+##### requiresSourceStackBytes
+
+> **requiresSourceStackBytes**: `false`
+
+***
+
+### NativeSyntheticSleepSyscallContinuationProvenance
+
+#### Properties
+
+##### byteSource
+
+> **byteSource**: `"generated-target-native-amd64-syscall-sequence"`
+
+##### generatorBuildId
+
+> **generatorBuildId**: `"machinen-synthetic-sleep-syscall-v2"`
+
+##### byteEncoding
+
+> **byteEncoding**: `"amd64-machine-code"`
+
+##### bytesHex
+
+> **bytesHex**: `string`
+
+##### byteSha256
+
+> **byteSha256**: `string`
+
+##### generatedTargetBytes
+
+> **generatedTargetBytes**: `true`
+
+##### sourceTextReusedAsTargetCode
+
+> **sourceTextReusedAsTargetCode**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### sidecarRuntimeUsed
+
+> **sidecarRuntimeUsed**: `false`
+
+##### syscallAbi
+
+> **syscallAbi**: `"linux-amd64"`
+
+##### syscall
+
+> **syscall**: `object`
+
+###### name
+
+> **name**: `"clock_nanosleep"`
+
+###### number
+
+> **number**: `230`
+
+###### arguments
+
+> **arguments**: [`NativeSyntheticSleepSyscallArgumentProvenance`](#nativesyntheticsleepsyscallargumentprovenance)[]
+
+##### embeddedData
+
+> **embeddedData**: `object`
+
+###### kind
+
+> **kind**: `"timespec"`
+
+###### offset
+
+> **offset**: `number`
+
+###### seconds
+
+> **seconds**: `string`
+
+###### nanoseconds
+
+> **nanoseconds**: `number`
+
+###### byteOrder
+
+> **byteOrder**: `"little-endian"`
+
+###### pointerRegister
+
+> **pointerRegister**: `"rdx"`
+
+###### pointerEncoding
+
+> **pointerEncoding**: `"rip-relative"`
+
+##### registerSetup
+
+> **registerSetup**: [`NativeSyntheticSleepSyscallRegisterSetupProvenance`](#nativesyntheticsleepsyscallregistersetupprovenance)
+
+##### stackSetup
+
+> **stackSetup**: [`NativeSyntheticSleepSyscallStackSetupProvenance`](#nativesyntheticsleepsyscallstacksetupprovenance)
+
+##### completion
+
+> **completion**: `object`
+
+###### mode
+
+> **mode**: [`NativeSyntheticSleepCompletionMode`](#nativesyntheticsleepcompletionmode)
+
+###### successExitStatus?
+
+> `optional` **successExitStatus?**: `0`
+
+###### failureExitStatus?
+
+> `optional` **failureExitStatus?**: `111`
+
+***
+
 ### NativeSyntheticSleepSyscallContinuationRequest
 
 #### Properties
@@ -4812,6 +5005,10 @@ by default when `output` is a TTY.
 ##### exitStatusOnSuccess?
 
 > `optional` **exitStatusOnSuccess?**: `0`
+
+##### provenance
+
+> **provenance**: [`NativeSyntheticSleepSyscallContinuationProvenance`](#nativesyntheticsleepsyscallcontinuationprovenance)
 
 ##### timespecOffset
 
@@ -9018,6 +9215,12 @@ Poll interval in ms while retrying. Default 250.
 ### NativeSyntheticSleepCompletionMode
 
 > **NativeSyntheticSleepCompletionMode** = `"return-to-trampoline"` \| `"exit-process"`
+
+***
+
+### NativeSyntheticSleepSyscallProvenanceSource
+
+> **NativeSyntheticSleepSyscallProvenanceSource** = `"generated-target-native-amd64-syscall-sequence"` \| `"linux-amd64-syscall-abi"` \| `"modeled-source-sleep-timer"` \| `"target-caller-frame"`
 
 ***
 

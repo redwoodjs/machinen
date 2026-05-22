@@ -44,6 +44,44 @@ describe("synthetic sleep syscall continuation", () => {
     );
     expect(new DataView(result.continuation!.bytes.buffer).getBigUint64(24, true)).toBe(2n);
     expect(new DataView(result.continuation!.bytes.buffer).getBigUint64(32, true)).toBe(500n);
+    expect(result.continuation!.provenance).toMatchObject({
+      byteSource: "generated-target-native-amd64-syscall-sequence",
+      byteEncoding: "amd64-machine-code",
+      generatedTargetBytes: true,
+      sourceTextReusedAsTargetCode: false,
+      sourceIsaEmulationUsed: false,
+      sidecarRuntimeUsed: false,
+      syscallAbi: "linux-amd64",
+      syscall: {
+        name: "clock_nanosleep",
+        number: 230,
+        arguments: [
+          { register: "rax", role: "syscall-number", value: "230" },
+          { register: "rdi", role: "clock-id", value: "0" },
+          { register: "rsi", role: "flags", value: "0" },
+          { register: "rdx", role: "request-timespec-pointer" },
+          { register: "r10", role: "remainder-pointer", value: "0x0" },
+        ],
+      },
+      embeddedData: {
+        kind: "timespec",
+        offset: 24,
+        seconds: "2",
+        nanoseconds: 500,
+        byteOrder: "little-endian",
+        pointerRegister: "rdx",
+      },
+      stackSetup: {
+        entryStackPointer: "target-caller-frame-stack-pointer",
+        stackBytesWrittenByContinuation: 0,
+        returnAddress: "trampoline-sentinel-return-address",
+        requiresSourceStackBytes: false,
+      },
+    });
+    expect(result.continuation!.provenance.bytesHex).toBe(
+      Buffer.from(result.continuation!.bytes).toString("hex"),
+    );
+    expect(result.continuation!.provenance.byteSha256).toHaveLength(64);
   });
 
   it("can generate an exit-process continuation after a successful sleep syscall", () => {
@@ -66,6 +104,11 @@ describe("synthetic sleep syscall continuation", () => {
       "7509b83c00000031ff0f05b83c000000bf6f0000000f05",
     );
     expect(new DataView(result.continuation!.bytes.buffer).getBigUint64(48, true)).toBe(0n);
+    expect(result.continuation!.provenance.completion).toEqual({
+      mode: "exit-process",
+      successExitStatus: 0,
+      failureExitStatus: 111,
+    });
   });
 
   it("refuses durations outside amd64 timespec bounds", () => {

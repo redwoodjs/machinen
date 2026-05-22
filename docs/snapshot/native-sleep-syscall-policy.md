@@ -62,6 +62,22 @@ status `111`. The proof classifies that as
 This covers EINTR/restart-like outcomes until signal delivery, remaining time,
 and restart contracts are modeled explicitly.
 
+## Provenance
+
+Issue #553 records synthetic continuation provenance alongside the selected
+landing:
+
+- generated amd64 byte source, hex bytes, and SHA-256
+- Linux amd64 `clock_nanosleep` syscall number (`230`) and register arguments
+- embedded little-endian timespec offset and modeled remaining duration
+- stack/register setup assumptions, including that the continuation writes no
+  source stack bytes
+- the invariants `sourceTextReusedAsTargetCode: false`,
+  `sourceIsaEmulationUsed: false`, and `sidecarRuntimeUsed: false`
+
+This makes the `/bin/sleep` success auditable as generated target-native code,
+not source text reuse, source-ISA emulation, or a helper sidecar.
+
 ## Non-claims
 
 This policy does not model arbitrary blocking syscalls. It does not make fd

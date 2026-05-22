@@ -11,6 +11,7 @@ import {
   buildNativeSyntheticSleepSyscallContinuation,
   type NativeSyntheticSleepCompletionMode,
   type NativeSyntheticSleepSyscallContinuation,
+  type NativeSyntheticSleepSyscallContinuationProvenance,
 } from "./native-synthetic-sleep-continuation.ts";
 import type {
   NativeCodeLocationMapping,
@@ -80,6 +81,7 @@ export interface NativeRealUtilitySyntheticContinuationSelection {
   syscall: NativeSyntheticSleepSyscallContinuation["syscall"];
   completionMode: NativeSyntheticSleepCompletionMode;
   exitStatusOnSuccess?: 0;
+  provenance: NativeSyntheticSleepSyscallContinuationProvenance;
 }
 
 export interface NativeRealUtilityDeferredActiveSyscallLanding {
@@ -451,6 +453,7 @@ function syntheticContinuationSelection(
     syscall: continuation.syscall,
     completionMode: continuation.completionMode,
     exitStatusOnSuccess: continuation.exitStatusOnSuccess,
+    provenance: continuation.provenance,
   };
 }
 

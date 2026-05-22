@@ -280,6 +280,18 @@ describe("native real utility code-location map", () => {
         source: "synthetic-syscall",
         symbolName: "machinen_synthetic_clock_nanosleep",
         syscall: { name: "clock_nanosleep", number: 230 },
+        provenance: {
+          byteSource: "generated-target-native-amd64-syscall-sequence",
+          generatedTargetBytes: true,
+          sourceTextReusedAsTargetCode: false,
+          sourceIsaEmulationUsed: false,
+          sidecarRuntimeUsed: false,
+          registerSetup: { abi: "linux-amd64-syscall" },
+          stackSetup: {
+            entryStackPointer: "target-caller-frame-stack-pointer",
+            requiresSourceStackBytes: false,
+          },
+        },
       },
     });
     expect(result.targetModules[0]).toMatchObject({
