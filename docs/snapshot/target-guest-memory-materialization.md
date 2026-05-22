@@ -11,11 +11,14 @@ emits descriptor entries for only two safe cases:
 2. `recreate-guard` — private guard / `PROT_NONE` mappings that carry no source
    bytes.
 
-Executable source mappings are refused with `target-module-bytes-missing` unless
-a separate target-module materialization proof supplies target-native bytes. This
-keeps source text from becoming target code.
+Executable source mappings are refused with `mapping-executable-unsupported`
+unless a separate target-module materialization proof supplies target-native
+bytes. This keeps source text from becoming target code. Shared mappings are
+refused with `mapping-shared-unsupported` until an explicit shared-resource
+recipe exists. Captured bytes must come from `native-memory.bin`; ambiguous
+provenance returns `mapping-provenance-ambiguous`, and partial/out-of-range
+captures return `mapping-captured-range-unsupported`.
 
 The target guest loader forwards memory descriptor entries to the native resume
 trampoline, and the trampoline maps those ranges before the target continuation
-jump. Overlapping target ranges and captured-byte underlaps fail closed with
-`mapping-ambiguous`.
+jump. Overlapping target ranges still fail closed with `mapping-ambiguous`.

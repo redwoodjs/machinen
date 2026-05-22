@@ -82,9 +82,32 @@ record_timing() {
   fi
 }
 
+target_restore_details() {
+  if [[ ! -f "$TARGET_LOG" ]]; then
+    echo '{}'
+    return
+  fi
+  node --input-type=module - "$TARGET_LOG" <<'NODE'
+import { readFileSync } from 'node:fs';
+try {
+  const result = JSON.parse(readFileSync(process.argv[2], 'utf8'));
+  process.stdout.write(JSON.stringify({
+    descriptorGateCompleted: result.descriptorGateCompleted ?? false,
+    descriptorMemoryEntryCount: result.descriptorMemoryEntryCount ?? 0,
+    descriptorFdRecipeCount: result.descriptorFdRecipeCount ?? 0,
+    descriptorResourceKinds: result.descriptorResourceKinds ?? [],
+    targetVerifierResult: result.targetVerifierResult ?? 'not-run',
+  }));
+} catch {
+  process.stdout.write('{}');
+}
+NODE
+}
+
 write_summary() {
-  local timings joined
+  local timings joined target_details
   joined=$(IFS=,; echo "${TIMINGS[*]}")
+  target_details=$(target_restore_details)
   cat >"$SUMMARY" <<JSON_SUMMARY
 {
   "profile": "portable-machine-restore",
@@ -107,6 +130,7 @@ write_summary() {
   "amd64AssetsDir": "$(json_escape "$AMD64_ASSETS_DIR")",
   "remotePortableMachineBundle": "$(json_escape "$REMOTE_PORTABLE_BUNDLE")",
   "remoteTargetCodeFile": "$(json_escape "$REMOTE_TARGET_CODE")",
+  "targetRestore": $target_details,
   "timings": [$joined]
 }
 JSON_SUMMARY
@@ -324,7 +348,14 @@ run_target_restore() {
   if node --input-type=module - "$TARGET_LOG" <<'NODE'
 import { readFileSync } from 'node:fs';
 const result = JSON.parse(readFileSync(process.argv[2], 'utf8'));
-process.exit(result.state === 'completed' && result.migrationCompleted === true ? 0 : 1);
+process.exit(
+  result.state === 'completed' &&
+  result.migrationCompleted === true &&
+  result.descriptorGateCompleted === true &&
+  result.targetVerifierResult === 'passed'
+    ? 0
+    : 1,
+);
 NODE
   then
     record_timing "target-boot-restore" "ok" "$start" "target-native completion observed"

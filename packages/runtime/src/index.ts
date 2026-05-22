@@ -452,6 +452,7 @@ export type {
 export type {
   PortableMachineTargetRestoreDescriptorPlan,
   PortableMachineTargetRestoreDescriptorRequest,
+  PortableMachineTargetVerifierResult,
   PortableMachineVmRestoreProofPlan,
   PortableMachineVmRestoreProofRequest,
   PortableMachineVmRestoreProofState,

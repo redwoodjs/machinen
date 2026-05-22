@@ -40,7 +40,11 @@ Raw cross-ISA `.vmstate` replay remains a refusal, not a success path.
 fd-table refusals, executable-source memory, ambiguous mappings, and other unsafe
 materialization blockers are returned as refusals instead of entering the guest.
 Ready descriptors include only generated/target-native continuation bytes,
-explicit fd-table recipes, and safe non-executable memory entries.
+explicit fd-table recipes, and safe non-executable memory entries. The current
+combined proof verifies a safe captured memory byte plus a wider fd matrix:
+closed fd, inherited stdout, reopened file, synthetic pipe, eventfd, and timerfd
+recipes. The generated amd64 verifier checks the materialized memory and fd
+state before exiting.
 
 ## Smoke profile
 
@@ -70,8 +74,10 @@ summary shape on any host.
 The smoke profile creates or captures a narrow arm64 native-process bundle,
 wraps it in a portable machine snapshot, stages a target-native amd64 verifier
 inside the bundle, and runs the portable machine VM restore proof with a combined
-restore descriptor. The verifier checks one safe captured memory byte and one
-planned fd-table `reopen-file` recipe before exiting successfully. It reports
+restore descriptor. The verifier checks one safe captured memory byte plus the
+planned fd-table recipe matrix before exiting successfully. The JSON summary
+includes `targetRestore.descriptorGateCompleted`, descriptor memory/fd counts,
+resource recipe kinds, and `targetRestore.targetVerifierResult`. It reports
 timing for:
 
 1. preflight / optional remote reachability gates;
@@ -90,5 +96,8 @@ successful or skipped runs as well.
 
 Run this named smoke when touching portable machine bundle layout, target-guest
 loader descriptors, target VM restore wiring, target continuation execution, or
-other VM-level portable cross-ISA restore behavior. Full `pnpm smoke-tests`
-remains the broader VM lifecycle suite.
+other VM-level portable cross-ISA restore behavior. The memory materialization
+planner refuses executable source mappings, shared mappings, ambiguous captured
+byte provenance, and partial captured ranges with precise refusal codes before
+entering the guest. Full `pnpm smoke-tests` remains the broader VM lifecycle
+suite.

@@ -185,9 +185,12 @@ async function executeTargetVmProof(
     execTimeoutMs: (args.timeoutSeconds + 20) * 1000,
   });
   const descriptorGateCompleted = loaderCompleted(result.stdout);
+  const targetVerifierResult =
+    result.exitCode === 0 && descriptorGateCompleted ? "passed" : "failed";
   return {
     ...targetSummary(args),
     descriptorGateCompleted,
+    targetVerifierResult,
     exitCode: result.exitCode,
     stdout: result.stdout,
     stderr: result.stderr,

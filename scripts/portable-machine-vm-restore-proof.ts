@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import {
   completePortableMachineVmRestoreProof,
   planPortableMachineTargetRestoreDescriptor,
@@ -33,6 +33,9 @@ interface TargetInvocation {
   descriptorFile?: string;
   memoryFile?: string;
   fdFile?: string;
+  descriptorMemoryEntryCount?: number;
+  descriptorFdRecipeCount?: number;
+  descriptorResourceKinds?: string[];
 }
 
 const GUEST_CODE = "/tmp/machinen-target-bytes.bin";
@@ -40,7 +43,13 @@ const GUEST_MEMORY = "/tmp/machinen-combined-native-memory.bin";
 const GUEST_FD_FILE = "/tmp/machinen-combined-fd.txt";
 const PROOF_MEMORY_TARGET = "0x600000000000";
 const PROOF_MEMORY_SIZE = 4096;
-const PROOF_FD = 7;
+const PROOF_CLOSED_FD = 3;
+const PROOF_STDOUT_FD = 1;
+const PROOF_FILE_FD = 7;
+const PROOF_PIPE_READ_FD = 8;
+const PROOF_PIPE_WRITE_FD = 9;
+const PROOF_EVENT_FD = 10;
+const PROOF_TIMER_FD = 11;
 const PROOF_FD_BYTES = Buffer.from("FD");
 
 function usage(): never {
@@ -100,13 +109,28 @@ function runReadyProof(args: Args, plan: ReturnType<typeof planPortableMachineVm
   if (isRestorePlan(prepared)) {
     return prepared;
   }
-  return runTargetProof(args, plan, prepared);
+  return runTargetProof(args, planWithDescriptorDetails(plan, prepared), prepared);
 }
 
 function isRestorePlan(
   prepared: TargetInvocation | ReturnType<typeof planPortableMachineVmRestoreProof> | undefined,
 ): prepared is ReturnType<typeof planPortableMachineVmRestoreProof> {
   return prepared !== undefined && "state" in prepared;
+}
+
+function planWithDescriptorDetails(
+  plan: ReturnType<typeof planPortableMachineVmRestoreProof>,
+  invocation: TargetInvocation | undefined,
+): ReturnType<typeof planPortableMachineVmRestoreProof> {
+  return invocation
+    ? {
+        ...plan,
+        descriptorMemoryEntryCount: invocation.descriptorMemoryEntryCount,
+        descriptorFdRecipeCount: invocation.descriptorFdRecipeCount,
+        descriptorResourceKinds: invocation.descriptorResourceKinds,
+        targetVerifierResult: "pending",
+      }
+    : plan;
 }
 
 function prepareCombinedDescriptor(
@@ -133,6 +157,15 @@ function prepareCombinedDescriptor(
   const targetDir = dirname(targetCodeFile);
   const fdFile = join(targetDir, "combined-fd-resource.txt");
   const descriptorFile = join(targetDir, "combined-target-restore.desc");
+  const pathRefusal = portableProofPathRefusal(bundle.rootDir!, {
+    "target-code": targetCodeFile,
+    "target-descriptor": descriptorFile,
+    "target-fd-resource": fdFile,
+    "target-memory": memoryFile,
+  });
+  if (pathRefusal) {
+    return refusedPlan(plan, pathRefusal.code, pathRefusal.message);
+  }
   writeFileSync(fdFile, PROOF_FD_BYTES);
   writeFileSync(targetCodeFile, combinedProofTargetCode(firstByte(memoryFile, mapping)));
 
@@ -151,7 +184,14 @@ function prepareCombinedDescriptor(
     memorySizeBytes,
     memoryFile: GUEST_MEMORY,
   });
-  const fdTable = planNativeTargetFdTable({ resources: [proofFdResource()] });
+  const fdTable = planNativeTargetFdTable({
+    resources: proofFdResources(),
+    expectedFds: [PROOF_CLOSED_FD],
+    inheritedStdio: { mode: "inherit-output" },
+    syntheticEmptyPipeFds: [PROOF_PIPE_READ_FD],
+    syntheticEmptyEventFds: [PROOF_EVENT_FD],
+    syntheticTimerFds: [PROOF_TIMER_FD],
+  });
   const descriptorPlan = planPortableMachineTargetRestoreDescriptor({
     continuation,
     fdTable,
@@ -162,7 +202,34 @@ function prepareCombinedDescriptor(
     return refusedPlan(plan, first.code, first.message);
   }
   writeFileSync(descriptorFile, serializeTargetGuestRestoreDescriptor(descriptorPlan.descriptor));
-  return { descriptorFile, memoryFile, fdFile };
+  return {
+    descriptorFile,
+    memoryFile,
+    fdFile,
+    descriptorMemoryEntryCount: descriptorPlan.memoryEntryCount,
+    descriptorFdRecipeCount: descriptorPlan.fdRecipeCount,
+    descriptorResourceKinds: descriptorPlan.descriptor.resources.map((resource) => resource.kind),
+  };
+}
+
+function portableProofPathRefusal(
+  bundleRoot: string,
+  paths: Record<string, string>,
+): { code: string; message: string } | undefined {
+  const outside = Object.entries(paths).find(([, path]) => !inside(bundleRoot, path));
+  if (!outside) {
+    return undefined;
+  }
+  const [label, path] = outside;
+  return {
+    code: `${label}-outside-portable-bundle`,
+    message: `${label} input must stay inside the portable machine bundle: ${path}`,
+  };
+}
+
+function inside(root: string, candidate: string): boolean {
+  const rel = relative(resolve(root), resolve(candidate));
+  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
 }
 
 function selectProofMemoryMapping(
@@ -200,16 +267,58 @@ function selectProofMemoryMapping(
   };
 }
 
-function proofFdResource(): NativeProcessResource {
+function proofFdResources(): NativeProcessResource[] {
+  return [
+    proofStdoutResource(),
+    proofFileResource(),
+    proofPipeResource(PROOF_PIPE_READ_FD, "read"),
+    proofPipeResource(PROOF_PIPE_WRITE_FD, "write"),
+    proofSyntheticResource("eventfd", PROOF_EVENT_FD),
+    proofSyntheticResource("timer", PROOF_TIMER_FD),
+  ];
+}
+
+function proofStdoutResource(): NativeProcessResource {
   return {
-    id: `fd:${PROOF_FD}:combined-proof`,
+    id: `fd:${PROOF_STDOUT_FD}:combined-proof-stdout`,
+    kind: "fd",
+    state: "captured",
+    fd: PROOF_STDOUT_FD,
+    flags: ["octal:1"],
+  };
+}
+
+function proofFileResource(): NativeProcessResource {
+  return {
+    id: `fd:${PROOF_FILE_FD}:combined-proof-file`,
     kind: "file",
     state: "recipe",
-    fd: PROOF_FD,
+    fd: PROOF_FILE_FD,
     path: GUEST_FD_FILE,
     offset: 0,
     flags: ["octal:0"],
     recipe: { reopen: GUEST_FD_FILE, offset: 0 },
+  };
+}
+
+function proofPipeResource(fd: number, end: "read" | "write"): NativeProcessResource {
+  return {
+    id: `fd:${fd}:combined-proof-pipe-${end}`,
+    kind: "pipe",
+    state: "captured",
+    fd,
+    path: "pipe:combined-proof",
+    flags: [end === "read" ? "octal:0" : "octal:1"],
+  };
+}
+
+function proofSyntheticResource(kind: "eventfd" | "timer", fd: number): NativeProcessResource {
+  return {
+    id: `fd:${fd}:combined-proof-${kind}`,
+    kind,
+    state: "captured",
+    fd,
+    flags: ["octal:0"],
   };
 }
 
@@ -228,42 +337,79 @@ function combinedProofTargetCode(expectedMemoryByte: number): Buffer {
       push(Number((value >> (8n * i)) & 0xffn));
     }
   };
-  const jumpToFail = () => {
-    push(0x75, 0x00);
-    jumps.push(bytes.length - 1);
+  const jumpToFail = (condition: number) => {
+    push(0x0f, condition, 0x00, 0x00, 0x00, 0x00);
+    jumps.push(bytes.length - 4);
+  };
+  const jumpIfNotEqual = () => jumpToFail(0x85);
+  const jumpIfSign = () => jumpToFail(0x88);
+  const syscall = (number: number) => {
+    push(0xb8);
+    pushU32(number);
+  };
+  const movFd = (fd: number) => {
+    push(0xbf);
+    pushU32(fd);
+  };
+  const checkFdOpen = (fd: number) => {
+    syscall(72);
+    movFd(fd);
+    push(0xbe);
+    pushU32(1);
+    push(0x31, 0xd2, 0x0f, 0x05, 0x48, 0x85, 0xc0);
+    jumpIfSign();
+  };
+  const checkFdClosed = (fd: number) => {
+    syscall(72);
+    movFd(fd);
+    push(0xbe);
+    pushU32(1);
+    push(0x31, 0xd2, 0x0f, 0x05, 0x83, 0xf8, 0xf7);
+    jumpIfNotEqual();
+  };
+  const readAndCheck = (fd: number, expected: Buffer) => {
+    push(0x48, 0x83, 0xec, 0x10, 0x31, 0xc0);
+    movFd(fd);
+    push(0x48, 0x89, 0xe6, 0xba);
+    pushU32(expected.length);
+    push(0x0f, 0x05, 0x83, 0xf8, expected.length);
+    jumpIfNotEqual();
+    for (const [index, byte] of expected.entries()) {
+      push(0x80, index === 0 ? 0x3c : 0x7c, 0x24);
+      if (index !== 0) {
+        push(index);
+      }
+      push(byte);
+      jumpIfNotEqual();
+    }
   };
 
   push(0x48, 0xbb);
   pushU64(BigInt(PROOF_MEMORY_TARGET));
   push(0x80, 0x3b, expectedMemoryByte);
-  jumpToFail();
-  push(0x48, 0x83, 0xec, 0x10);
-  push(0x31, 0xc0);
-  push(0xbf);
-  pushU32(PROOF_FD);
-  push(0x48, 0x89, 0xe6);
-  push(0xba);
-  pushU32(PROOF_FD_BYTES.length);
-  push(0x0f, 0x05);
-  push(0x83, 0xf8, PROOF_FD_BYTES.length);
-  jumpToFail();
-  push(0x80, 0x3c, 0x24, PROOF_FD_BYTES[0]!);
-  jumpToFail();
-  push(0x80, 0x7c, 0x24, 0x01, PROOF_FD_BYTES[1]!);
-  jumpToFail();
-  push(0xb8);
-  pushU32(60);
+  jumpIfNotEqual();
+  checkFdClosed(PROOF_CLOSED_FD);
+  checkFdOpen(PROOF_STDOUT_FD);
+  readAndCheck(PROOF_FILE_FD, PROOF_FD_BYTES);
+  checkFdOpen(PROOF_PIPE_READ_FD);
+  checkFdOpen(PROOF_PIPE_WRITE_FD);
+  checkFdOpen(PROOF_EVENT_FD);
+  checkFdOpen(PROOF_TIMER_FD);
+  syscall(60);
   push(0x31, 0xff, 0x0f, 0x05);
 
   const failOffset = bytes.length;
-  push(0xb8);
-  pushU32(60);
+  syscall(60);
   push(0xbf);
   pushU32(42);
   push(0x0f, 0x05);
 
   for (const index of jumps) {
-    bytes[index] = failOffset - (index + 1);
+    const relative = failOffset - (index + 4);
+    bytes[index] = relative & 0xff;
+    bytes[index + 1] = (relative >> 8) & 0xff;
+    bytes[index + 2] = (relative >> 16) & 0xff;
+    bytes[index + 3] = (relative >> 24) & 0xff;
   }
   return Buffer.from(bytes);
 }

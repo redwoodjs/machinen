@@ -288,4 +288,111 @@ describe("target guest restore loader descriptor", () => {
     expect(refused.status).toBe(2);
     expect(refused.stdout).toContain("target-guest-loader-resource-unsupported");
   });
+
+  it.skipIf(!HAS_CC)("asset loader fail-closes negative descriptor/resource cases", () => {
+    const outDir = mkdtempSync(join(tmpdir(), "target-guest-restore-loader-negative-test-"));
+    const loader = join(outDir, "machinen-target-guest-restore-loader");
+    const compile = spawnSync("cc", ["-Wall", "-Wextra", "-Werror", LOADER_SOURCE, "-o", loader], {
+      encoding: "utf8",
+    });
+    expect(compile.status, compile.stderr).toBe(0);
+
+    const wrongArch = join(outDir, "wrong-arch.desc");
+    writeFileSync(
+      wrongArch,
+      serializeTargetGuestRestoreDescriptor(descriptor()).replace(
+        "targetArch=amd64",
+        "targetArch=arm64",
+      ),
+    );
+    const wrongArchRun = spawnSync(
+      loader,
+      ["--descriptor", wrongArch, "--trampoline", "/usr/bin/true"],
+      { encoding: "utf8" },
+    );
+    expect(wrongArchRun.status).toBe(2);
+    expect(wrongArchRun.stdout).toContain("target-guest-loader-target-arch-unsupported");
+
+    const missingContinuation = join(outDir, "missing-continuation.desc");
+    writeFileSync(
+      missingContinuation,
+      serializeTargetGuestRestoreDescriptor(descriptor()).replace(/^codeFile=.*\n/m, ""),
+    );
+    const missingContinuationRun = spawnSync(
+      loader,
+      ["--descriptor", missingContinuation, "--trampoline", "/usr/bin/true"],
+      { encoding: "utf8" },
+    );
+    expect(missingContinuationRun.status).toBe(2);
+    expect(missingContinuationRun.stdout).toContain("target-guest-loader-descriptor-invalid");
+
+    const badFdPath = join(outDir, "bad-fd-path.desc");
+    writeFileSync(
+      badFdPath,
+      serializeTargetGuestRestoreDescriptor(
+        descriptor({
+          resources: [
+            {
+              kind: "reopen-file",
+              fd: 7,
+              path: join(outDir, "missing-fd-resource.txt"),
+              offset: 0,
+              access: 0,
+            },
+          ],
+        }),
+      ),
+    );
+    const badFdPathRun = spawnSync(
+      loader,
+      ["--descriptor", badFdPath, "--trampoline", "/usr/bin/true"],
+      { encoding: "utf8" },
+    );
+    expect(badFdPathRun.status).toBe(126);
+    expect(badFdPathRun.stderr).toContain("open resource");
+    expect(badFdPathRun.stdout).toContain(`${LOADER_PREFIX}{"status":"completed","exitCode":126}`);
+
+    const memoryCheckerSource = join(outDir, "memory-checker.c");
+    const memoryChecker = join(outDir, "memory-checker");
+    writeFileSync(
+      memoryCheckerSource,
+      `#include <string.h>\n#include <unistd.h>\nint main(int argc, char **argv) {\n  for (int i = 1; i + 1 < argc; i++) {\n    if (strcmp(argv[i], "--materialize-memory") == 0) {\n      char *colon = strchr(argv[i + 1], ':');\n      if (colon) *colon = '\\0';\n      return access(argv[i + 1], R_OK) == 0 ? 45 : 44;\n    }\n  }\n  return 43;\n}\n`,
+    );
+    const compileChecker = spawnSync(
+      "cc",
+      ["-Wall", "-Wextra", "-Werror", memoryCheckerSource, "-o", memoryChecker],
+      { encoding: "utf8" },
+    );
+    expect(compileChecker.status, compileChecker.stderr).toBe(0);
+
+    const missingMemory = join(outDir, "missing-memory.desc");
+    writeFileSync(
+      missingMemory,
+      serializeTargetGuestRestoreDescriptor(
+        descriptor({
+          memory: [
+            {
+              kind: "copy-captured-bytes",
+              mapping: "heap",
+              targetStart: "0x600000000000",
+              sizeBytes: 4096,
+              permissions: "rw-p",
+              sourceFile: join(outDir, "missing-native-memory.bin"),
+              sourceOffset: 0,
+              provenance: "native-process-image",
+            },
+          ],
+        }),
+      ),
+    );
+    const missingMemoryRun = spawnSync(
+      loader,
+      ["--descriptor", missingMemory, "--trampoline", memoryChecker],
+      { encoding: "utf8" },
+    );
+    expect(missingMemoryRun.status).toBe(44);
+    expect(missingMemoryRun.stdout).toContain(
+      `${LOADER_PREFIX}{"status":"completed","exitCode":44}`,
+    );
+  });
 });
