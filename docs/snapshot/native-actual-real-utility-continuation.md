@@ -61,11 +61,16 @@ executable using its standard `IO::Poll` module. The one-fd modes also require
 `MACHINEN_ACTUAL_REAL_UTILITY_PPOLL_FD_POLICY=synthetic-empty-pipe`; they install
 a fresh empty pipe read end at the captured fd before jumping to generated amd64
 `ppoll` bytes. The Perl command text is only used to put the source utility into
-the modeled wait. It is not reused as target code.
+the modeled wait. It is not reused as target code. The Perl workload uses a short
+modeled timeout so both return-to-trampoline and target-exit proof modes stay
+bounded.
 
 The summary reports `attemptedResume: true` and, for modeled synthetic syscall
 paths, `migrationCompleted: true` only after the target process exits with status
-`0` or the controlled trampoline observes the expected target-native return.
+`0` or the controlled trampoline observes the expected target-native return. For
+the packaged Perl one-fd `ppoll` workload, default `exit-process` completion now
+proves native target exit `0`; `return-to-trampoline` remains the register-return
+inspection mode.
 
 That ready-plus-attempt state is intentional but not a migration success claim. It
 proves the real capture path has explicit data for every modeled planning gate,

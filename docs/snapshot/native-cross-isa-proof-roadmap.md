@@ -122,7 +122,7 @@ Done when:
 - non-one-fd, non-pipe, non-`POLLIN`, non-empty-`revents`, and signal-mask cases
   keep refusing as `target-ppoll-timeout-missing`.
 
-### 7. Real utility beyond `/bin/sleep` — in progress
+### 7. Real utility beyond `/bin/sleep` — done
 
 Goal: prove a real unmodified utility whose blocked syscall matches the expanded
 blocking-family model. The first narrow utility is the packaged `/usr/bin/perl`
@@ -135,7 +135,8 @@ Done when:
 - the source utility is captured live on arm64;
 - the target continuation runs as amd64 without sidecars or emulation;
 - observable behavior continues or exits successfully according to the modeled
-  utility contract;
+  utility contract, including target-native exit `0` for the packaged Perl
+  one-fd `ppoll` proof;
 - missing fd resources, non-pipe fds, pipe write ends, wrong events, non-empty
   `revents`, `nfds > 1`, and non-null signal masks refuse precisely.
 
