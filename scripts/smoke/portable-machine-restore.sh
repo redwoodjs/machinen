@@ -64,7 +64,7 @@ SKIP_REASON=""
 FAILURE=""
 
 now_ms() {
-  node -e 'console.log(Date.now())'
+  node -e 'process.stdout.write(String(Date.now()))'
 }
 
 json_escape() {
@@ -97,6 +97,10 @@ try {
     descriptorFdRecipeCount: result.descriptorFdRecipeCount ?? 0,
     descriptorResourceKinds: result.descriptorResourceKinds ?? [],
     targetVerifierResult: result.targetVerifierResult ?? 'not-run',
+    targetContinuationKind: result.targetContinuationKind ?? 'unknown',
+    targetContinuationStatus: result.targetContinuationStatus ?? '',
+    targetContinuationReturnValue: result.targetContinuationReturnValue ?? '',
+    targetModuleBytesSource: result.targetModuleBytesSource ?? '',
   }));
 } catch {
   process.stdout.write('{}');
@@ -331,7 +335,7 @@ run_target_restore() {
       remote_path_assignment="PATH='$AMD64_PATH_PREFIX':\$PATH"
     fi
     if ! ssh "$AMD64_SSH" \
-      "cd '$AMD64_REPO' && $remote_path_assignment MACHINEN_VMM='$AMD64_VMM' MACHINEN_KERNEL='$AMD64_KERNEL' MACHINEN_ASSETS_DIR='$AMD64_ASSETS_DIR' '$AMD64_PNPM' --silent portable-machine-vm-restore-proof -- --bundle-dir '$REMOTE_PORTABLE_BUNDLE' --target-code-file '$REMOTE_TARGET_CODE' --image '$TARGET_IMAGE' --combined-descriptor --json" \
+      "cd '$AMD64_REPO' && $remote_path_assignment MACHINEN_VMM='$AMD64_VMM' MACHINEN_KERNEL='$AMD64_KERNEL' MACHINEN_ASSETS_DIR='$AMD64_ASSETS_DIR' '$AMD64_PNPM' --silent portable-machine-vm-restore-proof -- --bundle-dir '$REMOTE_PORTABLE_BUNDLE' --target-code-file '$REMOTE_TARGET_CODE' --image '$TARGET_IMAGE' --combined-descriptor --real-utility-continuation --json" \
       >"$TARGET_LOG" 2>"$WORK/target-restore.stderr"; then
       record_timing "target-boot-restore" "failed" "$start" "remote runner failed"
       return 21
@@ -341,6 +345,7 @@ run_target_restore() {
     --target-code-file "$TARGET_CODE" \
     --image "$TARGET_IMAGE" \
     --combined-descriptor \
+    --real-utility-continuation \
     --json >"$TARGET_LOG" 2>"$WORK/target-restore.stderr"; then
     record_timing "target-boot-restore" "failed" "$start" "runner failed"
     return 21
@@ -380,11 +385,13 @@ start=$(now_ms); capture_native_process_bundle "$start"
 start=$(now_ms); create_portable_bundle "$start"
 start=$(now_ms); transfer_bundle "$start"
 start=$(now_ms)
+if [[ $DRY_RUN -eq 1 ]]; then
+  record_timing "target-boot-restore" "skipped" "$start" "dry run"
+  finish_skip "dry run"
+fi
 target_rc=0
 run_target_restore "$start" || target_rc=$?
-if [[ $target_rc -eq 20 ]]; then
-  finish_skip "dry run"
-elif [[ $target_rc -ne 0 ]]; then
+if [[ $target_rc -ne 0 ]]; then
   finish_failure "target restore failed with code $target_rc"
 fi
 start=$(now_ms); completion_phase "$start"

@@ -131,6 +131,7 @@ const TOC = {
     "PortableMachineTargetRestoreDescriptorRequest",
     "PortableMachineTargetRestoreDescriptorPlan",
     "PortableMachineVmRestoreProofState",
+    "PortableMachineTargetContinuationKind",
     "PortableMachineTargetVerifierResult",
     "PortableMachineVmRestoreProofRequest",
     "PortableMachineVmRestoreProofPlan",

@@ -22,6 +22,7 @@ const GUEST_DESCRIPTOR = "/tmp/machinen-target-guest-restore.desc";
 const GUEST_MEMORY_DEFAULT = "/tmp/machinen-combined-native-memory.bin";
 const GUEST_FD_FILE_DEFAULT = "/tmp/machinen-combined-fd.txt";
 const LOADER_PREFIX = "MACHINEN_TARGET_GUEST_RESTORE_LOADER ";
+const ACTUAL_RESUME_PREFIX = "MACHINEN_ACTUAL_RESUME_TRAMPOLINE ";
 
 interface Args {
   codeFile?: string;
@@ -42,6 +43,7 @@ interface Args {
   syntheticEmptyPipeWriteFd?: string;
   syntheticEmptyEventFd?: string;
   syntheticTimerFd?: string;
+  expectReturnValue?: string;
 }
 
 function usage(): never {
@@ -91,6 +93,7 @@ function parseArgs(argv: string[]): Args {
     syntheticEmptyPipeWriteFd: read("--synthetic-empty-pipe-write-fd"),
     syntheticEmptyEventFd: read("--synthetic-empty-eventfd"),
     syntheticTimerFd: read("--synthetic-timerfd"),
+    expectReturnValue: read("--expect-return-value"),
   };
 }
 
@@ -185,11 +188,19 @@ async function executeTargetVmProof(
     execTimeoutMs: (args.timeoutSeconds + 20) * 1000,
   });
   const descriptorGateCompleted = loaderCompleted(result.stdout);
-  const targetVerifierResult =
-    result.exitCode === 0 && descriptorGateCompleted ? "passed" : "failed";
+  const actualResumeEvent = parseActualResumeEvent(result.stdout);
+  const targetVerifierResult = targetVerifierPassed(
+    args,
+    result.exitCode,
+    descriptorGateCompleted,
+    actualResumeEvent,
+  )
+    ? "passed"
+    : "failed";
   return {
     ...targetSummary(args),
     descriptorGateCompleted,
+    actualResumeEvent,
     targetVerifierResult,
     exitCode: result.exitCode,
     stdout: result.stdout,
@@ -262,19 +273,54 @@ function descriptorText(args: Args, codeSize: number): string {
 }
 
 function loaderCompleted(stdout: string): boolean {
-  const line = stdout.split(/\r?\n/).find((candidate) => candidate.startsWith(LOADER_PREFIX));
+  const payload = prefixedJson(stdout, LOADER_PREFIX) as
+    | { status?: string; exitCode?: number }
+    | undefined;
+  return payload?.status === "completed" && payload.exitCode === 0;
+}
+
+function parseActualResumeEvent(stdout: string): Record<string, unknown> | undefined {
+  return prefixedJson(stdout, ACTUAL_RESUME_PREFIX) as Record<string, unknown> | undefined;
+}
+
+function prefixedJson(stdout: string, prefix: string): unknown | undefined {
+  const line = stdout.split(/\r?\n/).find((candidate) => candidate.startsWith(prefix));
   if (!line) {
-    return false;
+    return undefined;
   }
   try {
-    const payload = JSON.parse(line.slice(LOADER_PREFIX.length)) as {
-      status?: string;
-      exitCode?: number;
-    };
-    return payload.status === "completed" && payload.exitCode === 0;
+    return JSON.parse(line.slice(prefix.length));
   } catch {
+    return undefined;
+  }
+}
+
+function targetVerifierPassed(
+  args: Args,
+  exitCode: number,
+  descriptorGateCompleted: boolean,
+  actualResumeEvent: Record<string, unknown> | undefined,
+): boolean {
+  if (!targetProcessCompleted(exitCode, descriptorGateCompleted)) {
     return false;
   }
+  return args.expectReturnValue === undefined
+    ? true
+    : actualResumeReturnedExpected(actualResumeEvent, args.expectReturnValue);
+}
+
+function targetProcessCompleted(exitCode: number, descriptorGateCompleted: boolean): boolean {
+  return descriptorGateCompleted && exitCode === 0;
+}
+
+function actualResumeReturnedExpected(
+  actualResumeEvent: Record<string, unknown> | undefined,
+  expectedReturnValue: string,
+): boolean {
+  return (
+    actualResumeEvent?.status === "returned" &&
+    actualResumeEvent.returnValue === expectedReturnValue
+  );
 }
 
 async function killUnlessKept(vm: Awaited<ReturnType<typeof boot>>, keep: boolean): Promise<void> {

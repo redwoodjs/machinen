@@ -44,6 +44,8 @@ struct Descriptor {
   uint64_t file_offset;
   uint64_t code_size;
   uint64_t target_address;
+  bool has_argument0;
+  uint64_t argument0;
   uint64_t timeout_seconds;
   uint64_t stack_target_start;
   uint64_t stack_size;
@@ -60,7 +62,7 @@ struct Descriptor {
   size_t inherit_fd_count;
   struct ReopenFileRecipe reopen_files[MAX_FD_RECIPES];
   size_t reopen_file_count;
-  char memory_specs[MAX_MATERIALIZED_MAPPINGS][PATH_MAX];
+  char memory_specs[MAX_MATERIALIZED_MAPPINGS][PATH_MAX * 2];
   size_t memory_spec_count;
   char guard_specs[MAX_MATERIALIZED_MAPPINGS][128];
   size_t guard_spec_count;
@@ -183,6 +185,9 @@ static void parse_field(struct Descriptor *descriptor, char *line) {
     descriptor->code_size = parse_u64(value, key);
   } else if (streq(key, "targetAddress")) {
     descriptor->target_address = parse_u64(value, key);
+  } else if (streq(key, "argument0")) {
+    descriptor->argument0 = parse_u64(value, key);
+    descriptor->has_argument0 = true;
   } else if (streq(key, "timeoutSeconds")) {
     descriptor->timeout_seconds = parse_u64(value, key);
   } else if (streq(key, "stackTargetStart")) {
@@ -365,7 +370,7 @@ static void append_memory_spec(struct Descriptor *descriptor, char *fields) {
     refuse("target-guest-loader-invalid-continuation", "memory mappings must be non-executable");
   }
   snprintf(descriptor->memory_specs[descriptor->memory_spec_count++],
-      PATH_MAX,
+      sizeof(descriptor->memory_specs[0]),
       "%s:%s:%s:%s:%s",
       source_file_copy,
       source_offset_copy,
@@ -528,6 +533,7 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   char file_offset[32];
   char code_size[32];
   char target_address[32];
+  char argument0[32];
   char timeout_seconds[32];
   char stack_target_start[32];
   char stack_size[32];
@@ -540,6 +546,7 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   snprintf(file_offset, sizeof(file_offset), "0x%" PRIx64, descriptor->file_offset);
   snprintf(code_size, sizeof(code_size), "0x%" PRIx64, descriptor->code_size);
   snprintf(target_address, sizeof(target_address), "0x%" PRIx64, descriptor->target_address);
+  snprintf(argument0, sizeof(argument0), "0x%" PRIx64, descriptor->argument0);
   snprintf(timeout_seconds, sizeof(timeout_seconds), "0x%" PRIx64, descriptor->timeout_seconds);
   snprintf(stack_target_start, sizeof(stack_target_start), "0x%" PRIx64, descriptor->stack_target_start);
   snprintf(stack_size, sizeof(stack_size), "0x%" PRIx64, descriptor->stack_size);
@@ -563,6 +570,10 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   push_arg(child_argv, &child_argc, code_size);
   push_arg(child_argv, &child_argc, "--target-address");
   push_arg(child_argv, &child_argc, target_address);
+  if (descriptor->has_argument0) {
+    push_arg(child_argv, &child_argc, "--argument0");
+    push_arg(child_argv, &child_argc, argument0);
+  }
   push_arg(child_argv, &child_argc, "--timeout-seconds");
   push_arg(child_argv, &child_argc, timeout_seconds);
   push_arg(child_argv, &child_argc, "--stack-target-start");

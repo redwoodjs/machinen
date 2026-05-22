@@ -31,7 +31,7 @@ function compileHelper(outDir: string) {
   return helper;
 }
 
-function runHelper(helper: string, codeFile: string, codeSize: number) {
+function runHelper(helper: string, codeFile: string, codeSize: number, extraArgs: string[] = []) {
   const result = spawnSync(
     helper,
     [
@@ -43,6 +43,7 @@ function runHelper(helper: string, codeFile: string, codeSize: number) {
       String(codeSize),
       "--target-address",
       "0x710000001000",
+      ...extraArgs,
       "--stack-target-start",
       "0x520000000000",
       "--stack-size",
@@ -76,6 +77,15 @@ describe("native actual resume trampoline", () => {
         sourceTextReusedAsTargetCode: false,
         sourceIsaEmulationUsed: false,
         sidecarRuntimeUsed: false,
+      });
+
+      const arg0Code = join(outDir, "arg0.bin");
+      // mov rax, rdi; ret
+      writeFileSync(arg0Code, Buffer.from([0x48, 0x89, 0xf8, 0xc3]));
+      expect(runHelper(helper, arg0Code, 4, ["--argument0", "0x600000000000"])).toMatchObject({
+        status: "returned",
+        returnValue: "0x600000000000",
+        argument0: "0x600000000000",
       });
 
       const faultCode = join(outDir, "fault.bin");

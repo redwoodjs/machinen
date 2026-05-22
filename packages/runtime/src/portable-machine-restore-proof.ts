@@ -20,6 +20,7 @@ export interface PortableMachineVmRestoreProofRequest {
 }
 
 export type PortableMachineTargetVerifierResult = "pending" | "passed" | "failed";
+export type PortableMachineTargetContinuationKind = "generated-verifier" | "real-utility";
 
 export interface PortableMachineVmRestoreProofPlan {
   phase: "portable-machine-vm-restore-proof";
@@ -37,6 +38,10 @@ export interface PortableMachineVmRestoreProofPlan {
   descriptorFdRecipeCount?: number;
   descriptorResourceKinds?: string[];
   targetVerifierResult?: PortableMachineTargetVerifierResult;
+  targetContinuationKind?: PortableMachineTargetContinuationKind;
+  targetContinuationStatus?: string;
+  targetContinuationReturnValue?: string;
+  targetModuleBytesSource?: string;
   sourceTextReusedAsTargetCode: false;
   sourceIsaEmulationUsed: false;
   sidecarRuntimeUsed: false;
@@ -49,6 +54,7 @@ export interface PortableMachineVmRestoreTargetResult {
   migrationCompleted?: boolean;
   descriptorGateCompleted?: boolean;
   targetVerifierResult?: PortableMachineTargetVerifierResult;
+  actualResumeEvent?: { status?: string; returnValue?: string };
   sourceTextReusedAsTargetCode?: boolean;
   sourceIsaEmulationUsed?: boolean;
   sidecarRuntimeUsed?: boolean;
@@ -162,6 +168,8 @@ export function completePortableMachineVmRestoreProof(
     migrationCompleted: completed,
     descriptorGateCompleted: result.descriptorGateCompleted === true,
     targetVerifierResult: verifierResult(result, completed),
+    targetContinuationStatus: result.actualResumeEvent?.status,
+    targetContinuationReturnValue: result.actualResumeEvent?.returnValue,
   };
 }
 
