@@ -2,6 +2,7 @@
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { nativeFdAccessMode } from "./native-fd-flags.ts";
 import {
   NATIVE_PROCESS_IMAGE_FILES,
   type NativeMemoryMapping,
@@ -714,7 +715,7 @@ function validatePpollPipeResource(
       resourceId: resource?.id,
     });
   }
-  return resource.flags && !resource.flags.includes("octal:0")
+  return nativeFdAccessMode(resource.flags) !== 0
     ? missingPpollTimeout(thread, "ppoll one-fd proof requires a pipe read end", {
         ...pollFd,
         resourceId: resource.id,

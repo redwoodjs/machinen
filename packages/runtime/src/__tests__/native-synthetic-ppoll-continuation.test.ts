@@ -16,6 +16,30 @@ function remainingTime(seconds = "1", nanoseconds = 250) {
   };
 }
 
+function oneFdPpollTimeout() {
+  return {
+    kind: "relative-duration" as const,
+    syscallName: "ppoll" as const,
+    argumentSource: "registers" as const,
+    fdsPointer: "0x3100",
+    nfds: 1 as const,
+    pollFds: [
+      {
+        fd: 3,
+        events: 1,
+        revents: 0,
+        sourceAddress: "0x3100",
+        resourceId: "fd:3",
+        targetResource: "synthetic-empty-pipe-read-end" as const,
+      },
+    ],
+    timeoutPointer: "0x3000",
+    sigmaskPointer: "0x0" as const,
+    requestedTime: { seconds: "1", nanoseconds: 250 },
+    remainingTime: remainingTime("1", 250),
+  };
+}
+
 describe("synthetic ppoll syscall continuation", () => {
   it("generates target-native amd64 ppoll bytes with an embedded timeout", () => {
     const result = buildNativeSyntheticPpollSyscallContinuation({
@@ -85,27 +109,7 @@ describe("synthetic ppoll syscall continuation", () => {
     const result = buildNativeSyntheticPpollSyscallContinuation({
       threadId: "thread:1",
       remainingTime: remainingTime("1", 250),
-      ppollTimeout: {
-        kind: "relative-duration",
-        syscallName: "ppoll",
-        argumentSource: "registers",
-        fdsPointer: "0x3100",
-        nfds: 1,
-        pollFds: [
-          {
-            fd: 3,
-            events: 1,
-            revents: 0,
-            sourceAddress: "0x3100",
-            resourceId: "fd:3",
-            targetResource: "synthetic-empty-pipe-read-end",
-          },
-        ],
-        timeoutPointer: "0x3000",
-        sigmaskPointer: "0x0",
-        requestedTime: { seconds: "1", nanoseconds: 250 },
-        remainingTime: remainingTime("1", 250),
-      },
+      ppollTimeout: oneFdPpollTimeout(),
     });
 
     expect(result.refusals).toEqual([]);
@@ -129,6 +133,27 @@ describe("synthetic ppoll syscall continuation", () => {
         entries: [{ fd: 3, targetResource: "synthetic-empty-pipe-read-end" }],
       },
       embeddedData: { offset: 56 },
+    });
+  });
+
+  it("keeps exit-process completion available for one-fd ppoll", () => {
+    const result = buildNativeSyntheticPpollSyscallContinuation({
+      threadId: "thread:1",
+      remainingTime: remainingTime("1", 250),
+      ppollTimeout: oneFdPpollTimeout(),
+      completionMode: "exit-process",
+    });
+
+    expect(result.refusals).toEqual([]);
+    expect(result.continuation).toMatchObject({
+      completionMode: "exit-process",
+      exitStatusOnSuccess: 0,
+      syscall: { nfds: 1, fdsPointer: "stack-relative-pollfd-array" },
+      sizeBytes: 160,
+      provenance: {
+        embeddedPollFds: { offset: -8 },
+        embeddedData: { offset: 144 },
+      },
     });
   });
 

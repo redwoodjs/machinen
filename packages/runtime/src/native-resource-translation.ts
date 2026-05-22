@@ -1,5 +1,6 @@
 /** Kernel-resource recipes and refusals for native process restore. */
 
+import { nativeFdAccessMode } from "./native-fd-flags.ts";
 import type { NativeProcessImageRefusal, NativeProcessResource } from "./native-process-image.ts";
 
 export interface NativeInheritedStdioPolicy {
@@ -87,7 +88,7 @@ function translateResource(
       };
     }
     const pairedReadFd = resource.path ? syntheticPipePaths.get(resource.path) : undefined;
-    if (pairedReadFd !== undefined && resource.flags?.includes("octal:1")) {
+    if (pairedReadFd !== undefined && nativeFdAccessMode(resource.flags) === 1) {
       return {
         ...resource,
         state: "recipe",

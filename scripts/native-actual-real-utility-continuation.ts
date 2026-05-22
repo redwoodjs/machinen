@@ -99,6 +99,8 @@ const PPOLL_FD_POLICY_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_PPOLL_FD_POLICY";
 const SYNTHETIC_COMPLETION_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_SYNTHETIC_COMPLETION";
 const WORKLOAD_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_WORKLOAD";
 const UTILITY_NAME = "sleep";
+const PERL_PPOLL_PIPE_SNIPPET =
+  "use IO::Poll qw(POLLIN); pipe(my $r, my $w) or die qq(pipe: $!); my $p = IO::Poll->new(); $p->mask($r => POLLIN); $p->poll(30);";
 const SETTLE_MS = "150";
 const TARGET_BYTE_WINDOW = 32;
 const SOURCE_UNWIND_FILE = "native-source-unwind.json";
@@ -216,6 +218,18 @@ function actualUtilityWorkload(): {
       name: "ppoll-pipe-timeout",
       requiredSources: [NATIVE_CAPTURE_SOURCE, NATIVE_PPOLL_PIPE_TIMEOUT_TARGET_SOURCE],
       command: (binDir) => [compileNativePpollPipeTimeoutTarget(binDir)],
+    };
+  }
+  if (process.env[WORKLOAD_ENV] === "perl-ppoll-pipe") {
+    return {
+      name: "perl-ppoll-pipe-timeout",
+      requiredSources: [NATIVE_CAPTURE_SOURCE],
+      command: () => [
+        requireUtility(["/usr/bin/perl", "/bin/perl"]),
+        "-MIO::Poll=POLLIN",
+        "-e",
+        PERL_PPOLL_PIPE_SNIPPET,
+      ],
     };
   }
   return {
