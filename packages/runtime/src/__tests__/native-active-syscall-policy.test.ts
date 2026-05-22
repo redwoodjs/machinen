@@ -67,7 +67,12 @@ function documentsWithTimespec(options: {
   pollFd?: { fd: number; events: number; revents: number };
   pollFdResource?:
     | "missing"
-    | { kind?: "pipe" | "file" | "socket"; flags?: string[]; path?: string };
+    | {
+        kind?: "pipe" | "file" | "socket" | "eventfd";
+        flags?: string[];
+        path?: string;
+        recipe?: Record<string, unknown>;
+      };
 }): NativeProcessImageDocuments {
   const rootDir = mkdtempSync(join(tmpdir(), "machinen-sleep-timer-state-"));
   tempDirs.push(rootDir);
@@ -119,6 +124,7 @@ function documentsWithTimespec(options: {
                 fd: options.pollFd.fd,
                 path: options.pollFdResource?.path ?? "pipe:[123]",
                 flags: options.pollFdResource?.flags ?? ["octal:0"],
+                recipe: options.pollFdResource?.recipe,
               },
             ]
           : [],
@@ -347,6 +353,49 @@ describe("native active syscall classification", () => {
     });
   });
 
+  it("models one synthetic empty-eventfd ppoll fd from captured pollfd memory", () => {
+    const activeThread = arm64PpollThread(undefined, [
+      "0x3100",
+      "0x1",
+      "0x3000",
+      "0x0",
+      "0x0",
+      "0x0",
+    ]);
+    const documents = documentsWithTimespec({
+      activeThread,
+      pollFd: { fd: 3, events: 1, revents: 0 },
+      pollFdResource: {
+        kind: "eventfd",
+        path: "anon_inode:[eventfd]",
+        flags: ["octal:2000002"],
+        recipe: { eventfdCount: "0x0", eventfdSemaphore: 0 },
+      },
+    });
+    const result = classifyNativeActiveSyscalls([activeThread], {
+      pollTimeoutPolicy: "defer-target-resume",
+      pollTimeoutFdPolicy: "synthetic-empty-eventfd",
+      documents,
+    });
+
+    expect(result.refusals).toEqual([]);
+    expect(result.continuations[0]).toMatchObject({
+      syscallClass: "poll-timeout",
+      metadata: {
+        ppollTimeout: {
+          nfds: 1,
+          pollFds: [
+            {
+              fd: 3,
+              resourceId: "fd:3",
+              targetResource: "synthetic-empty-eventfd",
+            },
+          ],
+        },
+      },
+    });
+  });
+
   it.each([
     {
       name: "missing fd resource",
@@ -403,6 +452,112 @@ describe("native active syscall classification", () => {
 
     expect(
       modelNativePpollTimeoutState(activeThread, documents, "synthetic-empty-pipe"),
+    ).toMatchObject({
+      state: "missing",
+      refusal: {
+        code: "target-ppoll-timeout-missing",
+        detail: { reason: scenario.reason },
+      },
+    });
+  });
+
+  it.each([
+    {
+      name: "missing eventfd resource",
+      x: ["0x3100", "0x1", "0x3000", "0x0", "0x0", "0x0"],
+      pollFd: { fd: 3, events: 1, revents: 0 },
+      pollFdResource: "missing" as const,
+      reason: "ppoll one-fd proof requires a captured eventfd fd",
+    },
+    {
+      name: "non-eventfd resource",
+      x: ["0x3100", "0x1", "0x3000", "0x0", "0x0", "0x0"],
+      pollFd: { fd: 3, events: 1, revents: 0 },
+      pollFdResource: { kind: "pipe" as const, flags: ["octal:0"] },
+      reason: "ppoll one-fd proof requires a captured eventfd fd",
+    },
+    {
+      name: "non-zero counter",
+      x: ["0x3100", "0x1", "0x3000", "0x0", "0x0", "0x0"],
+      pollFd: { fd: 3, events: 1, revents: 0 },
+      pollFdResource: {
+        kind: "eventfd" as const,
+        flags: ["octal:2000002"],
+        recipe: { eventfdCount: "0x1", eventfdSemaphore: 0 },
+      },
+      reason: "ppoll one-fd eventfd proof requires an empty eventfd",
+    },
+    {
+      name: "semaphore mode",
+      x: ["0x3100", "0x1", "0x3000", "0x0", "0x0", "0x0"],
+      pollFd: { fd: 3, events: 1, revents: 0 },
+      pollFdResource: {
+        kind: "eventfd" as const,
+        flags: ["octal:2000002"],
+        recipe: { eventfdCount: "0x0", eventfdSemaphore: 1 },
+      },
+      reason: "ppoll one-fd eventfd proof does not model semaphore mode",
+    },
+    {
+      name: "unsupported fd access flags",
+      x: ["0x3100", "0x1", "0x3000", "0x0", "0x0", "0x0"],
+      pollFd: { fd: 3, events: 1, revents: 0 },
+      pollFdResource: {
+        kind: "eventfd" as const,
+        flags: ["octal:2000000"],
+        recipe: { eventfdCount: "0x0", eventfdSemaphore: 0 },
+      },
+      reason: "ppoll one-fd eventfd proof requires read/write access",
+    },
+    {
+      name: "unsupported extra fd flags",
+      x: ["0x3100", "0x1", "0x3000", "0x0", "0x0", "0x0"],
+      pollFd: { fd: 3, events: 1, revents: 0 },
+      pollFdResource: {
+        kind: "eventfd" as const,
+        flags: ["octal:2004002"],
+        recipe: { eventfdCount: "0x0", eventfdSemaphore: 0 },
+      },
+      reason: "ppoll one-fd eventfd proof requires supported flags",
+    },
+    {
+      name: "wrong events",
+      x: ["0x3100", "0x1", "0x3000", "0x0", "0x0", "0x0"],
+      pollFd: { fd: 3, events: 4, revents: 0 },
+      reason: "ppoll one-fd proof only models POLLIN with empty revents",
+    },
+    {
+      name: "non-empty revents",
+      x: ["0x3100", "0x1", "0x3000", "0x0", "0x0", "0x0"],
+      pollFd: { fd: 3, events: 1, revents: 1 },
+      reason: "ppoll one-fd proof only models POLLIN with empty revents",
+    },
+    {
+      name: "nfds greater than one",
+      x: ["0x3100", "0x2", "0x3000", "0x0", "0x0", "0x0"],
+      pollFd: { fd: 3, events: 1, revents: 0 },
+      reason: "ppoll synthetic empty-eventfd proof supports exactly one fd",
+    },
+    {
+      name: "non-null signal mask",
+      x: ["0x3100", "0x1", "0x3000", "0x4000", "0x8", "0x0"],
+      pollFd: { fd: 3, events: 1, revents: 0 },
+      reason: "ppoll signal masks are not modeled yet",
+    },
+  ])("refuses one-fd eventfd ppoll unsafe state: $name", (scenario) => {
+    const activeThread = arm64PpollThread(undefined, scenario.x);
+    const documents = documentsWithTimespec({
+      activeThread,
+      pollFd: scenario.pollFd,
+      pollFdResource: scenario.pollFdResource ?? {
+        kind: "eventfd",
+        flags: ["octal:2000002"],
+        recipe: { eventfdCount: "0x0", eventfdSemaphore: 0 },
+      },
+    });
+
+    expect(
+      modelNativePpollTimeoutState(activeThread, documents, "synthetic-empty-eventfd"),
     ).toMatchObject({
       state: "missing",
       refusal: {

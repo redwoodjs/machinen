@@ -12,6 +12,7 @@ export interface NativeResourceTranslationRequest {
   hostCapabilities?: string[];
   inheritedStdio?: NativeInheritedStdioPolicy;
   syntheticEmptyPipeFds?: number[];
+  syntheticEmptyEventFds?: number[];
 }
 
 export interface NativeResourceTranslationResult {
@@ -24,6 +25,7 @@ export function translateNativeResources(
 ): NativeResourceTranslationResult {
   const capabilities = new Set(request.hostCapabilities ?? []);
   const syntheticEmptyPipeFds = new Set(request.syntheticEmptyPipeFds ?? []);
+  const syntheticEmptyEventFds = new Set(request.syntheticEmptyEventFds ?? []);
   const syntheticPipePaths = syntheticEmptyPipePaths(request.resources, syntheticEmptyPipeFds);
   const resources = request.resources.map((resource) =>
     translateResource(
@@ -31,6 +33,7 @@ export function translateNativeResources(
       capabilities,
       request.inheritedStdio,
       syntheticEmptyPipeFds,
+      syntheticEmptyEventFds,
       syntheticPipePaths,
     ),
   );
@@ -63,6 +66,7 @@ function translateResource(
   capabilities: Set<string>,
   inheritedStdio: NativeInheritedStdioPolicy | undefined,
   syntheticEmptyPipeFds: Set<number>,
+  syntheticEmptyEventFds: Set<number>,
   syntheticPipePaths: Map<string, number>,
 ): NativeProcessResource {
   if (
@@ -77,6 +81,18 @@ function translateResource(
   const stdio = translateInheritedStdio(resource, inheritedStdio);
   if (stdio) {
     return stdio;
+  }
+  if (
+    resource.kind === "eventfd" &&
+    resource.fd !== undefined &&
+    syntheticEmptyEventFds.has(resource.fd)
+  ) {
+    return {
+      ...resource,
+      state: "recipe",
+      recipe: { ...resource.recipe, synthetic: "empty-eventfd", fd: resource.fd },
+      refusal: undefined,
+    };
   }
   if (resource.kind === "pipe" && resource.fd !== undefined) {
     if (syntheticEmptyPipeFds.has(resource.fd)) {

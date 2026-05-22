@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/eventfd.h>
 #include <sys/mman.h>
 #include <unistd.h>
 
@@ -41,6 +42,7 @@ struct Options {
   uint64_t timeout_seconds;
   int synthetic_empty_pipe_read_fd;
   int synthetic_empty_pipe_write_fd;
+  int synthetic_empty_eventfd;
 };
 
 static void usage(void) {
@@ -48,7 +50,7 @@ static void usage(void) {
       "usage: machinen-native-actual-resume-trampoline --code-file path "
       "--file-offset n --code-size n --target-address addr "
       "--timeout-seconds n [--synthetic-empty-pipe-read-fd n] "
-      "[--synthetic-empty-pipe-write-fd n] "
+      "[--synthetic-empty-pipe-write-fd n] [--synthetic-empty-eventfd n] "
       "--stack-target-start addr --stack-size n --stack-pointer addr\n");
   exit(2);
 }
@@ -73,6 +75,7 @@ static struct Options parse_args(int argc, char **argv) {
   opts.timeout_seconds = 1;
   opts.synthetic_empty_pipe_read_fd = -1;
   opts.synthetic_empty_pipe_write_fd = -1;
+  opts.synthetic_empty_eventfd = -1;
   for (int i = 1; i < argc; i++) {
     if (streq(argv[i], "--code-file")) {
       if (++i >= argc) {
@@ -109,6 +112,16 @@ static struct Options parse_args(int argc, char **argv) {
         exit(2);
       }
       opts.synthetic_empty_pipe_read_fd = (int)fd;
+    } else if (streq(argv[i], "--synthetic-empty-eventfd")) {
+      if (++i >= argc) {
+        usage();
+      }
+      uint64_t fd = parse_u64(argv[i], "synthetic-empty-eventfd");
+      if (fd > 1024u) {
+        fprintf(stderr, "native-actual-resume-trampoline: synthetic fd is too large\n");
+        exit(2);
+      }
+      opts.synthetic_empty_eventfd = (int)fd;
     } else if (streq(argv[i], "--synthetic-empty-pipe-write-fd")) {
       if (++i >= argc) {
         usage();
@@ -391,6 +404,28 @@ static void install_synthetic_empty_pipe(int read_fd, int write_fd) {
   // modeled one-fd ppoll proof timeout-driven instead of readiness-driven.
 }
 
+static void install_synthetic_empty_eventfd(int target_fd) {
+  if (target_fd < 0) {
+    return;
+  }
+  int fd = eventfd(0, EFD_CLOEXEC);
+  if (fd < 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: synthetic eventfd failed: %s\n", strerror(errno));
+    exit(1);
+  }
+  if (fd != target_fd) {
+    if (dup2(fd, target_fd) < 0) {
+      fprintf(stderr, "native-actual-resume-trampoline: synthetic eventfd dup2 failed: %s\n", strerror(errno));
+      exit(1);
+    }
+    close(fd);
+  }
+  if (fcntl(target_fd, F_SETFD, FD_CLOEXEC) != 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: synthetic eventfd cloexec failed: %s\n", strerror(errno));
+    exit(1);
+  }
+}
+
 static void jump_to_target(uint64_t entry, uint64_t initial_rsp) {
   __asm__ __volatile__(
       "movq %%rsp, host_rsp_before_jump(%%rip)\n"
@@ -536,6 +571,7 @@ int main(int argc, char **argv) {
   install_signal_handlers();
   install_synthetic_empty_pipe(
       opts.synthetic_empty_pipe_read_fd, opts.synthetic_empty_pipe_write_fd);
+  install_synthetic_empty_eventfd(opts.synthetic_empty_eventfd);
   alarm((unsigned int)opts.timeout_seconds);
   if (sigsetjmp(resume_fault_jmp, 1) == 0) {
     jump_to_target(opts.target_address, opts.stack_pointer - 8u);

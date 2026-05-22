@@ -56,11 +56,13 @@ when the syscall returns successfully. That is the first narrow proof state wher
 
 The same proof harness can select `MACHINEN_ACTUAL_REAL_UTILITY_WORKLOAD=ppoll`
 for zero-fd ppoll, `ppoll-pipe` for the compiled one-fd synthetic empty-pipe
-fixture, or `perl-ppoll-pipe` for an unmodified packaged `/usr/bin/perl`
-executable using its standard `IO::Poll` module. The one-fd modes also require
-`MACHINEN_ACTUAL_REAL_UTILITY_PPOLL_FD_POLICY=synthetic-empty-pipe`; they install
-a fresh empty pipe read end at the captured fd before jumping to generated amd64
-`ppoll` bytes. The Perl command text is only used to put the source utility into
+fixture, `ppoll-eventfd` for the compiled one-fd synthetic empty-eventfd fixture,
+or `perl-ppoll-pipe` for an unmodified packaged `/usr/bin/perl` executable using
+its standard `IO::Poll` module. The one-fd modes also require
+`MACHINEN_ACTUAL_REAL_UTILITY_PPOLL_FD_POLICY=synthetic-empty-pipe` or
+`synthetic-empty-eventfd`; they install a fresh empty pipe read end or empty
+eventfd at the captured fd before jumping to generated amd64 `ppoll` bytes. The
+Perl command text is only used to put the source utility into
 the modeled wait. It is not reused as target code. The Perl workload uses a short
 modeled timeout so both return-to-trampoline and target-exit proof modes stay
 bounded.

@@ -2,7 +2,7 @@
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { nativeFdAccessMode } from "./native-fd-flags.ts";
+import { nativeFdAccessMode, nativeFdFlagBits } from "./native-fd-flags.ts";
 import {
   NATIVE_PROCESS_IMAGE_FILES,
   type NativeMemoryMapping,
@@ -22,7 +22,10 @@ export type NativeActiveSyscallClass =
 
 export type NativeSleepTimerSyscallPolicy = "refuse" | "defer-target-resume";
 export type NativePollTimeoutSyscallPolicy = "refuse" | "defer-target-resume";
-export type NativePollTimeoutFdPolicy = "zero-fd-only" | "synthetic-empty-pipe";
+export type NativePollTimeoutFdPolicy =
+  | "zero-fd-only"
+  | "synthetic-empty-pipe"
+  | "synthetic-empty-eventfd";
 
 export interface NativeActiveSyscallPolicyOptions {
   sleepTimerPolicy?: NativeSleepTimerSyscallPolicy;
@@ -62,13 +65,17 @@ export interface NativeModeledSleepTimerState {
   remainingTime: NativeModeledSleepTimerRemainingTime;
 }
 
+export type NativeModeledPpollTargetResource =
+  | "synthetic-empty-pipe-read-end"
+  | "synthetic-empty-eventfd";
+
 export interface NativeModeledPpollFdState {
   fd: number;
   events: number;
   revents: number;
   sourceAddress: string;
   resourceId?: string;
-  targetResource: "synthetic-empty-pipe-read-end";
+  targetResource: NativeModeledPpollTargetResource;
 }
 
 export interface NativeModeledPpollTimeoutState {
@@ -160,6 +167,7 @@ const TIMER_ABSTIME = 1;
 const TIMESPEC_SIZE_BYTES = 16n;
 const POLLFD_SIZE_BYTES = 8n;
 const POLLIN = 0x1;
+const SUPPORTED_EMPTY_EVENTFD_FLAGS = 0o2000002;
 const MAX_SIGNED_I64 = 0x7fff_ffff_ffff_ffffn;
 const MAX_NANOSECONDS = 999_999_999n;
 
@@ -521,7 +529,7 @@ function decodePpollFds(
   if (values.nfds === 0n && values.fdsPointer === 0n) {
     return { fdsPointer: values.fdsPointer, nfds: 0 };
   }
-  if (fdPolicy !== "synthetic-empty-pipe") {
+  if (!isModeledPpollOneFdPolicy(fdPolicy)) {
     return missingPpollTimeout(thread, "ppoll fd readiness is not modeled yet", {
       nfds: hex(values.nfds),
       fdsPointer: hex(values.fdsPointer),
@@ -529,7 +537,7 @@ function decodePpollFds(
     });
   }
   if (values.nfds !== 1n) {
-    return missingPpollTimeout(thread, "ppoll synthetic empty-pipe proof supports exactly one fd", {
+    return missingPpollTimeout(thread, oneFdPolicyLabel(fdPolicy), {
       nfds: hex(values.nfds),
       fdsPointer: hex(values.fdsPointer),
       argumentSource: args.source,
@@ -541,11 +549,21 @@ function decodePpollFds(
       argumentSource: args.source,
     });
   }
-  const pollFd = readCapturedPollFd(thread, documents, values.fdsPointer);
+  const pollFd = readCapturedPollFd(thread, documents, values.fdsPointer, fdPolicy);
   if ("state" in pollFd) {
     return pollFd;
   }
   return { fdsPointer: values.fdsPointer, nfds: 1, pollFds: [pollFd] };
+}
+
+function isModeledPpollOneFdPolicy(fdPolicy: NativePollTimeoutFdPolicy): boolean {
+  return fdPolicy === "synthetic-empty-pipe" || fdPolicy === "synthetic-empty-eventfd";
+}
+
+function oneFdPolicyLabel(fdPolicy: NativePollTimeoutFdPolicy): string {
+  return fdPolicy === "synthetic-empty-eventfd"
+    ? "ppoll synthetic empty-eventfd proof supports exactly one fd"
+    : "ppoll synthetic empty-pipe proof supports exactly one fd";
 }
 
 function unsupportedPpollTimeout(
@@ -644,6 +662,7 @@ function readCapturedPollFd(
   thread: NativeThreadState,
   documents: NativeProcessImageDocuments | undefined,
   sourceAddress: bigint,
+  fdPolicy: NativePollTimeoutFdPolicy,
 ): NativeModeledPpollFdState | { state: "missing"; refusal: NativeProcessImageRefusal } {
   if (!documents?.rootDir) {
     return missingPpollTimeout(thread, "captured memory bundle is not available", {
@@ -662,20 +681,27 @@ function readCapturedPollFd(
   const fd = pollFdBytes.bytes.readInt32LE(0);
   const events = pollFdBytes.bytes.readInt16LE(4);
   const revents = pollFdBytes.bytes.readInt16LE(6);
-  return validatePpollPipeFd(thread, documents, sourceAddress, { fd, events, revents });
+  return validatePpollModeledFd(
+    thread,
+    documents,
+    sourceAddress,
+    { fd, events, revents },
+    fdPolicy,
+  );
 }
 
-function validatePpollPipeFd(
+function validatePpollModeledFd(
   thread: NativeThreadState,
   documents: NativeProcessImageDocuments,
   sourceAddress: bigint,
   pollFd: { fd: number; events: number; revents: number },
+  fdPolicy: NativePollTimeoutFdPolicy,
 ): NativeModeledPpollFdState | { state: "missing"; refusal: NativeProcessImageRefusal } {
   const entryRefusal = validatePpollFdEntry(thread, pollFd);
   if (entryRefusal) {
     return entryRefusal;
   }
-  const resource = validatePpollPipeResource(thread, documents, pollFd);
+  const resource = validatePpollModeledResource(thread, documents, pollFd, fdPolicy);
   if ("state" in resource) {
     return resource;
   }
@@ -683,7 +709,7 @@ function validatePpollPipeFd(
     ...pollFd,
     sourceAddress: hex(sourceAddress),
     resourceId: resource.resource.id,
-    targetResource: "synthetic-empty-pipe-read-end",
+    targetResource: resource.targetResource,
   };
 }
 
@@ -702,11 +728,26 @@ function validatePpollFdEntry(
     : undefined;
 }
 
+function validatePpollModeledResource(
+  thread: NativeThreadState,
+  documents: NativeProcessImageDocuments,
+  pollFd: { fd: number; events: number; revents: number },
+  fdPolicy: NativePollTimeoutFdPolicy,
+):
+  | { resource: NativeProcessResource; targetResource: NativeModeledPpollTargetResource }
+  | { state: "missing"; refusal: NativeProcessImageRefusal } {
+  return fdPolicy === "synthetic-empty-eventfd"
+    ? validatePpollEventfdResource(thread, documents, pollFd)
+    : validatePpollPipeResource(thread, documents, pollFd);
+}
+
 function validatePpollPipeResource(
   thread: NativeThreadState,
   documents: NativeProcessImageDocuments,
   pollFd: { fd: number; events: number; revents: number },
-): { resource: NativeProcessResource } | { state: "missing"; refusal: NativeProcessImageRefusal } {
+):
+  | { resource: NativeProcessResource; targetResource: "synthetic-empty-pipe-read-end" }
+  | { state: "missing"; refusal: NativeProcessImageRefusal } {
   const resource = documents.resources.resources.find((candidate) => candidate.fd === pollFd.fd);
   if (resource?.kind !== "pipe") {
     return missingPpollTimeout(thread, "ppoll one-fd proof requires a captured pipe fd", {
@@ -721,7 +762,67 @@ function validatePpollPipeResource(
         resourceId: resource.id,
         resourceFlags: resource.flags,
       })
-    : { resource };
+    : { resource, targetResource: "synthetic-empty-pipe-read-end" };
+}
+
+function validatePpollEventfdResource(
+  thread: NativeThreadState,
+  documents: NativeProcessImageDocuments,
+  pollFd: { fd: number; events: number; revents: number },
+):
+  | { resource: NativeProcessResource; targetResource: "synthetic-empty-eventfd" }
+  | { state: "missing"; refusal: NativeProcessImageRefusal } {
+  const resource = documents.resources.resources.find((candidate) => candidate.fd === pollFd.fd);
+  if (resource?.kind !== "eventfd") {
+    return missingPpollTimeout(thread, "ppoll one-fd proof requires a captured eventfd fd", {
+      ...pollFd,
+      resourceKind: resource?.kind,
+      resourceId: resource?.id,
+    });
+  }
+  if (nativeFdAccessMode(resource.flags) !== 2) {
+    return missingPpollTimeout(thread, "ppoll one-fd eventfd proof requires read/write access", {
+      ...pollFd,
+      resourceId: resource.id,
+      resourceFlags: resource.flags,
+    });
+  }
+  if (nativeFdFlagBits(resource.flags) !== SUPPORTED_EMPTY_EVENTFD_FLAGS) {
+    return missingPpollTimeout(thread, "ppoll one-fd eventfd proof requires supported flags", {
+      ...pollFd,
+      resourceId: resource.id,
+      resourceFlags: resource.flags,
+      supportedFlags: `octal:${SUPPORTED_EMPTY_EVENTFD_FLAGS.toString(8)}`,
+    });
+  }
+  const eventfdCount = nativeResourceBigInt(resource, "eventfdCount");
+  if (eventfdCount !== 0n) {
+    return missingPpollTimeout(thread, "ppoll one-fd eventfd proof requires an empty eventfd", {
+      ...pollFd,
+      resourceId: resource.id,
+      eventfdCount: eventfdCount?.toString(10),
+    });
+  }
+  const eventfdSemaphore = nativeResourceBigInt(resource, "eventfdSemaphore");
+  return eventfdSemaphore !== 0n
+    ? missingPpollTimeout(thread, "ppoll one-fd eventfd proof does not model semaphore mode", {
+        ...pollFd,
+        resourceId: resource.id,
+        eventfdSemaphore: eventfdSemaphore?.toString(10),
+      })
+    : { resource, targetResource: "synthetic-empty-eventfd" };
+}
+
+function nativeResourceBigInt(resource: NativeProcessResource, key: string): bigint | undefined {
+  const value = resource.recipe?.[key];
+  if (typeof value !== "string" && typeof value !== "number") {
+    return undefined;
+  }
+  try {
+    return BigInt(value);
+  } catch {
+    return undefined;
+  }
 }
 
 function readCapturedTimespec(

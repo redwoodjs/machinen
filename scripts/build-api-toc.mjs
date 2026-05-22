@@ -113,6 +113,7 @@ const TOC = {
     "NativeModeledSleepTimerRemainingTime",
     "NativeModeledSleepTimerState",
     "NativeModeledPpollTimeoutRemainingTime",
+    "NativeModeledPpollTargetResource",
     "NativeModeledPpollFdState",
     "NativeModeledPpollTimeoutState",
     "NativeSleepTimerModelResult",

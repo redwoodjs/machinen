@@ -210,6 +210,7 @@ export type {
   NativePollTimeoutSyscallPolicy,
   NativePpollTimeoutModelResult,
   NativeModeledPpollFdState,
+  NativeModeledPpollTargetResource,
   NativeSleepTimerDuration,
   NativeSleepTimerModelResult,
   NativeSleepTimerSyscallPolicy,

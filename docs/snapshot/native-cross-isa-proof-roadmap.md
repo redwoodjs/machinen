@@ -109,9 +109,10 @@ Done when:
 ### 6. FD-backed blocking syscalls — done
 
 Goal: extend the second-family proof from zero fds to one modeled fd/resource.
-The first resource is deliberately narrow: a captured `struct pollfd` with one
-`POLLIN` read end whose captured resource is a pipe. The target recipe creates a
-fresh empty pipe read end at the same fd and keeps its write end open, so `ppoll`
+The first resources are deliberately narrow: a captured `struct pollfd` with one
+`POLLIN` read end whose captured resource is either a pipe or an empty
+non-semaphore eventfd. The target recipe creates a fresh empty pipe read end (and
+keeps its write end open) or a fresh empty eventfd at the same fd, so `ppoll`
 remains timeout-driven instead of readiness-driven.
 
 Done when:
@@ -119,8 +120,9 @@ Done when:
 - captured fd identity maps to a target resource recipe;
 - readiness and partial-transfer state are modeled or refused;
 - target-native execution observes the expected fd behavior after restore;
-- non-one-fd, non-pipe, non-`POLLIN`, non-empty-`revents`, and signal-mask cases
-  keep refusing as `target-ppoll-timeout-missing`.
+- non-one-fd, wrong-resource, unsupported-flag/state, non-`POLLIN`,
+  non-empty-`revents`, and signal-mask cases keep refusing as
+  `target-ppoll-timeout-missing`.
 
 ### 7. Real utility beyond `/bin/sleep` — done
 

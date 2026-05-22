@@ -91,6 +91,7 @@
 - [`NativeModeledSleepTimerRemainingTime`](#nativemodeledsleeptimerremainingtime)
 - [`NativeModeledSleepTimerState`](#nativemodeledsleeptimerstate)
 - [`NativeModeledPpollTimeoutRemainingTime`](#nativemodeledppolltimeoutremainingtime)
+- [`NativeModeledPpollTargetResource`](#nativemodeledppolltargetresource)
 - [`NativeModeledPpollFdState`](#nativemodeledppollfdstate)
 - [`NativeModeledPpollTimeoutState`](#nativemodeledppolltimeoutstate)
 - [`NativeSleepTimerModelResult`](#nativesleeptimermodelresult)
@@ -2562,7 +2563,7 @@ by default when `output` is a TTY.
 
 ##### targetResource
 
-> **targetResource**: `"synthetic-empty-pipe-read-end"`
+> **targetResource**: [`NativeModeledPpollTargetResource`](#nativemodeledppolltargetresource)
 
 ***
 
@@ -4808,6 +4809,10 @@ by default when `output` is a TTY.
 ##### syntheticEmptyPipeFds?
 
 > `optional` **syntheticEmptyPipeFds?**: `number`[]
+
+##### syntheticEmptyEventFds?
+
+> `optional` **syntheticEmptyEventFds?**: `number`[]
 
 ***
 
@@ -10470,7 +10475,13 @@ Poll interval in ms while retrying. Default 250.
 
 ### NativePollTimeoutFdPolicy
 
-> **NativePollTimeoutFdPolicy** = `"zero-fd-only"` \| `"synthetic-empty-pipe"`
+> **NativePollTimeoutFdPolicy** = `"zero-fd-only"` \| `"synthetic-empty-pipe"` \| `"synthetic-empty-eventfd"`
+
+***
+
+### NativeModeledPpollTargetResource
+
+> **NativeModeledPpollTargetResource** = `"synthetic-empty-pipe-read-end"` \| `"synthetic-empty-eventfd"`
 
 ***
 

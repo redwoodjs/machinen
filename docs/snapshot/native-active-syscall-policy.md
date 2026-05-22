@@ -52,21 +52,25 @@ The `pollTimeoutPolicy: "defer-target-resume"` option models only relative
 `ppoll` timeouts with `sigmask = NULL`. The default `pollTimeoutFdPolicy` is
 `"zero-fd-only"`, which accepts only `ppoll(NULL, 0, &timeout, NULL)`.
 
-The optional `"synthetic-empty-pipe"` fd policy accepts exactly one captured
-`struct pollfd` entry when all of these are true:
+The optional `"synthetic-empty-pipe"` and `"synthetic-empty-eventfd"` fd
+policies accept exactly one captured `struct pollfd` entry when all of these are
+true:
 
 - `nfds == 1` and the pollfd array is readable in captured memory;
 - the entry is `POLLIN` with `revents == 0`;
-- the entry's fd maps to a captured pipe resource;
-- fd flags identify a read end, including read-only fds with extra flags such as
-  close-on-exec;
+- the entry's fd maps to a supported captured resource:
+  - pipe: read end only, including read-only fds with extra flags such as
+    close-on-exec;
+  - eventfd: read/write fd only, counter `0`, and non-semaphore mode;
 - the signal mask is still null.
 
-The target recipe creates a fresh empty pipe read end at the same fd and keeps a
-write end open. This preserves a timeout-driven proof without claiming general fd
-readiness migration. Missing fd resources, non-pipe resources, write-end fds,
-wrong events, non-empty `revents`, `nfds > 1`, and non-null signal masks all fail
-closed as `target-ppoll-timeout-missing`.
+The pipe target recipe creates a fresh empty pipe read end at the same fd and
+keeps a write end open. The eventfd target recipe creates a fresh
+`eventfd(0, EFD_CLOEXEC)` at the same fd. These preserve timeout-driven proofs
+without claiming general fd readiness migration. Missing fd resources, wrong
+resource kinds, unsupported flags or state, wrong events, non-empty `revents`,
+`nfds > 1`, and non-null signal masks all fail closed as
+`target-ppoll-timeout-missing`.
 
 ## Proof
 

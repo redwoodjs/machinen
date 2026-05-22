@@ -20,6 +20,8 @@ Currently supported recipes:
 
 - argv/env/cwd/exe/auxv metadata is carried through;
 - regular files are reopened with path, offset, and flags;
+- explicitly modeled one-fd `ppoll` proofs may request synthetic empty pipe and
+  empty eventfd recipes at the captured fd;
 - raw sockets and PTYs can be represented only when the caller declares a host
   broker capability for that kind.
 
@@ -29,7 +31,8 @@ Unsupported resources are not silently dropped. They are returned with:
 
 - `fd-kind-unsupported` for unknown generic fd entries;
 - `kernel-state-unsupported` for pipes, sockets, epoll, eventfd, timerfd, and
-  signalfd resources whose kernel state is not yet modeled;
+  signalfd resources whose kernel state is not explicitly modeled by a narrow
+  proof recipe;
 - `resource-kind-unsupported` for resources that need a broker recipe, such as
   PTYs and raw sockets without an enabled broker capability.
 

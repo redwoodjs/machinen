@@ -124,6 +124,34 @@ describe("native resource translation", () => {
     ]);
   });
 
+  it("allows explicit synthetic empty-eventfd resources for one-fd ppoll proofs", () => {
+    const result = translateNativeResources({
+      syntheticEmptyEventFds: [11],
+      resources: [
+        {
+          id: "fd:11",
+          kind: "eventfd",
+          state: "captured",
+          fd: 11,
+          path: "anon_inode:[eventfd]",
+          flags: ["octal:2000002"],
+          recipe: { eventfdCount: "0x0", eventfdSemaphore: 0 },
+        },
+      ],
+    });
+
+    expect(result.refusals).toEqual([]);
+    expect(result.resources[0]).toMatchObject({
+      state: "recipe",
+      recipe: {
+        synthetic: "empty-eventfd",
+        fd: 11,
+        eventfdCount: "0x0",
+        eventfdSemaphore: 0,
+      },
+    });
+  });
+
   it("uses exact refusal codes for generic and stateful kernel fd resources", () => {
     const result = translateNativeResources({
       resources: [

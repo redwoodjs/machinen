@@ -1294,6 +1294,14 @@ static void write_fd_resource(FILE *out, pid_t pid, const char *fd_name, const c
   snprintf(flags, sizeof(flags), "octal:%llo", (unsigned long long)fdinfo_value(pid, fd_name, "flags"));
   json_string(out, flags);
   fputc(']', out);
+  if (streq(kind, "eventfd")) {
+    fputs(",\"recipe\":{\"eventfdCount\":", out);
+    json_hex_u64(out, fdinfo_value(pid, fd_name, "eventfd-count"));
+    fprintf(out,
+        ",\"eventfdSemaphore\":%" PRIu64,
+        fdinfo_value(pid, fd_name, "eventfd-semaphore"));
+    fputs("}", out);
+  }
   if (streq(kind, "file")) {
     fputs(",\"recipe\":{\"reopen\":", out);
     json_string(out, target);
