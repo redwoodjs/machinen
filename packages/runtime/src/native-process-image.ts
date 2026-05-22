@@ -60,6 +60,8 @@ export const nativeProcessImageRefusalCodes = [
   "target-module-missing",
   "target-module-not-executable",
   "target-module-range-unreadable",
+  "target-ppoll-syscall-continuation-missing",
+  "target-ppoll-timeout-missing",
   "target-return-slot-unsupported",
   "target-resume-execution-unavailable",
   "target-resume-fault-invalid-code-landing",

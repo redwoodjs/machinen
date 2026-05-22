@@ -354,6 +354,14 @@ function resolveSemanticDeferredCodeLocation(
 function resolveSyntheticDeferredCodeLocation(
   input: SemanticDeferredCodeLocationInput,
 ): NativeRealUtilityResolvedLocation | { refusal: NativeProcessImageRefusal } {
+  if (input.continuation.syscallClass !== "sleep-timer") {
+    return {
+      refusal: refusal(
+        "target-ppoll-syscall-continuation-missing",
+        `thread ${input.thread.id} has no synthetic ppoll syscall continuation wired into code mapping yet`,
+      ),
+    };
+  }
   const synthetic = buildNativeSyntheticSleepSyscallContinuation({
     threadId: input.thread.id,
     remainingTime: input.continuation.metadata.remainingTime,

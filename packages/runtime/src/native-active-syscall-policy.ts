@@ -13,14 +13,17 @@ import {
 export type NativeActiveSyscallClass =
   | "outside-syscall"
   | "sleep-timer"
+  | "poll-timeout"
   | "fd-blocking"
   | "restart"
   | "unknown-active";
 
 export type NativeSleepTimerSyscallPolicy = "refuse" | "defer-target-resume";
+export type NativePollTimeoutSyscallPolicy = "refuse" | "defer-target-resume";
 
 export interface NativeActiveSyscallPolicyOptions {
   sleepTimerPolicy?: NativeSleepTimerSyscallPolicy;
+  pollTimeoutPolicy?: NativePollTimeoutSyscallPolicy;
   documents?: NativeProcessImageDocuments;
 }
 
@@ -36,6 +39,13 @@ export interface NativeModeledSleepTimerRemainingTime extends NativeSleepTimerDu
   precision: "requested-duration-upper-bound";
 }
 
+export interface NativeModeledPpollTimeoutRemainingTime extends NativeSleepTimerDuration {
+  state: "modeled";
+  kind: "relative-duration";
+  source: "active-syscall-ppoll-timeout";
+  precision: "requested-duration-upper-bound";
+}
+
 export interface NativeModeledSleepTimerState {
   kind: "relative-duration";
   syscallName: string;
@@ -48,11 +58,28 @@ export interface NativeModeledSleepTimerState {
   remainingTime: NativeModeledSleepTimerRemainingTime;
 }
 
+export interface NativeModeledPpollTimeoutState {
+  kind: "relative-duration";
+  syscallName: "ppoll";
+  argumentSource: "proc-syscall" | "registers";
+  fdsPointer: "0x0";
+  nfds: 0;
+  timeoutPointer: string;
+  sigmaskPointer: "0x0";
+  sigsetSize?: string;
+  requestedTime: NativeSleepTimerDuration;
+  remainingTime: NativeModeledPpollTimeoutRemainingTime;
+}
+
 export type NativeSleepTimerModelResult =
   | { state: "modeled"; timer: NativeModeledSleepTimerState }
   | { state: "missing"; refusal: NativeProcessImageRefusal };
 
-export interface NativeActiveSyscallContinuation {
+export type NativePpollTimeoutModelResult =
+  | { state: "modeled"; timeout: NativeModeledPpollTimeoutState }
+  | { state: "missing"; refusal: NativeProcessImageRefusal };
+
+export interface NativeActiveSleepTimerContinuation {
   threadId: string;
   syscallClass: Extract<NativeActiveSyscallClass, "sleep-timer">;
   action: "defer-target-resume";
@@ -63,6 +90,22 @@ export interface NativeActiveSyscallContinuation {
     policy: "conservative-target-timer-rearm-required";
   };
 }
+
+export interface NativeActivePpollTimeoutContinuation {
+  threadId: string;
+  syscallClass: Extract<NativeActiveSyscallClass, "poll-timeout">;
+  action: "defer-target-resume";
+  syscall: NativeThreadState["syscall"];
+  metadata: {
+    remainingTime: NativeModeledPpollTimeoutRemainingTime;
+    ppollTimeout: NativeModeledPpollTimeoutState;
+    policy: "conservative-target-ppoll-timeout-rearm-required";
+  };
+}
+
+export type NativeActiveSyscallContinuation =
+  | NativeActiveSleepTimerContinuation
+  | NativeActivePpollTimeoutContinuation;
 
 export interface NativeActiveSyscallClassification {
   threadId: string;
@@ -147,6 +190,9 @@ export function classifyNativeThreadSyscall(
       }),
     });
   }
+  if (name === "ppoll" && options.pollTimeoutPolicy === "defer-target-resume") {
+    return deferredPpollTimeoutClassification(thread, options);
+  }
   if (FD_BLOCKING_SYSCALLS.has(name)) {
     return refusedClassification(thread, "fd-blocking", {
       code: "blocking-syscall-state-unsupported",
@@ -161,6 +207,55 @@ export function classifyNativeThreadSyscall(
     message: `thread ${thread.id} is in unclassified active syscall state`,
     detail: detail(thread, "unknown-active"),
   });
+}
+
+export function modelNativePpollTimeoutState(
+  thread: NativeThreadState,
+  documents?: NativeProcessImageDocuments,
+): NativePpollTimeoutModelResult {
+  const args = sleepTimerArguments(thread);
+  if (!args) {
+    return missingPpollTimeout(thread, "syscall arguments were not captured");
+  }
+  const decoded = decodePpollTimeoutArguments(thread, args);
+  if ("refusal" in decoded) {
+    return decoded;
+  }
+  if (!documents?.rootDir) {
+    return missingPpollTimeout(thread, "captured memory bundle is not available", {
+      argumentSource: args.source,
+      timeoutPointer: hex(decoded.timeoutPointer),
+    });
+  }
+  const timespec = readCapturedTimespec(documents, decoded.timeoutPointer);
+  if ("refusal" in timespec) {
+    return {
+      state: "missing",
+      refusal: missingPpollTimeoutRefusal(thread, timespec.reason, decodedPpollDetail(decoded)),
+    };
+  }
+  const remainingTime: NativeModeledPpollTimeoutRemainingTime = {
+    ...timespec.duration,
+    state: "modeled",
+    kind: "relative-duration",
+    source: "active-syscall-ppoll-timeout",
+    precision: "requested-duration-upper-bound",
+  };
+  return {
+    state: "modeled",
+    timeout: {
+      kind: "relative-duration",
+      syscallName: "ppoll",
+      argumentSource: args.source,
+      fdsPointer: "0x0",
+      nfds: 0,
+      timeoutPointer: hex(decoded.timeoutPointer),
+      sigmaskPointer: "0x0",
+      sigsetSize: hex(decoded.sigsetSize),
+      requestedTime: timespec.duration,
+      remainingTime,
+    },
+  };
 }
 
 export function modelNativeSleepTimerState(
@@ -257,6 +352,30 @@ function deferredSleepTimerClassification(
   };
 }
 
+function deferredPpollTimeoutClassification(
+  thread: NativeThreadState,
+  options: NativeActiveSyscallPolicyOptions,
+): NativeActiveSyscallClassification {
+  const modeled = modelNativePpollTimeoutState(thread, options.documents);
+  if (modeled.state === "missing") {
+    return refusedClassification(thread, "poll-timeout", modeled.refusal);
+  }
+  return {
+    ...baseClassification(thread, "poll-timeout"),
+    continuation: {
+      threadId: thread.id,
+      syscallClass: "poll-timeout",
+      action: "defer-target-resume",
+      syscall: thread.syscall,
+      metadata: {
+        remainingTime: modeled.timeout.remainingTime,
+        ppollTimeout: modeled.timeout,
+        policy: "conservative-target-ppoll-timeout-rearm-required",
+      },
+    },
+  };
+}
+
 interface SleepTimerArguments {
   source: "proc-syscall" | "registers";
   values: bigint[];
@@ -315,6 +434,90 @@ function decodeSleepTimerArguments(
   return syscall === "nanosleep"
     ? decodeNanosleepArguments(thread, args)
     : decodeClockNanosleepArguments(thread, args);
+}
+
+type DecodedPpollTimeoutArguments =
+  | {
+      timeoutPointer: bigint;
+      sigsetSize: bigint;
+    }
+  | { state: "missing"; refusal: NativeProcessImageRefusal };
+
+interface PpollArgumentValues {
+  fdsPointer: bigint;
+  nfds: bigint;
+  timeoutPointer: bigint;
+  sigmaskPointer: bigint;
+  sigsetSize: bigint;
+}
+
+function decodePpollTimeoutArguments(
+  thread: NativeThreadState,
+  args: SleepTimerArguments,
+): DecodedPpollTimeoutArguments {
+  const values = ppollArgumentValues(args);
+  return (
+    unsupportedPpollFds(thread, args, values) ??
+    unsupportedPpollTimeout(thread, values) ??
+    unsupportedPpollSigmask(thread, args, values) ?? {
+      timeoutPointer: values.timeoutPointer,
+      sigsetSize: values.sigsetSize,
+    }
+  );
+}
+
+function ppollArgumentValues(args: SleepTimerArguments): PpollArgumentValues {
+  return {
+    fdsPointer: args.values[0] ?? 0n,
+    nfds: args.values[1] ?? 0n,
+    timeoutPointer: args.values[2] ?? 0n,
+    sigmaskPointer: args.values[3] ?? 0n,
+    sigsetSize: args.values[4] ?? 0n,
+  };
+}
+
+function unsupportedPpollFds(
+  thread: NativeThreadState,
+  args: SleepTimerArguments,
+  values: PpollArgumentValues,
+): DecodedPpollTimeoutArguments | undefined {
+  if (values.nfds !== 0n) {
+    return missingPpollTimeout(thread, "ppoll fd readiness is not modeled yet", {
+      nfds: hex(values.nfds),
+      fdsPointer: hex(values.fdsPointer),
+      argumentSource: args.source,
+    });
+  }
+  if (values.fdsPointer !== 0n) {
+    return missingPpollTimeout(thread, "ppoll zero-fd proof requires a null fds pointer", {
+      fdsPointer: hex(values.fdsPointer),
+      argumentSource: args.source,
+    });
+  }
+  return undefined;
+}
+
+function unsupportedPpollTimeout(
+  thread: NativeThreadState,
+  values: PpollArgumentValues,
+): DecodedPpollTimeoutArguments | undefined {
+  return values.timeoutPointer === 0n
+    ? missingPpollTimeout(thread, "ppoll timeout pointer is null")
+    : undefined;
+}
+
+function unsupportedPpollSigmask(
+  thread: NativeThreadState,
+  args: SleepTimerArguments,
+  values: PpollArgumentValues,
+): DecodedPpollTimeoutArguments | undefined {
+  return values.sigmaskPointer !== 0n
+    ? missingPpollTimeout(thread, "ppoll signal masks are not modeled yet", {
+        sigmaskPointer: hex(values.sigmaskPointer),
+        sigsetSize: hex(values.sigsetSize),
+        argumentSource: args.source,
+      })
+    : undefined;
 }
 
 function decodeNanosleepArguments(
@@ -445,6 +648,14 @@ function missingSleepTimer(
   return { state: "missing", refusal: missingSleepTimerRefusal(thread, reason, extra) };
 }
 
+function missingPpollTimeout(
+  thread: NativeThreadState,
+  reason: string,
+  extra?: Record<string, unknown>,
+): { state: "missing"; refusal: NativeProcessImageRefusal } {
+  return { state: "missing", refusal: missingPpollTimeoutRefusal(thread, reason, extra) };
+}
+
 function missingSleepTimerRefusal(
   thread: NativeThreadState,
   reason: string,
@@ -459,6 +670,26 @@ function missingSleepTimerRefusal(
       ...extra,
     }),
   };
+}
+
+function missingPpollTimeoutRefusal(
+  thread: NativeThreadState,
+  reason: string,
+  extra?: Record<string, unknown>,
+): NativeProcessImageRefusal {
+  return {
+    code: "target-ppoll-timeout-missing",
+    message: `thread ${thread.id} ppoll timeout state is not modeled`,
+    detail: detail(thread, "poll-timeout", {
+      reason,
+      requiredModel: ["zero-fd ppoll", "relative timeout timespec", "null signal mask"],
+      ...extra,
+    }),
+  };
+}
+
+function decodedPpollDetail(decoded: { timeoutPointer: bigint; sigsetSize: bigint }) {
+  return { timeoutPointer: hex(decoded.timeoutPointer), sigsetSize: hex(decoded.sigsetSize) };
 }
 
 function syscallName(thread: NativeThreadState): string {

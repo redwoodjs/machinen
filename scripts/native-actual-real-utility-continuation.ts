@@ -1,7 +1,10 @@
 #!/usr/bin/env tsx
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, isAbsolute, join, resolve } from "node:path";
-import { classifyNativeActiveSyscalls } from "../packages/runtime/src/native-active-syscall-policy.ts";
+import {
+  classifyNativeActiveSyscalls,
+  type NativeActiveSleepTimerContinuation,
+} from "../packages/runtime/src/native-active-syscall-policy.ts";
 import { planNativeMappingMaterialization } from "../packages/runtime/src/native-mapping-materialization.ts";
 import { inventoryNativeActualTargetModules } from "../packages/runtime/src/native-actual-target-module-inventory.ts";
 import {
@@ -740,10 +743,15 @@ function materializeSyntheticSleepTargetBytes(
 ): ReturnType<typeof materializeNativeTargetModuleBytes> {
   const landing = location.deferredActiveSyscallLanding;
   assert(landing, "synthetic sleep target bytes require a deferred syscall landing");
+  assert(
+    landing.syscallClass === "sleep-timer",
+    "synthetic sleep target bytes require sleep metadata",
+  );
+  const metadata = landing.metadata as NativeActiveSleepTimerContinuation["metadata"];
   const synthetic = buildNativeSyntheticSleepSyscallContinuation({
     threadId: location.threadId,
-    remainingTime: landing.metadata.remainingTime,
-    sleepTimer: landing.metadata.sleepTimer,
+    remainingTime: metadata.remainingTime,
+    sleepTimer: metadata.sleepTimer,
     targetAddress: location.targetAddress,
     completionMode: location.syntheticContinuation?.completionMode,
   });
