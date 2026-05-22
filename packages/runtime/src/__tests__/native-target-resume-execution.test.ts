@@ -273,6 +273,25 @@ describe("native target resume execution planning", () => {
     ).toBe("target-resume-fault-privileged-instruction");
   });
 
+  it("treats target-native returns to the controlled caller as non-faulted", () => {
+    const classified = classifyNativeTargetResumeExecutionAttempt({
+      status: "returned",
+      targetArch: "amd64",
+      entryAddress: "0x700200000000",
+      stackPointer: "0x500000010000",
+      targetBytesStart: "0x700200000000",
+      targetBytesEnd: "0x700200000040",
+      returnValue: "0x0",
+      instructionPointerInTargetBytes: true,
+      attemptedResume: true,
+      sourceTextReusedAsTargetCode: false,
+      sourceIsaEmulationUsed: false,
+      sidecarRuntimeUsed: false,
+    });
+
+    expect(classified).toEqual({ state: "not-faulted", refusals: [] });
+  });
+
   it("classifies descriptor synthetic restart exits fail-closed through the shared gate", () => {
     const classified = classifyNativeTargetResumeExecutionAttempt(
       {

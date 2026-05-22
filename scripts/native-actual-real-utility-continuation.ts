@@ -93,6 +93,7 @@ const TARGET_ROOT_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_TARGET_ROOT";
 const TARGET_MODULE_PATH_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_TARGET_MODULE";
 const SLEEP_SYSCALL_POLICY_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_SLEEP_SYSCALL_POLICY";
 const PPOLL_SYSCALL_POLICY_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_PPOLL_SYSCALL_POLICY";
+const SYNTHETIC_COMPLETION_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_SYNTHETIC_COMPLETION";
 const WORKLOAD_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_WORKLOAD";
 const UTILITY_NAME = "sleep";
 const SETTLE_MS = "150";
@@ -269,21 +270,30 @@ function planCapturedActualUtilityBundle(
 }
 
 function targetUnwindMatched(inputs: ReturnType<typeof actualUtilityPlanningInputs>): boolean {
-  return inputs.targetUnwind.matches.length > 0 || hasExitProcessSyntheticContinuation(inputs);
+  return inputs.targetUnwind.matches.length > 0 || hasControlledSyntheticContinuation(inputs);
 }
 
 function sourceUnwindRequired(inputs: ReturnType<typeof actualUtilityPlanningInputs>): boolean {
-  return !hasExitProcessSyntheticContinuation(inputs);
+  return !hasControlledSyntheticContinuation(inputs);
 }
 
-function hasExitProcessSyntheticContinuation(
+function hasControlledSyntheticContinuation(
   inputs: ReturnType<typeof actualUtilityPlanningInputs>,
 ): boolean {
-  return inputs.code.resolved.some(
-    (location) =>
-      isSyntheticSyscallStrategy(location.continuationStrategy) &&
-      location.syntheticContinuation?.completionMode === "exit-process",
+  return inputs.code.resolved.some(isControlledSyntheticLocation);
+}
+
+function isControlledSyntheticLocation(
+  location: ReturnType<typeof resolveNativeRealUtilityCodeLocations>["resolved"][number],
+): boolean {
+  return (
+    isSyntheticSyscallStrategy(location.continuationStrategy) &&
+    isControlledSyntheticCompletion(location.syntheticContinuation?.completionMode)
   );
+}
+
+function isControlledSyntheticCompletion(completionMode: string | undefined): boolean {
+  return completionMode === "exit-process" || completionMode === "return-to-trampoline";
 }
 
 function hasActiveContinuation(
@@ -349,8 +359,8 @@ function actualUtilityPlanningInputs(
     pollTimeoutContinuationStrategy: hasActiveContinuation(activeSyscalls, "poll-timeout")
       ? "synthetic-syscall"
       : "refuse",
-    syntheticSleepCompletionMode: "exit-process",
-    syntheticPpollCompletionMode: "exit-process",
+    syntheticSleepCompletionMode: syntheticCompletionMode(),
+    syntheticPpollCompletionMode: syntheticCompletionMode(),
   });
   const sourceUnwind = readActualSourceUnwindSidecar(bundleDir);
   const targetUnwind = discoverActualTargetUnwind({
@@ -1331,6 +1341,8 @@ function actualUtilitySummary(context: {
     targetResumeExecutionAttempt: resumeFields.targetResumeExecutionAttempt,
     targetResumeFaultClassification: resumeFields.targetResumeFaultClassification,
     targetResumeFaultRefusals: resumeFields.targetResumeFaultRefusals,
+    targetContinuationReturned: resumeFields.targetContinuationReturned,
+    targetContinuationReturnValue: resumeFields.targetContinuationReturnValue,
     targetResumeExecutionRefusals: planned.targetResumeExecution.refusals,
     targetModuleByteRefusals: planned.targetBytes.refusals,
     materializedTargetBytes: materializedTargetByteSummaries(planned),
@@ -1374,6 +1386,9 @@ function resumeAttemptSummaryFields(
     targetResumeFaultRefusals: fault.refusals,
     attemptedResume: resumeAttempt?.attemptedResume ?? false,
     migrationCompleted: resumeAttempt?.status === "exited" && resumeAttempt.exitStatus === 0,
+    targetContinuationReturned:
+      resumeAttempt?.status === "returned" && resumeAttempt.returnValue === "0x0",
+    targetContinuationReturnValue: resumeAttempt?.returnValue,
   };
 }
 
@@ -1547,6 +1562,12 @@ function ppollTimeoutPolicy() {
   return process.env[PPOLL_SYSCALL_POLICY_ENV] === "defer-target-resume"
     ? "defer-target-resume"
     : "refuse";
+}
+
+function syntheticCompletionMode() {
+  return process.env[SYNTHETIC_COMPLETION_ENV] === "return-to-trampoline"
+    ? "return-to-trampoline"
+    : "exit-process";
 }
 
 function refusedCapturePlan(stderr: string) {

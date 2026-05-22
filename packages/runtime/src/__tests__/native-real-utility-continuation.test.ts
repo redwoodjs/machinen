@@ -127,7 +127,7 @@ describe("native real utility continuation planner", () => {
     });
   });
 
-  it("allows exit-process synthetic continuations to bypass source unwind", () => {
+  it("allows controlled synthetic continuations to bypass source unwind", () => {
     expect(
       planNativeRealUtilityContinuationAttempt({
         ...readyInput(),
