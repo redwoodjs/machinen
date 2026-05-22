@@ -15,6 +15,11 @@
 #                                    tar -xf + mke2fs (#223). Sparse
 #                                    inside the gzip — wire size is
 #                                    close to the tarball.
+#
+# For amd64 guests (`MACHINEN_GUEST_ARCH=amd64`), the same flow emits
+# `bzImage-x86_64`, `rootfs-debian-amd64.tar.gz`, and
+# `rootfs-debian-amd64.img.gz` instead. amd64 does not use a dtb.
+#
 #   *.sha256                       ← integrity sidecars
 #
 # We no longer ship modules-arm64.tar.gz — the boot-path drivers are

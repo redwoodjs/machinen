@@ -2,8 +2,9 @@
 
 Machinen uses [Changesets](https://github.com/changesets/changesets) for
 versioning and publishing. The public packages are in a `fixed` group
-and bump together, so `@machinen/cli`, `@machinen/runtime`,
-`@machinen/vmm-arm64-darwin`, and `@machinen/vmm-arm64-linux` always
+and bump together, so `@machinen/cli`, `@machinen/runtime`, `@machinen/microvm`,
+`@machinen/mount-server`, `@machinen/native-arm64-darwin`,
+`@machinen/native-arm64-linux`, and `@machinen/native-x64-linux` always
 share a version. That keeps the VMM protocol and the base rootfs from
 ever drifting.
 
@@ -35,11 +36,14 @@ Multiple changesets accumulate into a single Version PR.
 
 Merge the Version PR. The release workflow runs again and:
 
-1. Natively builds the Zig VMM on `macos-14` (arm64) and `ubuntu-24.04-arm`.
-   Ad-hoc codesigns the darwin binary with the hypervisor entitlement.
-2. Builds the base assets: `Image-arm64`, `virt-arm64.dtb`,
-   `rootfs-debian-arm64.tar.gz` + `.sha256` sidecars.
-3. Stages each VMM binary into its subpackage's `bin/` directory.
+1. Natively builds the Zig VMM on `macos-15` (arm64),
+   `ubuntu-24.04-arm`, and `ubuntu-latest` (x86_64 Linux). Ad-hoc
+   codesigns the darwin binary with the hypervisor entitlement.
+2. Builds the arm64 and amd64 base assets: `Image-arm64`,
+   `virt-arm64.dtb`, `rootfs-debian-arm64.tar.gz`, `bzImage-x86_64`,
+   `rootfs-debian-amd64.tar.gz`, plus `.img.gz` fast-boot images and
+   `.sha256` sidecars.
+3. Stages each VMM binary into its native subpackage's `bin/` directory.
 4. Publishes every `fixed`-group package to npm.
 5. Creates a GitHub Release at the tag and uploads the base assets to it.
 
