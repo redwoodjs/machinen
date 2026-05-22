@@ -15,7 +15,7 @@ Two patterns get a lot of mileage out of that:
 
 This guide covers both. There's a constraint worth getting out of the way
 first: same guest architecture only. arm64 to arm64 works, and amd64 to amd64
-works on x86_64 Linux/KVM. arm64 to x86 does not — the snapshot includes
+works on amd64 Linux/KVM. arm64 to amd64 does not — the snapshot includes
 machine-code register state, and that doesn't translate.
 
 ## Vmstate restore contract

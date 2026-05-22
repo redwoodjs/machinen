@@ -9,7 +9,8 @@
       "@machinen/microvm",
       "@machinen/mount-server",
       "@machinen/native-arm64-darwin",
-      "@machinen/native-arm64-linux"
+      "@machinen/native-arm64-linux",
+      "@machinen/native-x64-linux"
     ]
   ],
   "linked": [],

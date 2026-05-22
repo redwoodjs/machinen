@@ -46,7 +46,7 @@ companion GitHub release over HTTPS; no `gh auth login` is needed.
 import { boot } from "@machinen/runtime";
 
 const vm = await boot({
-  image: "./rootfs-debian-arm64.tar.gz", // or rootfs-debian-amd64.tar.gz on x64 Linux
+  image: "./rootfs-debian-arm64.tar.gz", // or rootfs-debian-amd64.tar.gz on amd64 Linux
   cmd: ["/bin/sh"],
 });
 
