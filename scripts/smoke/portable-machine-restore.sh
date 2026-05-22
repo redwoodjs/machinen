@@ -217,8 +217,8 @@ writeFileSync(join(dir, 'native-mappings.json'), JSON.stringify({
   mappings: [{
     id: 'mapping:stack', kind: 'stack', sourceStart: '0x1000', sourceEnd: '0x2000', sizeBytes: 4096,
     permissions: { read: true, write: true, execute: false, private: true, shared: false },
-    captured: { file: 'native-memory.bin', offset: 0, sizeBytes: 16 },
-    target: { materialization: 'translate' },
+    captured: { file: 'native-memory.bin', offset: 0, sizeBytes: 4096 },
+    target: { materialization: 'translate', targetStart: '0x600000000000' },
   }],
   refusals,
 }, null, 2));
@@ -238,7 +238,9 @@ writeFileSync(join(dir, 'native-translation.json'), JSON.stringify({
   formatVersion: 1, mode: 'native-cross-isa', sourceArch: 'arm64', targetArch: 'amd64',
   codeLocations: [], threads: [], memoryRelocations: [], refusals,
 }, null, 2));
-writeFileSync(join(dir, 'native-memory.bin'), Buffer.alloc(16));
+const memory = Buffer.alloc(4096);
+memory[0] = 'M'.charCodeAt(0);
+writeFileSync(join(dir, 'native-memory.bin'), memory);
 NODE
   record_timing "capture" "ok" "$start" "arm64 native-process bundle synthesized"
 }
@@ -275,9 +277,10 @@ create_portable_bundle() {
   local start=$1
   pnpm --silent portable-machine-snapshot -- --native-process-bundle "$NATIVE_BUNDLE" --out-dir "$PORTABLE_BUNDLE" --json >"$WORK/portable-machine-snapshot.json"
   mkdir -p "$TARGET_DIR"
-  # amd64: mov eax,60; xor edi,edi; syscall
+  # Placeholder target bytes. The restore proof replaces these with a
+  # generated amd64 verifier when --combined-descriptor is used.
   printf '\270\074\000\000\000\061\377\017\005' >"$TARGET_CODE"
-  record_timing "bundle" "ok" "$start" "portable bundle validated and target bytes staged"
+  record_timing "bundle" "ok" "$start" "portable bundle validated and target byte slot staged"
 }
 
 transfer_bundle() {
@@ -304,7 +307,7 @@ run_target_restore() {
       remote_path_assignment="PATH='$AMD64_PATH_PREFIX':\$PATH"
     fi
     if ! ssh "$AMD64_SSH" \
-      "cd '$AMD64_REPO' && $remote_path_assignment MACHINEN_VMM='$AMD64_VMM' MACHINEN_KERNEL='$AMD64_KERNEL' MACHINEN_ASSETS_DIR='$AMD64_ASSETS_DIR' '$AMD64_PNPM' --silent portable-machine-vm-restore-proof -- --bundle-dir '$REMOTE_PORTABLE_BUNDLE' --target-code-file '$REMOTE_TARGET_CODE' --image '$TARGET_IMAGE' --json" \
+      "cd '$AMD64_REPO' && $remote_path_assignment MACHINEN_VMM='$AMD64_VMM' MACHINEN_KERNEL='$AMD64_KERNEL' MACHINEN_ASSETS_DIR='$AMD64_ASSETS_DIR' '$AMD64_PNPM' --silent portable-machine-vm-restore-proof -- --bundle-dir '$REMOTE_PORTABLE_BUNDLE' --target-code-file '$REMOTE_TARGET_CODE' --image '$TARGET_IMAGE' --combined-descriptor --json" \
       >"$TARGET_LOG" 2>"$WORK/target-restore.stderr"; then
       record_timing "target-boot-restore" "failed" "$start" "remote runner failed"
       return 21
@@ -313,6 +316,7 @@ run_target_restore() {
     --bundle-dir "$PORTABLE_BUNDLE" \
     --target-code-file "$TARGET_CODE" \
     --image "$TARGET_IMAGE" \
+    --combined-descriptor \
     --json >"$TARGET_LOG" 2>"$WORK/target-restore.stderr"; then
     record_timing "target-boot-restore" "failed" "$start" "runner failed"
     return 21
