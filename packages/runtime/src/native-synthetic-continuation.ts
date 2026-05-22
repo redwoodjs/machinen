@@ -264,25 +264,16 @@ export function buildNativeSyntheticTimespecSyscallBytes(
     argumentSetup: request.argumentSetup,
   });
   bytes.set(prefix, 0);
-  writeNativeSyntheticCompletionBytes(bytes, prefix.length, timespecOffset, request.completionMode);
+  if (request.completionMode === "exit-process") {
+    const suffix = nativeSyntheticExitProcessSuffix();
+    bytes.set(suffix, prefix.length);
+    bytes.fill(0x90, prefix.length + suffix.length, timespecOffset);
+  } else {
+    bytes.set([0xc3], prefix.length);
+    bytes.fill(0x90, prefix.length + 1, timespecOffset);
+  }
   writeNativeSyntheticRipRelativeTimespec(bytes, timespecOffset, request.remainingTime);
   return bytes;
-}
-
-export function writeNativeSyntheticCompletionBytes(
-  bytes: Uint8Array,
-  prefixLength: number,
-  dataOffset: number,
-  completionMode: string,
-): void {
-  if (completionMode === "exit-process") {
-    const suffix = nativeSyntheticExitProcessSuffix();
-    bytes.set(suffix, prefixLength);
-    bytes.fill(0x90, prefixLength + suffix.length, dataOffset);
-  } else {
-    bytes.set([0xc3], prefixLength);
-    bytes.fill(0x90, prefixLength + 1, dataOffset);
-  }
 }
 
 export function nativeSyntheticTimespecOffset(
