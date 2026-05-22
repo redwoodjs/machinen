@@ -74,6 +74,7 @@ See also:
 - [Native actual real utility continuation](./native-actual-real-utility-continuation.md)
 - [Native active syscall policy](./native-active-syscall-policy.md)
 - [Native sleep syscall continuation policy](./native-sleep-syscall-policy.md)
+- [Native-transparent next frontier](./native-next-frontier.md)
 - [Native guard mapping materialization](./native-guard-mapping-materialization.md)
 - [Native deferred sleep code-location policy](./native-deferred-sleep-code-location.md)
 - [Native actual target module inventory](./native-actual-target-module-inventory.md)
