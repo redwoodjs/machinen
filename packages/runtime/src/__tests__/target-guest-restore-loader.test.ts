@@ -42,12 +42,22 @@ function descriptor(
 }
 
 describe("target guest restore loader descriptor", () => {
-  it("serializes and parses one-fd pipe and eventfd recipes", () => {
+  it("serializes and parses fd table recipes", () => {
     const original = descriptor({
       resources: [
-        { kind: "synthetic-empty-pipe", readFd: 3, writeFd: 4 },
-        { kind: "synthetic-empty-eventfd", fd: 5 },
-        { kind: "synthetic-timerfd", fd: 6 },
+        { kind: "close-fd", fd: 0, reason: "missing-captured-fd" },
+        { kind: "inherit-stdio", fd: 1, stream: "stdout", closeOnExec: false },
+        {
+          kind: "reopen-file",
+          fd: 7,
+          path: "/tmp/data.txt",
+          offset: 9,
+          access: 0,
+          closeOnExec: true,
+        },
+        { kind: "synthetic-empty-pipe", readFd: 3, writeFd: 4, closeOnExec: false },
+        { kind: "synthetic-empty-eventfd", fd: 5, closeOnExec: false },
+        { kind: "synthetic-timerfd", fd: 6, closeOnExec: false },
       ],
     });
 
@@ -156,6 +166,23 @@ describe("target guest restore loader descriptor", () => {
         descriptor({ resources: [{ kind: "synthetic-empty-pipe", readFd: 4, writeFd: 4 }] }),
       ),
     ).toThrow(/pipe read\/write fds must differ/);
+
+    expect(() =>
+      validateTargetGuestRestoreDescriptor(
+        descriptor({
+          resources: [
+            { kind: "reopen-file", fd: 3, path: "/tmp/data.txt", offset: 0, access: 0 },
+            { kind: "synthetic-empty-eventfd", fd: 3 },
+          ],
+        }),
+      ),
+    ).toThrow(/fd 3 is assigned/);
+
+    expect(() =>
+      validateTargetGuestRestoreDescriptor(
+        descriptor({ resources: [{ kind: "inherit-stdio", fd: 1, stream: "stderr" }] }),
+      ),
+    ).toThrow(/stdio fd and stream do not match/);
   });
 
   it("refuses invalid continuation addresses", () => {

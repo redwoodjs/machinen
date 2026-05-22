@@ -64,7 +64,9 @@ This is still a bundle/contract proof. The target VM synthetic continuation step
 is documented in
 [Target VM synthetic continuation proof](./native-target-vm-synthetic-continuation.md),
 and its in-guest descriptor loader is documented in
-[Target guest restore loader](./target-guest-restore-loader.md). The first memory
+[Target guest restore loader](./target-guest-restore-loader.md). Target fd-table
+recipe planning is documented in
+[Native resource translation](./native-resource-translation.md). The first memory
 mapping pass is documented in
 [Target guest memory materialization](./target-guest-memory-materialization.md).
 The product-shaped VM proof profile is documented in

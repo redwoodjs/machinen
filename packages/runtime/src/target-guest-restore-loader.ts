@@ -21,9 +21,19 @@ export class TargetGuestRestoreLoaderValidationError extends Error {
 }
 
 export type TargetGuestRestoreResourceRecipe =
-  | { kind: "synthetic-empty-pipe"; readFd: number; writeFd?: number }
-  | { kind: "synthetic-empty-eventfd"; fd: number }
-  | { kind: "synthetic-timerfd"; fd: number };
+  | { kind: "close-fd"; fd: number; reason?: string }
+  | { kind: "inherit-stdio"; fd: 1 | 2; stream: "stdout" | "stderr"; closeOnExec?: boolean }
+  | {
+      kind: "reopen-file";
+      fd: number;
+      path: string;
+      offset: number;
+      access: 0 | 1 | 2;
+      closeOnExec?: boolean;
+    }
+  | { kind: "synthetic-empty-pipe"; readFd: number; writeFd?: number; closeOnExec?: boolean }
+  | { kind: "synthetic-empty-eventfd"; fd: number; closeOnExec?: boolean }
+  | { kind: "synthetic-timerfd"; fd: number; closeOnExec?: boolean };
 
 export interface TargetGuestRestoreContinuationDescriptor {
   codeFile: string;
@@ -89,6 +99,7 @@ export function validateTargetGuestRestoreDescriptor(
   assertDescriptorHeader(descriptor);
   const continuation = validateContinuation(descriptor.continuation);
   const resources = descriptor.resources.map(validateResourceRecipe);
+  assertUniqueResourceFds(resources);
   const memory = descriptor.memory.map(validateMemoryEntry);
   return { ...descriptor, continuation, resources, memory };
 }
@@ -184,21 +195,72 @@ function parseResourceRecipe(line: string): TargetGuestRestoreResourceRecipe {
   return resourceFromFields(kind, values);
 }
 
+const RESOURCE_RECIPE_PARSERS: Record<
+  string,
+  (fields: Map<string, string>) => TargetGuestRestoreResourceRecipe
+> = {
+  "close-fd": (fields) => ({
+    kind: "close-fd",
+    fd: parseResourceInteger(fields, "fd"),
+    reason: fields.get("reason"),
+  }),
+  "inherit-stdio": parseInheritedStdioRecipe,
+  "reopen-file": parseReopenFileRecipe,
+  "synthetic-empty-pipe": (fields) => ({
+    kind: "synthetic-empty-pipe",
+    readFd: parseResourceInteger(fields, "readFd"),
+    writeFd: optionalResourceInteger(fields, "writeFd"),
+    closeOnExec: parseResourceBoolean(fields, "closeOnExec"),
+  }),
+  "synthetic-empty-eventfd": (fields) =>
+    parseSingleFdSyntheticRecipe("synthetic-empty-eventfd", fields),
+  "synthetic-timerfd": (fields) => parseSingleFdSyntheticRecipe("synthetic-timerfd", fields),
+};
+
 function resourceFromFields(
   kind: string,
   fields: Map<string, string>,
 ): TargetGuestRestoreResourceRecipe {
-  if (kind === "synthetic-empty-pipe") {
-    return {
-      kind,
-      readFd: parseResourceInteger(fields, "readFd"),
-      writeFd: optionalResourceInteger(fields, "writeFd"),
-    };
+  const parser = RESOURCE_RECIPE_PARSERS[kind];
+  return parser
+    ? parser(fields)
+    : fail("target-guest-loader-resource-unsupported", `unsupported resource recipe: ${kind}`);
+}
+
+function parseInheritedStdioRecipe(fields: Map<string, string>): TargetGuestRestoreResourceRecipe {
+  const fd = parseStdioFd(fields);
+  const stream = parseStdioStream(fields);
+  if ((fd === 1 && stream !== "stdout") || (fd === 2 && stream !== "stderr")) {
+    fail("target-guest-loader-invalid-fd", "stdio fd and stream do not match");
   }
-  if (kind === "synthetic-empty-eventfd" || kind === "synthetic-timerfd") {
-    return { kind, fd: parseResourceInteger(fields, "fd") };
-  }
-  return fail("target-guest-loader-resource-unsupported", `unsupported resource recipe: ${kind}`);
+  return {
+    kind: "inherit-stdio",
+    fd,
+    stream,
+    closeOnExec: parseResourceBoolean(fields, "closeOnExec"),
+  };
+}
+
+function parseReopenFileRecipe(fields: Map<string, string>): TargetGuestRestoreResourceRecipe {
+  return {
+    kind: "reopen-file",
+    fd: parseResourceInteger(fields, "fd"),
+    path: requiredResourceField(fields, "path"),
+    offset: parseResourceInteger(fields, "offset"),
+    access: parseResourceAccess(fields),
+    closeOnExec: parseResourceBoolean(fields, "closeOnExec"),
+  };
+}
+
+function parseSingleFdSyntheticRecipe(
+  kind: "synthetic-empty-eventfd" | "synthetic-timerfd",
+  fields: Map<string, string>,
+): TargetGuestRestoreResourceRecipe {
+  return {
+    kind,
+    fd: parseResourceInteger(fields, "fd"),
+    closeOnExec: parseResourceBoolean(fields, "closeOnExec"),
+  };
 }
 
 function parseResourceInteger(fields: Map<string, string>, key: string): number {
@@ -212,6 +274,44 @@ function parseResourceInteger(fields: Map<string, string>, key: string): number 
 function optionalResourceInteger(fields: Map<string, string>, key: string): number | undefined {
   const value = fields.get(key);
   return value === undefined ? undefined : parseResourceInteger(fields, key);
+}
+
+function parseStdioFd(fields: Map<string, string>): 1 | 2 {
+  const fd = parseResourceInteger(fields, "fd");
+  if (fd !== 1 && fd !== 2) {
+    fail("target-guest-loader-invalid-fd", "inherited stdio only supports fd 1 or 2");
+  }
+  return fd;
+}
+
+function parseStdioStream(fields: Map<string, string>): "stdout" | "stderr" {
+  const stream = requiredResourceField(fields, "stream");
+  if (stream !== "stdout" && stream !== "stderr") {
+    fail("target-guest-loader-invalid-fd", "stdio stream must be stdout or stderr");
+  }
+  return stream;
+}
+
+function parseResourceAccess(fields: Map<string, string>): 0 | 1 | 2 {
+  const access = parseResourceInteger(fields, "access");
+  if (access !== 0 && access !== 1 && access !== 2) {
+    fail("target-guest-loader-descriptor-invalid", "file access must be 0, 1, or 2");
+  }
+  return access;
+}
+
+function parseResourceBoolean(fields: Map<string, string>, key: string): boolean | undefined {
+  const value = fields.get(key);
+  if (value === undefined) {
+    return undefined;
+  }
+  if (value === "true") {
+    return true;
+  }
+  if (value === "false") {
+    return false;
+  }
+  fail("target-guest-loader-descriptor-invalid", `${key} must be true or false`);
 }
 
 function requiredResourceField(fields: Map<string, string>, key: string): string {
@@ -288,20 +388,80 @@ function validateContinuation(
   return continuation;
 }
 
-function validateResourceRecipe(
-  recipe: TargetGuestRestoreResourceRecipe,
-): TargetGuestRestoreResourceRecipe {
-  if (recipe.kind === "synthetic-empty-pipe") {
+const RESOURCE_RECIPE_VALIDATORS = {
+  "close-fd": (recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "close-fd" }>) => {
+    assertFd(recipe.fd, "fd");
+  },
+  "inherit-stdio": validateInheritedStdioRecipe,
+  "reopen-file": validateReopenFileRecipe,
+  "synthetic-empty-pipe": (
+    recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "synthetic-empty-pipe" }>,
+  ) => {
     assertFd(recipe.readFd, "readFd");
     assertOptionalFd(recipe.writeFd, "writeFd");
     assertDistinctPipeFds(recipe);
-    return recipe;
+  },
+  "synthetic-empty-eventfd": validateSingleFdRecipe,
+  "synthetic-timerfd": validateSingleFdRecipe,
+};
+
+function validateResourceRecipe(
+  recipe: TargetGuestRestoreResourceRecipe,
+): TargetGuestRestoreResourceRecipe {
+  RESOURCE_RECIPE_VALIDATORS[recipe.kind](recipe as never);
+  return recipe;
+}
+
+function validateInheritedStdioRecipe(
+  recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "inherit-stdio" }>,
+): void {
+  if (
+    (recipe.fd !== 1 && recipe.fd !== 2) ||
+    (recipe.fd === 1 && recipe.stream !== "stdout") ||
+    (recipe.fd === 2 && recipe.stream !== "stderr")
+  ) {
+    fail("target-guest-loader-invalid-fd", "stdio fd and stream do not match");
   }
-  if (recipe.kind === "synthetic-empty-eventfd" || recipe.kind === "synthetic-timerfd") {
-    assertFd(recipe.fd, "fd");
-    return recipe;
+}
+
+function validateReopenFileRecipe(
+  recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "reopen-file" }>,
+): void {
+  assertFd(recipe.fd, "fd");
+  assertNonNegative(recipe.offset, "offset");
+  assertNoWhitespace(recipe.path, "path");
+}
+
+function validateSingleFdRecipe(
+  recipe: Extract<
+    TargetGuestRestoreResourceRecipe,
+    { kind: "synthetic-empty-eventfd" | "synthetic-timerfd" }
+  >,
+): void {
+  assertFd(recipe.fd, "fd");
+}
+
+function assertUniqueResourceFds(resources: TargetGuestRestoreResourceRecipe[]): void {
+  const owners = new Map<number, string>();
+  for (const resource of resources) {
+    for (const fd of resourceFds(resource)) {
+      const owner = owners.get(fd);
+      if (owner) {
+        fail(
+          "target-guest-loader-invalid-fd",
+          `fd ${fd} is assigned by both ${owner} and ${resource.kind}`,
+        );
+      }
+      owners.set(fd, resource.kind);
+    }
   }
-  return fail("target-guest-loader-resource-unsupported", "unsupported resource recipe");
+}
+
+function resourceFds(resource: TargetGuestRestoreResourceRecipe): number[] {
+  if (resource.kind === "synthetic-empty-pipe") {
+    return resource.writeFd === undefined ? [resource.readFd] : [resource.readFd, resource.writeFd];
+  }
+  return [resource.fd];
 }
 
 function validateMemoryEntry(
@@ -358,14 +518,34 @@ function assertHexAddress(value: string, field: string): void {
   }
 }
 
+function assertNoWhitespace(value: string, field: string): void {
+  if (value.length === 0 || /\s/.test(value)) {
+    fail("target-guest-loader-descriptor-invalid", `${field} must be a non-empty token`);
+  }
+}
+
 function serializeResourceRecipe(recipe: TargetGuestRestoreResourceRecipe): string {
+  if (recipe.kind === "close-fd") {
+    const reason = recipe.reason === undefined ? "" : ` reason=${recipe.reason}`;
+    return `resource=close-fd fd=${recipe.fd}${reason}`;
+  }
+  if (recipe.kind === "inherit-stdio") {
+    return `resource=inherit-stdio fd=${recipe.fd} stream=${recipe.stream}${serializeCloseOnExec(recipe.closeOnExec)}`;
+  }
+  if (recipe.kind === "reopen-file") {
+    return `resource=reopen-file fd=${recipe.fd} path=${recipe.path} offset=${recipe.offset} access=${recipe.access}${serializeCloseOnExec(recipe.closeOnExec)}`;
+  }
   if (recipe.kind === "synthetic-empty-pipe") {
     const writeFd = recipe.writeFd === undefined ? "" : ` writeFd=${recipe.writeFd}`;
-    return `resource=synthetic-empty-pipe readFd=${recipe.readFd}${writeFd}`;
+    return `resource=synthetic-empty-pipe readFd=${recipe.readFd}${writeFd}${serializeCloseOnExec(recipe.closeOnExec)}`;
   }
   return recipe.kind === "synthetic-empty-eventfd"
-    ? `resource=synthetic-empty-eventfd fd=${recipe.fd}`
-    : `resource=synthetic-timerfd fd=${recipe.fd}`;
+    ? `resource=synthetic-empty-eventfd fd=${recipe.fd}${serializeCloseOnExec(recipe.closeOnExec)}`
+    : `resource=synthetic-timerfd fd=${recipe.fd}${serializeCloseOnExec(recipe.closeOnExec)}`;
+}
+
+function serializeCloseOnExec(value: boolean | undefined): string {
+  return value === undefined ? "" : ` closeOnExec=${value ? "true" : "false"}`;
 }
 
 function serializeMemoryEntry(entry: TargetGuestMemoryMaterializationEntry): string {
@@ -377,6 +557,13 @@ function serializeMemoryEntry(entry: TargetGuestMemoryMaterializationEntry): str
 }
 
 function resourceToTrampolineArgs(recipe: TargetGuestRestoreResourceRecipe): string[] {
+  if (
+    recipe.kind === "close-fd" ||
+    recipe.kind === "inherit-stdio" ||
+    recipe.kind === "reopen-file"
+  ) {
+    return [];
+  }
   if (recipe.kind === "synthetic-empty-pipe") {
     return pipeResourceArgs(recipe);
   }

@@ -141,7 +141,22 @@ Done when:
   non-empty-`revents`, and signal-mask cases keep refusing as
   `target-ppoll-timeout-missing`.
 
-### 7. Real utility beyond `/bin/sleep` — done
+### 7. Target fd-table recipes — done
+
+Goal: replace one-off modeled-fd flags with a deterministic target fd-table plan
+that can feed the in-guest loader.
+
+Done when:
+
+- stable captured fd -> target fd mappings are emitted for every modeled fd;
+- regular files, stdout/stderr inheritance, explicit close slots, synthetic
+  empty pipes, synthetic empty eventfds, and synthetic timerfds become loader
+  resource recipes;
+- duplicate fds and unsupported descriptors refuse before target execution;
+- close-on-exec provenance is preserved even though the loader defers applying it
+  until after the loader-to-trampoline `exec` boundary is modeled.
+
+### 8. Real utility beyond `/bin/sleep` — done
 
 Goal: prove a real unmodified utility whose blocked syscall matches the expanded
 blocking-family model. The first narrow utility is the packaged `/usr/bin/perl`
@@ -159,7 +174,7 @@ Done when:
 - missing fd resources, non-pipe fds, pipe write ends, wrong events, non-empty
   `revents`, `nfds > 1`, and non-null signal masks refuse precisely.
 
-### 8. Target process memory materialization
+### 9. Target process memory materialization
 
 Goal: resume more than isolated generated syscall bytes by materializing the
 minimum target process memory needed for real continuation.
@@ -175,7 +190,7 @@ Likely subproofs:
 TLS, vDSO, and vvar should return here only after syscall-family proofs provide
 comparison points for what must be modeled versus refused.
 
-### 9. Threads, futexes, and rseq
+### 10. Threads, futexes, and rseq
 
 Goal: move from single-thread proofs to controlled multi-thread restore.
 
@@ -186,7 +201,7 @@ Done when:
 - futex wait/wake and rseq either model their kernel contracts or refuse with
   exact blockers.
 
-### 10. Full transparent restore claim
+### 11. Full transparent restore claim
 
 Goal: claim native cross-ISA live process migration for a constrained class of
 real Linux processes.

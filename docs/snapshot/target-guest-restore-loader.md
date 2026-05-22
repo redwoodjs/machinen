@@ -19,20 +19,35 @@ timeoutSeconds=5
 stackTargetStart=0x500000000000
 stackSize=65536
 stackPointer=0x500000010000
-resource=synthetic-empty-pipe readFd=3 writeFd=4
-resource=synthetic-empty-eventfd fd=5
-resource=synthetic-timerfd fd=6
+resource=close-fd fd=0 reason=missing-captured-fd
+resource=inherit-stdio fd=1 stream=stdout closeOnExec=false
+resource=reopen-file fd=7 path=/tmp/data.txt offset=9 access=0 closeOnExec=true
+resource=synthetic-empty-pipe readFd=3 writeFd=4 closeOnExec=false
+resource=synthetic-empty-eventfd fd=5 closeOnExec=false
+resource=synthetic-timerfd fd=6 closeOnExec=false
 memory=copy-captured-bytes mapping=heap targetStart=0x600000000000 sizeBytes=4096 permissions=rw-p sourceFile=/tmp/native-memory.bin sourceOffset=0
 memory=recreate-guard mapping=stack-guard targetStart=0x600000001000 sizeBytes=4096 permissions=---p
 ```
 
-Supported resources and memory materialization are intentionally narrow:
+Supported fd-table resources and memory materialization are intentionally narrow:
 
+- `close-fd` for target fd slots that were not present in the captured table;
+- `inherit-stdio` for explicitly allowed stdout/stderr inheritance;
+- `reopen-file` for regular files that can be reopened by path with a modeled
+  offset and access mode;
 - `synthetic-empty-pipe` with a modeled read fd and optional write fd;
 - `synthetic-empty-eventfd` with an empty non-semaphore eventfd;
 - `synthetic-timerfd` with a disarmed/future one-shot timerfd;
 - `copy-captured-bytes` for explicitly safe, non-executable writable mappings;
 - `recreate-guard` for guard / `PROT_NONE` ranges.
+
+The runtime fd-table planner emits these resource lines from translated native
+resources. The in-guest loader validates duplicate fd ownership before launching
+the trampoline, applies `close-fd` and `reopen-file` recipes in the child process,
+and forwards the synthetic fd recipes to the trampoline. `closeOnExec` is kept as
+provenance for the target fd table; future loader work can apply it after the
+restore transfer without closing descriptors during the loader-to-trampoline
+`exec`.
 
 Executable source mappings are not copied as target code. They must be replaced
 by generated target-native bytes or a proven target-module materialization path.

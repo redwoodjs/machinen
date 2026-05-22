@@ -16,14 +16,28 @@ return.
 
 ## Recipes
 
-Currently supported recipes:
+Currently supported resource recipes:
 
 - argv/env/cwd/exe/auxv metadata is carried through;
-- regular files are reopened with path, offset, and flags;
+- regular files are reopened with path, offset, flags, and close-on-exec
+  provenance;
 - explicitly modeled one-fd `ppoll` proofs may request synthetic empty pipe,
   empty eventfd, and disarmed/future one-shot timerfd recipes at the captured fd;
+- inherited stdout/stderr can be passed through only under an explicit inherited
+  stdio policy; stdin remains refused because buffered input state is not
+  modeled;
 - raw sockets and PTYs can be represented only when the caller declares a host
   broker capability for that kind.
+
+Issue #592 adds `planNativeTargetFdTable()`, which turns translated resources
+into a deterministic target fd-table plan. The plan preserves the stable captured
+fd -> target fd mapping, emits explicit `close-fd` recipes for expected fd slots
+missing from the capture, carries close-on-exec provenance, and converts modeled
+resources into target-guest loader recipes (`reopen-file`, `inherit-stdio`,
+`synthetic-empty-pipe`, `synthetic-empty-eventfd`, and `synthetic-timerfd`).
+Duplicate captured fds are refused before target execution with
+`target-fd-table-duplicate`; captured fds without any safe target recipe refuse
+with `target-fd-table-missing` or the underlying resource refusal.
 
 ## Refusals
 
@@ -34,7 +48,11 @@ Unsupported resources are not silently dropped. They are returned with:
   signalfd resources whose kernel state is not explicitly modeled by a narrow
   proof recipe;
 - `resource-kind-unsupported` for resources that need a broker recipe, such as
-  PTYs and raw sockets without an enabled broker capability.
+  PTYs and raw sockets without an enabled broker capability;
+- `target-fd-table-duplicate` when multiple captured resources claim the same
+  fd;
+- `target-fd-table-missing` when a captured fd has no loader recipe after
+  translation.
 
 Each refusal includes the resource id, kind, fd, and path when available.
 

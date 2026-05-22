@@ -71,6 +71,8 @@ first native-translation blockers:
 - `target-module-range-unreadable`
 - `target-code-location-unresolved`
 - `target-code-rva-unmapped`
+- `target-fd-table-duplicate`
+- `target-fd-table-missing`
 - `unwind-metadata-missing`
 - `unwind-fde-missing`
 - `unwind-rule-unsupported`

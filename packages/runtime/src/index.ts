@@ -346,11 +346,18 @@ export type {
   NativeMappingMaterializationStep,
 } from "./native-mapping-materialization.ts";
 export { translateNativeRegisterState } from "./native-register-translation.ts";
-export { translateNativeResources } from "./native-resource-translation.ts";
+export {
+  planNativeTargetFdTable,
+  translateNativeResources,
+} from "./native-resource-translation.ts";
 export type {
   NativeInheritedStdioPolicy,
   NativeResourceTranslationRequest,
   NativeResourceTranslationResult,
+  NativeTargetFdTableEntry,
+  NativeTargetFdTableEntryKind,
+  NativeTargetFdTablePlan,
+  NativeTargetFdTablePlanRequest,
 } from "./native-resource-translation.ts";
 export { translateNativeStack } from "./native-stack-translation.ts";
 export type {

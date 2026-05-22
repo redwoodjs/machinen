@@ -356,7 +356,12 @@ const TOC = {
     "NativeInheritedStdioPolicy",
     "NativeResourceTranslationRequest",
     "NativeResourceTranslationResult",
+    "NativeTargetFdTableEntryKind",
+    "NativeTargetFdTableEntry",
+    "NativeTargetFdTablePlanRequest",
+    "NativeTargetFdTablePlan",
     "translateNativeResources",
+    "planNativeTargetFdTable",
   ],
   "Provision base images": [
     "provision",

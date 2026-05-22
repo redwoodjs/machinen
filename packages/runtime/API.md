@@ -334,7 +334,12 @@
 - [`NativeInheritedStdioPolicy`](#nativeinheritedstdiopolicy)
 - [`NativeResourceTranslationRequest`](#nativeresourcetranslationrequest)
 - [`NativeResourceTranslationResult`](#nativeresourcetranslationresult)
+- [`NativeTargetFdTableEntryKind`](#nativetargetfdtableentrykind)
+- [`NativeTargetFdTableEntry`](#nativetargetfdtableentry)
+- [`NativeTargetFdTablePlanRequest`](#nativetargetfdtableplanrequest)
+- [`NativeTargetFdTablePlan`](#nativetargetfdtableplan)
 - [`translateNativeResources`](#translatenativeresources)
+- [`planNativeTargetFdTable`](#plannativetargetfdtable)
 
 ### Provision base images
 
@@ -3542,7 +3547,7 @@ by default when `output` is a TTY.
 
 ##### code
 
-> **code**: `"active-syscall"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"blocking-syscall-state-unsupported"` \| `"code-location-unknown"` \| `"fd-kind-unsupported"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-permission-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"syscall-argument-state-unsupported"` \| `"syscall-restart-unsupported"` \| `"target-build-id-mismatch"` \| `"target-build-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-caller-frame-unavailable"` \| `"target-code-rva-unmapped"` \| `"target-frame-layout-unsupported"` \| `"target-frame-register-value-unavailable"` \| `"target-module-bytes-missing"` \| `"target-module-file-missing"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-module-range-unreadable"` \| `"target-ppoll-syscall-continuation-missing"` \| `"target-ppoll-timeout-missing"` \| `"target-return-slot-unsupported"` \| `"target-resume-execution-unavailable"` \| `"target-resume-fault-invalid-code-landing"` \| `"target-resume-fault-outside-target-bytes"` \| `"target-resume-fault-privileged-instruction"` \| `"target-resume-fault-signal-unsupported"` \| `"target-resume-fault-timeout"` \| `"target-resume-fault-unmodeled-memory"` \| `"target-semantic-continuation-missing"` \| `"target-sleep-remaining-time-missing"` \| `"target-sleep-signal-restart-unsupported"` \| `"target-sleep-syscall-continuation-missing"` \| `"target-synthetic-signal-interrupted-unsupported"` \| `"target-synthetic-signal-restart-unsupported"` \| `"target-synthetic-syscall-return-unmodeled"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
+> **code**: `"active-syscall"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"blocking-syscall-state-unsupported"` \| `"code-location-unknown"` \| `"fd-kind-unsupported"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-permission-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"syscall-argument-state-unsupported"` \| `"syscall-restart-unsupported"` \| `"target-build-id-mismatch"` \| `"target-build-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-caller-frame-unavailable"` \| `"target-code-rva-unmapped"` \| `"target-fd-table-duplicate"` \| `"target-fd-table-missing"` \| `"target-frame-layout-unsupported"` \| `"target-frame-register-value-unavailable"` \| `"target-module-bytes-missing"` \| `"target-module-file-missing"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-module-range-unreadable"` \| `"target-ppoll-syscall-continuation-missing"` \| `"target-ppoll-timeout-missing"` \| `"target-return-slot-unsupported"` \| `"target-resume-execution-unavailable"` \| `"target-resume-fault-invalid-code-landing"` \| `"target-resume-fault-outside-target-bytes"` \| `"target-resume-fault-privileged-instruction"` \| `"target-resume-fault-signal-unsupported"` \| `"target-resume-fault-timeout"` \| `"target-resume-fault-unmodeled-memory"` \| `"target-semantic-continuation-missing"` \| `"target-sleep-remaining-time-missing"` \| `"target-sleep-signal-restart-unsupported"` \| `"target-sleep-syscall-continuation-missing"` \| `"target-synthetic-signal-interrupted-unsupported"` \| `"target-synthetic-signal-restart-unsupported"` \| `"target-synthetic-syscall-return-unmodeled"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
 
 ##### message
 
@@ -4904,6 +4909,10 @@ by default when `output` is a TTY.
 
 ### NativeResourceTranslationRequest
 
+#### Extended by
+
+- [`NativeTargetFdTablePlanRequest`](#nativetargetfdtableplanrequest)
+
 #### Properties
 
 ##### resources
@@ -4939,6 +4948,164 @@ by default when `output` is a TTY.
 ##### resources
 
 > **resources**: [`NativeProcessResource`](#nativeprocessresource)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
+### NativeTargetFdTableEntry
+
+#### Properties
+
+##### targetFd
+
+> **targetFd**: `number`
+
+##### capturedFd?
+
+> `optional` **capturedFd?**: `number`
+
+##### resourceId?
+
+> `optional` **resourceId?**: `string`
+
+##### resourceKind?
+
+> `optional` **resourceKind?**: [`NativeProcessResourceKind`](#nativeprocessresourcekind)
+
+##### kind
+
+> **kind**: [`NativeTargetFdTableEntryKind`](#nativetargetfdtableentrykind)
+
+##### closeOnExec
+
+> **closeOnExec**: `boolean`
+
+##### action
+
+> **action**: `"close"` \| `"refuse"` \| `"materialize"`
+
+##### source
+
+> **source**: `"captured-resource"` \| `"missing-captured-fd"`
+
+##### recipe?
+
+> `optional` **recipe?**: `Record`\<`string`, `unknown`\>
+
+##### targetGuestRecipe?
+
+> `optional` **targetGuestRecipe?**: [`TargetGuestRestoreResourceRecipe`](#targetguestrestoreresourcerecipe)
+
+##### refusal?
+
+> `optional` **refusal?**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
+
+##### provenance
+
+> **provenance**: `object`
+
+###### resourceId?
+
+> `optional` **resourceId?**: `string`
+
+###### capturedFd?
+
+> `optional` **capturedFd?**: `number`
+
+###### targetFd
+
+> **targetFd**: `number`
+
+###### flags?
+
+> `optional` **flags?**: `string`[]
+
+###### reason
+
+> **reason**: `string`
+
+***
+
+### NativeTargetFdTablePlanRequest
+
+#### Extends
+
+- [`NativeResourceTranslationRequest`](#nativeresourcetranslationrequest)
+
+#### Properties
+
+##### resources
+
+> **resources**: [`NativeProcessResource`](#nativeprocessresource)[]
+
+###### Inherited from
+
+[`NativeResourceTranslationRequest`](#nativeresourcetranslationrequest).[`resources`](#resources-5)
+
+##### hostCapabilities?
+
+> `optional` **hostCapabilities?**: `string`[]
+
+###### Inherited from
+
+[`NativeResourceTranslationRequest`](#nativeresourcetranslationrequest).[`hostCapabilities`](#hostcapabilities)
+
+##### inheritedStdio?
+
+> `optional` **inheritedStdio?**: [`NativeInheritedStdioPolicy`](#nativeinheritedstdiopolicy)
+
+###### Inherited from
+
+[`NativeResourceTranslationRequest`](#nativeresourcetranslationrequest).[`inheritedStdio`](#inheritedstdio)
+
+##### syntheticEmptyPipeFds?
+
+> `optional` **syntheticEmptyPipeFds?**: `number`[]
+
+###### Inherited from
+
+[`NativeResourceTranslationRequest`](#nativeresourcetranslationrequest).[`syntheticEmptyPipeFds`](#syntheticemptypipefds)
+
+##### syntheticEmptyEventFds?
+
+> `optional` **syntheticEmptyEventFds?**: `number`[]
+
+###### Inherited from
+
+[`NativeResourceTranslationRequest`](#nativeresourcetranslationrequest).[`syntheticEmptyEventFds`](#syntheticemptyeventfds)
+
+##### syntheticTimerFds?
+
+> `optional` **syntheticTimerFds?**: `number`[]
+
+###### Inherited from
+
+[`NativeResourceTranslationRequest`](#nativeresourcetranslationrequest).[`syntheticTimerFds`](#synthetictimerfds)
+
+##### expectedFds?
+
+> `optional` **expectedFds?**: `number`[]
+
+***
+
+### NativeTargetFdTablePlan
+
+#### Properties
+
+##### entries
+
+> **entries**: [`NativeTargetFdTableEntry`](#nativetargetfdtableentry)[]
+
+##### resources
+
+> **resources**: [`NativeProcessResource`](#nativeprocessresource)[]
+
+##### targetGuestResources
+
+> **targetGuestResources**: [`TargetGuestRestoreResourceRecipe`](#targetguestrestoreresourcerecipe)[]
 
 ##### refusals
 
@@ -5461,7 +5628,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`source`](#source-6)
+[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`source`](#source-7)
 
 ***
 
@@ -5635,7 +5802,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-16)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-17)
 
 ##### targetArch
 
@@ -6049,7 +6216,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`source`](#source-6)
+[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`source`](#source-7)
 
 ***
 
@@ -6223,7 +6390,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-16)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-17)
 
 ##### targetArch
 
@@ -11235,6 +11402,12 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativeTargetFdTableEntryKind
+
+> **NativeTargetFdTableEntryKind** = `"close-fd"` \| `"inherit-stdio"` \| `"reopen-file"` \| `"synthetic-empty-pipe-read-end"` \| `"synthetic-empty-pipe-write-end"` \| `"synthetic-empty-eventfd"` \| `"synthetic-timerfd"` \| `"refused"`
+
+***
+
 ### NativeSyntheticContinuationTargetArch
 
 > **NativeSyntheticContinuationTargetArch** = `"amd64"`
@@ -11431,7 +11604,7 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ### TargetGuestRestoreResourceRecipe
 
-> **TargetGuestRestoreResourceRecipe** = \{ `kind`: `"synthetic-empty-pipe"`; `readFd`: `number`; `writeFd?`: `number`; \} \| \{ `kind`: `"synthetic-empty-eventfd"`; `fd`: `number`; \} \| \{ `kind`: `"synthetic-timerfd"`; `fd`: `number`; \}
+> **TargetGuestRestoreResourceRecipe** = \{ `kind`: `"close-fd"`; `fd`: `number`; `reason?`: `string`; \} \| \{ `kind`: `"inherit-stdio"`; `fd`: `1` \| `2`; `stream`: `"stdout"` \| `"stderr"`; `closeOnExec?`: `boolean`; \} \| \{ `kind`: `"reopen-file"`; `fd`: `number`; `path`: `string`; `offset`: `number`; `access`: `0` \| `1` \| `2`; `closeOnExec?`: `boolean`; \} \| \{ `kind`: `"synthetic-empty-pipe"`; `readFd`: `number`; `writeFd?`: `number`; `closeOnExec?`: `boolean`; \} \| \{ `kind`: `"synthetic-empty-eventfd"`; `fd`: `number`; `closeOnExec?`: `boolean`; \} \| \{ `kind`: `"synthetic-timerfd"`; `fd`: `number`; `closeOnExec?`: `boolean`; \}
 
 ***
 
@@ -11979,7 +12152,7 @@ loops; anything looser stops being a meaningful gate.
 
 ### nativeProcessImageRefusalCodes
 
-> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"blocking-syscall-state-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"inherited-stdio-policy-required"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-permission-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"non-stdio-kernel-state-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"stdin-buffer-state-unsupported"`, `"syscall-argument-state-unsupported"`, `"syscall-restart-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-callee-saved-state-unsupported"`, `"target-caller-frame-unavailable"`, `"target-code-rva-unmapped"`, `"target-frame-layout-unsupported"`, `"target-frame-register-value-unavailable"`, `"target-module-bytes-missing"`, `"target-module-file-missing"`, `"target-module-missing"`, `"target-module-not-executable"`, `"target-module-range-unreadable"`, `"target-ppoll-syscall-continuation-missing"`, `"target-ppoll-timeout-missing"`, `"target-return-slot-unsupported"`, `"target-resume-execution-unavailable"`, `"target-resume-fault-invalid-code-landing"`, `"target-resume-fault-outside-target-bytes"`, `"target-resume-fault-privileged-instruction"`, `"target-resume-fault-signal-unsupported"`, `"target-resume-fault-timeout"`, `"target-resume-fault-unmodeled-memory"`, `"target-semantic-continuation-missing"`, `"target-sleep-remaining-time-missing"`, `"target-sleep-signal-restart-unsupported"`, `"target-sleep-syscall-continuation-missing"`, `"target-synthetic-signal-interrupted-unsupported"`, `"target-synthetic-signal-restart-unsupported"`, `"target-synthetic-syscall-return-unmodeled"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
+> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"blocking-syscall-state-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"inherited-stdio-policy-required"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-permission-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"non-stdio-kernel-state-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"stdin-buffer-state-unsupported"`, `"syscall-argument-state-unsupported"`, `"syscall-restart-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-callee-saved-state-unsupported"`, `"target-caller-frame-unavailable"`, `"target-code-rva-unmapped"`, `"target-fd-table-duplicate"`, `"target-fd-table-missing"`, `"target-frame-layout-unsupported"`, `"target-frame-register-value-unavailable"`, `"target-module-bytes-missing"`, `"target-module-file-missing"`, `"target-module-missing"`, `"target-module-not-executable"`, `"target-module-range-unreadable"`, `"target-ppoll-syscall-continuation-missing"`, `"target-ppoll-timeout-missing"`, `"target-return-slot-unsupported"`, `"target-resume-execution-unavailable"`, `"target-resume-fault-invalid-code-landing"`, `"target-resume-fault-outside-target-bytes"`, `"target-resume-fault-privileged-instruction"`, `"target-resume-fault-signal-unsupported"`, `"target-resume-fault-timeout"`, `"target-resume-fault-unmodeled-memory"`, `"target-semantic-continuation-missing"`, `"target-sleep-remaining-time-missing"`, `"target-sleep-signal-restart-unsupported"`, `"target-sleep-syscall-continuation-missing"`, `"target-synthetic-signal-interrupted-unsupported"`, `"target-synthetic-signal-restart-unsupported"`, `"target-synthetic-syscall-return-unmodeled"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
 
 ***
 
@@ -13810,6 +13983,22 @@ available.
 #### Returns
 
 [`NativeResourceTranslationResult`](#nativeresourcetranslationresult)
+
+***
+
+### planNativeTargetFdTable()
+
+> **planNativeTargetFdTable**(`request`): [`NativeTargetFdTablePlan`](#nativetargetfdtableplan)
+
+#### Parameters
+
+##### request
+
+[`NativeTargetFdTablePlanRequest`](#nativetargetfdtableplanrequest)
+
+#### Returns
+
+[`NativeTargetFdTablePlan`](#nativetargetfdtableplan)
 
 ***
 

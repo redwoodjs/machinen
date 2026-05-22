@@ -9,3 +9,8 @@ export function nativeFdAccessMode(flags: string[] | undefined): number | undefi
   const bits = nativeFdFlagBits(flags);
   return bits === undefined ? undefined : bits & 0x3;
 }
+
+export function nativeFdCloseOnExec(flags: string[] | undefined): boolean {
+  const bits = nativeFdFlagBits(flags);
+  return Boolean(flags?.includes("cloexec") || (bits !== undefined && (bits & 0o2000000) !== 0));
+}

@@ -6,6 +6,7 @@
 // trampoline still performs the low-level mmap/stack/jump work.
 
 #include <errno.h>
+#include <fcntl.h>
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -21,10 +22,18 @@
 
 #define LOADER_PREFIX "MACHINEN_TARGET_GUEST_RESTORE_LOADER "
 #define MAX_MATERIALIZED_MAPPINGS 32
+#define MAX_FD_RECIPES 64
 
 struct Options {
   const char *descriptor_path;
   const char *trampoline_path;
+};
+
+struct ReopenFileRecipe {
+  int fd;
+  char path[PATH_MAX];
+  uint64_t offset;
+  int access;
 };
 
 struct Descriptor {
@@ -43,6 +52,12 @@ struct Descriptor {
   int pipe_write_fd;
   int event_fd;
   int timer_fd;
+  int close_fds[MAX_FD_RECIPES];
+  size_t close_fd_count;
+  int inherit_fds[MAX_FD_RECIPES];
+  size_t inherit_fd_count;
+  struct ReopenFileRecipe reopen_files[MAX_FD_RECIPES];
+  size_t reopen_file_count;
   char memory_specs[MAX_MATERIALIZED_MAPPINGS][PATH_MAX];
   size_t memory_spec_count;
   char guard_specs[MAX_MATERIALIZED_MAPPINGS][128];
@@ -226,6 +241,63 @@ static void parse_timerfd_resource(struct Descriptor *descriptor, char *fields) 
   descriptor->timer_fd = parse_single_fd_resource(fields, "timerfd fd is required");
 }
 
+static void parse_close_fd_resource(struct Descriptor *descriptor, char *fields) {
+  if (descriptor->close_fd_count >= MAX_FD_RECIPES) {
+    refuse("target-guest-loader-resource-unsupported", "too many fd close recipes");
+  }
+  descriptor->close_fds[descriptor->close_fd_count++] = parse_single_fd_resource(fields, "close fd is required");
+}
+
+static void parse_inherit_stdio_resource(struct Descriptor *descriptor, char *fields) {
+  if (descriptor->inherit_fd_count >= MAX_FD_RECIPES) {
+    refuse("target-guest-loader-resource-unsupported", "too many inherited stdio recipes");
+  }
+  int fd = parse_single_fd_resource(fields, "stdio fd is required");
+  char scratch[4096];
+  snprintf(scratch, sizeof(scratch), "%s", fields);
+  const char *stream = find_token_value(scratch, "stream");
+  if (!stream || !((fd == 1 && streq(stream, "stdout")) || (fd == 2 && streq(stream, "stderr")))) {
+    refuse("target-guest-loader-invalid-fd", "stdio fd and stream do not match");
+  }
+  descriptor->inherit_fds[descriptor->inherit_fd_count++] = fd;
+}
+
+static int parse_access(char *fields) {
+  char scratch[4096];
+  snprintf(scratch, sizeof(scratch), "%s", fields);
+  const char *access = find_token_value(scratch, "access");
+  if (!access) {
+    refuse("target-guest-loader-descriptor-invalid", "file access is required");
+  }
+  int parsed = (int)parse_u64(access, "access");
+  if (parsed < 0 || parsed > 2) {
+    refuse("target-guest-loader-descriptor-invalid", "file access is invalid");
+  }
+  return parsed;
+}
+
+static void parse_reopen_file_resource(struct Descriptor *descriptor, char *fields) {
+  if (descriptor->reopen_file_count >= MAX_FD_RECIPES) {
+    refuse("target-guest-loader-resource-unsupported", "too many file reopen recipes");
+  }
+  struct ReopenFileRecipe *recipe = &descriptor->reopen_files[descriptor->reopen_file_count++];
+  recipe->fd = parse_single_fd_resource(fields, "file fd is required");
+  char scratch[4096];
+  snprintf(scratch, sizeof(scratch), "%s", fields);
+  const char *path = find_token_value(scratch, "path");
+  if (!path || strlen(path) == 0 || strlen(path) >= sizeof(recipe->path)) {
+    refuse("target-guest-loader-descriptor-invalid", "file path is invalid");
+  }
+  snprintf(recipe->path, sizeof(recipe->path), "%s", path);
+  snprintf(scratch, sizeof(scratch), "%s", fields);
+  const char *offset = find_token_value(scratch, "offset");
+  if (!offset) {
+    refuse("target-guest-loader-descriptor-invalid", "file offset is required");
+  }
+  recipe->offset = parse_u64(offset, "offset");
+  recipe->access = parse_access(fields);
+}
+
 static const char *required_token(char *scratch, size_t scratch_size, char *fields, const char *name) {
   snprintf(scratch, scratch_size, "%s", fields);
   const char *value = find_token_value(scratch, name);
@@ -293,7 +365,13 @@ static void parse_memory(struct Descriptor *descriptor, char *line) {
 }
 
 static void parse_resource(struct Descriptor *descriptor, char *line) {
-  if (starts_with(line, "resource=synthetic-empty-pipe")) {
+  if (starts_with(line, "resource=close-fd")) {
+    parse_close_fd_resource(descriptor, line + strlen("resource=close-fd"));
+  } else if (starts_with(line, "resource=inherit-stdio")) {
+    parse_inherit_stdio_resource(descriptor, line + strlen("resource=inherit-stdio"));
+  } else if (starts_with(line, "resource=reopen-file")) {
+    parse_reopen_file_resource(descriptor, line + strlen("resource=reopen-file"));
+  } else if (starts_with(line, "resource=synthetic-empty-pipe")) {
     parse_pipe_resource(descriptor, line + strlen("resource=synthetic-empty-pipe"));
   } else if (starts_with(line, "resource=synthetic-empty-eventfd")) {
     parse_eventfd_resource(descriptor, line + strlen("resource=synthetic-empty-eventfd"));
@@ -332,6 +410,16 @@ static struct Descriptor read_descriptor(const char *path) {
   return descriptor;
 }
 
+static void mark_fd(bool *seen, int fd) {
+  if (fd < 0) {
+    return;
+  }
+  if (seen[fd]) {
+    refuse("target-guest-loader-invalid-fd", "fd is assigned by multiple recipes");
+  }
+  seen[fd] = true;
+}
+
 static void validate_descriptor(const struct Descriptor *descriptor) {
   if (!descriptor->saw_kind || !descriptor->saw_arch || !descriptor->saw_code_file) {
     refuse("target-guest-loader-descriptor-invalid", "descriptor is missing required fields");
@@ -341,11 +429,63 @@ static void validate_descriptor(const struct Descriptor *descriptor) {
       descriptor->stack_size == 0 || descriptor->stack_pointer == 0) {
     refuse("target-guest-loader-invalid-continuation", "continuation fields are incomplete");
   }
+  bool seen[1025] = {0};
+  mark_fd(seen, descriptor->pipe_read_fd);
+  mark_fd(seen, descriptor->pipe_write_fd);
+  mark_fd(seen, descriptor->event_fd);
+  mark_fd(seen, descriptor->timer_fd);
+  for (size_t i = 0; i < descriptor->close_fd_count; i++) {
+    mark_fd(seen, descriptor->close_fds[i]);
+  }
+  for (size_t i = 0; i < descriptor->inherit_fd_count; i++) {
+    mark_fd(seen, descriptor->inherit_fds[i]);
+  }
+  for (size_t i = 0; i < descriptor->reopen_file_count; i++) {
+    mark_fd(seen, descriptor->reopen_files[i].fd);
+  }
 }
 
 static void push_arg(char **argv, size_t *argc, const char *value) {
   argv[*argc] = (char *)value;
   *argc += 1u;
+}
+
+static int open_flags_for_access(int access) {
+  if (access == 1) {
+    return O_WRONLY;
+  }
+  if (access == 2) {
+    return O_RDWR;
+  }
+  return O_RDONLY;
+}
+
+static void apply_fd_recipes(const struct Descriptor *descriptor) {
+  for (size_t i = 0; i < descriptor->close_fd_count; i++) {
+    if (close(descriptor->close_fds[i]) < 0 && errno != EBADF) {
+      perror("machinen-target-guest-restore-loader: close fd");
+      _exit(126);
+    }
+  }
+  for (size_t i = 0; i < descriptor->reopen_file_count; i++) {
+    const struct ReopenFileRecipe *recipe = &descriptor->reopen_files[i];
+    int opened = open(recipe->path, open_flags_for_access(recipe->access));
+    if (opened < 0) {
+      perror("machinen-target-guest-restore-loader: open resource");
+      _exit(126);
+    }
+    if (recipe->offset > 0 && lseek(opened, (off_t)recipe->offset, SEEK_SET) < 0) {
+      perror("machinen-target-guest-restore-loader: seek resource");
+      _exit(126);
+    }
+    if (opened != recipe->fd) {
+      if (dup2(opened, recipe->fd) < 0) {
+        perror("machinen-target-guest-restore-loader: dup2 resource");
+        _exit(126);
+      }
+      close(opened);
+    }
+  }
 }
 
 static int run_trampoline(const struct Options *opts, const struct Descriptor *descriptor) {
@@ -422,6 +562,7 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
     refuse("target-guest-loader-descriptor-invalid", "fork failed");
   }
   if (child == 0) {
+    apply_fd_recipes(descriptor);
     execv(opts->trampoline_path, child_argv);
     perror("machinen-target-guest-restore-loader: execv");
     _exit(127);

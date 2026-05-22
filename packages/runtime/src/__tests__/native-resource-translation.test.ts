@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { translateNativeResources } from "../native-resource-translation.ts";
+import {
+  planNativeTargetFdTable,
+  translateNativeResources,
+} from "../native-resource-translation.ts";
 import type { NativeProcessResource } from "../native-process-image.ts";
 
 const resources: NativeProcessResource[] = [
@@ -197,5 +200,100 @@ describe("native resource translation", () => {
       "kernel-state-unsupported",
       "kernel-state-unsupported",
     ]);
+  });
+
+  it("plans a deterministic target fd table and target guest resource recipes", () => {
+    const plan = planNativeTargetFdTable({
+      inheritedStdio: { mode: "inherit-output" },
+      syntheticEmptyPipeFds: [3],
+      syntheticEmptyEventFds: [6],
+      expectedFds: [0, 1, 2, 3, 4, 5, 6],
+      resources: [
+        { id: "fd:6", kind: "eventfd", state: "captured", fd: 6, flags: ["octal:2000002"] },
+        {
+          id: "fd:4",
+          kind: "pipe",
+          state: "captured",
+          fd: 4,
+          path: "pipe:[1]",
+          flags: ["octal:1"],
+        },
+        {
+          id: "fd:3",
+          kind: "pipe",
+          state: "captured",
+          fd: 3,
+          path: "pipe:[1]",
+          flags: ["octal:0"],
+        },
+        {
+          id: "fd:5",
+          kind: "file",
+          state: "captured",
+          fd: 5,
+          path: "/tmp/data.txt",
+          offset: 7,
+          flags: ["octal:2000000"],
+        },
+        { id: "fd:1", kind: "pipe", state: "captured", fd: 1, path: "pipe:[stdout]" },
+        { id: "fd:2", kind: "socket", state: "captured", fd: 2, path: "socket:[stderr]" },
+      ],
+    });
+
+    expect(plan.refusals).toEqual([]);
+    expect(plan.entries.map((entry) => [entry.targetFd, entry.kind, entry.action])).toEqual([
+      [0, "close-fd", "close"],
+      [1, "inherit-stdio", "materialize"],
+      [2, "inherit-stdio", "materialize"],
+      [3, "synthetic-empty-pipe-read-end", "materialize"],
+      [4, "synthetic-empty-pipe-write-end", "materialize"],
+      [5, "reopen-file", "materialize"],
+      [6, "synthetic-empty-eventfd", "materialize"],
+    ]);
+    expect(plan.entries.find((entry) => entry.targetFd === 5)).toMatchObject({
+      closeOnExec: true,
+      targetGuestRecipe: {
+        kind: "reopen-file",
+        fd: 5,
+        path: "/tmp/data.txt",
+        offset: 7,
+        access: 0,
+        closeOnExec: true,
+      },
+    });
+    expect(plan.targetGuestResources).toEqual([
+      { kind: "close-fd", fd: 0, reason: "missing-captured-fd" },
+      { kind: "inherit-stdio", fd: 1, stream: "stdout", closeOnExec: false },
+      { kind: "inherit-stdio", fd: 2, stream: "stderr", closeOnExec: false },
+      { kind: "synthetic-empty-pipe", readFd: 3, closeOnExec: false, writeFd: 4 },
+      {
+        kind: "reopen-file",
+        fd: 5,
+        path: "/tmp/data.txt",
+        offset: 7,
+        access: 0,
+        closeOnExec: true,
+      },
+      { kind: "synthetic-empty-eventfd", fd: 6, closeOnExec: true },
+    ]);
+  });
+
+  it("refuses duplicate fds and unsupported descriptors before target execution", () => {
+    const plan = planNativeTargetFdTable({
+      resources: [
+        { id: "fd:3a", kind: "file", state: "captured", fd: 3, path: "/tmp/a" },
+        { id: "fd:3b", kind: "file", state: "captured", fd: 3, path: "/tmp/b" },
+        { id: "fd:4", kind: "socket", state: "captured", fd: 4, path: "socket:[4]" },
+      ],
+    });
+
+    expect(plan.refusals.map((refusal) => refusal.code)).toEqual([
+      "target-fd-table-duplicate",
+      "kernel-state-unsupported",
+    ]);
+    expect(plan.entries).toEqual([
+      expect.objectContaining({ targetFd: 4, kind: "refused", action: "refuse" }),
+    ]);
+    expect(plan.targetGuestResources).toEqual([]);
   });
 });
