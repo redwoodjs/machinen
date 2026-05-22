@@ -103,6 +103,8 @@ try {
     targetModuleBytesSource: result.targetModuleBytesSource ?? '',
     targetStateConsumptionResult: result.targetStateConsumptionResult ?? '',
     targetResourceStatuses: result.targetResourceStatuses ?? [],
+    targetReturnChainResult: result.targetReturnChainResult ?? '',
+    targetTranslatedReturnAddress: result.targetTranslatedReturnAddress ?? '',
   }));
 } catch {
   process.stdout.write('{}');

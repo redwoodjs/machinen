@@ -42,6 +42,7 @@ export interface TargetGuestRestoreContinuationDescriptor {
   targetAddress: string;
   argument0?: string;
   stateReportAddress?: string;
+  translatedReturnAddress?: string;
   timeoutSeconds: number;
   stackTargetStart: string;
   stackSize: number;
@@ -70,6 +71,7 @@ export function serializeTargetGuestRestoreDescriptor(
     `targetAddress=${continuation.targetAddress}`,
     ...optionalContinuationField("argument0", continuation.argument0),
     ...optionalContinuationField("stateReportAddress", continuation.stateReportAddress),
+    ...optionalContinuationField("translatedReturnAddress", continuation.translatedReturnAddress),
     `timeoutSeconds=${continuation.timeoutSeconds}`,
     `stackTargetStart=${continuation.stackTargetStart}`,
     `stackSize=${continuation.stackSize}`,
@@ -124,6 +126,7 @@ export function buildNativeActualResumeTrampolineArgs(
     continuation.targetAddress,
     ...optionalArg("--argument0", continuation.argument0),
     ...optionalArg("--state-report-address", continuation.stateReportAddress),
+    ...optionalArg("--translated-return-address", continuation.translatedReturnAddress),
     "--timeout-seconds",
     String(continuation.timeoutSeconds),
     "--stack-target-start",
@@ -174,6 +177,7 @@ function fieldsToDescriptor(
       targetAddress: requiredField(fields, "targetAddress"),
       argument0: optionalField(fields, "argument0"),
       stateReportAddress: optionalField(fields, "stateReportAddress"),
+      translatedReturnAddress: optionalField(fields, "translatedReturnAddress"),
       timeoutSeconds: parseIntegerField(fields, "timeoutSeconds"),
       stackTargetStart: requiredField(fields, "stackTargetStart"),
       stackSize: parseIntegerField(fields, "stackSize"),
@@ -400,6 +404,9 @@ function validateContinuation(
   }
   if (continuation.stateReportAddress !== undefined) {
     assertHexAddress(continuation.stateReportAddress, "stateReportAddress");
+  }
+  if (continuation.translatedReturnAddress !== undefined) {
+    assertHexAddress(continuation.translatedReturnAddress, "translatedReturnAddress");
   }
   assertHexAddress(continuation.stackTargetStart, "stackTargetStart");
   assertHexAddress(continuation.stackPointer, "stackPointer");

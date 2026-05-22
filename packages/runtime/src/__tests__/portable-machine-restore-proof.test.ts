@@ -155,6 +155,8 @@ describe("portable machine VM restore proof", () => {
         targetVerifierResult: "passed",
         targetStateConsumptionResult: "passed",
         targetResourceStatuses: [{ kind: "reopen-file", status: "passed" }],
+        targetReturnChainResult: "passed",
+        targetTranslatedReturnAddress: "0x700300000080",
         sourceTextReusedAsTargetCode: false,
         sourceIsaEmulationUsed: false,
         sidecarRuntimeUsed: false,
@@ -165,6 +167,26 @@ describe("portable machine VM restore proof", () => {
       descriptorGateCompleted: true,
       targetStateConsumptionResult: "passed",
       targetResourceStatuses: [{ kind: "reopen-file", status: "passed" }],
+      targetReturnChainResult: "passed",
+      targetTranslatedReturnAddress: "0x700300000080",
+    });
+
+    expect(
+      completePortableMachineVmRestoreProof(plan, {
+        exitCode: 0,
+        migrationCompleted: true,
+        descriptorGateCompleted: true,
+        targetVerifierResult: "passed",
+        targetReturnChainResult: "failed",
+        sourceTextReusedAsTargetCode: false,
+        sourceIsaEmulationUsed: false,
+        sidecarRuntimeUsed: false,
+      }),
+    ).toMatchObject({
+      state: "ready",
+      migrationCompleted: false,
+      descriptorGateCompleted: true,
+      targetReturnChainResult: "failed",
     });
 
     expect(

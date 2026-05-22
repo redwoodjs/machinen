@@ -48,6 +48,8 @@ struct Descriptor {
   uint64_t argument0;
   bool has_state_report_address;
   uint64_t state_report_address;
+  bool has_translated_return_address;
+  uint64_t translated_return_address;
   uint64_t timeout_seconds;
   uint64_t stack_target_start;
   uint64_t stack_size;
@@ -193,6 +195,9 @@ static void parse_field(struct Descriptor *descriptor, char *line) {
   } else if (streq(key, "stateReportAddress")) {
     descriptor->state_report_address = parse_u64(value, key);
     descriptor->has_state_report_address = true;
+  } else if (streq(key, "translatedReturnAddress")) {
+    descriptor->translated_return_address = parse_u64(value, key);
+    descriptor->has_translated_return_address = true;
   } else if (streq(key, "timeoutSeconds")) {
     descriptor->timeout_seconds = parse_u64(value, key);
   } else if (streq(key, "stackTargetStart")) {
@@ -540,6 +545,7 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   char target_address[32];
   char argument0[32];
   char state_report_address[32];
+  char translated_return_address[32];
   char timeout_seconds[32];
   char stack_target_start[32];
   char stack_size[32];
@@ -554,6 +560,7 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   snprintf(target_address, sizeof(target_address), "0x%" PRIx64, descriptor->target_address);
   snprintf(argument0, sizeof(argument0), "0x%" PRIx64, descriptor->argument0);
   snprintf(state_report_address, sizeof(state_report_address), "0x%" PRIx64, descriptor->state_report_address);
+  snprintf(translated_return_address, sizeof(translated_return_address), "0x%" PRIx64, descriptor->translated_return_address);
   snprintf(timeout_seconds, sizeof(timeout_seconds), "0x%" PRIx64, descriptor->timeout_seconds);
   snprintf(stack_target_start, sizeof(stack_target_start), "0x%" PRIx64, descriptor->stack_target_start);
   snprintf(stack_size, sizeof(stack_size), "0x%" PRIx64, descriptor->stack_size);
@@ -584,6 +591,10 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   if (descriptor->has_state_report_address) {
     push_arg(child_argv, &child_argc, "--state-report-address");
     push_arg(child_argv, &child_argc, state_report_address);
+  }
+  if (descriptor->has_translated_return_address) {
+    push_arg(child_argv, &child_argc, "--translated-return-address");
+    push_arg(child_argv, &child_argc, translated_return_address);
   }
   push_arg(child_argv, &child_argc, "--timeout-seconds");
   push_arg(child_argv, &child_argc, timeout_seconds);

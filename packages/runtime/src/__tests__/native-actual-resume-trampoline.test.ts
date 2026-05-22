@@ -92,12 +92,18 @@ describe("native actual resume trampoline", () => {
       const memory = Buffer.alloc(4096);
       memory[0] = 0x4d;
       writeFileSync(stateMemory, memory);
-      const stateCode = Buffer.from([
+      const stateEntry = Buffer.from([
         0x48, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0x48, 0x89, 0x47, 0x08, 0x48, 0xb8, 0, 0, 0, 0, 0, 0, 0,
         0, 0x48, 0x89, 0x47, 0x10, 0xb8, 0x4d, 0, 0, 0, 0xc3,
       ]);
-      stateCode.writeBigUInt64LE(0x5354415445434f4en, 2);
-      stateCode.writeBigUInt64LE(0x7fn, 16);
+      stateEntry.writeBigUInt64LE(0x5354415445434f4en, 2);
+      stateEntry.writeBigUInt64LE(0x7fn, 16);
+      const returnLanding = Buffer.from([
+        0x48, 0xba, 0, 0, 0, 0, 0, 0, 0, 0, 0x48, 0x89, 0x57, 0x18, 0xb8, 0x4d, 0, 0, 0, 0xc3,
+      ]);
+      returnLanding.writeBigUInt64LE(0x52455455524e4a50n, 2);
+      const translatedReturnAddress = `0x${(0x710000001000n + BigInt(stateEntry.length)).toString(16)}`;
+      const stateCode = Buffer.concat([stateEntry, returnLanding]);
       const stateCodePath = join(outDir, "state.bin");
       writeFileSync(stateCodePath, stateCode);
       expect(
@@ -106,12 +112,19 @@ describe("native actual resume trampoline", () => {
           "0x600000000000",
           "--state-report-address",
           "0x600000000000",
+          "--translated-return-address",
+          translatedReturnAddress,
           "--materialize-memory",
           `${stateMemory}:0:0x600000000000:4096:rw-p`,
         ]),
       ).toMatchObject({
         status: "returned",
         returnValue: "0x4d",
+        returnChain: {
+          status: "passed",
+          translatedReturnAddress,
+          returnMarker: "0x52455455524e4a50",
+        },
         stateConsumption: {
           status: "passed",
           memoryByte: "0x4d",

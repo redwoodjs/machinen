@@ -43,6 +43,7 @@
 #define STATE_CHECK_PIPE UINT64_C(0x10)
 #define STATE_CHECK_EVENTFD UINT64_C(0x20)
 #define STATE_CHECK_TIMERFD UINT64_C(0x40)
+#define TRANSLATED_RETURN_MARKER UINT64_C(0x52455455524e4a50)
 
 struct MemoryMaterialization {
   const char *source_file;
@@ -66,6 +67,8 @@ struct Options {
   uint64_t argument0;
   bool has_state_report_address;
   uint64_t state_report_address;
+  bool has_translated_return_address;
+  uint64_t translated_return_address;
   uint64_t stack_target_start;
   uint64_t stack_size;
   uint64_t stack_pointer;
@@ -86,7 +89,8 @@ static void usage(void) {
   fprintf(stderr,
       "usage: machinen-native-actual-resume-trampoline --code-file path "
       "--file-offset n --code-size n --target-address addr "
-      "[--argument0 addr] [--state-report-address addr] --timeout-seconds n "
+      "[--argument0 addr] [--state-report-address addr] "
+      "[--translated-return-address addr] --timeout-seconds n "
       "[--synthetic-empty-pipe-read-fd n] [--synthetic-empty-pipe-write-fd n] "
       "[--synthetic-empty-eventfd n] "
       "[--synthetic-timerfd n] [--set-cloexec-fd n] "
@@ -224,6 +228,12 @@ static struct Options parse_args(int argc, char **argv) {
       }
       opts.state_report_address = parse_u64(argv[i], "state-report-address");
       opts.has_state_report_address = true;
+    } else if (streq(argv[i], "--translated-return-address")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.translated_return_address = parse_u64(argv[i], "translated-return-address");
+      opts.has_translated_return_address = true;
     } else if (streq(argv[i], "--timeout-seconds")) {
       if (++i >= argc) {
         usage();
@@ -645,12 +655,21 @@ static void apply_cloexec_fds(const struct Options *opts) {
   }
 }
 
-static void jump_to_target(uint64_t entry, uint64_t initial_rsp, uint64_t argument0) {
+static void jump_to_target(
+    uint64_t entry, uint64_t initial_rsp, uint64_t argument0, uint64_t translated_return_address) {
   __asm__ __volatile__(
       "movq %%rsp, host_rsp_before_jump(%%rip)\n"
       "movq %[initial_rsp], %%rsp\n"
       "leaq 1f(%%rip), %%rax\n"
+      "movq %[translated_return_address], %%rdx\n"
+      "testq %%rdx, %%rdx\n"
+      "jz 2f\n"
+      "movq %%rdx, (%%rsp)\n"
+      "movq %%rax, 8(%%rsp)\n"
+      "jmp 3f\n"
+      "2:\n"
       "movq %%rax, (%%rsp)\n"
+      "3:\n"
       "xorl %%eax, %%eax\n"
       "movq %[argument0], %%rdi\n"
       "xorl %%esi, %%esi\n"
@@ -667,7 +686,8 @@ static void jump_to_target(uint64_t entry, uint64_t initial_rsp, uint64_t argume
       :
       : [entry] "r"((void *)(uintptr_t)entry),
         [initial_rsp] "r"(initial_rsp),
-        [argument0] "r"(argument0)
+        [argument0] "r"(argument0),
+        [translated_return_address] "r"(translated_return_address)
       : "rax", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11", "memory");
 }
 
@@ -823,6 +843,23 @@ static void print_state_consumption(const struct Options *opts) {
   printf("]}");
 }
 
+static void print_return_chain(const struct Options *opts) {
+  if (!opts->has_translated_return_address || !opts->has_state_report_address) {
+    return;
+  }
+  uint64_t marker = read_state_report_u64(opts->state_report_address, 24);
+  bool passed = marker == TRANSLATED_RETURN_MARKER;
+  printf(
+      ",\"returnChain\":{\"status\":\"%s\","
+      "\"translatedReturnAddress\":\"0x%" PRIx64 "\","
+      "\"returnMarker\":\"0x%" PRIx64 "\","
+      "\"expectedReturnMarker\":\"0x%" PRIx64 "\"}",
+      passed ? "passed" : "failed",
+      opts->translated_return_address,
+      marker,
+      TRANSLATED_RETURN_MARKER);
+}
+
 static void print_return_event(const struct Options *opts) {
   printf(
       "MACHINEN_ACTUAL_RESUME_TRAMPOLINE {\"status\":\"returned\"," 
@@ -842,6 +879,7 @@ static void print_return_event(const struct Options *opts) {
       mapped_target_start,
       mapped_target_end);
   print_state_consumption(opts);
+  print_return_chain(opts);
   printf("}\n");
 }
 
@@ -870,8 +908,12 @@ int main(int argc, char **argv) {
   apply_cloexec_fds(&opts);
   alarm((unsigned int)opts.timeout_seconds);
   if (sigsetjmp(resume_fault_jmp, 1) == 0) {
+    uint64_t initial_rsp = opts.has_translated_return_address ? opts.stack_pointer - 16u : opts.stack_pointer - 8u;
     jump_to_target(
-        opts.target_address, opts.stack_pointer - 8u, opts.has_argument0 ? opts.argument0 : 0u);
+        opts.target_address,
+        initial_rsp,
+        opts.has_argument0 ? opts.argument0 : 0u,
+        opts.has_translated_return_address ? opts.translated_return_address : 0u);
     alarm(0);
     print_return_event(&opts);
   } else {

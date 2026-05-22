@@ -36,6 +36,11 @@ interface StateConsumptionEvent {
   resourceStatuses?: StateConsumptionResourceStatus[];
 }
 
+interface ReturnChainEvent {
+  status?: StateConsumptionStatus;
+  translatedReturnAddress?: string;
+}
+
 interface Args {
   codeFile?: string;
   descriptorFile?: string;
@@ -210,9 +215,9 @@ function targetExecutionSummary(
   return {
     ...targetSummary(args),
     ...events,
+    ...targetStateConsumptionFields(events.stateConsumption),
+    ...targetReturnChainFields(events.returnChain),
     targetVerifierResult: targetVerifierResult(args, result.exitCode, events),
-    targetStateConsumptionResult: events.stateConsumption?.status,
-    targetResourceStatuses: events.stateConsumption?.resourceStatuses,
     exitCode: result.exitCode,
     stdout: result.stdout,
     stderr: result.stderr,
@@ -223,6 +228,20 @@ function targetExecutionSummary(
   };
 }
 
+function targetStateConsumptionFields(stateConsumption: StateConsumptionEvent | undefined) {
+  return {
+    targetStateConsumptionResult: stateConsumption?.status,
+    targetResourceStatuses: stateConsumption?.resourceStatuses,
+  };
+}
+
+function targetReturnChainFields(returnChain: ReturnChainEvent | undefined) {
+  return {
+    targetReturnChainResult: returnChain?.status,
+    targetTranslatedReturnAddress: returnChain?.translatedReturnAddress,
+  };
+}
+
 function targetExecutionEvents(stdout: string) {
   const descriptorGateCompleted = loaderCompleted(stdout);
   const actualResumeEvent = parseActualResumeEvent(stdout);
@@ -230,6 +249,7 @@ function targetExecutionEvents(stdout: string) {
     descriptorGateCompleted,
     actualResumeEvent,
     stateConsumption: parseStateConsumption(actualResumeEvent),
+    returnChain: parseReturnChain(actualResumeEvent),
   };
 }
 
@@ -244,6 +264,7 @@ function targetVerifierResult(
     events.descriptorGateCompleted,
     events.actualResumeEvent,
     events.stateConsumption,
+    events.returnChain,
   )
     ? "passed"
     : "failed";
@@ -338,16 +359,14 @@ function targetVerifierPassed(
   descriptorGateCompleted: boolean,
   actualResumeEvent: Record<string, unknown> | undefined,
   stateConsumption: StateConsumptionEvent | undefined,
+  returnChain: ReturnChainEvent | undefined,
 ): boolean {
-  if (!targetProcessCompleted(exitCode, descriptorGateCompleted)) {
-    return false;
-  }
-  if (!targetStateConsumed(stateConsumption)) {
-    return false;
-  }
-  return args.expectReturnValue === undefined
-    ? true
-    : actualResumeReturnedExpected(actualResumeEvent, args.expectReturnValue);
+  return [
+    targetProcessCompleted(exitCode, descriptorGateCompleted),
+    targetStateConsumed(stateConsumption),
+    targetReturnChained(returnChain),
+    targetReturnValueMatched(args, actualResumeEvent),
+  ].every(Boolean);
 }
 
 function targetProcessCompleted(exitCode: number, descriptorGateCompleted: boolean): boolean {
@@ -356,6 +375,19 @@ function targetProcessCompleted(exitCode: number, descriptorGateCompleted: boole
 
 function targetStateConsumed(stateConsumption: StateConsumptionEvent | undefined): boolean {
   return stateConsumption === undefined || stateConsumption.status === "passed";
+}
+
+function targetReturnChained(returnChain: ReturnChainEvent | undefined): boolean {
+  return returnChain === undefined || returnChain.status === "passed";
+}
+
+function targetReturnValueMatched(
+  args: Args,
+  actualResumeEvent: Record<string, unknown> | undefined,
+): boolean {
+  return args.expectReturnValue === undefined
+    ? true
+    : actualResumeReturnedExpected(actualResumeEvent, args.expectReturnValue);
 }
 
 function parseStateConsumption(
@@ -371,6 +403,13 @@ function isStateConsumptionEvent(value: unknown): value is StateConsumptionEvent
   }
   const status = (value as { status?: unknown }).status;
   return status === "passed" || status === "failed";
+}
+
+function parseReturnChain(
+  actualResumeEvent: Record<string, unknown> | undefined,
+): ReturnChainEvent | undefined {
+  const value = actualResumeEvent?.returnChain;
+  return isStateConsumptionEvent(value) ? value : undefined;
 }
 
 function actualResumeReturnedExpected(
