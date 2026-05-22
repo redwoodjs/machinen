@@ -63,10 +63,11 @@ from target-native module metadata.
   target sleep syscall did not return success, so EINTR/restart behavior must be
   modeled before the proof can continue.
 - `target-synthetic-signal-restart-unsupported` — a generated target-native
-  syscall descriptor reported a restart-like failure exit.
+  syscall descriptor reported a restart-like failure exit bucket, such as
+  `-EINTR`.
 - `target-synthetic-syscall-return-unmodeled` — a generated target-native
-  syscall descriptor reported a non-success return whose target semantics are
-  not modeled yet.
+  syscall descriptor reported another negative errno bucket whose target
+  semantics are not modeled yet.
 
 ## Proof
 

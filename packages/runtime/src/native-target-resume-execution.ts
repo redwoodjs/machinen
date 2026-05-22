@@ -6,7 +6,10 @@ import type {
 } from "./native-process-image.ts";
 import type { NativeSyntheticTargetCallerFrame } from "./native-target-caller-frame.ts";
 import type { NativeTargetResumeLandingProvenance } from "./native-target-landing-provenance.ts";
-import type { NativeSyntheticSyscallContinuationDescriptor } from "./native-synthetic-continuation.ts";
+import type {
+  NativeSyntheticContinuationFailureExitBucket,
+  NativeSyntheticSyscallContinuationDescriptor,
+} from "./native-synthetic-continuation.ts";
 import { NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS } from "./native-synthetic-sleep-continuation.ts";
 import type { NativeTargetModuleByteMaterialization } from "./native-target-module-bytes.ts";
 
@@ -212,26 +215,67 @@ function syntheticFailureRefusal(
   attempt: NativeTargetResumeExecutionAttempt,
   descriptor: NativeSyntheticSyscallContinuationDescriptor,
 ): NativeProcessImageRefusal | undefined {
-  if (descriptor.completion.failureExitStatus !== attempt.exitStatus) {
+  const bucket = syntheticFailureExitBucket(descriptor, attempt.exitStatus);
+  if (!bucket) {
     return undefined;
   }
-  const code = syntheticFailureRefusalCode(descriptor);
-  return faultRefusal(code, syntheticFailureMessage(descriptor, attempt), attempt, {
+  const code = syntheticFailureRefusalCode(bucket);
+  return faultRefusal(code, syntheticFailureMessage(descriptor, attempt, bucket), attempt, {
+    descriptorHash: descriptor.descriptorSha256,
+    exitStatus: attempt.exitStatus,
+    syscall: {
+      abi: descriptor.syscall.abi,
+      name: descriptor.syscall.name,
+      number: descriptor.syscall.number,
+    },
+    errno: bucket.syscallReturn.errno,
+    errnoName: bucket.syscallReturn.errnoName,
+    errnos: bucket.syscallReturn.errnos,
+    errnoRange: bucket.syscallReturn.errnoRange,
+    excludedErrnos: bucket.syscallReturn.excludedErrnos,
+    syscallReturn: bucket.syscallReturn,
     syntheticContinuation: {
       kind: descriptor.kind,
       entryAddress: descriptor.entryAddress,
       byteSha256: descriptor.byteSha256,
+      descriptorSha256: descriptor.descriptorSha256,
       syscall: descriptor.syscall,
       completion: descriptor.completion,
+      failureExitBucket: bucket,
     },
-    exitStatus: attempt.exitStatus,
   });
 }
 
-function syntheticFailureRefusalCode(
+function syntheticFailureExitBucket(
   descriptor: NativeSyntheticSyscallContinuationDescriptor,
+  exitStatus: number | undefined,
+): NativeSyntheticContinuationFailureExitBucket | undefined {
+  if (exitStatus === undefined) {
+    return undefined;
+  }
+  const bucket = descriptor.completion.failureExitBuckets?.find(
+    (candidate) => candidate.exitStatus === exitStatus,
+  );
+  if (bucket) {
+    return bucket;
+  }
+  if (descriptor.completion.failureExitStatus !== exitStatus) {
+    return undefined;
+  }
+  return {
+    exitStatus,
+    failureKind: descriptor.completion.failureKind ?? "syscall-return-unmodeled",
+    failureReason:
+      descriptor.completion.failureReason ??
+      "synthetic syscall returned a non-success value; return handling is not modeled",
+    syscallReturn: { register: "rax", condition: "nonzero-return" },
+  };
+}
+
+function syntheticFailureRefusalCode(
+  bucket: NativeSyntheticContinuationFailureExitBucket,
 ): NativeProcessImageRefusal["code"] {
-  return descriptor.completion.failureKind === "signal-restart-unsupported"
+  return bucket.failureKind === "signal-restart-unsupported"
     ? "target-synthetic-signal-restart-unsupported"
     : "target-synthetic-syscall-return-unmodeled";
 }
@@ -239,10 +283,9 @@ function syntheticFailureRefusalCode(
 function syntheticFailureMessage(
   descriptor: NativeSyntheticSyscallContinuationDescriptor,
   attempt: NativeTargetResumeExecutionAttempt,
+  bucket: NativeSyntheticContinuationFailureExitBucket,
 ): string {
-  return descriptor.completion.failureKind === "signal-restart-unsupported"
-    ? `synthetic target ${descriptor.syscall.name} syscall exited with status ${attempt.exitStatus}; signal/restart semantics are not modeled`
-    : `synthetic target ${descriptor.syscall.name} syscall exited with status ${attempt.exitStatus}; syscall return semantics are not modeled`;
+  return `${bucket.failureReason}; synthetic target ${descriptor.syscall.name} syscall exited with status ${attempt.exitStatus}`;
 }
 
 function classifyTargetResumeFaultRefusal(

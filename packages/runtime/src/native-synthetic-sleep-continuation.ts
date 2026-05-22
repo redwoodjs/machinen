@@ -4,6 +4,7 @@ import type { NativeProcessImageRefusal } from "./native-process-image.ts";
 import {
   buildNativeSyntheticSyscallContinuationDescriptor,
   type NativeSyntheticContinuationCompletionDescriptor,
+  type NativeSyntheticContinuationFailureExitBucket,
   type NativeSyntheticContinuationProvenanceSource,
   type NativeSyntheticContinuationRegisterSetupDescriptor,
   type NativeSyntheticContinuationStackSetupDescriptor,
@@ -15,11 +16,14 @@ import type {
   NativeModeledSleepTimerState,
 } from "./native-active-syscall-policy.ts";
 
-export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_BUILD_ID = "machinen-synthetic-sleep-syscall-v2";
+export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_BUILD_ID = "machinen-synthetic-sleep-syscall-v3";
 export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_LOGICAL_NAME = "machinen-synthetic-sleep-syscall";
 export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_PATH = "machinen.synthetic://sleep-syscall";
 export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_BASE = "0x700200000000";
-export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS = 111;
+export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_RESTART_EXIT_STATUS = 111;
+export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_UNMODELED_RETURN_EXIT_STATUS = 112;
+export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS =
+  NATIVE_SYNTHETIC_SLEEP_SYSCALL_RESTART_EXIT_STATUS;
 
 export type NativeSyntheticSleepCompletionMode = "return-to-trampoline" | "exit-process";
 
@@ -48,6 +52,7 @@ export interface NativeSyntheticSleepSyscallCompletionProvenance extends NativeS
   mode: NativeSyntheticSleepCompletionMode;
   successExitStatus?: 0;
   failureExitStatus?: typeof NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS;
+  failureExitBuckets?: NativeSyntheticContinuationFailureExitBucket[];
 }
 
 export interface NativeSyntheticSleepSyscallContinuationProvenance extends NativeSyntheticSyscallContinuationDescriptor {
@@ -114,8 +119,8 @@ export interface NativeSyntheticSleepSyscallContinuationResult {
 const CLOCK_NANOSLEEP_SYSCALL_AMD64 = 230;
 const RETURNING_SLEEP_TIMESPEC_OFFSET = 24;
 const RETURNING_SLEEP_CODE_SIZE = 40;
-const EXITING_SLEEP_TIMESPEC_OFFSET = 48;
-const EXITING_SLEEP_CODE_SIZE = 64;
+const EXITING_SLEEP_TIMESPEC_OFFSET = 104;
+const EXITING_SLEEP_CODE_SIZE = 120;
 const MAX_SIGNED_I64 = 0x7fff_ffff_ffff_ffffn;
 const MAX_NANOSECONDS = 999_999_999;
 
@@ -274,6 +279,8 @@ function syntheticClockNanosleepDescriptor(
         completionMode === "exit-process"
           ? "sleep syscall failure may need EINTR/restart handling, which is not modeled"
           : undefined,
+      failureExitBuckets:
+        completionMode === "exit-process" ? syntheticSleepFailureExitBuckets() : undefined,
     },
   });
 }
@@ -337,13 +344,91 @@ function sleepCodeSize(completionMode: NativeSyntheticSleepCompletionMode): numb
   return completionMode === "exit-process" ? EXITING_SLEEP_CODE_SIZE : RETURNING_SLEEP_CODE_SIZE;
 }
 
+function restartLikeErrnos(): { errno: number; errnoName: string }[] {
+  return [
+    { errno: 4, errnoName: "EINTR" },
+    { errno: 512, errnoName: "ERESTARTSYS" },
+    { errno: 513, errnoName: "ERESTARTNOINTR" },
+    { errno: 514, errnoName: "ERESTARTNOHAND" },
+    { errno: 516, errnoName: "ERESTART_RESTARTBLOCK" },
+  ];
+}
+
+function syntheticSleepFailureExitBuckets(): NativeSyntheticContinuationFailureExitBucket[] {
+  return [
+    {
+      exitStatus: NATIVE_SYNTHETIC_SLEEP_SYSCALL_RESTART_EXIT_STATUS,
+      failureKind: "signal-restart-unsupported",
+      failureReason:
+        "clock_nanosleep returned EINTR or a restart-like errno; signal restart handling is not modeled",
+      syscallReturn: {
+        register: "rax",
+        condition: "restart-like-negative-errno",
+        errnos: restartLikeErrnos(),
+      },
+    },
+    {
+      exitStatus: NATIVE_SYNTHETIC_SLEEP_SYSCALL_UNMODELED_RETURN_EXIT_STATUS,
+      failureKind: "syscall-return-unmodeled",
+      failureReason:
+        "clock_nanosleep returned another negative errno; errno-specific recovery is not modeled",
+      syscallReturn: {
+        register: "rax",
+        condition: "other-negative-errno",
+        errnoRange: { min: 1, max: 4095 },
+        excludedErrnos: restartLikeErrnos(),
+      },
+    },
+  ];
+}
+
 function exitProcessSuffix(): number[] {
   return [
     0x48,
     0x85,
     0xc0, // test rax, rax
-    0x75,
-    0x09, // jne failure exit
+    0x74,
+    0x28, // je success exit
+    0x48,
+    0x83,
+    0xf8,
+    0xfc, // cmp rax, -EINTR
+    0x74,
+    0x2b, // je restart failure exit
+    0x48,
+    0x3d,
+    0x00,
+    0xfe,
+    0xff,
+    0xff, // cmp rax, -ERESTARTSYS
+    0x74,
+    0x23, // je restart failure exit
+    0x48,
+    0x3d,
+    0xff,
+    0xfd,
+    0xff,
+    0xff, // cmp rax, -ERESTARTNOINTR
+    0x74,
+    0x1b, // je restart failure exit
+    0x48,
+    0x3d,
+    0xfe,
+    0xfd,
+    0xff,
+    0xff, // cmp rax, -ERESTARTNOHAND
+    0x74,
+    0x13, // je restart failure exit
+    0x48,
+    0x3d,
+    0xfc,
+    0xfd,
+    0xff,
+    0xff, // cmp rax, -ERESTART_RESTARTBLOCK
+    0x74,
+    0x0b, // je restart failure exit
+    0xeb,
+    0x15, // jmp unmodeled return failure exit
     0xb8,
     0x3c,
     0x00,
@@ -359,12 +444,28 @@ function exitProcessSuffix(): number[] {
     0x00,
     0x00, // mov eax, 60 (exit)
     0xbf,
-    NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS,
+    NATIVE_SYNTHETIC_SLEEP_SYSCALL_RESTART_EXIT_STATUS,
     0x00,
     0x00,
-    0x00, // mov edi, 111 (unexpected sleep failure)
+    0x00, // mov edi, 111 (EINTR/restart failure)
     0x0f,
     0x05, // syscall
+    0xb8,
+    0x3c,
+    0x00,
+    0x00,
+    0x00, // mov eax, 60 (exit)
+    0xbf,
+    NATIVE_SYNTHETIC_SLEEP_SYSCALL_UNMODELED_RETURN_EXIT_STATUS,
+    0x00,
+    0x00,
+    0x00, // mov edi, 112 (unmodeled negative errno)
+    0x0f,
+    0x05, // syscall
+    0x90,
+    0x90,
+    0x90,
+    0x90,
     0x90,
   ];
 }

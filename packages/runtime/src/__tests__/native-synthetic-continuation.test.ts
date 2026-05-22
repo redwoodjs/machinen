@@ -4,6 +4,7 @@ import {
   buildNativeSyntheticSyscallContinuationDescriptor,
   nativeSyntheticContinuationBytesHex,
   nativeSyntheticContinuationBytesSha256,
+  nativeSyntheticContinuationDescriptorSha256,
 } from "../native-synthetic-continuation.ts";
 
 const args = [
@@ -43,9 +44,14 @@ describe("native synthetic continuation descriptor", () => {
       },
       completion: {
         mode: "return-to-trampoline",
-        failureExitStatus: 112,
-        failureKind: "syscall-return-unmodeled",
-        failureReason: "getpid failure is only a descriptor test",
+        failureExitBuckets: [
+          {
+            exitStatus: 112,
+            failureKind: "syscall-return-unmodeled",
+            failureReason: "getpid failure is only a descriptor test",
+            syscallReturn: { register: "rax", condition: "nonzero-return" },
+          },
+        ],
       },
     });
 
@@ -68,11 +74,19 @@ describe("native synthetic continuation descriptor", () => {
       stackSetup: { requiresSourceStackBytes: false },
       completion: {
         mode: "return-to-trampoline",
-        failureExitStatus: 112,
-        failureKind: "syscall-return-unmodeled",
+        failureExitBuckets: [
+          {
+            exitStatus: 112,
+            failureKind: "syscall-return-unmodeled",
+            syscallReturn: { register: "rax", condition: "nonzero-return" },
+          },
+        ],
       },
     });
+    const { descriptorSha256, ...descriptorPayload } = descriptor;
     expect(descriptor.byteSha256).toBe(nativeSyntheticContinuationBytesSha256(bytes));
+    expect(descriptorSha256).toHaveLength(64);
+    expect(descriptorSha256).toBe(nativeSyntheticContinuationDescriptorSha256(descriptorPayload));
     expect(nativeSyntheticContinuationBytesHex(bytes)).toBe("b8270000000f05");
   });
 });

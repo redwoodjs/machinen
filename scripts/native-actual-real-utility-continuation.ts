@@ -1021,11 +1021,24 @@ function syntheticExitStatus(
   status: number | null,
   synthetic: ReturnType<typeof syntheticSleepContinuationSummaries>[number],
 ): boolean {
-  return (
-    status === 0 ||
-    status === synthetic.descriptor?.completion.failureExitStatus ||
-    status === NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS
-  );
+  if (status === null) {
+    return false;
+  }
+  return syntheticExitStatuses(synthetic).has(status);
+}
+
+function syntheticExitStatuses(
+  synthetic: ReturnType<typeof syntheticSleepContinuationSummaries>[number],
+): Set<number> {
+  const statuses = new Set([0, NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS]);
+  const legacyFailureStatus = synthetic.descriptor?.completion.failureExitStatus;
+  if (legacyFailureStatus !== undefined) {
+    statuses.add(legacyFailureStatus);
+  }
+  for (const bucket of synthetic.descriptor?.completion.failureExitBuckets ?? []) {
+    statuses.add(bucket.exitStatus);
+  }
+  return statuses;
 }
 
 function actualResumeCodeFile(

@@ -85,7 +85,33 @@ function syntheticLanding(
       returnAddress: "not-used-exit-process-completion",
       requiresSourceStackBytes: false,
     },
-    completion: { mode: "exit-process", failureExitStatus, failureKind },
+    completion: {
+      mode: "exit-process",
+      failureExitBuckets: [
+        {
+          exitStatus: failureExitStatus,
+          failureKind,
+          failureReason:
+            failureKind === "signal-restart-unsupported"
+              ? "test syscall returned -EINTR"
+              : "test syscall returned another negative errno",
+          syscallReturn:
+            failureKind === "signal-restart-unsupported"
+              ? {
+                  register: "rax",
+                  condition: "equals-negative-errno",
+                  errno: 4,
+                  errnoName: "EINTR",
+                }
+              : {
+                  register: "rax",
+                  condition: "other-negative-errno",
+                  errnoRange: { min: 1, max: 4095 },
+                  excludedErrnos: [{ errno: 4, errnoName: "EINTR" }],
+                },
+        },
+      ],
+    },
   });
   return {
     ...invalidLanding,
@@ -272,10 +298,20 @@ describe("native target resume execution planning", () => {
         {
           code: "target-synthetic-signal-restart-unsupported",
           detail: {
+            descriptorHash: expect.any(String),
+            exitStatus: 111,
+            errno: 4,
+            errnoName: "EINTR",
+            syscall: { name: "clock_nanosleep", number: 230 },
+            syscallReturn: { condition: "equals-negative-errno", errno: 4, errnoName: "EINTR" },
             syntheticContinuation: {
               kind: "synthetic-syscall-continuation",
+              descriptorSha256: expect.any(String),
               syscall: { name: "clock_nanosleep", number: 230 },
-              completion: { failureExitStatus: 111, failureKind: "signal-restart-unsupported" },
+              failureExitBucket: {
+                exitStatus: 111,
+                failureKind: "signal-restart-unsupported",
+              },
             },
           },
         },
@@ -308,7 +344,22 @@ describe("native target resume execution planning", () => {
       refusals: [
         {
           code: "target-synthetic-syscall-return-unmodeled",
-          detail: { syntheticContinuation: { syscall: { name: "ppoll", number: 271 } } },
+          detail: {
+            descriptorHash: expect.any(String),
+            exitStatus: 112,
+            syscall: { name: "ppoll", number: 271 },
+            errnoRange: { min: 1, max: 4095 },
+            excludedErrnos: [{ errno: 4, errnoName: "EINTR" }],
+            syscallReturn: { condition: "other-negative-errno" },
+            syntheticContinuation: {
+              descriptorSha256: expect.any(String),
+              syscall: { name: "ppoll", number: 271 },
+              failureExitBucket: {
+                exitStatus: 112,
+                failureKind: "syscall-return-unmodeled",
+              },
+            },
+          },
         },
       ],
       classification: { attemptedResume: true, migrationCompleted: false },
