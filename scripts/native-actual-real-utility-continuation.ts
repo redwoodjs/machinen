@@ -60,12 +60,10 @@ import { translateNativeResources } from "../packages/runtime/src/native-resourc
 import {
   NATIVE_ACTUAL_RESUME_TRAMPOLINE_SOURCE,
   NATIVE_CAPTURE_SOURCE,
-  NATIVE_PPOLL_PIPE_TIMEOUT_TARGET_SOURCE,
   NATIVE_PPOLL_TIMEOUT_TARGET_SOURCE,
   NATIVE_PROCESS_IMAGE_BUNDLE_FILES,
   bundleFileStats,
   compileNativeActualResumeTrampoline,
-  compileNativePpollPipeTimeoutTarget,
   compileNativePpollTimeoutTarget,
   compileNativeProcessCapturer,
   ensureSourcesExist,
@@ -95,7 +93,6 @@ const TARGET_ROOT_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_TARGET_ROOT";
 const TARGET_MODULE_PATH_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_TARGET_MODULE";
 const SLEEP_SYSCALL_POLICY_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_SLEEP_SYSCALL_POLICY";
 const PPOLL_SYSCALL_POLICY_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_PPOLL_SYSCALL_POLICY";
-const PPOLL_FD_POLICY_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_PPOLL_FD_POLICY";
 const SYNTHETIC_COMPLETION_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_SYNTHETIC_COMPLETION";
 const WORKLOAD_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_WORKLOAD";
 const UTILITY_NAME = "sleep";
@@ -211,13 +208,6 @@ function actualUtilityWorkload(): {
       command: (binDir) => [compileNativePpollTimeoutTarget(binDir)],
     };
   }
-  if (process.env[WORKLOAD_ENV] === "ppoll-pipe") {
-    return {
-      name: "ppoll-pipe-timeout",
-      requiredSources: [NATIVE_CAPTURE_SOURCE, NATIVE_PPOLL_PIPE_TIMEOUT_TARGET_SOURCE],
-      command: (binDir) => [compileNativePpollPipeTimeoutTarget(binDir)],
-    };
-  }
   return {
     name: UTILITY_NAME,
     requiredSources: [NATIVE_CAPTURE_SOURCE],
@@ -315,16 +305,6 @@ function hasActiveContinuation(
   );
 }
 
-function syntheticEmptyPipeFds(
-  activeSyscalls: ReturnType<typeof classifyNativeActiveSyscalls>,
-): number[] {
-  return activeSyscalls.continuations.flatMap((continuation) =>
-    continuation.syscallClass === "poll-timeout"
-      ? (continuation.metadata.ppollTimeout.pollFds ?? []).map((pollFd) => pollFd.fd)
-      : [],
-  );
-}
-
 function isSyntheticSyscallStrategy(strategy: string): boolean {
   return strategy === "synthetic-sleep-syscall" || strategy === "synthetic-ppoll-syscall";
 }
@@ -338,7 +318,6 @@ function actualUtilityPlanningInputs(
   const activeSyscalls = classifyNativeActiveSyscalls(bundle.threads.threads, {
     sleepTimerPolicy: sleepTimerPolicy(),
     pollTimeoutPolicy: ppollTimeoutPolicy(),
-    pollTimeoutFdPolicy: ppollTimeoutFdPolicy(),
     documents: bundle,
   });
   const registers = translateNativeRegisterState({
@@ -352,7 +331,6 @@ function actualUtilityPlanningInputs(
   const resources = translateNativeResources({
     resources: bundle.resources.resources,
     inheritedStdio: { mode: "inherit-output" },
-    syntheticEmptyPipeFds: syntheticEmptyPipeFds(activeSyscalls),
   });
   const mappings = planNativeMappingMaterialization({
     mappings: bundle.mappings.mappings,
@@ -861,7 +839,6 @@ function materializeSyntheticPpollTargetBytes(
   const synthetic = buildNativeSyntheticPpollSyscallContinuation({
     threadId: location.threadId,
     remainingTime: metadata.remainingTime,
-    ppollTimeout: metadata.ppollTimeout,
     targetAddress: location.targetAddress,
     completionMode: location.syntheticContinuation?.completionMode,
   });
@@ -1119,7 +1096,6 @@ function executeActualTargetResumeAttempt(
       planned.targetResumeExecution.plan.entryAddress,
       "--timeout-seconds",
       String(actualResumeTimeoutSeconds(planned)),
-      ...actualResumeSyntheticResourceArgs(planned),
       "--stack-target-start",
       finalJumpHex(ACTUAL_RESUME_TARGET_STACK_START),
       "--stack-size",
@@ -1183,43 +1159,6 @@ function actualResumeCodeFile(
   );
   writeFileSync(syntheticPath, targetBytes.bytes);
   return { path: syntheticPath, fileOffset: 0 };
-}
-
-function actualResumeSyntheticResourceArgs(
-  planned: ReturnType<typeof planCapturedActualUtilityBundle>,
-): string[] {
-  const readFd = syntheticEmptyPipeReadFdForPlan(planned);
-  if (readFd === undefined) {
-    return [];
-  }
-  const writeFd = syntheticEmptyPipeWriteFdForPlan(planned, readFd);
-  return [
-    "--synthetic-empty-pipe-read-fd",
-    String(readFd),
-    ...(writeFd === undefined ? [] : ["--synthetic-empty-pipe-write-fd", String(writeFd)]),
-  ];
-}
-
-function syntheticEmptyPipeReadFdForPlan(
-  planned: ReturnType<typeof planCapturedActualUtilityBundle>,
-): number | undefined {
-  return planned.activeSyscalls.continuations.flatMap((continuation) =>
-    continuation.syscallClass === "poll-timeout"
-      ? (continuation.metadata.ppollTimeout.pollFds?.[0]?.fd ?? [])
-      : [],
-  )[0];
-}
-
-function syntheticEmptyPipeWriteFdForPlan(
-  planned: ReturnType<typeof planCapturedActualUtilityBundle>,
-  readFd: number,
-): number | undefined {
-  const resource = planned.resources.resources.find(
-    (candidate) =>
-      candidate.recipe?.synthetic === "empty-pipe-write-end" &&
-      candidate.recipe.pairedReadFd === readFd,
-  );
-  return typeof resource?.fd === "number" ? resource.fd : undefined;
 }
 
 function actualResumeTimeoutSeconds(planned: ReturnType<typeof planCapturedActualUtilityBundle>) {
@@ -1375,7 +1314,6 @@ function actualUtilitySummary(context: {
     activeSyscallPolicy: {
       sleepTimerPolicy: sleepTimerPolicy(),
       ppollTimeoutPolicy: ppollTimeoutPolicy(),
-      ppollTimeoutFdPolicy: ppollTimeoutFdPolicy(),
     },
     threadSyscalls: threadSyscallSummaries(planned),
     activeSyscallClassifications: planned.activeSyscalls.classifications,
@@ -1624,12 +1562,6 @@ function ppollTimeoutPolicy() {
   return process.env[PPOLL_SYSCALL_POLICY_ENV] === "defer-target-resume"
     ? "defer-target-resume"
     : "refuse";
-}
-
-function ppollTimeoutFdPolicy() {
-  return process.env[PPOLL_FD_POLICY_ENV] === "synthetic-empty-pipe"
-    ? "synthetic-empty-pipe"
-    : "zero-fd-only";
 }
 
 function syntheticCompletionMode() {

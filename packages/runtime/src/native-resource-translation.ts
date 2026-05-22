@@ -10,7 +10,6 @@ export interface NativeResourceTranslationRequest {
   resources: NativeProcessResource[];
   hostCapabilities?: string[];
   inheritedStdio?: NativeInheritedStdioPolicy;
-  syntheticEmptyPipeFds?: number[];
 }
 
 export interface NativeResourceTranslationResult {
@@ -22,16 +21,8 @@ export function translateNativeResources(
   request: NativeResourceTranslationRequest,
 ): NativeResourceTranslationResult {
   const capabilities = new Set(request.hostCapabilities ?? []);
-  const syntheticEmptyPipeFds = new Set(request.syntheticEmptyPipeFds ?? []);
-  const syntheticPipePaths = syntheticEmptyPipePaths(request.resources, syntheticEmptyPipeFds);
   const resources = request.resources.map((resource) =>
-    translateResource(
-      resource,
-      capabilities,
-      request.inheritedStdio,
-      syntheticEmptyPipeFds,
-      syntheticPipePaths,
-    ),
+    translateResource(resource, capabilities, request.inheritedStdio),
   );
   return {
     resources,
@@ -39,30 +30,11 @@ export function translateNativeResources(
   };
 }
 
-function syntheticEmptyPipePaths(
-  resources: NativeProcessResource[],
-  syntheticEmptyPipeFds: Set<number>,
-): Map<string, number> {
-  return new Map(
-    resources
-      .filter(
-        (resource) =>
-          resource.kind === "pipe" &&
-          resource.fd !== undefined &&
-          resource.path &&
-          syntheticEmptyPipeFds.has(resource.fd),
-      )
-      .map((resource) => [resource.path!, resource.fd!]),
-  );
-}
-
 // fallow-ignore-next-line complexity
 function translateResource(
   resource: NativeProcessResource,
   capabilities: Set<string>,
   inheritedStdio: NativeInheritedStdioPolicy | undefined,
-  syntheticEmptyPipeFds: Set<number>,
-  syntheticPipePaths: Map<string, number>,
 ): NativeProcessResource {
   if (
     resource.kind === "argv" ||
@@ -76,30 +48,6 @@ function translateResource(
   const stdio = translateInheritedStdio(resource, inheritedStdio);
   if (stdio) {
     return stdio;
-  }
-  if (resource.kind === "pipe" && resource.fd !== undefined) {
-    if (syntheticEmptyPipeFds.has(resource.fd)) {
-      return {
-        ...resource,
-        state: "recipe",
-        recipe: { synthetic: "empty-pipe-read-end", fd: resource.fd, pipeId: resource.path },
-        refusal: undefined,
-      };
-    }
-    const pairedReadFd = resource.path ? syntheticPipePaths.get(resource.path) : undefined;
-    if (pairedReadFd !== undefined && resource.flags?.includes("octal:1")) {
-      return {
-        ...resource,
-        state: "recipe",
-        recipe: {
-          synthetic: "empty-pipe-write-end",
-          fd: resource.fd,
-          pairedReadFd,
-          pipeId: resource.path,
-        },
-        refusal: undefined,
-      };
-    }
   }
   if (resource.kind === "file" && resource.path) {
     return {

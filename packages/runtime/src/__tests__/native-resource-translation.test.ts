@@ -87,43 +87,6 @@ describe("native resource translation", () => {
     ]);
   });
 
-  it("allows explicit synthetic empty-pipe resources for one-fd ppoll proofs", () => {
-    const result = translateNativeResources({
-      syntheticEmptyPipeFds: [10],
-      resources: [
-        {
-          id: "fd:10",
-          kind: "pipe",
-          state: "captured",
-          fd: 10,
-          path: "pipe:[1]",
-          flags: ["octal:0"],
-        },
-        {
-          id: "fd:12",
-          kind: "pipe",
-          state: "captured",
-          fd: 12,
-          path: "pipe:[1]",
-          flags: ["octal:1"],
-        },
-        { id: "fd:11", kind: "pipe", state: "captured", fd: 11, path: "pipe:[2]" },
-      ],
-    });
-
-    expect(result.resources.find((resource) => resource.id === "fd:10")).toMatchObject({
-      state: "recipe",
-      recipe: { synthetic: "empty-pipe-read-end", fd: 10 },
-    });
-    expect(result.resources.find((resource) => resource.id === "fd:12")).toMatchObject({
-      state: "recipe",
-      recipe: { synthetic: "empty-pipe-write-end", fd: 12, pairedReadFd: 10 },
-    });
-    expect(result.refusals).toEqual([
-      expect.objectContaining({ code: "kernel-state-unsupported" }),
-    ]);
-  });
-
   it("uses exact refusal codes for generic and stateful kernel fd resources", () => {
     const result = translateNativeResources({
       resources: [

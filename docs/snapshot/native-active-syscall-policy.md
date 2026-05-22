@@ -10,10 +10,8 @@ The current classifier reports:
 
 - `outside-syscall` — safe to continue to later gates;
 - `sleep-timer` — `clock_nanosleep` / `nanosleep` style waits;
-- `poll-timeout` — modeled `ppoll` timeout waits under an explicit deferral
-  policy;
 - `fd-blocking` — `read`, `write`, `poll`, `ppoll`, `select`, `pselect6`, and
-  related fd waits that are not covered by the narrow `poll-timeout` model;
+  related fd waits;
 - `restart` — `restart_syscall` or captured restart-block state;
 - `unknown-active` — any active syscall that has not been modeled.
 
@@ -24,8 +22,6 @@ Known blocking syscall classes refuse with precise codes:
 - `blocking-syscall-state-unsupported` for sleep/timer and fd-blocking syscalls;
 - `target-sleep-remaining-time-missing` when explicit sleep deferral is requested
   but the capture cannot model a relative target timer rearm duration;
-- `target-ppoll-timeout-missing` when explicit `ppoll` deferral is requested but
-  the capture cannot model the timeout, fd, or signal-mask contract;
 - `syscall-restart-unsupported` for restart state;
 - `active-syscall` for unknown active syscalls.
 
@@ -45,24 +41,6 @@ fails closed with `target-sleep-remaining-time-missing`.
 The actual utility proof uses this to move past the `thread-state` gate only when
 there is explicit target timer metadata, without pretending that source kernel
 state was restored.
-
-## Explicit ppoll timeout deferral
-
-The `pollTimeoutPolicy: "defer-target-resume"` option models only relative
-`ppoll` timeouts with `sigmask = NULL`. The default `pollTimeoutFdPolicy` is
-`"zero-fd-only"`, which accepts only `ppoll(NULL, 0, &timeout, NULL)`.
-
-The optional `"synthetic-empty-pipe"` fd policy accepts exactly one captured
-`struct pollfd` entry when all of these are true:
-
-- `nfds == 1` and the pollfd array is readable in captured memory;
-- the entry is `POLLIN` with `revents == 0`;
-- the entry's fd maps to a captured pipe resource;
-- the signal mask is still null.
-
-The target recipe creates a fresh empty pipe read end at the same fd and keeps a
-write end open. This preserves a timeout-driven proof without claiming general fd
-readiness migration.
 
 ## Proof
 

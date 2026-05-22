@@ -85,13 +85,11 @@
 - [`NativeActiveSyscallClass`](#nativeactivesyscallclass)
 - [`NativeSleepTimerSyscallPolicy`](#nativesleeptimersyscallpolicy)
 - [`NativePollTimeoutSyscallPolicy`](#nativepolltimeoutsyscallpolicy)
-- [`NativePollTimeoutFdPolicy`](#nativepolltimeoutfdpolicy)
 - [`NativeActiveSyscallPolicyOptions`](#nativeactivesyscallpolicyoptions)
 - [`NativeSleepTimerDuration`](#nativesleeptimerduration)
 - [`NativeModeledSleepTimerRemainingTime`](#nativemodeledsleeptimerremainingtime)
 - [`NativeModeledSleepTimerState`](#nativemodeledsleeptimerstate)
 - [`NativeModeledPpollTimeoutRemainingTime`](#nativemodeledppolltimeoutremainingtime)
-- [`NativeModeledPpollFdState`](#nativemodeledppollfdstate)
 - [`NativeModeledPpollTimeoutState`](#nativemodeledppolltimeoutstate)
 - [`NativeSleepTimerModelResult`](#nativesleeptimermodelresult)
 - [`NativePpollTimeoutModelResult`](#nativeppolltimeoutmodelresult)
@@ -2381,10 +2379,6 @@ by default when `output` is a TTY.
 
 > `optional` **pollTimeoutPolicy?**: [`NativePollTimeoutSyscallPolicy`](#nativepolltimeoutsyscallpolicy)
 
-##### pollTimeoutFdPolicy?
-
-> `optional` **pollTimeoutFdPolicy?**: [`NativePollTimeoutFdPolicy`](#nativepolltimeoutfdpolicy)
-
 ##### documents?
 
 > `optional` **documents?**: [`NativeProcessImageDocuments`](#nativeprocessimagedocuments)
@@ -2536,36 +2530,6 @@ by default when `output` is a TTY.
 
 ***
 
-### NativeModeledPpollFdState
-
-#### Properties
-
-##### fd
-
-> **fd**: `number`
-
-##### events
-
-> **events**: `number`
-
-##### revents
-
-> **revents**: `number`
-
-##### sourceAddress
-
-> **sourceAddress**: `string`
-
-##### resourceId?
-
-> `optional` **resourceId?**: `string`
-
-##### targetResource
-
-> **targetResource**: `"synthetic-empty-pipe-read-end"`
-
-***
-
 ### NativeModeledPpollTimeoutState
 
 #### Properties
@@ -2584,15 +2548,11 @@ by default when `output` is a TTY.
 
 ##### fdsPointer
 
-> **fdsPointer**: `string`
+> **fdsPointer**: `"0x0"`
 
 ##### nfds
 
-> **nfds**: `0` \| `1`
-
-##### pollFds?
-
-> `optional` **pollFds?**: [`NativeModeledPpollFdState`](#nativemodeledppollfdstate)[]
+> **nfds**: `0`
 
 ##### timeoutPointer
 
@@ -4805,10 +4765,6 @@ by default when `output` is a TTY.
 
 > `optional` **inheritedStdio?**: [`NativeInheritedStdioPolicy`](#nativeinheritedstdiopolicy)
 
-##### syntheticEmptyPipeFds?
-
-> `optional` **syntheticEmptyPipeFds?**: `number`[]
-
 ***
 
 ### NativeResourceTranslationResult
@@ -5640,34 +5596,6 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 > **pointerEncoding**: `"rip-relative"`
 
-##### embeddedPollFds?
-
-> `optional` **embeddedPollFds?**: `object`
-
-###### kind
-
-> **kind**: `"pollfd-array"`
-
-###### offset
-
-> **offset**: `number`
-
-###### entries
-
-> **entries**: [`NativeModeledPpollFdState`](#nativemodeledppollfdstate)[]
-
-###### byteOrder
-
-> **byteOrder**: `"little-endian"`
-
-###### pointerRegister
-
-> **pointerRegister**: `"rdi"`
-
-###### pointerEncoding
-
-> **pointerEncoding**: `"stack-relative"`
-
 ##### registerSetup
 
 > **registerSetup**: [`NativeSyntheticPpollSyscallRegisterSetupProvenance`](#nativesyntheticppollsyscallregistersetupprovenance)
@@ -5705,10 +5633,6 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 ##### remainingTime
 
 > **remainingTime**: [`NativeModeledPpollTimeoutRemainingTime`](#nativemodeledppolltimeoutremainingtime)
-
-##### ppollTimeout?
-
-> `optional` **ppollTimeout?**: [`NativeModeledPpollTimeoutState`](#nativemodeledppolltimeoutstate)
 
 ##### targetAddress?
 
@@ -5758,15 +5682,11 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### fdsPointer
 
-> **fdsPointer**: `"0x0"` \| `"stack-relative-pollfd-array"`
+> **fdsPointer**: `"0x0"`
 
 ###### nfds
 
-> **nfds**: `0` \| `1`
-
-###### pollFds?
-
-> `optional` **pollFds?**: [`NativeModeledPpollFdState`](#nativemodeledppollfdstate)[]
+> **nfds**: `0`
 
 ###### timeoutPointerEncoding
 
@@ -10468,12 +10388,6 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
-### NativePollTimeoutFdPolicy
-
-> **NativePollTimeoutFdPolicy** = `"zero-fd-only"` \| `"synthetic-empty-pipe"`
-
-***
-
 ### NativeSleepTimerModelResult
 
 > **NativeSleepTimerModelResult** = \{ `state`: `"modeled"`; `timer`: [`NativeModeledSleepTimerState`](#nativemodeledsleeptimerstate); \} \| \{ `state`: `"missing"`; `refusal`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal); \}
@@ -12422,7 +12336,7 @@ available.
 
 ### modelNativePpollTimeoutState()
 
-> **modelNativePpollTimeoutState**(`thread`, `documents?`, `fdPolicy?`): [`NativePpollTimeoutModelResult`](#nativeppolltimeoutmodelresult)
+> **modelNativePpollTimeoutState**(`thread`, `documents?`): [`NativePpollTimeoutModelResult`](#nativeppolltimeoutmodelresult)
 
 #### Parameters
 
@@ -12433,10 +12347,6 @@ available.
 ##### documents?
 
 [`NativeProcessImageDocuments`](#nativeprocessimagedocuments)
-
-##### fdPolicy?
-
-[`NativePollTimeoutFdPolicy`](#nativepolltimeoutfdpolicy) = `"zero-fd-only"`
 
 #### Returns
 

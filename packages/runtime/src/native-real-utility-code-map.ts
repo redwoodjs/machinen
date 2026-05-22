@@ -472,7 +472,6 @@ function resolveSyntheticPpollDeferredCodeLocation(
   const synthetic = buildNativeSyntheticPpollSyscallContinuation({
     threadId: input.thread.id,
     remainingTime: input.continuation.metadata.remainingTime,
-    ppollTimeout: input.continuation.metadata.ppollTimeout,
     targetAddress: input.targetModule.loadBias,
     completionMode: input.syntheticPpollCompletionMode,
   });
