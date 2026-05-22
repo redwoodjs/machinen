@@ -1,9 +1,23 @@
 /** Real utility module/RVA code-location resolution. */
 
 import { basename } from "node:path";
-import type { NativeActiveSyscallContinuation } from "./native-active-syscall-policy.ts";
+import type {
+  NativeActivePpollTimeoutContinuation,
+  NativeActiveSleepTimerContinuation,
+  NativeActiveSyscallContinuation,
+} from "./native-active-syscall-policy.ts";
 import type { NativeCodeModule } from "./native-code-map.ts";
 import type { NativeSyntheticSyscallContinuationDescriptor } from "./native-synthetic-continuation.ts";
+import {
+  NATIVE_SYNTHETIC_PPOLL_SYSCALL_BASE,
+  NATIVE_SYNTHETIC_PPOLL_SYSCALL_BUILD_ID,
+  NATIVE_SYNTHETIC_PPOLL_SYSCALL_LOGICAL_NAME,
+  NATIVE_SYNTHETIC_PPOLL_SYSCALL_PATH,
+  buildNativeSyntheticPpollSyscallContinuation,
+  type NativeSyntheticPpollCompletionMode,
+  type NativeSyntheticPpollSyscallContinuation,
+  type NativeSyntheticPpollSyscallContinuationProvenance,
+} from "./native-synthetic-ppoll-continuation.ts";
 import {
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_BASE,
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_BUILD_ID,
@@ -34,7 +48,7 @@ export interface NativeRealUtilitySourceModule extends NativeCodeModule {
   sourceEnd: string;
 }
 
-export type NativeRealUtilityTargetContinuationKind = "sleep-timer";
+export type NativeRealUtilityTargetContinuationKind = "sleep-timer" | "poll-timeout";
 
 export interface NativeRealUtilityTargetSemanticContinuation {
   kind: NativeRealUtilityTargetContinuationKind;
@@ -61,7 +75,8 @@ export interface NativeRealUtilityModuleExpectation {
 export type NativeRealUtilityContinuationStrategy =
   | "module-rva-equivalence"
   | "semantic-sleep-timer-symbol"
-  | "synthetic-sleep-syscall";
+  | "synthetic-sleep-syscall"
+  | "synthetic-ppoll-syscall";
 
 export interface NativeRealUtilitySemanticContinuationSelection {
   kind: NativeRealUtilityTargetContinuationKind;
@@ -72,19 +87,33 @@ export interface NativeRealUtilitySemanticContinuationSelection {
   sizeBytes?: number;
 }
 
-export interface NativeRealUtilitySyntheticContinuationSelection {
-  kind: "sleep-timer";
-  source: "synthetic-syscall";
-  symbolName: "machinen_synthetic_clock_nanosleep";
-  targetRelativeAddress: "0x0";
-  targetAddress: string;
-  sizeBytes: number;
-  syscall: NativeSyntheticSleepSyscallContinuation["syscall"];
-  completionMode: NativeSyntheticSleepCompletionMode;
-  exitStatusOnSuccess?: 0;
-  descriptor: NativeSyntheticSyscallContinuationDescriptor;
-  provenance: NativeSyntheticSleepSyscallContinuationProvenance;
-}
+export type NativeRealUtilitySyntheticContinuationSelection =
+  | {
+      kind: "sleep-timer";
+      source: "synthetic-syscall";
+      symbolName: "machinen_synthetic_clock_nanosleep";
+      targetRelativeAddress: "0x0";
+      targetAddress: string;
+      sizeBytes: number;
+      syscall: NativeSyntheticSleepSyscallContinuation["syscall"];
+      completionMode: NativeSyntheticSleepCompletionMode;
+      exitStatusOnSuccess?: 0;
+      descriptor: NativeSyntheticSyscallContinuationDescriptor;
+      provenance: NativeSyntheticSleepSyscallContinuationProvenance;
+    }
+  | {
+      kind: "poll-timeout";
+      source: "synthetic-syscall";
+      symbolName: "machinen_synthetic_ppoll";
+      targetRelativeAddress: "0x0";
+      targetAddress: string;
+      sizeBytes: number;
+      syscall: NativeSyntheticPpollSyscallContinuation["syscall"];
+      completionMode: NativeSyntheticPpollCompletionMode;
+      exitStatusOnSuccess?: 0;
+      descriptor: NativeSyntheticSyscallContinuationDescriptor;
+      provenance: NativeSyntheticPpollSyscallContinuationProvenance;
+    };
 
 export interface NativeRealUtilityDeferredActiveSyscallLanding {
   threadId: string;
@@ -94,7 +123,7 @@ export interface NativeRealUtilityDeferredActiveSyscallLanding {
   targetRva: string;
   strategy: Extract<
     NativeRealUtilityContinuationStrategy,
-    "semantic-sleep-timer-symbol" | "synthetic-sleep-syscall"
+    "semantic-sleep-timer-symbol" | "synthetic-sleep-syscall" | "synthetic-ppoll-syscall"
   >;
   syscallClass: NativeActiveSyscallContinuation["syscallClass"];
   action: NativeActiveSyscallContinuation["action"];
@@ -126,8 +155,11 @@ export interface NativeRealUtilityCodeLocationRequest {
   threadIds?: string[];
   activeSyscallContinuations?: NativeActiveSyscallContinuation[];
   sleepTimerContinuationStrategy?: "target-symbol" | "synthetic-syscall";
+  pollTimeoutContinuationStrategy?: "refuse" | "synthetic-syscall";
   syntheticSleepBaseAddress?: string;
+  syntheticPpollBaseAddress?: string;
   syntheticSleepCompletionMode?: NativeSyntheticSleepCompletionMode;
+  syntheticPpollCompletionMode?: NativeSyntheticPpollCompletionMode;
 }
 
 export interface NativeRealUtilityCodeLocationResult {
@@ -223,16 +255,18 @@ function resolveThreadCodeLocation(
   }
 
   const sourceRva = sourcePc - BigInt(sourceModule.loadBias);
-  if (deferredContinuation && request.sleepTimerContinuationStrategy === "synthetic-syscall") {
-    return resolveSyntheticDeferredCodeLocation({
-      thread,
-      sourceModule,
-      targetModule: syntheticSleepTargetModule(request, thread),
-      sourcePc,
-      sourceRva,
-      continuation: deferredContinuation,
-      syntheticSleepCompletionMode: request.syntheticSleepCompletionMode,
-    });
+  const syntheticDeferred = deferredContinuation
+    ? resolveSyntheticDeferredCodeLocationForThread({
+        request,
+        thread,
+        sourceModule,
+        sourcePc,
+        sourceRva,
+        continuation: deferredContinuation,
+      })
+    : undefined;
+  if (syntheticDeferred) {
+    return syntheticDeferred;
   }
 
   const match = matchingTargetModule(request, sourceModule);
@@ -269,7 +303,8 @@ function deferredContinuationForThread(
     (continuation) =>
       continuation.threadId === thread.id &&
       continuation.action === "defer-target-resume" &&
-      continuation.syscallClass === "sleep-timer" &&
+      (continuation.syscallClass === "sleep-timer" ||
+        continuation.syscallClass === "poll-timeout") &&
       sameSyscall(continuation.syscall, thread.syscall),
   );
 }
@@ -292,6 +327,45 @@ interface CodeLocationResolutionInput {
 interface SemanticDeferredCodeLocationInput extends CodeLocationResolutionInput {
   continuation: NativeActiveSyscallContinuation;
   syntheticSleepCompletionMode?: NativeSyntheticSleepCompletionMode;
+  syntheticPpollCompletionMode?: NativeSyntheticPpollCompletionMode;
+}
+
+interface DeferredSyntheticCodeLocationInput {
+  request: NativeRealUtilityCodeLocationRequest;
+  thread: NativeThreadState;
+  sourceModule: NativeRealUtilitySourceModule;
+  sourcePc: bigint;
+  sourceRva: bigint;
+  continuation: NativeActiveSyscallContinuation;
+}
+
+function resolveSyntheticDeferredCodeLocationForThread(
+  input: DeferredSyntheticCodeLocationInput,
+): NativeRealUtilityResolvedLocation | { refusal: NativeProcessImageRefusal } | undefined {
+  if (
+    input.continuation.syscallClass === "poll-timeout" &&
+    input.request.pollTimeoutContinuationStrategy !== "synthetic-syscall"
+  ) {
+    return {
+      refusal: refusal(
+        "target-ppoll-syscall-continuation-missing",
+        `thread ${input.thread.id} has no synthetic ppoll syscall continuation strategy`,
+      ),
+    };
+  }
+  const targetModule = syntheticDeferredTargetModule(
+    input.request,
+    input.thread,
+    input.continuation,
+  );
+  return targetModule
+    ? resolveSyntheticDeferredCodeLocation({
+        ...input,
+        targetModule,
+        syntheticSleepCompletionMode: input.request.syntheticSleepCompletionMode,
+        syntheticPpollCompletionMode: input.request.syntheticPpollCompletionMode,
+      })
+    : undefined;
 }
 
 function resolveRvaEquivalentCodeLocation(
@@ -354,14 +428,22 @@ function resolveSemanticDeferredCodeLocation(
 function resolveSyntheticDeferredCodeLocation(
   input: SemanticDeferredCodeLocationInput,
 ): NativeRealUtilityResolvedLocation | { refusal: NativeProcessImageRefusal } {
-  if (input.continuation.syscallClass !== "sleep-timer") {
-    return {
-      refusal: refusal(
-        "target-ppoll-syscall-continuation-missing",
-        `thread ${input.thread.id} has no synthetic ppoll syscall continuation wired into code mapping yet`,
-      ),
-    };
-  }
+  return input.continuation.syscallClass === "poll-timeout"
+    ? resolveSyntheticPpollDeferredCodeLocation(
+        input as SemanticDeferredCodeLocationInput & {
+          continuation: NativeActivePpollTimeoutContinuation;
+        },
+      )
+    : resolveSyntheticSleepDeferredCodeLocation(
+        input as SemanticDeferredCodeLocationInput & {
+          continuation: NativeActiveSleepTimerContinuation;
+        },
+      );
+}
+
+function resolveSyntheticSleepDeferredCodeLocation(
+  input: SemanticDeferredCodeLocationInput & { continuation: NativeActiveSleepTimerContinuation },
+): NativeRealUtilityResolvedLocation | { refusal: NativeProcessImageRefusal } {
   const synthetic = buildNativeSyntheticSleepSyscallContinuation({
     threadId: input.thread.id,
     remainingTime: input.continuation.metadata.remainingTime,
@@ -381,16 +463,51 @@ function resolveSyntheticDeferredCodeLocation(
       ),
     };
   }
+  return syntheticResolvedLocation(input, continuation, "synthetic-sleep-syscall");
+}
+
+function resolveSyntheticPpollDeferredCodeLocation(
+  input: SemanticDeferredCodeLocationInput & { continuation: NativeActivePpollTimeoutContinuation },
+): NativeRealUtilityResolvedLocation | { refusal: NativeProcessImageRefusal } {
+  const synthetic = buildNativeSyntheticPpollSyscallContinuation({
+    threadId: input.thread.id,
+    remainingTime: input.continuation.metadata.remainingTime,
+    targetAddress: input.targetModule.loadBias,
+    completionMode: input.syntheticPpollCompletionMode,
+  });
+  if (synthetic.refusals[0]) {
+    return { refusal: synthetic.refusals[0] };
+  }
+  const continuation = synthetic.continuation;
+  if (!continuation) {
+    return {
+      refusal: refusal(
+        "target-ppoll-syscall-continuation-missing",
+        `thread ${input.thread.id} has no synthetic ppoll syscall continuation`,
+      ),
+    };
+  }
+  return syntheticResolvedLocation(input, continuation, "synthetic-ppoll-syscall");
+}
+
+function syntheticResolvedLocation(
+  input: SemanticDeferredCodeLocationInput,
+  continuation: NativeSyntheticSleepSyscallContinuation | NativeSyntheticPpollSyscallContinuation,
+  strategy: Extract<
+    NativeRealUtilityContinuationStrategy,
+    "synthetic-sleep-syscall" | "synthetic-ppoll-syscall"
+  >,
+): NativeRealUtilityResolvedLocation {
   const syntheticSelection = syntheticContinuationSelection(continuation);
   return resolvedLocation({
     ...input,
     targetRva: 0n,
-    continuationStrategy: "synthetic-sleep-syscall",
+    continuationStrategy: strategy,
     deferredActiveSyscallLanding: deferredLanding(
       input,
       0n,
       BigInt(continuation.entryAddress),
-      "synthetic-sleep-syscall",
+      strategy,
       undefined,
       syntheticSelection,
     ),
@@ -451,8 +568,23 @@ function semanticContinuationSelection(
 }
 
 function syntheticContinuationSelection(
-  continuation: NativeSyntheticSleepSyscallContinuation,
+  continuation: NativeSyntheticSleepSyscallContinuation | NativeSyntheticPpollSyscallContinuation,
 ): NativeRealUtilitySyntheticContinuationSelection {
+  if (continuation.kind === "synthetic-ppoll-syscall") {
+    return {
+      kind: "poll-timeout",
+      source: "synthetic-syscall",
+      symbolName: "machinen_synthetic_ppoll",
+      targetRelativeAddress: "0x0",
+      targetAddress: continuation.entryAddress,
+      sizeBytes: continuation.sizeBytes,
+      syscall: continuation.syscall,
+      completionMode: continuation.completionMode,
+      exitStatusOnSuccess: continuation.exitStatusOnSuccess,
+      descriptor: continuation.descriptor,
+      provenance: continuation.provenance,
+    };
+  }
   return {
     kind: "sleep-timer",
     source: "synthetic-syscall",
@@ -524,20 +656,75 @@ function deferredLanding(
   };
 }
 
+function syntheticDeferredTargetModule(
+  request: NativeRealUtilityCodeLocationRequest,
+  thread: NativeThreadState,
+  continuation: NativeActiveSyscallContinuation,
+): NativeRealUtilityTargetModule | undefined {
+  if (
+    continuation.syscallClass === "sleep-timer" &&
+    request.sleepTimerContinuationStrategy === "synthetic-syscall"
+  ) {
+    return syntheticSleepTargetModule(request, thread);
+  }
+  if (
+    continuation.syscallClass === "poll-timeout" &&
+    request.pollTimeoutContinuationStrategy === "synthetic-syscall"
+  ) {
+    return syntheticPpollTargetModule(request, thread);
+  }
+  return undefined;
+}
+
 function syntheticSleepTargetModule(
   request: NativeRealUtilityCodeLocationRequest,
   thread: NativeThreadState,
 ): NativeRealUtilityTargetModule {
-  const baseAddress = request.syntheticSleepBaseAddress ?? NATIVE_SYNTHETIC_SLEEP_SYSCALL_BASE;
-  return {
-    id: `target:synthetic-sleep-syscall:${thread.id}`,
+  return syntheticTargetModule({
+    request,
+    thread,
+    baseAddress: request.syntheticSleepBaseAddress ?? NATIVE_SYNTHETIC_SLEEP_SYSCALL_BASE,
+    idPrefix: "synthetic-sleep-syscall",
     logicalName: NATIVE_SYNTHETIC_SLEEP_SYSCALL_LOGICAL_NAME,
-    path: `${NATIVE_SYNTHETIC_SLEEP_SYSCALL_PATH}/${thread.id}`,
-    arch: request.targetArch,
-    kind: "executable",
+    pathPrefix: NATIVE_SYNTHETIC_SLEEP_SYSCALL_PATH,
     buildId: NATIVE_SYNTHETIC_SLEEP_SYSCALL_BUILD_ID,
-    loadBias: baseAddress,
-    textMapping: `target:synthetic-sleep-syscall:${thread.id}:text`,
+  });
+}
+
+function syntheticPpollTargetModule(
+  request: NativeRealUtilityCodeLocationRequest,
+  thread: NativeThreadState,
+): NativeRealUtilityTargetModule {
+  return syntheticTargetModule({
+    request,
+    thread,
+    baseAddress: request.syntheticPpollBaseAddress ?? NATIVE_SYNTHETIC_PPOLL_SYSCALL_BASE,
+    idPrefix: "synthetic-ppoll-syscall",
+    logicalName: NATIVE_SYNTHETIC_PPOLL_SYSCALL_LOGICAL_NAME,
+    pathPrefix: NATIVE_SYNTHETIC_PPOLL_SYSCALL_PATH,
+    buildId: NATIVE_SYNTHETIC_PPOLL_SYSCALL_BUILD_ID,
+  });
+}
+
+function syntheticTargetModule(options: {
+  request: NativeRealUtilityCodeLocationRequest;
+  thread: NativeThreadState;
+  baseAddress: string;
+  idPrefix: string;
+  logicalName: string;
+  pathPrefix: string;
+  buildId: string;
+}): NativeRealUtilityTargetModule {
+  const id = `target:${options.idPrefix}:${options.thread.id}`;
+  return {
+    id,
+    logicalName: options.logicalName,
+    path: `${options.pathPrefix}/${options.thread.id}`,
+    arch: options.request.targetArch,
+    kind: "executable",
+    buildId: options.buildId,
+    loadBias: options.baseAddress,
+    textMapping: `${id}:text`,
     executable: true,
     executableRanges: [{ relativeStart: "0x0", relativeEnd: "0x1000" }],
   };

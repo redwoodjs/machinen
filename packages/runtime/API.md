@@ -2836,6 +2836,14 @@ by default when `output` is a TTY.
 
 [`NativeRealUtilityContinuationRequest`](#nativerealutilitycontinuationrequest).[`sourceFrameRefusals`](#sourceframerefusals-1)
 
+##### sourceUnwindRequired?
+
+> `optional` **sourceUnwindRequired?**: `boolean`
+
+###### Inherited from
+
+[`NativeRealUtilityContinuationRequest`](#nativerealutilitycontinuationrequest).[`sourceUnwindRequired`](#sourceunwindrequired-1)
+
 ##### targetUnwind?
 
 > `optional` **targetUnwind?**: [`NativeTargetUnwindMatchResult`](#nativetargetunwindmatchresult)
@@ -4203,7 +4211,7 @@ by default when `output` is a TTY.
 
 ##### kind
 
-> **kind**: `"sleep-timer"`
+> **kind**: [`NativeRealUtilityTargetContinuationKind`](#nativerealutilitytargetcontinuationkind)
 
 ##### source
 
@@ -4341,7 +4349,7 @@ by default when `output` is a TTY.
 
 ##### kind
 
-> **kind**: `"sleep-timer"`
+> **kind**: [`NativeRealUtilityTargetContinuationKind`](#nativerealutilitytargetcontinuationkind)
 
 ##### source
 
@@ -4362,80 +4370,6 @@ by default when `output` is a TTY.
 ##### sizeBytes?
 
 > `optional` **sizeBytes?**: `number`
-
-***
-
-### NativeRealUtilitySyntheticContinuationSelection
-
-#### Properties
-
-##### kind
-
-> **kind**: `"sleep-timer"`
-
-##### source
-
-> **source**: `"synthetic-syscall"`
-
-##### symbolName
-
-> **symbolName**: `"machinen_synthetic_clock_nanosleep"`
-
-##### targetRelativeAddress
-
-> **targetRelativeAddress**: `"0x0"`
-
-##### targetAddress
-
-> **targetAddress**: `string`
-
-##### sizeBytes
-
-> **sizeBytes**: `number`
-
-##### syscall
-
-> **syscall**: `object`
-
-###### name
-
-> **name**: `"clock_nanosleep"`
-
-###### number
-
-> **number**: `230`
-
-###### clockId
-
-> **clockId**: `0`
-
-###### flags
-
-> **flags**: `0`
-
-###### requestPointerEncoding
-
-> **requestPointerEncoding**: `"rip-relative-timespec"`
-
-###### remainderPointer
-
-> **remainderPointer**: `"0x0"`
-
-##### completionMode
-
-> **completionMode**: [`NativeSyntheticSleepCompletionMode`](#nativesyntheticsleepcompletionmode)
-
-##### exitStatusOnSuccess?
-
-> `optional` **exitStatusOnSuccess?**: `0`
-
-##### descriptor
-
-> **descriptor**: [`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor)
-
-##### provenance
-
-> **provenance**: [`NativeSyntheticSleepSyscallContinuationProvenance`](#nativesyntheticsleepsyscallcontinuationprovenance)
 
 ***
 
@@ -4465,7 +4399,7 @@ by default when `output` is a TTY.
 
 ##### strategy
 
-> **strategy**: `"synthetic-sleep-syscall"` \| `"semantic-sleep-timer-symbol"`
+> **strategy**: `"synthetic-ppoll-syscall"` \| `"synthetic-sleep-syscall"` \| `"semantic-sleep-timer-symbol"`
 
 ##### syscallClass
 
@@ -4599,13 +4533,25 @@ by default when `output` is a TTY.
 
 > `optional` **sleepTimerContinuationStrategy?**: `"synthetic-syscall"` \| `"target-symbol"`
 
+##### pollTimeoutContinuationStrategy?
+
+> `optional` **pollTimeoutContinuationStrategy?**: `"refuse"` \| `"synthetic-syscall"`
+
 ##### syntheticSleepBaseAddress?
 
 > `optional` **syntheticSleepBaseAddress?**: `string`
 
+##### syntheticPpollBaseAddress?
+
+> `optional` **syntheticPpollBaseAddress?**: `string`
+
 ##### syntheticSleepCompletionMode?
 
 > `optional` **syntheticSleepCompletionMode?**: [`NativeSyntheticSleepCompletionMode`](#nativesyntheticsleepcompletionmode)
+
+##### syntheticPpollCompletionMode?
+
+> `optional` **syntheticPpollCompletionMode?**: [`NativeSyntheticPpollCompletionMode`](#nativesyntheticppollcompletionmode)
 
 ***
 
@@ -4666,6 +4612,10 @@ by default when `output` is a TTY.
 ##### sourceFrameRefusals?
 
 > `optional` **sourceFrameRefusals?**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+##### sourceUnwindRequired?
+
+> `optional` **sourceUnwindRequired?**: `boolean`
 
 ##### targetUnwind?
 
@@ -5304,7 +5254,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`source`](#source-7)
+[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`source`](#source-6)
 
 ***
 
@@ -5470,7 +5420,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-17)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-16)
 
 ##### targetArch
 
@@ -5518,7 +5468,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sizeBytes`](#sizebytes-10)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sizeBytes`](#sizebytes-9)
 
 ##### bytesHex
 
@@ -5612,7 +5562,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`syscall`](#syscall-6)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`syscall`](#syscall-5)
 
 ##### embeddedData
 
@@ -5848,7 +5798,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`source`](#source-7)
+[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`source`](#source-6)
 
 ***
 
@@ -6014,7 +5964,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-17)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-16)
 
 ##### targetArch
 
@@ -6062,7 +6012,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sizeBytes`](#sizebytes-10)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sizeBytes`](#sizebytes-9)
 
 ##### bytesHex
 
@@ -6156,7 +6106,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`syscall`](#syscall-6)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`syscall`](#syscall-5)
 
 ##### embeddedData
 
@@ -10518,13 +10468,19 @@ Poll interval in ms while retrying. Default 250.
 
 ### NativeRealUtilityTargetContinuationKind
 
-> **NativeRealUtilityTargetContinuationKind** = `"sleep-timer"`
+> **NativeRealUtilityTargetContinuationKind** = `"sleep-timer"` \| `"poll-timeout"`
 
 ***
 
 ### NativeRealUtilityContinuationStrategy
 
-> **NativeRealUtilityContinuationStrategy** = `"module-rva-equivalence"` \| `"semantic-sleep-timer-symbol"` \| `"synthetic-sleep-syscall"`
+> **NativeRealUtilityContinuationStrategy** = `"module-rva-equivalence"` \| `"semantic-sleep-timer-symbol"` \| `"synthetic-sleep-syscall"` \| `"synthetic-ppoll-syscall"`
+
+***
+
+### NativeRealUtilitySyntheticContinuationSelection
+
+> **NativeRealUtilitySyntheticContinuationSelection** = \{ `kind`: `"sleep-timer"`; `source`: `"synthetic-syscall"`; `symbolName`: `"machinen_synthetic_clock_nanosleep"`; `targetRelativeAddress`: `"0x0"`; `targetAddress`: `string`; `sizeBytes`: `number`; `syscall`: [`NativeSyntheticSleepSyscallContinuation`](#nativesyntheticsleepsyscallcontinuation)\[`"syscall"`\]; `completionMode`: [`NativeSyntheticSleepCompletionMode`](#nativesyntheticsleepcompletionmode); `exitStatusOnSuccess?`: `0`; `descriptor`: [`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor); `provenance`: [`NativeSyntheticSleepSyscallContinuationProvenance`](#nativesyntheticsleepsyscallcontinuationprovenance); \} \| \{ `kind`: `"poll-timeout"`; `source`: `"synthetic-syscall"`; `symbolName`: `"machinen_synthetic_ppoll"`; `targetRelativeAddress`: `"0x0"`; `targetAddress`: `string`; `sizeBytes`: `number`; `syscall`: [`NativeSyntheticPpollSyscallContinuation`](#nativesyntheticppollsyscallcontinuation)\[`"syscall"`\]; `completionMode`: [`NativeSyntheticPpollCompletionMode`](#nativesyntheticppollcompletionmode); `exitStatusOnSuccess?`: `0`; `descriptor`: [`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor); `provenance`: [`NativeSyntheticPpollSyscallContinuationProvenance`](#nativesyntheticppollsyscallcontinuationprovenance); \}
 
 ***
 
