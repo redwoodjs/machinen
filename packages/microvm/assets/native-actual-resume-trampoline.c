@@ -33,6 +33,7 @@
 #endif
 
 #define MAX_MATERIALIZED_MAPPINGS 32
+#define MAX_CLOEXEC_FDS 64
 
 struct MemoryMaterialization {
   const char *source_file;
@@ -60,6 +61,8 @@ struct Options {
   int synthetic_empty_pipe_write_fd;
   int synthetic_empty_eventfd;
   int synthetic_timerfd;
+  int cloexec_fds[MAX_CLOEXEC_FDS];
+  size_t cloexec_fd_count;
   struct MemoryMaterialization materialized_memory[MAX_MATERIALIZED_MAPPINGS];
   size_t materialized_memory_count;
   struct GuardMaterialization materialized_guards[MAX_MATERIALIZED_MAPPINGS];
@@ -72,7 +75,7 @@ static void usage(void) {
       "--file-offset n --code-size n --target-address addr "
       "--timeout-seconds n [--synthetic-empty-pipe-read-fd n] "
       "[--synthetic-empty-pipe-write-fd n] [--synthetic-empty-eventfd n] "
-      "[--synthetic-timerfd n] "
+      "[--synthetic-timerfd n] [--set-cloexec-fd n] "
       "[--materialize-memory file:offset:target:size:perms] "
       "[--materialize-guard target:size] "
       "--stack-target-start addr --stack-size n --stack-pointer addr\n");
@@ -116,6 +119,19 @@ static char *next_spec_field(char **cursor, const char *field) {
     exit(2);
   }
   return value;
+}
+
+static void add_cloexec_fd(struct Options *opts, const char *value) {
+  if (opts->cloexec_fd_count >= MAX_CLOEXEC_FDS) {
+    fprintf(stderr, "native-actual-resume-trampoline: too many cloexec fds\n");
+    exit(2);
+  }
+  uint64_t fd = parse_u64(value, "set-cloexec-fd");
+  if (fd > 1024u) {
+    fprintf(stderr, "native-actual-resume-trampoline: cloexec fd is too large\n");
+    exit(2);
+  }
+  opts->cloexec_fds[opts->cloexec_fd_count++] = (int)fd;
 }
 
 static void add_materialized_memory(struct Options *opts, const char *spec) {
@@ -227,6 +243,11 @@ static struct Options parse_args(int argc, char **argv) {
         exit(2);
       }
       opts.synthetic_timerfd = (int)fd;
+    } else if (streq(argv[i], "--set-cloexec-fd")) {
+      if (++i >= argc) {
+        usage();
+      }
+      add_cloexec_fd(&opts, argv[i]);
     } else if (streq(argv[i], "--materialize-memory")) {
       if (++i >= argc) {
         usage();
@@ -586,6 +607,18 @@ static void install_synthetic_empty_eventfd(int target_fd) {
   }
 }
 
+static void apply_cloexec_fds(const struct Options *opts) {
+  for (size_t i = 0; i < opts->cloexec_fd_count; i++) {
+    if (fcntl(opts->cloexec_fds[i], F_SETFD, FD_CLOEXEC) != 0) {
+      fprintf(stderr,
+          "native-actual-resume-trampoline: set cloexec failed for fd %d: %s\n",
+          opts->cloexec_fds[i],
+          strerror(errno));
+      exit(1);
+    }
+  }
+}
+
 static void jump_to_target(uint64_t entry, uint64_t initial_rsp) {
   __asm__ __volatile__(
       "movq %%rsp, host_rsp_before_jump(%%rip)\n"
@@ -735,6 +768,7 @@ int main(int argc, char **argv) {
       opts.synthetic_empty_pipe_read_fd, opts.synthetic_empty_pipe_write_fd);
   install_synthetic_empty_eventfd(opts.synthetic_empty_eventfd);
   install_synthetic_timerfd(opts.synthetic_timerfd);
+  apply_cloexec_fds(&opts);
   alarm((unsigned int)opts.timeout_seconds);
   if (sigsetjmp(resume_fault_jmp, 1) == 0) {
     jump_to_target(opts.target_address, opts.stack_pointer - 8u);

@@ -153,8 +153,8 @@ Done when:
   empty pipes, synthetic empty eventfds, and synthetic timerfds become loader
   resource recipes;
 - duplicate fds and unsupported descriptors refuse before target execution;
-- close-on-exec provenance is preserved even though the loader defers applying it
-  until after the loader-to-trampoline `exec` boundary is modeled.
+- close-on-exec provenance is forwarded to the trampoline and applied after the
+  loader-to-trampoline `exec` boundary but before the target-native jump.
 
 ### 8. Real utility beyond `/bin/sleep` — done
 

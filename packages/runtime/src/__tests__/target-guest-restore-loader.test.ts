@@ -83,6 +83,8 @@ describe("target guest restore loader descriptor", () => {
       "65536",
       "--stack-pointer",
       "0x500000010000",
+      "--set-cloexec-fd",
+      "7",
       "--synthetic-empty-pipe-read-fd",
       "3",
       "--synthetic-empty-pipe-write-fd",
@@ -194,6 +196,64 @@ describe("target guest restore loader descriptor", () => {
       ),
     ).toThrow(/targetAddress must be a hex address/);
   });
+
+  it.skipIf(!HAS_CC)(
+    "asset loader reopens file resources and forwards close-on-exec intent",
+    () => {
+      const outDir = mkdtempSync(join(tmpdir(), "target-guest-restore-loader-fd-test-"));
+      const loader = join(outDir, "machinen-target-guest-restore-loader");
+      const compileLoader = spawnSync(
+        "cc",
+        ["-Wall", "-Wextra", "-Werror", LOADER_SOURCE, "-o", loader],
+        { encoding: "utf8" },
+      );
+      expect(compileLoader.status, compileLoader.stderr).toBe(0);
+
+      const checkerSource = join(outDir, "fd-checker.c");
+      const checker = join(outDir, "fd-checker");
+      writeFileSync(
+        checkerSource,
+        `#include <string.h>\n#include <unistd.h>\n#include <stdio.h>\nint main(int argc, char **argv) {\n  char buf[3] = {0};\n  int saw_cloexec = 0;\n  for (int i = 1; i + 1 < argc; i++) {\n    if (strcmp(argv[i], "--set-cloexec-fd") == 0 && strcmp(argv[i + 1], "7") == 0) saw_cloexec = 1;\n  }\n  if (read(7, buf, 2) != 2) return 41;\n  if (strcmp(buf, "cd") != 0) return 42;\n  if (!saw_cloexec) return 43;\n  printf("fd-check:%s\\n", buf);\n  return 0;\n}\n`,
+      );
+      const compileChecker = spawnSync(
+        "cc",
+        ["-Wall", "-Wextra", "-Werror", checkerSource, "-o", checker],
+        {
+          encoding: "utf8",
+        },
+      );
+      expect(compileChecker.status, compileChecker.stderr).toBe(0);
+
+      const dataFile = join(outDir, "data.txt");
+      writeFileSync(dataFile, "abcdef");
+      const descriptorPath = join(outDir, "file.desc");
+      writeFileSync(
+        descriptorPath,
+        serializeTargetGuestRestoreDescriptor(
+          descriptor({
+            resources: [
+              {
+                kind: "reopen-file",
+                fd: 7,
+                path: dataFile,
+                offset: 2,
+                access: 0,
+                closeOnExec: true,
+              },
+            ],
+          }),
+        ),
+      );
+
+      const result = spawnSync(loader, ["--descriptor", descriptorPath, "--trampoline", checker], {
+        encoding: "utf8",
+      });
+
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stdout).toContain("fd-check:cd");
+      expect(result.stdout).toContain(`${LOADER_PREFIX}{"status":"completed","exitCode":0}`);
+    },
+  );
 
   it.skipIf(!HAS_CC)("asset loader reports completed and refused descriptors", () => {
     const outDir = mkdtempSync(join(tmpdir(), "target-guest-restore-loader-test-"));

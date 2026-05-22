@@ -557,19 +557,22 @@ function serializeMemoryEntry(entry: TargetGuestMemoryMaterializationEntry): str
 }
 
 function resourceToTrampolineArgs(recipe: TargetGuestRestoreResourceRecipe): string[] {
-  if (
-    recipe.kind === "close-fd" ||
-    recipe.kind === "inherit-stdio" ||
-    recipe.kind === "reopen-file"
-  ) {
+  if (recipe.kind === "close-fd") {
     return [];
   }
+  if (recipe.kind === "inherit-stdio" || recipe.kind === "reopen-file") {
+    return closeOnExecArgs(recipe.fd, recipe.closeOnExec);
+  }
   if (recipe.kind === "synthetic-empty-pipe") {
-    return pipeResourceArgs(recipe);
+    return [...pipeResourceArgs(recipe), ...closeOnExecArgs(recipe.readFd, recipe.closeOnExec)];
   }
   return recipe.kind === "synthetic-empty-eventfd"
-    ? ["--synthetic-empty-eventfd", String(recipe.fd)]
-    : ["--synthetic-timerfd", String(recipe.fd)];
+    ? [
+        "--synthetic-empty-eventfd",
+        String(recipe.fd),
+        ...closeOnExecArgs(recipe.fd, recipe.closeOnExec),
+      ]
+    : ["--synthetic-timerfd", String(recipe.fd), ...closeOnExecArgs(recipe.fd, recipe.closeOnExec)];
 }
 
 function pipeResourceArgs(recipe: { readFd: number; writeFd?: number }): string[] {
@@ -578,6 +581,10 @@ function pipeResourceArgs(recipe: { readFd: number; writeFd?: number }): string[
     args.push("--synthetic-empty-pipe-write-fd", String(recipe.writeFd));
   }
   return args;
+}
+
+function closeOnExecArgs(fd: number, closeOnExec: boolean | undefined): string[] {
+  return closeOnExec ? ["--set-cloexec-fd", String(fd)] : [];
 }
 
 function memoryToTrampolineArgs(entry: TargetGuestMemoryMaterializationEntry): string[] {

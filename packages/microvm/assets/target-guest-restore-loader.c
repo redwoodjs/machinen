@@ -52,6 +52,8 @@ struct Descriptor {
   int pipe_write_fd;
   int event_fd;
   int timer_fd;
+  int cloexec_fds[MAX_FD_RECIPES];
+  size_t cloexec_fd_count;
   int close_fds[MAX_FD_RECIPES];
   size_t close_fd_count;
   int inherit_fds[MAX_FD_RECIPES];
@@ -194,6 +196,8 @@ static void parse_field(struct Descriptor *descriptor, char *line) {
   }
 }
 
+static void add_cloexec_if_requested(struct Descriptor *descriptor, char *fields, int fd);
+
 static const char *find_token_value(char *line, const char *name) {
   size_t name_length = strlen(name);
   char *save = NULL;
@@ -221,6 +225,7 @@ static void parse_pipe_resource(struct Descriptor *descriptor, char *fields) {
   if (descriptor->pipe_write_fd == descriptor->pipe_read_fd) {
     refuse("target-guest-loader-invalid-fd", "pipe read/write fds must differ");
   }
+  add_cloexec_if_requested(descriptor, fields, descriptor->pipe_read_fd);
 }
 
 static int parse_single_fd_resource(char *fields, const char *label) {
@@ -233,12 +238,41 @@ static int parse_single_fd_resource(char *fields, const char *label) {
   return parse_fd(fd);
 }
 
+static bool parse_close_on_exec(char *fields) {
+  char scratch[4096];
+  snprintf(scratch, sizeof(scratch), "%s", fields);
+  const char *value = find_token_value(scratch, "closeOnExec");
+  if (!value || streq(value, "false")) {
+    return false;
+  }
+  if (streq(value, "true")) {
+    return true;
+  }
+  refuse("target-guest-loader-descriptor-invalid", "closeOnExec must be true or false");
+  return false;
+}
+
+static void add_cloexec_fd(struct Descriptor *descriptor, int fd) {
+  if (descriptor->cloexec_fd_count >= MAX_FD_RECIPES) {
+    refuse("target-guest-loader-resource-unsupported", "too many cloexec fd recipes");
+  }
+  descriptor->cloexec_fds[descriptor->cloexec_fd_count++] = fd;
+}
+
+static void add_cloexec_if_requested(struct Descriptor *descriptor, char *fields, int fd) {
+  if (parse_close_on_exec(fields)) {
+    add_cloexec_fd(descriptor, fd);
+  }
+}
+
 static void parse_eventfd_resource(struct Descriptor *descriptor, char *fields) {
   descriptor->event_fd = parse_single_fd_resource(fields, "eventfd fd is required");
+  add_cloexec_if_requested(descriptor, fields, descriptor->event_fd);
 }
 
 static void parse_timerfd_resource(struct Descriptor *descriptor, char *fields) {
   descriptor->timer_fd = parse_single_fd_resource(fields, "timerfd fd is required");
+  add_cloexec_if_requested(descriptor, fields, descriptor->timer_fd);
 }
 
 static void parse_close_fd_resource(struct Descriptor *descriptor, char *fields) {
@@ -260,6 +294,7 @@ static void parse_inherit_stdio_resource(struct Descriptor *descriptor, char *fi
     refuse("target-guest-loader-invalid-fd", "stdio fd and stream do not match");
   }
   descriptor->inherit_fds[descriptor->inherit_fd_count++] = fd;
+  add_cloexec_if_requested(descriptor, fields, fd);
 }
 
 static int parse_access(char *fields) {
@@ -296,6 +331,7 @@ static void parse_reopen_file_resource(struct Descriptor *descriptor, char *fiel
   }
   recipe->offset = parse_u64(offset, "offset");
   recipe->access = parse_access(fields);
+  add_cloexec_if_requested(descriptor, fields, recipe->fd);
 }
 
 static const char *required_token(char *scratch, size_t scratch_size, char *fields, const char *name) {
@@ -500,6 +536,7 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   char pipe_write_fd[16];
   char event_fd[16];
   char timer_fd[16];
+  char cloexec_fds[MAX_FD_RECIPES][16];
   snprintf(file_offset, sizeof(file_offset), "0x%" PRIx64, descriptor->file_offset);
   snprintf(code_size, sizeof(code_size), "0x%" PRIx64, descriptor->code_size);
   snprintf(target_address, sizeof(target_address), "0x%" PRIx64, descriptor->target_address);
@@ -511,8 +548,11 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   snprintf(pipe_write_fd, sizeof(pipe_write_fd), "%d", descriptor->pipe_write_fd);
   snprintf(event_fd, sizeof(event_fd), "%d", descriptor->event_fd);
   snprintf(timer_fd, sizeof(timer_fd), "%d", descriptor->timer_fd);
+  for (size_t i = 0; i < descriptor->cloexec_fd_count; i++) {
+    snprintf(cloexec_fds[i], sizeof(cloexec_fds[i]), "%d", descriptor->cloexec_fds[i]);
+  }
 
-  char *child_argv[160];
+  char *child_argv[192];
   size_t child_argc = 0;
   push_arg(child_argv, &child_argc, (char *)opts->trampoline_path);
   push_arg(child_argv, &child_argc, "--code-file");
@@ -546,6 +586,10 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   if (descriptor->timer_fd >= 0) {
     push_arg(child_argv, &child_argc, "--synthetic-timerfd");
     push_arg(child_argv, &child_argc, timer_fd);
+  }
+  for (size_t i = 0; i < descriptor->cloexec_fd_count; i++) {
+    push_arg(child_argv, &child_argc, "--set-cloexec-fd");
+    push_arg(child_argv, &child_argc, cloexec_fds[i]);
   }
   for (size_t i = 0; i < descriptor->memory_spec_count; i++) {
     push_arg(child_argv, &child_argc, "--materialize-memory");

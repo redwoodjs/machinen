@@ -44,10 +44,11 @@ Supported fd-table resources and memory materialization are intentionally narrow
 The runtime fd-table planner emits these resource lines from translated native
 resources. The in-guest loader validates duplicate fd ownership before launching
 the trampoline, applies `close-fd` and `reopen-file` recipes in the child process,
-and forwards the synthetic fd recipes to the trampoline. `closeOnExec` is kept as
-provenance for the target fd table; future loader work can apply it after the
-restore transfer without closing descriptors during the loader-to-trampoline
-`exec`.
+and forwards synthetic fd recipes plus `--set-cloexec-fd` intents to the
+trampoline. The trampoline applies close-on-exec flags after the
+loader-to-trampoline `exec` boundary and before the target-native jump, so modeled
+fds remain open for restore setup but have the captured descriptor flag by the
+restored execution point.
 
 Executable source mappings are not copied as target code. They must be replaced
 by generated target-native bytes or a proven target-module materialization path.

@@ -35,7 +35,8 @@ fd -> target fd mapping, emits explicit `close-fd` recipes for expected fd slots
 missing from the capture, carries close-on-exec provenance, and converts modeled
 resources into target-guest loader recipes (`reopen-file`, `inherit-stdio`,
 `synthetic-empty-pipe`, `synthetic-empty-eventfd`, and `synthetic-timerfd`).
-Duplicate captured fds are refused before target execution with
+The loader/trampoline handoff applies close-on-exec after restore setup and
+before the target-native jump. Duplicate captured fds are refused before target execution with
 `target-fd-table-duplicate`; captured fds without any safe target recipe refuse
 with `target-fd-table-missing` or the underlying resource refusal.
 
