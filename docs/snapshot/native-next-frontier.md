@@ -51,6 +51,13 @@ The next issues should stay narrow and stacked:
 5. Only after multiple syscall continuations share the same ABI/provenance shape,
    revisit target libc/TLS/vDSO materialization as a separate frontier.
 
+## Validation loop
+
+The next syscall-family work should record validation timing with
+[Validation profiling and proof-container caches](./validation-profile.md) so we
+can see whether local checks, Agent CI, smoke tests, or repeated remote installs
+are dominating the loop.
+
 ## Non-goals
 
 This frontier does not make arbitrary native process migration complete. It also

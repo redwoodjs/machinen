@@ -40,3 +40,6 @@ examples/fork-pi/.claude/
 # no package source. Pure build output, never committed.
 packages/vmm-arm64-darwin/
 packages/vmm-arm64-linux/
+
+# Validation profiler outputs.
+.validation-runs/

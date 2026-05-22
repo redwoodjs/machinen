@@ -76,6 +76,7 @@ See also:
 - [Native sleep syscall continuation policy](./native-sleep-syscall-policy.md)
 - [Native synthetic continuation descriptor](./native-synthetic-continuation-descriptor.md)
 - [Native-transparent next frontier](./native-next-frontier.md)
+- [Validation profiling and proof-container caches](./validation-profile.md)
 - [Native guard mapping materialization](./native-guard-mapping-materialization.md)
 - [Native deferred sleep code-location policy](./native-deferred-sleep-code-location.md)
 - [Native actual target module inventory](./native-actual-target-module-inventory.md)

@@ -77,7 +77,9 @@
     "smoke-vmstate-sockets": "bash scripts/smoke/vmstate/sockets.sh",
     "smoke-portable-cross-isa": "bash scripts/smoke/portable-cross-isa.sh",
     "bench-net": "bash scripts/bench-net.sh",
-    "bench-boot": "tsx scripts/bench-boot.ts"
+    "bench-boot": "tsx scripts/bench-boot.ts",
+    "validation:profile": "node scripts/validation-profile.mjs",
+    "proof-container-install": "bash scripts/proof-container-install.sh"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",
