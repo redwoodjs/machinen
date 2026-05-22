@@ -107,11 +107,16 @@ async function runTargetVmProof(args: Args) {
     "machinen-target-guest-restore-loader",
   );
   const vm = await bootTargetVm(args.image!);
+  await waitForTargetGuestBoot();
   try {
     return await executeTargetVmProof(args, { trampoline, loader }, vm);
   } finally {
     await killUnlessKept(vm, args.keep);
   }
+}
+
+function waitForTargetGuestBoot(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 1000));
 }
 
 function skipReason(args: Args): string | undefined {
@@ -136,7 +141,12 @@ async function bootTargetVm(image: string) {
     image: resolve(image),
     name: `target-vm-synthetic-${process.pid}`,
     cmd: ["/bin/sleep", "infinity"],
-    vmmEnv: { ...process.env, MACHINEN_GUEST_ARCH: "amd64" },
+    snapshot: false,
+    vmmEnv: {
+      ...process.env,
+      MACHINEN_GUEST_ARCH: "amd64",
+      MACHINEN_SKIP_GUEST_HOSTNAME: "1",
+    },
   });
 }
 

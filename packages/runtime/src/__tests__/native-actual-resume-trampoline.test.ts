@@ -14,7 +14,7 @@ function compileHelper(outDir: string) {
     "cc",
     [
       "-std=c11",
-      "-O0",
+      "-O2",
       "-g",
       "-Wall",
       "-Wextra",
