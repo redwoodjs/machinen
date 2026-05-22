@@ -450,6 +450,7 @@ export type {
   TargetGuestRecreateGuardEntry,
 } from "./target-guest-memory-materialization.ts";
 export type {
+  PortableMachineTargetContinuationKind,
   PortableMachineTargetRestoreDescriptorPlan,
   PortableMachineTargetRestoreDescriptorRequest,
   PortableMachineTargetVerifierResult,

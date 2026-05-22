@@ -53,6 +53,8 @@ struct Options {
   uint64_t file_offset;
   uint64_t code_size;
   uint64_t target_address;
+  bool has_argument0;
+  uint64_t argument0;
   uint64_t stack_target_start;
   uint64_t stack_size;
   uint64_t stack_pointer;
@@ -73,7 +75,7 @@ static void usage(void) {
   fprintf(stderr,
       "usage: machinen-native-actual-resume-trampoline --code-file path "
       "--file-offset n --code-size n --target-address addr "
-      "--timeout-seconds n [--synthetic-empty-pipe-read-fd n] "
+      "[--argument0 addr] --timeout-seconds n [--synthetic-empty-pipe-read-fd n] "
       "[--synthetic-empty-pipe-write-fd n] [--synthetic-empty-eventfd n] "
       "[--synthetic-timerfd n] [--set-cloexec-fd n] "
       "[--materialize-memory file:offset:target:size:perms] "
@@ -198,6 +200,12 @@ static struct Options parse_args(int argc, char **argv) {
         usage();
       }
       opts.target_address = parse_u64(argv[i], "target-address");
+    } else if (streq(argv[i], "--argument0")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.argument0 = parse_u64(argv[i], "argument0");
+      opts.has_argument0 = true;
     } else if (streq(argv[i], "--timeout-seconds")) {
       if (++i >= argc) {
         usage();
@@ -619,14 +627,14 @@ static void apply_cloexec_fds(const struct Options *opts) {
   }
 }
 
-static void jump_to_target(uint64_t entry, uint64_t initial_rsp) {
+static void jump_to_target(uint64_t entry, uint64_t initial_rsp, uint64_t argument0) {
   __asm__ __volatile__(
       "movq %%rsp, host_rsp_before_jump(%%rip)\n"
       "movq %[initial_rsp], %%rsp\n"
       "leaq 1f(%%rip), %%rax\n"
       "movq %%rax, (%%rsp)\n"
       "xorl %%eax, %%eax\n"
-      "xorl %%edi, %%edi\n"
+      "movq %[argument0], %%rdi\n"
       "xorl %%esi, %%esi\n"
       "xorl %%edx, %%edx\n"
       "xorl %%ecx, %%ecx\n"
@@ -639,7 +647,9 @@ static void jump_to_target(uint64_t entry, uint64_t initial_rsp) {
       "movq %%rax, resume_return_value(%%rip)\n"
       "movq host_rsp_before_jump(%%rip), %%rsp\n"
       :
-      : [entry] "r"((void *)(uintptr_t)entry), [initial_rsp] "r"(initial_rsp)
+      : [entry] "r"((void *)(uintptr_t)entry),
+        [initial_rsp] "r"(initial_rsp),
+        [argument0] "r"(argument0)
       : "rax", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11", "memory");
 }
 
@@ -733,6 +743,7 @@ static void print_return_event(const struct Options *opts) {
       "MACHINEN_ACTUAL_RESUME_TRAMPOLINE {\"status\":\"returned\"," 
       "\"targetArch\":\"amd64\",\"entry\":\"0x%" PRIx64 "\"," 
       "\"returnValue\":\"0x%" PRIx64 "\"," 
+      "\"argument0\":\"0x%" PRIx64 "\","
       "\"stackPointer\":\"0x%" PRIx64 "\"," 
       "\"targetBytesStart\":\"0x%" PRIx64 "\"," 
       "\"targetBytesEnd\":\"0x%" PRIx64 "\"," 
@@ -741,6 +752,7 @@ static void print_return_event(const struct Options *opts) {
       "\"sourceIsaEmulationUsed\":false,\"sidecarRuntimeUsed\":false}\n",
       opts->target_address,
       resume_return_value,
+      opts->argument0,
       opts->stack_pointer,
       mapped_target_start,
       mapped_target_end);
@@ -771,7 +783,8 @@ int main(int argc, char **argv) {
   apply_cloexec_fds(&opts);
   alarm((unsigned int)opts.timeout_seconds);
   if (sigsetjmp(resume_fault_jmp, 1) == 0) {
-    jump_to_target(opts.target_address, opts.stack_pointer - 8u);
+    jump_to_target(
+        opts.target_address, opts.stack_pointer - 8u, opts.has_argument0 ? opts.argument0 : 0u);
     alarm(0);
     print_return_event(&opts);
   } else {

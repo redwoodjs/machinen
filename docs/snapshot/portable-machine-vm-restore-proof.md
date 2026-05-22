@@ -28,6 +28,7 @@ MACHINEN_TARGET_VM_IMAGE=/path/to/rootfs-amd64.tar.gz \
   --bundle-dir /tmp/portable-machine \
   --target-code-file /tmp/portable-machine/target/continuation.bin \
   --combined-descriptor \
+  --real-utility-continuation \
   --json
 ```
 
@@ -39,12 +40,14 @@ Raw cross-ISA `.vmstate` replay remains a refusal, not a success path.
 `planPortableMachineTargetRestoreDescriptor()` is the combined descriptor gate:
 fd-table refusals, executable-source memory, ambiguous mappings, and other unsafe
 materialization blockers are returned as refusals instead of entering the guest.
-Ready descriptors include only generated/target-native continuation bytes,
+Ready descriptors include only approved target-native continuation bytes,
 explicit fd-table recipes, and safe non-executable memory entries. The current
-combined proof verifies a safe captured memory byte plus a wider fd matrix:
-closed fd, inherited stdout, reopened file, synthetic pipe, eventfd, and timerfd
-recipes. The generated amd64 verifier checks the materialized memory and fd
-state before exiting.
+combined proof can still use generated verifier bytes, but the smoke path now
+uses `--real-utility-continuation`: target module bytes are materialized from a
+portable-bundle target root, entered through the amd64 guest loader, and accepted
+only when the in-guest resume event returns the expected value. The descriptor
+still carries the wider fd matrix: closed fd, inherited stdout, reopened file,
+synthetic pipe, eventfd, and timerfd recipes.
 
 ## Smoke profile
 
@@ -72,13 +75,14 @@ remote target image path. Dry-run mode never contacts remotes, so it can validat
 summary shape on any host.
 
 The smoke profile creates or captures a narrow arm64 native-process bundle,
-wraps it in a portable machine snapshot, stages a target-native amd64 verifier
-inside the bundle, and runs the portable machine VM restore proof with a combined
-restore descriptor. The verifier checks one safe captured memory byte plus the
-planned fd-table recipe matrix before exiting successfully. The JSON summary
+wraps it in a portable machine snapshot, stages a target-native amd64 real
+utility continuation inside the bundle, and runs the portable machine VM restore
+proof with a combined restore descriptor. The continuation is target module bytes
+from the bundle's approved target root, not source-ISA text. The JSON summary
 includes `targetRestore.descriptorGateCompleted`, descriptor memory/fd counts,
-resource recipe kinds, and `targetRestore.targetVerifierResult`. It reports
-timing for:
+resource recipe kinds, `targetRestore.targetContinuationKind`,
+`targetRestore.targetContinuationReturnValue`, and
+`targetRestore.targetVerifierResult`. It reports timing for:
 
 1. preflight / optional remote reachability gates;
 2. arm64 source capture bundle creation;

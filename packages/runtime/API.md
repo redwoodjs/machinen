@@ -109,6 +109,7 @@
 - [`PortableMachineTargetRestoreDescriptorRequest`](#portablemachinetargetrestoredescriptorrequest)
 - [`PortableMachineTargetRestoreDescriptorPlan`](#portablemachinetargetrestoredescriptorplan)
 - [`PortableMachineVmRestoreProofState`](#portablemachinevmrestoreproofstate)
+- [`PortableMachineTargetContinuationKind`](#portablemachinetargetcontinuationkind)
 - [`PortableMachineTargetVerifierResult`](#portablemachinetargetverifierresult)
 - [`PortableMachineVmRestoreProofRequest`](#portablemachinevmrestoreproofrequest)
 - [`PortableMachineVmRestoreProofPlan`](#portablemachinevmrestoreproofplan)
@@ -8088,6 +8089,22 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 > `optional` **targetVerifierResult?**: [`PortableMachineTargetVerifierResult`](#portablemachinetargetverifierresult)
 
+##### targetContinuationKind?
+
+> `optional` **targetContinuationKind?**: [`PortableMachineTargetContinuationKind`](#portablemachinetargetcontinuationkind)
+
+##### targetContinuationStatus?
+
+> `optional` **targetContinuationStatus?**: `string`
+
+##### targetContinuationReturnValue?
+
+> `optional` **targetContinuationReturnValue?**: `string`
+
+##### targetModuleBytesSource?
+
+> `optional` **targetModuleBytesSource?**: `string`
+
 ##### sourceTextReusedAsTargetCode
 
 > **sourceTextReusedAsTargetCode**: `false`
@@ -8137,6 +8154,18 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 ##### targetVerifierResult?
 
 > `optional` **targetVerifierResult?**: [`PortableMachineTargetVerifierResult`](#portablemachinetargetverifierresult)
+
+##### actualResumeEvent?
+
+> `optional` **actualResumeEvent?**: `object`
+
+###### status?
+
+> `optional` **status?**: `string`
+
+###### returnValue?
+
+> `optional` **returnValue?**: `string`
 
 ##### sourceTextReusedAsTargetCode?
 
@@ -9117,6 +9146,10 @@ Poll interval in ms while retrying. Default 250.
 ##### targetAddress
 
 > **targetAddress**: `string`
+
+##### argument0?
+
+> `optional` **argument0?**: `string`
 
 ##### timeoutSeconds
 
@@ -11625,6 +11658,12 @@ Result of `validatePid` — easy to switch on at the call site.
 ### PortableMachineTargetVerifierResult
 
 > **PortableMachineTargetVerifierResult** = `"pending"` \| `"passed"` \| `"failed"`
+
+***
+
+### PortableMachineTargetContinuationKind
+
+> **PortableMachineTargetContinuationKind** = `"generated-verifier"` \| `"real-utility"`
 
 ***
 

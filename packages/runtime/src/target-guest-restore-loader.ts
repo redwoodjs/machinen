@@ -40,6 +40,7 @@ export interface TargetGuestRestoreContinuationDescriptor {
   fileOffset: number;
   codeSize: number;
   targetAddress: string;
+  argument0?: string;
   timeoutSeconds: number;
   stackTargetStart: string;
   stackSize: number;
@@ -66,6 +67,7 @@ export function serializeTargetGuestRestoreDescriptor(
     `fileOffset=${continuation.fileOffset}`,
     `codeSize=${continuation.codeSize}`,
     `targetAddress=${continuation.targetAddress}`,
+    ...optionalContinuationField("argument0", continuation.argument0),
     `timeoutSeconds=${continuation.timeoutSeconds}`,
     `stackTargetStart=${continuation.stackTargetStart}`,
     `stackSize=${continuation.stackSize}`,
@@ -118,6 +120,7 @@ export function buildNativeActualResumeTrampolineArgs(
     String(continuation.codeSize),
     "--target-address",
     continuation.targetAddress,
+    ...optionalArg("--argument0", continuation.argument0),
     "--timeout-seconds",
     String(continuation.timeoutSeconds),
     "--stack-target-start",
@@ -166,6 +169,7 @@ function fieldsToDescriptor(
       fileOffset: parseIntegerField(fields, "fileOffset"),
       codeSize: parseIntegerField(fields, "codeSize"),
       targetAddress: requiredField(fields, "targetAddress"),
+      argument0: optionalField(fields, "argument0"),
       timeoutSeconds: parseIntegerField(fields, "timeoutSeconds"),
       stackTargetStart: requiredField(fields, "stackTargetStart"),
       stackSize: parseIntegerField(fields, "stackSize"),
@@ -178,6 +182,10 @@ function fieldsToDescriptor(
 
 function requiredField(fields: Map<string, string>, key: string): string {
   return fields.get(key) ?? fail("target-guest-loader-descriptor-invalid", `${key} is required`);
+}
+
+function optionalField(fields: Map<string, string>, key: string): string | undefined {
+  return fields.get(key);
 }
 
 function parseIntegerField(fields: Map<string, string>, key: string): number {
@@ -383,6 +391,9 @@ function validateContinuation(
   assertPositive(continuation.timeoutSeconds, "timeoutSeconds");
   assertPositive(continuation.stackSize, "stackSize");
   assertHexAddress(continuation.targetAddress, "targetAddress");
+  if (continuation.argument0 !== undefined) {
+    assertHexAddress(continuation.argument0, "argument0");
+  }
   assertHexAddress(continuation.stackTargetStart, "stackTargetStart");
   assertHexAddress(continuation.stackPointer, "stackPointer");
   return continuation;
@@ -524,6 +535,10 @@ function assertNoWhitespace(value: string, field: string): void {
   }
 }
 
+function optionalContinuationField(name: string, value: string | undefined): string[] {
+  return value === undefined ? [] : [`${name}=${value}`];
+}
+
 function serializeResourceRecipe(recipe: TargetGuestRestoreResourceRecipe): string {
   if (recipe.kind === "close-fd") {
     const reason = recipe.reason === undefined ? "" : ` reason=${recipe.reason}`;
@@ -554,6 +569,10 @@ function serializeMemoryEntry(entry: TargetGuestMemoryMaterializationEntry): str
     return `memory=copy-captured-bytes ${base} sourceFile=${entry.sourceFile} sourceOffset=${entry.sourceOffset}`;
   }
   return `memory=recreate-guard ${base}`;
+}
+
+function optionalArg(flag: string, value: string | undefined): string[] {
+  return value === undefined ? [] : [flag, value];
 }
 
 function resourceToTrampolineArgs(recipe: TargetGuestRestoreResourceRecipe): string[] {

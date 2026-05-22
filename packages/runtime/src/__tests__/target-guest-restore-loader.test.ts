@@ -44,6 +44,7 @@ function descriptor(
 describe("target guest restore loader descriptor", () => {
   it("serializes and parses fd table recipes", () => {
     const original = descriptor({
+      continuation: { ...descriptor().continuation, argument0: "0x600000000000" },
       resources: [
         { kind: "close-fd", fd: 0, reason: "missing-captured-fd" },
         { kind: "inherit-stdio", fd: 1, stream: "stdout", closeOnExec: false },
@@ -75,6 +76,8 @@ describe("target guest restore loader descriptor", () => {
       "16",
       "--target-address",
       "0x700300000000",
+      "--argument0",
+      "0x600000000000",
       "--timeout-seconds",
       "5",
       "--stack-target-start",
@@ -195,6 +198,14 @@ describe("target guest restore loader descriptor", () => {
         }),
       ),
     ).toThrow(/targetAddress must be a hex address/);
+
+    expect(() =>
+      validateTargetGuestRestoreDescriptor(
+        descriptor({
+          continuation: { ...descriptor().continuation, argument0: "600000000000" },
+        }),
+      ),
+    ).toThrow(/argument0 must be a hex address/);
   });
 
   it.skipIf(!HAS_CC)(

@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 const REPO_ROOT = resolve(import.meta.dirname, "../../../..");
 const SCRIPT = join(REPO_ROOT, "scripts/smoke/portable-machine-restore.sh");
+const SCRIPT_ENV = { ...process.env, FORCE_COLOR: "1" };
 const tempDirs: string[] = [];
 
 afterEach(() => {
@@ -29,6 +30,7 @@ describe("portable machine restore smoke profile", () => {
       {
         cwd: REPO_ROOT,
         encoding: "utf8",
+        env: SCRIPT_ENV,
         timeout: 30_000,
       },
     );
@@ -67,6 +69,7 @@ describe("portable machine restore smoke profile", () => {
       {
         cwd: REPO_ROOT,
         encoding: "utf8",
+        env: SCRIPT_ENV,
         timeout: 30_000,
       },
     );
