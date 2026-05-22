@@ -54,9 +54,16 @@ the target-native sleep syscall and then exits the target process with status `0
 when the syscall returns successfully. That is the first narrow proof state where
 `migrationCompleted` can be `true`.
 
-The summary reports `attemptedResume: true` and, for the modeled synthetic sleep
-path, `migrationCompleted: true` only after the target process exits with status
-`0`.
+The same proof harness can select `MACHINEN_ACTUAL_REAL_UTILITY_WORKLOAD=ppoll`
+for zero-fd ppoll or `ppoll-pipe` for the one-fd synthetic empty-pipe proof. The
+one-fd mode also requires
+`MACHINEN_ACTUAL_REAL_UTILITY_PPOLL_FD_POLICY=synthetic-empty-pipe`; it installs a
+fresh empty pipe read end at the captured fd before jumping to generated amd64
+`ppoll` bytes.
+
+The summary reports `attemptedResume: true` and, for modeled synthetic syscall
+paths, `migrationCompleted: true` only after the target process exits with status
+`0` or the controlled trampoline observes the expected target-native return.
 
 That ready-plus-attempt state is intentional but not a migration success claim. It
 proves the real capture path has explicit data for every modeled planning gate,

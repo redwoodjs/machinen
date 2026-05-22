@@ -7,6 +7,7 @@ import {
   type NativeMemoryMapping,
   type NativeProcessImageDocuments,
   type NativeProcessImageRefusal,
+  type NativeProcessResource,
   type NativeThreadState,
 } from "./native-process-image.ts";
 
@@ -20,10 +21,12 @@ export type NativeActiveSyscallClass =
 
 export type NativeSleepTimerSyscallPolicy = "refuse" | "defer-target-resume";
 export type NativePollTimeoutSyscallPolicy = "refuse" | "defer-target-resume";
+export type NativePollTimeoutFdPolicy = "zero-fd-only" | "synthetic-empty-pipe";
 
 export interface NativeActiveSyscallPolicyOptions {
   sleepTimerPolicy?: NativeSleepTimerSyscallPolicy;
   pollTimeoutPolicy?: NativePollTimeoutSyscallPolicy;
+  pollTimeoutFdPolicy?: NativePollTimeoutFdPolicy;
   documents?: NativeProcessImageDocuments;
 }
 
@@ -58,12 +61,22 @@ export interface NativeModeledSleepTimerState {
   remainingTime: NativeModeledSleepTimerRemainingTime;
 }
 
+export interface NativeModeledPpollFdState {
+  fd: number;
+  events: number;
+  revents: number;
+  sourceAddress: string;
+  resourceId?: string;
+  targetResource: "synthetic-empty-pipe-read-end";
+}
+
 export interface NativeModeledPpollTimeoutState {
   kind: "relative-duration";
   syscallName: "ppoll";
   argumentSource: "proc-syscall" | "registers";
-  fdsPointer: "0x0";
-  nfds: 0;
+  fdsPointer: string;
+  nfds: 0 | 1;
+  pollFds?: NativeModeledPpollFdState[];
   timeoutPointer: string;
   sigmaskPointer: "0x0";
   sigsetSize?: string;
@@ -144,6 +157,8 @@ const FD_BLOCKING_SYSCALLS = new Set([
 ]);
 const TIMER_ABSTIME = 1;
 const TIMESPEC_SIZE_BYTES = 16n;
+const POLLFD_SIZE_BYTES = 8n;
+const POLLIN = 0x1;
 const MAX_SIGNED_I64 = 0x7fff_ffff_ffff_ffffn;
 const MAX_NANOSECONDS = 999_999_999n;
 
@@ -212,12 +227,13 @@ export function classifyNativeThreadSyscall(
 export function modelNativePpollTimeoutState(
   thread: NativeThreadState,
   documents?: NativeProcessImageDocuments,
+  fdPolicy: NativePollTimeoutFdPolicy = "zero-fd-only",
 ): NativePpollTimeoutModelResult {
   const args = sleepTimerArguments(thread);
   if (!args) {
     return missingPpollTimeout(thread, "syscall arguments were not captured");
   }
-  const decoded = decodePpollTimeoutArguments(thread, args);
+  const decoded = decodePpollTimeoutArguments(thread, args, documents, fdPolicy);
   if ("refusal" in decoded) {
     return decoded;
   }
@@ -247,8 +263,9 @@ export function modelNativePpollTimeoutState(
       kind: "relative-duration",
       syscallName: "ppoll",
       argumentSource: args.source,
-      fdsPointer: "0x0",
-      nfds: 0,
+      fdsPointer: hex(decoded.fdsPointer),
+      nfds: decoded.nfds,
+      pollFds: decoded.pollFds,
       timeoutPointer: hex(decoded.timeoutPointer),
       sigmaskPointer: "0x0",
       sigsetSize: hex(decoded.sigsetSize),
@@ -356,7 +373,11 @@ function deferredPpollTimeoutClassification(
   thread: NativeThreadState,
   options: NativeActiveSyscallPolicyOptions,
 ): NativeActiveSyscallClassification {
-  const modeled = modelNativePpollTimeoutState(thread, options.documents);
+  const modeled = modelNativePpollTimeoutState(
+    thread,
+    options.documents,
+    options.pollTimeoutFdPolicy,
+  );
   if (modeled.state === "missing") {
     return refusedClassification(thread, "poll-timeout", modeled.refusal);
   }
@@ -438,6 +459,9 @@ function decodeSleepTimerArguments(
 
 type DecodedPpollTimeoutArguments =
   | {
+      fdsPointer: bigint;
+      nfds: 0 | 1;
+      pollFds?: NativeModeledPpollFdState[];
       timeoutPointer: bigint;
       sigsetSize: bigint;
     }
@@ -454,16 +478,24 @@ interface PpollArgumentValues {
 function decodePpollTimeoutArguments(
   thread: NativeThreadState,
   args: SleepTimerArguments,
+  documents: NativeProcessImageDocuments | undefined,
+  fdPolicy: NativePollTimeoutFdPolicy,
 ): DecodedPpollTimeoutArguments {
   const values = ppollArgumentValues(args);
-  return (
-    unsupportedPpollFds(thread, args, values) ??
-    unsupportedPpollTimeout(thread, values) ??
-    unsupportedPpollSigmask(thread, args, values) ?? {
-      timeoutPointer: values.timeoutPointer,
-      sigsetSize: values.sigsetSize,
-    }
-  );
+  const unsupported =
+    unsupportedPpollTimeout(thread, values) ?? unsupportedPpollSigmask(thread, args, values);
+  if (unsupported) {
+    return unsupported;
+  }
+  const decodedFds = decodePpollFds(thread, args, values, documents, fdPolicy);
+  if ("state" in decodedFds) {
+    return decodedFds;
+  }
+  return {
+    ...decodedFds,
+    timeoutPointer: values.timeoutPointer,
+    sigsetSize: values.sigsetSize,
+  };
 }
 
 function ppollArgumentValues(args: SleepTimerArguments): PpollArgumentValues {
@@ -476,25 +508,43 @@ function ppollArgumentValues(args: SleepTimerArguments): PpollArgumentValues {
   };
 }
 
-function unsupportedPpollFds(
+function decodePpollFds(
   thread: NativeThreadState,
   args: SleepTimerArguments,
   values: PpollArgumentValues,
-): DecodedPpollTimeoutArguments | undefined {
-  if (values.nfds !== 0n) {
+  documents: NativeProcessImageDocuments | undefined,
+  fdPolicy: NativePollTimeoutFdPolicy = "zero-fd-only",
+):
+  | { fdsPointer: bigint; nfds: 0 | 1; pollFds?: NativeModeledPpollFdState[] }
+  | { state: "missing"; refusal: NativeProcessImageRefusal } {
+  if (values.nfds === 0n && values.fdsPointer === 0n) {
+    return { fdsPointer: values.fdsPointer, nfds: 0 };
+  }
+  if (fdPolicy !== "synthetic-empty-pipe") {
     return missingPpollTimeout(thread, "ppoll fd readiness is not modeled yet", {
       nfds: hex(values.nfds),
       fdsPointer: hex(values.fdsPointer),
       argumentSource: args.source,
     });
   }
-  if (values.fdsPointer !== 0n) {
-    return missingPpollTimeout(thread, "ppoll zero-fd proof requires a null fds pointer", {
+  if (values.nfds !== 1n) {
+    return missingPpollTimeout(thread, "ppoll synthetic empty-pipe proof supports exactly one fd", {
+      nfds: hex(values.nfds),
       fdsPointer: hex(values.fdsPointer),
       argumentSource: args.source,
     });
   }
-  return undefined;
+  if (values.fdsPointer === 0n) {
+    return missingPpollTimeout(thread, "ppoll one-fd proof requires a pollfd pointer", {
+      fdsPointer: hex(values.fdsPointer),
+      argumentSource: args.source,
+    });
+  }
+  const pollFd = readCapturedPollFd(thread, documents, values.fdsPointer);
+  if ("state" in pollFd) {
+    return pollFd;
+  }
+  return { fdsPointer: values.fdsPointer, nfds: 1, pollFds: [pollFd] };
 }
 
 function unsupportedPpollTimeout(
@@ -589,36 +639,138 @@ function decodedSleepDetail(decoded: {
   };
 }
 
+function readCapturedPollFd(
+  thread: NativeThreadState,
+  documents: NativeProcessImageDocuments | undefined,
+  sourceAddress: bigint,
+): NativeModeledPpollFdState | { state: "missing"; refusal: NativeProcessImageRefusal } {
+  if (!documents?.rootDir) {
+    return missingPpollTimeout(thread, "captured memory bundle is not available", {
+      fdsPointer: hex(sourceAddress),
+    });
+  }
+  const pollFdBytes = readCapturedMemoryRange(
+    documents,
+    sourceAddress,
+    POLLFD_SIZE_BYTES,
+    "ppoll pollfd array",
+  );
+  if ("refusal" in pollFdBytes) {
+    return missingPpollTimeout(thread, pollFdBytes.reason, { fdsPointer: hex(sourceAddress) });
+  }
+  const fd = pollFdBytes.bytes.readInt32LE(0);
+  const events = pollFdBytes.bytes.readInt16LE(4);
+  const revents = pollFdBytes.bytes.readInt16LE(6);
+  return validatePpollPipeFd(thread, documents, sourceAddress, { fd, events, revents });
+}
+
+function validatePpollPipeFd(
+  thread: NativeThreadState,
+  documents: NativeProcessImageDocuments,
+  sourceAddress: bigint,
+  pollFd: { fd: number; events: number; revents: number },
+): NativeModeledPpollFdState | { state: "missing"; refusal: NativeProcessImageRefusal } {
+  const entryRefusal = validatePpollFdEntry(thread, pollFd);
+  if (entryRefusal) {
+    return entryRefusal;
+  }
+  const resource = validatePpollPipeResource(thread, documents, pollFd);
+  if ("state" in resource) {
+    return resource;
+  }
+  return {
+    ...pollFd,
+    sourceAddress: hex(sourceAddress),
+    resourceId: resource.resource.id,
+    targetResource: "synthetic-empty-pipe-read-end",
+  };
+}
+
+function validatePpollFdEntry(
+  thread: NativeThreadState,
+  pollFd: { fd: number; events: number; revents: number },
+): { state: "missing"; refusal: NativeProcessImageRefusal } | undefined {
+  if (pollFd.fd < 0) {
+    return missingPpollTimeout(thread, "ppoll disabled pollfd entries are not modeled", pollFd);
+  }
+  return pollFd.events !== POLLIN || pollFd.revents !== 0
+    ? missingPpollTimeout(thread, "ppoll one-fd proof only models POLLIN with empty revents", {
+        ...pollFd,
+        requiredEvents: POLLIN,
+      })
+    : undefined;
+}
+
+function validatePpollPipeResource(
+  thread: NativeThreadState,
+  documents: NativeProcessImageDocuments,
+  pollFd: { fd: number; events: number; revents: number },
+): { resource: NativeProcessResource } | { state: "missing"; refusal: NativeProcessImageRefusal } {
+  const resource = documents.resources.resources.find((candidate) => candidate.fd === pollFd.fd);
+  if (resource?.kind !== "pipe") {
+    return missingPpollTimeout(thread, "ppoll one-fd proof requires a captured pipe fd", {
+      ...pollFd,
+      resourceKind: resource?.kind,
+      resourceId: resource?.id,
+    });
+  }
+  return resource.flags && !resource.flags.includes("octal:0")
+    ? missingPpollTimeout(thread, "ppoll one-fd proof requires a pipe read end", {
+        ...pollFd,
+        resourceId: resource.id,
+        resourceFlags: resource.flags,
+      })
+    : { resource };
+}
+
 function readCapturedTimespec(
   documents: NativeProcessImageDocuments,
   sourceAddress: bigint,
 ): { duration: NativeSleepTimerDuration } | { refusal: true; reason: string } {
-  const mapping = mappingContainingRange(documents, sourceAddress, TIMESPEC_SIZE_BYTES);
+  const timespec = readCapturedMemoryRange(
+    documents,
+    sourceAddress,
+    TIMESPEC_SIZE_BYTES,
+    "sleep request timespec",
+  );
+  if ("refusal" in timespec) {
+    return timespec;
+  }
+  const secondsRaw = timespec.bytes.readBigUInt64LE(0);
+  const nanosecondsRaw = timespec.bytes.readBigUInt64LE(8);
+  if (secondsRaw > MAX_SIGNED_I64 || nanosecondsRaw > MAX_NANOSECONDS) {
+    return { refusal: true, reason: "sleep request timespec is outside supported bounds" };
+  }
+  return {
+    duration: {
+      seconds: secondsRaw.toString(10),
+      nanoseconds: Number(nanosecondsRaw),
+    },
+  };
+}
+
+function readCapturedMemoryRange(
+  documents: NativeProcessImageDocuments,
+  sourceAddress: bigint,
+  sizeBytes: bigint,
+  label: string,
+): { bytes: Buffer } | { refusal: true; reason: string } {
+  const mapping = mappingContainingRange(documents, sourceAddress, sizeBytes);
   if (!mapping?.captured) {
-    return { refusal: true, reason: "sleep request timespec is not in captured memory" };
+    return { refusal: true, reason: `${label} is not in captured memory` };
   }
   const offsetInMapping = sourceAddress - BigInt(mapping.sourceStart);
   const fileOffset = BigInt(mapping.captured.offset) + offsetInMapping;
   try {
     const memory = readFileSync(join(documents.rootDir!, NATIVE_PROCESS_IMAGE_FILES.memory));
-    if (fileOffset + TIMESPEC_SIZE_BYTES > BigInt(memory.length)) {
-      return { refusal: true, reason: "sleep request timespec exceeds native-memory.bin" };
+    if (fileOffset + sizeBytes > BigInt(memory.length)) {
+      return { refusal: true, reason: `${label} exceeds native-memory.bin` };
     }
-    const secondsRaw = memory.readBigUInt64LE(Number(fileOffset));
-    const nanosecondsRaw = memory.readBigUInt64LE(Number(fileOffset + 8n));
-    if (secondsRaw > MAX_SIGNED_I64 || nanosecondsRaw > MAX_NANOSECONDS) {
-      return { refusal: true, reason: "sleep request timespec is outside supported bounds" };
-    }
-    return {
-      duration: {
-        seconds: secondsRaw.toString(10),
-        nanoseconds: Number(nanosecondsRaw),
-      },
-    };
+    return { bytes: memory.subarray(Number(fileOffset), Number(fileOffset + sizeBytes)) };
   } catch (error) {
     return {
       refusal: true,
-      reason: error instanceof Error ? error.message : "sleep request timespec could not be read",
+      reason: error instanceof Error ? error.message : `${label} could not be read`,
     };
   }
 }

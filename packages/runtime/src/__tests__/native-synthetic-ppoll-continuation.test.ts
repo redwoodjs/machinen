@@ -81,6 +81,57 @@ describe("synthetic ppoll syscall continuation", () => {
     expect(result.continuation!.descriptor.descriptorSha256).toHaveLength(64);
   });
 
+  it("can generate a one-fd empty-pipe ppoll continuation", () => {
+    const result = buildNativeSyntheticPpollSyscallContinuation({
+      threadId: "thread:1",
+      remainingTime: remainingTime("1", 250),
+      ppollTimeout: {
+        kind: "relative-duration",
+        syscallName: "ppoll",
+        argumentSource: "registers",
+        fdsPointer: "0x3100",
+        nfds: 1,
+        pollFds: [
+          {
+            fd: 3,
+            events: 1,
+            revents: 0,
+            sourceAddress: "0x3100",
+            resourceId: "fd:3",
+            targetResource: "synthetic-empty-pipe-read-end",
+          },
+        ],
+        timeoutPointer: "0x3000",
+        sigmaskPointer: "0x0",
+        requestedTime: { seconds: "1", nanoseconds: 250 },
+        remainingTime: remainingTime("1", 250),
+      },
+    });
+
+    expect(result.refusals).toEqual([]);
+    expect(result.continuation).toMatchObject({
+      syscall: {
+        fdsPointer: "stack-relative-pollfd-array",
+        nfds: 1,
+        pollFds: [{ fd: 3, events: 1, revents: 0 }],
+      },
+      sizeBytes: 72,
+    });
+    expect(Buffer.from(result.continuation!.bytes.subarray(0, 52)).toString("hex")).toBe(
+      "b80f010000c74424f80300000066c74424fc010066c74424fe0000488d7c24f8be01000000488d150c0000004531d24531c00f05",
+    );
+    const view = new DataView(result.continuation!.bytes.buffer);
+    expect(view.getBigUint64(56, true)).toBe(1n);
+    expect(result.continuation!.provenance).toMatchObject({
+      embeddedPollFds: {
+        kind: "pollfd-array",
+        offset: -8,
+        entries: [{ fd: 3, targetResource: "synthetic-empty-pipe-read-end" }],
+      },
+      embeddedData: { offset: 56 },
+    });
+  });
+
   it("can generate an exit-process continuation after a successful ppoll timeout", () => {
     const result = buildNativeSyntheticPpollSyscallContinuation({
       threadId: "thread:1",
