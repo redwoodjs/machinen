@@ -19,9 +19,17 @@ const GUEST_TRAMPOLINE = "/tmp/machinen-resume-trampoline";
 const GUEST_LOADER = "/tmp/machinen-target-guest-restore-loader";
 const GUEST_CODE = "/tmp/machinen-target-bytes.bin";
 const GUEST_DESCRIPTOR = "/tmp/machinen-target-guest-restore.desc";
+const GUEST_MEMORY_DEFAULT = "/tmp/machinen-combined-native-memory.bin";
+const GUEST_FD_FILE_DEFAULT = "/tmp/machinen-combined-fd.txt";
+const LOADER_PREFIX = "MACHINEN_TARGET_GUEST_RESTORE_LOADER ";
 
 interface Args {
   codeFile?: string;
+  descriptorFile?: string;
+  memoryFile?: string;
+  guestMemoryFile: string;
+  fdFile?: string;
+  guestFdFile: string;
   image?: string;
   json: boolean;
   keep: boolean;
@@ -39,7 +47,8 @@ interface Args {
 function usage(): never {
   console.error(
     "usage: tsx scripts/native-target-vm-synthetic-continuation.ts verify " +
-      "--code-file path [--image rootfs.tar.gz] [--entry-address hex] " +
+      "--code-file path [--descriptor-file path] [--memory-file path] " +
+      "[--fd-file path] [--image rootfs.tar.gz] [--entry-address hex] " +
       "[--stack-target-start hex] [--stack-size n] [--stack-pointer hex] [--json]",
   );
   process.exit(2);
@@ -65,6 +74,11 @@ function parseArgs(argv: string[]): Args {
   const read = flagReader(argv);
   return {
     codeFile: read("--code-file"),
+    descriptorFile: read("--descriptor-file"),
+    memoryFile: read("--memory-file"),
+    guestMemoryFile: withDefault(read("--guest-memory-file"), GUEST_MEMORY_DEFAULT),
+    fdFile: read("--fd-file"),
+    guestFdFile: withDefault(read("--guest-fd-file"), GUEST_FD_FILE_DEFAULT),
     image: read("--image") ?? process.env[IMAGE_ENV],
     json: argv.includes("--json"),
     keep: argv.includes("--keep"),
@@ -120,11 +134,18 @@ function waitForTargetGuestBoot(): Promise<void> {
 }
 
 function skipReason(args: Args): string | undefined {
-  return (
-    hostSkipReason() ||
-    missingFileReason(args.codeFile, "--code-file") ||
-    missingFileReason(args.image, IMAGE_ENV)
-  );
+  return firstReason([
+    hostSkipReason(),
+    missingFileReason(args.codeFile, "--code-file"),
+    missingOptionalFileReason(args.descriptorFile, "--descriptor-file"),
+    missingOptionalFileReason(args.memoryFile, "--memory-file"),
+    missingOptionalFileReason(args.fdFile, "--fd-file"),
+    missingFileReason(args.image, IMAGE_ENV),
+  ]);
+}
+
+function firstReason(reasons: Array<string | undefined>): string | undefined {
+  return reasons.find((reason) => reason !== undefined);
 }
 
 function hostSkipReason(): string | undefined {
@@ -134,6 +155,10 @@ function hostSkipReason(): string | undefined {
 
 function missingFileReason(path: string | undefined, label: string): string | undefined {
   return path && existsSync(path) ? undefined : `${label} must point at an existing file`;
+}
+
+function missingOptionalFileReason(path: string | undefined, label: string): string | undefined {
+  return path === undefined ? undefined : missingFileReason(path, label);
 }
 
 async function bootTargetVm(image: string) {
@@ -155,17 +180,61 @@ async function executeTargetVmProof(
   helpers: { trampoline: string; loader: string },
   vm: Awaited<ReturnType<typeof boot>>,
 ) {
+  await stageTargetGuestInputs(args, helpers, vm);
+  const result = await vm.execRaw(targetLoaderCommand(), {
+    execTimeoutMs: (args.timeoutSeconds + 20) * 1000,
+  });
+  const descriptorGateCompleted = loaderCompleted(result.stdout);
+  return {
+    ...targetSummary(args),
+    descriptorGateCompleted,
+    exitCode: result.exitCode,
+    stdout: result.stdout,
+    stderr: result.stderr,
+    migrationCompleted: result.exitCode === 0 && descriptorGateCompleted,
+    sourceTextReusedAsTargetCode: false,
+    sourceIsaEmulationUsed: false,
+    sidecarRuntimeUsed: false,
+  };
+}
+
+async function stageTargetGuestInputs(
+  args: Args,
+  helpers: { trampoline: string; loader: string },
+  vm: Awaited<ReturnType<typeof boot>>,
+): Promise<void> {
   const codeSize = statSync(args.codeFile!).size;
   await vm.writeFile(GUEST_TRAMPOLINE, readFileSync(helpers.trampoline), { mode: 0o755 });
   await vm.writeFile(GUEST_LOADER, readFileSync(helpers.loader), { mode: 0o755 });
   await vm.writeFile(GUEST_CODE, readFileSync(args.codeFile!));
-  await vm.writeFile(
-    GUEST_DESCRIPTOR,
-    serializeTargetGuestRestoreDescriptor(targetDescriptor(args, codeSize)),
-  );
-  const result = await vm.execRaw(targetLoaderCommand(), {
-    execTimeoutMs: (args.timeoutSeconds + 20) * 1000,
-  });
+  await writeOptionalGuestFiles(args, vm);
+  await vm.writeFile(GUEST_DESCRIPTOR, descriptorText(args, codeSize));
+}
+
+async function writeOptionalGuestFiles(
+  args: Args,
+  vm: Awaited<ReturnType<typeof boot>>,
+): Promise<void> {
+  for (const file of optionalGuestFiles(args)) {
+    await vm.writeFile(file.guest, readFileSync(file.host));
+  }
+}
+
+function optionalGuestFiles(args: Args): Array<{ host: string; guest: string }> {
+  return [
+    optionalGuestFile(args.memoryFile, args.guestMemoryFile),
+    optionalGuestFile(args.fdFile, args.guestFdFile),
+  ].filter((file) => file !== undefined);
+}
+
+function optionalGuestFile(
+  host: string | undefined,
+  guest: string,
+): { host: string; guest: string } | undefined {
+  return host ? { host, guest } : undefined;
+}
+
+function targetSummary(args: Args) {
   return {
     phase: "target-vm-synthetic-continuation",
     targetVmAttempted: true,
@@ -173,14 +242,36 @@ async function executeTargetVmProof(
     targetArch: "amd64",
     codeFile: resolve(args.codeFile!),
     codeFileBasename: basename(args.codeFile!),
-    exitCode: result.exitCode,
-    stdout: result.stdout,
-    stderr: result.stderr,
-    migrationCompleted: result.exitCode === 0,
-    sourceTextReusedAsTargetCode: false,
-    sourceIsaEmulationUsed: false,
-    sidecarRuntimeUsed: false,
+    descriptorFile: optionalResolve(args.descriptorFile),
+    memoryFile: optionalResolve(args.memoryFile),
+    fdFile: optionalResolve(args.fdFile),
   };
+}
+
+function optionalResolve(path: string | undefined): string | undefined {
+  return path ? resolve(path) : undefined;
+}
+
+function descriptorText(args: Args, codeSize: number): string {
+  return args.descriptorFile
+    ? readFileSync(args.descriptorFile, "utf8")
+    : serializeTargetGuestRestoreDescriptor(targetDescriptor(args, codeSize));
+}
+
+function loaderCompleted(stdout: string): boolean {
+  const line = stdout.split(/\r?\n/).find((candidate) => candidate.startsWith(LOADER_PREFIX));
+  if (!line) {
+    return false;
+  }
+  try {
+    const payload = JSON.parse(line.slice(LOADER_PREFIX.length)) as {
+      status?: string;
+      exitCode?: number;
+    };
+    return payload.status === "completed" && payload.exitCode === 0;
+  } catch {
+    return false;
+  }
 }
 
 async function killUnlessKept(vm: Awaited<ReturnType<typeof boot>>, keep: boolean): Promise<void> {

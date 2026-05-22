@@ -30,6 +30,7 @@ export interface PortableMachineVmRestoreProofPlan {
   targetVmRequired: true;
   targetNativeCompletionRequired: true;
   migrationCompleted: boolean;
+  descriptorGateCompleted: boolean;
   sourceTextReusedAsTargetCode: false;
   sourceIsaEmulationUsed: false;
   sidecarRuntimeUsed: false;
@@ -40,6 +41,7 @@ export interface PortableMachineVmRestoreProofPlan {
 export interface PortableMachineVmRestoreTargetResult {
   exitCode: number;
   migrationCompleted?: boolean;
+  descriptorGateCompleted?: boolean;
   sourceTextReusedAsTargetCode?: boolean;
   sourceIsaEmulationUsed?: boolean;
   sidecarRuntimeUsed?: boolean;
@@ -147,13 +149,19 @@ export function completePortableMachineVmRestoreProof(
   result: PortableMachineVmRestoreTargetResult,
 ): PortableMachineVmRestoreProofPlan {
   const completed = targetNativeCompleted(result);
-  return { ...plan, state: completed ? "completed" : plan.state, migrationCompleted: completed };
+  return {
+    ...plan,
+    state: completed ? "completed" : plan.state,
+    migrationCompleted: completed,
+    descriptorGateCompleted: result.descriptorGateCompleted === true,
+  };
 }
 
 function targetNativeCompleted(result: PortableMachineVmRestoreTargetResult): boolean {
   return [
     result.exitCode === 0,
     result.migrationCompleted === true,
+    result.descriptorGateCompleted === true,
     result.sourceTextReusedAsTargetCode === false,
     result.sourceIsaEmulationUsed === false,
     result.sidecarRuntimeUsed === false,
@@ -183,6 +191,7 @@ function base(): Omit<
     phase: "portable-machine-vm-restore-proof",
     targetVmRequired: true,
     targetNativeCompletionRequired: true,
+    descriptorGateCompleted: false,
     sourceTextReusedAsTargetCode: false,
     sourceIsaEmulationUsed: false,
     sidecarRuntimeUsed: false,

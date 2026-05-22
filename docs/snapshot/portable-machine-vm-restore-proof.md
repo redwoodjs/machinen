@@ -15,6 +15,7 @@ harness then boots the amd64 target VM through the target-guest loader path. A
 run is successful only when the target VM reports target-native completion with:
 
 - `migrationCompleted: true`
+- `descriptorGateCompleted: true`
 - `sourceTextReusedAsTargetCode: false`
 - `sourceIsaEmulationUsed: false`
 - `sidecarRuntimeUsed: false`
@@ -26,7 +27,7 @@ MACHINEN_TARGET_VM_IMAGE=/path/to/rootfs-amd64.tar.gz \
   pnpm portable-machine-vm-restore-proof -- \
   --bundle-dir /tmp/portable-machine \
   --target-code-file /tmp/portable-machine/target/continuation.bin \
-  --synthetic-empty-eventfd 3 \
+  --combined-descriptor \
   --json
 ```
 
@@ -67,9 +68,11 @@ remote target image path. Dry-run mode never contacts remotes, so it can validat
 summary shape on any host.
 
 The smoke profile creates or captures a narrow arm64 native-process bundle,
-wraps it in a portable machine snapshot, stages target-native amd64 `exit(0)`
-continuation bytes inside the bundle, and runs the portable machine VM restore
-proof. It reports timing for:
+wraps it in a portable machine snapshot, stages a target-native amd64 verifier
+inside the bundle, and runs the portable machine VM restore proof with a combined
+restore descriptor. The verifier checks one safe captured memory byte and one
+planned fd-table `reopen-file` recipe before exiting successfully. It reports
+timing for:
 
 1. preflight / optional remote reachability gates;
 2. arm64 source capture bundle creation;

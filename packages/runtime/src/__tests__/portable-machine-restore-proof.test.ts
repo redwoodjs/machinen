@@ -141,6 +141,7 @@ describe("portable machine VM restore proof", () => {
       targetVmRequired: true,
       targetNativeCompletionRequired: true,
       migrationCompleted: false,
+      descriptorGateCompleted: false,
       sourceTextReusedAsTargetCode: false,
       sourceIsaEmulationUsed: false,
       sidecarRuntimeUsed: false,
@@ -150,20 +151,41 @@ describe("portable machine VM restore proof", () => {
       completePortableMachineVmRestoreProof(plan, {
         exitCode: 0,
         migrationCompleted: true,
+        descriptorGateCompleted: true,
         sourceTextReusedAsTargetCode: false,
         sourceIsaEmulationUsed: false,
         sidecarRuntimeUsed: false,
       }),
-    ).toMatchObject({ state: "completed", migrationCompleted: true });
+    ).toMatchObject({
+      state: "completed",
+      migrationCompleted: true,
+      descriptorGateCompleted: true,
+    });
 
     expect(
       completePortableMachineVmRestoreProof(plan, {
         exitCode: 0,
         migrationCompleted: true,
+        descriptorGateCompleted: true,
         sourceTextReusedAsTargetCode: true,
         sourceIsaEmulationUsed: false,
         sidecarRuntimeUsed: false,
       }),
-    ).toMatchObject({ state: "ready", migrationCompleted: false });
+    ).toMatchObject({ state: "ready", migrationCompleted: false, descriptorGateCompleted: true });
+
+    expect(
+      completePortableMachineVmRestoreProof(plan, {
+        exitCode: 0,
+        migrationCompleted: true,
+        descriptorGateCompleted: false,
+        sourceTextReusedAsTargetCode: false,
+        sourceIsaEmulationUsed: false,
+        sidecarRuntimeUsed: false,
+      }),
+    ).toMatchObject({
+      state: "ready",
+      migrationCompleted: false,
+      descriptorGateCompleted: false,
+    });
   });
 });

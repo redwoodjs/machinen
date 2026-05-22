@@ -8067,6 +8067,10 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 > **migrationCompleted**: `boolean`
 
+##### descriptorGateCompleted
+
+> **descriptorGateCompleted**: `boolean`
+
 ##### sourceTextReusedAsTargetCode
 
 > **sourceTextReusedAsTargetCode**: `false`
@@ -8108,6 +8112,10 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 ##### migrationCompleted?
 
 > `optional` **migrationCompleted?**: `boolean`
+
+##### descriptorGateCompleted?
+
+> `optional` **descriptorGateCompleted?**: `boolean`
 
 ##### sourceTextReusedAsTargetCode?
 
