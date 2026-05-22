@@ -100,7 +100,7 @@ const SYNTHETIC_COMPLETION_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_SYNTHETIC_COMPLET
 const WORKLOAD_ENV = "MACHINEN_ACTUAL_REAL_UTILITY_WORKLOAD";
 const UTILITY_NAME = "sleep";
 const PERL_PPOLL_PIPE_SNIPPET =
-  "use IO::Poll qw(POLLIN); pipe(my $r, my $w) or die qq(pipe: $!); my $p = IO::Poll->new(); $p->mask($r => POLLIN); $p->poll(30);";
+  "use IO::Poll qw(POLLIN); pipe(my $r, my $w) or die qq(pipe: $!); my $p = IO::Poll->new(); $p->mask($r => POLLIN); $p->poll(2);";
 const SETTLE_MS = "150";
 const TARGET_BYTE_WINDOW = 32;
 const SOURCE_UNWIND_FILE = "native-source-unwind.json";
