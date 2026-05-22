@@ -16,13 +16,13 @@ The success target remains native-transparent Option B:
 
 ## Current proven point
 
-The current `/bin/sleep` proof captures a live arm64 process blocked in a modeled
-sleep syscall, synthesizes target-native amd64 syscall bytes, runs those bytes on
-an amd64 host, and exits the target process with status `0` after the modeled
-syscall succeeds. The next narrow proof adds the same generated-byte path for
-`ppoll(NULL, 0, &timeout, NULL)` so a second blocking family shares the descriptor
-and failure telemetry. These are narrow completion proofs, not arbitrary process
-migration.
+The current proofs capture live arm64 processes blocked in modeled sleep or
+`ppoll` syscalls, synthesize target-native amd64 syscall bytes, and run those
+bytes on an amd64 host. Sleep and zero-fd `ppoll(NULL, 0, &timeout, NULL)` can
+complete by exiting the target process or returning into a controlled
+trampoline. The active proof extends `ppoll` from zero fds to one explicitly
+modeled synthetic empty pipe read end. These are narrow completion proofs, not
+arbitrary process migration.
 
 The active frontier is generated target-native blocking syscall continuations.
 Broad libc/TLS/vDSO materialization remains deferred until multiple syscall
@@ -45,7 +45,7 @@ Done when:
   errno bucket, and descriptor hash;
 - `/bin/sleep` still completes through generated amd64 bytes.
 
-### 2. Second blocking syscall family — in progress
+### 2. Second blocking syscall family — done
 
 Goal: prove a second syscall family with the same descriptor and failure gate.
 The preferred first target is `ppoll` with:
@@ -69,7 +69,7 @@ Required refusals:
   `target-ppoll-syscall-continuation-missing`;
 - restart-like and other negative errno returns keep `migrationCompleted: false`.
 
-### 3. Generic synthetic syscall builder
+### 3. Generic synthetic syscall builder — done
 
 Goal: move sleep and `ppoll` onto shared generated-code helpers instead of
 per-syscall byte assembly drift.
@@ -81,7 +81,7 @@ Done when:
 - success/failure completion snippets are shared;
 - sleep and `ppoll` tests assert the same invariants.
 
-### 4. Continue after a target-native syscall — in progress
+### 4. Continue after a target-native syscall — done
 
 Goal: prove a generated target-native syscall can return into a controlled
 target-native caller frame instead of exiting the process immediately.
@@ -106,17 +106,21 @@ Done when:
   specific reason;
 - remaining-time contracts are explicit for each blocking syscall family.
 
-### 6. FD-backed blocking syscalls
+### 6. FD-backed blocking syscalls — in progress
 
 Goal: extend the second-family proof from zero fds to one modeled fd/resource.
-Start with resources whose semantics are easiest to prove, such as a pipe,
-eventfd, timerfd, regular file, or inherited stdio.
+The first resource is deliberately narrow: a captured `struct pollfd` with one
+`POLLIN` read end whose captured resource is a pipe. The target recipe creates a
+fresh empty pipe read end at the same fd and keeps its write end open, so `ppoll`
+remains timeout-driven instead of readiness-driven.
 
 Done when:
 
 - captured fd identity maps to a target resource recipe;
 - readiness and partial-transfer state are modeled or refused;
-- target-native execution observes the expected fd behavior after restore.
+- target-native execution observes the expected fd behavior after restore;
+- non-one-fd, non-pipe, non-`POLLIN`, non-empty-`revents`, and signal-mask cases
+  keep refusing as `target-ppoll-timeout-missing`.
 
 ### 7. Real utility beyond `/bin/sleep`
 

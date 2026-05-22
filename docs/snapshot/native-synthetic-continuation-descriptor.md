@@ -27,18 +27,24 @@ The existing synthetic sleep continuation now exposes this shared descriptor as
 embedded modeled timespec. The sleep-specific provenance extends the descriptor
 instead of inventing a separate byte/syscall/register/stack schema.
 
-## Zero-fd ppoll integration
+## ppoll timeout integration
 
-The second supported family is a narrow `ppoll` timeout continuation for
-`ppoll(NULL, 0, &timeout, NULL)`. It uses the same descriptor evidence as sleep:
-generated amd64 bytes, register arguments, embedded timeout data, completion
-mode, failure exit buckets, byte hash, and descriptor hash. The continuation is
-only selected when the active syscall model proves there are no fds and no signal
-mask to restore.
+The second supported family is a narrow `ppoll` timeout continuation. The first
+shape is `ppoll(NULL, 0, &timeout, NULL)`. The one-fd shape adds exactly one
+embedded `struct pollfd` entry for a captured `POLLIN` pipe read end with empty
+`revents`; the target recipe creates a fresh empty pipe read end at the same fd
+and keeps its writer open so the syscall remains timeout-driven.
 
-Refusals stay precise and fail closed: non-zero `nfds`, non-null fd arrays,
-non-null signal masks, missing timeout pointers, unreadable timeout memory, and
-unsupported syscall return buckets do not claim migration success.
+Both shapes use the same descriptor evidence as sleep: generated amd64 bytes,
+register arguments, embedded timeout data, completion mode, failure exit buckets,
+byte hash, and descriptor hash. The one-fd shape additionally records an
+`embeddedPollFds` provenance block and uses a stack-local `rdi` setup for the
+kernel-writable pollfd array.
+
+Refusals stay precise and fail closed: unsupported `nfds`, non-pipe resources,
+unsupported poll events, non-empty `revents`, non-null signal masks, missing
+timeout pointers, unreadable captured memory, and unsupported syscall return
+buckets do not claim migration success.
 
 ## Boundary
 

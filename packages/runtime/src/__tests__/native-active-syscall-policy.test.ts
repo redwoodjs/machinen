@@ -64,12 +64,18 @@ function documentsWithTimespec(options: {
   activeThread: NativeThreadState;
   seconds?: bigint;
   nanoseconds?: bigint;
+  pollFd?: { fd: number; events: number; revents: number };
 }): NativeProcessImageDocuments {
   const rootDir = mkdtempSync(join(tmpdir(), "machinen-sleep-timer-state-"));
   tempDirs.push(rootDir);
   const memory = Buffer.alloc(4096);
   memory.writeBigUInt64LE(options.seconds ?? 30n, 0);
   memory.writeBigUInt64LE(options.nanoseconds ?? 123n, 8);
+  if (options.pollFd) {
+    memory.writeInt32LE(options.pollFd.fd, 0x100);
+    memory.writeInt16LE(options.pollFd.events, 0x104);
+    memory.writeInt16LE(options.pollFd.revents, 0x106);
+  }
   writeFileSync(join(rootDir, NATIVE_PROCESS_IMAGE_FILES.memory), memory);
   return {
     rootDir,
@@ -98,7 +104,21 @@ function documentsWithTimespec(options: {
       refusals: emptyRefusals(),
     },
     threads: { formatVersion: 1, threads: [options.activeThread], refusals: emptyRefusals() },
-    resources: { formatVersion: 1, resources: [], refusals: emptyRefusals() },
+    resources: {
+      formatVersion: 1,
+      resources: options.pollFd
+        ? [
+            {
+              id: `fd:${options.pollFd.fd}`,
+              kind: "pipe",
+              state: "refused",
+              fd: options.pollFd.fd,
+              path: "pipe:[123]",
+            },
+          ]
+        : [],
+      refusals: emptyRefusals(),
+    },
     translation: {
       formatVersion: 1,
       mode: "native-cross-isa",
@@ -276,6 +296,49 @@ describe("native active syscall classification", () => {
     expect(result.classifications[0]).toMatchObject({
       class: "poll-timeout",
       resumable: false,
+    });
+  });
+
+  it("models one synthetic empty-pipe ppoll fd from captured pollfd memory", () => {
+    const activeThread = arm64PpollThread(undefined, [
+      "0x3100",
+      "0x1",
+      "0x3000",
+      "0x0",
+      "0x0",
+      "0x0",
+    ]);
+    const documents = documentsWithTimespec({
+      activeThread,
+      seconds: 1n,
+      nanoseconds: 250n,
+      pollFd: { fd: 3, events: 1, revents: 0 },
+    });
+    const result = classifyNativeActiveSyscalls([activeThread], {
+      pollTimeoutPolicy: "defer-target-resume",
+      pollTimeoutFdPolicy: "synthetic-empty-pipe",
+      documents,
+    });
+
+    expect(result.refusals).toEqual([]);
+    expect(result.continuations[0]).toMatchObject({
+      syscallClass: "poll-timeout",
+      metadata: {
+        ppollTimeout: {
+          fdsPointer: "0x3100",
+          nfds: 1,
+          pollFds: [
+            {
+              fd: 3,
+              events: 1,
+              revents: 0,
+              sourceAddress: "0x3100",
+              resourceId: "fd:3",
+              targetResource: "synthetic-empty-pipe-read-end",
+            },
+          ],
+        },
+      },
     });
   });
 

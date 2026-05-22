@@ -39,13 +39,17 @@ struct Options {
   uint64_t stack_size;
   uint64_t stack_pointer;
   uint64_t timeout_seconds;
+  int synthetic_empty_pipe_read_fd;
+  int synthetic_empty_pipe_write_fd;
 };
 
 static void usage(void) {
   fprintf(stderr,
       "usage: machinen-native-actual-resume-trampoline --code-file path "
       "--file-offset n --code-size n --target-address addr "
-      "--timeout-seconds n --stack-target-start addr --stack-size n --stack-pointer addr\n");
+      "--timeout-seconds n [--synthetic-empty-pipe-read-fd n] "
+      "[--synthetic-empty-pipe-write-fd n] "
+      "--stack-target-start addr --stack-size n --stack-pointer addr\n");
   exit(2);
 }
 
@@ -67,6 +71,8 @@ static bool streq(const char *left, const char *right) {
 static struct Options parse_args(int argc, char **argv) {
   struct Options opts = {0};
   opts.timeout_seconds = 1;
+  opts.synthetic_empty_pipe_read_fd = -1;
+  opts.synthetic_empty_pipe_write_fd = -1;
   for (int i = 1; i < argc; i++) {
     if (streq(argv[i], "--code-file")) {
       if (++i >= argc) {
@@ -93,6 +99,26 @@ static struct Options parse_args(int argc, char **argv) {
         usage();
       }
       opts.timeout_seconds = parse_u64(argv[i], "timeout-seconds");
+    } else if (streq(argv[i], "--synthetic-empty-pipe-read-fd")) {
+      if (++i >= argc) {
+        usage();
+      }
+      uint64_t fd = parse_u64(argv[i], "synthetic-empty-pipe-read-fd");
+      if (fd > 1024u) {
+        fprintf(stderr, "native-actual-resume-trampoline: synthetic fd is too large\n");
+        exit(2);
+      }
+      opts.synthetic_empty_pipe_read_fd = (int)fd;
+    } else if (streq(argv[i], "--synthetic-empty-pipe-write-fd")) {
+      if (++i >= argc) {
+        usage();
+      }
+      uint64_t fd = parse_u64(argv[i], "synthetic-empty-pipe-write-fd");
+      if (fd > 1024u) {
+        fprintf(stderr, "native-actual-resume-trampoline: synthetic fd is too large\n");
+        exit(2);
+      }
+      opts.synthetic_empty_pipe_write_fd = (int)fd;
     } else if (streq(argv[i], "--stack-target-start")) {
       if (++i >= argc) {
         usage();
@@ -334,6 +360,37 @@ static void validate_stack_options(const struct Options *opts) {
   }
 }
 
+static void install_synthetic_empty_pipe(int read_fd, int write_fd) {
+  if (read_fd < 0) {
+    return;
+  }
+  if (write_fd == read_fd) {
+    fprintf(stderr, "native-actual-resume-trampoline: synthetic pipe fds must differ\n");
+    exit(2);
+  }
+  int pipe_fds[2];
+  if (pipe(pipe_fds) != 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: synthetic pipe failed: %s\n", strerror(errno));
+    exit(1);
+  }
+  if (pipe_fds[0] != read_fd) {
+    if (dup2(pipe_fds[0], read_fd) < 0) {
+      fprintf(stderr, "native-actual-resume-trampoline: synthetic pipe read dup2 failed: %s\n", strerror(errno));
+      exit(1);
+    }
+    close(pipe_fds[0]);
+  }
+  if (write_fd >= 0 && pipe_fds[1] != write_fd) {
+    if (dup2(pipe_fds[1], write_fd) < 0) {
+      fprintf(stderr, "native-actual-resume-trampoline: synthetic pipe write dup2 failed: %s\n", strerror(errno));
+      exit(1);
+    }
+    close(pipe_fds[1]);
+  }
+  // Keep a write end open so the read end is not EOF/readable. This makes the
+  // modeled one-fd ppoll proof timeout-driven instead of readiness-driven.
+}
+
 static void jump_to_target(uint64_t entry, uint64_t initial_rsp) {
   __asm__ __volatile__(
       "movq %%rsp, host_rsp_before_jump(%%rip)\n"
@@ -477,6 +534,8 @@ int main(int argc, char **argv) {
       opts.stack_target_start, opts.stack_size, PROT_READ | PROT_WRITE, "target-stack");
 
   install_signal_handlers();
+  install_synthetic_empty_pipe(
+      opts.synthetic_empty_pipe_read_fd, opts.synthetic_empty_pipe_write_fd);
   alarm((unsigned int)opts.timeout_seconds);
   if (sigsetjmp(resume_fault_jmp, 1) == 0) {
     jump_to_target(opts.target_address, opts.stack_pointer - 8u);

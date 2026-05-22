@@ -57,6 +57,10 @@ export const NATIVE_PPOLL_TIMEOUT_TARGET_SOURCE = join(
   REPO_ROOT,
   "packages/microvm/assets/native-ppoll-timeout-target.c",
 );
+export const NATIVE_PPOLL_PIPE_TIMEOUT_TARGET_SOURCE = join(
+  REPO_ROOT,
+  "packages/microvm/assets/native-ppoll-pipe-timeout-target.c",
+);
 export const NATIVE_FINAL_JUMP_SOURCE_TARGET_SOURCE = join(
   REPO_ROOT,
   "packages/microvm/assets/native-final-jump-source.c",
@@ -473,6 +477,26 @@ export function compileNativePpollTimeoutTarget(binDir) {
       executable,
     ],
     { label: "native ppoll timeout target build" },
+  );
+  return executable;
+}
+
+export function compileNativePpollPipeTimeoutTarget(binDir) {
+  const executable = join(binDir, "machinen-native-ppoll-pipe-timeout-target");
+  runCommand(
+    "cc",
+    [
+      "-std=c11",
+      "-O0",
+      "-g",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      NATIVE_PPOLL_PIPE_TIMEOUT_TARGET_SOURCE,
+      "-o",
+      executable,
+    ],
+    { label: "native ppoll pipe timeout target build" },
   );
   return executable;
 }
