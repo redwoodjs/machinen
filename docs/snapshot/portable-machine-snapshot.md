@@ -60,8 +60,10 @@ A local wrapper can create this bundle from an existing native process image:
 pnpm portable-machine-snapshot -- --native-process-bundle /path/to/native-process --out-dir /tmp/portable-machine --json
 ```
 
-This is still a bundle/contract proof. The target VM loader and full e2e restore
-are follow-up issues.
+This is still a bundle/contract proof. The target VM synthetic continuation step
+is documented in
+[Target VM synthetic continuation proof](./native-target-vm-synthetic-continuation.md);
+the full bundle-driven target loader and e2e restore are follow-up issues.
 
 ## Raw vmstate refusal
 
