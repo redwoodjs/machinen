@@ -85,7 +85,7 @@ it just resumed on a different host. Same heap, same TCP listener, same
 counter. The Node runtime never noticed the move.
 
 A constraint to know about: the guest architecture has to match. arm64 to
-arm64 works, and amd64 to amd64 works on x86_64 Linux/KVM. arm64 to x86 does
+arm64 works, and amd64 to amd64 works on amd64 Linux/KVM. arm64 to amd64 does
 not — vmstate restores actual machine-code register state, and that doesn't
 translate.
 

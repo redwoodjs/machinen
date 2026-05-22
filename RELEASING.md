@@ -37,7 +37,7 @@ Multiple changesets accumulate into a single Version PR.
 Merge the Version PR. The release workflow runs again and:
 
 1. Natively builds the Zig VMM on `macos-15` (arm64),
-   `ubuntu-24.04-arm`, and `ubuntu-latest` (x86_64 Linux). Ad-hoc
+   `ubuntu-24.04-arm`, and `ubuntu-latest` (amd64 Linux). Ad-hoc
    codesigns the darwin binary with the hypervisor entitlement.
 2. Builds the arm64 and amd64 base assets: `Image-arm64`,
    `virt-arm64.dtb`, `rootfs-debian-arm64.tar.gz`, `bzImage-x86_64`,

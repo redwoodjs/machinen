@@ -9,7 +9,7 @@ on a server, resume it next week. The program picks up exactly where it left
 off — like waking a laptop from sleep, except on a different computer.
 
 A native microVM runtime under the hood: arm64 on Apple Silicon/Linux and
-x86_64 on Linux/KVM. Node.js is the first-class target; Python, bash, and
+amd64 on Linux/KVM. Node.js is the first-class target; Python, bash, and
 anything else that boots in a Linux VM works too.
 
 > **Note:** the source code isn't published yet — it'll be available here soon.
@@ -27,7 +27,7 @@ too.
 The right native package is pulled automatically via optional dependencies:
 `@machinen/native-arm64-darwin` on Apple Silicon Macs,
 `@machinen/native-arm64-linux` on arm64 Linux, and
-`@machinen/native-x64-linux` on x86_64 Linux. No system dependencies.
+`@machinen/native-x64-linux` on amd64 Linux. No system dependencies.
 
 First run fetches the matching kernel + rootfs from a GitHub release on the
 companion repo over plain HTTPS — no auth required.

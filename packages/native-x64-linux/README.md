@@ -1,7 +1,7 @@
 # @machinen/native-x64-linux
 
-All of machinen's host-side native binaries for x64 linux, in one
-package:
+All of machinen's host-side native binaries for amd64 Linux, in one
+package. The npm package name uses Node's `x64` CPU label:
 
 | subdir       | contents                                           |
 | ------------ | -------------------------------------------------- |

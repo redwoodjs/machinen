@@ -5,7 +5,7 @@ Zig source for the native microVM that powers
 
 - **darwin arm64** (Apple Silicon) — uses HVF (`Hypervisor.framework`)
 - **linux arm64** — uses KVM
-- **linux x86_64** — uses KVM
+- **linux amd64** — uses KVM
 
 The pre-built binaries ship inside the consolidated native packages:
 [`@machinen/native-arm64-darwin`](../native-arm64-darwin),
@@ -58,7 +58,7 @@ practice you drive it through `@machinen/runtime`:
 import { boot } from "@machinen/runtime";
 const vm = await boot({
   binary: "./zig-out/bin/microvm",
-  image: "./rootfs-debian-arm64.tar.gz", // or rootfs-debian-amd64.tar.gz on x64 Linux
+  image: "./rootfs-debian-arm64.tar.gz", // or rootfs-debian-amd64.tar.gz on amd64 Linux
   cmd: ["/bin/sh"],
 });
 ```
