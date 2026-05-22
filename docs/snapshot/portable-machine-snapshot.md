@@ -66,8 +66,9 @@ is documented in
 and its in-guest descriptor loader is documented in
 [Target guest restore loader](./target-guest-restore-loader.md). The first memory
 mapping pass is documented in
-[Target guest memory materialization](./target-guest-memory-materialization.md);
-full e2e restore remains a follow-up issue.
+[Target guest memory materialization](./target-guest-memory-materialization.md).
+The product-shaped VM proof profile is documented in
+[Portable machine VM restore proof](./portable-machine-vm-restore-proof.md).
 
 ## Raw vmstate refusal
 

@@ -410,6 +410,10 @@ export {
   validateTargetGuestRestoreDescriptor,
 } from "./target-guest-restore-loader.ts";
 export { planTargetGuestMemoryMaterialization } from "./target-guest-memory-materialization.ts";
+export {
+  completePortableMachineVmRestoreProof,
+  planPortableMachineVmRestoreProof,
+} from "./portable-machine-restore-proof.ts";
 export type {
   PortableMachineSnapshotArchitecture,
   PortableMachineSnapshotDocuments,
@@ -432,6 +436,12 @@ export type {
   TargetGuestMemoryMaterializationResult,
   TargetGuestRecreateGuardEntry,
 } from "./target-guest-memory-materialization.ts";
+export type {
+  PortableMachineVmRestoreProofPlan,
+  PortableMachineVmRestoreProofRequest,
+  PortableMachineVmRestoreProofState,
+  PortableMachineVmRestoreTargetResult,
+} from "./portable-machine-restore-proof.ts";
 export type {
   NativeAmd64Registers,
   NativeArm64Registers,

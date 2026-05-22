@@ -106,11 +106,17 @@
 - [`TargetGuestRecreateGuardEntry`](#targetguestrecreateguardentry)
 - [`TargetGuestMemoryMaterializationRequest`](#targetguestmemorymaterializationrequest)
 - [`TargetGuestMemoryMaterializationResult`](#targetguestmemorymaterializationresult)
+- [`PortableMachineVmRestoreProofState`](#portablemachinevmrestoreproofstate)
+- [`PortableMachineVmRestoreProofRequest`](#portablemachinevmrestoreproofrequest)
+- [`PortableMachineVmRestoreProofPlan`](#portablemachinevmrestoreproofplan)
+- [`PortableMachineVmRestoreTargetResult`](#portablemachinevmrestoretargetresult)
 - [`TARGET_GUEST_RESTORE_DESCRIPTOR_KIND`](#target_guest_restore_descriptor_kind)
 - [`serializeTargetGuestRestoreDescriptor`](#serializetargetguestrestoredescriptor)
 - [`parseTargetGuestRestoreDescriptor`](#parsetargetguestrestoredescriptor)
 - [`validateTargetGuestRestoreDescriptor`](#validatetargetguestrestoredescriptor)
 - [`planTargetGuestMemoryMaterialization`](#plantargetguestmemorymaterialization)
+- [`planPortableMachineVmRestoreProof`](#planportablemachinevmrestoreproof)
+- [`completePortableMachineVmRestoreProof`](#completeportablemachinevmrestoreproof)
 - [`buildNativeActualResumeTrampolineArgs`](#buildnativeactualresumetrampolineargs)
 - [`buildTargetGuestRestoreLoaderArgv`](#buildtargetguestrestoreloaderargv)
 - [`NativeRegisterTranslationRequest`](#nativeregistertranslationrequest)
@@ -7762,6 +7768,124 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ***
 
+### PortableMachineVmRestoreProofRequest
+
+#### Properties
+
+##### bundleDir?
+
+> `optional` **bundleDir?**: `string`
+
+##### targetCodeFile?
+
+> `optional` **targetCodeFile?**: `string`
+
+##### targetImage?
+
+> `optional` **targetImage?**: `string`
+
+***
+
+### PortableMachineVmRestoreProofPlan
+
+#### Properties
+
+##### phase
+
+> **phase**: `"portable-machine-vm-restore-proof"`
+
+##### state
+
+> **state**: [`PortableMachineVmRestoreProofState`](#portablemachinevmrestoreproofstate)
+
+##### portableMachineBundle?
+
+> `optional` **portableMachineBundle?**: `string`
+
+##### targetCodeFile?
+
+> `optional` **targetCodeFile?**: `string`
+
+##### targetImage?
+
+> `optional` **targetImage?**: `string`
+
+##### sourceGuestArch?
+
+> `optional` **sourceGuestArch?**: `"arm64"`
+
+##### targetGuestArch?
+
+> `optional` **targetGuestArch?**: `"amd64"`
+
+##### targetVmRequired
+
+> **targetVmRequired**: `true`
+
+##### targetNativeCompletionRequired
+
+> **targetNativeCompletionRequired**: `true`
+
+##### migrationCompleted
+
+> **migrationCompleted**: `boolean`
+
+##### sourceTextReusedAsTargetCode
+
+> **sourceTextReusedAsTargetCode**: `false`
+
+##### sourceIsaEmulationUsed
+
+> **sourceIsaEmulationUsed**: `false`
+
+##### sidecarRuntimeUsed
+
+> **sidecarRuntimeUsed**: `false`
+
+##### refusal?
+
+> `optional` **refusal?**: `object`
+
+###### code
+
+> **code**: `string`
+
+###### message
+
+> **message**: `string`
+
+##### skipReason?
+
+> `optional` **skipReason?**: `string`
+
+***
+
+### PortableMachineVmRestoreTargetResult
+
+#### Properties
+
+##### exitCode
+
+> **exitCode**: `number`
+
+##### migrationCompleted?
+
+> `optional` **migrationCompleted?**: `boolean`
+
+##### sourceTextReusedAsTargetCode?
+
+> `optional` **sourceTextReusedAsTargetCode?**: `boolean`
+
+##### sourceIsaEmulationUsed?
+
+> `optional` **sourceIsaEmulationUsed?**: `boolean`
+
+##### sidecarRuntimeUsed?
+
+> `optional` **sidecarRuntimeUsed?**: `boolean`
+
+***
+
 ### PortableMachineSnapshotRefusal
 
 #### Properties
@@ -11202,6 +11326,12 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ***
 
+### PortableMachineVmRestoreProofState
+
+> **PortableMachineVmRestoreProofState** = `"ready"` \| `"skipped"` \| `"refused"` \| `"completed"`
+
+***
+
 ### PortableMachineSnapshotArchitecture
 
 > **PortableMachineSnapshotArchitecture** = *typeof* [`portableMachineSnapshotArchitectures`](#portablemachinesnapshotarchitectures)\[`number`\]
@@ -13990,6 +14120,42 @@ behaviour we had before.
 #### Returns
 
 [`PidStatus`](#pidstatus)
+
+***
+
+### planPortableMachineVmRestoreProof()
+
+> **planPortableMachineVmRestoreProof**(`request`): [`PortableMachineVmRestoreProofPlan`](#portablemachinevmrestoreproofplan)
+
+#### Parameters
+
+##### request
+
+[`PortableMachineVmRestoreProofRequest`](#portablemachinevmrestoreproofrequest)
+
+#### Returns
+
+[`PortableMachineVmRestoreProofPlan`](#portablemachinevmrestoreproofplan)
+
+***
+
+### completePortableMachineVmRestoreProof()
+
+> **completePortableMachineVmRestoreProof**(`plan`, `result`): [`PortableMachineVmRestoreProofPlan`](#portablemachinevmrestoreproofplan)
+
+#### Parameters
+
+##### plan
+
+[`PortableMachineVmRestoreProofPlan`](#portablemachinevmrestoreproofplan)
+
+##### result
+
+[`PortableMachineVmRestoreTargetResult`](#portablemachinevmrestoretargetresult)
+
+#### Returns
+
+[`PortableMachineVmRestoreProofPlan`](#portablemachinevmrestoreproofplan)
 
 ***
 

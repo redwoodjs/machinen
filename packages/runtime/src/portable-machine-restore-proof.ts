@@ -1,0 +1,134 @@
+import { existsSync } from "node:fs";
+import { relative, resolve } from "node:path";
+import { validatePortableMachineSnapshotBundle } from "./portable-machine-snapshot.ts";
+
+export type PortableMachineVmRestoreProofState = "ready" | "skipped" | "refused" | "completed";
+
+export interface PortableMachineVmRestoreProofRequest {
+  bundleDir?: string;
+  targetCodeFile?: string;
+  targetImage?: string;
+}
+
+export interface PortableMachineVmRestoreProofPlan {
+  phase: "portable-machine-vm-restore-proof";
+  state: PortableMachineVmRestoreProofState;
+  portableMachineBundle?: string;
+  targetCodeFile?: string;
+  targetImage?: string;
+  sourceGuestArch?: "arm64";
+  targetGuestArch?: "amd64";
+  targetVmRequired: true;
+  targetNativeCompletionRequired: true;
+  migrationCompleted: boolean;
+  sourceTextReusedAsTargetCode: false;
+  sourceIsaEmulationUsed: false;
+  sidecarRuntimeUsed: false;
+  refusal?: { code: string; message: string };
+  skipReason?: string;
+}
+
+export interface PortableMachineVmRestoreTargetResult {
+  exitCode: number;
+  migrationCompleted?: boolean;
+  sourceTextReusedAsTargetCode?: boolean;
+  sourceIsaEmulationUsed?: boolean;
+  sidecarRuntimeUsed?: boolean;
+}
+
+export function planPortableMachineVmRestoreProof(
+  request: PortableMachineVmRestoreProofRequest,
+): PortableMachineVmRestoreProofPlan {
+  const missing = missingInputs(request);
+  if (missing) {
+    return skipped(missing);
+  }
+  const bundleDir = resolve(request.bundleDir!);
+  const targetCodeFile = resolve(request.targetCodeFile!);
+  if (!existsSync(bundleDir)) {
+    return skipped("portable machine bundle is missing");
+  }
+  if (!existsSync(targetCodeFile)) {
+    return skipped("target continuation bytes are missing");
+  }
+  if (!inside(bundleDir, targetCodeFile)) {
+    return refused(
+      "target-code-outside-portable-bundle",
+      "target continuation must live inside the portable bundle",
+    );
+  }
+  const bundle = validatePortableMachineSnapshotBundle(bundleDir);
+  const sourceGuestArch = bundle.manifest.source.guestArch;
+  const targetGuestArch = bundle.manifest.target.guestArch;
+  if (sourceGuestArch !== "arm64" || targetGuestArch !== "amd64") {
+    return refused(
+      "proof-arch-pair-unsupported",
+      "VM restore proof currently requires arm64->amd64",
+    );
+  }
+  return {
+    ...base(),
+    state: "ready",
+    portableMachineBundle: bundleDir,
+    targetCodeFile,
+    targetImage: request.targetImage ? resolve(request.targetImage) : undefined,
+    migrationCompleted: false,
+    sourceGuestArch,
+    targetGuestArch,
+  };
+}
+
+export function completePortableMachineVmRestoreProof(
+  plan: PortableMachineVmRestoreProofPlan,
+  result: PortableMachineVmRestoreTargetResult,
+): PortableMachineVmRestoreProofPlan {
+  const completed = targetNativeCompleted(result);
+  return { ...plan, state: completed ? "completed" : plan.state, migrationCompleted: completed };
+}
+
+function targetNativeCompleted(result: PortableMachineVmRestoreTargetResult): boolean {
+  return [
+    result.exitCode === 0,
+    result.migrationCompleted === true,
+    result.sourceTextReusedAsTargetCode === false,
+    result.sourceIsaEmulationUsed === false,
+    result.sidecarRuntimeUsed === false,
+  ].every(Boolean);
+}
+
+function missingInputs(request: PortableMachineVmRestoreProofRequest): string | undefined {
+  if (!request.bundleDir) {
+    return "--bundle-dir is required";
+  }
+  if (!request.targetCodeFile) {
+    return "--target-code-file is required";
+  }
+  return undefined;
+}
+
+function inside(root: string, candidate: string): boolean {
+  const rel = relative(root, candidate);
+  return rel !== "" && !rel.startsWith("..") && !rel.startsWith("/");
+}
+
+function base(): Omit<
+  PortableMachineVmRestoreProofPlan,
+  "state" | "migrationCompleted" | "portableMachineBundle" | "targetCodeFile"
+> {
+  return {
+    phase: "portable-machine-vm-restore-proof",
+    targetVmRequired: true,
+    targetNativeCompletionRequired: true,
+    sourceTextReusedAsTargetCode: false,
+    sourceIsaEmulationUsed: false,
+    sidecarRuntimeUsed: false,
+  };
+}
+
+function skipped(reason: string): PortableMachineVmRestoreProofPlan {
+  return { ...base(), state: "skipped", migrationCompleted: false, skipReason: reason };
+}
+
+function refused(code: string, message: string): PortableMachineVmRestoreProofPlan {
+  return { ...base(), state: "refused", migrationCompleted: false, refusal: { code, message } };
+}
