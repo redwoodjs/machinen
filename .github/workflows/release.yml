@@ -181,6 +181,10 @@ jobs:
           node-version: 24
           cache: pnpm
           registry-url: https://registry.npmjs.org
+      - name: Setup Zig
+        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: 0.16.0
       - run: pnpm install --frozen-lockfile
 
       # Stage VMM binaries into the consolidated native-arm64-* packages
@@ -259,9 +263,9 @@ jobs:
         run: bash scripts/verify-bin-packages.sh
 
       # cli typechecks against @machinen/runtime's dist types, so the
-      # TS packages need a build before typecheck. Zig isn't available
-      # on this runner, so filter out @machinen/microvm (its binary is
-      # downloaded as an artifact above).
+      # TS packages need a build before typecheck. Only build the TS
+      # packages here; the release VMM binary is downloaded as an
+      # artifact above.
       - name: Build TS packages
         run: pnpm -F @machinen/runtime -F @machinen/cli build
 
