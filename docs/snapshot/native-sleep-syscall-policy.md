@@ -56,11 +56,13 @@ is only reported after target process exit.
 ## EINTR / restart gate
 
 Issue #551 keeps interrupted sleep semantics fail-closed. If the synthetic sleep
-syscall does not return success, the generated code exits with the reserved
-status `111`. Descriptor-aware proofs classify that as
-`target-synthetic-signal-restart-unsupported`; legacy descriptor-less attempts
-still use `target-sleep-signal-restart-unsupported`. Both paths keep
-`migrationCompleted: false`. This covers EINTR/restart-like outcomes until
+syscall does not return success, the generated exit-process continuation now
+uses failure buckets: status `111` for `-EINTR`/restart-like returns and status
+`112` for other negative errno returns. Descriptor-aware proofs classify those
+as `target-synthetic-signal-restart-unsupported` or
+`target-synthetic-syscall-return-unmodeled`; legacy descriptor-less status `111`
+attempts still use `target-sleep-signal-restart-unsupported`. All failure paths
+keep `migrationCompleted: false`. This covers EINTR/restart-like outcomes until
 signal delivery, remaining time, and restart contracts are modeled explicitly.
 
 ## Provenance

@@ -140,6 +140,7 @@ export {
   buildNativeSyntheticSyscallContinuationDescriptor,
   nativeSyntheticContinuationBytesHex,
   nativeSyntheticContinuationBytesSha256,
+  nativeSyntheticContinuationDescriptorSha256,
 } from "./native-synthetic-continuation.ts";
 export {
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_BASE,
@@ -147,6 +148,8 @@ export {
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_LOGICAL_NAME,
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_PATH,
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS,
+  NATIVE_SYNTHETIC_SLEEP_SYSCALL_RESTART_EXIT_STATUS,
+  NATIVE_SYNTHETIC_SLEEP_SYSCALL_UNMODELED_RETURN_EXIT_STATUS,
   buildNativeSyntheticSleepSyscallContinuation,
 } from "./native-synthetic-sleep-continuation.ts";
 export type {
@@ -199,6 +202,8 @@ export type {
   NativeSyntheticContinuationByteEncoding,
   NativeSyntheticContinuationByteSource,
   NativeSyntheticContinuationCompletionDescriptor,
+  NativeSyntheticContinuationFailureExitBucket,
+  NativeSyntheticContinuationFailureExitBucketCondition,
   NativeSyntheticContinuationFailureKind,
   NativeSyntheticContinuationProvenanceSource,
   NativeSyntheticContinuationRegister,
@@ -209,6 +214,7 @@ export type {
   NativeSyntheticContinuationTargetArch,
   NativeSyntheticSyscallArgumentDescriptor,
   NativeSyntheticSyscallContinuationDescriptor,
+  NativeSyntheticSyscallContinuationDescriptorPayload,
   NativeSyntheticSyscallContinuationDescriptorRequest,
   NativeSyntheticSyscallDescriptor,
 } from "./native-synthetic-continuation.ts";

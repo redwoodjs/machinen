@@ -113,26 +113,59 @@ describe("synthetic sleep syscall continuation", () => {
     expect(result.continuation).toMatchObject({
       completionMode: "exit-process",
       exitStatusOnSuccess: 0,
-      sizeBytes: 64,
+      sizeBytes: 120,
     });
     expect(Buffer.from(result.continuation!.bytes.subarray(0, 24)).toString("hex")).toBe(
-      "b8e600000031ff31f6488d15200000004531d20f054885c0",
+      "b8e600000031ff31f6488d15580000004531d20f054885c0",
     );
-    expect(Buffer.from(result.continuation!.bytes.subarray(24, 47)).toString("hex")).toBe(
-      "7509b83c00000031ff0f05b83c000000bf6f0000000f05",
+    expect(Buffer.from(result.continuation!.bytes.subarray(24, 99)).toString("hex")).toBe(
+      "74284883f8fc742b483d00feffff7423483dfffdffff741b483dfefdffff7413483dfcfdffff740beb15b83c00000031ff0f05b83c000000bf6f0000000f05b83c000000bf700000000f05",
     );
-    expect(new DataView(result.continuation!.bytes.buffer).getBigUint64(48, true)).toBe(0n);
+    expect(Buffer.from(result.continuation!.bytes.subarray(99, 104)).toString("hex")).toBe(
+      "9090909090",
+    );
+    expect(new DataView(result.continuation!.bytes.buffer).getBigUint64(104, true)).toBe(0n);
     expect(result.continuation!.descriptor.completion).toMatchObject({
       mode: "exit-process",
       successExitStatus: 0,
       failureExitStatus: 111,
       failureKind: "signal-restart-unsupported",
+      failureExitBuckets: [
+        {
+          exitStatus: 111,
+          failureKind: "signal-restart-unsupported",
+          syscallReturn: {
+            condition: "restart-like-negative-errno",
+            errnos: expect.arrayContaining([{ errno: 4, errnoName: "EINTR" }]),
+          },
+        },
+        {
+          exitStatus: 112,
+          failureKind: "syscall-return-unmodeled",
+          syscallReturn: { condition: "other-negative-errno" },
+        },
+      ],
     });
     expect(result.continuation!.provenance.completion).toMatchObject({
       mode: "exit-process",
       successExitStatus: 0,
       failureExitStatus: 111,
       failureKind: "signal-restart-unsupported",
+      failureExitBuckets: [
+        {
+          exitStatus: 111,
+          failureKind: "signal-restart-unsupported",
+          syscallReturn: {
+            condition: "restart-like-negative-errno",
+            errnos: expect.arrayContaining([{ errno: 4, errnoName: "EINTR" }]),
+          },
+        },
+        {
+          exitStatus: 112,
+          failureKind: "syscall-return-unmodeled",
+          syscallReturn: { condition: "other-negative-errno" },
+        },
+      ],
     });
   });
 

@@ -136,18 +136,22 @@
 - [`NativeSyntheticContinuationSyscallAbi`](#nativesyntheticcontinuationsyscallabi)
 - [`NativeSyntheticContinuationRegisterSetupAbi`](#nativesyntheticcontinuationregistersetupabi)
 - [`NativeSyntheticContinuationFailureKind`](#nativesyntheticcontinuationfailurekind)
+- [`NativeSyntheticContinuationFailureExitBucketCondition`](#nativesyntheticcontinuationfailureexitbucketcondition)
 - [`NativeSyntheticContinuationRegister`](#nativesyntheticcontinuationregister)
 - [`NativeSyntheticContinuationProvenanceSource`](#nativesyntheticcontinuationprovenancesource)
 - [`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor)
 - [`NativeSyntheticSyscallDescriptor`](#nativesyntheticsyscalldescriptor)
 - [`NativeSyntheticContinuationRegisterSetupDescriptor`](#nativesyntheticcontinuationregistersetupdescriptor)
 - [`NativeSyntheticContinuationStackSetupDescriptor`](#nativesyntheticcontinuationstacksetupdescriptor)
+- [`NativeSyntheticContinuationFailureExitBucket`](#nativesyntheticcontinuationfailureexitbucket)
 - [`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor)
 - [`NativeSyntheticSyscallContinuationDescriptorRequest`](#nativesyntheticsyscallcontinuationdescriptorrequest)
+- [`NativeSyntheticSyscallContinuationDescriptorPayload`](#nativesyntheticsyscallcontinuationdescriptorpayload)
 - [`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor)
 - [`buildNativeSyntheticSyscallContinuationDescriptor`](#buildnativesyntheticsyscallcontinuationdescriptor)
 - [`nativeSyntheticContinuationBytesHex`](#nativesyntheticcontinuationbyteshex)
 - [`nativeSyntheticContinuationBytesSha256`](#nativesyntheticcontinuationbytessha256)
+- [`nativeSyntheticContinuationDescriptorSha256`](#nativesyntheticcontinuationdescriptorsha256)
 - [`NativeSyntheticSleepCompletionMode`](#nativesyntheticsleepcompletionmode)
 - [`NativeSyntheticSleepSyscallProvenanceSource`](#nativesyntheticsleepsyscallprovenancesource)
 - [`NativeSyntheticSleepSyscallArgumentProvenance`](#nativesyntheticsleepsyscallargumentprovenance)
@@ -163,6 +167,8 @@
 - [`NATIVE_SYNTHETIC_SLEEP_SYSCALL_PATH`](#native_synthetic_sleep_syscall_path)
 - [`NATIVE_SYNTHETIC_SLEEP_SYSCALL_BASE`](#native_synthetic_sleep_syscall_base)
 - [`NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS`](#native_synthetic_sleep_syscall_failure_exit_status)
+- [`NATIVE_SYNTHETIC_SLEEP_SYSCALL_RESTART_EXIT_STATUS`](#native_synthetic_sleep_syscall_restart_exit_status)
+- [`NATIVE_SYNTHETIC_SLEEP_SYSCALL_UNMODELED_RETURN_EXIT_STATUS`](#native_synthetic_sleep_syscall_unmodeled_return_exit_status)
 - [`buildNativeSyntheticSleepSyscallContinuation`](#buildnativesyntheticsleepsyscallcontinuation)
 - [`NativeTargetLandingModuleProvenance`](#nativetargetlandingmoduleprovenance)
 - [`NativeTargetLandingSectionProvenance`](#nativetargetlandingsectionprovenance)
@@ -4855,6 +4861,64 @@ by default when `output` is a TTY.
 
 ***
 
+### NativeSyntheticContinuationFailureExitBucket
+
+#### Properties
+
+##### exitStatus
+
+> **exitStatus**: `number`
+
+##### failureKind
+
+> **failureKind**: [`NativeSyntheticContinuationFailureKind`](#nativesyntheticcontinuationfailurekind)
+
+##### failureReason
+
+> **failureReason**: `string`
+
+##### syscallReturn
+
+> **syscallReturn**: `object`
+
+###### register
+
+> **register**: `"rax"`
+
+###### condition
+
+> **condition**: [`NativeSyntheticContinuationFailureExitBucketCondition`](#nativesyntheticcontinuationfailureexitbucketcondition)
+
+###### errno?
+
+> `optional` **errno?**: `number`
+
+###### errnoName?
+
+> `optional` **errnoName?**: `string`
+
+###### errnos?
+
+> `optional` **errnos?**: `object`[]
+
+###### errnoRange?
+
+> `optional` **errnoRange?**: `object`
+
+###### errnoRange.min
+
+> **min**: `number`
+
+###### errnoRange.max
+
+> **max**: `number`
+
+###### excludedErrnos?
+
+> `optional` **excludedErrnos?**: `object`[]
+
+***
+
 ### NativeSyntheticContinuationCompletionDescriptor
 
 #### Extended by
@@ -4875,13 +4939,23 @@ by default when `output` is a TTY.
 
 > `optional` **failureExitStatus?**: `number`
 
+Legacy single-bucket failure status. Prefer failureExitBuckets for new continuations.
+
 ##### failureKind?
 
 > `optional` **failureKind?**: [`NativeSyntheticContinuationFailureKind`](#nativesyntheticcontinuationfailurekind)
 
+Legacy single-bucket failure kind. Prefer failureExitBuckets for new continuations.
+
 ##### failureReason?
 
 > `optional` **failureReason?**: `string`
+
+Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuations.
+
+##### failureExitBuckets?
+
+> `optional` **failureExitBuckets?**: [`NativeSyntheticContinuationFailureExitBucket`](#nativesyntheticcontinuationfailureexitbucket)[]
 
 ***
 
@@ -4974,6 +5048,10 @@ by default when `output` is a TTY.
 ##### byteSha256
 
 > **byteSha256**: `string`
+
+##### descriptorSha256
+
+> **descriptorSha256**: `string`
 
 ##### generatedTargetBytes
 
@@ -5151,17 +5229,21 @@ by default when `output` is a TTY.
 
 > `optional` **failureKind?**: [`NativeSyntheticContinuationFailureKind`](#nativesyntheticcontinuationfailurekind)
 
+Legacy single-bucket failure kind. Prefer failureExitBuckets for new continuations.
+
 ###### Inherited from
 
-[`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor).[`failureKind`](#failurekind)
+[`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor).[`failureKind`](#failurekind-1)
 
 ##### failureReason?
 
 > `optional` **failureReason?**: `string`
 
+Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuations.
+
 ###### Inherited from
 
-[`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor).[`failureReason`](#failurereason)
+[`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor).[`failureReason`](#failurereason-1)
 
 ##### mode
 
@@ -5183,9 +5265,19 @@ by default when `output` is a TTY.
 
 > `optional` **failureExitStatus?**: `111`
 
+Legacy single-bucket failure status. Prefer failureExitBuckets for new continuations.
+
 ###### Overrides
 
 [`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor).[`failureExitStatus`](#failureexitstatus)
+
+##### failureExitBuckets?
+
+> `optional` **failureExitBuckets?**: [`NativeSyntheticContinuationFailureExitBucket`](#nativesyntheticcontinuationfailureexitbucket)[]
+
+###### Overrides
+
+[`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor).[`failureExitBuckets`](#failureexitbuckets)
 
 ***
 
@@ -5269,6 +5361,14 @@ by default when `output` is a TTY.
 
 [`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`byteSha256`](#bytesha256)
 
+##### descriptorSha256
+
+> **descriptorSha256**: `string`
+
+###### Inherited from
+
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`descriptorSha256`](#descriptorsha256)
+
 ##### generatedTargetBytes
 
 > **generatedTargetBytes**: `true`
@@ -5311,7 +5411,7 @@ by default when `output` is a TTY.
 
 ##### generatorBuildId
 
-> **generatorBuildId**: `"machinen-synthetic-sleep-syscall-v2"`
+> **generatorBuildId**: `"machinen-synthetic-sleep-syscall-v3"`
 
 ###### Overrides
 
@@ -9733,6 +9833,12 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativeSyntheticContinuationFailureExitBucketCondition
+
+> **NativeSyntheticContinuationFailureExitBucketCondition** = `"equals-negative-errno"` \| `"restart-like-negative-errno"` \| `"other-negative-errno"` \| `"nonzero-return"`
+
+***
+
 ### NativeSyntheticContinuationRegister
 
 > **NativeSyntheticContinuationRegister** = `"rax"` \| `"rdi"` \| `"rsi"` \| `"rdx"` \| `"r10"` \| `"r8"` \| `"r9"` \| `"rcx"` \| `"r11"`
@@ -9742,6 +9848,12 @@ Poll interval in ms while retrying. Default 250.
 ### NativeSyntheticContinuationProvenanceSource
 
 > **NativeSyntheticContinuationProvenanceSource** = `"generated-target-native-amd64-syscall-sequence"` \| `"linux-amd64-syscall-abi"` \| `"modeled-source-sleep-timer"` \| `"target-caller-frame"`
+
+***
+
+### NativeSyntheticSyscallContinuationDescriptorPayload
+
+> **NativeSyntheticSyscallContinuationDescriptorPayload** = `Omit`\<[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor), `"descriptorSha256"`\>
 
 ***
 
@@ -10869,7 +10981,7 @@ loops; anything looser stops being a meaningful gate.
 
 ### NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_BUILD\_ID
 
-> `const` **NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_BUILD\_ID**: `"machinen-synthetic-sleep-syscall-v2"` = `"machinen-synthetic-sleep-syscall-v2"`
+> `const` **NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_BUILD\_ID**: `"machinen-synthetic-sleep-syscall-v3"` = `"machinen-synthetic-sleep-syscall-v3"`
 
 ***
 
@@ -10891,9 +11003,21 @@ loops; anything looser stops being a meaningful gate.
 
 ***
 
+### NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_RESTART\_EXIT\_STATUS
+
+> `const` **NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_RESTART\_EXIT\_STATUS**: `111` = `111`
+
+***
+
+### NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_UNMODELED\_RETURN\_EXIT\_STATUS
+
+> `const` **NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_UNMODELED\_RETURN\_EXIT\_STATUS**: `112` = `112`
+
+***
+
 ### NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_FAILURE\_EXIT\_STATUS
 
-> `const` **NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_FAILURE\_EXIT\_STATUS**: `111` = `111`
+> `const` **NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_FAILURE\_EXIT\_STATUS**: `111` = `NATIVE_SYNTHETIC_SLEEP_SYSCALL_RESTART_EXIT_STATUS`
 
 ***
 
@@ -11798,6 +11922,22 @@ available.
 ##### bytes
 
 `Uint8Array`
+
+#### Returns
+
+`string`
+
+***
+
+### nativeSyntheticContinuationDescriptorSha256()
+
+> **nativeSyntheticContinuationDescriptorSha256**(`descriptor`): `string`
+
+#### Parameters
+
+##### descriptor
+
+[`NativeSyntheticSyscallContinuationDescriptorPayload`](#nativesyntheticsyscallcontinuationdescriptorpayload)
 
 #### Returns
 

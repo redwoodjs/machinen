@@ -11,6 +11,11 @@ export type NativeSyntheticContinuationRegisterSetupAbi = "linux-amd64-syscall";
 export type NativeSyntheticContinuationFailureKind =
   | "signal-restart-unsupported"
   | "syscall-return-unmodeled";
+export type NativeSyntheticContinuationFailureExitBucketCondition =
+  | "equals-negative-errno"
+  | "restart-like-negative-errno"
+  | "other-negative-errno"
+  | "nonzero-return";
 export type NativeSyntheticContinuationRegister =
   | "rax"
   | "rdi"
@@ -56,12 +61,31 @@ export interface NativeSyntheticContinuationStackSetupDescriptor {
   requiresSourceStackBytes: boolean;
 }
 
+export interface NativeSyntheticContinuationFailureExitBucket {
+  exitStatus: number;
+  failureKind: NativeSyntheticContinuationFailureKind;
+  failureReason: string;
+  syscallReturn: {
+    register: "rax";
+    condition: NativeSyntheticContinuationFailureExitBucketCondition;
+    errno?: number;
+    errnoName?: string;
+    errnos?: { errno: number; errnoName: string }[];
+    errnoRange?: { min: number; max: number };
+    excludedErrnos?: { errno: number; errnoName: string }[];
+  };
+}
+
 export interface NativeSyntheticContinuationCompletionDescriptor {
   mode: string;
   successExitStatus?: number;
+  /** Legacy single-bucket failure status. Prefer failureExitBuckets for new continuations. */
   failureExitStatus?: number;
+  /** Legacy single-bucket failure kind. Prefer failureExitBuckets for new continuations. */
   failureKind?: NativeSyntheticContinuationFailureKind;
+  /** Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuations. */
   failureReason?: string;
+  failureExitBuckets?: NativeSyntheticContinuationFailureExitBucket[];
 }
 
 export interface NativeSyntheticSyscallContinuationDescriptorRequest {
@@ -87,6 +111,7 @@ export interface NativeSyntheticSyscallContinuationDescriptor {
   sizeBytes: number;
   bytesHex: string;
   byteSha256: string;
+  descriptorSha256: string;
   generatedTargetBytes: true;
   sourceTextReusedAsTargetCode: false;
   sourceIsaEmulationUsed: false;
@@ -98,10 +123,15 @@ export interface NativeSyntheticSyscallContinuationDescriptor {
   completion: NativeSyntheticContinuationCompletionDescriptor;
 }
 
+export type NativeSyntheticSyscallContinuationDescriptorPayload = Omit<
+  NativeSyntheticSyscallContinuationDescriptor,
+  "descriptorSha256"
+>;
+
 export function buildNativeSyntheticSyscallContinuationDescriptor(
   request: NativeSyntheticSyscallContinuationDescriptorRequest,
 ): NativeSyntheticSyscallContinuationDescriptor {
-  return {
+  const descriptor: NativeSyntheticSyscallContinuationDescriptorPayload = {
     kind: "synthetic-syscall-continuation",
     targetArch: request.targetArch,
     entryAddress: request.entryAddress,
@@ -125,6 +155,10 @@ export function buildNativeSyntheticSyscallContinuationDescriptor(
     stackSetup: request.stackSetup,
     completion: request.completion,
   };
+  return {
+    ...descriptor,
+    descriptorSha256: nativeSyntheticContinuationDescriptorSha256(descriptor),
+  };
 }
 
 export function nativeSyntheticContinuationBytesHex(bytes: Uint8Array): string {
@@ -133,4 +167,10 @@ export function nativeSyntheticContinuationBytesHex(bytes: Uint8Array): string {
 
 export function nativeSyntheticContinuationBytesSha256(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
+}
+
+export function nativeSyntheticContinuationDescriptorSha256(
+  descriptor: NativeSyntheticSyscallContinuationDescriptorPayload,
+): string {
+  return createHash("sha256").update(JSON.stringify(descriptor)).digest("hex");
 }
