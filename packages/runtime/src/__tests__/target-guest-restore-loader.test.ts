@@ -47,6 +47,7 @@ describe("target guest restore loader descriptor", () => {
       resources: [
         { kind: "synthetic-empty-pipe", readFd: 3, writeFd: 4 },
         { kind: "synthetic-empty-eventfd", fd: 5 },
+        { kind: "synthetic-timerfd", fd: 6 },
       ],
     });
 
@@ -78,6 +79,8 @@ describe("target guest restore loader descriptor", () => {
       "4",
       "--synthetic-empty-eventfd",
       "5",
+      "--synthetic-timerfd",
+      "6",
     ]);
   });
 

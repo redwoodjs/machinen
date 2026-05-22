@@ -68,7 +68,7 @@ function documentsWithTimespec(options: {
   pollFdResource?:
     | "missing"
     | {
-        kind?: "pipe" | "file" | "socket" | "eventfd";
+        kind?: "pipe" | "file" | "socket" | "eventfd" | "timer";
         flags?: string[];
         path?: string;
         recipe?: Record<string, unknown>;
@@ -396,6 +396,54 @@ describe("native active syscall classification", () => {
     });
   });
 
+  it("models one synthetic timerfd ppoll fd from captured pollfd memory", () => {
+    const activeThread = arm64PpollThread(undefined, [
+      "0x3100",
+      "0x1",
+      "0x3000",
+      "0x0",
+      "0x0",
+      "0x0",
+    ]);
+    const documents = documentsWithTimespec({
+      activeThread,
+      pollFd: { fd: 3, events: 1, revents: 0 },
+      pollFdResource: {
+        kind: "timer",
+        path: "anon_inode:[timerfd]",
+        flags: ["octal:2000002"],
+        recipe: {
+          timerfdTicks: "0x0",
+          timerfdSettimeFlags: 0,
+          timerfdIntervalSeconds: 0,
+          timerfdIntervalNanoseconds: 0,
+        },
+      },
+    });
+    const result = classifyNativeActiveSyscalls([activeThread], {
+      pollTimeoutPolicy: "defer-target-resume",
+      pollTimeoutFdPolicy: "synthetic-timerfd",
+      documents,
+    });
+
+    expect(result.refusals).toEqual([]);
+    expect(result.continuations[0]).toMatchObject({
+      syscallClass: "poll-timeout",
+      metadata: {
+        ppollTimeout: {
+          nfds: 1,
+          pollFds: [
+            {
+              fd: 3,
+              resourceId: "fd:3",
+              targetResource: "synthetic-timerfd",
+            },
+          ],
+        },
+      },
+    });
+  });
+
   it.each([
     {
       name: "missing fd resource",
@@ -558,6 +606,121 @@ describe("native active syscall classification", () => {
 
     expect(
       modelNativePpollTimeoutState(activeThread, documents, "synthetic-empty-eventfd"),
+    ).toMatchObject({
+      state: "missing",
+      refusal: {
+        code: "target-ppoll-timeout-missing",
+        detail: { reason: scenario.reason },
+      },
+    });
+  });
+
+  it.each([
+    {
+      name: "missing timerfd resource",
+      x: ["0x3100", "0x1", "0x3000", "0x0", "0x0", "0x0"],
+      pollFd: { fd: 3, events: 1, revents: 0 },
+      pollFdResource: "missing" as const,
+      reason: "ppoll one-fd timerfd proof requires a captured timerfd fd",
+    },
+    {
+      name: "non-timerfd resource",
+      x: ["0x3100", "0x1", "0x3000", "0x0", "0x0", "0x0"],
+      pollFd: { fd: 3, events: 1, revents: 0 },
+      pollFdResource: { kind: "eventfd" as const, flags: ["octal:2000002"] },
+      reason: "ppoll one-fd timerfd proof requires a captured timerfd fd",
+    },
+    {
+      name: "expired/readable timer",
+      x: ["0x3100", "0x1", "0x3000", "0x0", "0x0", "0x0"],
+      pollFd: { fd: 3, events: 1, revents: 0 },
+      pollFdResource: {
+        kind: "timer" as const,
+        flags: ["octal:2000002"],
+        recipe: {
+          timerfdTicks: "0x1",
+          timerfdSettimeFlags: 0,
+          timerfdIntervalSeconds: 0,
+          timerfdIntervalNanoseconds: 0,
+        },
+      },
+      reason: "ppoll one-fd timerfd proof requires an unread timer",
+    },
+    {
+      name: "periodic timer",
+      x: ["0x3100", "0x1", "0x3000", "0x0", "0x0", "0x0"],
+      pollFd: { fd: 3, events: 1, revents: 0 },
+      pollFdResource: {
+        kind: "timer" as const,
+        flags: ["octal:2000002"],
+        recipe: {
+          timerfdTicks: "0x0",
+          timerfdSettimeFlags: 0,
+          timerfdIntervalSeconds: 1,
+          timerfdIntervalNanoseconds: 0,
+        },
+      },
+      reason: "ppoll one-fd timerfd proof does not model periodic timers",
+    },
+    {
+      name: "unsupported flags",
+      x: ["0x3100", "0x1", "0x3000", "0x0", "0x0", "0x0"],
+      pollFd: { fd: 3, events: 1, revents: 0 },
+      pollFdResource: {
+        kind: "timer" as const,
+        flags: ["octal:2004002"],
+        recipe: {
+          timerfdTicks: "0x0",
+          timerfdSettimeFlags: 0,
+          timerfdIntervalSeconds: 0,
+          timerfdIntervalNanoseconds: 0,
+        },
+      },
+      reason: "ppoll one-fd timerfd proof requires supported flags",
+    },
+    {
+      name: "wrong events",
+      x: ["0x3100", "0x1", "0x3000", "0x0", "0x0", "0x0"],
+      pollFd: { fd: 3, events: 4, revents: 0 },
+      reason: "ppoll one-fd proof only models POLLIN with empty revents",
+    },
+    {
+      name: "non-empty revents",
+      x: ["0x3100", "0x1", "0x3000", "0x0", "0x0", "0x0"],
+      pollFd: { fd: 3, events: 1, revents: 1 },
+      reason: "ppoll one-fd proof only models POLLIN with empty revents",
+    },
+    {
+      name: "nfds greater than one",
+      x: ["0x3100", "0x2", "0x3000", "0x0", "0x0", "0x0"],
+      pollFd: { fd: 3, events: 1, revents: 0 },
+      reason: "ppoll synthetic timerfd proof supports exactly one fd",
+    },
+    {
+      name: "non-null signal mask",
+      x: ["0x3100", "0x1", "0x3000", "0x4000", "0x8", "0x0"],
+      pollFd: { fd: 3, events: 1, revents: 0 },
+      reason: "ppoll signal masks are not modeled yet",
+    },
+  ])("refuses one-fd timerfd ppoll unsafe state: $name", (scenario) => {
+    const activeThread = arm64PpollThread(undefined, scenario.x);
+    const documents = documentsWithTimespec({
+      activeThread,
+      pollFd: scenario.pollFd,
+      pollFdResource: scenario.pollFdResource ?? {
+        kind: "timer",
+        flags: ["octal:2000002"],
+        recipe: {
+          timerfdTicks: "0x0",
+          timerfdSettimeFlags: 0,
+          timerfdIntervalSeconds: 0,
+          timerfdIntervalNanoseconds: 0,
+        },
+      },
+    });
+
+    expect(
+      modelNativePpollTimeoutState(activeThread, documents, "synthetic-timerfd"),
     ).toMatchObject({
       state: "missing",
       refusal: {

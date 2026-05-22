@@ -62,12 +62,14 @@ import {
   NATIVE_CAPTURE_SOURCE,
   NATIVE_PPOLL_EVENTFD_TIMEOUT_TARGET_SOURCE,
   NATIVE_PPOLL_PIPE_TIMEOUT_TARGET_SOURCE,
+  NATIVE_PPOLL_TIMERFD_TIMEOUT_TARGET_SOURCE,
   NATIVE_PPOLL_TIMEOUT_TARGET_SOURCE,
   NATIVE_PROCESS_IMAGE_BUNDLE_FILES,
   bundleFileStats,
   compileNativeActualResumeTrampoline,
   compileNativePpollEventfdTimeoutTarget,
   compileNativePpollPipeTimeoutTarget,
+  compileNativePpollTimerfdTimeoutTarget,
   compileNativePpollTimeoutTarget,
   compileNativeProcessCapturer,
   ensureSourcesExist,
@@ -226,6 +228,11 @@ function actualUtilityWorkload(): ActualUtilityWorkloadSpec {
       requiredSources: [NATIVE_CAPTURE_SOURCE, NATIVE_PPOLL_EVENTFD_TIMEOUT_TARGET_SOURCE],
       command: (binDir) => [compileNativePpollEventfdTimeoutTarget(binDir)],
     },
+    "ppoll-timerfd": {
+      name: "ppoll-timerfd-timeout",
+      requiredSources: [NATIVE_CAPTURE_SOURCE, NATIVE_PPOLL_TIMERFD_TIMEOUT_TARGET_SOURCE],
+      command: (binDir) => [compileNativePpollTimerfdTimeoutTarget(binDir)],
+    },
     "perl-ppoll-pipe": {
       name: "perl-ppoll-pipe-timeout",
       requiredSources: [NATIVE_CAPTURE_SOURCE],
@@ -348,6 +355,12 @@ function syntheticEmptyEventFds(
   return syntheticPpollFds(activeSyscalls, "synthetic-empty-eventfd");
 }
 
+function syntheticTimerFds(
+  activeSyscalls: ReturnType<typeof classifyNativeActiveSyscalls>,
+): number[] {
+  return syntheticPpollFds(activeSyscalls, "synthetic-timerfd");
+}
+
 function syntheticPpollFds(
   activeSyscalls: ReturnType<typeof classifyNativeActiveSyscalls>,
   targetResource: string,
@@ -390,6 +403,7 @@ function actualUtilityPlanningInputs(
     inheritedStdio: { mode: "inherit-output" },
     syntheticEmptyPipeFds: syntheticEmptyPipeFds(activeSyscalls),
     syntheticEmptyEventFds: syntheticEmptyEventFds(activeSyscalls),
+    syntheticTimerFds: syntheticTimerFds(activeSyscalls),
   });
   const mappings = planNativeMappingMaterialization({
     mappings: bundle.mappings.mappings,
@@ -1225,13 +1239,23 @@ function actualResumeCodeFile(
 function actualResumeSyntheticResourceArgs(
   planned: ReturnType<typeof planCapturedActualUtilityBundle>,
 ): string[] {
-  const eventFd = syntheticPpollFdForPlan(planned, "synthetic-empty-eventfd");
-  if (eventFd !== undefined) {
-    return ["--synthetic-empty-eventfd", String(eventFd)];
-  }
+  return eventfdResumeArgs(planned) ?? timerfdResumeArgs(planned) ?? pipeResumeArgs(planned) ?? [];
+}
+
+function eventfdResumeArgs(planned: ReturnType<typeof planCapturedActualUtilityBundle>) {
+  const fd = syntheticPpollFdForPlan(planned, "synthetic-empty-eventfd");
+  return fd === undefined ? undefined : ["--synthetic-empty-eventfd", String(fd)];
+}
+
+function timerfdResumeArgs(planned: ReturnType<typeof planCapturedActualUtilityBundle>) {
+  const fd = syntheticPpollFdForPlan(planned, "synthetic-timerfd");
+  return fd === undefined ? undefined : ["--synthetic-timerfd", String(fd)];
+}
+
+function pipeResumeArgs(planned: ReturnType<typeof planCapturedActualUtilityBundle>) {
   const readFd = syntheticPpollFdForPlan(planned, "synthetic-empty-pipe-read-end");
   if (readFd === undefined) {
-    return [];
+    return undefined;
   }
   const writeFd = syntheticEmptyPipeWriteFdForPlan(planned, readFd);
   return [
@@ -1667,6 +1691,9 @@ function ppollTimeoutPolicy() {
 function ppollTimeoutFdPolicy() {
   if (process.env[PPOLL_FD_POLICY_ENV] === "synthetic-empty-eventfd") {
     return "synthetic-empty-eventfd";
+  }
+  if (process.env[PPOLL_FD_POLICY_ENV] === "synthetic-timerfd") {
+    return "synthetic-timerfd";
   }
   return process.env[PPOLL_FD_POLICY_ENV] === "synthetic-empty-pipe"
     ? "synthetic-empty-pipe"

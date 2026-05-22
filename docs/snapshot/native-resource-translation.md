@@ -20,8 +20,8 @@ Currently supported recipes:
 
 - argv/env/cwd/exe/auxv metadata is carried through;
 - regular files are reopened with path, offset, and flags;
-- explicitly modeled one-fd `ppoll` proofs may request synthetic empty pipe and
-  empty eventfd recipes at the captured fd;
+- explicitly modeled one-fd `ppoll` proofs may request synthetic empty pipe,
+  empty eventfd, and disarmed/future one-shot timerfd recipes at the captured fd;
 - raw sockets and PTYs can be represented only when the caller declares a host
   broker capability for that kind.
 

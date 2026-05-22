@@ -4921,6 +4921,10 @@ by default when `output` is a TTY.
 
 > `optional` **syntheticEmptyEventFds?**: `number`[]
 
+##### syntheticTimerFds?
+
+> `optional` **syntheticTimerFds?**: `number`[]
+
 ***
 
 ### NativeResourceTranslationResult
@@ -11056,13 +11060,13 @@ Poll interval in ms while retrying. Default 250.
 
 ### NativePollTimeoutFdPolicy
 
-> **NativePollTimeoutFdPolicy** = `"zero-fd-only"` \| `"synthetic-empty-pipe"` \| `"synthetic-empty-eventfd"`
+> **NativePollTimeoutFdPolicy** = `"zero-fd-only"` \| `"synthetic-empty-pipe"` \| `"synthetic-empty-eventfd"` \| `"synthetic-timerfd"`
 
 ***
 
 ### NativeModeledPpollTargetResource
 
-> **NativeModeledPpollTargetResource** = `"synthetic-empty-pipe-read-end"` \| `"synthetic-empty-eventfd"`
+> **NativeModeledPpollTargetResource** = `"synthetic-empty-pipe-read-end"` \| `"synthetic-empty-eventfd"` \| `"synthetic-timerfd"`
 
 ***
 
@@ -11364,7 +11368,7 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ### TargetGuestRestoreResourceRecipe
 
-> **TargetGuestRestoreResourceRecipe** = \{ `kind`: `"synthetic-empty-pipe"`; `readFd`: `number`; `writeFd?`: `number`; \} \| \{ `kind`: `"synthetic-empty-eventfd"`; `fd`: `number`; \}
+> **TargetGuestRestoreResourceRecipe** = \{ `kind`: `"synthetic-empty-pipe"`; `readFd`: `number`; `writeFd?`: `number`; \} \| \{ `kind`: `"synthetic-empty-eventfd"`; `fd`: `number`; \} \| \{ `kind`: `"synthetic-timerfd"`; `fd`: `number`; \}
 
 ***
 

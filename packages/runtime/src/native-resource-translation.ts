@@ -13,6 +13,7 @@ export interface NativeResourceTranslationRequest {
   inheritedStdio?: NativeInheritedStdioPolicy;
   syntheticEmptyPipeFds?: number[];
   syntheticEmptyEventFds?: number[];
+  syntheticTimerFds?: number[];
 }
 
 export interface NativeResourceTranslationResult {
@@ -26,6 +27,7 @@ export function translateNativeResources(
   const capabilities = new Set(request.hostCapabilities ?? []);
   const syntheticEmptyPipeFds = new Set(request.syntheticEmptyPipeFds ?? []);
   const syntheticEmptyEventFds = new Set(request.syntheticEmptyEventFds ?? []);
+  const syntheticTimerFds = new Set(request.syntheticTimerFds ?? []);
   const syntheticPipePaths = syntheticEmptyPipePaths(request.resources, syntheticEmptyPipeFds);
   const resources = request.resources.map((resource) =>
     translateResource(
@@ -34,6 +36,7 @@ export function translateNativeResources(
       request.inheritedStdio,
       syntheticEmptyPipeFds,
       syntheticEmptyEventFds,
+      syntheticTimerFds,
       syntheticPipePaths,
     ),
   );
@@ -67,6 +70,7 @@ function translateResource(
   inheritedStdio: NativeInheritedStdioPolicy | undefined,
   syntheticEmptyPipeFds: Set<number>,
   syntheticEmptyEventFds: Set<number>,
+  syntheticTimerFds: Set<number>,
   syntheticPipePaths: Map<string, number>,
 ): NativeProcessResource {
   if (
@@ -91,6 +95,18 @@ function translateResource(
       ...resource,
       state: "recipe",
       recipe: { ...resource.recipe, synthetic: "empty-eventfd", fd: resource.fd },
+      refusal: undefined,
+    };
+  }
+  if (
+    resource.kind === "timer" &&
+    resource.fd !== undefined &&
+    syntheticTimerFds.has(resource.fd)
+  ) {
+    return {
+      ...resource,
+      state: "recipe",
+      recipe: { ...resource.recipe, synthetic: "timerfd", fd: resource.fd },
       refusal: undefined,
     };
   }

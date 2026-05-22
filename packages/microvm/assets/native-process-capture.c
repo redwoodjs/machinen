@@ -1272,6 +1272,36 @@ static uint64_t fdinfo_value(pid_t pid, const char *fd_name, const char *field) 
   return value;
 }
 
+static void fdinfo_pair_value(pid_t pid, const char *fd_name, const char *field,
+    uint64_t *first, uint64_t *second) {
+  *first = 0;
+  *second = 0;
+  char path[PATH_MAX];
+  snprintf(path, sizeof(path), "/proc/%ld/fdinfo/%s", (long)pid, fd_name);
+  FILE *file = fopen(path, "rb");
+  if (!file) {
+    return;
+  }
+  char wanted[32];
+  snprintf(wanted, sizeof(wanted), "%s:", field);
+  char line[256];
+  while (fgets(line, sizeof(line), file)) {
+    if (strncmp(line, wanted, strlen(wanted)) == 0) {
+      char *cursor = line + strlen(wanted);
+      while (*cursor && !isdigit((unsigned char)*cursor)) {
+        cursor++;
+      }
+      *first = strtoull(cursor, &cursor, 0);
+      while (*cursor && !isdigit((unsigned char)*cursor)) {
+        cursor++;
+      }
+      *second = strtoull(cursor, NULL, 0);
+      break;
+    }
+  }
+  fclose(file);
+}
+
 static void write_fd_resource(FILE *out, pid_t pid, const char *fd_name, const char *target,
     bool *first) {
   if (!*first) {
@@ -1300,6 +1330,30 @@ static void write_fd_resource(FILE *out, pid_t pid, const char *fd_name, const c
     fprintf(out,
         ",\"eventfdSemaphore\":%" PRIu64,
         fdinfo_value(pid, fd_name, "eventfd-semaphore"));
+    fputs("}", out);
+  }
+  if (streq(kind, "timer")) {
+    uint64_t value_sec = 0;
+    uint64_t value_nsec = 0;
+    uint64_t interval_sec = 0;
+    uint64_t interval_nsec = 0;
+    fdinfo_pair_value(pid, fd_name, "it_value", &value_sec, &value_nsec);
+    fdinfo_pair_value(pid, fd_name, "it_interval", &interval_sec, &interval_nsec);
+    fputs(",\"recipe\":{\"timerfdClockId\":", out);
+    json_hex_u64(out, fdinfo_value(pid, fd_name, "clockid"));
+    fputs(",\"timerfdTicks\":", out);
+    json_hex_u64(out, fdinfo_value(pid, fd_name, "ticks"));
+    fprintf(out,
+        ",\"timerfdSettimeFlags\":%" PRIu64
+        ",\"timerfdValueSeconds\":%" PRIu64
+        ",\"timerfdValueNanoseconds\":%" PRIu64
+        ",\"timerfdIntervalSeconds\":%" PRIu64
+        ",\"timerfdIntervalNanoseconds\":%" PRIu64,
+        fdinfo_value(pid, fd_name, "settime flags"),
+        value_sec,
+        value_nsec,
+        interval_sec,
+        interval_nsec);
     fputs("}", out);
   }
   if (streq(kind, "file")) {

@@ -152,6 +152,33 @@ describe("native resource translation", () => {
     });
   });
 
+  it("allows explicit synthetic timerfd resources for one-fd ppoll proofs", () => {
+    const result = translateNativeResources({
+      syntheticTimerFds: [12],
+      resources: [
+        {
+          id: "fd:12",
+          kind: "timer",
+          state: "captured",
+          fd: 12,
+          path: "anon_inode:[timerfd]",
+          flags: ["octal:2000002"],
+          recipe: { timerfdTicks: "0x0", timerfdIntervalSeconds: 0, timerfdIntervalNanoseconds: 0 },
+        },
+      ],
+    });
+
+    expect(result.refusals).toEqual([]);
+    expect(result.resources[0]).toMatchObject({
+      state: "recipe",
+      recipe: {
+        synthetic: "timerfd",
+        fd: 12,
+        timerfdTicks: "0x0",
+      },
+    });
+  });
+
   it("uses exact refusal codes for generic and stateful kernel fd resources", () => {
     const result = translateNativeResources({
       resources: [

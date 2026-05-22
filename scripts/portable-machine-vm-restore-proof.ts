@@ -15,6 +15,7 @@ interface Args {
   syntheticEmptyPipeReadFd?: string;
   syntheticEmptyPipeWriteFd?: string;
   syntheticEmptyEventFd?: string;
+  syntheticTimerFd?: string;
 }
 
 function usage(): never {
@@ -38,6 +39,7 @@ function argsFromReader(read: (flag: string) => string | undefined, json: boolea
     syntheticEmptyPipeReadFd: read("--synthetic-empty-pipe-read-fd"),
     syntheticEmptyPipeWriteFd: read("--synthetic-empty-pipe-write-fd"),
     syntheticEmptyEventFd: read("--synthetic-empty-eventfd"),
+    syntheticTimerFd: read("--synthetic-timerfd"),
   };
 }
 
@@ -128,6 +130,9 @@ function targetArgs(args: Args): string[] {
 function resourceArgs(args: Args): string[] {
   if (args.syntheticEmptyEventFd) {
     return ["--synthetic-empty-eventfd", args.syntheticEmptyEventFd];
+  }
+  if (args.syntheticTimerFd) {
+    return ["--synthetic-timerfd", args.syntheticTimerFd];
   }
   if (!args.syntheticEmptyPipeReadFd) {
     return [];

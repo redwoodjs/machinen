@@ -22,7 +22,8 @@ export class TargetGuestRestoreLoaderValidationError extends Error {
 
 export type TargetGuestRestoreResourceRecipe =
   | { kind: "synthetic-empty-pipe"; readFd: number; writeFd?: number }
-  | { kind: "synthetic-empty-eventfd"; fd: number };
+  | { kind: "synthetic-empty-eventfd"; fd: number }
+  | { kind: "synthetic-timerfd"; fd: number };
 
 export interface TargetGuestRestoreContinuationDescriptor {
   codeFile: string;
@@ -194,7 +195,7 @@ function resourceFromFields(
       writeFd: optionalResourceInteger(fields, "writeFd"),
     };
   }
-  if (kind === "synthetic-empty-eventfd") {
+  if (kind === "synthetic-empty-eventfd" || kind === "synthetic-timerfd") {
     return { kind, fd: parseResourceInteger(fields, "fd") };
   }
   return fail("target-guest-loader-resource-unsupported", `unsupported resource recipe: ${kind}`);
@@ -296,7 +297,7 @@ function validateResourceRecipe(
     assertDistinctPipeFds(recipe);
     return recipe;
   }
-  if (recipe.kind === "synthetic-empty-eventfd") {
+  if (recipe.kind === "synthetic-empty-eventfd" || recipe.kind === "synthetic-timerfd") {
     assertFd(recipe.fd, "fd");
     return recipe;
   }
@@ -362,7 +363,9 @@ function serializeResourceRecipe(recipe: TargetGuestRestoreResourceRecipe): stri
     const writeFd = recipe.writeFd === undefined ? "" : ` writeFd=${recipe.writeFd}`;
     return `resource=synthetic-empty-pipe readFd=${recipe.readFd}${writeFd}`;
   }
-  return `resource=synthetic-empty-eventfd fd=${recipe.fd}`;
+  return recipe.kind === "synthetic-empty-eventfd"
+    ? `resource=synthetic-empty-eventfd fd=${recipe.fd}`
+    : `resource=synthetic-timerfd fd=${recipe.fd}`;
 }
 
 function serializeMemoryEntry(entry: TargetGuestMemoryMaterializationEntry): string {
@@ -377,7 +380,9 @@ function resourceToTrampolineArgs(recipe: TargetGuestRestoreResourceRecipe): str
   if (recipe.kind === "synthetic-empty-pipe") {
     return pipeResourceArgs(recipe);
   }
-  return ["--synthetic-empty-eventfd", String(recipe.fd)];
+  return recipe.kind === "synthetic-empty-eventfd"
+    ? ["--synthetic-empty-eventfd", String(recipe.fd)]
+    : ["--synthetic-timerfd", String(recipe.fd)];
 }
 
 function pipeResourceArgs(recipe: { readFd: number; writeFd?: number }): string[] {

@@ -21,6 +21,7 @@ stackSize=65536
 stackPointer=0x500000010000
 resource=synthetic-empty-pipe readFd=3 writeFd=4
 resource=synthetic-empty-eventfd fd=5
+resource=synthetic-timerfd fd=6
 memory=copy-captured-bytes mapping=heap targetStart=0x600000000000 sizeBytes=4096 permissions=rw-p sourceFile=/tmp/native-memory.bin sourceOffset=0
 memory=recreate-guard mapping=stack-guard targetStart=0x600000001000 sizeBytes=4096 permissions=---p
 ```
@@ -29,6 +30,7 @@ Supported resources and memory materialization are intentionally narrow:
 
 - `synthetic-empty-pipe` with a modeled read fd and optional write fd;
 - `synthetic-empty-eventfd` with an empty non-semaphore eventfd;
+- `synthetic-timerfd` with a disarmed/future one-shot timerfd;
 - `copy-captured-bytes` for explicitly safe, non-executable writable mappings;
 - `recreate-guard` for guard / `PROT_NONE` ranges.
 

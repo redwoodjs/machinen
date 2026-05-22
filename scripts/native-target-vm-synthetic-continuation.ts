@@ -33,6 +33,7 @@ interface Args {
   syntheticEmptyPipeReadFd?: string;
   syntheticEmptyPipeWriteFd?: string;
   syntheticEmptyEventFd?: string;
+  syntheticTimerFd?: string;
 }
 
 function usage(): never {
@@ -75,6 +76,7 @@ function parseArgs(argv: string[]): Args {
     syntheticEmptyPipeReadFd: read("--synthetic-empty-pipe-read-fd"),
     syntheticEmptyPipeWriteFd: read("--synthetic-empty-pipe-write-fd"),
     syntheticEmptyEventFd: read("--synthetic-empty-eventfd"),
+    syntheticTimerFd: read("--synthetic-timerfd"),
   };
 }
 
@@ -199,7 +201,9 @@ function targetDescriptor(args: Args, codeSize: number): TargetGuestRestoreDescr
 }
 
 function resourceRecipes(args: Args): TargetGuestRestoreResourceRecipe[] {
-  return [pipeRecipe(args), eventfdRecipe(args)].filter((recipe) => recipe !== undefined);
+  return [pipeRecipe(args), eventfdRecipe(args), timerfdRecipe(args)].filter(
+    (recipe) => recipe !== undefined,
+  );
 }
 
 function pipeRecipe(args: Args): TargetGuestRestoreResourceRecipe | undefined {
@@ -215,6 +219,12 @@ function pipeRecipe(args: Args): TargetGuestRestoreResourceRecipe | undefined {
 function eventfdRecipe(args: Args): TargetGuestRestoreResourceRecipe | undefined {
   return args.syntheticEmptyEventFd
     ? { kind: "synthetic-empty-eventfd", fd: Number(args.syntheticEmptyEventFd) }
+    : undefined;
+}
+
+function timerfdRecipe(args: Args): TargetGuestRestoreResourceRecipe | undefined {
+  return args.syntheticTimerFd
+    ? { kind: "synthetic-timerfd", fd: Number(args.syntheticTimerFd) }
     : undefined;
 }
 

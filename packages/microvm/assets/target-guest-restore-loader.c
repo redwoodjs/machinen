@@ -42,6 +42,7 @@ struct Descriptor {
   int pipe_read_fd;
   int pipe_write_fd;
   int event_fd;
+  int timer_fd;
   char memory_specs[MAX_MATERIALIZED_MAPPINGS][PATH_MAX];
   size_t memory_spec_count;
   char guard_specs[MAX_MATERIALIZED_MAPPINGS][128];
@@ -207,14 +208,22 @@ static void parse_pipe_resource(struct Descriptor *descriptor, char *fields) {
   }
 }
 
-static void parse_eventfd_resource(struct Descriptor *descriptor, char *fields) {
+static int parse_single_fd_resource(char *fields, const char *label) {
   char scratch[4096];
   snprintf(scratch, sizeof(scratch), "%s", fields);
   const char *fd = find_token_value(scratch, "fd");
   if (!fd) {
-    refuse("target-guest-loader-descriptor-invalid", "eventfd fd is required");
+    refuse("target-guest-loader-descriptor-invalid", label);
   }
-  descriptor->event_fd = parse_fd(fd);
+  return parse_fd(fd);
+}
+
+static void parse_eventfd_resource(struct Descriptor *descriptor, char *fields) {
+  descriptor->event_fd = parse_single_fd_resource(fields, "eventfd fd is required");
+}
+
+static void parse_timerfd_resource(struct Descriptor *descriptor, char *fields) {
+  descriptor->timer_fd = parse_single_fd_resource(fields, "timerfd fd is required");
 }
 
 static const char *required_token(char *scratch, size_t scratch_size, char *fields, const char *name) {
@@ -288,6 +297,8 @@ static void parse_resource(struct Descriptor *descriptor, char *line) {
     parse_pipe_resource(descriptor, line + strlen("resource=synthetic-empty-pipe"));
   } else if (starts_with(line, "resource=synthetic-empty-eventfd")) {
     parse_eventfd_resource(descriptor, line + strlen("resource=synthetic-empty-eventfd"));
+  } else if (starts_with(line, "resource=synthetic-timerfd")) {
+    parse_timerfd_resource(descriptor, line + strlen("resource=synthetic-timerfd"));
   } else {
     refuse("target-guest-loader-resource-unsupported", "resource recipe is not supported");
   }
@@ -298,6 +309,7 @@ static struct Descriptor read_descriptor(const char *path) {
   descriptor.pipe_read_fd = -1;
   descriptor.pipe_write_fd = -1;
   descriptor.event_fd = -1;
+  descriptor.timer_fd = -1;
   FILE *file = fopen(path, "r");
   if (!file) {
     refuse("target-guest-loader-descriptor-invalid", "descriptor cannot be opened");
@@ -347,6 +359,7 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   char pipe_read_fd[16];
   char pipe_write_fd[16];
   char event_fd[16];
+  char timer_fd[16];
   snprintf(file_offset, sizeof(file_offset), "0x%" PRIx64, descriptor->file_offset);
   snprintf(code_size, sizeof(code_size), "0x%" PRIx64, descriptor->code_size);
   snprintf(target_address, sizeof(target_address), "0x%" PRIx64, descriptor->target_address);
@@ -357,6 +370,7 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   snprintf(pipe_read_fd, sizeof(pipe_read_fd), "%d", descriptor->pipe_read_fd);
   snprintf(pipe_write_fd, sizeof(pipe_write_fd), "%d", descriptor->pipe_write_fd);
   snprintf(event_fd, sizeof(event_fd), "%d", descriptor->event_fd);
+  snprintf(timer_fd, sizeof(timer_fd), "%d", descriptor->timer_fd);
 
   char *child_argv[160];
   size_t child_argc = 0;
@@ -388,6 +402,10 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   if (descriptor->event_fd >= 0) {
     push_arg(child_argv, &child_argc, "--synthetic-empty-eventfd");
     push_arg(child_argv, &child_argc, event_fd);
+  }
+  if (descriptor->timer_fd >= 0) {
+    push_arg(child_argv, &child_argc, "--synthetic-timerfd");
+    push_arg(child_argv, &child_argc, timer_fd);
   }
   for (size_t i = 0; i < descriptor->memory_spec_count; i++) {
     push_arg(child_argv, &child_argc, "--materialize-memory");

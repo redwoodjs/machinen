@@ -19,6 +19,7 @@
 #include <string.h>
 #include <sys/eventfd.h>
 #include <sys/mman.h>
+#include <sys/timerfd.h>
 #include <unistd.h>
 
 #ifndef MAP_FIXED_NOREPLACE
@@ -58,6 +59,7 @@ struct Options {
   int synthetic_empty_pipe_read_fd;
   int synthetic_empty_pipe_write_fd;
   int synthetic_empty_eventfd;
+  int synthetic_timerfd;
   struct MemoryMaterialization materialized_memory[MAX_MATERIALIZED_MAPPINGS];
   size_t materialized_memory_count;
   struct GuardMaterialization materialized_guards[MAX_MATERIALIZED_MAPPINGS];
@@ -70,6 +72,7 @@ static void usage(void) {
       "--file-offset n --code-size n --target-address addr "
       "--timeout-seconds n [--synthetic-empty-pipe-read-fd n] "
       "[--synthetic-empty-pipe-write-fd n] [--synthetic-empty-eventfd n] "
+      "[--synthetic-timerfd n] "
       "[--materialize-memory file:offset:target:size:perms] "
       "[--materialize-guard target:size] "
       "--stack-target-start addr --stack-size n --stack-pointer addr\n");
@@ -157,6 +160,7 @@ static struct Options parse_args(int argc, char **argv) {
   opts.synthetic_empty_pipe_read_fd = -1;
   opts.synthetic_empty_pipe_write_fd = -1;
   opts.synthetic_empty_eventfd = -1;
+  opts.synthetic_timerfd = -1;
   for (int i = 1; i < argc; i++) {
     if (streq(argv[i], "--code-file")) {
       if (++i >= argc) {
@@ -213,6 +217,16 @@ static struct Options parse_args(int argc, char **argv) {
         exit(2);
       }
       opts.synthetic_empty_pipe_write_fd = (int)fd;
+    } else if (streq(argv[i], "--synthetic-timerfd")) {
+      if (++i >= argc) {
+        usage();
+      }
+      uint64_t fd = parse_u64(argv[i], "synthetic-timerfd");
+      if (fd > 1024u) {
+        fprintf(stderr, "native-actual-resume-trampoline: synthetic fd is too large\n");
+        exit(2);
+      }
+      opts.synthetic_timerfd = (int)fd;
     } else if (streq(argv[i], "--materialize-memory")) {
       if (++i >= argc) {
         usage();
@@ -528,6 +542,28 @@ static void install_synthetic_empty_pipe(int read_fd, int write_fd) {
   // modeled one-fd ppoll proof timeout-driven instead of readiness-driven.
 }
 
+static void install_synthetic_timerfd(int target_fd) {
+  if (target_fd < 0) {
+    return;
+  }
+  int fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC);
+  if (fd < 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: synthetic timerfd failed: %s\n", strerror(errno));
+    exit(1);
+  }
+  if (fd != target_fd) {
+    if (dup2(fd, target_fd) < 0) {
+      fprintf(stderr, "native-actual-resume-trampoline: synthetic timerfd dup2 failed: %s\n", strerror(errno));
+      exit(1);
+    }
+    close(fd);
+  }
+  if (fcntl(target_fd, F_SETFD, FD_CLOEXEC) != 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: synthetic timerfd cloexec failed: %s\n", strerror(errno));
+    exit(1);
+  }
+}
+
 static void install_synthetic_empty_eventfd(int target_fd) {
   if (target_fd < 0) {
     return;
@@ -698,6 +734,7 @@ int main(int argc, char **argv) {
   install_synthetic_empty_pipe(
       opts.synthetic_empty_pipe_read_fd, opts.synthetic_empty_pipe_write_fd);
   install_synthetic_empty_eventfd(opts.synthetic_empty_eventfd);
+  install_synthetic_timerfd(opts.synthetic_timerfd);
   alarm((unsigned int)opts.timeout_seconds);
   if (sigsetjmp(resume_fault_jmp, 1) == 0) {
     jump_to_target(opts.target_address, opts.stack_pointer - 8u);
