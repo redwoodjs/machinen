@@ -139,14 +139,17 @@ export {
 export { materializeNativeTargetModuleBytes } from "./native-target-module-bytes.ts";
 export {
   buildNativeSyntheticSyscallContinuationDescriptor,
+  NATIVE_SYNTHETIC_SYSCALL_EINTR_EXIT_STATUS,
   NATIVE_SYNTHETIC_SYSCALL_RESTART_EXIT_STATUS,
   NATIVE_SYNTHETIC_SYSCALL_UNMODELED_RETURN_EXIT_STATUS,
   nativeSyntheticContinuationBytesHex,
   nativeSyntheticContinuationBytesSha256,
   nativeSyntheticContinuationDescriptorSha256,
+  nativeSyntheticEintrErrno,
   nativeSyntheticExitProcessSuffix,
   nativeSyntheticRestartLikeErrnos,
   nativeSyntheticSyscallFailureExitBuckets,
+  nativeSyntheticSyscallRestartContract,
 } from "./native-synthetic-continuation.ts";
 export {
   NATIVE_SYNTHETIC_PPOLL_SYSCALL_BASE,
@@ -160,6 +163,7 @@ export {
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_BUILD_ID,
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_LOGICAL_NAME,
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_PATH,
+  NATIVE_SYNTHETIC_SLEEP_SYSCALL_EINTR_EXIT_STATUS,
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS,
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_RESTART_EXIT_STATUS,
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_UNMODELED_RETURN_EXIT_STATUS,
@@ -231,6 +235,7 @@ export type {
   NativeSyntheticContinuationRegister,
   NativeSyntheticContinuationRegisterSetupAbi,
   NativeSyntheticContinuationRegisterSetupDescriptor,
+  NativeSyntheticContinuationRestartContract,
   NativeSyntheticContinuationStackSetupDescriptor,
   NativeSyntheticContinuationSyscallAbi,
   NativeSyntheticContinuationTargetArch,

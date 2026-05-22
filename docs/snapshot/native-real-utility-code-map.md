@@ -62,9 +62,11 @@ from target-native module metadata.
 - `target-sleep-signal-restart-unsupported` — a legacy descriptor-less generated
   target sleep syscall did not return success, so EINTR/restart behavior must be
   modeled before the proof can continue.
+- `target-synthetic-signal-interrupted-unsupported` — a generated target-native
+  syscall descriptor reported plain `EINTR`; signal delivery state is not
+  modeled yet.
 - `target-synthetic-signal-restart-unsupported` — a generated target-native
-  syscall descriptor reported a restart-like failure exit bucket, such as
-  `-EINTR`.
+  syscall descriptor reported an `ERESTART*`-style restart-like failure bucket.
 - `target-synthetic-syscall-return-unmodeled` — a generated target-native
   syscall descriptor reported another negative errno bucket whose target
   semantics are not modeled yet.

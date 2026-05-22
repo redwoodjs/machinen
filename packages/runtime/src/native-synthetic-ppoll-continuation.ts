@@ -24,7 +24,7 @@ import {
   type NativeSyntheticSyscallContinuationDescriptor,
 } from "./native-synthetic-continuation.ts";
 
-export const NATIVE_SYNTHETIC_PPOLL_SYSCALL_BUILD_ID = "machinen-synthetic-ppoll-syscall-v1";
+export const NATIVE_SYNTHETIC_PPOLL_SYSCALL_BUILD_ID = "machinen-synthetic-ppoll-syscall-v2";
 export const NATIVE_SYNTHETIC_PPOLL_SYSCALL_LOGICAL_NAME = "machinen-synthetic-ppoll-syscall";
 export const NATIVE_SYNTHETIC_PPOLL_SYSCALL_PATH = "machinen.synthetic://ppoll-syscall";
 export const NATIVE_SYNTHETIC_PPOLL_SYSCALL_BASE = "0x700300000000";
@@ -138,8 +138,8 @@ export interface NativeSyntheticPpollSyscallContinuationResult {
 const PPOLL_SYSCALL_AMD64 = 271;
 const RETURNING_PPOLL_TIMESPEC_OFFSET = 32;
 const RETURNING_PPOLL_CODE_SIZE = 48;
-const EXITING_PPOLL_TIMESPEC_OFFSET = 112;
-const EXITING_PPOLL_CODE_SIZE = 128;
+const EXITING_PPOLL_TIMESPEC_OFFSET = 128;
+const EXITING_PPOLL_CODE_SIZE = 144;
 const RETURNING_PPOLL_ONE_FD_POLLFD_STACK_OFFSET = -8;
 const RETURNING_PPOLL_ONE_FD_TIMESPEC_OFFSET = 56;
 const RETURNING_PPOLL_ONE_FD_CODE_SIZE = 72;

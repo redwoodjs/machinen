@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { nativeSyntheticExitProcessSuffix } from "../native-synthetic-continuation.ts";
 import {
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_BASE,
   buildNativeSyntheticSleepSyscallContinuation,
@@ -113,30 +114,37 @@ describe("synthetic sleep syscall continuation", () => {
     expect(result.continuation).toMatchObject({
       completionMode: "exit-process",
       exitStatusOnSuccess: 0,
-      sizeBytes: 120,
+      sizeBytes: 144,
     });
     expect(Buffer.from(result.continuation!.bytes.subarray(0, 24)).toString("hex")).toBe(
-      "b8e600000031ff31f6488d15580000004531d20f054885c0",
+      "b8e600000031ff31f6488d15700000004531d20f054885c0",
     );
-    expect(Buffer.from(result.continuation!.bytes.subarray(24, 99)).toString("hex")).toBe(
-      "74284883f8fc742b483d00feffff7423483dfffdffff741b483dfefdffff7413483dfcfdffff740beb15b83c00000031ff0f05b83c000000bf6f0000000f05b83c000000bf700000000f05",
+    expect(Buffer.from(result.continuation!.bytes.subarray(21, 116)).toString("hex")).toBe(
+      Buffer.from(nativeSyntheticExitProcessSuffix()).toString("hex"),
     );
-    expect(Buffer.from(result.continuation!.bytes.subarray(99, 104)).toString("hex")).toBe(
-      "9090909090",
-    );
-    expect(new DataView(result.continuation!.bytes.buffer).getBigUint64(104, true)).toBe(0n);
-    expect(result.continuation!.descriptor.completion).toMatchObject({
+    expect(new DataView(result.continuation!.bytes.buffer).getBigUint64(128, true)).toBe(0n);
+    const completion = {
       mode: "exit-process",
       successExitStatus: 0,
-      failureExitStatus: 111,
-      failureKind: "signal-restart-unsupported",
+      restartContract: {
+        mode: "fail-closed",
+        plainEintr: "refuse",
+        targetRestartRequirements: expect.arrayContaining([
+          expect.stringContaining("restart-block"),
+        ]),
+      },
       failureExitBuckets: [
+        {
+          exitStatus: 110,
+          failureKind: "signal-interrupted-unsupported",
+          syscallReturn: { condition: "equals-negative-errno", errnoName: "EINTR" },
+        },
         {
           exitStatus: 111,
           failureKind: "signal-restart-unsupported",
           syscallReturn: {
             condition: "restart-like-negative-errno",
-            errnos: expect.arrayContaining([{ errno: 4, errnoName: "EINTR" }]),
+            errnos: expect.not.arrayContaining([{ errno: 4, errnoName: "EINTR" }]),
           },
         },
         {
@@ -145,28 +153,9 @@ describe("synthetic sleep syscall continuation", () => {
           syscallReturn: { condition: "other-negative-errno" },
         },
       ],
-    });
-    expect(result.continuation!.provenance.completion).toMatchObject({
-      mode: "exit-process",
-      successExitStatus: 0,
-      failureExitStatus: 111,
-      failureKind: "signal-restart-unsupported",
-      failureExitBuckets: [
-        {
-          exitStatus: 111,
-          failureKind: "signal-restart-unsupported",
-          syscallReturn: {
-            condition: "restart-like-negative-errno",
-            errnos: expect.arrayContaining([{ errno: 4, errnoName: "EINTR" }]),
-          },
-        },
-        {
-          exitStatus: 112,
-          failureKind: "syscall-return-unmodeled",
-          syscallReturn: { condition: "other-negative-errno" },
-        },
-      ],
-    });
+    };
+    expect(result.continuation!.descriptor.completion).toMatchObject(completion);
+    expect(result.continuation!.provenance.completion).toMatchObject(completion);
   });
 
   it("refuses durations outside amd64 timespec bounds", () => {

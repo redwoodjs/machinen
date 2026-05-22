@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { nativeSyntheticExitProcessSuffix } from "../native-synthetic-continuation.ts";
 import {
   NATIVE_SYNTHETIC_PPOLL_SYSCALL_BASE,
   buildNativeSyntheticPpollSyscallContinuation,
@@ -168,16 +169,25 @@ describe("synthetic ppoll syscall continuation", () => {
     expect(result.continuation).toMatchObject({
       completionMode: "exit-process",
       exitStatusOnSuccess: 0,
-      sizeBytes: 128,
+      sizeBytes: 144,
     });
     expect(Buffer.from(result.continuation!.bytes.subarray(0, 24)).toString("hex")).toBe(
-      "b80f01000031ff31f6488d15600000004531d24531c00f05",
+      "b80f01000031ff31f6488d15700000004531d24531c00f05",
     );
-    expect(new DataView(result.continuation!.bytes.buffer).getBigUint64(112, true)).toBe(0n);
+    expect(Buffer.from(result.continuation!.bytes.subarray(24, 119)).toString("hex")).toBe(
+      Buffer.from(nativeSyntheticExitProcessSuffix()).toString("hex"),
+    );
+    expect(new DataView(result.continuation!.bytes.buffer).getBigUint64(128, true)).toBe(0n);
     expect(result.continuation!.descriptor.completion).toMatchObject({
       mode: "exit-process",
       successExitStatus: 0,
+      restartContract: { mode: "fail-closed", plainEintr: "refuse" },
       failureExitBuckets: [
+        {
+          exitStatus: 110,
+          failureKind: "signal-interrupted-unsupported",
+          syscallReturn: { condition: "equals-negative-errno", errnoName: "EINTR" },
+        },
         {
           exitStatus: 111,
           failureKind: "signal-restart-unsupported",

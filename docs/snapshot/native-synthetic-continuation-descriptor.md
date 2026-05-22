@@ -14,8 +14,10 @@ for now and records:
 - register setup and syscall-clobbered registers
 - stack setup assumptions
 - completion policy, such as returning to the trampoline or exiting the process
-- failure exit buckets that map reserved process statuses to restart-like or
-  unmodeled negative errno returns
+- failure exit buckets that map reserved process statuses to plain `EINTR`,
+  restart-like, or unmodeled negative errno returns
+- a fail-closed restart contract that records the signal-mask and restart-block
+  state that is not yet modeled
 - byte and descriptor hashes for generated-code telemetry
 - invariants that source text was not reused, source-ISA emulation was not used,
   and no sidecar runtime participated
@@ -53,7 +55,10 @@ The descriptor is provenance, not a blanket success rule. A generated
 continuation still succeeds only when its modeled syscall contract and completion
 policy are satisfied. Unsupported states continue to fail closed with precise
 refusals. Descriptor failure exit buckets are classified as
-`target-synthetic-signal-restart-unsupported` for restart-like outcomes or
-`target-synthetic-syscall-return-unmodeled` for other negative errno returns.
+`target-synthetic-signal-interrupted-unsupported` for plain `EINTR`,
+`target-synthetic-signal-restart-unsupported` for `ERESTART*`-style outcomes,
+or `target-synthetic-syscall-return-unmodeled` for other negative errno returns.
 The refusal detail records the syscall name, syscall number, reserved exit
-status, errno bucket, and descriptor hash.
+status, errno bucket, restart contract evidence, and descriptor hash. Plain
+`EINTR` is intentionally separate from restart-like kernel states so target
+success cannot hide missing signal-delivery or restart-block semantics.

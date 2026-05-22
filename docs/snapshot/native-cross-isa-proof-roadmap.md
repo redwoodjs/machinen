@@ -44,8 +44,8 @@ failure buckets, and no-source-reuse invariants.
 Done when:
 
 - descriptors include byte and descriptor hashes;
-- failure buckets distinguish restart-like returns from other negative errno
-  returns;
+- failure buckets distinguish plain `EINTR`, restart-like returns, and other
+  negative errno returns;
 - resume classification reports syscall name, syscall number, exit status,
   errno bucket, and descriptor hash;
 - `/bin/sleep` still completes through generated amd64 bytes.
@@ -72,7 +72,8 @@ Required refusals:
 - missing or unreadable timeout memory refuses precisely;
 - missing ppoll code-location/materialization support refuses as
   `target-ppoll-syscall-continuation-missing`;
-- restart-like and other negative errno returns keep `migrationCompleted: false`.
+- plain `EINTR`, restart-like, and other negative errno returns keep
+  `migrationCompleted: false`.
 
 ### 3. Generic synthetic syscall builder — done
 
@@ -98,18 +99,29 @@ Done when:
 - the proof observes target-native code running after the syscall return;
 - synthetic exit remains available as a narrow proof mode.
 
-### 5. Signal and restart semantics
+### 5. Signal and restart semantics — fail-closed contract done
 
-Goal: replace fail-closed restart buckets with modeled signal/restart behavior
-where safe.
+Goal: make interrupted syscall outcomes explicit before replacing fail-closed
+restart buckets with modeled signal/restart behavior where safe.
 
-Done when:
+Done:
 
-- pending signals, signal masks, and interrupted syscalls are captured in the
+- generated continuations reserve status `110` for plain `EINTR`, `111` for
+  `ERESTART*`-style restart-like returns, and `112` for other negative errno
+  returns;
+- descriptor-aware classification refuses those as
+  `target-synthetic-signal-interrupted-unsupported`,
+  `target-synthetic-signal-restart-unsupported`, or
+  `target-synthetic-syscall-return-unmodeled`;
+- descriptors carry a restart contract naming the missing pending-signal,
+  signal-mask, restart-block, and timeout-accounting evidence.
+
+Still future work:
+
+- capture pending signals, signal masks, and interrupted syscall state in the
   process image;
-- `EINTR` and `ERESTART*` states either restart correctly or refuse with a
-  specific reason;
-- remaining-time contracts are explicit for each blocking syscall family.
+- restart only when the target can prove the same signal/restart semantics;
+- make remaining-time contracts explicit for each blocking syscall family.
 
 ### 6. FD-backed blocking syscalls — done
 

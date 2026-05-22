@@ -193,17 +193,21 @@
 - [`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor)
 - [`NativeSyntheticSyscallDescriptor`](#nativesyntheticsyscalldescriptor)
 - [`NativeSyntheticContinuationRegisterSetupDescriptor`](#nativesyntheticcontinuationregistersetupdescriptor)
+- [`NativeSyntheticContinuationRestartContract`](#nativesyntheticcontinuationrestartcontract)
 - [`NativeSyntheticContinuationStackSetupDescriptor`](#nativesyntheticcontinuationstacksetupdescriptor)
 - [`NativeSyntheticContinuationFailureExitBucket`](#nativesyntheticcontinuationfailureexitbucket)
 - [`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor)
 - [`NativeSyntheticSyscallContinuationDescriptorRequest`](#nativesyntheticsyscallcontinuationdescriptorrequest)
 - [`NativeSyntheticSyscallContinuationDescriptorPayload`](#nativesyntheticsyscallcontinuationdescriptorpayload)
 - [`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor)
+- [`NATIVE_SYNTHETIC_SYSCALL_EINTR_EXIT_STATUS`](#native_synthetic_syscall_eintr_exit_status)
 - [`NATIVE_SYNTHETIC_SYSCALL_RESTART_EXIT_STATUS`](#native_synthetic_syscall_restart_exit_status)
 - [`NATIVE_SYNTHETIC_SYSCALL_UNMODELED_RETURN_EXIT_STATUS`](#native_synthetic_syscall_unmodeled_return_exit_status)
 - [`buildNativeSyntheticSyscallContinuationDescriptor`](#buildnativesyntheticsyscallcontinuationdescriptor)
+- [`nativeSyntheticEintrErrno`](#nativesyntheticeintrerrno)
 - [`nativeSyntheticRestartLikeErrnos`](#nativesyntheticrestartlikeerrnos)
 - [`nativeSyntheticSyscallFailureExitBuckets`](#nativesyntheticsyscallfailureexitbuckets)
+- [`nativeSyntheticSyscallRestartContract`](#nativesyntheticsyscallrestartcontract)
 - [`nativeSyntheticExitProcessSuffix`](#nativesyntheticexitprocesssuffix)
 - [`nativeSyntheticContinuationBytesHex`](#nativesyntheticcontinuationbyteshex)
 - [`nativeSyntheticContinuationBytesSha256`](#nativesyntheticcontinuationbytessha256)
@@ -237,6 +241,7 @@
 - [`NATIVE_SYNTHETIC_SLEEP_SYSCALL_LOGICAL_NAME`](#native_synthetic_sleep_syscall_logical_name)
 - [`NATIVE_SYNTHETIC_SLEEP_SYSCALL_PATH`](#native_synthetic_sleep_syscall_path)
 - [`NATIVE_SYNTHETIC_SLEEP_SYSCALL_BASE`](#native_synthetic_sleep_syscall_base)
+- [`NATIVE_SYNTHETIC_SLEEP_SYSCALL_EINTR_EXIT_STATUS`](#native_synthetic_sleep_syscall_eintr_exit_status)
 - [`NATIVE_SYNTHETIC_SLEEP_SYSCALL_FAILURE_EXIT_STATUS`](#native_synthetic_sleep_syscall_failure_exit_status)
 - [`NATIVE_SYNTHETIC_SLEEP_SYSCALL_RESTART_EXIT_STATUS`](#native_synthetic_sleep_syscall_restart_exit_status)
 - [`NATIVE_SYNTHETIC_SLEEP_SYSCALL_UNMODELED_RETURN_EXIT_STATUS`](#native_synthetic_sleep_syscall_unmodeled_return_exit_status)
@@ -3537,7 +3542,7 @@ by default when `output` is a TTY.
 
 ##### code
 
-> **code**: `"active-syscall"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"blocking-syscall-state-unsupported"` \| `"code-location-unknown"` \| `"fd-kind-unsupported"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-permission-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"syscall-argument-state-unsupported"` \| `"syscall-restart-unsupported"` \| `"target-build-id-mismatch"` \| `"target-build-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-caller-frame-unavailable"` \| `"target-code-rva-unmapped"` \| `"target-frame-layout-unsupported"` \| `"target-frame-register-value-unavailable"` \| `"target-module-bytes-missing"` \| `"target-module-file-missing"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-module-range-unreadable"` \| `"target-ppoll-syscall-continuation-missing"` \| `"target-ppoll-timeout-missing"` \| `"target-return-slot-unsupported"` \| `"target-resume-execution-unavailable"` \| `"target-resume-fault-invalid-code-landing"` \| `"target-resume-fault-outside-target-bytes"` \| `"target-resume-fault-privileged-instruction"` \| `"target-resume-fault-signal-unsupported"` \| `"target-resume-fault-timeout"` \| `"target-resume-fault-unmodeled-memory"` \| `"target-semantic-continuation-missing"` \| `"target-sleep-remaining-time-missing"` \| `"target-sleep-signal-restart-unsupported"` \| `"target-sleep-syscall-continuation-missing"` \| `"target-synthetic-signal-restart-unsupported"` \| `"target-synthetic-syscall-return-unmodeled"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
+> **code**: `"active-syscall"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"blocking-syscall-state-unsupported"` \| `"code-location-unknown"` \| `"fd-kind-unsupported"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-permission-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"syscall-argument-state-unsupported"` \| `"syscall-restart-unsupported"` \| `"target-build-id-mismatch"` \| `"target-build-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-caller-frame-unavailable"` \| `"target-code-rva-unmapped"` \| `"target-frame-layout-unsupported"` \| `"target-frame-register-value-unavailable"` \| `"target-module-bytes-missing"` \| `"target-module-file-missing"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-module-range-unreadable"` \| `"target-ppoll-syscall-continuation-missing"` \| `"target-ppoll-timeout-missing"` \| `"target-return-slot-unsupported"` \| `"target-resume-execution-unavailable"` \| `"target-resume-fault-invalid-code-landing"` \| `"target-resume-fault-outside-target-bytes"` \| `"target-resume-fault-privileged-instruction"` \| `"target-resume-fault-signal-unsupported"` \| `"target-resume-fault-timeout"` \| `"target-resume-fault-unmodeled-memory"` \| `"target-semantic-continuation-missing"` \| `"target-sleep-remaining-time-missing"` \| `"target-sleep-signal-restart-unsupported"` \| `"target-sleep-syscall-continuation-missing"` \| `"target-synthetic-signal-interrupted-unsupported"` \| `"target-synthetic-signal-restart-unsupported"` \| `"target-synthetic-syscall-return-unmodeled"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
 
 ##### message
 
@@ -5202,6 +5207,44 @@ by default when `output` is a TTY.
 
 ***
 
+### NativeSyntheticContinuationRestartContract
+
+#### Properties
+
+##### mode
+
+> **mode**: `"fail-closed"`
+
+##### signalMaskAssumption
+
+> **signalMaskAssumption**: `"source-sigmask-null-or-unmodeled"`
+
+##### pendingSignalAssumption
+
+> **pendingSignalAssumption**: `"no-pending-signal-state-modeled"`
+
+##### plainEintr
+
+> **plainEintr**: `"refuse"`
+
+##### restartLikeErrnos
+
+> **restartLikeErrnos**: `object`[]
+
+###### errno
+
+> **errno**: `number`
+
+###### errnoName
+
+> **errnoName**: `string`
+
+##### targetRestartRequirements
+
+> **targetRestartRequirements**: `string`[]
+
+***
+
 ### NativeSyntheticContinuationCompletionDescriptor
 
 #### Extended by
@@ -5218,6 +5261,10 @@ by default when `output` is a TTY.
 ##### successExitStatus?
 
 > `optional` **successExitStatus?**: `number`
+
+##### restartContract?
+
+> `optional` **restartContract?**: [`NativeSyntheticContinuationRestartContract`](#nativesyntheticcontinuationrestartcontract)
 
 ##### failureExitStatus?
 
@@ -5510,6 +5557,14 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 #### Properties
 
+##### restartContract?
+
+> `optional` **restartContract?**: [`NativeSyntheticContinuationRestartContract`](#nativesyntheticcontinuationrestartcontract)
+
+###### Inherited from
+
+[`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor).[`restartContract`](#restartcontract)
+
 ##### failureExitStatus?
 
 > `optional` **failureExitStatus?**: `number`
@@ -5546,7 +5601,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor).[`mode`](#mode-2)
+[`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor).[`mode`](#mode-3)
 
 ##### successExitStatus?
 
@@ -5696,7 +5751,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ##### generatorBuildId
 
-> **generatorBuildId**: `"machinen-synthetic-ppoll-syscall-v1"`
+> **generatorBuildId**: `"machinen-synthetic-ppoll-syscall-v2"`
 
 ###### Overrides
 
@@ -6090,6 +6145,14 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 #### Properties
 
+##### restartContract?
+
+> `optional` **restartContract?**: [`NativeSyntheticContinuationRestartContract`](#nativesyntheticcontinuationrestartcontract)
+
+###### Inherited from
+
+[`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor).[`restartContract`](#restartcontract)
+
 ##### failureKind?
 
 > `optional` **failureKind?**: [`NativeSyntheticContinuationFailureKind`](#nativesyntheticcontinuationfailurekind)
@@ -6116,7 +6179,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor).[`mode`](#mode-2)
+[`NativeSyntheticContinuationCompletionDescriptor`](#nativesyntheticcontinuationcompletiondescriptor).[`mode`](#mode-3)
 
 ##### successExitStatus?
 
@@ -6276,7 +6339,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ##### generatorBuildId
 
-> **generatorBuildId**: `"machinen-synthetic-sleep-syscall-v3"`
+> **generatorBuildId**: `"machinen-synthetic-sleep-syscall-v4"`
 
 ###### Overrides
 
@@ -11204,7 +11267,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NativeSyntheticContinuationFailureKind
 
-> **NativeSyntheticContinuationFailureKind** = `"signal-restart-unsupported"` \| `"syscall-return-unmodeled"`
+> **NativeSyntheticContinuationFailureKind** = `"signal-interrupted-unsupported"` \| `"signal-restart-unsupported"` \| `"syscall-return-unmodeled"`
 
 ***
 
@@ -11916,7 +11979,7 @@ loops; anything looser stops being a meaningful gate.
 
 ### nativeProcessImageRefusalCodes
 
-> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"blocking-syscall-state-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"inherited-stdio-policy-required"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-permission-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"non-stdio-kernel-state-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"stdin-buffer-state-unsupported"`, `"syscall-argument-state-unsupported"`, `"syscall-restart-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-callee-saved-state-unsupported"`, `"target-caller-frame-unavailable"`, `"target-code-rva-unmapped"`, `"target-frame-layout-unsupported"`, `"target-frame-register-value-unavailable"`, `"target-module-bytes-missing"`, `"target-module-file-missing"`, `"target-module-missing"`, `"target-module-not-executable"`, `"target-module-range-unreadable"`, `"target-ppoll-syscall-continuation-missing"`, `"target-ppoll-timeout-missing"`, `"target-return-slot-unsupported"`, `"target-resume-execution-unavailable"`, `"target-resume-fault-invalid-code-landing"`, `"target-resume-fault-outside-target-bytes"`, `"target-resume-fault-privileged-instruction"`, `"target-resume-fault-signal-unsupported"`, `"target-resume-fault-timeout"`, `"target-resume-fault-unmodeled-memory"`, `"target-semantic-continuation-missing"`, `"target-sleep-remaining-time-missing"`, `"target-sleep-signal-restart-unsupported"`, `"target-sleep-syscall-continuation-missing"`, `"target-synthetic-signal-restart-unsupported"`, `"target-synthetic-syscall-return-unmodeled"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
+> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"blocking-syscall-state-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"inherited-stdio-policy-required"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-permission-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"non-stdio-kernel-state-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"stdin-buffer-state-unsupported"`, `"syscall-argument-state-unsupported"`, `"syscall-restart-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-callee-saved-state-unsupported"`, `"target-caller-frame-unavailable"`, `"target-code-rva-unmapped"`, `"target-frame-layout-unsupported"`, `"target-frame-register-value-unavailable"`, `"target-module-bytes-missing"`, `"target-module-file-missing"`, `"target-module-missing"`, `"target-module-not-executable"`, `"target-module-range-unreadable"`, `"target-ppoll-syscall-continuation-missing"`, `"target-ppoll-timeout-missing"`, `"target-return-slot-unsupported"`, `"target-resume-execution-unavailable"`, `"target-resume-fault-invalid-code-landing"`, `"target-resume-fault-outside-target-bytes"`, `"target-resume-fault-privileged-instruction"`, `"target-resume-fault-signal-unsupported"`, `"target-resume-fault-timeout"`, `"target-resume-fault-unmodeled-memory"`, `"target-semantic-continuation-missing"`, `"target-sleep-remaining-time-missing"`, `"target-sleep-signal-restart-unsupported"`, `"target-sleep-syscall-continuation-missing"`, `"target-synthetic-signal-interrupted-unsupported"`, `"target-synthetic-signal-restart-unsupported"`, `"target-synthetic-syscall-return-unmodeled"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
 
 ***
 
@@ -12412,6 +12475,12 @@ loops; anything looser stops being a meaningful gate.
 
 ***
 
+### NATIVE\_SYNTHETIC\_SYSCALL\_EINTR\_EXIT\_STATUS
+
+> `const` **NATIVE\_SYNTHETIC\_SYSCALL\_EINTR\_EXIT\_STATUS**: `110` = `110`
+
+***
+
 ### NATIVE\_SYNTHETIC\_SYSCALL\_RESTART\_EXIT\_STATUS
 
 > `const` **NATIVE\_SYNTHETIC\_SYSCALL\_RESTART\_EXIT\_STATUS**: `111` = `111`
@@ -12426,7 +12495,7 @@ loops; anything looser stops being a meaningful gate.
 
 ### NATIVE\_SYNTHETIC\_PPOLL\_SYSCALL\_BUILD\_ID
 
-> `const` **NATIVE\_SYNTHETIC\_PPOLL\_SYSCALL\_BUILD\_ID**: `"machinen-synthetic-ppoll-syscall-v1"` = `"machinen-synthetic-ppoll-syscall-v1"`
+> `const` **NATIVE\_SYNTHETIC\_PPOLL\_SYSCALL\_BUILD\_ID**: `"machinen-synthetic-ppoll-syscall-v2"` = `"machinen-synthetic-ppoll-syscall-v2"`
 
 ***
 
@@ -12450,7 +12519,7 @@ loops; anything looser stops being a meaningful gate.
 
 ### NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_BUILD\_ID
 
-> `const` **NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_BUILD\_ID**: `"machinen-synthetic-sleep-syscall-v3"` = `"machinen-synthetic-sleep-syscall-v3"`
+> `const` **NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_BUILD\_ID**: `"machinen-synthetic-sleep-syscall-v4"` = `"machinen-synthetic-sleep-syscall-v4"`
 
 ***
 
@@ -12469,6 +12538,12 @@ loops; anything looser stops being a meaningful gate.
 ### NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_BASE
 
 > `const` **NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_BASE**: `"0x700200000000"` = `"0x700200000000"`
+
+***
+
+### NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_EINTR\_EXIT\_STATUS
+
+> `const` **NATIVE\_SYNTHETIC\_SLEEP\_SYSCALL\_EINTR\_EXIT\_STATUS**: `110` = `NATIVE_SYNTHETIC_SYSCALL_EINTR_EXIT_STATUS`
 
 ***
 
@@ -13818,6 +13893,24 @@ available.
 
 ***
 
+### nativeSyntheticEintrErrno()
+
+> **nativeSyntheticEintrErrno**(): `object`
+
+#### Returns
+
+`object`
+
+##### errno
+
+> **errno**: `number`
+
+##### errnoName
+
+> **errnoName**: `string`
+
+***
+
 ### nativeSyntheticRestartLikeErrnos()
 
 > **nativeSyntheticRestartLikeErrnos**(): `object`[]
@@ -13825,6 +13918,16 @@ available.
 #### Returns
 
 `object`[]
+
+***
+
+### nativeSyntheticSyscallRestartContract()
+
+> **nativeSyntheticSyscallRestartContract**(): [`NativeSyntheticContinuationRestartContract`](#nativesyntheticcontinuationrestartcontract)
+
+#### Returns
+
+[`NativeSyntheticContinuationRestartContract`](#nativesyntheticcontinuationrestartcontract)
 
 ***
 

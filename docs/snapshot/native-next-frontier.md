@@ -43,7 +43,8 @@ canonical ordered backlog. The next issues should stay narrow and stacked:
    [Native synthetic continuation descriptor](./native-synthetic-continuation-descriptor.md).
 2. Model interrupted syscall returns before expanding success cases. `EINTR`,
    `ERESTART*`, and signal-delivery states must keep precise fail-closed
-   refusals such as `target-synthetic-signal-restart-unsupported` and
+   refusals such as `target-synthetic-signal-interrupted-unsupported`,
+   `target-synthetic-signal-restart-unsupported`, and
    `target-synthetic-syscall-return-unmodeled` until restart behavior is
    modeled.
 3. Add one additional blocking syscall family with a captured real utility and a

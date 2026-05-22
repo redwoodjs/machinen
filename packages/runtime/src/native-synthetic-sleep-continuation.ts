@@ -2,6 +2,7 @@
 
 import type { NativeProcessImageRefusal } from "./native-process-image.ts";
 import {
+  NATIVE_SYNTHETIC_SYSCALL_EINTR_EXIT_STATUS,
   NATIVE_SYNTHETIC_SYSCALL_RESTART_EXIT_STATUS,
   NATIVE_SYNTHETIC_SYSCALL_UNMODELED_RETURN_EXIT_STATUS,
   buildNativeSyntheticModeledSyscallDescriptor,
@@ -24,10 +25,12 @@ import type {
   NativeModeledSleepTimerState,
 } from "./native-active-syscall-policy.ts";
 
-export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_BUILD_ID = "machinen-synthetic-sleep-syscall-v3";
+export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_BUILD_ID = "machinen-synthetic-sleep-syscall-v4";
 export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_LOGICAL_NAME = "machinen-synthetic-sleep-syscall";
 export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_PATH = "machinen.synthetic://sleep-syscall";
 export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_BASE = "0x700200000000";
+export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_EINTR_EXIT_STATUS =
+  NATIVE_SYNTHETIC_SYSCALL_EINTR_EXIT_STATUS;
 export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_RESTART_EXIT_STATUS =
   NATIVE_SYNTHETIC_SYSCALL_RESTART_EXIT_STATUS;
 export const NATIVE_SYNTHETIC_SLEEP_SYSCALL_UNMODELED_RETURN_EXIT_STATUS =
@@ -129,8 +132,8 @@ export interface NativeSyntheticSleepSyscallContinuationResult {
 const CLOCK_NANOSLEEP_SYSCALL_AMD64 = 230;
 const RETURNING_SLEEP_TIMESPEC_OFFSET = 24;
 const RETURNING_SLEEP_CODE_SIZE = 40;
-const EXITING_SLEEP_TIMESPEC_OFFSET = 104;
-const EXITING_SLEEP_CODE_SIZE = 120;
+const EXITING_SLEEP_TIMESPEC_OFFSET = 128;
+const EXITING_SLEEP_CODE_SIZE = 144;
 
 export function buildNativeSyntheticSleepSyscallContinuation(
   request: NativeSyntheticSleepSyscallContinuationRequest,

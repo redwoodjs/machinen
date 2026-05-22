@@ -71,16 +71,16 @@ describe("native synthetic continuation descriptor", () => {
       completionMode: "exit-process",
       returningTimespecOffset: 32,
       returningCodeSize: 48,
-      exitingTimespecOffset: 112,
-      exitingCodeSize: 128,
+      exitingTimespecOffset: 128,
+      exitingCodeSize: 144,
       remainingTime: { seconds: "0", nanoseconds: 0 },
     });
 
     expect(Buffer.from(exiting.subarray(0, 24)).toString("hex")).toBe(
-      "b80f01000031ff31f6488d15600000004531d24531c00f05",
+      "b80f01000031ff31f6488d15700000004531d24531c00f05",
     );
-    expect(Buffer.from(exiting.subarray(107, 112)).toString("hex")).toBe("9090909090");
-    expect(new DataView(exiting.buffer).getBigUint64(112, true)).toBe(0n);
+    expect(Buffer.from(exiting.subarray(123, 128)).toString("hex")).toBe("9090909090");
+    expect(new DataView(exiting.buffer).getBigUint64(128, true)).toBe(0n);
   });
 
   it("shares amd64 timespec bounds refusals", () => {

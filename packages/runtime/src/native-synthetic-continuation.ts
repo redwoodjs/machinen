@@ -7,6 +7,7 @@ import type {
   NativeProcessImageRefusalCode,
 } from "./native-process-image.ts";
 
+export const NATIVE_SYNTHETIC_SYSCALL_EINTR_EXIT_STATUS = 110;
 export const NATIVE_SYNTHETIC_SYSCALL_RESTART_EXIT_STATUS = 111;
 export const NATIVE_SYNTHETIC_SYSCALL_UNMODELED_RETURN_EXIT_STATUS = 112;
 
@@ -17,6 +18,7 @@ export type NativeSyntheticContinuationByteEncoding = "amd64-machine-code";
 export type NativeSyntheticContinuationSyscallAbi = "linux-amd64";
 export type NativeSyntheticContinuationRegisterSetupAbi = "linux-amd64-syscall";
 export type NativeSyntheticContinuationFailureKind =
+  | "signal-interrupted-unsupported"
   | "signal-restart-unsupported"
   | "syscall-return-unmodeled";
 export type NativeSyntheticContinuationFailureExitBucketCondition =
@@ -85,9 +87,19 @@ export interface NativeSyntheticContinuationFailureExitBucket {
   };
 }
 
+export interface NativeSyntheticContinuationRestartContract {
+  mode: "fail-closed";
+  signalMaskAssumption: "source-sigmask-null-or-unmodeled";
+  pendingSignalAssumption: "no-pending-signal-state-modeled";
+  plainEintr: "refuse";
+  restartLikeErrnos: { errno: number; errnoName: string }[];
+  targetRestartRequirements: string[];
+}
+
 export interface NativeSyntheticContinuationCompletionDescriptor {
   mode: string;
   successExitStatus?: number;
+  restartContract?: NativeSyntheticContinuationRestartContract;
   /** Legacy single-bucket failure status. Prefer failureExitBuckets for new continuations. */
   failureExitStatus?: number;
   /** Legacy single-bucket failure kind. Prefer failureExitBuckets for new continuations. */
@@ -348,9 +360,12 @@ export function nativeSyntheticTimespecBoundsRefusal(
   };
 }
 
+export function nativeSyntheticEintrErrno(): { errno: number; errnoName: string } {
+  return { errno: 4, errnoName: "EINTR" };
+}
+
 export function nativeSyntheticRestartLikeErrnos(): { errno: number; errnoName: string }[] {
   return [
-    { errno: 4, errnoName: "EINTR" },
     { errno: 512, errnoName: "ERESTARTSYS" },
     { errno: 513, errnoName: "ERESTARTNOINTR" },
     { errno: 514, errnoName: "ERESTARTNOHAND" },
@@ -358,14 +373,41 @@ export function nativeSyntheticRestartLikeErrnos(): { errno: number; errnoName: 
   ];
 }
 
+export function nativeSyntheticSyscallRestartContract(): NativeSyntheticContinuationRestartContract {
+  return {
+    mode: "fail-closed",
+    signalMaskAssumption: "source-sigmask-null-or-unmodeled",
+    pendingSignalAssumption: "no-pending-signal-state-modeled",
+    plainEintr: "refuse",
+    restartLikeErrnos: nativeSyntheticRestartLikeErrnos(),
+    targetRestartRequirements: [
+      "captured pending signal set and delivery point",
+      "captured signal mask and handler disposition",
+      "kernel restart-block state for restartable syscalls",
+      "proof that syscall arguments and timeout accounting remain valid after interruption",
+    ],
+  };
+}
+
 export function nativeSyntheticSyscallFailureExitBuckets(
   syscallName: string,
 ): NativeSyntheticContinuationFailureExitBucket[] {
   return [
     {
+      exitStatus: NATIVE_SYNTHETIC_SYSCALL_EINTR_EXIT_STATUS,
+      failureKind: "signal-interrupted-unsupported",
+      failureReason: `${syscallName} returned EINTR; signal delivery state is not modeled`,
+      syscallReturn: {
+        register: "rax",
+        condition: "equals-negative-errno",
+        errno: 4,
+        errnoName: "EINTR",
+      },
+    },
+    {
       exitStatus: NATIVE_SYNTHETIC_SYSCALL_RESTART_EXIT_STATUS,
       failureKind: "signal-restart-unsupported",
-      failureReason: `${syscallName} returned EINTR or a restart-like errno; signal restart handling is not modeled`,
+      failureReason: `${syscallName} returned a restart-like errno; kernel restart state is not modeled`,
       syscallReturn: {
         register: "rax",
         condition: "restart-like-negative-errno",
@@ -380,7 +422,7 @@ export function nativeSyntheticSyscallFailureExitBuckets(
         register: "rax",
         condition: "other-negative-errno",
         errnoRange: { min: 1, max: 4095 },
-        excludedErrnos: nativeSyntheticRestartLikeErrnos(),
+        excludedErrnos: [nativeSyntheticEintrErrno(), ...nativeSyntheticRestartLikeErrnos()],
       },
     },
   ];
@@ -419,6 +461,7 @@ function nativeSyntheticSyscallCompletion(
   return {
     mode: completionMode,
     successExitStatus: completionMode === "exit-process" ? 0 : undefined,
+    restartContract: nativeSyntheticSyscallRestartContract(),
     failureExitBuckets:
       completionMode === "exit-process"
         ? nativeSyntheticSyscallFailureExitBuckets(syscallName)
@@ -481,7 +524,7 @@ export function nativeSyntheticExitProcessSuffix(): number[] {
     0xf8,
     0xfc, // cmp rax, -EINTR
     0x74,
-    0x2b, // je restart failure exit
+    0x2b, // je EINTR failure exit
     0x48,
     0x3d,
     0x00,
@@ -489,7 +532,7 @@ export function nativeSyntheticExitProcessSuffix(): number[] {
     0xff,
     0xff, // cmp rax, -ERESTARTSYS
     0x74,
-    0x23, // je restart failure exit
+    0x2f, // je restart failure exit
     0x48,
     0x3d,
     0xff,
@@ -497,7 +540,7 @@ export function nativeSyntheticExitProcessSuffix(): number[] {
     0xff,
     0xff, // cmp rax, -ERESTARTNOINTR
     0x74,
-    0x1b, // je restart failure exit
+    0x27, // je restart failure exit
     0x48,
     0x3d,
     0xfe,
@@ -505,7 +548,7 @@ export function nativeSyntheticExitProcessSuffix(): number[] {
     0xff,
     0xff, // cmp rax, -ERESTARTNOHAND
     0x74,
-    0x13, // je restart failure exit
+    0x1f, // je restart failure exit
     0x48,
     0x3d,
     0xfc,
@@ -513,9 +556,9 @@ export function nativeSyntheticExitProcessSuffix(): number[] {
     0xff,
     0xff, // cmp rax, -ERESTART_RESTARTBLOCK
     0x74,
-    0x0b, // je restart failure exit
+    0x17, // je restart failure exit
     0xeb,
-    0x15, // jmp unmodeled return failure exit
+    0x21, // jmp unmodeled return failure exit
     0xb8,
     0x3c,
     0x00,
@@ -531,10 +574,22 @@ export function nativeSyntheticExitProcessSuffix(): number[] {
     0x00,
     0x00, // mov eax, 60 (exit)
     0xbf,
+    NATIVE_SYNTHETIC_SYSCALL_EINTR_EXIT_STATUS,
+    0x00,
+    0x00,
+    0x00, // mov edi, 110 (EINTR failure)
+    0x0f,
+    0x05, // syscall
+    0xb8,
+    0x3c,
+    0x00,
+    0x00,
+    0x00, // mov eax, 60 (exit)
+    0xbf,
     NATIVE_SYNTHETIC_SYSCALL_RESTART_EXIT_STATUS,
     0x00,
     0x00,
-    0x00, // mov edi, 111 (EINTR/restart failure)
+    0x00, // mov edi, 111 (restart failure)
     0x0f,
     0x05, // syscall
     0xb8,
