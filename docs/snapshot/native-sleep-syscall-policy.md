@@ -65,7 +65,9 @@ and restart contracts are modeled explicitly.
 ## Provenance
 
 Issue #553 records synthetic continuation provenance alongside the selected
-landing:
+landing. Issue #557 factors the common byte/syscall/register/stack/completion
+fields into the shared
+[Native synthetic continuation descriptor](./native-synthetic-continuation-descriptor.md):
 
 - generated amd64 byte source, hex bytes, and SHA-256
 - Linux amd64 `clock_nanosleep` syscall number (`230`) and register arguments

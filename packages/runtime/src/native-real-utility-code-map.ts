@@ -3,6 +3,7 @@
 import { basename } from "node:path";
 import type { NativeActiveSyscallContinuation } from "./native-active-syscall-policy.ts";
 import type { NativeCodeModule } from "./native-code-map.ts";
+import type { NativeSyntheticSyscallContinuationDescriptor } from "./native-synthetic-continuation.ts";
 import {
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_BASE,
   NATIVE_SYNTHETIC_SLEEP_SYSCALL_BUILD_ID,
@@ -81,6 +82,7 @@ export interface NativeRealUtilitySyntheticContinuationSelection {
   syscall: NativeSyntheticSleepSyscallContinuation["syscall"];
   completionMode: NativeSyntheticSleepCompletionMode;
   exitStatusOnSuccess?: 0;
+  descriptor: NativeSyntheticSyscallContinuationDescriptor;
   provenance: NativeSyntheticSleepSyscallContinuationProvenance;
 }
 
@@ -453,6 +455,7 @@ function syntheticContinuationSelection(
     syscall: continuation.syscall,
     completionMode: continuation.completionMode,
     exitStatusOnSuccess: continuation.exitStatusOnSuccess,
+    descriptor: continuation.descriptor,
     provenance: continuation.provenance,
   };
 }
