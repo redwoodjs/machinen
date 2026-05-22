@@ -5,9 +5,12 @@ import {
   NATIVE_SYNTHETIC_SYSCALL_RESTART_EXIT_STATUS,
   NATIVE_SYNTHETIC_SYSCALL_UNMODELED_RETURN_EXIT_STATUS,
   buildNativeSyntheticModeledSyscallDescriptor,
-  nativeSyntheticExitProcessSuffix,
+  buildNativeSyntheticTimespecSyscallBytes,
+  nativeSyntheticAmd64LeaRdxRipRelativePlaceholder,
+  nativeSyntheticAmd64ZeroRegister32,
   nativeSyntheticSyscallTimespecProvenance,
-  writeNativeSyntheticRipRelativeTimespec,
+  nativeSyntheticTimespecBoundsRefusal,
+  nativeSyntheticTimespecOffset,
   type NativeSyntheticContinuationCompletionDescriptor,
   type NativeSyntheticContinuationFailureExitBucket,
   type NativeSyntheticContinuationProvenanceSource,
@@ -128,8 +131,6 @@ const RETURNING_SLEEP_TIMESPEC_OFFSET = 24;
 const RETURNING_SLEEP_CODE_SIZE = 40;
 const EXITING_SLEEP_TIMESPEC_OFFSET = 104;
 const EXITING_SLEEP_CODE_SIZE = 120;
-const MAX_SIGNED_I64 = 0x7fff_ffff_ffff_ffffn;
-const MAX_NANOSECONDS = 999_999_999;
 
 export function buildNativeSyntheticSleepSyscallContinuation(
   request: NativeSyntheticSleepSyscallContinuationRequest,
@@ -181,57 +182,34 @@ export function buildNativeSyntheticSleepSyscallContinuation(
 function validateRemainingTime(
   request: NativeSyntheticSleepSyscallContinuationRequest,
 ): NativeProcessImageRefusal | undefined {
-  const seconds = BigInt(request.remainingTime.seconds);
-  if (seconds > MAX_SIGNED_I64 || request.remainingTime.nanoseconds > MAX_NANOSECONDS) {
-    return {
-      code: "target-sleep-syscall-continuation-missing",
-      message: `thread ${request.threadId} modeled sleep duration is outside amd64 timespec bounds`,
-      detail: { remainingTime: request.remainingTime, sleepTimer: request.sleepTimer },
-    };
-  }
-  return undefined;
+  return nativeSyntheticTimespecBoundsRefusal({
+    threadId: request.threadId,
+    remainingTime: request.remainingTime,
+    refusalCode: "target-sleep-syscall-continuation-missing",
+    message: `thread ${request.threadId} modeled sleep duration is outside amd64 timespec bounds`,
+    detail: { sleepTimer: request.sleepTimer },
+  });
 }
 
 function syntheticClockNanosleepBytes(
   remainingTime: NativeModeledSleepTimerRemainingTime,
   completionMode: NativeSyntheticSleepCompletionMode,
 ): Uint8Array {
-  const bytes = new Uint8Array(sleepCodeSize(completionMode));
-  bytes.set(
-    [
-      0xb8,
-      0xe6,
-      0x00,
-      0x00,
-      0x00, // mov eax, 230 (clock_nanosleep)
-      0x31,
-      0xff, // xor edi, edi (CLOCK_REALTIME)
-      0x31,
-      0xf6, // xor esi, esi (relative flags)
-      0x48,
-      0x8d,
-      0x15, // lea rdx, [rip + timespec]
-      0x00,
-      0x00,
-      0x00,
-      0x00,
-      0x45,
-      0x31,
-      0xd2, // xor r10d, r10d (NULL remainder)
-      0x0f,
-      0x05, // syscall
-      0xc3, // ret to trampoline sentinel
-      0x90,
-      0x90, // align embedded timespec to 8 bytes
+  return buildNativeSyntheticTimespecSyscallBytes({
+    syscallNumber: CLOCK_NANOSLEEP_SYSCALL_AMD64,
+    argumentSetup: [
+      nativeSyntheticAmd64ZeroRegister32("rdi"),
+      nativeSyntheticAmd64ZeroRegister32("rsi"),
+      nativeSyntheticAmd64LeaRdxRipRelativePlaceholder(),
+      nativeSyntheticAmd64ZeroRegister32("r10"),
     ],
-    0,
-  );
-  if (completionMode === "exit-process") {
-    bytes.set(nativeSyntheticExitProcessSuffix(), 21);
-  }
-  const timespecOffset = sleepTimespecOffset(completionMode);
-  writeNativeSyntheticRipRelativeTimespec(bytes, timespecOffset, remainingTime);
-  return bytes;
+    completionMode,
+    returningTimespecOffset: RETURNING_SLEEP_TIMESPEC_OFFSET,
+    returningCodeSize: RETURNING_SLEEP_CODE_SIZE,
+    exitingTimespecOffset: EXITING_SLEEP_TIMESPEC_OFFSET,
+    exitingCodeSize: EXITING_SLEEP_CODE_SIZE,
+    remainingTime,
+  });
 }
 
 function syntheticClockNanosleepDescriptor(
@@ -300,11 +278,9 @@ function syscallArgumentsProvenance(): NativeSyntheticSleepSyscallArgumentProven
 }
 
 function sleepTimespecOffset(completionMode: NativeSyntheticSleepCompletionMode): number {
-  return completionMode === "exit-process"
-    ? EXITING_SLEEP_TIMESPEC_OFFSET
-    : RETURNING_SLEEP_TIMESPEC_OFFSET;
-}
-
-function sleepCodeSize(completionMode: NativeSyntheticSleepCompletionMode): number {
-  return completionMode === "exit-process" ? EXITING_SLEEP_CODE_SIZE : RETURNING_SLEEP_CODE_SIZE;
+  return nativeSyntheticTimespecOffset({
+    completionMode,
+    returningTimespecOffset: RETURNING_SLEEP_TIMESPEC_OFFSET,
+    exitingTimespecOffset: EXITING_SLEEP_TIMESPEC_OFFSET,
+  });
 }

@@ -4,9 +4,12 @@ import type { NativeModeledPpollTimeoutRemainingTime } from "./native-active-sys
 import type { NativeProcessImageRefusal } from "./native-process-image.ts";
 import {
   buildNativeSyntheticModeledSyscallDescriptor,
-  nativeSyntheticExitProcessSuffix,
+  buildNativeSyntheticTimespecSyscallBytes,
+  nativeSyntheticAmd64LeaRdxRipRelativePlaceholder,
+  nativeSyntheticAmd64ZeroRegister32,
   nativeSyntheticSyscallTimespecProvenance,
-  writeNativeSyntheticRipRelativeTimespec,
+  nativeSyntheticTimespecBoundsRefusal,
+  nativeSyntheticTimespecOffset,
   type NativeSyntheticContinuationCompletionDescriptor,
   type NativeSyntheticContinuationFailureExitBucket,
   type NativeSyntheticContinuationProvenanceSource,
@@ -122,8 +125,6 @@ const RETURNING_PPOLL_TIMESPEC_OFFSET = 32;
 const RETURNING_PPOLL_CODE_SIZE = 48;
 const EXITING_PPOLL_TIMESPEC_OFFSET = 112;
 const EXITING_PPOLL_CODE_SIZE = 128;
-const MAX_SIGNED_I64 = 0x7fff_ffff_ffff_ffffn;
-const MAX_NANOSECONDS = 999_999_999;
 
 export function buildNativeSyntheticPpollSyscallContinuation(
   request: NativeSyntheticPpollSyscallContinuationRequest,
@@ -172,68 +173,34 @@ export function buildNativeSyntheticPpollSyscallContinuation(
 function validateRemainingTime(
   request: NativeSyntheticPpollSyscallContinuationRequest,
 ): NativeProcessImageRefusal | undefined {
-  const seconds = BigInt(request.remainingTime.seconds);
-  if (seconds > MAX_SIGNED_I64 || request.remainingTime.nanoseconds > MAX_NANOSECONDS) {
-    return {
-      code: "target-ppoll-syscall-continuation-missing",
-      message: `thread ${request.threadId} modeled ppoll timeout is outside amd64 timespec bounds`,
-      detail: { remainingTime: request.remainingTime },
-    };
-  }
-  return undefined;
+  return nativeSyntheticTimespecBoundsRefusal({
+    threadId: request.threadId,
+    remainingTime: request.remainingTime,
+    refusalCode: "target-ppoll-syscall-continuation-missing",
+    message: `thread ${request.threadId} modeled ppoll timeout is outside amd64 timespec bounds`,
+  });
 }
 
 function syntheticPpollBytes(
   remainingTime: NativeModeledPpollTimeoutRemainingTime,
   completionMode: NativeSyntheticPpollCompletionMode,
 ): Uint8Array {
-  const bytes = new Uint8Array(ppollCodeSize(completionMode));
-  bytes.set(
-    [
-      0xb8,
-      0x0f,
-      0x01,
-      0x00,
-      0x00, // mov eax, 271 (ppoll)
-      0x31,
-      0xff, // xor edi, edi (NULL fds)
-      0x31,
-      0xf6, // xor esi, esi (nfds = 0)
-      0x48,
-      0x8d,
-      0x15, // lea rdx, [rip + timespec]
-      0x00,
-      0x00,
-      0x00,
-      0x00,
-      0x45,
-      0x31,
-      0xd2, // xor r10d, r10d (NULL sigmask)
-      0x45,
-      0x31,
-      0xc0, // xor r8d, r8d (sigsetsize = 0)
-      0x0f,
-      0x05, // syscall
-      0xc3, // ret to trampoline sentinel
-      0x90,
-      0x90,
-      0x90,
-      0x90,
-      0x90,
-      0x90,
-      0x90, // align embedded timespec to 8 bytes
+  return buildNativeSyntheticTimespecSyscallBytes({
+    syscallNumber: PPOLL_SYSCALL_AMD64,
+    argumentSetup: [
+      nativeSyntheticAmd64ZeroRegister32("rdi"),
+      nativeSyntheticAmd64ZeroRegister32("rsi"),
+      nativeSyntheticAmd64LeaRdxRipRelativePlaceholder(),
+      nativeSyntheticAmd64ZeroRegister32("r10"),
+      nativeSyntheticAmd64ZeroRegister32("r8"),
     ],
-    0,
-  );
-  if (completionMode === "exit-process") {
-    const suffixOffset = 24;
-    const suffix = nativeSyntheticExitProcessSuffix();
-    bytes.set(suffix, suffixOffset);
-    bytes.fill(0x90, suffixOffset + suffix.length, ppollTimespecOffset(completionMode));
-  }
-  const timespecOffset = ppollTimespecOffset(completionMode);
-  writeNativeSyntheticRipRelativeTimespec(bytes, timespecOffset, remainingTime);
-  return bytes;
+    completionMode,
+    returningTimespecOffset: RETURNING_PPOLL_TIMESPEC_OFFSET,
+    returningCodeSize: RETURNING_PPOLL_CODE_SIZE,
+    exitingTimespecOffset: EXITING_PPOLL_TIMESPEC_OFFSET,
+    exitingCodeSize: EXITING_PPOLL_CODE_SIZE,
+    remainingTime,
+  });
 }
 
 function syntheticPpollDescriptor(
@@ -293,11 +260,9 @@ function syscallArgumentsProvenance(): NativeSyntheticPpollSyscallArgumentProven
 }
 
 function ppollTimespecOffset(completionMode: NativeSyntheticPpollCompletionMode): number {
-  return completionMode === "exit-process"
-    ? EXITING_PPOLL_TIMESPEC_OFFSET
-    : RETURNING_PPOLL_TIMESPEC_OFFSET;
-}
-
-function ppollCodeSize(completionMode: NativeSyntheticPpollCompletionMode): number {
-  return completionMode === "exit-process" ? EXITING_PPOLL_CODE_SIZE : RETURNING_PPOLL_CODE_SIZE;
+  return nativeSyntheticTimespecOffset({
+    completionMode,
+    returningTimespecOffset: RETURNING_PPOLL_TIMESPEC_OFFSET,
+    exitingTimespecOffset: EXITING_PPOLL_TIMESPEC_OFFSET,
+  });
 }
