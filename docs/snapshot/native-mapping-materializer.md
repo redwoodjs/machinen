@@ -25,7 +25,8 @@ materializes it with `mmap`:
 `planNativeMappingMaterialization()` converts `NativeMemoryMapping` entries into
 loader steps:
 
-- `map-target-file` for executable target-file mappings;
+- `map-target-file` for executable target-file mappings with build-id or hash
+  provenance;
 - `copy-captured-bytes` for safe private anonymous/data/heap/writable mmap
   mappings;
 - `recreate` for target-owned stack/kernel mappings and safe guard mappings;
@@ -40,6 +41,10 @@ loader steps:
   writable guards, or recreated mappings that still carry source bytes.
 - `mapping-captured-range-unsupported` rejects private writable mappings with
   missing or invalid captured bytes.
+- `mapping-executable-unsupported` rejects executable mappings that lack a
+  target-native file, so captured source text is never copied as target code.
+- `mapping-provenance-ambiguous` rejects executable target files without build-id
+  or hash provenance.
 - `mapping-permission-unsupported` rejects writable+executable mappings.
 - `mapping-shared-unsupported` rejects shared writable memory.
 - `target-build-mismatch` rejects file-backed target mappings whose expected
