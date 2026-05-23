@@ -300,6 +300,7 @@ capture_remote_native_process_bundle() {
     packages/microvm/assets/native-process-capture.c \
     packages/microvm/assets/native-eventfd-read-target.c \
     packages/microvm/assets/native-pipe-read-target.c \
+    packages/microvm/assets/native-timerfd-read-target.c \
     packages/microvm/assets/native-two-thread-ppoll-target.c | \
     ssh "$ARM64_SSH" "tar -xzf - -C '$ARM64_REMOTE_WORK/repo'"
   local target_binary target_detail
@@ -316,12 +317,16 @@ capture_remote_native_process_bundle() {
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-eventfd-read-target"
       target_detail="remote arm64 eventfd read native-process bundle captured from $ARM64_SSH"
       ;;
+    timerfd-read)
+      target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-timerfd-read-target"
+      target_detail="remote arm64 timerfd read native-process bundle captured from $ARM64_SSH"
+      ;;
     *)
       finish_failure "unsupported PORTABLE_MACHINE_REMOTE_SOURCE_TARGET=$REMOTE_SOURCE_TARGET"
       ;;
   esac
   ssh "$ARM64_SSH" \
-    "cd '$ARM64_REMOTE_WORK/repo' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-process-capture.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-eventfd-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-eventfd-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-pipe-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror -pthread packages/microvm/assets/native-two-thread-ppoll-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-two-thread-ppoll-target' && '$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --settle-ms 150 -- '$target_binary' > '$ARM64_REMOTE_WORK/capture.log'"
+    "cd '$ARM64_REMOTE_WORK/repo' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-process-capture.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-eventfd-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-eventfd-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-pipe-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-timerfd-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-timerfd-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror -pthread packages/microvm/assets/native-two-thread-ppoll-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-two-thread-ppoll-target' && '$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --settle-ms 150 -- '$target_binary' > '$ARM64_REMOTE_WORK/capture.log'"
   mkdir -p "$NATIVE_BUNDLE"
   ssh "$ARM64_SSH" "cat '$ARM64_REMOTE_WORK/capture.log'" >"$WORK/arm64-capture.log"
   ssh "$ARM64_SSH" "tar -czf - -C '$ARM64_REMOTE_WORK/capture/bundle' ." | \

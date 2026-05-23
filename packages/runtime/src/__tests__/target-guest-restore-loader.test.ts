@@ -315,6 +315,18 @@ describe("target guest restore loader descriptor", () => {
         },
       },
       {
+        section: "active-syscall" as const,
+        step: {
+          action: "restore-fd-read-block" as const,
+          threadId: "thread:1",
+          fd: 36,
+          countBytes: 8,
+          resource: "synthetic-timerfd" as const,
+          remainingTime: { seconds: "1", nanoseconds: 0 },
+          resumeMode: "defer-target-resume" as const,
+        },
+      },
+      {
         section: "thread-spawn" as const,
         step: {
           action: "spawn-target-thread" as const,
@@ -343,6 +355,8 @@ describe("target guest restore loader descriptor", () => {
         "action=sigprocmask-set-blocked;threadId=thread:1;targetBlockedMasks=0x0",
         "--native-active-syscall-step",
         "action=restore-fd-read-block;threadId=thread:1;fd=32;countBytes=1;resource=synthetic-empty-pipe-read-end;resumeMode=defer-target-resume",
+        "--native-active-syscall-step",
+        "action=restore-fd-read-block;threadId=thread:1;fd=36;countBytes=8;resource=synthetic-timerfd;seconds=1;nanoseconds=0;resumeMode=defer-target-resume",
         "--native-thread-spawn-step",
         "action=spawn-target-thread;threadId=thread:2;stackBase=0x530000000000;stackLimit=0x530000010000;rip=0x700300000000;rsp=0x530000010000",
       ]),

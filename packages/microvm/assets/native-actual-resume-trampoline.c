@@ -1512,6 +1512,19 @@ static void restore_native_fd_read_block(const char *spec, struct NativeActiveSy
       exit(2);
     }
     install_synthetic_empty_eventfd((int)fd);
+  } else if (streq(resource, "synthetic-timerfd")) {
+    if (count_bytes < 8u) {
+      fprintf(stderr, "native-actual-resume-trampoline: native timerfd read count is unsupported\n");
+      exit(2);
+    }
+    install_synthetic_timerfd((int)fd);
+    if (native_step_has_value(spec, "seconds")) {
+      struct itimerspec timer = native_active_timer_spec(spec, "active-syscall");
+      if (timerfd_settime((int)fd, 0, &timer, NULL) != 0) {
+        fprintf(stderr, "native-actual-resume-trampoline: native timerfd read arm failed: %s\n", strerror(errno));
+        exit(1);
+      }
+    }
   } else {
     fprintf(stderr, "native-actual-resume-trampoline: native fd read resource is unsupported\n");
     exit(2);

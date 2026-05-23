@@ -211,6 +211,7 @@
 - [`NativeModeledPpollFdState`](#nativemodeledppollfdstate)
 - [`NativeModeledPpollTimeoutState`](#nativemodeledppolltimeoutstate)
 - [`NativeModeledFdReadTargetResource`](#nativemodeledfdreadtargetresource)
+- [`NativeModeledFdReadTimerRemainingTime`](#nativemodeledfdreadtimerremainingtime)
 - [`NativeModeledFdReadState`](#nativemodeledfdreadstate)
 - [`NativeSleepTimerModelResult`](#nativesleeptimermodelresult)
 - [`NativePpollTimeoutModelResult`](#nativeppolltimeoutmodelresult)
@@ -2667,6 +2668,7 @@ by default when `output` is a TTY.
 
 #### Extended by
 
+- [`NativeModeledFdReadTimerRemainingTime`](#nativemodeledfdreadtimerremainingtime)
 - [`NativeModeledPpollTimeoutRemainingTime`](#nativemodeledppolltimeoutremainingtime)
 - [`NativeModeledSleepTimerRemainingTime`](#nativemodeledsleeptimerremainingtime)
 
@@ -2888,6 +2890,48 @@ by default when `output` is a TTY.
 
 ***
 
+### NativeModeledFdReadTimerRemainingTime
+
+#### Extends
+
+- [`NativeSleepTimerDuration`](#nativesleeptimerduration)
+
+#### Properties
+
+##### seconds
+
+> **seconds**: `string`
+
+###### Inherited from
+
+[`NativeSleepTimerDuration`](#nativesleeptimerduration).[`seconds`](#seconds)
+
+##### nanoseconds
+
+> **nanoseconds**: `number`
+
+###### Inherited from
+
+[`NativeSleepTimerDuration`](#nativesleeptimerduration).[`nanoseconds`](#nanoseconds)
+
+##### state
+
+> **state**: `"modeled"`
+
+##### kind
+
+> **kind**: `"relative-duration"`
+
+##### source
+
+> **source**: `"active-syscall-timerfd-read-timeout"`
+
+##### precision
+
+> **precision**: `"captured-fdinfo-upper-bound"`
+
+***
+
 ### NativeModeledFdReadState
 
 #### Properties
@@ -2931,6 +2975,10 @@ by default when `output` is a TTY.
 ##### targetResource
 
 > **targetResource**: [`NativeModeledFdReadTargetResource`](#nativemodeledfdreadtargetresource)
+
+##### remainingTime?
+
+> `optional` **remainingTime?**: [`NativeModeledFdReadTimerRemainingTime`](#nativemodeledfdreadtimerremainingtime)
 
 ***
 
@@ -4767,7 +4815,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-6)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-7)
 
 ##### buildId
 
@@ -4875,7 +4923,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-6)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-7)
 
 ##### buildId
 
@@ -6496,7 +6544,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`source`](#source-7)
+[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`source`](#source-8)
 
 ***
 
@@ -6670,7 +6718,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-21)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-22)
 
 ##### targetArch
 
@@ -7084,7 +7132,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`source`](#source-7)
+[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`source`](#source-8)
 
 ***
 
@@ -7258,7 +7306,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-21)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-22)
 
 ##### targetArch
 
@@ -13097,7 +13145,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NativeFdReadResourcePolicy
 
-> **NativeFdReadResourcePolicy** = `"synthetic-empty-pipe"` \| `"synthetic-empty-eventfd"`
+> **NativeFdReadResourcePolicy** = `"synthetic-empty-pipe"` \| `"synthetic-empty-eventfd"` \| `"synthetic-timerfd"`
 
 ***
 
@@ -13109,7 +13157,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NativeModeledFdReadTargetResource
 
-> **NativeModeledFdReadTargetResource** = `"synthetic-empty-pipe-read-end"` \| `"synthetic-empty-eventfd"`
+> **NativeModeledFdReadTargetResource** = `"synthetic-empty-pipe-read-end"` \| `"synthetic-empty-eventfd"` \| `"synthetic-timerfd"`
 
 ***
 
@@ -13561,7 +13609,7 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ### TargetGuestActiveSyscallRestoreStep
 
-> **TargetGuestActiveSyscallRestoreStep** = \{ `action`: `"rearm-sleep-timer"`; `threadId`: `string`; `syscallName`: `string`; `remainingTime`: \{ `seconds`: `string`; `nanoseconds`: `number`; \}; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"rearm-ppoll-timeout"`; `threadId`: `string`; `remainingTime`: \{ `seconds`: `string`; `nanoseconds`: `number`; \}; `nfds`: `0` \| `1`; `resources`: [`NativeModeledPpollTargetResource`](#nativemodeledppolltargetresource)[]; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"restore-fd-read-block"`; `threadId`: `string`; `fd`: `number`; `countBytes`: `number`; `resource`: [`NativeModeledFdReadTargetResource`](#nativemodeledfdreadtargetresource); `resumeMode`: `"defer-target-resume"`; \}
+> **TargetGuestActiveSyscallRestoreStep** = \{ `action`: `"rearm-sleep-timer"`; `threadId`: `string`; `syscallName`: `string`; `remainingTime`: \{ `seconds`: `string`; `nanoseconds`: `number`; \}; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"rearm-ppoll-timeout"`; `threadId`: `string`; `remainingTime`: \{ `seconds`: `string`; `nanoseconds`: `number`; \}; `nfds`: `0` \| `1`; `resources`: [`NativeModeledPpollTargetResource`](#nativemodeledppolltargetresource)[]; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"restore-fd-read-block"`; `threadId`: `string`; `fd`: `number`; `countBytes`: `number`; `resource`: [`NativeModeledFdReadTargetResource`](#nativemodeledfdreadtargetresource); `remainingTime?`: \{ `seconds`: `string`; `nanoseconds`: `number`; \}; `resumeMode`: `"defer-target-resume"`; \}
 
 ***
 

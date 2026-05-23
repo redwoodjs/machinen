@@ -220,6 +220,34 @@ function documentsWithReadEventfd(
   });
 }
 
+function documentsWithReadTimerfd(
+  activeThread: NativeThreadState,
+  options: { flags?: string[]; recipe?: Record<string, unknown> } = {},
+): NativeProcessImageDocuments {
+  const documents = documentsWithReadPipe(activeThread, {
+    readFd: 36,
+    readKind: "pipe",
+    readFlags: options.flags ?? ["octal:2000002"],
+    readRecipe: options.recipe ?? timerfdRecipe(),
+    includeWriteEnd: false,
+  });
+  documents.resources.resources[0]!.kind = "timer";
+  documents.resources.resources[0]!.path = "anon_inode:[timerfd]";
+  return documents;
+}
+
+function timerfdRecipe(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    timerfdTicks: "0x0",
+    timerfdSettimeFlags: 0,
+    timerfdValueSeconds: 30,
+    timerfdValueNanoseconds: 0,
+    timerfdIntervalSeconds: 0,
+    timerfdIntervalNanoseconds: 0,
+    ...overrides,
+  };
+}
+
 function emptyRefusals() {
   return { vocabularyVersion: 1 as const, refusals: [] };
 }
@@ -896,6 +924,35 @@ describe("native active syscall classification", () => {
     });
   });
 
+  it("models a blocked read from a timerfd with remaining time", () => {
+    const activeThread = arm64ReadThread(["0x24", "0x3100", "0x8", "0x0", "0x0", "0x0"]);
+    const documents = documentsWithReadTimerfd(activeThread);
+    const result = classifyNativeActiveSyscalls([activeThread], {
+      fdReadPolicy: "defer-target-resume",
+      fdReadResourcePolicy: "synthetic-timerfd",
+      documents,
+    });
+
+    expect(result.refusals).toEqual([]);
+    expect(result.continuations[0]).toMatchObject({
+      syscallClass: "fd-blocking",
+      metadata: {
+        fdRead: {
+          fd: 36,
+          countBytes: 8,
+          resourceId: "fd:36:read",
+          targetResource: "synthetic-timerfd",
+          remainingTime: {
+            state: "modeled",
+            source: "active-syscall-timerfd-read-timeout",
+            seconds: "30",
+            nanoseconds: 0,
+          },
+        },
+      },
+    });
+  });
+
   it("prefers /proc syscall arguments for modeled read", () => {
     const activeThread = arm64ReadThread();
     activeThread.syscall.arguments = ["0x20", "0x3100", "0x1", "0x0", "0x0", "0x0"];
@@ -1001,6 +1058,61 @@ describe("native active syscall classification", () => {
     expect(
       modelNativeFdReadState(scenario.thread, documents, "synthetic-empty-eventfd"),
     ).toMatchObject({
+      state: "missing",
+      refusal: {
+        code: "target-fd-read-state-missing",
+        detail: { reason: scenario.reason },
+      },
+    });
+  });
+
+  it.each([
+    {
+      name: "short timerfd read",
+      thread: arm64ReadThread(["0x24", "0x3100", "0x4", "0x0", "0x0", "0x0"]),
+      reason: "read timerfd proof requires count >= 8",
+    },
+    {
+      name: "non-timerfd resource",
+      thread: arm64ReadThread(["0x24", "0x3100", "0x8", "0x0", "0x0", "0x0"]),
+      documents: (thread: NativeThreadState) =>
+        documentsWithReadPipe(thread, { readFd: 36, readKind: "pipe" }),
+      reason: "read proof requires a captured timerfd fd",
+    },
+    {
+      name: "expired readable timer",
+      thread: arm64ReadThread(["0x24", "0x3100", "0x8", "0x0", "0x0", "0x0"]),
+      documents: (thread: NativeThreadState) =>
+        documentsWithReadTimerfd(thread, { recipe: timerfdRecipe({ timerfdTicks: "0x1" }) }),
+      reason: "read timerfd proof requires an unread timer",
+    },
+    {
+      name: "periodic timer",
+      thread: arm64ReadThread(["0x24", "0x3100", "0x8", "0x0", "0x0", "0x0"]),
+      documents: (thread: NativeThreadState) =>
+        documentsWithReadTimerfd(thread, { recipe: timerfdRecipe({ timerfdIntervalSeconds: 1 }) }),
+      reason: "read timerfd proof does not model periodic timers",
+    },
+    {
+      name: "absolute timer",
+      thread: arm64ReadThread(["0x24", "0x3100", "0x8", "0x0", "0x0", "0x0"]),
+      documents: (thread: NativeThreadState) =>
+        documentsWithReadTimerfd(thread, { recipe: timerfdRecipe({ timerfdSettimeFlags: 1 }) }),
+      reason: "read timerfd proof does not model absolute timers",
+    },
+    {
+      name: "unsupported flags",
+      thread: arm64ReadThread(["0x24", "0x3100", "0x8", "0x0", "0x0", "0x0"]),
+      documents: (thread: NativeThreadState) =>
+        documentsWithReadTimerfd(thread, { flags: ["octal:2004002"] }),
+      reason: "read timerfd proof requires supported flags",
+    },
+  ])("refuses unsafe timerfd read state: $name", (scenario) => {
+    const documents = scenario.documents
+      ? scenario.documents(scenario.thread)
+      : documentsWithReadTimerfd(scenario.thread);
+
+    expect(modelNativeFdReadState(scenario.thread, documents, "synthetic-timerfd")).toMatchObject({
       state: "missing",
       refusal: {
         code: "target-fd-read-state-missing",
