@@ -129,6 +129,7 @@ export {
 export { planNativeTargetFrameStateMaterialization } from "./native-target-frame-state.ts";
 export { planNativeSyntheticTargetCallerFrame } from "./native-target-caller-frame.ts";
 export { planNativeThreadRestoreBoundary } from "./native-thread-restore-policy.ts";
+export { planNativeSimdFpuRestorePolicy, safeSimdFpuRefusal } from "./native-simd-fpu-policy.ts";
 export {
   inspectNativeTargetResumeLanding,
   nativeTargetResumeLandingRefusals,
@@ -498,6 +499,7 @@ export type {
   NativeProcessResource,
   NativeProcessResourceKind,
   NativeRegisterState,
+  NativeSimdFpuState,
   NativeThreadState,
   NativeThreadTranslation,
 } from "./native-process-image.ts";
@@ -505,6 +507,7 @@ export type {
   NativeThreadRestorePlan,
   NativeThreadRestorePlanRequest,
 } from "./native-thread-restore-policy.ts";
+export type { NativeSimdFpuRestorePolicyResult } from "./native-simd-fpu-policy.ts";
 export {
   _internal,
   attach,

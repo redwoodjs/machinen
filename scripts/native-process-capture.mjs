@@ -117,6 +117,9 @@ function summarizeBundle(context) {
       (thread) => thread.sourceRegisters.arch,
     ),
     syscallStates: context.bundle.threads.threads.map((thread) => thread.syscall.state),
+    simdFpuStates: context.bundle.threads.threads.map(
+      (thread) => thread.simdFpu?.state ?? "missing",
+    ),
     resourceCount: context.bundle.resources.resources.length,
     resourceKinds: [
       ...new Set(context.bundle.resources.resources.map((resource) => resource.kind)),
@@ -146,6 +149,10 @@ function validateSummary(summary) {
   assert(
     summary.syscallStates.every((state) => state === "outside-syscall"),
     "spinning capture target should be outside syscalls",
+  );
+  assert(
+    summary.simdFpuStates.every((state) => state !== "missing"),
+    "thread SIMD/FPU policy state was not captured",
   );
   assert(summary.resourceKinds.includes("auxv"), "auxv resource was not captured");
   assert(summary.resourceKinds.includes("file"), "file descriptor resource was not captured");

@@ -18,8 +18,8 @@ machine restore before the target VM is entered.
 
 A single thread with `outside-syscall`, no active signal frame, zero signal
 masks, disabled alt-stack state, absent rseq state, known TLS, known registers,
-and a private stack still translates and is accepted for the current restore
-proof.
+explicit clean/not-live SIMD/FPU state, and a private stack still translates and
+is accepted for the current restore proof.
 
 The following unsafe states refuse before register translation:
 
@@ -40,7 +40,8 @@ The restore boundary also refuses:
 - ptrace/debug leftovers -> `thread-state-unsupported`;
 - shared stack mappings -> `mapping-shared-unsupported`;
 - unknown TLS -> `tls-state-unsupported`;
-- ambiguous PC/SP register state -> `thread-state-unsupported`.
+- ambiguous PC/SP register state -> `thread-state-unsupported`;
+- missing, unsupported, or live SIMD/FPU state -> `simd-fpu-state-unsupported`.
 
 Zero procfs-style signal masks such as `0000000000000000` remain safe. That keeps
 normal ptrace/procfs captures translatable while still refusing real pending or
@@ -49,7 +50,7 @@ blocked signal state.
 ## Boundary
 
 This proof does not implement syscall restart, signal delivery replay, alt-stack
-reconstruction, rseq/TLS migration, futex replay, ptrace/debug state, or
-multi-thread restore. It only makes the hard boundary explicit: those states must
-not silently pass into translated frame/resume restore until a later proof models
-them.
+reconstruction, rseq/TLS migration, SIMD/FPU register restoration, futex replay,
+ptrace/debug state, or multi-thread restore. It only makes the hard boundary
+explicit: those states must not silently pass into translated frame/resume
+restore until a later proof models them.

@@ -1,4 +1,5 @@
 import { normalizeNativeHex } from "./native-hex.ts";
+import { safeSimdFpuRefusal } from "./native-simd-fpu-policy.ts";
 import {
   nativeThreadRefusal,
   unsafeNativeThreadExecutionState,
@@ -44,6 +45,7 @@ export function planNativeThreadRestoreBoundary(
     unsafeNativeThreadExecutionState(thread),
     safeTlsRefusal(thread),
     safeRegisterRefusal(thread),
+    safeSimdFpuRefusal(thread),
     safeStackRefusal(thread, request.mappings ?? []),
     ...resourceRefusals(request.resources ?? []),
   ].filter((entry) => entry !== undefined);

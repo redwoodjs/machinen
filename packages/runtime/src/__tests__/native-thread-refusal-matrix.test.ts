@@ -83,6 +83,18 @@ describe("native thread refusal matrix", () => {
           id: "ambiguous-registers",
           refusalCode: "thread-state-unsupported",
         }),
+        expect.objectContaining({
+          id: "missing-simd-fpu-state",
+          refusalCode: "simd-fpu-state-unsupported",
+        }),
+        expect.objectContaining({
+          id: "live-simd-fpu-state",
+          refusalCode: "simd-fpu-state-unsupported",
+        }),
+        expect.objectContaining({
+          id: "unsupported-simd-fpu-state",
+          refusalCode: "simd-fpu-state-unsupported",
+        }),
       ]),
     );
     expect(summary.architectureRefusal.code).toBe("architecture-pair-unsupported");
