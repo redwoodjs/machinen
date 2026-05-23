@@ -145,6 +145,25 @@ describe("native actual resume trampoline", () => {
         nativeThreadRestore: { status: "passed", stepCount: 1, spawnedCount: 1 },
       });
 
+      const fd3ClosedCode = join(outDir, "fd3-closed.bin");
+      writeFileSync(
+        fd3ClosedCode,
+        Buffer.from([
+          0xb8, 0x48, 0, 0, 0, 0xbf, 0x03, 0, 0, 0, 0xbe, 0x01, 0, 0, 0, 0x31, 0xd2, 0x0f, 0x05,
+          0x83, 0xf8, 0xf7, 0x75, 0x06, 0xb8, 0x4d, 0, 0, 0, 0xc3, 0xb8, 0x2a, 0, 0, 0, 0xc3,
+        ]),
+      );
+      expect(
+        runHelper(helper, fd3ClosedCode, 36, [
+          "--native-active-syscall-step",
+          "action=rearm-sleep-timer;threadId=thread:1;seconds=0;nanoseconds=1000000;resumeMode=defer-target-resume;syscallName=clock_nanosleep",
+        ]),
+      ).toMatchObject({
+        status: "returned",
+        returnValue: "0x4d",
+        nativeActiveSyscallRestore: { status: "passed", stepCount: 1, armedCount: 1 },
+      });
+
       const nativeMemoryReader = join(outDir, "native-memory-reader.bin");
       writeFileSync(nativeMemoryReader, loadU64FromAbsoluteCode(0x600000000000n));
       expect(

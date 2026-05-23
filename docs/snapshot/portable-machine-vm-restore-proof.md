@@ -122,7 +122,10 @@ summary shape on any host.
 The smoke profile creates or captures a narrow arm64 native-process bundle,
 wraps it in a portable machine snapshot, stages a target-native amd64 real
 utility continuation inside the bundle, and runs the portable machine VM restore
-proof with a combined restore descriptor. The continuation is target module bytes
+proof with a combined restore descriptor. Remote e2e mode captures a real arm64
+process blocked in a modeled `ppoll` timeout and requires the emitted
+`native=active-syscall` section to report
+`targetActiveSyscallRestoreResult=passed`. The continuation is target module bytes
 from the bundle's approved target root, not source-ISA text. The JSON summary
 includes `targetRestore.descriptorGateCompleted`, descriptor memory/fd counts,
 resource recipe kinds, `targetRestore.targetContinuationKind`,

@@ -20,6 +20,7 @@ import { materializeNativeTargetModuleBytes } from "../packages/runtime/src/nati
 import { matchNativeTargetUnwindFrame } from "../packages/runtime/src/native-target-unwind.ts";
 import { planNativeThreadRestoreBoundary } from "../packages/runtime/src/native-thread-restore-policy.ts";
 import { validatePortableMachineSnapshotBundle } from "../packages/runtime/src/portable-machine-snapshot.ts";
+import { planTargetGuestActiveSyscallRestore } from "../packages/runtime/src/target-guest-active-syscall-restore.ts";
 import { planTargetGuestMemoryMaterialization } from "../packages/runtime/src/target-guest-memory-materialization.ts";
 import { planTargetGuestPrivateMemoryRestore } from "../packages/runtime/src/target-guest-private-memory-restore.ts";
 import {
@@ -82,6 +83,10 @@ interface CombinedDescriptorContext extends CombinedDescriptorPaths {
   targetThreadRestoreResult: "accepted";
   targetThreadRestoreThreadId: string;
   targetSignalBlockedMasks: string[];
+  targetActiveSyscallSteps: Extract<
+    ReturnType<typeof planTargetGuestActiveSyscallRestore>,
+    { state: "planned" }
+  >["steps"];
 }
 
 interface PreparedTargetContinuation {
@@ -352,37 +357,77 @@ function combinedDescriptorContext(
   plan: ReturnType<typeof planPortableMachineVmRestoreProof>,
 ): CombinedDescriptorContext | ReturnType<typeof planPortableMachineVmRestoreProof> {
   const bundle = validatePortableMachineSnapshotBundle(args.bundleDir!);
-  const threadPlan = planNativeThreadRestoreBoundary({
-    threads: bundle.nativeProcessImage.threads.threads,
-    mappings: bundle.nativeProcessImage.mappings.mappings,
-    resources: bundle.nativeProcessImage.resources.resources,
-    tls: { targetFsBase: TARGET_TLS_BASE, targetAccessPolicy: "target-tcb-materialized" },
-  });
+  const threadPlan = proofThreadPlan(bundle);
   if (threadPlan.state === "refused") {
-    const first = threadPlan.refusals[0]!;
-    return refusedPlan(plan, first.code, first.message);
+    return firstRefusedPlan(plan, threadPlan.refusals);
   }
-  const memoryFile = join(bundle.nativeProcessImage.rootDir!, NATIVE_PROCESS_IMAGE_FILES.memory);
-  const memorySizeBytes = statSync(memoryFile).size;
-  const mapping = selectProofMemoryMapping(
-    bundle.nativeProcessImage.mappings.mappings,
-    memorySizeBytes,
-  );
-  if (!mapping) {
+  const memory = proofMemorySelection(bundle);
+  if (!memory.mapping) {
     return refusedPlan(
       plan,
       "mapping-ambiguous",
       "portable machine proof needs one safe captured writable memory page",
     );
   }
+  const activeSyscallPlan = proofActiveSyscallPlan(threadPlan.activeSyscallContinuations);
+  if (activeSyscallPlan.state === "refused") {
+    return firstRefusedPlan(plan, activeSyscallPlan.refusals);
+  }
   const context = {
-    ...combinedDescriptorPaths(args, memoryFile, memorySizeBytes, mapping),
+    ...combinedDescriptorPaths(args, memory.file, memory.sizeBytes, memory.mapping),
     targetThreadRestoreResult: threadPlan.state,
     targetThreadRestoreThreadId: threadPlan.threadId,
     targetSignalBlockedMasks: threadPlan.signalRestore.blockedMasks,
+    targetActiveSyscallSteps: activeSyscallPlan.steps,
   };
-  const pathRefusal = portableProofPathRefusal(bundle.rootDir!, proofInputPaths(context));
+  return contextAfterPathCheck(plan, bundle.rootDir!, context);
+}
+
+function contextAfterPathCheck(
+  plan: ReturnType<typeof planPortableMachineVmRestoreProof>,
+  rootDir: string,
+  context: CombinedDescriptorContext,
+): CombinedDescriptorContext | ReturnType<typeof planPortableMachineVmRestoreProof> {
+  const pathRefusal = portableProofPathRefusal(rootDir, proofInputPaths(context));
   return pathRefusal ? refusedPlan(plan, pathRefusal.code, pathRefusal.message) : context;
+}
+
+function proofThreadPlan(bundle: ReturnType<typeof validatePortableMachineSnapshotBundle>) {
+  return planNativeThreadRestoreBoundary({
+    threads: bundle.nativeProcessImage.threads.threads,
+    mappings: bundle.nativeProcessImage.mappings.mappings,
+    resources: bundle.nativeProcessImage.resources.resources,
+    tls: { targetFsBase: TARGET_TLS_BASE, targetAccessPolicy: "target-tcb-materialized" },
+    activeSyscall: {
+      sleepTimerPolicy: "defer-target-resume",
+      pollTimeoutPolicy: "defer-target-resume",
+      pollTimeoutFdPolicy: "synthetic-timerfd",
+      documents: bundle.nativeProcessImage,
+    },
+  });
+}
+
+function proofMemorySelection(bundle: ReturnType<typeof validatePortableMachineSnapshotBundle>) {
+  const file = join(bundle.nativeProcessImage.rootDir!, NATIVE_PROCESS_IMAGE_FILES.memory);
+  const sizeBytes = statSync(file).size;
+  return {
+    file,
+    sizeBytes,
+    mapping: selectProofMemoryMapping(bundle.nativeProcessImage.mappings.mappings, sizeBytes),
+  };
+}
+
+function proofActiveSyscallPlan(
+  continuations: Extract<
+    ReturnType<typeof planNativeThreadRestoreBoundary>,
+    { state: "accepted" }
+  >["activeSyscallContinuations"],
+) {
+  return planTargetGuestActiveSyscallRestore({
+    classifications: [],
+    refusals: [],
+    continuations,
+  });
 }
 
 function combinedDescriptorPaths(
@@ -461,6 +506,7 @@ function proofNativeRestoreSections(
     ...proofPrivateMemoryNativeSections(memoryEntries),
     ...proofExecutableNativeSections(targetContinuation),
     ...proofSignalNativeSections(context),
+    ...proofActiveSyscallNativeSections(context),
   ];
 }
 
@@ -582,6 +628,15 @@ function proofSignalNativeSections(
       },
     },
   ];
+}
+
+function proofActiveSyscallNativeSections(
+  context: CombinedDescriptorContext,
+): TargetGuestNativeRestoreStep[] {
+  return context.targetActiveSyscallSteps.map((step) => ({
+    section: "active-syscall" as const,
+    step,
+  }));
 }
 
 function continuationStackStart(): string {
@@ -1349,6 +1404,14 @@ class Amd64ProofAssembler {
       this.push(Number((value >> (8n * i)) & 0xffn));
     }
   }
+}
+
+function firstRefusedPlan(
+  plan: ReturnType<typeof planPortableMachineVmRestoreProof>,
+  refusals: Array<{ code: string; message: string }>,
+): ReturnType<typeof planPortableMachineVmRestoreProof> {
+  const first = refusals[0]!;
+  return refusedPlan(plan, first.code, first.message);
 }
 
 function refusedPlan(

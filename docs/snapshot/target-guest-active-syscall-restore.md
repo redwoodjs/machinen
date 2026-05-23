@@ -1,6 +1,7 @@
 # Target guest active-syscall restore
 
-Issue #663 plans target re-arm for modeled active syscall continuations.
+Issue #663 plans target re-arm for modeled active syscall continuations. Issue
+#691 carries those planned steps into the full portable machine VM proof.
 
 `planTargetGuestActiveSyscallRestore()` consumes the active syscall
 classification result. If classification contains any refusal, target restore is
@@ -21,3 +22,10 @@ trampoline reports `nativeActiveSyscallRestore.status=passed` only when every
 step was parsed, validated, and armed; malformed durations, unknown actions,
 wrong resume modes, unsupported sleep syscall names, and unsupported `ppoll`
 resource shapes exit before target success.
+
+The remote portable-machine smoke path captures a real arm64 process blocked in
+a modeled `ppoll` timeout, wraps that bundle in a portable machine snapshot,
+serializes a `native=active-syscall` section in the combined target descriptor,
+and requires `targetActiveSyscallRestoreResult=passed` before the remote
+arm64→amd64 proof is accepted. Missing or unreadable timeout memory still
+refuses before VM target success with the active-syscall timeout refusal codes.
