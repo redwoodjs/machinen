@@ -144,13 +144,21 @@
 - [`NativeRegisterTranslationRequest`](#nativeregistertranslationrequest)
 - [`NativeContinuationTarget`](#nativecontinuationtarget)
 - [`NativeRegisterTranslationResult`](#nativeregistertranslationresult)
+- [`NativeTlsThreadPointerRegister`](#nativetlsthreadpointerregister)
+- [`NativeTlsAmd64SegmentBases`](#nativetlsamd64segmentbases)
 - [`NativeThreadRestorePlan`](#nativethreadrestoreplan)
 - [`NativeThreadRestorePlanRequest`](#nativethreadrestoreplanrequest)
 - [`NativeSimdFpuRestorePolicyResult`](#nativesimdfpurestorepolicyresult)
+- [`NativeThreadTlsPolicyRequest`](#nativethreadtlspolicyrequest)
+- [`NativeTlsSegmentBaseHandoffRequest`](#nativetlssegmentbasehandoffrequest)
+- [`NativeTlsSegmentBaseHandoffResult`](#nativetlssegmentbasehandoffresult)
+- [`NativeTlsTargetAccessPolicy`](#nativetlstargetaccesspolicy)
 - [`translateNativeRegisterState`](#translatenativeregisterstate)
 - [`planNativeThreadRestoreBoundary`](#plannativethreadrestoreboundary)
 - [`planNativeSimdFpuRestorePolicy`](#plannativesimdfpurestorepolicy)
 - [`safeSimdFpuRefusal`](#safesimdfpurefusal)
+- [`planNativeTlsSegmentBaseHandoff`](#plannativetlssegmentbasehandoff)
+- [`safeTlsSegmentBaseRefusal`](#safetlssegmentbaserefusal)
 - [`NativeActiveSyscallClass`](#nativeactivesyscallclass)
 - [`NativeSleepTimerSyscallPolicy`](#nativesleeptimersyscallpolicy)
 - [`NativePollTimeoutSyscallPolicy`](#nativepolltimeoutsyscallpolicy)
@@ -4015,6 +4023,14 @@ by default when `output` is a TTY.
 
 > **threadPointer**: `string`
 
+###### sourceRegister?
+
+> `optional` **sourceRegister?**: [`NativeTlsThreadPointerRegister`](#nativetlsthreadpointerregister)
+
+###### targetSegmentBases?
+
+> `optional` **targetSegmentBases?**: [`NativeTlsAmd64SegmentBases`](#nativetlsamd64segmentbases)
+
 ###### rseq
 
 > **rseq**: `object`
@@ -4900,6 +4916,10 @@ by default when `output` is a TTY.
 ##### targetTls
 
 > **targetTls**: `string`
+
+##### targetTlsAccessPolicy?
+
+> `optional` **targetTlsAccessPolicy?**: [`NativeTlsTargetAccessPolicy`](#nativetlstargetaccesspolicy)
 
 ##### targetRegisterOverrides?
 
@@ -7867,6 +7887,90 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 ##### resources?
 
 > `optional` **resources?**: [`NativeProcessResource`](#nativeprocessresource)[]
+
+##### tls?
+
+> `optional` **tls?**: `object`
+
+###### targetFsBase?
+
+> `optional` **targetFsBase?**: `string`
+
+###### targetGsBase?
+
+> `optional` **targetGsBase?**: `string`
+
+###### targetAccessPolicy?
+
+> `optional` **targetAccessPolicy?**: [`NativeTlsTargetAccessPolicy`](#nativetlstargetaccesspolicy)
+
+***
+
+### NativeTlsSegmentBaseHandoffRequest
+
+#### Properties
+
+##### threadId
+
+> **threadId**: `string`
+
+##### sourceArch
+
+> **sourceArch**: `"amd64"` \| `"arm64"`
+
+##### targetArch
+
+> **targetArch**: `"amd64"` \| `"arm64"`
+
+##### sourceThreadPointer?
+
+> `optional` **sourceThreadPointer?**: `string`
+
+##### sourceRegister?
+
+> `optional` **sourceRegister?**: [`NativeTlsThreadPointerRegister`](#nativetlsthreadpointerregister)
+
+##### targetFsBase?
+
+> `optional` **targetFsBase?**: `string`
+
+##### targetGsBase?
+
+> `optional` **targetGsBase?**: `string`
+
+##### targetAccessPolicy?
+
+> `optional` **targetAccessPolicy?**: [`NativeTlsTargetAccessPolicy`](#nativetlstargetaccesspolicy)
+
+##### capturedTargetSegmentBases?
+
+> `optional` **capturedTargetSegmentBases?**: [`NativeTlsAmd64SegmentBases`](#nativetlsamd64segmentbases)
+
+***
+
+### NativeThreadTlsPolicyRequest
+
+#### Properties
+
+##### thread
+
+> **thread**: [`NativeThreadState`](#nativethreadstate)
+
+##### targetArch?
+
+> `optional` **targetArch?**: `"amd64"` \| `"arm64"`
+
+##### targetFsBase?
+
+> `optional` **targetFsBase?**: `string`
+
+##### targetGsBase?
+
+> `optional` **targetGsBase?**: `string`
+
+##### targetAccessPolicy?
+
+> `optional` **targetAccessPolicy?**: [`NativeTlsTargetAccessPolicy`](#nativetlstargetaccesspolicy)
 
 ***
 
@@ -11877,6 +11981,18 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativeTlsThreadPointerRegister
+
+> **NativeTlsThreadPointerRegister** = `"arm64-tpidr-el0"` \| `"amd64-fs-base"`
+
+***
+
+### NativeTlsAmd64SegmentBases
+
+> **NativeTlsAmd64SegmentBases** = \{ `state`: `"not-required"`; `fsBase`: `string`; `gsBase`: `string`; `reason?`: `string`; \} \| \{ `state`: `"provided"`; `fsBase`: `string`; `gsBase`: `string`; `provenance?`: `string`; \} \| \{ `state`: `"unsupported"`; `reason?`: `string`; `refusal?`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal); \}
+
+***
+
 ### NativeSimdFpuState
 
 > **NativeSimdFpuState** = \{ `state`: `"not-live"`; `provenance?`: `string`; \} \| \{ `state`: `"requires-restore"`; `arch?`: [`NativeProcessImageArchitecture`](#nativeprocessimagearchitecture); `byteLength?`: `number`; `reason?`: `string`; \} \| \{ `state`: `"not-captured"` \| `"unsupported"`; `reason?`: `string`; `refusal?`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal); \}
@@ -12072,6 +12188,18 @@ Poll interval in ms while retrying. Default 250.
 ### NativeThreadRestorePlan
 
 > **NativeThreadRestorePlan** = \{ `state`: `"accepted"`; `threadId`: `string`; `targetThreadCount`: `1`; `refusals`: \[\]; \} \| \{ `state`: `"refused"`; `targetThreadCount`: `number`; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
+
+***
+
+### NativeTlsTargetAccessPolicy
+
+> **NativeTlsTargetAccessPolicy** = `"not-required"` \| `"segment-bases-provided"` \| `"target-tcb-required"`
+
+***
+
+### NativeTlsSegmentBaseHandoffResult
+
+> **NativeTlsSegmentBaseHandoffResult** = \{ `state`: `"accepted"`; `threadId`: `string`; `sourceArch`: `"arm64"`; `sourceRegister`: `"arm64-tpidr-el0"`; `sourceThreadPointer`: `string`; `targetArch`: `"amd64"`; `targetSegmentBases`: \{ `fsBase`: `string`; `gsBase`: `string`; `accessPolicy`: `Exclude`\<[`NativeTlsTargetAccessPolicy`](#nativetlstargetaccesspolicy), `"target-tcb-required"`\>; \}; `refusals`: \[\]; \} \| \{ `state`: `"refused"`; `threadId`: `string`; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
 
 ***
 
@@ -14984,6 +15112,38 @@ available.
 #### Returns
 
 [`NativeThreadRestorePlan`](#nativethreadrestoreplan)
+
+***
+
+### planNativeTlsSegmentBaseHandoff()
+
+> **planNativeTlsSegmentBaseHandoff**(`request`): [`NativeTlsSegmentBaseHandoffResult`](#nativetlssegmentbasehandoffresult)
+
+#### Parameters
+
+##### request
+
+[`NativeTlsSegmentBaseHandoffRequest`](#nativetlssegmentbasehandoffrequest)
+
+#### Returns
+
+[`NativeTlsSegmentBaseHandoffResult`](#nativetlssegmentbasehandoffresult)
+
+***
+
+### safeTlsSegmentBaseRefusal()
+
+> **safeTlsSegmentBaseRefusal**(`request`): [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
+
+#### Parameters
+
+##### request
+
+[`NativeThreadTlsPolicyRequest`](#nativethreadtlspolicyrequest)
+
+#### Returns
+
+[`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
 
 ***
 

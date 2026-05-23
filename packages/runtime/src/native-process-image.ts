@@ -214,6 +214,23 @@ export interface NativeAmd64Registers {
 
 export type NativeRegisterState = NativeArm64Registers | NativeAmd64Registers;
 
+export type NativeTlsThreadPointerRegister = "arm64-tpidr-el0" | "amd64-fs-base";
+
+export type NativeTlsAmd64SegmentBases =
+  | {
+      state: "not-required";
+      fsBase: string;
+      gsBase: string;
+      reason?: string;
+    }
+  | {
+      state: "provided";
+      fsBase: string;
+      gsBase: string;
+      provenance?: string;
+    }
+  | { state: "unsupported"; reason?: string; refusal?: NativeProcessImageRefusal };
+
 export type NativeSimdFpuState =
   | { state: "not-live"; provenance?: string }
   | {
@@ -252,6 +269,8 @@ export interface NativeThreadState {
   };
   tls: {
     threadPointer: string;
+    sourceRegister?: NativeTlsThreadPointerRegister;
+    targetSegmentBases?: NativeTlsAmd64SegmentBases;
     rseq: {
       state: "absent" | "captured" | "unsupported";
       refusal?: NativeProcessImageRefusal;
@@ -883,6 +902,10 @@ function validateThreadTls(ctx: NativeValidationContext, path: string, value: un
     return;
   }
   nativeHex(ctx, `${path}.threadPointer`, tls.threadPointer);
+  if (tls.sourceRegister !== undefined) {
+    nativeEnum(ctx, `${path}.sourceRegister`, tls.sourceRegister, TLS_THREAD_POINTER_REGISTERS);
+  }
+  validateThreadTargetSegmentBases(ctx, `${path}.targetSegmentBases`, tls.targetSegmentBases);
   const rseq = nativeRecord(ctx, `${path}.rseq`, tls.rseq);
   if (!rseq) {
     return;
@@ -890,6 +913,30 @@ function validateThreadTls(ctx: NativeValidationContext, path: string, value: un
   nativeEnum(ctx, `${path}.rseq.state`, rseq.state, RSEQ_STATES);
   if (rseq.refusal !== undefined) {
     validateNativeRefusal(ctx, `${path}.rseq.refusal`, rseq.refusal);
+  }
+}
+
+function validateThreadTargetSegmentBases(
+  ctx: NativeValidationContext,
+  path: string,
+  value: unknown,
+): void {
+  if (value === undefined) {
+    return;
+  }
+  const bases = nativeRecord(ctx, path, value);
+  if (!bases) {
+    return;
+  }
+  nativeEnum(ctx, `${path}.state`, bases.state, TLS_TARGET_SEGMENT_BASE_STATES);
+  if (bases.state !== "unsupported") {
+    nativeHex(ctx, `${path}.fsBase`, bases.fsBase);
+    nativeHex(ctx, `${path}.gsBase`, bases.gsBase);
+  }
+  nativeOptionalString(ctx, `${path}.reason`, bases.reason);
+  nativeOptionalString(ctx, `${path}.provenance`, bases.provenance);
+  if (bases.refusal !== undefined) {
+    validateNativeRefusal(ctx, `${path}.refusal`, bases.refusal);
   }
 }
 
@@ -1456,6 +1503,8 @@ const THREAD_STOP_REASONS = ["ptrace-stop", "signal-delivery-stop", "group-stop"
 const SYSCALL_STATES = ["outside-syscall", "inside-syscall", "restart-block"] as const;
 const ALT_STACK_STATES = ["disabled", "enabled", "unsupported"] as const;
 const RSEQ_STATES = ["absent", "captured", "unsupported"] as const;
+const TLS_THREAD_POINTER_REGISTERS = ["arm64-tpidr-el0", "amd64-fs-base"] as const;
+const TLS_TARGET_SEGMENT_BASE_STATES = ["not-required", "provided", "unsupported"] as const;
 const SIMD_FPU_STATES = ["not-live", "requires-restore", "not-captured", "unsupported"] as const;
 const RESOURCE_KINDS = [
   "argv",

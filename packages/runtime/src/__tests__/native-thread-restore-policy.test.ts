@@ -76,6 +76,20 @@ describe("native thread restore boundary", () => {
         },
       },
       {
+        id: "wrong-tls-source-register",
+        expectedCode: "tls-state-unsupported",
+        mutate: (value) => {
+          value.tls.sourceRegister = "amd64-fs-base";
+        },
+      },
+      {
+        id: "unsupported-target-segment-bases",
+        expectedCode: "tls-state-unsupported",
+        mutate: (value) => {
+          value.tls.targetSegmentBases = { state: "unsupported", reason: "no target TCB" };
+        },
+      },
+      {
         id: "ambiguous-registers",
         expectedCode: "thread-state-unsupported",
         mutate: (value) => {
@@ -153,7 +167,7 @@ function thread(id: string): NativeThreadState {
       activeFrame: false,
       altStack: { state: "disabled" },
     },
-    tls: { threadPointer: "0x0", rseq: { state: "absent" } },
+    tls: { threadPointer: "0x0", sourceRegister: "arm64-tpidr-el0", rseq: { state: "absent" } },
     simdFpu: { state: "not-live", provenance: "unit-test-zero-fpstate" },
   };
 }

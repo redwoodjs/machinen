@@ -80,6 +80,14 @@ describe("native thread refusal matrix", () => {
         }),
         expect.objectContaining({ id: "unknown-tls", refusalCode: "tls-state-unsupported" }),
         expect.objectContaining({
+          id: "wrong-tls-source-register",
+          refusalCode: "tls-state-unsupported",
+        }),
+        expect.objectContaining({
+          id: "unsupported-target-segment-bases",
+          refusalCode: "tls-state-unsupported",
+        }),
+        expect.objectContaining({
           id: "ambiguous-registers",
           refusalCode: "thread-state-unsupported",
         }),

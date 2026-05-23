@@ -13,7 +13,11 @@ function arm64Thread(id = "thread:1"): NativeThreadState {
     sourceRegisters: { arch: "arm64", pc: "0x400120", sp: "0x7fff0000", pstate: "0x0", x },
     syscall: { state: "outside-syscall" },
     signal: { blocked: [], pending: [], activeFrame: false, altStack: { state: "disabled" } },
-    tls: { threadPointer: "0xffff0000", rseq: { state: "absent" } },
+    tls: {
+      threadPointer: "0xffff0000",
+      sourceRegister: "arm64-tpidr-el0",
+      rseq: { state: "absent" },
+    },
   };
 }
 
@@ -166,6 +170,38 @@ describe("native register translation", () => {
     thread.tls.rseq = { state: "captured" };
 
     expect(translate(thread).threads[0]?.refusal?.code).toBe("rseq-state-unsupported");
+  });
+
+  it("refuses ambiguous TLS segment-base handoff state", () => {
+    const unknownSource = arm64Thread("thread:unknown-tls");
+    unknownSource.tls.threadPointer = "unknown";
+    const targetTcb = arm64Thread("thread:tcb-required");
+
+    const result = translateNativeRegisterState({
+      sourceArch: "arm64",
+      targetArch: "amd64",
+      threads: [unknownSource, targetTcb],
+      continuations: {
+        "thread:unknown-tls": {
+          sourcePc: "0x400120",
+          targetIp: "0x14000120",
+          targetSp: "0x7fffffffe000",
+          targetTls: "0x0",
+        },
+        "thread:tcb-required": {
+          sourcePc: "0x400120",
+          targetIp: "0x14000120",
+          targetSp: "0x7fffffffe000",
+          targetTls: "0x7ffff7d00000",
+          targetTlsAccessPolicy: "target-tcb-required",
+        },
+      },
+    });
+
+    expect(result.threads.map((thread) => thread.refusal?.code)).toEqual([
+      "tls-state-unsupported",
+      "tls-state-unsupported",
+    ]);
   });
 
   it("refuses missing or mismatched continuation targets", () => {

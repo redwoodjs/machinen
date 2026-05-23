@@ -44,7 +44,8 @@ The bundle records:
 - per-thread stopped state and architecture-specific register documents;
 - syscall state from `/proc/<tid>/syscall`, classified as `outside-syscall`,
   `inside-syscall`, or `restart-block`;
-- signal masks and TLS thread pointer metadata;
+- signal masks and TLS thread-pointer metadata, including whether the pointer
+  came from arm64 `TPIDR_EL0` or amd64 `%fs` base;
 - SIMD/FPU policy state (`not-live` when ptrace FP/SIMD bytes are all zero,
   otherwise `requires-restore` or `not-captured`);
 - fd table metadata, regular-file reopen recipes, and resource refusals for

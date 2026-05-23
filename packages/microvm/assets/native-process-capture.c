@@ -1220,8 +1220,10 @@ static void write_thread(const struct ThreadCapture *thread, FILE *out,
   fputs(",\"activeFrame\":false,\"altStack\":{\"state\":\"disabled\"}},\"tls\":{\"threadPointer\":", out);
 #if defined(__x86_64__)
   json_hex_u64(out, thread->amd64_regs.fs_base);
+  fputs(",\"sourceRegister\":\"amd64-fs-base\"", out);
 #elif defined(__aarch64__)
   json_hex_u64(out, thread->arm64_tls);
+  fputs(",\"sourceRegister\":\"arm64-tpidr-el0\"", out);
 #else
   json_hex_u64(out, 0);
 #endif

@@ -57,8 +57,11 @@ trampoline materializes that target stack frame, seeds modeled `rbp`/`r12`, and
 the target-native continuation validates the frame before returning through the
 target-native landing. The restore boundary accepts only one safe stopped thread
 for this proof; multi-thread, futex, signal-delivery, ptrace/debug,
-shared-stack, unknown-TLS, ambiguous register, and live/unknown SIMD/FPU states
-refuse before the target VM is entered. The descriptor uses `resumeMode=translated-frame`, so the success
+shared-stack, unknown/ambiguous TLS or target segment-base, ambiguous register,
+and live/unknown SIMD/FPU states refuse before the target VM is entered. The
+current continuation declares target TLS not required and therefore uses zero
+amd64 `%fs`/`%gs`; later target-TCB materialization must opt into a non-zero
+segment-base policy. The descriptor uses `resumeMode=translated-frame`, so the success
 path records a target-native resume-path marker after the real continuation
 observes the translated frame, stack-slot vector, amd64 callee-saved register
 bank, modeled resume-register handoff including `%rdi`, and modeled RFLAGS
