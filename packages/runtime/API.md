@@ -373,6 +373,9 @@
 - [`nativeUnwindReturnAddressSlot`](#nativeunwindreturnaddressslot)
 - [`parseNativeEhFrameText`](#parsenativeehframetext)
 - [`NativeMemoryWord`](#nativememoryword)
+- [`NativeMachineRestorePlan`](#nativemachinerestoreplan)
+- [`NativeMachineRestorePlanRequest`](#nativemachinerestoreplanrequest)
+- [`planNativeMachineRestore`](#plannativemachinerestore)
 - [`NativeMemoryTranslationRequest`](#nativememorytranslationrequest)
 - [`NativeMemoryTranslationResult`](#nativememorytranslationresult)
 - [`translateNativeMemory`](#translatenativememory)
@@ -3421,6 +3424,28 @@ by default when `output` is a TTY.
 ##### refusals
 
 > **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
+### NativeMachineRestorePlanRequest
+
+#### Properties
+
+##### thread
+
+> **thread**: [`NativeThreadRestorePlanRequest`](#nativethreadrestoreplanrequest)
+
+##### stackWindow?
+
+> `optional` **stackWindow?**: [`NativeStackWindowMaterializationRequest`](#nativestackwindowmaterializationrequest)
+
+##### returnChain?
+
+> `optional` **returnChain?**: [`NativeReturnChainPlanRequest`](#nativereturnchainplanrequest)
+
+##### mappings?
+
+> `optional` **mappings?**: [`NativeMappingMaterializationRequest`](#nativemappingmaterializationrequest)
 
 ***
 
@@ -12404,6 +12429,12 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativeMachineRestorePlan
+
+> **NativeMachineRestorePlan** = \{ `state`: `"accepted"`; `thread`: `Extract`\<[`NativeThreadRestorePlan`](#nativethreadrestoreplan), \{ `state`: `"accepted"`; \}\>; `stackWindow?`: [`NativeStackWindowMaterializationPlan`](#nativestackwindowmaterializationplan) & `object`; `returnChain?`: [`NativeReturnChainPlan`](#nativereturnchainplan) & `object`; `mappings?`: [`NativeMappingMaterializationResult`](#nativemappingmaterializationresult); `refusals`: \[\]; \} \| \{ `state`: `"refused"`; `thread`: [`NativeThreadRestorePlan`](#nativethreadrestoreplan); `stackWindow?`: [`NativeStackWindowMaterializationPlan`](#nativestackwindowmaterializationplan); `returnChain?`: [`NativeReturnChainPlan`](#nativereturnchainplan); `mappings?`: [`NativeMappingMaterializationResult`](#nativemappingmaterializationresult); `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
+
+***
+
 ### NativeMappingMaterializationAction
 
 > **NativeMappingMaterializationAction** = `"map-target-file"` \| `"copy-captured-bytes"` \| `"recreate"` \| `"omit"` \| `"refuse"`
@@ -15025,6 +15056,22 @@ available.
 #### Returns
 
 [`NativeDebugMemoryPointerClassificationResult`](#nativedebugmemorypointerclassificationresult)
+
+***
+
+### planNativeMachineRestore()
+
+> **planNativeMachineRestore**(`request`): [`NativeMachineRestorePlan`](#nativemachinerestoreplan)
+
+#### Parameters
+
+##### request
+
+[`NativeMachineRestorePlanRequest`](#nativemachinerestoreplanrequest)
+
+#### Returns
+
+[`NativeMachineRestorePlan`](#nativemachinerestoreplan)
 
 ***
 

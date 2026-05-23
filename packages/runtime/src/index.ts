@@ -351,7 +351,12 @@ export type {
   NativeMemoryTranslationResult,
   NativeMemoryWord,
 } from "./native-memory-translation.ts";
+export { planNativeMachineRestore } from "./native-machine-restore-plan.ts";
 export { planNativeMappingMaterialization } from "./native-mapping-materialization.ts";
+export type {
+  NativeMachineRestorePlan,
+  NativeMachineRestorePlanRequest,
+} from "./native-machine-restore-plan.ts";
 export type {
   NativeMappingMaterializationAction,
   NativeMappingMaterializationRequest,
