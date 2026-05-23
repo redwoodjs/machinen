@@ -121,7 +121,9 @@ describe("native actual resume trampoline", () => {
           "--native-signal-restore-step",
           "action=restore-loader-signal-mask;threadId=thread:1",
           "--native-active-syscall-step",
-          "action=rearm-sleep-timer;threadId=thread:1;seconds=0;nanoseconds=1;resumeMode=defer-target-resume;syscallName=clock_nanosleep",
+          "action=rearm-sleep-timer;threadId=thread:1;seconds=0;nanoseconds=1000000;resumeMode=defer-target-resume;syscallName=clock_nanosleep",
+          "--native-active-syscall-step",
+          "action=rearm-ppoll-timeout;threadId=thread:1;seconds=0;nanoseconds=1000000;resumeMode=defer-target-resume;nfds=1;resources=synthetic-empty-eventfd",
         ]),
       ).toMatchObject({
         status: "returned",
@@ -137,7 +139,7 @@ describe("native actual resume trampoline", () => {
           verified: true,
           restored: true,
         },
-        nativeActiveSyscallRestore: { status: "passed", stepCount: 1 },
+        nativeActiveSyscallRestore: { status: "passed", stepCount: 2, armedCount: 2 },
       });
 
       const nativeMemoryReader = join(outDir, "native-memory-reader.bin");
@@ -171,6 +173,17 @@ describe("native actual resume trampoline", () => {
       expect(badExecutableMapping.stderr).toContain(
         "native executable mapping does not match target code",
       );
+
+      const badActiveSyscall = spawnSync(
+        helper,
+        helperArgs(returnCode, 1, [
+          "--native-active-syscall-step",
+          "action=rearm-sleep-timer;threadId=thread:1;seconds=0;nanoseconds=0;resumeMode=defer-target-resume;syscallName=clock_nanosleep",
+        ]),
+        { encoding: "utf8" },
+      );
+      expect(badActiveSyscall.status).toBe(2);
+      expect(badActiveSyscall.stderr).toContain("native active-syscall duration must be non-zero");
 
       const stateMemory = join(outDir, "state-memory.bin");
       const memory = Buffer.alloc(4096);

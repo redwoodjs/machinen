@@ -21,6 +21,7 @@
 #include <sys/mman.h>
 #include <sys/syscall.h>
 #include <sys/timerfd.h>
+#include <time.h>
 #include <unistd.h>
 
 #if defined(__linux__) && defined(__x86_64__)
@@ -119,6 +120,12 @@ struct NativeSignalRestoreState {
   bool restore_requested;
   bool restored;
   sigset_t saved_mask;
+};
+
+struct NativeActiveSyscallRestoreState {
+  bool requested;
+  size_t armed_count;
+  int timer_fds[MAX_NATIVE_RESTORE_STEPS];
 };
 
 struct Options {
@@ -767,6 +774,7 @@ static uint64_t jump_resume_register_r9 __attribute__((used)) = 0;
 static uint64_t jump_resume_register_r10 __attribute__((used)) = 0;
 static uint64_t jump_resume_register_r11 __attribute__((used)) = 0;
 static struct NativeSignalRestoreState native_signal_restore_state = {0};
+static struct NativeActiveSyscallRestoreState native_active_syscall_restore_state = {0};
 
 struct ObservedRegisters {
   uint64_t rax;
@@ -1357,6 +1365,100 @@ static void verify_native_executable_mappings(const struct Options *opts) {
       fprintf(stderr, "native-actual-resume-trampoline: native executable mapping lacks provenance\n");
       exit(2);
     }
+  }
+}
+
+static struct itimerspec native_active_timer_spec(const char *spec, const char *label) {
+  uint64_t seconds = native_step_u64(spec, "seconds", label);
+  uint64_t nanoseconds = native_step_u64(spec, "nanoseconds", label);
+  if (nanoseconds > 999999999u) {
+    fprintf(stderr, "native-actual-resume-trampoline: native %s nanoseconds are invalid\n", label);
+    exit(2);
+  }
+  if (seconds == 0 && nanoseconds == 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: native %s duration must be non-zero\n", label);
+    exit(2);
+  }
+  struct itimerspec timer = {0};
+  timer.it_value.tv_sec = (time_t)seconds;
+  timer.it_value.tv_nsec = (long)nanoseconds;
+  return timer;
+}
+
+static void require_active_resume_mode(const char *spec, const char *label) {
+  char resume_mode[64];
+  native_step_string(spec, "resumeMode", resume_mode, sizeof(resume_mode), label);
+  if (!streq(resume_mode, "defer-target-resume")) {
+    fprintf(stderr, "native-actual-resume-trampoline: native %s resume mode is unsupported\n", label);
+    exit(2);
+  }
+}
+
+static void record_active_timer_fd(struct NativeActiveSyscallRestoreState *state, int fd) {
+  if (state->armed_count >= MAX_NATIVE_RESTORE_STEPS) {
+    fprintf(stderr, "native-actual-resume-trampoline: too many native active-syscall timers\n");
+    exit(2);
+  }
+  state->timer_fds[state->armed_count++] = fd;
+}
+
+static void arm_native_active_timer(
+    const char *spec, const char *label, struct NativeActiveSyscallRestoreState *state) {
+  int fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC);
+  if (fd < 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: native %s timerfd failed: %s\n", label, strerror(errno));
+    exit(1);
+  }
+  struct itimerspec timer = native_active_timer_spec(spec, label);
+  if (timerfd_settime(fd, 0, &timer, NULL) != 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: native %s timerfd arm failed: %s\n", label, strerror(errno));
+    exit(1);
+  }
+  record_active_timer_fd(state, fd);
+}
+
+static void apply_native_active_syscall_restore_steps(
+    const struct Options *opts, struct NativeActiveSyscallRestoreState *state) {
+  state->requested = opts->native_active_syscall_step_count > 0;
+  for (size_t i = 0; i < opts->native_active_syscall_step_count; i++) {
+    const char *spec = opts->native_active_syscall_steps[i].spec;
+    char action[64];
+    native_step_string(spec, "action", action, sizeof(action), "active-syscall");
+    require_active_resume_mode(spec, "active-syscall");
+    if (streq(action, "rearm-sleep-timer")) {
+      char syscall_name[64];
+      native_step_string(spec, "syscallName", syscall_name, sizeof(syscall_name), "active-syscall");
+      if (!streq(syscall_name, "clock_nanosleep") && !streq(syscall_name, "nanosleep")) {
+        fprintf(stderr, "native-actual-resume-trampoline: native sleep syscall is unsupported\n");
+        exit(2);
+      }
+      arm_native_active_timer(spec, "active-syscall", state);
+    } else if (streq(action, "rearm-ppoll-timeout")) {
+      uint64_t nfds = native_step_u64(spec, "nfds", "active-syscall");
+      if (nfds > 1u) {
+        fprintf(stderr, "native-actual-resume-trampoline: native ppoll nfds is unsupported\n");
+        exit(2);
+      }
+      if (nfds == 1u) {
+        char resources[256];
+        native_step_string(spec, "resources", resources, sizeof(resources), "active-syscall");
+        if (resources[0] == '\0') {
+          fprintf(stderr, "native-actual-resume-trampoline: native ppoll resource is missing\n");
+          exit(2);
+        }
+      }
+      arm_native_active_timer(spec, "active-syscall", state);
+    } else {
+      fprintf(stderr, "native-actual-resume-trampoline: unsupported native active-syscall action\n");
+      exit(2);
+    }
+  }
+}
+
+static void close_native_active_syscall_timers(struct NativeActiveSyscallRestoreState *state) {
+  for (size_t i = 0; i < state->armed_count; i++) {
+    close(state->timer_fds[i]);
+    state->timer_fds[i] = -1;
   }
 }
 
@@ -2048,9 +2150,12 @@ static void print_native_restore_consumption(const struct Options *opts) {
         native_signal_restore_state.verified ? "true" : "false",
         native_signal_restore_state.restored ? "true" : "false");
   }
-  if (opts->native_active_syscall_step_count > 0) {
-    printf(",\"nativeActiveSyscallRestore\":{\"status\":\"passed\",\"stepCount\":%zu}",
-        opts->native_active_syscall_step_count);
+  if (native_active_syscall_restore_state.requested) {
+    bool active_passed = native_active_syscall_restore_state.armed_count == opts->native_active_syscall_step_count;
+    printf(",\"nativeActiveSyscallRestore\":{\"status\":\"%s\",\"stepCount\":%zu,\"armedCount\":%zu}",
+        active_passed ? "passed" : "failed",
+        opts->native_active_syscall_step_count,
+        native_active_syscall_restore_state.armed_count);
   }
 }
 
@@ -2120,6 +2225,7 @@ int main(int argc, char **argv) {
   install_synthetic_timerfd(opts.synthetic_timerfd);
   apply_cloexec_fds(&opts);
   apply_native_signal_restore_steps(&opts, &native_signal_restore_state);
+  apply_native_active_syscall_restore_steps(&opts, &native_active_syscall_restore_state);
   capture_host_fs_base();
   alarm((unsigned int)opts.timeout_seconds);
   if (sigsetjmp(resume_fault_jmp, 1) == 0) {
@@ -2158,6 +2264,7 @@ int main(int argc, char **argv) {
     print_fault_event(&opts);
   }
 
+  close_native_active_syscall_timers(&native_active_syscall_restore_state);
   munmap(stack, (size_t)opts.stack_size);
   munmap(code, (size_t)mapped_code_size);
   (void)mapped_code_start;

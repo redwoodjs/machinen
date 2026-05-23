@@ -13,3 +13,11 @@ refused. Otherwise, modeled continuations become target steps:
 Only continuations that already passed the active-syscall policy are accepted.
 Generic blocking syscalls, restart state, missing timespecs, and unsupported fd
 state continue to fail closed before target re-arm.
+
+The target amd64 trampoline now executes these sections by creating and arming a
+short-lived target-side timerfd for each `rearm-sleep-timer` or
+`rearm-ppoll-timeout` step before entering the restored continuation. The
+trampoline reports `nativeActiveSyscallRestore.status=passed` only when every
+step was parsed, validated, and armed; malformed durations, unknown actions,
+wrong resume modes, unsupported sleep syscall names, and unsupported `ppoll`
+resource shapes exit before target success.
