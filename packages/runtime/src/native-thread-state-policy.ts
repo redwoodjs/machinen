@@ -2,6 +2,7 @@ import type { NativeProcessImageRefusal, NativeThreadState } from "./native-proc
 
 interface NativeThreadExecutionStateOptions {
   allowModeledActiveSyscall?: boolean;
+  allowBlockedSignalMask?: boolean;
 }
 
 export function unsafeNativeThreadExecutionState(
@@ -23,7 +24,7 @@ export function unsafeNativeThreadExecutionState(
       `thread ${thread.id} has pending signal state`,
     );
   }
-  if (hasNonZeroNativeSignalMask(thread.signal.blocked)) {
+  if (hasNonZeroNativeSignalMask(thread.signal.blocked) && !options.allowBlockedSignalMask) {
     return nativeThreadRefusal(
       "signal-state-unsupported",
       `thread ${thread.id} has blocked signal state`,

@@ -41,6 +41,23 @@ describe("native thread restore boundary", () => {
     });
   });
 
+  it("accepts an opt-in safe blocked signal mask under the full thread gate", () => {
+    const masked = thread("thread:blocked-mask");
+    masked.signal.blocked = ["0x2"];
+
+    expect(
+      planNativeThreadRestoreBoundary({
+        threads: [masked],
+        mappings: [stackMapping],
+        signal: { blockedMaskPolicy: "restore-safe-mask" },
+      }),
+    ).toMatchObject({
+      state: "accepted",
+      signalRestore: { blockedMasks: ["0x2"] },
+      refusals: [],
+    });
+  });
+
   it("accepts a modeled active sleep syscall under the full thread gate", () => {
     const active = thread("thread:active-sleep");
     active.syscall = { state: "inside-syscall", number: 115, name: "clock_nanosleep" };
