@@ -228,6 +228,18 @@ function restoreRefusalCases(): RestoreRefusalCase[] {
       },
     },
     {
+      id: "partial-simd-fpu-subset",
+      expectedCode: "simd-fpu-state-unsupported",
+      mutate: (thread) => {
+        thread.simdFpu = {
+          state: "requires-restore",
+          arch: "arm64",
+          byteLength: 528,
+          liveSubset: "caller-saved-vector-registers",
+        };
+      },
+    },
+    {
       id: "unsupported-simd-fpu-state",
       expectedCode: "simd-fpu-state-unsupported",
       mutate: (thread) => {

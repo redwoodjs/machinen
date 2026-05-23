@@ -113,6 +113,18 @@ describe("native thread restore boundary", () => {
         },
       },
       {
+        id: "partial-simd-fpu-subset",
+        expectedCode: "simd-fpu-state-unsupported",
+        mutate: (value) => {
+          value.simdFpu = {
+            state: "requires-restore",
+            arch: "arm64",
+            byteLength: 528,
+            liveSubset: "fp-control-state",
+          };
+        },
+      },
+      {
         id: "futex-resource",
         expectedCode: "futex-state-unsupported",
         resources: [{ id: "resource:futex", kind: "futex", state: "captured" }],
