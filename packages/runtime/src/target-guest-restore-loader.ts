@@ -1,4 +1,14 @@
+import type { NativeModeledPpollTargetResource } from "./native-active-syscall-policy.ts";
+import type { NativeReturnChainFrameWrite } from "./native-return-chain-materializer.ts";
+import type {
+  NativeStackWindowGuardMapping,
+  NativeStackWindowWrite,
+} from "./native-stack-window-materializer.ts";
+import type { TargetGuestActiveSyscallRestoreStep } from "./target-guest-active-syscall-restore.ts";
+import type { TargetGuestExecutableMappingStep } from "./target-guest-executable-materialization.ts";
 import type { TargetGuestMemoryMaterializationEntry } from "./target-guest-memory-materialization.ts";
+import type { TargetGuestPrivateMemoryRestoreStep } from "./target-guest-private-memory-restore.ts";
+import type { TargetGuestSignalRestoreStep } from "./target-guest-signal-restore.ts";
 
 export const TARGET_GUEST_RESTORE_DESCRIPTOR_KIND = "machinen.target-guest-restore";
 
@@ -93,6 +103,15 @@ export interface TargetGuestTranslatedFrameSlot {
   classification: "non-pointer-data";
 }
 
+export type TargetGuestNativeRestoreStep =
+  | { section: "stack-window-write"; write: NativeStackWindowWrite }
+  | { section: "stack-window-guard"; guard: NativeStackWindowGuardMapping }
+  | { section: "return-chain-write"; write: NativeReturnChainFrameWrite }
+  | { section: "private-memory"; step: TargetGuestPrivateMemoryRestoreStep }
+  | { section: "executable-mapping"; step: TargetGuestExecutableMappingStep }
+  | { section: "signal-restore"; step: TargetGuestSignalRestoreStep }
+  | { section: "active-syscall"; step: TargetGuestActiveSyscallRestoreStep };
+
 export interface TargetGuestRestoreDescriptor {
   kind: typeof TARGET_GUEST_RESTORE_DESCRIPTOR_KIND;
   targetArch: "amd64";
@@ -100,6 +119,7 @@ export interface TargetGuestRestoreDescriptor {
   translatedFrame?: TargetGuestTranslatedFrameDescriptor;
   resources: TargetGuestRestoreResourceRecipe[];
   memory: TargetGuestMemoryMaterializationEntry[];
+  nativeRestore?: TargetGuestNativeRestoreStep[];
 }
 
 export function serializeTargetGuestRestoreDescriptor(
@@ -128,6 +148,7 @@ export function serializeTargetGuestRestoreDescriptor(
     ...optionalTranslatedFrameField(validated.translatedFrame),
     ...validated.resources.map(serializeResourceRecipe),
     ...validated.memory.map(serializeMemoryEntry),
+    ...(validated.nativeRestore ?? []).map(serializeNativeRestoreStep),
     "",
   ].join("\n");
 }
@@ -136,6 +157,7 @@ export function parseTargetGuestRestoreDescriptor(text: string): TargetGuestRest
   const fields = new Map<string, string>();
   const resources: TargetGuestRestoreResourceRecipe[] = [];
   const memory: TargetGuestMemoryMaterializationEntry[] = [];
+  const nativeRestore: TargetGuestNativeRestoreStep[] = [];
   let translatedFrame: TargetGuestTranslatedFrameDescriptor | undefined;
   for (const line of descriptorLines(text)) {
     if (line.startsWith("resource=")) {
@@ -144,13 +166,15 @@ export function parseTargetGuestRestoreDescriptor(text: string): TargetGuestRest
       memory.push(parseMemoryEntry(line));
     } else if (line.startsWith("frame=")) {
       translatedFrame = parseTranslatedFrame(line);
+    } else if (line.startsWith("native=")) {
+      nativeRestore.push(parseNativeRestoreStep(line));
     } else {
       const [key, value] = splitField(line);
       fields.set(key, value);
     }
   }
   return validateTargetGuestRestoreDescriptor(
-    fieldsToDescriptor(fields, resources, memory, translatedFrame),
+    fieldsToDescriptor(fields, resources, memory, translatedFrame, nativeRestore),
   );
 }
 
@@ -162,10 +186,13 @@ export function validateTargetGuestRestoreDescriptor(
   const resources = descriptor.resources.map(validateResourceRecipe);
   assertUniqueResourceFds(resources);
   const memory = descriptor.memory.map(validateMemoryEntry);
+  const nativeRestore = descriptor.nativeRestore?.map(validateNativeRestoreStep);
   const translatedFrame = validateTranslatedFrame(descriptor.translatedFrame, continuation);
-  return translatedFrame === undefined
-    ? { ...descriptor, continuation, resources, memory }
-    : { ...descriptor, continuation, translatedFrame, resources, memory };
+  const validated =
+    translatedFrame === undefined
+      ? { ...descriptor, continuation, resources, memory }
+      : { ...descriptor, continuation, translatedFrame, resources, memory };
+  return nativeRestore === undefined ? validated : { ...validated, nativeRestore };
 }
 
 export function buildNativeActualResumeTrampolineArgs(
@@ -200,6 +227,7 @@ export function buildNativeActualResumeTrampolineArgs(
     ...translatedFrameToTrampolineArgs(validated.translatedFrame),
     ...validated.resources.flatMap(resourceToTrampolineArgs),
     ...validated.memory.flatMap(memoryToTrampolineArgs),
+    ...(validated.nativeRestore ?? []).flatMap(nativeRestoreToTrampolineArgs),
   ];
 }
 
@@ -230,6 +258,7 @@ function fieldsToDescriptor(
   resources: TargetGuestRestoreResourceRecipe[],
   memory: TargetGuestMemoryMaterializationEntry[],
   translatedFrame: TargetGuestTranslatedFrameDescriptor | undefined,
+  nativeRestore: TargetGuestNativeRestoreStep[] = [],
 ): TargetGuestRestoreDescriptor {
   return {
     kind: requiredField(fields, "kind") as typeof TARGET_GUEST_RESTORE_DESCRIPTOR_KIND,
@@ -254,6 +283,7 @@ function fieldsToDescriptor(
     translatedFrame,
     resources,
     memory,
+    nativeRestore: nativeRestore.length === 0 ? undefined : nativeRestore,
   };
 }
 
@@ -560,6 +590,204 @@ function requiredMemoryField(fields: Map<string, string>, key: string): string {
   return fields.get(key) ?? fail("target-guest-loader-descriptor-invalid", `${key} is required`);
 }
 
+function parseNativeRestoreStep(line: string): TargetGuestNativeRestoreStep {
+  const [head, ...fields] = line.split(/\s+/);
+  const section = head!.slice("native=".length);
+  const values = new Map(fields.map(splitField));
+  switch (section) {
+    case "stack-window-write":
+      return { section, write: parseNativeStackWindowWrite(values) };
+    case "stack-window-guard":
+      return { section, guard: parseNativeStackWindowGuard(values) };
+    case "return-chain-write":
+      return { section, write: parseNativeReturnChainWrite(values) };
+    case "private-memory":
+      return { section, step: parseNativePrivateMemoryStep(values) };
+    case "executable-mapping":
+      return { section, step: parseNativeExecutableMappingStep(values) };
+    case "signal-restore":
+      return { section, step: parseNativeSignalRestoreStep(values) };
+    case "active-syscall":
+      return { section, step: parseNativeActiveSyscallStep(values) };
+    default:
+      return fail(
+        "target-guest-loader-descriptor-invalid",
+        `unsupported native restore section: ${section}`,
+      );
+  }
+}
+
+function parseNativeStackWindowWrite(fields: Map<string, string>): NativeStackWindowWrite {
+  return {
+    mapping: requiredNativeField(fields, "mapping"),
+    targetAddress: requiredNativeField(fields, "targetAddress"),
+    offset: parseNativeInteger(fields, "offset"),
+    sizeBytes: parseNativeInteger(fields, "sizeBytes") as 8,
+    value: requiredNativeField(fields, "value"),
+    bytes: requiredNativeField(fields, "bytes"),
+    kind: requiredNativeField(fields, "kind") as NativeStackWindowWrite["kind"],
+  };
+}
+
+function parseNativeStackWindowGuard(fields: Map<string, string>): NativeStackWindowGuardMapping {
+  return {
+    targetStart: requiredNativeField(fields, "targetStart"),
+    sizeBytes: parseNativeInteger(fields, "sizeBytes"),
+    placement: requiredNativeField(
+      fields,
+      "placement",
+    ) as NativeStackWindowGuardMapping["placement"],
+  };
+}
+
+function parseNativeReturnChainWrite(fields: Map<string, string>): NativeReturnChainFrameWrite {
+  return {
+    frameId: requiredNativeField(fields, "frameId"),
+    targetAddress: requiredNativeField(fields, "targetAddress"),
+    value: requiredNativeField(fields, "value"),
+    bytes: requiredNativeField(fields, "bytes"),
+    kind: requiredNativeField(fields, "kind") as NativeReturnChainFrameWrite["kind"],
+  };
+}
+
+function parseNativePrivateMemoryStep(
+  fields: Map<string, string>,
+): TargetGuestPrivateMemoryRestoreStep {
+  const action = requiredNativeField(fields, "action");
+  if (action === "copy-captured-bytes") {
+    return {
+      action,
+      mapping: requiredNativeField(fields, "mapping"),
+      sourceFile: requiredNativeField(fields, "sourceFile"),
+      sourceOffset: parseNativeInteger(fields, "sourceOffset"),
+      targetStart: requiredNativeField(fields, "targetStart"),
+      sizeBytes: parseNativeInteger(fields, "sizeBytes"),
+    };
+  }
+  if (action === "mmap-private-writable" || action === "mprotect-final") {
+    return {
+      action,
+      mapping: requiredNativeField(fields, "mapping"),
+      targetStart: requiredNativeField(fields, "targetStart"),
+      sizeBytes: parseNativeInteger(fields, "sizeBytes"),
+      permissions: requiredNativeField(fields, "permissions"),
+    };
+  }
+  if (action === "mmap-guard") {
+    return {
+      action,
+      mapping: requiredNativeField(fields, "mapping"),
+      targetStart: requiredNativeField(fields, "targetStart"),
+      sizeBytes: parseNativeInteger(fields, "sizeBytes"),
+      permissions: "---p",
+    };
+  }
+  return fail("target-guest-loader-descriptor-invalid", "unsupported native private-memory action");
+}
+
+function parseNativeExecutableMappingStep(
+  fields: Map<string, string>,
+): TargetGuestExecutableMappingStep {
+  const action = requiredNativeField(fields, "action");
+  if (action !== "map-target-executable") {
+    fail("target-guest-loader-descriptor-invalid", "unsupported native executable action");
+  }
+  return {
+    action,
+    mapping: requiredNativeField(fields, "mapping"),
+    targetStart: requiredNativeField(fields, "targetStart"),
+    sizeBytes: parseNativeInteger(fields, "sizeBytes"),
+    permissions: {
+      read: parseNativeBoolean(fields, "read"),
+      write: parseNativeBoolean(fields, "write"),
+      execute: parseNativeBoolean(fields, "execute"),
+      private: parseNativeBoolean(fields, "private"),
+      shared: parseNativeBoolean(fields, "shared"),
+    },
+    path: requiredNativeField(fields, "path"),
+    fileOffset: parseNativeInteger(fields, "fileOffset"),
+    buildId: fields.get("buildId"),
+    sha256: fields.get("sha256"),
+    sourceTextReusedAsTargetCode: false,
+  };
+}
+
+function parseNativeSignalRestoreStep(fields: Map<string, string>): TargetGuestSignalRestoreStep {
+  const action = requiredNativeField(fields, "action");
+  const threadId = requiredNativeField(fields, "threadId");
+  if (action === "save-loader-signal-mask" || action === "restore-loader-signal-mask") {
+    return { action, threadId };
+  }
+  if (action === "sigprocmask-set-blocked" || action === "verify-blocked-signal-mask") {
+    return { action, threadId, targetBlockedMasks: parseNativeList(fields, "targetBlockedMasks") };
+  }
+  return fail("target-guest-loader-descriptor-invalid", "unsupported native signal restore action");
+}
+
+function parseNativeActiveSyscallStep(
+  fields: Map<string, string>,
+): TargetGuestActiveSyscallRestoreStep {
+  const action = requiredNativeField(fields, "action");
+  if (action === "rearm-sleep-timer") {
+    return {
+      action,
+      threadId: requiredNativeField(fields, "threadId"),
+      syscallName: requiredNativeField(fields, "syscallName"),
+      remainingTime: parseNativeDuration(fields),
+      resumeMode: "defer-target-resume",
+    };
+  }
+  if (action === "rearm-ppoll-timeout") {
+    return {
+      action,
+      threadId: requiredNativeField(fields, "threadId"),
+      remainingTime: parseNativeDuration(fields),
+      nfds: parseNativeInteger(fields, "nfds") as 0 | 1,
+      resources: parseNativeList(fields, "resources") as NativeModeledPpollTargetResource[],
+      resumeMode: "defer-target-resume",
+    };
+  }
+  return fail("target-guest-loader-descriptor-invalid", "unsupported native active-syscall action");
+}
+
+function parseNativeDuration(fields: Map<string, string>): {
+  seconds: string;
+  nanoseconds: number;
+} {
+  return {
+    seconds: requiredNativeField(fields, "seconds"),
+    nanoseconds: parseNativeInteger(fields, "nanoseconds"),
+  };
+}
+
+function requiredNativeField(fields: Map<string, string>, key: string): string {
+  return fields.get(key) ?? fail("target-guest-loader-descriptor-invalid", `${key} is required`);
+}
+
+function parseNativeInteger(fields: Map<string, string>, key: string): number {
+  const parsed = Number(requiredNativeField(fields, key));
+  if (!Number.isSafeInteger(parsed)) {
+    fail("target-guest-loader-invalid-continuation", `${key} must be an integer`);
+  }
+  return parsed;
+}
+
+function parseNativeBoolean(fields: Map<string, string>, key: string): boolean {
+  const value = requiredNativeField(fields, key);
+  if (value === "true") {
+    return true;
+  }
+  if (value === "false") {
+    return false;
+  }
+  return fail("target-guest-loader-descriptor-invalid", `${key} must be true or false`);
+}
+
+function parseNativeList(fields: Map<string, string>, key: string): string[] {
+  const value = requiredNativeField(fields, key);
+  return value.length === 0 ? [] : value.split(",");
+}
+
 function assertDescriptorHeader(descriptor: TargetGuestRestoreDescriptor): void {
   if (descriptor.kind !== TARGET_GUEST_RESTORE_DESCRIPTOR_KIND) {
     fail("target-guest-loader-descriptor-invalid", "descriptor kind is not supported");
@@ -708,6 +936,122 @@ function validateMemoryEntry(
     assertNonNegative(entry.sourceOffset, "sourceOffset");
   }
   return entry;
+}
+
+function validateNativeRestoreStep(
+  step: TargetGuestNativeRestoreStep,
+): TargetGuestNativeRestoreStep {
+  switch (step.section) {
+    case "stack-window-write":
+      validateStackWindowWrite(step.write);
+      return step;
+    case "stack-window-guard":
+      validateStackWindowGuard(step.guard);
+      return step;
+    case "return-chain-write":
+      validateReturnChainWrite(step.write);
+      return step;
+    case "private-memory":
+      validatePrivateMemoryStep(step.step);
+      return step;
+    case "executable-mapping":
+      validateExecutableMappingStep(step.step);
+      return step;
+    case "signal-restore":
+      validateSignalRestoreStep(step.step);
+      return step;
+    case "active-syscall":
+      validateActiveSyscallRestoreStep(step.step);
+      return step;
+  }
+}
+
+function validateStackWindowWrite(write: NativeStackWindowWrite): void {
+  assertNoWhitespace(write.mapping, "mapping");
+  assertHexAddress(write.targetAddress, "targetAddress");
+  assertNonNegative(write.offset, "offset");
+  if (write.sizeBytes !== 8) {
+    fail("target-guest-loader-invalid-continuation", "stack-window writes must be u64");
+  }
+  assertHexAddress(write.value, "value");
+  assertBytesHex(write.bytes, "bytes");
+  if (!["pointer", "code-pointer", "return-address", "thread-pointer"].includes(write.kind)) {
+    fail("target-guest-loader-invalid-continuation", "stack-window write kind is unsupported");
+  }
+}
+
+function validateStackWindowGuard(guard: NativeStackWindowGuardMapping): void {
+  assertHexAddress(guard.targetStart, "targetStart");
+  assertPositive(guard.sizeBytes, "sizeBytes");
+  if (guard.placement !== "below" && guard.placement !== "above") {
+    fail("target-guest-loader-invalid-continuation", "stack-window guard placement is unsupported");
+  }
+}
+
+function validateReturnChainWrite(write: NativeReturnChainFrameWrite): void {
+  assertNoWhitespace(write.frameId, "frameId");
+  assertHexAddress(write.targetAddress, "targetAddress");
+  assertHexAddress(write.value, "value");
+  assertBytesHex(write.bytes, "bytes");
+  if (write.kind !== "caller-frame-pointer" && write.kind !== "return-address") {
+    fail("target-guest-loader-invalid-continuation", "return-chain write kind is unsupported");
+  }
+}
+
+function validatePrivateMemoryStep(step: TargetGuestPrivateMemoryRestoreStep): void {
+  assertNoWhitespace(step.mapping, "mapping");
+  assertHexAddress(step.targetStart, "targetStart");
+  assertPositive(step.sizeBytes, "sizeBytes");
+  if (step.action === "copy-captured-bytes") {
+    assertNoWhitespace(step.sourceFile, "sourceFile");
+    assertNonNegative(step.sourceOffset, "sourceOffset");
+    return;
+  }
+  assertMemoryPermissions(step.permissions);
+}
+
+function validateExecutableMappingStep(step: TargetGuestExecutableMappingStep): void {
+  if (step.action !== "map-target-executable") {
+    fail("target-guest-loader-descriptor-invalid", "unsupported native executable action");
+  }
+  assertNoWhitespace(step.mapping, "mapping");
+  assertHexAddress(step.targetStart, "targetStart");
+  assertPositive(step.sizeBytes, "sizeBytes");
+  assertNoWhitespace(step.path, "path");
+  assertNonNegative(step.fileOffset, "fileOffset");
+  if (!step.permissions.execute || step.permissions.shared || step.sourceTextReusedAsTargetCode) {
+    fail("target-guest-loader-invalid-continuation", "target executable mapping is not safe");
+  }
+  if (!step.buildId && !step.sha256) {
+    fail("target-guest-loader-invalid-continuation", "target executable mapping lacks provenance");
+  }
+}
+
+function validateSignalRestoreStep(step: TargetGuestSignalRestoreStep): void {
+  assertNoWhitespace(step.threadId, "threadId");
+  if ("targetBlockedMasks" in step) {
+    step.targetBlockedMasks.forEach((mask) => assertHexAddress(mask, "targetBlockedMasks"));
+  }
+}
+
+function validateActiveSyscallRestoreStep(step: TargetGuestActiveSyscallRestoreStep): void {
+  assertNoWhitespace(step.threadId, "threadId");
+  assertNoWhitespace(step.remainingTime.seconds, "seconds");
+  assertNonNegative(step.remainingTime.nanoseconds, "nanoseconds");
+  if (step.remainingTime.nanoseconds > 999_999_999) {
+    fail("target-guest-loader-invalid-continuation", "nanoseconds must be <= 999999999");
+  }
+  if (step.action === "rearm-sleep-timer") {
+    assertNoWhitespace(step.syscallName, "syscallName");
+  } else if (step.nfds !== 0 && step.nfds !== 1) {
+    fail("target-guest-loader-invalid-continuation", "ppoll nfds must be 0 or 1");
+  }
+}
+
+function assertBytesHex(value: string, field: string): void {
+  if (!/^[0-9a-f]{16}$/i.test(value)) {
+    fail("target-guest-loader-invalid-continuation", `${field} must be 8 little-endian bytes`);
+  }
 }
 
 function validateTranslatedFrame(
@@ -1000,6 +1344,81 @@ function serializeMemoryEntry(entry: TargetGuestMemoryMaterializationEntry): str
   return `memory=recreate-guard ${base}`;
 }
 
+function serializeNativeRestoreStep(step: TargetGuestNativeRestoreStep): string {
+  switch (step.section) {
+    case "stack-window-write":
+      return serializeStackWindowWrite(step.write);
+    case "stack-window-guard":
+      return serializeStackWindowGuard(step.guard);
+    case "return-chain-write":
+      return serializeReturnChainWrite(step.write);
+    case "private-memory":
+      return serializePrivateMemoryStep(step.step);
+    case "executable-mapping":
+      return serializeExecutableMappingStep(step.step);
+    case "signal-restore":
+      return serializeSignalRestoreStep(step.step);
+    case "active-syscall":
+      return serializeActiveSyscallStep(step.step);
+  }
+}
+
+function serializeStackWindowWrite(write: NativeStackWindowWrite): string {
+  return `native=stack-window-write mapping=${write.mapping} targetAddress=${write.targetAddress} offset=${write.offset} sizeBytes=${write.sizeBytes} value=${write.value} bytes=${write.bytes} kind=${write.kind}`;
+}
+
+function serializeStackWindowGuard(guard: NativeStackWindowGuardMapping): string {
+  return `native=stack-window-guard targetStart=${guard.targetStart} sizeBytes=${guard.sizeBytes} placement=${guard.placement}`;
+}
+
+function serializeReturnChainWrite(write: NativeReturnChainFrameWrite): string {
+  return `native=return-chain-write frameId=${write.frameId} targetAddress=${write.targetAddress} value=${write.value} bytes=${write.bytes} kind=${write.kind}`;
+}
+
+function serializePrivateMemoryStep(step: TargetGuestPrivateMemoryRestoreStep): string {
+  const base = `native=private-memory action=${step.action} mapping=${step.mapping} targetStart=${step.targetStart} sizeBytes=${step.sizeBytes}`;
+  if (step.action === "copy-captured-bytes") {
+    return `${base} sourceFile=${step.sourceFile} sourceOffset=${step.sourceOffset}`;
+  }
+  return `${base} permissions=${step.permissions}`;
+}
+
+function serializeExecutableMappingStep(step: TargetGuestExecutableMappingStep): string {
+  return [
+    `native=executable-mapping action=${step.action}`,
+    `mapping=${step.mapping}`,
+    `targetStart=${step.targetStart}`,
+    `sizeBytes=${step.sizeBytes}`,
+    `path=${step.path}`,
+    `fileOffset=${step.fileOffset}`,
+    `read=${step.permissions.read}`,
+    `write=${step.permissions.write}`,
+    `execute=${step.permissions.execute}`,
+    `private=${step.permissions.private}`,
+    `shared=${step.permissions.shared}`,
+    ...optionalNativeToken("buildId", step.buildId),
+    ...optionalNativeToken("sha256", step.sha256),
+  ].join(" ");
+}
+
+function serializeSignalRestoreStep(step: TargetGuestSignalRestoreStep): string {
+  const base = `native=signal-restore action=${step.action} threadId=${step.threadId}`;
+  return "targetBlockedMasks" in step
+    ? `${base} targetBlockedMasks=${step.targetBlockedMasks.join(",")}`
+    : base;
+}
+
+function serializeActiveSyscallStep(step: TargetGuestActiveSyscallRestoreStep): string {
+  const base = `native=active-syscall action=${step.action} threadId=${step.threadId} seconds=${step.remainingTime.seconds} nanoseconds=${step.remainingTime.nanoseconds} resumeMode=${step.resumeMode}`;
+  return step.action === "rearm-sleep-timer"
+    ? `${base} syscallName=${step.syscallName}`
+    : `${base} nfds=${step.nfds} resources=${step.resources.join(",")}`;
+}
+
+function optionalNativeToken(name: string, value: string | undefined): string[] {
+  return value === undefined ? [] : [`${name}=${value}`];
+}
+
 function optionalArg(flag: string, value: string | undefined): string[] {
   return value === undefined ? [] : [flag, value];
 }
@@ -1090,6 +1509,61 @@ function memorySpec(
     entry.sizeBytes,
     entry.permissions,
   ].join(":");
+}
+
+function nativeRestoreToTrampolineArgs(step: TargetGuestNativeRestoreStep): string[] {
+  switch (step.section) {
+    case "stack-window-write":
+      return ["--native-stack-window-write", nativeStackWindowWriteSpec(step.write)];
+    case "stack-window-guard":
+      return ["--native-stack-window-guard", nativeStackWindowGuardSpec(step.guard)];
+    case "return-chain-write":
+      return ["--native-return-chain-write", nativeReturnChainWriteSpec(step.write)];
+    case "private-memory":
+      return ["--native-private-memory-step", nativePrivateMemoryStepSpec(step.step)];
+    case "executable-mapping":
+      return ["--native-executable-mapping", nativeExecutableMappingSpec(step.step)];
+    case "signal-restore":
+      return ["--native-signal-restore-step", nativeSignalRestoreStepSpec(step.step)];
+    case "active-syscall":
+      return ["--native-active-syscall-step", nativeActiveSyscallStepSpec(step.step)];
+  }
+}
+
+function nativeStackWindowWriteSpec(write: NativeStackWindowWrite): string {
+  return [write.targetAddress, write.value, write.bytes, write.kind].join(":");
+}
+
+function nativeStackWindowGuardSpec(guard: NativeStackWindowGuardMapping): string {
+  return [guard.targetStart, guard.sizeBytes, guard.placement].join(":");
+}
+
+function nativeReturnChainWriteSpec(write: NativeReturnChainFrameWrite): string {
+  return [write.targetAddress, write.value, write.bytes, write.kind].join(":");
+}
+
+function nativePrivateMemoryStepSpec(step: TargetGuestPrivateMemoryRestoreStep): string {
+  return serializePrivateMemoryStep(step)
+    .slice("native=private-memory ".length)
+    .replaceAll(" ", ",");
+}
+
+function nativeExecutableMappingSpec(step: TargetGuestExecutableMappingStep): string {
+  return serializeExecutableMappingStep(step)
+    .slice("native=executable-mapping ".length)
+    .replaceAll(" ", ",");
+}
+
+function nativeSignalRestoreStepSpec(step: TargetGuestSignalRestoreStep): string {
+  return serializeSignalRestoreStep(step)
+    .slice("native=signal-restore ".length)
+    .replaceAll(" ", ",");
+}
+
+function nativeActiveSyscallStepSpec(step: TargetGuestActiveSyscallRestoreStep): string {
+  return serializeActiveSyscallStep(step)
+    .slice("native=active-syscall ".length)
+    .replaceAll(" ", ",");
 }
 
 function fail(code: TargetGuestRestoreLoaderRefusalCode, message: string): never {

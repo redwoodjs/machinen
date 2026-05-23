@@ -232,6 +232,127 @@ describe("target guest restore loader descriptor", () => {
     expect(buildNativeActualResumeTrampolineArgs(parsed)).toContain("0x600000001000:4096");
   });
 
+  it("serializes native restore sections into descriptor and trampoline args", () => {
+    const nativeRestore = [
+      {
+        section: "stack-window-write" as const,
+        write: {
+          mapping: "mapping:stack",
+          targetAddress: "0x50000000f000",
+          offset: 0,
+          sizeBytes: 8 as const,
+          value: "0x700300000316",
+          bytes: "1603000003700000",
+          kind: "return-address" as const,
+        },
+      },
+      {
+        section: "stack-window-guard" as const,
+        guard: { targetStart: "0x50000000e000", sizeBytes: 4096, placement: "below" as const },
+      },
+      {
+        section: "return-chain-write" as const,
+        write: {
+          frameId: "frame:caller",
+          targetAddress: "0x50000000ff08",
+          value: "0x700300000516",
+          bytes: "1605000003700000",
+          kind: "return-address" as const,
+        },
+      },
+      {
+        section: "private-memory" as const,
+        step: {
+          action: "copy-captured-bytes" as const,
+          mapping: "mapping:heap",
+          sourceFile: "/tmp/native-memory.bin",
+          sourceOffset: 0,
+          targetStart: "0x600000000000",
+          sizeBytes: 4096,
+        },
+      },
+      {
+        section: "executable-mapping" as const,
+        step: {
+          action: "map-target-executable" as const,
+          mapping: "mapping:text",
+          targetStart: "0x700300000000",
+          sizeBytes: 8192,
+          permissions: { read: true, write: false, execute: true, private: true, shared: false },
+          path: "/usr/bin/target-tool",
+          fileOffset: 0,
+          buildId: "target-build-id",
+          sourceTextReusedAsTargetCode: false as const,
+        },
+      },
+      {
+        section: "signal-restore" as const,
+        step: {
+          action: "sigprocmask-set-blocked" as const,
+          threadId: "thread:1",
+          targetBlockedMasks: ["0x0"],
+        },
+      },
+      {
+        section: "active-syscall" as const,
+        step: {
+          action: "rearm-sleep-timer" as const,
+          threadId: "thread:1",
+          syscallName: "clock_nanosleep",
+          remainingTime: { seconds: "1", nanoseconds: 125 },
+          resumeMode: "defer-target-resume" as const,
+        },
+      },
+    ];
+
+    const parsed = parseTargetGuestRestoreDescriptor(
+      serializeTargetGuestRestoreDescriptor(descriptor({ nativeRestore })),
+    );
+
+    expect(parsed.nativeRestore).toEqual(nativeRestore);
+    expect(buildNativeActualResumeTrampolineArgs(parsed)).toEqual(
+      expect.arrayContaining([
+        "--native-stack-window-write",
+        "0x50000000f000:0x700300000316:1603000003700000:return-address",
+        "--native-return-chain-write",
+        "0x50000000ff08:0x700300000516:1605000003700000:return-address",
+        "--native-private-memory-step",
+        "action=copy-captured-bytes,mapping=mapping:heap,targetStart=0x600000000000,sizeBytes=4096,sourceFile=/tmp/native-memory.bin,sourceOffset=0",
+        "--native-signal-restore-step",
+        "action=sigprocmask-set-blocked,threadId=thread:1,targetBlockedMasks=0x0",
+      ]),
+    );
+  });
+
+  it("refuses malformed native restore sections", () => {
+    expect(() =>
+      validateTargetGuestRestoreDescriptor(
+        descriptor({
+          nativeRestore: [
+            {
+              section: "stack-window-write",
+              write: {
+                mapping: "mapping:stack",
+                targetAddress: "0x50000000f000",
+                offset: 0,
+                sizeBytes: 4 as 8,
+                value: "0x700300000316",
+                bytes: "1603000003700000",
+                kind: "return-address",
+              },
+            },
+          ],
+        }),
+      ),
+    ).toThrow(/stack-window writes must be u64/);
+
+    expect(() =>
+      parseTargetGuestRestoreDescriptor(
+        `${serializeTargetGuestRestoreDescriptor(descriptor())}native=return-chain-write frameId=frame:1 targetAddress=5000 value=0x1 bytes=0100000000000000 kind=return-address\n`,
+      ),
+    ).toThrow(/targetAddress must be a hex address/);
+  });
+
   it("builds the in-guest loader argv", () => {
     expect(buildTargetGuestRestoreLoaderArgv("/bundle/restore.desc", "/loader/trampoline")).toEqual(
       ["--descriptor", "/bundle/restore.desc", "--trampoline", "/loader/trampoline"],
