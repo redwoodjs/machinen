@@ -21,7 +21,7 @@ import { matchNativeTargetUnwindFrame } from "../packages/runtime/src/native-tar
 import { validatePortableMachineSnapshotBundle } from "../packages/runtime/src/portable-machine-snapshot.ts";
 import { planTargetGuestMemoryMaterialization } from "../packages/runtime/src/target-guest-memory-materialization.ts";
 import { serializeTargetGuestRestoreDescriptor } from "../packages/runtime/src/target-guest-restore-loader.ts";
-import { FINAL_JUMP_EXPECTED_RETURN } from "./native-final-jump-utils.ts";
+import { FINAL_JUMP_EXPECTED_RETURN, FINAL_JUMP_RETURN_MARKER } from "./native-final-jump-utils.ts";
 
 interface Args {
   bundleDir?: string;
@@ -46,6 +46,7 @@ interface TargetInvocation {
   expectedReturnValue?: string;
   targetContinuationKind?: "generated-verifier" | "real-utility";
   targetModuleBytesSource?: string;
+  targetTranslatedReturnAddress?: string;
 }
 
 interface CombinedDescriptorContext {
@@ -63,6 +64,7 @@ interface PreparedTargetContinuation {
   bytes: Buffer;
   argument0?: string;
   stateReportAddress?: string;
+  translatedReturnAddress?: string;
   expectedReturnValue?: string;
   targetModuleBytesSource?: string;
 }
@@ -170,6 +172,9 @@ function planWithDescriptorDetails(
         targetModuleBytesSource: invocation.targetModuleBytesSource,
         targetStateConsumptionResult:
           invocation.targetContinuationKind === "real-utility" ? "pending" : undefined,
+        targetReturnChainResult:
+          invocation.targetContinuationKind === "real-utility" ? "pending" : undefined,
+        targetTranslatedReturnAddress: invocation.targetTranslatedReturnAddress,
         targetVerifierResult: "pending",
       }
     : plan;
@@ -201,6 +206,7 @@ function prepareCombinedDescriptor(
       context.targetCodeFile,
       targetContinuation.argument0,
       targetContinuation.stateReportAddress,
+      targetContinuation.translatedReturnAddress,
     ),
     fdTable: proofFdTable(),
     memory: proofMemoryPlan(context),
@@ -271,6 +277,7 @@ function continuationDescriptor(
   targetCodeFile: string,
   argument0: string | undefined,
   stateReportAddress: string | undefined,
+  translatedReturnAddress: string | undefined,
 ) {
   return {
     codeFile: GUEST_CODE,
@@ -279,6 +286,7 @@ function continuationDescriptor(
     targetAddress: "0x700300000000",
     argument0,
     stateReportAddress,
+    translatedReturnAddress,
     timeoutSeconds: 5,
     stackTargetStart: "0x500000000000",
     stackSize: 65_536,
@@ -323,6 +331,7 @@ function targetInvocation(
     expectedReturnValue: targetContinuation.expectedReturnValue,
     targetContinuationKind: targetContinuation.kind,
     targetModuleBytesSource: targetContinuation.targetModuleBytesSource,
+    targetTranslatedReturnAddress: targetContinuation.translatedReturnAddress,
   };
 }
 
@@ -350,7 +359,8 @@ function prepareRealUtilityContinuation(
   const targetRoot = join(targetDir, "real-utility-root");
   const modulePath = join(targetRoot, "usr/bin/realspin-code");
   mkdirSync(dirname(modulePath), { recursive: true });
-  const moduleBytes = stateConsumingRealUtilityTargetCode(expectedMemoryByte);
+  const targetCode = stateConsumingRealUtilityTargetCode(expectedMemoryByte);
+  const moduleBytes = targetCode.bytes;
   writeFileSync(modulePath, moduleBytes);
   const module = realUtilityTargetModule(sha256(moduleBytes), moduleBytes.length);
   const materialized = materializeNativeTargetModuleBytes({
@@ -368,6 +378,7 @@ function prepareRealUtilityContinuation(
     bytes: Buffer.from(materialized.materialized!.bytes),
     argument0: PROOF_MEMORY_TARGET,
     stateReportAddress: PROOF_MEMORY_TARGET,
+    translatedReturnAddress: targetCode.translatedReturnAddress,
     expectedReturnValue: hex(FINAL_JUMP_EXPECTED_RETURN),
     targetModuleBytesSource: "portable-bundle-target-root",
   };
@@ -571,11 +582,18 @@ function firstByte(memoryFile: string, mapping: NativeMemoryMapping): number {
 }
 
 function combinedProofTargetCode(expectedMemoryByte: number): Buffer {
-  return proofStateVerifierTargetCode(expectedMemoryByte, "exit");
+  return proofStateVerifierTargetCode(expectedMemoryByte, "exit").bytes;
 }
 
-function stateConsumingRealUtilityTargetCode(expectedMemoryByte: number): Buffer {
-  return proofStateVerifierTargetCode(expectedMemoryByte, "return");
+function stateConsumingRealUtilityTargetCode(expectedMemoryByte: number): {
+  bytes: Buffer;
+  translatedReturnAddress: string;
+} {
+  const code = proofStateVerifierTargetCode(expectedMemoryByte, "return");
+  return {
+    bytes: code.bytes,
+    translatedReturnAddress: hex(0x700300000000n + BigInt(code.translatedReturnOffset)),
+  };
 }
 
 type ProofCompletionMode = "exit" | "return";
@@ -583,7 +601,7 @@ type ProofCompletionMode = "exit" | "return";
 function proofStateVerifierTargetCode(
   expectedMemoryByte: number,
   completion: ProofCompletionMode,
-): Buffer {
+): { bytes: Buffer; translatedReturnOffset: number } {
   const asm = new Amd64ProofAssembler();
   if (completion === "return") {
     asm.preserveRbx();
@@ -608,7 +626,7 @@ function proofStateVerifierTargetCode(
   asm.checkFdOpen(PROOF_TIMER_FD);
   asm.markStateCheck(completion, STATE_CHECK_TIMERFD);
   asm.completeSuccessfully(completion);
-  return asm.toBuffer(completion);
+  return asm.toTargetCode(completion);
 }
 
 class Amd64ProofAssembler {
@@ -667,7 +685,7 @@ class Amd64ProofAssembler {
   completeSuccessfully(completion: ProofCompletionMode): void {
     if (completion === "return") {
       this.storeReportWord(8, STATE_CONSUMPTION_MARKER);
-      this.push(0xb8);
+      this.push(0x48, 0x89, 0xdf, 0xb8);
       this.pushU32(Number(FINAL_JUMP_EXPECTED_RETURN));
       this.push(0x5b, 0xc3);
       return;
@@ -682,11 +700,12 @@ class Amd64ProofAssembler {
     this.push(0x48, 0x89, 0x43, offset);
   }
 
-  toBuffer(completion: ProofCompletionMode): Buffer {
+  toTargetCode(completion: ProofCompletionMode): { bytes: Buffer; translatedReturnOffset: number } {
+    const translatedReturnOffset = this.appendTranslatedReturnLanding(completion);
     const failOffset = this.bytes.length;
     this.completeWithFailure(completion);
     this.patchJumps(failOffset);
-    return Buffer.from(this.bytes);
+    return { bytes: Buffer.from(this.bytes), translatedReturnOffset };
   }
 
   private fcntlGetFd(fd: number): void {
@@ -697,11 +716,23 @@ class Amd64ProofAssembler {
     this.push(0x31, 0xd2, 0x0f, 0x05);
   }
 
+  private appendTranslatedReturnLanding(completion: ProofCompletionMode): number {
+    const offset = this.bytes.length;
+    if (completion === "return") {
+      this.push(0x48, 0xba);
+      this.pushU64(FINAL_JUMP_RETURN_MARKER);
+      this.push(0x48, 0x89, 0x57, 0x18, 0xb8);
+      this.pushU32(Number(FINAL_JUMP_EXPECTED_RETURN));
+      this.push(0xc3);
+    }
+    return offset;
+  }
+
   private completeWithFailure(completion: ProofCompletionMode): void {
     if (completion === "return") {
       this.push(0xb8);
       this.pushU32(42);
-      this.push(0x5b, 0xc3);
+      this.push(0x5b, 0x48, 0x83, 0xc4, 0x08, 0xc3);
       return;
     }
     this.syscall(60);

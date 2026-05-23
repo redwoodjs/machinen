@@ -133,6 +133,7 @@ const TOC = {
     "PortableMachineVmRestoreProofState",
     "PortableMachineTargetContinuationKind",
     "PortableMachineTargetResourceStatus",
+    "PortableMachineTargetReturnChainResult",
     "PortableMachineTargetStateConsumptionResult",
     "PortableMachineTargetVerifierResult",
     "PortableMachineVmRestoreProofRequest",

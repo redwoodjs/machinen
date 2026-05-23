@@ -452,6 +452,7 @@ export type {
 export type {
   PortableMachineTargetContinuationKind,
   PortableMachineTargetResourceStatus,
+  PortableMachineTargetReturnChainResult,
   PortableMachineTargetRestoreDescriptorPlan,
   PortableMachineTargetRestoreDescriptorRequest,
   PortableMachineTargetStateConsumptionResult,

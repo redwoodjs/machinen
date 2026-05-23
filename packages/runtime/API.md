@@ -111,6 +111,7 @@
 - [`PortableMachineVmRestoreProofState`](#portablemachinevmrestoreproofstate)
 - [`PortableMachineTargetContinuationKind`](#portablemachinetargetcontinuationkind)
 - [`PortableMachineTargetResourceStatus`](#portablemachinetargetresourcestatus)
+- [`PortableMachineTargetReturnChainResult`](#portablemachinetargetreturnchainresult)
 - [`PortableMachineTargetStateConsumptionResult`](#portablemachinetargetstateconsumptionresult)
 - [`PortableMachineTargetVerifierResult`](#portablemachinetargetverifierresult)
 - [`PortableMachineVmRestoreProofRequest`](#portablemachinevmrestoreproofrequest)
@@ -8129,6 +8130,14 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 > `optional` **targetResourceStatuses?**: [`PortableMachineTargetResourceStatus`](#portablemachinetargetresourcestatus)[]
 
+##### targetReturnChainResult?
+
+> `optional` **targetReturnChainResult?**: [`PortableMachineTargetReturnChainResult`](#portablemachinetargetreturnchainresult)
+
+##### targetTranslatedReturnAddress?
+
+> `optional` **targetTranslatedReturnAddress?**: `string`
+
 ##### sourceTextReusedAsTargetCode
 
 > **sourceTextReusedAsTargetCode**: `false`
@@ -8198,6 +8207,14 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 ##### targetResourceStatuses?
 
 > `optional` **targetResourceStatuses?**: [`PortableMachineTargetResourceStatus`](#portablemachinetargetresourcestatus)[]
+
+##### targetReturnChainResult?
+
+> `optional` **targetReturnChainResult?**: [`PortableMachineTargetReturnChainResult`](#portablemachinetargetreturnchainresult)
+
+##### targetTranslatedReturnAddress?
+
+> `optional` **targetTranslatedReturnAddress?**: `string`
 
 ##### sourceTextReusedAsTargetCode?
 
@@ -9186,6 +9203,10 @@ Poll interval in ms while retrying. Default 250.
 ##### stateReportAddress?
 
 > `optional` **stateReportAddress?**: `string`
+
+##### translatedReturnAddress?
+
+> `optional` **translatedReturnAddress?**: `string`
 
 ##### timeoutSeconds
 
@@ -11706,6 +11727,12 @@ Result of `validatePid` — easy to switch on at the call site.
 ### PortableMachineTargetStateConsumptionResult
 
 > **PortableMachineTargetStateConsumptionResult** = `"pending"` \| `"passed"` \| `"failed"`
+
+***
+
+### PortableMachineTargetReturnChainResult
+
+> **PortableMachineTargetReturnChainResult** = `"pending"` \| `"passed"` \| `"failed"`
 
 ***
 

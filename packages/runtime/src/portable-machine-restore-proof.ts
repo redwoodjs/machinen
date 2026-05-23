@@ -22,6 +22,7 @@ export interface PortableMachineVmRestoreProofRequest {
 export type PortableMachineTargetVerifierResult = "pending" | "passed" | "failed";
 export type PortableMachineTargetContinuationKind = "generated-verifier" | "real-utility";
 export type PortableMachineTargetStateConsumptionResult = "pending" | "passed" | "failed";
+export type PortableMachineTargetReturnChainResult = "pending" | "passed" | "failed";
 
 export interface PortableMachineTargetResourceStatus {
   kind: string;
@@ -50,6 +51,8 @@ export interface PortableMachineVmRestoreProofPlan {
   targetModuleBytesSource?: string;
   targetStateConsumptionResult?: PortableMachineTargetStateConsumptionResult;
   targetResourceStatuses?: PortableMachineTargetResourceStatus[];
+  targetReturnChainResult?: PortableMachineTargetReturnChainResult;
+  targetTranslatedReturnAddress?: string;
   sourceTextReusedAsTargetCode: false;
   sourceIsaEmulationUsed: false;
   sidecarRuntimeUsed: false;
@@ -65,6 +68,8 @@ export interface PortableMachineVmRestoreTargetResult {
   actualResumeEvent?: { status?: string; returnValue?: string };
   targetStateConsumptionResult?: PortableMachineTargetStateConsumptionResult;
   targetResourceStatuses?: PortableMachineTargetResourceStatus[];
+  targetReturnChainResult?: PortableMachineTargetReturnChainResult;
+  targetTranslatedReturnAddress?: string;
   sourceTextReusedAsTargetCode?: boolean;
   sourceIsaEmulationUsed?: boolean;
   sidecarRuntimeUsed?: boolean;
@@ -182,6 +187,8 @@ export function completePortableMachineVmRestoreProof(
     targetContinuationReturnValue: result.actualResumeEvent?.returnValue,
     targetStateConsumptionResult: result.targetStateConsumptionResult,
     targetResourceStatuses: result.targetResourceStatuses,
+    targetReturnChainResult: result.targetReturnChainResult,
+    targetTranslatedReturnAddress: result.targetTranslatedReturnAddress,
   };
 }
 
@@ -200,6 +207,7 @@ function targetNativeCompleted(result: PortableMachineVmRestoreTargetResult): bo
     result.targetVerifierResult === undefined || result.targetVerifierResult === "passed",
     result.targetStateConsumptionResult === undefined ||
       result.targetStateConsumptionResult === "passed",
+    result.targetReturnChainResult === undefined || result.targetReturnChainResult === "passed",
     result.sourceTextReusedAsTargetCode === false,
     result.sourceIsaEmulationUsed === false,
     result.sidecarRuntimeUsed === false,
