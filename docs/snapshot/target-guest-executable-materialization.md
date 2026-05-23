@@ -13,5 +13,9 @@ artifacts.
 
 Executable mappings that would copy captured source bytes refuse with
 `mapping-executable-unsupported`. Executable mappings without target-file
-build/hash provenance refuse with `mapping-provenance-ambiguous`. Non-executable
-private data is ignored here and handled by the private-memory restore path.
+build/hash provenance refuse with `mapping-provenance-ambiguous`. On target, the
+amd64 trampoline now checks the native executable-mapping section against the
+actual target code path, address, size, file offset, safe execute/private flags,
+and build-id or sha256 provenance before reporting the mapping as consumed.
+Non-executable private data is ignored here and handled by the private-memory
+restore path.

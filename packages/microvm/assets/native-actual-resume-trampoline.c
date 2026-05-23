@@ -1253,6 +1253,24 @@ static void native_step_string(
   snprintf(dst, dst_size, "%s", value);
 }
 
+static bool native_step_has_value(const char *spec, const char *name) {
+  char scratch[1024];
+  return native_step_value(spec, name, scratch, sizeof(scratch)) != NULL;
+}
+
+static bool native_step_bool(const char *spec, const char *name, const char *label) {
+  char value[8];
+  native_step_string(spec, name, value, sizeof(value), label);
+  if (streq(value, "true")) {
+    return true;
+  }
+  if (streq(value, "false")) {
+    return false;
+  }
+  fprintf(stderr, "native-actual-resume-trampoline: native %s step %s must be boolean\n", label, name);
+  exit(2);
+}
+
 static void apply_native_private_memory_steps(const struct Options *opts) {
   for (size_t i = 0; i < opts->native_private_memory_step_count; i++) {
     const char *spec = opts->native_private_memory_steps[i].spec;
@@ -1308,6 +1326,35 @@ static void apply_native_private_memory_steps(const struct Options *opts) {
       materialize_guard_mapping(&guard);
     } else {
       fprintf(stderr, "native-actual-resume-trampoline: unsupported native private-memory action\n");
+      exit(2);
+    }
+  }
+}
+
+static void verify_native_executable_mappings(const struct Options *opts) {
+  for (size_t i = 0; i < opts->native_executable_mapping_count; i++) {
+    const char *spec = opts->native_executable_mappings[i].spec;
+    char action[64];
+    char path[1024];
+    native_step_string(spec, "action", action, sizeof(action), "executable-mapping");
+    native_step_string(spec, "path", path, sizeof(path), "executable-mapping");
+    if (!streq(action, "map-target-executable") || !streq(path, opts->code_file) ||
+        native_step_u64(spec, "targetStart", "executable-mapping") != opts->target_address ||
+        native_step_u64(spec, "sizeBytes", "executable-mapping") != opts->code_size ||
+        native_step_u64(spec, "fileOffset", "executable-mapping") != opts->file_offset) {
+      fprintf(stderr, "native-actual-resume-trampoline: native executable mapping does not match target code\n");
+      exit(2);
+    }
+    if (!native_step_bool(spec, "read", "executable-mapping") ||
+        native_step_bool(spec, "write", "executable-mapping") ||
+        !native_step_bool(spec, "execute", "executable-mapping") ||
+        !native_step_bool(spec, "private", "executable-mapping") ||
+        native_step_bool(spec, "shared", "executable-mapping")) {
+      fprintf(stderr, "native-actual-resume-trampoline: native executable mapping permissions are unsafe\n");
+      exit(2);
+    }
+    if (!native_step_has_value(spec, "buildId") && !native_step_has_value(spec, "sha256")) {
+      fprintf(stderr, "native-actual-resume-trampoline: native executable mapping lacks provenance\n");
       exit(2);
     }
   }
@@ -2054,6 +2101,7 @@ int main(int argc, char **argv) {
   materialize_native_stack_window_guards(&opts);
   materialize_target_tcb(&opts);
 
+  verify_native_executable_mappings(&opts);
   uint64_t mapped_code_start = 0;
   uint64_t mapped_code_size = 0;
   void *code = map_target_code(&opts, &mapped_code_start, &mapped_code_size);
