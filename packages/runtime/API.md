@@ -126,6 +126,9 @@
 - [`TargetGuestSignalRestoreStep`](#targetguestsignalrestorestep)
 - [`TargetGuestTwoThreadBinding`](#targetguesttwothreadbinding)
 - [`TargetGuestTwoThreadRestorePlan`](#targetguesttwothreadrestoreplan)
+- [`TargetNativeConsumptionEvent`](#targetnativeconsumptionevent)
+- [`TargetNativeConsumptionEvents`](#targetnativeconsumptionevents)
+- [`TargetNativeConsumptionStatus`](#targetnativeconsumptionstatus)
 - [`TargetGuestTwoThreadSpawnStep`](#targetguesttwothreadspawnstep)
 - [`PortableMachineTargetRestoreDescriptorRequest`](#portablemachinetargetrestoredescriptorrequest)
 - [`PortableMachineTargetRestoreDescriptorPlan`](#portablemachinetargetrestoredescriptorplan)
@@ -156,6 +159,9 @@
 - [`planTargetGuestPrivateMemoryRestore`](#plantargetguestprivatememoryrestore)
 - [`planTargetGuestSignalRestore`](#plantargetguestsignalrestore)
 - [`planTargetGuestTwoThreadRestore`](#plantargetguesttwothreadrestore)
+- [`parseTargetNativeConsumptionEvents`](#parsetargetnativeconsumptionevents)
+- [`targetNativeConsumptionFields`](#targetnativeconsumptionfields)
+- [`targetNativeConsumptionPassed`](#targetnativeconsumptionpassed)
 - [`planPortableMachineTargetRestoreDescriptor`](#planportablemachinetargetrestoredescriptor)
 - [`planPortableMachineVmRestoreProof`](#planportablemachinevmrestoreproof)
 - [`completePortableMachineVmRestoreProof`](#completeportablemachinevmrestoreproof)
@@ -10726,6 +10732,42 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### TargetNativeConsumptionEvent
+
+#### Properties
+
+##### status?
+
+> `optional` **status?**: [`TargetNativeConsumptionStatus`](#targetnativeconsumptionstatus)
+
+***
+
+### TargetNativeConsumptionEvents
+
+#### Properties
+
+##### nativeStackWindowMaterialization?
+
+> `optional` **nativeStackWindowMaterialization?**: [`TargetNativeConsumptionEvent`](#targetnativeconsumptionevent)
+
+##### nativePrivateMemoryRestore?
+
+> `optional` **nativePrivateMemoryRestore?**: [`TargetNativeConsumptionEvent`](#targetnativeconsumptionevent)
+
+##### nativeExecutableMapping?
+
+> `optional` **nativeExecutableMapping?**: [`TargetNativeConsumptionEvent`](#targetnativeconsumptionevent)
+
+##### nativeSignalRestore?
+
+> `optional` **nativeSignalRestore?**: [`TargetNativeConsumptionEvent`](#targetnativeconsumptionevent)
+
+##### nativeActiveSyscallRestore?
+
+> `optional` **nativeActiveSyscallRestore?**: [`TargetNativeConsumptionEvent`](#targetnativeconsumptionevent)
+
+***
+
 ### VmHandle
 
 #### Properties
@@ -13441,6 +13483,12 @@ Result of `validatePid` — easy to switch on at the call site.
 ### TargetGuestTwoThreadRestorePlan
 
 > **TargetGuestTwoThreadRestorePlan** = \{ `state`: `"planned"`; `targetThreadCount`: `2`; `steps`: \[[`TargetGuestTwoThreadSpawnStep`](#targetguesttwothreadspawnstep), [`TargetGuestTwoThreadSpawnStep`](#targetguesttwothreadspawnstep)\]; `refusals`: \[\]; \} \| \{ `state`: `"refused"`; `targetThreadCount`: `number`; `steps`: \[\]; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
+
+***
+
+### TargetNativeConsumptionStatus
+
+> **TargetNativeConsumptionStatus** = `"passed"` \| `"failed"`
 
 ***
 
@@ -17196,6 +17244,74 @@ resolve the binary through the same lookup chain.
 #### Returns
 
 [`TargetGuestTwoThreadRestorePlan`](#targetguesttwothreadrestoreplan)
+
+***
+
+### parseTargetNativeConsumptionEvents()
+
+> **parseTargetNativeConsumptionEvents**(`actualResumeEvent`): [`TargetNativeConsumptionEvents`](#targetnativeconsumptionevents)
+
+#### Parameters
+
+##### actualResumeEvent
+
+`Record`\<`string`, `unknown`\>
+
+#### Returns
+
+[`TargetNativeConsumptionEvents`](#targetnativeconsumptionevents)
+
+***
+
+### targetNativeConsumptionFields()
+
+> **targetNativeConsumptionFields**(`events`): `object`
+
+#### Parameters
+
+##### events
+
+[`TargetNativeConsumptionEvents`](#targetnativeconsumptionevents)
+
+#### Returns
+
+`object`
+
+##### targetStackWindowMaterializationResult?
+
+> `optional` **targetStackWindowMaterializationResult?**: [`TargetNativeConsumptionStatus`](#targetnativeconsumptionstatus)
+
+##### targetPrivateMemoryRestoreResult?
+
+> `optional` **targetPrivateMemoryRestoreResult?**: [`TargetNativeConsumptionStatus`](#targetnativeconsumptionstatus)
+
+##### targetExecutableMappingResult?
+
+> `optional` **targetExecutableMappingResult?**: [`TargetNativeConsumptionStatus`](#targetnativeconsumptionstatus)
+
+##### targetSignalRestoreResult?
+
+> `optional` **targetSignalRestoreResult?**: [`TargetNativeConsumptionStatus`](#targetnativeconsumptionstatus)
+
+##### targetActiveSyscallRestoreResult?
+
+> `optional` **targetActiveSyscallRestoreResult?**: [`TargetNativeConsumptionStatus`](#targetnativeconsumptionstatus)
+
+***
+
+### targetNativeConsumptionPassed()
+
+> **targetNativeConsumptionPassed**(`events`): `boolean`
+
+#### Parameters
+
+##### events
+
+[`TargetNativeConsumptionEvents`](#targetnativeconsumptionevents)
+
+#### Returns
+
+`boolean`
 
 ***
 

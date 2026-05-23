@@ -481,6 +481,11 @@ export { planTargetGuestPrivateMemoryRestore } from "./target-guest-private-memo
 export { planTargetGuestSignalRestore } from "./target-guest-signal-restore.ts";
 export { planTargetGuestTwoThreadRestore } from "./target-guest-two-thread-restore.ts";
 export {
+  parseTargetNativeConsumptionEvents,
+  targetNativeConsumptionFields,
+  targetNativeConsumptionPassed,
+} from "./target-native-consumption-results.ts";
+export {
   completePortableMachineVmRestoreProof,
   planPortableMachineTargetRestoreDescriptor,
   planPortableMachineVmRestoreProof,
@@ -536,6 +541,11 @@ export type {
   TargetGuestTwoThreadRestorePlan,
   TargetGuestTwoThreadSpawnStep,
 } from "./target-guest-two-thread-restore.ts";
+export type {
+  TargetNativeConsumptionEvent,
+  TargetNativeConsumptionEvents,
+  TargetNativeConsumptionStatus,
+} from "./target-native-consumption-results.ts";
 export type {
   PortableMachineTargetContinuationKind,
   PortableMachineTargetFrameRestoreResult,

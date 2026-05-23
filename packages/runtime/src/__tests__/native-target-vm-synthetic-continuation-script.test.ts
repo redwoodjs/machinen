@@ -1,11 +1,46 @@
 import { spawnSync } from "node:child_process";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import {
+  parseTargetNativeConsumptionEvents,
+  targetNativeConsumptionFields,
+  targetNativeConsumptionPassed,
+} from "../target-native-consumption-results.ts";
 
 const REPO_ROOT = resolve(import.meta.dirname, "../../../..");
 const SCRIPT = join(REPO_ROOT, "scripts/native-target-vm-synthetic-continuation.ts");
 
 describe("native target VM synthetic continuation script", () => {
+  it("parses native restore consumption events into target result fields", () => {
+    const events = parseTargetNativeConsumptionEvents({
+      nativeStackWindowMaterialization: { status: "passed" },
+      nativePrivateMemoryRestore: { status: "passed" },
+      nativeExecutableMapping: { status: "passed" },
+      nativeSignalRestore: { status: "passed" },
+      nativeActiveSyscallRestore: { status: "passed" },
+    });
+
+    expect(targetNativeConsumptionFields(events)).toEqual({
+      targetStackWindowMaterializationResult: "passed",
+      targetPrivateMemoryRestoreResult: "passed",
+      targetExecutableMappingResult: "passed",
+      targetSignalRestoreResult: "passed",
+      targetActiveSyscallRestoreResult: "passed",
+    });
+    expect(targetNativeConsumptionPassed(events)).toBe(true);
+  });
+
+  it("fails native consumption gating when any native restore consumption event fails", () => {
+    const events = parseTargetNativeConsumptionEvents({
+      nativeSignalRestore: { status: "failed" },
+    });
+
+    expect(targetNativeConsumptionFields(events)).toMatchObject({
+      targetSignalRestoreResult: "failed",
+    });
+    expect(targetNativeConsumptionPassed(events)).toBe(false);
+  });
+
   it("skips clearly when no target code file is provided", () => {
     const result = spawnSync(process.execPath, ["--import", "tsx", SCRIPT, "verify", "--json"], {
       cwd: REPO_ROOT,
