@@ -44,6 +44,7 @@
     "native-thread-refusal-matrix": "tsx scripts/native-thread-refusal-matrix.ts verify",
     "native-code-map": "tsx scripts/native-code-map.ts verify",
     "native-pie-shared-code-map": "tsx scripts/native-pie-shared-code-map.ts verify",
+    "native-return-chain": "tsx scripts/native-return-chain.ts verify",
     "native-stack-translate": "tsx scripts/native-stack-translate.ts verify",
     "native-memory-translate": "tsx scripts/native-memory-translate.ts verify",
     "native-mapping-policy": "tsx scripts/native-mapping-policy.ts verify",

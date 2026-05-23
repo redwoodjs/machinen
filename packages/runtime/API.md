@@ -338,6 +338,11 @@
 - [`NativeTargetResumeExecutionPlanResult`](#nativetargetresumeexecutionplanresult)
 - [`classifyNativeTargetResumeExecutionAttempt`](#classifynativetargetresumeexecutionattempt)
 - [`planNativeTargetResumeExecution`](#plannativetargetresumeexecution)
+- [`NativeReturnChainFrame`](#nativereturnchainframe)
+- [`NativeReturnChainPlan`](#nativereturnchainplan)
+- [`NativeReturnChainPlanFrame`](#nativereturnchainplanframe)
+- [`NativeReturnChainPlanRequest`](#nativereturnchainplanrequest)
+- [`planNativeReturnChain`](#plannativereturnchain)
 - [`NativeStackFrame`](#nativestackframe)
 - [`NativeStackPointerRange`](#nativestackpointerrange)
 - [`NativeStackSlot`](#nativestackslot)
@@ -5174,6 +5179,166 @@ by default when `output` is a TTY.
 
 ***
 
+### NativeReturnChainFrame
+
+#### Extended by
+
+- [`NativeReturnChainPlanFrame`](#nativereturnchainplanframe)
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### framePointer
+
+> **framePointer**: `string`
+
+##### canonicalFrameAddress
+
+> **canonicalFrameAddress**: `string`
+
+##### returnAddressSlot
+
+> **returnAddressSlot**: `string`
+
+##### returnAddress
+
+> **returnAddress**: `string`
+
+##### unwindId
+
+> **unwindId**: `string`
+
+##### callerFramePointer?
+
+> `optional` **callerFramePointer?**: `string`
+
+***
+
+### NativeReturnChainPlanRequest
+
+#### Properties
+
+##### targetStackBase
+
+> **targetStackBase**: `string`
+
+##### targetStackLimit
+
+> **targetStackLimit**: `string`
+
+##### maxFrames
+
+> **maxFrames**: `number`
+
+##### frames
+
+> **frames**: [`NativeReturnChainFrame`](#nativereturnchainframe)[]
+
+***
+
+### NativeReturnChainPlanFrame
+
+#### Extends
+
+- [`NativeReturnChainFrame`](#nativereturnchainframe)
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+###### Inherited from
+
+[`NativeReturnChainFrame`](#nativereturnchainframe).[`id`](#id-10)
+
+##### unwindId
+
+> **unwindId**: `string`
+
+###### Inherited from
+
+[`NativeReturnChainFrame`](#nativereturnchainframe).[`unwindId`](#unwindid)
+
+##### index
+
+> **index**: `number`
+
+##### framePointer
+
+> **framePointer**: `string`
+
+###### Overrides
+
+[`NativeReturnChainFrame`](#nativereturnchainframe).[`framePointer`](#framepointer)
+
+##### canonicalFrameAddress
+
+> **canonicalFrameAddress**: `string`
+
+###### Overrides
+
+[`NativeReturnChainFrame`](#nativereturnchainframe).[`canonicalFrameAddress`](#canonicalframeaddress)
+
+##### returnAddressSlot
+
+> **returnAddressSlot**: `string`
+
+###### Overrides
+
+[`NativeReturnChainFrame`](#nativereturnchainframe).[`returnAddressSlot`](#returnaddressslot)
+
+##### returnAddress
+
+> **returnAddress**: `string`
+
+###### Overrides
+
+[`NativeReturnChainFrame`](#nativereturnchainframe).[`returnAddress`](#returnaddress)
+
+##### callerFramePointer?
+
+> `optional` **callerFramePointer?**: `string`
+
+###### Overrides
+
+[`NativeReturnChainFrame`](#nativereturnchainframe).[`callerFramePointer`](#callerframepointer)
+
+***
+
+### NativeReturnChainPlan
+
+#### Properties
+
+##### state
+
+> **state**: `"refused"` \| `"materialized"`
+
+##### targetStack
+
+> **targetStack**: `object`
+
+###### base
+
+> **base**: `string`
+
+###### limit
+
+> **limit**: `string`
+
+##### frames
+
+> **frames**: [`NativeReturnChainPlanFrame`](#nativereturnchainplanframe)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
 ### NativeSimdFpuLiveSubsetPolicy
 
 #### Properties
@@ -5340,7 +5505,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeStackTranslationRequest`](#nativestacktranslationrequest).[`targetStackBase`](#targetstackbase)
+[`NativeStackTranslationRequest`](#nativestacktranslationrequest).[`targetStackBase`](#targetstackbase-1)
 
 ##### frames
 
@@ -5348,7 +5513,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeStackTranslationRequest`](#nativestacktranslationrequest).[`frames`](#frames)
+[`NativeStackTranslationRequest`](#nativestacktranslationrequest).[`frames`](#frames-2)
 
 ##### codeLocations
 
@@ -5937,7 +6102,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`NativeSyntheticContinuationStackSetupDescriptor`](#nativesyntheticcontinuationstacksetupdescriptor).[`returnAddress`](#returnaddress)
+[`NativeSyntheticContinuationStackSetupDescriptor`](#nativesyntheticcontinuationstacksetupdescriptor).[`returnAddress`](#returnaddress-2)
 
 ##### requiresSourceStackBytes
 
@@ -6525,7 +6690,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`NativeSyntheticContinuationStackSetupDescriptor`](#nativesyntheticcontinuationstacksetupdescriptor).[`returnAddress`](#returnaddress)
+[`NativeSyntheticContinuationStackSetupDescriptor`](#nativesyntheticcontinuationstacksetupdescriptor).[`returnAddress`](#returnaddress-2)
 
 ##### requiresSourceStackBytes
 
@@ -14963,6 +15128,22 @@ available.
 #### Returns
 
 [`NativeTargetFdTablePlan`](#nativetargetfdtableplan)
+
+***
+
+### planNativeReturnChain()
+
+> **planNativeReturnChain**(`request`): [`NativeReturnChainPlan`](#nativereturnchainplan)
+
+#### Parameters
+
+##### request
+
+[`NativeReturnChainPlanRequest`](#nativereturnchainplanrequest)
+
+#### Returns
+
+[`NativeReturnChainPlan`](#nativereturnchainplan)
 
 ***
 
