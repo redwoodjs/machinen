@@ -225,6 +225,7 @@ export type {
   NativeFdReadResourcePolicy,
   NativeModeledFdReadState,
   NativeModeledFdReadTargetResource,
+  NativeModeledFdReadTimerRemainingTime,
   NativeModeledPpollTimeoutRemainingTime,
   NativeModeledPpollTimeoutState,
   NativeModeledSleepTimerRemainingTime,

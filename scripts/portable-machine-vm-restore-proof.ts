@@ -488,16 +488,34 @@ function activeSyscallPolicy(bundle: ReturnType<typeof validatePortableMachineSn
 
 function fdReadResourcePolicy(
   bundle: ReturnType<typeof validatePortableMachineSnapshotBundle>,
-): "synthetic-empty-pipe" | "synthetic-empty-eventfd" {
-  const thread = bundle.nativeProcessImage.threads.threads.find(
-    (candidate) =>
-      candidate.syscall.state === "inside-syscall" && candidate.syscall.name === "read",
-  );
+): "synthetic-empty-pipe" | "synthetic-empty-eventfd" | "synthetic-timerfd" {
+  return fdReadResourcePolicyForKind(activeReadResourceKind(bundle));
+}
+
+function activeReadResourceKind(
+  bundle: ReturnType<typeof validatePortableMachineSnapshotBundle>,
+): NativeProcessResource["kind"] | undefined {
+  const thread = bundle.nativeProcessImage.threads.threads.find(isActiveReadThread);
   const fd = thread ? activeReadFd(thread) : undefined;
-  const resource = bundle.nativeProcessImage.resources.resources.find(
-    (candidate) => candidate.fd === fd,
-  );
-  return resource?.kind === "eventfd" ? "synthetic-empty-eventfd" : "synthetic-empty-pipe";
+  return bundle.nativeProcessImage.resources.resources.find((resource) => resource.fd === fd)?.kind;
+}
+
+function fdReadResourcePolicyForKind(
+  kind: NativeProcessResource["kind"] | undefined,
+): "synthetic-empty-pipe" | "synthetic-empty-eventfd" | "synthetic-timerfd" {
+  return kind === "eventfd"
+    ? "synthetic-empty-eventfd"
+    : kind === "timer"
+      ? "synthetic-timerfd"
+      : "synthetic-empty-pipe";
+}
+
+function isActiveReadThread(
+  thread: ReturnType<
+    typeof validatePortableMachineSnapshotBundle
+  >["nativeProcessImage"]["threads"]["threads"][number],
+): boolean {
+  return thread.syscall.state === "inside-syscall" && thread.syscall.name === "read";
 }
 
 function activeReadFd(

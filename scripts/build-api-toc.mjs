@@ -233,6 +233,7 @@ const TOC = {
     "NativeModeledPpollFdState",
     "NativeModeledPpollTimeoutState",
     "NativeModeledFdReadTargetResource",
+    "NativeModeledFdReadTimerRemainingTime",
     "NativeModeledFdReadState",
     "NativeSleepTimerModelResult",
     "NativePpollTimeoutModelResult",

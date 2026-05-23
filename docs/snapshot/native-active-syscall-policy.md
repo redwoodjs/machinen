@@ -96,12 +96,19 @@ With `fdReadResourcePolicy: "synthetic-empty-eventfd"`, the model requires a
 captured eventfd with supported read/write flags, counter `0`, non-semaphore
 mode, and `count >= 8`.
 
-The target step recreates a fresh empty pipe or empty eventfd and verifies with
-target-side `poll(POLLIN, timeout=0)` that the read fd would still block before
-reporting `nativeActiveSyscallRestore.status=passed`. Missing arguments, zero or
-short counts, missing writable buffer state, wrong resource kind/access,
-non-empty eventfds, semaphore mode, unsupported flags, and missing paired pipe
-write ends fail closed as `target-fd-read-state-missing`.
+With `fdReadResourcePolicy: "synthetic-timerfd"`, the model requires a captured
+timerfd with supported read/write flags, `count >= 8`, unread `ticks == 0`,
+non-periodic interval, and relative settime state. When captured fdinfo reports a
+non-zero remaining timer value, the target step carries that duration so the
+trampoline can arm the target timerfd before verifying it still blocks.
+
+The target step recreates a fresh empty pipe, empty eventfd, or timerfd and
+verifies with target-side `poll(POLLIN, timeout=0)` that the read fd would still
+block before reporting `nativeActiveSyscallRestore.status=passed`. Missing
+arguments, zero or short counts, missing writable buffer state, wrong resource
+kind/access, non-empty eventfds, semaphore mode, unsupported flags, expired or
+periodic timerfds, absolute timerfd state, and missing paired pipe write ends
+fail closed as `target-fd-read-state-missing`.
 
 ## Proof
 

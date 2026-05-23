@@ -28,7 +28,10 @@ export type NativePollTimeoutFdPolicy =
   | "synthetic-empty-eventfd"
   | "synthetic-timerfd";
 export type NativeFdReadPolicy = "refuse" | "defer-target-resume";
-export type NativeFdReadResourcePolicy = "synthetic-empty-pipe" | "synthetic-empty-eventfd";
+export type NativeFdReadResourcePolicy =
+  | "synthetic-empty-pipe"
+  | "synthetic-empty-eventfd"
+  | "synthetic-timerfd";
 
 export interface NativeActiveSyscallPolicyOptions {
   sleepTimerPolicy?: NativeSleepTimerSyscallPolicy;
@@ -100,7 +103,15 @@ export interface NativeModeledPpollTimeoutState {
 
 export type NativeModeledFdReadTargetResource =
   | "synthetic-empty-pipe-read-end"
-  | "synthetic-empty-eventfd";
+  | "synthetic-empty-eventfd"
+  | "synthetic-timerfd";
+
+export interface NativeModeledFdReadTimerRemainingTime extends NativeSleepTimerDuration {
+  state: "modeled";
+  kind: "relative-duration";
+  source: "active-syscall-timerfd-read-timeout";
+  precision: "captured-fdinfo-upper-bound";
+}
 
 export interface NativeModeledFdReadState {
   kind: "fd-read-block";
@@ -113,6 +124,7 @@ export interface NativeModeledFdReadState {
   resourceId: string;
   pairedWriteResourceId?: string;
   targetResource: NativeModeledFdReadTargetResource;
+  remainingTime?: NativeModeledFdReadTimerRemainingTime;
 }
 
 export type NativeSleepTimerModelResult =
@@ -209,6 +221,7 @@ const POLLIN = 0x1;
 const SUPPORTED_EMPTY_EVENTFD_FLAGS = 0o2000002;
 const SUPPORTED_EVENTFD_READ_FLAGS = new Set([0o2, SUPPORTED_EMPTY_EVENTFD_FLAGS]);
 const SUPPORTED_TIMERFD_FLAGS = 0o2000002;
+const SUPPORTED_TIMERFD_READ_FLAGS = new Set([0o2, SUPPORTED_TIMERFD_FLAGS]);
 const MAX_SIGNED_I64 = 0x7fff_ffff_ffff_ffffn;
 const MAX_NANOSECONDS = 999_999_999n;
 const MAX_FD_READ_BYTES = 1024n * 1024n;
@@ -636,6 +649,7 @@ function decodeFdReadArguments(
     resourceId: resource.resource.id,
     pairedWriteResourceId: resource.pairedWriteResource?.id,
     targetResource: resource.targetResource,
+    remainingTime: resource.remainingTime,
   };
 }
 
@@ -718,8 +732,15 @@ function validateFdReadResourceCount(
   values: FdReadArgumentValues,
   targetResource: NativeModeledFdReadTargetResource,
 ): { state: "missing"; refusal: NativeProcessImageRefusal } | undefined {
-  return targetResource === "synthetic-empty-eventfd" && values.countBytes < 8
-    ? missingFdRead(thread, "read eventfd proof requires count >= 8", {
+  if (targetResource === "synthetic-empty-eventfd" && values.countBytes < 8) {
+    return missingFdRead(thread, "read eventfd proof requires count >= 8", {
+      fd: values.fd,
+      countBytes: values.countBytes,
+      targetResource,
+    });
+  }
+  return targetResource === "synthetic-timerfd" && values.countBytes < 8
+    ? missingFdRead(thread, "read timerfd proof requires count >= 8", {
         fd: values.fd,
         countBytes: values.countBytes,
         targetResource,
@@ -1004,10 +1025,14 @@ function validateFdReadModeledResource(
       resource: NativeProcessResource;
       pairedWriteResource?: NativeProcessResource;
       targetResource: NativeModeledFdReadTargetResource;
+      remainingTime?: NativeModeledFdReadTimerRemainingTime;
     }
   | { state: "missing"; refusal: NativeProcessImageRefusal } {
-  return resourcePolicy === "synthetic-empty-eventfd"
-    ? validateFdReadEventfdResource(thread, documents, fd)
+  if (resourcePolicy === "synthetic-empty-eventfd") {
+    return validateFdReadEventfdResource(thread, documents, fd);
+  }
+  return resourcePolicy === "synthetic-timerfd"
+    ? validateFdReadTimerfdResource(thread, documents, fd)
     : validateFdReadPipeResource(thread, documents, fd);
 }
 
@@ -1111,6 +1136,137 @@ function validateFdReadEventfdState(
         eventfdSemaphore: eventfdSemaphore?.toString(10),
       })
     : undefined;
+}
+
+function validateFdReadTimerfdResource(
+  thread: NativeThreadState,
+  documents: NativeProcessImageDocuments,
+  fd: number,
+):
+  | {
+      resource: NativeProcessResource;
+      targetResource: "synthetic-timerfd";
+      remainingTime?: NativeModeledFdReadTimerRemainingTime;
+    }
+  | { state: "missing"; refusal: NativeProcessImageRefusal } {
+  const resource = documents.resources.resources.find((candidate) => candidate.fd === fd);
+  if (resource?.kind !== "timer") {
+    return missingFdRead(thread, "read proof requires a captured timerfd fd", {
+      fd,
+      resourceKind: resource?.kind,
+      resourceId: resource?.id,
+    });
+  }
+  const state = validateFdReadTimerfdState(thread, fd, resource);
+  if ("state" in state) {
+    return state;
+  }
+  return { resource, targetResource: "synthetic-timerfd", remainingTime: state.remainingTime };
+}
+
+function validateFdReadTimerfdState(
+  thread: NativeThreadState,
+  fd: number,
+  resource: NativeProcessResource,
+):
+  | { remainingTime?: NativeModeledFdReadTimerRemainingTime }
+  | { state: "missing"; refusal: NativeProcessImageRefusal } {
+  const flagRefusal = validateFdReadTimerfdFlags(thread, fd, resource);
+  if (flagRefusal) {
+    return flagRefusal;
+  }
+  const timerStateRefusal = validateFdReadTimerfdClockState(thread, fd, resource);
+  return timerStateRefusal ?? modeledTimerfdReadRemainingTime(thread, fd, resource);
+}
+
+function validateFdReadTimerfdFlags(
+  thread: NativeThreadState,
+  fd: number,
+  resource: NativeProcessResource,
+): { state: "missing"; refusal: NativeProcessImageRefusal } | undefined {
+  if (nativeFdAccessMode(resource.flags) !== 2) {
+    return missingFdRead(thread, "read timerfd proof requires read/write access", {
+      fd,
+      resourceId: resource.id,
+      resourceFlags: resource.flags,
+    });
+  }
+  return SUPPORTED_TIMERFD_READ_FLAGS.has(nativeFdFlagBits(resource.flags))
+    ? undefined
+    : missingFdRead(thread, "read timerfd proof requires supported flags", {
+        fd,
+        resourceId: resource.id,
+        resourceFlags: resource.flags,
+        supportedFlags: Array.from(
+          SUPPORTED_TIMERFD_READ_FLAGS,
+          (flags) => `octal:${flags.toString(8)}`,
+        ),
+      });
+}
+
+function validateFdReadTimerfdClockState(
+  thread: NativeThreadState,
+  fd: number,
+  resource: NativeProcessResource,
+): { state: "missing"; refusal: NativeProcessImageRefusal } | undefined {
+  const ticks = nativeResourceBigInt(resource, "timerfdTicks");
+  if (ticks !== 0n) {
+    return missingFdRead(thread, "read timerfd proof requires an unread timer", {
+      fd,
+      resourceId: resource.id,
+      timerfdTicks: ticks?.toString(10),
+    });
+  }
+  const intervalSeconds = nativeResourceBigInt(resource, "timerfdIntervalSeconds");
+  const intervalNanoseconds = nativeResourceBigInt(resource, "timerfdIntervalNanoseconds");
+  if (intervalSeconds !== 0n || intervalNanoseconds !== 0n) {
+    return missingFdRead(thread, "read timerfd proof does not model periodic timers", {
+      fd,
+      resourceId: resource.id,
+      timerfdIntervalSeconds: intervalSeconds?.toString(10),
+      timerfdIntervalNanoseconds: intervalNanoseconds?.toString(10),
+    });
+  }
+  const settimeFlags = nativeResourceBigInt(resource, "timerfdSettimeFlags");
+  return settimeFlags !== 0n
+    ? missingFdRead(thread, "read timerfd proof does not model absolute timers", {
+        fd,
+        resourceId: resource.id,
+        timerfdSettimeFlags: settimeFlags?.toString(10),
+      })
+    : undefined;
+}
+
+function modeledTimerfdReadRemainingTime(
+  thread: NativeThreadState,
+  fd: number,
+  resource: NativeProcessResource,
+):
+  | { remainingTime?: NativeModeledFdReadTimerRemainingTime }
+  | { state: "missing"; refusal: NativeProcessImageRefusal } {
+  const seconds = nativeResourceBigInt(resource, "timerfdValueSeconds") ?? 0n;
+  const nanoseconds = nativeResourceBigInt(resource, "timerfdValueNanoseconds") ?? 0n;
+  if (seconds === 0n && nanoseconds === 0n) {
+    return {};
+  }
+  if (seconds > MAX_SIGNED_I64 || nanoseconds > MAX_NANOSECONDS) {
+    return missingFdRead(thread, "read timerfd remaining time is outside supported bounds", {
+      fd,
+      resourceId: resource.id,
+      timerfdValueSeconds: seconds.toString(10),
+      timerfdValueNanoseconds: nanoseconds.toString(10),
+    });
+  }
+  return {
+    remainingTime: {
+      state: "modeled",
+      kind: "relative-duration",
+      source: "active-syscall-timerfd-read-timeout",
+      precision: "captured-fdinfo-upper-bound",
+      seconds: seconds.toString(10),
+      nanoseconds: Number(nanoseconds),
+    },
+  };
 }
 
 function validatePpollEventfdResource(

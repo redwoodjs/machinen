@@ -28,6 +28,7 @@ export type TargetGuestActiveSyscallRestoreStep =
       fd: number;
       countBytes: number;
       resource: NativeModeledFdReadTargetResource;
+      remainingTime?: { seconds: string; nanoseconds: number };
       resumeMode: "defer-target-resume";
     };
 
@@ -75,6 +76,9 @@ function continuationStep(
       fd: continuation.metadata.fdRead.fd,
       countBytes: continuation.metadata.fdRead.countBytes,
       resource: continuation.metadata.fdRead.targetResource,
+      remainingTime: continuation.metadata.fdRead.remainingTime
+        ? duration(continuation.metadata.fdRead.remainingTime)
+        : undefined,
       resumeMode: "defer-target-resume",
     };
   }

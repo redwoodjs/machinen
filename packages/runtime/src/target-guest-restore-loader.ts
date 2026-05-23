@@ -774,6 +774,7 @@ function parseNativeActiveSyscallStep(
       fd: parseNativeInteger(fields, "fd"),
       countBytes: parseNativeInteger(fields, "countBytes"),
       resource: requiredNativeField(fields, "resource") as NativeModeledFdReadTargetResource,
+      remainingTime: fields.has("seconds") ? parseNativeDuration(fields) : undefined,
       resumeMode: "defer-target-resume",
     };
   }
@@ -1088,7 +1089,8 @@ function validateActiveSyscallRestoreStep(step: TargetGuestActiveSyscallRestoreS
     assertPositive(step.countBytes, "countBytes");
     if (
       step.resource !== "synthetic-empty-pipe-read-end" &&
-      step.resource !== "synthetic-empty-eventfd"
+      step.resource !== "synthetic-empty-eventfd" &&
+      step.resource !== "synthetic-timerfd"
     ) {
       fail("target-guest-loader-invalid-continuation", "fd read resource is unsupported");
     }
@@ -1474,7 +1476,10 @@ function serializeSignalRestoreStep(step: TargetGuestSignalRestoreStep): string 
 
 function serializeActiveSyscallStep(step: TargetGuestActiveSyscallRestoreStep): string {
   if (step.action === "restore-fd-read-block") {
-    return `native=active-syscall action=${step.action} threadId=${step.threadId} fd=${step.fd} countBytes=${step.countBytes} resource=${step.resource} resumeMode=${step.resumeMode}`;
+    const remainingTime = step.remainingTime
+      ? ` seconds=${step.remainingTime.seconds} nanoseconds=${step.remainingTime.nanoseconds}`
+      : "";
+    return `native=active-syscall action=${step.action} threadId=${step.threadId} fd=${step.fd} countBytes=${step.countBytes} resource=${step.resource}${remainingTime} resumeMode=${step.resumeMode}`;
   }
   const base = `native=active-syscall action=${step.action} threadId=${step.threadId} seconds=${step.remainingTime.seconds} nanoseconds=${step.remainingTime.nanoseconds} resumeMode=${step.resumeMode}`;
   return step.action === "rearm-sleep-timer"
