@@ -11,6 +11,7 @@ import {
 import {
   NATIVE_PROCESS_IMAGE_FILES,
   type NativeMemoryMapping,
+  type NativeProcessImageDocuments,
   type NativeProcessResource,
 } from "../packages/runtime/src/native-process-image.ts";
 import { planNativeRealUtilityContinuationAttempt } from "../packages/runtime/src/native-real-utility-continuation.ts";
@@ -97,6 +98,14 @@ interface CombinedDescriptorContext extends CombinedDescriptorPaths {
   >["steps"];
   targetThreadSpawnSteps: TargetGuestTwoThreadSpawnStep[];
   targetProcessContextSteps: TargetGuestNativeRestoreStep[];
+  activeFileReadProof?: ActiveFileReadProof;
+}
+
+interface ActiveFileReadProof {
+  fd: number;
+  fileOffset: number;
+  targetBufferPointer: string;
+  expectedBytes: Buffer;
 }
 
 interface PreparedTargetContinuation {
@@ -141,6 +150,7 @@ const PROOF_PIPE_WRITE_FD = 9;
 const PROOF_EVENT_FD = 10;
 const PROOF_TIMER_FD = 11;
 const PROOF_FD_BYTES = Buffer.from("FD");
+const PROOF_FILE_READ_BYTES = Buffer.from("FILE");
 const STATE_CONSUMPTION_MARKER = 0x5354415445434f4en;
 const STATE_CHECK_MEMORY = 0x01;
 const STATE_CHECK_STDIO = 0x02;
@@ -337,12 +347,13 @@ function prepareCombinedDescriptor(
   if (isRestorePlan(context)) {
     return context;
   }
-  writeFileSync(context.fdFile, PROOF_FD_BYTES);
+  writeFileSync(context.fdFile, proofFdFileBytes(context));
   const targetContinuation = prepareTargetContinuation(
     args,
     context.targetDir,
     context.memoryFile,
     context.mapping,
+    context.activeFileReadProof,
     plan,
   );
   if (isRestorePlan(targetContinuation)) {
@@ -377,7 +388,7 @@ function prepareTargetRestoreDescriptor(
       targetContinuation.translatedFrame ? proofResumeRegisters() : undefined,
     ),
     translatedFrame: targetContinuation.translatedFrame,
-    fdTable: proofFdTable(),
+    fdTable: proofFdTable(context),
     memory: descriptorMemoryForNativeRestore(memory, nativeRestore),
     nativeRestore,
   });
@@ -408,10 +419,6 @@ function combinedDescriptorContext(
   plan: ReturnType<typeof planPortableMachineVmRestoreProof>,
 ): CombinedDescriptorContext | ReturnType<typeof planPortableMachineVmRestoreProof> {
   const bundle = validatePortableMachineSnapshotBundle(args.bundleDir!);
-  const threads = proofThreadContext(bundle);
-  if (threads.state === "refused") {
-    return firstRefusedPlan(plan, threads.refusals);
-  }
   const memory = proofMemorySelection(bundle);
   if (!memory.mapping) {
     return refusedPlan(
@@ -419,6 +426,10 @@ function combinedDescriptorContext(
       "mapping-ambiguous",
       "portable machine proof needs one safe captured writable memory page",
     );
+  }
+  const threads = proofThreadContext(bundle, memory.mapping);
+  if (threads.state === "refused") {
+    return firstRefusedPlan(plan, threads.refusals);
   }
   const activeSyscallPlan = proofActiveSyscallPlan(threads.activeSyscallContinuations);
   if (activeSyscallPlan.state === "refused") {
@@ -436,6 +447,7 @@ function combinedDescriptorContext(
     targetActiveSyscallSteps: activeSyscallPlan.steps,
     targetThreadSpawnSteps: threads.threadSpawnSteps,
     targetProcessContextSteps: processContextSteps.steps,
+    activeFileReadProof: activeFileReadProof(activeSyscallPlan.steps),
   };
   return contextAfterPathCheck(plan, bundle.rootDir!, context);
 }
@@ -469,17 +481,19 @@ function contextAfterPathCheck(
 
 function proofThreadContext(
   bundle: ReturnType<typeof validatePortableMachineSnapshotBundle>,
+  mapping: NativeMemoryMapping,
 ): ProofThreadContext {
-  const threads = bundle.nativeProcessImage.threads.threads;
+  const documents = bundleWithProofMemoryMapping(bundle, mapping);
+  const threads = documents.threads.threads;
   if (threads.length === 2) {
-    return proofTwoThreadContext(bundle);
+    return proofTwoThreadContext(bundle, documents);
   }
   const plan = planNativeThreadRestoreBoundary({
     threads,
-    mappings: bundle.nativeProcessImage.mappings.mappings,
-    resources: bundle.nativeProcessImage.resources.resources,
+    mappings: documents.mappings.mappings,
+    resources: documents.resources.resources,
     tls: { targetFsBase: TARGET_TLS_BASE, targetAccessPolicy: "target-tcb-materialized" },
-    activeSyscall: activeSyscallPolicy(bundle),
+    activeSyscall: activeSyscallPolicy(bundle, documents),
   });
   return plan.state === "accepted"
     ? {
@@ -495,12 +509,13 @@ function proofThreadContext(
 
 function proofTwoThreadContext(
   bundle: ReturnType<typeof validatePortableMachineSnapshotBundle>,
+  documents = bundle.nativeProcessImage,
 ): ProofThreadContext {
   const boundary = planNativeControlledTwoThreadRestoreBoundary({
-    threads: bundle.nativeProcessImage.threads.threads,
-    mappings: bundle.nativeProcessImage.mappings.mappings,
-    resources: bundle.nativeProcessImage.resources.resources,
-    activeSyscall: activeSyscallPolicy(bundle),
+    threads: documents.threads.threads,
+    mappings: documents.mappings.mappings,
+    resources: documents.resources.resources,
+    activeSyscall: activeSyscallPolicy(bundle, documents),
   });
   if (boundary.state === "refused") {
     return boundary;
@@ -524,14 +539,35 @@ function proofTwoThreadContext(
   };
 }
 
-function activeSyscallPolicy(bundle: ReturnType<typeof validatePortableMachineSnapshotBundle>) {
+function activeSyscallPolicy(
+  bundle: ReturnType<typeof validatePortableMachineSnapshotBundle>,
+  documents = bundle.nativeProcessImage,
+) {
   return {
     sleepTimerPolicy: "defer-target-resume" as const,
     pollTimeoutPolicy: "defer-target-resume" as const,
     pollTimeoutFdPolicy: "synthetic-timerfd" as const,
     fdReadPolicy: "defer-target-resume" as const,
     fdReadResourcePolicy: fdReadResourcePolicy(bundle),
-    documents: bundle.nativeProcessImage,
+    documents,
+  };
+}
+
+function bundleWithProofMemoryMapping(
+  bundle: ReturnType<typeof validatePortableMachineSnapshotBundle>,
+  mapping: NativeMemoryMapping,
+): NativeProcessImageDocuments {
+  return {
+    ...bundle.nativeProcessImage,
+    mappings: {
+      ...bundle.nativeProcessImage.mappings,
+      mappings: bundle.nativeProcessImage.mappings.mappings.map((candidate) =>
+        candidate.id === mapping.id ||
+        candidate.id === mapping.id.replace(/:combined-proof-page$/, "")
+          ? mapping
+          : candidate,
+      ),
+    },
   };
 }
 
@@ -586,9 +622,33 @@ function activeReadRegisterFd(
   return thread.sourceRegisters.arch === "arm64" ? thread.sourceRegisters.x[0] : undefined;
 }
 
+// fallow-ignore-next-line complexity
+function activeReadBufferPointer(
+  bundle: ReturnType<typeof validatePortableMachineSnapshotBundle>,
+): bigint | undefined {
+  const thread = bundle.nativeProcessImage.threads.threads.find(isActiveReadThread);
+  const raw = thread
+    ? (thread.syscall.arguments?.[1] ?? activeReadRegisterBuffer(thread))
+    : undefined;
+  return raw === undefined ? undefined : safeBigInt(raw);
+}
+
+function activeReadRegisterBuffer(
+  thread: ReturnType<
+    typeof validatePortableMachineSnapshotBundle
+  >["nativeProcessImage"]["threads"]["threads"][number],
+): string | undefined {
+  return thread.sourceRegisters.arch === "arm64" ? thread.sourceRegisters.x[1] : undefined;
+}
+
 function safeBigIntNumber(value: string): number | undefined {
+  const parsed = safeBigInt(value);
+  return parsed === undefined ? undefined : Number(parsed);
+}
+
+function safeBigInt(value: string): bigint | undefined {
   try {
-    return Number(BigInt(value));
+    return BigInt(value);
   } catch {
     return undefined;
   }
@@ -612,7 +672,11 @@ function proofMemorySelection(bundle: ReturnType<typeof validatePortableMachineS
   return {
     file,
     sizeBytes,
-    mapping: selectProofMemoryMapping(bundle.nativeProcessImage.mappings.mappings, sizeBytes),
+    mapping: selectProofMemoryMapping(
+      bundle.nativeProcessImage.mappings.mappings,
+      sizeBytes,
+      activeReadBufferPointer(bundle),
+    ),
   };
 }
 
@@ -840,6 +904,32 @@ function proofActiveSyscallNativeSections(
   }));
 }
 
+function activeFileReadProof(
+  steps: CombinedDescriptorContext["targetActiveSyscallSteps"],
+): ActiveFileReadProof | undefined {
+  const step = steps.find((candidate) => candidate.action === "complete-fd-read-from-file");
+  return step?.action === "complete-fd-read-from-file"
+    ? {
+        fd: step.fd,
+        fileOffset: step.fileOffset,
+        targetBufferPointer: step.targetBufferPointer,
+        expectedBytes: PROOF_FILE_READ_BYTES.subarray(0, step.countBytes),
+      }
+    : undefined;
+}
+
+function proofFdFileBytes(context: CombinedDescriptorContext): Buffer {
+  const active = context.activeFileReadProof;
+  if (!active) {
+    return PROOF_FD_BYTES;
+  }
+  const size = Math.max(PROOF_FD_BYTES.length, active.fileOffset + active.expectedBytes.length);
+  const bytes = Buffer.alloc(size, 0);
+  PROOF_FD_BYTES.copy(bytes, 0);
+  active.expectedBytes.copy(bytes, active.fileOffset);
+  return bytes;
+}
+
 function proofThreadSpawnNativeSections(
   context: CombinedDescriptorContext,
 ): TargetGuestNativeRestoreStep[] {
@@ -877,9 +967,9 @@ function proofResumeRegisters() {
   };
 }
 
-function proofFdTable() {
+function proofFdTable(context: CombinedDescriptorContext) {
   return planNativeTargetFdTable({
-    resources: proofFdResources(),
+    resources: proofFdResources(context),
     expectedFds: [PROOF_CLOSED_FD],
     inheritedStdio: { mode: "inherit-output" },
     syntheticEmptyPipeFds: [PROOF_PIPE_READ_FD],
@@ -955,26 +1045,28 @@ function prepareTargetContinuation(
   targetDir: string,
   memoryFile: string,
   mapping: NativeMemoryMapping,
+  activeFileRead: ActiveFileReadProof | undefined,
   plan: ReturnType<typeof planPortableMachineVmRestoreProof>,
 ): PreparedTargetContinuation | ReturnType<typeof planPortableMachineVmRestoreProof> {
   const expectedMemoryByte = firstByte(memoryFile, mapping);
   return args.realUtilityContinuation
-    ? prepareRealUtilityContinuation(targetDir, expectedMemoryByte, plan)
+    ? prepareRealUtilityContinuation(targetDir, expectedMemoryByte, activeFileRead, plan)
     : {
         kind: "generated-verifier",
-        bytes: combinedProofTargetCode(expectedMemoryByte),
+        bytes: combinedProofTargetCode(expectedMemoryByte, activeFileRead),
       };
 }
 
 function prepareRealUtilityContinuation(
   targetDir: string,
   expectedMemoryByte: number,
+  activeFileRead: ActiveFileReadProof | undefined,
   plan: ReturnType<typeof planPortableMachineVmRestoreProof>,
 ) {
   const targetRoot = join(targetDir, "real-utility-root");
   const modulePath = join(targetRoot, "usr/bin/realspin-code");
   mkdirSync(dirname(modulePath), { recursive: true });
-  const targetCode = stateConsumingRealUtilityTargetCode(expectedMemoryByte);
+  const targetCode = stateConsumingRealUtilityTargetCode(expectedMemoryByte, activeFileRead);
   const moduleBytes = targetCode.bytes;
   writeFileSync(modulePath, moduleBytes);
   const module = realUtilityTargetModule(sha256(moduleBytes), moduleBytes.length);
@@ -1132,32 +1224,64 @@ function inside(root: string, candidate: string): boolean {
   return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
 }
 
+// fallow-ignore-next-line complexity
 function selectProofMemoryMapping(
   mappings: NativeMemoryMapping[],
   memorySizeBytes: number,
+  preferredSourceAddress?: bigint,
 ): NativeMemoryMapping | undefined {
-  const candidate = mappings.find((mapping) => {
-    const captured = mapping.captured;
-    return [
-      mapping.permissions.write,
-      !mapping.permissions.execute,
-      mapping.target.materialization === "translate",
-      captured !== undefined,
-      captured ? captured.offset + PROOF_MEMORY_SIZE <= memorySizeBytes : false,
-      captured ? captured.sizeBytes >= PROOF_MEMORY_SIZE : false,
-    ].every(Boolean);
-  });
+  const candidates = mappings.filter((mapping) => proofMemoryCandidate(mapping, memorySizeBytes));
+  const candidate = preferredSourceAddress
+    ? (candidates.find((mapping) => mappingContains(mapping, preferredSourceAddress)) ??
+      candidates[0])
+    : candidates[0];
   if (!candidate?.captured) {
     return undefined;
   }
+  return proofMemoryPage(candidate, memorySizeBytes, preferredSourceAddress);
+}
+
+function proofMemoryCandidate(mapping: NativeMemoryMapping, memorySizeBytes: number): boolean {
+  const captured = mapping.captured;
+  return [
+    mapping.permissions.write,
+    !mapping.permissions.execute,
+    mapping.target.materialization === "translate",
+    captured !== undefined,
+    captured ? captured.offset < memorySizeBytes : false,
+    captured ? captured.sizeBytes > 0 : false,
+  ].every(Boolean);
+}
+
+function proofMemoryPage(
+  mapping: NativeMemoryMapping,
+  memorySizeBytes: number,
+  preferredSourceAddress?: bigint,
+): NativeMemoryMapping {
+  const captured = mapping.captured!;
+  const sourceStart = BigInt(mapping.sourceStart);
+  const pageStart =
+    preferredSourceAddress && mappingContains(mapping, preferredSourceAddress)
+      ? alignDown(preferredSourceAddress, BigInt(PROOF_MEMORY_SIZE))
+      : sourceStart;
+  const offsetInMapping = pageStart - sourceStart;
+  const capturedOffset = captured.offset + Number(offsetInMapping);
+  const capturedLimit = captured.offset + captured.sizeBytes;
+  const available = Math.min(
+    PROOF_MEMORY_SIZE,
+    memorySizeBytes - capturedOffset,
+    capturedLimit - capturedOffset,
+  );
   return {
-    ...candidate,
-    id: `${candidate.id}:combined-proof-page`,
-    sizeBytes: PROOF_MEMORY_SIZE,
+    ...mapping,
+    id: `${mapping.id}:combined-proof-page`,
+    sourceStart: hex(pageStart),
+    sourceEnd: hex(pageStart + BigInt(available)),
+    sizeBytes: available,
     captured: {
       file: NATIVE_PROCESS_IMAGE_FILES.memory,
-      offset: candidate.captured.offset,
-      sizeBytes: PROOF_MEMORY_SIZE,
+      offset: capturedOffset,
+      sizeBytes: available,
     },
     target: {
       materialization: "translate",
@@ -1167,15 +1291,42 @@ function selectProofMemoryMapping(
   };
 }
 
-function proofFdResources(): NativeProcessResource[] {
+function mappingContains(mapping: NativeMemoryMapping, address: bigint): boolean {
+  return address >= BigInt(mapping.sourceStart) && address < BigInt(mapping.sourceEnd);
+}
+
+function alignDown(value: bigint, alignment: bigint): bigint {
+  return value - (value % alignment);
+}
+
+function proofFdResources(context: CombinedDescriptorContext): NativeProcessResource[] {
   return [
     proofStdoutResource(),
     proofFileResource(),
+    ...activeFileReadResources(context),
     proofPipeResource(PROOF_PIPE_READ_FD, "read"),
     proofPipeResource(PROOF_PIPE_WRITE_FD, "write"),
     proofSyntheticResource("eventfd", PROOF_EVENT_FD),
     proofSyntheticResource("timer", PROOF_TIMER_FD),
   ];
+}
+
+function activeFileReadResources(context: CombinedDescriptorContext): NativeProcessResource[] {
+  const active = context.activeFileReadProof;
+  return active
+    ? [
+        {
+          id: `fd:${active.fd}:combined-proof-file-read`,
+          kind: "file" as const,
+          state: "recipe" as const,
+          fd: active.fd,
+          path: GUEST_FD_FILE,
+          offset: active.fileOffset,
+          flags: ["octal:0"],
+          recipe: { reopen: GUEST_FD_FILE, offset: active.fileOffset },
+        },
+      ]
+    : [];
 }
 
 function proofStdoutResource(): NativeProcessResource {
@@ -1227,15 +1378,21 @@ function firstByte(memoryFile: string, mapping: NativeMemoryMapping): number {
   return bytes[mapping.captured!.offset] ?? 0;
 }
 
-function combinedProofTargetCode(expectedMemoryByte: number): Buffer {
-  return proofStateVerifierTargetCode(expectedMemoryByte, "exit").bytes;
+function combinedProofTargetCode(
+  expectedMemoryByte: number,
+  activeFileRead: ActiveFileReadProof | undefined,
+): Buffer {
+  return proofStateVerifierTargetCode(expectedMemoryByte, "exit", activeFileRead).bytes;
 }
 
-function stateConsumingRealUtilityTargetCode(expectedMemoryByte: number): {
+function stateConsumingRealUtilityTargetCode(
+  expectedMemoryByte: number,
+  activeFileRead: ActiveFileReadProof | undefined,
+): {
   bytes: Buffer;
   translatedReturnAddress: string;
 } {
-  const code = proofStateVerifierTargetCode(expectedMemoryByte, "return");
+  const code = proofStateVerifierTargetCode(expectedMemoryByte, "return", activeFileRead);
   return {
     bytes: code.bytes,
     translatedReturnAddress: hex(0x700300000000n + BigInt(code.translatedReturnOffset)),
@@ -1247,6 +1404,7 @@ type ProofCompletionMode = "exit" | "return";
 function proofStateVerifierTargetCode(
   expectedMemoryByte: number,
   completion: ProofCompletionMode,
+  activeFileRead?: ActiveFileReadProof,
 ): { bytes: Buffer; translatedReturnOffset: number } {
   const asm = new Amd64ProofAssembler();
   if (completion === "return") {
@@ -1263,6 +1421,12 @@ function proofStateVerifierTargetCode(
   }
   asm.checkMemoryByte(expectedMemoryByte);
   asm.markStateCheck(completion, STATE_CHECK_MEMORY);
+  if (activeFileRead) {
+    asm.checkAbsoluteBytes(
+      BigInt(activeFileRead.targetBufferPointer),
+      activeFileRead.expectedBytes,
+    );
+  }
   asm.checkFdClosed(PROOF_CLOSED_FD);
   asm.markStateCheck(completion, STATE_CHECK_CLOSE_FD);
   asm.checkFdOpen(PROOF_STDOUT_FD);
@@ -1525,6 +1689,14 @@ class Amd64ProofAssembler {
     this.movRaxImmediate(expected);
     this.push(0x48, 0x39, 0xc4);
     this.jumpIfNotEqual();
+  }
+
+  checkAbsoluteBytes(address: bigint, expected: Buffer): void {
+    for (const [index, byte] of expected.entries()) {
+      this.movRaxImmediate(address + BigInt(index));
+      this.push(0x80, 0x38, byte);
+      this.jumpIfNotEqual();
+    }
   }
 
   private checkAbsoluteU64(address: bigint, expected: bigint): void {

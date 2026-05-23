@@ -300,6 +300,7 @@ capture_remote_native_process_bundle() {
   tar -czf - -C "$ROOT" \
     packages/microvm/assets/native-process-capture.c \
     packages/microvm/assets/native-eventfd-read-target.c \
+    packages/microvm/assets/native-file-read-target.c \
     packages/microvm/assets/native-pipe-read-target.c \
     packages/microvm/assets/native-ppoll-timeout-target.c \
     packages/microvm/assets/native-timerfd-read-target.c \
@@ -319,6 +320,10 @@ capture_remote_native_process_bundle() {
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-eventfd-read-target"
       target_detail="remote arm64 eventfd read native-process bundle captured from $ARM64_SSH"
       ;;
+    file-read)
+      target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-file-read-target"
+      target_detail="remote arm64 regular-file read native-process bundle captured from $ARM64_SSH"
+      ;;
     timerfd-read)
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-timerfd-read-target"
       target_detail="remote arm64 timerfd read native-process bundle captured from $ARM64_SSH"
@@ -334,9 +339,11 @@ capture_remote_native_process_bundle() {
   local capture_command="'$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --settle-ms 150 -- '$target_binary'"
   if [[ "$REMOTE_SOURCE_TARGET" == "process-context" ]]; then
     capture_command="cd / && env -i MACHINEN_CONTEXT_TOKEN=process-context '$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --settle-ms 150 -- '$target_binary' --machinen-argv-token"
+  elif [[ "$REMOTE_SOURCE_TARGET" == "file-read" ]]; then
+    capture_command="'$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --trace-syscall read --trace-syscall-fd 38 -- '$target_binary'"
   fi
   ssh "$ARM64_SSH" \
-    "cd '$ARM64_REMOTE_WORK/repo' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-process-capture.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-eventfd-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-eventfd-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-pipe-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-ppoll-timeout-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-ppoll-timeout-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-timerfd-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-timerfd-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror -pthread packages/microvm/assets/native-two-thread-ppoll-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-two-thread-ppoll-target' && $capture_command > '$ARM64_REMOTE_WORK/capture.log'"
+    "cd '$ARM64_REMOTE_WORK/repo' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-process-capture.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-eventfd-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-eventfd-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-pipe-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-ppoll-timeout-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-ppoll-timeout-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-timerfd-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-timerfd-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror -pthread packages/microvm/assets/native-two-thread-ppoll-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-two-thread-ppoll-target' && $capture_command > '$ARM64_REMOTE_WORK/capture.log'"
   mkdir -p "$NATIVE_BUNDLE"
   ssh "$ARM64_SSH" "cat '$ARM64_REMOTE_WORK/capture.log'" >"$WORK/arm64-capture.log"
   ssh "$ARM64_SSH" "tar -czf - -C '$ARM64_REMOTE_WORK/capture/bundle' ." | \
@@ -382,8 +389,10 @@ run_target_restore() {
     return 20
   fi
   local process_context_restore_args=()
+  local process_context_restore_args_text=""
   if [[ "$REMOTE_SOURCE_TARGET" == "process-context" ]]; then
     process_context_restore_args=(--process-context-restore apply-target-visible-context)
+    process_context_restore_args_text="${process_context_restore_args[*]}"
   fi
   if [[ $REMOTE_E2E -eq 1 ]]; then
     local remote_path_assignment="PATH=\$PATH"
@@ -391,7 +400,7 @@ run_target_restore() {
       remote_path_assignment="PATH='$AMD64_PATH_PREFIX':\$PATH"
     fi
     if ! ssh "$AMD64_SSH" \
-      "cd '$AMD64_REPO' && $remote_path_assignment MACHINEN_VMM='$AMD64_VMM' MACHINEN_KERNEL='$AMD64_KERNEL' MACHINEN_ASSETS_DIR='$AMD64_ASSETS_DIR' '$AMD64_PNPM' --silent portable-machine-vm-restore-proof -- --bundle-dir '$REMOTE_PORTABLE_BUNDLE' --target-code-file '$REMOTE_TARGET_CODE' --image '$TARGET_IMAGE' --combined-descriptor --real-utility-continuation ${process_context_restore_args[*]} --json" \
+      "cd '$AMD64_REPO' && $remote_path_assignment MACHINEN_VMM='$AMD64_VMM' MACHINEN_KERNEL='$AMD64_KERNEL' MACHINEN_ASSETS_DIR='$AMD64_ASSETS_DIR' '$AMD64_PNPM' --silent portable-machine-vm-restore-proof -- --bundle-dir '$REMOTE_PORTABLE_BUNDLE' --target-code-file '$REMOTE_TARGET_CODE' --image '$TARGET_IMAGE' --combined-descriptor --real-utility-continuation $process_context_restore_args_text --json" \
       >"$TARGET_LOG" 2>"$WORK/target-restore.stderr"; then
       record_timing "target-boot-restore" "failed" "$start" "remote runner failed"
       return 21
