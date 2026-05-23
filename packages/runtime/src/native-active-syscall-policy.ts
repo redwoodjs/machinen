@@ -197,6 +197,7 @@ export interface NativeActiveSyscallClassificationResult {
 }
 
 const SLEEP_TIMER_SYSCALLS = new Set(["clock_nanosleep", "nanosleep"]);
+const SOCKET_ACTIVE_SYSCALLS = new Set(["accept", "accept4", "connect"]);
 const FD_BLOCKING_SYSCALLS = new Set([
   "read",
   "write",
@@ -274,6 +275,9 @@ export function classifyNativeThreadSyscall(
   }
   if (name === "read" && options.fdReadPolicy === "defer-target-resume") {
     return deferredFdReadClassification(thread, options);
+  }
+  if (SOCKET_ACTIVE_SYSCALLS.has(name)) {
+    return refusedSocketActiveSyscallClassification(thread, options);
   }
   if (FD_BLOCKING_SYSCALLS.has(name)) {
     return refusedClassification(thread, "fd-blocking", {
@@ -513,6 +517,121 @@ function deferredFdReadClassification(
         policy: "conservative-target-fd-read-block-preserved",
       },
     },
+  };
+}
+
+function refusedSocketActiveSyscallClassification(
+  thread: NativeThreadState,
+  options: NativeActiveSyscallPolicyOptions,
+): NativeActiveSyscallClassification {
+  return refusedClassification(thread, "fd-blocking", {
+    code: "target-socket-syscall-state-unsupported",
+    message: `thread ${thread.id} is blocked in socket syscall ${syscallName(thread)}`,
+    detail: socketActiveSyscallDetail(thread, options.documents),
+  });
+}
+
+interface SocketActiveSyscallArguments {
+  source: "proc-syscall" | "registers";
+  fd: number;
+  addressPointer?: string;
+  addressLengthPointer?: string;
+  addressLengthBytes?: string;
+  flags?: number;
+}
+
+function socketActiveSyscallDetail(
+  thread: NativeThreadState,
+  documents: NativeProcessImageDocuments | undefined,
+): Record<string, unknown> {
+  const args = decodeSocketActiveSyscallArguments(thread);
+  const resource = args
+    ? documents?.resources.resources.find((candidate) => candidate.fd === args.fd)
+    : undefined;
+  return detail(thread, "fd-blocking", {
+    reason: socketActiveSyscallRefusalReason(args, documents, resource),
+    socketSyscall: {
+      family: "socket-accept-connect",
+      arguments: args,
+      resource: resource ? socketResourceDetail(resource) : undefined,
+      unsupportedState: socketActiveSyscallUnsupportedState(syscallName(thread)),
+    },
+  });
+}
+
+function socketActiveSyscallRefusalReason(
+  args: SocketActiveSyscallArguments | undefined,
+  documents: NativeProcessImageDocuments | undefined,
+  resource: NativeProcessResource | undefined,
+): string {
+  if (!args) {
+    return "socket syscall arguments were not captured";
+  }
+  if (!documents?.resources) {
+    return "captured resource table is not available";
+  }
+  if (!resource) {
+    return "socket syscall fd resource is missing";
+  }
+  if (resource.kind !== "socket" && resource.kind !== "raw-socket") {
+    return "socket syscall fd is not a captured socket";
+  }
+  return "socket endpoint kernel state is unsupported";
+}
+
+function socketActiveSyscallUnsupportedState(syscall: string): string[] {
+  return syscall === "connect"
+    ? [
+        "socket endpoint identity",
+        "in-flight connection result",
+        "network namespace and routing state",
+        "target fd resource mapping",
+      ]
+    : [
+        "listening socket identity",
+        "listen backlog and queued connection state",
+        "accepted peer endpoint state",
+        "target fd resource mapping",
+      ];
+}
+
+function socketResourceDetail(resource: NativeProcessResource): Record<string, unknown> {
+  return {
+    id: resource.id,
+    kind: resource.kind,
+    fd: resource.fd,
+    path: resource.path,
+    flags: resource.flags,
+    state: resource.state,
+  };
+}
+
+function decodeSocketActiveSyscallArguments(
+  thread: NativeThreadState,
+): SocketActiveSyscallArguments | undefined {
+  const args = sleepTimerArguments(thread);
+  if (!args) {
+    return undefined;
+  }
+  const syscall = syscallName(thread);
+  const fd = safeNumber(args.values[0] ?? -1n);
+  if (fd === undefined || fd < 0) {
+    return undefined;
+  }
+  if (syscall === "connect") {
+    return {
+      source: args.source,
+      fd,
+      addressPointer: hex(args.values[1]),
+      addressLengthBytes: hex(args.values[2]),
+    };
+  }
+  return {
+    source: args.source,
+    fd,
+    addressPointer: hex(args.values[1]),
+    addressLengthPointer: hex(args.values[2]),
+    flags: syscall === "accept4" ? safeNumber(args.values[3] ?? 0n) : undefined,
   };
 }
 

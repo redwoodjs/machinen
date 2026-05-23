@@ -67,6 +67,14 @@ function arm64ReadThread(
   return arm64SleepThread({ state: "inside-syscall", number: 63, name: "read" }, x);
 }
 
+function arm64SocketThread(
+  name: "accept" | "accept4" | "connect",
+  x: string[] = ["0x28", "0x0", "0x0", "0x0", "0x0", "0x0"],
+): NativeThreadState {
+  const number = name === "connect" ? 203 : name === "accept4" ? 242 : 202;
+  return arm64SleepThread({ state: "inside-syscall", number, name }, x);
+}
+
 function documentsWithTimespec(options: {
   activeThread: NativeThreadState;
   seconds?: bigint;
@@ -246,6 +254,28 @@ function timerfdRecipe(overrides: Record<string, unknown> = {}): Record<string, 
     timerfdIntervalNanoseconds: 0,
     ...overrides,
   };
+}
+
+function documentsWithSocketResource(
+  activeThread: NativeThreadState,
+  options: { fd?: number; kind?: "socket" | "raw-socket" | "file" | "pipe" | "missing" } = {},
+): NativeProcessImageDocuments {
+  const documents = documentsWithTimespec({ activeThread });
+  const fd = options.fd ?? 40;
+  documents.resources.resources =
+    options.kind === "missing"
+      ? []
+      : [
+          {
+            id: `fd:${fd}:socket`,
+            kind: options.kind ?? "socket",
+            state: "refused",
+            fd,
+            path: "socket:[4242]",
+            flags: ["octal:2"],
+          },
+        ];
+  return documents;
 }
 
 function emptyRefusals() {
@@ -1116,6 +1146,72 @@ describe("native active syscall classification", () => {
       state: "missing",
       refusal: {
         code: "target-fd-read-state-missing",
+        detail: { reason: scenario.reason },
+      },
+    });
+  });
+
+  it.each(["accept", "accept4", "connect"] as const)(
+    "refuses active socket syscall %s with socket-specific detail",
+    (name) => {
+      const activeThread = arm64SocketThread(name, [
+        "0x28",
+        "0x4100",
+        "0x4200",
+        "0x800",
+        "0x0",
+        "0x0",
+      ]);
+      const result = classifyNativeActiveSyscalls([activeThread], {
+        documents: documentsWithSocketResource(activeThread),
+      });
+
+      expect(result.classifications[0]).toMatchObject({
+        class: "fd-blocking",
+        refusal: {
+          code: "target-socket-syscall-state-unsupported",
+          detail: {
+            reason: "socket endpoint kernel state is unsupported",
+            socketSyscall: {
+              family: "socket-accept-connect",
+              arguments: { source: "registers", fd: 40 },
+              resource: { id: "fd:40:socket", kind: "socket", fd: 40 },
+            },
+          },
+        },
+      });
+    },
+  );
+
+  it.each([
+    {
+      name: "missing args",
+      thread: thread({ state: "inside-syscall", number: 203, name: "connect" }),
+      documents: undefined,
+      reason: "socket syscall arguments were not captured",
+    },
+    {
+      name: "missing resource",
+      thread: arm64SocketThread("connect"),
+      documents: (activeThread: NativeThreadState) =>
+        documentsWithSocketResource(activeThread, { kind: "missing" }),
+      reason: "socket syscall fd resource is missing",
+    },
+    {
+      name: "non-socket fd",
+      thread: arm64SocketThread("accept"),
+      documents: (activeThread: NativeThreadState) =>
+        documentsWithSocketResource(activeThread, { kind: "file" }),
+      reason: "socket syscall fd is not a captured socket",
+    },
+  ])("keeps active socket syscall fail-closed for $name", (scenario) => {
+    const documents = scenario.documents ? scenario.documents(scenario.thread) : undefined;
+    const result = classifyNativeActiveSyscalls([scenario.thread], { documents });
+
+    expect(result.classifications[0]).toMatchObject({
+      class: "fd-blocking",
+      refusal: {
+        code: "target-socket-syscall-state-unsupported",
         detail: { reason: scenario.reason },
       },
     });

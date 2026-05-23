@@ -80,6 +80,7 @@ export const nativeProcessImageRefusalCodes = [
   "target-resume-fault-unmodeled-memory",
   "target-semantic-continuation-missing",
   "target-sleep-remaining-time-missing",
+  "target-socket-syscall-state-unsupported",
   "target-sleep-signal-restart-unsupported",
   "target-sleep-syscall-continuation-missing",
   "target-stack-window-unsupported",
