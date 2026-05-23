@@ -5,7 +5,11 @@ Issue #665 plans the controlled two-thread target proof.
 `planTargetGuestTwoThreadRestore()` consumes an accepted
 `NativeControlledTwoThreadRestorePlan` and two explicit target thread bindings.
 It emits one `spawn-target-thread` step per thread with independent target stack
-ranges and target register seeds.
+ranges and target register seeds. These steps can now be carried as
+`native=thread-spawn` target restore descriptor sections, forwarded by the target
+guest loader, and consumed by the amd64 trampoline. The trampoline maps each
+requested thread stack and creates a short-lived target task on that stack before
+reporting the thread restore section as passed.
 
 The planner refuses when:
 
@@ -15,5 +19,6 @@ The planner refuses when:
 - required `rip`/`rsp` seeds are absent;
 - target stack ranges are inverted or overlap.
 
-This remains a narrow two-thread proof boundary. It is not general multithread
-restore and does not accept futex or rseq synchronization state.
+This remains a narrow two-thread proof boundary. It proves loader/trampoline
+consumption of safe spawn steps only; it is not general multithread restore and
+does not accept futex or rseq synchronization state.

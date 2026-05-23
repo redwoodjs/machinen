@@ -9,6 +9,7 @@ import type { TargetGuestExecutableMappingStep } from "./target-guest-executable
 import type { TargetGuestMemoryMaterializationEntry } from "./target-guest-memory-materialization.ts";
 import type { TargetGuestPrivateMemoryRestoreStep } from "./target-guest-private-memory-restore.ts";
 import type { TargetGuestSignalRestoreStep } from "./target-guest-signal-restore.ts";
+import type { TargetGuestTwoThreadSpawnStep } from "./target-guest-two-thread-restore.ts";
 
 export const TARGET_GUEST_RESTORE_DESCRIPTOR_KIND = "machinen.target-guest-restore";
 
@@ -110,7 +111,8 @@ export type TargetGuestNativeRestoreStep =
   | { section: "private-memory"; step: TargetGuestPrivateMemoryRestoreStep }
   | { section: "executable-mapping"; step: TargetGuestExecutableMappingStep }
   | { section: "signal-restore"; step: TargetGuestSignalRestoreStep }
-  | { section: "active-syscall"; step: TargetGuestActiveSyscallRestoreStep };
+  | { section: "active-syscall"; step: TargetGuestActiveSyscallRestoreStep }
+  | { section: "thread-spawn"; step: TargetGuestTwoThreadSpawnStep };
 
 export interface TargetGuestRestoreDescriptor {
   kind: typeof TARGET_GUEST_RESTORE_DESCRIPTOR_KIND;
@@ -609,6 +611,8 @@ function parseNativeRestoreStep(line: string): TargetGuestNativeRestoreStep {
       return { section, step: parseNativeSignalRestoreStep(values) };
     case "active-syscall":
       return { section, step: parseNativeActiveSyscallStep(values) };
+    case "thread-spawn":
+      return { section, step: parseNativeThreadSpawnStep(values) };
     default:
       return fail(
         "target-guest-loader-descriptor-invalid",
@@ -722,6 +726,19 @@ function parseNativeSignalRestoreStep(fields: Map<string, string>): TargetGuestS
     return { action, threadId, targetBlockedMasks: parseNativeList(fields, "targetBlockedMasks") };
   }
   return fail("target-guest-loader-descriptor-invalid", "unsupported native signal restore action");
+}
+
+function parseNativeThreadSpawnStep(fields: Map<string, string>): TargetGuestTwoThreadSpawnStep {
+  return {
+    action: "spawn-target-thread",
+    threadId: requiredNativeField(fields, "threadId"),
+    stackBase: requiredNativeField(fields, "stackBase"),
+    stackLimit: requiredNativeField(fields, "stackLimit"),
+    registers: {
+      rip: requiredNativeField(fields, "rip"),
+      rsp: requiredNativeField(fields, "rsp"),
+    },
+  };
 }
 
 function parseNativeActiveSyscallStep(
@@ -963,7 +980,24 @@ function validateNativeRestoreStep(
     case "active-syscall":
       validateActiveSyscallRestoreStep(step.step);
       return step;
+    case "thread-spawn":
+      validateThreadSpawnStep(step.step);
+      return step;
   }
+}
+
+function validateThreadSpawnStep(step: TargetGuestTwoThreadSpawnStep): void {
+  if (step.action !== "spawn-target-thread") {
+    fail("target-guest-loader-descriptor-invalid", "unsupported native thread action");
+  }
+  assertNoWhitespace(step.threadId, "threadId");
+  assertHexAddress(step.stackBase, "stackBase");
+  assertHexAddress(step.stackLimit, "stackLimit");
+  if (BigInt(step.stackBase) >= BigInt(step.stackLimit)) {
+    fail("target-guest-loader-invalid-continuation", "thread stack range is inverted");
+  }
+  assertHexAddress(step.registers.rip, "rip");
+  assertHexAddress(step.registers.rsp, "rsp");
 }
 
 function validateStackWindowWrite(write: NativeStackWindowWrite): void {
@@ -1360,7 +1394,13 @@ function serializeNativeRestoreStep(step: TargetGuestNativeRestoreStep): string 
       return serializeSignalRestoreStep(step.step);
     case "active-syscall":
       return serializeActiveSyscallStep(step.step);
+    case "thread-spawn":
+      return serializeThreadSpawnStep(step.step);
   }
+}
+
+function serializeThreadSpawnStep(step: TargetGuestTwoThreadSpawnStep): string {
+  return `native=thread-spawn action=${step.action} threadId=${step.threadId} stackBase=${step.stackBase} stackLimit=${step.stackLimit} rip=${step.registers.rip} rsp=${step.registers.rsp}`;
 }
 
 function serializeStackWindowWrite(write: NativeStackWindowWrite): string {
@@ -1527,7 +1567,13 @@ function nativeRestoreToTrampolineArgs(step: TargetGuestNativeRestoreStep): stri
       return ["--native-signal-restore-step", nativeSignalRestoreStepSpec(step.step)];
     case "active-syscall":
       return ["--native-active-syscall-step", nativeActiveSyscallStepSpec(step.step)];
+    case "thread-spawn":
+      return ["--native-thread-spawn-step", nativeThreadSpawnStepSpec(step.step)];
   }
+}
+
+function nativeThreadSpawnStepSpec(step: TargetGuestTwoThreadSpawnStep): string {
+  return serializeThreadSpawnStep(step).slice("native=thread-spawn ".length).replaceAll(" ", ";");
 }
 
 function nativeStackWindowWriteSpec(write: NativeStackWindowWrite): string {

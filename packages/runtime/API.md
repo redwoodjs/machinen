@@ -10770,6 +10770,10 @@ Poll interval in ms while retrying. Default 250.
 
 > `optional` **nativeActiveSyscallRestore?**: [`TargetNativeConsumptionEvent`](#targetnativeconsumptionevent)
 
+##### nativeThreadRestore?
+
+> `optional` **nativeThreadRestore?**: [`TargetNativeConsumptionEvent`](#targetnativeconsumptionevent)
+
 ***
 
 ### VmHandle
@@ -13372,7 +13376,7 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ### PortableMachineTargetThreadRestoreResult
 
-> **PortableMachineTargetThreadRestoreResult** = `"accepted"` \| `"refused"`
+> **PortableMachineTargetThreadRestoreResult** = `"accepted"` \| `"refused"` \| `"passed"` \| `"failed"`
 
 ***
 
@@ -13468,7 +13472,7 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ### TargetGuestNativeRestoreStep
 
-> **TargetGuestNativeRestoreStep** = \{ `section`: `"stack-window-write"`; `write`: [`NativeStackWindowWrite`](#nativestackwindowwrite); \} \| \{ `section`: `"stack-window-guard"`; `guard`: [`NativeStackWindowGuardMapping`](#nativestackwindowguardmapping); \} \| \{ `section`: `"return-chain-write"`; `write`: [`NativeReturnChainFrameWrite`](#nativereturnchainframewrite); \} \| \{ `section`: `"private-memory"`; `step`: [`TargetGuestPrivateMemoryRestoreStep`](#targetguestprivatememoryrestorestep); \} \| \{ `section`: `"executable-mapping"`; `step`: [`TargetGuestExecutableMappingStep`](#targetguestexecutablemappingstep); \} \| \{ `section`: `"signal-restore"`; `step`: [`TargetGuestSignalRestoreStep`](#targetguestsignalrestorestep); \} \| \{ `section`: `"active-syscall"`; `step`: [`TargetGuestActiveSyscallRestoreStep`](#targetguestactivesyscallrestorestep); \}
+> **TargetGuestNativeRestoreStep** = \{ `section`: `"stack-window-write"`; `write`: [`NativeStackWindowWrite`](#nativestackwindowwrite); \} \| \{ `section`: `"stack-window-guard"`; `guard`: [`NativeStackWindowGuardMapping`](#nativestackwindowguardmapping); \} \| \{ `section`: `"return-chain-write"`; `write`: [`NativeReturnChainFrameWrite`](#nativereturnchainframewrite); \} \| \{ `section`: `"private-memory"`; `step`: [`TargetGuestPrivateMemoryRestoreStep`](#targetguestprivatememoryrestorestep); \} \| \{ `section`: `"executable-mapping"`; `step`: [`TargetGuestExecutableMappingStep`](#targetguestexecutablemappingstep); \} \| \{ `section`: `"signal-restore"`; `step`: [`TargetGuestSignalRestoreStep`](#targetguestsignalrestorestep); \} \| \{ `section`: `"active-syscall"`; `step`: [`TargetGuestActiveSyscallRestoreStep`](#targetguestactivesyscallrestorestep); \} \| \{ `section`: `"thread-spawn"`; `step`: [`TargetGuestTwoThreadSpawnStep`](#targetguesttwothreadspawnstep); \}
 
 ***
 
@@ -17300,6 +17304,10 @@ resolve the binary through the same lookup chain.
 ##### targetActiveSyscallRestoreResult?
 
 > `optional` **targetActiveSyscallRestoreResult?**: [`TargetNativeConsumptionStatus`](#targetnativeconsumptionstatus)
+
+##### targetThreadRestoreResult?
+
+> `optional` **targetThreadRestoreResult?**: [`TargetNativeConsumptionStatus`](#targetnativeconsumptionstatus)
 
 ***
 

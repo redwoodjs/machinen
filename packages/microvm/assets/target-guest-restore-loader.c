@@ -607,6 +607,8 @@ static void parse_native_restore(struct Descriptor *descriptor, char *line) {
     parse_native_semicolon_step(descriptor, line + strlen("native=signal-restore"), "", "--native-signal-restore-step");
   } else if (starts_with(line, "native=active-syscall")) {
     parse_native_semicolon_step(descriptor, line + strlen("native=active-syscall"), "", "--native-active-syscall-step");
+  } else if (starts_with(line, "native=thread-spawn")) {
+    parse_native_semicolon_step(descriptor, line + strlen("native=thread-spawn"), "", "--native-thread-spawn-step");
   } else {
     refuse("target-guest-loader-descriptor-invalid", "native restore section is unsupported");
   }
