@@ -481,9 +481,48 @@ function activeSyscallPolicy(bundle: ReturnType<typeof validatePortableMachineSn
     pollTimeoutPolicy: "defer-target-resume" as const,
     pollTimeoutFdPolicy: "synthetic-timerfd" as const,
     fdReadPolicy: "defer-target-resume" as const,
-    fdReadResourcePolicy: "synthetic-empty-pipe" as const,
+    fdReadResourcePolicy: fdReadResourcePolicy(bundle),
     documents: bundle.nativeProcessImage,
   };
+}
+
+function fdReadResourcePolicy(
+  bundle: ReturnType<typeof validatePortableMachineSnapshotBundle>,
+): "synthetic-empty-pipe" | "synthetic-empty-eventfd" {
+  const thread = bundle.nativeProcessImage.threads.threads.find(
+    (candidate) =>
+      candidate.syscall.state === "inside-syscall" && candidate.syscall.name === "read",
+  );
+  const fd = thread ? activeReadFd(thread) : undefined;
+  const resource = bundle.nativeProcessImage.resources.resources.find(
+    (candidate) => candidate.fd === fd,
+  );
+  return resource?.kind === "eventfd" ? "synthetic-empty-eventfd" : "synthetic-empty-pipe";
+}
+
+function activeReadFd(
+  thread: ReturnType<
+    typeof validatePortableMachineSnapshotBundle
+  >["nativeProcessImage"]["threads"]["threads"][number],
+): number | undefined {
+  const raw = thread.syscall.arguments?.[0] ?? activeReadRegisterFd(thread);
+  return raw === undefined ? undefined : safeBigIntNumber(raw);
+}
+
+function activeReadRegisterFd(
+  thread: ReturnType<
+    typeof validatePortableMachineSnapshotBundle
+  >["nativeProcessImage"]["threads"]["threads"][number],
+): string | undefined {
+  return thread.sourceRegisters.arch === "arm64" ? thread.sourceRegisters.x[0] : undefined;
+}
+
+function safeBigIntNumber(value: string): number | undefined {
+  try {
+    return Number(BigInt(value));
+  } catch {
+    return undefined;
+  }
 }
 
 function proofTwoThreadBindings(threadIds: [string, string]) {

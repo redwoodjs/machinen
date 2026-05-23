@@ -80,22 +80,27 @@ migration. Missing fd resources, wrong resource kinds, unsupported flags or
 state, wrong events, non-empty `revents`, `nfds > 1`, and non-null signal masks
 all fail closed as `target-ppoll-timeout-missing`.
 
-## Explicit pipe read deferral
+## Explicit fd read deferral
 
-The `fdReadPolicy: "defer-target-resume"` option currently accepts only a
-positive-count `read(fd, buf, count)` from a captured pipe read end under
-`fdReadResourcePolicy: "synthetic-empty-pipe"`. The model requires:
+The `fdReadPolicy: "defer-target-resume"` option currently accepts only narrow
+blocking `read(fd, buf, count)` cases under an explicit fd resource policy. Every
+modeled read requires captured syscall arguments from `/proc/<tid>/syscall` or
+source registers and a non-null buffer range contained in captured writable
+non-executable memory.
 
-- captured syscall arguments from `/proc/<tid>/syscall` or source registers;
-- a non-null buffer range contained in captured writable non-executable memory;
-- a captured pipe read-end resource for `fd`;
-- a paired pipe write end with the same pipe id still open, so the read is not an
-  EOF/readiness ambiguity.
+With `fdReadResourcePolicy: "synthetic-empty-pipe"`, the model additionally
+requires a captured pipe read-end resource for `fd` and a paired pipe write end
+with the same pipe id still open, so the read is not an EOF/readiness ambiguity.
 
-The target step recreates a fresh empty pipe and verifies with target-side
-`poll(POLLIN, timeout=0)` that the read fd would still block before reporting
-`nativeActiveSyscallRestore.status=passed`. Missing arguments, zero counts,
-missing writable buffer state, wrong resource kind/access, and missing paired
+With `fdReadResourcePolicy: "synthetic-empty-eventfd"`, the model requires a
+captured eventfd with supported read/write flags, counter `0`, non-semaphore
+mode, and `count >= 8`.
+
+The target step recreates a fresh empty pipe or empty eventfd and verifies with
+target-side `poll(POLLIN, timeout=0)` that the read fd would still block before
+reporting `nativeActiveSyscallRestore.status=passed`. Missing arguments, zero or
+short counts, missing writable buffer state, wrong resource kind/access,
+non-empty eventfds, semaphore mode, unsupported flags, and missing paired pipe
 write ends fail closed as `target-fd-read-state-missing`.
 
 ## Proof

@@ -2655,7 +2655,7 @@ by default when `output` is a TTY.
 
 ##### fdReadResourcePolicy?
 
-> `optional` **fdReadResourcePolicy?**: `"synthetic-empty-pipe"`
+> `optional` **fdReadResourcePolicy?**: [`NativeFdReadResourcePolicy`](#nativefdreadresourcepolicy)
 
 ##### documents?
 
@@ -2924,13 +2924,13 @@ by default when `output` is a TTY.
 
 > **resourceId**: `string`
 
-##### pairedWriteResourceId
+##### pairedWriteResourceId?
 
-> **pairedWriteResourceId**: `string`
+> `optional` **pairedWriteResourceId?**: `string`
 
 ##### targetResource
 
-> **targetResource**: `"synthetic-empty-pipe-read-end"`
+> **targetResource**: [`NativeModeledFdReadTargetResource`](#nativemodeledfdreadtargetresource)
 
 ***
 
@@ -13097,7 +13097,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NativeFdReadResourcePolicy
 
-> **NativeFdReadResourcePolicy** = `"synthetic-empty-pipe"`
+> **NativeFdReadResourcePolicy** = `"synthetic-empty-pipe"` \| `"synthetic-empty-eventfd"`
 
 ***
 
@@ -13109,7 +13109,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NativeModeledFdReadTargetResource
 
-> **NativeModeledFdReadTargetResource** = `"synthetic-empty-pipe-read-end"`
+> **NativeModeledFdReadTargetResource** = `"synthetic-empty-pipe-read-end"` \| `"synthetic-empty-eventfd"`
 
 ***
 
@@ -15795,7 +15795,7 @@ available.
 
 ##### resourcePolicy?
 
-`"synthetic-empty-pipe"` = `"synthetic-empty-pipe"`
+[`NativeFdReadResourcePolicy`](#nativefdreadresourcepolicy) = `"synthetic-empty-pipe"`
 
 #### Returns
 
