@@ -150,6 +150,8 @@
 - [`NativeTlsAmd64SegmentBases`](#nativetlsamd64segmentbases)
 - [`NativeThreadRestorePlan`](#nativethreadrestoreplan)
 - [`NativeThreadRestorePlanRequest`](#nativethreadrestoreplanrequest)
+- [`NativeControlledTwoThreadRestorePlan`](#nativecontrolledtwothreadrestoreplan)
+- [`NativeControlledTwoThreadRestorePlanRequest`](#nativecontrolledtwothreadrestoreplanrequest)
 - [`NativeSignalBlockedMaskPolicy`](#nativesignalblockedmaskpolicy)
 - [`NativeSignalRestorePolicyRequest`](#nativesignalrestorepolicyrequest)
 - [`NativeSignalRestorePolicyResult`](#nativesignalrestorepolicyresult)
@@ -161,6 +163,7 @@
 - [`NativeTlsTargetAccessPolicy`](#nativetlstargetaccesspolicy)
 - [`translateNativeRegisterState`](#translatenativeregisterstate)
 - [`planNativeThreadRestoreBoundary`](#plannativethreadrestoreboundary)
+- [`planNativeControlledTwoThreadRestoreBoundary`](#plannativecontrolledtwothreadrestoreboundary)
 - [`planNativeSignalRestorePolicy`](#plannativesignalrestorepolicy)
 - [`safeSignalRestoreRefusal`](#safesignalrestorerefusal)
 - [`NATIVE_SIMD_FPU_LIVE_SUBSET_POLICY`](#native_simd_fpu_live_subset_policy)
@@ -8382,6 +8385,24 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ***
 
+### NativeControlledTwoThreadRestorePlanRequest
+
+#### Properties
+
+##### threads
+
+> **threads**: [`NativeThreadState`](#nativethreadstate)[]
+
+##### mappings
+
+> **mappings**: [`NativeMemoryMapping`](#nativememorymapping)[]
+
+##### resources?
+
+> `optional` **resources?**: [`NativeProcessResource`](#nativeprocessresource)[]
+
+***
+
 ### NativeUnwindFrameRule
 
 #### Properties
@@ -12653,6 +12674,12 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativeControlledTwoThreadRestorePlan
+
+> **NativeControlledTwoThreadRestorePlan** = \{ `state`: `"accepted"`; `targetThreadCount`: `2`; `threadIds`: \[`string`, `string`\]; `threadPlans`: \[`Extract`\<[`NativeThreadRestorePlan`](#nativethreadrestoreplan), \{ `state`: `"accepted"`; \}\>, `Extract`\<[`NativeThreadRestorePlan`](#nativethreadrestoreplan), \{ `state`: `"accepted"`; \}\>\]; `refusals`: \[\]; \} \| \{ `state`: `"refused"`; `targetThreadCount`: `number`; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
+
+***
+
 ### NativeUnwindMetadataKind
 
 > **NativeUnwindMetadataKind** = `"dwarf"` \| `"eh-frame"`
@@ -15680,6 +15707,22 @@ available.
 #### Returns
 
 [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
+
+***
+
+### planNativeControlledTwoThreadRestoreBoundary()
+
+> **planNativeControlledTwoThreadRestoreBoundary**(`request`): [`NativeControlledTwoThreadRestorePlan`](#nativecontrolledtwothreadrestoreplan)
+
+#### Parameters
+
+##### request
+
+[`NativeControlledTwoThreadRestorePlanRequest`](#nativecontrolledtwothreadrestoreplanrequest)
+
+#### Returns
+
+[`NativeControlledTwoThreadRestorePlan`](#nativecontrolledtwothreadrestoreplan)
 
 ***
 
