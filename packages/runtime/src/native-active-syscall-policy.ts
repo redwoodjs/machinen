@@ -31,7 +31,8 @@ export type NativeFdReadPolicy = "refuse" | "defer-target-resume";
 export type NativeFdReadResourcePolicy =
   | "synthetic-empty-pipe"
   | "synthetic-empty-eventfd"
-  | "synthetic-timerfd";
+  | "synthetic-timerfd"
+  | "reopen-file";
 
 export interface NativeActiveSyscallPolicyOptions {
   sleepTimerPolicy?: NativeSleepTimerSyscallPolicy;
@@ -104,7 +105,8 @@ export interface NativeModeledPpollTimeoutState {
 export type NativeModeledFdReadTargetResource =
   | "synthetic-empty-pipe-read-end"
   | "synthetic-empty-eventfd"
-  | "synthetic-timerfd";
+  | "synthetic-timerfd"
+  | "reopened-offset-file";
 
 export interface NativeModeledFdReadTimerRemainingTime extends NativeSleepTimerDuration {
   state: "modeled";
@@ -124,6 +126,8 @@ export interface NativeModeledFdReadState {
   resourceId: string;
   pairedWriteResourceId?: string;
   targetResource: NativeModeledFdReadTargetResource;
+  targetBufferPointer?: string;
+  fileOffset?: number;
   remainingTime?: NativeModeledFdReadTimerRemainingTime;
 }
 
@@ -198,6 +202,7 @@ export interface NativeActiveSyscallClassificationResult {
 
 const SLEEP_TIMER_SYSCALLS = new Set(["clock_nanosleep", "nanosleep"]);
 const SOCKET_ACTIVE_SYSCALLS = new Set(["accept", "accept4", "connect"]);
+const EPOLL_ACTIVE_SYSCALLS = new Set(["epoll_wait", "epoll_pwait", "epoll_pwait2"]);
 const FD_BLOCKING_SYSCALLS = new Set([
   "read",
   "write",
@@ -273,11 +278,17 @@ export function classifyNativeThreadSyscall(
   if (name === "ppoll" && options.pollTimeoutPolicy === "defer-target-resume") {
     return deferredPpollTimeoutClassification(thread, options);
   }
+  if (name === "read" && isActiveSignalfdRead(thread, options.documents)) {
+    return refusedSignalfdActiveSyscallClassification(thread, options);
+  }
   if (name === "read" && options.fdReadPolicy === "defer-target-resume") {
     return deferredFdReadClassification(thread, options);
   }
   if (SOCKET_ACTIVE_SYSCALLS.has(name)) {
     return refusedSocketActiveSyscallClassification(thread, options);
+  }
+  if (EPOLL_ACTIVE_SYSCALLS.has(name)) {
+    return refusedEpollActiveSyscallClassification(thread, options);
   }
   if (FD_BLOCKING_SYSCALLS.has(name)) {
     return refusedClassification(thread, "fd-blocking", {
@@ -531,6 +542,28 @@ function refusedSocketActiveSyscallClassification(
   });
 }
 
+function refusedEpollActiveSyscallClassification(
+  thread: NativeThreadState,
+  options: NativeActiveSyscallPolicyOptions,
+): NativeActiveSyscallClassification {
+  return refusedClassification(thread, "fd-blocking", {
+    code: "target-epoll-syscall-state-unsupported",
+    message: `thread ${thread.id} is blocked in epoll syscall ${syscallName(thread)}`,
+    detail: epollActiveSyscallDetail(thread, options.documents),
+  });
+}
+
+function refusedSignalfdActiveSyscallClassification(
+  thread: NativeThreadState,
+  options: NativeActiveSyscallPolicyOptions,
+): NativeActiveSyscallClassification {
+  return refusedClassification(thread, "fd-blocking", {
+    code: "target-signalfd-state-unsupported",
+    message: `thread ${thread.id} is blocked reading a signalfd`,
+    detail: signalfdActiveSyscallDetail(thread, options.documents),
+  });
+}
+
 interface SocketActiveSyscallArguments {
   source: "proc-syscall" | "registers";
   fd: number;
@@ -603,7 +636,152 @@ function socketResourceDetail(resource: NativeProcessResource): Record<string, u
     path: resource.path,
     flags: resource.flags,
     state: resource.state,
+    recipe: resource.recipe,
   };
+}
+
+interface EpollActiveSyscallArguments {
+  source: "proc-syscall" | "registers";
+  epfd: number;
+  eventsPointer: string;
+  maxEvents: string;
+  timeoutMs?: string;
+  sigmaskPointer?: string;
+  sigsetSize?: string;
+}
+
+function epollActiveSyscallDetail(
+  thread: NativeThreadState,
+  documents: NativeProcessImageDocuments | undefined,
+): Record<string, unknown> {
+  const args = decodeEpollActiveSyscallArguments(thread);
+  const resource = args
+    ? documents?.resources.resources.find((candidate) => candidate.fd === args.epfd)
+    : undefined;
+  return detail(thread, "fd-blocking", {
+    reason: epollActiveSyscallRefusalReason(args, documents, resource),
+    epollSyscall: {
+      arguments: args,
+      resource: resource ? socketResourceDetail(resource) : undefined,
+      unsupportedState: [
+        "epoll interest list",
+        "ready list ordering",
+        "edge-triggered delivery state",
+        "waiter wakeup race state",
+        "target fd resource mapping",
+      ],
+    },
+  });
+}
+
+function epollActiveSyscallRefusalReason(
+  args: EpollActiveSyscallArguments | undefined,
+  documents: NativeProcessImageDocuments | undefined,
+  resource: NativeProcessResource | undefined,
+): string {
+  if (!args) {
+    return "epoll syscall arguments were not captured";
+  }
+  if (!documents?.resources) {
+    return "captured resource table is not available";
+  }
+  if (!resource) {
+    return "epoll fd resource is missing";
+  }
+  return resource.kind === "epoll"
+    ? "epoll kernel ready list state is unsupported"
+    : "epoll fd is not a captured epoll instance";
+}
+
+// fallow-ignore-next-line complexity
+function decodeEpollActiveSyscallArguments(
+  thread: NativeThreadState,
+): EpollActiveSyscallArguments | undefined {
+  const args = sleepTimerArguments(thread);
+  if (!args) {
+    return undefined;
+  }
+  const epfd = safeNumber(args.values[0] ?? -1n);
+  if (epfd === undefined || epfd < 0) {
+    return undefined;
+  }
+  const syscall = syscallName(thread);
+  return {
+    source: args.source,
+    epfd,
+    eventsPointer: hex(args.values[1] ?? 0n),
+    maxEvents: hex(args.values[2] ?? 0n),
+    timeoutMs: hex(args.values[3] ?? 0n),
+    sigmaskPointer:
+      syscall === "epoll_pwait" || syscall === "epoll_pwait2"
+        ? hex(args.values[4] ?? 0n)
+        : undefined,
+    sigsetSize: syscall === "epoll_pwait2" ? hex(args.values[5] ?? 0n) : undefined,
+  };
+}
+
+function isActiveSignalfdRead(
+  thread: NativeThreadState,
+  documents: NativeProcessImageDocuments | undefined,
+): boolean {
+  const args = sleepTimerArguments(thread);
+  const fd = args ? safeNumber(args.values[0] ?? -1n) : undefined;
+  return (
+    documents?.resources.resources.some(
+      (resource) => resource.fd === fd && resource.kind === "signalfd",
+    ) ?? false
+  );
+}
+
+function signalfdActiveSyscallDetail(
+  thread: NativeThreadState,
+  documents: NativeProcessImageDocuments | undefined,
+): Record<string, unknown> {
+  const args = sleepTimerArguments(thread);
+  const fd = args ? safeNumber(args.values[0] ?? -1n) : undefined;
+  const resource =
+    fd === undefined
+      ? undefined
+      : documents?.resources.resources.find((candidate) => candidate.fd === fd);
+  return detail(thread, "fd-blocking", {
+    reason: signalfdActiveSyscallRefusalReason(args, documents, resource),
+    signalfdRead: {
+      arguments: args
+        ? {
+            source: args.source,
+            fd,
+            bufferPointer: hex(args.values[1] ?? 0n),
+            countBytes: hex(args.values[2] ?? 0n),
+          }
+        : undefined,
+      resource: resource ? socketResourceDetail(resource) : undefined,
+      unsupportedState: [
+        "pending signal queue state",
+        "signalfd mask delivery ordering",
+        "siginfo payload provenance",
+        "target signal mask coordination",
+      ],
+    },
+  });
+}
+
+function signalfdActiveSyscallRefusalReason(
+  args: SleepTimerArguments | undefined,
+  documents: NativeProcessImageDocuments | undefined,
+  resource: NativeProcessResource | undefined,
+): string {
+  if (!args) {
+    return "signalfd read arguments were not captured";
+  }
+  if (!documents?.resources) {
+    return "captured resource table is not available";
+  }
+  if (!resource) {
+    return "signalfd resource is missing";
+  }
+  return resource.kind === "signalfd"
+    ? "signalfd pending signal queue state is unsupported"
+    : "read fd is not a captured signalfd";
 }
 
 function decodeSocketActiveSyscallArguments(
@@ -760,6 +938,13 @@ function decodeFdReadArguments(
   if (countRefusal) {
     return countRefusal;
   }
+  const targetBufferPointer = targetReadBufferPointer(bufferMapping, values.bufferPointer);
+  if (resource.targetResource === "reopened-offset-file" && !targetBufferPointer) {
+    return missingFdRead(thread, "read file proof requires a translated target buffer", {
+      fd: values.fd,
+      bufferMapping: bufferMapping.id,
+    });
+  }
   return {
     fd: values.fd,
     bufferPointer: hex(values.bufferPointer),
@@ -768,6 +953,8 @@ function decodeFdReadArguments(
     resourceId: resource.resource.id,
     pairedWriteResourceId: resource.pairedWriteResource?.id,
     targetResource: resource.targetResource,
+    targetBufferPointer,
+    fileOffset: resource.fileOffset,
     remainingTime: resource.remainingTime,
   };
 }
@@ -1144,14 +1331,18 @@ function validateFdReadModeledResource(
       resource: NativeProcessResource;
       pairedWriteResource?: NativeProcessResource;
       targetResource: NativeModeledFdReadTargetResource;
+      fileOffset?: number;
       remainingTime?: NativeModeledFdReadTimerRemainingTime;
     }
   | { state: "missing"; refusal: NativeProcessImageRefusal } {
   if (resourcePolicy === "synthetic-empty-eventfd") {
     return validateFdReadEventfdResource(thread, documents, fd);
   }
-  return resourcePolicy === "synthetic-timerfd"
-    ? validateFdReadTimerfdResource(thread, documents, fd)
+  if (resourcePolicy === "synthetic-timerfd") {
+    return validateFdReadTimerfdResource(thread, documents, fd);
+  }
+  return resourcePolicy === "reopen-file"
+    ? validateFdReadFileResource(thread, documents, fd)
     : validateFdReadPipeResource(thread, documents, fd);
 }
 
@@ -1195,6 +1386,50 @@ function validateFdReadPipeResource(
         resourceId: resource.id,
         pipeId: resource.path,
       });
+}
+
+// fallow-ignore-next-line complexity
+function validateFdReadFileResource(
+  thread: NativeThreadState,
+  documents: NativeProcessImageDocuments,
+  fd: number,
+):
+  | { resource: NativeProcessResource; targetResource: "reopened-offset-file"; fileOffset: number }
+  | { state: "missing"; refusal: NativeProcessImageRefusal } {
+  const resource = documents.resources.resources.find((candidate) => candidate.fd === fd);
+  if (resource?.kind !== "file") {
+    return missingFdRead(thread, "read file proof requires a captured regular file fd", {
+      fd,
+      resourceKind: resource?.kind,
+      resourceId: resource?.id,
+    });
+  }
+  if (nativeFdAccessMode(resource.flags) === 1) {
+    return missingFdRead(thread, "read file proof requires a readable file fd", {
+      fd,
+      resourceId: resource.id,
+      resourceFlags: resource.flags,
+    });
+  }
+  if (typeof resource.recipe?.reopen !== "string") {
+    return missingFdRead(thread, "read file proof requires a reopen recipe", {
+      fd,
+      resourceId: resource.id,
+    });
+  }
+  const fileOffset = fdReadFileOffset(resource);
+  return Number.isSafeInteger(fileOffset) && fileOffset >= 0
+    ? { resource, targetResource: "reopened-offset-file", fileOffset }
+    : missingFdRead(thread, "read file proof requires a safe non-negative file offset", {
+        fd,
+        resourceId: resource.id,
+        offset: resource.offset,
+      });
+}
+
+function fdReadFileOffset(resource: NativeProcessResource): number {
+  const recipeOffset = resource.recipe?.offset;
+  return typeof recipeOffset === "number" ? recipeOffset : (resource.offset ?? 0);
 }
 
 function validateFdReadEventfdResource(
@@ -1611,6 +1846,16 @@ function writableMappingContainingRange(
       sourceAddress >= BigInt(mapping.sourceStart) &&
       sourceAddress + sizeBytes <= BigInt(mapping.sourceEnd),
   );
+}
+
+function targetReadBufferPointer(
+  mapping: NativeMemoryMapping,
+  sourceAddress: bigint,
+): string | undefined {
+  const targetStart = mapping.target.targetStart;
+  return targetStart
+    ? hex(BigInt(targetStart) + sourceAddress - BigInt(mapping.sourceStart))
+    : undefined;
 }
 
 function safeNumber(value: bigint): number | undefined {

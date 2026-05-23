@@ -4,7 +4,10 @@ import type {
   NativeProcessImageRefusal,
 } from "./native-process-image.ts";
 
-export type TargetGuestProcessContextRestoreMode = "metadata-only" | "apply-target-env-cwd";
+export type TargetGuestProcessContextRestoreMode =
+  | "metadata-only"
+  | "apply-target-env-cwd"
+  | "apply-target-visible-context";
 
 export type TargetGuestProcessContextRestoreStep =
   | {
@@ -12,6 +15,14 @@ export type TargetGuestProcessContextRestoreStep =
       argc: number;
       argvBytes: number;
       argvSha256: string;
+    }
+  | {
+      action: "materialize-argv";
+      argc: number;
+      argvSha256: string;
+      tokenIndex: number;
+      tokenHex: string;
+      tokenSha256: string;
     }
   | {
       action: "record-env";
@@ -36,6 +47,12 @@ export type TargetGuestProcessContextRestoreStep =
       envSha256: string;
     }
   | {
+      action: "verify-env-value";
+      keyHex: string;
+      valueHex: string;
+      valueSha256: string;
+    }
+  | {
       action: "record-cwd";
       cwdHex: string;
       cwdSha256: string;
@@ -46,8 +63,19 @@ export type TargetGuestProcessContextRestoreStep =
       cwdSha256: string;
     }
   | {
+      action: "verify-cwd";
+      cwdHex: string;
+      cwdSha256: string;
+    }
+  | {
       action: "record-auxv";
       auxvBytes: number;
+      auxvSha256: string;
+    }
+  | {
+      action: "verify-auxv-selected";
+      pageSize: number;
+      clockTick: number;
       auxvSha256: string;
     };
 
@@ -72,32 +100,48 @@ interface ProcessContextModel {
   envEntries: Array<[string, string]>;
   cwd: string;
   auxvHex: string;
+  selectedAuxv: SelectedAuxvContext;
+}
+
+interface SelectedAuxvContext {
+  pageSize: number;
+  clockTick: number;
 }
 
 const DEFAULT_MAX_ARGV_ENTRIES = 128;
 const DEFAULT_MAX_ENV_ENTRIES = 256;
 const DEFAULT_MAX_STRING_BYTES = 64 * 1024;
 const DEFAULT_MAX_AUXV_BYTES = 4096;
+const CONTEXT_ENV_TOKEN_KEY = "MACHINEN_CONTEXT_TOKEN";
+const CONTEXT_ARGV_TOKEN = "--machinen-argv-token";
+const AT_PAGESZ = 6n;
+const AT_CLKTCK = 17n;
+const AT_NULL = 0n;
+const AUXV_ENTRY_BYTES = 16;
 
 export function planTargetGuestProcessContextRestore(
   documents: NativeProcessImageDocuments,
   options: TargetGuestProcessContextRestoreOptions = {},
 ): TargetGuestProcessContextRestorePlan {
-  const model = processContextModel(documents, options);
+  const mode = options.mode ?? "metadata-only";
+  const model = processContextModel(documents, options, mode);
   if ("refusals" in model) {
     return { state: "refused", refusals: model.refusals };
   }
-  const mode = options.mode ?? "metadata-only";
   return { state: "planned", mode, steps: processContextSteps(model, mode) };
 }
 
 function processContextModel(
   documents: NativeProcessImageDocuments,
   options: TargetGuestProcessContextRestoreOptions,
+  mode: TargetGuestProcessContextRestoreMode,
 ): ProcessContextModel | { refusals: NativeProcessImageRefusal[] } {
+  const auxvHex = auxvResourceHex(documents);
+  const selectedAuxv = auxvHex ? selectedAuxvContext(auxvHex) : undefined;
   const refusals = [
     ...validateManifestProcessContext(documents, options),
     ...validateResourceConsistency(documents),
+    ...validateTargetVisibleContext(documents, selectedAuxv, mode),
   ];
   if (refusals.length > 0) {
     return { refusals };
@@ -106,7 +150,8 @@ function processContextModel(
     argv: documents.manifest.process.argv,
     envEntries: sortedEnvEntries(documents.manifest.process.env),
     cwd: documents.manifest.process.cwd,
-    auxvHex: auxvResourceHex(documents)!,
+    auxvHex: auxvHex!,
+    selectedAuxv: selectedAuxv!,
   };
 }
 
@@ -239,59 +284,189 @@ function resourceMismatch(
   return JSON.stringify(actual) === JSON.stringify(expected) ? [] : [processContextRefusal(reason)];
 }
 
+function validateTargetVisibleContext(
+  documents: NativeProcessImageDocuments,
+  selectedAuxv: SelectedAuxvContext | undefined,
+  mode: TargetGuestProcessContextRestoreMode,
+): NativeProcessImageRefusal[] {
+  if (mode !== "apply-target-visible-context") {
+    return [];
+  }
+  const env = documents.manifest.process.env;
+  const argvTokenIndex = documents.manifest.process.argv.indexOf(CONTEXT_ARGV_TOKEN);
+  return [
+    ...(env[CONTEXT_ENV_TOKEN_KEY]
+      ? []
+      : [processContextRefusal("target-visible context requires MACHINEN_CONTEXT_TOKEN")]),
+    ...(argvTokenIndex >= 0
+      ? []
+      : [processContextRefusal("target-visible context requires controlled argv token")]),
+    ...(selectedAuxv
+      ? []
+      : [
+          processContextRefusal("target-visible context requires selected safe auxv entries", {
+            requiredAuxv: ["AT_PAGESZ", "AT_CLKTCK"],
+          }),
+        ]),
+  ];
+}
+
 function processContextSteps(
   model: ProcessContextModel,
   mode: TargetGuestProcessContextRestoreMode,
 ): TargetGuestProcessContextRestoreStep[] {
   const envDigest = sha256(canonicalEnv(model.envEntries));
+  const argvDigest = sha256(JSON.stringify(model.argv));
+  const auxvDigest = sha256(Buffer.from(model.auxvHex, "hex"));
   return [
     {
       action: "record-argv",
       argc: model.argv.length,
       argvBytes: stringListBytes(model.argv),
-      argvSha256: sha256(JSON.stringify(model.argv)),
+      argvSha256: argvDigest,
     },
-    ...(mode === "apply-target-env-cwd"
-      ? [
-          { action: "clear-env" as const, envCount: model.envEntries.length, envSha256: envDigest },
-          ...model.envEntries.map(([key, value]) => ({
-            action: "set-env" as const,
-            keyHex: hexUtf8(key),
-            valueHex: hexUtf8(value),
-            valueSha256: sha256(value),
-          })),
-          {
-            action: "verify-env" as const,
-            envCount: model.envEntries.length,
-            envSha256: envDigest,
-          },
-          { action: "chdir" as const, cwdHex: hexUtf8(model.cwd), cwdSha256: sha256(model.cwd) },
-        ]
-      : [
-          {
-            action: "record-env" as const,
-            envCount: model.envEntries.length,
-            envBytes: stringListBytes(model.envEntries.flatMap(([key, value]) => [key, value])),
-            envSha256: envDigest,
-          },
-          {
-            action: "record-cwd" as const,
-            cwdHex: hexUtf8(model.cwd),
-            cwdSha256: sha256(model.cwd),
-          },
-        ]),
+    ...targetVisibleArgvSteps(model, mode, argvDigest),
+    ...envSteps(model, mode, envDigest),
+    ...cwdSteps(model, mode),
     {
       action: "record-auxv",
       auxvBytes: model.auxvHex.length / 2,
-      auxvSha256: sha256(Buffer.from(model.auxvHex, "hex")),
+      auxvSha256: auxvDigest,
+    },
+    ...targetVisibleAuxvSteps(model, mode, auxvDigest),
+  ];
+}
+
+function targetVisibleArgvSteps(
+  model: ProcessContextModel,
+  mode: TargetGuestProcessContextRestoreMode,
+  argvDigest: string,
+): TargetGuestProcessContextRestoreStep[] {
+  if (mode !== "apply-target-visible-context") {
+    return [];
+  }
+  const tokenIndex = model.argv.indexOf(CONTEXT_ARGV_TOKEN);
+  return [
+    {
+      action: "materialize-argv",
+      argc: model.argv.length,
+      argvSha256: argvDigest,
+      tokenIndex,
+      tokenHex: hexUtf8(CONTEXT_ARGV_TOKEN),
+      tokenSha256: sha256(CONTEXT_ARGV_TOKEN),
     },
   ];
+}
+
+function envSteps(
+  model: ProcessContextModel,
+  mode: TargetGuestProcessContextRestoreMode,
+  envDigest: string,
+): TargetGuestProcessContextRestoreStep[] {
+  if (mode === "metadata-only") {
+    return [
+      {
+        action: "record-env",
+        envCount: model.envEntries.length,
+        envBytes: stringListBytes(model.envEntries.flatMap(([key, value]) => [key, value])),
+        envSha256: envDigest,
+      },
+    ];
+  }
+  return [
+    { action: "clear-env", envCount: model.envEntries.length, envSha256: envDigest },
+    ...model.envEntries.map(([key, value]) => ({
+      action: "set-env" as const,
+      keyHex: hexUtf8(key),
+      valueHex: hexUtf8(value),
+      valueSha256: sha256(value),
+    })),
+    { action: "verify-env", envCount: model.envEntries.length, envSha256: envDigest },
+    ...targetVisibleEnvSteps(model, mode),
+  ];
+}
+
+function targetVisibleEnvSteps(
+  model: ProcessContextModel,
+  mode: TargetGuestProcessContextRestoreMode,
+): TargetGuestProcessContextRestoreStep[] {
+  const token = Object.fromEntries(model.envEntries)[CONTEXT_ENV_TOKEN_KEY];
+  return mode === "apply-target-visible-context" && token
+    ? [
+        {
+          action: "verify-env-value",
+          keyHex: hexUtf8(CONTEXT_ENV_TOKEN_KEY),
+          valueHex: hexUtf8(token),
+          valueSha256: sha256(token),
+        },
+      ]
+    : [];
+}
+
+function cwdSteps(
+  model: ProcessContextModel,
+  mode: TargetGuestProcessContextRestoreMode,
+): TargetGuestProcessContextRestoreStep[] {
+  if (mode === "metadata-only") {
+    return [{ action: "record-cwd", cwdHex: hexUtf8(model.cwd), cwdSha256: sha256(model.cwd) }];
+  }
+  const applyStep = {
+    action: "chdir" as const,
+    cwdHex: hexUtf8(model.cwd),
+    cwdSha256: sha256(model.cwd),
+  };
+  return mode === "apply-target-visible-context"
+    ? [
+        applyStep,
+        { action: "verify-cwd", cwdHex: applyStep.cwdHex, cwdSha256: applyStep.cwdSha256 },
+      ]
+    : [applyStep];
+}
+
+function targetVisibleAuxvSteps(
+  model: ProcessContextModel,
+  mode: TargetGuestProcessContextRestoreMode,
+  auxvDigest: string,
+): TargetGuestProcessContextRestoreStep[] {
+  return mode === "apply-target-visible-context"
+    ? [
+        {
+          action: "verify-auxv-selected",
+          pageSize: model.selectedAuxv.pageSize,
+          clockTick: model.selectedAuxv.clockTick,
+          auxvSha256: auxvDigest,
+        },
+      ]
+    : [];
 }
 
 function auxvResourceHex(documents: NativeProcessImageDocuments): string | undefined {
   const value = documents.resources.resources.find((resource) => resource.kind === "auxv")?.recipe
     ?.bytesHex;
   return typeof value === "string" ? value.toLowerCase() : undefined;
+}
+
+function selectedAuxvContext(auxvHex: string): SelectedAuxvContext | undefined {
+  const entries = parseAuxvEntries(auxvHex);
+  const pageSize = entries.get(AT_PAGESZ);
+  const clockTick = entries.get(AT_CLKTCK);
+  return pageSize !== undefined && clockTick !== undefined
+    ? { pageSize: Number(pageSize), clockTick: Number(clockTick) }
+    : undefined;
+}
+
+function parseAuxvEntries(auxvHex: string): Map<bigint, bigint> {
+  const bytes = Buffer.from(auxvHex, "hex");
+  const entries = new Map<bigint, bigint>();
+  for (let offset = 0; offset + AUXV_ENTRY_BYTES <= bytes.length; offset += AUXV_ENTRY_BYTES) {
+    const key = bytes.readBigUInt64LE(offset);
+    const value = bytes.readBigUInt64LE(offset + 8);
+    if (key === AT_NULL) {
+      break;
+    }
+    entries.set(key, value);
+  }
+  return entries;
 }
 
 function sortedEnvEntries(env: Record<string, string>): Array<[string, string]> {

@@ -2,12 +2,21 @@ import { describe, expect, it } from "vitest";
 import { planTargetGuestProcessContextRestore } from "../target-guest-process-context-restore.ts";
 import type { NativeProcessImageDocuments } from "../native-process-image.ts";
 
+function auxvHex(values: { pageSize: number; clockTick: number }): string {
+  const bytes = Buffer.alloc(16 * 3);
+  bytes.writeBigUInt64LE(6n, 0);
+  bytes.writeBigUInt64LE(BigInt(values.pageSize), 8);
+  bytes.writeBigUInt64LE(17n, 16);
+  bytes.writeBigUInt64LE(BigInt(values.clockTick), 24);
+  return bytes.toString("hex");
+}
+
 function documents(
   overrides: Partial<NativeProcessImageDocuments["manifest"]["process"]> = {},
 ): NativeProcessImageDocuments {
   const process = {
     exe: "/bin/target",
-    argv: ["/bin/target", "--token", "ok"],
+    argv: ["/bin/target", "--machinen-argv-token", "ok"],
     env: { MACHINEN_CONTEXT_TOKEN: "process-context" },
     cwd: "/",
     ...overrides,
@@ -40,7 +49,7 @@ function documents(
           id: "auxv",
           kind: "auxv",
           state: "captured",
-          recipe: { bytesHex: "01000000000000000020000000000000" },
+          recipe: { bytesHex: auxvHex({ pageSize: 4096, clockTick: 100 }) },
         },
       ],
       refusals: { vocabularyVersion: 1, refusals: [] },
@@ -66,10 +75,10 @@ describe("target guest process-context restore", () => {
       state: "planned",
       mode: "metadata-only",
       steps: [
-        { action: "record-argv", argc: 3, argvBytes: 20 },
+        { action: "record-argv", argc: 3, argvBytes: 34 },
         { action: "record-env", envCount: 1 },
         { action: "record-cwd", cwdHex: "2f" },
-        { action: "record-auxv", auxvBytes: 16 },
+        { action: "record-auxv", auxvBytes: 48 },
       ],
     });
   });
@@ -94,6 +103,59 @@ describe("target guest process-context restore", () => {
         { action: "chdir", cwdHex: "2f" },
         { action: "record-auxv" },
       ],
+    });
+  });
+
+  it("plans target-visible argv/env/cwd/auxv verifier steps", () => {
+    const plan = planTargetGuestProcessContextRestore(documents(), {
+      mode: "apply-target-visible-context",
+    });
+
+    expect(plan).toMatchObject({
+      state: "planned",
+      mode: "apply-target-visible-context",
+      steps: expect.arrayContaining([
+        expect.objectContaining({
+          action: "materialize-argv",
+          tokenIndex: 1,
+          tokenHex: "2d2d6d616368696e656e2d617267762d746f6b656e",
+        }),
+        expect.objectContaining({ action: "verify-env-value" }),
+        expect.objectContaining({ action: "verify-cwd", cwdHex: "2f" }),
+        expect.objectContaining({ action: "verify-auxv-selected", pageSize: 4096, clockTick: 100 }),
+      ]),
+    });
+  });
+
+  it("refuses target-visible context without controlled tokens or selected auxv", () => {
+    const bad = documents({ argv: ["/bin/target"], env: {}, cwd: "/" });
+    bad.resources.resources.find((resource) => resource.kind === "auxv")!.recipe = {
+      bytesHex: "01000000000000000020000000000000",
+    };
+
+    const plan = planTargetGuestProcessContextRestore(bad, {
+      mode: "apply-target-visible-context",
+    });
+
+    expect(plan).toMatchObject({
+      state: "refused",
+      refusals: expect.arrayContaining([
+        expect.objectContaining({
+          detail: expect.objectContaining({
+            reason: "target-visible context requires controlled argv token",
+          }),
+        }),
+        expect.objectContaining({
+          detail: expect.objectContaining({
+            reason: "target-visible context requires MACHINEN_CONTEXT_TOKEN",
+          }),
+        }),
+        expect.objectContaining({
+          detail: expect.objectContaining({
+            reason: "target-visible context requires selected safe auxv entries",
+          }),
+        }),
+      ]),
     });
   });
 

@@ -27,8 +27,17 @@ export type TargetGuestActiveSyscallRestoreStep =
       threadId: string;
       fd: number;
       countBytes: number;
-      resource: NativeModeledFdReadTargetResource;
+      resource: Exclude<NativeModeledFdReadTargetResource, "reopened-offset-file">;
       remainingTime?: { seconds: string; nanoseconds: number };
+      resumeMode: "defer-target-resume";
+    }
+  | {
+      action: "complete-fd-read-from-file";
+      threadId: string;
+      fd: number;
+      countBytes: number;
+      targetBufferPointer: string;
+      fileOffset: number;
       resumeMode: "defer-target-resume";
     };
 
@@ -70,15 +79,25 @@ function continuationStep(
     };
   }
   if (continuation.syscallClass === "fd-blocking") {
+    const read = continuation.metadata.fdRead;
+    if (read.targetResource === "reopened-offset-file") {
+      return {
+        action: "complete-fd-read-from-file",
+        threadId: continuation.threadId,
+        fd: read.fd,
+        countBytes: read.countBytes,
+        targetBufferPointer: read.targetBufferPointer!,
+        fileOffset: read.fileOffset!,
+        resumeMode: "defer-target-resume",
+      };
+    }
     return {
       action: "restore-fd-read-block",
       threadId: continuation.threadId,
-      fd: continuation.metadata.fdRead.fd,
-      countBytes: continuation.metadata.fdRead.countBytes,
-      resource: continuation.metadata.fdRead.targetResource,
-      remainingTime: continuation.metadata.fdRead.remainingTime
-        ? duration(continuation.metadata.fdRead.remainingTime)
-        : undefined,
+      fd: read.fd,
+      countBytes: read.countBytes,
+      resource: read.targetResource,
+      remainingTime: read.remainingTime ? duration(read.remainingTime) : undefined,
       resumeMode: "defer-target-resume",
     };
   }

@@ -554,7 +554,8 @@ function isStatefulKernelResource(resource: NativeProcessResource): boolean {
     resource.kind === "epoll" ||
     resource.kind === "timer" ||
     resource.kind === "eventfd" ||
-    resource.kind === "signal"
+    resource.kind === "signal" ||
+    resource.kind === "signalfd"
   );
 }
 

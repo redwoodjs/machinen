@@ -75,6 +75,13 @@ function arm64SocketThread(
   return arm64SleepThread({ state: "inside-syscall", number, name }, x);
 }
 
+function arm64EpollThread(
+  name: "epoll_wait" | "epoll_pwait" | "epoll_pwait2" = "epoll_wait",
+  x: string[] = ["0x30", "0x4100", "0x4", "0xffffffff", "0x0", "0x0"],
+): NativeThreadState {
+  return arm64SleepThread({ state: "inside-syscall", number: 22, name }, x);
+}
+
 function documentsWithTimespec(options: {
   activeThread: NativeThreadState;
   seconds?: bigint;
@@ -244,6 +251,26 @@ function documentsWithReadTimerfd(
   return documents;
 }
 
+function documentsWithReadFile(
+  activeThread: NativeThreadState,
+  options: { flags?: string[]; recipe?: Record<string, unknown>; offset?: number } = {},
+): NativeProcessImageDocuments {
+  const documents = documentsWithReadPipe(activeThread, {
+    readFd: 38,
+    readKind: "file",
+    readFlags: options.flags ?? ["octal:0"],
+    readRecipe: options.recipe ?? {
+      reopen: "/tmp/machinen-active-read.txt",
+      offset: options.offset ?? 5,
+    },
+    includeWriteEnd: false,
+  });
+  documents.mappings.mappings[0]!.target.targetStart = "0x600000000000";
+  documents.resources.resources[0]!.path = "/tmp/machinen-active-read.txt";
+  documents.resources.resources[0]!.offset = options.offset ?? 5;
+  return documents;
+}
+
 function timerfdRecipe(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     timerfdTicks: "0x0",
@@ -273,6 +300,28 @@ function documentsWithSocketResource(
             fd,
             path: "socket:[4242]",
             flags: ["octal:2"],
+          },
+        ];
+  return documents;
+}
+
+function documentsWithKernelFdResource(
+  activeThread: NativeThreadState,
+  fd: number,
+  kind: "epoll" | "signalfd" | "file" | "missing",
+): NativeProcessImageDocuments {
+  const documents = documentsWithTimespec({ activeThread });
+  documents.resources.resources =
+    kind === "missing"
+      ? []
+      : [
+          {
+            id: `fd:${fd}:${kind}`,
+            kind,
+            state: "refused",
+            fd,
+            path: `anon_inode:[${kind}]`,
+            flags: ["octal:0"],
           },
         ];
   return documents;
@@ -983,6 +1032,32 @@ describe("native active syscall classification", () => {
     });
   });
 
+  it("models a safe offset-backed read from a regular file", () => {
+    const activeThread = arm64ReadThread(["0x26", "0x3100", "0x4", "0x0", "0x0", "0x0"]);
+    const documents = documentsWithReadFile(activeThread, { offset: 7 });
+    const result = classifyNativeActiveSyscalls([activeThread], {
+      fdReadPolicy: "defer-target-resume",
+      fdReadResourcePolicy: "reopen-file",
+      documents,
+    });
+
+    expect(result.refusals).toEqual([]);
+    expect(result.continuations[0]).toMatchObject({
+      syscallClass: "fd-blocking",
+      metadata: {
+        fdRead: {
+          fd: 38,
+          countBytes: 4,
+          resourceId: "fd:38:read",
+          targetResource: "reopened-offset-file",
+          targetBufferPointer: "0x600000000100",
+          fileOffset: 7,
+        },
+        policy: "conservative-target-fd-read-block-preserved",
+      },
+    });
+  });
+
   it("prefers /proc syscall arguments for modeled read", () => {
     const activeThread = arm64ReadThread();
     activeThread.syscall.arguments = ["0x20", "0x3100", "0x1", "0x0", "0x0", "0x0"];
@@ -1038,6 +1113,39 @@ describe("native active syscall classification", () => {
       : documentsWithReadPipe(scenario.thread);
 
     expect(modelNativeFdReadState(scenario.thread, documents)).toMatchObject({
+      state: "missing",
+      refusal: {
+        code: "target-fd-read-state-missing",
+        detail: { reason: scenario.reason },
+      },
+    });
+  });
+
+  it.each([
+    {
+      name: "non-file resource",
+      thread: arm64ReadThread(["0x26", "0x3100", "0x4", "0x0", "0x0", "0x0"]),
+      documents: (thread: NativeThreadState) =>
+        documentsWithReadPipe(thread, { readFd: 38, readKind: "pipe" }),
+      reason: "read file proof requires a captured regular file fd",
+    },
+    {
+      name: "write-only file",
+      thread: arm64ReadThread(["0x26", "0x3100", "0x4", "0x0", "0x0", "0x0"]),
+      documents: (thread: NativeThreadState) =>
+        documentsWithReadFile(thread, { flags: ["octal:1"] }),
+      reason: "read file proof requires a readable file fd",
+    },
+    {
+      name: "missing reopen recipe",
+      thread: arm64ReadThread(["0x26", "0x3100", "0x4", "0x0", "0x0", "0x0"]),
+      documents: (thread: NativeThreadState) => documentsWithReadFile(thread, { recipe: {} }),
+      reason: "read file proof requires a reopen recipe",
+    },
+  ])("refuses unsafe regular-file read state: $name", (scenario) => {
+    expect(
+      modelNativeFdReadState(scenario.thread, scenario.documents(scenario.thread), "reopen-file"),
+    ).toMatchObject({
       state: "missing",
       refusal: {
         code: "target-fd-read-state-missing",
@@ -1151,6 +1259,56 @@ describe("native active syscall classification", () => {
     });
   });
 
+  it("refuses active epoll wait with epoll-specific detail", () => {
+    const activeThread = arm64EpollThread("epoll_pwait", [
+      "0x30",
+      "0x4100",
+      "0x4",
+      "0xffffffff",
+      "0x0",
+      "0x8",
+    ]);
+    const result = classifyNativeActiveSyscalls([activeThread], {
+      documents: documentsWithKernelFdResource(activeThread, 48, "epoll"),
+    });
+
+    expect(result.classifications[0]).toMatchObject({
+      class: "fd-blocking",
+      refusal: {
+        code: "target-epoll-syscall-state-unsupported",
+        detail: {
+          reason: "epoll kernel ready list state is unsupported",
+          epollSyscall: {
+            arguments: { source: "registers", epfd: 48, eventsPointer: "0x4100" },
+            resource: { id: "fd:48:epoll", kind: "epoll", fd: 48 },
+          },
+        },
+      },
+    });
+  });
+
+  it("refuses signalfd reads with signal-queue-specific detail", () => {
+    const activeThread = arm64ReadThread(["0x32", "0x4100", "0x80", "0x0", "0x0", "0x0"]);
+    const result = classifyNativeActiveSyscalls([activeThread], {
+      documents: documentsWithKernelFdResource(activeThread, 50, "signalfd"),
+      fdReadPolicy: "defer-target-resume",
+    });
+
+    expect(result.classifications[0]).toMatchObject({
+      class: "fd-blocking",
+      refusal: {
+        code: "target-signalfd-state-unsupported",
+        detail: {
+          reason: "signalfd pending signal queue state is unsupported",
+          signalfdRead: {
+            arguments: { source: "registers", fd: 50, bufferPointer: "0x4100" },
+            resource: { id: "fd:50:signalfd", kind: "signalfd", fd: 50 },
+          },
+        },
+      },
+    });
+  });
+
   it.each(["accept", "accept4", "connect"] as const)(
     "refuses active socket syscall %s with socket-specific detail",
     (name) => {
@@ -1182,6 +1340,34 @@ describe("native active syscall classification", () => {
       });
     },
   );
+
+  it.each([
+    {
+      name: "missing epoll resource",
+      thread: arm64EpollThread(),
+      documents: (activeThread: NativeThreadState) =>
+        documentsWithKernelFdResource(activeThread, 48, "missing"),
+      reason: "epoll fd resource is missing",
+      code: "target-epoll-syscall-state-unsupported",
+    },
+    {
+      name: "non-epoll fd",
+      thread: arm64EpollThread(),
+      documents: (activeThread: NativeThreadState) =>
+        documentsWithKernelFdResource(activeThread, 48, "file"),
+      reason: "epoll fd is not a captured epoll instance",
+      code: "target-epoll-syscall-state-unsupported",
+    },
+  ])("keeps active epoll syscall fail-closed for $name", (scenario) => {
+    const result = classifyNativeActiveSyscalls([scenario.thread], {
+      documents: scenario.documents(scenario.thread),
+    });
+
+    expect(result.classifications[0]).toMatchObject({
+      class: "fd-blocking",
+      refusal: { code: scenario.code, detail: { reason: scenario.reason } },
+    });
+  });
 
   it.each([
     {

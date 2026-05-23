@@ -15,8 +15,9 @@ The current classifier reports:
 - `poll-timeout` — modeled `ppoll` timeout waits under an explicit deferral
   policy;
 - `fd-blocking` — `read`, `write`, `poll`, `ppoll`, `select`, `pselect6`, and
-  related fd waits. A narrow pipe `read` subset is modeled only under the
-  explicit fd-read deferral policy; other fd waits still refuse;
+  related fd waits. Narrow pipe/eventfd/timerfd reads and safe offset-backed
+  regular-file reads are modeled only under the explicit fd-read deferral
+  policy; other fd waits still refuse;
 - `restart` — `restart_syscall` or captured restart-block state;
 - `unknown-active` — any active syscall that has not been modeled.
 
@@ -34,6 +35,9 @@ Known blocking syscall classes refuse with precise codes:
   the capture cannot prove a blocking read contract;
 - `target-socket-syscall-state-unsupported` for active `accept`, `accept4`, and
   `connect` state;
+- `target-epoll-syscall-state-unsupported` for active `epoll_wait`,
+  `epoll_pwait`, and `epoll_pwait2` state;
+- `target-signalfd-state-unsupported` for active reads from signalfd resources;
 - `syscall-restart-unsupported` for restart state;
 - `active-syscall` for unknown active syscalls.
 
@@ -100,6 +104,21 @@ Missing arguments, missing resource rows, and non-socket fds remain refusals wit
 the same code and a specific `detail.reason`. This is refusal tightening only;
 no socket syscall is restarted or emulated.
 
+## Epoll/signalfd refusal tightening
+
+Active epoll waits now refuse with
+`target-epoll-syscall-state-unsupported`. The refusal records decoded epoll
+arguments when available, the captured epoll fd resource when present, and the
+unsupported kernel state family: interest list, ready-list ordering,
+edge-triggered delivery state, waiter wakeup races, and target fd resource
+mapping.
+
+Reads from captured signalfd resources refuse with
+`target-signalfd-state-unsupported`. The refusal records the read arguments,
+signalfd resource detail, and the unsupported pending signal queue / siginfo
+payload / signal-mask coordination state. Missing arguments, missing resource
+rows, and wrong resource kinds are still precise fail-closed refusals.
+
 ## Explicit fd read deferral
 
 The `fdReadPolicy: "defer-target-resume"` option currently accepts only narrow
@@ -122,13 +141,22 @@ non-periodic interval, and relative settime state. When captured fdinfo reports 
 non-zero remaining timer value, the target step carries that duration so the
 trampoline can arm the target timerfd before verifying it still blocks.
 
+With `fdReadResourcePolicy: "reopen-file"`, the model requires a captured
+regular-file fd with a reopen recipe, readable access flags, a safe non-negative
+file offset, and a translated writable target buffer. The target step uses
+bounded `pread()` at the captured offset into the translated buffer and refuses
+partial reads; this is an offset-backed completion proof, not a general file or
+page-cache migration.
+
 The target step recreates a fresh empty pipe, empty eventfd, or timerfd and
 verifies with target-side `poll(POLLIN, timeout=0)` that the read fd would still
-block before reporting `nativeActiveSyscallRestore.status=passed`. Missing
-arguments, zero or short counts, missing writable buffer state, wrong resource
-kind/access, non-empty eventfds, semaphore mode, unsupported flags, expired or
-periodic timerfds, absolute timerfd state, and missing paired pipe write ends
-fail closed as `target-fd-read-state-missing`.
+block before reporting `nativeActiveSyscallRestore.status=passed`, or completes
+the safe regular-file read with target-side `pread()`. Missing arguments, zero
+or short counts, missing writable buffer state, wrong resource kind/access,
+non-empty eventfds, semaphore mode, unsupported flags, expired or periodic
+timerfds, absolute timerfd state, missing paired pipe write ends, unsafe file
+offsets, and missing file reopen recipes fail closed as
+`target-fd-read-state-missing`.
 
 ## Proof
 
