@@ -107,6 +107,8 @@ try {
     targetTranslatedReturnAddress: result.targetTranslatedReturnAddress ?? '',
     targetFrameRestoreResult: result.targetFrameRestoreResult ?? '',
     targetTranslatedFramePointer: result.targetTranslatedFramePointer ?? '',
+    targetThreadRestoreResult: result.targetThreadRestoreResult ?? '',
+    targetThreadRestoreThreadId: result.targetThreadRestoreThreadId ?? '',
   }));
 } catch {
   process.stdout.write('{}');

@@ -25,6 +25,7 @@ export type PortableMachineTargetContinuationKind = "generated-verifier" | "real
 export type PortableMachineTargetStateConsumptionResult = "pending" | "passed" | "failed";
 export type PortableMachineTargetReturnChainResult = "pending" | "passed" | "failed";
 export type PortableMachineTargetFrameRestoreResult = "pending" | "passed" | "failed";
+export type PortableMachineTargetThreadRestoreResult = "accepted" | "refused";
 
 export interface PortableMachineTargetResourceStatus {
   kind: string;
@@ -57,6 +58,8 @@ export interface PortableMachineVmRestoreProofPlan {
   targetTranslatedReturnAddress?: string;
   targetFrameRestoreResult?: PortableMachineTargetFrameRestoreResult;
   targetTranslatedFramePointer?: string;
+  targetThreadRestoreResult?: PortableMachineTargetThreadRestoreResult;
+  targetThreadRestoreThreadId?: string;
   sourceTextReusedAsTargetCode: false;
   sourceIsaEmulationUsed: false;
   sidecarRuntimeUsed: false;
@@ -76,6 +79,8 @@ export interface PortableMachineVmRestoreTargetResult {
   targetTranslatedReturnAddress?: string;
   targetFrameRestoreResult?: PortableMachineTargetFrameRestoreResult;
   targetTranslatedFramePointer?: string;
+  targetThreadRestoreResult?: PortableMachineTargetThreadRestoreResult;
+  targetThreadRestoreThreadId?: string;
   sourceTextReusedAsTargetCode?: boolean;
   sourceIsaEmulationUsed?: boolean;
   sidecarRuntimeUsed?: boolean;
@@ -199,6 +204,9 @@ export function completePortableMachineVmRestoreProof(
     targetTranslatedReturnAddress: result.targetTranslatedReturnAddress,
     targetFrameRestoreResult: result.targetFrameRestoreResult,
     targetTranslatedFramePointer: result.targetTranslatedFramePointer,
+    targetThreadRestoreResult: result.targetThreadRestoreResult ?? plan.targetThreadRestoreResult,
+    targetThreadRestoreThreadId:
+      result.targetThreadRestoreThreadId ?? plan.targetThreadRestoreThreadId,
   };
 }
 
@@ -219,6 +227,8 @@ function targetNativeCompleted(result: PortableMachineVmRestoreTargetResult): bo
       result.targetStateConsumptionResult === "passed",
     result.targetReturnChainResult === undefined || result.targetReturnChainResult === "passed",
     result.targetFrameRestoreResult === undefined || result.targetFrameRestoreResult === "passed",
+    result.targetThreadRestoreResult === undefined ||
+      result.targetThreadRestoreResult === "accepted",
     result.sourceTextReusedAsTargetCode === false,
     result.sourceIsaEmulationUsed === false,
     result.sidecarRuntimeUsed === false,

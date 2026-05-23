@@ -10,8 +10,9 @@ The proof harness requires a validated portable machine snapshot bundle and targ
 continuation bytes stored inside that bundle. It can now combine target
 continuation metadata, target guest memory materialization entries, and the
 translated fd-table recipes into one target-guest restore descriptor before VM
-execution. Unsafe memory or fd state refuses before descriptor execution. The
-harness then boots the amd64 target VM through the target-guest loader path. A
+execution. Unsafe memory, fd, or thread state refuses before descriptor
+execution. The harness then boots the amd64 target VM through the target-guest
+loader path. A
 run is successful only when the target VM reports target-native completion with:
 
 - `migrationCompleted: true`
@@ -53,7 +54,10 @@ synthetic pipe, eventfd, and timerfd recipes. The descriptor also seeds a
 translated target return address and a small translated caller frame. The
 trampoline materializes that target stack frame, seeds modeled `rbp`/`r12`, and
 the target-native continuation validates the frame before returning through the
-target-native landing.
+target-native landing. The restore boundary accepts only one safe stopped thread
+for this proof; multi-thread, futex, signal-delivery, ptrace/debug,
+shared-stack, unknown-TLS, and ambiguous register states refuse before the target
+VM is entered.
 
 ## Smoke profile
 
@@ -92,7 +96,9 @@ resource recipe kinds, `targetRestore.targetContinuationKind`,
 `targetRestore.targetReturnChainResult`,
 `targetRestore.targetTranslatedReturnAddress`,
 `targetRestore.targetFrameRestoreResult`,
-`targetRestore.targetTranslatedFramePointer`, and
+`targetRestore.targetTranslatedFramePointer`,
+`targetRestore.targetThreadRestoreResult`,
+`targetRestore.targetThreadRestoreThreadId`, and
 `targetRestore.targetVerifierResult`. It reports timing for:
 
 1. preflight / optional remote reachability gates;

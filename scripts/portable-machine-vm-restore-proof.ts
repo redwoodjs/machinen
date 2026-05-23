@@ -18,6 +18,7 @@ import { planNativeTargetFdTable } from "../packages/runtime/src/native-resource
 import type { NativeRealUtilityTargetModule } from "../packages/runtime/src/native-real-utility-code-map.ts";
 import { materializeNativeTargetModuleBytes } from "../packages/runtime/src/native-target-module-bytes.ts";
 import { matchNativeTargetUnwindFrame } from "../packages/runtime/src/native-target-unwind.ts";
+import { planNativeThreadRestoreBoundary } from "../packages/runtime/src/native-thread-restore-policy.ts";
 import { validatePortableMachineSnapshotBundle } from "../packages/runtime/src/portable-machine-snapshot.ts";
 import { planTargetGuestMemoryMaterialization } from "../packages/runtime/src/target-guest-memory-materialization.ts";
 import {
@@ -51,9 +52,11 @@ interface TargetInvocation {
   targetModuleBytesSource?: string;
   targetTranslatedReturnAddress?: string;
   targetTranslatedFramePointer?: string;
+  targetThreadRestoreResult?: "accepted";
+  targetThreadRestoreThreadId?: string;
 }
 
-interface CombinedDescriptorContext {
+interface CombinedDescriptorPaths {
   targetDir: string;
   targetCodeFile: string;
   descriptorFile: string;
@@ -61,6 +64,11 @@ interface CombinedDescriptorContext {
   fdFile: string;
   memorySizeBytes: number;
   mapping: NativeMemoryMapping;
+}
+
+interface CombinedDescriptorContext extends CombinedDescriptorPaths {
+  targetThreadRestoreResult: "accepted";
+  targetThreadRestoreThreadId: string;
 }
 
 interface PreparedTargetContinuation {
@@ -193,6 +201,8 @@ function descriptorSummary(invocation: TargetInvocation) {
     targetModuleBytesSource: invocation.targetModuleBytesSource,
     targetTranslatedReturnAddress: invocation.targetTranslatedReturnAddress,
     targetTranslatedFramePointer: invocation.targetTranslatedFramePointer,
+    targetThreadRestoreResult: invocation.targetThreadRestoreResult,
+    targetThreadRestoreThreadId: invocation.targetThreadRestoreThreadId,
   };
 }
 
@@ -254,6 +264,15 @@ function combinedDescriptorContext(
   plan: ReturnType<typeof planPortableMachineVmRestoreProof>,
 ): CombinedDescriptorContext | ReturnType<typeof planPortableMachineVmRestoreProof> {
   const bundle = validatePortableMachineSnapshotBundle(args.bundleDir!);
+  const threadPlan = planNativeThreadRestoreBoundary({
+    threads: bundle.nativeProcessImage.threads.threads,
+    mappings: bundle.nativeProcessImage.mappings.mappings,
+    resources: bundle.nativeProcessImage.resources.resources,
+  });
+  if (threadPlan.state === "refused") {
+    const first = threadPlan.refusals[0]!;
+    return refusedPlan(plan, first.code, first.message);
+  }
   const memoryFile = join(bundle.nativeProcessImage.rootDir!, NATIVE_PROCESS_IMAGE_FILES.memory);
   const memorySizeBytes = statSync(memoryFile).size;
   const mapping = selectProofMemoryMapping(
@@ -267,7 +286,11 @@ function combinedDescriptorContext(
       "portable machine proof needs one safe captured writable memory page",
     );
   }
-  const context = combinedDescriptorPaths(args, memoryFile, memorySizeBytes, mapping);
+  const context = {
+    ...combinedDescriptorPaths(args, memoryFile, memorySizeBytes, mapping),
+    targetThreadRestoreResult: threadPlan.state,
+    targetThreadRestoreThreadId: threadPlan.threadId,
+  };
   const pathRefusal = portableProofPathRefusal(bundle.rootDir!, proofInputPaths(context));
   return pathRefusal ? refusedPlan(plan, pathRefusal.code, pathRefusal.message) : context;
 }
@@ -277,7 +300,7 @@ function combinedDescriptorPaths(
   memoryFile: string,
   memorySizeBytes: number,
   mapping: NativeMemoryMapping,
-): CombinedDescriptorContext {
+): CombinedDescriptorPaths {
   const targetCodeFile = resolve(args.targetCodeFile!);
   const targetDir = dirname(targetCodeFile);
   return {
@@ -360,6 +383,8 @@ function targetInvocation(
     targetModuleBytesSource: targetContinuation.targetModuleBytesSource,
     targetTranslatedReturnAddress: targetContinuation.translatedReturnAddress,
     targetTranslatedFramePointer: targetContinuation.translatedFrame?.framePointer,
+    targetThreadRestoreResult: context.targetThreadRestoreResult,
+    targetThreadRestoreThreadId: context.targetThreadRestoreThreadId,
   };
 }
 

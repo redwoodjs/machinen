@@ -1,7 +1,10 @@
 #!/usr/bin/env tsx
 import { translateNativeRegisterState } from "../packages/runtime/src/native-register-translation.ts";
+import { planNativeThreadRestoreBoundary } from "../packages/runtime/src/native-thread-restore-policy.ts";
 import type {
+  NativeMemoryMapping,
   NativeProcessImageRefusalCode,
+  NativeProcessResource,
   NativeThreadState,
 } from "../packages/runtime/src/native-process-image.ts";
 import {
@@ -18,6 +21,15 @@ interface RefusalCase {
   id: string;
   expectedCode: NativeProcessImageRefusalCode;
   mutate: (thread: NativeThreadState) => void;
+}
+
+interface RestoreRefusalCase {
+  id: string;
+  expectedCode: NativeProcessImageRefusalCode;
+  threads?: NativeThreadState[];
+  mappings?: NativeMemoryMapping[];
+  resources?: NativeProcessResource[];
+  mutate?: (thread: NativeThreadState) => void;
 }
 
 function main() {
@@ -60,6 +72,8 @@ function verifyNativeThreadRefusalMatrix() {
     return { id: entry.id, refusalCode: refusal.code, message: refusal.message };
   });
 
+  const restoreBoundary = verifyRestoreBoundary();
+
   const architecture = translateNativeRegisterState({
     sourceArch: "amd64",
     targetArch: "arm64",
@@ -75,87 +89,218 @@ function verifyNativeThreadRefusalMatrix() {
     formatVersion: 1,
     translated: translated.threads[0],
     refusalCases: cases,
+    restoreBoundary,
     architectureRefusal: architecture.threads[0]?.refusal,
   };
 }
 
-function refusalCases(): RefusalCase[] {
+function verifyRestoreBoundary() {
+  const accepted = planNativeThreadRestoreBoundary({
+    threads: [zeroSignalMaskThread("thread:restore-safe")],
+    mappings: [stackMapping(false)],
+  });
+  assertCase(accepted.state === "accepted", "single safe thread should be accepted");
+  const refusalCases = restoreRefusalCases().map(verifyRestoreBoundaryCase);
+  return { accepted, refusalCases };
+}
+
+function verifyRestoreBoundaryCase(entry: RestoreRefusalCase) {
+  const plan = restoreBoundaryPlan(entry);
+  assertCase(plan.state === "refused", `${entry.id} restore boundary did not refuse`);
+  const refusal = plan.refusals[0]!;
+  assertRestoreRefusalCode(entry, refusal.code);
+  return { id: entry.id, refusalCode: refusal.code, message: refusal.message };
+}
+
+function assertRestoreRefusalCode(entry: RestoreRefusalCase, code: string): void {
+  assertCase(
+    code === entry.expectedCode,
+    `${entry.id} restore boundary refused with ${code}, expected ${entry.expectedCode}`,
+  );
+}
+
+function restoreBoundaryPlan(entry: RestoreRefusalCase) {
+  const thread = zeroSignalMaskThread(`thread:${entry.id}`);
+  mutateRestoreThread(entry, thread);
+  return planNativeThreadRestoreBoundary({
+    threads: restoreThreads(entry, thread),
+    mappings: restoreMappings(entry),
+    resources: restoreResources(entry),
+  });
+}
+
+function mutateRestoreThread(entry: RestoreRefusalCase, thread: NativeThreadState): void {
+  if (entry.mutate) {
+    entry.mutate(thread);
+  }
+}
+
+function restoreThreads(entry: RestoreRefusalCase, thread: NativeThreadState): NativeThreadState[] {
+  return entry.threads ? entry.threads : [thread];
+}
+
+function restoreMappings(entry: RestoreRefusalCase): NativeMemoryMapping[] {
+  return entry.mappings ? entry.mappings : [stackMapping(false)];
+}
+
+function restoreResources(entry: RestoreRefusalCase): NativeProcessResource[] {
+  return entry.resources ? entry.resources : [];
+}
+
+function restoreRefusalCases(): RestoreRefusalCase[] {
   return [
     {
-      id: "inside-syscall",
-      expectedCode: "active-syscall",
-      mutate: (thread) => {
-        thread.syscall = { state: "inside-syscall", number: 64, name: "write" };
-      },
+      id: "multi-thread",
+      expectedCode: "thread-state-unsupported",
+      threads: [zeroSignalMaskThread("thread:one"), zeroSignalMaskThread("thread:two")],
     },
     {
-      id: "restart-block",
-      expectedCode: "active-syscall",
-      mutate: (thread) => {
-        thread.syscall = { state: "restart-block", number: 219, name: "restart_syscall" };
-      },
+      id: "futex-wait",
+      expectedCode: "futex-state-unsupported",
+      resources: [{ id: "resource:futex", kind: "futex", state: "captured" }],
     },
     {
-      id: "signal-frame",
-      expectedCode: "signal-frame-active",
-      mutate: (thread) => {
-        thread.signal.activeFrame = true;
-      },
-    },
-    {
-      id: "pending-signal-mask",
+      id: "signal-delivery-stop",
       expectedCode: "signal-state-unsupported",
       mutate: (thread) => {
-        thread.signal.pending = ["0000000000000002"];
+        thread.stopReason = "signal-delivery-stop";
       },
     },
     {
-      id: "blocked-signal-mask",
-      expectedCode: "signal-state-unsupported",
+      id: "ptrace-debug",
+      expectedCode: "thread-state-unsupported",
+      resources: [
+        {
+          id: "resource:ptrace-debug",
+          kind: "unknown",
+          state: "refused",
+          refusal: { code: "thread-state-unsupported", message: "ptrace/debug state" },
+        },
+      ],
+    },
+    {
+      id: "shared-stack",
+      expectedCode: "mapping-shared-unsupported",
+      mappings: [stackMapping(true)],
+    },
+    {
+      id: "unknown-tls",
+      expectedCode: "tls-state-unsupported",
       mutate: (thread) => {
-        thread.signal.blocked = ["0x4"];
+        thread.tls.threadPointer = "unknown";
       },
     },
     {
-      id: "alt-stack",
-      expectedCode: "signal-state-unsupported",
+      id: "ambiguous-registers",
+      expectedCode: "thread-state-unsupported",
       mutate: (thread) => {
-        thread.signal.altStack = { state: "enabled", sp: "0x7000", sizeBytes: 4096 };
-      },
-    },
-    {
-      id: "rseq-captured",
-      expectedCode: "rseq-state-unsupported",
-      mutate: (thread) => {
-        thread.tls.rseq = { state: "captured" };
-      },
-    },
-    {
-      id: "rseq-unsupported",
-      expectedCode: "rseq-state-unsupported",
-      mutate: (thread) => {
-        thread.tls.rseq = { state: "unsupported" };
+        if (thread.sourceRegisters.arch === "arm64") {
+          thread.sourceRegisters.pc = "unknown";
+        }
       },
     },
   ];
 }
 
+const REGISTER_REFUSAL_CASES: RefusalCase[] = [
+  {
+    id: "inside-syscall",
+    expectedCode: "active-syscall",
+    mutate: (thread) => {
+      thread.syscall = { state: "inside-syscall", number: 64, name: "write" };
+    },
+  },
+  {
+    id: "restart-block",
+    expectedCode: "active-syscall",
+    mutate: (thread) => {
+      thread.syscall = { state: "restart-block", number: 219, name: "restart_syscall" };
+    },
+  },
+  {
+    id: "signal-frame",
+    expectedCode: "signal-frame-active",
+    mutate: (thread) => {
+      thread.signal.activeFrame = true;
+    },
+  },
+  {
+    id: "pending-signal-mask",
+    expectedCode: "signal-state-unsupported",
+    mutate: (thread) => {
+      thread.signal.pending = ["0000000000000002"];
+    },
+  },
+  {
+    id: "blocked-signal-mask",
+    expectedCode: "signal-state-unsupported",
+    mutate: (thread) => {
+      thread.signal.blocked = ["0x4"];
+    },
+  },
+  {
+    id: "alt-stack",
+    expectedCode: "signal-state-unsupported",
+    mutate: (thread) => {
+      thread.signal.altStack = { state: "enabled", sp: "0x7000", sizeBytes: 4096 };
+    },
+  },
+  {
+    id: "rseq-captured",
+    expectedCode: "rseq-state-unsupported",
+    mutate: (thread) => {
+      thread.tls.rseq = { state: "captured" };
+    },
+  },
+  {
+    id: "rseq-unsupported",
+    expectedCode: "rseq-state-unsupported",
+    mutate: (thread) => {
+      thread.tls.rseq = { state: "unsupported" };
+    },
+  },
+];
+
+function refusalCases(): RefusalCase[] {
+  return REGISTER_REFUSAL_CASES;
+}
+
 function zeroSignalMaskThread(id: string): NativeThreadState {
-  const x = Array.from({ length: 31 }, (_value, index) => `0x${(index + 1).toString(16)}`);
   return {
     id,
     state: "stopped",
     stopReason: "ptrace-stop",
     stackMapping: "mapping:stack",
-    sourceRegisters: { arch: "arm64", pc: "0x400120", sp: "0x7fff0000", pstate: "0x0", x },
+    sourceRegisters: arm64Registers(),
     syscall: { state: "outside-syscall" },
-    signal: {
-      blocked: ["0000000000000000"],
-      pending: ["0x0"],
-      activeFrame: false,
-      altStack: { state: "disabled" },
-    },
+    signal: zeroSignalState(),
     tls: { threadPointer: "0xffff0000", rseq: { state: "absent" } },
+  };
+}
+
+function arm64Registers() {
+  const x = Array.from({ length: 31 }, (_value, index) => `0x${(index + 1).toString(16)}`);
+  return { arch: "arm64" as const, pc: "0x400120", sp: "0x7fff0000", pstate: "0x0", x };
+}
+
+function zeroSignalState() {
+  return {
+    blocked: ["0000000000000000"],
+    pending: ["0x0"],
+    activeFrame: false,
+    altStack: { state: "disabled" as const },
+  };
+}
+
+function stackMapping(shared: boolean): NativeMemoryMapping {
+  return {
+    id: "mapping:stack",
+    kind: shared ? "shared" : "stack",
+    sourceStart: "0x700000000000",
+    sourceEnd: "0x700000001000",
+    sizeBytes: 4096,
+    permissions: { read: true, write: true, execute: false, private: !shared, shared },
+    target: { materialization: "translate", targetStart: "0x500000000000" },
   };
 }
 
@@ -180,8 +325,14 @@ function printSummary(summary: ReturnType<typeof verifyNativeThreadRefusalMatrix
   console.log(
     `native-thread-refusal-matrix: translated=${summary.translated.state} refusals=${summary.refusalCases.length}`,
   );
+  console.log(
+    `native-thread-refusal-matrix: restore=${summary.restoreBoundary.accepted.state} restoreRefusals=${summary.restoreBoundary.refusalCases.length}`,
+  );
   for (const entry of summary.refusalCases) {
     console.log(`native-thread-refusal-matrix: ${entry.id} -> ${entry.refusalCode}`);
+  }
+  for (const entry of summary.restoreBoundary.refusalCases) {
+    console.log(`native-thread-refusal-matrix: restore ${entry.id} -> ${entry.refusalCode}`);
   }
 }
 

@@ -114,6 +114,7 @@
 - [`PortableMachineVmRestoreProofState`](#portablemachinevmrestoreproofstate)
 - [`PortableMachineTargetContinuationKind`](#portablemachinetargetcontinuationkind)
 - [`PortableMachineTargetFrameRestoreResult`](#portablemachinetargetframerestoreresult)
+- [`PortableMachineTargetThreadRestoreResult`](#portablemachinetargetthreadrestoreresult)
 - [`PortableMachineTargetResourceStatus`](#portablemachinetargetresourcestatus)
 - [`PortableMachineTargetReturnChainResult`](#portablemachinetargetreturnchainresult)
 - [`PortableMachineTargetStateConsumptionResult`](#portablemachinetargetstateconsumptionresult)
@@ -134,7 +135,10 @@
 - [`NativeRegisterTranslationRequest`](#nativeregistertranslationrequest)
 - [`NativeContinuationTarget`](#nativecontinuationtarget)
 - [`NativeRegisterTranslationResult`](#nativeregistertranslationresult)
+- [`NativeThreadRestorePlan`](#nativethreadrestoreplan)
+- [`NativeThreadRestorePlanRequest`](#nativethreadrestoreplanrequest)
 - [`translateNativeRegisterState`](#translatenativeregisterstate)
+- [`planNativeThreadRestoreBoundary`](#plannativethreadrestoreboundary)
 - [`NativeActiveSyscallClass`](#nativeactivesyscallclass)
 - [`NativeSleepTimerSyscallPolicy`](#nativesleeptimersyscallpolicy)
 - [`NativePollTimeoutSyscallPolicy`](#nativepolltimeoutsyscallpolicy)
@@ -7832,6 +7836,24 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ***
 
+### NativeThreadRestorePlanRequest
+
+#### Properties
+
+##### threads
+
+> **threads**: [`NativeThreadState`](#nativethreadstate)[]
+
+##### mappings?
+
+> `optional` **mappings?**: [`NativeMemoryMapping`](#nativememorymapping)[]
+
+##### resources?
+
+> `optional` **resources?**: [`NativeProcessResource`](#nativeprocessresource)[]
+
+***
+
 ### NativeUnwindFrameRule
 
 #### Properties
@@ -8150,6 +8172,14 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 > `optional` **targetTranslatedFramePointer?**: `string`
 
+##### targetThreadRestoreResult?
+
+> `optional` **targetThreadRestoreResult?**: [`PortableMachineTargetThreadRestoreResult`](#portablemachinetargetthreadrestoreresult)
+
+##### targetThreadRestoreThreadId?
+
+> `optional` **targetThreadRestoreThreadId?**: `string`
+
 ##### sourceTextReusedAsTargetCode
 
 > **sourceTextReusedAsTargetCode**: `false`
@@ -8235,6 +8265,14 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 ##### targetTranslatedFramePointer?
 
 > `optional` **targetTranslatedFramePointer?**: `string`
+
+##### targetThreadRestoreResult?
+
+> `optional` **targetThreadRestoreResult?**: [`PortableMachineTargetThreadRestoreResult`](#portablemachinetargetthreadrestoreresult)
+
+##### targetThreadRestoreThreadId?
+
+> `optional` **targetThreadRestoreThreadId?**: `string`
 
 ##### sourceTextReusedAsTargetCode?
 
@@ -11784,6 +11822,12 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativeThreadRestorePlan
+
+> **NativeThreadRestorePlan** = \{ `state`: `"accepted"`; `threadId`: `string`; `targetThreadCount`: `1`; `refusals`: \[\]; \} \| \{ `state`: `"refused"`; `targetThreadCount`: `number`; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
+
+***
+
 ### NativeUnwindMetadataKind
 
 > **NativeUnwindMetadataKind** = `"dwarf"` \| `"eh-frame"`
@@ -11837,6 +11881,12 @@ Result of `validatePid` — easy to switch on at the call site.
 ### PortableMachineTargetFrameRestoreResult
 
 > **PortableMachineTargetFrameRestoreResult** = `"pending"` \| `"passed"` \| `"failed"`
+
+***
+
+### PortableMachineTargetThreadRestoreResult
+
+> **PortableMachineTargetThreadRestoreResult** = `"accepted"` \| `"refused"`
 
 ***
 
@@ -14597,6 +14647,22 @@ available.
 #### Returns
 
 [`NativeTargetUnwindMatchResult`](#nativetargetunwindmatchresult)
+
+***
+
+### planNativeThreadRestoreBoundary()
+
+> **planNativeThreadRestoreBoundary**(`request`): [`NativeThreadRestorePlan`](#nativethreadrestoreplan)
+
+#### Parameters
+
+##### request
+
+[`NativeThreadRestorePlanRequest`](#nativethreadrestoreplanrequest)
+
+#### Returns
+
+[`NativeThreadRestorePlan`](#nativethreadrestoreplan)
 
 ***
 
