@@ -30,6 +30,19 @@ describe("native target VM synthetic continuation script", () => {
     expect(targetNativeConsumptionPassed(events)).toBe(true);
   });
 
+  it("fails native consumption gating when stack or memory consumption fails", () => {
+    const events = parseTargetNativeConsumptionEvents({
+      nativeStackWindowMaterialization: { status: "failed" },
+      nativePrivateMemoryRestore: { status: "passed" },
+    });
+
+    expect(targetNativeConsumptionFields(events)).toMatchObject({
+      targetStackWindowMaterializationResult: "failed",
+      targetPrivateMemoryRestoreResult: "passed",
+    });
+    expect(targetNativeConsumptionPassed(events)).toBe(false);
+  });
+
   it("fails native consumption gating when any native restore consumption event fails", () => {
     const events = parseTargetNativeConsumptionEvents({
       nativeSignalRestore: { status: "failed" },

@@ -110,6 +110,11 @@ try {
     targetRegisterRestoreResult: result.targetRegisterRestoreResult ?? '',
     targetRflagsRestoreResult: result.targetRflagsRestoreResult ?? '',
     targetTlsRestoreResult: result.targetTlsRestoreResult ?? '',
+    targetStackWindowMaterializationResult: result.targetStackWindowMaterializationResult ?? '',
+    targetPrivateMemoryRestoreResult: result.targetPrivateMemoryRestoreResult ?? '',
+    targetExecutableMappingResult: result.targetExecutableMappingResult ?? '',
+    targetSignalRestoreResult: result.targetSignalRestoreResult ?? '',
+    targetActiveSyscallRestoreResult: result.targetActiveSyscallRestoreResult ?? '',
     targetThreadRestoreResult: result.targetThreadRestoreResult ?? '',
     targetThreadRestoreThreadId: result.targetThreadRestoreThreadId ?? '',
     targetResumePathResult: result.targetResumePathResult ?? '',
@@ -370,7 +375,11 @@ process.exit(
   result.state === 'completed' &&
   result.migrationCompleted === true &&
   result.descriptorGateCompleted === true &&
-  result.targetVerifierResult === 'passed'
+  result.targetVerifierResult === 'passed' &&
+  result.targetStackWindowMaterializationResult === 'passed' &&
+  result.targetPrivateMemoryRestoreResult === 'passed' &&
+  result.targetExecutableMappingResult === 'passed' &&
+  result.targetSignalRestoreResult === 'passed'
     ? 0
     : 1,
 );
