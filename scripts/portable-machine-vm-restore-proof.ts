@@ -24,6 +24,7 @@ import { validatePortableMachineSnapshotBundle } from "../packages/runtime/src/p
 import { planTargetGuestActiveSyscallRestore } from "../packages/runtime/src/target-guest-active-syscall-restore.ts";
 import { planTargetGuestMemoryMaterialization } from "../packages/runtime/src/target-guest-memory-materialization.ts";
 import { planTargetGuestPrivateMemoryRestore } from "../packages/runtime/src/target-guest-private-memory-restore.ts";
+import { planTargetGuestProcessContextRestore } from "../packages/runtime/src/target-guest-process-context-restore.ts";
 import {
   serializeTargetGuestRestoreDescriptor,
   type TargetGuestNativeRestoreStep,
@@ -46,6 +47,7 @@ interface Args {
   syntheticEmptyPipeWriteFd?: string;
   syntheticEmptyEventFd?: string;
   syntheticTimerFd?: string;
+  processContextRestore?: "metadata-only" | "apply-target-env-cwd";
 }
 
 interface TargetInvocation {
@@ -66,6 +68,7 @@ interface TargetInvocation {
   targetStackWindowMaterializationResult?: "pending";
   targetPrivateMemoryRestoreResult?: "pending";
   targetExecutableMappingResult?: "pending";
+  targetProcessContextRestoreResult?: "pending";
   targetSignalRestoreResult?: "pending";
   targetActiveSyscallRestoreResult?: "pending";
   targetThreadRestoreResult?: "accepted";
@@ -93,6 +96,7 @@ interface CombinedDescriptorContext extends CombinedDescriptorPaths {
     { state: "planned" }
   >["steps"];
   targetThreadSpawnSteps: TargetGuestTwoThreadSpawnStep[];
+  targetProcessContextSteps: TargetGuestNativeRestoreStep[];
 }
 
 interface PreparedTargetContinuation {
@@ -187,7 +191,8 @@ function usage(): never {
   console.error(
     "usage: tsx scripts/portable-machine-vm-restore-proof.ts verify " +
       "--bundle-dir path --target-code-file path [--image rootfs.tar.gz] " +
-      "[--combined-descriptor] [--real-utility-continuation] [--json]",
+      "[--combined-descriptor] [--real-utility-continuation] " +
+      "[--process-context-restore metadata-only|apply-target-env-cwd] [--json]",
   );
   process.exit(2);
 }
@@ -208,7 +213,18 @@ function argsFromReader(read: (flag: string) => string | undefined, argv: string
     syntheticEmptyPipeWriteFd: read("--synthetic-empty-pipe-write-fd"),
     syntheticEmptyEventFd: read("--synthetic-empty-eventfd"),
     syntheticTimerFd: read("--synthetic-timerfd"),
+    processContextRestore: parseProcessContextRestoreMode(read("--process-context-restore")),
   };
+}
+
+function parseProcessContextRestoreMode(value: string | undefined): Args["processContextRestore"] {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (value === "metadata-only" || value === "apply-target-env-cwd") {
+    return value;
+  }
+  usage();
 }
 
 function readFlag(argv: string[], flag: string): string | undefined {
@@ -278,6 +294,7 @@ function descriptorSummary(invocation: TargetInvocation) {
     targetStackWindowMaterializationResult: invocation.targetStackWindowMaterializationResult,
     targetPrivateMemoryRestoreResult: invocation.targetPrivateMemoryRestoreResult,
     targetExecutableMappingResult: invocation.targetExecutableMappingResult,
+    targetProcessContextRestoreResult: invocation.targetProcessContextRestoreResult,
     targetSignalRestoreResult: invocation.targetSignalRestoreResult,
     targetActiveSyscallRestoreResult: invocation.targetActiveSyscallRestoreResult,
     targetThreadRestoreResult: invocation.targetThreadRestoreResult,
@@ -297,6 +314,7 @@ function realUtilityPendingResults(invocation: TargetInvocation) {
         targetStackWindowMaterializationResult: invocation.targetStackWindowMaterializationResult,
         targetPrivateMemoryRestoreResult: invocation.targetPrivateMemoryRestoreResult,
         targetExecutableMappingResult: invocation.targetExecutableMappingResult,
+        targetProcessContextRestoreResult: invocation.targetProcessContextRestoreResult,
         targetSignalRestoreResult: invocation.targetSignalRestoreResult,
         targetActiveSyscallRestoreResult: invocation.targetActiveSyscallRestoreResult,
         targetResumePathResult: "pending" as const,
@@ -377,6 +395,7 @@ function writeTargetRestoreDescriptor(
   writeFileSync(context.descriptorFile, serializeTargetGuestRestoreDescriptor(descriptor));
 }
 
+// fallow-ignore-next-line complexity
 function combinedDescriptorContext(
   args: Args,
   plan: ReturnType<typeof planPortableMachineVmRestoreProof>,
@@ -398,6 +417,10 @@ function combinedDescriptorContext(
   if (activeSyscallPlan.state === "refused") {
     return firstRefusedPlan(plan, activeSyscallPlan.refusals);
   }
+  const processContextSteps = proofProcessContextNativeSections(bundle, args.processContextRestore);
+  if (processContextSteps.state === "refused") {
+    return firstRefusedPlan(plan, processContextSteps.refusals);
+  }
   const context = {
     ...combinedDescriptorPaths(args, memory.file, memory.sizeBytes, memory.mapping),
     targetThreadRestoreResult: threads.state,
@@ -405,8 +428,27 @@ function combinedDescriptorContext(
     targetSignalBlockedMasks: threads.signalBlockedMasks,
     targetActiveSyscallSteps: activeSyscallPlan.steps,
     targetThreadSpawnSteps: threads.threadSpawnSteps,
+    targetProcessContextSteps: processContextSteps.steps,
   };
   return contextAfterPathCheck(plan, bundle.rootDir!, context);
+}
+
+function proofProcessContextNativeSections(
+  bundle: ReturnType<typeof validatePortableMachineSnapshotBundle>,
+  mode: Args["processContextRestore"],
+):
+  | { state: "planned"; steps: TargetGuestNativeRestoreStep[] }
+  | { state: "refused"; refusals: Array<{ code: string; message: string }> } {
+  if (!mode) {
+    return { state: "planned", steps: [] };
+  }
+  const plan = planTargetGuestProcessContextRestore(bundle.nativeProcessImage, { mode });
+  return plan.state === "planned"
+    ? {
+        state: "planned",
+        steps: plan.steps.map((step) => ({ section: "process-context" as const, step })),
+      }
+    : { state: "refused", refusals: plan.refusals };
 }
 
 function contextAfterPathCheck(
@@ -653,6 +695,7 @@ function proofNativeRestoreSections(
     ...proofReturnChainNativeSections(targetContinuation),
     ...proofPrivateMemoryNativeSections(memoryEntries),
     ...proofExecutableNativeSections(targetContinuation),
+    ...context.targetProcessContextSteps,
     ...proofSignalNativeSections(context),
     ...proofActiveSyscallNativeSections(context),
     ...proofThreadSpawnNativeSections(context),
@@ -885,6 +928,7 @@ function nativeRestorePendingSummary(nativeRestore: TargetGuestNativeRestoreStep
     ]),
     targetPrivateMemoryRestoreResult: pendingIfAnySection(sections, ["private-memory"]),
     targetExecutableMappingResult: pendingIfAnySection(sections, ["executable-mapping"]),
+    targetProcessContextRestoreResult: pendingIfAnySection(sections, ["process-context"]),
     targetSignalRestoreResult: pendingIfAnySection(sections, ["signal-restore"]),
     targetActiveSyscallRestoreResult: pendingIfAnySection(sections, ["active-syscall"]),
   };

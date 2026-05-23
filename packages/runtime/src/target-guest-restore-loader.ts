@@ -11,6 +11,7 @@ import type { TargetGuestActiveSyscallRestoreStep } from "./target-guest-active-
 import type { TargetGuestExecutableMappingStep } from "./target-guest-executable-materialization.ts";
 import type { TargetGuestMemoryMaterializationEntry } from "./target-guest-memory-materialization.ts";
 import type { TargetGuestPrivateMemoryRestoreStep } from "./target-guest-private-memory-restore.ts";
+import type { TargetGuestProcessContextRestoreStep } from "./target-guest-process-context-restore.ts";
 import type { TargetGuestSignalRestoreStep } from "./target-guest-signal-restore.ts";
 import type { TargetGuestTwoThreadSpawnStep } from "./target-guest-two-thread-restore.ts";
 
@@ -113,6 +114,7 @@ export type TargetGuestNativeRestoreStep =
   | { section: "return-chain-write"; write: NativeReturnChainFrameWrite }
   | { section: "private-memory"; step: TargetGuestPrivateMemoryRestoreStep }
   | { section: "executable-mapping"; step: TargetGuestExecutableMappingStep }
+  | { section: "process-context"; step: TargetGuestProcessContextRestoreStep }
   | { section: "signal-restore"; step: TargetGuestSignalRestoreStep }
   | { section: "active-syscall"; step: TargetGuestActiveSyscallRestoreStep }
   | { section: "thread-spawn"; step: TargetGuestTwoThreadSpawnStep };
@@ -595,6 +597,7 @@ function requiredMemoryField(fields: Map<string, string>, key: string): string {
   return fields.get(key) ?? fail("target-guest-loader-descriptor-invalid", `${key} is required`);
 }
 
+// fallow-ignore-next-line complexity
 function parseNativeRestoreStep(line: string): TargetGuestNativeRestoreStep {
   const [head, ...fields] = line.split(/\s+/);
   const section = head!.slice("native=".length);
@@ -610,6 +613,8 @@ function parseNativeRestoreStep(line: string): TargetGuestNativeRestoreStep {
       return { section, step: parseNativePrivateMemoryStep(values) };
     case "executable-mapping":
       return { section, step: parseNativeExecutableMappingStep(values) };
+    case "process-context":
+      return { section, step: parseNativeProcessContextStep(values) };
     case "signal-restore":
       return { section, step: parseNativeSignalRestoreStep(values) };
     case "active-syscall":
@@ -690,6 +695,61 @@ function parseNativePrivateMemoryStep(
     };
   }
   return fail("target-guest-loader-descriptor-invalid", "unsupported native private-memory action");
+}
+
+function parseNativeProcessContextStep(
+  fields: Map<string, string>,
+): TargetGuestProcessContextRestoreStep {
+  const action = requiredNativeField(fields, "action");
+  if (action === "record-argv") {
+    return {
+      action,
+      argc: parseNativeInteger(fields, "argc"),
+      argvBytes: parseNativeInteger(fields, "argvBytes"),
+      argvSha256: requiredNativeField(fields, "argvSha256"),
+    };
+  }
+  if (action === "record-env") {
+    return {
+      action,
+      envCount: parseNativeInteger(fields, "envCount"),
+      envBytes: parseNativeInteger(fields, "envBytes"),
+      envSha256: requiredNativeField(fields, "envSha256"),
+    };
+  }
+  if (action === "clear-env" || action === "verify-env") {
+    return {
+      action,
+      envCount: parseNativeInteger(fields, "envCount"),
+      envSha256: requiredNativeField(fields, "envSha256"),
+    };
+  }
+  if (action === "set-env") {
+    return {
+      action,
+      keyHex: requiredNativeField(fields, "keyHex"),
+      valueHex: requiredNativeField(fields, "valueHex"),
+      valueSha256: requiredNativeField(fields, "valueSha256"),
+    };
+  }
+  if (action === "record-cwd" || action === "chdir") {
+    return {
+      action,
+      cwdHex: requiredNativeField(fields, "cwdHex"),
+      cwdSha256: requiredNativeField(fields, "cwdSha256"),
+    };
+  }
+  if (action === "record-auxv") {
+    return {
+      action,
+      auxvBytes: parseNativeInteger(fields, "auxvBytes"),
+      auxvSha256: requiredNativeField(fields, "auxvSha256"),
+    };
+  }
+  return fail(
+    "target-guest-loader-descriptor-invalid",
+    "unsupported native process-context action",
+  );
 }
 
 function parseNativeExecutableMappingStep(
@@ -969,6 +1029,7 @@ function validateMemoryEntry(
   return entry;
 }
 
+// fallow-ignore-next-line complexity
 function validateNativeRestoreStep(
   step: TargetGuestNativeRestoreStep,
 ): TargetGuestNativeRestoreStep {
@@ -988,6 +1049,9 @@ function validateNativeRestoreStep(
     case "executable-mapping":
       validateExecutableMappingStep(step.step);
       return step;
+    case "process-context":
+      validateProcessContextStep(step.step);
+      return step;
     case "signal-restore":
       validateSignalRestoreStep(step.step);
       return step;
@@ -997,6 +1061,40 @@ function validateNativeRestoreStep(
     case "thread-spawn":
       validateThreadSpawnStep(step.step);
       return step;
+  }
+}
+
+function validateProcessContextStep(step: TargetGuestProcessContextRestoreStep): void {
+  switch (step.action) {
+    case "record-argv":
+      assertPositive(step.argc, "argc");
+      assertNonNegative(step.argvBytes, "argvBytes");
+      assertSha256(step.argvSha256, "argvSha256");
+      return;
+    case "record-env":
+      assertNonNegative(step.envCount, "envCount");
+      assertNonNegative(step.envBytes, "envBytes");
+      assertSha256(step.envSha256, "envSha256");
+      return;
+    case "clear-env":
+    case "verify-env":
+      assertNonNegative(step.envCount, "envCount");
+      assertSha256(step.envSha256, "envSha256");
+      return;
+    case "set-env":
+      assertEvenHex(step.keyHex, "keyHex");
+      assertEvenHex(step.valueHex, "valueHex");
+      assertSha256(step.valueSha256, "valueSha256");
+      return;
+    case "record-cwd":
+    case "chdir":
+      assertEvenHex(step.cwdHex, "cwdHex");
+      assertSha256(step.cwdSha256, "cwdSha256");
+      return;
+    case "record-auxv":
+      assertNonNegative(step.auxvBytes, "auxvBytes");
+      assertSha256(step.auxvSha256, "auxvSha256");
+      return;
   }
 }
 
@@ -1111,6 +1209,18 @@ function validateActiveSyscallRestoreStep(step: TargetGuestActiveSyscallRestoreS
 function assertBytesHex(value: string, field: string): void {
   if (!/^[0-9a-f]{16}$/i.test(value)) {
     fail("target-guest-loader-invalid-continuation", `${field} must be 8 little-endian bytes`);
+  }
+}
+
+function assertEvenHex(value: string, field: string): void {
+  if (!/^(?:[0-9a-f]{2})*$/i.test(value)) {
+    fail("target-guest-loader-invalid-continuation", `${field} must be even-length hex bytes`);
+  }
+}
+
+function assertSha256(value: string, field: string): void {
+  if (!/^[0-9a-f]{64}$/i.test(value)) {
+    fail("target-guest-loader-invalid-continuation", `${field} must be a sha256 hex digest`);
   }
 }
 
@@ -1404,6 +1514,7 @@ function serializeMemoryEntry(entry: TargetGuestMemoryMaterializationEntry): str
   return `memory=recreate-guard ${base}`;
 }
 
+// fallow-ignore-next-line complexity
 function serializeNativeRestoreStep(step: TargetGuestNativeRestoreStep): string {
   switch (step.section) {
     case "stack-window-write":
@@ -1416,6 +1527,8 @@ function serializeNativeRestoreStep(step: TargetGuestNativeRestoreStep): string 
       return serializePrivateMemoryStep(step.step);
     case "executable-mapping":
       return serializeExecutableMappingStep(step.step);
+    case "process-context":
+      return serializeProcessContextStep(step.step);
     case "signal-restore":
       return serializeSignalRestoreStep(step.step);
     case "active-syscall":
@@ -1447,6 +1560,25 @@ function serializePrivateMemoryStep(step: TargetGuestPrivateMemoryRestoreStep): 
     return `${base} sourceFile=${step.sourceFile} sourceOffset=${step.sourceOffset}`;
   }
   return `${base} permissions=${step.permissions}`;
+}
+
+function serializeProcessContextStep(step: TargetGuestProcessContextRestoreStep): string {
+  switch (step.action) {
+    case "record-argv":
+      return `native=process-context action=${step.action} argc=${step.argc} argvBytes=${step.argvBytes} argvSha256=${step.argvSha256}`;
+    case "record-env":
+      return `native=process-context action=${step.action} envCount=${step.envCount} envBytes=${step.envBytes} envSha256=${step.envSha256}`;
+    case "clear-env":
+    case "verify-env":
+      return `native=process-context action=${step.action} envCount=${step.envCount} envSha256=${step.envSha256}`;
+    case "set-env":
+      return `native=process-context action=${step.action} keyHex=${step.keyHex} valueHex=${step.valueHex} valueSha256=${step.valueSha256}`;
+    case "record-cwd":
+    case "chdir":
+      return `native=process-context action=${step.action} cwdHex=${step.cwdHex} cwdSha256=${step.cwdSha256}`;
+    case "record-auxv":
+      return `native=process-context action=${step.action} auxvBytes=${step.auxvBytes} auxvSha256=${step.auxvSha256}`;
+  }
 }
 
 function serializeExecutableMappingStep(step: TargetGuestExecutableMappingStep): string {
@@ -1583,6 +1715,7 @@ function memorySpec(
   ].join(":");
 }
 
+// fallow-ignore-next-line complexity
 function nativeRestoreToTrampolineArgs(step: TargetGuestNativeRestoreStep): string[] {
   switch (step.section) {
     case "stack-window-write":
@@ -1595,6 +1728,8 @@ function nativeRestoreToTrampolineArgs(step: TargetGuestNativeRestoreStep): stri
       return ["--native-private-memory-step", nativePrivateMemoryStepSpec(step.step)];
     case "executable-mapping":
       return ["--native-executable-mapping", nativeExecutableMappingSpec(step.step)];
+    case "process-context":
+      return ["--native-process-context-step", nativeProcessContextStepSpec(step.step)];
     case "signal-restore":
       return ["--native-signal-restore-step", nativeSignalRestoreStepSpec(step.step)];
     case "active-syscall":
@@ -1623,6 +1758,12 @@ function nativeReturnChainWriteSpec(write: NativeReturnChainFrameWrite): string 
 function nativePrivateMemoryStepSpec(step: TargetGuestPrivateMemoryRestoreStep): string {
   return serializePrivateMemoryStep(step)
     .slice("native=private-memory ".length)
+    .replaceAll(" ", ";");
+}
+
+function nativeProcessContextStepSpec(step: TargetGuestProcessContextRestoreStep): string {
+  return serializeProcessContextStep(step)
+    .slice("native=process-context ".length)
     .replaceAll(" ", ";");
 }
 

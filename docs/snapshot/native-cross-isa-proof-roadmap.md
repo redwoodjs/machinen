@@ -248,7 +248,8 @@ without relaxing the all-gates success contract.
 Next steps:
 
 - add more real resource/syscall families with explicit target recipes;
-- model argv/env/auxv/cwd handoff as target-side state;
+- extend argv/env/auxv/cwd beyond the current bounded target-side handoff into
+  explicit libc/initial-stack modeling where needed;
 - expand private target memory only when provenance, permissions, guards, and
   pointer ownership are explicit;
 - revisit target libc/vDSO/vvar data dependencies after those narrower families

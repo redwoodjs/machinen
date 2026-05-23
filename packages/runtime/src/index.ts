@@ -486,6 +486,7 @@ export { planTargetGuestActiveSyscallRestore } from "./target-guest-active-sysca
 export { planTargetGuestExecutableMaterialization } from "./target-guest-executable-materialization.ts";
 export { planTargetGuestMemoryMaterialization } from "./target-guest-memory-materialization.ts";
 export { planTargetGuestPrivateMemoryRestore } from "./target-guest-private-memory-restore.ts";
+export { planTargetGuestProcessContextRestore } from "./target-guest-process-context-restore.ts";
 export { planTargetGuestSignalRestore } from "./target-guest-signal-restore.ts";
 export { planTargetGuestTwoThreadRestore } from "./target-guest-two-thread-restore.ts";
 export {
@@ -540,6 +541,12 @@ export type {
   TargetGuestPrivateMemoryRestorePlan,
   TargetGuestPrivateMemoryRestoreStep,
 } from "./target-guest-private-memory-restore.ts";
+export type {
+  TargetGuestProcessContextRestoreMode,
+  TargetGuestProcessContextRestoreOptions,
+  TargetGuestProcessContextRestorePlan,
+  TargetGuestProcessContextRestoreStep,
+} from "./target-guest-process-context-restore.ts";
 export type {
   TargetGuestSignalRestorePlan,
   TargetGuestSignalRestoreStep,

@@ -41,6 +41,7 @@ resource=synthetic-empty-eventfd fd=5 closeOnExec=false
 resource=synthetic-timerfd fd=6 closeOnExec=false
 memory=copy-captured-bytes mapping=heap targetStart=0x600000000000 sizeBytes=4096 permissions=rw-p sourceFile=/tmp/native-memory.bin sourceOffset=0
 memory=recreate-guard mapping=stack-guard targetStart=0x600000001000 sizeBytes=4096 permissions=---p
+native=process-context action=chdir cwdHex=2f cwdSha256=8a5edab282632443219e051e4ade2d1d5bbc671c781051bf1437897cbdfea0f1
 ```
 
 Supported fd-table resources and memory materialization are intentionally narrow:
@@ -57,7 +58,11 @@ Supported fd-table resources and memory materialization are intentionally narrow
 - `frame=single-target-caller-frame` for the current modeled translated caller
   frame: one return slot, the amd64 callee-saved register bank (`rbx`, `r12`,
   `r13`, `r14`, `r15`), a bounded dense vector of non-pointer data stack
-  slots, and a target unwind identity.
+  slots, and a target unwind identity;
+- `native=process-context` for bounded argv/env/cwd/auxv handoff steps. The
+  trampoline can apply and verify controlled env/cwd state before the target
+  jump, while argv/auxv remain hashed handoff metadata until initial-stack/libc
+  modeling is explicit.
 
 The runtime fd-table planner emits these resource lines from translated native
 resources. The in-guest loader validates duplicate fd ownership before launching

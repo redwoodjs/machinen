@@ -8,6 +8,7 @@ export interface TargetNativeConsumptionEvents {
   nativeStackWindowMaterialization?: TargetNativeConsumptionEvent;
   nativePrivateMemoryRestore?: TargetNativeConsumptionEvent;
   nativeExecutableMapping?: TargetNativeConsumptionEvent;
+  nativeProcessContextRestore?: TargetNativeConsumptionEvent;
   nativeSignalRestore?: TargetNativeConsumptionEvent;
   nativeActiveSyscallRestore?: TargetNativeConsumptionEvent;
   nativeThreadRestore?: TargetNativeConsumptionEvent;
@@ -26,6 +27,10 @@ export function parseTargetNativeConsumptionEvents(
       "nativePrivateMemoryRestore",
     ),
     nativeExecutableMapping: parseNativeConsumption(actualResumeEvent, "nativeExecutableMapping"),
+    nativeProcessContextRestore: parseNativeConsumption(
+      actualResumeEvent,
+      "nativeProcessContextRestore",
+    ),
     nativeSignalRestore: parseNativeConsumption(actualResumeEvent, "nativeSignalRestore"),
     nativeActiveSyscallRestore: parseNativeConsumption(
       actualResumeEvent,
@@ -39,6 +44,7 @@ export function targetNativeConsumptionFields(events: TargetNativeConsumptionEve
   targetStackWindowMaterializationResult?: TargetNativeConsumptionStatus;
   targetPrivateMemoryRestoreResult?: TargetNativeConsumptionStatus;
   targetExecutableMappingResult?: TargetNativeConsumptionStatus;
+  targetProcessContextRestoreResult?: TargetNativeConsumptionStatus;
   targetSignalRestoreResult?: TargetNativeConsumptionStatus;
   targetActiveSyscallRestoreResult?: TargetNativeConsumptionStatus;
   targetThreadRestoreResult?: TargetNativeConsumptionStatus;
@@ -47,6 +53,7 @@ export function targetNativeConsumptionFields(events: TargetNativeConsumptionEve
     targetStackWindowMaterializationResult: events.nativeStackWindowMaterialization?.status,
     targetPrivateMemoryRestoreResult: events.nativePrivateMemoryRestore?.status,
     targetExecutableMappingResult: events.nativeExecutableMapping?.status,
+    targetProcessContextRestoreResult: events.nativeProcessContextRestore?.status,
     targetSignalRestoreResult: events.nativeSignalRestore?.status,
     targetActiveSyscallRestoreResult: events.nativeActiveSyscallRestore?.status,
     targetThreadRestoreResult: events.nativeThreadRestore?.status,
@@ -58,6 +65,7 @@ export function targetNativeConsumptionPassed(events: TargetNativeConsumptionEve
     events.nativeStackWindowMaterialization,
     events.nativePrivateMemoryRestore,
     events.nativeExecutableMapping,
+    events.nativeProcessContextRestore,
     events.nativeSignalRestore,
     events.nativeActiveSyscallRestore,
     events.nativeThreadRestore,

@@ -122,6 +122,10 @@
 - [`TargetGuestMemoryMaterializationResult`](#targetguestmemorymaterializationresult)
 - [`TargetGuestPrivateMemoryRestorePlan`](#targetguestprivatememoryrestoreplan)
 - [`TargetGuestPrivateMemoryRestoreStep`](#targetguestprivatememoryrestorestep)
+- [`TargetGuestProcessContextRestoreMode`](#targetguestprocesscontextrestoremode)
+- [`TargetGuestProcessContextRestoreOptions`](#targetguestprocesscontextrestoreoptions)
+- [`TargetGuestProcessContextRestorePlan`](#targetguestprocesscontextrestoreplan)
+- [`TargetGuestProcessContextRestoreStep`](#targetguestprocesscontextrestorestep)
 - [`TargetGuestSignalRestorePlan`](#targetguestsignalrestoreplan)
 - [`TargetGuestSignalRestoreStep`](#targetguestsignalrestorestep)
 - [`TargetGuestTwoThreadBinding`](#targetguesttwothreadbinding)
@@ -157,6 +161,7 @@
 - [`planTargetGuestExecutableMaterialization`](#plantargetguestexecutablematerialization)
 - [`planTargetGuestMemoryMaterialization`](#plantargetguestmemorymaterialization)
 - [`planTargetGuestPrivateMemoryRestore`](#plantargetguestprivatememoryrestore)
+- [`planTargetGuestProcessContextRestore`](#plantargetguestprocesscontextrestore)
 - [`planTargetGuestSignalRestore`](#plantargetguestsignalrestore)
 - [`planTargetGuestTwoThreadRestore`](#plantargetguesttwothreadrestore)
 - [`parseTargetNativeConsumptionEvents`](#parsetargetnativeconsumptionevents)
@@ -4023,7 +4028,7 @@ by default when `output` is a TTY.
 
 ##### code
 
-> **code**: `"active-syscall"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"blocking-syscall-state-unsupported"` \| `"code-location-unknown"` \| `"fd-kind-unsupported"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-captured-range-unsupported"` \| `"mapping-executable-unsupported"` \| `"mapping-permission-unsupported"` \| `"mapping-provenance-ambiguous"` \| `"mapping-shared-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"simd-fpu-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"syscall-argument-state-unsupported"` \| `"syscall-restart-unsupported"` \| `"target-build-id-mismatch"` \| `"target-build-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-caller-frame-unavailable"` \| `"target-code-rva-unmapped"` \| `"target-fd-table-duplicate"` \| `"target-fd-read-state-missing"` \| `"target-fd-table-missing"` \| `"target-frame-layout-unsupported"` \| `"target-frame-register-value-unavailable"` \| `"target-module-bytes-missing"` \| `"target-module-file-missing"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-module-range-unreadable"` \| `"target-ppoll-syscall-continuation-missing"` \| `"target-ppoll-timeout-missing"` \| `"target-return-slot-unsupported"` \| `"target-resume-execution-unavailable"` \| `"target-resume-fault-invalid-code-landing"` \| `"target-resume-fault-outside-target-bytes"` \| `"target-resume-fault-privileged-instruction"` \| `"target-resume-fault-signal-unsupported"` \| `"target-resume-fault-timeout"` \| `"target-resume-fault-unmodeled-memory"` \| `"target-semantic-continuation-missing"` \| `"target-sleep-remaining-time-missing"` \| `"target-socket-syscall-state-unsupported"` \| `"target-sleep-signal-restart-unsupported"` \| `"target-sleep-syscall-continuation-missing"` \| `"target-stack-window-unsupported"` \| `"target-synthetic-signal-interrupted-unsupported"` \| `"target-synthetic-signal-restart-unsupported"` \| `"target-synthetic-syscall-return-unmodeled"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
+> **code**: `"active-syscall"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"blocking-syscall-state-unsupported"` \| `"code-location-unknown"` \| `"fd-kind-unsupported"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-captured-range-unsupported"` \| `"mapping-executable-unsupported"` \| `"mapping-permission-unsupported"` \| `"mapping-provenance-ambiguous"` \| `"mapping-shared-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"simd-fpu-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"syscall-argument-state-unsupported"` \| `"syscall-restart-unsupported"` \| `"target-build-id-mismatch"` \| `"target-build-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-caller-frame-unavailable"` \| `"target-code-rva-unmapped"` \| `"target-fd-table-duplicate"` \| `"target-fd-read-state-missing"` \| `"target-fd-table-missing"` \| `"target-frame-layout-unsupported"` \| `"target-frame-register-value-unavailable"` \| `"target-module-bytes-missing"` \| `"target-module-file-missing"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-module-range-unreadable"` \| `"target-ppoll-syscall-continuation-missing"` \| `"target-ppoll-timeout-missing"` \| `"target-process-context-unsupported"` \| `"target-return-slot-unsupported"` \| `"target-resume-execution-unavailable"` \| `"target-resume-fault-invalid-code-landing"` \| `"target-resume-fault-outside-target-bytes"` \| `"target-resume-fault-privileged-instruction"` \| `"target-resume-fault-signal-unsupported"` \| `"target-resume-fault-timeout"` \| `"target-resume-fault-unmodeled-memory"` \| `"target-semantic-continuation-missing"` \| `"target-sleep-remaining-time-missing"` \| `"target-socket-syscall-state-unsupported"` \| `"target-sleep-signal-restart-unsupported"` \| `"target-sleep-syscall-continuation-missing"` \| `"target-stack-window-unsupported"` \| `"target-synthetic-signal-interrupted-unsupported"` \| `"target-synthetic-signal-restart-unsupported"` \| `"target-synthetic-syscall-return-unmodeled"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
 
 ##### message
 
@@ -9127,6 +9132,10 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 > `optional` **targetExecutableMappingResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
 
+##### targetProcessContextRestoreResult?
+
+> `optional` **targetProcessContextRestoreResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
 ##### targetSignalRestoreResult?
 
 > `optional` **targetSignalRestoreResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
@@ -9236,6 +9245,14 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 ###### Inherited from
 
 [`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetExecutableMappingResult`](#targetexecutablemappingresult)
+
+##### targetProcessContextRestoreResult?
+
+> `optional` **targetProcessContextRestoreResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetProcessContextRestoreResult`](#targetprocesscontextrestoreresult)
 
 ##### targetSignalRestoreResult?
 
@@ -9498,6 +9515,14 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 ###### Inherited from
 
 [`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetExecutableMappingResult`](#targetexecutablemappingresult)
+
+##### targetProcessContextRestoreResult?
+
+> `optional` **targetProcessContextRestoreResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetProcessContextRestoreResult`](#targetprocesscontextrestoreresult)
 
 ##### targetSignalRestoreResult?
 
@@ -10697,6 +10722,32 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### TargetGuestProcessContextRestoreOptions
+
+#### Properties
+
+##### mode?
+
+> `optional` **mode?**: [`TargetGuestProcessContextRestoreMode`](#targetguestprocesscontextrestoremode)
+
+##### maxArgvEntries?
+
+> `optional` **maxArgvEntries?**: `number`
+
+##### maxEnvEntries?
+
+> `optional` **maxEnvEntries?**: `number`
+
+##### maxStringBytes?
+
+> `optional` **maxStringBytes?**: `number`
+
+##### maxAuxvBytes?
+
+> `optional` **maxAuxvBytes?**: `number`
+
+***
+
 ### TargetGuestRestoreContinuationDescriptor
 
 #### Properties
@@ -10940,6 +10991,10 @@ Poll interval in ms while retrying. Default 250.
 ##### nativeExecutableMapping?
 
 > `optional` **nativeExecutableMapping?**: [`TargetNativeConsumptionEvent`](#targetnativeconsumptionevent)
+
+##### nativeProcessContextRestore?
+
+> `optional` **nativeProcessContextRestore?**: [`TargetNativeConsumptionEvent`](#targetnativeconsumptionevent)
 
 ##### nativeSignalRestore?
 
@@ -13637,6 +13692,24 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ***
 
+### TargetGuestProcessContextRestoreMode
+
+> **TargetGuestProcessContextRestoreMode** = `"metadata-only"` \| `"apply-target-env-cwd"`
+
+***
+
+### TargetGuestProcessContextRestoreStep
+
+> **TargetGuestProcessContextRestoreStep** = \{ `action`: `"record-argv"`; `argc`: `number`; `argvBytes`: `number`; `argvSha256`: `string`; \} \| \{ `action`: `"record-env"`; `envCount`: `number`; `envBytes`: `number`; `envSha256`: `string`; \} \| \{ `action`: `"clear-env"`; `envCount`: `number`; `envSha256`: `string`; \} \| \{ `action`: `"set-env"`; `keyHex`: `string`; `valueHex`: `string`; `valueSha256`: `string`; \} \| \{ `action`: `"verify-env"`; `envCount`: `number`; `envSha256`: `string`; \} \| \{ `action`: `"record-cwd"`; `cwdHex`: `string`; `cwdSha256`: `string`; \} \| \{ `action`: `"chdir"`; `cwdHex`: `string`; `cwdSha256`: `string`; \} \| \{ `action`: `"record-auxv"`; `auxvBytes`: `number`; `auxvSha256`: `string`; \}
+
+***
+
+### TargetGuestProcessContextRestorePlan
+
+> **TargetGuestProcessContextRestorePlan** = \{ `state`: `"planned"`; `mode`: [`TargetGuestProcessContextRestoreMode`](#targetguestprocesscontextrestoremode); `steps`: [`TargetGuestProcessContextRestoreStep`](#targetguestprocesscontextrestorestep)[]; \} \| \{ `state`: `"refused"`; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
+
+***
+
 ### TargetGuestRestoreLoaderRefusalCode
 
 > **TargetGuestRestoreLoaderRefusalCode** = `"target-guest-loader-descriptor-invalid"` \| `"target-guest-loader-target-arch-unsupported"` \| `"target-guest-loader-resource-unsupported"` \| `"target-guest-loader-invalid-fd"` \| `"target-guest-loader-invalid-continuation"` \| `"target-guest-loader-memory-unsupported"` \| `"target-guest-loader-frame-unsupported"`
@@ -13675,7 +13748,7 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ### TargetGuestNativeRestoreStep
 
-> **TargetGuestNativeRestoreStep** = \{ `section`: `"stack-window-write"`; `write`: [`NativeStackWindowWrite`](#nativestackwindowwrite); \} \| \{ `section`: `"stack-window-guard"`; `guard`: [`NativeStackWindowGuardMapping`](#nativestackwindowguardmapping); \} \| \{ `section`: `"return-chain-write"`; `write`: [`NativeReturnChainFrameWrite`](#nativereturnchainframewrite); \} \| \{ `section`: `"private-memory"`; `step`: [`TargetGuestPrivateMemoryRestoreStep`](#targetguestprivatememoryrestorestep); \} \| \{ `section`: `"executable-mapping"`; `step`: [`TargetGuestExecutableMappingStep`](#targetguestexecutablemappingstep); \} \| \{ `section`: `"signal-restore"`; `step`: [`TargetGuestSignalRestoreStep`](#targetguestsignalrestorestep); \} \| \{ `section`: `"active-syscall"`; `step`: [`TargetGuestActiveSyscallRestoreStep`](#targetguestactivesyscallrestorestep); \} \| \{ `section`: `"thread-spawn"`; `step`: [`TargetGuestTwoThreadSpawnStep`](#targetguesttwothreadspawnstep); \}
+> **TargetGuestNativeRestoreStep** = \{ `section`: `"stack-window-write"`; `write`: [`NativeStackWindowWrite`](#nativestackwindowwrite); \} \| \{ `section`: `"stack-window-guard"`; `guard`: [`NativeStackWindowGuardMapping`](#nativestackwindowguardmapping); \} \| \{ `section`: `"return-chain-write"`; `write`: [`NativeReturnChainFrameWrite`](#nativereturnchainframewrite); \} \| \{ `section`: `"private-memory"`; `step`: [`TargetGuestPrivateMemoryRestoreStep`](#targetguestprivatememoryrestorestep); \} \| \{ `section`: `"executable-mapping"`; `step`: [`TargetGuestExecutableMappingStep`](#targetguestexecutablemappingstep); \} \| \{ `section`: `"process-context"`; `step`: [`TargetGuestProcessContextRestoreStep`](#targetguestprocesscontextrestorestep); \} \| \{ `section`: `"signal-restore"`; `step`: [`TargetGuestSignalRestoreStep`](#targetguestsignalrestorestep); \} \| \{ `section`: `"active-syscall"`; `step`: [`TargetGuestActiveSyscallRestoreStep`](#targetguestactivesyscallrestorestep); \} \| \{ `section`: `"thread-spawn"`; `step`: [`TargetGuestTwoThreadSpawnStep`](#targetguesttwothreadspawnstep); \}
 
 ***
 
@@ -14259,7 +14332,7 @@ loops; anything looser stops being a meaningful gate.
 
 ### nativeProcessImageRefusalCodes
 
-> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"blocking-syscall-state-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"inherited-stdio-policy-required"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-captured-range-unsupported"`, `"mapping-executable-unsupported"`, `"mapping-permission-unsupported"`, `"mapping-provenance-ambiguous"`, `"mapping-shared-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"non-stdio-kernel-state-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"simd-fpu-state-unsupported"`, `"stdin-buffer-state-unsupported"`, `"syscall-argument-state-unsupported"`, `"syscall-restart-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-callee-saved-state-unsupported"`, `"target-caller-frame-unavailable"`, `"target-code-rva-unmapped"`, `"target-fd-table-duplicate"`, `"target-fd-read-state-missing"`, `"target-fd-table-missing"`, `"target-frame-layout-unsupported"`, `"target-frame-register-value-unavailable"`, `"target-module-bytes-missing"`, `"target-module-file-missing"`, `"target-module-missing"`, `"target-module-not-executable"`, `"target-module-range-unreadable"`, `"target-ppoll-syscall-continuation-missing"`, `"target-ppoll-timeout-missing"`, `"target-return-slot-unsupported"`, `"target-resume-execution-unavailable"`, `"target-resume-fault-invalid-code-landing"`, `"target-resume-fault-outside-target-bytes"`, `"target-resume-fault-privileged-instruction"`, `"target-resume-fault-signal-unsupported"`, `"target-resume-fault-timeout"`, `"target-resume-fault-unmodeled-memory"`, `"target-semantic-continuation-missing"`, `"target-sleep-remaining-time-missing"`, `"target-socket-syscall-state-unsupported"`, `"target-sleep-signal-restart-unsupported"`, `"target-sleep-syscall-continuation-missing"`, `"target-stack-window-unsupported"`, `"target-synthetic-signal-interrupted-unsupported"`, `"target-synthetic-signal-restart-unsupported"`, `"target-synthetic-syscall-return-unmodeled"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
+> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"blocking-syscall-state-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"inherited-stdio-policy-required"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-captured-range-unsupported"`, `"mapping-executable-unsupported"`, `"mapping-permission-unsupported"`, `"mapping-provenance-ambiguous"`, `"mapping-shared-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"non-stdio-kernel-state-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"simd-fpu-state-unsupported"`, `"stdin-buffer-state-unsupported"`, `"syscall-argument-state-unsupported"`, `"syscall-restart-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-callee-saved-state-unsupported"`, `"target-caller-frame-unavailable"`, `"target-code-rva-unmapped"`, `"target-fd-table-duplicate"`, `"target-fd-read-state-missing"`, `"target-fd-table-missing"`, `"target-frame-layout-unsupported"`, `"target-frame-register-value-unavailable"`, `"target-module-bytes-missing"`, `"target-module-file-missing"`, `"target-module-missing"`, `"target-module-not-executable"`, `"target-module-range-unreadable"`, `"target-ppoll-syscall-continuation-missing"`, `"target-ppoll-timeout-missing"`, `"target-process-context-unsupported"`, `"target-return-slot-unsupported"`, `"target-resume-execution-unavailable"`, `"target-resume-fault-invalid-code-landing"`, `"target-resume-fault-outside-target-bytes"`, `"target-resume-fault-privileged-instruction"`, `"target-resume-fault-signal-unsupported"`, `"target-resume-fault-timeout"`, `"target-resume-fault-unmodeled-memory"`, `"target-semantic-continuation-missing"`, `"target-sleep-remaining-time-missing"`, `"target-socket-syscall-state-unsupported"`, `"target-sleep-signal-restart-unsupported"`, `"target-sleep-syscall-continuation-missing"`, `"target-stack-window-unsupported"`, `"target-synthetic-signal-interrupted-unsupported"`, `"target-synthetic-signal-restart-unsupported"`, `"target-synthetic-syscall-return-unmodeled"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
 
 ***
 
@@ -17362,6 +17435,26 @@ resolve the binary through the same lookup chain.
 
 ***
 
+### planTargetGuestProcessContextRestore()
+
+> **planTargetGuestProcessContextRestore**(`documents`, `options?`): [`TargetGuestProcessContextRestorePlan`](#targetguestprocesscontextrestoreplan)
+
+#### Parameters
+
+##### documents
+
+[`NativeProcessImageDocuments`](#nativeprocessimagedocuments)
+
+##### options?
+
+[`TargetGuestProcessContextRestoreOptions`](#targetguestprocesscontextrestoreoptions) = `{}`
+
+#### Returns
+
+[`TargetGuestProcessContextRestorePlan`](#targetguestprocesscontextrestoreplan)
+
+***
+
 ### serializeTargetGuestRestoreDescriptor()
 
 > **serializeTargetGuestRestoreDescriptor**(`descriptor`): `string`
@@ -17523,6 +17616,10 @@ resolve the binary through the same lookup chain.
 ##### targetExecutableMappingResult?
 
 > `optional` **targetExecutableMappingResult?**: [`TargetNativeConsumptionStatus`](#targetnativeconsumptionstatus)
+
+##### targetProcessContextRestoreResult?
+
+> `optional` **targetProcessContextRestoreResult?**: [`TargetNativeConsumptionStatus`](#targetnativeconsumptionstatus)
 
 ##### targetSignalRestoreResult?
 

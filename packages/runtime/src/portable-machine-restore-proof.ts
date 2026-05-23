@@ -45,6 +45,7 @@ export interface PortableMachineTargetRestoreObservation {
   targetStackWindowMaterializationResult?: PortableMachineTargetNativePlanConsumptionResult;
   targetPrivateMemoryRestoreResult?: PortableMachineTargetNativePlanConsumptionResult;
   targetExecutableMappingResult?: PortableMachineTargetNativePlanConsumptionResult;
+  targetProcessContextRestoreResult?: PortableMachineTargetNativePlanConsumptionResult;
   targetSignalRestoreResult?: PortableMachineTargetNativePlanConsumptionResult;
   targetActiveSyscallRestoreResult?: PortableMachineTargetNativePlanConsumptionResult;
   targetReturnChainResult?: PortableMachineTargetReturnChainResult;
@@ -215,6 +216,7 @@ export function completePortableMachineVmRestoreProof(
     targetStackWindowMaterializationResult: result.targetStackWindowMaterializationResult,
     targetPrivateMemoryRestoreResult: result.targetPrivateMemoryRestoreResult,
     targetExecutableMappingResult: result.targetExecutableMappingResult,
+    targetProcessContextRestoreResult: result.targetProcessContextRestoreResult,
     targetSignalRestoreResult: result.targetSignalRestoreResult,
     targetActiveSyscallRestoreResult: result.targetActiveSyscallRestoreResult,
     targetReturnChainResult: result.targetReturnChainResult,
@@ -258,6 +260,7 @@ function optionalTargetChecksPassed(result: PortableMachineVmRestoreTargetResult
     passedOrUnset(result.targetStackWindowMaterializationResult),
     passedOrUnset(result.targetPrivateMemoryRestoreResult),
     passedOrUnset(result.targetExecutableMappingResult),
+    passedOrUnset(result.targetProcessContextRestoreResult),
     passedOrUnset(result.targetSignalRestoreResult),
     passedOrUnset(result.targetActiveSyscallRestoreResult),
     passedOrUnset(result.targetReturnChainResult),
