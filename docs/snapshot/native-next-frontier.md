@@ -31,24 +31,27 @@ completion is reported:
 | active syscall             | arms target-side timerfds for modeled sleep/ppoll timeout continuations                                    |
 | controlled thread spawn    | maps requested stacks and consumes narrow spawn steps with short-lived target tasks                        |
 
-The latest remote arm64→amd64 proof completed with native target execution and
-passed stack, private-memory, executable, signal, register, frame, RFLAGS, TLS,
-state-consumption, and return-chain gates.
+The latest remote arm64→amd64 proof completed with native target execution from
+a two-thread arm64 `ppoll` source bundle. It passed stack, private-memory,
+executable, signal, active-syscall, controlled thread-spawn, register, frame,
+RFLAGS, TLS, state-consumption, fd/resource, and return-chain gates.
 
 ## Remaining frontier
 
 The next work should expand _accepted process shapes_, not relax the success
 criteria. Good next issues are:
 
-1. Feed modeled active-syscall continuations from captured real processes into
-   the combined portable VM proof so `targetActiveSyscallRestoreResult=passed`
-   appears in an end-to-end VM run, not only focused trampoline proof.
-2. Connect controlled two-thread planner output to a real two-thread portable
-   bundle/proof case while continuing to refuse futex/rseq/general scheduler
-   state.
-3. Broaden private target memory coverage only where provenance, permissions,
-   guards, and TLS/vDSO/libc dependencies are explicit.
-4. Keep expanding real utility coverage one resource/syscall family at a time.
+1. Add more real resource/syscall families one at a time, starting with cases
+   whose target fd/resource recipes can be proven without readiness ambiguity.
+2. Broaden private target memory coverage only where provenance, permissions,
+   guards, and pointer ownership are explicit.
+3. Model argv/env/auxv/cwd handoff as target-side state, with precise refusals
+   for malformed or source-only dependencies.
+4. Revisit target libc/vDSO/vvar data dependencies after the syscall/resource
+   cases provide comparison points for what must be materialized versus refused.
+5. Keep futex wait handoff, rseq, arbitrary signal restart, JIT/native code
+   migration, and general scheduler state refused until their kernel/user ABI
+   contracts are modeled.
 
 ## Deferred frontier
 

@@ -29,16 +29,19 @@ consumes native restore sections for stack windows, bounded return-chain writes,
 private memory, executable provenance checks, signal masks, modeled active
 syscall timer re-arm, and controlled thread-spawn steps before reporting success.
 
-The latest remote arm64→amd64 proof completed with a real amd64 utility
-continuation returning `0x4d` and passed state-consumption, fd/resource,
-return-chain, translated-frame, register, RFLAGS, TLS, stack-window,
-private-memory, executable-mapping, and signal restore gates. This is still a
-narrow completion proof, not arbitrary process or whole-machine migration.
+The latest remote arm64→amd64 proof captured a real two-thread arm64 source
+bundle with one thread blocked in a modeled `ppoll` timeout. The amd64 target VM
+completed through a real utility continuation returning `0x4d` and passed
+state-consumption, fd/resource, return-chain, translated-frame, register,
+RFLAGS, TLS, stack-window, private-memory, executable-mapping, signal restore,
+active-syscall re-arm, and controlled thread-spawn gates. This is still a narrow
+completion proof, not arbitrary process or whole-machine migration.
 
-The active frontier is expanding accepted real-process shapes through this target
+The active frontier is now broader real-process coverage through this target
 loader path while preserving exact refusals for unsupported kernel/user ABI
-state. Broad libc/vDSO/vvar materialization, arbitrary restart semantics,
-futex/rseq handoff, and general multithread restore remain deferred.
+state. More syscall/resource families should come before broad libc/vDSO/vvar,
+argv/env/auxv/cwd, arbitrary restart semantics, futex/rseq handoff, or general
+multithread restore claims.
 
 ## Ordered proof ladder
 
@@ -216,7 +219,7 @@ Done when:
 - the descriptor preserves no-source-text, no-source-ISA-emulation, and no-sidecar
   invariants.
 
-### 11. Threads, futexes, and rseq — controlled boundary started
+### 11. Threads, futexes, and rseq — controlled target proof done
 
 Goal: move from single-thread proofs to controlled multi-thread restore.
 
@@ -225,15 +228,33 @@ Done so far:
 - multi-thread state refuses precisely by default;
 - exactly two safe threads can be planned at the boundary;
 - controlled `thread-spawn` target sections are forwarded to the loader and
-  consumed by the amd64 trampoline as short-lived target tasks.
+  consumed by the amd64 trampoline as short-lived target tasks;
+- the remote portable-machine proof captures a real two-thread arm64 source
+  bundle and requires `targetThreadRestoreResult=passed` alongside the other
+  native gates.
 
 Still future work:
 
-- connect a real two-thread portable bundle/proof case to those target steps;
 - model or refuse futex wait/wake and rseq with exact blockers before claiming
-  general multithread restore.
+  general multithread restore;
+- preserve exact refusals for scheduler-visible state beyond the controlled
+  two-thread proof.
 
-### 12. Full transparent restore claim
+### 12. Broader real-process coverage
+
+Goal: widen the constrained class of accepted native cross-ISA Linux processes
+without relaxing the all-gates success contract.
+
+Next steps:
+
+- add more real resource/syscall families with explicit target recipes;
+- model argv/env/auxv/cwd handoff as target-side state;
+- expand private target memory only when provenance, permissions, guards, and
+  pointer ownership are explicit;
+- revisit target libc/vDSO/vvar data dependencies after those narrower families
+  provide comparison points.
+
+### 13. Full transparent restore claim
 
 Goal: claim native cross-ISA live process migration for a constrained class of
 real Linux processes.

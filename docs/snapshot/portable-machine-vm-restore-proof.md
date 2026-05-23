@@ -191,5 +191,5 @@ Latest remote arm64→amd64 proof after native target-loader consumption hardeni
 - `targetSignalRestoreResult=passed`
 - `targetActiveSyscallRestoreResult=passed`
 - `targetThreadRestoreResult=passed`
-- wall time: 37.018s
-- target VM boot/restore: 20.125s
+- wall time: 1m19.244s
+- target VM boot/restore: 62.342s
