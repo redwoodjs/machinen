@@ -6,6 +6,7 @@ import { validatePortableMachineSnapshotBundle } from "./portable-machine-snapsh
 import {
   TARGET_GUEST_RESTORE_DESCRIPTOR_KIND,
   validateTargetGuestRestoreDescriptor,
+  type TargetGuestNativeRestoreStep,
   type TargetGuestRestoreContinuationDescriptor,
   type TargetGuestRestoreDescriptor,
   type TargetGuestTranslatedFrameDescriptor,
@@ -100,6 +101,7 @@ export interface PortableMachineTargetRestoreDescriptorRequest {
   translatedFrame?: TargetGuestTranslatedFrameDescriptor;
   fdTable: NativeTargetFdTablePlan;
   memory: TargetGuestMemoryMaterializationResult;
+  nativeRestore?: TargetGuestNativeRestoreStep[];
 }
 
 export type PortableMachineTargetRestoreDescriptorPlan =
@@ -148,6 +150,7 @@ export function planPortableMachineTargetRestoreDescriptor(
       translatedFrame: request.translatedFrame,
       resources: request.fdTable.targetGuestResources,
       memory: request.memory.entries,
+      nativeRestore: request.nativeRestore,
     }),
   };
 }

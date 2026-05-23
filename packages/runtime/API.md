@@ -9482,6 +9482,10 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 > **memory**: [`TargetGuestMemoryMaterializationResult`](#targetguestmemorymaterializationresult)
 
+##### nativeRestore?
+
+> `optional` **nativeRestore?**: [`TargetGuestNativeRestoreStep`](#targetguestnativerestorestep)[]
+
 ***
 
 ### PortableMachineSnapshotRefusal
