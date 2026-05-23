@@ -370,10 +370,17 @@ export type {
   NativeTargetFdTablePlan,
   NativeTargetFdTablePlanRequest,
 } from "./native-resource-translation.ts";
+export { planNativeReturnChain } from "./native-return-chain.ts";
 export {
   planNativeStackWindowMaterialization,
   translateNativeStack,
 } from "./native-stack-translation.ts";
+export type {
+  NativeReturnChainFrame,
+  NativeReturnChainPlan,
+  NativeReturnChainPlanFrame,
+  NativeReturnChainPlanRequest,
+} from "./native-return-chain.ts";
 export type {
   NativeStackFrame,
   NativeStackPointerRange,
