@@ -59,6 +59,26 @@ function runHelper(helper: string, codeFile: string, codeSize: number, extraArgs
   return JSON.parse(line!.slice(PREFIX.length));
 }
 
+function loadU64FromAbsoluteCode(address: bigint): Buffer {
+  const code = Buffer.alloc(11);
+  code[0] = 0x48;
+  code[1] = 0xa1;
+  code.writeBigUInt64LE(address, 2);
+  code[10] = 0xc3;
+  return code;
+}
+
+function nativePrivateMemorySteps(sourceFile: string, targetStart = "0x600000000000") {
+  return [
+    "--native-private-memory-step",
+    `action=mmap-private-writable;mapping=mapping:heap;targetStart=${targetStart};sizeBytes=4096;permissions=rw-p`,
+    "--native-private-memory-step",
+    `action=copy-captured-bytes;mapping=mapping:heap;targetStart=${targetStart};sizeBytes=4096;sourceFile=${sourceFile};sourceOffset=0`,
+    "--native-private-memory-step",
+    `action=mprotect-final;mapping=mapping:heap;targetStart=${targetStart};sizeBytes=4096;permissions=rw-p`,
+  ];
+}
+
 describe("native actual resume trampoline", () => {
   it.skipIf(process.platform !== "linux" || process.arch !== "x64")(
     "reports returned and faulted target-native attempts",
@@ -83,16 +103,13 @@ describe("native actual resume trampoline", () => {
       writeFileSync(nativeMemory, Buffer.alloc(4096, 0x7a));
       expect(
         runHelper(helper, returnCode, 1, [
-          "--materialize-memory",
-          `${nativeMemory}:0:0x600000000000:4096:rw-p`,
+          ...nativePrivateMemorySteps(nativeMemory),
           "--native-stack-window-write",
           "0x52000000ff00:0x1234567890abcdef:efcdab9078563412:pointer",
           "--native-stack-window-guard",
           "0x520000010000:4096:above",
           "--native-return-chain-write",
           "0x52000000ff08:0x710000001000:0010007100000000:return-address",
-          "--native-private-memory-step",
-          "action=copy-captured-bytes;mapping=mapping:heap;targetStart=0x600000000000;sizeBytes=4096;sourceFile=/tmp/native-memory.bin;sourceOffset=0",
           "--native-executable-mapping",
           "action=map-target-executable;mapping=mapping:text;targetStart=0x710000001000;sizeBytes=1;path=/tmp/target;fileOffset=0;read=true;write=false;execute=true;private=true;shared=false;buildId=target-build-id",
           "--native-signal-restore-step",
@@ -110,7 +127,7 @@ describe("native actual resume trampoline", () => {
         status: "returned",
         nativeStackWindowMaterialization: { status: "passed", writeCount: 1, guardCount: 1 },
         nativeReturnChainMaterialization: { status: "passed", writeCount: 1 },
-        nativePrivateMemoryRestore: { status: "passed", stepCount: 1 },
+        nativePrivateMemoryRestore: { status: "passed", stepCount: 3 },
         nativeExecutableMapping: { status: "passed", mappingCount: 1 },
         nativeSignalRestore: {
           status: "passed",
@@ -121,6 +138,16 @@ describe("native actual resume trampoline", () => {
           restored: true,
         },
         nativeActiveSyscallRestore: { status: "passed", stepCount: 1 },
+      });
+
+      const nativeMemoryReader = join(outDir, "native-memory-reader.bin");
+      writeFileSync(nativeMemoryReader, loadU64FromAbsoluteCode(0x600000000000n));
+      expect(
+        runHelper(helper, nativeMemoryReader, 11, nativePrivateMemorySteps(nativeMemory)),
+      ).toMatchObject({
+        status: "returned",
+        returnValue: "0x7a7a7a7a7a7a7a7a",
+        nativePrivateMemoryRestore: { status: "passed", stepCount: 3 },
       });
 
       const arg0Code = join(outDir, "arg0.bin");
