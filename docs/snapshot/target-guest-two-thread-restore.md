@@ -19,6 +19,13 @@ The planner refuses when:
 - required `rip`/`rsp` seeds are absent;
 - target stack ranges are inverted or overlap.
 
+Issue #693 wires this into the remote portable-machine proof. The remote smoke
+captures a real arm64 two-thread process with one user-space spinning thread and
+one thread blocked in a modeled `ppoll` timeout, emits `native=thread-spawn`
+sections for both controlled target tasks, and requires
+`targetThreadRestoreResult=passed` alongside the active-syscall and other native
+gates.
+
 This remains a narrow two-thread proof boundary. It proves loader/trampoline
 consumption of safe spawn steps only; it is not general multithread restore and
 does not accept futex or rseq synchronization state.
