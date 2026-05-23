@@ -58,6 +58,7 @@ export interface TargetGuestRestoreContinuationDescriptor {
   targetAddress: string;
   argument0?: string;
   stateReportAddress?: string;
+  targetFsBase?: string;
   translatedReturnAddress?: string;
   resumeMode?: TargetGuestRestoreResumeMode;
   resumeRflags?: string;
@@ -115,6 +116,7 @@ export function serializeTargetGuestRestoreDescriptor(
     `targetAddress=${continuation.targetAddress}`,
     ...optionalContinuationField("argument0", continuation.argument0),
     ...optionalContinuationField("stateReportAddress", continuation.stateReportAddress),
+    ...optionalContinuationField("targetFsBase", continuation.targetFsBase),
     ...optionalContinuationField("translatedReturnAddress", continuation.translatedReturnAddress),
     ...optionalContinuationField("resumeMode", continuation.resumeMode),
     ...optionalContinuationField("resumeRflags", continuation.resumeRflags),
@@ -182,6 +184,7 @@ export function buildNativeActualResumeTrampolineArgs(
     continuation.targetAddress,
     ...optionalArg("--argument0", continuation.argument0),
     ...optionalArg("--state-report-address", continuation.stateReportAddress),
+    ...optionalArg("--target-fs-base", continuation.targetFsBase),
     ...optionalArg("--translated-return-address", continuation.translatedReturnAddress),
     ...optionalArg("--resume-mode", continuation.resumeMode),
     ...optionalArg("--resume-rflags", continuation.resumeRflags),
@@ -238,6 +241,7 @@ function fieldsToDescriptor(
       targetAddress: requiredField(fields, "targetAddress"),
       argument0: optionalField(fields, "argument0"),
       stateReportAddress: optionalField(fields, "stateReportAddress"),
+      targetFsBase: optionalField(fields, "targetFsBase"),
       translatedReturnAddress: optionalField(fields, "translatedReturnAddress"),
       resumeMode: optionalField(fields, "resumeMode") as TargetGuestRestoreResumeMode | undefined,
       resumeRflags: optionalField(fields, "resumeRflags"),
@@ -573,21 +577,14 @@ function validateContinuation(
   assertPositive(continuation.timeoutSeconds, "timeoutSeconds");
   assertPositive(continuation.stackSize, "stackSize");
   assertHexAddress(continuation.targetAddress, "targetAddress");
-  if (continuation.argument0 !== undefined) {
-    assertHexAddress(continuation.argument0, "argument0");
-  }
-  if (continuation.argument0 !== undefined && continuation.resumeRegisters !== undefined) {
-    fail(
-      "target-guest-loader-invalid-continuation",
-      "argument0 cannot be combined with a resume register bank",
-    );
-  }
-  if (continuation.stateReportAddress !== undefined) {
-    assertHexAddress(continuation.stateReportAddress, "stateReportAddress");
-  }
-  if (continuation.translatedReturnAddress !== undefined) {
-    assertHexAddress(continuation.translatedReturnAddress, "translatedReturnAddress");
-  }
+  validateOptionalContinuationAddress(continuation.argument0, "argument0");
+  validateArgumentRegisterConflict(continuation);
+  validateOptionalContinuationAddress(continuation.stateReportAddress, "stateReportAddress");
+  validateTargetFsBase(continuation);
+  validateOptionalContinuationAddress(
+    continuation.translatedReturnAddress,
+    "translatedReturnAddress",
+  );
   if (continuation.resumeMode !== undefined && continuation.resumeMode !== "translated-frame") {
     fail("target-guest-loader-invalid-continuation", "resumeMode is unsupported");
   }
@@ -596,6 +593,33 @@ function validateContinuation(
   assertHexAddress(continuation.stackTargetStart, "stackTargetStart");
   assertHexAddress(continuation.stackPointer, "stackPointer");
   return continuation;
+}
+
+function validateOptionalContinuationAddress(value: string | undefined, field: string): void {
+  if (value !== undefined) {
+    assertHexAddress(value, field);
+  }
+}
+
+function validateArgumentRegisterConflict(
+  continuation: TargetGuestRestoreContinuationDescriptor,
+): void {
+  if (continuation.argument0 !== undefined && continuation.resumeRegisters !== undefined) {
+    fail(
+      "target-guest-loader-invalid-continuation",
+      "argument0 cannot be combined with a resume register bank",
+    );
+  }
+}
+
+function validateTargetFsBase(continuation: TargetGuestRestoreContinuationDescriptor): void {
+  if (continuation.targetFsBase === undefined) {
+    return;
+  }
+  assertHexAddress(continuation.targetFsBase, "targetFsBase");
+  if (continuation.stateReportAddress === undefined) {
+    fail("target-guest-loader-invalid-continuation", "targetFsBase requires a state report");
+  }
 }
 
 const RESOURCE_RECIPE_VALIDATORS = {

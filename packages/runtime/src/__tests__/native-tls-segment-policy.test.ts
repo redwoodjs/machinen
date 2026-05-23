@@ -27,7 +27,7 @@ describe("native TLS segment-base handoff policy", () => {
     });
   });
 
-  it("accepts explicit target segment bases as modeled handoff state", () => {
+  it("accepts explicit target segment bases and materialized TCB state", () => {
     expect(
       planNativeTlsSegmentBaseHandoff({
         ...baseRequest,
@@ -41,6 +41,21 @@ describe("native TLS segment-base handoff policy", () => {
         fsBase: "0x7ffff7d00000",
         gsBase: "0x0",
         accessPolicy: "segment-bases-provided",
+      },
+    });
+    expect(
+      planNativeTlsSegmentBaseHandoff({
+        ...baseRequest,
+        targetFsBase: "0x600000000300",
+        targetGsBase: "0x0",
+        targetAccessPolicy: "target-tcb-materialized",
+      }),
+    ).toMatchObject({
+      state: "accepted",
+      targetSegmentBases: {
+        fsBase: "0x600000000300",
+        gsBase: "0x0",
+        accessPolicy: "target-tcb-materialized",
       },
     });
   });

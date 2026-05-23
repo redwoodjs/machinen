@@ -46,7 +46,9 @@ Unsafe states refuse with stable codes:
 - `code-location-unknown` when the captured PC has no target continuation;
 - `tls-state-unsupported` when source TLS is unknown, the source thread-pointer
   register is not arm64 `TPIDR_EL0`, target segment bases are malformed, or the
-  continuation requires a target TCB that has not been materialized;
+  continuation requires a target TCB that has not been materialized. The current
+  machine proof accepts the explicit `target-tcb-materialized` policy for its
+  minimal amd64 TCB page;
 - `architecture-pair-unsupported` for anything other than the initial arm64 ->
   amd64 proof path.
 

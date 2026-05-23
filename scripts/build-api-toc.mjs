@@ -144,6 +144,7 @@ const TOC = {
     "PortableMachineTargetFrameRestoreResult",
     "PortableMachineTargetRegisterRestoreResult",
     "PortableMachineTargetRflagsRestoreResult",
+    "PortableMachineTargetTlsRestoreResult",
     "PortableMachineTargetThreadRestoreResult",
     "PortableMachineTargetResourceStatus",
     "PortableMachineTargetResumePathResult",

@@ -467,6 +467,7 @@ export type {
   PortableMachineTargetFrameRestoreResult,
   PortableMachineTargetRegisterRestoreResult,
   PortableMachineTargetRflagsRestoreResult,
+  PortableMachineTargetTlsRestoreResult,
   PortableMachineTargetResourceStatus,
   PortableMachineTargetResumePathResult,
   PortableMachineTargetReturnChainResult,

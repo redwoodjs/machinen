@@ -11,6 +11,7 @@ import type {
 export type NativeTlsTargetAccessPolicy =
   | "not-required"
   | "segment-bases-provided"
+  | "target-tcb-materialized"
   | "target-tcb-required";
 
 export type NativeTlsSegmentBaseHandoffResult =
@@ -206,7 +207,11 @@ function planRequestedSegmentBases(
     return policyRefusal;
   }
   const acceptedAccessPolicy =
-    accessPolicy === "not-required" ? "not-required" : "segment-bases-provided";
+    accessPolicy === "not-required"
+      ? "not-required"
+      : accessPolicy === "target-tcb-materialized"
+        ? "target-tcb-materialized"
+        : "segment-bases-provided";
   return {
     state: "accepted",
     targetSegmentBases: { fsBase, gsBase, accessPolicy: acceptedAccessPolicy },
@@ -231,6 +236,13 @@ function targetAccessRefusal(
       threadId,
       "tls-state-unsupported",
       `thread ${threadId} declares TLS not required but provides non-zero amd64 segment bases`,
+    );
+  }
+  if (accessPolicy === "target-tcb-materialized" && isZeroHex(fsBase)) {
+    return refused(
+      threadId,
+      "tls-state-unsupported",
+      `thread ${threadId} declares a materialized target TCB with a zero amd64 fs base`,
     );
   }
   return undefined;
