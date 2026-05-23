@@ -92,17 +92,50 @@ describe("native actual resume trampoline", () => {
       const memory = Buffer.alloc(4096);
       memory[0] = 0x4d;
       writeFileSync(stateMemory, memory);
-      const stateEntry = Buffer.from([
-        0x48, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0x48, 0x89, 0x47, 0x08, 0x48, 0xb8, 0, 0, 0, 0, 0, 0, 0,
-        0, 0x48, 0x89, 0x47, 0x10, 0x48, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0x48, 0x89, 0x47, 0x20, 0x48,
-        0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0x48, 0x89, 0x47, 0x28, 0x48, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0,
-        0x48, 0x89, 0x47, 0x30, 0xb8, 0x4d, 0, 0, 0, 0xc3,
-      ]);
-      stateEntry.writeBigUInt64LE(0x5354415445434f4en, 2);
-      stateEntry.writeBigUInt64LE(0x7fn, 16);
-      stateEntry.writeBigUInt64LE(0x4652414d45504153n, 30);
-      stateEntry.writeBigUInt64LE(0x524553554d455041n, 44);
-      stateEntry.writeBigUInt64LE(0x1fn, 58);
+      const stateEntryBytes: number[] = [];
+      const immediates: Array<{ offset: number; value: bigint }> = [];
+      const push = (...bytes: number[]) => stateEntryBytes.push(...bytes);
+      const storeRax = (reportOffset: number) => {
+        storeRegister(0x48, 0x47, 0x87, reportOffset);
+      };
+      const storeImmediate = (reportOffset: number, value: bigint) => {
+        push(0x48, 0xb8);
+        immediates.push({ offset: stateEntryBytes.length, value });
+        push(0, 0, 0, 0, 0, 0, 0, 0);
+        storeRax(reportOffset);
+      };
+      function storeRegister(
+        prefix: number,
+        modrm8: number,
+        modrm32: number,
+        reportOffset: number,
+      ) {
+        if (reportOffset <= 127) {
+          push(prefix, 0x89, modrm8, reportOffset);
+          return;
+        }
+        push(prefix, 0x89, modrm32);
+        push(reportOffset, reportOffset >> 8, reportOffset >> 16, reportOffset >> 24);
+      }
+      storeRegister(0x48, 0x47, 0x87, 136);
+      storeRegister(0x48, 0x77, 0xb7, 144);
+      storeRegister(0x48, 0x57, 0x97, 152);
+      storeRegister(0x48, 0x4f, 0x8f, 160);
+      storeRegister(0x4c, 0x47, 0x87, 168);
+      storeRegister(0x4c, 0x4f, 0x8f, 176);
+      storeRegister(0x4c, 0x57, 0x97, 184);
+      storeRegister(0x4c, 0x5f, 0x9f, 192);
+      storeImmediate(128, 0x52454753544f5245n);
+      storeImmediate(8, 0x5354415445434f4en);
+      storeImmediate(16, 0x7fn);
+      storeImmediate(32, 0x4652414d45504153n);
+      storeImmediate(40, 0x524553554d455041n);
+      storeImmediate(48, 0x1fn);
+      push(0xb8, 0x4d, 0, 0, 0, 0xc3);
+      const stateEntry = Buffer.from(stateEntryBytes);
+      for (const immediate of immediates) {
+        stateEntry.writeBigUInt64LE(immediate.value, immediate.offset);
+      }
       const returnLanding = Buffer.from([
         0x48, 0xba, 0, 0, 0, 0, 0, 0, 0, 0, 0x48, 0x89, 0x57, 0x18, 0xb8, 0x4d, 0, 0, 0, 0xc3,
       ]);
@@ -121,6 +154,22 @@ describe("native actual resume trampoline", () => {
           translatedReturnAddress,
           "--resume-mode",
           "translated-frame",
+          "--resume-register-rax",
+          "0x2121212121212121",
+          "--resume-register-rsi",
+          "0x6161616161616161",
+          "--resume-register-rdx",
+          "0x6262626262626262",
+          "--resume-register-rcx",
+          "0x6363636363636363",
+          "--resume-register-r8",
+          "0x8888888888888888",
+          "--resume-register-r9",
+          "0x9999999999999999",
+          "--resume-register-r10",
+          "0x1010101010101010",
+          "--resume-register-r11",
+          "0x1111111111111111",
           "--translated-frame-pointer",
           "0x52000000ff80",
           "--translated-frame-cfa",
@@ -176,6 +225,19 @@ describe("native actual resume trampoline", () => {
         resumePath: {
           status: "passed",
           mode: "translated-frame",
+        },
+        registerRestore: {
+          status: "passed",
+          registers: [
+            { register: "rax", status: "passed", value: "0x2121212121212121" },
+            { register: "rsi", status: "passed", value: "0x6161616161616161" },
+            { register: "rdx", status: "passed", value: "0x6262626262626262" },
+            { register: "rcx", status: "passed", value: "0x6363636363636363" },
+            { register: "r8", status: "passed", value: "0x8888888888888888" },
+            { register: "r9", status: "passed", value: "0x9999999999999999" },
+            { register: "r10", status: "passed", value: "0x1010101010101010" },
+            { register: "r11", status: "passed", value: "0x1111111111111111" },
+          ],
         },
         stateConsumption: {
           status: "passed",

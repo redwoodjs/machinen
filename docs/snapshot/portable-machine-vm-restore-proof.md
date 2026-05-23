@@ -59,8 +59,8 @@ for this proof; multi-thread, futex, signal-delivery, ptrace/debug,
 shared-stack, unknown-TLS, and ambiguous register states refuse before the target
 VM is entered. The descriptor uses `resumeMode=translated-frame`, so the success
 path records a target-native resume-path marker after the real continuation
-observes the translated frame, stack-slot vector, and amd64 callee-saved
-register bank.
+observes the translated frame, stack-slot vector, amd64 callee-saved register
+bank, and modeled resume-register handoff.
 
 ## Smoke profile
 
@@ -103,7 +103,8 @@ resource recipe kinds, `targetRestore.targetContinuationKind`,
 `targetRestore.targetThreadRestoreResult`,
 `targetRestore.targetThreadRestoreThreadId`,
 `targetRestore.targetResumePathResult`,
-`targetRestore.targetResumePathMode`, and
+`targetRestore.targetResumePathMode`,
+`targetRestore.targetRegisterRestoreResult`, and
 `targetRestore.targetVerifierResult`. It reports timing for:
 
 1. preflight / optional remote reachability gates;

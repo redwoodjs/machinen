@@ -442,6 +442,8 @@ export type {
   TargetGuestRestoreLoaderRefusalCode,
   TargetGuestRestoreResourceRecipe,
   TargetGuestRestoreResumeMode,
+  TargetGuestResumeRegisterName,
+  TargetGuestResumeRegisters,
   TargetGuestTranslatedFrameDescriptor,
   TargetGuestTranslatedFrameRegister,
   TargetGuestTranslatedFrameRegisterName,
@@ -458,6 +460,7 @@ export type {
 export type {
   PortableMachineTargetContinuationKind,
   PortableMachineTargetFrameRestoreResult,
+  PortableMachineTargetRegisterRestoreResult,
   PortableMachineTargetResourceStatus,
   PortableMachineTargetResumePathResult,
   PortableMachineTargetReturnChainResult,

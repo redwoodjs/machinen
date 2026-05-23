@@ -99,6 +99,8 @@
 - [`TargetGuestRestoreLoaderRefusalCode`](#targetguestrestoreloaderrefusalcode)
 - [`TargetGuestRestoreResourceRecipe`](#targetguestrestoreresourcerecipe)
 - [`TargetGuestRestoreResumeMode`](#targetguestrestoreresumemode)
+- [`TargetGuestResumeRegisterName`](#targetguestresumeregistername)
+- [`TargetGuestResumeRegisters`](#targetguestresumeregisters)
 - [`TargetGuestRestoreContinuationDescriptor`](#targetguestrestorecontinuationdescriptor)
 - [`TargetGuestRestoreDescriptor`](#targetguestrestoredescriptor)
 - [`TargetGuestTranslatedFrameDescriptor`](#targetguesttranslatedframedescriptor)
@@ -116,6 +118,7 @@
 - [`PortableMachineVmRestoreProofState`](#portablemachinevmrestoreproofstate)
 - [`PortableMachineTargetContinuationKind`](#portablemachinetargetcontinuationkind)
 - [`PortableMachineTargetFrameRestoreResult`](#portablemachinetargetframerestoreresult)
+- [`PortableMachineTargetRegisterRestoreResult`](#portablemachinetargetregisterrestoreresult)
 - [`PortableMachineTargetThreadRestoreResult`](#portablemachinetargetthreadrestoreresult)
 - [`PortableMachineTargetResourceStatus`](#portablemachinetargetresourcestatus)
 - [`PortableMachineTargetResumePathResult`](#portablemachinetargetresumepathresult)
@@ -8175,6 +8178,10 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 > `optional` **targetTranslatedFramePointer?**: `string`
 
+##### targetRegisterRestoreResult?
+
+> `optional` **targetRegisterRestoreResult?**: [`PortableMachineTargetRegisterRestoreResult`](#portablemachinetargetregisterrestoreresult)
+
 ##### targetThreadRestoreResult?
 
 > `optional` **targetThreadRestoreResult?**: [`PortableMachineTargetThreadRestoreResult`](#portablemachinetargetthreadrestoreresult)
@@ -8276,6 +8283,10 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 ##### targetTranslatedFramePointer?
 
 > `optional` **targetTranslatedFramePointer?**: `string`
+
+##### targetRegisterRestoreResult?
+
+> `optional` **targetRegisterRestoreResult?**: [`PortableMachineTargetRegisterRestoreResult`](#portablemachinetargetregisterrestoreresult)
 
 ##### targetThreadRestoreResult?
 
@@ -9292,6 +9303,10 @@ Poll interval in ms while retrying. Default 250.
 ##### resumeMode?
 
 > `optional` **resumeMode?**: `"translated-frame"`
+
+##### resumeRegisters?
+
+> `optional` **resumeRegisters?**: [`TargetGuestResumeRegisters`](#targetguestresumeregisters)
 
 ##### timeoutSeconds
 
@@ -11907,6 +11922,12 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ***
 
+### PortableMachineTargetRegisterRestoreResult
+
+> **PortableMachineTargetRegisterRestoreResult** = `"pending"` \| `"passed"` \| `"failed"`
+
+***
+
 ### PortableMachineTargetThreadRestoreResult
 
 > **PortableMachineTargetThreadRestoreResult** = `"accepted"` \| `"refused"`
@@ -11964,6 +11985,18 @@ Result of `validatePid` — easy to switch on at the call site.
 ### TargetGuestRestoreResumeMode
 
 > **TargetGuestRestoreResumeMode** = `"translated-frame"`
+
+***
+
+### TargetGuestResumeRegisterName
+
+> **TargetGuestResumeRegisterName** = `"rax"` \| `"rsi"` \| `"rdx"` \| `"rcx"` \| `"r8"` \| `"r9"` \| `"r10"` \| `"r11"`
+
+***
+
+### TargetGuestResumeRegisters
+
+> **TargetGuestResumeRegisters** = `Record`\<[`TargetGuestResumeRegisterName`](#targetguestresumeregistername), `string`\>
 
 ***
 

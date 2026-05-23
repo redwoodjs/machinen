@@ -46,6 +46,10 @@ interface FrameRestorationEvent {
   framePointer?: string;
 }
 
+interface RegisterRestoreEvent {
+  status?: StateConsumptionStatus;
+}
+
 interface ResumePathEvent {
   status?: StateConsumptionStatus;
   mode?: string;
@@ -228,6 +232,7 @@ function targetExecutionSummary(
     ...targetStateConsumptionFields(events.stateConsumption),
     ...targetReturnChainFields(events.returnChain),
     ...targetFrameRestorationFields(events.frameRestoration),
+    ...targetRegisterRestoreFields(events.registerRestore),
     ...targetResumePathFields(events.resumePath),
     targetVerifierResult: targetVerifierResult(args, result.exitCode, events),
     exitCode: result.exitCode,
@@ -261,6 +266,12 @@ function targetFrameRestorationFields(frameRestoration: FrameRestorationEvent | 
   };
 }
 
+function targetRegisterRestoreFields(registerRestore: RegisterRestoreEvent | undefined) {
+  return {
+    targetRegisterRestoreResult: registerRestore?.status,
+  };
+}
+
 function targetResumePathFields(resumePath: ResumePathEvent | undefined) {
   return {
     targetResumePathResult: resumePath?.status,
@@ -277,6 +288,7 @@ function targetExecutionEvents(stdout: string) {
     stateConsumption: parseStateConsumption(actualResumeEvent),
     returnChain: parseReturnChain(actualResumeEvent),
     frameRestoration: parseFrameRestoration(actualResumeEvent),
+    registerRestore: parseRegisterRestore(actualResumeEvent),
     resumePath: parseResumePath(actualResumeEvent),
   };
 }
@@ -294,6 +306,7 @@ function targetVerifierResult(
     events.stateConsumption,
     events.returnChain,
     events.frameRestoration,
+    events.registerRestore,
     events.resumePath,
   )
     ? "passed"
@@ -391,6 +404,7 @@ function targetVerifierPassed(
   stateConsumption: StateConsumptionEvent | undefined,
   returnChain: ReturnChainEvent | undefined,
   frameRestoration: FrameRestorationEvent | undefined,
+  registerRestore: RegisterRestoreEvent | undefined,
   resumePath: ResumePathEvent | undefined,
 ): boolean {
   return [
@@ -398,6 +412,7 @@ function targetVerifierPassed(
     targetStateConsumed(stateConsumption),
     targetReturnChained(returnChain),
     targetFrameRestored(frameRestoration),
+    targetRegistersRestored(registerRestore),
     targetResumePathPassed(resumePath),
     targetReturnValueMatched(args, actualResumeEvent),
   ].every(Boolean);
@@ -417,6 +432,10 @@ function targetReturnChained(returnChain: ReturnChainEvent | undefined): boolean
 
 function targetFrameRestored(frameRestoration: FrameRestorationEvent | undefined): boolean {
   return frameRestoration === undefined || frameRestoration.status === "passed";
+}
+
+function targetRegistersRestored(registerRestore: RegisterRestoreEvent | undefined): boolean {
+  return registerRestore === undefined || registerRestore.status === "passed";
 }
 
 function targetResumePathPassed(resumePath: ResumePathEvent | undefined): boolean {
@@ -458,6 +477,13 @@ function parseFrameRestoration(
   actualResumeEvent: Record<string, unknown> | undefined,
 ): FrameRestorationEvent | undefined {
   const value = actualResumeEvent?.frameRestoration;
+  return isStateConsumptionEvent(value) ? value : undefined;
+}
+
+function parseRegisterRestore(
+  actualResumeEvent: Record<string, unknown> | undefined,
+): RegisterRestoreEvent | undefined {
+  const value = actualResumeEvent?.registerRestore;
   return isStateConsumptionEvent(value) ? value : undefined;
 }
 

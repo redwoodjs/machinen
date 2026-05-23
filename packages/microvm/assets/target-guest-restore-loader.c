@@ -54,6 +54,16 @@ struct Descriptor {
   uint64_t translated_return_address;
   bool has_resume_mode;
   char resume_mode[32];
+  bool has_resume_registers;
+  uint32_t resume_register_mask;
+  uint64_t resume_register_rax;
+  uint64_t resume_register_rsi;
+  uint64_t resume_register_rdx;
+  uint64_t resume_register_rcx;
+  uint64_t resume_register_r8;
+  uint64_t resume_register_r9;
+  uint64_t resume_register_r10;
+  uint64_t resume_register_r11;
   bool has_translated_frame;
   uint64_t translated_frame_pointer;
   uint64_t translated_frame_cfa;
@@ -223,6 +233,38 @@ static void parse_field(struct Descriptor *descriptor, char *line) {
     }
     snprintf(descriptor->resume_mode, sizeof(descriptor->resume_mode), "%s", value);
     descriptor->has_resume_mode = true;
+  } else if (streq(key, "resumeRegisterRax")) {
+    descriptor->resume_register_rax = parse_u64(value, key);
+    descriptor->resume_register_mask |= 0x01u;
+    descriptor->has_resume_registers = true;
+  } else if (streq(key, "resumeRegisterRsi")) {
+    descriptor->resume_register_rsi = parse_u64(value, key);
+    descriptor->resume_register_mask |= 0x02u;
+    descriptor->has_resume_registers = true;
+  } else if (streq(key, "resumeRegisterRdx")) {
+    descriptor->resume_register_rdx = parse_u64(value, key);
+    descriptor->resume_register_mask |= 0x04u;
+    descriptor->has_resume_registers = true;
+  } else if (streq(key, "resumeRegisterRcx")) {
+    descriptor->resume_register_rcx = parse_u64(value, key);
+    descriptor->resume_register_mask |= 0x08u;
+    descriptor->has_resume_registers = true;
+  } else if (streq(key, "resumeRegisterR8")) {
+    descriptor->resume_register_r8 = parse_u64(value, key);
+    descriptor->resume_register_mask |= 0x10u;
+    descriptor->has_resume_registers = true;
+  } else if (streq(key, "resumeRegisterR9")) {
+    descriptor->resume_register_r9 = parse_u64(value, key);
+    descriptor->resume_register_mask |= 0x20u;
+    descriptor->has_resume_registers = true;
+  } else if (streq(key, "resumeRegisterR10")) {
+    descriptor->resume_register_r10 = parse_u64(value, key);
+    descriptor->resume_register_mask |= 0x40u;
+    descriptor->has_resume_registers = true;
+  } else if (streq(key, "resumeRegisterR11")) {
+    descriptor->resume_register_r11 = parse_u64(value, key);
+    descriptor->resume_register_mask |= 0x80u;
+    descriptor->has_resume_registers = true;
   } else if (streq(key, "timeoutSeconds")) {
     descriptor->timeout_seconds = parse_u64(value, key);
   } else if (streq(key, "stackTargetStart")) {
@@ -630,6 +672,9 @@ static void validate_descriptor(const struct Descriptor *descriptor) {
   if (descriptor->has_resume_mode && !descriptor->has_translated_frame) {
     refuse("target-guest-loader-frame-unsupported", "translated resume mode requires a frame");
   }
+  if (descriptor->has_resume_registers && descriptor->resume_register_mask != 0xffu) {
+    refuse("target-guest-loader-invalid-continuation", "resume register bank is incomplete");
+  }
   if (descriptor->has_translated_frame &&
       (!descriptor->has_translated_return_address || descriptor->translated_frame_slot_count == 0 ||
           descriptor->translated_frame_return_address != descriptor->translated_return_address)) {
@@ -701,6 +746,14 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   char argument0[32];
   char state_report_address[32];
   char translated_return_address[32];
+  char resume_register_rax[32];
+  char resume_register_rsi[32];
+  char resume_register_rdx[32];
+  char resume_register_rcx[32];
+  char resume_register_r8[32];
+  char resume_register_r9[32];
+  char resume_register_r10[32];
+  char resume_register_r11[32];
   char translated_frame_pointer[32];
   char translated_frame_cfa[32];
   char translated_frame_return_address_slot[32];
@@ -726,6 +779,14 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   snprintf(argument0, sizeof(argument0), "0x%" PRIx64, descriptor->argument0);
   snprintf(state_report_address, sizeof(state_report_address), "0x%" PRIx64, descriptor->state_report_address);
   snprintf(translated_return_address, sizeof(translated_return_address), "0x%" PRIx64, descriptor->translated_return_address);
+  snprintf(resume_register_rax, sizeof(resume_register_rax), "0x%" PRIx64, descriptor->resume_register_rax);
+  snprintf(resume_register_rsi, sizeof(resume_register_rsi), "0x%" PRIx64, descriptor->resume_register_rsi);
+  snprintf(resume_register_rdx, sizeof(resume_register_rdx), "0x%" PRIx64, descriptor->resume_register_rdx);
+  snprintf(resume_register_rcx, sizeof(resume_register_rcx), "0x%" PRIx64, descriptor->resume_register_rcx);
+  snprintf(resume_register_r8, sizeof(resume_register_r8), "0x%" PRIx64, descriptor->resume_register_r8);
+  snprintf(resume_register_r9, sizeof(resume_register_r9), "0x%" PRIx64, descriptor->resume_register_r9);
+  snprintf(resume_register_r10, sizeof(resume_register_r10), "0x%" PRIx64, descriptor->resume_register_r10);
+  snprintf(resume_register_r11, sizeof(resume_register_r11), "0x%" PRIx64, descriptor->resume_register_r11);
   snprintf(translated_frame_pointer, sizeof(translated_frame_pointer), "0x%" PRIx64, descriptor->translated_frame_pointer);
   snprintf(translated_frame_cfa, sizeof(translated_frame_cfa), "0x%" PRIx64, descriptor->translated_frame_cfa);
   snprintf(translated_frame_return_address_slot, sizeof(translated_frame_return_address_slot), "0x%" PRIx64, descriptor->translated_frame_return_address_slot);
@@ -781,6 +842,24 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   if (descriptor->has_resume_mode) {
     push_arg(child_argv, &child_argc, "--resume-mode");
     push_arg(child_argv, &child_argc, descriptor->resume_mode);
+  }
+  if (descriptor->has_resume_registers) {
+    push_arg(child_argv, &child_argc, "--resume-register-rax");
+    push_arg(child_argv, &child_argc, resume_register_rax);
+    push_arg(child_argv, &child_argc, "--resume-register-rsi");
+    push_arg(child_argv, &child_argc, resume_register_rsi);
+    push_arg(child_argv, &child_argc, "--resume-register-rdx");
+    push_arg(child_argv, &child_argc, resume_register_rdx);
+    push_arg(child_argv, &child_argc, "--resume-register-rcx");
+    push_arg(child_argv, &child_argc, resume_register_rcx);
+    push_arg(child_argv, &child_argc, "--resume-register-r8");
+    push_arg(child_argv, &child_argc, resume_register_r8);
+    push_arg(child_argv, &child_argc, "--resume-register-r9");
+    push_arg(child_argv, &child_argc, resume_register_r9);
+    push_arg(child_argv, &child_argc, "--resume-register-r10");
+    push_arg(child_argv, &child_argc, resume_register_r10);
+    push_arg(child_argv, &child_argc, "--resume-register-r11");
+    push_arg(child_argv, &child_argc, resume_register_r11);
   }
   if (descriptor->has_translated_frame) {
     push_arg(child_argv, &child_argc, "--translated-frame-pointer");
