@@ -1,10 +1,17 @@
-import { describe, expect, it } from "vitest";
-import type {
-  NativeMemoryMapping,
-  NativeProcessResource,
-  NativeThreadState,
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  NATIVE_PROCESS_IMAGE_FILES,
+  type NativeMemoryMapping,
+  type NativeProcessImageDocuments,
+  type NativeProcessResource,
+  type NativeThreadState,
 } from "../native-process-image.ts";
 import { planNativeThreadRestoreBoundary } from "../native-thread-restore-policy.ts";
+
+const tempDirs: string[] = [];
 
 const stackMapping: NativeMemoryMapping = {
   id: "mapping:stack",
@@ -16,6 +23,12 @@ const stackMapping: NativeMemoryMapping = {
   target: { materialization: "translate", targetStart: "0x500000000000" },
 };
 
+afterEach(() => {
+  while (tempDirs.length > 0) {
+    rmSync(tempDirs.pop()!, { recursive: true, force: true });
+  }
+});
+
 describe("native thread restore boundary", () => {
   it("accepts one safe stopped thread", () => {
     expect(
@@ -25,6 +38,40 @@ describe("native thread restore boundary", () => {
       threadId: "thread:1",
       targetThreadCount: 1,
       refusals: [],
+    });
+  });
+
+  it("accepts a modeled active sleep syscall under the full thread gate", () => {
+    const active = thread("thread:active-sleep");
+    active.syscall = { state: "inside-syscall", number: 115, name: "clock_nanosleep" };
+    if (active.sourceRegisters.arch === "arm64") {
+      active.sourceRegisters.x = [
+        "0x0",
+        "0x0",
+        "0x700000000100",
+        "0x0",
+        ...Array.from({ length: 27 }, () => "0x0"),
+      ];
+    }
+
+    const result = planNativeThreadRestoreBoundary({
+      threads: [active],
+      mappings: [stackMapping],
+      activeSyscall: {
+        sleepTimerPolicy: "defer-target-resume",
+        documents: documentsWithTimespec(active),
+      },
+    });
+
+    expect(result).toMatchObject({
+      state: "accepted",
+      threadId: "thread:active-sleep",
+      activeSyscallContinuations: [
+        expect.objectContaining({
+          syscallClass: "sleep-timer",
+          action: "defer-target-resume",
+        }),
+      ],
     });
   });
 
@@ -151,13 +198,69 @@ describe("native thread restore boundary", () => {
         mappings: entry.mappings ?? [stackMapping],
         resources: entry.resources ?? [],
       });
-      expect(result, entry.id).toMatchObject({
-        state: "refused",
-        refusals: [expect.objectContaining({ code: entry.expectedCode })],
-      });
+      expect(result, entry.id).toMatchObject({ state: "refused" });
+      expect(result.refusals, entry.id).toContainEqual(
+        expect.objectContaining({ code: entry.expectedCode }),
+      );
     }
   });
 });
+
+function documentsWithTimespec(activeThread: NativeThreadState): NativeProcessImageDocuments {
+  const rootDir = mkdtempSync(join(tmpdir(), "machinen-thread-restore-syscall-"));
+  tempDirs.push(rootDir);
+  const memory = Buffer.alloc(4096);
+  memory.writeBigUInt64LE(30n, 0x100);
+  memory.writeBigUInt64LE(123n, 0x108);
+  writeFileSync(join(rootDir, NATIVE_PROCESS_IMAGE_FILES.memory), memory);
+  return {
+    rootDir,
+    manifest: {
+      formatVersion: 1,
+      kind: "machinen.native-process-image",
+      capture: { method: "external-ptrace-procfs", sourceArch: "arm64" },
+      target: { mode: "native-cross-isa", arch: "amd64", abi: "linux-user" },
+      process: { exe: "/bin/sleep", argv: ["sleep"], env: {}, cwd: "/" },
+      refusals: { vocabularyVersion: 1, refusals: [] },
+    },
+    mappings: {
+      formatVersion: 1,
+      mappings: [
+        {
+          id: "mapping:timespec",
+          kind: "data",
+          sourceStart: "0x700000000000",
+          sourceEnd: "0x700000001000",
+          sizeBytes: 4096,
+          permissions: { read: true, write: true, execute: false, private: true, shared: false },
+          captured: { file: "native-memory.bin", offset: 0, sizeBytes: 4096 },
+          target: { materialization: "translate", targetStart: "0x500000001000" },
+        },
+      ],
+      refusals: { vocabularyVersion: 1, refusals: [] },
+    },
+    threads: {
+      formatVersion: 1,
+      threads: [activeThread],
+      refusals: { vocabularyVersion: 1, refusals: [] },
+    },
+    resources: {
+      formatVersion: 1,
+      resources: [],
+      refusals: { vocabularyVersion: 1, refusals: [] },
+    },
+    translation: {
+      formatVersion: 1,
+      mode: "native-cross-isa",
+      sourceArch: "arm64",
+      targetArch: "amd64",
+      codeLocations: [],
+      threads: [],
+      memoryRelocations: [],
+      refusals: { vocabularyVersion: 1, refusals: [] },
+    },
+  };
+}
 
 function thread(id: string): NativeThreadState {
   return {

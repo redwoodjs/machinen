@@ -8281,6 +8281,10 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 > `optional` **targetAccessPolicy?**: [`NativeTlsTargetAccessPolicy`](#nativetlstargetaccesspolicy)
 
+##### activeSyscall?
+
+> `optional` **activeSyscall?**: [`NativeActiveSyscallPolicyOptions`](#nativeactivesyscallpolicyoptions)
+
 ***
 
 ### NativeTlsSegmentBaseHandoffRequest
@@ -12594,7 +12598,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NativeThreadRestorePlan
 
-> **NativeThreadRestorePlan** = \{ `state`: `"accepted"`; `threadId`: `string`; `targetThreadCount`: `1`; `refusals`: \[\]; \} \| \{ `state`: `"refused"`; `targetThreadCount`: `number`; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
+> **NativeThreadRestorePlan** = \{ `state`: `"accepted"`; `threadId`: `string`; `targetThreadCount`: `1`; `activeSyscallContinuations`: [`NativeActiveSyscallContinuation`](#nativeactivesyscallcontinuation)[]; `refusals`: \[\]; \} \| \{ `state`: `"refused"`; `targetThreadCount`: `number`; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
 
 ***
 

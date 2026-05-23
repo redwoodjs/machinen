@@ -1,9 +1,14 @@
 import type { NativeProcessImageRefusal, NativeThreadState } from "./native-process-image.ts";
 
+interface NativeThreadExecutionStateOptions {
+  allowModeledActiveSyscall?: boolean;
+}
+
 export function unsafeNativeThreadExecutionState(
   thread: NativeThreadState,
+  options: NativeThreadExecutionStateOptions = {},
 ): NativeProcessImageRefusal | undefined {
-  if (thread.syscall.state !== "outside-syscall") {
+  if (thread.syscall.state !== "outside-syscall" && !options.allowModeledActiveSyscall) {
     return nativeThreadRefusal("active-syscall", `thread ${thread.id} is ${thread.syscall.state}`);
   }
   if (thread.signal.activeFrame) {
