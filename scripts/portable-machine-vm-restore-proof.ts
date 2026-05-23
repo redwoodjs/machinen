@@ -111,8 +111,18 @@ const TRANSLATED_FRAME_POINTER = "0x50000000ff80";
 const TRANSLATED_FRAME_CFA = "0x50000000fff0";
 const TRANSLATED_FRAME_RETURN_ADDRESS_SLOT = "0x50000000fff0";
 const TRANSLATED_FRAME_SLOT_OFFSET = 0;
+const TRANSLATED_FRAME_RBX = "0x1111111122222222";
 const TRANSLATED_FRAME_R12 = "0x1234567890abcdef";
+const TRANSLATED_FRAME_R13 = "0x1313131313131313";
+const TRANSLATED_FRAME_R14 = "0x1414141414141414";
+const TRANSLATED_FRAME_R15 = "0x1515151515151515";
 const TRANSLATED_FRAME_UNWIND_ID = "target:realspin-final-jump";
+const TRANSLATED_FRAME_REGISTER_MASK_OFFSET = 48;
+const TRANSLATED_FRAME_REGISTER_MASK_RBX = 0x01;
+const TRANSLATED_FRAME_REGISTER_MASK_R12 = 0x02;
+const TRANSLATED_FRAME_REGISTER_MASK_R13 = 0x04;
+const TRANSLATED_FRAME_REGISTER_MASK_R14 = 0x08;
+const TRANSLATED_FRAME_REGISTER_MASK_R15 = 0x10;
 
 function usage(): never {
   console.error(
@@ -487,7 +497,13 @@ function translatedFrameDescriptor(returnAddress: string): TargetGuestTranslated
     returnAddressSlot: TRANSLATED_FRAME_RETURN_ADDRESS_SLOT,
     returnAddress,
     unwindId: TRANSLATED_FRAME_UNWIND_ID,
-    calleeSaved: [{ register: "r12", value: TRANSLATED_FRAME_R12 }],
+    calleeSaved: [
+      { register: "rbx", value: TRANSLATED_FRAME_RBX },
+      { register: "r12", value: TRANSLATED_FRAME_R12 },
+      { register: "r13", value: TRANSLATED_FRAME_R13 },
+      { register: "r14", value: TRANSLATED_FRAME_R14 },
+      { register: "r15", value: TRANSLATED_FRAME_R15 },
+    ],
     slots: [
       {
         offset: TRANSLATED_FRAME_SLOT_OFFSET,
@@ -704,6 +720,7 @@ function proofStateVerifierTargetCode(
   const asm = new Amd64ProofAssembler();
   if (completion === "return") {
     asm.preserveRbx();
+    asm.checkTranslatedRbx();
     asm.movRbxFromRdi();
     asm.storeReportWord(16, 0n);
     asm.checkTranslatedFrame();
@@ -738,6 +755,10 @@ class Amd64ProofAssembler {
     this.push(0x53);
   }
 
+  checkTranslatedRbx(): void {
+    this.checkRbxImmediate(BigInt(TRANSLATED_FRAME_RBX));
+  }
+
   movRbxFromRdi(): void {
     this.push(0x48, 0x89, 0xfb);
   }
@@ -754,12 +775,25 @@ class Amd64ProofAssembler {
 
   checkTranslatedFrame(): void {
     this.checkRbpImmediate(BigInt(TRANSLATED_FRAME_POINTER));
+    this.storeReportWord(TRANSLATED_FRAME_REGISTER_MASK_OFFSET, 0n);
+    this.markTranslatedRegister(TRANSLATED_FRAME_REGISTER_MASK_RBX);
     this.checkR12Immediate(BigInt(TRANSLATED_FRAME_R12));
+    this.markTranslatedRegister(TRANSLATED_FRAME_REGISTER_MASK_R12);
+    this.checkR13Immediate(BigInt(TRANSLATED_FRAME_R13));
+    this.markTranslatedRegister(TRANSLATED_FRAME_REGISTER_MASK_R13);
+    this.checkR14Immediate(BigInt(TRANSLATED_FRAME_R14));
+    this.markTranslatedRegister(TRANSLATED_FRAME_REGISTER_MASK_R14);
+    this.checkR15Immediate(BigInt(TRANSLATED_FRAME_R15));
+    this.markTranslatedRegister(TRANSLATED_FRAME_REGISTER_MASK_R15);
     this.checkAbsoluteU64(
       BigInt(TRANSLATED_FRAME_POINTER) + BigInt(TRANSLATED_FRAME_SLOT_OFFSET),
       TRANSLATED_FRAME_MARKER,
     );
     this.storeReportWord(32, TRANSLATED_FRAME_MARKER);
+  }
+
+  markTranslatedRegister(bit: number): void {
+    this.push(0x48, 0x83, 0x4b, TRANSLATED_FRAME_REGISTER_MASK_OFFSET, bit);
   }
 
   checkTranslatedResumePath(): void {
@@ -838,9 +872,33 @@ class Amd64ProofAssembler {
     this.jumpIfNotEqual();
   }
 
+  private checkRbxImmediate(expected: bigint): void {
+    this.movRaxImmediate(expected);
+    this.push(0x48, 0x39, 0xc3);
+    this.jumpIfNotEqual();
+  }
+
   private checkR12Immediate(expected: bigint): void {
     this.movRaxImmediate(expected);
     this.push(0x49, 0x39, 0xc4);
+    this.jumpIfNotEqual();
+  }
+
+  private checkR13Immediate(expected: bigint): void {
+    this.movRaxImmediate(expected);
+    this.push(0x49, 0x39, 0xc5);
+    this.jumpIfNotEqual();
+  }
+
+  private checkR14Immediate(expected: bigint): void {
+    this.movRaxImmediate(expected);
+    this.push(0x49, 0x39, 0xc6);
+    this.jumpIfNotEqual();
+  }
+
+  private checkR15Immediate(expected: bigint): void {
+    this.movRaxImmediate(expected);
+    this.push(0x49, 0x39, 0xc7);
     this.jumpIfNotEqual();
   }
 

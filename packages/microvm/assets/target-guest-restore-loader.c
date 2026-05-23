@@ -58,7 +58,11 @@ struct Descriptor {
   uint64_t translated_frame_cfa;
   uint64_t translated_frame_return_address_slot;
   uint64_t translated_frame_return_address;
+  uint64_t translated_frame_callee_rbx;
   uint64_t translated_frame_callee_r12;
+  uint64_t translated_frame_callee_r13;
+  uint64_t translated_frame_callee_r14;
+  uint64_t translated_frame_callee_r15;
   bool has_translated_frame_slot;
   uint64_t translated_frame_slot_offset;
   uint64_t translated_frame_slot_value;
@@ -437,7 +441,17 @@ static void parse_memory(struct Descriptor *descriptor, char *line) {
 
 static const char *required_frame_token(char *scratch, size_t scratch_size, char *fields, const char *name) {
   snprintf(scratch, scratch_size, "%s", fields);
-  const char *value = find_token_value(scratch, name);
+  size_t name_length = strlen(name);
+  const char *value = NULL;
+  char *save = NULL;
+  for (char *token = strtok_r(scratch, " ", &save); token; token = strtok_r(NULL, " ", &save)) {
+    if (starts_with(token, name) && token[name_length] == '=') {
+      if (value != NULL) {
+        refuse("target-guest-loader-frame-unsupported", "duplicate translated frame field");
+      }
+      value = token + name_length + 1u;
+    }
+  }
   if (!value) {
     refuse("target-guest-loader-descriptor-invalid", "translated frame field is required");
   }
@@ -465,8 +479,16 @@ static void parse_translated_frame(struct Descriptor *descriptor, char *line) {
     refuse("target-guest-loader-frame-unsupported", "translated frame unwind identity is unsupported");
   }
   snprintf(descriptor->translated_frame_unwind_id, sizeof(descriptor->translated_frame_unwind_id), "%s", unwind_id);
+  descriptor->translated_frame_callee_rbx = parse_u64(
+      required_frame_token(scratch, sizeof(scratch), fields, "calleeSavedRbx"), "calleeSavedRbx");
   descriptor->translated_frame_callee_r12 = parse_u64(
       required_frame_token(scratch, sizeof(scratch), fields, "calleeSavedR12"), "calleeSavedR12");
+  descriptor->translated_frame_callee_r13 = parse_u64(
+      required_frame_token(scratch, sizeof(scratch), fields, "calleeSavedR13"), "calleeSavedR13");
+  descriptor->translated_frame_callee_r14 = parse_u64(
+      required_frame_token(scratch, sizeof(scratch), fields, "calleeSavedR14"), "calleeSavedR14");
+  descriptor->translated_frame_callee_r15 = parse_u64(
+      required_frame_token(scratch, sizeof(scratch), fields, "calleeSavedR15"), "calleeSavedR15");
   descriptor->translated_frame_slot_offset = parse_u64(
       required_frame_token(scratch, sizeof(scratch), fields, "slot0Offset"), "slot0Offset");
   descriptor->translated_frame_slot_value = parse_u64(
@@ -624,7 +646,11 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   char translated_frame_cfa[32];
   char translated_frame_return_address_slot[32];
   char translated_frame_return_address[32];
+  char translated_frame_callee_rbx[32];
   char translated_frame_callee_r12[32];
+  char translated_frame_callee_r13[32];
+  char translated_frame_callee_r14[32];
+  char translated_frame_callee_r15[32];
   char translated_frame_slot[128];
   char timeout_seconds[32];
   char stack_target_start[32];
@@ -645,7 +671,11 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   snprintf(translated_frame_cfa, sizeof(translated_frame_cfa), "0x%" PRIx64, descriptor->translated_frame_cfa);
   snprintf(translated_frame_return_address_slot, sizeof(translated_frame_return_address_slot), "0x%" PRIx64, descriptor->translated_frame_return_address_slot);
   snprintf(translated_frame_return_address, sizeof(translated_frame_return_address), "0x%" PRIx64, descriptor->translated_frame_return_address);
+  snprintf(translated_frame_callee_rbx, sizeof(translated_frame_callee_rbx), "0x%" PRIx64, descriptor->translated_frame_callee_rbx);
   snprintf(translated_frame_callee_r12, sizeof(translated_frame_callee_r12), "0x%" PRIx64, descriptor->translated_frame_callee_r12);
+  snprintf(translated_frame_callee_r13, sizeof(translated_frame_callee_r13), "0x%" PRIx64, descriptor->translated_frame_callee_r13);
+  snprintf(translated_frame_callee_r14, sizeof(translated_frame_callee_r14), "0x%" PRIx64, descriptor->translated_frame_callee_r14);
+  snprintf(translated_frame_callee_r15, sizeof(translated_frame_callee_r15), "0x%" PRIx64, descriptor->translated_frame_callee_r15);
   snprintf(translated_frame_slot,
       sizeof(translated_frame_slot),
       "0x%" PRIx64 ":0x%" PRIx64 ":%s",
@@ -702,8 +732,16 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
     push_arg(child_argv, &child_argc, translated_frame_return_address);
     push_arg(child_argv, &child_argc, "--translated-frame-unwind-id");
     push_arg(child_argv, &child_argc, descriptor->translated_frame_unwind_id);
+    push_arg(child_argv, &child_argc, "--translated-frame-callee-rbx");
+    push_arg(child_argv, &child_argc, translated_frame_callee_rbx);
     push_arg(child_argv, &child_argc, "--translated-frame-callee-r12");
     push_arg(child_argv, &child_argc, translated_frame_callee_r12);
+    push_arg(child_argv, &child_argc, "--translated-frame-callee-r13");
+    push_arg(child_argv, &child_argc, translated_frame_callee_r13);
+    push_arg(child_argv, &child_argc, "--translated-frame-callee-r14");
+    push_arg(child_argv, &child_argc, translated_frame_callee_r14);
+    push_arg(child_argv, &child_argc, "--translated-frame-callee-r15");
+    push_arg(child_argv, &child_argc, translated_frame_callee_r15);
     push_arg(child_argv, &child_argc, "--translated-frame-slot");
     push_arg(child_argv, &child_argc, translated_frame_slot);
   }

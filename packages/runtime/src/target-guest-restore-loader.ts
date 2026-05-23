@@ -64,8 +64,10 @@ export interface TargetGuestTranslatedFrameDescriptor {
   slots: TargetGuestTranslatedFrameSlot[];
 }
 
+export type TargetGuestTranslatedFrameRegisterName = "rbx" | "r12" | "r13" | "r14" | "r15";
+
 export interface TargetGuestTranslatedFrameRegister {
-  register: "r12";
+  register: TargetGuestTranslatedFrameRegisterName;
   value: string;
 }
 
@@ -233,7 +235,7 @@ function fieldsToDescriptor(
 function parseTranslatedFrame(line: string): TargetGuestTranslatedFrameDescriptor {
   const [head, ...fields] = line.split(/\s+/);
   const kind = head!.slice("frame=".length);
-  const values = new Map(fields.map(splitField));
+  const values = translatedFrameFieldMap(fields);
   if (kind !== "single-target-caller-frame") {
     fail("target-guest-loader-frame-unsupported", `unsupported translated frame: ${kind}`);
   }
@@ -249,9 +251,33 @@ function parseTranslatedFrame(line: string): TargetGuestTranslatedFrameDescripto
   };
 }
 
+const TARGET_FRAME_CALLEE_SAVED_REGISTERS = ["rbx", "r12", "r13", "r14", "r15"] as const;
+
+const TARGET_FRAME_REGISTER_FIELDS: Record<TargetGuestTranslatedFrameRegisterName, string> = {
+  rbx: "calleeSavedRbx",
+  r12: "calleeSavedR12",
+  r13: "calleeSavedR13",
+  r14: "calleeSavedR14",
+  r15: "calleeSavedR15",
+};
+
+function translatedFrameFieldMap(fields: string[]): Map<string, string> {
+  const values = new Map<string, string>();
+  for (const field of fields) {
+    const [key, value] = splitField(field);
+    if (values.has(key)) {
+      fail("target-guest-loader-frame-unsupported", "duplicate translated frame field");
+    }
+    values.set(key, value);
+  }
+  return values;
+}
+
 function parseFrameRegisters(fields: Map<string, string>): TargetGuestTranslatedFrameRegister[] {
-  const value = fields.get("calleeSavedR12");
-  return value === undefined ? [] : [{ register: "r12", value }];
+  return TARGET_FRAME_CALLEE_SAVED_REGISTERS.flatMap((register) => {
+    const value = fields.get(TARGET_FRAME_REGISTER_FIELDS[register]);
+    return value === undefined ? [] : [{ register, value }];
+  });
 }
 
 function parseFrameSlots(fields: Map<string, string>): TargetGuestTranslatedFrameSlot[] {
@@ -647,15 +673,28 @@ function assertFrameShape(
 }
 
 function validateFrameRegisters(registers: TargetGuestTranslatedFrameRegister[]): void {
-  if (registers.length > 1) {
-    fail("target-guest-loader-frame-unsupported", "too many translated frame registers");
-  }
+  const values = new Map<TargetGuestTranslatedFrameRegisterName, string>();
   for (const register of registers) {
-    if (register.register !== "r12") {
+    if (!isTargetFrameCalleeSavedRegister(register.register)) {
       fail("target-guest-loader-frame-unsupported", "translated frame register is unsupported");
     }
+    if (values.has(register.register)) {
+      fail("target-guest-loader-frame-unsupported", "duplicate translated frame register");
+    }
     assertHexAddress(register.value, register.register);
+    values.set(register.register, register.value);
   }
+  if (values.size !== TARGET_FRAME_CALLEE_SAVED_REGISTERS.length) {
+    fail("target-guest-loader-frame-unsupported", "translated frame register bank is incomplete");
+  }
+}
+
+function isTargetFrameCalleeSavedRegister(
+  register: string,
+): register is TargetGuestTranslatedFrameRegisterName {
+  return TARGET_FRAME_CALLEE_SAVED_REGISTERS.includes(
+    register as TargetGuestTranslatedFrameRegisterName,
+  );
 }
 
 function validateFrameSlots(slots: TargetGuestTranslatedFrameSlot[]): void {
@@ -730,7 +769,7 @@ function optionalTranslatedFrameField(
 }
 
 function serializeTranslatedFrame(frame: TargetGuestTranslatedFrameDescriptor): string {
-  const r12 = frame.calleeSaved.find((register) => register.register === "r12");
+  const registers = frameRegisterMap(frame.calleeSaved);
   const slot = frame.slots[0];
   return [
     `frame=${frame.kind}`,
@@ -739,11 +778,19 @@ function serializeTranslatedFrame(frame: TargetGuestTranslatedFrameDescriptor): 
     `returnAddressSlot=${frame.returnAddressSlot}`,
     `returnAddress=${frame.returnAddress}`,
     `unwindId=${frame.unwindId}`,
-    ...optionalFrameToken("calleeSavedR12", r12?.value),
+    ...TARGET_FRAME_CALLEE_SAVED_REGISTERS.flatMap((register) =>
+      optionalFrameToken(TARGET_FRAME_REGISTER_FIELDS[register], registers.get(register)),
+    ),
     ...optionalFrameToken("slot0Offset", slot?.offset),
     ...optionalFrameToken("slot0Value", slot?.value),
     ...optionalFrameToken("slot0Class", slot?.classification),
   ].join(" ");
+}
+
+function frameRegisterMap(
+  registers: TargetGuestTranslatedFrameRegister[],
+): Map<TargetGuestTranslatedFrameRegisterName, string> {
+  return new Map(registers.map((register) => [register.register, register.value]));
 }
 
 function optionalFrameToken(name: string, value: string | number | undefined): string[] {
@@ -823,7 +870,7 @@ function translatedFrameToTrampolineArgs(
   if (frame === undefined) {
     return [];
   }
-  const r12 = frame.calleeSaved.find((register) => register.register === "r12");
+  const registers = frameRegisterMap(frame.calleeSaved);
   const slot = frame.slots[0];
   return [
     "--translated-frame-pointer",
@@ -836,7 +883,9 @@ function translatedFrameToTrampolineArgs(
     frame.returnAddress,
     "--translated-frame-unwind-id",
     frame.unwindId,
-    ...optionalArg("--translated-frame-callee-r12", r12?.value),
+    ...TARGET_FRAME_CALLEE_SAVED_REGISTERS.flatMap((register) =>
+      optionalArg(`--translated-frame-callee-${register}`, registers.get(register)),
+    ),
     ...optionalArg("--translated-frame-slot", slot ? frameSlotSpec(slot) : undefined),
   ];
 }

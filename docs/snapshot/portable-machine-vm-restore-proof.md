@@ -57,9 +57,9 @@ the target-native continuation validates the frame before returning through the
 target-native landing. The restore boundary accepts only one safe stopped thread
 for this proof; multi-thread, futex, signal-delivery, ptrace/debug,
 shared-stack, unknown-TLS, and ambiguous register states refuse before the target
-VM is entered. The descriptor now uses `resumeMode=translated-frame`, so the
-success path records a target-native resume-path marker after the real
-continuation observes the translated frame and stack.
+VM is entered. The descriptor uses `resumeMode=translated-frame`, so the success
+path records a target-native resume-path marker after the real continuation
+observes the translated frame, stack, and amd64 callee-saved register bank.
 
 ## Smoke profile
 

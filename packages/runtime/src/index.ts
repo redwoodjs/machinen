@@ -444,6 +444,7 @@ export type {
   TargetGuestRestoreResumeMode,
   TargetGuestTranslatedFrameDescriptor,
   TargetGuestTranslatedFrameRegister,
+  TargetGuestTranslatedFrameRegisterName,
   TargetGuestTranslatedFrameSlot,
 } from "./target-guest-restore-loader.ts";
 export type {

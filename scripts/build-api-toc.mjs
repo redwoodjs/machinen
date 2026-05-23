@@ -125,6 +125,7 @@ const TOC = {
     "TargetGuestRestoreDescriptor",
     "TargetGuestTranslatedFrameDescriptor",
     "TargetGuestTranslatedFrameRegister",
+    "TargetGuestTranslatedFrameRegisterName",
     "TargetGuestTranslatedFrameSlot",
     "TargetGuestMemoryMaterializationKind",
     "TargetGuestMemoryMaterializationEntry",
