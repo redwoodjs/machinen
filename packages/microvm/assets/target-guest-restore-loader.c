@@ -52,6 +52,8 @@ struct Descriptor {
   uint64_t argument0;
   bool has_state_report_address;
   uint64_t state_report_address;
+  bool has_target_fs_base;
+  uint64_t target_fs_base;
   bool has_translated_return_address;
   uint64_t translated_return_address;
   bool has_resume_mode;
@@ -229,6 +231,9 @@ static void parse_field(struct Descriptor *descriptor, char *line) {
   } else if (streq(key, "stateReportAddress")) {
     descriptor->state_report_address = parse_u64(value, key);
     descriptor->has_state_report_address = true;
+  } else if (streq(key, "targetFsBase")) {
+    descriptor->target_fs_base = parse_u64(value, key);
+    descriptor->has_target_fs_base = true;
   } else if (streq(key, "translatedReturnAddress")) {
     descriptor->translated_return_address = parse_u64(value, key);
     descriptor->has_translated_return_address = true;
@@ -684,6 +689,9 @@ static void validate_descriptor(const struct Descriptor *descriptor) {
   if (descriptor->has_resume_mode && !descriptor->has_translated_frame) {
     refuse("target-guest-loader-frame-unsupported", "translated resume mode requires a frame");
   }
+  if (descriptor->has_target_fs_base && !descriptor->has_state_report_address) {
+    refuse("target-guest-loader-invalid-continuation", "targetFsBase requires a state report");
+  }
   if (descriptor->has_argument0 && descriptor->has_resume_registers) {
     refuse("target-guest-loader-invalid-continuation", "argument0 cannot be combined with a resume register bank");
   }
@@ -768,6 +776,7 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   char target_address[32];
   char argument0[32];
   char state_report_address[32];
+  char target_fs_base[32];
   char translated_return_address[32];
   char resume_rflags[32];
   char resume_register_rax[32];
@@ -803,6 +812,7 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   snprintf(target_address, sizeof(target_address), "0x%" PRIx64, descriptor->target_address);
   snprintf(argument0, sizeof(argument0), "0x%" PRIx64, descriptor->argument0);
   snprintf(state_report_address, sizeof(state_report_address), "0x%" PRIx64, descriptor->state_report_address);
+  snprintf(target_fs_base, sizeof(target_fs_base), "0x%" PRIx64, descriptor->target_fs_base);
   snprintf(translated_return_address, sizeof(translated_return_address), "0x%" PRIx64, descriptor->translated_return_address);
   snprintf(resume_rflags, sizeof(resume_rflags), "0x%" PRIx64, descriptor->resume_rflags);
   snprintf(resume_register_rax, sizeof(resume_register_rax), "0x%" PRIx64, descriptor->resume_register_rax);
@@ -861,6 +871,10 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   if (descriptor->has_state_report_address) {
     push_arg(child_argv, &child_argc, "--state-report-address");
     push_arg(child_argv, &child_argc, state_report_address);
+  }
+  if (descriptor->has_target_fs_base) {
+    push_arg(child_argv, &child_argc, "--target-fs-base");
+    push_arg(child_argv, &child_argc, target_fs_base);
   }
   if (descriptor->has_translated_return_address) {
     push_arg(child_argv, &child_argc, "--translated-return-address");

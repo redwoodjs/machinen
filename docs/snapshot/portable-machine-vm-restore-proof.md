@@ -59,9 +59,9 @@ target-native landing. The restore boundary accepts only one safe stopped thread
 for this proof; multi-thread, futex, signal-delivery, ptrace/debug,
 shared-stack, unknown/ambiguous TLS or target segment-base, ambiguous register,
 and live/unknown SIMD/FPU states refuse before the target VM is entered. The
-current continuation declares target TLS not required and therefore uses zero
-amd64 `%fs`/`%gs`; later target-TCB materialization must opt into a non-zero
-segment-base policy. The descriptor uses `resumeMode=translated-frame`, so the success
+current continuation materializes a minimal target-owned amd64 TCB page, sets
+`%fs` to that page before the target-native jump, reads proof markers through
+`%fs`, and restores the host `%fs` on return. The descriptor uses `resumeMode=translated-frame`, so the success
 path records a target-native resume-path marker after the real continuation
 observes the translated frame, stack-slot vector, amd64 callee-saved register
 bank, modeled resume-register handoff including `%rdi`, and modeled RFLAGS
@@ -110,7 +110,8 @@ resource recipe kinds, `targetRestore.targetContinuationKind`,
 `targetRestore.targetResumePathResult`,
 `targetRestore.targetResumePathMode`,
 `targetRestore.targetRegisterRestoreResult`,
-`targetRestore.targetRflagsRestoreResult`, and
+`targetRestore.targetRflagsRestoreResult`,
+`targetRestore.targetTlsRestoreResult`, and
 `targetRestore.targetVerifierResult`. It reports timing for:
 
 1. preflight / optional remote reachability gates;

@@ -27,6 +27,7 @@ export type PortableMachineTargetReturnChainResult = "pending" | "passed" | "fai
 export type PortableMachineTargetFrameRestoreResult = "pending" | "passed" | "failed";
 export type PortableMachineTargetRegisterRestoreResult = "pending" | "passed" | "failed";
 export type PortableMachineTargetRflagsRestoreResult = "pending" | "passed" | "failed";
+export type PortableMachineTargetTlsRestoreResult = "pending" | "passed" | "failed";
 export type PortableMachineTargetThreadRestoreResult = "accepted" | "refused";
 export type PortableMachineTargetResumePathResult = "pending" | "passed" | "failed";
 
@@ -45,6 +46,7 @@ export interface PortableMachineTargetRestoreObservation {
   targetTranslatedFramePointer?: string;
   targetRegisterRestoreResult?: PortableMachineTargetRegisterRestoreResult;
   targetRflagsRestoreResult?: PortableMachineTargetRflagsRestoreResult;
+  targetTlsRestoreResult?: PortableMachineTargetTlsRestoreResult;
   targetThreadRestoreResult?: PortableMachineTargetThreadRestoreResult;
   targetThreadRestoreThreadId?: string;
   targetResumePathResult?: PortableMachineTargetResumePathResult;
@@ -207,6 +209,7 @@ export function completePortableMachineVmRestoreProof(
     targetTranslatedFramePointer: result.targetTranslatedFramePointer,
     targetRegisterRestoreResult: result.targetRegisterRestoreResult,
     targetRflagsRestoreResult: result.targetRflagsRestoreResult,
+    targetTlsRestoreResult: result.targetTlsRestoreResult,
     targetThreadRestoreResult: result.targetThreadRestoreResult ?? plan.targetThreadRestoreResult,
     targetThreadRestoreThreadId:
       result.targetThreadRestoreThreadId ?? plan.targetThreadRestoreThreadId,
@@ -227,21 +230,30 @@ function targetNativeCompleted(result: PortableMachineVmRestoreTargetResult): bo
     result.exitCode === 0,
     result.migrationCompleted === true,
     result.descriptorGateCompleted === true,
-    result.targetVerifierResult === undefined || result.targetVerifierResult === "passed",
-    result.targetStateConsumptionResult === undefined ||
-      result.targetStateConsumptionResult === "passed",
-    result.targetReturnChainResult === undefined || result.targetReturnChainResult === "passed",
-    result.targetFrameRestoreResult === undefined || result.targetFrameRestoreResult === "passed",
-    result.targetRegisterRestoreResult === undefined ||
-      result.targetRegisterRestoreResult === "passed",
-    result.targetRflagsRestoreResult === undefined || result.targetRflagsRestoreResult === "passed",
-    result.targetThreadRestoreResult === undefined ||
-      result.targetThreadRestoreResult === "accepted",
-    result.targetResumePathResult === undefined || result.targetResumePathResult === "passed",
+    optionalTargetChecksPassed(result),
     result.sourceTextReusedAsTargetCode === false,
     result.sourceIsaEmulationUsed === false,
     result.sidecarRuntimeUsed === false,
   ].every(Boolean);
+}
+
+function optionalTargetChecksPassed(result: PortableMachineVmRestoreTargetResult): boolean {
+  return [
+    passedOrUnset(result.targetVerifierResult),
+    passedOrUnset(result.targetStateConsumptionResult),
+    passedOrUnset(result.targetReturnChainResult),
+    passedOrUnset(result.targetFrameRestoreResult),
+    passedOrUnset(result.targetRegisterRestoreResult),
+    passedOrUnset(result.targetRflagsRestoreResult),
+    passedOrUnset(result.targetTlsRestoreResult),
+    result.targetThreadRestoreResult === undefined ||
+      result.targetThreadRestoreResult === "accepted",
+    passedOrUnset(result.targetResumePathResult),
+  ].every(Boolean);
+}
+
+function passedOrUnset(value: string | undefined): boolean {
+  return value === undefined || value === "passed";
 }
 
 function missingInputs(request: PortableMachineVmRestoreProofRequest): string | undefined {

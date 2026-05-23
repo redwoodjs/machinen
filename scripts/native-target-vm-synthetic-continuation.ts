@@ -54,6 +54,10 @@ interface RflagsRestoreEvent {
   status?: StateConsumptionStatus;
 }
 
+interface TlsRestoreEvent {
+  status?: StateConsumptionStatus;
+}
+
 interface ResumePathEvent {
   status?: StateConsumptionStatus;
   mode?: string;
@@ -238,6 +242,7 @@ function targetExecutionSummary(
     ...targetFrameRestorationFields(events.frameRestoration),
     ...targetRegisterRestoreFields(events.registerRestore),
     ...targetRflagsRestoreFields(events.rflagsRestore),
+    ...targetTlsRestoreFields(events.tlsRestore),
     ...targetResumePathFields(events.resumePath),
     targetVerifierResult: targetVerifierResult(args, result.exitCode, events),
     exitCode: result.exitCode,
@@ -283,6 +288,12 @@ function targetRflagsRestoreFields(rflagsRestore: RflagsRestoreEvent | undefined
   };
 }
 
+function targetTlsRestoreFields(tlsRestore: TlsRestoreEvent | undefined) {
+  return {
+    targetTlsRestoreResult: tlsRestore?.status,
+  };
+}
+
 function targetResumePathFields(resumePath: ResumePathEvent | undefined) {
   return {
     targetResumePathResult: resumePath?.status,
@@ -301,6 +312,7 @@ function targetExecutionEvents(stdout: string) {
     frameRestoration: parseFrameRestoration(actualResumeEvent),
     registerRestore: parseRegisterRestore(actualResumeEvent),
     rflagsRestore: parseRflagsRestore(actualResumeEvent),
+    tlsRestore: parseTlsRestore(actualResumeEvent),
     resumePath: parseResumePath(actualResumeEvent),
   };
 }
@@ -320,6 +332,7 @@ function targetVerifierResult(
     events.frameRestoration,
     events.registerRestore,
     events.rflagsRestore,
+    events.tlsRestore,
     events.resumePath,
   )
     ? "passed"
@@ -419,6 +432,7 @@ function targetVerifierPassed(
   frameRestoration: FrameRestorationEvent | undefined,
   registerRestore: RegisterRestoreEvent | undefined,
   rflagsRestore: RflagsRestoreEvent | undefined,
+  tlsRestore: TlsRestoreEvent | undefined,
   resumePath: ResumePathEvent | undefined,
 ): boolean {
   return [
@@ -428,6 +442,7 @@ function targetVerifierPassed(
     targetFrameRestored(frameRestoration),
     targetRegistersRestored(registerRestore),
     targetRflagsRestored(rflagsRestore),
+    targetTlsRestored(tlsRestore),
     targetResumePathPassed(resumePath),
     targetReturnValueMatched(args, actualResumeEvent),
   ].every(Boolean);
@@ -455,6 +470,10 @@ function targetRegistersRestored(registerRestore: RegisterRestoreEvent | undefin
 
 function targetRflagsRestored(rflagsRestore: RflagsRestoreEvent | undefined): boolean {
   return rflagsRestore === undefined || rflagsRestore.status === "passed";
+}
+
+function targetTlsRestored(tlsRestore: TlsRestoreEvent | undefined): boolean {
+  return tlsRestore === undefined || tlsRestore.status === "passed";
 }
 
 function targetResumePathPassed(resumePath: ResumePathEvent | undefined): boolean {
@@ -510,6 +529,13 @@ function parseRflagsRestore(
   actualResumeEvent: Record<string, unknown> | undefined,
 ): RflagsRestoreEvent | undefined {
   const value = actualResumeEvent?.rflagsRestore;
+  return isStateConsumptionEvent(value) ? value : undefined;
+}
+
+function parseTlsRestore(
+  actualResumeEvent: Record<string, unknown> | undefined,
+): TlsRestoreEvent | undefined {
+  const value = actualResumeEvent?.tlsRestore;
   return isStateConsumptionEvent(value) ? value : undefined;
 }
 

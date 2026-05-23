@@ -54,6 +54,7 @@ interface TargetInvocation {
   targetTranslatedFramePointer?: string;
   targetRegisterRestoreResult?: "pending";
   targetRflagsRestoreResult?: "pending";
+  targetTlsRestoreResult?: "pending";
   targetThreadRestoreResult?: "accepted";
   targetThreadRestoreThreadId?: string;
   targetResumePathResult?: "pending";
@@ -80,6 +81,7 @@ interface PreparedTargetContinuation {
   bytes: Buffer;
   argument0?: string;
   stateReportAddress?: string;
+  targetFsBase?: string;
   translatedReturnAddress?: string;
   translatedFrame?: TargetGuestTranslatedFrameDescriptor;
   expectedReturnValue?: string;
@@ -129,6 +131,9 @@ const TRANSLATED_FRAME_REGISTER_MASK_R14 = 0x08;
 const TRANSLATED_FRAME_REGISTER_MASK_R15 = 0x10;
 const RESUME_REGISTER_MARKER = 0x52454753544f5245n;
 const RESUME_RFLAGS_MARKER = 0x52464c4147534f4bn;
+const TLS_RESTORE_MARKER = 0x544c534f4b504153n;
+const TLS_TCB_MARKER = 0x5443425041534f4bn;
+const TARGET_TLS_BASE = "0x600000000300";
 const RESUME_RFLAGS = "0x8d7";
 const RESUME_REGISTER_RAX = "0x2121212121212121";
 const RESUME_REGISTER_RDI = "0x7171717171717171";
@@ -290,6 +295,7 @@ function prepareTargetRestoreDescriptor(
       context.targetCodeFile,
       targetContinuation.argument0,
       targetContinuation.stateReportAddress,
+      targetContinuation.targetFsBase,
       targetContinuation.translatedReturnAddress,
       targetContinuation.translatedFrame ? "translated-frame" : undefined,
       targetContinuation.translatedFrame ? RESUME_RFLAGS : undefined,
@@ -320,6 +326,7 @@ function combinedDescriptorContext(
     threads: bundle.nativeProcessImage.threads.threads,
     mappings: bundle.nativeProcessImage.mappings.mappings,
     resources: bundle.nativeProcessImage.resources.resources,
+    tls: { targetFsBase: TARGET_TLS_BASE, targetAccessPolicy: "target-tcb-materialized" },
   });
   if (threadPlan.state === "refused") {
     const first = threadPlan.refusals[0]!;
@@ -379,6 +386,7 @@ function continuationDescriptor(
   targetCodeFile: string,
   argument0: string | undefined,
   stateReportAddress: string | undefined,
+  targetFsBase: string | undefined,
   translatedReturnAddress: string | undefined,
   resumeMode: "translated-frame" | undefined,
   resumeRflags: string | undefined,
@@ -391,6 +399,7 @@ function continuationDescriptor(
     targetAddress: "0x700300000000",
     argument0,
     stateReportAddress,
+    targetFsBase,
     translatedReturnAddress,
     resumeMode,
     resumeRflags,
@@ -455,6 +464,7 @@ function targetInvocation(
     targetContinuationKind: targetContinuation.kind,
     targetModuleBytesSource: targetContinuation.targetModuleBytesSource,
     targetTranslatedReturnAddress: targetContinuation.translatedReturnAddress,
+    targetTlsRestoreResult: targetContinuation.targetFsBase ? "pending" : undefined,
     ...frameSummary,
     targetThreadRestoreResult: context.targetThreadRestoreResult,
     targetThreadRestoreThreadId: context.targetThreadRestoreThreadId,
@@ -515,6 +525,7 @@ function prepareRealUtilityContinuation(
     kind: "real-utility" as const,
     bytes: Buffer.from(materialized.materialized!.bytes),
     stateReportAddress: PROOF_MEMORY_TARGET,
+    targetFsBase: TARGET_TLS_BASE,
     translatedReturnAddress: targetCode.translatedReturnAddress,
     translatedFrame: translatedFrameDescriptor(targetCode.translatedReturnAddress),
     expectedReturnValue: hex(FINAL_JUMP_EXPECTED_RETURN),
@@ -774,6 +785,7 @@ function proofStateVerifierTargetCode(
   if (completion === "return") {
     asm.preserveRbx();
     asm.captureResumeRegisters(BigInt(PROOF_MEMORY_TARGET));
+    asm.checkTargetTls(BigInt(PROOF_MEMORY_TARGET), BigInt(TARGET_TLS_BASE));
     asm.checkTranslatedRbx();
     asm.movRbxImmediate(BigInt(PROOF_MEMORY_TARGET));
     asm.storeReportWord(16, 0n);
@@ -827,6 +839,17 @@ class Amd64ProofAssembler {
     this.storeRegisterAtRaxReportOffset("r11", 192);
     this.storeReportWordFromRaxBase(128, RESUME_REGISTER_MARKER);
     this.storeReportWordFromRaxBase(208, RESUME_RFLAGS_MARKER);
+  }
+
+  checkTargetTls(reportAddress: bigint, targetFsBase: bigint): void {
+    this.loadFsU64(0);
+    this.storeRaxAtAbsolute(reportAddress + 240n);
+    this.checkRaxImmediate(targetFsBase);
+    this.loadFsU64(0x40);
+    this.storeRaxAtAbsolute(reportAddress + 232n);
+    this.checkRaxImmediate(TLS_TCB_MARKER);
+    this.movRaxImmediate(TLS_RESTORE_MARKER);
+    this.storeRaxAtAbsolute(reportAddress + 224n);
   }
 
   movRbxImmediate(value: bigint): void {
@@ -984,6 +1007,17 @@ class Amd64ProofAssembler {
     this.push(0x31, 0xd2, 0x0f, 0x05);
   }
 
+  private loadFsU64(offset: number): void {
+    this.push(0x64, 0x48, 0x8b, 0x04, 0x25);
+    this.pushU32(offset);
+  }
+
+  private checkRaxImmediate(expected: bigint): void {
+    this.movRdxImmediate(expected);
+    this.push(0x48, 0x39, 0xd0);
+    this.jumpIfNotEqual();
+  }
+
   private checkRbpImmediate(expected: bigint): void {
     this.movRaxImmediate(expected);
     this.push(0x48, 0x39, 0xe8);
@@ -1036,6 +1070,11 @@ class Amd64ProofAssembler {
 
   private movRaxImmediate(value: bigint): void {
     this.push(0x48, 0xb8);
+    this.pushU64(value);
+  }
+
+  private movRdxImmediate(value: bigint): void {
+    this.push(0x48, 0xba);
     this.pushU64(value);
   }
 

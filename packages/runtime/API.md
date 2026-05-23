@@ -122,6 +122,7 @@
 - [`PortableMachineTargetFrameRestoreResult`](#portablemachinetargetframerestoreresult)
 - [`PortableMachineTargetRegisterRestoreResult`](#portablemachinetargetregisterrestoreresult)
 - [`PortableMachineTargetRflagsRestoreResult`](#portablemachinetargetrflagsrestoreresult)
+- [`PortableMachineTargetTlsRestoreResult`](#portablemachinetargettlsrestoreresult)
 - [`PortableMachineTargetThreadRestoreResult`](#portablemachinetargetthreadrestoreresult)
 - [`PortableMachineTargetResourceStatus`](#portablemachinetargetresourcestatus)
 - [`PortableMachineTargetResumePathResult`](#portablemachinetargetresumepathresult)
@@ -8233,6 +8234,10 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 > `optional` **targetRflagsRestoreResult?**: [`PortableMachineTargetRflagsRestoreResult`](#portablemachinetargetrflagsrestoreresult)
 
+##### targetTlsRestoreResult?
+
+> `optional` **targetTlsRestoreResult?**: [`PortableMachineTargetTlsRestoreResult`](#portablemachinetargettlsrestoreresult)
+
 ##### targetThreadRestoreResult?
 
 > `optional` **targetThreadRestoreResult?**: [`PortableMachineTargetThreadRestoreResult`](#portablemachinetargetthreadrestoreresult)
@@ -8330,6 +8335,14 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 ###### Inherited from
 
 [`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetRflagsRestoreResult`](#targetrflagsrestoreresult)
+
+##### targetTlsRestoreResult?
+
+> `optional` **targetTlsRestoreResult?**: [`PortableMachineTargetTlsRestoreResult`](#portablemachinetargettlsrestoreresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetTlsRestoreResult`](#targettlsrestoreresult)
 
 ##### targetThreadRestoreResult?
 
@@ -8544,6 +8557,14 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 ###### Inherited from
 
 [`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetRflagsRestoreResult`](#targetrflagsrestoreresult)
+
+##### targetTlsRestoreResult?
+
+> `optional` **targetTlsRestoreResult?**: [`PortableMachineTargetTlsRestoreResult`](#portablemachinetargettlsrestoreresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetTlsRestoreResult`](#targettlsrestoreresult)
 
 ##### targetThreadRestoreResult?
 
@@ -9592,6 +9613,10 @@ Poll interval in ms while retrying. Default 250.
 ##### stateReportAddress?
 
 > `optional` **stateReportAddress?**: `string`
+
+##### targetFsBase?
+
+> `optional` **targetFsBase?**: `string`
 
 ##### translatedReturnAddress?
 
@@ -12193,7 +12218,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NativeTlsTargetAccessPolicy
 
-> **NativeTlsTargetAccessPolicy** = `"not-required"` \| `"segment-bases-provided"` \| `"target-tcb-required"`
+> **NativeTlsTargetAccessPolicy** = `"not-required"` \| `"segment-bases-provided"` \| `"target-tcb-materialized"` \| `"target-tcb-required"`
 
 ***
 
@@ -12268,6 +12293,12 @@ Result of `validatePid` — easy to switch on at the call site.
 ### PortableMachineTargetRflagsRestoreResult
 
 > **PortableMachineTargetRflagsRestoreResult** = `"pending"` \| `"passed"` \| `"failed"`
+
+***
+
+### PortableMachineTargetTlsRestoreResult
+
+> **PortableMachineTargetTlsRestoreResult** = `"pending"` \| `"passed"` \| `"failed"`
 
 ***
 

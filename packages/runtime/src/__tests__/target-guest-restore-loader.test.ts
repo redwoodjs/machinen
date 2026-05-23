@@ -87,6 +87,7 @@ describe("target guest restore loader descriptor", () => {
       continuation: {
         ...descriptor().continuation,
         stateReportAddress: "0x600000000000",
+        targetFsBase: "0x600000000300",
         translatedReturnAddress: "0x700300000080",
         resumeMode: "translated-frame",
         resumeRflags: "0x8d7",
@@ -126,6 +127,8 @@ describe("target guest restore loader descriptor", () => {
       "0x700300000000",
       "--state-report-address",
       "0x600000000000",
+      "--target-fs-base",
+      "0x600000000300",
       "--translated-return-address",
       "0x700300000080",
       "--resume-mode",
@@ -441,6 +444,29 @@ describe("target guest restore loader descriptor", () => {
         }),
       ),
     ).toThrow(/translatedReturnAddress must be a hex address/);
+
+    expect(() =>
+      validateTargetGuestRestoreDescriptor(
+        descriptor({
+          continuation: {
+            ...descriptor().continuation,
+            stateReportAddress: "0x600000000000",
+            targetFsBase: "600000000300",
+          },
+        }),
+      ),
+    ).toThrow(/targetFsBase must be a hex address/);
+
+    expect(() =>
+      validateTargetGuestRestoreDescriptor(
+        descriptor({
+          continuation: {
+            ...descriptor().continuation,
+            targetFsBase: "0x600000000300",
+          },
+        }),
+      ),
+    ).toThrow(/targetFsBase requires a state report/);
 
     expect(() =>
       validateTargetGuestRestoreDescriptor(

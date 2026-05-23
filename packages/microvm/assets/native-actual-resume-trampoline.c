@@ -19,8 +19,13 @@
 #include <string.h>
 #include <sys/eventfd.h>
 #include <sys/mman.h>
+#include <sys/syscall.h>
 #include <sys/timerfd.h>
 #include <unistd.h>
+
+#if defined(__linux__) && defined(__x86_64__)
+#include <asm/prctl.h>
+#endif
 
 #ifndef MAP_FIXED_NOREPLACE
 #define MAP_FIXED_NOREPLACE 0x100000
@@ -55,6 +60,10 @@
 #define TRANSLATED_FRAME_REGISTER_R15 UINT64_C(0x10)
 #define RESUME_REGISTER_MARKER UINT64_C(0x52454753544f5245)
 #define RESUME_RFLAGS_MARKER UINT64_C(0x52464c4147534f4b)
+#define TLS_RESTORE_MARKER UINT64_C(0x544c534f4b504153)
+#define TLS_TCB_MARKER UINT64_C(0x5443425041534f4b)
+#define TLS_TCB_SELF_OFFSET UINT64_C(0x0)
+#define TLS_TCB_MARKER_OFFSET UINT64_C(0x40)
 #define SUPPORTED_RESUME_RFLAGS_MASK UINT64_C(0x8d7)
 #define RESUME_RFLAGS_CONDITION_MASK UINT64_C(0x8d5)
 #define REQUIRED_RESUME_RFLAGS_MASK UINT64_C(0x2)
@@ -92,6 +101,8 @@ struct Options {
   uint64_t argument0;
   bool has_state_report_address;
   uint64_t state_report_address;
+  bool has_target_fs_base;
+  uint64_t target_fs_base;
   bool has_translated_return_address;
   uint64_t translated_return_address;
   bool has_resume_mode;
@@ -148,7 +159,7 @@ static void usage(void) {
   fprintf(stderr,
       "usage: machinen-native-actual-resume-trampoline --code-file path "
       "--file-offset n --code-size n --target-address addr "
-      "[--argument0 addr] [--state-report-address addr] "
+      "[--argument0 addr] [--state-report-address addr] [--target-fs-base addr] "
       "[--translated-return-address addr] [--translated-frame-pointer addr] "
       "[--translated-frame-cfa addr] [--translated-frame-return-address-slot addr] "
       "[--translated-frame-return-address addr] [--translated-frame-unwind-id id] "
@@ -337,6 +348,12 @@ static struct Options parse_args(int argc, char **argv) {
       }
       opts.state_report_address = parse_u64(argv[i], "state-report-address");
       opts.has_state_report_address = true;
+    } else if (streq(argv[i], "--target-fs-base")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.target_fs_base = parse_u64(argv[i], "target-fs-base");
+      opts.has_target_fs_base = true;
     } else if (streq(argv[i], "--translated-return-address")) {
       if (++i >= argc) {
         usage();
@@ -569,6 +586,8 @@ static uint64_t mapped_code_page_start = 0;
 static uint64_t mapped_code_page_size = 0;
 static volatile uint64_t resume_return_value __attribute__((used)) = 0;
 static uint64_t host_rsp_before_jump __attribute__((used)) = 0;
+static uint64_t host_fs_before_jump __attribute__((used)) = 0;
+static uint64_t jump_target_fs_base __attribute__((used)) = 0;
 static uint64_t host_rbx_before_jump __attribute__((used)) = 0;
 static uint64_t host_rbp_before_jump __attribute__((used)) = 0;
 static uint64_t host_r12_before_jump __attribute__((used)) = 0;
@@ -834,6 +853,40 @@ static bool address_inside_stack(const struct Options *opts, uint64_t address, u
       address + size <= opts->stack_target_start + opts->stack_size;
 }
 
+static bool address_inside_writable_materialized_memory(
+    const struct Options *opts, uint64_t address, uint64_t size) {
+  for (size_t i = 0; i < opts->materialized_memory_count; i++) {
+    const struct MemoryMaterialization *mapping = &opts->materialized_memory[i];
+    if ((mapping->prot & PROT_WRITE) == 0) {
+      continue;
+    }
+    if (address >= mapping->target_start && size <= mapping->size &&
+        address + size <= mapping->target_start + mapping->size) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static void validate_target_tls_options(const struct Options *opts) {
+  if (!opts->has_target_fs_base) {
+    return;
+  }
+  if (!opts->has_state_report_address) {
+    fprintf(stderr, "native-actual-resume-trampoline: target fs base requires a state report\n");
+    exit(2);
+  }
+  if (opts->target_fs_base == 0 || opts->target_fs_base % 16u != 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: target fs base must be non-zero and 16-byte aligned\n");
+    exit(2);
+  }
+  if (!address_inside_writable_materialized_memory(
+          opts, opts->target_fs_base + TLS_TCB_SELF_OFFSET, TLS_TCB_MARKER_OFFSET + sizeof(uint64_t))) {
+    fprintf(stderr, "native-actual-resume-trampoline: target fs base is outside writable materialized memory\n");
+    exit(2);
+  }
+}
+
 static void validate_resume_rflags_options(const struct Options *opts) {
   if (!opts->has_resume_rflags) {
     return;
@@ -1003,6 +1056,14 @@ static void write_stack_u64(uint64_t address, uint64_t value) {
   *slot = value;
 }
 
+static void materialize_target_tcb(const struct Options *opts) {
+  if (!opts->has_target_fs_base) {
+    return;
+  }
+  write_stack_u64(opts->target_fs_base + TLS_TCB_SELF_OFFSET, opts->target_fs_base);
+  write_stack_u64(opts->target_fs_base + TLS_TCB_MARKER_OFFSET, TLS_TCB_MARKER);
+}
+
 static void materialize_translated_frame(const struct Options *opts) {
   if (!opts->has_translated_frame) {
     return;
@@ -1013,8 +1074,19 @@ static void materialize_translated_frame(const struct Options *opts) {
   }
 }
 
+static void capture_host_fs_base(void) {
+  unsigned long fs_base = 0;
+  long rc = syscall(SYS_arch_prctl, ARCH_GET_FS, &fs_base);
+  if (rc != 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: ARCH_GET_FS failed: %s\n", strerror(errno));
+    exit(1);
+  }
+  host_fs_before_jump = (uint64_t)fs_base;
+}
+
 static void jump_to_target(uint64_t entry,
     uint64_t initial_rsp,
+    uint64_t target_fs_base,
     uint64_t argument0,
     uint64_t translated_return_address,
     uint64_t translated_frame_pointer,
@@ -1035,6 +1107,7 @@ static void jump_to_target(uint64_t entry,
     uint64_t resume_register_r11) {
   jump_entry_address = entry;
   jump_initial_rsp = initial_rsp;
+  jump_target_fs_base = target_fs_base;
   jump_argument0 = argument0;
   jump_translated_return_address = translated_return_address;
   jump_translated_frame_pointer = translated_frame_pointer;
@@ -1093,9 +1166,39 @@ static void jump_to_target(uint64_t entry,
       "movq jump_resume_register_r9(%%rip), %%r9\n"
       "movq jump_resume_register_r10(%%rip), %%r10\n"
       "movq jump_resume_register_r11(%%rip), %%r11\n"
+      "cmpq $0, jump_target_fs_base(%%rip)\n"
+      "jz 5f\n"
+      "movq $158, %%rax\n"
+      "movq $0x1002, %%rdi\n"
+      "movq jump_target_fs_base(%%rip), %%rsi\n"
+      "syscall\n"
+      "5:\n"
+      "movq jump_resume_rflags(%%rip), %%r11\n"
+      "testq %%r11, %%r11\n"
+      "jz 7f\n"
+      "pushq %%r11\n"
+      "popfq\n"
+      "7:\n"
+      "movq jump_resume_register_rdi(%%rip), %%rdi\n"
+      "movq jump_resume_register_rax(%%rip), %%rax\n"
+      "movq jump_resume_register_rsi(%%rip), %%rsi\n"
+      "movq jump_resume_register_rdx(%%rip), %%rdx\n"
+      "movq jump_resume_register_rcx(%%rip), %%rcx\n"
+      "movq jump_resume_register_r8(%%rip), %%r8\n"
+      "movq jump_resume_register_r9(%%rip), %%r9\n"
+      "movq jump_resume_register_r10(%%rip), %%r10\n"
+      "movq jump_resume_register_r11(%%rip), %%r11\n"
       "jmp *jump_entry_address(%%rip)\n"
       "1:\n"
       "movq %%rax, resume_return_value(%%rip)\n"
+      "movq jump_target_fs_base(%%rip), %%rsi\n"
+      "testq %%rsi, %%rsi\n"
+      "jz 6f\n"
+      "movq $158, %%rax\n"
+      "movq $0x1002, %%rdi\n"
+      "movq host_fs_before_jump(%%rip), %%rsi\n"
+      "syscall\n"
+      "6:\n"
       "movq host_rsp_before_jump(%%rip), %%rsp\n"
       "movq host_rbx_before_jump(%%rip), %%rbx\n"
       "movq host_rbp_before_jump(%%rip), %%rbp\n"
@@ -1455,6 +1558,32 @@ static void print_frame_restoration(const struct Options *opts) {
   printf("]}");
 }
 
+static void print_tls_restore(const struct Options *opts) {
+  if (!opts->has_target_fs_base || !opts->has_state_report_address) {
+    return;
+  }
+  uint64_t marker = read_state_report_u64(opts->state_report_address, 224);
+  uint64_t observed_marker = read_state_report_u64(opts->state_report_address, 232);
+  uint64_t observed_self = read_state_report_u64(opts->state_report_address, 240);
+  bool passed = marker == TLS_RESTORE_MARKER && observed_marker == TLS_TCB_MARKER &&
+      observed_self == opts->target_fs_base;
+  printf(
+      ",\"tlsRestore\":{\"status\":\"%s\","
+      "\"targetFsBase\":\"0x%" PRIx64 "\","
+      "\"reportMarker\":\"0x%" PRIx64 "\","
+      "\"expectedMarker\":\"0x%" PRIx64 "\","
+      "\"observedTcbMarker\":\"0x%" PRIx64 "\","
+      "\"expectedTcbMarker\":\"0x%" PRIx64 "\","
+      "\"observedSelfPointer\":\"0x%" PRIx64 "\"}",
+      passed ? "passed" : "failed",
+      opts->target_fs_base,
+      marker,
+      TLS_RESTORE_MARKER,
+      observed_marker,
+      TLS_TCB_MARKER,
+      observed_self);
+}
+
 static void print_return_event(const struct Options *opts) {
   printf(
       "MACHINEN_ACTUAL_RESUME_TRAMPOLINE {\"status\":\"returned\"," 
@@ -1479,6 +1608,7 @@ static void print_return_event(const struct Options *opts) {
   print_resume_path(opts);
   print_register_restore(opts);
   print_rflags_restore(opts);
+  print_tls_restore(opts);
   printf("}\n");
 }
 
@@ -1488,10 +1618,12 @@ int main(int argc, char **argv) {
   validate_resume_rflags_options(&opts);
   validate_resume_register_options(&opts);
   validate_translated_frame_options(&opts);
+  validate_target_tls_options(&opts);
   mapped_target_start = opts.target_address;
   mapped_target_end = opts.target_address + opts.code_size;
 
   materialize_descriptor_memory(&opts);
+  materialize_target_tcb(&opts);
 
   uint64_t mapped_code_start = 0;
   uint64_t mapped_code_size = 0;
@@ -1509,6 +1641,7 @@ int main(int argc, char **argv) {
   install_synthetic_empty_eventfd(opts.synthetic_empty_eventfd);
   install_synthetic_timerfd(opts.synthetic_timerfd);
   apply_cloexec_fds(&opts);
+  capture_host_fs_base();
   alarm((unsigned int)opts.timeout_seconds);
   if (sigsetjmp(resume_fault_jmp, 1) == 0) {
     uint64_t initial_rsp = opts.has_translated_return_address ? opts.stack_pointer - 16u : opts.stack_pointer - 8u;
@@ -1518,6 +1651,7 @@ int main(int argc, char **argv) {
     jump_to_target(
         opts.target_address,
         initial_rsp,
+        opts.has_target_fs_base ? opts.target_fs_base : 0u,
         opts.has_argument0 ? opts.argument0 : 0u,
         opts.has_translated_return_address ? opts.translated_return_address : 0u,
         opts.has_translated_frame ? opts.translated_frame_pointer : 0u,
