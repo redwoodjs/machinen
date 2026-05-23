@@ -107,8 +107,8 @@ describe("native thread restore boundary", () => {
         threads: [thread("thread:1"), thread("thread:2")],
       },
       {
-        id: "active-syscall",
-        expectedCode: "active-syscall",
+        id: "active-futex-syscall",
+        expectedCode: "futex-state-unsupported",
         mutate: (value) => {
           value.syscall = { state: "inside-syscall", number: 202, name: "futex" };
         },

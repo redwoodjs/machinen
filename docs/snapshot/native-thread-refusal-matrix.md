@@ -24,7 +24,8 @@ current restore proof.
 
 The following unsafe states refuse before register translation:
 
-- `inside-syscall` -> `active-syscall`;
+- `inside-syscall` -> `active-syscall` unless a more precise active-syscall
+  boundary applies;
 - `restart-block` -> `active-syscall`;
 - active signal frame -> `signal-frame-active`;
 - non-zero pending signal mask -> `signal-state-unsupported`;
@@ -36,7 +37,7 @@ The following unsafe states refuse before register translation:
 The restore boundary also refuses:
 
 - more than one thread -> `thread-state-unsupported`;
-- futex wait resources -> `futex-state-unsupported`;
+- futex wait resources and active futex syscalls -> `futex-state-unsupported`;
 - signal-delivery stop -> `signal-state-unsupported`;
 - ptrace/debug leftovers -> `thread-state-unsupported`;
 - shared stack mappings -> `mapping-shared-unsupported`;

@@ -70,6 +70,10 @@ describe("native thread refusal matrix", () => {
         expect.objectContaining({ id: "multi-thread", refusalCode: "thread-state-unsupported" }),
         expect.objectContaining({ id: "futex-wait", refusalCode: "futex-state-unsupported" }),
         expect.objectContaining({
+          id: "active-futex-syscall",
+          refusalCode: "futex-state-unsupported",
+        }),
+        expect.objectContaining({
           id: "signal-delivery-stop",
           refusalCode: "signal-state-unsupported",
         }),

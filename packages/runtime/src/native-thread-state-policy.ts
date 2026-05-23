@@ -37,7 +37,15 @@ export function unsafeNativeThreadExecutionState(
     );
   }
   if (thread.tls.rseq.state !== "absent") {
-    return nativeThreadRefusal("rseq-state-unsupported", `thread ${thread.id} has rseq state`);
+    return nativeThreadRefusal("rseq-state-unsupported", `thread ${thread.id} has rseq state`, {
+      threadId: thread.id,
+      rseq: thread.tls.rseq,
+      requiredModel: [
+        "target rseq registration lifecycle",
+        "critical-section abort IP translation",
+        "per-thread TLS rseq area ownership",
+      ],
+    });
   }
   return undefined;
 }
@@ -52,6 +60,7 @@ function hasNonZeroNativeSignalMask(masks: string[]): boolean {
 export function nativeThreadRefusal(
   code: NativeProcessImageRefusal["code"],
   message: string,
+  detail?: Record<string, unknown>,
 ): NativeProcessImageRefusal {
-  return { code, message };
+  return detail ? { code, message, detail } : { code, message };
 }

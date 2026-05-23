@@ -183,12 +183,26 @@ function resourceRefusal(resource: NativeProcessResource): NativeProcessImageRef
     return [resource.refusal];
   }
   if (resource.kind === "futex") {
-    return [refusal("futex-state-unsupported", `resource ${resource.id} has futex wait state`)];
+    return [futexResourceRefusal(resource)];
   }
   if (resource.kind === "unknown") {
     return [refusal("resource-kind-unsupported", `resource ${resource.id} is unknown`)];
   }
   return [];
+}
+
+function futexResourceRefusal(resource: NativeProcessResource): NativeProcessImageRefusal {
+  return refusal("futex-state-unsupported", `resource ${resource.id} has futex wait state`, {
+    resourceId: resource.id,
+    kind: resource.kind,
+    state: resource.state,
+    requiredModel: [
+      "futex word address translation",
+      "waiter queue membership",
+      "wake/requeue ordering",
+      "robust-list owner-death semantics",
+    ],
+  });
 }
 
 function isKnownHex(value: string | undefined): boolean {

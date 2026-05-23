@@ -13186,7 +13186,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NativeActiveSyscallClass
 
-> **NativeActiveSyscallClass** = `"outside-syscall"` \| `"sleep-timer"` \| `"poll-timeout"` \| `"fd-blocking"` \| `"restart"` \| `"unknown-active"`
+> **NativeActiveSyscallClass** = `"outside-syscall"` \| `"sleep-timer"` \| `"poll-timeout"` \| `"fd-blocking"` \| `"futex-wait"` \| `"restart"` \| `"unknown-active"`
 
 ***
 

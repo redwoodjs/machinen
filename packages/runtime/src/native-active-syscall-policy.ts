@@ -17,6 +17,7 @@ export type NativeActiveSyscallClass =
   | "sleep-timer"
   | "poll-timeout"
   | "fd-blocking"
+  | "futex-wait"
   | "restart"
   | "unknown-active";
 
@@ -201,6 +202,7 @@ export interface NativeActiveSyscallClassificationResult {
 }
 
 const SLEEP_TIMER_SYSCALLS = new Set(["clock_nanosleep", "nanosleep"]);
+const FUTEX_ACTIVE_SYSCALLS = new Set(["futex", "futex_time64", "futex_waitv"]);
 const SOCKET_ACTIVE_SYSCALLS = new Set(["accept", "accept4", "connect"]);
 const EPOLL_ACTIVE_SYSCALLS = new Set(["epoll_wait", "epoll_pwait", "epoll_pwait2"]);
 const FD_BLOCKING_SYSCALLS = new Set([
@@ -248,6 +250,7 @@ export function classifyNativeActiveSyscalls(
   };
 }
 
+// fallow-ignore-next-line complexity
 export function classifyNativeThreadSyscall(
   thread: NativeThreadState,
   options: NativeActiveSyscallPolicyOptions = {},
@@ -263,6 +266,9 @@ export function classifyNativeThreadSyscall(
     });
   }
   const name = syscallName(thread);
+  if (FUTEX_ACTIVE_SYSCALLS.has(name)) {
+    return refusedFutexActiveSyscallClassification(thread);
+  }
   if (SLEEP_TIMER_SYSCALLS.has(name)) {
     if (options.sleepTimerPolicy === "defer-target-resume") {
       return deferredSleepTimerClassification(thread, options);
@@ -531,6 +537,16 @@ function deferredFdReadClassification(
   };
 }
 
+function refusedFutexActiveSyscallClassification(
+  thread: NativeThreadState,
+): NativeActiveSyscallClassification {
+  return refusedClassification(thread, "futex-wait", {
+    code: "futex-state-unsupported",
+    message: `thread ${thread.id} is blocked in futex syscall ${syscallName(thread)}`,
+    detail: futexActiveSyscallDetail(thread),
+  });
+}
+
 function refusedSocketActiveSyscallClassification(
   thread: NativeThreadState,
   options: NativeActiveSyscallPolicyOptions,
@@ -562,6 +578,68 @@ function refusedSignalfdActiveSyscallClassification(
     message: `thread ${thread.id} is blocked reading a signalfd`,
     detail: signalfdActiveSyscallDetail(thread, options.documents),
   });
+}
+
+interface FutexActiveSyscallArguments {
+  source: "proc-syscall" | "registers";
+  uaddr?: string;
+  operation?: string;
+  value?: string;
+  timeoutPointer?: string;
+  uaddr2?: string;
+  value3?: string;
+  waitersPointer?: string;
+  waiterCount?: string;
+  flags?: string;
+  clockId?: string;
+}
+
+function futexActiveSyscallDetail(thread: NativeThreadState): Record<string, unknown> {
+  return detail(thread, "futex-wait", {
+    reason: "futex waiter kernel queue state is unsupported",
+    futexSyscall: {
+      name: syscallName(thread),
+      arguments: decodeFutexActiveSyscallArguments(thread),
+      unsupportedState: [
+        "source futex word address and value race",
+        "kernel wait queue membership",
+        "wake/requeue ordering",
+        "robust-list owner-death semantics",
+      ],
+    },
+  });
+}
+
+function decodeFutexActiveSyscallArguments(
+  thread: NativeThreadState,
+): FutexActiveSyscallArguments | undefined {
+  const args = sleepTimerArguments(thread);
+  if (!args) {
+    return undefined;
+  }
+  if (syscallName(thread) === "futex_waitv") {
+    return {
+      source: args.source,
+      waitersPointer: futexArgument(args, 0),
+      waiterCount: futexArgument(args, 1),
+      flags: futexArgument(args, 2),
+      timeoutPointer: futexArgument(args, 3),
+      clockId: futexArgument(args, 4),
+    };
+  }
+  return {
+    source: args.source,
+    uaddr: futexArgument(args, 0),
+    operation: futexArgument(args, 1),
+    value: futexArgument(args, 2),
+    timeoutPointer: futexArgument(args, 3),
+    uaddr2: futexArgument(args, 4),
+    value3: futexArgument(args, 5),
+  };
+}
+
+function futexArgument(args: SleepTimerArguments, index: number): string {
+  return hex(args.values[index] ?? 0n);
 }
 
 interface SocketActiveSyscallArguments {
