@@ -139,6 +139,7 @@
 - [`PortableMachineTargetResourceStatus`](#portablemachinetargetresourcestatus)
 - [`PortableMachineTargetResumePathResult`](#portablemachinetargetresumepathresult)
 - [`PortableMachineTargetReturnChainResult`](#portablemachinetargetreturnchainresult)
+- [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
 - [`PortableMachineTargetStateConsumptionResult`](#portablemachinetargetstateconsumptionresult)
 - [`PortableMachineTargetVerifierResult`](#portablemachinetargetverifierresult)
 - [`PortableMachineVmRestoreProofRequest`](#portablemachinevmrestoreproofrequest)
@@ -8928,6 +8929,26 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 > `optional` **targetResourceStatuses?**: [`PortableMachineTargetResourceStatus`](#portablemachinetargetresourcestatus)[]
 
+##### targetStackWindowMaterializationResult?
+
+> `optional` **targetStackWindowMaterializationResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+##### targetPrivateMemoryRestoreResult?
+
+> `optional` **targetPrivateMemoryRestoreResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+##### targetExecutableMappingResult?
+
+> `optional` **targetExecutableMappingResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+##### targetSignalRestoreResult?
+
+> `optional` **targetSignalRestoreResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+##### targetActiveSyscallRestoreResult?
+
+> `optional` **targetActiveSyscallRestoreResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
 ##### targetReturnChainResult?
 
 > `optional` **targetReturnChainResult?**: [`PortableMachineTargetReturnChainResult`](#portablemachinetargetreturnchainresult)
@@ -9005,6 +9026,46 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 ###### Inherited from
 
 [`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetResourceStatuses`](#targetresourcestatuses)
+
+##### targetStackWindowMaterializationResult?
+
+> `optional` **targetStackWindowMaterializationResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetStackWindowMaterializationResult`](#targetstackwindowmaterializationresult)
+
+##### targetPrivateMemoryRestoreResult?
+
+> `optional` **targetPrivateMemoryRestoreResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetPrivateMemoryRestoreResult`](#targetprivatememoryrestoreresult)
+
+##### targetExecutableMappingResult?
+
+> `optional` **targetExecutableMappingResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetExecutableMappingResult`](#targetexecutablemappingresult)
+
+##### targetSignalRestoreResult?
+
+> `optional` **targetSignalRestoreResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetSignalRestoreResult`](#targetsignalrestoreresult)
+
+##### targetActiveSyscallRestoreResult?
+
+> `optional` **targetActiveSyscallRestoreResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetActiveSyscallRestoreResult`](#targetactivesyscallrestoreresult)
 
 ##### targetReturnChainResult?
 
@@ -9227,6 +9288,46 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 ###### Inherited from
 
 [`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetResourceStatuses`](#targetresourcestatuses)
+
+##### targetStackWindowMaterializationResult?
+
+> `optional` **targetStackWindowMaterializationResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetStackWindowMaterializationResult`](#targetstackwindowmaterializationresult)
+
+##### targetPrivateMemoryRestoreResult?
+
+> `optional` **targetPrivateMemoryRestoreResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetPrivateMemoryRestoreResult`](#targetprivatememoryrestoreresult)
+
+##### targetExecutableMappingResult?
+
+> `optional` **targetExecutableMappingResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetExecutableMappingResult`](#targetexecutablemappingresult)
+
+##### targetSignalRestoreResult?
+
+> `optional` **targetSignalRestoreResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetSignalRestoreResult`](#targetsignalrestoreresult)
+
+##### targetActiveSyscallRestoreResult?
+
+> `optional` **targetActiveSyscallRestoreResult?**: [`PortableMachineTargetNativePlanConsumptionResult`](#portablemachinetargetnativeplanconsumptionresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetActiveSyscallRestoreResult`](#targetactivesyscallrestoreresult)
 
 ##### targetReturnChainResult?
 
@@ -13179,6 +13280,12 @@ Result of `validatePid` — easy to switch on at the call site.
 ### PortableMachineTargetStateConsumptionResult
 
 > **PortableMachineTargetStateConsumptionResult** = `"pending"` \| `"passed"` \| `"failed"`
+
+***
+
+### PortableMachineTargetNativePlanConsumptionResult
+
+> **PortableMachineTargetNativePlanConsumptionResult** = `"pending"` \| `"passed"` \| `"failed"`
 
 ***
 

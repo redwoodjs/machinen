@@ -187,6 +187,11 @@ describe("portable machine VM restore proof", () => {
         targetVerifierResult: "passed",
         targetStateConsumptionResult: "passed",
         targetResourceStatuses: [{ kind: "reopen-file", status: "passed" }],
+        targetStackWindowMaterializationResult: "passed",
+        targetPrivateMemoryRestoreResult: "passed",
+        targetExecutableMappingResult: "passed",
+        targetSignalRestoreResult: "passed",
+        targetActiveSyscallRestoreResult: "passed",
         targetReturnChainResult: "passed",
         targetTranslatedReturnAddress: "0x700300000080",
         targetFrameRestoreResult: "passed",
@@ -208,6 +213,11 @@ describe("portable machine VM restore proof", () => {
       descriptorGateCompleted: true,
       targetStateConsumptionResult: "passed",
       targetResourceStatuses: [{ kind: "reopen-file", status: "passed" }],
+      targetStackWindowMaterializationResult: "passed",
+      targetPrivateMemoryRestoreResult: "passed",
+      targetExecutableMappingResult: "passed",
+      targetSignalRestoreResult: "passed",
+      targetActiveSyscallRestoreResult: "passed",
       targetReturnChainResult: "passed",
       targetTranslatedReturnAddress: "0x700300000080",
       targetFrameRestoreResult: "passed",
@@ -364,6 +374,31 @@ describe("portable machine VM restore proof", () => {
       descriptorGateCompleted: true,
       targetStateConsumptionResult: "failed",
     });
+
+    for (const failedObservation of [
+      { targetStackWindowMaterializationResult: "failed" as const },
+      { targetPrivateMemoryRestoreResult: "failed" as const },
+      { targetSignalRestoreResult: "failed" as const },
+      { targetActiveSyscallRestoreResult: "failed" as const },
+    ]) {
+      expect(
+        completePortableMachineVmRestoreProof(plan, {
+          exitCode: 0,
+          migrationCompleted: true,
+          descriptorGateCompleted: true,
+          targetVerifierResult: "passed",
+          sourceTextReusedAsTargetCode: false,
+          sourceIsaEmulationUsed: false,
+          sidecarRuntimeUsed: false,
+          ...failedObservation,
+        }),
+      ).toMatchObject({
+        state: "ready",
+        migrationCompleted: false,
+        descriptorGateCompleted: true,
+        ...failedObservation,
+      });
+    }
 
     expect(
       completePortableMachineVmRestoreProof(plan, {

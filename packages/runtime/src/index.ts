@@ -548,6 +548,7 @@ export type {
   PortableMachineTargetRestoreObservation,
   PortableMachineTargetThreadRestoreResult,
   PortableMachineTargetRestoreDescriptorRequest,
+  PortableMachineTargetNativePlanConsumptionResult,
   PortableMachineTargetStateConsumptionResult,
   PortableMachineTargetVerifierResult,
   PortableMachineVmRestoreProofPlan,
