@@ -3,7 +3,14 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { boot } from "../packages/runtime/src/index.ts";
+import {
+  parseTargetNativeConsumptionEvents,
+  targetNativeConsumptionFields,
+  targetNativeConsumptionPassed,
+  type TargetNativeConsumptionEvent,
+} from "../packages/runtime/src/target-native-consumption-results.ts";
 import {
   type TargetGuestRestoreDescriptor,
   type TargetGuestRestoreResourceRecipe,
@@ -229,7 +236,7 @@ async function executeTargetVmProof(
   return targetExecutionSummary(args, result);
 }
 
-function targetExecutionSummary(
+export function targetExecutionSummary(
   args: Args,
   result: { exitCode: number; stdout: string; stderr: string },
 ) {
@@ -244,6 +251,7 @@ function targetExecutionSummary(
     ...targetRflagsRestoreFields(events.rflagsRestore),
     ...targetTlsRestoreFields(events.tlsRestore),
     ...targetResumePathFields(events.resumePath),
+    ...targetNativeConsumptionFields(events),
     targetVerifierResult: targetVerifierResult(args, result.exitCode, events),
     exitCode: result.exitCode,
     stdout: result.stdout,
@@ -301,7 +309,7 @@ function targetResumePathFields(resumePath: ResumePathEvent | undefined) {
   };
 }
 
-function targetExecutionEvents(stdout: string) {
+export function targetExecutionEvents(stdout: string) {
   const descriptorGateCompleted = loaderCompleted(stdout);
   const actualResumeEvent = parseActualResumeEvent(stdout);
   return {
@@ -314,6 +322,7 @@ function targetExecutionEvents(stdout: string) {
     rflagsRestore: parseRflagsRestore(actualResumeEvent),
     tlsRestore: parseTlsRestore(actualResumeEvent),
     resumePath: parseResumePath(actualResumeEvent),
+    ...parseTargetNativeConsumptionEvents(actualResumeEvent),
   };
 }
 
@@ -334,6 +343,11 @@ function targetVerifierResult(
     events.rflagsRestore,
     events.tlsRestore,
     events.resumePath,
+    events.nativeStackWindowMaterialization,
+    events.nativePrivateMemoryRestore,
+    events.nativeExecutableMapping,
+    events.nativeSignalRestore,
+    events.nativeActiveSyscallRestore,
   )
     ? "passed"
     : "failed";
@@ -434,6 +448,11 @@ function targetVerifierPassed(
   rflagsRestore: RflagsRestoreEvent | undefined,
   tlsRestore: TlsRestoreEvent | undefined,
   resumePath: ResumePathEvent | undefined,
+  nativeStackWindowMaterialization: TargetNativeConsumptionEvent | undefined,
+  nativePrivateMemoryRestore: TargetNativeConsumptionEvent | undefined,
+  nativeExecutableMapping: TargetNativeConsumptionEvent | undefined,
+  nativeSignalRestore: TargetNativeConsumptionEvent | undefined,
+  nativeActiveSyscallRestore: TargetNativeConsumptionEvent | undefined,
 ): boolean {
   return [
     targetProcessCompleted(exitCode, descriptorGateCompleted),
@@ -444,6 +463,13 @@ function targetVerifierPassed(
     targetRflagsRestored(rflagsRestore),
     targetTlsRestored(tlsRestore),
     targetResumePathPassed(resumePath),
+    targetNativeConsumptionPassed({
+      nativeStackWindowMaterialization,
+      nativePrivateMemoryRestore,
+      nativeExecutableMapping,
+      nativeSignalRestore,
+      nativeActiveSyscallRestore,
+    }),
     targetReturnValueMatched(args, actualResumeEvent),
   ].every(Boolean);
 }
@@ -615,14 +641,20 @@ function optionalNumber(value: string | undefined): number | undefined {
   return value === undefined ? undefined : Number(value);
 }
 
-const args = parseArgs(process.argv.slice(2));
-const summary = await runTargetVmProof(args);
-if (args.json) {
-  console.log(JSON.stringify(summary, null, 2));
-} else if ("skipped" in summary) {
-  console.log(`native-target-vm-synthetic-continuation: skipped ${summary.reason}`);
-} else {
-  console.log(
-    `native-target-vm-synthetic-continuation: exit=${summary.exitCode} migrationCompleted=${summary.migrationCompleted}`,
-  );
+function isMainModule(): boolean {
+  return process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
+}
+
+if (isMainModule()) {
+  const args = parseArgs(process.argv.slice(2));
+  const summary = await runTargetVmProof(args);
+  if (args.json) {
+    console.log(JSON.stringify(summary, null, 2));
+  } else if ("skipped" in summary) {
+    console.log(`native-target-vm-synthetic-continuation: skipped ${summary.reason}`);
+  } else {
+    console.log(
+      `native-target-vm-synthetic-continuation: exit=${summary.exitCode} migrationCompleted=${summary.migrationCompleted}`,
+    );
+  }
 }
