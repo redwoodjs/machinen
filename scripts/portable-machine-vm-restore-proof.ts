@@ -47,7 +47,7 @@ interface Args {
   syntheticEmptyPipeWriteFd?: string;
   syntheticEmptyEventFd?: string;
   syntheticTimerFd?: string;
-  processContextRestore?: "metadata-only" | "apply-target-env-cwd";
+  processContextRestore?: "metadata-only" | "apply-target-env-cwd" | "apply-target-visible-context";
 }
 
 interface TargetInvocation {
@@ -192,7 +192,7 @@ function usage(): never {
     "usage: tsx scripts/portable-machine-vm-restore-proof.ts verify " +
       "--bundle-dir path --target-code-file path [--image rootfs.tar.gz] " +
       "[--combined-descriptor] [--real-utility-continuation] " +
-      "[--process-context-restore metadata-only|apply-target-env-cwd] [--json]",
+      "[--process-context-restore metadata-only|apply-target-env-cwd|apply-target-visible-context] [--json]",
   );
   process.exit(2);
 }
@@ -217,14 +217,21 @@ function argsFromReader(read: (flag: string) => string | undefined, argv: string
   };
 }
 
+const PROCESS_CONTEXT_RESTORE_MODES = [
+  "metadata-only",
+  "apply-target-env-cwd",
+  "apply-target-visible-context",
+] as const;
+
 function parseProcessContextRestoreMode(value: string | undefined): Args["processContextRestore"] {
   if (value === undefined) {
     return undefined;
   }
-  if (value === "metadata-only" || value === "apply-target-env-cwd") {
-    return value;
-  }
-  usage();
+  return PROCESS_CONTEXT_RESTORE_MODES.includes(
+    value as (typeof PROCESS_CONTEXT_RESTORE_MODES)[number],
+  )
+    ? (value as Args["processContextRestore"])
+    : usage();
 }
 
 function readFlag(argv: string[], flag: string): string | undefined {
@@ -530,7 +537,7 @@ function activeSyscallPolicy(bundle: ReturnType<typeof validatePortableMachineSn
 
 function fdReadResourcePolicy(
   bundle: ReturnType<typeof validatePortableMachineSnapshotBundle>,
-): "synthetic-empty-pipe" | "synthetic-empty-eventfd" | "synthetic-timerfd" {
+): "synthetic-empty-pipe" | "synthetic-empty-eventfd" | "synthetic-timerfd" | "reopen-file" {
   return fdReadResourcePolicyForKind(activeReadResourceKind(bundle));
 }
 
@@ -544,12 +551,14 @@ function activeReadResourceKind(
 
 function fdReadResourcePolicyForKind(
   kind: NativeProcessResource["kind"] | undefined,
-): "synthetic-empty-pipe" | "synthetic-empty-eventfd" | "synthetic-timerfd" {
+): "synthetic-empty-pipe" | "synthetic-empty-eventfd" | "synthetic-timerfd" | "reopen-file" {
   return kind === "eventfd"
     ? "synthetic-empty-eventfd"
     : kind === "timer"
       ? "synthetic-timerfd"
-      : "synthetic-empty-pipe";
+      : kind === "file"
+        ? "reopen-file"
+        : "synthetic-empty-pipe";
 }
 
 function isActiveReadThread(

@@ -58,6 +58,7 @@ export const nativeProcessImageRefusalCodes = [
   "target-callee-saved-state-unsupported",
   "target-caller-frame-unavailable",
   "target-code-rva-unmapped",
+  "target-epoll-syscall-state-unsupported",
   "target-fd-table-duplicate",
   "target-fd-read-state-missing",
   "target-fd-table-missing",
@@ -72,6 +73,7 @@ export const nativeProcessImageRefusalCodes = [
   "target-ppoll-timeout-missing",
   "target-process-context-unsupported",
   "target-return-slot-unsupported",
+  "target-signalfd-state-unsupported",
   "target-resume-execution-unavailable",
   "target-resume-fault-invalid-code-landing",
   "target-resume-fault-outside-target-bytes",
@@ -312,6 +314,7 @@ export type NativeProcessResourceKind =
   | "timer"
   | "eventfd"
   | "signal"
+  | "signalfd"
   | "namespace"
   | "credential"
   | "futex"

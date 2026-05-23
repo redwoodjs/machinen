@@ -10,11 +10,16 @@ refused. Otherwise, modeled continuations become target steps:
 - `rearm-sleep-timer` for modeled `nanosleep`/`clock_nanosleep` remaining time;
 - `rearm-ppoll-timeout` for modeled `ppoll` timeout continuations, including
   the synthetic target resources required by the policy;
-- `restore-fd-read-block` for the narrow modeled pipe `read` case.
+- `restore-fd-read-block` for narrow modeled pipe, eventfd, and timerfd reads;
+- `complete-fd-read-from-file` for safe regular-file reads whose fd has a
+  reopen recipe, readable flags, a safe captured offset, and a translated target
+  read buffer.
 
 Only continuations that already passed the active-syscall policy are accepted.
 Generic blocking syscalls, restart state, missing timespecs, missing read-buffer
-state, and unsupported fd state continue to fail closed before target re-arm.
+state, signalfd reads, epoll waits, socket accept/connect, and unsupported fd
+state continue to fail closed before target re-arm with resource-specific
+detail.
 
 The target amd64 trampoline now executes these sections by creating and arming a
 short-lived target-side timerfd for each `rearm-sleep-timer` or
@@ -22,7 +27,9 @@ short-lived target-side timerfd for each `rearm-sleep-timer` or
 `restore-fd-read-block`, it recreates the target pipe, eventfd, or timerfd read
 fd. Timerfd read steps arm the target timer when modeled remaining time is
 present. The trampoline then verifies the fd would still block with a
-zero-timeout `poll(POLLIN)`. The trampoline reports
+zero-timeout `poll(POLLIN)`. For `complete-fd-read-from-file`, it performs a
+bounded `pread()` from the reopened target fd at the captured offset into the
+translated target read buffer, and refuses partial reads. The trampoline reports
 `nativeActiveSyscallRestore.status=passed` only when every step was parsed,
 validated, and consumed; malformed durations, unknown actions, wrong resume
 modes, unsupported sleep syscall names, unsupported `ppoll` resource shapes, and

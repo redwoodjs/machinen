@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <sched.h>
 #include <string.h>
+#include <sys/auxv.h>
 #include <sys/eventfd.h>
 #include <sys/mman.h>
 #include <sys/syscall.h>
@@ -36,6 +37,12 @@ extern char **environ;
 #ifndef MAP_FIXED_NOREPLACE
 #define MAP_FIXED_NOREPLACE 0x100000
 #endif
+#ifndef AT_PAGESZ
+#define AT_PAGESZ 6
+#endif
+#ifndef AT_CLKTCK
+#define AT_CLKTCK 17
+#endif
 
 #if defined(__linux__) && defined(__x86_64__)
 #include <setjmp.h>
@@ -47,6 +54,7 @@ extern char **environ;
 #define MAX_NATIVE_RESTORE_STEPS 128
 #define MAX_CLOEXEC_FDS 64
 #define MAX_TRANSLATED_FRAME_SLOTS 8
+#define MAX_CONTEXT_ARGV 16
 #define STATE_CONSUMPTION_MARKER UINT64_C(0x5354415445434f4e)
 #define STATE_CONSUMPTION_MASK UINT64_C(0x7f)
 #define STATE_CHECK_MEMORY UINT64_C(0x01)
@@ -142,9 +150,13 @@ struct NativeThreadRestoreState {
 
 struct NativeProcessContextRestoreState {
   bool requested;
+  bool argv_materialized;
   bool env_cleared;
   bool env_verified;
+  bool env_value_verified;
   bool cwd_applied;
+  bool cwd_verified;
+  bool auxv_verified;
   size_t env_set_count;
   size_t metadata_count;
   size_t consumed_count;
@@ -812,6 +824,9 @@ static uint64_t jump_resume_register_r10 __attribute__((used)) = 0;
 static uint64_t jump_resume_register_r11 __attribute__((used)) = 0;
 static struct NativeSignalRestoreState native_signal_restore_state = {0};
 static struct NativeProcessContextRestoreState native_process_context_restore_state = {0};
+static char target_context_argv_token[256];
+static const char *target_context_argv[MAX_CONTEXT_ARGV + 1];
+static size_t target_context_argc = 0;
 static struct NativeActiveSyscallRestoreState native_active_syscall_restore_state = {0};
 static struct NativeThreadRestoreState native_thread_restore_state = {0};
 
@@ -1368,6 +1383,90 @@ static size_t target_environ_count(void) {
   return count;
 }
 
+static void materialize_target_argv_block(const char *spec, struct NativeProcessContextRestoreState *state) {
+  uint64_t argc = native_step_u64(spec, "argc", "process-context");
+  uint64_t token_index = native_step_u64(spec, "tokenIndex", "process-context");
+  char digest[80];
+  char token_digest[80];
+  char token_hex[512];
+  native_step_string(spec, "argvSha256", digest, sizeof(digest), "process-context");
+  native_step_string(spec, "tokenSha256", token_digest, sizeof(token_digest), "process-context");
+  native_step_string(spec, "tokenHex", token_hex, sizeof(token_hex), "process-context");
+  require_sha256_hex(digest, "argvSha256", "process-context");
+  require_sha256_hex(token_digest, "tokenSha256", "process-context");
+  if (argc == 0 || argc > MAX_CONTEXT_ARGV || token_index >= argc) {
+    fprintf(stderr, "native-actual-resume-trampoline: native process-context argv shape is unsupported\n");
+    exit(2);
+  }
+  hex_to_string(token_hex, target_context_argv_token, sizeof(target_context_argv_token), "tokenHex", "process-context");
+  if (target_context_argv_token[0] == '\0') {
+    fprintf(stderr, "native-actual-resume-trampoline: native process-context argv token is empty\n");
+    exit(2);
+  }
+  for (uint64_t i = 0; i < argc; i++) {
+    target_context_argv[i] = "<machinen-argv-placeholder>";
+  }
+  target_context_argv[token_index] = target_context_argv_token;
+  target_context_argv[argc] = NULL;
+  target_context_argc = (size_t)argc;
+  if (target_context_argc != argc || strcmp(target_context_argv[token_index], target_context_argv_token) != 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: native process-context argv verify failed\n");
+    exit(1);
+  }
+  state->argv_materialized = true;
+}
+
+static void verify_target_env_value(const char *spec, struct NativeProcessContextRestoreState *state) {
+  char key_hex[512];
+  char value_hex[512];
+  char key[256];
+  char value[256];
+  char digest[80];
+  native_step_string(spec, "keyHex", key_hex, sizeof(key_hex), "process-context");
+  native_step_string(spec, "valueHex", value_hex, sizeof(value_hex), "process-context");
+  native_step_string(spec, "valueSha256", digest, sizeof(digest), "process-context");
+  require_sha256_hex(digest, "valueSha256", "process-context");
+  hex_to_string(key_hex, key, sizeof(key), "keyHex", "process-context");
+  hex_to_string(value_hex, value, sizeof(value), "valueHex", "process-context");
+  const char *observed = getenv(key);
+  if (!observed || strcmp(observed, value) != 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: getenv verify failed\n");
+    exit(1);
+  }
+  state->env_value_verified = true;
+}
+
+static void verify_target_cwd(const char *spec, struct NativeProcessContextRestoreState *state) {
+  char cwd_hex[1024];
+  char cwd[512];
+  char observed[512];
+  char digest[80];
+  native_step_string(spec, "cwdHex", cwd_hex, sizeof(cwd_hex), "process-context");
+  native_step_string(spec, "cwdSha256", digest, sizeof(digest), "process-context");
+  require_sha256_hex(digest, "cwdSha256", "process-context");
+  hex_to_string(cwd_hex, cwd, sizeof(cwd), "cwdHex", "process-context");
+  if (!getcwd(observed, sizeof(observed)) || strcmp(observed, cwd) != 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: getcwd verify failed: %s\n", strerror(errno));
+    exit(1);
+  }
+  state->cwd_verified = true;
+}
+
+static void verify_target_auxv_selected(const char *spec, struct NativeProcessContextRestoreState *state) {
+  char digest[80];
+  native_step_string(spec, "auxvSha256", digest, sizeof(digest), "process-context");
+  require_sha256_hex(digest, "auxvSha256", "process-context");
+  uint64_t expected_page_size = native_step_u64(spec, "pageSize", "process-context");
+  uint64_t expected_clock_tick = native_step_u64(spec, "clockTick", "process-context");
+  unsigned long observed_page_size = getauxval(AT_PAGESZ);
+  unsigned long observed_clock_tick = getauxval(AT_CLKTCK);
+  if (observed_page_size != expected_page_size || observed_clock_tick != expected_clock_tick) {
+    fprintf(stderr, "native-actual-resume-trampoline: selected auxv verify failed\n");
+    exit(1);
+  }
+  state->auxv_verified = true;
+}
+
 static void consume_native_process_context_steps(
     const struct Options *opts, struct NativeProcessContextRestoreState *state) {
   state->requested = opts->native_process_context_step_count > 0;
@@ -1382,6 +1481,8 @@ static void consume_native_process_context_steps(
       (void)native_step_u64(spec, "argc", "process-context");
       (void)native_step_u64(spec, "argvBytes", "process-context");
       state->metadata_count++;
+    } else if (streq(action, "materialize-argv")) {
+      materialize_target_argv_block(spec, state);
     } else if (streq(action, "record-env")) {
       char digest[80];
       native_step_string(spec, "envSha256", digest, sizeof(digest), "process-context");
@@ -1421,6 +1522,8 @@ static void consume_native_process_context_steps(
         exit(1);
       }
       state->env_set_count++;
+    } else if (streq(action, "verify-env-value")) {
+      verify_target_env_value(spec, state);
     } else if (streq(action, "verify-env")) {
       char digest[80];
       native_step_string(spec, "envSha256", digest, sizeof(digest), "process-context");
@@ -1431,7 +1534,7 @@ static void consume_native_process_context_steps(
         exit(1);
       }
       state->env_verified = true;
-    } else if (streq(action, "record-cwd") || streq(action, "chdir")) {
+    } else if (streq(action, "record-cwd") || streq(action, "chdir") || streq(action, "verify-cwd")) {
       char cwd_hex[1024];
       char cwd[512];
       char digest[80];
@@ -1446,6 +1549,8 @@ static void consume_native_process_context_steps(
           exit(1);
         }
         state->cwd_applied = true;
+      } else if (streq(action, "verify-cwd")) {
+        verify_target_cwd(spec, state);
       } else {
         state->metadata_count++;
       }
@@ -1455,6 +1560,8 @@ static void consume_native_process_context_steps(
       require_sha256_hex(digest, "auxvSha256", "process-context");
       (void)native_step_u64(spec, "auxvBytes", "process-context");
       state->metadata_count++;
+    } else if (streq(action, "verify-auxv-selected")) {
+      verify_target_auxv_selected(spec, state);
     } else {
       fprintf(stderr, "native-actual-resume-trampoline: unsupported native process-context action\n");
       exit(2);
@@ -1665,6 +1772,27 @@ static void verify_fd_read_would_block(int fd, const char *label) {
   }
 }
 
+static void complete_native_fd_read_from_file(const char *spec, struct NativeActiveSyscallRestoreState *state) {
+  uint64_t fd = native_step_u64(spec, "fd", "active-syscall");
+  uint64_t count_bytes = native_step_u64(spec, "countBytes", "active-syscall");
+  uint64_t target_buffer = native_step_u64(spec, "targetBufferPointer", "active-syscall");
+  uint64_t file_offset = native_step_u64(spec, "fileOffset", "active-syscall");
+  if (fd > 1024u || count_bytes == 0 || count_bytes > (1024u * 1024u) || target_buffer == 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: native file read arguments are unsupported\n");
+    exit(2);
+  }
+  ssize_t got = pread((int)fd, (void *)(uintptr_t)target_buffer, (size_t)count_bytes, (off_t)file_offset);
+  if (got < 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: native file read failed: %s\n", strerror(errno));
+    exit(1);
+  }
+  if ((uint64_t)got != count_bytes) {
+    fprintf(stderr, "native-actual-resume-trampoline: native file read was partial\n");
+    exit(2);
+  }
+  state->consumed_count++;
+}
+
 static void restore_native_fd_read_block(const char *spec, struct NativeActiveSyscallRestoreState *state) {
   uint64_t fd = native_step_u64(spec, "fd", "active-syscall");
   uint64_t count_bytes = native_step_u64(spec, "countBytes", "active-syscall");
@@ -1736,6 +1864,8 @@ static void apply_native_active_syscall_restore_steps(
       arm_native_active_timer(spec, "active-syscall", state);
     } else if (streq(action, "restore-fd-read-block")) {
       restore_native_fd_read_block(spec, state);
+    } else if (streq(action, "complete-fd-read-from-file")) {
+      complete_native_fd_read_from_file(spec, state);
     } else {
       fprintf(stderr, "native-actual-resume-trampoline: unsupported native active-syscall action\n");
       exit(2);
@@ -2470,14 +2600,18 @@ static void print_native_restore_consumption(const struct Options *opts) {
   if (native_process_context_restore_state.requested) {
     bool process_context_passed =
         native_process_context_restore_state.consumed_count == opts->native_process_context_step_count;
-    printf(",\"nativeProcessContextRestore\":{\"status\":\"%s\",\"stepCount\":%zu,\"metadataCount\":%zu,\"envSetCount\":%zu,\"envCleared\":%s,\"envVerified\":%s,\"cwdApplied\":%s}",
+    printf(",\"nativeProcessContextRestore\":{\"status\":\"%s\",\"stepCount\":%zu,\"metadataCount\":%zu,\"envSetCount\":%zu,\"argvMaterialized\":%s,\"envCleared\":%s,\"envVerified\":%s,\"envValueVerified\":%s,\"cwdApplied\":%s,\"cwdVerified\":%s,\"auxvVerified\":%s}",
         process_context_passed ? "passed" : "failed",
         opts->native_process_context_step_count,
         native_process_context_restore_state.metadata_count,
         native_process_context_restore_state.env_set_count,
+        native_process_context_restore_state.argv_materialized ? "true" : "false",
         native_process_context_restore_state.env_cleared ? "true" : "false",
         native_process_context_restore_state.env_verified ? "true" : "false",
-        native_process_context_restore_state.cwd_applied ? "true" : "false");
+        native_process_context_restore_state.env_value_verified ? "true" : "false",
+        native_process_context_restore_state.cwd_applied ? "true" : "false",
+        native_process_context_restore_state.cwd_verified ? "true" : "false",
+        native_process_context_restore_state.auxv_verified ? "true" : "false");
   }
   if (native_signal_restore_state.requested) {
     bool signal_passed = native_signal_restore_state.saved &&

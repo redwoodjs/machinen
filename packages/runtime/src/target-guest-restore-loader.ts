@@ -701,6 +701,19 @@ function parseNativeProcessContextStep(
   fields: Map<string, string>,
 ): TargetGuestProcessContextRestoreStep {
   const action = requiredNativeField(fields, "action");
+  return (
+    parseNativeArgvContextStep(action, fields) ??
+    parseNativeEnvContextStep(action, fields) ??
+    parseNativeCwdContextStep(action, fields) ??
+    parseNativeAuxvContextStep(action, fields) ??
+    fail("target-guest-loader-descriptor-invalid", "unsupported native process-context action")
+  );
+}
+
+function parseNativeArgvContextStep(
+  action: string,
+  fields: Map<string, string>,
+): TargetGuestProcessContextRestoreStep | undefined {
   if (action === "record-argv") {
     return {
       action,
@@ -709,6 +722,22 @@ function parseNativeProcessContextStep(
       argvSha256: requiredNativeField(fields, "argvSha256"),
     };
   }
+  return action === "materialize-argv"
+    ? {
+        action,
+        argc: parseNativeInteger(fields, "argc"),
+        argvSha256: requiredNativeField(fields, "argvSha256"),
+        tokenIndex: parseNativeInteger(fields, "tokenIndex"),
+        tokenHex: requiredNativeField(fields, "tokenHex"),
+        tokenSha256: requiredNativeField(fields, "tokenSha256"),
+      }
+    : undefined;
+}
+
+function parseNativeEnvContextStep(
+  action: string,
+  fields: Map<string, string>,
+): TargetGuestProcessContextRestoreStep | undefined {
   if (action === "record-env") {
     return {
       action,
@@ -724,21 +753,33 @@ function parseNativeProcessContextStep(
       envSha256: requiredNativeField(fields, "envSha256"),
     };
   }
-  if (action === "set-env") {
-    return {
-      action,
-      keyHex: requiredNativeField(fields, "keyHex"),
-      valueHex: requiredNativeField(fields, "valueHex"),
-      valueSha256: requiredNativeField(fields, "valueSha256"),
-    };
-  }
-  if (action === "record-cwd" || action === "chdir") {
-    return {
-      action,
-      cwdHex: requiredNativeField(fields, "cwdHex"),
-      cwdSha256: requiredNativeField(fields, "cwdSha256"),
-    };
-  }
+  return action === "set-env" || action === "verify-env-value"
+    ? {
+        action,
+        keyHex: requiredNativeField(fields, "keyHex"),
+        valueHex: requiredNativeField(fields, "valueHex"),
+        valueSha256: requiredNativeField(fields, "valueSha256"),
+      }
+    : undefined;
+}
+
+function parseNativeCwdContextStep(
+  action: string,
+  fields: Map<string, string>,
+): TargetGuestProcessContextRestoreStep | undefined {
+  return action === "record-cwd" || action === "chdir" || action === "verify-cwd"
+    ? {
+        action,
+        cwdHex: requiredNativeField(fields, "cwdHex"),
+        cwdSha256: requiredNativeField(fields, "cwdSha256"),
+      }
+    : undefined;
+}
+
+function parseNativeAuxvContextStep(
+  action: string,
+  fields: Map<string, string>,
+): TargetGuestProcessContextRestoreStep | undefined {
   if (action === "record-auxv") {
     return {
       action,
@@ -746,10 +787,14 @@ function parseNativeProcessContextStep(
       auxvSha256: requiredNativeField(fields, "auxvSha256"),
     };
   }
-  return fail(
-    "target-guest-loader-descriptor-invalid",
-    "unsupported native process-context action",
-  );
+  return action === "verify-auxv-selected"
+    ? {
+        action,
+        pageSize: parseNativeInteger(fields, "pageSize"),
+        clockTick: parseNativeInteger(fields, "clockTick"),
+        auxvSha256: requiredNativeField(fields, "auxvSha256"),
+      }
+    : undefined;
 }
 
 function parseNativeExecutableMappingStep(
@@ -833,8 +878,22 @@ function parseNativeActiveSyscallStep(
       threadId: requiredNativeField(fields, "threadId"),
       fd: parseNativeInteger(fields, "fd"),
       countBytes: parseNativeInteger(fields, "countBytes"),
-      resource: requiredNativeField(fields, "resource") as NativeModeledFdReadTargetResource,
+      resource: requiredNativeField(fields, "resource") as Exclude<
+        NativeModeledFdReadTargetResource,
+        "reopened-offset-file"
+      >,
       remainingTime: fields.has("seconds") ? parseNativeDuration(fields) : undefined,
+      resumeMode: "defer-target-resume",
+    };
+  }
+  if (action === "complete-fd-read-from-file") {
+    return {
+      action,
+      threadId: requiredNativeField(fields, "threadId"),
+      fd: parseNativeInteger(fields, "fd"),
+      countBytes: parseNativeInteger(fields, "countBytes"),
+      targetBufferPointer: requiredNativeField(fields, "targetBufferPointer"),
+      fileOffset: parseNativeInteger(fields, "fileOffset"),
       resumeMode: "defer-target-resume",
     };
   }
@@ -1064,12 +1123,20 @@ function validateNativeRestoreStep(
   }
 }
 
+// fallow-ignore-next-line complexity
 function validateProcessContextStep(step: TargetGuestProcessContextRestoreStep): void {
   switch (step.action) {
     case "record-argv":
       assertPositive(step.argc, "argc");
       assertNonNegative(step.argvBytes, "argvBytes");
       assertSha256(step.argvSha256, "argvSha256");
+      return;
+    case "materialize-argv":
+      assertPositive(step.argc, "argc");
+      assertSha256(step.argvSha256, "argvSha256");
+      assertNonNegative(step.tokenIndex, "tokenIndex");
+      assertEvenHex(step.tokenHex, "tokenHex");
+      assertSha256(step.tokenSha256, "tokenSha256");
       return;
     case "record-env":
       assertNonNegative(step.envCount, "envCount");
@@ -1082,17 +1149,24 @@ function validateProcessContextStep(step: TargetGuestProcessContextRestoreStep):
       assertSha256(step.envSha256, "envSha256");
       return;
     case "set-env":
+    case "verify-env-value":
       assertEvenHex(step.keyHex, "keyHex");
       assertEvenHex(step.valueHex, "valueHex");
       assertSha256(step.valueSha256, "valueSha256");
       return;
     case "record-cwd":
     case "chdir":
+    case "verify-cwd":
       assertEvenHex(step.cwdHex, "cwdHex");
       assertSha256(step.cwdSha256, "cwdSha256");
       return;
     case "record-auxv":
       assertNonNegative(step.auxvBytes, "auxvBytes");
+      assertSha256(step.auxvSha256, "auxvSha256");
+      return;
+    case "verify-auxv-selected":
+      assertPositive(step.pageSize, "pageSize");
+      assertPositive(step.clockTick, "clockTick");
       assertSha256(step.auxvSha256, "auxvSha256");
       return;
   }
@@ -1180,8 +1254,16 @@ function validateSignalRestoreStep(step: TargetGuestSignalRestoreStep): void {
   }
 }
 
+// fallow-ignore-next-line complexity
 function validateActiveSyscallRestoreStep(step: TargetGuestActiveSyscallRestoreStep): void {
   assertNoWhitespace(step.threadId, "threadId");
+  if (step.action === "complete-fd-read-from-file") {
+    assertFd(step.fd, "fd");
+    assertPositive(step.countBytes, "countBytes");
+    assertHexAddress(step.targetBufferPointer, "targetBufferPointer");
+    assertNonNegative(step.fileOffset, "fileOffset");
+    return;
+  }
   if (step.action === "restore-fd-read-block") {
     assertFd(step.fd, "fd");
     assertPositive(step.countBytes, "countBytes");
@@ -1562,22 +1644,29 @@ function serializePrivateMemoryStep(step: TargetGuestPrivateMemoryRestoreStep): 
   return `${base} permissions=${step.permissions}`;
 }
 
+// fallow-ignore-next-line complexity
 function serializeProcessContextStep(step: TargetGuestProcessContextRestoreStep): string {
   switch (step.action) {
     case "record-argv":
       return `native=process-context action=${step.action} argc=${step.argc} argvBytes=${step.argvBytes} argvSha256=${step.argvSha256}`;
+    case "materialize-argv":
+      return `native=process-context action=${step.action} argc=${step.argc} argvSha256=${step.argvSha256} tokenIndex=${step.tokenIndex} tokenHex=${step.tokenHex} tokenSha256=${step.tokenSha256}`;
     case "record-env":
       return `native=process-context action=${step.action} envCount=${step.envCount} envBytes=${step.envBytes} envSha256=${step.envSha256}`;
     case "clear-env":
     case "verify-env":
       return `native=process-context action=${step.action} envCount=${step.envCount} envSha256=${step.envSha256}`;
     case "set-env":
+    case "verify-env-value":
       return `native=process-context action=${step.action} keyHex=${step.keyHex} valueHex=${step.valueHex} valueSha256=${step.valueSha256}`;
     case "record-cwd":
     case "chdir":
+    case "verify-cwd":
       return `native=process-context action=${step.action} cwdHex=${step.cwdHex} cwdSha256=${step.cwdSha256}`;
     case "record-auxv":
       return `native=process-context action=${step.action} auxvBytes=${step.auxvBytes} auxvSha256=${step.auxvSha256}`;
+    case "verify-auxv-selected":
+      return `native=process-context action=${step.action} pageSize=${step.pageSize} clockTick=${step.clockTick} auxvSha256=${step.auxvSha256}`;
   }
 }
 
@@ -1607,6 +1696,9 @@ function serializeSignalRestoreStep(step: TargetGuestSignalRestoreStep): string 
 }
 
 function serializeActiveSyscallStep(step: TargetGuestActiveSyscallRestoreStep): string {
+  if (step.action === "complete-fd-read-from-file") {
+    return `native=active-syscall action=${step.action} threadId=${step.threadId} fd=${step.fd} countBytes=${step.countBytes} targetBufferPointer=${step.targetBufferPointer} fileOffset=${step.fileOffset} resumeMode=${step.resumeMode}`;
+  }
   if (step.action === "restore-fd-read-block") {
     const remainingTime = step.remainingTime
       ? ` seconds=${step.remainingTime.seconds} nanoseconds=${step.remainingTime.nanoseconds}`

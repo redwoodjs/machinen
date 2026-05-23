@@ -20,20 +20,28 @@ Malformed, missing, inconsistent, or oversized context refuses with
 
 ## Target-side consumption
 
-Descriptors use `native=process-context` steps. Two modes are available:
+Descriptors use `native=process-context` steps. Three modes are available:
 
 - `metadata-only` records argv/env/cwd/auxv counts and SHA-256 digests for a
   target-native consumption gate.
 - `apply-target-env-cwd` additionally clears the target environment, sets the
   captured env entries, verifies the env count, changes to the captured cwd, and
   verifies `getcwd()`.
+- `apply-target-visible-context` keeps the env/cwd application above and adds a
+  controlled target-visible proof: it materializes a bounded argv block for the
+  `--machinen-argv-token` profile, verifies `getenv("MACHINEN_CONTEXT_TOKEN")`,
+  verifies `getcwd()`, and compares selected safe auxv entries (`AT_PAGESZ`,
+  `AT_CLKTCK`) with target `getauxval()`.
+
+The visible mode refuses if the controlled env token, argv token, or selected
+safe auxv entries are missing. Source-only and target-variant auxv entries stay
+metadata-only; asking to materialize them remains unsupported.
 
 The trampoline reports `nativeProcessContextRestore.status=passed` only after it
 consumes all process-context steps. The VM proof maps that to
 `targetProcessContextRestoreResult=passed`, and failed markers block proof
 completion.
 
-`argv` and `auxv` are still carried as bounded metadata. Rebuilding the target
-initial stack, libc `argv`/`environ` globals, vDSO/vvar dependencies, and general
-auxv semantics remain outside this proof and must continue to fail closed until
-modeled explicitly.
+Full target initial-stack and libc process-start reconstruction, vDSO/vvar
+dependencies, and general auxv semantics remain outside this proof and must
+continue to fail closed until modeled explicitly.

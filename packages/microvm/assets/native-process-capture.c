@@ -1283,7 +1283,7 @@ static const char *fd_kind(const char *target) {
     return "timer";
   }
   if (strncmp(target, "anon_inode:[signalfd]", 21) == 0) {
-    return "signal";
+    return "signalfd";
   }
   if (target[0] == '/') {
     return "file";
@@ -1296,7 +1296,8 @@ static const char *fd_refusal_code(const char *kind) {
     return "fd-kind-unsupported";
   }
   if (streq(kind, "pipe") || streq(kind, "socket") || streq(kind, "epoll") ||
-      streq(kind, "eventfd") || streq(kind, "timer") || streq(kind, "signal")) {
+      streq(kind, "eventfd") || streq(kind, "timer") || streq(kind, "signal") ||
+      streq(kind, "signalfd")) {
     return "kernel-state-unsupported";
   }
   return "resource-kind-unsupported";
