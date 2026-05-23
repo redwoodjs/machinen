@@ -479,6 +479,7 @@ export { planTargetGuestExecutableMaterialization } from "./target-guest-executa
 export { planTargetGuestMemoryMaterialization } from "./target-guest-memory-materialization.ts";
 export { planTargetGuestPrivateMemoryRestore } from "./target-guest-private-memory-restore.ts";
 export { planTargetGuestSignalRestore } from "./target-guest-signal-restore.ts";
+export { planTargetGuestTwoThreadRestore } from "./target-guest-two-thread-restore.ts";
 export {
   completePortableMachineVmRestoreProof,
   planPortableMachineTargetRestoreDescriptor,
@@ -529,6 +530,11 @@ export type {
   TargetGuestSignalRestorePlan,
   TargetGuestSignalRestoreStep,
 } from "./target-guest-signal-restore.ts";
+export type {
+  TargetGuestTwoThreadBinding,
+  TargetGuestTwoThreadRestorePlan,
+  TargetGuestTwoThreadSpawnStep,
+} from "./target-guest-two-thread-restore.ts";
 export type {
   PortableMachineTargetContinuationKind,
   PortableMachineTargetFrameRestoreResult,

@@ -123,6 +123,9 @@
 - [`TargetGuestPrivateMemoryRestoreStep`](#targetguestprivatememoryrestorestep)
 - [`TargetGuestSignalRestorePlan`](#targetguestsignalrestoreplan)
 - [`TargetGuestSignalRestoreStep`](#targetguestsignalrestorestep)
+- [`TargetGuestTwoThreadBinding`](#targetguesttwothreadbinding)
+- [`TargetGuestTwoThreadRestorePlan`](#targetguesttwothreadrestoreplan)
+- [`TargetGuestTwoThreadSpawnStep`](#targetguesttwothreadspawnstep)
 - [`PortableMachineTargetRestoreDescriptorRequest`](#portablemachinetargetrestoredescriptorrequest)
 - [`PortableMachineTargetRestoreDescriptorPlan`](#portablemachinetargetrestoredescriptorplan)
 - [`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation)
@@ -150,6 +153,7 @@
 - [`planTargetGuestMemoryMaterialization`](#plantargetguestmemorymaterialization)
 - [`planTargetGuestPrivateMemoryRestore`](#plantargetguestprivatememoryrestore)
 - [`planTargetGuestSignalRestore`](#plantargetguestsignalrestore)
+- [`planTargetGuestTwoThreadRestore`](#plantargetguesttwothreadrestore)
 - [`planPortableMachineTargetRestoreDescriptor`](#planportablemachinetargetrestoredescriptor)
 - [`planPortableMachineVmRestoreProof`](#planportablemachinevmrestoreproof)
 - [`completePortableMachineVmRestoreProof`](#completeportablemachinevmrestoreproof)
@@ -10568,6 +10572,54 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### TargetGuestTwoThreadBinding
+
+#### Properties
+
+##### threadId
+
+> **threadId**: `string`
+
+##### stackBase
+
+> **stackBase**: `string`
+
+##### stackLimit
+
+> **stackLimit**: `string`
+
+##### registers
+
+> **registers**: `Record`\<`string`, `string`\>
+
+***
+
+### TargetGuestTwoThreadSpawnStep
+
+#### Properties
+
+##### action
+
+> **action**: `"spawn-target-thread"`
+
+##### threadId
+
+> **threadId**: `string`
+
+##### stackBase
+
+> **stackBase**: `string`
+
+##### stackLimit
+
+> **stackLimit**: `string`
+
+##### registers
+
+> **registers**: `Record`\<`string`, `string`\>
+
+***
+
 ### VmHandle
 
 #### Properties
@@ -13265,6 +13317,12 @@ Result of `validatePid` — easy to switch on at the call site.
 ### TargetGuestSignalRestorePlan
 
 > **TargetGuestSignalRestorePlan** = \{ `state`: `"planned"`; `threadId`: `string`; `targetBlockedMasks`: `string`[]; `steps`: [`TargetGuestSignalRestoreStep`](#targetguestsignalrestorestep)[]; `refusals`: \[\]; \} \| \{ `state`: `"refused"`; `threadId`: `string`; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
+
+***
+
+### TargetGuestTwoThreadRestorePlan
+
+> **TargetGuestTwoThreadRestorePlan** = \{ `state`: `"planned"`; `targetThreadCount`: `2`; `steps`: \[[`TargetGuestTwoThreadSpawnStep`](#targetguesttwothreadspawnstep), [`TargetGuestTwoThreadSpawnStep`](#targetguesttwothreadspawnstep)\]; `refusals`: \[\]; \} \| \{ `state`: `"refused"`; `targetThreadCount`: `number`; `steps`: \[\]; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
 
 ***
 
@@ -17000,6 +17058,26 @@ resolve the binary through the same lookup chain.
 #### Returns
 
 [`TargetGuestSignalRestorePlan`](#targetguestsignalrestoreplan)
+
+***
+
+### planTargetGuestTwoThreadRestore()
+
+> **planTargetGuestTwoThreadRestore**(`boundary`, `bindings`): [`TargetGuestTwoThreadRestorePlan`](#targetguesttwothreadrestoreplan)
+
+#### Parameters
+
+##### boundary
+
+[`NativeControlledTwoThreadRestorePlan`](#nativecontrolledtwothreadrestoreplan)
+
+##### bindings
+
+[`TargetGuestTwoThreadBinding`](#targetguesttwothreadbinding)[]
+
+#### Returns
+
+[`TargetGuestTwoThreadRestorePlan`](#targetguesttwothreadrestoreplan)
 
 ***
 
