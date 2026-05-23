@@ -23,6 +23,7 @@ export interface PortableMachineVmRestoreProofRequest {
 export type PortableMachineTargetVerifierResult = "pending" | "passed" | "failed";
 export type PortableMachineTargetContinuationKind = "generated-verifier" | "real-utility";
 export type PortableMachineTargetStateConsumptionResult = "pending" | "passed" | "failed";
+export type PortableMachineTargetNativePlanConsumptionResult = "pending" | "passed" | "failed";
 export type PortableMachineTargetReturnChainResult = "pending" | "passed" | "failed";
 export type PortableMachineTargetFrameRestoreResult = "pending" | "passed" | "failed";
 export type PortableMachineTargetRegisterRestoreResult = "pending" | "passed" | "failed";
@@ -40,6 +41,11 @@ export interface PortableMachineTargetRestoreObservation {
   targetVerifierResult?: PortableMachineTargetVerifierResult;
   targetStateConsumptionResult?: PortableMachineTargetStateConsumptionResult;
   targetResourceStatuses?: PortableMachineTargetResourceStatus[];
+  targetStackWindowMaterializationResult?: PortableMachineTargetNativePlanConsumptionResult;
+  targetPrivateMemoryRestoreResult?: PortableMachineTargetNativePlanConsumptionResult;
+  targetExecutableMappingResult?: PortableMachineTargetNativePlanConsumptionResult;
+  targetSignalRestoreResult?: PortableMachineTargetNativePlanConsumptionResult;
+  targetActiveSyscallRestoreResult?: PortableMachineTargetNativePlanConsumptionResult;
   targetReturnChainResult?: PortableMachineTargetReturnChainResult;
   targetTranslatedReturnAddress?: string;
   targetFrameRestoreResult?: PortableMachineTargetFrameRestoreResult;
@@ -203,6 +209,11 @@ export function completePortableMachineVmRestoreProof(
     targetContinuationReturnValue: result.actualResumeEvent?.returnValue,
     targetStateConsumptionResult: result.targetStateConsumptionResult,
     targetResourceStatuses: result.targetResourceStatuses,
+    targetStackWindowMaterializationResult: result.targetStackWindowMaterializationResult,
+    targetPrivateMemoryRestoreResult: result.targetPrivateMemoryRestoreResult,
+    targetExecutableMappingResult: result.targetExecutableMappingResult,
+    targetSignalRestoreResult: result.targetSignalRestoreResult,
+    targetActiveSyscallRestoreResult: result.targetActiveSyscallRestoreResult,
     targetReturnChainResult: result.targetReturnChainResult,
     targetTranslatedReturnAddress: result.targetTranslatedReturnAddress,
     targetFrameRestoreResult: result.targetFrameRestoreResult,
@@ -241,6 +252,11 @@ function optionalTargetChecksPassed(result: PortableMachineVmRestoreTargetResult
   return [
     passedOrUnset(result.targetVerifierResult),
     passedOrUnset(result.targetStateConsumptionResult),
+    passedOrUnset(result.targetStackWindowMaterializationResult),
+    passedOrUnset(result.targetPrivateMemoryRestoreResult),
+    passedOrUnset(result.targetExecutableMappingResult),
+    passedOrUnset(result.targetSignalRestoreResult),
+    passedOrUnset(result.targetActiveSyscallRestoreResult),
     passedOrUnset(result.targetReturnChainResult),
     passedOrUnset(result.targetFrameRestoreResult),
     passedOrUnset(result.targetRegisterRestoreResult),

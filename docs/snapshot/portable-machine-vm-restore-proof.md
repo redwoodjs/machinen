@@ -20,6 +20,9 @@ run is successful only when the target VM reports target-native completion with:
 - `sourceTextReusedAsTargetCode: false`
 - `sourceIsaEmulationUsed: false`
 - `sidecarRuntimeUsed: false`
+- every present native restore consumption marker is `passed`, including stack
+  window writes, private memory restore, executable mapping materialization,
+  signal-mask handoff, and active syscall re-arm
 
 Example:
 
@@ -101,6 +104,11 @@ includes `targetRestore.descriptorGateCompleted`, descriptor memory/fd counts,
 resource recipe kinds, `targetRestore.targetContinuationKind`,
 `targetRestore.targetContinuationReturnValue`,
 `targetRestore.targetStateConsumptionResult`, per-resource status,
+`targetRestore.targetStackWindowMaterializationResult`,
+`targetRestore.targetPrivateMemoryRestoreResult`,
+`targetRestore.targetExecutableMappingResult`,
+`targetRestore.targetSignalRestoreResult`,
+`targetRestore.targetActiveSyscallRestoreResult`,
 `targetRestore.targetReturnChainResult`,
 `targetRestore.targetTranslatedReturnAddress`,
 `targetRestore.targetFrameRestoreResult`,

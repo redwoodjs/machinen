@@ -161,6 +161,7 @@ const TOC = {
     "PortableMachineTargetResourceStatus",
     "PortableMachineTargetResumePathResult",
     "PortableMachineTargetReturnChainResult",
+    "PortableMachineTargetNativePlanConsumptionResult",
     "PortableMachineTargetStateConsumptionResult",
     "PortableMachineTargetVerifierResult",
     "PortableMachineVmRestoreProofRequest",
