@@ -314,6 +314,48 @@ describe("target guest restore loader descriptor", () => {
         },
       },
       {
+        section: "process-context" as const,
+        step: {
+          action: "set-argv-entry" as const,
+          index: 0,
+          valueHex: "2f62696e2f746172676574",
+          valueSha256: "8a5edab282632443219e051e4ade2d1d5bbc671c781051bf1437897cbdfea0f1",
+        },
+      },
+      {
+        section: "process-context" as const,
+        step: {
+          action: "record-auxv-policy" as const,
+          mode: "selected-safe-only" as const,
+          materializedKeys: "AT_PAGESZ,AT_CLKTCK",
+          refusedKeys: "AT_SYSINFO_EHDR,AT_RANDOM,AT_EXECFN",
+          auxvSha256: "8a5edab282632443219e051e4ade2d1d5bbc671c781051bf1437897cbdfea0f1",
+        },
+      },
+      {
+        section: "process-context" as const,
+        step: {
+          action: "materialize-initial-stack" as const,
+          targetStart: "0x600000002000",
+          sizeBytes: 16384,
+          argc: 1,
+          envCount: 0,
+          pageSize: 4096,
+          clockTick: 100,
+          argvSha256: "8a5edab282632443219e051e4ade2d1d5bbc671c781051bf1437897cbdfea0f1",
+          envSha256: "8a5edab282632443219e051e4ade2d1d5bbc671c781051bf1437897cbdfea0f1",
+        },
+      },
+      {
+        section: "process-context" as const,
+        step: {
+          action: "verify-initial-stack" as const,
+          targetStart: "0x600000002000",
+          argc: 1,
+          envCount: 0,
+        },
+      },
+      {
         section: "signal-restore" as const,
         step: {
           action: "sigprocmask-set-blocked" as const,
@@ -397,6 +439,14 @@ describe("target guest restore loader descriptor", () => {
         "action=chdir;cwdHex=2f;cwdSha256=8a5edab282632443219e051e4ade2d1d5bbc671c781051bf1437897cbdfea0f1",
         "--native-process-context-step",
         "action=verify-auxv-selected;pageSize=4096;clockTick=100;auxvSha256=8a5edab282632443219e051e4ade2d1d5bbc671c781051bf1437897cbdfea0f1",
+        "--native-process-context-step",
+        "action=set-argv-entry;index=0;valueHex=2f62696e2f746172676574;valueSha256=8a5edab282632443219e051e4ade2d1d5bbc671c781051bf1437897cbdfea0f1",
+        "--native-process-context-step",
+        "action=record-auxv-policy;mode=selected-safe-only;materializedKeys=AT_PAGESZ,AT_CLKTCK;refusedKeys=AT_SYSINFO_EHDR,AT_RANDOM,AT_EXECFN;auxvSha256=8a5edab282632443219e051e4ade2d1d5bbc671c781051bf1437897cbdfea0f1",
+        "--native-process-context-step",
+        "action=materialize-initial-stack;targetStart=0x600000002000;sizeBytes=16384;argc=1;envCount=0;pageSize=4096;clockTick=100;argvSha256=8a5edab282632443219e051e4ade2d1d5bbc671c781051bf1437897cbdfea0f1;envSha256=8a5edab282632443219e051e4ade2d1d5bbc671c781051bf1437897cbdfea0f1",
+        "--native-process-context-step",
+        "action=verify-initial-stack;targetStart=0x600000002000;argc=1;envCount=0",
         "--native-signal-restore-step",
         "action=sigprocmask-set-blocked;threadId=thread:1;targetBlockedMasks=0x0",
         "--native-active-syscall-step",

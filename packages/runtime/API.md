@@ -10754,6 +10754,14 @@ Poll interval in ms while retrying. Default 250.
 
 > `optional` **maxAuxvBytes?**: `number`
 
+##### initialStackTargetStart?
+
+> `optional` **initialStackTargetStart?**: `string`
+
+##### initialStackSizeBytes?
+
+> `optional` **initialStackSizeBytes?**: `number`
+
 ***
 
 ### TargetGuestRestoreContinuationDescriptor
@@ -13702,13 +13710,13 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ### TargetGuestProcessContextRestoreMode
 
-> **TargetGuestProcessContextRestoreMode** = `"metadata-only"` \| `"apply-target-env-cwd"` \| `"apply-target-visible-context"`
+> **TargetGuestProcessContextRestoreMode** = `"metadata-only"` \| `"apply-target-env-cwd"` \| `"apply-target-visible-context"` \| `"apply-target-initial-stack"`
 
 ***
 
 ### TargetGuestProcessContextRestoreStep
 
-> **TargetGuestProcessContextRestoreStep** = \{ `action`: `"record-argv"`; `argc`: `number`; `argvBytes`: `number`; `argvSha256`: `string`; \} \| \{ `action`: `"materialize-argv"`; `argc`: `number`; `argvSha256`: `string`; `tokenIndex`: `number`; `tokenHex`: `string`; `tokenSha256`: `string`; \} \| \{ `action`: `"record-env"`; `envCount`: `number`; `envBytes`: `number`; `envSha256`: `string`; \} \| \{ `action`: `"clear-env"`; `envCount`: `number`; `envSha256`: `string`; \} \| \{ `action`: `"set-env"`; `keyHex`: `string`; `valueHex`: `string`; `valueSha256`: `string`; \} \| \{ `action`: `"verify-env"`; `envCount`: `number`; `envSha256`: `string`; \} \| \{ `action`: `"verify-env-value"`; `keyHex`: `string`; `valueHex`: `string`; `valueSha256`: `string`; \} \| \{ `action`: `"record-cwd"`; `cwdHex`: `string`; `cwdSha256`: `string`; \} \| \{ `action`: `"chdir"`; `cwdHex`: `string`; `cwdSha256`: `string`; \} \| \{ `action`: `"verify-cwd"`; `cwdHex`: `string`; `cwdSha256`: `string`; \} \| \{ `action`: `"record-auxv"`; `auxvBytes`: `number`; `auxvSha256`: `string`; \} \| \{ `action`: `"verify-auxv-selected"`; `pageSize`: `number`; `clockTick`: `number`; `auxvSha256`: `string`; \}
+> **TargetGuestProcessContextRestoreStep** = \{ `action`: `"record-argv"`; `argc`: `number`; `argvBytes`: `number`; `argvSha256`: `string`; \} \| \{ `action`: `"materialize-argv"`; `argc`: `number`; `argvSha256`: `string`; `tokenIndex`: `number`; `tokenHex`: `string`; `tokenSha256`: `string`; \} \| \{ `action`: `"set-argv-entry"`; `index`: `number`; `valueHex`: `string`; `valueSha256`: `string`; \} \| \{ `action`: `"record-env"`; `envCount`: `number`; `envBytes`: `number`; `envSha256`: `string`; \} \| \{ `action`: `"clear-env"`; `envCount`: `number`; `envSha256`: `string`; \} \| \{ `action`: `"set-env"`; `keyHex`: `string`; `valueHex`: `string`; `valueSha256`: `string`; \} \| \{ `action`: `"verify-env"`; `envCount`: `number`; `envSha256`: `string`; \} \| \{ `action`: `"verify-env-value"`; `keyHex`: `string`; `valueHex`: `string`; `valueSha256`: `string`; \} \| \{ `action`: `"record-cwd"`; `cwdHex`: `string`; `cwdSha256`: `string`; \} \| \{ `action`: `"chdir"`; `cwdHex`: `string`; `cwdSha256`: `string`; \} \| \{ `action`: `"verify-cwd"`; `cwdHex`: `string`; `cwdSha256`: `string`; \} \| \{ `action`: `"record-auxv"`; `auxvBytes`: `number`; `auxvSha256`: `string`; \} \| \{ `action`: `"verify-auxv-selected"`; `pageSize`: `number`; `clockTick`: `number`; `auxvSha256`: `string`; \} \| \{ `action`: `"record-auxv-policy"`; `mode`: `"selected-safe-only"`; `materializedKeys`: `string`; `refusedKeys`: `string`; `auxvSha256`: `string`; \} \| \{ `action`: `"materialize-initial-stack"`; `targetStart`: `string`; `sizeBytes`: `number`; `argc`: `number`; `envCount`: `number`; `pageSize`: `number`; `clockTick`: `number`; `argvSha256`: `string`; `envSha256`: `string`; \} \| \{ `action`: `"verify-initial-stack"`; `targetStart`: `string`; `argc`: `number`; `envCount`: `number`; \}
 
 ***
 

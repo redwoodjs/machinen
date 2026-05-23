@@ -48,7 +48,11 @@ interface Args {
   syntheticEmptyPipeWriteFd?: string;
   syntheticEmptyEventFd?: string;
   syntheticTimerFd?: string;
-  processContextRestore?: "metadata-only" | "apply-target-env-cwd" | "apply-target-visible-context";
+  processContextRestore?:
+    | "metadata-only"
+    | "apply-target-env-cwd"
+    | "apply-target-visible-context"
+    | "apply-target-initial-stack";
 }
 
 interface TargetInvocation {
@@ -151,6 +155,7 @@ const PROOF_EVENT_FD = 10;
 const PROOF_TIMER_FD = 11;
 const PROOF_FD_BYTES = Buffer.from("FD");
 const PROOF_FILE_READ_BYTES = Buffer.from("FILE");
+const PROOF_INITIAL_STACK_TARGET = "0x600000002000";
 const STATE_CONSUMPTION_MARKER = 0x5354415445434f4en;
 const STATE_CHECK_MEMORY = 0x01;
 const STATE_CHECK_STDIO = 0x02;
@@ -202,7 +207,7 @@ function usage(): never {
     "usage: tsx scripts/portable-machine-vm-restore-proof.ts verify " +
       "--bundle-dir path --target-code-file path [--image rootfs.tar.gz] " +
       "[--combined-descriptor] [--real-utility-continuation] " +
-      "[--process-context-restore metadata-only|apply-target-env-cwd|apply-target-visible-context] [--json]",
+      "[--process-context-restore metadata-only|apply-target-env-cwd|apply-target-visible-context|apply-target-initial-stack] [--json]",
   );
   process.exit(2);
 }
@@ -231,6 +236,7 @@ const PROCESS_CONTEXT_RESTORE_MODES = [
   "metadata-only",
   "apply-target-env-cwd",
   "apply-target-visible-context",
+  "apply-target-initial-stack",
 ] as const;
 
 function parseProcessContextRestoreMode(value: string | undefined): Args["processContextRestore"] {
@@ -461,7 +467,10 @@ function proofProcessContextNativeSections(
   if (!mode) {
     return { state: "planned", steps: [] };
   }
-  const plan = planTargetGuestProcessContextRestore(bundle.nativeProcessImage, { mode });
+  const plan = planTargetGuestProcessContextRestore(bundle.nativeProcessImage, {
+    mode,
+    initialStackTargetStart: PROOF_INITIAL_STACK_TARGET,
+  });
   return plan.state === "planned"
     ? {
         state: "planned",

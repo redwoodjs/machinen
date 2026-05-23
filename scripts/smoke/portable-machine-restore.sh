@@ -391,7 +391,7 @@ run_target_restore() {
   local process_context_restore_args=()
   local process_context_restore_args_text=""
   if [[ "$REMOTE_SOURCE_TARGET" == "process-context" ]]; then
-    process_context_restore_args=(--process-context-restore apply-target-visible-context)
+    process_context_restore_args=(--process-context-restore apply-target-initial-stack)
     process_context_restore_args_text="${process_context_restore_args[*]}"
   fi
   if [[ $REMOTE_E2E -eq 1 ]]; then
