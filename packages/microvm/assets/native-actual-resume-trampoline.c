@@ -81,6 +81,7 @@
 #define RESUME_REGISTER_R10 UINT64_C(0x40)
 #define RESUME_REGISTER_R11 UINT64_C(0x80)
 #define RESUME_REGISTER_RDI UINT64_C(0x100)
+#define NATIVE_INTERNAL_FD_MIN 64
 #define MAX_UNWIND_ID 128
 
 struct MemoryMaterialization {
@@ -1452,6 +1453,16 @@ static void record_active_timer_fd(struct NativeActiveSyscallRestoreState *state
   state->timer_fds[state->armed_count++] = fd;
 }
 
+static int move_to_internal_fd(int fd, const char *label) {
+  int internal_fd = fcntl(fd, F_DUPFD_CLOEXEC, NATIVE_INTERNAL_FD_MIN);
+  if (internal_fd < 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: native %s internal fd reserve failed: %s\n", label, strerror(errno));
+    exit(1);
+  }
+  close(fd);
+  return internal_fd;
+}
+
 static void arm_native_active_timer(
     const char *spec, const char *label, struct NativeActiveSyscallRestoreState *state) {
   int fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC);
@@ -1459,6 +1470,7 @@ static void arm_native_active_timer(
     fprintf(stderr, "native-actual-resume-trampoline: native %s timerfd failed: %s\n", label, strerror(errno));
     exit(1);
   }
+  fd = move_to_internal_fd(fd, label);
   struct itimerspec timer = native_active_timer_spec(spec, label);
   if (timerfd_settime(fd, 0, &timer, NULL) != 0) {
     fprintf(stderr, "native-actual-resume-trampoline: native %s timerfd arm failed: %s\n", label, strerror(errno));

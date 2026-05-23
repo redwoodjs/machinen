@@ -293,21 +293,18 @@ NODE
 
 capture_remote_native_process_bundle() {
   local start=$1
-  ssh "$ARM64_SSH" "rm -rf '$ARM64_REMOTE_WORK' && mkdir -p '$ARM64_REMOTE_WORK/repo' '$ARM64_REMOTE_WORK/capture'"
+  ssh "$ARM64_SSH" "rm -rf '$ARM64_REMOTE_WORK' && mkdir -p '$ARM64_REMOTE_WORK/repo' '$ARM64_REMOTE_WORK/capture/bundle' '$ARM64_REMOTE_WORK/bin'"
   tar -czf - -C "$ROOT" \
-    scripts/native-process-capture.mjs \
-    scripts/controlled-corpus-utils.mjs \
-    scripts/proof-script-utils.mjs \
     packages/microvm/assets/native-process-capture.c \
-    packages/microvm/assets/native-capture-target.c | \
+    packages/microvm/assets/native-ppoll-timeout-target.c | \
     ssh "$ARM64_SSH" "tar -xzf - -C '$ARM64_REMOTE_WORK/repo'"
   ssh "$ARM64_SSH" \
-    "cd '$ARM64_REMOTE_WORK/repo' && '$ARM64_NODE' scripts/native-process-capture.mjs verify --out-dir '$ARM64_REMOTE_WORK/capture' --json --keep > '$ARM64_REMOTE_WORK/capture.json'"
+    "cd '$ARM64_REMOTE_WORK/repo' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-process-capture.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-ppoll-timeout-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-ppoll-timeout-target' && '$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --settle-ms 150 -- '$ARM64_REMOTE_WORK/bin/machinen-native-ppoll-timeout-target' > '$ARM64_REMOTE_WORK/capture.log'"
   mkdir -p "$NATIVE_BUNDLE"
-  ssh "$ARM64_SSH" "cat '$ARM64_REMOTE_WORK/capture.json'" >"$WORK/arm64-capture.json"
+  ssh "$ARM64_SSH" "cat '$ARM64_REMOTE_WORK/capture.log'" >"$WORK/arm64-capture.log"
   ssh "$ARM64_SSH" "tar -czf - -C '$ARM64_REMOTE_WORK/capture/bundle' ." | \
     tar -xzf - -C "$NATIVE_BUNDLE"
-  record_timing "capture" "ok" "$start" "remote arm64 native-process bundle captured from $ARM64_SSH"
+  record_timing "capture" "ok" "$start" "remote arm64 ppoll native-process bundle captured from $ARM64_SSH"
 }
 
 capture_native_process_bundle() {
@@ -368,9 +365,10 @@ run_target_restore() {
     record_timing "target-boot-restore" "failed" "$start" "runner failed"
     return 21
   fi
-  if node --input-type=module - "$TARGET_LOG" <<'NODE'
+  if node --input-type=module - "$TARGET_LOG" "$REMOTE_E2E" <<'NODE'
 import { readFileSync } from 'node:fs';
 const result = JSON.parse(readFileSync(process.argv[2], 'utf8'));
+const remoteE2e = process.argv[3] === '1';
 process.exit(
   result.state === 'completed' &&
   result.migrationCompleted === true &&
@@ -379,7 +377,8 @@ process.exit(
   result.targetStackWindowMaterializationResult === 'passed' &&
   result.targetPrivateMemoryRestoreResult === 'passed' &&
   result.targetExecutableMappingResult === 'passed' &&
-  result.targetSignalRestoreResult === 'passed'
+  result.targetSignalRestoreResult === 'passed' &&
+  (!remoteE2e || result.targetActiveSyscallRestoreResult === 'passed')
     ? 0
     : 1,
 );
