@@ -13,6 +13,9 @@ The descriptor can now carry line-oriented `native=` entries for:
 - modeled active-syscall re-arm steps.
 
 These sections are validated and round-trip through descriptor serialization.
-They also become explicit trampoline argv entries so the target loader can
-materialize them and report consumption. Unsafe or malformed native section
+They also become explicit trampoline argv entries. The target loader now parses
+and forwards them; the amd64 trampoline applies stack-window writes,
+return-chain writes, stack guards, and signal-mask save/apply/verify/restore
+steps, while tracking private-memory, executable-mapping, and active-syscall
+section consumption for result reporting. Unsafe or malformed native section
 entries fail closed before guest restore execution.

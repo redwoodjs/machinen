@@ -79,6 +79,50 @@ describe("native actual resume trampoline", () => {
         sidecarRuntimeUsed: false,
       });
 
+      const nativeMemory = join(outDir, "native-memory.bin");
+      writeFileSync(nativeMemory, Buffer.alloc(4096, 0x7a));
+      expect(
+        runHelper(helper, returnCode, 1, [
+          "--materialize-memory",
+          `${nativeMemory}:0:0x600000000000:4096:rw-p`,
+          "--native-stack-window-write",
+          "0x52000000ff00:0x1234567890abcdef:efcdab9078563412:pointer",
+          "--native-stack-window-guard",
+          "0x520000010000:4096:above",
+          "--native-return-chain-write",
+          "0x52000000ff08:0x710000001000:0010007100000000:return-address",
+          "--native-private-memory-step",
+          "action=copy-captured-bytes;mapping=mapping:heap;targetStart=0x600000000000;sizeBytes=4096;sourceFile=/tmp/native-memory.bin;sourceOffset=0",
+          "--native-executable-mapping",
+          "action=map-target-executable;mapping=mapping:text;targetStart=0x710000001000;sizeBytes=1;path=/tmp/target;fileOffset=0;read=true;write=false;execute=true;private=true;shared=false;buildId=target-build-id",
+          "--native-signal-restore-step",
+          "action=save-loader-signal-mask;threadId=thread:1",
+          "--native-signal-restore-step",
+          "action=sigprocmask-set-blocked;threadId=thread:1;targetBlockedMasks=0x0",
+          "--native-signal-restore-step",
+          "action=verify-blocked-signal-mask;threadId=thread:1;targetBlockedMasks=0x0",
+          "--native-signal-restore-step",
+          "action=restore-loader-signal-mask;threadId=thread:1",
+          "--native-active-syscall-step",
+          "action=rearm-sleep-timer;threadId=thread:1;seconds=0;nanoseconds=1;resumeMode=defer-target-resume;syscallName=clock_nanosleep",
+        ]),
+      ).toMatchObject({
+        status: "returned",
+        nativeStackWindowMaterialization: { status: "passed", writeCount: 1, guardCount: 1 },
+        nativeReturnChainMaterialization: { status: "passed", writeCount: 1 },
+        nativePrivateMemoryRestore: { status: "passed", stepCount: 1 },
+        nativeExecutableMapping: { status: "passed", mappingCount: 1 },
+        nativeSignalRestore: {
+          status: "passed",
+          stepCount: 4,
+          saved: true,
+          applied: true,
+          verified: true,
+          restored: true,
+        },
+        nativeActiveSyscallRestore: { status: "passed", stepCount: 1 },
+      });
+
       const arg0Code = join(outDir, "arg0.bin");
       // mov rax, rdi; ret
       writeFileSync(arg0Code, Buffer.from([0x48, 0x89, 0xf8, 0xc3]));
