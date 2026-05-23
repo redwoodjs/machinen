@@ -603,6 +603,8 @@ static void parse_native_restore(struct Descriptor *descriptor, char *line) {
     parse_native_semicolon_step(descriptor, line + strlen("native=private-memory"), "", "--native-private-memory-step");
   } else if (starts_with(line, "native=executable-mapping")) {
     parse_native_semicolon_step(descriptor, line + strlen("native=executable-mapping"), "", "--native-executable-mapping");
+  } else if (starts_with(line, "native=process-context")) {
+    parse_native_semicolon_step(descriptor, line + strlen("native=process-context"), "", "--native-process-context-step");
   } else if (starts_with(line, "native=signal-restore")) {
     parse_native_semicolon_step(descriptor, line + strlen("native=signal-restore"), "", "--native-signal-restore-step");
   } else if (starts_with(line, "native=active-syscall")) {

@@ -286,6 +286,14 @@ describe("target guest restore loader descriptor", () => {
         },
       },
       {
+        section: "process-context" as const,
+        step: {
+          action: "chdir" as const,
+          cwdHex: "2f",
+          cwdSha256: "8a5edab282632443219e051e4ade2d1d5bbc671c781051bf1437897cbdfea0f1",
+        },
+      },
+      {
         section: "signal-restore" as const,
         step: {
           action: "sigprocmask-set-blocked" as const,
@@ -351,6 +359,8 @@ describe("target guest restore loader descriptor", () => {
         "0x50000000ff08:0x700300000516:1605000003700000:return-address",
         "--native-private-memory-step",
         "action=copy-captured-bytes;mapping=mapping:heap;targetStart=0x600000000000;sizeBytes=4096;sourceFile=/tmp/native-memory.bin;sourceOffset=0",
+        "--native-process-context-step",
+        "action=chdir;cwdHex=2f;cwdSha256=8a5edab282632443219e051e4ade2d1d5bbc671c781051bf1437897cbdfea0f1",
         "--native-signal-restore-step",
         "action=sigprocmask-set-blocked;threadId=thread:1;targetBlockedMasks=0x0",
         "--native-active-syscall-step",

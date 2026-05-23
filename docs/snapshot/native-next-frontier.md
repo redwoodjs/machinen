@@ -28,6 +28,7 @@ completion is reported:
 | private memory             | maps target private ranges, copies captured bytes, applies final permissions, and backs target TLS/TCB     |
 | executable mapping         | verifies target file/path/address/size/offset, executable/private flags, and build-id or sha256 provenance |
 | signal restore             | saves, applies, verifies, and restores the loader signal mask                                              |
+| process context            | carries bounded argv/env/cwd/auxv metadata and can apply/verify controlled target env+cwd                  |
 | active syscall             | arms target-side timerfds for modeled sleep/ppoll timeout continuations                                    |
 | controlled thread spawn    | maps requested stacks and consumes narrow spawn steps with short-lived target tasks                        |
 
@@ -45,8 +46,8 @@ criteria. Good next issues are:
    whose target fd/resource recipes can be proven without readiness ambiguity.
 2. Broaden private target memory coverage only where provenance, permissions,
    guards, and pointer ownership are explicit.
-3. Model argv/env/auxv/cwd handoff as target-side state, with precise refusals
-   for malformed or source-only dependencies.
+3. Continue argv/env/auxv/cwd work beyond the current bounded handoff: rebuild
+   target argv/environ/auxv stack/global state only where libc dependencies are explicit.
 4. Revisit target libc/vDSO/vvar data dependencies after the syscall/resource
    cases provide comparison points for what must be materialized versus refused.
 5. Keep futex wait handoff, rseq, arbitrary signal restart, JIT/native code
