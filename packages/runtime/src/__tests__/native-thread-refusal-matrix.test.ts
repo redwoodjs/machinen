@@ -100,6 +100,10 @@ describe("native thread refusal matrix", () => {
           refusalCode: "simd-fpu-state-unsupported",
         }),
         expect.objectContaining({
+          id: "partial-simd-fpu-subset",
+          refusalCode: "simd-fpu-state-unsupported",
+        }),
+        expect.objectContaining({
           id: "unsupported-simd-fpu-state",
           refusalCode: "simd-fpu-state-unsupported",
         }),

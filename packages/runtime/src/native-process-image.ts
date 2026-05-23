@@ -231,12 +231,19 @@ export type NativeTlsAmd64SegmentBases =
     }
   | { state: "unsupported"; reason?: string; refusal?: NativeProcessImageRefusal };
 
+export type NativeSimdFpuLiveSubset =
+  | "fp-control-state"
+  | "caller-saved-vector-registers"
+  | "callee-saved-vector-registers"
+  | "unknown-live-state";
+
 export type NativeSimdFpuState =
   | { state: "not-live"; provenance?: string }
   | {
       state: "requires-restore";
       arch?: NativeProcessImageArchitecture;
       byteLength?: number;
+      liveSubset?: NativeSimdFpuLiveSubset;
       reason?: string;
     }
   | { state: "not-captured" | "unsupported"; reason?: string; refusal?: NativeProcessImageRefusal };
@@ -951,6 +958,9 @@ function validateThreadSimdFpu(ctx: NativeValidationContext, path: string, value
   nativeEnum(ctx, `${path}.state`, simdFpu.state, SIMD_FPU_STATES);
   nativeOptionalString(ctx, `${path}.provenance`, simdFpu.provenance);
   nativeOptionalString(ctx, `${path}.reason`, simdFpu.reason);
+  if (simdFpu.liveSubset !== undefined) {
+    nativeEnum(ctx, `${path}.liveSubset`, simdFpu.liveSubset, SIMD_FPU_LIVE_SUBSETS);
+  }
   if (simdFpu.arch !== undefined) {
     nativeArch(ctx, `${path}.arch`, simdFpu.arch);
   }
@@ -1506,6 +1516,12 @@ const RSEQ_STATES = ["absent", "captured", "unsupported"] as const;
 const TLS_THREAD_POINTER_REGISTERS = ["arm64-tpidr-el0", "amd64-fs-base"] as const;
 const TLS_TARGET_SEGMENT_BASE_STATES = ["not-required", "provided", "unsupported"] as const;
 const SIMD_FPU_STATES = ["not-live", "requires-restore", "not-captured", "unsupported"] as const;
+const SIMD_FPU_LIVE_SUBSETS = [
+  "fp-control-state",
+  "caller-saved-vector-registers",
+  "callee-saved-vector-registers",
+  "unknown-live-state",
+] as const;
 const RESOURCE_KINDS = [
   "argv",
   "env",

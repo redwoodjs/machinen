@@ -53,6 +53,7 @@
 - [`NativeProcessImageMappings`](#nativeprocessimagemappings)
 - [`NativeArm64Registers`](#nativearm64registers)
 - [`NativeAmd64Registers`](#nativeamd64registers)
+- [`NativeSimdFpuLiveSubset`](#nativesimdfpulivesubset)
 - [`NativeSimdFpuState`](#nativesimdfpustate)
 - [`NativeThreadState`](#nativethreadstate)
 - [`NativeProcessImageThreads`](#nativeprocessimagethreads)
@@ -149,6 +150,7 @@
 - [`NativeTlsAmd64SegmentBases`](#nativetlsamd64segmentbases)
 - [`NativeThreadRestorePlan`](#nativethreadrestoreplan)
 - [`NativeThreadRestorePlanRequest`](#nativethreadrestoreplanrequest)
+- [`NativeSimdFpuLiveSubsetPolicy`](#nativesimdfpulivesubsetpolicy)
 - [`NativeSimdFpuRestorePolicyResult`](#nativesimdfpurestorepolicyresult)
 - [`NativeThreadTlsPolicyRequest`](#nativethreadtlspolicyrequest)
 - [`NativeTlsSegmentBaseHandoffRequest`](#nativetlssegmentbasehandoffrequest)
@@ -156,6 +158,8 @@
 - [`NativeTlsTargetAccessPolicy`](#nativetlstargetaccesspolicy)
 - [`translateNativeRegisterState`](#translatenativeregisterstate)
 - [`planNativeThreadRestoreBoundary`](#plannativethreadrestoreboundary)
+- [`NATIVE_SIMD_FPU_LIVE_SUBSET_POLICY`](#native_simd_fpu_live_subset_policy)
+- [`planNativeSimdFpuLiveSubsetPolicy`](#plannativesimdfpulivesubsetpolicy)
 - [`planNativeSimdFpuRestorePolicy`](#plannativesimdfpurestorepolicy)
 - [`safeSimdFpuRefusal`](#safesimdfpurefusal)
 - [`planNativeTlsSegmentBaseHandoff`](#plannativetlssegmentbasehandoff)
@@ -5163,6 +5167,28 @@ by default when `output` is a TTY.
 ##### refusals
 
 > **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
+### NativeSimdFpuLiveSubsetPolicy
+
+#### Properties
+
+##### state
+
+> **state**: `"refuse-all-live-subsets"`
+
+##### acceptedSubsets
+
+> **acceptedSubsets**: \[\]
+
+##### refusalCode
+
+> **refusalCode**: `"simd-fpu-state-unsupported"`
+
+##### reason
+
+> **reason**: `string`
 
 ***
 
@@ -12018,9 +12044,15 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativeSimdFpuLiveSubset
+
+> **NativeSimdFpuLiveSubset** = `"fp-control-state"` \| `"caller-saved-vector-registers"` \| `"callee-saved-vector-registers"` \| `"unknown-live-state"`
+
+***
+
 ### NativeSimdFpuState
 
-> **NativeSimdFpuState** = \{ `state`: `"not-live"`; `provenance?`: `string`; \} \| \{ `state`: `"requires-restore"`; `arch?`: [`NativeProcessImageArchitecture`](#nativeprocessimagearchitecture); `byteLength?`: `number`; `reason?`: `string`; \} \| \{ `state`: `"not-captured"` \| `"unsupported"`; `reason?`: `string`; `refusal?`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal); \}
+> **NativeSimdFpuState** = \{ `state`: `"not-live"`; `provenance?`: `string`; \} \| \{ `state`: `"requires-restore"`; `arch?`: [`NativeProcessImageArchitecture`](#nativeprocessimagearchitecture); `byteLength?`: `number`; `liveSubset?`: [`NativeSimdFpuLiveSubset`](#nativesimdfpulivesubset); `reason?`: `string`; \} \| \{ `state`: `"not-captured"` \| `"unsupported"`; `reason?`: `string`; `refusal?`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal); \}
 
 ***
 
@@ -13420,6 +13452,12 @@ loops; anything looser stops being a meaningful gate.
 
 ***
 
+### NATIVE\_SIMD\_FPU\_LIVE\_SUBSET\_POLICY
+
+> `const` **NATIVE\_SIMD\_FPU\_LIVE\_SUBSET\_POLICY**: [`NativeSimdFpuLiveSubsetPolicy`](#nativesimdfpulivesubsetpolicy)
+
+***
+
 ### NATIVE\_SYNTHETIC\_SYSCALL\_EINTR\_EXIT\_STATUS
 
 > `const` **NATIVE\_SYNTHETIC\_SYSCALL\_EINTR\_EXIT\_STATUS**: `110` = `110`
@@ -14771,6 +14809,16 @@ available.
 #### Returns
 
 [`NativeTargetFdTablePlan`](#nativetargetfdtableplan)
+
+***
+
+### planNativeSimdFpuLiveSubsetPolicy()
+
+> **planNativeSimdFpuLiveSubsetPolicy**(): [`NativeSimdFpuLiveSubsetPolicy`](#nativesimdfpulivesubsetpolicy)
+
+#### Returns
+
+[`NativeSimdFpuLiveSubsetPolicy`](#nativesimdfpulivesubsetpolicy)
 
 ***
 

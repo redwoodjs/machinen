@@ -42,7 +42,7 @@ The restore boundary also refuses:
 - shared stack mappings -> `mapping-shared-unsupported`;
 - unknown TLS, wrong source thread-pointer register, or unsupported target segment bases -> `tls-state-unsupported`;
 - ambiguous PC/SP register state -> `thread-state-unsupported`;
-- missing, unsupported, or live SIMD/FPU state -> `simd-fpu-state-unsupported`.
+- missing, unsupported, live, or partial/subset SIMD/FPU state -> `simd-fpu-state-unsupported`.
 
 Zero procfs-style signal masks such as `0000000000000000` remain safe. That keeps
 normal ptrace/procfs captures translatable while still refusing real pending or
@@ -51,7 +51,7 @@ blocked signal state.
 ## Boundary
 
 This proof does not implement syscall restart, signal delivery replay, alt-stack
-reconstruction, rseq/TLS migration, target TCB construction, SIMD/FPU register
-restoration, futex replay, ptrace/debug state, or multi-thread restore. It only
+reconstruction, rseq/TLS migration, target TCB construction beyond the minimal amd64 proof page, live SIMD/FPU
+register restoration, futex replay, ptrace/debug state, or multi-thread restore. It only
 makes the hard boundary explicit: those states must not silently pass into
 translated frame/resume restore until a later proof models them.

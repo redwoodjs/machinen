@@ -129,7 +129,12 @@ export {
 export { planNativeTargetFrameStateMaterialization } from "./native-target-frame-state.ts";
 export { planNativeSyntheticTargetCallerFrame } from "./native-target-caller-frame.ts";
 export { planNativeThreadRestoreBoundary } from "./native-thread-restore-policy.ts";
-export { planNativeSimdFpuRestorePolicy, safeSimdFpuRefusal } from "./native-simd-fpu-policy.ts";
+export {
+  NATIVE_SIMD_FPU_LIVE_SUBSET_POLICY,
+  planNativeSimdFpuLiveSubsetPolicy,
+  planNativeSimdFpuRestorePolicy,
+  safeSimdFpuRefusal,
+} from "./native-simd-fpu-policy.ts";
 export {
   planNativeTlsSegmentBaseHandoff,
   safeTlsSegmentBaseRefusal,
@@ -504,6 +509,7 @@ export type {
   NativeProcessResource,
   NativeProcessResourceKind,
   NativeRegisterState,
+  NativeSimdFpuLiveSubset,
   NativeSimdFpuState,
   NativeThreadState,
   NativeTlsAmd64SegmentBases,
@@ -514,7 +520,10 @@ export type {
   NativeThreadRestorePlan,
   NativeThreadRestorePlanRequest,
 } from "./native-thread-restore-policy.ts";
-export type { NativeSimdFpuRestorePolicyResult } from "./native-simd-fpu-policy.ts";
+export type {
+  NativeSimdFpuLiveSubsetPolicy,
+  NativeSimdFpuRestorePolicyResult,
+} from "./native-simd-fpu-policy.ts";
 export type {
   NativeThreadTlsPolicyRequest,
   NativeTlsSegmentBaseHandoffRequest,

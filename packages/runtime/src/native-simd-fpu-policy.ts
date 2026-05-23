@@ -1,5 +1,24 @@
 import type { NativeProcessImageRefusal, NativeThreadState } from "./native-process-image.ts";
 
+export interface NativeSimdFpuLiveSubsetPolicy {
+  state: "refuse-all-live-subsets";
+  acceptedSubsets: [];
+  refusalCode: "simd-fpu-state-unsupported";
+  reason: string;
+}
+
+export const NATIVE_SIMD_FPU_LIVE_SUBSET_POLICY: NativeSimdFpuLiveSubsetPolicy = {
+  state: "refuse-all-live-subsets",
+  acceptedSubsets: [],
+  refusalCode: "simd-fpu-state-unsupported",
+  reason:
+    "No live SIMD/FPU subset is ABI-safe until a target restore contract models exact register, control-word, and signal-frame interactions.",
+};
+
+export function planNativeSimdFpuLiveSubsetPolicy(): NativeSimdFpuLiveSubsetPolicy {
+  return NATIVE_SIMD_FPU_LIVE_SUBSET_POLICY;
+}
+
 export type NativeSimdFpuRestorePolicyResult =
   | {
       state: "accepted";
@@ -35,7 +54,8 @@ export function safeSimdFpuRefusal(
   if ("refusal" in state && state.refusal) {
     return state.refusal;
   }
-  return simdFpuRefusal(thread, `SIMD/FPU state is ${state.state}`);
+  const subset = "liveSubset" in state && state.liveSubset ? ` (${state.liveSubset})` : "";
+  return simdFpuRefusal(thread, `SIMD/FPU state is ${state.state}${subset}`);
 }
 
 function simdFpuRefusal(thread: NativeThreadState, message: string): NativeProcessImageRefusal {

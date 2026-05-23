@@ -47,7 +47,8 @@ The bundle records:
 - signal masks and TLS thread-pointer metadata, including whether the pointer
   came from arm64 `TPIDR_EL0` or amd64 `%fs` base;
 - SIMD/FPU policy state (`not-live` when ptrace FP/SIMD bytes are all zero,
-  otherwise `requires-restore` or `not-captured`);
+  otherwise `requires-restore` or `not-captured`); live and partial SIMD/FPU
+  subsets are deliberately refused until an exact target restore contract exists;
 - fd table metadata, regular-file reopen recipes, and resource refusals for
   broker-required fd kinds;
 - a pending `native-translation.json` plan.
