@@ -26,6 +26,7 @@ export type PortableMachineTargetStateConsumptionResult = "pending" | "passed" |
 export type PortableMachineTargetReturnChainResult = "pending" | "passed" | "failed";
 export type PortableMachineTargetFrameRestoreResult = "pending" | "passed" | "failed";
 export type PortableMachineTargetThreadRestoreResult = "accepted" | "refused";
+export type PortableMachineTargetResumePathResult = "pending" | "passed" | "failed";
 
 export interface PortableMachineTargetResourceStatus {
   kind: string;
@@ -60,6 +61,8 @@ export interface PortableMachineVmRestoreProofPlan {
   targetTranslatedFramePointer?: string;
   targetThreadRestoreResult?: PortableMachineTargetThreadRestoreResult;
   targetThreadRestoreThreadId?: string;
+  targetResumePathResult?: PortableMachineTargetResumePathResult;
+  targetResumePathMode?: string;
   sourceTextReusedAsTargetCode: false;
   sourceIsaEmulationUsed: false;
   sidecarRuntimeUsed: false;
@@ -81,6 +84,8 @@ export interface PortableMachineVmRestoreTargetResult {
   targetTranslatedFramePointer?: string;
   targetThreadRestoreResult?: PortableMachineTargetThreadRestoreResult;
   targetThreadRestoreThreadId?: string;
+  targetResumePathResult?: PortableMachineTargetResumePathResult;
+  targetResumePathMode?: string;
   sourceTextReusedAsTargetCode?: boolean;
   sourceIsaEmulationUsed?: boolean;
   sidecarRuntimeUsed?: boolean;
@@ -207,6 +212,8 @@ export function completePortableMachineVmRestoreProof(
     targetThreadRestoreResult: result.targetThreadRestoreResult ?? plan.targetThreadRestoreResult,
     targetThreadRestoreThreadId:
       result.targetThreadRestoreThreadId ?? plan.targetThreadRestoreThreadId,
+    targetResumePathResult: result.targetResumePathResult,
+    targetResumePathMode: result.targetResumePathMode,
   };
 }
 
@@ -229,6 +236,7 @@ function targetNativeCompleted(result: PortableMachineVmRestoreTargetResult): bo
     result.targetFrameRestoreResult === undefined || result.targetFrameRestoreResult === "passed",
     result.targetThreadRestoreResult === undefined ||
       result.targetThreadRestoreResult === "accepted",
+    result.targetResumePathResult === undefined || result.targetResumePathResult === "passed",
     result.sourceTextReusedAsTargetCode === false,
     result.sourceIsaEmulationUsed === false,
     result.sidecarRuntimeUsed === false,

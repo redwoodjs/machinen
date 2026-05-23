@@ -182,6 +182,8 @@ describe("portable machine VM restore proof", () => {
         targetTranslatedFramePointer: "0x50000000ff80",
         targetThreadRestoreResult: "accepted",
         targetThreadRestoreThreadId: "thread:1",
+        targetResumePathResult: "passed",
+        targetResumePathMode: "translated-frame",
         sourceTextReusedAsTargetCode: false,
         sourceIsaEmulationUsed: false,
         sidecarRuntimeUsed: false,
@@ -198,6 +200,8 @@ describe("portable machine VM restore proof", () => {
       targetTranslatedFramePointer: "0x50000000ff80",
       targetThreadRestoreResult: "accepted",
       targetThreadRestoreThreadId: "thread:1",
+      targetResumePathResult: "passed",
+      targetResumePathMode: "translated-frame",
     });
 
     expect(
@@ -216,6 +220,24 @@ describe("portable machine VM restore proof", () => {
       migrationCompleted: false,
       descriptorGateCompleted: true,
       targetReturnChainResult: "failed",
+    });
+
+    expect(
+      completePortableMachineVmRestoreProof(plan, {
+        exitCode: 0,
+        migrationCompleted: true,
+        descriptorGateCompleted: true,
+        targetVerifierResult: "passed",
+        targetResumePathResult: "failed",
+        sourceTextReusedAsTargetCode: false,
+        sourceIsaEmulationUsed: false,
+        sidecarRuntimeUsed: false,
+      }),
+    ).toMatchObject({
+      state: "ready",
+      migrationCompleted: false,
+      descriptorGateCompleted: true,
+      targetResumePathResult: "failed",
     });
 
     expect(

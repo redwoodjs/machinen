@@ -54,6 +54,8 @@ interface TargetInvocation {
   targetTranslatedFramePointer?: string;
   targetThreadRestoreResult?: "accepted";
   targetThreadRestoreThreadId?: string;
+  targetResumePathResult?: "pending";
+  targetResumePathMode?: "translated-frame";
 }
 
 interface CombinedDescriptorPaths {
@@ -104,8 +106,10 @@ const STATE_CHECK_PIPE = 0x10;
 const STATE_CHECK_EVENTFD = 0x20;
 const STATE_CHECK_TIMERFD = 0x40;
 const TRANSLATED_FRAME_MARKER = 0x4652414d45504153n;
+const TRANSLATED_RESUME_MARKER = 0x524553554d455041n;
 const TRANSLATED_FRAME_POINTER = "0x50000000ff80";
 const TRANSLATED_FRAME_CFA = "0x50000000fff0";
+const TRANSLATED_FRAME_RETURN_ADDRESS_SLOT = "0x50000000fff0";
 const TRANSLATED_FRAME_SLOT_OFFSET = 0;
 const TRANSLATED_FRAME_R12 = "0x1234567890abcdef";
 const TRANSLATED_FRAME_UNWIND_ID = "target:realspin-final-jump";
@@ -203,6 +207,8 @@ function descriptorSummary(invocation: TargetInvocation) {
     targetTranslatedFramePointer: invocation.targetTranslatedFramePointer,
     targetThreadRestoreResult: invocation.targetThreadRestoreResult,
     targetThreadRestoreThreadId: invocation.targetThreadRestoreThreadId,
+    targetResumePathResult: invocation.targetResumePathResult,
+    targetResumePathMode: invocation.targetResumePathMode,
   };
 }
 
@@ -212,6 +218,7 @@ function realUtilityPendingResults(invocation: TargetInvocation) {
         targetStateConsumptionResult: "pending" as const,
         targetReturnChainResult: "pending" as const,
         targetFrameRestoreResult: "pending" as const,
+        targetResumePathResult: "pending" as const,
       }
     : {};
 }
@@ -237,26 +244,41 @@ function prepareCombinedDescriptor(
   }
   writeFileSync(context.targetCodeFile, targetContinuation.bytes);
 
-  const descriptorPlan = planPortableMachineTargetRestoreDescriptor({
+  const descriptorPlan = prepareTargetRestoreDescriptor(context, targetContinuation);
+  if (descriptorPlan.state === "refused") {
+    const first = descriptorPlan.refusals[0]!;
+    return refusedPlan(plan, first.code, first.message);
+  }
+  writeTargetRestoreDescriptor(context, descriptorPlan.descriptor);
+  return targetInvocation(context, descriptorPlan, targetContinuation);
+}
+
+function prepareTargetRestoreDescriptor(
+  context: CombinedDescriptorContext,
+  targetContinuation: PreparedTargetContinuation,
+) {
+  return planPortableMachineTargetRestoreDescriptor({
     continuation: continuationDescriptor(
       context.targetCodeFile,
       targetContinuation.argument0,
       targetContinuation.stateReportAddress,
       targetContinuation.translatedReturnAddress,
+      targetContinuation.translatedFrame ? "translated-frame" : undefined,
     ),
     translatedFrame: targetContinuation.translatedFrame,
     fdTable: proofFdTable(),
     memory: proofMemoryPlan(context),
   });
-  if (descriptorPlan.state === "refused") {
-    const first = descriptorPlan.refusals[0]!;
-    return refusedPlan(plan, first.code, first.message);
-  }
-  writeFileSync(
-    context.descriptorFile,
-    serializeTargetGuestRestoreDescriptor(descriptorPlan.descriptor),
-  );
-  return targetInvocation(context, descriptorPlan, targetContinuation);
+}
+
+function writeTargetRestoreDescriptor(
+  context: CombinedDescriptorContext,
+  descriptor: Extract<
+    ReturnType<typeof planPortableMachineTargetRestoreDescriptor>,
+    { state: "ready" }
+  >["descriptor"],
+): void {
+  writeFileSync(context.descriptorFile, serializeTargetGuestRestoreDescriptor(descriptor));
 }
 
 function combinedDescriptorContext(
@@ -328,6 +350,7 @@ function continuationDescriptor(
   argument0: string | undefined,
   stateReportAddress: string | undefined,
   translatedReturnAddress: string | undefined,
+  resumeMode: "translated-frame" | undefined,
 ) {
   return {
     codeFile: GUEST_CODE,
@@ -337,6 +360,7 @@ function continuationDescriptor(
     argument0,
     stateReportAddress,
     translatedReturnAddress,
+    resumeMode,
     timeoutSeconds: 5,
     stackTargetStart: "0x500000000000",
     stackSize: 65_536,
@@ -385,6 +409,8 @@ function targetInvocation(
     targetTranslatedFramePointer: targetContinuation.translatedFrame?.framePointer,
     targetThreadRestoreResult: context.targetThreadRestoreResult,
     targetThreadRestoreThreadId: context.targetThreadRestoreThreadId,
+    targetResumePathResult: targetContinuation.translatedFrame ? "pending" : undefined,
+    targetResumePathMode: targetContinuation.translatedFrame ? "translated-frame" : undefined,
   };
 }
 
@@ -458,7 +484,7 @@ function translatedFrameDescriptor(returnAddress: string): TargetGuestTranslated
     kind: "single-target-caller-frame",
     framePointer: TRANSLATED_FRAME_POINTER,
     canonicalFrameAddress: TRANSLATED_FRAME_CFA,
-    returnAddressSlot: "0x50000000fff0",
+    returnAddressSlot: TRANSLATED_FRAME_RETURN_ADDRESS_SLOT,
     returnAddress,
     unwindId: TRANSLATED_FRAME_UNWIND_ID,
     calleeSaved: [{ register: "r12", value: TRANSLATED_FRAME_R12 }],
@@ -681,6 +707,7 @@ function proofStateVerifierTargetCode(
     asm.movRbxFromRdi();
     asm.storeReportWord(16, 0n);
     asm.checkTranslatedFrame();
+    asm.checkTranslatedResumePath();
   } else {
     asm.movRbxImmediate(BigInt(PROOF_MEMORY_TARGET));
   }
@@ -733,6 +760,11 @@ class Amd64ProofAssembler {
       TRANSLATED_FRAME_MARKER,
     );
     this.storeReportWord(32, TRANSLATED_FRAME_MARKER);
+  }
+
+  checkTranslatedResumePath(): void {
+    this.checkRspImmediate(BigInt(TRANSLATED_FRAME_RETURN_ADDRESS_SLOT) - 8n);
+    this.storeReportWord(40, TRANSLATED_RESUME_MARKER);
   }
 
   checkFdOpen(fd: number): void {
@@ -809,6 +841,12 @@ class Amd64ProofAssembler {
   private checkR12Immediate(expected: bigint): void {
     this.movRaxImmediate(expected);
     this.push(0x49, 0x39, 0xc4);
+    this.jumpIfNotEqual();
+  }
+
+  private checkRspImmediate(expected: bigint): void {
+    this.movRaxImmediate(expected);
+    this.push(0x48, 0x39, 0xc4);
     this.jumpIfNotEqual();
   }
 

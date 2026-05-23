@@ -36,6 +36,8 @@ export type TargetGuestRestoreResourceRecipe =
   | { kind: "synthetic-empty-eventfd"; fd: number; closeOnExec?: boolean }
   | { kind: "synthetic-timerfd"; fd: number; closeOnExec?: boolean };
 
+export type TargetGuestRestoreResumeMode = "translated-frame";
+
 export interface TargetGuestRestoreContinuationDescriptor {
   codeFile: string;
   fileOffset: number;
@@ -44,6 +46,7 @@ export interface TargetGuestRestoreContinuationDescriptor {
   argument0?: string;
   stateReportAddress?: string;
   translatedReturnAddress?: string;
+  resumeMode?: TargetGuestRestoreResumeMode;
   timeoutSeconds: number;
   stackTargetStart: string;
   stackSize: number;
@@ -96,6 +99,7 @@ export function serializeTargetGuestRestoreDescriptor(
     ...optionalContinuationField("argument0", continuation.argument0),
     ...optionalContinuationField("stateReportAddress", continuation.stateReportAddress),
     ...optionalContinuationField("translatedReturnAddress", continuation.translatedReturnAddress),
+    ...optionalContinuationField("resumeMode", continuation.resumeMode),
     `timeoutSeconds=${continuation.timeoutSeconds}`,
     `stackTargetStart=${continuation.stackTargetStart}`,
     `stackSize=${continuation.stackSize}`,
@@ -160,6 +164,7 @@ export function buildNativeActualResumeTrampolineArgs(
     ...optionalArg("--argument0", continuation.argument0),
     ...optionalArg("--state-report-address", continuation.stateReportAddress),
     ...optionalArg("--translated-return-address", continuation.translatedReturnAddress),
+    ...optionalArg("--resume-mode", continuation.resumeMode),
     "--timeout-seconds",
     String(continuation.timeoutSeconds),
     "--stack-target-start",
@@ -213,6 +218,7 @@ function fieldsToDescriptor(
       argument0: optionalField(fields, "argument0"),
       stateReportAddress: optionalField(fields, "stateReportAddress"),
       translatedReturnAddress: optionalField(fields, "translatedReturnAddress"),
+      resumeMode: optionalField(fields, "resumeMode") as TargetGuestRestoreResumeMode | undefined,
       timeoutSeconds: parseIntegerField(fields, "timeoutSeconds"),
       stackTargetStart: requiredField(fields, "stackTargetStart"),
       stackSize: parseIntegerField(fields, "stackSize"),
@@ -499,6 +505,9 @@ function validateContinuation(
   if (continuation.translatedReturnAddress !== undefined) {
     assertHexAddress(continuation.translatedReturnAddress, "translatedReturnAddress");
   }
+  if (continuation.resumeMode !== undefined && continuation.resumeMode !== "translated-frame") {
+    fail("target-guest-loader-invalid-continuation", "resumeMode is unsupported");
+  }
   assertHexAddress(continuation.stackTargetStart, "stackTargetStart");
   assertHexAddress(continuation.stackPointer, "stackPointer");
   return continuation;
@@ -597,10 +606,19 @@ function validateTranslatedFrame(
   continuation: TargetGuestRestoreContinuationDescriptor,
 ): TargetGuestTranslatedFrameDescriptor | undefined {
   if (frame === undefined) {
+    if (continuation.resumeMode === "translated-frame") {
+      fail("target-guest-loader-frame-unsupported", "translated resume mode requires a frame");
+    }
     return undefined;
   }
   if (continuation.translatedReturnAddress === undefined) {
     fail("target-guest-loader-frame-unsupported", "translated frame requires a return address");
+  }
+  if (
+    continuation.resumeMode === "translated-frame" &&
+    continuation.stateReportAddress === undefined
+  ) {
+    fail("target-guest-loader-frame-unsupported", "translated resume mode requires a state report");
   }
   assertFrameShape(frame, continuation.translatedReturnAddress);
   return frame;

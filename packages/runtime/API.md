@@ -98,6 +98,7 @@
 - [`TargetGuestRestoreLoaderValidationError`](#targetguestrestoreloadervalidationerror)
 - [`TargetGuestRestoreLoaderRefusalCode`](#targetguestrestoreloaderrefusalcode)
 - [`TargetGuestRestoreResourceRecipe`](#targetguestrestoreresourcerecipe)
+- [`TargetGuestRestoreResumeMode`](#targetguestrestoreresumemode)
 - [`TargetGuestRestoreContinuationDescriptor`](#targetguestrestorecontinuationdescriptor)
 - [`TargetGuestRestoreDescriptor`](#targetguestrestoredescriptor)
 - [`TargetGuestTranslatedFrameDescriptor`](#targetguesttranslatedframedescriptor)
@@ -116,6 +117,7 @@
 - [`PortableMachineTargetFrameRestoreResult`](#portablemachinetargetframerestoreresult)
 - [`PortableMachineTargetThreadRestoreResult`](#portablemachinetargetthreadrestoreresult)
 - [`PortableMachineTargetResourceStatus`](#portablemachinetargetresourcestatus)
+- [`PortableMachineTargetResumePathResult`](#portablemachinetargetresumepathresult)
 - [`PortableMachineTargetReturnChainResult`](#portablemachinetargetreturnchainresult)
 - [`PortableMachineTargetStateConsumptionResult`](#portablemachinetargetstateconsumptionresult)
 - [`PortableMachineTargetVerifierResult`](#portablemachinetargetverifierresult)
@@ -8180,6 +8182,14 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 > `optional` **targetThreadRestoreThreadId?**: `string`
 
+##### targetResumePathResult?
+
+> `optional` **targetResumePathResult?**: [`PortableMachineTargetResumePathResult`](#portablemachinetargetresumepathresult)
+
+##### targetResumePathMode?
+
+> `optional` **targetResumePathMode?**: `string`
+
 ##### sourceTextReusedAsTargetCode
 
 > **sourceTextReusedAsTargetCode**: `false`
@@ -8273,6 +8283,14 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 ##### targetThreadRestoreThreadId?
 
 > `optional` **targetThreadRestoreThreadId?**: `string`
+
+##### targetResumePathResult?
+
+> `optional` **targetResumePathResult?**: [`PortableMachineTargetResumePathResult`](#portablemachinetargetresumepathresult)
+
+##### targetResumePathMode?
+
+> `optional` **targetResumePathMode?**: `string`
 
 ##### sourceTextReusedAsTargetCode?
 
@@ -9269,6 +9287,10 @@ Poll interval in ms while retrying. Default 250.
 ##### translatedReturnAddress?
 
 > `optional` **translatedReturnAddress?**: `string`
+
+##### resumeMode?
+
+> `optional` **resumeMode?**: `"translated-frame"`
 
 ##### timeoutSeconds
 
@@ -11890,6 +11912,12 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ***
 
+### PortableMachineTargetResumePathResult
+
+> **PortableMachineTargetResumePathResult** = `"pending"` \| `"passed"` \| `"failed"`
+
+***
+
 ### PortableMachineTargetRestoreDescriptorPlan
 
 > **PortableMachineTargetRestoreDescriptorPlan** = \{ `state`: `"ready"`; `descriptor`: [`TargetGuestRestoreDescriptor`](#targetguestrestoredescriptor); `refusals`: \[\]; `memoryEntryCount`: `number`; `fdRecipeCount`: `number`; `sourceTextReusedAsTargetCode`: `false`; `sourceIsaEmulationUsed`: `false`; `sidecarRuntimeUsed`: `false`; \} \| \{ `state`: `"refused"`; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; `memoryEntryCount`: `number`; `fdRecipeCount`: `number`; `sourceTextReusedAsTargetCode`: `false`; `sourceIsaEmulationUsed`: `false`; `sidecarRuntimeUsed`: `false`; \}
@@ -11929,6 +11957,12 @@ Result of `validatePid` — easy to switch on at the call site.
 ### TargetGuestRestoreResourceRecipe
 
 > **TargetGuestRestoreResourceRecipe** = \{ `kind`: `"close-fd"`; `fd`: `number`; `reason?`: `string`; \} \| \{ `kind`: `"inherit-stdio"`; `fd`: `1` \| `2`; `stream`: `"stdout"` \| `"stderr"`; `closeOnExec?`: `boolean`; \} \| \{ `kind`: `"reopen-file"`; `fd`: `number`; `path`: `string`; `offset`: `number`; `access`: `0` \| `1` \| `2`; `closeOnExec?`: `boolean`; \} \| \{ `kind`: `"synthetic-empty-pipe"`; `readFd`: `number`; `writeFd?`: `number`; `closeOnExec?`: `boolean`; \} \| \{ `kind`: `"synthetic-empty-eventfd"`; `fd`: `number`; `closeOnExec?`: `boolean`; \} \| \{ `kind`: `"synthetic-timerfd"`; `fd`: `number`; `closeOnExec?`: `boolean`; \}
+
+***
+
+### TargetGuestRestoreResumeMode
+
+> **TargetGuestRestoreResumeMode** = `"translated-frame"`
 
 ***
 
