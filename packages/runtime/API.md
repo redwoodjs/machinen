@@ -351,6 +351,10 @@
 - [`NativeReturnChainPlanFrame`](#nativereturnchainplanframe)
 - [`NativeReturnChainPlanRequest`](#nativereturnchainplanrequest)
 - [`planNativeReturnChain`](#plannativereturnchain)
+- [`NativeStackWindowGuardMapping`](#nativestackwindowguardmapping)
+- [`NativeStackWindowMaterializedWrites`](#nativestackwindowmaterializedwrites)
+- [`NativeStackWindowWrite`](#nativestackwindowwrite)
+- [`materializeNativeStackWindowWrites`](#materializenativestackwindowwrites)
 - [`NativeStackFrame`](#nativestackframe)
 - [`NativeStackPointerRange`](#nativestackpointerrange)
 - [`NativeStackSlot`](#nativestackslot)
@@ -5853,6 +5857,58 @@ by default when `output` is a TTY.
 
 ***
 
+### NativeStackWindowWrite
+
+#### Properties
+
+##### mapping
+
+> **mapping**: `string`
+
+##### targetAddress
+
+> **targetAddress**: `string`
+
+##### offset
+
+> **offset**: `number`
+
+##### sizeBytes
+
+> **sizeBytes**: `8`
+
+##### value
+
+> **value**: `string`
+
+##### bytes
+
+> **bytes**: `string`
+
+##### kind
+
+> **kind**: `"pointer"` \| `"code-pointer"` \| `"return-address"` \| `"thread-pointer"`
+
+***
+
+### NativeStackWindowGuardMapping
+
+#### Properties
+
+##### targetStart
+
+> **targetStart**: `string`
+
+##### sizeBytes
+
+> **sizeBytes**: `number`
+
+##### placement
+
+> **placement**: `"below"` \| `"above"`
+
+***
+
 ### NativeSyntheticSyscallArgumentDescriptor
 
 #### Extended by
@@ -6244,7 +6300,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`value`](#value)
+[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`value`](#value-1)
 
 ##### register
 
@@ -6442,7 +6498,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-18)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-19)
 
 ##### targetArch
 
@@ -6490,7 +6546,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sizeBytes`](#sizebytes-9)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sizeBytes`](#sizebytes-11)
 
 ##### bytesHex
 
@@ -6832,7 +6888,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`value`](#value)
+[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`value`](#value-1)
 
 ##### register
 
@@ -7030,7 +7086,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-18)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-19)
 
 ##### targetArch
 
@@ -7078,7 +7134,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sizeBytes`](#sizebytes-9)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`sizeBytes`](#sizebytes-11)
 
 ##### bytesHex
 
@@ -12713,6 +12769,12 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativeStackWindowMaterializedWrites
+
+> **NativeStackWindowMaterializedWrites** = \{ `state`: `"materialized"`; `stackMapping`: `string`; `targetWindow`: [`NativeStackWindowMaterializationPlan`](#nativestackwindowmaterializationplan)\[`"targetWindow"`\]; `writes`: [`NativeStackWindowWrite`](#nativestackwindowwrite)[]; `guards`: [`NativeStackWindowGuardMapping`](#nativestackwindowguardmapping)[]; `refusals`: \[\]; \} \| \{ `state`: `"refused"`; `stackMapping`: `string`; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
+
+***
+
 ### NativeSyntheticContinuationTargetArch
 
 > **NativeSyntheticContinuationTargetArch** = `"amd64"`
@@ -15638,6 +15700,22 @@ available.
 #### Returns
 
 [`NativeStackWindowMaterializationPlan`](#nativestackwindowmaterializationplan)
+
+***
+
+### materializeNativeStackWindowWrites()
+
+> **materializeNativeStackWindowWrites**(`plan`): [`NativeStackWindowMaterializedWrites`](#nativestackwindowmaterializedwrites)
+
+#### Parameters
+
+##### plan
+
+[`NativeStackWindowMaterializationPlan`](#nativestackwindowmaterializationplan)
+
+#### Returns
+
+[`NativeStackWindowMaterializedWrites`](#nativestackwindowmaterializedwrites)
 
 ***
 

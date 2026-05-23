@@ -389,6 +389,7 @@ export type {
   NativeTargetFdTablePlanRequest,
 } from "./native-resource-translation.ts";
 export { planNativeReturnChain } from "./native-return-chain.ts";
+export { materializeNativeStackWindowWrites } from "./native-stack-window-materializer.ts";
 export {
   planNativeStackWindowMaterialization,
   translateNativeStack,
@@ -399,6 +400,11 @@ export type {
   NativeReturnChainPlanFrame,
   NativeReturnChainPlanRequest,
 } from "./native-return-chain.ts";
+export type {
+  NativeStackWindowGuardMapping,
+  NativeStackWindowMaterializedWrites,
+  NativeStackWindowWrite,
+} from "./native-stack-window-materializer.ts";
 export type {
   NativeStackFrame,
   NativeStackPointerRange,
