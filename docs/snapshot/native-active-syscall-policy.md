@@ -2,7 +2,9 @@
 
 Issue #510 classifies active native syscalls before actual real-utility resume.
 The classifier is deliberately fail-closed by default: recognizing a syscall
-class does not make it resumable.
+class does not make it resumable. The full thread-restore boundary may consume
+an explicitly modeled `defer-target-resume` continuation for sleep/ppoll timeout
+state, but only after the same TLS/register/SIMD/stack/resource gates pass.
 
 ## Classes
 
@@ -42,9 +44,9 @@ with `remainingTime.state: "modeled"` and a conservative
 `requested-duration-upper-bound` rearm duration. When the model is missing, it
 fails closed with `target-sleep-remaining-time-missing`.
 
-The actual utility proof uses this to move past the `thread-state` gate only when
-there is explicit target timer metadata, without pretending that source kernel
-state was restored.
+The actual utility proof and thread-restore boundary use this to move past the
+`thread-state` gate only when there is explicit target timer metadata, without
+pretending that source kernel state was restored.
 
 ## Explicit ppoll timeout deferral
 

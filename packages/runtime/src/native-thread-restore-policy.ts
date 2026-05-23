@@ -1,3 +1,8 @@
+import {
+  classifyNativeThreadSyscall,
+  type NativeActiveSyscallContinuation,
+  type NativeActiveSyscallPolicyOptions,
+} from "./native-active-syscall-policy.ts";
 import { normalizeNativeHex } from "./native-hex.ts";
 import { safeSimdFpuRefusal } from "./native-simd-fpu-policy.ts";
 import {
@@ -20,6 +25,7 @@ export type NativeThreadRestorePlan =
       state: "accepted";
       threadId: string;
       targetThreadCount: 1;
+      activeSyscallContinuations: NativeActiveSyscallContinuation[];
       refusals: [];
     }
   | {
@@ -37,6 +43,7 @@ export interface NativeThreadRestorePlanRequest {
     targetGsBase?: string;
     targetAccessPolicy?: NativeTlsTargetAccessPolicy;
   };
+  activeSyscall?: NativeActiveSyscallPolicyOptions;
 }
 
 export function planNativeThreadRestoreBoundary(
@@ -48,10 +55,15 @@ export function planNativeThreadRestoreBoundary(
   }
 
   const thread = request.threads[0]!;
+  const activeSyscall = planModeledActiveSyscall(thread, request.activeSyscall);
   const refusals = [
     thread.refusal,
     safeStoppedThreadRefusal(thread),
-    unsafeNativeThreadExecutionState(thread),
+    activeSyscall.refusal,
+    unsafeNativeThreadExecutionState(thread, {
+      allowModeledActiveSyscall:
+        activeSyscall.continuation !== undefined || activeSyscall.refusal !== undefined,
+    }),
     safeTlsRefusal(thread, request.tls),
     safeRegisterRefusal(thread),
     safeSimdFpuRefusal(thread),
@@ -61,7 +73,26 @@ export function planNativeThreadRestoreBoundary(
 
   return refusals.length > 0
     ? refused(request.threads.length, refusals)
-    : { state: "accepted", threadId: thread.id, targetThreadCount: 1, refusals: [] };
+    : {
+        state: "accepted",
+        threadId: thread.id,
+        targetThreadCount: 1,
+        activeSyscallContinuations: activeSyscall.continuation ? [activeSyscall.continuation] : [],
+        refusals: [],
+      };
+}
+
+function planModeledActiveSyscall(
+  thread: NativeThreadState,
+  options: NativeActiveSyscallPolicyOptions | undefined,
+): { continuation?: NativeActiveSyscallContinuation; refusal?: NativeProcessImageRefusal } {
+  if (thread.syscall.state === "outside-syscall") {
+    return {};
+  }
+  const classification = classifyNativeThreadSyscall(thread, options ?? {});
+  return classification.continuation
+    ? { continuation: classification.continuation }
+    : { refusal: classification.refusal };
 }
 
 function singleThreadRefusal(threads: NativeThreadState[]): NativeProcessImageRefusal | undefined {
