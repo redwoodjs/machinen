@@ -346,6 +346,9 @@
 - [`NativeTargetResumeExecutionPlanResult`](#nativetargetresumeexecutionplanresult)
 - [`classifyNativeTargetResumeExecutionAttempt`](#classifynativetargetresumeexecutionattempt)
 - [`planNativeTargetResumeExecution`](#plannativetargetresumeexecution)
+- [`NativeReturnChainFrameWrite`](#nativereturnchainframewrite)
+- [`NativeReturnChainMaterialization`](#nativereturnchainmaterialization)
+- [`materializeNativeReturnChainFrames`](#materializenativereturnchainframes)
 - [`NativeReturnChainFrame`](#nativereturnchainframe)
 - [`NativeReturnChainPlan`](#nativereturnchainplan)
 - [`NativeReturnChainPlanFrame`](#nativereturnchainplanframe)
@@ -5411,6 +5414,32 @@ by default when `output` is a TTY.
 
 ***
 
+### NativeReturnChainFrameWrite
+
+#### Properties
+
+##### frameId
+
+> **frameId**: `string`
+
+##### targetAddress
+
+> **targetAddress**: `string`
+
+##### value
+
+> **value**: `string`
+
+##### bytes
+
+> **bytes**: `string`
+
+##### kind
+
+> **kind**: `"return-address"` \| `"caller-frame-pointer"`
+
+***
+
 ### NativeReturnChainFrame
 
 #### Extended by
@@ -6300,7 +6329,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`value`](#value-1)
+[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`value`](#value-2)
 
 ##### register
 
@@ -6498,7 +6527,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-19)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-20)
 
 ##### targetArch
 
@@ -6888,7 +6917,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`value`](#value-1)
+[`NativeSyntheticSyscallArgumentDescriptor`](#nativesyntheticsyscallargumentdescriptor).[`value`](#value-2)
 
 ##### register
 
@@ -7086,7 +7115,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-19)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-20)
 
 ##### targetArch
 
@@ -12751,6 +12780,12 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativeReturnChainMaterialization
+
+> **NativeReturnChainMaterialization** = \{ `state`: `"materialized"`; `initialFramePointer`: `string`; `targetStack`: [`NativeReturnChainPlan`](#nativereturnchainplan)\[`"targetStack"`\]; `writes`: [`NativeReturnChainFrameWrite`](#nativereturnchainframewrite)[]; `refusals`: \[\]; \} \| \{ `state`: `"refused"`; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
+
+***
+
 ### NativeSignalBlockedMaskPolicy
 
 > **NativeSignalBlockedMaskPolicy** = `"require-empty"` \| `"restore-safe-mask"`
@@ -15578,6 +15613,22 @@ available.
 #### Returns
 
 [`NativeTargetFdTablePlan`](#nativetargetfdtableplan)
+
+***
+
+### materializeNativeReturnChainFrames()
+
+> **materializeNativeReturnChainFrames**(`plan`): [`NativeReturnChainMaterialization`](#nativereturnchainmaterialization)
+
+#### Parameters
+
+##### plan
+
+[`NativeReturnChainPlan`](#nativereturnchainplan)
+
+#### Returns
+
+[`NativeReturnChainMaterialization`](#nativereturnchainmaterialization)
 
 ***
 
