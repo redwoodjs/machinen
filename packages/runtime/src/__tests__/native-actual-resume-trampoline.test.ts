@@ -154,6 +154,18 @@ describe("native actual resume trampoline", () => {
         returnValue: "0x7a7a7a7a7a7a7a7a",
         nativePrivateMemoryRestore: { status: "passed", stepCount: 3 },
       });
+      expect(
+        runHelper(helper, returnCode, 1, [
+          ...nativePrivateMemorySteps(nativeMemory),
+          "--state-report-address",
+          "0x600000000000",
+          "--target-fs-base",
+          "0x600000000300",
+        ]),
+      ).toMatchObject({
+        status: "returned",
+        nativePrivateMemoryRestore: { status: "passed", stepCount: 3 },
+      });
 
       const arg0Code = join(outDir, "arg0.bin");
       // mov rax, rdi; ret

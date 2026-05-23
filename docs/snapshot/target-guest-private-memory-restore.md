@@ -14,6 +14,7 @@ Executable entries and shared entries fail closed with
 `mapping-executable-unsupported` and `mapping-shared-unsupported`. Guard entries
 must be `---p`. The target amd64 trampoline now executes these native private
 memory steps directly; when they are present, the portable VM proof does not also
-emit duplicate legacy `memory=` mappings for the same ranges. This keeps private
-heap/data/mmap restoration separate from source executable bytes and
-shared-resource state.
+emit duplicate legacy `memory=` mappings for the same ranges. Target TLS/TCB
+restore now treats writable native private-memory ranges as valid backing for the
+TCB handoff. This keeps private heap/data/mmap restoration separate from source
+executable bytes and shared-resource state.

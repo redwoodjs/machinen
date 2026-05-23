@@ -1068,11 +1068,6 @@ static void validate_target_tls_options(const struct Options *opts) {
     fprintf(stderr, "native-actual-resume-trampoline: target fs base must be non-zero and 16-byte aligned\n");
     exit(2);
   }
-  if (!address_inside_writable_materialized_memory(
-          opts, opts->target_fs_base + TLS_TCB_SELF_OFFSET, TLS_TCB_MARKER_OFFSET + sizeof(uint64_t))) {
-    fprintf(stderr, "native-actual-resume-trampoline: target fs base is outside writable materialized memory\n");
-    exit(2);
-  }
 }
 
 static void validate_resume_rflags_options(const struct Options *opts) {
@@ -1292,6 +1287,45 @@ static bool native_step_bool(const char *spec, const char *name, const char *lab
     return false;
   }
   fprintf(stderr, "native-actual-resume-trampoline: native %s step %s must be boolean\n", label, name);
+  exit(2);
+}
+
+static bool native_permissions_writable(const char *permissions) {
+  return strlen(permissions) >= 2u && permissions[1] == 'w';
+}
+
+static bool address_inside_writable_native_private_memory(
+    const struct Options *opts, uint64_t address, uint64_t size) {
+  for (size_t i = 0; i < opts->native_private_memory_step_count; i++) {
+    const char *spec = opts->native_private_memory_steps[i].spec;
+    char action[64];
+    native_step_string(spec, "action", action, sizeof(action), "private-memory");
+    if (!streq(action, "mmap-private-writable") && !streq(action, "mprotect-final")) {
+      continue;
+    }
+    char permissions[16];
+    native_step_string(spec, "permissions", permissions, sizeof(permissions), "private-memory");
+    uint64_t target_start = native_step_u64(spec, "targetStart", "private-memory");
+    uint64_t mapping_size = native_step_u64(spec, "sizeBytes", "private-memory");
+    if (native_permissions_writable(permissions) && address >= target_start && size <= mapping_size &&
+        address + size <= target_start + mapping_size) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static void validate_target_tls_backing(const struct Options *opts) {
+  if (!opts->has_target_fs_base) {
+    return;
+  }
+  uint64_t address = opts->target_fs_base + TLS_TCB_SELF_OFFSET;
+  uint64_t size = TLS_TCB_MARKER_OFFSET + sizeof(uint64_t);
+  if (address_inside_writable_materialized_memory(opts, address, size) ||
+      address_inside_writable_native_private_memory(opts, address, size)) {
+    return;
+  }
+  fprintf(stderr, "native-actual-resume-trampoline: target fs base is outside writable materialized memory\n");
   exit(2);
 }
 
@@ -2268,6 +2302,7 @@ int main(int argc, char **argv) {
     materialize_descriptor_memory(&opts);
   }
   materialize_native_stack_window_guards(&opts);
+  validate_target_tls_backing(&opts);
   materialize_target_tcb(&opts);
 
   verify_native_executable_mappings(&opts);
