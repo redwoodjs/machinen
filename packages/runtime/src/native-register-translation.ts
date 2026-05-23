@@ -1,6 +1,10 @@
 /** Register/TLS/syscall-state translation rules for native process images. */
 
 import { normalizeNativeHex } from "./native-hex.ts";
+import {
+  nativeThreadRefusal,
+  unsafeNativeThreadExecutionState,
+} from "./native-thread-state-policy.ts";
 import type {
   NativeAmd64Registers,
   NativeArm64Registers,
@@ -72,7 +76,7 @@ function validateRegisterArchitecturePair(
   request: NativeRegisterTranslationRequest,
 ): NativeProcessImageRefusal | undefined {
   if (request.sourceArch !== "arm64" || request.targetArch !== "amd64") {
-    return refusal(
+    return nativeThreadRefusal(
       "architecture-pair-unsupported",
       `native register translation only supports arm64 -> amd64 in this proof (got ${request.sourceArch} -> ${request.targetArch})`,
     );
@@ -100,7 +104,7 @@ function translateThreadRegisters(
   thread: NativeThreadState,
   request: NativeRegisterTranslationRequest,
 ): NativeThreadTranslation {
-  const unsafe = unsafeThreadState(thread);
+  const unsafe = unsafeNativeThreadExecutionState(thread);
   if (unsafe) {
     return { sourceThreadId: thread.id, state: "refused", refusal: unsafe };
   }
@@ -108,7 +112,7 @@ function translateThreadRegisters(
     return {
       sourceThreadId: thread.id,
       state: "refused",
-      refusal: refusal(
+      refusal: nativeThreadRefusal(
         "architecture-unsupported",
         `thread ${thread.id} has ${thread.sourceRegisters.arch} registers, expected arm64`,
       ),
@@ -119,14 +123,17 @@ function translateThreadRegisters(
     return {
       sourceThreadId: thread.id,
       state: "refused",
-      refusal: refusal("code-location-unknown", `thread ${thread.id} has no target continuation`),
+      refusal: nativeThreadRefusal(
+        "code-location-unknown",
+        `thread ${thread.id} has no target continuation`,
+      ),
     };
   }
   if (normalizeNativeHex(continuation.sourcePc) !== normalizeNativeHex(thread.sourceRegisters.pc)) {
     return {
       sourceThreadId: thread.id,
       state: "refused",
-      refusal: refusal(
+      refusal: nativeThreadRefusal(
         "code-location-unknown",
         `thread ${thread.id} source pc ${thread.sourceRegisters.pc} does not match continuation ${continuation.sourcePc}`,
       ),
@@ -137,35 +144,6 @@ function translateThreadRegisters(
     state: "translated",
     targetRegisters: arm64ToAmd64(thread.sourceRegisters, continuation),
   };
-}
-
-function unsafeThreadState(thread: NativeThreadState): NativeProcessImageRefusal | undefined {
-  if (thread.syscall.state !== "outside-syscall") {
-    return refusal("active-syscall", `thread ${thread.id} is ${thread.syscall.state}`);
-  }
-  if (thread.signal.activeFrame) {
-    return refusal("signal-frame-active", `thread ${thread.id} is inside a signal frame`);
-  }
-  if (hasNonZeroSignalMask(thread.signal.pending)) {
-    return refusal("signal-state-unsupported", `thread ${thread.id} has pending signal state`);
-  }
-  if (hasNonZeroSignalMask(thread.signal.blocked)) {
-    return refusal("signal-state-unsupported", `thread ${thread.id} has blocked signal state`);
-  }
-  if (thread.signal.altStack.state !== "disabled") {
-    return refusal("signal-state-unsupported", `thread ${thread.id} has active alt-stack state`);
-  }
-  if (thread.tls.rseq.state !== "absent") {
-    return refusal("rseq-state-unsupported", `thread ${thread.id} has rseq state`);
-  }
-  return undefined;
-}
-
-function hasNonZeroSignalMask(masks: string[]) {
-  return masks.some((mask) => {
-    const normalized = mask.trim().toLowerCase().replace(/^0x/, "");
-    return normalized.length > 0 && !/^0+$/.test(normalized);
-  });
 }
 
 // fallow-ignore-next-line complexity
@@ -197,11 +175,4 @@ function arm64ToAmd64(
     gsBase: "0x0",
   };
   return { ...translated, ...continuation.targetRegisterOverrides };
-}
-
-function refusal(
-  code: NativeProcessImageRefusal["code"],
-  message: string,
-): NativeProcessImageRefusal {
-  return { code, message };
 }

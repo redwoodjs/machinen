@@ -10,12 +10,16 @@ pnpm native-thread-refusal-matrix
 ```
 
 The proof is host-independent. It builds native process-image thread fixtures and
-runs them through the same register translator used by the final-jump proofs.
+runs them through the same register translator used by the final-jump proofs. It
+also runs the target restore thread-boundary planner that now gates portable
+machine restore before the target VM is entered.
 
 ## What it proves
 
-A thread with `outside-syscall`, no active signal frame, zero signal masks,
-disabled alt-stack state, and absent rseq state still translates.
+A single thread with `outside-syscall`, no active signal frame, zero signal
+masks, disabled alt-stack state, absent rseq state, known TLS, known registers,
+and a private stack still translates and is accepted for the current restore
+proof.
 
 The following unsafe states refuse before register translation:
 
@@ -28,6 +32,16 @@ The following unsafe states refuse before register translation:
 - captured or unsupported rseq state -> `rseq-state-unsupported`;
 - unsupported architecture pair -> `architecture-pair-unsupported`.
 
+The restore boundary also refuses:
+
+- more than one thread -> `thread-state-unsupported`;
+- futex wait resources -> `futex-state-unsupported`;
+- signal-delivery stop -> `signal-state-unsupported`;
+- ptrace/debug leftovers -> `thread-state-unsupported`;
+- shared stack mappings -> `mapping-shared-unsupported`;
+- unknown TLS -> `tls-state-unsupported`;
+- ambiguous PC/SP register state -> `thread-state-unsupported`.
+
 Zero procfs-style signal masks such as `0000000000000000` remain safe. That keeps
 normal ptrace/procfs captures translatable while still refusing real pending or
 blocked signal state.
@@ -35,6 +49,7 @@ blocked signal state.
 ## Boundary
 
 This proof does not implement syscall restart, signal delivery replay, alt-stack
-reconstruction, or rseq/TLS migration. It only makes the hard boundary explicit:
-those states must not silently pass into final-jump resume until a later proof
-models them.
+reconstruction, rseq/TLS migration, futex replay, ptrace/debug state, or
+multi-thread restore. It only makes the hard boundary explicit: those states must
+not silently pass into translated frame/resume restore until a later proof models
+them.

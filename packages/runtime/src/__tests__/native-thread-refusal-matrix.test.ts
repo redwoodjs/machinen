@@ -11,6 +11,10 @@ const TMP: string[] = [];
 interface NativeThreadRefusalMatrixSummary {
   translated: { state: string };
   refusalCases: Array<{ id: string; refusalCode: string; message: string }>;
+  restoreBoundary: {
+    accepted: { state: string; threadId: string };
+    refusalCases: Array<{ id: string; refusalCode: string; message: string }>;
+  };
   architectureRefusal: { code: string; message: string };
 }
 
@@ -55,6 +59,30 @@ describe("native thread refusal matrix", () => {
         expect.objectContaining({ id: "alt-stack", refusalCode: "signal-state-unsupported" }),
         expect.objectContaining({ id: "rseq-captured", refusalCode: "rseq-state-unsupported" }),
         expect.objectContaining({ id: "rseq-unsupported", refusalCode: "rseq-state-unsupported" }),
+      ]),
+    );
+    expect(summary.restoreBoundary.accepted).toMatchObject({
+      state: "accepted",
+      threadId: "thread:restore-safe",
+    });
+    expect(summary.restoreBoundary.refusalCases).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "multi-thread", refusalCode: "thread-state-unsupported" }),
+        expect.objectContaining({ id: "futex-wait", refusalCode: "futex-state-unsupported" }),
+        expect.objectContaining({
+          id: "signal-delivery-stop",
+          refusalCode: "signal-state-unsupported",
+        }),
+        expect.objectContaining({ id: "ptrace-debug", refusalCode: "thread-state-unsupported" }),
+        expect.objectContaining({
+          id: "shared-stack",
+          refusalCode: "mapping-shared-unsupported",
+        }),
+        expect.objectContaining({ id: "unknown-tls", refusalCode: "tls-state-unsupported" }),
+        expect.objectContaining({
+          id: "ambiguous-registers",
+          refusalCode: "thread-state-unsupported",
+        }),
       ]),
     );
     expect(summary.architectureRefusal.code).toBe("architecture-pair-unsupported");

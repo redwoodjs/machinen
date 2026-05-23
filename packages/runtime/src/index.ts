@@ -128,6 +128,7 @@ export {
 } from "./native-target-unwind.ts";
 export { planNativeTargetFrameStateMaterialization } from "./native-target-frame-state.ts";
 export { planNativeSyntheticTargetCallerFrame } from "./native-target-caller-frame.ts";
+export { planNativeThreadRestoreBoundary } from "./native-thread-restore-policy.ts";
 export {
   inspectNativeTargetResumeLanding,
   nativeTargetResumeLandingRefusals,
@@ -458,6 +459,7 @@ export type {
   PortableMachineTargetResourceStatus,
   PortableMachineTargetReturnChainResult,
   PortableMachineTargetRestoreDescriptorPlan,
+  PortableMachineTargetThreadRestoreResult,
   PortableMachineTargetRestoreDescriptorRequest,
   PortableMachineTargetStateConsumptionResult,
   PortableMachineTargetVerifierResult,
@@ -491,6 +493,10 @@ export type {
   NativeThreadState,
   NativeThreadTranslation,
 } from "./native-process-image.ts";
+export type {
+  NativeThreadRestorePlan,
+  NativeThreadRestorePlanRequest,
+} from "./native-thread-restore-policy.ts";
 export {
   _internal,
   attach,
