@@ -18,6 +18,7 @@ targetAddress=0x700300000000
 stateReportAddress=0x600000000000
 translatedReturnAddress=0x700300000080
 resumeMode=translated-frame
+resumeRflags=0x8d7
 resumeRegisterRax=0x2121212121212121
 resumeRegisterRdi=0x7171717171717171
 resumeRegisterRsi=0x6161616161616161
@@ -84,8 +85,9 @@ the amd64 guest and executes the loader instead of invoking the trampoline
 directly. The descriptor may carry an optional legacy `argument0` target register
 value for simple single-argument attempts, an optional `stateReportAddress`, an
 optional `translatedReturnAddress`, an optional `resumeMode=translated-frame`,
-optional modeled resume-register values, and an optional translated caller frame
-for real target-native continuation attempts. `argument0` is rejected when a
+optional modeled `resumeRflags` condition-code state, optional modeled
+resume-register values, and an optional translated caller frame for real
+target-native continuation attempts. `argument0` is rejected when a
 resume-register bank is present so `%rdi` can be restored natively instead of
 being reserved for the proof ABI.
 The state report address lets the trampoline read a small report that the
@@ -100,8 +102,11 @@ handoff seeds caller-scratch registers (`rax`, `rdi`, `rsi`, `rdx`, `rcx`, `r8`,
 `r9`, `r10`, `r11`) immediately before the target-native jump and requires the
 target code to report the values it observed before clobbering them. The proof
 report address is carried out-of-band as `stateReportAddress`, so no target entry
-GPR is reserved by the reporting ABI. Translated resume mode additionally
-requires the target code to write a resume-path marker after observing the
-modeled frame/stack state. Completion is credited only when the descriptor gate
-succeeds and the target-native
+GPR is reserved by the reporting ABI. The `resumeRflags` handoff seeds only the
+supported user-mode condition-code bits (`CF`, `PF`, `AF`, `ZF`, `SF`, `OF`, plus
+reserved bit 1); privileged/process-control bits such as `IF`, `DF`, `TF`, IOPL,
+and system flags are refused instead of replayed ambiguously. Translated resume
+mode additionally requires the target code to write a resume-path marker after
+observing the modeled frame/stack state. Completion is credited only when the
+descriptor gate succeeds and the target-native
 continuation returns/exits in the guest with the expected modeled result.

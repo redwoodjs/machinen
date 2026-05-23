@@ -54,6 +54,10 @@
 #define TRANSLATED_FRAME_REGISTER_R14 UINT64_C(0x08)
 #define TRANSLATED_FRAME_REGISTER_R15 UINT64_C(0x10)
 #define RESUME_REGISTER_MARKER UINT64_C(0x52454753544f5245)
+#define RESUME_RFLAGS_MARKER UINT64_C(0x52464c4147534f4b)
+#define SUPPORTED_RESUME_RFLAGS_MASK UINT64_C(0x8d7)
+#define RESUME_RFLAGS_CONDITION_MASK UINT64_C(0x8d5)
+#define REQUIRED_RESUME_RFLAGS_MASK UINT64_C(0x2)
 #define RESUME_REGISTER_MASK UINT64_C(0x1ff)
 #define RESUME_REGISTER_RAX UINT64_C(0x01)
 #define RESUME_REGISTER_RSI UINT64_C(0x02)
@@ -92,6 +96,8 @@ struct Options {
   uint64_t translated_return_address;
   bool has_resume_mode;
   char resume_mode[32];
+  bool has_resume_rflags;
+  uint64_t resume_rflags;
   uint64_t resume_register_mask;
   uint64_t resume_register_rax;
   uint64_t resume_register_rdi;
@@ -149,7 +155,7 @@ static void usage(void) {
       "[--translated-frame-callee-rbx addr] [--translated-frame-callee-r12 addr] "
       "[--translated-frame-callee-r13 addr] [--translated-frame-callee-r14 addr] "
       "[--translated-frame-callee-r15 addr] [--translated-frame-slot offset:value:class] "
-      "[--resume-mode translated-frame] [--resume-register-rax addr] "
+      "[--resume-mode translated-frame] [--resume-rflags flags] [--resume-register-rax addr] "
       "[--resume-register-rdi addr] [--resume-register-rsi addr] [--resume-register-rdx addr] "
       "[--resume-register-rcx addr] [--resume-register-r8 addr] "
       "[--resume-register-r9 addr] [--resume-register-r10 addr] "
@@ -403,6 +409,12 @@ static struct Options parse_args(int argc, char **argv) {
         usage();
       }
       copy_resume_mode(&opts, argv[i]);
+    } else if (streq(argv[i], "--resume-rflags")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.resume_rflags = parse_u64(argv[i], "resume-rflags");
+      opts.has_resume_rflags = true;
     } else if (streq(argv[i], "--resume-register-rax")) {
       if (++i >= argc) {
         usage();
@@ -573,6 +585,7 @@ static uint64_t jump_translated_frame_r12 __attribute__((used)) = 0;
 static uint64_t jump_translated_frame_r13 __attribute__((used)) = 0;
 static uint64_t jump_translated_frame_r14 __attribute__((used)) = 0;
 static uint64_t jump_translated_frame_r15 __attribute__((used)) = 0;
+static uint64_t jump_resume_rflags __attribute__((used)) = 0;
 static uint64_t jump_resume_register_rax __attribute__((used)) = 0;
 static uint64_t jump_resume_register_rdi __attribute__((used)) = 0;
 static uint64_t jump_resume_register_rsi __attribute__((used)) = 0;
@@ -821,6 +834,24 @@ static bool address_inside_stack(const struct Options *opts, uint64_t address, u
       address + size <= opts->stack_target_start + opts->stack_size;
 }
 
+static void validate_resume_rflags_options(const struct Options *opts) {
+  if (!opts->has_resume_rflags) {
+    return;
+  }
+  if ((opts->resume_rflags & REQUIRED_RESUME_RFLAGS_MASK) != REQUIRED_RESUME_RFLAGS_MASK) {
+    fprintf(stderr, "native-actual-resume-trampoline: resumeRflags must include reserved bit 1\n");
+    exit(2);
+  }
+  if ((opts->resume_rflags & ~SUPPORTED_RESUME_RFLAGS_MASK) != 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: resumeRflags contains unsupported non-condition bits\n");
+    exit(2);
+  }
+  if (!opts->has_state_report_address) {
+    fprintf(stderr, "native-actual-resume-trampoline: resume rflags restore requires a state report\n");
+    exit(2);
+  }
+}
+
 static void validate_resume_register_options(const struct Options *opts) {
   if (opts->resume_register_mask == 0) {
     return;
@@ -992,6 +1023,7 @@ static void jump_to_target(uint64_t entry,
     uint64_t translated_frame_r13,
     uint64_t translated_frame_r14,
     uint64_t translated_frame_r15,
+    uint64_t resume_rflags,
     uint64_t resume_register_rax,
     uint64_t resume_register_rdi,
     uint64_t resume_register_rsi,
@@ -1011,6 +1043,7 @@ static void jump_to_target(uint64_t entry,
   jump_translated_frame_r13 = translated_frame_r13;
   jump_translated_frame_r14 = translated_frame_r14;
   jump_translated_frame_r15 = translated_frame_r15;
+  jump_resume_rflags = resume_rflags;
   jump_resume_register_rax = resume_register_rax;
   jump_resume_register_rdi = resume_register_rdi;
   jump_resume_register_rsi = resume_register_rsi;
@@ -1045,6 +1078,12 @@ static void jump_to_target(uint64_t entry,
       "movq jump_translated_frame_r13(%%rip), %%r13\n"
       "movq jump_translated_frame_r14(%%rip), %%r14\n"
       "movq jump_translated_frame_r15(%%rip), %%r15\n"
+      "movq jump_resume_rflags(%%rip), %%r11\n"
+      "testq %%r11, %%r11\n"
+      "jz 4f\n"
+      "pushq %%r11\n"
+      "popfq\n"
+      "4:\n"
       "movq jump_resume_register_rdi(%%rip), %%rdi\n"
       "movq jump_resume_register_rax(%%rip), %%rax\n"
       "movq jump_resume_register_rsi(%%rip), %%rsi\n"
@@ -1297,6 +1336,31 @@ static void print_register_restore(const struct Options *opts) {
   printf("]}");
 }
 
+static void print_rflags_restore(const struct Options *opts) {
+  if (!opts->has_resume_rflags || !opts->has_state_report_address) {
+    return;
+  }
+  uint64_t base = opts->state_report_address;
+  uint64_t marker = read_state_report_u64(base, 208);
+  uint64_t observed_rflags = read_state_report_u64(base, 216);
+  uint64_t observed_conditions = observed_rflags & RESUME_RFLAGS_CONDITION_MASK;
+  uint64_t expected_conditions = opts->resume_rflags & RESUME_RFLAGS_CONDITION_MASK;
+  bool passed = marker == RESUME_RFLAGS_MARKER && observed_conditions == expected_conditions;
+  printf(
+      ",\"rflagsRestore\":{\"status\":\"%s\","
+      "\"reportMarker\":\"0x%" PRIx64 "\","
+      "\"expectedMarker\":\"0x%" PRIx64 "\","
+      "\"rflags\":\"0x%" PRIx64 "\","
+      "\"expectedRflags\":\"0x%" PRIx64 "\","
+      "\"conditionMask\":\"0x%" PRIx64 "\"}",
+      passed ? "passed" : "failed",
+      marker,
+      RESUME_RFLAGS_MARKER,
+      observed_rflags,
+      opts->resume_rflags,
+      RESUME_RFLAGS_CONDITION_MASK);
+}
+
 static void print_resume_path(const struct Options *opts) {
   if (!opts->has_resume_mode || !opts->has_state_report_address) {
     return;
@@ -1414,12 +1478,14 @@ static void print_return_event(const struct Options *opts) {
   print_frame_restoration(opts);
   print_resume_path(opts);
   print_register_restore(opts);
+  print_rflags_restore(opts);
   printf("}\n");
 }
 
 int main(int argc, char **argv) {
   struct Options opts = parse_args(argc, argv);
   validate_stack_options(&opts);
+  validate_resume_rflags_options(&opts);
   validate_resume_register_options(&opts);
   validate_translated_frame_options(&opts);
   mapped_target_start = opts.target_address;
@@ -1460,6 +1526,7 @@ int main(int argc, char **argv) {
         opts.has_translated_frame_callee_r13 ? opts.translated_frame_callee_r13 : 0u,
         opts.has_translated_frame_callee_r14 ? opts.translated_frame_callee_r14 : 0u,
         opts.has_translated_frame_callee_r15 ? opts.translated_frame_callee_r15 : 0u,
+        opts.has_resume_rflags ? opts.resume_rflags : 0u,
         opts.resume_register_rax,
         entry_rdi,
         opts.resume_register_rsi,

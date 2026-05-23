@@ -60,6 +60,7 @@ export interface TargetGuestRestoreContinuationDescriptor {
   stateReportAddress?: string;
   translatedReturnAddress?: string;
   resumeMode?: TargetGuestRestoreResumeMode;
+  resumeRflags?: string;
   resumeRegisters?: TargetGuestResumeRegisters;
   timeoutSeconds: number;
   stackTargetStart: string;
@@ -116,6 +117,7 @@ export function serializeTargetGuestRestoreDescriptor(
     ...optionalContinuationField("stateReportAddress", continuation.stateReportAddress),
     ...optionalContinuationField("translatedReturnAddress", continuation.translatedReturnAddress),
     ...optionalContinuationField("resumeMode", continuation.resumeMode),
+    ...optionalContinuationField("resumeRflags", continuation.resumeRflags),
     ...resumeRegisterFields(continuation.resumeRegisters),
     `timeoutSeconds=${continuation.timeoutSeconds}`,
     `stackTargetStart=${continuation.stackTargetStart}`,
@@ -182,6 +184,7 @@ export function buildNativeActualResumeTrampolineArgs(
     ...optionalArg("--state-report-address", continuation.stateReportAddress),
     ...optionalArg("--translated-return-address", continuation.translatedReturnAddress),
     ...optionalArg("--resume-mode", continuation.resumeMode),
+    ...optionalArg("--resume-rflags", continuation.resumeRflags),
     ...resumeRegisterArgs(continuation.resumeRegisters),
     "--timeout-seconds",
     String(continuation.timeoutSeconds),
@@ -237,6 +240,7 @@ function fieldsToDescriptor(
       stateReportAddress: optionalField(fields, "stateReportAddress"),
       translatedReturnAddress: optionalField(fields, "translatedReturnAddress"),
       resumeMode: optionalField(fields, "resumeMode") as TargetGuestRestoreResumeMode | undefined,
+      resumeRflags: optionalField(fields, "resumeRflags"),
       resumeRegisters: parseResumeRegisters(fields),
       timeoutSeconds: parseIntegerField(fields, "timeoutSeconds"),
       stackTargetStart: requiredField(fields, "stackTargetStart"),
@@ -587,6 +591,7 @@ function validateContinuation(
   if (continuation.resumeMode !== undefined && continuation.resumeMode !== "translated-frame") {
     fail("target-guest-loader-invalid-continuation", "resumeMode is unsupported");
   }
+  validateResumeRflags(continuation.resumeRflags);
   validateResumeRegisters(continuation.resumeRegisters);
   assertHexAddress(continuation.stackTargetStart, "stackTargetStart");
   assertHexAddress(continuation.stackPointer, "stackPointer");
@@ -817,6 +822,26 @@ function assertHexAddress(value: string, field: string): void {
 function assertNoWhitespace(value: string, field: string): void {
   if (value.length === 0 || /\s/.test(value)) {
     fail("target-guest-loader-descriptor-invalid", `${field} must be a non-empty token`);
+  }
+}
+
+const SUPPORTED_RESUME_RFLAGS_MASK = 0x8d7n;
+const REQUIRED_RESUME_RFLAGS_MASK = 0x2n;
+
+function validateResumeRflags(value: string | undefined): void {
+  if (value === undefined) {
+    return;
+  }
+  assertHexAddress(value, "resumeRflags");
+  const parsed = BigInt(value);
+  if ((parsed & REQUIRED_RESUME_RFLAGS_MASK) !== REQUIRED_RESUME_RFLAGS_MASK) {
+    fail("target-guest-loader-invalid-continuation", "resumeRflags must include reserved bit 1");
+  }
+  if ((parsed & ~SUPPORTED_RESUME_RFLAGS_MASK) !== 0n) {
+    fail(
+      "target-guest-loader-invalid-continuation",
+      "resumeRflags contains unsupported non-condition bits",
+    );
   }
 }
 

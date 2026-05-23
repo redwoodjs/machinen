@@ -53,6 +53,7 @@ interface TargetInvocation {
   targetTranslatedReturnAddress?: string;
   targetTranslatedFramePointer?: string;
   targetRegisterRestoreResult?: "pending";
+  targetRflagsRestoreResult?: "pending";
   targetThreadRestoreResult?: "accepted";
   targetThreadRestoreThreadId?: string;
   targetResumePathResult?: "pending";
@@ -127,6 +128,8 @@ const TRANSLATED_FRAME_REGISTER_MASK_R13 = 0x04;
 const TRANSLATED_FRAME_REGISTER_MASK_R14 = 0x08;
 const TRANSLATED_FRAME_REGISTER_MASK_R15 = 0x10;
 const RESUME_REGISTER_MARKER = 0x52454753544f5245n;
+const RESUME_RFLAGS_MARKER = 0x52464c4147534f4bn;
+const RESUME_RFLAGS = "0x8d7";
 const RESUME_REGISTER_RAX = "0x2121212121212121";
 const RESUME_REGISTER_RDI = "0x7171717171717171";
 const RESUME_REGISTER_RSI = "0x6161616161616161";
@@ -289,6 +292,7 @@ function prepareTargetRestoreDescriptor(
       targetContinuation.stateReportAddress,
       targetContinuation.translatedReturnAddress,
       targetContinuation.translatedFrame ? "translated-frame" : undefined,
+      targetContinuation.translatedFrame ? RESUME_RFLAGS : undefined,
       targetContinuation.translatedFrame ? proofResumeRegisters() : undefined,
     ),
     translatedFrame: targetContinuation.translatedFrame,
@@ -377,6 +381,7 @@ function continuationDescriptor(
   stateReportAddress: string | undefined,
   translatedReturnAddress: string | undefined,
   resumeMode: "translated-frame" | undefined,
+  resumeRflags: string | undefined,
   resumeRegisters: ReturnType<typeof proofResumeRegisters> | undefined,
 ) {
   return {
@@ -388,6 +393,7 @@ function continuationDescriptor(
     stateReportAddress,
     translatedReturnAddress,
     resumeMode,
+    resumeRflags,
     resumeRegisters,
     timeoutSeconds: 5,
     stackTargetStart: "0x500000000000",
@@ -460,6 +466,7 @@ function translatedFrameInvocationSummary(targetContinuation: PreparedTargetCont
     ? {
         targetTranslatedFramePointer: targetContinuation.translatedFrame.framePointer,
         targetRegisterRestoreResult: "pending" as const,
+        targetRflagsRestoreResult: "pending" as const,
         targetResumePathResult: "pending" as const,
         targetResumePathMode: "translated-frame" as const,
       }
@@ -808,6 +815,7 @@ class Amd64ProofAssembler {
 
   captureResumeRegisters(reportAddress: bigint): void {
     this.storeRaxAtAbsolute(reportAddress + 136n);
+    this.captureResumeRflags(reportAddress + 216n);
     this.movRaxImmediate(reportAddress);
     this.storeRegisterAtRaxReportOffset("rdi", 200);
     this.storeRegisterAtRaxReportOffset("rsi", 144);
@@ -818,6 +826,7 @@ class Amd64ProofAssembler {
     this.storeRegisterAtRaxReportOffset("r10", 184);
     this.storeRegisterAtRaxReportOffset("r11", 192);
     this.storeReportWordFromRaxBase(128, RESUME_REGISTER_MARKER);
+    this.storeReportWordFromRaxBase(208, RESUME_RFLAGS_MARKER);
   }
 
   movRbxImmediate(value: bigint): void {
@@ -903,6 +912,11 @@ class Amd64ProofAssembler {
     }
     this.syscall(60);
     this.push(0x31, 0xff, 0x0f, 0x05);
+  }
+
+  captureResumeRflags(address: bigint): void {
+    this.push(0x9c, 0x58);
+    this.storeRaxAtAbsolute(address);
   }
 
   storeReportWord(offset: number, value: bigint): void {

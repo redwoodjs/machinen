@@ -115,10 +115,12 @@
 - [`TargetGuestMemoryMaterializationResult`](#targetguestmemorymaterializationresult)
 - [`PortableMachineTargetRestoreDescriptorRequest`](#portablemachinetargetrestoredescriptorrequest)
 - [`PortableMachineTargetRestoreDescriptorPlan`](#portablemachinetargetrestoredescriptorplan)
+- [`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation)
 - [`PortableMachineVmRestoreProofState`](#portablemachinevmrestoreproofstate)
 - [`PortableMachineTargetContinuationKind`](#portablemachinetargetcontinuationkind)
 - [`PortableMachineTargetFrameRestoreResult`](#portablemachinetargetframerestoreresult)
 - [`PortableMachineTargetRegisterRestoreResult`](#portablemachinetargetregisterrestoreresult)
+- [`PortableMachineTargetRflagsRestoreResult`](#portablemachinetargetrflagsrestoreresult)
 - [`PortableMachineTargetThreadRestoreResult`](#portablemachinetargetthreadrestoreresult)
 - [`PortableMachineTargetResourceStatus`](#portablemachinetargetresourcestatus)
 - [`PortableMachineTargetResumePathResult`](#portablemachinetargetresumepathresult)
@@ -8074,9 +8076,180 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ***
 
-### PortableMachineVmRestoreProofPlan
+### PortableMachineTargetRestoreObservation
+
+#### Extended by
+
+- [`PortableMachineVmRestoreProofPlan`](#portablemachinevmrestoreproofplan)
+- [`PortableMachineVmRestoreTargetResult`](#portablemachinevmrestoretargetresult)
 
 #### Properties
+
+##### targetVerifierResult?
+
+> `optional` **targetVerifierResult?**: [`PortableMachineTargetVerifierResult`](#portablemachinetargetverifierresult)
+
+##### targetStateConsumptionResult?
+
+> `optional` **targetStateConsumptionResult?**: [`PortableMachineTargetStateConsumptionResult`](#portablemachinetargetstateconsumptionresult)
+
+##### targetResourceStatuses?
+
+> `optional` **targetResourceStatuses?**: [`PortableMachineTargetResourceStatus`](#portablemachinetargetresourcestatus)[]
+
+##### targetReturnChainResult?
+
+> `optional` **targetReturnChainResult?**: [`PortableMachineTargetReturnChainResult`](#portablemachinetargetreturnchainresult)
+
+##### targetTranslatedReturnAddress?
+
+> `optional` **targetTranslatedReturnAddress?**: `string`
+
+##### targetFrameRestoreResult?
+
+> `optional` **targetFrameRestoreResult?**: [`PortableMachineTargetFrameRestoreResult`](#portablemachinetargetframerestoreresult)
+
+##### targetTranslatedFramePointer?
+
+> `optional` **targetTranslatedFramePointer?**: `string`
+
+##### targetRegisterRestoreResult?
+
+> `optional` **targetRegisterRestoreResult?**: [`PortableMachineTargetRegisterRestoreResult`](#portablemachinetargetregisterrestoreresult)
+
+##### targetRflagsRestoreResult?
+
+> `optional` **targetRflagsRestoreResult?**: [`PortableMachineTargetRflagsRestoreResult`](#portablemachinetargetrflagsrestoreresult)
+
+##### targetThreadRestoreResult?
+
+> `optional` **targetThreadRestoreResult?**: [`PortableMachineTargetThreadRestoreResult`](#portablemachinetargetthreadrestoreresult)
+
+##### targetThreadRestoreThreadId?
+
+> `optional` **targetThreadRestoreThreadId?**: `string`
+
+##### targetResumePathResult?
+
+> `optional` **targetResumePathResult?**: [`PortableMachineTargetResumePathResult`](#portablemachinetargetresumepathresult)
+
+##### targetResumePathMode?
+
+> `optional` **targetResumePathMode?**: `string`
+
+***
+
+### PortableMachineVmRestoreProofPlan
+
+#### Extends
+
+- [`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation)
+
+#### Properties
+
+##### targetVerifierResult?
+
+> `optional` **targetVerifierResult?**: [`PortableMachineTargetVerifierResult`](#portablemachinetargetverifierresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetVerifierResult`](#targetverifierresult)
+
+##### targetStateConsumptionResult?
+
+> `optional` **targetStateConsumptionResult?**: [`PortableMachineTargetStateConsumptionResult`](#portablemachinetargetstateconsumptionresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetStateConsumptionResult`](#targetstateconsumptionresult)
+
+##### targetResourceStatuses?
+
+> `optional` **targetResourceStatuses?**: [`PortableMachineTargetResourceStatus`](#portablemachinetargetresourcestatus)[]
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetResourceStatuses`](#targetresourcestatuses)
+
+##### targetReturnChainResult?
+
+> `optional` **targetReturnChainResult?**: [`PortableMachineTargetReturnChainResult`](#portablemachinetargetreturnchainresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetReturnChainResult`](#targetreturnchainresult)
+
+##### targetTranslatedReturnAddress?
+
+> `optional` **targetTranslatedReturnAddress?**: `string`
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetTranslatedReturnAddress`](#targettranslatedreturnaddress)
+
+##### targetFrameRestoreResult?
+
+> `optional` **targetFrameRestoreResult?**: [`PortableMachineTargetFrameRestoreResult`](#portablemachinetargetframerestoreresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetFrameRestoreResult`](#targetframerestoreresult)
+
+##### targetTranslatedFramePointer?
+
+> `optional` **targetTranslatedFramePointer?**: `string`
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetTranslatedFramePointer`](#targettranslatedframepointer)
+
+##### targetRegisterRestoreResult?
+
+> `optional` **targetRegisterRestoreResult?**: [`PortableMachineTargetRegisterRestoreResult`](#portablemachinetargetregisterrestoreresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetRegisterRestoreResult`](#targetregisterrestoreresult)
+
+##### targetRflagsRestoreResult?
+
+> `optional` **targetRflagsRestoreResult?**: [`PortableMachineTargetRflagsRestoreResult`](#portablemachinetargetrflagsrestoreresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetRflagsRestoreResult`](#targetrflagsrestoreresult)
+
+##### targetThreadRestoreResult?
+
+> `optional` **targetThreadRestoreResult?**: [`PortableMachineTargetThreadRestoreResult`](#portablemachinetargetthreadrestoreresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetThreadRestoreResult`](#targetthreadrestoreresult)
+
+##### targetThreadRestoreThreadId?
+
+> `optional` **targetThreadRestoreThreadId?**: `string`
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetThreadRestoreThreadId`](#targetthreadrestorethreadid)
+
+##### targetResumePathResult?
+
+> `optional` **targetResumePathResult?**: [`PortableMachineTargetResumePathResult`](#portablemachinetargetresumepathresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetResumePathResult`](#targetresumepathresult)
+
+##### targetResumePathMode?
+
+> `optional` **targetResumePathMode?**: `string`
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetResumePathMode`](#targetresumepathmode)
 
 ##### phase
 
@@ -8134,10 +8307,6 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 > `optional` **descriptorResourceKinds?**: `string`[]
 
-##### targetVerifierResult?
-
-> `optional` **targetVerifierResult?**: [`PortableMachineTargetVerifierResult`](#portablemachinetargetverifierresult)
-
 ##### targetContinuationKind?
 
 > `optional` **targetContinuationKind?**: [`PortableMachineTargetContinuationKind`](#portablemachinetargetcontinuationkind)
@@ -8153,50 +8322,6 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 ##### targetModuleBytesSource?
 
 > `optional` **targetModuleBytesSource?**: `string`
-
-##### targetStateConsumptionResult?
-
-> `optional` **targetStateConsumptionResult?**: [`PortableMachineTargetStateConsumptionResult`](#portablemachinetargetstateconsumptionresult)
-
-##### targetResourceStatuses?
-
-> `optional` **targetResourceStatuses?**: [`PortableMachineTargetResourceStatus`](#portablemachinetargetresourcestatus)[]
-
-##### targetReturnChainResult?
-
-> `optional` **targetReturnChainResult?**: [`PortableMachineTargetReturnChainResult`](#portablemachinetargetreturnchainresult)
-
-##### targetTranslatedReturnAddress?
-
-> `optional` **targetTranslatedReturnAddress?**: `string`
-
-##### targetFrameRestoreResult?
-
-> `optional` **targetFrameRestoreResult?**: [`PortableMachineTargetFrameRestoreResult`](#portablemachinetargetframerestoreresult)
-
-##### targetTranslatedFramePointer?
-
-> `optional` **targetTranslatedFramePointer?**: `string`
-
-##### targetRegisterRestoreResult?
-
-> `optional` **targetRegisterRestoreResult?**: [`PortableMachineTargetRegisterRestoreResult`](#portablemachinetargetregisterrestoreresult)
-
-##### targetThreadRestoreResult?
-
-> `optional` **targetThreadRestoreResult?**: [`PortableMachineTargetThreadRestoreResult`](#portablemachinetargetthreadrestoreresult)
-
-##### targetThreadRestoreThreadId?
-
-> `optional` **targetThreadRestoreThreadId?**: `string`
-
-##### targetResumePathResult?
-
-> `optional` **targetResumePathResult?**: [`PortableMachineTargetResumePathResult`](#portablemachinetargetresumepathresult)
-
-##### targetResumePathMode?
-
-> `optional` **targetResumePathMode?**: `string`
 
 ##### sourceTextReusedAsTargetCode
 
@@ -8230,7 +8355,115 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ### PortableMachineVmRestoreTargetResult
 
+#### Extends
+
+- [`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation)
+
 #### Properties
+
+##### targetVerifierResult?
+
+> `optional` **targetVerifierResult?**: [`PortableMachineTargetVerifierResult`](#portablemachinetargetverifierresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetVerifierResult`](#targetverifierresult)
+
+##### targetStateConsumptionResult?
+
+> `optional` **targetStateConsumptionResult?**: [`PortableMachineTargetStateConsumptionResult`](#portablemachinetargetstateconsumptionresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetStateConsumptionResult`](#targetstateconsumptionresult)
+
+##### targetResourceStatuses?
+
+> `optional` **targetResourceStatuses?**: [`PortableMachineTargetResourceStatus`](#portablemachinetargetresourcestatus)[]
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetResourceStatuses`](#targetresourcestatuses)
+
+##### targetReturnChainResult?
+
+> `optional` **targetReturnChainResult?**: [`PortableMachineTargetReturnChainResult`](#portablemachinetargetreturnchainresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetReturnChainResult`](#targetreturnchainresult)
+
+##### targetTranslatedReturnAddress?
+
+> `optional` **targetTranslatedReturnAddress?**: `string`
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetTranslatedReturnAddress`](#targettranslatedreturnaddress)
+
+##### targetFrameRestoreResult?
+
+> `optional` **targetFrameRestoreResult?**: [`PortableMachineTargetFrameRestoreResult`](#portablemachinetargetframerestoreresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetFrameRestoreResult`](#targetframerestoreresult)
+
+##### targetTranslatedFramePointer?
+
+> `optional` **targetTranslatedFramePointer?**: `string`
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetTranslatedFramePointer`](#targettranslatedframepointer)
+
+##### targetRegisterRestoreResult?
+
+> `optional` **targetRegisterRestoreResult?**: [`PortableMachineTargetRegisterRestoreResult`](#portablemachinetargetregisterrestoreresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetRegisterRestoreResult`](#targetregisterrestoreresult)
+
+##### targetRflagsRestoreResult?
+
+> `optional` **targetRflagsRestoreResult?**: [`PortableMachineTargetRflagsRestoreResult`](#portablemachinetargetrflagsrestoreresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetRflagsRestoreResult`](#targetrflagsrestoreresult)
+
+##### targetThreadRestoreResult?
+
+> `optional` **targetThreadRestoreResult?**: [`PortableMachineTargetThreadRestoreResult`](#portablemachinetargetthreadrestoreresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetThreadRestoreResult`](#targetthreadrestoreresult)
+
+##### targetThreadRestoreThreadId?
+
+> `optional` **targetThreadRestoreThreadId?**: `string`
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetThreadRestoreThreadId`](#targetthreadrestorethreadid)
+
+##### targetResumePathResult?
+
+> `optional` **targetResumePathResult?**: [`PortableMachineTargetResumePathResult`](#portablemachinetargetresumepathresult)
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetResumePathResult`](#targetresumepathresult)
+
+##### targetResumePathMode?
+
+> `optional` **targetResumePathMode?**: `string`
+
+###### Inherited from
+
+[`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation).[`targetResumePathMode`](#targetresumepathmode)
 
 ##### exitCode
 
@@ -8244,10 +8477,6 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 > `optional` **descriptorGateCompleted?**: `boolean`
 
-##### targetVerifierResult?
-
-> `optional` **targetVerifierResult?**: [`PortableMachineTargetVerifierResult`](#portablemachinetargetverifierresult)
-
 ##### actualResumeEvent?
 
 > `optional` **actualResumeEvent?**: `object`
@@ -8259,50 +8488,6 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 ###### returnValue?
 
 > `optional` **returnValue?**: `string`
-
-##### targetStateConsumptionResult?
-
-> `optional` **targetStateConsumptionResult?**: [`PortableMachineTargetStateConsumptionResult`](#portablemachinetargetstateconsumptionresult)
-
-##### targetResourceStatuses?
-
-> `optional` **targetResourceStatuses?**: [`PortableMachineTargetResourceStatus`](#portablemachinetargetresourcestatus)[]
-
-##### targetReturnChainResult?
-
-> `optional` **targetReturnChainResult?**: [`PortableMachineTargetReturnChainResult`](#portablemachinetargetreturnchainresult)
-
-##### targetTranslatedReturnAddress?
-
-> `optional` **targetTranslatedReturnAddress?**: `string`
-
-##### targetFrameRestoreResult?
-
-> `optional` **targetFrameRestoreResult?**: [`PortableMachineTargetFrameRestoreResult`](#portablemachinetargetframerestoreresult)
-
-##### targetTranslatedFramePointer?
-
-> `optional` **targetTranslatedFramePointer?**: `string`
-
-##### targetRegisterRestoreResult?
-
-> `optional` **targetRegisterRestoreResult?**: [`PortableMachineTargetRegisterRestoreResult`](#portablemachinetargetregisterrestoreresult)
-
-##### targetThreadRestoreResult?
-
-> `optional` **targetThreadRestoreResult?**: [`PortableMachineTargetThreadRestoreResult`](#portablemachinetargetthreadrestoreresult)
-
-##### targetThreadRestoreThreadId?
-
-> `optional` **targetThreadRestoreThreadId?**: `string`
-
-##### targetResumePathResult?
-
-> `optional` **targetResumePathResult?**: [`PortableMachineTargetResumePathResult`](#portablemachinetargetresumepathresult)
-
-##### targetResumePathMode?
-
-> `optional` **targetResumePathMode?**: `string`
 
 ##### sourceTextReusedAsTargetCode?
 
@@ -9303,6 +9488,10 @@ Poll interval in ms while retrying. Default 250.
 ##### resumeMode?
 
 > `optional` **resumeMode?**: `"translated-frame"`
+
+##### resumeRflags?
+
+> `optional` **resumeRflags?**: `string`
 
 ##### resumeRegisters?
 
@@ -11925,6 +12114,12 @@ Result of `validatePid` — easy to switch on at the call site.
 ### PortableMachineTargetRegisterRestoreResult
 
 > **PortableMachineTargetRegisterRestoreResult** = `"pending"` \| `"passed"` \| `"failed"`
+
+***
+
+### PortableMachineTargetRflagsRestoreResult
+
+> **PortableMachineTargetRflagsRestoreResult** = `"pending"` \| `"passed"` \| `"failed"`
 
 ***
 

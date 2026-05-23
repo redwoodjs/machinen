@@ -89,6 +89,7 @@ describe("target guest restore loader descriptor", () => {
         stateReportAddress: "0x600000000000",
         translatedReturnAddress: "0x700300000080",
         resumeMode: "translated-frame",
+        resumeRflags: "0x8d7",
         resumeRegisters,
       },
       translatedFrame,
@@ -129,6 +130,8 @@ describe("target guest restore loader descriptor", () => {
       "0x700300000080",
       "--resume-mode",
       "translated-frame",
+      "--resume-rflags",
+      "0x8d7",
       "--resume-register-rax",
       "0x2121212121212121",
       "--resume-register-rdi",
@@ -451,6 +454,30 @@ describe("target guest restore loader descriptor", () => {
     ).toThrow(/r10 must be a hex address/);
 
     expect(() =>
+      validateTargetGuestRestoreDescriptor(
+        descriptor({
+          continuation: { ...descriptor().continuation, resumeRflags: "8d7" },
+        }),
+      ),
+    ).toThrow(/resumeRflags must be a hex address/);
+
+    expect(() =>
+      validateTargetGuestRestoreDescriptor(
+        descriptor({
+          continuation: { ...descriptor().continuation, resumeRflags: "0x8d5" },
+        }),
+      ),
+    ).toThrow(/resumeRflags must include reserved bit 1/);
+
+    expect(() =>
+      validateTargetGuestRestoreDescriptor(
+        descriptor({
+          continuation: { ...descriptor().continuation, resumeRflags: "0x402" },
+        }),
+      ),
+    ).toThrow(/unsupported non-condition bits/);
+
+    expect(() =>
       parseTargetGuestRestoreDescriptor(
         `${serializeTargetGuestRestoreDescriptor(descriptor())}resumeRegisterRax=0x1\n`,
       ),
@@ -485,7 +512,7 @@ describe("target guest restore loader descriptor", () => {
       const checker = join(outDir, "fd-checker");
       writeFileSync(
         checkerSource,
-        `#include <string.h>\n#include <unistd.h>\n#include <stdio.h>\nint main(int argc, char **argv) {\n  char buf[3] = {0};\n  int saw_cloexec = 0;\n  int saw_state_report = 0;\n  int saw_translated_return = 0;\n  int saw_frame = 0;\n  int saw_register_bank = 0;\n  int saw_resume_register = 0;\n  int saw_resume_mode = 0;\n  for (int i = 1; i + 1 < argc; i++) {\n    if (strcmp(argv[i], "--set-cloexec-fd") == 0 && strcmp(argv[i + 1], "7") == 0) saw_cloexec = 1;\n    if (strcmp(argv[i], "--state-report-address") == 0 && strcmp(argv[i + 1], "0x600000000000") == 0) saw_state_report = 1;\n    if (strcmp(argv[i], "--translated-return-address") == 0 && strcmp(argv[i + 1], "0x700300000080") == 0) saw_translated_return = 1;\n    if (strcmp(argv[i], "--translated-frame-pointer") == 0 && strcmp(argv[i + 1], "0x50000000ff80") == 0) saw_frame = 1;\n    if (strcmp(argv[i], "--translated-frame-callee-r15") == 0 && strcmp(argv[i + 1], "0x1515151515151515") == 0) saw_register_bank = 1;\n    if (strcmp(argv[i], "--resume-register-rdi") == 0 && strcmp(argv[i + 1], "0x7171717171717171") == 0) saw_resume_register = 1;\n    if (strcmp(argv[i], "--resume-mode") == 0 && strcmp(argv[i + 1], "translated-frame") == 0) saw_resume_mode = 1;\n  }\n  if (read(7, buf, 2) != 2) return 41;\n  if (strcmp(buf, "cd") != 0) return 42;\n  if (!saw_cloexec) return 43;\n  if (!saw_state_report) return 44;\n  if (!saw_translated_return) return 45;\n  if (!saw_frame) return 46;\n  if (!saw_register_bank) return 47;\n  if (!saw_resume_register) return 48;\n  if (!saw_resume_mode) return 49;\n  printf("fd-check:%s\\n", buf);\n  return 0;\n}\n`,
+        `#include <string.h>\n#include <unistd.h>\n#include <stdio.h>\nint main(int argc, char **argv) {\n  char buf[3] = {0};\n  int saw_cloexec = 0;\n  int saw_state_report = 0;\n  int saw_translated_return = 0;\n  int saw_frame = 0;\n  int saw_register_bank = 0;\n  int saw_resume_register = 0;\n  int saw_resume_rflags = 0;\n  int saw_resume_mode = 0;\n  for (int i = 1; i + 1 < argc; i++) {\n    if (strcmp(argv[i], "--set-cloexec-fd") == 0 && strcmp(argv[i + 1], "7") == 0) saw_cloexec = 1;\n    if (strcmp(argv[i], "--state-report-address") == 0 && strcmp(argv[i + 1], "0x600000000000") == 0) saw_state_report = 1;\n    if (strcmp(argv[i], "--translated-return-address") == 0 && strcmp(argv[i + 1], "0x700300000080") == 0) saw_translated_return = 1;\n    if (strcmp(argv[i], "--translated-frame-pointer") == 0 && strcmp(argv[i + 1], "0x50000000ff80") == 0) saw_frame = 1;\n    if (strcmp(argv[i], "--translated-frame-callee-r15") == 0 && strcmp(argv[i + 1], "0x1515151515151515") == 0) saw_register_bank = 1;\n    if (strcmp(argv[i], "--resume-register-rdi") == 0 && strcmp(argv[i + 1], "0x7171717171717171") == 0) saw_resume_register = 1;\n    if (strcmp(argv[i], "--resume-rflags") == 0 && strcmp(argv[i + 1], "0x8d7") == 0) saw_resume_rflags = 1;\n    if (strcmp(argv[i], "--resume-mode") == 0 && strcmp(argv[i + 1], "translated-frame") == 0) saw_resume_mode = 1;\n  }\n  if (read(7, buf, 2) != 2) return 41;\n  if (strcmp(buf, "cd") != 0) return 42;\n  if (!saw_cloexec) return 43;\n  if (!saw_state_report) return 44;\n  if (!saw_translated_return) return 45;\n  if (!saw_frame) return 46;\n  if (!saw_register_bank) return 47;\n  if (!saw_resume_register) return 48;\n  if (!saw_resume_rflags) return 49;\n  if (!saw_resume_mode) return 50;\n  printf("fd-check:%s\\n", buf);\n  return 0;\n}\n`,
       );
       const compileChecker = spawnSync(
         "cc",
@@ -508,6 +535,7 @@ describe("target guest restore loader descriptor", () => {
               stateReportAddress: "0x600000000000",
               translatedReturnAddress: "0x700300000080",
               resumeMode: "translated-frame",
+              resumeRflags: "0x8d7",
               resumeRegisters,
             },
             translatedFrame,
