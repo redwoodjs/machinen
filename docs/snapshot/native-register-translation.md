@@ -24,8 +24,10 @@ A thread can translate only when all of these are true:
 - pending and blocked signal masks are empty or procfs-style zero masks;
 - alternate signal stack state is disabled;
 - rseq state is absent;
+- captured TLS identifies the arm64 `TPIDR_EL0` thread pointer;
 - a target continuation supplies the translated instruction pointer, stack
-  pointer, and TLS base for the thread's captured source PC.
+  pointer, and amd64 `%fs`/`%gs` segment-base policy for the thread's captured
+  source PC.
 
 The translator emits an amd64 `targetRegisters` document. It does not copy raw
 arm64 register bytes into the target. Continuation metadata may also supply
@@ -42,12 +44,16 @@ Unsafe states refuse with stable codes:
 - `signal-state-unsupported` for non-zero pending/blocked signal masks or alt-stack state;
 - `rseq-state-unsupported` for rseq metadata;
 - `code-location-unknown` when the captured PC has no target continuation;
+- `tls-state-unsupported` when source TLS is unknown, the source thread-pointer
+  register is not arm64 `TPIDR_EL0`, target segment bases are malformed, or the
+  continuation requires a target TCB that has not been materialized;
 - `architecture-pair-unsupported` for anything other than the initial arm64 ->
   amd64 proof path.
 
 ## Boundary
 
-The register translator consumes target continuation addresses and any proven
-register-value overrides. It does not compute those addresses itself; #446 owns
+The register translator consumes target continuation addresses, target TLS
+segment-base policy, and any proven register-value overrides. It does not compute
+those addresses itself; #446 owns
 source-code to target-code mapping, #447 owns stack layout, and #448 owns
 pointer-value classification.

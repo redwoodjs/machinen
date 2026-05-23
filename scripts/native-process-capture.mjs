@@ -116,6 +116,9 @@ function summarizeBundle(context) {
     sourceRegisterArchs: context.bundle.threads.threads.map(
       (thread) => thread.sourceRegisters.arch,
     ),
+    tlsSourceRegisters: context.bundle.threads.threads.map(
+      (thread) => thread.tls.sourceRegister ?? "missing",
+    ),
     syscallStates: context.bundle.threads.threads.map((thread) => thread.syscall.state),
     simdFpuStates: context.bundle.threads.threads.map(
       (thread) => thread.simdFpu?.state ?? "missing",
@@ -145,6 +148,10 @@ function validateSummary(summary) {
   assert(
     summary.sourceRegisterArchs.every((arch) => arch === summary.hostArch),
     "thread register architecture mismatch",
+  );
+  assert(
+    summary.tlsSourceRegisters.every((source) => source !== "missing"),
+    "thread TLS source register was not captured",
   );
   assert(
     summary.syscallStates.every((state) => state === "outside-syscall"),

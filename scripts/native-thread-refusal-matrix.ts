@@ -191,6 +191,20 @@ function restoreRefusalCases(): RestoreRefusalCase[] {
       },
     },
     {
+      id: "wrong-tls-source-register",
+      expectedCode: "tls-state-unsupported",
+      mutate: (thread) => {
+        thread.tls.sourceRegister = "amd64-fs-base";
+      },
+    },
+    {
+      id: "unsupported-target-segment-bases",
+      expectedCode: "tls-state-unsupported",
+      mutate: (thread) => {
+        thread.tls.targetSegmentBases = { state: "unsupported", reason: "target TCB missing" };
+      },
+    },
+    {
       id: "ambiguous-registers",
       expectedCode: "thread-state-unsupported",
       mutate: (thread) => {
@@ -295,7 +309,11 @@ function zeroSignalMaskThread(id: string): NativeThreadState {
     sourceRegisters: arm64Registers(),
     syscall: { state: "outside-syscall" },
     signal: zeroSignalState(),
-    tls: { threadPointer: "0xffff0000", rseq: { state: "absent" } },
+    tls: {
+      threadPointer: "0xffff0000",
+      sourceRegister: "arm64-tpidr-el0",
+      rseq: { state: "absent" },
+    },
     simdFpu: { state: "not-live", provenance: "matrix-zero-fpstate" },
   };
 }

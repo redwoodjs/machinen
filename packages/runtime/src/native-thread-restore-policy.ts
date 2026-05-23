@@ -1,6 +1,10 @@
 import { normalizeNativeHex } from "./native-hex.ts";
 import { safeSimdFpuRefusal } from "./native-simd-fpu-policy.ts";
 import {
+  safeTlsSegmentBaseRefusal,
+  type NativeTlsTargetAccessPolicy,
+} from "./native-tls-segment-policy.ts";
+import {
   nativeThreadRefusal,
   unsafeNativeThreadExecutionState,
 } from "./native-thread-state-policy.ts";
@@ -28,6 +32,11 @@ export interface NativeThreadRestorePlanRequest {
   threads: NativeThreadState[];
   mappings?: NativeMemoryMapping[];
   resources?: NativeProcessResource[];
+  tls?: {
+    targetFsBase?: string;
+    targetGsBase?: string;
+    targetAccessPolicy?: NativeTlsTargetAccessPolicy;
+  };
 }
 
 export function planNativeThreadRestoreBoundary(
@@ -43,7 +52,7 @@ export function planNativeThreadRestoreBoundary(
     thread.refusal,
     safeStoppedThreadRefusal(thread),
     unsafeNativeThreadExecutionState(thread),
-    safeTlsRefusal(thread),
+    safeTlsRefusal(thread, request.tls),
     safeRegisterRefusal(thread),
     safeSimdFpuRefusal(thread),
     safeStackRefusal(thread, request.mappings ?? []),
@@ -76,10 +85,16 @@ function safeStoppedThreadRefusal(
   return undefined;
 }
 
-function safeTlsRefusal(thread: NativeThreadState): NativeProcessImageRefusal | undefined {
-  return isKnownHex(thread.tls.threadPointer)
-    ? undefined
-    : nativeThreadRefusal("tls-state-unsupported", `thread ${thread.id} has unknown TLS state`);
+function safeTlsRefusal(
+  thread: NativeThreadState,
+  tls: NativeThreadRestorePlanRequest["tls"],
+): NativeProcessImageRefusal | undefined {
+  return safeTlsSegmentBaseRefusal({
+    thread,
+    targetFsBase: tls?.targetFsBase,
+    targetGsBase: tls?.targetGsBase,
+    targetAccessPolicy: tls?.targetAccessPolicy,
+  });
 }
 
 function safeRegisterRefusal(thread: NativeThreadState): NativeProcessImageRefusal | undefined {

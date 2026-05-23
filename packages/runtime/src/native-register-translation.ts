@@ -1,6 +1,8 @@
 /** Register/TLS/syscall-state translation rules for native process images. */
 
 import { normalizeNativeHex } from "./native-hex.ts";
+import { planNativeTlsSegmentBaseHandoff } from "./native-tls-segment-policy.ts";
+import type { NativeTlsTargetAccessPolicy } from "./native-tls-segment-policy.ts";
 import {
   nativeThreadRefusal,
   unsafeNativeThreadExecutionState,
@@ -26,6 +28,7 @@ export interface NativeContinuationTarget {
   targetIp: string;
   targetSp: string;
   targetTls: string;
+  targetTlsAccessPolicy?: NativeTlsTargetAccessPolicy;
   targetRegisterOverrides?: Partial<
     Pick<
       NativeAmd64Registers,
@@ -139,10 +142,28 @@ function translateThreadRegisters(
       ),
     };
   }
+  const tls = planNativeTlsSegmentBaseHandoff({
+    threadId: thread.id,
+    sourceArch: request.sourceArch,
+    targetArch: request.targetArch,
+    sourceThreadPointer: thread.tls.threadPointer,
+    sourceRegister: thread.tls.sourceRegister,
+    targetFsBase: continuation.targetTls,
+    targetGsBase: "0x0",
+    targetAccessPolicy: continuation.targetTlsAccessPolicy,
+    capturedTargetSegmentBases: thread.tls.targetSegmentBases,
+  });
+  if (tls.state === "refused") {
+    return { sourceThreadId: thread.id, state: "refused", refusal: tls.refusals[0]! };
+  }
   return {
     sourceThreadId: thread.id,
     state: "translated",
-    targetRegisters: arm64ToAmd64(thread.sourceRegisters, continuation),
+    targetRegisters: arm64ToAmd64(
+      thread.sourceRegisters,
+      continuation,
+      tls.targetSegmentBases.fsBase,
+    ),
   };
 }
 
@@ -150,6 +171,7 @@ function translateThreadRegisters(
 function arm64ToAmd64(
   source: NativeArm64Registers,
   continuation: NativeContinuationTarget,
+  targetFsBase: string,
 ): NativeAmd64Registers {
   const translated: NativeAmd64Registers = {
     arch: "amd64",
@@ -171,7 +193,7 @@ function arm64ToAmd64(
     r13: source.x[21] ?? "0x0",
     r14: source.x[22] ?? "0x0",
     r15: source.x[23] ?? "0x0",
-    fsBase: continuation.targetTls,
+    fsBase: targetFsBase,
     gsBase: "0x0",
   };
   return { ...translated, ...continuation.targetRegisterOverrides };
