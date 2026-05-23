@@ -32,31 +32,31 @@ function compileHelper(outDir: string) {
 }
 
 function runHelper(helper: string, codeFile: string, codeSize: number, extraArgs: string[] = []) {
-  const result = spawnSync(
-    helper,
-    [
-      "--code-file",
-      codeFile,
-      "--file-offset",
-      "0",
-      "--code-size",
-      String(codeSize),
-      "--target-address",
-      "0x710000001000",
-      ...extraArgs,
-      "--stack-target-start",
-      "0x520000000000",
-      "--stack-size",
-      String(64 * 1024),
-      "--stack-pointer",
-      "0x520000010000",
-    ],
-    { encoding: "utf8" },
-  );
+  const result = spawnSync(helper, helperArgs(codeFile, codeSize, extraArgs), { encoding: "utf8" });
   expect(result.status, result.stderr).toBe(0);
   const line = result.stdout.split(/\r?\n/).find((candidate) => candidate.startsWith(PREFIX));
   expect(line).toBeTruthy();
   return JSON.parse(line!.slice(PREFIX.length));
+}
+
+function helperArgs(codeFile: string, codeSize: number, extraArgs: string[] = []) {
+  return [
+    "--code-file",
+    codeFile,
+    "--file-offset",
+    "0",
+    "--code-size",
+    String(codeSize),
+    "--target-address",
+    "0x710000001000",
+    ...extraArgs,
+    "--stack-target-start",
+    "0x520000000000",
+    "--stack-size",
+    String(64 * 1024),
+    "--stack-pointer",
+    "0x520000010000",
+  ];
 }
 
 function loadU64FromAbsoluteCode(address: bigint): Buffer {
@@ -111,7 +111,7 @@ describe("native actual resume trampoline", () => {
           "--native-return-chain-write",
           "0x52000000ff08:0x710000001000:0010007100000000:return-address",
           "--native-executable-mapping",
-          "action=map-target-executable;mapping=mapping:text;targetStart=0x710000001000;sizeBytes=1;path=/tmp/target;fileOffset=0;read=true;write=false;execute=true;private=true;shared=false;buildId=target-build-id",
+          `action=map-target-executable;mapping=mapping:text;targetStart=0x710000001000;sizeBytes=1;path=${returnCode};fileOffset=0;read=true;write=false;execute=true;private=true;shared=false;buildId=target-build-id`,
           "--native-signal-restore-step",
           "action=save-loader-signal-mask;threadId=thread:1",
           "--native-signal-restore-step",
@@ -158,6 +158,19 @@ describe("native actual resume trampoline", () => {
         returnValue: "0x600000000000",
         argument0: "0x600000000000",
       });
+
+      const badExecutableMapping = spawnSync(
+        helper,
+        helperArgs(returnCode, 1, [
+          "--native-executable-mapping",
+          "action=map-target-executable;mapping=mapping:text;targetStart=0x710000002000;sizeBytes=1;path=/tmp/mismatch;fileOffset=0;read=true;write=false;execute=true;private=true;shared=false;buildId=target-build-id",
+        ]),
+        { encoding: "utf8" },
+      );
+      expect(badExecutableMapping.status).toBe(2);
+      expect(badExecutableMapping.stderr).toContain(
+        "native executable mapping does not match target code",
+      );
 
       const stateMemory = join(outDir, "state-memory.bin");
       const memory = Buffer.alloc(4096);
