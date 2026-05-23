@@ -22,7 +22,8 @@ run is successful only when the target VM reports target-native completion with:
 - `sidecarRuntimeUsed: false`
 - every present native restore consumption marker is `passed`, including stack
   window writes, private memory restore, executable mapping materialization,
-  signal-mask handoff, and active syscall re-arm
+  signal-mask handoff, active syscall re-arm, and controlled thread-spawn
+  consumption
 
 Example:
 
@@ -40,6 +41,29 @@ The harness skips clearly when no amd64 VM image is available. CI should run thi
 profile whenever portable machine bundle layout, target guest loader behavior,
 restore descriptor handling, or target-native continuation execution changes.
 Raw cross-ISA `.vmstate` replay remains a refusal, not a success path.
+
+## Native restore consumption boundary
+
+The combined descriptor can carry both legacy descriptor entries and explicit
+`native=` sections. The current target trampoline consumes these sections as
+actual target-side work before reporting completion:
+
+| Section                                     | Target-side status                                                                                         |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `stack-window-write` / `stack-window-guard` | writes target stack slots and maps guard pages                                                             |
+| `return-chain-write`                        | writes bounded target return-chain slots                                                                   |
+| `private-memory`                            | performs target `mmap`, byte copy, guard mapping, and final `mprotect`; also backs target TLS/TCB restore  |
+| `executable-mapping`                        | checks target code path/address/size/file-offset, execute/private flags, and build-id or sha256 provenance |
+| `signal-restore`                            | saves, applies, verifies, and restores the loader signal mask                                              |
+| `active-syscall`                            | validates modeled sleep/ppoll timeout steps and arms target-side timerfds                                  |
+| `thread-spawn`                              | maps requested stacks and consumes controlled spawn steps with short-lived target tasks                    |
+
+Absent sections remain backward-compatible. Present sections fail closed if their
+consumption marker is missing or not `passed`; the smoke profile additionally
+requires stack-window, private-memory, executable-mapping, and signal restore
+markers for the combined proof. General multithread, futex/rseq, arbitrary active
+syscall restart, and broad target libc/vDSO state remain outside this proof and
+must refuse precisely.
 
 `planPortableMachineTargetRestoreDescriptor()` is the combined descriptor gate:
 fd-table refusals, executable-source memory, ambiguous mappings, and other unsafe
@@ -143,3 +167,23 @@ planner refuses executable source mappings, shared mappings, ambiguous captured
 byte provenance, and partial captured ranges with precise refusal codes before
 entering the guest. Full `pnpm smoke-tests` remains the broader VM lifecycle
 suite.
+
+Latest remote arm64→amd64 proof after native target-loader consumption hardening:
+
+- `state=completed`
+- `descriptorGateCompleted=true`
+- `targetContinuationKind=real-utility`
+- `targetContinuationStatus=returned`
+- `targetContinuationReturnValue=0x4d`
+- `targetStateConsumptionResult=passed`
+- `targetReturnChainResult=passed`
+- `targetFrameRestoreResult=passed`
+- `targetRegisterRestoreResult=passed`
+- `targetRflagsRestoreResult=passed`
+- `targetTlsRestoreResult=passed`
+- `targetStackWindowMaterializationResult=passed`
+- `targetPrivateMemoryRestoreResult=passed`
+- `targetExecutableMappingResult=passed`
+- `targetSignalRestoreResult=passed`
+- wall time: 37.018s
+- target VM boot/restore: 20.125s
