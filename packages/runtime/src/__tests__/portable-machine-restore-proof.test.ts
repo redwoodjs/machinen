@@ -48,6 +48,11 @@ describe("portable machine VM restore proof", () => {
             value: "0x4652414d45504153",
             classification: "non-pointer-data",
           },
+          {
+            offset: 8,
+            value: "0x535441434b534c54",
+            classification: "non-pointer-data",
+          },
         ],
       },
       fdTable: {

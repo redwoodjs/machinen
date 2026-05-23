@@ -143,6 +143,8 @@ describe("native actual resume trampoline", () => {
           "0x1515151515151515",
           "--translated-frame-slot",
           "0:0x4652414d45504153:non-pointer-data",
+          "--translated-frame-slot",
+          "8:0x535441434b534c54:non-pointer-data",
           "--materialize-memory",
           `${stateMemory}:0:0x600000000000:4096:rw-p`,
         ]),
@@ -165,6 +167,10 @@ describe("native actual resume trampoline", () => {
             { register: "r13", status: "passed", value: "0x1313131313131313" },
             { register: "r14", status: "passed", value: "0x1414141414141414" },
             { register: "r15", status: "passed", value: "0x1515151515151515" },
+          ],
+          slots: [
+            { offset: 0, classification: "non-pointer-data", status: "passed" },
+            { offset: 8, classification: "non-pointer-data", status: "passed" },
           ],
         },
         resumePath: {

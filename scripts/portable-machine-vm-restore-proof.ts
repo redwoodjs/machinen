@@ -111,6 +111,8 @@ const TRANSLATED_FRAME_POINTER = "0x50000000ff80";
 const TRANSLATED_FRAME_CFA = "0x50000000fff0";
 const TRANSLATED_FRAME_RETURN_ADDRESS_SLOT = "0x50000000fff0";
 const TRANSLATED_FRAME_SLOT_OFFSET = 0;
+const TRANSLATED_FRAME_SECOND_SLOT_OFFSET = 8;
+const TRANSLATED_FRAME_SECOND_SLOT_MARKER = 0x535441434b534c54n;
 const TRANSLATED_FRAME_RBX = "0x1111111122222222";
 const TRANSLATED_FRAME_R12 = "0x1234567890abcdef";
 const TRANSLATED_FRAME_R13 = "0x1313131313131313";
@@ -510,6 +512,11 @@ function translatedFrameDescriptor(returnAddress: string): TargetGuestTranslated
         value: hex(TRANSLATED_FRAME_MARKER),
         classification: "non-pointer-data",
       },
+      {
+        offset: TRANSLATED_FRAME_SECOND_SLOT_OFFSET,
+        value: hex(TRANSLATED_FRAME_SECOND_SLOT_MARKER),
+        classification: "non-pointer-data",
+      },
     ],
   };
 }
@@ -788,6 +795,10 @@ class Amd64ProofAssembler {
     this.checkAbsoluteU64(
       BigInt(TRANSLATED_FRAME_POINTER) + BigInt(TRANSLATED_FRAME_SLOT_OFFSET),
       TRANSLATED_FRAME_MARKER,
+    );
+    this.checkAbsoluteU64(
+      BigInt(TRANSLATED_FRAME_POINTER) + BigInt(TRANSLATED_FRAME_SECOND_SLOT_OFFSET),
+      TRANSLATED_FRAME_SECOND_SLOT_MARKER,
     );
     this.storeReportWord(32, TRANSLATED_FRAME_MARKER);
   }

@@ -59,7 +59,8 @@ for this proof; multi-thread, futex, signal-delivery, ptrace/debug,
 shared-stack, unknown-TLS, and ambiguous register states refuse before the target
 VM is entered. The descriptor uses `resumeMode=translated-frame`, so the success
 path records a target-native resume-path marker after the real continuation
-observes the translated frame, stack, and amd64 callee-saved register bank.
+observes the translated frame, stack-slot vector, and amd64 callee-saved
+register bank.
 
 ## Smoke profile
 

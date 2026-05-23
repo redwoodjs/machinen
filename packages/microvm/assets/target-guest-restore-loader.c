@@ -24,6 +24,7 @@
 #define MAX_MATERIALIZED_MAPPINGS 32
 #define MAX_FD_RECIPES 64
 #define MAX_UNWIND_ID 128
+#define MAX_TRANSLATED_FRAME_SLOTS 8
 
 struct Options {
   const char *descriptor_path;
@@ -63,10 +64,10 @@ struct Descriptor {
   uint64_t translated_frame_callee_r13;
   uint64_t translated_frame_callee_r14;
   uint64_t translated_frame_callee_r15;
-  bool has_translated_frame_slot;
-  uint64_t translated_frame_slot_offset;
-  uint64_t translated_frame_slot_value;
-  char translated_frame_slot_class[32];
+  size_t translated_frame_slot_count;
+  uint64_t translated_frame_slot_offsets[MAX_TRANSLATED_FRAME_SLOTS];
+  uint64_t translated_frame_slot_values[MAX_TRANSLATED_FRAME_SLOTS];
+  char translated_frame_slot_classes[MAX_TRANSLATED_FRAME_SLOTS][32];
   char translated_frame_unwind_id[MAX_UNWIND_ID];
   uint64_t timeout_seconds;
   uint64_t stack_target_start;
@@ -439,7 +440,7 @@ static void parse_memory(struct Descriptor *descriptor, char *line) {
   }
 }
 
-static const char *required_frame_token(char *scratch, size_t scratch_size, char *fields, const char *name) {
+static const char *optional_frame_token(char *scratch, size_t scratch_size, char *fields, const char *name) {
   snprintf(scratch, scratch_size, "%s", fields);
   size_t name_length = strlen(name);
   const char *value = NULL;
@@ -452,10 +453,77 @@ static const char *required_frame_token(char *scratch, size_t scratch_size, char
       value = token + name_length + 1u;
     }
   }
+  return value;
+}
+
+static const char *required_frame_token(char *scratch, size_t scratch_size, char *fields, const char *name) {
+  const char *value = optional_frame_token(scratch, scratch_size, fields, name);
   if (!value) {
     refuse("target-guest-loader-descriptor-invalid", "translated frame field is required");
   }
   return value;
+}
+
+static void reject_unsupported_frame_slot_indexes(char *fields) {
+  char scratch[4096];
+  snprintf(scratch, sizeof(scratch), "%s", fields);
+  char *save = NULL;
+  for (char *token = strtok_r(scratch, " ", &save); token; token = strtok_r(NULL, " ", &save)) {
+    if (!starts_with(token, "slot")) {
+      continue;
+    }
+    char *end = NULL;
+    uint64_t index = strtoull(token + strlen("slot"), &end, 10);
+    if (end == token + strlen("slot")) {
+      continue;
+    }
+    if (!(starts_with(end, "Offset=") || starts_with(end, "Value=") || starts_with(end, "Class="))) {
+      refuse("target-guest-loader-frame-unsupported", "translated frame slot field is unsupported");
+    }
+    if (index >= MAX_TRANSLATED_FRAME_SLOTS) {
+      refuse("target-guest-loader-frame-unsupported", "too many translated frame slots");
+    }
+  }
+}
+
+static void parse_frame_slots(struct Descriptor *descriptor, char *fields) {
+  reject_unsupported_frame_slot_indexes(fields);
+  bool saw_gap = false;
+  for (size_t index = 0; index < MAX_TRANSLATED_FRAME_SLOTS; index++) {
+    char offset_name[32];
+    char value_name[32];
+    char class_name[32];
+    snprintf(offset_name, sizeof(offset_name), "slot%zuOffset", index);
+    snprintf(value_name, sizeof(value_name), "slot%zuValue", index);
+    snprintf(class_name, sizeof(class_name), "slot%zuClass", index);
+    char scratch[4096];
+    const char *offset = optional_frame_token(scratch, sizeof(scratch), fields, offset_name);
+    const char *value = optional_frame_token(scratch, sizeof(scratch), fields, value_name);
+    const char *slot_class = optional_frame_token(scratch, sizeof(scratch), fields, class_name);
+    if (!offset && !value && !slot_class) {
+      saw_gap = true;
+      continue;
+    }
+    if (saw_gap) {
+      refuse("target-guest-loader-frame-unsupported", "translated frame slots must be dense");
+    }
+    if (!offset || !value || !slot_class) {
+      refuse("target-guest-loader-descriptor-invalid", "translated frame slot field is required");
+    }
+    if (!streq(slot_class, "non-pointer-data")) {
+      refuse("target-guest-loader-frame-unsupported", "pointer-bearing frame slots are unsupported");
+    }
+    descriptor->translated_frame_slot_offsets[descriptor->translated_frame_slot_count] = parse_u64(offset, offset_name);
+    descriptor->translated_frame_slot_values[descriptor->translated_frame_slot_count] = parse_u64(value, value_name);
+    snprintf(descriptor->translated_frame_slot_classes[descriptor->translated_frame_slot_count],
+        sizeof(descriptor->translated_frame_slot_classes[0]),
+        "%s",
+        slot_class);
+    descriptor->translated_frame_slot_count++;
+  }
+  if (descriptor->translated_frame_slot_count == 0) {
+    refuse("target-guest-loader-frame-unsupported", "translated frame slots are incomplete");
+  }
 }
 
 static void parse_translated_frame(struct Descriptor *descriptor, char *line) {
@@ -489,16 +557,7 @@ static void parse_translated_frame(struct Descriptor *descriptor, char *line) {
       required_frame_token(scratch, sizeof(scratch), fields, "calleeSavedR14"), "calleeSavedR14");
   descriptor->translated_frame_callee_r15 = parse_u64(
       required_frame_token(scratch, sizeof(scratch), fields, "calleeSavedR15"), "calleeSavedR15");
-  descriptor->translated_frame_slot_offset = parse_u64(
-      required_frame_token(scratch, sizeof(scratch), fields, "slot0Offset"), "slot0Offset");
-  descriptor->translated_frame_slot_value = parse_u64(
-      required_frame_token(scratch, sizeof(scratch), fields, "slot0Value"), "slot0Value");
-  const char *slot_class = required_frame_token(scratch, sizeof(scratch), fields, "slot0Class");
-  if (!streq(slot_class, "non-pointer-data")) {
-    refuse("target-guest-loader-frame-unsupported", "pointer-bearing frame slots are unsupported");
-  }
-  snprintf(descriptor->translated_frame_slot_class, sizeof(descriptor->translated_frame_slot_class), "%s", slot_class);
-  descriptor->has_translated_frame_slot = true;
+  parse_frame_slots(descriptor, fields);
 }
 
 static void parse_resource(struct Descriptor *descriptor, char *line) {
@@ -572,7 +631,7 @@ static void validate_descriptor(const struct Descriptor *descriptor) {
     refuse("target-guest-loader-frame-unsupported", "translated resume mode requires a frame");
   }
   if (descriptor->has_translated_frame &&
-      (!descriptor->has_translated_return_address || !descriptor->has_translated_frame_slot ||
+      (!descriptor->has_translated_return_address || descriptor->translated_frame_slot_count == 0 ||
           descriptor->translated_frame_return_address != descriptor->translated_return_address)) {
     refuse("target-guest-loader-frame-unsupported", "translated frame return address is unresolved");
   }
@@ -651,7 +710,7 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   char translated_frame_callee_r13[32];
   char translated_frame_callee_r14[32];
   char translated_frame_callee_r15[32];
-  char translated_frame_slot[128];
+  char translated_frame_slots[MAX_TRANSLATED_FRAME_SLOTS][128];
   char timeout_seconds[32];
   char stack_target_start[32];
   char stack_size[32];
@@ -676,12 +735,14 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   snprintf(translated_frame_callee_r13, sizeof(translated_frame_callee_r13), "0x%" PRIx64, descriptor->translated_frame_callee_r13);
   snprintf(translated_frame_callee_r14, sizeof(translated_frame_callee_r14), "0x%" PRIx64, descriptor->translated_frame_callee_r14);
   snprintf(translated_frame_callee_r15, sizeof(translated_frame_callee_r15), "0x%" PRIx64, descriptor->translated_frame_callee_r15);
-  snprintf(translated_frame_slot,
-      sizeof(translated_frame_slot),
-      "0x%" PRIx64 ":0x%" PRIx64 ":%s",
-      descriptor->translated_frame_slot_offset,
-      descriptor->translated_frame_slot_value,
-      descriptor->translated_frame_slot_class);
+  for (size_t i = 0; i < descriptor->translated_frame_slot_count; i++) {
+    snprintf(translated_frame_slots[i],
+        sizeof(translated_frame_slots[i]),
+        "0x%" PRIx64 ":0x%" PRIx64 ":%s",
+        descriptor->translated_frame_slot_offsets[i],
+        descriptor->translated_frame_slot_values[i],
+        descriptor->translated_frame_slot_classes[i]);
+  }
   snprintf(timeout_seconds, sizeof(timeout_seconds), "0x%" PRIx64, descriptor->timeout_seconds);
   snprintf(stack_target_start, sizeof(stack_target_start), "0x%" PRIx64, descriptor->stack_target_start);
   snprintf(stack_size, sizeof(stack_size), "0x%" PRIx64, descriptor->stack_size);
@@ -742,8 +803,10 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
     push_arg(child_argv, &child_argc, translated_frame_callee_r14);
     push_arg(child_argv, &child_argc, "--translated-frame-callee-r15");
     push_arg(child_argv, &child_argc, translated_frame_callee_r15);
-    push_arg(child_argv, &child_argc, "--translated-frame-slot");
-    push_arg(child_argv, &child_argc, translated_frame_slot);
+    for (size_t i = 0; i < descriptor->translated_frame_slot_count; i++) {
+      push_arg(child_argv, &child_argc, "--translated-frame-slot");
+      push_arg(child_argv, &child_argc, translated_frame_slots[i]);
+    }
   }
   push_arg(child_argv, &child_argc, "--timeout-seconds");
   push_arg(child_argv, &child_argc, timeout_seconds);

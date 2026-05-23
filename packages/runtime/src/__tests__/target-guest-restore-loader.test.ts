@@ -39,6 +39,11 @@ const translatedFrame = {
       value: "0x4652414d45504153",
       classification: "non-pointer-data" as const,
     },
+    {
+      offset: 8,
+      value: "0x535441434b534c54",
+      classification: "non-pointer-data" as const,
+    },
   ],
 };
 
@@ -144,6 +149,8 @@ describe("target guest restore loader descriptor", () => {
       "0x1515151515151515",
       "--translated-frame-slot",
       "0:0x4652414d45504153:non-pointer-data",
+      "--translated-frame-slot",
+      "8:0x535441434b534c54:non-pointer-data",
       "--set-cloexec-fd",
       "7",
       "--synthetic-empty-pipe-read-fd",
@@ -316,6 +323,41 @@ describe("target guest restore loader descriptor", () => {
         ).replace(" slot0Offset=", " calleeSavedR12=0x1 slot0Offset="),
       ),
     ).toThrow(/duplicate translated frame field/);
+
+    expect(() =>
+      validateTargetGuestRestoreDescriptor(
+        descriptor({
+          continuation: {
+            ...descriptor().continuation,
+            translatedReturnAddress: "0x700300000080",
+          },
+          translatedFrame: {
+            ...translatedFrame,
+            slots: [
+              { ...translatedFrame.slots[0]!, offset: 0 },
+              { ...translatedFrame.slots[1]!, offset: 0 },
+            ],
+          },
+        }),
+      ),
+    ).toThrow(/duplicate translated frame slot offset/);
+
+    expect(() =>
+      parseTargetGuestRestoreDescriptor(
+        serializeTargetGuestRestoreDescriptor(
+          descriptor({
+            continuation: {
+              ...descriptor().continuation,
+              translatedReturnAddress: "0x700300000080",
+            },
+            translatedFrame,
+          }),
+        )
+          .replace(" slot1Offset=", " slot2Offset=")
+          .replace(" slot1Value=", " slot2Value=")
+          .replace(" slot1Class=", " slot2Class="),
+      ),
+    ).toThrow(/translated frame slots must be dense/);
 
     expect(() =>
       validateTargetGuestRestoreDescriptor(
