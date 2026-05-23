@@ -380,6 +380,7 @@
 - [`NativeMappingMaterializationStep`](#nativemappingmaterializationstep)
 - [`NativeMappingMaterializationRequest`](#nativemappingmaterializationrequest)
 - [`NativeMappingMaterializationResult`](#nativemappingmaterializationresult)
+- [`NativePrivateWritableGuardRequest`](#nativeprivatewritableguardrequest)
 - [`planNativeMappingMaterialization`](#plannativemappingmaterialization)
 - [`NativeInheritedStdioPolicy`](#nativeinheritedstdiopolicy)
 - [`NativeResourceTranslationRequest`](#nativeresourcetranslationrequest)
@@ -3495,9 +3496,35 @@ by default when `output` is a TTY.
 
 > **sizeBytes**: `number`
 
+##### privateWritable?
+
+> `optional` **privateWritable?**: `object`
+
+###### guardMappings
+
+> **guardMappings**: `string`[]
+
 ##### refusal?
 
 > `optional` **refusal?**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
+
+***
+
+### NativePrivateWritableGuardRequest
+
+#### Properties
+
+##### mapping
+
+> **mapping**: `string`
+
+##### belowMapping?
+
+> `optional` **belowMapping?**: `string`
+
+##### aboveMapping?
+
+> `optional` **aboveMapping?**: `string`
 
 ***
 
@@ -3516,6 +3543,10 @@ by default when `output` is a TTY.
 ##### targetFileBuildIds?
 
 > `optional` **targetFileBuildIds?**: `Record`\<`string`, `string`\>
+
+##### privateWritableGuards?
+
+> `optional` **privateWritableGuards?**: [`NativePrivateWritableGuardRequest`](#nativeprivatewritableguardrequest)[]
 
 ***
 
