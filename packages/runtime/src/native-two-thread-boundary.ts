@@ -82,7 +82,17 @@ function futexResourceRefusals(resources: NativeProcessResource[]): NativeProces
   return resources
     .filter((resource) => resource.kind === "futex")
     .map((resource) =>
-      refusal("futex-state-unsupported", `resource ${resource.id} has futex wait state`),
+      refusal("futex-state-unsupported", `resource ${resource.id} has futex wait state`, {
+        resourceId: resource.id,
+        kind: resource.kind,
+        state: resource.state,
+        requiredModel: [
+          "futex word address translation",
+          "waiter queue membership",
+          "wake/requeue ordering",
+          "robust-list owner-death semantics",
+        ],
+      }),
     );
 }
 
@@ -100,6 +110,7 @@ function refused(
 function refusal(
   code: NativeProcessImageRefusal["code"],
   message: string,
+  detail?: Record<string, unknown>,
 ): NativeProcessImageRefusal {
-  return { code, message };
+  return detail ? { code, message, detail } : { code, message };
 }

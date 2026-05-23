@@ -18,6 +18,7 @@ The current classifier reports:
   related fd waits. Narrow pipe/eventfd/timerfd reads and safe offset-backed
   regular-file reads are modeled only under the explicit fd-read deferral
   policy; other fd waits still refuse;
+- `futex-wait` — `futex`, `futex_time64`, and `futex_waitv` wait state;
 - `restart` — `restart_syscall` or captured restart-block state;
 - `unknown-active` — any active syscall that has not been modeled.
 
@@ -38,6 +39,8 @@ Known blocking syscall classes refuse with precise codes:
 - `target-epoll-syscall-state-unsupported` for active `epoll_wait`,
   `epoll_pwait`, and `epoll_pwait2` state;
 - `target-signalfd-state-unsupported` for active reads from signalfd resources;
+- `futex-state-unsupported` for active futex wait syscalls or captured futex
+  resources;
 - `syscall-restart-unsupported` for restart state;
 - `active-syscall` for unknown active syscalls.
 
@@ -86,6 +89,18 @@ These preserve timeout-driven proofs without claiming general fd readiness
 migration. Missing fd resources, wrong resource kinds, unsupported flags or
 state, wrong events, non-empty `revents`, `nfds > 1`, and non-null signal masks
 all fail closed as `target-ppoll-timeout-missing`.
+
+## Futex refusal tightening
+
+Active futex syscalls now fail closed with `futex-state-unsupported` instead of
+falling through to a generic active-syscall refusal. The refusal records decoded
+futex arguments when available (`uaddr`, operation, timeout, or `futex_waitv`
+waiter-vector arguments) and names the unsupported kernel state: futex word race,
+wait-queue membership, wake/requeue ordering, and robust-list owner-death
+semantics.
+
+This is refusal tightening only. No futex wait is restarted, emulated, or treated
+as target-native success.
 
 ## Socket accept/connect refusal
 

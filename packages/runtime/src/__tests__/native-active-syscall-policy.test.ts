@@ -82,6 +82,13 @@ function arm64EpollThread(
   return arm64SleepThread({ state: "inside-syscall", number: 22, name }, x);
 }
 
+function arm64FutexThread(
+  name: "futex" | "futex_waitv" = "futex",
+  x: string[] = ["0x5000", "0x0", "0x1", "0x0", "0x0", "0x0"],
+): NativeThreadState {
+  return arm64SleepThread({ state: "inside-syscall", number: 98, name }, x);
+}
+
 function documentsWithTimespec(options: {
   activeThread: NativeThreadState;
   seconds?: bigint;
@@ -1255,6 +1262,58 @@ describe("native active syscall classification", () => {
       refusal: {
         code: "target-fd-read-state-missing",
         detail: { reason: scenario.reason },
+      },
+    });
+  });
+
+  it("refuses active futex wait with futex-specific detail", () => {
+    const activeThread = arm64FutexThread("futex", [
+      "0x5000",
+      "0x80",
+      "0x1",
+      "0x6000",
+      "0x0",
+      "0x0",
+    ]);
+    const result = classifyNativeActiveSyscalls([activeThread]);
+
+    expect(result.classifications[0]).toMatchObject({
+      class: "futex-wait",
+      refusal: {
+        code: "futex-state-unsupported",
+        detail: {
+          reason: "futex waiter kernel queue state is unsupported",
+          futexSyscall: {
+            name: "futex",
+            arguments: { source: "registers", uaddr: "0x5000", operation: "0x80" },
+            unsupportedState: expect.arrayContaining(["kernel wait queue membership"]),
+          },
+        },
+      },
+    });
+  });
+
+  it("refuses futex_waitv with vector-wait argument detail", () => {
+    const activeThread = arm64FutexThread("futex_waitv", [
+      "0x5100",
+      "0x2",
+      "0x0",
+      "0x6200",
+      "0x0",
+      "0x0",
+    ]);
+    const result = classifyNativeActiveSyscalls([activeThread]);
+
+    expect(result.classifications[0]).toMatchObject({
+      class: "futex-wait",
+      refusal: {
+        code: "futex-state-unsupported",
+        detail: {
+          futexSyscall: {
+            name: "futex_waitv",
+            arguments: { source: "registers", waitersPointer: "0x5100", waiterCount: "0x2" },
+          },
+        },
       },
     });
   });

@@ -125,7 +125,12 @@ describe("controlled two-thread restore boundary", () => {
 
     expect(planNativeControlledTwoThreadRestoreBoundary(input)).toMatchObject({
       state: "refused",
-      refusals: [expect.objectContaining({ code: "futex-state-unsupported" })],
+      refusals: [
+        expect.objectContaining({
+          code: "futex-state-unsupported",
+          detail: expect.objectContaining({ resourceId: "resource:futex" }),
+        }),
+      ],
     });
   });
 
@@ -139,13 +144,18 @@ describe("controlled two-thread restore boundary", () => {
     });
   });
 
-  it("refuses unsafe per-thread state", () => {
+  it("refuses active futex syscall state precisely", () => {
     const input = request();
     input.threads[0]!.syscall = { state: "inside-syscall", number: 202, name: "futex" };
 
     expect(planNativeControlledTwoThreadRestoreBoundary(input)).toMatchObject({
       state: "refused",
-      refusals: [expect.objectContaining({ code: "active-syscall" })],
+      refusals: [
+        expect.objectContaining({
+          code: "futex-state-unsupported",
+          detail: expect.objectContaining({ syscallClass: "futex-wait" }),
+        }),
+      ],
     });
   });
 });

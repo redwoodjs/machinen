@@ -160,6 +160,13 @@ function restoreRefusalCases(): RestoreRefusalCase[] {
       resources: [{ id: "resource:futex", kind: "futex", state: "captured" }],
     },
     {
+      id: "active-futex-syscall",
+      expectedCode: "futex-state-unsupported",
+      mutate: (thread) => {
+        thread.syscall = { state: "inside-syscall", number: 98, name: "futex" };
+      },
+    },
+    {
       id: "signal-delivery-stop",
       expectedCode: "signal-state-unsupported",
       mutate: (thread) => {
