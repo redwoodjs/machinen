@@ -53,6 +53,16 @@
 #define TRANSLATED_FRAME_REGISTER_R13 UINT64_C(0x04)
 #define TRANSLATED_FRAME_REGISTER_R14 UINT64_C(0x08)
 #define TRANSLATED_FRAME_REGISTER_R15 UINT64_C(0x10)
+#define RESUME_REGISTER_MARKER UINT64_C(0x52454753544f5245)
+#define RESUME_REGISTER_MASK UINT64_C(0xff)
+#define RESUME_REGISTER_RAX UINT64_C(0x01)
+#define RESUME_REGISTER_RSI UINT64_C(0x02)
+#define RESUME_REGISTER_RDX UINT64_C(0x04)
+#define RESUME_REGISTER_RCX UINT64_C(0x08)
+#define RESUME_REGISTER_R8 UINT64_C(0x10)
+#define RESUME_REGISTER_R9 UINT64_C(0x20)
+#define RESUME_REGISTER_R10 UINT64_C(0x40)
+#define RESUME_REGISTER_R11 UINT64_C(0x80)
 #define MAX_UNWIND_ID 128
 
 struct MemoryMaterialization {
@@ -81,6 +91,15 @@ struct Options {
   uint64_t translated_return_address;
   bool has_resume_mode;
   char resume_mode[32];
+  uint64_t resume_register_mask;
+  uint64_t resume_register_rax;
+  uint64_t resume_register_rsi;
+  uint64_t resume_register_rdx;
+  uint64_t resume_register_rcx;
+  uint64_t resume_register_r8;
+  uint64_t resume_register_r9;
+  uint64_t resume_register_r10;
+  uint64_t resume_register_r11;
   bool has_translated_frame;
   uint64_t translated_frame_pointer;
   uint64_t translated_frame_cfa;
@@ -128,7 +147,11 @@ static void usage(void) {
       "[--translated-frame-callee-rbx addr] [--translated-frame-callee-r12 addr] "
       "[--translated-frame-callee-r13 addr] [--translated-frame-callee-r14 addr] "
       "[--translated-frame-callee-r15 addr] [--translated-frame-slot offset:value:class] "
-      "[--resume-mode translated-frame] --timeout-seconds n "
+      "[--resume-mode translated-frame] [--resume-register-rax addr] "
+      "[--resume-register-rsi addr] [--resume-register-rdx addr] "
+      "[--resume-register-rcx addr] [--resume-register-r8 addr] "
+      "[--resume-register-r9 addr] [--resume-register-r10 addr] "
+      "[--resume-register-r11 addr] --timeout-seconds n "
       "[--synthetic-empty-pipe-read-fd n] [--synthetic-empty-pipe-write-fd n] "
       "[--synthetic-empty-eventfd n] "
       "[--synthetic-timerfd n] [--set-cloexec-fd n] "
@@ -378,6 +401,54 @@ static struct Options parse_args(int argc, char **argv) {
         usage();
       }
       copy_resume_mode(&opts, argv[i]);
+    } else if (streq(argv[i], "--resume-register-rax")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.resume_register_rax = parse_u64(argv[i], "resume-register-rax");
+      opts.resume_register_mask |= RESUME_REGISTER_RAX;
+    } else if (streq(argv[i], "--resume-register-rsi")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.resume_register_rsi = parse_u64(argv[i], "resume-register-rsi");
+      opts.resume_register_mask |= RESUME_REGISTER_RSI;
+    } else if (streq(argv[i], "--resume-register-rdx")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.resume_register_rdx = parse_u64(argv[i], "resume-register-rdx");
+      opts.resume_register_mask |= RESUME_REGISTER_RDX;
+    } else if (streq(argv[i], "--resume-register-rcx")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.resume_register_rcx = parse_u64(argv[i], "resume-register-rcx");
+      opts.resume_register_mask |= RESUME_REGISTER_RCX;
+    } else if (streq(argv[i], "--resume-register-r8")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.resume_register_r8 = parse_u64(argv[i], "resume-register-r8");
+      opts.resume_register_mask |= RESUME_REGISTER_R8;
+    } else if (streq(argv[i], "--resume-register-r9")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.resume_register_r9 = parse_u64(argv[i], "resume-register-r9");
+      opts.resume_register_mask |= RESUME_REGISTER_R9;
+    } else if (streq(argv[i], "--resume-register-r10")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.resume_register_r10 = parse_u64(argv[i], "resume-register-r10");
+      opts.resume_register_mask |= RESUME_REGISTER_R10;
+    } else if (streq(argv[i], "--resume-register-r11")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.resume_register_r11 = parse_u64(argv[i], "resume-register-r11");
+      opts.resume_register_mask |= RESUME_REGISTER_R11;
     } else if (streq(argv[i], "--timeout-seconds")) {
       if (++i >= argc) {
         usage();
@@ -494,6 +565,14 @@ static uint64_t jump_translated_frame_r12 __attribute__((used)) = 0;
 static uint64_t jump_translated_frame_r13 __attribute__((used)) = 0;
 static uint64_t jump_translated_frame_r14 __attribute__((used)) = 0;
 static uint64_t jump_translated_frame_r15 __attribute__((used)) = 0;
+static uint64_t jump_resume_register_rax __attribute__((used)) = 0;
+static uint64_t jump_resume_register_rsi __attribute__((used)) = 0;
+static uint64_t jump_resume_register_rdx __attribute__((used)) = 0;
+static uint64_t jump_resume_register_rcx __attribute__((used)) = 0;
+static uint64_t jump_resume_register_r8 __attribute__((used)) = 0;
+static uint64_t jump_resume_register_r9 __attribute__((used)) = 0;
+static uint64_t jump_resume_register_r10 __attribute__((used)) = 0;
+static uint64_t jump_resume_register_r11 __attribute__((used)) = 0;
 
 struct ObservedRegisters {
   uint64_t rax;
@@ -733,6 +812,20 @@ static bool address_inside_stack(const struct Options *opts, uint64_t address, u
       address + size <= opts->stack_target_start + opts->stack_size;
 }
 
+static void validate_resume_register_options(const struct Options *opts) {
+  if (opts->resume_register_mask == 0) {
+    return;
+  }
+  if (opts->resume_register_mask != RESUME_REGISTER_MASK) {
+    fprintf(stderr, "native-actual-resume-trampoline: resume register bank is incomplete\n");
+    exit(2);
+  }
+  if (!opts->has_state_report_address) {
+    fprintf(stderr, "native-actual-resume-trampoline: resume register restore requires a state report\n");
+    exit(2);
+  }
+}
+
 static void validate_translated_frame_options(const struct Options *opts) {
   if (!opts->has_translated_frame) {
     if (opts->has_resume_mode) {
@@ -885,7 +978,15 @@ static void jump_to_target(uint64_t entry,
     uint64_t translated_frame_r12,
     uint64_t translated_frame_r13,
     uint64_t translated_frame_r14,
-    uint64_t translated_frame_r15) {
+    uint64_t translated_frame_r15,
+    uint64_t resume_register_rax,
+    uint64_t resume_register_rsi,
+    uint64_t resume_register_rdx,
+    uint64_t resume_register_rcx,
+    uint64_t resume_register_r8,
+    uint64_t resume_register_r9,
+    uint64_t resume_register_r10,
+    uint64_t resume_register_r11) {
   jump_entry_address = entry;
   jump_initial_rsp = initial_rsp;
   jump_argument0 = argument0;
@@ -896,6 +997,14 @@ static void jump_to_target(uint64_t entry,
   jump_translated_frame_r13 = translated_frame_r13;
   jump_translated_frame_r14 = translated_frame_r14;
   jump_translated_frame_r15 = translated_frame_r15;
+  jump_resume_register_rax = resume_register_rax;
+  jump_resume_register_rsi = resume_register_rsi;
+  jump_resume_register_rdx = resume_register_rdx;
+  jump_resume_register_rcx = resume_register_rcx;
+  jump_resume_register_r8 = resume_register_r8;
+  jump_resume_register_r9 = resume_register_r9;
+  jump_resume_register_r10 = resume_register_r10;
+  jump_resume_register_r11 = resume_register_r11;
   __asm__ __volatile__(
       "movq %%rsp, host_rsp_before_jump(%%rip)\n"
       "movq %%rbx, host_rbx_before_jump(%%rip)\n"
@@ -921,17 +1030,16 @@ static void jump_to_target(uint64_t entry,
       "movq jump_translated_frame_r13(%%rip), %%r13\n"
       "movq jump_translated_frame_r14(%%rip), %%r14\n"
       "movq jump_translated_frame_r15(%%rip), %%r15\n"
-      "xorl %%eax, %%eax\n"
       "movq jump_argument0(%%rip), %%rdi\n"
-      "xorl %%esi, %%esi\n"
-      "xorl %%edx, %%edx\n"
-      "xorl %%ecx, %%ecx\n"
-      "xorl %%r8d, %%r8d\n"
-      "xorl %%r9d, %%r9d\n"
-      "xorl %%r10d, %%r10d\n"
-      "movq jump_entry_address(%%rip), %%r11\n"
-      "xorl %%eax, %%eax\n"
-      "jmp *%%r11\n"
+      "movq jump_resume_register_rax(%%rip), %%rax\n"
+      "movq jump_resume_register_rsi(%%rip), %%rsi\n"
+      "movq jump_resume_register_rdx(%%rip), %%rdx\n"
+      "movq jump_resume_register_rcx(%%rip), %%rcx\n"
+      "movq jump_resume_register_r8(%%rip), %%r8\n"
+      "movq jump_resume_register_r9(%%rip), %%r9\n"
+      "movq jump_resume_register_r10(%%rip), %%r10\n"
+      "movq jump_resume_register_r11(%%rip), %%r11\n"
+      "jmp *jump_entry_address(%%rip)\n"
       "1:\n"
       "movq %%rax, resume_return_value(%%rip)\n"
       "movq host_rsp_before_jump(%%rip), %%rsp\n"
@@ -1115,6 +1223,61 @@ static void print_return_chain(const struct Options *opts) {
       TRANSLATED_RETURN_MARKER);
 }
 
+static void print_resume_register_status(
+    const char *name, uint64_t observed, uint64_t expected, uint64_t mask, uint64_t bit) {
+  bool passed = (mask & bit) == bit && observed == expected;
+  printf("{\"register\":\"%s\",\"status\":\"%s\",\"value\":\"0x%" PRIx64 "\",\"expected\":\"0x%" PRIx64 "\"}",
+      name,
+      passed ? "passed" : "failed",
+      observed,
+      expected);
+}
+
+static void print_register_restore(const struct Options *opts) {
+  if (opts->resume_register_mask == 0 || !opts->has_state_report_address) {
+    return;
+  }
+  uint64_t base = opts->state_report_address;
+  uint64_t marker = read_state_report_u64(base, 128);
+  uint64_t observed_rax = read_state_report_u64(base, 136);
+  uint64_t observed_rsi = read_state_report_u64(base, 144);
+  uint64_t observed_rdx = read_state_report_u64(base, 152);
+  uint64_t observed_rcx = read_state_report_u64(base, 160);
+  uint64_t observed_r8 = read_state_report_u64(base, 168);
+  uint64_t observed_r9 = read_state_report_u64(base, 176);
+  uint64_t observed_r10 = read_state_report_u64(base, 184);
+  uint64_t observed_r11 = read_state_report_u64(base, 192);
+  bool passed = marker == RESUME_REGISTER_MARKER &&
+      observed_rax == opts->resume_register_rax && observed_rsi == opts->resume_register_rsi &&
+      observed_rdx == opts->resume_register_rdx && observed_rcx == opts->resume_register_rcx &&
+      observed_r8 == opts->resume_register_r8 && observed_r9 == opts->resume_register_r9 &&
+      observed_r10 == opts->resume_register_r10 && observed_r11 == opts->resume_register_r11;
+  printf(
+      ",\"registerRestore\":{\"status\":\"%s\","
+      "\"reportMarker\":\"0x%" PRIx64 "\","
+      "\"expectedMarker\":\"0x%" PRIx64 "\","
+      "\"registers\":[",
+      passed ? "passed" : "failed",
+      marker,
+      RESUME_REGISTER_MARKER);
+  print_resume_register_status("rax", observed_rax, opts->resume_register_rax, RESUME_REGISTER_MASK, RESUME_REGISTER_RAX);
+  printf(",");
+  print_resume_register_status("rsi", observed_rsi, opts->resume_register_rsi, RESUME_REGISTER_MASK, RESUME_REGISTER_RSI);
+  printf(",");
+  print_resume_register_status("rdx", observed_rdx, opts->resume_register_rdx, RESUME_REGISTER_MASK, RESUME_REGISTER_RDX);
+  printf(",");
+  print_resume_register_status("rcx", observed_rcx, opts->resume_register_rcx, RESUME_REGISTER_MASK, RESUME_REGISTER_RCX);
+  printf(",");
+  print_resume_register_status("r8", observed_r8, opts->resume_register_r8, RESUME_REGISTER_MASK, RESUME_REGISTER_R8);
+  printf(",");
+  print_resume_register_status("r9", observed_r9, opts->resume_register_r9, RESUME_REGISTER_MASK, RESUME_REGISTER_R9);
+  printf(",");
+  print_resume_register_status("r10", observed_r10, opts->resume_register_r10, RESUME_REGISTER_MASK, RESUME_REGISTER_R10);
+  printf(",");
+  print_resume_register_status("r11", observed_r11, opts->resume_register_r11, RESUME_REGISTER_MASK, RESUME_REGISTER_R11);
+  printf("]}");
+}
+
 static void print_resume_path(const struct Options *opts) {
   if (!opts->has_resume_mode || !opts->has_state_report_address) {
     return;
@@ -1231,12 +1394,14 @@ static void print_return_event(const struct Options *opts) {
   print_return_chain(opts);
   print_frame_restoration(opts);
   print_resume_path(opts);
+  print_register_restore(opts);
   printf("}\n");
 }
 
 int main(int argc, char **argv) {
   struct Options opts = parse_args(argc, argv);
   validate_stack_options(&opts);
+  validate_resume_register_options(&opts);
   validate_translated_frame_options(&opts);
   mapped_target_start = opts.target_address;
   mapped_target_end = opts.target_address + opts.code_size;
@@ -1272,7 +1437,15 @@ int main(int argc, char **argv) {
         opts.has_translated_frame_callee_r12 ? opts.translated_frame_callee_r12 : 0u,
         opts.has_translated_frame_callee_r13 ? opts.translated_frame_callee_r13 : 0u,
         opts.has_translated_frame_callee_r14 ? opts.translated_frame_callee_r14 : 0u,
-        opts.has_translated_frame_callee_r15 ? opts.translated_frame_callee_r15 : 0u);
+        opts.has_translated_frame_callee_r15 ? opts.translated_frame_callee_r15 : 0u,
+        opts.resume_register_rax,
+        opts.resume_register_rsi,
+        opts.resume_register_rdx,
+        opts.resume_register_rcx,
+        opts.resume_register_r8,
+        opts.resume_register_r9,
+        opts.resume_register_r10,
+        opts.resume_register_r11);
     alarm(0);
     print_return_event(&opts);
   } else {

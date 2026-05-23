@@ -107,6 +107,7 @@ try {
     targetTranslatedReturnAddress: result.targetTranslatedReturnAddress ?? '',
     targetFrameRestoreResult: result.targetFrameRestoreResult ?? '',
     targetTranslatedFramePointer: result.targetTranslatedFramePointer ?? '',
+    targetRegisterRestoreResult: result.targetRegisterRestoreResult ?? '',
     targetThreadRestoreResult: result.targetThreadRestoreResult ?? '',
     targetThreadRestoreThreadId: result.targetThreadRestoreThreadId ?? '',
     targetResumePathResult: result.targetResumePathResult ?? '',

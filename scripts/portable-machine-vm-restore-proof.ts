@@ -52,6 +52,7 @@ interface TargetInvocation {
   targetModuleBytesSource?: string;
   targetTranslatedReturnAddress?: string;
   targetTranslatedFramePointer?: string;
+  targetRegisterRestoreResult?: "pending";
   targetThreadRestoreResult?: "accepted";
   targetThreadRestoreThreadId?: string;
   targetResumePathResult?: "pending";
@@ -125,6 +126,15 @@ const TRANSLATED_FRAME_REGISTER_MASK_R12 = 0x02;
 const TRANSLATED_FRAME_REGISTER_MASK_R13 = 0x04;
 const TRANSLATED_FRAME_REGISTER_MASK_R14 = 0x08;
 const TRANSLATED_FRAME_REGISTER_MASK_R15 = 0x10;
+const RESUME_REGISTER_MARKER = 0x52454753544f5245n;
+const RESUME_REGISTER_RAX = "0x2121212121212121";
+const RESUME_REGISTER_RSI = "0x6161616161616161";
+const RESUME_REGISTER_RDX = "0x6262626262626262";
+const RESUME_REGISTER_RCX = "0x6363636363636363";
+const RESUME_REGISTER_R8 = "0x8888888888888888";
+const RESUME_REGISTER_R9 = "0x9999999999999999";
+const RESUME_REGISTER_R10 = "0x1010101010101010";
+const RESUME_REGISTER_R11 = "0x1111111111111111";
 
 function usage(): never {
   console.error(
@@ -217,6 +227,7 @@ function descriptorSummary(invocation: TargetInvocation) {
     targetModuleBytesSource: invocation.targetModuleBytesSource,
     targetTranslatedReturnAddress: invocation.targetTranslatedReturnAddress,
     targetTranslatedFramePointer: invocation.targetTranslatedFramePointer,
+    targetRegisterRestoreResult: invocation.targetRegisterRestoreResult,
     targetThreadRestoreResult: invocation.targetThreadRestoreResult,
     targetThreadRestoreThreadId: invocation.targetThreadRestoreThreadId,
     targetResumePathResult: invocation.targetResumePathResult,
@@ -230,6 +241,7 @@ function realUtilityPendingResults(invocation: TargetInvocation) {
         targetStateConsumptionResult: "pending" as const,
         targetReturnChainResult: "pending" as const,
         targetFrameRestoreResult: "pending" as const,
+        targetRegisterRestoreResult: "pending" as const,
         targetResumePathResult: "pending" as const,
       }
     : {};
@@ -276,6 +288,7 @@ function prepareTargetRestoreDescriptor(
       targetContinuation.stateReportAddress,
       targetContinuation.translatedReturnAddress,
       targetContinuation.translatedFrame ? "translated-frame" : undefined,
+      targetContinuation.translatedFrame ? proofResumeRegisters() : undefined,
     ),
     translatedFrame: targetContinuation.translatedFrame,
     fdTable: proofFdTable(),
@@ -363,6 +376,7 @@ function continuationDescriptor(
   stateReportAddress: string | undefined,
   translatedReturnAddress: string | undefined,
   resumeMode: "translated-frame" | undefined,
+  resumeRegisters: ReturnType<typeof proofResumeRegisters> | undefined,
 ) {
   return {
     codeFile: GUEST_CODE,
@@ -373,6 +387,7 @@ function continuationDescriptor(
     stateReportAddress,
     translatedReturnAddress,
     resumeMode,
+    resumeRegisters,
     timeoutSeconds: 5,
     stackTargetStart: "0x500000000000",
     stackSize: 65_536,
@@ -386,6 +401,19 @@ function proofMemoryPlan(context: CombinedDescriptorContext) {
     memorySizeBytes: context.memorySizeBytes,
     memoryFile: GUEST_MEMORY,
   });
+}
+
+function proofResumeRegisters() {
+  return {
+    rax: RESUME_REGISTER_RAX,
+    rsi: RESUME_REGISTER_RSI,
+    rdx: RESUME_REGISTER_RDX,
+    rcx: RESUME_REGISTER_RCX,
+    r8: RESUME_REGISTER_R8,
+    r9: RESUME_REGISTER_R9,
+    r10: RESUME_REGISTER_R10,
+    r11: RESUME_REGISTER_R11,
+  };
 }
 
 function proofFdTable() {
@@ -407,6 +435,7 @@ function targetInvocation(
   >,
   targetContinuation: PreparedTargetContinuation,
 ): TargetInvocation {
+  const frameSummary = translatedFrameInvocationSummary(targetContinuation);
   return {
     descriptorFile: context.descriptorFile,
     memoryFile: context.memoryFile,
@@ -418,12 +447,21 @@ function targetInvocation(
     targetContinuationKind: targetContinuation.kind,
     targetModuleBytesSource: targetContinuation.targetModuleBytesSource,
     targetTranslatedReturnAddress: targetContinuation.translatedReturnAddress,
-    targetTranslatedFramePointer: targetContinuation.translatedFrame?.framePointer,
+    ...frameSummary,
     targetThreadRestoreResult: context.targetThreadRestoreResult,
     targetThreadRestoreThreadId: context.targetThreadRestoreThreadId,
-    targetResumePathResult: targetContinuation.translatedFrame ? "pending" : undefined,
-    targetResumePathMode: targetContinuation.translatedFrame ? "translated-frame" : undefined,
   };
+}
+
+function translatedFrameInvocationSummary(targetContinuation: PreparedTargetContinuation) {
+  return targetContinuation.translatedFrame
+    ? {
+        targetTranslatedFramePointer: targetContinuation.translatedFrame.framePointer,
+        targetRegisterRestoreResult: "pending" as const,
+        targetResumePathResult: "pending" as const,
+        targetResumePathMode: "translated-frame" as const,
+      }
+    : {};
 }
 
 function prepareTargetContinuation(
@@ -727,6 +765,7 @@ function proofStateVerifierTargetCode(
   const asm = new Amd64ProofAssembler();
   if (completion === "return") {
     asm.preserveRbx();
+    asm.captureResumeRegisters();
     asm.checkTranslatedRbx();
     asm.movRbxFromRdi();
     asm.storeReportWord(16, 0n);
@@ -764,6 +803,18 @@ class Amd64ProofAssembler {
 
   checkTranslatedRbx(): void {
     this.checkRbxImmediate(BigInt(TRANSLATED_FRAME_RBX));
+  }
+
+  captureResumeRegisters(): void {
+    this.storeRegisterAtReportOffset("rax", 136);
+    this.storeRegisterAtReportOffset("rsi", 144);
+    this.storeRegisterAtReportOffset("rdx", 152);
+    this.storeRegisterAtReportOffset("rcx", 160);
+    this.storeRegisterAtReportOffset("r8", 168);
+    this.storeRegisterAtReportOffset("r9", 176);
+    this.storeRegisterAtReportOffset("r10", 184);
+    this.storeRegisterAtReportOffset("r11", 192);
+    this.storeReportWordFromRdiBase(128, RESUME_REGISTER_MARKER);
   }
 
   movRbxFromRdi(): void {
@@ -859,6 +910,48 @@ class Amd64ProofAssembler {
     this.push(0x48, 0xb8);
     this.pushU64(value);
     this.push(0x48, 0x89, 0x43, offset);
+  }
+
+  storeReportWordFromRdiBase(offset: number, value: bigint): void {
+    this.push(0x48, 0xb8);
+    this.pushU64(value);
+    this.storeRaxToRdiOffset(offset);
+  }
+
+  storeRegisterAtReportOffset(
+    register: "rax" | "rsi" | "rdx" | "rcx" | "r8" | "r9" | "r10" | "r11",
+    offset: number,
+  ): void {
+    const encodings = {
+      rax: { prefix: 0x48, modrm8: 0x47, modrm32: 0x87 },
+      rsi: { prefix: 0x48, modrm8: 0x77, modrm32: 0xb7 },
+      rdx: { prefix: 0x48, modrm8: 0x57, modrm32: 0x97 },
+      rcx: { prefix: 0x48, modrm8: 0x4f, modrm32: 0x8f },
+      r8: { prefix: 0x4c, modrm8: 0x47, modrm32: 0x87 },
+      r9: { prefix: 0x4c, modrm8: 0x4f, modrm32: 0x8f },
+      r10: { prefix: 0x4c, modrm8: 0x57, modrm32: 0x97 },
+      r11: { prefix: 0x4c, modrm8: 0x5f, modrm32: 0x9f },
+    };
+    const encoding = encodings[register];
+    this.storeRegisterToRdiOffset(encoding.prefix, encoding.modrm8, encoding.modrm32, offset);
+  }
+
+  private storeRaxToRdiOffset(offset: number): void {
+    this.storeRegisterToRdiOffset(0x48, 0x47, 0x87, offset);
+  }
+
+  private storeRegisterToRdiOffset(
+    prefix: number,
+    modrm8: number,
+    modrm32: number,
+    offset: number,
+  ): void {
+    if (offset <= 127) {
+      this.push(prefix, 0x89, modrm8, offset);
+      return;
+    }
+    this.push(prefix, 0x89, modrm32);
+    this.pushU32(offset);
   }
 
   toTargetCode(completion: ProofCompletionMode): { bytes: Buffer; translatedReturnOffset: number } {

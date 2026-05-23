@@ -38,6 +38,18 @@ export type TargetGuestRestoreResourceRecipe =
 
 export type TargetGuestRestoreResumeMode = "translated-frame";
 
+export type TargetGuestResumeRegisterName =
+  | "rax"
+  | "rsi"
+  | "rdx"
+  | "rcx"
+  | "r8"
+  | "r9"
+  | "r10"
+  | "r11";
+
+export type TargetGuestResumeRegisters = Record<TargetGuestResumeRegisterName, string>;
+
 export interface TargetGuestRestoreContinuationDescriptor {
   codeFile: string;
   fileOffset: number;
@@ -47,6 +59,7 @@ export interface TargetGuestRestoreContinuationDescriptor {
   stateReportAddress?: string;
   translatedReturnAddress?: string;
   resumeMode?: TargetGuestRestoreResumeMode;
+  resumeRegisters?: TargetGuestResumeRegisters;
   timeoutSeconds: number;
   stackTargetStart: string;
   stackSize: number;
@@ -102,6 +115,7 @@ export function serializeTargetGuestRestoreDescriptor(
     ...optionalContinuationField("stateReportAddress", continuation.stateReportAddress),
     ...optionalContinuationField("translatedReturnAddress", continuation.translatedReturnAddress),
     ...optionalContinuationField("resumeMode", continuation.resumeMode),
+    ...resumeRegisterFields(continuation.resumeRegisters),
     `timeoutSeconds=${continuation.timeoutSeconds}`,
     `stackTargetStart=${continuation.stackTargetStart}`,
     `stackSize=${continuation.stackSize}`,
@@ -167,6 +181,7 @@ export function buildNativeActualResumeTrampolineArgs(
     ...optionalArg("--state-report-address", continuation.stateReportAddress),
     ...optionalArg("--translated-return-address", continuation.translatedReturnAddress),
     ...optionalArg("--resume-mode", continuation.resumeMode),
+    ...resumeRegisterArgs(continuation.resumeRegisters),
     "--timeout-seconds",
     String(continuation.timeoutSeconds),
     "--stack-target-start",
@@ -221,6 +236,7 @@ function fieldsToDescriptor(
       stateReportAddress: optionalField(fields, "stateReportAddress"),
       translatedReturnAddress: optionalField(fields, "translatedReturnAddress"),
       resumeMode: optionalField(fields, "resumeMode") as TargetGuestRestoreResumeMode | undefined,
+      resumeRegisters: parseResumeRegisters(fields),
       timeoutSeconds: parseIntegerField(fields, "timeoutSeconds"),
       stackTargetStart: requiredField(fields, "stackTargetStart"),
       stackSize: parseIntegerField(fields, "stackSize"),
@@ -564,6 +580,7 @@ function validateContinuation(
   if (continuation.resumeMode !== undefined && continuation.resumeMode !== "translated-frame") {
     fail("target-guest-loader-invalid-continuation", "resumeMode is unsupported");
   }
+  validateResumeRegisters(continuation.resumeRegisters);
   assertHexAddress(continuation.stackTargetStart, "stackTargetStart");
   assertHexAddress(continuation.stackPointer, "stackPointer");
   return continuation;
@@ -796,6 +813,50 @@ function assertNoWhitespace(value: string, field: string): void {
   }
 }
 
+const TARGET_RESUME_REGISTERS = ["rax", "rsi", "rdx", "rcx", "r8", "r9", "r10", "r11"] as const;
+
+const TARGET_RESUME_REGISTER_FIELDS: Record<TargetGuestResumeRegisterName, string> = {
+  rax: "resumeRegisterRax",
+  rsi: "resumeRegisterRsi",
+  rdx: "resumeRegisterRdx",
+  rcx: "resumeRegisterRcx",
+  r8: "resumeRegisterR8",
+  r9: "resumeRegisterR9",
+  r10: "resumeRegisterR10",
+  r11: "resumeRegisterR11",
+};
+
+function parseResumeRegisters(fields: Map<string, string>): TargetGuestResumeRegisters | undefined {
+  const values = TARGET_RESUME_REGISTERS.flatMap((register) => {
+    const value = fields.get(TARGET_RESUME_REGISTER_FIELDS[register]);
+    return value === undefined ? [] : [[register, value] as const];
+  });
+  if (values.length === 0) {
+    return undefined;
+  }
+  if (values.length !== TARGET_RESUME_REGISTERS.length) {
+    fail("target-guest-loader-invalid-continuation", "resume register bank is incomplete");
+  }
+  return Object.fromEntries(values) as TargetGuestResumeRegisters;
+}
+
+function validateResumeRegisters(registers: TargetGuestResumeRegisters | undefined): void {
+  if (registers === undefined) {
+    return;
+  }
+  for (const register of TARGET_RESUME_REGISTERS) {
+    assertHexAddress(registers[register], register);
+  }
+}
+
+function resumeRegisterFields(registers: TargetGuestResumeRegisters | undefined): string[] {
+  return registers === undefined
+    ? []
+    : TARGET_RESUME_REGISTERS.map(
+        (register) => `${TARGET_RESUME_REGISTER_FIELDS[register]}=${registers[register]}`,
+      );
+}
+
 function optionalContinuationField(name: string, value: string | undefined): string[] {
   return value === undefined ? [] : [`${name}=${value}`];
 }
@@ -874,6 +935,15 @@ function serializeMemoryEntry(entry: TargetGuestMemoryMaterializationEntry): str
 
 function optionalArg(flag: string, value: string | undefined): string[] {
   return value === undefined ? [] : [flag, value];
+}
+
+function resumeRegisterArgs(registers: TargetGuestResumeRegisters | undefined): string[] {
+  return registers === undefined
+    ? []
+    : TARGET_RESUME_REGISTERS.flatMap((register) => [
+        `--resume-register-${register}`,
+        registers[register],
+      ]);
 }
 
 function resourceToTrampolineArgs(recipe: TargetGuestRestoreResourceRecipe): string[] {

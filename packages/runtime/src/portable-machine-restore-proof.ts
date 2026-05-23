@@ -25,6 +25,7 @@ export type PortableMachineTargetContinuationKind = "generated-verifier" | "real
 export type PortableMachineTargetStateConsumptionResult = "pending" | "passed" | "failed";
 export type PortableMachineTargetReturnChainResult = "pending" | "passed" | "failed";
 export type PortableMachineTargetFrameRestoreResult = "pending" | "passed" | "failed";
+export type PortableMachineTargetRegisterRestoreResult = "pending" | "passed" | "failed";
 export type PortableMachineTargetThreadRestoreResult = "accepted" | "refused";
 export type PortableMachineTargetResumePathResult = "pending" | "passed" | "failed";
 
@@ -59,6 +60,7 @@ export interface PortableMachineVmRestoreProofPlan {
   targetTranslatedReturnAddress?: string;
   targetFrameRestoreResult?: PortableMachineTargetFrameRestoreResult;
   targetTranslatedFramePointer?: string;
+  targetRegisterRestoreResult?: PortableMachineTargetRegisterRestoreResult;
   targetThreadRestoreResult?: PortableMachineTargetThreadRestoreResult;
   targetThreadRestoreThreadId?: string;
   targetResumePathResult?: PortableMachineTargetResumePathResult;
@@ -82,6 +84,7 @@ export interface PortableMachineVmRestoreTargetResult {
   targetTranslatedReturnAddress?: string;
   targetFrameRestoreResult?: PortableMachineTargetFrameRestoreResult;
   targetTranslatedFramePointer?: string;
+  targetRegisterRestoreResult?: PortableMachineTargetRegisterRestoreResult;
   targetThreadRestoreResult?: PortableMachineTargetThreadRestoreResult;
   targetThreadRestoreThreadId?: string;
   targetResumePathResult?: PortableMachineTargetResumePathResult;
@@ -209,6 +212,7 @@ export function completePortableMachineVmRestoreProof(
     targetTranslatedReturnAddress: result.targetTranslatedReturnAddress,
     targetFrameRestoreResult: result.targetFrameRestoreResult,
     targetTranslatedFramePointer: result.targetTranslatedFramePointer,
+    targetRegisterRestoreResult: result.targetRegisterRestoreResult,
     targetThreadRestoreResult: result.targetThreadRestoreResult ?? plan.targetThreadRestoreResult,
     targetThreadRestoreThreadId:
       result.targetThreadRestoreThreadId ?? plan.targetThreadRestoreThreadId,
@@ -234,6 +238,8 @@ function targetNativeCompleted(result: PortableMachineVmRestoreTargetResult): bo
       result.targetStateConsumptionResult === "passed",
     result.targetReturnChainResult === undefined || result.targetReturnChainResult === "passed",
     result.targetFrameRestoreResult === undefined || result.targetFrameRestoreResult === "passed",
+    result.targetRegisterRestoreResult === undefined ||
+      result.targetRegisterRestoreResult === "passed",
     result.targetThreadRestoreResult === undefined ||
       result.targetThreadRestoreResult === "accepted",
     result.targetResumePathResult === undefined || result.targetResumePathResult === "passed",
