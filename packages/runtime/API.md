@@ -109,6 +109,8 @@
 - [`TargetGuestTranslatedFrameRegister`](#targetguesttranslatedframeregister)
 - [`TargetGuestTranslatedFrameRegisterName`](#targetguesttranslatedframeregistername)
 - [`TargetGuestTranslatedFrameSlot`](#targetguesttranslatedframeslot)
+- [`TargetGuestExecutableMappingStep`](#targetguestexecutablemappingstep)
+- [`TargetGuestExecutableMaterializationPlan`](#targetguestexecutablematerializationplan)
 - [`TargetGuestMemoryMaterializationKind`](#targetguestmemorymaterializationkind)
 - [`TargetGuestMemoryMaterializationEntry`](#targetguestmemorymaterializationentry)
 - [`TargetGuestCopyCapturedBytesEntry`](#targetguestcopycapturedbytesentry)
@@ -139,6 +141,7 @@
 - [`serializeTargetGuestRestoreDescriptor`](#serializetargetguestrestoredescriptor)
 - [`parseTargetGuestRestoreDescriptor`](#parsetargetguestrestoredescriptor)
 - [`validateTargetGuestRestoreDescriptor`](#validatetargetguestrestoredescriptor)
+- [`planTargetGuestExecutableMaterialization`](#plantargetguestexecutablematerialization)
 - [`planTargetGuestMemoryMaterialization`](#plantargetguestmemorymaterialization)
 - [`planTargetGuestPrivateMemoryRestore`](#plantargetguestprivatememoryrestore)
 - [`planPortableMachineTargetRestoreDescriptor`](#planportablemachinetargetrestoredescriptor)
@@ -10135,6 +10138,90 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### TargetGuestExecutableMappingStep
+
+#### Properties
+
+##### action
+
+> **action**: `"map-target-executable"`
+
+##### mapping
+
+> **mapping**: `string`
+
+##### targetStart
+
+> **targetStart**: `string`
+
+##### sizeBytes
+
+> **sizeBytes**: `number`
+
+##### permissions
+
+> **permissions**: `object`
+
+###### read
+
+> **read**: `boolean`
+
+###### write
+
+> **write**: `boolean`
+
+###### execute
+
+> **execute**: `boolean`
+
+###### private
+
+> **private**: `boolean`
+
+###### shared
+
+> **shared**: `boolean`
+
+##### path
+
+> **path**: `string`
+
+##### fileOffset
+
+> **fileOffset**: `number`
+
+##### buildId?
+
+> `optional` **buildId?**: `string`
+
+##### sha256?
+
+> `optional` **sha256?**: `string`
+
+##### sourceTextReusedAsTargetCode
+
+> **sourceTextReusedAsTargetCode**: `false`
+
+***
+
+### TargetGuestExecutableMaterializationPlan
+
+#### Properties
+
+##### state
+
+> **state**: `"refused"` \| `"planned"`
+
+##### steps
+
+> **steps**: [`TargetGuestExecutableMappingStep`](#targetguestexecutablemappingstep)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
 ### TargetGuestCopyCapturedBytesEntry
 
 #### Extends
@@ -16719,6 +16806,22 @@ resolve the binary through the same lookup chain.
 #### Returns
 
 `string`
+
+***
+
+### planTargetGuestExecutableMaterialization()
+
+> **planTargetGuestExecutableMaterialization**(`steps`): [`TargetGuestExecutableMaterializationPlan`](#targetguestexecutablematerializationplan)
+
+#### Parameters
+
+##### steps
+
+[`NativeMappingMaterializationStep`](#nativemappingmaterializationstep)[]
+
+#### Returns
+
+[`TargetGuestExecutableMaterializationPlan`](#targetguestexecutablematerializationplan)
 
 ***
 
