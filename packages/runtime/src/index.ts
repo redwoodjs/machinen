@@ -388,12 +388,17 @@ export type {
   NativeTargetFdTablePlan,
   NativeTargetFdTablePlanRequest,
 } from "./native-resource-translation.ts";
+export { materializeNativeReturnChainFrames } from "./native-return-chain-materializer.ts";
 export { planNativeReturnChain } from "./native-return-chain.ts";
 export { materializeNativeStackWindowWrites } from "./native-stack-window-materializer.ts";
 export {
   planNativeStackWindowMaterialization,
   translateNativeStack,
 } from "./native-stack-translation.ts";
+export type {
+  NativeReturnChainFrameWrite,
+  NativeReturnChainMaterialization,
+} from "./native-return-chain-materializer.ts";
 export type {
   NativeReturnChainFrame,
   NativeReturnChainPlan,
