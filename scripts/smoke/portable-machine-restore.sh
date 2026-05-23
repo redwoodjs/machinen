@@ -13,6 +13,7 @@ AMD64_PATH_PREFIX=${PORTABLE_AMD64_PATH_PREFIX:-}
 AMD64_VMM=${PORTABLE_AMD64_VMM:-${MACHINEN_VMM:-}}
 AMD64_KERNEL=${PORTABLE_AMD64_KERNEL:-${MACHINEN_KERNEL:-}}
 AMD64_ASSETS_DIR=${PORTABLE_AMD64_ASSETS_DIR:-${MACHINEN_ASSETS_DIR:-}}
+REMOTE_SOURCE_TARGET=${PORTABLE_MACHINE_REMOTE_SOURCE_TARGET:-two-thread-ppoll}
 KEEP=0
 JSON=0
 DRY_RUN=0
@@ -152,6 +153,7 @@ write_summary() {
   "amd64AssetsDir": "$(json_escape "$AMD64_ASSETS_DIR")",
   "remotePortableMachineBundle": "$(json_escape "$REMOTE_PORTABLE_BUNDLE")",
   "remoteTargetCodeFile": "$(json_escape "$REMOTE_TARGET_CODE")",
+  "remoteSourceTarget": "$(json_escape "$REMOTE_SOURCE_TARGET")",
   "targetRestore": $target_details,
   "timings": [$joined]
 }
@@ -296,15 +298,30 @@ capture_remote_native_process_bundle() {
   ssh "$ARM64_SSH" "rm -rf '$ARM64_REMOTE_WORK' && mkdir -p '$ARM64_REMOTE_WORK/repo' '$ARM64_REMOTE_WORK/capture/bundle' '$ARM64_REMOTE_WORK/bin'"
   tar -czf - -C "$ROOT" \
     packages/microvm/assets/native-process-capture.c \
+    packages/microvm/assets/native-pipe-read-target.c \
     packages/microvm/assets/native-two-thread-ppoll-target.c | \
     ssh "$ARM64_SSH" "tar -xzf - -C '$ARM64_REMOTE_WORK/repo'"
+  local target_binary target_detail
+  case "$REMOTE_SOURCE_TARGET" in
+    two-thread-ppoll)
+      target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-two-thread-ppoll-target"
+      target_detail="remote arm64 two-thread ppoll native-process bundle captured from $ARM64_SSH"
+      ;;
+    pipe-read)
+      target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target"
+      target_detail="remote arm64 pipe read native-process bundle captured from $ARM64_SSH"
+      ;;
+    *)
+      finish_failure "unsupported PORTABLE_MACHINE_REMOTE_SOURCE_TARGET=$REMOTE_SOURCE_TARGET"
+      ;;
+  esac
   ssh "$ARM64_SSH" \
-    "cd '$ARM64_REMOTE_WORK/repo' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-process-capture.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' && cc -std=c11 -O0 -g -Wall -Wextra -Werror -pthread packages/microvm/assets/native-two-thread-ppoll-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-two-thread-ppoll-target' && '$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --settle-ms 150 -- '$ARM64_REMOTE_WORK/bin/machinen-native-two-thread-ppoll-target' > '$ARM64_REMOTE_WORK/capture.log'"
+    "cd '$ARM64_REMOTE_WORK/repo' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-process-capture.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-pipe-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror -pthread packages/microvm/assets/native-two-thread-ppoll-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-two-thread-ppoll-target' && '$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --settle-ms 150 -- '$target_binary' > '$ARM64_REMOTE_WORK/capture.log'"
   mkdir -p "$NATIVE_BUNDLE"
   ssh "$ARM64_SSH" "cat '$ARM64_REMOTE_WORK/capture.log'" >"$WORK/arm64-capture.log"
   ssh "$ARM64_SSH" "tar -czf - -C '$ARM64_REMOTE_WORK/capture/bundle' ." | \
     tar -xzf - -C "$NATIVE_BUNDLE"
-  record_timing "capture" "ok" "$start" "remote arm64 two-thread ppoll native-process bundle captured from $ARM64_SSH"
+  record_timing "capture" "ok" "$start" "$target_detail"
 }
 
 capture_native_process_bundle() {
@@ -365,10 +382,11 @@ run_target_restore() {
     record_timing "target-boot-restore" "failed" "$start" "runner failed"
     return 21
   fi
-  if node --input-type=module - "$TARGET_LOG" "$REMOTE_E2E" <<'NODE'
+  if node --input-type=module - "$TARGET_LOG" "$REMOTE_E2E" "$REMOTE_SOURCE_TARGET" <<'NODE'
 import { readFileSync } from 'node:fs';
 const result = JSON.parse(readFileSync(process.argv[2], 'utf8'));
 const remoteE2e = process.argv[3] === '1';
+const sourceTarget = process.argv[4];
 process.exit(
   result.state === 'completed' &&
   result.migrationCompleted === true &&
@@ -379,7 +397,7 @@ process.exit(
   result.targetExecutableMappingResult === 'passed' &&
   result.targetSignalRestoreResult === 'passed' &&
   (!remoteE2e || result.targetActiveSyscallRestoreResult === 'passed') &&
-  (!remoteE2e || result.targetThreadRestoreResult === 'passed')
+  (!remoteE2e || sourceTarget !== 'two-thread-ppoll' || result.targetThreadRestoreResult === 'passed')
     ? 0
     : 1,
 );

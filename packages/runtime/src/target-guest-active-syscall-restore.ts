@@ -1,6 +1,7 @@
 import type {
   NativeActiveSyscallClassificationResult,
   NativeActiveSyscallContinuation,
+  NativeModeledFdReadTargetResource,
   NativeModeledPpollTargetResource,
 } from "./native-active-syscall-policy.ts";
 import type { NativeProcessImageRefusal } from "./native-process-image.ts";
@@ -19,6 +20,14 @@ export type TargetGuestActiveSyscallRestoreStep =
       remainingTime: { seconds: string; nanoseconds: number };
       nfds: 0 | 1;
       resources: NativeModeledPpollTargetResource[];
+      resumeMode: "defer-target-resume";
+    }
+  | {
+      action: "restore-fd-read-block";
+      threadId: string;
+      fd: number;
+      countBytes: number;
+      resource: NativeModeledFdReadTargetResource;
       resumeMode: "defer-target-resume";
     };
 
@@ -56,6 +65,16 @@ function continuationStep(
       threadId: continuation.threadId,
       syscallName: continuation.metadata.sleepTimer.syscallName,
       remainingTime: duration(continuation.metadata.remainingTime),
+      resumeMode: "defer-target-resume",
+    };
+  }
+  if (continuation.syscallClass === "fd-blocking") {
+    return {
+      action: "restore-fd-read-block",
+      threadId: continuation.threadId,
+      fd: continuation.metadata.fdRead.fd,
+      countBytes: continuation.metadata.fdRead.countBytes,
+      resource: continuation.metadata.fdRead.targetResource,
       resumeMode: "defer-target-resume",
     };
   }

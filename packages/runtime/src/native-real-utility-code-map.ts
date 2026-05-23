@@ -428,17 +428,26 @@ function resolveSemanticDeferredCodeLocation(
 function resolveSyntheticDeferredCodeLocation(
   input: SemanticDeferredCodeLocationInput,
 ): NativeRealUtilityResolvedLocation | { refusal: NativeProcessImageRefusal } {
-  return input.continuation.syscallClass === "poll-timeout"
-    ? resolveSyntheticPpollDeferredCodeLocation(
-        input as SemanticDeferredCodeLocationInput & {
-          continuation: NativeActivePpollTimeoutContinuation;
-        },
-      )
-    : resolveSyntheticSleepDeferredCodeLocation(
-        input as SemanticDeferredCodeLocationInput & {
-          continuation: NativeActiveSleepTimerContinuation;
-        },
-      );
+  if (input.continuation.syscallClass === "poll-timeout") {
+    return resolveSyntheticPpollDeferredCodeLocation(
+      input as SemanticDeferredCodeLocationInput & {
+        continuation: NativeActivePpollTimeoutContinuation;
+      },
+    );
+  }
+  if (input.continuation.syscallClass === "sleep-timer") {
+    return resolveSyntheticSleepDeferredCodeLocation(
+      input as SemanticDeferredCodeLocationInput & {
+        continuation: NativeActiveSleepTimerContinuation;
+      },
+    );
+  }
+  return {
+    refusal: refusal(
+      "target-semantic-continuation-missing",
+      `thread ${input.thread.id} fd-read synthetic code continuation is not available`,
+    ),
+  };
 }
 
 function resolveSyntheticSleepDeferredCodeLocation(

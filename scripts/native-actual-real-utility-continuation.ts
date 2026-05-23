@@ -5,6 +5,7 @@ import {
   classifyNativeActiveSyscalls,
   type NativeActivePpollTimeoutContinuation,
   type NativeActiveSleepTimerContinuation,
+  type NativeActiveSyscallContinuation,
 } from "../packages/runtime/src/native-active-syscall-policy.ts";
 import { planNativeMappingMaterialization } from "../packages/runtime/src/native-mapping-materialization.ts";
 import { inventoryNativeActualTargetModules } from "../packages/runtime/src/native-actual-target-module-inventory.ts";
@@ -1586,7 +1587,7 @@ function deferredActiveSyscallLandingSummaries(
             strategy: landing.strategy,
             semanticContinuation: landing.semanticContinuation,
             syntheticContinuation: landing.syntheticContinuation,
-            remainingTime: landing.metadata.remainingTime,
+            remainingTime: activeSyscallRemainingTime(landing.metadata),
           },
         ]
       : [];
@@ -1620,12 +1621,20 @@ function syntheticSleepContinuationSummaries(
             threadId: location.threadId,
             strategy: location.continuationStrategy,
             targetModuleId: location.targetModule.id,
-            remainingTime: location.deferredActiveSyscallLanding?.metadata.remainingTime,
+            remainingTime: location.deferredActiveSyscallLanding
+              ? activeSyscallRemainingTime(location.deferredActiveSyscallLanding.metadata)
+              : undefined,
             ...location.syntheticContinuation,
           },
         ]
       : [],
   );
+}
+
+function activeSyscallRemainingTime(
+  metadata: NativeActiveSyscallContinuation["metadata"],
+): { seconds: string; nanoseconds: number } | undefined {
+  return "remainingTime" in metadata ? metadata.remainingTime : undefined;
 }
 
 function materializedTargetByteSummaries(

@@ -27,11 +27,15 @@ export type NativePollTimeoutFdPolicy =
   | "synthetic-empty-pipe"
   | "synthetic-empty-eventfd"
   | "synthetic-timerfd";
+export type NativeFdReadPolicy = "refuse" | "defer-target-resume";
+export type NativeFdReadResourcePolicy = "synthetic-empty-pipe";
 
 export interface NativeActiveSyscallPolicyOptions {
   sleepTimerPolicy?: NativeSleepTimerSyscallPolicy;
   pollTimeoutPolicy?: NativePollTimeoutSyscallPolicy;
   pollTimeoutFdPolicy?: NativePollTimeoutFdPolicy;
+  fdReadPolicy?: NativeFdReadPolicy;
+  fdReadResourcePolicy?: NativeFdReadResourcePolicy;
   documents?: NativeProcessImageDocuments;
 }
 
@@ -94,12 +98,31 @@ export interface NativeModeledPpollTimeoutState {
   remainingTime: NativeModeledPpollTimeoutRemainingTime;
 }
 
+export type NativeModeledFdReadTargetResource = "synthetic-empty-pipe-read-end";
+
+export interface NativeModeledFdReadState {
+  kind: "fd-read-block";
+  syscallName: "read";
+  argumentSource: "proc-syscall" | "registers";
+  fd: number;
+  bufferPointer: string;
+  countBytes: number;
+  bufferMapping: string;
+  resourceId: string;
+  pairedWriteResourceId: string;
+  targetResource: NativeModeledFdReadTargetResource;
+}
+
 export type NativeSleepTimerModelResult =
   | { state: "modeled"; timer: NativeModeledSleepTimerState }
   | { state: "missing"; refusal: NativeProcessImageRefusal };
 
 export type NativePpollTimeoutModelResult =
   | { state: "modeled"; timeout: NativeModeledPpollTimeoutState }
+  | { state: "missing"; refusal: NativeProcessImageRefusal };
+
+export type NativeFdReadModelResult =
+  | { state: "modeled"; read: NativeModeledFdReadState }
   | { state: "missing"; refusal: NativeProcessImageRefusal };
 
 export interface NativeActiveSleepTimerContinuation {
@@ -126,9 +149,21 @@ export interface NativeActivePpollTimeoutContinuation {
   };
 }
 
+export interface NativeActiveFdReadContinuation {
+  threadId: string;
+  syscallClass: Extract<NativeActiveSyscallClass, "fd-blocking">;
+  action: "defer-target-resume";
+  syscall: NativeThreadState["syscall"];
+  metadata: {
+    fdRead: NativeModeledFdReadState;
+    policy: "conservative-target-fd-read-block-preserved";
+  };
+}
+
 export type NativeActiveSyscallContinuation =
   | NativeActiveSleepTimerContinuation
-  | NativeActivePpollTimeoutContinuation;
+  | NativeActivePpollTimeoutContinuation
+  | NativeActiveFdReadContinuation;
 
 export interface NativeActiveSyscallClassification {
   threadId: string;
@@ -173,6 +208,7 @@ const SUPPORTED_EMPTY_EVENTFD_FLAGS = 0o2000002;
 const SUPPORTED_TIMERFD_FLAGS = 0o2000002;
 const MAX_SIGNED_I64 = 0x7fff_ffff_ffff_ffffn;
 const MAX_NANOSECONDS = 999_999_999n;
+const MAX_FD_READ_BYTES = 1024n * 1024n;
 
 export function classifyNativeActiveSyscalls(
   threads: NativeThreadState[],
@@ -219,6 +255,9 @@ export function classifyNativeThreadSyscall(
   }
   if (name === "ppoll" && options.pollTimeoutPolicy === "defer-target-resume") {
     return deferredPpollTimeoutClassification(thread, options);
+  }
+  if (name === "read" && options.fdReadPolicy === "defer-target-resume") {
+    return deferredFdReadClassification(thread, options);
   }
   if (FD_BLOCKING_SYSCALLS.has(name)) {
     return refusedClassification(thread, "fd-blocking", {
@@ -283,6 +322,35 @@ export function modelNativePpollTimeoutState(
       sigsetSize: hex(decoded.sigsetSize),
       requestedTime: timespec.duration,
       remainingTime,
+    },
+  };
+}
+
+export function modelNativeFdReadState(
+  thread: NativeThreadState,
+  documents?: NativeProcessImageDocuments,
+  resourcePolicy: NativeFdReadResourcePolicy = "synthetic-empty-pipe",
+): NativeFdReadModelResult {
+  const args = sleepTimerArguments(thread);
+  if (!args) {
+    return missingFdRead(thread, "syscall arguments were not captured");
+  }
+  if (!documents?.rootDir) {
+    return missingFdRead(thread, "captured memory bundle is not available", {
+      argumentSource: args.source,
+    });
+  }
+  const decoded = decodeFdReadArguments(thread, args, documents, resourcePolicy);
+  if ("refusal" in decoded) {
+    return decoded;
+  }
+  return {
+    state: "modeled",
+    read: {
+      kind: "fd-read-block",
+      syscallName: "read",
+      argumentSource: args.source,
+      ...decoded,
     },
   };
 }
@@ -409,6 +477,29 @@ function deferredPpollTimeoutClassification(
   };
 }
 
+function deferredFdReadClassification(
+  thread: NativeThreadState,
+  options: NativeActiveSyscallPolicyOptions,
+): NativeActiveSyscallClassification {
+  const modeled = modelNativeFdReadState(thread, options.documents, options.fdReadResourcePolicy);
+  if (modeled.state === "missing") {
+    return refusedClassification(thread, "fd-blocking", modeled.refusal);
+  }
+  return {
+    ...baseClassification(thread, "fd-blocking"),
+    continuation: {
+      threadId: thread.id,
+      syscallClass: "fd-blocking",
+      action: "defer-target-resume",
+      syscall: thread.syscall,
+      metadata: {
+        fdRead: modeled.read,
+        policy: "conservative-target-fd-read-block-preserved",
+      },
+    },
+  };
+}
+
 interface SleepTimerArguments {
   source: "proc-syscall" | "registers";
   values: bigint[];
@@ -508,6 +599,111 @@ function decodePpollTimeoutArguments(
     timeoutPointer: values.timeoutPointer,
     sigsetSize: values.sigsetSize,
   };
+}
+
+function decodeFdReadArguments(
+  thread: NativeThreadState,
+  args: SleepTimerArguments,
+  documents: NativeProcessImageDocuments,
+  resourcePolicy: NativeFdReadResourcePolicy,
+):
+  | Omit<NativeModeledFdReadState, "kind" | "syscallName" | "argumentSource">
+  | { state: "missing"; refusal: NativeProcessImageRefusal } {
+  const values = decodeFdReadArgumentValues(thread, args);
+  if ("state" in values) {
+    return values;
+  }
+  const bufferMapping = validateFdReadBuffer(thread, args, documents, values);
+  if ("state" in bufferMapping) {
+    return bufferMapping;
+  }
+  const resource = validateFdReadModeledResource(thread, documents, values.fd, resourcePolicy);
+  if ("state" in resource) {
+    return resource;
+  }
+  return {
+    fd: values.fd,
+    bufferPointer: hex(values.bufferPointer),
+    countBytes: values.countBytes,
+    bufferMapping: bufferMapping.id,
+    resourceId: resource.resource.id,
+    pairedWriteResourceId: resource.pairedWriteResource.id,
+    targetResource: resource.targetResource,
+  };
+}
+
+interface FdReadArgumentValues {
+  fd: number;
+  bufferPointer: bigint;
+  count: bigint;
+  countBytes: number;
+}
+
+function decodeFdReadArgumentValues(
+  thread: NativeThreadState,
+  args: SleepTimerArguments,
+): FdReadArgumentValues | { state: "missing"; refusal: NativeProcessImageRefusal } {
+  const fd = safeNumber(args.values[0] ?? -1n);
+  const bufferPointer = args.values[1] ?? 0n;
+  const count = args.values[2] ?? 0n;
+  if (fd === undefined || fd < 0) {
+    return missingFdRead(thread, "read fd is missing or invalid", {
+      fd: hex(args.values[0] ?? -1n),
+    });
+  }
+  const countBytes = decodeFdReadCount(thread, args, fd, count);
+  return typeof countBytes === "number" ? { fd, bufferPointer, count, countBytes } : countBytes;
+}
+
+function decodeFdReadCount(
+  thread: NativeThreadState,
+  args: SleepTimerArguments,
+  fd: number,
+  count: bigint,
+): number | { state: "missing"; refusal: NativeProcessImageRefusal } {
+  if (count <= 0n || count > MAX_FD_READ_BYTES) {
+    return missingFdRead(thread, "read count is outside supported bounds", {
+      fd,
+      countBytes: count.toString(10),
+      maxCountBytes: MAX_FD_READ_BYTES.toString(10),
+      argumentSource: args.source,
+    });
+  }
+  return (
+    safeNumber(count) ??
+    missingFdRead(thread, "read count does not fit in a safe integer", {
+      fd,
+      countBytes: count.toString(10),
+      argumentSource: args.source,
+    })
+  );
+}
+
+function validateFdReadBuffer(
+  thread: NativeThreadState,
+  args: SleepTimerArguments,
+  documents: NativeProcessImageDocuments,
+  values: FdReadArgumentValues,
+): NativeMemoryMapping | { state: "missing"; refusal: NativeProcessImageRefusal } {
+  if (values.bufferPointer === 0n) {
+    return missingFdRead(thread, "read buffer pointer is null", {
+      fd: values.fd,
+      argumentSource: args.source,
+    });
+  }
+  const bufferMapping = writableMappingContainingRange(
+    documents,
+    values.bufferPointer,
+    values.count,
+  );
+  return bufferMapping?.captured
+    ? bufferMapping
+    : missingFdRead(thread, "read buffer is not in captured writable memory", {
+        fd: values.fd,
+        bufferPointer: hex(values.bufferPointer),
+        countBytes: values.countBytes,
+        argumentSource: args.source,
+      });
 }
 
 function ppollArgumentValues(args: SleepTimerArguments): PpollArgumentValues {
@@ -777,6 +973,55 @@ function validatePpollPipeResource(
     : { resource, targetResource: "synthetic-empty-pipe-read-end" };
 }
 
+function validateFdReadModeledResource(
+  thread: NativeThreadState,
+  documents: NativeProcessImageDocuments,
+  fd: number,
+  resourcePolicy: NativeFdReadResourcePolicy,
+):
+  | {
+      resource: NativeProcessResource;
+      pairedWriteResource: NativeProcessResource;
+      targetResource: NativeModeledFdReadTargetResource;
+    }
+  | { state: "missing"; refusal: NativeProcessImageRefusal } {
+  if (resourcePolicy !== "synthetic-empty-pipe") {
+    return missingFdRead(thread, "read fd resource policy is not supported", {
+      fd,
+      resourcePolicy,
+    });
+  }
+  const resource = documents.resources.resources.find((candidate) => candidate.fd === fd);
+  if (resource?.kind !== "pipe") {
+    return missingFdRead(thread, "read proof requires a captured pipe fd", {
+      fd,
+      resourceKind: resource?.kind,
+      resourceId: resource?.id,
+    });
+  }
+  if (nativeFdAccessMode(resource.flags) !== 0) {
+    return missingFdRead(thread, "read proof requires a pipe read end", {
+      fd,
+      resourceId: resource.id,
+      resourceFlags: resource.flags,
+    });
+  }
+  const pairedWriteResource = documents.resources.resources.find(
+    (candidate) =>
+      candidate.kind === "pipe" &&
+      candidate.fd !== fd &&
+      candidate.path === resource.path &&
+      nativeFdAccessMode(candidate.flags) === 1,
+  );
+  return pairedWriteResource
+    ? { resource, pairedWriteResource, targetResource: "synthetic-empty-pipe-read-end" }
+    : missingFdRead(thread, "read proof requires a paired pipe write end to avoid EOF", {
+        fd,
+        resourceId: resource.id,
+        pipeId: resource.path,
+      });
+}
+
 function validatePpollEventfdResource(
   thread: NativeThreadState,
   documents: NativeProcessImageDocuments,
@@ -988,6 +1233,20 @@ function mappingContainingRange(
   );
 }
 
+function writableMappingContainingRange(
+  documents: NativeProcessImageDocuments,
+  sourceAddress: bigint,
+  sizeBytes: bigint,
+): NativeMemoryMapping | undefined {
+  return documents.mappings.mappings.find(
+    (mapping) =>
+      mapping.permissions.write &&
+      !mapping.permissions.execute &&
+      sourceAddress >= BigInt(mapping.sourceStart) &&
+      sourceAddress + sizeBytes <= BigInt(mapping.sourceEnd),
+  );
+}
+
 function safeNumber(value: bigint): number | undefined {
   return value <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(value) : undefined;
 }
@@ -1006,6 +1265,14 @@ function missingPpollTimeout(
   extra?: Record<string, unknown>,
 ): { state: "missing"; refusal: NativeProcessImageRefusal } {
   return { state: "missing", refusal: missingPpollTimeoutRefusal(thread, reason, extra) };
+}
+
+function missingFdRead(
+  thread: NativeThreadState,
+  reason: string,
+  extra?: Record<string, unknown>,
+): { state: "missing"; refusal: NativeProcessImageRefusal } {
+  return { state: "missing", refusal: missingFdReadRefusal(thread, reason, extra) };
 }
 
 function missingSleepTimerRefusal(
@@ -1035,6 +1302,28 @@ function missingPpollTimeoutRefusal(
     detail: detail(thread, "poll-timeout", {
       reason,
       requiredModel: ["zero-fd ppoll", "relative timeout timespec", "null signal mask"],
+      ...extra,
+    }),
+  };
+}
+
+function missingFdReadRefusal(
+  thread: NativeThreadState,
+  reason: string,
+  extra?: Record<string, unknown>,
+): NativeProcessImageRefusal {
+  return {
+    code: "target-fd-read-state-missing",
+    message: `thread ${thread.id} fd read state is not modeled`,
+    detail: detail(thread, "fd-blocking", {
+      reason,
+      requiredModel: [
+        "read syscall arguments",
+        "captured writable read buffer",
+        "empty pipe read end",
+        "paired write end",
+        "target fd block verification",
+      ],
       ...extra,
     }),
   };
