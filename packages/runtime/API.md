@@ -373,9 +373,17 @@
 - [`nativeUnwindReturnAddressSlot`](#nativeunwindreturnaddressslot)
 - [`parseNativeEhFrameText`](#parsenativeehframetext)
 - [`NativeMemoryWord`](#nativememoryword)
+- [`NATIVE_MACHINE_RESTORE_DESCRIPTOR_FORMAT_VERSION`](#native_machine_restore_descriptor_format_version)
+- [`NATIVE_MACHINE_RESTORE_DESCRIPTOR_KIND`](#native_machine_restore_descriptor_kind)
+- [`NativeMachineRestoreDescriptor`](#nativemachinerestoredescriptor)
+- [`NativeMachineRestoreDescriptorValidationError`](#nativemachinerestoredescriptorvalidationerror)
 - [`NativeMachineRestorePlan`](#nativemachinerestoreplan)
 - [`NativeMachineRestorePlanRequest`](#nativemachinerestoreplanrequest)
+- [`buildNativeMachineRestoreDescriptor`](#buildnativemachinerestoredescriptor)
+- [`parseNativeMachineRestoreDescriptor`](#parsenativemachinerestoredescriptor)
 - [`planNativeMachineRestore`](#plannativemachinerestore)
+- [`serializeNativeMachineRestoreDescriptor`](#serializenativemachinerestoredescriptor)
+- [`validateNativeMachineRestoreDescriptor`](#validatenativemachinerestoredescriptor)
 - [`NativeMemoryTranslationRequest`](#nativememorytranslationrequest)
 - [`NativeMemoryTranslationResult`](#nativememorytranslationresult)
 - [`translateNativeMemory`](#translatenativememory)
@@ -1625,6 +1633,44 @@ Attach to `id`. Throws if id doesn't exist.
 ###### Returns
 
 `void`
+
+***
+
+### NativeMachineRestoreDescriptorValidationError
+
+#### Extends
+
+- `Error`
+
+#### Constructors
+
+##### Constructor
+
+> **new NativeMachineRestoreDescriptorValidationError**(`message`, `refusals?`): [`NativeMachineRestoreDescriptorValidationError`](#nativemachinerestoredescriptorvalidationerror)
+
+###### Parameters
+
+###### message
+
+`string`
+
+###### refusals?
+
+[`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[] = `[]`
+
+###### Returns
+
+[`NativeMachineRestoreDescriptorValidationError`](#nativemachinerestoredescriptorvalidationerror)
+
+###### Overrides
+
+`Error.constructor`
+
+#### Properties
+
+##### refusals
+
+> `readonly` **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[] = `[]`
 
 ***
 
@@ -3424,6 +3470,124 @@ by default when `output` is a TTY.
 ##### refusals
 
 > **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
+### NativeMachineRestoreDescriptor
+
+#### Properties
+
+##### formatVersion
+
+> **formatVersion**: `1`
+
+##### kind
+
+> **kind**: `"machinen.native-machine-restore"`
+
+##### thread
+
+> **thread**: `object`
+
+###### id
+
+> **id**: `string`
+
+###### targetThreadCount
+
+> **targetThreadCount**: `number`
+
+##### signal
+
+> **signal**: `object`
+
+###### blockedMasks
+
+> **blockedMasks**: `string`[]
+
+##### activeSyscalls
+
+> **activeSyscalls**: [`NativeActiveSyscallContinuation`](#nativeactivesyscallcontinuation)[]
+
+##### stackWindow?
+
+> `optional` **stackWindow?**: `object`
+
+###### stackMapping
+
+> **stackMapping**: `string`
+
+###### sourceWindow
+
+> **sourceWindow**: `object`
+
+###### sourceWindow.base
+
+> **base**: `string`
+
+###### sourceWindow.limit
+
+> **limit**: `string`
+
+###### targetWindow
+
+> **targetWindow**: `object`
+
+###### targetWindow.base
+
+> **base**: `string`
+
+###### targetWindow.limit
+
+> **limit**: `string`
+
+###### targetWindow.sizeBytes
+
+> **sizeBytes**: `number`
+
+###### guards
+
+> **guards**: `object`
+
+###### guards.below
+
+> **below**: `string`
+
+###### guards.above
+
+> **above**: `string`
+
+###### relocationCount
+
+> **relocationCount**: `number`
+
+##### returnChain?
+
+> `optional` **returnChain?**: `object`
+
+###### targetStack
+
+> **targetStack**: `object`
+
+###### targetStack.base
+
+> **base**: `string`
+
+###### targetStack.limit
+
+> **limit**: `string`
+
+###### frames
+
+> **frames**: [`NativeReturnChainPlanFrame`](#nativereturnchainplanframe)[]
+
+##### mappings?
+
+> `optional` **mappings?**: `object`
+
+###### steps
+
+> **steps**: [`NativeMappingMaterializationStep`](#nativemappingmaterializationstep)[]
 
 ***
 
@@ -6278,7 +6442,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-17)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-18)
 
 ##### targetArch
 
@@ -6866,7 +7030,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-17)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-18)
 
 ##### targetArch
 
@@ -13361,6 +13525,18 @@ loops; anything looser stops being a meaningful gate.
 
 ***
 
+### NATIVE\_MACHINE\_RESTORE\_DESCRIPTOR\_FORMAT\_VERSION
+
+> `const` **NATIVE\_MACHINE\_RESTORE\_DESCRIPTOR\_FORMAT\_VERSION**: `1` = `1`
+
+***
+
+### NATIVE\_MACHINE\_RESTORE\_DESCRIPTOR\_KIND
+
+> `const` **NATIVE\_MACHINE\_RESTORE\_DESCRIPTOR\_KIND**: `"machinen.native-machine-restore"` = `"machinen.native-machine-restore"`
+
+***
+
 ### NATIVE\_PROCESS\_IMAGE\_FORMAT\_VERSION
 
 > `const` **NATIVE\_PROCESS\_IMAGE\_FORMAT\_VERSION**: `1` = `1`
@@ -15056,6 +15232,70 @@ available.
 #### Returns
 
 [`NativeDebugMemoryPointerClassificationResult`](#nativedebugmemorypointerclassificationresult)
+
+***
+
+### buildNativeMachineRestoreDescriptor()
+
+> **buildNativeMachineRestoreDescriptor**(`plan`): [`NativeMachineRestoreDescriptor`](#nativemachinerestoredescriptor)
+
+#### Parameters
+
+##### plan
+
+[`NativeMachineRestorePlan`](#nativemachinerestoreplan)
+
+#### Returns
+
+[`NativeMachineRestoreDescriptor`](#nativemachinerestoredescriptor)
+
+***
+
+### serializeNativeMachineRestoreDescriptor()
+
+> **serializeNativeMachineRestoreDescriptor**(`descriptor`): `string`
+
+#### Parameters
+
+##### descriptor
+
+[`NativeMachineRestoreDescriptor`](#nativemachinerestoredescriptor)
+
+#### Returns
+
+`string`
+
+***
+
+### parseNativeMachineRestoreDescriptor()
+
+> **parseNativeMachineRestoreDescriptor**(`text`): [`NativeMachineRestoreDescriptor`](#nativemachinerestoredescriptor)
+
+#### Parameters
+
+##### text
+
+`string`
+
+#### Returns
+
+[`NativeMachineRestoreDescriptor`](#nativemachinerestoredescriptor)
+
+***
+
+### validateNativeMachineRestoreDescriptor()
+
+> **validateNativeMachineRestoreDescriptor**(`descriptor`): [`NativeMachineRestoreDescriptor`](#nativemachinerestoredescriptor)
+
+#### Parameters
+
+##### descriptor
+
+[`NativeMachineRestoreDescriptor`](#nativemachinerestoredescriptor)
+
+#### Returns
+
+[`NativeMachineRestoreDescriptor`](#nativemachinerestoredescriptor)
 
 ***
 

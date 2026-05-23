@@ -351,8 +351,18 @@ export type {
   NativeMemoryTranslationResult,
   NativeMemoryWord,
 } from "./native-memory-translation.ts";
+export {
+  NATIVE_MACHINE_RESTORE_DESCRIPTOR_FORMAT_VERSION,
+  NATIVE_MACHINE_RESTORE_DESCRIPTOR_KIND,
+  NativeMachineRestoreDescriptorValidationError,
+  buildNativeMachineRestoreDescriptor,
+  parseNativeMachineRestoreDescriptor,
+  serializeNativeMachineRestoreDescriptor,
+  validateNativeMachineRestoreDescriptor,
+} from "./native-machine-restore-descriptor.ts";
 export { planNativeMachineRestore } from "./native-machine-restore-plan.ts";
 export { planNativeMappingMaterialization } from "./native-mapping-materialization.ts";
+export type { NativeMachineRestoreDescriptor } from "./native-machine-restore-descriptor.ts";
 export type {
   NativeMachineRestorePlan,
   NativeMachineRestorePlanRequest,
