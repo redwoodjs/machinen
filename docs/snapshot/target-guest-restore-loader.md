@@ -23,7 +23,7 @@ timeoutSeconds=5
 stackTargetStart=0x500000000000
 stackSize=65536
 stackPointer=0x500000010000
-frame=single-target-caller-frame framePointer=0x50000000ff80 canonicalFrameAddress=0x50000000fff0 returnAddressSlot=0x50000000fff0 returnAddress=0x700300000080 unwindId=target:realspin-final-jump calleeSavedR12=0x1234567890abcdef slot0Offset=0 slot0Value=0x4652414d45504153 slot0Class=non-pointer-data
+frame=single-target-caller-frame framePointer=0x50000000ff80 canonicalFrameAddress=0x50000000fff0 returnAddressSlot=0x50000000fff0 returnAddress=0x700300000080 unwindId=target:realspin-final-jump calleeSavedRbx=0x1111111122222222 calleeSavedR12=0x1234567890abcdef calleeSavedR13=0x1313131313131313 calleeSavedR14=0x1414141414141414 calleeSavedR15=0x1515151515151515 slot0Offset=0 slot0Value=0x4652414d45504153 slot0Class=non-pointer-data
 resource=close-fd fd=0 reason=missing-captured-fd
 resource=inherit-stdio fd=1 stream=stdout closeOnExec=false
 resource=reopen-file fd=7 path=/tmp/data.txt offset=9 access=0 closeOnExec=true
@@ -46,8 +46,9 @@ Supported fd-table resources and memory materialization are intentionally narrow
 - `copy-captured-bytes` for explicitly safe, non-executable writable mappings;
 - `recreate-guard` for guard / `PROT_NONE` ranges;
 - `frame=single-target-caller-frame` for the current modeled translated caller
-  frame: one return slot, one `r12` callee-saved value, one non-pointer data
-  stack slot, and a target unwind identity.
+  frame: one return slot, the amd64 callee-saved register bank (`rbx`, `r12`,
+  `r13`, `r14`, `r15`), one non-pointer data stack slot, and a target unwind
+  identity.
 
 The runtime fd-table planner emits these resource lines from translated native
 resources. The in-guest loader validates duplicate fd ownership before launching
@@ -82,8 +83,9 @@ translated return address lets the trampoline seed a modeled target return slot
 before the host return slot, so the continuation can return through
 target-native landing code before control comes back to the trampoline. The
 translated frame lets the trampoline materialize a small target stack frame,
-seed `rbp`/`r12`, and require the target code to validate that modeled frame
-state. Translated resume mode additionally requires the target code to write a
+seed `rbp` plus the modeled callee-saved register bank, and require the target
+code to validate that modeled frame state. Translated resume mode additionally
+requires the target code to write a
 resume-path marker after observing the modeled frame/stack state. Completion is
 credited only when the descriptor gate succeeds and the target-native
 continuation returns/exits in the guest with the expected modeled result.

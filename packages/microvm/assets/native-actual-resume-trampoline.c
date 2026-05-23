@@ -46,6 +46,12 @@
 #define TRANSLATED_RETURN_MARKER UINT64_C(0x52455455524e4a50)
 #define TRANSLATED_FRAME_MARKER UINT64_C(0x4652414d45504153)
 #define TRANSLATED_RESUME_MARKER UINT64_C(0x524553554d455041)
+#define TRANSLATED_FRAME_REGISTER_MASK UINT64_C(0x1f)
+#define TRANSLATED_FRAME_REGISTER_RBX UINT64_C(0x01)
+#define TRANSLATED_FRAME_REGISTER_R12 UINT64_C(0x02)
+#define TRANSLATED_FRAME_REGISTER_R13 UINT64_C(0x04)
+#define TRANSLATED_FRAME_REGISTER_R14 UINT64_C(0x08)
+#define TRANSLATED_FRAME_REGISTER_R15 UINT64_C(0x10)
 #define MAX_UNWIND_ID 128
 
 struct MemoryMaterialization {
@@ -79,8 +85,16 @@ struct Options {
   uint64_t translated_frame_cfa;
   uint64_t translated_frame_return_address_slot;
   uint64_t translated_frame_return_address;
+  bool has_translated_frame_callee_rbx;
+  uint64_t translated_frame_callee_rbx;
   bool has_translated_frame_callee_r12;
   uint64_t translated_frame_callee_r12;
+  bool has_translated_frame_callee_r13;
+  uint64_t translated_frame_callee_r13;
+  bool has_translated_frame_callee_r14;
+  uint64_t translated_frame_callee_r14;
+  bool has_translated_frame_callee_r15;
+  uint64_t translated_frame_callee_r15;
   bool has_translated_frame_slot;
   uint64_t translated_frame_slot_offset;
   uint64_t translated_frame_slot_value;
@@ -110,7 +124,9 @@ static void usage(void) {
       "[--translated-return-address addr] [--translated-frame-pointer addr] "
       "[--translated-frame-cfa addr] [--translated-frame-return-address-slot addr] "
       "[--translated-frame-return-address addr] [--translated-frame-unwind-id id] "
-      "[--translated-frame-callee-r12 addr] [--translated-frame-slot offset:value:class] "
+      "[--translated-frame-callee-rbx addr] [--translated-frame-callee-r12 addr] "
+      "[--translated-frame-callee-r13 addr] [--translated-frame-callee-r14 addr] "
+      "[--translated-frame-callee-r15 addr] [--translated-frame-slot offset:value:class] "
       "[--resume-mode translated-frame] --timeout-seconds n "
       "[--synthetic-empty-pipe-read-fd n] [--synthetic-empty-pipe-write-fd n] "
       "[--synthetic-empty-eventfd n] "
@@ -317,12 +333,36 @@ static struct Options parse_args(int argc, char **argv) {
         usage();
       }
       copy_unwind_id(&opts, argv[i]);
+    } else if (streq(argv[i], "--translated-frame-callee-rbx")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.translated_frame_callee_rbx = parse_u64(argv[i], "translated-frame-callee-rbx");
+      opts.has_translated_frame_callee_rbx = true;
     } else if (streq(argv[i], "--translated-frame-callee-r12")) {
       if (++i >= argc) {
         usage();
       }
       opts.translated_frame_callee_r12 = parse_u64(argv[i], "translated-frame-callee-r12");
       opts.has_translated_frame_callee_r12 = true;
+    } else if (streq(argv[i], "--translated-frame-callee-r13")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.translated_frame_callee_r13 = parse_u64(argv[i], "translated-frame-callee-r13");
+      opts.has_translated_frame_callee_r13 = true;
+    } else if (streq(argv[i], "--translated-frame-callee-r14")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.translated_frame_callee_r14 = parse_u64(argv[i], "translated-frame-callee-r14");
+      opts.has_translated_frame_callee_r14 = true;
+    } else if (streq(argv[i], "--translated-frame-callee-r15")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.translated_frame_callee_r15 = parse_u64(argv[i], "translated-frame-callee-r15");
+      opts.has_translated_frame_callee_r15 = true;
     } else if (streq(argv[i], "--translated-frame-slot")) {
       if (++i >= argc) {
         usage();
@@ -433,6 +473,7 @@ static uint64_t mapped_code_page_start = 0;
 static uint64_t mapped_code_page_size = 0;
 static volatile uint64_t resume_return_value __attribute__((used)) = 0;
 static uint64_t host_rsp_before_jump __attribute__((used)) = 0;
+static uint64_t host_rbx_before_jump __attribute__((used)) = 0;
 static uint64_t host_rbp_before_jump __attribute__((used)) = 0;
 static uint64_t host_r12_before_jump __attribute__((used)) = 0;
 static uint64_t host_r13_before_jump __attribute__((used)) = 0;
@@ -443,7 +484,11 @@ static uint64_t jump_initial_rsp __attribute__((used)) = 0;
 static uint64_t jump_argument0 __attribute__((used)) = 0;
 static uint64_t jump_translated_return_address __attribute__((used)) = 0;
 static uint64_t jump_translated_frame_pointer __attribute__((used)) = 0;
+static uint64_t jump_translated_frame_rbx __attribute__((used)) = 0;
 static uint64_t jump_translated_frame_r12 __attribute__((used)) = 0;
+static uint64_t jump_translated_frame_r13 __attribute__((used)) = 0;
+static uint64_t jump_translated_frame_r14 __attribute__((used)) = 0;
+static uint64_t jump_translated_frame_r15 __attribute__((used)) = 0;
 
 struct ObservedRegisters {
   uint64_t rax;
@@ -699,7 +744,9 @@ static void validate_translated_frame_options(const struct Options *opts) {
     fprintf(stderr, "native-actual-resume-trampoline: translated frame return address is unresolved\n");
     exit(2);
   }
-  if (!opts->has_translated_frame_callee_r12 || !opts->has_translated_frame_slot) {
+  if (!opts->has_translated_frame_callee_rbx || !opts->has_translated_frame_callee_r12 ||
+      !opts->has_translated_frame_callee_r13 || !opts->has_translated_frame_callee_r14 ||
+      !opts->has_translated_frame_callee_r15 || !opts->has_translated_frame_slot) {
     fprintf(stderr, "native-actual-resume-trampoline: translated frame is incomplete\n");
     exit(2);
   }
@@ -822,15 +869,24 @@ static void jump_to_target(uint64_t entry,
     uint64_t argument0,
     uint64_t translated_return_address,
     uint64_t translated_frame_pointer,
-    uint64_t translated_frame_r12) {
+    uint64_t translated_frame_rbx,
+    uint64_t translated_frame_r12,
+    uint64_t translated_frame_r13,
+    uint64_t translated_frame_r14,
+    uint64_t translated_frame_r15) {
   jump_entry_address = entry;
   jump_initial_rsp = initial_rsp;
   jump_argument0 = argument0;
   jump_translated_return_address = translated_return_address;
   jump_translated_frame_pointer = translated_frame_pointer;
+  jump_translated_frame_rbx = translated_frame_rbx;
   jump_translated_frame_r12 = translated_frame_r12;
+  jump_translated_frame_r13 = translated_frame_r13;
+  jump_translated_frame_r14 = translated_frame_r14;
+  jump_translated_frame_r15 = translated_frame_r15;
   __asm__ __volatile__(
       "movq %%rsp, host_rsp_before_jump(%%rip)\n"
+      "movq %%rbx, host_rbx_before_jump(%%rip)\n"
       "movq %%rbp, host_rbp_before_jump(%%rip)\n"
       "movq %%r12, host_r12_before_jump(%%rip)\n"
       "movq %%r13, host_r13_before_jump(%%rip)\n"
@@ -848,7 +904,11 @@ static void jump_to_target(uint64_t entry,
       "movq %%rax, (%%rsp)\n"
       "3:\n"
       "movq jump_translated_frame_pointer(%%rip), %%rbp\n"
+      "movq jump_translated_frame_rbx(%%rip), %%rbx\n"
       "movq jump_translated_frame_r12(%%rip), %%r12\n"
+      "movq jump_translated_frame_r13(%%rip), %%r13\n"
+      "movq jump_translated_frame_r14(%%rip), %%r14\n"
+      "movq jump_translated_frame_r15(%%rip), %%r15\n"
       "xorl %%eax, %%eax\n"
       "movq jump_argument0(%%rip), %%rdi\n"
       "xorl %%esi, %%esi\n"
@@ -863,6 +923,7 @@ static void jump_to_target(uint64_t entry,
       "1:\n"
       "movq %%rax, resume_return_value(%%rip)\n"
       "movq host_rsp_before_jump(%%rip), %%rsp\n"
+      "movq host_rbx_before_jump(%%rip), %%rbx\n"
       "movq host_rbp_before_jump(%%rip), %%rbp\n"
       "movq host_r12_before_jump(%%rip), %%r12\n"
       "movq host_r13_before_jump(%%rip), %%r13\n"
@@ -1059,14 +1120,24 @@ static void print_resume_path(const struct Options *opts) {
       TRANSLATED_RESUME_MARKER);
 }
 
+static void print_callee_saved_status(const char *name, uint64_t value, uint64_t mask, uint64_t bit) {
+  printf("{\"register\":\"%s\",\"status\":\"%s\",\"value\":\"0x%" PRIx64 "\"}",
+      name,
+      (mask & bit) == bit ? "passed" : "failed",
+      value);
+}
+
 static void print_frame_restoration(const struct Options *opts) {
   if (!opts->has_translated_frame || !opts->has_state_report_address) {
     return;
   }
   uint64_t report_marker = read_state_report_u64(opts->state_report_address, 32);
+  uint64_t register_mask = read_state_report_u64(opts->state_report_address, 48);
   uint64_t slot_value = read_state_report_u64(
       opts->translated_frame_pointer, opts->translated_frame_slot_offset);
-  bool passed = report_marker == TRANSLATED_FRAME_MARKER && slot_value == opts->translated_frame_slot_value;
+  bool passed = report_marker == TRANSLATED_FRAME_MARKER &&
+      register_mask == TRANSLATED_FRAME_REGISTER_MASK &&
+      slot_value == opts->translated_frame_slot_value;
   printf(
       ",\"frameRestoration\":{\"status\":\"%s\","
       "\"framePointer\":\"0x%" PRIx64 "\","
@@ -1076,8 +1147,9 @@ static void print_frame_restoration(const struct Options *opts) {
       "\"unwindId\":\"%s\","
       "\"reportMarker\":\"0x%" PRIx64 "\","
       "\"expectedFrameMarker\":\"0x%" PRIx64 "\","
-      "\"calleeSaved\":[{\"register\":\"r12\",\"status\":\"passed\",\"value\":\"0x%" PRIx64 "\"}],"
-      "\"slots\":[{\"offset\":%" PRIu64 ",\"classification\":\"%s\",\"status\":\"%s\",\"value\":\"0x%" PRIx64 "\"}]}",
+      "\"calleeSavedMask\":\"0x%" PRIx64 "\","
+      "\"expectedCalleeSavedMask\":\"0x%" PRIx64 "\","
+      "\"calleeSaved\":[",
       passed ? "passed" : "failed",
       opts->translated_frame_pointer,
       opts->translated_frame_cfa,
@@ -1086,7 +1158,19 @@ static void print_frame_restoration(const struct Options *opts) {
       opts->translated_frame_unwind_id,
       report_marker,
       TRANSLATED_FRAME_MARKER,
-      opts->translated_frame_callee_r12,
+      register_mask,
+      TRANSLATED_FRAME_REGISTER_MASK);
+  print_callee_saved_status("rbx", opts->translated_frame_callee_rbx, register_mask, TRANSLATED_FRAME_REGISTER_RBX);
+  printf(",");
+  print_callee_saved_status("r12", opts->translated_frame_callee_r12, register_mask, TRANSLATED_FRAME_REGISTER_R12);
+  printf(",");
+  print_callee_saved_status("r13", opts->translated_frame_callee_r13, register_mask, TRANSLATED_FRAME_REGISTER_R13);
+  printf(",");
+  print_callee_saved_status("r14", opts->translated_frame_callee_r14, register_mask, TRANSLATED_FRAME_REGISTER_R14);
+  printf(",");
+  print_callee_saved_status("r15", opts->translated_frame_callee_r15, register_mask, TRANSLATED_FRAME_REGISTER_R15);
+  printf(
+      "],\"slots\":[{\"offset\":%" PRIu64 ",\"classification\":\"%s\",\"status\":\"%s\",\"value\":\"0x%" PRIx64 "\"}]}",
       opts->translated_frame_slot_offset,
       opts->translated_frame_slot_class,
       slot_value == opts->translated_frame_slot_value ? "passed" : "failed",
@@ -1152,7 +1236,11 @@ int main(int argc, char **argv) {
         opts.has_argument0 ? opts.argument0 : 0u,
         opts.has_translated_return_address ? opts.translated_return_address : 0u,
         opts.has_translated_frame ? opts.translated_frame_pointer : 0u,
-        opts.has_translated_frame_callee_r12 ? opts.translated_frame_callee_r12 : 0u);
+        opts.has_translated_frame_callee_rbx ? opts.translated_frame_callee_rbx : 0u,
+        opts.has_translated_frame_callee_r12 ? opts.translated_frame_callee_r12 : 0u,
+        opts.has_translated_frame_callee_r13 ? opts.translated_frame_callee_r13 : 0u,
+        opts.has_translated_frame_callee_r14 ? opts.translated_frame_callee_r14 : 0u,
+        opts.has_translated_frame_callee_r15 ? opts.translated_frame_callee_r15 : 0u);
     alarm(0);
     print_return_event(&opts);
   } else {

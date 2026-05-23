@@ -95,12 +95,14 @@ describe("native actual resume trampoline", () => {
       const stateEntry = Buffer.from([
         0x48, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0x48, 0x89, 0x47, 0x08, 0x48, 0xb8, 0, 0, 0, 0, 0, 0, 0,
         0, 0x48, 0x89, 0x47, 0x10, 0x48, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0x48, 0x89, 0x47, 0x20, 0x48,
-        0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0x48, 0x89, 0x47, 0x28, 0xb8, 0x4d, 0, 0, 0, 0xc3,
+        0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0x48, 0x89, 0x47, 0x28, 0x48, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0,
+        0x48, 0x89, 0x47, 0x30, 0xb8, 0x4d, 0, 0, 0, 0xc3,
       ]);
       stateEntry.writeBigUInt64LE(0x5354415445434f4en, 2);
       stateEntry.writeBigUInt64LE(0x7fn, 16);
       stateEntry.writeBigUInt64LE(0x4652414d45504153n, 30);
       stateEntry.writeBigUInt64LE(0x524553554d455041n, 44);
+      stateEntry.writeBigUInt64LE(0x1fn, 58);
       const returnLanding = Buffer.from([
         0x48, 0xba, 0, 0, 0, 0, 0, 0, 0, 0, 0x48, 0x89, 0x57, 0x18, 0xb8, 0x4d, 0, 0, 0, 0xc3,
       ]);
@@ -129,8 +131,16 @@ describe("native actual resume trampoline", () => {
           translatedReturnAddress,
           "--translated-frame-unwind-id",
           "target:realspin-final-jump",
+          "--translated-frame-callee-rbx",
+          "0x1111111122222222",
           "--translated-frame-callee-r12",
           "0x1234567890abcdef",
+          "--translated-frame-callee-r13",
+          "0x1313131313131313",
+          "--translated-frame-callee-r14",
+          "0x1414141414141414",
+          "--translated-frame-callee-r15",
+          "0x1515151515151515",
           "--translated-frame-slot",
           "0:0x4652414d45504153:non-pointer-data",
           "--materialize-memory",
@@ -148,6 +158,14 @@ describe("native actual resume trampoline", () => {
           status: "passed",
           framePointer: "0x52000000ff80",
           returnAddress: translatedReturnAddress,
+          calleeSavedMask: "0x1f",
+          calleeSaved: [
+            { register: "rbx", status: "passed", value: "0x1111111122222222" },
+            { register: "r12", status: "passed", value: "0x1234567890abcdef" },
+            { register: "r13", status: "passed", value: "0x1313131313131313" },
+            { register: "r14", status: "passed", value: "0x1414141414141414" },
+            { register: "r15", status: "passed", value: "0x1515151515151515" },
+          ],
         },
         resumePath: {
           status: "passed",

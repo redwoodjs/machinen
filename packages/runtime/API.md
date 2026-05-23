@@ -103,6 +103,7 @@
 - [`TargetGuestRestoreDescriptor`](#targetguestrestoredescriptor)
 - [`TargetGuestTranslatedFrameDescriptor`](#targetguesttranslatedframedescriptor)
 - [`TargetGuestTranslatedFrameRegister`](#targetguesttranslatedframeregister)
+- [`TargetGuestTranslatedFrameRegisterName`](#targetguesttranslatedframeregistername)
 - [`TargetGuestTranslatedFrameSlot`](#targetguesttranslatedframeslot)
 - [`TargetGuestMemoryMaterializationKind`](#targetguestmemorymaterializationkind)
 - [`TargetGuestMemoryMaterializationEntry`](#targetguestmemorymaterializationentry)
@@ -9354,7 +9355,7 @@ Poll interval in ms while retrying. Default 250.
 
 ##### register
 
-> **register**: `"r12"`
+> **register**: [`TargetGuestTranslatedFrameRegisterName`](#targetguesttranslatedframeregistername)
 
 ##### value
 
@@ -11963,6 +11964,12 @@ Result of `validatePid` — easy to switch on at the call site.
 ### TargetGuestRestoreResumeMode
 
 > **TargetGuestRestoreResumeMode** = `"translated-frame"`
+
+***
+
+### TargetGuestTranslatedFrameRegisterName
+
+> **TargetGuestTranslatedFrameRegisterName** = `"rbx"` \| `"r12"` \| `"r13"` \| `"r14"` \| `"r15"`
 
 ***
 

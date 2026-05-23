@@ -35,7 +35,13 @@ describe("portable machine VM restore proof", () => {
         returnAddressSlot: "0x50000000fff0",
         returnAddress: "0x700300000080",
         unwindId: "target:realspin-final-jump",
-        calleeSaved: [{ register: "r12", value: "0x1234567890abcdef" }],
+        calleeSaved: [
+          { register: "rbx", value: "0x1111111122222222" },
+          { register: "r12", value: "0x1234567890abcdef" },
+          { register: "r13", value: "0x1313131313131313" },
+          { register: "r14", value: "0x1414141414141414" },
+          { register: "r15", value: "0x1515151515151515" },
+        ],
         slots: [
           {
             offset: 0,
