@@ -162,6 +162,45 @@ describe("native mapping materialization", () => {
     expect(result.refusals).toEqual([expect.objectContaining({ code: "target-build-mismatch" })]);
   });
 
+  it("refuses executable mappings without a target-native file", () => {
+    const result = planNativeMappingMaterialization({
+      memorySizeBytes: 4096,
+      mappings: [
+        mapping({
+          id: "mapping:source-text-bytes",
+          kind: "text",
+          permissions: { read: true, write: false, execute: true, private: true, shared: false },
+          captured: { file: "native-memory.bin", offset: 0, sizeBytes: 4096 },
+          target: { materialization: "translate", targetStart: "0x71000000" },
+        }),
+      ],
+    });
+
+    expect(result.refusals).toEqual([
+      expect.objectContaining({ code: "mapping-executable-unsupported" }),
+    ]);
+    expect(result.steps[0]).toMatchObject({ action: "refuse" });
+  });
+
+  it("refuses executable target files without build or hash provenance", () => {
+    const result = planNativeMappingMaterialization({
+      memorySizeBytes: 0,
+      mappings: [
+        mapping({
+          id: "mapping:unproven-target-text",
+          kind: "text",
+          permissions: { read: true, write: false, execute: true, private: true, shared: false },
+          file: { path: "/target/no-build-id.so", offset: 0 },
+          target: { materialization: "translate", targetStart: "0x71000000" },
+        }),
+      ],
+    });
+
+    expect(result.refusals).toEqual([
+      expect.objectContaining({ code: "mapping-provenance-ambiguous" }),
+    ]);
+  });
+
   it("refuses writable executable mappings", () => {
     const result = planNativeMappingMaterialization({
       memorySizeBytes: 0,

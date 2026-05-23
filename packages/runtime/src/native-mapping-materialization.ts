@@ -100,10 +100,13 @@ function translatedStep(
   if (targetRefusal) {
     return refusedStep(mapping, targetRefusal);
   }
-  if (mapping.permissions.execute && mapping.file) {
-    const buildRefusal = validateTargetFileBuild(mapping, request.targetFileBuildIds ?? {});
-    if (buildRefusal) {
-      return refusedStep(mapping, buildRefusal);
+  if (mapping.permissions.execute) {
+    const executableRefusal = validateExecutableTargetMapping(
+      mapping,
+      request.targetFileBuildIds ?? {},
+    );
+    if (executableRefusal) {
+      return refusedStep(mapping, executableRefusal);
     }
     return { ...baseStep(mapping, "map-target-file"), targetFile: mapping.file };
   }
@@ -347,12 +350,33 @@ function validateTargetStart(mapping: NativeMemoryMapping): NativeProcessImageRe
   return refusal("mapping-ambiguous", `${mapping.id} has no target start address`);
 }
 
+function validateExecutableTargetMapping(
+  mapping: NativeMemoryMapping,
+  targetFileBuildIds: Record<string, string>,
+): NativeProcessImageRefusal | undefined {
+  if (!mapping.file) {
+    return refusal(
+      "mapping-executable-unsupported",
+      `${mapping.id} executable bytes require a target-native file`,
+    );
+  }
+  if (!mapping.file.buildId && !mapping.file.sha256) {
+    return refusal(
+      "mapping-provenance-ambiguous",
+      `${mapping.id} executable target file has no build-id or hash provenance`,
+    );
+  }
+  return validateTargetFileBuild(mapping, targetFileBuildIds);
+}
+
 function validateTargetFileBuild(
   mapping: NativeMemoryMapping,
   targetFileBuildIds: Record<string, string>,
 ): NativeProcessImageRefusal | undefined {
-  const expected = mapping.file?.buildId;
-  const actual = mapping.file ? targetFileBuildIds[mapping.file.path] : undefined;
+  const expected = mapping.file?.buildId ?? mapping.file?.sha256;
+  const actual = mapping.file
+    ? (targetFileBuildIds[mapping.file.path] ?? mapping.file.sha256)
+    : undefined;
   if (!expected || !actual || normalizeBuildId(expected) === normalizeBuildId(actual)) {
     return undefined;
   }
