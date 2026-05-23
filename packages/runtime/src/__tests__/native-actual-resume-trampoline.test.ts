@@ -124,6 +124,8 @@ describe("native actual resume trampoline", () => {
           "action=rearm-sleep-timer;threadId=thread:1;seconds=0;nanoseconds=1000000;resumeMode=defer-target-resume;syscallName=clock_nanosleep",
           "--native-active-syscall-step",
           "action=rearm-ppoll-timeout;threadId=thread:1;seconds=0;nanoseconds=1000000;resumeMode=defer-target-resume;nfds=1;resources=synthetic-empty-eventfd",
+          "--native-thread-spawn-step",
+          "action=spawn-target-thread;threadId=thread:2;stackBase=0x530000000000;stackLimit=0x530000010000;rip=0x710000001000;rsp=0x530000010000",
         ]),
       ).toMatchObject({
         status: "returned",
@@ -140,6 +142,7 @@ describe("native actual resume trampoline", () => {
           restored: true,
         },
         nativeActiveSyscallRestore: { status: "passed", stepCount: 2, armedCount: 2 },
+        nativeThreadRestore: { status: "passed", stepCount: 1, spawnedCount: 1 },
       });
 
       const nativeMemoryReader = join(outDir, "native-memory-reader.bin");
@@ -184,6 +187,17 @@ describe("native actual resume trampoline", () => {
       );
       expect(badActiveSyscall.status).toBe(2);
       expect(badActiveSyscall.stderr).toContain("native active-syscall duration must be non-zero");
+
+      const badThreadSpawn = spawnSync(
+        helper,
+        helperArgs(returnCode, 1, [
+          "--native-thread-spawn-step",
+          "action=spawn-target-thread;threadId=thread:2;stackBase=0x530000010000;stackLimit=0x530000000000;rip=0x710000001000;rsp=0x530000010000",
+        ]),
+        { encoding: "utf8" },
+      );
+      expect(badThreadSpawn.status).toBe(2);
+      expect(badThreadSpawn.stderr).toContain("native thread spawn range is invalid");
 
       const stateMemory = join(outDir, "state-memory.bin");
       const memory = Buffer.alloc(4096);

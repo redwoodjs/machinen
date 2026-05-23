@@ -10,16 +10,17 @@ The descriptor can now carry line-oriented `native=` entries for:
 - private-memory restore steps;
 - target executable mapping provenance steps;
 - signal-mask restore steps;
-- modeled active-syscall re-arm steps.
+- modeled active-syscall re-arm steps;
+- controlled thread-spawn steps.
 
 These sections are validated and round-trip through descriptor serialization.
 They also become explicit trampoline argv entries. The target loader now parses
 and forwards them; the amd64 trampoline applies stack-window writes,
 return-chain writes, stack guards, native private-memory mmap/copy/mprotect
 steps, signal-mask save/apply/verify/restore steps, executable-mapping checks
-against the target code file/path/address/size/provenance, and active-syscall
-timer re-arm steps before reporting consumption. The target VM proof harness
-parses those native consumption events into
+against the target code file/path/address/size/provenance, active-syscall timer
+re-arm steps, and controlled thread-spawn steps before reporting consumption.
+The target VM proof harness parses those native consumption events into
 `targetStackWindowMaterializationResult`,
 `targetPrivateMemoryRestoreResult`, `targetExecutableMappingResult`,
 `targetSignalRestoreResult`, and `targetActiveSyscallRestoreResult`; any present

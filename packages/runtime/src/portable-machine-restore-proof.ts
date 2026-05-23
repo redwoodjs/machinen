@@ -30,7 +30,7 @@ export type PortableMachineTargetFrameRestoreResult = "pending" | "passed" | "fa
 export type PortableMachineTargetRegisterRestoreResult = "pending" | "passed" | "failed";
 export type PortableMachineTargetRflagsRestoreResult = "pending" | "passed" | "failed";
 export type PortableMachineTargetTlsRestoreResult = "pending" | "passed" | "failed";
-export type PortableMachineTargetThreadRestoreResult = "accepted" | "refused";
+export type PortableMachineTargetThreadRestoreResult = "accepted" | "refused" | "passed" | "failed";
 export type PortableMachineTargetResumePathResult = "pending" | "passed" | "failed";
 
 export interface PortableMachineTargetResourceStatus {
@@ -266,7 +266,8 @@ function optionalTargetChecksPassed(result: PortableMachineVmRestoreTargetResult
     passedOrUnset(result.targetRflagsRestoreResult),
     passedOrUnset(result.targetTlsRestoreResult),
     result.targetThreadRestoreResult === undefined ||
-      result.targetThreadRestoreResult === "accepted",
+      result.targetThreadRestoreResult === "accepted" ||
+      result.targetThreadRestoreResult === "passed",
     passedOrUnset(result.targetResumePathResult),
   ].every(Boolean);
 }

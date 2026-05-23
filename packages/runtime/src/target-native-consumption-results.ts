@@ -10,6 +10,7 @@ export interface TargetNativeConsumptionEvents {
   nativeExecutableMapping?: TargetNativeConsumptionEvent;
   nativeSignalRestore?: TargetNativeConsumptionEvent;
   nativeActiveSyscallRestore?: TargetNativeConsumptionEvent;
+  nativeThreadRestore?: TargetNativeConsumptionEvent;
 }
 
 export function parseTargetNativeConsumptionEvents(
@@ -30,6 +31,7 @@ export function parseTargetNativeConsumptionEvents(
       actualResumeEvent,
       "nativeActiveSyscallRestore",
     ),
+    nativeThreadRestore: parseNativeConsumption(actualResumeEvent, "nativeThreadRestore"),
   };
 }
 
@@ -39,6 +41,7 @@ export function targetNativeConsumptionFields(events: TargetNativeConsumptionEve
   targetExecutableMappingResult?: TargetNativeConsumptionStatus;
   targetSignalRestoreResult?: TargetNativeConsumptionStatus;
   targetActiveSyscallRestoreResult?: TargetNativeConsumptionStatus;
+  targetThreadRestoreResult?: TargetNativeConsumptionStatus;
 } {
   return {
     targetStackWindowMaterializationResult: events.nativeStackWindowMaterialization?.status,
@@ -46,6 +49,7 @@ export function targetNativeConsumptionFields(events: TargetNativeConsumptionEve
     targetExecutableMappingResult: events.nativeExecutableMapping?.status,
     targetSignalRestoreResult: events.nativeSignalRestore?.status,
     targetActiveSyscallRestoreResult: events.nativeActiveSyscallRestore?.status,
+    targetThreadRestoreResult: events.nativeThreadRestore?.status,
   };
 }
 
@@ -56,6 +60,7 @@ export function targetNativeConsumptionPassed(events: TargetNativeConsumptionEve
     events.nativeExecutableMapping,
     events.nativeSignalRestore,
     events.nativeActiveSyscallRestore,
+    events.nativeThreadRestore,
   ].every((event) => event === undefined || event.status === "passed");
 }
 

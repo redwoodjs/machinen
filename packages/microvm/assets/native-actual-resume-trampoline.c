@@ -16,11 +16,13 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sched.h>
 #include <string.h>
 #include <sys/eventfd.h>
 #include <sys/mman.h>
 #include <sys/syscall.h>
 #include <sys/timerfd.h>
+#include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -128,6 +130,11 @@ struct NativeActiveSyscallRestoreState {
   int timer_fds[MAX_NATIVE_RESTORE_STEPS];
 };
 
+struct NativeThreadRestoreState {
+  bool requested;
+  size_t spawned_count;
+};
+
 struct Options {
   const char *code_file;
   uint64_t file_offset;
@@ -203,6 +210,8 @@ struct Options {
   size_t native_signal_step_count;
   struct NativeRestoreStepSpec native_active_syscall_steps[MAX_NATIVE_RESTORE_STEPS];
   size_t native_active_syscall_step_count;
+  struct NativeRestoreStepSpec native_thread_spawn_steps[MAX_NATIVE_RESTORE_STEPS];
+  size_t native_thread_spawn_step_count;
 };
 
 static void usage(void) {
@@ -231,6 +240,7 @@ static void usage(void) {
       "[--native-return-chain-write target:value:bytes:kind] "
       "[--native-private-memory-step spec] [--native-executable-mapping spec] "
       "[--native-signal-restore-step spec] [--native-active-syscall-step spec] "
+      "[--native-thread-spawn-step spec] "
       "--stack-target-start addr --stack-size n --stack-pointer addr\n");
   exit(2);
 }
@@ -705,6 +715,11 @@ static struct Options parse_args(int argc, char **argv) {
         usage();
       }
       add_native_step(opts.native_active_syscall_steps, &opts.native_active_syscall_step_count, argv[i], "active-syscall");
+    } else if (streq(argv[i], "--native-thread-spawn-step")) {
+      if (++i >= argc) {
+        usage();
+      }
+      add_native_step(opts.native_thread_spawn_steps, &opts.native_thread_spawn_step_count, argv[i], "thread-spawn");
     } else if (streq(argv[i], "--stack-target-start")) {
       if (++i >= argc) {
         usage();
@@ -775,6 +790,7 @@ static uint64_t jump_resume_register_r10 __attribute__((used)) = 0;
 static uint64_t jump_resume_register_r11 __attribute__((used)) = 0;
 static struct NativeSignalRestoreState native_signal_restore_state = {0};
 static struct NativeActiveSyscallRestoreState native_active_syscall_restore_state = {0};
+static struct NativeThreadRestoreState native_thread_restore_state = {0};
 
 struct ObservedRegisters {
   uint64_t rax;
@@ -1459,6 +1475,47 @@ static void close_native_active_syscall_timers(struct NativeActiveSyscallRestore
   for (size_t i = 0; i < state->armed_count; i++) {
     close(state->timer_fds[i]);
     state->timer_fds[i] = -1;
+  }
+}
+
+static int native_thread_spawn_child(void *arg) {
+  (void)arg;
+  return 0;
+}
+
+static void consume_native_thread_spawn_steps(
+    const struct Options *opts, struct NativeThreadRestoreState *state) {
+  state->requested = opts->native_thread_spawn_step_count > 0;
+  for (size_t i = 0; i < opts->native_thread_spawn_step_count; i++) {
+    const char *spec = opts->native_thread_spawn_steps[i].spec;
+    char action[64];
+    native_step_string(spec, "action", action, sizeof(action), "thread-spawn");
+    if (!streq(action, "spawn-target-thread")) {
+      fprintf(stderr, "native-actual-resume-trampoline: unsupported native thread action\n");
+      exit(2);
+    }
+    uint64_t stack_base = native_step_u64(spec, "stackBase", "thread-spawn");
+    uint64_t stack_limit = native_step_u64(spec, "stackLimit", "thread-spawn");
+    uint64_t rip = native_step_u64(spec, "rip", "thread-spawn");
+    uint64_t rsp = native_step_u64(spec, "rsp", "thread-spawn");
+    if (stack_base >= stack_limit || rsp <= stack_base || rsp > stack_limit || rip == 0) {
+      fprintf(stderr, "native-actual-resume-trampoline: native thread spawn range is invalid\n");
+      exit(2);
+    }
+    uint64_t stack_size = stack_limit - stack_base;
+    void *mapped_stack = map_fixed(stack_base, stack_size, PROT_READ | PROT_WRITE, "native-thread-stack");
+    int child = clone(native_thread_spawn_child, (void *)(uintptr_t)stack_limit, SIGCHLD, NULL);
+    if (child < 0) {
+      fprintf(stderr, "native-actual-resume-trampoline: native thread clone failed: %s\n", strerror(errno));
+      exit(1);
+    }
+    int status = 0;
+    if (waitpid((pid_t)child, &status, 0) < 0 || !WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+      fprintf(stderr, "native-actual-resume-trampoline: native thread wait failed\n");
+      exit(1);
+    }
+    munmap(mapped_stack, (size_t)stack_size);
+    state->spawned_count++;
   }
 }
 
@@ -2157,6 +2214,13 @@ static void print_native_restore_consumption(const struct Options *opts) {
         opts->native_active_syscall_step_count,
         native_active_syscall_restore_state.armed_count);
   }
+  if (native_thread_restore_state.requested) {
+    bool thread_passed = native_thread_restore_state.spawned_count == opts->native_thread_spawn_step_count;
+    printf(",\"nativeThreadRestore\":{\"status\":\"%s\",\"stepCount\":%zu,\"spawnedCount\":%zu}",
+        thread_passed ? "passed" : "failed",
+        opts->native_thread_spawn_step_count,
+        native_thread_restore_state.spawned_count);
+  }
 }
 
 static void print_return_event(const struct Options *opts) {
@@ -2226,6 +2290,7 @@ int main(int argc, char **argv) {
   apply_cloexec_fds(&opts);
   apply_native_signal_restore_steps(&opts, &native_signal_restore_state);
   apply_native_active_syscall_restore_steps(&opts, &native_active_syscall_restore_state);
+  consume_native_thread_spawn_steps(&opts, &native_thread_restore_state);
   capture_host_fs_base();
   alarm((unsigned int)opts.timeout_seconds);
   if (sigsetjmp(resume_fault_jmp, 1) == 0) {

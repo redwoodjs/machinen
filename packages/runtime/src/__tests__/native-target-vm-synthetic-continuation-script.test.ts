@@ -18,6 +18,7 @@ describe("native target VM synthetic continuation script", () => {
       nativeExecutableMapping: { status: "passed" },
       nativeSignalRestore: { status: "passed" },
       nativeActiveSyscallRestore: { status: "passed" },
+      nativeThreadRestore: { status: "passed" },
     });
 
     expect(targetNativeConsumptionFields(events)).toEqual({
@@ -26,6 +27,7 @@ describe("native target VM synthetic continuation script", () => {
       targetExecutableMappingResult: "passed",
       targetSignalRestoreResult: "passed",
       targetActiveSyscallRestoreResult: "passed",
+      targetThreadRestoreResult: "passed",
     });
     expect(targetNativeConsumptionPassed(events)).toBe(true);
   });
