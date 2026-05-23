@@ -21,8 +21,10 @@ import { matchNativeTargetUnwindFrame } from "../packages/runtime/src/native-tar
 import { planNativeThreadRestoreBoundary } from "../packages/runtime/src/native-thread-restore-policy.ts";
 import { validatePortableMachineSnapshotBundle } from "../packages/runtime/src/portable-machine-snapshot.ts";
 import { planTargetGuestMemoryMaterialization } from "../packages/runtime/src/target-guest-memory-materialization.ts";
+import { planTargetGuestPrivateMemoryRestore } from "../packages/runtime/src/target-guest-private-memory-restore.ts";
 import {
   serializeTargetGuestRestoreDescriptor,
+  type TargetGuestNativeRestoreStep,
   type TargetGuestTranslatedFrameDescriptor,
 } from "../packages/runtime/src/target-guest-restore-loader.ts";
 import { FINAL_JUMP_EXPECTED_RETURN, FINAL_JUMP_RETURN_MARKER } from "./native-final-jump-utils.ts";
@@ -55,6 +57,11 @@ interface TargetInvocation {
   targetRegisterRestoreResult?: "pending";
   targetRflagsRestoreResult?: "pending";
   targetTlsRestoreResult?: "pending";
+  targetStackWindowMaterializationResult?: "pending";
+  targetPrivateMemoryRestoreResult?: "pending";
+  targetExecutableMappingResult?: "pending";
+  targetSignalRestoreResult?: "pending";
+  targetActiveSyscallRestoreResult?: "pending";
   targetThreadRestoreResult?: "accepted";
   targetThreadRestoreThreadId?: string;
   targetResumePathResult?: "pending";
@@ -74,6 +81,7 @@ interface CombinedDescriptorPaths {
 interface CombinedDescriptorContext extends CombinedDescriptorPaths {
   targetThreadRestoreResult: "accepted";
   targetThreadRestoreThreadId: string;
+  targetSignalBlockedMasks: string[];
 }
 
 interface PreparedTargetContinuation {
@@ -237,6 +245,11 @@ function descriptorSummary(invocation: TargetInvocation) {
     targetTranslatedReturnAddress: invocation.targetTranslatedReturnAddress,
     targetTranslatedFramePointer: invocation.targetTranslatedFramePointer,
     targetRegisterRestoreResult: invocation.targetRegisterRestoreResult,
+    targetStackWindowMaterializationResult: invocation.targetStackWindowMaterializationResult,
+    targetPrivateMemoryRestoreResult: invocation.targetPrivateMemoryRestoreResult,
+    targetExecutableMappingResult: invocation.targetExecutableMappingResult,
+    targetSignalRestoreResult: invocation.targetSignalRestoreResult,
+    targetActiveSyscallRestoreResult: invocation.targetActiveSyscallRestoreResult,
     targetThreadRestoreResult: invocation.targetThreadRestoreResult,
     targetThreadRestoreThreadId: invocation.targetThreadRestoreThreadId,
     targetResumePathResult: invocation.targetResumePathResult,
@@ -251,6 +264,11 @@ function realUtilityPendingResults(invocation: TargetInvocation) {
         targetReturnChainResult: "pending" as const,
         targetFrameRestoreResult: "pending" as const,
         targetRegisterRestoreResult: "pending" as const,
+        targetStackWindowMaterializationResult: invocation.targetStackWindowMaterializationResult,
+        targetPrivateMemoryRestoreResult: invocation.targetPrivateMemoryRestoreResult,
+        targetExecutableMappingResult: invocation.targetExecutableMappingResult,
+        targetSignalRestoreResult: invocation.targetSignalRestoreResult,
+        targetActiveSyscallRestoreResult: invocation.targetActiveSyscallRestoreResult,
         targetResumePathResult: "pending" as const,
       }
     : {};
@@ -290,6 +308,7 @@ function prepareTargetRestoreDescriptor(
   context: CombinedDescriptorContext,
   targetContinuation: PreparedTargetContinuation,
 ) {
+  const memory = proofMemoryPlan(context);
   return planPortableMachineTargetRestoreDescriptor({
     continuation: continuationDescriptor(
       context.targetCodeFile,
@@ -303,7 +322,8 @@ function prepareTargetRestoreDescriptor(
     ),
     translatedFrame: targetContinuation.translatedFrame,
     fdTable: proofFdTable(),
-    memory: proofMemoryPlan(context),
+    memory,
+    nativeRestore: proofNativeRestoreSections(context, targetContinuation, memory.entries),
   });
 }
 
@@ -349,6 +369,7 @@ function combinedDescriptorContext(
     ...combinedDescriptorPaths(args, memoryFile, memorySizeBytes, mapping),
     targetThreadRestoreResult: threadPlan.state,
     targetThreadRestoreThreadId: threadPlan.threadId,
+    targetSignalBlockedMasks: threadPlan.signalRestore.blockedMasks,
   };
   const pathRefusal = portableProofPathRefusal(bundle.rootDir!, proofInputPaths(context));
   return pathRefusal ? refusedPlan(plan, pathRefusal.code, pathRefusal.message) : context;
@@ -419,6 +440,154 @@ function proofMemoryPlan(context: CombinedDescriptorContext) {
   });
 }
 
+function proofNativeRestoreSections(
+  context: CombinedDescriptorContext,
+  targetContinuation: PreparedTargetContinuation,
+  memoryEntries: ReturnType<typeof proofMemoryPlan>["entries"],
+): TargetGuestNativeRestoreStep[] {
+  return [
+    ...proofStackWindowNativeSections(targetContinuation),
+    ...proofReturnChainNativeSections(targetContinuation),
+    ...proofPrivateMemoryNativeSections(memoryEntries),
+    ...proofExecutableNativeSections(targetContinuation),
+    ...proofSignalNativeSections(context),
+  ];
+}
+
+function proofStackWindowNativeSections(
+  targetContinuation: PreparedTargetContinuation,
+): TargetGuestNativeRestoreStep[] {
+  const frame = targetContinuation.translatedFrame;
+  return frame
+    ? [
+        {
+          section: "stack-window-write" as const,
+          write: {
+            mapping: "mapping:target-stack",
+            targetAddress: frame.returnAddressSlot,
+            offset: Number(BigInt(frame.returnAddressSlot) - BigInt(continuationStackStart())),
+            sizeBytes: 8,
+            value: frame.returnAddress,
+            bytes: littleEndianU64(frame.returnAddress),
+            kind: "return-address" as const,
+          },
+        },
+        {
+          section: "stack-window-guard" as const,
+          guard: {
+            targetStart: continuationStackLimit(),
+            sizeBytes: 4096,
+            placement: "above" as const,
+          },
+        },
+      ]
+    : [];
+}
+
+function proofReturnChainNativeSections(
+  targetContinuation: PreparedTargetContinuation,
+): TargetGuestNativeRestoreStep[] {
+  const frame = targetContinuation.translatedFrame;
+  return frame
+    ? [
+        {
+          section: "return-chain-write" as const,
+          write: {
+            frameId: frame.unwindId,
+            targetAddress: frame.returnAddressSlot,
+            value: frame.returnAddress,
+            bytes: littleEndianU64(frame.returnAddress),
+            kind: "return-address" as const,
+          },
+        },
+      ]
+    : [];
+}
+
+function proofPrivateMemoryNativeSections(
+  memoryEntries: ReturnType<typeof proofMemoryPlan>["entries"],
+): TargetGuestNativeRestoreStep[] {
+  const privatePlan = planTargetGuestPrivateMemoryRestore(memoryEntries);
+  return privatePlan.state === "planned"
+    ? privatePlan.steps.map((step) => ({ section: "private-memory" as const, step }))
+    : [];
+}
+
+function proofExecutableNativeSections(
+  targetContinuation: PreparedTargetContinuation,
+): TargetGuestNativeRestoreStep[] {
+  return [
+    {
+      section: "executable-mapping" as const,
+      step: {
+        action: "map-target-executable" as const,
+        mapping: "mapping:target-continuation",
+        targetStart: "0x700300000000",
+        sizeBytes: targetContinuation.bytes.length,
+        permissions: { read: true, write: false, execute: true, private: true, shared: false },
+        path: GUEST_CODE,
+        fileOffset: 0,
+        sha256: sha256(targetContinuation.bytes),
+        sourceTextReusedAsTargetCode: false as const,
+      },
+    },
+  ];
+}
+
+function proofSignalNativeSections(
+  context: CombinedDescriptorContext,
+): TargetGuestNativeRestoreStep[] {
+  const targetBlockedMasks = context.targetSignalBlockedMasks.length
+    ? context.targetSignalBlockedMasks
+    : ["0x0"];
+  return [
+    {
+      section: "signal-restore" as const,
+      step: {
+        action: "save-loader-signal-mask" as const,
+        threadId: context.targetThreadRestoreThreadId,
+      },
+    },
+    {
+      section: "signal-restore" as const,
+      step: {
+        action: "sigprocmask-set-blocked" as const,
+        threadId: context.targetThreadRestoreThreadId,
+        targetBlockedMasks,
+      },
+    },
+    {
+      section: "signal-restore" as const,
+      step: {
+        action: "verify-blocked-signal-mask" as const,
+        threadId: context.targetThreadRestoreThreadId,
+        targetBlockedMasks,
+      },
+    },
+    {
+      section: "signal-restore" as const,
+      step: {
+        action: "restore-loader-signal-mask" as const,
+        threadId: context.targetThreadRestoreThreadId,
+      },
+    },
+  ];
+}
+
+function continuationStackStart(): string {
+  return "0x500000000000";
+}
+
+function continuationStackLimit(): string {
+  return "0x500000010000";
+}
+
+function littleEndianU64(value: string): string {
+  const bytes = Buffer.alloc(8);
+  bytes.writeBigUInt64LE(BigInt(value));
+  return bytes.toString("hex");
+}
+
 function proofResumeRegisters() {
   return {
     rax: RESUME_REGISTER_RAX,
@@ -465,6 +634,7 @@ function targetInvocation(
     targetModuleBytesSource: targetContinuation.targetModuleBytesSource,
     targetTranslatedReturnAddress: targetContinuation.translatedReturnAddress,
     targetTlsRestoreResult: targetContinuation.targetFsBase ? "pending" : undefined,
+    ...nativeRestorePendingSummary(descriptorPlan.descriptor.nativeRestore ?? []),
     ...frameSummary,
     targetThreadRestoreResult: context.targetThreadRestoreResult,
     targetThreadRestoreThreadId: context.targetThreadRestoreThreadId,
@@ -481,6 +651,27 @@ function translatedFrameInvocationSummary(targetContinuation: PreparedTargetCont
         targetResumePathMode: "translated-frame" as const,
       }
     : {};
+}
+
+function nativeRestorePendingSummary(nativeRestore: TargetGuestNativeRestoreStep[]) {
+  const sections = new Set(nativeRestore.map((step) => step.section));
+  return {
+    targetStackWindowMaterializationResult: pendingIfAnySection(sections, [
+      "stack-window-write",
+      "stack-window-guard",
+    ]),
+    targetPrivateMemoryRestoreResult: pendingIfAnySection(sections, ["private-memory"]),
+    targetExecutableMappingResult: pendingIfAnySection(sections, ["executable-mapping"]),
+    targetSignalRestoreResult: pendingIfAnySection(sections, ["signal-restore"]),
+    targetActiveSyscallRestoreResult: pendingIfAnySection(sections, ["active-syscall"]),
+  };
+}
+
+function pendingIfAnySection(
+  sections: Set<TargetGuestNativeRestoreStep["section"]>,
+  candidates: Array<TargetGuestNativeRestoreStep["section"]>,
+): "pending" | undefined {
+  return candidates.some((section) => sections.has(section)) ? "pending" : undefined;
 }
 
 function prepareTargetContinuation(

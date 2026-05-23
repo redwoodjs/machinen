@@ -86,6 +86,16 @@ describe("portable machine VM restore proof", () => {
         ],
         refusals: [],
       },
+      nativeRestore: [
+        {
+          section: "signal-restore",
+          step: {
+            action: "sigprocmask-set-blocked",
+            threadId: "thread:1",
+            targetBlockedMasks: ["0x0"],
+          },
+        },
+      ],
     });
 
     expect(plan).toMatchObject({
@@ -104,6 +114,7 @@ describe("portable machine VM restore proof", () => {
           { kind: "synthetic-empty-eventfd", fd: 8 },
         ],
         memory: [{ kind: "copy-captured-bytes", mapping: "heap" }],
+        nativeRestore: [{ section: "signal-restore" }],
       },
     });
   });
