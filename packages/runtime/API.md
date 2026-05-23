@@ -119,6 +119,8 @@
 - [`TargetGuestMemoryMaterializationResult`](#targetguestmemorymaterializationresult)
 - [`TargetGuestPrivateMemoryRestorePlan`](#targetguestprivatememoryrestoreplan)
 - [`TargetGuestPrivateMemoryRestoreStep`](#targetguestprivatememoryrestorestep)
+- [`TargetGuestSignalRestorePlan`](#targetguestsignalrestoreplan)
+- [`TargetGuestSignalRestoreStep`](#targetguestsignalrestorestep)
 - [`PortableMachineTargetRestoreDescriptorRequest`](#portablemachinetargetrestoredescriptorrequest)
 - [`PortableMachineTargetRestoreDescriptorPlan`](#portablemachinetargetrestoredescriptorplan)
 - [`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation)
@@ -144,6 +146,7 @@
 - [`planTargetGuestExecutableMaterialization`](#plantargetguestexecutablematerialization)
 - [`planTargetGuestMemoryMaterialization`](#plantargetguestmemorymaterialization)
 - [`planTargetGuestPrivateMemoryRestore`](#plantargetguestprivatememoryrestore)
+- [`planTargetGuestSignalRestore`](#plantargetguestsignalrestore)
 - [`planPortableMachineTargetRestoreDescriptor`](#planportablemachinetargetrestoredescriptor)
 - [`planPortableMachineVmRestoreProof`](#planportablemachinevmrestoreproof)
 - [`completePortableMachineVmRestoreProof`](#completeportablemachinevmrestoreproof)
@@ -13238,6 +13241,18 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ***
 
+### TargetGuestSignalRestoreStep
+
+> **TargetGuestSignalRestoreStep** = \{ `action`: `"save-loader-signal-mask"`; `threadId`: `string`; \} \| \{ `action`: `"sigprocmask-set-blocked"`; `threadId`: `string`; `targetBlockedMasks`: `string`[]; \} \| \{ `action`: `"verify-blocked-signal-mask"`; `threadId`: `string`; `targetBlockedMasks`: `string`[]; \} \| \{ `action`: `"restore-loader-signal-mask"`; `threadId`: `string`; \}
+
+***
+
+### TargetGuestSignalRestorePlan
+
+> **TargetGuestSignalRestorePlan** = \{ `state`: `"planned"`; `threadId`: `string`; `targetBlockedMasks`: `string`[]; `steps`: [`TargetGuestSignalRestoreStep`](#targetguestsignalrestorestep)[]; `refusals`: \[\]; \} \| \{ `state`: `"refused"`; `threadId`: `string`; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
+
+***
+
 ### VmstateBackend
 
 > **VmstateBackend** = `"hvf"` \| `"kvm"` \| `"unknown"`
@@ -16938,6 +16953,22 @@ resolve the binary through the same lookup chain.
 #### Returns
 
 `string`[]
+
+***
+
+### planTargetGuestSignalRestore()
+
+> **planTargetGuestSignalRestore**(`policy`): [`TargetGuestSignalRestorePlan`](#targetguestsignalrestoreplan)
+
+#### Parameters
+
+##### policy
+
+[`NativeSignalRestorePolicyResult`](#nativesignalrestorepolicyresult)
+
+#### Returns
+
+[`TargetGuestSignalRestorePlan`](#targetguestsignalrestoreplan)
 
 ***
 
