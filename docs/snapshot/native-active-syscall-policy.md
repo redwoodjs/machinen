@@ -24,13 +24,16 @@ The current classifier reports:
 
 Known blocking syscall classes refuse with precise codes:
 
-- `blocking-syscall-state-unsupported` for sleep/timer and fd-blocking syscalls;
+- `blocking-syscall-state-unsupported` for sleep/timer and generic fd-blocking
+  syscalls;
 - `target-sleep-remaining-time-missing` when explicit sleep deferral is requested
   but the capture cannot model a relative target timer rearm duration;
 - `target-ppoll-timeout-missing` when explicit `ppoll` deferral is requested but
   the capture cannot model the timeout, fd, or signal-mask contract;
 - `target-fd-read-state-missing` when explicit fd-read deferral is requested but
   the capture cannot prove a blocking read contract;
+- `target-socket-syscall-state-unsupported` for active `accept`, `accept4`, and
+  `connect` state;
 - `syscall-restart-unsupported` for restart state;
 - `active-syscall` for unknown active syscalls.
 
@@ -79,6 +82,23 @@ These preserve timeout-driven proofs without claiming general fd readiness
 migration. Missing fd resources, wrong resource kinds, unsupported flags or
 state, wrong events, non-empty `revents`, `nfds > 1`, and non-null signal masks
 all fail closed as `target-ppoll-timeout-missing`.
+
+## Socket accept/connect refusal
+
+Active socket `accept`, `accept4`, and `connect` remain unsupported for native
+restore. They now fail closed with `target-socket-syscall-state-unsupported`
+instead of the generic fd-blocking refusal. When syscall arguments and the
+captured resource table are available, the refusal detail records the socket fd,
+resource id/kind/path/flags, and the unsupported kernel state family:
+
+- `connect` needs endpoint identity, in-flight connection result, namespace and
+  routing state, and target fd mapping;
+- `accept`/`accept4` need listening socket identity, backlog/queued connection
+  state, accepted peer endpoint state, and target fd mapping.
+
+Missing arguments, missing resource rows, and non-socket fds remain refusals with
+the same code and a specific `detail.reason`. This is refusal tightening only;
+no socket syscall is restarted or emulated.
 
 ## Explicit fd read deferral
 
