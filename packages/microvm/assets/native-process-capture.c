@@ -68,6 +68,8 @@ struct NativeArm64Regs {
 };
 #endif
 
+struct ThreadCapture;
+
 struct SyscallInfo {
   char state[32];
   bool has_number;
@@ -82,12 +84,16 @@ struct SyscallInfo {
 };
 
 static void read_thread_syscall(pid_t tid, struct SyscallInfo *info);
+static void read_thread_simd_fpu(struct ThreadCapture *thread);
 
 struct ThreadCapture {
   pid_t tid;
   bool attached;
   int stop_signal;
   struct SyscallInfo syscall;
+  bool simd_fpu_captured;
+  bool simd_fpu_zero;
+  size_t simd_fpu_size;
 #if defined(__x86_64__)
   struct user_regs_struct amd64_regs;
 #elif defined(__aarch64__)
@@ -414,6 +420,35 @@ static void capture_registers(struct ThreadCapture *thread) {
 #endif
 }
 
+static bool bytes_are_zero(const unsigned char *bytes, size_t len) {
+  for (size_t i = 0; i < len; i++) {
+    if (bytes[i] != 0) {
+      return false;
+    }
+  }
+  return true;
+}
+
+static void read_thread_simd_fpu(struct ThreadCapture *thread) {
+  thread->simd_fpu_captured = false;
+  thread->simd_fpu_zero = false;
+  thread->simd_fpu_size = 0;
+  if (!thread->attached) {
+    return;
+  }
+#if defined(__aarch64__) || defined(__x86_64__)
+  unsigned char fpstate[4096];
+  memset(fpstate, 0, sizeof(fpstate));
+  struct iovec iov = {.iov_base = fpstate, .iov_len = sizeof(fpstate)};
+  if (ptrace(PTRACE_GETREGSET, thread->tid, (void *)NT_PRFPREG, &iov) == 0 &&
+      iov.iov_len <= sizeof(fpstate)) {
+    thread->simd_fpu_captured = true;
+    thread->simd_fpu_size = iov.iov_len;
+    thread->simd_fpu_zero = bytes_are_zero(fpstate, iov.iov_len);
+  }
+#endif
+}
+
 static uint32_t attach_threads(pid_t pid, struct ThreadCapture threads[NATIVE_CAPTURE_MAX_THREADS]) {
   pid_t tids[NATIVE_CAPTURE_MAX_THREADS];
   uint32_t count = list_threads(pid, tids);
@@ -425,6 +460,7 @@ static uint32_t attach_threads(pid_t pid, struct ThreadCapture threads[NATIVE_CA
     read_thread_syscall(threads[i].tid, &threads[i].syscall);
     attach_thread(&threads[i]);
     capture_registers(&threads[i]);
+    read_thread_simd_fpu(&threads[i]);
   }
   return count;
 }
@@ -1148,6 +1184,22 @@ static const char *thread_stack_mapping(
   return mapping_count > 0 ? mappings[0].id : "mapping:0";
 }
 
+static void write_simd_fpu_state(FILE *out, const struct ThreadCapture *thread) {
+  fputs(",\"simdFpu\":", out);
+  if (!thread->simd_fpu_captured) {
+    fputs("{\"state\":\"not-captured\",\"reason\":\"ptrace fpstate unavailable\"}", out);
+    return;
+  }
+  if (thread->simd_fpu_zero) {
+    fputs("{\"state\":\"not-live\",\"provenance\":\"ptrace-zero-fpstate\"}", out);
+    return;
+  }
+  fprintf(out,
+      "{\"state\":\"requires-restore\",\"arch\":\"%s\",\"byteLength\":%zu,\"reason\":\"captured fpstate is non-zero\"}",
+      NATIVE_CAPTURE_ARCH,
+      thread->simd_fpu_size);
+}
+
 static void write_thread(const struct ThreadCapture *thread, FILE *out,
     const struct MappingCapture mappings[NATIVE_CAPTURE_MAX_MAPPINGS], uint32_t mapping_count) {
   fputs("{\"id\":", out);
@@ -1174,6 +1226,7 @@ static void write_thread(const struct ThreadCapture *thread, FILE *out,
   json_hex_u64(out, 0);
 #endif
   fputs(",\"rseq\":{\"state\":\"absent\"}}", out);
+  write_simd_fpu_state(out, thread);
   if (!thread->attached) {
     fputs(",\"refusal\":", out);
     write_refusal(out, "thread-state-unsupported", "ptrace register capture failed for thread");

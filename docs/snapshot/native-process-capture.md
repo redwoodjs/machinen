@@ -45,6 +45,8 @@ The bundle records:
 - syscall state from `/proc/<tid>/syscall`, classified as `outside-syscall`,
   `inside-syscall`, or `restart-block`;
 - signal masks and TLS thread pointer metadata;
+- SIMD/FPU policy state (`not-live` when ptrace FP/SIMD bytes are all zero,
+  otherwise `requires-restore` or `not-captured`);
 - fd table metadata, regular-file reopen recipes, and resource refusals for
   broker-required fd kinds;
 - a pending `native-translation.json` plan.

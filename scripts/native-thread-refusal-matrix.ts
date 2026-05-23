@@ -199,6 +199,27 @@ function restoreRefusalCases(): RestoreRefusalCase[] {
         }
       },
     },
+    {
+      id: "missing-simd-fpu-state",
+      expectedCode: "simd-fpu-state-unsupported",
+      mutate: (thread) => {
+        thread.simdFpu = undefined;
+      },
+    },
+    {
+      id: "live-simd-fpu-state",
+      expectedCode: "simd-fpu-state-unsupported",
+      mutate: (thread) => {
+        thread.simdFpu = { state: "requires-restore", arch: "arm64", byteLength: 528 };
+      },
+    },
+    {
+      id: "unsupported-simd-fpu-state",
+      expectedCode: "simd-fpu-state-unsupported",
+      mutate: (thread) => {
+        thread.simdFpu = { state: "unsupported", reason: "ptrace fpstate unavailable" };
+      },
+    },
   ];
 }
 
@@ -275,6 +296,7 @@ function zeroSignalMaskThread(id: string): NativeThreadState {
     syscall: { state: "outside-syscall" },
     signal: zeroSignalState(),
     tls: { threadPointer: "0xffff0000", rseq: { state: "absent" } },
+    simdFpu: { state: "not-live", provenance: "matrix-zero-fpstate" },
   };
 }
 

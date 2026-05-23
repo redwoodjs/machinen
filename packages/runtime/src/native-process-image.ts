@@ -48,6 +48,7 @@ export const nativeProcessImageRefusalCodes = [
   "rseq-state-unsupported",
   "signal-frame-active",
   "signal-state-unsupported",
+  "simd-fpu-state-unsupported",
   "stdin-buffer-state-unsupported",
   "syscall-argument-state-unsupported",
   "syscall-restart-unsupported",
@@ -213,6 +214,16 @@ export interface NativeAmd64Registers {
 
 export type NativeRegisterState = NativeArm64Registers | NativeAmd64Registers;
 
+export type NativeSimdFpuState =
+  | { state: "not-live"; provenance?: string }
+  | {
+      state: "requires-restore";
+      arch?: NativeProcessImageArchitecture;
+      byteLength?: number;
+      reason?: string;
+    }
+  | { state: "not-captured" | "unsupported"; reason?: string; refusal?: NativeProcessImageRefusal };
+
 export interface NativeThreadState {
   id: string;
   lwpid?: number;
@@ -246,6 +257,7 @@ export interface NativeThreadState {
       refusal?: NativeProcessImageRefusal;
     };
   };
+  simdFpu?: NativeSimdFpuState;
   refusal?: NativeProcessImageRefusal;
 }
 
@@ -757,6 +769,7 @@ function validateThreadEntry(
   validateThreadSyscall(ctx, `${path}.syscall`, thread.syscall);
   validateThreadSignal(ctx, `${path}.signal`, thread.signal);
   validateThreadTls(ctx, `${path}.tls`, thread.tls);
+  validateThreadSimdFpu(ctx, `${path}.simdFpu`, thread.simdFpu);
   if (thread.refusal !== undefined) {
     validateNativeRefusal(ctx, `${path}.refusal`, thread.refusal);
   }
@@ -877,6 +890,26 @@ function validateThreadTls(ctx: NativeValidationContext, path: string, value: un
   nativeEnum(ctx, `${path}.rseq.state`, rseq.state, RSEQ_STATES);
   if (rseq.refusal !== undefined) {
     validateNativeRefusal(ctx, `${path}.rseq.refusal`, rseq.refusal);
+  }
+}
+
+function validateThreadSimdFpu(ctx: NativeValidationContext, path: string, value: unknown): void {
+  if (value === undefined) {
+    return;
+  }
+  const simdFpu = nativeRecord(ctx, path, value);
+  if (!simdFpu) {
+    return;
+  }
+  nativeEnum(ctx, `${path}.state`, simdFpu.state, SIMD_FPU_STATES);
+  nativeOptionalString(ctx, `${path}.provenance`, simdFpu.provenance);
+  nativeOptionalString(ctx, `${path}.reason`, simdFpu.reason);
+  if (simdFpu.arch !== undefined) {
+    nativeArch(ctx, `${path}.arch`, simdFpu.arch);
+  }
+  nativeOptionalNonNegativeInt(ctx, `${path}.byteLength`, simdFpu.byteLength);
+  if (simdFpu.refusal !== undefined) {
+    validateNativeRefusal(ctx, `${path}.refusal`, simdFpu.refusal);
   }
 }
 
@@ -1423,6 +1456,7 @@ const THREAD_STOP_REASONS = ["ptrace-stop", "signal-delivery-stop", "group-stop"
 const SYSCALL_STATES = ["outside-syscall", "inside-syscall", "restart-block"] as const;
 const ALT_STACK_STATES = ["disabled", "enabled", "unsupported"] as const;
 const RSEQ_STATES = ["absent", "captured", "unsupported"] as const;
+const SIMD_FPU_STATES = ["not-live", "requires-restore", "not-captured", "unsupported"] as const;
 const RESOURCE_KINDS = [
   "argv",
   "env",

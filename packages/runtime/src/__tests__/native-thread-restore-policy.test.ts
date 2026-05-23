@@ -85,6 +85,20 @@ describe("native thread restore boundary", () => {
         },
       },
       {
+        id: "missing-simd-fpu-state",
+        expectedCode: "simd-fpu-state-unsupported",
+        mutate: (value) => {
+          value.simdFpu = undefined;
+        },
+      },
+      {
+        id: "live-simd-fpu-state",
+        expectedCode: "simd-fpu-state-unsupported",
+        mutate: (value) => {
+          value.simdFpu = { state: "requires-restore", arch: "arm64", byteLength: 528 };
+        },
+      },
+      {
         id: "futex-resource",
         expectedCode: "futex-state-unsupported",
         resources: [{ id: "resource:futex", kind: "futex", state: "captured" }],
@@ -140,5 +154,6 @@ function thread(id: string): NativeThreadState {
       altStack: { state: "disabled" },
     },
     tls: { threadPointer: "0x0", rseq: { state: "absent" } },
+    simdFpu: { state: "not-live", provenance: "unit-test-zero-fpstate" },
   };
 }
