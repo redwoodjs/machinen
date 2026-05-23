@@ -21,17 +21,24 @@ boot/preload a target-ISA VM, then restore only modeled process/resource state.
 
 ## Current proven point
 
-The current proofs capture live arm64 processes blocked in modeled sleep or
-`ppoll` syscalls, synthesize target-native amd64 syscall bytes, and run those
-bytes on an amd64 host. Sleep and zero-fd `ppoll(NULL, 0, &timeout, NULL)` can
-complete by exiting the target process or returning into a controlled
-trampoline. The active proof extends `ppoll` from zero fds to one explicitly
-modeled synthetic empty pipe read end or empty eventfd. These are narrow
-completion proofs, not arbitrary process or whole-machine migration.
+The current portable machine VM proof captures an arm64 native-process bundle,
+wraps it in a portable machine snapshot, stages target-native amd64 continuation
+bytes, boots an amd64 target VM, and completes through the in-guest restore
+loader without sidecars or source-ISA emulation. The target trampoline now
+consumes native restore sections for stack windows, bounded return-chain writes,
+private memory, executable provenance checks, signal masks, modeled active
+syscall timer re-arm, and controlled thread-spawn steps before reporting success.
 
-The active frontier is generated target-native blocking syscall continuations.
-Broad libc/TLS/vDSO materialization remains deferred until multiple syscall
-families share the same continuation, failure, and provenance shape.
+The latest remote arm64→amd64 proof completed with a real amd64 utility
+continuation returning `0x4d` and passed state-consumption, fd/resource,
+return-chain, translated-frame, register, RFLAGS, TLS, stack-window,
+private-memory, executable-mapping, and signal restore gates. This is still a
+narrow completion proof, not arbitrary process or whole-machine migration.
+
+The active frontier is expanding accepted real-process shapes through this target
+loader path while preserving exact refusals for unsupported kernel/user ABI
+state. Broad libc/vDSO/vvar materialization, arbitrary restart semantics,
+futex/rseq handoff, and general multithread restore remain deferred.
 
 ## Ordered proof ladder
 
@@ -174,21 +181,26 @@ Done when:
 - missing fd resources, non-pipe fds, pipe write ends, wrong events, non-empty
   `revents`, `nfds > 1`, and non-null signal masks refuse precisely.
 
-### 9. Target process memory materialization
+### 9. Target process memory materialization — partial target-loader proof done
 
 Goal: resume more than isolated generated syscall bytes by materializing the
 minimum target process memory needed for real continuation.
 
-Likely subproofs:
+Done so far:
 
-- writable mapping and stack materialization;
-- heap/brk/mmap layout policy;
-- argv/env/auxv/cwd handoff;
-- guard mappings;
-- target libc data dependencies.
+- target private writable ranges are mapped, copied, protected, and guarded from
+  native private-memory sections;
+- target stack-window and bounded return-chain writes are materialized;
+- a minimal target-owned TCB can be backed by native private memory and handed to
+  `%fs`;
+- target executable mappings are verified by target file provenance instead of
+  copying source executable bytes.
 
-TLS, vDSO, and vvar should return here only after syscall-family proofs provide
-comparison points for what must be modeled versus refused.
+Still future work:
+
+- broader heap/brk/mmap layout policy;
+- argv/env/auxv/cwd handoff beyond the current proof fixture;
+- target libc/vDSO/vvar data dependencies.
 
 ### 10. Combined descriptor gate — done
 
@@ -204,16 +216,22 @@ Done when:
 - the descriptor preserves no-source-text, no-source-ISA-emulation, and no-sidecar
   invariants.
 
-### 11. Threads, futexes, and rseq
+### 11. Threads, futexes, and rseq — controlled boundary started
 
 Goal: move from single-thread proofs to controlled multi-thread restore.
 
-Done when:
+Done so far:
 
 - multi-thread state refuses precisely by default;
-- a controlled two-thread proof translates scheduler-visible state safely;
-- futex wait/wake and rseq either model their kernel contracts or refuse with
-  exact blockers.
+- exactly two safe threads can be planned at the boundary;
+- controlled `thread-spawn` target sections are forwarded to the loader and
+  consumed by the amd64 trampoline as short-lived target tasks.
+
+Still future work:
+
+- connect a real two-thread portable bundle/proof case to those target steps;
+- model or refuse futex wait/wake and rseq with exact blockers before claiming
+  general multithread restore.
 
 ### 12. Full transparent restore claim
 
