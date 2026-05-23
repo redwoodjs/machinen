@@ -202,8 +202,10 @@ Done so far:
 Still future work:
 
 - broader heap/brk/mmap layout policy;
-- argv/env/auxv/cwd handoff beyond the current proof fixture;
-- target libc/vDSO/vvar data dependencies.
+- libc/vDSO/vvar data dependencies beyond the bounded target argv/envp/auxv
+  pointer block;
+- target-specific materialization or explicit refusal for `AT_RANDOM`,
+  `AT_EXECFN`, vDSO, and vvar semantics.
 
 ### 10. Combined descriptor gate — done
 
@@ -219,7 +221,7 @@ Done when:
 - the descriptor preserves no-source-text, no-source-ISA-emulation, and no-sidecar
   invariants.
 
-### 11. Threads, futexes, and rseq — controlled target proof done
+### 11. Threads, futexes, and rseq — controlled target proof and refusal tightening done
 
 Goal: move from single-thread proofs to controlled multi-thread restore.
 
@@ -229,14 +231,20 @@ Done so far:
 - exactly two safe threads can be planned at the boundary;
 - controlled `thread-spawn` target sections are forwarded to the loader and
   consumed by the amd64 trampoline as short-lived target tasks;
+- active futex syscalls and futex resources refuse with `futex-state-unsupported`
+  plus detail for word translation, waiter queues, wake/requeue ordering, and
+  robust-list owner-death semantics;
+- captured/unsupported rseq state refuses with `rseq-state-unsupported` plus
+  detail for target registration lifecycle, abort IP translation, and TLS rseq
+  ownership;
 - the remote portable-machine proof captures a real two-thread arm64 source
-  bundle and requires `targetThreadRestoreResult=passed` alongside the other
+  bundle and requires the controlled target thread gate alongside the other
   native gates.
 
 Still future work:
 
-- model or refuse futex wait/wake and rseq with exact blockers before claiming
-  general multithread restore;
+- model futex wait/wake and rseq resume before claiming general multithread
+  restore;
 - preserve exact refusals for scheduler-visible state beyond the controlled
   two-thread proof.
 
@@ -247,9 +255,12 @@ without relaxing the all-gates success contract.
 
 Next steps:
 
-- add more real resource/syscall families with explicit target recipes;
-- extend argv/env/auxv/cwd beyond the current bounded target-side handoff into
-  explicit libc/initial-stack modeling where needed;
+- add more real resource/syscall families with explicit target recipes, starting
+  with cases that avoid readiness ambiguity (for example safe offset-backed
+  regular-file `write`);
+- extend process-context modeling beyond the bounded target argv/envp/auxv
+  pointer block only where libc/vDSO/vvar, `AT_RANDOM`, and `AT_EXECFN`
+  dependencies are explicit;
 - expand private target memory only when provenance, permissions, guards, and
   pointer ownership are explicit;
 - revisit target libc/vDSO/vvar data dependencies after those narrower families

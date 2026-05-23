@@ -8,7 +8,7 @@ without weakening fail-closed boundaries**.
 
 ## Current proven target-loader point
 
-The target VM proof now runs a real amd64 target-native continuation through the
+The target VM proof runs a real amd64 target-native continuation through the
 in-guest restore loader. The success path still preserves the Option B
 invariants:
 
@@ -21,21 +21,25 @@ invariants:
 The following native restore sections are consumed as target-side work before
 completion is reported:
 
-| Native section             | Current target-side behavior                                                                               |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| stack-window writes/guards | writes target stack slots and maps guard pages                                                             |
-| return-chain writes        | writes bounded target return slots                                                                         |
-| private memory             | maps target private ranges, copies captured bytes, applies final permissions, and backs target TLS/TCB     |
-| executable mapping         | verifies target file/path/address/size/offset, executable/private flags, and build-id or sha256 provenance |
-| signal restore             | saves, applies, verifies, and restores the loader signal mask                                              |
-| process context            | carries bounded argv/env/cwd/auxv metadata and can apply/verify controlled target env+cwd                  |
-| active syscall             | arms target-side timerfds for modeled sleep/ppoll timeout continuations                                    |
-| controlled thread spawn    | maps requested stacks and consumes narrow spawn steps with short-lived target tasks                        |
+| Native section             | Current target-side behavior                                                                                                   |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| stack-window writes/guards | writes target stack slots and maps guard pages                                                                                 |
+| return-chain writes        | writes bounded target return slots                                                                                             |
+| private memory             | maps target private ranges, copies captured bytes, applies final permissions, and backs target TLS/TCB                         |
+| executable mapping         | verifies target file/path/address/size/offset, executable/private flags, and build-id or sha256 provenance                     |
+| signal restore             | saves, applies, verifies, and restores the loader signal mask                                                                  |
+| process context            | carries bounded argv/env/cwd/auxv, applies/verifies env+cwd, and can materialize a bounded target argv/envp/auxv pointer block |
+| active syscall             | re-arms modeled sleep/ppoll timers, recreates pipe/eventfd/timerfd read blockers, and completes safe regular-file reads        |
+| controlled thread spawn    | maps requested stacks and consumes narrow spawn steps with short-lived target tasks                                            |
 
-The latest remote arm64→amd64 proof completed with native target execution from
-a two-thread arm64 `ppoll` source bundle. It passed stack, private-memory,
-executable, signal, active-syscall, controlled thread-spawn, register, frame,
-RFLAGS, TLS, state-consumption, fd/resource, and return-chain gates.
+Recent remote arm64→amd64 proofs now cover:
+
+- pipe, eventfd, timerfd, and regular-file active `read` profiles with
+  `targetActiveSyscallRestoreResult=passed`;
+- process-context handoff through the initial-stack pointer block model with
+  `targetProcessContextRestoreResult=passed`;
+- controlled two-thread restore with futex and rseq still fail-closed behind
+  precise refusal detail.
 
 ## Remaining frontier
 
@@ -43,21 +47,23 @@ The next work should expand _accepted process shapes_, not relax the success
 criteria. Good next issues are:
 
 1. Add more real resource/syscall families one at a time, starting with cases
-   whose target fd/resource recipes can be proven without readiness ambiguity.
+   whose target fd/resource recipes can be proven without readiness ambiguity
+   (for example, safe offset-backed regular-file `write`).
 2. Broaden private target memory coverage only where provenance, permissions,
    guards, and pointer ownership are explicit.
-3. Continue argv/env/auxv/cwd work beyond the current bounded handoff: rebuild
-   target argv/environ/auxv stack/global state only where libc dependencies are explicit.
+3. Continue process context work beyond the bounded pointer block: model libc
+   globals/startup expectations only where target libc, vDSO/vvar, `AT_RANDOM`,
+   and `AT_EXECFN` dependencies are explicit.
 4. Revisit target libc/vDSO/vvar data dependencies after the syscall/resource
    cases provide comparison points for what must be materialized versus refused.
-5. Keep futex wait handoff, rseq, arbitrary signal restart, JIT/native code
-   migration, and general scheduler state refused until their kernel/user ABI
-   contracts are modeled.
+5. Keep futex wait handoff, rseq resume, arbitrary signal restart, JIT/native
+   code migration, and general scheduler state refused until their kernel/user
+   ABI contracts are modeled.
 
 ## Deferred frontier
 
 Broad target libc/vDSO/vvar materialization, arbitrary signal restart, futex wait
-handoff, rseq state, JIT/native code migration, and general multithread restore
+handoff, rseq resume, JIT/native code migration, and general multithread restore
 remain deferred. They must keep refusing until their kernel/user ABI contracts
 are modeled precisely.
 
