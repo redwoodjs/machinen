@@ -109,6 +109,8 @@ try {
     targetTranslatedFramePointer: result.targetTranslatedFramePointer ?? '',
     targetThreadRestoreResult: result.targetThreadRestoreResult ?? '',
     targetThreadRestoreThreadId: result.targetThreadRestoreThreadId ?? '',
+    targetResumePathResult: result.targetResumePathResult ?? '',
+    targetResumePathMode: result.targetResumePathMode ?? '',
   }));
 } catch {
   process.stdout.write('{}');

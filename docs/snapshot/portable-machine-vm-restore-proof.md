@@ -57,7 +57,9 @@ the target-native continuation validates the frame before returning through the
 target-native landing. The restore boundary accepts only one safe stopped thread
 for this proof; multi-thread, futex, signal-delivery, ptrace/debug,
 shared-stack, unknown-TLS, and ambiguous register states refuse before the target
-VM is entered.
+VM is entered. The descriptor now uses `resumeMode=translated-frame`, so the
+success path records a target-native resume-path marker after the real
+continuation observes the translated frame and stack.
 
 ## Smoke profile
 
@@ -98,7 +100,9 @@ resource recipe kinds, `targetRestore.targetContinuationKind`,
 `targetRestore.targetFrameRestoreResult`,
 `targetRestore.targetTranslatedFramePointer`,
 `targetRestore.targetThreadRestoreResult`,
-`targetRestore.targetThreadRestoreThreadId`, and
+`targetRestore.targetThreadRestoreThreadId`,
+`targetRestore.targetResumePathResult`,
+`targetRestore.targetResumePathMode`, and
 `targetRestore.targetVerifierResult`. It reports timing for:
 
 1. preflight / optional remote reachability gates;

@@ -45,6 +45,7 @@
 #define STATE_CHECK_TIMERFD UINT64_C(0x40)
 #define TRANSLATED_RETURN_MARKER UINT64_C(0x52455455524e4a50)
 #define TRANSLATED_FRAME_MARKER UINT64_C(0x4652414d45504153)
+#define TRANSLATED_RESUME_MARKER UINT64_C(0x524553554d455041)
 #define MAX_UNWIND_ID 128
 
 struct MemoryMaterialization {
@@ -71,6 +72,8 @@ struct Options {
   uint64_t state_report_address;
   bool has_translated_return_address;
   uint64_t translated_return_address;
+  bool has_resume_mode;
+  char resume_mode[32];
   bool has_translated_frame;
   uint64_t translated_frame_pointer;
   uint64_t translated_frame_cfa;
@@ -108,7 +111,7 @@ static void usage(void) {
       "[--translated-frame-cfa addr] [--translated-frame-return-address-slot addr] "
       "[--translated-frame-return-address addr] [--translated-frame-unwind-id id] "
       "[--translated-frame-callee-r12 addr] [--translated-frame-slot offset:value:class] "
-      "--timeout-seconds n "
+      "[--resume-mode translated-frame] --timeout-seconds n "
       "[--synthetic-empty-pipe-read-fd n] [--synthetic-empty-pipe-write-fd n] "
       "[--synthetic-empty-eventfd n] "
       "[--synthetic-timerfd n] [--set-cloexec-fd n] "
@@ -188,6 +191,15 @@ static void add_materialized_memory(struct Options *opts, const char *spec) {
   mapping->target_start = parse_u64(next_spec_field(&cursor, "target start"), "target start");
   mapping->size = parse_u64(next_spec_field(&cursor, "size"), "size");
   mapping->prot = parse_memory_prot(next_spec_field(&cursor, "permissions"));
+}
+
+static void copy_resume_mode(struct Options *opts, const char *value) {
+  if (!streq(value, "translated-frame")) {
+    fprintf(stderr, "native-actual-resume-trampoline: resume mode is unsupported\n");
+    exit(2);
+  }
+  snprintf(opts->resume_mode, sizeof(opts->resume_mode), "%s", value);
+  opts->has_resume_mode = true;
 }
 
 static void copy_unwind_id(struct Options *opts, const char *value) {
@@ -316,6 +328,11 @@ static struct Options parse_args(int argc, char **argv) {
         usage();
       }
       add_translated_frame_slot(&opts, argv[i]);
+    } else if (streq(argv[i], "--resume-mode")) {
+      if (++i >= argc) {
+        usage();
+      }
+      copy_resume_mode(&opts, argv[i]);
     } else if (streq(argv[i], "--timeout-seconds")) {
       if (++i >= argc) {
         usage();
@@ -668,7 +685,15 @@ static bool address_inside_stack(const struct Options *opts, uint64_t address, u
 
 static void validate_translated_frame_options(const struct Options *opts) {
   if (!opts->has_translated_frame) {
+    if (opts->has_resume_mode) {
+      fprintf(stderr, "native-actual-resume-trampoline: translated resume mode requires a frame\n");
+      exit(2);
+    }
     return;
+  }
+  if (opts->has_resume_mode && !opts->has_state_report_address) {
+    fprintf(stderr, "native-actual-resume-trampoline: translated resume mode requires a state report\n");
+    exit(2);
   }
   if (!opts->has_translated_return_address || opts->translated_frame_return_address != opts->translated_return_address) {
     fprintf(stderr, "native-actual-resume-trampoline: translated frame return address is unresolved\n");
@@ -1017,6 +1042,23 @@ static void print_return_chain(const struct Options *opts) {
       TRANSLATED_RETURN_MARKER);
 }
 
+static void print_resume_path(const struct Options *opts) {
+  if (!opts->has_resume_mode || !opts->has_state_report_address) {
+    return;
+  }
+  uint64_t marker = read_state_report_u64(opts->state_report_address, 40);
+  bool passed = marker == TRANSLATED_RESUME_MARKER;
+  printf(
+      ",\"resumePath\":{\"status\":\"%s\","
+      "\"mode\":\"%s\","
+      "\"reportMarker\":\"0x%" PRIx64 "\","
+      "\"expectedResumeMarker\":\"0x%" PRIx64 "\"}",
+      passed ? "passed" : "failed",
+      opts->resume_mode,
+      marker,
+      TRANSLATED_RESUME_MARKER);
+}
+
 static void print_frame_restoration(const struct Options *opts) {
   if (!opts->has_translated_frame || !opts->has_state_report_address) {
     return;
@@ -1072,6 +1114,7 @@ static void print_return_event(const struct Options *opts) {
   print_state_consumption(opts);
   print_return_chain(opts);
   print_frame_restoration(opts);
+  print_resume_path(opts);
   printf("}\n");
 }
 

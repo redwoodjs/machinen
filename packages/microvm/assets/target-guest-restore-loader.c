@@ -51,6 +51,8 @@ struct Descriptor {
   uint64_t state_report_address;
   bool has_translated_return_address;
   uint64_t translated_return_address;
+  bool has_resume_mode;
+  char resume_mode[32];
   bool has_translated_frame;
   uint64_t translated_frame_pointer;
   uint64_t translated_frame_cfa;
@@ -210,6 +212,12 @@ static void parse_field(struct Descriptor *descriptor, char *line) {
   } else if (streq(key, "translatedReturnAddress")) {
     descriptor->translated_return_address = parse_u64(value, key);
     descriptor->has_translated_return_address = true;
+  } else if (streq(key, "resumeMode")) {
+    if (!streq(value, "translated-frame")) {
+      refuse("target-guest-loader-invalid-continuation", "resume mode is unsupported");
+    }
+    snprintf(descriptor->resume_mode, sizeof(descriptor->resume_mode), "%s", value);
+    descriptor->has_resume_mode = true;
   } else if (streq(key, "timeoutSeconds")) {
     descriptor->timeout_seconds = parse_u64(value, key);
   } else if (streq(key, "stackTargetStart")) {
@@ -538,6 +546,9 @@ static void validate_descriptor(const struct Descriptor *descriptor) {
       descriptor->stack_size == 0 || descriptor->stack_pointer == 0) {
     refuse("target-guest-loader-invalid-continuation", "continuation fields are incomplete");
   }
+  if (descriptor->has_resume_mode && !descriptor->has_translated_frame) {
+    refuse("target-guest-loader-frame-unsupported", "translated resume mode requires a frame");
+  }
   if (descriptor->has_translated_frame &&
       (!descriptor->has_translated_return_address || !descriptor->has_translated_frame_slot ||
           descriptor->translated_frame_return_address != descriptor->translated_return_address)) {
@@ -675,6 +686,10 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   if (descriptor->has_translated_return_address) {
     push_arg(child_argv, &child_argc, "--translated-return-address");
     push_arg(child_argv, &child_argc, translated_return_address);
+  }
+  if (descriptor->has_resume_mode) {
+    push_arg(child_argv, &child_argc, "--resume-mode");
+    push_arg(child_argv, &child_argc, descriptor->resume_mode);
   }
   if (descriptor->has_translated_frame) {
     push_arg(child_argv, &child_argc, "--translated-frame-pointer");

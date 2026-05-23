@@ -18,6 +18,7 @@ targetAddress=0x700300000000
 argument0=0x600000000000
 stateReportAddress=0x600000000000
 translatedReturnAddress=0x700300000080
+resumeMode=translated-frame
 timeoutSeconds=5
 stackTargetStart=0x500000000000
 stackSize=65536
@@ -72,8 +73,9 @@ Everything else fails closed with a precise refusal, currently:
 The existing target-VM synthetic proof now injects the loader and descriptor into
 the amd64 guest and executes the loader instead of invoking the trampoline
 directly. The descriptor may carry an optional `argument0` target register value
-an optional `stateReportAddress`, an optional `translatedReturnAddress`, and an
-optional translated caller frame for real target-native continuation attempts.
+an optional `stateReportAddress`, an optional `translatedReturnAddress`, an
+optional `resumeMode=translated-frame`, and an optional translated caller frame
+for real target-native continuation attempts.
 The state report address lets the trampoline read a small report that the
 continuation writes after consuming restored memory and fd/resource state. The
 translated return address lets the trampoline seed a modeled target return slot
@@ -81,6 +83,7 @@ before the host return slot, so the continuation can return through
 target-native landing code before control comes back to the trampoline. The
 translated frame lets the trampoline materialize a small target stack frame,
 seed `rbp`/`r12`, and require the target code to validate that modeled frame
-state. Completion is credited only when the descriptor gate succeeds and the
-target-native continuation returns/exits in the guest with the expected modeled
-result.
+state. Translated resume mode additionally requires the target code to write a
+resume-path marker after observing the modeled frame/stack state. Completion is
+credited only when the descriptor gate succeeds and the target-native
+continuation returns/exits in the guest with the expected modeled result.
