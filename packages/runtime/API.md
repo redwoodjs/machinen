@@ -109,6 +109,8 @@
 - [`TargetGuestTranslatedFrameRegister`](#targetguesttranslatedframeregister)
 - [`TargetGuestTranslatedFrameRegisterName`](#targetguesttranslatedframeregistername)
 - [`TargetGuestTranslatedFrameSlot`](#targetguesttranslatedframeslot)
+- [`TargetGuestActiveSyscallRestorePlan`](#targetguestactivesyscallrestoreplan)
+- [`TargetGuestActiveSyscallRestoreStep`](#targetguestactivesyscallrestorestep)
 - [`TargetGuestExecutableMappingStep`](#targetguestexecutablemappingstep)
 - [`TargetGuestExecutableMaterializationPlan`](#targetguestexecutablematerializationplan)
 - [`TargetGuestMemoryMaterializationKind`](#targetguestmemorymaterializationkind)
@@ -143,6 +145,7 @@
 - [`serializeTargetGuestRestoreDescriptor`](#serializetargetguestrestoredescriptor)
 - [`parseTargetGuestRestoreDescriptor`](#parsetargetguestrestoredescriptor)
 - [`validateTargetGuestRestoreDescriptor`](#validatetargetguestrestoredescriptor)
+- [`planTargetGuestActiveSyscallRestore`](#plantargetguestactivesyscallrestore)
 - [`planTargetGuestExecutableMaterialization`](#plantargetguestexecutablematerialization)
 - [`planTargetGuestMemoryMaterialization`](#plantargetguestmemorymaterialization)
 - [`planTargetGuestPrivateMemoryRestore`](#plantargetguestprivatememoryrestore)
@@ -13187,6 +13190,18 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ***
 
+### TargetGuestActiveSyscallRestoreStep
+
+> **TargetGuestActiveSyscallRestoreStep** = \{ `action`: `"rearm-sleep-timer"`; `threadId`: `string`; `syscallName`: `string`; `remainingTime`: \{ `seconds`: `string`; `nanoseconds`: `number`; \}; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"rearm-ppoll-timeout"`; `threadId`: `string`; `remainingTime`: \{ `seconds`: `string`; `nanoseconds`: `number`; \}; `nfds`: `0` \| `1`; `resources`: [`NativeModeledPpollTargetResource`](#nativemodeledppolltargetresource)[]; `resumeMode`: `"defer-target-resume"`; \}
+
+***
+
+### TargetGuestActiveSyscallRestorePlan
+
+> **TargetGuestActiveSyscallRestorePlan** = \{ `state`: `"planned"`; `steps`: [`TargetGuestActiveSyscallRestoreStep`](#targetguestactivesyscallrestorestep)[]; `refusals`: \[\]; \} \| \{ `state`: `"refused"`; `steps`: \[\]; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
+
+***
+
 ### TargetGuestMemoryMaterializationKind
 
 > **TargetGuestMemoryMaterializationKind** = `"copy-captured-bytes"` \| `"recreate-guard"`
@@ -16821,6 +16836,22 @@ resolve the binary through the same lookup chain.
 #### Returns
 
 `string`
+
+***
+
+### planTargetGuestActiveSyscallRestore()
+
+> **planTargetGuestActiveSyscallRestore**(`classification`): [`TargetGuestActiveSyscallRestorePlan`](#targetguestactivesyscallrestoreplan)
+
+#### Parameters
+
+##### classification
+
+[`NativeActiveSyscallClassificationResult`](#nativeactivesyscallclassificationresult)
+
+#### Returns
+
+[`TargetGuestActiveSyscallRestorePlan`](#targetguestactivesyscallrestoreplan)
 
 ***
 
