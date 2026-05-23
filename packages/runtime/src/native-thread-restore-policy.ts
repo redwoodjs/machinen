@@ -4,6 +4,10 @@ import {
   type NativeActiveSyscallPolicyOptions,
 } from "./native-active-syscall-policy.ts";
 import { normalizeNativeHex } from "./native-hex.ts";
+import {
+  safeSignalRestoreRefusal,
+  type NativeSignalBlockedMaskPolicy,
+} from "./native-signal-policy.ts";
 import { safeSimdFpuRefusal } from "./native-simd-fpu-policy.ts";
 import {
   safeTlsSegmentBaseRefusal,
@@ -26,6 +30,7 @@ export type NativeThreadRestorePlan =
       threadId: string;
       targetThreadCount: 1;
       activeSyscallContinuations: NativeActiveSyscallContinuation[];
+      signalRestore: { blockedMasks: string[] };
       refusals: [];
     }
   | {
@@ -44,6 +49,9 @@ export interface NativeThreadRestorePlanRequest {
     targetAccessPolicy?: NativeTlsTargetAccessPolicy;
   };
   activeSyscall?: NativeActiveSyscallPolicyOptions;
+  signal?: {
+    blockedMaskPolicy?: NativeSignalBlockedMaskPolicy;
+  };
 }
 
 export function planNativeThreadRestoreBoundary(
@@ -56,13 +64,16 @@ export function planNativeThreadRestoreBoundary(
 
   const thread = request.threads[0]!;
   const activeSyscall = planModeledActiveSyscall(thread, request.activeSyscall);
+  const signalRestore = planThreadSignalRestore(thread, request.signal?.blockedMaskPolicy);
   const refusals = [
     thread.refusal,
     safeStoppedThreadRefusal(thread),
     activeSyscall.refusal,
+    signalRestore.refusal,
     unsafeNativeThreadExecutionState(thread, {
       allowModeledActiveSyscall:
         activeSyscall.continuation !== undefined || activeSyscall.refusal !== undefined,
+      allowBlockedSignalMask: signalRestore.blockedMasks !== undefined,
     }),
     safeTlsRefusal(thread, request.tls),
     safeRegisterRefusal(thread),
@@ -78,6 +89,7 @@ export function planNativeThreadRestoreBoundary(
         threadId: thread.id,
         targetThreadCount: 1,
         activeSyscallContinuations: activeSyscall.continuation ? [activeSyscall.continuation] : [],
+        signalRestore: { blockedMasks: signalRestore.blockedMasks ?? [] },
         refusals: [],
       };
 }
@@ -93,6 +105,16 @@ function planModeledActiveSyscall(
   return classification.continuation
     ? { continuation: classification.continuation }
     : { refusal: classification.refusal };
+}
+
+function planThreadSignalRestore(
+  thread: NativeThreadState,
+  blockedMaskPolicy: NativeSignalBlockedMaskPolicy | undefined,
+): { blockedMasks?: string[]; refusal?: NativeProcessImageRefusal } {
+  const refusal = safeSignalRestoreRefusal({ thread, blockedMaskPolicy });
+  return refusal
+    ? { refusal }
+    : { blockedMasks: thread.signal.blocked.map((mask) => `0x${BigInt(mask).toString(16)}`) };
 }
 
 function singleThreadRefusal(threads: NativeThreadState[]): NativeProcessImageRefusal | undefined {

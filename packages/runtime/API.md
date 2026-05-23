@@ -150,6 +150,9 @@
 - [`NativeTlsAmd64SegmentBases`](#nativetlsamd64segmentbases)
 - [`NativeThreadRestorePlan`](#nativethreadrestoreplan)
 - [`NativeThreadRestorePlanRequest`](#nativethreadrestoreplanrequest)
+- [`NativeSignalBlockedMaskPolicy`](#nativesignalblockedmaskpolicy)
+- [`NativeSignalRestorePolicyRequest`](#nativesignalrestorepolicyrequest)
+- [`NativeSignalRestorePolicyResult`](#nativesignalrestorepolicyresult)
 - [`NativeSimdFpuLiveSubsetPolicy`](#nativesimdfpulivesubsetpolicy)
 - [`NativeSimdFpuRestorePolicyResult`](#nativesimdfpurestorepolicyresult)
 - [`NativeThreadTlsPolicyRequest`](#nativethreadtlspolicyrequest)
@@ -158,6 +161,8 @@
 - [`NativeTlsTargetAccessPolicy`](#nativetlstargetaccesspolicy)
 - [`translateNativeRegisterState`](#translatenativeregisterstate)
 - [`planNativeThreadRestoreBoundary`](#plannativethreadrestoreboundary)
+- [`planNativeSignalRestorePolicy`](#plannativesignalrestorepolicy)
+- [`safeSignalRestoreRefusal`](#safesignalrestorerefusal)
 - [`NATIVE_SIMD_FPU_LIVE_SUBSET_POLICY`](#native_simd_fpu_live_subset_policy)
 - [`planNativeSimdFpuLiveSubsetPolicy`](#plannativesimdfpulivesubsetpolicy)
 - [`planNativeSimdFpuRestorePolicy`](#plannativesimdfpurestorepolicy)
@@ -5370,6 +5375,20 @@ by default when `output` is a TTY.
 
 ***
 
+### NativeSignalRestorePolicyRequest
+
+#### Properties
+
+##### thread
+
+> **thread**: [`NativeThreadState`](#nativethreadstate)
+
+##### blockedMaskPolicy?
+
+> `optional` **blockedMaskPolicy?**: [`NativeSignalBlockedMaskPolicy`](#nativesignalblockedmaskpolicy)
+
+***
+
 ### NativeSimdFpuLiveSubsetPolicy
 
 #### Properties
@@ -8284,6 +8303,14 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 ##### activeSyscall?
 
 > `optional` **activeSyscall?**: [`NativeActiveSyscallPolicyOptions`](#nativeactivesyscallpolicyoptions)
+
+##### signal?
+
+> `optional` **signal?**: `object`
+
+###### blockedMaskPolicy?
+
+> `optional` **blockedMaskPolicy?**: [`NativeSignalBlockedMaskPolicy`](#nativesignalblockedmaskpolicy)
 
 ***
 
@@ -12452,6 +12479,18 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativeSignalBlockedMaskPolicy
+
+> **NativeSignalBlockedMaskPolicy** = `"require-empty"` \| `"restore-safe-mask"`
+
+***
+
+### NativeSignalRestorePolicyResult
+
+> **NativeSignalRestorePolicyResult** = \{ `state`: `"accepted"`; `threadId`: `string`; `blockedMaskPolicy`: [`NativeSignalBlockedMaskPolicy`](#nativesignalblockedmaskpolicy); `targetBlockedMasks`: `string`[]; `refusals`: \[\]; \} \| \{ `state`: `"refused"`; `threadId`: `string`; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
+
+***
+
 ### NativeSimdFpuRestorePolicyResult
 
 > **NativeSimdFpuRestorePolicyResult** = \{ `state`: `"accepted"`; `threadId`: `string`; `policy`: `"not-live"`; `refusals`: \[\]; \} \| \{ `state`: `"refused"`; `threadId`: `string`; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
@@ -12598,7 +12637,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NativeThreadRestorePlan
 
-> **NativeThreadRestorePlan** = \{ `state`: `"accepted"`; `threadId`: `string`; `targetThreadCount`: `1`; `activeSyscallContinuations`: [`NativeActiveSyscallContinuation`](#nativeactivesyscallcontinuation)[]; `refusals`: \[\]; \} \| \{ `state`: `"refused"`; `targetThreadCount`: `number`; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
+> **NativeThreadRestorePlan** = \{ `state`: `"accepted"`; `threadId`: `string`; `targetThreadCount`: `1`; `activeSyscallContinuations`: [`NativeActiveSyscallContinuation`](#nativeactivesyscallcontinuation)[]; `signalRestore`: \{ `blockedMasks`: `string`[]; \}; `refusals`: \[\]; \} \| \{ `state`: `"refused"`; `targetThreadCount`: `number`; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; \}
 
 ***
 
@@ -15179,6 +15218,38 @@ available.
 #### Returns
 
 [`NativeReturnChainPlan`](#nativereturnchainplan)
+
+***
+
+### planNativeSignalRestorePolicy()
+
+> **planNativeSignalRestorePolicy**(`request`): [`NativeSignalRestorePolicyResult`](#nativesignalrestorepolicyresult)
+
+#### Parameters
+
+##### request
+
+[`NativeSignalRestorePolicyRequest`](#nativesignalrestorepolicyrequest)
+
+#### Returns
+
+[`NativeSignalRestorePolicyResult`](#nativesignalrestorepolicyresult)
+
+***
+
+### safeSignalRestoreRefusal()
+
+> **safeSignalRestoreRefusal**(`request`): [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
+
+#### Parameters
+
+##### request
+
+[`NativeSignalRestorePolicyRequest`](#nativesignalrestorepolicyrequest)
+
+#### Returns
+
+[`NativeProcessImageRefusal`](#nativeprocessimagerefusal)
 
 ***
 

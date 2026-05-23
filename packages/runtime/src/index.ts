@@ -129,6 +129,7 @@ export {
 export { planNativeTargetFrameStateMaterialization } from "./native-target-frame-state.ts";
 export { planNativeSyntheticTargetCallerFrame } from "./native-target-caller-frame.ts";
 export { planNativeThreadRestoreBoundary } from "./native-thread-restore-policy.ts";
+export { planNativeSignalRestorePolicy, safeSignalRestoreRefusal } from "./native-signal-policy.ts";
 export {
   NATIVE_SIMD_FPU_LIVE_SUBSET_POLICY,
   planNativeSimdFpuLiveSubsetPolicy,
@@ -534,6 +535,11 @@ export type {
   NativeThreadRestorePlan,
   NativeThreadRestorePlanRequest,
 } from "./native-thread-restore-policy.ts";
+export type {
+  NativeSignalBlockedMaskPolicy,
+  NativeSignalRestorePolicyRequest,
+  NativeSignalRestorePolicyResult,
+} from "./native-signal-policy.ts";
 export type {
   NativeSimdFpuLiveSubsetPolicy,
   NativeSimdFpuRestorePolicyResult,
