@@ -348,6 +348,7 @@ function targetVerifierResult(
     events.nativeExecutableMapping,
     events.nativeSignalRestore,
     events.nativeActiveSyscallRestore,
+    events.nativeThreadRestore,
   )
     ? "passed"
     : "failed";
@@ -453,6 +454,7 @@ function targetVerifierPassed(
   nativeExecutableMapping: TargetNativeConsumptionEvent | undefined,
   nativeSignalRestore: TargetNativeConsumptionEvent | undefined,
   nativeActiveSyscallRestore: TargetNativeConsumptionEvent | undefined,
+  nativeThreadRestore: TargetNativeConsumptionEvent | undefined,
 ): boolean {
   return [
     targetProcessCompleted(exitCode, descriptorGateCompleted),
@@ -469,6 +471,7 @@ function targetVerifierPassed(
       nativeExecutableMapping,
       nativeSignalRestore,
       nativeActiveSyscallRestore,
+      nativeThreadRestore,
     }),
     targetReturnValueMatched(args, actualResumeEvent),
   ].every(Boolean);

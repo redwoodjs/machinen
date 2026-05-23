@@ -4,6 +4,8 @@ import type {
   NativeProcessResource,
   NativeThreadState,
 } from "./native-process-image.ts";
+import type { NativeActiveSyscallPolicyOptions } from "./native-active-syscall-policy.ts";
+import type { NativeSignalBlockedMaskPolicy } from "./native-signal-policy.ts";
 import {
   planNativeThreadRestoreBoundary,
   type NativeThreadRestorePlan,
@@ -30,6 +32,10 @@ export interface NativeControlledTwoThreadRestorePlanRequest {
   threads: NativeThreadState[];
   mappings: NativeMemoryMapping[];
   resources?: NativeProcessResource[];
+  activeSyscall?: NativeActiveSyscallPolicyOptions;
+  signal?: {
+    blockedMaskPolicy?: NativeSignalBlockedMaskPolicy;
+  };
 }
 
 export function planNativeControlledTwoThreadRestoreBoundary(
@@ -47,6 +53,8 @@ export function planNativeControlledTwoThreadRestoreBoundary(
       threads: [thread],
       mappings: request.mappings,
       resources: nonFutexResources(request.resources ?? []),
+      activeSyscall: request.activeSyscall,
+      signal: request.signal,
     }),
   );
   const threadRefusals = threadPlans.flatMap((plan) =>

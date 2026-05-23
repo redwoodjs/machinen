@@ -8699,6 +8699,18 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 > `optional` **resources?**: [`NativeProcessResource`](#nativeprocessresource)[]
 
+##### activeSyscall?
+
+> `optional` **activeSyscall?**: [`NativeActiveSyscallPolicyOptions`](#nativeactivesyscallpolicyoptions)
+
+##### signal?
+
+> `optional` **signal?**: `object`
+
+###### blockedMaskPolicy?
+
+> `optional` **blockedMaskPolicy?**: [`NativeSignalBlockedMaskPolicy`](#nativesignalblockedmaskpolicy)
+
 ***
 
 ### NativeUnwindFrameRule

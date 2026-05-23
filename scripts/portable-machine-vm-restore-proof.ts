@@ -19,6 +19,7 @@ import type { NativeRealUtilityTargetModule } from "../packages/runtime/src/nati
 import { materializeNativeTargetModuleBytes } from "../packages/runtime/src/native-target-module-bytes.ts";
 import { matchNativeTargetUnwindFrame } from "../packages/runtime/src/native-target-unwind.ts";
 import { planNativeThreadRestoreBoundary } from "../packages/runtime/src/native-thread-restore-policy.ts";
+import { planNativeControlledTwoThreadRestoreBoundary } from "../packages/runtime/src/native-two-thread-boundary.ts";
 import { validatePortableMachineSnapshotBundle } from "../packages/runtime/src/portable-machine-snapshot.ts";
 import { planTargetGuestActiveSyscallRestore } from "../packages/runtime/src/target-guest-active-syscall-restore.ts";
 import { planTargetGuestMemoryMaterialization } from "../packages/runtime/src/target-guest-memory-materialization.ts";
@@ -28,6 +29,10 @@ import {
   type TargetGuestNativeRestoreStep,
   type TargetGuestTranslatedFrameDescriptor,
 } from "../packages/runtime/src/target-guest-restore-loader.ts";
+import {
+  planTargetGuestTwoThreadRestore,
+  type TargetGuestTwoThreadSpawnStep,
+} from "../packages/runtime/src/target-guest-two-thread-restore.ts";
 import { FINAL_JUMP_EXPECTED_RETURN, FINAL_JUMP_RETURN_MARKER } from "./native-final-jump-utils.ts";
 
 interface Args {
@@ -87,6 +92,7 @@ interface CombinedDescriptorContext extends CombinedDescriptorPaths {
     ReturnType<typeof planTargetGuestActiveSyscallRestore>,
     { state: "planned" }
   >["steps"];
+  targetThreadSpawnSteps: TargetGuestTwoThreadSpawnStep[];
 }
 
 interface PreparedTargetContinuation {
@@ -100,6 +106,23 @@ interface PreparedTargetContinuation {
   expectedReturnValue?: string;
   targetModuleBytesSource?: string;
 }
+
+type AcceptedThreadPlan = Extract<
+  ReturnType<typeof planNativeThreadRestoreBoundary>,
+  { state: "accepted" }
+>;
+type ActiveSyscallContinuations = AcceptedThreadPlan["activeSyscallContinuations"];
+
+type ProofThreadContext =
+  | {
+      state: "accepted";
+      threadId: string;
+      signalBlockedMasks: string[];
+      activeSyscallContinuations: ActiveSyscallContinuations;
+      threadSpawnSteps: TargetGuestTwoThreadSpawnStep[];
+      refusals: [];
+    }
+  | { state: "refused"; refusals: Array<{ code: string; message: string }> };
 
 const GUEST_CODE = "/tmp/machinen-target-bytes.bin";
 const GUEST_MEMORY = "/tmp/machinen-combined-native-memory.bin";
@@ -147,6 +170,8 @@ const RESUME_RFLAGS_MARKER = 0x52464c4147534f4bn;
 const TLS_RESTORE_MARKER = 0x544c534f4b504153n;
 const TLS_TCB_MARKER = 0x5443425041534f4bn;
 const TARGET_TLS_BASE = "0x600000000300";
+const TARGET_THREAD_STACK_BASES = ["0x530000000000", "0x530000020000"] as const;
+const TARGET_THREAD_STACK_LIMITS = ["0x530000010000", "0x530000030000"] as const;
 const RESUME_RFLAGS = "0x8d7";
 const RESUME_REGISTER_RAX = "0x2121212121212121";
 const RESUME_REGISTER_RDI = "0x7171717171717171";
@@ -357,9 +382,9 @@ function combinedDescriptorContext(
   plan: ReturnType<typeof planPortableMachineVmRestoreProof>,
 ): CombinedDescriptorContext | ReturnType<typeof planPortableMachineVmRestoreProof> {
   const bundle = validatePortableMachineSnapshotBundle(args.bundleDir!);
-  const threadPlan = proofThreadPlan(bundle);
-  if (threadPlan.state === "refused") {
-    return firstRefusedPlan(plan, threadPlan.refusals);
+  const threads = proofThreadContext(bundle);
+  if (threads.state === "refused") {
+    return firstRefusedPlan(plan, threads.refusals);
   }
   const memory = proofMemorySelection(bundle);
   if (!memory.mapping) {
@@ -369,16 +394,17 @@ function combinedDescriptorContext(
       "portable machine proof needs one safe captured writable memory page",
     );
   }
-  const activeSyscallPlan = proofActiveSyscallPlan(threadPlan.activeSyscallContinuations);
+  const activeSyscallPlan = proofActiveSyscallPlan(threads.activeSyscallContinuations);
   if (activeSyscallPlan.state === "refused") {
     return firstRefusedPlan(plan, activeSyscallPlan.refusals);
   }
   const context = {
     ...combinedDescriptorPaths(args, memory.file, memory.sizeBytes, memory.mapping),
-    targetThreadRestoreResult: threadPlan.state,
-    targetThreadRestoreThreadId: threadPlan.threadId,
-    targetSignalBlockedMasks: threadPlan.signalRestore.blockedMasks,
+    targetThreadRestoreResult: threads.state,
+    targetThreadRestoreThreadId: threads.threadId,
+    targetSignalBlockedMasks: threads.signalBlockedMasks,
     targetActiveSyscallSteps: activeSyscallPlan.steps,
+    targetThreadSpawnSteps: threads.threadSpawnSteps,
   };
   return contextAfterPathCheck(plan, bundle.rootDir!, context);
 }
@@ -392,19 +418,82 @@ function contextAfterPathCheck(
   return pathRefusal ? refusedPlan(plan, pathRefusal.code, pathRefusal.message) : context;
 }
 
-function proofThreadPlan(bundle: ReturnType<typeof validatePortableMachineSnapshotBundle>) {
-  return planNativeThreadRestoreBoundary({
-    threads: bundle.nativeProcessImage.threads.threads,
+function proofThreadContext(
+  bundle: ReturnType<typeof validatePortableMachineSnapshotBundle>,
+): ProofThreadContext {
+  const threads = bundle.nativeProcessImage.threads.threads;
+  if (threads.length === 2) {
+    return proofTwoThreadContext(bundle);
+  }
+  const plan = planNativeThreadRestoreBoundary({
+    threads,
     mappings: bundle.nativeProcessImage.mappings.mappings,
     resources: bundle.nativeProcessImage.resources.resources,
     tls: { targetFsBase: TARGET_TLS_BASE, targetAccessPolicy: "target-tcb-materialized" },
-    activeSyscall: {
-      sleepTimerPolicy: "defer-target-resume",
-      pollTimeoutPolicy: "defer-target-resume",
-      pollTimeoutFdPolicy: "synthetic-timerfd",
-      documents: bundle.nativeProcessImage,
-    },
+    activeSyscall: activeSyscallPolicy(bundle),
   });
+  return plan.state === "accepted"
+    ? {
+        state: "accepted",
+        threadId: plan.threadId,
+        signalBlockedMasks: plan.signalRestore.blockedMasks,
+        activeSyscallContinuations: plan.activeSyscallContinuations,
+        threadSpawnSteps: [],
+        refusals: [],
+      }
+    : plan;
+}
+
+function proofTwoThreadContext(
+  bundle: ReturnType<typeof validatePortableMachineSnapshotBundle>,
+): ProofThreadContext {
+  const boundary = planNativeControlledTwoThreadRestoreBoundary({
+    threads: bundle.nativeProcessImage.threads.threads,
+    mappings: bundle.nativeProcessImage.mappings.mappings,
+    resources: bundle.nativeProcessImage.resources.resources,
+    activeSyscall: activeSyscallPolicy(bundle),
+  });
+  if (boundary.state === "refused") {
+    return boundary;
+  }
+  const spawnPlan = planTargetGuestTwoThreadRestore(
+    boundary,
+    proofTwoThreadBindings(boundary.threadIds),
+  );
+  if (spawnPlan.state === "refused") {
+    return spawnPlan;
+  }
+  return {
+    state: "accepted",
+    threadId: boundary.threadIds.join(","),
+    signalBlockedMasks: boundary.threadPlans[0].signalRestore.blockedMasks,
+    activeSyscallContinuations: boundary.threadPlans.flatMap(
+      (threadPlan) => threadPlan.activeSyscallContinuations,
+    ),
+    threadSpawnSteps: spawnPlan.steps,
+    refusals: [],
+  };
+}
+
+function activeSyscallPolicy(bundle: ReturnType<typeof validatePortableMachineSnapshotBundle>) {
+  return {
+    sleepTimerPolicy: "defer-target-resume" as const,
+    pollTimeoutPolicy: "defer-target-resume" as const,
+    pollTimeoutFdPolicy: "synthetic-timerfd" as const,
+    documents: bundle.nativeProcessImage,
+  };
+}
+
+function proofTwoThreadBindings(threadIds: [string, string]) {
+  return threadIds.map((threadId, index) => ({
+    threadId,
+    stackBase: TARGET_THREAD_STACK_BASES[index],
+    stackLimit: TARGET_THREAD_STACK_LIMITS[index],
+    registers: {
+      rip: "0x700300000000",
+      rsp: TARGET_THREAD_STACK_LIMITS[index],
+    },
+  }));
 }
 
 function proofMemorySelection(bundle: ReturnType<typeof validatePortableMachineSnapshotBundle>) {
@@ -507,6 +596,7 @@ function proofNativeRestoreSections(
     ...proofExecutableNativeSections(targetContinuation),
     ...proofSignalNativeSections(context),
     ...proofActiveSyscallNativeSections(context),
+    ...proofThreadSpawnNativeSections(context),
   ];
 }
 
@@ -635,6 +725,15 @@ function proofActiveSyscallNativeSections(
 ): TargetGuestNativeRestoreStep[] {
   return context.targetActiveSyscallSteps.map((step) => ({
     section: "active-syscall" as const,
+    step,
+  }));
+}
+
+function proofThreadSpawnNativeSections(
+  context: CombinedDescriptorContext,
+): TargetGuestNativeRestoreStep[] {
+  return context.targetThreadSpawnSteps.map((step) => ({
+    section: "thread-spawn" as const,
     step,
   }));
 }
