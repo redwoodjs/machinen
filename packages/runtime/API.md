@@ -339,9 +339,13 @@
 - [`classifyNativeTargetResumeExecutionAttempt`](#classifynativetargetresumeexecutionattempt)
 - [`planNativeTargetResumeExecution`](#plannativetargetresumeexecution)
 - [`NativeStackFrame`](#nativestackframe)
+- [`NativeStackPointerRange`](#nativestackpointerrange)
 - [`NativeStackSlot`](#nativestackslot)
 - [`NativeStackTranslationRequest`](#nativestacktranslationrequest)
 - [`NativeStackTranslationResult`](#nativestacktranslationresult)
+- [`NativeStackWindowMaterializationPlan`](#nativestackwindowmaterializationplan)
+- [`NativeStackWindowMaterializationRequest`](#nativestackwindowmaterializationrequest)
+- [`planNativeStackWindowMaterialization`](#plannativestackwindowmaterialization)
 - [`translateNativeStack`](#translatenativestack)
 - [`NativeUnwindFrameRule`](#nativeunwindframerule)
 - [`NativeUnwindStackWord`](#nativeunwindstackword)
@@ -3588,7 +3592,7 @@ by default when `output` is a TTY.
 
 ##### code
 
-> **code**: `"active-syscall"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"blocking-syscall-state-unsupported"` \| `"code-location-unknown"` \| `"fd-kind-unsupported"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-captured-range-unsupported"` \| `"mapping-executable-unsupported"` \| `"mapping-permission-unsupported"` \| `"mapping-provenance-ambiguous"` \| `"mapping-shared-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"simd-fpu-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"syscall-argument-state-unsupported"` \| `"syscall-restart-unsupported"` \| `"target-build-id-mismatch"` \| `"target-build-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-caller-frame-unavailable"` \| `"target-code-rva-unmapped"` \| `"target-fd-table-duplicate"` \| `"target-fd-table-missing"` \| `"target-frame-layout-unsupported"` \| `"target-frame-register-value-unavailable"` \| `"target-module-bytes-missing"` \| `"target-module-file-missing"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-module-range-unreadable"` \| `"target-ppoll-syscall-continuation-missing"` \| `"target-ppoll-timeout-missing"` \| `"target-return-slot-unsupported"` \| `"target-resume-execution-unavailable"` \| `"target-resume-fault-invalid-code-landing"` \| `"target-resume-fault-outside-target-bytes"` \| `"target-resume-fault-privileged-instruction"` \| `"target-resume-fault-signal-unsupported"` \| `"target-resume-fault-timeout"` \| `"target-resume-fault-unmodeled-memory"` \| `"target-semantic-continuation-missing"` \| `"target-sleep-remaining-time-missing"` \| `"target-sleep-signal-restart-unsupported"` \| `"target-sleep-syscall-continuation-missing"` \| `"target-synthetic-signal-interrupted-unsupported"` \| `"target-synthetic-signal-restart-unsupported"` \| `"target-synthetic-syscall-return-unmodeled"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
+> **code**: `"active-syscall"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"blocking-syscall-state-unsupported"` \| `"code-location-unknown"` \| `"fd-kind-unsupported"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-captured-range-unsupported"` \| `"mapping-executable-unsupported"` \| `"mapping-permission-unsupported"` \| `"mapping-provenance-ambiguous"` \| `"mapping-shared-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"simd-fpu-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"syscall-argument-state-unsupported"` \| `"syscall-restart-unsupported"` \| `"target-build-id-mismatch"` \| `"target-build-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-caller-frame-unavailable"` \| `"target-code-rva-unmapped"` \| `"target-fd-table-duplicate"` \| `"target-fd-table-missing"` \| `"target-frame-layout-unsupported"` \| `"target-frame-register-value-unavailable"` \| `"target-module-bytes-missing"` \| `"target-module-file-missing"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-module-range-unreadable"` \| `"target-ppoll-syscall-continuation-missing"` \| `"target-ppoll-timeout-missing"` \| `"target-return-slot-unsupported"` \| `"target-resume-execution-unavailable"` \| `"target-resume-fault-invalid-code-landing"` \| `"target-resume-fault-outside-target-bytes"` \| `"target-resume-fault-privileged-instruction"` \| `"target-resume-fault-signal-unsupported"` \| `"target-resume-fault-timeout"` \| `"target-resume-fault-unmodeled-memory"` \| `"target-semantic-continuation-missing"` \| `"target-sleep-remaining-time-missing"` \| `"target-sleep-signal-restart-unsupported"` \| `"target-sleep-syscall-continuation-missing"` \| `"target-stack-window-unsupported"` \| `"target-synthetic-signal-interrupted-unsupported"` \| `"target-synthetic-signal-restart-unsupported"` \| `"target-synthetic-syscall-return-unmodeled"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
 
 ##### message
 
@@ -5246,6 +5250,10 @@ by default when `output` is a TTY.
 
 ### NativeStackTranslationRequest
 
+#### Extended by
+
+- [`NativeStackWindowMaterializationRequest`](#nativestackwindowmaterializationrequest)
+
 #### Properties
 
 ##### stackMapping
@@ -5281,6 +5289,152 @@ by default when `output` is a TTY.
 ##### targetStackSizeBytes
 
 > **targetStackSizeBytes**: `number`
+
+##### relocations
+
+> **relocations**: [`NativeMemoryRelocation`](#nativememoryrelocation)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
+### NativeStackPointerRange
+
+#### Properties
+
+##### id
+
+> **id**: `string`
+
+##### targetBase
+
+> **targetBase**: `string`
+
+##### targetLimit
+
+> **targetLimit**: `string`
+
+***
+
+### NativeStackWindowMaterializationRequest
+
+#### Extends
+
+- [`NativeStackTranslationRequest`](#nativestacktranslationrequest)
+
+#### Properties
+
+##### stackMapping
+
+> **stackMapping**: `string`
+
+###### Inherited from
+
+[`NativeStackTranslationRequest`](#nativestacktranslationrequest).[`stackMapping`](#stackmapping-1)
+
+##### targetStackBase
+
+> **targetStackBase**: `string`
+
+###### Inherited from
+
+[`NativeStackTranslationRequest`](#nativestacktranslationrequest).[`targetStackBase`](#targetstackbase)
+
+##### frames
+
+> **frames**: [`NativeStackFrame`](#nativestackframe)[]
+
+###### Inherited from
+
+[`NativeStackTranslationRequest`](#nativestacktranslationrequest).[`frames`](#frames)
+
+##### codeLocations
+
+> **codeLocations**: [`NativeCodeLocationMapping`](#nativecodelocationmapping)[]
+
+###### Inherited from
+
+[`NativeStackTranslationRequest`](#nativestacktranslationrequest).[`codeLocations`](#codelocations-6)
+
+##### sourceStackBase
+
+> **sourceStackBase**: `string`
+
+##### sourceStackLimit
+
+> **sourceStackLimit**: `string`
+
+##### targetStackLimit
+
+> **targetStackLimit**: `string`
+
+##### guardBelowAddress
+
+> **guardBelowAddress**: `string`
+
+##### guardAboveAddress
+
+> **guardAboveAddress**: `string`
+
+##### pointerRanges
+
+> **pointerRanges**: [`NativeStackPointerRange`](#nativestackpointerrange)[]
+
+***
+
+### NativeStackWindowMaterializationPlan
+
+#### Properties
+
+##### state
+
+> **state**: `"refused"` \| `"materialized"`
+
+##### stackMapping
+
+> **stackMapping**: `string`
+
+##### sourceWindow
+
+> **sourceWindow**: `object`
+
+###### base
+
+> **base**: `string`
+
+###### limit
+
+> **limit**: `string`
+
+##### targetWindow
+
+> **targetWindow**: `object`
+
+###### base
+
+> **base**: `string`
+
+###### limit
+
+> **limit**: `string`
+
+###### sizeBytes
+
+> **sizeBytes**: `number`
+
+##### guards
+
+> **guards**: `object`
+
+###### below
+
+> **below**: `string`
+
+###### above
+
+> **above**: `string`
 
 ##### relocations
 
@@ -12956,7 +13110,7 @@ loops; anything looser stops being a meaningful gate.
 
 ### nativeProcessImageRefusalCodes
 
-> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"blocking-syscall-state-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"inherited-stdio-policy-required"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-captured-range-unsupported"`, `"mapping-executable-unsupported"`, `"mapping-permission-unsupported"`, `"mapping-provenance-ambiguous"`, `"mapping-shared-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"non-stdio-kernel-state-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"simd-fpu-state-unsupported"`, `"stdin-buffer-state-unsupported"`, `"syscall-argument-state-unsupported"`, `"syscall-restart-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-callee-saved-state-unsupported"`, `"target-caller-frame-unavailable"`, `"target-code-rva-unmapped"`, `"target-fd-table-duplicate"`, `"target-fd-table-missing"`, `"target-frame-layout-unsupported"`, `"target-frame-register-value-unavailable"`, `"target-module-bytes-missing"`, `"target-module-file-missing"`, `"target-module-missing"`, `"target-module-not-executable"`, `"target-module-range-unreadable"`, `"target-ppoll-syscall-continuation-missing"`, `"target-ppoll-timeout-missing"`, `"target-return-slot-unsupported"`, `"target-resume-execution-unavailable"`, `"target-resume-fault-invalid-code-landing"`, `"target-resume-fault-outside-target-bytes"`, `"target-resume-fault-privileged-instruction"`, `"target-resume-fault-signal-unsupported"`, `"target-resume-fault-timeout"`, `"target-resume-fault-unmodeled-memory"`, `"target-semantic-continuation-missing"`, `"target-sleep-remaining-time-missing"`, `"target-sleep-signal-restart-unsupported"`, `"target-sleep-syscall-continuation-missing"`, `"target-synthetic-signal-interrupted-unsupported"`, `"target-synthetic-signal-restart-unsupported"`, `"target-synthetic-syscall-return-unmodeled"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
+> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"blocking-syscall-state-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"inherited-stdio-policy-required"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-captured-range-unsupported"`, `"mapping-executable-unsupported"`, `"mapping-permission-unsupported"`, `"mapping-provenance-ambiguous"`, `"mapping-shared-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"non-stdio-kernel-state-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"simd-fpu-state-unsupported"`, `"stdin-buffer-state-unsupported"`, `"syscall-argument-state-unsupported"`, `"syscall-restart-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-callee-saved-state-unsupported"`, `"target-caller-frame-unavailable"`, `"target-code-rva-unmapped"`, `"target-fd-table-duplicate"`, `"target-fd-table-missing"`, `"target-frame-layout-unsupported"`, `"target-frame-register-value-unavailable"`, `"target-module-bytes-missing"`, `"target-module-file-missing"`, `"target-module-missing"`, `"target-module-not-executable"`, `"target-module-range-unreadable"`, `"target-ppoll-syscall-continuation-missing"`, `"target-ppoll-timeout-missing"`, `"target-return-slot-unsupported"`, `"target-resume-execution-unavailable"`, `"target-resume-fault-invalid-code-landing"`, `"target-resume-fault-outside-target-bytes"`, `"target-resume-fault-privileged-instruction"`, `"target-resume-fault-signal-unsupported"`, `"target-resume-fault-timeout"`, `"target-resume-fault-unmodeled-memory"`, `"target-semantic-continuation-missing"`, `"target-sleep-remaining-time-missing"`, `"target-sleep-signal-restart-unsupported"`, `"target-sleep-syscall-continuation-missing"`, `"target-stack-window-unsupported"`, `"target-synthetic-signal-interrupted-unsupported"`, `"target-synthetic-signal-restart-unsupported"`, `"target-synthetic-syscall-return-unmodeled"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
 
 ***
 
@@ -14867,6 +15021,22 @@ available.
 #### Returns
 
 [`NativeStackTranslationResult`](#nativestacktranslationresult)
+
+***
+
+### planNativeStackWindowMaterialization()
+
+> **planNativeStackWindowMaterialization**(`request`): [`NativeStackWindowMaterializationPlan`](#nativestackwindowmaterializationplan)
+
+#### Parameters
+
+##### request
+
+[`NativeStackWindowMaterializationRequest`](#nativestackwindowmaterializationrequest)
+
+#### Returns
+
+[`NativeStackWindowMaterializationPlan`](#nativestackwindowmaterializationplan)
 
 ***
 

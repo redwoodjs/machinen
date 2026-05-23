@@ -370,12 +370,18 @@ export type {
   NativeTargetFdTablePlan,
   NativeTargetFdTablePlanRequest,
 } from "./native-resource-translation.ts";
-export { translateNativeStack } from "./native-stack-translation.ts";
+export {
+  planNativeStackWindowMaterialization,
+  translateNativeStack,
+} from "./native-stack-translation.ts";
 export type {
   NativeStackFrame,
+  NativeStackPointerRange,
   NativeStackSlot,
   NativeStackTranslationRequest,
   NativeStackTranslationResult,
+  NativeStackWindowMaterializationPlan,
+  NativeStackWindowMaterializationRequest,
 } from "./native-stack-translation.ts";
 export {
   discoverNativeUnwindFrames,
