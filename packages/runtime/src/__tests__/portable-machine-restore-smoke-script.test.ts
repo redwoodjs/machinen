@@ -61,6 +61,29 @@ describe("portable machine restore smoke profile", () => {
     );
   });
 
+  it("accepts the file-read remote source profile in dry-run mode", () => {
+    const workDir = tempDir();
+    const result = spawnSync(
+      "bash",
+      [SCRIPT, "--json", "--remote-e2e", "--dry-run", "--keep", "--work-dir", workDir],
+      {
+        cwd: REPO_ROOT,
+        encoding: "utf8",
+        env: { ...SCRIPT_ENV, PORTABLE_MACHINE_REMOTE_SOURCE_TARGET: "file-read" },
+        timeout: 30_000,
+      },
+    );
+
+    expect(result.status, result.stderr).toBe(0);
+    const summary = JSON.parse(result.stdout);
+    expect(summary).toMatchObject({
+      state: "skipped",
+      skipReason: "dry run",
+      remoteE2e: 1,
+      remoteSourceTarget: "file-read",
+    });
+  });
+
   it("accepts remote-e2e dry-run mode without live remotes", () => {
     const workDir = tempDir();
     const result = spawnSync(

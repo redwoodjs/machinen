@@ -38,9 +38,14 @@ read fds that are ready/EOF/invalid exit before target success.
 The remote portable-machine smoke path captures either the default real arm64
 two-thread process with one thread blocked in a modeled `ppoll` timeout or, with
 `PORTABLE_MACHINE_REMOTE_SOURCE_TARGET=pipe-read` / `eventfd-read` /
-`timerfd-read`, a real arm64 process blocked in `read` on an empty pipe, eventfd,
-or timerfd. It wraps that bundle in a portable machine snapshot,
-serializes a `native=active-syscall` section in the combined target descriptor,
-and requires `targetActiveSyscallRestoreResult=passed` before the remote
-arm64→amd64 proof is accepted. Missing or unreadable timeout/read-buffer memory
-still refuses before VM target success with the active-syscall refusal codes.
+`timerfd-read` / `file-read`, a real arm64 process stopped in `read` on an empty
+pipe, eventfd, timerfd, or a safe offset-backed regular file. The file-read
+profile uses a ptrace syscall-entry stop for fd 38 so the capture is inside the
+`read(fd, buf, count)` boundary; the target proof then completes the read with
+`pread()` and the target-native verifier checks the translated read buffer
+contains the expected bytes. It wraps that bundle in a portable machine
+snapshot, serializes a `native=active-syscall` section in the combined target
+descriptor, and requires `targetActiveSyscallRestoreResult=passed` before the
+remote arm64→amd64 proof is accepted. Missing or unreadable timeout/read-buffer
+memory still refuses before VM target success with the active-syscall refusal
+codes.
