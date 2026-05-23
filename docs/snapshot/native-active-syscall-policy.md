@@ -15,7 +15,8 @@ The current classifier reports:
 - `poll-timeout` — modeled `ppoll` timeout waits under an explicit deferral
   policy;
 - `fd-blocking` — `read`, `write`, `poll`, `ppoll`, `select`, `pselect6`, and
-  related fd waits that are not covered by the narrow `poll-timeout` model;
+  related fd waits. A narrow pipe `read` subset is modeled only under the
+  explicit fd-read deferral policy; other fd waits still refuse;
 - `restart` — `restart_syscall` or captured restart-block state;
 - `unknown-active` — any active syscall that has not been modeled.
 
@@ -28,6 +29,8 @@ Known blocking syscall classes refuse with precise codes:
   but the capture cannot model a relative target timer rearm duration;
 - `target-ppoll-timeout-missing` when explicit `ppoll` deferral is requested but
   the capture cannot model the timeout, fd, or signal-mask contract;
+- `target-fd-read-state-missing` when explicit fd-read deferral is requested but
+  the capture cannot prove a blocking read contract;
 - `syscall-restart-unsupported` for restart state;
 - `active-syscall` for unknown active syscalls.
 
@@ -72,11 +75,28 @@ The pipe target recipe creates a fresh empty pipe read end at the same fd and
 keeps a write end open. The eventfd target recipe creates a fresh
 `eventfd(0, EFD_CLOEXEC)` at the same fd. The timerfd target recipe creates a
 fresh disarmed `timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC)` at the same fd.
-These preserve timeout-driven proofs
-without claiming general fd readiness migration. Missing fd resources, wrong
-resource kinds, unsupported flags or state, wrong events, non-empty `revents`,
-`nfds > 1`, and non-null signal masks all fail closed as
-`target-ppoll-timeout-missing`.
+These preserve timeout-driven proofs without claiming general fd readiness
+migration. Missing fd resources, wrong resource kinds, unsupported flags or
+state, wrong events, non-empty `revents`, `nfds > 1`, and non-null signal masks
+all fail closed as `target-ppoll-timeout-missing`.
+
+## Explicit pipe read deferral
+
+The `fdReadPolicy: "defer-target-resume"` option currently accepts only a
+positive-count `read(fd, buf, count)` from a captured pipe read end under
+`fdReadResourcePolicy: "synthetic-empty-pipe"`. The model requires:
+
+- captured syscall arguments from `/proc/<tid>/syscall` or source registers;
+- a non-null buffer range contained in captured writable non-executable memory;
+- a captured pipe read-end resource for `fd`;
+- a paired pipe write end with the same pipe id still open, so the read is not an
+  EOF/readiness ambiguity.
+
+The target step recreates a fresh empty pipe and verifies with target-side
+`poll(POLLIN, timeout=0)` that the read fd would still block before reporting
+`nativeActiveSyscallRestore.status=passed`. Missing arguments, zero counts,
+missing writable buffer state, wrong resource kind/access, and missing paired
+write ends fail closed as `target-fd-read-state-missing`.
 
 ## Proof
 

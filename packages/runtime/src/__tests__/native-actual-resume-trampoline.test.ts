@@ -124,6 +124,8 @@ describe("native actual resume trampoline", () => {
           "action=rearm-sleep-timer;threadId=thread:1;seconds=0;nanoseconds=1000000;resumeMode=defer-target-resume;syscallName=clock_nanosleep",
           "--native-active-syscall-step",
           "action=rearm-ppoll-timeout;threadId=thread:1;seconds=0;nanoseconds=1000000;resumeMode=defer-target-resume;nfds=1;resources=synthetic-empty-eventfd",
+          "--native-active-syscall-step",
+          "action=restore-fd-read-block;threadId=thread:1;fd=32;countBytes=1;resource=synthetic-empty-pipe-read-end;resumeMode=defer-target-resume",
           "--native-thread-spawn-step",
           "action=spawn-target-thread;threadId=thread:2;stackBase=0x530000000000;stackLimit=0x530000010000;rip=0x710000001000;rsp=0x530000010000",
         ]),
@@ -141,7 +143,12 @@ describe("native actual resume trampoline", () => {
           verified: true,
           restored: true,
         },
-        nativeActiveSyscallRestore: { status: "passed", stepCount: 2, armedCount: 2 },
+        nativeActiveSyscallRestore: {
+          status: "passed",
+          stepCount: 3,
+          armedCount: 2,
+          consumedCount: 3,
+        },
         nativeThreadRestore: { status: "passed", stepCount: 1, spawnedCount: 1 },
       });
 

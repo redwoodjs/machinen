@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   classifyNativeActiveSyscalls,
+  modelNativeFdReadState,
   modelNativePpollTimeoutState,
   modelNativeSleepTimerState,
 } from "../native-active-syscall-policy.ts";
@@ -58,6 +59,12 @@ function arm64PpollThread(
   x: string[] = ["0x0", "0x0", "0x3000", "0x0", "0x0", "0x0"],
 ): NativeThreadState {
   return arm64SleepThread(syscall, x);
+}
+
+function arm64ReadThread(
+  x: string[] = ["0x20", "0x3100", "0x1", "0x0", "0x0", "0x0"],
+): NativeThreadState {
+  return arm64SleepThread({ state: "inside-syscall", number: 63, name: "read" }, x);
 }
 
 function documentsWithTimespec(options: {
@@ -141,6 +148,47 @@ function documentsWithTimespec(options: {
       refusals: emptyRefusals(),
     },
   };
+}
+
+function documentsWithReadPipe(
+  activeThread: NativeThreadState,
+  options: {
+    readFd?: number;
+    writeFd?: number;
+    readKind?: "pipe" | "file" | "socket";
+    readFlags?: string[];
+    includeWriteEnd?: boolean;
+    writableBuffer?: boolean;
+  } = {},
+): NativeProcessImageDocuments {
+  const documents = documentsWithTimespec({ activeThread });
+  const readFd = options.readFd ?? 32;
+  if (options.writableBuffer === false) {
+    documents.mappings.mappings[0]!.permissions.write = false;
+  }
+  documents.resources.resources = [
+    {
+      id: `fd:${readFd}:read`,
+      kind: options.readKind ?? "pipe",
+      state: "refused",
+      fd: readFd,
+      path: "pipe:[321]",
+      flags: options.readFlags ?? ["octal:0"],
+    },
+    ...(options.includeWriteEnd === false
+      ? []
+      : [
+          {
+            id: `fd:${options.writeFd ?? 33}:write`,
+            kind: "pipe" as const,
+            state: "refused" as const,
+            fd: options.writeFd ?? 33,
+            path: "pipe:[321]",
+            flags: ["octal:1"],
+          },
+        ]),
+  ];
+  return documents;
 }
 
 function emptyRefusals() {
@@ -760,6 +808,100 @@ describe("native active syscall classification", () => {
       refusal: {
         code: "target-ppoll-timeout-missing",
         detail: { reason: "ppoll signal masks are not modeled yet" },
+      },
+    });
+  });
+
+  it("models a blocked read from an empty pipe with a paired write end", () => {
+    const activeThread = arm64ReadThread();
+    const documents = documentsWithReadPipe(activeThread);
+    const result = classifyNativeActiveSyscalls([activeThread], {
+      fdReadPolicy: "defer-target-resume",
+      fdReadResourcePolicy: "synthetic-empty-pipe",
+      documents,
+    });
+
+    expect(result.refusals).toEqual([]);
+    expect(result.continuations[0]).toMatchObject({
+      syscallClass: "fd-blocking",
+      action: "defer-target-resume",
+      metadata: {
+        fdRead: {
+          syscallName: "read",
+          argumentSource: "registers",
+          fd: 32,
+          bufferPointer: "0x3100",
+          countBytes: 1,
+          bufferMapping: "mapping:stack",
+          resourceId: "fd:32:read",
+          pairedWriteResourceId: "fd:33:write",
+          targetResource: "synthetic-empty-pipe-read-end",
+        },
+        policy: "conservative-target-fd-read-block-preserved",
+      },
+    });
+    expect(result.classifications[0]).toMatchObject({ class: "fd-blocking", resumable: false });
+  });
+
+  it("prefers /proc syscall arguments for modeled read", () => {
+    const activeThread = arm64ReadThread();
+    activeThread.syscall.arguments = ["0x20", "0x3100", "0x1", "0x0", "0x0", "0x0"];
+    const documents = documentsWithReadPipe(activeThread);
+
+    expect(modelNativeFdReadState(activeThread, documents)).toMatchObject({
+      state: "modeled",
+      read: { argumentSource: "proc-syscall", fd: 32, countBytes: 1 },
+    });
+  });
+
+  it.each([
+    {
+      name: "zero count",
+      thread: arm64ReadThread(["0x20", "0x3100", "0x0", "0x0", "0x0", "0x0"]),
+      reason: "read count is outside supported bounds",
+    },
+    {
+      name: "null buffer",
+      thread: arm64ReadThread(["0x20", "0x0", "0x1", "0x0", "0x0", "0x0"]),
+      reason: "read buffer pointer is null",
+    },
+    {
+      name: "buffer not writable",
+      thread: arm64ReadThread(),
+      documents: (thread: NativeThreadState) =>
+        documentsWithReadPipe(thread, { writableBuffer: false }),
+      reason: "read buffer is not in captured writable memory",
+    },
+    {
+      name: "missing pipe resource",
+      thread: arm64ReadThread(),
+      documents: (thread: NativeThreadState) => documentsWithReadPipe(thread, { readKind: "file" }),
+      reason: "read proof requires a captured pipe fd",
+    },
+    {
+      name: "write-end fd",
+      thread: arm64ReadThread(),
+      documents: (thread: NativeThreadState) =>
+        documentsWithReadPipe(thread, { readFlags: ["octal:1"] }),
+      reason: "read proof requires a pipe read end",
+    },
+    {
+      name: "missing paired write end",
+      thread: arm64ReadThread(),
+      documents: (thread: NativeThreadState) =>
+        documentsWithReadPipe(thread, { includeWriteEnd: false }),
+      reason: "read proof requires a paired pipe write end to avoid EOF",
+    },
+  ])("refuses unsafe fd-read state: $name", (scenario) => {
+    const documents = scenario.documents
+      ? scenario.documents(scenario.thread)
+      : documentsWithReadPipe(scenario.thread);
+
+    expect(modelNativeFdReadState(scenario.thread, documents)).toMatchObject({
+      state: "missing",
+      refusal: {
+        code: "target-fd-read-state-missing",
+        detail: { reason: scenario.reason },
       },
     });
   });

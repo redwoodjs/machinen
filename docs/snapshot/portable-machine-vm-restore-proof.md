@@ -172,7 +172,7 @@ byte provenance, and partial captured ranges with precise refusal codes before
 entering the guest. Full `pnpm smoke-tests` remains the broader VM lifecycle
 suite.
 
-Latest remote arm64→amd64 proof after native target-loader consumption hardening:
+Latest default remote arm64→amd64 proof after native target-loader consumption hardening:
 
 - `state=completed`
 - `descriptorGateCompleted=true`
@@ -193,3 +193,9 @@ Latest remote arm64→amd64 proof after native target-loader consumption hardeni
 - `targetThreadRestoreResult=passed`
 - wall time: 1m19.244s
 - target VM boot/restore: 62.342s
+
+The same smoke script can set `PORTABLE_MACHINE_REMOTE_SOURCE_TARGET=pipe-read`
+to capture a single-thread arm64 process blocked in `read` on an empty pipe. The
+pipe-read profile requires `targetActiveSyscallRestoreResult=passed` and keeps
+the existing native target-loader gates enabled, but does not require the
+controlled two-thread marker because no thread-spawn section is present.

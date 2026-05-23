@@ -1,4 +1,7 @@
-import type { NativeModeledPpollTargetResource } from "./native-active-syscall-policy.ts";
+import type {
+  NativeModeledFdReadTargetResource,
+  NativeModeledPpollTargetResource,
+} from "./native-active-syscall-policy.ts";
 import type { NativeReturnChainFrameWrite } from "./native-return-chain-materializer.ts";
 import type {
   NativeStackWindowGuardMapping,
@@ -764,6 +767,16 @@ function parseNativeActiveSyscallStep(
       resumeMode: "defer-target-resume",
     };
   }
+  if (action === "restore-fd-read-block") {
+    return {
+      action,
+      threadId: requiredNativeField(fields, "threadId"),
+      fd: parseNativeInteger(fields, "fd"),
+      countBytes: parseNativeInteger(fields, "countBytes"),
+      resource: requiredNativeField(fields, "resource") as NativeModeledFdReadTargetResource,
+      resumeMode: "defer-target-resume",
+    };
+  }
   return fail("target-guest-loader-descriptor-invalid", "unsupported native active-syscall action");
 }
 
@@ -1070,6 +1083,14 @@ function validateSignalRestoreStep(step: TargetGuestSignalRestoreStep): void {
 
 function validateActiveSyscallRestoreStep(step: TargetGuestActiveSyscallRestoreStep): void {
   assertNoWhitespace(step.threadId, "threadId");
+  if (step.action === "restore-fd-read-block") {
+    assertFd(step.fd, "fd");
+    assertPositive(step.countBytes, "countBytes");
+    if (step.resource !== "synthetic-empty-pipe-read-end") {
+      fail("target-guest-loader-invalid-continuation", "fd read resource is unsupported");
+    }
+    return;
+  }
   assertNoWhitespace(step.remainingTime.seconds, "seconds");
   assertNonNegative(step.remainingTime.nanoseconds, "nanoseconds");
   if (step.remainingTime.nanoseconds > 999_999_999) {
@@ -1449,6 +1470,9 @@ function serializeSignalRestoreStep(step: TargetGuestSignalRestoreStep): string 
 }
 
 function serializeActiveSyscallStep(step: TargetGuestActiveSyscallRestoreStep): string {
+  if (step.action === "restore-fd-read-block") {
+    return `native=active-syscall action=${step.action} threadId=${step.threadId} fd=${step.fd} countBytes=${step.countBytes} resource=${step.resource} resumeMode=${step.resumeMode}`;
+  }
   const base = `native=active-syscall action=${step.action} threadId=${step.threadId} seconds=${step.remainingTime.seconds} nanoseconds=${step.remainingTime.nanoseconds} resumeMode=${step.resumeMode}`;
   return step.action === "rearm-sleep-timer"
     ? `${base} syscallName=${step.syscallName}`

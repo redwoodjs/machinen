@@ -480,6 +480,8 @@ function activeSyscallPolicy(bundle: ReturnType<typeof validatePortableMachineSn
     sleepTimerPolicy: "defer-target-resume" as const,
     pollTimeoutPolicy: "defer-target-resume" as const,
     pollTimeoutFdPolicy: "synthetic-timerfd" as const,
+    fdReadPolicy: "defer-target-resume" as const,
+    fdReadResourcePolicy: "synthetic-empty-pipe" as const,
     documents: bundle.nativeProcessImage,
   };
 }

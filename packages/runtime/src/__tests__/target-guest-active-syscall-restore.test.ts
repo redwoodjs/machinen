@@ -92,6 +92,34 @@ const ppollResult: NativeActiveSyscallClassificationResult = {
   ],
 };
 
+const fdReadResult: NativeActiveSyscallClassificationResult = {
+  classifications: [],
+  refusals: [],
+  continuations: [
+    {
+      threadId: "thread:3",
+      syscallClass: "fd-blocking",
+      action: "defer-target-resume",
+      syscall: { state: "inside-syscall", name: "read" },
+      metadata: {
+        fdRead: {
+          kind: "fd-read-block",
+          syscallName: "read",
+          argumentSource: "registers",
+          fd: 32,
+          bufferPointer: "0x6100",
+          countBytes: 1,
+          bufferMapping: "mapping:stack",
+          resourceId: "fd:32:read",
+          pairedWriteResourceId: "fd:33:write",
+          targetResource: "synthetic-empty-pipe-read-end",
+        },
+        policy: "conservative-target-fd-read-block-preserved",
+      },
+    },
+  ],
+};
+
 describe("target guest active syscall restore", () => {
   it("plans target re-arm for modeled sleep timers", () => {
     expect(planTargetGuestActiveSyscallRestore(sleepResult)).toEqual({
@@ -120,6 +148,23 @@ describe("target guest active syscall restore", () => {
           remainingTime: { seconds: "0", nanoseconds: 5000000 },
           nfds: 1,
           resources: ["synthetic-empty-eventfd"],
+          resumeMode: "defer-target-resume",
+        },
+      ],
+    });
+  });
+
+  it("plans target read-block preservation for modeled fd reads", () => {
+    expect(planTargetGuestActiveSyscallRestore(fdReadResult)).toEqual({
+      state: "planned",
+      refusals: [],
+      steps: [
+        {
+          action: "restore-fd-read-block",
+          threadId: "thread:3",
+          fd: 32,
+          countBytes: 1,
+          resource: "synthetic-empty-pipe-read-end",
           resumeMode: "defer-target-resume",
         },
       ],

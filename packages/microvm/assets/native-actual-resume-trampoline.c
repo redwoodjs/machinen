@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <poll.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -128,6 +129,7 @@ struct NativeSignalRestoreState {
 struct NativeActiveSyscallRestoreState {
   bool requested;
   size_t armed_count;
+  size_t consumed_count;
   int timer_fds[MAX_NATIVE_RESTORE_STEPS];
 };
 
@@ -1477,6 +1479,39 @@ static void arm_native_active_timer(
     exit(1);
   }
   record_active_timer_fd(state, fd);
+  state->consumed_count++;
+}
+
+static void verify_fd_read_would_block(int fd, const char *label) {
+  struct pollfd poll_fd = {.fd = fd, .events = POLLIN, .revents = 0};
+  int rc = poll(&poll_fd, 1, 0);
+  if (rc < 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: native %s poll failed: %s\n", label, strerror(errno));
+    exit(1);
+  }
+  if (rc != 0 || (poll_fd.revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) != 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: native %s fd read would not block\n", label);
+    exit(2);
+  }
+}
+
+static void restore_native_fd_read_block(const char *spec, struct NativeActiveSyscallRestoreState *state) {
+  uint64_t fd = native_step_u64(spec, "fd", "active-syscall");
+  uint64_t count_bytes = native_step_u64(spec, "countBytes", "active-syscall");
+  char resource[128];
+  native_step_string(spec, "resource", resource, sizeof(resource), "active-syscall");
+  if (fd > 1024u || count_bytes == 0 || count_bytes > (1024u * 1024u)) {
+    fprintf(stderr, "native-actual-resume-trampoline: native fd read block arguments are unsupported\n");
+    exit(2);
+  }
+  if (streq(resource, "synthetic-empty-pipe-read-end")) {
+    install_synthetic_empty_pipe((int)fd, -1);
+  } else {
+    fprintf(stderr, "native-actual-resume-trampoline: native fd read resource is unsupported\n");
+    exit(2);
+  }
+  verify_fd_read_would_block((int)fd, "active-syscall");
+  state->consumed_count++;
 }
 
 static void apply_native_active_syscall_restore_steps(
@@ -1510,6 +1545,8 @@ static void apply_native_active_syscall_restore_steps(
         }
       }
       arm_native_active_timer(spec, "active-syscall", state);
+    } else if (streq(action, "restore-fd-read-block")) {
+      restore_native_fd_read_block(spec, state);
     } else {
       fprintf(stderr, "native-actual-resume-trampoline: unsupported native active-syscall action\n");
       exit(2);
@@ -2254,11 +2291,12 @@ static void print_native_restore_consumption(const struct Options *opts) {
         native_signal_restore_state.restored ? "true" : "false");
   }
   if (native_active_syscall_restore_state.requested) {
-    bool active_passed = native_active_syscall_restore_state.armed_count == opts->native_active_syscall_step_count;
-    printf(",\"nativeActiveSyscallRestore\":{\"status\":\"%s\",\"stepCount\":%zu,\"armedCount\":%zu}",
+    bool active_passed = native_active_syscall_restore_state.consumed_count == opts->native_active_syscall_step_count;
+    printf(",\"nativeActiveSyscallRestore\":{\"status\":\"%s\",\"stepCount\":%zu,\"armedCount\":%zu,\"consumedCount\":%zu}",
         active_passed ? "passed" : "failed",
         opts->native_active_syscall_step_count,
-        native_active_syscall_restore_state.armed_count);
+        native_active_syscall_restore_state.armed_count,
+        native_active_syscall_restore_state.consumed_count);
   }
   if (native_thread_restore_state.requested) {
     bool thread_passed = native_thread_restore_state.spawned_count == opts->native_thread_spawn_step_count;

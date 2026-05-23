@@ -59,6 +59,7 @@ export const nativeProcessImageRefusalCodes = [
   "target-caller-frame-unavailable",
   "target-code-rva-unmapped",
   "target-fd-table-duplicate",
+  "target-fd-read-state-missing",
   "target-fd-table-missing",
   "target-frame-layout-unsupported",
   "target-frame-register-value-unavailable",
