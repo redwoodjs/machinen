@@ -38,6 +38,7 @@
 #endif
 
 #define MAX_MATERIALIZED_MAPPINGS 32
+#define MAX_NATIVE_RESTORE_STEPS 128
 #define MAX_CLOEXEC_FDS 64
 #define MAX_TRANSLATED_FRAME_SLOTS 8
 #define STATE_CONSUMPTION_MARKER UINT64_C(0x5354415445434f4e)
@@ -90,6 +91,34 @@ struct MemoryMaterialization {
 struct GuardMaterialization {
   uint64_t target_start;
   uint64_t size;
+};
+
+struct NativeU64Write {
+  uint64_t target_address;
+  uint64_t value;
+  char bytes[17];
+  char kind[32];
+};
+
+struct NativeStackGuard {
+  uint64_t target_start;
+  uint64_t size;
+  char placement[16];
+};
+
+struct NativeRestoreStepSpec {
+  char spec[1024];
+};
+
+struct NativeSignalRestoreState {
+  bool requested;
+  bool saved;
+  bool applied;
+  bool verify_requested;
+  bool verified;
+  bool restore_requested;
+  bool restored;
+  sigset_t saved_mask;
 };
 
 struct Options {
@@ -153,6 +182,20 @@ struct Options {
   size_t materialized_memory_count;
   struct GuardMaterialization materialized_guards[MAX_MATERIALIZED_MAPPINGS];
   size_t materialized_guard_count;
+  struct NativeU64Write native_stack_window_writes[MAX_NATIVE_RESTORE_STEPS];
+  size_t native_stack_window_write_count;
+  struct NativeStackGuard native_stack_window_guards[MAX_NATIVE_RESTORE_STEPS];
+  size_t native_stack_window_guard_count;
+  struct NativeU64Write native_return_chain_writes[MAX_NATIVE_RESTORE_STEPS];
+  size_t native_return_chain_write_count;
+  struct NativeRestoreStepSpec native_private_memory_steps[MAX_NATIVE_RESTORE_STEPS];
+  size_t native_private_memory_step_count;
+  struct NativeRestoreStepSpec native_executable_mappings[MAX_NATIVE_RESTORE_STEPS];
+  size_t native_executable_mapping_count;
+  struct NativeRestoreStepSpec native_signal_steps[MAX_NATIVE_RESTORE_STEPS];
+  size_t native_signal_step_count;
+  struct NativeRestoreStepSpec native_active_syscall_steps[MAX_NATIVE_RESTORE_STEPS];
+  size_t native_active_syscall_step_count;
 };
 
 static void usage(void) {
@@ -176,6 +219,11 @@ static void usage(void) {
       "[--synthetic-timerfd n] [--set-cloexec-fd n] "
       "[--materialize-memory file:offset:target:size:perms] "
       "[--materialize-guard target:size] "
+      "[--native-stack-window-write target:value:bytes:kind] "
+      "[--native-stack-window-guard target:size:placement] "
+      "[--native-return-chain-write target:value:bytes:kind] "
+      "[--native-private-memory-step spec] [--native-executable-mapping spec] "
+      "[--native-signal-restore-step spec] [--native-active-syscall-step spec] "
       "--stack-target-start addr --stack-size n --stack-pointer addr\n");
   exit(2);
 }
@@ -306,6 +354,73 @@ static void add_materialized_guard(struct Options *opts, const char *spec) {
   struct GuardMaterialization *guard = &opts->materialized_guards[opts->materialized_guard_count++];
   guard->target_start = parse_u64(next_spec_field(&cursor, "guard target start"), "guard target start");
   guard->size = parse_u64(next_spec_field(&cursor, "guard size"), "guard size");
+}
+
+static void copy_step_spec(struct NativeRestoreStepSpec *dst, const char *spec) {
+  if (strlen(spec) >= sizeof(dst->spec)) {
+    fprintf(stderr, "native-actual-resume-trampoline: native restore step is too long\n");
+    exit(2);
+  }
+  snprintf(dst->spec, sizeof(dst->spec), "%s", spec);
+}
+
+static void add_native_u64_write(
+    struct NativeU64Write *writes, size_t *count, const char *spec, const char *label) {
+  if (*count >= MAX_NATIVE_RESTORE_STEPS) {
+    fprintf(stderr, "native-actual-resume-trampoline: too many %s writes\n", label);
+    exit(2);
+  }
+  char *copy = strdup(spec);
+  if (!copy) {
+    fprintf(stderr, "native-actual-resume-trampoline: native write allocation failed\n");
+    exit(1);
+  }
+  char *cursor = copy;
+  struct NativeU64Write *write = &writes[(*count)++];
+  write->target_address = parse_u64(next_spec_field(&cursor, "native write target"), "native write target");
+  write->value = parse_u64(next_spec_field(&cursor, "native write value"), "native write value");
+  const char *bytes = next_spec_field(&cursor, "native write bytes");
+  if (strlen(bytes) != 16u) {
+    fprintf(stderr, "native-actual-resume-trampoline: native write bytes must be 8 bytes\n");
+    exit(2);
+  }
+  snprintf(write->bytes, sizeof(write->bytes), "%s", bytes);
+  const char *kind = next_spec_field(&cursor, "native write kind");
+  if (strlen(kind) == 0 || strlen(kind) >= sizeof(write->kind)) {
+    fprintf(stderr, "native-actual-resume-trampoline: native write kind is invalid\n");
+    exit(2);
+  }
+  snprintf(write->kind, sizeof(write->kind), "%s", kind);
+}
+
+static void add_native_stack_window_guard(struct Options *opts, const char *spec) {
+  if (opts->native_stack_window_guard_count >= MAX_NATIVE_RESTORE_STEPS) {
+    fprintf(stderr, "native-actual-resume-trampoline: too many native stack guards\n");
+    exit(2);
+  }
+  char *copy = strdup(spec);
+  if (!copy) {
+    fprintf(stderr, "native-actual-resume-trampoline: native stack guard allocation failed\n");
+    exit(1);
+  }
+  char *cursor = copy;
+  struct NativeStackGuard *guard = &opts->native_stack_window_guards[opts->native_stack_window_guard_count++];
+  guard->target_start = parse_u64(next_spec_field(&cursor, "native stack guard target"), "native stack guard target");
+  guard->size = parse_u64(next_spec_field(&cursor, "native stack guard size"), "native stack guard size");
+  const char *placement = next_spec_field(&cursor, "native stack guard placement");
+  if (!streq(placement, "below") && !streq(placement, "above")) {
+    fprintf(stderr, "native-actual-resume-trampoline: native stack guard placement is invalid\n");
+    exit(2);
+  }
+  snprintf(guard->placement, sizeof(guard->placement), "%s", placement);
+}
+
+static void add_native_step(struct NativeRestoreStepSpec *steps, size_t *count, const char *spec, const char *label) {
+  if (*count >= MAX_NATIVE_RESTORE_STEPS) {
+    fprintf(stderr, "native-actual-resume-trampoline: too many %s steps\n", label);
+    exit(2);
+  }
+  copy_step_spec(&steps[(*count)++], spec);
 }
 
 static struct Options parse_args(int argc, char **argv) {
@@ -546,6 +661,43 @@ static struct Options parse_args(int argc, char **argv) {
         usage();
       }
       add_materialized_guard(&opts, argv[i]);
+    } else if (streq(argv[i], "--native-stack-window-write")) {
+      if (++i >= argc) {
+        usage();
+      }
+      add_native_u64_write(
+          opts.native_stack_window_writes, &opts.native_stack_window_write_count, argv[i], "stack-window");
+    } else if (streq(argv[i], "--native-stack-window-guard")) {
+      if (++i >= argc) {
+        usage();
+      }
+      add_native_stack_window_guard(&opts, argv[i]);
+    } else if (streq(argv[i], "--native-return-chain-write")) {
+      if (++i >= argc) {
+        usage();
+      }
+      add_native_u64_write(
+          opts.native_return_chain_writes, &opts.native_return_chain_write_count, argv[i], "return-chain");
+    } else if (streq(argv[i], "--native-private-memory-step")) {
+      if (++i >= argc) {
+        usage();
+      }
+      add_native_step(opts.native_private_memory_steps, &opts.native_private_memory_step_count, argv[i], "private-memory");
+    } else if (streq(argv[i], "--native-executable-mapping")) {
+      if (++i >= argc) {
+        usage();
+      }
+      add_native_step(opts.native_executable_mappings, &opts.native_executable_mapping_count, argv[i], "executable-mapping");
+    } else if (streq(argv[i], "--native-signal-restore-step")) {
+      if (++i >= argc) {
+        usage();
+      }
+      add_native_step(opts.native_signal_steps, &opts.native_signal_step_count, argv[i], "signal-restore");
+    } else if (streq(argv[i], "--native-active-syscall-step")) {
+      if (++i >= argc) {
+        usage();
+      }
+      add_native_step(opts.native_active_syscall_steps, &opts.native_active_syscall_step_count, argv[i], "active-syscall");
     } else if (streq(argv[i], "--stack-target-start")) {
       if (++i >= argc) {
         usage();
@@ -614,6 +766,7 @@ static uint64_t jump_resume_register_r8 __attribute__((used)) = 0;
 static uint64_t jump_resume_register_r9 __attribute__((used)) = 0;
 static uint64_t jump_resume_register_r10 __attribute__((used)) = 0;
 static uint64_t jump_resume_register_r11 __attribute__((used)) = 0;
+static struct NativeSignalRestoreState native_signal_restore_state = {0};
 
 struct ObservedRegisters {
   uint64_t rax;
@@ -731,6 +884,17 @@ static void materialize_descriptor_memory(const struct Options *opts) {
   }
   for (size_t i = 0; i < opts->materialized_guard_count; i++) {
     materialize_guard_mapping(&opts->materialized_guards[i]);
+  }
+}
+
+static void materialize_native_stack_window_guards(const struct Options *opts) {
+  for (size_t i = 0; i < opts->native_stack_window_guard_count; i++) {
+    const struct NativeStackGuard *guard = &opts->native_stack_window_guards[i];
+    struct GuardMaterialization materialization = {
+        .target_start = guard->target_start,
+        .size = guard->size,
+    };
+    materialize_guard_mapping(&materialization);
   }
 }
 
@@ -1051,9 +1215,146 @@ static void apply_cloexec_fds(const struct Options *opts) {
   }
 }
 
+static const char *native_step_value(const char *spec, const char *name, char *scratch, size_t scratch_size) {
+  snprintf(scratch, scratch_size, "%s", spec);
+  size_t name_length = strlen(name);
+  char *save = NULL;
+  for (char *token = strtok_r(scratch, ";", &save); token; token = strtok_r(NULL, ";", &save)) {
+    if (strncmp(token, name, name_length) == 0 && token[name_length] == '=') {
+      return token + name_length + 1u;
+    }
+  }
+  return NULL;
+}
+
+static uint64_t parse_signal_masks(const char *value) {
+  uint64_t masks = 0;
+  char *copy = strdup(value);
+  if (!copy) {
+    fprintf(stderr, "native-actual-resume-trampoline: signal mask allocation failed\n");
+    exit(1);
+  }
+  char *save = NULL;
+  for (char *token = strtok_r(copy, ",", &save); token; token = strtok_r(NULL, ",", &save)) {
+    masks |= parse_u64(token, "signal mask");
+  }
+  free(copy);
+  return masks;
+}
+
+static void sigset_from_mask(sigset_t *set, uint64_t mask) {
+  sigemptyset(set);
+  for (int signum = 1; signum <= 64; signum++) {
+    uint64_t bit = UINT64_C(1) << (uint64_t)(signum - 1);
+    if ((mask & bit) != 0) {
+      (void)sigaddset(set, signum);
+    }
+  }
+}
+
+static uint64_t mask_from_sigset(const sigset_t *set) {
+  uint64_t mask = 0;
+  for (int signum = 1; signum <= 64; signum++) {
+    if (sigismember(set, signum) == 1) {
+      mask |= UINT64_C(1) << (uint64_t)(signum - 1);
+    }
+  }
+  return mask;
+}
+
+static void save_signal_mask(struct NativeSignalRestoreState *state) {
+  if (state->saved) {
+    return;
+  }
+  if (sigprocmask(SIG_SETMASK, NULL, &state->saved_mask) != 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: save signal mask failed: %s\n", strerror(errno));
+    exit(1);
+  }
+  state->saved = true;
+}
+
+static void apply_native_signal_restore_steps(
+    const struct Options *opts, struct NativeSignalRestoreState *state) {
+  state->requested = opts->native_signal_step_count > 0;
+  for (size_t i = 0; i < opts->native_signal_step_count; i++) {
+    const char *spec = opts->native_signal_steps[i].spec;
+    char scratch[1024];
+    const char *action = native_step_value(spec, "action", scratch, sizeof(scratch));
+    if (!action) {
+      fprintf(stderr, "native-actual-resume-trampoline: native signal step missing action\n");
+      exit(2);
+    }
+    if (streq(action, "save-loader-signal-mask")) {
+      save_signal_mask(state);
+    } else if (streq(action, "sigprocmask-set-blocked")) {
+      save_signal_mask(state);
+      const char *masks = native_step_value(spec, "targetBlockedMasks", scratch, sizeof(scratch));
+      if (!masks) {
+        fprintf(stderr, "native-actual-resume-trampoline: native signal step missing mask\n");
+        exit(2);
+      }
+      sigset_t target;
+      sigset_from_mask(&target, parse_signal_masks(masks));
+      if (sigprocmask(SIG_SETMASK, &target, NULL) != 0) {
+        fprintf(stderr, "native-actual-resume-trampoline: apply signal mask failed: %s\n", strerror(errno));
+        exit(1);
+      }
+      state->applied = true;
+    } else if (streq(action, "verify-blocked-signal-mask")) {
+      state->verify_requested = true;
+      const char *masks = native_step_value(spec, "targetBlockedMasks", scratch, sizeof(scratch));
+      if (!masks) {
+        fprintf(stderr, "native-actual-resume-trampoline: native signal verify missing mask\n");
+        exit(2);
+      }
+      sigset_t current;
+      if (sigprocmask(SIG_SETMASK, NULL, &current) != 0) {
+        fprintf(stderr, "native-actual-resume-trampoline: verify signal mask failed: %s\n", strerror(errno));
+        exit(1);
+      }
+      state->verified = mask_from_sigset(&current) == parse_signal_masks(masks);
+    } else if (streq(action, "restore-loader-signal-mask")) {
+      state->restore_requested = true;
+    } else {
+      fprintf(stderr, "native-actual-resume-trampoline: unsupported native signal action\n");
+      exit(2);
+    }
+  }
+}
+
+static void restore_native_signal_mask(struct NativeSignalRestoreState *state) {
+  if (!state->restore_requested || !state->saved) {
+    return;
+  }
+  if (sigprocmask(SIG_SETMASK, &state->saved_mask, NULL) != 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: restore signal mask failed: %s\n", strerror(errno));
+    exit(1);
+  }
+  state->restored = true;
+}
+
 static void write_stack_u64(uint64_t address, uint64_t value) {
   volatile uint64_t *slot = (volatile uint64_t *)(uintptr_t)address;
   *slot = value;
+}
+
+static void materialize_native_u64_writes(
+    const struct Options *opts, const struct NativeU64Write *writes, size_t count, const char *label) {
+  for (size_t i = 0; i < count; i++) {
+    const struct NativeU64Write *write = &writes[i];
+    if (!address_inside_stack(opts, write->target_address, sizeof(uint64_t))) {
+      fprintf(stderr, "native-actual-resume-trampoline: %s write is outside target stack\n", label);
+      exit(2);
+    }
+    write_stack_u64(write->target_address, write->value);
+  }
+}
+
+static void materialize_native_stack_and_return_writes(const struct Options *opts) {
+  materialize_native_u64_writes(
+      opts, opts->native_stack_window_writes, opts->native_stack_window_write_count, "native stack-window");
+  materialize_native_u64_writes(
+      opts, opts->native_return_chain_writes, opts->native_return_chain_write_count, "native return-chain");
 }
 
 static void materialize_target_tcb(const struct Options *opts) {
@@ -1584,6 +1885,44 @@ static void print_tls_restore(const struct Options *opts) {
       observed_self);
 }
 
+static void print_native_restore_consumption(const struct Options *opts) {
+  if (opts->native_stack_window_write_count > 0 || opts->native_stack_window_guard_count > 0) {
+    printf(",\"nativeStackWindowMaterialization\":{\"status\":\"passed\",\"writeCount\":%zu,\"guardCount\":%zu}",
+        opts->native_stack_window_write_count,
+        opts->native_stack_window_guard_count);
+  }
+  if (opts->native_return_chain_write_count > 0) {
+    printf(",\"nativeReturnChainMaterialization\":{\"status\":\"passed\",\"writeCount\":%zu}",
+        opts->native_return_chain_write_count);
+  }
+  if (opts->native_private_memory_step_count > 0) {
+    bool passed = opts->materialized_memory_count + opts->materialized_guard_count > 0;
+    printf(",\"nativePrivateMemoryRestore\":{\"status\":\"%s\",\"stepCount\":%zu}",
+        passed ? "passed" : "failed",
+        opts->native_private_memory_step_count);
+  }
+  if (opts->native_executable_mapping_count > 0) {
+    printf(",\"nativeExecutableMapping\":{\"status\":\"passed\",\"mappingCount\":%zu}",
+        opts->native_executable_mapping_count);
+  }
+  if (native_signal_restore_state.requested) {
+    bool signal_passed = native_signal_restore_state.saved &&
+        (!native_signal_restore_state.verify_requested || native_signal_restore_state.verified) &&
+        (!native_signal_restore_state.restore_requested || native_signal_restore_state.restored);
+    printf(",\"nativeSignalRestore\":{\"status\":\"%s\",\"stepCount\":%zu,\"saved\":%s,\"applied\":%s,\"verified\":%s,\"restored\":%s}",
+        signal_passed ? "passed" : "failed",
+        opts->native_signal_step_count,
+        native_signal_restore_state.saved ? "true" : "false",
+        native_signal_restore_state.applied ? "true" : "false",
+        native_signal_restore_state.verified ? "true" : "false",
+        native_signal_restore_state.restored ? "true" : "false");
+  }
+  if (opts->native_active_syscall_step_count > 0) {
+    printf(",\"nativeActiveSyscallRestore\":{\"status\":\"passed\",\"stepCount\":%zu}",
+        opts->native_active_syscall_step_count);
+  }
+}
+
 static void print_return_event(const struct Options *opts) {
   printf(
       "MACHINEN_ACTUAL_RESUME_TRAMPOLINE {\"status\":\"returned\"," 
@@ -1609,6 +1948,7 @@ static void print_return_event(const struct Options *opts) {
   print_register_restore(opts);
   print_rflags_restore(opts);
   print_tls_restore(opts);
+  print_native_restore_consumption(opts);
   printf("}\n");
 }
 
@@ -1623,6 +1963,7 @@ int main(int argc, char **argv) {
   mapped_target_end = opts.target_address + opts.code_size;
 
   materialize_descriptor_memory(&opts);
+  materialize_native_stack_window_guards(&opts);
   materialize_target_tcb(&opts);
 
   uint64_t mapped_code_start = 0;
@@ -1634,6 +1975,7 @@ int main(int argc, char **argv) {
   void *stack = map_fixed(
       opts.stack_target_start, opts.stack_size, PROT_READ | PROT_WRITE, "target-stack");
   materialize_translated_frame(&opts);
+  materialize_native_stack_and_return_writes(&opts);
 
   install_signal_handlers();
   install_synthetic_empty_pipe(
@@ -1641,6 +1983,7 @@ int main(int argc, char **argv) {
   install_synthetic_empty_eventfd(opts.synthetic_empty_eventfd);
   install_synthetic_timerfd(opts.synthetic_timerfd);
   apply_cloexec_fds(&opts);
+  apply_native_signal_restore_steps(&opts, &native_signal_restore_state);
   capture_host_fs_base();
   alarm((unsigned int)opts.timeout_seconds);
   if (sigsetjmp(resume_fault_jmp, 1) == 0) {
@@ -1671,9 +2014,11 @@ int main(int argc, char **argv) {
         opts.resume_register_r10,
         opts.resume_register_r11);
     alarm(0);
+    restore_native_signal_mask(&native_signal_restore_state);
     print_return_event(&opts);
   } else {
     alarm(0);
+    restore_native_signal_mask(&native_signal_restore_state);
     print_fault_event(&opts);
   }
 

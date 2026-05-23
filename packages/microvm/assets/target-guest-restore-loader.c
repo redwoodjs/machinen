@@ -22,6 +22,7 @@
 
 #define LOADER_PREFIX "MACHINEN_TARGET_GUEST_RESTORE_LOADER "
 #define MAX_MATERIALIZED_MAPPINGS 32
+#define MAX_NATIVE_RESTORE_STEPS 128
 #define MAX_FD_RECIPES 64
 #define MAX_UNWIND_ID 128
 #define MAX_TRANSLATED_FRAME_SLOTS 8
@@ -38,6 +39,11 @@ struct ReopenFileRecipe {
   char path[PATH_MAX];
   uint64_t offset;
   int access;
+};
+
+struct NativeRestoreArg {
+  char flag[64];
+  char spec[PATH_MAX * 2];
 };
 
 struct Descriptor {
@@ -106,6 +112,8 @@ struct Descriptor {
   size_t memory_spec_count;
   char guard_specs[MAX_MATERIALIZED_MAPPINGS][128];
   size_t guard_spec_count;
+  struct NativeRestoreArg native_restore_args[MAX_NATIVE_RESTORE_STEPS];
+  size_t native_restore_arg_count;
 };
 
 static bool streq(const char *left, const char *right) {
@@ -499,6 +507,111 @@ static void parse_memory(struct Descriptor *descriptor, char *line) {
   }
 }
 
+static void append_native_arg(struct Descriptor *descriptor, const char *flag, const char *spec) {
+  if (descriptor->native_restore_arg_count >= MAX_NATIVE_RESTORE_STEPS) {
+    refuse("target-guest-loader-descriptor-invalid", "too many native restore sections");
+  }
+  struct NativeRestoreArg *arg = &descriptor->native_restore_args[descriptor->native_restore_arg_count++];
+  snprintf(arg->flag, sizeof(arg->flag), "%s", flag);
+  snprintf(arg->spec, sizeof(arg->spec), "%s", spec);
+}
+
+static void fields_to_semicolon_spec(char *dst, size_t dst_size, char *fields) {
+  char scratch[4096];
+  snprintf(scratch, sizeof(scratch), "%s", fields);
+  trim_line(scratch);
+  size_t out = 0;
+  char *save = NULL;
+  for (char *token = strtok_r(scratch, " ", &save); token; token = strtok_r(NULL, " ", &save)) {
+    int written = snprintf(dst + out, out < dst_size ? dst_size - out : 0, "%s%s", out == 0 ? "" : ";", token);
+    if (written < 0 || out + (size_t)written >= dst_size) {
+      refuse("target-guest-loader-descriptor-invalid", "native restore section is too long");
+    }
+    out += (size_t)written;
+  }
+  if (out == 0) {
+    refuse("target-guest-loader-descriptor-invalid", "native restore section is missing fields");
+  }
+}
+
+static void parse_native_stack_window_write(struct Descriptor *descriptor, char *fields) {
+  char scratch[4096];
+  const char *target_address = required_token(scratch, sizeof(scratch), fields, "targetAddress");
+  char target_address_copy[32];
+  snprintf(target_address_copy, sizeof(target_address_copy), "%s", target_address);
+  const char *value = required_token(scratch, sizeof(scratch), fields, "value");
+  char value_copy[32];
+  snprintf(value_copy, sizeof(value_copy), "%s", value);
+  const char *bytes = required_token(scratch, sizeof(scratch), fields, "bytes");
+  char bytes_copy[32];
+  snprintf(bytes_copy, sizeof(bytes_copy), "%s", bytes);
+  const char *kind = required_token(scratch, sizeof(scratch), fields, "kind");
+  char spec[256];
+  snprintf(spec, sizeof(spec), "%s:%s:%s:%s", target_address_copy, value_copy, bytes_copy, kind);
+  append_native_arg(descriptor, "--native-stack-window-write", spec);
+}
+
+static void parse_native_stack_window_guard(struct Descriptor *descriptor, char *fields) {
+  char scratch[4096];
+  const char *target_start = required_token(scratch, sizeof(scratch), fields, "targetStart");
+  char target_start_copy[32];
+  snprintf(target_start_copy, sizeof(target_start_copy), "%s", target_start);
+  const char *size = required_token(scratch, sizeof(scratch), fields, "sizeBytes");
+  char size_copy[32];
+  snprintf(size_copy, sizeof(size_copy), "%s", size);
+  const char *placement = required_token(scratch, sizeof(scratch), fields, "placement");
+  char spec[128];
+  snprintf(spec, sizeof(spec), "%s:%s:%s", target_start_copy, size_copy, placement);
+  append_native_arg(descriptor, "--native-stack-window-guard", spec);
+}
+
+static void parse_native_return_chain_write(struct Descriptor *descriptor, char *fields) {
+  char scratch[4096];
+  const char *target_address = required_token(scratch, sizeof(scratch), fields, "targetAddress");
+  char target_address_copy[32];
+  snprintf(target_address_copy, sizeof(target_address_copy), "%s", target_address);
+  const char *value = required_token(scratch, sizeof(scratch), fields, "value");
+  char value_copy[32];
+  snprintf(value_copy, sizeof(value_copy), "%s", value);
+  const char *bytes = required_token(scratch, sizeof(scratch), fields, "bytes");
+  char bytes_copy[32];
+  snprintf(bytes_copy, sizeof(bytes_copy), "%s", bytes);
+  const char *kind = required_token(scratch, sizeof(scratch), fields, "kind");
+  char spec[256];
+  snprintf(spec, sizeof(spec), "%s:%s:%s:%s", target_address_copy, value_copy, bytes_copy, kind);
+  append_native_arg(descriptor, "--native-return-chain-write", spec);
+}
+
+static void parse_native_semicolon_step(
+    struct Descriptor *descriptor, char *fields, const char *required_action, const char *flag) {
+  char scratch[4096];
+  (void)required_token(scratch, sizeof(scratch), fields, "action");
+  (void)required_action;
+  char spec[PATH_MAX * 2];
+  fields_to_semicolon_spec(spec, sizeof(spec), fields);
+  append_native_arg(descriptor, flag, spec);
+}
+
+static void parse_native_restore(struct Descriptor *descriptor, char *line) {
+  if (starts_with(line, "native=stack-window-write")) {
+    parse_native_stack_window_write(descriptor, line + strlen("native=stack-window-write"));
+  } else if (starts_with(line, "native=stack-window-guard")) {
+    parse_native_stack_window_guard(descriptor, line + strlen("native=stack-window-guard"));
+  } else if (starts_with(line, "native=return-chain-write")) {
+    parse_native_return_chain_write(descriptor, line + strlen("native=return-chain-write"));
+  } else if (starts_with(line, "native=private-memory")) {
+    parse_native_semicolon_step(descriptor, line + strlen("native=private-memory"), "", "--native-private-memory-step");
+  } else if (starts_with(line, "native=executable-mapping")) {
+    parse_native_semicolon_step(descriptor, line + strlen("native=executable-mapping"), "", "--native-executable-mapping");
+  } else if (starts_with(line, "native=signal-restore")) {
+    parse_native_semicolon_step(descriptor, line + strlen("native=signal-restore"), "", "--native-signal-restore-step");
+  } else if (starts_with(line, "native=active-syscall")) {
+    parse_native_semicolon_step(descriptor, line + strlen("native=active-syscall"), "", "--native-active-syscall-step");
+  } else {
+    refuse("target-guest-loader-descriptor-invalid", "native restore section is unsupported");
+  }
+}
+
 static const char *optional_frame_token(char *scratch, size_t scratch_size, char *fields, const char *name) {
   snprintf(scratch, scratch_size, "%s", fields);
   size_t name_length = strlen(name);
@@ -657,6 +770,8 @@ static struct Descriptor read_descriptor(const char *path) {
       parse_resource(&descriptor, line);
     } else if (starts_with(line, "memory=")) {
       parse_memory(&descriptor, line);
+    } else if (starts_with(line, "native=")) {
+      parse_native_restore(&descriptor, line);
     } else if (starts_with(line, "frame=")) {
       parse_translated_frame(&descriptor, line);
     } else {
@@ -853,7 +968,7 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
     snprintf(cloexec_fds[i], sizeof(cloexec_fds[i]), "%d", descriptor->cloexec_fds[i]);
   }
 
-  char *child_argv[192];
+  char *child_argv[384];
   size_t child_argc = 0;
   push_arg(child_argv, &child_argc, (char *)opts->trampoline_path);
   push_arg(child_argv, &child_argc, "--code-file");
@@ -969,6 +1084,10 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   for (size_t i = 0; i < descriptor->guard_spec_count; i++) {
     push_arg(child_argv, &child_argc, "--materialize-guard");
     push_arg(child_argv, &child_argc, descriptor->guard_specs[i]);
+  }
+  for (size_t i = 0; i < descriptor->native_restore_arg_count; i++) {
+    push_arg(child_argv, &child_argc, descriptor->native_restore_args[i].flag);
+    push_arg(child_argv, &child_argc, descriptor->native_restore_args[i].spec);
   }
   child_argv[child_argc] = NULL;
 

@@ -1545,25 +1545,25 @@ function nativeReturnChainWriteSpec(write: NativeReturnChainFrameWrite): string 
 function nativePrivateMemoryStepSpec(step: TargetGuestPrivateMemoryRestoreStep): string {
   return serializePrivateMemoryStep(step)
     .slice("native=private-memory ".length)
-    .replaceAll(" ", ",");
+    .replaceAll(" ", ";");
 }
 
 function nativeExecutableMappingSpec(step: TargetGuestExecutableMappingStep): string {
   return serializeExecutableMappingStep(step)
     .slice("native=executable-mapping ".length)
-    .replaceAll(" ", ",");
+    .replaceAll(" ", ";");
 }
 
 function nativeSignalRestoreStepSpec(step: TargetGuestSignalRestoreStep): string {
   return serializeSignalRestoreStep(step)
     .slice("native=signal-restore ".length)
-    .replaceAll(" ", ",");
+    .replaceAll(" ", ";");
 }
 
 function nativeActiveSyscallStepSpec(step: TargetGuestActiveSyscallRestoreStep): string {
   return serializeActiveSyscallStep(step)
     .slice("native=active-syscall ".length)
-    .replaceAll(" ", ",");
+    .replaceAll(" ", ";");
 }
 
 function fail(code: TargetGuestRestoreLoaderRefusalCode, message: string): never {
