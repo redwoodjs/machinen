@@ -474,6 +474,7 @@ export {
   serializeTargetGuestRestoreDescriptor,
   validateTargetGuestRestoreDescriptor,
 } from "./target-guest-restore-loader.ts";
+export { planTargetGuestActiveSyscallRestore } from "./target-guest-active-syscall-restore.ts";
 export { planTargetGuestExecutableMaterialization } from "./target-guest-executable-materialization.ts";
 export { planTargetGuestMemoryMaterialization } from "./target-guest-memory-materialization.ts";
 export { planTargetGuestPrivateMemoryRestore } from "./target-guest-private-memory-restore.ts";
@@ -504,6 +505,10 @@ export type {
   TargetGuestTranslatedFrameRegisterName,
   TargetGuestTranslatedFrameSlot,
 } from "./target-guest-restore-loader.ts";
+export type {
+  TargetGuestActiveSyscallRestorePlan,
+  TargetGuestActiveSyscallRestoreStep,
+} from "./target-guest-active-syscall-restore.ts";
 export type {
   TargetGuestExecutableMappingStep,
   TargetGuestExecutableMaterializationPlan,
