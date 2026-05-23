@@ -94,10 +94,12 @@ describe("native actual resume trampoline", () => {
       writeFileSync(stateMemory, memory);
       const stateEntry = Buffer.from([
         0x48, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0x48, 0x89, 0x47, 0x08, 0x48, 0xb8, 0, 0, 0, 0, 0, 0, 0,
-        0, 0x48, 0x89, 0x47, 0x10, 0xb8, 0x4d, 0, 0, 0, 0xc3,
+        0, 0x48, 0x89, 0x47, 0x10, 0x48, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0x48, 0x89, 0x47, 0x20, 0xb8,
+        0x4d, 0, 0, 0, 0xc3,
       ]);
       stateEntry.writeBigUInt64LE(0x5354415445434f4en, 2);
       stateEntry.writeBigUInt64LE(0x7fn, 16);
+      stateEntry.writeBigUInt64LE(0x4652414d45504153n, 30);
       const returnLanding = Buffer.from([
         0x48, 0xba, 0, 0, 0, 0, 0, 0, 0, 0, 0x48, 0x89, 0x57, 0x18, 0xb8, 0x4d, 0, 0, 0, 0xc3,
       ]);
@@ -114,6 +116,20 @@ describe("native actual resume trampoline", () => {
           "0x600000000000",
           "--translated-return-address",
           translatedReturnAddress,
+          "--translated-frame-pointer",
+          "0x52000000ff80",
+          "--translated-frame-cfa",
+          "0x52000000fff0",
+          "--translated-frame-return-address-slot",
+          "0x52000000fff0",
+          "--translated-frame-return-address",
+          translatedReturnAddress,
+          "--translated-frame-unwind-id",
+          "target:realspin-final-jump",
+          "--translated-frame-callee-r12",
+          "0x1234567890abcdef",
+          "--translated-frame-slot",
+          "0:0x4652414d45504153:non-pointer-data",
           "--materialize-memory",
           `${stateMemory}:0:0x600000000000:4096:rw-p`,
         ]),
@@ -124,6 +140,11 @@ describe("native actual resume trampoline", () => {
           status: "passed",
           translatedReturnAddress,
           returnMarker: "0x52455455524e4a50",
+        },
+        frameRestoration: {
+          status: "passed",
+          framePointer: "0x52000000ff80",
+          returnAddress: translatedReturnAddress,
         },
         stateConsumption: {
           status: "passed",

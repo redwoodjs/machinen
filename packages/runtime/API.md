@@ -100,6 +100,9 @@
 - [`TargetGuestRestoreResourceRecipe`](#targetguestrestoreresourcerecipe)
 - [`TargetGuestRestoreContinuationDescriptor`](#targetguestrestorecontinuationdescriptor)
 - [`TargetGuestRestoreDescriptor`](#targetguestrestoredescriptor)
+- [`TargetGuestTranslatedFrameDescriptor`](#targetguesttranslatedframedescriptor)
+- [`TargetGuestTranslatedFrameRegister`](#targetguesttranslatedframeregister)
+- [`TargetGuestTranslatedFrameSlot`](#targetguesttranslatedframeslot)
 - [`TargetGuestMemoryMaterializationKind`](#targetguestmemorymaterializationkind)
 - [`TargetGuestMemoryMaterializationEntry`](#targetguestmemorymaterializationentry)
 - [`TargetGuestCopyCapturedBytesEntry`](#targetguestcopycapturedbytesentry)
@@ -110,6 +113,7 @@
 - [`PortableMachineTargetRestoreDescriptorPlan`](#portablemachinetargetrestoredescriptorplan)
 - [`PortableMachineVmRestoreProofState`](#portablemachinevmrestoreproofstate)
 - [`PortableMachineTargetContinuationKind`](#portablemachinetargetcontinuationkind)
+- [`PortableMachineTargetFrameRestoreResult`](#portablemachinetargetframerestoreresult)
 - [`PortableMachineTargetResourceStatus`](#portablemachinetargetresourcestatus)
 - [`PortableMachineTargetReturnChainResult`](#portablemachinetargetreturnchainresult)
 - [`PortableMachineTargetStateConsumptionResult`](#portablemachinetargetstateconsumptionresult)
@@ -8138,6 +8142,14 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 > `optional` **targetTranslatedReturnAddress?**: `string`
 
+##### targetFrameRestoreResult?
+
+> `optional` **targetFrameRestoreResult?**: [`PortableMachineTargetFrameRestoreResult`](#portablemachinetargetframerestoreresult)
+
+##### targetTranslatedFramePointer?
+
+> `optional` **targetTranslatedFramePointer?**: `string`
+
 ##### sourceTextReusedAsTargetCode
 
 > **sourceTextReusedAsTargetCode**: `false`
@@ -8216,6 +8228,14 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 > `optional` **targetTranslatedReturnAddress?**: `string`
 
+##### targetFrameRestoreResult?
+
+> `optional` **targetFrameRestoreResult?**: [`PortableMachineTargetFrameRestoreResult`](#portablemachinetargetframerestoreresult)
+
+##### targetTranslatedFramePointer?
+
+> `optional` **targetTranslatedFramePointer?**: `string`
+
 ##### sourceTextReusedAsTargetCode?
 
 > `optional` **sourceTextReusedAsTargetCode?**: `boolean`
@@ -8237,6 +8257,10 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 ##### continuation
 
 > **continuation**: [`TargetGuestRestoreContinuationDescriptor`](#targetguestrestorecontinuationdescriptor)
+
+##### translatedFrame?
+
+> `optional` **translatedFrame?**: [`TargetGuestTranslatedFrameDescriptor`](#targetguesttranslatedframedescriptor)
 
 ##### fdTable
 
@@ -9226,6 +9250,76 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### TargetGuestTranslatedFrameDescriptor
+
+#### Properties
+
+##### kind
+
+> **kind**: `"single-target-caller-frame"`
+
+##### framePointer
+
+> **framePointer**: `string`
+
+##### canonicalFrameAddress
+
+> **canonicalFrameAddress**: `string`
+
+##### returnAddressSlot
+
+> **returnAddressSlot**: `string`
+
+##### returnAddress
+
+> **returnAddress**: `string`
+
+##### unwindId
+
+> **unwindId**: `string`
+
+##### calleeSaved
+
+> **calleeSaved**: [`TargetGuestTranslatedFrameRegister`](#targetguesttranslatedframeregister)[]
+
+##### slots
+
+> **slots**: [`TargetGuestTranslatedFrameSlot`](#targetguesttranslatedframeslot)[]
+
+***
+
+### TargetGuestTranslatedFrameRegister
+
+#### Properties
+
+##### register
+
+> **register**: `"r12"`
+
+##### value
+
+> **value**: `string`
+
+***
+
+### TargetGuestTranslatedFrameSlot
+
+#### Properties
+
+##### offset
+
+> **offset**: `number`
+
+##### value
+
+> **value**: `string`
+
+##### classification
+
+> **classification**: `"non-pointer-data"`
+
+***
+
 ### TargetGuestRestoreDescriptor
 
 #### Properties
@@ -9241,6 +9335,10 @@ Poll interval in ms while retrying. Default 250.
 ##### continuation
 
 > **continuation**: [`TargetGuestRestoreContinuationDescriptor`](#targetguestrestorecontinuationdescriptor)
+
+##### translatedFrame?
+
+> `optional` **translatedFrame?**: [`TargetGuestTranslatedFrameDescriptor`](#targetguesttranslatedframedescriptor)
 
 ##### resources
 
@@ -11736,6 +11834,12 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ***
 
+### PortableMachineTargetFrameRestoreResult
+
+> **PortableMachineTargetFrameRestoreResult** = `"pending"` \| `"passed"` \| `"failed"`
+
+***
+
 ### PortableMachineTargetRestoreDescriptorPlan
 
 > **PortableMachineTargetRestoreDescriptorPlan** = \{ `state`: `"ready"`; `descriptor`: [`TargetGuestRestoreDescriptor`](#targetguestrestoredescriptor); `refusals`: \[\]; `memoryEntryCount`: `number`; `fdRecipeCount`: `number`; `sourceTextReusedAsTargetCode`: `false`; `sourceIsaEmulationUsed`: `false`; `sidecarRuntimeUsed`: `false`; \} \| \{ `state`: `"refused"`; `refusals`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]; `memoryEntryCount`: `number`; `fdRecipeCount`: `number`; `sourceTextReusedAsTargetCode`: `false`; `sourceIsaEmulationUsed`: `false`; `sidecarRuntimeUsed`: `false`; \}
@@ -11768,7 +11872,7 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ### TargetGuestRestoreLoaderRefusalCode
 
-> **TargetGuestRestoreLoaderRefusalCode** = `"target-guest-loader-descriptor-invalid"` \| `"target-guest-loader-target-arch-unsupported"` \| `"target-guest-loader-resource-unsupported"` \| `"target-guest-loader-invalid-fd"` \| `"target-guest-loader-invalid-continuation"` \| `"target-guest-loader-memory-unsupported"`
+> **TargetGuestRestoreLoaderRefusalCode** = `"target-guest-loader-descriptor-invalid"` \| `"target-guest-loader-target-arch-unsupported"` \| `"target-guest-loader-resource-unsupported"` \| `"target-guest-loader-invalid-fd"` \| `"target-guest-loader-invalid-continuation"` \| `"target-guest-loader-memory-unsupported"` \| `"target-guest-loader-frame-unsupported"`
 
 ***
 

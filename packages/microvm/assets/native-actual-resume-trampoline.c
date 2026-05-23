@@ -44,6 +44,8 @@
 #define STATE_CHECK_EVENTFD UINT64_C(0x20)
 #define STATE_CHECK_TIMERFD UINT64_C(0x40)
 #define TRANSLATED_RETURN_MARKER UINT64_C(0x52455455524e4a50)
+#define TRANSLATED_FRAME_MARKER UINT64_C(0x4652414d45504153)
+#define MAX_UNWIND_ID 128
 
 struct MemoryMaterialization {
   const char *source_file;
@@ -69,6 +71,18 @@ struct Options {
   uint64_t state_report_address;
   bool has_translated_return_address;
   uint64_t translated_return_address;
+  bool has_translated_frame;
+  uint64_t translated_frame_pointer;
+  uint64_t translated_frame_cfa;
+  uint64_t translated_frame_return_address_slot;
+  uint64_t translated_frame_return_address;
+  bool has_translated_frame_callee_r12;
+  uint64_t translated_frame_callee_r12;
+  bool has_translated_frame_slot;
+  uint64_t translated_frame_slot_offset;
+  uint64_t translated_frame_slot_value;
+  char translated_frame_slot_class[32];
+  char translated_frame_unwind_id[MAX_UNWIND_ID];
   uint64_t stack_target_start;
   uint64_t stack_size;
   uint64_t stack_pointer;
@@ -90,7 +104,11 @@ static void usage(void) {
       "usage: machinen-native-actual-resume-trampoline --code-file path "
       "--file-offset n --code-size n --target-address addr "
       "[--argument0 addr] [--state-report-address addr] "
-      "[--translated-return-address addr] --timeout-seconds n "
+      "[--translated-return-address addr] [--translated-frame-pointer addr] "
+      "[--translated-frame-cfa addr] [--translated-frame-return-address-slot addr] "
+      "[--translated-frame-return-address addr] [--translated-frame-unwind-id id] "
+      "[--translated-frame-callee-r12 addr] [--translated-frame-slot offset:value:class] "
+      "--timeout-seconds n "
       "[--synthetic-empty-pipe-read-fd n] [--synthetic-empty-pipe-write-fd n] "
       "[--synthetic-empty-eventfd n] "
       "[--synthetic-timerfd n] [--set-cloexec-fd n] "
@@ -172,6 +190,33 @@ static void add_materialized_memory(struct Options *opts, const char *spec) {
   mapping->prot = parse_memory_prot(next_spec_field(&cursor, "permissions"));
 }
 
+static void copy_unwind_id(struct Options *opts, const char *value) {
+  size_t length = strlen(value);
+  if (length == 0 || length >= sizeof(opts->translated_frame_unwind_id)) {
+    fprintf(stderr, "native-actual-resume-trampoline: translated frame unwind id is invalid\n");
+    exit(2);
+  }
+  memcpy(opts->translated_frame_unwind_id, value, length + 1u);
+}
+
+static void add_translated_frame_slot(struct Options *opts, const char *spec) {
+  char *copy = strdup(spec);
+  if (!copy) {
+    fprintf(stderr, "native-actual-resume-trampoline: frame slot allocation failed\n");
+    exit(1);
+  }
+  char *cursor = copy;
+  opts->translated_frame_slot_offset = parse_u64(next_spec_field(&cursor, "frame slot offset"), "frame slot offset");
+  opts->translated_frame_slot_value = parse_u64(next_spec_field(&cursor, "frame slot value"), "frame slot value");
+  const char *slot_class = next_spec_field(&cursor, "frame slot class");
+  if (!streq(slot_class, "non-pointer-data")) {
+    fprintf(stderr, "native-actual-resume-trampoline: frame slot class is unsupported\n");
+    exit(2);
+  }
+  snprintf(opts->translated_frame_slot_class, sizeof(opts->translated_frame_slot_class), "%s", slot_class);
+  opts->has_translated_frame_slot = true;
+}
+
 static void add_materialized_guard(struct Options *opts, const char *spec) {
   if (opts->materialized_guard_count >= MAX_MATERIALIZED_MAPPINGS) {
     fprintf(stderr, "native-actual-resume-trampoline: too many guard mappings\n");
@@ -234,6 +279,43 @@ static struct Options parse_args(int argc, char **argv) {
       }
       opts.translated_return_address = parse_u64(argv[i], "translated-return-address");
       opts.has_translated_return_address = true;
+    } else if (streq(argv[i], "--translated-frame-pointer")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.translated_frame_pointer = parse_u64(argv[i], "translated-frame-pointer");
+      opts.has_translated_frame = true;
+    } else if (streq(argv[i], "--translated-frame-cfa")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.translated_frame_cfa = parse_u64(argv[i], "translated-frame-cfa");
+    } else if (streq(argv[i], "--translated-frame-return-address-slot")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.translated_frame_return_address_slot = parse_u64(argv[i], "translated-frame-return-address-slot");
+    } else if (streq(argv[i], "--translated-frame-return-address")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.translated_frame_return_address = parse_u64(argv[i], "translated-frame-return-address");
+    } else if (streq(argv[i], "--translated-frame-unwind-id")) {
+      if (++i >= argc) {
+        usage();
+      }
+      copy_unwind_id(&opts, argv[i]);
+    } else if (streq(argv[i], "--translated-frame-callee-r12")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.translated_frame_callee_r12 = parse_u64(argv[i], "translated-frame-callee-r12");
+      opts.has_translated_frame_callee_r12 = true;
+    } else if (streq(argv[i], "--translated-frame-slot")) {
+      if (++i >= argc) {
+        usage();
+      }
+      add_translated_frame_slot(&opts, argv[i]);
     } else if (streq(argv[i], "--timeout-seconds")) {
       if (++i >= argc) {
         usage();
@@ -334,6 +416,17 @@ static uint64_t mapped_code_page_start = 0;
 static uint64_t mapped_code_page_size = 0;
 static volatile uint64_t resume_return_value __attribute__((used)) = 0;
 static uint64_t host_rsp_before_jump __attribute__((used)) = 0;
+static uint64_t host_rbp_before_jump __attribute__((used)) = 0;
+static uint64_t host_r12_before_jump __attribute__((used)) = 0;
+static uint64_t host_r13_before_jump __attribute__((used)) = 0;
+static uint64_t host_r14_before_jump __attribute__((used)) = 0;
+static uint64_t host_r15_before_jump __attribute__((used)) = 0;
+static uint64_t jump_entry_address __attribute__((used)) = 0;
+static uint64_t jump_initial_rsp __attribute__((used)) = 0;
+static uint64_t jump_argument0 __attribute__((used)) = 0;
+static uint64_t jump_translated_return_address __attribute__((used)) = 0;
+static uint64_t jump_translated_frame_pointer __attribute__((used)) = 0;
+static uint64_t jump_translated_frame_r12 __attribute__((used)) = 0;
 
 struct ObservedRegisters {
   uint64_t rax;
@@ -568,6 +661,37 @@ static void validate_stack_options(const struct Options *opts) {
   }
 }
 
+static bool address_inside_stack(const struct Options *opts, uint64_t address, uint64_t size) {
+  return address >= opts->stack_target_start && size <= opts->stack_size &&
+      address + size <= opts->stack_target_start + opts->stack_size;
+}
+
+static void validate_translated_frame_options(const struct Options *opts) {
+  if (!opts->has_translated_frame) {
+    return;
+  }
+  if (!opts->has_translated_return_address || opts->translated_frame_return_address != opts->translated_return_address) {
+    fprintf(stderr, "native-actual-resume-trampoline: translated frame return address is unresolved\n");
+    exit(2);
+  }
+  if (!opts->has_translated_frame_callee_r12 || !opts->has_translated_frame_slot) {
+    fprintf(stderr, "native-actual-resume-trampoline: translated frame is incomplete\n");
+    exit(2);
+  }
+  if (opts->translated_frame_unwind_id[0] == '\0' ||
+      strncmp(opts->translated_frame_unwind_id, "target:", strlen("target:")) != 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: translated frame unwind id is unsupported\n");
+    exit(2);
+  }
+  if (!address_inside_stack(opts, opts->translated_frame_pointer, 8u) ||
+      !address_inside_stack(opts, opts->translated_frame_cfa, 8u) ||
+      !address_inside_stack(opts, opts->translated_frame_return_address_slot, 8u) ||
+      !address_inside_stack(opts, opts->translated_frame_pointer + opts->translated_frame_slot_offset, 8u)) {
+    fprintf(stderr, "native-actual-resume-trampoline: translated frame addresses are outside target stack\n");
+    exit(2);
+  }
+}
+
 static void install_synthetic_empty_pipe(int read_fd, int write_fd) {
   if (read_fd < 0) {
     return;
@@ -655,13 +779,41 @@ static void apply_cloexec_fds(const struct Options *opts) {
   }
 }
 
-static void jump_to_target(
-    uint64_t entry, uint64_t initial_rsp, uint64_t argument0, uint64_t translated_return_address) {
+static void write_stack_u64(uint64_t address, uint64_t value) {
+  volatile uint64_t *slot = (volatile uint64_t *)(uintptr_t)address;
+  *slot = value;
+}
+
+static void materialize_translated_frame(const struct Options *opts) {
+  if (!opts->has_translated_frame) {
+    return;
+  }
+  write_stack_u64(opts->translated_frame_pointer + opts->translated_frame_slot_offset,
+      opts->translated_frame_slot_value);
+}
+
+static void jump_to_target(uint64_t entry,
+    uint64_t initial_rsp,
+    uint64_t argument0,
+    uint64_t translated_return_address,
+    uint64_t translated_frame_pointer,
+    uint64_t translated_frame_r12) {
+  jump_entry_address = entry;
+  jump_initial_rsp = initial_rsp;
+  jump_argument0 = argument0;
+  jump_translated_return_address = translated_return_address;
+  jump_translated_frame_pointer = translated_frame_pointer;
+  jump_translated_frame_r12 = translated_frame_r12;
   __asm__ __volatile__(
       "movq %%rsp, host_rsp_before_jump(%%rip)\n"
-      "movq %[initial_rsp], %%rsp\n"
+      "movq %%rbp, host_rbp_before_jump(%%rip)\n"
+      "movq %%r12, host_r12_before_jump(%%rip)\n"
+      "movq %%r13, host_r13_before_jump(%%rip)\n"
+      "movq %%r14, host_r14_before_jump(%%rip)\n"
+      "movq %%r15, host_r15_before_jump(%%rip)\n"
+      "movq jump_initial_rsp(%%rip), %%rsp\n"
       "leaq 1f(%%rip), %%rax\n"
-      "movq %[translated_return_address], %%rdx\n"
+      "movq jump_translated_return_address(%%rip), %%rdx\n"
       "testq %%rdx, %%rdx\n"
       "jz 2f\n"
       "movq %%rdx, (%%rsp)\n"
@@ -670,24 +822,29 @@ static void jump_to_target(
       "2:\n"
       "movq %%rax, (%%rsp)\n"
       "3:\n"
+      "movq jump_translated_frame_pointer(%%rip), %%rbp\n"
+      "movq jump_translated_frame_r12(%%rip), %%r12\n"
       "xorl %%eax, %%eax\n"
-      "movq %[argument0], %%rdi\n"
+      "movq jump_argument0(%%rip), %%rdi\n"
       "xorl %%esi, %%esi\n"
       "xorl %%edx, %%edx\n"
       "xorl %%ecx, %%ecx\n"
       "xorl %%r8d, %%r8d\n"
       "xorl %%r9d, %%r9d\n"
       "xorl %%r10d, %%r10d\n"
-      "xorl %%r11d, %%r11d\n"
-      "jmp *%[entry]\n"
+      "movq jump_entry_address(%%rip), %%r11\n"
+      "xorl %%eax, %%eax\n"
+      "jmp *%%r11\n"
       "1:\n"
       "movq %%rax, resume_return_value(%%rip)\n"
       "movq host_rsp_before_jump(%%rip), %%rsp\n"
+      "movq host_rbp_before_jump(%%rip), %%rbp\n"
+      "movq host_r12_before_jump(%%rip), %%r12\n"
+      "movq host_r13_before_jump(%%rip), %%r13\n"
+      "movq host_r14_before_jump(%%rip), %%r14\n"
+      "movq host_r15_before_jump(%%rip), %%r15\n"
       :
-      : [entry] "r"((void *)(uintptr_t)entry),
-        [initial_rsp] "r"(initial_rsp),
-        [argument0] "r"(argument0),
-        [translated_return_address] "r"(translated_return_address)
+      :
       : "rax", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11", "memory");
 }
 
@@ -860,6 +1017,40 @@ static void print_return_chain(const struct Options *opts) {
       TRANSLATED_RETURN_MARKER);
 }
 
+static void print_frame_restoration(const struct Options *opts) {
+  if (!opts->has_translated_frame || !opts->has_state_report_address) {
+    return;
+  }
+  uint64_t report_marker = read_state_report_u64(opts->state_report_address, 32);
+  uint64_t slot_value = read_state_report_u64(
+      opts->translated_frame_pointer, opts->translated_frame_slot_offset);
+  bool passed = report_marker == TRANSLATED_FRAME_MARKER && slot_value == opts->translated_frame_slot_value;
+  printf(
+      ",\"frameRestoration\":{\"status\":\"%s\","
+      "\"framePointer\":\"0x%" PRIx64 "\","
+      "\"canonicalFrameAddress\":\"0x%" PRIx64 "\","
+      "\"returnAddressSlot\":\"0x%" PRIx64 "\","
+      "\"returnAddress\":\"0x%" PRIx64 "\","
+      "\"unwindId\":\"%s\","
+      "\"reportMarker\":\"0x%" PRIx64 "\","
+      "\"expectedFrameMarker\":\"0x%" PRIx64 "\","
+      "\"calleeSaved\":[{\"register\":\"r12\",\"status\":\"passed\",\"value\":\"0x%" PRIx64 "\"}],"
+      "\"slots\":[{\"offset\":%" PRIu64 ",\"classification\":\"%s\",\"status\":\"%s\",\"value\":\"0x%" PRIx64 "\"}]}",
+      passed ? "passed" : "failed",
+      opts->translated_frame_pointer,
+      opts->translated_frame_cfa,
+      opts->translated_frame_return_address_slot,
+      opts->translated_frame_return_address,
+      opts->translated_frame_unwind_id,
+      report_marker,
+      TRANSLATED_FRAME_MARKER,
+      opts->translated_frame_callee_r12,
+      opts->translated_frame_slot_offset,
+      opts->translated_frame_slot_class,
+      slot_value == opts->translated_frame_slot_value ? "passed" : "failed",
+      slot_value);
+}
+
 static void print_return_event(const struct Options *opts) {
   printf(
       "MACHINEN_ACTUAL_RESUME_TRAMPOLINE {\"status\":\"returned\"," 
@@ -880,12 +1071,14 @@ static void print_return_event(const struct Options *opts) {
       mapped_target_end);
   print_state_consumption(opts);
   print_return_chain(opts);
+  print_frame_restoration(opts);
   printf("}\n");
 }
 
 int main(int argc, char **argv) {
   struct Options opts = parse_args(argc, argv);
   validate_stack_options(&opts);
+  validate_translated_frame_options(&opts);
   mapped_target_start = opts.target_address;
   mapped_target_end = opts.target_address + opts.code_size;
 
@@ -899,6 +1092,7 @@ int main(int argc, char **argv) {
   mapped_code_page_size = mapped_code_size;
   void *stack = map_fixed(
       opts.stack_target_start, opts.stack_size, PROT_READ | PROT_WRITE, "target-stack");
+  materialize_translated_frame(&opts);
 
   install_signal_handlers();
   install_synthetic_empty_pipe(
@@ -913,7 +1107,9 @@ int main(int argc, char **argv) {
         opts.target_address,
         initial_rsp,
         opts.has_argument0 ? opts.argument0 : 0u,
-        opts.has_translated_return_address ? opts.translated_return_address : 0u);
+        opts.has_translated_return_address ? opts.translated_return_address : 0u,
+        opts.has_translated_frame ? opts.translated_frame_pointer : 0u,
+        opts.has_translated_frame_callee_r12 ? opts.translated_frame_callee_r12 : 0u);
     alarm(0);
     print_return_event(&opts);
   } else {

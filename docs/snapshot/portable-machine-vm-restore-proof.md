@@ -50,8 +50,10 @@ now consumes restored state before returning: it checks the materialized capture
 memory byte, validates the descriptor-provided argument/register handoff, and
 exercises the wider fd matrix: closed fd, inherited stdout, reopened file,
 synthetic pipe, eventfd, and timerfd recipes. The descriptor also seeds a
-translated target return address so the continuation returns through a
-target-native landing before the trampoline records completion.
+translated target return address and a small translated caller frame. The
+trampoline materializes that target stack frame, seeds modeled `rbp`/`r12`, and
+the target-native continuation validates the frame before returning through the
+target-native landing.
 
 ## Smoke profile
 
@@ -88,7 +90,9 @@ resource recipe kinds, `targetRestore.targetContinuationKind`,
 `targetRestore.targetContinuationReturnValue`,
 `targetRestore.targetStateConsumptionResult`, per-resource status,
 `targetRestore.targetReturnChainResult`,
-`targetRestore.targetTranslatedReturnAddress`, and
+`targetRestore.targetTranslatedReturnAddress`,
+`targetRestore.targetFrameRestoreResult`,
+`targetRestore.targetTranslatedFramePointer`, and
 `targetRestore.targetVerifierResult`. It reports timing for:
 
 1. preflight / optional remote reachability gates;

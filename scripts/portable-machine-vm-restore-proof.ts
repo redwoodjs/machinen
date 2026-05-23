@@ -20,7 +20,10 @@ import { materializeNativeTargetModuleBytes } from "../packages/runtime/src/nati
 import { matchNativeTargetUnwindFrame } from "../packages/runtime/src/native-target-unwind.ts";
 import { validatePortableMachineSnapshotBundle } from "../packages/runtime/src/portable-machine-snapshot.ts";
 import { planTargetGuestMemoryMaterialization } from "../packages/runtime/src/target-guest-memory-materialization.ts";
-import { serializeTargetGuestRestoreDescriptor } from "../packages/runtime/src/target-guest-restore-loader.ts";
+import {
+  serializeTargetGuestRestoreDescriptor,
+  type TargetGuestTranslatedFrameDescriptor,
+} from "../packages/runtime/src/target-guest-restore-loader.ts";
 import { FINAL_JUMP_EXPECTED_RETURN, FINAL_JUMP_RETURN_MARKER } from "./native-final-jump-utils.ts";
 
 interface Args {
@@ -47,6 +50,7 @@ interface TargetInvocation {
   targetContinuationKind?: "generated-verifier" | "real-utility";
   targetModuleBytesSource?: string;
   targetTranslatedReturnAddress?: string;
+  targetTranslatedFramePointer?: string;
 }
 
 interface CombinedDescriptorContext {
@@ -65,6 +69,7 @@ interface PreparedTargetContinuation {
   argument0?: string;
   stateReportAddress?: string;
   translatedReturnAddress?: string;
+  translatedFrame?: TargetGuestTranslatedFrameDescriptor;
   expectedReturnValue?: string;
   targetModuleBytesSource?: string;
 }
@@ -90,6 +95,12 @@ const STATE_CHECK_REOPEN_FILE = 0x08;
 const STATE_CHECK_PIPE = 0x10;
 const STATE_CHECK_EVENTFD = 0x20;
 const STATE_CHECK_TIMERFD = 0x40;
+const TRANSLATED_FRAME_MARKER = 0x4652414d45504153n;
+const TRANSLATED_FRAME_POINTER = "0x50000000ff80";
+const TRANSLATED_FRAME_CFA = "0x50000000fff0";
+const TRANSLATED_FRAME_SLOT_OFFSET = 0;
+const TRANSLATED_FRAME_R12 = "0x1234567890abcdef";
+const TRANSLATED_FRAME_UNWIND_ID = "target:realspin-final-jump";
 
 function usage(): never {
   console.error(
@@ -162,22 +173,37 @@ function planWithDescriptorDetails(
   plan: ReturnType<typeof planPortableMachineVmRestoreProof>,
   invocation: TargetInvocation | undefined,
 ): ReturnType<typeof planPortableMachineVmRestoreProof> {
-  return invocation
+  if (!invocation) {
+    return plan;
+  }
+  return {
+    ...plan,
+    ...descriptorSummary(invocation),
+    ...realUtilityPendingResults(invocation),
+    targetVerifierResult: "pending",
+  };
+}
+
+function descriptorSummary(invocation: TargetInvocation) {
+  return {
+    descriptorMemoryEntryCount: invocation.descriptorMemoryEntryCount,
+    descriptorFdRecipeCount: invocation.descriptorFdRecipeCount,
+    descriptorResourceKinds: invocation.descriptorResourceKinds,
+    targetContinuationKind: invocation.targetContinuationKind,
+    targetModuleBytesSource: invocation.targetModuleBytesSource,
+    targetTranslatedReturnAddress: invocation.targetTranslatedReturnAddress,
+    targetTranslatedFramePointer: invocation.targetTranslatedFramePointer,
+  };
+}
+
+function realUtilityPendingResults(invocation: TargetInvocation) {
+  return invocation.targetContinuationKind === "real-utility"
     ? {
-        ...plan,
-        descriptorMemoryEntryCount: invocation.descriptorMemoryEntryCount,
-        descriptorFdRecipeCount: invocation.descriptorFdRecipeCount,
-        descriptorResourceKinds: invocation.descriptorResourceKinds,
-        targetContinuationKind: invocation.targetContinuationKind,
-        targetModuleBytesSource: invocation.targetModuleBytesSource,
-        targetStateConsumptionResult:
-          invocation.targetContinuationKind === "real-utility" ? "pending" : undefined,
-        targetReturnChainResult:
-          invocation.targetContinuationKind === "real-utility" ? "pending" : undefined,
-        targetTranslatedReturnAddress: invocation.targetTranslatedReturnAddress,
-        targetVerifierResult: "pending",
+        targetStateConsumptionResult: "pending" as const,
+        targetReturnChainResult: "pending" as const,
+        targetFrameRestoreResult: "pending" as const,
       }
-    : plan;
+    : {};
 }
 
 function prepareCombinedDescriptor(
@@ -208,6 +234,7 @@ function prepareCombinedDescriptor(
       targetContinuation.stateReportAddress,
       targetContinuation.translatedReturnAddress,
     ),
+    translatedFrame: targetContinuation.translatedFrame,
     fdTable: proofFdTable(),
     memory: proofMemoryPlan(context),
   });
@@ -332,6 +359,7 @@ function targetInvocation(
     targetContinuationKind: targetContinuation.kind,
     targetModuleBytesSource: targetContinuation.targetModuleBytesSource,
     targetTranslatedReturnAddress: targetContinuation.translatedReturnAddress,
+    targetTranslatedFramePointer: targetContinuation.translatedFrame?.framePointer,
   };
 }
 
@@ -379,6 +407,7 @@ function prepareRealUtilityContinuation(
     argument0: PROOF_MEMORY_TARGET,
     stateReportAddress: PROOF_MEMORY_TARGET,
     translatedReturnAddress: targetCode.translatedReturnAddress,
+    translatedFrame: translatedFrameDescriptor(targetCode.translatedReturnAddress),
     expectedReturnValue: hex(FINAL_JUMP_EXPECTED_RETURN),
     targetModuleBytesSource: "portable-bundle-target-root",
   };
@@ -397,6 +426,25 @@ function realUtilityPlanRefusal() {
     targetUnwind,
   });
   return plan.blockingRefusal;
+}
+
+function translatedFrameDescriptor(returnAddress: string): TargetGuestTranslatedFrameDescriptor {
+  return {
+    kind: "single-target-caller-frame",
+    framePointer: TRANSLATED_FRAME_POINTER,
+    canonicalFrameAddress: TRANSLATED_FRAME_CFA,
+    returnAddressSlot: "0x50000000fff0",
+    returnAddress,
+    unwindId: TRANSLATED_FRAME_UNWIND_ID,
+    calleeSaved: [{ register: "r12", value: TRANSLATED_FRAME_R12 }],
+    slots: [
+      {
+        offset: TRANSLATED_FRAME_SLOT_OFFSET,
+        value: hex(TRANSLATED_FRAME_MARKER),
+        classification: "non-pointer-data",
+      },
+    ],
+  };
 }
 
 function realUtilityTargetModule(
@@ -607,6 +655,7 @@ function proofStateVerifierTargetCode(
     asm.preserveRbx();
     asm.movRbxFromRdi();
     asm.storeReportWord(16, 0n);
+    asm.checkTranslatedFrame();
   } else {
     asm.movRbxImmediate(BigInt(PROOF_MEMORY_TARGET));
   }
@@ -649,6 +698,16 @@ class Amd64ProofAssembler {
   checkMemoryByte(expected: number): void {
     this.push(0x80, 0x3b, expected);
     this.jumpIfNotEqual();
+  }
+
+  checkTranslatedFrame(): void {
+    this.checkRbpImmediate(BigInt(TRANSLATED_FRAME_POINTER));
+    this.checkR12Immediate(BigInt(TRANSLATED_FRAME_R12));
+    this.checkAbsoluteU64(
+      BigInt(TRANSLATED_FRAME_POINTER) + BigInt(TRANSLATED_FRAME_SLOT_OFFSET),
+      TRANSLATED_FRAME_MARKER,
+    );
+    this.storeReportWord(32, TRANSLATED_FRAME_MARKER);
   }
 
   checkFdOpen(fd: number): void {
@@ -714,6 +773,31 @@ class Amd64ProofAssembler {
     this.push(0xbe);
     this.pushU32(1);
     this.push(0x31, 0xd2, 0x0f, 0x05);
+  }
+
+  private checkRbpImmediate(expected: bigint): void {
+    this.movRaxImmediate(expected);
+    this.push(0x48, 0x39, 0xe8);
+    this.jumpIfNotEqual();
+  }
+
+  private checkR12Immediate(expected: bigint): void {
+    this.movRaxImmediate(expected);
+    this.push(0x49, 0x39, 0xc4);
+    this.jumpIfNotEqual();
+  }
+
+  private checkAbsoluteU64(address: bigint, expected: bigint): void {
+    this.movRaxImmediate(address);
+    this.push(0x48, 0x8b, 0x10);
+    this.movRaxImmediate(expected);
+    this.push(0x48, 0x39, 0xc2);
+    this.jumpIfNotEqual();
+  }
+
+  private movRaxImmediate(value: bigint): void {
+    this.push(0x48, 0xb8);
+    this.pushU64(value);
   }
 
   private appendTranslatedReturnLanding(completion: ProofCompletionMode): number {

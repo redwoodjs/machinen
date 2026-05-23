@@ -22,6 +22,7 @@ timeoutSeconds=5
 stackTargetStart=0x500000000000
 stackSize=65536
 stackPointer=0x500000010000
+frame=single-target-caller-frame framePointer=0x50000000ff80 canonicalFrameAddress=0x50000000fff0 returnAddressSlot=0x50000000fff0 returnAddress=0x700300000080 unwindId=target:realspin-final-jump calleeSavedR12=0x1234567890abcdef slot0Offset=0 slot0Value=0x4652414d45504153 slot0Class=non-pointer-data
 resource=close-fd fd=0 reason=missing-captured-fd
 resource=inherit-stdio fd=1 stream=stdout closeOnExec=false
 resource=reopen-file fd=7 path=/tmp/data.txt offset=9 access=0 closeOnExec=true
@@ -42,7 +43,10 @@ Supported fd-table resources and memory materialization are intentionally narrow
 - `synthetic-empty-eventfd` with an empty non-semaphore eventfd;
 - `synthetic-timerfd` with a disarmed/future one-shot timerfd;
 - `copy-captured-bytes` for explicitly safe, non-executable writable mappings;
-- `recreate-guard` for guard / `PROT_NONE` ranges.
+- `recreate-guard` for guard / `PROT_NONE` ranges;
+- `frame=single-target-caller-frame` for the current modeled translated caller
+  frame: one return slot, one `r12` callee-saved value, one non-pointer data
+  stack slot, and a target unwind identity.
 
 The runtime fd-table planner emits these resource lines from translated native
 resources. The in-guest loader validates duplicate fd ownership before launching
@@ -63,16 +67,20 @@ Everything else fails closed with a precise refusal, currently:
 - `target-guest-loader-invalid-fd`
 - `target-guest-loader-invalid-continuation`
 - `target-guest-loader-memory-unsupported`
+- `target-guest-loader-frame-unsupported`
 
 The existing target-VM synthetic proof now injects the loader and descriptor into
 the amd64 guest and executes the loader instead of invoking the trampoline
 directly. The descriptor may carry an optional `argument0` target register value
-an optional `stateReportAddress`, and an optional `translatedReturnAddress` for
-real target-native continuation attempts. The state report address lets the
-trampoline read a small report that the continuation writes after consuming
-restored memory and fd/resource state. The translated return address lets the
-trampoline seed a modeled target return slot before the host return slot, so the
-continuation can return through target-native landing code before control comes
-back to the trampoline. Completion is credited only when the descriptor gate
-succeeds and the target-native continuation returns/exits in the guest with the
-expected modeled result.
+an optional `stateReportAddress`, an optional `translatedReturnAddress`, and an
+optional translated caller frame for real target-native continuation attempts.
+The state report address lets the trampoline read a small report that the
+continuation writes after consuming restored memory and fd/resource state. The
+translated return address lets the trampoline seed a modeled target return slot
+before the host return slot, so the continuation can return through
+target-native landing code before control comes back to the trampoline. The
+translated frame lets the trampoline materialize a small target stack frame,
+seed `rbp`/`r12`, and require the target code to validate that modeled frame
+state. Completion is credited only when the descriptor gate succeeds and the
+target-native continuation returns/exits in the guest with the expected modeled
+result.
