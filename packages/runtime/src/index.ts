@@ -475,6 +475,7 @@ export {
   validateTargetGuestRestoreDescriptor,
 } from "./target-guest-restore-loader.ts";
 export { planTargetGuestMemoryMaterialization } from "./target-guest-memory-materialization.ts";
+export { planTargetGuestPrivateMemoryRestore } from "./target-guest-private-memory-restore.ts";
 export {
   completePortableMachineVmRestoreProof,
   planPortableMachineTargetRestoreDescriptor,
@@ -509,6 +510,10 @@ export type {
   TargetGuestMemoryMaterializationResult,
   TargetGuestRecreateGuardEntry,
 } from "./target-guest-memory-materialization.ts";
+export type {
+  TargetGuestPrivateMemoryRestorePlan,
+  TargetGuestPrivateMemoryRestoreStep,
+} from "./target-guest-private-memory-restore.ts";
 export type {
   PortableMachineTargetContinuationKind,
   PortableMachineTargetFrameRestoreResult,

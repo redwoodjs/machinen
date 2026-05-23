@@ -115,6 +115,8 @@
 - [`TargetGuestRecreateGuardEntry`](#targetguestrecreateguardentry)
 - [`TargetGuestMemoryMaterializationRequest`](#targetguestmemorymaterializationrequest)
 - [`TargetGuestMemoryMaterializationResult`](#targetguestmemorymaterializationresult)
+- [`TargetGuestPrivateMemoryRestorePlan`](#targetguestprivatememoryrestoreplan)
+- [`TargetGuestPrivateMemoryRestoreStep`](#targetguestprivatememoryrestorestep)
 - [`PortableMachineTargetRestoreDescriptorRequest`](#portablemachinetargetrestoredescriptorrequest)
 - [`PortableMachineTargetRestoreDescriptorPlan`](#portablemachinetargetrestoredescriptorplan)
 - [`PortableMachineTargetRestoreObservation`](#portablemachinetargetrestoreobservation)
@@ -138,6 +140,7 @@
 - [`parseTargetGuestRestoreDescriptor`](#parsetargetguestrestoredescriptor)
 - [`validateTargetGuestRestoreDescriptor`](#validatetargetguestrestoredescriptor)
 - [`planTargetGuestMemoryMaterialization`](#plantargetguestmemorymaterialization)
+- [`planTargetGuestPrivateMemoryRestore`](#plantargetguestprivatememoryrestore)
 - [`planPortableMachineTargetRestoreDescriptor`](#planportablemachinetargetrestoredescriptor)
 - [`planPortableMachineVmRestoreProof`](#planportablemachinevmrestoreproof)
 - [`completePortableMachineVmRestoreProof`](#completeportablemachinevmrestoreproof)
@@ -10288,6 +10291,24 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### TargetGuestPrivateMemoryRestorePlan
+
+#### Properties
+
+##### state
+
+> **state**: `"refused"` \| `"planned"`
+
+##### steps
+
+> **steps**: [`TargetGuestPrivateMemoryRestoreStep`](#targetguestprivatememoryrestorestep)[]
+
+##### refusals
+
+> **refusals**: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal)[]
+
+***
+
 ### TargetGuestRestoreContinuationDescriptor
 
 #### Properties
@@ -13085,6 +13106,12 @@ Result of `validatePid` — easy to switch on at the call site.
 ### TargetGuestMemoryMaterializationEntry
 
 > **TargetGuestMemoryMaterializationEntry** = [`TargetGuestCopyCapturedBytesEntry`](#targetguestcopycapturedbytesentry) \| [`TargetGuestRecreateGuardEntry`](#targetguestrecreateguardentry)
+
+***
+
+### TargetGuestPrivateMemoryRestoreStep
+
+> **TargetGuestPrivateMemoryRestoreStep** = \{ `action`: `"mmap-private-writable"`; `mapping`: `string`; `targetStart`: `string`; `sizeBytes`: `number`; `permissions`: `string`; \} \| \{ `action`: `"copy-captured-bytes"`; `mapping`: `string`; `sourceFile`: `string`; `sourceOffset`: `number`; `targetStart`: `string`; `sizeBytes`: `number`; \} \| \{ `action`: `"mprotect-final"`; `mapping`: `string`; `targetStart`: `string`; `sizeBytes`: `number`; `permissions`: `string`; \} \| \{ `action`: `"mmap-guard"`; `mapping`: `string`; `targetStart`: `string`; `sizeBytes`: `number`; `permissions`: `"---p"`; \}
 
 ***
 
@@ -16708,6 +16735,22 @@ resolve the binary through the same lookup chain.
 #### Returns
 
 [`TargetGuestMemoryMaterializationResult`](#targetguestmemorymaterializationresult)
+
+***
+
+### planTargetGuestPrivateMemoryRestore()
+
+> **planTargetGuestPrivateMemoryRestore**(`entries`): [`TargetGuestPrivateMemoryRestorePlan`](#targetguestprivatememoryrestoreplan)
+
+#### Parameters
+
+##### entries
+
+[`TargetGuestMemoryMaterializationEntry`](#targetguestmemorymaterializationentry)[]
+
+#### Returns
+
+[`TargetGuestPrivateMemoryRestorePlan`](#targetguestprivatememoryrestoreplan)
 
 ***
 
