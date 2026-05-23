@@ -15,10 +15,11 @@ The descriptor can now carry line-oriented `native=` entries for:
 These sections are validated and round-trip through descriptor serialization.
 They also become explicit trampoline argv entries. The target loader now parses
 and forwards them; the amd64 trampoline applies stack-window writes,
-return-chain writes, stack guards, and signal-mask save/apply/verify/restore
-steps, while tracking private-memory, executable-mapping, and active-syscall
-section consumption for result reporting. The target VM proof harness parses
-those native consumption events into `targetStackWindowMaterializationResult`,
+return-chain writes, stack guards, native private-memory mmap/copy/mprotect
+steps, and signal-mask save/apply/verify/restore steps, while tracking
+executable-mapping and active-syscall section consumption for result reporting.
+The target VM proof harness parses those native consumption events into
+`targetStackWindowMaterializationResult`,
 `targetPrivateMemoryRestoreResult`, `targetExecutableMappingResult`,
 `targetSignalRestoreResult`, and `targetActiveSyscallRestoreResult`; any present
 failed marker makes the verifier fail. Unsafe or malformed native section entries

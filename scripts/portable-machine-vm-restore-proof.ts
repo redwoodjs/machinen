@@ -309,6 +309,7 @@ function prepareTargetRestoreDescriptor(
   targetContinuation: PreparedTargetContinuation,
 ) {
   const memory = proofMemoryPlan(context);
+  const nativeRestore = proofNativeRestoreSections(context, targetContinuation, memory.entries);
   return planPortableMachineTargetRestoreDescriptor({
     continuation: continuationDescriptor(
       context.targetCodeFile,
@@ -322,9 +323,18 @@ function prepareTargetRestoreDescriptor(
     ),
     translatedFrame: targetContinuation.translatedFrame,
     fdTable: proofFdTable(),
-    memory,
-    nativeRestore: proofNativeRestoreSections(context, targetContinuation, memory.entries),
+    memory: descriptorMemoryForNativeRestore(memory, nativeRestore),
+    nativeRestore,
   });
+}
+
+function descriptorMemoryForNativeRestore(
+  memory: ReturnType<typeof proofMemoryPlan>,
+  nativeRestore: TargetGuestNativeRestoreStep[],
+): ReturnType<typeof proofMemoryPlan> {
+  return nativeRestore.some((step) => step.section === "private-memory")
+    ? { entries: [], refusals: memory.refusals }
+    : memory;
 }
 
 function writeTargetRestoreDescriptor(

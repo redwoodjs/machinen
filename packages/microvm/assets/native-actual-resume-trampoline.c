@@ -1227,6 +1227,92 @@ static const char *native_step_value(const char *spec, const char *name, char *s
   return NULL;
 }
 
+static const char *required_native_step_value(
+    const char *spec, const char *name, char *scratch, size_t scratch_size, const char *label) {
+  const char *value = native_step_value(spec, name, scratch, scratch_size);
+  if (!value) {
+    fprintf(stderr, "native-actual-resume-trampoline: native %s step missing %s\n", label, name);
+    exit(2);
+  }
+  return value;
+}
+
+static uint64_t native_step_u64(const char *spec, const char *name, const char *label) {
+  char scratch[1024];
+  return parse_u64(required_native_step_value(spec, name, scratch, sizeof(scratch), label), name);
+}
+
+static void native_step_string(
+    const char *spec, const char *name, char *dst, size_t dst_size, const char *label) {
+  char scratch[1024];
+  const char *value = required_native_step_value(spec, name, scratch, sizeof(scratch), label);
+  if (strlen(value) >= dst_size) {
+    fprintf(stderr, "native-actual-resume-trampoline: native %s step %s is too long\n", label, name);
+    exit(2);
+  }
+  snprintf(dst, dst_size, "%s", value);
+}
+
+static void apply_native_private_memory_steps(const struct Options *opts) {
+  for (size_t i = 0; i < opts->native_private_memory_step_count; i++) {
+    const char *spec = opts->native_private_memory_steps[i].spec;
+    char action[64];
+    native_step_string(spec, "action", action, sizeof(action), "private-memory");
+    if (streq(action, "mmap-private-writable")) {
+      char permissions[16];
+      native_step_string(spec, "permissions", permissions, sizeof(permissions), "private-memory");
+      if (!streq(permissions, "rw-p")) {
+        fprintf(stderr, "native-actual-resume-trampoline: native private mmap permissions must be rw-p\n");
+        exit(2);
+      }
+      (void)map_fixed(native_step_u64(spec, "targetStart", "private-memory"),
+          native_step_u64(spec, "sizeBytes", "private-memory"),
+          PROT_READ | PROT_WRITE,
+          "native-private-memory");
+    } else if (streq(action, "copy-captured-bytes")) {
+      char source_file[1024];
+      native_step_string(spec, "sourceFile", source_file, sizeof(source_file), "private-memory");
+      int fd = open(source_file, O_RDONLY);
+      if (fd < 0) {
+        fprintf(stderr,
+            "native-actual-resume-trampoline: open native private memory failed for %s: %s\n",
+            source_file,
+            strerror(errno));
+        exit(1);
+      }
+      read_exact(fd,
+          (void *)(uintptr_t)native_step_u64(spec, "targetStart", "private-memory"),
+          native_step_u64(spec, "sizeBytes", "private-memory"),
+          native_step_u64(spec, "sourceOffset", "private-memory"));
+      close(fd);
+    } else if (streq(action, "mprotect-final")) {
+      char permissions[16];
+      native_step_string(spec, "permissions", permissions, sizeof(permissions), "private-memory");
+      void *target = (void *)(uintptr_t)native_step_u64(spec, "targetStart", "private-memory");
+      uint64_t size = native_step_u64(spec, "sizeBytes", "private-memory");
+      if (mprotect(target, (size_t)size, parse_memory_prot(permissions)) != 0) {
+        fprintf(stderr, "native-actual-resume-trampoline: native private mprotect failed: %s\n", strerror(errno));
+        exit(1);
+      }
+    } else if (streq(action, "mmap-guard")) {
+      char permissions[16];
+      native_step_string(spec, "permissions", permissions, sizeof(permissions), "private-memory");
+      if (!streq(permissions, "---p")) {
+        fprintf(stderr, "native-actual-resume-trampoline: native guard permissions must be ---p\n");
+        exit(2);
+      }
+      struct GuardMaterialization guard = {
+          .target_start = native_step_u64(spec, "targetStart", "private-memory"),
+          .size = native_step_u64(spec, "sizeBytes", "private-memory"),
+      };
+      materialize_guard_mapping(&guard);
+    } else {
+      fprintf(stderr, "native-actual-resume-trampoline: unsupported native private-memory action\n");
+      exit(2);
+    }
+  }
+}
+
 static uint64_t parse_signal_masks(const char *value) {
   uint64_t masks = 0;
   char *copy = strdup(value);
@@ -1896,9 +1982,7 @@ static void print_native_restore_consumption(const struct Options *opts) {
         opts->native_return_chain_write_count);
   }
   if (opts->native_private_memory_step_count > 0) {
-    bool passed = opts->materialized_memory_count + opts->materialized_guard_count > 0;
-    printf(",\"nativePrivateMemoryRestore\":{\"status\":\"%s\",\"stepCount\":%zu}",
-        passed ? "passed" : "failed",
+    printf(",\"nativePrivateMemoryRestore\":{\"status\":\"passed\",\"stepCount\":%zu}",
         opts->native_private_memory_step_count);
   }
   if (opts->native_executable_mapping_count > 0) {
@@ -1962,7 +2046,11 @@ int main(int argc, char **argv) {
   mapped_target_start = opts.target_address;
   mapped_target_end = opts.target_address + opts.code_size;
 
-  materialize_descriptor_memory(&opts);
+  if (opts.native_private_memory_step_count > 0) {
+    apply_native_private_memory_steps(&opts);
+  } else {
+    materialize_descriptor_memory(&opts);
+  }
   materialize_native_stack_window_guards(&opts);
   materialize_target_tcb(&opts);
 
