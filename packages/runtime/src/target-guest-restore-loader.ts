@@ -1086,7 +1086,10 @@ function validateActiveSyscallRestoreStep(step: TargetGuestActiveSyscallRestoreS
   if (step.action === "restore-fd-read-block") {
     assertFd(step.fd, "fd");
     assertPositive(step.countBytes, "countBytes");
-    if (step.resource !== "synthetic-empty-pipe-read-end") {
+    if (
+      step.resource !== "synthetic-empty-pipe-read-end" &&
+      step.resource !== "synthetic-empty-eventfd"
+    ) {
       fail("target-guest-loader-invalid-continuation", "fd read resource is unsupported");
     }
     return;

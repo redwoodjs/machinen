@@ -19,8 +19,9 @@ state, and unsupported fd state continue to fail closed before target re-arm.
 The target amd64 trampoline now executes these sections by creating and arming a
 short-lived target-side timerfd for each `rearm-sleep-timer` or
 `rearm-ppoll-timeout` step before entering the restored continuation. For
-`restore-fd-read-block`, it recreates the target pipe read fd and verifies the fd
-would still block with a zero-timeout `poll(POLLIN)`. The trampoline reports
+`restore-fd-read-block`, it recreates the target pipe or eventfd read fd and
+verifies the fd would still block with a zero-timeout `poll(POLLIN)`. The
+trampoline reports
 `nativeActiveSyscallRestore.status=passed` only when every step was parsed,
 validated, and consumed; malformed durations, unknown actions, wrong resume
 modes, unsupported sleep syscall names, unsupported `ppoll` resource shapes, and
@@ -28,8 +29,9 @@ read fds that are ready/EOF/invalid exit before target success.
 
 The remote portable-machine smoke path captures either the default real arm64
 two-thread process with one thread blocked in a modeled `ppoll` timeout or, with
-`PORTABLE_MACHINE_REMOTE_SOURCE_TARGET=pipe-read`, a real arm64 process blocked
-in `read` on an empty pipe. It wraps that bundle in a portable machine snapshot,
+`PORTABLE_MACHINE_REMOTE_SOURCE_TARGET=pipe-read` / `eventfd-read`, a real arm64
+process blocked in `read` on an empty pipe/eventfd. It wraps that bundle in a
+portable machine snapshot,
 serializes a `native=active-syscall` section in the combined target descriptor,
 and requires `targetActiveSyscallRestoreResult=passed` before the remote
 arm64→amd64 proof is accepted. Missing or unreadable timeout/read-buffer memory

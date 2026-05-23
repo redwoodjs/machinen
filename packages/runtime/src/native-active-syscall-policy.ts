@@ -28,7 +28,7 @@ export type NativePollTimeoutFdPolicy =
   | "synthetic-empty-eventfd"
   | "synthetic-timerfd";
 export type NativeFdReadPolicy = "refuse" | "defer-target-resume";
-export type NativeFdReadResourcePolicy = "synthetic-empty-pipe";
+export type NativeFdReadResourcePolicy = "synthetic-empty-pipe" | "synthetic-empty-eventfd";
 
 export interface NativeActiveSyscallPolicyOptions {
   sleepTimerPolicy?: NativeSleepTimerSyscallPolicy;
@@ -98,7 +98,9 @@ export interface NativeModeledPpollTimeoutState {
   remainingTime: NativeModeledPpollTimeoutRemainingTime;
 }
 
-export type NativeModeledFdReadTargetResource = "synthetic-empty-pipe-read-end";
+export type NativeModeledFdReadTargetResource =
+  | "synthetic-empty-pipe-read-end"
+  | "synthetic-empty-eventfd";
 
 export interface NativeModeledFdReadState {
   kind: "fd-read-block";
@@ -109,7 +111,7 @@ export interface NativeModeledFdReadState {
   countBytes: number;
   bufferMapping: string;
   resourceId: string;
-  pairedWriteResourceId: string;
+  pairedWriteResourceId?: string;
   targetResource: NativeModeledFdReadTargetResource;
 }
 
@@ -205,6 +207,7 @@ const TIMESPEC_SIZE_BYTES = 16n;
 const POLLFD_SIZE_BYTES = 8n;
 const POLLIN = 0x1;
 const SUPPORTED_EMPTY_EVENTFD_FLAGS = 0o2000002;
+const SUPPORTED_EVENTFD_READ_FLAGS = new Set([0o2, SUPPORTED_EMPTY_EVENTFD_FLAGS]);
 const SUPPORTED_TIMERFD_FLAGS = 0o2000002;
 const MAX_SIGNED_I64 = 0x7fff_ffff_ffff_ffffn;
 const MAX_NANOSECONDS = 999_999_999n;
@@ -621,13 +624,17 @@ function decodeFdReadArguments(
   if ("state" in resource) {
     return resource;
   }
+  const countRefusal = validateFdReadResourceCount(thread, values, resource.targetResource);
+  if (countRefusal) {
+    return countRefusal;
+  }
   return {
     fd: values.fd,
     bufferPointer: hex(values.bufferPointer),
     countBytes: values.countBytes,
     bufferMapping: bufferMapping.id,
     resourceId: resource.resource.id,
-    pairedWriteResourceId: resource.pairedWriteResource.id,
+    pairedWriteResourceId: resource.pairedWriteResource?.id,
     targetResource: resource.targetResource,
   };
 }
@@ -704,6 +711,20 @@ function validateFdReadBuffer(
         countBytes: values.countBytes,
         argumentSource: args.source,
       });
+}
+
+function validateFdReadResourceCount(
+  thread: NativeThreadState,
+  values: FdReadArgumentValues,
+  targetResource: NativeModeledFdReadTargetResource,
+): { state: "missing"; refusal: NativeProcessImageRefusal } | undefined {
+  return targetResource === "synthetic-empty-eventfd" && values.countBytes < 8
+    ? missingFdRead(thread, "read eventfd proof requires count >= 8", {
+        fd: values.fd,
+        countBytes: values.countBytes,
+        targetResource,
+      })
+    : undefined;
 }
 
 function ppollArgumentValues(args: SleepTimerArguments): PpollArgumentValues {
@@ -981,16 +1002,26 @@ function validateFdReadModeledResource(
 ):
   | {
       resource: NativeProcessResource;
-      pairedWriteResource: NativeProcessResource;
+      pairedWriteResource?: NativeProcessResource;
       targetResource: NativeModeledFdReadTargetResource;
     }
   | { state: "missing"; refusal: NativeProcessImageRefusal } {
-  if (resourcePolicy !== "synthetic-empty-pipe") {
-    return missingFdRead(thread, "read fd resource policy is not supported", {
-      fd,
-      resourcePolicy,
-    });
-  }
+  return resourcePolicy === "synthetic-empty-eventfd"
+    ? validateFdReadEventfdResource(thread, documents, fd)
+    : validateFdReadPipeResource(thread, documents, fd);
+}
+
+function validateFdReadPipeResource(
+  thread: NativeThreadState,
+  documents: NativeProcessImageDocuments,
+  fd: number,
+):
+  | {
+      resource: NativeProcessResource;
+      pairedWriteResource: NativeProcessResource;
+      targetResource: "synthetic-empty-pipe-read-end";
+    }
+  | { state: "missing"; refusal: NativeProcessImageRefusal } {
   const resource = documents.resources.resources.find((candidate) => candidate.fd === fd);
   if (resource?.kind !== "pipe") {
     return missingFdRead(thread, "read proof requires a captured pipe fd", {
@@ -1020,6 +1051,66 @@ function validateFdReadModeledResource(
         resourceId: resource.id,
         pipeId: resource.path,
       });
+}
+
+function validateFdReadEventfdResource(
+  thread: NativeThreadState,
+  documents: NativeProcessImageDocuments,
+  fd: number,
+):
+  | { resource: NativeProcessResource; targetResource: "synthetic-empty-eventfd" }
+  | { state: "missing"; refusal: NativeProcessImageRefusal } {
+  const resource = documents.resources.resources.find((candidate) => candidate.fd === fd);
+  if (resource?.kind !== "eventfd") {
+    return missingFdRead(thread, "read proof requires a captured eventfd fd", {
+      fd,
+      resourceKind: resource?.kind,
+      resourceId: resource?.id,
+    });
+  }
+  const eventfdRefusal = validateFdReadEventfdState(thread, fd, resource);
+  return eventfdRefusal ?? { resource, targetResource: "synthetic-empty-eventfd" };
+}
+
+function validateFdReadEventfdState(
+  thread: NativeThreadState,
+  fd: number,
+  resource: NativeProcessResource,
+): { state: "missing"; refusal: NativeProcessImageRefusal } | undefined {
+  if (nativeFdAccessMode(resource.flags) !== 2) {
+    return missingFdRead(thread, "read eventfd proof requires read/write access", {
+      fd,
+      resourceId: resource.id,
+      resourceFlags: resource.flags,
+    });
+  }
+  if (!SUPPORTED_EVENTFD_READ_FLAGS.has(nativeFdFlagBits(resource.flags))) {
+    return missingFdRead(thread, "read eventfd proof requires supported flags", {
+      fd,
+      resourceId: resource.id,
+      resourceFlags: resource.flags,
+      supportedFlags: Array.from(
+        SUPPORTED_EVENTFD_READ_FLAGS,
+        (flags) => `octal:${flags.toString(8)}`,
+      ),
+    });
+  }
+  const eventfdCount = nativeResourceBigInt(resource, "eventfdCount");
+  if (eventfdCount !== 0n) {
+    return missingFdRead(thread, "read eventfd proof requires an empty eventfd", {
+      fd,
+      resourceId: resource.id,
+      eventfdCount: eventfdCount?.toString(10),
+    });
+  }
+  const eventfdSemaphore = nativeResourceBigInt(resource, "eventfdSemaphore");
+  return eventfdSemaphore !== 0n
+    ? missingFdRead(thread, "read eventfd proof does not model semaphore mode", {
+        fd,
+        resourceId: resource.id,
+        eventfdSemaphore: eventfdSemaphore?.toString(10),
+      })
+    : undefined;
 }
 
 function validatePpollEventfdResource(

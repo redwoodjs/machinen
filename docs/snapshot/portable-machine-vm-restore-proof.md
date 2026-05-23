@@ -195,7 +195,8 @@ Latest default remote arm64→amd64 proof after native target-loader consumption
 - target VM boot/restore: 62.342s
 
 The same smoke script can set `PORTABLE_MACHINE_REMOTE_SOURCE_TARGET=pipe-read`
-to capture a single-thread arm64 process blocked in `read` on an empty pipe. The
-pipe-read profile requires `targetActiveSyscallRestoreResult=passed` and keeps
-the existing native target-loader gates enabled, but does not require the
-controlled two-thread marker because no thread-spawn section is present.
+or `eventfd-read` to capture a single-thread arm64 process blocked in `read` on
+an empty pipe or eventfd. These fd-read profiles require
+`targetActiveSyscallRestoreResult=passed` and keep the existing native
+target-loader gates enabled, but do not require the controlled two-thread marker
+because no thread-spawn section is present.

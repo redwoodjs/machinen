@@ -1506,6 +1506,12 @@ static void restore_native_fd_read_block(const char *spec, struct NativeActiveSy
   }
   if (streq(resource, "synthetic-empty-pipe-read-end")) {
     install_synthetic_empty_pipe((int)fd, -1);
+  } else if (streq(resource, "synthetic-empty-eventfd")) {
+    if (count_bytes < 8u) {
+      fprintf(stderr, "native-actual-resume-trampoline: native eventfd read count is unsupported\n");
+      exit(2);
+    }
+    install_synthetic_empty_eventfd((int)fd);
   } else {
     fprintf(stderr, "native-actual-resume-trampoline: native fd read resource is unsupported\n");
     exit(2);

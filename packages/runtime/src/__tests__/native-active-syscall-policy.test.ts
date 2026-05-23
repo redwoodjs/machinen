@@ -155,8 +155,9 @@ function documentsWithReadPipe(
   options: {
     readFd?: number;
     writeFd?: number;
-    readKind?: "pipe" | "file" | "socket";
+    readKind?: "pipe" | "file" | "socket" | "eventfd";
     readFlags?: string[];
+    readRecipe?: Record<string, unknown>;
     includeWriteEnd?: boolean;
     writableBuffer?: boolean;
   } = {},
@@ -172,8 +173,9 @@ function documentsWithReadPipe(
       kind: options.readKind ?? "pipe",
       state: "refused",
       fd: readFd,
-      path: "pipe:[321]",
+      path: options.readKind === "eventfd" ? "anon_inode:[eventfd]" : "pipe:[321]",
       flags: options.readFlags ?? ["octal:0"],
+      recipe: options.readRecipe,
     },
     ...(options.includeWriteEnd === false
       ? []
@@ -189,6 +191,33 @@ function documentsWithReadPipe(
         ]),
   ];
   return documents;
+}
+
+function documentsWithReadEventfd(
+  activeThread: NativeThreadState,
+  options: {
+    readFd?: number;
+    flags?: string[];
+    recipe?: Record<string, unknown>;
+    countBytes?: string;
+  } = {},
+): NativeProcessImageDocuments {
+  if (options.countBytes) {
+    activeThread.sourceRegisters = {
+      ...activeThread.sourceRegisters,
+      x:
+        activeThread.sourceRegisters.arch === "arm64"
+          ? ["0x22", "0x3100", options.countBytes, "0x0", "0x0", "0x0"]
+          : [],
+    } as NativeThreadState["sourceRegisters"];
+  }
+  return documentsWithReadPipe(activeThread, {
+    readFd: options.readFd ?? 34,
+    readKind: "eventfd",
+    readFlags: options.flags ?? ["octal:2000002"],
+    readRecipe: options.recipe ?? { eventfdCount: "0x0", eventfdSemaphore: 0 },
+    includeWriteEnd: false,
+  });
 }
 
 function emptyRefusals() {
@@ -843,6 +872,30 @@ describe("native active syscall classification", () => {
     expect(result.classifications[0]).toMatchObject({ class: "fd-blocking", resumable: false });
   });
 
+  it("models a blocked read from an empty eventfd", () => {
+    const activeThread = arm64ReadThread(["0x22", "0x3100", "0x8", "0x0", "0x0", "0x0"]);
+    const documents = documentsWithReadEventfd(activeThread);
+    const result = classifyNativeActiveSyscalls([activeThread], {
+      fdReadPolicy: "defer-target-resume",
+      fdReadResourcePolicy: "synthetic-empty-eventfd",
+      documents,
+    });
+
+    expect(result.refusals).toEqual([]);
+    expect(result.continuations[0]).toMatchObject({
+      syscallClass: "fd-blocking",
+      metadata: {
+        fdRead: {
+          fd: 34,
+          countBytes: 8,
+          resourceId: "fd:34:read",
+          targetResource: "synthetic-empty-eventfd",
+        },
+        policy: "conservative-target-fd-read-block-preserved",
+      },
+    });
+  });
+
   it("prefers /proc syscall arguments for modeled read", () => {
     const activeThread = arm64ReadThread();
     activeThread.syscall.arguments = ["0x20", "0x3100", "0x1", "0x0", "0x0", "0x0"];
@@ -898,6 +951,56 @@ describe("native active syscall classification", () => {
       : documentsWithReadPipe(scenario.thread);
 
     expect(modelNativeFdReadState(scenario.thread, documents)).toMatchObject({
+      state: "missing",
+      refusal: {
+        code: "target-fd-read-state-missing",
+        detail: { reason: scenario.reason },
+      },
+    });
+  });
+
+  it.each([
+    {
+      name: "short eventfd read",
+      thread: arm64ReadThread(["0x22", "0x3100", "0x4", "0x0", "0x0", "0x0"]),
+      reason: "read eventfd proof requires count >= 8",
+    },
+    {
+      name: "non-eventfd resource",
+      thread: arm64ReadThread(["0x22", "0x3100", "0x8", "0x0", "0x0", "0x0"]),
+      documents: (thread: NativeThreadState) =>
+        documentsWithReadPipe(thread, { readFd: 34, readKind: "pipe" }),
+      reason: "read proof requires a captured eventfd fd",
+    },
+    {
+      name: "non-empty counter",
+      thread: arm64ReadThread(["0x22", "0x3100", "0x8", "0x0", "0x0", "0x0"]),
+      documents: (thread: NativeThreadState) =>
+        documentsWithReadEventfd(thread, { recipe: { eventfdCount: "0x1", eventfdSemaphore: 0 } }),
+      reason: "read eventfd proof requires an empty eventfd",
+    },
+    {
+      name: "semaphore mode",
+      thread: arm64ReadThread(["0x22", "0x3100", "0x8", "0x0", "0x0", "0x0"]),
+      documents: (thread: NativeThreadState) =>
+        documentsWithReadEventfd(thread, { recipe: { eventfdCount: "0x0", eventfdSemaphore: 1 } }),
+      reason: "read eventfd proof does not model semaphore mode",
+    },
+    {
+      name: "unsupported flags",
+      thread: arm64ReadThread(["0x22", "0x3100", "0x8", "0x0", "0x0", "0x0"]),
+      documents: (thread: NativeThreadState) =>
+        documentsWithReadEventfd(thread, { flags: ["octal:2004002"] }),
+      reason: "read eventfd proof requires supported flags",
+    },
+  ])("refuses unsafe eventfd read state: $name", (scenario) => {
+    const documents = scenario.documents
+      ? scenario.documents(scenario.thread)
+      : documentsWithReadEventfd(scenario.thread);
+
+    expect(
+      modelNativeFdReadState(scenario.thread, documents, "synthetic-empty-eventfd"),
+    ).toMatchObject({
       state: "missing",
       refusal: {
         code: "target-fd-read-state-missing",
