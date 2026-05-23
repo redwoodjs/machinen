@@ -2,12 +2,24 @@ import { describe, expect, it } from "vitest";
 import { planTargetGuestProcessContextRestore } from "../target-guest-process-context-restore.ts";
 import type { NativeProcessImageDocuments } from "../native-process-image.ts";
 
-function auxvHex(values: { pageSize: number; clockTick: number }): string {
-  const bytes = Buffer.alloc(16 * 3);
-  bytes.writeBigUInt64LE(6n, 0);
-  bytes.writeBigUInt64LE(BigInt(values.pageSize), 8);
-  bytes.writeBigUInt64LE(17n, 16);
-  bytes.writeBigUInt64LE(BigInt(values.clockTick), 24);
+function auxvHex(values: { pageSize: number; clockTick: number; unsafe?: boolean }): string {
+  const pairs: Array<[bigint, bigint]> = [
+    [6n, BigInt(values.pageSize)],
+    [17n, BigInt(values.clockTick)],
+    ...(values.unsafe
+      ? ([
+          [33n, 0x7fff0000n],
+          [25n, 0x7fff0100n],
+          [31n, 0x7fff0200n],
+        ] satisfies Array<[bigint, bigint]>)
+      : []),
+    [0n, 0n],
+  ];
+  const bytes = Buffer.alloc(16 * pairs.length);
+  pairs.forEach(([key, value], index) => {
+    bytes.writeBigUInt64LE(key, index * 16);
+    bytes.writeBigUInt64LE(value, index * 16 + 8);
+  });
   return bytes.toString("hex");
 }
 
@@ -123,6 +135,49 @@ describe("target guest process-context restore", () => {
         expect.objectContaining({ action: "verify-env-value" }),
         expect.objectContaining({ action: "verify-cwd", cwdHex: "2f" }),
         expect.objectContaining({ action: "verify-auxv-selected", pageSize: 4096, clockTick: 100 }),
+      ]),
+    });
+  });
+
+  it("plans target initial-stack argv/env pointer materialization with selected auxv policy", () => {
+    const docs = documents({ env: { FIRST: "one", SECOND: "two" } });
+    docs.resources.resources.find((resource) => resource.kind === "env")!.recipe = {
+      env: docs.manifest.process.env,
+    };
+    docs.resources.resources.find((resource) => resource.kind === "auxv")!.recipe = {
+      bytesHex: auxvHex({ pageSize: 4096, clockTick: 100, unsafe: true }),
+    };
+
+    const plan = planTargetGuestProcessContextRestore(docs, {
+      mode: "apply-target-initial-stack",
+      initialStackTargetStart: "0x600000002000",
+    });
+
+    expect(plan).toMatchObject({
+      state: "planned",
+      mode: "apply-target-initial-stack",
+      steps: expect.arrayContaining([
+        expect.objectContaining({
+          action: "set-argv-entry",
+          index: 0,
+          valueHex: "2f62696e2f746172676574",
+        }),
+        expect.objectContaining({ action: "clear-env", envCount: 2 }),
+        expect.objectContaining({ action: "verify-cwd", cwdHex: "2f" }),
+        expect.objectContaining({
+          action: "record-auxv-policy",
+          materializedKeys: "AT_PAGESZ,AT_CLKTCK",
+          refusedKeys: "AT_SYSINFO_EHDR,AT_RANDOM,AT_EXECFN",
+        }),
+        expect.objectContaining({
+          action: "materialize-initial-stack",
+          targetStart: "0x600000002000",
+          argc: 3,
+          envCount: 2,
+          pageSize: 4096,
+          clockTick: 100,
+        }),
+        expect.objectContaining({ action: "verify-initial-stack", targetStart: "0x600000002000" }),
       ]),
     });
   });

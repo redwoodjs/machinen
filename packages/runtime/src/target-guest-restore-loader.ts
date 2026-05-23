@@ -722,14 +722,22 @@ function parseNativeArgvContextStep(
       argvSha256: requiredNativeField(fields, "argvSha256"),
     };
   }
-  return action === "materialize-argv"
+  if (action === "materialize-argv") {
+    return {
+      action,
+      argc: parseNativeInteger(fields, "argc"),
+      argvSha256: requiredNativeField(fields, "argvSha256"),
+      tokenIndex: parseNativeInteger(fields, "tokenIndex"),
+      tokenHex: requiredNativeField(fields, "tokenHex"),
+      tokenSha256: requiredNativeField(fields, "tokenSha256"),
+    };
+  }
+  return action === "set-argv-entry"
     ? {
         action,
-        argc: parseNativeInteger(fields, "argc"),
-        argvSha256: requiredNativeField(fields, "argvSha256"),
-        tokenIndex: parseNativeInteger(fields, "tokenIndex"),
-        tokenHex: requiredNativeField(fields, "tokenHex"),
-        tokenSha256: requiredNativeField(fields, "tokenSha256"),
+        index: parseNativeInteger(fields, "index"),
+        valueHex: requiredNativeField(fields, "valueHex"),
+        valueSha256: requiredNativeField(fields, "valueSha256"),
       }
     : undefined;
 }
@@ -787,12 +795,42 @@ function parseNativeAuxvContextStep(
       auxvSha256: requiredNativeField(fields, "auxvSha256"),
     };
   }
-  return action === "verify-auxv-selected"
+  if (action === "verify-auxv-selected") {
+    return {
+      action,
+      pageSize: parseNativeInteger(fields, "pageSize"),
+      clockTick: parseNativeInteger(fields, "clockTick"),
+      auxvSha256: requiredNativeField(fields, "auxvSha256"),
+    };
+  }
+  if (action === "record-auxv-policy") {
+    return {
+      action,
+      mode: "selected-safe-only",
+      materializedKeys: requiredNativeField(fields, "materializedKeys"),
+      refusedKeys: requiredNativeField(fields, "refusedKeys"),
+      auxvSha256: requiredNativeField(fields, "auxvSha256"),
+    };
+  }
+  if (action === "materialize-initial-stack") {
+    return {
+      action,
+      targetStart: requiredNativeField(fields, "targetStart"),
+      sizeBytes: parseNativeInteger(fields, "sizeBytes"),
+      argc: parseNativeInteger(fields, "argc"),
+      envCount: parseNativeInteger(fields, "envCount"),
+      pageSize: parseNativeInteger(fields, "pageSize"),
+      clockTick: parseNativeInteger(fields, "clockTick"),
+      argvSha256: requiredNativeField(fields, "argvSha256"),
+      envSha256: requiredNativeField(fields, "envSha256"),
+    };
+  }
+  return action === "verify-initial-stack"
     ? {
         action,
-        pageSize: parseNativeInteger(fields, "pageSize"),
-        clockTick: parseNativeInteger(fields, "clockTick"),
-        auxvSha256: requiredNativeField(fields, "auxvSha256"),
+        targetStart: requiredNativeField(fields, "targetStart"),
+        argc: parseNativeInteger(fields, "argc"),
+        envCount: parseNativeInteger(fields, "envCount"),
       }
     : undefined;
 }
@@ -1651,6 +1689,8 @@ function serializeProcessContextStep(step: TargetGuestProcessContextRestoreStep)
       return `native=process-context action=${step.action} argc=${step.argc} argvBytes=${step.argvBytes} argvSha256=${step.argvSha256}`;
     case "materialize-argv":
       return `native=process-context action=${step.action} argc=${step.argc} argvSha256=${step.argvSha256} tokenIndex=${step.tokenIndex} tokenHex=${step.tokenHex} tokenSha256=${step.tokenSha256}`;
+    case "set-argv-entry":
+      return `native=process-context action=${step.action} index=${step.index} valueHex=${step.valueHex} valueSha256=${step.valueSha256}`;
     case "record-env":
       return `native=process-context action=${step.action} envCount=${step.envCount} envBytes=${step.envBytes} envSha256=${step.envSha256}`;
     case "clear-env":
@@ -1667,6 +1707,12 @@ function serializeProcessContextStep(step: TargetGuestProcessContextRestoreStep)
       return `native=process-context action=${step.action} auxvBytes=${step.auxvBytes} auxvSha256=${step.auxvSha256}`;
     case "verify-auxv-selected":
       return `native=process-context action=${step.action} pageSize=${step.pageSize} clockTick=${step.clockTick} auxvSha256=${step.auxvSha256}`;
+    case "record-auxv-policy":
+      return `native=process-context action=${step.action} mode=${step.mode} materializedKeys=${step.materializedKeys} refusedKeys=${step.refusedKeys} auxvSha256=${step.auxvSha256}`;
+    case "materialize-initial-stack":
+      return `native=process-context action=${step.action} targetStart=${step.targetStart} sizeBytes=${step.sizeBytes} argc=${step.argc} envCount=${step.envCount} pageSize=${step.pageSize} clockTick=${step.clockTick} argvSha256=${step.argvSha256} envSha256=${step.envSha256}`;
+    case "verify-initial-stack":
+      return `native=process-context action=${step.action} targetStart=${step.targetStart} argc=${step.argc} envCount=${step.envCount}`;
   }
 }
 
