@@ -105,6 +105,8 @@ try {
     targetResourceStatuses: result.targetResourceStatuses ?? [],
     targetReturnChainResult: result.targetReturnChainResult ?? '',
     targetTranslatedReturnAddress: result.targetTranslatedReturnAddress ?? '',
+    targetFrameRestoreResult: result.targetFrameRestoreResult ?? '',
+    targetTranslatedFramePointer: result.targetTranslatedFramePointer ?? '',
   }));
 } catch {
   process.stdout.write('{}');

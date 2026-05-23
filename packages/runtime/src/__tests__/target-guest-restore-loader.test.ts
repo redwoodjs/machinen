@@ -19,6 +19,23 @@ const LOADER_SOURCE = join(REPO_ROOT, "packages/microvm/assets/target-guest-rest
 const LOADER_PREFIX = "MACHINEN_TARGET_GUEST_RESTORE_LOADER ";
 const HAS_CC = spawnSync("cc", ["--version"], { stdio: "ignore" }).status === 0;
 
+const translatedFrame = {
+  kind: "single-target-caller-frame" as const,
+  framePointer: "0x50000000ff80",
+  canonicalFrameAddress: "0x50000000fff0",
+  returnAddressSlot: "0x50000000fff0",
+  returnAddress: "0x700300000080",
+  unwindId: "target:realspin-final-jump",
+  calleeSaved: [{ register: "r12" as const, value: "0x1234567890abcdef" }],
+  slots: [
+    {
+      offset: 0,
+      value: "0x4652414d45504153",
+      classification: "non-pointer-data" as const,
+    },
+  ],
+};
+
 function descriptor(
   overrides: Partial<TargetGuestRestoreDescriptor> = {},
 ): TargetGuestRestoreDescriptor {
@@ -50,6 +67,7 @@ describe("target guest restore loader descriptor", () => {
         stateReportAddress: "0x600000000000",
         translatedReturnAddress: "0x700300000080",
       },
+      translatedFrame,
       resources: [
         { kind: "close-fd", fd: 0, reason: "missing-captured-fd" },
         { kind: "inherit-stdio", fd: 1, stream: "stdout", closeOnExec: false },
@@ -95,6 +113,20 @@ describe("target guest restore loader descriptor", () => {
       "65536",
       "--stack-pointer",
       "0x500000010000",
+      "--translated-frame-pointer",
+      "0x50000000ff80",
+      "--translated-frame-cfa",
+      "0x50000000fff0",
+      "--translated-frame-return-address-slot",
+      "0x50000000fff0",
+      "--translated-frame-return-address",
+      "0x700300000080",
+      "--translated-frame-unwind-id",
+      "target:realspin-final-jump",
+      "--translated-frame-callee-r12",
+      "0x1234567890abcdef",
+      "--translated-frame-slot",
+      "0:0x4652414d45504153:non-pointer-data",
       "--set-cloexec-fd",
       "7",
       "--synthetic-empty-pipe-read-fd",
@@ -199,6 +231,39 @@ describe("target guest restore loader descriptor", () => {
     ).toThrow(/stdio fd and stream do not match/);
   });
 
+  it("refuses invalid translated frame descriptors", () => {
+    expect(() => validateTargetGuestRestoreDescriptor(descriptor({ translatedFrame }))).toThrow(
+      /translated frame requires a return address/,
+    );
+
+    expect(() =>
+      validateTargetGuestRestoreDescriptor(
+        descriptor({
+          continuation: {
+            ...descriptor().continuation,
+            translatedReturnAddress: "0x700300000081",
+          },
+          translatedFrame,
+        }),
+      ),
+    ).toThrow(/frame return address is unresolved/);
+
+    expect(() =>
+      validateTargetGuestRestoreDescriptor(
+        descriptor({
+          continuation: {
+            ...descriptor().continuation,
+            translatedReturnAddress: "0x700300000080",
+          },
+          translatedFrame: {
+            ...translatedFrame,
+            slots: [{ ...translatedFrame.slots[0]!, classification: "pointer" as never }],
+          },
+        }),
+      ),
+    ).toThrow(/pointer-bearing frame slots are unsupported/);
+  });
+
   it("refuses invalid continuation addresses", () => {
     expect(() =>
       validateTargetGuestRestoreDescriptor(
@@ -252,7 +317,7 @@ describe("target guest restore loader descriptor", () => {
       const checker = join(outDir, "fd-checker");
       writeFileSync(
         checkerSource,
-        `#include <string.h>\n#include <unistd.h>\n#include <stdio.h>\nint main(int argc, char **argv) {\n  char buf[3] = {0};\n  int saw_cloexec = 0;\n  int saw_state_report = 0;\n  int saw_translated_return = 0;\n  for (int i = 1; i + 1 < argc; i++) {\n    if (strcmp(argv[i], "--set-cloexec-fd") == 0 && strcmp(argv[i + 1], "7") == 0) saw_cloexec = 1;\n    if (strcmp(argv[i], "--state-report-address") == 0 && strcmp(argv[i + 1], "0x600000000000") == 0) saw_state_report = 1;\n    if (strcmp(argv[i], "--translated-return-address") == 0 && strcmp(argv[i + 1], "0x700300000080") == 0) saw_translated_return = 1;\n  }\n  if (read(7, buf, 2) != 2) return 41;\n  if (strcmp(buf, "cd") != 0) return 42;\n  if (!saw_cloexec) return 43;\n  if (!saw_state_report) return 44;\n  if (!saw_translated_return) return 45;\n  printf("fd-check:%s\\n", buf);\n  return 0;\n}\n`,
+        `#include <string.h>\n#include <unistd.h>\n#include <stdio.h>\nint main(int argc, char **argv) {\n  char buf[3] = {0};\n  int saw_cloexec = 0;\n  int saw_state_report = 0;\n  int saw_translated_return = 0;\n  int saw_frame = 0;\n  for (int i = 1; i + 1 < argc; i++) {\n    if (strcmp(argv[i], "--set-cloexec-fd") == 0 && strcmp(argv[i + 1], "7") == 0) saw_cloexec = 1;\n    if (strcmp(argv[i], "--state-report-address") == 0 && strcmp(argv[i + 1], "0x600000000000") == 0) saw_state_report = 1;\n    if (strcmp(argv[i], "--translated-return-address") == 0 && strcmp(argv[i + 1], "0x700300000080") == 0) saw_translated_return = 1;\n    if (strcmp(argv[i], "--translated-frame-pointer") == 0 && strcmp(argv[i + 1], "0x50000000ff80") == 0) saw_frame = 1;\n  }\n  if (read(7, buf, 2) != 2) return 41;\n  if (strcmp(buf, "cd") != 0) return 42;\n  if (!saw_cloexec) return 43;\n  if (!saw_state_report) return 44;\n  if (!saw_translated_return) return 45;\n  if (!saw_frame) return 46;\n  printf("fd-check:%s\\n", buf);\n  return 0;\n}\n`,
       );
       const compileChecker = spawnSync(
         "cc",
@@ -275,6 +340,7 @@ describe("target guest restore loader descriptor", () => {
               stateReportAddress: "0x600000000000",
               translatedReturnAddress: "0x700300000080",
             },
+            translatedFrame,
             resources: [
               {
                 kind: "reopen-file",

@@ -41,6 +41,11 @@ interface ReturnChainEvent {
   translatedReturnAddress?: string;
 }
 
+interface FrameRestorationEvent {
+  status?: StateConsumptionStatus;
+  framePointer?: string;
+}
+
 interface Args {
   codeFile?: string;
   descriptorFile?: string;
@@ -217,6 +222,7 @@ function targetExecutionSummary(
     ...events,
     ...targetStateConsumptionFields(events.stateConsumption),
     ...targetReturnChainFields(events.returnChain),
+    ...targetFrameRestorationFields(events.frameRestoration),
     targetVerifierResult: targetVerifierResult(args, result.exitCode, events),
     exitCode: result.exitCode,
     stdout: result.stdout,
@@ -242,6 +248,13 @@ function targetReturnChainFields(returnChain: ReturnChainEvent | undefined) {
   };
 }
 
+function targetFrameRestorationFields(frameRestoration: FrameRestorationEvent | undefined) {
+  return {
+    targetFrameRestoreResult: frameRestoration?.status,
+    targetTranslatedFramePointer: frameRestoration?.framePointer,
+  };
+}
+
 function targetExecutionEvents(stdout: string) {
   const descriptorGateCompleted = loaderCompleted(stdout);
   const actualResumeEvent = parseActualResumeEvent(stdout);
@@ -250,6 +263,7 @@ function targetExecutionEvents(stdout: string) {
     actualResumeEvent,
     stateConsumption: parseStateConsumption(actualResumeEvent),
     returnChain: parseReturnChain(actualResumeEvent),
+    frameRestoration: parseFrameRestoration(actualResumeEvent),
   };
 }
 
@@ -265,6 +279,7 @@ function targetVerifierResult(
     events.actualResumeEvent,
     events.stateConsumption,
     events.returnChain,
+    events.frameRestoration,
   )
     ? "passed"
     : "failed";
@@ -360,11 +375,13 @@ function targetVerifierPassed(
   actualResumeEvent: Record<string, unknown> | undefined,
   stateConsumption: StateConsumptionEvent | undefined,
   returnChain: ReturnChainEvent | undefined,
+  frameRestoration: FrameRestorationEvent | undefined,
 ): boolean {
   return [
     targetProcessCompleted(exitCode, descriptorGateCompleted),
     targetStateConsumed(stateConsumption),
     targetReturnChained(returnChain),
+    targetFrameRestored(frameRestoration),
     targetReturnValueMatched(args, actualResumeEvent),
   ].every(Boolean);
 }
@@ -379,6 +396,10 @@ function targetStateConsumed(stateConsumption: StateConsumptionEvent | undefined
 
 function targetReturnChained(returnChain: ReturnChainEvent | undefined): boolean {
   return returnChain === undefined || returnChain.status === "passed";
+}
+
+function targetFrameRestored(frameRestoration: FrameRestorationEvent | undefined): boolean {
+  return frameRestoration === undefined || frameRestoration.status === "passed";
 }
 
 function targetReturnValueMatched(
@@ -409,6 +430,13 @@ function parseReturnChain(
   actualResumeEvent: Record<string, unknown> | undefined,
 ): ReturnChainEvent | undefined {
   const value = actualResumeEvent?.returnChain;
+  return isStateConsumptionEvent(value) ? value : undefined;
+}
+
+function parseFrameRestoration(
+  actualResumeEvent: Record<string, unknown> | undefined,
+): FrameRestorationEvent | undefined {
+  const value = actualResumeEvent?.frameRestoration;
   return isStateConsumptionEvent(value) ? value : undefined;
 }
 

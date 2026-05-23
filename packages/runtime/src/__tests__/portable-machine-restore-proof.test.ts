@@ -22,8 +22,28 @@ const continuation = {
 
 describe("portable machine VM restore proof", () => {
   it("combines continuation, memory, and fd-table recipes into one descriptor", () => {
+    const translatedContinuation = {
+      ...continuation,
+      translatedReturnAddress: "0x700300000080",
+    };
     const plan = planPortableMachineTargetRestoreDescriptor({
-      continuation,
+      continuation: translatedContinuation,
+      translatedFrame: {
+        kind: "single-target-caller-frame",
+        framePointer: "0x50000000ff80",
+        canonicalFrameAddress: "0x50000000fff0",
+        returnAddressSlot: "0x50000000fff0",
+        returnAddress: "0x700300000080",
+        unwindId: "target:realspin-final-jump",
+        calleeSaved: [{ register: "r12", value: "0x1234567890abcdef" }],
+        slots: [
+          {
+            offset: 0,
+            value: "0x4652414d45504153",
+            classification: "non-pointer-data",
+          },
+        ],
+      },
       fdTable: {
         entries: [],
         resources: [],
@@ -66,7 +86,8 @@ describe("portable machine VM restore proof", () => {
       sidecarRuntimeUsed: false,
       descriptor: {
         targetArch: "amd64",
-        continuation,
+        continuation: translatedContinuation,
+        translatedFrame: { framePointer: "0x50000000ff80" },
         resources: [
           { kind: "reopen-file", fd: 7 },
           { kind: "synthetic-empty-eventfd", fd: 8 },
@@ -157,6 +178,8 @@ describe("portable machine VM restore proof", () => {
         targetResourceStatuses: [{ kind: "reopen-file", status: "passed" }],
         targetReturnChainResult: "passed",
         targetTranslatedReturnAddress: "0x700300000080",
+        targetFrameRestoreResult: "passed",
+        targetTranslatedFramePointer: "0x50000000ff80",
         sourceTextReusedAsTargetCode: false,
         sourceIsaEmulationUsed: false,
         sidecarRuntimeUsed: false,
@@ -169,6 +192,8 @@ describe("portable machine VM restore proof", () => {
       targetResourceStatuses: [{ kind: "reopen-file", status: "passed" }],
       targetReturnChainResult: "passed",
       targetTranslatedReturnAddress: "0x700300000080",
+      targetFrameRestoreResult: "passed",
+      targetTranslatedFramePointer: "0x50000000ff80",
     });
 
     expect(
@@ -187,6 +212,24 @@ describe("portable machine VM restore proof", () => {
       migrationCompleted: false,
       descriptorGateCompleted: true,
       targetReturnChainResult: "failed",
+    });
+
+    expect(
+      completePortableMachineVmRestoreProof(plan, {
+        exitCode: 0,
+        migrationCompleted: true,
+        descriptorGateCompleted: true,
+        targetVerifierResult: "passed",
+        targetFrameRestoreResult: "failed",
+        sourceTextReusedAsTargetCode: false,
+        sourceIsaEmulationUsed: false,
+        sidecarRuntimeUsed: false,
+      }),
+    ).toMatchObject({
+      state: "ready",
+      migrationCompleted: false,
+      descriptorGateCompleted: true,
+      targetFrameRestoreResult: "failed",
     });
 
     expect(

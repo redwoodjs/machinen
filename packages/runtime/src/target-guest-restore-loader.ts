@@ -8,7 +8,8 @@ export type TargetGuestRestoreLoaderRefusalCode =
   | "target-guest-loader-resource-unsupported"
   | "target-guest-loader-invalid-fd"
   | "target-guest-loader-invalid-continuation"
-  | "target-guest-loader-memory-unsupported";
+  | "target-guest-loader-memory-unsupported"
+  | "target-guest-loader-frame-unsupported";
 
 export class TargetGuestRestoreLoaderValidationError extends Error {
   constructor(
@@ -49,10 +50,33 @@ export interface TargetGuestRestoreContinuationDescriptor {
   stackPointer: string;
 }
 
+export interface TargetGuestTranslatedFrameDescriptor {
+  kind: "single-target-caller-frame";
+  framePointer: string;
+  canonicalFrameAddress: string;
+  returnAddressSlot: string;
+  returnAddress: string;
+  unwindId: string;
+  calleeSaved: TargetGuestTranslatedFrameRegister[];
+  slots: TargetGuestTranslatedFrameSlot[];
+}
+
+export interface TargetGuestTranslatedFrameRegister {
+  register: "r12";
+  value: string;
+}
+
+export interface TargetGuestTranslatedFrameSlot {
+  offset: number;
+  value: string;
+  classification: "non-pointer-data";
+}
+
 export interface TargetGuestRestoreDescriptor {
   kind: typeof TARGET_GUEST_RESTORE_DESCRIPTOR_KIND;
   targetArch: "amd64";
   continuation: TargetGuestRestoreContinuationDescriptor;
+  translatedFrame?: TargetGuestTranslatedFrameDescriptor;
   resources: TargetGuestRestoreResourceRecipe[];
   memory: TargetGuestMemoryMaterializationEntry[];
 }
@@ -76,6 +100,7 @@ export function serializeTargetGuestRestoreDescriptor(
     `stackTargetStart=${continuation.stackTargetStart}`,
     `stackSize=${continuation.stackSize}`,
     `stackPointer=${continuation.stackPointer}`,
+    ...optionalTranslatedFrameField(validated.translatedFrame),
     ...validated.resources.map(serializeResourceRecipe),
     ...validated.memory.map(serializeMemoryEntry),
     "",
@@ -86,17 +111,22 @@ export function parseTargetGuestRestoreDescriptor(text: string): TargetGuestRest
   const fields = new Map<string, string>();
   const resources: TargetGuestRestoreResourceRecipe[] = [];
   const memory: TargetGuestMemoryMaterializationEntry[] = [];
+  let translatedFrame: TargetGuestTranslatedFrameDescriptor | undefined;
   for (const line of descriptorLines(text)) {
     if (line.startsWith("resource=")) {
       resources.push(parseResourceRecipe(line));
     } else if (line.startsWith("memory=")) {
       memory.push(parseMemoryEntry(line));
+    } else if (line.startsWith("frame=")) {
+      translatedFrame = parseTranslatedFrame(line);
     } else {
       const [key, value] = splitField(line);
       fields.set(key, value);
     }
   }
-  return validateTargetGuestRestoreDescriptor(fieldsToDescriptor(fields, resources, memory));
+  return validateTargetGuestRestoreDescriptor(
+    fieldsToDescriptor(fields, resources, memory, translatedFrame),
+  );
 }
 
 export function validateTargetGuestRestoreDescriptor(
@@ -107,7 +137,10 @@ export function validateTargetGuestRestoreDescriptor(
   const resources = descriptor.resources.map(validateResourceRecipe);
   assertUniqueResourceFds(resources);
   const memory = descriptor.memory.map(validateMemoryEntry);
-  return { ...descriptor, continuation, resources, memory };
+  const translatedFrame = validateTranslatedFrame(descriptor.translatedFrame, continuation);
+  return translatedFrame === undefined
+    ? { ...descriptor, continuation, resources, memory }
+    : { ...descriptor, continuation, translatedFrame, resources, memory };
 }
 
 export function buildNativeActualResumeTrampolineArgs(
@@ -135,6 +168,7 @@ export function buildNativeActualResumeTrampolineArgs(
     String(continuation.stackSize),
     "--stack-pointer",
     continuation.stackPointer,
+    ...translatedFrameToTrampolineArgs(validated.translatedFrame),
     ...validated.resources.flatMap(resourceToTrampolineArgs),
     ...validated.memory.flatMap(memoryToTrampolineArgs),
   ];
@@ -166,6 +200,7 @@ function fieldsToDescriptor(
   fields: Map<string, string>,
   resources: TargetGuestRestoreResourceRecipe[],
   memory: TargetGuestMemoryMaterializationEntry[],
+  translatedFrame: TargetGuestTranslatedFrameDescriptor | undefined,
 ): TargetGuestRestoreDescriptor {
   return {
     kind: requiredField(fields, "kind") as typeof TARGET_GUEST_RESTORE_DESCRIPTOR_KIND,
@@ -183,9 +218,65 @@ function fieldsToDescriptor(
       stackSize: parseIntegerField(fields, "stackSize"),
       stackPointer: requiredField(fields, "stackPointer"),
     },
+    translatedFrame,
     resources,
     memory,
   };
+}
+
+function parseTranslatedFrame(line: string): TargetGuestTranslatedFrameDescriptor {
+  const [head, ...fields] = line.split(/\s+/);
+  const kind = head!.slice("frame=".length);
+  const values = new Map(fields.map(splitField));
+  if (kind !== "single-target-caller-frame") {
+    fail("target-guest-loader-frame-unsupported", `unsupported translated frame: ${kind}`);
+  }
+  return {
+    kind,
+    framePointer: requiredFrameField(values, "framePointer"),
+    canonicalFrameAddress: requiredFrameField(values, "canonicalFrameAddress"),
+    returnAddressSlot: requiredFrameField(values, "returnAddressSlot"),
+    returnAddress: requiredFrameField(values, "returnAddress"),
+    unwindId: requiredFrameField(values, "unwindId"),
+    calleeSaved: parseFrameRegisters(values),
+    slots: parseFrameSlots(values),
+  };
+}
+
+function parseFrameRegisters(fields: Map<string, string>): TargetGuestTranslatedFrameRegister[] {
+  const value = fields.get("calleeSavedR12");
+  return value === undefined ? [] : [{ register: "r12", value }];
+}
+
+function parseFrameSlots(fields: Map<string, string>): TargetGuestTranslatedFrameSlot[] {
+  const offset = fields.get("slot0Offset");
+  const value = fields.get("slot0Value");
+  const classification = fields.get("slot0Class");
+  if (offset === undefined && value === undefined && classification === undefined) {
+    return [];
+  }
+  if (classification !== "non-pointer-data") {
+    fail("target-guest-loader-frame-unsupported", "frame slot classification is unsupported");
+  }
+  return [
+    {
+      offset: parseFrameInteger(fields, "slot0Offset"),
+      value: requiredFrameField(fields, "slot0Value"),
+      classification,
+    },
+  ];
+}
+
+function requiredFrameField(fields: Map<string, string>, key: string): string {
+  return fields.get(key) ?? fail("target-guest-loader-descriptor-invalid", `${key} is required`);
+}
+
+function parseFrameInteger(fields: Map<string, string>, key: string): number {
+  const parsed = Number(requiredFrameField(fields, key));
+  if (!Number.isSafeInteger(parsed)) {
+    fail("target-guest-loader-descriptor-invalid", `${key} must be an integer`);
+  }
+  return parsed;
 }
 
 function requiredField(fields: Map<string, string>, key: string): string {
@@ -501,6 +592,67 @@ function validateMemoryEntry(
   return entry;
 }
 
+function validateTranslatedFrame(
+  frame: TargetGuestTranslatedFrameDescriptor | undefined,
+  continuation: TargetGuestRestoreContinuationDescriptor,
+): TargetGuestTranslatedFrameDescriptor | undefined {
+  if (frame === undefined) {
+    return undefined;
+  }
+  if (continuation.translatedReturnAddress === undefined) {
+    fail("target-guest-loader-frame-unsupported", "translated frame requires a return address");
+  }
+  assertFrameShape(frame, continuation.translatedReturnAddress);
+  return frame;
+}
+
+function assertFrameShape(
+  frame: TargetGuestTranslatedFrameDescriptor,
+  translatedReturnAddress: string,
+): void {
+  if (frame.kind !== "single-target-caller-frame") {
+    fail("target-guest-loader-frame-unsupported", "translated frame kind is unsupported");
+  }
+  assertHexAddress(frame.framePointer, "framePointer");
+  assertHexAddress(frame.canonicalFrameAddress, "canonicalFrameAddress");
+  assertHexAddress(frame.returnAddressSlot, "returnAddressSlot");
+  assertHexAddress(frame.returnAddress, "returnAddress");
+  if (frame.returnAddress.toLowerCase() !== translatedReturnAddress.toLowerCase()) {
+    fail("target-guest-loader-frame-unsupported", "frame return address is unresolved");
+  }
+  assertNoWhitespace(frame.unwindId, "unwindId");
+  if (!frame.unwindId.startsWith("target:")) {
+    fail("target-guest-loader-frame-unsupported", "frame unwind identity is unsupported");
+  }
+  validateFrameRegisters(frame.calleeSaved);
+  validateFrameSlots(frame.slots);
+}
+
+function validateFrameRegisters(registers: TargetGuestTranslatedFrameRegister[]): void {
+  if (registers.length > 1) {
+    fail("target-guest-loader-frame-unsupported", "too many translated frame registers");
+  }
+  for (const register of registers) {
+    if (register.register !== "r12") {
+      fail("target-guest-loader-frame-unsupported", "translated frame register is unsupported");
+    }
+    assertHexAddress(register.value, register.register);
+  }
+}
+
+function validateFrameSlots(slots: TargetGuestTranslatedFrameSlot[]): void {
+  if (slots.length > 1) {
+    fail("target-guest-loader-frame-unsupported", "too many translated frame slots");
+  }
+  for (const slot of slots) {
+    assertNonNegative(slot.offset, "slot offset");
+    assertHexAddress(slot.value, "slot value");
+    if (slot.classification !== "non-pointer-data") {
+      fail("target-guest-loader-frame-unsupported", "pointer-bearing frame slots are unsupported");
+    }
+  }
+}
+
 function assertMemoryPermissions(permissions: string): void {
   if (!/^[r-][w-][-x][ps-]$/.test(permissions) || permissions.includes("x")) {
     fail("target-guest-loader-invalid-continuation", "memory permissions must be non-executable");
@@ -550,6 +702,33 @@ function assertNoWhitespace(value: string, field: string): void {
 }
 
 function optionalContinuationField(name: string, value: string | undefined): string[] {
+  return value === undefined ? [] : [`${name}=${value}`];
+}
+
+function optionalTranslatedFrameField(
+  frame: TargetGuestTranslatedFrameDescriptor | undefined,
+): string[] {
+  return frame === undefined ? [] : [serializeTranslatedFrame(frame)];
+}
+
+function serializeTranslatedFrame(frame: TargetGuestTranslatedFrameDescriptor): string {
+  const r12 = frame.calleeSaved.find((register) => register.register === "r12");
+  const slot = frame.slots[0];
+  return [
+    `frame=${frame.kind}`,
+    `framePointer=${frame.framePointer}`,
+    `canonicalFrameAddress=${frame.canonicalFrameAddress}`,
+    `returnAddressSlot=${frame.returnAddressSlot}`,
+    `returnAddress=${frame.returnAddress}`,
+    `unwindId=${frame.unwindId}`,
+    ...optionalFrameToken("calleeSavedR12", r12?.value),
+    ...optionalFrameToken("slot0Offset", slot?.offset),
+    ...optionalFrameToken("slot0Value", slot?.value),
+    ...optionalFrameToken("slot0Class", slot?.classification),
+  ].join(" ");
+}
+
+function optionalFrameToken(name: string, value: string | number | undefined): string[] {
   return value === undefined ? [] : [`${name}=${value}`];
 }
 
@@ -618,6 +797,34 @@ function pipeResourceArgs(recipe: { readFd: number; writeFd?: number }): string[
 
 function closeOnExecArgs(fd: number, closeOnExec: boolean | undefined): string[] {
   return closeOnExec ? ["--set-cloexec-fd", String(fd)] : [];
+}
+
+function translatedFrameToTrampolineArgs(
+  frame: TargetGuestTranslatedFrameDescriptor | undefined,
+): string[] {
+  if (frame === undefined) {
+    return [];
+  }
+  const r12 = frame.calleeSaved.find((register) => register.register === "r12");
+  const slot = frame.slots[0];
+  return [
+    "--translated-frame-pointer",
+    frame.framePointer,
+    "--translated-frame-cfa",
+    frame.canonicalFrameAddress,
+    "--translated-frame-return-address-slot",
+    frame.returnAddressSlot,
+    "--translated-frame-return-address",
+    frame.returnAddress,
+    "--translated-frame-unwind-id",
+    frame.unwindId,
+    ...optionalArg("--translated-frame-callee-r12", r12?.value),
+    ...optionalArg("--translated-frame-slot", slot ? frameSlotSpec(slot) : undefined),
+  ];
+}
+
+function frameSlotSpec(slot: TargetGuestTranslatedFrameSlot): string {
+  return `${slot.offset}:${slot.value}:${slot.classification}`;
 }
 
 function memoryToTrampolineArgs(entry: TargetGuestMemoryMaterializationEntry): string[] {

@@ -440,6 +440,9 @@ export type {
   TargetGuestRestoreDescriptor,
   TargetGuestRestoreLoaderRefusalCode,
   TargetGuestRestoreResourceRecipe,
+  TargetGuestTranslatedFrameDescriptor,
+  TargetGuestTranslatedFrameRegister,
+  TargetGuestTranslatedFrameSlot,
 } from "./target-guest-restore-loader.ts";
 export type {
   TargetGuestCopyCapturedBytesEntry,
@@ -451,6 +454,7 @@ export type {
 } from "./target-guest-memory-materialization.ts";
 export type {
   PortableMachineTargetContinuationKind,
+  PortableMachineTargetFrameRestoreResult,
   PortableMachineTargetResourceStatus,
   PortableMachineTargetReturnChainResult,
   PortableMachineTargetRestoreDescriptorPlan,

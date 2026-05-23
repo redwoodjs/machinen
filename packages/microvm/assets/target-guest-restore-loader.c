@@ -23,6 +23,7 @@
 #define LOADER_PREFIX "MACHINEN_TARGET_GUEST_RESTORE_LOADER "
 #define MAX_MATERIALIZED_MAPPINGS 32
 #define MAX_FD_RECIPES 64
+#define MAX_UNWIND_ID 128
 
 struct Options {
   const char *descriptor_path;
@@ -50,6 +51,17 @@ struct Descriptor {
   uint64_t state_report_address;
   bool has_translated_return_address;
   uint64_t translated_return_address;
+  bool has_translated_frame;
+  uint64_t translated_frame_pointer;
+  uint64_t translated_frame_cfa;
+  uint64_t translated_frame_return_address_slot;
+  uint64_t translated_frame_return_address;
+  uint64_t translated_frame_callee_r12;
+  bool has_translated_frame_slot;
+  uint64_t translated_frame_slot_offset;
+  uint64_t translated_frame_slot_value;
+  char translated_frame_slot_class[32];
+  char translated_frame_unwind_id[MAX_UNWIND_ID];
   uint64_t timeout_seconds;
   uint64_t stack_target_start;
   uint64_t stack_size;
@@ -415,6 +427,50 @@ static void parse_memory(struct Descriptor *descriptor, char *line) {
   }
 }
 
+static const char *required_frame_token(char *scratch, size_t scratch_size, char *fields, const char *name) {
+  snprintf(scratch, scratch_size, "%s", fields);
+  const char *value = find_token_value(scratch, name);
+  if (!value) {
+    refuse("target-guest-loader-descriptor-invalid", "translated frame field is required");
+  }
+  return value;
+}
+
+static void parse_translated_frame(struct Descriptor *descriptor, char *line) {
+  if (!starts_with(line, "frame=single-target-caller-frame")) {
+    refuse("target-guest-loader-frame-unsupported", "translated frame is unsupported");
+  }
+  char *fields = line + strlen("frame=single-target-caller-frame");
+  char scratch[4096];
+  descriptor->has_translated_frame = true;
+  descriptor->translated_frame_pointer = parse_u64(
+      required_frame_token(scratch, sizeof(scratch), fields, "framePointer"), "framePointer");
+  descriptor->translated_frame_cfa = parse_u64(
+      required_frame_token(scratch, sizeof(scratch), fields, "canonicalFrameAddress"), "canonicalFrameAddress");
+  descriptor->translated_frame_return_address_slot = parse_u64(
+      required_frame_token(scratch, sizeof(scratch), fields, "returnAddressSlot"), "returnAddressSlot");
+  descriptor->translated_frame_return_address = parse_u64(
+      required_frame_token(scratch, sizeof(scratch), fields, "returnAddress"), "returnAddress");
+  const char *unwind_id = required_frame_token(scratch, sizeof(scratch), fields, "unwindId");
+  if (strlen(unwind_id) == 0 || strlen(unwind_id) >= sizeof(descriptor->translated_frame_unwind_id) ||
+      strncmp(unwind_id, "target:", strlen("target:")) != 0) {
+    refuse("target-guest-loader-frame-unsupported", "translated frame unwind identity is unsupported");
+  }
+  snprintf(descriptor->translated_frame_unwind_id, sizeof(descriptor->translated_frame_unwind_id), "%s", unwind_id);
+  descriptor->translated_frame_callee_r12 = parse_u64(
+      required_frame_token(scratch, sizeof(scratch), fields, "calleeSavedR12"), "calleeSavedR12");
+  descriptor->translated_frame_slot_offset = parse_u64(
+      required_frame_token(scratch, sizeof(scratch), fields, "slot0Offset"), "slot0Offset");
+  descriptor->translated_frame_slot_value = parse_u64(
+      required_frame_token(scratch, sizeof(scratch), fields, "slot0Value"), "slot0Value");
+  const char *slot_class = required_frame_token(scratch, sizeof(scratch), fields, "slot0Class");
+  if (!streq(slot_class, "non-pointer-data")) {
+    refuse("target-guest-loader-frame-unsupported", "pointer-bearing frame slots are unsupported");
+  }
+  snprintf(descriptor->translated_frame_slot_class, sizeof(descriptor->translated_frame_slot_class), "%s", slot_class);
+  descriptor->has_translated_frame_slot = true;
+}
+
 static void parse_resource(struct Descriptor *descriptor, char *line) {
   if (starts_with(line, "resource=close-fd")) {
     parse_close_fd_resource(descriptor, line + strlen("resource=close-fd"));
@@ -453,6 +509,8 @@ static struct Descriptor read_descriptor(const char *path) {
       parse_resource(&descriptor, line);
     } else if (starts_with(line, "memory=")) {
       parse_memory(&descriptor, line);
+    } else if (starts_with(line, "frame=")) {
+      parse_translated_frame(&descriptor, line);
     } else {
       parse_field(&descriptor, line);
     }
@@ -479,6 +537,11 @@ static void validate_descriptor(const struct Descriptor *descriptor) {
       descriptor->timeout_seconds == 0 || descriptor->stack_target_start == 0 ||
       descriptor->stack_size == 0 || descriptor->stack_pointer == 0) {
     refuse("target-guest-loader-invalid-continuation", "continuation fields are incomplete");
+  }
+  if (descriptor->has_translated_frame &&
+      (!descriptor->has_translated_return_address || !descriptor->has_translated_frame_slot ||
+          descriptor->translated_frame_return_address != descriptor->translated_return_address)) {
+    refuse("target-guest-loader-frame-unsupported", "translated frame return address is unresolved");
   }
   bool seen[1025] = {0};
   mark_fd(seen, descriptor->pipe_read_fd);
@@ -546,6 +609,12 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   char argument0[32];
   char state_report_address[32];
   char translated_return_address[32];
+  char translated_frame_pointer[32];
+  char translated_frame_cfa[32];
+  char translated_frame_return_address_slot[32];
+  char translated_frame_return_address[32];
+  char translated_frame_callee_r12[32];
+  char translated_frame_slot[128];
   char timeout_seconds[32];
   char stack_target_start[32];
   char stack_size[32];
@@ -561,6 +630,17 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   snprintf(argument0, sizeof(argument0), "0x%" PRIx64, descriptor->argument0);
   snprintf(state_report_address, sizeof(state_report_address), "0x%" PRIx64, descriptor->state_report_address);
   snprintf(translated_return_address, sizeof(translated_return_address), "0x%" PRIx64, descriptor->translated_return_address);
+  snprintf(translated_frame_pointer, sizeof(translated_frame_pointer), "0x%" PRIx64, descriptor->translated_frame_pointer);
+  snprintf(translated_frame_cfa, sizeof(translated_frame_cfa), "0x%" PRIx64, descriptor->translated_frame_cfa);
+  snprintf(translated_frame_return_address_slot, sizeof(translated_frame_return_address_slot), "0x%" PRIx64, descriptor->translated_frame_return_address_slot);
+  snprintf(translated_frame_return_address, sizeof(translated_frame_return_address), "0x%" PRIx64, descriptor->translated_frame_return_address);
+  snprintf(translated_frame_callee_r12, sizeof(translated_frame_callee_r12), "0x%" PRIx64, descriptor->translated_frame_callee_r12);
+  snprintf(translated_frame_slot,
+      sizeof(translated_frame_slot),
+      "0x%" PRIx64 ":0x%" PRIx64 ":%s",
+      descriptor->translated_frame_slot_offset,
+      descriptor->translated_frame_slot_value,
+      descriptor->translated_frame_slot_class);
   snprintf(timeout_seconds, sizeof(timeout_seconds), "0x%" PRIx64, descriptor->timeout_seconds);
   snprintf(stack_target_start, sizeof(stack_target_start), "0x%" PRIx64, descriptor->stack_target_start);
   snprintf(stack_size, sizeof(stack_size), "0x%" PRIx64, descriptor->stack_size);
@@ -595,6 +675,22 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   if (descriptor->has_translated_return_address) {
     push_arg(child_argv, &child_argc, "--translated-return-address");
     push_arg(child_argv, &child_argc, translated_return_address);
+  }
+  if (descriptor->has_translated_frame) {
+    push_arg(child_argv, &child_argc, "--translated-frame-pointer");
+    push_arg(child_argv, &child_argc, translated_frame_pointer);
+    push_arg(child_argv, &child_argc, "--translated-frame-cfa");
+    push_arg(child_argv, &child_argc, translated_frame_cfa);
+    push_arg(child_argv, &child_argc, "--translated-frame-return-address-slot");
+    push_arg(child_argv, &child_argc, translated_frame_return_address_slot);
+    push_arg(child_argv, &child_argc, "--translated-frame-return-address");
+    push_arg(child_argv, &child_argc, translated_frame_return_address);
+    push_arg(child_argv, &child_argc, "--translated-frame-unwind-id");
+    push_arg(child_argv, &child_argc, descriptor->translated_frame_unwind_id);
+    push_arg(child_argv, &child_argc, "--translated-frame-callee-r12");
+    push_arg(child_argv, &child_argc, translated_frame_callee_r12);
+    push_arg(child_argv, &child_argc, "--translated-frame-slot");
+    push_arg(child_argv, &child_argc, translated_frame_slot);
   }
   push_arg(child_argv, &child_argc, "--timeout-seconds");
   push_arg(child_argv, &child_argc, timeout_seconds);

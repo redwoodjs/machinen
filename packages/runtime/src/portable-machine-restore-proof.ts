@@ -8,6 +8,7 @@ import {
   validateTargetGuestRestoreDescriptor,
   type TargetGuestRestoreContinuationDescriptor,
   type TargetGuestRestoreDescriptor,
+  type TargetGuestTranslatedFrameDescriptor,
 } from "./target-guest-restore-loader.ts";
 import type { TargetGuestMemoryMaterializationResult } from "./target-guest-memory-materialization.ts";
 
@@ -23,6 +24,7 @@ export type PortableMachineTargetVerifierResult = "pending" | "passed" | "failed
 export type PortableMachineTargetContinuationKind = "generated-verifier" | "real-utility";
 export type PortableMachineTargetStateConsumptionResult = "pending" | "passed" | "failed";
 export type PortableMachineTargetReturnChainResult = "pending" | "passed" | "failed";
+export type PortableMachineTargetFrameRestoreResult = "pending" | "passed" | "failed";
 
 export interface PortableMachineTargetResourceStatus {
   kind: string;
@@ -53,6 +55,8 @@ export interface PortableMachineVmRestoreProofPlan {
   targetResourceStatuses?: PortableMachineTargetResourceStatus[];
   targetReturnChainResult?: PortableMachineTargetReturnChainResult;
   targetTranslatedReturnAddress?: string;
+  targetFrameRestoreResult?: PortableMachineTargetFrameRestoreResult;
+  targetTranslatedFramePointer?: string;
   sourceTextReusedAsTargetCode: false;
   sourceIsaEmulationUsed: false;
   sidecarRuntimeUsed: false;
@@ -70,6 +74,8 @@ export interface PortableMachineVmRestoreTargetResult {
   targetResourceStatuses?: PortableMachineTargetResourceStatus[];
   targetReturnChainResult?: PortableMachineTargetReturnChainResult;
   targetTranslatedReturnAddress?: string;
+  targetFrameRestoreResult?: PortableMachineTargetFrameRestoreResult;
+  targetTranslatedFramePointer?: string;
   sourceTextReusedAsTargetCode?: boolean;
   sourceIsaEmulationUsed?: boolean;
   sidecarRuntimeUsed?: boolean;
@@ -77,6 +83,7 @@ export interface PortableMachineVmRestoreTargetResult {
 
 export interface PortableMachineTargetRestoreDescriptorRequest {
   continuation: TargetGuestRestoreContinuationDescriptor;
+  translatedFrame?: TargetGuestTranslatedFrameDescriptor;
   fdTable: NativeTargetFdTablePlan;
   memory: TargetGuestMemoryMaterializationResult;
 }
@@ -124,6 +131,7 @@ export function planPortableMachineTargetRestoreDescriptor(
       kind: TARGET_GUEST_RESTORE_DESCRIPTOR_KIND,
       targetArch: "amd64",
       continuation: request.continuation,
+      translatedFrame: request.translatedFrame,
       resources: request.fdTable.targetGuestResources,
       memory: request.memory.entries,
     }),
@@ -189,6 +197,8 @@ export function completePortableMachineVmRestoreProof(
     targetResourceStatuses: result.targetResourceStatuses,
     targetReturnChainResult: result.targetReturnChainResult,
     targetTranslatedReturnAddress: result.targetTranslatedReturnAddress,
+    targetFrameRestoreResult: result.targetFrameRestoreResult,
+    targetTranslatedFramePointer: result.targetTranslatedFramePointer,
   };
 }
 
@@ -208,6 +218,7 @@ function targetNativeCompleted(result: PortableMachineVmRestoreTargetResult): bo
     result.targetStateConsumptionResult === undefined ||
       result.targetStateConsumptionResult === "passed",
     result.targetReturnChainResult === undefined || result.targetReturnChainResult === "passed",
+    result.targetFrameRestoreResult === undefined || result.targetFrameRestoreResult === "passed",
     result.sourceTextReusedAsTargetCode === false,
     result.sourceIsaEmulationUsed === false,
     result.sidecarRuntimeUsed === false,
