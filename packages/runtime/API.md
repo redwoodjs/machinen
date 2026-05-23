@@ -11990,7 +11990,7 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ### TargetGuestResumeRegisterName
 
-> **TargetGuestResumeRegisterName** = `"rax"` \| `"rsi"` \| `"rdx"` \| `"rcx"` \| `"r8"` \| `"r9"` \| `"r10"` \| `"r11"`
+> **TargetGuestResumeRegisterName** = `"rax"` \| `"rdi"` \| `"rsi"` \| `"rdx"` \| `"rcx"` \| `"r8"` \| `"r9"` \| `"r10"` \| `"r11"`
 
 ***
 

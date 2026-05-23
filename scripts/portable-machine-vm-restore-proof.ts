@@ -128,6 +128,7 @@ const TRANSLATED_FRAME_REGISTER_MASK_R14 = 0x08;
 const TRANSLATED_FRAME_REGISTER_MASK_R15 = 0x10;
 const RESUME_REGISTER_MARKER = 0x52454753544f5245n;
 const RESUME_REGISTER_RAX = "0x2121212121212121";
+const RESUME_REGISTER_RDI = "0x7171717171717171";
 const RESUME_REGISTER_RSI = "0x6161616161616161";
 const RESUME_REGISTER_RDX = "0x6262626262626262";
 const RESUME_REGISTER_RCX = "0x6363636363636363";
@@ -406,6 +407,7 @@ function proofMemoryPlan(context: CombinedDescriptorContext) {
 function proofResumeRegisters() {
   return {
     rax: RESUME_REGISTER_RAX,
+    rdi: RESUME_REGISTER_RDI,
     rsi: RESUME_REGISTER_RSI,
     rdx: RESUME_REGISTER_RDX,
     rcx: RESUME_REGISTER_RCX,
@@ -505,7 +507,6 @@ function prepareRealUtilityContinuation(
   return {
     kind: "real-utility" as const,
     bytes: Buffer.from(materialized.materialized!.bytes),
-    argument0: PROOF_MEMORY_TARGET,
     stateReportAddress: PROOF_MEMORY_TARGET,
     translatedReturnAddress: targetCode.translatedReturnAddress,
     translatedFrame: translatedFrameDescriptor(targetCode.translatedReturnAddress),
@@ -765,9 +766,9 @@ function proofStateVerifierTargetCode(
   const asm = new Amd64ProofAssembler();
   if (completion === "return") {
     asm.preserveRbx();
-    asm.captureResumeRegisters();
+    asm.captureResumeRegisters(BigInt(PROOF_MEMORY_TARGET));
     asm.checkTranslatedRbx();
-    asm.movRbxFromRdi();
+    asm.movRbxImmediate(BigInt(PROOF_MEMORY_TARGET));
     asm.storeReportWord(16, 0n);
     asm.checkTranslatedFrame();
     asm.checkTranslatedResumePath();
@@ -805,20 +806,18 @@ class Amd64ProofAssembler {
     this.checkRbxImmediate(BigInt(TRANSLATED_FRAME_RBX));
   }
 
-  captureResumeRegisters(): void {
-    this.storeRegisterAtReportOffset("rax", 136);
-    this.storeRegisterAtReportOffset("rsi", 144);
-    this.storeRegisterAtReportOffset("rdx", 152);
-    this.storeRegisterAtReportOffset("rcx", 160);
-    this.storeRegisterAtReportOffset("r8", 168);
-    this.storeRegisterAtReportOffset("r9", 176);
-    this.storeRegisterAtReportOffset("r10", 184);
-    this.storeRegisterAtReportOffset("r11", 192);
-    this.storeReportWordFromRdiBase(128, RESUME_REGISTER_MARKER);
-  }
-
-  movRbxFromRdi(): void {
-    this.push(0x48, 0x89, 0xfb);
+  captureResumeRegisters(reportAddress: bigint): void {
+    this.storeRaxAtAbsolute(reportAddress + 136n);
+    this.movRaxImmediate(reportAddress);
+    this.storeRegisterAtRaxReportOffset("rdi", 200);
+    this.storeRegisterAtRaxReportOffset("rsi", 144);
+    this.storeRegisterAtRaxReportOffset("rdx", 152);
+    this.storeRegisterAtRaxReportOffset("rcx", 160);
+    this.storeRegisterAtRaxReportOffset("r8", 168);
+    this.storeRegisterAtRaxReportOffset("r9", 176);
+    this.storeRegisterAtRaxReportOffset("r10", 184);
+    this.storeRegisterAtRaxReportOffset("r11", 192);
+    this.storeReportWordFromRaxBase(128, RESUME_REGISTER_MARKER);
   }
 
   movRbxImmediate(value: bigint): void {
@@ -912,35 +911,36 @@ class Amd64ProofAssembler {
     this.push(0x48, 0x89, 0x43, offset);
   }
 
-  storeReportWordFromRdiBase(offset: number, value: bigint): void {
-    this.push(0x48, 0xb8);
+  storeReportWordFromRaxBase(offset: number, value: bigint): void {
+    this.push(0x48, 0xba);
     this.pushU64(value);
-    this.storeRaxToRdiOffset(offset);
+    this.storeRegisterToRaxOffset(0x48, 0x50, 0x90, offset);
   }
 
-  storeRegisterAtReportOffset(
-    register: "rax" | "rsi" | "rdx" | "rcx" | "r8" | "r9" | "r10" | "r11",
+  storeRegisterAtRaxReportOffset(
+    register: "rdi" | "rsi" | "rdx" | "rcx" | "r8" | "r9" | "r10" | "r11",
     offset: number,
   ): void {
     const encodings = {
-      rax: { prefix: 0x48, modrm8: 0x47, modrm32: 0x87 },
-      rsi: { prefix: 0x48, modrm8: 0x77, modrm32: 0xb7 },
-      rdx: { prefix: 0x48, modrm8: 0x57, modrm32: 0x97 },
-      rcx: { prefix: 0x48, modrm8: 0x4f, modrm32: 0x8f },
-      r8: { prefix: 0x4c, modrm8: 0x47, modrm32: 0x87 },
-      r9: { prefix: 0x4c, modrm8: 0x4f, modrm32: 0x8f },
-      r10: { prefix: 0x4c, modrm8: 0x57, modrm32: 0x97 },
-      r11: { prefix: 0x4c, modrm8: 0x5f, modrm32: 0x9f },
+      rdi: { prefix: 0x48, modrm8: 0x78, modrm32: 0xb8 },
+      rsi: { prefix: 0x48, modrm8: 0x70, modrm32: 0xb0 },
+      rdx: { prefix: 0x48, modrm8: 0x50, modrm32: 0x90 },
+      rcx: { prefix: 0x48, modrm8: 0x48, modrm32: 0x88 },
+      r8: { prefix: 0x4c, modrm8: 0x40, modrm32: 0x80 },
+      r9: { prefix: 0x4c, modrm8: 0x48, modrm32: 0x88 },
+      r10: { prefix: 0x4c, modrm8: 0x50, modrm32: 0x90 },
+      r11: { prefix: 0x4c, modrm8: 0x58, modrm32: 0x98 },
     };
     const encoding = encodings[register];
-    this.storeRegisterToRdiOffset(encoding.prefix, encoding.modrm8, encoding.modrm32, offset);
+    this.storeRegisterToRaxOffset(encoding.prefix, encoding.modrm8, encoding.modrm32, offset);
   }
 
-  private storeRaxToRdiOffset(offset: number): void {
-    this.storeRegisterToRdiOffset(0x48, 0x47, 0x87, offset);
+  private storeRaxAtAbsolute(address: bigint): void {
+    this.push(0x48, 0xa3);
+    this.pushU64(address);
   }
 
-  private storeRegisterToRdiOffset(
+  private storeRegisterToRaxOffset(
     prefix: number,
     modrm8: number,
     modrm32: number,

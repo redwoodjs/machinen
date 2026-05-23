@@ -40,6 +40,7 @@ export type TargetGuestRestoreResumeMode = "translated-frame";
 
 export type TargetGuestResumeRegisterName =
   | "rax"
+  | "rdi"
   | "rsi"
   | "rdx"
   | "rcx"
@@ -571,6 +572,12 @@ function validateContinuation(
   if (continuation.argument0 !== undefined) {
     assertHexAddress(continuation.argument0, "argument0");
   }
+  if (continuation.argument0 !== undefined && continuation.resumeRegisters !== undefined) {
+    fail(
+      "target-guest-loader-invalid-continuation",
+      "argument0 cannot be combined with a resume register bank",
+    );
+  }
   if (continuation.stateReportAddress !== undefined) {
     assertHexAddress(continuation.stateReportAddress, "stateReportAddress");
   }
@@ -813,10 +820,21 @@ function assertNoWhitespace(value: string, field: string): void {
   }
 }
 
-const TARGET_RESUME_REGISTERS = ["rax", "rsi", "rdx", "rcx", "r8", "r9", "r10", "r11"] as const;
+const TARGET_RESUME_REGISTERS = [
+  "rax",
+  "rdi",
+  "rsi",
+  "rdx",
+  "rcx",
+  "r8",
+  "r9",
+  "r10",
+  "r11",
+] as const;
 
 const TARGET_RESUME_REGISTER_FIELDS: Record<TargetGuestResumeRegisterName, string> = {
   rax: "resumeRegisterRax",
+  rdi: "resumeRegisterRdi",
   rsi: "resumeRegisterRsi",
   rdx: "resumeRegisterRdx",
   rcx: "resumeRegisterRcx",

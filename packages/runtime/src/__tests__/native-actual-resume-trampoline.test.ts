@@ -94,15 +94,27 @@ describe("native actual resume trampoline", () => {
       writeFileSync(stateMemory, memory);
       const stateEntryBytes: number[] = [];
       const immediates: Array<{ offset: number; value: bigint }> = [];
+      const reportAddress = 0x600000000000n;
       const push = (...bytes: number[]) => stateEntryBytes.push(...bytes);
-      const storeRax = (reportOffset: number) => {
-        storeRegister(0x48, 0x47, 0x87, reportOffset);
-      };
-      const storeImmediate = (reportOffset: number, value: bigint) => {
-        push(0x48, 0xb8);
+      const pushU64Immediate = (value: bigint) => {
         immediates.push({ offset: stateEntryBytes.length, value });
         push(0, 0, 0, 0, 0, 0, 0, 0);
-        storeRax(reportOffset);
+      };
+      const movRaxImmediate = (value: bigint) => {
+        push(0x48, 0xb8);
+        pushU64Immediate(value);
+      };
+      const movRbxImmediate = (value: bigint) => {
+        push(0x48, 0xbb);
+        pushU64Immediate(value);
+      };
+      const storeRaxAbsolute = (reportOffset: number) => {
+        push(0x48, 0xa3);
+        pushU64Immediate(reportAddress + BigInt(reportOffset));
+      };
+      const storeImmediate = (reportOffset: number, value: bigint) => {
+        movRaxImmediate(value);
+        storeRegister(0x48, 0x43, 0x83, reportOffset);
       };
       function storeRegister(
         prefix: number,
@@ -117,21 +129,24 @@ describe("native actual resume trampoline", () => {
         push(prefix, 0x89, modrm32);
         push(reportOffset, reportOffset >> 8, reportOffset >> 16, reportOffset >> 24);
       }
-      storeRegister(0x48, 0x47, 0x87, 136);
-      storeRegister(0x48, 0x77, 0xb7, 144);
-      storeRegister(0x48, 0x57, 0x97, 152);
-      storeRegister(0x48, 0x4f, 0x8f, 160);
-      storeRegister(0x4c, 0x47, 0x87, 168);
-      storeRegister(0x4c, 0x4f, 0x8f, 176);
-      storeRegister(0x4c, 0x57, 0x97, 184);
-      storeRegister(0x4c, 0x5f, 0x9f, 192);
+      storeRaxAbsolute(136);
+      movRaxImmediate(reportAddress);
+      storeRegister(0x48, 0x78, 0xb8, 200);
+      storeRegister(0x48, 0x70, 0xb0, 144);
+      storeRegister(0x48, 0x50, 0x90, 152);
+      storeRegister(0x48, 0x48, 0x88, 160);
+      storeRegister(0x4c, 0x40, 0x80, 168);
+      storeRegister(0x4c, 0x48, 0x88, 176);
+      storeRegister(0x4c, 0x50, 0x90, 184);
+      storeRegister(0x4c, 0x58, 0x98, 192);
+      movRbxImmediate(reportAddress);
       storeImmediate(128, 0x52454753544f5245n);
       storeImmediate(8, 0x5354415445434f4en);
       storeImmediate(16, 0x7fn);
       storeImmediate(32, 0x4652414d45504153n);
       storeImmediate(40, 0x524553554d455041n);
       storeImmediate(48, 0x1fn);
-      push(0xb8, 0x4d, 0, 0, 0, 0xc3);
+      push(0x48, 0x89, 0xdf, 0xb8, 0x4d, 0, 0, 0, 0xc3);
       const stateEntry = Buffer.from(stateEntryBytes);
       for (const immediate of immediates) {
         stateEntry.writeBigUInt64LE(immediate.value, immediate.offset);
@@ -146,8 +161,6 @@ describe("native actual resume trampoline", () => {
       writeFileSync(stateCodePath, stateCode);
       expect(
         runHelper(helper, stateCodePath, stateCode.length, [
-          "--argument0",
-          "0x600000000000",
           "--state-report-address",
           "0x600000000000",
           "--translated-return-address",
@@ -156,6 +169,8 @@ describe("native actual resume trampoline", () => {
           "translated-frame",
           "--resume-register-rax",
           "0x2121212121212121",
+          "--resume-register-rdi",
+          "0x7171717171717171",
           "--resume-register-rsi",
           "0x6161616161616161",
           "--resume-register-rdx",
@@ -230,6 +245,7 @@ describe("native actual resume trampoline", () => {
           status: "passed",
           registers: [
             { register: "rax", status: "passed", value: "0x2121212121212121" },
+            { register: "rdi", status: "passed", value: "0x7171717171717171" },
             { register: "rsi", status: "passed", value: "0x6161616161616161" },
             { register: "rdx", status: "passed", value: "0x6262626262626262" },
             { register: "rcx", status: "passed", value: "0x6363636363636363" },

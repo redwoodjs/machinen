@@ -57,6 +57,7 @@ struct Descriptor {
   bool has_resume_registers;
   uint32_t resume_register_mask;
   uint64_t resume_register_rax;
+  uint64_t resume_register_rdi;
   uint64_t resume_register_rsi;
   uint64_t resume_register_rdx;
   uint64_t resume_register_rcx;
@@ -236,6 +237,10 @@ static void parse_field(struct Descriptor *descriptor, char *line) {
   } else if (streq(key, "resumeRegisterRax")) {
     descriptor->resume_register_rax = parse_u64(value, key);
     descriptor->resume_register_mask |= 0x01u;
+    descriptor->has_resume_registers = true;
+  } else if (streq(key, "resumeRegisterRdi")) {
+    descriptor->resume_register_rdi = parse_u64(value, key);
+    descriptor->resume_register_mask |= 0x100u;
     descriptor->has_resume_registers = true;
   } else if (streq(key, "resumeRegisterRsi")) {
     descriptor->resume_register_rsi = parse_u64(value, key);
@@ -672,7 +677,10 @@ static void validate_descriptor(const struct Descriptor *descriptor) {
   if (descriptor->has_resume_mode && !descriptor->has_translated_frame) {
     refuse("target-guest-loader-frame-unsupported", "translated resume mode requires a frame");
   }
-  if (descriptor->has_resume_registers && descriptor->resume_register_mask != 0xffu) {
+  if (descriptor->has_argument0 && descriptor->has_resume_registers) {
+    refuse("target-guest-loader-invalid-continuation", "argument0 cannot be combined with a resume register bank");
+  }
+  if (descriptor->has_resume_registers && descriptor->resume_register_mask != 0x1ffu) {
     refuse("target-guest-loader-invalid-continuation", "resume register bank is incomplete");
   }
   if (descriptor->has_translated_frame &&
@@ -747,6 +755,7 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   char state_report_address[32];
   char translated_return_address[32];
   char resume_register_rax[32];
+  char resume_register_rdi[32];
   char resume_register_rsi[32];
   char resume_register_rdx[32];
   char resume_register_rcx[32];
@@ -780,6 +789,7 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   snprintf(state_report_address, sizeof(state_report_address), "0x%" PRIx64, descriptor->state_report_address);
   snprintf(translated_return_address, sizeof(translated_return_address), "0x%" PRIx64, descriptor->translated_return_address);
   snprintf(resume_register_rax, sizeof(resume_register_rax), "0x%" PRIx64, descriptor->resume_register_rax);
+  snprintf(resume_register_rdi, sizeof(resume_register_rdi), "0x%" PRIx64, descriptor->resume_register_rdi);
   snprintf(resume_register_rsi, sizeof(resume_register_rsi), "0x%" PRIx64, descriptor->resume_register_rsi);
   snprintf(resume_register_rdx, sizeof(resume_register_rdx), "0x%" PRIx64, descriptor->resume_register_rdx);
   snprintf(resume_register_rcx, sizeof(resume_register_rcx), "0x%" PRIx64, descriptor->resume_register_rcx);
@@ -846,6 +856,8 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   if (descriptor->has_resume_registers) {
     push_arg(child_argv, &child_argc, "--resume-register-rax");
     push_arg(child_argv, &child_argc, resume_register_rax);
+    push_arg(child_argv, &child_argc, "--resume-register-rdi");
+    push_arg(child_argv, &child_argc, resume_register_rdi);
     push_arg(child_argv, &child_argc, "--resume-register-rsi");
     push_arg(child_argv, &child_argc, resume_register_rsi);
     push_arg(child_argv, &child_argc, "--resume-register-rdx");
