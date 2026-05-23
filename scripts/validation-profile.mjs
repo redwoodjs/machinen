@@ -42,6 +42,11 @@ const STEP_DEFINITIONS = {
     args: ["exec", "fallow", "audit", "--changed-since", "origin/main"],
     description: "Run changed-file fallow audit",
   },
+  "check:file-sizes": {
+    command: "pnpm",
+    args: ["run", "check:file-sizes", "--changed-since", "origin/main"],
+    description: "Run changed-file size gate",
+  },
   "smoke-tests": {
     command: "pnpm",
     args: ["smoke-tests"],
@@ -56,8 +61,25 @@ const STEP_DEFINITIONS = {
 };
 
 const PROFILES = {
-  quick: ["format:check", "lint", "build:docs", "typecheck", "vitest", "fallow"],
-  required: ["format:check", "lint", "build:docs", "typecheck", "vitest", "fallow", "smoke-tests"],
+  quick: [
+    "format:check",
+    "lint",
+    "build:docs",
+    "typecheck",
+    "vitest",
+    "fallow",
+    "check:file-sizes",
+  ],
+  required: [
+    "format:check",
+    "lint",
+    "build:docs",
+    "typecheck",
+    "vitest",
+    "fallow",
+    "check:file-sizes",
+    "smoke-tests",
+  ],
   full: [
     "format:check",
     "lint",
@@ -65,6 +87,7 @@ const PROFILES = {
     "typecheck",
     "vitest",
     "fallow",
+    "check:file-sizes",
     "smoke-tests",
     "agent-ci",
   ],

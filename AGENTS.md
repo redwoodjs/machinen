@@ -14,6 +14,11 @@ Default validation for TypeScript/runtime/docs changes:
 4. Typecheck: `pnpm run typecheck`
 5. Unit tests: `NPM_CONFIG_USERCONFIG=/dev/null npx vitest run`
 6. Architecture audit for code changes: `pnpm exec fallow audit --changed-since origin/main`
+7. File-size gate for code changes: `pnpm run check:file-sizes --changed-since origin/main`
+
+See [docs/guides/simplification.md](docs/guides/simplification.md). Fallow guards
+function complexity; the file-size gate guards module size. When fallow asks for
+extraction, prefer a new file over growing an already-large parent.
 
 Use targeted tests/proofs when the change is narrow. For example, native
 synthetic syscall work should run the focused Vitest files plus the arm64 capture

@@ -118,5 +118,8 @@ your PR merges to `main`. Merging that PR publishes to npm.
 - **Formatter:** oxfmt. Run `pnpm run format` before pushing.
 - **Linter:** oxlint (rules in the root config). No warnings tolerated.
 - **Tests:** vitest (TS), `zig build test` (Zig).
+- **Simplification:** [docs/guides/simplification.md](docs/guides/simplification.md) —
+  our main goal. Fallow guards function complexity; `pnpm run check:file-sizes`
+  guards module size. Tracked files may only shrink.
 - **Design docs:** drop-in notes under [`.docs/learnings/microvm/`](.docs/learnings/microvm/).
-  No formal ADRs.
+  ADRs under [`docs/adr/`](docs/adr/) for cross-cutting decisions.

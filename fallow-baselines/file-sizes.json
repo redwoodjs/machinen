@@ -1,0 +1,22 @@
+{
+  "description": "Grandfathered file line counts. Tracked files may only shrink until below MAX_LINES.",
+  "max_lines": 1000,
+  "files": {
+    "packages/cli/src/cli.ts": 2842,
+    "packages/microvm/assets/init.zig": 1243,
+    "packages/microvm/src/boot_hvf.zig": 2387,
+    "packages/microvm/src/boot_kvm.zig": 1846,
+    "packages/microvm/src/boot_kvm_x86_64.zig": 1625,
+    "packages/microvm/src/hvf.zig": 1288,
+    "packages/microvm/src/kvm.zig": 1310,
+    "packages/microvm/src/vsock.zig": 1505,
+    "packages/microvm/src/vcpu_dump.zig": 1127,
+    "packages/mount-server/src/fuse.zig": 2700,
+    "packages/runtime/src/mkinitramfs.ts": 1185,
+    "packages/runtime/src/native-process-image.ts": 1474,
+    "packages/runtime/src/vm/boot.ts": 2279,
+    "packages/runtime/src/vm/portable-snapshot.ts": 1209,
+    "packages/runtime/src/vm/snapshot.ts": 1019,
+    "scripts/native-actual-real-utility-continuation.ts": 1609
+  }
+}

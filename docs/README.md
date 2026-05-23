@@ -14,6 +14,7 @@ Then dive deeper:
 - [Networking](./guides/networking.md) — port forwards and outbound traffic via gvproxy
 - [Nested virtualization](./guides/nested-virtualization.md) — opt-in `/dev/kvm` inside a VM
 - [Run Firecracker inside machinen](./guides/firecracker.md) — boot an aarch64 L2 microVM with nested KVM
+- [Simplification](./guides/simplification.md) — how we keep files and layers small
 
 Snapshot internals:
 

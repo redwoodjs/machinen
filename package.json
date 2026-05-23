@@ -78,6 +78,7 @@
     "smoke-portable-cross-isa": "bash scripts/smoke/portable-cross-isa.sh",
     "bench-net": "bash scripts/bench-net.sh",
     "bench-boot": "tsx scripts/bench-boot.ts",
+    "check:file-sizes": "node scripts/check-file-sizes.mjs",
     "validation:profile": "node scripts/validation-profile.mjs",
     "proof-container-install": "bash scripts/proof-container-install.sh"
   },
