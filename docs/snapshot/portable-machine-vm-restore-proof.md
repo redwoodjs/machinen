@@ -61,7 +61,8 @@ shared-stack, unknown-TLS, and ambiguous register states refuse before the targe
 VM is entered. The descriptor uses `resumeMode=translated-frame`, so the success
 path records a target-native resume-path marker after the real continuation
 observes the translated frame, stack-slot vector, amd64 callee-saved register
-bank, and modeled resume-register handoff including `%rdi`.
+bank, modeled resume-register handoff including `%rdi`, and modeled RFLAGS
+condition-code handoff.
 
 ## Smoke profile
 
@@ -105,7 +106,8 @@ resource recipe kinds, `targetRestore.targetContinuationKind`,
 `targetRestore.targetThreadRestoreThreadId`,
 `targetRestore.targetResumePathResult`,
 `targetRestore.targetResumePathMode`,
-`targetRestore.targetRegisterRestoreResult`, and
+`targetRestore.targetRegisterRestoreResult`,
+`targetRestore.targetRflagsRestoreResult`, and
 `targetRestore.targetVerifierResult`. It reports timing for:
 
 1. preflight / optional remote reachability gates;

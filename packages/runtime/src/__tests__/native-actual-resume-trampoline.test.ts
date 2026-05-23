@@ -130,6 +130,8 @@ describe("native actual resume trampoline", () => {
         push(reportOffset, reportOffset >> 8, reportOffset >> 16, reportOffset >> 24);
       }
       storeRaxAbsolute(136);
+      push(0x9c, 0x58);
+      storeRaxAbsolute(216);
       movRaxImmediate(reportAddress);
       storeRegister(0x48, 0x78, 0xb8, 200);
       storeRegister(0x48, 0x70, 0xb0, 144);
@@ -141,6 +143,7 @@ describe("native actual resume trampoline", () => {
       storeRegister(0x4c, 0x58, 0x98, 192);
       movRbxImmediate(reportAddress);
       storeImmediate(128, 0x52454753544f5245n);
+      storeImmediate(208, 0x52464c4147534f4bn);
       storeImmediate(8, 0x5354415445434f4en);
       storeImmediate(16, 0x7fn);
       storeImmediate(32, 0x4652414d45504153n);
@@ -167,6 +170,8 @@ describe("native actual resume trampoline", () => {
           translatedReturnAddress,
           "--resume-mode",
           "translated-frame",
+          "--resume-rflags",
+          "0x8d7",
           "--resume-register-rax",
           "0x2121212121212121",
           "--resume-register-rdi",
@@ -240,6 +245,11 @@ describe("native actual resume trampoline", () => {
         resumePath: {
           status: "passed",
           mode: "translated-frame",
+        },
+        rflagsRestore: {
+          status: "passed",
+          conditionMask: "0x8d5",
+          expectedRflags: "0x8d7",
         },
         registerRestore: {
           status: "passed",

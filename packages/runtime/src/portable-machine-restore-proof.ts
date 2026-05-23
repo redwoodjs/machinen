@@ -26,6 +26,7 @@ export type PortableMachineTargetStateConsumptionResult = "pending" | "passed" |
 export type PortableMachineTargetReturnChainResult = "pending" | "passed" | "failed";
 export type PortableMachineTargetFrameRestoreResult = "pending" | "passed" | "failed";
 export type PortableMachineTargetRegisterRestoreResult = "pending" | "passed" | "failed";
+export type PortableMachineTargetRflagsRestoreResult = "pending" | "passed" | "failed";
 export type PortableMachineTargetThreadRestoreResult = "accepted" | "refused";
 export type PortableMachineTargetResumePathResult = "pending" | "passed" | "failed";
 
@@ -34,7 +35,23 @@ export interface PortableMachineTargetResourceStatus {
   status: "passed" | "failed";
 }
 
-export interface PortableMachineVmRestoreProofPlan {
+export interface PortableMachineTargetRestoreObservation {
+  targetVerifierResult?: PortableMachineTargetVerifierResult;
+  targetStateConsumptionResult?: PortableMachineTargetStateConsumptionResult;
+  targetResourceStatuses?: PortableMachineTargetResourceStatus[];
+  targetReturnChainResult?: PortableMachineTargetReturnChainResult;
+  targetTranslatedReturnAddress?: string;
+  targetFrameRestoreResult?: PortableMachineTargetFrameRestoreResult;
+  targetTranslatedFramePointer?: string;
+  targetRegisterRestoreResult?: PortableMachineTargetRegisterRestoreResult;
+  targetRflagsRestoreResult?: PortableMachineTargetRflagsRestoreResult;
+  targetThreadRestoreResult?: PortableMachineTargetThreadRestoreResult;
+  targetThreadRestoreThreadId?: string;
+  targetResumePathResult?: PortableMachineTargetResumePathResult;
+  targetResumePathMode?: string;
+}
+
+export interface PortableMachineVmRestoreProofPlan extends PortableMachineTargetRestoreObservation {
   phase: "portable-machine-vm-restore-proof";
   state: PortableMachineVmRestoreProofState;
   portableMachineBundle?: string;
@@ -49,22 +66,10 @@ export interface PortableMachineVmRestoreProofPlan {
   descriptorMemoryEntryCount?: number;
   descriptorFdRecipeCount?: number;
   descriptorResourceKinds?: string[];
-  targetVerifierResult?: PortableMachineTargetVerifierResult;
   targetContinuationKind?: PortableMachineTargetContinuationKind;
   targetContinuationStatus?: string;
   targetContinuationReturnValue?: string;
   targetModuleBytesSource?: string;
-  targetStateConsumptionResult?: PortableMachineTargetStateConsumptionResult;
-  targetResourceStatuses?: PortableMachineTargetResourceStatus[];
-  targetReturnChainResult?: PortableMachineTargetReturnChainResult;
-  targetTranslatedReturnAddress?: string;
-  targetFrameRestoreResult?: PortableMachineTargetFrameRestoreResult;
-  targetTranslatedFramePointer?: string;
-  targetRegisterRestoreResult?: PortableMachineTargetRegisterRestoreResult;
-  targetThreadRestoreResult?: PortableMachineTargetThreadRestoreResult;
-  targetThreadRestoreThreadId?: string;
-  targetResumePathResult?: PortableMachineTargetResumePathResult;
-  targetResumePathMode?: string;
   sourceTextReusedAsTargetCode: false;
   sourceIsaEmulationUsed: false;
   sidecarRuntimeUsed: false;
@@ -72,23 +77,11 @@ export interface PortableMachineVmRestoreProofPlan {
   skipReason?: string;
 }
 
-export interface PortableMachineVmRestoreTargetResult {
+export interface PortableMachineVmRestoreTargetResult extends PortableMachineTargetRestoreObservation {
   exitCode: number;
   migrationCompleted?: boolean;
   descriptorGateCompleted?: boolean;
-  targetVerifierResult?: PortableMachineTargetVerifierResult;
   actualResumeEvent?: { status?: string; returnValue?: string };
-  targetStateConsumptionResult?: PortableMachineTargetStateConsumptionResult;
-  targetResourceStatuses?: PortableMachineTargetResourceStatus[];
-  targetReturnChainResult?: PortableMachineTargetReturnChainResult;
-  targetTranslatedReturnAddress?: string;
-  targetFrameRestoreResult?: PortableMachineTargetFrameRestoreResult;
-  targetTranslatedFramePointer?: string;
-  targetRegisterRestoreResult?: PortableMachineTargetRegisterRestoreResult;
-  targetThreadRestoreResult?: PortableMachineTargetThreadRestoreResult;
-  targetThreadRestoreThreadId?: string;
-  targetResumePathResult?: PortableMachineTargetResumePathResult;
-  targetResumePathMode?: string;
   sourceTextReusedAsTargetCode?: boolean;
   sourceIsaEmulationUsed?: boolean;
   sidecarRuntimeUsed?: boolean;
@@ -213,6 +206,7 @@ export function completePortableMachineVmRestoreProof(
     targetFrameRestoreResult: result.targetFrameRestoreResult,
     targetTranslatedFramePointer: result.targetTranslatedFramePointer,
     targetRegisterRestoreResult: result.targetRegisterRestoreResult,
+    targetRflagsRestoreResult: result.targetRflagsRestoreResult,
     targetThreadRestoreResult: result.targetThreadRestoreResult ?? plan.targetThreadRestoreResult,
     targetThreadRestoreThreadId:
       result.targetThreadRestoreThreadId ?? plan.targetThreadRestoreThreadId,
@@ -240,6 +234,7 @@ function targetNativeCompleted(result: PortableMachineVmRestoreTargetResult): bo
     result.targetFrameRestoreResult === undefined || result.targetFrameRestoreResult === "passed",
     result.targetRegisterRestoreResult === undefined ||
       result.targetRegisterRestoreResult === "passed",
+    result.targetRflagsRestoreResult === undefined || result.targetRflagsRestoreResult === "passed",
     result.targetThreadRestoreResult === undefined ||
       result.targetThreadRestoreResult === "accepted",
     result.targetResumePathResult === undefined || result.targetResumePathResult === "passed",

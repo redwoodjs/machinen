@@ -50,6 +50,10 @@ interface RegisterRestoreEvent {
   status?: StateConsumptionStatus;
 }
 
+interface RflagsRestoreEvent {
+  status?: StateConsumptionStatus;
+}
+
 interface ResumePathEvent {
   status?: StateConsumptionStatus;
   mode?: string;
@@ -233,6 +237,7 @@ function targetExecutionSummary(
     ...targetReturnChainFields(events.returnChain),
     ...targetFrameRestorationFields(events.frameRestoration),
     ...targetRegisterRestoreFields(events.registerRestore),
+    ...targetRflagsRestoreFields(events.rflagsRestore),
     ...targetResumePathFields(events.resumePath),
     targetVerifierResult: targetVerifierResult(args, result.exitCode, events),
     exitCode: result.exitCode,
@@ -272,6 +277,12 @@ function targetRegisterRestoreFields(registerRestore: RegisterRestoreEvent | und
   };
 }
 
+function targetRflagsRestoreFields(rflagsRestore: RflagsRestoreEvent | undefined) {
+  return {
+    targetRflagsRestoreResult: rflagsRestore?.status,
+  };
+}
+
 function targetResumePathFields(resumePath: ResumePathEvent | undefined) {
   return {
     targetResumePathResult: resumePath?.status,
@@ -289,6 +300,7 @@ function targetExecutionEvents(stdout: string) {
     returnChain: parseReturnChain(actualResumeEvent),
     frameRestoration: parseFrameRestoration(actualResumeEvent),
     registerRestore: parseRegisterRestore(actualResumeEvent),
+    rflagsRestore: parseRflagsRestore(actualResumeEvent),
     resumePath: parseResumePath(actualResumeEvent),
   };
 }
@@ -307,6 +319,7 @@ function targetVerifierResult(
     events.returnChain,
     events.frameRestoration,
     events.registerRestore,
+    events.rflagsRestore,
     events.resumePath,
   )
     ? "passed"
@@ -405,6 +418,7 @@ function targetVerifierPassed(
   returnChain: ReturnChainEvent | undefined,
   frameRestoration: FrameRestorationEvent | undefined,
   registerRestore: RegisterRestoreEvent | undefined,
+  rflagsRestore: RflagsRestoreEvent | undefined,
   resumePath: ResumePathEvent | undefined,
 ): boolean {
   return [
@@ -413,6 +427,7 @@ function targetVerifierPassed(
     targetReturnChained(returnChain),
     targetFrameRestored(frameRestoration),
     targetRegistersRestored(registerRestore),
+    targetRflagsRestored(rflagsRestore),
     targetResumePathPassed(resumePath),
     targetReturnValueMatched(args, actualResumeEvent),
   ].every(Boolean);
@@ -436,6 +451,10 @@ function targetFrameRestored(frameRestoration: FrameRestorationEvent | undefined
 
 function targetRegistersRestored(registerRestore: RegisterRestoreEvent | undefined): boolean {
   return registerRestore === undefined || registerRestore.status === "passed";
+}
+
+function targetRflagsRestored(rflagsRestore: RflagsRestoreEvent | undefined): boolean {
+  return rflagsRestore === undefined || rflagsRestore.status === "passed";
 }
 
 function targetResumePathPassed(resumePath: ResumePathEvent | undefined): boolean {
@@ -484,6 +503,13 @@ function parseRegisterRestore(
   actualResumeEvent: Record<string, unknown> | undefined,
 ): RegisterRestoreEvent | undefined {
   const value = actualResumeEvent?.registerRestore;
+  return isStateConsumptionEvent(value) ? value : undefined;
+}
+
+function parseRflagsRestore(
+  actualResumeEvent: Record<string, unknown> | undefined,
+): RflagsRestoreEvent | undefined {
+  const value = actualResumeEvent?.rflagsRestore;
   return isStateConsumptionEvent(value) ? value : undefined;
 }
 

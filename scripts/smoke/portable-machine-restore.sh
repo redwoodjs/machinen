@@ -108,6 +108,7 @@ try {
     targetFrameRestoreResult: result.targetFrameRestoreResult ?? '',
     targetTranslatedFramePointer: result.targetTranslatedFramePointer ?? '',
     targetRegisterRestoreResult: result.targetRegisterRestoreResult ?? '',
+    targetRflagsRestoreResult: result.targetRflagsRestoreResult ?? '',
     targetThreadRestoreResult: result.targetThreadRestoreResult ?? '',
     targetThreadRestoreThreadId: result.targetThreadRestoreThreadId ?? '',
     targetResumePathResult: result.targetResumePathResult ?? '',
