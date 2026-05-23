@@ -494,6 +494,7 @@ export type {
   PortableMachineSnapshotRefusals,
 } from "./portable-machine-snapshot.ts";
 export type {
+  TargetGuestNativeRestoreStep,
   TargetGuestRestoreContinuationDescriptor,
   TargetGuestRestoreDescriptor,
   TargetGuestRestoreLoaderRefusalCode,

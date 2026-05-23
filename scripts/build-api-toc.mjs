@@ -125,6 +125,7 @@ const TOC = {
     "TargetGuestRestoreResumeMode",
     "TargetGuestResumeRegisterName",
     "TargetGuestResumeRegisters",
+    "TargetGuestNativeRestoreStep",
     "TargetGuestRestoreContinuationDescriptor",
     "TargetGuestRestoreDescriptor",
     "TargetGuestTranslatedFrameDescriptor",

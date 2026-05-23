@@ -103,6 +103,7 @@
 - [`TargetGuestRestoreResumeMode`](#targetguestrestoreresumemode)
 - [`TargetGuestResumeRegisterName`](#targetguestresumeregistername)
 - [`TargetGuestResumeRegisters`](#targetguestresumeregisters)
+- [`TargetGuestNativeRestoreStep`](#targetguestnativerestorestep)
 - [`TargetGuestRestoreContinuationDescriptor`](#targetguestrestorecontinuationdescriptor)
 - [`TargetGuestRestoreDescriptor`](#targetguestrestoredescriptor)
 - [`TargetGuestTranslatedFrameDescriptor`](#targetguesttranslatedframedescriptor)
@@ -10671,6 +10672,10 @@ Poll interval in ms while retrying. Default 250.
 
 > **memory**: [`TargetGuestMemoryMaterializationEntry`](#targetguestmemorymaterializationentry)[]
 
+##### nativeRestore?
+
+> `optional` **nativeRestore?**: [`TargetGuestNativeRestoreStep`](#targetguestnativerestorestep)[]
+
 ***
 
 ### TargetGuestTwoThreadBinding
@@ -13412,6 +13417,12 @@ Result of `validatePid` — easy to switch on at the call site.
 ### TargetGuestTranslatedFrameRegisterName
 
 > **TargetGuestTranslatedFrameRegisterName** = `"rbx"` \| `"r12"` \| `"r13"` \| `"r14"` \| `"r15"`
+
+***
+
+### TargetGuestNativeRestoreStep
+
+> **TargetGuestNativeRestoreStep** = \{ `section`: `"stack-window-write"`; `write`: [`NativeStackWindowWrite`](#nativestackwindowwrite); \} \| \{ `section`: `"stack-window-guard"`; `guard`: [`NativeStackWindowGuardMapping`](#nativestackwindowguardmapping); \} \| \{ `section`: `"return-chain-write"`; `write`: [`NativeReturnChainFrameWrite`](#nativereturnchainframewrite); \} \| \{ `section`: `"private-memory"`; `step`: [`TargetGuestPrivateMemoryRestoreStep`](#targetguestprivatememoryrestorestep); \} \| \{ `section`: `"executable-mapping"`; `step`: [`TargetGuestExecutableMappingStep`](#targetguestexecutablemappingstep); \} \| \{ `section`: `"signal-restore"`; `step`: [`TargetGuestSignalRestoreStep`](#targetguestsignalrestorestep); \} \| \{ `section`: `"active-syscall"`; `step`: [`TargetGuestActiveSyscallRestoreStep`](#targetguestactivesyscallrestorestep); \}
 
 ***
 
