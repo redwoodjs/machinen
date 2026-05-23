@@ -15,11 +15,11 @@ codeFile=/tmp/machinen-target-bytes.bin
 fileOffset=0
 codeSize=16
 targetAddress=0x700300000000
-argument0=0x600000000000
 stateReportAddress=0x600000000000
 translatedReturnAddress=0x700300000080
 resumeMode=translated-frame
 resumeRegisterRax=0x2121212121212121
+resumeRegisterRdi=0x7171717171717171
 resumeRegisterRsi=0x6161616161616161
 resumeRegisterRdx=0x6262626262626262
 resumeRegisterRcx=0x6363636363636363
@@ -81,11 +81,13 @@ Everything else fails closed with a precise refusal, currently:
 
 The existing target-VM synthetic proof now injects the loader and descriptor into
 the amd64 guest and executes the loader instead of invoking the trampoline
-directly. The descriptor may carry an optional `argument0` target register value
-an optional `stateReportAddress`, an optional `translatedReturnAddress`, an
-optional `resumeMode=translated-frame`, optional modeled resume-register values,
-and an optional translated caller frame for real target-native continuation
-attempts.
+directly. The descriptor may carry an optional legacy `argument0` target register
+value for simple single-argument attempts, an optional `stateReportAddress`, an
+optional `translatedReturnAddress`, an optional `resumeMode=translated-frame`,
+optional modeled resume-register values, and an optional translated caller frame
+for real target-native continuation attempts. `argument0` is rejected when a
+resume-register bank is present so `%rdi` can be restored natively instead of
+being reserved for the proof ABI.
 The state report address lets the trampoline read a small report that the
 continuation writes after consuming restored memory and fd/resource state. The
 translated return address lets the trampoline seed a modeled target return slot
@@ -94,10 +96,12 @@ target-native landing code before control comes back to the trampoline. The
 translated frame lets the trampoline materialize a small target stack frame,
 seed `rbp` plus the modeled callee-saved register bank, and require the target
 code to validate that modeled frame/register/slot state. The resume-register
-handoff seeds caller-scratch registers (`rax`, `rsi`, `rdx`, `rcx`, `r8`, `r9`,
-`r10`, `r11`) immediately before the target-native jump and requires the target
-code to report the values it observed before clobbering them. Translated resume
-mode additionally requires the target code to write a
-resume-path marker after observing the modeled frame/stack state. Completion is
-credited only when the descriptor gate succeeds and the target-native
+handoff seeds caller-scratch registers (`rax`, `rdi`, `rsi`, `rdx`, `rcx`, `r8`,
+`r9`, `r10`, `r11`) immediately before the target-native jump and requires the
+target code to report the values it observed before clobbering them. The proof
+report address is carried out-of-band as `stateReportAddress`, so no target entry
+GPR is reserved by the reporting ABI. Translated resume mode additionally
+requires the target code to write a resume-path marker after observing the
+modeled frame/stack state. Completion is credited only when the descriptor gate
+succeeds and the target-native
 continuation returns/exits in the guest with the expected modeled result.

@@ -48,8 +48,9 @@ uses `--real-utility-continuation`: target module bytes are materialized from a
 portable-bundle target root, entered through the amd64 guest loader, and accepted
 only when the in-guest resume event returns the expected value. The real utility
 now consumes restored state before returning: it checks the materialized captured
-memory byte, validates the descriptor-provided argument/register handoff, and
-exercises the wider fd matrix: closed fd, inherited stdout, reopened file,
+memory byte, validates the descriptor-provided register handoff without
+reserving `%rdi` for the proof ABI, and exercises the wider fd matrix: closed fd,
+inherited stdout, reopened file,
 synthetic pipe, eventfd, and timerfd recipes. The descriptor also seeds a
 translated target return address and a small translated caller frame. The
 trampoline materializes that target stack frame, seeds modeled `rbp`/`r12`, and
@@ -60,7 +61,7 @@ shared-stack, unknown-TLS, and ambiguous register states refuse before the targe
 VM is entered. The descriptor uses `resumeMode=translated-frame`, so the success
 path records a target-native resume-path marker after the real continuation
 observes the translated frame, stack-slot vector, amd64 callee-saved register
-bank, and modeled resume-register handoff.
+bank, and modeled resume-register handoff including `%rdi`.
 
 ## Smoke profile
 

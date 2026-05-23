@@ -54,7 +54,7 @@
 #define TRANSLATED_FRAME_REGISTER_R14 UINT64_C(0x08)
 #define TRANSLATED_FRAME_REGISTER_R15 UINT64_C(0x10)
 #define RESUME_REGISTER_MARKER UINT64_C(0x52454753544f5245)
-#define RESUME_REGISTER_MASK UINT64_C(0xff)
+#define RESUME_REGISTER_MASK UINT64_C(0x1ff)
 #define RESUME_REGISTER_RAX UINT64_C(0x01)
 #define RESUME_REGISTER_RSI UINT64_C(0x02)
 #define RESUME_REGISTER_RDX UINT64_C(0x04)
@@ -63,6 +63,7 @@
 #define RESUME_REGISTER_R9 UINT64_C(0x20)
 #define RESUME_REGISTER_R10 UINT64_C(0x40)
 #define RESUME_REGISTER_R11 UINT64_C(0x80)
+#define RESUME_REGISTER_RDI UINT64_C(0x100)
 #define MAX_UNWIND_ID 128
 
 struct MemoryMaterialization {
@@ -93,6 +94,7 @@ struct Options {
   char resume_mode[32];
   uint64_t resume_register_mask;
   uint64_t resume_register_rax;
+  uint64_t resume_register_rdi;
   uint64_t resume_register_rsi;
   uint64_t resume_register_rdx;
   uint64_t resume_register_rcx;
@@ -148,7 +150,7 @@ static void usage(void) {
       "[--translated-frame-callee-r13 addr] [--translated-frame-callee-r14 addr] "
       "[--translated-frame-callee-r15 addr] [--translated-frame-slot offset:value:class] "
       "[--resume-mode translated-frame] [--resume-register-rax addr] "
-      "[--resume-register-rsi addr] [--resume-register-rdx addr] "
+      "[--resume-register-rdi addr] [--resume-register-rsi addr] [--resume-register-rdx addr] "
       "[--resume-register-rcx addr] [--resume-register-r8 addr] "
       "[--resume-register-r9 addr] [--resume-register-r10 addr] "
       "[--resume-register-r11 addr] --timeout-seconds n "
@@ -407,6 +409,12 @@ static struct Options parse_args(int argc, char **argv) {
       }
       opts.resume_register_rax = parse_u64(argv[i], "resume-register-rax");
       opts.resume_register_mask |= RESUME_REGISTER_RAX;
+    } else if (streq(argv[i], "--resume-register-rdi")) {
+      if (++i >= argc) {
+        usage();
+      }
+      opts.resume_register_rdi = parse_u64(argv[i], "resume-register-rdi");
+      opts.resume_register_mask |= RESUME_REGISTER_RDI;
     } else if (streq(argv[i], "--resume-register-rsi")) {
       if (++i >= argc) {
         usage();
@@ -566,6 +574,7 @@ static uint64_t jump_translated_frame_r13 __attribute__((used)) = 0;
 static uint64_t jump_translated_frame_r14 __attribute__((used)) = 0;
 static uint64_t jump_translated_frame_r15 __attribute__((used)) = 0;
 static uint64_t jump_resume_register_rax __attribute__((used)) = 0;
+static uint64_t jump_resume_register_rdi __attribute__((used)) = 0;
 static uint64_t jump_resume_register_rsi __attribute__((used)) = 0;
 static uint64_t jump_resume_register_rdx __attribute__((used)) = 0;
 static uint64_t jump_resume_register_rcx __attribute__((used)) = 0;
@@ -824,6 +833,10 @@ static void validate_resume_register_options(const struct Options *opts) {
     fprintf(stderr, "native-actual-resume-trampoline: resume register restore requires a state report\n");
     exit(2);
   }
+  if (opts->has_argument0) {
+    fprintf(stderr, "native-actual-resume-trampoline: argument0 cannot be combined with a resume register bank\n");
+    exit(2);
+  }
 }
 
 static void validate_translated_frame_options(const struct Options *opts) {
@@ -980,6 +993,7 @@ static void jump_to_target(uint64_t entry,
     uint64_t translated_frame_r14,
     uint64_t translated_frame_r15,
     uint64_t resume_register_rax,
+    uint64_t resume_register_rdi,
     uint64_t resume_register_rsi,
     uint64_t resume_register_rdx,
     uint64_t resume_register_rcx,
@@ -998,6 +1012,7 @@ static void jump_to_target(uint64_t entry,
   jump_translated_frame_r14 = translated_frame_r14;
   jump_translated_frame_r15 = translated_frame_r15;
   jump_resume_register_rax = resume_register_rax;
+  jump_resume_register_rdi = resume_register_rdi;
   jump_resume_register_rsi = resume_register_rsi;
   jump_resume_register_rdx = resume_register_rdx;
   jump_resume_register_rcx = resume_register_rcx;
@@ -1030,7 +1045,7 @@ static void jump_to_target(uint64_t entry,
       "movq jump_translated_frame_r13(%%rip), %%r13\n"
       "movq jump_translated_frame_r14(%%rip), %%r14\n"
       "movq jump_translated_frame_r15(%%rip), %%r15\n"
-      "movq jump_argument0(%%rip), %%rdi\n"
+      "movq jump_resume_register_rdi(%%rip), %%rdi\n"
       "movq jump_resume_register_rax(%%rip), %%rax\n"
       "movq jump_resume_register_rsi(%%rip), %%rsi\n"
       "movq jump_resume_register_rdx(%%rip), %%rdx\n"
@@ -1240,6 +1255,7 @@ static void print_register_restore(const struct Options *opts) {
   uint64_t base = opts->state_report_address;
   uint64_t marker = read_state_report_u64(base, 128);
   uint64_t observed_rax = read_state_report_u64(base, 136);
+  uint64_t observed_rdi = read_state_report_u64(base, 200);
   uint64_t observed_rsi = read_state_report_u64(base, 144);
   uint64_t observed_rdx = read_state_report_u64(base, 152);
   uint64_t observed_rcx = read_state_report_u64(base, 160);
@@ -1248,7 +1264,8 @@ static void print_register_restore(const struct Options *opts) {
   uint64_t observed_r10 = read_state_report_u64(base, 184);
   uint64_t observed_r11 = read_state_report_u64(base, 192);
   bool passed = marker == RESUME_REGISTER_MARKER &&
-      observed_rax == opts->resume_register_rax && observed_rsi == opts->resume_register_rsi &&
+      observed_rax == opts->resume_register_rax && observed_rdi == opts->resume_register_rdi &&
+      observed_rsi == opts->resume_register_rsi &&
       observed_rdx == opts->resume_register_rdx && observed_rcx == opts->resume_register_rcx &&
       observed_r8 == opts->resume_register_r8 && observed_r9 == opts->resume_register_r9 &&
       observed_r10 == opts->resume_register_r10 && observed_r11 == opts->resume_register_r11;
@@ -1261,6 +1278,8 @@ static void print_register_restore(const struct Options *opts) {
       marker,
       RESUME_REGISTER_MARKER);
   print_resume_register_status("rax", observed_rax, opts->resume_register_rax, RESUME_REGISTER_MASK, RESUME_REGISTER_RAX);
+  printf(",");
+  print_resume_register_status("rdi", observed_rdi, opts->resume_register_rdi, RESUME_REGISTER_MASK, RESUME_REGISTER_RDI);
   printf(",");
   print_resume_register_status("rsi", observed_rsi, opts->resume_register_rsi, RESUME_REGISTER_MASK, RESUME_REGISTER_RSI);
   printf(",");
@@ -1427,6 +1446,9 @@ int main(int argc, char **argv) {
   alarm((unsigned int)opts.timeout_seconds);
   if (sigsetjmp(resume_fault_jmp, 1) == 0) {
     uint64_t initial_rsp = opts.has_translated_return_address ? opts.stack_pointer - 16u : opts.stack_pointer - 8u;
+    uint64_t entry_rdi = opts.resume_register_mask == 0
+        ? (opts.has_argument0 ? opts.argument0 : 0u)
+        : opts.resume_register_rdi;
     jump_to_target(
         opts.target_address,
         initial_rsp,
@@ -1439,6 +1461,7 @@ int main(int argc, char **argv) {
         opts.has_translated_frame_callee_r14 ? opts.translated_frame_callee_r14 : 0u,
         opts.has_translated_frame_callee_r15 ? opts.translated_frame_callee_r15 : 0u,
         opts.resume_register_rax,
+        entry_rdi,
         opts.resume_register_rsi,
         opts.resume_register_rdx,
         opts.resume_register_rcx,
