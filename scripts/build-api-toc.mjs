@@ -402,6 +402,7 @@ const TOC = {
     "NativeMappingMaterializationStep",
     "NativeMappingMaterializationRequest",
     "NativeMappingMaterializationResult",
+    "NativePrivateWritableGuardRequest",
     "planNativeMappingMaterialization",
     "NativeInheritedStdioPolicy",
     "NativeResourceTranslationRequest",

@@ -353,6 +353,7 @@ export { planNativeMappingMaterialization } from "./native-mapping-materializati
 export type {
   NativeMappingMaterializationAction,
   NativeMappingMaterializationRequest,
+  NativePrivateWritableGuardRequest,
   NativeMappingMaterializationResult,
   NativeMappingMaterializationStep,
 } from "./native-mapping-materialization.ts";

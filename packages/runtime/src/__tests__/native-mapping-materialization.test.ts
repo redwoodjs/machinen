@@ -140,7 +140,7 @@ describe("native mapping materialization", () => {
 
     expect(result.steps[0]).toMatchObject({
       action: "refuse",
-      refusal: { code: "mapping-ambiguous" },
+      refusal: { code: "mapping-captured-range-unsupported" },
     });
   });
 
@@ -176,5 +176,141 @@ describe("native mapping materialization", () => {
     expect(result.refusals).toEqual([
       expect.objectContaining({ code: "mapping-permission-unsupported" }),
     ]);
+  });
+
+  it("materializes private writable heap, data, and anonymous mappings with guards", () => {
+    const result = planNativeMappingMaterialization({
+      memorySizeBytes: 12288,
+      privateWritableGuards: [
+        { mapping: "mapping:heap", belowMapping: "mapping:heap-guard-low" },
+        { mapping: "mapping:mmap", aboveMapping: "mapping:mmap-guard-high" },
+      ],
+      mappings: [
+        mapping({
+          id: "mapping:heap-guard-low",
+          permissions: { read: false, write: false, execute: false, private: true, shared: false },
+          target: { materialization: "refuse", reason: "heap guard" },
+          refusal: { code: "mapping-unreadable", message: "heap guard" },
+        }),
+        mapping({
+          id: "mapping:heap",
+          kind: "heap",
+          sourceStart: "0x2000",
+          sourceEnd: "0x3000",
+          captured: { file: "native-memory.bin", offset: 0, sizeBytes: 4096 },
+          target: { materialization: "translate", targetStart: "0x2000" },
+        }),
+        mapping({
+          id: "mapping:data",
+          kind: "data",
+          captured: { file: "native-memory.bin", offset: 4096, sizeBytes: 4096 },
+          target: { materialization: "translate", targetStart: "0x5000" },
+        }),
+        mapping({
+          id: "mapping:mmap",
+          kind: "anonymous",
+          sourceStart: "0x8000",
+          sourceEnd: "0x9000",
+          captured: { file: "native-memory.bin", offset: 8192, sizeBytes: 4096 },
+          target: { materialization: "translate", targetStart: "0x8000" },
+        }),
+        mapping({
+          id: "mapping:mmap-guard-high",
+          sourceStart: "0x9000",
+          sourceEnd: "0xa000",
+          permissions: { read: false, write: false, execute: false, private: true, shared: false },
+          target: { materialization: "refuse", reason: "mmap guard" },
+          refusal: { code: "mapping-unreadable", message: "mmap guard" },
+        }),
+      ],
+    });
+
+    expect(result.refusals).toEqual([]);
+    expect(result.steps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          mapping: "mapping:heap",
+          action: "copy-captured-bytes",
+          privateWritable: { guardMappings: ["mapping:heap-guard-low"] },
+        }),
+        expect.objectContaining({ mapping: "mapping:data", action: "copy-captured-bytes" }),
+        expect.objectContaining({
+          mapping: "mapping:mmap",
+          action: "copy-captured-bytes",
+          privateWritable: { guardMappings: ["mapping:mmap-guard-high"] },
+        }),
+        expect.objectContaining({ mapping: "mapping:heap-guard-low", action: "recreate" }),
+        expect.objectContaining({ mapping: "mapping:mmap-guard-high", action: "recreate" }),
+      ]),
+    );
+  });
+
+  it("refuses shared writable memory instead of copying it", () => {
+    const result = planNativeMappingMaterialization({
+      memorySizeBytes: 4096,
+      mappings: [
+        mapping({
+          id: "mapping:shared-writable",
+          permissions: { read: true, write: true, execute: false, private: false, shared: true },
+          captured: { file: "native-memory.bin", offset: 0, sizeBytes: 4096 },
+        }),
+      ],
+    });
+
+    expect(result.refusals).toEqual([
+      expect.objectContaining({ code: "mapping-shared-unsupported" }),
+    ]);
+  });
+
+  it("refuses private writable mappings with missing or invalid captured bytes precisely", () => {
+    const missing = planNativeMappingMaterialization({
+      memorySizeBytes: 0,
+      mappings: [mapping({ id: "mapping:missing-private-bytes" })],
+    });
+    const invalid = planNativeMappingMaterialization({
+      memorySizeBytes: 1024,
+      mappings: [
+        mapping({
+          id: "mapping:bad-private-bytes",
+          captured: { file: "native-memory.bin", offset: 0, sizeBytes: 4096 },
+        }),
+      ],
+    });
+
+    expect(missing.refusals).toEqual([
+      expect.objectContaining({ code: "mapping-captured-range-unsupported" }),
+    ]);
+    expect(invalid.refusals).toEqual([
+      expect.objectContaining({ code: "mapping-captured-range-unsupported" }),
+    ]);
+  });
+
+  it("refuses non-adjacent private writable guards", () => {
+    const result = planNativeMappingMaterialization({
+      memorySizeBytes: 4096,
+      privateWritableGuards: [{ mapping: "mapping:heap", belowMapping: "mapping:guard" }],
+      mappings: [
+        mapping({
+          id: "mapping:guard",
+          sourceStart: "0x4000",
+          sourceEnd: "0x5000",
+          permissions: { read: false, write: false, execute: false, private: true, shared: false },
+          target: { materialization: "refuse", reason: "guard" },
+          refusal: { code: "mapping-unreadable", message: "guard" },
+        }),
+        mapping({
+          id: "mapping:heap",
+          captured: { file: "native-memory.bin", offset: 0, sizeBytes: 4096 },
+          target: { materialization: "translate", targetStart: "0x9000" },
+        }),
+      ],
+    });
+
+    expect(result.refusals).toContainEqual(
+      expect.objectContaining({
+        code: "mapping-ambiguous",
+        message: expect.stringContaining("not adjacent"),
+      }),
+    );
   });
 });
