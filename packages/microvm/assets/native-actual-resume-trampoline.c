@@ -34,6 +34,7 @@
 
 #define MAX_MATERIALIZED_MAPPINGS 32
 #define MAX_CLOEXEC_FDS 64
+#define MAX_TRANSLATED_FRAME_SLOTS 8
 #define STATE_CONSUMPTION_MARKER UINT64_C(0x5354415445434f4e)
 #define STATE_CONSUMPTION_MASK UINT64_C(0x7f)
 #define STATE_CHECK_MEMORY UINT64_C(0x01)
@@ -95,10 +96,10 @@ struct Options {
   uint64_t translated_frame_callee_r14;
   bool has_translated_frame_callee_r15;
   uint64_t translated_frame_callee_r15;
-  bool has_translated_frame_slot;
-  uint64_t translated_frame_slot_offset;
-  uint64_t translated_frame_slot_value;
-  char translated_frame_slot_class[32];
+  size_t translated_frame_slot_count;
+  uint64_t translated_frame_slot_offsets[MAX_TRANSLATED_FRAME_SLOTS];
+  uint64_t translated_frame_slot_values[MAX_TRANSLATED_FRAME_SLOTS];
+  char translated_frame_slot_classes[MAX_TRANSLATED_FRAME_SLOTS][32];
   char translated_frame_unwind_id[MAX_UNWIND_ID];
   uint64_t stack_target_start;
   uint64_t stack_size;
@@ -228,21 +229,25 @@ static void copy_unwind_id(struct Options *opts, const char *value) {
 }
 
 static void add_translated_frame_slot(struct Options *opts, const char *spec) {
+  if (opts->translated_frame_slot_count >= MAX_TRANSLATED_FRAME_SLOTS) {
+    fprintf(stderr, "native-actual-resume-trampoline: too many translated frame slots\n");
+    exit(2);
+  }
   char *copy = strdup(spec);
   if (!copy) {
     fprintf(stderr, "native-actual-resume-trampoline: frame slot allocation failed\n");
     exit(1);
   }
   char *cursor = copy;
-  opts->translated_frame_slot_offset = parse_u64(next_spec_field(&cursor, "frame slot offset"), "frame slot offset");
-  opts->translated_frame_slot_value = parse_u64(next_spec_field(&cursor, "frame slot value"), "frame slot value");
+  size_t index = opts->translated_frame_slot_count++;
+  opts->translated_frame_slot_offsets[index] = parse_u64(next_spec_field(&cursor, "frame slot offset"), "frame slot offset");
+  opts->translated_frame_slot_values[index] = parse_u64(next_spec_field(&cursor, "frame slot value"), "frame slot value");
   const char *slot_class = next_spec_field(&cursor, "frame slot class");
   if (!streq(slot_class, "non-pointer-data")) {
     fprintf(stderr, "native-actual-resume-trampoline: frame slot class is unsupported\n");
     exit(2);
   }
-  snprintf(opts->translated_frame_slot_class, sizeof(opts->translated_frame_slot_class), "%s", slot_class);
-  opts->has_translated_frame_slot = true;
+  snprintf(opts->translated_frame_slot_classes[index], sizeof(opts->translated_frame_slot_classes[0]), "%s", slot_class);
 }
 
 static void add_materialized_guard(struct Options *opts, const char *spec) {
@@ -746,7 +751,7 @@ static void validate_translated_frame_options(const struct Options *opts) {
   }
   if (!opts->has_translated_frame_callee_rbx || !opts->has_translated_frame_callee_r12 ||
       !opts->has_translated_frame_callee_r13 || !opts->has_translated_frame_callee_r14 ||
-      !opts->has_translated_frame_callee_r15 || !opts->has_translated_frame_slot) {
+      !opts->has_translated_frame_callee_r15 || opts->translated_frame_slot_count == 0) {
     fprintf(stderr, "native-actual-resume-trampoline: translated frame is incomplete\n");
     exit(2);
   }
@@ -757,10 +762,15 @@ static void validate_translated_frame_options(const struct Options *opts) {
   }
   if (!address_inside_stack(opts, opts->translated_frame_pointer, 8u) ||
       !address_inside_stack(opts, opts->translated_frame_cfa, 8u) ||
-      !address_inside_stack(opts, opts->translated_frame_return_address_slot, 8u) ||
-      !address_inside_stack(opts, opts->translated_frame_pointer + opts->translated_frame_slot_offset, 8u)) {
+      !address_inside_stack(opts, opts->translated_frame_return_address_slot, 8u)) {
     fprintf(stderr, "native-actual-resume-trampoline: translated frame addresses are outside target stack\n");
     exit(2);
+  }
+  for (size_t i = 0; i < opts->translated_frame_slot_count; i++) {
+    if (!address_inside_stack(opts, opts->translated_frame_pointer + opts->translated_frame_slot_offsets[i], 8u)) {
+      fprintf(stderr, "native-actual-resume-trampoline: translated frame slot is outside target stack\n");
+      exit(2);
+    }
   }
 }
 
@@ -860,8 +870,10 @@ static void materialize_translated_frame(const struct Options *opts) {
   if (!opts->has_translated_frame) {
     return;
   }
-  write_stack_u64(opts->translated_frame_pointer + opts->translated_frame_slot_offset,
-      opts->translated_frame_slot_value);
+  for (size_t i = 0; i < opts->translated_frame_slot_count; i++) {
+    write_stack_u64(opts->translated_frame_pointer + opts->translated_frame_slot_offsets[i],
+        opts->translated_frame_slot_values[i]);
+  }
 }
 
 static void jump_to_target(uint64_t entry,
@@ -1127,17 +1139,40 @@ static void print_callee_saved_status(const char *name, uint64_t value, uint64_t
       value);
 }
 
+static bool translated_frame_slots_passed(const struct Options *opts) {
+  for (size_t i = 0; i < opts->translated_frame_slot_count; i++) {
+    uint64_t slot_value = read_state_report_u64(
+        opts->translated_frame_pointer, opts->translated_frame_slot_offsets[i]);
+    if (slot_value != opts->translated_frame_slot_values[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+static void print_frame_slots(const struct Options *opts) {
+  for (size_t i = 0; i < opts->translated_frame_slot_count; i++) {
+    uint64_t slot_value = read_state_report_u64(
+        opts->translated_frame_pointer, opts->translated_frame_slot_offsets[i]);
+    if (i > 0) {
+      printf(",");
+    }
+    printf("{\"offset\":%" PRIu64 ",\"classification\":\"%s\",\"status\":\"%s\",\"value\":\"0x%" PRIx64 "\"}",
+        opts->translated_frame_slot_offsets[i],
+        opts->translated_frame_slot_classes[i],
+        slot_value == opts->translated_frame_slot_values[i] ? "passed" : "failed",
+        slot_value);
+  }
+}
+
 static void print_frame_restoration(const struct Options *opts) {
   if (!opts->has_translated_frame || !opts->has_state_report_address) {
     return;
   }
   uint64_t report_marker = read_state_report_u64(opts->state_report_address, 32);
   uint64_t register_mask = read_state_report_u64(opts->state_report_address, 48);
-  uint64_t slot_value = read_state_report_u64(
-      opts->translated_frame_pointer, opts->translated_frame_slot_offset);
   bool passed = report_marker == TRANSLATED_FRAME_MARKER &&
-      register_mask == TRANSLATED_FRAME_REGISTER_MASK &&
-      slot_value == opts->translated_frame_slot_value;
+      register_mask == TRANSLATED_FRAME_REGISTER_MASK && translated_frame_slots_passed(opts);
   printf(
       ",\"frameRestoration\":{\"status\":\"%s\","
       "\"framePointer\":\"0x%" PRIx64 "\","
@@ -1169,12 +1204,9 @@ static void print_frame_restoration(const struct Options *opts) {
   print_callee_saved_status("r14", opts->translated_frame_callee_r14, register_mask, TRANSLATED_FRAME_REGISTER_R14);
   printf(",");
   print_callee_saved_status("r15", opts->translated_frame_callee_r15, register_mask, TRANSLATED_FRAME_REGISTER_R15);
-  printf(
-      "],\"slots\":[{\"offset\":%" PRIu64 ",\"classification\":\"%s\",\"status\":\"%s\",\"value\":\"0x%" PRIx64 "\"}]}",
-      opts->translated_frame_slot_offset,
-      opts->translated_frame_slot_class,
-      slot_value == opts->translated_frame_slot_value ? "passed" : "failed",
-      slot_value);
+  printf("],\"slots\":[");
+  print_frame_slots(opts);
+  printf("]}");
 }
 
 static void print_return_event(const struct Options *opts) {

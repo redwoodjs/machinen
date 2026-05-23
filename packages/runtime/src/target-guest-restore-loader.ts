@@ -252,6 +252,7 @@ function parseTranslatedFrame(line: string): TargetGuestTranslatedFrameDescripto
 }
 
 const TARGET_FRAME_CALLEE_SAVED_REGISTERS = ["rbx", "r12", "r13", "r14", "r15"] as const;
+const TARGET_FRAME_MAX_SLOTS = 8;
 
 const TARGET_FRAME_REGISTER_FIELDS: Record<TargetGuestTranslatedFrameRegisterName, string> = {
   rbx: "calleeSavedRbx",
@@ -281,22 +282,51 @@ function parseFrameRegisters(fields: Map<string, string>): TargetGuestTranslated
 }
 
 function parseFrameSlots(fields: Map<string, string>): TargetGuestTranslatedFrameSlot[] {
-  const offset = fields.get("slot0Offset");
-  const value = fields.get("slot0Value");
-  const classification = fields.get("slot0Class");
-  if (offset === undefined && value === undefined && classification === undefined) {
+  const indexes = frameSlotIndexes(fields);
+  if (indexes.length === 0) {
     return [];
   }
+  assertDenseFrameSlotIndexes(indexes);
+  return indexes.map((index) => parseFrameSlot(fields, index));
+}
+
+function frameSlotIndexes(fields: Map<string, string>): number[] {
+  const indexes = new Set<number>();
+  for (const key of fields.keys()) {
+    const match = /^slot(\d+)(?:Offset|Value|Class)$/.exec(key);
+    if (!match) {
+      continue;
+    }
+    const index = Number(match[1]);
+    if (!Number.isSafeInteger(index) || index < 0 || index >= TARGET_FRAME_MAX_SLOTS) {
+      fail("target-guest-loader-frame-unsupported", "too many translated frame slots");
+    }
+    indexes.add(index);
+  }
+  return [...indexes].sort((left, right) => left - right);
+}
+
+function assertDenseFrameSlotIndexes(indexes: number[]): void {
+  indexes.forEach((index, expected) => {
+    if (index !== expected) {
+      fail("target-guest-loader-frame-unsupported", "translated frame slots must be dense");
+    }
+  });
+}
+
+function parseFrameSlot(
+  fields: Map<string, string>,
+  index: number,
+): TargetGuestTranslatedFrameSlot {
+  const classification = requiredFrameField(fields, `slot${index}Class`);
   if (classification !== "non-pointer-data") {
     fail("target-guest-loader-frame-unsupported", "frame slot classification is unsupported");
   }
-  return [
-    {
-      offset: parseFrameInteger(fields, "slot0Offset"),
-      value: requiredFrameField(fields, "slot0Value"),
-      classification,
-    },
-  ];
+  return {
+    offset: parseFrameInteger(fields, `slot${index}Offset`),
+    value: requiredFrameField(fields, `slot${index}Value`),
+    classification,
+  };
 }
 
 function requiredFrameField(fields: Map<string, string>, key: string): string {
@@ -698,11 +728,19 @@ function isTargetFrameCalleeSavedRegister(
 }
 
 function validateFrameSlots(slots: TargetGuestTranslatedFrameSlot[]): void {
-  if (slots.length > 1) {
+  if (slots.length === 0) {
+    fail("target-guest-loader-frame-unsupported", "translated frame slots are incomplete");
+  }
+  if (slots.length > TARGET_FRAME_MAX_SLOTS) {
     fail("target-guest-loader-frame-unsupported", "too many translated frame slots");
   }
+  const offsets = new Set<number>();
   for (const slot of slots) {
     assertNonNegative(slot.offset, "slot offset");
+    if (offsets.has(slot.offset)) {
+      fail("target-guest-loader-frame-unsupported", "duplicate translated frame slot offset");
+    }
+    offsets.add(slot.offset);
     assertHexAddress(slot.value, "slot value");
     if (slot.classification !== "non-pointer-data") {
       fail("target-guest-loader-frame-unsupported", "pointer-bearing frame slots are unsupported");
@@ -770,7 +808,6 @@ function optionalTranslatedFrameField(
 
 function serializeTranslatedFrame(frame: TargetGuestTranslatedFrameDescriptor): string {
   const registers = frameRegisterMap(frame.calleeSaved);
-  const slot = frame.slots[0];
   return [
     `frame=${frame.kind}`,
     `framePointer=${frame.framePointer}`,
@@ -781,9 +818,7 @@ function serializeTranslatedFrame(frame: TargetGuestTranslatedFrameDescriptor): 
     ...TARGET_FRAME_CALLEE_SAVED_REGISTERS.flatMap((register) =>
       optionalFrameToken(TARGET_FRAME_REGISTER_FIELDS[register], registers.get(register)),
     ),
-    ...optionalFrameToken("slot0Offset", slot?.offset),
-    ...optionalFrameToken("slot0Value", slot?.value),
-    ...optionalFrameToken("slot0Class", slot?.classification),
+    ...frame.slots.flatMap((slot, index) => frameSlotTokens(slot, index)),
   ].join(" ");
 }
 
@@ -791,6 +826,14 @@ function frameRegisterMap(
   registers: TargetGuestTranslatedFrameRegister[],
 ): Map<TargetGuestTranslatedFrameRegisterName, string> {
   return new Map(registers.map((register) => [register.register, register.value]));
+}
+
+function frameSlotTokens(slot: TargetGuestTranslatedFrameSlot, index: number): string[] {
+  return [
+    `slot${index}Offset=${slot.offset}`,
+    `slot${index}Value=${slot.value}`,
+    `slot${index}Class=${slot.classification}`,
+  ];
 }
 
 function optionalFrameToken(name: string, value: string | number | undefined): string[] {
@@ -871,7 +914,6 @@ function translatedFrameToTrampolineArgs(
     return [];
   }
   const registers = frameRegisterMap(frame.calleeSaved);
-  const slot = frame.slots[0];
   return [
     "--translated-frame-pointer",
     frame.framePointer,
@@ -886,7 +928,7 @@ function translatedFrameToTrampolineArgs(
     ...TARGET_FRAME_CALLEE_SAVED_REGISTERS.flatMap((register) =>
       optionalArg(`--translated-frame-callee-${register}`, registers.get(register)),
     ),
-    ...optionalArg("--translated-frame-slot", slot ? frameSlotSpec(slot) : undefined),
+    ...frame.slots.flatMap((slot) => ["--translated-frame-slot", frameSlotSpec(slot)]),
   ];
 }
 
