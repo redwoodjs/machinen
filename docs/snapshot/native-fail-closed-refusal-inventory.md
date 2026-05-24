@@ -44,7 +44,13 @@ subset to `timerfd-descriptor-recreate`: disarmed or relative future one-shot
 `CLOCK_MONOTONIC` timerfds with zero unread expirations, zero interval,
 supported fd flags, and close-on-exec provenance. Periodic timers, expired or
 overrun timers, absolute/cancel-on-set timers, unsupported clocks, and
-unsupported timerfd fd flags continue to require `kernel-state-unsupported`.
+unsupported timerfd fd flags continue to require `kernel-state-unsupported`. The
+`pipe-pair-v1` subset graduates to `pipe-pair-recreate`: exactly one read end and
+one write end for a known-empty pipe with open peer lifetime, no waiters,
+not-readable readiness, supported fd flags, and close-on-exec provenance.
+Non-empty/unknown buffers, missing or closed peers, waiter/readiness ambiguity,
+EOF-only shapes, and unsupported pipe fd flags continue to require
+`kernel-state-unsupported`.
 
 Goal 3 intentionally leaves sockets without a graduated support subset. Listening
 sockets, connected socketpairs, TCP/Unix sockets, ancillary data, partial

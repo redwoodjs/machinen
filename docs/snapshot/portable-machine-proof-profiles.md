@@ -106,9 +106,10 @@ passes. The accepted class includes:
 - target-owned private-memory, executable-mapping, signal, resource, and
   descriptor consumption gates;
 - regular-file fd recipes, stdio/close-fd recipes, the modeled synthetic empty
-  pipe/eventfd/timerfd proof states, the Goal 4 `eventfd-counter-v1` descriptor
-  subset, the Goal 4 `timerfd-descriptor-v1` disarmed/relative-one-shot
-  descriptor subset, the Goal 3 epoll `interest-list-v1` reconstruction subset,
+  pipe/eventfd/timerfd proof states, the Goal 4 `pipe-pair-v1` empty open-peer
+  descriptor subset, the Goal 4 `eventfd-counter-v1` descriptor subset, the Goal
+  4 `timerfd-descriptor-v1` disarmed/relative-one-shot descriptor subset, the
+  Goal 3 epoll `interest-list-v1` reconstruction subset,
   and the Goal 3 signalfd `empty-queue-v1` descriptor subset;
 - active syscall completion only for sleep/`ppoll` timeout, empty pipe read,
   empty eventfd read, timerfd read, offset-backed regular-file
@@ -138,6 +139,7 @@ all profile gates pass.
 | `eventfd-read`                | `native-eventfd-read-target.c`     | none             | active syscall                      |
 | `eventfd-counter-recreate`    | `native-pipe-read-target.c`        | none             | active syscall + eventfd resources  |
 | `timerfd-descriptor-recreate` | `native-pipe-read-target.c`        | none             | active syscall + timerfd resources  |
+| `pipe-pair-recreate`          | `native-pipe-read-target.c`        | none             | active syscall + pipe resources     |
 | `timerfd-read`                | `native-timerfd-read-target.c`     | none             | active syscall                      |
 | `file-read`                   | `native-file-read-target.c`        | `read` fd 38     | active syscall                      |
 | `file-pread`                  | `native-file-pread-target.c`       | `pread64` fd 40  | active syscall                      |

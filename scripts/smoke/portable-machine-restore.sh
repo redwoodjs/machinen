@@ -372,6 +372,10 @@ capture_remote_native_process_bundle() {
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target"
       target_detail="remote arm64 pipe read bundle with target timerfd descriptor proof captured from $ARM64_SSH"
       ;;
+    pipe-pair-recreate)
+      target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target"
+      target_detail="remote arm64 pipe read bundle with target pipe pair descriptor proof captured from $ARM64_SSH"
+      ;;
     epoll-recreate)
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target"
       target_detail="remote arm64 pipe read bundle with target epoll reconstruction proof captured from $ARM64_SSH"
@@ -459,6 +463,9 @@ run_target_restore() {
     resource_model_args_text="${resource_model_args[*]}"
   elif [[ "$REMOTE_SOURCE_TARGET" == "timerfd-descriptor-recreate" ]]; then
     resource_model_args=(--include-timerfd-descriptor-proof)
+    resource_model_args_text="${resource_model_args[*]}"
+  elif [[ "$REMOTE_SOURCE_TARGET" == "pipe-pair-recreate" ]]; then
+    resource_model_args=(--include-pipe-pair-proof)
     resource_model_args_text="${resource_model_args[*]}"
   elif [[ "$REMOTE_SOURCE_TARGET" == "epoll-recreate" ]]; then
     resource_model_args=(--include-epoll-proof)

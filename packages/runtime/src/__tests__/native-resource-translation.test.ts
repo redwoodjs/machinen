@@ -127,6 +127,78 @@ describe("native resource translation", () => {
     ]);
   });
 
+  it("plans an accepted pipe-pair-v1 descriptor pair", () => {
+    const plan = planNativeTargetFdTable({
+      resources: [pipePairResource(10, "read"), pipePairResource(12, "write")],
+    });
+
+    expect(plan.refusals).toEqual([]);
+    expect(plan.entries.map((entry) => [entry.targetFd, entry.kind])).toEqual([
+      [10, "synthetic-empty-pipe-read-end"],
+      [12, "synthetic-empty-pipe-write-end"],
+    ]);
+    expect(plan.targetGuestResources).toEqual([
+      { kind: "synthetic-empty-pipe", readFd: 10, writeFd: 12, closeOnExec: false },
+    ]);
+  });
+
+  it.each([
+    {
+      name: "unknown buffer",
+      resources: [
+        pipePairResource(10, "read", { pipeBuffer: "unknown" }),
+        pipePairResource(12, "write"),
+      ],
+      reason: "pipe buffer must be known empty",
+    },
+    {
+      name: "missing write peer",
+      resources: [pipePairResource(10, "read")],
+      reason: "pipe pair requires exactly one read end and one write end",
+    },
+    {
+      name: "closed peer lifetime",
+      resources: [
+        pipePairResource(10, "read", { peerLifetime: "closed" }),
+        pipePairResource(12, "write"),
+      ],
+      reason: "pipe peer lifetime must be known open",
+    },
+    {
+      name: "waiters",
+      resources: [
+        pipePairResource(10, "read", { pipeWaiters: "unknown" }),
+        pipePairResource(12, "write"),
+      ],
+      reason: "pipe waiters must be known empty",
+    },
+    {
+      name: "readable state",
+      resources: [
+        pipePairResource(10, "read", { readiness: "readable" }),
+        pipePairResource(12, "write"),
+      ],
+      reason: "pipe readiness must be known not-readable",
+    },
+    {
+      name: "unsupported flags",
+      resources: [pipePairResource(10, "read", {}, ["octal:4000"]), pipePairResource(12, "write")],
+      reason: "pipe fd flags are unsupported",
+    },
+  ])("keeps unsafe pipe pair variants fail-closed: $name", ({ resources, reason }) => {
+    const plan = planNativeTargetFdTable({ resources });
+
+    expect(plan.refusals).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "kernel-state-unsupported",
+          detail: expect.objectContaining({ boundary: "pipe-pair-v1", reason }),
+        }),
+      ]),
+    );
+    expect(plan.targetGuestResources).toEqual([]);
+  });
+
   it("allows explicit synthetic empty-eventfd resources for one-fd ppoll proofs", () => {
     const result = translateNativeResources({
       syntheticEmptyEventFds: [11],
@@ -828,3 +900,27 @@ describe("native resource translation", () => {
     expect(plan.targetGuestResources).toEqual([]);
   });
 });
+
+function pipePairResource(
+  fd: number,
+  end: "read" | "write",
+  recipe: Record<string, unknown> = {},
+  flags = [end === "read" ? "octal:0" : "octal:1"],
+): NativeProcessResource {
+  return {
+    id: `fd:${fd}`,
+    kind: "pipe",
+    state: "captured",
+    fd,
+    path: "pipe:[pair]",
+    flags,
+    recipe: {
+      pipeModel: "empty-pair-v1",
+      pipeBuffer: "empty",
+      peerLifetime: "open",
+      pipeWaiters: "none",
+      readiness: "not-readable",
+      ...recipe,
+    },
+  };
+}

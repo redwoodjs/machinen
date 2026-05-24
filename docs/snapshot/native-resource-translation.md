@@ -23,6 +23,9 @@ Currently supported resource recipes:
   provenance;
 - explicitly modeled one-fd `ppoll` proofs may request synthetic empty pipe,
   empty eventfd, and disarmed/future one-shot timerfd recipes at the captured fd;
+- Goal 4 `pipe-pair-v1` descriptors may recreate exactly one read end plus one
+  write end for a known-empty pipe with open peer lifetime, no waiters,
+  not-readable readiness, supported fd flags, and close-on-exec provenance;
 - Goal 4 `eventfd-counter-v1` descriptors may recreate non-semaphore eventfds
   with an exact nonzero counter, known-empty waiter state, supported fd flags,
   and close-on-exec provenance;
@@ -62,7 +65,7 @@ recipe refuse with `target-fd-table-missing` or the underlying resource refusal.
 | regular file                 | reopen by path/offset/flags when provenance is safe                                        |
 | stdio                        | inherit stdout/stderr only with explicit stdio policy; stdin refused                       |
 | close-fd gap                 | explicit target `close-fd` recipe                                                          |
-| synthetic empty pipe         | only for modeled ppoll/read proof slices with paired read/write ends                       |
+| synthetic empty pipe         | `pipe-pair-v1` empty open-peer pairs, plus modeled ppoll/read proof slices                 |
 | synthetic empty eventfd      | only counter-0, non-semaphore, modeled proof slices                                        |
 | synthetic eventfd counter    | only `eventfd-counter-v1`: nonzero counter, non-semaphore, supported flags, no waiters     |
 | synthetic timerfd            | `timerfd-descriptor-v1` disarmed/relative one-shot descriptors, plus modeled proof slices  |
@@ -84,7 +87,9 @@ Unsupported resources are not silently dropped. They are returned with:
   resources whose kernel state is not explicitly modeled by a narrow proof
   recipe, including eventfd semaphore mode, unknown eventfd waiters, unsupported
   eventfd flags, zero counters outside the empty-eventfd recipe, overflow
-  counters outside `eventfd-counter-v1`, timerfd periodic intervals, expired or
+  counters outside `eventfd-counter-v1`, ambiguous/non-empty pipe buffers,
+  missing or closed pipe peers, pipe waiters/readiness ambiguity, unsupported
+  pipe fd flags, timerfd periodic intervals, expired or
   overrun timerfd state, absolute/cancel-on-set timerfd flags, unsupported
   timerfd clocks, and unsupported timerfd fd flags;
 - `target-epoll-syscall-state-unsupported` for epoll resources outside the
