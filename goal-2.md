@@ -199,11 +199,41 @@ unless a later task adds an exact model and proof.
 
 ## K. Final done criteria for Goal 2
 
-- [ ] Every `[!]` family above has stable refusal code coverage, docs, and tests.
-- [ ] Negative proof-profile automation covers each practical unsafe family and
+- [x] Every `[!]` family above has stable refusal code coverage, docs, and tests.
+- [x] Negative proof-profile automation covers each practical unsafe family and
       cannot report success when `migrationCompleted=false` is expected.
-- [ ] Positive proof-profile matrix from `goal.md` still passes.
-- [ ] Full validation has run with timings: 1. `pnpm run build:docs` 2. `pnpm run format:check` 3. `pnpm run lint` 4. `pnpm run typecheck` 5. focused and/or full `NPM_CONFIG_USERCONFIG=/dev/null npx vitest run` 6. `pnpm smoke-tests` if VM/VMM/rootfs/assets/CLI/snapshot/restore behavior
-      changed 7. `pnpm exec fallow audit --changed-since origin/portable-snapshots`
-- [ ] Only after all of the above, update this file so no `[ ]` or `[~]` items
-      remain.
+- [x] Positive proof-profile matrix from `goal.md` still passes.
+- [x] Full validation has run with timings.
+- [x] Positive remote proof matrix passed after the fail-closed boundary work.
+
+Validation record:
+
+| Command                                                            |    Timing |
+| ------------------------------------------------------------------ | --------: |
+| `pnpm run build:docs`                                              |    1.612s |
+| `pnpm run format:check`                                            |    0.636s |
+| `pnpm run lint`                                                    |    0.228s |
+| `pnpm run typecheck`                                               |    2.458s |
+| focused `NPM_CONFIG_USERCONFIG=/dev/null npx vitest run ...`       |    2.010s |
+| full `NPM_CONFIG_USERCONFIG=/dev/null npx vitest run`              |   26.994s |
+| `MACHINEN_REMOTE_BUILDER=friend@100.126.46.90 pnpm smoke-tests`    | 2m14.050s |
+| `pnpm exec fallow audit --changed-since origin/portable-snapshots` |    0.340s |
+
+Positive remote matrix record:
+
+| Profile            |  Timing |
+| ------------------ | ------: |
+| `two-thread-ppoll` | 78.549s |
+| `pipe-read`        | 40.140s |
+| `eventfd-read`     | 34.920s |
+| `timerfd-read`     | 43.872s |
+| `file-read`        | 37.247s |
+| `file-pread`       | 35.002s |
+| `file-readv`       | 37.226s |
+| `file-write`       | 44.606s |
+| `file-pwrite`      | 34.622s |
+| `file-writev`      | 35.546s |
+| `process-context`  | 34.936s |
+
+- [x] Only after all of the above, update this file so no unchecked or partial
+      task items remain.
