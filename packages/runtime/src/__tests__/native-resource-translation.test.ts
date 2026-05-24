@@ -155,6 +155,106 @@ describe("native resource translation", () => {
     });
   });
 
+  it("plans an accepted eventfd-counter-v1 descriptor", () => {
+    const plan = planNativeTargetFdTable({
+      resources: [
+        {
+          id: "fd:11",
+          kind: "eventfd",
+          state: "captured",
+          fd: 11,
+          path: "anon_inode:[eventfd]",
+          flags: ["octal:2"],
+          recipe: {
+            eventfdModel: "counter-v1",
+            eventfdCount: "0x2a",
+            eventfdSemaphore: 0,
+            eventfdWaiters: "none",
+          },
+        },
+      ],
+    });
+
+    expect(plan.refusals).toEqual([]);
+    expect(plan.entries).toEqual([
+      expect.objectContaining({ targetFd: 11, kind: "synthetic-eventfd", action: "materialize" }),
+    ]);
+    expect(plan.targetGuestResources).toEqual([
+      { kind: "synthetic-eventfd", fd: 11, initialValue: "0x2a", closeOnExec: false },
+    ]);
+  });
+
+  it.each([
+    {
+      name: "semaphore mode",
+      recipe: {
+        eventfdModel: "counter-v1",
+        eventfdCount: "0x2a",
+        eventfdSemaphore: 1,
+        eventfdWaiters: "none",
+      },
+      reason: "eventfd semaphore mode is unsupported",
+    },
+    {
+      name: "unknown waiters",
+      recipe: { eventfdModel: "counter-v1", eventfdCount: "0x2a", eventfdSemaphore: 0 },
+      reason: "eventfd waiters must be known empty",
+    },
+    {
+      name: "zero counter",
+      recipe: {
+        eventfdModel: "counter-v1",
+        eventfdCount: "0x0",
+        eventfdSemaphore: 0,
+        eventfdWaiters: "none",
+      },
+      reason: "eventfd counter is outside supported bounds",
+    },
+    {
+      name: "overflow counter",
+      recipe: {
+        eventfdModel: "counter-v1",
+        eventfdCount: "0xffffffffffffffff",
+        eventfdSemaphore: 0,
+        eventfdWaiters: "none",
+      },
+      reason: "eventfd counter is outside supported bounds",
+    },
+    {
+      name: "unsupported flags",
+      flags: ["octal:4002"],
+      recipe: {
+        eventfdModel: "counter-v1",
+        eventfdCount: "0x2a",
+        eventfdSemaphore: 0,
+        eventfdWaiters: "none",
+      },
+      reason: "eventfd flags are unsupported",
+    },
+  ])("keeps unsafe eventfd counter variants fail-closed: $name", ({ flags, recipe, reason }) => {
+    const plan = planNativeTargetFdTable({
+      resources: [
+        {
+          id: "fd:11",
+          kind: "eventfd",
+          state: "captured",
+          fd: 11,
+          path: "anon_inode:[eventfd]",
+          flags: flags ?? ["octal:2"],
+          recipe,
+        },
+      ],
+    });
+
+    expect(plan.refusals).toEqual([
+      expect.objectContaining({
+        code: "kernel-state-unsupported",
+        detail: expect.objectContaining({ boundary: "eventfd-counter-v1", reason }),
+      }),
+    ]);
+    expect(plan.targetGuestResources).toEqual([]);
+  });
+
   it("allows explicit synthetic timerfd resources for one-fd ppoll proofs", () => {
     const result = translateNativeResources({
       syntheticTimerFds: [12],

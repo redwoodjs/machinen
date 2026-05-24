@@ -106,9 +106,9 @@ passes. The accepted class includes:
 - target-owned private-memory, executable-mapping, signal, resource, and
   descriptor consumption gates;
 - regular-file fd recipes, stdio/close-fd recipes, the modeled synthetic empty
-  pipe/eventfd/timerfd proof states, the Goal 3 epoll `interest-list-v1`
-  reconstruction subset, and the Goal 3 signalfd `empty-queue-v1` descriptor
-  subset;
+  pipe/eventfd/timerfd proof states, the Goal 4 `eventfd-counter-v1` descriptor
+  subset, the Goal 3 epoll `interest-list-v1` reconstruction subset, and the
+  Goal 3 signalfd `empty-queue-v1` descriptor subset;
 - active syscall completion only for sleep/`ppoll` timeout, empty pipe read,
   empty eventfd read, timerfd read, offset-backed regular-file
   `read`/`pread64`/single-iovec `readv`, and offset-backed regular-file
@@ -130,21 +130,22 @@ all profile gates pass.
 
 ## Current positive profiles
 
-| Profile             | Source fixture                     | Trace            | Profile-specific gates              |
-| ------------------- | ---------------------------------- | ---------------- | ----------------------------------- |
-| `two-thread-ppoll`  | `native-two-thread-ppoll-target.c` | none             | active syscall + controlled thread  |
-| `pipe-read`         | `native-pipe-read-target.c`        | none             | active syscall                      |
-| `eventfd-read`      | `native-eventfd-read-target.c`     | none             | active syscall                      |
-| `timerfd-read`      | `native-timerfd-read-target.c`     | none             | active syscall                      |
-| `file-read`         | `native-file-read-target.c`        | `read` fd 38     | active syscall                      |
-| `file-pread`        | `native-file-pread-target.c`       | `pread64` fd 40  | active syscall                      |
-| `file-readv`        | `native-file-readv-target.c`       | `readv` fd 42    | active syscall                      |
-| `file-write`        | `native-file-write-target.c`       | `write` fd 39    | active syscall                      |
-| `file-pwrite`       | `native-file-pwrite-target.c`      | `pwrite64` fd 41 | active syscall                      |
-| `file-writev`       | `native-file-writev-target.c`      | `writev` fd 43   | active syscall                      |
-| `process-context`   | `native-ppoll-timeout-target.c`    | none             | process context                     |
-| `epoll-recreate`    | `native-pipe-read-target.c`        | none             | active syscall + epoll resources    |
-| `signalfd-recreate` | `native-pipe-read-target.c`        | none             | active syscall + signalfd resources |
+| Profile                    | Source fixture                     | Trace            | Profile-specific gates              |
+| -------------------------- | ---------------------------------- | ---------------- | ----------------------------------- |
+| `two-thread-ppoll`         | `native-two-thread-ppoll-target.c` | none             | active syscall + controlled thread  |
+| `pipe-read`                | `native-pipe-read-target.c`        | none             | active syscall                      |
+| `eventfd-read`             | `native-eventfd-read-target.c`     | none             | active syscall                      |
+| `eventfd-counter-recreate` | `native-pipe-read-target.c`        | none             | active syscall + eventfd resources  |
+| `timerfd-read`             | `native-timerfd-read-target.c`     | none             | active syscall                      |
+| `file-read`                | `native-file-read-target.c`        | `read` fd 38     | active syscall                      |
+| `file-pread`               | `native-file-pread-target.c`       | `pread64` fd 40  | active syscall                      |
+| `file-readv`               | `native-file-readv-target.c`       | `readv` fd 42    | active syscall                      |
+| `file-write`               | `native-file-write-target.c`       | `write` fd 39    | active syscall                      |
+| `file-pwrite`              | `native-file-pwrite-target.c`      | `pwrite64` fd 41 | active syscall                      |
+| `file-writev`              | `native-file-writev-target.c`      | `writev` fd 43   | active syscall                      |
+| `process-context`          | `native-ppoll-timeout-target.c`    | none             | process context                     |
+| `epoll-recreate`           | `native-pipe-read-target.c`        | none             | active syscall + epoll resources    |
+| `signalfd-recreate`        | `native-pipe-read-target.c`        | none             | active syscall + signalfd resources |
 
 ## Current negative profiles
 

@@ -108,10 +108,11 @@ describe("portable machine proof runner", () => {
     expect(result.status, result.stderr).toBe(0);
     const summary = JSON.parse(result.stdout);
     const names = summary.profiles.map((profile: { name: string }) => profile.name);
-    expect(names.slice(0, 11)).toEqual([
+    expect(names.slice(0, 12)).toEqual([
       "two-thread-ppoll",
       "pipe-read",
       "eventfd-read",
+      "eventfd-counter-recreate",
       "timerfd-read",
       "file-read",
       "file-pread",
@@ -163,11 +164,16 @@ describe("portable machine proof runner", () => {
     expect(summary.supportReport).toMatchObject({
       counts: {
         "baseline-success": 11,
-        "graduated-support": 2,
+        "graduated-support": 3,
         "intentional-refusal": 7,
         "permanent-refusal": 3,
       },
       graduated: [
+        expect.objectContaining({
+          name: "eventfd-counter-recreate",
+          acceptedSubset: "eventfd-counter-v1-nonsemaphore-no-waiters",
+          graduatedFromRefusalCode: "kernel-state-unsupported",
+        }),
         expect.objectContaining({
           name: "epoll-recreate",
           acceptedSubset: "single-level-triggered-restorable-fd-watch",

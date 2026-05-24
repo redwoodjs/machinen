@@ -1,6 +1,7 @@
 /** Kernel-resource recipes and refusals for native process restore. */
 
-import { nativeFdAccessMode, nativeFdCloseOnExec } from "./native-fd-flags.ts";
+import { nativeFdAccessMode, nativeFdCloseOnExec, nativeFdFlagBits } from "./native-fd-flags.ts";
+import { nativeResourceRecipeBigInt } from "./native-resource-recipe.ts";
 import type { NativeProcessImageRefusal, NativeProcessResource } from "./native-process-image.ts";
 import type { TargetGuestRestoreResourceRecipe } from "./target-guest-restore-loader.ts";
 
@@ -29,6 +30,7 @@ export type NativeTargetFdTableEntryKind =
   | "synthetic-empty-pipe-read-end"
   | "synthetic-empty-pipe-write-end"
   | "synthetic-empty-eventfd"
+  | "synthetic-eventfd"
   | "synthetic-timerfd"
   | "synthetic-signalfd"
   | "synthetic-epoll"
@@ -190,6 +192,7 @@ function fdTableEntryFromRecipe(
     inheritedStdioFdTableEntry(fd, resource, recipe, closeOnExec) ??
     reopenFileFdTableEntry(fd, resource, recipe, closeOnExec) ??
     syntheticFdTableEntry(fd, resource, recipe, closeOnExec) ??
+    syntheticEventfdFdTableEntry(resource, recipe, closeOnExec) ??
     syntheticSignalfdFdTableEntry(resource, recipe, closeOnExec) ??
     syntheticEpollFdTableEntry(resource, recipe, closeOnExec, resources)
   );
@@ -259,6 +262,64 @@ function syntheticFdTableEntry(
     }),
   };
   return typeof recipe.synthetic === "string" ? recipes[recipe.synthetic] : undefined;
+}
+
+function syntheticEventfdFdTableEntry(
+  resource: NativeProcessResource,
+  recipe: Record<string, unknown>,
+  closeOnExec: boolean,
+): NativeTargetFdTableEntry | undefined {
+  if (resource.kind !== "eventfd" || recipe.eventfdModel !== "counter-v1") {
+    return undefined;
+  }
+  const eventfdRecipe = normalizedEventfdCounterRecipe(resource, recipe);
+  if ("code" in eventfdRecipe) {
+    return refusedFdTableEntry(resource, eventfdRecipe);
+  }
+  return materializedFdTableEntry(resource, "synthetic-eventfd", closeOnExec, {
+    kind: "synthetic-eventfd",
+    fd: resource.fd!,
+    initialValue: eventfdRecipe.initialValue,
+    closeOnExec,
+  });
+}
+
+function normalizedEventfdCounterRecipe(
+  resource: NativeProcessResource,
+  recipe: Record<string, unknown>,
+): { initialValue: string } | NativeProcessImageRefusal {
+  if (nativeFdAccessMode(resource.flags) !== 2) {
+    return eventfdRefusal(resource, "eventfd counter recipe requires read/write access", {
+      flags: resource.flags,
+    });
+  }
+  if (!EVENTFD_COUNTER_SUPPORTED_FLAGS.has(nativeFdFlagBits(resource.flags))) {
+    return eventfdRefusal(resource, "eventfd flags are unsupported", {
+      flags: resource.flags,
+      supportedFlags: Array.from(
+        EVENTFD_COUNTER_SUPPORTED_FLAGS,
+        (flags) => `octal:${flags.toString(8)}`,
+      ),
+    });
+  }
+  if (recipe.eventfdWaiters !== "none") {
+    return eventfdRefusal(resource, "eventfd waiters must be known empty", {
+      eventfdWaiters: recipe.eventfdWaiters,
+    });
+  }
+  const count = nativeResourceBigInt(resource, "eventfdCount");
+  if (count === undefined || count <= 0n || count > EVENTFD_MAX_COUNTER) {
+    return eventfdRefusal(resource, "eventfd counter is outside supported bounds", {
+      eventfdCount: count?.toString(10),
+    });
+  }
+  const semaphore = nativeResourceBigInt(resource, "eventfdSemaphore");
+  if (semaphore !== 0n) {
+    return eventfdRefusal(resource, "eventfd semaphore mode is unsupported", {
+      eventfdSemaphore: semaphore?.toString(10),
+    });
+  }
+  return { initialValue: `0x${count.toString(16)}` };
 }
 
 function syntheticSignalfdFdTableEntry(
@@ -550,6 +611,13 @@ function translateResource(
       refusal: undefined,
     };
   }
+  if (resource.kind === "eventfd" && resource.recipe?.eventfdModel === "counter-v1") {
+    return {
+      ...resource,
+      state: "recipe",
+      refusal: undefined,
+    };
+  }
   if (
     resource.kind === "timer" &&
     resource.fd !== undefined &&
@@ -710,6 +778,8 @@ function resourceRefusalCode(
   return "resource-kind-unsupported";
 }
 
+const EVENTFD_COUNTER_SUPPORTED_FLAGS = new Set([0o2, 0o2000002]);
+const EVENTFD_MAX_COUNTER = 0xfffffffffffffffen;
 const SIGNALFD_SUPPORTED_FLAGS = 0x800;
 const EPOLL_EDGE_TRIGGERED = 0x80000000;
 const EPOLL_ONESHOT = 0x40000000;
@@ -734,6 +804,29 @@ function normalizeHex(value: string): string | undefined {
     return undefined;
   }
   return `0x${BigInt(value).toString(16)}`;
+}
+
+const nativeResourceBigInt = nativeResourceRecipeBigInt;
+
+function eventfdRefusal(
+  resource: NativeProcessResource,
+  reason: string,
+  detail: Record<string, unknown> = {},
+): NativeProcessImageRefusal {
+  return {
+    code: "kernel-state-unsupported",
+    message: `eventfd resource ${resource.id} cannot be recreated target-natively`,
+    detail: {
+      id: resource.id,
+      kind: resource.kind,
+      fd: resource.fd,
+      path: resource.path,
+      boundary: "eventfd-counter-v1",
+      reason,
+      requiredModel: RESOURCE_REQUIRED_MODELS.eventfd,
+      ...detail,
+    },
+  };
 }
 
 function signalfdRefusal(

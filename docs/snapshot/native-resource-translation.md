@@ -23,6 +23,9 @@ Currently supported resource recipes:
   provenance;
 - explicitly modeled one-fd `ppoll` proofs may request synthetic empty pipe,
   empty eventfd, and disarmed/future one-shot timerfd recipes at the captured fd;
+- Goal 4 `eventfd-counter-v1` descriptors may recreate non-semaphore eventfds
+  with an exact nonzero counter, known-empty waiter state, supported fd flags,
+  and close-on-exec provenance;
 - epoll instances may be recreated only for the Goal 3 `interest-list-v1`
   subset: finite level-triggered watches whose watched fds already have accepted
   target recipes, with no nested epoll, no edge-triggered/one-shot delivery
@@ -42,8 +45,8 @@ into a deterministic target fd-table plan. The plan preserves the stable capture
 fd -> target fd mapping, emits explicit `close-fd` recipes for expected fd slots
 missing from the capture, carries close-on-exec provenance, and converts modeled
 resources into target-guest loader recipes (`reopen-file`, `inherit-stdio`,
-`synthetic-empty-pipe`, `synthetic-empty-eventfd`, `synthetic-timerfd`,
-`synthetic-epoll`, and `synthetic-signalfd`).
+`synthetic-empty-pipe`, `synthetic-empty-eventfd`, `synthetic-eventfd`,
+`synthetic-timerfd`, `synthetic-epoll`, and `synthetic-signalfd`).
 The loader/trampoline handoff applies close-on-exec after restore setup and
 before the target-native jump. Duplicate captured fds are refused before target
 execution with `target-fd-table-duplicate`; captured fds without any safe target
@@ -58,13 +61,14 @@ recipe refuse with `target-fd-table-missing` or the underlying resource refusal.
 | close-fd gap                 | explicit target `close-fd` recipe                                                          |
 | synthetic empty pipe         | only for modeled ppoll/read proof slices with paired read/write ends                       |
 | synthetic empty eventfd      | only counter-0, non-semaphore, modeled proof slices                                        |
+| synthetic eventfd counter    | only `eventfd-counter-v1`: nonzero counter, non-semaphore, supported flags, no waiters     |
 | synthetic timerfd            | only modeled disarmed/future one-shot timerfd proof slices                                 |
 | PTY                          | refuse unless a PTY broker capability is declared                                          |
 | raw socket                   | refuse unless a raw-socket broker capability is declared                                   |
 | sockets                      | Goal 3 keeps arbitrary/brokerless sockets refused until an explicit broker contract exists |
 | epoll                        | recreate `interest-list-v1` only when watched fds have accepted recipes; otherwise refuse  |
 | signalfd                     | recreate `empty-queue-v1` descriptors only; pending queues/active frames still refuse      |
-| generic eventfd/timerfd      | refuse except for the narrow empty/disarmed modeled states above                           |
+| generic eventfd/timerfd      | refuse except for the narrow empty/counter/disarmed modeled states above                   |
 | duplicate captured fd        | refuse with `target-fd-table-duplicate` before target execution                            |
 | unsupported descriptor shape | refuse before loader/trampoline args are built                                             |
 
@@ -75,7 +79,9 @@ Unsupported resources are not silently dropped. They are returned with:
 - `fd-kind-unsupported` for unknown generic fd entries;
 - `kernel-state-unsupported` for pipes, sockets, eventfd, timerfd, and signalfd
   resources whose kernel state is not explicitly modeled by a narrow proof
-  recipe;
+  recipe, including eventfd semaphore mode, unknown eventfd waiters, unsupported
+  eventfd flags, zero counters outside the empty-eventfd recipe, and overflow
+  counters outside `eventfd-counter-v1`;
 - `target-epoll-syscall-state-unsupported` for epoll resources outside the
   `interest-list-v1` subset, including unsupported watched fds, nested epoll,
   edge-triggered/one-shot flags, and malformed interest lists;

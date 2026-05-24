@@ -364,6 +364,10 @@ capture_remote_native_process_bundle() {
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-ppoll-timeout-target"
       target_detail="remote arm64 process-context native-process bundle captured from $ARM64_SSH"
       ;;
+    eventfd-counter-recreate)
+      target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target"
+      target_detail="remote arm64 pipe read bundle with target eventfd counter descriptor proof captured from $ARM64_SSH"
+      ;;
     epoll-recreate)
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target"
       target_detail="remote arm64 pipe read bundle with target epoll reconstruction proof captured from $ARM64_SSH"
@@ -446,7 +450,10 @@ run_target_restore() {
     process_context_restore_args=(--process-context-restore apply-target-initial-stack)
     process_context_restore_args_text="${process_context_restore_args[*]}"
   fi
-  if [[ "$REMOTE_SOURCE_TARGET" == "epoll-recreate" ]]; then
+  if [[ "$REMOTE_SOURCE_TARGET" == "eventfd-counter-recreate" ]]; then
+    resource_model_args=(--include-eventfd-counter-proof)
+    resource_model_args_text="${resource_model_args[*]}"
+  elif [[ "$REMOTE_SOURCE_TARGET" == "epoll-recreate" ]]; then
     resource_model_args=(--include-epoll-proof)
     resource_model_args_text="${resource_model_args[*]}"
   elif [[ "$REMOTE_SOURCE_TARGET" == "signalfd-recreate" ]]; then

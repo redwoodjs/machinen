@@ -229,6 +229,9 @@ struct Options {
   int synthetic_empty_pipe_read_fd;
   int synthetic_empty_pipe_write_fd;
   int synthetic_empty_eventfd;
+  bool has_synthetic_eventfd;
+  int synthetic_eventfd;
+  uint64_t synthetic_eventfd_initial_value;
   int synthetic_timerfd;
   struct NativeRestoreStepSpec synthetic_signalfds[MAX_NATIVE_RESTORE_STEPS];
   size_t synthetic_signalfd_count;
@@ -277,7 +280,7 @@ static void usage(void) {
       "[--resume-register-r9 addr] [--resume-register-r10 addr] "
       "[--resume-register-r11 addr] --timeout-seconds n "
       "[--synthetic-empty-pipe-read-fd n] [--synthetic-empty-pipe-write-fd n] "
-      "[--synthetic-empty-eventfd n] "
+      "[--synthetic-empty-eventfd n] [--synthetic-eventfd spec] "
       "[--synthetic-timerfd n] [--synthetic-signalfd spec] [--synthetic-epoll spec] "
       "[--set-cloexec-fd n] "
       "[--materialize-memory file:offset:target:size:perms] "
@@ -487,12 +490,15 @@ static void add_native_step(struct NativeRestoreStepSpec *steps, size_t *count, 
   copy_step_spec(&steps[(*count)++], spec);
 }
 
+static uint64_t native_step_u64(const char *spec, const char *name, const char *label);
+
 static struct Options parse_args(int argc, char **argv) {
   struct Options opts = {0};
   opts.timeout_seconds = 1;
   opts.synthetic_empty_pipe_read_fd = -1;
   opts.synthetic_empty_pipe_write_fd = -1;
   opts.synthetic_empty_eventfd = -1;
+  opts.synthetic_eventfd = -1;
   opts.synthetic_timerfd = -1;
   for (int i = 1; i < argc; i++) {
     if (streq(argv[i], "--code-file")) {
@@ -700,6 +706,19 @@ static struct Options parse_args(int argc, char **argv) {
         exit(2);
       }
       opts.synthetic_empty_pipe_write_fd = (int)fd;
+    } else if (streq(argv[i], "--synthetic-eventfd")) {
+      if (++i >= argc) {
+        usage();
+      }
+      uint64_t fd = native_step_u64(argv[i], "fd", "synthetic-eventfd");
+      uint64_t initial_value = native_step_u64(argv[i], "initialValue", "synthetic-eventfd");
+      if (fd > 1024u || initial_value == UINT64_MAX) {
+        fprintf(stderr, "native-actual-resume-trampoline: synthetic eventfd spec is invalid\n");
+        exit(2);
+      }
+      opts.has_synthetic_eventfd = true;
+      opts.synthetic_eventfd = (int)fd;
+      opts.synthetic_eventfd_initial_value = initial_value;
     } else if (streq(argv[i], "--synthetic-timerfd")) {
       if (++i >= argc) {
         usage();
@@ -1272,9 +1291,13 @@ static void install_synthetic_timerfd(int target_fd) {
   }
 }
 
-static void install_synthetic_empty_eventfd(int target_fd) {
+static void install_synthetic_eventfd(int target_fd, uint64_t initial_value) {
   if (target_fd < 0) {
     return;
+  }
+  if (initial_value == UINT64_MAX) {
+    fprintf(stderr, "native-actual-resume-trampoline: synthetic eventfd initial value is unsupported\n");
+    exit(2);
   }
   int fd = eventfd(0, EFD_CLOEXEC);
   if (fd < 0) {
@@ -1288,10 +1311,21 @@ static void install_synthetic_empty_eventfd(int target_fd) {
     }
     close(fd);
   }
+  if (initial_value != 0) {
+    ssize_t wrote = write(target_fd, &initial_value, sizeof(initial_value));
+    if (wrote != (ssize_t)sizeof(initial_value)) {
+      fprintf(stderr, "native-actual-resume-trampoline: synthetic eventfd write failed: %s\n", strerror(errno));
+      exit(1);
+    }
+  }
   if (fcntl(target_fd, F_SETFD, FD_CLOEXEC) != 0) {
     fprintf(stderr, "native-actual-resume-trampoline: synthetic eventfd cloexec failed: %s\n", strerror(errno));
     exit(1);
   }
+}
+
+static void install_synthetic_empty_eventfd(int target_fd) {
+  install_synthetic_eventfd(target_fd, 0);
 }
 
 static void sigset_from_mask(sigset_t *set, uint64_t mask);
@@ -3050,6 +3084,9 @@ int main(int argc, char **argv) {
   install_synthetic_empty_pipe(
       opts.synthetic_empty_pipe_read_fd, opts.synthetic_empty_pipe_write_fd);
   install_synthetic_empty_eventfd(opts.synthetic_empty_eventfd);
+  if (opts.has_synthetic_eventfd) {
+    install_synthetic_eventfd(opts.synthetic_eventfd, opts.synthetic_eventfd_initial_value);
+  }
   install_synthetic_timerfd(opts.synthetic_timerfd);
   install_synthetic_signalfds(&opts);
   install_synthetic_epolls(&opts);
