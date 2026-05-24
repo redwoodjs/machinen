@@ -3,6 +3,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { nativeFdAccessMode, nativeFdFlagBits } from "./native-fd-flags.ts";
+import { nativeResourceRecipeBigInt } from "./native-resource-recipe.ts";
 import {
   NATIVE_PROCESS_IMAGE_FILES,
   type NativeMemoryMapping,
@@ -2369,17 +2370,7 @@ function validateTimerfdState(
     : undefined;
 }
 
-function nativeResourceBigInt(resource: NativeProcessResource, key: string): bigint | undefined {
-  const value = resource.recipe?.[key];
-  if (typeof value !== "string" && typeof value !== "number") {
-    return undefined;
-  }
-  try {
-    return BigInt(value);
-  } catch {
-    return undefined;
-  }
-}
+const nativeResourceBigInt = nativeResourceRecipeBigInt;
 
 function readCapturedTimespec(
   documents: NativeProcessImageDocuments,

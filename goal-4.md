@@ -73,12 +73,12 @@ Accepted subset candidates:
 
 Tasks:
 
-- [ ] Define `eventfd-counter-v1` for non-semaphore eventfds with exact nonzero
+- [x] Define `eventfd-counter-v1` for non-semaphore eventfds with exact nonzero
       counter recreation, overflow bounds, close-on-exec handling, and refusal of
-      semaphore mode or unknown waiters.
-- [ ] Add target-native eventfd recreation, verifier reads/writes, positive proof
+      semaphore mode or unknown waiters. Issue/PR: #775 / #776.
+- [x] Add target-native eventfd recreation, verifier reads/writes, positive proof
       profile, and negative profiles for semaphore mode, overflow, pending
-      waiters, and unsupported flags.
+      waiters, and unsupported flags. Issue/PR: #775 / #776.
 - [ ] Define `timerfd-descriptor-v1` for disarmed and future one-shot timerfds,
       including clock source, absolute/relative mode, remaining time, interval,
       overrun, and cancellation semantics.

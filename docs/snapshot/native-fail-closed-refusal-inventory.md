@@ -34,6 +34,13 @@ queued `siginfo`, active signal frames, active alt-stack state, unsupported
 flags, malformed masks, and active signalfd reads continue to use
 `target-signalfd-state-unsupported`.
 
+Goal 4 graduates only the eventfd `eventfd-counter-v1` descriptor subset to
+`eventfd-counter-recreate`: non-semaphore eventfds with exact nonzero counter,
+known-empty waiters, supported flags, and close-on-exec provenance. Semaphore
+mode, unknown waiters, unsupported flags, zero counters outside the existing
+empty-eventfd proof, and overflow counters continue to require
+`kernel-state-unsupported`.
+
 Goal 3 intentionally leaves sockets without a graduated support subset. Listening
 sockets, connected socketpairs, TCP/Unix sockets, ancillary data, partial
 transfers, and unbrokered endpoints continue to require

@@ -38,6 +38,7 @@ resource=inherit-stdio fd=1 stream=stdout closeOnExec=false
 resource=reopen-file fd=7 path=/tmp/data.txt offset=9 access=0 closeOnExec=true
 resource=synthetic-empty-pipe readFd=3 writeFd=4 closeOnExec=false
 resource=synthetic-empty-eventfd fd=5 closeOnExec=false
+resource=synthetic-eventfd fd=10 initialValue=0x2a closeOnExec=false
 resource=synthetic-timerfd fd=6 closeOnExec=false
 resource=synthetic-signalfd fd=9 signalMask=0x200 flags=2048 closeOnExec=false
 resource=synthetic-epoll fd=8 watchCount=1 watch0Fd=5 watch0Events=1 watch0Data=0x45504f4c4c closeOnExec=false
@@ -54,6 +55,9 @@ Supported fd-table resources and memory materialization are intentionally narrow
   offset and access mode;
 - `synthetic-empty-pipe` with a modeled read fd and optional write fd;
 - `synthetic-empty-eventfd` with an empty non-semaphore eventfd;
+- `synthetic-eventfd` with a Goal 4 `eventfd-counter-v1` non-semaphore counter
+  value, refused unless the counter, waiter state, flags, and close-on-exec
+  provenance are exact;
 - `synthetic-timerfd` with a disarmed/future one-shot timerfd;
 - `synthetic-epoll` for the Goal 3 `interest-list-v1` subset: a finite
   level-triggered watch list over fds that already have target recipes;
@@ -75,8 +79,10 @@ The runtime fd-table planner emits these resource lines from translated native
 resources. The in-guest loader validates duplicate fd ownership before launching
 the trampoline, applies `close-fd` and `reopen-file` recipes in the child process,
 and forwards synthetic fd recipes plus `--set-cloexec-fd` intents to the
-trampoline. signalfd recipes are installed with `signalfd()` from the normalized
-mask and flags. Epoll recipes are installed after their watched synthetic fds,
+trampoline. Eventfd counter recipes are installed with a target-owned `eventfd()`
+followed by an exact 8-byte write of the modeled counter before the target-native
+jump. signalfd recipes are installed with `signalfd()` from the normalized mask
+and flags. Epoll recipes are installed after their watched synthetic fds,
 signalfds, and reopened files exist, then `epoll_ctl(EPOLL_CTL_ADD)` recreates
 the declared interest list. The trampoline applies close-on-exec flags after the
 loader-to-trampoline `exec` boundary and before the target-native jump, so modeled

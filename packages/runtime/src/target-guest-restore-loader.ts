@@ -55,6 +55,7 @@ export type TargetGuestRestoreResourceRecipe =
     }
   | { kind: "synthetic-empty-pipe"; readFd: number; writeFd?: number; closeOnExec?: boolean }
   | { kind: "synthetic-empty-eventfd"; fd: number; closeOnExec?: boolean }
+  | { kind: "synthetic-eventfd"; fd: number; initialValue: string; closeOnExec?: boolean }
   | { kind: "synthetic-timerfd"; fd: number; closeOnExec?: boolean }
   | {
       kind: "synthetic-signalfd";
@@ -464,6 +465,7 @@ const RESOURCE_RECIPE_PARSERS: Record<
   }),
   "synthetic-empty-eventfd": (fields) =>
     parseSingleFdSyntheticRecipe("synthetic-empty-eventfd", fields),
+  "synthetic-eventfd": parseSyntheticEventfdRecipe,
   "synthetic-timerfd": (fields) => parseSingleFdSyntheticRecipe("synthetic-timerfd", fields),
   "synthetic-signalfd": parseSyntheticSignalfdRecipe,
   "synthetic-epoll": parseSyntheticEpollRecipe,
@@ -511,6 +513,17 @@ function parseSingleFdSyntheticRecipe(
   return {
     kind,
     fd: parseResourceInteger(fields, "fd"),
+    closeOnExec: parseResourceBoolean(fields, "closeOnExec"),
+  };
+}
+
+function parseSyntheticEventfdRecipe(
+  fields: Map<string, string>,
+): TargetGuestRestoreResourceRecipe {
+  return {
+    kind: "synthetic-eventfd",
+    fd: parseResourceInteger(fields, "fd"),
+    initialValue: requiredResourceField(fields, "initialValue"),
     closeOnExec: parseResourceBoolean(fields, "closeOnExec"),
   };
 }
@@ -1103,6 +1116,7 @@ const RESOURCE_RECIPE_VALIDATORS = {
     assertDistinctPipeFds(recipe);
   },
   "synthetic-empty-eventfd": validateSingleFdRecipe,
+  "synthetic-eventfd": validateSyntheticEventfdRecipe,
   "synthetic-timerfd": validateSingleFdRecipe,
   "synthetic-signalfd": validateSyntheticSignalfdRecipe,
   "synthetic-epoll": validateSyntheticEpollRecipe,
@@ -1142,6 +1156,17 @@ function validateSingleFdRecipe(
   >,
 ): void {
   assertFd(recipe.fd, "fd");
+}
+
+function validateSyntheticEventfdRecipe(
+  recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "synthetic-eventfd" }>,
+): void {
+  assertFd(recipe.fd, "fd");
+  assertHexAddress(recipe.initialValue, "initialValue");
+  const value = BigInt(recipe.initialValue);
+  if (value > 0xfffffffffffffffen) {
+    fail("target-guest-loader-descriptor-invalid", "eventfd initialValue is unsupported");
+  }
 }
 
 function validateSyntheticSignalfdRecipe(
@@ -1701,6 +1726,9 @@ function serializeResourceRecipe(recipe: TargetGuestRestoreResourceRecipe): stri
   if (recipe.kind === "synthetic-empty-eventfd") {
     return `resource=synthetic-empty-eventfd fd=${recipe.fd}${serializeCloseOnExec(recipe.closeOnExec)}`;
   }
+  if (recipe.kind === "synthetic-eventfd") {
+    return `resource=synthetic-eventfd fd=${recipe.fd} initialValue=${recipe.initialValue}${serializeCloseOnExec(recipe.closeOnExec)}`;
+  }
   if (recipe.kind === "synthetic-timerfd") {
     return `resource=synthetic-timerfd fd=${recipe.fd}${serializeCloseOnExec(recipe.closeOnExec)}`;
   }
@@ -1886,6 +1914,13 @@ function resourceToTrampolineArgs(recipe: TargetGuestRestoreResourceRecipe): str
       ...closeOnExecArgs(recipe.fd, recipe.closeOnExec),
     ];
   }
+  if (recipe.kind === "synthetic-eventfd") {
+    return [
+      "--synthetic-eventfd",
+      eventfdResourceSpec(recipe),
+      ...closeOnExecArgs(recipe.fd, recipe.closeOnExec),
+    ];
+  }
   if (recipe.kind === "synthetic-timerfd") {
     return [
       "--synthetic-timerfd",
@@ -1905,6 +1940,12 @@ function resourceToTrampolineArgs(recipe: TargetGuestRestoreResourceRecipe): str
     epollResourceSpec(recipe),
     ...closeOnExecArgs(recipe.fd, recipe.closeOnExec),
   ];
+}
+
+function eventfdResourceSpec(
+  recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "synthetic-eventfd" }>,
+): string {
+  return [`fd=${recipe.fd}`, `initialValue=${recipe.initialValue}`].join(";");
 }
 
 function signalfdResourceSpec(

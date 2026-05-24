@@ -99,6 +99,8 @@ struct Descriptor {
   int pipe_read_fd;
   int pipe_write_fd;
   int event_fd;
+  bool has_eventfd_spec;
+  char eventfd_spec[1024];
   int timer_fd;
   int signalfd_fds[MAX_FD_RECIPES];
   char signalfd_specs[MAX_FD_RECIPES][1024];
@@ -380,8 +382,17 @@ static void add_cloexec_if_requested(struct Descriptor *descriptor, char *fields
 }
 
 static void parse_eventfd_resource(struct Descriptor *descriptor, char *fields) {
+  if (descriptor->event_fd >= 0) {
+    refuse("target-guest-loader-invalid-fd", "eventfd fd is assigned by multiple recipes");
+  }
   descriptor->event_fd = parse_single_fd_resource(fields, "eventfd fd is required");
   add_cloexec_if_requested(descriptor, fields, descriptor->event_fd);
+}
+
+static void parse_counter_eventfd_resource(struct Descriptor *descriptor, char *fields) {
+  parse_eventfd_resource(descriptor, fields);
+  fields_to_semicolon_spec(descriptor->eventfd_spec, sizeof(descriptor->eventfd_spec), fields);
+  descriptor->has_eventfd_spec = true;
 }
 
 static void parse_timerfd_resource(struct Descriptor *descriptor, char *fields) {
@@ -780,6 +791,8 @@ static void parse_resource(struct Descriptor *descriptor, char *line) {
     parse_pipe_resource(descriptor, line + strlen("resource=synthetic-empty-pipe"));
   } else if (starts_with(line, "resource=synthetic-empty-eventfd")) {
     parse_eventfd_resource(descriptor, line + strlen("resource=synthetic-empty-eventfd"));
+  } else if (starts_with(line, "resource=synthetic-eventfd")) {
+    parse_counter_eventfd_resource(descriptor, line + strlen("resource=synthetic-eventfd"));
   } else if (starts_with(line, "resource=synthetic-timerfd")) {
     parse_timerfd_resource(descriptor, line + strlen("resource=synthetic-timerfd"));
   } else if (starts_with(line, "resource=synthetic-signalfd")) {
@@ -1113,8 +1126,13 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
     push_arg(child_argv, &child_argc, pipe_write_fd);
   }
   if (descriptor->event_fd >= 0) {
-    push_arg(child_argv, &child_argc, "--synthetic-empty-eventfd");
-    push_arg(child_argv, &child_argc, event_fd);
+    if (descriptor->has_eventfd_spec) {
+      push_arg(child_argv, &child_argc, "--synthetic-eventfd");
+      push_arg(child_argv, &child_argc, descriptor->eventfd_spec);
+    } else {
+      push_arg(child_argv, &child_argc, "--synthetic-empty-eventfd");
+      push_arg(child_argv, &child_argc, event_fd);
+    }
   }
   if (descriptor->timer_fd >= 0) {
     push_arg(child_argv, &child_argc, "--synthetic-timerfd");

@@ -79,6 +79,36 @@
     "supportStatus": "baseline-success"
   },
   {
+    "name": "eventfd-counter-recreate",
+    "remoteSourceTarget": "eventfd-counter-recreate",
+    "description": "Target-native eventfd counter recreation for a non-semaphore descriptor with an exact counter.",
+    "sourceFixture": "packages/microvm/assets/native-pipe-read-target.c",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "success",
+    "supportStatus": "graduated-support",
+    "unsafeStateFamily": "eventfd",
+    "graduatedFromRefusalCode": "kernel-state-unsupported",
+    "acceptedSubset": "eventfd-counter-v1-nonsemaphore-no-waiters",
+    "unsafeVariants": ["eventfd-read"],
+    "expectedGates": [
+      "descriptor",
+      "verifier",
+      "state-consumption",
+      "resources",
+      "return-chain",
+      "frame",
+      "registers",
+      "tls",
+      "stack-window",
+      "private-memory",
+      "executable",
+      "signal",
+      "active-syscall",
+      "resume-path"
+    ]
+  },
+  {
     "name": "timerfd-read",
     "remoteSourceTarget": "timerfd-read",
     "description": "One-shot timerfd read active-syscall proof with modeled remaining time.",

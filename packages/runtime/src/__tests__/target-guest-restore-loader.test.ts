@@ -106,7 +106,7 @@ describe("target guest restore loader descriptor", () => {
           closeOnExec: true,
         },
         { kind: "synthetic-empty-pipe", readFd: 3, writeFd: 4, closeOnExec: false },
-        { kind: "synthetic-empty-eventfd", fd: 5, closeOnExec: false },
+        { kind: "synthetic-eventfd", fd: 5, initialValue: "0x2a", closeOnExec: false },
         { kind: "synthetic-timerfd", fd: 6, closeOnExec: false },
         {
           kind: "synthetic-signalfd",
@@ -204,8 +204,8 @@ describe("target guest restore loader descriptor", () => {
       "3",
       "--synthetic-empty-pipe-write-fd",
       "4",
-      "--synthetic-empty-eventfd",
-      "5",
+      "--synthetic-eventfd",
+      "fd=5;initialValue=0x2a",
       "--synthetic-timerfd",
       "6",
       "--synthetic-signalfd",
@@ -565,6 +565,20 @@ describe("target guest restore loader descriptor", () => {
         descriptor({ resources: [{ kind: "synthetic-empty-pipe", readFd: 4, writeFd: 4 }] }),
       ),
     ).toThrow(/pipe read\/write fds must differ/);
+
+    expect(() =>
+      validateTargetGuestRestoreDescriptor(
+        descriptor({ resources: [{ kind: "synthetic-eventfd", fd: 5, initialValue: "42" }] }),
+      ),
+    ).toThrow(/initialValue must be a hex address/);
+
+    expect(() =>
+      validateTargetGuestRestoreDescriptor(
+        descriptor({
+          resources: [{ kind: "synthetic-eventfd", fd: 5, initialValue: "0xffffffffffffffff" }],
+        }),
+      ),
+    ).toThrow(/eventfd initialValue is unsupported/);
 
     expect(() =>
       validateTargetGuestRestoreDescriptor(
