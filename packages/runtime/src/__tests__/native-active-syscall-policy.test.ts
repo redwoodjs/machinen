@@ -68,6 +68,12 @@ function arm64ReadThread(
   return arm64SleepThread({ state: "inside-syscall", number: 63, name: "read" }, x);
 }
 
+function arm64PreadThread(
+  x: string[] = ["0x28", "0x3100", "0x4", "0x9", "0x0", "0x0"],
+): NativeThreadState {
+  return arm64SleepThread({ state: "inside-syscall", number: 67, name: "pread64" }, x);
+}
+
 function arm64WriteThread(
   x: string[] = ["0x27", "0x3100", "0x4", "0x0", "0x0", "0x0"],
 ): NativeThreadState {
@@ -1087,6 +1093,7 @@ describe("native active syscall classification", () => {
       syscallClass: "fd-blocking",
       metadata: {
         fdRead: {
+          syscallName: "read",
           fd: 38,
           countBytes: 4,
           resourceId: "fd:38:read",
@@ -1095,6 +1102,32 @@ describe("native active syscall classification", () => {
           fileOffset: 7,
         },
         policy: "conservative-target-fd-read-block-preserved",
+      },
+    });
+  });
+
+  it("models a safe explicit-offset pread64 from a regular file", () => {
+    const activeThread = arm64PreadThread(["0x26", "0x3100", "0x4", "0xb", "0x0", "0x0"]);
+    const documents = documentsWithReadFile(activeThread, { offset: 7 });
+    const result = classifyNativeActiveSyscalls([activeThread], {
+      fdReadPolicy: "defer-target-resume",
+      fdReadResourcePolicy: "synthetic-empty-pipe",
+      documents,
+    });
+
+    expect(result.refusals).toEqual([]);
+    expect(result.continuations[0]).toMatchObject({
+      syscallClass: "fd-blocking",
+      metadata: {
+        fdRead: {
+          syscallName: "pread64",
+          fd: 38,
+          countBytes: 4,
+          resourceId: "fd:38:read",
+          targetResource: "reopened-offset-file",
+          targetBufferPointer: "0x600000000100",
+          fileOffset: 11,
+        },
       },
     });
   });
@@ -1232,6 +1265,19 @@ describe("native active syscall classification", () => {
         detail: { reason: scenario.reason },
       },
     });
+  });
+
+  it("refuses pread64 with an unsafe explicit offset", () => {
+    const activeThread = arm64PreadThread(["0x26", "0x3100", "0x4", "-1", "0x0", "0x0"]);
+    expect(modelNativeFdReadState(activeThread, documentsWithReadFile(activeThread))).toMatchObject(
+      {
+        state: "missing",
+        refusal: {
+          code: "target-fd-read-state-missing",
+          detail: { reason: "pread64 file offset is outside supported bounds" },
+        },
+      },
+    );
   });
 
   it.each([
