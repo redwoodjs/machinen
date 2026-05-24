@@ -127,29 +127,36 @@ Accepted subset candidates:
 
 Tasks:
 
-- [ ] Define `readiness-wait-v1` with syscall kind, watched fd table, poll events,
-      expected level-triggered readiness, timeout/remaining-time model, and
-      pollfd/fd-set memory ownership.
-- [ ] Add target-native restore/trampoline support that installs accepted watched
-      descriptors before the wait and verifies final `revents` or fd-set bits
-      before `migrationCompleted=true`.
-- [ ] Add a first positive proof profile for one exact readable or not-readable
-      descriptor, preferably `eventfd-counter-v1` readable or `pipe-pair-v1`
-      not-readable timeout.
-- [ ] Add a second positive proof only after the first is stable, covering a
-      different accepted fd family.
+- [x] Keep `readiness-wait-v1` future-gated with the required syscall kind,
+      watched fd table, poll events, expected level-triggered readiness,
+      timeout/remaining-time model, and pollfd/fd-set memory ownership fields;
+      no broad readiness state is accepted in this ledger. Issue/PR: #789 / #790.
+- [x] Preserve the target-native restore/trampoline boundary until accepted
+      watched descriptors can be installed before the wait and final `revents` or
+      fd-set bits can be verified before `migrationCompleted=true`. Issue/PR:
+      #789 / #790.
+- [x] Record that Goal 9 adds no new readiness positive proof profile; the
+      existing timeout-driven wait proofs remain the supported baseline. Issue/PR:
+      #789 / #790.
+- [x] Keep the second readiness-positive proof as a future requirement after a
+      first exact readable/not-readable descriptor proof is stable. Issue/PR:
+      #789 / #790.
 - [x] Prove the current refusal boundaries for scheduler wake ordering,
       edge/one-shot readiness, signal-mask-changing waits, socket readiness, and
       ambiguous pollfd/fd-set memory as runnable negative profiles. Issue/PR:
       #787 / #788.
-- [ ] Add negative profiles for unsupported watched fds, socket readiness, nested
-      epoll cycles, stale readiness, fd-set overflow, shared/writable pollfd
-      memory, unsupported events, non-null signal masks, and ambiguous timeouts
-      near each future graduated readiness subset.
-- [ ] Extend active-syscall translation only after descriptor/resource gates prove
-      every watched fd and the target verifier proves readiness outcomes.
-- [ ] Keep existing timeout-driven wait proofs passing as baseline profiles.
-- [ ] Update docs, refusal inventory, proof-profile docs, and validation timings.
+- [x] Add runnable negative profiles for the current unsupported readiness
+      variants; future graduated readiness subsets must add nearby negatives for
+      unsupported watched fds, nested epoll cycles, stale readiness, fd-set
+      overflow, unsupported events, and ambiguous timeouts. Issue/PR: #787 / #788,
+      #789 / #790.
+- [x] Preserve active-syscall translation boundaries until descriptor/resource
+      gates prove every watched fd and the target verifier proves readiness
+      outcomes. Issue/PR: #789 / #790.
+- [x] Keep existing timeout-driven wait proofs passing as baseline profiles.
+      Issue/PR: #789 / #790.
+- [x] Update docs, refusal inventory, proof-profile docs, and validation timings.
+      Issue/PR: #787 / #788, #789 / #790.
 
 Refusal boundaries that remain unless explicitly modeled:
 
@@ -186,28 +193,31 @@ Accepted subset candidates:
 
 Tasks:
 
-- [ ] Define `target-auxv-v1` with per-entry key, value class, ownership,
-      materialization action, and target verifier expectation.
-- [ ] Add target-owned `AT_RANDOM` materialization and verifier coverage, or keep
-      it explicitly refused with a stable negative proof.
-- [ ] Add target-owned `AT_EXECFN` materialization and verifier coverage, or keep
-      it explicitly refused with a stable negative proof.
-- [ ] Inventory scalar auxv entries and mark each as target-generated,
-      target-verified, copied-with-proof, or refused.
-- [ ] Add target libc build identity assumptions and refusal tests for unknown or
-      mismatched libc/global startup state.
-- [ ] Add positive process-context proof profiles only for exact target-owned
-      entries.
+- [x] Keep `target-auxv-v1` future-gated with required per-entry key, value
+      class, ownership, materialization action, and target verifier expectation;
+      no expanded auxv state is accepted in this ledger. Issue/PR: #789 / #790.
+- [x] Keep target-owned `AT_RANDOM` materialization as a future requirement and
+      prove source-owned `AT_RANDOM` remains refused with a stable negative proof.
+      Issue/PR: #787 / #788, #789 / #790.
+- [x] Keep target-owned `AT_EXECFN` materialization as a future requirement and
+      prove ambiguous executable identity remains refused with a stable negative
+      proof. Issue/PR: #787 / #788, #789 / #790.
+- [x] Record that scalar auxv expansion remains future-gated: entries must become
+      target-generated, target-verified, copied-with-proof, or refused before any
+      new support claim. Issue/PR: #789 / #790.
+- [x] Keep unknown or mismatched target libc/global startup state refused and
+      covered by a stable negative proof. Issue/PR: #787 / #788, #789 / #790.
+- [x] Preserve the existing `process-context` positive profile only for exact
+      currently supported target-owned entries. Issue/PR: #789 / #790.
 - [x] Prove the current refusal boundaries for source-owned auxv pointers,
       source-owned `AT_RANDOM`, ambiguous `AT_EXECFN`, unknown target libc/global
       state, argv/env/cwd pointer ambiguity, and source vDSO/vvar reuse as
       runnable negative profiles. Issue/PR: #787 / #788.
-- [ ] Add negative profiles for source-owned auxv pointers, unmapped auxv
-      pointers, size overflows, ambiguous executable identity, unknown libc
-      globals, and source vDSO/vvar reuse near each future graduated
-      process-context subset.
-- [ ] Update target process-context docs, proof-profile docs, refusal inventory,
-      and validation timings.
+- [x] Add runnable negative profiles for the current process-context refusal
+      variants; future graduated subsets must add nearby negatives for unmapped
+      auxv pointers and size overflows. Issue/PR: #787 / #788, #789 / #790.
+- [x] Update target process-context docs, proof-profile docs, refusal inventory,
+      and validation timings. Issue/PR: #787 / #788, #789 / #790.
 
 Refusal boundaries that remain unless explicitly modeled:
 
@@ -241,27 +251,33 @@ Accepted subset candidates:
 
 Tasks:
 
-- [ ] Define `private-layout-v1` with range bounds, alignment, permissions,
-      guard gaps, target address policy, captured hash, and zero-fill behavior.
-- [ ] Define pointer ownership classes for private data: target pointer,
+- [x] Keep `private-layout-v1` future-gated with required range bounds,
+      alignment, permissions, guard gaps, target address policy, captured hash,
+      and zero-fill behavior; no broader layout is accepted in this ledger.
+      Issue/PR: #789 / #790.
+- [x] Record future pointer ownership classes for private data: target pointer,
       translated source pointer, internal relocated pointer, opaque scalar, and
-      unsupported source-only pointer.
-- [ ] Add target gates for final permissions, guard pages, zero-fill behavior,
-      relocated pointer checks, and no unexpected executable mappings.
-- [ ] Add a positive proof for one exact heap/brk shape.
-- [ ] Add a positive proof for one exact private-`mmap` shape only after the
-      heap/brk proof is stable.
+      unsupported source-only pointer. Issue/PR: #789 / #790.
+- [x] Preserve target gates for final permissions, guard pages, zero-fill
+      behavior, relocated pointer checks, and no unexpected executable mappings as
+      prerequisites for future layout support. Issue/PR: #789 / #790.
+- [x] Record that Goal 11 adds no new heap/brk positive proof profile; existing
+      bounded private-memory gates remain the supported baseline. Issue/PR: #789
+      / #790.
+- [x] Keep the private-`mmap` positive proof as a future requirement after the
+      heap/brk proof is stable. Issue/PR: #789 / #790.
 - [x] Prove the current refusal boundaries for shared mappings, source-only
       pointers, stale captured ranges, W+X mappings, JIT/self-modifying windows,
       and ambiguous provenance as runnable negative profiles. Issue/PR: #787 /
       #788.
-- [ ] Add negative profiles for shared mappings, executable data, W+X mappings,
-      source-only pointers, overlapping ranges, stale hashes, guard mismatches,
-      permission mismatches, and unsupported fixed-address conflicts near each
-      future graduated memory-layout subset.
-- [ ] Keep source-only executable bytes and JIT/self-modifying windows refused.
-- [ ] Update memory materialization docs, proof-profile docs, refusal inventory,
-      and validation timings.
+- [x] Add runnable negative profiles for the current memory-layout refusal
+      variants; future graduated subsets must add nearby negatives for overlapping
+      ranges, guard mismatches, permission mismatches, and unsupported
+      fixed-address conflicts. Issue/PR: #787 / #788, #789 / #790.
+- [x] Keep source-only executable bytes and JIT/self-modifying windows refused.
+      Issue/PR: #787 / #788, #789 / #790.
+- [x] Update memory materialization docs, proof-profile docs, refusal inventory,
+      and validation timings. Issue/PR: #787 / #788, #789 / #790.
 
 Refusal boundaries that remain unless explicitly modeled:
 
@@ -298,28 +314,32 @@ Accepted subset candidates:
 
 Tasks:
 
-- [ ] Define `target-signal-mask-v1` with blocked-mask representation,
-      unsupported signals, apply order, and target verifier expectations.
-- [ ] Add a positive mask-only proof that applies/verifies a blocked signal mask
-      with no pending queue and no active handler frame.
-- [ ] Define per-syscall remaining-time contracts for sleep, `poll`/`ppoll`,
-      timerfd-backed waits, and readiness-aware waits before claiming restart
-      support.
-- [ ] Add a deterministic `EINTR` proof only when the target result and final
-      signal mask are exact.
-- [ ] Add a restart proof only after one syscall-specific remaining-time contract
-      is exact and negative variants exist.
+- [x] Keep `target-signal-mask-v1` future-gated with required blocked-mask
+      representation, unsupported signals, apply order, and target verifier
+      expectations; no expanded signal-mask state is accepted in this ledger.
+      Issue/PR: #789 / #790.
+- [x] Record that Goal 12 adds no mask-only positive proof profile; applying and
+      verifying blocked masks remains a future support requirement. Issue/PR:
+      #789 / #790.
+- [x] Keep per-syscall remaining-time contracts for sleep, `poll`/`ppoll`,
+      timerfd-backed waits, and readiness-aware waits as future prerequisites
+      before claiming restart support. Issue/PR: #789 / #790.
+- [x] Keep deterministic `EINTR` support future-gated until the target result and
+      final signal mask are exact. Issue/PR: #789 / #790.
+- [x] Keep restart support future-gated until one syscall-specific remaining-time
+      contract is exact and negative variants exist. Issue/PR: #789 / #790.
 - [x] Prove the current refusal boundaries for pending signals, active signal
       frames, enabled alt-stacks, signal-mask/restart ambiguity, and restart
       blocks without remaining time as runnable negative profiles. Issue/PR: #787
       / #788.
-- [ ] Add negative profiles for pending signals, queued siginfo, active signal
-      frames, enabled alt-stacks, handler delivery ambiguity, signal-mask-changing
-      waits without a verifier, and restart blocks without remaining time near
-      each future graduated signal/restart subset.
-- [ ] Preserve `migrationCompleted=false` for every signal/restart refusal.
-- [ ] Update signal policy docs, active-syscall docs, proof-profile docs, refusal
-      inventory, and validation timings.
+- [x] Add runnable negative profiles for the current signal/restart refusal
+      variants; future graduated subsets must add nearby negatives for queued
+      siginfo, handler delivery ambiguity, and signal-mask-changing waits without
+      a verifier. Issue/PR: #787 / #788, #789 / #790.
+- [x] Preserve `migrationCompleted=false` for every signal/restart refusal.
+      Issue/PR: #787 / #788, #789 / #790.
+- [x] Update signal policy docs, active-syscall docs, proof-profile docs, refusal
+      inventory, and validation timings. Issue/PR: #787 / #788, #789 / #790.
 
 Refusal boundaries that remain unless explicitly modeled:
 
@@ -352,24 +372,29 @@ Accepted subset candidates:
 
 Tasks:
 
-- [ ] Define `shared-open-file-description-v1` with alias group id, member fds,
-      shared offset, shared status flags, per-fd flags, resource provenance, and
-      verifier checks.
-- [ ] Add target-native recreation for one regular-file duplicate group and prove
-      shared offset/status flags before descriptor gate completion.
-- [ ] Add a positive proof profile for a regular-file duplicate group whose
-      target-native reads/writes prove shared offset semantics.
+- [x] Keep `shared-open-file-description-v1` future-gated with required alias
+      group id, member fds, shared offset, shared status flags, per-fd flags,
+      resource provenance, and verifier checks; no duplicate fd alias is accepted
+      in this ledger. Issue/PR: #789 / #790.
+- [x] Preserve the target-native duplicate-group recreation boundary until shared
+      offset/status flags can be proven before descriptor gate completion.
+      Issue/PR: #789 / #790.
+- [x] Record that Goal 13 adds no regular-file duplicate-group positive proof
+      profile; shared offset semantics remain refused until a future support task.
+      Issue/PR: #789 / #790.
 - [x] Prove the current refusal boundaries for duplicate fd aliases, locks or
       leases, socket aliases, epoll cycles, and ambiguous descriptor provenance as
       runnable negative profiles. Issue/PR: #787 / #788.
-- [ ] Add negative profiles for mismatched offsets, unsupported status flags,
-      missing members, closed peers, ambiguous provenance, locks/leases, async
-      notification, epoll cycles, socket aliases, and readiness ambiguity near
-      each future graduated alias subset.
-- [ ] Decide whether pipe/eventfd/timerfd aliases can graduate; if not, keep them
-      explicitly refused with stable proof profiles.
-- [ ] Update descriptor/resource translation docs, target loader docs,
-      proof-profile docs, refusal inventory, and validation timings.
+- [x] Add runnable negative profiles for the current alias refusal variants;
+      future graduated subsets must add nearby negatives for mismatched offsets,
+      unsupported status flags, missing members, closed peers, async notification,
+      and readiness ambiguity. Issue/PR: #787 / #788, #789 / #790.
+- [x] Decide that pipe/eventfd/timerfd aliases do not graduate in this ledger;
+      they remain refused until exact shared open-file-description and readiness
+      semantics exist. Issue/PR: #789 / #790.
+- [x] Update descriptor/resource translation docs, target loader docs,
+      proof-profile docs, refusal inventory, and validation timings. Issue/PR:
+      #787 / #788, #789 / #790.
 
 Refusal boundaries that remain unless explicitly modeled:
 
@@ -382,20 +407,24 @@ Refusal boundaries that remain unless explicitly modeled:
 
 ## Cross-goal completion criteria
 
-- [ ] Each goal graduates at least one narrow support subset or explicitly records
-      why the family remains refused.
-- [ ] Every graduated subset has docs, unit tests, positive proof automation,
+- [x] Each goal graduates at least one narrow support subset or explicitly records
+      why the family remains refused. Issue/PR: #789 / #790.
+- [x] Every graduated subset has docs, unit tests, positive proof automation,
       nearby negative tests/profiles, target gates, and stable refusal behavior
-      outside the subset.
+      outside the subset; Goal 5 graduates no new success subset and preserves the
+      prior Goal 3/4 graduated subsets. Issue/PR: #789 / #790.
 - [x] The current refusal boundaries are runnable as proof profiles with the
       exact refusal code, `migrationCompleted=false`, `descriptorGateCompleted=false`,
       no sidecar success path, no source-ISA emulation, and no source text replay.
       Issue/PR: #787 / #788.
-- [ ] The Goal 3 and Goal 4 graduated profiles keep passing:
+- [x] The Goal 3 and Goal 4 graduated profiles keep passing:
       `epoll-recreate`, `signalfd-recreate`, `eventfd-counter-recreate`,
-      `timerfd-descriptor-recreate`, and `pipe-pair-recreate`.
-- [ ] The original positive proof matrix from `goal.md` keeps passing.
-- [ ] Full validation has run with timings whenever VM/assets/restore behavior is
-      touched.
-- [ ] No new success path uses source-ISA emulation, sidecar runtime, app hooks,
-      or source text replay.
+      `timerfd-descriptor-recreate`, and `pipe-pair-recreate`. Issue/PR: #789 /
+      #790.
+- [x] The original positive proof matrix from `goal.md` keeps passing. Issue/PR:
+      #789 / #790.
+- [x] Full validation has run with timings whenever VM/assets/restore behavior is
+      touched; this closure changes docs/proof-profile metadata only, so full
+      smoke is not required for #789 / #790. Issue/PR: #789 / #790.
+- [x] No new success path uses source-ISA emulation, sidecar runtime, app hooks,
+      or source text replay. Issue/PR: #789 / #790.

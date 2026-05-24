@@ -101,7 +101,11 @@ layout work is guarded by `shared-mapping-refusal`,
 `restart-remaining-time-refusal`. Duplicate fd aliases are guarded by
 `duplicate-fd-alias-refusal`, `fd-alias-lock-refusal`,
 `fd-alias-socket-refusal`, and `fd-alias-epoll-cycle-refusal` until shared
-open-file-description semantics are exact.
+open-file-description semantics are exact. Goal 5 closes without adding a new
+success subset: readiness waits, target auxv expansion, broader private layout,
+signal/restart semantics, and duplicate fd aliases all remain refused until a
+future task supplies the complete portable model, target-native restore recipe,
+target verifier, positive proof, nearby negative proofs, docs, and timings.
 
 Goal 3 intentionally leaves sockets without a graduated support subset. Listening
 sockets, connected socketpairs, TCP/Unix sockets, ancillary data, partial

@@ -177,3 +177,10 @@ for the current constrained class: adding a new accepted family requires a new
 profile (or an explicit documented refusal if it stays unsupported), target gate
 coverage, fail-closed tests, and docs updates before it can be counted as
 native-transparent success.
+
+The Goals 9-13 closure keeps all newly listed families in the refusal matrix. No
+new success profile is claimed for readiness-aware waits, target auxv expansion,
+broader private-memory layout, signal/restart semantics, or duplicate fd aliases;
+future work must replace exactly one refusal at a time with a portable model,
+target-native recipe, target verifier, positive proof, nearby negative proofs,
+docs, and validation timings.
