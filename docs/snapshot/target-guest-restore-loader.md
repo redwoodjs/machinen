@@ -53,7 +53,8 @@ Supported fd-table resources and memory materialization are intentionally narrow
 - `inherit-stdio` for explicitly allowed stdout/stderr inheritance;
 - `reopen-file` for regular files that can be reopened by path with a modeled
   offset and access mode;
-- `synthetic-empty-pipe` with a modeled read fd and optional write fd;
+- `synthetic-empty-pipe` with a modeled read fd and optional write fd, including
+  the Goal 4 `pipe-pair-v1` empty-buffer/open-peer descriptor subset;
 - `synthetic-empty-eventfd` with an empty non-semaphore eventfd;
 - `synthetic-eventfd` with a Goal 4 `eventfd-counter-v1` non-semaphore counter
   value, refused unless the counter, waiter state, flags, and close-on-exec
@@ -82,7 +83,8 @@ The runtime fd-table planner emits these resource lines from translated native
 resources. The in-guest loader validates duplicate fd ownership before launching
 the trampoline, applies `close-fd` and `reopen-file` recipes in the child process,
 and forwards synthetic fd recipes plus `--set-cloexec-fd` intents to the
-trampoline. Eventfd counter recipes are installed with a target-owned `eventfd()`
+trampoline. Pipe pair recipes are installed with target-owned `pipe2()` fds and
+verified as open plus not readable before target-native completion. Eventfd counter recipes are installed with a target-owned `eventfd()`
 followed by an exact 8-byte write of the modeled counter before the target-native
 jump. Timerfd descriptor recipes are installed with target-owned
 `timerfd_create()` and, when armed, `timerfd_settime()` using the modeled

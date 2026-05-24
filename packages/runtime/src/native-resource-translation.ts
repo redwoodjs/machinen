@@ -191,6 +191,7 @@ function fdTableEntryFromRecipe(
   return (
     inheritedStdioFdTableEntry(fd, resource, recipe, closeOnExec) ??
     reopenFileFdTableEntry(fd, resource, recipe, closeOnExec) ??
+    syntheticPipePairFdTableEntry(fd, resource, recipe, closeOnExec, resources) ??
     syntheticFdTableEntry(fd, resource, recipe, closeOnExec) ??
     syntheticEventfdFdTableEntry(resource, recipe, closeOnExec) ??
     syntheticTimerfdFdTableEntry(resource, recipe, closeOnExec) ??
@@ -231,6 +232,117 @@ function reopenFileFdTableEntry(
         closeOnExec,
       })
     : undefined;
+}
+
+function syntheticPipePairFdTableEntry(
+  fd: number,
+  resource: NativeProcessResource,
+  recipe: Record<string, unknown>,
+  closeOnExec: boolean,
+  resources: NativeProcessResource[],
+): NativeTargetFdTableEntry | undefined {
+  if (resource.kind !== "pipe" || recipe.pipeModel !== "empty-pair-v1") {
+    return undefined;
+  }
+  const pipeRecipe = normalizedPipePairRecipe(resource, resources);
+  if ("code" in pipeRecipe) {
+    return refusedFdTableEntry(resource, pipeRecipe);
+  }
+  if (pipeRecipe.end === "read") {
+    return materializedFdTableEntry(resource, "synthetic-empty-pipe-read-end", closeOnExec, {
+      kind: "synthetic-empty-pipe",
+      readFd: fd,
+      closeOnExec,
+    });
+  }
+  const entry = materializedFdTableEntry(resource, "synthetic-empty-pipe-write-end", closeOnExec);
+  return { ...entry, recipe: { ...entry.recipe, pairedReadFd: pipeRecipe.readFd } };
+}
+
+// fallow-ignore-next-line complexity
+function normalizedPipePairRecipe(
+  resource: NativeProcessResource,
+  resources: NativeProcessResource[],
+): { end: "read"; readFd: number } | { end: "write"; readFd: number } | NativeProcessImageRefusal {
+  if (!resource.path || resource.fd === undefined) {
+    return pipePairRefusal(resource, "pipe pair requires fd and pipe identity");
+  }
+  const flags = nativeFdFlagBits(resource.flags);
+  const access = nativeFdAccessMode(resource.flags);
+  if (!PIPE_PAIR_SUPPORTED_FLAGS.has(flags)) {
+    return pipePairRefusal(resource, "pipe fd flags are unsupported", {
+      flags: resource.flags,
+      supportedFlags: Array.from(PIPE_PAIR_SUPPORTED_FLAGS, (flag) => `octal:${flag.toString(8)}`),
+    });
+  }
+  if (access !== 0 && access !== 1) {
+    return pipePairRefusal(resource, "pipe fd access mode must be read-only or write-only", {
+      flags: resource.flags,
+    });
+  }
+  const modelRefusal = pipePairModelRefusal(resource);
+  if (modelRefusal) {
+    return modelRefusal;
+  }
+  const peers = resources.filter(
+    (candidate) =>
+      candidate.kind === "pipe" &&
+      candidate.path === resource.path &&
+      candidate.recipe?.pipeModel === "empty-pair-v1",
+  );
+  for (const peer of peers) {
+    if (!PIPE_PAIR_SUPPORTED_FLAGS.has(nativeFdFlagBits(peer.flags))) {
+      return pipePairRefusal(resource, "pipe peer fd flags are unsupported", {
+        pipeId: resource.path,
+        peerFd: peer.fd,
+        peerFlags: peer.flags,
+      });
+    }
+  }
+  const readPeers = peers.filter((peer) => nativeFdAccessMode(peer.flags) === 0);
+  const writePeers = peers.filter((peer) => nativeFdAccessMode(peer.flags) === 1);
+  if (peers.length !== 2 || readPeers.length !== 1 || writePeers.length !== 1) {
+    return pipePairRefusal(resource, "pipe pair requires exactly one read end and one write end", {
+      pipeId: resource.path,
+      peerFds: peers.map((peer) => peer.fd),
+    });
+  }
+  const peerRefusal = pipePairModelRefusal(peers.find((peer) => peer.fd !== resource.fd)!);
+  if (peerRefusal) {
+    return peerRefusal;
+  }
+  const readFd = readPeers[0]!.fd;
+  if (readFd === undefined) {
+    return pipePairRefusal(resource, "pipe pair read end is missing an fd");
+  }
+  return access === 0 ? { end: "read", readFd } : { end: "write", readFd };
+}
+
+function pipePairModelRefusal(
+  resource: NativeProcessResource,
+): NativeProcessImageRefusal | undefined {
+  const recipe = resource.recipe ?? {};
+  if (recipe.pipeBuffer !== "empty") {
+    return pipePairRefusal(resource, "pipe buffer must be known empty", {
+      pipeBuffer: recipe.pipeBuffer,
+    });
+  }
+  if (recipe.peerLifetime !== "open") {
+    return pipePairRefusal(resource, "pipe peer lifetime must be known open", {
+      peerLifetime: recipe.peerLifetime,
+    });
+  }
+  if (recipe.pipeWaiters !== "none") {
+    return pipePairRefusal(resource, "pipe waiters must be known empty", {
+      pipeWaiters: recipe.pipeWaiters,
+    });
+  }
+  if (recipe.readiness !== "not-readable") {
+    return pipePairRefusal(resource, "pipe readiness must be known not-readable", {
+      readiness: recipe.readiness,
+    });
+  }
+  return undefined;
 }
 
 function syntheticFdTableEntry(
@@ -741,6 +853,13 @@ function translateResource(
       refusal: undefined,
     };
   }
+  if (resource.kind === "pipe" && resource.recipe?.pipeModel === "empty-pair-v1") {
+    return {
+      ...resource,
+      state: "recipe",
+      refusal: undefined,
+    };
+  }
   if (resource.kind === "pipe" && resource.fd !== undefined) {
     if (syntheticEmptyPipeFds.has(resource.fd)) {
       return {
@@ -891,6 +1010,7 @@ function resourceRefusalCode(
 
 const EVENTFD_COUNTER_SUPPORTED_FLAGS = new Set([0o2, 0o2000002]);
 const EVENTFD_MAX_COUNTER = 0xfffffffffffffffen;
+const PIPE_PAIR_SUPPORTED_FLAGS = new Set([0o0, 0o1, 0o2000000, 0o2000001]);
 const TIMERFD_DESCRIPTOR_SUPPORTED_FLAGS = new Set([0o2, 0o2000002]);
 const CLOCK_MONOTONIC = 1;
 const MAX_NANOSECONDS = 999_999_999;
@@ -931,6 +1051,27 @@ function nativeResourceSafeNumber(
     return undefined;
   }
   return Number(value);
+}
+
+function pipePairRefusal(
+  resource: NativeProcessResource,
+  reason: string,
+  detail: Record<string, unknown> = {},
+): NativeProcessImageRefusal {
+  return {
+    code: "kernel-state-unsupported",
+    message: `pipe resource ${resource.id} cannot be recreated target-natively`,
+    detail: {
+      id: resource.id,
+      kind: resource.kind,
+      fd: resource.fd,
+      path: resource.path,
+      boundary: "pipe-pair-v1",
+      reason,
+      requiredModel: RESOURCE_REQUIRED_MODELS.pipe,
+      ...detail,
+    },
+  };
 }
 
 function eventfdRefusal(

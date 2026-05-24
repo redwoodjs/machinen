@@ -139,6 +139,36 @@
     ]
   },
   {
+    "name": "pipe-pair-recreate",
+    "remoteSourceTarget": "pipe-pair-recreate",
+    "description": "Target-native empty pipe pair recreation with known open peer and not-readable state.",
+    "sourceFixture": "packages/microvm/assets/native-pipe-read-target.c",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "success",
+    "supportStatus": "graduated-support",
+    "unsafeStateFamily": "pipe",
+    "graduatedFromRefusalCode": "kernel-state-unsupported",
+    "acceptedSubset": "pipe-pair-v1-empty-open-peer-no-waiters",
+    "unsafeVariants": ["pipe-read"],
+    "expectedGates": [
+      "descriptor",
+      "verifier",
+      "state-consumption",
+      "resources",
+      "return-chain",
+      "frame",
+      "registers",
+      "tls",
+      "stack-window",
+      "private-memory",
+      "executable",
+      "signal",
+      "active-syscall",
+      "resume-path"
+    ]
+  },
+  {
     "name": "timerfd-read",
     "remoteSourceTarget": "timerfd-read",
     "description": "One-shot timerfd read active-syscall proof with modeled remaining time.",

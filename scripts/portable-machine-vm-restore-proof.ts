@@ -55,6 +55,7 @@ interface Args {
     | "apply-target-initial-stack";
   includeEventfdCounterProof: boolean;
   includeTimerfdDescriptorProof: boolean;
+  includePipePairProof: boolean;
   includeEpollProof: boolean;
   includeSignalfdProof: boolean;
 }
@@ -110,6 +111,7 @@ interface CombinedDescriptorContext extends CombinedDescriptorPaths {
   activeFileWriteProof?: ActiveFileWriteProof;
   includeEventfdCounterProof: boolean;
   includeTimerfdDescriptorProof: boolean;
+  includePipePairProof: boolean;
   includeEpollProof: boolean;
   includeSignalfdProof: boolean;
 }
@@ -234,7 +236,7 @@ function usage(): never {
       "--bundle-dir path --target-code-file path [--image rootfs.tar.gz] " +
       "[--combined-descriptor] [--real-utility-continuation] " +
       "[--process-context-restore metadata-only|apply-target-env-cwd|apply-target-visible-context|apply-target-initial-stack] " +
-      "[--include-eventfd-counter-proof] [--include-timerfd-descriptor-proof] [--include-epoll-proof] [--include-signalfd-proof] [--json]",
+      "[--include-eventfd-counter-proof] [--include-timerfd-descriptor-proof] [--include-pipe-pair-proof] [--include-epoll-proof] [--include-signalfd-proof] [--json]",
   );
   process.exit(2);
 }
@@ -258,6 +260,7 @@ function argsFromReader(read: (flag: string) => string | undefined, argv: string
     processContextRestore: parseProcessContextRestoreMode(read("--process-context-restore")),
     includeEventfdCounterProof: argv.includes("--include-eventfd-counter-proof"),
     includeTimerfdDescriptorProof: argv.includes("--include-timerfd-descriptor-proof"),
+    includePipePairProof: argv.includes("--include-pipe-pair-proof"),
     includeEpollProof: argv.includes("--include-epoll-proof"),
     includeSignalfdProof: argv.includes("--include-signalfd-proof"),
   };
@@ -395,6 +398,7 @@ function prepareCombinedDescriptor(
     plan,
     context.includeEventfdCounterProof,
     context.includeTimerfdDescriptorProof,
+    context.includePipePairProof,
     context.includeEpollProof,
     context.includeSignalfdProof,
   );
@@ -493,6 +497,7 @@ function combinedDescriptorContext(
     activeFileWriteProof: activeFileWriteProof(activeSyscallPlan.steps),
     includeEventfdCounterProof: args.includeEventfdCounterProof,
     includeTimerfdDescriptorProof: args.includeTimerfdDescriptorProof,
+    includePipePairProof: args.includePipePairProof,
     includeEpollProof: args.includeEpollProof,
     includeSignalfdProof: args.includeSignalfdProof,
   };
@@ -1087,7 +1092,7 @@ function proofFdTable(context: CombinedDescriptorContext) {
     resources: proofFdResources(context),
     expectedFds: [PROOF_CLOSED_FD],
     inheritedStdio: { mode: "inherit-output" },
-    syntheticEmptyPipeFds: [PROOF_PIPE_READ_FD],
+    syntheticEmptyPipeFds: context.includePipePairProof ? [] : [PROOF_PIPE_READ_FD],
     syntheticEmptyEventFds: context.includeEventfdCounterProof ? [] : [PROOF_EVENT_FD],
     syntheticTimerFds: context.includeTimerfdDescriptorProof ? [] : [PROOF_TIMER_FD],
   });
@@ -1165,6 +1170,7 @@ function prepareTargetContinuation(
   plan: ReturnType<typeof planPortableMachineVmRestoreProof>,
   includeEventfdCounterProof: boolean,
   includeTimerfdDescriptorProof: boolean,
+  includePipePairProof: boolean,
   includeEpollProof: boolean,
   includeSignalfdProof: boolean,
 ): PreparedTargetContinuation | ReturnType<typeof planPortableMachineVmRestoreProof> {
@@ -1178,6 +1184,7 @@ function prepareTargetContinuation(
         plan,
         includeEventfdCounterProof,
         includeTimerfdDescriptorProof,
+        includePipePairProof,
         includeEpollProof,
         includeSignalfdProof,
       )
@@ -1189,6 +1196,7 @@ function prepareTargetContinuation(
           expectedFdBytes,
           includeEventfdCounterProof,
           includeTimerfdDescriptorProof,
+          includePipePairProof,
           includeEpollProof,
           includeSignalfdProof,
         ),
@@ -1203,6 +1211,7 @@ function prepareRealUtilityContinuation(
   plan: ReturnType<typeof planPortableMachineVmRestoreProof>,
   includeEventfdCounterProof: boolean,
   includeTimerfdDescriptorProof: boolean,
+  includePipePairProof: boolean,
   includeEpollProof: boolean,
   includeSignalfdProof: boolean,
 ) {
@@ -1215,6 +1224,7 @@ function prepareRealUtilityContinuation(
     expectedFdBytes,
     includeEventfdCounterProof,
     includeTimerfdDescriptorProof,
+    includePipePairProof,
     includeEpollProof,
     includeSignalfdProof,
   );
@@ -1456,8 +1466,8 @@ function proofFdResources(context: CombinedDescriptorContext): NativeProcessReso
     proofFileResource(),
     ...activeFileReadResources(context),
     ...activeFileWriteResources(context),
-    proofPipeResource(PROOF_PIPE_READ_FD, "read"),
-    proofPipeResource(PROOF_PIPE_WRITE_FD, "write"),
+    proofPipeResource(PROOF_PIPE_READ_FD, "read", context),
+    proofPipeResource(PROOF_PIPE_WRITE_FD, "write", context),
     proofEventfdResource(context),
     proofTimerfdResource(context),
     ...epollProofResources(context),
@@ -1583,15 +1593,31 @@ function proofFileResource(): NativeProcessResource {
   };
 }
 
-function proofPipeResource(fd: number, end: "read" | "write"): NativeProcessResource {
-  return {
+function proofPipeResource(
+  fd: number,
+  end: "read" | "write",
+  context: CombinedDescriptorContext,
+): NativeProcessResource {
+  const base = {
     id: `fd:${fd}:combined-proof-pipe-${end}`,
-    kind: "pipe",
-    state: "captured",
+    kind: "pipe" as const,
+    state: "captured" as const,
     fd,
     path: "pipe:combined-proof",
     flags: [end === "read" ? "octal:0" : "octal:1"],
   };
+  return context.includePipePairProof
+    ? {
+        ...base,
+        recipe: {
+          pipeModel: "empty-pair-v1",
+          pipeBuffer: "empty",
+          peerLifetime: "open",
+          pipeWaiters: "none",
+          readiness: "not-readable",
+        },
+      }
+    : base;
 }
 
 function proofSyntheticResource(kind: "eventfd" | "timer", fd: number): NativeProcessResource {
@@ -1635,6 +1661,7 @@ function combinedProofTargetCode(
   expectedFdBytes: Buffer,
   includeEventfdCounterProof: boolean,
   includeTimerfdDescriptorProof: boolean,
+  includePipePairProof: boolean,
   includeEpollProof: boolean,
   includeSignalfdProof: boolean,
 ): Buffer {
@@ -1645,6 +1672,7 @@ function combinedProofTargetCode(
     expectedFdBytes,
     includeEventfdCounterProof,
     includeTimerfdDescriptorProof,
+    includePipePairProof,
     includeEpollProof,
     includeSignalfdProof,
   ).bytes;
@@ -1656,6 +1684,7 @@ function stateConsumingRealUtilityTargetCode(
   expectedFdBytes: Buffer,
   includeEventfdCounterProof: boolean,
   includeTimerfdDescriptorProof: boolean,
+  includePipePairProof: boolean,
   includeEpollProof: boolean,
   includeSignalfdProof: boolean,
 ): {
@@ -1669,6 +1698,7 @@ function stateConsumingRealUtilityTargetCode(
     expectedFdBytes,
     includeEventfdCounterProof,
     includeTimerfdDescriptorProof,
+    includePipePairProof,
     includeEpollProof,
     includeSignalfdProof,
   );
@@ -1688,6 +1718,7 @@ function proofStateVerifierTargetCode(
   expectedFdBytes: Buffer,
   includeEventfdCounterProof: boolean,
   includeTimerfdDescriptorProof: boolean,
+  includePipePairProof: boolean,
   includeEpollProof: boolean,
   includeSignalfdProof: boolean,
 ): { bytes: Buffer; translatedReturnOffset: number } {
@@ -1718,8 +1749,12 @@ function proofStateVerifierTargetCode(
   asm.markStateCheck(completion, STATE_CHECK_STDIO);
   asm.readAndCheck(PROOF_FILE_FD, expectedFdBytes);
   asm.markStateCheck(completion, STATE_CHECK_REOPEN_FILE);
-  asm.checkFdOpen(PROOF_PIPE_READ_FD);
-  asm.checkFdOpen(PROOF_PIPE_WRITE_FD);
+  if (includePipePairProof) {
+    asm.checkPipePairEmpty(PROOF_PIPE_READ_FD, PROOF_PIPE_WRITE_FD);
+  } else {
+    asm.checkFdOpen(PROOF_PIPE_READ_FD);
+    asm.checkFdOpen(PROOF_PIPE_WRITE_FD);
+  }
   asm.markStateCheck(completion, STATE_CHECK_PIPE);
   if (includeEventfdCounterProof) {
     asm.readEventfdValueAndCheck(PROOF_EVENT_FD, BigInt(PROOF_EVENTFD_COUNTER));
@@ -1861,6 +1896,18 @@ class Amd64ProofAssembler {
     this.jumpIfNotEqual();
     this.loadU64FromRbxOffset(0x60);
     this.checkRaxImmediate(expected);
+  }
+
+  checkPipePairEmpty(readFd: number, writeFd: number): void {
+    this.checkFdOpen(readFd);
+    this.checkFdOpen(writeFd);
+    this.storePollfd(readFd, 0x60, 0x0001);
+    this.syscall(7);
+    this.leaRdiRbxOffset(0x60);
+    this.push(0xbe);
+    this.pushU32(1);
+    this.push(0x31, 0xd2, 0x0f, 0x05, 0x48, 0x85, 0xc0);
+    this.jumpIfNotEqual();
   }
 
   checkTimerfdDisarmed(fd: number): void {
@@ -2045,6 +2092,22 @@ class Amd64ProofAssembler {
     }
     this.push(0x48, 0x8d, 0xb3);
     this.pushU32(offset);
+  }
+
+  private leaRdiRbxOffset(offset: number): void {
+    if (offset <= 127) {
+      this.push(0x48, 0x8d, 0x7b, offset);
+      return;
+    }
+    this.push(0x48, 0x8d, 0xbb);
+    this.pushU32(offset);
+  }
+
+  private storePollfd(fd: number, offset: number, events: number): void {
+    this.push(0xc7, 0x43, offset);
+    this.pushU32(fd);
+    this.push(0x66, 0xc7, 0x43, offset + 4, events & 0xff, (events >> 8) & 0xff);
+    this.push(0x66, 0xc7, 0x43, offset + 6, 0x00, 0x00);
   }
 
   private cmpDwordRbxOffsetImm8(offset: number, value: number): void {

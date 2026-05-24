@@ -108,12 +108,13 @@ describe("portable machine proof runner", () => {
     expect(result.status, result.stderr).toBe(0);
     const summary = JSON.parse(result.stdout);
     const names = summary.profiles.map((profile: { name: string }) => profile.name);
-    expect(names.slice(0, 13)).toEqual([
+    expect(names.slice(0, 14)).toEqual([
       "two-thread-ppoll",
       "pipe-read",
       "eventfd-read",
       "eventfd-counter-recreate",
       "timerfd-descriptor-recreate",
+      "pipe-pair-recreate",
       "timerfd-read",
       "file-read",
       "file-pread",
@@ -127,6 +128,7 @@ describe("portable machine proof runner", () => {
       expect.arrayContaining([
         "epoll-recreate",
         "timerfd-descriptor-recreate",
+        "pipe-pair-recreate",
         "signalfd-recreate",
         "socket-transfer-refusal",
         "epoll-wait-refusal",
@@ -166,7 +168,7 @@ describe("portable machine proof runner", () => {
     expect(summary.supportReport).toMatchObject({
       counts: {
         "baseline-success": 11,
-        "graduated-support": 4,
+        "graduated-support": 5,
         "intentional-refusal": 7,
         "permanent-refusal": 3,
       },
@@ -179,6 +181,11 @@ describe("portable machine proof runner", () => {
         expect.objectContaining({
           name: "timerfd-descriptor-recreate",
           acceptedSubset: "timerfd-descriptor-v1-disarmed-or-relative-one-shot",
+          graduatedFromRefusalCode: "kernel-state-unsupported",
+        }),
+        expect.objectContaining({
+          name: "pipe-pair-recreate",
+          acceptedSubset: "pipe-pair-v1-empty-open-peer-no-waiters",
           graduatedFromRefusalCode: "kernel-state-unsupported",
         }),
         expect.objectContaining({

@@ -85,14 +85,16 @@ Tasks:
 - [x] Add target-native timerfd recreation and proof profiles for the accepted
       timerfd subset; keep expired, interval, ambiguous clock, and unmodeled
       overrun state refused. Issue/PR: #777 / #778.
-- [ ] Define pipe descriptor-pair provenance for empty-buffer pipes with known
-      read/write ends, peer lifetime, EOF behavior, and fd flags.
-- [ ] Add positive and negative proofs for empty pipe pairs only when readiness,
-      EOF, and peer ownership are exact.
-- [ ] Decide whether duplicate fd aliases can graduate; if not, keep
-      `target-fd-table-duplicate` as the stable boundary.
-- [ ] Update resource translation docs, target loader docs, proof-profile docs,
-      and refusal inventory after each graduated resource family.
+- [x] Define pipe descriptor-pair provenance for empty-buffer pipes with known
+      read/write ends, peer lifetime, EOF behavior, and fd flags. Issue/PR: #779
+      / #780.
+- [x] Add positive and negative proofs for empty pipe pairs only when readiness,
+      EOF, and peer ownership are exact. Issue/PR: #779 / #780.
+- [x] Decide whether duplicate fd aliases can graduate; if not, keep
+      `target-fd-table-duplicate` as the stable boundary. Issue/PR: #779 / #780.
+- [x] Update resource translation docs, target loader docs, proof-profile docs,
+      and refusal inventory after each graduated resource family. Issue/PR: #775
+      / #776, #777 / #778, #779 / #780.
 
 Refusal boundaries that remain unless explicitly modeled:
 
