@@ -225,6 +225,113 @@ describe("native resource translation", () => {
     ]);
   });
 
+  it("plans an accepted signalfd descriptor when queues and signal frames are empty", () => {
+    const plan = planNativeTargetFdTable({
+      resources: [
+        {
+          id: "fd:13",
+          kind: "signalfd",
+          state: "captured",
+          fd: 13,
+          path: "anon_inode:[signalfd]",
+          flags: ["octal:4000"],
+          recipe: {
+            signalfdModel: "empty-queue-v1",
+            signalMask: "0x0000000000000200",
+            flags: 2048,
+            pendingSignals: "none",
+            queuedSiginfo: "empty",
+            activeSignalFrame: false,
+            altStackState: "disabled",
+          },
+        },
+      ],
+    });
+
+    expect(plan.refusals).toEqual([]);
+    expect(plan.entries).toEqual([
+      expect.objectContaining({
+        targetFd: 13,
+        kind: "synthetic-signalfd",
+        action: "materialize",
+      }),
+    ]);
+    expect(plan.targetGuestResources).toEqual([
+      {
+        kind: "synthetic-signalfd",
+        fd: 13,
+        signalMask: "0x200",
+        flags: 2048,
+        closeOnExec: false,
+      },
+    ]);
+  });
+
+  it.each([
+    {
+      name: "pending signal queue",
+      recipe: { pendingSignals: "process" },
+      reason: "pending signals and queued siginfo must be empty",
+    },
+    {
+      name: "queued siginfo",
+      recipe: { queuedSiginfo: "non-empty" },
+      reason: "pending signals and queued siginfo must be empty",
+    },
+    {
+      name: "active signal frame",
+      recipe: { activeSignalFrame: true },
+      reason: "active signal frames remain unsupported",
+    },
+    {
+      name: "active alt stack",
+      recipe: { altStackState: "enabled" },
+      reason: "active signal alt-stack state remains unsupported",
+    },
+    {
+      name: "malformed mask",
+      recipe: { signalMask: "200" },
+      reason: "signalfd recipe requires a finite mask and flags",
+    },
+    {
+      name: "unsupported flags",
+      recipe: { flags: 1 },
+      reason: "signalfd flags are unsupported",
+    },
+  ])("keeps unsafe signalfd descriptor variants fail-closed: $name", ({ recipe, reason }) => {
+    const plan = planNativeTargetFdTable({
+      resources: [
+        {
+          id: "fd:13",
+          kind: "signalfd",
+          state: "captured",
+          fd: 13,
+          path: "anon_inode:[signalfd]",
+          recipe: {
+            signalfdModel: "empty-queue-v1",
+            signalMask: "0x200",
+            flags: 0,
+            pendingSignals: "none",
+            queuedSiginfo: "empty",
+            activeSignalFrame: false,
+            altStackState: "disabled",
+            ...recipe,
+          },
+        },
+      ],
+    });
+
+    expect(plan.refusals).toEqual([
+      expect.objectContaining({
+        code: "target-signalfd-state-unsupported",
+        detail: expect.objectContaining({ reason }),
+      }),
+    ]);
+    expect(plan.targetGuestResources).not.toContainEqual(
+      expect.objectContaining({ kind: "synthetic-signalfd", fd: 13 }),
+    );
+  });
+
   it.each([
     {
       name: "missing watched fd recipe",

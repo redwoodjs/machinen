@@ -100,6 +100,9 @@ struct Descriptor {
   int pipe_write_fd;
   int event_fd;
   int timer_fd;
+  int signalfd_fds[MAX_FD_RECIPES];
+  char signalfd_specs[MAX_FD_RECIPES][1024];
+  size_t signalfd_count;
   int epoll_fds[MAX_FD_RECIPES];
   char epoll_specs[MAX_FD_RECIPES][1024];
   size_t epoll_count;
@@ -384,6 +387,19 @@ static void parse_eventfd_resource(struct Descriptor *descriptor, char *fields) 
 static void parse_timerfd_resource(struct Descriptor *descriptor, char *fields) {
   descriptor->timer_fd = parse_single_fd_resource(fields, "timerfd fd is required");
   add_cloexec_if_requested(descriptor, fields, descriptor->timer_fd);
+}
+
+static void parse_signalfd_resource(struct Descriptor *descriptor, char *fields) {
+  if (descriptor->signalfd_count >= MAX_FD_RECIPES) {
+    refuse("target-guest-loader-resource-unsupported", "too many signalfd recipes");
+  }
+  int fd = parse_single_fd_resource(fields, "signalfd fd is required");
+  descriptor->signalfd_fds[descriptor->signalfd_count] = fd;
+  fields_to_semicolon_spec(descriptor->signalfd_specs[descriptor->signalfd_count],
+      sizeof(descriptor->signalfd_specs[0]),
+      fields);
+  descriptor->signalfd_count++;
+  add_cloexec_if_requested(descriptor, fields, fd);
 }
 
 static void parse_epoll_resource(struct Descriptor *descriptor, char *fields) {
@@ -766,6 +782,8 @@ static void parse_resource(struct Descriptor *descriptor, char *line) {
     parse_eventfd_resource(descriptor, line + strlen("resource=synthetic-empty-eventfd"));
   } else if (starts_with(line, "resource=synthetic-timerfd")) {
     parse_timerfd_resource(descriptor, line + strlen("resource=synthetic-timerfd"));
+  } else if (starts_with(line, "resource=synthetic-signalfd")) {
+    parse_signalfd_resource(descriptor, line + strlen("resource=synthetic-signalfd"));
   } else if (starts_with(line, "resource=synthetic-epoll")) {
     parse_epoll_resource(descriptor, line + strlen("resource=synthetic-epoll"));
   } else {
@@ -854,6 +872,9 @@ static void validate_descriptor(const struct Descriptor *descriptor) {
   mark_fd(seen, descriptor->pipe_write_fd);
   mark_fd(seen, descriptor->event_fd);
   mark_fd(seen, descriptor->timer_fd);
+  for (size_t i = 0; i < descriptor->signalfd_count; i++) {
+    mark_fd(seen, descriptor->signalfd_fds[i]);
+  }
   for (size_t i = 0; i < descriptor->epoll_count; i++) {
     mark_fd(seen, descriptor->epoll_fds[i]);
   }
@@ -1098,6 +1119,10 @@ static int run_trampoline(const struct Options *opts, const struct Descriptor *d
   if (descriptor->timer_fd >= 0) {
     push_arg(child_argv, &child_argc, "--synthetic-timerfd");
     push_arg(child_argv, &child_argc, timer_fd);
+  }
+  for (size_t i = 0; i < descriptor->signalfd_count; i++) {
+    push_arg(child_argv, &child_argc, "--synthetic-signalfd");
+    push_arg(child_argv, &child_argc, descriptor->signalfd_specs[i]);
   }
   for (size_t i = 0; i < descriptor->epoll_count; i++) {
     push_arg(child_argv, &child_argc, "--synthetic-epoll");

@@ -13554,7 +13554,7 @@ Poll interval in ms while retrying. Default 250.
 
 ### NativeTargetFdTableEntryKind
 
-> **NativeTargetFdTableEntryKind** = `"close-fd"` \| `"inherit-stdio"` \| `"reopen-file"` \| `"synthetic-empty-pipe-read-end"` \| `"synthetic-empty-pipe-write-end"` \| `"synthetic-empty-eventfd"` \| `"synthetic-timerfd"` \| `"synthetic-epoll"` \| `"refused"`
+> **NativeTargetFdTableEntryKind** = `"close-fd"` \| `"inherit-stdio"` \| `"reopen-file"` \| `"synthetic-empty-pipe-read-end"` \| `"synthetic-empty-pipe-write-end"` \| `"synthetic-empty-eventfd"` \| `"synthetic-timerfd"` \| `"synthetic-signalfd"` \| `"synthetic-epoll"` \| `"refused"`
 
 ***
 
@@ -13916,7 +13916,7 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ### TargetGuestRestoreResourceRecipe
 
-> **TargetGuestRestoreResourceRecipe** = \{ `kind`: `"close-fd"`; `fd`: `number`; `reason?`: `string`; \} \| \{ `kind`: `"inherit-stdio"`; `fd`: `1` \| `2`; `stream`: `"stdout"` \| `"stderr"`; `closeOnExec?`: `boolean`; \} \| \{ `kind`: `"reopen-file"`; `fd`: `number`; `path`: `string`; `offset`: `number`; `access`: `0` \| `1` \| `2`; `closeOnExec?`: `boolean`; \} \| \{ `kind`: `"synthetic-empty-pipe"`; `readFd`: `number`; `writeFd?`: `number`; `closeOnExec?`: `boolean`; \} \| \{ `kind`: `"synthetic-empty-eventfd"`; `fd`: `number`; `closeOnExec?`: `boolean`; \} \| \{ `kind`: `"synthetic-timerfd"`; `fd`: `number`; `closeOnExec?`: `boolean`; \} \| \{ `kind`: `"synthetic-epoll"`; `fd`: `number`; `watches`: [`TargetGuestEpollWatchRecipe`](#targetguestepollwatchrecipe)[]; `closeOnExec?`: `boolean`; \}
+> **TargetGuestRestoreResourceRecipe** = \{ `kind`: `"close-fd"`; `fd`: `number`; `reason?`: `string`; \} \| \{ `kind`: `"inherit-stdio"`; `fd`: `1` \| `2`; `stream`: `"stdout"` \| `"stderr"`; `closeOnExec?`: `boolean`; \} \| \{ `kind`: `"reopen-file"`; `fd`: `number`; `path`: `string`; `offset`: `number`; `access`: `0` \| `1` \| `2`; `closeOnExec?`: `boolean`; \} \| \{ `kind`: `"synthetic-empty-pipe"`; `readFd`: `number`; `writeFd?`: `number`; `closeOnExec?`: `boolean`; \} \| \{ `kind`: `"synthetic-empty-eventfd"`; `fd`: `number`; `closeOnExec?`: `boolean`; \} \| \{ `kind`: `"synthetic-timerfd"`; `fd`: `number`; `closeOnExec?`: `boolean`; \} \| \{ `kind`: `"synthetic-signalfd"`; `fd`: `number`; `signalMask`: `string`; `flags`: `number`; `closeOnExec?`: `boolean`; \} \| \{ `kind`: `"synthetic-epoll"`; `fd`: `number`; `watches`: [`TargetGuestEpollWatchRecipe`](#targetguestepollwatchrecipe)[]; `closeOnExec?`: `boolean`; \}
 
 ***
 

@@ -156,11 +156,14 @@ unsupported kernel state family: interest list, ready-list ordering,
 edge-triggered delivery state, waiter wakeup races, and target fd resource
 mapping.
 
-Reads from captured signalfd resources refuse with
-`target-signalfd-state-unsupported`. The refusal records the read arguments,
-signalfd resource detail, and the unsupported pending signal queue / siginfo
-payload / signal-mask coordination state. Missing arguments, missing resource
-rows, and wrong resource kinds are still precise fail-closed refusals.
+Reads from captured signalfd resources continue to refuse with
+`target-signalfd-state-unsupported`. Goal 3 graduates only descriptor
+recreation for `empty-queue-v1`; an active `read(signalfd)` still requires
+payload/order preservation and is not completed or emulated. The refusal records
+the read arguments, signalfd resource detail, and the unsupported pending signal
+queue / siginfo payload / signal-mask coordination state. Missing arguments,
+missing resource rows, and wrong resource kinds are still precise fail-closed
+refusals.
 
 ## Explicit fd write deferral
 

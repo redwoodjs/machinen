@@ -23,6 +23,7 @@
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <sys/mman.h>
+#include <sys/signalfd.h>
 #include <sys/syscall.h>
 #include <sys/timerfd.h>
 #include <sys/wait.h>
@@ -71,6 +72,7 @@ extern char **environ;
 #define STATE_CHECK_EVENTFD UINT64_C(0x20)
 #define STATE_CHECK_TIMERFD UINT64_C(0x40)
 #define STATE_CHECK_EPOLL UINT64_C(0x80)
+#define STATE_CHECK_SIGNALFD UINT64_C(0x100)
 #define TRANSLATED_RETURN_MARKER UINT64_C(0x52455455524e4a50)
 #define TRANSLATED_FRAME_MARKER UINT64_C(0x4652414d45504153)
 #define TRANSLATED_RESUME_MARKER UINT64_C(0x524553554d455041)
@@ -228,6 +230,8 @@ struct Options {
   int synthetic_empty_pipe_write_fd;
   int synthetic_empty_eventfd;
   int synthetic_timerfd;
+  struct NativeRestoreStepSpec synthetic_signalfds[MAX_NATIVE_RESTORE_STEPS];
+  size_t synthetic_signalfd_count;
   struct NativeRestoreStepSpec synthetic_epolls[MAX_NATIVE_RESTORE_STEPS];
   size_t synthetic_epoll_count;
   int cloexec_fds[MAX_CLOEXEC_FDS];
@@ -274,7 +278,8 @@ static void usage(void) {
       "[--resume-register-r11 addr] --timeout-seconds n "
       "[--synthetic-empty-pipe-read-fd n] [--synthetic-empty-pipe-write-fd n] "
       "[--synthetic-empty-eventfd n] "
-      "[--synthetic-timerfd n] [--synthetic-epoll spec] [--set-cloexec-fd n] "
+      "[--synthetic-timerfd n] [--synthetic-signalfd spec] [--synthetic-epoll spec] "
+      "[--set-cloexec-fd n] "
       "[--materialize-memory file:offset:target:size:perms] "
       "[--materialize-guard target:size] "
       "[--native-stack-window-write target:value:bytes:kind] "
@@ -705,6 +710,11 @@ static struct Options parse_args(int argc, char **argv) {
         exit(2);
       }
       opts.synthetic_timerfd = (int)fd;
+    } else if (streq(argv[i], "--synthetic-signalfd")) {
+      if (++i >= argc) {
+        usage();
+      }
+      add_native_step(opts.synthetic_signalfds, &opts.synthetic_signalfd_count, argv[i], "synthetic-signalfd");
     } else if (streq(argv[i], "--synthetic-epoll")) {
       if (++i >= argc) {
         usage();
@@ -1281,6 +1291,38 @@ static void install_synthetic_empty_eventfd(int target_fd) {
   if (fcntl(target_fd, F_SETFD, FD_CLOEXEC) != 0) {
     fprintf(stderr, "native-actual-resume-trampoline: synthetic eventfd cloexec failed: %s\n", strerror(errno));
     exit(1);
+  }
+}
+
+static void sigset_from_mask(sigset_t *set, uint64_t mask);
+
+static void install_synthetic_signalfd(const char *spec) {
+  uint64_t target_fd = native_step_u64(spec, "fd", "synthetic-signalfd");
+  uint64_t signal_mask = native_step_u64(spec, "signalMask", "synthetic-signalfd");
+  uint64_t flags = native_step_u64(spec, "flags", "synthetic-signalfd");
+  if (target_fd > 1024u || (flags & ~(uint64_t)SFD_NONBLOCK) != 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: synthetic signalfd descriptor is invalid\n");
+    exit(2);
+  }
+  sigset_t mask;
+  sigset_from_mask(&mask, signal_mask);
+  int signal_fd = signalfd(-1, &mask, (int)flags);
+  if (signal_fd < 0) {
+    fprintf(stderr, "native-actual-resume-trampoline: synthetic signalfd create failed: %s\n", strerror(errno));
+    exit(2);
+  }
+  if (signal_fd != (int)target_fd) {
+    if (dup2(signal_fd, (int)target_fd) < 0) {
+      fprintf(stderr, "native-actual-resume-trampoline: synthetic signalfd dup2 failed: %s\n", strerror(errno));
+      exit(2);
+    }
+    close(signal_fd);
+  }
+}
+
+static void install_synthetic_signalfds(const struct Options *opts) {
+  for (size_t i = 0; i < opts->synthetic_signalfd_count; i++) {
+    install_synthetic_signalfd(opts->synthetic_signalfds[i].spec);
   }
 }
 
@@ -2582,6 +2624,9 @@ static uint64_t expected_state_consumption_mask(const struct Options *opts) {
   if (opts->synthetic_epoll_count > 0) {
     mask |= STATE_CHECK_EPOLL;
   }
+  if (opts->synthetic_signalfd_count > 0) {
+    mask |= STATE_CHECK_SIGNALFD;
+  }
   return mask;
 }
 
@@ -2626,6 +2671,10 @@ static void print_state_consumption(const struct Options *opts) {
     printf(",");
     print_check_status("synthetic-epoll", mask, STATE_CHECK_EPOLL);
   }
+  if (opts->synthetic_signalfd_count > 0) {
+    printf(",");
+    print_check_status("synthetic-signalfd", mask, STATE_CHECK_SIGNALFD);
+  }
   printf("],\"resourceStatuses\":[");
   print_check_status("inherit-stdio", mask, STATE_CHECK_STDIO);
   printf(",");
@@ -2641,6 +2690,10 @@ static void print_state_consumption(const struct Options *opts) {
   if (opts->synthetic_epoll_count > 0) {
     printf(",");
     print_check_status("synthetic-epoll", mask, STATE_CHECK_EPOLL);
+  }
+  if (opts->synthetic_signalfd_count > 0) {
+    printf(",");
+    print_check_status("synthetic-signalfd", mask, STATE_CHECK_SIGNALFD);
   }
   printf("]}");
 }
@@ -2998,6 +3051,7 @@ int main(int argc, char **argv) {
       opts.synthetic_empty_pipe_read_fd, opts.synthetic_empty_pipe_write_fd);
   install_synthetic_empty_eventfd(opts.synthetic_empty_eventfd);
   install_synthetic_timerfd(opts.synthetic_timerfd);
+  install_synthetic_signalfds(&opts);
   install_synthetic_epolls(&opts);
   apply_cloexec_fds(&opts);
   consume_native_process_context_steps(&opts, &native_process_context_restore_state);
