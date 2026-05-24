@@ -51,22 +51,22 @@ recipe refuse with `target-fd-table-missing` or the underlying resource refusal.
 
 ## Resource boundary matrix
 
-| Resource / fd state          | Current policy                                                                            |
-| ---------------------------- | ----------------------------------------------------------------------------------------- |
-| regular file                 | reopen by path/offset/flags when provenance is safe                                       |
-| stdio                        | inherit stdout/stderr only with explicit stdio policy; stdin refused                      |
-| close-fd gap                 | explicit target `close-fd` recipe                                                         |
-| synthetic empty pipe         | only for modeled ppoll/read proof slices with paired read/write ends                      |
-| synthetic empty eventfd      | only counter-0, non-semaphore, modeled proof slices                                       |
-| synthetic timerfd            | only modeled disarmed/future one-shot timerfd proof slices                                |
-| PTY                          | refuse unless a PTY broker capability is declared                                         |
-| raw socket                   | refuse unless a raw-socket broker capability is declared                                  |
-| sockets                      | refuse until queues, peer identity, shutdown/options, and namespace state are modeled     |
-| epoll                        | recreate `interest-list-v1` only when watched fds have accepted recipes; otherwise refuse |
-| signalfd                     | recreate `empty-queue-v1` descriptors only; pending queues/active frames still refuse     |
-| generic eventfd/timerfd      | refuse except for the narrow empty/disarmed modeled states above                          |
-| duplicate captured fd        | refuse with `target-fd-table-duplicate` before target execution                           |
-| unsupported descriptor shape | refuse before loader/trampoline args are built                                            |
+| Resource / fd state          | Current policy                                                                             |
+| ---------------------------- | ------------------------------------------------------------------------------------------ |
+| regular file                 | reopen by path/offset/flags when provenance is safe                                        |
+| stdio                        | inherit stdout/stderr only with explicit stdio policy; stdin refused                       |
+| close-fd gap                 | explicit target `close-fd` recipe                                                          |
+| synthetic empty pipe         | only for modeled ppoll/read proof slices with paired read/write ends                       |
+| synthetic empty eventfd      | only counter-0, non-semaphore, modeled proof slices                                        |
+| synthetic timerfd            | only modeled disarmed/future one-shot timerfd proof slices                                 |
+| PTY                          | refuse unless a PTY broker capability is declared                                          |
+| raw socket                   | refuse unless a raw-socket broker capability is declared                                   |
+| sockets                      | Goal 3 keeps arbitrary/brokerless sockets refused until an explicit broker contract exists |
+| epoll                        | recreate `interest-list-v1` only when watched fds have accepted recipes; otherwise refuse  |
+| signalfd                     | recreate `empty-queue-v1` descriptors only; pending queues/active frames still refuse      |
+| generic eventfd/timerfd      | refuse except for the narrow empty/disarmed modeled states above                           |
+| duplicate captured fd        | refuse with `target-fd-table-duplicate` before target execution                            |
+| unsupported descriptor shape | refuse before loader/trampoline args are built                                             |
 
 ## Refusals
 
@@ -96,8 +96,12 @@ Each refusal includes the resource id, kind, fd, and path when available.
 
 This issue defines resource recipes. The follow-up file-resource final-jump
 proof applies only regular-file recipes that can be reopened by path on the
-target host. A host broker or a narrower target-native model is still required
-before `ping` raw sockets, PTYs, child process trees, arbitrary timers, active
-ready-list epoll state, and futex waiters can resume transparently.
+target host. Goal 3 explicitly leaves arbitrary sockets refused: no TCP/Unix
+socket, socketpair, listening socket, ancillary-data, partial-transfer, or
+unbrokered endpoint state may reach target-native success without a future
+broker descriptor plus provenance/authorization gates. A host broker or a
+narrower target-native model is still required before `ping` raw sockets, PTYs,
+child process trees, arbitrary timers, active ready-list epoll state, queued
+signalfd state, and futex waiters can resume transparently.
 
 See also: [Native non-file resource boundary](./native-nonfile-resource-boundary.md).
