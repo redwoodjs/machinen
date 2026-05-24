@@ -61,6 +61,18 @@ function request(): NativeMappingMaterializationRequest {
         target: { materialization: "recreate", targetStart: "0x75000000" },
       }),
       mapping({
+        id: "mapping:vvar",
+        kind: "vvar",
+        permissions: { read: true, write: false, execute: false, private: true, shared: false },
+        target: { materialization: "recreate", targetStart: "0x75001000" },
+      }),
+      mapping({
+        id: "mapping:special",
+        kind: "special",
+        permissions: { read: true, write: false, execute: false, private: true, shared: false },
+        target: { materialization: "recreate", targetStart: "0x75002000" },
+      }),
+      mapping({
         id: "mapping:guard",
         permissions: { read: false, write: false, execute: false, private: true, shared: false },
         target: { materialization: "refuse", reason: "guard page was unreadable at capture" },
@@ -105,6 +117,8 @@ describe("native mapping materialization", () => {
         expect.objectContaining({ mapping: "mapping:heap", action: "copy-captured-bytes" }),
         expect.objectContaining({ mapping: "mapping:stack", action: "recreate" }),
         expect.objectContaining({ mapping: "mapping:vdso", action: "recreate" }),
+        expect.objectContaining({ mapping: "mapping:vvar", action: "recreate" }),
+        expect.objectContaining({ mapping: "mapping:special", action: "recreate" }),
         expect.objectContaining({
           mapping: "mapping:guard",
           action: "recreate",
@@ -125,6 +139,9 @@ describe("native mapping materialization", () => {
       offset: 0,
       sizeBytes: 4096,
     });
+    for (const recreated of ["mapping:vdso", "mapping:vvar", "mapping:special"]) {
+      expect(result.steps.find((step) => step.mapping === recreated)?.sourceBytes).toBeUndefined();
+    }
   });
 
   it("refuses invalid captured byte ranges precisely", () => {
