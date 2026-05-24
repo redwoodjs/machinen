@@ -119,7 +119,8 @@ Refusal boundaries that remain:
 - [!] scheduler wake ordering/fairness claims;
 - [!] edge-triggered or one-shot readiness;
 - [!] socket readiness without a broker/transport contract;
-- [!] signal-mask-changing waits until signal-mask support graduates;
+- [!] signal-mask-changing `ppoll`/wait semantics until their own verifier and
+  ordering contract graduates;
 - [!] shared, stale, oversized, or non-target-owned pollfd/fd-set memory.
 
 ## Support graduation 2: duplicate fd aliases for regular files
