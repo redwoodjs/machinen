@@ -71,6 +71,36 @@ Readiness and fd aliasing build directly on Goal 4 descriptor recipes. Auxv,
 memory layout, and signal/restart semantics depend on broader process-model
 invariants and should come after those descriptor/wait foundations are firmer.
 
+## Refusal proof baseline
+
+The first task in this wave is proving that the refusal boundaries named below
+remain executable proof profiles, not just prose. Each profile must verify the
+exact refusal code with `migrationCompleted=false`, `descriptorGateCompleted=false`,
+`sourceTextReusedAsTargetCode=false`, `sourceIsaEmulationUsed=false`, and
+`sidecarRuntimeUsed=false`.
+
+- [x] Goal 9 refusal profiles: `readiness-wait-refusal`,
+      `readiness-scheduler-refusal`, `readiness-edge-trigger-refusal`,
+      `readiness-signal-mask-refusal`, `readiness-pollfd-memory-refusal`, and
+      `socket-readiness-refusal`. Issue/PR: #787 / #788.
+- [x] Goal 10 refusal profiles: `auxv-source-pointer-refusal`,
+      `at-random-source-refusal`, `at-execfn-identity-refusal`,
+      `target-libc-global-refusal`, `argv-env-pointer-refusal`, and
+      `source-vdso-vvar-refusal`. Issue/PR: #787 / #788.
+- [x] Goal 11 refusal profiles: `private-layout-refusal`,
+      `shared-mapping-refusal`, `private-source-pointer-refusal`,
+      `stale-private-range-refusal`, `wx-private-mapping-refusal`,
+      `jit-self-modifying-refusal`, and `descriptor-provenance-refusal`. Issue/PR:
+      #787 / #788.
+- [x] Goal 12 refusal profiles: `signal-mask-restart-refusal`,
+      `pending-signal-refusal`, `active-signal-frame-refusal`,
+      `alt-stack-refusal`, `restart-remaining-time-refusal`, and
+      `restart-state-refusal`. Issue/PR: #787 / #788.
+- [x] Goal 13 refusal profiles: `duplicate-fd-alias-refusal`,
+      `fd-alias-lock-refusal`, `fd-alias-socket-refusal`,
+      `fd-alias-epoll-cycle-refusal`, and `descriptor-provenance-refusal`.
+      Issue/PR: #787 / #788.
+
 ## Goal 9: readiness-aware wait graduation
 
 Start from the proven refusal profile:
@@ -108,9 +138,14 @@ Tasks:
       not-readable timeout.
 - [ ] Add a second positive proof only after the first is stable, covering a
       different accepted fd family.
+- [x] Prove the current refusal boundaries for scheduler wake ordering,
+      edge/one-shot readiness, signal-mask-changing waits, socket readiness, and
+      ambiguous pollfd/fd-set memory as runnable negative profiles. Issue/PR:
+      #787 / #788.
 - [ ] Add negative profiles for unsupported watched fds, socket readiness, nested
       epoll cycles, stale readiness, fd-set overflow, shared/writable pollfd
-      memory, unsupported events, non-null signal masks, and ambiguous timeouts.
+      memory, unsupported events, non-null signal masks, and ambiguous timeouts
+      near each future graduated readiness subset.
 - [ ] Extend active-syscall translation only after descriptor/resource gates prove
       every watched fd and the target verifier proves readiness outcomes.
 - [ ] Keep existing timeout-driven wait proofs passing as baseline profiles.
@@ -163,9 +198,14 @@ Tasks:
       mismatched libc/global startup state.
 - [ ] Add positive process-context proof profiles only for exact target-owned
       entries.
+- [x] Prove the current refusal boundaries for source-owned auxv pointers,
+      source-owned `AT_RANDOM`, ambiguous `AT_EXECFN`, unknown target libc/global
+      state, argv/env/cwd pointer ambiguity, and source vDSO/vvar reuse as
+      runnable negative profiles. Issue/PR: #787 / #788.
 - [ ] Add negative profiles for source-owned auxv pointers, unmapped auxv
       pointers, size overflows, ambiguous executable identity, unknown libc
-      globals, and source vDSO/vvar reuse.
+      globals, and source vDSO/vvar reuse near each future graduated
+      process-context subset.
 - [ ] Update target process-context docs, proof-profile docs, refusal inventory,
       and validation timings.
 
@@ -211,9 +251,14 @@ Tasks:
 - [ ] Add a positive proof for one exact heap/brk shape.
 - [ ] Add a positive proof for one exact private-`mmap` shape only after the
       heap/brk proof is stable.
+- [x] Prove the current refusal boundaries for shared mappings, source-only
+      pointers, stale captured ranges, W+X mappings, JIT/self-modifying windows,
+      and ambiguous provenance as runnable negative profiles. Issue/PR: #787 /
+      #788.
 - [ ] Add negative profiles for shared mappings, executable data, W+X mappings,
       source-only pointers, overlapping ranges, stale hashes, guard mismatches,
-      permission mismatches, and unsupported fixed-address conflicts.
+      permission mismatches, and unsupported fixed-address conflicts near each
+      future graduated memory-layout subset.
 - [ ] Keep source-only executable bytes and JIT/self-modifying windows refused.
 - [ ] Update memory materialization docs, proof-profile docs, refusal inventory,
       and validation timings.
@@ -264,9 +309,14 @@ Tasks:
       signal mask are exact.
 - [ ] Add a restart proof only after one syscall-specific remaining-time contract
       is exact and negative variants exist.
+- [x] Prove the current refusal boundaries for pending signals, active signal
+      frames, enabled alt-stacks, signal-mask/restart ambiguity, and restart
+      blocks without remaining time as runnable negative profiles. Issue/PR: #787
+      / #788.
 - [ ] Add negative profiles for pending signals, queued siginfo, active signal
       frames, enabled alt-stacks, handler delivery ambiguity, signal-mask-changing
-      waits without a verifier, and restart blocks without remaining time.
+      waits without a verifier, and restart blocks without remaining time near
+      each future graduated signal/restart subset.
 - [ ] Preserve `migrationCompleted=false` for every signal/restart refusal.
 - [ ] Update signal policy docs, active-syscall docs, proof-profile docs, refusal
       inventory, and validation timings.
@@ -309,9 +359,13 @@ Tasks:
       shared offset/status flags before descriptor gate completion.
 - [ ] Add a positive proof profile for a regular-file duplicate group whose
       target-native reads/writes prove shared offset semantics.
+- [x] Prove the current refusal boundaries for duplicate fd aliases, locks or
+      leases, socket aliases, epoll cycles, and ambiguous descriptor provenance as
+      runnable negative profiles. Issue/PR: #787 / #788.
 - [ ] Add negative profiles for mismatched offsets, unsupported status flags,
       missing members, closed peers, ambiguous provenance, locks/leases, async
-      notification, epoll cycles, socket aliases, and readiness ambiguity.
+      notification, epoll cycles, socket aliases, and readiness ambiguity near
+      each future graduated alias subset.
 - [ ] Decide whether pipe/eventfd/timerfd aliases can graduate; if not, keep them
       explicitly refused with stable proof profiles.
 - [ ] Update descriptor/resource translation docs, target loader docs,
@@ -333,9 +387,10 @@ Refusal boundaries that remain unless explicitly modeled:
 - [ ] Every graduated subset has docs, unit tests, positive proof automation,
       nearby negative tests/profiles, target gates, and stable refusal behavior
       outside the subset.
-- [ ] Every refusal boundary remains runnable as a proof profile with the exact
-      refusal code, `migrationCompleted=false`, no sidecar success path, no
-      source-ISA emulation, and no source text replay.
+- [x] The current refusal boundaries are runnable as proof profiles with the
+      exact refusal code, `migrationCompleted=false`, `descriptorGateCompleted=false`,
+      no sidecar success path, no source-ISA emulation, and no source text replay.
+      Issue/PR: #787 / #788.
 - [ ] The Goal 3 and Goal 4 graduated profiles keep passing:
       `epoll-recreate`, `signalfd-recreate`, `eventfd-counter-recreate`,
       `timerfd-descriptor-recreate`, and `pipe-pair-recreate`.

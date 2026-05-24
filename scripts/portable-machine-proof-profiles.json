@@ -468,6 +468,161 @@
     }
   },
   {
+    "name": "readiness-scheduler-refusal",
+    "remoteSourceTarget": "readiness-scheduler-refusal",
+    "description": "Readiness that depends on scheduler wake ordering or fairness must fail closed.",
+    "sourceFixture": "synthetic-negative:readiness-scheduler-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "unsafeStateFamily": "readiness-scheduler",
+    "expectedRefusalCode": "kernel-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "descriptorConsumptionExpected": false,
+    "expectedDescriptorGateCompleted": false,
+    "expectedMigrationCompleted": false,
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "kernel-state-unsupported",
+      "unsafeStateFamily": "readiness-scheduler",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
+  },
+  {
+    "name": "readiness-edge-trigger-refusal",
+    "remoteSourceTarget": "readiness-edge-trigger-refusal",
+    "description": "Edge-triggered or one-shot readiness semantics must fail closed until modeled.",
+    "sourceFixture": "synthetic-negative:readiness-edge-trigger-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "unsafeStateFamily": "readiness-edge-trigger",
+    "expectedRefusalCode": "kernel-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "descriptorConsumptionExpected": false,
+    "expectedDescriptorGateCompleted": false,
+    "expectedMigrationCompleted": false,
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "kernel-state-unsupported",
+      "unsafeStateFamily": "readiness-edge-trigger",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
+  },
+  {
+    "name": "readiness-signal-mask-refusal",
+    "remoteSourceTarget": "readiness-signal-mask-refusal",
+    "description": "Signal-mask-changing waits must fail closed until signal-mask restore gates exist.",
+    "sourceFixture": "synthetic-negative:readiness-signal-mask-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "unsafeStateFamily": "readiness-signal-mask",
+    "expectedRefusalCode": "signal-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "descriptorConsumptionExpected": false,
+    "expectedDescriptorGateCompleted": false,
+    "expectedMigrationCompleted": false,
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "signal-state-unsupported",
+      "unsafeStateFamily": "readiness-signal-mask",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
+  },
+  {
+    "name": "readiness-pollfd-memory-refusal",
+    "remoteSourceTarget": "readiness-pollfd-memory-refusal",
+    "description": "Pollfd/fd-set memory that is shared, stale, oversized, or not target-owned must fail closed.",
+    "sourceFixture": "synthetic-negative:readiness-pollfd-memory-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "unsafeStateFamily": "readiness-pollfd-memory",
+    "expectedRefusalCode": "mapping-provenance-ambiguous",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "descriptorConsumptionExpected": false,
+    "expectedDescriptorGateCompleted": false,
+    "expectedMigrationCompleted": false,
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "mapping-provenance-ambiguous",
+      "unsafeStateFamily": "readiness-pollfd-memory",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
+  },
+  {
+    "name": "socket-readiness-refusal",
+    "remoteSourceTarget": "socket-readiness-refusal",
+    "description": "Socket readiness without a broker or transport contract must fail closed.",
+    "sourceFixture": "synthetic-negative:socket-readiness-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "unsafeStateFamily": "socket-readiness",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "descriptorConsumptionExpected": false,
+    "expectedDescriptorGateCompleted": false,
+    "expectedMigrationCompleted": false,
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "unsafeStateFamily": "socket-readiness",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
+  },
+  {
     "name": "auxv-source-pointer-refusal",
     "remoteSourceTarget": "auxv-source-pointer-refusal",
     "description": "Source-owned or ambiguous auxv pointers must fail closed before target-native success.",
@@ -487,6 +642,130 @@
     "refusalSupportContract": {
       "currentRefusalCode": "target-process-context-unsupported",
       "unsafeStateFamily": "process-context-auxv",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
+  },
+  {
+    "name": "at-random-source-refusal",
+    "remoteSourceTarget": "at-random-source-refusal",
+    "description": "Source-owned AT_RANDOM bytes must fail closed until target-owned random materialization exists.",
+    "sourceFixture": "synthetic-negative:at-random-source-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "unsafeStateFamily": "process-context-at-random",
+    "expectedRefusalCode": "target-process-context-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "descriptorConsumptionExpected": false,
+    "expectedDescriptorGateCompleted": false,
+    "expectedMigrationCompleted": false,
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-process-context-unsupported",
+      "unsafeStateFamily": "process-context-at-random",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
+  },
+  {
+    "name": "at-execfn-identity-refusal",
+    "remoteSourceTarget": "at-execfn-identity-refusal",
+    "description": "Ambiguous AT_EXECFN or executable identity must fail closed.",
+    "sourceFixture": "synthetic-negative:at-execfn-identity-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "unsafeStateFamily": "process-context-at-execfn",
+    "expectedRefusalCode": "target-process-context-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "descriptorConsumptionExpected": false,
+    "expectedDescriptorGateCompleted": false,
+    "expectedMigrationCompleted": false,
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-process-context-unsupported",
+      "unsafeStateFamily": "process-context-at-execfn",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
+  },
+  {
+    "name": "target-libc-global-refusal",
+    "remoteSourceTarget": "target-libc-global-refusal",
+    "description": "Unknown or mismatched target libc startup/global state must fail closed.",
+    "sourceFixture": "synthetic-negative:target-libc-global-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "unsafeStateFamily": "target-libc-global",
+    "expectedRefusalCode": "target-process-context-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "descriptorConsumptionExpected": false,
+    "expectedDescriptorGateCompleted": false,
+    "expectedMigrationCompleted": false,
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-process-context-unsupported",
+      "unsafeStateFamily": "target-libc-global",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
+  },
+  {
+    "name": "argv-env-pointer-refusal",
+    "remoteSourceTarget": "argv-env-pointer-refusal",
+    "description": "Ambiguous argv/env/cwd pointer ownership or size overflow must fail closed.",
+    "sourceFixture": "synthetic-negative:argv-env-pointer-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "unsafeStateFamily": "process-context-argv-env",
+    "expectedRefusalCode": "target-process-context-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "descriptorConsumptionExpected": false,
+    "expectedDescriptorGateCompleted": false,
+    "expectedMigrationCompleted": false,
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-process-context-unsupported",
+      "unsafeStateFamily": "process-context-argv-env",
       "graduationRequires": [
         "portable-state-model",
         "target-restore-recipe",
@@ -530,6 +809,130 @@
     }
   },
   {
+    "name": "shared-mapping-refusal",
+    "remoteSourceTarget": "shared-mapping-refusal",
+    "description": "Shared mappings without an explicit target sharing contract must fail closed.",
+    "sourceFixture": "synthetic-negative:shared-mapping-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "unsafeStateFamily": "shared-mapping",
+    "expectedRefusalCode": "mapping-shared-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "descriptorConsumptionExpected": false,
+    "expectedDescriptorGateCompleted": false,
+    "expectedMigrationCompleted": false,
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "mapping-shared-unsupported",
+      "unsafeStateFamily": "shared-mapping",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
+  },
+  {
+    "name": "private-source-pointer-refusal",
+    "remoteSourceTarget": "private-source-pointer-refusal",
+    "description": "Private data pointers into source-only mappings or unsupported resources must fail closed.",
+    "sourceFixture": "synthetic-negative:private-source-pointer-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "unsafeStateFamily": "private-source-pointer",
+    "expectedRefusalCode": "mapping-provenance-ambiguous",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "descriptorConsumptionExpected": false,
+    "expectedDescriptorGateCompleted": false,
+    "expectedMigrationCompleted": false,
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "mapping-provenance-ambiguous",
+      "unsafeStateFamily": "private-source-pointer",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
+  },
+  {
+    "name": "stale-private-range-refusal",
+    "remoteSourceTarget": "stale-private-range-refusal",
+    "description": "Private ranges with stale hashes, partial captures, or out-of-range bytes must fail closed.",
+    "sourceFixture": "synthetic-negative:stale-private-range-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "unsafeStateFamily": "private-stale-range",
+    "expectedRefusalCode": "mapping-captured-range-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "descriptorConsumptionExpected": false,
+    "expectedDescriptorGateCompleted": false,
+    "expectedMigrationCompleted": false,
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "mapping-captured-range-unsupported",
+      "unsafeStateFamily": "private-stale-range",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
+  },
+  {
+    "name": "wx-private-mapping-refusal",
+    "remoteSourceTarget": "wx-private-mapping-refusal",
+    "description": "Writable+executable private mappings must fail closed until target-native regeneration exists.",
+    "sourceFixture": "synthetic-negative:wx-private-mapping-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "unsafeStateFamily": "private-wx-mapping",
+    "expectedRefusalCode": "mapping-executable-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "descriptorConsumptionExpected": false,
+    "expectedDescriptorGateCompleted": false,
+    "expectedMigrationCompleted": false,
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "mapping-executable-unsupported",
+      "unsafeStateFamily": "private-wx-mapping",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
+  },
+  {
     "name": "signal-mask-restart-refusal",
     "remoteSourceTarget": "signal-mask-restart-refusal",
     "description": "Signal masks, pending delivery, alt-stack, or restart ambiguity must fail closed.",
@@ -549,6 +952,130 @@
     "refusalSupportContract": {
       "currentRefusalCode": "signal-state-unsupported",
       "unsafeStateFamily": "signal-restart",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
+  },
+  {
+    "name": "pending-signal-refusal",
+    "remoteSourceTarget": "pending-signal-refusal",
+    "description": "Pending signal queues or queued siginfo without a target delivery model must fail closed.",
+    "sourceFixture": "synthetic-negative:pending-signal-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "unsafeStateFamily": "pending-signal",
+    "expectedRefusalCode": "signal-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "descriptorConsumptionExpected": false,
+    "expectedDescriptorGateCompleted": false,
+    "expectedMigrationCompleted": false,
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "signal-state-unsupported",
+      "unsafeStateFamily": "pending-signal",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
+  },
+  {
+    "name": "active-signal-frame-refusal",
+    "remoteSourceTarget": "active-signal-frame-refusal",
+    "description": "Active signal frames or source handler stacks must fail closed.",
+    "sourceFixture": "synthetic-negative:active-signal-frame-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "unsafeStateFamily": "active-signal-frame",
+    "expectedRefusalCode": "signal-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "descriptorConsumptionExpected": false,
+    "expectedDescriptorGateCompleted": false,
+    "expectedMigrationCompleted": false,
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "signal-state-unsupported",
+      "unsafeStateFamily": "active-signal-frame",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
+  },
+  {
+    "name": "alt-stack-refusal",
+    "remoteSourceTarget": "alt-stack-refusal",
+    "description": "Enabled alt-stack state without target-native frame materialization must fail closed.",
+    "sourceFixture": "synthetic-negative:alt-stack-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "unsafeStateFamily": "signal-alt-stack",
+    "expectedRefusalCode": "signal-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "descriptorConsumptionExpected": false,
+    "expectedDescriptorGateCompleted": false,
+    "expectedMigrationCompleted": false,
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "signal-state-unsupported",
+      "unsafeStateFamily": "signal-alt-stack",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
+  },
+  {
+    "name": "restart-remaining-time-refusal",
+    "remoteSourceTarget": "restart-remaining-time-refusal",
+    "description": "Restart blocks without exact remaining time and syscall contract must fail closed.",
+    "sourceFixture": "synthetic-negative:restart-remaining-time-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "unsafeStateFamily": "restart-remaining-time",
+    "expectedRefusalCode": "syscall-restart-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "descriptorConsumptionExpected": false,
+    "expectedDescriptorGateCompleted": false,
+    "expectedMigrationCompleted": false,
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "syscall-restart-unsupported",
+      "unsafeStateFamily": "restart-remaining-time",
       "graduationRequires": [
         "portable-state-model",
         "target-restore-recipe",
@@ -859,6 +1386,130 @@
     "refusalSupportContract": {
       "currentRefusalCode": "mapping-provenance-ambiguous",
       "unsafeStateFamily": "descriptor-provenance",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
+  },
+  {
+    "name": "duplicate-fd-alias-refusal",
+    "remoteSourceTarget": "duplicate-fd-alias-refusal",
+    "description": "Duplicate fd aliases without shared open-file-description semantics must fail closed.",
+    "sourceFixture": "synthetic-negative:duplicate-fd-alias-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "unsafeStateFamily": "duplicate-fd-alias",
+    "expectedRefusalCode": "target-fd-table-duplicate",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "descriptorConsumptionExpected": false,
+    "expectedDescriptorGateCompleted": false,
+    "expectedMigrationCompleted": false,
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-fd-table-duplicate",
+      "unsafeStateFamily": "duplicate-fd-alias",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
+  },
+  {
+    "name": "fd-alias-lock-refusal",
+    "remoteSourceTarget": "fd-alias-lock-refusal",
+    "description": "Fd aliases with locks, leases, async notification, or unknown ownership must fail closed.",
+    "sourceFixture": "synthetic-negative:fd-alias-lock-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "unsafeStateFamily": "fd-alias-lock",
+    "expectedRefusalCode": "target-fd-table-duplicate",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "descriptorConsumptionExpected": false,
+    "expectedDescriptorGateCompleted": false,
+    "expectedMigrationCompleted": false,
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-fd-table-duplicate",
+      "unsafeStateFamily": "fd-alias-lock",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
+  },
+  {
+    "name": "fd-alias-socket-refusal",
+    "remoteSourceTarget": "fd-alias-socket-refusal",
+    "description": "Socket fd aliases without a broker or transport contract must fail closed.",
+    "sourceFixture": "synthetic-negative:fd-alias-socket-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "unsafeStateFamily": "fd-alias-socket",
+    "expectedRefusalCode": "target-socket-syscall-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "descriptorConsumptionExpected": false,
+    "expectedDescriptorGateCompleted": false,
+    "expectedMigrationCompleted": false,
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-socket-syscall-state-unsupported",
+      "unsafeStateFamily": "fd-alias-socket",
+      "graduationRequires": [
+        "portable-state-model",
+        "target-restore-recipe",
+        "target-gates",
+        "positive-proof-profile",
+        "nearby-negative-variants",
+        "docs",
+        "validation-timings"
+      ]
+    }
+  },
+  {
+    "name": "fd-alias-epoll-cycle-refusal",
+    "remoteSourceTarget": "fd-alias-epoll-cycle-refusal",
+    "description": "Fd aliases that create epoll cycles or ambiguous descriptor graphs must fail closed.",
+    "sourceFixture": "synthetic-negative:fd-alias-epoll-cycle-refusal",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "refusal",
+    "unsafeStateFamily": "fd-alias-epoll-cycle",
+    "expectedRefusalCode": "target-epoll-syscall-state-unsupported",
+    "expectedSummaryState": "failed",
+    "expectedTargetState": "refused",
+    "descriptorConsumptionExpected": false,
+    "expectedDescriptorGateCompleted": false,
+    "expectedMigrationCompleted": false,
+    "expectedGates": [],
+    "supportStatus": "intentional-refusal",
+    "refusalSupportContract": {
+      "currentRefusalCode": "target-epoll-syscall-state-unsupported",
+      "unsafeStateFamily": "fd-alias-epoll-cycle",
       "graduationRequires": [
         "portable-state-model",
         "target-restore-recipe",
