@@ -624,7 +624,10 @@ function isActiveReadThread(
     typeof validatePortableMachineSnapshotBundle
   >["nativeProcessImage"]["threads"]["threads"][number],
 ): boolean {
-  return thread.syscall.state === "inside-syscall" && thread.syscall.name === "read";
+  return (
+    thread.syscall.state === "inside-syscall" &&
+    (thread.syscall.name === "read" || thread.syscall.name === "pread64")
+  );
 }
 
 function isActiveWriteThread(

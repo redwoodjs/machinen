@@ -2962,7 +2962,7 @@ by default when `output` is a TTY.
 
 ##### syscallName
 
-> **syscallName**: `"read"`
+> **syscallName**: `"read"` \| `"pread64"`
 
 ##### argumentSource
 

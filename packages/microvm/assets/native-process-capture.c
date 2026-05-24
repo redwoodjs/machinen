@@ -1136,6 +1136,11 @@ static const char *syscall_name(long long number) {
     return "read";
   }
 #endif
+#ifdef __NR_pread64
+  if (number == __NR_pread64) {
+    return "pread64";
+  }
+#endif
 #ifdef __NR_write
   if (number == __NR_write) {
     return "write";

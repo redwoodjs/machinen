@@ -14,10 +14,11 @@ The current classifier reports:
 - `sleep-timer` — `clock_nanosleep` / `nanosleep` style waits;
 - `poll-timeout` — modeled `ppoll` timeout waits under an explicit deferral
   policy;
-- `fd-blocking` — `read`, `write`, `poll`, `ppoll`, `select`, `pselect6`, and
-  related fd waits. Narrow pipe/eventfd/timerfd reads, safe offset-backed
-  regular-file reads, and safe offset-backed regular-file writes are modeled only
-  under explicit fd deferral policies; other fd waits still refuse;
+- `fd-blocking` — `read`, `pread64`, `write`, `poll`, `ppoll`, `select`,
+  `pselect6`, and related fd waits. Narrow pipe/eventfd/timerfd reads, safe
+  offset-backed regular-file reads or `pread64` calls, and safe offset-backed
+  regular-file writes are modeled only under explicit fd deferral policies; other
+  fd waits still refuse;
 - `futex-wait` — `futex`, `futex_time64`, and `futex_waitv` wait state;
 - `restart` — `restart_syscall` or captured restart-block state;
 - `unknown-active` — any active syscall that has not been modeled.
@@ -154,9 +155,10 @@ closed as `target-fd-write-state-missing`.
 ## Explicit fd read deferral
 
 The `fdReadPolicy: "defer-target-resume"` option currently accepts only narrow
-blocking `read(fd, buf, count)` cases under an explicit fd resource policy. Every
-modeled read requires captured syscall arguments from `/proc/<tid>/syscall` or
-source registers and a non-null buffer range contained in captured writable
+blocking `read(fd, buf, count)` cases under an explicit fd resource policy plus
+safe regular-file `pread64(fd, buf, count, offset)` cases. Every modeled read
+requires captured syscall arguments from `/proc/<tid>/syscall` or source
+registers and a non-null buffer range contained in captured writable
 non-executable memory.
 
 With `fdReadResourcePolicy: "synthetic-empty-pipe"`, the model additionally
@@ -175,10 +177,11 @@ trampoline can arm the target timerfd before verifying it still blocks.
 
 With `fdReadResourcePolicy: "reopen-file"`, the model requires a captured
 regular-file fd with a reopen recipe, readable access flags, a safe non-negative
-file offset, and a translated writable target buffer. The target step uses
-bounded `pread()` at the captured offset into the translated buffer and refuses
-partial reads; this is an offset-backed completion proof, not a general file or
-page-cache migration.
+file offset, and a translated writable target buffer. Active `pread64` forces the
+same regular-file resource policy and uses the explicit syscall offset instead
+of the captured fd offset. The target step uses bounded `pread()` at the modeled
+offset into the translated buffer and refuses partial reads; this is an
+offset-backed completion proof, not a general file or page-cache migration.
 
 The target step recreates a fresh empty pipe, empty eventfd, or timerfd and
 verifies with target-side `poll(POLLIN, timeout=0)` that the read fd would still
@@ -187,7 +190,7 @@ the safe regular-file read with target-side `pread()`. Missing arguments, zero
 or short counts, missing writable buffer state, wrong resource kind/access,
 non-empty eventfds, semaphore mode, unsupported flags, expired or periodic
 timerfds, absolute timerfd state, missing paired pipe write ends, unsafe file
-offsets, and missing file reopen recipes fail closed as
+offsets or `pread64` offsets, and missing file reopen recipes fail closed as
 `target-fd-read-state-missing`.
 
 ## Proof
