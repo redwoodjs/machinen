@@ -579,16 +579,16 @@ function bundleWithProofMemoryMapping(
   bundle: ReturnType<typeof validatePortableMachineSnapshotBundle>,
   mapping: NativeMemoryMapping,
 ): NativeProcessImageDocuments {
+  const sourceMappingId = mapping.id.replace(/:combined-proof-page$/, "");
+  const mappings = bundle.nativeProcessImage.mappings.mappings;
+  const proofMappingShadowsSource = mapping.id !== sourceMappingId;
   return {
     ...bundle.nativeProcessImage,
     mappings: {
       ...bundle.nativeProcessImage.mappings,
-      mappings: bundle.nativeProcessImage.mappings.mappings.map((candidate) =>
-        candidate.id === mapping.id ||
-        candidate.id === mapping.id.replace(/:combined-proof-page$/, "")
-          ? mapping
-          : candidate,
-      ),
+      mappings: proofMappingShadowsSource
+        ? [mapping, ...mappings.filter((candidate) => candidate.id !== mapping.id)]
+        : mappings.map((candidate) => (candidate.id === mapping.id ? mapping : candidate)),
     },
   };
 }

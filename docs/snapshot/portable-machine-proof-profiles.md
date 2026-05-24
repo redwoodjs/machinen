@@ -51,6 +51,35 @@ pnpm portable-machine-proof-runner -- \
 
 This exits non-zero if any required gate is missing or not `passed`.
 
+## Constrained native-transparent class
+
+The current supported class is deliberately narrow: an arm64 Linux process
+captured by the native-process bundle can restore into an amd64 VM only when its
+state is covered by one of the proof profiles below and every listed target gate
+passes. The accepted class includes:
+
+- target-native continuation bytes from the portable bundle target root;
+- metadata-proven return-chain/frame/register/RFLAGS/TLS/stack-window restore;
+- target-owned private-memory, executable-mapping, signal, resource, and
+  descriptor consumption gates;
+- regular-file fd recipes, stdio/close-fd recipes, and the modeled synthetic
+  empty pipe/eventfd/timerfd proof states;
+- active syscall completion only for sleep/`ppoll` timeout, empty pipe read,
+  empty eventfd read, timerfd read, offset-backed regular-file
+  `read`/`pread64`/single-iovec `readv`, and offset-backed regular-file
+  `write`/`pwrite64`/single-iovec `writev` cases;
+- the controlled two-thread `ppoll` profile and the bounded process-context
+  profile.
+
+Everything outside that class must fail closed with a stable refusal before
+`migrationCompleted=true`: sockets/epoll/signalfd/futex/rseq/general scheduler
+state, source vDSO/vvar copying, source executable text reuse, JIT or
+self-modifying code, pending signals/active signal frames, raw cross-ISA
+`.vmstate` replay, missing provenance, malformed descriptors, or unsupported
+resource kinds. The proof is not a Node/Bun sidecar, source-ISA emulation, app
+hook, or source-text replay path; success means target-native completion after
+all profile gates pass.
+
 ## Current profiles
 
 | Profile            | Source fixture                     | Trace            | Profile-specific gates             |
@@ -69,4 +98,8 @@ This exits non-zero if any required gate is missing or not `passed`.
 
 All profiles also require descriptor, verifier, state-consumption, resource,
 return-chain, frame, register/RFLAGS, TLS, stack-window, private-memory,
-executable, signal, and resume-path gates.
+executable, signal, and resume-path gates. The matrix is the automation contract
+for the current constrained class: adding a new accepted family requires a new
+profile (or an explicit documented refusal if it stays unsupported), target gate
+coverage, fail-closed tests, and docs updates before it can be counted as
+native-transparent success.
