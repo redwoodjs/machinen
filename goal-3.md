@@ -264,14 +264,50 @@ Tasks:
 
 ## H. Completion criteria for Goal 3
 
-- [ ] At least one candidate family has either graduated to a proven
+- [x] At least one candidate family has either graduated to a proven
       target-native success subset or been explicitly reclassified as a
       permanent refusal.
-- [ ] Every graduated subset has docs, unit tests, positive proof automation,
+- [x] Every graduated subset has docs, unit tests, positive proof automation,
       nearby negative tests, and stable refusal behavior outside the subset.
-- [ ] The Goal 2 refusal inventory is updated to show any graduated code paths
+- [x] The Goal 2 refusal inventory is updated to show any graduated code paths
       and remaining refusal boundaries.
-- [ ] The original positive proof matrix still passes.
-- [ ] Full validation has run with timings.
-- [ ] No new success path uses source-ISA emulation, sidecar runtime, app hooks,
+- [x] The original positive proof matrix still passes.
+- [x] Full validation has run with timings.
+- [x] No new success path uses source-ISA emulation, sidecar runtime, app hooks,
       or source text replay.
+
+Final evidence:
+
+- Graduated support subsets:
+  - `epoll-recreate` (`interest-list-v1`) passed with target-native completion —
+    37.423s runner / 37s wall, matrix
+    `/tmp/machinen-goal3-final-graduated-matrix-1779637299`.
+  - `signalfd-recreate` (`empty-queue-v1`) passed with target-native completion —
+    34.981s runner / 36s wall, matrix
+    `/tmp/machinen-goal3-final-graduated-matrix-1779637299`.
+- Reclassified refusal families:
+  - sockets remain refused without an explicit broker contract;
+  - JIT/self-modifying code remains refused without a target-native regeneration
+    descriptor;
+  - futex/rseq/scheduler kernel state remains refused; quiescent futex words are
+    private memory data only.
+- Original positive matrix passed at
+  `/tmp/machinen-goal3-final-positive-matrix-1779636627`:
+  - `two-thread-ppoll` — 79.504s runner / 80s wall;
+  - `pipe-read` — 36.556s runner / 37s wall;
+  - `eventfd-read` — 35.833s runner / 36s wall;
+  - `timerfd-read` — 36.162s runner / 36s wall;
+  - `file-read` — 35.487s runner / 36s wall;
+  - `file-pread` — 38.725s runner / 39s wall;
+  - `file-readv` — 34.960s runner / 35s wall;
+  - `file-write` — 40.692s runner / 41s wall;
+  - `file-pwrite` — 36.174s runner / 36s wall;
+  - `file-writev` — 39.623s runner / 40s wall;
+  - `process-context` — 37.453s runner / 38s wall.
+- Final validation passed:
+  - `pnpm run build:docs` — 1.873s;
+  - `pnpm run format:check` — 0.643s;
+  - `pnpm run lint` — 0.239s;
+  - `pnpm run typecheck` — 2.641s;
+  - `NPM_CONFIG_USERCONFIG=/dev/null npx vitest run` — 27.315s, 1033 passed / 12 skipped;
+  - `MACHINEN_REMOTE_BUILDER=friend@100.126.46.90 pnpm smoke-tests` — 2m17.217s.
