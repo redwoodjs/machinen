@@ -1473,6 +1473,81 @@ static uint64_t fdinfo_value(pid_t pid, const char *fd_name, const char *field) 
   return value;
 }
 
+static uint64_t fdinfo_hex_value(pid_t pid, const char *fd_name, const char *field) {
+  char path[PATH_MAX];
+  snprintf(path, sizeof(path), "/proc/%ld/fdinfo/%s", (long)pid, fd_name);
+  FILE *file = fopen(path, "rb");
+  if (!file) {
+    return 0;
+  }
+  char wanted[32];
+  snprintf(wanted, sizeof(wanted), "%s:", field);
+  uint64_t value = 0;
+  char line[256];
+  while (fgets(line, sizeof(line), file)) {
+    if (strncmp(line, wanted, strlen(wanted)) == 0) {
+      char *cursor = line + strlen(wanted);
+      while (*cursor && isspace((unsigned char)*cursor)) {
+        cursor++;
+      }
+      value = strtoull(cursor, NULL, 16);
+      break;
+    }
+  }
+  fclose(file);
+  return value;
+}
+
+static uint64_t status_hex_mask_path(const char *path, const char *field) {
+  FILE *file = fopen(path, "rb");
+  if (!file) {
+    return UINT64_MAX;
+  }
+  char wanted[32];
+  snprintf(wanted, sizeof(wanted), "%s:", field);
+  uint64_t value = UINT64_MAX;
+  char line[256];
+  while (fgets(line, sizeof(line), file)) {
+    if (strncmp(line, wanted, strlen(wanted)) == 0) {
+      char *cursor = line + strlen(wanted);
+      while (*cursor && isspace((unsigned char)*cursor)) {
+        cursor++;
+      }
+      value = strtoull(cursor, NULL, 16);
+      break;
+    }
+  }
+  fclose(file);
+  return value;
+}
+
+static bool pending_signals_empty(pid_t pid) {
+  char path[PATH_MAX];
+  snprintf(path, sizeof(path), "/proc/%ld/status", (long)pid);
+  if (status_hex_mask_path(path, "SigPnd") != 0 || status_hex_mask_path(path, "ShdPnd") != 0) {
+    return false;
+  }
+  snprintf(path, sizeof(path), "/proc/%ld/task", (long)pid);
+  DIR *dir = opendir(path);
+  if (!dir) {
+    return false;
+  }
+  struct dirent *entry = NULL;
+  while ((entry = readdir(dir)) != NULL) {
+    if (!isdigit((unsigned char)entry->d_name[0])) {
+      continue;
+    }
+    char task_status[PATH_MAX];
+    snprintf(task_status, sizeof(task_status), "/proc/%ld/task/%s/status", (long)pid, entry->d_name);
+    if (status_hex_mask_path(task_status, "SigPnd") != 0) {
+      closedir(dir);
+      return false;
+    }
+  }
+  closedir(dir);
+  return true;
+}
+
 static void fdinfo_pair_value(pid_t pid, const char *fd_name, const char *field,
     uint64_t *first, uint64_t *second) {
   *first = 0;
@@ -1534,6 +1609,21 @@ static void write_epoll_recipe(FILE *out, pid_t pid, const char *fd_name) {
   fputs("]}", out);
 }
 
+static void write_signalfd_recipe(FILE *out, pid_t pid, const char *fd_name) {
+  uint64_t fd_flags = fdinfo_value(pid, fd_name, "flags");
+  fputs(",\"recipe\":{\"signalfdModel\":\"empty-queue-v1\",\"signalMask\":", out);
+  json_hex_u64(out, fdinfo_hex_value(pid, fd_name, "sigmask"));
+  fprintf(out,
+      ",\"flags\":%" PRIu64
+      ",\"pendingSignals\":\"%s\""
+      ",\"queuedSiginfo\":\"%s\""
+      ",\"activeSignalFrame\":false"
+      ",\"altStackState\":\"disabled\"}",
+      fd_flags & 04000u,
+      pending_signals_empty(pid) ? "none" : "unknown",
+      pending_signals_empty(pid) ? "empty" : "unknown");
+}
+
 static void write_fd_resource(FILE *out, pid_t pid, const char *fd_name, const char *target,
     bool *first) {
   if (!*first) {
@@ -1547,7 +1637,7 @@ static void write_fd_resource(FILE *out, pid_t pid, const char *fd_name, const c
   json_string(out, id);
   fputs(",\"kind\":", out);
   json_string(out, kind);
-  const char *state = streq(kind, "file") ? "recipe" : (streq(kind, "epoll") ? "captured" : "refused");
+  const char *state = streq(kind, "file") ? "recipe" : ((streq(kind, "epoll") || streq(kind, "signalfd")) ? "captured" : "refused");
   fprintf(out, ",\"state\":");
   json_string(out, state);
   fprintf(out, ",\"fd\":%s", fd_name);
@@ -1593,11 +1683,14 @@ static void write_fd_resource(FILE *out, pid_t pid, const char *fd_name, const c
   if (streq(kind, "epoll")) {
     write_epoll_recipe(out, pid, fd_name);
   }
+  if (streq(kind, "signalfd")) {
+    write_signalfd_recipe(out, pid, fd_name);
+  }
   if (streq(kind, "file")) {
     fputs(",\"recipe\":{\"reopen\":", out);
     json_string(out, target);
     fputs("}", out);
-  } else if (!streq(kind, "epoll")) {
+  } else if (!streq(kind, "epoll") && !streq(kind, "signalfd")) {
     fputs(",\"refusal\":", out);
     write_refusal(out, fd_refusal_code(kind), "fd kind needs a resource broker recipe");
   }

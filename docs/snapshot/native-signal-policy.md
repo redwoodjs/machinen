@@ -30,3 +30,6 @@ It still refuses:
 The thread restore boundary consumes this policy before allowing a non-empty
 blocked mask through the broader execution-state gate. This means safe signal
 masks can be restored without weakening active-signal or pending-signal refusal.
+Goal 3 signalfd descriptor recreation uses the same rule: a signalfd mask may be
+recreated only for the `empty-queue-v1` descriptor subset, while pending signals,
+queued `siginfo`, active frames, and active alt-stack state remain refused.

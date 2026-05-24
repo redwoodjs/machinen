@@ -109,6 +109,13 @@ describe("target guest restore loader descriptor", () => {
         { kind: "synthetic-empty-eventfd", fd: 5, closeOnExec: false },
         { kind: "synthetic-timerfd", fd: 6, closeOnExec: false },
         {
+          kind: "synthetic-signalfd",
+          fd: 9,
+          signalMask: "0x200",
+          flags: 2048,
+          closeOnExec: false,
+        },
+        {
           kind: "synthetic-epoll",
           fd: 8,
           watches: [{ fd: 5, events: 1, data: "0x45504f4c4c" }],
@@ -201,6 +208,8 @@ describe("target guest restore loader descriptor", () => {
       "5",
       "--synthetic-timerfd",
       "6",
+      "--synthetic-signalfd",
+      "fd=9;signalMask=0x200;flags=2048",
       "--synthetic-epoll",
       "fd=8;watchCount=1;watch0Fd=5;watch0Events=1;watch0Data=0x45504f4c4c",
     ]);
@@ -573,6 +582,22 @@ describe("target guest restore loader descriptor", () => {
         descriptor({ resources: [{ kind: "inherit-stdio", fd: 1, stream: "stderr" }] }),
       ),
     ).toThrow(/stdio fd and stream do not match/);
+
+    expect(() =>
+      validateTargetGuestRestoreDescriptor(
+        descriptor({
+          resources: [{ kind: "synthetic-signalfd", fd: 9, signalMask: "200", flags: 0 }],
+        }),
+      ),
+    ).toThrow(/signalMask must be a hex address/);
+
+    expect(() =>
+      validateTargetGuestRestoreDescriptor(
+        descriptor({
+          resources: [{ kind: "synthetic-signalfd", fd: 9, signalMask: "0x200", flags: 1 }],
+        }),
+      ),
+    ).toThrow(/signalfd flags are unsupported/);
 
     expect(() =>
       validateTargetGuestRestoreDescriptor(

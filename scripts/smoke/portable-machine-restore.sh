@@ -368,6 +368,10 @@ capture_remote_native_process_bundle() {
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target"
       target_detail="remote arm64 pipe read bundle with target epoll reconstruction proof captured from $ARM64_SSH"
       ;;
+    signalfd-recreate)
+      target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target"
+      target_detail="remote arm64 pipe read bundle with target signalfd descriptor proof captured from $ARM64_SSH"
+      ;;
     *)
       finish_failure "unsupported PORTABLE_MACHINE_REMOTE_SOURCE_TARGET=$REMOTE_SOURCE_TARGET"
       ;;
@@ -444,6 +448,9 @@ run_target_restore() {
   fi
   if [[ "$REMOTE_SOURCE_TARGET" == "epoll-recreate" ]]; then
     resource_model_args=(--include-epoll-proof)
+    resource_model_args_text="${resource_model_args[*]}"
+  elif [[ "$REMOTE_SOURCE_TARGET" == "signalfd-recreate" ]]; then
+    resource_model_args=(--include-signalfd-proof)
     resource_model_args_text="${resource_model_args[*]}"
   fi
   if [[ $REMOTE_E2E -eq 1 ]]; then

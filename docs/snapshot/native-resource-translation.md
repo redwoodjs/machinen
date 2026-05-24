@@ -27,6 +27,10 @@ Currently supported resource recipes:
   subset: finite level-triggered watches whose watched fds already have accepted
   target recipes, with no nested epoll, no edge-triggered/one-shot delivery
   state, and no ready-list ordering claim;
+- signalfd descriptors may be recreated only for the Goal 3 `empty-queue-v1`
+  subset: normalized signal mask, supported flags, no pending process/thread
+  signals, no queued `siginfo`, no active signal frame, and no active alt-stack
+  migration requirement;
 - inherited stdout/stderr can be passed through only under an explicit inherited
   stdio policy; stdin remains refused because buffered input state is not
   modeled;
@@ -38,8 +42,8 @@ into a deterministic target fd-table plan. The plan preserves the stable capture
 fd -> target fd mapping, emits explicit `close-fd` recipes for expected fd slots
 missing from the capture, carries close-on-exec provenance, and converts modeled
 resources into target-guest loader recipes (`reopen-file`, `inherit-stdio`,
-`synthetic-empty-pipe`, `synthetic-empty-eventfd`, `synthetic-timerfd`, and
-`synthetic-epoll`).
+`synthetic-empty-pipe`, `synthetic-empty-eventfd`, `synthetic-timerfd`,
+`synthetic-epoll`, and `synthetic-signalfd`).
 The loader/trampoline handoff applies close-on-exec after restore setup and
 before the target-native jump. Duplicate captured fds are refused before target
 execution with `target-fd-table-duplicate`; captured fds without any safe target
@@ -59,7 +63,7 @@ recipe refuse with `target-fd-table-missing` or the underlying resource refusal.
 | raw socket                   | refuse unless a raw-socket broker capability is declared                                  |
 | sockets                      | refuse until queues, peer identity, shutdown/options, and namespace state are modeled     |
 | epoll                        | recreate `interest-list-v1` only when watched fds have accepted recipes; otherwise refuse |
-| signalfd                     | refuse until pending signal queue, siginfo payloads, and mask coordination are modeled    |
+| signalfd                     | recreate `empty-queue-v1` descriptors only; pending queues/active frames still refuse     |
 | generic eventfd/timerfd      | refuse except for the narrow empty/disarmed modeled states above                          |
 | duplicate captured fd        | refuse with `target-fd-table-duplicate` before target execution                           |
 | unsupported descriptor shape | refuse before loader/trampoline args are built                                            |
@@ -75,6 +79,10 @@ Unsupported resources are not silently dropped. They are returned with:
 - `target-epoll-syscall-state-unsupported` for epoll resources outside the
   `interest-list-v1` subset, including unsupported watched fds, nested epoll,
   edge-triggered/one-shot flags, and malformed interest lists;
+- `target-signalfd-state-unsupported` for signalfd resources outside the
+  `empty-queue-v1` subset, including malformed masks, unsupported flags,
+  pending signals, queued `siginfo`, active signal frames, and active alt-stack
+  state;
 - `resource-kind-unsupported` for resources that need a broker recipe, such as
   PTYs and raw sockets without an enabled broker capability;
 - `target-fd-table-duplicate` when multiple captured resources claim the same

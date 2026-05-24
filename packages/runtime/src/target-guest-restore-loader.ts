@@ -57,6 +57,13 @@ export type TargetGuestRestoreResourceRecipe =
   | { kind: "synthetic-empty-eventfd"; fd: number; closeOnExec?: boolean }
   | { kind: "synthetic-timerfd"; fd: number; closeOnExec?: boolean }
   | {
+      kind: "synthetic-signalfd";
+      fd: number;
+      signalMask: string;
+      flags: number;
+      closeOnExec?: boolean;
+    }
+  | {
       kind: "synthetic-epoll";
       fd: number;
       watches: TargetGuestEpollWatchRecipe[];
@@ -458,6 +465,7 @@ const RESOURCE_RECIPE_PARSERS: Record<
   "synthetic-empty-eventfd": (fields) =>
     parseSingleFdSyntheticRecipe("synthetic-empty-eventfd", fields),
   "synthetic-timerfd": (fields) => parseSingleFdSyntheticRecipe("synthetic-timerfd", fields),
+  "synthetic-signalfd": parseSyntheticSignalfdRecipe,
   "synthetic-epoll": parseSyntheticEpollRecipe,
 };
 
@@ -503,6 +511,18 @@ function parseSingleFdSyntheticRecipe(
   return {
     kind,
     fd: parseResourceInteger(fields, "fd"),
+    closeOnExec: parseResourceBoolean(fields, "closeOnExec"),
+  };
+}
+
+function parseSyntheticSignalfdRecipe(
+  fields: Map<string, string>,
+): TargetGuestRestoreResourceRecipe {
+  return {
+    kind: "synthetic-signalfd",
+    fd: parseResourceInteger(fields, "fd"),
+    signalMask: requiredResourceField(fields, "signalMask"),
+    flags: parseResourceInteger(fields, "flags"),
     closeOnExec: parseResourceBoolean(fields, "closeOnExec"),
   };
 }
@@ -1084,6 +1104,7 @@ const RESOURCE_RECIPE_VALIDATORS = {
   },
   "synthetic-empty-eventfd": validateSingleFdRecipe,
   "synthetic-timerfd": validateSingleFdRecipe,
+  "synthetic-signalfd": validateSyntheticSignalfdRecipe,
   "synthetic-epoll": validateSyntheticEpollRecipe,
 };
 
@@ -1121,6 +1142,17 @@ function validateSingleFdRecipe(
   >,
 ): void {
   assertFd(recipe.fd, "fd");
+}
+
+function validateSyntheticSignalfdRecipe(
+  recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "synthetic-signalfd" }>,
+): void {
+  assertFd(recipe.fd, "fd");
+  assertHexAddress(recipe.signalMask, "signalMask");
+  assertNonNegative(recipe.flags, "flags");
+  if ((recipe.flags & ~SIGNALFD_SUPPORTED_FLAGS) !== 0) {
+    fail("target-guest-loader-descriptor-invalid", "signalfd flags are unsupported");
+  }
 }
 
 function validateSyntheticEpollRecipe(
@@ -1530,6 +1562,7 @@ function assertNoWhitespace(value: string, field: string): void {
   }
 }
 
+const SIGNALFD_SUPPORTED_FLAGS = 0x800;
 const SUPPORTED_RESUME_RFLAGS_MASK = 0x8d7n;
 const REQUIRED_RESUME_RFLAGS_MASK = 0x2n;
 
@@ -1649,6 +1682,7 @@ function optionalFrameToken(name: string, value: string | number | undefined): s
   return value === undefined ? [] : [`${name}=${value}`];
 }
 
+// fallow-ignore-next-line complexity
 function serializeResourceRecipe(recipe: TargetGuestRestoreResourceRecipe): string {
   if (recipe.kind === "close-fd") {
     const reason = recipe.reason === undefined ? "" : ` reason=${recipe.reason}`;
@@ -1669,6 +1703,9 @@ function serializeResourceRecipe(recipe: TargetGuestRestoreResourceRecipe): stri
   }
   if (recipe.kind === "synthetic-timerfd") {
     return `resource=synthetic-timerfd fd=${recipe.fd}${serializeCloseOnExec(recipe.closeOnExec)}`;
+  }
+  if (recipe.kind === "synthetic-signalfd") {
+    return `resource=synthetic-signalfd fd=${recipe.fd} signalMask=${recipe.signalMask} flags=${recipe.flags}${serializeCloseOnExec(recipe.closeOnExec)}`;
   }
   return `resource=synthetic-epoll fd=${recipe.fd} watchCount=${recipe.watches.length}${recipe.watches
     .flatMap((watch, index) => [
@@ -1856,11 +1893,24 @@ function resourceToTrampolineArgs(recipe: TargetGuestRestoreResourceRecipe): str
       ...closeOnExecArgs(recipe.fd, recipe.closeOnExec),
     ];
   }
+  if (recipe.kind === "synthetic-signalfd") {
+    return [
+      "--synthetic-signalfd",
+      signalfdResourceSpec(recipe),
+      ...closeOnExecArgs(recipe.fd, recipe.closeOnExec),
+    ];
+  }
   return [
     "--synthetic-epoll",
     epollResourceSpec(recipe),
     ...closeOnExecArgs(recipe.fd, recipe.closeOnExec),
   ];
+}
+
+function signalfdResourceSpec(
+  recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "synthetic-signalfd" }>,
+): string {
+  return [`fd=${recipe.fd}`, `signalMask=${recipe.signalMask}`, `flags=${recipe.flags}`].join(";");
 }
 
 function epollResourceSpec(

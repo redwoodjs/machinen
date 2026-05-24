@@ -30,6 +30,7 @@ export type NativeTargetFdTableEntryKind =
   | "synthetic-empty-pipe-write-end"
   | "synthetic-empty-eventfd"
   | "synthetic-timerfd"
+  | "synthetic-signalfd"
   | "synthetic-epoll"
   | "refused";
 
@@ -189,6 +190,7 @@ function fdTableEntryFromRecipe(
     inheritedStdioFdTableEntry(fd, resource, recipe, closeOnExec) ??
     reopenFileFdTableEntry(fd, resource, recipe, closeOnExec) ??
     syntheticFdTableEntry(fd, resource, recipe, closeOnExec) ??
+    syntheticSignalfdFdTableEntry(resource, recipe, closeOnExec) ??
     syntheticEpollFdTableEntry(resource, recipe, closeOnExec, resources)
   );
 }
@@ -257,6 +259,64 @@ function syntheticFdTableEntry(
     }),
   };
   return typeof recipe.synthetic === "string" ? recipes[recipe.synthetic] : undefined;
+}
+
+function syntheticSignalfdFdTableEntry(
+  resource: NativeProcessResource,
+  recipe: Record<string, unknown>,
+  closeOnExec: boolean,
+): NativeTargetFdTableEntry | undefined {
+  if (resource.kind !== "signalfd" || recipe.signalfdModel !== "empty-queue-v1") {
+    return undefined;
+  }
+  const signalfdRecipe = normalizedSignalfdRecipe(resource, recipe);
+  if ("code" in signalfdRecipe) {
+    return refusedFdTableEntry(resource, signalfdRecipe);
+  }
+  return materializedFdTableEntry(resource, "synthetic-signalfd", closeOnExec, {
+    kind: "synthetic-signalfd",
+    fd: resource.fd!,
+    signalMask: signalfdRecipe.signalMask,
+    flags: signalfdRecipe.flags,
+    closeOnExec,
+  });
+}
+
+// fallow-ignore-next-line complexity
+function normalizedSignalfdRecipe(
+  resource: NativeProcessResource,
+  recipe: Record<string, unknown>,
+): { signalMask: string; flags: number } | NativeProcessImageRefusal {
+  const signalMask =
+    typeof recipe.signalMask === "string" ? normalizeHex(recipe.signalMask) : undefined;
+  const rawFlags = recipe.flags;
+  const flags =
+    typeof rawFlags === "number" && Number.isSafeInteger(rawFlags) && rawFlags >= 0
+      ? rawFlags
+      : undefined;
+  if (!signalMask || flags === undefined) {
+    return signalfdRefusal(resource, "signalfd recipe requires a finite mask and flags");
+  }
+  if ((flags & ~SIGNALFD_SUPPORTED_FLAGS) !== 0) {
+    return signalfdRefusal(resource, "signalfd flags are unsupported", { flags });
+  }
+  if (recipe.pendingSignals !== "none" || recipe.queuedSiginfo !== "empty") {
+    return signalfdRefusal(resource, "pending signals and queued siginfo must be empty", {
+      pendingSignals: recipe.pendingSignals,
+      queuedSiginfo: recipe.queuedSiginfo,
+    });
+  }
+  if (recipe.activeSignalFrame !== false) {
+    return signalfdRefusal(resource, "active signal frames remain unsupported", {
+      activeSignalFrame: recipe.activeSignalFrame,
+    });
+  }
+  if (recipe.altStackState !== "disabled" && recipe.altStackState !== "not-required") {
+    return signalfdRefusal(resource, "active signal alt-stack state remains unsupported", {
+      altStackState: recipe.altStackState,
+    });
+  }
+  return { signalMask, flags };
 }
 
 function syntheticEpollFdTableEntry(
@@ -545,6 +605,13 @@ function translateResource(
       refusal: undefined,
     };
   }
+  if (resource.kind === "signalfd" && resource.recipe?.signalfdModel === "empty-queue-v1") {
+    return {
+      ...resource,
+      state: "recipe",
+      refusal: undefined,
+    };
+  }
   if (resource.kind === "raw-socket" && capabilities.has("raw-socket")) {
     return {
       ...resource,
@@ -643,6 +710,7 @@ function resourceRefusalCode(
   return "resource-kind-unsupported";
 }
 
+const SIGNALFD_SUPPORTED_FLAGS = 0x800;
 const EPOLL_EDGE_TRIGGERED = 0x80000000;
 const EPOLL_ONESHOT = 0x40000000;
 
@@ -659,6 +727,34 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isHex(value: string): boolean {
   return /^0x[0-9a-f]+$/i.test(value);
+}
+
+function normalizeHex(value: string): string | undefined {
+  if (!isHex(value)) {
+    return undefined;
+  }
+  return `0x${BigInt(value).toString(16)}`;
+}
+
+function signalfdRefusal(
+  resource: NativeProcessResource,
+  reason: string,
+  detail: Record<string, unknown> = {},
+): NativeProcessImageRefusal {
+  return {
+    code: "target-signalfd-state-unsupported",
+    message: `signalfd resource ${resource.id} cannot be recreated target-natively`,
+    detail: {
+      id: resource.id,
+      kind: resource.kind,
+      fd: resource.fd,
+      path: resource.path,
+      boundary: "signalfd-empty-queue",
+      reason,
+      requiredModel: RESOURCE_REQUIRED_MODELS.signalfd,
+      ...detail,
+    },
+  };
 }
 
 function epollRefusal(

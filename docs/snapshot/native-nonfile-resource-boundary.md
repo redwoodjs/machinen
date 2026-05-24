@@ -35,7 +35,7 @@ captured-regular-file-coexists-with-precise-nonfile-resource-refusals
 | epoll                 | recreate only the `interest-list-v1` known-fd subset; refuse active/ambiguous state | `target-epoll-syscall-state-unsupported` |
 | eventfd               | refuse                                                                              | `kernel-state-unsupported`               |
 | timerfd               | refuse as `timer`                                                                   | `kernel-state-unsupported`               |
-| signalfd              | refuse as `signal`                                                                  | `kernel-state-unsupported`               |
+| signalfd              | recreate only the `empty-queue-v1` descriptor subset; refuse queued/active state    | `target-signalfd-state-unsupported`      |
 | PTY                   | refuse unless a PTY broker capability is supplied                                   | `resource-kind-unsupported`              |
 | raw socket            | refuse unless a raw-socket broker capability is supplied                            | `resource-kind-unsupported`              |
 | unknown fd            | refuse                                                                              | `fd-kind-unsupported`                    |
@@ -45,13 +45,14 @@ accept/connect/listen queues, peer identity, credentials, namespaces, options,
 shutdown/readiness, and partial-transfer state. Epoll now has a narrow supported
 subset for finite level-triggered interest lists whose watched fds already have
 accepted target recipes; ready-list ordering, edge-triggered delivery state,
-nested epoll, active waits, and wakeup ordering still refuse. signalfd resources
-require pending signal queues, siginfo payload ownership, delivery ordering, and
-signal-mask coordination.
+nested epoll, active waits, and wakeup ordering still refuse. signalfd now has a
+narrow empty-queue descriptor subset with normalized masks and supported flags;
+pending process/thread signals, queued siginfo payloads, active signal frames,
+active alt-stack state, active signalfd reads, and malformed masks still refuse.
 
 ## Next broker candidates
 
-The first broker candidates are PTYs and raw sockets because the existing resource translator already has capability gates for those recipe shapes. Pipes, sockets, active epoll waits/ready lists, eventfd, timerfd, and signalfd carry kernel state that must be modeled or brokered before transparent restore can safely claim broader support.
+The first broker candidates are PTYs and raw sockets because the existing resource translator already has capability gates for those recipe shapes. Pipes, sockets, active epoll waits/ready lists, queued signalfd state, eventfd, and timerfd carry kernel state that must be modeled or brokered before transparent restore can safely claim broader support.
 
 ## Verify
 

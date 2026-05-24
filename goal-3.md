@@ -147,15 +147,15 @@ Accepted subset to model first:
 
 Tasks:
 
-- [ ] Define the portable signalfd descriptor schema and mask normalization.
-- [ ] Add validation that refuses pending signals, queued siginfo, active signal
+- [x] Define the portable signalfd descriptor schema and mask normalization.
+- [x] Add validation that refuses pending signals, queued siginfo, active signal
       frames, active alt-stack state, and malformed masks.
-- [ ] Implement target-native signalfd recreation with matching mask and flags.
-- [ ] Add target gates proving descriptor flags and signal mask coordination.
-- [ ] Add a positive proof profile for empty-queue signalfd recreation.
-- [ ] Keep/refine negative profiles for queued signals and active signalfd reads
+- [x] Implement target-native signalfd recreation with matching mask and flags.
+- [x] Add target gates proving descriptor flags and signal mask coordination.
+- [x] Add a positive proof profile for empty-queue signalfd recreation.
+- [x] Keep/refine negative profiles for queued signals and active signalfd reads
       that require payload/order preservation.
-- [ ] Flip only the empty-queue descriptor subset away from
+- [x] Flip only the empty-queue descriptor subset away from
       `target-signalfd-state-unsupported`.
 
 ## E. Brokered socket model, not arbitrary live sockets

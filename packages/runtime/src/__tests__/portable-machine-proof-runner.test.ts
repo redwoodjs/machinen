@@ -124,6 +124,7 @@ describe("portable machine proof runner", () => {
     expect(names).toEqual(
       expect.arrayContaining([
         "epoll-recreate",
+        "signalfd-recreate",
         "socket-transfer-refusal",
         "epoll-wait-refusal",
         "signalfd-read-refusal",
@@ -162,7 +163,7 @@ describe("portable machine proof runner", () => {
     expect(summary.supportReport).toMatchObject({
       counts: {
         "baseline-success": 11,
-        "graduated-support": 1,
+        "graduated-support": 2,
         "intentional-refusal": 7,
         "permanent-refusal": 3,
       },
@@ -171,6 +172,11 @@ describe("portable machine proof runner", () => {
           name: "epoll-recreate",
           acceptedSubset: "single-level-triggered-restorable-fd-watch",
           graduatedFromRefusalCode: "target-epoll-syscall-state-unsupported",
+        }),
+        expect.objectContaining({
+          name: "signalfd-recreate",
+          acceptedSubset: "empty-queue-normalized-mask-descriptor",
+          graduatedFromRefusalCode: "target-signalfd-state-unsupported",
         }),
       ],
     });

@@ -54,6 +54,7 @@ interface Args {
     | "apply-target-visible-context"
     | "apply-target-initial-stack";
   includeEpollProof: boolean;
+  includeSignalfdProof: boolean;
 }
 
 interface TargetInvocation {
@@ -106,6 +107,7 @@ interface CombinedDescriptorContext extends CombinedDescriptorPaths {
   activeFileReadProof?: ActiveFileReadProof;
   activeFileWriteProof?: ActiveFileWriteProof;
   includeEpollProof: boolean;
+  includeSignalfdProof: boolean;
 }
 
 interface ActiveFileReadProof {
@@ -164,7 +166,11 @@ const PROOF_PIPE_WRITE_FD = 9;
 const PROOF_EVENT_FD = 10;
 const PROOF_TIMER_FD = 11;
 const PROOF_EPOLL_FD = 12;
+const PROOF_SIGNALFD_FD = 13;
 const PROOF_EPOLL_DATA = "0x45504f4c4c504153";
+const PROOF_SIGNALFD_MASK = "0x200";
+const PROOF_SIGNALFD_FLAGS = 0x800;
+const SIGUSR1 = 10;
 const PROOF_FD_BYTES = Buffer.from("FD");
 const PROOF_FILE_READ_BYTES = Buffer.from("FILE");
 const PROOF_FILE_WRITE_BYTES = Buffer.from("WRIT");
@@ -178,6 +184,7 @@ const STATE_CHECK_PIPE = 0x10;
 const STATE_CHECK_EVENTFD = 0x20;
 const STATE_CHECK_TIMERFD = 0x40;
 const STATE_CHECK_EPOLL = 0x80;
+const STATE_CHECK_SIGNALFD = 0x100;
 const TRANSLATED_FRAME_MARKER = 0x4652414d45504153n;
 const TRANSLATED_RESUME_MARKER = 0x524553554d455041n;
 const TRANSLATED_FRAME_POINTER = "0x50000000ff80";
@@ -222,7 +229,7 @@ function usage(): never {
       "--bundle-dir path --target-code-file path [--image rootfs.tar.gz] " +
       "[--combined-descriptor] [--real-utility-continuation] " +
       "[--process-context-restore metadata-only|apply-target-env-cwd|apply-target-visible-context|apply-target-initial-stack] " +
-      "[--include-epoll-proof] [--json]",
+      "[--include-epoll-proof] [--include-signalfd-proof] [--json]",
   );
   process.exit(2);
 }
@@ -245,6 +252,7 @@ function argsFromReader(read: (flag: string) => string | undefined, argv: string
     syntheticTimerFd: read("--synthetic-timerfd"),
     processContextRestore: parseProcessContextRestoreMode(read("--process-context-restore")),
     includeEpollProof: argv.includes("--include-epoll-proof"),
+    includeSignalfdProof: argv.includes("--include-signalfd-proof"),
   };
 }
 
@@ -379,6 +387,7 @@ function prepareCombinedDescriptor(
     proofFdVerifierBytes(context),
     plan,
     context.includeEpollProof,
+    context.includeSignalfdProof,
   );
   if (isRestorePlan(targetContinuation)) {
     return targetContinuation;
@@ -474,6 +483,7 @@ function combinedDescriptorContext(
     activeFileReadProof: activeFileReadProof(activeSyscallPlan.steps),
     activeFileWriteProof: activeFileWriteProof(activeSyscallPlan.steps),
     includeEpollProof: args.includeEpollProof,
+    includeSignalfdProof: args.includeSignalfdProof,
   };
   return contextAfterPathCheck(plan, bundle.rootDir!, context);
 }
@@ -1143,6 +1153,7 @@ function prepareTargetContinuation(
   expectedFdBytes: Buffer,
   plan: ReturnType<typeof planPortableMachineVmRestoreProof>,
   includeEpollProof: boolean,
+  includeSignalfdProof: boolean,
 ): PreparedTargetContinuation | ReturnType<typeof planPortableMachineVmRestoreProof> {
   const expectedMemoryByte = firstByte(memoryFile, mapping);
   return args.realUtilityContinuation
@@ -1153,6 +1164,7 @@ function prepareTargetContinuation(
         expectedFdBytes,
         plan,
         includeEpollProof,
+        includeSignalfdProof,
       )
     : {
         kind: "generated-verifier",
@@ -1161,6 +1173,7 @@ function prepareTargetContinuation(
           activeFileRead,
           expectedFdBytes,
           includeEpollProof,
+          includeSignalfdProof,
         ),
       };
 }
@@ -1172,6 +1185,7 @@ function prepareRealUtilityContinuation(
   expectedFdBytes: Buffer,
   plan: ReturnType<typeof planPortableMachineVmRestoreProof>,
   includeEpollProof: boolean,
+  includeSignalfdProof: boolean,
 ) {
   const targetRoot = join(targetDir, "real-utility-root");
   const modulePath = join(targetRoot, "usr/bin/realspin-code");
@@ -1181,6 +1195,7 @@ function prepareRealUtilityContinuation(
     activeFileRead,
     expectedFdBytes,
     includeEpollProof,
+    includeSignalfdProof,
   );
   const moduleBytes = targetCode.bytes;
   writeFileSync(modulePath, moduleBytes);
@@ -1425,6 +1440,7 @@ function proofFdResources(context: CombinedDescriptorContext): NativeProcessReso
     proofSyntheticResource("eventfd", PROOF_EVENT_FD),
     proofSyntheticResource("timer", PROOF_TIMER_FD),
     ...epollProofResources(context),
+    ...signalfdProofResources(context),
   ];
 }
 
@@ -1441,6 +1457,30 @@ function epollProofResources(context: CombinedDescriptorContext): NativeProcessR
           recipe: {
             epollModel: "interest-list-v1",
             watches: [{ fd: PROOF_EVENT_FD, events: 1, data: PROOF_EPOLL_DATA }],
+          },
+        },
+      ]
+    : [];
+}
+
+function signalfdProofResources(context: CombinedDescriptorContext): NativeProcessResource[] {
+  return context.includeSignalfdProof
+    ? [
+        {
+          id: `fd:${PROOF_SIGNALFD_FD}:combined-proof-signalfd`,
+          kind: "signalfd" as const,
+          state: "captured" as const,
+          fd: PROOF_SIGNALFD_FD,
+          path: "anon_inode:[signalfd]",
+          flags: ["octal:4000"],
+          recipe: {
+            signalfdModel: "empty-queue-v1",
+            signalMask: PROOF_SIGNALFD_MASK,
+            flags: PROOF_SIGNALFD_FLAGS,
+            pendingSignals: "none",
+            queuedSiginfo: "empty",
+            activeSignalFrame: false,
+            altStackState: "disabled",
           },
         },
       ]
@@ -1537,6 +1577,7 @@ function combinedProofTargetCode(
   activeFileRead: ActiveFileReadProof | undefined,
   expectedFdBytes: Buffer,
   includeEpollProof: boolean,
+  includeSignalfdProof: boolean,
 ): Buffer {
   return proofStateVerifierTargetCode(
     expectedMemoryByte,
@@ -1544,6 +1585,7 @@ function combinedProofTargetCode(
     activeFileRead,
     expectedFdBytes,
     includeEpollProof,
+    includeSignalfdProof,
   ).bytes;
 }
 
@@ -1552,6 +1594,7 @@ function stateConsumingRealUtilityTargetCode(
   activeFileRead: ActiveFileReadProof | undefined,
   expectedFdBytes: Buffer,
   includeEpollProof: boolean,
+  includeSignalfdProof: boolean,
 ): {
   bytes: Buffer;
   translatedReturnAddress: string;
@@ -1562,6 +1605,7 @@ function stateConsumingRealUtilityTargetCode(
     activeFileRead,
     expectedFdBytes,
     includeEpollProof,
+    includeSignalfdProof,
   );
   return {
     bytes: code.bytes,
@@ -1571,12 +1615,14 @@ function stateConsumingRealUtilityTargetCode(
 
 type ProofCompletionMode = "exit" | "return";
 
+// fallow-ignore-next-line complexity
 function proofStateVerifierTargetCode(
   expectedMemoryByte: number,
   completion: ProofCompletionMode,
   activeFileRead: ActiveFileReadProof | undefined,
   expectedFdBytes: Buffer,
   includeEpollProof: boolean,
+  includeSignalfdProof: boolean,
 ): { bytes: Buffer; translatedReturnOffset: number } {
   const asm = new Amd64ProofAssembler();
   if (completion === "return") {
@@ -1615,6 +1661,10 @@ function proofStateVerifierTargetCode(
   if (includeEpollProof) {
     asm.checkEpollEvent(PROOF_EPOLL_FD, PROOF_EVENT_FD, BigInt(PROOF_EPOLL_DATA), 1);
     asm.markStateCheck(completion, STATE_CHECK_EPOLL);
+  }
+  if (includeSignalfdProof) {
+    asm.checkSignalfdSignal(PROOF_SIGNALFD_FD, BigInt(PROOF_SIGNALFD_MASK), SIGUSR1);
+    asm.markStateCheck(completion, STATE_CHECK_SIGNALFD);
   }
   asm.completeSuccessfully(completion);
   return asm.toTargetCode(completion);
@@ -1738,6 +1788,30 @@ class Amd64ProofAssembler {
     this.checkRaxImmediate(expectedData);
   }
 
+  checkSignalfdSignal(fd: number, signalMask: bigint, signo: number): void {
+    const maskOffset = 0x280;
+    const bufferOffset = 0x290;
+    this.storeU64AtRbxOffset(maskOffset, signalMask);
+    this.rtSigprocmaskBlock(maskOffset);
+    this.syscall(39);
+    this.push(0x0f, 0x05, 0x48, 0x89, 0xc7);
+    this.syscall(62);
+    this.push(0xbe);
+    this.pushU32(signo);
+    this.push(0x0f, 0x05, 0x48, 0x85, 0xc0);
+    this.jumpIfSign();
+    this.syscall(0);
+    this.movFd(fd);
+    this.leaRsiRbxOffset(bufferOffset);
+    this.push(0xba);
+    this.pushU32(128);
+    this.push(0x0f, 0x05, 0x3d);
+    this.pushU32(128);
+    this.jumpIfNotEqual();
+    this.cmpDwordRbxOffsetImm8(bufferOffset, signo);
+    this.jumpIfNotEqual();
+  }
+
   markStateCheck(completion: ProofCompletionMode, bit: number): void {
     if (completion !== "return") {
       return;
@@ -1834,7 +1908,12 @@ class Amd64ProofAssembler {
 
   private storeU64AtRbxOffset(offset: number, value: bigint): void {
     this.movRaxImmediate(value);
-    this.push(0x48, 0x89, 0x43, offset);
+    if (offset <= 127) {
+      this.push(0x48, 0x89, 0x43, offset);
+      return;
+    }
+    this.push(0x48, 0x89, 0x83);
+    this.pushU32(offset);
   }
 
   private loadU64FromRbxOffset(offset: number): void {
@@ -1848,6 +1927,35 @@ class Amd64ProofAssembler {
     this.pushU32(count);
     this.push(0x0f, 0x05, 0x83, 0xf8, count);
     this.jumpIfNotEqual();
+  }
+
+  private rtSigprocmaskBlock(maskOffset: number): void {
+    this.syscall(14);
+    this.push(0x31, 0xff);
+    this.leaRsiRbxOffset(maskOffset);
+    this.push(0x31, 0xd2, 0x41, 0xba);
+    this.pushU32(8);
+    this.push(0x0f, 0x05, 0x48, 0x85, 0xc0);
+    this.jumpIfSign();
+  }
+
+  private leaRsiRbxOffset(offset: number): void {
+    if (offset <= 127) {
+      this.push(0x48, 0x8d, 0x73, offset);
+      return;
+    }
+    this.push(0x48, 0x8d, 0xb3);
+    this.pushU32(offset);
+  }
+
+  private cmpDwordRbxOffsetImm8(offset: number, value: number): void {
+    if (offset <= 127) {
+      this.push(0x83, 0x7b, offset, value);
+      return;
+    }
+    this.push(0x83, 0xbb);
+    this.pushU32(offset);
+    this.push(value);
   }
 
   private epollWait(
