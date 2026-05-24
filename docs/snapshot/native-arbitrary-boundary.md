@@ -30,6 +30,21 @@ translation rule or an explicit refusal in the bundle:
 9. vdso/vvar/special mappings are recreated or refused;
 10. JIT/self-modifying code has runtime metadata or is refused.
 
+## Stack, register, and code-identity boundary
+
+The current accepted native-transparent class keeps the target execution point
+bounded by metadata-proven translated frames:
+
+| State                             | Required proof or refusal                                                                                                                            |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| source/target executable code     | target build-id/sha256/path provenance and translated code map; otherwise refuse                                                                     |
+| return chain                      | target unwind provenance for every frame; missing or non-target provenance refuses                                                                   |
+| frame/register state              | translated target frame pointer, stack pointer, instruction pointer, RFLAGS, TLS/TCB, and modeled callee-saved slots; missing or unsafe slots refuse |
+| pointer-shaped stack/heap words   | classified as pointer, code pointer, thread pointer, or integer through metadata; ambiguous values refuse                                            |
+| stack frame metadata              | DWARF/sidecar/unwind metadata required for every accepted frame; optimized-away/missing metadata refuses                                             |
+| JIT or self-modifying code        | refused until runtime code provenance and invalidation rules are modeled                                                                             |
+| signal trampoline/alt-stack frame | refused unless decoded by a future signal-frame model                                                                                                |
+
 ## No overclaiming
 
 Controlled proofs do not imply arbitrary binary support. A future PR that claims
@@ -44,8 +59,9 @@ stack relocation, memory relocation, resource recipes/refusals, a controlled
 native final jump, a captured-process native final jump, a captured jump into a
 matching amd64 target-binary continuation, a translated call-frame return through
 matching amd64 target-binary code, a translated heap/global pointer graph walked
-natively after that return, a captured regular-file fd reopened before
-target-native code reads it, a hard refusal matrix for syscall/signal/rseq
-thread states, a mapping policy proof for kernel/unreadable mappings, and first
-real utility attempts. It still does not claim generic final instruction-pointer
-jump for arbitrary optimized binaries.
+natively after that return, captured regular-file fd read/write/vector proof
+slices, bounded process context, target private-memory restore, special-mapping
+refusals, target fd-table/resource gates, a hard refusal matrix for
+syscall/signal/rseq thread states, a mapping policy proof for kernel/unreadable
+mappings, and target-native remote proof profiles. It still does not claim
+generic final instruction-pointer jump for arbitrary optimized binaries.

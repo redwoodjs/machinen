@@ -219,20 +219,20 @@ narrow exact contract or fail closed with a stable refusal.
 
 ### I. Code identity, unwind, stack, and arbitrary binary boundary
 
-- [~] Keep current target executable provenance, return-chain, frame/register,
-  stack-window, TLS, and real-utility continuation gates passing.
-- [ ] Expand source/target code identity mapping only when build-id/sha256/path
+- [x] Keep current target executable provenance, return-chain, frame/register,
+      stack-window, TLS, and real-utility continuation gates passing.
+- [x] Expand source/target code identity mapping only when build-id/sha256/path
       provenance and target module inventory match.
-- [ ] Require unwind/DWARF/sidecar metadata for every stack frame in any newly
+- [x] Require unwind/DWARF/sidecar metadata for every stack frame in any newly
       accepted arbitrary frame shape.
-- [ ] Translate or refuse every callee-saved register slot required by target
+- [x] Translate or refuse every callee-saved register slot required by target
       unwind metadata.
-- [ ] Classify pointer-shaped words as pointer, code pointer, thread pointer, or
+- [x] Classify pointer-shaped words as pointer, code pointer, thread pointer, or
       integer before relocation.
-- [ ] Refuse ambiguous, missing, optimized-away, or unowned stack/heap values.
-- [ ] Keep JIT/self-modifying code refused until runtime code provenance and
+- [x] Refuse ambiguous, missing, optimized-away, or unowned stack/heap values.
+- [x] Keep JIT/self-modifying code refused until runtime code provenance and
       relocation metadata exist.
-- [ ] Maintain the arbitrary-boundary checklist: 1. pointer-shaped words classified or refused; 2. return addresses mapped through source/target code identity or refused; 3. every stack frame has unwind/DWARF/sidecar metadata or refuses; 4. active syscall/restart state modeled or refused; 5. signal trampoline/alt-stack frame decoded or refused; 6. TLS, rseq, and futex state modeled or refused; 7. target executable/library build identity checked or refused; 8. kernel resources have reopen/broker recipes or precise refusals; 9. vDSO/vvar/special mappings recreated or refused; 10. JIT/self-modifying code has runtime metadata or refuses.
+- [x] Maintain the arbitrary-boundary checklist: 1. pointer-shaped words classified or refused; 2. return addresses mapped through source/target code identity or refused; 3. every stack frame has unwind/DWARF/sidecar metadata or refuses; 4. active syscall/restart state modeled or refused; 5. signal trampoline/alt-stack frame decoded or refused; 6. TLS, rseq, and futex state modeled or refused; 7. target executable/library build identity checked or refused; 8. kernel resources have reopen/broker recipes or precise refusals; 9. vDSO/vvar/special mappings recreated or refused; 10. JIT/self-modifying code has runtime metadata or refuses.
 
 ### J. Portable machine snapshot and target VM restore hardening
 
