@@ -126,18 +126,18 @@ narrow exact contract or fail closed with a stable refusal.
 
 ### C. Process context beyond bounded argv/envp/auxv pointer block
 
-- [~] Keep current bounded argv/env/cwd/selected-auxv model passing.
-- [ ] Inventory target libc startup/global expectations that are observable after
+- [x] Keep current bounded argv/env/cwd/selected-auxv model passing.
+- [x] Inventory target libc startup/global expectations that are observable after
       the restore point.
-- [ ] Decide which auxv entries are safe to materialize, which are target-owned,
+- [x] Decide which auxv entries are safe to materialize, which are target-owned,
       and which must refuse.
-- [ ] Model or refuse `AT_RANDOM` with an explicit target-owned randomness
+- [x] Model or refuse `AT_RANDOM` with an explicit target-owned randomness
       contract.
-- [ ] Model or refuse `AT_EXECFN` with target path/provenance ownership.
-- [ ] Model or refuse `AT_BASE`, interpreter, vDSO, and vvar dependencies.
-- [ ] Add tests that prove unsafe auxv/vDSO/vvar values cannot be copied from the
+- [x] Model or refuse `AT_EXECFN` with target path/provenance ownership.
+- [x] Model or refuse `AT_BASE`, interpreter, vDSO, and vvar dependencies.
+- [x] Add tests that prove unsafe auxv/vDSO/vvar values cannot be copied from the
       source ISA as success.
-- [ ] Add a remote process-context proof that exercises the newly modeled context
+- [x] Add a remote process-context proof that exercises the newly modeled context
       value from target-native code.
 
 ### D. Private memory, heap, brk, and mmap coverage

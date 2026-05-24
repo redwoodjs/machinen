@@ -18,6 +18,22 @@ native-process manifest and resource table and is bounded:
 Malformed, missing, inconsistent, or oversized context refuses with
 `target-process-context-unsupported`.
 
+## Target libc/startup dependency inventory
+
+The current process-context model is for an already-running target-native loader
+that jumps into controlled target code. It can safely expose only state that the
+loader owns or can verify after restore:
+
+- environment variables through target `clearenv()`/`setenv()` and `getenv()`;
+- cwd through target `chdir()` and `getcwd()`;
+- bounded argv strings through a target-owned pointer block for verifier code;
+- selected auxv values that are stable target facts (`AT_PAGESZ`, `AT_CLKTCK`).
+
+It does not claim full libc start reconstruction. Target libc's original kernel
+startup stack, dynamic-loader private globals, vDSO/vvar pointers, random bytes,
+interpreter base, and executable-name pointer ownership remain target-owned or
+refused unless a mode models them explicitly.
+
 ## Target-side consumption
 
 Descriptors use `native=process-context` steps. Four modes are available:
@@ -40,9 +56,18 @@ Descriptors use `native=process-context` steps. Four modes are available:
 
 The initial-stack mode also records an explicit auxv materialization policy:
 selected-safe entries are materialized, while target-variant/source-pointer
-entries such as `AT_SYSINFO_EHDR` (vDSO), `AT_RANDOM`, `AT_EXECFN`, and `AT_BASE`
-are listed as refused for this model rather than silently copied from the source.
-The vvar mapping dependency remains unsupported.
+entries are listed as refused for this model rather than silently copied from the
+source:
+
+| Entry / mapping          | Current policy                            | Reason                                                                       |
+| ------------------------ | ----------------------------------------- | ---------------------------------------------------------------------------- |
+| `AT_PAGESZ`              | materialize selected target-visible value | stable target ABI value checked with target `getauxval()`                    |
+| `AT_CLKTCK`              | materialize selected target-visible value | stable target ABI value checked with target `getauxval()`                    |
+| `AT_RANDOM`              | refuse                                    | source pointer/random bytes are process-local target-owned state             |
+| `AT_EXECFN`              | refuse                                    | source pointer names source execution context, not target-owned argv storage |
+| `AT_BASE`                | refuse                                    | interpreter/load base is target dynamic-loader state                         |
+| `AT_SYSINFO_EHDR` / vDSO | refuse                                    | vDSO pointer and code page are target-kernel supplied                        |
+| vvar                     | refuse                                    | vvar data is target-kernel supplied and time-sensitive                       |
 
 The visible mode refuses if the controlled env token, argv token, or selected
 safe auxv entries are missing. Source-only and target-variant auxv entries stay

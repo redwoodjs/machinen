@@ -11,6 +11,7 @@ function auxvHex(values: { pageSize: number; clockTick: number; unsafe?: boolean
           [33n, 0x7fff0000n],
           [25n, 0x7fff0100n],
           [31n, 0x7fff0200n],
+          [7n, 0x7fff0300n],
         ] satisfies Array<[bigint, bigint]>)
       : []),
     [0n, 0n],
@@ -167,7 +168,7 @@ describe("target guest process-context restore", () => {
         expect.objectContaining({
           action: "record-auxv-policy",
           materializedKeys: "AT_PAGESZ,AT_CLKTCK",
-          refusedKeys: "AT_SYSINFO_EHDR,AT_RANDOM,AT_EXECFN",
+          refusedKeys: "AT_SYSINFO_EHDR,AT_RANDOM,AT_EXECFN,AT_BASE",
         }),
         expect.objectContaining({
           action: "materialize-initial-stack",
@@ -178,6 +179,43 @@ describe("target guest process-context restore", () => {
           clockTick: 100,
         }),
         expect.objectContaining({ action: "verify-initial-stack", targetStart: "0x600000002000" }),
+      ]),
+    });
+    if (plan.state !== "planned") {
+      throw new Error("expected process-context plan to be planned");
+    }
+    const materialize = plan.steps.find((step) => step.action === "materialize-initial-stack");
+    expect(materialize).toMatchObject({ pageSize: 4096, clockTick: 100 });
+    expect(materialize).not.toHaveProperty("auxvHex");
+    expect(materialize).not.toHaveProperty("randomPointer");
+    expect(materialize).not.toHaveProperty("execfnPointer");
+    expect(materialize).not.toHaveProperty("basePointer");
+  });
+
+  it("records all source-owned and target-variant auxv keys as refused", () => {
+    const docs = documents();
+    docs.resources.resources.find((resource) => resource.kind === "auxv")!.recipe = {
+      bytesHex: auxvHex({ pageSize: 16384, clockTick: 250, unsafe: true }),
+    };
+
+    const plan = planTargetGuestProcessContextRestore(docs, {
+      mode: "apply-target-initial-stack",
+      initialStackTargetStart: "0x600000004000",
+    });
+
+    expect(plan).toMatchObject({
+      state: "planned",
+      steps: expect.arrayContaining([
+        expect.objectContaining({
+          action: "record-auxv-policy",
+          materializedKeys: "AT_PAGESZ,AT_CLKTCK",
+          refusedKeys: "AT_SYSINFO_EHDR,AT_RANDOM,AT_EXECFN,AT_BASE",
+        }),
+        expect.objectContaining({
+          action: "materialize-initial-stack",
+          pageSize: 16384,
+          clockTick: 250,
+        }),
       ]),
     });
   });
