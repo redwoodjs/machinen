@@ -515,6 +515,7 @@ export type {
   PortableMachineSnapshotRefusals,
 } from "./portable-machine-snapshot.ts";
 export type {
+  TargetGuestEpollWatchRecipe,
   TargetGuestNativeRestoreStep,
   TargetGuestRestoreContinuationDescriptor,
   TargetGuestRestoreDescriptor,

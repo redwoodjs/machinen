@@ -39,6 +39,7 @@ resource=reopen-file fd=7 path=/tmp/data.txt offset=9 access=0 closeOnExec=true
 resource=synthetic-empty-pipe readFd=3 writeFd=4 closeOnExec=false
 resource=synthetic-empty-eventfd fd=5 closeOnExec=false
 resource=synthetic-timerfd fd=6 closeOnExec=false
+resource=synthetic-epoll fd=8 watchCount=1 watch0Fd=5 watch0Events=1 watch0Data=0x45504f4c4c closeOnExec=false
 memory=copy-captured-bytes mapping=heap targetStart=0x600000000000 sizeBytes=4096 permissions=rw-p sourceFile=/tmp/native-memory.bin sourceOffset=0
 memory=recreate-guard mapping=stack-guard targetStart=0x600000001000 sizeBytes=4096 permissions=---p
 native=process-context action=chdir cwdHex=2f cwdSha256=8a5edab282632443219e051e4ade2d1d5bbc671c781051bf1437897cbdfea0f1
@@ -53,6 +54,8 @@ Supported fd-table resources and memory materialization are intentionally narrow
 - `synthetic-empty-pipe` with a modeled read fd and optional write fd;
 - `synthetic-empty-eventfd` with an empty non-semaphore eventfd;
 - `synthetic-timerfd` with a disarmed/future one-shot timerfd;
+- `synthetic-epoll` for the Goal 3 `interest-list-v1` subset: a finite
+  level-triggered watch list over fds that already have target recipes;
 - `copy-captured-bytes` for explicitly safe, non-executable writable mappings;
 - `recreate-guard` for guard / `PROT_NONE` ranges;
 - `frame=single-target-caller-frame` for the current modeled translated caller
@@ -68,7 +71,9 @@ The runtime fd-table planner emits these resource lines from translated native
 resources. The in-guest loader validates duplicate fd ownership before launching
 the trampoline, applies `close-fd` and `reopen-file` recipes in the child process,
 and forwards synthetic fd recipes plus `--set-cloexec-fd` intents to the
-trampoline. The trampoline applies close-on-exec flags after the
+trampoline. Epoll recipes are installed after their watched synthetic fds and
+reopened files exist, then `epoll_ctl(EPOLL_CTL_ADD)` recreates the declared
+interest list. The trampoline applies close-on-exec flags after the
 loader-to-trampoline `exec` boundary and before the target-native jump, so modeled
 fds remain open for restore setup but have the captured descriptor flag by the
 restored execution point.

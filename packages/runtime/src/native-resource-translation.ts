@@ -30,6 +30,7 @@ export type NativeTargetFdTableEntryKind =
   | "synthetic-empty-pipe-write-end"
   | "synthetic-empty-eventfd"
   | "synthetic-timerfd"
+  | "synthetic-epoll"
   | "refused";
 
 export interface NativeTargetFdTableEntry {
@@ -108,6 +109,7 @@ export function planNativeTargetFdTable(
       fdTableEntry(
         fd,
         fdResources.find((resource) => resource.fd === fd),
+        fdResources,
       ),
     );
   const refusals = [
@@ -163,6 +165,7 @@ function duplicateFdRefusals(resources: NativeProcessResource[]): NativeProcessI
 function fdTableEntry(
   fd: number,
   resource: NativeProcessResource | undefined,
+  resources: NativeProcessResource[],
 ): NativeTargetFdTableEntry {
   if (!resource) {
     return closeFdTableEntry(fd, "missing-captured-fd");
@@ -171,7 +174,7 @@ function fdTableEntry(
     const refusal = resource.refusal ?? fdTableMissingRefusal(fd, resource);
     return refusedFdTableEntry(resource, refusal);
   }
-  const entry = fdTableEntryFromRecipe(fd, resource, resource.recipe ?? {});
+  const entry = fdTableEntryFromRecipe(fd, resource, resource.recipe ?? {}, resources);
   return entry ?? refusedFdTableEntry(resource, fdTableMissingRefusal(fd, resource));
 }
 
@@ -179,12 +182,14 @@ function fdTableEntryFromRecipe(
   fd: number,
   resource: NativeProcessResource,
   recipe: Record<string, unknown>,
+  resources: NativeProcessResource[],
 ): NativeTargetFdTableEntry | undefined {
   const closeOnExec = nativeFdCloseOnExec(resource.flags);
   return (
     inheritedStdioFdTableEntry(fd, resource, recipe, closeOnExec) ??
     reopenFileFdTableEntry(fd, resource, recipe, closeOnExec) ??
-    syntheticFdTableEntry(fd, resource, recipe, closeOnExec)
+    syntheticFdTableEntry(fd, resource, recipe, closeOnExec) ??
+    syntheticEpollFdTableEntry(resource, recipe, closeOnExec, resources)
   );
 }
 
@@ -252,6 +257,89 @@ function syntheticFdTableEntry(
     }),
   };
   return typeof recipe.synthetic === "string" ? recipes[recipe.synthetic] : undefined;
+}
+
+function syntheticEpollFdTableEntry(
+  resource: NativeProcessResource,
+  recipe: Record<string, unknown>,
+  closeOnExec: boolean,
+  resources: NativeProcessResource[],
+): NativeTargetFdTableEntry | undefined {
+  if (resource.kind !== "epoll" || recipe.epollModel !== "interest-list-v1") {
+    return undefined;
+  }
+  const watches = epollWatchRecipes(resource, recipe, resources);
+  if (Array.isArray(watches)) {
+    return materializedFdTableEntry(resource, "synthetic-epoll", closeOnExec, {
+      kind: "synthetic-epoll",
+      fd: resource.fd!,
+      watches,
+      closeOnExec,
+    });
+  }
+  return refusedFdTableEntry(resource, watches);
+}
+
+function epollWatchRecipes(
+  resource: NativeProcessResource,
+  recipe: Record<string, unknown>,
+  resources: NativeProcessResource[],
+): Array<{ fd: number; events: number; data: string }> | NativeProcessImageRefusal {
+  const watches = Array.isArray(recipe.watches) ? recipe.watches : undefined;
+  if (!watches || watches.length === 0) {
+    return epollRefusal(resource, "epoll recipe requires a finite non-empty interest list");
+  }
+  const planned: Array<{ fd: number; events: number; data: string }> = [];
+  for (const [index, watch] of watches.entries()) {
+    const plannedWatch = epollWatchRecipe(resource, watch, index, resources);
+    if ("code" in plannedWatch) {
+      return plannedWatch;
+    }
+    planned.push(plannedWatch);
+  }
+  return planned;
+}
+
+// fallow-ignore-next-line complexity
+function epollWatchRecipe(
+  resource: NativeProcessResource,
+  value: unknown,
+  index: number,
+  resources: NativeProcessResource[],
+): { fd: number; events: number; data: string } | NativeProcessImageRefusal {
+  if (!isRecord(value)) {
+    return epollRefusal(resource, `epoll watch ${index} is malformed`);
+  }
+  const fd = typeof value.fd === "number" ? value.fd : undefined;
+  const events = typeof value.events === "number" ? value.events : undefined;
+  const data = typeof value.data === "string" ? value.data : undefined;
+  const watched = fd === undefined ? undefined : resources.find((candidate) => candidate.fd === fd);
+  if (fd === undefined || events === undefined || data === undefined || !isHex(data)) {
+    return epollRefusal(resource, `epoll watch ${index} is missing fd/events/data`);
+  }
+  if (fd === resource.fd || watched?.kind === "epoll") {
+    return epollRefusal(resource, "nested epoll and self-watch state remain unsupported");
+  }
+  const unmodeledEvents = epollUnmodeledEvents(events);
+  if (unmodeledEvents !== 0) {
+    return epollRefusal(
+      resource,
+      "epoll edge-triggered or one-shot delivery state is unsupported",
+      {
+        events,
+        unmodeledEvents,
+      },
+    );
+  }
+  if (!watched || watched.state !== "recipe" || watched.refusal) {
+    return epollRefusal(resource, "epoll watched fd has no accepted target recipe", {
+      watchedFd: fd,
+      watchedKind: watched?.kind,
+      watchedState: watched?.state,
+      watchedRefusalCode: watched?.refusal?.code,
+    });
+  }
+  return { fd, events, data };
 }
 
 function materializedFdTableEntry(
@@ -450,6 +538,13 @@ function translateResource(
       refusal: undefined,
     };
   }
+  if (resource.kind === "epoll" && resource.recipe?.epollModel === "interest-list-v1") {
+    return {
+      ...resource,
+      state: "recipe",
+      refusal: undefined,
+    };
+  }
   if (resource.kind === "raw-socket" && capabilities.has("raw-socket")) {
     return {
       ...resource,
@@ -546,6 +641,45 @@ function resourceRefusalCode(
     return inheritedStdio ? "non-stdio-kernel-state-unsupported" : "kernel-state-unsupported";
   }
   return "resource-kind-unsupported";
+}
+
+const EPOLL_EDGE_TRIGGERED = 0x80000000;
+const EPOLL_ONESHOT = 0x40000000;
+
+function epollUnmodeledEvents(events: number): number {
+  return [EPOLL_EDGE_TRIGGERED, EPOLL_ONESHOT].reduce(
+    (mask, flag) => (Math.floor(events / flag) % 2 === 1 ? mask + flag : mask),
+    0,
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isHex(value: string): boolean {
+  return /^0x[0-9a-f]+$/i.test(value);
+}
+
+function epollRefusal(
+  resource: NativeProcessResource,
+  reason: string,
+  detail: Record<string, unknown> = {},
+): NativeProcessImageRefusal {
+  return {
+    code: "target-epoll-syscall-state-unsupported",
+    message: `epoll resource ${resource.id} cannot be recreated target-natively`,
+    detail: {
+      id: resource.id,
+      kind: resource.kind,
+      fd: resource.fd,
+      path: resource.path,
+      boundary: "epoll-interest-list",
+      reason,
+      requiredModel: RESOURCE_REQUIRED_MODELS.epoll,
+      ...detail,
+    },
+  };
 }
 
 const RESOURCE_REQUIRED_MODELS: Partial<Record<NativeProcessResource["kind"], string[]>> = {

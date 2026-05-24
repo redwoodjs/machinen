@@ -26,30 +26,32 @@ captured-regular-file-coexists-with-precise-nonfile-resource-refusals
 
 ## Matrix
 
-| Resource kind         | Current action                                           | Refusal code                |
-| --------------------- | -------------------------------------------------------- | --------------------------- |
-| argv/env/cwd/exe/auxv | carry metadata/recipe                                    | n/a                         |
-| regular file          | reopen by path + offset                                  | n/a                         |
-| pipe                  | refuse                                                   | `kernel-state-unsupported`  |
-| socket                | refuse                                                   | `kernel-state-unsupported`  |
-| epoll                 | refuse                                                   | `kernel-state-unsupported`  |
-| eventfd               | refuse                                                   | `kernel-state-unsupported`  |
-| timerfd               | refuse as `timer`                                        | `kernel-state-unsupported`  |
-| signalfd              | refuse as `signal`                                       | `kernel-state-unsupported`  |
-| PTY                   | refuse unless a PTY broker capability is supplied        | `resource-kind-unsupported` |
-| raw socket            | refuse unless a raw-socket broker capability is supplied | `resource-kind-unsupported` |
-| unknown fd            | refuse                                                   | `fd-kind-unsupported`       |
+| Resource kind         | Current action                                                                      | Refusal code                             |
+| --------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------- |
+| argv/env/cwd/exe/auxv | carry metadata/recipe                                                               | n/a                                      |
+| regular file          | reopen by path + offset                                                             | n/a                                      |
+| pipe                  | refuse                                                                              | `kernel-state-unsupported`               |
+| socket                | refuse                                                                              | `kernel-state-unsupported`               |
+| epoll                 | recreate only the `interest-list-v1` known-fd subset; refuse active/ambiguous state | `target-epoll-syscall-state-unsupported` |
+| eventfd               | refuse                                                                              | `kernel-state-unsupported`               |
+| timerfd               | refuse as `timer`                                                                   | `kernel-state-unsupported`               |
+| signalfd              | refuse as `signal`                                                                  | `kernel-state-unsupported`               |
+| PTY                   | refuse unless a PTY broker capability is supplied                                   | `resource-kind-unsupported`              |
+| raw socket            | refuse unless a raw-socket broker capability is supplied                            | `resource-kind-unsupported`              |
+| unknown fd            | refuse                                                                              | `fd-kind-unsupported`                    |
 
 The refusal detail records the missing model. Socket resources require
 accept/connect/listen queues, peer identity, credentials, namespaces, options,
-shutdown/readiness, and partial-transfer state. Epoll resources require interest
-lists, ready-list ordering, edge-triggered delivery state, nested epoll, and
-wakeup ordering. signalfd resources require pending signal queues, siginfo
-payload ownership, delivery ordering, and signal-mask coordination.
+shutdown/readiness, and partial-transfer state. Epoll now has a narrow supported
+subset for finite level-triggered interest lists whose watched fds already have
+accepted target recipes; ready-list ordering, edge-triggered delivery state,
+nested epoll, active waits, and wakeup ordering still refuse. signalfd resources
+require pending signal queues, siginfo payload ownership, delivery ordering, and
+signal-mask coordination.
 
 ## Next broker candidates
 
-The first broker candidates are PTYs and raw sockets because the existing resource translator already has capability gates for those recipe shapes. Pipes, sockets, epoll, eventfd, timerfd, and signalfd carry kernel state that must be modeled or brokered before transparent restore can safely claim support.
+The first broker candidates are PTYs and raw sockets because the existing resource translator already has capability gates for those recipe shapes. Pipes, sockets, active epoll waits/ready lists, eventfd, timerfd, and signalfd carry kernel state that must be modeled or brokered before transparent restore can safely claim broader support.
 
 ## Verify
 

@@ -287,6 +287,36 @@
     "supportStatus": "baseline-success"
   },
   {
+    "name": "epoll-recreate",
+    "remoteSourceTarget": "epoll-recreate",
+    "description": "Target-native epoll interest-list reconstruction for one level-triggered eventfd watch.",
+    "sourceFixture": "packages/microvm/assets/native-pipe-read-target.c",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "success",
+    "supportStatus": "graduated-support",
+    "unsafeStateFamily": "epoll",
+    "graduatedFromRefusalCode": "target-epoll-syscall-state-unsupported",
+    "acceptedSubset": "single-level-triggered-restorable-fd-watch",
+    "unsafeVariants": ["epoll-wait-refusal"],
+    "expectedGates": [
+      "descriptor",
+      "verifier",
+      "state-consumption",
+      "resources",
+      "return-chain",
+      "frame",
+      "registers",
+      "tls",
+      "stack-window",
+      "private-memory",
+      "executable",
+      "signal",
+      "active-syscall",
+      "resume-path"
+    ]
+  },
+  {
     "name": "socket-transfer-refusal",
     "remoteSourceTarget": "socket-transfer-refusal",
     "description": "Active socket transfer must fail closed before target-native success.",

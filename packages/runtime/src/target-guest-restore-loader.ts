@@ -36,6 +36,12 @@ export class TargetGuestRestoreLoaderValidationError extends Error {
   }
 }
 
+export interface TargetGuestEpollWatchRecipe {
+  fd: number;
+  events: number;
+  data: string;
+}
+
 export type TargetGuestRestoreResourceRecipe =
   | { kind: "close-fd"; fd: number; reason?: string }
   | { kind: "inherit-stdio"; fd: 1 | 2; stream: "stdout" | "stderr"; closeOnExec?: boolean }
@@ -49,7 +55,13 @@ export type TargetGuestRestoreResourceRecipe =
     }
   | { kind: "synthetic-empty-pipe"; readFd: number; writeFd?: number; closeOnExec?: boolean }
   | { kind: "synthetic-empty-eventfd"; fd: number; closeOnExec?: boolean }
-  | { kind: "synthetic-timerfd"; fd: number; closeOnExec?: boolean };
+  | { kind: "synthetic-timerfd"; fd: number; closeOnExec?: boolean }
+  | {
+      kind: "synthetic-epoll";
+      fd: number;
+      watches: TargetGuestEpollWatchRecipe[];
+      closeOnExec?: boolean;
+    };
 
 export type TargetGuestRestoreResumeMode = "translated-frame";
 
@@ -446,6 +458,7 @@ const RESOURCE_RECIPE_PARSERS: Record<
   "synthetic-empty-eventfd": (fields) =>
     parseSingleFdSyntheticRecipe("synthetic-empty-eventfd", fields),
   "synthetic-timerfd": (fields) => parseSingleFdSyntheticRecipe("synthetic-timerfd", fields),
+  "synthetic-epoll": parseSyntheticEpollRecipe,
 };
 
 function resourceFromFields(
@@ -491,6 +504,24 @@ function parseSingleFdSyntheticRecipe(
     kind,
     fd: parseResourceInteger(fields, "fd"),
     closeOnExec: parseResourceBoolean(fields, "closeOnExec"),
+  };
+}
+
+function parseSyntheticEpollRecipe(fields: Map<string, string>): TargetGuestRestoreResourceRecipe {
+  const watchCount = parseResourceInteger(fields, "watchCount");
+  return {
+    kind: "synthetic-epoll",
+    fd: parseResourceInteger(fields, "fd"),
+    watches: Array.from({ length: watchCount }, (_, index) => parseEpollWatch(fields, index)),
+    closeOnExec: parseResourceBoolean(fields, "closeOnExec"),
+  };
+}
+
+function parseEpollWatch(fields: Map<string, string>, index: number): TargetGuestEpollWatchRecipe {
+  return {
+    fd: parseResourceInteger(fields, `watch${index}Fd`),
+    events: parseResourceInteger(fields, `watch${index}Events`),
+    data: requiredResourceField(fields, `watch${index}Data`),
   };
 }
 
@@ -1053,6 +1084,7 @@ const RESOURCE_RECIPE_VALIDATORS = {
   },
   "synthetic-empty-eventfd": validateSingleFdRecipe,
   "synthetic-timerfd": validateSingleFdRecipe,
+  "synthetic-epoll": validateSyntheticEpollRecipe,
 };
 
 function validateResourceRecipe(
@@ -1089,6 +1121,21 @@ function validateSingleFdRecipe(
   >,
 ): void {
   assertFd(recipe.fd, "fd");
+}
+
+function validateSyntheticEpollRecipe(
+  recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "synthetic-epoll" }>,
+): void {
+  assertFd(recipe.fd, "fd");
+  assertPositive(recipe.watches.length, "watchCount");
+  for (const [index, watch] of recipe.watches.entries()) {
+    assertFd(watch.fd, `watch${index}Fd`);
+    assertNonNegative(watch.events, `watch${index}Events`);
+    assertHexAddress(watch.data, `watch${index}Data`);
+    if (watch.fd === recipe.fd) {
+      fail("target-guest-loader-invalid-fd", "epoll cannot watch itself");
+    }
+  }
 }
 
 function assertUniqueResourceFds(resources: TargetGuestRestoreResourceRecipe[]): void {
@@ -1617,9 +1664,20 @@ function serializeResourceRecipe(recipe: TargetGuestRestoreResourceRecipe): stri
     const writeFd = recipe.writeFd === undefined ? "" : ` writeFd=${recipe.writeFd}`;
     return `resource=synthetic-empty-pipe readFd=${recipe.readFd}${writeFd}${serializeCloseOnExec(recipe.closeOnExec)}`;
   }
-  return recipe.kind === "synthetic-empty-eventfd"
-    ? `resource=synthetic-empty-eventfd fd=${recipe.fd}${serializeCloseOnExec(recipe.closeOnExec)}`
-    : `resource=synthetic-timerfd fd=${recipe.fd}${serializeCloseOnExec(recipe.closeOnExec)}`;
+  if (recipe.kind === "synthetic-empty-eventfd") {
+    return `resource=synthetic-empty-eventfd fd=${recipe.fd}${serializeCloseOnExec(recipe.closeOnExec)}`;
+  }
+  if (recipe.kind === "synthetic-timerfd") {
+    return `resource=synthetic-timerfd fd=${recipe.fd}${serializeCloseOnExec(recipe.closeOnExec)}`;
+  }
+  return `resource=synthetic-epoll fd=${recipe.fd} watchCount=${recipe.watches.length}${recipe.watches
+    .flatMap((watch, index) => [
+      `watch${index}Fd=${watch.fd}`,
+      `watch${index}Events=${watch.events}`,
+      `watch${index}Data=${watch.data}`,
+    ])
+    .map((token) => ` ${token}`)
+    .join("")}${serializeCloseOnExec(recipe.closeOnExec)}`;
 }
 
 function serializeCloseOnExec(value: boolean | undefined): string {
@@ -1784,13 +1842,39 @@ function resourceToTrampolineArgs(recipe: TargetGuestRestoreResourceRecipe): str
   if (recipe.kind === "synthetic-empty-pipe") {
     return [...pipeResourceArgs(recipe), ...closeOnExecArgs(recipe.readFd, recipe.closeOnExec)];
   }
-  return recipe.kind === "synthetic-empty-eventfd"
-    ? [
-        "--synthetic-empty-eventfd",
-        String(recipe.fd),
-        ...closeOnExecArgs(recipe.fd, recipe.closeOnExec),
-      ]
-    : ["--synthetic-timerfd", String(recipe.fd), ...closeOnExecArgs(recipe.fd, recipe.closeOnExec)];
+  if (recipe.kind === "synthetic-empty-eventfd") {
+    return [
+      "--synthetic-empty-eventfd",
+      String(recipe.fd),
+      ...closeOnExecArgs(recipe.fd, recipe.closeOnExec),
+    ];
+  }
+  if (recipe.kind === "synthetic-timerfd") {
+    return [
+      "--synthetic-timerfd",
+      String(recipe.fd),
+      ...closeOnExecArgs(recipe.fd, recipe.closeOnExec),
+    ];
+  }
+  return [
+    "--synthetic-epoll",
+    epollResourceSpec(recipe),
+    ...closeOnExecArgs(recipe.fd, recipe.closeOnExec),
+  ];
+}
+
+function epollResourceSpec(
+  recipe: Extract<TargetGuestRestoreResourceRecipe, { kind: "synthetic-epoll" }>,
+): string {
+  return [
+    `fd=${recipe.fd}`,
+    `watchCount=${recipe.watches.length}`,
+    ...recipe.watches.flatMap((watch, index) => [
+      `watch${index}Fd=${watch.fd}`,
+      `watch${index}Events=${watch.events}`,
+      `watch${index}Data=${watch.data}`,
+    ]),
+  ].join(";");
 }
 
 function pipeResourceArgs(recipe: { readFd: number; writeFd?: number }): string[] {
