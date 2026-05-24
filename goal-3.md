@@ -88,15 +88,15 @@ the native-transparent contract.
 Before implementing any specific family, make the refusal-to-support workflow
 repeatable.
 
-- [ ] Add a proof-runner convention for a profile graduating from refusal to
+- [x] Add a proof-runner convention for a profile graduating from refusal to
       support, including the old refusal code, accepted subset name, and unsafe
       variants that must still refuse.
-- [ ] Add reporting that shows which Goal 2 refusal profiles remain intentionally
-      refused and which have graduated to success.
-- [ ] Add a checklist template for every family: portable state model, target
+- [x] Add reporting that shows which Goal 2 refusal profiles remain
+      intentionally refused and which have graduated to success.
+- [x] Add a checklist template for every family: portable state model, target
       restore recipe, target gates, positive profile, negative variants, docs,
       and validation timings.
-- [ ] Ensure a graduated profile cannot pass if `migrationCompleted=true` is set
+- [x] Ensure a graduated profile cannot pass if `migrationCompleted=true` is set
       before descriptor and target-native gates complete.
 
 ## C. Epoll reconstruction for known fd recipes
