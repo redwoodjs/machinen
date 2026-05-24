@@ -103,9 +103,17 @@ interface CombinedDescriptorContext extends CombinedDescriptorPaths {
   targetThreadSpawnSteps: TargetGuestTwoThreadSpawnStep[];
   targetProcessContextSteps: TargetGuestNativeRestoreStep[];
   activeFileReadProof?: ActiveFileReadProof;
+  activeFileWriteProof?: ActiveFileWriteProof;
 }
 
 interface ActiveFileReadProof {
+  fd: number;
+  fileOffset: number;
+  targetBufferPointer: string;
+  expectedBytes: Buffer;
+}
+
+interface ActiveFileWriteProof {
   fd: number;
   fileOffset: number;
   targetBufferPointer: string;
@@ -155,6 +163,7 @@ const PROOF_EVENT_FD = 10;
 const PROOF_TIMER_FD = 11;
 const PROOF_FD_BYTES = Buffer.from("FD");
 const PROOF_FILE_READ_BYTES = Buffer.from("FILE");
+const PROOF_FILE_WRITE_BYTES = Buffer.from("WRIT");
 const PROOF_INITIAL_STACK_TARGET = "0x600000002000";
 const STATE_CONSUMPTION_MARKER = 0x5354415445434f4en;
 const STATE_CHECK_MEMORY = 0x01;
@@ -360,6 +369,7 @@ function prepareCombinedDescriptor(
     context.memoryFile,
     context.mapping,
     context.activeFileReadProof,
+    proofFdVerifierBytes(context),
     plan,
   );
   if (isRestorePlan(targetContinuation)) {
@@ -454,6 +464,7 @@ function combinedDescriptorContext(
     targetThreadSpawnSteps: threads.threadSpawnSteps,
     targetProcessContextSteps: processContextSteps.steps,
     activeFileReadProof: activeFileReadProof(activeSyscallPlan.steps),
+    activeFileWriteProof: activeFileWriteProof(activeSyscallPlan.steps),
   };
   return contextAfterPathCheck(plan, bundle.rootDir!, context);
 }
@@ -558,6 +569,8 @@ function activeSyscallPolicy(
     pollTimeoutFdPolicy: "synthetic-timerfd" as const,
     fdReadPolicy: "defer-target-resume" as const,
     fdReadResourcePolicy: fdReadResourcePolicy(bundle),
+    fdWritePolicy: "defer-target-resume" as const,
+    fdWriteResourcePolicy: "reopen-file" as const,
     documents,
   };
 }
@@ -614,6 +627,14 @@ function isActiveReadThread(
   return thread.syscall.state === "inside-syscall" && thread.syscall.name === "read";
 }
 
+function isActiveWriteThread(
+  thread: ReturnType<
+    typeof validatePortableMachineSnapshotBundle
+  >["nativeProcessImage"]["threads"]["threads"][number],
+): boolean {
+  return thread.syscall.state === "inside-syscall" && thread.syscall.name === "write";
+}
+
 function activeReadFd(
   thread: ReturnType<
     typeof validatePortableMachineSnapshotBundle
@@ -650,6 +671,23 @@ function activeReadRegisterBuffer(
   return thread.sourceRegisters.arch === "arm64" ? thread.sourceRegisters.x[1] : undefined;
 }
 
+// fallow-ignore-next-line complexity
+function activeWriteBufferPointer(
+  bundle: ReturnType<typeof validatePortableMachineSnapshotBundle>,
+): bigint | undefined {
+  const thread = bundle.nativeProcessImage.threads.threads.find(isActiveWriteThread);
+  const raw = thread
+    ? (thread.syscall.arguments?.[1] ?? activeReadRegisterBuffer(thread))
+    : undefined;
+  return raw === undefined ? undefined : safeBigInt(raw);
+}
+
+function activeTransferBufferPointer(
+  bundle: ReturnType<typeof validatePortableMachineSnapshotBundle>,
+): bigint | undefined {
+  return activeReadBufferPointer(bundle) ?? activeWriteBufferPointer(bundle);
+}
+
 function safeBigIntNumber(value: string): number | undefined {
   const parsed = safeBigInt(value);
   return parsed === undefined ? undefined : Number(parsed);
@@ -684,7 +722,7 @@ function proofMemorySelection(bundle: ReturnType<typeof validatePortableMachineS
     mapping: selectProofMemoryMapping(
       bundle.nativeProcessImage.mappings.mappings,
       sizeBytes,
-      activeReadBufferPointer(bundle),
+      activeTransferBufferPointer(bundle),
     ),
   };
 }
@@ -927,15 +965,43 @@ function activeFileReadProof(
     : undefined;
 }
 
+function activeFileWriteProof(
+  steps: CombinedDescriptorContext["targetActiveSyscallSteps"],
+): ActiveFileWriteProof | undefined {
+  const step = steps.find((candidate) => candidate.action === "complete-fd-write-to-file");
+  return step?.action === "complete-fd-write-to-file"
+    ? {
+        fd: step.fd,
+        fileOffset: step.fileOffset,
+        targetBufferPointer: step.targetBufferPointer,
+        expectedBytes: PROOF_FILE_WRITE_BYTES.subarray(0, step.countBytes),
+      }
+    : undefined;
+}
+
 function proofFdFileBytes(context: CombinedDescriptorContext): Buffer {
-  const active = context.activeFileReadProof;
-  if (!active) {
-    return PROOF_FD_BYTES;
-  }
-  const size = Math.max(PROOF_FD_BYTES.length, active.fileOffset + active.expectedBytes.length);
+  return proofFdExpectedBytes(context, false);
+}
+
+function proofFdVerifierBytes(context: CombinedDescriptorContext): Buffer {
+  return proofFdExpectedBytes(context, true);
+}
+
+function proofFdExpectedBytes(
+  context: CombinedDescriptorContext,
+  includeActiveWrite: boolean,
+): Buffer {
+  const activeRead = context.activeFileReadProof;
+  const activeWrite = includeActiveWrite ? context.activeFileWriteProof : undefined;
+  const size = Math.max(
+    PROOF_FD_BYTES.length,
+    activeRead ? activeRead.fileOffset + activeRead.expectedBytes.length : 0,
+    activeWrite ? activeWrite.fileOffset + activeWrite.expectedBytes.length : 0,
+  );
   const bytes = Buffer.alloc(size, 0);
   PROOF_FD_BYTES.copy(bytes, 0);
-  active.expectedBytes.copy(bytes, active.fileOffset);
+  activeRead?.expectedBytes.copy(bytes, activeRead.fileOffset);
+  activeWrite?.expectedBytes.copy(bytes, activeWrite.fileOffset);
   return bytes;
 }
 
@@ -1055,14 +1121,21 @@ function prepareTargetContinuation(
   memoryFile: string,
   mapping: NativeMemoryMapping,
   activeFileRead: ActiveFileReadProof | undefined,
+  expectedFdBytes: Buffer,
   plan: ReturnType<typeof planPortableMachineVmRestoreProof>,
 ): PreparedTargetContinuation | ReturnType<typeof planPortableMachineVmRestoreProof> {
   const expectedMemoryByte = firstByte(memoryFile, mapping);
   return args.realUtilityContinuation
-    ? prepareRealUtilityContinuation(targetDir, expectedMemoryByte, activeFileRead, plan)
+    ? prepareRealUtilityContinuation(
+        targetDir,
+        expectedMemoryByte,
+        activeFileRead,
+        expectedFdBytes,
+        plan,
+      )
     : {
         kind: "generated-verifier",
-        bytes: combinedProofTargetCode(expectedMemoryByte, activeFileRead),
+        bytes: combinedProofTargetCode(expectedMemoryByte, activeFileRead, expectedFdBytes),
       };
 }
 
@@ -1070,12 +1143,17 @@ function prepareRealUtilityContinuation(
   targetDir: string,
   expectedMemoryByte: number,
   activeFileRead: ActiveFileReadProof | undefined,
+  expectedFdBytes: Buffer,
   plan: ReturnType<typeof planPortableMachineVmRestoreProof>,
 ) {
   const targetRoot = join(targetDir, "real-utility-root");
   const modulePath = join(targetRoot, "usr/bin/realspin-code");
   mkdirSync(dirname(modulePath), { recursive: true });
-  const targetCode = stateConsumingRealUtilityTargetCode(expectedMemoryByte, activeFileRead);
+  const targetCode = stateConsumingRealUtilityTargetCode(
+    expectedMemoryByte,
+    activeFileRead,
+    expectedFdBytes,
+  );
   const moduleBytes = targetCode.bytes;
   writeFileSync(modulePath, moduleBytes);
   const module = realUtilityTargetModule(sha256(moduleBytes), moduleBytes.length);
@@ -1313,6 +1391,7 @@ function proofFdResources(context: CombinedDescriptorContext): NativeProcessReso
     proofStdoutResource(),
     proofFileResource(),
     ...activeFileReadResources(context),
+    ...activeFileWriteResources(context),
     proofPipeResource(PROOF_PIPE_READ_FD, "read"),
     proofPipeResource(PROOF_PIPE_WRITE_FD, "write"),
     proofSyntheticResource("eventfd", PROOF_EVENT_FD),
@@ -1332,6 +1411,24 @@ function activeFileReadResources(context: CombinedDescriptorContext): NativeProc
           path: GUEST_FD_FILE,
           offset: active.fileOffset,
           flags: ["octal:0"],
+          recipe: { reopen: GUEST_FD_FILE, offset: active.fileOffset },
+        },
+      ]
+    : [];
+}
+
+function activeFileWriteResources(context: CombinedDescriptorContext): NativeProcessResource[] {
+  const active = context.activeFileWriteProof;
+  return active
+    ? [
+        {
+          id: `fd:${active.fd}:combined-proof-file-write`,
+          kind: "file" as const,
+          state: "recipe" as const,
+          fd: active.fd,
+          path: GUEST_FD_FILE,
+          offset: active.fileOffset,
+          flags: ["octal:1"],
           recipe: { reopen: GUEST_FD_FILE, offset: active.fileOffset },
         },
       ]
@@ -1390,18 +1487,26 @@ function firstByte(memoryFile: string, mapping: NativeMemoryMapping): number {
 function combinedProofTargetCode(
   expectedMemoryByte: number,
   activeFileRead: ActiveFileReadProof | undefined,
+  expectedFdBytes: Buffer,
 ): Buffer {
-  return proofStateVerifierTargetCode(expectedMemoryByte, "exit", activeFileRead).bytes;
+  return proofStateVerifierTargetCode(expectedMemoryByte, "exit", activeFileRead, expectedFdBytes)
+    .bytes;
 }
 
 function stateConsumingRealUtilityTargetCode(
   expectedMemoryByte: number,
   activeFileRead: ActiveFileReadProof | undefined,
+  expectedFdBytes: Buffer,
 ): {
   bytes: Buffer;
   translatedReturnAddress: string;
 } {
-  const code = proofStateVerifierTargetCode(expectedMemoryByte, "return", activeFileRead);
+  const code = proofStateVerifierTargetCode(
+    expectedMemoryByte,
+    "return",
+    activeFileRead,
+    expectedFdBytes,
+  );
   return {
     bytes: code.bytes,
     translatedReturnAddress: hex(0x700300000000n + BigInt(code.translatedReturnOffset)),
@@ -1413,7 +1518,8 @@ type ProofCompletionMode = "exit" | "return";
 function proofStateVerifierTargetCode(
   expectedMemoryByte: number,
   completion: ProofCompletionMode,
-  activeFileRead?: ActiveFileReadProof,
+  activeFileRead: ActiveFileReadProof | undefined,
+  expectedFdBytes: Buffer,
 ): { bytes: Buffer; translatedReturnOffset: number } {
   const asm = new Amd64ProofAssembler();
   if (completion === "return") {
@@ -1440,7 +1546,7 @@ function proofStateVerifierTargetCode(
   asm.markStateCheck(completion, STATE_CHECK_CLOSE_FD);
   asm.checkFdOpen(PROOF_STDOUT_FD);
   asm.markStateCheck(completion, STATE_CHECK_STDIO);
-  asm.readAndCheck(PROOF_FILE_FD, PROOF_FD_BYTES);
+  asm.readAndCheck(PROOF_FILE_FD, expectedFdBytes);
   asm.markStateCheck(completion, STATE_CHECK_REOPEN_FILE);
   asm.checkFdOpen(PROOF_PIPE_READ_FD);
   asm.checkFdOpen(PROOF_PIPE_WRITE_FD);

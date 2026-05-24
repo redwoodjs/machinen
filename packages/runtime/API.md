@@ -207,6 +207,8 @@
 - [`NativePollTimeoutFdPolicy`](#nativepolltimeoutfdpolicy)
 - [`NativeFdReadPolicy`](#nativefdreadpolicy)
 - [`NativeFdReadResourcePolicy`](#nativefdreadresourcepolicy)
+- [`NativeFdWritePolicy`](#nativefdwritepolicy)
+- [`NativeFdWriteResourcePolicy`](#nativefdwriteresourcepolicy)
 - [`NativeActiveSyscallPolicyOptions`](#nativeactivesyscallpolicyoptions)
 - [`NativeSleepTimerDuration`](#nativesleeptimerduration)
 - [`NativeModeledSleepTimerRemainingTime`](#nativemodeledsleeptimerremainingtime)
@@ -218,18 +220,23 @@
 - [`NativeModeledFdReadTargetResource`](#nativemodeledfdreadtargetresource)
 - [`NativeModeledFdReadTimerRemainingTime`](#nativemodeledfdreadtimerremainingtime)
 - [`NativeModeledFdReadState`](#nativemodeledfdreadstate)
+- [`NativeModeledFdWriteTargetResource`](#nativemodeledfdwritetargetresource)
+- [`NativeModeledFdWriteState`](#nativemodeledfdwritestate)
 - [`NativeSleepTimerModelResult`](#nativesleeptimermodelresult)
 - [`NativePpollTimeoutModelResult`](#nativeppolltimeoutmodelresult)
 - [`NativeFdReadModelResult`](#nativefdreadmodelresult)
+- [`NativeFdWriteModelResult`](#nativefdwritemodelresult)
 - [`NativeActiveSleepTimerContinuation`](#nativeactivesleeptimercontinuation)
 - [`NativeActivePpollTimeoutContinuation`](#nativeactiveppolltimeoutcontinuation)
 - [`NativeActiveFdReadContinuation`](#nativeactivefdreadcontinuation)
+- [`NativeActiveFdWriteContinuation`](#nativeactivefdwritecontinuation)
 - [`NativeActiveSyscallContinuation`](#nativeactivesyscallcontinuation)
 - [`NativeActiveSyscallClassification`](#nativeactivesyscallclassification)
 - [`NativeActiveSyscallClassificationResult`](#nativeactivesyscallclassificationresult)
 - [`modelNativeSleepTimerState`](#modelnativesleeptimerstate)
 - [`modelNativePpollTimeoutState`](#modelnativeppolltimeoutstate)
 - [`modelNativeFdReadState`](#modelnativefdreadstate)
+- [`modelNativeFdWriteState`](#modelnativefdwritestate)
 - [`classifyNativeThreadSyscall`](#classifynativethreadsyscall)
 - [`classifyNativeActiveSyscalls`](#classifynativeactivesyscalls)
 - [`NativeCodeModule`](#nativecodemodule)
@@ -2663,6 +2670,14 @@ by default when `output` is a TTY.
 
 > `optional` **fdReadResourcePolicy?**: [`NativeFdReadResourcePolicy`](#nativefdreadresourcepolicy)
 
+##### fdWritePolicy?
+
+> `optional` **fdWritePolicy?**: [`NativeFdWritePolicy`](#nativefdwritepolicy)
+
+##### fdWriteResourcePolicy?
+
+> `optional` **fdWriteResourcePolicy?**: `"reopen-file"`
+
 ##### documents?
 
 > `optional` **documents?**: [`NativeProcessImageDocuments`](#nativeprocessimagedocuments)
@@ -2995,6 +3010,56 @@ by default when `output` is a TTY.
 
 ***
 
+### NativeModeledFdWriteState
+
+#### Properties
+
+##### kind
+
+> **kind**: `"fd-write-complete"`
+
+##### syscallName
+
+> **syscallName**: `"write"`
+
+##### argumentSource
+
+> **argumentSource**: `"proc-syscall"` \| `"registers"`
+
+##### fd
+
+> **fd**: `number`
+
+##### bufferPointer
+
+> **bufferPointer**: `string`
+
+##### countBytes
+
+> **countBytes**: `number`
+
+##### bufferMapping
+
+> **bufferMapping**: `string`
+
+##### resourceId
+
+> **resourceId**: `string`
+
+##### targetResource
+
+> **targetResource**: `"reopened-offset-file"`
+
+##### targetBufferPointer
+
+> **targetBufferPointer**: `string`
+
+##### fileOffset
+
+> **fileOffset**: `number`
+
+***
+
 ### NativeActiveSleepTimerContinuation
 
 #### Properties
@@ -3174,6 +3239,64 @@ by default when `output` is a TTY.
 ###### policy
 
 > **policy**: `"conservative-target-fd-read-block-preserved"`
+
+***
+
+### NativeActiveFdWriteContinuation
+
+#### Properties
+
+##### threadId
+
+> **threadId**: `string`
+
+##### syscallClass
+
+> **syscallClass**: `"fd-blocking"`
+
+##### action
+
+> **action**: `"defer-target-resume"`
+
+##### syscall
+
+> **syscall**: `object`
+
+###### state
+
+> **state**: `"outside-syscall"` \| `"inside-syscall"` \| `"restart-block"`
+
+###### number?
+
+> `optional` **number?**: `number`
+
+###### name?
+
+> `optional` **name?**: `string`
+
+###### arguments?
+
+> `optional` **arguments?**: `string`[]
+
+###### stackPointer?
+
+> `optional` **stackPointer?**: `string`
+
+###### instructionPointer?
+
+> `optional` **instructionPointer?**: `string`
+
+##### metadata
+
+> **metadata**: `object`
+
+###### fdWrite
+
+> **fdWrite**: [`NativeModeledFdWriteState`](#nativemodeledfdwritestate)
+
+###### policy
+
+> **policy**: `"conservative-target-fd-write-completed-from-buffer"`
 
 ***
 
@@ -4036,7 +4159,7 @@ by default when `output` is a TTY.
 
 ##### code
 
-> **code**: `"active-syscall"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"blocking-syscall-state-unsupported"` \| `"code-location-unknown"` \| `"fd-kind-unsupported"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-captured-range-unsupported"` \| `"mapping-executable-unsupported"` \| `"mapping-permission-unsupported"` \| `"mapping-provenance-ambiguous"` \| `"mapping-shared-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"simd-fpu-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"syscall-argument-state-unsupported"` \| `"syscall-restart-unsupported"` \| `"target-build-id-mismatch"` \| `"target-build-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-caller-frame-unavailable"` \| `"target-code-rva-unmapped"` \| `"target-epoll-syscall-state-unsupported"` \| `"target-fd-table-duplicate"` \| `"target-fd-read-state-missing"` \| `"target-fd-table-missing"` \| `"target-frame-layout-unsupported"` \| `"target-frame-register-value-unavailable"` \| `"target-module-bytes-missing"` \| `"target-module-file-missing"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-module-range-unreadable"` \| `"target-ppoll-syscall-continuation-missing"` \| `"target-ppoll-timeout-missing"` \| `"target-process-context-unsupported"` \| `"target-return-slot-unsupported"` \| `"target-signalfd-state-unsupported"` \| `"target-resume-execution-unavailable"` \| `"target-resume-fault-invalid-code-landing"` \| `"target-resume-fault-outside-target-bytes"` \| `"target-resume-fault-privileged-instruction"` \| `"target-resume-fault-signal-unsupported"` \| `"target-resume-fault-timeout"` \| `"target-resume-fault-unmodeled-memory"` \| `"target-semantic-continuation-missing"` \| `"target-sleep-remaining-time-missing"` \| `"target-socket-syscall-state-unsupported"` \| `"target-sleep-signal-restart-unsupported"` \| `"target-sleep-syscall-continuation-missing"` \| `"target-stack-window-unsupported"` \| `"target-synthetic-signal-interrupted-unsupported"` \| `"target-synthetic-signal-restart-unsupported"` \| `"target-synthetic-syscall-return-unmodeled"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
+> **code**: `"active-syscall"` \| `"architecture-pair-unsupported"` \| `"architecture-unsupported"` \| `"blocking-syscall-state-unsupported"` \| `"code-location-unknown"` \| `"fd-kind-unsupported"` \| `"futex-state-unsupported"` \| `"inherited-stdio-policy-required"` \| `"kernel-state-unsupported"` \| `"mapping-ambiguous"` \| `"mapping-captured-range-unsupported"` \| `"mapping-executable-unsupported"` \| `"mapping-permission-unsupported"` \| `"mapping-provenance-ambiguous"` \| `"mapping-shared-unsupported"` \| `"mapping-unreadable"` \| `"pointer-ambiguous"` \| `"resource-kind-unsupported"` \| `"non-stdio-kernel-state-unsupported"` \| `"rseq-state-unsupported"` \| `"signal-frame-active"` \| `"signal-state-unsupported"` \| `"simd-fpu-state-unsupported"` \| `"stdin-buffer-state-unsupported"` \| `"syscall-argument-state-unsupported"` \| `"syscall-restart-unsupported"` \| `"target-build-id-mismatch"` \| `"target-build-mismatch"` \| `"target-code-location-unresolved"` \| `"target-callee-saved-state-unsupported"` \| `"target-caller-frame-unavailable"` \| `"target-code-rva-unmapped"` \| `"target-epoll-syscall-state-unsupported"` \| `"target-fd-table-duplicate"` \| `"target-fd-read-state-missing"` \| `"target-fd-write-state-missing"` \| `"target-fd-table-missing"` \| `"target-frame-layout-unsupported"` \| `"target-frame-register-value-unavailable"` \| `"target-module-bytes-missing"` \| `"target-module-file-missing"` \| `"target-module-missing"` \| `"target-module-not-executable"` \| `"target-module-range-unreadable"` \| `"target-ppoll-syscall-continuation-missing"` \| `"target-ppoll-timeout-missing"` \| `"target-process-context-unsupported"` \| `"target-return-slot-unsupported"` \| `"target-signalfd-state-unsupported"` \| `"target-resume-execution-unavailable"` \| `"target-resume-fault-invalid-code-landing"` \| `"target-resume-fault-outside-target-bytes"` \| `"target-resume-fault-privileged-instruction"` \| `"target-resume-fault-signal-unsupported"` \| `"target-resume-fault-timeout"` \| `"target-resume-fault-unmodeled-memory"` \| `"target-semantic-continuation-missing"` \| `"target-sleep-remaining-time-missing"` \| `"target-socket-syscall-state-unsupported"` \| `"target-sleep-signal-restart-unsupported"` \| `"target-sleep-syscall-continuation-missing"` \| `"target-stack-window-unsupported"` \| `"target-synthetic-signal-interrupted-unsupported"` \| `"target-synthetic-signal-restart-unsupported"` \| `"target-synthetic-syscall-return-unmodeled"` \| `"thread-state-unsupported"` \| `"tls-state-unsupported"` \| `"return-slot-unreadable"` \| `"target-unwind-mismatch"` \| `"unwind-fde-missing"` \| `"unwind-metadata-missing"` \| `"unwind-rule-unsupported"` \| `"vdso-policy-unsupported"`
 
 ##### message
 
@@ -4828,7 +4951,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-7)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-8)
 
 ##### buildId
 
@@ -4936,7 +5059,7 @@ by default when `output` is a TTY.
 
 ###### Inherited from
 
-[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-7)
+[`NativeCodeModule`](#nativecodemodule).[`kind`](#kind-8)
 
 ##### buildId
 
@@ -5098,7 +5221,7 @@ by default when `output` is a TTY.
 
 ##### metadata
 
-> **metadata**: \{ `remainingTime`: [`NativeModeledSleepTimerRemainingTime`](#nativemodeledsleeptimerremainingtime); `sleepTimer`: [`NativeModeledSleepTimerState`](#nativemodeledsleeptimerstate); `policy`: `"conservative-target-timer-rearm-required"`; \} \| \{ `remainingTime`: [`NativeModeledPpollTimeoutRemainingTime`](#nativemodeledppolltimeoutremainingtime); `ppollTimeout`: [`NativeModeledPpollTimeoutState`](#nativemodeledppolltimeoutstate); `policy`: `"conservative-target-ppoll-timeout-rearm-required"`; \} \| \{ `fdRead`: [`NativeModeledFdReadState`](#nativemodeledfdreadstate); `policy`: `"conservative-target-fd-read-block-preserved"`; \}
+> **metadata**: \{ `remainingTime`: [`NativeModeledSleepTimerRemainingTime`](#nativemodeledsleeptimerremainingtime); `sleepTimer`: [`NativeModeledSleepTimerState`](#nativemodeledsleeptimerstate); `policy`: `"conservative-target-timer-rearm-required"`; \} \| \{ `remainingTime`: [`NativeModeledPpollTimeoutRemainingTime`](#nativemodeledppolltimeoutremainingtime); `ppollTimeout`: [`NativeModeledPpollTimeoutState`](#nativemodeledppolltimeoutstate); `policy`: `"conservative-target-ppoll-timeout-rearm-required"`; \} \| \{ `fdRead`: [`NativeModeledFdReadState`](#nativemodeledfdreadstate); `policy`: `"conservative-target-fd-read-block-preserved"`; \} \| \{ `fdWrite`: [`NativeModeledFdWriteState`](#nativemodeledfdwritestate); `policy`: `"conservative-target-fd-write-completed-from-buffer"`; \}
 
 ##### semanticContinuation?
 
@@ -6731,7 +6854,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-22)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-23)
 
 ##### targetArch
 
@@ -6873,7 +6996,7 @@ Legacy single-bucket failure reason. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`syscall`](#syscall-6)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`syscall`](#syscall-7)
 
 ##### embeddedData
 
@@ -7319,7 +7442,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Inherited from
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-22)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`kind`](#kind-23)
 
 ##### targetArch
 
@@ -7461,7 +7584,7 @@ Legacy single-bucket failure status. Prefer failureExitBuckets for new continuat
 
 ###### Overrides
 
-[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`syscall`](#syscall-6)
+[`NativeSyntheticSyscallContinuationDescriptor`](#nativesyntheticsyscallcontinuationdescriptor).[`syscall`](#syscall-7)
 
 ##### embeddedData
 
@@ -13220,6 +13343,18 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativeFdWritePolicy
+
+> **NativeFdWritePolicy** = `"refuse"` \| `"defer-target-resume"`
+
+***
+
+### NativeFdWriteResourcePolicy
+
+> **NativeFdWriteResourcePolicy** = `"reopen-file"`
+
+***
+
 ### NativeModeledPpollTargetResource
 
 > **NativeModeledPpollTargetResource** = `"synthetic-empty-pipe-read-end"` \| `"synthetic-empty-eventfd"` \| `"synthetic-timerfd"`
@@ -13229,6 +13364,12 @@ Poll interval in ms while retrying. Default 250.
 ### NativeModeledFdReadTargetResource
 
 > **NativeModeledFdReadTargetResource** = `"synthetic-empty-pipe-read-end"` \| `"synthetic-empty-eventfd"` \| `"synthetic-timerfd"` \| `"reopened-offset-file"`
+
+***
+
+### NativeModeledFdWriteTargetResource
+
+> **NativeModeledFdWriteTargetResource** = `"reopened-offset-file"`
 
 ***
 
@@ -13250,9 +13391,15 @@ Poll interval in ms while retrying. Default 250.
 
 ***
 
+### NativeFdWriteModelResult
+
+> **NativeFdWriteModelResult** = \{ `state`: `"modeled"`; `write`: [`NativeModeledFdWriteState`](#nativemodeledfdwritestate); \} \| \{ `state`: `"missing"`; `refusal`: [`NativeProcessImageRefusal`](#nativeprocessimagerefusal); \}
+
+***
+
 ### NativeActiveSyscallContinuation
 
-> **NativeActiveSyscallContinuation** = [`NativeActiveSleepTimerContinuation`](#nativeactivesleeptimercontinuation) \| [`NativeActivePpollTimeoutContinuation`](#nativeactiveppolltimeoutcontinuation) \| [`NativeActiveFdReadContinuation`](#nativeactivefdreadcontinuation)
+> **NativeActiveSyscallContinuation** = [`NativeActiveSleepTimerContinuation`](#nativeactivesleeptimercontinuation) \| [`NativeActivePpollTimeoutContinuation`](#nativeactiveppolltimeoutcontinuation) \| [`NativeActiveFdReadContinuation`](#nativeactivefdreadcontinuation) \| [`NativeActiveFdWriteContinuation`](#nativeactivefdwritecontinuation)
 
 ***
 
@@ -13680,7 +13827,7 @@ Result of `validatePid` — easy to switch on at the call site.
 
 ### TargetGuestActiveSyscallRestoreStep
 
-> **TargetGuestActiveSyscallRestoreStep** = \{ `action`: `"rearm-sleep-timer"`; `threadId`: `string`; `syscallName`: `string`; `remainingTime`: \{ `seconds`: `string`; `nanoseconds`: `number`; \}; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"rearm-ppoll-timeout"`; `threadId`: `string`; `remainingTime`: \{ `seconds`: `string`; `nanoseconds`: `number`; \}; `nfds`: `0` \| `1`; `resources`: [`NativeModeledPpollTargetResource`](#nativemodeledppolltargetresource)[]; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"restore-fd-read-block"`; `threadId`: `string`; `fd`: `number`; `countBytes`: `number`; `resource`: `Exclude`\<[`NativeModeledFdReadTargetResource`](#nativemodeledfdreadtargetresource), `"reopened-offset-file"`\>; `remainingTime?`: \{ `seconds`: `string`; `nanoseconds`: `number`; \}; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"complete-fd-read-from-file"`; `threadId`: `string`; `fd`: `number`; `countBytes`: `number`; `targetBufferPointer`: `string`; `fileOffset`: `number`; `resumeMode`: `"defer-target-resume"`; \}
+> **TargetGuestActiveSyscallRestoreStep** = \{ `action`: `"rearm-sleep-timer"`; `threadId`: `string`; `syscallName`: `string`; `remainingTime`: \{ `seconds`: `string`; `nanoseconds`: `number`; \}; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"rearm-ppoll-timeout"`; `threadId`: `string`; `remainingTime`: \{ `seconds`: `string`; `nanoseconds`: `number`; \}; `nfds`: `0` \| `1`; `resources`: [`NativeModeledPpollTargetResource`](#nativemodeledppolltargetresource)[]; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"restore-fd-read-block"`; `threadId`: `string`; `fd`: `number`; `countBytes`: `number`; `resource`: `Exclude`\<[`NativeModeledFdReadTargetResource`](#nativemodeledfdreadtargetresource), `"reopened-offset-file"`\>; `remainingTime?`: \{ `seconds`: `string`; `nanoseconds`: `number`; \}; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"complete-fd-read-from-file"`; `threadId`: `string`; `fd`: `number`; `countBytes`: `number`; `targetBufferPointer`: `string`; `fileOffset`: `number`; `resumeMode`: `"defer-target-resume"`; \} \| \{ `action`: `"complete-fd-write-to-file"`; `threadId`: `string`; `fd`: `number`; `countBytes`: `number`; `targetBufferPointer`: `string`; `fileOffset`: `number`; `resumeMode`: `"defer-target-resume"`; \}
 
 ***
 
@@ -14348,7 +14495,7 @@ loops; anything looser stops being a meaningful gate.
 
 ### nativeProcessImageRefusalCodes
 
-> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"blocking-syscall-state-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"inherited-stdio-policy-required"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-captured-range-unsupported"`, `"mapping-executable-unsupported"`, `"mapping-permission-unsupported"`, `"mapping-provenance-ambiguous"`, `"mapping-shared-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"non-stdio-kernel-state-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"simd-fpu-state-unsupported"`, `"stdin-buffer-state-unsupported"`, `"syscall-argument-state-unsupported"`, `"syscall-restart-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-callee-saved-state-unsupported"`, `"target-caller-frame-unavailable"`, `"target-code-rva-unmapped"`, `"target-epoll-syscall-state-unsupported"`, `"target-fd-table-duplicate"`, `"target-fd-read-state-missing"`, `"target-fd-table-missing"`, `"target-frame-layout-unsupported"`, `"target-frame-register-value-unavailable"`, `"target-module-bytes-missing"`, `"target-module-file-missing"`, `"target-module-missing"`, `"target-module-not-executable"`, `"target-module-range-unreadable"`, `"target-ppoll-syscall-continuation-missing"`, `"target-ppoll-timeout-missing"`, `"target-process-context-unsupported"`, `"target-return-slot-unsupported"`, `"target-signalfd-state-unsupported"`, `"target-resume-execution-unavailable"`, `"target-resume-fault-invalid-code-landing"`, `"target-resume-fault-outside-target-bytes"`, `"target-resume-fault-privileged-instruction"`, `"target-resume-fault-signal-unsupported"`, `"target-resume-fault-timeout"`, `"target-resume-fault-unmodeled-memory"`, `"target-semantic-continuation-missing"`, `"target-sleep-remaining-time-missing"`, `"target-socket-syscall-state-unsupported"`, `"target-sleep-signal-restart-unsupported"`, `"target-sleep-syscall-continuation-missing"`, `"target-stack-window-unsupported"`, `"target-synthetic-signal-interrupted-unsupported"`, `"target-synthetic-signal-restart-unsupported"`, `"target-synthetic-syscall-return-unmodeled"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
+> `const` **nativeProcessImageRefusalCodes**: readonly \[`"active-syscall"`, `"architecture-pair-unsupported"`, `"architecture-unsupported"`, `"blocking-syscall-state-unsupported"`, `"code-location-unknown"`, `"fd-kind-unsupported"`, `"futex-state-unsupported"`, `"inherited-stdio-policy-required"`, `"kernel-state-unsupported"`, `"mapping-ambiguous"`, `"mapping-captured-range-unsupported"`, `"mapping-executable-unsupported"`, `"mapping-permission-unsupported"`, `"mapping-provenance-ambiguous"`, `"mapping-shared-unsupported"`, `"mapping-unreadable"`, `"pointer-ambiguous"`, `"resource-kind-unsupported"`, `"non-stdio-kernel-state-unsupported"`, `"rseq-state-unsupported"`, `"signal-frame-active"`, `"signal-state-unsupported"`, `"simd-fpu-state-unsupported"`, `"stdin-buffer-state-unsupported"`, `"syscall-argument-state-unsupported"`, `"syscall-restart-unsupported"`, `"target-build-id-mismatch"`, `"target-build-mismatch"`, `"target-code-location-unresolved"`, `"target-callee-saved-state-unsupported"`, `"target-caller-frame-unavailable"`, `"target-code-rva-unmapped"`, `"target-epoll-syscall-state-unsupported"`, `"target-fd-table-duplicate"`, `"target-fd-read-state-missing"`, `"target-fd-write-state-missing"`, `"target-fd-table-missing"`, `"target-frame-layout-unsupported"`, `"target-frame-register-value-unavailable"`, `"target-module-bytes-missing"`, `"target-module-file-missing"`, `"target-module-missing"`, `"target-module-not-executable"`, `"target-module-range-unreadable"`, `"target-ppoll-syscall-continuation-missing"`, `"target-ppoll-timeout-missing"`, `"target-process-context-unsupported"`, `"target-return-slot-unsupported"`, `"target-signalfd-state-unsupported"`, `"target-resume-execution-unavailable"`, `"target-resume-fault-invalid-code-landing"`, `"target-resume-fault-outside-target-bytes"`, `"target-resume-fault-privileged-instruction"`, `"target-resume-fault-signal-unsupported"`, `"target-resume-fault-timeout"`, `"target-resume-fault-unmodeled-memory"`, `"target-semantic-continuation-missing"`, `"target-sleep-remaining-time-missing"`, `"target-socket-syscall-state-unsupported"`, `"target-sleep-signal-restart-unsupported"`, `"target-sleep-syscall-continuation-missing"`, `"target-stack-window-unsupported"`, `"target-synthetic-signal-interrupted-unsupported"`, `"target-synthetic-signal-restart-unsupported"`, `"target-synthetic-syscall-return-unmodeled"`, `"thread-state-unsupported"`, `"tls-state-unsupported"`, `"return-slot-unreadable"`, `"target-unwind-mismatch"`, `"unwind-fde-missing"`, `"unwind-metadata-missing"`, `"unwind-rule-unsupported"`, `"vdso-policy-unsupported"`\]
 
 ***
 
@@ -15937,6 +16084,30 @@ available.
 #### Returns
 
 [`NativeFdReadModelResult`](#nativefdreadmodelresult)
+
+***
+
+### modelNativeFdWriteState()
+
+> **modelNativeFdWriteState**(`thread`, `documents?`, `resourcePolicy?`): [`NativeFdWriteModelResult`](#nativefdwritemodelresult)
+
+#### Parameters
+
+##### thread
+
+[`NativeThreadState`](#nativethreadstate)
+
+##### documents?
+
+[`NativeProcessImageDocuments`](#nativeprocessimagedocuments)
+
+##### resourcePolicy?
+
+`"reopen-file"` = `"reopen-file"`
+
+#### Returns
+
+[`NativeFdWriteModelResult`](#nativefdwritemodelresult)
 
 ***
 

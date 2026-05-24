@@ -61,6 +61,7 @@ export const nativeProcessImageRefusalCodes = [
   "target-epoll-syscall-state-unsupported",
   "target-fd-table-duplicate",
   "target-fd-read-state-missing",
+  "target-fd-write-state-missing",
   "target-fd-table-missing",
   "target-frame-layout-unsupported",
   "target-frame-register-value-unavailable",

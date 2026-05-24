@@ -256,8 +256,7 @@ without relaxing the all-gates success contract.
 Next steps:
 
 - add more real resource/syscall families with explicit target recipes, starting
-  with cases that avoid readiness ambiguity (for example safe offset-backed
-  regular-file `write`);
+  with cases that avoid readiness ambiguity;
 - extend process-context modeling beyond the bounded target argv/envp/auxv
   pointer block only where libc/vDSO/vvar, `AT_RANDOM`, and `AT_EXECFN`
   dependencies are explicit;

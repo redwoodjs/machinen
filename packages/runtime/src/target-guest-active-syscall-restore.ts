@@ -39,6 +39,15 @@ export type TargetGuestActiveSyscallRestoreStep =
       targetBufferPointer: string;
       fileOffset: number;
       resumeMode: "defer-target-resume";
+    }
+  | {
+      action: "complete-fd-write-to-file";
+      threadId: string;
+      fd: number;
+      countBytes: number;
+      targetBufferPointer: string;
+      fileOffset: number;
+      resumeMode: "defer-target-resume";
     };
 
 export type TargetGuestActiveSyscallRestorePlan =
@@ -66,6 +75,7 @@ export function planTargetGuestActiveSyscallRestore(
   };
 }
 
+// fallow-ignore-next-line complexity
 function continuationStep(
   continuation: NativeActiveSyscallContinuation,
 ): TargetGuestActiveSyscallRestoreStep {
@@ -78,7 +88,19 @@ function continuationStep(
       resumeMode: "defer-target-resume",
     };
   }
-  if (continuation.syscallClass === "fd-blocking") {
+  if (continuation.syscallClass === "fd-blocking" && "fdWrite" in continuation.metadata) {
+    const write = continuation.metadata.fdWrite;
+    return {
+      action: "complete-fd-write-to-file",
+      threadId: continuation.threadId,
+      fd: write.fd,
+      countBytes: write.countBytes,
+      targetBufferPointer: write.targetBufferPointer,
+      fileOffset: write.fileOffset,
+      resumeMode: "defer-target-resume",
+    };
+  }
+  if (continuation.syscallClass === "fd-blocking" && "fdRead" in continuation.metadata) {
     const read = continuation.metadata.fdRead;
     if (read.targetResource === "reopened-offset-file") {
       return {
@@ -101,14 +123,17 @@ function continuationStep(
       resumeMode: "defer-target-resume",
     };
   }
-  return {
-    action: "rearm-ppoll-timeout",
-    threadId: continuation.threadId,
-    remainingTime: duration(continuation.metadata.remainingTime),
-    nfds: continuation.metadata.ppollTimeout.nfds,
-    resources: (continuation.metadata.ppollTimeout.pollFds ?? []).map((fd) => fd.targetResource),
-    resumeMode: "defer-target-resume",
-  };
+  if (continuation.syscallClass === "poll-timeout") {
+    return {
+      action: "rearm-ppoll-timeout",
+      threadId: continuation.threadId,
+      remainingTime: duration(continuation.metadata.remainingTime),
+      nfds: continuation.metadata.ppollTimeout.nfds,
+      resources: (continuation.metadata.ppollTimeout.pollFds ?? []).map((fd) => fd.targetResource),
+      resumeMode: "defer-target-resume",
+    };
+  }
+  throw new Error("unsupported active syscall continuation");
 }
 
 function duration(durationLike: { seconds: string; nanoseconds: number }): {

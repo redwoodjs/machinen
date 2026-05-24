@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   classifyNativeActiveSyscalls,
   modelNativeFdReadState,
+  modelNativeFdWriteState,
   modelNativePpollTimeoutState,
   modelNativeSleepTimerState,
 } from "../native-active-syscall-policy.ts";
@@ -65,6 +66,12 @@ function arm64ReadThread(
   x: string[] = ["0x20", "0x3100", "0x1", "0x0", "0x0", "0x0"],
 ): NativeThreadState {
   return arm64SleepThread({ state: "inside-syscall", number: 63, name: "read" }, x);
+}
+
+function arm64WriteThread(
+  x: string[] = ["0x27", "0x3100", "0x4", "0x0", "0x0", "0x0"],
+): NativeThreadState {
+  return arm64SleepThread({ state: "inside-syscall", number: 64, name: "write" }, x);
 }
 
 function arm64SocketThread(
@@ -275,6 +282,33 @@ function documentsWithReadFile(
   documents.mappings.mappings[0]!.target.targetStart = "0x600000000000";
   documents.resources.resources[0]!.path = "/tmp/machinen-active-read.txt";
   documents.resources.resources[0]!.offset = options.offset ?? 5;
+  return documents;
+}
+
+function documentsWithWriteFile(
+  activeThread: NativeThreadState,
+  options: {
+    flags?: string[];
+    recipe?: Record<string, unknown>;
+    offset?: number;
+    executable?: boolean;
+  } = {},
+): NativeProcessImageDocuments {
+  const documents = documentsWithReadPipe(activeThread, {
+    readFd: 39,
+    readKind: "file",
+    readFlags: options.flags ?? ["octal:1"],
+    readRecipe: options.recipe ?? {
+      reopen: "/tmp/machinen-active-write.txt",
+      offset: options.offset ?? 7,
+    },
+    includeWriteEnd: false,
+  });
+  documents.mappings.mappings[0]!.target.targetStart = "0x600000000000";
+  documents.mappings.mappings[0]!.permissions.execute = options.executable ?? false;
+  documents.resources.resources[0]!.id = "fd:39:write";
+  documents.resources.resources[0]!.path = "/tmp/machinen-active-write.txt";
+  documents.resources.resources[0]!.offset = options.offset ?? 7;
   return documents;
 }
 
@@ -1065,6 +1099,32 @@ describe("native active syscall classification", () => {
     });
   });
 
+  it("models a safe offset-backed write to a regular file", () => {
+    const activeThread = arm64WriteThread(["0x27", "0x3100", "0x4", "0x0", "0x0", "0x0"]);
+    const documents = documentsWithWriteFile(activeThread, { offset: 7 });
+    const result = classifyNativeActiveSyscalls([activeThread], {
+      fdWritePolicy: "defer-target-resume",
+      fdWriteResourcePolicy: "reopen-file",
+      documents,
+    });
+
+    expect(result.refusals).toEqual([]);
+    expect(result.continuations[0]).toMatchObject({
+      syscallClass: "fd-blocking",
+      metadata: {
+        fdWrite: {
+          fd: 39,
+          countBytes: 4,
+          resourceId: "fd:39:write",
+          targetResource: "reopened-offset-file",
+          targetBufferPointer: "0x600000000100",
+          fileOffset: 7,
+        },
+        policy: "conservative-target-fd-write-completed-from-buffer",
+      },
+    });
+  });
+
   it("prefers /proc syscall arguments for modeled read", () => {
     const activeThread = arm64ReadThread();
     activeThread.syscall.arguments = ["0x20", "0x3100", "0x1", "0x0", "0x0", "0x0"];
@@ -1073,6 +1133,52 @@ describe("native active syscall classification", () => {
     expect(modelNativeFdReadState(activeThread, documents)).toMatchObject({
       state: "modeled",
       read: { argumentSource: "proc-syscall", fd: 32, countBytes: 1 },
+    });
+  });
+
+  it.each([
+    {
+      name: "zero count",
+      thread: arm64WriteThread(["0x27", "0x3100", "0x0", "0x0", "0x0", "0x0"]),
+      reason: "write count is outside supported bounds",
+    },
+    {
+      name: "null buffer",
+      thread: arm64WriteThread(["0x27", "0x0", "0x4", "0x0", "0x0", "0x0"]),
+      reason: "write buffer pointer is null",
+    },
+    {
+      name: "executable buffer",
+      thread: arm64WriteThread(),
+      documents: (thread: NativeThreadState) =>
+        documentsWithWriteFile(thread, { executable: true }),
+      reason: "write buffer is not in captured readable data memory",
+    },
+    {
+      name: "read-only fd",
+      thread: arm64WriteThread(),
+      documents: (thread: NativeThreadState) =>
+        documentsWithWriteFile(thread, { flags: ["octal:0"] }),
+      reason: "write file proof requires a writable file fd",
+    },
+    {
+      name: "append fd",
+      thread: arm64WriteThread(),
+      documents: (thread: NativeThreadState) =>
+        documentsWithWriteFile(thread, { flags: ["octal:2001"] }),
+      reason: "write file proof does not model O_APPEND",
+    },
+  ])("refuses unsafe file write state: $name", (scenario) => {
+    const documents = scenario.documents
+      ? scenario.documents(scenario.thread)
+      : documentsWithWriteFile(scenario.thread);
+
+    expect(modelNativeFdWriteState(scenario.thread, documents)).toMatchObject({
+      state: "missing",
+      refusal: {
+        code: "target-fd-write-state-missing",
+        detail: { reason: scenario.reason },
+      },
     });
   });
 
