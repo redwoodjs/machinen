@@ -40,3 +40,11 @@ transfers, and unbrokered endpoints continue to require
 `target-socket-syscall-state-unsupported`; a future task must add an explicit
 broker descriptor and authorization/provenance gates before any socket profile can
 move to `graduated-support`.
+
+Goal 3 also leaves JIT and self-modifying code without a graduated support
+subset. Target-owned static executable mappings remain supported only through
+explicit target build/hash provenance. Source-only executable bytes, ambiguous
+executable provenance, writable+executable windows, stale hashes, and active
+self-modifying state continue to require `mapping-executable-unsupported`; a
+future task must add a target-native regeneration descriptor and hash/permission
+gates before any JIT profile can move to `graduated-support`.
