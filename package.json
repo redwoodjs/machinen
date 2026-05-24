@@ -74,6 +74,7 @@
     "portable-machine-snapshot": "tsx scripts/portable-machine-snapshot.ts verify",
     "native-target-vm-synthetic-continuation": "tsx scripts/native-target-vm-synthetic-continuation.ts verify",
     "portable-machine-vm-restore-proof": "tsx scripts/portable-machine-vm-restore-proof.ts verify",
+    "portable-machine-proof-runner": "node scripts/portable-machine-proof-runner.mjs",
     "smoke-test-snapshot-restore-fork": "bash scripts/smoke-test-snapshot-restore-fork.sh",
     "smoke-vmstate": "bash scripts/smoke/vmstate/all.sh",
     "smoke-vmstate-timers": "bash scripts/smoke/vmstate/timers.sh",

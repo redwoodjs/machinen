@@ -119,6 +119,17 @@ Remote e2e mode captures the native-process bundle on `PORTABLE_ARM64_SSH`
 remote target image path. Dry-run mode never contacts remotes, so it can validate
 summary shape on any host.
 
+For repeated profile automation, use the checked-in matrix and wrapper described
+in [Portable machine proof profiles](./portable-machine-proof-profiles.md):
+
+```bash
+pnpm portable-machine-proof-runner -- --profile file-readv --json
+```
+
+The wrapper runs the same smoke profile, records wrapper and smoke timings, keeps
+log paths in one JSON summary, and refuses to report `pass: true` unless every
+required target gate for the selected profile passed.
+
 The smoke profile creates or captures a narrow arm64 native-process bundle,
 wraps it in a portable machine snapshot, stages a target-native amd64 real
 utility continuation inside the bundle, and runs the portable machine VM restore
@@ -128,7 +139,8 @@ requires the emitted `native=active-syscall` and `native=thread-spawn` sections
 to report `targetActiveSyscallRestoreResult=passed` and
 `targetThreadRestoreResult=passed`. The continuation is target module bytes
 from the bundle's approved target root, not source-ISA text. The JSON summary
-includes `targetRestore.descriptorGateCompleted`, descriptor memory/fd counts,
+includes `targetRestore.state`, `targetRestore.migrationCompleted`,
+`targetRestore.descriptorGateCompleted`, descriptor memory/fd counts,
 resource recipe kinds, `targetRestore.targetContinuationKind`,
 `targetRestore.targetContinuationReturnValue`,
 `targetRestore.targetStateConsumptionResult`, per-resource status,
