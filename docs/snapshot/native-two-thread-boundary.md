@@ -34,6 +34,12 @@ unsupported rseq state on either thread.
 
 ## Futex, rseq, and scheduler requirements
 
+Goal 3 defines the only quiescent futex-word rule currently allowed: a word in a
+safe private mapping may be copied as ordinary data, but it is not treated as a
+kernel futex object and does not imply any wait-queue, wake, robust-list, or
+scheduler claim. Any explicit futex resource, active futex syscall, PI futex,
+robust-list owner-death transition, or ambiguous scheduler state remains refused.
+
 General futex migration remains refused until a target model can prove all of the
 following at once:
 
@@ -43,11 +49,11 @@ following at once:
 - timeout and signal interruption semantics match the target restart policy;
 - every participating thread's scheduling relationship is represented.
 
-General rseq migration remains refused until the target can register a new rseq
-area, translate any active critical-section abort IP, prove whether execution is
-inside a critical section, and tie the rseq area to the target TLS/TCB owner.
-Captured or unsupported rseq state therefore fails closed with
-`rseq-state-unsupported`.
+Goal 3 does not recreate rseq registration from TLS. General rseq migration
+remains refused until the target can register a new rseq area, translate any
+active critical-section abort IP, prove whether execution is inside a critical
+section, and tie the rseq area to the target TLS/TCB owner. Captured or
+unsupported rseq state therefore fails closed with `rseq-state-unsupported`.
 
 The controlled two-thread proof intentionally avoids those states. Its target
 spawns are short-lived verifier tasks with independent stacks/registers/TLS and

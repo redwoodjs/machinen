@@ -37,7 +37,8 @@ The following unsafe states refuse before register translation:
 The restore boundary also refuses:
 
 - more than one thread -> `thread-state-unsupported`;
-- futex wait resources and active futex syscalls -> `futex-state-unsupported`;
+- futex wait resources, PI/robust-list state, and active futex syscalls ->
+  `futex-state-unsupported`;
 - signal-delivery stop -> `signal-state-unsupported`;
 - ptrace/debug leftovers -> `thread-state-unsupported`;
 - shared stack mappings -> `mapping-shared-unsupported`;
@@ -52,7 +53,11 @@ blocked signal state.
 ## Boundary
 
 This proof does not implement syscall restart, signal delivery replay, alt-stack
-reconstruction, rseq/TLS migration, target TCB construction beyond the minimal amd64 proof page, live SIMD/FPU
-register restoration, futex replay, ptrace/debug state, or multi-thread restore. It only
-makes the hard boundary explicit: those states must not silently pass into
-translated frame/resume restore until a later proof models them.
+reconstruction, rseq/TLS migration, target TCB construction beyond the minimal
+amd64 proof page, live SIMD/FPU register restoration, futex replay, ptrace/debug
+state, or general multi-thread restore. Goal 3 treats quiescent futex words only
+as ordinary private memory data; any kernel futex wait queue, robust-list
+transition, rseq registration, active rseq critical section, or scheduler
+ordering claim remains outside the accepted class. The matrix makes the hard
+boundary explicit: those states must not silently pass into translated
+frame/resume restore until a later proof models them.
