@@ -106,6 +106,14 @@ function arm64SocketThread(
   return arm64SleepThread({ state: "inside-syscall", number, name }, x);
 }
 
+function arm64SocketTransferThread(
+  name: "recvfrom" | "recvmsg" | "sendto" | "sendmsg",
+  x: string[] = ["0x28", "0x4100", "0x20", "0x0", "0x0", "0x0"],
+): NativeThreadState {
+  const numbers = { recvfrom: 207, recvmsg: 212, sendto: 206, sendmsg: 211 };
+  return arm64SleepThread({ state: "inside-syscall", number: numbers[name], name }, x);
+}
+
 function arm64EpollThread(
   name: "epoll_wait" | "epoll_pwait" | "epoll_pwait2" = "epoll_wait",
   x: string[] = ["0x30", "0x4100", "0x4", "0xffffffff", "0x0", "0x0"],
@@ -1715,6 +1723,63 @@ describe("native active syscall classification", () => {
   );
 
   it.each([
+    ["read", arm64ReadThread(["0x28", "0x4100", "0x20", "0x0", "0x0", "0x0"])],
+    ["readv", arm64ReadvThread(["0x28", "0x4100", "0x2", "0x0", "0x0", "0x0"])],
+    ["write", arm64WriteThread(["0x28", "0x4100", "0x20", "0x0", "0x0", "0x0"])],
+    ["writev", arm64WritevThread(["0x28", "0x4100", "0x2", "0x0", "0x0", "0x0"])],
+  ] as const)(
+    "refuses active %s on a captured socket with socket-transfer detail",
+    (_, activeThread) => {
+      const result = classifyNativeActiveSyscalls([activeThread], {
+        documents: documentsWithSocketResource(activeThread),
+        fdReadPolicy: "defer-target-resume",
+        fdWritePolicy: "defer-target-resume",
+      });
+
+      expect(result.classifications[0]).toMatchObject({
+        class: "fd-blocking",
+        refusal: {
+          code: "target-socket-syscall-state-unsupported",
+          detail: {
+            reason: "socket endpoint kernel state is unsupported",
+            socketSyscall: {
+              family: "socket-transfer",
+              arguments: { source: "registers", fd: 40 },
+              resource: { id: "fd:40:socket", kind: "socket", fd: 40 },
+              unsupportedState: expect.arrayContaining(["socket receive/send queue state"]),
+            },
+          },
+        },
+      });
+    },
+  );
+
+  it.each(["recvfrom", "recvmsg", "sendto", "sendmsg"] as const)(
+    "refuses active socket transfer syscall %s with socket-specific detail",
+    (name) => {
+      const activeThread = arm64SocketTransferThread(name);
+      const result = classifyNativeActiveSyscalls([activeThread], {
+        documents: documentsWithSocketResource(activeThread),
+      });
+
+      expect(result.classifications[0]).toMatchObject({
+        class: "fd-blocking",
+        refusal: {
+          code: "target-socket-syscall-state-unsupported",
+          detail: {
+            reason: "socket endpoint kernel state is unsupported",
+            socketSyscall: {
+              family: "socket-transfer",
+              arguments: { source: "registers", fd: 40 },
+              resource: { id: "fd:40:socket", kind: "socket", fd: 40 },
+            },
+          },
+        },
+      });
+    },
+  );
+
+  it.each([
     {
       name: "missing epoll resource",
       thread: arm64EpollThread(),
@@ -1761,6 +1826,20 @@ describe("native active syscall classification", () => {
       thread: arm64SocketThread("accept"),
       documents: (activeThread: NativeThreadState) =>
         documentsWithSocketResource(activeThread, { kind: "file" }),
+      reason: "socket syscall fd is not a captured socket",
+    },
+    {
+      name: "socket transfer missing resource",
+      thread: arm64SocketTransferThread("recvfrom"),
+      documents: (activeThread: NativeThreadState) =>
+        documentsWithSocketResource(activeThread, { kind: "missing" }),
+      reason: "socket syscall fd resource is missing",
+    },
+    {
+      name: "socket transfer non-socket fd",
+      thread: arm64SocketTransferThread("sendto"),
+      documents: (activeThread: NativeThreadState) =>
+        documentsWithSocketResource(activeThread, { kind: "pipe" }),
       reason: "socket syscall fd is not a captured socket",
     },
   ])("keeps active socket syscall fail-closed for $name", (scenario) => {
