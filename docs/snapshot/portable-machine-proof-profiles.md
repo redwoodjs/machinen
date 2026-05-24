@@ -4,7 +4,8 @@ The native cross-ISA VM proof has a checked-in profile matrix in
 [`scripts/portable-machine-proof-profiles.json`](../../scripts/portable-machine-proof-profiles.json).
 Each row names the remote source target, source fixture, optional traced syscall
 and fd, expected result, and target gates that must pass before automation may
-report success.
+report success. The fail-closed refusal-code inventory lives in
+[`native-fail-closed-refusal-inventory.md`](./native-fail-closed-refusal-inventory.md).
 
 Run the wrapper with:
 
@@ -39,6 +40,15 @@ state consumption, fd/resource status, return-chain, frame, registers/RFLAGS,
 TLS, stack-window, private-memory, executable mapping, signal restore,
 active-syscall restore, process-context restore, controlled thread restore, and
 resume-path checks.
+
+Negative profiles set `expectedResult: "refusal"`. They are pass/fail checks for
+unsafe states, not accepted migrations. The runner treats a negative profile as
+passing only when the checked summary matches the unsafe-state family, carries
+exactly the expected refusal code, keeps `migrationCompleted=false`, keeps
+`descriptorGateCompleted=false` unless the profile explicitly says otherwise,
+and does not claim source text reuse, source-ISA emulation, or a sidecar runtime
+as success. A negative profile fails if the summary or target restore reaches
+`completed` target-native success.
 
 Existing summaries can be checked without running the proof:
 
@@ -80,7 +90,7 @@ resource kinds. The proof is not a Node/Bun sidecar, source-ISA emulation, app
 hook, or source-text replay path; success means target-native completion after
 all profile gates pass.
 
-## Current profiles
+## Current positive profiles
 
 | Profile            | Source fixture                     | Trace            | Profile-specific gates             |
 | ------------------ | ---------------------------------- | ---------------- | ---------------------------------- |
@@ -95,6 +105,25 @@ all profile gates pass.
 | `file-pwrite`      | `native-file-pwrite-target.c`      | `pwrite64` fd 41 | active syscall                     |
 | `file-writev`      | `native-file-writev-target.c`      | `writev` fd 43   | active syscall                     |
 | `process-context`  | `native-ppoll-timeout-target.c`    | none             | process context                    |
+
+## Current negative profiles
+
+Negative profiles are summary-check contracts for unsupported or ambiguous
+state. They prove that automation cannot turn a known refusal into a migration
+success report.
+
+| Profile                         | Unsafe family              | Required refusal code                     | Descriptor gate |
+| ------------------------------- | -------------------------- | ----------------------------------------- | --------------- |
+| `socket-transfer-refusal`       | sockets                    | `target-socket-syscall-state-unsupported` | false           |
+| `epoll-wait-refusal`            | epoll                      | `target-epoll-syscall-state-unsupported`  | false           |
+| `signalfd-read-refusal`         | signalfd / pending signals | `target-signalfd-state-unsupported`       | false           |
+| `futex-refusal`                 | futex                      | `futex-state-unsupported`                 | false           |
+| `rseq-refusal`                  | rseq                       | `rseq-state-unsupported`                  | false           |
+| `restart-state-refusal`         | restart / interrupted call | `syscall-restart-unsupported`             | false           |
+| `jit-self-modifying-refusal`    | JIT / self-modifying code  | `mapping-executable-unsupported`          | false           |
+| `source-vdso-vvar-refusal`      | source vDSO/vvar           | `vdso-policy-unsupported`                 | false           |
+| `raw-cross-isa-vmstate-refusal` | raw `.vmstate`             | `cross-isa-vmstate-restore-unsupported`   | false           |
+| `descriptor-provenance-refusal` | descriptor/provenance      | `mapping-provenance-ambiguous`            | false           |
 
 All profiles also require descriptor, verifier, state-consumption, resource,
 return-chain, frame, register/RFLAGS, TLS, stack-window, private-memory,

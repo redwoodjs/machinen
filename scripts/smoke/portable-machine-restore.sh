@@ -123,6 +123,11 @@ try {
     targetThreadRestoreThreadId: result.targetThreadRestoreThreadId ?? '',
     targetResumePathResult: result.targetResumePathResult ?? '',
     targetResumePathMode: result.targetResumePathMode ?? '',
+    refusal: result.refusal ?? null,
+    refusals: result.refusals ?? [],
+    sourceTextReusedAsTargetCode: result.sourceTextReusedAsTargetCode ?? false,
+    sourceIsaEmulationUsed: result.sourceIsaEmulationUsed ?? false,
+    sidecarRuntimeUsed: result.sidecarRuntimeUsed ?? false,
   }));
 } catch {
   process.stdout.write('{}');
