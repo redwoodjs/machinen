@@ -122,11 +122,13 @@ export interface NativeModeledFdReadTimerRemainingTime extends NativeSleepTimerD
 
 export interface NativeModeledFdReadState {
   kind: "fd-read-block";
-  syscallName: "read" | "pread64";
+  syscallName: "read" | "pread64" | "readv";
   argumentSource: "proc-syscall" | "registers";
   fd: number;
   bufferPointer: string;
   countBytes: number;
+  iovPointer?: string;
+  iovCount?: 1;
   bufferMapping: string;
   resourceId: string;
   pairedWriteResourceId?: string;
@@ -140,11 +142,13 @@ export type NativeModeledFdWriteTargetResource = "reopened-offset-file";
 
 export interface NativeModeledFdWriteState {
   kind: "fd-write-complete";
-  syscallName: "write" | "pwrite64";
+  syscallName: "write" | "pwrite64" | "writev";
   argumentSource: "proc-syscall" | "registers";
   fd: number;
   bufferPointer: string;
   countBytes: number;
+  iovPointer?: string;
+  iovCount?: 1;
   bufferMapping: string;
   resourceId: string;
   targetResource: NativeModeledFdWriteTargetResource;
@@ -241,13 +245,15 @@ const SLEEP_TIMER_SYSCALLS = new Set(["clock_nanosleep", "nanosleep"]);
 const FUTEX_ACTIVE_SYSCALLS = new Set(["futex", "futex_time64", "futex_waitv"]);
 const SOCKET_ACTIVE_SYSCALLS = new Set(["accept", "accept4", "connect"]);
 const EPOLL_ACTIVE_SYSCALLS = new Set(["epoll_wait", "epoll_pwait", "epoll_pwait2"]);
-const FD_READ_ACTIVE_SYSCALLS = new Set(["read", "pread64"]);
-const FD_WRITE_ACTIVE_SYSCALLS = new Set(["write", "pwrite64"]);
+const FD_READ_ACTIVE_SYSCALLS = new Set(["read", "pread64", "readv"]);
+const FD_WRITE_ACTIVE_SYSCALLS = new Set(["write", "pwrite64", "writev"]);
 const FD_BLOCKING_SYSCALLS = new Set([
   "read",
   "pread64",
+  "readv",
   "write",
   "pwrite64",
+  "writev",
   "poll",
   "ppoll",
   "select",
@@ -265,6 +271,7 @@ const FD_BLOCKING_SYSCALLS = new Set([
 const TIMER_ABSTIME = 1;
 const TIMESPEC_SIZE_BYTES = 16n;
 const POLLFD_SIZE_BYTES = 8n;
+const IOVEC_SIZE_BYTES = 16n;
 const POLLIN = 0x1;
 const SUPPORTED_EMPTY_EVENTFD_FLAGS = 0o2000002;
 const SUPPORTED_EVENTFD_READ_FLAGS = new Set([0o2, SUPPORTED_EMPTY_EVENTFD_FLAGS]);
@@ -1099,7 +1106,7 @@ function decodeFdReadArguments(
 ):
   | Omit<NativeModeledFdReadState, "kind" | "syscallName" | "argumentSource">
   | { state: "missing"; refusal: NativeProcessImageRefusal } {
-  const values = decodeFdReadArgumentValues(thread, args, syscall);
+  const values = decodeFdReadArgumentValues(thread, args, documents, syscall);
   if ("state" in values) {
     return values;
   }
@@ -1111,7 +1118,7 @@ function decodeFdReadArguments(
     thread,
     documents,
     values.fd,
-    syscall === "pread64" ? "reopen-file" : resourcePolicy,
+    syscall === "pread64" || syscall === "readv" ? "reopen-file" : resourcePolicy,
   );
   if ("state" in resource) {
     return resource;
@@ -1128,15 +1135,8 @@ function decodeFdReadArguments(
     });
   }
   return {
-    fd: values.fd,
-    bufferPointer: hex(values.bufferPointer),
-    countBytes: values.countBytes,
-    bufferMapping: bufferMapping.id,
-    resourceId: resource.resource.id,
+    ...fdTransferModeledFields(values, bufferMapping, resource, targetBufferPointer),
     pairedWriteResourceId: resource.pairedWriteResource?.id,
-    targetResource: resource.targetResource,
-    targetBufferPointer,
-    fileOffset: values.explicitFileOffset ?? resource.fileOffset,
     remainingTime: resource.remainingTime,
   };
 }
@@ -1150,7 +1150,7 @@ function decodeFdWriteArguments(
 ):
   | Omit<NativeModeledFdWriteState, "kind" | "syscallName" | "argumentSource">
   | { state: "missing"; refusal: NativeProcessImageRefusal } {
-  const values = decodeFdWriteArgumentValues(thread, args, syscall);
+  const values = decodeFdWriteArgumentValues(thread, args, documents, syscall);
   if ("state" in values) {
     return values;
   }
@@ -1169,10 +1169,28 @@ function decodeFdWriteArguments(
       bufferMapping: bufferMapping.id,
     });
   }
+  return fdTransferModeledFields(values, bufferMapping, resource, targetBufferPointer);
+}
+
+function fdTransferModeledFields<
+  TTargetResource extends NativeModeledFdReadTargetResource | NativeModeledFdWriteTargetResource,
+  TTargetBufferPointer extends string | undefined,
+>(
+  values: FdReadArgumentValues,
+  bufferMapping: NativeMemoryMapping,
+  resource: {
+    resource: NativeProcessResource;
+    targetResource: TTargetResource;
+    fileOffset?: number;
+  },
+  targetBufferPointer: TTargetBufferPointer,
+) {
   return {
     fd: values.fd,
     bufferPointer: hex(values.bufferPointer),
     countBytes: values.countBytes,
+    iovPointer: values.iovPointer ? hex(values.iovPointer) : undefined,
+    iovCount: values.iovCount,
     bufferMapping: bufferMapping.id,
     resourceId: resource.resource.id,
     targetResource: resource.targetResource,
@@ -1187,13 +1205,26 @@ interface FdReadArgumentValues {
   count: bigint;
   countBytes: number;
   explicitFileOffset?: number;
+  iovPointer?: bigint;
+  iovCount?: 1;
 }
 
 function decodeFdReadArgumentValues(
   thread: NativeThreadState,
   args: SleepTimerArguments,
+  documents: NativeProcessImageDocuments,
   syscall: NativeModeledFdReadState["syscallName"],
 ): FdReadArgumentValues | { state: "missing"; refusal: NativeProcessImageRefusal } {
+  if (syscall === "readv") {
+    return decodeFdVectorArgumentValues(
+      thread,
+      args,
+      documents,
+      "read",
+      MAX_FD_READ_BYTES,
+      missingFdRead,
+    );
+  }
   const values = decodeFdTransferArgumentValues(
     thread,
     args,
@@ -1221,8 +1252,19 @@ function decodeFdReadExplicitOffset(
 function decodeFdWriteArgumentValues(
   thread: NativeThreadState,
   args: SleepTimerArguments,
+  documents: NativeProcessImageDocuments,
   syscall: NativeModeledFdWriteState["syscallName"],
 ): FdReadArgumentValues | { state: "missing"; refusal: NativeProcessImageRefusal } {
+  if (syscall === "writev") {
+    return decodeFdVectorArgumentValues(
+      thread,
+      args,
+      documents,
+      "write",
+      MAX_FD_WRITE_BYTES,
+      missingFdWrite,
+    );
+  }
   const values = decodeFdTransferArgumentValues(
     thread,
     args,
@@ -1268,6 +1310,51 @@ function decodeFdExplicitOffset(
       argumentSource: args.source,
     })
   );
+}
+
+// fallow-ignore-next-line complexity
+function decodeFdVectorArgumentValues(
+  thread: NativeThreadState,
+  args: SleepTimerArguments,
+  documents: NativeProcessImageDocuments,
+  operation: "read" | "write",
+  maxBytes: bigint,
+  missing: typeof missingFdRead,
+): FdReadArgumentValues | { state: "missing"; refusal: NativeProcessImageRefusal } {
+  const syscall = `${operation}v`;
+  const fd = safeNumber(args.values[0] ?? -1n);
+  const iovPointer = args.values[1] ?? 0n;
+  const iovCount = args.values[2] ?? 0n;
+  if (fd === undefined || fd < 0) {
+    return missing(thread, `${operation} fd is missing or invalid`, {
+      fd: hex(args.values[0] ?? -1n),
+    });
+  }
+  if (iovPointer === 0n) {
+    return missing(thread, `${syscall} iovec pointer is null`, { fd });
+  }
+  if (iovCount !== 1n) {
+    return missing(thread, `${syscall} proof requires exactly one iovec`, {
+      fd,
+      iovPointer: hex(iovPointer),
+      iovCount: iovCount.toString(10),
+    });
+  }
+  const iovec = readCapturedMemoryRange(
+    documents,
+    iovPointer,
+    IOVEC_SIZE_BYTES,
+    `${syscall} iovec`,
+  );
+  if ("refusal" in iovec) {
+    return missing(thread, iovec.reason, { fd, iovPointer: hex(iovPointer) });
+  }
+  const bufferPointer = iovec.bytes.readBigUInt64LE(0);
+  const count = iovec.bytes.readBigUInt64LE(8);
+  const countBytes = decodeFdTransferCount(thread, args, fd, count, operation, maxBytes, missing);
+  return typeof countBytes === "number"
+    ? { fd, bufferPointer, count, countBytes, iovPointer, iovCount: 1 }
+    : countBytes;
 }
 
 function decodeFdTransferArgumentValues(
@@ -2418,11 +2505,13 @@ function decodedPpollDetail(decoded: { timeoutPointer: bigint; sigsetSize: bigin
 }
 
 function fdReadSyscallName(thread: NativeThreadState): NativeModeledFdReadState["syscallName"] {
-  return syscallName(thread) === "pread64" ? "pread64" : "read";
+  const name = syscallName(thread);
+  return name === "pread64" || name === "readv" ? name : "read";
 }
 
 function fdWriteSyscallName(thread: NativeThreadState): NativeModeledFdWriteState["syscallName"] {
-  return syscallName(thread) === "pwrite64" ? "pwrite64" : "write";
+  const name = syscallName(thread);
+  return name === "pwrite64" || name === "writev" ? name : "write";
 }
 
 function syscallName(thread: NativeThreadState): string {

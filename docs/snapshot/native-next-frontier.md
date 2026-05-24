@@ -35,8 +35,9 @@ completion is reported:
 Recent remote arm64→amd64 proofs now cover:
 
 - pipe, eventfd, timerfd, regular-file active `read`, regular-file active
-  `pread64`, regular-file active `write`, and regular-file active `pwrite64`
-  profiles with `targetActiveSyscallRestoreResult=passed`;
+  `pread64`, single-iovec regular-file active `readv`, regular-file active
+  `write`, regular-file active `pwrite64`, and single-iovec regular-file active
+  `writev` profiles with `targetActiveSyscallRestoreResult=passed`;
 - process-context handoff through the initial-stack pointer block model with
   `targetProcessContextRestoreResult=passed`;
 - controlled two-thread restore with futex and rseq still fail-closed behind

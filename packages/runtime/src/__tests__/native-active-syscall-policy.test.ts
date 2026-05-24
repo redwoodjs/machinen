@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -74,6 +74,12 @@ function arm64PreadThread(
   return arm64SleepThread({ state: "inside-syscall", number: 67, name: "pread64" }, x);
 }
 
+function arm64ReadvThread(
+  x: string[] = ["0x26", "0x3180", "0x1", "0x0", "0x0", "0x0"],
+): NativeThreadState {
+  return arm64SleepThread({ state: "inside-syscall", number: 65, name: "readv" }, x);
+}
+
 function arm64WriteThread(
   x: string[] = ["0x27", "0x3100", "0x4", "0x0", "0x0", "0x0"],
 ): NativeThreadState {
@@ -84,6 +90,12 @@ function arm64PwriteThread(
   x: string[] = ["0x29", "0x3100", "0x4", "0xb", "0x0", "0x0"],
 ): NativeThreadState {
   return arm64SleepThread({ state: "inside-syscall", number: 68, name: "pwrite64" }, x);
+}
+
+function arm64WritevThread(
+  x: string[] = ["0x27", "0x3180", "0x1", "0x0", "0x0", "0x0"],
+): NativeThreadState {
+  return arm64SleepThread({ state: "inside-syscall", number: 66, name: "writev" }, x);
 }
 
 function arm64SocketThread(
@@ -322,6 +334,22 @@ function documentsWithWriteFile(
   documents.resources.resources[0]!.path = "/tmp/machinen-active-write.txt";
   documents.resources.resources[0]!.offset = options.offset ?? 7;
   return documents;
+}
+
+function writeSingleIovec(
+  documents: NativeProcessImageDocuments,
+  options: { iovPointer?: bigint; bufferPointer?: bigint; countBytes?: bigint } = {},
+): void {
+  const iovPointer = options.iovPointer ?? 0x3180n;
+  const bufferPointer = options.bufferPointer ?? 0x3100n;
+  const countBytes = options.countBytes ?? 4n;
+  const mapping = documents.mappings.mappings[0]!;
+  const offset = Number(iovPointer - BigInt(mapping.sourceStart));
+  const memoryFile = join(documents.rootDir!, NATIVE_PROCESS_IMAGE_FILES.memory);
+  const memory = Buffer.from(readFileSync(memoryFile));
+  memory.writeBigUInt64LE(bufferPointer, offset);
+  memory.writeBigUInt64LE(countBytes, offset + 8);
+  writeFileSync(memoryFile, memory);
 }
 
 function timerfdRecipe(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -1138,6 +1166,36 @@ describe("native active syscall classification", () => {
     });
   });
 
+  it("models a safe single-iovec readv from a regular file", () => {
+    const activeThread = arm64ReadvThread();
+    const documents = documentsWithReadFile(activeThread, { offset: 7 });
+    writeSingleIovec(documents);
+    const result = classifyNativeActiveSyscalls([activeThread], {
+      fdReadPolicy: "defer-target-resume",
+      fdReadResourcePolicy: "synthetic-empty-pipe",
+      documents,
+    });
+
+    expect(result.refusals).toEqual([]);
+    expect(result.continuations[0]).toMatchObject({
+      syscallClass: "fd-blocking",
+      metadata: {
+        fdRead: {
+          syscallName: "readv",
+          fd: 38,
+          bufferPointer: "0x3100",
+          countBytes: 4,
+          iovPointer: "0x3180",
+          iovCount: 1,
+          resourceId: "fd:38:read",
+          targetResource: "reopened-offset-file",
+          targetBufferPointer: "0x600000000100",
+          fileOffset: 7,
+        },
+      },
+    });
+  });
+
   it("models a safe offset-backed write to a regular file", () => {
     const activeThread = arm64WriteThread(["0x27", "0x3100", "0x4", "0x0", "0x0", "0x0"]);
     const documents = documentsWithWriteFile(activeThread, { offset: 7 });
@@ -1191,6 +1249,36 @@ describe("native active syscall classification", () => {
     });
   });
 
+  it("models a safe single-iovec writev to a regular file", () => {
+    const activeThread = arm64WritevThread();
+    const documents = documentsWithWriteFile(activeThread, { offset: 7 });
+    writeSingleIovec(documents);
+    const result = classifyNativeActiveSyscalls([activeThread], {
+      fdWritePolicy: "defer-target-resume",
+      fdWriteResourcePolicy: "reopen-file",
+      documents,
+    });
+
+    expect(result.refusals).toEqual([]);
+    expect(result.continuations[0]).toMatchObject({
+      syscallClass: "fd-blocking",
+      metadata: {
+        fdWrite: {
+          syscallName: "writev",
+          fd: 39,
+          bufferPointer: "0x3100",
+          countBytes: 4,
+          iovPointer: "0x3180",
+          iovCount: 1,
+          resourceId: "fd:39:write",
+          targetResource: "reopened-offset-file",
+          targetBufferPointer: "0x600000000100",
+          fileOffset: 7,
+        },
+      },
+    });
+  });
+
   it("prefers /proc syscall arguments for modeled read", () => {
     const activeThread = arm64ReadThread();
     activeThread.syscall.arguments = ["0x20", "0x3100", "0x1", "0x0", "0x0", "0x0"];
@@ -1211,6 +1299,34 @@ describe("native active syscall classification", () => {
       refusal: {
         code: "target-fd-write-state-missing",
         detail: { reason: "pwrite64 file offset is outside supported bounds" },
+      },
+    });
+  });
+
+  it("refuses readv with more than one iovec", () => {
+    const activeThread = arm64ReadvThread(["0x26", "0x3180", "0x2", "0x0", "0x0", "0x0"]);
+    const documents = documentsWithReadFile(activeThread);
+    writeSingleIovec(documents);
+
+    expect(modelNativeFdReadState(activeThread, documents)).toMatchObject({
+      state: "missing",
+      refusal: {
+        code: "target-fd-read-state-missing",
+        detail: { reason: "readv proof requires exactly one iovec" },
+      },
+    });
+  });
+
+  it("refuses writev with missing iovec memory", () => {
+    const activeThread = arm64WritevThread(["0x27", "0x9000", "0x1", "0x0", "0x0", "0x0"]);
+
+    expect(
+      modelNativeFdWriteState(activeThread, documentsWithWriteFile(activeThread)),
+    ).toMatchObject({
+      state: "missing",
+      refusal: {
+        code: "target-fd-write-state-missing",
+        detail: { reason: "writev iovec is not in captured memory" },
       },
     });
   });
