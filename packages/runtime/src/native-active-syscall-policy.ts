@@ -244,6 +244,15 @@ export interface NativeActiveSyscallClassificationResult {
 const SLEEP_TIMER_SYSCALLS = new Set(["clock_nanosleep", "nanosleep"]);
 const FUTEX_ACTIVE_SYSCALLS = new Set(["futex", "futex_time64", "futex_waitv"]);
 const SOCKET_ACTIVE_SYSCALLS = new Set(["accept", "accept4", "connect"]);
+const SOCKET_TRANSFER_ACTIVE_SYSCALLS = new Set([
+  "recvfrom",
+  "recvmsg",
+  "recvmmsg",
+  "sendto",
+  "sendmsg",
+  "sendmmsg",
+]);
+const FD_SOCKET_TRANSFER_SYSCALLS = new Set(["read", "readv", "write", "writev"]);
 const EPOLL_ACTIVE_SYSCALLS = new Set(["epoll_wait", "epoll_pwait", "epoll_pwait2"]);
 const FD_READ_ACTIVE_SYSCALLS = new Set(["read", "pread64", "readv"]);
 const FD_WRITE_ACTIVE_SYSCALLS = new Set(["write", "pwrite64", "writev"]);
@@ -335,6 +344,9 @@ export function classifyNativeThreadSyscall(
   }
   if (name === "read" && isActiveSignalfdRead(thread, options.documents)) {
     return refusedSignalfdActiveSyscallClassification(thread, options);
+  }
+  if (isActiveSocketTransferSyscall(thread, options.documents)) {
+    return refusedSocketActiveSyscallClassification(thread, options);
   }
   if (FD_READ_ACTIVE_SYSCALLS.has(name) && options.fdReadPolicy === "defer-target-resume") {
     return deferredFdReadClassification(thread, options);
@@ -749,10 +761,39 @@ function futexArgument(args: SleepTimerArguments, index: number): string {
 interface SocketActiveSyscallArguments {
   source: "proc-syscall" | "registers";
   fd: number;
+  bufferPointer?: string;
+  countBytes?: string;
+  iovPointer?: string;
+  iovCount?: string;
+  messagePointer?: string;
+  messageCount?: string;
   addressPointer?: string;
   addressLengthPointer?: string;
   addressLengthBytes?: string;
   flags?: number;
+}
+
+function isActiveSocketTransferSyscall(
+  thread: NativeThreadState,
+  documents: NativeProcessImageDocuments | undefined,
+): boolean {
+  const syscall = syscallName(thread);
+  if (SOCKET_TRANSFER_ACTIVE_SYSCALLS.has(syscall)) {
+    return true;
+  }
+  if (!FD_SOCKET_TRANSFER_SYSCALLS.has(syscall)) {
+    return false;
+  }
+  const args = sleepTimerArguments(thread);
+  const fd = args ? safeNumber(args.values[0] ?? -1n) : undefined;
+  return (
+    fd !== undefined &&
+    (documents?.resources.resources.some(
+      (resource) =>
+        resource.fd === fd && (resource.kind === "socket" || resource.kind === "raw-socket"),
+    ) ??
+      false)
+  );
 }
 
 function socketActiveSyscallDetail(
@@ -766,7 +807,7 @@ function socketActiveSyscallDetail(
   return detail(thread, "fd-blocking", {
     reason: socketActiveSyscallRefusalReason(args, documents, resource),
     socketSyscall: {
-      family: "socket-accept-connect",
+      family: socketActiveSyscallFamily(syscallName(thread)),
       arguments: args,
       resource: resource ? socketResourceDetail(resource) : undefined,
       unsupportedState: socketActiveSyscallUnsupportedState(syscallName(thread)),
@@ -794,20 +835,34 @@ function socketActiveSyscallRefusalReason(
   return "socket endpoint kernel state is unsupported";
 }
 
+function socketActiveSyscallFamily(syscall: string): string {
+  return SOCKET_ACTIVE_SYSCALLS.has(syscall) ? "socket-accept-connect" : "socket-transfer";
+}
+
 function socketActiveSyscallUnsupportedState(syscall: string): string[] {
-  return syscall === "connect"
-    ? [
-        "socket endpoint identity",
-        "in-flight connection result",
-        "network namespace and routing state",
-        "target fd resource mapping",
-      ]
-    : [
-        "listening socket identity",
-        "listen backlog and queued connection state",
-        "accepted peer endpoint state",
-        "target fd resource mapping",
-      ];
+  if (syscall === "connect") {
+    return [
+      "socket endpoint identity",
+      "in-flight connection result",
+      "network namespace and routing state",
+      "target fd resource mapping",
+    ];
+  }
+  if (syscall === "accept" || syscall === "accept4") {
+    return [
+      "listening socket identity",
+      "listen backlog and queued connection state",
+      "accepted peer endpoint state",
+      "target fd resource mapping",
+    ];
+  }
+  return [
+    "socket receive/send queue state",
+    "peer endpoint identity",
+    "socket shutdown and option state",
+    "partial transfer and ancillary data state",
+    "target fd resource mapping",
+  ];
 }
 
 function socketResourceDetail(resource: NativeProcessResource): Record<string, unknown> {
@@ -966,6 +1021,7 @@ function signalfdActiveSyscallRefusalReason(
     : "read fd is not a captured signalfd";
 }
 
+// fallow-ignore-next-line complexity
 function decodeSocketActiveSyscallArguments(
   thread: NativeThreadState,
 ): SocketActiveSyscallArguments | undefined {
@@ -986,12 +1042,57 @@ function decodeSocketActiveSyscallArguments(
       addressLengthBytes: hex(args.values[2]),
     };
   }
+  if (syscall === "accept" || syscall === "accept4") {
+    return {
+      source: args.source,
+      fd,
+      addressPointer: hex(args.values[1]),
+      addressLengthPointer: hex(args.values[2]),
+      flags: syscall === "accept4" ? safeNumber(args.values[3] ?? 0n) : undefined,
+    };
+  }
+  if (syscall === "read" || syscall === "write") {
+    return {
+      source: args.source,
+      fd,
+      bufferPointer: hex(args.values[1]),
+      countBytes: hex(args.values[2]),
+    };
+  }
+  if (syscall === "readv" || syscall === "writev") {
+    return {
+      source: args.source,
+      fd,
+      iovPointer: hex(args.values[1]),
+      iovCount: hex(args.values[2]),
+    };
+  }
+  if (syscall === "recvmsg" || syscall === "sendmsg") {
+    return {
+      source: args.source,
+      fd,
+      messagePointer: hex(args.values[1]),
+      flags: safeNumber(args.values[2] ?? 0n),
+    };
+  }
+  if (syscall === "recvmmsg" || syscall === "sendmmsg") {
+    return {
+      source: args.source,
+      fd,
+      messagePointer: hex(args.values[1]),
+      messageCount: hex(args.values[2]),
+      flags: safeNumber(args.values[3] ?? 0n),
+    };
+  }
   return {
     source: args.source,
     fd,
-    addressPointer: hex(args.values[1]),
-    addressLengthPointer: hex(args.values[2]),
-    flags: syscall === "accept4" ? safeNumber(args.values[3] ?? 0n) : undefined,
+    bufferPointer: hex(args.values[1]),
+    countBytes: hex(args.values[2]),
+    flags: safeNumber(args.values[3] ?? 0n),
+    addressPointer: hex(args.values[4]),
+    addressLengthPointer: syscall === "recvfrom" ? hex(args.values[5]) : undefined,
+    addressLengthBytes: syscall === "sendto" ? hex(args.values[5]) : undefined,
   };
 }
 

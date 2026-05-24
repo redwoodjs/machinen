@@ -20,9 +20,9 @@ refused. Otherwise, modeled continuations become target steps:
 
 Only continuations that already passed the active-syscall policy are accepted.
 Generic blocking syscalls, restart state, missing timespecs, missing read/write
-buffer state, signalfd reads, epoll waits, socket accept/connect, and unsupported
-fd state continue to fail closed before target re-arm with resource-specific
-detail.
+buffer state, signalfd reads, epoll waits, socket accept/connect, socket
+transfers, and unsupported fd state continue to fail closed before target re-arm
+with resource-specific detail.
 
 The target amd64 trampoline now executes these sections by creating and arming a
 short-lived target-side timerfd for each `rearm-sleep-timer` or

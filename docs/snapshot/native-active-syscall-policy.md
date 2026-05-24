@@ -36,8 +36,8 @@ Known blocking syscall classes refuse with precise codes:
   the capture cannot model the timeout, fd, or signal-mask contract;
 - `target-fd-read-state-missing` when explicit fd-read deferral is requested but
   the capture cannot prove a blocking read contract;
-- `target-socket-syscall-state-unsupported` for active `accept`, `accept4`, and
-  `connect` state;
+- `target-socket-syscall-state-unsupported` for active socket accept/connect and
+  socket transfer state;
 - `target-epoll-syscall-state-unsupported` for active `epoll_wait`,
   `epoll_pwait`, and `epoll_pwait2` state;
 - `target-signalfd-state-unsupported` for active reads from signalfd resources;
@@ -104,18 +104,27 @@ semantics.
 This is refusal tightening only. No futex wait is restarted, emulated, or treated
 as target-native success.
 
-## Socket accept/connect refusal
+## Socket refusal tightening
 
 Active socket `accept`, `accept4`, and `connect` remain unsupported for native
-restore. They now fail closed with `target-socket-syscall-state-unsupported`
-instead of the generic fd-blocking refusal. When syscall arguments and the
-captured resource table are available, the refusal detail records the socket fd,
-resource id/kind/path/flags, and the unsupported kernel state family:
+restore. Active socket transfer syscalls (`recvfrom`, `recvmsg`, `recvmmsg`,
+`sendto`, `sendmsg`, and `sendmmsg`) also refuse with
+`target-socket-syscall-state-unsupported`. Generic `read`, `readv`, `write`, and
+`writev` use the same socket refusal when their fd maps to a captured socket or
+raw-socket resource, instead of falling through to regular fd-read/write missing
+state.
+
+When syscall arguments and the captured resource table are available, the
+refusal detail records the socket fd, decoded pointer/count arguments, resource
+id/kind/path/flags, and the unsupported kernel state family:
 
 - `connect` needs endpoint identity, in-flight connection result, namespace and
   routing state, and target fd mapping;
 - `accept`/`accept4` need listening socket identity, backlog/queued connection
-  state, accepted peer endpoint state, and target fd mapping.
+  state, accepted peer endpoint state, and target fd mapping;
+- socket transfer needs receive/send queue state, peer endpoint identity, socket
+  shutdown/options, partial transfer and ancillary data state, and target fd
+  mapping.
 
 Missing arguments, missing resource rows, and non-socket fds remain refusals with
 the same code and a specific `detail.reason`. This is refusal tightening only;
