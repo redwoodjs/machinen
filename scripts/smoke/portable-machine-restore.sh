@@ -93,6 +93,8 @@ import { readFileSync } from 'node:fs';
 try {
   const result = JSON.parse(readFileSync(process.argv[2], 'utf8'));
   process.stdout.write(JSON.stringify({
+    state: result.state ?? 'not-run',
+    migrationCompleted: result.migrationCompleted ?? false,
     descriptorGateCompleted: result.descriptorGateCompleted ?? false,
     descriptorMemoryEntryCount: result.descriptorMemoryEntryCount ?? 0,
     descriptorFdRecipeCount: result.descriptorFdRecipeCount ?? 0,
@@ -461,13 +463,22 @@ process.exit(
   result.migrationCompleted === true &&
   result.descriptorGateCompleted === true &&
   result.targetVerifierResult === 'passed' &&
+  result.targetStateConsumptionResult === 'passed' &&
+  Array.isArray(result.targetResourceStatuses) &&
+  result.targetResourceStatuses.every((entry) => entry?.status === 'passed') &&
+  result.targetReturnChainResult === 'passed' &&
+  result.targetFrameRestoreResult === 'passed' &&
+  result.targetRegisterRestoreResult === 'passed' &&
+  result.targetRflagsRestoreResult === 'passed' &&
+  result.targetTlsRestoreResult === 'passed' &&
   result.targetStackWindowMaterializationResult === 'passed' &&
   result.targetPrivateMemoryRestoreResult === 'passed' &&
   result.targetExecutableMappingResult === 'passed' &&
   (sourceTarget !== 'process-context' || result.targetProcessContextRestoreResult === 'passed') &&
   result.targetSignalRestoreResult === 'passed' &&
-  (!remoteE2e || result.targetActiveSyscallRestoreResult === 'passed') &&
-  (!remoteE2e || sourceTarget !== 'two-thread-ppoll' || result.targetThreadRestoreResult === 'passed')
+  (!remoteE2e || sourceTarget === 'process-context' || result.targetActiveSyscallRestoreResult === 'passed') &&
+  (!remoteE2e || sourceTarget !== 'two-thread-ppoll' || result.targetThreadRestoreResult === 'passed') &&
+  result.targetResumePathResult === 'passed'
     ? 0
     : 1,
 );
