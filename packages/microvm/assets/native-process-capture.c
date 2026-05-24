@@ -1146,6 +1146,11 @@ static const char *syscall_name(long long number) {
     return "write";
   }
 #endif
+#ifdef __NR_pwrite64
+  if (number == __NR_pwrite64) {
+    return "pwrite64";
+  }
+#endif
   return "unknown";
 }
 

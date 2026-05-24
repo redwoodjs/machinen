@@ -80,6 +80,12 @@ function arm64WriteThread(
   return arm64SleepThread({ state: "inside-syscall", number: 64, name: "write" }, x);
 }
 
+function arm64PwriteThread(
+  x: string[] = ["0x29", "0x3100", "0x4", "0xb", "0x0", "0x0"],
+): NativeThreadState {
+  return arm64SleepThread({ state: "inside-syscall", number: 68, name: "pwrite64" }, x);
+}
+
 function arm64SocketThread(
   name: "accept" | "accept4" | "connect",
   x: string[] = ["0x28", "0x0", "0x0", "0x0", "0x0", "0x0"],
@@ -1146,6 +1152,7 @@ describe("native active syscall classification", () => {
       syscallClass: "fd-blocking",
       metadata: {
         fdWrite: {
+          syscallName: "write",
           fd: 39,
           countBytes: 4,
           resourceId: "fd:39:write",
@@ -1158,6 +1165,32 @@ describe("native active syscall classification", () => {
     });
   });
 
+  it("models a safe explicit-offset pwrite64 to a regular file", () => {
+    const activeThread = arm64PwriteThread(["0x27", "0x3100", "0x4", "0xb", "0x0", "0x0"]);
+    const documents = documentsWithWriteFile(activeThread, { offset: 7 });
+    const result = classifyNativeActiveSyscalls([activeThread], {
+      fdWritePolicy: "defer-target-resume",
+      fdWriteResourcePolicy: "reopen-file",
+      documents,
+    });
+
+    expect(result.refusals).toEqual([]);
+    expect(result.continuations[0]).toMatchObject({
+      syscallClass: "fd-blocking",
+      metadata: {
+        fdWrite: {
+          syscallName: "pwrite64",
+          fd: 39,
+          countBytes: 4,
+          resourceId: "fd:39:write",
+          targetResource: "reopened-offset-file",
+          targetBufferPointer: "0x600000000100",
+          fileOffset: 11,
+        },
+      },
+    });
+  });
+
   it("prefers /proc syscall arguments for modeled read", () => {
     const activeThread = arm64ReadThread();
     activeThread.syscall.arguments = ["0x20", "0x3100", "0x1", "0x0", "0x0", "0x0"];
@@ -1166,6 +1199,19 @@ describe("native active syscall classification", () => {
     expect(modelNativeFdReadState(activeThread, documents)).toMatchObject({
       state: "modeled",
       read: { argumentSource: "proc-syscall", fd: 32, countBytes: 1 },
+    });
+  });
+
+  it("refuses pwrite64 with an unsafe explicit offset", () => {
+    const activeThread = arm64PwriteThread(["0x27", "0x3100", "0x4", "-1", "0x0", "0x0"]);
+    expect(
+      modelNativeFdWriteState(activeThread, documentsWithWriteFile(activeThread)),
+    ).toMatchObject({
+      state: "missing",
+      refusal: {
+        code: "target-fd-write-state-missing",
+        detail: { reason: "pwrite64 file offset is outside supported bounds" },
+      },
     });
   });
 
