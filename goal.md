@@ -156,14 +156,14 @@ narrow exact contract or fail closed with a stable refusal.
 
 ### E. Target libc, vDSO, vvar, and special mappings
 
-- [ ] Inventory every special mapping currently observed in accepted proof
+- [x] Inventory every special mapping currently observed in accepted proof
       profiles.
-- [ ] Decide per mapping: target-owned recreate, target-file provenance verify,
+- [x] Decide per mapping: target-owned recreate, target-file provenance verify,
       data materialize, or refuse.
-- [ ] Add stable refusal codes/details for every unsupported special mapping.
-- [ ] Model target vDSO/vvar only when target kernel semantics are explicit; do
+- [x] Add stable refusal codes/details for every unsupported special mapping.
+- [x] Model target vDSO/vvar only when target kernel semantics are explicit; do
       not copy source vDSO/vvar bytes as success.
-- [ ] Add target-native verification that modeled special mapping data is valid
+- [x] Add target-native verification that modeled special mapping data is valid
       on amd64.
 
 ### F. Signals, interrupted syscalls, and restart semantics
