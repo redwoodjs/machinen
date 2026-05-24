@@ -282,6 +282,145 @@ describe("native resource translation", () => {
     });
   });
 
+  it("plans an accepted timerfd-descriptor-v1 descriptor", () => {
+    const plan = planNativeTargetFdTable({
+      resources: [
+        {
+          id: "fd:12",
+          kind: "timer",
+          state: "captured",
+          fd: 12,
+          path: "anon_inode:[timerfd]",
+          flags: ["octal:2"],
+          recipe: {
+            timerfdModel: "descriptor-v1",
+            timerfdClockId: 1,
+            timerfdTicks: 0,
+            timerfdSettimeFlags: 0,
+            timerfdValueSeconds: 5,
+            timerfdValueNanoseconds: 100,
+            timerfdIntervalSeconds: 0,
+            timerfdIntervalNanoseconds: 0,
+          },
+        },
+      ],
+    });
+
+    expect(plan.refusals).toEqual([]);
+    expect(plan.entries).toEqual([
+      expect.objectContaining({ targetFd: 12, kind: "synthetic-timerfd", action: "materialize" }),
+    ]);
+    expect(plan.targetGuestResources).toEqual([
+      {
+        kind: "synthetic-timerfd",
+        fd: 12,
+        clockId: 1,
+        settimeFlags: 0,
+        valueSeconds: 5,
+        valueNanoseconds: 100,
+        intervalSeconds: 0,
+        intervalNanoseconds: 0,
+        closeOnExec: false,
+      },
+    ]);
+  });
+
+  it.each([
+    {
+      name: "periodic interval",
+      recipe: {
+        timerfdModel: "descriptor-v1",
+        timerfdClockId: 1,
+        timerfdTicks: 0,
+        timerfdSettimeFlags: 0,
+        timerfdValueSeconds: 5,
+        timerfdValueNanoseconds: 0,
+        timerfdIntervalSeconds: 1,
+        timerfdIntervalNanoseconds: 0,
+      },
+      reason: "timerfd periodic interval is unsupported",
+    },
+    {
+      name: "expired ticks",
+      recipe: {
+        timerfdModel: "descriptor-v1",
+        timerfdClockId: 1,
+        timerfdTicks: 1,
+        timerfdSettimeFlags: 0,
+        timerfdValueSeconds: 0,
+        timerfdValueNanoseconds: 0,
+        timerfdIntervalSeconds: 0,
+        timerfdIntervalNanoseconds: 0,
+      },
+      reason: "timerfd has unread expirations or overrun state",
+    },
+    {
+      name: "absolute timer",
+      recipe: {
+        timerfdModel: "descriptor-v1",
+        timerfdClockId: 1,
+        timerfdTicks: 0,
+        timerfdSettimeFlags: 1,
+        timerfdValueSeconds: 5,
+        timerfdValueNanoseconds: 0,
+        timerfdIntervalSeconds: 0,
+        timerfdIntervalNanoseconds: 0,
+      },
+      reason: "timerfd absolute/cancel-on-set semantics are unsupported",
+    },
+    {
+      name: "ambiguous clock",
+      recipe: {
+        timerfdModel: "descriptor-v1",
+        timerfdClockId: 0,
+        timerfdTicks: 0,
+        timerfdSettimeFlags: 0,
+        timerfdValueSeconds: 5,
+        timerfdValueNanoseconds: 0,
+        timerfdIntervalSeconds: 0,
+        timerfdIntervalNanoseconds: 0,
+      },
+      reason: "timerfd clock is unsupported",
+    },
+    {
+      name: "unsupported flags",
+      flags: ["octal:4002"],
+      recipe: {
+        timerfdModel: "descriptor-v1",
+        timerfdClockId: 1,
+        timerfdTicks: 0,
+        timerfdSettimeFlags: 0,
+        timerfdValueSeconds: 5,
+        timerfdValueNanoseconds: 0,
+        timerfdIntervalSeconds: 0,
+        timerfdIntervalNanoseconds: 0,
+      },
+      reason: "timerfd flags are unsupported",
+    },
+  ])("keeps unsafe timerfd descriptor variants fail-closed: $name", ({ flags, recipe, reason }) => {
+    const plan = planNativeTargetFdTable({
+      resources: [
+        {
+          id: "fd:12",
+          kind: "timer",
+          state: "captured",
+          fd: 12,
+          path: "anon_inode:[timerfd]",
+          flags: flags ?? ["octal:2"],
+          recipe,
+        },
+      ],
+    });
+
+    expect(plan.refusals).toEqual([
+      expect.objectContaining({
+        code: "kernel-state-unsupported",
+        detail: expect.objectContaining({ boundary: "timerfd-descriptor-v1", reason }),
+      }),
+    ]);
+    expect(plan.targetGuestResources).toEqual([]);
+  });
+
   it("plans an accepted epoll interest list when every watched fd has a target recipe", () => {
     const plan = planNativeTargetFdTable({
       syntheticEmptyEventFds: [10],

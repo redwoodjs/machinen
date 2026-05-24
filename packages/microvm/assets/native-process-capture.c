@@ -1637,7 +1637,7 @@ static void write_fd_resource(FILE *out, pid_t pid, const char *fd_name, const c
   json_string(out, id);
   fputs(",\"kind\":", out);
   json_string(out, kind);
-  const char *state = streq(kind, "file") ? "recipe" : ((streq(kind, "epoll") || streq(kind, "signalfd")) ? "captured" : "refused");
+  const char *state = streq(kind, "file") ? "recipe" : ((streq(kind, "epoll") || streq(kind, "signalfd") || streq(kind, "timer")) ? "captured" : "refused");
   fprintf(out, ",\"state\":");
   json_string(out, state);
   fprintf(out, ",\"fd\":%s", fd_name);
@@ -1663,7 +1663,7 @@ static void write_fd_resource(FILE *out, pid_t pid, const char *fd_name, const c
     uint64_t interval_nsec = 0;
     fdinfo_pair_value(pid, fd_name, "it_value", &value_sec, &value_nsec);
     fdinfo_pair_value(pid, fd_name, "it_interval", &interval_sec, &interval_nsec);
-    fputs(",\"recipe\":{\"timerfdClockId\":", out);
+    fputs(",\"recipe\":{\"timerfdModel\":\"descriptor-v1\",\"timerfdClockId\":", out);
     json_hex_u64(out, fdinfo_value(pid, fd_name, "clockid"));
     fputs(",\"timerfdTicks\":", out);
     json_hex_u64(out, fdinfo_value(pid, fd_name, "ticks"));
@@ -1690,7 +1690,7 @@ static void write_fd_resource(FILE *out, pid_t pid, const char *fd_name, const c
     fputs(",\"recipe\":{\"reopen\":", out);
     json_string(out, target);
     fputs("}", out);
-  } else if (!streq(kind, "epoll") && !streq(kind, "signalfd")) {
+  } else if (!streq(kind, "epoll") && !streq(kind, "signalfd") && !streq(kind, "timer")) {
     fputs(",\"refusal\":", out);
     write_refusal(out, fd_refusal_code(kind), "fd kind needs a resource broker recipe");
   }

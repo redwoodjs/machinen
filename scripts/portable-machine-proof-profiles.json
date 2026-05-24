@@ -109,6 +109,36 @@
     ]
   },
   {
+    "name": "timerfd-descriptor-recreate",
+    "remoteSourceTarget": "timerfd-descriptor-recreate",
+    "description": "Target-native timerfd descriptor recreation for a disarmed CLOCK_MONOTONIC one-shot descriptor.",
+    "sourceFixture": "packages/microvm/assets/native-pipe-read-target.c",
+    "traceSyscall": null,
+    "traceFd": null,
+    "expectedResult": "success",
+    "supportStatus": "graduated-support",
+    "unsafeStateFamily": "timerfd",
+    "graduatedFromRefusalCode": "kernel-state-unsupported",
+    "acceptedSubset": "timerfd-descriptor-v1-disarmed-or-relative-one-shot",
+    "unsafeVariants": ["timerfd-read"],
+    "expectedGates": [
+      "descriptor",
+      "verifier",
+      "state-consumption",
+      "resources",
+      "return-chain",
+      "frame",
+      "registers",
+      "tls",
+      "stack-window",
+      "private-memory",
+      "executable",
+      "signal",
+      "active-syscall",
+      "resume-path"
+    ]
+  },
+  {
     "name": "timerfd-read",
     "remoteSourceTarget": "timerfd-read",
     "description": "One-shot timerfd read active-syscall proof with modeled remaining time.",

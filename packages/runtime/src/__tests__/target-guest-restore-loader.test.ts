@@ -107,7 +107,17 @@ describe("target guest restore loader descriptor", () => {
         },
         { kind: "synthetic-empty-pipe", readFd: 3, writeFd: 4, closeOnExec: false },
         { kind: "synthetic-eventfd", fd: 5, initialValue: "0x2a", closeOnExec: false },
-        { kind: "synthetic-timerfd", fd: 6, closeOnExec: false },
+        {
+          kind: "synthetic-timerfd",
+          fd: 6,
+          clockId: 1,
+          settimeFlags: 0,
+          valueSeconds: 0,
+          valueNanoseconds: 0,
+          intervalSeconds: 0,
+          intervalNanoseconds: 0,
+          closeOnExec: false,
+        },
         {
           kind: "synthetic-signalfd",
           fd: 9,
@@ -207,7 +217,7 @@ describe("target guest restore loader descriptor", () => {
       "--synthetic-eventfd",
       "fd=5;initialValue=0x2a",
       "--synthetic-timerfd",
-      "6",
+      "fd=6;clockId=1;settimeFlags=0;valueSeconds=0;valueNanoseconds=0;intervalSeconds=0;intervalNanoseconds=0",
       "--synthetic-signalfd",
       "fd=9;signalMask=0x200;flags=2048",
       "--synthetic-epoll",
@@ -579,6 +589,14 @@ describe("target guest restore loader descriptor", () => {
         }),
       ),
     ).toThrow(/eventfd initialValue is unsupported/);
+
+    expect(() =>
+      validateTargetGuestRestoreDescriptor(
+        descriptor({
+          resources: [{ kind: "synthetic-timerfd", fd: 6, valueNanoseconds: 1_000_000_000 }],
+        }),
+      ),
+    ).toThrow(/timerfd valueNanoseconds is invalid/);
 
     expect(() =>
       validateTargetGuestRestoreDescriptor(
