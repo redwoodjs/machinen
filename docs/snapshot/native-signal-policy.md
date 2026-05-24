@@ -8,6 +8,18 @@ Issue #645 adds a fail-closed signal boundary for native thread restore.
 explicit `blockedMaskPolicy: "restore-safe-mask"` option, it may also accept and
 report a parsed blocked signal mask for target restore.
 
+## Boundary matrix
+
+| Signal state                                     | Current policy                           | Reason                                                                               |
+| ------------------------------------------------ | ---------------------------------------- | ------------------------------------------------------------------------------------ |
+| empty blocked/pending masks                      | accept                                   | no target signal state to recreate                                                   |
+| blocked mask with `restore-safe-mask`            | model target mask handoff                | mask bits can be set and verified before target resume                               |
+| pending signal queue / siginfo                   | refuse with `signal-state-unsupported`   | queued delivery order, payload ownership, and sender identity are kernel state       |
+| active signal frame/trampoline                   | refuse with `signal-frame-active`        | target frame, ucontext, restorer, and interrupted register ownership are not modeled |
+| enabled/active alt-stack                         | refuse with `signal-state-unsupported`   | target stack registration and active-frame ownership are not modeled                 |
+| malformed blocked/pending masks                  | refuse with `signal-state-unsupported`   | ambiguous source state fails closed                                                  |
+| dispositions/handlers beyond controlled defaults | metadata-only/refuse at broader boundary | handler code identity and target libc/kernel registration must be proven before use  |
+
 It still refuses:
 
 - active signal frames (`signal-frame-active`);

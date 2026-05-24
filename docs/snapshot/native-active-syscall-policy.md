@@ -92,6 +92,23 @@ migration. Missing fd resources, wrong resource kinds, unsupported flags or
 state, wrong events, non-empty `revents`, `nfds > 1`, and non-null signal masks
 all fail closed as `target-ppoll-timeout-missing`.
 
+## Signal interruption and restart boundary
+
+The active-syscall model restarts only the narrow families whose target-side
+equivalence is explicitly modeled in this document. Plain interrupted syscalls,
+`ERESTART*`-style kernel restart blocks, and `restart_syscall` refuse with
+`syscall-restart-unsupported` unless a future family proves all of the following:
+remaining-time accounting, signal mask delivery semantics, syscall result/restart
+contract, and target resource rearm policy.
+
+For already accepted timeout families, remaining-time modeling is family-local:
+sleep and `ppoll` require captured relative timespec state, timerfd read may carry
+a captured remaining timer value, and fd/file transfer proofs complete bounded
+native `pread()`/`pwrite()` work instead of replaying source restart state.
+Pending signals, signalfd delivery, active signal frames, and non-null `ppoll`
+signal masks stay refused so `migrationCompleted=true` is never reported for an
+ambiguous signal/restart state.
+
 ## Futex refusal tightening
 
 Active futex syscalls now fail closed with `futex-state-unsupported` instead of
