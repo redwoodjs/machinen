@@ -185,17 +185,17 @@ narrow exact contract or fail closed with a stable refusal.
 ### G. Futex, rseq, and general multithread restore
 
 - [!] Keep current futex and rseq refusal tightening in place.
-- [ ] Model futex word translation and memory ownership.
-- [ ] Model futex wait queues, wake/requeue ordering, timeout accounting,
+- [x] Model futex word translation and memory ownership.
+- [x] Model futex wait queues, wake/requeue ordering, timeout accounting,
       robust-list owner-death semantics, and PI futex cases or refuse them with
       exact detail.
-- [ ] Model rseq target registration lifecycle.
-- [ ] Translate rseq abort IPs and critical-section state or refuse.
-- [ ] Model TLS ownership for rseq areas.
-- [ ] Extend controlled thread-spawn beyond short-lived target tasks only after
+- [x] Model rseq target registration lifecycle.
+- [x] Translate rseq abort IPs and critical-section state or refuse.
+- [x] Model TLS ownership for rseq areas.
+- [x] Extend controlled thread-spawn beyond short-lived target tasks only after
       scheduler-visible state is explicit.
-- [ ] Add remote proof for each newly accepted multithread/futex/rseq slice.
-- [ ] Keep general scheduler state refused until modeled.
+- [x] Add remote proof for each newly accepted multithread/futex/rseq slice.
+- [x] Keep general scheduler state refused until modeled.
 
 ### H. Kernel resources and fd recipes beyond current proofs
 
