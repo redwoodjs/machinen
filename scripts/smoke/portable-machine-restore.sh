@@ -301,9 +301,11 @@ capture_remote_native_process_bundle() {
     packages/microvm/assets/native-process-capture.c \
     packages/microvm/assets/native-eventfd-read-target.c \
     packages/microvm/assets/native-file-read-target.c \
+    packages/microvm/assets/native-file-readv-target.c \
     packages/microvm/assets/native-file-pread-target.c \
     packages/microvm/assets/native-file-pwrite-target.c \
     packages/microvm/assets/native-file-write-target.c \
+    packages/microvm/assets/native-file-writev-target.c \
     packages/microvm/assets/native-pipe-read-target.c \
     packages/microvm/assets/native-ppoll-timeout-target.c \
     packages/microvm/assets/native-timerfd-read-target.c \
@@ -331,6 +333,10 @@ capture_remote_native_process_bundle() {
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-file-pread-target"
       target_detail="remote arm64 regular-file pread64 native-process bundle captured from $ARM64_SSH"
       ;;
+    file-readv)
+      target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-file-readv-target"
+      target_detail="remote arm64 regular-file readv native-process bundle captured from $ARM64_SSH"
+      ;;
     file-write)
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-file-write-target"
       target_detail="remote arm64 regular-file write native-process bundle captured from $ARM64_SSH"
@@ -338,6 +344,10 @@ capture_remote_native_process_bundle() {
     file-pwrite)
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-file-pwrite-target"
       target_detail="remote arm64 regular-file pwrite64 native-process bundle captured from $ARM64_SSH"
+      ;;
+    file-writev)
+      target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-file-writev-target"
+      target_detail="remote arm64 regular-file writev native-process bundle captured from $ARM64_SSH"
       ;;
     timerfd-read)
       target_binary="$ARM64_REMOTE_WORK/bin/machinen-native-timerfd-read-target"
@@ -358,13 +368,17 @@ capture_remote_native_process_bundle() {
     capture_command="'$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --trace-syscall read --trace-syscall-fd 38 -- '$target_binary'"
   elif [[ "$REMOTE_SOURCE_TARGET" == "file-pread" ]]; then
     capture_command="'$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --trace-syscall pread64 --trace-syscall-fd 40 -- '$target_binary'"
+  elif [[ "$REMOTE_SOURCE_TARGET" == "file-readv" ]]; then
+    capture_command="'$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --trace-syscall readv --trace-syscall-fd 42 -- '$target_binary'"
   elif [[ "$REMOTE_SOURCE_TARGET" == "file-write" ]]; then
     capture_command="'$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --trace-syscall write --trace-syscall-fd 39 -- '$target_binary'"
   elif [[ "$REMOTE_SOURCE_TARGET" == "file-pwrite" ]]; then
     capture_command="'$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --trace-syscall pwrite64 --trace-syscall-fd 41 -- '$target_binary'"
+  elif [[ "$REMOTE_SOURCE_TARGET" == "file-writev" ]]; then
+    capture_command="'$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' --output '$ARM64_REMOTE_WORK/capture/bundle' --target-arch amd64 --trace-syscall writev --trace-syscall-fd 43 -- '$target_binary'"
   fi
   ssh "$ARM64_SSH" \
-    "cd '$ARM64_REMOTE_WORK/repo' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-process-capture.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-eventfd-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-eventfd-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-pread-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-pread-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-pwrite-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-pwrite-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-write-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-write-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-pipe-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-ppoll-timeout-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-ppoll-timeout-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-timerfd-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-timerfd-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror -pthread packages/microvm/assets/native-two-thread-ppoll-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-two-thread-ppoll-target' && $capture_command > '$ARM64_REMOTE_WORK/capture.log'"
+    "cd '$ARM64_REMOTE_WORK/repo' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-process-capture.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-process-capture' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-eventfd-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-eventfd-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-readv-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-readv-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-pread-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-pread-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-pwrite-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-pwrite-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-write-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-write-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-file-writev-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-file-writev-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-pipe-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-pipe-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-ppoll-timeout-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-ppoll-timeout-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror packages/microvm/assets/native-timerfd-read-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-timerfd-read-target' && cc -std=c11 -O0 -g -Wall -Wextra -Werror -pthread packages/microvm/assets/native-two-thread-ppoll-target.c -o '$ARM64_REMOTE_WORK/bin/machinen-native-two-thread-ppoll-target' && $capture_command > '$ARM64_REMOTE_WORK/capture.log'"
   mkdir -p "$NATIVE_BUNDLE"
   ssh "$ARM64_SSH" "cat '$ARM64_REMOTE_WORK/capture.log'" >"$WORK/arm64-capture.log"
   ssh "$ARM64_SSH" "tar -czf - -C '$ARM64_REMOTE_WORK/capture/bundle' ." | \

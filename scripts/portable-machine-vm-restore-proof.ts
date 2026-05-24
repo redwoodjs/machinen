@@ -626,7 +626,9 @@ function isActiveReadThread(
 ): boolean {
   return (
     thread.syscall.state === "inside-syscall" &&
-    (thread.syscall.name === "read" || thread.syscall.name === "pread64")
+    (thread.syscall.name === "read" ||
+      thread.syscall.name === "pread64" ||
+      thread.syscall.name === "readv")
   );
 }
 
@@ -637,7 +639,9 @@ function isActiveWriteThread(
 ): boolean {
   return (
     thread.syscall.state === "inside-syscall" &&
-    (thread.syscall.name === "write" || thread.syscall.name === "pwrite64")
+    (thread.syscall.name === "write" ||
+      thread.syscall.name === "pwrite64" ||
+      thread.syscall.name === "writev")
   );
 }
 

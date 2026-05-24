@@ -2962,7 +2962,7 @@ by default when `output` is a TTY.
 
 ##### syscallName
 
-> **syscallName**: `"read"` \| `"pread64"`
+> **syscallName**: `"read"` \| `"pread64"` \| `"readv"`
 
 ##### argumentSource
 
@@ -2979,6 +2979,14 @@ by default when `output` is a TTY.
 ##### countBytes
 
 > **countBytes**: `number`
+
+##### iovPointer?
+
+> `optional` **iovPointer?**: `string`
+
+##### iovCount?
+
+> `optional` **iovCount?**: `1`
 
 ##### bufferMapping
 
@@ -3020,7 +3028,7 @@ by default when `output` is a TTY.
 
 ##### syscallName
 
-> **syscallName**: `"write"` \| `"pwrite64"`
+> **syscallName**: `"write"` \| `"pwrite64"` \| `"writev"`
 
 ##### argumentSource
 
@@ -3037,6 +3045,14 @@ by default when `output` is a TTY.
 ##### countBytes
 
 > **countBytes**: `number`
+
+##### iovPointer?
+
+> `optional` **iovPointer?**: `string`
+
+##### iovCount?
+
+> `optional` **iovCount?**: `1`
 
 ##### bufferMapping
 

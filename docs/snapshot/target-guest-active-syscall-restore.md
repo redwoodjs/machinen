@@ -11,12 +11,12 @@ refused. Otherwise, modeled continuations become target steps:
 - `rearm-ppoll-timeout` for modeled `ppoll` timeout continuations, including
   the synthetic target resources required by the policy;
 - `restore-fd-read-block` for narrow modeled pipe, eventfd, and timerfd reads;
-- `complete-fd-read-from-file` for safe regular-file `read`/`pread64` calls
-  whose fd has a reopen recipe, readable flags, a safe modeled offset, and a
-  translated target read buffer;
-- `complete-fd-write-to-file` for safe regular-file `write`/`pwrite64` calls
-  whose fd has a reopen recipe, writable non-append flags, a safe modeled offset,
-  and a translated target write buffer.
+- `complete-fd-read-from-file` for safe regular-file `read`/`pread64`/single-
+  iovec `readv` calls whose fd has a reopen recipe, readable flags, a safe
+  modeled offset, and a translated target read buffer;
+- `complete-fd-write-to-file` for safe regular-file `write`/`pwrite64`/single-
+  iovec `writev` calls whose fd has a reopen recipe, writable non-append flags,
+  a safe modeled offset, and a translated target write buffer.
 
 Only continuations that already passed the active-syscall policy are accepted.
 Generic blocking syscalls, restart state, missing timespecs, missing read/write
@@ -44,17 +44,19 @@ read fds that are ready/EOF/invalid exit before target success.
 The remote portable-machine smoke path captures either the default real arm64
 two-thread process with one thread blocked in a modeled `ppoll` timeout or, with
 `PORTABLE_MACHINE_REMOTE_SOURCE_TARGET=pipe-read` / `eventfd-read` /
-`timerfd-read` / `file-read` / `file-pread` / `file-write` / `file-pwrite`, a
-real arm64 process stopped in `read` on an empty pipe, eventfd, timerfd, or safe
-offset-backed regular file, stopped in `pread64` on a safe offset-backed regular
-file, stopped in `write` to a safe offset-backed regular file, or stopped in
-`pwrite64` to a safe offset-backed regular file. The file-read, file-pread,
-file-write, and file-pwrite profiles use ptrace syscall-entry stops for fd 38,
-fd 40, fd 39, and fd 41 so the capture is inside the `read(fd, buf, count)`,
-`pread64(fd, buf, count, offset)`, `write(fd, buf, count)`, or
-`pwrite64(fd, buf, count, offset)` boundary; the target proof then completes the
-operation with `pread()` or `pwrite()`. The target-native verifier checks the
-translated read buffer or reopened target file
+`timerfd-read` / `file-read` / `file-pread` / `file-readv` / `file-write` /
+`file-pwrite` / `file-writev`, a real arm64 process stopped in `read` on an empty
+pipe, eventfd, timerfd, or safe offset-backed regular file, stopped in `pread64`
+or single-iovec `readv` on a safe offset-backed regular file, stopped in `write`
+to a safe offset-backed regular file, or stopped in `pwrite64` or single-iovec
+`writev` to a safe offset-backed regular file. The file-read, file-pread,
+file-readv, file-write, file-pwrite, and file-writev profiles use ptrace
+syscall-entry stops for fd 38, fd 40, fd 42, fd 39, fd 41, and fd 43 so the
+capture is inside the `read(fd, buf, count)`, `pread64(fd, buf, count, offset)`,
+`readv(fd, iov, 1)`, `write(fd, buf, count)`,
+`pwrite64(fd, buf, count, offset)`, or `writev(fd, iov, 1)` boundary; the target
+proof then completes the operation with `pread()` or `pwrite()`. The
+target-native verifier checks the translated read buffer or reopened target file
 contains the expected bytes. It wraps that bundle in a portable machine snapshot,
 serializes a `native=active-syscall` section in the combined target descriptor,
 and requires `targetActiveSyscallRestoreResult=passed` before the remote

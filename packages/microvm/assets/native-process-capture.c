@@ -1141,6 +1141,11 @@ static const char *syscall_name(long long number) {
     return "pread64";
   }
 #endif
+#ifdef __NR_readv
+  if (number == __NR_readv) {
+    return "readv";
+  }
+#endif
 #ifdef __NR_write
   if (number == __NR_write) {
     return "write";
@@ -1149,6 +1154,11 @@ static const char *syscall_name(long long number) {
 #ifdef __NR_pwrite64
   if (number == __NR_pwrite64) {
     return "pwrite64";
+  }
+#endif
+#ifdef __NR_writev
+  if (number == __NR_writev) {
+    return "writev";
   }
 #endif
   return "unknown";
