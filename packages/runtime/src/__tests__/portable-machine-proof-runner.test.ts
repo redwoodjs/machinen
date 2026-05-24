@@ -58,6 +58,28 @@ function completedSummary(remoteSourceTarget = "file-write") {
   };
 }
 
+function refusedSummary(remoteSourceTarget = "socket-transfer-refusal") {
+  return {
+    profile: "portable-machine-restore",
+    state: "failed",
+    failure: "target restore refused with target-socket-syscall-state-unsupported",
+    remoteSourceTarget,
+    targetRestore: {
+      state: "refused",
+      migrationCompleted: false,
+      descriptorGateCompleted: false,
+      refusal: {
+        code: "target-socket-syscall-state-unsupported",
+        message: "socket endpoint kernel state is unsupported",
+      },
+      sourceTextReusedAsTargetCode: false,
+      sourceIsaEmulationUsed: false,
+      sidecarRuntimeUsed: false,
+    },
+    timings: [],
+  };
+}
+
 describe("portable machine proof runner", () => {
   it("lists every current remote proof profile", () => {
     const result = spawnSync("node", [RUNNER, "--list", "--json"], {
@@ -69,7 +91,8 @@ describe("portable machine proof runner", () => {
 
     expect(result.status, result.stderr).toBe(0);
     const summary = JSON.parse(result.stdout);
-    expect(summary.profiles.map((profile: { name: string }) => profile.name)).toEqual([
+    const names = summary.profiles.map((profile: { name: string }) => profile.name);
+    expect(names.slice(0, 11)).toEqual([
       "two-thread-ppoll",
       "pipe-read",
       "eventfd-read",
@@ -82,6 +105,20 @@ describe("portable machine proof runner", () => {
       "file-writev",
       "process-context",
     ]);
+    expect(names).toEqual(
+      expect.arrayContaining([
+        "socket-transfer-refusal",
+        "epoll-wait-refusal",
+        "signalfd-read-refusal",
+        "futex-refusal",
+        "rseq-refusal",
+        "restart-state-refusal",
+        "jit-self-modifying-refusal",
+        "source-vdso-vvar-refusal",
+        "raw-cross-isa-vmstate-refusal",
+        "descriptor-provenance-refusal",
+      ]),
+    );
     expect(
       summary.profiles.find((profile: { name: string }) => profile.name === "file-writev"),
     ).toMatchObject({
@@ -89,6 +126,16 @@ describe("portable machine proof runner", () => {
       traceSyscall: "writev",
       traceFd: 43,
       expectedResult: "success",
+    });
+    expect(
+      summary.profiles.find(
+        (profile: { name: string }) => profile.name === "socket-transfer-refusal",
+      ),
+    ).toMatchObject({
+      expectedResult: "refusal",
+      unsafeStateFamily: "socket",
+      expectedRefusalCode: "target-socket-syscall-state-unsupported",
+      descriptorConsumptionExpected: false,
     });
   });
 
@@ -186,6 +233,68 @@ describe("portable machine proof runner", () => {
     });
     expect(summary.gateCheck.checks.map((check: { label: string }) => check.label)).toContain(
       "targetRestore.targetProcessContextRestoreResult",
+    );
+  });
+
+  it("checks an expected refusal summary without allowing migration completion", () => {
+    const dir = tempDir();
+    const summaryFile = join(dir, "summary.json");
+    writeFileSync(summaryFile, JSON.stringify(refusedSummary(), null, 2));
+
+    const result = spawnSync(
+      "node",
+      [RUNNER, "--profile", "socket-transfer-refusal", "--check-summary", summaryFile, "--json"],
+      {
+        cwd: REPO_ROOT,
+        encoding: "utf8",
+        env: SCRIPT_ENV,
+        timeout: 30_000,
+      },
+    );
+
+    expect(result.status, result.stderr).toBe(0);
+    const summary = JSON.parse(result.stdout);
+    expect(summary).toMatchObject({
+      profile: "socket-transfer-refusal",
+      state: "refused",
+      pass: true,
+      gateCheck: { passed: true, failures: [] },
+    });
+    expect(summary.gateCheck.checks).toContainEqual(
+      expect.objectContaining({ label: "targetRestore.migrationCompleted", actual: false }),
+    );
+  });
+
+  it("rejects a negative profile summary that reports target-native success", () => {
+    const dir = tempDir();
+    const badSummary = refusedSummary();
+    badSummary.state = "completed";
+    badSummary.targetRestore.state = "completed";
+    badSummary.targetRestore.migrationCompleted = true;
+    badSummary.targetRestore.descriptorGateCompleted = true;
+    const summaryFile = join(dir, "summary.json");
+    writeFileSync(summaryFile, JSON.stringify(badSummary, null, 2));
+
+    const result = spawnSync(
+      "node",
+      [RUNNER, "--profile", "socket-transfer-refusal", "--check-summary", summaryFile, "--json"],
+      {
+        cwd: REPO_ROOT,
+        encoding: "utf8",
+        env: SCRIPT_ENV,
+        timeout: 30_000,
+      },
+    );
+
+    expect(result.status).toBe(1);
+    const summary = JSON.parse(result.stdout);
+    expect(summary).toMatchObject({ profile: "socket-transfer-refusal", pass: false });
+    expect(summary.gateCheck.failures).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "summary.state" }),
+        expect.objectContaining({ label: "targetRestore.migrationCompleted" }),
+        expect.objectContaining({ label: "targetRestore.descriptorGateCompleted" }),
+      ]),
     );
   });
 

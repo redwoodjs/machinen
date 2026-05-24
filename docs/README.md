@@ -20,3 +20,5 @@ Snapshot internals:
 - [vmstate specification](./snapshot/vmstate-specification.md) — whole-VM snapshot file format and saved state
 - [vmstate portability policy](./snapshot/vmstate-portability.md) — restore invariants and cross-HVF/KVM policy
 - [portable machine snapshot boundary](./snapshot/portable-machine-snapshot.md) — why raw cross-ISA vmstate replay refuses and what the target-ISA restore path requires
+- [portable machine proof profiles](./snapshot/portable-machine-proof-profiles.md) — positive and negative proof profiles for target-native completion and fail-closed refusals
+- [fail-closed refusal inventory](./snapshot/native-fail-closed-refusal-inventory.md) — refusal codes, owner docs, and test coverage for unsupported native state

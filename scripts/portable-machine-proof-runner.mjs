@@ -214,6 +214,15 @@ function checkEquals(checks, label, actual, expected) {
   checks.push({ label, passed: actual === expected, actual, expected });
 }
 
+function checkIncludes(checks, label, actual, expected) {
+  checks.push({
+    label,
+    passed: expected.includes(actual),
+    actual,
+    expected,
+  });
+}
+
 function checkResources(checks, target) {
   const statuses = Array.isArray(target.targetResourceStatuses)
     ? target.targetResourceStatuses
@@ -247,6 +256,12 @@ function applyGateCheck(checks, target, gate) {
 }
 
 function gateChecksFor(summary, profile) {
+  return profile.expectedResult === "refusal"
+    ? refusalChecksFor(summary, profile)
+    : successChecksFor(summary, profile);
+}
+
+function successChecksFor(summary, profile) {
   const target = targetFromSummary(summary);
   const checks = [];
   checkEquals(checks, "profile expected result", profile.expectedResult, "success");
@@ -263,6 +278,88 @@ function gateChecksFor(summary, profile) {
     applyGateCheck(checks, target, gate);
   }
   return checks;
+}
+
+// fallow-ignore-next-line complexity
+function refusalChecksFor(summary, profile) {
+  const target = targetFromSummary(summary);
+  const checks = [];
+  checkEquals(checks, "profile expected result", profile.expectedResult, "refusal");
+  checkEquals(
+    checks,
+    "summary.remoteSourceTarget",
+    summary?.remoteSourceTarget,
+    profile.remoteSourceTarget,
+  );
+  checkIncludes(
+    checks,
+    "summary.state",
+    summary?.state,
+    expectedStates(profile.expectedSummaryState, ["failed", "refused", "skipped"]),
+  );
+  checkIncludes(
+    checks,
+    "targetRestore.state",
+    target.state ?? "not-run",
+    expectedStates(profile.expectedTargetState, ["refused", "failed", "skipped", "not-run"]),
+  );
+  checkEquals(
+    checks,
+    "targetRestore.migrationCompleted",
+    target.migrationCompleted ?? false,
+    profile.expectedMigrationCompleted ?? false,
+  );
+  checkEquals(
+    checks,
+    "targetRestore.descriptorGateCompleted",
+    target.descriptorGateCompleted ?? false,
+    profile.expectedDescriptorGateCompleted ?? false,
+  );
+  checkEquals(checks, "refusal.code", refusalCodeFromSummary(summary), profile.expectedRefusalCode);
+  checkEquals(
+    checks,
+    "sourceTextReusedAsTargetCode",
+    target.sourceTextReusedAsTargetCode ?? summary?.sourceTextReusedAsTargetCode ?? false,
+    false,
+  );
+  checkEquals(
+    checks,
+    "sourceIsaEmulationUsed",
+    target.sourceIsaEmulationUsed ?? summary?.sourceIsaEmulationUsed ?? false,
+    false,
+  );
+  checkEquals(
+    checks,
+    "sidecarRuntimeUsed",
+    target.sidecarRuntimeUsed ?? summary?.sidecarRuntimeUsed ?? false,
+    false,
+  );
+  return checks;
+}
+
+function expectedStates(value, fallback) {
+  if (Array.isArray(value)) {
+    return value;
+  }
+  return typeof value === "string" ? [value] : fallback;
+}
+
+// fallow-ignore-next-line complexity
+function refusalCodeFromSummary(summary) {
+  const target = targetFromSummary(summary);
+  const candidates = [
+    summary?.refusal?.code,
+    ...(Array.isArray(summary?.refusals) ? summary.refusals.map((refusal) => refusal?.code) : []),
+    target?.refusal?.code,
+    target?.refusalCode,
+    ...(Array.isArray(target?.refusals) ? target.refusals.map((refusal) => refusal?.code) : []),
+  ].filter(Boolean);
+  if (candidates.length > 0) {
+    return candidates[0];
+  }
+  const haystack = [summary?.failure, target?.failure, target?.message].filter(Boolean).join("\n");
+  const profileCode = summary?.expectedRefusalCode ?? target?.expectedRefusalCode;
+  return profileCode && haystack.includes(profileCode) ? profileCode : undefined;
 }
 
 export function checkPortableMachineProofSummary(summary, profile) {
@@ -324,18 +421,24 @@ function runnerLogs(workDir) {
 }
 
 // fallow-ignore-next-line complexity
-function runnerState(options, child, gateCheck) {
-  const failed = child.status !== 0 || child.error || (!options.dryRun && !gateCheck.passed);
+function runnerState(options, profile, child, gateCheck) {
+  if (options.dryRun) {
+    return { failed: false, state: "skipped", pass: false };
+  }
+  const failed =
+    profile.expectedResult === "refusal"
+      ? child.error || !gateCheck.passed
+      : child.status !== 0 || child.error || !gateCheck.passed;
   return {
     failed,
-    state: options.dryRun ? "skipped" : failed ? "failed" : "completed",
-    pass: !options.dryRun && !failed,
+    state: failed ? "failed" : profile.expectedResult === "refusal" ? "refused" : "completed",
+    pass: !failed,
   };
 }
 
 // fallow-ignore-next-line complexity
 function buildRunnerSummary(options, profile, workDir, run, smokeSummary, parseFailure, gateCheck) {
-  const state = runnerState(options, run.child, gateCheck);
+  const state = runnerState(options, profile, run.child, gateCheck);
   return {
     profile: profile.name,
     remoteSourceTarget: profile.remoteSourceTarget,
@@ -433,7 +536,11 @@ function checkExistingSummary(options, profile) {
   const gateCheck = checkPortableMachineProofSummary(summary, profile);
   return {
     profile: profile.name,
-    state: gateCheck.passed ? "completed" : "failed",
+    state: gateCheck.passed
+      ? profile.expectedResult === "refusal"
+        ? "refused"
+        : "completed"
+      : "failed",
     pass: gateCheck.passed,
     gateCheck,
   };
