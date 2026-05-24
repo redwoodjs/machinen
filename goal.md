@@ -142,16 +142,16 @@ narrow exact contract or fail closed with a stable refusal.
 
 ### D. Private memory, heap, brk, and mmap coverage
 
-- [~] Keep current private writable range materialization passing.
-- [ ] Broaden heap/brk/mmap layout policy only where provenance and ownership are
+- [x] Keep current private writable range materialization passing.
+- [x] Broaden heap/brk/mmap layout policy only where provenance and ownership are
       explicit.
-- [ ] Preserve guard-page semantics for every widened private memory range.
-- [ ] Refuse writable+executable memory unless a later JIT/code provenance task
+- [x] Preserve guard-page semantics for every widened private memory range.
+- [x] Refuse writable+executable memory unless a later JIT/code provenance task
       models it exactly.
-- [ ] Refuse shared writable memory unless coherence and ownership are modeled.
-- [ ] Refuse unreadable or partially captured mappings with stable detail.
-- [ ] Add target-side verification for every new materialized memory class.
-- [ ] Add tests for pointer ownership, permission transitions, guard behavior,
+- [x] Refuse shared writable memory unless coherence and ownership are modeled.
+- [x] Refuse unreadable or partially captured mappings with stable detail.
+- [x] Add target-side verification for every new materialized memory class.
+- [x] Add tests for pointer ownership, permission transitions, guard behavior,
       missing bytes, and overlapping target mappings.
 
 ### E. Target libc, vDSO, vvar, and special mappings
