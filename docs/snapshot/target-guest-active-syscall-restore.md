@@ -14,9 +14,9 @@ refused. Otherwise, modeled continuations become target steps:
 - `complete-fd-read-from-file` for safe regular-file `read`/`pread64` calls
   whose fd has a reopen recipe, readable flags, a safe modeled offset, and a
   translated target read buffer;
-- `complete-fd-write-to-file` for safe regular-file writes whose fd has a
-  reopen recipe, writable non-append flags, a safe captured offset, and a
-  translated target write buffer.
+- `complete-fd-write-to-file` for safe regular-file `write`/`pwrite64` calls
+  whose fd has a reopen recipe, writable non-append flags, a safe modeled offset,
+  and a translated target write buffer.
 
 Only continuations that already passed the active-syscall policy are accepted.
 Generic blocking syscalls, restart state, missing timespecs, missing read/write
@@ -44,15 +44,17 @@ read fds that are ready/EOF/invalid exit before target success.
 The remote portable-machine smoke path captures either the default real arm64
 two-thread process with one thread blocked in a modeled `ppoll` timeout or, with
 `PORTABLE_MACHINE_REMOTE_SOURCE_TARGET=pipe-read` / `eventfd-read` /
-`timerfd-read` / `file-read` / `file-pread` / `file-write`, a real arm64 process
-stopped in `read` on an empty pipe, eventfd, timerfd, or safe offset-backed
-regular file, stopped in `pread64` on a safe offset-backed regular file, or
-stopped in `write` to a safe offset-backed regular file. The file-read,
-file-pread, and file-write profiles use ptrace syscall-entry stops for fd 38, fd
-40, and fd 39 so the capture is inside the `read(fd, buf, count)`,
-`pread64(fd, buf, count, offset)`, or `write(fd, buf, count)` boundary; the
-target proof then completes the operation with `pread()` or `pwrite()`. The
-target-native verifier checks the translated read buffer or reopened target file
+`timerfd-read` / `file-read` / `file-pread` / `file-write` / `file-pwrite`, a
+real arm64 process stopped in `read` on an empty pipe, eventfd, timerfd, or safe
+offset-backed regular file, stopped in `pread64` on a safe offset-backed regular
+file, stopped in `write` to a safe offset-backed regular file, or stopped in
+`pwrite64` to a safe offset-backed regular file. The file-read, file-pread,
+file-write, and file-pwrite profiles use ptrace syscall-entry stops for fd 38,
+fd 40, fd 39, and fd 41 so the capture is inside the `read(fd, buf, count)`,
+`pread64(fd, buf, count, offset)`, `write(fd, buf, count)`, or
+`pwrite64(fd, buf, count, offset)` boundary; the target proof then completes the
+operation with `pread()` or `pwrite()`. The target-native verifier checks the
+translated read buffer or reopened target file
 contains the expected bytes. It wraps that bundle in a portable machine snapshot,
 serializes a `native=active-syscall` section in the combined target descriptor,
 and requires `targetActiveSyscallRestoreResult=passed` before the remote

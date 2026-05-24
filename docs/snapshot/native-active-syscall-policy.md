@@ -14,11 +14,11 @@ The current classifier reports:
 - `sleep-timer` — `clock_nanosleep` / `nanosleep` style waits;
 - `poll-timeout` — modeled `ppoll` timeout waits under an explicit deferral
   policy;
-- `fd-blocking` — `read`, `pread64`, `write`, `poll`, `ppoll`, `select`,
-  `pselect6`, and related fd waits. Narrow pipe/eventfd/timerfd reads, safe
-  offset-backed regular-file reads or `pread64` calls, and safe offset-backed
-  regular-file writes are modeled only under explicit fd deferral policies; other
-  fd waits still refuse;
+- `fd-blocking` — `read`, `pread64`, `write`, `pwrite64`, `poll`, `ppoll`,
+  `select`, `pselect6`, and related fd waits. Narrow pipe/eventfd/timerfd reads,
+  safe offset-backed regular-file reads or `pread64` calls, and safe
+  offset-backed regular-file writes or `pwrite64` calls are modeled only under
+  explicit fd deferral policies; other fd waits still refuse;
 - `futex-wait` — `futex`, `futex_time64`, and `futex_waitv` wait state;
 - `restart` — `restart_syscall` or captured restart-block state;
 - `unknown-active` — any active syscall that has not been modeled.
@@ -138,19 +138,20 @@ rows, and wrong resource kinds are still precise fail-closed refusals.
 ## Explicit fd write deferral
 
 The `fdWritePolicy: "defer-target-resume"` option currently accepts only narrow
-regular-file `write(fd, buf, count)` cases under
-`fdWriteResourcePolicy: "reopen-file"`. The model requires captured syscall
+regular-file `write(fd, buf, count)` and `pwrite64(fd, buf, count, offset)` cases
+under `fdWriteResourcePolicy: "reopen-file"`. The model requires captured syscall
 arguments, a non-null write buffer contained in captured readable non-executable
 memory, a translated target buffer, a captured regular-file fd with a reopen
 recipe, writable access flags, no `O_APPEND`, and a safe non-negative file
-offset.
+offset. Active `pwrite64` uses the explicit syscall offset instead of the
+captured fd offset.
 
 The target step performs a bounded `pwrite()` at the captured offset from the
 translated target buffer and refuses partial writes. This is an offset-backed
 completion proof, not a general page-cache, append, or writeback migration.
 Missing arguments, zero or oversized counts, missing readable buffer state, wrong
-resource kind/access, `O_APPEND`, unsafe offsets, and missing reopen recipes fail
-closed as `target-fd-write-state-missing`.
+resource kind/access, `O_APPEND`, unsafe file offsets or `pwrite64` offsets, and
+missing reopen recipes fail closed as `target-fd-write-state-missing`.
 
 ## Explicit fd read deferral
 

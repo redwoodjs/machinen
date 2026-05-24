@@ -84,7 +84,7 @@ describe("portable machine restore smoke profile", () => {
     });
   });
 
-  it.each(["file-pread", "file-write"])(
+  it.each(["file-pread", "file-write", "file-pwrite"])(
     "accepts the %s remote source profile in dry-run mode",
     (sourceTarget) => {
       const workDir = tempDir();

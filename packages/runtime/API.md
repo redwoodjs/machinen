@@ -3020,7 +3020,7 @@ by default when `output` is a TTY.
 
 ##### syscallName
 
-> **syscallName**: `"write"`
+> **syscallName**: `"write"` \| `"pwrite64"`
 
 ##### argumentSource
 
